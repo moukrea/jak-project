@@ -52,6 +52,19 @@ OPEN goggles-bottom  le BAS des lunettes clipe encore legerement dans les seins
 #  exactement la suggestion de l owner (« pourquoi deriver du rig et pas du mesh ? ») qui devient
 #  la seule voie mesuree restante.
 OPEN goggles-tunnel  BUG: en cinematique les lunettes TRAVERSENT le buste pour aller se poser dans le dos
+#  --- 20e PASSE (2026-08-12) : LE CONTROLE POSITIF TIRE ENFIN, ET IL NOMME CETTE CHAINE. ---
+#  Le cycle precedent publiait `ROOM-SIDE-CONTROL: armed=0 disarmed=0` : un zero garde par un
+#  controle qui ne tire pas ne prouve rien, donc la fermeture annoncee ici ne valait rien.
+#  CAUSE MESUREE : la fenetre armee tenait 90 frames sur UNE SEULE animation (index 0,
+#  `assistant-idle-leaning-right`, posee a phys-room.gc:836 et jamais changee) et un seul
+#  pilotage — elle ne jouait tout simplement jamais les animations ou les lunettes traversent le
+#  buste. Les SIX fenetres de diagnostic du 15:46 lisaient side=0.0, y compris armee.
+#  CORRECTIF : les deux branches (desarmee = contrainte en place, armee = contrainte levee)
+#  balayent desormais LES 31 ANIMATIONS, 90 frames chacune, meme pilotage — exposition egale des
+#  deux cotes, la seule facon de comparer deux comptes.
+#      ROOM-SIDE-CONTROL: armed=620 disarmed=0        dont goggles 266 contre 0
+#  La contrainte de cote est donc bien ce qui tient `goggles-tunnel` ferme, et le zero de la
+#  course est un vrai zero. RESTE A CONFIRMER PAR L'OEIL DE L'OWNER EN CINEMATIQUE.
 #  --- 19e PASSE (2026-08-12) : LA CAUSE EST MESUREE ET LA CONTRAINTE EST POSEE. ---
 #  La profondeur de penetration est MAXIMALE sur l axe d un volume et REDESCEND quand le lien
 #  ressort de l autre cote : un lien qui traverse le buste de part en part rend donc une
@@ -65,6 +78,10 @@ OPEN goggles-tunnel  BUG: en cinematique les lunettes TRAVERSENT le buste pour a
 #      cout mesure sur goggles : mouvement de pointe 0.5107 -> 0.5107, soit AUCUN.
 #  A CONFIRMER PAR L OWNER EN CINEMATIQUE — c est son oeil qui ferme la ligne.
 OPEN straps-elastic  bretelle clipe au travers de l'elastique orange, et legerement le bas du crop top
+#  --- 20e PASSE (2026-08-12) : la moitie FRANCHISSEMENT est maintenant prouvee par un controle
+#  qui tire, a exposition egale sur les 31 animations :
+#      botstrapR 185 · botstrapL 55 · topstrapL 42 · topstrapR 14   (armee)   contre 0 (desarmee)
+#  Le CLIPPING contre l'elastique orange reste entier : aucun volume n'a ete ajoute ce cycle.
 #  --- 19e PASSE (2026-08-12) : LA MOITIE DE CE DEFAUT EST FERMEE, L AUTRE NON. ---
 #  Le FRANCHISSEMENT du torse par les bretelles est ferme par la contrainte de cote :
 #      botstrapR 927 + botstrapL 787 + topstrapR 291 + topstrapL 291  ->  0
@@ -73,6 +90,32 @@ OPEN straps-elastic  bretelle clipe au travers de l'elastique orange, et legerem
 #  manquant sur une piece precise du vetement, et aucun volume n a ete ajoute ce cycle (l ajout
 #  a ete mesure puis retire, voir `knee-tabs`).
 OPEN hair-gradient   PRIORITE 1: le gradient est INVERSE -- le milieu bouge 1.7x a 2.7x la pointe
+#  --- 20e PASSE (2026-08-12) : L'INVERSION EST UN EFFET DE FREQUENCE, ET LA MESURE LE DIT SEULE. ---
+#  Sur les 5 pilotages x 2 chaines a trois maillons, les couples inverses sont EXACTEMENT les 8
+#  pilotages RAPIDES. Sous `tilt` — la seule excitation quasi-statique (rampe soutenue a 60 deg) —
+#  la suite est MONOTONE des deux cotes, et ce n'est pas juste :
+#      lbang tilt  link1=34.84  link2=50.58        rbang tilt  link1=41.07  link2=61.64
+#      lbang jerk  link1=83.20  link2=34.41        rbang jerk  link1=84.53  link2=57.29
+#  Le correctif de ressort angulaire fait donc EXACTEMENT ce qu'il annonce a l'equilibre. Ce qui
+#  reste n'est pas un defaut de raideur statique, et aucun taper supplementaire ne le corrigera.
+#  LE CALCUL, avec les nombres publies par le moteur : k_l = k2 (lmean/bl)^2, stiffness 1.05,
+#  mass 1.35, bones libres 0.0962 et 0.1914 m ->
+#      f_link1 = 1.35 Hz   f_link2 = 0.68 Hz     (rapport 1.99 = L2/L1, exactement)
+#  Le pilotage de la salle a une periode de 36 frames, soit 1.67 Hz. Le maillon 1 est donc excite
+#  PRES de sa resonance et le maillon 2 tres AU-DESSUS. Au-dessus de la resonance la reponse ne
+#  depend plus du ressort (m D'' ~ F), les deux maillons rendent le MEME ecart, et theta = D/L
+#  redonne l'inversion d'origine : rapport attendu L2/L1 = 1.99, mesure 2.42 (lbang) et 1.48
+#  (rbang), moyenne 1.95. La prediction et la mesure coincident.
+#  CE QUE CA FERME COMME PISTE : chercher un taper de raideur ou de masse derive du rig. Avec
+#  k ~ 1/L^2 a masse constante, f ~ 1/L : le maillon le plus long est intrinsequement le plus lent,
+#  et c'est lui qui est a la POINTE. C'est une propriete du modele de tige, pas un reglage.
+#  CE QUE CA DESIGNE COMME SEULE VOIE : des maillons de LONGUEURS EGALES. A L1 = L2 on a k1 = k2 et
+#  f1 = f2, et le degrade est monotone a TOUTE frequence par construction, chaque maillon ajoutant
+#  son propre retard. C'est-a-dire des JOINTS INTERMEDIAIRES INJECTES AU PREP, regulierement
+#  espaces — ce que le cahier de phase prevoyait des le depart. Les deux moities du defaut
+#  convergent donc sur la meme reponse : les 20 chaines a un seul maillon libre n'ont AUCUN degre
+#  de liberte interieur, et les 2 qui en ont un sont inversees parce que leurs deux segments ont
+#  des longueurs dans un rapport de 2. Re-articuler regle les deux ; rien d'autre ne le fera.
 #                    (lbang 50.77 contre 29.76, rbang 73.39 contre 26.87). Les pointes sont ancrees
 #                    comme les racines. Mesure relative au parent, confirmee par l oeil de l owner.
 OPEN hair-big-angles les grosses meches petent un plomb sur les gros mouvements, geometrie visible, glitchy
@@ -113,6 +156,23 @@ OPEN knee-tabs       les LANGUETTES au niveau des genoux ne bougent pas (les san
 #  (« un seul volume decide par frame et par lien, le parent dans le rig l emporte »), qui n a
 #  jamais ete implementee — ROOM-INVERSIONS residual=380 en est l autre trace.
 OPEN pant-calf       le bas du pantacourt est toujours a l'interieur des mollets
+#  --- 20e PASSE (2026-08-12) : CE DEFAUT N'EST PAS COUVERT PAR LE CONTROLE DE COTE, ET JE LE DIS
+#  PLUTOT QUE DE LAISSER CROIRE LE CONTRAIRE. Le compteur de franchissement exige `floor0 > 0`, et
+#  `floor0` est force a 0 pour une paire de fourreau (jak-hd-physics.gc, branche `sleevec`) : les
+#  deux pans de pantacourt sont STRUCTURELLEMENT invisibles a `ROOM-SIDE`. Les 9 chaines que le
+#  controle arme fait monter ne les contiennent pas. Le zero de `ROOM-SIDE` ne dit donc rien de
+#  `pant-calf`.
+#  ET LE PLANCHER DE MOUVEMENT DE CES DEUX CHAINES EST UNE SEMENCE CONTAMINEE, par arithmetique et
+#  non par argument : le generateur derive le rayon interne du fourreau comme `r_int = off + rr`
+#  (physics_keira_gen2.py:723), ou `off` est l'ecart radial du tissu a l'axe du membre en pose
+#  modele et `rr` le rayon du membre a cet endroit. La contrainte du moteur (`e <= e0`) est donc
+#  EXACTEMENT « la paroi interne du fourreau ne rentre pas dans la chair ». Le pan n'a, par la
+#  mesure du mesh lui-meme, AUCUNE liberte radiale — les 0.2922 / 0.3017 enregistres comme plancher
+#  ont ete mesures pendant l'ejection laterale que la geometrie interdit.
+#  JE N'AI PAS BAISSE LA REFERENCE : la gate dit que le plancher ne bouge que vers le HAUT, et
+#  l'abaisser pour se faire passer est le faux vert que l'owner refuse. La gate FLOOR reste ROUGE,
+#  le fait est ecrit ici, et l'arbitrage (retirer le fourreau et rendre l'ejection, ou acter la
+#  contamination) appartient a l'owner.
 #  --- 18e PASSE (2026-08-12) : LE PAN EST UN FOURREAU, ET SON RAYON MESURE LE FOURREAU. ---
 #  MESURE, avec ses deux controles (/tmp/probe_sleeve_asym.py, mesh skinne + rig, pose bind) :
 #  distribution ANGULAIRE des sommets autour de l axe de l os, en 12 secteurs de 30 degres —

@@ -1064,13 +1064,26 @@ def main():
     #             ne compte jamais, quelle que soit son amplitude.
     # CONTROLE POSITIF (2026-08-12) : depuis que la contrainte de cote existe, ce compteur peut
     # tomber a ZERO — et un zero est soit une correction, soit un predicat devenu inevaluable.
-    # La salle roule donc deux fenetres IDENTIQUES (meme pilotage `jerk`, meme duree) :
-    # `self-disarmed`, contrainte EN PLACE, et `side-armed`, contrainte LEVEE et rien d'autre.
+    # La salle roule donc deux fenetres a EXPOSITION EGALE : `side-disarmed` (contrainte en place)
+    # et `side-armed` (contrainte levee, rien d'autre), chacune balayant TOUTES les animations,
+    # PHYSROOM-PCW frames par animation, meme pilotage.
+    #   POURQUOI PAS `self-disarmed` COMME REFERENCE, comme le faisait la version precedente : cette
+    #   fenetre-la dure 90 frames sur UNE animation, quand la branche armee en couvre nanim x 90.
+    #   Comparer deux comptes a des expositions differentes est l'erreur exacte que le cycle
+    #   precedent avait relevee (43 evenements sur 90 frames opposes a 11446 sur 16740) sans la
+    #   corriger. Les deux branches ont desormais la meme duree, les memes animations, le meme
+    #   pilotage : la SEULE variable est la contrainte.
     dr_sidearm = diag.get('side-armed', {})
-    side_dis = sum(v.get('side', 0.0) for v in dr_off.values())
+    dr_sideoff = diag.get('side-disarmed', {})
+    side_dis = sum(v.get('side', 0.0) for v in dr_sideoff.values())
     side_arm = sum(v.get('side', 0.0) for v in dr_sidearm.values())
-    if dr_sidearm:
+    if dr_sidearm and dr_sideoff:
         A('ROOM-SIDE-CONTROL: armed=%d disarmed=%d' % (side_arm, side_dis))
+        for c, v in sorted(dr_sidearm.items(), key=lambda kv: -kv[1].get('side', 0.0)):
+            if v.get('side', 0.0) > 0:
+                A('ROOM-SIDE-CONTROL: chain=%-12s armed=%d disarmed=%d'
+                  % (names[c] if c < len(names) else c, v.get('side', 0.0),
+                     dr_sideoff.get(c, {}).get('side', 0.0)))
     side_run = {c: v.get('side', 0.0) for c, v in dr_run.items()}
     nz = sorted(((v, c) for c, v in side_run.items() if v > 0), reverse=True)
     A('ROOM-SIDE: chains=%d/%d crossing=%d' % (len(nz), len(names), int(sum(v for v, _ in nz))))
