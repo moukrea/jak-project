@@ -196,10 +196,85 @@ et `gogglesRight`, qu'AUCUNE chaine ne couvre. Les deux verres sont deja documen
 ressemble a un « truc qui pend » au sens de SPEC 1. A verifier avant de conclure.
 
 --------------------------------------------------------------------------------
-LA PREDICTION SUR LES DEUX CHAINES QUI ONT, ELLES, UN INTERIEUR (lbang, rbang)
+SECONDE MOITIE : LE RESSORT ETAIT LINEAIRE LA OU IL DEVAIT ETRE ANGULAIRE
 --------------------------------------------------------------------------------
-C'est une PREDICTION, elle est falsifiable, et elle est en cours de verification
-contre les longueurs reelles du rig. Elle n'a pas produit une seule ligne de code et
+LA PREDICTION EST VERIFIEE, ET LES LONGUEURS SONT MESUREES DEUX FOIS. Les os de
+lbang/rbang valent 393.88 u puis 783.85 u, soit L2/L1 = 1.9901 — sonde sur le rig
+(chargeur du generateur) ET controle croise sur ce que le moteur publie lui-meme
+(`bones_m=0.4124,0.0962,0.1914`), identiques a 4 decimales.
+
+La premisse n'est pas une hypothese, elle est dans l'algebre : les parametres sont
+declares PAR CHAINE, donc a l'equilibre |o - o_parent| = |F|/k2 est le MEME pour tous
+les maillons. Un ressort LINEAIRE rend donc des deviations egales, et theta = D/L :
+a D egal, un os deux fois plus court tourne deux fois plus. L'inversion est FORCEE
+par la geometrie.
+
+CE QUE J'AI ECARTE, ET C'EST LE PLUS IMPORTANT DE CETTE SECTION. Le levier evident
+etait un taper de masse derive du rig. Il ECHOUE, et il ne s'en est fallu que d'un
+index :
+  * il faudrait D2/D1 >= 1.9901 ; le maximum mesure sur les dix couples est 1.45 ;
+  * `wsum` est inutilisable — 22,3 % d'ecart entre deux meches miroirs a 0,005 % pres,
+    il ferait diverger la gauche et la droite sans raison physique ;
+  * `verts` va dans le mauvais sens (0.408) ;
+  * `r^2 * L` semblait donner 5.961 — TROIS FOIS le seuil, largement suffisant.
+    SAUF QUE l'appariement etait faux. Le generateur ajuste le rayon d'un joint
+    autour du segment joint->ENFANT (physics_keira_gen2.py:847-857, bone_axis_world) :
+    l'os du maillon l porte donc le rayon du joint PRECEDENT. Avec le bon index,
+    `r^2 * L` rend 1.715 a gauche et 1.487 a droite — SOUS le seuil de 1.9901.
+    Le taper ne « marchait » qu'en choisissant l'index qui donne la reponse voulue.
+    Ecarte, et ecrit ici pour que personne ne le retrouve comme une bonne idee.
+
+DONC LA CAUSE EST LE RESSORT LUI-MEME. Une chaine d'os se modelise par un ressort
+ANGULAIRE : couple de rappel tau = -kappa*phi avec phi ~ |r|/L, d'ou une force
+tangentielle tau/L = -kappa*|r|/L^2. La raideur LINEAIRE equivalente varie en 1/L^2,
+et ce facteur manquait. Avec lui, D ~ L^2 donc theta ~ L : la longueur d'os cesse
+d'inverser la suite et se met a la CROITRE.
+
+AUCUNE CONSTANTE INTRODUITE : la reference est la MOYENNE des longueurs des maillons
+libres de la chaine elle-meme. Une chaine a un seul maillon libre rend exactement 1.0
+— et les 18 chaines concernees sortent effectivement a 0.0 %, ce qui est le test du
+correctif autant que sa propriete.
+
+LES TROIS JAMBES, MEME SALLE, 3410 MESURES CHACUNE (A = avant, B = cascade,
+C = cascade + ressort angulaire). Rapport theta_milieu / theta_pointe, ou 1.00 est la
+limite de SPEC 2 et ou PLUS BAS EST MIEUX :
+
+    chaine  pilotage      A      B      C
+    lbang   accel       1.49   1.38   1.24
+    lbang   jerk        4.30   3.57   2.42
+    lbang   leftright   2.45   1.96   1.64
+    lbang   tilt        1.44   1.34   0.69   <- MONOTONE
+    lbang   updown      1.71   1.67   1.22
+    rbang   accel       1.79   1.63   1.55
+    rbang   jerk        2.34   2.03   1.48
+    rbang   leftright   2.84   2.08   1.70
+    rbang   tilt        2.65   0.69   0.67   <- MONOTONE
+    rbang   updown      2.73   1.95   1.51
+
+    couples inverses   10/10   9/10   8/10
+    mediane du rapport  2.396  1.809  1.494
+
+Les DIX couples s'ameliorent a chaque etape, sans exception. L'owner decrivait « le
+milieu bouge 1,7x a 2,7x la pointe » : cet intervalle est aujourd'hui 1,22 a 2,42,
+de mediane 1,49.
+
+COUT DE LA JAMBE C, MESURE ET DECLARE : lbang perd 12,1 % de sa reponse au stimulus
+faible (le plafond de la gate est -30 %, et le gain net depuis A reste +20,6 %) ;
+rbang en gagne 5,2 % ; l'ecart au repos monte de 0.0309 a 0.0413, soit 4 % du plafond
+IDLE. Aucune violation NOUVELLE de plancher : les seules chaines sous leur plancher
+restent pantflapL/R, a l'identique de A et de B (section 4).
+
+POURQUOI CE N'EST PAS FERME, ET C'EST UN CHIFFRE, PAS UNE EXCUSE. L'algebre predisait
+un rapport de 1/1.99 = 0.50 ; on mesure 1.49, soit trois fois trop. L'ecart a une
+cause deja ecrite dans le moteur et desormais confirmee par ce A/B : LE SYSTEME EST
+SATURE. Le gain statique vaut 1/k2 = 62.9, et sous pilotage la force du repere reclame
+un ecart de ~11 950 u pour un budget d'excursion de 656 — un facteur 18. Dans ce
+regime la position ecrite ne depend plus de la RAIDEUR mais de la geometrie et des
+contraintes, donc changer k2 rend beaucoup moins que ce que l'equilibre promet.
+C'est cela qui plafonne le correctif, et c'est le prochain levier nomme : DESATURER.
+Des deux voies que le moteur identifie, une seule ne touche pas a l'amplitude que
+l'owner a approuvee — SOUS-ECHANTILLONNER LE PAS d'integration. L'autre (baisser
+raideur ou couplage) paierait la correction avec le mouvement, ce qui est interdit. Elle n'a pas produit une seule ligne de code et
 n'en produira pas avant d'etre confirmee avec ses nombres. Si elle tient, le levier
 est un taper (raideur ou masse decroissante vers la pointe) qui doit etre DERIVE du
 rig — le fichier de chaines porte deja, par maillon, un nombre de sommets et une
@@ -350,10 +425,13 @@ inchange au bit pres, et c'est mesure, pas espere (18 chaines a 0.0 %).
     reste-t-elle accrochee au milieu ? C'est la question de ce build, et c'est la
     seule.
   * Bougent-elles PLUS sur les petits mouvements ? Il a dit « elles bougent peut-etre
-    plus assez » ; la reponse au plus faible stimulus monte de 37 % (gauche) et
-    139 % (droite).
-  * Le milieu reste-t-il plus agite que la pointe ? Si oui, c'est attendu : la
-    seconde moitie du defaut n'est pas corrigee, et je sais maintenant ou elle est.
+    plus assez » ; la reponse au plus faible stimulus est a +20,6 % (gauche) et
+    +151 % (droite) par rapport au build precedent.
+  * Le milieu reste-t-il plus agite que la pointe ? OUI, encore, sur 8 pilotages sur
+    10 — mais deux fois moins qu'avant (mediane 2,40 -> 1,49) et l'inclinaison est
+    maintenant CORRECTE des deux cotes. S'il voit encore « le milieu qui part en
+    vrille pendant que la pointe ne suit pas », c'est le residu de saturation, et
+    c'est nomme.
   * TOUT LE RESTE — poitrine, grosses meches, lunettes, bretelles, languettes,
     pantacourt — doit etre STRICTEMENT identique au build precedent. Si quoi que ce
     soit a bouge ailleurs, c'est un defaut de ma part et il faut me le dire.
