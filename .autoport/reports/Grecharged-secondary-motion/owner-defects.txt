@@ -68,6 +68,30 @@ OPEN flesh-jelly     effet gelee sur les seins, UNIQUEMENT sur mouvements brusqu
 #  lieu de l'arc leverait la contradiction entre « un os ne s'allonge pas » et « rien ne traverse »
 #  sans arbitrer entre elles. Non mesure : je ne le presente pas comme acquis.
 OPEN goggles-bottom  le BAS des lunettes clipe encore legerement dans les seins
+#  --- 23e PASSE (2026-08-12) : LA CAUSE EST TROUVEE ET CHIFFREE — 92 % DES LUNETTES N'ONT
+#  --- AUCUN VOLUME DE COLLISION. ---
+#  Repartition des 531 sommets de lunette par joint dominant, et les volumes declares en face :
+#      gogglesLeft   244 sommets   AUCUN VOLUME
+#      gogglesRight  244 sommets   AUCUN VOLUME
+#      gogglesBase    32 sommets   AUCUN VOLUME
+#      gogglesMid     11 sommets   sphere r=150   (couvre parfaitement : ses sommets vont a 100 u)
+#  Le volume de `gogglesMid` n'est donc pas rate : il est JUSTE, et il ne represente que 2 % de la
+#  piece. Les rayons de lien de la chaine valent 196 et 150 u, quand la geometrie des verres
+#  s'etend a p95 478 u et jusqu'a 603 u de son propre centroide — TROIS FOIS PLUS.
+#  => le moteur tient le JOINT des lunettes a 150 u de la sphere du sein, pendant que le VERRE
+#  depasse de 318 u (7,8 cm) a l'interieur. C'est « les lunettes clipent sur ses seins, meme en
+#  idle », au chiffre pres, et aucun reglage de rayon de sein ne pouvait le corriger.
+#  POURQUOI UNE SPHERE COUVRANTE NE MARCHE PAS, ET C'EST DEJA MESURE (physics_keira_gen2.py:1119-1144,
+#  `carried_spheres = []` laisse vide AVEC sa mesure) : les deux verres sont deux paquets separes a
+#  x = +/-461 dans l'espace bind de `gogglesMid`. Toute sphere qui couvre les deux est centree SUR
+#  LE VISAGE, r=809, et s'enfonce de 206 u dans `head->neck` et 397 u dans `neck->chest` ; la course
+#  qui l'avait livree donnait goggles -55 % de mouvement et ROOM-STRETCH 0.0272 -> 0.3937.
+#  CE QUE CA DESIGNE : il faut DEUX volumes, un par verre (p95 478 u chacun autour de leur propre
+#  centroide), et non un seul qui les englobe. Le moteur ne porte aujourd'hui QU'UN volume par
+#  maillon — c'est cette limite-la qu'il faut lever, et c'est un travail de moteur, pas de donnees.
+#  ATTENTION AU PIEGE CONNU : `gogglesLeft`/`gogglesRight` sont portes par la chaine elle-meme.
+#  Leur donner un volume sans etendre `phys-col-own?` aux joints DESCENDANTS de la chaine la
+#  mettrait en collision permanente avec elle-meme — exactement le defaut des meches du cycle 4.
 #  --- 23e PASSE (2026-08-12) : NEGATIF STRUCTUREL — LE PREDICAT N'EST PAS EN CAUSE ICI. ---
 #  `lBoob` et `rBoob` sont des SPHERES (ra = rb). La correction conique livree ce cycle ne les
 #  touche pas PAR CONSTRUCTION : sur une sphere les deux predicats sont la meme formule, et le
@@ -420,12 +444,25 @@ OPEN pant-calf       le bas du pantacourt est toujours a l'interieur des mollets
 #  presque cylindriques, donc ecart entre solide reel et ancien predicat de 0.19 et 0.14 mm sur
 #  TOUT le mesh, et 0.02 mm au repos / 0.09 mm a 60 deg sur le pan de pantacourt. Zero sommet ne
 #  change de cote. Ce cycle ne fait rien pour ce defaut et il ne faut pas l'attendre du build.
-#  CE QUE LA MESURE DE FIDELITE DESIGNE A LA PLACE, et c'est la piste vive : la region mollet-pied
-#  est celle ou l'union des 48 volumes laisse le plus de mesh dehors — 89,0 % des sommets. Un pan
-#  tenu « hors de la capsule » peut donc etre encore DANS la jambe : la capsule ne couvre pas la
-#  peau. C'est la premiere explication mecanique qui colle a « comme si son pantacourt s'arretait
-#  aux genoux », et elle se verifie en comparant le rayon de la capsule au rayon reel de la peau
-#  le long de l'axe.
+#  LA CAUSE MECANIQUE EST MAINTENANT CHIFFREE, ET LE REMEDE EVIDENT EST PROUVE INUTILE.
+#  Profil de la PEAU du mollet contre le rayon de la capsule `Lankle->Lknee` (411/329, axe 2694 u),
+#  par tranches du parametre le long de l'axe :
+#      t=0.40-0.50   peau p95 682   capsule 374    ratio 1.82   pire depassement +348 u
+#      t=0.50-0.60   peau p95 720   capsule 366    ratio 1.97                    +378 u  (9,2 cm)
+#      t=0.60-0.70   peau p95 560   capsule 358    ratio 1.56                    +210 u
+#  Et le tissu du pantacourt vit EXACTEMENT dans t=0.40-0.80 — les tranches ou la capsule est 1,6 a
+#  2,0 fois trop mince. Un pan tenu « hors de la capsule » est donc encore DANS la jambe sur 8 a
+#  9 cm. C'est « comme si son pantacourt s'arretait aux genoux », au chiffre pres.
+#  (Anomalie a noter : le rayon DECROIT vers le genou, 411 -> 329, alors que le mollet y est plus
+#  epais. La capsule est a l'envers de l'anatomie.)
+#  MAIS ELARGIR LA CAPSULE NE CORRIGERA RIEN, et c'est demontre, pas suppose : le centre du volume
+#  du pan est a 184 u de l'axe du mollet pour un rayon de lien de 429 u — la sphere du pan ENJAMBE
+#  l'axe de la jambe. Comme `phys-vol-floor` rend la profondeur a la pose du modele telle quelle
+#  (jak-hd-physics.gc:1121), la contrainte se reduit a « d >= d_repos », soit d >= 184 u, ce qui est
+#  INVARIANT au rayon de la capsule : a p95 la penetration passe de 614 a 944 u et la contrainte
+#  effective ne change pas d'une unite.
+#  => ni le rayon de la capsule ni le percentile ne sont la reponse. Le pan est modelise par une
+#  sphere qui contient la jambe ; il lui faut un volume qui epouse un TUBE.
 #  --- 20e PASSE (2026-08-12) : CE DEFAUT N'EST PAS COUVERT PAR LE CONTROLE DE COTE, ET JE LE DIS
 #  PLUTOT QUE DE LAISSER CROIRE LE CONTRAIRE. Le compteur de franchissement exige `floor0 > 0`, et
 #  `floor0` est force a 0 pour une paire de fourreau (jak-hd-physics.gc, branche `sleevec`) : les
