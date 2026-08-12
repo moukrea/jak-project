@@ -62,11 +62,53 @@ meme 82.
 CE QUE CA DIT DU DEFAUT PRIORITE 1, et ca colle mot pour mot a son diagnostic (« la physique ne
 s'applique pas a toute la geometrie de ces DEUX meches ») :
 
-  * `rmidhair` (82) et `lmidhair` (19) dechirent EN PLEIN MILIEU — mediane a 47 % et 35 % de la
-    longueur de meche, poids perdu a 100 % sur `head`. C'est bien la cassure qu'il decrit.
+  * `rmidhair` (82) et `lmidhair` (19) dechirent, poids perdu a 100 % sur `head`. ATTENTION : voir
+    la section 1 bis — la premiere lecture « en plein milieu » etait FAUSSE, mesure corrigee.
   * `lbang`/`rbang` (10 chacune) dechirent a -21 u, soit DERRIERE la racine : c'est l'ANCRAGE que
     SPEC 2 exige, pas un defaut. Confirme le retrait de cette famille par le cycle 25.
   * `backhair` 0 (ecart max 0.451) : degrade franchement lisse, rien a corriger.
+
+=================================================================================================
+1 bis. JE ME SUIS TROMPE SUR LA NATURE DU DEFAUT, ET LA CORRECTION CHANGE LE REMEDE
+=================================================================================================
+
+J'ai d'abord ecrit que les sommets qui dechirent etaient « en plein milieu » de la meche (mediane
+47 % / 35 %). C'etait un artefact de MON repere : j'avais pris comme ancre le sommet le plus pese
+du premier joint, au lieu de la position de BIND du joint. Repris sur les positions de bind :
+
+    rmidhair  low-side le long de l'axe : mediane 5 % de la meche   (et non 47 %)
+    lmidhair                              mediane 31 %
+    contigus avec un autre low-side : 26/34 et 10/10
+    fraction de leurs voisins qui appartiennent a la meche : mediane 0.50 (min 0.17, max 1.00)
+
+Contigus, a moitie de chaque cote, et a la base de la meche : c'est une BORDURE DE JONCTION —
+l'attache cuir chevelu / meche. Ce n'est PAS de la geometrie de meche mal pesee. Et SPEC 2 exige
+justement que cette bordure reste soudee au crane. Un `cov` < 1 la est l'ancrage, pas un defaut :
+exactement ce que le cycle 25 avait deja conclu pour `lbang`/`rbang`, et qui vaut aussi ici.
+
+CE QUE MESURE DONC `tear` AUJOURD'HUI : il compte la bordure d'ancrage comme un defaut. Il n'est
+pas encore la bonne grandeur — il faut le lire avec cette reserve.
+
+LE VRAI DISCRIMINANT EST DANS LE MESH LUI-MEME, et il donne la cible sans rien inventer :
+`backhair` est attache au meme crane et sort a `tear=0`, avec un ecart maximal de 0.451 — sa
+jonction est GRADUEE. `rmidhair`/`lmidhair` ont une jonction ABRUPTE : un sommet a 100 % `head`
+voisin d'un sommet a 100 % meche, sans bande de melange. Quand la meche tourne, ce voisinage-la
+cisaille au maximum — « des polygones qui bougent et des polygones voisins parfaitement statiques,
+causant la geometrie qui casse », mot pour mot.
+
+DONC LE REMEDE N'EST PAS D'AUGMENTER LA PROPRIETE DE LA MECHE (c'est la regle jak-hd rejetee a
+l'epoque, celle qui DETACHAIT la coiffe du crane), mais de GRADUER la jonction : etaler la marche
+sur une ou deux rangees de sommets, en gardant la rangee la plus interne dominee par `head`.
+La cible n'est pas arbitraire, elle est mesuree dans le meme mesh : aucun ecart d'arete > 0.5,
+c'est-a-dire le profil que `backhair` presente deja.
+
+POURQUOI L'OUTIL ACTUEL NE PEUT PAS LE FAIRE, demontre et pas suppose : `transfer ... grow=U`
+insere les sommets voisins dans le support a `wt = 1e-6`, puis le profil les mappe par
+`cap * (wt/p90)**shape`, soit ~1e-5. Ils ne gagnent RIEN. Balayage complet grow = 0, 25, 50, 100,
+200 : resultat IDENTIQUE partout (`tear` 82 -> 81, 0 sommet bascule, garde-fou « inert » a chaque
+valeur). `grow=` etend le support pour la NORMALISATION, il ne souleve jamais un sommet a poids
+nul. Il faut donc un operateur de GRADUATION, qui n'existe pas encore dans
+`physics_c7_reskin.py` — et surtout pas un `transfer` de plus.
 
 =================================================================================================
 2. `hair-fine-dead` — CORRIGE, ET C'EST UNE REGRESSION QUE J'AVAIS INTRODUITE
@@ -140,6 +182,26 @@ DONC LES DEUX, PAS UN SEUL :
     Lknee/Lthigh). Les regles des 8 autres personnages ne sont PAS restaurees : perimetre Keira
     seule. C'est la regle de non-destruction — la recette vit avec l'artefact, pas ailleurs.
 
+CE QUI N'EST PAS PROUVE, ET JE NE LE PRESENTE PAS COMME PROUVE : que le bake PASSE de bout en
+bout. Le crash `FileNotFoundError` est bien mort, mais le bake a un SECOND verrou — il grep `^  !!`
+dans le rapport de reskin et echoue si une regle est inerte. Les deux entrees que je pouvais tester
+d'ici ne sont PAS celle que le bake utilise (il passe un temporaire produit par
+`prep_hd_actor_glb.py`, ligne 220-221), et toutes deux sortent des `!!` :
+    donor jak2 keira-highres-lod0.glb : 1 `!!` (rBoob +0.047)
+    recharged_assets/hd_models/assistant-lod0.glb : 3 `!!` (dont « RpantFlap: no vertex carries
+      this joint », donc ce n'est meme pas le meme rig)
+Les constantes de la recette datent du cycle 7 ; il est possible qu'elles ne correspondent plus a
+l'art prepare d'aujourd'hui. Cela se tranche EN LANCANT LE BAKE, pas en raisonnant.
+
+*** PIEGE A CONNAITRE AVANT DE LE LANCER — il peut detruire le mesh de l'owner. ***
+`build_enhanced_models.sh` fait `rm -rf "$ENHANCED_OUT"` sur CHACUN de ses chemins d'echec (reskin
+qui echoue, et aussi la branche `!!`). Or `out/jak1/fr3/enhanced/GAME.fr3` est fige depuis le
+11 aout 02:06 et il est IRREPRODUCTIBLE : c'est le seul mesh HD qui existe, c'est celui que
+l'owner a en main. Un bake qui echoue l'EFFACE et on ne peut pas le refabriquer.
+  -> SAUVEGARDER `out/jak1/fr3/enhanced/` AVANT tout lancement du bake. Ce n'est pas une
+     precaution de principe : les deux essais ci-dessus disent que l'echec est probable.
+Je ne l'ai donc pas lance ce cycle : le risque est irreversible et porte sur l'artefact livre.
+
 =================================================================================================
 4. CE QUI RESTE OUVERT — RIEN N'EST REDUIT EN SILENCE
 =================================================================================================
@@ -152,17 +214,34 @@ essayee ET MESUREE, elle NE MARCHE PAS, et c'est un resultat utile :
        « !! Rmidhaira: transfer moved ownership by only +0.001 — the rule is inert »
 
 La cause est dans les nombres : `Rmidhaira` possede DEJA son patch (mean 0.827, dominant sur
-817/1009, p90 = 1.000). Les sommets qui dechirent sont a 100 % sur `head`, donc a poids NUL sur le
-joint de meche, donc HORS du patch qu'un rescale peut toucher — un rescale global ne peut pas
-reparer une discontinuite locale. La cle prevue pour ce cas est `grow=U` (« extend the patch to any
-vertex within U game units »). Le balayage de `grow` est ecrit et pret
-(`.autoport/probe_hair_skincov_grow.py`, avec `.autoport/probe_hair_skincov_tear.py` qui localise
-les aretes dechirees le long de la meche) mais n'a pas ete conclu ce cycle.
+817/1009, p90 = 1.000). Le balayage `grow` = 0/25/50/100/200 est CONCLU et negatif : resultat
+identique a toutes les valeurs (section 1 bis). Aucun `transfer` ne peut fermer ce defaut.
 
-Contrainte a respecter en le concluant, elle est documentee dans la recette elle-meme : une regle
-jak-hd a ete REJETEE a l'epoque parce qu'elle fermait un chiffre en soulevant les sommets du cuir
-chevelu et DETACHAIT la coiffe du crane. La mesure doit donc porter sur DEUX choses : `tear` qui
-tombe ET les sommets qui basculent qui sont bien a mi-meche, pas a la racine.
+L'OPERATEUR MANQUANT EST ECRIT, MESURE, ET IL N'EST PAS ENCORE BON — donc AUCUNE regle `grade`
+n'est livree dans la recette. `physics_c7_reskin.py` accepte desormais un verbe `grade` :
+il remonte le cote BAS d'une arete trop raide (jamais ne baisse le cote haut — baisser le haut
+retirerait du mouvement), le gain pris a `head` comme le fait `transfer`. `step=0.5` borne la bande
+a UNE rangee par construction (un voisin de 1.00 monte a 0.50, le suivant a 0.00).
+
+Mesure sur la vraie geometrie (`.autoport/probe_hair_grade.py`) :
+    rmidhair  tear 82 -> 68        lmidhair  tear 19 -> 16
+    aucune autre chaine ne se degrade (lbang/rbang/backhair/earL/earR inchangees)
+    rmidhair : 37 sommets remontes, poids de meche 0.200 -> 0.411, `head` en garde 0.589
+    lmidhair : 12 sommets remontes, 0.301 -> 0.400, `head` en garde 0.600 — ancrage tenu
+
+TROIS RAISONS DE NE PAS LE LIVRER EN L'ETAT, toutes mesurees :
+  1. il ne FERME pas le defaut (68 et 16 restants). Cause identifiee : `grade` travaille par
+     JOINT alors que `tear` se mesure sur la somme de la CHAINE. Graduer `Rmidhaira` ne borne pas
+     la marche de `Rmidhaira + Rmidhairb`. Il doit operer sur le poids SOMME de la chaine ;
+  2. `rmidhair` fait basculer 1 sommet de cuir chevelu pur au-dela de 0.5 — c'est precisement le
+     debut du defaut jak-hd rejete (detacher la meche du crane). Il faut interdire ce basculement,
+     pas le tolerer ;
+  3. `Lmidhairb` sort inerte (+0.000) et le bake echoue sur `!!` : une regle qui ne fait rien est
+     traitee comme un mensonge dans le fichier, et c'est le bon comportement.
+
+Enfin, ce correctif ne devient visible qu'apres un BAKE HD — le premier depuis le 11 aout 02:06,
+puisque le bake etait mort (section 3). Ce bake est a faire et a VERIFIER avant livraison : il
+reprendra tout ce qui a change dans l'arbre depuis, pas seulement les cheveux.
 
 `pant-calf` / SIDE-CONTROL — la gate echoue a 2715 contre 1011 (2.69x pour un seuil de 3x), et le
 cycle 25 a etabli pourquoi : `disarmed` vaut `pantflapR 520 + pantflapL 491` EXACTEMENT, zero
