@@ -16,7 +16,11 @@ while true; do
   for prog in auto_push_builds.sh auto_build_apk.sh; do
     # alive.sh compte encore le shell `sh -c` que setsid laisse derriere lui : verification
     # directe sur la ligne de commande exacte, c'est la seule qui ne mente pas.
-    n=$(ps -eo args | grep -cF "bash .autoport/$prog" || true)
+    # Le `grep` lui-meme apparait dans `ps -eo args` avec le motif dans SA ligne de commande :
+    # `grep -cF` le comptait donc comme une instance, et le superviseur tuait la vraie toutes les
+    # deux minutes -- toute la nuit du 2026-08-11. Quatrieme occurrence du meme piege aujourd'hui.
+    # On exclut explicitement les processus grep.
+    n=$(ps -eo args | grep -F "bash .autoport/$prog" | grep -vc "grep " || true)
     if [ "${n:-0}" -eq 0 ]; then
       echo "$(date +%H:%M:%S) $prog mort — respawn" >> "$LOG"
       setsid bash ".autoport/$prog" </dev/null >/dev/null 2>&1 &
