@@ -962,13 +962,23 @@
        ;; REPLIS DU RECUL : chacun laisse un residu d'allongement sur son lien. Publie a part parce
        ;; que c'est le seul chemin qui reste vers un allongement non nul.
        (format 0 "PHYSLIM2 retreat_fallback=~f~%" (phys-limiter 5))
-       ;; PART RADIALE DE LA FORCE ECARTEE. NATURE : une force (u/frame^2) cumulee, pas un
-       ;; mouvement. REPERE : celui de l'ancre, projetee sur l'axe de l'os du maillon. LECTURE
-       ;; QUAND LE DEFAUT EST ABSENT : 0 pour une chaine dont la force est deja transverse.
-       ;; Ce n'est pas un suppresseur de mouvement : sous la contrainte de longueur cette
-       ;; composante ne deplacait rien, elle ne faisait que gonfler |ecart| et donc saturer le
-       ;; plafond de taille. Publie parce qu'un limiteur se chiffre (SPEC 7).
-       (format 0 "PHYSLIM3 radial_n=~f radial_sum=~f~%" (phys-limiter 6) (phys-limiter 7))
+       ;; CETTE LIGNE PUBLIAIT UN CHIFFRE QUI N'EXISTE PAS DANS LE MOTEUR. Elle lisait
+       ;; `(phys-limiter 6)` et `(phys-limiter 7)` sous les noms `radial_n` / `radial_sum` ; il n'y a
+       ;; AUCUN compteur radial dans jak-hd-physics.gc, ces deux index tombent donc dans la branche
+       ;; `else` et rendaient tous les deux `*phys-buried-n*`. La course du 2026-08-12 le dit au
+       ;; chiffre pres :
+       ;;     PHYSLIM  buried=987636       PHYSLIM3  radial_n=987636  radial_sum=987636
+       ;; et le tableau en tirait « part radiale de la force, ecartee : 987623 fois, 987623.0000
+       ;; u/frame^2 au total soit 1.0000 par declenchement ». Un ratio de 1.0000 etait la signature :
+       ;; c'etait le meme compteur divise par lui-meme. Trois etiquettes pour une seule grandeur,
+       ;; dont deux fausses.
+       ;;
+       ;; A SA PLACE, LE BALAYAGE DE SPHERE DU RECUL — un vrai compteur, et le pendant exact de
+       ;; `retreat_fallback` : meme evenement declencheur (le point de depart du modele penetre),
+       ;; l'un compte les sauvetages, l'autre les renoncements. NATURE : un compte d'evenements sur
+       ;; la course. REPERE : sans objet (ce n'est pas une grandeur geometrique). LECTURE QUAND LE
+       ;; DEFAUT EST ABSENT : zero des deux cotes — la pose du modele est admissible et l'arc suffit.
+       (format 0 "PHYSLIM3 sphere_n=~f~%" (phys-limiter 8))
        (dotimes (c (-> self nchain))
         (when (> (phys-chain-links (-> self slot) c) 0)
          (format 0 "PHYSAUTH c=~D hit=~f ok=~f dot=~f nrm=~f dsum=~f~%"

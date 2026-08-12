@@ -668,6 +668,12 @@
 ;; n'etait pas admissible et ou il a fallu repartir de la pose d'auteur exacte. Chacun laisse un
 ;; residu d'allongement sur ce lien-la : le chiffre dit combien, au lieu de le laisser deviner.
 (define *phys-retfb-n* 0)
+;; ... et fois ou le BALAYAGE DE LA SPHERE a trouve une direction admissible que l'arc ne pouvait pas
+;; atteindre. Ce compteur et le precedent partagent le meme evenement declencheur (le point de
+;; depart du modele penetre) : leur somme est le nombre de fois ou l'arc etait aveugle, et le rapport
+;; dit combien de ces cas la sphere sauve. Un `retfb` non nul avec `sphere` nul dirait que le
+;; balayage ne trouve jamais rien, donc qu'il ne sert a rien.
+(define *phys-sphere-n* 0)
 
 ;; ------------------------------------------------------------------------------------------------
 ;; DIAGNOSTIC PAR CHAINE (6e passe de l'owner). Les trois defauts qu'il decrit se decident chaine
@@ -2310,40 +2316,86 @@
                   (set! (-> bs y) (+ by my))
                   (set! (-> bs z) (+ bz mz))
                   (set! (-> bs w) 1.0)
-                  ;; LA LONGUEUR DE L'OS EST INVARIANTE, Y COMPRIS QUAND LE POINT DE DEPART N'EST
-                  ;; PAS ADMISSIBLE — ET C'EST UNE CORRECTION, MESUREE.
+                  ;; LA LONGUEUR DE L'OS EST INVARIANTE, ET QUAND LE POINT DE DEPART DU MODELE
+                  ;; PENETRE ON CHERCHE AILLEURS SUR LA MEME SPHERE — AU LIEU D'ARBITRER ENTRE DEUX
+                  ;; REGLES DURES.
                   ;;
-                  ;; Ce repli ABANDONNAIT la sphere du modele des que son point de depart penetrait :
-                  ;; `want` restait |auteur(kk) - attache COURANTE|, qui n'est pas la longueur que le
-                  ;; modele donne a l'os. Le recul cherchait alors sur une AUTRE sphere et le lien
-                  ;; sortait plus long qu'il n'est.
-                  ;; MESURE, course du 2026-08-12 : `ROOM-RETREAT-ANCHOR fallback` 278 -> 900 (x3,2)
-                  ;; et `ROOM-STRETCH` 0.0272 -> 0.4896, soit 49 % d'allongement sur `lbang`, SEIZE
-                  ;; fois le plafond de 3 %. Les deux chiffres bougent ensemble parce que c'est le
-                  ;; meme evenement.
-                  ;; La sortie n'est pas de choisir entre « rien ne traverse » et « un os ne
-                  ;; s'allonge pas » : les deux sont des regles dures. On garde donc TOUJOURS la
-                  ;; sphere du modele, et quand aucun point admissible n'existe dessus la dichotomie
-                  ;; se pose sur le MOINS MAUVAIS (`bestp`, deja la). C'est exactement ce que la SPEC
-                  ;; demande — « rotation autour de l'ancre, longueur invariante » — et le repli
-                  ;; redevient ce qu'il aurait toujours du etre : un CHIFFRE RAPPORTE, pas une
-                  ;; dispense de contrainte.
-                  ;; ESSAI FAIT, MESURE, RETIRE — et le chiffre vaut d'etre garde.
-                  ;; Garder TOUJOURS la sphere du modele rend bien la longueur invariante :
-                  ;; `ROOM-STRETCH` 0.4896 -> 0.0003, quatre-vingt-dix fois mieux que la reference.
-                  ;; Mais le recul se pose alors sur le MOINS MAUVAIS point d'une sphere ou aucun
-                  ;; n'est admissible, et ce point TRAVERSE : `meshpen` 0.0000 -> 0.0976 sur `lbang`
-                  ;; et 0.1013 sur `rbang` (dix centimetres), `ROOM-SIDE` 0 -> 260 franchissements,
-                  ;; et le controle de cote s'inverse (arme 2 contre desarme 5).
-                  ;; Deux regles dures s'opposent — « un os ne s'allonge pas » et « rien ne traverse
-                  ;; le mesh » — et la regle 6 tranche : une resolution pire que le clip est pire que
-                  ;; rien. Le repli reste donc, et l'allongement qu'il laisse est un defaut OUVERT,
-                  ;; pas un detail : il faudra une troisieme voie (reculer vers la pose d'auteur
-                  ;; elle-meme, au prix d'une rupture de chaine a mesurer) plutot qu'un arbitrage
-                  ;; entre les deux.
+                  ;; L'HISTORIQUE EN DEUX CHIFFRES, tous deux mesures le 2026-08-12 sur une course
+                  ;; complete (le detail est au rapport du cycle 21, section 2) :
+                  ;;   * CEDER la sphere du modele (le repli d'origine) rend la longueur variable :
+                  ;;     `ROOM-STRETCH` 0.0272 -> 0.4896, soit 49 % d'allongement sur `lbang`, SEIZE
+                  ;;     fois le plafond de 3 % ;
+                  ;;   * la GARDER en se posant sur le moins mauvais point de l'ARC fait traverser :
+                  ;;     STRETCH 0.0003 mais `meshpen` 0.0000 -> 0.0976 et `ROOM-SIDE` 0 -> 260.
+                  ;; Les deux regles sont dures. L'arbitrage entre elles etait donc le probleme, pas
+                  ;; la reponse — et c'est aussi ce qui tient `*phys-jacobi-off*` desarme.
+                  ;;
+                  ;; CE QUE L'ARC NE POUVAIT PAS VOIR : il n'explore que les directions ENTRE la pose
+                  ;; du modele et la position courante. Si ses DEUX bouts penetrent, tout l'arc peut
+                  ;; penetrer pendant qu'une autre direction de la MEME sphere est libre — et toute
+                  ;; direction de cette sphere respecte la longueur d'os au bit pres. On balaye donc
+                  ;; la sphere par ouverture croissante depuis la direction du modele (7 ouvertures x
+                  ;; 8 azimuts, PREMIER admissible retenu, donc le plus proche de la pose d'auteur),
+                  ;; et le point trouve devient le `lo` de la dichotomie : l'invariant « lo est
+                  ;; admissible » est RESTAURE au lieu d'etre suppose, et l'arc reprend son travail a
+                  ;; partir de la.
+                  ;; L'ordre du balayage ne depend QUE de la pose du modele et des obstacles, jamais
+                  ;; de l'etat simule : a configuration d'obstacles inchangee il rend la MEME
+                  ;; direction a chaque frame. C'est precisement ce qui manquait a l'essai « moins
+                  ;; mauvais point du chemin », qui dependait de la position courante et laissait
+                  ;; donc la chaine ailleurs a chaque frame (mesure : 1 ligne a penetration positive
+                  ;; -> 8 sur 3410).
+                  ;; Quand la sphere entiere est fermee, on retombe sur le repli d'origine, compte
+                  ;; par `*phys-retfb-n*` : la regle 6 passe devant la longueur, jamais l'inverse.
                   (cond
                     ((> (phys-link-pen skel sc n nbone nco l bs 1) 0.0)
-                     (set! *phys-retfb-n* (+ *phys-retfb-n* 1)))
+                     (let ((fnd 0) (fx 0.0) (fy 0.0) (fz 0.0)
+                           (e1x 0.0) (e1y 0.0) (e1z 0.0)
+                           (e2x 0.0) (e2y 0.0) (e2z 0.0))
+                       ;; base orthonormee du plan perpendiculaire a la direction du modele
+                       (cond
+                         ((and (<= (fabs mx) (fabs my)) (<= (fabs mx) (fabs mz)))
+                          (set! e1y mz) (set! e1z (- 0.0 my)))
+                         ((<= (fabs my) (fabs mz))
+                          (set! e1x (- 0.0 mz)) (set! e1z mx))
+                         (else
+                          (set! e1x my) (set! e1y (- 0.0 mx))))
+                       (let ((el (sqrtf (+ (* e1x e1x) (+ (* e1y e1y) (* e1z e1z))))))
+                         (when (> el 0.0001)
+                           (set! e1x (/ e1x el)) (set! e1y (/ e1y el)) (set! e1z (/ e1z el))
+                           (set! e2x (/ (- (* my e1z) (* mz e1y)) ml))
+                           (set! e2y (/ (- (* mz e1x) (* mx e1z)) ml))
+                           (set! e2z (/ (- (* mx e1y) (* my e1x)) ml))))
+                       ;; io = ouverture (a = 4,3,2,1,0,-1,-2 fois la direction du modele, soit
+                       ;; 14, 18, 27, 45, 90, 135, 153 degres) ; ia = azimut (les 8 combinaisons de
+                       ;; (-1,0,1) sur la base, sauf (0,0) qui est la direction du modele elle-meme).
+                       (dotimes (io 7)
+                         (when (zero? fnd)
+                           (dotimes (ia 9)
+                             (when (and (zero? fnd) (!= ia 4))
+                               (let* ((ac (/ (- 4.0 (the float io)) ml))
+                                      (p1 (- (the float (/ ia 3)) 1.0))
+                                      (p2 (- (the float (mod ia 3)) 1.0))
+                                      (vx (+ (* ac mx) (+ (* p1 e1x) (* p2 e2x))))
+                                      (vy (+ (* ac my) (+ (* p1 e1y) (* p2 e2y))))
+                                      (vz (+ (* ac mz) (+ (* p1 e1z) (* p2 e2z))))
+                                      (vl (sqrtf (+ (* vx vx) (+ (* vy vy) (* vz vz))))))
+                                 (when (> vl 0.0001)
+                                   (let ((s (/ ml vl)))
+                                     (set! (-> bs x) (+ bx (* vx s)))
+                                     (set! (-> bs y) (+ by (* vy s)))
+                                     (set! (-> bs z) (+ bz (* vz s)))
+                                     (set! (-> bs w) 1.0)
+                                     (when (<= (phys-link-pen skel sc n nbone nco l bs 1) 0.0)
+                                       (set! fnd 1)
+                                       (set! fx (* vx s)) (set! fy (* vy s))
+                                       (set! fz (* vz s))))))))))
+                       (cond
+                         ((nonzero? fnd)
+                          (set! *phys-sphere-n* (+ *phys-sphere-n* 1))
+                          (set! wx fx) (set! wy fy) (set! wz fz) (set! want ml))
+                         (else
+                          (set! *phys-retfb-n* (+ *phys-retfb-n* 1))))))
                     (else
                      (set! wx mx) (set! wy my) (set! wz mz) (set! want ml))))
                 ;; ------------------------------------------------------------------------
@@ -3783,6 +3835,7 @@
     ((2) (the float *phys-raddrop-n*))
     ((3) *phys-raddrop-sum*)
     ((5) (the float *phys-retfb-n*))
+    ((8) (the float *phys-sphere-n*))
     (else (the float *phys-buried-n*))))
 
 ;; INVERSIONS (SPEC 5 / verdict owner) : which 0 = bascules corrigees, 1 = cas degeneres rattrapes.
@@ -3896,6 +3949,7 @@
   (set! *phys-raddrop-sum* 0.0)
   (set! *phys-buried-n* 0)
   (set! *phys-retfb-n* 0)
+  (set! *phys-sphere-n* 0)
   (none))
 
 ;; SPEC 5. which 0 = frames ou l'anim pilotait cette chaine, 1 = celles ou la pose ecrite est partie
