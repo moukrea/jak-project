@@ -229,12 +229,18 @@ def main():
     #             PROPRE, nul pour un maillon qui suit rigidement son parent. C'est la suite que
     #             SPEC 2 exige croissante, et la seule que l'oeil de l'owner puisse contredire.
     grad, gradang = {}, {}
+    gradst = {}
+    for m in re.finditer(r'^PHYSGRADS c=(\d+) a=(\d+) d=(\d+) l=(\d+)'
+                         r' a0=([-\d.e+]+) a1=([-\d.e+]+)', txt, re.M):
+        gradst.setdefault((int(m.group(1)), int(m.group(2)), int(m.group(3))), {})[
+            int(m.group(4))] = (float(m.group(5)), float(m.group(6)))
     for m in re.finditer(r'^PHYSGRAD c=(\d+) a=(\d+) d=(\d+) l=(\d+) amp=([-\d.e+]+)'
                          r'(?: ang=([-\d.e+]+))?', txt, re.M):
         key = (int(m.group(1)), int(m.group(2)), int(m.group(3)))
         grad.setdefault(key, {})[int(m.group(4))] = float(m.group(5)) / UNITS
         if m.group(6) is not None:
             gradang.setdefault(key, {})[int(m.group(4))] = float(m.group(6))
+
 
     # ---- L'ALLONGEMENT ET LE STIMULUS GRAVITAIRE, PAR FENETRE (10e passe) -----------------------
     # « Les seins s'allongent de nouveau sur les mouvements BRUSQUES » est une phrase sur un
@@ -306,6 +312,15 @@ def main():
     for m in re.finditer(r'^PHYSDIAG4 tag=(\S+) c=(\d+) side=([-\d.e+]+)', txt, re.M):
         diag.setdefault(m.group(1), {}).setdefault(int(m.group(2)), {}).update(
             side=float(m.group(3)))
+    # volprio : paires (lien, volume) ecartees par la DECISION 1 -- le premier chiffre qui dise OU
+    #           les volumes se contredisent. shellrad : ecart radial d'un lien-fourreau a l'axe du
+    #           membre qu'il entoure, en metres apres division. Les deux sont ABSENTS des courses
+    #           d'avant ce cycle : le `.get(..., None)` les distingue d'un zero mesure.
+    for m in re.finditer(r'^PHYSDIAG5 tag=(\S+) c=(\d+) volprio=([-\d.e+]+)'
+                         r'(?: shellrad=([-\d.e+]+))?', txt, re.M):
+        diag.setdefault(m.group(1), {}).setdefault(int(m.group(2)), {}).update(
+            volprio=float(m.group(3)),
+            shellrad=(float(m.group(4)) / UNITS) if m.group(4) is not None else None)
     # la re-assise : combien de liens le moteur a replaces, et combien ont du retomber sur
     # l'ancienne heuristique (rayon le long de l'os du porteur) au lieu de la place du rig.
     global RESEAT_FB
@@ -760,6 +775,7 @@ def main():
     A('   `amp` (metres, ancienne mesure) reste publiee a cote : l\'ecart entre les deux series EST')
     A('   la mesure de l\'erreur de l\'ancienne, et il ne se raconte pas, il se lit.')
     inverses, inverses_old = [], []
+    stages = []
     for c in sorted(chains):
         nl = chains[c]['links']
         for dr, nm in enumerate(DRIVE_NAMES):
@@ -785,6 +801,17 @@ def main():
             # un maillon intermediaire qui depasse la pointe est le defaut decrit par l'owner
             if nl >= 2 and max(best[:-1]) > best[-1]:
                 inverses.append((names[c], nm, anims[bai]['name'], best))
+                # DEFAUT hair-gradient, PRIORITE 1 : OU l'inversion apparait-elle dans la frame ?
+                # Le meme angle est releve a trois etages (integration seule / apres contraintes +
+                # attenuation / tel qu'ecrit). Un seul chiffre en sortie ne pouvait pas nommer
+                # l'etage fautif, et c'est pour ca que trois passes ont bute dessus.
+                st = gradst.get((c, bai, dr))
+                if st:
+                    s0 = [st.get(l, (0.0, 0.0))[0] for l in range(nl)]
+                    s1 = [st.get(l, (0.0, 0.0))[1] for l in range(nl)]
+                    inv0 = max(s0[:-1]) > s0[-1] if s0[-1] or any(s0) else None
+                    inv1 = max(s1[:-1]) > s1[-1] if s1[-1] or any(s1) else None
+                    stages.append((names[c], nm, s0, s1, best, inv0, inv1))
             if nl >= 2 and max(bamp[:-1]) > bamp[-1]:
                 inverses_old.append((names[c], nm))
     A('')
@@ -797,6 +824,32 @@ def main():
             A('     %-12s %-10s %-30s %s'
               % (nmc, nmd, nma, ' '.join(fnum(x) for x in v)))
         A('   (%d au total)' % len(inverses))
+        if stages:
+            A('')
+            A('   OU L\'INVERSION NAIT DANS LA FRAME — le meme angle a trois etages du solveur.')
+            A('   s0 = apres l\'INTEGRATION seule · s1 = apres CONTRAINTES + attenuation · fin = ECRIT.')
+            A('   L\'etage ou la suite cesse de croitre EST la cause ; les deux autres ne font que la')
+            A('   transporter. Aucune hypothese n\'est privilegiee : c\'est la colonne qui tranche.')
+            n0 = sum(1 for _, _, _, _, _, i0, _ in stages if i0)
+            n1 = sum(1 for _, _, _, _, _, _, i1 in stages if i1)
+            A('   inversion deja presente a s0 : %d/%d · a s1 : %d/%d · a la fin : %d/%d'
+              % (n0, len(stages), n1, len(stages), len(inverses), len(inverses)))
+            for nmc, nmd, s0, s1, fin, i0, i1 in stages[:8]:
+                A('     %-12s %-10s s0=%-28s s1=%-28s fin=%s'
+                  % (nmc, nmd,
+                     ' '.join(fnum(x) for x in s0),
+                     ' '.join(fnum(x) for x in s1),
+                     ' '.join(fnum(x) for x in fin)))
+            if n0 == 0 and n1 == 0:
+                A('   LECTURE : la suite CROIT apres l\'integration et apres les contraintes, et elle')
+                A('   est INVERSEE dans ce qui est ecrit. L\'inversion nait donc dans la FINITION —')
+                A('   collision + recul — et nulle part ailleurs.')
+            elif n0 == 0:
+                A('   LECTURE : l\'integration produit une suite croissante ; la boucle de contraintes')
+                A('   l\'inverse. C\'est la longueur, la collision ou l\'attenuation d\'angle.')
+            else:
+                A('   LECTURE : la suite est DEJA inversee a la sortie de l\'integration. Aucune')
+                A('   contrainte n\'en est responsable : c\'est le modele de ressort lui-meme.')
     else:
         A('   Aucune inversion : sur chaque chaine et chaque pilotage, la deviation propre CROIT de')
         A('   la racine vers la pointe, ce que SPEC 2 exige.')
@@ -1040,6 +1093,49 @@ def main():
              int(dr_run.get(c, {}).get('invres', 0)),
              dr_run.get(c, {}).get('elong', 0.0),
              int(dr_run.get(c, {}).get('rad', 0))))
+    # ---- LA DECISION 1 ET LE FOURREAU (cycle 2026-08-12) --------------------------------------
+    # volprio : NATURE un COMPTE de paires (lien, volume) sur la fenetre, REPERE sans objet,
+    #           LECTURE HORS DEFAUT 0 -- un lien qu'aucun conflit de volumes ne concerne n'ecarte
+    #           personne. Une chaine dont ce compte est GRAND est une chaine que des volumes se
+    #           disputaient, donc que le recul epinglait : c'est l'attribution qui manquait a
+    #           `ROOM-INVERSIONS residual`, un scalaire global qu'aucune chaine ne portait.
+    vp = {c: dr_run.get(c, {}).get('volprio') for c in sorted(chains)}
+    if any(v is not None for v in vp.values()):
+        tot = sum(v for v in vp.values() if v)
+        A('ROOM-VOLPRIO: pairs_ignored=%d chains=%d'
+          % (int(tot), sum(1 for v in vp.values() if v)))
+        for v, c in sorted(((v or 0.0, c) for c, v in vp.items()), reverse=True):
+            if v > 0:
+                A('ROOM-VOLPRIO: chain=%-12s ignored=%-8d retreat=%d'
+                  % (names[c], int(v), int(dr_run.get(c, {}).get('retreat', 0))))
+        if tot == 0:
+            A('   zero partout : aucun lien n\'est contraint par plus d\'un volume a la fois. Un')
+            A('   zero ici n\'est PAS une reussite en soi -- il dit seulement que la priorite')
+            A('   n\'avait rien a arbitrer sur cette course.')
+    # shellrad : NATURE une DISTANCE radiale (m), surtout pas une profondeur -- une profondeur est
+    #           MAXIMALE sur l'axe, c'est-a-dire la ou un fourreau est CORRECT, et c'est pour ca que
+    #           `meshpen` lisait 0.0000 pendant que l'owner voyait le pan de pantacourt disparaitre
+    #           dans le mollet. REPERE celui du volume. LECTURE HORS DEFAUT 0 (la pose du modele
+    #           rend exactement 0). Mesuree meme sous controle arme, sinon le chiffre TOMBERAIT
+    #           sous le defaut au lieu de MONTER.
+    sh_run = {c: dr_run.get(c, {}).get('shellrad') for c in sorted(chains)}
+    if any(v is not None for v in sh_run.values()):
+        dr_shoff = diag.get('shell-disarmed', {})
+        dr_shon  = diag.get('shell-armed', {})
+        for v, c in sorted(((v or 0.0, c) for c, v in sh_run.items()), reverse=True):
+            if v > 0 or (dr_shon.get(c, {}).get('shellrad') or 0) > 0:
+                A('ROOM-SHELL: chain=%-12s run=%.4f disarmed=%.4f armed=%.4f'
+                  % (names[c], v,
+                     (dr_shoff.get(c, {}).get('shellrad') or 0.0),
+                     (dr_shon.get(c, {}).get('shellrad') or 0.0)))
+        sd = sum((dr_shoff.get(c, {}).get('shellrad') or 0.0) for c in chains)
+        sa = sum((dr_shon.get(c, {}).get('shellrad') or 0.0) for c in chains)
+        A('ROOM-SHELL-CONTROL: armed=%.4f disarmed=%.4f' % (sa, sd))
+        if sa <= sd * 3.0:
+            A('   ATTENTION : le controle du fourreau n\'a PAS fait monter l\'ecart radial')
+            A('   (arme %.4f contre desarme %.4f, il faut arme >= 3x desarme). Le zero de la'
+              % (sa, sd))
+            A('   course ne prouve donc rien -- SPEC 7.')
     A('   `raddrop` = fois ou le PLAFOND D\'EXCURSION du lien (son propre rayon mesure) a mordu.')
     A('   C\'est un suppresseur, donc SPEC 7 exige qu\'il chiffre ce qu\'il retire PAR CHAINE : un')
     A('   affaissement gravitaire ecrete par ce plafond se lit ici et nulle part ailleurs.')

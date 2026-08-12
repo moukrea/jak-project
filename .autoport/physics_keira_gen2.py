@@ -94,6 +94,62 @@ IQ_LO, IQ_HI = 25.0, 75.0       # inner quartile of the perpendicular spread.
 # fraction reellement laissee dehors est ecrite a cote de chaque volume, donc le choix se verifie.
 COVER_PCT = 95.0
 
+# ---- COQUES : `shell=` — UN FOURREAU N'EST PAS UNE SPHERE DE POUSSEE ---------------------------
+# DEFAUT OUVERT `pant-calf`, signale par l'owner a chaque passe : « le bas du pantacourt est
+# toujours a l'interieur des mollets, comme si son pantacourt s'arretait aux genoux ».
+#
+# CAUSE MESUREE. Le pan de pantacourt est une COQUE FERMEE autour du mollet. Son rayon livre (429 a
+# gauche, 443 a droite) est le rayon du FOURREAU autour de la jambe, et le moteur s'en sert comme
+# rayon d'une SPHERE DE POUSSEE centree sur le lien. Le centroide du pan etant a 95 u de l'axe du
+# mollet — c'est-a-dire SUR l'axe — la resolution de collision lit ~700 u de penetration et ejecte
+# le pan lateralement a chaque frame : la moitie du tissu finit dans la jambe. Pousser un fourreau
+# « hors » du membre qu'il entoure n'a aucun sens geometrique ; la contrainte due a un tel lien est
+# la CONCENTRICITE, et le moteur a besoin de savoir QUELS liens sont des fourreaux. `shell=` est ce
+# renseignement, et c'est la seule chose que ce generateur en fait.
+#
+# LA REGLE EST MESUREE, ELLE N'EST PAS CHOISIE — et deux formulations plus evidentes ont ete
+# essayees et REFUSEES par la mesure, sur les 37 liens de chaine du rig :
+#   * couverture angulaire autour de l'axe DU JOINT LUI-MEME : NE DISCRIMINE PAS. Une meche est un
+#     tube autour de son propre os exactement comme un fourreau (`Lbanga` 12/12, `backHair1` 10/12,
+#     `lEarb` 10/12, comme `LpantFlap` 10/12).
+#   * repli sur la direction principale (PCA) : PIRE. Il fait passer `lKneeFlap` — la languette
+#     PLATE, controle negatif de l'owner — de 5/12 a 10/12.
+# CE QUI DISCRIMINE : la couverture angulaire des sommets du joint autour de l'axe d'un volume
+# ETRANGER, c.-a-d. une capsule dont NI l'un NI l'autre de ses deux joints n'appartient a la chaine
+# testee (meme exclusion structurelle que `phys-col-own?`, jak-hd-physics.gc). Un lien n'enroule un
+# os qui n'est pas le sien que s'il en est le fourreau.
+#
+#     12 secteurs de 30 degres autour de l'axe du volume, en espace bind MONDE.
+#     gap = (plus long run de secteurs vides + 1) * 30 degres.
+#     COQUE  <=>  il existe un volume etranger avec  secteurs >= 10/12  ET  gap <= 60 deg.
+#
+# RESULTAT MESURE (table complete journalisee a chaque generation, section COQUES) :
+#     LpantFlap -> Lankle->Lknee   10/12,  60 deg    COQUE
+#     RpantFlap -> Rankle->Rknee   10/12,  60 deg    COQUE
+#     les 33 autres liens          AUCUN — le meilleur non-pan est `Rmidhairb` 8/12 / 150 deg,
+#                                  puis `lBoob`/`rBoob` 8/12 / 120 deg ; `lKneeFlap`/`rKneeFlap`
+#                                  (le controle negatif de l'owner) 2/12 / 330 deg.
+# CONTROLE POSITIF, la regle DOIT tirer : appliquee a la PEAU — qui est litteralement un fourreau
+# autour de l'os — elle classe coque `Lknee`, `Rknee`, `Lthigh`, `chest`, `head`, `main` a 12/12 /
+# 30 deg et `Lelbow` a 11/12 / 60 deg.
+#
+# PIEGE MESURE, A NE PAS REPRODUIRE : la classification n'est PAS invariante au seuil de poids de
+# skinning. Evaluee a `w>0.05` pour TOUT LE MONDE, elle classerait coques `Lmidhaira` (12/12),
+# `Rmidhaira` (12/12), `lBoob` (11/12) et `rBoob` (11/12) — la poitrine deviendrait un fourreau et
+# l'acquis que l'owner a valide dessus serait casse. La regle est donc evaluee sur EXACTEMENT la
+# selection de sommets que ce generateur utilise deja pour ses rayons : l'echelle FIT_STEPS avec
+# FIT_MIN_VERTS (`shell_select` ci-dessous est la meme echelle que `fit_radius`). Les pantflaps sont
+# les SEULS joints dont l'echelle descend jusqu'a 0.05. TOUT CHANGEMENT DE `FIT_STEPS` OU DE
+# `FIT_MIN_VERTS` CHANGE CETTE CLASSIFICATION : la self-check COQUES est ce qui le fera echouer au
+# lieu de livrer silencieusement une poitrine declaree fourreau.
+SHELL_NSEC = 12
+SHELL_SECW = 360.0 / SHELL_NSEC
+SHELL_SECT_MIN = 10             # secteurs occupes exiges sur 12
+SHELL_GAP_MAX = 60.0            # plus grand trou angulaire tolere, en degres
+# Les seules chaines que la regle doit designer sur CE rig. C'est une ASSERTION sur ce que la regle
+# produit, pas une liste qui la remplace : le classement est calcule pour les 37 liens et publie.
+SHELL_EXPECTED = ('pantflapL', 'pantflapR')
+
 # ---- TUNING CONSTANTS — one row per category, the ONLY hand-chosen numbers in the file ---------
 # stiffness is a natural frequency in Hz: short and stiff pieces oscillate fast, long and loose ones
 # slow.  damping is 0..1 (fraction of critical).  mass scales the inertia of a link.  couple is the
@@ -541,6 +597,159 @@ def fit_radius(geo, j, a_world, b_world):
 
 
 # ================================================================================================
+# coques (`shell=`) — cf. le bloc SHELL_* en tete de fichier pour la regle et ses mesures
+# ================================================================================================
+def shell_select(geo, j):
+    """LA MEME SELECTION DE SOMMETS QUE `fit_radius`, et ce couplage est la regle, pas un detail.
+
+    La classification coque/non-coque n'est pas invariante au seuil de poids : evaluee a w>0.05
+    partout, elle declare fourreaux `Lmidhaira`, `Rmidhaira`, `lBoob` et `rBoob`. Elle doit donc
+    lire exactement les sommets sur lesquels le rayon du meme lien est ajuste — l'echelle
+    FIT_STEPS, premier seuil qui atteint FIT_MIN_VERTS. -> (indices, seuil)."""
+    idx = np.array([], dtype=int)
+    for thr in FIT_STEPS:
+        n, _w, i2 = influence(geo, j, thr)
+        if n >= FIT_MIN_VERTS:
+            return i2, thr
+        idx = i2
+    for thr in reversed(FIT_STEPS):
+        n, _w, i2 = influence(geo, j, thr)
+        if n > 0:
+            return i2, thr
+    return idx, None
+
+
+def shell_axis_frame(u):
+    """Deux vecteurs unitaires perpendiculaires a `u`, construits de facon deterministe."""
+    t = np.array([1.0, 0.0, 0.0])
+    if abs(float(u @ t)) > 0.9:
+        t = np.array([0.0, 1.0, 0.0])
+    e1 = t - float(t @ u) * u
+    e1 = e1 / np.linalg.norm(e1)
+    return e1, np.cross(u, e1)
+
+
+def shell_around(pts, a_world, b_world):
+    """Distance perpendiculaire et angle (degres, 0..360) de chaque sommet autour de l'axe a->b,
+    en espace bind MONDE — le repere ou vivent les volumes emis. -> (d, angles, u)."""
+    u = b_world - a_world
+    L = float(np.linalg.norm(u))
+    if L < 1e-6:
+        raise SystemExit('shell: zero-length volume axis')
+    u = u / L
+    rel = pts - a_world
+    perp = rel - np.outer(rel @ u, u)
+    e1, e2 = shell_axis_frame(u)
+    ang = np.degrees(np.arctan2(perp @ e2, perp @ e1)) % 360.0
+    return np.linalg.norm(perp, axis=1), ang, u
+
+
+def shell_sectors(ang):
+    """(secteurs occupes sur SHELL_NSEC, plus grand trou angulaire en degres).
+
+    Le trou est mesure d'un secteur occupe au suivant en tournant : c'est (plus long run de
+    secteurs vides + 1) * SHELL_SECW. Un seul secteur occupe -> 360 degres."""
+    sec = (ang // SHELL_SECW).astype(int) % SHELL_NSEC
+    cnt = np.zeros(SHELL_NSEC, dtype=int)
+    for s in sec:
+        cnt[s] += 1
+    occ = np.flatnonzero(cnt > 0)
+    if len(occ) == 0:
+        return 0, 360.0
+    gaps = []
+    for i in range(len(occ)):
+        step = int((occ[(i + 1) % len(occ)] - occ[i]) % SHELL_NSEC)
+        gaps.append((SHELL_NSEC if step == 0 else step) * SHELL_SECW)
+    return int(len(occ)), float(max(gaps))
+
+
+def shell_rr_at(pt, a_world, b_world, ra, rb):
+    """Rayon du volume a->b a la hauteur de `pt`, INTERPOLE COMME LE MOTEUR LE FAIT
+    (jak-hd-physics.gc, `phys-collide-depth`) : t0 = projection sur le segment bornee a [0,1],
+    puis rr = radius + (radius2 - radius) * t0. -> (rr, t0)."""
+    ab = b_world - a_world
+    dd = float(ab @ ab)
+    t0 = 0.0 if dd < 1e-6 else float(((pt - a_world) @ ab) / dd)
+    t0 = min(1.0, max(0.0, t0))
+    return float(ra + (rb - ra) * t0), t0
+
+
+def classify_shells(geo, groups, idx_of, volumes, log):
+    """Classe COQUE / non-coque les liens de toutes les chaines et publie la table complete.
+
+    `volumes` : les capsules EMISES, sous la forme (nom_A, nom_B, rayon_en_A, rayon_en_B). Un
+    volume est ETRANGER a une chaine quand ni A ni B n'est un de ses joints — l'exclusion
+    structurelle de `phys-col-own?`.
+
+    LE NOMBRE LIVRE est le rayon INTERNE du fourreau : r_int = |c - axe| + rr(c), ou `c` est le
+    centroide des sommets du lien, |c - axe| sa distance perpendiculaire a l'axe du volume, et
+    rr(c) le rayon du volume a cette hauteur. C'est le seul choix qui rende la POSE DU MODELE
+    admissible : mesure sur les deux pans, `min`, `p05` et `p10` de la distribution des distances
+    passent SOUS le rayon du mollet (-75, -54, -42 u) et `p25` ne laisse que 9 u de jeu, alors que
+    le pan est deja decale de 95 u en pose bind.
+
+    Quand plusieurs volumes etrangers qualifient, le PLUS CONTRAIGNANT gagne (r_int le plus petit),
+    et lequel est ecrit dans le fichier a cote de la chaine.
+
+    Rend {nom_de_chaine: dict(joint, vol, sect, gap, off, rr, r_int, nv, thr)}."""
+    P, V = geo['P'], geo['V']
+    log('')
+    log(f'COQUES — classification des {sum(len(j) for j in groups.values())} liens de chaine '
+        f'(regle mesuree : secteurs >= {SHELL_SECT_MIN}/{SHELL_NSEC} ET gap <= '
+        f'{SHELL_GAP_MAX:.0f} deg autour d\'un volume ETRANGER)')
+    log(f"  {'chaine/joint':<26}{'nv':>4} {'seuil':>6}  {'meilleur volume ETRANGER':<24}"
+        f"{'sect':>6}{'gap':>6}{'|c-axe|':>9}{'rr(c)':>7}{'r_int':>7}  verdict")
+    out = {}
+    for cname in groups:
+        for jn in groups[cname]:
+            j = idx_of[jn]
+            idx, thr = shell_select(geo, j)
+            if len(idx) == 0:
+                log(f'  {cname + "/" + jn:<26}{0:>4} {"-":>6}  '
+                    f'-- NON MESURE : 0 sommet skinne, aucune geometrie a entourer')
+                continue
+            pts = V[idx]
+            c = pts.mean(axis=0)
+            rows = []
+            for (an, bn, ra, rb) in volumes:
+                if an in groups[cname] or bn in groups[cname]:
+                    continue                      # volume PROPRE a la chaine : jamais un fourreau
+                a_w, b_w = P[idx_of[an]], P[idx_of[bn]]
+                d, ang, u = shell_around(pts, a_w, b_w)
+                nsec, gap = shell_sectors(ang)
+                rel = c - a_w
+                off = float(np.linalg.norm(rel - float(rel @ u) * u))
+                rr, _t0 = shell_rr_at(c, a_w, b_w, ra, rb)
+                rows.append(dict(vol=f'{an}->{bn}', sect=nsec, gap=gap, off=off, rr=rr,
+                                 r_int=off + rr))
+            if not rows:
+                log(f'  {cname + "/" + jn:<26}{len(idx):>4} {thr:>6}  '
+                    f'-- NON MESURE : aucun volume etranger a cette chaine')
+                continue
+            qual = [r for r in rows if r['sect'] >= SHELL_SECT_MIN and r['gap'] <= SHELL_GAP_MAX]
+            best = min(qual, key=lambda r: r['r_int']) if qual else \
+                sorted(rows, key=lambda r: (-r['sect'], r['gap']))[0]
+            r_int = int(round(best['r_int']))
+            log(f'  {cname + "/" + jn:<26}{len(idx):>4} {thr:>6}  {best["vol"]:<24}'
+                f'{best["sect"]:>4}/{SHELL_NSEC}{best["gap"]:>6.0f}{best["off"]:>9.0f}'
+                f'{best["rr"]:>7.0f}{r_int:>7}  {"COQUE" if qual else "."}')
+            if not qual:
+                continue
+            rec = dict(joint=jn, vol=best['vol'], sect=best['sect'], gap=best['gap'],
+                       off=best['off'], rr=best['rr'], r_int=r_int, nv=len(idx), thr=thr,
+                       nqual=len(qual))
+            # Le moteur ne porte qu'UN scalaire par chaine : si plusieurs liens d'une meme chaine
+            # etaient des fourreaux, c'est le plus contraignant qui vaut pour elle, et le lien
+            # retenu est ecrit dans le fichier.
+            if cname not in out or r_int < out[cname]['r_int']:
+                out[cname] = rec
+    log(f'  COQUES retenues : ' + (', '.join(f'{k} ({v["joint"]} autour de {v["vol"]}, '
+                                             f'shell={v["r_int"]})' for k, v in out.items())
+                                   or '(aucune)'))
+    return out
+
+
+# ================================================================================================
 # derived groups
 # ================================================================================================
 def derive_groups(names, parent):
@@ -768,6 +977,7 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
 
     # ---- chain lines ---------------------------------------------------------------------------
     chain_block = []
+    chain_entries = []
     chain_report = []
     for cat, cname in kept:
         joints = groups[cname]
@@ -840,18 +1050,21 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
                         f'seulement) : le plus serre est {who}, 2*atan({lmin:.0f}/{rr:.0f}) = '
                         f'{deg:.1f} deg' +
                         ''.join(f' | {w} {d:.1f}' for d, w, _l, _r in lim if w != who))
-        parts.append('radii=' + ','.join(str(r) for r in radii))
-        line = ' '.join(parts)
+        radii_part = 'radii=' + ','.join(str(r) for r in radii)
+        suffix = ''
         if fitnotes:
-            line += '   # radii notes (fitted below w>0.5, or inherited): ' + ' '.join(fitnotes)
+            suffix += '   # radii notes (fitted below w>0.5, or inherited): ' + ' '.join(fitnotes)
         if bendnote:
-            line += bendnote
+            suffix += bendnote
         meas = ' | '.join(f'{jn} verts={infl[jn][0]} wsum={infl[jn][1]:.2f} r={radii[i]}'
                           for i, jn in enumerate(joints))
-        chain_block.append(f'# {cname} [{t["family"]}] {meas}')
-        chain_block.append(line)
-        for jn in joints:
-            chain_block.append(f'j {jn}')
+        # LES LIGNES DE CHAINE SONT ASSEMBLEES PLUS BAS, PAS ICI. `shell=` se mesure contre les
+        # VOLUMES emis, qui dependent eux-memes des rayons de lien ci-dessus (ONE-JOINT-ONE-
+        # THICKNESS) : l'ordre de calcul est donc chaines -> volumes -> coques -> ecriture des
+        # chaines. Rien d'autre ne change de place.
+        chain_entries.append(dict(cname=cname, comment=f'# {cname} [{t["family"]}] {meas}',
+                                  parts=parts, radii_part=radii_part, suffix=suffix,
+                                  joints=joints))
         chain_report.append((cname, cat, t['family'], t['klass'], len(joints), rep, radii))
 
     # ---- colliders -----------------------------------------------------------------------------
@@ -957,6 +1170,7 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
             link_radius[jn2] = r2v
 
     col_block, col_report = [], []
+    emitted_capsules = []
     for jn, pn, pname in capsules:
         j, p = idx_of[jn], idx_of[pn]
         a, b = geo['P'][j], geo['P'][p]
@@ -1040,6 +1254,10 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
         col_block.append(f'#   COUVERTURE: ' + ' | '.join(cov))
         col_block.append(f'capsule {jn} {pn} radius={r1} radius2={r2}')
         col_report.append(('capsule', f'{jn}->{pn}', r1, r2, n1, n2))
+        # Les rayons EMIS (apres ONE-JOINT-ONE-THICKNESS), dans l'ordre `capsule A B radius=
+        # radius2=` : c'est cet axe et ces rayons que la regle des coques interroge, exactement
+        # comme le moteur les lira.
+        emitted_capsules.append((jn, pn, float(r1), float(r2)))
     for jn, pname in spheres:
         j = idx_of[jn]
         c, r, n, t, cov = blob_centre_radius(geo, j)
@@ -1079,6 +1297,31 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
         col_block.append(f'collider {jn} radius={r} offset={cx},{cy},{cz}')
         col_report.append(('sphere', jn, r, None, ntot, None))
 
+    # ---- coques : `shell=` ----------------------------------------------------------------------
+    # Mesure contre les volumes qui viennent d'etre emis, puis ecriture des lignes de chaine.
+    shells = classify_shells(geo, groups, idx_of, emitted_capsules, log)
+    for e in chain_entries:
+        sh = shells.get(e['cname'])
+        parts = list(e['parts'])
+        if sh is not None:
+            parts.append(f'shell={sh["r_int"]}')
+        parts.append(e['radii_part'])
+        chain_block.append(e['comment'])
+        if sh is not None:
+            chain_block.append(
+                f'#   COQUE: {sh["joint"]} entoure le volume ETRANGER {sh["vol"]} — '
+                f'{sh["sect"]}/{SHELL_NSEC} secteurs, gap {sh["gap"]:.0f} deg '
+                f'(seuils {SHELL_SECT_MIN}/{SHELL_NSEC} et {SHELL_GAP_MAX:.0f} deg, '
+                f'{sh["nv"]}v @w>{sh["thr"]}) : |c-axe|={sh["off"]:.0f} u + rr(c)={sh["rr"]:.0f} u '
+                f'-> shell={sh["r_int"]} u, le rayon INTERNE du fourreau. Le rayon du lien est '
+                f'celui du fourreau, pas celui d\'une sphere de poussee : sans cette cle le moteur '
+                f'lit une penetration du membre que le lien ENTOURE et ejecte le tissu dedans.'
+                + (f' ({sh["nqual"]} volumes qualifiaient, le plus contraignant est retenu.)'
+                   if sh['nqual'] > 1 else ''))
+        chain_block.append(' '.join(parts) + e['suffix'])
+        for jn in e['joints']:
+            chain_block.append(f'j {jn}')
+
     # ---- verbatim blocks from the .bak ---------------------------------------------------------
     bak = open(bak_path).read()
     eyescale = extract_section(bak, '[eyescale]')
@@ -1115,6 +1358,10 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
     L.append('#            the vertices that link owns to its bone axis, in that link\'s bind space.')
     L.append('# stiffness (Hz) / damping (0..1) / mass / couple are the only hand-chosen numbers;')
     L.append('#            they are tuning constants and the owner retunes them here.')
+    # `shell=` n'a PAS d'entree dans cet en-tete, et c'est deliberé : la ligne `#   COQUE: ...`
+    # emise juste au-dessus de chaque chaine concernee porte deja la regle, ses deux seuils, la
+    # mesure (|c-axe|, rr(c)) et le nombre. Documenter la cle ici en plus ferait diverger deux
+    # textes pour une seule verite ; le detail complet vit dans le bloc SHELL_* du generateur.
     L.append('#')
     L.append('# The `# <chain> ... verts= wsum= r=` line above each chain is the mesh-influence gate:')
     L.append('# a joint with ZERO skinned vertices owns no drawn geometry. A chain is ABANDONED only')
@@ -1155,7 +1402,7 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
     L.append('')
     text = '\n'.join(L)
     return text, dict(chains=chain_report, dropped=dropped, colliders=col_report,
-                      eyescale=eyescale, levels=levels, groups=groups,
+                      eyescale=eyescale, levels=levels, groups=groups, shells=shells,
                       # la geometrie brute du rig, pour que le controle 9 puisse RECALCULER
                       # `maxangle=` depuis le fichier emis au lieu de croire le generateur.
                       P=geo['P'], parent=parent, idx_of=idx_of)
@@ -1292,6 +1539,24 @@ def self_checks(text, info, rig_names, bak_path, log):
             bad.append((c['name'], f"{c['kv']['maxangle']} != {want:.2f} recalcule"))
     ck(not bad, 'chaque maxangle= est recalculable depuis le rig, et seules les meches en portent',
        str(bad[:4]))
+
+    # 6c. COQUES : la regle designe EXACTEMENT les deux pans de pantacourt, ni plus ni moins.
+    # Elle n'est pas invariante au seuil de poids de skinning (cf. le bloc SHELL_* en tete) : a
+    # w>0.05 pour tout le monde elle declarerait la POITRINE fourreau. Une regle qui derive doit
+    # faire ECHOUER la generation, pas produire silencieusement d'autres donnees. La verification
+    # porte sur le TEXTE EMIS, pas sur ce que le classement pretend avoir fait.
+    got = sorted(c['name'] for c in chains if 'shell' in c['kv'])
+    want = sorted(SHELL_EXPECTED)
+    detail = (f'shell= sur {got} (attendu {want})'
+              + ''.join(f' | {k}: {v["joint"]} autour de {v["vol"]} {v["sect"]}/{SHELL_NSEC} '
+                        f'gap={v["gap"]:.0f} shell={v["r_int"]}'
+                        for k, v in sorted(info['shells'].items())))
+    bad_val = [(c['name'], c['kv']['shell']) for c in chains
+               if 'shell' in c['kv'] and not (c['kv']['shell'].isdigit()
+                                              and int(c['kv']['shell']) > 0)]
+    ck(got == want and not bad_val,
+       'shell= est ecrit sur pantflapL/pantflapR et sur elles seules, valeur entiere > 0',
+       detail + (f' VALEURS INVALIDES {bad_val}' if bad_val else ''))
 
     # 7. [eyescale] block byte-identical to the .bak's
     mine = extract_section(text, '[eyescale]')

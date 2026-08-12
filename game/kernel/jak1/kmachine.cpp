@@ -985,7 +985,19 @@ enum PhysClassBits { kPhysClassPrimary = 1, kPhysClassSecondary = 2, kPhysClassA
 //      deviation equation becomes d'' + 2*zeta*w*d' + w^2*d = -(1 + couple)*a_anchor. Amplitude
 //      is then set by `couple` and firmness by `stiffness`, independently. 0 = OFF and it MUST
 //      default off: every chain that shipped before this cycle keeps its exact behaviour.)
-static constexpr int kPhysNumChainParams = 28;
+// CYCLE 8 (owner, 11e passe 2026-08-11: « le bas de son pantacourt clipe toujours a l'interieur de
+// ses mollets au lieu d'etre visible, comme si son pantacourt s'arretait aux genoux »):
+//   28 shell(INNER RADIUS, in units, of the SLEEVE this link forms AROUND a limb — the distance
+//      from that limb's axis out to the cloth. A pant flap is a CLOSED shell wrapped around the
+//      calf, so its fitted radius (429 left / 443 right) is the radius of that sleeve, yet the
+//      solver spends it as the radius of a PUSH-OUT SPHERE centred on the link: the flap's centroid
+//      sits 95u from the calf axis — i.e. essentially ON it — so the contact test reads a ~700u
+//      penetration and ejects the flap sideways every frame, burying half the cloth inside the leg.
+//      Pushing a sleeve OUT of the limb it encircles is geometrically meaningless; what such a link
+//      owes is CONCENTRICITY, and this id is how the engine is told which links are sleeves and how
+//      wide. 0 = this link is not a sleeve, and 0 is the default of every chain that shipped before
+//      this cycle, so adding the key moves nothing that does not declare it.)
+static constexpr int kPhysNumChainParams = 29;
 // level param ids (pc_physics_level_param_mi):
 //   0 substeps 1 iters 2 collide 3 classmask 4 fixedhz  -- ALSO returned in milli.
 static constexpr int kPhysNumLevelParams = 5;
@@ -1035,6 +1047,11 @@ struct PhysChain {
                                        // excitation exactly (lag behind the moving target and
                                        // nothing else), so adding this key moves no chain that
                                        // does not ask for it.
+                                       0.f,
+                                       // 28 shell — sleeve inner radius in units. 0 = "this link
+                                       // is not a sleeve", which is what every chain written
+                                       // before cycle 8 says by omission, so the concentricity
+                                       // constraint can only ever engage where the data asks.
                                        0.f};
   std::vector<std::string> joints;   // ordered root -> tip
   std::vector<float> link_radius;    // radii= : per-LINK collision radius, mesh-derived
@@ -1512,6 +1529,11 @@ static int pc_physics_parse_file() {
           ch.params[26] = phys_to_float(v);
         } else if (k == "couple") {
           ch.params[27] = phys_to_float(v);
+        } else if (k == "shell") {
+          // Inner radius of the sleeve this link wraps around a limb, in units. Written by the
+          // generator only for links measured to be closed shells around a FOREIGN volume; a chain
+          // that is not a sleeve carries no `shell=` at all, not `shell=0`.
+          ch.params[28] = phys_to_float(v);
         } else if (!warned_unknown) {
           warned_unknown = true;
           lg::warn("[hd-phys] unknown key '{}' in physics_chains.txt (skipped)", k);
