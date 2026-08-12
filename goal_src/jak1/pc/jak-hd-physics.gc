@@ -301,9 +301,35 @@
 ;; le chiffre deviendrait aveugle a ce que la decision laisse passer — c'est le piege du « zero
 ;; vert pendant que l'owner voit le defaut », et il n'est pas question de le reconstruire ici.
 (define *phys-lwin* (new 'global 'array 'int32 PHYS-SCL))   ;; volume decideur du lien, -1 = aucun
-;; CONTROLE POSITIF : 1 desarme la priorite (tous les volumes poussent, comportement d'avant), donc
-;; reinjecte le defaut. `retreat` et les inversions doivent alors REMONTER.
-(define *phys-prio-off* 0)
+;; ------------------------------------------------------------------------------------------------
+;; ELLE EST DESARMEE PAR DEFAUT, ET C'EST LA MESURE QUI L'A REJETEE — PAS UNE PRUDENCE.
+;;
+;; Course complete du 2026-08-12, la priorite pour SEULE variable armee, comparee a la course de
+;; reference. Les trois chiffres qui la condamnent :
+;;
+;;   * PENETRATION. `meshpen` passe de 0.0000 a POSITIF sur TREIZE chaines : rbang 0.0589 m,
+;;     goggles 0.0297, lbang 0.0261, chestR 0.0195, topstrapR 0.0092, rmidhair 0.0089,
+;;     backhair 0.0081, botstrapR 0.0065... Ignorer un volume, c'est le laisser traverser.
+;;     Regle 6, qui ne se negocie pas : « rien ne traverse le mesh de son personnage, quelle qu'en
+;;     soit la raison — une resolution pire que le clip est pire que rien. »
+;;   * ALLONGEMENT D'OS. `ROOM-STRETCH` passe de 0.0272 a 0.4746 : 47 % sur `lbang`, quinze fois
+;;     le plafond de 3 %. Un os ne s'allonge pas.
+;;   * ET ELLE RATE SA PROPRE CIBLE. Elle a ete ecrite pour desepingler `kneeflapR` (defaut
+;;     `knee-tabs`) : son `retreat` passe de 15913 a 21229 frames sur 17893. Elle EMPIRE le defaut
+;;     qu'elle devait corriger.
+;;
+;; Pourquoi, et c'est instructif : ecarter un volume ne resout pas le conflit, il le deplace. Le
+;; lien sort du volume prioritaire, entre dans celui qu'on a ignore, et le recul — a qui l'on a
+;; retire le meme volume — n'a plus de quoi l'en sortir. `ROOM-VOLPRIO` chiffre l'ampleur de ce
+;; qu'on ecartait : 346 055 paires sur 18 chaines (goggles 99 758, chestR 85 301, kneeflapR 45 138).
+;;
+;; CE QUE LA MESURE GARDE, ET C'EST LE VRAI ACQUIS : `ROOM-VOLPRIO` est le premier chiffre qui dise
+;; OU les volumes se contredisent, par chaine. `ROOM-INVERSIONS residual` etait un scalaire global
+;; qu'aucune chaine ne portait. Le code reste, desarme, avec son compteur : le conflit est
+;; MESURE sans etre ARBITRE, en attendant un arbitrage qui ne fasse pas traverser — la piste
+;; mesuree est la frontiere de l'UNION des volumes, pas le choix de l'un d'entre eux.
+;; Desarme, `*phys-lwin*` reste a -1 et le comportement est celui d'avant AU BIT PRES.
+(define *phys-prio-off* 1)
 (define *phys-prio-n* 0)      ;; paires (lien, volume) ignorees par la priorite, sur la fenetre
 (define *phys-prio-multi* 0)  ;; liens contraints par plus d'un volume dans la meme frame
 
@@ -395,6 +421,32 @@
 ;; NATURE : un angle (une forme), pas une amplitude. REPERE : celui du PARENT, par construction.
 ;; LECTURE QUAND LE DEFAUT EST ABSENT : une suite croissante, racine a 0 (rootlock).
 (define *phys-la* (new 'global 'array 'float PHYS-SCL))
+;; ------------------------------------------------------------------------------------------------
+;; LE GRADIENT, ETAGE PAR ETAGE DU SOLVEUR — defaut `hair-gradient`, PRIORITE 1 du superviseur.
+;;
+;; « Faut pas que le milieu des petites meches bouge plus que les pointes, c'est juste logique »
+;; (owner) ; SPEC 2 : la suite doit CROITRE de la racine vers la pointe. Elle DECROIT, et de
+;; beaucoup : `lbang` link1 = 50.8 a 86.9 deg contre link2 = 19.8 a 58.3 ; `rbang` 73.4 contre 26.9.
+;; Le milieu devie 1,7 a 2,7 fois plus que la pointe, sur les cinq pilotages, dans le build livre.
+;;
+;; CE QUE `ROOM-GRADIENT` NE PEUT PAS DIRE, ET C'EST POURQUOI TROIS PASSES N'ONT PAS AVANCE : il
+;; publie l'angle TEL QU'ECRIT, a la fin de la frame. Or la frame comporte trois etages qui peuvent
+;; chacun aplatir la pointe — l'integration, la boucle de contraintes (longueur x8, collision x8,
+;; attenuation d'angle) et la finition (longueur + collision + recul, x3). Un seul chiffre en sortie
+;; ne peut pas designer lequel. On mesure donc le MEME angle aux trois etages :
+;;   stage 0 : juste apres l'integration, avant toute contrainte
+;;   stage 1 : apres la boucle de contraintes et l'attenuation d'angle
+;;   final   : tel qu'ecrit (`*phys-la*`), ce que l'oeil de l'owner voit
+;; L'etage ou le rapport link1/link2 bascule EST la cause. Aucune hypothese n'est privilegiee : si
+;; le rapport est deja inverse au stage 0, c'est l'integration ; s'il s'inverse au stage 1, c'est la
+;; contrainte de longueur ou l'attenuation ; s'il s'inverse a la fin, c'est le recul.
+;; NATURE : un angle en degres. REPERE : monde, les deux directions partant de la MEME attache — la
+;; simulee pour la direction courante, l'animee pour la direction du modele, exactement comme
+;; `*phys-la*`, sinon les etages ne seraient pas comparables entre eux.
+;; LECTURE QUAND LE DEFAUT EST ABSENT : une suite CROISSANTE avec l'index du maillon, aux trois
+;; etages.
+(define *phys-la0* (new 'global 'array 'float PHYS-SCL))
+(define *phys-la1* (new 'global 'array 'float PHYS-SCL))
 
 (define *phys-tx*  (new 'global 'array 'float PHYS-SC))   ;; ecart de pointe, frame precedente
 (define *phys-ty*  (new 'global 'array 'float PHYS-SC))
@@ -1307,6 +1359,45 @@
 ;; chaines. La finition qui suit (collision puis recul) garde donc le dernier mot sur « rien ne
 ;; traverse », et le passage de longueur qu'elle contient le dernier mot sur la longueur.
 ;; ------------------------------------------------------------------------------------------------
+(defun phys-cap-ang! ((skel skeleton) (sc int) (n int) (rlk int) (an int) (nbone int) (stage int))
+  "RELEVE L'ANGLE DE CHAQUE MAILLON A UN ETAGE DU SOLVEUR (voir la note de `*phys-la0*`).
+   Rigoureusement le meme calcul que la mesure de fin de frame : direction courante prise depuis
+   l'attache SIMULEE, direction du modele prise depuis l'attache ANIMEE. Deux etages mesures
+   autrement ne seraient pas comparables, et c'est leur COMPARAISON qui designe le coupable."
+  (dotimes (l n)
+    (when (>= l rlk)
+      (let* ((scl (+ (* sc PHYS-LINKS) l))
+             (kk  (-> *phys-joint* scl))
+             (kp  (if (> l 0) (-> *phys-joint* (- scl 1)) an)))
+        (when (and (>= kk 0) (>= kp 0) (< (+ kk 1) nbone) (< (+ kp 1) nbone))
+          (let* ((bx (if (> l 0) (-> *phys-px* (- scl 1)) (-> skel bones (+ kp 1) transform vector 3 x)))
+                 (by (if (> l 0) (-> *phys-py* (- scl 1)) (-> skel bones (+ kp 1) transform vector 3 y)))
+                 (bz (if (> l 0) (-> *phys-pz* (- scl 1)) (-> skel bones (+ kp 1) transform vector 3 z)))
+                 (mx (- (-> skel bones (+ kk 1) transform vector 3 x)
+                        (-> skel bones (+ kp 1) transform vector 3 x)))
+                 (my (- (-> skel bones (+ kk 1) transform vector 3 y)
+                        (-> skel bones (+ kp 1) transform vector 3 y)))
+                 (mz (- (-> skel bones (+ kk 1) transform vector 3 z)
+                        (-> skel bones (+ kp 1) transform vector 3 z)))
+                 (ux (- (-> *phys-px* scl) bx))
+                 (uy (- (-> *phys-py* scl) by))
+                 (uz (- (-> *phys-pz* scl) bz))
+                 (m2 (+ (* mx mx) (+ (* my my) (* mz mz))))
+                 (u2 (+ (* ux ux) (+ (* uy uy) (* uz uz))))
+                 (dot (+ (* ux mx) (+ (* uy my) (* uz mz)))))
+            (when (and (> m2 0.0001) (> u2 0.0001))
+              (let* ((cx (- (* uy mz) (* uz my)))
+                     (cy (- (* uz mx) (* ux mz)))
+                     (cz (- (* ux my) (* uy mx)))
+                     (sn (sqrtf (+ (* cx cx) (+ (* cy cy) (* cz cz)))))
+                     (ang (* 0.0054931641 (atan sn dot))))
+                (cond
+                  ((zero? stage)
+                   (when (> ang (-> *phys-la0* scl)) (set! (-> *phys-la0* scl) ang)))
+                  (else
+                   (when (> ang (-> *phys-la1* scl)) (set! (-> *phys-la1* scl) ang)))))))))))
+  (none))
+
 (defun phys-bend-chain ((skel skeleton) (sc int) (n int) (rlk int) (an int) (nbone int))
   (let ((amax (-> *phys-maxang* sc)))
     (when (> amax 0.0)
@@ -2731,6 +2822,9 @@
                     ;; ---- 2. LES CONTRAINTES. Gauss-Seidel : longueur puis collision, puis des
                     ;; ---- balayages de collision seuls pour finir — la collision est la contrainte
                     ;; ---- dure de la SPEC 3, c'est donc elle qui doit etre exacte a la fin.
+                    ;; ETAGE 0 du gradient : l'angle tel que L'INTEGRATION SEULE le produit, avant
+                    ;; qu'aucune contrainte n'ait touche le maillon. Voir la note de `*phys-la0*`.
+                    (phys-cap-ang! skel sc n rlk an nbone 0)
                     (dotimes (it 8)
                       (phys-length-chain skel sc n rlk an nbone)
                       (phys-collide-chain skel sc n rlk nbone nco PHYS-COL-MARGIN 3))
@@ -2739,6 +2833,11 @@
                     ;; la sequence doit toujours se terminer sur (collision, recul) pour que « rien
                     ;; ne traverse » soit vrai a la derniere operation de la frame.
                     (phys-bend-chain skel sc n rlk an nbone)
+                    ;; ETAGE 1 : apres la boucle de contraintes ET l'attenuation d'angle, avant la
+                    ;; finition. L'ecart entre l'etage 0 et celui-ci est ce que longueur, collision
+                    ;; et attenuation retirent ; l'ecart entre celui-ci et la valeur ecrite est ce
+                    ;; que le RECUL retire.
+                    (phys-cap-ang! skel sc n rlk an nbone 1)
                     ;; FINITION, trois tours de (collision + recul), puis UN DERNIER passage de
                     ;; longueur : c'est lui qui a le dernier mot sur le cote et sur la longueur, et
                     ;; c'est la forme du resultat que l'owner voit. Les trois se tiennent :
@@ -3299,7 +3398,9 @@
           (set! (-> *phys-lb* (+ lb (+ (* 2 i) 1))) -1000000000.0)))
       ;; la deviation angulaire propre de CHAQUE maillon part de zero : c'est un maximum, et un
       ;; maillon qui suit rigidement son parent doit pouvoir lire exactement zero.
-      (set! (-> *phys-la* (+ (* sc PHYS-LINKS) l)) 0.0))
+      (set! (-> *phys-la* (+ (* sc PHYS-LINKS) l)) 0.0)
+      (set! (-> *phys-la0* (+ (* sc PHYS-LINKS) l)) 0.0)
+      (set! (-> *phys-la1* (+ (* sc PHYS-LINKS) l)) 0.0))
     (set! (-> *phys-thas* sc) 0))
   (none))
 
@@ -3373,6 +3474,16 @@
           (< (phys-stat slot chain 0) 0.5))
     0.0
     (-> *phys-la* (+ (* (+ (* slot PHYS-CHAINS) chain) PHYS-LINKS) link))))
+
+(defun phys-link-ang-stage ((slot int) (chain int) (link int) (stage int))
+  "Le meme angle qu'au-dessus, releve a un ETAGE du solveur : 0 = apres l'integration seule,
+   1 = apres contraintes + attenuation. La valeur finale reste `phys-link-ang`."
+  (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS)
+          (< link 0) (>= link PHYS-LINKS)
+          (< (phys-stat slot chain 0) 0.5))
+    0.0
+    (let ((i (+ (* (+ (* slot PHYS-CHAINS) chain) PHYS-LINKS) link)))
+      (if (zero? stage) (-> *phys-la0* i) (-> *phys-la1* i)))))
 
 (defun phys-slot-chains ((slot int))
   (if (and (>= slot 0) (< slot PHYS-SLOTS)) (-> *phys-slot-nch* slot) 0))

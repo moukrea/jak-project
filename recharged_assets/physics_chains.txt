@@ -138,10 +138,12 @@ j lKneeFlap
 chain kneeflapR class=secondary stiffness=2.00 damping=0.30 gravity=0.30 radius=244 mass=0.60 hang=0.90 family=B couple=1.00 radii=244
 j rKneeFlap
 # pantflapL [B] LpantFlap verts=49 wsum=5.37 r=429
-chain pantflapL class=secondary stiffness=1.60 damping=0.34 gravity=0.40 radius=429 mass=0.60 hang=0.95 family=B couple=1.00 radii=429   # radii notes (fitted below w>0.5, or inherited): LpantFlap@w>0.05(49v)
+#   COQUE: LpantFlap entoure le volume ETRANGER Lankle->Lknee — 10/12 secteurs, gap 60 deg (seuils 10/12 et 60 deg, 49v @w>0.05) : |c-axe|=95 u + rr(c)=358 u -> shell=452 u, le rayon INTERNE du fourreau. Le rayon du lien est celui du fourreau, pas celui d'une sphere de poussee : sans cette cle le moteur lit une penetration du membre que le lien ENTOURE et ejecte le tissu dedans.
+chain pantflapL class=secondary stiffness=1.60 damping=0.34 gravity=0.40 radius=429 mass=0.60 hang=0.95 family=B couple=1.00 shell=452 radii=429   # radii notes (fitted below w>0.5, or inherited): LpantFlap@w>0.05(49v)
 j LpantFlap
 # pantflapR [B] RpantFlap verts=41 wsum=4.63 r=443
-chain pantflapR class=secondary stiffness=1.60 damping=0.34 gravity=0.40 radius=443 mass=0.60 hang=0.95 family=B couple=1.00 radii=443   # radii notes (fitted below w>0.5, or inherited): RpantFlap@w>0.05(41v)
+#   COQUE: RpantFlap entoure le volume ETRANGER Rankle->Rknee — 10/12 secteurs, gap 60 deg (seuils 10/12 et 60 deg, 41v @w>0.05) : |c-axe|=96 u + rr(c)=352 u -> shell=448 u, le rayon INTERNE du fourreau. Le rayon du lien est celui du fourreau, pas celui d'une sphere de poussee : sans cette cle le moteur lit une penetration du membre que le lien ENTOURE et ejecte le tissu dedans.
+chain pantflapR class=secondary stiffness=1.60 damping=0.34 gravity=0.40 radius=443 mass=0.60 hang=0.95 family=B couple=1.00 shell=448 radii=443   # radii notes (fitted below w>0.5, or inherited): RpantFlap@w>0.05(41v)
 j RpantFlap
 # toestrapL [B] LtoeStrap verts=20 wsum=10.40 r=188
 chain toestrapL class=secondary stiffness=2.60 damping=0.26 gravity=0.25 radius=188 mass=0.50 hang=0.70 family=B couple=1.00 radii=188

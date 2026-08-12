@@ -540,10 +540,16 @@
     ;; C'est `ang` que SPEC 2 exige croissante ; `amp` reste publiee pour que l'ecart entre les deux
     ;; soit lisible au lieu d'etre affirme.
     (dotimes (l (phys-chain-links (-> self slot) c))
-      (format 0 "PHYSGRAD c=~D a=~D d=~D l=~D amp=~f ang=~f~%"
+      ;; `a0`/`a1` : le MEME angle releve aux etages du solveur (apres integration seule, puis
+      ;; apres contraintes + attenuation). `ang` reste la valeur ECRITE. C'est la comparaison des
+      ;; trois qui designe l'etage qui aplatit la pointe -- defaut `hair-gradient`, PRIORITE 1 :
+      ;; un seul chiffre en sortie ne pouvait pas le dire, et trois passes ont bute dessus.
+      (format 0 "PHYSGRAD c=~D a=~D d=~D l=~D amp=~f ang=~f a0=~f a1=~f~%"
               c (-> self ai) (-> self drive) l
               (phys-link-amp (-> self slot) c l)
-              (phys-link-ang (-> self slot) c l)))
+              (phys-link-ang (-> self slot) c l)
+              (phys-link-ang-stage (-> self slot) c l 0)
+              (phys-link-ang-stage (-> self slot) c l 1)))
     ;; L'ALLONGEMENT ET LE STIMULUS GRAVITAIRE DE CETTE FENETRE. Par fenetre, donc attribuables a un
     ;; PILOTAGE : « ils s'allongent sur les mouvements brusques » ne se verifie pas sur un total de
     ;; course. `gn` = |g_effective|/|g| vu par l'ancre, `tf` = la part TANGENTIELLE de cette gravite,
