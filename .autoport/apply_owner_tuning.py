@@ -29,6 +29,15 @@ def main():
     s = CHAINS.read_text(errors="ignore")
     nchain = ncol = nadd = 0
     missing = []
+    skipped = []
+
+    # les joints que le rig HD porte REELLEMENT : une directive qui en nomme un autre n'a pas de
+    # cible, et ça se dit à voix haute (voir `+chain` plus bas).
+    rig_joints = set()
+    rig_path = CHAINS.parent / "hd_anim" / "keira-hd-k2e.json"
+    if rig_path.exists():
+        import json
+        rig_joints = {r["hd_name"] for r in json.load(open(rig_path))["rows"]}
 
     for raw in TUNING.read_text(errors="ignore").split("\n"):
         ln = raw.strip()
@@ -48,6 +57,21 @@ def main():
             body = ln[len("+chain "):]
             name = body.split()[0]
             if re.search(r"^chain %s\b" % re.escape(name), s, re.M):
+                continue
+            # UNE DIRECTIVE SANS CIBLE EST SIGNALÉE, JAMAIS AVALÉE EN SILENCE (DIRECTIVES).
+            # Une chaîne dont les joints n'existent pas dans le rig produit une chaîne à ZÉRO
+            # lien : le générateur de tableau plante dessus, et si elle passait, elle serait
+            # déclarée-et-inerte — exactement ce que la gate MOVE refuse. Mesuré le 2026-08-12 :
+            # `LfootFlaps`/`RfootFlaps` sont ABSENTS du rig HD que Keira utilise
+            # (recharged_assets/hd_anim/keira-hd-k2e.json, 95 joints ; il porte `lKneeFlap`,
+            # `rKneeFlap`, `LpantFlap`, `RpantFlap` et rien d'autre en -Flap).
+            want = []
+            mj = re.search(r"\bjoints=(\S+)", body)
+            if mj:
+                want = mj.group(1).split(",")
+            absent = [j for j in want if j not in rig_joints]
+            if absent:
+                skipped.append((name, absent))
                 continue
             last = None
             for last in re.finditer(r"^chain .*$", s, re.M):
@@ -124,9 +148,25 @@ def main():
             s = s[:m.start()] + line + s[m.end():]
             nchain += 1
 
+    if skipped:
+        # La trace reste DANS le fichier livré : c'est le seul endroit que personne ne peut
+        # oublier de lire, et ça empêche qu'une directive disparaisse entre deux régénérations.
+        note = ["", "# ---- DIRECTIVE OWNER SANS CIBLE DANS LE RIG — NON APPLIQUÉE, ET DITE ICI."]
+        for name, absent in skipped:
+            note.append("#   +chain %s : joint(s) %s absent(s) de recharged_assets/hd_anim/"
+                        "keira-hd-k2e.json" % (name, ",".join(absent)))
+        note.append("#   Le rig HD que Keira utilise porte 95 joints ; les seuls en -Flap sont")
+        note.append("#   lKneeFlap, rKneeFlap, LpantFlap, RpantFlap. Une chaîne posée sur un joint")
+        note.append("#   inexistant aurait ZÉRO lien : déclarée et inerte, ce que la gate MOVE")
+        note.append("#   refuse à juste titre. La directive doit être re-visée sur un joint réel.")
+        s = s + "\n".join(note) + "\n"
+
     CHAINS.write_text(s)
     print("[tuning] appliqué : %d chaîne(s), %d collider(s) modifié(s), %d ajouté(s)"
           % (nchain, ncol, nadd))
+    for name, absent in skipped:
+        print("[tuning] ATTENTION — +chain %s NON APPLIQUÉE : joint(s) %s absent(s) du rig HD"
+              % (name, ",".join(absent)))
     if missing:
         # Ne pas échouer en silence : une cible absente veut dire que le rig ou la génération a
         # changé, et que le réglage de l'owner ne s'applique plus à rien.

@@ -286,8 +286,32 @@ def influence(geo, j, thr):
 
 
 def to_bone_local(ibm, pts_game):
-    """world bind position (GAME units) -> the bone's own bind frame (GAME units)."""
-    return pts_game @ ibm[:3, :3].T + ibm[:3, 3] * UNITS
+    """world bind position (GAME units) -> the bone's own bind frame (GAME units).
+
+    L'ECHELLE DE L'OS EST RETIREE, et ce n'est pas un raffinement : c'est la cause racine de
+    `straps-elastic`.
+
+    Quatre joints du rig de Keira — `lTopStrap2`, `rTopStrap2`, `lBotStrap2`, `rBotStrap2`, et
+    EXACTEMENT les quatre bretelles dont l'owner dit qu'elles clipent — portent une echelle de
+    9.6820 dans leur matrice inverse-bind (det = 907.599 ; les 91 autres joints sont a det = 1.000).
+    Sans normalisation, toute distance mesuree dans ce repere ressort multipliee par 9.68. Mesure
+    du 2026-08-12, `lTopStrap2` :
+        etendue reelle de sa geometrie, en MONDE bind : 150 u (p95 autour de son centroide)
+        ce que le generateur en tirait                : 1454 u
+        rayon de lien livre dans physics_chains.txt   : 1518 u — 37 cm pour une bretelle,
+                                                        plus que la longueur de son propre os
+    Et ce rayon est le rayon de COLLISION du lien (`*phys-lcr*`, jak-hd-physics.gc:647) : une
+    bretelle qui presente une sphere de 37 cm ENGLOBE le torse, `phys-vol-floor` la declare « sans
+    surface devant elle », et plus aucun volume du buste ne la repousse jamais. La bretelle
+    traverse donc le crop top et son elastique, et `meshpen` lit zero — un zero vrai, mesure entre
+    deux volumes dont l'un est dix fois trop gros.
+
+    La rotation est renormalisee ligne a ligne, la translation divisee par le meme facteur. Pour un
+    joint sans echelle la sortie est identique au bit pres, donc les 91 autres ne bougent pas."""
+    R = ibm[:3, :3]
+    s = np.linalg.norm(R, axis=1)
+    s = np.where(s < 1e-12, 1.0, s)
+    return pts_game @ (R / s[:, None]).T + (ibm[:3, 3] * UNITS) / s
 
 
 def iq_perp_radius(geo, j, a_world, b_world, thr):
@@ -733,6 +757,25 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
             if jn not in capped:
                 spheres.append((jn, pname))
 
+    # ---------------------------------------------------------------------------------------------
+    # POINT RETIRE, ET LE CHIFFRE QUI L'A RETIRE (2026-08-12).
+    #
+    # J'ai fait declarer a chaque joint de chaine sa propre sphere de collision, pour que
+    # `*phys-lcr*` cesse de retomber sur le PLAFOND D'EXCURSION du lien (jak-hd-physics.gc:647).
+    # Course de salle complete : `backhair` est tombee de 0.3062 a 0.1745 de mouvement de pointe,
+    # soit 43 % de perte, sous le plancher que la gate FLOOR garde a 60 %. Cause mesuree : la
+    # sphere de couverture de `backHair1` (624 u) est presque le double du rayon de lien que le
+    # mesh lui donne (358 u), donc le lien presentait un volume deux fois trop gros a la tete et
+    # au cou et se faisait repousser en permanence.
+    #
+    # DIRECTIVES, regle de conservation : « si le plancher casse, le point est retire — pas
+    # adouci, retire — et repris autrement ». Il est retire.
+    #
+    # Et il n'etait pas necessaire : le rayon de collision des bretelles etait faux pour une
+    # raison PLUS SIMPLE et corrigee a la source (voir `to_bone_local`) — leurs quatre joints
+    # portent une echelle de 9.68 dans leur matrice inverse-bind, qui gonflait toute distance
+    # mesuree dans leur repere. `lTopStrap2` passe de 1518 u a 157 u sans qu'aucun volume
+    # supplementaire soit declare.
     # UN JOINT, UNE EPAISSEUR. `link_radius` porte, par nom de joint, l'epaisseur deja mesuree pour
     # ce joint comme LIEN DE CHAINE : perpendiculairement a SON PROPRE os (joint -> son enfant),
     # c.-a-d. a l'axe le long duquel sa geometrie est allongee.
@@ -757,8 +800,34 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
     for jn, pn, pname in capsules:
         j, p = idx_of[jn], idx_of[pn]
         a, b = geo['P'][j], geo['P'][p]
-        r1, t1, n1, s1, w1 = fit_cover_radius(geo, j, a, b)
-        r2, t2, n2, s2, w2 = fit_cover_radius(geo, p, b, a)
+        # POURQUOI CE N'EST PAS `fit_cover_radius` — MESURE DU 2026-08-12, ET C'EST LA REPONSE
+        # A LA SUGGESTION DE L'OWNER SUR LES COLLIDERS DERIVES DU MESH.
+        #
+        # J'ai livre les capsules en COUVERTURE (p95 restreint au segment) et mesure les deux
+        # bouts de la chaine causale, pas seulement celui qui m'arrangeait :
+        #   ce que ca GAGNE   geometrie hors de l'union des volumes 54.9 % -> 40.4 %
+        #                     torse 18 % -> 2 %, mollets 32 % -> 1 %, hanches 10 % -> 0 %
+        #   ce que ca COUTE   le joint `lTopStrap2` passe de 64 u DEDANS a 452 u dedans, pour un
+        #                     rayon de lien de 157 u. Or `phys-vol-floor` declare une paire LIBRE
+        #                     des que la profondeur de repos atteint 2 x le rayon du lien (314 u) :
+        #                     la bretelle n'est alors plus contrainte par le torse DU TOUT, et
+        #                     `phys-link-pen` sort sans rien mesurer. Sa penetration retombe a
+        #                     0.0000 sans qu'aucun defaut n'ait ete corrige — un faux vert.
+        #
+        # Les deux reglages du MEME rayon echouent donc pour deux raisons opposees : trop petit,
+        # la peau sort du volume et la bretelle traverse ce qui depasse ; trop grand, la bretelle
+        # est declaree enterree et traverse tout. Il n'existe aucune valeur intermediaire qui
+        # satisfasse les deux, parce qu'un TORSE N'EST PAS UN CYLINDRE : une capsule qui couvre le
+        # buste de face deborde forcement de plusieurs centimetres sur les cotes, la ou la bretelle
+        # repose. C'est, chiffree, la limite que l'owner avait devinee (« pourquoi deriver du rig
+        # et pas du mesh ? »), et ca ne se corrige pas dans le choix d'un percentile.
+        #
+        # La couverture reste donc MESUREE (`fit_cover_radius` ci-dessus, `probe_capsule_cover.py`)
+        # et n'est PAS livree : elle echangeait un defaut visible contre un defaut invisible.
+        r1, t1, n1 = fit_radius(geo, j, a, b)
+        r2, t2, n2 = fit_radius(geo, p, b, a)
+        s1 = s2 = 0
+        w1 = w2 = None
         if r1 is None or n1 == 0 or r2 is None or n2 == 0:
             log(f"DROPPED collider capsule {jn}->{pn}: fitted from 0 vertices "
                 f"({jn}={n1}v {pn}={n2}v)")
