@@ -120,6 +120,28 @@ OPEN hair-gradient   PRIORITE 1: le gradient est INVERSE -- le milieu bouge 1.7x
 #                    comme les racines. Mesure relative au parent, confirmee par l oeil de l owner.
 OPEN hair-big-angles les grosses meches petent un plomb sur les gros mouvements, geometrie visible, glitchy
 OPEN knee-tabs       les LANGUETTES au niveau des genoux ne bougent pas (les sangles, elles, bougent)
+#  --- 20e PASSE (2026-08-12) : LA CAUSE EST TROUVEE, MESUREE, ET CORRIGEE COTE DONNEES. ---
+#  LA COURBE DE REPONSE (DECISION 3, jamais depouillee) : sur les 22 chaines, UNE SEULE est non
+#  monotone -- `kneeflapL`, qui CHUTE d'un facteur 26 (x0.04) entre les niveaux d'excitation 1 et 2,
+#  c'est-a-dire dans la plage ordinaire. Et les deux languettes sont les DEUX chaines les moins
+#  reactives aux faibles excitations : 0.36 et 0.21 au niveau 0 contre 28 a 158 pour les vingt
+#  autres, soit CENT FOIS MOINS. « Elles ne bougent pas » etait donc exact, et chiffre.
+#  CAUSE : sans ligne `collider <joint>`, le moteur pose la sphere du lien SUR SON JOINT. Le joint
+#  de la languette est sur l'axe de la jambe, sa geometrie est a 380 u (centroide) / 716 u (p50) de
+#  la : le volume du lien etait donc DANS la cuisse, en contact permanent avec `Rknee->Rthigh` et
+#  `Rankle->Rknee` qui se recouvrent. Sortir de l'une enfonce dans l'autre, la projection echoue, le
+#  RECUL prend la main -- 15 913 fois sur 17 893 frames a droite (89 %). Les languettes sont les
+#  SEULES chaines de jambe ou le recul se declenche ; les trois autres paires percutent le mur
+#  d'excursion bien plus souvent et ont des courbes lisses. Ce n'etait donc pas le mur.
+#  CORRECTIF (donnees seules, aucun build) : le volume d'un lien est recentre sur le centroide
+#  MESURE de sa geometrie quand ce centroide est plus loin du joint que le rayon du lien. Taille
+#  inchangee. Cheveux exclus (leur essai a ete fait et retire deux fois).
+#      kneeflapL  0.36 20.52 0.78 13.29 33.15 234.35  ->  37.52 88.77 167.81 261.00 361.14 396.42
+#      kneeflapR  0.21 17.06 64.75 92.55 103.15 178.02 ->  31.38 78.88 160.97 315.41 437.18 410.41
+#      chaines non monotones : 1 -> 0 · reponse au plus faible stimulus x104 (G) et x149 (D)
+#      amplitude de pointe kneeflapR +40.4 % · penetration 0 · STRETCH et IDLE inchanges
+#  COUT DECLARE : botstrapR -16.9 %, chestR -9.0 %, topstrapL -5.8 %, anklestraps -5 %.
+#  A CONFIRMER PAR L'OEIL DE L'OWNER — c'est lui qui ferme la ligne, pas cette courbe.
 #  CAUSE PRECEDEMMENT ECRITE ICI, ET ELLE EST FAUSSE : « les os LfootFlaps/RfootFlaps n existent pas
 #  dans le rig HD, reprise d ASSET requise ». LfootFlaps/RfootFlaps sont bien absents du rig HD, mais
 #  ils ne servent a rien : ce ne sont pas eux qui portent les languettes.

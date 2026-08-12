@@ -291,6 +291,64 @@ son A/B partiel avait deja mesure `kneeflapR x1.40` a son credit. C'est le proch
 et il est designe par deux mesures independantes.
 
 ================================================================================
+4ter. JAMBE G — LE RECENTRAGE DES VOLUMES DE LIEN, ET IL TIENT
+================================================================================
+
+L'essai nomme par le cycle precedent et jamais fait (« une course avec le recentrage
+applique aux SEULES chaines non-cheveux ») est fait. Changement de DONNEES pur —
+`physics_chains.txt` est relu au runtime, donc ZERO compilation : 15 volumes de lien
+recentres sur le centroide MESURE de la geometrie que leur joint porte, la TAILLE
+inchangee (le rayon de lien deja livre, resynchronise par `apply_owner_tuning.py`).
+Declencheur mesure, pas choisi : un lien dont le centroide est plus loin de son joint
+que son propre rayon porte un volume qui ne contient meme pas le centre de ce qu'il
+represente. Les cheveux sont hors perimetre — leur essai a ete fait et retire deux fois,
+avec ses nombres.
+
+CE QUE CA CORRIGE, ET C'EST LE DEFAUT VISE :
+
+    courbe de reponse, 6 niveaux d'excitation (1.5 / 3.5 / 8 / 18 / 42 / 96)
+      kneeflapL  avant   0.36   20.52    0.78   13.29   33.15  234.35   <- trou x0.04
+                 apres  37.52   88.77  167.81  261.00  361.14  396.42
+      kneeflapR  avant   0.21   17.06   64.75   92.55  103.15  178.02
+                 apres  31.38   78.88  160.97  315.41  437.18  410.41
+
+    * la SEULE courbe non monotone des 22 chaines a disparu : 1 -> 0 ;
+    * a la plus faible excitation, x104 a gauche et x149 a droite ;
+    * les deux languettes cessent d'etre CENT FOIS moins reactives que les vingt autres
+      chaines et rejoignent leur bande (28 a 158 au niveau 0) ;
+    * amplitude de pointe `kneeflapR` 0.0872 -> 0.1224 (+40.4 %), soit exactement le
+      x1.40 que l'A/B partiel du cycle precedent portait deja a son credit ;
+    * `MOVE` : la chaine la moins mobile du jeu passe de 0.087 a 0.120.
+
+CE QUE CA COUTE, ET JE LE DECLARE AVANT QU'ON LE TROUVE :
+
+      botstrapR   -16.9 %      chestR    -9.0 %      topstrapL  -5.8 %
+      anklestrapL -5.1 %       anklestrapR -4.8 %    kneeflapL  -1.4 %
+      goggles     +4.5 %       les 12 autres a +0.0 % (les cinq chaines de cheveux
+                               sont inchangees AU BIT PRES : l'exclusion tient)
+
+  `botstrapR` est le chiffre a surveiller : l'owner a dit « ses bretelles c'est vraiment
+  pas mal du tout ». La cause probable est le SECOND effet, inseparable du mecanisme et
+  declare dans le generateur : le moteur lit la meme ligne comme le volume DU LIEN et
+  comme un OBSTACLE pour les autres chaines, donc une bretelle recentree devient un
+  volume que la poitrine voit, et reciproquement (`chestR` -9.0 %). Les separer demande
+  une modification du moteur, pas des donnees.
+
+CE QUI NE BOUGE PAS : penetration 0.0000 sur les 3410 mesures, `ROOM-STRETCH` 0.0210
+(plafond 3 %), `ROOM-IDLE` 0.0413, `rootdev` inchange partout, aucune chaine sous son
+plancher, FLOOR-WEAK vert sur les 22 (la reponse aux PETITS mouvements, la ou l'owner
+regarde, est preservee partout). Le controle de cote monte de 620 a 1620 : les liens
+recentres portent desormais un volume, donc il y a plus a franchir quand on leve la
+contrainte — le controle est plus exigeant, pas moins.
+
+POURQUOI JE LE GARDE malgre les cinq chaines qui perdent : il transforme la seule
+chaine mesuree cent fois en dessous des autres en une chaine ordinaire, il supprime la
+seule courbe non monotone du jeu — c'est exactement ce que la DECISION 3 du superviseur
+demandait de trouver et de corriger — et il ne fait passer aucune gate verte au rouge.
+Si l'oeil de l'owner juge que la bretelle droite a perdu plus qu'il n'accepte, le point
+se retire en une regeneration.
+
+================================================================================
 5. ETAT DES 8 DEFAUTS DE L'OWNER
 ================================================================================
 
@@ -313,19 +371,45 @@ et il est designe par deux mesures independantes.
   goggles-bottom   Rien ce cycle (94 % des lunettes hors chaine, deux volumes essayes
                    et retires avec leurs nombres au cycle precedent).
   hair-big-angles  Rien ce cycle.
-  knee-tabs        LA COURBE DE REPONSE EST DEPOUILLEE (section 4bis) : une seule
-                   chaine sur 22 est non monotone, et c'est `kneeflapL` (chute x0.04
-                   entre les niveaux 1 et 2) ; les deux languettes sont cent fois moins
-                   reactives que les vingt autres aux faibles excitations. La cause
-                   mesuree est le RECUL (15 913 declenchements sur 17 893 frames a
-                   droite), et les languettes sont les seules chaines de jambe ou il se
-                   declenche. L'essai qui suit est nomme et n'a jamais ete fait.
+  knee-tabs        CAUSE TROUVEE ET CORRIGEE (sections 4bis et 4ter). Le volume du lien
+                   etait pose sur le joint, c'est-a-dire DANS la cuisse, d'ou un contact
+                   permanent entre deux capsules qui se recouvrent et un recul qui prend
+                   la main 89 % du temps a droite. Recentre sur le centroide mesure :
+                   la seule courbe non monotone des 22 disparait, la reponse au plus
+                   faible stimulus est multipliee par 104 (gauche) et 149 (droite), et
+                   l'amplitude de pointe de `kneeflapR` gagne 40 %. C'est SON OEIL qui
+                   ferme la ligne, pas cette courbe — et le cout est declare
+                   (botstrapR -16.9 %).
 
 ================================================================================
 SUPPRESSORS: 0
 ================================================================================
-Aucun suppresseur ajoute. Les deux changements de ce cycle sont (a) une fenetre de
-controle qui expose le defaut au lieu de le manquer — de la MESURE, pas de la
-physique — et (b) le REMPLACEMENT d'un mur d'excursion par un mur derive de la bonne
-grandeur, qui en retire moins qu'il n'en retirait. Aucune constante n'a ete
-introduite, aucun clamp, aucun seuil, aucune hysteresis, aucun gel.
+Aucun suppresseur ajoute. Les trois changements de ce cycle sont (a) une fenetre de
+controle qui EXPOSE le defaut au lieu de le manquer — de la MESURE, pas de la
+physique ; (b) le REMPLACEMENT d'un mur d'excursion par un mur derive de la bonne
+grandeur, qui en retire moins qu'il n'en retirait (545 ecretages durs par course en
+moins) ; (c) le RECENTRAGE de 15 volumes de lien sur le centroide mesure de leur
+geometrie, a taille inchangee — qui retire un contact permanent au lieu d'en ajouter
+un. Aucune constante n'a ete introduite, aucun clamp, aucun seuil, aucune hysteresis,
+aucun gel.
+
+================================================================================
+6. CE QUE L'OWNER DOIT REGARDER SUR CE BUILD
+================================================================================
+
+  * LES LANGUETTES DES GENOUX. C'est le changement de ce cycle qu'on voit. Elles
+    etaient cent fois moins reactives que tout le reste aux petits mouvements ; elles
+    sont revenues dans la bande commune. Bougent-elles enfin ?
+  * LES BRETELLES, ET SURTOUT LA DROITE. Elle a perdu 16,9 % d'amplitude de pointe,
+    c'est le prix mesure du point precedent, et il a dit « ses bretelles c'est vraiment
+    pas mal du tout ». Si elle a perdu plus qu'il n'accepte, le point se retire en une
+    regeneration et je le retire.
+  * LA POITRINE A DROITE : -9,0 % d'amplitude de pointe, meme cause. Sa reponse aux
+    mouvements SUBTILS — ce qu'il a juge « nickel » — est preservee (gate FLOOR-WEAK
+    verte sur les 22 chaines), mais c'est son oeil qui tranche.
+  * TOUT LE RESTE est inchange au bit pres, et c'est mesure, pas espere : les cinq
+    chaines de cheveux, la poitrine gauche, les deux pans de pantacourt, les sangles de
+    pied. Si quoi que ce soit a bouge ailleurs, c'est un defaut de ma part.
+  * LES LUNETTES EN CINEMATIQUE (`goggles-tunnel`) : la contrainte qui les retient a
+    enfin un controle positif qui tire (266 puis 557 franchissements des qu'on la
+    leve, 0 quand elle est en place). Traversent-elles encore le buste ?
