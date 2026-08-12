@@ -8,11 +8,30 @@ Contrat : .autoport/prompts/SPEC-keira-physique.md
 CE QU'IL FAUT LIRE EN PREMIER
 ================================================================================
 
-Ce cycle ferme la MOITIE STRUCTURELLE de `hair-gradient` (PRIORITE 1), avec une
-cause racine prouvee par l'algebre autant que par la mesure, et un A/B complet qui
-ne coute de mouvement a AUCUNE chaine. Il ne ferme pas le defaut : le gradient
-reste inverse sur 9 couples (chaine, pilotage) sur 10, et la moitie restante est
-d'une autre nature. Elle est nommee ici, chiffree, et non traitee.
+Ce cycle attaque `hair-gradient` (PRIORITE 1) par ses DEUX moities, chacune avec une
+cause racine demontree par l'algebre puis mesuree par un A/B complet. Trois courses
+de salle de 3410 mesures : A (avant), B (cascade), C (cascade + ressort angulaire).
+
+    rapport theta_milieu / theta_pointe, mediane sur les 10 couples
+        A 2.396   ->   B 1.809   ->   C 1.494        (1.00 = exigence de SPEC 2)
+        couples inverses     10/10  ->  9/10  ->  8/10
+
+Les DIX couples s'ameliorent a chaque etape, sans exception, et deux sont desormais
+monotones. L'owner decrivait « le milieu bouge 1,7x a 2,7x la pointe » : c'est
+aujourd'hui 1,22 a 2,42. LE DEFAUT N'EST PAS FERME, et le residu est chiffre, pas
+excuse — le systeme est sature d'un facteur 18, ce qui plafonne l'effet de toute
+correction de raideur. Le prochain levier est nomme en fin de section 1.
+
+DEUX CHOSES QUE CE CYCLE A ECARTEES APRES LES AVOIR MESUREES, et qui comptent autant
+que ce qu'il garde : un taper de masse derive du rig (il ne « marchait » qu'avec un
+appariement d'index FAUX), et la liberation de la racine des meches (elle echange le
+degrade contre une penetration permanente du crane). Les deux sont ecrites avec leurs
+nombres en section 1 pour que personne ne les retrouve comme de bonnes idees.
+
+ET UN FAIT QUI REDECOUPE LE DEFAUT : sur 22 chaines, VINGT n'ont qu'un seul maillon
+libre — une tige rigide sur une charniere, ou aucun degrade n'est REPRESENTABLE.
+Verifie sur le rig lui-meme. Pour celles-la, « idem sur le reste des cheveux » decrit
+une limite du RIG, pas du moteur.
 
 LE VALIDATEUR ECHOUE, et il doit echouer : la gate OPEN-DEFECTS liste 8 defauts
 rapportes par l'owner, et une ligne ne se retire que sur SA parole. Comme fail()
@@ -292,8 +311,10 @@ jak-hd-physics.gc, donc `(mi)` (551 cibles, 38 s) — aucun rebuild NDK/libgk, a
 
 LIVRAISON AU FIL DE L'EAU — FAITE, ET VERIFIEE COHERENTE :
 
-    TAG: aa5732-cdbc00      (a lire sur le telephone : files/.custom_pack_stamp_jak1)
-    commit aa57322692 · APK+pack bati a 15:22:41 · PUSHED b678ab11 a 15:27:22
+    TAG: 89e5a3-c15bf4      (a lire sur le telephone : files/.custom_pack_stamp_jak1)
+    commit 89e5a3f444 · APK+pack bati a 15:47:52 · PUSHED a3bced71 a 15:49:22
+    (le build precedent, TAG aa5732-cdbc00, ne portait que la cascade ; celui-ci
+     porte la cascade ET le ressort angulaire, donc les deux moities du correctif.)
 
 Le constructeur continu (auto_build_apk.sh) surveille jak-hd-physics.gc ; il a repris
 le correctif a 15:18:07, refait un jeu arm64 COHERENT puis l'APK, et
@@ -301,8 +322,8 @@ auto_push_builds.sh l'a publie sur jak-builds. Aucune condition de qualite ne re
 un build — c'est la consigne de l'owner du 2026-08-11 et je ne la reinstalle pas.
 
 LA PAIRE EST LA BONNE, ET C'EST VERIFIE PAR SON PROPRE CONTENU : le BUILD-INFO livre
-avec l'APK publie le tableau de mouvement de ce build, et il porte lbang 0.4204 et
-rbang 0.5129 — exactement les valeurs de ma jambe B. L'APK que l'owner telecharge est
+avec l'APK publie le tableau de mouvement de ce build, et il porte lbang 0.4253 et
+rbang 0.4880 — exactement les valeurs de ma jambe C. L'APK que l'owner telecharge est
 donc bien celui que j'ai mesure, pas un voisin.
 
 NOTE DE TRACABILITE, ET C'EST UN DEFAUT DE MON PROCESS : le constructeur continu a
@@ -395,11 +416,14 @@ ces deux chaines est contaminee ».
 5. ETAT DES 8 DEFAUTS DE L'OWNER
 ================================================================================
 
-  hair-gradient    MOITIE STRUCTURELLE FERMEE. La pointe a maintenant une dynamique
-                   propre (+2 % a +175 %), la reponse aux petits mouvements gagne
-                   37 % et 139 % sur les deux meches fines. Le gradient reste inverse
-                   sur 9/10 : la moitie restante est nommee, chiffree, et sa
-                   verification est en cours. PAS ferme.
+  hair-gradient    LES DEUX MOITIES ATTAQUEES ET MESUREES. Mediane du rapport
+                   milieu/pointe 2.396 -> 1.494, les 10 couples ameliores, 2 devenus
+                   monotones. Reponse aux petits mouvements +20,6 % (lbang) et
+                   +151 % (rbang) depuis le debut du cycle. PAS ferme : 8 couples
+                   restent inverses, residu de SATURATION (facteur 18), levier
+                   suivant nomme (sous-echantillonner le pas). Et sur 20 chaines
+                   sur 22 le degrade n'est pas representable du tout (rig a deux
+                   joints) : ce volet-la demande des joints injectes au prep.
   hair-big-angles  Non traite directement, mais concerne : les angles du maillon du
                    milieu (50 a 93 deg a l'etage 0) sont le meme phenomene que le
                    gradient inverse — un pli unique concentre sur un seul joint. A
