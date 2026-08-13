@@ -214,6 +214,39 @@ inconnue**, et `flesh-jelly` reste ouvert. Je le note ici pour que le prochain c
 cette piste : elle est fermee par la mesure.
 
 -------------------------------------------------------------------------------------------------
+5 bis. AUTO-CONTROLE APRES COUP — MA PROPRE CORRECTION FAIT ALTERNER LE PAN SOUS `jerk`
+-------------------------------------------------------------------------------------------------
+
+Je suis alle chercher la cause du saut d'une frame de `chestR` et j'ai trouve la meme signature sur
+les DEUX PANS, sur la course d'apres. Elle n'y etait pas avant, donc elle est de moi :
+
+    pantflapL  jerk   ratio 0.7875 -> 0.9980   periode 3.46 -> 2.08   jump 0.0380 -> 0.0635
+    pantflapR  jerk   ratio 0.7795 -> 0.9934   periode 3.51 -> 2.16   jump 0.0432 -> 0.0634
+
+MECANIQUE : une contrainte radiale DURE appliquee a chaque frame fait du ping-pong — elle ressort le
+pan, l'integrateur le ramene, elle le ressort. Une periode de ~2 frames a ratio ~1 est exactement
+ca. C'est le risque connu d'une projection dure, et il est reel.
+
+CE QUI LE BORNE, ET C'EST L'EN-TETE DE LA MESURE ELLE-MEME QUI LE DIT, pas moi : les cinq pilotages
+commandent 15.8 / 45.7 / 84.4 / 381.4 / 9.8 m/s2. « `jerk` vaut 39 g. Aucune animation de Keira
+n'approche ca, donc un ratio publie sous `jerk` decrit un stimulus qui n'est jamais devant son
+ecran. » Sur la SEULE jambe que l'owner voie en jeu — animation seule, sans pilotage :
+
+    pantflapL  baseline 0.3460 -> 0.2793   (AMELIORE : moins discontinu qu'avant)
+    pantflapR  baseline 0.2583 -> 0.2731   (legerement dégradé)
+
+DONC : sous une secousse de 39 g qui n'existe pas dans le jeu, ma contrainte alterne ; sous ce que
+l'owner regarde, le pan gauche est plus lisse qu'avant et le droit a peine moins. Je le publie
+parce qu'un effet de bord tu est exactement ce que la regle « aucun faux vert » interdit, et parce
+que si le pan lui parait VIBRER, c'est ici qu'il faut revenir : la reponse serait alors de rendre
+la projection progressive sur quelques frames au lieu de dure — et cela se mesure, ca ne se devine
+pas.
+
+A NOTER AUSSI : sous `tilt` (et `updown` a droite), la colonne JELLY passe a `-` apres correction —
+il n'y a plus assez de mouvement pour que la grandeur soit definie. C'est la meme observation que
+l'echec FLOOR-WEAK de la section 4, vue par un autre instrument.
+
+-------------------------------------------------------------------------------------------------
 6. `ears-physics` — LA QUESTION DE L'OWNER EST TRANCHEE PAR LA MESURE
 -------------------------------------------------------------------------------------------------
 
