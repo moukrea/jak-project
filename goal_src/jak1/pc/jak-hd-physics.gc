@@ -670,6 +670,12 @@
 ;; plutot que « a l'arrondi pres ». Sans elle, resoudre a l'egalite laisse un residu de signe
 ;; aleatoire de l'ordre de 1e-3 u, et « penetration nulle » devient « penetration nulle une fois
 ;; sur deux ». Elle retire 0.12 mm d'amplitude a la chaine, chiffre dans le rapport.
+;; NOMBRE D'ALTERNANCES (longueur <-> franchissement) A LA FINITION DE CHAQUE LIEN.
+;; 4 : au-dela, la course ne bouge plus (les deux contraintes sont des projections, la convergence
+;; est geometrique). En dessous de 2 il n'y a pas d'alternance du tout, donc pas de resolution
+;; simultanee -- et c'est l'etat mesure qui plafonnait `ROOM-SIDE crossing` a 11282.
+(defconstant PHYS-FIN-ITERS 4)
+
 (defconstant PHYS-COL-MARGIN 0.5)
 
 ;; ------------------------------------------------------------------------------------------------
@@ -2372,29 +2378,94 @@
             (set! (-> pt x) (- (-> pt x) (-> offs x)))
             (set! (-> pt y) (- (-> pt y) (-> offs y)))
             (set! (-> pt z) (- (-> pt z) (-> offs z)))
-            ;; ROTATION, PAS TRANSLATION : la poussee est ramenee sur la sphere de l'attache. Un os
-            ;; que le modele ne donne pas (`want` ~ 0) n'a pas de sphere : il garde le comportement
-            ;; en translation, borne ailleurs par son propre rayon.
-            (when (and (>= kp 0) (< (+ kp 1) nbone))
-              (let* ((bx (if (> l 0) (-> *phys-px* (- scl 1)) (-> skel bones (+ kp 1) transform vector 3 x)))
-                     (by (if (> l 0) (-> *phys-py* (- scl 1)) (-> skel bones (+ kp 1) transform vector 3 y)))
-                     (bz (if (> l 0) (-> *phys-pz* (- scl 1)) (-> skel bones (+ kp 1) transform vector 3 z)))
-                     (mx (- (-> skel bones (+ kk 1) transform vector 3 x)
-                            (-> skel bones (+ kp 1) transform vector 3 x)))
-                     (my (- (-> skel bones (+ kk 1) transform vector 3 y)
-                            (-> skel bones (+ kp 1) transform vector 3 y)))
-                     (mz (- (-> skel bones (+ kk 1) transform vector 3 z)
-                            (-> skel bones (+ kp 1) transform vector 3 z)))
-                     (want (sqrtf (+ (* mx mx) (+ (* my my) (* mz mz)))))
-                     (ux (- (-> pt x) bx))
-                     (uy (- (-> pt y) by))
-                     (uz (- (-> pt z) bz))
-                     (ul (sqrtf (+ (* ux ux) (+ (* uy uy) (* uz uz))))))
-                (when (and (> want 0.01) (> ul 0.0001))
-                  (let ((s (/ want ul)))
-                    (set! (-> pt x) (+ bx (* ux s)))
-                    (set! (-> pt y) (+ by (* uy s)))
-                    (set! (-> pt z) (+ bz (* uz s)))))))
+            ;; ------------------------------------------------------------------------------
+            ;; LA FINITION : LONGUEUR ET FRANCHISSEMENT ALTERNES JUSQU'A CONVERGENCE.
+            ;;
+            ;; CE QUE MESURE LE PROBLEME QUE CETTE BOUCLE RESOUT. Les deux contraintes se
+            ;; defaisaient l'une l'autre, et les deux ordres possibles ont ete essayes en course :
+            ;;   * decroisement AVANT la reprojection (course 00:12/00:40) : `ROOM-STRETCH` reste a
+            ;;     0.0003 mais la reprojection re-croise, `ROOM-SIDE crossing` plafonne a 11282 ;
+            ;;   * decroisement APRES la reprojection (course 00:26) : `crossing` tombe a 8112 mais
+            ;;     plus rien ne tient la longueur, `ROOM-STRETCH` explose a 1.2090 pour un plafond
+            ;;     de 3 % — REJETE, « un os ne s'allonge pas ».
+            ;; Aucun des deux ordres ne suffit parce qu'il n'y a pas d'ordre gagnant : ce sont deux
+            ;; contraintes simultanees. On les alterne donc, et on FINIT sur la longueur — c'est
+            ;; elle qui doit etre exacte, son residu est publie et plafonne a 3 % ; le
+            ;; franchissement, lui, est mesure par `ROOM-SIDE` et n'a pas besoin d'etre exact au
+            ;; dernier bit pour que la piece cesse de traverser.
+            ;;
+            ;; GEOMETRIQUEMENT LES DEUX SONT COMPATIBLES DES QUE LEUR INTERSECTION EST NON VIDE :
+            ;; la reprojection contraint le lien a une SPHERE centree sur l'attache, le
+            ;; decroisement a un DEMI-ESPACE. Une sphere et un demi-espace s'intersectent sauf si
+            ;; la sphere est entierement du mauvais cote — cas ou aucune position admissible
+            ;; n'existe, et ou la longueur gagne (l'owner l'a tranche : « une resolution pire que
+            ;; le clip est pire que rien »).
+            ;;
+            ;; NATURE : une projection alternee (Gauss-Seidel sur deux contraintes). REPERE : monde.
+            ;; LECTURE HORS DEFAUT : la boucle est un no-op des le premier tour.
+            (dotimes (fin PHYS-FIN-ITERS)
+              ;; --- (a) LE FRANCHISSEMENT D'AXE, sur le centre du volume porte par le lien.
+              (when (zero? *phys-side-off*)
+                (let ((qx (+ (-> pt x) (-> offs x)))
+                      (qy (+ (-> pt y) (-> offs y)))
+                      (qz (+ (-> pt z) (-> offs z))))
+                  (dotimes (ci nco)
+                    (let* ((sco (+ (* slot PHYS-COLS) ci))
+                           (cj  (-> *phys-cj* sco))
+                           (cj2 (-> *phys-cj2* sco)))
+                      (when (and (not (phys-col-own? sc n cj cj2))
+                                 (>= cj 0) (< (+ cj 1) nbone))
+                        (phys-col-now! skel sco cj cj2 nbone ca cb)
+                        (when (not (phys-col-rest! sco ra rb))
+                          (vector-copy! ra ca)
+                          (vector-copy! rb cb))
+                        (let* ((cap? (and (>= cj2 0) (< (+ cj2 1) nbone)))
+                               (fs (phys-collide-depth rest rl ra rb (-> *phys-cr* sco)
+                                                       (-> *phys-cr2* sco) cap? nrm))
+                               (fc (phys-collide-depth rest rl ca cb (-> *phys-cr* sco)
+                                                       (-> *phys-cr2* sco) cap? nrm)))
+                          ;; meme condition d'armement que la mesure (:2624) : la pose d'AUTEUR est
+                          ;; dans ce volume, donc « de quel cote » veut dire quelque chose pour elle.
+                          (when (> (if (> fc fs) fc fs) 0.0)
+                            (set-vector! pv qx qy qz 1.0)
+                            (when (and (phys-axis-dir rest ca cb ua)
+                                       (phys-axis-dir pv ca cb ub))
+                              (let ((dt1 (+ (* (-> ua x) (-> ub x))
+                                            (+ (* (-> ua y) (-> ub y))
+                                               (* (-> ua z) (-> ub z))))))
+                                (when (< dt1 0.0)
+                                  (let ((cc (* dt1 (-> ub w))))
+                                    (set! qx (- qx (* cc (-> ua x))))
+                                    (set! qy (- qy (* cc (-> ua y))))
+                                    (set! qz (- qz (* cc (-> ua z)))))))))))))
+                  (set! (-> pt x) (- qx (-> offs x)))
+                  (set! (-> pt y) (- qy (-> offs y)))
+                  (set! (-> pt z) (- qz (-> offs z)))))
+              ;; --- (b) LA LONGUEUR. ROTATION, PAS TRANSLATION : le lien est ramene sur la sphere
+              ;; --- de l'attache. Un os que le modele ne donne pas (`want` ~ 0) n'a pas de sphere :
+              ;; --- il garde le comportement en translation, borne ailleurs par son propre rayon.
+              ;; --- C'est la DERNIERE operation de la boucle, donc du solveur : `ROOM-STRETCH` est
+              ;; --- exact par construction.
+              (when (and (>= kp 0) (< (+ kp 1) nbone))
+                (let* ((bx (if (> l 0) (-> *phys-px* (- scl 1)) (-> skel bones (+ kp 1) transform vector 3 x)))
+                       (by (if (> l 0) (-> *phys-py* (- scl 1)) (-> skel bones (+ kp 1) transform vector 3 y)))
+                       (bz (if (> l 0) (-> *phys-pz* (- scl 1)) (-> skel bones (+ kp 1) transform vector 3 z)))
+                       (mx (- (-> skel bones (+ kk 1) transform vector 3 x)
+                              (-> skel bones (+ kp 1) transform vector 3 x)))
+                       (my (- (-> skel bones (+ kk 1) transform vector 3 y)
+                              (-> skel bones (+ kp 1) transform vector 3 y)))
+                       (mz (- (-> skel bones (+ kk 1) transform vector 3 z)
+                              (-> skel bones (+ kp 1) transform vector 3 z)))
+                       (want (sqrtf (+ (* mx mx) (+ (* my my) (* mz mz)))))
+                       (ux (- (-> pt x) bx))
+                       (uy (- (-> pt y) by))
+                       (uz (- (-> pt z) bz))
+                       (ul (sqrtf (+ (* ux ux) (+ (* uy uy) (* uz uz))))))
+                  (when (and (> want 0.01) (> ul 0.0001))
+                    (let ((s (/ want ul)))
+                      (set! (-> pt x) (+ bx (* ux s)))
+                      (set! (-> pt y) (+ by (* uy s)))
+                      (set! (-> pt z) (+ bz (* uz s))))))))
             (set! (-> *phys-px* scl) (-> pt x))
             (set! (-> *phys-py* scl) (-> pt y))
             (set! (-> *phys-pz* scl) (-> pt z)))))))
