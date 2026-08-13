@@ -227,6 +227,64 @@ table livree est BYTE-IDENTIQUE (0 ligne differente) a celle mesuree avant l'ess
 L'etat livre est donc exactement l'etat mesure.
 
 =================================================================================================
+5 bis. LA CIBLE `mono=yes` N'EST PAS UNE VRAIE CIBLE : LE CHAMP NE MESURE PAS UNE PROPAGATION
+=================================================================================================
+
+Apres le retrait du §5 j'ai cherche POURQUOI `lag12=0`. La reponse n'est pas dans le solveur, elle
+est dans l'instrument, et elle invalide la cible que les DIRECTIVES me demandent de viser.
+
+Le tableau publie, a cote de chaque ligne, la periode apparente et les correlations :
+
+    lbang     lag12=5 lag23=5 mono=yes   periode apparente=10.0   correlations 0.82 0.79
+    backhair  lag12=0 lag23=0 mono=no    periode apparente=18.6   correlations 0.97 0.78
+    lmidhair  lag12=0 lag23=3 mono=no    periode apparente= 8.4   correlations 0.90 0.87
+
+PREMIER FAIT : la fenetre de recherche vaut `dmax = max(4, round(tapp/2))`, soit 5 pour `lbang`.
+Son `lag12=5` ET son `lag23=5` sont donc EXACTEMENT AU BORD de la fenetre. Et le tableau ecrit
+lui-meme, dans sa RESERVE, que « `ang` est un MODULE, le signal est REDRESSE, et le retard n'est
+determine que MODULO une demi-periode ». Un retard de 5 sur une fenetre de +-5 est donc congru a 0 :
+**`lbang` mono=yes et `backhair` lag12=0 sont LA MEME MESURE** sous l'ambiguite que le champ declare.
+
+DEUXIEME FAIT, recalcule sur le log DEJA au dossier (aucune course, aucun build) — r(d) sur +-14 :
+
+    lbang    +0:0.73 +1:0.69 +3:0.73 +5:0.82 +6:0.86 +7:0.89 +8:0.92 +9:0.93 +10:0.92
+    backhair -1:0.90 +0:0.97 +1:0.92 +2:0.82 +3:0.77 +4:0.75
+
+La courbe de `lbang` N'A PAS DE MAXIMUM : elle MONTE encore quand la fenetre livree s'arrete. Le
+« 5 » n'est pas un pic, c'est le bord. Celle de `backhair` a un vrai pic, net, a d=0 (0.97, qui
+retombe des deux cotes) : **le mouvement EN BLOC de backhair est, lui, une mesure correcte et bien
+resolue.** Le pudding est reel ; c'est le `mono=yes` du CONTROLE qui est un artefact.
+
+TROISIEME FAIT — pourquoi la courbe monte : les deux series DECROISSENT toutes les deux, et
+correler `a[f]` avec `b[f+d]` a grand `d` aligne deux ENVELOPPES, pas deux oscillations. En divisant
+chaque serie par sa propre enveloppe avant de correler, les correlations s'effondrent de 0.78-0.97 a
+**0.27-0.48** et les argmax se dispersent (-8, +14, +13, 0). Autrement dit : une fois l'enveloppe
+retiree, il ne reste AUCUNE relation de phase coherente a mesurer, sur AUCUNE chaine.
+
+J'ai essaye une quatrieme lecture qui survit au redressement — apparier les MINIMA (les passages par
+zero). Elle ne discrimine pas davantage : retards de -4 a +4, 1 a 7 paires appariees, et le controle
+approuve (`lbang` +3) n'est pas separable des chaines rejetees (`backhair` +1).
+
+CONCLUSION, et elle ferme une direction de recherche au lieu d'en ouvrir une : `lag`/`mono` ne
+mesurent pas une propagation. Regler raideur, masse ou amortissement pour faire passer `mono` a
+`yes` serait ajuster un parametre CONTRE UN INSTRUMENT CASSE — le piege exact que les DIRECTIVES
+nomment. Je ne l'ai donc pas fait, et je ne rapporte pas de progres sur ce chiffre.
+
+LA CAUSE RACINE EST NOMMEE, ET LE CORRECTIF EST CHIFFRE : `phys-link-ang` rend `*phys-la*`, qui est
+un MAXIMUM COURANT de |angle| remis a zero chaque frame (`jak-hd-physics.gc:4495-4500`). Le signal
+est donc a la fois REDRESSE (pas de signe) et NON INSTANTANE (un max sur la frame). Une phase ne se
+mesure ni sur l'un ni sur l'autre. Il faut un echantillon SIGNE et instantane, c'est-a-dire un
+tableau de plus dans le moteur et une ligne d'emission.
+
+ET C'EST BLOQUE, JE LE DIS AU LIEU DE LE CONTOURNER : le moteur fait **4798 lignes** contre le
+plafond **4800** de la gate CLEAN. Il reste deux lignes. Je n'ai pas touche a la gate (regle 5, les
+gates sont gelees) et je n'ai pas non plus ecrit un correctif a l'etroit qui tiendrait dans deux
+lignes pour la forme. C'est au superviseur de trancher : soit le plafond monte pour de la MESURE
+(sa propre note dit que c'est la composition qui decide, pas le nombre), soit la mesure de phase
+attend. En attendant, `hair-pudding` se juge sur `backhair lag12=0 r=0.97` — qui est, lui, solide —
+et sur l'oeil de l'owner.
+
+=================================================================================================
 6. NIVEAU DE BUILD UTILISE, ET CE QU'IL A COUTE
 =================================================================================================
 
