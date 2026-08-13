@@ -1603,6 +1603,7 @@ def main():
     A('     sagn = sag rapporte a la LONGUEUR TOTALE de la chaine. Sans lui, une chaine d\'un')
     A('           maillon et une chaine de trois ne sont pas comparables et le classement ment.')
     g0, g60 = grav.get('idle', {}), grav.get('tilt', {})
+    _sagt = {}
     for c in sorted(chains):
         a, b = m0.get(c), m60.get(c)
         if a is None or b is None:
@@ -1612,11 +1613,51 @@ def main():
         sag = sum((y - x) ** 2 for x, y in zip(a, b)) ** 0.5
         blen = sum(bones.get(c, {}).values()) / UNITS
         gn, tf = g60.get(c, (float('nan'), float('nan')))
+        if blen > 1e-6 and tf == tf and tf > 0.05:
+            _sagt[names[c]] = (sag / blen, tf, (sag / blen) / tf)
         A('ROOM-GRAVSAG: chain=%-12s at0=%-9s at60=%-9s sag=%-9s sagn=%-8s gn=%-7s tf=%-7s fam=%s'
           % (names[c], fnum(n0), fnum(n60), fnum(sag),
              fnum(sag / blen) if blen > 1e-6 else '-',
              fnum(gn), fnum(tf),
              'A' if chains[c]['fam'] == 1 else 'B'))
+    # ------------------------------------------------------------------------------------------
+    # ROOM-GRAVSAG-TF — AJOUTE le 2026-08-13, on ne REMPLACE aucune colonne.
+    #
+    # NATURE : un deplacement soutenu, rapporte a la gravite qui l'a REELLEMENT sollicite.
+    # REPERE : repere de l'ancre, longueur de chaine pour unite (comme `sagn`).
+    # BASE quand le defaut est ABSENT : deux chaines MIROIR rendent le meme `sagt`.
+    #
+    # POURQUOI CETTE COLONNE EXISTE. Le pilotage `tilt` est un TANGAGE AVANT PUR : la part
+    # tangentielle `tf` de la gravite — la seule qui puisse faire tourner un lien, la composante
+    # le long de l'os etant annulee par la contrainte de longueur — vaut 0.98-1.00 a GAUCHE et
+    # 0.47-0.58 a DROITE. `sagn` n'est donc PAS comparable d'un cote a l'autre : sur une paire
+    # miroir il rend un ecart qui vient de l'INSTRUMENT, pas de la physique. Regler `gravity=`
+    # la-dessus serait regler un parametre contre un biais d'instrument, ce que le contrat
+    # interdit nommement (`never-fit-a-parameter-to-the-instrument`).
+    # `sagt = sagn / tf` retire ce biais. Il ne remplace pas le correctif de fond (un `tilt` a
+    # deux axes, roulis en plus du tangage) : il rend la mesure LISIBLE en attendant, et il le
+    # fait sans toucher aux pilotages — donc sans deplacer le stimulus le plus faible, dont
+    # depend la gate FLOOR-WEAK.
+    # Chaines sous tf <= 0.05 exclues : diviser par ~0 fabriquerait un grand nombre a partir de
+    # rien (c'est la classe « zero from an empty domain », prise a l'envers).
+    if _sagt:
+        A('')
+        A('-- SAG RAPPORTE A LA GRAVITE REELLEMENT RECUE (ROOM-GRAVSAG-TF) -------------------------')
+        A('   sagt = sagn / tf. Deux chaines MIROIR doivent rendre le MEME sagt ; tout ecart qui')
+        A('   survit a cette division est physique, tout ecart qui disparait etait de l\'instrument.')
+        for nm in sorted(_sagt):
+            sn, tf, st = _sagt[nm]
+            A('ROOM-GRAVSAG-TF: chain=%-12s sagn=%-8s tf=%-7s sagt=%-8s'
+              % (nm, fnum(sn), fnum(tf), fnum(st)))
+        for lft, rgt in (('lbang', 'rbang'), ('lmidhair', 'rmidhair'), ('chestL', 'chestR'),
+                         ('earL', 'earR')):
+            if lft in _sagt and rgt in _sagt:
+                sn_l, sn_r = _sagt[lft][0], _sagt[rgt][0]
+                st_l, st_r = _sagt[lft][2], _sagt[rgt][2]
+                r_bru = max(sn_l, sn_r) / min(sn_l, sn_r) if min(sn_l, sn_r) > 1e-9 else float('inf')
+                r_cor = max(st_l, st_r) / min(st_l, st_r) if min(st_l, st_r) > 1e-9 else float('inf')
+                A('ROOM-GRAVSAG-MIRROR: %s/%s  ecart brut(sagn)=%.2fx  ecart corrige(sagt)=%.2fx'
+                  % (lft, rgt, r_bru, r_cor))
     if g0:
         A('   (debout, la meme gravite effective vaut : %s)'
           % ' '.join('%s=%s' % (names[c], fnum(g0[c][0]))
@@ -2143,6 +2184,42 @@ def main():
             ' denominateur admissible, et le defaut « gelee » reste donc non mesure')
     A('ROOM-JELLY-WORST: chain=%s drive=%s ratio=%.4f period=%.2f over=%d'
       % (names[j_worst[1]], DRIVE_NAMES[j_worst[2]], j_worst[0], j_worst[3], j_over))
+    # ------------------------------------------------------------------------------------------
+    # ROOM-JELLY-AMP — AJOUTE le 2026-08-13. On AJOUTE une lecture, on n'en REMPLACE aucune :
+    # `ROOM-JELLY` ci-dessus reste mot pour mot ce qu'il etait.
+    #
+    # NATURE : un PROFIL de la discontinuite en fonction de la FORCE du stimulus. Pas un scalaire.
+    # REPERE : identique a ROOM-JELLY (jump et amp de la MEME fenetre).
+    # BASE quand le defaut est ABSENT : l'owner exige que la deformation CROISSE avec la force du
+    #   mouvement (« elle doit etre quasi nulle sur les mouvements subtils »). Un profil sain MONTE
+    #   du Q1 vers le Q4. Un profil qui DESCEND dit que ce qu'on mesure vit dans les petits
+    #   mouvements — ceux qu'il declare « toujours OK ».
+    #
+    # POURQUOI. `ROOM-JELLY` publie un MAXIMUM sur ~31 fenetres, et `baseline` un min-de-max.
+    # Mesure du 2026-08-13 sur chestR : les 16 fenetres qui portent `ratio > 0.95` ont toutes une
+    # amplitude de 0.056-0.094 m, tandis que dans le quartile d'amplitude le plus FORT le ratio
+    # tombe a 0.679. Le chiffre publie vient donc entierement du regime que l'owner APPROUVE,
+    # alors que le defaut qu'il decrit (« ballons d'eau ») vit dans l'autre. Comme
+    # `excess = ratio - baseline`, la plage utile tombe a 0.014 sur une echelle [0,1] : la mesure
+    # ne discrimine plus rien (classe `measurement-must-discriminate`). Le profil par quartile
+    # separe les memes deux chaines de 0.17 a 0.64.
+    A('')
+    A('-- LA GELEE EN FONCTION DE LA FORCE DU MOUVEMENT (ROOM-JELLY-AMP) ------------------------')
+    A('   mediane du ratio par QUARTILE d\'amplitude. Sain = MONTE de Q1 vers Q4.')
+    for c in sorted(chains):
+        pts = sorted(((r['amp'], r['jump'] / r['amp']) for r in rows
+                      if r['c'] == c and r['amp'] > 0.02), key=lambda x: x[0])
+        if len(pts) < 8:
+            continue
+        qs, n = [], len(pts)
+        for k in range(4):
+            seg = [q for _, q in pts[n * k // 4:n * (k + 1) // 4]]
+            seg.sort()
+            qs.append(seg[len(seg) // 2] if seg else float('nan'))
+        A('ROOM-JELLY-AMP: chain=%-12s n=%-4d amp=%s..%s m  Q1=%.4f Q2=%.4f Q3=%.4f Q4=%.4f  %s'
+          % (names[c], n, fnum(pts[0][0]), fnum(pts[-1][0]),
+             qs[0], qs[1], qs[2], qs[3],
+             'MONTE' if qs[3] >= qs[0] else 'DESCEND(mesure le petit mouvement)'))
     A('   `over` = nombre de couples (chaine, pilotage) au-dessus du plafond derive de 0.5, soit une')
     A('   oscillation plus rapide que 6 frames / 10 Hz : de la chair n\'oscille pas la.')
     A('   Le ratio est pris PAR FENETRE puis au MAXIMUM sur les fenetres (numerateur et denominateur')
