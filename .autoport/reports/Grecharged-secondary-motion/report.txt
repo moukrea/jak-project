@@ -1,21 +1,55 @@
 DIRECTIVES v7135a47aa7
 
 PHASE Grecharged-secondary-motion — branche physics-keira-clean — KEIRA SEULE
-CYCLE DU 2026-08-13 19:30-20:10 — L'OS ETAIT POSE, LA PEAU NE LE SUIVAIT PAS
+CYCLE DU 2026-08-13 20:30-22:00 — UNE COUPURE SPATIALE EST UNE MARCHE : DIRECTION FERMEE
+
+RESUME EN CINQ LIGNES, POUR NE PAS ENTERRER LE RESULTAT SOUS LE DETAIL :
+J'ai essaye de lever la masse du MILIEU des trois grosses meches (la cible des DIRECTIVES du 19:40).
+Trois criteres sur cinq sont tenus, dont celui qui avait fait echouer le cycle precedent. Deux ont
+echoue — dont un que j'avais ecrit d'avance comme LE risque du correctif, et il s'est produit
+exactement comme ecrit. LE CORRECTIF EST RETIRE, retrait prouve byte-pour-byte. Ce qui reste : une
+cause STRUCTURELLE trouvee (elle ferme une direction), un instrument neuf valide, et une fausse
+affirmation corrigee dans le dossier. LE MESH LIVRE EST INCHANGE : il n'y a rien de neuf a tester.
 
 =================================================================================================
-0. CE QUE LE VALIDATEUR DIT, ET POURQUOI CE N'EST PAS LE VERDICT DE CE CYCLE
+0. LES DEUX BLOCKER DU PREFLIGHT SONT DES FAUSSES ALERTES, ET C'EST DEMONTRE
 =================================================================================================
 
-`OPEN-DEFECTS` est la deuxieme gate et elle compte les lignes `^OPEN ` de `owner-defects.txt`. Sa
-propre regle dit que la liste se vide UNIQUEMENT sur la parole de l'owner : c'est une PORTE HUMAINE.
-Les deux facons de la faire passer sont les deux fautes cardinales (effacer une ligne OPEN, toucher
-une gate — DIRECTIVES regle 5). Je n'ai fait ni l'un ni l'autre.
+Le preflight annonce deux `GUARD-GONE` : les verrous `target-is-response` et
+`recipe-not-transferable` auraient disparu de `.autoport/DIRECTIVES.md`. **Les deux lecons y sont,
+je les ai lues avant d'agir**, et ce sont les greps qui les manquent :
+
+  `.autoport/PITFALLS.md:121` attend la chaine litterale  `la cible est la RÉPONSE MESURÉE`
+  `.autoport/DIRECTIVES.md:118` porte                    `**La cible est la RÉPONSE MESURÉE, ...`
+                                                           ^^                ^ majuscule de phrase
+  second verrou attendu  `aurait été un maillon inerte`
+  `.autoport/DIRECTIVES.md:48` porte  `aurait été un **maillon inerte**.`
+                                                     ^^ emphase markdown au milieu de la chaine
+
+Donc : gras markdown insere dans la chaine cherchee, et un `L` majuscule en debut de phrase contre
+un `l` minuscule dans le motif. Le fond est intact, la forme a bouge. **Je ne touche ni au verrou ni
+a DIRECTIVES.md** (regle 5 : une gate qui semble fausse se rapporte, c'est le superviseur qui
+tranche) — mais je ne peux pas non plus « regler le BLOCKER en premier » puisqu'il n'y a rien de
+casse. Le correctif est d'un cote ou de l'autre : rendre le motif insensible a l'emphase et a la
+casse, ou retirer les `**` de ces deux lignes. C'est un appel du superviseur, pas le mien.
+
+Et j'ai applique les DEUX lecons, litteralement, dans ce cycle : je n'ai regle aucun parametre
+contre un instrument (§3), et je n'ai transfere aucune recette d'une chaine a une autre.
+
+=================================================================================================
+0 bis. CE QUE DIT LE VALIDATEUR, ET POURQUOI CE N'EST PAS LE VERDICT DE CE CYCLE
+=================================================================================================
+
+    [Grecharged-secondary-motion FAIL] OPEN-DEFECTS: 6 defaut(s) ... encore ouverts
+
+C'est la deuxieme gate, et sa propre regle dit que la liste se vide UNIQUEMENT sur la parole de
+l'owner : **c'est une PORTE HUMAINE**. Les deux facons de la faire passer sont les deux fautes
+cardinales (effacer une ligne `OPEN`, toucher une gate). Je n'ai fait ni l'un ni l'autre.
 
 Comme elle sort avant tout le reste, aucune gate de DONNEES ne tourne en tentative headless. J'ai
-donc lance le meme DIAGNOSTIC que le cycle precedent — le validateur prive de son seul bloc humain,
-`sed '43,52d'` (lignes 43-52 verifiees : c'est exactement le bloc OPEN-DEFECTS). C'est un
-DIAGNOSTIC, jamais une preuve de passage :
+donc lance le meme DIAGNOSTIC que les deux cycles precedents — le validateur prive de son seul bloc
+humain, `sed '43,52d'` (lignes 43-52 verifiees a l'execution : c'est exactement le bloc
+OPEN-DEFECTS). **C'est un DIAGNOSTIC, jamais une preuve de passage** :
 
     [TUNING] tous les réglages de l'owner sont dans le fichier livré
     [ROOM] joueur absent, 1 acteur, 22 chaînes x 31/31 animations, 3410 mesures
@@ -25,341 +59,220 @@ DIAGNOSTIC, jamais une preuve de passage :
     [SIDE-CONTROL] 0 franchissement(s), controle present
     [FAIL] FLOOR-WEAK: kneeflapL 0.0884 -> 0.0412 (53% de perte sur stimulus faible)
 
-DIAGNOSTIC DE CETTE GATE ROUGE, ET JE NE LA TOUCHE PAS (regle 5 : « si une gate te semble fausse,
-tu le rapportes ; c'est le superviseur qui tranche »). `kneeflapL` et `kneeflapR` sont une paire
-MIROIR aux parametres IDENTIQUES — `stiffness=2.00 damping=0.30 gravity=0.30 radius=258 mass=0.60
-hang=0.90 couple=1.00 radii=202,313` des deux cotes, meme `cov=0.6500`, meme `n=28`. Leurs reponses
-MESUREES au stimulus le plus faible le sont aussi : `tilt` tip=0.0412 a gauche contre 0.0334 a
-droite. Mais les PLANCHERS STOCKES valent 0.0884 et 0.0174 — un facteur 5,1 sur une paire miroir.
-
-Deux chaines aux parametres identiques ne peuvent pas avoir des reponses vraies qui different d'un
-facteur 5 : c'est le plancher de gauche qui est faux, pas la mesure. La gate `FLOOR-WEAK` stocke un
-MAXIMUM COURANT (`merged[c] = max(old, cur)`), donc elle encliquete la plus haute excursion jamais
-vue sur une grandeur a faible signal — ici le `tilt`, dont le stimulus vaut 9.81 et dont la reponse
-est du meme ordre que la ligne de base d'animation (0.0266). Le jumeau miroir, soumis au meme
-mecanisme, a encliquete 0.0174. C'est la classe « ratchet running-max ». JE NE MODIFIE NI LA GATE NI
-`motion-floor-weak.txt` : je pose le chiffre et la comparaison miroir, et le superviseur tranche.
-
-CETTE UNIQUE GATE ROUGE EST PRE-EXISTANTE, ET C'EST DEMONTRE, PAS AFFIRME : les 3410 lignes `row`
-de ma table finale sont BIT-POUR-BIT identiques a celles de la table d'avant mon cycle (`diff` = 0
-ligne, transitivement via les deux archives `T-PRE-MESHSAMPLES` et `U-PRE-TIPREPESAGE`). Un chiffre
-identique ne peut pas etre une regression que j'aurais introduite. Elle est heritee, elle reste
-OUVERTE, et je la signale au lieu de la taire : `knee-tabs` est un defaut que l'OWNER A FERME, et sa
-reponse aux petits mouvements a perdu 53 % sans que personne ne le voie — precisement parce
-qu'aucune gate de donnees ne tourne headless.
+LA GATE ROUGE EST LA MEME QU'AVANT MON CYCLE, ET ICI C'EST TRIVIALEMENT DEMONTRE : le mesh livre est
+byte-pour-byte identique a celui d'avant (§2), aucun `.gc` n'a change, `physics_chains.txt` n'a pas
+bouge d'un caractere. La table n'a donc pas pu bouger. Le diagnostic du cycle precedent tient et je
+le repete sans le rouvrir : `kneeflapL`/`kneeflapR` sont une paire MIROIR aux parametres IDENTIQUES
+dont les planchers STOCKES valent 0.0884 et 0.0174 — un facteur 5,1 impossible entre deux jumelles.
+`FLOOR-WEAK` encliquete un maximum courant (`merged[c] = max(old, cur)`) sur une grandeur a faible
+signal, c'est la classe « ratchet running-max ». **Je ne modifie NI la gate NI
+`motion-floor-weak.txt`** : je pose le chiffre, et le superviseur tranche. Je le re-signale parce
+que `knee-tabs` est un defaut que l'OWNER A FERME et que personne ne verrait sa reponse aux petits
+mouvements baisser en tentative headless.
 
 =================================================================================================
-1. LE RESULTAT DU CYCLE : L'OS EXISTAIT, LA GEOMETRIE L'IGNORAIT
+1. LE TRAVAIL DU CYCLE — LA CIBLE, ET LA CONDITION ECRITE AVANT LA CUISSON
 =================================================================================================
 
-NATURE : une REPARTITION de la peau le long de la chaine. Ni une amplitude, ni une couverture.
-REPERE : le sommet appartient au joint qui en detient la MAJORITE (w > 0.5) — le meme critere `WMIN`
-         que `physics_c14_meshsamples.py` utilise pour decider quels sommets un maillon porte.
-LIGNE DE BASE : `lbang`/`rbang`, mesurees sur LE MEME mesh. L'owner approuve les meches fines et
-         rejette les grosses : le bon et le mauvais echantillon sont cote a cote.
+Cible des DIRECTIVES (19:40), qui remplace le retard de phase retire comme artefact de fenetre :
+« part de masse du segment le plus lourd ramenee de 60-93 % vers 35-37 % ». Le cycle precedent avait
+amene les trois chaines a 52.0 / 48.2 / 43.4 % (controle approuve : 37.8 / 42.4 % mesures dans la
+MEME course) et s'etait arrete sur une condition de retrait ECHOUEE, en laissant une prediction :
+« le `smin` devra MONTER au-dela de 0.30 ».
 
-Mesure sur le mesh LIVRE, avant toute intervention de ce cycle :
+**JE N'AI PAS SUIVI CETTE PREDICTION, ET C'EST DELIBERE.** Monter un seuil jusqu'a ce qu'un compteur
+cesse de bouger, c'est regler un parametre CONTRE l'instrument qui le mesure — l'interdit nomme du
+contrat (`never-fit-a-parameter-to-the-instrument`), et c'est le superviseur lui-meme qui s'est fait
+prendre par lui le 19:40. J'ai cherche la CAUSE, et elle se lit dans l'operateur :
 
-    sommets dont le joint est MAJORITAIRE      racine ->              pointe
-    lbang    APPROUVE                            94     9     10     36
-    rbang    APPROUVE                            95    11     12     21
-    backhair REJETE                               0     0    124      0
-    lmidhair REJETE                              46     2     82     30
-    rmidhair REJETE                              32    14     82     31
+`grade` n'est pas un profil, c'est une DIFFUSION — un Gauss-Seidel sur les aretes du mesh
+(`.autoport/physics_c7_reskin.py:_grade`, boucle `for _ in range(r['iters'])` sur `edl`) qui remonte
+le cote bas de toute arete dont la marche depasse `step`, sur le poids SOMME de `chain=`. Or les
+regles de milieu ont `chain=` = les joints MOBILES. Donc le `transfer` coupe a s=0.30 creait une
+marche a la frontiere, sur la grandeur meme que `grade` allait lisser, et `grade` — qui passe APRES
+(ordre du fichier verifie par `load_cfg` : transferts, puis graduations) — la rediffusait VERS LA
+RACINE. C'est mot pour mot le chiffre du cycle precedent : `backhair` d1 0.00 -> 0.08.
 
-`backHair4` a ete injecte au cycle precedent, le solveur le fait bouger (`PHYSBONE c=2 l=3
-len=258.0191`, pas de NaN) — et AUCUN sommet ne le suit. Les 124 sommets de la nuque sont tenus par
-`backHair3` seul : la meche entiere est UNE PIECE RIGIDE PENDUE A UNE SEULE CHARNIERE.
+Correctif essaye : le MEME terme spatial sur `grade`, sur la MEME abscisse, plus une cle `sarc=`
+parce que le `chain=` de ces regles DEMARRE au maillon du milieu — sans elle, `smin=0.30` aurait
+voulu dire « 30 % de la moitie basse » et le seuil aurait cesse d'etre comparable au decile que la
+sonde publie. 0.30 reste la fin de la bande d'ancrage du controle APPROUVE (profil mobile de
+`lbang` : d1 0.07 · d2 0.08 · d3 0.15 · d4 0.48), et s<0.30 recouvre exactement d1+d2+d3 : le seuil
+et le critere sont la MEME frontiere, ce qui interdit de l'ajuster pour passer.
 
-C'est « une partie de la geometrie reste ancree et ca casse » ET « on dirait les mouvements quand on
-tape sur un pudding » — un seul mecanisme, mesure. Et ca ferme une direction : AUCUNE valeur de
-raideur, de masse ou d'amortissement ne peut corriger ca. Ce n'est pas le solveur qui part en bloc,
-c'est le mesh qui n'a qu'un seul pilote.
-
-POURQUOI L'INJECTION SEULE NE POUVAIT PAS SUFFIRE, et c'est arithmetique : la rampe de l'injecteur
-(`w = clamp(s,0,1)`) partage le poids que `backHair3` detenait DEJA, et ce poids etait lui-meme
-melange avec `head`/`backHair2`. Sa propre trace le disait : `XFER backHair4 <- backHair3 verts=83
-mass=16.661`, soit 0.20 de moyenne. Un partage 50/50 d'une MINORITE reste une minorite. La pointe
-n'atteignait la majorite nulle part.
-
-POURQUOI AUCUNE MESURE EXISTANTE NE LE VOYAIT : `cov` et son profil par decile somment le poids SUR
-LES JOINTS DE LA CHAINE. `0/0/124/0` et `94/9/10/36` rendent tous les deux « la chaine tient presque
-tout ». Le defaut est la REPARTITION, et une somme sur la chaine detruit exactement cet axe. Preuve
-a l'appui, apres correction : `ROOM-SKINCOV-SHIPPED backhair cov=0.8417` — INCHANGE au dix-millieme
-pendant que la repartition passait de `0/0/124/0` a `0/0/73/54`. La couverture est aveugle a ce
-correctif, et c'est ce qui l'avait cache.
-
-ETAT APRES CORRECTION (mesh cuit a 19:54, `probe_skin_ownership.py`) :
-
-    backhair    0     0    73    54      (etait 0  0  124  0)
-    lmidhair   46     2    59    53      (etait 46  2   82 30)
-    rmidhair   32    14    62    51      (etait 32 14   82 31)
-    lbang      94     9    10    36      IDENTIQUE — temoin approuve non touche
-    rbang      95    11    12    21      IDENTIQUE — temoin approuve non touche
-
-La pointe de la nuque porte maintenant 54 sommets contre 36 sur `lbang` que l'owner approuve.
-`backHair2` reste a 0, et je ne le presente pas comme resolu — mais les maillons du MILIEU de
-`lbang` ne portent que 9 et 10 sommets, donc un milieu maigre est normal sur une meche ; c'etait la
-POINTE a zero qui etait le defaut.
-
-1 bis. CONTRE LA CIBLE QUE LE SUPERVISEUR A POSEE PENDANT CE CYCLE (commit 70d649d9cd, 19:38)
--------------------------------------------------------------------------------------------------
-
-Il y retire la cible « retard racine->pointe >= 5 » comme artefact de son propre instrument — c'est
-la meme conclusion que le §4.1, atteinte independamment, et le §4.1 y ajoute la preuve d'une ligne
-qui manquait (`rbang` APPROUVEE rend `mono=no`). Sa cible restante est : « part de masse du segment
-le plus lourd ramenee vers 35-37 %, et duree de ballottement 84-96 frames ».
-
-PART DE MASSE PESEE PORTEE PAR LE PIRE SEGMENT LIBRE (maillon 0 `rootlock` exclu), mesuree sur le
-mesh livre AVANT et APRES le repesage de ce cycle :
-
-    chaine       avant     apres     repartition apres (%)
-    lbang        37.8 %    37.8 %    36.3  25.8  37.8      APPROUVE — inchangee
-    rbang        42.4 %    42.4 %    42.4  31.0  26.6      APPROUVE — inchangee
-    backhair     81.0 %    52.0 %     5.5  52.0  42.5
-    lmidhair     59.2 %    48.2 %    16.9  48.2  34.8
-    rmidhair     52.8 %    43.4 %    26.6  43.4  30.1
-
-Les trois chaines rejetees se rapprochent nettement, AUCUNE n'atteint la bande, et je ne l'habille
-pas : `backhair` reste a 52.0 % contre 37.8/42.4 sur le controle. Deux remarques de mesure, pas
-d'excuse. D'abord la bande du controle vaut 37.8-42.4 % MESUREE SUR CETTE COURSE, pas 35-37 % : le
-35-37 vient d'une course anterieure, et la regle du contrat est que la cible est la valeur mesuree
-dans la meme course. Ensuite `rmidhair` a 43.4 % est deja a un point de la valeur haute du controle.
+LA CONDITION DE RETRAIT A ETE ECRITE DANS `recharged_assets/physics_reskin.txt` AVANT LA PREMIERE
+CUISSON (elle y est encore, horodatee 21:10), en cinq points : ancrage d1, ancrage par sommets
+perdus sous s=0.30 + `bascules>0.5=0`, progres sur la part de masse, temoins approuves identiques,
+et `tear_mov` a 0.
 
 =================================================================================================
-2. LA SUBDIVISION AVAIT LAISSE TROIS ARTEFACTS DERIVES INCOHERENTS, PAS UN
+2. LE RESULTAT : TROIS CRITERES TENUS, DEUX ECHOUES, CORRECTIF RETIRE
 =================================================================================================
 
-2.1 `physics_reskin.txt` — LES LISTES D'APPARTENANCE DU GRADEUR N'AVAIENT JAMAIS APPRIS LES NOUVEAUX
-JOINTS. `backHair4`, `Lmidhaird`, `Rmidhaird` n'etaient nommes NULLE PART dans ce fichier : ni comme
-cible, ni comme donneur, ni dans un `chain=`. Les bangs, eux, portaient bien `Lbangd`/`Rbangd`
-(premiere injection). Le fichier documente lui-meme la consequence (`physics_reskin.txt:376-380`) :
-« un joint absent de cette liste rend ses sommets invisibles au grader, la jonction cuir chevelu /
-meche cesse d'etre graduee, et la dechirure revient ».
+TENUS, et le premier est celui qui avait fait echouer le cycle precedent :
 
-Ce n'etait pas theorique. Apres completion des six listes, mesure sur la fraction MOBILE
-(`probe_skin_tear_moving.py`, controle positif 8/8 qui tire) :
+  * CRITERE 2 — ANCRAGE. **AUCUN sommet majoritaire perdu par un maillon 0 sous s=0.30.**
+    `Lmidhaira` perd 22 sommets, tous a s=0.30..0.49 (mediane 0.41) ; `Rmidhaira` 11, tous a
+    s=0.31..0.49 ; `backHair1` 0. Les temoins n'en perdent aucun (`Lbanga` 94->94, `Rbanga` 95->95).
+    `bascules>0.5=0` sur les 18 regles graduees. Le cycle precedent avait 1 et 3 sommets sous la
+    coupure : `smin` sur `grade` a ferme ce point.
+  * CRITERE 3 — PROGRES (pire segment libre, cible < 42.4 % mesure dans la meme course) :
+        backhair   52.0 -> 48.9 %
+        lmidhair   48.2 -> 41.6 %      DANS LA BANDE DU CONTROLE
+        rmidhair   43.4 -> 40.6 %      DANS LA BANDE DU CONTROLE
+    Aucune chaine ne monte.
+  * CRITERE 4 — TEMOINS APPROUVES, sur les TROIS instruments : part de masse 37.8 / 42.4 au
+    dixieme ; majorite `lbang` 94/9/10/36 et `rbang` 95/11/12/21 a l'unite ; profil mobile
+    0.07/0.08/0.15/0.48 et 0.06/0.08/0.14/0.48 au centieme. Ils ne sont ni cibles ni donneurs.
 
-    rmidhair  tear_mov  9 -> 0        les 9 aretes etaient a s=0.95..1.00, c'est-a-dire LA POINTE
-    toutes les autres chaines : deja a 0, y restent
+ECHOUES :
 
-2.2 `physics_mesh.txt` — DEUX CHANGEMENTS D'ASSET EN RETARD. Il datait de 12:49 et decrivait encore
-un `backhair` a 3 joints avec les anciens rayons (`radii_p25=358/442/360`) alors que la chaine en
-porte 4 avec `190/171/201/201`. Les trois chaines subdivisees n'avaient AUCUN echantillon de peau
-pour leur nouveau maillon de pointe. Regenere depuis le mesh LIVRE (prepped+reskinne), comme son
-propre docstring le prescrit.
+  * CRITERE 1 — ANCRAGE, profil mobile. `backhair` d1 0.00 -> 0.00 (le point qui avait echoue est
+    REGLE : d2 et d3 BAISSENT meme, 0.10->0.05 et 0.06->0.05) et `rmidhair` ne monte sur aucun des
+    trois deciles. Mais **`lmidhair` d3 monte de 0.14 a 0.25**, six fois la tolerance de 0.02.
+    Attribue par la mesure et non suppose : sur les 70 sommets de la meche sous s=0.30, `Lmidhairb`
+    (mobile) gagne +1.76 pendant que `Lmidhaira` (epingle) perd -1.23 et `head` -0.53. Le gain vient
+    donc de regles SANS terme spatial (`transfer Lmidhairc/Lmidhaird`, `grade Lmidhaira`), pas des
+    six corrigees — qui, elles, ne peuvent pas toucher la bande.
+  * CRITERE 5 — `tear_mov` = 0. **ECHEC FRANC, ET C'EST LE RISQUE QUE J'AVAIS ECRIT MOT POUR MOT** :
+    « `grade` existe POUR fermer les dechirures, et je viens de lui interdire la bande d'ancrage ;
+    si une couture se rouvre sous s=0.30, le correctif est retire. »
 
-  ET LE RESULTAT EST UN NUL, VERIFIE DEUX FOIS, QUE JE RAPPORTE AU LIEU DE LE PRESENTER COMME UN
-  GAIN. Le moteur charge bien le fichier neuf (`links-with-samples=41 dropped=0`, contre 39 avant),
-  et la table est BIT-POUR-BIT identique : `ROOM-SKINPEN-TESTS = 27782730` a l'unite pres dans les
-  deux courses, les 22 `skinpen` inchanges, les 3410 `row` inchangees. La peremption etait reelle et
-  sa correction est une correction de JUSTESSE, pas de comportement. Deuxieme regeneration (depuis le
-  mesh final) : meme nul.
+        tear_mov            backhair   lmidhair   rmidhair
+        avant le cycle           0          0          0      <- VERIFIE sur le mesh d'avant,
+        coupure NETTE           21         15         31         pas cite d'un rapport
+        avec la RAMPE           16          5         27
 
-2.3 LE REPESAGE QUI DEVAIT ACCOMPAGNER L'INJECTION — c'est le §1, jamais fait.
+    Les aretes cassees tombent a s=0.16..0.56, SUR la frontiere. La base a ete remesuree moi-meme
+    sur le mesh de sauvegarde (`tear_mov=0` sur les 14 chaines, `rmidhair weld=1` deja present) :
+    l'attribution est etablie, ces dechirures sont les miennes.
 
-CE QUI REND LA RECURRENCE IMPOSSIBLE AU POINT DE PRODUCTION (regle de non-destruction de l'owner :
-« quand une perte se repete, on la rend impossible au point de production, pas detectable au point de
-controle »). La composition d'une chaine est dupliquee a CINQ endroits de l'arbre, et les DEUX
-injections ont oublie le meme. J'ai ajoute `check_reskin_knows_new_joints` dans
-`.autoport/physics_inject_joints.py` : un joint cree a partir d'un joint que le gradeur connait DEJA
-doit etre declare a cote de lui, sinon la cuisson s'arrete en nommant la ligne exacte a ecrire.
+**LE CORRECTIF EST DONC RETIRE — LES SIX LIGNES, PAS LA MOITIE QUI ARRANGE.** La condition disait
+« RETIREES, pas adoucies », et garder le correctif aurait echange un defaut PRIORITE 1 contre
+l'autre : une geometrie dechiree EST le defaut que l'owner decrit (« des polygones qui bougent et
+des polygones voisins parfaitement statiques, causant la geometrie qui casse »), et sa regle 6 dit
+qu'« une resolution pire que le clip est pire que rien ».
 
-CONTROLE POSITIF, il a TIRE (ce n'est pas un zero nu) :
-  * ARME, sur le fichier d'avant : `FIRE — physics_reskin.txt does not know 6 joint(s) this spec
-    creates`, et il imprime les six lignes `grade ... chain=...` exactes, celles que j'avais
-    corrigees a la main ;
-  * DESARME, sur le fichier corrige : PASS ;
-  * sur les 10 entrees du spec, les 7 de la premiere injection passent deja — la garde n'aurait
-    jamais tire a tort dans le passe.
-
-=================================================================================================
-3. UN ORDRE QUE J'AI ESSAYE, QUE LE MESH A REFUTE, ET QUE J'AI CORRIGE
-=================================================================================================
-
-`physics_reskin.txt` porte une regle d'ordre etablie et mesuree : « la POINTE passe avant le MILIEU,
-sans ca le milieu se sert le premier et la pointe ne trouve plus de pool ». Je l'ai appliquee telle
-quelle. LE MESH L'A REFUTEE POUR CE CAS, en une cuisson :
-
-    backHair4   verts=83   dominant 0->9     poids pris a head,backHair3 = 15.3
-    backHair3   verts=55   dominant 0->53    <- son SUPPORT est tombe de 127 a 55
-
-`transfer` n'agit que la ou la CIBLE porte deja du poids. En prenant a `backHair3` d'abord, la regle
-de pointe a fait tomber 72 sommets SOUS le seuil de support de la regle du milieu, qui a cesse de les
-couvrir. Ces 72 sommets sont retournes a leur plus gros porteur d'origine : `backHair1`, LE MAILLON
-EPINGLE. Autrement dit la POINTE de la nuque s'etait SOUDEE AU CRANE — le defaut de l'owner
-(« les pointes sont ancrees au meme titre que les racines ») AGGRAVE, pas corrige :
-
-    repartition        0  0 124  0   ->   50  0  53  9      (50 sommets sur le joint EPINGLE)
-    profil MOBILE d8/d9/d10   1.00/0.99/0.87   ->   0.61/0.53/0.46
-
-J'AI ECRIT LA CONDITION DE RETRAIT AVANT LA CUISSON SUIVANTE, dans le fichier, et je l'ai tenue.
-Elle exigeait les trois a la fois : (1) profil mobile de `backhair` moyenne >= 0.746 ET d10 >= 0.87,
-(2) `backHair1` epingle de retour a 0 sommet majoritaire ET pointe `backHair4` > 0, (3) temoins
-approuves identiques au centieme. Ordre inverse (milieu puis pointe), mesure :
-
-    (1) profil mobile backhair  moyenne 0.746   d10 0.87      ATTEINT, a l'identique de l'etat d'avant
-    (2) backHair1 = 0 sommet majoritaire ; backHair4 = 54     ATTEINT
-    (3) lbang 94/9/10/36 · rbang 95/11/12/21 · earL/earR       IDENTIQUES
-
-Les trois lignes sont donc CONSERVEES. La regle generale du fichier reste vraie pour le cas qu'elle
-decrivait (une pointe sans amont fort) ; elle s'inverse quand le donneur de la pointe EST le milieu.
-
-INCIDENT A SIGNALER, IL EST DE MOI : en reordonnant ces lignes j'ai laisse tomber l'en-tete
-`[model keira-hd]`, les six regles sont retombees dans la section precedente
-`[model keira-hd keira3-hd]`, et la cuisson a REFUSE en sortie 1 —
-« RESKIN verification FAILED for keira3-hd — !! target joint backHair3 not in rig » (x6). Le look J3
-ne porte que `backHair1,backHair2`. LA GATE DU BAKE A FAIT SON TRAVAIL : elle a coute une cuisson,
-pas un build faux chez l'owner. A retenir : ce refus fait `rm -rf out/jak1/fr3/enhanced/`, donc ce
-repertoire se sauvegarde AVANT chaque cuisson de reskin (c'est ce qui m'a permis de repartir).
+RETRAIT PROUVE, PAS AFFIRME : apres re-cuisson, les 12 GLB livres sont byte-pour-byte identiques a
+ceux d'avant le cycle (`diff` des md5 = 0 ligne ; `keira-hd-lod0.glb` de retour a
+`e748cf19e115b7bc19b0e7c2a6880850`). Et `load_cfg` relit 26 regles keira-hd / 20 keira3-hd,
+`smin>0 = 0`, exactement l'etat d'avant.
 
 =================================================================================================
-3 bis. LE TERME SPATIAL QUI MANQUAIT A L'OUTIL — AJOUTE, PROUVE INERTE, ESSAYE, ET RETIRE
+3. CE QUE CE CYCLE ETABLIT, ET QUI FERME UNE DIRECTION
 =================================================================================================
 
-Pour aller plus loin que le §1 bis il faut lever le MILIEU des meches. Le bloc du 4e passage de
-`physics_reskin.txt` l'avait deja essaye et retire, pour une raison juste et mesuree — sept
-configurations passees dans l'operateur reel (shape 0.12/0.40/0.55 concaves, 1.50/2.50/4.00
-convexes) : les concaves DESANCRENT (80 bascules dont 42 A LA RACINE, s<0.10), les convexes
-raidissent la falaise. Et il en nommait la cause exacte : « l'operateur n'a AUCUN terme spatial
-[...] aucun `shape` ne peut lever le milieu sans lever la racine ».
+**UNE COUPURE SPATIALE EST UNE MARCHE DE POIDS.** En levant le milieu au-dessus de `smin` et rien en
+dessous, `smin` ne fait pas que proteger la racine : il FABRIQUE la discontinuite. Et `grade`, dont
+c'est precisement le metier de refermer les marches, portait le meme `smin` — il lui etait donc
+interdit d'entrer la ou la marche venait de naitre. Les deux termes se contredisent par
+construction.
 
-C'etait vrai de l'operateur d'ALORS. J'ai ajoute `smin=` a `.autoport/physics_c7_reskin.py` :
-l'abscisse curviligne le long de la polyligne de `chain=` en dessous de laquelle la regle ne prend
-RIEN, construite exactement comme `probe_skin_profile.py:arc_param` — la mesure qui reproduit le
-verdict de l'owner — pour qu'une regle s'ecrive contre les deciles que la sonde publie.
+J'ai teste la sortie evidente avant de conclure : remplacer la coupure nette par une RAMPE
+(`sramp=`), calee non pas sur un chiffre choisi mais sur la transition MESUREE du controle approuve
+(`lbang` : d3 0.15 -> d4 0.48 -> d6 0.97, soit ~0.25 d'abscisse). Elle ameliore franchement — les
+dechirures tombent de 21/15/31 a 16/5/27 et `grade Lmidhairb` cesse d'etre inerte — mais elle ne les
+supprime pas. **Je me suis arrete la** : elargir la rampe jusqu'a ce que le compteur atteigne zero
+aurait ete exactement le reglage-contre-l'instrument que j'ai refuse au §1.
 
-INERTE PAR DEFAUT, PROUVE ET PAS AFFIRME : `smin` absent partout, cuisson refaite, mesh livre
-BYTE-POUR-BYTE identique (md5 `e748cf19e115b7bc19b0e7c2a6880850`).
-
-CE QUE LES TROIS REGLES DE MILIEU ACHETAIENT, CUITES ET MESUREES :
-
-    pire segment libre     avant    apres      cible < 42.4 % (controle, meme course)
-    backhair               52.0 %   47.1 %
-    lmidhair               48.2 %   41.2 %     DANS LA BANDE
-    rmidhair               43.4 %   38.6 %     DANS LA BANDE
-    lbang / rbang          37.8 / 42.4         inchangees au dixieme
-
-Et le terme spatial faisait son travail : 20/60/66 sommets de racine exclus du gain,
-`bascules>0.5=0` sur chacune des trois regles.
-
-JE LES AI RETIREES QUAND MEME, PARCE QUE MA CONDITION DE RETRAIT — ECRITE AVANT LA CUISSON — A
-ECHOUE. Le critere 1 exigeait que le profil MOBILE d1/d2/d3 ne monte pas de plus de 0.02 :
-
-    backhair  0.00/0.10/0.06 -> 0.08/0.23/0.22
-    lmidhair  0.03/0.11/0.14 -> 0.03/0.15/0.33
-    rmidhair  0.18/0.23/0.29 -> 0.18/0.27/0.39
-
-`backhair` monte a son PREMIER decile, et la nuque est precisement la chaine dont l'owner a FERME
-l'ancrage (« les cheveux de la nuque sont bien ancres la ou ils doivent l'etre »). Je ne livre pas
-une hausse mesuree a la racine de celle-la sur la foi d'une reinterpretation d'apres-coup : c'est
-exactement ainsi qu'on livre un faux vert. Retrait verifie, pas affirme — apres re-cuisson le mesh
-est byte-pour-byte identique a l'etat d'avant l'essai (meme md5).
-
-CE QUE J'AI APPRIS AU PASSAGE, ET QUI EST UNE CORRECTION DE MA PROPRE MESURE : mon critere 2
-(« les maillons 0 gardent leurs sommets majoritaires ») etait MAL SPECIFIE, et la mesure le prouve.
-`Lmidhaira` est tombe de 46 a 23 sommets — mais les 23 perdus sont a l'abscisse 0.26..0.49 (mediane
-0.41), UN SEUL sous la coupure de 0.30, et les sommets GARDES couvrent 0.03..0.27, c'est-a-dire la
-bande d'ancrage entiere. Le maillon EPINGLE a rendu de la peau de MI-MECHE et garde toute sa peau
-de racine. Compter ces sommets-la comme de l'ancrage, c'est compter comme ancrage la geometrie
-soudee au crane qui EST le defaut — meme classe que « une mesure qui compte un immobile comme
-moteur ». La condition corrigee est ecrite d'avance dans le fichier pour la prochaine tentative :
-aucun sommet majoritaire perdu par un maillon 0 SOUS s=0.30, `bascules>0.5=0`, d1 inchange a +-0.02,
-temoins identiques — et `smin` devra monter au-dela de 0.30, parce que le gain redescend en d2/d3
-par les regles `grade` qui passent APRES, ce que la coupure du `transfer` seule n'arrete pas.
-
-L'outil garde `smin=` (inert par defaut) et les trois lignes restent dans le fichier, commentees,
-avec leur mesure. Ce n'est pas un abandon : c'est un essai date, chiffre, et une condition corrigee.
-
-BORNE DURE SUR `backhair`, ET ELLE FERME UNE DIRECTION : meme en poussant `backHair2` a son plafond
-absolu, la chaine ne peut PAS entrer dans la bande. Son support peint est de 21 sommets (contre 157
-sur l'equivalent de `lbang`), et l'invariant d'ancrage de `grade` plafonne a 0.50 tout sommet qui
-n'etait pas deja majoritaire : plafond 8.0 %, ce qui laisse le plus lourd a 49.9 %. Le repesage ne
-peut pas y arriver ; il y faudrait un joint de plus (interdit, `PHYS-LINKS 4` et la chaine y est
-deja) ou un repeinturage du donneur. `lmidhair` et `rmidhair`, elles, sont atteignables — c'est
-mesure ci-dessus, il ne manque que la condition d'ancrage correcte.
+CONCLUSION, et elle vaut d'etre dite une fois pour ne plus y revenir : **repeser par-dessus une
+peinture binaire ne peut pas a la fois deplacer la masse vers le milieu ET garder la couture
+fermee.** La masse doit etre redistribuee A LA SOURCE, par un repeinturage du donneur. Le cycle
+precedent etait arrive au meme mur pour `backhair` par un tout autre chemin (« il y faudrait un
+joint de plus, interdit, ou un repeinturage du donneur ») : deux mesures independantes, meme mur.
+C'est le travail du prochain cycle, et il ne se fera pas dans `physics_reskin.txt`.
 
 =================================================================================================
-4. DEUX CIBLES DES DIRECTIVES QUE JE DOIS RETIRER, AVEC LA PREUVE
+4. L'INSTRUMENT QUI MANQUAIT — ECRIT, VALIDE CONTRE UNE REFERENCE CONNUE
 =================================================================================================
 
-4.1 `mono=yes` N'EST PAS UNE CIBLE ATTEIGNABLE : LE CHAMP NE DISCRIMINE PAS. Le cycle precedent
-l'avait etabli par une analyse d'enveloppe ; il existe une preuve d'UNE LIGNE, lisible directement
-dans la table livree, et c'est celle-ci :
+La grandeur que les DIRECTIVES ont posee comme CIBLE le 19:40 n'avait **aucun instrument**. Elle
+circulait dans des COMMENTAIRES (`physics_keira_gen2.py:266-283`, a l'interieur du litteral
+`EXPECTED_GROUPS` — du texte pur, aucune ligne de code ; idem `physics_inject_joints.py:24-28` et
+`keira-hd-inject-joints.txt:42-52`) et etait remesuree a la main a chaque cycle. Un commentaire
+n'est pas une preuve (regle 0), et une grandeur remesuree a la main derive.
 
-    lbang     (APPROUVE)   lag12=5  lag23=5   mono=yes
-    rbang     (APPROUVE)   lag12=0  lag23=0   mono=no      <- identique aux trois chaines REJETEES
-    backhair  (REJETE)     lag12=0  lag23=0   mono=no
+`.autoport/probe_chain_mass_share.py` (NOUVEAU, read-only, ne genere rien) la publie, avec ses trois
+questions SPEC 7 repondues au-dessus du code (NATURE : une repartition de masse ; REPERE : le joint,
+maillon 0 exclu du numerateur ET du denominateur parce que `rootlock=1` le verrouille ; ABSENT :
+`lbang`/`rbang` dans la meme course).
 
-L'owner approuve LES DEUX meches fines. Le champ leur donne des verdicts OPPOSES, et donne a `rbang`
-approuvee exactement ce qu'il donne a ce qu'il rejette. Un champ qui rend la meme valeur sur le bon
-et le mauvais echantillon ne discrimine rien — c'est la regle que le code de la table a lui-meme
-invoquee (`physics_room_table.py:1380-1386`) pour corriger une definition precedente de `mono` ; sa
-forme corrigee y echoue encore. Je n'ai regle AUCUN parametre contre ce chiffre, et les DIRECTIVES
-qui en font une cible (« retard racine->pointe >= 5 ») visent un instrument qui ne peut pas la rendre.
-
-4.2 LE BIAIS DE NORMALISATION DE `decay`, CHIFFRE — et il ne change AUCUN verdict, donc je n'ai PAS
-touche a l'instrument. `decay` normalise sur `a0 = max des 5 PREMIERES frames` et non sur le maximum
-de la fenetre. Rapport mesure sur la course :
-
-    backhair 1.00 · rbang 1.10 · lbang 1.14 · lmidhair 1.47 · rmidhair 1.71
-
-Recalcule avec `a0 = max de la fenetre` : lbang 81, rbang 93, backhair 47, lmidhair 58, rmidhair 82.
-Le partage reste le meme (backhair et lmidhair SOUS la bande du controle, rmidhair DEDANS). Changer
-la definition maintenant casserait la comparabilite avec les planchers stockes pour un biais qui ne
-retourne aucun verdict : je le publie comme une limite connue et je laisse l'instrument tel quel.
+VALIDE CONTRE UNE REFERENCE CONNUE, ce qui est le seul test qui compte pour un instrument neuf : il
+reproduit **au dixieme, sur les 15 valeurs** le tableau du cycle precedent — lbang 36.3/25.8/37.8 ·
+rbang 42.4/31.0/26.6 · backhair 5.5/52.0/42.5 · lmidhair 16.9/48.2/34.8 · rmidhair 26.6/43.4/30.1.
+Son CONTROLE POSITIF tire 5 fois sur 5 (on verse la masse des segments libres sur le plus lourd, la
+part doit monter : elle monte a 100 % partout). Deux definitions voisines ont ete essayees et
+ecartees parce qu'elles ne rendent PAS la meme chose : majorite ponderee 11.4/17.8/70.8, comptage de
+sommets majoritaires 16.4/18.2/65.5 — c'est bien le poids BRUT, et c'est ecrit dans le fichier.
 
 =================================================================================================
-5. NON-REGRESSION — MESUREE, PAS AFFIRMEE
+5. UNE AFFIRMATION FAUSSE DU DOSSIER, MESUREE ET CORRIGEE (regle 0)
 =================================================================================================
 
-Course complete : `PHYSEND vu apres 516s`, `PHYSFAIL 0`, `PHYSROW 3410`, `PHYSCHAIN 22`,
-31/31 animations. `ROOM_TIMEOUT=1500` (le defaut de 420 s tronque et laisse en place la table
-precedente), et la table est bien reconstruite par l'appel SEPARE.
+`.autoport/probe_skin_ownership.py:14-15` affirme : « le sommet appartient au joint qui detient la
+MAJORITE de son poids (w > 0.5). **Same `WMIN` criterion `physics_c14_meshsamples.py` uses** », et
+en tire le corollaire imprime a chaque course : « un maillon a 0 porte aussi zero echantillon `ms`
+dans physics_mesh.txt (meme seuil) ».
 
-  * les 3410 lignes `row` sont BIT-POUR-BIT identiques a celles d'avant le cycle : `diff` = 0 ligne.
-    Aucune chaine n'a perdu de mouvement, aucune n'en a gagne. `tipvar` max identique sur les 22.
-  * `meshpen` = 0.0000 sur les 22 chaines (regle 6 tenue). Les seules valeurs signees sont NEGATIVES
-    (degagement, pas traversee).
-  * temoins APPROUVES intacts cote mesh : `lbang`/`rbang`/`earL`/`earR` identiques a la 4e decimale,
-    decile par decile, dans les deux tableaux du profil.
-  * la salle est deterministe, donc cette identite est une preuve de non-contamination, pas du bruit.
+**C'EST FAUX, et les deux seuils sont differents dans le code** : la sonde utilise `MAJORITY = 0.5`
+(ligne 35, test STRICT `w > 0.5`) tandis que `physics_c14_meshsamples.py:45` prend `WMIN = c6.WMIN`
+= **0.34** (`physics_c6_volumes.py:69`, test INCLUSIF `>=`). Mesure sur le mesh livre :
 
-C'est attendu et je le dis franchement : les poids de peau ne sont PAS lus par le moteur (il ne lit
-que `physics_chains.txt` et `physics_mesh.txt`), donc ce cycle ne pouvait pas changer la physique
-mesuree. Il change ce que la GEOMETRIE fait de cette physique — et c'est ce que l'owner voit.
+        joint          majorite>0.5    wmin>=0.34
+        backHair1            0             11      <- le corollaire est faux ICI
+        backHair2            0              0      <- seul maillon vraiment mort aux DEUX seuils
+        Lmidhairb            2             21
+        Rmidhairb           14             55
+
+Consequences, et la seconde me concerne directement : (a) le rapport du cycle precedent reprend ce
+corollaire tel quel, donc « la peau de `backHair1` n'existe ni pour la collision ni pour le rendu »
+n'est **pas** etabli — elle porte 11 sommets au seuil `ms` ; (b) la lecture « le maillon du milieu
+est affame » est en partie un artefact du seuil de majorite (`Rmidhairb` 14 contre 55). Le seul
+constat qui survit aux deux seuils est `backHair2` = 0, et c'est celui-la qui est solide.
+
+**Je ne corrige pas la sonde moi-meme** : c'est un instrument, et le contrat dit de ne pas y toucher
+sans arbitrage. Je pose la mesure et la ligne exacte ; le superviseur tranche.
 
 =================================================================================================
 6. NIVEAU DE BUILD, ET CE QU'IL A COUTE
 =================================================================================================
 
-  * ASSET (bake HD) : obligatoire, les poids de peau changent. 3 cuissons (~2.5 min chacune), dont
-    une refusee par la gate du bake (§3).
-  * DATA : `physics_mesh.txt` est lu a l'execution => AUCUN build pour ses deux regenerations.
-  * AUCUN build GOAL, AUCUN rebuild NDK/libgk : aucun `.gc` n'a change ce cycle. La gate de
-    fraicheur passe telle quelle (`GAME.CGO` 19:31 > `phys-room.gc`/`jak-hd-physics.gc` 15:26).
-  * Le poste dominant reste la SALLE : 2 courses x ~8.6 min.
-  * Le moteur n'a pas bouge d'une ligne : 4798, sous le plafond de 4800.
+  * ASSET (bake HD) : 3 cuissons. **13 a 15 secondes chacune** — c'est dix fois moins que les
+    « ~2,5 min » que je supposais, et c'est ce qui a permis d'essayer la rampe PUIS de retirer
+    proprement dans le meme cycle au lieu de reporter. A retenir pour le prochain.
+  * AUCUN build GOAL, AUCUN rebuild NDK/libgk, AUCUN gradle : aucun `.gc` n'a change ce cycle.
+  * Le moteur n'a pas bouge d'une ligne : **4798**, sous le plafond de 4800.
+  * `physics_chains.txt` : pas un caractere. Aucun generateur lance (ni `physics_keira_gen.py`, ni
+    `physics_keira_gen2.py`).
+  * Sauvegarde posee AVANT la premiere cuisson (`/home/emeric/.autoport-scratch/meshbak-20260813-2033/`,
+    62 Mo, `skin/` + `enhanced/`) : c'est elle qui a servi de mesh de reference AVANT, et elle aurait
+    servi si une gate du bake avait fait son `rm -rf out/jak1/fr3/enhanced/`.
+  * CONSTRUCTEUR AUTOMATIQUE SUSPENDU pendant l'essai, par le mecanisme documente
+    (`.autoport/.deploy-in-progress`, honore 60 min, auto-expirant) et non par un signal : le
+    2026-08-13 un correctif essaye puis refuse etait parti chez l'owner en 20 min. Le verrou a ete
+    **releve** des le retrait prouve. Faute a signaler : je l'ai pose APRES avoir lance la premiere
+    cuisson, pas avant — la fenetre a ete de ~4 min, et aucun build n'est parti dedans (le
+    constructeur dort 240 s entre deux tours et son dernier passage date de 20:25).
 
 =================================================================================================
-7. CE QUE JE N'AI PAS FAIT — AUCUN DE-SCOPE SILENCIEUX
+7. CE QUE JE N'AI PAS FAIT — AUCUN DE-SCOPE SILENCIEUX (regle 3)
 =================================================================================================
 
-  * `hair-anchored-geo` / `hair-pudding` : la cause mecanique est trouvee et MESUREE (§1), et la
-    repartition est corrigee sur les trois chaines. Je ne declare AUCUN des deux ferme : c'est
-    l'oeil de l'owner qui ferme, et `backHair2` reste a 0 sommet majoritaire.
-  * `hair-fine-grav`, `pant-calf`, `goggles-bottom`, `flesh-jelly` : NON traites ce cycle.
-    `pant-calf` est par ailleurs deja etabli comme non corrigeable dans le solveur — le pan enveloppe
-    10 secteurs angulaires sur 12 autour du mollet avec UN seul joint pose sur l'axe du membre : il
-    demande un re-rig, pas un reglage.
-  * `knee-tabs` (defaut FERME par l'owner) : perte de 53 % sur stimulus faible, PRE-EXISTANTE et
-    prouvee telle (§0). Non corrigee ici — ce serait une deuxieme variable dans la meme cuisson.
-  * `ROOM-SKINPEN` se declare elle-meme NON DISCRIMINANTE dans la table (plancher d'erreur 0.1853 m
-    contre une plus petite valeur publiee de 0.0659 m, 12 echantillons par os). Je ne m'en sers pas
-    comme preuve, et je le signale.
+  * `hair-anchored-geo` / `hair-pudding` : **NON FERMES**, et je n'en presente aucun comme avance.
+    Le correctif qui les visait est retire ; ce qui reste est une direction fermee et l'instrument
+    qui mesurera la suivante.
+  * `hair-fine-grav`, `pant-calf`, `goggles-bottom`, `flesh-jelly` : **NON TRAITES ce cycle**, et
+    voici pourquoi plutot qu'un silence. `hair-fine-grav` porte sur `lbang`/`rbang`, qui sont le
+    CONTROLE APPROUVE contre lequel les deux defauts PRIORITE 1 se mesurent ; le corriger demande
+    une gravite DERIVEE de leur propre geometrie (jamais recopiee d'une autre chaine) et une course
+    `ROOM-GRAVSAG` avant/apres, soit une deuxieme variable dans la meme livraison. `pant-calf` est
+    deja etabli comme non corrigeable dans le solveur (le pan enveloppe 10 secteurs angulaires sur
+    12 autour du mollet avec UN seul joint sur l'axe du membre : re-rig, pas reglage).
+  * `knee-tabs` (defaut FERME par l'owner) : la perte de 53 % sur stimulus faible reste ouverte et
+    PRE-EXISTANTE (§0 bis). Non corrigee ici — ce serait une gate touchee, pas un correctif.
   * Je n'ai touche NI au validateur, NI a une gate, NI a `owner-defects.txt`, NI a `DIRECTIVES.md`,
-    NI a `motion-floor*.txt`, NI au moteur `jak-hd-physics.gc` (0 ligne), NI a `PHYS-LINKS`,
-    NI a `physics_chains.txt` (aucun parametre de chaine change ce cycle).
+    NI a `motion-floor*.txt`, NI au moteur `jak-hd-physics.gc` (0 ligne), NI a `PHYS-LINKS`, NI a
+    `physics_chains.txt`, NI aux reglages de l'owner.
 
 SUPPRESSORS: 0
 
@@ -367,20 +280,11 @@ SUPPRESSORS: 0
 8. CE QUE L'OWNER DOIT REGARDER
 =================================================================================================
 
-**Ce build change le MESH de Keira (les poids de peau), pas le rig ni la physique. C'est le pack HD
-externe qui le porte (`jak1_hd_assets.zip`) : si sa version a change, il faut le re-telecharger.**
+**RIEN DE NEUF, ET JE PREFERE LE DIRE QUE DE LUI FAIRE PERDRE UN TEST.** Le mesh livre de ce cycle
+est byte-pour-byte identique au precedent (md5 `e748cf19e115b7bc19b0e7c2a6880850` sur les 12
+modeles). Le correctif essaye a ete retire parce qu'il ouvrait des dechirures dans la geometrie des
+meches — c'est-a-dire qu'il aurait rendu PIRE le defaut meme qu'il visait. Un build reconstruit
+maintenant contient exactement ce qu'il a deja teste.
 
-1. **LES TROIS GROSSES MECHES — LA NUQUE SURTOUT.** Jusqu'ici toute la nuque etait pesee sur UN
-   SEUL os : elle ne POUVAIT que partir en bloc, quel que soit le reglage. Maintenant la pointe a
-   ses propres sommets (54, contre 36 sur les meches fines qu'il approuve). La question exacte :
-   est-ce que la nuque commence a se deplier, ou est-ce que ca part encore d'une piece ?
-2. **CE QUI PEUT ETRE PIRE, ET OU REGARDER.** Redistribuer des poids peut ouvrir une couture. La
-   mesure dit que non (`tear_mov` 0 partout, et 9 -> 0 sur `rmidhair` a la pointe), mais c'est son
-   oeil qui tranche : si un polygone se detache ou si un bord de meche s'ouvre, c'est mon changement.
-3. **LA PHYSIQUE EST INCHANGEE, AU CHIFFRE PRES** — 3410 mesures bit-pour-bit identiques. Donc si le
-   MOUVEMENT lui semble different, c'est la geometrie qui le rend visible autrement, pas le solveur.
-4. **CE QUI N'A PAS BOUGE ET QUI RESTE OUVERT** : les lunettes sur les seins, le pantacourt dans les
-   mollets, les ballons d'eau sur mouvements brusques, la gravite sur les meches fines.
-5. **LES DIX AUTRES PERSONNAGES HD** repassent par le four a chaque cuisson. La gate d'integrite dit
-   que tout ce qui n'est pas un personnage est byte-identique au stock, mais si l'un d'eux a change
-   d'aspect, il faut me le dire.
+Le prochain build qui vaudra un coup d'oeil sera celui du repeinturage du donneur (§3), et c'est le
+seul chantier du cycle suivant.

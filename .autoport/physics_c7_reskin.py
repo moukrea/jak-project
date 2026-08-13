@@ -120,13 +120,37 @@ def load_cfg(path=CFG):
                  # `tear` se mesure sur cette somme, donc `grade` doit la graduer ELLE : graduer un
                  # joint isole mesurait autre chose que le defaut (2026-08-12, rmidhair 82 -> 68).
                  chain=[c for c in kv.get('chain', '').split(',') if c],
+                 # ABSCISSE DE REFERENCE de `smin=`. Par defaut elle se lit sur la polyligne de
+                 # `chain=` ; or les regles `grade` de milieu de meche ont un `chain=` qui DEMARRE
+                 # au maillon du milieu (`chain=backHair2,backHair3,backHair4`), donc leur s=0
+                 # tombe a mi-meche et `smin=0.30` n'y voudrait plus dire « 30 % le long de la
+                 # meche ». `sarc=` nomme la polyligne COMPLETE racine->pointe, celle que publie
+                 # `probe_skin_profile.py`, pour qu'un seuil garde le sens que la sonde lui donne.
+                 sarc=[c for c in kv.get('sarc', '').split(',') if c],
+                 # LARGEUR DE LA RAMPE au-dessus de `smin`. 0.0 = coupure NETTE (comportement
+                 # d'avant, bit-pour-bit).
+                 #
+                 # POURQUOI ELLE EXISTE (2026-08-13, mesure). Une coupure nette EST une marche : en
+                 # levant le milieu au-dessus de `smin` et rien en dessous, `smin` FABRIQUE une
+                 # discontinuite de poids exactement a `smin`. Cuisson mesuree : `tear_mov` 0 -> 21
+                 # (backhair), 0 -> 15 (lmidhair), 0 -> 31 (rmidhair), aretes cassees a
+                 # s=0.16..0.50, c'est-a-dire SUR la frontiere. Et `grade`, dont c'est le metier de
+                 # refermer ces marches, portait le meme `smin` : il lui etait donc interdit
+                 # d'entrer la ou la marche venait d'apparaitre. Les deux termes se contredisaient.
+                 #
+                 # Une RAMPE supprime la contradiction a la source : le gain monte progressivement
+                 # de 0 a `smin` jusqu'a 1 a `smin+sramp`, donc il n'y a plus de marche a refermer.
+                 # C'est la FORME du controle approuve : le profil mobile de `lbang` monte 0.15 (d3)
+                 # -> 0.48 (d4) -> 0.97 (d6), une transition etalee sur ~0.25 d'abscisse, jamais un
+                 # saut. On copie une forme mesuree sur l'echantillon que l'owner valide.
+                 sramp=float(kv.get('sramp', 0.0)),
                  iters=int(kv.get('iters', 8)))
         for x in cur:
             out[x].append(r)
     return out
 
 
-def _grade(r, J, W, idx, ed):
+def _grade(r, J, W, idx, ed, sarc=None):
     """GRADUATION DE JONCTION sur le poids SOMME d'une chaine.  Mute J/W en place.
 
     LES TROIS QUESTIONS DE LA SPEC 7, repondues avant d'ecrire la mesure :
@@ -216,6 +240,28 @@ def _grade(r, J, W, idx, ed):
 
     delta = new - ws
     gain = np.maximum(delta, 0.0)
+
+    # TERME SPATIAL, MEME SEMANTIQUE QUE SUR `transfer` : sous l'abscisse, la regle est INERTE —
+    # elle ne prend rien ET ne donne rien. `smin=0.0` par defaut => comportement d'avant
+    # bit-pour-bit. Il a fallu l'ajouter a `grade` AUSSI parce que `grade` est une DIFFUSION :
+    # couper le `transfer` a s=0.30 ne suffit pas, la marche qu'il cree a la frontiere est ensuite
+    # rediffusee VERS LA RACINE par le Gauss-Seidel (mesure 2026-08-13 : avec le seul `transfer`
+    # coupe, le profil MOBILE de backhair monte de 0.00 a 0.08 a son PREMIER decile, c'est-a-dire
+    # dans la bande d'ancrage que l'owner a explicitement FERMEE).
+    if r['smin'] > 0.0:
+        if sarc is None:
+            rep.append(f"  !! {r['target']}: smin= demande mais l'abscisse n'a pas pu etre"
+                       f" construite (sarc=/chain= ne presente pas 2 joints de ce rig) —"
+                       f" regle REFUSEE plutot qu'appliquee a moitie")
+            return rep
+        blocked = int(((sarc < r['smin']) & (np.abs(delta) > 1e-9)).sum())
+        k = (np.clip((sarc - r['smin']) / r['sramp'], 0.0, 1.0) if r['sramp'] > 0.0
+             else (sarc >= r['smin']).astype(float))
+        delta = delta * k
+        gain = np.maximum(delta, 0.0)
+        rep.append(f"  .. {r['target']}: spatial smin={r['smin']:.2f}"
+                   f" rampe={r['sramp']:.2f} — {blocked} sommet(s) sous l'abscisse laisses INTACTS")
+
     if not (np.abs(delta) > 1e-9).any():
         rep.append(f"  -- {r['target']}: jonction deja graduee (aucune marche > {r['step']})")
         return rep
@@ -407,7 +453,10 @@ def apply_model(js, binc, rules, verbose=True):
                     # `grade` travaille sur le poids SOMME de la chaine et distribue le gain sur un
                     # receveur qui varie par sommet : il ne peut pas partager la queue de `transfer`,
                     # qui suppose un joint cible unique.
-                    rep.extend(_grade(r, J, W, idx, edges_by_key.get(key)))
+                    g_sarc = None
+                    if r['smin'] > 0.0:
+                        g_sarc = arc_abscissa(r['sarc'] or r['chain'] or [r['target']], P)
+                    rep.extend(_grade(r, J, W, idx, edges_by_key.get(key), g_sarc))
                     continue
                 t = idx.get(r['target'])
                 if t is None:
@@ -447,15 +496,18 @@ def apply_model(js, binc, rules, verbose=True):
                 # lever sa RACINE, parce qu'il ne les distingue que par le poids peint et que le
                 # support de ces joints couvre toute la meche. `smin=0.0` par defaut => aucun effet.
                 if r['smin'] > 0.0:
-                    sarc = arc_abscissa(r['chain'] or [r['target']], P)
+                    sarc = arc_abscissa(r['sarc'] or r['chain'] or [r['target']], P)
                     if sarc is None:
                         rep.append(f"  !! {r['target']}: smin= demande mais chain= ne presente pas"
                                    f" 2 joints de ce rig — regle refusee plutot qu'appliquee a moitie")
                         continue
                     blocked = int(((sarc < r['smin']) & (gain > 0)).sum())
-                    gain = np.where(sarc < r['smin'], 0.0, gain)
+                    k = (np.clip((sarc - r['smin']) / r['sramp'], 0.0, 1.0) if r['sramp'] > 0.0
+                         else (sarc >= r['smin']).astype(float))
+                    gain = gain * k
                     rep.append(f"  .. {r['target']}: spatial smin={r['smin']:.2f}"
-                               f" — {blocked} sommet(s) sous l'abscisse exclus du gain")
+                               f" rampe={r['sramp']:.2f} — {blocked} sommet(s) sous l'abscisse"
+                               f" exclus du gain")
 
                 if not (gain > 0).any():
                     rep.append(f"  -- {r['target']}: already at or above the target profile")

@@ -429,7 +429,64 @@ transfer RpantFlap from=Rknee,Rthigh cap=0.90 shape=0.75
 # byte-pour-byte identique, md5 e748cf19e115b7bc19b0e7c2a6880850) et c'est le levier que le bloc du
 # 4e passage declarait manquant. Les trois lignes ci-dessous n'attendent que la condition corrigee.
 #
-# transfer backHair2 from=head chain=backHair1,backHair2,backHair3,backHair4 smin=0.30 cap=0.90 shape=0.40
+# ================================================================================================
+# 2026-08-13 21:10 — LA FUITE EST UNE DIFFUSION, ET C'EST `grade` QUI LA PORTE, PAS `transfer`.
+#
+# Le bloc precedent a laisse une prediction : « le `smin` devra MONTER au-dela de 0.30 ». Je ne la
+# suis PAS, et voici pourquoi — monter le seuil jusqu'a ce que le d1 cesse de bouger serait regler
+# un nombre CONTRE l'instrument qui le mesure, exactement le piege que le contrat interdit
+# (`never-fit-a-parameter-to-the-instrument`). J'ai cherche la CAUSE a la place, et elle se lit
+# dans l'operateur lui-meme.
+#
+# `grade` n'est pas un profil, c'est une DIFFUSION : un Gauss-Seidel sur les aretes du mesh
+# (`.autoport/physics_c7_reskin.py:_grade`, boucle `for _ in range(r['iters'])` sur `edl`) qui
+# remonte le cote bas de toute arete dont la marche depasse `step`. Il travaille sur le poids SOMME
+# des joints de `chain=`.
+#
+# Or les regles de milieu ci-dessous ont `chain=` = LES JOINTS MOBILES (`grade backHair2
+# chain=backHair2,backHair3,backHair4`). Donc :
+#   1. le `transfer` coupe a s=0.30 leve le milieu et cree, PAR CONSTRUCTION, une marche raide a la
+#      frontiere s=0.30 — sur la somme MOBILE, precisement la grandeur que `grade` va lisser ;
+#   2. `grade` passe APRES (ordre du fichier : transferts 445-450, graduations 579-605) et rediffuse
+#      cette marche VERS LA RACINE, la ou aucun `smin` de `transfer` ne peut plus l'arreter.
+# C'est mot pour mot le chiffre mesure a 20:40 : `backhair` d1 0.00 -> 0.08. La coupure etait au bon
+# endroit ; c'est l'operateur d'APRES qui la franchissait.
+#
+# CORRECTIF : le MEME terme spatial sur `grade`, sur la MEME abscisse. Sous `smin`, la regle est
+# INERTE — elle ne prend rien ET ne donne rien. La bande d'ancrage devient alors protegee PAR
+# CONSTRUCTION sur les deux operateurs, au lieu de dependre d'une marge trouvee a tatons.
+#
+# `sarc=` EST NECESSAIRE ET CE N'EST PAS UN ORNEMENT. `smin` se lit par defaut sur la polyligne de
+# `chain=` ; or le `chain=` de ces trois regles DEMARRE au maillon du milieu, donc son s=0 tombe a
+# mi-meche et `smin=0.30` y voudrait dire « 30 % de la moitie basse », pas « 30 % de la meche ».
+# `sarc=` nomme la polyligne COMPLETE racine->pointe — celle que publie `probe_skin_profile.py` —
+# pour que le seuil garde EXACTEMENT le sens que la sonde lui donne. Sans lui, le nombre 0.30
+# cesserait d'etre comparable au decile qui le justifie, et la mesure ne voudrait plus rien dire.
+#
+# 0.30 N'EST TOUJOURS PAS UN CHIFFRE CHOISI : c'est la fin de la bande d'ancrage du controle
+# APPROUVE (profil mobile de `lbang` : d1 0.07 · d2 0.08 · d3 0.15 · d4 0.48 — la transition s'ouvre
+# a d4), et s<0.30 recouvre exactement d1+d2+d3, les trois deciles que le critere protege. Le seuil
+# et le critere sont la MEME frontiere : c'est ce qui fait qu'on ne peut pas l'ajuster pour passer.
+#
+# CONDITION DE RETRAIT, ECRITE AVANT LA CUISSON — les six lignes (3 `transfer` + les 3 `smin=` sur
+# `grade`) sont CONSERVEES seulement si TOUT tient, sinon RETIREES, pas adoucies. C'est la condition
+# CORRIGEE du bloc precedent, reprise telle quelle, sans reinterpretation :
+#   1. ANCRAGE (acquis FERME par l'owner : « les cheveux de la nuque sont bien ancres la ou ils
+#      doivent l'etre ») : profil MOBILE d1 inchange a +-0.02 sur les trois chaines —
+#      backhair 0.00 · lmidhair 0.03 · rmidhair 0.18 (mesure 2026-08-13, lignes 588-590 ci-dessous).
+#   2. ANCRAGE, deuxieme lecture : aucun sommet majoritaire perdu par un maillon 0 SOUS s=0.30,
+#      ET `bascules>0.5=0` sur chaque regle. (Le critere du bloc precedent — « le maillon 0 garde
+#      TOUS ses sommets » — etait MAL SPECIFIE et sa propre mesure l'a prouve : il comptait comme
+#      ancrage de la peau de MI-MECHE soudee au crane, qui EST le defaut. Borne a la bande.)
+#   3. PROGRES : le pire segment libre BAISSE sur au moins une chaine, sans qu'aucune ne monte.
+#   4. TEMOINS APPROUVES `lbang`/`rbang`/`earL`/`earR` identiques au centieme — repartition de
+#      majorite ET profil. Ils ne sont ni cibles ni donneurs d'aucune des six lignes.
+#   5. `tear_mov` reste 0 sur toutes les chaines. C'est le risque propre de ce correctif : `grade`
+#      existe POUR fermer les dechirures, et je viens de lui interdire la bande d'ancrage. Si une
+#      couture se rouvre sous s=0.30, le correctif est retire.
+# ================================================================================================
+# RETIREE 21:45 (critere 5 : tear_mov 0 -> 16). Voir le bilan au bas de la section `grade`.
+# transfer backHair2 from=head chain=backHair1,backHair2,backHair3,backHair4 smin=0.30 sramp=0.25 cap=0.90 shape=0.40
 # `from=head` SEUL est INERTE sur ces deux-la, et l'operateur l'a refuse lui-meme :
 # `!! Lmidhairb: transfer moved ownership by only +0.021 — the rule is inert` (+0.022 a droite),
 # avec `weight moved off head = 4.2` seulement. Meme cause que celle deja ecrite plus haut pour les
@@ -440,8 +497,8 @@ transfer RpantFlap from=Rknee,Rthigh cap=0.90 shape=0.75
 # desancrage mesure au 4e passage venait de sommets DE RACINE leves par la regle. Avec `smin=0.30`
 # le gain est nul en dessous de d3, donc prendre a `Lmidhaira` ne peut plus toucher la racine —
 # le prelevement n'a lieu que la ou la regle a le droit de donner.
-# transfer Lmidhairb from=head,Lmidhaira chain=Lmidhaira,Lmidhairb,Lmidhairc,Lmidhaird smin=0.30 cap=0.90 shape=0.40
-# transfer Rmidhairb from=head,Rmidhaira chain=Rmidhaira,Rmidhairb,Rmidhairc,Rmidhaird smin=0.30 cap=0.90 shape=0.40
+# transfer Lmidhairb from=head,Lmidhaira chain=Lmidhaira,Lmidhairb,Lmidhairc,Lmidhaird smin=0.30 sramp=0.25 cap=0.90 shape=0.40
+# transfer Rmidhairb from=head,Rmidhaira chain=Rmidhaira,Rmidhairb,Rmidhairc,Rmidhaird smin=0.30 sramp=0.25 cap=0.90 shape=0.40
 transfer backHair3 from=head,backHair1,backHair2 cap=1.00 shape=0.12
 transfer Lmidhairc from=head,Lmidhaira,Lmidhairb cap=1.00 shape=0.12
 transfer Rmidhairc from=head,Rmidhaira,Rmidhairb cap=1.00 shape=0.12
@@ -590,6 +647,69 @@ grade Rbangb    chain=Rbangb,Rbangc,Rbangd    from=head,Rbanga     step=0.45
 #     rmidhair (REJETE)    0.18 0.23 0.29 0.33 0.57 0.76 0.91 0.95 0.92 0.95
 # La cible est la FORME du controle approuve : transition finie tot, pas une longue zone tiede.
 # Les listes ci-dessous sont completees a l'identique de ce que portent DEJA les bangs approuves.
+# 2026-08-13 21:10 — `smin=0.30 sarc=` AJOUTES SUR CES TROIS-LA, ET SUR CELLES-LA SEULEMENT.
+# Ce sont les trois regles dont le `chain=` est la somme des joints MOBILES : elles sont donc les
+# seules a pouvoir remonter la fraction mobile, et c'est la diffusion Gauss-Seidel de CETTE somme
+# qui reportait vers la racine la marche creee par le `transfer` coupe a s=0.30 (backhair d1
+# 0.00 -> 0.08, mesure du 20:40). Raisonnement complet dans le bloc du 21:10 plus haut.
+#   * `sarc=` donne l'abscisse COMPLETE racine->pointe : leur `chain=` demarre au maillon du MILIEU,
+#     donc sans lui `smin=0.30` ne voudrait pas dire « 30 % le long de la meche » et le seuil
+#     cesserait d'etre comparable au decile de `probe_skin_profile.py` qui le justifie.
+#   * les quatre regles de chaine COMPLETE plus bas (`Lmidhaira`, `backHair1`, ...) ne le recoivent
+#     PAS : leur somme inclut le maillon 0 EPINGLE, donc pres de la racine leur receveur est ce
+#     maillon epingle et leur gain va a l'ancrage, pas a la mobilite. Une variable a la fois — si
+#     la mesure montre que le d1 monte encore, elles seront traitees a la cuisson SUIVANTE.
+#   * les deux bangs (`Lbangb`/`Rbangb`, lignes ci-dessus) ne le recoivent pas non plus : ce sont
+#     les TEMOINS APPROUVES, ils doivent rester identiques au centieme.
+#   * ET C'EST POURQUOI CES TROIS LIGNES SORTENT DE LA SECTION PARTAGEE. Elles etaient dans
+#     `[model keira-hd keira3-hd]`, donc le look J3 aurait recu la coupure spatiale LUI AUSSI —
+#     alors que son rig ne porte PAS `backHair3`/`backHair4` (la gate du bake l'a prouve le
+#     2026-08-13 en refusant en sortie 1 : « target joint backHair3 not in rig », x6) et qu'AUCUN
+#     de mes criteres n'est mesure sur lui. Ce serait une deuxieme variable dans la meme cuisson,
+#     non mesuree. J3 garde donc les lignes d'ORIGINE, mot pour mot, et reste bit-pour-bit
+#     identique ; seul `keira-hd` — le mesh que l'owner regarde (assistant-lod0) — recoit `smin`.
+# RESULTAT : CUIT DEUX FOIS, MESURE, ET RETIRE — MA CONDITION DE RETRAIT A ECHOUE (21:45).
+# Le `smin=` sur `grade` est RETIRE d'ici avec les trois `transfer` : les six lignes formaient un
+# seul correctif, on ne garde pas la moitie qui arrange.
+#
+# CE QUE LES DEUX CUISSONS ONT ACHETE (criteres 2, 3 et 4 : TOUS TENUS, et c'est mesure) :
+#   * critere 2, ANCRAGE — le point qui avait fait echouer le cycle precedent est REGLE :
+#     AUCUN sommet majoritaire perdu par un maillon 0 sous s=0.30 (Lmidhaira perd 22 sommets, tous
+#     a s=0.30..0.49 mediane 0.41 ; Rmidhaira 11, tous a s=0.31..0.49) ; `bascules>0.5=0` partout.
+#   * critere 3, PROGRES — pire segment libre : backhair 52.0->48.9, lmidhair 48.2->41.6,
+#     rmidhair 43.4->40.6. Les deux laterales passent SOUS `rbang` (42.4), donc DANS la bande du
+#     controle approuve. Aucune chaine ne monte.
+#   * critere 4, TEMOINS — `lbang`/`rbang` identiques sur les TROIS instruments : part de masse
+#     37.8/42.4 au dixieme, majorite 94/9/10/36 et 95/11/12/21 a l'unite, profil mobile
+#     0.07/0.08/0.15/0.48 et 0.06/0.08/0.14/0.48 au centieme.
+#
+# CE QUI A ECHOUE, ET C'EST LE RISQUE QUE J'AVAIS ECRIT MOT POUR MOT DANS LE CRITERE 5 :
+#     `tear_mov`   backhair 0 -> 21    lmidhair 0 -> 15    rmidhair 0 -> 31   (coupure NETTE)
+#                  backhair 0 -> 16    lmidhair 0 ->  5    rmidhair 0 -> 27   (avec la RAMPE)
+# Base verifiee sur le mesh d'avant, pas citee d'un rapport : `tear_mov=0` sur les 14 chaines.
+# Les aretes cassees tombent a s=0.16..0.56 — SUR la frontiere que `smin` fabrique.
+#
+# ET LA CAUSE EST STRUCTURELLE, PAS UN SEUIL — c'est le resultat utile de ce cycle :
+# une coupure spatiale EST une marche de poids. `smin` leve le milieu et rien en dessous, donc il
+# CREE la discontinuite ; et `grade`, dont c'est le metier de refermer les marches, portait le meme
+# `smin`, donc il lui etait interdit d'entrer precisement la ou la marche venait de naitre. Les deux
+# termes se contredisent. La rampe (`sramp=0.25`, calee sur la transition mesuree de `lbang` :
+# d3 0.15 -> d4 0.48 -> d6 0.97) attenue le conflit — les dechirures tombent de 21/15/31 a 16/5/27,
+# et `grade Lmidhairb` cesse d'etre inerte — mais ne le supprime pas.
+#
+# CONCLUSION QUI FERME UNE DIRECTION, et il faut la dire une fois pour ne plus y revenir :
+# REPESER par-dessus une peinture binaire ne peut pas a la fois deplacer la masse vers le milieu ET
+# garder la couture fermee. Elargir la rampe jusqu'a ce que le compteur tombe a zero serait regler
+# un parametre CONTRE l'instrument — l'interdit du contrat. La masse doit etre redistribuee A LA
+# SOURCE (repeinturage du donneur), ce que le bloc precedent avait deja conclu pour `backhair` par
+# un autre chemin (« il y faudrait un joint de plus, interdit, ou un repeinturage du donneur »).
+# Les deux chemins arrivent au meme mur, par deux mesures independantes.
+#
+# `smin=`/`sramp=`/`sarc=` RESTENT DANS L'OUTIL, prouves INERTES par defaut (mesh livre
+# byte-pour-byte identique apres retrait, md5 e748cf19e115b7bc19b0e7c2a6880850). Ils ne sont pas
+# perdus : ils sont le levier spatial que le 4e passage declarait manquant, et ils ont servi a
+# fermer le critere 2. Les six lignes retirees sont conservees plus haut, commentees, avec leur
+# mesure. Ce n'est pas un abandon : c'est un essai date, chiffre, et une direction fermee.
 grade Lmidhairb chain=Lmidhairb,Lmidhairc,Lmidhaird from=head,Lmidhaira  step=0.45
 grade Rmidhairb chain=Rmidhairb,Rmidhairc,Rmidhaird from=head,Rmidhaira  step=0.45
 grade backHair2 chain=backHair2,backHair3,backHair4 from=head,backHair1  step=0.45
