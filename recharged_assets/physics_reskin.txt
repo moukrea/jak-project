@@ -228,13 +228,65 @@ transfer RpantFlap from=Rknee,Rthigh cap=0.90 shape=0.75
 # defaut de l'owner porte sur le CORPS de la meche (« une partie de la geometrie reste encree »), et
 # le corps (d4-d10) est desormais pilote a 1.00. Monter d2/d3 exigerait de retirer les `grade`, ce
 # qui bouge `lbang` (0.976 -> 0.987) : interdit, elle est approuvee.
+# ================================================================================================
+# CORRECTION DU 2026-08-13 (4e passe) — LES TROIS REGLES SUR LES MAILLONS `*b` SONT RETIREES.
+# ELLES DESANCRAIENT LA RACINE, ET ELLES N'AVAIENT JAMAIS ETE CUITES.
+#
+# FAIT PREALABLE, verifie par les dates : `out/jak1/fr3/skin/keira-hd-lod0.glb` date du 13/08 11:07 ;
+# les six lignes ci-dessous ont ete commitees a 16:05. Le mesh livre porte donc encore les regles
+# d'AVANT (`backHair3 cap=0.90 shape=1.0`, `backHair2 from=head,backHair1 cap=0.80`), et le tableau
+# `ROOM-SKINCOV-SHIPPED` (backhair 0.8560) mesure cet etat-la. Les chiffres « ETAT LIVRE 0.856 ->
+# 0.872 » ecrits ci-dessus sont donc une PREDICTION NON CUITE, pas un releve. Corrige ici.
+#
+# CE QUE LES SIX LIGNES FERAIENT, MESURE en rejouant le pipeline reel hors arbre
+# (`prep_hd_actor_glb.py` -> `physics_c7_reskin.py` sur `keira-hd-donor-injected.glb`, sortie
+# reproduite decile par decile contre le mesh livre — donc l'entree est la VRAIE entree) :
+#     backhair  FIGE d1..d3  0.80/0.77/0.81 -> 0.70/0.53/0.43     DESANCRAGE
+#     lmidhair  FIGE d1      0.97 -> 0.67                          DESANCRAGE
+#     rmidhair  FIGE d1      0.82 -> 0.68                          DESANCRAGE
+#     bascules head->meche : 80 au total, dont **42 A LA RACINE** (s < 0.10)
+# C'est exactement la MALADIE que `.autoport/probe_hair_skincov_grow.py` decrit (« basculer a
+# mi-meche est le remede, basculer a la racine est la maladie ») et le defaut « cheveux decolles du
+# crane » que l'owner a DEJA rejete. `hair anchoring` est un acquis qu'il a FERME le 2026-08-13
+# (« les meches fines et les cheveux de la nuque sont bien ancres la ou ils doivent l'etre ») : le
+# faire regresser serait un echec meme si tout le reste s'ameliorait.
+#
+# LA CAUSE, MECANIQUE ET PAS UNE OPINION : `physics_c7_reskin.py:384` calcule
+# `new = cap * (wt/p90)**shape` — l'operateur n'a AUCUN terme spatial. Il ne distingue un sommet de
+# racine d'un sommet de milieu que par le poids que l'artiste y a peint. Or le support peint de
+# `backHair2` / `Lmidhairb` / `Rmidhairb` couvre TOUTE la meche, racine comprise (backHair2 : 0.195
+# en d1 contre 0.374 en d5) : aucun `shape` ne peut lever le milieu sans lever la racine. Sept
+# configurations ont ete passees dans l'operateur reel (shape 0.12 / 0.40 / 0.55 concaves, 1.50 /
+# 2.50 / 4.00 convexes) : les concaves desancrent, les convexes saturent et RAIDISSENT la falaise a
+# 0.53/93u — pire que le livre. Le seul levier reellement spatial est le CHOIX DU JOINT CIBLE.
+#
+# CE QUI RESTE, ET C'EST CE QUI EST GARDE : les regles sur les maillons de POINTE. Leur support peint
+# ne commence qu'a d5-d6, donc elles sont SPATIALEMENT INOFFENSIVES pour l'ancrage — mesure :
+# **ZERO bascule** sur les cinq chaines, et `tear_mov = 0` (controle positif 6/6 qui tire).
+#     chaine     cov            FIGE d1..d3 (ancrage)      FIGE d7..d10 (pointe)      falaise max
+#     backhair   0.8560->0.8485   0.80/0.77/0.81 -> ./0.91/0.94   0.03/0/0/0.06 -> 0.11/0.04/0.02/0.01   0.48->0.28 /93u
+#     lmidhair   0.8048->0.8054   0.97/0.89/0.86  INTACT          0.43/0.24/0.12/0.11 -> 0.10/0.04/0.01/0.00
+#     rmidhair   0.7875->0.7928   0.82/0.77/0.71  INTACT          0.45/0.32/0.20/0.14 -> 0.11/0.07/0.09/0.03
+#     lbang / rbang : inchangees au 4e chiffre. Non ciblees, non touchees.
+#
+# PREDICTION HONNETE, Y COMPRIS CE QUI EMPIRE : `cov` de backhair BAISSE (0.8560 -> 0.8485) et trois
+# sommets de racine sortent du patch `w>0.05`. Si l'on juge sur `cov`, ca se lit comme un recul
+# alors que la FORME s'est rapprochee de lbang (la falaise perd 42 % de sa pente et le plancher fige
+# de la pointe tombe a ~0). C'est `cov` qui est le mauvais instrument pour ce defaut-la, et je le
+# declare au lieu de choisir la colonne qui m'arrange.
+#
+# CE QUE CE CORRECTIF NE FERME PAS (regle 3, aucun de-scope silencieux) : le plateau fige de
+# `backhair` en d4-d6 (0.79/0.58/0.30 apres correction, cible ~0.35/0.15/0.03) et la moitie haute
+# des midhair. Aucun reglage de `transfer` ne les ferme — c'est le resultat des sept configurations
+# ci-dessus. Il y faut UN JOINT DE PLUS sur ces trois meches : `lbang`/`rbang` atteignent le profil
+# approuve SANS aucun `transfer` parce qu'elles ont QUATRE joints (`Lbangd` injecte) la ou
+# backhair/lmidhair/rmidhair en ont TROIS. Meme classe que `knee-tabs`, meme recette
+# (`.autoport/physics_inject_joints.py` + `recharged_assets/keira-hd-inject-joints.txt`).
+# ================================================================================================
 [model keira-hd]
 transfer backHair3 from=head,backHair1,backHair2 cap=1.00 shape=0.12
-transfer backHair2 from=head                     cap=1.00 shape=0.12
 transfer Lmidhairc from=head,Lmidhaira,Lmidhairb cap=1.00 shape=0.12
-transfer Lmidhairb from=head                     cap=1.00 shape=0.40
 transfer Rmidhairc from=head,Rmidhaira,Rmidhairb cap=1.00 shape=0.12
-transfer Rmidhairb from=head                     cap=1.00 shape=0.40
 #
 # LES OREILLES SONT MESUREES ET NON TRAITEES, ET JE LE DIS AU LIEU DE LE TAIRE (regle 3).
 # J'avais ecrit `transfer lEarb/rEarb from=head cap=0.90 shape=1.0`. La prediction ci-dessus les
