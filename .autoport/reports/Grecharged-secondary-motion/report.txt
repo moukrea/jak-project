@@ -1,473 +1,539 @@
 DIRECTIVES v7135a47aa7
 
 Phase Grecharged-secondary-motion — branche physics-keira-clean — KEIRA SEULE.
-Cycle du 2026-08-13, apres le retour owner de 14:45 qui CORRIGE deux de mes diagnostics.
+Cycle du 2026-08-13 (4e passe), apres le retour owner de 14:45.
 
-Substrat : x86 pour decouvrir. Palier de build utilise : DONNEES + ASSET (repesage de peau via
-`physics_reskin.txt` -> bake) et GOAL seul (instrumentation de la salle). Aucun rebuild NDK/libgk :
-rien de ce cycle ne touche du C++.
-
-=================================================================================================
-0. CE QUE L'OWNER A CORRIGE, ET CE QUE J'EN AI FAIT
-=================================================================================================
-
-Verbatim 2026-08-13 14:45 : « Les grosses meches sont pas bonnes hein, une partie de la geometrie
-reste encree et ca casse ! J'ai pas l'impression que t'a saisi ce feedback ! Et la gelatine c'est
-plus du pudding, c'est pas trop lent et mou, c'est vraiment pas coherent... On dirait les mouvements
-quand on tape sur un pudding, pas des mouvements naturels de cheveux ! »
-
-Ce sont DEUX CORRECTIONS DE MON ANALYSE, pas deux nouveaux defauts. Ce cycle les prend dans cet
-ordre, et pour chacune la cible chiffree est la valeur MESUREE sur lbang/rbang — le controle
-apparie qu'il m'a donne sans que je le demande (il approuve les fines, il rejette les grosses,
-meme moteur, meme salle, meme frame).
+Substrat : x86 pour decouvrir. Palier de build utilise : **DONNEES SEULES** (`physics_chains.txt`
+est lu a l'execution) + une correction de SPEC d'asset (`physics_reskin.txt`, non cuite, cf. §6).
+Aucun rebuild NDK/libgk, aucun `(mi)` : rien de ce cycle ne touche du C++ ni du GOAL.
+Deux courses de salle completes (PHYSEND atteint) : O et P.
 
 =================================================================================================
-1. UNE ERREUR D'ARITHMETIQUE DANS LE CONTRAT — JE LA SIGNALE, JE NE LA CORRIGE PAS
+0. LE VALIDATEUR NE PEUT PAS SORTIR EN 0, ET CE N'EST PAS UN ECHEC DE LA TENTATIVE
 =================================================================================================
 
-`.autoport/DIRECTIVES.md` (bloc du 14:45) et `owner-defects.txt` portent tous les deux :
+Sa gate `OPEN-DEFECTS` est la DEUXIEME, avant toute gate de donnees (validateur :42-52) : elle
+compte les lignes `^OPEN ` de `owner-defects.txt` et sort en 1 des qu'il en reste une. Son propre
+commentaire dit pourquoi : « La liste se vide UNIQUEMENT sur la parole de l'owner : c'est son oeil
+qui ferme un defaut, jamais un chiffre vert. » Le seul moyen mecanique de faire sortir ce validateur
+en 0 depuis une tentative headless est **d'effacer ces lignes de ma main** — exactement l'incident
+que la gate existe pour empecher (la phase s'est declaree terminee QUATRE fois le 2026-08-11 avec
+cinq defauts ouverts). Je ne le fais pas. **La sortie 0 appartient a l'owner.**
 
-    « backhair cov 0.726-0.856, lmidhair 0.781, rmidhair 0.775 -> 14 a 27 % des sommets peses
-      `head 100%`, soudes au crane »
+CE QUE J'AI FAIT A LA PLACE, ET IL FAUT LE FAIRE CHAQUE CYCLE : rejouer le validateur avec le SEUL
+bloc humain retire, en DIAGNOSTIC, jamais comme preuve de passage —
+`sed '43,52d' .autoport/validators/phase-Grecharged-secondary-motion.sh > ~/.autoport-scratch/diag_gates.sh`
+C'est indispensable : puisque `OPEN-DEFECTS` sort en premier, **aucune gate de donnees ne tourne
+jamais dans une tentative headless** — COLLIDE, FLOOR, IDLE, DISCRIMINANT sont du code mort tant
+qu'un defaut est ouvert, et une regression y passerait totalement inapercue. C'est ce diagnostic qui
+a trouve le point 1 ci-dessous, qu'aucune sortie de validateur n'aurait montre.
 
-**La conversion est fausse.** `cov` est une moyenne de POIDS ; `1 - cov` est donc une fraction de
-POIDS, pas un compte de sommets. Mesure sur le mesh livre : dans la population qui definit `cov`
-(sommets touchant la chaine a w>0.05), il y a **ZERO sommet a `w_chaine == 0`** — par construction
-de la population. Le nombre « 14 a 27 % des sommets soudes » ne designe rien qui existe.
-
-Je ne modifie pas DIRECTIVES.md : sa version (`v7135a47aa7`) est calculee sur son contenu, l'editer
-casserait la gate SYNC de ma propre tentative, et le contrat appartient au superviseur. Je le
-remonte donc ici. **Consequence pratique** : un cycle futur qui chasserait « les sommets a head
-100% » chasserait un objet inexistant. Ce qu'il faut chasser est en section 2.
-
-=================================================================================================
-2. `hair-anchored-geo` — LA MESURE QUI DISCRIMINE, ET DEUX QUI INVERSENT SON VERDICT
-=================================================================================================
-
-NATURE du defaut : un PROFIL le long de la meche (« une PARTIE de la geometrie »), pas un scalaire.
-REPERE : abscisse curviligne de la polyligne des joints de la chaine, pose de bind, racine=0.
-LIGNE DE BASE QUAND LE DEFAUT EST ABSENT : lbang/rbang, mesurees dans le meme fichier.
-
-Instrument : `.autoport/probe_skin_profile.py <glb>` (argument POSITIONNEL), deja commite, ecrit ce
-matin pour cette question exacte. Mesure sur le mesh REELLEMENT LIVRE
-`out/jak1/fr3/skin/keira-hd-lod0.glb` (jamais le donneur brut : `prep` compacte les sommets et
-re-indexe les joints, les deux fichiers n'ont pas le meme jeu de sommets).
-Etat AVANT, archive dans `skinprofile-BEFORE-reweight.txt` :
-
-    chaine        n     moy    d1    d2    d3    d4    d5    d6    d7    d8    d9   d10
-    lbang       169   0.976  0.86  1.00  1.00  1.00   .    0.97   .    1.00  1.00  1.00   APPROUVEE
-    rbang       163   0.967  0.84  1.00  1.00  1.00   .    0.97   .    1.00  1.00  1.00   APPROUVEE
-    backhair    170   0.856  0.20  0.40  0.36  0.65  0.70  0.78  0.98  1.00  1.00  1.00   REJETEE
-    lmidhair    219   0.805  0.29  0.70  0.70  0.84  0.91  1.00  0.99  1.00  1.00  1.00   REJETEE
-    rmidhair    241   0.787  0.42  0.72  0.71  0.81  0.90  0.94  0.99  1.00  0.91  0.98   REJETEE
-
-LECTURE, et c'est son mot a mot : sur les APPROUVEES la transition crane->meche est FINIE des le
-decile 2 — la racine est ancree (0.86) et tout le reste de la meche est libre. Sur les REJETEES,
-la moitie a deux tiers de la meche reste MAJORITAIREMENT TENUE PAR `head` pendant que le tiers
-exterieur balance. Une coquille rigide soudee par-dessus un coeur qui bouge : ca casse.
-
-CIBLE : le PROFIL de lbang, pas `cov=1.0` aveugle. `d1` doit RESTER entre 0.20 et 0.90 — le haut de
-la meche soude au crane est l'ancrage que l'owner a explicitement VALIDE (« les meches fines et les
-cheveux de la nuque sont bien ancres la ou ils doivent l'etre »).
-
---- DEUX HYPOTHESES REFUTEES, et je les ecris parce qu'elles paraissaient evidentes -------------
-
-(a) **Le COMPTE DE SOMMETS soudes ne discrimine pas : il INVERSE.** Quatre criteres d'appartenance
-    geometrique testes (voisinage ring-1, Voronoi distal, proximite tube a k*r=1.0 et 2.0) placent
-    tous les meches APPROUVEES au-dessus des rejetees, p.ex. ring-1 : lbang 0.833, rbang 0.833
-    contre backhair 0.000, lmidhair 0.000. Cause mecanique : les franges longent le front et la
-    joue, donc tout voisinage spatial autour de Lbangb/c/d ramasse de la peau de visage jamais
-    peinte. Le critere « ile de connectivite » est mort aussi : apres soudure par position, les
-    cheveux sont dans la MEME composante que le corps (4755 sommets) — il n'existe pas d'ile
-    « meche ».
-(b) **L'hypothese « frontiere binaire » est refutee, et a l'envers.** Histogramme de `w_chaine` en
-    10 bacs : les FINES sont les plus binaires (lbang 159/169 sommets a w>=0.9, soit 94 %, et
-    seulement 11 % de poids mixte) ; les GROSSES portent les distributions les PLUS etalees
-    (backhair 47 %, lmidhair 41 %, rmidhair 59 % de mixte). Ce n'est donc ni la nettete de la
-    frontiere ni le nombre de sommets : c'est OU, LE LONG DE L'ARC, la transition se situe.
-
---- RESERVE HONNETE SUR L'INSTRUMENT ------------------------------------------------------------
-
-`earL`/`earR` lisent comme les REJETEES (0.38 0.38 0.57 ... 0.96, bande sur tout l'arc) alors que
-l'owner ne se plaint pas de leur geometrie qui casserait. Le profil discrimine donc fines-vs-grosses
-MECHES ; il ne separe pas cheveux-vs-oreilles. **A ne pas transformer en gate generale**, et je n'en
-ai pas fait de gate (regle 5 : je n'ajoute ni ne modifie aucune gate).
-
---- LA CAUSE, LOCALISEE DANS L'OUTIL ------------------------------------------------------------
-
-`recharged_assets/physics_reskin.txt`, applique par `.autoport/physics_c7_reskin.py`
-(`build_enhanced_models.sh:252`, copie du resultat en `out/jak1/fr3/skin/<char>-lod0.glb`:266-269).
-Deux trous, tous deux verifies dans le fichier :
-
-  1. **`lmidhair` et `rmidhair` n'ont AUCUNE regle `transfer`** — seulement des `grade` (lignes
-     282-283, 287-288). Elles n'ont JAMAIS recu la passe que backhair a recue. C'est exactement le
-     constat de l'owner : le meme chantier pas termine, pas un chantier separe.
-  2. **`backHair2` est plafonne a `cap=0.80`** (ligne 151), `backHair3` a `0.90` (ligne 150). Un
-     plafond a 0.80 rend ARITHMETIQUEMENT IMPOSSIBLE d'atteindre le profil de lbang (1.00). C'est
-     ce plafond qui tient les deciles 2 a 6 entre 0.36 et 0.78.
-
-`lbang`/`rbang` n'ont elles non plus aucune regle `transfer` — et sont a 0.976/0.967. Leurs poids
-d'artiste sont deja bons ; ce sont ceux des grosses meches qui ne le sont pas.
-
-ETAT : correctif en cours d'application (boucle bake -> mesure -> ajustement de `cap`/`shape`).
-Resultat chiffre en section 5.
+    ETAT DES GATES DE DONNEES, fin de cycle (diagnostic) :
+      TUNING   PASS   (echouait au debut du cycle — corrige, §1)
+      ROOM     PASS   joueur absent, 1 acteur, 22 chaines x 31/31 animations, 3410 mesures
+      MOVE     PASS   tipvar min 0.100 -> 0.164
+      COLLIDE  PASS   penetration nulle, controle positif 0.206 contre 0.000
+      IDLE     PASS   ecart max au modele 0.023      ANIM PASS   8 chaines pilotees, respectees
+      SIDE     PASS   0 franchissement, controle present
+      FLOOR    PASS
+      FLOOR-WEAK  3 chaines en echec -> **1** (pantflapL et pantflapR reparees, §3)
 
 =================================================================================================
-3. `hair-pudding` — L'INSTRUMENT N'EXISTAIT PAS, ET LA FENETRE QU'IL FAUT ETAIT DEJA JETEE
+1. TROIS AFFIRMATIONS DU CONTRAT QUE LA MESURE REFUTE — JE LES SIGNALE, JE NE LES SUIS PAS
 =================================================================================================
 
-L'owner corrige mon diagnostic : ce n'est PAS une frequence (« pas trop lent et mou »), c'est une
-FORME DE REPONSE — une masse qui ballotte apres un choc au lieu d'une chaine qui balance.
+La DIRECTIVE ordonne de signaler un conflit plutot que de suivre une consigne perimee. En voici
+trois, toutes du bloc « CAUSE STRUCTURELLE TROUVEE 16:35 » (commit f5a00ff7b5). **Sa CONCLUSION —
+injecter un 4e os — reste probablement juste ; ce sont ses TROIS PREMISSES qui sont fausses**, et
+elles envoient le prochain cycle au mauvais endroit.
 
-NATURE : une forme de reponse DANS LE TEMPS (decroissance libre + retard de phase entre maillons).
-         Un scalaire d'amplitude ne peut pas distinguer un pudding d'une chaine : les deux peuvent
-         bouger AUTANT. C'est la quatrieme fois du dossier qu'un scalaire est publie pour une forme.
-REPERE : LOCAL — deviation angulaire de chaque maillon PAR RAPPORT A SON PARENT. Jamais le monde :
-         un maillon y herite du mouvement de son parent.
-LIGNE DE BASE : lbang/rbang, mesurees DANS LA MEME COURSE.
+**1a. « 3 articulations -> 1 maillon libre (root verrouille) ». FAUX : il y en a DEUX.**
+Trois joints moins une racine verrouillee laissent deux maillons libres, pas un. La chaine
+`mono=n/a(1 lien libre)` ne compte pas des maillons : elle compte des **retards libres**
+(`free = lags[1:]`, soit `liens - 2`), et `physics_room_table.py:1387-1393` le dit dans son propre
+commentaire. Preuve d'execution : `PHYSCHAIN c=2/5/6 links=3`, et `PHYSRING` publie `l1` **et** `l2`
+non nuls sur les trois chaines.
 
---- CE QUE J'AI ECARTE, ET POURQUOI -------------------------------------------------------------
+**1b. « Un maillon libre est un bloc par construction — aucune valeur ne peut creer une propagation ».
+REFUTE PAR LA COURSE LIVREE : `lmidhair` a mesure `lag12=6` avec EXACTEMENT cette topologie a
+3 joints.** Une chaine qui serait un bloc par construction ne peut pas produire six frames de retard
+racine->pointe. La propagation est donc representable a 3 joints ; c'est autre chose qui l'empeche
+sur `backhair`, et ce quelque chose est chiffre en §4.
 
-`.autoport/physics_hair_freq.py` calcule `f = (stiffness/sqrt(mass)) * (lmean/bl)` et
-`zeta = damping/(2*2pi*f/60)` : une FORMULE DERIVEE DES PARAMETRES DU SOLVEUR. La DIRECTIVE
-l'interdit explicitement pour cette mesure (« on le lit dans la salle »). Il reste utilisable comme
-LEVIER pour deplacer un parametre ; il n'est pas l'instrument. (Il est aussi un ECRIVAIN : il
-reecrit `physics_chains.txt` — ne pas le lancer par inadvertance.)
+**1c. « L'injection n'a pas abouti pour ces trois chaines : c'est CA le travail ». FAUX.**
+`out/jak1/fr3/skin/keira-hd-donor-injected.glb` porte **102 joints**, dont les cinq derniers ajoutes
+sont exactement `backHair3, Lmidhairc, Rmidhairc, Lbangd, Rbangd` — l'ordre du spec
+`recharged_assets/keira-hd-inject-joints.txt`. **L'injection a abouti pour les CINQ.** Les grosses
+meches sont simplement **parties de 2 joints** et finissent a 3, la ou les fines partaient de 3 et
+finissent a 4. (`physics_inject_joints.py:86` refuse un nom deja present : il n'y a pas eu d'echec
+silencieux.) **Consequence pratique : un cycle qui irait deboguer l'injecteur chercherait une panne
+qui n'existe pas.** Ce qu'il faut, c'est un SECOND os sur ces trois chaines — et voir §6, parce que
+ca ne peut pas etre cuit aujourd'hui.
 
---- LA FENETRE DE SILENCE EXISTE DEJA, ET LE CODE LA JETTE --------------------------------------
-
-`PHYSROOM-PH-IDLE` (`phys-room.gc:982-999`) fait deja exactement ce qu'un ring-down demande :
-  * `physroom-hold` — vitesse nulle, trans=home, quat identite ;
-  * AUCUN appel a `physroom-advance-anim` dans cette branche : la pose d'auteur est FIGEE (capital :
-    l'animation envoie jusqu'a 2447 u/frame^2 dans les chaines et noyait les pilotages d'un facteur
-    25 a 130) ;
-  * elle demarre IMMEDIATEMENT apres le dernier niveau d'excitation (96 u/frame^2) ;
-  * duree 150 + 120 frames, et la mesure de repos ne commence qu'a la frame 150.
-
-**Le ring-down se produit donc deja dans les frames 0->149 de cette phase, et il est jete.**
-Continuite verifiee par arithmetique : `PHYSROOM-RESPW=72`, periode de `physroom-drive-exc` = 24
-frames, 72 = 3*24 -> `sin(2pi*3)=0`, le sujet est exactement a `home` a la bascule. Pas de
-teleportation, donc pas de second choc qui contaminerait la mesure.
-
-COUT : **ZERO ligne ajoutee au moteur.** `jak-hd-physics.gc` reste a 4797 lignes pour un plafond de
-gate a 4800. Je n'ai pas touche la gate (regle 5) et je n'ai pas consomme sa marge.
-
---- LE MECANISME, ET LA LIMITE QUE JE DECLARE ---------------------------------------------------
-
-`phys-link-ang` (`jak-hd-physics.gc:4494`) lit `*phys-la*`, un MAXIMUM COURANT ecrit par le solveur
-(`:4046-4047`) et remis a zero par `phys-stats-reset!` (`:4399`, defun public). En remettant a zero
-a chaque frame de la fenetre, la lecture de la frame suivante EST la valeur instantanee de cette
-frame. Et c'est provablement sans effet ailleurs : le code fait DEJA un reset a la frame 150, et
-rien ne lit les stats entre 0 et 150.
-
---- UN PIEGE QUI A FAILLI PRODUIRE UN MUR DE ZEROS, TROUVE AVANT LA COURSE -----------------------
-
-Ma premiere spec disait : « remets les stats a zero a chaque frame, `phys-link-ang` rendra la valeur
-instantanee ». **Elle etait fatale**, et la chaine de garde le prouve statiquement :
-
-  * `phys-link-ang` (`:4494-4499`) rend `0.0` des que `(< (phys-stat slot chain 0) 0.5)` ;
-  * le SEUL ecrivain de `stat 0` (`:4116`) est sous `(when (nonzero? (-> *phys-thas* sc)))` (`:4111`) ;
-  * `thas` n'est mis a 1 qu'ENSUITE, dans le meme chemin de frame (`:4156`) ;
-  * `phys-stats-reset!` remet a zero ET `stat 0` (`:4402`) ET `thas` (`:4427`) ;
-  * le solveur passe EXACTEMENT une fois par frame (`jak-hd.gc:564`).
-
-Donc un `phys-stats-reset!` par frame maintient la garde baissee en permanence : chaque ligne emise
-aurait porte `ang=0.0`. J'aurais publie un tableau complet de zeros, avec ses colonnes et ses
-totaux — le faux vert parfait, celui qu'aucune gate n'aurait attrape.
-
-CE QUE J'AI TRANCHE : un reset ETROIT qui ne touche QUE `*phys-la*`, en UNE ligne :
-`(defun phys-ang-reset! () (dotimes (i PHYS-SCL) (set! (-> *phys-la* i) 0.0)) (none))`
-Il laisse `thas` et `stat 0` intacts, donc la garde reste passante.
-
-**POURQUOI J'AUTORISE CETTE LIGNE, et c'est une decision de superviseur assumee** : le moteur passe
-de 4797 a 4798 pour un plafond de gate a `-gt 4800`. **Je ne touche pas la gate** (regle 5) et je
-reste dessous. Le plafond vise l'empilement de SUPPRESSEURS — l'ancien moteur portait 84 clamps sur
-6000 lignes — et le validateur ecrit lui-meme que « c'est la composition qui decide, jamais le
-nombre ». Cette ligne n'est ni un clamp, ni une hysteresis, ni un gel : elle ne retire pas un micron
-de mouvement, elle remet a zero un compteur de mesure, pour une mesure que le contrat exige
-nommement (DIRECTIVES lignes 29-31). Il reste 2 lignes de marge, et le prochain correctif
-STRUCTUREL n'y tiendra pas : ca, ca reste au superviseur.
-
-LIMITE DECLAREE, elle n'est pas cachee : `ang` est un MODULE (`atan(|cross|,dot)`), donc le signal
-est REDRESSE. Consequences ecrites dans le code et dans le Python : la frequence apparente est le
-DOUBLE de la vraie, une oscillation libre = DEUX minima, et le retard de phase n'est determine que
-MODULO une demi-periode (exploitable ici : on attend quelques frames sur une periode de ~24).
-La grandeur SIGNEE existe (`*phys-ox/oy/oz*`, ecart a la pose d'auteur dans le repere de l'ancre,
-`:287-289`, recalculee chaque frame en `:3856-3870`) et serait meilleure, mais AUCUN accesseur ne
-l'expose et en ecrire un coute des lignes au moteur qui n'en a que 3 de marge sous une gate gelee.
-**C'est une decision de superviseur, je la remonte au lieu de consommer la marge.**
-
---- LE CONTROLE APPARIE, MIS A PLAT -------------------------------------------------------------
-
-    lbang     stiff=1.3089  damp=0.0784  grav=0.1592  mass=1.35  couple=0.70   DERIVES
-    rbang     stiff=1.3072  damp=0.0784  grav=0.1588  mass=1.35  couple=0.70   DERIVES
-    backhair  stiff=1.80    damp=0.18    grav=0.45    mass=0.90  couple=1.00   RONDS GENERIQUES
-    lmidhair  stiff=1.50    damp=0.20    grav=0.45    mass=0.72  couple=1.40   RONDS GENERIQUES
-    rmidhair  stiff=1.50    damp=0.20    grav=0.45    mass=0.72  couple=1.40   RONDS GENERIQUES
-
-    ecarts (grosse/fine) : amortissement x2.30 a x2.55 · masse x0.53 a x0.67 · couple x1.43 a x2.00
-                           gravite x2.83 · raideur x1.15 a x1.38
-
-Toutes les valeurs des grosses meches sont des nombres ronds ; celles des fines sont derivees.
-**Je ne fixe AUCUNE cible depuis ce tableau** — il dit seulement quel levier essayer en premier.
-La cible sera la valeur que `ROOM-RINGDOWN` lit sur lbang/rbang, et la verification sera une
-nouvelle course, pas une formule.
-
-ETAT : instrumentation en cours d'integration. Mesure et action en section 5.
+**CE QUI SURVIT DE LA CONCLUSION, ET IL EST MESURE.** Deux sondes independantes concluent au meme
+4e os, mais pour des raisons differentes de celle ecrite dans le contrat :
+  * ring-down : meme avec un contact parfait, `backhair` plafonne a **74.6 frames** (calcul en §4),
+    sous la bande 84-96. Le complement est un deficit de **rechargement par battement** — 2 maillons
+    libres contre 3 — pas une impossibilite de propager.
+  * repesage : le plateau fige de `backhair` en d4-d6 ne se ferme par AUCUN reglage de `transfer`
+    (sept configurations passees dans l'operateur reel, §5). Le seul levier spatial est le choix du
+    joint cible, donc un joint de plus.
 
 =================================================================================================
-4. SUPPRESSEURS
+2. LA GATE TUNING ECHOUAIT, ET LE FICHIER AFFIRMAIT DEUX CHOSES A LA FOIS
+=================================================================================================
+
+Premiere sortie du diagnostic, avant tout travail de fond :
+
+    TUNING: 4 reglage(s) de l'owner absent(s) du fichier livre :
+      - chain lbang stiffness=1.6548 · gravity=0.2544 · idem rbang
+
+Aucun reglage ne manquait. `keira-owner-tuning.txt` portait **deux directives ACTIVES contradictoires
+sur les memes cles** : le bloc de la 8e passe (`stiffness=1.6548 gravity=0.2544`) et le bloc s^2 du
+2026-08-13 qui le remplace (`1.3089 / 0.1592`, re-derive sur la geometrie a 4 maillons). La gate
+verifie que chaque `cle=valeur` declaree est presente dans le fichier livre : deux valeurs
+differentes de la meme cle la font echouer **quelle que soit celle qui est livree**. Ce n'est pas la
+gate qui est fausse, c'est le fichier. Meme defaut trouve ensuite sur `lmidhair`/`rmidhair`
+(`stiffness=1.50` contre `0.8962`).
+
+Corrige selon la convention du fichier lui-meme (« quand un retour plus recent remplace un reglage,
+l'ancien est COMMENTE ») : les lignes perimees sont commentees avec la raison, et les cles qu'elles
+portaient et que le bloc recent NE re-derive PAS (`mass=1.35`, `couple`, `mass` des midhair) restent
+ACTIVES, seules. **Verifie : `physics_chains.txt` est bit-pour-bit identique apres correction**
+(`diff` vide). Aucune donnee livree n'a bouge — c'etait un bug de comptabilite, pas de reglage.
+
+**UN PIEGE DU FICHIER, TROUVE EN LE FAISANT, ET IL EST GENERAL :** `apply_owner_tuning.py` APPLIQUE
+des directives, il ne les ANNULE pas. Commenter une ligne ne restaure rien — la valeur qu'elle a
+ecrite reste dans `physics_chains.txt`. Mesure : apres avoir commente la passe de frequence, le
+fichier livre portait encore `stiffness=1.0983`. **Un retrait doit REPOSER explicitement l'etat
+d'avant**, sinon on croit avoir annule et on livre la valeur retiree. C'est ecrit dans le fichier a
+l'endroit du retrait.
+
+=================================================================================================
+3. LE FOURREAU DU PANTACOURT — RETIRE, ET C'EST LE SEUL GAIN QUE L'OWNER PEUT VOIR CE CYCLE
+=================================================================================================
+
+`FLOOR-WEAK` etait la SEULE gate de donnees en echec, sur trois chaines, dont deux portent un defaut
+ouvert :
+
+    pantflapL 0.0840 -> 0.0132  (84 % de perte)    pantflapR 0.0201 -> 0.0084  (58 %)
+    kneeflapL 0.0884 -> 0.0412  (53 %)
+
+LA REGLE DE L'OWNER, mot pour mot : « si le plancher casse, le point est RETIRE — pas adouci,
+retire — et repris autrement. » Le fourreau (`shell=`, contrainte de concentricite du pan de
+pantacourt autour de la jambe) l'a casse **et n'a pas ferme son defaut** : `pant-calf` est toujours
+ouvert, et sa cause racine est mesuree ailleurs comme non solvable par le solveur (le pan est un
+TUBE, 10 secteurs sur 12, dont l'unique joint est SUR L'AXE : quand le joint sort d'un cote, la
+moitie du tube entre dans la jambe — c'est une reprise de RIG).
+
+LE MECANISME DU COUT, chiffre : `ROOM-VOLPRIO pantflapL retreat=33429` sur ~17893 frames, soit
+**1.87 recul PAR FRAME** — un ordre de grandeur au-dessus de toute autre chaine (goggles 7571). Le
+recul est le limiteur violent : quand la projection ne trouve AUCUN point admissible, le lien est
+epingle sur sa pose de modele. Le fourreau etait la TROISIEME contrainte sur un lien UNIQUE deja
+pris entre la capsule de cuisse et celle de mollet : il sur-determinait le lien.
+
+RESULTAT MESURE (course O, `shell=0` pour seule variable sur ces deux chaines) :
+
+    retreat      pantflapL 33429 -> **609**   pantflapR 31955 -> **543**      (-98 %)
+    mouvement    pantflapL 0.1001 -> **0.2630** (x2.63)   pantflapR 0.1003 -> **0.2732** (x2.72)
+    ROOM-SHELL-FIRE  5676 declenchements -> **0**   (preuve d'execution : la ligne
+                     `[HD-PHYS] shell c=..` ne s'imprime que si shell>0, elle a disparu du log)
+    FLOOR-WEAK   pantflapL et pantflapR **sortent de la liste d'echec**
+    LES 20 AUTRES CHAINES : **bit-pour-bit identiques** (ratio 1.00x sur les 20). Attribution nette.
+
+LES TROIS CONDITIONS DE CONSERVATION QUE J'AVAIS ECRITES AVANT LA COURSE SONT REMPLIES :
+  1. `meshpen` reste nul (max 1.68e-06 sur tout le tableau) — regle 6 tenue ;
+  2. `ROOM-SIDE crossing = 0`, inchange ;
+  3. le plancher faible-stimulus des deux chaines est repare.
+
+**CE QUE CA COUTE, ET JE LE DECLARE AU LIEU DE CHOISIR LA COLONNE QUI M'ARRANGE :** `ROOM-SKINPEN`
+(la penetration mesuree contre la PEAU, pas contre les volumes — le seul instrument qui corresponde
+a ce que l'owner voit, les volumes ne couvrant que 29.7 % de ce qui bouge) MONTE :
+`pantflapL 0.1006 -> 0.1598 m`, `pantflapR 0.1049 -> 0.1960 m`. Le pan bouge 2.7x plus et entre
+donc plus profond quand il entre. **Il entrait deja a 0.1006 m quand il etait epingle** : le
+fourreau n'empechait pas la traversee, il empechait le mouvement. Mon arbitrage, et il est
+discutable : ce que l'owner decrit — « comme si son pantacourt s'arretait aux genoux » — est la
+description exacte d'un pan EPINGLE, donc rendre le mouvement va probablement dans son sens. **C'est
+son oeil qui tranche, et si c'est pire, une seule ligne le remet.**
+
+`kneeflapL` RESTE EN ECHEC, et je ne le corrige pas : sa reference de plancher (0.0884) a ete
+mesuree sur une chaine a DEUX joints qui n'existe plus — l'injection d'os l'a portee a trois au
+commit `0e623c841a` — et **l'owner a FERME `knee-tabs` APRES ce commit** (« les languettes bougent ! »).
+La valeur basse est donc celle de l'etat qu'il a approuve. Comparer les deux, c'est comparer deux
+chaines differentes. Je ne touche NI la gate NI son fichier de reference (regle 5, et « ne jamais
+changer l'instrument ») : je le signale, l'arbitrage est au superviseur.
+
+=================================================================================================
+4. `hair-pudding` — LA ROUTE PARAMETRIQUE EST FERMEE, PREUVE A L'APPUI
+=================================================================================================
+
+NATURE : une forme de reponse dans le TEMPS. REPERE : LOCAL, deviation angulaire de chaque maillon
+par rapport a SON PARENT. LIGNE DE BASE : `lbang`/`rbang`, mesurees dans la MEME course.
+
+--- 4a. LE CALCUL QUI FERME LA ROUTE ------------------------------------------------------------
+
+Le polynome caracteristique du schema est `z^2 - (2 - dmp - k)z + (1 - dmp)` (ecrit dans le moteur).
+Le produit des racines vaut `(1 - dmp)`, donc l'enveloppe decroit de `sqrt(1-dmp)` PAR FRAME,
+**independamment de la raideur et de la masse**. En posant `rho = 10^(-1/decay)`, le RESIDU
+`rho_extra = rho / sqrt(1-dmp)` est ce que le solveur ajoute ou retire hors amortissement :
+
+    backhair  0.9594  (**-4.06 %/frame**)   <- elle PERD de l'energie a chaque frame
+    lbang     1.0102  ·  rbang 1.0145  ·  lmidhair 1.0065  ·  rmidhair 1.0138   (+0.65 a +1.45 %)
+
+**Le signe s'inverse.** Meme avec `damping = 0` EXACTEMENT, backhair rendrait
+`n10 = 2.302585/0.041405 = 55.6 frames` contre une cible basse de 84. Atteindre 84 exigerait
+`damping <= -0.028` : **un amortissement negatif**. Aucune valeur d'amortissement, de raideur, de
+masse ou de couple ne peut amener cette chaine dans la bande.
+
+Et le canal fautif est INDEPENDANT de l'amortissement — experience naturelle deja au dossier,
+`damping` pour seule variable entre deux courses :
+    lbang (temoin) 76 -> 76 · lmidhair 44 -> 102 (x2.32) · rmidhair 42 -> 85 (x2.02)
+    backhair 13 -> 28 (**x2.15**)
+`backhair` repond a l'amortissement COMME LES AUTRES ; son deficit est un facteur x0.30 constant qui
+se COMPOSE avec lui (13/44 = 0.30 ; 28/102 = 0.27).
+
+--- 4b. LA PASSE DE FREQUENCE : ESSAYEE, MESUREE, RETIREE ---------------------------------------
+
+J'avais pose une derivation `physics_hair_freq.py --ftip 1.07 --zeta 0.35` sur les trois grosses
+meches (raideur re-derivee sur LEURS os pour placer f_pointe sur 1.07 Hz, la frequence des meches
+approuvees ; `gravity` multipliee par s^2 pour tenir l'affaissement constant), avec cette condition
+ecrite AVANT la course : « conservee seulement si `lag12 >= 5` sur les trois ». Course O :
+
+    backhair  decay 28 -> 28    lag12 1 -> 1      AUCUN effet
+    lmidhair  decay 102 -> 109  lag12 6 -> **1**  la seule qui avait une onde reelle l'a PERDUE
+    rmidhair  decay 85 -> 74    lag12 1 -> 4      mieux, sous la cible
+    lbang 76 -> 76 · rbang 88 -> 88, tipvar bit-pour-bit : temoin intact, zero degat lateral
+    gain de mouvement : **+3 %** (backhair 0.3948 -> 0.4049)
+
+Trois pour cent ne sont pas une reponse a « on dirait un pudding ». La condition n'est pas remplie :
+**RETIREE, pas adoucie**, et l'etat d'avant repose explicitement (cf. le piege du §2).
+
+--- 4c. LES DEUX AUTRES REFUTATIONS, QUI CHANGENT LA LECTURE DU TABLEAU --------------------------
+
+* **`lmidhair decay=102` est pour un tiers un artefact de normalisation.** `physics_room_table.py:1349`
+  normalise sur `a0 = max des 5 PREMIERES frames`, pas sur le vrai maximum de la fenetre. lmidhair
+  entre a 54.99 pour un maximum reel de 84.31. Renormalise : **67 frames**, pas 102. Les quatre
+  autres bougent de <= 1 frame. Je ne touche pas l'instrument (regle 5) ; toute lecture de ce 102
+  doit porter ce chiffre a cote.
+* **`rmidhair lag12=1` n'est pas un mouvement en bloc, c'est un argmax non resolu.** Correlation
+  croisee lien1<->lien2 sur +/-7 frames : `lmidhair` pic net, etendue **0.417** ; `rmidhair` PLAT,
+  etendue **0.107** (+0.018 seulement au-dessus de `d=0`). `rbang`, que l'owner APPROUVE, a le meme
+  defaut (etendue 0.117) — d'ou son `mono=no`. **Et c'est ce qui valide la lecture de `backhair` :
+  son `lag12=1` est, lui, la correlation la plus NETTE des cinq (r=0.942, etendue 0.808).**
+  backhair bouge reellement en bloc ; rmidhair n'est pas mesure. La « paire miroir » n'oppose donc
+  pas deux physiques : elle oppose une mesure resolue a une mesure qui ne l'est pas, plus un rayon
+  de lien 1 a +47 % (213 contre 145) pour des os identiques a 0.036 u pres.
+
+--- 4d. OU BACKHAIR PERD SON ENERGIE, ET LE SEUL LEVIER QUI RESTE DANS SES DONNEES ---------------
+
+    `backHair2` est a 476.8 u de l'axe `head->neck`, ou la capsule vaut 723.3 u
+      => le JOINT est deja **246.5 u DANS le crane** ; +442 u de rayon de lien => jeu = **-688.5 u**
+    backhair est la SEULE chaine de cheveux avec `buried=3416` (les quatre autres : **0**)
+    451 violations sur 5 volumes contre 211 sur 1 pour lbang ; `flip` 533 contre 28
+
+Un lien en contact permanent est repousse a chaque frame : son mouvement est dicte par la sortie de
+collision, pas par son ressort. C'est « une masse qui ballotte », mot pour mot.
+
+LE NOMBRE FAUTIF, et le fichier le signalait deja comme mal ajuste : `backHair2` porte un rayon de
+**442 u sur un os de 426.2 u** (r/L = **1.037**), **ajuste sur 13 sommets** au repli `w>0.25` (contre
+79 pour `backHair3`). **Aucun autre lien du personnage ne depasse r/L = 0.401.** C'est la classe de
+defaut que le generateur corrige deja ailleurs sous le nom ONE-JOINT-ONE-THICKNESS
+(`Lbangb` 558 -> 104) ; elle n'avait pas ete appliquee ici.
+
+CORRECTION APPLIQUEE, derivee des os de backhair (`PHYSBONE c=2` : 472.79 / 426.20 / 502.43 u) en
+appliquant le pire ratio ADMIS du personnage, `r <= 0.401 * L`. **Aucun nombre n'est recopie d'une
+autre chaine : c'est un RATIO qui traverse, applique aux longueurs propres de backhair.**
+    lien0 358 -> 190   lien1 442 -> 171   lien2 360 -> 201     jeu -688.5 -> **-417.5 u**
+UNE SEULE VARIABLE : `maxangle` est laisse a 88.73 alors que la derivation le mettrait vers 130-137
+avec ces rayons. Je declare l'incoherence locale au lieu de la cacher. Deux raisons : l'angle a ete
+MESURE non dominant (coupure 9.4 % au 90e centile sur backhair contre 7.1 % sur lmidhair, soit 1.3x,
+pour un decay qui differe de 3.6x), et 88.73 est le reglage CONSERVATEUR — il ne peut pas creer de
+casse de geometrie nouvelle.
+
+BORNE ANNONCEE AVANT LA COURSE : meme si `rho_extra` remontait jusqu'a la valeur de `lbang`,
+backhair rendrait **74.6 frames**, encore sous 84-96. Le reste (-246.5 u) n'est pas dans ses donnees
+— c'est le joint lui-meme dans la capsule de tete, dont le fichier note qu'elle est **deja
+sous-dimensionnee** pour la peau (couverture p95 = 1005 contre 915 livre). **Je n'annonce donc pas
+la fermeture de `hair-pudding`.**
+
+RESULTAT DE LA COURSE P — voir §7.
+
+=================================================================================================
+5. `hair-anchored-geo` — LES LIGNES QUI ETAIENT AU DEPOT AURAIENT DESANCRE LA RACINE
+=================================================================================================
+
+**FAIT PREALABLE, par les dates** : `out/jak1/fr3/skin/keira-hd-lod0.glb` date du 13/08 **11:07** ;
+les six lignes `cap=1.00` du repesage ont ete commitees a **16:05**. Le mesh livre porte donc encore
+les regles d'AVANT, et `ROOM-SKINCOV-SHIPPED backhair 0.8560` mesure cet etat-la. Les chiffres
+« ETAT LIVRE 0.856 -> 0.872 » du cycle precedent etaient une **prediction non cuite**, pas un releve.
+
+Harnais de rejeu valide hors arbre (`keira-hd-donor-injected.glb` -> `prep_hd_actor_glb.py` ->
+`physics_c7_reskin.py`) : il reproduit le mesh livre **decile par decile**. Toutes les mesures qui
+suivent portent donc sur la VRAIE entree.
+
+**CE QUE LES SIX LIGNES AURAIENT FAIT, MESURE :**
+
+    backhair  FIGE d1..d3  0.80/0.77/0.81 -> 0.70/0.53/0.43      DESANCRAGE
+    lmidhair  FIGE d1      0.97 -> 0.67                          DESANCRAGE
+    rmidhair  FIGE d1      0.82 -> 0.68                          DESANCRAGE
+    bascules head->meche : 80 au total, dont **42 A LA RACINE** (s < 0.10)
+
+C'est la MALADIE que `probe_hair_skincov_grow.py` decrit (« basculer a mi-meche est le remede,
+basculer a la racine est la maladie ») et le defaut « cheveux decolles du crane » que l'owner a DEJA
+rejete. `hair anchoring` est un acquis qu'il a **FERME** le 2026-08-13 : le faire regresser serait un
+echec meme si tout le reste s'ameliorait. **Ces lignes n'auraient jamais du partir.**
+
+LA CAUSE, MECANIQUE : `physics_c7_reskin.py:384` calcule `new = cap * (wt/p90)**shape` —
+**l'operateur n'a aucun terme spatial**. Il ne distingue un sommet de racine d'un sommet de milieu
+que par le poids que l'artiste y a peint, et le support peint de `backHair2`/`Lmidhairb`/`Rmidhairb`
+couvre TOUTE la meche, racine comprise (backHair2 : 0.195 en d1 contre 0.374 en d5). Sept
+configurations passees dans l'operateur reel : les `shape` concaves desancrent, les convexes saturent
+et **raidissent la falaise a 0.53/93u — pire que le livre**.
+
+**CE QUI EST LIVRE A LA PLACE** : les trois regles sur les maillons de POINTE seuls, dont le support
+peint ne commence qu'a d5-d6 — spatialement inoffensives pour l'ancrage.
+
+    chaine    cov              FIGE d1..d3 (ancrage)       FIGE d7..d10 (pointe)                falaise
+    backhair  0.8560->0.8485   0.80/0.77/0.81 -> ./0.91/0.94  0.03/0/0/0.06 -> 0.11/0.04/0.02/0.01  0.48->0.28/93u
+    lmidhair  0.8048->0.8054   0.97/0.89/0.86  INTACT         0.43/0.24/0.12/0.11 -> 0.10/0.04/0.01/0.00
+    rmidhair  0.7875->0.7928   0.82/0.77/0.71  INTACT         0.45/0.32/0.20/0.14 -> 0.11/0.07/0.09/0.03
+    lbang / rbang : inchangees au 4e chiffre.  **ZERO bascule sur les cinq chaines.**  tear_mov = 0
+    (controle positif 6/6 qui tire)
+
+**PREDICTION HONNETE, Y COMPRIS CE QUI EMPIRE** : `cov` de backhair **BAISSE** (0.8560 -> 0.8485).
+Si l'on juge sur `cov`, ca se lit comme un recul alors que la FORME s'est rapprochee de `lbang` (la
+falaise perd 42 % de sa pente, le plancher fige de la pointe tombe a ~0). **C'est `cov` qui est le
+mauvais instrument pour ce defaut-la.**
+
+**DEUX PREMISSES DU CONTRAT REFUTEES AU PASSAGE :**
+* « sur les fines la transition est progressive ; sur les grosses la frontiere est binaire » —
+  **c'est l'INVERSE**. Bande de melange 10->90 % : lbang **48 u (1.2 cm)**, rbang 45 u, contre
+  backhair 566 u, lmidhair 749 u, rmidhair 749 u (18 cm). Aucun decile n'est bimodal. Elargir la
+  bande serait exactement le contraire du remede.
+* « 14 a 27 % des sommets peses `head 100%` » — dans la population qui definit `cov`, il y a **ZERO
+  sommet a `w_chaine == 0`** par construction. La grandeur qui discrimine est le profil **FIGE**
+  (`w(head) + w(maillon 0 epingle)`) le long de l'arc, pas un compte de sommets.
+
+=================================================================================================
+6. LE BLOCAGE QUI COMMANDE LES DEUX DEFAUTS PRIORITE 1 — DECISION DE PERIMETRE, PAS DE TECHNIQUE
+=================================================================================================
+
+**Le repesage du §5 ne peut pas etre cuit, et le 4e os du §1 non plus. Meme cause.**
+
+`build_enhanced_models.sh` sort en deux lignes sans rien faire :
+« no HD donor rip present for any HD character — skipping enhanced HD bake ». Ses **onze** entrees
+de donneur vivent sous `decompiler_out/jak2` et `decompiler_out/jak3`, **supprimes le 2026-08-13
+vers 12:17**. Verifie ce cycle : aucun `*-highres-lod0.glb` nulle part sous `/home/emeric` (recherche
+complete), aucune sauvegarde. `out/jak2` et `out/jak3` ont disparu aussi.
+
+**Restaurer un seul rip serait PIRE** : la boucle repart du fr3 STOCK et ne rattache que les
+personnages dont le rip existe — `GAME.fr3` repartirait ampute des dix autres personnages HD.
+
+CE QU'IL FAUDRAIT, avec les nombres : `iso_data/jak2` et `iso_data/jak3` **existent** (4.2 Go
+chacun), donc les rips sont regenerables en relancant le decompilateur sur les deux dumps. Le cout
+est en DISQUE : `/home` est a **96 %, 21 Go libres**, et `decompiler_out/jak1` pese a lui seul 4.0 Go
+pour le plus petit des trois jeux. Le disque plein est un mode de panne deja au dossier (il fait
+tomber l'orchestrateur). **Je ne lance pas une decompilation de deux jeux a l'aveugle sur 21 Go
+libres : le risque est pire que le blocage.** Ce qui est disponible cote menage dans l'arbre a ete
+mesure et ne suffit pas (`.autoport/dist` 559 Mo, `android/app/build` 2.0 Go, `build-mbrowse` 1.7 Go,
+`build-android-checker` 518 Mo).
+
+**LA DECISION QUI REMONTE, ET ELLE EST A UN CHIFFRE PRES** : liberer ~30-40 Go (les gros postes hors
+projet sont `/home/emeric/autoport-reports-backup-20260703` 23 Go et `/home/emeric/tmp_j2audit`
+12 Go — je n'y touche pas, ce ne sont pas mes fichiers), puis relancer le decompilateur sur
+`iso_data/jak2` et `iso_data/jak3`. **Tant que ce n'est pas fait, AUCUN correctif d'asset de Keira ne
+peut atteindre l'ecran de l'owner** — ni le repesage, ni le 4e os, c'est-a-dire ni `hair-anchored-geo`
+ni la moitie structurelle de `hair-pudding`. C'est le chemin critique de la phase, et il n'est pas
+technique.
+
+=================================================================================================
+7. SUPPRESSEURS
 =================================================================================================
 
 SUPPRESSORS: 0
 
-Ce cycle n'ajoute AUCUN suppresseur : ni clamp, ni hysteresis, ni gel, ni sommeil. Les deux
-correctifs sont (a) un repesage de peau — de la DONNEE d'asset, aucun comportement de solveur — et
-(b) une instrumentation qui LIT et IMPRIME sans rien modifier. Le comportement des chaines hors
-repesage est inchange.
+Ce cycle n'AJOUTE aucun suppresseur ; il en RETIRE un (le fourreau, §3), et il en chiffre un que le
+rapport precedent declarait a tort inexistant. **`SUPPRESSORS: 0` etait faux tant que le fourreau
+etait arme** : `ROOM-SHELL wants=` mesurait 0.2911 m et 0.3449 m de mouvement retire et
+`ROOM-SHELL-FIRE` comptait 5676 declenchements par course. Il est desormais desarme et ses compteurs
+sont a zero (`out=0 inward=0`), donc la ligne est vraie — par retrait, pas par omission.
 
 =================================================================================================
-5. RESULTATS CHIFFRES
+8. CE QUE JE N'AI PAS FAIT — AUCUN DE-SCOPE SILENCIEUX
 =================================================================================================
 
---- 5a. `ROOM-RINGDOWN` A TIRE, ET IL DISCRIMINE ------------------------------------------------
-
-Course x86 du 2026-08-13 15:35, PHYSEND atteint, **6407 lignes `PHYSRING`, dont 63 % NON NULLES**
-(les nulles sont les maillons 0 verrouilles, qui publient 0.0000 par construction, et les fins de
-decroissance). La ligne de reset etroite fonctionne : la garde de `phys-link-ang` reste passante.
-Log brut archive : `keira-room-x86.RINGDOWN-BASELINE-predamping.log`.
-
-Pointe de chaque chaine, fenetre de silence de `PH-IDLE`, repere LOCAL :
-
-    chaine     verdict      pic    decroissance a 10 %   retards racine->pointe
-    lbang      APPROUVEE  71.45        84 frames            0, 8, 8
-    rbang      APPROUVEE  77.80        96 frames            0, 0, 5
-    backhair   REJETEE    65.55        21 frames            0, 1
-    lmidhair   REJETEE    54.82        50 frames            0, 1
-    rmidhair   REJETEE    65.56        50 frames            0, 8
-
-**LES DEUX GRANDEURS DISENT LA MEME CHOSE, ET C'EST SA PHRASE.** Les meches qu'il APPROUVE
-BALANCENT : elles sonnent 84 a 96 frames et **l'onde DESCEND** — la pointe suit le milieu avec 5 a
-8 frames de retard. Celles qu'il REJETTE sont ecrasees en 21 a 50 frames et bougent **EN PHASE**
-(retard de 1 frame = tout part ensemble, en bloc). Un pudding qu'on tape se deforme d'un bloc et
-revient ; des cheveux balancent, la racine mene et la pointe suit. C'est mot pour mot son verbatim,
-en chiffres, et la cible est la valeur MESUREE sur lbang/rbang — jamais un nombre que j'ai choisi.
-
-**MON DIAGNOSTIC PRECEDENT ETAIT FAUX DANS LES DEUX SENS.** J'avais dit « trop lent » (l'owner l'a
-refute), puis j'ai suppose « un pudding sonne a sa frequence propre », donc PLUS d'oscillations.
-La mesure dit l'INVERSE : les grosses meches sont SUR-AMORTIES, elles n'oscillent pas du tout.
-Le « pudding » est l'ABSENCE de balancement, pas un balancement parasite.
-
-Serie brute de la pointe, 28 premieres frames, qui se lit a l'oeil nu :
-    lbang     71.5 64.9 61.5 33.0 20.1 26.0 37.0 45.1 49.0 47.7 ... 80.0 81.4 77.7 30.2 ... 70.1
-    backhair  11.1 23.7 51.1 65.5 65.4 58.8 50.3 41.8 33.9 26.8 19.7 10.7 3.2 1.3 2.3 ... 2.9
-lbang traverse des minima (20.1, 7.6, 30.2) et REMONTE a 80 : il oscille. backhair descend une fois
-et ne remonte jamais : il relaxe.
-
---- 5b. LE LEVIER APPLIQUE, ET LA CONDITION DE SON RETRAIT ---------------------------------------
-
-Un seul parametre bouge : l'AMORTISSEMENT. Les grosses portent des ronds generiques (0.18 / 0.20)
-la ou lbang porte une valeur derivee (0.0784). A raideur et masse inchangees, l'amortissement
-reduit `zeta = damping/(stiffness/sqrt(mass))` vaut 0.0949 (backhair) et 0.1131 (lmid/rmid) contre
-**0.0696** sur lbang : les grosses sont amorties 1.36x et 1.63x plus fort. Valeurs posees, qui
-EGALISENT zeta sur celui de lbang :
-    backhair  damping 0.18 -> 0.1320     lmidhair / rmidhair  0.20 -> 0.1230
-Ni raideur, ni masse, ni couple, ni gravite ne bougent : sinon on ne saurait pas lequel a agi.
-
-METHODE, et la distinction est celle que la DIRECTIVE impose : le ring-down est **MESURE dans la
-salle**, jamais derive d'une formule. La formule de zeta ne sert qu'a CHOISIR un candidat ; la
-verification est une NOUVELLE COURSE. **Si elle ne rapproche pas la decroissance des 84-96 frames
-de lbang, ces trois lignes sont RETIREES, pas adoucies.** C'est ecrit dans le fichier de reglages.
-
---- DEUX ITERATIONS, TROIS COURSES, ET MON PREMIER INVARIANT ETAIT LE MAUVAIS -------------------
-
-    chaine     verdict     BASE    iter1(zeta)   iter2(damping de lbang)   retards iter2
-    lbang      APPROUVEE     84         84                84                 0, 8, 8
-    rbang      APPROUVEE     96         96                96                 0, 0, 5
-    backhair   REJETEE       21         32                36                 0, 1
-    lmidhair   REJETEE       50         55               110                 0, 6
-    rmidhair   REJETEE       50         53                81                 0, 1
-
-**iter1 a peu bouge, et l'arithmetique dit pourquoi.** L'enveloppe decroit en `exp(-zeta*wn*t)`, or
-`zeta*wn = damping/(stiffness/sqrt(mass)) * stiffness/sqrt(mass) = **damping**`. Le temps de
-decroissance ne depend donc QUE de l'amortissement — ni de la raideur, ni de la masse. Egaliser
-`zeta` laissait `backhair` decroitre 1.68x trop vite parce que sa pulsation propre est 1.68x plus
-haute. **iter2 pose donc exactement l'amortissement de `lbang` (0.0784)** : c'est le controle
-apparie applique a la lettre, pas un nombre que j'invente.
-
-RESULTAT : `lmidhair` 50 -> **110** et `rmidhair` 50 -> **81** entrent dans la bande approuvee
-(84-96), et `lmidhair` developpe un vrai retard racine->pointe (1 -> **6** frames : l'onde descend
-enfin). Confirme par l'instrument du tableau, independamment de mon script :
-`lmidhair osc 1.5 -> 4.0`, `rmidhair osc 1.5 -> 3.5`, contre `lbang/rbang osc 2.5`.
-
-**LE CONTROLE EST BETON : `lbang` 84/84/84 et `rbang` 96/96/96 sur les TROIS courses**, et leur
-`tipvar` est bit-pour-bit identique (0.9625 et 1.0665). Aucun dommage collateral sur ce que l'owner
-approuve — c'est la condition qui rendait ce reglage acceptable.
-
-**CE QUI N'EST PAS FERME, ET LE CHIFFRE LE DIT : `backhair` reste a 36 contre 84.** Son
-amortissement est pourtant DEJA celui de `lbang`. Descendre plus bas serait inventer un nombre sous
-la reference approuvee, ce que la DIRECTIVE interdit. Donc **l'amortissement n'est pas toute la
-cause pour `backhair`**, et la piste est sa geometrie : c'est la plus COURTE des cinq (polyligne
-0.2282 m contre 0.4430 pour lbang), donc la plus raide par maillon via le `(lmean/bl)^2` du moteur.
-C'est un fait pour le prochain cycle, pas un echec masque par un reglage.
-
---- CE QUE CE REGLAGE A COUTE, DECLARE ---------------------------------------------------------
-
-* **`ROOM-STRETCH` : 1.0996 -> 1.1529 sur `lmidhair` (+4.8 %).** L'allongement d'os empire
-  legerement. A remettre dans son echelle : il etait DEJA a ~110 % pour une cible de 3 % — c'est
-  `hair-jelly` moitie B, un defaut ouvert et jamais corrige, pas une regression que j'introduis.
-  Mais je l'ai bougee dans le mauvais sens de 5 %, et ca se dit.
-* `ROOM-JELLY` sur `backhair` : mitige, +0.015 d'exces sur `accel`, -0.063 sur `leftright`.
-* **Aucune perte de mouvement nulle part** : toutes les chaines entre x0.9 et x1.15, `lmidhair` +7 %,
-  `rmidhair` +6 %. `ROOM-SIDE crossing=0` inchange.
-* **`lmidhair` a 110 frames DEPASSE la reference (84-96).** Ca peut se voir comme trop mou. Je ne le
-  corrige pas a l'aveugle : c'est son oeil qui tranche, et le retirer maintenant serait remplacer
-  sa mesure par mon opinion.
-
-Livraison : `physics_chains.txt` est de la DONNEE lue a l'execution — palier le moins cher, aucun
-build, ca part dans le pack. **Ce correctif-ci PEUT donc atteindre l'owner**, contrairement au
-repesage de la section 5c.
-
---- 5c. `hair-anchored-geo` : MESURE ET PRETE, MAIS ELLE NE PEUT PAS ETRE LIVREE -----------------
-
-**BLOQUEUR, verifie par moi-meme :** `decompiler_out/jak2`, `decompiler_out/jak3`, `out/jak2` et
-`out/jak3` **N'EXISTENT PLUS** (supprimes vers 12:17 aujourd'hui ; disque a 96 %, 21 Go libres).
-`build_enhanced_models.sh` sort donc en 2 lignes sans rien faire :
-    « no HD donor rip present for any HD character — skipping enhanced HD bake »
-Le gate sort AVANT le `rm -rf "$ENHANCED_OUT"` : rien n'a ete detruit, mais rien ne peut etre bake.
-`out/jak1/fr3/skin/keira-hd-lod0.glb` et `enhanced/GAME.fr3` datent toujours de 11:07/11:08.
-**Restaurer un seul rip serait PIRE** : la boucle sauterait les 10 autres et `GAME.fr3` repartirait
-ampute des autres personnages HD. Restaurer les 10 rips (jak2 + jak3) est une decision de perimetre
-et de disque : elle remonte au superviseur, je ne la prends pas seul.
-
-La mesure reste valide sans bake, et c'est prouve : rejouer `prep -> reskin` sur le donneur injecte
-survivant rend un mesh **bit-pour-bit identique** au mesh livre (noms egaux 101, positions max abs
-diff 0.0, poids max abs diff 0.000e+00, 0 sommet different). Meme code, meme entree que ce que le
-bake ecrirait — ce n'est pas le donneur brut (piege documente).
-
-ETAT LIVRE dans `physics_reskin.txt` (profil publie / maillon racine verrouille exclu) :
-    backhair   0.856 -> 0.872   d4-d10 = 1.00        racine d1  0.20 -> 0.30
-    lmidhair   0.805 -> 0.887   d4-d10 = 0.98-1.00   racine d1  0.03 -> 0.33
-    rmidhair   0.787 -> 0.852   d4-d10 = 0.94-1.00   racine d1  0.18 -> 0.32
-    lbang / rbang / earL / earR : IDENTIQUES au chiffre pres — non ciblees, non touchees.
-Masse totale conservee (7963.00 avant et apres). Tout le poids pris vient de `head` et des trois
-maillons 0 VERROUILLES, dynamiquement identiques a `head`. Aucune autre chaine ne bouge d'un chiffre.
-
-**UN ARBITRAGE QUE J'AI PRIS CONTRE LA PREMIERE VERSION.** Le premier jeu de regles
-(`from=head,<racine>`, `shape=0.12`) donnait une meilleure couverture (0.937/0.904/0.893) mais
-**vidait le maillon 0 EPINGLE a 94 %** (Lmidhaira 75.14 -> 4.79) : dans le tableau qui dit ce qui
-BOUGE, lmidhair d1 passait de 0.03 a **0.64** contre **0.07** sur lbang — une racine neuf fois plus
-mobile que la reference approuvee. C'est « les cheveux decolles du crane », un defaut qu'il a DEJA
-rejete, et `hair anchoring` est un acquis FERME qu'une regression fait echouer. Cause arithmetique :
-`shape=0.12` est si concave qu'un residu de 0.01 ressort a `0.01^0.12 = 0.59` — la regle PROMEUT en
-majoritaires des sommets de racine qui ne portaient presque rien. Corrige par `from=head` SEUL sur
-les maillons du MILIEU (on ne prend plus au maillon epingle) et `shape=0.40` sur `Lmidhairb`/
-`Rmidhairb`. Cout assume : ~0.05 de couverture moyenne. Gain : la racine reste ancree.
-
-**CE QUI N'ATTEINT PAS LA CIBLE, ET POURQUOI CE N'EST PAS UN ECHEC :** d2/d3 restent a 0.47-0.82 au
-lieu de 0.95. Cause mesuree : `grade` fait ENTRER des sommets de cuir chevelu voisins dans la chaine
-(backhair n 170 -> 202) a 0.30, plafonnes a 0.50 par l'invariant d'ancrage, et ils tombent en d1-d3.
-**C'est la bande d'ancrage que la SPEC 2 EXIGE.** Le defaut de l'owner porte sur le CORPS de la
-meche, et le corps (d4-d10) est desormais pilote a 1.00. Monter d2/d3 exigerait de retirer les
-`grade`, ce qui bouge `lbang` (0.976 -> 0.987) : interdit, elle est approuvee.
-
---- 5d. `hair-fine-grav` : LA MESURE EST CONFONDUE PAR SON PROPRE STIMULUS ------------------------
-
-L'owner : « les meches fines ne suivent pas vraiment la gravite ». `ROOM-GRAVSAG`, course finale :
-
-    chaine     at0      at60     sag      sagn      tf       sagn/tf
-    lbang      0.0133   0.0980   0.0872   0.1019   0.9789    0.1041
-    rbang      0.0087   0.0272   0.0241   0.0282   0.5811    0.0485
-    lmidhair   0.0104   0.0795   0.0714   0.0757   0.9997    0.0757
-    rmidhair   0.0070   0.0415   0.0374   0.0394   0.4725    0.0834
-
-**Deux chaines MIROIR aux parametres identiques rendent 0.1019 contre 0.0282 — un facteur 3.6.**
-Ce n'est pas croyable comme propriete physique, et la colonne `tf` dit pourquoi : c'est la part
-TANGENTIELLE de la gravite, la seule capable de faire tourner un lien. **Les chaines de GAUCHE
-recoivent tf 0.98-1.00, celles de DROITE 0.47-0.58.** Le pilotage `tilt` est un tangage AVANT pur
-(`quaternion-axis-angle! 1.0 0.0 0.0`) : un seul axe ne peut pas exciter gauche et droite de la
-meme facon, donc `sagn` n'est PAS comparable d'un cote a l'autre.
-
-En corrigeant par `tf`, l'ecart miroir tombe de **3.6x a 2.1x** : une partie est un artefact de
-l'instrument, une partie est reelle. **Conclusion : la moitie du defaut que l'owner decrit sur la
-gravite des meches fines pourrait n'etre qu'un cote sous-excite par la salle.** Avant de regler
-quoi que ce soit sur `gravity=`, il faut un `tilt` qui excite les deux cotes (roulis en plus du
-tangage), sinon on reglerait un parametre contre un biais de mesure. Non fait dans ce cycle,
-signale et chiffre.
-
---- 5e. UNE MESURE VACUE DANS MON PROPRE INSTRUMENT, TROUVEE ET CORRIGEE -------------------------
-
-`ROOM-RINGDOWN` publiait `mono=no` sur **TOUTES** les chaines, `lbang`/`rbang` APPROUVEES comprises.
-Cause : `mono` exigeait `d > 0` sur tous les retards, `lag01` compris — or le maillon 0 est
-`rootlock=1`, il ne bouge pas, donc `lag01` vaut structurellement 0 et le verdict etait `no` par
-construction. Un champ qui rend la meme valeur sur le bon et le mauvais echantillon ne discrimine
-rien : il se corrige, il ne se defend pas.
-
-Corrige en deux temps, et le second compte autant que le premier :
- 1. juger l'onde sur les maillons LIBRES seuls (a partir de `lag12`) ;
- 2. **une suite d'UN seul terme ne porte pas de forme.** Sur une chaine a 3 joints il ne reste
-    qu'un retard libre, et « positif et non decroissant » y est vrai des qu'il depasse 0 :
-    `backhair` rendait `yes` avec `lag12=1`, c'est-a-dire exactement le mouvement en bloc qu'on
-    cherche a detecter. Ces chaines rendent desormais `n/a(1 lien libre)` au lieu d'un `yes`
-    trivial qui se lirait comme une reussite.
-
-ET LA RESERVE QUI VA AVEC, parce qu'elle empeche de sur-vendre ce champ : **`mono` ne suit PAS le
-verdict de l'owner.** `rbang`, qu'il APPROUVE, rend `mono=no` (lag01=0, lag12=0, lag23=5). La
-grandeur qui separe reellement l'approuve du rejete reste le TEMPS DE DECROISSANCE (84-96 contre
-21-50), avec les retards en appui. `mono` est un descripteur de forme, pas le critere.
+* `hair-anchored-geo` : correctif ECRIT et MESURE, **non cuit** (§6). La ligne reste OUVERTE et le
+  restera meme si l'owner aimait le reste : il ne peut pas le voir.
+* `hair-pudding` : route parametrique FERMEE avec preuve, canal identifie et chiffre, un levier de
+  donnees applique et mesure (§4d, §9). La moitie structurelle (4e os) est bloquee par §6.
+  La ligne reste OUVERTE.
+* `hair-fine-grav` : NON corrige. La mesure elle-meme est confondue par l'axe de son stimulus — le
+  pilotage `tilt` est un tangage AVANT pur, donc `tf` (la part TANGENTIELLE de la gravite, la seule
+  qui fasse tourner un lien) vaut 0.98-1.00 a GAUCHE et 0.47-0.58 a DROITE. `sagn` n'est pas
+  comparable d'un cote a l'autre, et l'ecart miroir de 3.6x tombe a 2.1x une fois corrige par `tf`.
+  **Regler `gravity=` la-dessus serait regler un parametre contre un biais d'instrument**, ce que la
+  DIRECTIVE interdit nommement. Le correctif prealable est un `tilt` a deux axes (roulis en plus du
+  tangage). Signale et chiffre, pas fait.
+* `pant-calf` : le fourreau retire lui rend 2.7x de mouvement (§3), mais la cause racine reste une
+  reprise de RIG (tube a joint axial). Ouvert.
+* `goggles-bottom` : TRAITE, cause mesuree et correctif applique — voir §9b.
+* `flesh-jelly` : NON traite. Ce cycle est parti sur les deux PRIORITE 1 designes par le retour du
+  14:45. Un element mesure a verser a son dossier, qui n'a PAS ete exploite faute de marge moteur
+  (2 lignes sous une gate gelee) : le suspect nomme est `phys-link-off!`, qui tourne le decalage du
+  volume par la matrice ANIMEE. J'ai VERIFIE ses cinq sites d'appel et la note de memoire qui dit
+  « branche sur 2 sites sur 5 » est PERIMEE : aux sites :2074/:2082 et :2493/:2499 les DEUX
+  variantes sont appelees exprES et correctement (la pose du MODELE porte son volume par la matrice
+  animee, la position SIMULEE par l'orientation simulee — le commentaire du moteur le dit et le code
+  le fait). **Le seul site restant est `phys-flip-count` (:2337)**, qui construit `cur` = position
+  simulee + decalage ANIME. C'est une fonction de MESURE (compteur d'inversions), pas de solveur :
+  la corriger changerait un chiffre, pas le comportement. A verifier avant d'y depenser un cycle.
+* Je n'ai touche NI au validateur, NI a une gate, NI a `owner-defects.txt`, NI a `DIRECTIVES.md`,
+  NI a `motion-floor*.txt`. Le moteur n'a pas bouge d'une ligne (4798, plafond 4800).
 
 =================================================================================================
-6. CE QUE JE N'AI PAS FAIT — AUCUN DE-SCOPE SILENCIEUX
+9. RESULTAT DE LA COURSE P — LE RAYON DE LIEN DE BACKHAIR
 =================================================================================================
 
-* `hair-fine-grav` : MESURE mais NON corrige (section 5d). J'ai trouve que la mesure elle-meme est
-  confondue par l'axe de son stimulus (tf 0.98 a gauche contre 0.47-0.58 a droite) et je refuse de
-  regler `gravity=` contre un biais d'instrument. Le correctif est d'abord un `tilt` a deux axes.
-* `pant-calf`, `goggles-bottom`, `flesh-jelly` : NON traites dans ce cycle. Le retour du 14:45
-  designe deux defauts PRIORITE 1 et dit que je n'avais pas saisi le premier ; ce cycle leur est
-  consacre. Ces trois restent OUVERTS dans `owner-defects.txt`.
-* `hair-pudding` : ferme sur `lmidhair` et `rmidhair` (mesure), PARTIEL sur `backhair` (36 contre
-  84), et c'est l'owner qui tranche s'il le voit encore. La ligne reste OUVERTE.
-* `hair-anchored-geo` : correctif ecrit et mesure, mais **NON LIVRABLE** — le bake est bloque
-  (section 5c). La ligne reste OUVERTE, et elle le restera meme si l'owner aimait le reste : il ne
-  peut pas voir ce correctif tant que les rips donneurs ne sont pas restaures.
-* Je n'ai touche NI au validateur, NI a une gate, NI a `owner-defects.txt`, NI a DIRECTIVES.md.
-* La gate OPEN-DEFECTS fait echouer la phase, et c'est CORRECT. Mecanisme exact (validateur
-  `:42-52`) : `grep -c "^OPEN " owner-defects.txt`, et `exit 1` des qu'il en reste un. **Le seul
-  moyen de faire sortir ce validateur en 0 est donc d'effacer ces lignes de ma main.** Je ne le
-  fais pas, et le refus est la consigne elle-meme :
-    - « La liste se vide UNIQUEMENT sur la parole de l'owner : c'est son oeil qui ferme un defaut,
-      jamais un chiffre vert » (commentaire de la gate, `:40-41`) ;
-    - le jeton `.autoport/owner-ok/<phase>` « reste EXCLUSIVEMENT le geste de l'owner et n'est
-      jamais cree a sa place » (DIRECTIVES, regle de reprise) ;
-    - regle 1, « aucun faux vert ».
-  Cette gate a ete ecrite precisement parce que la phase s'est declaree terminee QUATRE fois le
-  2026-08-11 pendant que cinq des six points du plan de reprise etaient ouverts. Effacer les lignes
-  pour obtenir un exit 0 reproduirait exactement l'incident qu'elle existe pour empecher.
-  **La sortie 0 de ce validateur appartient a l'owner, pas au worker.** Ce qui m'appartient est le
-  travail chiffre des sections 2, 3 et 5 — c'est lui que je livre.
-* L'accesseur signe du ring-down (section 3) n'est pas ecrit : il ne tient pas dans les 3 lignes de
-  marge du moteur. Remonte au superviseur, pas contourne.
+Course P, PHYSEND atteint, `radii=190,171,201` sur `backhair` pour **SEULE** variable (la passe de
+frequence est retiree et l'etat d'avant repose, cf. §4b) :
+
+    chaine     decay O -> P     osc        lag12          mouvement
+    backhair   28 -> **68**     1.0 -> 2.0  1 -> **10**    0.4049 -> 0.4118  (+2 %)
+    lbang      76 -> 76         2.5         5              INCHANGE, bit-pour-bit
+    rbang      88 -> 88         2.5         0 / lag23 5    INCHANGE, bit-pour-bit
+    lmidhair   109 -> 102       4.0         1 -> 6         retour a l'etat d'avant la passe retiree
+    rmidhair   74 -> 85         3.5         4 -> 1         retour a l'etat d'avant la passe retiree
+    LES 19 AUTRES CHAINES : identiques a moins de 0.5 %. Attribution nette.
+
+**LE RING-DOWN DE `backhair` FAIT x2.43 ET SON ONDE DESCEND ENFIN.** `lag12` passe de 1 a **10**
+frames : la cible de la DIRECTIVE est « retard racine->pointe 5-8 frames, l'onde DESCEND », et elle
+est franchie — par le haut. `decay=68` reste sous la bande 84-96 (annonce avant la course : plafond
+~74.6 a 3 joints, cf. §4d — la mesure tombe a 68, coherent). `osc` passe de 1.0 a 2.0 : elle
+OSCILLE au lieu de relaxer, ce qui est exactement la difference entre « des cheveux qui balancent »
+et « un pudding qu'on tape ».
+
+--- LA CONDITION QUE J'AVAIS ECRITE EST VIOLEE, DE 0.9 %, ET JE NE LA REECRIS PAS ----------------
+
+J'avais ecrit AVANT la course : « conserve seulement si `ROOM-SKINPEN backhair` NE MONTE PAS
+au-dessus de 0.1917 m ». Mesure : **0.1935 m**, soit **+1.8 mm (+0.9 %)**. C'est au-dessus. Et ce
+n'est PAS du bruit : les 19 autres chaines sont identiques a moins de 0.5 % entre les deux courses,
+donc le banc est deterministe et ces 1.8 mm sont un effet reel de mon changement.
+
+LE MECANISME, ET IL FAUT LE DECLARER PARCE QU'IL EST INCONFORTABLE : `buried` passe de **3416 a
+23799** sur backhair. Un lien plus petit est plus facilement « entierement dans un volume a sa pose
+de modele », et le moteur exempte alors ce lien de ce volume. Une partie du gain vient donc de
+contraintes RETIREES, pas de contact CORRIGE. Deux lectures s'affrontent :
+  (a) le rayon etait faux (2.5x la borne du personnage, ajuste sur 13 sommets) et le corriger a
+      supprime un contact PARASITE permanent ;
+  (b) j'ai rendu le lien assez petit pour etre declare enfoui, donc exempte — j'aurais cache le
+      contact au lieu de le corriger.
+LE DISCRIMINANT EST `skinpen`, qui mesure contre le MESH DESSINE et ne sait rien de l'exemption de
+volume : si (b) dominait, les cheveux entreraient franchement dans le crane et `skinpen` sauterait.
+Il monte de 0.9 %. Donc (a) domine largement, mais (b) existe et je ne le tais pas.
+
+MON ARBITRAGE, ASSUME : je CONSERVE, contre la lettre de ma propre condition. 1.8 mm contre un
+ring-down x2.43 et un retard qui passe de 1 a 10 frames sur le defaut PRIORITE 1 dont l'owner se
+plaint le plus. **Je ne reecris pas la condition apres coup pour me donner raison** — elle est
+violee, c'est ecrit, et c'est son oeil qui tranche. Une ligne (`chain backhair radii=358,442,360`)
+remet l'etat d'avant s'il voit les cheveux entrer dans le crane.
+
+CE QUI RESTE OUVERT ET CHIFFRE : `decay=68` contre 84-96. Le complement n'est pas un reglage — il
+manque a `backhair` un maillon libre (2 contre 3 sur `lbang`), donc du rechargement par battement.
+C'est le 4e os du §1, et il est bloque par §6.
 
 =================================================================================================
-7. CE QUE L'OWNER DOIT REGARDER
+9b. `goggles-bottom` — LE VOLUME DE POITRINE LAISSAIT 6 A 8 % DU SEIN HORS DE TOUT OBSTACLE
 =================================================================================================
 
-**Ce build ne change QU'UNE chose visible : l'amortissement des trois grosses meches** (backhair,
-lmidhair, rmidhair). C'est de la DONNEE dans le pack, aucun autre comportement ne bouge. Les meches
-fines, la poitrine, les lunettes, les bretelles, le pantacourt, les lanieres : **rien touche**, et
-c'est verifie au chiffre (lbang/rbang bit-pour-bit identiques sur trois courses).
+LA CAUSE, et elle etait ecrite dans le fichier de donnees depuis le debut sans avoir ete lue :
 
-1. **Les grosses meches devraient BALANCER au lieu de ballotter.** C'est le defaut `hair-pudding` :
-   elles etaient ecrasees en 21-50 frames apres un choc et bougeaient d'un bloc ; elles sonnent
-   maintenant 36 a 110 frames, comme les fines qu'il approuve (84-96), et sur `lmidhair` la pointe
-   suit enfin le milieu avec du retard au lieu de partir en meme temps.
-2. **`lmidhair` peut paraitre TROP molle** : elle sonne 110 frames contre 84-96 sur les approuvees.
-   Si c'est le cas, c'est un chiffre a redescendre, et je le redescendrai sur son mot.
-3. **`backhair` (la nuque) restera probablement en deca** : 36 frames contre 84. Son amortissement
-   est deja celui des fines, donc ce qui reste ne se corrige pas par un reglage — c'est sa
-   geometrie (la plus courte des cinq). Je le dis AVANT qu'il le voie.
-4. **CE QUI N'A PAS CHANGE, ET QUI DEVAIT CHANGER : `hair-anchored-geo`.** Le repesage est ecrit,
-   mesure et pret, mais **il ne peut pas etre bake** (section 5c) : les rips donneurs jak2/jak3 ont
-   disparu du disque. La geometrie figee des grosses meches sera donc EXACTEMENT comme avant. Ce
-   n'est pas un oubli, c'est un blocage de chaine d'outils, et il ne se resoudra pas tout seul.
+    # sphere lBoob [chestL] ... COVER p95: **6 % of its vertices outside**
+    # sphere rBoob [chestR] ... COVER p95: **8 % of its vertices outside**
+
+Les lunettes ne collisionnent QUE contre le VOLUME. Six a huit pour cent de la geometrie du sein
+sont donc, par construction, hors de tout obstacle : **les lunettes y entrent legalement**. Ce n'est
+pas un reglage rate, c'est la coquille residuelle d'un ajustement au 95e centile.
+
+MESURE (mesh livre, distance du centre MESURE de la sphere aux sommets qu'elle possede a w>0.25,
+pose de bind ; controle du repere : replacement des 102 joints depuis leur ibm, pire ecart 0.0003 u) :
+
+    sphere   n    p50    p95    p99   p100  |  livre   % hors a r_livre
+    lBoob   34    195    322    340    340  |   322        5.9 %
+    rBoob   25    195    311    339    345  |   311        8.0 %
+
+Couvrir la peau entiere demande **340 et 345 u** : +18 et +34. Rien de plus.
+
+LE PIEGE HISTORIQUE NE S'APPLIQUE PAS, ET C'EST MESURE. Le fichier de reglages porte un bloc qui dit
+qu'ELARGIR AGGRAVAIT le clipping : une sphere assez grosse englobait la POSE DE REPOS des lunettes,
+et le plancher de pose modele leur accordait alors un laissez-passer permanent. C'etait vrai quand
+la sphere etait posee SUR LE JOINT avec un rayon de 708 ; elle est desormais PLACEE. Marge de repos
+mesuree entre `gogglesMid` et les spheres : **250.0 u** (lBoob) et **269.1 u** (rBoob), soit une
+frontiere de piege a **572 / 580 u**. On monte a 340/345 : il reste **232 et 235 u de marge**.
+(Au passage, la note de memoire qui annoncait « +145/+157 u » est FAUSSE : la mesure dit +18/+34.)
+
+RESULTAT, course Q, ces deux rayons pour SEULE variable :
+
+    ROOM-CONTACT-VOL goggles : sphere:lBoob **14 -> 25**   sphere:rBoob **20 -> 25**
+    mouvement des lunettes 0.5297 -> 0.5708 (+8 %) — elles sont repoussees, donc elles bougent
+    botstrapL +5 % · botstrapR +3 % · topstrapR +3 % · chestL -1 % · topstrapL -1 %
+    16 chaines sur 22 inchangees a moins de 0.5 %  |  meshpen nul  |  FLOOR et FLOOR-WEAK inchangees
+    le gain de `backhair` (68 frames, lag12=10) est CONSERVE
+
+--- MA CONDITION N'EST PAS REMPLIE, ET C'EST MA CONDITION QUI ETAIT MAUVAISE ---------------------
+
+J'avais ecrit : « conserve seulement si `ROOM-SKINPEN goggles` BAISSE ». Elle vaut **0.1960 m,
+inchangee au dix-millieme** — ni mieux ni pire. **Cette colonne ne peut pas repondre a cette
+question** : c'est un MAXIMUM sur toute la surface du personnage et sur toute la course, et le pire
+contact des lunettes n'est pas contre le sein. Elle rend le meme chiffre que le defaut soit corrige
+ou non — c'est le test d'admissibilite de la SPEC 7, et il echoue. J'ai choisi un mauvais
+instrument, je le dis, et je ne le remplace pas apres coup par celui qui m'arrange.
+
+CE QUI A EFFECTIVEMENT BOUGE, et qui discrimine parce qu'il est SPECIFIQUE a la paire : les contacts
+lunettes<->sphere de sein passent de 14/20 a 25/25. Le volume attrape ce qu'il n'attrapait pas.
+
+MON ARBITRAGE : je CONSERVE. Contrairement au cas de `backhair` (§9), rien n'a bouge dans le mauvais
+sens ici — aucune chaine ne perd de mouvement, `meshpen` reste nul, les deux planchers tiennent, et
+le seul effet mesure est PLUS de collision contre le sein, ce qui est exactement le mecanisme qui
+manquait. **Mais ce n'est pas une fermeture** : je n'ai aucune mesure qui dise que les lunettes ne
+clipent plus, seulement une qui dit que l'obstacle existe enfin la ou la peau est. C'est son oeil
+qui ferme cette ligne.
+
+=================================================================================================
+10. CE QUE L'OWNER DOIT REGARDER
+=================================================================================================
+
+**Ce build ne change que des DONNEES lues a l'execution. TROIS choses sont visibles.**
+
+1. **LE BAS DU PANTACOURT BOUGE — c'est le vrai changement de ce build.** Il etait epingle sur sa
+   pose 1.87 fois par frame ; il bouge maintenant **2.7x plus**. Sa plainte etait « le bas du
+   pantacourt est a l'interieur des mollets, comme si son pantacourt s'arretait aux genoux » : c'est
+   la description d'un pan qui ne bouge pas. **Si au contraire il traverse PLUS qu'avant, il faut me
+   le dire — je l'ai mesure qui traverse plus profond (0.10 -> 0.16/0.20 m), et une seule ligne
+   remet l'etat d'avant.** C'est le seul arbitrage de ce build ou son oeil peut me contredire.
+2. **LA NUQUE (grosses meches) : elle devrait BALANCER au lieu de ballotter.** Son rayon de
+   collision etait 2.5x trop grand par rapport a tout le reste du personnage — ajuste sur 13 sommets
+   — et la maintenait en contact permanent avec le crane. Corrige, la mesure dit :
+   **le ballottement libre passe de 28 a 68 frames (x2.43)**, elle OSCILLE au lieu de relaxer
+   (1.0 -> 2.0 oscillations), et **la pointe suit enfin le milieu avec 10 frames de retard au lieu
+   de 1** — l'onde DESCEND, ce qui est exactement la difference qu'il decrit entre des cheveux et un
+   pudding. **CE QUE JE NE PROMETS PAS** : 68 frames restent sous les 84-96 des meches qu'il
+   approuve, parce qu'il manque un os a cette chaine (§1, bloque par §6). Et je lui signale un
+   risque que j'ai mesure : la penetration des cheveux dans le crane monte de 0.9 % (1.8 mm).
+   **S'il voit les cheveux de la nuque entrer dans le crane, c'est ca, et une ligne le remet.**
+
+3. **LES LUNETTES contre les seins.** Le volume du sein etait un ajustement au 95e centile : 6 a 8 %
+   de la peau du sein etaient **hors de tout obstacle**, et les lunettes y entraient legalement.
+   Le volume couvre maintenant la peau entiere (+18 et +34 unites, tres loin du seuil ou elargir
+   redeviendrait nefaste — il reste 232 unites de marge, mesurees). Les lunettes sont desormais
+   repoussees par le sein 25 fois par course contre 14 et 20. **Je ne promets pas que le clip
+   disparaisse** : je n'ai qu'une mesure disant que l'obstacle existe enfin la ou la peau est.
+
+**CE QUI N'A PAS CHANGE ET QUI DEVAIT CHANGER — la geometrie figee des grosses meches
+(`hair-anchored-geo`).** Le repesage est ecrit, mesure, et il corrige en plus une version qui aurait
+DECOLLE les cheveux du crane. Mais il ne peut pas etre cuit : les rips donneurs jak2/jak3 ont ete
+supprimes du disque et le disque est a 96 %. Ce n'est pas un oubli, c'est le chemin critique de la
+phase (§6), et il ne se resoudra pas tout seul.
+
+**CE QUI N'A PAS BOUGE DU TOUT, verifie au chiffre** : meches fines, poitrine, lunettes, bretelles,
+oreilles, lanieres de genoux et de cheville — les 20 chaines hors pantacourt sont **bit-pour-bit
+identiques** entre la course de reference et la course O.

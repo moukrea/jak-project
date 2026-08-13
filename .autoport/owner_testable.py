@@ -23,11 +23,10 @@ PUSHLOG = os.path.join(ROOT, '.autoport', 'logs', 'auto_push_builds.txt')
 
 # quelle chaîne concerne quel défaut ouvert -- pour lui dire QUOI regarder, pas « va tester »
 DEFECT_OF = [
-    (r'^(backhair|lmidhair|rmidhair)$',      'hair-anchored-geo', 'les grosses mèches (géométrie figée)'),
+    (r'^(backhair|lmidhair|rmidhair)$',      'hair-anchored-geo', 'la nuque et les grosses mèches'),
     (r'^(lbang|rbang)$',                     'hair-fine-grav',    'les mèches fines'),
     (r'^(backhair|lmidhair|rmidhair|lbang|rbang)$', 'hair-pudding', 'le ballottement des cheveux'),
     (r'pantflap',                            'pant-calf',         'le bas du pantacourt'),
-    (r'^(backhair|lmidhair|rmidhair)$',      'hair-anchored-geo', 'la nuque et les grosses mèches'),
     (r'goggle|visor',                        'goggles-bottom',    'le bas des lunettes'),
     (r'chest|breast|boob',                   'flesh-jelly',       'la poitrine'),
 ]
