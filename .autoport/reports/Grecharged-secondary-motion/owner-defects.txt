@@ -1,6 +1,7 @@
 # DÉFAUTS OUVERTS — la phase ne passe pas tant qu'il en reste. Une ligne se retire UNIQUEMENT
 # quand l'owner dit que c'est bon, jamais parce qu'une mesure est verte.
 #
+# ATTENTION: DEUX DE CES FERMETURES ONT REGRESSE LE 2026-08-13 21:30 (voir en bas)
 # FERMÉS PAR L'OWNER (2026-08-13 12:45) — à protéger, une régression dessus est un échec :
 #   - knee-tabs      : « les languettes/lanières des genoux bougent ! »
 #   - goggles-tunnel : « je vois plus les lunettes partir dans son dos »
@@ -84,3 +85,29 @@ OPEN hair-fine-grav  les meches fines « ne suivent pas vraiment la gravite » -
 OPEN pant-calf       le bas du pantacourt est toujours a l'interieur des mollets
 OPEN goggles-bottom  le bas des lunettes clipe encore legerement au niveau des seins
 OPEN flesh-jelly     ballons d'eau sur les mouvements brusques (poitrine)
+
+# ============================================================================================
+# RETOUR OWNER 2026-08-13 21:30 — REOUVERTURES ET NOUVEAUX DEFAUTS
+# ============================================================================================
+OPEN hair-hysteresis  PRIORITE 1 -- « beaucoup d'hysteresis pour TOUS les cheveux ». Mot neuf et
+#                    precis: la reponse depend de l'historique et ne revient pas. Piste nommee par
+#                    l'historique parke: `*phys-cfric*` (friction de contact) ou un limiteur qui
+#                    latche. MESURE: apres un aller-retour identique, la chaine revient-elle a la
+#                    meme pose ? L'ecart EST l'hysteresis. A traiter AVANT tout le reste.
+OPEN hair-fine-REGRESSION  PRIORITE 1 -- les meches FINES qu'il approuvait a 14:45 (« vraiment pas
+#                    mal ») sont maintenant du pudding. Leurs parametres sont INCHANGES depuis
+#                    14:37 -- c'est le MESH que la campagne de repesage a degrade. J'ai tue mon
+#                    propre echantillon de controle.
+OPEN hair-no-mass    « ca suit pas une logique de gravite, ca n'a pas l'air d'avoir une masse
+#                    particuliere ». Le moteur qui marchait decrivait chaque chaine par sa
+#                    FREQUENCE PROPRE (omega = 2*pi*f); aujourd'hui la donnee livre raideur/masse
+#                    crues. A repasser en grandeurs physiques.
+OPEN knee-tabs-idle  REOUVERTURE d'une fermeture du 12:45: « les languettes des genoux bougent dans
+#                    les cinematiques mais pas (ou pas remarquable) sur l'animation IDLE ».
+OPEN goggles-boobcol « les collisions des lunettes contre les seins sont mal gerees et ca clip
+#                    toujours un peu ». Les lunettes suivent mieux la physique par ailleurs.
+OPEN chest-big-anims « les seins sur les animations lentes c'est nickel, les animations
+#                    IMPORTANTES toujours pareil » -- le defaut vit dans le regime fort.
+OPEN hair-upper-half « la moitie basse a l'air detachee du crane et bouge independamment, mais la
+#                    moitie HAUTE est toujours partiellement ancree (ET PAS QUE LES RACINES) ».
+#                    Le redistribute a libere le bas, pas le haut.
