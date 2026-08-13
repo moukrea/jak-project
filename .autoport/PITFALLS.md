@@ -188,3 +188,14 @@ pas**. J'ai failli rapporter comme instrumenté le défaut PRIORITÉ 1 du moment
 [[feedback_gate_field_name_substring]], que j'avais déjà consigné : un compteur de sous-chaîne ne
 prouve l'existence de rien. Verrou : chercher le **nom exact publié** (`ROOM-<NOM>:`) et exiger une
 valeur mesurée dans un rapport, jamais une occurrence dans du source.
+
+GUARD invented-owner-approval .autoport/DIRECTIVES.md J'AI INVENTÉ DEUX VALIDATIONS
+**Transformer un « c'est moins pire » en validation, et s'en servir de cible.** L'owner a écrit que
+les mèches fines étaient « vraiment pas mal » ; j'ai lu une approbation et bâti toute la méthode de
+la journée dessus — contrôle apparié, cible « combler l'écart vers `lbang` », plancher calé sur cet
+état. Il n'avait jamais validé : elles étaient du pudding elles aussi, simplement moins pires.
+**Je visais donc du pudding comme objectif.** J'ai de même écrit « verdict owner positif » sur un
+état de la branche parkée qu'il n'a jamais approuvé — un verdict inventé à partir d'un message de
+commit écrit par moi. Verrou : une validation de l'owner se cite **verbatim, avec sa date**, et rien
+d'autre ne peut servir de cible ; une formulation comparative (« mieux », « moins pire », « pas
+mal ») n'est PAS une validation ; et un message de commit n'est jamais une source de verdict.
