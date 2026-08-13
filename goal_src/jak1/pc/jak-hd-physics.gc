@@ -2083,6 +2083,11 @@
         (cb   (new 'stack-no-clear 'vector))
         (ra   (new 'stack-no-clear 'vector))
         (rb   (new 'stack-no-clear 'vector))
+        ;; les deux azimuts du veto de cote : celui de la pose d'auteur et celui du lien simule.
+        ;; Memes noms et meme role que dans `phys-link-pen` (:2513-2514), pour que le predicat de
+        ;; DECISION se lise exactement comme le predicat de MESURE.
+        (ua   (new 'stack-no-clear 'vector))
+        (ub   (new 'stack-no-clear 'vector))
         (nrm  (new 'stack-no-clear 'vector)))
     (dotimes (l n)
       (when (>= l rlk)
@@ -2296,7 +2301,87 @@
                                          (+ 1.0 (-> *phys-dg* (* sc PHYS-DG))))))
                                (set! (-> pt x) (+ (-> pt x) (* (-> nrm x) push)))
                                (set! (-> pt y) (+ (-> pt y) (* (-> nrm y) push)))
-                               (set! (-> pt z) (+ (-> pt z) (* (-> nrm z) push))))))))))))))
+                               (set! (-> pt z) (+ (-> pt z) (* (-> nrm z) push)))))
+                           ;; ----------------------------------------------------------------
+                           ;; LE FRANCHISSEMENT D'AXE — LA GRANDEUR QUE `meshpen` PUBLIE ET QUE CE
+                           ;; SOLVEUR N'AVAIT AUCUN CODE POUR RESOUDRE.
+                           ;;
+                           ;; MESURE QUI L'EXIGE (course x86 du 2026-08-13 23:25). `meshpen` est
+                           ;; positif sur 19 chaines, jusqu'a 0.7697 m sur `anklestrapR`. Or la
+                           ;; profondeur est bornee PAR CONSTRUCTION a `rr + rl` : `phys-collide-depth`
+                           ;; rend `(rr + rlink) - d` et `feff = floor0 >= 0`. Pour cette chaine
+                           ;; c'est 411 + 225 = 636 u = 0.1553 m. Le chiffre publie vaut 4.96 fois
+                           ;; le maximum ARITHMETIQUEMENT possible : ce n'est donc pas une
+                           ;; profondeur. C'est l'AUTRE terme de `phys-link-pen` (:2708-2710), la
+                           ;; DISTANCE A L'AXE DU MAUVAIS COTE que `phys-axis-dir` ecrit dans `w`.
+                           ;;
+                           ;; CORROBORATION EXACTE, PAS UNE CORRELATION : les 19 chaines a
+                           ;; `meshpen > 0` sont les 19 chaines de `ROOM-SIDE crossing=82459`, et
+                           ;; les 3 absentes — earL, earR, toestrapL — sont exactement les 3 a
+                           ;; residu nul. C'est le meme predicat, dans le meme `when` (:2620-2624).
+                           ;;
+                           ;; C'EST L'INVARIANT QUE `phys-retreat-chain` TENAIT SANS LE DIRE. Le
+                           ;; recul visait la pose du modele, qui est du BON cote de CHAQUE axe par
+                           ;; construction ; en le retirant on a retire la seule resolution du
+                           ;; franchissement, et `goggles-tunnel` — que l'owner avait FERME le
+                           ;; 2026-08-13 12:45 — est structurellement rouvert. Les balayages de
+                           ;; collision qui devaient le remplacer n'y peuvent rien : le residu
+                           ;; n'est pas dans le domaine qu'une poussee de PROFONDEUR sait reduire,
+                           ;; quel qu'en soit le nombre.
+                           ;;
+                           ;; CE QUI EST FAIT ICI, ET POURQUOI CE N'EST PAS UN RETOUR AU DESSIN :
+                           ;; on projette la direction radiale COURANTE sur le demi-espace
+                           ;; admissible. Ce qui est emprunte a la pose d'auteur est le SIGNE d'un
+                           ;; azimut (`ua`, une direction unitaire) — exactement l'information que
+                           ;; la mesure utilise deja pour DECLARER la violation — jamais une
+                           ;; position, jamais une distance. La coordonnee LE LONG de l'axe et la
+                           ;; distance A l'axe sont CONSERVEES : l'operation ne peut donc pas
+                           ;; retirer d'amplitude, et c'est ce qui la separe du recul (qui
+                           ;; rappelait 49 % du mouvement en visant un point). Elle est
+                           ;; IDEMPOTENTE — des que `ua . ub >= 0` c'est un no-op — donc elle ne
+                           ;; porte aucune memoire de l'historique du contact et ne peut pas
+                           ;; fabriquer l'hysteresis dont l'owner se plaint.
+                           ;;
+                           ;; NATURE : une rotation autour de l'axe du volume, en radians d'azimut.
+                           ;; REPERE : monde. LECTURE HORS DEFAUT : aucun deplacement.
+                           ;; ET ELLE REPARE LE CONTROLE POSITIF PAR LA MEME OCCASION. `*phys-side-off*`
+                           ;; ne commandait plus rien dans le solveur (il ne coupait que le terme de
+                           ;; mesure), d'ou `ROOM-SIDE-CONTROL armed=14761 disarmed=14937` — 1.2 %
+                           ;; d'ecart, un controle qui ne tire pas. En le mettant en garde de la
+                           ;; RESOLUTION, arme = plus de resolution = les franchissements restent,
+                           ;; desarme = ils tombent. Le bouton commande enfin ce que le compteur
+                           ;; rapporte.
+                           (when (and (zero? *phys-side-off*)
+                                      (> floor0 0.0)
+                                      (phys-axis-dir rest ca cb ua)
+                                      (phys-axis-dir pt ca cb ub))
+                             (let ((dt0 (+ (* (-> ua x) (-> ub x))
+                                           (+ (* (-> ua y) (-> ub y))
+                                              (* (-> ua z) (-> ub z))))))
+                               (when (< dt0 0.0)
+                                 (let* ((wx (- (-> ub x) (* dt0 (-> ua x))))
+                                        (wy (- (-> ub y) (* dt0 (-> ua y))))
+                                        (wz (- (-> ub z) (* dt0 (-> ua z))))
+                                        (wl (sqrtf (+ (* wx wx) (+ (* wy wy) (* wz wz)))))
+                                        (dax (-> ub w))
+                                        ;; le point de l'AXE le plus proche du lien, reconstruit
+                                        ;; depuis `ub` : il va de ce point vers le lien, et `w` en
+                                        ;; est la distance. Pas de second calcul de projection,
+                                        ;; donc pas de risque d'en prendre une autre que la mesure.
+                                        (cx0 (- (-> pt x) (* (-> ub x) dax)))
+                                        (cy0 (- (-> pt y) (* (-> ub y) dax)))
+                                        (cz0 (- (-> pt z) (* (-> ub z) dax))))
+                                   ;; `ub` exactement oppose a `ua` : aucune perpendiculaire n'est
+                                   ;; distinguee, on prend l'azimut de l'auteur.
+                                   (when (< wl 0.0001)
+                                     (set! wx (-> ua x))
+                                     (set! wy (-> ua y))
+                                     (set! wz (-> ua z))
+                                     (set! wl 1.0))
+                                   (let ((s (/ dax wl)))
+                                     (set! (-> pt x) (+ cx0 (* wx s)))
+                                     (set! (-> pt y) (+ cy0 (* wy s)))
+                                     (set! (-> pt z) (+ cz0 (* wz s)))))))))))))))
             ;; retour aux coordonnees du JOINT : le solveur, la contrainte de longueur et l'ecriture
             ;; dans le squelette raisonnent tous sur le joint, jamais sur le centre du volume.
             (set! (-> pt x) (- (-> pt x) (-> offs x)))
@@ -2952,6 +3037,7 @@
               (fl   (new 'stack-no-clear 'vector))
               (gl   (new 'stack-no-clear 'vector))
               (gla  (new 'stack-no-clear 'vector))
+              (gdw  (new 'stack-no-clear 'vector))
               (gref (new 'stack-no-clear 'vector))
               (ov   (new 'stack-no-clear 'vector))
               (uv   (new 'stack-no-clear 'vector))
@@ -3053,6 +3139,54 @@
                         (set! (-> gl x) (- (-> gl x) (-> gref x)))
                         (set! (-> gl y) (- (-> gl y) (-> gref y)))
                         (set! (-> gl z) (- (-> gl z) (-> gref z))))))
+                  ;; ---------------------------------------------------------------------------
+                  ;; `a_drive` — LE TERME MOTEUR, ET C'EST LA SECTION 3 DE LA SPEC DE L'OWNER,
+                  ;; PORTEE EN REPERE MONDE PARCE QUE L'INTEGRATEUR Y TRAVAILLE.
+                  ;;
+                  ;;     a_drive = (g_local - g_ref) - a_torso + a_angular
+                  ;;
+                  ;; NATURE : une acceleration, en u/frame^2. REPERE : MONDE (l'integrateur est en
+                  ;; position monde). LECTURE HORS DEFAUT : le vecteur nul debout et immobile.
+                  ;;
+                  ;; LE PREMIER TERME EST `gl`, DEJA CALCULE : il vaut exactement (g_local - g_ref)
+                  ;; pour la famille A, exprime dans le repere de l'ancre. On le remet en monde par
+                  ;; la rotation de l'ancre, et on renormalise a sa propre longueur parce que la
+                  ;; matrice d'un os retargete n'est pas garantie orthonormale — sans ca l'echelle
+                  ;; de l'os entrerait dans l'amplitude de la gravite (meme piege que celui
+                  ;; corrige plus haut sur `gl` lui-meme).
+                  ;;
+                  ;; LES DEUX AUTRES TERMES NE SONT PAS ECRITS ICI, ET CE N'EST PAS UN OUBLI :
+                  ;; l'integration se fait en position MONDE avec une attache qui bouge. Un point
+                  ;; libre dans le repere monde, relie a une ancre acceleree par la contrainte de
+                  ;; distance, subit dans le repere de cette ancre exactement `-a_torso` et le terme
+                  ;; centrifuge/d'Euler `a_angular`. Les ecrire en plus les compterait deux fois.
+                  ;; C'est ce que l'owner decrit — « ils restent en arriere puis rattrapent » : la
+                  ;; particule TRAINE derriere son ancre, gain < 1 et retard, au lieu de sauter avec
+                  ;; elle.
+                  ;;
+                  ;; ET C'EST LA LE CORRECTIF DE FOND. Le moteur pilotait par `fl = -couple * acc`,
+                  ;; ou `acc` etait la DERIVEE SECONDE DE LA POSE ANIMEE : aucun des trois termes
+                  ;; ci-dessus. D'ou « un pudding sur lequel on tape tres fort AU MOINDRE
+                  ;; MOUVEMENT » — un a-coup d'animation, meme minuscule, produisait un pic de
+                  ;; force. Les trois termes de la spec valent zero quand le personnage est
+                  ;; immobile et varient continument : un a-coup d'animation ne peut plus produire
+                  ;; de coup.
+                  ;;
+                  ;; FAMILLE B (ce qui PEND) : gravite ABSOLUE, inchangee. C'est l'exception de la
+                  ;; SPEC 4 du contrat (« ce qui doit pendre pend et reste pendu ») et elle ne
+                  ;; releve pas de la spec poitrine.
+                  ;; ---------------------------------------------------------------------------
+                  (set-vector! gdw 0.0 gy 0.0 0.0)
+                  (when (= (-> *phys-fam* sc) 1)
+                    (let ((gn (vector-length gl)))
+                      (cond
+                        ((> gn 0.0001)
+                         (vector-rotate*! gdw gl am)
+                         (let ((gw (vector-length gdw)))
+                           (if (> gw 0.0001)
+                             (vector-float*! gdw gdw (/ gn gw))
+                             (set-vector! gdw 0.0 0.0 0.0 0.0))))
+                        (else (set-vector! gdw 0.0 0.0 0.0 0.0)))))
                   (let* ((warm (-> *phys-warm* sc))
                          (w    (/ (* 6.2831853 (-> *phys-stiff* sc))
                                   (sqrtf (fmax 0.01 (-> *phys-mass* sc)))))
@@ -3142,8 +3276,51 @@
                     ;; L'ACCELERATION DE LA POSE D'AUTEUR EST TOUJOURS CALCULEE ET NE PILOTE PLUS
                     ;; RIEN : elle reste la definition du STIMULUS que la salle publie
                     ;; (`*phys-st*` 16). L'instrument ne bouge pas en meme temps que ce qu'il mesure.
+                    ;;
+                    ;; 2026-08-13 23:35 — LA SPEC DE L'OWNER (`SPEC-breast-softbody.md`) CORRIGE LE
+                    ;; PIVOT DE 22:40, ET C'EST ELLE QUI FAIT AUTORITE. Sa section 2 dit que le
+                    ;; modele debout livre EST l'equilibre 1 g a 100 % et que `AdditionalStandingSag
+                    ;; = 0` : « no additional gravity sag shall be applied merely because the
+                    ;; simulation is active ». Le rappel vers la pose d'auteur n'est donc PAS le
+                    ;; defaut, et une corde pure — qui pend jusqu'a la verticale — VIOLE sa section 9
+                    ;; (« once settled, the original authored standing shape shall be restored
+                    ;; exactly »). Le terme elastique est donc etendu a TOUTE la famille A, cheveux
+                    ;; compris, comme il le demande explicitement pour la transposition.
+                    ;;
+                    ;; CE QUI CHANGE VRAIMENT EST LE TERME MOTEUR, ET C'EST SA SECTION 3 :
+                    ;;     a_drive = (g_local - g_ref) - a_torso + a_angular
+                    ;; (voir le calcul de `gdw` plus haut). Debout, les trois termes valent zero,
+                    ;; donc l'equilibre est la pose d'auteur SANS pre-compensation — le bloc qui
+                    ;; creusait la fleche d'avance a ete retire avec cette bascule, les deux sont
+                    ;; une seule et meme piece.
                     (let* ((nfr (- n rlk))
-                           (ela (if (and (= (-> *phys-fam* sc) 1) (< nfr 2)) 1 0)))
+                           (ela (if (= (-> *phys-fam* sc) 1) 1 0))
+                           ;; SPEC 31 — GRADIENT RACINE -> POINTE, `w(r) = r^1.6..2.0`. On prend
+                           ;; l'exposant 2.0, borne HAUTE de l'intervalle que la spec donne
+                           ;; elle-meme : c'est un carre (une multiplication), et surtout ce n'est
+                           ;; pas un nombre choisi par moi.
+                           ;;   r = abscisse du maillon dans la partie LIBRE, prise au MILIEU de son
+                           ;;       segment (sinon la pointe rendrait r = 1 exactement, donc une
+                           ;;       part ancree nulle, donc une chaine a un maillon sans ressort) ;
+                           ;;   a = 1 - r^2 = la part ANCREE. SPEC 30 : racine profonde 90-100 %,
+                           ;;       intermediaire 55-85 %, mi-volume 25-55 %, distal 5-30 %, apex
+                           ;;       minimal — et « there shall be no hard attachment boundary », ce
+                           ;;       que satisfait une fonction continue et decroissante.
+                           ;;       Sur 4 maillons libres : 0.984 / 0.859 / 0.609 / 0.234.
+                           ;;
+                           ;; NORMALISE EN MOYENNE, ET CE N'EST PAS UN DETAIL. Le gradient
+                           ;; REDISTRIBUE la raideur le long de la chaine ; il n'en change pas le
+                           ;; total. Consequence voulue et verifiable : une chaine a UN SEUL maillon
+                           ;; libre (poitrine, oreilles) rend exactement 1.0 et reste inchangee au
+                           ;; bit pres. « Poitrine sur mouvements subtils : toujours OK » est un
+                           ;; acquis de l'owner ; on ne le paie pas pour corriger les cheveux.
+                           (gmean (if (> nfr 0)
+                                    (let ((s 0.0))
+                                      (dotimes (j nfr)
+                                        (let ((r (/ (+ (the float j) 0.5) (the float nfr))))
+                                          (set! s (+ s (- 1.0 (* r r))))))
+                                      (/ s (the float nfr)))
+                                    1.0)))
                       (dotimes (l n)
                         (let* ((scl (+ (* sc PHYS-LINKS) l))
                                (k   (-> *phys-joint* scl)))
@@ -3235,6 +3412,15 @@
                                       (ay (if (> l 0) (-> *phys-py* (- scl 1)) (-> anc y)))
                                       (az (if (> l 0) (-> *phys-pz* (- scl 1)) (-> anc z)))
                                       (bl (-> *phys-blen* scl))
+                                      ;; LA RAIDEUR DE CE MAILLON-CI (SPEC 31). `k2` est la raideur
+                                      ;; de la chaine ; `k2l` est sa part pour ce maillon, ancree
+                                      ;; pres de la racine et libre vers la pointe. Sur une chaine a
+                                      ;; un seul maillon libre, `gmean` vaut le terme unique et le
+                                      ;; rapport vaut 1.0 : `k2l` = `k2`, au bit pres.
+                                      (k2l (if (and (>= l rlk) (> nfr 0) (> gmean 0.0001))
+                                             (let ((r (/ (+ (the float (- l rlk)) 0.5) (the float nfr))))
+                                               (* k2 (/ (- 1.0 (* r r)) gmean)))
+                                             k2))
                                       (fx 0.0)
                                       (fy 0.0)
                                       (fz 0.0))
@@ -3244,29 +3430,30 @@
                                             (> bl 0.01) (> k2 0.000001))
                                    (set-vector! sv (- (-> tw x) ax) (- (-> tw y) ay) (- (-> tw z) az) 0.0)
                                    (vector-rotate*! sv sv w2l)
+                                   ;; LA PRE-COMPENSATION A ETE RETIREE ICI, ET C'EST LA MEME PIECE
+                                   ;; QUE LE PASSAGE A `a_drive`. Elle creusait d'avance, dans la
+                                   ;; direction de repos, la fleche `g/k2` que la gravite ABSOLUE
+                                   ;; allait produire, pour que l'equilibre debout retombe sur la
+                                   ;; pose d'auteur. Avec `a_drive = (g_local - g_ref)` il n'y a plus
+                                   ;; rien a compenser : debout, le terme moteur est nul et
+                                   ;; l'equilibre EST la pose d'auteur — SPEC 2, `AdditionalStandingSag
+                                   ;; = 0`, sans detour.
+                                   ;;
+                                   ;; ET ELLE N'ETAIT PAS TRANSPOSABLE AUX CHEVEUX, PAR ARITHMETIQUE.
+                                   ;; La fleche vaut `gsc*|g| / k2` ; sur `backhair` (stiffness
+                                   ;; 1.2161, mass 0.90, gravity 0.45) : k2 = (2*pi*1.2161/sqrt(0.90)
+                                   ;; * 1/60)^2 = 0.01802, donc fleche = 0.45*11.16/0.01802 = 279 u,
+                                   ;; pour un os de 258 u (`PHYSBONE c=2 l=3 len=258.0191`). Le
+                                   ;; rapport vaut 1.08 : la compensation depassait la longueur de
+                                   ;; l'os et aurait pointe la direction de repos AU-DESSUS de
+                                   ;; l'horizontale. Etendre l'ancien modele aux cheveux etait donc
+                                   ;; impossible ; c'est le terme moteur qui devait changer.
                                    (let ((sl (vector-length sv)))
                                      (when (> sl 0.0001)
-                                       (vector-float*! sv sv (/ 1.0 sl))
-                                       ;; PRE-COMPENSATION, et c'est elle qui reconcilie SPEC 4 avec
-                                       ;; « ils suivent la gravite ». La pose sculptee est DEJA une
-                                       ;; pose sous gravite : le modele a ete fait DEBOUT. On retire
-                                       ;; donc de la direction de repos la fleche que la gravite va
-                                       ;; creuser (g/k2, en fraction de la longueur d'os). Debout,
-                                       ;; l'equilibre retombe alors exactement sur la pose du modele
-                                       ;; (« pas plus bas, pas plus ecrase ») ; inclinee, la gravite
-                                       ;; vue de l'ancre change et l'equilibre se deplace POUR DE
-                                       ;; BON — c'est le sag qu'il cherche depuis six passes, et il
-                                       ;; n'est plus plafonne par un rappel vers le dessin.
-                                       (let ((s (/ gsc (* k2 bl))))
-                                         (set! (-> sv x) (- (-> sv x) (* s (-> gla x))))
-                                         (set! (-> sv y) (- (-> sv y) (* s (-> gla y))))
-                                         (set! (-> sv z) (- (-> sv z) (* s (-> gla z)))))
-                                       (let ((s2 (vector-length sv)))
-                                         (when (> s2 0.0001)
-                                           (set! (-> *phys-ux* scl) (/ (-> sv x) s2))
-                                           (set! (-> *phys-uy* scl) (/ (-> sv y) s2))
-                                           (set! (-> *phys-uz* scl) (/ (-> sv z) s2))
-                                           (set! (-> *phys-ucap* scl) 1))))))
+                                       (set! (-> *phys-ux* scl) (/ (-> sv x) sl))
+                                       (set! (-> *phys-uy* scl) (/ (-> sv y) sl))
+                                       (set! (-> *phys-uz* scl) (/ (-> sv z) sl))
+                                       (set! (-> *phys-ucap* scl) 1))))
                                  ;; ---- LA FORCE ELASTIQUE DU MATERIAU. Sa cible est portee
                                  ;; ---- rigidement par l'ancre ; elle ne connait pas l'animation du
                                  ;; ---- maillon, donc elle ne peut pas la « suivre ».
@@ -3276,9 +3463,9 @@
                                    (let ((ul (vector-length uv)))
                                      (when (> ul 0.0001)
                                        (vector-float*! uv uv (/ bl ul))
-                                       (set! fx (* k2 (- (+ ax (-> uv x)) (-> *phys-px* scl))))
-                                       (set! fy (* k2 (- (+ ay (-> uv y)) (-> *phys-py* scl))))
-                                       (set! fz (* k2 (- (+ az (-> uv z)) (-> *phys-pz* scl)))))))
+                                       (set! fx (* k2l (- (+ ax (-> uv x)) (-> *phys-px* scl))))
+                                       (set! fy (* k2l (- (+ ay (-> uv y)) (-> *phys-py* scl))))
+                                       (set! fz (* k2l (- (+ az (-> uv z)) (-> *phys-pz* scl)))))))
                                  ;; ---- VERLET EN POSITION MONDE. Trois termes, et c'est TOUT :
                                  ;; ---- l'inertie (retenue par la trainee), la gravite, et la force
                                  ;; ---- du materiau quand il y en a une. Aucun etat par chaine
@@ -3294,9 +3481,9 @@
                                    (set! (-> *phys-qx* scl) px)
                                    (set! (-> *phys-qy* scl) py)
                                    (set! (-> *phys-qz* scl) pz)
-                                   (set! (-> *phys-px* scl) (+ px vx fx))
-                                   (set! (-> *phys-py* scl) (+ py (+ vy (+ fy (* gsc gy)))))
-                                   (set! (-> *phys-pz* scl) (+ pz vz fz))))))))))
+                                   (set! (-> *phys-px* scl) (+ px (+ vx (+ fx (* gsc (-> gdw x))))))
+                                   (set! (-> *phys-py* scl) (+ py (+ vy (+ fy (* gsc (-> gdw y))))))
+                                   (set! (-> *phys-pz* scl) (+ pz (+ vz (+ fz (* gsc (-> gdw z))))))))))))))
 
                     ;; ---- 2. LES CONTRAINTES. Gauss-Seidel : longueur puis collision, puis des
                     ;; ---- balayages de collision seuls pour finir — la collision est la contrainte
