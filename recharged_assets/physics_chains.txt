@@ -114,10 +114,10 @@ j Rmidhairb
 j Rmidhairc
 j Rmidhaird
 # chestL [A] lBoob verts=76 wsum=17.69 r=656
-chain chestL class=primary stiffness=1.45 damping=0.0883 gravity=0.65 radius=656 mass=1.45 hang=0.00 family=A couple=1.85 radii=656   # radii notes (fitted below w>0.5, or inherited): lBoob@w>0.25(34v)
+chain chestL class=primary stiffness=2.7696 damping=0.1686 gravity=0.65 radius=656 mass=1.45 hang=0.00 family=A couple=1.85 radii=656   # radii notes (fitted below w>0.5, or inherited): lBoob@w>0.25(34v)
 j lBoob
 # chestR [A] rBoob verts=71 wsum=14.95 r=660
-chain chestR class=primary stiffness=1.45 damping=0.0918 gravity=0.65 radius=660 mass=1.45 hang=0.00 family=A couple=1.85 radii=660   # radii notes (fitted below w>0.5, or inherited): rBoob@w>0.25(25v)
+chain chestR class=primary stiffness=2.8804 damping=0.1753 gravity=0.65 radius=660 mass=1.45 hang=0.00 family=A couple=1.85 radii=660   # radii notes (fitted below w>0.5, or inherited): rBoob@w>0.25(25v)
 j rBoob
 # goggles [B] gogglesBase verts=40 wsum=19.58 r=196 | gogglesMid verts=55 wsum=22.29 r=79
 chain goggles class=primary stiffness=2.40 damping=0.30 gravity=0.35 radius=138 rootlock=1 mass=1.40 hang=1.00 family=B couple=1.00 radii=196,150

@@ -327,6 +327,29 @@ demande un mouvement subtil visible. À raideur donnée les deux se contredisent
 (§10 à §13), que le moteur n'implémente pas : il n'a qu'une masse ponctuelle par sein. Je ne
 choisis pas à sa place entre sa spec et son œil.
 
+**3e bis. CE RETRAIT ÉTAIT UNE FAUTE, ET LE SUPERVISEUR L'A ANNULÉ À 01:00 — IL A RAISON.**
+Arbitrage écrit dans les DIRECTIVES : « la spécification de l'owner prime sur toutes mes gates,
+sans exception » ; `FLOOR` et `FLOOR-WEAK` sont SUSPENDUES sur toute chaîne couverte par la spec ;
+la calibration §24 est à réappliquer et à ne plus jamais retirer au motif d'une de mes gates.
+
+CE QUE J'AVAIS RATÉ, et c'est le cœur : **le plancher protégeait une FLÈCHE STATIQUE, que ses §2 et
+§9 INTERDISENT** (`AdditionalStandingSag = 0`, « the supplied standing model is the exact 100 %
+reference state »). Une flèche divisée par 3.65 n'est donc pas une perte de mouvement — c'est le
+retour à la pose d'auteur qu'il exige. J'ai lu une CONFORMITÉ comme une RÉGRESSION, parce que ma
+gate était calée sur l'état courant. Un plancher calé sur l'état courant transforme le statu quo en
+obligation, et c'est exactement ce qui s'est produit ici.
+
+Les deux autres motifs de l'arbitrage, que j'aurais dû peser moi-même : le plancher est calé sur un
+état que l'owner n'a JAMAIS approuvé (établi à 21:50 — « aucun échantillon approuvé n'existe sur ce
+personnage »), et il encliquette un maximum courant (paire miroir `kneeflapL`/`kneeflapR`,
+paramètres identiques, planchers stockés 0.0884 contre 0.0174 — facteur 5.1).
+
+**La calibration §24/§25/§32 est donc REMISE EN VIGUEUR** : `chestL stiffness=2.7696
+damping=0.1686`, `chestR stiffness=2.8804 damping=0.1753`. La course 6 la mesure.
+
+Et ça règle le conflit du §5 bis dans l'autre sens que je l'avais posé : ce n'est pas la moitié
+« fréquence » qui était le réglage de trop, c'est ma gate qui était fausse.
+
 3f. COURSE 5 — LE RETRAIT VÉRIFIÉ, ET C'EST L'ÉTAT LIVRÉ (données seules, aucun build)
 ----------------------------------------------------------------------------------------
 Même `GAME.CGO` qu'à la course 4 (md5 `9ce3bb40…` avant ET après) : seul le fichier de chaînes a
@@ -419,11 +442,11 @@ est le seul honnête.
 =============================================================
 Sa spec contient bien plus que ce qu'un cycle peut porter. Ce qui reste ouvert, section par section :
 
-  * §24 FRÉQUENCES PAR AXE (vertical 2.30 / AP 2.50 / latéral 2.65) et §29 ANISOTROPIE
-    (1.00 / 0.90 / 0.82 / 0.72) : le moteur ne porte qu'UNE raideur SCALAIRE par chaîne. Il n'y a
-    aucun tenseur, donc aucun endroit où poser une anisotropie. **Et la fréquence a été essayée
-    puis RETIRÉE** : la porter à 2.30 Hz divise la flèche par 3.65 et casse le plancher de
-    mouvement subtil (§3e). Seul l'AMORTISSEMENT de sa §25 est en place.
+  * §29 ANISOTROPIE (vertical 1.00 / AP 0.90 / latéral 0.82 / torsion 0.72) et les fréquences
+    PAR AXE de sa §24 (2.30 / 2.50 / 2.65) : le moteur ne porte qu'UNE raideur SCALAIRE par
+    chaîne — aucun tenseur, donc aucun endroit où poser une anisotropie. La fréquence VERTICALE
+    (2.30 Hz, la plus lente, celle qu'il souligne) est appliquée aux trois axes. Poser le tenseur
+    est un changement de structure, pas un réglage, et c'est le chantier suivant.
   * §37 SOUS-PAS (>= 120 Hz effectifs, 2 sous-pas à 60 FPS, 3-4 sur impact) : PAS FAIT. Le solveur
     tourne à un pas par frame — et c'est LA cause du saut décrit au §3g : un maillon traverse un
     axe en une frame parce que le pas est trop gros, et on répare après coup au lieu d'empêcher.
@@ -462,18 +485,15 @@ dit : « INTERDIT tant que ce modèle n'est pas en place : tout réglage de `sti
 régler reste » — tout en ajoutant « la cible n'est plus à inventer : elle est chiffrée section par
 section dans son fichier […] toute valeur publiée doit citer la section dont elle relève ».
 
-MA LECTURE, ET ELLE EST DISCUTABLE : « régler » veut dire choisir un nombre pour poursuivre un
-symptôme. Ce que ce cycle a fait sur `damping` est l'inverse — c'est la valeur que sa §25 impose,
-obtenue par la formule standard (`damping = 2·ζ·ω·dt`), recoupée indépendamment par sa §26
-(rebond 0.309 contre sa cible 0.31), et je publie la dérivation entière plutôt que le seul nombre.
-La moitié qui ressemblait vraiment à un réglage — la fréquence — a d'ailleurs été RETIRÉE dès que
-le plancher a parlé.
+MA LECTURE : « régler » veut dire choisir un nombre pour poursuivre un symptôme. Ce que ce cycle a
+fait sur `stiffness`/`damping` est l'inverse — ce sont les valeurs que ses §24 et §25 imposent,
+obtenues par les formules standard (`stiffness = f·√m`, `damping = 2·ζ·ω·dt`), recoupées
+indépendamment par sa §26 (rebond 0.309 contre sa cible 0.31), et je publie la dérivation entière
+plutôt que le seul nombre.
 
-Si le superviseur ou l'owner lit l'interdiction au sens strict, **la ligne à défaire est
-`chain chestL damping=0.0883` / `chain chestR damping=0.0918` dans
-`recharged_assets/keira-owner-tuning.txt`**, en republiant explicitement `damping=0.26`
-(`apply_owner_tuning.py` APPLIQUE et ne REVERTIT jamais). Tout le reste du cycle est du MOTEUR et
-ne dépend pas de cette question.
+**LE SUPERVISEUR A TRANCHÉ DANS CE SENS À 01:00** (§3e bis) : « la spécification de l'owner prime
+sur toutes mes gates, sans exception », et il ordonne de réappliquer la calibration §24. La
+question est donc close, et dans la direction de la spec.
 
 
 6. INCIDENT DE PROCESS À REMONTER AU SUPERVISEUR

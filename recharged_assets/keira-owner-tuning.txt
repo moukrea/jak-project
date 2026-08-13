@@ -1058,7 +1058,32 @@ chain backhair stiffness=1.2161
 ## poitrine a 2.30 Hz DEVIE 3.65 fois moins. Sa spec resout ca par des FORMES D'EQUILIBRE par
 ## orientation (SPEC 10 a 13), que le moteur n'implemente pas : il n'a qu'une masse ponctuelle par
 ## sein. Je ne choisis pas a sa place entre sa spec et son oeil.
-# chain chestL stiffness=2.7696 damping=0.1686     (RETIRE : cassait FLOOR-WEAK sur chestR)
-# chain chestR stiffness=2.8804 damping=0.1753     (RETIRE : idem)
-chain chestL stiffness=1.45 damping=0.0883
-chain chestR stiffness=1.45 damping=0.0918
+##
+## RETRAIT ANNULE, 2026-08-14 01:00 — ARBITRAGE DU SUPERVISEUR, ET IL A RAISON
+## ------------------------------------------------------------------------------------------
+## « La specification de l'owner prime sur toutes mes gates, sans exception. » `FLOOR` et
+## `FLOOR-WEAK` sont SUSPENDUES sur toute chaine couverte par la spec, et la calibration de sa
+## SECTION 24 est a reappliquer sans jamais etre retiree au motif d'une de mes gates.
+##
+## CE QUE J'AVAIS RATE, ET C'EST LE POINT 3 DE L'ARBITRAGE : le plancher protegeait une FLECHE
+## STATIQUE, or ses sections 2 et 9 l'INTERDISENT — « the supplied standing model is the exact
+## 100 % reference state », `AdditionalStandingSag = 0`. Une fleche divisee par 3.65 n'est donc
+## pas une perte de mouvement : c'est le RETOUR A LA POSE D'AUTEUR qu'il exige. J'ai lu une
+## conformite comme une regression parce que ma gate etait calee sur l'etat courant — et un
+## plancher cale sur l'etat courant transforme le statu quo en obligation.
+##
+## Les deux autres raisons de l'arbitrage, consignees : le plancher est cale sur un etat qu'il
+## n'a JAMAIS approuve (21:50, « aucun echantillon approuve n'existe sur ce personnage »), et il
+## encliquete un maximum courant (paire miroir kneeflapL/R, parametres identiques, planchers
+## stockes 0.0884 contre 0.0174 — facteur 5.1).
+##
+## LA DERIVATION EST INCHANGEE, elle est juste remise en vigueur :
+##     SPEC 24  f_vertical = 2.30 Hz  ->  stiffness = f*sqrt(mass) = 2.30*sqrt(1.45) = 2.7696
+##     SPEC 25  zeta       = 0.35     ->  damping   = 2*zeta*(2*pi*f)*dt          = 0.1686
+##     SPEC 26  controle independant  :  exp(-z*pi/sqrt(1-z^2)) = 0.309 vs sa cible 0.31
+##     SPEC 32  chestR +4 % sur les DEUX facteurs -> zeta reste 0.35 exactement, seule f se
+##              decale (2.392 Hz), et les deux seins cessent d'etre identiques au chiffre pres.
+# chain chestL stiffness=1.45 damping=0.0883    (RETIRE : le retrait lui-meme etait la faute)
+# chain chestR stiffness=1.45 damping=0.0918    (RETIRE : idem)
+chain chestL stiffness=2.7696 damping=0.1686
+chain chestR stiffness=2.8804 damping=0.1753
