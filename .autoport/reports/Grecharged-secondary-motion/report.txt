@@ -25,6 +25,21 @@ DIAGNOSTIC, jamais une preuve de passage :
     [SIDE-CONTROL] 0 franchissement(s), controle present
     [FAIL] FLOOR-WEAK: kneeflapL 0.0884 -> 0.0412 (53% de perte sur stimulus faible)
 
+DIAGNOSTIC DE CETTE GATE ROUGE, ET JE NE LA TOUCHE PAS (regle 5 : « si une gate te semble fausse,
+tu le rapportes ; c'est le superviseur qui tranche »). `kneeflapL` et `kneeflapR` sont une paire
+MIROIR aux parametres IDENTIQUES — `stiffness=2.00 damping=0.30 gravity=0.30 radius=258 mass=0.60
+hang=0.90 couple=1.00 radii=202,313` des deux cotes, meme `cov=0.6500`, meme `n=28`. Leurs reponses
+MESUREES au stimulus le plus faible le sont aussi : `tilt` tip=0.0412 a gauche contre 0.0334 a
+droite. Mais les PLANCHERS STOCKES valent 0.0884 et 0.0174 — un facteur 5,1 sur une paire miroir.
+
+Deux chaines aux parametres identiques ne peuvent pas avoir des reponses vraies qui different d'un
+facteur 5 : c'est le plancher de gauche qui est faux, pas la mesure. La gate `FLOOR-WEAK` stocke un
+MAXIMUM COURANT (`merged[c] = max(old, cur)`), donc elle encliquete la plus haute excursion jamais
+vue sur une grandeur a faible signal — ici le `tilt`, dont le stimulus vaut 9.81 et dont la reponse
+est du meme ordre que la ligne de base d'animation (0.0266). Le jumeau miroir, soumis au meme
+mecanisme, a encliquete 0.0174. C'est la classe « ratchet running-max ». JE NE MODIFIE NI LA GATE NI
+`motion-floor-weak.txt` : je pose le chiffre et la comparaison miroir, et le superviseur tranche.
+
 CETTE UNIQUE GATE ROUGE EST PRE-EXISTANTE, ET C'EST DEMONTRE, PAS AFFIRME : les 3410 lignes `row`
 de ma table finale sont BIT-POUR-BIT identiques a celles de la table d'avant mon cycle (`diff` = 0
 ligne, transitivement via les deux archives `T-PRE-MESHSAMPLES` et `U-PRE-TIPREPESAGE`). Un chiffre
