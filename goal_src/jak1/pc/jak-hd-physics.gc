@@ -2301,7 +2301,72 @@
                                          (+ 1.0 (-> *phys-dg* (* sc PHYS-DG))))))
                                (set! (-> pt x) (+ (-> pt x) (* (-> nrm x) push)))
                                (set! (-> pt y) (+ (-> pt y) (* (-> nrm y) push)))
-                               (set! (-> pt z) (+ (-> pt z) (* (-> nrm z) push))))))))))))))
+                               (set! (-> pt z) (+ (-> pt z) (* (-> nrm z) push)))))
+                           ;; ----------------------------------------------------------------
+                           ;; LA FERMETURE DU FRANCHISSEMENT D'AXE — LA GRANDEUR QUE `meshpen`
+                           ;; PUBLIE ET QUE CE SOLVEUR N'AVAIT AUCUN CODE POUR RESOUDRE.
+                           ;;
+                           ;; PREUVE ARITHMETIQUE, SANS COURSE. La profondeur est bornee par
+                           ;; construction a `rr + rl` : `phys-collide-depth` rend
+                           ;; `(rr + rlink) - d` et `feff = floor0 >= 0`. Sur `anklestrapR` c'est
+                           ;; 411 + 225 = 636 u = 0.1553 m — et la colonne publiait 0.7697 m, soit
+                           ;; 4.96 fois le maximum atteignable. 16 chaines sur 19 depassent ainsi
+                           ;; leur propre borne : ce n'est pas une profondeur. C'est l'AUTRE terme
+                           ;; de `phys-link-pen` (:2628-2630), la DISTANCE A L'AXE DU MAUVAIS COTE
+                           ;; que `phys-axis-dir` ecrit dans `w`.
+                           ;;
+                           ;; CORROBORATION EXACTE, PAS UNE CORRELATION : les 19 chaines a
+                           ;; `meshpen > 0` sont exactement les 19 de `ROOM-SIDE`, et les 3
+                           ;; absentes (earL, earR, toestrapL) exactement les 3 a residu nul.
+                           ;; C'est le meme predicat, dans le meme `when` (:2624).
+                           ;;
+                           ;; C'EST L'INVARIANT QUE `phys-retreat-chain` TENAIT SANS LE DIRE : il
+                           ;; visait la pose du modele, qui est du BON cote de CHAQUE axe par
+                           ;; construction. En le retirant on a rouvert `goggles-tunnel`, que
+                           ;; l'owner avait FERME le 2026-08-13 12:45.
+                           ;;
+                           ;; POURQUOI ICI, DANS LE BALAYAGE, ET PAS APRES LA REPROJECTION DE
+                           ;; LONGUEUR — C'EST MESURE, PAS SUPPOSE. Essaye apres la reprojection
+                           ;; (course du 2026-08-14 00:26), la fermeture devient bien la derniere
+                           ;; ecriture et `crossing` descend plus bas (12282 -> 8112), mais plus
+                           ;; rien ne tient la longueur : `ROOM-STRETCH` passe de 0.0003 a 1.2090,
+                           ;; soit 120 % d'allongement d'os sur `topstrapR` contre un plafond de
+                           ;; 3 %. « Un os ne s'allonge pas » : on garde donc la reprojection en
+                           ;; dernier mot, et le franchissement se ferme DANS le balayage, ou les
+                           ;; deux contraintes se partagent les iterations.
+                           ;;
+                           ;; DEPLACEMENT MINIMAL, PAS UNE ROTATION. On projette orthogonalement
+                           ;; sur le PLAN FRONTIERE du demi-espace admissible : le plus court
+                           ;; chemin qui satisfait la contrainte. Une rotation a rayon constant
+                           ;; jusqu'a la perpendiculaire parcourt strictement plus, et ca se
+                           ;; mesure — elle portait la colonne `jump` (pire saut d'UNE frame) de
+                           ;; 0.1155 a 0.8053 m sur `botstrapL`.
+                           ;;
+                           ;; CE QU'ELLE N'EST PAS. Ce qui est emprunte a la pose d'auteur est le
+                           ;; SIGNE D'UN AZIMUT (`ua`, une direction unitaire) — exactement
+                           ;; l'information que la MESURE utilise deja pour DECLARER la violation
+                           ;; — jamais une position, jamais une distance. Elle est IDEMPOTENTE :
+                           ;; des que `ua . ub >= 0` c'est un no-op, donc aucune memoire de
+                           ;; l'historique du contact, donc aucune hysteresis fabriquee ici. Et
+                           ;; elle ne borne aucune amplitude : tourner autour du membre reste
+                           ;; libre, seul le passage AU TRAVERS de l'axe est refuse.
+                           ;;
+                           ;; NATURE : un deplacement, en unites monde. REPERE : monde. LECTURE
+                           ;; HORS DEFAUT : nul. Sous `*phys-side-off*` comme la mesure, pour que
+                           ;; le controle positif commande enfin quelque chose : il valait
+                           ;; `armed=15171 disarmed=15399` — 1.2 % d'ecart, c'est-a-dire rien.
+                           (when (and (zero? *phys-side-off*)
+                                      (> floor0 0.0)
+                                      (phys-axis-dir rest ca cb ua)
+                                      (phys-axis-dir pt ca cb ub))
+                             (let ((dt0 (+ (* (-> ua x) (-> ub x))
+                                           (+ (* (-> ua y) (-> ub y))
+                                              (* (-> ua z) (-> ub z))))))
+                               (when (< dt0 0.0)
+                                 (let ((cc (* dt0 (-> ub w))))
+                                   (set! (-> pt x) (- (-> pt x) (* cc (-> ua x))))
+                                   (set! (-> pt y) (- (-> pt y) (* cc (-> ua y))))
+                                   (set! (-> pt z) (- (-> pt z) (* cc (-> ua z)))))))))))))))))
             ;; retour aux coordonnees du JOINT : le solveur, la contrainte de longueur et l'ecriture
             ;; dans le squelette raisonnent tous sur le joint, jamais sur le centre du volume.
             (set! (-> pt x) (- (-> pt x) (-> offs x)))
@@ -2330,89 +2395,6 @@
                     (set! (-> pt x) (+ bx (* ux s)))
                     (set! (-> pt y) (+ by (* uy s)))
                     (set! (-> pt z) (+ bz (* uz s)))))))
-            ;; --------------------------------------------------------------------------------
-            ;; LA FERMETURE DU FRANCHISSEMENT D'AXE — ET C'EST ELLE, DESORMAIS, LA DERNIERE
-            ;; ECRITURE DE LA FRAME.
-            ;;
-            ;; POURQUOI ELLE EXISTE. `phys-link-pen` (:2628-2630) publie DEUX grandeurs dans le
-            ;; meme maximum : une profondeur, et la DISTANCE A L'AXE DU MAUVAIS COTE
-            ;; (`phys-axis-dir` l'ecrit dans `w`). Le solveur n'avait de code que pour la
-            ;; premiere. Preuve arithmetique, sans course : la profondeur est bornee par
-            ;; construction a `rr + rl` (`phys-collide-depth` rend `(rr + rlink) - d`, et
-            ;; `feff >= 0`), soit 0.1553 m sur `anklestrapR` — qui publiait 0.7697 m, 4.96 fois le
-            ;; maximum atteignable. 16 chaines sur 19 depassent ainsi leur propre borne. Et les 19
-            ;; chaines a `meshpen > 0` sont EXACTEMENT les 19 de `ROOM-SIDE`, les 3 absentes
-            ;; (earL, earR, toestrapL) exactement les 3 a residu nul : c'est le meme predicat.
-            ;; C'est l'invariant que `phys-retreat-chain` tenait sans que personne l'ait ecrit, et
-            ;; `goggles-tunnel` — ferme par l'owner le 2026-08-13 12:45 — etait structurellement
-            ;; rouvert depuis son retrait.
-            ;;
-            ;; POURQUOI ICI ET PAS DANS LA BOUCLE DE BALAYAGE. Mesure de la course du 2026-08-14
-            ;; 00:12, ou elle etait placee dans les balayages : `ROOM-SIDE crossing` tombait bien
-            ;; (83488 -> 12282) mais la colonne `jump` — le pire saut d'UNE frame — explosait :
-            ;; botstrapL 0.1155 -> 0.8053 m, topstrapL 0.0969 -> 0.4771, anklestrapR 0.1203 ->
-            ;; 0.4258. Cause : la reprojection de longueur ci-dessus (:2305-2327) re-echelonne le
-            ;; lien autour de son attache APRES les balayages et peut le refaire passer de l'autre
-            ;; cote ; la frame suivante le corrigeait a nouveau, et les deux operations
-            ;; s'entretenaient en cycle limite. Un saut de 0.8 m est exactement ce que l'owner
-            ;; appelle du jitter, et sa regle tranche : « une resolution pire que le clip est pire
-            ;; que rien ». Placee APRES la reprojection, la position ECRITE est admissible, donc la
-            ;; frame suivante part d'un etat admissible et il n'y a plus rien a corriger.
-            ;;
-            ;; DEPLACEMENT MINIMAL, PAS UNE ROTATION. On projette orthogonalement sur le PLAN
-            ;; FRONTIERE du demi-espace admissible : le plus court chemin qui satisfait la
-            ;; contrainte. La version precedente tournait a rayon constant jusqu'a la
-            ;; perpendiculaire, ce qui parcourt strictement plus de chemin pour le meme resultat.
-            ;;
-            ;; CE QU'ELLE N'EST PAS. Ce qui est emprunte a la pose d'auteur est le SIGNE D'UN
-            ;; AZIMUT (`ua`, une direction unitaire) — exactement l'information que la MESURE
-            ;; utilise deja pour DECLARER la violation — jamais une position, jamais une distance.
-            ;; Elle est IDEMPOTENTE : des que `ua . ub >= 0` c'est un no-op, donc aucune memoire de
-            ;; l'historique du contact, donc aucune hysteresis fabriquee ici. Et elle ne borne
-            ;; aucune amplitude : tourner autour du membre reste libre, seul le passage AU TRAVERS
-            ;; de l'axe est refuse.
-            ;;
-            ;; NATURE : un deplacement, en unites monde. REPERE : monde. LECTURE HORS DEFAUT : nul.
-            ;; Sous `*phys-side-off*` comme la mesure, pour que le controle positif commande
-            ;; vraiment quelque chose : il valait `armed=15171 disarmed=15399` — 1.2 % d'ecart,
-            ;; c'est-a-dire rien — parce que le bouton ne coupait qu'un terme de mesure.
-            ;; --------------------------------------------------------------------------------
-            (when (zero? *phys-side-off*)
-              (let ((qx (+ (-> pt x) (-> offs x)))
-                    (qy (+ (-> pt y) (-> offs y)))
-                    (qz (+ (-> pt z) (-> offs z))))
-                (dotimes (ci nco)
-                  (let* ((sco (+ (* slot PHYS-COLS) ci))
-                         (cj  (-> *phys-cj* sco))
-                         (cj2 (-> *phys-cj2* sco)))
-                    (when (and (not (phys-col-own? sc n cj cj2))
-                               (>= cj 0) (< (+ cj 1) nbone))
-                      (phys-col-now! skel sco cj cj2 nbone ca cb)
-                      (when (not (phys-col-rest! sco ra rb))
-                        (vector-copy! ra ca)
-                        (vector-copy! rb cb))
-                      (let* ((cap? (and (>= cj2 0) (< (+ cj2 1) nbone)))
-                             (fs (phys-collide-depth rest rl ra rb (-> *phys-cr* sco)
-                                                     (-> *phys-cr2* sco) cap? nrm))
-                             (fc (phys-collide-depth rest rl ca cb (-> *phys-cr* sco)
-                                                     (-> *phys-cr2* sco) cap? nrm)))
-                        ;; meme condition d'armement que la mesure (:2624) : la pose d'AUTEUR est
-                        ;; dans ce volume, donc « de quel cote » veut dire quelque chose pour elle.
-                        (when (> (if (> fc fs) fc fs) 0.0)
-                          (set-vector! pv qx qy qz 1.0)
-                          (when (and (phys-axis-dir rest ca cb ua)
-                                     (phys-axis-dir pv ca cb ub))
-                            (let ((dt1 (+ (* (-> ua x) (-> ub x))
-                                          (+ (* (-> ua y) (-> ub y))
-                                             (* (-> ua z) (-> ub z))))))
-                              (when (< dt1 0.0)
-                                (let ((cc (* dt1 (-> ub w))))
-                                  (set! qx (- qx (* cc (-> ua x))))
-                                  (set! qy (- qy (* cc (-> ua y))))
-                                  (set! qz (- qz (* cc (-> ua z)))))))))))))
-                (set! (-> pt x) (- qx (-> offs x)))
-                (set! (-> pt y) (- qy (-> offs y)))
-                (set! (-> pt z) (- qz (-> offs z)))))
             (set! (-> *phys-px* scl) (-> pt x))
             (set! (-> *phys-py* scl) (-> pt y))
             (set! (-> *phys-pz* scl) (-> pt z)))))))
