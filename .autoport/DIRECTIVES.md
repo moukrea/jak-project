@@ -10,6 +10,58 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
+## RETOUR OWNER 2026-08-13 21:30 — VERDICT DUR, ET IL A RAISON. CHANGEMENT DE MÉTHODE.
+
+Verbatim : « les cheveux de sa nuque et ses mèches (fines et grosses) c'est du pudding, ça suit
+aucune logique […] ça suit pas une logique de gravité, ça n'a pas l'air d'avoir une masse
+particulière, c'est claqué complet ! […] beaucoup d'hystérésis pour tous les cheveux […] j'ai envie
+de la désactiver parce que c'est horrible ! Il serait temps que tu progresses […] ça va faire deux
+semaines […] C'est dingue que tu fasses pas bien mieux en étant concentré sur un seul personnage que
+quand tu bossais sur tous les personnages en même temps ! »
+
+**FAIT MESURÉ QUI RÉPOND À SA DERNIÈRE PHRASE — l'accumulation EST le défaut.**
+
+    08-06, physique sur TOUT LE CASTING, verdict owner positif :  1 241 lignes, UN solveur
+    aujourd'hui, Keira HD seule, verdict « claqué complet »     :  4 798 lignes, 274 fonctions
+
+Le moteur a quadruplé en se dégradant. C'est le même mal que la branche parkée avait fini par
+attraper, et je l'ai reproduit en trois jours sur un moteur « propre ».
+
+**RÉGRESSION QUE JE N'AVAIS PAS VUE : j'ai cassé l'échantillon qu'il approuvait.**
+À 14:45 les mèches FINES étaient « vraiment pas mal ». Elles sont maintenant du pudding elles aussi.
+Leurs paramètres sont **inchangés depuis 14:37** (stiffness 1.3089, damping 0.0784, gravity 0.1592,
+maxangle 137.29) — donc ce n'est pas un réglage, **c'est le MESH** : la campagne de repesage visant
+les grosses mèches a dégradé les fines. Mon contrôle apparié est mort, tué par moi.
+
+**CE QUE LA BRANCHE PARKÉE APPREND (historique 08-05/08-06, lu, pas copié).**
+Le solveur qui marchait tenait dans **une seule fonction** (`phys-slot-step!`, ~570 lignes) et
+paramétrait chaque chaîne par des grandeurs PHYSIQUES, pas par des réglages abstraits :
+  - `*phys-comega*` = **2·π·f** — la chaîne est décrite par sa **fréquence propre**, pas par une
+    raideur brute. C'est ce qui donne un mouvement pendulaire cohérent et une impression de masse.
+    Aujourd'hui la donnée livre `stiffness`/`damping`/`mass` crus : « ça n'a pas l'air d'avoir une
+    masse particulière » est la conséquence directe.
+  - `*phys-cinertia*`, `*phys-cstretch*`, `*phys-cmaxrad*` (cône de débattement en radians)
+  - `*phys-cfric*` — **friction de contact**. L'HYSTÉRÉSIS qu'il décrit est exactement ce que produit
+    une friction ou un limiteur qui s'accroche sans relâcher : la réponse dépend de l'histoire et ne
+    revient pas. **PREMIÈRE PISTE À MESURER, avant tout le reste.**
+  - `*phys-canim*` (0 garder / 1 remplacer / 2 exciter) + `*phys-cexcite*` — l'articulation propre
+    avec l'animation d'origine.
+
+**DIRECTIVE : on arrête d'ajouter.** Aucun nouvel opérateur, aucune nouvelle gate, aucun nouveau
+suppresseur tant que les trois points suivants ne sont pas traités :
+  1. **HYSTÉRÉSIS** — identifier et mesurer tout terme dépendant de l'historique (friction, limiteur
+     qui latche, encliquetage d'angle). Grandeur : la chaîne revient-elle à la même pose après un
+     aller-retour identique ? Un écart non nul EST l'hystérésis.
+  2. **RÉGRESSION DES MÈCHES FINES** — retrouver le mesh du build qu'il validait à 14:45 et mesurer
+     ce que le repesage leur a fait. Le mesh de 14:45 est reconstructible depuis git.
+  3. **MASSE ET GRAVITÉ** — repasser la description des chaînes en grandeurs physiques
+     (fréquence propre, inertie) comme dans le moteur qui marchait.
+
+**Et il redemande pour la deuxième fois de fouiller l'historique parké. C'est fait, ci-dessus.**
+Il reste 4 439 commits : continuer à le miner est un travail à part entière, pas une note de bas de
+page.
+
+
 ## RETOUR OWNER 2026-08-13 14:45 — IL CORRIGE MON DIAGNOSTIC, LIRE AVANT TOUTE ACTION
 
 Verbatim : « Les grosses mèches sont pas bonnes hein, une partie de la géométrie reste encrée et ça
