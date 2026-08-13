@@ -663,6 +663,77 @@ superviseur). Une salle deterministe rend donc le meme tableau au bit pres. C'es
 du determinisme, pas un tableau recopie — et c'est verifiable : les deux fichiers ont le md5
 `19317db53a3e3b40773c41012ddeb804`.
 
+3n. `hair-no-mass` ET `hair-fine-grav` : LE TERME MOTEUR A FAIT EXACTEMENT CE QU'IL DEMANDAIT,
+    ET C'EST MESURE SUR LES CHAINES QU'IL A NOMMEES
+------------------------------------------------------------------------------------------------
+`ROOM-GRAVSAG` publie la position moyenne de la pointe DEBOUT (`at0`) et A 60 DEGRES (`at60`), dans
+le repere de l'ancre. Personne ne l'avait relu depuis le changement de terme moteur. Course 1
+(ancien pilotage) contre course 7 (SPEC §3) :
+
+  chaine        AVANT: at0    at60   ecart |  APRES: at0    at60   ecart |  at0      reponse
+  lbang              0.2083  0.2170  0.0087 |      0.0230  0.1392  0.1162 |  -89 %   x13.4
+  rbang              0.2233  0.3312  0.1079 |      0.0162  0.1882  0.1720 |  -93 %   x1.6
+  lmidhair           0.1932  0.2055  0.0123 |      0.0548  0.2015  0.1467 |  -72 %   x11.9
+  rmidhair           0.2014  0.1871 -0.0143 |      0.0470  0.0418 -0.0052 |  -77 %   —
+  backhair           0.0270  0.0871  0.0601 |      0.0297  0.0999  0.0702 |  +10 %   x1.2
+
+DEUX CHOSES, ET LES DEUX SONT CE QU'IL RECLAME DEPUIS DES SEMAINES.
+
+**1. DEBOUT, LA MECHE EST REVENUE A LA POSE D'AUTEUR.** `at0` s'effondre de 72 a 93 % sur les quatre
+meches de devant. C'est SPEC §2/§9 (`AdditionalStandingSag = 0`) satisfait par construction : debout,
+`a_drive` vaut zero, donc l'equilibre EST le dessin. Avant, la meche pendait a 0.21 d'ecart en
+permanence, quoi qu'il arrive.
+
+**2. ET ELLE REPOND ENFIN A L'INCLINAISON.** Le chiffre qui compte n'est pas `at0` ni `at60` seuls,
+c'est leur ECART — ce que la gravite fait quand elle se penche. Avant : `lbang` 0.0087, `lmidhair`
+0.0123. **Autrement dit, la meche pendait PAREIL debout et penchee a 60 degres.** C'est litteralement
+« ca ne suit pas une logique de gravite » (`hair-no-mass`) et « les meches fines ne suivent pas
+vraiment la gravite » (`hair-fine-grav`), et c'est la premiere fois que la salle le montre.
+Apres : 0.1162 et 0.1467, soit **x13.4 et x11.9**.
+
+`rmidhair` reste l'exception : son ecart est NEGATIF dans les deux courses (elle remonte quand on
+penche). Son facteur geometrique est le plus faible du modele (`tf=0.4724`, la gravite y est presque
+radiale, donc la contrainte de longueur l'absorbe) — je le signale au lieu de le moyenner avec les
+autres.
+
+3o. `hair-hysteresis` : L'INSTRUMENT NE VOIT PAS D'HYSTERESIS SUR LES CHEVEUX, ET IL EN VOIT
+    100 FOIS PLUS SUR LES SANGLES
+------------------------------------------------------------------------------------------------
+`ROOM-HYST` ferme le cycle 0° -> 60° -> 0° et publie le residu (`gap`, en metres) : meme point de
+depart, meme point d'arrivee, seul le CHEMIN differe. C'est la definition de l'hysteresis.
+
+  CHEVEUX (famille A)          gap AVANT   gap APRES        SANGLES / LUNETTES (famille B)   gap
+  lbang                          0.0028      0.0005         botstrapR                      0.4339
+  rbang                          0.0017      0.0003         topstrapR                      0.3235
+  lmidhair                       0.0001      0.0010         topstrapL                      0.3095
+  rmidhair                       0.0001      0.0003         botstrapL                      0.2245
+  backhair                       0.0001      0.0006         pantflapL                      0.1522
+                                                            goggles                        0.1221
+
+**Apres un aller-retour complet a 60 degres, les cheveux reviennent a 0.3 a 1.0 MILLIMETRE pres.**
+`lbang` et `rbang` se sont meme ameliores de 85 % avec le nouveau terme moteur. Les sangles et les
+lunettes, elles, restent a 12 a 43 CENTIMETRES du point de depart — **100 a 1000 fois plus**.
+
+CE QUE J'EN DIS, ET CE QUE JE N'EN DIS PAS. Son oeil est le verdict, pas mon chiffre : s'il voit de
+l'hysteresis dans les cheveux, elle y est. Mais l'instrument construit pour ce defaut ne la voit pas
+sur les chaines qu'il a nommees, et la voit enorme sur des pieces VOISINES — les bretelles passent
+sur les epaules, les lunettes sont dans les cheveux. **Il y a donc deux lectures possibles, et il
+faut trancher avant de re-toucher au solveur des cheveux :** soit `ROOM-HYST` ne capte pas ce qu'il
+voit (et il faut une autre grandeur), soit ce qu'il attribue aux cheveux vient des sangles et des
+lunettes qui bougent avec eux. **C'est la question a lui poser sur le prochain build.**
+
+Une part du residu de famille B est d'ailleurs VOULUE : SPEC §4 dit que ce qui pend pend et RESTE
+pendu — ca ne retourne pas a la pose du modele. La partie qui excede ca, elle, est un vrai defaut.
+
+3p. CE QUE `chestR` A FAIT AU PASSAGE, ET C'EST LE PLUS GROS DELTA DE LA NUIT
+------------------------------------------------------------------------------------------------
+    ROOM-HYST chestR :  gap 0.3144 -> 0.0001     hystn 1.3179 -> 0.0002   (facteur 6600)
+
+`chestR` portait un residu de cycle de 31 centimetres et il tombe a 0.1 millimetre. Ca corrobore, par
+un instrument tout a fait different, l'effondrement de l'asymetrie miroir deja rapporte
+(`ROOM-GRAVSAG-MIRROR` 5.46x -> 1.23x) : les deux seins se comportent enfin pareil, et c'est le
+terme moteur qui l'a fait.
+
 3h. LES GATES QUI RESTENT ROUGES
 -----------------------------------
   * `COLLIDE` : `meshpen` max cheveux **0.5648** (`rbang`) — légèrement PIRE qu'avant la course 7,
