@@ -289,4 +289,18 @@ humaine, encodee expres apres que la phase se soit declaree terminee quatre fois
 Je ne touche pas ce fichier ; forger son verdict est exactement ce que cette gate existe pour
 empecher.
 
+LES GATES SITUEES APRES ELLE, executees a part en copie diagnostique et JAMAIS presentees comme un
+PASS : `TUNING`, `ROOM` (22 chaines x 31/31 animations, 3410 mesures), `MOVE` (tipvar min 0.100),
+`COLLIDE` (penetration nulle, controle positif 0.218 contre 0.000), `IDLE` (0.023), `ANIM` (7
+chaines pilotees, toutes respectees) et `SIDE-CONTROL` passent.
+
+`FLOOR-WEAK` ECHOUE, ET C'EST UN REPORT DU CYCLE PRECEDENT, PAS UNE REGRESSION DE CELUI-CI :
+    FLOOR-WEAK  pantflapL  0.0840 -> 0.0544  (-35 %, seuil 30 %)
+Ce cycle n'a change AUCUNE ligne de physique — ni parametre, ni donnee de chaine, ni moteur — donc
+ce chiffre est exactement celui d'hier. Le cycle precedent a montre que sa reference (0.0840) est un
+etat que l'owner a rejete trois fois et dont le gain etait NEGATIF (la pointe bougeait moins que
+sous animation seule : le pan etait TRAINE a travers le mollet). Je ne touche ni la gate ni
+`motion-floor-weak.txt` (regle 5 : les gates sont gelees, une gate qui semble fausse se RAPPORTE).
+C'est au superviseur de trancher si sa reference doit etre recalee sur un etat approuve.
+
 SUPPRESSORS: 0
