@@ -5,8 +5,8 @@
 # FERMÉS PAR L'OWNER (2026-08-13 12:45) — à protéger, une régression dessus est un échec :
 #   - knee-tabs      : « les languettes/lanières des genoux bougent ! »
 #   - goggles-tunnel : « je vois plus les lunettes partir dans son dos »
-#   - hair anchoring : « les mèches fines et les cheveux de la nuque sont bien ancrés là où ils
-#                       doivent l'être » et « vraiment pas mal »
+#   - (RETIRE 21:50 : l'ancrage des meches fines n'a JAMAIS ete valide. « vraiment pas mal »
+#      voulait dire « moins pire », pas « bon » -- elles etaient du pudding elles aussi.)
 #   - poitrine sur mouvements SUBTILS (2026-08-12) : « toujours OK »
 #
 # ============================================================================================
@@ -94,8 +94,8 @@ OPEN hair-hysteresis  PRIORITE 1 -- « beaucoup d'hysteresis pour TOUS les cheve
 #                    l'historique parke: `*phys-cfric*` (friction de contact) ou un limiteur qui
 #                    latche. MESURE: apres un aller-retour identique, la chaine revient-elle a la
 #                    meme pose ? L'ecart EST l'hysteresis. A traiter AVANT tout le reste.
-OPEN hair-fine-REGRESSION  PRIORITE 1 -- les meches FINES qu'il approuvait a 14:45 (« vraiment pas
-#                    mal ») sont maintenant du pudding. Leurs parametres sont INCHANGES depuis
+OPEN hair-fine-pudding  PRIORITE 1 -- les meches FINES sont du pudding, et l'ONT TOUJOURS ETE.
+#                    (a 14:45 « vraiment pas mal » = moins pire, PAS valide.) Leurs parametres sont INCHANGES depuis
 #                    14:37 -- c'est le MESH que la campagne de repesage a degrade. J'ai tue mon
 #                    propre echantillon de controle.
 OPEN hair-no-mass    « ca suit pas une logique de gravite, ca n'a pas l'air d'avoir une masse
@@ -111,3 +111,17 @@ OPEN chest-big-anims « les seins sur les animations lentes c'est nickel, les an
 OPEN hair-upper-half « la moitie basse a l'air detachee du crane et bouge independamment, mais la
 #                    moitie HAUTE est toujours partiellement ancree (ET PAS QUE LES RACINES) ».
 #                    Le redistribute a libere le bas, pas le haut.
+
+# ============================================================================================
+# 2026-08-13 21:50 — IL N'Y A AUCUN ECHANTILLON APPROUVE SUR CE PERSONNAGE
+# ============================================================================================
+# J'ai lu « vraiment pas mal » comme une validation et bati toute la methode dessus (cible = la
+# valeur mesuree sur lbang/rbang). FAUX. Viser lbang, c'est viser du pudding.
+# LA CIBLE, DANS SES MOTS: « de la physique coherente et realiste qui donne une impression de
+# masse, de gravite, qui suit le mouvement ». LE DEFAUT: « un pudding sur lequel on tape tres
+# fort AU MOINDRE MOUVEMENT ».
+#   1. reponse disproportionnee au stimulus (gain qui explose au lieu de gain < 1 avec retard)
+#   2. pas d'inertie: la chaine saute au lieu de trainer
+#   3. pas de gravite: elle ne pend pas, ne retombe pas
+#   4. seuil de declenchement trop bas: excitee par le bruit d'animation
+# Ces quatre points remplacent TOUTES les cibles chiffrees de la journee.
