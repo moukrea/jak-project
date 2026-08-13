@@ -117,3 +117,12 @@ vs ronds génériques 1.80/0.18/0.90), et la conclusion tombait toute seule : le
 jamais reçu la passe que les fines ont reçue. Verrou : dès qu'il valide un échantillon et en rejette
 un autre de la même classe, la cible n'est plus un nombre que je choisis — c'est la valeur **mesurée
 sur l'échantillon qu'il a approuvé**, et la correction se formule comme un écart à combler.
+
+GUARD target-is-response .autoport/DIRECTIVES.md la cible est la RÉPONSE MESURÉE
+**Désigner une cible par le réglage qui la produit, pas par la grandeur observable.** J'ai écrit « la
+cible est la valeur mesurée sur lbang/rbang » en pensant *réponse* ; le worker a lu *paramètre* et a
+recopié `damping=0.0784` sur trois chaînes de raideur et de masse différentes. Résultat mesuré : ça
+atteint la cible sur deux d'entre elles et rate la troisième — `backhair`, la plus raide, reste à
+28 frames de ballottement contre 84–96 visés, exactement la mèche dont l'owner se plaint le plus.
+Verrou : une cible se formule **toujours** par la grandeur observable (durée de ballottement, retard
+racine→pointe), jamais par le réglage ; et un réglage se dérive de la géométrie de SA chaîne.

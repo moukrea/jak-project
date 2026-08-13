@@ -30,6 +30,25 @@ pudding, pas des mouvements naturels de cheveux ! »
    racine→pointe. Repère LOCAL. **Ne pas dériver ça d'une formule d'amortissement supposée du
    solveur : on le lit dans la salle.**
 
+**PRÉCISION 16:05 — MA FORMULATION ÉTAIT AMBIGUË ET ELLE A PRODUIT UNE COPIE.**
+J'ai écrit « la cible est la valeur mesurée sur lbang/rbang ». Le worker a copié le PARAMÈTRE
+(`damping=0.0784` recopié tel quel sur trois chaînes de raideur et de masse différentes). Ce n'est
+pas ce que je voulais dire, et c'est le piège `never-fit-a-parameter-to-the-instrument`.
+
+**La cible est la RÉPONSE MESURÉE, jamais le réglage qui la produit** :
+  - durée de ballottement 84–96 frames (lbang 84, rbang 96)
+  - retard racine→pointe 5–8 frames, l'onde DESCEND (lag12/lag23 ≥ 5)
+Chaque chaîne doit atteindre CETTE RÉPONSE avec un amortissement **dérivé de sa propre géométrie**
+(raideur, masse, longueurs). Copier le nombre d'une autre chaîne n'est pas une dérivation.
+
+**CE QUE LA COPIE A DONNÉ, MESURÉ** — elle marche sur deux chaînes et rate la troisième :
+    lmidhair  50 → 102 frames, retard 1 → 6   ATTEINT
+    rmidhair  50 →  85 frames, retard 1 → 8   ATTEINT
+    backhair  21 →  28 frames, retard 1 → 1   **TOUJOURS DANS LA BANDE REJETÉE**
+`backhair` est la plus raide (1.80 contre 1.50 et 1.31) et la plus lourde : le même amortissement
+n'y produit pas la même réponse. **C'est la mèche dont l'owner se plaint le plus, et elle n'est pas
+corrigée.** À dériver pour elle-même, contre la réponse cible ci-dessus.
+
 **LE CONTRÔLE APPARIÉ.** Il approuve les mèches fines, il rejette les grosses — même moteur, même
 salle. Toute cible chiffrée de ces deux défauts est désormais la valeur **mesurée sur lbang/rbang**,
 jamais un nombre choisi. Les grosses mèches portent encore `stiffness=1.80 damping=0.18 mass=0.90`
