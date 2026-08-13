@@ -59,6 +59,65 @@ def referenced_vertices(js, binc):
     return ref
 
 
+def reskin_membership(model, reskin_path):
+    """Joint names the reskin grader recognises for `model`, per `chain=` list.
+
+    `grade` grades the SUMMED weight of the joints its `chain=` enumerates, so a joint absent
+    from that list is invisible to it: the scalp/strand junction stops being graded and the tear
+    comes back (`recharged_assets/physics_reskin.txt:376-380`, measured — rmidhair went 0 -> 22
+    torn edges after the first injection). Returns {} when the file has no section for this model,
+    which is the honest "nothing to be consistent with", not a silent pass.
+    """
+    if not os.path.exists(reskin_path):
+        return {}
+    lists, active = {}, False
+    for ln in open(reskin_path, errors='ignore'):
+        ln = ln.split('#', 1)[0].strip()
+        if ln.startswith('[model'):
+            active = model in ln[6:].rstrip(']').split()
+            continue
+        if not active or not ln.startswith('grade '):
+            continue
+        f = ln.split()
+        for kv in f[2:]:
+            if kv.startswith('chain='):
+                lists[f[1]] = kv[6:].split(',')
+    return lists
+
+
+def check_reskin_knows_new_joints(spec, model, reskin_path):
+    """A joint created from one the grader already knows must be declared alongside it.
+
+    THE RECURRENCE THIS CLOSES (owner's non-destruction rule: make the loss impossible at the
+    point of PRODUCTION, not detectable at the point of control). Chain composition is duplicated
+    in five places. Both injections so far forgot the same one: the first left `Lbangd`/`Rbangd`
+    out until it was found by hand, the second left `backHair4`/`Lmidhaird`/`Rmidhaird` out and
+    shipped a mesh whose junction was no longer graded. Neither was detected by any gate.
+
+    The invariant is exact and cannot false-positive: it fires ONLY when the grader already
+    knows the joint being extended or subdivided. A chain the reskin spec does not handle at all
+    stays untouched.
+    """
+    lists = reskin_membership(model, reskin_path)
+    if not lists:
+        return
+    missing = []
+    for e in spec:
+        src = e['move'] if e['op'] == 'subdiv' else e['parent']
+        for target, joints in sorted(lists.items()):
+            if src in joints and e['name'] not in joints:
+                missing.append((target, src, e['name'], joints))
+    if missing:
+        msg = ["physics_reskin.txt does not know %d joint(s) this spec creates." % len(missing),
+               "`grade` sums the weight of the joints its `chain=` enumerates, so these vertices",
+               "are invisible to it and the scalp/strand junction ships ungraded (the tear returns).",
+               "Add each new joint to the list that already carries the joint it came from:"]
+        for target, src, name, joints in missing:
+            msg.append("  grade %-12s chain=%s,%s   (has %s, created %s)"
+                       % (target, ",".join(joints), name, src, name))
+        raise SystemExit("\n".join(msg))
+
+
 def load_spec(path):
     """Spec lines, two verbs:
 
@@ -103,6 +162,16 @@ def main():
     a = ap.parse_args()
 
     spec = load_spec(a.spec)
+    # The model name is what `[model ...]` sections in physics_reskin.txt are keyed on; the spec
+    # file is `recharged_assets/<model>-inject-joints.txt` and build_enhanced_models.sh:231-235
+    # passes exactly that, so it is derived rather than passed twice and left to drift.
+    model = os.path.basename(a.spec)
+    if model.endswith('-inject-joints.txt'):
+        model = model[:-len('-inject-joints.txt')]
+    check_reskin_knows_new_joints(
+        spec, model,
+        os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                     '..', 'recharged_assets', 'physics_reskin.txt'))
     js, bufs = read_glb(a.src)
     binc = consolidate_buffers(js, bufs)
     names, ibms, parent = skin_info(js, binc)

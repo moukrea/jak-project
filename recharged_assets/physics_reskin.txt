@@ -283,10 +283,82 @@ transfer RpantFlap from=Rknee,Rthigh cap=0.90 shape=0.75
 # backhair/lmidhair/rmidhair en ont TROIS. Meme classe que `knee-tabs`, meme recette
 # (`.autoport/physics_inject_joints.py` + `recharged_assets/keira-hd-inject-joints.txt`).
 # ================================================================================================
+# ================================================================================================
+# 2026-08-13 19:50 — LA SUBDIVISION A POSE UN OS QUE LA PEAU NE SUIT PAS. C'EST LE REPESAGE QUI
+# DEVAIT L'ACCOMPAGNER, ET QUI N'A JAMAIS ETE FAIT.
+#
+# NATURE : une REPARTITION de la peau le long de la chaine (pas une amplitude, pas un profil de
+# melange). REPERE : le sommet appartient au joint qui en detient la MAJORITE (w>0.5) — c'est le
+# meme critere `WMIN` que physics_c14_meshsamples utilise pour decider quels sommets un maillon
+# porte. LIGNE DE BASE : lbang/rbang, meme mesh, meme mesure, que l'owner APPROUVE.
+#
+# MESURE SUR LE MESH LIVRE (sommets dont le joint est majoritaire, racine -> pointe) :
+#     lbang    APPROUVE    94    9   10   36
+#     rbang    APPROUVE    95   11   12   21
+#     backhair REJETE       0    0  124    0     <- TOUTE la nuque sur UN SEUL joint
+#     lmidhair REJETE      46    2   82   30
+#     rmidhair REJETE      32   14   82   31
+#
+# CE QUE CA VEUT DIRE, ET C'EST LE RESULTAT LE PLUS IMPORTANT DU CYCLE : `backHair4` a ete injecte,
+# le solveur le fait bouger (`PHYSBONE c=2 l=3 len=258.0191`, pas de NaN), et AUCUN sommet ne le
+# suit majoritairement. L'os existe, la geometrie l'ignore. Les 124 sommets de la nuque sont tenus
+# par `backHair3` seul : la meche entiere est une PIECE RIGIDE pendue a une seule charniere. C'est
+# le « pudding » et le « une partie de la geometrie reste ancree » du meme coup, et aucun reglage
+# de raideur, de masse ou d'amortissement ne peut le corriger — ce n'est pas le solveur qui bouge
+# en bloc, c'est le mesh qui n'a qu'un seul pilote.
+#
+# POURQUOI L'INJECTION SEULE NE POUVAIT PAS SUFFIRE : la rampe de transfert de l'injecteur
+# (`w = clamp(s,0,1)`) partage le poids que `backHair3` detenait DEJA, et ce poids etait lui-meme
+# melange avec `head`/`backHair2`. Mesure de l'injecteur : `XFER backHair4 <- backHair3 verts=83
+# mass=16.661`, soit 0.20 de moyenne — un partage 50/50 d'une minorite reste une minorite. La
+# pointe n'atteint la majorite NULLE PART.
+#
+# ORDRE : la POINTE d'abord, conformement a la regle deja etablie plus haut (« sans ca le milieu se
+# sert le premier et la pointe ne trouve plus de pool »). Le maillon amont est donneur de la pointe,
+# comme pour les regles `*c` : `head` ne vaut presque rien la-bas, le pool y est tenu par l'amont.
+# CIBLE : la REPARTITION de lbang, pas la majorite partout — sa racine epinglee garde 94 sommets,
+# c'est l'ancrage que l'owner a explicitement approuve et qu'on ne touche pas.
+# ================================================================================================
+# ORDRE : POINTE-AVANT-MILIEU ESSAYE, MESURE, ET REFUTE POUR CE CAS (2026-08-13 19:58).
+# La regle d'ordre etablie plus haut (« la POINTE passe avant le MILIEU, sans ca le milieu se sert
+# le premier et la pointe ne trouve plus de pool ») a ete appliquee telle quelle et la salle... non,
+# le MESH l'a refutee. Ce que l'operateur a publie, cuisson du 19:56 :
+#     backHair4  verts=83  dominant 0->9    poids pris a head,backHair3 = 15.3
+#     backHair3  verts=55  dominant 0->53   <- son SUPPORT est tombe de 127 a 55
+# `transfer` n'agit que la ou la CIBLE porte deja du poids. En prenant a `backHair3` d'abord, la
+# regle de pointe a fait tomber 72 sommets SOUS le seuil de support de la regle du milieu, qui a
+# donc cesse de les couvrir. Ces 72 sommets sont retournes a leur plus gros porteur d'origine :
+# `backHair1`, LE MAILLON EPINGLE. Mesure de la repartition (sommets majoritaires racine->pointe) :
+#     avant   0    0  124   0        apres   50    0   53    9
+# et le profil MOBILE (maillon racine exclu) s'effondre a la pointe : d8/d9/d10 1.00/0.99/0.87
+# -> 0.61/0.53/0.46. Autrement dit la POINTE de la nuque s'est soudee au crane : c'est le defaut
+# de l'owner (« les pointes sont ancrees au meme titre que les racines ») AGGRAVE, pas corrige.
+#
+# La cause est un ORDRE, pas une cible : le milieu doit se servir d'abord pour que ses sommets
+# soient a lui, ensuite la pointe prend a un pool devenu franchement `backHair3`. On inverse donc
+# l'ordre POUR CES TROIS PAIRES, et la regle generale plus haut reste vraie pour le cas qu'elle
+# decrivait (une pointe sans amont fort).
+#
+# CONDITION DE RETRAIT, ECRITE AVANT LA CUISSON — ces trois lignes de pointe sont CONSERVEES
+# seulement si TOUT ce qui suit tient, sinon elles sont RETIREES, pas adoucies :
+#   1. profil MOBILE de backhair : moyenne >= 0.746 ET d10 >= 0.87   (l'etat d'avant, a battre)
+#   2. repartition : backHair1 (epingle) reste a 0 sommet majoritaire, ET la pointe backHair4 > 0
+#   3. temoins APPROUVES lbang/rbang/earL/earR identiques au centieme
+#
+# `[model keira-hd]` SEUL, et la gate du bake l'a re-prouve a l'instant : en reordonnant ces lignes
+# j'ai laisse tomber cet en-tete, les six regles sont retombees dans la section precedente
+# `[model keira-hd keira3-hd]`, et la cuisson a REFUSE en sortie 1 avec
+# « RESKIN verification FAILED for keira3-hd — a declared transfer did not apply :
+#   !! target joint backHair3 not in rig — skipped » (x6). Le look J3 porte ['backHair1','backHair2']
+# et rien d'autre : ces joints n'y existent pas. C'est exactement le refus deja documente plus haut,
+# et il a coute une cuisson, pas un build faux livre.
 [model keira-hd]
 transfer backHair3 from=head,backHair1,backHair2 cap=1.00 shape=0.12
 transfer Lmidhairc from=head,Lmidhaira,Lmidhairb cap=1.00 shape=0.12
 transfer Rmidhairc from=head,Rmidhaira,Rmidhairb cap=1.00 shape=0.12
+transfer backHair4 from=head,backHair3 cap=1.00 shape=0.35
+transfer Lmidhaird from=head,Lmidhairc cap=1.00 shape=0.35
+transfer Rmidhaird from=head,Rmidhairc cap=1.00 shape=0.35
 #
 # LES OREILLES SONT MESUREES ET NON TRAITEES, ET JE LE DIS AU LIEU DE LE TAIRE (regle 3).
 # J'avais ecrit `transfer lEarb/rEarb from=head cap=0.90 shape=1.0`. La prediction ci-dessus les
@@ -417,16 +489,28 @@ transfer Froback  from=head cap=0.85 shape=0.85
 # raison). Enchainees avec les aveugles ensuite, les DEUX lectures tombent a 0.
 grade Lbangb    chain=Lbangb,Lbangc,Lbangd    from=head,Lbanga     step=0.45
 grade Rbangb    chain=Rbangb,Rbangc,Rbangd    from=head,Rbanga     step=0.45
-grade Lmidhairb chain=Lmidhairb,Lmidhairc     from=head,Lmidhaira  step=0.45
-grade Rmidhairb chain=Rmidhairb,Rmidhairc     from=head,Rmidhaira  step=0.45
-grade backHair2 chain=backHair2,backHair3     from=head,backHair1  step=0.45
+# 2026-08-13 19:35 — DEUXIEME INJECTION (`subdiv`), ET LA MEME OMISSION S'EST REPRODUITE.
+# Le bloc ci-dessus a ete ecrit pour la PREMIERE injection : les bangs y ont bien recu leur 4e joint
+# (`Lbangd`/`Rbangd`, lignes 418/419/427/428). La subdivision du 18:19 a ajoute `backHair4`,
+# `Lmidhaird`, `Rmidhaird` — et ces trois-la n'etaient nommes NULLE PART dans ce fichier, ni comme
+# cible, ni comme donneur, ni dans un `chain=`. Mesure sur le mesh livre de 18:25 (probe_skin_profile,
+# tableau « maillon racine verrouille exclu », celui qui dit ce qui BOUGE) :
+#     lbang    (APPROUVE)  0.07 0.08 0.15 0.48  .  0.97  .  1.00 1.00 1.00   <- marche NETTE en d4-d6
+#     backhair (REJETE)    0.00 0.10 0.06 0.23 0.45 0.73 0.93 1.00 1.00 0.94 <- rampe lente jusqu'a d7
+#     lmidhair (REJETE)    0.03 0.11 0.14 0.29 0.40 0.78 0.92 0.98 1.00 0.98
+#     rmidhair (REJETE)    0.18 0.23 0.29 0.33 0.57 0.76 0.91 0.95 0.92 0.95
+# La cible est la FORME du controle approuve : transition finie tot, pas une longue zone tiede.
+# Les listes ci-dessous sont completees a l'identique de ce que portent DEJA les bangs approuves.
+grade Lmidhairb chain=Lmidhairb,Lmidhairc,Lmidhaird from=head,Lmidhaira  step=0.45
+grade Rmidhairb chain=Rmidhairb,Rmidhairc,Rmidhaird from=head,Rmidhaira  step=0.45
+grade backHair2 chain=backHair2,backHair3,backHair4 from=head,backHair1  step=0.45
 # Les deux oreilles ne recoivent PAS de regle mobile : elles lisent deja tear_mov=0 et leur controle
 # positif tire (+13 chacune). On ne touche pas ce qui n'est pas casse.
-grade Rmidhaira chain=Rmidhaira,Rmidhairb,Rmidhairc from=head step=0.45
-grade Lmidhaira chain=Lmidhaira,Lmidhairb,Lmidhairc from=head step=0.45
+grade Rmidhaira chain=Rmidhaira,Rmidhairb,Rmidhairc,Rmidhaird from=head step=0.45
+grade Lmidhaira chain=Lmidhaira,Lmidhairb,Lmidhairc,Lmidhaird from=head step=0.45
 grade Lbanga    chain=Lbanga,Lbangb,Lbangc,Lbangd   from=head step=0.45
 grade Rbanga    chain=Rbanga,Rbangb,Rbangc,Rbangd   from=head step=0.45
-grade backHair1 chain=backHair1,backHair2,backHair3 from=head step=0.45
+grade backHair1 chain=backHair1,backHair2,backHair3,backHair4 from=head step=0.45
 grade lEara     chain=lEara,lEarb          from=head step=0.45
 grade rEara     chain=rEara,rEarb          from=head step=0.45
 
