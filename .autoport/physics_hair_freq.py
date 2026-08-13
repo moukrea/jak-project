@@ -57,16 +57,62 @@ import sys
 
 CH = "recharged_assets/physics_chains.txt"
 
+ROOM = ".autoport/reports/Grecharged-secondary-motion/keira-room-table.txt"
+
 # Longueurs d'os LIVREES PAR LE MOTEUR (`bones_m` du tableau de la salle), en metres.
 # Le maillon 0 est verrouille (rootlock=1) sur toutes ces chaines : les maillons LIBRES
-# sont les suivants, et ce sont eux seuls qui entrent dans lmean (jak-hd-physics.gc:2719).
-BONES = {
-    "lbang":    [0.4124, 0.0962, 0.1914],
-    "rbang":    [0.4124, 0.0962, 0.1914],
-    "backhair": [0.1154, 0.1041],
-    "lmidhair": [0.4784, 0.2349],
-    "rmidhair": [0.4784, 0.2350],
-}
+# sont les suivants, et ce sont eux seuls qui entrent dans lmean (jak-hd-physics.gc:3394).
+#
+# CETTE TABLE ETAIT ECRITE EN DUR, ET ELLE A PERIME EN SILENCE. L'injection de joint du
+# 2026-08-13 a fait passer `lbang` de 3 a 4 maillons ; la table, elle, en portait toujours 3.
+# Le script calculait donc lmean sur les os d'AVANT et rendait une frequence propre fausse de
+# 26 % (1.070 Hz publie contre 1.353 Hz reelle) — c'est-a-dire exactement la grandeur qu'il
+# existe pour tenir. C'est la meme classe de panne que les tables de comptage de joints deja
+# rencontrees : une COPIE d'un fait qui vit ailleurs, qui derive des que l'original bouge.
+#
+# La copie est donc supprimee. Les longueurs sont LUES dans le tableau de la salle, c'est-a-dire
+# publiees par le moteur lui-meme sur le rig courant, et le script REFUSE de tourner si le
+# tableau manque ou si le nombre d'os n'est pas celui de la chaine livree. Il ne peut plus
+# calculer sur une geometrie qui n'existe plus : la panne est rendue impossible au point de
+# production au lieu d'etre detectable apres coup (DIRECTIVES, regle de non-destruction).
+HAIR = ("lbang", "rbang", "backhair", "lmidhair", "rmidhair")
+
+
+def read_bones(room_path, chains_path):
+    """nom -> [longueurs d'os, en metres], lues dans `bones_m` du tableau de la salle.
+
+    Verifie contre le fichier de chaines LIVRE que le compte d'os est bien celui de la chaine :
+    une chaine de N joints publie N longueurs (maillon 0 = ancre -> joint 0)."""
+    try:
+        txt = open(room_path, errors="ignore").read()
+    except OSError as e:
+        raise SystemExit("REFUS: tableau de salle illisible (%s). Lance une course d'abord : "
+                         "les longueurs d'os se lisent dans `bones_m`, elles ne se supposent pas."
+                         % e)
+    njoint = {}
+    for ln in open(chains_path, errors="ignore"):
+        if ln.startswith("chain "):
+            cur = ln.split()[1]
+            njoint[cur] = 0
+        elif ln.startswith("j ") and njoint:
+            njoint[cur] += 1
+    bones = {}
+    for m in re.finditer(r"^\s*chain (\S+)\s+links=(\d+).*?bones_m=([0-9.,]+)\s*$",
+                         txt, re.M):
+        name, links, vals = m.group(1), int(m.group(2)), m.group(3)
+        b = [float(v) for v in vals.split(",") if v]
+        if len(b) != links:
+            raise SystemExit("REFUS: %s publie %d longueurs pour %d maillons — tableau incoherent"
+                             % (name, len(b), links))
+        if name in njoint and njoint[name] != links:
+            raise SystemExit("REFUS: %s a %d joints dans le fichier livre mais %d maillons dans "
+                             "le tableau — la course ne mesure pas la chaine livree."
+                             % (name, njoint[name], links))
+        bones[name] = b
+    manque = [c for c in HAIR if c not in bones]
+    if manque:
+        raise SystemExit("REFUS: pas de bones_m pour %s dans %s" % (",".join(manque), room_path))
+    return bones
 
 
 def get(line, key, default=None):
@@ -84,7 +130,7 @@ def main():
                     help="frequence propre visee pour le maillon de POINTE, en Hz")
     ap.add_argument("--zeta", type=float, default=0.35,
                     help="amortissement reduit vise sur ce meme maillon")
-    ap.add_argument("--chains", default=",".join(BONES),
+    ap.add_argument("--chains", default=",".join(HAIR),
                     help="chaines a deplacer (defaut: les cinq chaines de cheveux)")
     ap.add_argument("--gravity", type=float, default=None,
                     help="valeur ABSOLUE du gain de gravite, au lieu du s^2 de --keep-sag. "
@@ -98,7 +144,10 @@ def main():
                     help="ne PAS tenir le gain statique constant (laisse l'affaissement tomber "
                          "en 1/s^2) — sert a isoler l'effet dans une course de diagnostic")
     ap.add_argument("--file", default=CH)
+    ap.add_argument("--room", default=ROOM,
+                    help="tableau de salle d'ou les longueurs d'os sont LUES")
     a = ap.parse_args()
+    BONES = read_bones(a.room, a.file)
     want = [c for c in a.chains.split(",") if c]
 
     src = open(a.file, errors="ignore").read().split("\n")

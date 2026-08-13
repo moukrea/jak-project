@@ -313,9 +313,34 @@ chain chestR couple=1.85 damping=0.26
 # monter — les planchers FLOOR et FLOOR-WEAK ne peuvent pas casser par ce changement. Ce qu'il
 # faut surveiller a la place, c'est l'inverse : que la geometrie ne recasse pas sur les grosses
 # meches (`hair-big-angles`). C'est son oeil qui le dira, et c'est reversible en une ligne.
-chain backhair maxangle=0
-chain lmidhair maxangle=0
-chain rmidhair maxangle=0
+## 2026-08-13 (2e moitie) — CES TROIS LIGNES SE RETIRENT, ET C'EST LEUR PROPRE CONDITION DE SORTIE
+##
+## Le bloc ci-dessus l'ecrit noir sur blanc : « le vrai chemin n'est pas de la remettre ici : c'est
+## de donner un SECOND MAILLON LIBRE a ces trois chaines, et alors ces trois lignes se retirent
+## d'elles-memes ». L'injection de joint du 2026-08-13 l'a fait. Preuve par la course, pas par le
+## source — `keira-room-x86.log`, lignes PHYSCHAIN :
+##     PHYSCHAIN c=2 links=3 ... j0=backHair1     (etait links=2)
+##     PHYSCHAIN c=5 links=3 ... j0=Lmidhaira
+##     PHYSCHAIN c=6 links=3 ... j0=Rmidhaira
+## Avec rootlock=1, links=3 donne DEUX maillons libres. L'objection qui avait mis ces lignes ici —
+## « phys-bend-chain ne mesure aucun pli, il mesure la deviation par rapport a la pose, c'est un
+## plafond d'amplitude deguise » — ne tient que pour UN maillon libre. Au maillon 2, l'attache est
+## le maillon 1 SIMULE (`jak-hd-physics.gc`, branche `(if (> l 0) (-> *phys-px* (- scl 1)) ...)`) :
+## c'est un vrai pli entre maillons, exactement l'objet que l'owner a demande d'attenuer.
+##
+## ET LE PLI EST LA, MESURE SUR LA COURSE LIVREE (PHYSGRAD, maxima par fenetre) :
+##     backhair lien 2 = 170.53 deg   (le rig chiffre a 88.7 ce que sa peau peut encaisser)
+##     lmidhair lien 2 = 173.20 deg   (rig 137.7)
+##     rmidhair lien 2 = 149.59 deg   (rig 136.3)
+## « Les grosses meches ont toujours des deformations extremes sur de tres gros mouvements qui
+## cassent leur geometrie » (owner, 12e passe) : voila le nombre derriere la phrase, et ces trois
+## chaines sont les seules du modele a porter un pli de 150 a 173 deg sans aucune limite.
+##
+## CE QUE CA PEUT COUTER, ET POURQUOI C'EST FINANCABLE : c'est un suppresseur, il RETIRE du
+## mouvement. Marge mesuree avant le changement, contre les deux planchers :
+##     backhair 167 % / 359 %   lmidhair 190 % / 194 %   rmidhair 166 % / 261 %
+## Le seuil est 60 % / 70 %. La marge est donc de 2,4x a 5x sur la plus serree.
+## SI LE PLANCHER CASSE QUAND MEME, LA LIGNE REVIENT — pas adoucie, remise (regle de conservation).
 
 ## 2026-08-13 — `hair-gradient` : LA RACINE DEVIENT GRADUEE AU LIEU D'ETRE EPINGLEE
 ##
@@ -401,3 +426,43 @@ chain rmidhair maxangle=0
 # chain lmidhair gradient=0.141
 # chain rmidhair gradient=0.141
 # chain backhair gradient=0.288
+
+## 2026-08-13 (3e moitie) — `hair-jelly` : L'INJECTION D'OS A DEPLACE LA RESONANCE DES MECHES FINES
+##
+## Owner : « la physique fait tres gelatine, c'est pas tres coherent ». « Gelee/gelatine » est SON
+## mot pour l'etirement — il l'avait deja employe pour la poitrine (« un effet d'etirement et un peu
+## gelee ou ca change de taille »). Ce bloc traite la moitie du defaut qui se DERIVE ; l'autre
+## moitie (l'os des cheveux s'allonge jusqu'a 120 %) est mesuree et rapportee, pas corrigee ici.
+##
+## LE FAIT, CALCULE SUR LES LONGUEURS D'OS QUE LE MOTEUR PUBLIE LUI-MEME (`bones_m` du tableau) :
+## l'injection de joint du 2026-08-13 a fait passer `lbang`/`rbang` de 3 a 4 maillons. Le moteur
+## pose f_l = (stiffness/sqrt(mass)) * (lmean/bl_l), et `lmean` est la moyenne des maillons LIBRES.
+## Le 4e os (0.1555 m) entre dans la moyenne ET devient la POINTE, plus courte que l'ancienne :
+##     lbang  lmean 0.1438 -> 0.1477   f_pointe 1.070 -> 1.353 Hz   (x1.264)
+##     rbang  lmean 0.1438 -> 0.1476   f_pointe 1.070 -> 1.354 Hz   (x1.266)
+## 1.07 Hz est la SEULE valeur que l'oeil de l'owner ait jamais qualifiee positivement
+## (« vraiment pas mal ») ; le moteur le note lui-meme a l'endroit du calcul de `lmean`.
+##
+## ET C'EST L'AMORTISSEMENT QUI EN PAIE LE PRIX, ce qui donne exactement « gelatine » : `damping`
+## etait cale pour tenir zeta = 0.35 A 1.07 Hz. La frequence a bouge, pas lui :
+##     zeta effectif = 0.0784 / (2 * 2*pi*1.353/60) = 0.277   au lieu de 0.35
+## Une chaine sous-amortie oscille au lieu de revenir. Aucun reglage n'a ete touche entre-temps :
+## c'est la GEOMETRIE qui a bouge sous des constantes derivees pour l'ancienne.
+##
+## RE-DERIVE, PAS TATONNE (`.autoport/physics_hair_freq.py --ftip 1.07 --zeta 0.35`) :
+##   stiffness ramene f_pointe a 1.070 Hz sur les os COURANTS ; `damping` tient zeta = 0.35 a cette
+##   frequence ; `gravity` est multiplie par s^2 (s = 1.07/1.353) de sorte que l'affaissement
+##   statique sag = gravity*|g|/k reste EXACTEMENT constant — k varie en s^2 lui aussi. La seule
+##   chose qui bouge est donc la position de la resonance. `couple` n'est pas touche.
+##
+## CE QUE LA COURSE DOIT MONTRER, ET CE QUI LE RETIRE : `ROOM-GRAVSAG` sur lbang/rbang doit rester
+## au niveau d'avant (c'est la prediction du s^2, et si le sag TOMBE la theorie est fausse et ce
+## bloc se retire). Le plancher FLOOR/FLOOR-WEAK doit tenir. `hair-fine-grav` n'est PAS traite ici :
+## le sag est tenu constant, pas augmente — il reste ouvert avec ses chiffres.
+##
+## L'OUTIL LUI-MEME PORTAIT LA PANNE : sa table de longueurs d'os etait ecrite en dur et datait
+## d'avant l'injection, donc il aurait re-derive sur une geometrie qui n'existe plus. Il lit
+## desormais `bones_m` dans le tableau de la salle et REFUSE de tourner si le compte d'os ne
+## correspond pas a la chaine livree.
+chain lbang stiffness=1.3089 damping=0.0784 gravity=0.1592
+chain rbang stiffness=1.3072 damping=0.0784 gravity=0.1588

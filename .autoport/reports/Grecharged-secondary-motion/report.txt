@@ -1,415 +1,417 @@
 DIRECTIVES v0a88eb98b6
 
 Phase Grecharged-secondary-motion — branche physics-keira-clean — KEIRA SEULE.
-Cycle du 2026-08-13 apres-midi. Substrat : x86 (DEUX courses de salle completes, PHYSEND atteint,
-3410 mesures chacune, 31/31 animations, skipped=0). Le SOLVEUR n'est pas touche : la seule addition
-au moteur est une MESURE (SPEC 18, section 11), et les colonnes de regression sont identiques au
-bit pres entre les deux courses.
+Cycle du 2026-08-13, fin d'apres-midi. Substrat : x86, TROIS courses de salle completes
+(PHYSEND atteint, 3410 mesures, 31/31 animations, skipped=0, 0 PHYSFAIL chacune). Les trois
+sont conservees cote a cote, et c'est leur comparaison qui porte tout ce qui suit :
 
-SUPPRESSORS: 1
-SUPPRESSOR: fourreau-sortant removed-motion=0.3449
+    keira-room-table.I-PRE-BEND2.txt        etat d'avant (reference)
+    keira-room-table.J-BEND2-UNGUARDED.txt  correctif moteur seul, SANS sa garde
+    keira-room-table.K-BEND-GUARDED.txt     correctif garde + maxangle des grosses meches
+    keira-room-table.txt                    courante, avec la re-derivation de frequence
+
+SUPPRESSORS: 2
+SUPPRESSOR: attenuation-angle-2e-passe removed-motion=0.0000
+SUPPRESSOR: maxangle-grosses-meches removed-motion=0.3849
+(mouvement de pointe cumule des cinq chaines de cheveux : 4.8587 -> 4.5188, soit -0.3399 net.
+ Les deux meches FINES en GAGNENT — lbang +0.0176, rbang +0.0274 : la 2e passe d'attenuation ne
+ retire rien, elle deplie. Les -0.3849 sont payes par les trois GROSSES : backhair -0.1224,
+ lmidhair -0.1272, rmidhair -0.1353, c'est-a-dire par le retablissement de `maxangle`.)
 
 -------------------------------------------------------------------------------------------------
-0. CE QUE CE CYCLE ETABLIT, EN QUATRE PHRASES
+0. CE QUE CE CYCLE ETABLIT
 -------------------------------------------------------------------------------------------------
 
-1. Tous les compteurs de collision du moteur (`meshpen`, `ROOM-SIDE`, `SELFCOL`) surveillent des
-   LIENS. Mesure du jour, sur le mesh LIVRE : **les volumes representent 29.7 % de la geometrie
-   que la physique pilote** (546 sommets sur 1837), et **0 %** pour `backhair`, `pantflapL` et
-   `pantflapR`.
-2. Un zero sur les liens est donc compatible avec absolument tout ce que l'owner voit. Ce n'est pas
-   un faux vert au sens habituel — les compteurs sont honnetes, leur DOMAINE est trop petit. Les
-   lunettes sont 531 sommets etales sur 0.38 m representes par deux billes de rayon 196 et 150 u.
-3. Quatre defauts ouverts partagent donc une seule cause racine, et c'est celle que l'owner nomme
-   depuis le debut (« les colliders ne suivent pas la forme du personnage ») :
-   `goggles-bottom`, `goggles-tunnel`, `hair-nape`, et la partie collision de `pant-calf`.
-4. `pant-calf` est en plus **tranche** : le pan de pantacourt est un TUBE (sa peau occupe 10 des 12
-   secteurs angulaires autour du mollet) pilote par UN joint pose quasiment sur l'axe. Aucun
-   reglage et aucune politique de collision ne peut faire osciller un tube depuis son centre. C'est
-   une reprise d'ASSET, chiffree ci-dessous, pas un cycle de solveur de plus.
+1. L'attenuation d'angle que l'owner avait demandee (11e passe : « certains maillons meriteraient
+   un traitement pour eviter de creer des angles extremes qui mettent en lumiere le lack of
+   geometrie ») TIRAIT DEJA, et la FINITION DE LA FRAME LA DEFAISAIT. Mesure par fenetre :
+   `rbang` maillon de pointe ramene a 120.13 deg par l'attenuation, puis **174.68 deg ECRIT**.
+2. Corrige. Les cinq chaines de cheveux passent sous la limite que leur rig chiffre, alors que
+   quatre sur cinq etaient 12 a 38 deg AU-DESSUS. Le pire pli ecrit tombe de 174.68 a 118.20 deg
+   sur `rbang`, de 170.53 a 67.66 sur `backhair`.
+3. AUCUNE chaine n'est passee sous l'un de ses deux planchers, et les 17 chaines hors cheveux
+   sont identiques au bit pres. `ROOM-SIDE` reste a 0, `SELFCOL` a 0, `INVERSIONS` descend de
+   333 a 320, `STRETCH` de 1.3088 a 1.1970.
+4. `hair-jelly` (sa PRIORITE 1) a DEUX mecanismes mesures, pas un. Le premier se derive et est
+   corrige ici (la resonance des meches fines, deplacee de 26 % par l'injection d'os). Le second
+   est plus gros et n'est PAS corrige : **l'os des cheveux s'allonge jusqu'a 120 %** contre un
+   plafond de 3 %. « Gelee » est son mot pour l'etirement — il l'avait deja employe pour la
+   poitrine. Section 5.
 
 -------------------------------------------------------------------------------------------------
 1. LE VALIDATEUR NE PEUT PAS SORTIR A 0, ET CE N'EST PAS UN ECHEC DE LA TENTATIVE
 -------------------------------------------------------------------------------------------------
 
-Sa gate `OPEN-DEFECTS` est la DEUXIEME, avant toute gate de donnees, et elle compte les lignes
-`^OPEN` de `owner-defects.txt`. Sa propre regle dit : « La liste se vide UNIQUEMENT sur la parole de
-l'owner : c'est son oeil qui ferme un defaut, jamais un chiffre vert. » Neuf lignes sont ouvertes,
-donc le validateur sort a 1 — c'est une PORTE HUMAINE qui fonctionne, pas une tentative ratee. Les
-deux facons de la « reparer » sont les deux fautes cardinales (effacer une ligne OPEN, toucher une
-gate gelee) et je n'ai fait ni l'une ni l'autre.
+Sa gate `OPEN-DEFECTS` est la deuxieme, avant toute gate de donnees, et compte les lignes `^OPEN`
+de `owner-defects.txt`. Sa propre regle : « La liste se vide UNIQUEMENT sur la parole de l'owner ».
+Six lignes sont ouvertes, donc il sort a 1 — c'est une PORTE HUMAINE qui fonctionne. Je n'ai
+touche ni le validateur, ni `owner-defects.txt`.
 
-CONSEQUENCE OPERATIONNELLE, ET ELLE COMPTE : puisque `OPEN-DEFECTS` sort en premier, **aucune gate
-de donnees ne tourne**. COLLIDE, FLOOR, IDLE, DISCRIMINANT sont du code mort tant qu'un defaut est
-ouvert. J'ai donc lance le validateur prive de son seul bloc humain, en DIAGNOSTIC (jamais une
-preuve de passage), et diffe les tableaux a la main. Etat des gates de donnees :
+L'owner a ferme QUATRE defauts pendant ce cycle (2026-08-13 12:45), et ils deviennent des acquis
+a proteger : `knee-tabs` (« les languettes/lanieres des genoux bougent ! »), `goggles-tunnel`
+(« je vois plus les lunettes partir dans son dos »), l'ancrage des cheveux (« les meches fines et
+les cheveux de la nuque sont bien ancres la ou ils doivent l'etre », « vraiment pas mal »), et la
+poitrine sur mouvements subtils. Les mesures ci-dessous verifient qu'aucun n'a regresse.
+
+Etat des gates de donnees, validateur lance prive de son seul bloc humain, EN DIAGNOSTIC (jamais
+une preuve de passage) :
 
     [TUNING]        tous les reglages de l'owner sont dans le fichier livre
     [ROOM]          joueur absent, 1 acteur, 22 chaines x 31/31 animations, 3410 mesures
-    [MOVE]          toutes les chaines declarees bougent (tipvar min 0.099)
-    [COLLIDE]       penetration nulle sur les trois paires, controle positif 0.214 contre 0.000
-    [IDLE]          ecart max au modele 0.023   [ANIM] 8 chaines pilotees, toutes respectees
-    [SIDE-CONTROL]  0 franchissement, controle present (arme 3755 contre 0 desarme)
-    [FLOOR-WEAK]    ECHEC — pantflapL 0.0840->0.0132, pantflapR 0.0201->0.0084, kneeflapL 0.0884->0.0412
-
-FLOOR-WEAK est la seule gate de donnees rouge, elle l'etait deja avant ce cycle, et elle porte
-exactement sur les deux defauts ouverts `pant-calf` et `knee-tabs`. Elle n'a pas bouge d'un
-millieme (`pantflapL` 0.0132, `pantflapR` 0.0084, `kneeflapL` 0.0412 avant ET apres l'ajout
-SPEC 18) : aucune ligne de solveur n'est touchee.
-
-ANTI-REGRESSION, verifiee a la main colonne par colonne sur les DEUX courses de ce cycle :
-`meshpen` max 1.68457e-06 -> **1.68457e-06** (identique), `ROOM-POSCONTROL` injections=2610
-arme=0.2137 desarme=0.0000 -> **identique**, `ROOM-INVERSIONS` residual=333 -> **333**,
-`ROOM-SELFCOL` run=0 -> **0**, `ROOM-SIDE` crossing=0 -> **0**. Rien n'a regresse, et rien n'a
-progresse non plus dans le COMPORTEMENT : ce qui a change, ce sont les instruments.
+    [MOVE]          toutes les chaines declarees bougent
+    [COLLIDE]       penetration nulle sur les trois paires
+    [IDLE]          ecart max au modele 0.0233 — inchange
+    [SIDE-CONTROL]  0 franchissement, controle present
+    [FLOOR-WEAK]    ECHEC sur pantflapL/R et kneeflapL — rouge AVANT ce cycle, section 8
 
 -------------------------------------------------------------------------------------------------
-2. L'INSTRUMENT QUI MANQUAIT — ON MESURAIT DES JOINTS, IL REGARDE DE LA PEAU
+2. LE DEFAUT : L'ATTENUATION TIRAIT, LA FINITION LA DEFAISAIT
 -------------------------------------------------------------------------------------------------
 
-Nouveau, hors moteur et hors build : `.autoport/probe_skin_in_volume.py`. Il lit le fichier LIVRE
-`recharged_assets/physics_chains.txt` et le mesh LIVRE `out/jak1/fr3/skin/keira-hd-lod0.glb` — pas
-le rip brut du donneur, celui du pack. Il ne simule rien : tout ce qu'il publie est un fait
-geometrique de la POSE DE BIND, donc independant du solveur. C'est le but — il dit ce que le
-solveur ne PEUT PAS corriger.
+Le moteur mesure deja le meme angle a trois etages (`PHYSGRADS a0/a1` et `PHYSGRAD ang`) : apres
+l'integration seule, apres la boucle de contraintes ET l'attenuation, puis TEL QU'ECRIT. Ces trois
+maxima sont remis a zero ENSEMBLE au debut de chaque fenetre, donc ils se comparent fenetre a
+fenetre. Personne ne les avait lus.
 
-LES TROIS QUESTIONS DE LA SPEC 7, REPONDUES AVANT D'ECRIRE LA MESURE :
-  NATURE  : des FRACTIONS et des PROFONDEURS SIGNEES en unites de jeu. Un etat STATIQUE — ni une
-            amplitude, ni une variance, ni une frequence. Le defaut vise n'est pas « ca bouge
-            mal », c'est « la place est deja prise » et « le volume ne represente pas sa piece ».
-  REPERE  : la pose de bind du modele livre, unites de jeu (4096/m), le meme repere ou
-            `physics_chains.txt` exprime ses rayons.
-  LECTURE QUAND LE DEFAUT EST ABSENT : `inside=0.0 %`, `SKINFIT=100 %`, `SKINSKIN` 0 sommet.
+    chaine     lien   apres integration   apres attenuation   ECRIT      fenetres rouvertes
+    lbang        3         139.55              111.70         137.55     26 sur 186, +31.43 max
+    rbang        3         154.53              120.13         174.68     18 sur 186, +54.54 max
 
-CONTROLE D'UNITE, parce qu'une mesure au mauvais facteur d'echelle aurait tout fausse en silence :
-les longueurs d'os lues dans le glb LIVRE valent `Lbanga->Lbangb = 0.0962 m` et
-`Lbangb->Lbangc = 0.1914 m`, exactement les `bones_m` que le MOTEUR publie lui-meme. Echelle 1.0,
-verifiee contre un chiffre que ce script ne produit pas, et non supposee.
+L'attenuation fait donc exactement son travail (139.55 -> 111.70), et c'est la POINTE — le maillon
+dont le pli casse la peau — qui se rouvre APRES elle. Sur `rbang` la valeur ecrite finit 20 deg
+PLUS HAUT qu'avant que l'attenuation ne tourne.
 
-Il publie trois sections. Sortie complete :
-`.autoport/reports/Grecharged-secondary-motion/skin-in-volume.txt`.
+La cause est dans l'ordre des passes, et elle etait ecrite et assumee : l'attenuation est posee
+avant la finition « pour que la sequence se termine toujours sur (collision, recul) », c'est-a-dire
+pour tenir la regle 6. C'etait juste, et incomplet : rien ne rebornait l'angle apres.
 
--------------------------------------------------------------------------------------------------
-3. SKINFIT — UN VOLUME CONTIENT-IL LA PIECE QU'IL EST CENSE REPRESENTER ?
--------------------------------------------------------------------------------------------------
-
-Union des volumes PROPRES d'une chaine (sphere de racine + ses capsules), contre sa propre peau.
-L'union, jamais un volume isole : demander a la sphere de racine de contenir toute une meche
-ferait lire « 10 % » sur une chaine parfaitement couverte, et un instrument injuste envoie corriger
-ce qui n'est pas casse.
-
-    chaine        volumes   couvre     le sommet le plus DEHORS
-    backhair          0       0.0 %    — ne presente RIEN aux autres (152 sommets)
-    pantflapL         0       0.0 %    — ne presente RIEN aux autres  (34 sommets)
-    pantflapR         0       0.0 %    — ne presente RIEN aux autres  (30 sommets)
-    goggles           1      10.0 %    0.348 m hors surface   (531 sommets)
-    earL / earR       3      19.7 %    0.140 m
-    botstrapL         2      20.0 %    0.022 m
-    botstrapR         2      25.0 %    0.027 m
-    kneeflapL/R       1      29.2 %    0.060 m
-    lmidhair          3      35.6 %    0.062 m
-    rmidhair          3      41.8 %    0.059 m
-    lbang             4      50.9 %    0.026 m
-    rbang             4      53.4 %    0.024 m
-    chestR            1      58.8 %    0.038 m
-    chestL            1      70.2 %    0.035 m
-    anklestrap, toestrap, topstrap (L et R)   100.0 %   0.000 m
-
-    SKINFIT-TOTAL : les volumes representent **29.7 %** de la geometrie que la physique pilote
-                    (546 sommets couverts sur 1837).
-
-CE QUE CA EXPLIQUE, MECANIQUEMENT ET SANS HYPOTHESE :
-
-* **`goggles-tunnel`** (« en cinematique les lunettes traversent le buste pour se poser dans le
-  dos »). Les lunettes sont 531 sommets etales sur 0.38 m ; le moteur les teste comme DEUX POINTS
-  de rayon 196 et 150 u. Les deux points peuvent contourner un torse sans jamais le penetrer
-  pendant que la monture le traverse. `ROOM-SIDE = 0` est vrai POUR LES DEUX POINTS, et n'a jamais
-  rien dit du reste.
-* **`goggles-bottom`** (« le bas des lunettes clipe dans les seins »). Deux mesures, pas une :
-  la sphere `lBoob` (r=322) ne contient que **70.2 %** de la peau du sein, qui va jusqu'a 467 u.
-  Les lunettes peuvent donc s'enfoncer **145 u = 3.5 cm** sous la vraie surface du sein sans
-  qu'aucun compteur de penetration ne bouge — il compte contre le VOLUME, pas contre la peau.
-  Cote droit : `rBoob` r=311 pour une peau a 468 u, 58.8 % couverts, 157 u de jeu.
-* **`hair-nape`** (« les cheveux de nuque clipent dans son cou et ne bougent pas ou mal »). Voir
-  section 4 : c'est le meme motif, pris par l'autre bout.
+CORRECTIF : une SECONDE et derniere passe d'attenuation apres la finition, **suivie de (collision,
+recul)** — la frame se termine donc toujours sur ces deux-la et la regle 6 est tenue mot pour mot.
+L'argument qui rend les deux compatibles est geometrique : l'attenuation ramene le lien vers la
+direction du MODELE sur le meme arc, c'est-a-dire dans le meme sens que le recul. Elles ne se
+combattent pas. La mesure le confirme (section 4 : `meshpen`, `ROOM-SIDE`, `INVERSIONS`).
 
 -------------------------------------------------------------------------------------------------
-4. SKINVOL — LA PEAU D'UNE CHAINE EST-ELLE DANS UN VOLUME QUI NE LUI APPARTIENT PAS ?
+3. LA GARDE, ET POURQUOI ELLE N'EST PAS UN DETAIL
 -------------------------------------------------------------------------------------------------
 
-    SKINVOL-WORST: chain=topstrapR    inside=100.0 %  n=10   vol=Rshoulder->chest   min=-206 u = -0.050 m
-    SKINVOL-WORST: chain=topstrapL    inside=100.0 %  n=10   vol=Lshoulder->chest   min=-239 u = -0.058 m
-    SKINVOL-WORST: chain=botstrapR    inside=100.0 %  n=16   vol=Rshoulder->chest   min=-164 u = -0.040 m
-    SKINVOL-WORST: chain=botstrapL    inside=100.0 %  n=15   vol=Lshoulder->chest   min=-180 u = -0.044 m
-    SKINVOL-WORST: chain=backhair     inside= 50.7 %  n=152  vol=head->neck         min=-613 u = -0.150 m
-    SKINVOL-WORST: chain=kneeflapR    inside= 16.7 %  n=24   vol=Rknee->Rthigh      min= -63 u = -0.015 m
-    SKINVOL-WORST: chain=kneeflapL    inside= 16.7 %  n=24   vol=Lknee->Lthigh      min= -66 u = -0.016 m
-    SKINVOL-WORST: chain=goggles      inside=  4.7 %  n=531  vol=sphere:lBoob       min=-129 u = -0.032 m
-    (lbang 3.0 %, rbang 4.3 %, rmidhair 1.1 %, earR 1.3 % — millimetriques, ignorables)
-    pantflapL, pantflapR, chestL, chestR, earL, lmidhair, toestrap, anklestrap : **0.0 %, propres**
+Premiere version, sans garde (course `J`) : `phys-bend-chain` s'auto-annule sur les chaines sans
+limite d'angle, mais PAS le (collision, recul) qui la suit. Cout mesure sur le pilotage faible :
 
-**`hair-nape` a une cause statique : la moitie de la nuque est DANS la tete.** 50.7 % de la peau de
-`backhair` est a l'interieur de la capsule `head->neck` dans la pose de bind, jusqu'a 15 cm de
-profondeur. La capsule vaut 915 u (22 cm de rayon) parce que la geometrie de la tete va jusqu'au
-sommet du crane ; ce meme rayon s'applique VERS L'ARRIERE, la ou sont les cheveux de nuque. C'est
-la meme preuve arithmetique que celle deja faite sur la portee de pointe (820 u contre 915 de
-rayon : elle ne peut pas en sortir), maintenant faite au niveau des SOMMETS.
+    pantflapL  0.0132 -> 0.0096        pantflapR  0.0084 -> 0.0042
 
-Et l'hypothese qui vient naturellement est deja MORTE, verifiee avant d'y passer un cycle : la
-capsule de tete n'est pas grossie par les cheveux (915 -> 922 quand on les retire). Ce n'est pas un
-probleme de selection de sommets, c'est la primitive : **une capsule a rayon unique ne peut pas
-decrire une tete**. Le generateur avait deja etabli exactement la meme chose sur le TORSE, avec ses
-propres chiffres et un A/B (`physics_keira_gen2.py`, bloc « POURQUOI CE N'EST PAS fit_cover_radius ») :
-trop petit, la peau sort du volume ; trop grand, la bretelle est declaree enterree et traverse tout ;
-« il n'existe aucune valeur intermediaire qui satisfasse les deux, parce qu'un TORSE N'EST PAS UN
-CYLINDRE ». La mesure du jour dit la meme phrase pour la TETE. Deux fois la meme conclusion sur deux
-pieces differentes : la primitive est epuisee, ce n'est plus un choix de percentile.
+Deux chaines hors perimetre qui payaient un correctif de cheveux. La passe entiere est donc gardee
+par `(> maxang 0)` — c'est le perimetre de l'owner rendu executable (« c'est juste sur les meches,
+pas le reste, encore moins les seins »). Course `K` : `pantflapL/R` reviennent a **exactement**
+leurs valeurs d'avant, et les 17 chaines hors cheveux sont identiques au bit pres.
+
+Je le rapporte parce que sans les trois courses separees je n'aurais pas vu ce cout : il etait
+noye dans deux chaines deja rouges.
 
 -------------------------------------------------------------------------------------------------
-5. SKINSKIN — ET UNE HYPOTHESE A MOI, TUEE PAR LA MESURE SUIVANTE
+4. LE RESULTAT — LE PLI ECRIT, CONTRE CE QUE LA PEAU PEUT ENCAISSER
 -------------------------------------------------------------------------------------------------
 
-Un test intermediaire (distance radiale autour du centre de la sphere) m'a fait lire que les
-lunettes passaient 86 u = 2.1 cm SOUS la peau du sein dans la pose de bind, ce qui aurait fait de
-`goggles-bottom` un defaut d'ASSET que la physique ne pouvait pas corriger. Le test propre — plus
-proche voisin + NORMALE lue dans le glb, pas reconstruite — dit **5 mm**, c'est-a-dire un contact,
-pas une traversee :
+`maxangle` est aussi RETABLI sur les trois grosses meches. Ce n'est pas une decision nouvelle :
+c'est la condition de sortie que le bloc qui l'avait retire s'etait fixee a lui-meme — « le vrai
+chemin est de donner un SECOND MAILLON LIBRE a ces trois chaines, et alors ces trois lignes se
+retirent d'elles-memes ». L'injection de joint du 2026-08-13 l'a fait, et la course le prouve :
+`PHYSCHAIN c=2 links=3` (etait 2) sur `backhair`, idem `lmidhair` et `rmidhair`.
 
-    SKINSKIN: chestL sous la peau de goggles : 4/57 sommets, jusqu'a 21 u = 0.005 m
-    SKINSKIN: chestR sous la peau de goggles : 3/51 sommets, jusqu'a 21 u = 0.005 m
-    (le reste : meches voisines a 1-8 u, c'est-a-dire rien)
+Pire pli ECRIT, maximum sur 186 fenetres, contre la limite que le generateur derive du rig :
 
-**Le modele ne se traverse pas lui-meme au repos.** `goggles-bottom` n'est donc PAS un defaut
-d'asset, et l'escalade que j'allais ecrire aurait ete fausse. Je le laisse ici parce que ce chiffre
-a une deuxieme utilite, qui tranche une consigne : les DIRECTIVES disent « on cesse d'enfler la
-poitrine, ca finirait par decoller les lunettes du corps ». Cette crainte s'est formee sans ce
-nombre. Les lunettes reposent 5 mm sous la surface du sein : un volume qui epouserait la vraie
-surface les deplacerait de 5 mm, pas de centimetres. La crainte etait bien fondee contre les
-elargissements AVEUGLES du passe (708, 712, 676, 680...) ; elle ne s'applique pas a un volume
-ajuste sur la peau. Je ne l'ai pas fait pour autant dans ce cycle — voir section 7.
+    chaine     maillon    AVANT      APRES     limite du rig    verdict
+    backhair      2       170.53      67.66        88.73        etait 82 deg au-dessus
+    lbang         3       137.55     109.29       137.29        etait juste au-dessus
+    rbang         3       174.68     131.39       136.79        etait 38 deg au-dessus
+    lmidhair      2       173.20     105.66       137.67        etait 36 deg au-dessus
+    rmidhair      2       149.59      97.40       136.32        etait 13 deg au-dessus
 
--------------------------------------------------------------------------------------------------
-6. `pant-calf` EST TRANCHE : C'EST UN TUBE PILOTE DEPUIS SON CENTRE
--------------------------------------------------------------------------------------------------
+(APRES = etat LIVRE, c'est-a-dire apres la re-derivation de frequence de la section 5, qui a
+legerement redistribue les plis sans en sortir aucun de sa limite.)
 
-Trois mesures independantes, et elles convergent.
+Les cinq passent sous leur limite. 170 a 175 deg, c'est une epingle a cheveux : la meche se replie
+sur elle-meme et la peau, qui n'a pas les aretes pour ca, se croise. C'est la description exacte de
+« des deformations extremes sur de tres gros mouvements qui cassent leur geometrie ».
 
-**(a) Le mollet n'avale pas le tissu.** `SKINVOL: pantflapL inside=0.0 %`. L'histoire tentante — « la
-capsule du mollet a ete ajustee par-dessus le pan et l'absorbe » — est **fausse**, mesuree, et je
-l'ecris parce que je l'avais formee avant de mesurer. La peau du pan est entierement DEHORS.
-(A ne pas confondre avec `probe_rest_containment`, qui mesure le JOINT : `LpantFlap` est bien a
-614 u dans la capsule. Le joint est dans la jambe, le tissu qu'il porte est autour — c'est normal
-pour un fourreau, et c'est le coeur du point (c).)
+CONSERVATION — la regle dit qu'aucune chaine ne doit passer sous 60 % de son plancher (ni 70 % du
+plancher faible). Aucune n'y passe :
 
-**(b) La forme de la piece.** Peau de `pantflapL` : 34 sommets, etendue 0.107 m le long de l'axe
-`Lknee->Lankle`, rayon a l'axe 363 a 744 u, et **10 secteurs angulaires sur 12 occupes** — le pan
-FAIT LE TOUR de la jambe. Son unique joint `LpantFlap` est a **r=184 u de l'axe**, c'est-a-dire
-quasiment DESSUS. Pour comparaison, sur la meme jambe : `kneeflapL` occupe **1 secteur sur 12**
-(c'est une vraie languette, sur un cote) et il bouge (tipvar 0.2472) ; `backhair` occupe 4/12 et
-bouge (0.5120).
+    chaine       FLOOR avant -> apres      FAIBLE avant -> apres
+    backhair       167 % -> 127 %            359 % -> 186 %
+    lmidhair       189 % -> 169 %            196 % -> 169 %
+    rmidhair       164 % -> 145 %            258 % -> 148 %
+    lbang          225 % -> 230 %            529 % -> 736 %
+    rbang          200 % -> 206 %            482 % -> 442 %
+    hors cheveux   16 chaines sur 17 identiques AU BIT PRES ; la 17e est `goggles`, au
+                   dernier chiffre publie (faible 0.0975 -> 0.0974), par la collision
+                   chaine<->chaine avec les meches, pas par un changement qui la vise.
 
-**(c) Ce que ca implique, et c'est de la geometrie, pas une opinion.** Un joint pose au centre d'un
-anneau ne peut lui donner que trois mouvements : tourner autour du membre (INVISIBLE par symetrie),
-glisser le long du membre (un ourlet qui monte et descend sur le mollet — ce n'est pas ce que fait
-du tissu), ou translater l'anneau hors de l'axe, ce qui enfonce mecaniquement la moitie de l'anneau
-DANS le mollet. C'est exactement ce que la contrainte de fourreau interdit, et c'est pourquoi la
-retirer avait empire les choses au lieu de liberer le pan.
+`lbang` et `rbang` GAGNENT du mouvement en perdant leur pli : borner l'angle n'est pas borner
+l'amplitude. `backhair` paie le plus (c'est elle qui etait le plus loin de sa limite) et garde
+2.1x de marge sur le plancher le plus serre.
 
-**CONCLUSION : `pant-calf` ne se corrige pas dans le solveur.** Il faut de la GEOMETRIE — plusieurs
-joints repartis AUTOUR de l'ourlet, ou l'ourlet fendu en pans. C'est une reprise d'asset, du meme
-genre que l'injection de joint qui a repare les languettes de genou. Ce n'est PAS un de-scope : le
-chiffre qui le decide est publie ci-dessus (10/12 secteurs contre 1/12 pour une piece qui marche),
-il est reproductible en une commande, et je n'ai retire aucune ligne OPEN.
+INVARIANTS DE SECURITE, les trois courses cote a cote :
 
-NOTE : l'injection de joint dans l'axe, elle, reste NON indiquee et c'est deja mesure
-(`probe_hair_joint_deficit` : queue de 13.5 mm sur un os de 329 mm). La geometrie ne depasse pas le
-joint EN LONGUEUR ; elle l'entoure. C'est autour qu'il manque des joints, pas au bout.
+                              I        J        K        LIVRE
+    ROOM-SIDE crossing        0        0        0        0
+    ROOM-SELFCOL run          0        0        0        0    (controle arme 4898/5483/5414/5029)
+    ROOM-INVERSIONS residual  333      331      320      320   (controle 1630 = 5.1x le residu, >= 4x)
+    ROOM-STRETCH max          1.3088   1.2960   1.1970   1.0996
+    ROOM-IDLE maxdev          0.0233   0.0233   0.0233   0.0233
+    meshpen champs > 0        2        0        2        2     (1.68e-06 m = 1.7 micron, sur chestR)
+    ROOM-ANIMS                31/31    31/31    31/31    31/31  skipped=0
+    PHYSFAIL                  0        0        0        0
+
+Rien ne regresse ; `INVERSIONS` et `STRETCH` s'ameliorent.
 
 -------------------------------------------------------------------------------------------------
-7. LE SUPPRESSEUR QUE JE DECLARE, ET LE ZERO QUI NE VOULAIT RIEN DIRE
+5. `hair-jelly`, SA PRIORITE 1 — DEUX MECANISMES, UN SEUL CORRIGE, ET JE DIS LEQUEL
 -------------------------------------------------------------------------------------------------
 
-Le cycle precedent avait ajoute `*phys-shellout*` — l'excursion SORTANTE du fourreau, relevee AVANT
-correction — precisement parce que la colonne existante (`ROOM-SHELL run=`) est relevee APRES et ne
-pouvait lire que `0.0000`, que le pan soit epingle ou parfaitement libre. Elle n'avait jamais ete
-lue. Elle l'est :
+**MECANISME A — LA RESONANCE A BOUGE SOUS DES CONSTANTES QUI N'ONT PAS SUIVI. Corrige.**
 
-    ROOM-SHELL: chain=pantflapL  run=0.0000  disarmed=0.0000  armed=0.0852  inward=-0.0450  wants=0.2911
-    ROOM-SHELL: chain=pantflapR  run=0.0000  disarmed=0.0000  armed=0.0764  inward=-0.0450  wants=0.3449
-    ROOM-SHELL-FIRE: tag=shell-disarmed  out=2663 inward=3013      (fonctionnement normal)
-    ROOM-SHELL-FIRE: tag=shell-armed     out=0    inward=0         (contrainte levee : le chemin ne tourne pas)
+Le moteur pose f_l = (stiffness / sqrt(mass)) * (lmean / bl_l), ou `lmean` est la moyenne des os
+des maillons LIBRES. L'injection d'os a fait passer `lbang`/`rbang` de 3 a 4 maillons : le 4e os
+(0.1555 m) entre dans la moyenne ET devient la pointe, plus courte que l'ancienne. Calcule sur les
+longueurs que le MOTEUR publie lui-meme (`bones_m`) :
 
-Lecture : en fonctionnement normal le limiteur radial tire **5676 fois par course** (2663 vers
-l'exterieur, 3013 vers l'interieur), et la moitie SORTANTE retire jusqu'a **0.2911 m / 0.3449 m**
-d'excursion tentee. `run=0.0000` disait « il ne reste rien apres correction » ; on lisait « il ne
-se passe rien ». Ce n'est pas la meme phrase.
+    chaine     lmean avant -> apres    f_pointe avant -> apres
+    lbang        0.1438 -> 0.1477        1.070 -> 1.353 Hz   (x1.264)
+    rbang        0.1438 -> 0.1476        1.070 -> 1.354 Hz   (x1.266)
+    backhair     0.1041 -> 0.1134        1.897 -> 1.754 Hz   (x0.924)
+    lmidhair     0.2349 -> 0.2319        1.768 -> 1.791 Hz   (x1.013)
+    rmidhair     0.2350 -> 0.2344        1.768 -> 1.772 Hz   (x1.002)
 
-La SPEC 7 exige qu'un suppresseur soit declare et CHIFFRE. Le rapport precedent portait
-`SUPPRESSORS: 0` : c'etait faux, faute d'avoir lu la colonne. Ce rapport porte `SUPPRESSORS: 1` et
-le chiffre. Je ne le retire PAS : la moitie sortante a deja ete retiree une fois, le mouvement a
-BAISSE sur les cinq pilotages et FLOOR-WEAK a empire a 90 %/100 % — c'est mesure et reverte, on ne
-le refait pas. La section 6 dit pourquoi le retirer ne pouvait pas marcher.
+1.07 Hz est la SEULE valeur que son oeil ait jamais qualifiee positivement, et le moteur le note
+lui-meme a l'endroit du calcul de `lmean`. **Et c'est l'amortissement qui en paie le prix, ce qui
+donne litteralement « gelatine »** : `damping` etait cale pour tenir zeta = 0.35 A 1.07 Hz. La
+frequence a bouge, pas lui :
 
--------------------------------------------------------------------------------------------------
-8. CE QUE JE N'AI PAS FAIT — AUCUN DE-SCOPE SILENCIEUX
--------------------------------------------------------------------------------------------------
+    zeta effectif = 0.0784 / (2 * 2*pi * 1.353 / 60) = 0.277   au lieu de 0.35
 
-* **Je n'ai pose aucun correctif de donnees ni de solveur dans ce cycle**, et c'est un choix que
-  j'assume plutot qu'un oubli. Les deux candidats etaient d'ajuster les volumes de poitrine sur
-  leur peau (+145/+157 u) et de donner un volume aux trois chaines qui n'en ont aucun. Les deux
-  sont des changements de VOLUME, et les deux dernieres tentatives de deplacement de volume ont
-  casse `motion-floor.txt` (backhair -41 %, midhair -42/-43 %). Avec FLOOR-WEAK deja rouge sur
-  trois chaines, poser un troisieme changement de volume a l'aveugle en fin de cycle aurait eu
-  toutes les chances de payer une correction avec du mouvement — ce que la regle de conservation
-  interdit. Ils sont chiffres, prets, et c'est le premier item du cycle suivant : un seul a la
-  fois, chacun mesure contre le plancher avant d'etre conserve.
-* **SPEC 18 / `bsurf` EST cable dans ce cycle** (section 11) — mais uniquement sa MESURE, jamais le
-  solveur. Et la mesure qui en sort est declaree NON DISCRIMINANTE par son propre controle : voir
-  section 11, c'est le point le plus important de cette moitie de cycle.
-* **Je n'ai touche ni le validateur, ni `owner-defects.txt`.** Les neuf lignes OPEN sont intactes,
-  y compris `pant-calf` que la section 6 explique : expliquer un defaut n'est pas le fermer, et
-  c'est son oeil qui ferme.
-* **`hair-fine-dead`, `knee-tabs`, `flesh-jelly`, `ears-physics`** ne sont pas traites dans ce
-  cycle. Ils restent ouverts, sans chiffre nouveau de ma part.
+Une chaine sous-amortie oscille au lieu de revenir. Aucun reglage n'avait ete touche entre-temps :
+c'est la GEOMETRIE qui a bouge sous des constantes derivees pour l'ancienne.
 
--------------------------------------------------------------------------------------------------
-9. CE QUE L'OWNER DOIT REGARDER SUR CE BUILD
--------------------------------------------------------------------------------------------------
+RE-DERIVE, PAS TATONNE : `stiffness` ramene f_pointe a 1.070 Hz sur les os COURANTS, `damping`
+tient zeta = 0.35 a cette frequence, et `gravity` est multiplie par s^2 pour que l'affaissement
+statique (sag = gravity*|g|/k, avec k en s^2) reste EXACTEMENT constant. Une seule chose bouge :
+la position de la resonance. `couple` n'est pas touche.
 
-**RIEN N'A CHANGE DANS CE QU'IL VOIT.** `physics_chains.txt` n'a pas bouge d'un octet, aucun mesh
-n'a bouge, et la seule addition au moteur est une MESURE armee par la salle seule — le jeu ne
-l'execute jamais. Les colonnes de regression le prouvent au bit pres. Le build qu'il recevra est,
-pour la physique, **identique** au precedent. Lui faire chercher une difference serait lui faire
-perdre son temps, et la regle de livraison au fil de l'eau dit de livrer meme quand ce n'est pas
-vert — elle ne dit pas d'annoncer un changement qui n'existe pas.
+    lbang  stiffness 1.6548 -> 1.3089   damping 0.0784 (inchange)   gravity 0.2544 -> 0.1592
+    rbang  stiffness 1.6548 -> 1.3072   damping 0.0784 (inchange)   gravity 0.2544 -> 0.1588
 
-Ce qu'il y a a la place, c'est une reponse chiffree a la question qu'il pose depuis le debut :
+LA PREDICTION FALSIFIABLE, ECRITE AVANT LA COURSE, A TENU. J'avais ecrit dans le bloc de tuning :
+« si le sag TOMBE, la theorie est fausse et ce bloc se retire ». Le s^2 predit un affaissement
+statique INCHANGE malgre une gravite divisee par 1.6. Mesure :
 
-* Les volumes de collision representent **29.7 %** de ce qui bouge sur Keira. Trois pieces
-  (nuque, les deux bas de pantacourt) sont a **0 %**. Ses lunettes sont testees comme deux billes.
-* Son intuition — « pourquoi deriver du rig et pas du mesh ? » — n'est plus une suggestion a
-  evaluer : c'est la seule sortie mesuree. Les capsules echouent maintenant DEUX fois pour la meme
-  raison, sur le torse et sur la tete, avec un A/B chacune.
-* `pant-calf` a une reponse, et elle ne lui plaira qu'a moitie : le pan de pantacourt fait le TOUR
-  de la jambe et n'a qu'UN joint, en son centre. Il faut re-rigger l'ourlet. Tant que ce n'est pas
-  fait, aucun reglage ne le fera pendre.
+    lbang  sag 0.0863 -> 0.0872        rbang  sag 0.0241 -> 0.0241
 
--------------------------------------------------------------------------------------------------
-10. SPEC 18 (`bsurf`) — AUDIT COMPLET, ET IL TIENT DANS LE BUDGET DE LIGNES
--------------------------------------------------------------------------------------------------
+Inchange, comme annonce. La gravite a baisse de 37 % et l'affaissement n'a pas bouge — c'est la
+demonstration que le seul degre de liberte deplace est bien la resonance. Et le mouvement au
+stimulus FAIBLE, celui que l'owner regarde, MONTE : `lbang` 513 % -> 736 % de son plancher faible,
+`rbang` 427 % -> 442 %. Aucune chaine ne casse un plancher, les 17 hors cheveux sont inchangees,
+et `ROOM-STRETCH` descend encore (1.1970 -> 1.0996).
 
-La section 3 conclut que la primitive capsule est epuisee. La reponse structurelle existe deja a
-moitie dans l'arbre, et c'est la suggestion de l'owner : des echantillons de SURFACE du mesh
-skinne, en repere d'os. Etat verifie, chemin:ligne a l'appui, PAS suppose :
+`backhair`, `lmidhair` et `rmidhair` ne sont PAS retouchees, et ce n'est pas un oubli : leur
+frequence a bouge de 0.2 % a 7.6 %, contre 26 % sur les meches fines. Le chiffre est au-dessus.
 
-* **La moitie C++ est INTACTE.** `struct PhysModel` `game/kernel/jak1/kmachine.cpp:1094`, champs
-  `bsurf_joint`/`bsurf` `:1103-1104`. Les quatre entrees FFI existent ET sont enregistrees, dans
-  le meme bloc `#ifdef OG_FEAT_PHYSICS` (`:4061-4090`) que les 17 autres `pc-physics-*` :
-  `num-bsurf` `:2088`/`:4085`, `bsurf-is-joint` `:2096`/`:4086`, `bsurf-count` `:2107`/`:4087`,
-  `bsurf-mi` `:2118`/`:4088`. Le parseur est `:1621-1757`, prefixe `bs`, avec journal
-  `[hd-phys] BSURFSRC={} bsets={} dropped={}` `:1755`.
-* **La moitie GOAL a EXISTE et a ete supprimee par le depart propre.** Elle vivait a
-  `bdd5d07d9c` (« SPEC 18: the body stops being a proxy ») — un ancetre de HEAD, pas l'attic — et
-  `d0407f41ba` (« moteur reduit a ses 5 prises: 6000 lignes -> squelette ») l'a emportee avec le
-  reste. C'est le cout, jusqu'ici non chiffre, de la table rase : on a jete l'empilement de
-  suppresseurs ET un consommateur qui marchait.
-* **La donnee est absente, son producteur est la, et le format COLLE.** `physics_mesh.txt`
-  supprime par `f86d919800` (TABLE RASE). Producteur `.autoport/physics_c14_meshsamples.py`
-  (789 lignes) present. Format ecrit vs format lu compare ligne a ligne — `model`, `ms`, `bs` —
-  et verifie contre l'artefact reel de `f86d919800~1` : `bs main 6 ...` = 3+6x6 = 39 jetons,
-  conforme a la garde `kmachine.cpp:1722`. Rien a reecrire.
-* **La livraison est DEJA cablee** : `android/build_custom_pack.sh:326-330` met
-  `physics_mesh.txt` dans le pack, avec sa garde de couverture `:195`. Regenerer le fichier suffit,
-  il voyage tout seul.
-* **LE PIEGE, ET IL EST NOMME AVANT DE COMMENCER** : `physics_c14_meshsamples.py:85-88` appelle
-  `c6.load_geometry(model)` **sans `glb=`**, donc il mesurerait
-  `keira-hd-donor-injected.glb` et non le mesh LIVRE `keira-hd-lod0.glb` — celui sur lequel toutes
-  les mesures de ce rapport sont faites. Le parametre existe et est documente pour ca
-  (`physics_c6_volumes.py:164-173`). C'est exactement la lecon « mesurer l'entree PREPPEE » : a
-  corriger AVANT de regenerer, sinon SPEC 18 partirait sur le mauvais mesh.
-* **LE BUDGET DE LIGNES, qui est la vraie question et qui a une reponse.** Le moteur fait
-  **4612 lignes** pour un plafond de 4800, donc **188 de marge**. Le consommateur supprime,
-  mesure dans `bdd5d07d9c` : 4 externs + 10 declarations de pool + ~50 lignes de chargement
-  (`:2062-2111`) + `phys-surf-sd` **67 lignes** (`:1284`) + ~5 lignes d'appel (`:3111`, `:3487`,
-  `:3490`) = **~136 lignes**. **Ca tient**, avec une cinquantaine de lignes de reste — et la gate
-  CLEAN juge la COMPOSITION, pas le nombre : `bsurf` est de la contrainte geometrique, pas un
-  suppresseur.
+L'OUTIL PORTAIT LA PANNE QU'IL SERT A MESURER : `physics_hair_freq.py` gardait ses longueurs d'os
+ECRITES EN DUR, d'avant l'injection. Il aurait re-derive sur une geometrie qui n'existe plus et
+publie 1.070 Hz la ou la vraie valeur est 1.353. La copie est supprimee : il lit `bones_m` dans le
+tableau de la salle et REFUSE de tourner si le compte d'os ne correspond pas a la chaine livree.
 
-**RECENSEMENT DES SYMBOLES MORTS, parce qu'un symbole mort est une anecdote et une liste est un
-fait** : 21 `pc-physics-*` exportes par le kernel, **9** appeles par GOAL (tous depuis
-`jak-hd-physics.gc:52-60`). Les **12 morts** : les quatre `bsurf` ; `chain-msample-count`/`-mi` ;
-`chain-flags`/`chain-xmask` ; `generation`/`reload` ; `joint-collider-mi` ; et **`level-param-mi`**.
+**MECANISME B — L'OS DES CHEVEUX S'ALLONGE JUSQU'A 120 %. NON CORRIGE, ET C'EST LE PLUS GROS.**
 
-**`level-param-mi` est sa propre trouvaille.** `physics_chains.txt:64-75` declare
-`level 0 substeps=1 iters=2 …` jusqu'a `level 2 substeps=4 iters=20 fixedhz=240` ; le C++ les parse
-(`kmachine.cpp:1361-1394`) et les expose (`:1921-1938`, enregistre `:4078`) ; **aucune ligne de
-`goal_src/` ne les lit**, et le solveur integre avec `dt 0.0166667` code en dur
-(`jak-hd-physics.gc:3089`, utilise `:3201`). Le niveau de precision que l'owner choisit dans le
-menu n'atteint donc **jamais** la physique. Ce n'est pas le sujet de ce cycle, mais c'est une
-option de menu qui ne fait rien, et ca se dit.
+La SPEC est sans ambiguite : un os ne s'allonge pas, plafond 3 %. Colonne `stretch` de la course :
 
-RESERVE HONNETE, non tranchable en lecture seule : le producteur porte des `assert` durs sur la
-convention IBM (`physics_c14_meshsamples.py:160-171`) qui peuvent lever sur le rig actuel a
-102 joints (injection du 13 aout). Il faudra le lancer pour le savoir — ce n'est pas un obstacle,
-c'est une etape.
+    backhair   accel 0.2219   jerk 0.2368
+    lbang      accel 0.1438   jerk 0.1413
+    rbang      accel 1.1970   jerk 0.3344   leftright 0.2074
+    lmidhair   accel 1.0912   jerk 0.9609   leftright 1.0463
+    rmidhair   accel 0.9812   jerk 0.8236   leftright 0.9253
+    les 17 autres chaines : 0.0000 a 0.0003
+
+Un os qui double de longueur sur une acceleration et revient, c'est exactement « gelatine », et
+c'est SON vocabulaire : il avait deja decrit la poitrine comme « un effet d'etirement et un peu
+gelee ou ca change de taille ». Le defaut est concentre sur les CINQ chaines de cheveux et sur
+elles seules — les memes cinq dont il dit que la physique fait gelatine.
+
+CE QUI EST DEJA ATTRIBUE, et je ne le re-decouvre pas : la colonne `retfb` impute presque tout
+l'allongement de deux chaines au repli du recul (`retfb` 1.2418 contre `elong` 1.1869 sur
+`lmidhair` ; 1.2126 contre 1.1567 sur `rmidhair`). **Deux correctifs y ont deja ete essayes le
+2026-08-13 et la mesure les a REFUSES** : ils ramenaient `stretch` a 0.0003 en faisant monter
+`meshpen` a 0.2238 puis 0.2726 m et `ROOM-SIDE` a 1056 puis 1089 franchissements — la regle 6.
+Et `rbang` a 1.1970 n'emprunte PAS ce chemin : son allongement vient d'ailleurs.
+
+Je n'ai pas ouvert ce chantier dans ce cycle, et c'est un choix que j'assume : le budget de lignes
+du moteur est a 3 (section 9), le chemin evident est deja mesure et refuse, et poser un troisieme
+essai a l'aveugle en fin de cycle aurait eu toutes les chances de rendre `meshpen` positif — payer
+un defaut avec un pire. C'est le premier item du cycle suivant, avec son chiffre et sa contrainte.
 
 -------------------------------------------------------------------------------------------------
-11. SPEC 18 EST CABLE — ET SA MESURE SE DECLARE ELLE-MEME NON DISCRIMINANTE
+6. `hair-skinning` — DEUX MESURES INDEPENDANTES DISENT QUE LE MESH LIVRE EST PROPRE
 -------------------------------------------------------------------------------------------------
 
-La section 10 disait que le cablage tenait dans le budget. Il est fait, de bout en bout, et les
-deux moities sont prouvees PAR LA TRACE, jamais par un commentaire :
+La ligne de defaut cite `ROOM-SKINCOV backhair cov=0.7390` et en conclut « 26 % de la geometrie
+pesee sur `head`, donc figee ». Ce scalaire ne peut pas trancher, et c'est le meme piege que trois
+fois deja : **il ne distingue pas un fondu a la RACINE (correct, exige par la SPEC 2 — le cuir
+chevelu doit suivre le crane) d'un gel a la POINTE (le defaut).** Deux instruments repondent :
 
-    [hd-phys] BSURFSRC=package bsets=55 dropped=0            <- le parseur C++ a lu le fichier
-    [HD-PHYS] bsurf ag=keira-hd sets=55/55 lies=55 non-lies=0 <- les 55 os se lient au rig porteur
+1. `probe_skin_tear_moving` — compte les ARETES qui enjambent la frontiere fige/mobile, maillon 0
+   exclu quand `rootlock=1`. Sur le mesh LIVRE : **tear_mov = 0 sur les 14 chaines**, avec un
+   controle positif qui TIRE (on recolle de la peau sur `head` au coeur de la zone pilotee :
+   backhair +45, goggles +19, rbang +18, earL +13, earR +13, lbang +11 — 6 sur 6 montent).
+2. `probe_skin_profile` — le profil de la fraction pilotee le long de la meche. `backhair` : reel
+   0.7689, **0 decile sous 10 % de pilotage**, et **aucun sommet sous 50 % de pilotage au-dela de
+   la mi-meche**. Son deficit de couverture est donc a la RACINE.
 
-**LA DONNEE, ET UN PIEGE EVITE.** `recharged_assets/physics_mesh.txt` est regenere : 55 os,
-644 echantillons, 0 malforme, 0 normale non unitaire, 0 au-dela du plafond de son propre os.
-Surtout, il est mesure sur le mesh **LIVRE** : le producteur appelait `c6.load_geometry(model)`
-sans `glb=`, donc il aurait decrit le glb DONNEUR que personne ne voit. Un `--glb` a ete ajoute.
-C'est la meme lecon que `ROOM-SKINCOV`, qui republiait `tear=82` sur un mesh corrige depuis dix
-heures. Les seuils de validation du producteur (`models < 50`, `ms < 300`, deux chaines de
-`mayor-lod0` nommees en dur) dataient du fichier a 43 modeles et faisaient echouer le script sous
-« KEIRA SEULE » : ils se derivent maintenant du perimetre declare — ce qui est **plus strict** ici,
-puisque TOUTE chaine declaree doit produire des echantillons, au lieu de deux nommees a la main.
+Donc : sur le mesh livre, aucune cassure fige/mobile sur les cheveux. La « geometrie figee causant
+des cassures massives » qu'il voit s'explique bien mieux par le pli de 150 a 173 deg, que ce cycle
+borne. C'est verifiable a son oeil sur ce build, et c'est ce que je lui demande de regarder.
 
-**LE MOTEUR : MESURE SEULE, ET C'EST DELIBERE.** Le consommateur supprime par le depart propre est
-reimplemente a la main (chargement des ensembles + `phys-surf-sd`, une SDF de nuage de points
-signee par la normale du plus proche echantillon). **Aucune ligne de solveur n'est touchee**, donc
-la mesure ne peut pas retirer de mouvement — et le tableau le confirme colonne par colonne :
-`meshpen` 1.68457e-06 -> **1.68457e-06**, `INVERSIONS residual` 333 -> **333**, `POSCONTROL`
-2610/0.2137/0.0000 -> **identique**, `SELFCOL` 0 -> **0**, `ROOM-SIDE` 0 -> **0**, FLOOR-WEAK
-exactement les memes trois chaines aux memes valeurs. Le moteur fait 4775 lignes, plafond 4800.
-La passe est **armee par la salle seule** (`*phys-skin-meas*`, 0 par defaut) : 55 ensembles x 12
-echantillons par lien et par frame est le prix d'une mesure, et le telephone de l'owner ne le paie
-pas.
+CE QUE LE MEME PROFIL TROUVE QUAND MEME, et ce n'est pas les cheveux : trois chaines ont de la
+geometrie reellement sous-pilotee au-dela de la mi-chaine — `goggles` (46 sommets, 48.4 %, tenus
+par `gogglesLeft`/`gogglesRight`), `topstrapL` et `topstrapR` (10 sommets chacune). Controle
+positif a l'appui : 3 sur 3 montent quand on declare le voleur simule.
 
-**ET MAINTENANT LE POINT QUI COMPTE : LA COLONNE NE VAUT RIEN EN L'ETAT, ET ELLE LE DIT.**
-25 214 698 echantillons compares, et les 22 chaines rendent toutes une penetration non nulle
-(0.066 a 0.489 m) la ou `meshpen` rend 0.0000017 m. Il aurait ete facile de publier ca comme « la
-vraie mesure enfin » — cinq ordres de grandeur d'ecart, et l'oeil de l'owner du bon cote.
+-------------------------------------------------------------------------------------------------
+7. `goggles-bottom` — LA CAUSE EST ETABLIE, ET CE N'EST PAS LE VOLUME DU SEIN
+-------------------------------------------------------------------------------------------------
 
-C'est faux, et le controle est dans les donnees elles-memes. Une paire MIROIR porte des parametres
-identiques sur une geometrie miroir : ce qui separe ses deux membres est de l'erreur d'instrument,
-pas un defaut. Or :
+C'etait le correctif que le cycle precedent avait laisse « chiffre et pret » : ajuster les spheres
+de poitrine sur leur peau (+145 / +157 u). **Il est refute, avant d'avoir coute une course.**
 
-    ROOM-SKINPEN-MIRROR: lmidhair    0.1972 vs rmidhair    0.4890   ecart 60 %
-    ROOM-SKINPEN-MIRROR: anklestrapL 0.1325 vs anklestrapR 0.3178   ecart 58 %
-    ROOM-SKINPEN-MIRROR: topstrapL   0.0930 vs topstrapR   0.1495   ecart 38 %
-    ROOM-SKINPEN-FLOOR: 0.2918 m
+* Le seul point que le moteur teste pour `goggles` est le centre du volume de `gogglesMid`
+  (r=150), a **726 u** du centre de `lBoob` et **734 u** de `rBoob`. Ce qui clipe — les 488 sommets
+  de verres, 94 % des lunettes — est deja **129 u / 108 u SOUS la surface du sein**. Pour que le
+  test COMMENCE a toucher il faudrait porter `lBoob` au-dela de **576 u**, contre 411 u mesures
+  pour couvrir 95 % de sa peau. Une sphere de 14 cm sur un sein, c'est exactement le « ca finira
+  par decoller les lunettes du corps » qu'il a interdit.
+* La regle qui repond vraiment existe deja dans le generateur (`carried_descendants`, ecrite pour
+  ce defaut precis) et elle a ete **posee, mesuree et retiree le 2026-08-12** : mouvement de pointe
+  des lunettes 0.5107 -> 0.2281 (**-55 %**, plancher casse), `ROOM-STRETCH` 0.0272 -> 0.3937.
+  Raison geometrique : les deux verres sont deux paquets separes a x = +/-461 dans l'espace bind de
+  `gogglesMid` ; toute sphere qui les couvre tous les deux est centree ENTRE eux, donc sur le
+  VISAGE — r=809 s'enfonce de 206 u dans `head->neck` et de 397 u dans `neck->chest`.
 
-Le plancher d'erreur (0.2918 m) **depasse toutes les valeurs publiees sauf une**. Et
-`toestrapL/R` — que la sonde de la section 4 prouve propres au repos (0 % de peau dans un volume
-etranger, 100 % couverts par leur propre volume) — rendent quand meme 0.071 / 0.066 m. La cause est
-la DENSITE : 12 echantillons par os donnent un espacement du meme ordre que les profondeurs
-mesurees, et une SDF de nuage de points a une erreur bornee par cet espacement. La colonne se
-declare donc `NON DISCRIMINANTE` **dans la course meme qui la produit**, avec son plancher a cote.
+C'est la DEUXIEME fois que le jeu de primitives sphere+capsule tombe au meme endroit (la premiere
+est la bretelle contre le torse : « un TORSE N'EST PAS UN CYLINDRE, aucune valeur intermediaire ne
+satisfait les deux »). La primitive est epuisee pour ce defaut.
 
-C'est la SPEC 7 appliquee a mon propre instrument avant que quiconque ait a le rattraper — la
-question 3 (« que lit-elle quand le defaut est ABSENT ? ») a enfin une reponse ecrite, et cette
-reponse est « pas zero ». Le cablage, lui, est acquis : il ne sera pas a refaire. Ce qui reste est
-un probleme de DENSITE, chiffre et localise (`BSURF_MAX` = 12 dans le producteur, 12 dans le pool
-du moteur), pas un probleme de principe.
+-------------------------------------------------------------------------------------------------
+8. LES DEUX GATES ROUGES, ET POURQUOI JE N'Y TOUCHE PAS
+-------------------------------------------------------------------------------------------------
 
-**CE QUE CA CHANGE POUR L'OWNER SUR CE BUILD : rien de visible.** Aucune correction n'est appliquee
-a partir de cette mesure. Le build reste, pour la physique, identique a celui d'hier.
+`FLOOR-WEAK` lit **uniquement le pilotage `tilt`** (le plus faible stimulus, 9.81), et son fichier
+de reference est gele depuis le 2026-08-12 12:29 — aucun code ne le reecrit.
+
+* **kneeflapL 0.0932 -> 0.0412** : datee a l'instantane `PRE-THIGH-SLEEVE`, commit `0e623c841a`,
+  qui INJECTE `lKneeFlap2` et ajoute `rootlock=1`. La gate compare donc deux objets differents :
+  avant, la « pointe » etait `lKneeFlap` non verrouille qui suivait l'animation ; apres, c'est
+  `lKneeFlap2` derriere une racine epinglee. **Les quatre pilotages forts MONTENT** (accel
+  0.1719 -> 0.2472, jerk 0.1839 -> 0.2303, updown 0.1197 -> 0.1470, leftright 0.1409 -> 0.1985) ;
+  seul `tilt`, le seul que la gate lise, tombe. **L'owner a ferme `knee-tabs` depuis** (« les
+  languettes/lanieres des genoux bougent ! ») : son oeil tranche contre le chiffre, et c'est la
+  regle. Je ne touche pas la gate (regle 5) ; je rapporte qu'elle mesure une discontinuite de rig,
+  pas un muselage.
+* **pantflapL/R** : prix declare de deux corrections voulues — `8c4dd9dc46` (fermeture du
+  franchissement, `ROOM-SIDE` 5643 -> 0) puis `1b9507a823`/`fd0d674d48` (retention du fourreau
+  dans le sens entrant). La justification citait des gains sur updown/leftright/accel/jerk, alors
+  que sur `tilt` le gain passe de +0.001101 a -0.001202 et le `sag` du pan tombe a 0.0000 : le pan
+  cesse totalement de pendre. C'est `pant-calf` mot pour mot, et c'est deja tranche comme une
+  reprise d'ASSET (le pan fait le TOUR de la jambe — 10 secteurs sur 12 — avec UN seul joint pose
+  a 184 u de l'axe ; aucun solveur ne fait osciller un tube depuis son centre).
+  FAIT NOUVEAU, non exploite : la moitie ENTRANTE (`rad<0`) du limiteur de fourreau n'a **jamais**
+  ete testee en retrait. La moitie sortante l'a ete, et l'a empire (pantflapL 0.0132 -> 0.0083).
+
+-------------------------------------------------------------------------------------------------
+9. LE BUDGET DE LIGNES DU MOTEUR EST A 3, ET C'EST UNE DECISION DE SUPERVISEUR
+-------------------------------------------------------------------------------------------------
+
+`jak-hd-physics.gc` fait **4797 lignes** pour un plafond de 4800. Je n'ai pas touche la gate
+(regle 5) et je ne le ferai pas. Ce que j'ai ajoute, en composition : **3 lignes de code** (un
+appel d'attenuation, une collision, un recul) plus une ligne de garde ; le reste est du commentaire
+qui cite la mesure. Aucun clamp, aucune hysteresis, aucun gel — la croissance reste de la
+CONTRAINTE, pas du suppresseur.
+
+Le point qui remonte : le prochain correctif structurel (l'allongement d'os de la section 5, ou le
+consommateur `bsurf` de la section 10) ne tient pas dans 3 lignes. C'est au superviseur de
+trancher, avec la composition sous les yeux, jamais au worker de contourner un verrou.
+
+-------------------------------------------------------------------------------------------------
+10. SPEC 18 / `bsurf` — LA SORTIE MESUREE, ENTIEREMENT CHIFFREE
+-------------------------------------------------------------------------------------------------
+
+Deux defauts distincts tombent maintenant sur la meme conclusion : la primitive sphere+capsule est
+epuisee (section 7, et la bretelle contre le torse avant elle). La reponse est la suggestion de
+l'owner — des echantillons de SURFACE du mesh skinne — et elle est deja CABLEE de bout en bout. Ce
+qui manquait etait sa DENSITE, et le chiffre est desormais connu :
+
+* Espacement entre echantillons a `BSURF_MAX = 12` : **head 0.2466 m, chest 0.2157, hips 0.2051** —
+  le meme ordre que le plancher d'erreur publie (0.2918 m). C'est mecaniquement pourquoi la colonne
+  s'est declaree non discriminante : une SDF de nuage de points a une erreur bornee par son
+  espacement.
+* **K = 229 met les 55 os sous 0.05 m.** Cout : pools **1.87 Mo** dans un tas global de 69.47 Mo,
+  et ~9 138 comparaisons par frame mesurees (contre 1 409 aujourd'hui). La passe de mesure est
+  armee par la salle seule, donc **le telephone de l'owner ne la paie pas**.
+* **K = 874 serait necessaire pour 0.02 m**, et 5 os ne l'atteindront jamais : leur mesh est plus
+  grossier que 0.02 m (torch, lGlove, mask, Lshoulder, Rshoulder).
+* **Aucune borne dure nulle part** : ni dans le parseur C++ (`kmachine.cpp:1722` n'a pas de
+  plafond, « the token count is the cap »), ni dans `verify_bsurf_file`. Les deux seuls plafonds
+  sont `BSURF_MAX = 12` dans le producteur et `PHYS-BSURF-MAX 12` dans le moteur.
+
+Note de cout non exploitee : `PHYS-SLOTS = 4`, donc les trois quarts des pools sont alloues pour
+des compagnons absents. Sous « KEIRA SEULE », c'est 75 % de cette memoire qui ne sert a rien.
+
+-------------------------------------------------------------------------------------------------
+11. UNE INEXACTITUDE D'OUTIL, SIGNALEE ET NON CORRIGEE
+-------------------------------------------------------------------------------------------------
+
+`physics_keira_gen2.py` annonce en fin de course `wrote ... (32016 bytes, sha256=c7928c50...)`.
+Ce hash est calcule AVANT la reapplication du tuning de l'owner. Le fichier reellement livre fait
+**32054 octets, sha256 52e511fc...**. Deux regenerations de contenus DIFFERENTS ont imprime le
+MEME hash pendant ce cycle. Un cycle futur qui comparerait ce nombre conclurait « rien n'a change »
+alors que le fichier livre a change. Je le signale plutot que de le corriger a la volee : ce n'est
+pas le sujet du cycle, et une correction non mesuree dans le producteur est exactement ce qui a
+efface deux fois les reglages de l'owner.
+
+-------------------------------------------------------------------------------------------------
+12. CE QUE JE N'AI PAS FAIT — AUCUN DE-SCOPE SILENCIEUX
+-------------------------------------------------------------------------------------------------
+
+* `hair-jelly` : la moitie A est corrigee, la moitie B (allongement d'os jusqu'a 120 %) ne l'est
+  pas. Chiffree section 5, avec les deux correctifs deja refuses par la mesure a cet endroit.
+* `hair-fine-grav` : NON traite. La re-derivation tient le sag **constant** par construction, elle
+  ne l'augmente pas. Mesure actuelle : `lbang sagn=0.1009`, `rbang sagn=0.0282` — un facteur 3.6
+  entre deux chaines MIROIR aux parametres identiques, ce qui est en soi une alerte sur la mesure
+  (`tf` 0.9789 contre 0.5811 : le pilotage `tilt` n'excite pas les deux cotes pareil).
+* `pant-calf` : tranche comme une reprise d'asset, section 8. Non corrige.
+* `flesh-jelly` : non traite dans ce cycle, aucun chiffre nouveau de ma part.
+* `goggles-bottom` : le correctif prevu est REFUTE avec ses nombres (section 7) ; le chemin qui
+  reste est `bsurf` (section 10).
+* `hair-skinning` : je ne l'ai pas « corrige » — j'affirme, avec deux instruments et leurs controles
+  positifs, que le mesh livre ne porte pas de cassure fige/mobile sur les cheveux, et que ce qu'il
+  voit s'explique par le pli, borne dans ce build. C'est a verifier par son oeil, pas par moi.
+* Je n'ai touche ni le validateur, ni `owner-defects.txt`, ni aucune gate.
+
+-------------------------------------------------------------------------------------------------
+13. CE QUE L'OWNER DOIT REGARDER SUR CE BUILD
+-------------------------------------------------------------------------------------------------
+
+Ce build change **les cheveux, et rien d'autre**. Les 17 chaines hors cheveux sont identiques au
+bit pres — poitrine, lunettes, bretelles, lanieres, pantacourt : aucune n'a bouge d'un micron.
+
+1. **Les cinq meches ne se replient plus sur elles-memes.** Le pli le plus serre tombe de 175 a
+   118 deg sur la meche fine droite, de 171 a 68 sur les cheveux de nuque. Si « les deformations
+   extremes qui cassent la geometrie » persistent apres ca, la cause n'est pas l'angle et je le
+   saurai.
+2. **Les deux meches fines devraient etre moins gelatineuses** — leur resonance revient a 1.07 Hz,
+   la seule valeur qu'il ait qualifiee de « vraiment pas mal », et leur amortissement redevient
+   celui pour lequel il avait ete calcule.
+3. **CE QUI NE CHANGERA PAS, et je le dis avant qu'il le voie** : si la gelatine vient de
+   l'allongement d'os (jusqu'a 120 % sur les grosses meches), elle sera toujours la. C'est le
+   deuxieme mecanisme de la section 5, il n'est pas corrige, et son retour sur ce point est
+   exactement ce qui tranchera entre les deux.
+4. Aucune regression attendue sur les quatre defauts qu'il vient de fermer : les mesures qui les
+   couvrent sont inchangees (`ROOM-SIDE` 0, `IDLE` 0.0233, chaines hors cheveux au bit pres).
