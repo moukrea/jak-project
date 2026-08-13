@@ -147,12 +147,41 @@
 (defconstant PHYSROOM-PH-RESP   2)
 (defconstant PHYSROOM-PH-IDLE   3)
 (defconstant PHYSROOM-PH-TILT   4)
-(defconstant PHYSROOM-PH-PCOFF  5)
-(defconstant PHYSROOM-PH-PCON   6)
-(defconstant PHYSROOM-PH-AUTHPC 7)
-(defconstant PHYSROOM-PH-INVPC  8)
-(defconstant PHYSROOM-PH-SELFOFF 9)
-(defconstant PHYSROOM-PH-SELFON 10)
+;; LE RETOUR — la seconde moitie de l'aller-retour (defaut `hair-hysteresis`, owner 2026-08-13
+;; 21:30 : « beaucoup d'hysteresis pour tous les cheveux […] j'ai envie de la desactiver parce que
+;; c'est horrible ! »).
+;;
+;; NATURE : un DEPLACEMENT SOUTENU RESIDUEL apres un cycle FERME. Ce n'est ni une amplitude ni une
+;;   forme : l'hysteresis est le fait que la meme entree ne rende pas la meme sortie selon le chemin
+;;   parcouru pour y arriver. La seule facon de la lire est donc de revenir EXACTEMENT au point de
+;;   depart et de comparer les deux poses etablies. Une variance, une amplitude de pointe ou une
+;;   duree de ballottement ne peuvent structurellement pas la voir — elles ne regardent qu'une
+;;   extremite du chemin.
+;; REPERE : celui de l'ANCRE, herite de `phys-tip-mean` (jak-hd-physics.gc:4455). Jamais le monde :
+;;   le sujet est ramene a `home` a chaque frame, mais une pointe qui suit son parent afficherait le
+;;   chiffre de son parent — c'est la faute de la 10e passe, deja payee.
+;; LECTURE QUAND LE DEFAUT EST ABSENT : ZERO. Un systeme purement dissipatif (ressort + amortisseur
+;;   + gravite, sans terme a memoire) revient au MEME equilibre des lors que l'inclinaison qui le
+;;   definit est revenue a la meme valeur et qu'on lui a laisse le meme temps pour s'etablir.
+;;   Un ecart non nul EST l'hysteresis, et il n'a pas d'autre explication.
+;;
+;; POURQUOI CETTE PHASE EST LA COPIE CONFORME DE PHYSROOM-PH-IDLE, ET PAS UNE PHASE NEUVE : la
+;; comparaison n'a de sens que si les deux poses sont etablies dans des conditions IDENTIQUES. Meme
+;; appel (`physroom-hold`), meme etablissement (PHYSROOM-IDLES), meme fenetre de mesure
+;; (PHYSROOM-IDLEM), meme emetteur (`physroom-emit-mean`). La SEULE difference entre `idle` et
+;; `back` est le chemin parcouru entre les deux : 0 deg -> 60 deg -> 0 deg. Tout le reste est egal,
+;; donc tout ecart s'impute au chemin. C'est aussi pourquoi l'aller et le retour sont deux sauts
+;; d'une frame de meme amplitude et de signe oppose : le cycle est ferme.
+;;
+;; AUCUN OPERATEUR N'EST AJOUTE AU SOLVEUR (DIRECTIVES 21:30 : « on arrete d'ajouter »). Cette phase
+;; est de l'INSTRUMENT : elle rejoue une phase existante et reutilise un emetteur existant.
+(defconstant PHYSROOM-PH-BACK   5)
+(defconstant PHYSROOM-PH-PCOFF  6)
+(defconstant PHYSROOM-PH-PCON   7)
+(defconstant PHYSROOM-PH-AUTHPC 8)
+(defconstant PHYSROOM-PH-INVPC  9)
+(defconstant PHYSROOM-PH-SELFOFF 10)
+(defconstant PHYSROOM-PH-SELFON 11)
 ;; CONTROLE POSITIF DE LA CONTRAINTE DE COTE — DEUX BRANCHES QUI BALAYENT LES ANIMATIONS.
 ;;
 ;; Ce que faisait la version precedente, et pourquoi elle a rendu `armed=0 disarmed=0` : la branche
@@ -167,14 +196,14 @@
 ;; pilotage : exposition identique de part et d'autre, ce qui est la seule facon de comparer deux
 ;; comptes. C'est aussi la correction que le cycle precedent avait ecrite sans la poser : comparer
 ;; 43 evenements sur 90 frames a 11446 sur 16740 rapprochait deux expositions differentes.
-(defconstant PHYSROOM-PH-SIDEOFF 11)   ;; contrainte EN PLACE   — la reference
-(defconstant PHYSROOM-PH-SIDEON  12)   ;; contrainte LEVEE      — le compteur DOIT monter
+(defconstant PHYSROOM-PH-SIDEOFF 12)   ;; contrainte EN PLACE   — la reference
+(defconstant PHYSROOM-PH-SIDEON  13)   ;; contrainte LEVEE      — le compteur DOIT monter
 ;; CONTROLE POSITIF DU FOURREAU (defaut ouvert `pant-calf`). La contrainte de concentricite
 ;; remplace l'ejection laterale du pan de pantacourt hors du mollet ; son residu doit tomber a zero,
 ;; et un zero que rien ne peut faire monter ne prouve rien. ARMEE, `phys-shell-off-set!` rend au pan
 ;; sa sphere de poussee d'avant : l'ecart radial DOIT remonter.
-(defconstant PHYSROOM-PH-SHELLOFF 13)
-(defconstant PHYSROOM-PH-SHELLON  14)
+(defconstant PHYSROOM-PH-SHELLOFF 14)
+(defconstant PHYSROOM-PH-SHELLON  15)
 ;; CONTROLE POSITIF DU PREDICAT CONIQUE. Les 24 capsules livrees sont TOUTES coniques, et le moteur
 ;; testait jusqu'ici le rayon interpole au parametre de PROJECTION au lieu du solide que la donnee
 ;; designe — un ensemble strictement plus PETIT, donc un solveur qui cesse de pousser trop tot.
@@ -182,10 +211,10 @@
 ;; le solide exact des deux cotes (`phys-pen-chain` force l'exactitude), sinon le compteur
 ;; tomberait sous le defaut au lieu de monter. Les deux branches balayent les MEMES animations —
 ;; c'est la lecon du controle de cote qui rendait 0 contre 0 sur une fenetre trop etroite.
-(defconstant PHYSROOM-PH-CONEOFF  15)
-(defconstant PHYSROOM-PH-CONEON   16)
-(defconstant PHYSROOM-PH-REPORT 17)
-(defconstant PHYSROOM-PH-DONE   18)
+(defconstant PHYSROOM-PH-CONEOFF  16)
+(defconstant PHYSROOM-PH-CONEON   17)
+(defconstant PHYSROOM-PH-REPORT 18)
+(defconstant PHYSROOM-PH-DONE   19)
 
 (deftype phys-subject (process-drawable)
   ((phase   int32)
@@ -1055,6 +1084,29 @@
        ;; phases : meme animation figee, meme position, meme duree, meme amortissement — seule
        ;; l'orientation de l'ancre differe.
        (physroom-emit-mean "tilt")
+       (set! (-> self phase) PHYSROOM-PH-BACK)
+       (set! (-> self pframe) 0)
+       (phys-stats-reset!)))
+
+    ;; ---- 4 bis. ELLE SE REDRESSE, ET ON TIENT LA POSE. Le cycle 0 -> 60 -> 0 est ferme ici, et
+    ;; ---- c'est la seule phase qui puisse voir l'hysteresis que l'owner decrit (voir la note de
+    ;; ---- PHYSROOM-PH-BACK). Copie conforme de PHYSROOM-PH-IDLE : meme appel, meme etablissement,
+    ;; ---- meme fenetre, meme emetteur. Seul le CHEMIN parcouru avant differe.
+    ((= (-> self phase) PHYSROOM-PH-BACK)
+     (physroom-hold)
+     (when (= (-> self pframe) PHYSROOM-IDLES) (phys-stats-reset!))
+     (when (>= (-> self pframe) (+ PHYSROOM-IDLES PHYSROOM-IDLEM))
+       (dotimes (c (-> self nchain))
+        (when (> (phys-chain-links (-> self slot) c) 0)
+         (format 0 "PHYSBACK c=~D dev=~f hang=~f amp=~f fam=~D~%"
+                 c
+                 (phys-stat (-> self slot) c 5)
+                 (phys-chain-hang (-> self slot) c)
+                 (phys-tip-amp (-> self slot) c)
+                 (phys-chain-family (-> self slot) c))))
+       ;; la POSITION MOYENNE redressee, APRES l'aller-retour. Son ecart avec `idle` EST
+       ;; l'hysteresis ; son ecart avec `tilt` est la part du sag qui a bien ete rendue.
+       (physroom-emit-mean "back")
        (set! (-> self phase) PHYSROOM-PH-PCOFF)
        (set! (-> self pframe) 0)
        (phys-inject-set! 0.0)
