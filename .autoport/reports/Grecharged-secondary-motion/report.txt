@@ -164,9 +164,28 @@ Les quatre grandeurs retombent EXACTEMENT sur celles de `keira-room-table.PRE-RE
 compris la chaine, le pilotage et le nom d'animation du pire cas. Le retour du defaut est la preuve
 que le retrait est effectif : s'il etait reste a 0.0003, c'est que le revert n'aurait pas pris.
 
-CONSERVATION — 21 chaines sur 22 rendent le meme `tipvar` max au dix-millieme dans les trois etats.
-Seule `rmidhair` bougeait (1.1752 -> 1.1621, -1,1 %), et elle est revenue. Aucune chaine n'est
-passee sous son plancher a aucun moment du cycle.
+LA PREUVE FORTE N'EST PAS CETTE LISTE, C'EST LE DIFF ENTIER. `diff` du tableau de 675 Ko contre
+`PRE-RETFBLEN` ne rend que **20 lignes** : les 18 du bloc de mesure nouveau, plus UNE ligne modifiee
+(voir ci-dessous). Les **3410 lignes `row`**, les 22 lignes `stretch`, les 20 `ROOM-SIDE-CONTROL` et
+tous les autres marqueurs sont **octet pour octet identiques**. La conservation est donc totale et
+ne se lit pas sur des maxima : les 22 chaines rendent `+0.0000` d'ecart, `rmidhair` comprise (elle
+etait la seule a avoir bouge, 1.1752 -> 1.1621, et elle est revenue a 1.1752).
+
+DEUX CHOSES QUE JE SIGNALE AU LIEU DE LES LISSER :
+
+  * **LA SEULE LIGNE MODIFIEE N'EST PAS UNE DONNEE DE SOLVEUR, ET JE NE SAIS PAS L'EXPLIQUER.**
+    `ROOM-SKINCOV-SHIPPED backhair cov=0.7259 -> 0.8514` (`dcov -0.0130 -> +0.1124`). Elle est lue
+    sur un ASSET DISQUE (`out/jak1/fr3/skin/keira-hd-lod0.glb`, mtime 07:47), pas sur la trace de la
+    course, et ce fichier est anterieur aux deux tableaux. Elle va dans le bon sens (la nuque
+    corrigee hier mesure mieux) et elle ne touche aucune conclusion de ce cycle, mais je n'ai pas
+    d'explication et je ne lui en invente pas une.
+  * **UN BUILD A TOURNE PENDANT LA COURSE DE CONTROLE, PAR MA FAUTE.** En commitant le retrait a
+    09:42 j'ai reveille le constructeur, qui a reecrit `KERNEL.CGO` (09:45:22) et `GAME.CGO`
+    (09:45:42) alors que `gk` tournait depuis 09:41:40. La course reste valable et ce n'est pas une
+    supposition : `PHYSFAIL=0`, `PHYSEND` atteint, 31/31 animations, 3410 lignes, et les 22 maxima
+    reproduits au dix-millieme — un jeu de DGO melange ne reproduit pas ca (gk avait charge les
+    siens au demarrage). Mais la serialisation n'a pas ete tenue, et c'est la meme cause que la
+    section 7 : le constructeur reagit a mes commits.
 
 -------------------------------------------------------------------------------------------------
 7. UN BUILD FAUX EST PARTI CHEZ L'OWNER PENDANT CE CYCLE, PAR MA FAUTE. CORRIGE.
@@ -180,9 +199,11 @@ la tete de Keira. Il est reste publie environ vingt minutes.
 CE QUI L'A PERMIS : le constructeur commite ce qu'il trouve dans l'arbre, sans savoir qu'une
 experience est en cours. Un correctif refuse par la mesure vingt minutes plus tard etait deja parti.
 
-CORRIGE IMMEDIATEMENT : le retrait est commite (`7947d5f77c`), le constructeur le reprend a son
-cycle suivant et republie. Le pack HD n'est PAS concerne (changement GOAL-seul, la geometrie et les
-poids de peau ne bougent pas) : seul l'APK doit repartir.
+CORRIGE, ET VERIFIE PLUTOT QU'ANNONCE : retrait commite (`7947d5f77c`), constructeur reparti a
+09:48:44 sur ce commit (`BUILD-INFO` : `TAG: 7947d5-c46756`, commit `7947d5f77c`), publication
+a 09:52:48 (`PUSHED apk=a81fd405 zip=e26be497`), assets de la release horodates 09:52 en heure
+locale. **Le mauvais build a donc ete en ligne de 09:25:33 a 09:52:48, soit 27 minutes.** Le pack HD
+n'etait PAS concerne (changement GOAL-seul : ni geometrie ni poids de peau ne bougent).
 
 LECON, ET ELLE DEPASSE ce cycle : une experience de solveur ne doit pas vivre dans l'arbre que le
 constructeur automatique surveille. Le prochain cycle qui essaie un correctif de comportement doit
@@ -305,10 +326,11 @@ qui n'existe pas.** Le comportement du solveur est identique a celui du build pr
 
 DEUX CHOSES, DONC :
 
-1. **Si tu as teste l'APK publie entre 09:25 et ~10:00, jette-le.** Il portait un correctif que la
-   mesure a refuse vingt minutes plus tard : cheveux qui entrent dans la tete et le visage sur les
-   mouvements brusques. Ce n'est pas une regression a rapporter, c'est ma faute et c'est corrige —
-   reprends le build suivant.
+1. **Si tu as teste l'APK publie entre 09:25 et 09:52, jette-le.** Il portait un correctif que la
+   mesure a refuse une demi-heure plus tard : cheveux qui entrent dans la tete et le visage sur les
+   mouvements brusques. Ce n'est pas une regression a rapporter, c'est ma faute et c'est corrige.
+   Le bon build porte `TAG: 7947d5-c46756` — tu peux le verifier sur le telephone dans
+   `files/.custom_pack_stamp_jak1`. Tout ce qui commence par `7947d5-` est sain.
 2. **Ce qui attend toujours ton oeil, c'est le cycle PRECEDENT** (cheveux de nuque : pilotage de la
    pointe passe de 46 % a 94 % ; volumes de meches bornes : `lmidhair` +28 %, `rbang` +13 %). Tu ne
    t'es pas encore prononce dessus, et c'est ce qui decide de la suite.
