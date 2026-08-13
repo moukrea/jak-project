@@ -245,6 +245,45 @@ transfer Froback  from=head cap=0.85 shape=0.85
 # poids (le donneur porte 82 dechirures a droite contre 19 a gauche).
 # C'est le CINQUIEME endroit de l'arbre qui duplique la composition d'une chaine (avec
 # physics_chains.txt, EXPECTED_GROUPS, les tableaux k2e et *hd-joint-counts*). Signale.
+# 2026-08-13 — LA FRONTIERE QUI DECHIRE N'EST PAS CELLE QU'ON GRADUAIT.
+#
+# Les sept regles ci-dessous graduent le poids SOMME des joints de `chain=`, maillon 0 COMPRIS.
+# Or les cinq chaines de cheveux et les deux oreilles portent `rootlock=1` : leur maillon 0
+# chevauche `head` rigidement et la course publie elle-meme `link0=0.0000` sur les cinq pilotages
+# (ROOM-GRADIENT). Ce joint est donc EPINGLE, et la peau qu'il porte est aussi immobile que celle
+# de `head`.
+#
+# CONSEQUENCE, ET C'EST LE DEFAUT PRIORITE 1 DE L'OWNER. Un sommet pese 1.00 sur `Lbanga` (fige) et
+# son voisin pese 1.00 sur `Lbangb` (mobile) rendent tous les deux « somme de chaine = 1.00 ». La
+# marche vaut 0.00, le grader ne voit RIEN a graduer — et pourtant ces deux polygones voisins
+# bougent l'un et pas l'autre. C'est mot pour mot : « des polygones qui bougent et des polygones
+# voisins parfaitement statiques, causant la geometrie qui casse ».
+#
+# MESURE (.autoport/probe_skin_tear_moving.py, sur le mesh LIVRE, controle positif 6/6 qui tire) :
+#   la lecture AVEUGLE (celle de ces sept regles et de ROOM-SKINCOV) rend tear=0 sur les cinq
+#   meches ; la lecture sur la fraction MOBILE en compte 116 —
+#   backhair 28 · rmidhair 48 · rbang 20 · lbang 18 · lmidhair 2, toutes a mi-meche (s=0.36..0.68).
+#
+# LE CORRECTIF NE DEMANDE AUCUNE LIGNE DE CODE : l'operateur `grade` est deja general, il gradue la
+# somme de ce que `chain=` enumere. Il suffit d'ecrire la regle sur la sous-chaine MOBILE et de
+# declarer le maillon epingle parmi les DONNEURS — du poids pris dessus est dynamiquement identique
+# a du poids pris sur `head`.
+#
+# L'ANCRAGE RESTE GARDE PAR L'INVARIANT 2 DE L'OPERATEUR (plafond dur a 0.50 pour un sommet qui
+# n'etait pas deja majoritairement mobile) : mesure `bascules>0.5=0` sur les dix regles. La meche
+# reste SOUDEE au crane, SPEC 2 tenue.
+#
+# ORDRE : ces regles passent AVANT les sept aveugles, et c'est mesure, pas suppose. Seules, elles
+# ferment les 116 dechirures mobiles mais en ouvrent 11 sur la frontiere aveugle de `rmidhair`
+# (dynamiquement inertes — les deux cotes sont figes — mais on ne laisse pas un chiffre monter sans
+# raison). Enchainees avec les aveugles ensuite, les DEUX lectures tombent a 0.
+grade Lbangb    chain=Lbangb,Lbangc,Lbangd    from=head,Lbanga     step=0.45
+grade Rbangb    chain=Rbangb,Rbangc,Rbangd    from=head,Rbanga     step=0.45
+grade Lmidhairb chain=Lmidhairb,Lmidhairc     from=head,Lmidhaira  step=0.45
+grade Rmidhairb chain=Rmidhairb,Rmidhairc     from=head,Rmidhaira  step=0.45
+grade backHair2 chain=backHair2,backHair3     from=head,backHair1  step=0.45
+# Les deux oreilles ne recoivent PAS de regle mobile : elles lisent deja tear_mov=0 et leur controle
+# positif tire (+13 chacune). On ne touche pas ce qui n'est pas casse.
 grade Rmidhaira chain=Rmidhaira,Rmidhairb,Rmidhairc from=head step=0.45
 grade Lmidhaira chain=Lmidhaira,Lmidhairb,Lmidhairc from=head step=0.45
 grade Lbanga    chain=Lbanga,Lbangb,Lbangc,Lbangd   from=head step=0.45
