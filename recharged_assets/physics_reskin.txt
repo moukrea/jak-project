@@ -194,5 +194,8 @@ grade RpantFlap chain=RpantFlap from=Rknee,Rthigh step=0.45
 # entre deux pieces qui bougent toutes les deux n'est pas le meme defaut qu'une jonction avec de la
 # peau statique, et l'owner a valide les bretelles (« vraiment pas mal du tout ») : on ne touche pas
 # a un acquis sur une hypothese. Mesure publiee dans le rapport, a traiter pour elle-meme.
-grade lKneeFlap chain=lKneeFlap from=Lknee step=0.45
-grade rKneeFlap chain=rKneeFlap from=Rknee step=0.45
+# 2026-08-13 — les languettes de genou ont gagne un joint (meme injection que les cheveux).
+# La liste `chain=` doit le nommer, sinon la jonction genou / languette cesse d'etre graduee :
+# c'est exactement ce qui a coute 22 aretes dechirees a `rmidhair` quelques heures plus tot.
+grade lKneeFlap chain=lKneeFlap,lKneeFlap2 from=Lknee step=0.45
+grade rKneeFlap chain=rKneeFlap,rKneeFlap2 from=Rknee step=0.45

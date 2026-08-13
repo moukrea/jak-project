@@ -236,7 +236,13 @@ CATEGORY_RULES = [
     ('topstrap',   r'^(?P<side>[lr])TopStrap\d*$',         'topstrap{U}'),
     ('botstrap',   r'^(?P<side>[lr])BotStrap\d*$',         'botstrap{U}'),
     ('belt',       r'^belt$',                              'belt'),
-    ('kneeflap',   r'^(?P<side>[lr])KneeFlap$',            'kneeflap{U}'),
+    # `\d*` comme topstrap/botstrap ci-dessus : le rig utilise DEJA la convention des paires
+    # numerotees (lTopStrap/lTopStrap2), et l'injection de joints du 2026-08-13 la reprend pour
+    # `lKneeFlap2`. Sans le `\d*` le joint injecte n'appartenait a AUCUN groupe, la chaine restait
+    # a un seul maillon, et `EXPECTED_GROUPS` etait d'accord avec elle — les deux se trompaient
+    # ensemble, donc l'assertion ne pouvait pas le voir. La table declare desormais l'intention
+    # (2 maillons) et c'est elle qui force la regex a suivre.
+    ('kneeflap',   r'^(?P<side>[lr])KneeFlap\d*$',         'kneeflap{U}'),
     ('pantflap',   r'^(?P<side>[LR])pantFlap$',            'pantflap{U}'),
     ('toestrap',   r'^(?P<side>[LR])toeStrap$',            'toestrap{U}'),
     ('anklestrap', r'^(?P<side>[LR])anklestrap$',          'anklestrap{U}'),
@@ -274,8 +280,15 @@ EXPECTED_GROUPS = {
     'botstrapL':  ['lBotStrap', 'lBotStrap2'],
     'botstrapR':  ['rBotStrap', 'rBotStrap2'],
     'belt':       ['belt'],
-    'kneeflapL':  ['lKneeFlap'],
-    'kneeflapR':  ['rKneeFlap'],
+    # 2026-08-13, 2e passe d'injection — `knee-tabs`, defaut ouvert de l'owner.
+    # 100 % de la geometrie de la languette etait AU-DELA de son unique joint (s_p50 2.178,
+    # s_p95 2.627 sur un os de 0.0802 m) : le joint est entierement en amont de ce qu'il pilote,
+    # donc le faire tourner TRANSLATE la languette au lieu de la faire battre — « ca essaie de
+    # bouger mais c'est chelou ». Le nouvel os fait 0.1305 m, soit 1.63x l'ancien, ce qui leve
+    # aussi le plafond d'amplitude (2 x longueur d'os) que le fichier de reglages avait identifie
+    # comme le vrai blocage.
+    'kneeflapL':  ['lKneeFlap', 'lKneeFlap2'],
+    'kneeflapR':  ['rKneeFlap', 'rKneeFlap2'],
     'pantflapL':  ['LpantFlap'],
     'pantflapR':  ['RpantFlap'],
     'toestrapL':  ['LtoeStrap'],

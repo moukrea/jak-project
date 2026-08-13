@@ -28,16 +28,30 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
 from retarget_hd_models import (read_glb, consolidate_buffers,  # noqa: E402
                                 read_accessor, skin_info)
 
-# The five hair chains + the ears, exactly as physics_chains.txt declares them.
-CHAINS = {
-    'backhair':  ['backHair1', 'backHair2'],
-    'lmidhair':  ['Lmidhaira', 'Lmidhairb'],
-    'rmidhair':  ['Rmidhaira', 'Rmidhairb'],
-    'lbang':     ['Lbanga', 'Lbangb', 'Lbangc'],
-    'rbang':     ['Rbanga', 'Rbangb', 'Rbangc'],
-    'earL':      ['lEara', 'lEarb'],
-    'earR':      ['rEara', 'rEarb'],
-}
+CHAINS_FILE = 'recharged_assets/physics_chains.txt'
+
+
+def load_chains(path=CHAINS_FILE):
+    """Chain -> joint list, READ FROM THE DELIVERED DATA, never hand-listed here.
+
+    The chain composition already lives in five places in this tree (this file, gen2's
+    EXPECTED_GROUPS, the k2e arrays, *hd-joint-counts*, and physics_reskin.txt's `grade
+    ... chain=`), and TWO of the 2026-08-13 defects were exactly that duplication drifting.
+    A sixth copy inside the instrument would be the same mistake, and it would also make the
+    probe blind to any chain it had not been told about.
+    """
+    out, cur = {}, None
+    for ln in open(path, errors='ignore'):
+        s = ln.strip()
+        if s.startswith('chain '):
+            cur = s.split()[1]
+            out[cur] = []
+        elif s.startswith('j ') and cur:
+            out[cur].append(s.split()[1])
+    return {k: v for k, v in out.items() if v}
+
+
+CHAINS = load_chains() if os.path.exists(CHAINS_FILE) else {}
 
 # The donor rip is in METRES, calibrated against a number the ENGINE publishes itself:
 # `bones_m` for lbang is 0.4124, 0.0962, 0.1914 and the donor's own Lbanga->Lbangb->Lbangc
@@ -80,14 +94,19 @@ def gather(js, binc):
 
 
 def successor_name(n):
-    """backHair2 -> backHair3, Lbangc -> Lbangd. The rig's own convention."""
+    """backHair2 -> backHair3, Lbangc -> Lbangd, lKneeFlap -> lKneeFlap2.
+
+    All three are the rig's OWN conventions: it already ships numeric pairs (lTopStrap /
+    lTopStrap2, lBotStrap / lBotStrap2) alongside the lettered hair chains, so an unsuffixed
+    joint's successor takes the '2'.
+    """
     m = re.match(r'^(.*?)(\d+)$', n)
     if m:
         return "%s%d" % (m.group(1), int(m.group(2)) + 1)
     m = re.match(r'^(.*?)([a-c])$', n)
     if m:
         return m.group(1) + chr(ord(m.group(2)) + 1)
-    return None
+    return n + '2'
 
 
 def chain_owned(jw_list, pos_list, jidxs, own=0.5):
@@ -161,9 +180,20 @@ def main():
             else:
                 break
         ji = [idx[n] for n in jnames]
-        # bone axis of the LAST link, in bind world space
+        # bone axis of the LAST link, in bind world space. A ONE-JOINT chain (chestL, the flaps,
+        # the straps) has no previous link, so its bone runs from its RIG PARENT — which is
+        # exactly what the engine uses as the chain's anchor (`*phys-anchor*`, set from the rig
+        # parent of link 0). Skipping those chains would have hidden the same defect on every
+        # single-link piece, which is most of what she WEARS.
         head = bind[ji[-1]][:3, 3]
-        prev = bind[ji[-2]][:3, 3]
+        if len(ji) >= 2:
+            prev = bind[ji[-2]][:3, 3]
+        else:
+            par = parent[ji[0]]
+            if par < 0:
+                print("%-10s single link with no rig parent — no bone axis" % cname)
+                continue
+            prev = bind[par][:3, 3]
         axis = head - prev
         blen = np.linalg.norm(axis)
         if blen < 1e-9:

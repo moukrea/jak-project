@@ -20,3 +20,18 @@ lbang       Lbangc        Lbangd           0.217718     2.351184     0.221877
 #   s_p95 1.813  new bone 0.1555 m  residual mass past it 4.9%
 rbang       Rbangc        Rbangd          -0.217618     2.351408     0.221992
 #   s_p95 1.811  new bone 0.1552 m  residual mass past it 4.4%
+#
+# 2026-08-13, DEUXIEME PASSE — LES LANGUETTES DE GENOU (`knee-tabs`, defaut ouvert).
+# Meme regle, meme outil, meme mesure sur le mesh livre. Ici le chiffre est extreme :
+#   kneeflapL/R  s_p50 2.178  s_p95 2.627  orphan 100.0 %  queue 0.1305 m sur un os de 0.0802 m
+# CENT POUR CENT de la geometrie de la languette est AU-DELA de son unique joint. Le joint est
+# entierement en amont de ce qu'il pilote, donc le faire tourner TRANSLATE la languette en bloc
+# au lieu de la faire battre — « ca essaie de bouger mais c'est chelou », mot pour mot.
+# Le fichier de reglages avait deja conclu qu'aucun reglage ne pouvait les rendre perceptibles
+# (« leur os fait 8 cm, leur amplitude ne peut pas depasser 16 cm, et elles y sont deja ») et que
+# la reponse etait de la GEOMETRIE. Le nouvel os fait 0.1305 m, soit 1.63x l'ancien : le plafond
+# d'amplitude du maillon de pointe passe de 0.160 m a 0.261 m.
+# `LfootFlaps`/`RfootFlaps` du rig STOCK ne sont PAS la reponse : il n'y a pas de geometrie
+# separee a piloter, il y a une languette dont le seul joint est mal place.
+kneeflapL   lKneeFlap     lKneeFlap2       0.232774     0.806341    -0.087814
+kneeflapR   rKneeFlap     rKneeFlap2      -0.232775     0.806341    -0.087813

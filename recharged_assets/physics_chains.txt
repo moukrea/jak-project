@@ -136,12 +136,14 @@ j lBotStrap2
 chain botstrapR class=secondary stiffness=1.80 damping=0.28 gravity=0.32 radius=94 rootlock=1 mass=0.70 hang=0.85 family=B couple=1.00 radii=93,96   # radii notes (fitted below w>0.5, or inherited): rBotStrap@w>0.05(16v) rBotStrap2@w>0.25(26v)
 j rBotStrap
 j rBotStrap2
-# kneeflapL [B] lKneeFlap verts=24 wsum=17.58 r=244
-chain kneeflapL class=secondary stiffness=2.00 damping=0.30 gravity=0.30 radius=244 mass=0.60 hang=0.90 family=B couple=1.00 radii=244
+# kneeflapL [B] lKneeFlap verts=20 wsum=5.61 r=202 | lKneeFlap2 verts=24 wsum=11.95 r=313
+chain kneeflapL class=secondary stiffness=2.00 damping=0.30 gravity=0.30 radius=258 rootlock=1 mass=0.60 hang=0.90 family=B couple=1.00 radii=202,313   # radii notes (fitted below w>0.5, or inherited): lKneeFlap@w>0.25(10v)
 j lKneeFlap
-# kneeflapR [B] rKneeFlap verts=24 wsum=17.58 r=244
-chain kneeflapR class=secondary stiffness=2.00 damping=0.30 gravity=0.30 radius=244 mass=0.60 hang=0.90 family=B couple=1.00 radii=244
+j lKneeFlap2
+# kneeflapR [B] rKneeFlap verts=20 wsum=5.61 r=202 | rKneeFlap2 verts=24 wsum=11.95 r=313
+chain kneeflapR class=secondary stiffness=2.00 damping=0.30 gravity=0.30 radius=258 rootlock=1 mass=0.60 hang=0.90 family=B couple=1.00 radii=202,313   # radii notes (fitted below w>0.5, or inherited): rKneeFlap@w>0.25(10v)
 j rKneeFlap
+j rKneeFlap2
 # pantflapL [B] LpantFlap verts=49 wsum=5.37 r=429
 #   COQUE: LpantFlap entoure le volume ETRANGER Lankle->Lknee — 10/12 secteurs, gap 60 deg (seuils 10/12 et 60 deg, 49v @w>0.05) : |c-axe|=95 u + rr(c)=358 u -> shell=452 u, le rayon INTERNE du fourreau. Le rayon du lien est celui du fourreau, pas celui d'une sphere de poussee : sans cette cle le moteur lit une penetration du membre que le lien ENTOURE et ejecte le tissu dedans.
 chain pantflapL class=secondary stiffness=1.60 damping=0.34 gravity=0.40 radius=429 mass=0.60 hang=0.95 family=B couple=1.00 shell=452 radii=429   # radii notes (fitted below w>0.5, or inherited): LpantFlap@w>0.05(49v)
@@ -291,10 +293,10 @@ collider lBotStrap2 radius=93 offset=-115,-317,118
 collider rBotStrap radius=93 offset=-229,-1440,304
 # sphere rBotStrap2 [botstrapR] RECENTREE  26v   le volume de ce lien etait pose sur son joint alors que sa geometrie est a 356 u de la : la TAILLE ne change pas (le rayon de lien livre, resynchronise par le tuning), seul le CENTRE bouge (centroide mesure, espace bind)
 collider rBotStrap2 radius=96 offset=119,-314,118
-# sphere lKneeFlap [kneeflapL] RECENTREE  24v   le volume de ce lien etait pose sur son joint alors que sa geometrie est a 380 u de la : la TAILLE ne change pas (le rayon de lien livre, resynchronise par le tuning), seul le CENTRE bouge (centroide mesure, espace bind)
-collider lKneeFlap radius=244 offset=-20,332,183
-# sphere rKneeFlap [kneeflapR] RECENTREE  24v   le volume de ce lien etait pose sur son joint alors que sa geometrie est a 380 u de la : la TAILLE ne change pas (le rayon de lien livre, resynchronise par le tuning), seul le CENTRE bouge (centroide mesure, espace bind)
-collider rKneeFlap radius=244 offset=20,-332,-183
+# sphere lKneeFlap [kneeflapL] RECENTREE  10v   le volume de ce lien etait pose sur son joint alors que sa geometrie est a 214 u de la : la TAILLE ne change pas (le rayon de lien livre, resynchronise par le tuning), seul le CENTRE bouge (centroide mesure, espace bind)
+collider lKneeFlap radius=202 offset=2,192,94
+# sphere rKneeFlap [kneeflapR] RECENTREE  10v   le volume de ce lien etait pose sur son joint alors que sa geometrie est a 214 u de la : la TAILLE ne change pas (le rayon de lien livre, resynchronise par le tuning), seul le CENTRE bouge (centroide mesure, espace bind)
+collider rKneeFlap radius=202 offset=-2,-192,-94
 # sphere LtoeStrap [toestrapL] RECENTREE  12v   le volume de ce lien etait pose sur son joint alors que sa geometrie est a 189 u de la : la TAILLE ne change pas (le rayon de lien livre, resynchronise par le tuning), seul le CENTRE bouge (centroide mesure, espace bind)
 collider LtoeStrap radius=188 offset=178,-41,-50
 # sphere RtoeStrap [toestrapR] RECENTREE  12v   le volume de ce lien etait pose sur son joint alors que sa geometrie est a 189 u de la : la TAILLE ne change pas (le rayon de lien livre, resynchronise par le tuning), seul le CENTRE bouge (centroide mesure, espace bind)
