@@ -3345,6 +3345,34 @@
                     (dotimes (it 3)
                       (phys-length-chain skel sc n rlk an nbone)
                       (phys-collide-chain skel sc n rlk nbone nco PHYS-COL-MARGIN 3))
+                    ;; ------------------------------------------------------------------------
+                    ;; LA FERMETURE D'ADMISSIBILITE — ET C'EST ELLE QUI REMPLACE LE RECUL.
+                    ;;
+                    ;; MESURE QUI L'EXIGE, course complete du 2026-08-13 : en retirant le recul,
+                    ;; `meshpen` est passe de 0.0000 a POSITIF sur 19 chaines (anklestrapR 0.7697 m,
+                    ;; goggles 0.6058, rbang 0.5582). Le compteur le dit sans ambiguite —
+                    ;; `PHYSLIM retreat_n` valait 60 444 par course : le recul n'etait pas un
+                    ;; ornement, c'etait LUI qui rendait la frame admissible, et rien ne l'avait
+                    ;; remplace. La regle 6 de l'owner ne se negocie pas (« rien ne traverse le mesh
+                    ;; de son personnage, quelle qu'en soit la raison »), donc il FAUT une
+                    ;; fermeture — mais pas celle-la, qui visait la pose de l'animateur.
+                    ;;
+                    ;; CE QUE FAIT CELLE-CI, ET POURQUOI ELLE NE RAMENE PAS VERS LE DESSIN : que de
+                    ;; la COLLISION, sans contrainte de longueur pour la defaire. Chaque passe
+                    ;; repousse le lien hors des volumes qu'il viole, le long de la normale du
+                    ;; volume, en partant de la position que la physique a produite. Aucune
+                    ;; reference a la pose animee n'entre ici, donc aucune memoire de l'historique
+                    ;; du contact : l'hysteresis que le recul fabriquait ne peut pas renaitre.
+                    ;;
+                    ;; POURQUOI LA LONGUEUR CEDE ET PAS LA PENETRATION. Les deux contraintes
+                    ;; peuvent etre incompatibles (la sphere de rayon `want` autour de l'attache
+                    ;; peut etre entierement dans un volume) ; il faut donc dire laquelle gagne.
+                    ;; L'owner l'a tranche : « une resolution pire que le clip est pire que rien ».
+                    ;; La longueur a deja ete imposee onze fois et son residu est publie
+                    ;; (`ROOM-STRETCH`, plafond 3 %) : le prix de cette fermeture est donc mesure,
+                    ;; chaine par chaine, au lieu d'etre suppose.
+                    (dotimes (it 4)
+                      (phys-collide-chain skel sc n rlk nbone nco PHYS-COL-MARGIN 3))
                     ;; combien de paires (lien, volume) ont bascule d'etat de contrainte depuis la
                     ;; frame precedente : la mesure du defaut « jitter » lui-meme.
                     (phys-flip-count skel sc n rlk nbone nco)
