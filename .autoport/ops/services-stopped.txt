@@ -1,0 +1,9 @@
+immich-extended
+authentik-server
+authentik-worker
+authentik-postgres
+authentik-redis
+immich-server
+immich-machine-learning
+immich-postgres
+immich-redis
