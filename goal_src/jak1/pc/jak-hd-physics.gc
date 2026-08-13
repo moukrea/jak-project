@@ -907,6 +907,12 @@
 ;; combien d'echantillons ont ete VRAIMENT testes : un zero avec un compteur de tests a zero veut
 ;; dire « je n'ai pas regarde », pas « rien ne penetre ». Les deux se distinguent, toujours.
 (define *phys-skintest* 0)
+;; ARMEE PAR LA SALLE SEULE (0 par defaut). 55 ensembles x 12 echantillons par lien et par frame,
+;; c'est le prix d'une mesure, pas d'un rendu : le JEU ne doit pas le payer sur le telephone de
+;; l'owner. Meme forme que `*phys-prio-meas*`, dont l'armement avait deja porte la course de 420 a
+;; 708 s. La phase large (rayon englobant) coupe l'essentiel, mais un cout qu'on ne mesure pas est
+;; un cout qu'on decouvre chez lui.
+(define *phys-skin-meas* 0)
 
 (defconstant PHYS-DG 17)
 (define *phys-dg* (new 'global 'array 'float (* PHYS-SC PHYS-DG)))
@@ -2440,6 +2446,11 @@
   (dotimes (i PHYS-SC) (set! (-> *phys-skinpen* i) 0.0))
   (none))
 
+(defun phys-skin-meas-set! ((v int))
+  "Arme la mesure SPEC 18. La salle l'arme, le jeu ne l'arme jamais."
+  (set! *phys-skin-meas* v)
+  (none))
+
 (defun phys-skintest-count () *phys-skintest*)
 
 (defun phys-link-pen ((skel skeleton) (sc int) (n int) (nbone int) (nco int) (l int) (pt vector)
@@ -2726,10 +2737,11 @@
           ;; SPEC 18, MESURE SEULE — le meme point, mesure contre la PEAU au lieu des volumes.
           ;; Aucune correction n'en decoule : cette passe ne deplace rien, donc cette ligne ne peut
           ;; pas retirer de mouvement. Elle donne l'echelle qui manquait a `meshpen`.
-          (let ((sd (phys-surf-sd skel (/ sc PHYS-CHAINS) pt nbone)))
-            (when (and (< sd 0.0) (> sd -100000.0))
-              (when (> (- 0.0 sd) (-> *phys-skinpen* sc))
-                (set! (-> *phys-skinpen* sc) (- 0.0 sd))))))))
+          (when (nonzero? *phys-skin-meas*)
+            (let ((sd (phys-surf-sd skel (/ sc PHYS-CHAINS) pt nbone)))
+              (when (and (< sd 0.0) (> sd -100000.0))
+                (when (> (- 0.0 sd) (-> *phys-skinpen* sc))
+                  (set! (-> *phys-skinpen* sc) (- 0.0 sd)))))))))
     (set! *phys-buried-tally* 0)
     (set! *phys-cone-off* coneprev)
     ;; la sentinelle est RENDUE TELLE QUELLE : « aucun contact » n'est pas « penetration nulle »,

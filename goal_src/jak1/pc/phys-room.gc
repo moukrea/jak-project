@@ -911,6 +911,7 @@
        (phys-prio-meas-set! 1)
        (phys-limiter-reset!)
        (phys-inversions-reset!)
+       (phys-skin-meas-set! 1)
        (phys-skinpen-reset!)
        (phys-diag-reset!)
        (set! (-> self phase) PHYSROOM-PH-MEAS)
