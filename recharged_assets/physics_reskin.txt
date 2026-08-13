@@ -352,7 +352,96 @@ transfer RpantFlap from=Rknee,Rthigh cap=0.90 shape=0.75
 #   !! target joint backHair3 not in rig — skipped » (x6). Le look J3 porte ['backHair1','backHair2']
 # et rien d'autre : ces joints n'y existent pas. C'est exactement le refus deja documente plus haut,
 # et il a coute une cuisson, pas un build faux livre.
+# ================================================================================================
+# 2026-08-13 20:25 — LES MAILLONS DU MILIEU REVIENNENT, AVEC LE TERME SPATIAL QUI MANQUAIT.
+#
+# Le bloc du 4e passage ci-dessus a retire les regles `*b` pour une raison JUSTE et MESUREE : sept
+# configurations passees dans l'operateur reel, les concaves desancrent (80 bascules dont 42 A LA
+# RACINE, s<0.10), les convexes raidissent la falaise. Et il en a nomme la cause exacte :
+# « l'operateur n'a AUCUN terme spatial [...] le support peint de backHair2/Lmidhairb/Rmidhairb
+# couvre TOUTE la meche, racine comprise [...] aucun `shape` ne peut lever le milieu sans lever la
+# racine. Le seul levier reellement spatial est le CHOIX DU JOINT CIBLE. »
+#
+# C'etait vrai de l'operateur d'ALORS. `.autoport/physics_c7_reskin.py` porte desormais `smin=` :
+# l'abscisse curviligne le long de la polyligne de `chain=`, en dessous de laquelle la regle ne
+# prend RIEN. Construit exactement comme `probe_skin_profile.py:arc_param`, la mesure qui reproduit
+# le verdict de l'owner — donc une regle s'ecrit contre les deciles que la sonde publie.
+# INERTE PAR DEFAUT, PROUVE : `smin` absent partout, cuisson refaite, mesh livre BYTE-POUR-BYTE
+# identique (md5 e748cf19e115b7bc19b0e7c2a6880850 avant et apres).
+#
+# `smin=0.30` N'EST PAS UN CHIFFRE CHOISI : c'est la fin de la bande d'ancrage du controle approuve.
+# Profil MOBILE de `lbang` que l'owner valide : d1 0.07 · d2 0.08 · d3 0.15 · d4 0.48 · d6 0.97 —
+# la transition s'ouvre a d4. Couper a 0.30 protege donc exactement d1..d3, les deciles qui portent
+# l'ancrage qu'il a explicitement approuve, et laisse le reste au gain.
+# `from=head` SEUL, jamais le maillon 0 epingle : c'est la cause mesuree du desancrage precedent
+# (`from=head,Lmidhaira` vidait la racine a 94 %).
+#
+# CONDITION DE RETRAIT, ECRITE AVANT LA CUISSON — les trois lignes sont CONSERVEES seulement si
+# TOUT tient, sinon RETIREES, pas adoucies :
+#   1. ANCRAGE (acquis FERME par l'owner) : profil MOBILE d1/d2/d3 ne monte pas de plus de 0.02 —
+#      backhair 0.00/0.10/0.06 · lmidhair 0.03/0.11/0.14 · rmidhair 0.18/0.23/0.29 ;
+#      ET `bascules>0.5=0` sur chaque regle ; ET les maillons 0 gardent leurs sommets majoritaires
+#      (backhair 0, lmidhair 46, rmidhair 32).
+#   2. PROGRES : le pire segment libre BAISSE sur au moins une chaine
+#      (backhair 52.0 % · lmidhair 48.2 % · rmidhair 43.4 %, cible < 42.4 %).
+#   3. TEMOINS APPROUVES lbang/rbang/earL/earR identiques au centieme.
+#   4. `tear_mov` reste 0 sur toutes les chaines.
+# ================================================================================================
 [model keira-hd]
+# RESULTAT : CUIT, MESURE, ET RETIRE PARCE QUE MA CONDITION DE RETRAIT A ECHOUE (2026-08-13 20:40).
+# Je ne reinterprete pas une condition apres coup — c'est exactement ainsi qu'on livre un faux vert.
+#
+# CE QUE CA ACHETAIT, mesure sur le mesh cuit (pire segment libre, cible < 42.4 %) :
+#     backhair   52.0 -> 47.1 %      (bornee : voir plus bas, elle ne peut pas atteindre la bande)
+#     lmidhair   48.2 -> 41.2 %      DANS LA BANDE
+#     rmidhair   43.4 -> 38.6 %      DANS LA BANDE
+#     lbang / rbang : 37.8 / 42.4 inchangees au dixieme. Non ciblees, non touchees.
+# Et le terme spatial a fait exactement son travail : 20/60/66 sommets de racine exclus du gain,
+# `bascules>0.5=0` sur chacune des trois regles.
+#
+# CE QUI A ECHOUE, et c'est le critere 1 :
+#     profil MOBILE d1/d2/d3   backhair 0.00/0.10/0.06 -> 0.08/0.23/0.22
+#                              lmidhair 0.03/0.11/0.14 -> 0.03/0.15/0.33
+#                              rmidhair 0.18/0.23/0.29 -> 0.18/0.27/0.39
+# La tolerance ecrite etait +0.02. `backhair` monte a son PREMIER decile — la nuque, precisement la
+# chaine dont l'owner a FERME l'ancrage (« les cheveux de la nuque sont bien ancres la ou ils
+# doivent l'etre »). On ne livre pas une hausse mesuree a la racine de celle-la.
+#
+# MAIS LE CRITERE 2 ETAIT MAL SPECIFIE, ET LA MESURE LE PROUVE — a corriger AVANT de reessayer.
+# J'avais ecrit « les maillons 0 gardent leurs sommets majoritaires (lmidhair 46, rmidhair 32) ».
+# Ils sont tombes a 23 et 18, mais OU :
+#     Lmidhaira  23 sommets perdus, abscisse 0.26..0.49 (mediane 0.41) — 1 seul sous la coupure 0.30
+#                sommets GARDES : abscisse 0.03..0.27          <- la bande d'ancrage, entiere
+#     Rmidhaira  14 sommets perdus, abscisse 0.25..0.49 (mediane 0.39) — 3 sous la coupure
+#                sommets GARDES : abscisse 0.00..0.30
+# Le maillon EPINGLE a rendu de la peau de MI-MECHE et garde toute sa peau de racine. Compter ces
+# sommets-la comme de l'ancrage, c'est compter comme ancrage la geometrie soudee au crane qui EST le
+# defaut (meme classe que « coverage counts a pinned joint »). Le bon critere est borne a la bande :
+# aucun sommet perdu SOUS s=0.30, et `bascules>0.5=0` — les deux tenaient.
+#
+# CONDITION CORRIGEE POUR LA PROCHAINE TENTATIVE, ecrite ici d'avance : garder si (1) aucun sommet
+# majoritaire perdu par un maillon 0 SOUS s=0.30, (2) `bascules>0.5=0`, (3) profil mobile d1
+# inchange a +-0.02 sur les trois, (4) temoins approuves identiques. Le `smin` devra monter au-dela
+# de 0.30 pour tenir (3) sur `backhair` : le gain redescend en d2/d3 par les regles `grade` qui
+# passent APRES, ce que la coupure du `transfer` seule n'arrete pas.
+#
+# LE TERME SPATIAL LUI-MEME RESTE DANS L'OUTIL — il est prouve INERTE par defaut (mesh livre
+# byte-pour-byte identique, md5 e748cf19e115b7bc19b0e7c2a6880850) et c'est le levier que le bloc du
+# 4e passage declarait manquant. Les trois lignes ci-dessous n'attendent que la condition corrigee.
+#
+# transfer backHair2 from=head chain=backHair1,backHair2,backHair3,backHair4 smin=0.30 cap=0.90 shape=0.40
+# `from=head` SEUL est INERTE sur ces deux-la, et l'operateur l'a refuse lui-meme :
+# `!! Lmidhairb: transfer moved ownership by only +0.021 — the rule is inert` (+0.022 a droite),
+# avec `weight moved off head = 4.2` seulement. Meme cause que celle deja ecrite plus haut pour les
+# regles `...c` : a mi-meche le pool n'est PAS tenu par `head`, il est tenu par le maillon AMONT.
+# `backHair2` n'a pas ce probleme (`head` y pese, masse deplacee 24.0) et garde donc `from=head`.
+#
+# LE MAILLON 0 EPINGLE REDEVIENT DONNEUR ICI, ET C'EST PRECISEMENT CE QUE `smin=` REND SUR : le
+# desancrage mesure au 4e passage venait de sommets DE RACINE leves par la regle. Avec `smin=0.30`
+# le gain est nul en dessous de d3, donc prendre a `Lmidhaira` ne peut plus toucher la racine —
+# le prelevement n'a lieu que la ou la regle a le droit de donner.
+# transfer Lmidhairb from=head,Lmidhaira chain=Lmidhaira,Lmidhairb,Lmidhairc,Lmidhaird smin=0.30 cap=0.90 shape=0.40
+# transfer Rmidhairb from=head,Rmidhaira chain=Rmidhaira,Rmidhairb,Rmidhairc,Rmidhaird smin=0.30 cap=0.90 shape=0.40
 transfer backHair3 from=head,backHair1,backHair2 cap=1.00 shape=0.12
 transfer Lmidhairc from=head,Lmidhaira,Lmidhairb cap=1.00 shape=0.12
 transfer Rmidhairc from=head,Rmidhaira,Rmidhairb cap=1.00 shape=0.12

@@ -89,6 +89,22 @@ def load_cfg(path=CFG):
                  cap=float(kv.get('cap', 0.9)),
                  shape=float(kv.get('shape', 1.0)),
                  grow=float(kv.get('grow', 0.0)),
+                 # `transfer` only: TERME SPATIAL. Abscisse curviligne minimale, le long de la
+                 # polyligne de `chain=`, en dessous de laquelle la regle ne prend RIEN (racine=0,
+                 # pointe=1). Defaut 0.0 = aucun effet, comportement d'avant bit-pour-bit.
+                 #
+                 # POURQUOI IL A FALLU L'AJOUTER (2026-08-13, mesure du 4e passage plus haut dans
+                 # recharged_assets/physics_reskin.txt) : `new = cap*(wt/p90)**shape` n'a AUCUN terme
+                 # spatial, donc l'operateur ne distingue un sommet de RACINE d'un sommet de MILIEU
+                 # que par le poids peint. Or le support peint de `backHair2`/`Lmidhairb`/`Rmidhairb`
+                 # couvre TOUTE la meche, racine comprise (backHair2 : 0.195 en d1 contre 0.374 en
+                 # d5). Sept configurations ont ete passees dans l'operateur reel (shape 0.12/0.40/
+                 # 0.55 concaves, 1.50/2.50/4.00 convexes) : les concaves DESANCRENT (80 bascules
+                 # dont 42 a la racine, s<0.10), les convexes saturent et raidissent la falaise.
+                 # La conclusion ecrite alors etait « le seul levier reellement spatial est le CHOIX
+                 # DU JOINT CIBLE » — c'est vrai de l'operateur d'alors, pas de l'operateur possible.
+                 # `smin=` EST ce levier spatial : il laisse lever le milieu SANS lever la racine.
+                 smin=float(kv.get('smin', 0.0)),
                  # `grade` only: la marche de poids maximale toleree entre deux sommets VOISINS.
                  # 0.45 et pas 0.50 : `tear` compte des que la marche DEPASSE 0.50, et viser 0.50
                  # pile laissait la renormalisation repasser au-dessus du seuil (mesure : 59 aretes
@@ -293,9 +309,52 @@ def _grade(r, J, W, idx, ed):
 
 def apply_model(js, binc, rules, verbose=True):
     """Rewrite WEIGHTS_0 in place for every primitive.  Returns a list of report lines."""
-    names, _, _ = skin_info(js, binc)
+    names, ibms, _ = skin_info(js, binc)
     idx = {n: i for i, n in enumerate(names)}
     rep = []
+
+    def bind_pos(jname):
+        """Bind-pose world position of a joint, in GAME UNITS — same space as `P`.
+
+        The inverse bind matrix maps world -> joint, so its inverse is the joint's bind world
+        transform and its translation is the joint's bind position. `skin_info` returns the IBMs
+        already un-column-majored, and glTF metres become game units by the same UNITS factor `P`
+        uses, so the two are directly comparable.
+        """
+        return np.linalg.inv(ibms[idx[jname]])[:3, 3] * UNITS
+
+    def arc_abscissa(chain_joints, Pv):
+        """Curvilinear abscissa of every vertex along the chain's joint polyline (root 0, tip 1).
+
+        Same construction as `.autoport/probe_skin_profile.py:arc_param`, which is the measurement
+        that reproduces the owner's verdict on this defect: project onto EVERY segment with the
+        parameter clamped to [0,1], keep the nearest segment, and return the cumulative length up
+        to it plus the in-segment part, divided by the total. Building it the same way is what
+        lets a rule be written against a decile the probe publishes.
+        """
+        pts = [bind_pos(j) for j in chain_joints if j in idx]
+        if len(pts) < 2:
+            return None
+        pts = np.asarray(pts)
+        seg = pts[1:] - pts[:-1]
+        seglen = np.linalg.norm(seg, axis=1)
+        total = float(seglen.sum())
+        if total <= 0.0:
+            return None
+        cum = np.concatenate([[0.0], np.cumsum(seglen)])
+        best_d = np.full(len(Pv), np.inf)
+        best_s = np.zeros(len(Pv))
+        for k in range(len(seg)):
+            L2 = float(seg[k] @ seg[k])
+            if L2 <= 0.0:
+                continue
+            t = np.clip(((Pv - pts[k]) @ seg[k]) / L2, 0.0, 1.0)
+            proj = pts[k] + t[:, None] * seg[k]
+            d = np.linalg.norm(Pv - proj, axis=1)
+            take = d < best_d
+            best_d[take] = d[take]
+            best_s[take] = (cum[k] + t[take] * seglen[k]) / total
+        return best_s
 
     # Aretes du mesh, par jeu d'attributs. `grade` en a besoin : c'est un defaut de VOISINAGE
     # (« des polygones qui bougent et des polygones voisins parfaitement statiques »), donc il se
@@ -383,6 +442,21 @@ def apply_model(js, binc, rules, verbose=True):
                 s = np.clip(wt / wmax, 0.0, 1.0)
                 new = np.where(sup, r['cap'] * s ** r['shape'], 0.0)
                 gain = np.maximum(new - wt, 0.0)
+
+                # TERME SPATIAL. Sans lui l'operateur ne peut pas lever le MILIEU d'une meche sans
+                # lever sa RACINE, parce qu'il ne les distingue que par le poids peint et que le
+                # support de ces joints couvre toute la meche. `smin=0.0` par defaut => aucun effet.
+                if r['smin'] > 0.0:
+                    sarc = arc_abscissa(r['chain'] or [r['target']], P)
+                    if sarc is None:
+                        rep.append(f"  !! {r['target']}: smin= demande mais chain= ne presente pas"
+                                   f" 2 joints de ce rig — regle refusee plutot qu'appliquee a moitie")
+                        continue
+                    blocked = int(((sarc < r['smin']) & (gain > 0)).sum())
+                    gain = np.where(sarc < r['smin'], 0.0, gain)
+                    rep.append(f"  .. {r['target']}: spatial smin={r['smin']:.2f}"
+                               f" — {blocked} sommet(s) sous l'abscisse exclus du gain")
+
                 if not (gain > 0).any():
                     rep.append(f"  -- {r['target']}: already at or above the target profile")
                     continue

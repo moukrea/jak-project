@@ -199,6 +199,72 @@ pas un build faux chez l'owner. A retenir : ce refus fait `rm -rf out/jak1/fr3/e
 repertoire se sauvegarde AVANT chaque cuisson de reskin (c'est ce qui m'a permis de repartir).
 
 =================================================================================================
+3 bis. LE TERME SPATIAL QUI MANQUAIT A L'OUTIL — AJOUTE, PROUVE INERTE, ESSAYE, ET RETIRE
+=================================================================================================
+
+Pour aller plus loin que le §1 bis il faut lever le MILIEU des meches. Le bloc du 4e passage de
+`physics_reskin.txt` l'avait deja essaye et retire, pour une raison juste et mesuree — sept
+configurations passees dans l'operateur reel (shape 0.12/0.40/0.55 concaves, 1.50/2.50/4.00
+convexes) : les concaves DESANCRENT (80 bascules dont 42 A LA RACINE, s<0.10), les convexes
+raidissent la falaise. Et il en nommait la cause exacte : « l'operateur n'a AUCUN terme spatial
+[...] aucun `shape` ne peut lever le milieu sans lever la racine ».
+
+C'etait vrai de l'operateur d'ALORS. J'ai ajoute `smin=` a `.autoport/physics_c7_reskin.py` :
+l'abscisse curviligne le long de la polyligne de `chain=` en dessous de laquelle la regle ne prend
+RIEN, construite exactement comme `probe_skin_profile.py:arc_param` — la mesure qui reproduit le
+verdict de l'owner — pour qu'une regle s'ecrive contre les deciles que la sonde publie.
+
+INERTE PAR DEFAUT, PROUVE ET PAS AFFIRME : `smin` absent partout, cuisson refaite, mesh livre
+BYTE-POUR-BYTE identique (md5 `e748cf19e115b7bc19b0e7c2a6880850`).
+
+CE QUE LES TROIS REGLES DE MILIEU ACHETAIENT, CUITES ET MESUREES :
+
+    pire segment libre     avant    apres      cible < 42.4 % (controle, meme course)
+    backhair               52.0 %   47.1 %
+    lmidhair               48.2 %   41.2 %     DANS LA BANDE
+    rmidhair               43.4 %   38.6 %     DANS LA BANDE
+    lbang / rbang          37.8 / 42.4         inchangees au dixieme
+
+Et le terme spatial faisait son travail : 20/60/66 sommets de racine exclus du gain,
+`bascules>0.5=0` sur chacune des trois regles.
+
+JE LES AI RETIREES QUAND MEME, PARCE QUE MA CONDITION DE RETRAIT — ECRITE AVANT LA CUISSON — A
+ECHOUE. Le critere 1 exigeait que le profil MOBILE d1/d2/d3 ne monte pas de plus de 0.02 :
+
+    backhair  0.00/0.10/0.06 -> 0.08/0.23/0.22
+    lmidhair  0.03/0.11/0.14 -> 0.03/0.15/0.33
+    rmidhair  0.18/0.23/0.29 -> 0.18/0.27/0.39
+
+`backhair` monte a son PREMIER decile, et la nuque est precisement la chaine dont l'owner a FERME
+l'ancrage (« les cheveux de la nuque sont bien ancres la ou ils doivent l'etre »). Je ne livre pas
+une hausse mesuree a la racine de celle-la sur la foi d'une reinterpretation d'apres-coup : c'est
+exactement ainsi qu'on livre un faux vert. Retrait verifie, pas affirme — apres re-cuisson le mesh
+est byte-pour-byte identique a l'etat d'avant l'essai (meme md5).
+
+CE QUE J'AI APPRIS AU PASSAGE, ET QUI EST UNE CORRECTION DE MA PROPRE MESURE : mon critere 2
+(« les maillons 0 gardent leurs sommets majoritaires ») etait MAL SPECIFIE, et la mesure le prouve.
+`Lmidhaira` est tombe de 46 a 23 sommets — mais les 23 perdus sont a l'abscisse 0.26..0.49 (mediane
+0.41), UN SEUL sous la coupure de 0.30, et les sommets GARDES couvrent 0.03..0.27, c'est-a-dire la
+bande d'ancrage entiere. Le maillon EPINGLE a rendu de la peau de MI-MECHE et garde toute sa peau
+de racine. Compter ces sommets-la comme de l'ancrage, c'est compter comme ancrage la geometrie
+soudee au crane qui EST le defaut — meme classe que « une mesure qui compte un immobile comme
+moteur ». La condition corrigee est ecrite d'avance dans le fichier pour la prochaine tentative :
+aucun sommet majoritaire perdu par un maillon 0 SOUS s=0.30, `bascules>0.5=0`, d1 inchange a +-0.02,
+temoins identiques — et `smin` devra monter au-dela de 0.30, parce que le gain redescend en d2/d3
+par les regles `grade` qui passent APRES, ce que la coupure du `transfer` seule n'arrete pas.
+
+L'outil garde `smin=` (inert par defaut) et les trois lignes restent dans le fichier, commentees,
+avec leur mesure. Ce n'est pas un abandon : c'est un essai date, chiffre, et une condition corrigee.
+
+BORNE DURE SUR `backhair`, ET ELLE FERME UNE DIRECTION : meme en poussant `backHair2` a son plafond
+absolu, la chaine ne peut PAS entrer dans la bande. Son support peint est de 21 sommets (contre 157
+sur l'equivalent de `lbang`), et l'invariant d'ancrage de `grade` plafonne a 0.50 tout sommet qui
+n'etait pas deja majoritaire : plafond 8.0 %, ce qui laisse le plus lourd a 49.9 %. Le repesage ne
+peut pas y arriver ; il y faudrait un joint de plus (interdit, `PHYS-LINKS 4` et la chaine y est
+deja) ou un repeinturage du donneur. `lmidhair` et `rmidhair`, elles, sont atteignables — c'est
+mesure ci-dessus, il ne manque que la condition d'ancrage correcte.
+
+=================================================================================================
 4. DEUX CIBLES DES DIRECTIVES QUE JE DOIS RETIRER, AVEC LA PREUVE
 =================================================================================================
 
