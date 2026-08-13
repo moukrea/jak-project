@@ -283,17 +283,39 @@
 (define *phys-lcy* (new 'global 'array 'float PHYS-SCL))
 (define *phys-lcz* (new 'global 'array 'float PHYS-SCL))
 
-;; ETAT SIMULE — l'ecart a la pose d'auteur, dans le repere de l'ancre (verlet : courant + precedent)
+;; L'ECART A LA POSE D'AUTEUR, DANS LE REPERE DE L'ANCRE. Ce fut l'etat INTEGRE du solveur, et
+;; c'est le modele que l'owner a rejete le 2026-08-13 a 22:40 (« on integre un ECART, pas un
+;; cheveu »). Il n'est plus integre : il est DERIVE de la position monde a la section 4, et il ne
+;; sert plus qu'a la mesure — toute l'instrumentation de la salle est definie sur lui, et le
+;; contrat interdit de changer l'instrument en meme temps que ce qu'il mesure.
 (define *phys-ox*  (new 'global 'array 'float PHYS-SCL))
 (define *phys-oy*  (new 'global 'array 'float PHYS-SCL))
 (define *phys-oz*  (new 'global 'array 'float PHYS-SCL))
 (define *phys-o1x* (new 'global 'array 'float PHYS-SCL))
 (define *phys-o1y* (new 'global 'array 'float PHYS-SCL))
 (define *phys-o1z* (new 'global 'array 'float PHYS-SCL))
-;; position MONDE commitee (ardoise de travail des contraintes : longueur d'os, colliders)
+;; ETAT SIMULE — LA POSITION MONDE DE LA PARTICULE. C'est desormais le SEUL etat integre, et il n'y
+;; en a pas d'autre : `p` (courant) et `q` (frame precedente), soit un verlet en position. Toute la
+;; physique en decoule — la vitesse implicite `p - q` EST l'inertie, donc la masse ; la gravite s'y
+;; ajoute comme une vraie acceleration monde ; la contrainte de distance et les collisions la
+;; projettent. La pose au repos n'est plus imposee, elle EMERGE de cet equilibre.
 (define *phys-px*  (new 'global 'array 'float PHYS-SCL))
 (define *phys-py*  (new 'global 'array 'float PHYS-SCL))
 (define *phys-pz*  (new 'global 'array 'float PHYS-SCL))
+(define *phys-qx*  (new 'global 'array 'float PHYS-SCL))
+(define *phys-qy*  (new 'global 'array 'float PHYS-SCL))
+(define *phys-qz*  (new 'global 'array 'float PHYS-SCL))
+;; LA DIRECTION DE REPOS DU MATERIAU, dans le repere de l'ancre, relevee UNE FOIS et constante
+;; ensuite. Elle ne concerne QUE la chair de famille A a un seul maillon libre (oreilles, poitrine) :
+;; un sein n'est pas une corde, c'est une masse sur un tissu elastique, et l'owner a fixe lui-meme sa
+;; reference (« le point de reference c'est quand elle est debout, car c'est comme ca que le modele
+;; est fait, MAIS ils suivent la gravite », SPEC 1bis). Les CHEVEUX n'en ont pas : ils pendent.
+;; Elle est PRE-COMPENSEE de la fleche gravitaire a la capture, de sorte que debout l'equilibre
+;; retombe exactement sur la pose du modele (SPEC 4) et que s'incliner la deplace pour de bon.
+(define *phys-ux*   (new 'global 'array 'float PHYS-SCL))
+(define *phys-uy*   (new 'global 'array 'float PHYS-SCL))
+(define *phys-uz*   (new 'global 'array 'float PHYS-SCL))
+(define *phys-ucap* (new 'global 'array 'int32 PHYS-SCL))   ;; 1 = direction de repos relevee
 ;; historique MONDE de la pose d'auteur, par lien : sa difference seconde est l'acceleration du
 ;; repere que la chaine subit. C'est la seule chose qui EXCITE une chaine dont l'ecart cible est nul.
 (define *phys-t1x* (new 'global 'array 'float PHYS-SCL))
@@ -986,7 +1008,12 @@
                     (set! (-> *phys-anchor* sc) -1)
                     (set! (-> *phys-warm* sc) 0)
                     (set! (-> *phys-thas* sc) 0)
-                    (set! (-> *phys-rhas* sc) 0)))
+                    (set! (-> *phys-rhas* sc) 0)
+                    ;; la direction de repos du materiau se releve a la premiere frame utile, sur la
+                    ;; pose retargetee : un slot reutilise doit la redemander, sinon la chaine
+                    ;; heriterait du repos d'un autre acteur.
+                    (dotimes (l PHYS-LINKS)
+                      (set! (-> *phys-ucap* (+ (* sc PHYS-LINKS) l)) 0))))
                 ;; --- 1. les joints portent les chaines : on lit le rig, pas une liste en dur ---
                 (dotimes (k njoint)
                   (let* ((jn   (-> obj draw jgeo data k name))
@@ -2748,370 +2775,23 @@
     ;; et c'est l'appelant qui compte les deux separement. Confondre les deux, c'est annoncer un
     ;; zero mesure la ou rien n'a ete mesure.
     worst))
-
 ;; ------------------------------------------------------------------------------------------------
-;; CONTRAINTE 3 — LA POSE DU MODELE, DERNIER RECOURS (SPEC : « ce qui limite une chaine est soit la
-;; longueur d'un os, soit un collider, soit LA POSE DU MODELE »).
+;; `phys-retreat-chain` A ETE RETIREE ICI LE 2026-08-13 (directive owner de 22:40).
 ;;
-;; La projection de Gauss-Seidel peut tourner en rond : sortir d'un volume fait rentrer dans le
-;; voisin (crane/oreille, hanche/cuisse), et il reste alors un residu — mesure du 2026-08-11 :
-;; 0.0270 m sur les lunettes, 0.0839 m sur une sangle, apres 36 balayages. Un residu, c'est du mesh
-;; traverse, et la regle 6 de l'owner ne s'en accommode pas.
+;; Elle cherchait par dichotomie un point admissible SUR LE CHEMIN QUI VA VERS LA POSE DU MODELE :
+;; chaque contact ramenait le maillon vers le dessin de l'animateur, d'autant plus fort que le
+;; contact etait profond, et le resultat dependait donc de l'HISTORIQUE des contacts. C'est
+;; l'hysteresis que l'owner signale sur TOUS les cheveux (21:30), et c'est un morceau du modele
+;; d'ecart : dans une simulation de particules il n'existe aucune raison de revenir vers un dessin.
 ;;
-;; Or il existe TOUJOURS un point admissible : la pose du modele elle-meme, ou la profondeur EST le
-;; plancher pour chaque volume (meme calcul, memes entrees, donc egalite exacte). Le lien recule
-;; donc vers sa pose de modele jusqu'a redevenir admissible — recherche par dichotomie, 12 pas, qui
-;; aboutit par construction. Ce que ce recul retire de mouvement est compte et publie ; il ne se
-;; declenche que quand la projection a echoue.
+;; Le meme mecanisme, arrive a son terme, est visible dans l'historique de la branche parkee :
+;; `d436c4488a` corrige en toutes lettres « the clamp was writing the ANIMATOR's pose onto every
+;; chain that penetrated ».
 ;;
-;; IL RECULE SUR LA SPHERE, PAS EN LIGNE DROITE. Owner, 5e passe : « les changements brusques de
-;; direction causent un truc chelou au niveau des seins, ils s'allongent, c'est un peu debile. »
-;; Reculer en ligne droite vers la pose du modele traverse l'interieur de la sphere : la distance a
-;; l'attache diminue, donc l'os RACCOURCIT — et c'est le dernier geste de la frame, donc c'est
-;; exactement ce que l'owner voit. Mesure du 2026-08-11 : avec le recul rectiligne, l'allongement
-;; relatif atteint 7,5 % sur chestL et 83 % sur botstrapL. La pose du modele est SUR la sphere par
-;; construction (|T_lien - T_attache| = want), donc tout le chemin peut y rester : on interpole la
-;; DIRECTION puis on la renormalise a `want`. Meme dichotomie, meme point d'arrivee, longueur
-;; invariante d'un bout a l'autre.
+;; CE QUI TIENT LA REGLE 6 A SA PLACE : la frame se termine desormais sur une COLLISION (projection
+;; dure hors des volumes), pas sur un recul. Les compteurs `*phys-retreat-*` restent definis et
+;; restent a zero — un limiteur retire se chiffre, il ne se tait pas.
 ;; ------------------------------------------------------------------------------------------------
-(defun phys-retreat-chain ((skel skeleton) (sc int) (n int) (rlk int) (nbone int) (nco int))
-  (let ((pt (new 'stack-no-clear 'vector))
-        (bs (new 'stack-no-clear 'vector)))
-    (dotimes (l n)
-      (when (>= l rlk)
-        (let* ((scl (+ (* sc PHYS-LINKS) l))
-               (kk  (-> *phys-joint* scl))
-               (kp  (if (> l 0) (-> *phys-joint* (- scl 1)) (-> *phys-anchor* sc))))
-          (when (and (>= kk 0) (< (+ kk 1) nbone))
-            (set! (-> pt x) (-> *phys-px* scl))
-            (set! (-> pt y) (-> *phys-py* scl))
-            (set! (-> pt z) (-> *phys-pz* scl))
-            (set! (-> pt w) 1.0)
-            (when (> (phys-link-pen skel sc n nbone nco l pt 1) 0.0)
-              (let* ((tx (-> skel bones (+ kk 1) transform vector 3 x))
-                     (ty (-> skel bones (+ kk 1) transform vector 3 y))
-                     (tz (-> skel bones (+ kk 1) transform vector 3 z))
-                     ;; l'attache et le rayon de la sphere sur laquelle ce lien vit
-                     (ok? (and (>= kp 0) (< (+ kp 1) nbone)))
-                     (bx (if (not ok?) 0.0
-                           (if (> l 0) (-> *phys-px* (- scl 1))
-                             (-> skel bones (+ kp 1) transform vector 3 x))))
-                     (by (if (not ok?) 0.0
-                           (if (> l 0) (-> *phys-py* (- scl 1))
-                             (-> skel bones (+ kp 1) transform vector 3 y))))
-                     (bz (if (not ok?) 0.0
-                           (if (> l 0) (-> *phys-pz* (- scl 1))
-                             (-> skel bones (+ kp 1) transform vector 3 z))))
-                     (wx (- tx bx)) (wy (- ty by)) (wz (- tz bz))
-                     (want (sqrtf (+ (* wx wx) (+ (* wy wy) (* wz wz)))))
-                     ;; la direction et la longueur que LE MODELE donne a cet os. Elles ne valent
-                     ;; `w`/`want` ci-dessus que si l'attache n'a pas bouge.
-                     (mx (if ok? (- tx (-> skel bones (+ kp 1) transform vector 3 x)) 0.0))
-                     (my (if ok? (- ty (-> skel bones (+ kp 1) transform vector 3 y)) 0.0))
-                     (mz (if ok? (- tz (-> skel bones (+ kp 1) transform vector 3 z)) 0.0))
-                     (ml (sqrtf (+ (* mx mx) (+ (* my my) (* mz mz)))))
-                     ;; la sphere n'existe que si l'os existe ; sinon on recule en ligne droite,
-                     ;; comme avant, et c'est publie par le meme compteur.
-                     (sphere? (and ok? (> want 0.01)))
-                     (ux (- (-> pt x) bx)) (uy (- (-> pt y) by)) (uz (- (-> pt z) bz))
-                     (dx (- (-> pt x) tx))
-                     (dy (- (-> pt y) ty))
-                     (dz (- (-> pt z) tz))
-                     (lo 0.0)     ;; le point de depart, TESTE et non plus suppose (it = 0)
-                     (hi 1.0)     ;; inadmissible, on vient de le mesurer
-                     ;; LA MEILLEURE PENETRATION RENCONTREE SUR LE CHEMIN. > 0 = aucun point
-                     ;; admissible n'existe, pas meme la pose du modele.
-                     (bestp 1000000000.0))
-                ;; LA SPHERE DU RECUL DOIT ETRE CELLE DE LA CONTRAINTE DE LONGUEUR. Elle ne l'etait
-                ;; pas : le recul se normalisait sur |auteur(kk) - attache COURANTE|, qui n'est pas
-                ;; la longueur du modele des que l'attache a bouge — donc le lien revenait sur une
-                ;; AUTRE sphere et la longueur cedait sur les liens profonds. La mesure le disait
-                ;; sans ambiguite : les deux SEULES chaines a trois maillons du fichier, lbang
-                ;; (0.1346) et rbang (0.2756), etaient les deux SEULES a s'allonger ; les onze
-                ;; chaines a deux maillons, dont le lien libre a une attache immobile, mesuraient
-                ;; toutes 0.0000.
-                ;; Le point de depart de la recherche (lo = 0) doit rester ADMISSIBLE : c'est
-                ;; l'invariant qui garantit « rien ne traverse » (regle 6, non negociable). Sur la
-                ;; sphere du modele il ne l'est plus par construction, donc on le TESTE, et on
-                ;; retombe sur l'ancienne base — la pose d'auteur exacte — quand il ne l'est pas.
-                ;; Ce repli est compte, pas taire.
-                (when (and sphere? (> ml 0.01) (> (fabs (- ml want)) 0.01))
-                  ;; le point lo = 0 sur la sphere du modele : l'attache courante plus le vecteur
-                  ;; d'os du modele (de longueur ml, donc deja sur la sphere).
-                  (set! (-> bs x) (+ bx mx))
-                  (set! (-> bs y) (+ by my))
-                  (set! (-> bs z) (+ bz mz))
-                  (set! (-> bs w) 1.0)
-                  ;; LA LONGUEUR DE L'OS EST INVARIANTE, ET QUAND LE POINT DE DEPART DU MODELE
-                  ;; PENETRE ON CHERCHE AILLEURS SUR LA MEME SPHERE — AU LIEU D'ARBITRER ENTRE DEUX
-                  ;; REGLES DURES.
-                  ;;
-                  ;; L'HISTORIQUE EN DEUX CHIFFRES, tous deux mesures le 2026-08-12 sur une course
-                  ;; complete (le detail est au rapport du cycle 21, section 2) :
-                  ;;   * CEDER la sphere du modele (le repli d'origine) rend la longueur variable :
-                  ;;     `ROOM-STRETCH` 0.0272 -> 0.4896, soit 49 % d'allongement sur `lbang`, SEIZE
-                  ;;     fois le plafond de 3 % ;
-                  ;;   * la GARDER en se posant sur le moins mauvais point de l'ARC fait traverser :
-                  ;;     STRETCH 0.0003 mais `meshpen` 0.0000 -> 0.0976 et `ROOM-SIDE` 0 -> 260.
-                  ;; Les deux regles sont dures. L'arbitrage entre elles etait donc le probleme, pas
-                  ;; la reponse — et c'est aussi ce qui tient `*phys-jacobi-off*` desarme.
-                  ;;
-                  ;; CE QUE L'ARC NE POUVAIT PAS VOIR : il n'explore que les directions ENTRE la pose
-                  ;; du modele et la position courante. Si ses DEUX bouts penetrent, tout l'arc peut
-                  ;; penetrer pendant qu'une autre direction de la MEME sphere est libre — et toute
-                  ;; direction de cette sphere respecte la longueur d'os au bit pres. On balaye donc
-                  ;; la sphere par ouverture croissante depuis la direction du modele (7 ouvertures x
-                  ;; 8 azimuts, PREMIER admissible retenu, donc le plus proche de la pose d'auteur),
-                  ;; et le point trouve devient le `lo` de la dichotomie : l'invariant « lo est
-                  ;; admissible » est RESTAURE au lieu d'etre suppose, et l'arc reprend son travail a
-                  ;; partir de la.
-                  ;; L'ordre du balayage ne depend QUE de la pose du modele et des obstacles, jamais
-                  ;; de l'etat simule : a configuration d'obstacles inchangee il rend la MEME
-                  ;; direction a chaque frame. C'est precisement ce qui manquait a l'essai « moins
-                  ;; mauvais point du chemin », qui dependait de la position courante et laissait
-                  ;; donc la chaine ailleurs a chaque frame (mesure : 1 ligne a penetration positive
-                  ;; -> 8 sur 3410).
-                  ;; Quand la sphere entiere est fermee, on retombe sur le repli d'origine, compte
-                  ;; par `*phys-retfb-n*` : la regle 6 passe devant la longueur, jamais l'inverse.
-                  (cond
-                    ((> (phys-link-pen skel sc n nbone nco l bs 1) 0.0)
-                     (let ((fnd 0) (fx 0.0) (fy 0.0) (fz 0.0)
-                           (e1x 0.0) (e1y 0.0) (e1z 0.0)
-                           (e2x 0.0) (e2y 0.0) (e2z 0.0))
-                       ;; base orthonormee du plan perpendiculaire a la direction du modele
-                       (cond
-                         ((and (<= (fabs mx) (fabs my)) (<= (fabs mx) (fabs mz)))
-                          (set! e1y mz) (set! e1z (- 0.0 my)))
-                         ((<= (fabs my) (fabs mz))
-                          (set! e1x (- 0.0 mz)) (set! e1z mx))
-                         (else
-                          (set! e1x my) (set! e1y (- 0.0 mx))))
-                       (let ((el (sqrtf (+ (* e1x e1x) (+ (* e1y e1y) (* e1z e1z))))))
-                         (when (> el 0.0001)
-                           (set! e1x (/ e1x el)) (set! e1y (/ e1y el)) (set! e1z (/ e1z el))
-                           (set! e2x (/ (- (* my e1z) (* mz e1y)) ml))
-                           (set! e2y (/ (- (* mz e1x) (* mx e1z)) ml))
-                           (set! e2z (/ (- (* mx e1y) (* my e1x)) ml))))
-                       ;; io = ouverture (a = 4,3,2,1,0,-1,-2 fois la direction du modele, soit
-                       ;; 14, 18, 27, 45, 90, 135, 153 degres) ; ia = azimut (les 8 combinaisons de
-                       ;; (-1,0,1) sur la base, sauf (0,0) qui est la direction du modele elle-meme).
-                       (dotimes (io 7)
-                         (when (zero? fnd)
-                           (dotimes (ia 9)
-                             (when (and (zero? fnd) (!= ia 4))
-                               (let* ((ac (/ (- 4.0 (the float io)) ml))
-                                      (p1 (- (the float (/ ia 3)) 1.0))
-                                      (p2 (- (the float (mod ia 3)) 1.0))
-                                      (vx (+ (* ac mx) (+ (* p1 e1x) (* p2 e2x))))
-                                      (vy (+ (* ac my) (+ (* p1 e1y) (* p2 e2y))))
-                                      (vz (+ (* ac mz) (+ (* p1 e1z) (* p2 e2z))))
-                                      (vl (sqrtf (+ (* vx vx) (+ (* vy vy) (* vz vz))))))
-                                 (when (> vl 0.0001)
-                                   (let ((s (/ ml vl)))
-                                     (set! (-> bs x) (+ bx (* vx s)))
-                                     (set! (-> bs y) (+ by (* vy s)))
-                                     (set! (-> bs z) (+ bz (* vz s)))
-                                     (set! (-> bs w) 1.0)
-                                     (when (<= (phys-link-pen skel sc n nbone nco l bs 1) 0.0)
-                                       (set! fnd 1)
-                                       (set! fx (* vx s)) (set! fy (* vy s))
-                                       (set! fz (* vz s))))))))))
-                       (cond
-                         ((nonzero? fnd)
-                          (set! *phys-sphere-n* (+ *phys-sphere-n* 1))
-                          (set! wx fx) (set! wy fy) (set! wz fz) (set! want ml))
-                         (else
-                          (set! *phys-retfb-n* (+ *phys-retfb-n* 1))
-                          ;; LE REPLI ABANDONNAIT LA LONGUEUR D'OS, ET C'EST LUI QUI ECRIVAIT EN
-                          ;; DERNIER. `want` vaut ici |auteur(kk) - attache SIMULEE| (2616), pas la
-                          ;; longueur du modele `ml` (2622) : les deux ne coincident que si l'attache
-                          ;; n'a pas bouge, et ce bloc ne tourne QUE quand elle a bouge (garde 2648).
-                          ;; Les deux branches soeurs remettent `want` a `ml` (2732, 2736) ; celle-ci
-                          ;; ne le faisait pas, donc l'ecriture finale de la frame (2828-2837) posait
-                          ;; le lien sur une sphere de rayon |auteur - attache| et l'os s'allongeait
-                          ;; d'exactement |want/ml - 1|.
-                          ;;
-                          ;; CE QUE CA MESURAIT, ET LA DATE LE PROUVE : `ROOM-STRETCH` valait 0.0003
-                          ;; (botstrapR) sur toutes les courses jusqu'a `keira-room-table.PRE-INJECT`,
-                          ;; et 1.3000 sur `lmidhair` des la course SUIVANTE. L'injection de joints du
-                          ;; 2026-08-13 a donne a `lmidhair`/`rmidhair` un TROISIEME maillon, donc un
-                          ;; lien `l >= 2` dont l'attache est elle-meme SIMULEE — le seul cas ou ce
-                          ;; repli peut tirer (pour `l = rlk`, `b_sim` EST la pose animee du parent,
-                          ;; donc `want == ml` et la garde 2648 est fausse). Avant l'injection ces deux
-                          ;; chaines n'avaient que deux maillons : le chemin etait inatteignable, et
-                          ;; leur allongement valait exactement 0.0000 sur les cinq pilotages.
-                          ;;
-                          ;; L'ALLONGEMENT EST DONC IMPUTE A CE CHEMIN, PAR CHAINE, et c'est tout ce
-                          ;; que cette ligne fait : elle ne corrige rien, elle ATTRIBUE. `elong`
-                          ;; (PHYSDIAG2) disait qu'une chaine s'allonge sans dire OU ; ce compteur dit
-                          ;; que c'est ici, et de combien. Mesure du 2026-08-13 : `retfblen` vaut
-                          ;; 1.3163 sur `lmidhair` et 1.2856 sur `rmidhair` — soit exactement les
-                          ;; `elong` publies par la meme course, au dix-millieme. L'attribution est
-                          ;; donc complete : ce repli n'est pas UNE source de l'allongement, c'est LA
-                          ;; source, et les 20 autres chaines ne l'empruntent jamais (0.0000).
-                          ;; NATURE : rapport sans dimension |want/ml - 1|, un MAXIMUM sur la fenetre.
-                          ;; REPERE : aucun, une longueur sur une longueur, meme attache. ABSENT : 0,
-                          ;; et le repli n'a alors jamais tire sur cette chaine.
-                          (let ((er (fabs (- (/ want ml) 1.0))))
-                            (when (> er (-> *phys-dg* (+ (* sc PHYS-DG) 16)))
-                              (set! (-> *phys-dg* (+ (* sc PHYS-DG) 16)) er)))
-                          ;; DEUX CORRECTIFS ONT ETE ESSAYES ICI LE 2026-08-13, ET LA MESURE LES A
-                          ;; REFUSES TOUS LES DEUX. Ils sont ecrits pour que le prochain cycle ne les
-                          ;; retente pas : le chemin ne se corrige PAS depuis cette branche.
-                          ;;
-                          ;;   etat d'origine (celui-ci)      STRETCH 1.3088   meshpen 1.7e-06   SIDE 0
-                          ;;   v1 rendre la LONGUEUR seule    STRETCH 0.0003   meshpen 0.2238    SIDE 1056
-                          ;;   v2 se replier sur la POSE      STRETCH 0.0003   meshpen 0.2726    SIDE 1089
-                          ;;
-                          ;; Les deux corrigent l'allongement et le PAIENT en penetration : 22 puis
-                          ;; 27 cm dans la tete, les oreilles et les meches voisines, sur les deux
-                          ;; memes chaines. C'est la regle 6 de l'owner, non negociable — « rien ne
-                          ;; traverse le mesh de son personnage, quelle qu'en soit la raison », et
-                          ;; « une resolution pire que le clip est pire que rien ». Retires, pas
-                          ;; adoucis.
-                          ;;
-                          ;; POURQUOI LA POSE DU MODELE NE SAUVE PAS, alors que l'invariant dit
-                          ;; qu'elle est admissible « par construction ». L'invariant ne couvre que
-                          ;; `rest` — la POSITION D'AUTEUR DU JOINT — et il tient bien : dans
-                          ;; `phys-link-pen`, `floor0 = max(floorc, floors)` avec `floorc` = la
-                          ;; profondeur de `rest` contre le volume A SA POSITION COURANTE, donc
-                          ;; `dep(rest) = floorc <= floor0 <= feff`. (L'ecart `floor0`/`dep` sur un
-                          ;; obstacle mobile est DEJA corrige par ce max : ne pas le rouvrir.)
-                          ;;
-                          ;; Mais le point que ce repli appelle « la pose du modele » N'EST PAS
-                          ;; `rest` : c'est `b_sim + m`, la DIRECTION d'os de l'auteur accrochee a
-                          ;; l'attache SIMULEE. Les deux ne coincident que si l'attache n'a pas
-                          ;; bouge — et la garde de ce bloc exige justement qu'elle ait bouge. Dans
-                          ;; 100 % des cas ou ce chemin s'execute, le point teste n'est donc PAS
-                          ;; celui que l'invariant protege. C'est pourquoi s'y replier (v2) a fait
-                          ;; MONTER la penetration au lieu de la faire tomber.
-                          ;;
-                          ;; LE CONFLIT EST CREE EN AMONT, PAR LA DERIVE DU PARENT. Quand le maillon
-                          ;; precedent s'eloigne de sa pose d'auteur, la sphere de rayon `ml` autour
-                          ;; de lui peut ne contenir AUCUN point admissible — le balayage 7x9 le
-                          ;; constate, c'est ce qui nous amene ici. La pointe de `lmidhair`/`rmidhair`
-                          ;; est en plus enfermee par des volumes portes par D'AUTRES CHAINES
-                          ;; SIMULEES (`lEarb->lEara` 74 contacts, `Lbangc->Lbangb` 46,
-                          ;; `Lbangd->Lbangc` 44, ROOM-CONTACT-VOL) et porte le plus gros volume de
-                          ;; pointe du jeu de cheveux (363/384 u pour un os de 938/958 u).
-                          ;; Aucune regle LOCALE a ce maillon ne peut donc tenir la longueur ET la
-                          ;; regle 6 : le correctif est chez le PARENT (borner sa derive quand elle
-                          ;; rend son enfant improplacable) ou dans une resolution CONJOINTE des deux
-                          ;; maillons. Tant que ce n'est pas fait, l'allongement est le MOINS mauvais
-                          ;; des trois etats mesures : il ne fait traverser personne.
-                          ))))
-                    (else
-                     (set! wx mx) (set! wy my) (set! wz mz) (set! want ml))))
-                ;; ------------------------------------------------------------------------
-                ;; `lo = 0` (LA POSE DU MODELE) N'EST PLUS SUPPOSE ADMISSIBLE : IL EST TESTE.
-                ;;
-                ;; L'invariant « la pose du modele est toujours admissible » repose sur
-                ;; `dep(pose du modele) == floor0`. Il a cesse d'etre vrai le jour ou `floor0` a ete
-                ;; mesure contre l'INSTANTANE d'auteur du volume pendant que `dep` l'est contre sa
-                ;; position COURANTE (phys-snapshot-colliders!) : pour un volume porte par un joint
-                ;; SIMULE, les deux membres ne decrivent plus le meme obstacle.
-                ;;
-                ;; MESURE, course du 2026-08-12 : UNE ligne sur 3410 sortait avec une penetration
-                ;; positive — `rmidhair`, anim `assistant-firecanyon-idle-down`, drive `accel`,
-                ;; 0.0017 m. Et c'est la seule signature possible : apres le recul, la position
-                ;; ecrite est celle d'un `lo` TESTE admissible... sauf si `lo` est reste a 0, auquel
-                ;; cas rien ne l'a jamais teste. `rmidhair` est la chaine 6 ; `lmidhair` (chaine 5),
-                ;; `lbang`, `rbang`, `earL`, `earR` ont deja ecrit leurs joints quand elle est
-                ;; resolue, et ce sont precisement les joints qui portent les spheres qu'elle
-                ;; heurte. Sa pose de modele peut donc etre AVALEE par une meche voisine qui a
-                ;; bouge, et le recul n'avait alors plus aucun point d'ancrage.
-                ;;
-                ;; La reponse honnete n'est pas de faire semblant : quand aucun point admissible
-                ;; n'existe sur le chemin, on se pose sur le MOINS MAUVAIS, et on le compte. La
-                ;; premiere evaluation est donc `mid = 0` — elle coute un appel et transforme une
-                ;; hypothese en mesure. Quand elle est admissible (le cas courant), `lo` reste 0 et
-                ;; tout le reste est identique au bit pres : ce n'est pas un chemin nouveau, c'est
-                ;; le meme chemin avec sa premiere marche verifiee.
-                ;; ------------------------------------------------------------------------
-                (dotimes (it 13)
-                  (let ((mid (if (zero? it) 0.0 (* 0.5 (+ lo hi)))))
-                    (cond
-                      (sphere?
-                       ;; direction interpolee entre la pose du modele et la position courante,
-                       ;; renormalisee a `want` : on ne quitte jamais la sphere.
-                       (let* ((vx (+ wx (* mid (- ux wx))))
-                              (vy (+ wy (* mid (- uy wy))))
-                              (vz (+ wz (* mid (- uz wz))))
-                              (vl (sqrtf (+ (* vx vx) (+ (* vy vy) (* vz vz))))))
-                         (cond
-                           ((> vl 0.0001)
-                            (let ((s (/ want vl)))
-                              (set! (-> bs x) (+ bx (* vx s)))
-                              (set! (-> bs y) (+ by (* vy s)))
-                              (set! (-> bs z) (+ bz (* vz s)))))
-                           (else
-                            (set! (-> bs x) tx) (set! (-> bs y) ty) (set! (-> bs z) tz)))))
-                      (else
-                       (set! (-> bs x) (+ tx (* dx mid)))
-                       (set! (-> bs y) (+ ty (* dy mid)))
-                       (set! (-> bs z) (+ tz (* dz mid)))))
-                    (set! (-> bs w) 1.0)
-                    (let ((p (phys-link-pen skel sc n nbone nco l bs 1)))
-                      (when (< p bestp)
-                        (set! bestp p))
-                      ;; L'EVALUATION it = 0 MESURE, ELLE NE DECIDE PAS. Elle teste `mid = 0`, la
-                      ;; pose du modele, pour savoir si l'ancre de la recherche est admissible — et
-                      ;; c'est tout. Lui laisser mettre a jour l'intervalle etait un bug mesure :
-                      ;; quand la pose du modele penetre, `hi` tombait a 0, l'intervalle [lo,hi] se
-                      ;; refermait sur le point de depart et les douze pas suivants ne cherchaient
-                      ;; plus rien. La dichotomie a le droit de partir d'une borne inadmissible et
-                      ;; de trouver quand meme un point admissible plus loin sur l'arc ; c'est ce
-                      ;; qu'elle faisait, et ce que ce premier pas lui avait retire.
-                      ;; MESURE : 8 lignes a penetration positive sur 3410 avec la mise a jour,
-                      ;; 1 sans (pire cas 0.0030 m contre 0.0017 m), sur deux courses completes.
-                      (when (nonzero? it)
-                        (if (> p 0.0)
-                          (set! hi mid)
-                          (set! lo mid))))))
-                ;; AUCUN POINT ADMISSIBLE SUR LE CHEMIN — donc pas meme la pose du modele (bestp est
-                ;; le minimum sur les 13 points, et il est positif). C'est COMPTE, et publie par
-                ;; ROOM-RETREAT-ANCHOR : 668 fois par course.
-                ;;
-                ;; ET LE LIEN SE POSE QUAND MEME SUR LA POSE DU MODELE — j'ai essaye le contraire et
-                ;; la mesure l'a refuse. Version essayee le 2026-08-12 : se poser sur le MOINS
-                ;; MAUVAIS point du chemin (`tf = bestt`), qui a par construction une penetration
-                ;; INFERIEURE OU EGALE a celle de la pose du modele. Course complete, meme salle,
-                ;; meme animation, seule cette ligne changee :
-                ;;     lignes de mesure a penetration positive : 1 sur 3410  ->  8 sur 3410
-                ;;     pire penetration                        : 0.0017 m   ->  0.0030 m
-                ;; Le raisonnement local etait juste et le resultat global pire, parce que la pose du
-                ;; modele n'est pas seulement un point admissible : c'est un POINT FIXE. S'y reposer
-                ;; ramene la chaine au meme etat a chaque frame ; se poser sur un minimum local la
-                ;; laisse ailleurs, et la frame suivante repart de plus loin. Un minimum instantane
-                ;; ne vaut pas un point fixe. Retire — pas adouci, retire — et le compteur reste.
-                (let ((tf lo))
-                  (when (> bestp 0.0)
-                    (set! *phys-retfb-n* (+ *phys-retfb-n* 1)))
-                  (set! *phys-retreat-n* (+ *phys-retreat-n* 1))
-                  (set! *phys-retreat-sum*
-                        (+ *phys-retreat-sum*
-                           (* (- 1.0 tf) (sqrtf (+ (* dx dx) (+ (* dy dy) (* dz dz)))))))
-                  (cond
-                    (sphere?
-                     (let* ((vx (+ wx (* tf (- ux wx))))
-                            (vy (+ wy (* tf (- uy wy))))
-                            (vz (+ wz (* tf (- uz wz))))
-                            (vl (sqrtf (+ (* vx vx) (+ (* vy vy) (* vz vz))))))
-                       (cond
-                         ((> vl 0.0001)
-                          (let ((s (/ want vl)))
-                            (set! (-> *phys-px* scl) (+ bx (* vx s)))
-                            (set! (-> *phys-py* scl) (+ by (* vy s)))
-                            (set! (-> *phys-pz* scl) (+ bz (* vz s)))))
-                         (else
-                          (set! (-> *phys-px* scl) tx)
-                          (set! (-> *phys-py* scl) ty)
-                          (set! (-> *phys-pz* scl) tz)))))
-                    (else
-                     (set! (-> *phys-px* scl) (+ tx (* dx tf)))
-                     (set! (-> *phys-py* scl) (+ ty (* dy tf)))
-                     (set! (-> *phys-pz* scl) (+ tz (* dz tf)))))))))))))
-  (none))
 
 ;; ------------------------------------------------------------------------------------------------
 ;; LA POSE DU MODELE EST-ELLE PLAUSIBLE ? — verifie a la premiere frame de chaque chaine, sur le
@@ -3271,6 +2951,7 @@
               (acc  (new 'stack-no-clear 'vector))
               (fl   (new 'stack-no-clear 'vector))
               (gl   (new 'stack-no-clear 'vector))
+              (gla  (new 'stack-no-clear 'vector))
               (gref (new 'stack-no-clear 'vector))
               (ov   (new 'stack-no-clear 'vector))
               (uv   (new 'stack-no-clear 'vector))
@@ -3347,6 +3028,20 @@
                   (vector-rotate*! gl gl w2l)
                   (let ((gn (vector-length gl)))
                     (when (> gn 0.0001) (vector-float*! gl gl (/ (fabs gy) gn))))
+                  ;; LA GRAVITE ABSOLUE, VUE DE L'ANCRE, AVANT TOUTE SOUSTRACTION. C'est elle qui
+                  ;; sert a PRE-COMPENSER la direction de repos de la chair (section 1) ; `gl` ne
+                  ;; garde le terme differentiel que pour la MESURE (`*phys-st*` 18, le stimulus
+                  ;; gravitaire que la salle publie : 0 debout, 1.0 a 60 degres).
+                  ;;
+                  ;; LA FORCE, ELLE, N'EST PLUS PRISE ICI. Une particule tombe dans le repere MONDE :
+                  ;; la gravite entre a la section 1 comme (0, gy, 0), sans rotation et sans
+                  ;; differentiel. C'est le fond du correctif du 22:40 — tant que l'equilibre etait
+                  ;; la pose animee, la fleche gravitaire etait plafonnee a g/omega^2 (1.3 a 1.9 cm
+                  ;; sur ces chaines) et aucun reglage de `gravity=` ne pouvait faire pendre une
+                  ;; meche. Le moteur de reference le disait deja de lui-meme
+                  ;; (physics-attic-2026-08-11, d99b193792 : « a stiff spring allows (g/omega^2) is
+                  ;; all gravity can ever buy »).
+                  (vector-copy! gla gl)
                   (when (and (= (-> *phys-fam* sc) 1)
                              (nonzero? (-> obj draw jgeo))
                              (< an (-> obj draw jgeo length)))
@@ -3395,363 +3090,213 @@
                                 (set! lsum (+ lsum bl))
                                 (set! lcnt (+ lcnt 1)))))))
                       (set! *phys-lmean* (if (> lcnt 0) (/ lsum (the float lcnt)) 0.0)))
-                    ;; ---- 1. INTEGRATION DE L'ECART, lien par lien, dans le repere de l'ancre ----
-                    (dotimes (l n)
-                      (let* ((scl (+ (* sc PHYS-LINKS) l))
-                             (k   (-> *phys-joint* scl)))
-                        (when (and (>= k 0) (< (+ k 1) nbone))
-                          (vector-copy! tw (the-as vector (-> skel bones (+ k 1) transform vector 3)))
-                          ;; acceleration MONDE de la pose d'auteur de CE lien (difference seconde) :
-                          ;; elle contient la translation ET la rotation du porteur, donc un simple
-                          ;; tour de tete excite la chaine.
-                          (set-vector! acc 0.0 0.0 0.0 0.0)
-                          (when (> warm 1)
-                            (set! (-> acc x) (+ (- (-> tw x) (* 2.0 (-> *phys-t1x* scl))) (-> *phys-t2x* scl)))
-                            (set! (-> acc y) (+ (- (-> tw y) (* 2.0 (-> *phys-t1y* scl))) (-> *phys-t2y* scl)))
-                            (set! (-> acc z) (+ (- (-> tw z) (* 2.0 (-> *phys-t1z* scl))) (-> *phys-t2z* scl))))
-                          (set! (-> *phys-t2x* scl) (-> *phys-t1x* scl))
-                          (set! (-> *phys-t2y* scl) (-> *phys-t1y* scl))
-                          (set! (-> *phys-t2z* scl) (-> *phys-t1z* scl))
-                          ;; LE STIMULUS REELLEMENT RECU PAR LA POINTE, quelle qu'en soit la
-                          ;; source (pilotage de la salle, rotation du porteur, animation). Mesure
-                          ;; ici parce que c'est ici, et seulement ici, que l'acceleration de la
-                          ;; pose d'auteur est connue.
-                          (when (and (> warm 1) (= l (- n 1)))
-                            (let ((aa (sqrtf (+ (* (-> acc x) (-> acc x))
-                                                (+ (* (-> acc y) (-> acc y))
-                                                   (* (-> acc z) (-> acc z))))))
-                                  (stb (* sc PHYS-ST)))
-                              (when (> aa (-> *phys-st* (+ stb 16)))
-                                (set! (-> *phys-st* (+ stb 16)) aa))))
-                          (when (and (> warm 0) (= l (- n 1)))
-                            ;; deplacement monde de la pose d'auteur de la POINTE, cumule
-                            (let ((mx (- (-> tw x) (-> *phys-t1x* scl)))
-                                  (my (- (-> tw y) (-> *phys-t1y* scl)))
-                                  (mz (- (-> tw z) (-> *phys-t1z* scl))))
-                              (set! (-> *phys-tmov* sc)
-                                    (+ (-> *phys-tmov* sc)
-                                       (sqrtf (+ (* mx mx) (+ (* my my) (* mz mz))))))))
-                          (set! (-> *phys-t1x* scl) (-> tw x))
-                          (set! (-> *phys-t1y* scl) (-> tw y))
-                          (set! (-> *phys-t1z* scl) (-> tw z))
-                          (cond
-                            ((or (< warm 1) (< l rlk))
-                             ;; SPEC 2 : lien rigide (rootlock), ou premiere frame. L'ecart est nul,
-                             ;; la pose du modele est ecrite telle quelle.
-                             (set! (-> *phys-ox* scl) 0.0)
-                             (set! (-> *phys-oy* scl) 0.0)
-                             (set! (-> *phys-oz* scl) 0.0)
-                             (set! (-> *phys-o1x* scl) 0.0)
-                             (set! (-> *phys-o1y* scl) 0.0)
-                             (set! (-> *phys-o1z* scl) 0.0)
-                             (set! (-> *phys-px* scl) (-> tw x))
-                             (set! (-> *phys-py* scl) (-> tw y))
-                             (set! (-> *phys-pz* scl) (-> tw z)))
-                            (else
-                             ;; pseudo-force du repere accelere, vue depuis le repere de l'ancre
-                             (set-vector! fl (* -1.0 cpl (-> acc x))
-                                             (* -1.0 cpl (-> acc y))
-                                             (* -1.0 cpl (-> acc z)) 0.0)
-                             (vector-rotate*! fl fl w2l)
-                             ;; LA GRAVITE EST UNE FORCE, POUR LES DEUX FAMILLES — et c'est le
-                             ;; correctif de fond du « toujours rien sur la gravite quand elle se
-                             ;; penche », signale par l'owner aux 6e, 7e, 8e et 10e passes.
-                             ;;
-                             ;; La famille A ne recevait AUCUNE force : elle recevait un DEPLACEMENT
-                             ;; DE CIBLE valant `gravity x 0.33 x longueur_de_l_os`. Deux
-                             ;; consequences, et la seconde explique pourquoi tripler `gravity=` (de
-                             ;; 0.45 a 1.30) n'a rien change de visible :
-                             ;;   * 0.33 est un nombre invente, sans rien derriere (SPEC 7) ;
-                             ;;   * une cible plafonnee a une fraction de l'os est ecrasee par la
-                             ;;     contrainte de longueur des qu'elle est dirigee LE LONG de l'os,
-                             ;;     et ce qui en survit ne depend plus lineairement de `gravity=`.
-                             ;; La forme correcte est celle que la famille B utilise deja et que
-                             ;; l'owner a validee sur les bretelles : une force, dont l'equilibre
-                             ;; vaut F/k. Les deux familles partagent donc maintenant UNE ligne, et
-                             ;; leur seule difference est le vecteur de gravite lui-meme — absolu
-                             ;; pour ce qui PEND, differentiel (ecart a la pose de reference) pour
-                             ;; ce qu'elle EST. `gravity=` redevient un reglage qui agit
-                             ;; proportionnellement, donc reglable par l'oeil.
-                             ;;
-                             ;; ET LA PART DE CETTE GRAVITE QUE LA GEOMETRIE AUTORISE. La contrainte
-                             ;; de longueur n'admet qu'une ROTATION autour de l'attache : la
-                             ;; composante de la gravite dirigee dans l'axe de l'os ne peut produire
-                             ;; aucun deplacement. Une chaine dont la gravite est presque radiale ne
-                             ;; s'affaissera JAMAIS, quel que soit le reglage — c'est une propriete
-                             ;; du rig, pas un bug, et sans ce nombre publie les deux sont
-                             ;; indiscernables.
-                             (when (= l (- n 1))
-                               (let* ((stb (* sc PHYS-ST))
-                                      (kpg (if (> l 0) (-> *phys-joint* (- scl 1)) an)))
-                                 (when (and (>= kpg 0) (< (+ kpg 1) nbone))
-                                   (let* ((qx (- (-> tw x) (-> skel bones (+ kpg 1) transform vector 3 x)))
-                                          (qy (- (-> tw y) (-> skel bones (+ kpg 1) transform vector 3 y)))
-                                          (qz (- (-> tw z) (-> skel bones (+ kpg 1) transform vector 3 z)))
-                                          (ql (sqrtf (+ (* qx qx) (+ (* qy qy) (* qz qz)))))
-                                          (gn (vector-length gl)))
-                                     (when (and (> ql 0.01) (> gn 0.0001))
-                                       ;; la direction de l'os est en MONDE, la gravite effective en
-                                       ;; repere d'ancre : on ramene l'os dans le repere de l'ancre
-                                       ;; pour que le produit scalaire ait un sens.
-                                       (set-vector! sv qx qy qz 0.0)
-                                       (vector-rotate*! sv sv w2l)
-                                       (let* ((sl (vector-length sv))
-                                              (cs (if (> sl 0.0001)
-                                                    (/ (+ (* (-> sv x) (-> gl x))
-                                                          (+ (* (-> sv y) (-> gl y))
-                                                             (* (-> sv z) (-> gl z))))
-                                                       (* sl gn))
-                                                    0.0))
-                                              (tf (sqrtf (fmax 0.0 (- 1.0 (* cs cs))))))
-                                         (when (> tf (-> *phys-st* (+ stb 19)))
-                                           (set! (-> *phys-st* (+ stb 19)) tf))))))))
-                             ;; --------------------------------------------------------------
-                             ;; UNE BARRIERE DEVANT LE MUR.
-                             ;;
-                             ;; ELLE A ETE ECRITE POUR `flesh-jelly` ET ELLE NE LE CORRIGE PAS —
-                             ;; c'est un A/B complet qui le dit, et je l'ecris ici plutot que de
-                             ;; laisser le commentaire promettre ce que la mesure refuse. Deux
-                             ;; courses de salle completes (3410 mesures chacune), cette barriere
-                             ;; pour SEULE variable, `ROOM-JELLY excess` (la seule grandeur qui
-                             ;; nomme le defaut) :
-                             ;;   chestL accel  0.5510 -> 0.4348   chestL jerk  0.6055 -> 0.5510
-                             ;;   chestL leftright 0.0543 -> 0.5061   chestL tilt 0.1743 -> 0.3342
-                             ;;   chestR accel  0.1261 -> 0.1225   chestR jerk  0.3258 -> 0.4023
-                             ;; Mieux sur les deux pilotages brusques a gauche, PIRE ailleurs et
-                             ;; pire sur `jerk` a droite. Ce n'est pas une correction, c'est un
-                             ;; deplacement. `flesh-jelly` reste OUVERT et cette barriere n'a pas
-                             ;; le droit d'etre citee comme sa reponse.
-                             ;;
-                             ;; CE QU'ELLE FAIT VRAIMENT, et c'est pour ca qu'elle est gardee :
-                             ;;   impacts du mur dur (`raddrop`), les dix chaines a un os :
-                             ;;     chestL 18894->5099  chestR 15434->4365  kneeflapL 20061->5665
-                             ;;     pantflapL 19011->5120  toestrapR 24918->7572  anklestrapR 24039->5572
-                             ;;     soit -69 % a -77 % partout ;
-                             ;;   traversees d'axe (`ROOM-SIDE`) : 13344 -> 11446, -14 % ;
-                             ;;   lignes de mesure a penetration positive : 2 -> 1 sur 3410.
-                             ;; PRIX, mesure et non estime : amplitude de pointe -0.4 % a -4.9 %
-                             ;; (pire cas pantflapR), et affaissement gravitaire INCHANGE —
-                             ;; `ROOM-GRAVSAG` chestL 0.0725 contre 0.0725, chestR 0.1039 contre
-                             ;; 0.1022. L'acquis que l'owner a nomme (« quand elle se penche :
-                             ;; nickel ») n'est donc pas touche, et aucune chaine n'approche son
-                             ;; plancher.
-                             ;;
-                             ;; LE DIAGNOSTIC QUI RESTE OUVERT, pour que le prochain cycle ne le
-                             ;; redecouvre pas : sous pilotage, l'ecart demande par la force du
-                             ;; repere vaut ~11 950 u (gain statique 1/k2 = 62.9 x une force de
-                             ;; 190 u/frame^2) pour un budget d'excursion de 656. Le systeme est
-                             ;; sature d'un facteur 18, donc la position ecrite ne depend plus de
-                             ;; l'AMPLITUDE de la force mais seulement de sa DIRECTION — et sous
-                             ;; un a-coup cette direction change de signe d'une frame a l'autre.
-                             ;; Adoucir le mur ne change rien a ca : il faut soit desaturer (donc
-                             ;; toucher raideur/couplage, c'est-a-dire l'amplitude que l'owner a
-                             ;; approuvee), soit sous-echantillonner le pas. Les deux se decident
-                             ;; devant son oeil, pas ici.
-                             ;;
-                             ;; Owner, 11e passe : « lors de mouvements brusques il y a un effet
-                             ;; d'etirement et un peu gelee ou ca change de taille, c'est PAS
-                             ;; COHERENT ! » ; 21:20 : « c'est pas des ballons durs non plus, c'est
-                             ;; naturel que ca change un peu de forme... c'est juste beaucoup trop ».
-                             ;;
-                             ;; CE QUE LA COURSE DU 2026-08-12 MESURE, et c'est sans ambiguite :
-                             ;;   `tiprot` chestL = 39.2376 / 39.2525 / 39.2890 / 39.2449 degres
-                             ;;   sous updown / leftright / accel / jerk — LA MEME VALEUR A TROIS
-                             ;;   DECIMALES sous une translation, une acceleration et un a-coup de
-                             ;;   39 g. C'est la signature d'un plafond EPINGLE, pas d'une reponse.
-                             ;;   Elle se recalcule a la main : le mur borne |p - T| par `rmax` =
-                             ;;   656 u sur un os de 977 u, soit 2*asin(656/1954) = 39.24 degres.
-                             ;;   `raddrop` = 18 894 declenchements sur chestL, 15 434 sur chestR.
-                             ;;
-                             ;; POURQUOI CA FAIT DE LA GELEE. Le gain statique de l'integrateur vaut
-                             ;; 1/k2 = 1/0.0159 = 62.9 : sous le pilotage `accel` la force du repere
-                             ;; (couple 1.55 x 122.9 u/frame^2) demande un ecart de ~11 950 u pour
-                             ;; un budget de 656. Le systeme est donc SATURE en permanence, la
-                             ;; position ecrite ne depend plus de l'AMPLITUDE de la force mais
-                             ;; seulement de sa DIRECTION — et sous un a-coup cette direction change
-                             ;; de signe d'une frame a l'autre. Mesure : `jump` = 0.1604 m sur une
-                             ;; seule frame, soit 657 u, c'est-a-dire exactement le plafond traverse
-                             ;; de part en part. Un plafond dur a une derivee discontinue ; « ca
-                             ;; change de taille et ce n'est correle a rien » en est la definition.
-                             ;;
-                             ;; LA FORME POSEE ICI est une raideur qui MONTE quand on approche du
-                             ;; plafond, au lieu d'un mur qu'on percute :
-                             ;;      k_eff = k2 / (1 - (|o|/cap)^6)     plafonnee a 1.0
-                             ;; C'est une FORCE, dans l'integrateur, appelee UNE FOIS par frame :
-                             ;; le piege d'idempotence de `phys-softmin` ne s'y applique pas, et le
-                             ;; mur reste en place derriere elle comme garantie (`raddrop` dit s'il
-                             ;; sert encore).
-                             ;; L'EXPOSANT 6 N'EST PAS UN REGLAGE, c'est ce qui protege les deux
-                             ;; acquis que l'owner a valides :
-                             ;;   |o| = 0.50 cap -> k_eff = 1.016 k2  (mouvement subtil : intact)
-                             ;;   |o| = 0.58 cap -> k_eff = 1.038 k2  (c'est l'equilibre gravitaire
-                             ;;                    mesure : 379 u pour un cap de 656 — le « bon sag »
-                             ;;                    perd 0.5 %, pas 33 % comme le ferait un exposant 2)
-                             ;;   |o| = 0.95 cap -> k_eff = 3.77 k2   (la butee se sent enfin venir)
-                             ;;   |o| -> cap     -> k_eff -> plafond  (on n'y arrive plus jamais)
-                             ;; STABILITE : le plafond de 1.0 est verifie, pas suppose. Le polynome
-                             ;; caracteristique du schema est z^2 - (2 - dmp - k)z + (1 - dmp) ; avec
-                             ;; le plus petit amortissement des chaines concernees (0.26) et k = 1.0
-                             ;; le discriminant est negatif et le module des racines vaut
-                             ;; sqrt(1 - 0.26) = 0.86 < 1. La divergence n'apparait qu'au-dela de
-                             ;; k = 3.3.
-                             ;; PERIMETRE : exactement celui du mur — le maillon 0 d'une chaine sans
-                             ;; `rootlock`. Un maillon qui n'a pas de mur n'a pas de barriere, sinon
-                             ;; ce serait un suppresseur de plus et non le remplacement d'un existant.
-                             ;; --------------------------------------------------------------
-                             ;; --------------------------------------------------------------
-                             ;; LE RESSORT TIRE VERS LE PARENT SIMULE, PAS VERS LA POSE ANIMEE DU
-                             ;; MAILLON. C'est la cause racine de `hair-gradient` (PRIORITE 1).
-                             ;;
-                             ;; CE QUE LA MESURE DIT, et elle est deja acquise : le gradient est
-                             ;; inverse DES LA SORTIE DE L'INTEGRATION (etage 0 de phys-cap-ang!,
-                             ;; 9 chaines sur 9), donc aucune contrainte, aucune attenuation et
-                             ;; aucun recul n'en est responsable. Le defaut est dans ces lignes.
-                             ;;
-                             ;; CE QU'ELLES FAISAIENT. Chaque maillon integrait son ecart contre SA
-                             ;; PROPRE pose animee, avec la meme raideur, la meme masse et le meme
-                             ;; couplage que ses voisins — les parametres sont declares PAR CHAINE.
-                             ;; Sous une excitation commune (la tete tourne, le buste part), tous
-                             ;; les maillons recoivent donc la meme force et rendent le MEME ecart :
-                             ;; la chaine se translate en BLOC. Un bloc dont la racine est clouee
-                             ;; (rootlock) met tout son angle dans le premier segment et rien dans
-                             ;; les suivants — « les pointes sont ancrees au meme titre que les
-                             ;; racines, et c'est ce qu'il y a entre les deux qui bouge ». C'est
-                             ;; exactement la forme mesuree : lbang 0 / 50.77 / 29.76 degres,
-                             ;; rbang 0 / 73.39 / 26.87.
-                             ;;
-                             ;; CE QU'ELLES FONT MAINTENANT. Le rappel porte sur l'ecart RELATIF au
-                             ;; parent (o - o_parent), c'est-a-dire sur la deviation du maillon vu
-                             ;; depuis le repere SIMULE de son attache. Un ecart commun ne coute
-                             ;; alors plus rien au ressort : une translation en bloc n'est plus un
-                             ;; etat d'equilibre gratuit, chaque maillon doit gagner son propre
-                             ;; retard sur celui qui le porte, et les retards s'ADDITIONNENT vers
-                             ;; la pointe au lieu d'etre communs. Le parent est lu a son etat de
-                             ;; DEBUT de frame (o1, pose par le tour precedent de cette boucle),
-                             ;; donc l'integration reste explicite et l'information descend d'un
-                             ;; maillon par frame : c'est le fouet, et c'est ce que SPEC 2 demande.
-                             ;; Le maillon 0 garde l'ancre pour parent, son ecart relatif EST son
-                             ;; ecart absolu, et la barriere de butee ne change donc pas de sens.
-                             ;; --------------------------------------------------------------
-                             (let* ((ox (-> *phys-ox* scl))
-                                    (oy (-> *phys-oy* scl))
-                                    (oz (-> *phys-oz* scl))
-                                    (pj  (if (> l 0) (-> *phys-joint* (- scl 1)) -1))
-                                    (rx (- ox (if (>= pj 0) (-> *phys-o1x* (- scl 1)) 0.0)))
-                                    (ry (- oy (if (>= pj 0) (-> *phys-o1y* (- scl 1)) 0.0)))
-                                    (rz (- oz (if (>= pj 0) (-> *phys-o1z* (- scl 1)) 0.0)))
-                                    ;; ------------------------------------------------------
-                                    ;; LE RESSORT EST ANGULAIRE, PAS LINEAIRE. Seconde moitie de
-                                    ;; `hair-gradient`, et c'est la source du 1/L qui inverse la
-                                    ;; suite.
-                                    ;;
-                                    ;; MESURE : les os de lbang/rbang valent 393.88 u puis
-                                    ;; 783.85 u, soit L2/L1 = 1.9901 (verifie deux fois — sonde
-                                    ;; sur le rig, et `bones_m=0.4124,0.0962,0.1914` publie par
-                                    ;; le moteur lui-meme). Or les parametres sont declares PAR
-                                    ;; CHAINE : a l'equilibre |o - o_parent| = |F|/k2 est donc
-                                    ;; le MEME pour tous les maillons. Un ressort LINEAIRE rend
-                                    ;; ainsi des deviations egales, et l'angle vaut deviation
-                                    ;; divisee par la longueur d'os : theta ~ D/L. A D egal, un
-                                    ;; os deux fois plus court tourne deux fois plus, et
-                                    ;; l'inversion est FORCEE par la geometrie, pas subie.
-                                    ;;
-                                    ;; CE QUI EST EXCLU, ET CHIFFRE PLUTOT QUE SUPPOSE. Il
-                                    ;; faudrait D2/D1 >= 1.9901 pour redresser la suite ; le
-                                    ;; maximum mesure sur les dix couples est 1.45. Aucun
-                                    ;; reglage des parametres actuels ne peut y arriver : ils
-                                    ;; sont par chaine, donc ils s'annulent dans le rapport. Un
-                                    ;; taper de masse derive du rig a ete evalue et il ECHOUE :
-                                    ;; le rayon d'un joint est ajuste autour du segment
-                                    ;; joint->enfant (physics_keira_gen2.py:847-857), donc l'os
-                                    ;; du maillon l porte le rayon du joint PRECEDENT, et
-                                    ;; r^2*L rend 1.715 a gauche et 1.487 a droite — sous le
-                                    ;; seuil. Il ne « marchait » qu'avec l'appariement faux
-                                    ;; (5.961), c'est-a-dire en choisissant l'index qui donne la
-                                    ;; reponse voulue. Ecarte.
-                                    ;;
-                                    ;; LA CAUSE EST DONC LE RESSORT LUI-MEME. Une chaine d'os se
-                                    ;; modelise par un ressort ANGULAIRE : un couple de rappel
-                                    ;; tau = -kappa * phi, avec phi ~ |r|/L l'angle du maillon.
-                                    ;; La force tangentielle sur la masse, au rayon L, vaut donc
-                                    ;; tau/L = -kappa*|r|/L^2 : la raideur LINEAIRE equivalente
-                                    ;; varie en 1/L^2. C'est exactement ce facteur qui manquait,
-                                    ;; et il fait disparaitre la longueur d'os du resultat :
-                                    ;; D ~ L^2 donne theta ~ L, donc croissant avec la longueur
-                                    ;; de l'os au lieu d'inverse. Sur lbang, theta2/theta1 passe
-                                    ;; de 1/1.99 a 1.99.
-                                    ;;
-                                    ;; AUCUNE CONSTANTE N'EST INTRODUITE : la reference est la
-                                    ;; MOYENNE des longueurs des maillons libres de la chaine
-                                    ;; elle-meme. Une chaine a un seul maillon libre rend donc
-                                    ;; exactement 1.0 et reste inchangee au bit pres — c'est le
-                                    ;; cas de 20 chaines sur 22, et c'est aussi le test qui dira
-                                    ;; si ce correctif fait ce qu'il annonce.
-                                    ;; ------------------------------------------------------
-                                    (bl  (-> *phys-blen* scl))
-                                    (k2b (if (and (> bl 0.01) (> *phys-lmean* 0.01))
-                                           (let ((q (/ *phys-lmean* bl))) (* k2 (* q q)))
-                                           k2))
-                                    ;; ------------------------------------------------------
-                                    ;; LA RACINE GRADUEE. Elle n'est plus epinglee, elle est
-                                    ;; RAIDE : sa raideur angulaire est multipliee par 1/g^2, donc
-                                    ;; sa deviation d'equilibre vaut de l'ordre de g fois celle
-                                    ;; d'une racine libre.
-                                    ;;
-                                    ;; POURQUOI LA RAIDEUR ET NON UNE PONDERATION DE L'ECRITURE —
-                                    ;; c'est la question qui decide, et elle a une reponse dans le
-                                    ;; code, pas une preference. Il n'existe qu'UN SEUL jeu de
-                                    ;; tableaux de position, `*phys-p**` : le solveur le lit et
-                                    ;; l'ecrit (contrainte de longueur, collision, recul), la
-                                    ;; MESURE de penetration `phys-pen-chain` le lit, et le bloc
-                                    ;; d'ecriture le copie tel quel dans le squelette. Ponderer a
-                                    ;; l'ECRITURE ferait donc diverger ce qui est DESSINE de ce qui
-                                    ;; est MESURE : `meshpen` continuerait d'annoncer zero sur des
-                                    ;; positions que personne ne voit, pendant que l'owner verrait
-                                    ;; la meche traverser. C'est la definition meme du faux vert que
-                                    ;; ce contrat interdit, et ca a deja coute huit cycles.
-                                    ;; En passant par la raideur, le simule EST l'ecrit : la
-                                    ;; collision, la longueur et la mesure portent toutes sur la
-                                    ;; position que l'owner a sous les yeux.
-                                    ;;
-                                    ;; MARGE DE STABILITE, chiffree et non supposee : l'integrateur
-                                    ;; est explicite a pas fixe, donc `k2a` doit rester bien sous 1.
-                                    ;; Sur `lbang` (stiffness 1.6548, mass 1.35) k2 = 0.02224, et le
-                                    ;; facteur d'os de la racine vaut (0.1438/0.4124)^2 = 0.1216,
-                                    ;; d'ou k2a(racine libre) = 0.002705. Le budget avant k2a = 1
-                                    ;; est donc un facteur 370, soit g >= 0.052. C'est cette marge
-                                    ;; qui rend le reglage possible ; une raideur trop haute dans ce
-                                    ;; type d'integrateur ne donne pas de la fermete mais de
-                                    ;; l'oscillation numerique -- le « jitter » que l'owner a
-                                    ;; signale trois fois.
-                                    ;; ------------------------------------------------------
-                                    (k2a (if (and (> rgr 0.0) (< l rlk0))
-                                           (/ k2b (* rgr rgr))
-                                           k2b))
-                                    (bcap (if (= l 0) (-> *phys-rad* scl) 0.0))
-                                    (kb (if (> bcap 0.01)
-                                          (let* ((r2 (/ (+ (* rx rx) (+ (* ry ry) (* rz rz)))
-                                                        (* bcap bcap)))
-                                                 (r6 (fmin 0.98 (* r2 (* r2 r2)))))
-                                            (fmin 1.0 (/ k2a (- 1.0 r6))))
-                                          k2a))
-                                    (vx (* (- ox (-> *phys-o1x* scl)) (- 1.0 dmp)))
-                                    (vy (* (- oy (-> *phys-o1y* scl)) (- 1.0 dmp)))
-                                    (vz (* (- oz (-> *phys-o1z* scl)) (- 1.0 dmp)))
-                                    (ax (+ (* (- 0.0 kb) rx) (-> fl x) (* gsc (-> gl x))))
-                                    (ay (+ (* (- 0.0 kb) ry) (-> fl y) (* gsc (-> gl y))))
-                                    (az (+ (* (- 0.0 kb) rz) (-> fl z) (* gsc (-> gl z)))))
-                               (set! (-> *phys-o1x* scl) ox)
-                               (set! (-> *phys-o1y* scl) oy)
-                               (set! (-> *phys-o1z* scl) oz)
-                               (set! (-> *phys-ox* scl) (+ ox vx ax))
-                               (set! (-> *phys-oy* scl) (+ oy vy ay))
-                               (set! (-> *phys-oz* scl) (+ oz vz az)))
-                             ;; position MONDE = pose d'auteur + ecart, remis dans le monde
-                             (set-vector! ov (-> *phys-ox* scl) (-> *phys-oy* scl) (-> *phys-oz* scl) 0.0)
-                             (vector-rotate*! ov ov am)
-                             (set! (-> *phys-px* scl) (+ (-> tw x) (-> ov x)))
-                             (set! (-> *phys-py* scl) (+ (-> tw y) (-> ov y)))
-                             (set! (-> *phys-pz* scl) (+ (-> tw z) (-> ov z))))))))
+                    ;; ---- 1. UNE PARTICULE PAR MAILLON, INTEGREE EN POSITION MONDE. -------------
+                    ;;
+                    ;; CE QUE CE BLOC FAISAIT, ET POURQUOI IL EST REMPLACE. Owner, 2026-08-13 22:40 :
+                    ;; « le modele est faux, pas ses reglages... j'ai l'impression la que tu fais
+                    ;; juste bouger des trucs, tu simules rien du tout ». Il integrait `*phys-o**` —
+                    ;; un ECART A LA POSE ANIMEE rappele vers zero — excite par la DERIVEE SECONDE de
+                    ;; cette pose (`fl = -couple * acc`). Les quatre plaintes en decoulent
+                    ;; mecaniquement ; ce ne sont pas quatre chantiers, c'est une seule forme :
+                    ;;   * « pas d'impression de masse » : l'equilibre etait le dessin de
+                    ;;     l'animateur, jamais un etat determine par la gravite ;
+                    ;;   * « ca suit pas la gravite » : la fleche d'un ressort-vers-la-pose vaut
+                    ;;     g/omega^2 et rien de plus — 1.3 a 1.9 cm sur ces chaines, quel que soit
+                    ;;     `gravity=`. C'est pourquoi le tripler (0.45 -> 1.30) n'avait rien change
+                    ;;     de visible. Le moteur de reference le disait deja de lui-meme
+                    ;;     (physics-attic-2026-08-11, d99b193792 : « a stiff spring allows
+                    ;;     (g/omega^2) is all gravity can ever buy ») ;
+                    ;;   * « un pudding sur lequel on tape tres fort AU MOINDRE MOUVEMENT » : le
+                    ;;     pilotage etait l'ACCELERATION de la pose animee, donc un mouvement petit
+                    ;;     mais SEC donnait un pic de force. Le moteur ne suivait pas le mouvement,
+                    ;;     il reagissait a ses a-coups ;
+                    ;;   * « hysteresis » : l'ecart integre portait sa propre memoire et revenait
+                    ;;     lentement a zero.
+                    ;;
+                    ;; CE QUI EST INTEGRE MAINTENANT : la POSITION MONDE d'un point qui porte une
+                    ;; masse. Il n'y a plus qu'un seul etat, `p` et sa valeur de la frame precedente
+                    ;; `q`. La vitesse implicite `p - q` EST l'inertie : la chaine TRAINE derriere
+                    ;; son ancre au lieu de sauter avec elle, donc gain < 1 et retard — « de la
+                    ;; physique qui donne une impression de masse, de gravite, qui suit le
+                    ;; mouvement ». La gravite est une acceleration MONDE, constante et non
+                    ;; plafonnee. La contrainte de distance (`phys-length-chain`, deja une
+                    ;; projection dure) et les collisions font le reste. LA POSE AU REPOS N'EST PLUS
+                    ;; IMPOSEE : elle emerge de cet equilibre.
+                    ;;
+                    ;; L'ANIMATION N'ENTRE PLUS QUE PAR L'ANCRE. Les maillons `rootlock` copient la
+                    ;; pose d'auteur (la racine suit rigidement le crane, SPEC 2) ; tout ce qui est
+                    ;; derriere eux est simule et ne recoit AUCUN rappel vers le dessin. `couple`
+                    ;; n'est plus lu par le solveur.
+                    ;;
+                    ;; LA SEULE EXCEPTION, ET ELLE EST DE L'OWNER, PAS DE MOI. Une chaine a UN SEUL
+                    ;; maillon libre de famille A — les oreilles et la poitrine, 4 chaines sur 22 —
+                    ;; n'est pas une corde : c'est une masse sur un tissu elastique, et sa reference
+                    ;; est fixee par SPEC 1bis dans ses mots (« le point de reference c'est quand
+                    ;; elle est debout, position naturelle des seins car c'est comme ca que le modele
+                    ;; est fait, MAIS ils suivent la gravite »). Elle garde donc un terme ELASTIQUE
+                    ;; vers une direction de repos du MATERIAU — statique, portee rigidement par
+                    ;; l'ancre, et jamais la pose animee du maillon. AUCUNE des chaines dont il se
+                    ;; plaint n'en a un : les cinq chaines de cheveux sont des cordes pures, et les
+                    ;; treize chaines de famille B (ce qui PEND) aussi.
+                    ;;
+                    ;; L'ACCELERATION DE LA POSE D'AUTEUR EST TOUJOURS CALCULEE ET NE PILOTE PLUS
+                    ;; RIEN : elle reste la definition du STIMULUS que la salle publie
+                    ;; (`*phys-st*` 16). L'instrument ne bouge pas en meme temps que ce qu'il mesure.
+                    (let* ((nfr (- n rlk))
+                           (ela (if (and (= (-> *phys-fam* sc) 1) (< nfr 2)) 1 0)))
+                      (dotimes (l n)
+                        (let* ((scl (+ (* sc PHYS-LINKS) l))
+                               (k   (-> *phys-joint* scl)))
+                          (when (and (>= k 0) (< (+ k 1) nbone))
+                            (vector-copy! tw (the-as vector (-> skel bones (+ k 1) transform vector 3)))
+                            ;; --- MESURE SEULEMENT. Acceleration MONDE de la pose d'auteur de ce
+                            ;; lien : elle ne produit plus aucune force, elle definit le stimulus.
+                            (set-vector! acc 0.0 0.0 0.0 0.0)
+                            (when (> warm 1)
+                              (set! (-> acc x) (+ (- (-> tw x) (* 2.0 (-> *phys-t1x* scl))) (-> *phys-t2x* scl)))
+                              (set! (-> acc y) (+ (- (-> tw y) (* 2.0 (-> *phys-t1y* scl))) (-> *phys-t2y* scl)))
+                              (set! (-> acc z) (+ (- (-> tw z) (* 2.0 (-> *phys-t1z* scl))) (-> *phys-t2z* scl))))
+                            (set! (-> *phys-t2x* scl) (-> *phys-t1x* scl))
+                            (set! (-> *phys-t2y* scl) (-> *phys-t1y* scl))
+                            (set! (-> *phys-t2z* scl) (-> *phys-t1z* scl))
+                            ;; LE STIMULUS REELLEMENT RECU PAR LA POINTE, quelle qu'en soit la
+                            ;; source (pilotage de la salle, rotation du porteur, animation).
+                            (when (and (> warm 1) (= l (- n 1)))
+                              (let ((aa (sqrtf (+ (* (-> acc x) (-> acc x))
+                                                  (+ (* (-> acc y) (-> acc y))
+                                                     (* (-> acc z) (-> acc z))))))
+                                    (stb (* sc PHYS-ST)))
+                                (when (> aa (-> *phys-st* (+ stb 16)))
+                                  (set! (-> *phys-st* (+ stb 16)) aa))))
+                            (when (and (> warm 0) (= l (- n 1)))
+                              ;; deplacement monde de la pose d'auteur de la POINTE, cumule
+                              (let ((mx (- (-> tw x) (-> *phys-t1x* scl)))
+                                    (my (- (-> tw y) (-> *phys-t1y* scl)))
+                                    (mz (- (-> tw z) (-> *phys-t1z* scl))))
+                                (set! (-> *phys-tmov* sc)
+                                      (+ (-> *phys-tmov* sc)
+                                         (sqrtf (+ (* mx mx) (+ (* my my) (* mz mz))))))))
+                            (set! (-> *phys-t1x* scl) (-> tw x))
+                            (set! (-> *phys-t1y* scl) (-> tw y))
+                            (set! (-> *phys-t1z* scl) (-> tw z))
+                            (cond
+                              ((or (< warm 1) (< l rlk))
+                               ;; L'ANCRE — LE SEUL POINT PAR LEQUEL L'ANIMATION ENTRE. Maillon
+                               ;; `rootlock` (SPEC 2 : la racine suit rigidement l'os porteur), ou
+                               ;; premiere frame : la pose d'auteur EST la position, sans etat.
+                               (set! (-> *phys-px* scl) (-> tw x))
+                               (set! (-> *phys-py* scl) (-> tw y))
+                               (set! (-> *phys-pz* scl) (-> tw z))
+                               (set! (-> *phys-qx* scl) (-> tw x))
+                               (set! (-> *phys-qy* scl) (-> tw y))
+                               (set! (-> *phys-qz* scl) (-> tw z))
+                               (set! (-> *phys-ox* scl) 0.0)
+                               (set! (-> *phys-oy* scl) 0.0)
+                               (set! (-> *phys-oz* scl) 0.0)
+                               (set! (-> *phys-o1x* scl) 0.0)
+                               (set! (-> *phys-o1y* scl) 0.0)
+                               (set! (-> *phys-o1z* scl) 0.0))
+                              (else
+                               ;; ET LA PART DE CETTE GRAVITE QUE LA GEOMETRIE AUTORISE. La
+                               ;; contrainte de longueur n'admet qu'une ROTATION autour de
+                               ;; l'attache : la composante de la gravite dirigee dans l'axe de l'os
+                               ;; ne peut produire aucun deplacement. Une chaine dont la gravite est
+                               ;; presque radiale ne s'affaissera JAMAIS, quel que soit le reglage —
+                               ;; c'est une propriete du rig, pas un bug, et sans ce nombre publie
+                               ;; les deux sont indiscernables. (Instrument inchange : il se lit sur
+                               ;; `gl`, le meme vecteur qu'avant.)
+                               (when (= l (- n 1))
+                                 (let* ((stb (* sc PHYS-ST))
+                                        (kpg (if (> l 0) (-> *phys-joint* (- scl 1)) an)))
+                                   (when (and (>= kpg 0) (< (+ kpg 1) nbone))
+                                     (let* ((qx (- (-> tw x) (-> skel bones (+ kpg 1) transform vector 3 x)))
+                                            (qy (- (-> tw y) (-> skel bones (+ kpg 1) transform vector 3 y)))
+                                            (qz (- (-> tw z) (-> skel bones (+ kpg 1) transform vector 3 z)))
+                                            (ql (sqrtf (+ (* qx qx) (+ (* qy qy) (* qz qz)))))
+                                            (gn (vector-length gl)))
+                                       (when (and (> ql 0.01) (> gn 0.0001))
+                                         (set-vector! sv qx qy qz 0.0)
+                                         (vector-rotate*! sv sv w2l)
+                                         (let* ((sl (vector-length sv))
+                                                (cs (if (> sl 0.0001)
+                                                      (/ (+ (* (-> sv x) (-> gl x))
+                                                            (+ (* (-> sv y) (-> gl y))
+                                                               (* (-> sv z) (-> gl z))))
+                                                         (* sl gn))
+                                                      0.0))
+                                                (tf (sqrtf (fmax 0.0 (- 1.0 (* cs cs))))))
+                                           (when (> tf (-> *phys-st* (+ stb 19)))
+                                             (set! (-> *phys-st* (+ stb 19)) tf))))))))
+                               ;; L'ATTACHE : le maillon precedent DEJA SIMULE, ou l'ancre pour le
+                               ;; premier maillon libre. C'est par elle, et par elle seule, que le
+                               ;; mouvement du crane atteint la particule — par la contrainte, pas
+                               ;; par un ressort.
+                               (let* ((ax (if (> l 0) (-> *phys-px* (- scl 1)) (-> anc x)))
+                                      (ay (if (> l 0) (-> *phys-py* (- scl 1)) (-> anc y)))
+                                      (az (if (> l 0) (-> *phys-pz* (- scl 1)) (-> anc z)))
+                                      (bl (-> *phys-blen* scl))
+                                      (fx 0.0)
+                                      (fy 0.0)
+                                      (fz 0.0))
+                                 ;; ---- LA CHAIR : direction de repos du MATERIAU, relevee UNE fois
+                                 ;; ---- et constante ensuite. Elle ne suit pas l'animation.
+                                 (when (and (nonzero? ela) (zero? (-> *phys-ucap* scl))
+                                            (> bl 0.01) (> k2 0.000001))
+                                   (set-vector! sv (- (-> tw x) ax) (- (-> tw y) ay) (- (-> tw z) az) 0.0)
+                                   (vector-rotate*! sv sv w2l)
+                                   (let ((sl (vector-length sv)))
+                                     (when (> sl 0.0001)
+                                       (vector-float*! sv sv (/ 1.0 sl))
+                                       ;; PRE-COMPENSATION, et c'est elle qui reconcilie SPEC 4 avec
+                                       ;; « ils suivent la gravite ». La pose sculptee est DEJA une
+                                       ;; pose sous gravite : le modele a ete fait DEBOUT. On retire
+                                       ;; donc de la direction de repos la fleche que la gravite va
+                                       ;; creuser (g/k2, en fraction de la longueur d'os). Debout,
+                                       ;; l'equilibre retombe alors exactement sur la pose du modele
+                                       ;; (« pas plus bas, pas plus ecrase ») ; inclinee, la gravite
+                                       ;; vue de l'ancre change et l'equilibre se deplace POUR DE
+                                       ;; BON — c'est le sag qu'il cherche depuis six passes, et il
+                                       ;; n'est plus plafonne par un rappel vers le dessin.
+                                       (let ((s (/ gsc (* k2 bl))))
+                                         (set! (-> sv x) (- (-> sv x) (* s (-> gla x))))
+                                         (set! (-> sv y) (- (-> sv y) (* s (-> gla y))))
+                                         (set! (-> sv z) (- (-> sv z) (* s (-> gla z)))))
+                                       (let ((s2 (vector-length sv)))
+                                         (when (> s2 0.0001)
+                                           (set! (-> *phys-ux* scl) (/ (-> sv x) s2))
+                                           (set! (-> *phys-uy* scl) (/ (-> sv y) s2))
+                                           (set! (-> *phys-uz* scl) (/ (-> sv z) s2))
+                                           (set! (-> *phys-ucap* scl) 1))))))
+                                 ;; ---- LA FORCE ELASTIQUE DU MATERIAU. Sa cible est portee
+                                 ;; ---- rigidement par l'ancre ; elle ne connait pas l'animation du
+                                 ;; ---- maillon, donc elle ne peut pas la « suivre ».
+                                 (when (and (nonzero? ela) (nonzero? (-> *phys-ucap* scl)) (> bl 0.01))
+                                   (set-vector! uv (-> *phys-ux* scl) (-> *phys-uy* scl) (-> *phys-uz* scl) 0.0)
+                                   (vector-rotate*! uv uv am)
+                                   (let ((ul (vector-length uv)))
+                                     (when (> ul 0.0001)
+                                       (vector-float*! uv uv (/ bl ul))
+                                       (set! fx (* k2 (- (+ ax (-> uv x)) (-> *phys-px* scl))))
+                                       (set! fy (* k2 (- (+ ay (-> uv y)) (-> *phys-py* scl))))
+                                       (set! fz (* k2 (- (+ az (-> uv z)) (-> *phys-pz* scl)))))))
+                                 ;; ---- VERLET EN POSITION MONDE. Trois termes, et c'est TOUT :
+                                 ;; ---- l'inertie (retenue par la trainee), la gravite, et la force
+                                 ;; ---- du materiau quand il y en a une. Aucun etat par chaine
+                                 ;; ---- au-dela de `p` et `q` : c'est ce qui rend l'hysteresis
+                                 ;; ---- impossible a fabriquer ici.
+                                 (let* ((px (-> *phys-px* scl))
+                                        (py (-> *phys-py* scl))
+                                        (pz (-> *phys-pz* scl))
+                                        (kd (fmax 0.0 (- 1.0 dmp)))
+                                        (vx (* (- px (-> *phys-qx* scl)) kd))
+                                        (vy (* (- py (-> *phys-qy* scl)) kd))
+                                        (vz (* (- pz (-> *phys-qz* scl)) kd)))
+                                   (set! (-> *phys-qx* scl) px)
+                                   (set! (-> *phys-qy* scl) py)
+                                   (set! (-> *phys-qz* scl) pz)
+                                   (set! (-> *phys-px* scl) (+ px vx fx))
+                                   (set! (-> *phys-py* scl) (+ py (+ vy (+ fy (* gsc gy)))))
+                                   (set! (-> *phys-pz* scl) (+ pz vz fz))))))))))
 
                     ;; ---- 2. LES CONTRAINTES. Gauss-Seidel : longueur puis collision, puis des
                     ;; ---- balayages de collision seuls pour finir — la collision est la contrainte
@@ -3762,62 +3307,44 @@
                     (dotimes (it 8)
                       (phys-length-chain skel sc n rlk an nbone)
                       (phys-collide-chain skel sc n rlk nbone nco PHYS-COL-MARGIN 3))
-                    ;; L'ATTENUATION D'ANGLE DES CHEVEUX, UNE SEULE FOIS (cf. phys-bend-chain et la
-                    ;; note d'idempotence de phys-softmin). Elle se pose ICI, pas apres la finition :
-                    ;; la sequence doit toujours se terminer sur (collision, recul) pour que « rien
-                    ;; ne traverse » soit vrai a la derniere operation de la frame.
+                    ;; L'ATTENUATION D'ANGLE DES CHEVEUX, UNE SEULE FOIS. Elle reste : c'est le
+                    ;; traitement que l'owner a lui-meme demande (11e passe, « soit une subdivision
+                    ;; intelligente, soit une attenuation sur les angles extremes ») et elle est
+                    ;; bornee aux chaines qui portent `maxangle`, c'est-a-dire les cheveux
+                    ;; (« c'est juste sur les meches, pas le reste, encore moins les seins », 22:35).
+                    ;; Ce n'est pas un rappel vers le dessin : elle borne un PLI entre deux maillons
+                    ;; voisins, ce que la peau a faible densite de polygones ne peut pas encaisser.
                     (phys-bend-chain skel sc n rlk an nbone)
                     ;; ETAGE 1 : apres la boucle de contraintes ET l'attenuation d'angle, avant la
                     ;; finition. L'ecart entre l'etage 0 et celui-ci est ce que longueur, collision
-                    ;; et attenuation retirent ; l'ecart entre celui-ci et la valeur ecrite est ce
-                    ;; que le RECUL retire.
+                    ;; et attenuation retirent.
                     (phys-cap-ang! skel sc n rlk an nbone 1)
-                    ;; FINITION, trois tours de (collision + recul), puis UN DERNIER passage de
-                    ;; longueur : c'est lui qui a le dernier mot sur le cote et sur la longueur, et
-                    ;; c'est la forme du resultat que l'owner voit. Les trois se tiennent :
-                    ;;  * la poussee de collision est radiale a un volume, elle ne change pas le
-                    ;;    cote par rapport a l'ATTACHE ;
-                    ;;  * le recul va vers la pose du modele, qui est du BON cote par construction ;
-                    ;;  * le passage de longueur final ne fait que tourner autour de l'attache, donc
-                    ;;    il ne peut pas creer de penetration a l'echelle du residu mesure ensuite.
-                    ;; La longueur entre DANS la boucle de finition, mais la sequence se termine
-                    ;; toujours sur (collision, recul) : le recul va vers la pose du modele, qui est
-                    ;; admissible par construction, donc la derniere operation de la frame garantit
-                    ;; « rien ne traverse » (regle 6 de l'owner, non negociable). Terminer par la
-                    ;; longueur a fait remonter la penetration a +0.07 m sur rbang et +0.06 m sur
-                    ;; les lunettes (mesure du 2026-08-11) : une rotation apres coup peut reposer le
-                    ;; lien dans un volume dont il venait de sortir.
+                    ;; ------------------------------------------------------------------------
+                    ;; LE RECUL (`phys-retreat-chain`) EST RETIRE, ET C'EST UNE SUPPRESSION DE
+                    ;; MODELE, PAS UN ALLEGEMENT.
+                    ;;
+                    ;; Il cherchait, par dichotomie, un point admissible SUR LE SEGMENT QUI VA VERS
+                    ;; LA POSE DU MODELE. Autrement dit : chaque fois qu'un maillon touchait quoi
+                    ;; que ce soit, on le ramenait vers le dessin de l'animateur — d'autant plus
+                    ;; fort que le contact etait profond. C'est un aimant vers le dessin, avec un
+                    ;; etat qui depend de l'historique du contact : la definition meme de
+                    ;; l'HYSTERESIS que l'owner signale sur TOUS les cheveux (21:30).
+                    ;;
+                    ;; L'historique de `physics-attic-2026-08-11` montre ce mecanisme arriver a son
+                    ;; terme : `d436c4488a` corrige, en toutes lettres, « the clamp was writing the
+                    ;; ANIMATOR's pose onto every chain that penetrated ». C'est la meme piece, au
+                    ;; meme endroit, dans le meme role.
+                    ;;
+                    ;; CE QUI TIENT LA REGLE 6 A SA PLACE (« rien ne traverse le mesh, quelle qu'en
+                    ;; soit la raison ») : la frame se termine sur une COLLISION, qui est une
+                    ;; projection dure hors des volumes, et non plus sur un recul. La sequence
+                    ;; ci-dessous finit donc par (longueur, collision) et la collision a le dernier
+                    ;; mot — c'est la garantie standard d'un solveur de contraintes, et elle ne
+                    ;; passe par aucune reference a la pose animee.
+                    ;; ------------------------------------------------------------------------
                     (dotimes (it 3)
                       (phys-length-chain skel sc n rlk an nbone)
-                      (phys-collide-chain skel sc n rlk nbone nco PHYS-COL-MARGIN 3)
-                      (let ((r0 *phys-retreat-n*))
-                        (phys-retreat-chain skel sc n rlk nbone nco)
-                        (when (> *phys-retreat-n* r0)
-                          (set! (-> *phys-dg* (+ (* sc PHYS-DG) 1))
-                                (+ (the float (- *phys-retreat-n* r0))
-                                   (-> *phys-dg* (+ (* sc PHYS-DG) 1)))))))
-                    ;; ---- 2ter. L'ATTENUATION D'ANGLE, UNE SECONDE ET DERNIERE FOIS — parce que
-                    ;; ---- LA FINITION DEFAIT LA PREMIERE, et c'est mesure fenetre par fenetre sur
-                    ;; la course LIVREE (PHYSGRADS a1 contre PHYSGRAD ang, meme fenetre, memes
-                    ;; maxima remis a zero ensemble) : lbang lien 3 rouvert dans 26 fenetres sur
-                    ;; 186 jusqu'a +31.43 deg, rbang lien 3 dans 18 sur 186 jusqu'a +54.54
-                    ;; (120.13 apres attenuation -> 174.68 ECRIT). L'attenuation TIRE (139.55 ->
-                    ;; 111.70) et c'est la POINTE, le maillon dont le pli casse la peau, qui se
-                    ;; rouvre apres elle. « Certains maillons meriteraient un traitement pour
-                    ;; eviter de creer des angles extremes qui mettent en lumiere le lack of
-                    ;; geometrie » (owner, 11e passe) : le traitement existait et n'atteignait pas
-                    ;; la frame ecrite. La regle 6 reste tenue — la frame se termine TOUJOURS sur
-                    ;; (collision, recul), et l'attenuation ramene le lien vers la direction du
-                    ;; MODELE sur le meme arc, donc dans le meme sens que le recul.
-                    ;; GARDE : la passe entiere est reservee aux chaines qui PORTENT une limite
-                    ;; d'angle, c'est-a-dire les cheveux (« c'est juste sur les meches, pas le
-                    ;; reste », owner 22:35). `phys-bend-chain` s'auto-annule deja sur amax=0, mais
-                    ;; pas le (collision, recul) qui la suit : sans cette garde il coutait encore
-                    ;; pantflapL 0.0132 -> 0.0096 et pantflapR 0.0084 -> 0.0042 au pilotage faible.
-                    (when (> (-> *phys-maxang* sc) 0.0)
-                      (phys-bend-chain skel sc n rlk an nbone)
-                      (phys-collide-chain skel sc n rlk nbone nco PHYS-COL-MARGIN 3)
-                      (phys-retreat-chain skel sc n rlk nbone nco))
+                      (phys-collide-chain skel sc n rlk nbone nco PHYS-COL-MARGIN 3))
                     ;; combien de paires (lien, volume) ont bascule d'etat de contrainte depuis la
                     ;; frame precedente : la mesure du defaut « jitter » lui-meme.
                     (phys-flip-count skel sc n rlk nbone nco)
