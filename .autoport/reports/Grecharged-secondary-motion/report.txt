@@ -24,9 +24,10 @@ NE FERME PAS : les 9 defauts de `owner-defects.txt`. Je n'en retire aucune ligne
 l'owner ferme un defaut. Aucun changement de PHYSIQUE n'a ete livre ce cycle, et je ne le presente
 pas autrement : ce que l'owner verra du prochain build est identique au precedent.
 
-NON PROUVE, ET JE NE LE PRESENTE PAS COMME PROUVE : que la colonne « mesh livre » soit non vide.
-Elle exige un bake, qui n'a pas encore tourne depuis le changement. Elle publie donc aujourd'hui
-`ROOM-SKINCOV-SHIPPED: ABSENT`, en toutes lettres, plutot que de retomber en silence sur le rip.
+PROUVE DE BOUT EN BOUT : le bake a tourne (`BAKE_RC=0`), les 11 glb preppes+reskinnes sont
+conserves, et la colonne « mesh livre » est VIVANTE. Ce qu'elle montre est en section 1 bis — et
+elle rend visibles a la fois des correctifs qui l'etaient deja livres sans qu'on puisse le voir, ET
+un defaut neuf que personne ne pouvait voir.
 
 -------------------------------------------------------------------------------------------------
 1. LA MESURE DE PEAU NE POUVAIT PAS VOIR CE QU'ELLE MESURAIT
@@ -80,6 +81,49 @@ PREUVE DE NON-REGRESSION, mesuree et pas affirmee : tableau regenere depuis le m
     diff du tableau entier                          ->  exactement 2 lignes AJOUTEES (la source,
                                                         et `SHIPPED: ABSENT`)
     4659 -> 4661 lignes. Rien d'autre n'a bouge.
+
+-------------------------------------------------------------------------------------------------
+1 bis. CE QUE LA COLONNE VOIT, MAINTENANT QU'ELLE PEUT VOIR
+-------------------------------------------------------------------------------------------------
+
+Bake relance (backup de `GAME.fr3` pris et verifie au md5 AVANT — il est irreproductible), puis
+tableau regenere. `ROOM-SKINCOV-SHIPPED` publie 22 chaines, dont **11 different du rip brut** — le
+controle integre tire donc, la colonne voit reellement autre chose.
+
+    chaine        cov rip -> cov livre   dcov      tear rip -> livre
+    rmidhair      0.7877 -> 0.7750      -0.0127    82 -> 0
+    earL          0.8787 -> 0.8432      -0.0355    26 -> 0
+    earR          0.8887 -> 0.8438      -0.0449    24 -> 0
+    lmidhair      0.7946 -> 0.7814      -0.0132    19 -> 0
+    lbang         0.9874 -> 0.9791      -0.0083    10 -> 0
+    rbang         0.9788 -> 0.9703      -0.0085    10 -> 0
+    chestL        0.1934 -> 0.5767      +0.3834     0 -> 0
+    chestR        0.1718 -> 0.5471      +0.3753     0 -> 0
+    pantflapL     0.1096 -> 0.6654      +0.5558     0 -> 6      <-- NOUVEAU DEFAUT
+    pantflapR     0.1130 -> 0.6817      +0.5688     0 -> 6      <-- NOUVEAU DEFAUT
+
+TROIS CHOSES EN SORTENT, ET AUCUNE N'ETAIT VISIBLE HIER.
+
+a) LE CORRECTIF PRIORITE 1 EST BIEN DANS LE MESH LIVRE. `tear` tombe a ZERO sur les six jonctions,
+   `rmidhair` inclus. Le rapport precedent l'affirmait, le tableau le contredisait, et le tableau
+   avait tort. C'est desormais lisible dans l'instrument au lieu d'etre une affirmation.
+   J'ai aussi la TRACE D'EXECUTION que le cycle precedent ne pouvait pas produire (regle 0) :
+       [reskin] keira-hd  11 rule(s)
+       Rmidhaira graded verts=39 marche max 1.000->0.450 poids pris a head=12.1 ... bascules>0.5=0
+   `bascules>0.5=0` partout : l'ancrage SPEC 2 tient, aucun sommet ne passe en majorite a la meche.
+
+b) `chestL/R` ET `pantflapL/R` N'ONT JAMAIS EU LA COUVERTURE QU'ON LEUR PRETAIT. Le pan de
+   pantacourt est pilote a **67 %**, pas a 11 %. Or `pantflapL cov=0.1096` a servi de diagnostic —
+   « c'est la mesure de sa phrase *comme si son pantacourt s'arretait aux genoux* ». Cette lecture
+   etait fondee sur un chiffre faux depuis le 11 aout. Je la retire.
+
+c) UN DEFAUT NEUF, ET IL EST DANS LE MESH QUE L'OWNER A EN MAIN : **`transfer` CREE 6 aretes
+   dechirees sur chaque pan de pantacourt** (`tear 0 -> 6`), la ou `grade` n'en cree aucune. Le rip
+   brut en montrait 0 : ce defaut etait structurellement invisible. C'est de la geometrie qui
+   s'ouvre, exactement la famille de ce que l'owner decrit, et c'est sur la piece dont il se plaint
+   (`pant-calf`). Non corrige ce cycle — trouve trop tard, et je ne touche pas a un mesh livre sans
+   mesurer la correction. C'est le premier candidat du prochain cycle.
+   A savoir avant d'y toucher : `transfer` n'est PAS idempotent (3.5).
 
 -------------------------------------------------------------------------------------------------
 2. QUATRE PISTES FERMEES PAR LE CALCUL — c'est le vrai rendement du cycle
@@ -208,7 +252,9 @@ son nombre, non.
   hair-nape        CAUSE ETABLIE (3.3) : il manque un os a `backhair`. Reprise d'asset. Non fait.
   ears-physics     non traite.
   knee-tabs        non traite. Impossible en l'etat (`LfootFlaps`/`RfootFlaps` absents du rig HD).
-  pant-calf        franchissement ferme au cycle precedent. Attend son oeil.
+  pant-calf        franchissement ferme au cycle precedent. MAIS la colonne « mesh livre » revele
+                   que `transfer` OUVRE 6 aretes sur chaque pan (`tear 0 -> 6`, 1 bis.c), dans le
+                   mesh qu'il a en main. Premier candidat du prochain cycle.
   goggles-bottom   non traite. Piste chiffree : le tronc est gonfle par ses propres bretelles
                    (`chest` 671 -> 631 hors bretelles, 2.b).
   goggles-tunnel   non traite, hors portee de mesure (la salle ne joue aucune cinematique).
@@ -221,8 +267,16 @@ subtils, et le sag. Aucun parametre, aucun fichier de donnees, aucune ligne du m
 5. CE QUE L'OWNER DOIT REGARDER
 -------------------------------------------------------------------------------------------------
 RIEN DE NOUVEAU N'EST VISIBLE CE CYCLE, et je le dis plutot que de lui faire chercher une
-difference qui n'existe pas. Aucune physique n'a change. Si un build part, il porte le meme
-comportement que celui de 01:30.
+difference qui n'existe pas. AUCUNE physique n'a change : ni parametre, ni donnee de chaine, ni
+ligne de moteur. Ce qu'il verra est le comportement du build de 01:30.
+
+UNE RESERVE HONNETE SUR LE PACK. Le bake a ete relance pour produire l'artefact de mesure, donc
+`GAME.fr3` est REGENERE : meme recette, memes regles de reskin, mais le bake n'est pas
+octet-reproductible (25435347 -> 25435338 octets, md5 different). Les gates du bake passent toutes
+(`LID-GATE PASS`, `NEG-TEX-INVARIANT OK` sur les 11 modeles) et le backup de la version precedente
+est garde et verifie au md5. Si le prochain pack lui parait different sur un AUTRE personnage que
+Keira, c'est le premier endroit ou regarder.
+
 Ce qui l'attend toujours, du cycle precedent : re-telecharger `jak1_hd_assets.zip` (48 Mo) et le
 re-extraire — le correctif de peau `hair-skinning` n'est PAS dans l'APK.
 
