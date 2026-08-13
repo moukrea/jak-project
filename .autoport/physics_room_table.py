@@ -296,6 +296,7 @@ def main():
 
     # ---- le diagnostic par chaine --------------------------------------------------------------
     diag = {}
+    shellfire = {}   # tag -> (corrections `rad>0`, inward `rad<0` ou None si vieille trace)
     for m in re.finditer(r'^PHYSDIAG tag=(\S+) c=(\d+) selfcol=([-\d.e+]+) retreat=([-\d.e+]+)'
                          r' flip=([-\d.e+]+)', txt, re.M):
         diag.setdefault(m.group(1), {}).setdefault(int(m.group(2)), {}).update(
@@ -321,12 +322,29 @@ def main():
     #           il est passe SOUS sa distance de pose modele, donc DANS la chair. Signee, negative
     #           sous le defaut, en metres apres division. Absente des vieilles traces : le
     #           `.get(..., None)` la distingue d'un zero mesure.
+    #           shellout : l'excursion SORTANTE, relevee AVANT correction elle aussi. Elle repare
+    #           une mesure non discriminante -- `shellrad` est post-correction et lit 0 que le
+    #           fourreau soit epingle ou libre. Absente des vieilles traces : None, pas 0.
     for m in re.finditer(r'^PHYSDIAG5 tag=(\S+) c=(\d+) volprio=([-\d.e+]+)'
-                         r'(?: shellrad=([-\d.e+]+))?(?: shellin=([-\d.e+]+))?', txt, re.M):
+                         r'(?: shellrad=([-\d.e+]+))?(?: shellin=([-\d.e+]+))?'
+                         r'(?: shellout=([-\d.e+]+))?', txt, re.M):
         diag.setdefault(m.group(1), {}).setdefault(int(m.group(2)), {}).update(
             volprio=float(m.group(3)),
             shellrad=(float(m.group(4)) / UNITS) if m.group(4) is not None else None,
-            shellin=(float(m.group(5)) / UNITS) if m.group(5) is not None else None)
+            shellin=(float(m.group(5)) / UNITS) if m.group(5) is not None else None,
+            shellout=(float(m.group(6)) / UNITS) if m.group(6) is not None else None)
+    # LES DEUX MOITIES DU LIMITEUR RADIAL, comptees separement. La ligne PHYSSHELL etait emise
+    # dans la trace depuis son ajout mais AUCUN parseur ne la lisait : le compte n'a donc jamais
+    # atteint le tableau, et « quelle moitie epingle le fourreau » est reste sans reponse pendant
+    # deux cycles. `corrections` = branche `rad>0` (le pan s'ecarte, on le ramene vers l'axe) ;
+    # `inward` = branche `rad<0` (le pan est DANS la chair, on l'en ressort -- regle 6).
+    # NATURE : des COMPTES d'evenements. REPERE : sans objet. `inward` absent d'une vieille trace
+    # reste None, ce qui le distingue d'un zero mesure.
+    for m in re.finditer(r'^PHYSSHELL tag=(\S+) corrections=([-\d.e+]+)'
+                         r'(?: inward=([-\d.e+]+))?', txt, re.M):
+        shellfire[m.group(1)] = (
+            float(m.group(2)),
+            float(m.group(3)) if m.group(3) is not None else None)
     # rootrot : l'angle ECRIT dans la 3x3 du maillon `rootlock` -- le premier segment de la meche,
     #           celui qui part du cuir chevelu. ABSENT des courses d'avant ce cycle, et valant zero
     #           STRUCTURELLEMENT avant le correctif (la boucle d'ecriture sautait tout `l < rlk`) :
@@ -1548,14 +1566,29 @@ def main():
         dr_shon  = diag.get('shell-armed', {})
         for v, c in sorted(((v or 0.0, c) for c, v in sh_run.items()), reverse=True):
             if v > 0 or (dr_shon.get(c, {}).get('shellrad') or 0) > 0:
-                A('ROOM-SHELL: chain=%-12s run=%.4f disarmed=%.4f armed=%.4f inward=%.4f'
+                _so = dr_run.get(c, {}).get('shellout')
+                A('ROOM-SHELL: chain=%-12s run=%.4f disarmed=%.4f armed=%.4f inward=%.4f wants=%s'
                   % (names[c], v,
                      (dr_shoff.get(c, {}).get('shellrad') or 0.0),
                      (dr_shon.get(c, {}).get('shellrad') or 0.0),
-                     (dr_run.get(c, {}).get('shellin') or 0.0)))
+                     (dr_run.get(c, {}).get('shellin') or 0.0),
+                     '--' if _so is None else '%.4f' % _so))
         sd = sum((dr_shoff.get(c, {}).get('shellrad') or 0.0) for c in chains)
         sa = sum((dr_shon.get(c, {}).get('shellrad') or 0.0) for c in chains)
         A('ROOM-SHELL-CONTROL: armed=%.4f disarmed=%.4f' % (sa, sd))
+    # QUELLE MOITIE DU LIMITEUR RADIAL TIRE, ET COMBIEN DE FOIS. La question est restee ouverte
+    # deux cycles parce que la ligne existait dans la trace sans etre lue. Elle tranche une
+    # hypothese : si `inward` domine, le pan passe son temps a entrer dans le mollet et la
+    # contrainte l'en ressort -- le mouvement perdu par FLOOR-WEAK etait du tissu qui s'enfoncait,
+    # pas du mouvement legitime. Si `out` domine, c'est l'inverse et la moitie `rad>0` epingle.
+    # NATURE : des COMPTES d'evenements sur la fenetre de controle. REPERE : sans objet.
+    # LECTURE HORS DEFAUT : inward=0. `--` = trace anterieure a la publication du compteur.
+    if shellfire:
+        for tag in ('shell-disarmed', 'shell-armed'):
+            if tag in shellfire:
+                out, inw = shellfire[tag]
+                A('ROOM-SHELL-FIRE: tag=%-15s out=%.0f inward=%s'
+                  % (tag, out, '--' if inw is None else '%.0f' % inw))
     if cone_dis is not None and cone_arm is not None:
         A('')
         A('-- LE PREDICAT CONIQUE : LE SOLIDE TESTE EST ENFIN CELUI QUE LA DONNEE DESIGNE ----------')

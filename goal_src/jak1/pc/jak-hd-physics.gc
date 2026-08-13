@@ -195,6 +195,25 @@
 ;; correction a eu a corriger.
 (define *phys-shellin* (new 'global 'array 'float PHYS-SC))
 ;; ------------------------------------------------------------------------------------------------
+;; LA MEME GRANDEUR, DANS L'AUTRE SENS — L'EXCURSION SORTANTE QUE LE TISSU TENTE.
+;;
+;; POURQUOI ELLE MANQUAIT, ET C'EST UNE MESURE NON DISCRIMINANTE AU SENS DE LA SPEC 7. La colonne
+;; `shellrad` (`ROOM-SHELL run=`) est relevee dans la passe de MESURE, donc APRES que le solveur a
+;; corrige : quand la contrainte est en place elle ramene `rad` a -marge, et un maximum de valeurs
+;; POSITIVES ne peut alors rien lire d'autre que 0. `run=0.0000` se lit donc identiquement que le
+;; fourreau soit epingle ou parfaitement libre — c'est exactement la troisieme question de la SPEC 7
+;; (« que lit-elle quand le defaut est ABSENT ? ») sans reponse, et ce zero-la a servi de preuve
+;; qu'« autre chose epingle le fourreau ». Il ne prouvait rien.
+;;
+;; NATURE : une distance radiale SIGNEE POSITIVE — de combien le tissu s'ecarte de l'axe au-dela de
+;; sa pose de modele. REPERE : celui du volume, comme `shellin`.
+;; LECTURE QUAND LE DEFAUT EST ABSENT : 0. Relevee AVANT correction, donc elle mesure ce que la
+;; correction a eu a corriger et non ce qu'il en reste — c'est ce qui la rend son propre temoin.
+;; S'ECARTER DE LA JAMBE N'EST PAS UN DEFAUT : c'est ce que fait un pan de tissu. Cette colonne ne
+;; dit pas « il faut corriger », elle dit COMBIEN DE MOUVEMENT la moitie `rad>0` retire (SPEC 7 :
+;; « on chiffre combien de mouvement il retire »).
+(define *phys-shellout* (new 'global 'array 'float PHYS-SC))
+;; ------------------------------------------------------------------------------------------------
 ;; LA LONGUEUR DE L'AXE DU MEMBRE QU'UN FOURREAU ENTOURE. 0 = pas encore vue.
 ;;
 ;; POURQUOI ELLE EXISTE, ET C'EST LA PHRASE CI-DESSUS QUI ETAIT FAUSSE. Le commentaire de
@@ -2102,6 +2121,12 @@
                          (let ((rad (phys-shell-res rest pt ca cb nrm)))
                            (cond
                              ((> rad 0.0)
+                              ;; l'excursion SORTANTE brute, relevee AVANT de corriger — exactement
+                              ;; comme la branche `rad<0` releve la rentrante. Sans elle, la seule
+                              ;; colonne existante etait post-correction et lisait 0 quoi qu'il
+                              ;; arrive (voir *phys-shellout*).
+                              (when (> rad (-> *phys-shellout* sc))
+                                (set! (-> *phys-shellout* sc) rad))
                               (set! *phys-shell-n* (+ *phys-shell-n* 1))
                               (let ((push (+ rad margin)))
                                 ;; `nrm` sort de `phys-shell-res` dirigee VERS l'axe : le lien
@@ -4487,10 +4512,21 @@
     (-> *phys-shellin* (+ (* slot PHYS-CHAINS) c))
     0.0))
 
+(defun phys-shell-out-worst ((slot int) (c int))
+  "L'excursion SORTANTE la plus grande vue sur la fenetre pour cette chaine, en unites de jeu,
+   relevee AVANT correction (voir `*phys-shellout*`).
+   NATURE : une distance radiale positive. REPERE : celui du volume.
+   LECTURE QUAND LE DEFAUT EST ABSENT : 0 — le tissu n'a jamais tente de s'ecarter de l'axe.
+   Ce n'est PAS une colonne de defaut : elle chiffre le mouvement que la moitie `rad>0` retire."
+  (if (and (>= slot 0) (< slot PHYS-SLOTS) (>= c 0) (< c PHYS-CHAINS))
+    (-> *phys-shellout* (+ (* slot PHYS-CHAINS) c))
+    0.0))
+
 (defun phys-shell-reset! ()
   (set! *phys-shell-n* 0)
   (set! *phys-shell-in-n* 0)
   (dotimes (i PHYS-SC) (set! (-> *phys-shellin* i) 0.0))
+  (dotimes (i PHYS-SC) (set! (-> *phys-shellout* i) 0.0))
   (none))
 
 (defun phys-inversions-reset! ()

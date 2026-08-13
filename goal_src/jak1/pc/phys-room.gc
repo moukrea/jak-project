@@ -680,11 +680,20 @@
       ;;            l'autre : le tissu entre dans la chair. NATURE : une distance radiale SIGNEE,
       ;;            en unites de jeu, negative sous le defaut. REPERE : celui du volume, distance a
       ;;            son axe. LECTURE QUAND LE DEFAUT EST ABSENT : 0.
-      (format 0 "PHYSDIAG5 tag=~S c=~D volprio=~f shellrad=~f shellin=~f~%"
+      ;;   shellout L'EXCURSION SORTANTE la plus grande du meme lien-fourreau, relevee elle aussi
+      ;;            AVANT correction. Elle repare une mesure NON DISCRIMINANTE : `shellrad` est
+      ;;            relevee dans la passe de mesure, donc APRES correction, et un maximum de valeurs
+      ;;            positives y lit 0 des que la contrainte tourne — que le fourreau soit epingle ou
+      ;;            libre. `shellout` lit ce que la correction a eu a corriger.
+      ;;            S'ECARTER DE LA JAMBE N'EST PAS UN DEFAUT : cette colonne chiffre le mouvement
+      ;;            que la moitie `rad>0` RETIRE (SPEC 7). NATURE : distance radiale positive, en
+      ;;            unites de jeu. REPERE : celui du volume. LECTURE HORS DEFAUT : 0.
+      (format 0 "PHYSDIAG5 tag=~S c=~D volprio=~f shellrad=~f shellin=~f shellout=~f~%"
               tag c
               (phys-diag (-> self slot) c 12)
               (phys-diag (-> self slot) c 13)
-              (phys-shell-in-worst (-> self slot) c))
+              (phys-shell-in-worst (-> self slot) c)
+              (phys-shell-out-worst (-> self slot) c))
       ;;   rootrot  l'angle, EN DEGRES, reellement ecrit dans la 3x3 du maillon `rootlock` — le
       ;;            PREMIER SEGMENT de la meche, celui qui part du cuir chevelu. Il valait 0.0000
       ;;            structurellement jusqu'a ce cycle : la boucle d'ecriture du moteur sautait tout
