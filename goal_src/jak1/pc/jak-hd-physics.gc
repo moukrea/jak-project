@@ -3796,6 +3796,22 @@
                           (set! (-> *phys-dg* (+ (* sc PHYS-DG) 1))
                                 (+ (the float (- *phys-retreat-n* r0))
                                    (-> *phys-dg* (+ (* sc PHYS-DG) 1)))))))
+                    ;; ---- 2ter. L'ATTENUATION D'ANGLE, UNE SECONDE ET DERNIERE FOIS — parce que
+                    ;; ---- LA FINITION DEFAIT LA PREMIERE, et c'est mesure fenetre par fenetre sur
+                    ;; la course LIVREE (PHYSGRADS a1 contre PHYSGRAD ang, meme fenetre, memes
+                    ;; maxima remis a zero ensemble) : lbang lien 3 rouvert dans 26 fenetres sur
+                    ;; 186 jusqu'a +31.43 deg, rbang lien 3 dans 18 sur 186 jusqu'a +54.54
+                    ;; (120.13 apres attenuation -> 174.68 ECRIT). L'attenuation TIRE (139.55 ->
+                    ;; 111.70) et c'est la POINTE, le maillon dont le pli casse la peau, qui se
+                    ;; rouvre apres elle. « Certains maillons meriteraient un traitement pour
+                    ;; eviter de creer des angles extremes qui mettent en lumiere le lack of
+                    ;; geometrie » (owner, 11e passe) : le traitement existait et n'atteignait pas
+                    ;; la frame ecrite. La regle 6 reste tenue — la frame se termine TOUJOURS sur
+                    ;; (collision, recul), et l'attenuation ramene le lien vers la direction du
+                    ;; MODELE sur le meme arc, donc dans le meme sens que le recul.
+                    (phys-bend-chain skel sc n rlk an nbone)
+                    (phys-collide-chain skel sc n rlk nbone nco PHYS-COL-MARGIN 3)
+                    (phys-retreat-chain skel sc n rlk nbone nco)
                     ;; combien de paires (lien, volume) ont bascule d'etat de contrainte depuis la
                     ;; frame precedente : la mesure du defaut « jitter » lui-meme.
                     (phys-flip-count skel sc n rlk nbone nco)
