@@ -121,9 +121,42 @@ c) UN DEFAUT NEUF, ET IL EST DANS LE MESH QUE L'OWNER A EN MAIN : **`transfer` C
    dechirees sur chaque pan de pantacourt** (`tear 0 -> 6`), la ou `grade` n'en cree aucune. Le rip
    brut en montrait 0 : ce defaut etait structurellement invisible. C'est de la geometrie qui
    s'ouvre, exactement la famille de ce que l'owner decrit, et c'est sur la piece dont il se plaint
-   (`pant-calf`). Non corrige ce cycle — trouve trop tard, et je ne touche pas a un mesh livre sans
-   mesurer la correction. C'est le premier candidat du prochain cycle.
+   (`pant-calf`). Non corrige ce cycle, et la suite dit pourquoi.
    A savoir avant d'y toucher : `transfer` n'est PAS idempotent (3.5).
+
+   ATTAQUE, MESURE, PAS FERME — et le diagnostic est complet, ce qui vaut mieux qu'un correctif
+   pose a l'aveugle. `grade` est l'operateur fait pour refermer une marche de poids, il est
+   idempotent, et il a deja ferme les six jonctions de cheveux. Applique aux deux pans
+   (`.autoport/probe_pantflap_grade.py`, en memoire sur le mesh LIVRE, donc sur l'entree reelle) :
+
+       pantflapL  cov 0.6654 -> 0.6654   tear 6 -> 6      <-- NE FERME PAS
+       pantflapR  cov 0.6817 -> 0.6817   tear 6 -> 6      <-- NE FERME PAS
+       temoins chestL/chestR/lmidhair : inchanges au bit pres (le perimetre ne deborde pas)
+       idempotence : verifiee, une seconde passe ne change rien
+
+   OU SONT LES ARETES, exactement (`.autoport/probe_pantflap_tear_where.py`) : les 6 dechirures de
+   chaque pan ne portent que sur **4 sommets de bordure**, tous a `w_pan = 0.000` PILE, face a des
+   voisins a 0.900 et 0.730, et tout leur poids est sur `Lknee 0.96 · Lthigh 0.04`.
+
+   ET VOICI LE POINT DUR : l'operateur ANNONCE avoir ferme, et la mesure dit le contraire.
+       LpantFlap  graded verts=4 marche max 0.900->0.450 poids pris a Lknee,Lthigh=1.5
+                  rendu=0.00 sur 0 sommet(s)
+   Il declare la marche ramenee a 0.450 ; le poids mesure apres coup vaut toujours 0.000 contre
+   0.900. `rendu=0.00 sur 0 sommet(s)` est la trace de l'ecart : il a calcule ce qu'il fallait
+   PRENDRE (1.5) et ne l'a RENDU a personne. A comparer aux cheveux, ou il a bien ecrit :
+   `Rmidhaira ... rendu=1.85 sur 38 sommet(s)`.
+   C'est un operateur qui publie son INTENTION et non son EFFET — la meme famille que tout ce que ce
+   cycle a debusque, cette fois dans l'outil qui ecrit les assets livres.
+
+   CE QUI EST ETABLI POUR LA SUITE, et qui rend le correctif petit : les 8 sommets concernes
+   n'utilisent que **2 creneaux d'influence sur 4** (`Lknee 0.961 · Lthigh 0.039`, somme 1.0000). Il
+   y a donc deux creneaux libres par sommet : donner au pan un creneau chez eux ne coute aucune
+   eviction et ne peut pas casser l'invariant a 4 os.
+   POURQUOI JE NE LE LIVRE PAS CE CYCLE : `physics_c7_reskin.py` ECRIT LE MESH QUE L'OWNER RECOIT.
+   Un ecrivain d'assets dont je viens de montrer que sa comptabilite interne ne correspond pas a ce
+   qu'il ecrit ne se corrige pas en fin de course sans place pour re-baker et re-mesurer. Le
+   diagnostic est complet, l'instrument qui le juge existe, et les deux sondes sont commitees : le
+   prochain cycle commence par la, pas par une enquete.
 
 -------------------------------------------------------------------------------------------------
 2. QUATRE PISTES FERMEES PAR LE CALCUL — c'est le vrai rendement du cycle
