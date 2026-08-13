@@ -320,6 +320,14 @@ verifie plutot qu'affirme : le tableau de cette course est identique a celui d'a
 dans le rapport precedent (section 4), `kneeflapL` y etait deja note comme preexistant. Je ne touche
 ni la gate ni `motion-floor-weak.txt` (regle 5) et je ne l'adoucis pas : elle est reportee entiere.
 
+TRACABILITE — LE HUNK MOTEUR N'EST PAS DANS LE COMMIT QUI L'EXPLIQUE. Un checkpoint automatique du
+constructeur (`d321935c20 [keira-physique] checkpoint automatique du constructeur`) s'est declenche
+PENDANT ce cycle et a emporte les deux fichiers `.gc` ; mon commit `67faf19247` ne porte donc que
+les sondes et ce rapport. Rien n'est perdu — `phys-prio-meas` est present dans HEAD (5 occurrences
+dans `jak-hd-physics.gc`, 1 appel dans `phys-room.gc`) et dans l'arbre de travail — mais pour un
+bisect futur, la modification du moteur se trouve sous le commit de checkpoint, pas sous son
+message. Je le note plutot que de le reecrire : l'historique n'est pas retouche.
+
 Je n'ai touche NI le validateur NI aucune gate (regle 5). Le moteur fait 4467 lignes (plafond 4800).
 Le fichier de chaines n'a pas ete regenere : `git diff -U0 -- recharged_assets/physics_chains.txt`
 rend ZERO ligne `chain` modifiee, donc tout le reglage de l'owner est intact.
