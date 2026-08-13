@@ -104,21 +104,62 @@ transfer RpantFlap from=Rknee,Rthigh cap=0.90 shape=0.75
 #   ABSENT : le profil monte vers ~1.0 au dernier decile. `lbang`/`rbang` le font DEJA et servent
 #            de temoin sain interne — si ce bloc les degradait, il serait faux.
 #
-# `shape=1.0` EST UN CHOIX CONTRAINT, PAS UN REGLAGE : c'est le rescale PUR, qui multiplie tout le
-# profil par une constante et preserve donc EXACTEMENT la falloff de l'artiste — c'est-a-dire
-# l'ancrage. Un `shape<1` elargirait l'epaule et remonterait la RACINE, ce qui produirait « cheveux
-# decolles du crane », etat que l'owner a deja vu et rejete. `cap=0.90` est celui de `rBoob`/`lBoob`,
-# le seul que son oeil ait valide (« les seins, les mouvements subtils sont toujours OK »).
-# `backHair2` est plafonne PLUS BAS que `backHair3` parce qu'il est plus pres de la racine : la
-# monotonie du plafond le long de la chaine est la meme regle que le profil qu'on cherche a obtenir.
+# 2026-08-13 — LE PLAFOND ETAIT LE DEFAUT, ET C'EST L'OWNER QUI L'A DIT TROIS FOIS.
+#   « Les grosses meches sont pas bonnes hein, une partie de la geometrie reste encree et ca casse ! »
+# Le bloc precedent posait `cap=0.80` sur `backHair2` et `shape=1.0` en expliquant qu'un `shape<1`
+# « decollerait les cheveux du crane ». Les deux affirmations sont DEMENTIES par la mesure :
+#   1. un plafond a 0.80 rend ARITHMETIQUEMENT impossible d'atteindre le profil de `lbang` (1.00) —
+#      c'est lui qui tenait les deciles 2 a 6 de `backhair` entre 0.36 et 0.78 ;
+#   2. la peur du decollement etait une opinion. L'ancrage n'est PAS porte par `shape` : il est
+#      porte (a) spatialement, `gain = max(cap*s^shape - wt, 0)` est nul la ou l'artiste n'a rien
+#      peint, et (b) par l'invariant 2 de `grade` plus bas, plafond DUR a 0.50 pour tout sommet qui
+#      n'etait pas deja majoritairement mobile, avec `!!` si un sommet bascule. Mesure sur les six
+#      regles ci-dessous : `bascules>0.5=0` partout, et `lbang`/`rbang` ne bougent pas d'un chiffre.
+#
+# CIBLE = LE PROFIL MESURE DE `lbang`, PAS `cov=1.0` : d1 reste l'ancrage (lbang : 0.86), d2 et
+# au-dela montent. `cap=1.00 shape=0.12` est le point le meilleur mesure sur 10 candidats passes
+# dans l'operateur REEL, sur l'entree REELLE (donneur injecte -> prep -> reskin, verifiee
+# bit-pour-bit identique au mesh livre). Toute autre valeur essayee fait moins bien :
+#     shape   backhair moy/mobile      lmidhair            rmidhair            lbang
+#     0.55    0.877 / 0.514            0.859 / 0.527       0.830 / 0.549       inchange
+#     0.30    0.888 / 0.873            0.871 / 0.792       0.849 / 0.765       inchange
+#     0.20    0.907 / 0.896            0.867 / 0.811       0.867 / 0.806       inchange
+#     0.12    0.937 / 0.934            0.904 / 0.884       0.893 / 0.861       inchange
+#   (depart : 0.856 / 0.769 · 0.805 / 0.463 · 0.787 / 0.499)
+# La colonne « mobile » exclut le maillon 0 verrouille : c'est celle qui decrit la COQUILLE FIGEE
+# que l'owner voit, et elle passe de 0.46-0.77 a 0.86-0.93.
+#
+# CE QUE LA CIBLE `d2 >= 0.95` N'ATTEINDRA PAS, ET POURQUOI — chiffre, pas excuse. `backhair` d2/d3
+# plafonnent a 0.78/0.79. Deux causes mesurees, distinctes :
+#   (a) sur les sommets DEJA presents : 0.40 -> 0.81 en d2, 0.36 -> 0.79 en d3. Le reste de `head`
+#       y est borne par `g = min(gain, pool)` puis repris en partie par `grade` (`rendu=`) ;
+#   (b) la POPULATION grandit : `grade` fait entrer 15 sommets de cuir chevelu voisins dans la
+#       chaine (n 170 -> 186) a ~0.30, PLAFONNES A 0.50 par l'invariant d'ancrage, et ils tombent
+#       dans d1..d3. La bande d'ancrage que la SPEC 2 exige atterrit donc dans les memes deciles que
+#       la cible : viser 0.95 la-bas, c'est demander la suppression de l'ancrage.
+# Verifie en retirant les `grade` (mesure de diagnostic, JAMAIS livree) : d2 remonte a 0.88 — mais
+# `lbang` bouge alors (0.976 -> 0.987, d1 0.86 -> 0.91), donc c'est interdit : elle est approuvee.
 #
 # ORDRE : ces `transfer` sont places AVANT le bloc `grade` (plus bas) a dessein — `grade` regradue
 # la jonction cuir chevelu/meche sur les poids FINAUX. L'inverse rouvrirait la dechirure que
 # `grade` vient de fermer.
-# EFFET PREDIT AVANT LE BAKE, pour qu'une regle morte ne parte pas en production (le profil du
-# joint cible est lu sur le mesh LIVRE, et `transfer` ne peut que MONTER : `gain = max(new-wt, 0)`) :
-#     backHair3   132 sommets   p90 0.4488 -> cap 0.90   = x2.01 sur le profil, +33.3 de masse
-#     backHair2   162 sommets   p90 0.2481 -> cap 0.80   = x3.22 sur le profil, +49.3 de masse
+# ORDRE INTERNE : la POINTE passe avant le MILIEU (`backHair3` avant `backHair2`), et le maillon
+# amont est donneur de la pointe. Sans ca, le milieu se sert le premier et la pointe ne trouve plus
+# de pool : c'est le sens de la SPEC 2 (« le mouvement croit vers la pointe »), applique aux poids.
+#
+# MASSE REELLEMENT DEPLACEE (recopiee du rapport de l'operateur, entree reelle) — pas une
+# prediction. Chaque ligne lit l'etat LAISSE PAR LA PRECEDENTE, d'ou le p90 de `backHair2` a 0.102 :
+# la pointe s'est deja servie chez lui, et c'est exactement l'ordre voulu.
+#     backHair3  132 sommets  p90 0.449  moyenne 0.252 -> 0.899  masse 85.3  head,backHair1,backHair2
+#     backHair2  156 sommets  p90 0.102  moyenne 0.036 -> 0.300  masse 41.1  head,backHair1
+#     Lmidhairc  112 sommets  p90 0.875  moyenne 0.526 -> 0.899  masse 41.7  head,Lmidhaira,Lmidhairb
+#     Lmidhairb  198 sommets  p90 0.296  moyenne 0.107 -> 0.486  masse 75.2  head,Lmidhaira
+#     Rmidhairc  113 sommets  p90 0.868  moyenne 0.499 -> 0.895  masse 44.7  head,Rmidhaira,Rmidhairb
+#     Rmidhairb  201 sommets  p90 0.478  moyenne 0.148 -> 0.490  masse 68.8  head,Rmidhaira
+# Les regles `...c` avec `cap=0.98 shape=0.55` et sans le maillon amont comme donneur ont ete
+# ESSAYEES et rejetees par l'operateur lui-meme : `!! Lmidhairc: transfer moved ownership by only
+# +0.019 — the rule is inert`. Le pool a la pointe est tenu par le maillon amont, pas par `head`
+# (`head` y vaut 0.001) : sans lui comme donneur la regle est morte et BLOQUE le bake.
 #
 # `[model keira-hd]` ET PAS `keira-hd keira3-hd`, ET C'EST LE BAKE QUI L'A TRANCHE, pas moi : la
 # gate de verification du bake (« RESKIN verification FAILED — a declared transfer did not apply »)
@@ -142,13 +183,58 @@ transfer RpantFlap from=Rknee,Rthigh cap=0.90 shape=0.75
 # lui est dynamiquement IDENTIQUE a du poids pose sur `head` — c'est la meme soudure, sous un autre
 # nom. Il doit donc etre donneur au meme titre.
 #
-# POURQUOI CA NE DECOLLE PAS LES CHEVEUX DU CRANE, et c'est `shape=1.0` qui le garantit : le gain
-# n'a lieu que la ou la CIBLE porte deja du poids (`gain = max(cap*(wt/p90) - wt, 0)`, nul quand
-# `wt` est nul). Au cuir chevelu, `backHair3` vaut ~0, donc il n'y prend rien et `backHair1` y
-# garde tout. La securite est SPATIALE, portee par le profil de l'artiste, pas par un plafond.
+# POURQUOI CA NE DECOLLE PAS LES CHEVEUX DU CRANE — ce n'est NI `shape` NI `cap`, et c'est mesure :
+#   1. SPATIAL : le gain n'a lieu que la ou la CIBLE porte deja du poids (`gain = max(cap*s^shape -
+#      wt, 0)`, nul quand `wt` est nul). Au cuir chevelu `backHair3` vaut 0, la regle n'y prend rien.
+#   2. INVARIANT 2 DE `grade` : plafond DUR a 0.50 pour un sommet qui n'etait pas deja majoritaire,
+#      et `!!` des qu'un sommet bascule. Mesure sur les 6 regles + les 12 `grade` : `bascules>0.5=0`
+#      sur chacune, et la marche max de chaque jonction retombe a 0.450.
+#   3. TEMOIN NON CIBLE : `lbang`/`rbang` (approuvees par l'owner) et `earL`/`earR` rendent des
+#      profils IDENTIQUES au chiffre pres avant/apres. Un bloc qui decollerait les cheveux les
+#      aurait bougees elles aussi.
+#
+# ------------------------------------------------------------------------------------------------
+# ARBITRAGE DU 2026-08-13 (superviseur) — `from=head` SEUL SUR LES MAILLONS DU MILIEU, ET POURQUOI
+# ------------------------------------------------------------------------------------------------
+# Le point 3 ci-dessus reste vrai, mais il ne couvre PAS le risque reel. Il surveille lbang/rbang ;
+# le risque porte sur la RACINE des grosses meches elles-memes. Mesure qui l'a montre :
+# `from=head,Lmidhaira` vidait le maillon 0 EPINGLE a 94 % (Lmidhaira 75.14 -> 4.79 de masse), et
+# dans le tableau « maillon racine verrouille exclu » — celui qui dit ce qui BOUGE vraiment —
+# lmidhair d1 passait de 0.03 a 0.64 contre 0.07 sur `lbang` que l'owner approuve. Soit une racine
+# neuf fois plus mobile que la reference approuvee : c'est « les cheveux decolles du crane », le
+# defaut qu'il a DEJA rejete, et `hair anchoring` est un acquis FERME qu'une regression fait echouer.
+#
+# CAUSE ARITHMETIQUE, pas une opinion : `shape=0.12` est tellement concave qu'un poids residuel de
+# 0.01 ressort a `0.01^0.12 = 0.59` — la regle PROMEUT en majoritaire des sommets de racine qui ne
+# portaient presque rien. D'ou deux corrections, chacune mesuree separement :
+#   * `from=head` SEUL sur `backHair2`/`Lmidhairb`/`Rmidhairb` : on ne prend plus au maillon 0
+#     epingle, donc l'ancrage garde sa masse. (Sur les maillons de POINTE `*c`/`backHair3` on garde
+#     les donneurs amont : `head` n'y vaut que 0.001, `from=head` seul y est INERTE et l'operateur
+#     le refuse lui-meme -- `!! transfer moved ownership by only +0.019`.)
+#   * `shape=0.40` sur `Lmidhairb`/`Rmidhairb`, qui portent le plus gros saut de racine.
+#     `backHair2` reste a 0.12 : mesure a l'appui, c'est la valeur qui l'ancre le MIEUX (d1 0.30
+#     contre 0.41 a shape=0.40) tout en tenant d4-d10 a 1.00.
+#
+# ETAT LIVRE, les deux tableaux (profil publie / maillon racine exclu), APRES contre AVANT :
+#     backhair   0.856 -> 0.872   d4-d10 = 1.00        racine d1  0.20 -> 0.30
+#     lmidhair   0.805 -> 0.887   d4-d10 = 0.98-1.00   racine d1  0.03 -> 0.33   (0.64 sans ceci)
+#     rmidhair   0.787 -> 0.852   d4-d10 = 0.94-1.00   racine d1  0.18 -> 0.32   (0.65 sans ceci)
+#     lbang / rbang / earL / earR : IDENTIQUES au chiffre pres. Non ciblees, non touchees.
+#
+# CE QUI N'ATTEINT PAS LA CIBLE, ET POURQUOI CE N'EST PAS UN ECHEC : d2/d3 restent a 0.47-0.82 au
+# lieu de 0.95. La cause est mesuree : `grade` fait ENTRER des sommets de cuir chevelu voisins dans
+# la chaine (backhair n 170 -> 202) a 0.30, plafonnes a 0.50 par l'invariant d'ancrage, et ils
+# tombent en d1-d3. **C'est la bande d'ancrage que la SPEC 2 EXIGE**, pas un residu du defaut : le
+# defaut de l'owner porte sur le CORPS de la meche (« une partie de la geometrie reste encree »), et
+# le corps (d4-d10) est desormais pilote a 1.00. Monter d2/d3 exigerait de retirer les `grade`, ce
+# qui bouge `lbang` (0.976 -> 0.987) : interdit, elle est approuvee.
 [model keira-hd]
-transfer backHair3 from=head,backHair1 cap=0.90 shape=1.0
-transfer backHair2 from=head,backHair1 cap=0.80 shape=1.0
+transfer backHair3 from=head,backHair1,backHair2 cap=1.00 shape=0.12
+transfer backHair2 from=head                     cap=1.00 shape=0.12
+transfer Lmidhairc from=head,Lmidhaira,Lmidhairb cap=1.00 shape=0.12
+transfer Lmidhairb from=head                     cap=1.00 shape=0.40
+transfer Rmidhairc from=head,Rmidhaira,Rmidhairb cap=1.00 shape=0.12
+transfer Rmidhairb from=head                     cap=1.00 shape=0.40
 #
 # LES OREILLES SONT MESUREES ET NON TRAITEES, ET JE LE DIS AU LIEU DE LE TAIRE (regle 3).
 # J'avais ecrit `transfer lEarb/rEarb from=head cap=0.90 shape=1.0`. La prediction ci-dessus les

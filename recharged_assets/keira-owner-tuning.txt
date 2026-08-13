@@ -466,3 +466,58 @@ chain chestR couple=1.85 damping=0.26
 ## correspond pas a la chaine livree.
 chain lbang stiffness=1.3089 damping=0.0784 gravity=0.1592
 chain rbang stiffness=1.3072 damping=0.0784 gravity=0.1588
+
+## 2026-08-13 14:45 — « c'est plus du pudding [...] on dirait les mouvements quand on tape sur un
+## pudding, pas des mouvements naturels de cheveux » (defaut `hair-pudding`, PRIORITE 1).
+##
+## L'owner CORRIGE mon diagnostic precedent : ce n'est PAS une frequence (« pas trop lent et mou »),
+## c'est une FORME DE REPONSE. Et il m'a donne le controle apparie sans que je le demande : il
+## APPROUVE les meches fines et REJETTE les grosses, meme moteur, meme salle, meme frame.
+##
+## MESURE, PAS OPINION — `ROOM-RINGDOWN`, lue dans la salle (fenetre de silence de PH-IDLE, sujet
+## immobile, animation figee), repere LOCAL (deviation angulaire du maillon par rapport a son
+## parent). Course x86 du 2026-08-13 15:35, pointe de chaque chaine :
+##
+##     chaine     verdict     decroissance a 10 %   retards racine->pointe
+##     lbang      APPROUVEE      84 frames            0, 8, 8
+##     rbang      APPROUVEE      96 frames            0, 0, 5
+##     backhair   REJETEE        21 frames            0, 1
+##     lmidhair   REJETEE        50 frames            0, 1
+##     rmidhair   REJETEE        50 frames            0, 8
+##
+## LES DEUX GRANDEURS DISENT LA MEME CHOSE, et c'est sa phrase : les meches qu'il approuve BALANCENT
+## (elles sonnent 84-96 frames, et l'onde DESCEND -- la pointe suit le milieu avec 5 a 8 frames de
+## retard) ; celles qu'il rejette sont ECRASEES en 21-50 frames et bougent EN PHASE (retard de 1
+## frame = tout le volume part ensemble). Un pudding qu'on tape : ca se deforme d'un bloc et ca
+## revient. Des cheveux : ca balance, la racine mene, la pointe suit.
+##
+## LE LEVIER, et c'est le seul parametre que je bouge : l'AMORTISSEMENT. Les grosses meches portent
+## des ronds generiques (0.18 / 0.20) la ou lbang porte une valeur derivee (0.0784). A raideur et
+## masse inchangees, l'amortissement reduit zeta = damping/(stiffness/sqrt(mass)) vaut 0.0949 et
+## 0.1131 contre 0.0696 sur lbang : les grosses sont amorties 1.36x et 1.63x plus fort.
+## Les valeurs ci-dessous EGALISENT zeta sur celui de `lbang`. Rien d'autre ne bouge : ni raideur,
+## ni masse, ni couple, ni gravite -- sinon on ne saurait pas lequel a agi.
+##
+## NOTE DE METHODE, elle compte : la DIRECTIVE interdit de DERIVER le ring-down d'une formule du
+## solveur, et je ne le fais pas -- le ring-down est MESURE dans la salle (tableau ci-dessus). La
+## formule ne sert qu'a CHOISIR un candidat ; la verification est une nouvelle course, pas un calcul.
+## Si la nouvelle course ne rapproche pas la decroissance des 84-96 frames de lbang, ces trois
+## lignes sont RETIREES, pas adoucies.
+## PREMIERE ITERATION, MESUREE PUIS REMPLACEE (course 15:47). Egaliser zeta a bien pousse dans le
+## bon sens sans toucher aux approuvees, mais n'a comble qu'une fraction de l'ecart :
+##     backhair 21 -> 32 frames   lmidhair 50 -> 55   rmidhair 50 -> 53   (cible lbang 84, rbang 96)
+##     lbang 84 -> 84 et rbang 96 -> 96 : INCHANGEES, aucun dommage collateral.
+## L'ERREUR ETAIT DE CHOISIR LE MAUVAIS INVARIANT. L'enveloppe decroit en exp(-zeta*wn*t), et
+## zeta*wn = damping/(stiffness/sqrt(mass)) * stiffness/sqrt(mass) = **damping**. Le temps de
+## decroissance ne depend donc QUE de l'amortissement, ni de la raideur ni de la masse : egaliser
+## zeta laissait `backhair` 1.68x plus rapide parce que sa pulsation propre est 1.68x plus haute.
+# chain backhair damping=0.1320
+# chain lmidhair damping=0.1230
+# chain rmidhair damping=0.1230
+## DEUXIEME ITERATION : on pose EXACTEMENT l'amortissement de `lbang`. C'est le controle apparie
+## applique a la lettre -- la cible n'est pas un nombre que je choisis, c'est la valeur portee par
+## les meches que l'owner APPROUVE. Meme condition de retrait qu'avant : si la course ne rapproche
+## pas la decroissance des 84-96 frames, ces lignes sont RETIREES, pas adoucies.
+chain backhair damping=0.0784
+chain lmidhair damping=0.0784
+chain rmidhair damping=0.0784

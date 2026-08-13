@@ -64,6 +64,131 @@ def fnum(v):
     return '%.4f' % v
 
 
+# ================================================================================================
+# RING-DOWN — LA FORME DE LA REPONSE DANS LE TEMPS (defaut owner `hair-pudding`, 2026-08-13)
+# ================================================================================================
+# Owner : « la gelatine c'est plus du pudding, c'est pas trop lent et mou, c'est vraiment pas
+# coherent... On dirait les mouvements quand on tape sur un pudding, pas des mouvements naturels de
+# cheveux ! » Un pudding sonne a SA frequence propre quel que soit le coup recu et tout son volume
+# bouge EN PHASE. Des cheveux SUIVENT : la racine mene, la pointe suit avec un retard, l'onde
+# descend le long de la meche.
+#
+# Les trois questions de SPEC 7, repondues ici et pas ailleurs :
+#
+#   1. NATURE — une FORME DE REPONSE DANS LE TEMPS : decroissance libre apres l'arret du stimulus,
+#      et retard de phase entre maillons. Ce n'est ni une amplitude ni une variance. Un scalaire
+#      d'amplitude ne peut PAS distinguer un pudding d'une chaine : les deux peuvent bouger AUTANT.
+#   2. REPERE — LOCAL. `ang` est la deviation angulaire de chaque maillon PAR RAPPORT A SON PARENT
+#      (`phys-link-ang`), en degres. Jamais le monde : en repere monde un maillon herite du
+#      mouvement de son parent, et une pointe parfaitement solidaire de son parent y afficherait un
+#      grand chiffre. C'est l'erreur du 2026-08-11, corrigee le 2026-08-12.
+#   3. LIGNE DE BASE QUAND LE DEFAUT EST ABSENT — `lbang`/`rbang`, mesurees dans la MEME course.
+#      L'owner approuve les meches fines et rejette les grosses : c'est un controle apparie qu'il a
+#      donne lui-meme, donc la cible chiffree des grosses meches est une valeur MESUREE sur les
+#      fines, jamais un nombre choisi.
+#
+# RESERVE — ELLE S'ECRIT, ELLE NE SE TAIT PAS. `ang` vaut `atan(|cross|, dot)`
+# (jak-hd-physics.gc:4032-4047) : c'est un MODULE, toujours positif. Le signal est donc REDRESSE —
+# pendant une decroissance libre le maillon TRAVERSE sa position de repos, et `ang` retombe a zero
+# puis remonte. D'ou, noir sur blanc :
+#   * la frequence apparente de `ang` est le DOUBLE de la frequence reelle d'oscillation ;
+#   * une oscillation libre complete = DEUX minima de `ang` (d'ou la division par 2 dans `osc`) ;
+#   * le retard de phase entre deux maillons reste lisible sur le signal redresse, mais il n'est
+#     determine que MODULO UNE DEMI-PERIODE reelle.
+# La grandeur SIGNEE existe dans le moteur (`*phys-ox/oy/oz*`, l'ecart a la pose d'auteur dans le
+# repere de l'ancre) et serait meilleure, mais aucun accesseur ne l'expose : on mesure avec ce
+# qu'on a et on declare la limite.
+RING_HAIR_OK = ('lbang', 'rbang')                          # APPROUVEES par l'owner
+RING_HAIR_BAD = ('backhair', 'lmidhair', 'rmidhair')       # REJETEES par l'owner
+
+
+def ring_env(series, w):
+    """ENVELOPPE glissante : le max des `w` frames a partir de f.
+
+    Une AMPLITUDE n'est pas la valeur d'un echantillon. Sur un signal redresse qui repasse par zero
+    deux fois par oscillation, un seuil applique a l'echantillon se declencherait au PREMIER passage
+    par zero et rendrait le meme `decay` de quelques frames pour n'importe quel signal — un chiffre
+    qui ne discrimine rien."""
+    n = len(series)
+    if n == 0 or w < 1:
+        return list(series)
+    return [max(series[f:min(n, f + w)]) for f in range(n)]
+
+
+def ring_extrema(series, delta):
+    """Indices des minima et des maxima locaux, avec une BANDE MORTE `delta`.
+
+    Un renversement ne compte que si le signal a bouge de plus de `delta` depuis le dernier extremum
+    retenu. Sans cette bande, le bruit numerique fabrique autant d'extrema qu'on veut et `osc`
+    mesurerait la precision du flottant, pas le ballottement."""
+    mins, maxs = [], []
+    if not series:
+        return mins, maxs
+    mode = 0                       # 0 = indetermine, +1 = on monte, -1 = on descend
+    lo = hi = series[0]
+    loi = hii = 0
+    for i, v in enumerate(series):
+        if v > hi:
+            hi, hii = v, i
+        if v < lo:
+            lo, loi = v, i
+        if mode >= 0 and v < hi - delta:
+            maxs.append(hii)
+            mode = -1
+            lo, loi = v, i
+        elif mode <= 0 and v > lo + delta:
+            mins.append(loi)
+            mode = 1
+            hi, hii = v, i
+    return mins, maxs
+
+
+def ring_period(series, delta):
+    """PERIODE APPARENTE du signal redresse, en frames : l'ecart moyen entre deux minima consecutifs.
+
+    C'est la MOITIE de la periode reelle d'oscillation (voir la reserve ci-dessus). Rend None quand
+    la serie ne contient pas deux minima : dans ce cas rien n'est extrapole, l'appelant se rabat sur
+    une valeur par defaut qu'il publie."""
+    mins, _ = ring_extrema(series, delta)
+    if len(mins) < 2:
+        return None
+    return (mins[-1] - mins[0]) / float(len(mins) - 1)
+
+
+def ring_lag(a, b, dmax):
+    """RETARD de `b` sur `a`, en frames, par correlation croisee NORMALISEE (Pearson) sur le
+    recouvrement : le decalage `d` qui maximise la correlation entre `a[f]` et `b[f+d]`.
+
+    Convention de signe : `d > 0` veut dire que `b` SUIT `a` — l'enfant est en retard sur son
+    parent, l'onde DESCEND la chaine. `d <= 0` veut dire que les deux bougent en phase (ou que
+    l'enfant mene), c'est-a-dire le pudding.
+
+    La moyenne est retiree de chaque fenetre : sans ca, deux signaux positifs correles a leur seule
+    composante continue rendraient une correlation quasi plate, et l'argmax serait du bruit.
+    Rend (d, r) — `r` est publie pour que la confiance dans `d` soit lisible."""
+    best_d, best_r = 0, -2.0
+    n = len(a)
+    for d in range(-dmax, dmax + 1):
+        xs, ys = [], []
+        for f in range(n):
+            g = f + d
+            if 0 <= g < len(b):
+                xs.append(a[f])
+                ys.append(b[g])
+        if len(xs) < 8:
+            continue
+        mx = sum(xs) / len(xs)
+        my = sum(ys) / len(ys)
+        sx = math.sqrt(sum((x - mx) ** 2 for x in xs))
+        sy = math.sqrt(sum((y - my) ** 2 for y in ys))
+        if sx <= 0.0 or sy <= 0.0:
+            continue
+        r = sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / (sx * sy)
+        if r > best_r:
+            best_r, best_d = r, d
+    return best_d, (best_r if best_r > -2.0 else 0.0)
+
+
 def main():
     global OUT
     log = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_LOG
@@ -242,6 +367,15 @@ def main():
         if m.group(6) is not None:
             gradang.setdefault(key, {})[int(m.group(4))] = float(m.group(6))
 
+    # ---- LE RING-DOWN, FRAME PAR FRAME (defaut `hair-pudding`) ---------------------------------
+    # Une ligne par (chaine, frame, maillon) pendant la fenetre de SILENCE qui suit le dernier
+    # niveau d'excitation. `ang` est la deviation angulaire du maillon PAR RAPPORT A SON PARENT, en
+    # degres, et la valeur de CETTE frame-la. Voir le bloc RING-DOWN en tete de fichier pour la
+    # nature, le repere, la ligne de base et la reserve du signal redresse.
+    ring = {}
+    for m in re.finditer(r'^PHYSRING c=(\d+) f=(\d+) l=(\d+) ang=([-\d.e+]+)', txt, re.M):
+        ring.setdefault((int(m.group(1)), int(m.group(3))), {})[
+            int(m.group(2))] = float(m.group(4))
 
     # ---- L'ALLONGEMENT ET LE STIMULUS GRAVITAIRE, PAR FENETRE (10e passe) -----------------------
     # « Les seins s'allongent de nouveau sur les mouvements BRUSQUES » est une phrase sur un
@@ -1171,6 +1305,149 @@ def main():
     A('   Pour comparaison, l\'ANCIENNE mesure (ecart cumule) en signalait %d : l\'ecart entre les'
       % len(inverses_old))
     A('   deux comptes est la part du defaut que le repere monde rendait invisible.')
+    A('')
+
+    # ---- LE RING-DOWN (defaut `hair-pudding`, owner 2026-08-13) ---------------------------------
+    # « On dirait les mouvements quand on tape sur un pudding, pas des mouvements naturels de
+    # cheveux ! » Un pudding sonne a sa frequence propre quel que soit le coup et tout son volume
+    # bouge EN PHASE ; des cheveux SUIVENT, l'onde descend de la racine vers la pointe. Ce qui
+    # separe les deux n'est pas une amplitude — les deux peuvent bouger autant — c'est la FORME de
+    # la reponse dans le temps. Voir le bloc RING-DOWN en tete de fichier (nature, repere, ligne de
+    # base, et la reserve du signal redresse).
+    A('-- ROOM-RINGDOWN : LA FORME DE LA REPONSE APRES L\'ARRET DU STIMULUS ----------------------')
+    A('   Owner 2026-08-13 : « la gelatine c\'est plus du pudding, c\'est pas trop lent et mou,')
+    A('   c\'est vraiment pas coherent... On dirait les mouvements quand on tape sur un pudding, pas')
+    A('   des mouvements naturels de cheveux ! »')
+    A('   NATURE : une forme de reponse dans le TEMPS — decroissance libre apres l\'arret du')
+    A('   stimulus, et retard de phase entre maillons. Ni une amplitude ni une variance : un')
+    A('   scalaire d\'amplitude ne peut pas distinguer un pudding d\'une chaine, les deux peuvent')
+    A('   bouger AUTANT.  REPERE : LOCAL, la deviation angulaire de chaque maillon PAR RAPPORT A')
+    A('   SON PARENT (degres) — jamais le monde, ou une pointe soudee a son parent afficherait un')
+    A('   grand chiffre.  LIGNE DE BASE : lbang/rbang, mesurees dans la MEME course, parce que')
+    A('   l\'owner APPROUVE les meches fines et REJETTE les grosses. La cible est mesuree, pas')
+    A('   choisie.')
+    A('   RESERVE : `ang` est un MODULE (toujours positif), donc le signal est REDRESSE. La')
+    A('   frequence apparente est le DOUBLE de la reelle, une oscillation libre = DEUX minima')
+    A('   (d\'ou osc = minima/2), et le retard n\'est determine que MODULO une demi-periode.')
+    if not ring:
+        A('ROOM-RINGDOWN: ABSENT (aucune ligne PHYSRING dans la trace)')
+        A('   Un artefact manquant se declare en toutes lettres : il ne se remplace pas par un')
+        A('   repli silencieux. Cette course n\'a pas emis de fenetre de ring-down.')
+    else:
+        ring_chains = sorted({c for c, _ in ring})
+        ring_row = {}
+        for c in ring_chains:
+            links = sorted({l for cc, l in ring if cc == c})
+            frames = sorted(ring[(c, links[0])])
+            ser = [[ring[(c, l)].get(f, 0.0) for f in frames] for l in links]
+            span = frames[-1] - frames[0]
+            head = min(5, len(frames))
+            # `peak` = l'amplitude AU DEBUT DU SILENCE, tous maillons confondus : l'echelle a
+            # laquelle tout le reste se rapporte.
+            peak = max(max(s[:head]) for s in ser)
+            tip = ser[-1]
+            a0 = max(tip[:head])
+            delta = 0.05 * a0 if a0 > 0.0 else 0.0
+            tapp = ring_period(tip, delta)
+            win = max(2, int(round(tapp))) if tapp else 12
+            env = ring_env(tip, win)
+            # `decay` = le nombre de frames au bout duquel l'ENVELOPPE de la pointe passe sous 10 %
+            # de son amplitude initiale. Un plafond atteint doit SE VOIR : quand le seuil n'est
+            # jamais franchi on ecrit `>` suivi de la fenetre reellement observee, jamais la
+            # fenetre elle-meme, qui se lirait comme une mesure.
+            thr = 0.10 * a0
+            di = None
+            for i, v in enumerate(env):
+                if a0 > 0.0 and v < thr:
+                    di = i
+                    break
+            decay = ('%d' % (frames[di] - frames[0])) if di is not None else ('>%d' % span)
+            # `osc` = les oscillations LIBRES de la pointe avant ce seuil. Le signal etant redresse,
+            # une oscillation complete laisse DEUX minima : on compte les minima et on divise par 2.
+            mins, _ = ring_extrema(tip[:di] if di is not None else tip, delta)
+            osc = len(mins) / 2.0
+            # les retards, maillon par maillon. La fenetre de recherche vaut une DEMI-periode
+            # apparente : au-dela, le signal redresse se repete et l'argmax n'aurait plus de sens.
+            dmax = max(4, int(round((tapp or 12) / 2.0)))
+            lags, rs = [], []
+            for k in range(len(links) - 1):
+                d, r = ring_lag(ser[k], ser[k + 1], dmax)
+                lags.append(d)
+                rs.append(r)
+            # `mono` = l'onde DESCEND : retards strictement positifs et non decroissants de la
+            # racine vers la pointe. Un retard nul = tout bouge en phase = le pudding.
+            #
+            # CORRECTION 2026-08-13 : la premiere definition etait VACUE. Elle exigeait `d > 0` sur
+            # TOUS les retards, `lag01` compris -- or le maillon 0 est `rootlock=1`, il ne bouge pas
+            # (ROOM-GRADIENT publie link0=0.0000 sur les cinq pilotages), donc la correlation
+            # racine->maillon1 rend structurellement 0 et `mono` valait `no` pour TOUTE chaine, y
+            # compris `lbang`/`rbang` que l'owner APPROUVE. Un champ qui rend la meme valeur sur le
+            # bon et le mauvais echantillon ne discrimine rien (SPEC 7, « une mesure doit
+            # DISCRIMINER ») : il ne se defend pas, il se corrige.
+            # On juge donc l'onde sur les maillons LIBRES seuls, c'est-a-dire les retards a partir
+            # de `lag12`. Une chaine sans maillon libre (2 joints, rootlock) n'a pas d'onde a
+            # montrer : elle rend `n/a`, jamais un `no` qui se lirait comme un defaut.
+            # SECONDE CORRECTION, meme passe : sur une chaine a 3 joints il ne reste qu'UN retard
+            # libre, et « strictement positif ET non decroissant » y est trivialement vrai des que
+            # le retard depasse 0. `backhair` rendait donc `yes` avec `lag12=1` -- soit exactement
+            # le mouvement en bloc qu'on cherche a detecter. Une suite d'UN terme ne porte pas de
+            # forme : on ne la declare ni bonne ni mauvaise, on dit qu'elle n'est pas jugeable.
+            # La discrimination reste entiere dans les retards eux-memes, qui sont publies a cote
+            # (lag12 : backhair 1 contre lmidhair 6 et lbang 5,5).
+            free = lags[1:]
+            if len(free) < 2:
+                mono = 'n/a(%d lien libre)' % len(free)
+            else:
+                mono = ('yes' if all(d > 0 for d in free)
+                        and all(free[i + 1] >= free[i] for i in range(len(free) - 1))
+                        else 'no')
+            nm = names[c] if c < len(names) else 'c%d' % c
+            A('ROOM-RINGDOWN: chain=%-12s osc=%-5s decay=%-6s peak=%-8s %s mono=%s'
+              % (nm, '%.1f' % osc, decay, '%.2f' % peak,
+                 ' '.join('lag%d%d=%d' % (k, k + 1, d) for k, d in enumerate(lags)),
+                 mono))
+            A('   (fenetre=%d frames  maillons=%d  a0(pointe)=%.2f deg  periode apparente=%s'
+              ' frames  correlations=%s)'
+              % (span + 1, len(links), a0,
+                 ('%.1f' % tapp) if tapp else 'indeterminee',
+                 ' '.join('%.2f' % r for r in rs) if rs else 'aucune'))
+            ring_row[nm] = dict(osc=osc, decay=decay, peak=peak, a0=a0, lags=lags, mono=mono,
+                                di=di, span=span)
+        # ---- LE CONTROLE APPARIE : ce qu'il approuve contre ce qu'il rejette --------------------
+        A('')
+        A('   CONTROLE APPARIE — meme moteur, meme salle, meme fenetre. L\'owner APPROUVE les meches')
+        A('   fines et REJETTE les grosses : la cible chiffree des grosses est donc la valeur')
+        A('   MESUREE sur les fines, jamais un nombre choisi.')
+        A('   %-12s %-8s %-7s %-8s %-16s %s' % ('chaine', 'verdict', 'osc', 'decay', 'lags', 'mono'))
+        for nm in RING_HAIR_OK + RING_HAIR_BAD:
+            d = ring_row.get(nm)
+            verdict = 'APPROUVE' if nm in RING_HAIR_OK else 'REJETE'
+            if d is None:
+                A('   %-12s %-8s (absente de la fenetre de ring-down)' % (nm, verdict))
+                continue
+            A('   %-12s %-8s %-7s %-8s %-16s %s'
+              % (nm, verdict, '%.1f' % d['osc'], d['decay'],
+                 ','.join(str(x) for x in d['lags']) or '-', d['mono']))
+        ref = [ring_row[n] for n in RING_HAIR_OK if n in ring_row]
+        if ref:
+            rosc = sum(d['osc'] for d in ref) / len(ref)
+            rlag = [d['lags'][0] for d in ref if d['lags']]
+            rlag0 = (sum(rlag) / float(len(rlag))) if rlag else None
+            A('   reference APPROUVEE (moyenne %s) : osc=%.1f%s'
+              % ('+'.join(n for n in RING_HAIR_OK if n in ring_row), rosc,
+                 ('  lag01=%.1f' % rlag0) if rlag0 is not None else ''))
+            for nm in RING_HAIR_BAD:
+                d = ring_row.get(nm)
+                if d is None:
+                    continue
+                gap = '   ecart %-12s osc %+.1f' % (nm, d['osc'] - rosc)
+                if rlag0 is not None and d['lags']:
+                    gap += '   lag01 %+.1f' % (d['lags'][0] - rlag0)
+                A(gap)
+        A('   Lecture : un `osc` nettement plus grand que la reference = ca BALLOTTE (le pudding).')
+        A('   Un `lag` proche de zero ou negatif = tout le volume bouge EN PHASE, ce qui est')
+        A('   exactement le pudding et jamais des cheveux. Le verdict reste celui de l\'owner ; ces')
+        A('   chiffres disent seulement de quelle grandeur il parle.')
     A('')
 
     # ---- L'ALLONGEMENT, PAR PILOTAGE (10e passe : « ils s'allongent de nouveau ») ---------------
