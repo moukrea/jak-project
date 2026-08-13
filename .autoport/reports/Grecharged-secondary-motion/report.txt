@@ -379,6 +379,40 @@ faible valait 0.0794 ; ici, MÊME BINAIRE, seul `stiffness` retiré : **0.1672**
 FRÉQUENCE qui avait cassé le plancher, pas la fermeture du franchissement. L'amortissement seul,
 conservé, fait exactement l'inverse de ce que la fréquence faisait.
 
+3f bis. COURSE 6 — L'ÉTAT RÉELLEMENT LIVRÉ, APRÈS L'ARBITRAGE
+---------------------------------------------------------------
+Même `GAME.CGO` (md5 `9ce3bb40…` avant et après), calibration §24/§25/§32 remise en vigueur.
+Le tableau reproduit la course 4 **au chiffre près** sur toutes les lignes publiées — ce qui est la
+preuve que la salle est déterministe et que le changement est bien isolé à la donnée :
+
+    ROOM-NOPLAYER absent · ROOM-ACTORS 1 subject=keira-hd · ROOM-ANIMS 31/31 raw=31 skipped=0
+    ROOM-AUTHORED chains=8 respected=8 perchain=yes
+    ROOM-IDLE     maxdev=0.0629      (ligne de base 0.3130 — cinq fois mieux)
+    ROOM-STRETCH  max=0.0003         (plafond 3 %)
+    ROOM-SIDE     crossing=11282     (ligne de base 83488 : **-86.5 %**)
+    ROOM-SIDE-CONTROL  armed=15314 disarmed=1325 = **11.6x**   (il valait 0.99x : mort)
+    aucun NaN, aucun crash, 3410 mesures
+
+LA POITRINE, ET IL Y A UNE DISCORDANCE QUE JE NE MASQUE PAS. Aux valeurs de sa §24 (2.30 Hz) :
+
+                        ligne de base      §24 livrée     §25 seule (course 5, f inchangée)
+    chestL  osc/decay      0.5 / 46          0.5 / 7            1.5 / 48
+    chestR  osc/decay      0.5 / >148        1.0 / 11           1.0 / 45
+    sagn                 0.3037 / 1.6568   0.0946 / 0.1161    0.3049 / 0.2970
+
+Le nombre d'oscillations avant extinction ne dépend QUE de ζ, pas de la fréquence :
+`n ≈ ln(10)/(2πζ) = 1.05` pour ζ = 0.35. Les trois colonnes donnent 0.5 à 1.5 — cohérent avec 1.05
+à la quantification de la mesure près (le pas est 0.5). En revanche `decay` devrait valoir
+`n · 60/f` = **27 frames** à 2.30 Hz ; il en mesure **7**. Et sa §27 demande « mostly settled
+~1.0-1.5 s », soit 60 à 90 frames : **l'état livré s'éteint 5 à 10 fois plus vite que sa propre
+§27 ne le demande.**
+
+L'EXPLICATION LA PLUS PROBABLE, et je la donne comme hypothèse, pas comme fait : le `mass` du
+moteur (1.45) est un nombre sans dimension, pas les 0.50 kg de sa §5. Transporter `f = k/√m` dans
+ces unités-là suppose une équivalence que rien n'a vérifiée. **La calibration §24 est appliquée
+parce que le superviseur l'ordonne et parce qu'elle est SA valeur ; je signale que la §27, mesurée,
+ne suit pas.** C'est à vérifier avant de croire que la poitrine est aux cibles de la spec.
+
 3g. CE QUE ÇA COÛTE, ET JE LE METS AU MÊME NIVEAU QUE CE QUE ÇA RAPPORTE
 --------------------------------------------------------------------------
 La fermeture du franchissement se paie en `jump` — le pire saut d'UNE frame :
@@ -531,11 +565,14 @@ Par ordre de risque, le premier étant celui dont je ne sais pas s'il se voit :
   2. **LES LUNETTES ET LE PANTACOURT.** `goggles-tunnel` (lunettes dans le dos) et `pant-calf`
      (pantacourt dans les mollets) étaient structurellement rouverts depuis le retrait du recul ;
      le mécanisme est refermé à 86 %. Il en reste, et `goggles` est le pire des vingt-deux.
-  3. **LA POITRINE SUR LES MOUVEMENTS BRUSQUES.** Elle était sur-amortie (ζ = 1.03, aucun rebond,
-     `osc` = 0.5) ; elle rebondit maintenant (`osc` 1.5 à gauche, 1.0 à droite), ce que ta §26
-     demande. C'est `chest-big-anims` et `flesh-jelly` qui sont visés. **Et sa réponse aux
-     mouvements SUBTILS a monté, pas baissé** (elle est à 1.97x son plancher à gauche) — mais c'est
-     ton œil qui décide, pas mon chiffre.
+  3. **LA POITRINE.** Elle était sur-amortie (ζ = 1.03, aucun rebond,
+     `osc` = 0.5) ; elle est maintenant à ζ = 0.35 et 2.30 Hz, tes §24/§25, et elle s'éteint
+     beaucoup plus vite (`decay` 46 et >148 frames -> 7 et 11). C'est `chest-big-anims` et
+     `flesh-jelly` qui sont visés. **DEUX RÉSERVES QUE JE TE DOIS** : (a) à cette raideur elle
+     bouge nettement MOINS en amplitude — c'est ce que ta §24 implique mathématiquement, pas un
+     bug, mais c'est aussi ce que tu avais appelé « un peu muté » par le passé ; (b) elle s'éteint
+     5 à 10 fois plus vite que ta propre §27 ne le demande (voir §3f bis). Si elle te paraît trop
+     sèche, c'est le couple (§24, §27) qu'il faut rejuger, pas un réglage.
   4. **LES CHEVEUX AU REPOS.** Ils ne doivent plus s'affaisser sous une seconde gravité : debout, la
      forme d'auteur doit revenir exactement (§2/§9). L'écart mesuré au repos a été divisé par cinq.
   5. **LE DÉGRADÉ RACINE->POINTE des mèches.** Il s'améliore sur l'inclinaison et pas sur les
