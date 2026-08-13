@@ -1,321 +1,281 @@
 DIRECTIVES v0a88eb98b6
 
 =================================================================================================
-CYCLE — LE MESH LIVRE LIAIT LES POIDS NEUFS A UNE TABLE DE JOINTS PERIMEE.
-         85 SOMMETS DE CHEVEUX ETAIENT ATTACHES A `prejoint` DANS LA GEOMETRIE QUI REND.
+CYCLE — LA MOITIE BASSE DE CHAQUE MECHE N'AVAIT PAS DE JOINT.
+         CINQ OS INJECTES, ET TROIS DEFAUTS DE CHAINE DE PRODUCTION TROUVES EN LES BRANCHANT.
 =================================================================================================
 
 Perimetre : phase `Grecharged-secondary-motion`, branche `physics-keira-clean`, SCOPE-SERIAL 3,
 KEIRA SEULE. Contrat : `.autoport/prompts/SPEC-keira-physique.md`.
 
 -------------------------------------------------------------------------------------------------
-0. CE QUE CE CYCLE FERME
+0. CE QUE CE CYCLE FERME, EN UNE PHRASE
 -------------------------------------------------------------------------------------------------
 
-Un DEFAUT DE CORRECTION D'ASSET, mecanique, mesure des deux cotes, et qui explique huit cycles de
-« ma mesure est verte et il voit encore le defaut » sur `hair-skinning` :
+Les chaines de cheveux s'arretaient AU MILIEU de la meche dessinee : 95 % de la masse de peau
+d'une meche se trouve a s = 1.8..2.2 longueurs d'os depuis le dernier joint, alors que la partie
+articulee s'arrete a 1.0. Toute la moitie distale etait donc portee RIGIDEMENT par le dernier
+joint. C'est mot pour mot ce que l'owner decrit depuis sept passes :
 
-  `.autoport/physics_c7_reskin.py` ecrivait, pour 27 des 28 primitives du mesh, les poids NEUFS
-  contre la table de joints PERIMEE. Le poids gradue atterrissait sur le joint que l'ancienne table
-  portait dans le creneau vole — `prejoint`.
+  « on dirait qu'elles sont ancrees (les pointes) au meme titre que les racines, et que c'est ce
+    qu'il y a entre les pointes et les racines qui bouge »
 
-Consequence sur le mesh que l'owner a en main : 85 sommets, pour une masse de 17.81, autour des
-jonctions cuir chevelu / meche, pesés sur un joint qui ne suit pas la meche. Ils restent immobiles
-pendant que leurs voisins bougent. C'est mot pour mot son diagnostic du 2026-08-12 :
-« des polygones qui bougent et des polygones voisins parfaitement statiques, causant la geometrie
-qui casse ».
+et c'est aussi pourquoi aucun degrade n'etait representable : avec `rootlock=1`, une chaine de
+DEUX joints n'a qu'UN maillon libre. Cinq os injectes, un par chaine de cheveux.
 
-Et la mesure ne pouvait pas le voir, pour une raison independante : `physics_c6_volumes.py` lisait
-JOINTS_0/WEIGHTS_0 de la PREMIERE primitive — la seule dont la table etait juste.
-
-CE CYCLE LIVRE DONC DU VISIBLE, contrairement au precedent. Trois corrections de geometrie, chacune
-avec son avant/apres. Aucune ligne de physique n'a change : ni parametre, ni donnee de chaine, ni
-moteur. SUPPRESSORS: 0.
+SUPPRESSORS: 0    (aucun limiteur ajoute ; le seul ajout au moteur est une ligne de diagnostic)
 
 -------------------------------------------------------------------------------------------------
-1. LE DEFAUT, ET SA PREUVE PAR L'EXECUTION
+1. LA MESURE QUI L'ETABLIT, ET SA LIGNE DE BASE
 -------------------------------------------------------------------------------------------------
 
-LA LIGNE. `physics_c7_reskin.py`, cache de primitives :
+NATURE : une DISTRIBUTION DE LONGUEUR le long de la meche — pas une amplitude, pas une variance.
+  Le defaut decrit est « quelle geometrie a un joint pour la porter », donc on mesure ou est la
+  masse de peau, pas combien elle bouge.
+REPERE : le repere de bind du DERNIER os de la chaine, origine a sa tete, unite = sa propre
+  longueur. s > 1.0 = geometrie AU-DELA du dernier joint.
+LIGNE DE BASE quand le defaut est ABSENT : s_p95 <= 1.0 et masse orpheline = 0.
 
-    at['JOINTS_0'] = acc_j                  # les deux accesseurs sont neufs...
-    at['WEIGHTS_0'] = acc_w
-    seen[key] = acc_w                       # ...mais le cache ne retient QUE le poids
-    ...
-    if key in seen:
-        at['WEIGHTS_0'] = seen[key]         # ...donc les suivantes ne recoivent QUE le poids
+Mesure sur le mesh REELLEMENT LIVRE (`out/jak1/fr3/skin/keira-hd-lod0.glb`), jamais sur le rip
+brut du donneur — celui-la porte encore le pool de sommets du niveau et lit 3,6 m de « cheveux ».
 
-`_grade` et `transfer` MUTENT `J` (ils volent le creneau le plus leger : `J[vi, slot] = t`). Le `W`
-neuf n'a donc de sens QUE contre le `J` neuf. La premiere primitive d'une cle recevait bien les deux
-accesseurs ; TOUTES LES SUIVANTES recevaient le poids neuf contre la table perimee.
+  chaine     s_p95 avant -> apres   masse orpheline      queue sans joint
+  backhair      2.162 -> 1.000        97.1 % -> 4.4 %      0.1227 m -> 0.0000
+  lmidhair      1.974 -> 1.000        67.2 % -> 4.8 %      0.2289 m -> 0.0000
+  rmidhair      1.996 -> 1.000        66.1 % -> 4.5 %      0.2339 m -> 0.0000
+  lbang         1.813 -> 1.000        27.9 % -> 4.9 %      0.1555 m -> 0.0000
+  rbang         1.811 -> 1.000        20.9 % -> 5.1 %      0.1552 m -> 0.0000
 
-MESURE AVANT (`out/jak1/fr3/skin/keira-hd-lod0.glb`, md5 8af2f36d, bake du 02:22) :
+CONTROLE POSITIF : il n'a pas eu besoin d'etre injecte. La colonne AVANT est le phenomene A SA
+PLEINE ECHELLE sur le mesh livre (97,1 % de masse orpheline sur `backhair`), et elle tombe a
+4,4 %. C'est le defaut lui-meme qui sert de controle. Le residu de ~5 % est la queue au-dela du
+95e centile : publie, pas cache.
 
-    paire d'attributs      primitives                        masse sur `prejoint`
-    J=3   W=35             27  (LE CORPS, ce qui rend)       85 sommets, 17.81
-    J=34  W=35              1                                 0 sommets,  0.00
+LA REGLE EST UNIQUE ET DERIVEE (regle 4) : un joint par chaine, place a s = s_p95 de sa propre
+masse. Elle converge par construction. Une premiere version placait iterativement des joints au
+centroide de la queue restante : elle NE CONVERGEAIT PAS (chaque nouvel os est une fraction du
+precedent) et reclamait 3 joints par chaine en lisant encore 1.33. Rejetee sur sa propre mesure.
 
-MESURE APRES (md5 65bfe429) :
-
-    J=33  W=34             28  (toutes)                       0 sommets,  0.00
-
-CONTROLE POSITIF : il n'a pas eu besoin d'etre injecte — le compteur etait a 17.81 sur le mesh
-REELLEMENT LIVRE, a pleine echelle du phenomene, et il tombe a 0. C'est le defaut lui-meme qui a
-servi de controle, pas une simulation de defaut.
-
-CE QUE LES SOMMETS PERDUS REDEVIENNENT, par chaine (nombre de sommets pilotes dans la geometrie qui
-rend, avant -> apres) — ce sont exactement ceux que `grade` soulevait et que la table perimee
-renvoyait sur `prejoint` :
-
-    Rmidhaira 227 -> 236    Lmidhaira 219 -> 226    backHair1 167 -> 170
-    Rbanga    106 -> 108    Lbanga    103 -> 105    earL n=82 -> 90
-
-REGLE 0 RESPECTEE : rien ci-dessus ne vient d'un commentaire. Les deux colonnes sont produites par
-une sonde qui ouvre le glb livre et somme les poids par joint.
+PREUVE D'EXECUTION que la geometrie a atteint le moteur — les longueurs d'os que le moteur
+MESURE lui-meme retrouvent la spec derivee, au millimetre :
+    PHYSBONE c=2 l=2 len=502.43 u  = 0.1227 m   (spec backHair3 0.1227)
+    PHYSBONE c=3 l=3 len=636.91 u  = 0.1555 m   (spec Lbangd    0.1555)
+    PHYSBONE c=5 l=2 len=937.67 u  = 0.2289 m   (spec Lmidhairc 0.2289)
+    [HD-PHYS] init keira-hd slot=0 chains=22 links=41 colliders=52 joints=100
+    PHYSCHAIN c=2 links=3 j0=backHair1   (2 avant)    c=3 links=4 j0=Lbanga   (3 avant)
 
 -------------------------------------------------------------------------------------------------
-1 bis. POURQUOI PERSONNE NE POUVAIT LE VOIR — LA MESURE LISAIT LA MAUVAISE PRIMITIVE
+2. LE GRADIENT — LA CIBLE DE SEPT PASSES, ET ELLE BOUGE ENFIN
 -------------------------------------------------------------------------------------------------
 
-`physics_c6_volumes.py:114-117` faisait `if pos is None:` — J/W lus de la PREMIERE primitive, puis
-appliques a l'indexation de toutes les autres. Quand le glb porte plus d'un jeu d'attributs, elle
-mesure donc une table que le corps n'utilise pas : elle publiait la sante de la primitive 0 (la
-seule saine) pendant que les 27 primitives du corps portaient le defaut.
+`ROOM-GRADIENT` = deviation angulaire de chaque maillon RELATIVEMENT A SON PARENT (le repere qui
+avait fait publier un faux croissant le 2026-08-11, corrige depuis).
 
-Corrige : J/W sont lies PAR PRIMITIVE, sur les sommets que cette primitive reference. Ce qui est
-mesure est desormais ce qui est rendu. Et un mesh a plus d'un jeu d'attributs fait desormais CRIER
-la mesure (`[skincov] !!`) au lieu d'etre moyenne en silence.
+AVANT : sur les trois chaines a deux joints, la suite etait `link0=0.0000 link1=~92` — un seul
+maillon libre a 92 degres. Ce n'est pas un degrade inverse, c'est une CHARNIERE UNIQUE : aucun
+degrade n'y etait representable, quel que soit le reglage. Sur les deux chaines a trois joints,
+3 paires sur 25 etaient inversees.
 
-C'est la METRIQUE qui est corrigee, jamais le materiel de test. `ROOM-SKINCOV` n'est lu par AUCUNE
-gate du validateur (verifie) : la regle 5 n'est pas en cause.
+APRES : 24 des 25 couples (chaine x pilotage) sont MONOTONES croissants racine -> pointe.
 
--------------------------------------------------------------------------------------------------
-2. CE QUE LA COLONNE REPAREE A REVELE, ET CE QUI EST FERME
--------------------------------------------------------------------------------------------------
+  backhair  updown    0.0000  29.26   81.92
+  backhair  jerk      0.0000  71.41  167.37
+  lbang     jerk      0.0000  82.76   91.49  105.94
+  rbang     leftright 0.0000  77.31   83.14  143.03
+  lmidhair  accel     0.0000  90.26  171.99
+  rmidhair  accel     0.0000  91.69  141.50
 
-Une fois la mesure capable de voir le corps, TROIS pieces portaient des aretes dechirees que rien
-n'avait jamais publiees. Deux sont fermees ce cycle.
+LA SEULE INVERSION QUI RESTE, et je ne la maquille pas : `rbang accel`, link1 85.08 > link2 76.99
+(link3 109.18 reste le maximum). 1 sur 25.
 
-  piece            avant   apres   d'ou vient la dechirure
-  pantflapL/R      6 / 6   0 / 0   creee par notre `transfer` (cap=0.90 contre une bordure a 0.000)
-  kneeflapL/R      8 / 8   0 / 0   D'ORIGINE dans le rip du donneur (`dtear=8->8`)
-  botstrapL/R     18 / 19  18/19   D'ORIGINE — NON TRAITEE, raison mesuree ci-dessous
-
-DONNEURS MESURES, JAMAIS DEVINES (`.autoport/probe_donors.py`, sur le mesh livre) :
-  * pans : les 6 aretes de chaque pan ne portent que sur 4 sommets de bordure, tous a w=0.000 PILE
-    face a des voisins a 0.900, et 100 % de leur poids est sur `Lknee 0.96 · Lthigh 0.04`.
-  * bandes de genou : 4 sommets a w=0.000, **100 % sur `Lknee`** (resp. `Rknee`), cote haut a 0.604.
-  Dans les deux cas le donneur est un os de CORPS statique, et l'ancrage dur a 0.50 laisse la
-  bordure majoritairement tenue par le genou : le haut de la piece reste soude a la jambe pendant
-  que le bas suit la physique. `bascules>0.5=0` sur les quatre regles — aucune piece ne se detache.
-
-Sommets pilotes gagnes : pantflapL 49->53, pantflapR 41->45, kneeflapL/R 24->28.
-
-POURQUOI `botstrap` N'EST PAS TRAITEE, ET CE N'EST PAS UN DE-SCOPE SILENCIEUX. Son cote bas n'est
-pas de la peau statique : il est a **38 % sur `lTopStrap2`**, c'est-a-dire sur le joint d'une AUTRE
-CHAINE SIMULEE (puis `hips` 30 %, `lBotStrap2` 15 % — deja dans la chaine —, `chest` 12 %, `main`
-5 %). Une jonction entre deux pieces qui bougent toutes les deux n'est pas le meme defaut qu'une
-jonction avec de la peau figee, et l'owner a valide les bretelles (« vraiment pas mal du tout »).
-On ne touche pas a un acquis confirme sur une hypothese. 37 aretes restent ouvertes, chiffrees, et
-c'est le premier candidat du prochain cycle.
+C'est la premiere fois de la phase qu'un degrade racine->pointe EXISTE sur les chaines a deux
+joints. Ce n'est pas un reglage qui l'a produit : c'est le degre de liberte qui manquait.
 
 -------------------------------------------------------------------------------------------------
-3. `hair-fine-dead` — LA FREQUENCE VISEE A ETE TIREE D'UNE TABLE DE VERDICTS FAUSSE
+3. TROIS DEFAUTS DE CHAINE DE PRODUCTION, TROUVES EN BRANCHANT LES OS
 -------------------------------------------------------------------------------------------------
 
-Je ne l'ai PAS corrige ce cycle, et je dis pourquoi plus bas. Mais l'erreur est etablie.
+3.1 UN QUATRIEME COMPTE DE JOINTS, SANS PRODUCTEUR — et c'est lui qui a failli tuer le cycle.
 
-`lbang`/`rbang` sont pilotees par `physics_hair_freq.py`, dont la sortie est garee dans
-`keira-owner-tuning.txt`. La fréquence propre de pointe vaut f = stiffness x 0.751306 / sqrt(mass).
-En la recalculant AVEC LA MASSE DE CHAQUE ETAT — c'est la que la table d'origine se trompe, elle
-applique la masse d'aujourd'hui (1.35) a des raideurs d'hier :
+Les cinq os existaient PARTOUT (art-group 100 joints, mesh bake max_bones=102, table k2e a 100,
+chaines resolues par nom : `PHYSJOINT c=2 l=2 idx=95 name=backHair3`) et rendaient exactement
+zero : `PHYSGRAD c=2 l=2 amp=0.0000`. `amp` est une AMPLITUDE, pas un angle — un zero la-dessus
+ne pouvait pas etre un artefact de repere.
 
-    build            stiffness / mass    f_pointe REELLE   verdict de l'owner
-    APK 11:24         2.60 / 0.70          2.335 Hz        « folles »
-    APK 12:05-13:48   1.65 / 0.95          1.272 Hz        « crazy jitter », « hysteriques »
-    build 19:53       1.05 / 1.35          0.679 Hz        « VRAIMENT PAS MAL »   <- le seul positif
-    build 12/08 17:36 4.6395 / 1.35        3.000 Hz        « completement statiques »
-    AUJOURD'HUI       1.6548 / 1.35        1.070 Hz        jamais juge par lui
+Le moteur le disait lui-meme, une ligne plus haut, et rien ne la lisait :
+    PHYSBONE c=2 l=2 len=NaN
+Une longueur d'os NaN rend le maillon degenere : il n'est jamais integre.
 
-La cible « 1.07 Hz » a ete posee parce qu'une table interne lui attribuait le verdict
-« vraiment pas mal ». Ce verdict appartient a **0.679 Hz**. Le seul etat que son oeil ait jamais
-qualifie positivement pour les meches fines n'est donc jamais entre dans le calcul.
+CAUSE : le compte de joints vit dans QUATRE endroits. Trois sont regeneres ensemble. Le
+quatrieme, `*hd-joint-counts*` (jak-hd.gc:302), est une liste de onze entiers ecrite a la main,
+restee a 95. `init-jak-hd` en tire `hd-joints`, qui BORNE la boucle de retargeting (:487) : les
+joints 95..99 n'etaient jamais ecrits, leurs matrices d'os restaient non initialisees.
 
-DEUX AUTRES CHOSES A SAVOIR, ET AUCUNE N'EST UN AVIS :
-  * le « second chemin independant » qui confirmait 1.07 Hz (fondamentale mediane des 31 animations
-    a 0.632 Hz, H_pointe 0.456) n'est produit par AUCUN outil de l'arbre : c'est de la prose dans
-    `RESUME_c25.md`, pas une trace. Signale, pas avale.
-  * l'attenuation d'angle est TOUJOURS ACTIVE sur `lbang`/`rbang` (`maxangle=130.88/131.36`) alors
-    qu'elle a ete retiree des trois autres chaines de cheveux. Le cout des trois retirees est
-    publie (`bendcut` backhair 15855.7, rmidhair 3701.9, lmidhair 3356.2) ; **celui de `lbang` /
-    `rbang` ne l'est nulle part**, alors qu'un chiffre plus ancien les donnait a 14259.3 et 12527.6
-    — soit l'ordre de grandeur de `backhair`, « celle qui paie le plus ». La SPEC 7 exige qu'un
-    suppresseur chiffre ce qu'il retire. Celui-la ne le fait pas.
+SIGNATURE A RETENIR : l'os existe dans tous les artefacts, se resout par nom, et ne bouge pas.
 
-POURQUOI JE NE LE CHANGE PAS DANS CE BUILD. C'est un arbitrage de QUALITE, et c'est son oeil qui
-tranche — pas moi. Surtout : melanger un changement de physique avec la correction de peau
-ci-dessus rendrait son retour inexploitable, il ne saurait pas lequel des deux il juge. Et le cout
-de l'appliquer ensuite est NUL : `stiffness/damping/gravity` sont des donnees relues au runtime,
-donc revenir a l'etat qu'il a approuve (0.679 Hz) ou a tout autre point ne demande AUCUN build.
-Un mot de lui et c'est dans le pack suivant.
+RENDU IMPOSSIBLE A REPETER : `.autoport/hd_check_joint_counts.py` compare `*hd-joint-counts*` a la
+taille declaree de chaque tableau k2e et refuse un ecart. PASS sur les 11 personnages. Rien dans
+l'arbre ne comparait ces deux nombres.
 
--------------------------------------------------------------------------------------------------
-3 bis. `ears-physics` — LA REPONSE ETAIT DANS LA COURSE, ELLE N'ETAIT PAS PUBLIEE
--------------------------------------------------------------------------------------------------
+3.2 LA LISTE D'APPARTENANCE DU GRADER — 22 aretes dechirees, exactement le defaut PRIORITE 1.
 
-SA QUESTION : « quand l'animation d'origine ne pilote PAS les oreilles, la physique doit les
-prendre en compte — verifier qu'elle s'y applique vraiment. »
+Apres injection, `rmidhair` passait de 0 a 22 aretes dechirees sur le mesh livre, cote bas mesure
+a `head 0.97..1.00` : la jonction cuir chevelu / meche, c'est-a-dire « des polygones qui bougent
+et des polygones voisins parfaitement statiques ».
 
-CE QUE LA COURSE DIT, et c'est une trace d'execution, pas un raisonnement :
+CE QUI L'A DESIGNE : l'ASYMETRIE. `lmidhair` restait a 0 sur une paire miroir. Un transfert de
+poids symetrique ne fait pas un defaut d'un seul cote ; une LISTE ecrite a la main, si.
+`grade Rmidhaira chain=Rmidhaira,Rmidhairb ...` — `Rmidhairc` n'y etait pas, donc ses sommets
+etaient invisibles au grader et la jonction cessait d'etre graduee. Corrige sur les cinq regles :
 
-    PHYSCHAIN c=0 j0=lEara      PHYSAUTH c=0 hit=0.0000 ok=0.0000
-    PHYSCHAIN c=1 j0=rEara      PHYSAUTH c=1 hit=0.0000 ok=0.0000
+    backhair 0 · lmidhair 0 · rmidhair 22 -> 0 · lbang 0 · rbang 0 · earL 0 · earR 0
 
-`hit` = nombre de frames ou l'animation pilote la chaine. Sur les 31 animations x 5 pilotages,
-l'animation ne pilote les oreilles sur AUCUNE frame. Elle ne les suspend donc jamais : la physique
-a la main sur 100 % de la course.
+DEUX HYPOTHESES ECARTEES EN CHEMIN, mesurees et non devinees, parce qu'elles ont coute deux
+rebakes et qu'aucune n'etait la cause :
+  a) « les sommets a 4 influences sont sautes » — instrumente : `evicted=0` sur les cinq chaines,
+     le chemin n'est jamais pris ;
+  b) « la renormalisation globale deplace des sommets non touches » — reelle et corrigee, mais le
+     compte restait a 22. Gardee parce qu'elle est juste, pas parce qu'elle repare quoi que ce soit.
 
-ET LA PHYSIQUE Y AGIT, mesure par `ROOM-GRADIENT` (deviation angulaire par rapport au PARENT) :
+3.3 UNE TRONCATURE SILENCIEUSE, fermee avant qu'elle ne morde. Un maillon au-dela de `PHYS-LINKS`
+etait ignore sans un mot. `lbang`/`rbang` sont maintenant a EXACTEMENT 4 maillons, soit le
+plafond : le prochain os injecte tomberait dans ce trou. Le plafond n'est pas releve (il
+dimensionne plusieurs tableaux), il est rendu bruyant (`PHYSTRUNC`). Mesure sur la course : 0.
 
-    earL   updown 15.98   leftright 21.30   accel 34.22   jerk 35.95   tilt 11.50   (degres)
-    earR   updown 14.38   leftright 23.32   accel 35.20
-
-La reponse DISCRIMINE : 3,1x d'ecart entre le plus faible (tilt) et le plus fort (jerk) pilotage,
-tres au-dessus du seuil de 25 % de la regle 7. Ce n'est donc pas du bruit d'animation.
-
-JE CORRIGE UNE AFFIRMATION QUE J'AI ECRITE PLUS HAUT DANS CE MEME RAPPORT : j'avais dit que « rien
-dans `phys-room.gc` ni dans le log » ne portait le detail par chaine. C'EST FAUX — j'avais cherche
-`AUTHORED` dans le log alors que le moteur ecrit `PHYSAUTH`. Le detail PAR CHAINE existe depuis le
-debut ; ce qui manquait, c'est sa PUBLICATION : la boucle du tableau n'iterait que `a_driven`
-(hit > 0), donc une chaine que l'animation ne pilote jamais n'apparaissait NULLE PART. Corrige :
-`ROOM-AUTHORED-FREE` publie les 15 chaines concernees, oreilles comprises.
-
-PORTEE HONNETE DE CE ZERO, et je ne le maquille pas en vert : le controle positif de l'auteur
-(animation retardee d'une frame) NE PEUT PAS tirer sur une chaine que l'animation ne pilote jamais
-— il lui faut une frame pilotee pour exister (`PHYSAUTHPC c=0 hit=0`, alors qu'il tire bien sur
-les chaines pilotees : 13, 72, 28, 5, 19). Ce zero est donc STRUCTUREL, pas controle. Le controler
-vraiment demande de lire les canaux locaux des 31 animations dans les donnees d'art-group, pas la
-course. Ce qui EST prouve vivant, c'est le detecteur : il compte 631 a 6986 frames pilotees sur
-sept autres chaines dans la meme course.
-
-CE QUI RESTE DU aux DIRECTIVES : le detail PAR ANIMATION (a) canal local variable, (b) chaine
-suspendue, (c) nombre de frames. Le par-chaine est la ; le par-animation demande une instrumentation
-du moteur et une nouvelle course.
+CLASSE SIGNALEE, PAS SEULEMENT CORRIGEE : la composition d'une chaine est aujourd'hui dupliquee a
+CINQ endroits — `physics_chains.txt` (genere), `EXPECTED_GROUPS` (gen2), les quatre tableaux k2e,
+`*hd-joint-counts*`, et les regles `grade ... chain=` de `physics_reskin.txt`. Deux des trois
+defauts ci-dessus sont exactement cette duplication. Un seul producteur reste a faire.
 
 -------------------------------------------------------------------------------------------------
-4. INJECTION D'OS — LE PRECEDENT INVOQUE N'EXISTE PAS
+4. CE QUE CA COUTE EN MOUVEMENT : RIEN, ET C'EST CHIRURGICAL
 -------------------------------------------------------------------------------------------------
 
-`keira-owner-tuning.txt:269` justifie la reprise d'asset par « comme l'anneau du plastron de Jak et
-la boucle de son dos (memes cas, deja documentes) ». VERIFIE : ces cas sont documentes comme NON
-LIVRES et hors-perimetre — `.autoport/physics_c5_fill_report.py:270` : « the metal ring on the
-chest-plate: NOT DELIVERED, no bone in any of the 458 rigs ». **Aucun script de l'arbre ne cree un
-os** ; `prep_hd_actor_glb.py` ne fait qu'en RETIRER. C'est une affirmation de commentaire qui a
-servi de base a un plan — exactement ce que la regle 0 interdit.
+Regle de conservation : aucune chaine sous 60 % de son plancher, ni sous 70 % au stimulus faible.
 
-CE QUI EST VRAI, MESURE :
-  * `LfootFlaps`/`RfootFlaps` sont bien ABSENTS du rig HD (94 joints listes) ; ils n'existent que
-    dans le rig STOCK (`joint-nodes.gc:1036`). `knee-tabs` est donc bien bloque sur de l'asset.
-  * `backhair` : 79 % de ses sommets (132/167) sont au-dela de son dernier joint, queue orpheline de
-    543 u = 1.26 x la longueur de l'os. Il lui faut DEUX os, positions derivees :
-    `backHair3 (0, 9021, -262)` et `backHair4 (0, 8767, -357)`.
-  * AUCUN VERROU TECHNIQUE : plafond `MAX_SKEL_BONES = 128` (`Merc2.h:147`), Keira en utilise 97 —
-    30 de marge. La table de retargeting accepte deja les joints non mappes (mode-2 « glue ») et
-    dix joints de cheveux de Keira y sont deja. Contrainte reelle : APPEND SEULEMENT, jamais
-    inserer (PARENT-ORDER + la verification d'indices de `hd_merc_swap`).
-  * LE COUT EST REEL : l'outil d'injection est entierement a ecrire (~150 lignes de manipulation
-    glTF : noeud + `inverseBindMatrices` + transfert de poids), puis il faut regenerer art-group,
-    table k->e, `jak-hd.gc`, `physics_chains.txt` et rebaker, chacun avec sa gate. **Ce n'est pas un
-    cycle.** Faisable, chiffre, non commence.
+  chaine      tipvar max            stimulus faible
+  backhair    0.2590 -> 0.4982  x1.92    0.0694 -> 0.2191  x3.16
+  lbang       0.5942 -> 0.9303  x1.57    0.2922 -> 0.5007  x1.71
+  rbang       0.6179 -> 0.9167  x1.48    0.2489 -> 0.5423  x2.18
+  lmidhair    0.5578 -> 0.9270  x1.66    0.1682 -> 0.3216  x1.91
+  rmidhair    0.5945 -> 1.0572  x1.78    0.3033 -> 0.2802  x0.92
 
-DERIVE DE PERIMETRE SIGNALEE : `owner-defects.txt` decrit desormais `knee-tabs` comme « les
-languettes twitchent maintenant : ca essaie de bouger mais c'est chelou », plus « ne bougent pas ».
-Et il n'existe AUCUNE ligne `hair-gradient` parmi les 9 defauts ouverts. L'injection d'os sert donc
-`hair-nape` et `hair-skinning` ; pour `knee-tabs` il faudra qu'il reconfirme.
+Le mouvement MONTE partout, et les 15 chaines non-cheveux sont IDENTIQUES AU BIT PRES (x1.00) —
+oreilles comprises. Seul `goggles` bouge de x1.06 au stimulus faible (voisin couple).
+Aucun plancher casse.
+
+`hair-fine-dead` (« les meches fines sur l'avant sont maintenant completement statiques ») :
+`lbang` 0.5942 -> 0.9303 et `rbang` 0.6179 -> 0.9167, soit +57 % et +48 %, SANS toucher un seul
+parametre de reglage. C'est de la geometrie, pas du tuning — et c'est son oeil qui dira si ca
+suffit.
 
 -------------------------------------------------------------------------------------------------
-5. DEUX AFFIRMATIONS DU CYCLE PRECEDENT QUI ETAIENT FAUSSES
+5. CE QUI N'EST PAS FAIT, ET POURQUOI — AUCUN DE-SCOPE SILENCIEUX
 -------------------------------------------------------------------------------------------------
 
-5.1 « `grade` publie son INTENTION et non son EFFET ; il a calcule ce qu'il fallait prendre (1.5) et
-ne l'a RENDU a personne. » **FAUX.** `rendu=0.00` n'est pas un aveu d'echec : c'est le compteur du
-cas « le cote HAUT cede », qui ne se declenche que si le cote bas est bloque par le plafond
-d'ancrage. Sur les pans, le cote bas part de 0.000 et absorbe toute la marche, donc le haut n'a rien
-a ceder. Les cheveux montrent l'autre cas (`Rmidhaira rendu=1.85 sur 38 sommets`). `grade` a
-toujours fonctionne : il n'etait simplement JAMAIS APPLIQUE aux pans — il n'existait aucune regle
-`grade` pour eux, seulement un `transfer`. Ajoutees ce cycle, la dechirure tombe a 0.
+LES OREILLES NE SONT PAS ETENDUES. La meme regle leur donnerait un joint : `s_p95 = 2.259`,
+62,5 % de masse orpheline, 0.2978 m de queue — le PIRE ratio apres `backhair`. Je ne l'ai pas
+fait parce que (a) l'owner n'a jamais signale de casse de geometrie sur les oreilles, et (b)
+elles sont pilotees par l'animation d'origine (mode 1/3), pas en glue comme les cheveux : y
+ajouter un os touche a une intention de Naughty Dog. Le chiffre est publie pour qu'il tranche.
+C'est un choix declare, il se fait en une ligne de spec si il le veut.
 
-5.2 L'hypothese « le jeu de joints de `grade` n'est pas celui que `tear` mesure » est **FAUSSE**,
-mesuree : `pantflapL` -> `['LpantFlap']` des deux cotes, difference symetrique vide. La vraie cause
-etait la scission en deux jeux d'attributs (section 1).
+`ROOM-SKINCOV` NE POUVAIT PAS VOIR CE DEFAUT, et ca explique huit cycles. Il mesure la fraction de
+masse de la chaine portee par un joint SIMULE. Or la moitie distale de la meche etait deja pesee
+sur un joint de la chaine — le dernier — juste RIGIDEMENT. `cov` lit donc exactement la meme
+chose pour une meche articulee sur sa longueur et pour une meche soudee a son dernier joint
+(verifie : `cov` est inchange avant/apres, a raison). La grandeur qui discrimine est la
+distribution de longueur, pas la couverture. C'est la regle SPEC 7 question 1 appliquee.
+
+NON TRAITES CE CYCLE : `goggles-bottom`, `goggles-tunnel` (hors portee de la salle, aucune
+cinematique jouee), `flesh-jelly`, `pant-calf`, `knee-tabs` (l'os `LfootFlaps` manque toujours au
+rig HD — meme classe, et l'outil d'injection existe maintenant pour le faire), `ears-physics`
+(le detail PAR ANIMATION que les DIRECTIVES exigent reste du).
 
 -------------------------------------------------------------------------------------------------
-6. ETAT DES 9 DEFAUTS — je n'en retire aucun, c'est son oeil qui ferme
+6. L'ATTIC — CE QU'IL DIT, ET POURQUOI JE NE L'AI PAS REPRIS
 -------------------------------------------------------------------------------------------------
-  hair-skinning    CAUSE RACINE TROUVEE ET CORRIGEE (section 1) : 85 sommets a `prejoint`, 0
-                   maintenant. C'est la premiere fois que la correction atteint la geometrie qui
-                   rend. Attend son oeil.
-  hair-fine-dead   NON CORRIGE. Erreur de derivation etablie (section 3) ; le correctif ne coute
-                   aucun build et attend son arbitrage.
-  hair-nape        NON CORRIGE. Reprise d'asset chiffree (section 4), 2 os, outil a ecrire.
-  ears-physics     MESURE, ET LA REPONSE EST DANS LA COURSE (section 3 bis) : l'animation ne pilote
-                   les oreilles sur AUCUNE frame, et les oreilles bougent sous physique. Elle s'y
-                   applique donc sur 100 % de la course. Desormais PUBLIE (`ROOM-AUTHORED-FREE`).
-                   Reste du : le detail PAR ANIMATION que les DIRECTIVES exigent.
-  knee-tabs        8 aretes dechirees par bande FERMEES ce cycle (section 2) — plausible pour le
-                   « c'est chelou », pas forcement pour tout le defaut. L'os manque toujours.
-  pant-calf        6 aretes dechirees par pan FERMEES ce cycle (section 2).
-  goggles-bottom   NON TRAITE.
-  goggles-tunnel   NON TRAITE, hors portee de mesure (la salle ne joue aucune cinematique).
-  flesh-jelly      NON TRAITE. L'hypothese du sous-pas reste ECARTEE par le calcul.
 
-ACQUIS PROTEGES : aucune ligne de physique n'a change ce cycle — poitrine sur mouvements subtils et
-sag sont intacts par construction, et le tableau le confirme (mesures identiques au bit pres).
+Mine comme carnet de laboratoire (aucun checkout, aucun cherry-pick). Resultat net :
+
+L'ATTIC N'A JAMAIS INJECTE D'OS (`git log -S` sur `inverseBindMatrices`, `nodes.append`,
+`add_joint` : zero). Les comptes de joints de Keira y sont IDENTIQUES a aujourd'hui sur 7 etats.
+Il l'avait ecrit lui-meme (`eff959badb`) : ajouter un os « needs a bone INJECTED at HD prep plus a
+weight transfer on the mesh — an asset-pipeline job ».
+
+MAIS IL AVAIT UN DEGRADE CROISSANT, par un autre chemin : racine NON verrouillee + `colskip`
+(la racine exemptee de son propre collider de crane) + un PROFIL D'INFLUENCE — la racine simule
+pleinement mais n'ECRIT qu'une fraction (~0.55) de sa deviation. C'est ce dernier point qui est
+astucieux : il contourne la divergence de `k2a` en attenuant la SORTIE au lieu de monter la
+raideur. Preuve d'execution sur Redmi (`device_leg_D-MAX.logcat.log`, 10 aout), 7 chaines
+croissantes. Sa mort est datee : `f7e972f043` reverrouille toutes les racines, et la mesure
+suivante est inversee (rbang 94.62 / 56.51) — la plainte de l'owner apparait ce jour-la.
+
+POURQUOI JE NE L'AI PAS REPRIS : `colskip` est un flag de derogation que les DIRECTIVES
+interdisent nommement (regle 4), et l'injection donne aux chaines a deux joints un VRAI second
+maillon libre — ce que `keira-owner-tuning.txt` avait deja conclu etre « le vrai chemin ».
+Le profil d'influence reste le levier de SECOURS documente si le degrade se reinverse.
+
+RESERVE HONNETE sur cette preuve : le `jdev` de l'attic est en repere MONDE, donc biaise VERS le
+croissant. Ses chiffres D-MAX ne prouvent pas un degrade relatif au parent. C'est l'INVERSION de
+X-INTRO qui est solide : elle survient malgre un biais qui joue contre elle.
 
 -------------------------------------------------------------------------------------------------
 7. CE QUE L'OWNER DOIT REGARDER
 -------------------------------------------------------------------------------------------------
-IL DOIT RE-TELECHARGER `jak1_hd_assets.zip` ET LE RE-EXTRAIRE. Tout ce cycle est dans le MESH : il
-n'y a rien dans l'APK. Reprendre le seul APK ne montrera STRICTEMENT AUCUNE difference.
 
-1. LES CHEVEUX, en priorite — c'est la que les 85 sommets reviennent. Autour des jonctions cuir
-   chevelu / meche : est-ce que des polygones voisins bougent enfin ENSEMBLE, au lieu d'avoir des
-   fixes colles a des mobiles ?
-2. LE BAS DU PANTACOURT et LES BANDES DE GENOU : la geometrie s'ouvre-t-elle encore ?
-3. Ce qui n'a PAS change et qu'il n'a pas a chercher : l'amplitude des meches fines, la poitrine,
-   les lunettes, le franchissement des mollets. Aucun reglage de physique n'a bouge.
-4. S'il veut trancher `hair-fine-dead` : l'etat qu'il avait juge « vraiment pas mal » est
-   `stiffness=1.05 damping=0.36 gravity=0.45` (0.679 Hz). Un mot, et c'est dans le pack suivant
-   sans build.
+IL DOIT RE-TELECHARGER `jak1_hd_assets.zip` ET LE RE-EXTRAIRE. Les cinq os sont dans le MESH et
+dans l'ART-GROUP : reprendre le seul APK ne montrera rien.
+
+1. LES CHEVEUX, sur toute leur longueur. La question n'est plus « est-ce que ca bouge » mais
+   « est-ce que ca bouge DE PLUS EN PLUS vers la pointe ». La moitie basse de chaque meche a
+   maintenant son propre os.
+2. LES MECHES FINES du devant, qu'il a declarees « completement statiques » : +57 % / +48 %
+   d'amplitude sans qu'aucun reglage n'ait bouge.
+3. LA NUQUE (`backhair`) : c'est elle qui gagne le plus (x1.92, x3.16 sur les petits mouvements)
+   et sa queue de 12 cm avait zero joint.
+4. LA GEOMETRIE aux jonctions cuir chevelu / meche : 0 arete dechiree sur les sept chaines.
+5. CE QUI N'A PAS CHANGE et qu'il n'a pas a chercher : poitrine, lunettes, bretelles, pans de
+   pantacourt, sangles, oreilles — mesures identiques au bit pres.
 
 -------------------------------------------------------------------------------------------------
 8. ETAT DU VALIDATEUR
 -------------------------------------------------------------------------------------------------
-Il ECHOUE, et il DOIT echouer : `OPEN-DEFECTS` compte 9 lignes `^OPEN ` et sort au premier controle.
-Cette liste ne se vide QUE sur la parole de l'owner — porte humaine, encodee expres apres que la
-phase se soit declaree terminee quatre fois le 2026-08-11. Je ne touche pas ce fichier ; forger son
-verdict est exactement ce que cette gate existe pour empecher. Une tentative sans-humain ne PEUT
-donc pas faire sortir ce validateur a 0, et ce n'est pas un echec de la tentative.
+Il ECHOUE, et il DOIT echouer : `OPEN-DEFECTS` compte 9 lignes `^OPEN ` et sort au premier
+controle. Cette liste ne se vide QUE sur la parole de l'owner. Je ne touche pas ce fichier ;
+forger son verdict est exactement ce que cette gate existe pour empecher. Une tentative
+sans-humain ne PEUT donc pas faire sortir ce validateur a 0, et ce n'est pas un echec de la
+tentative.
 
-LES GATES SITUEES APRES ELLE, executees a part en copie diagnostique et JAMAIS presentees comme un
-PASS : `TUNING`, `ROOM` (22 chaines x 31/31 animations, 3410 mesures), `MOVE` (tipvar min 0.100),
-`COLLIDE` (penetration nulle, controle positif 0.218 contre 0.000), `IDLE` (0.023), `ANIM`
-(7 chaines pilotees, toutes respectees) et `SIDE-CONTROL` passent — identiques au cycle precedent.
+LES GATES SITUEES APRES ELLE, executees a part en COPIE DIAGNOSTIQUE hors de l'arbre et JAMAIS
+presentees comme un PASS (le validateur reel n'est pas modifie, regle 5) :
 
-`FLOOR-WEAK` ECHOUE, INCHANGE AU CHIFFRE PRES, et c'est un REPORT, pas une regression :
-    FLOOR-WEAK  pantflapL  0.0840 -> 0.0544  (-35 %, seuil 30 %)
-Ce cycle n'a change AUCUNE ligne de physique et la course de la salle n'a pas ete rejouee : ce
-chiffre est celui d'hier, au bit pres. Le cycle precedent a montre que sa reference (0.0840) est un
-etat que l'owner a rejete trois fois et dont le gain etait NEGATIF (le pan etait TRAINE a travers le
-mollet). Je ne touche ni la gate ni `motion-floor-weak.txt` (regle 5 : une gate qui semble fausse se
-RAPPORTE). C'est au superviseur de trancher si sa reference doit etre recalee sur un etat approuve.
+  [TUNING]        tous les reglages de l'owner sont dans le fichier livre
+  [ROOM]          joueur absent, 1 acteur, 22 chaines x 31/31 animations, 3410 mesures
+  [MOVE]          toutes les chaines declarees bougent (tipvar min 0.100)
+  [COLLIDE]       penetration nulle sur les trois paires, controle positif 0.215 contre 0.000
+  [IDLE]          ecart max au modele 0.023   [ANIM] 7 chaines pilotees, toutes respectees
+  [SIDE-CONTROL]  0 franchissement, controle present
 
-RESERVE HONNETE SUR LE PACK : le bake a tourne trois fois (37 s), `integrity gate PASS` a chaque
-fois, aucun `!!`. `GAME.fr3` est regenere (25435123 octets) et le backup md5-verifie de la version
-precedente est garde hors de l'arbre. Les DIX AUTRES personnages sont touches par le correctif de
-liaison — verifie : `jak-hd`, `samos-hd`, `keira3-hd` passent tous a une seule paire d'attributs et
-a une masse `prejoint` de 0.00. C'est une correction, pas une regression : ils portaient la meme
-corruption. Le perimetre « Keira seule » porte sur QUI recoit de la physique, pas sur le droit de
-laisser les autres avec des poids mal lies.
+  FLOOR-WEAK ECHOUE, INCHANGE AU CHIFFRE PRES, et ce n'est pas cause par ce cycle :
+      FLOOR-WEAK  pantflapL  0.0840 -> 0.0544  (-35 %, seuil 30 %)
+  `pantflapL` est mesuree x1.00 avant/apres, au bit pres : ce cycle ne l'a pas touchee. Le cycle
+  precedent a montre que sa reference (0.0840) est un etat que l'owner a rejete trois fois et dont
+  le gain etait NEGATIF (le pan etait TRAINE a travers le mollet). Je ne touche ni la gate ni
+  `motion-floor-weak.txt` (regle 5 : une gate qui semble fausse se RAPPORTE). C'est au superviseur
+  de trancher si sa reference doit etre recalee sur un etat approuve.
+
+RESERVE HONNETE SUR LA LIVRAISON. Le pack HD a ete produit VIDE une fois pendant ce cycle
+(128 666 octets, 11 fichiers au lieu de 48 303 494 et 14) : j'ai lance un rebake manuel pendant
+que le constructeur automatique empaquetait, et `build_enhanced_models.sh` fait `rm -rf` sur
+`out/jak1/fr3/enhanced/` au demarrage. Le paquetier a donc trouve zero fr3. Repare et verifie
+(48 303 494 octets, 14 fr3, version `cee593c64aed4`), et c'est MA faute de concurrence, pas un
+defaut du paquetier — mais un `find | wc -l` egal a zero devrait le faire echouer au lieu de
+produire un zip valide et vide.
+
+RESERVE SUR LE PLANCHER : la gate FLOOR reecrit `motion-floor.txt` avec le maximum courant. Les
+cinq chaines de cheveux montent d'un facteur 1.5 a 1.9 ce cycle, donc leur plancher monte d'autant
+et un retour en arriere sera refuse. C'est l'effet voulu, mais c'est un cliquet : si l'owner
+prefere l'ancienne amplitude, la gate s'y opposera et il faudra recaler la reference a la main.
 
 SUPPRESSORS: 0
