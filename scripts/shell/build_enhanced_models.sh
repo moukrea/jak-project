@@ -232,6 +232,21 @@ for lvl in "${APPEND_LEVELS[@]}"; do
       --report "$RESKIN_LOG" \
       || { log "reskin of $char-lod0.glb failed"; rm -rf "$ENHANCED_OUT"; exit 1; }
     mv -f "$PREPPED.reskin" "$PREPPED"
+
+    # LE MESH QUI PART REELLEMENT, GARDE HORS DU REPERTOIRE TEMPORAIRE (2026-08-13).
+    # `HD_TMP` est un `mktemp -d` avec `trap rm -rf ... EXIT` (:164-165) : le glb PREPPE+RESKINNE —
+    # le seul qui porte les poids reellement livres — etait detruit a la fin de chaque bake. Toute
+    # mesure de peau retombait donc sur le rip BRUT du donneur, en amont du prep ET du reskin, et ne
+    # pouvait par construction voir aucune correction de poids : `ROOM-SKINCOV` republiait tear=82
+    # sur `rmidhair` apres le bake qui l'avait mis a zero. Ce n'est pas une mesure perimee, c'est une
+    # mesure prise sur une AUTRE entree.
+    # On le copie donc dans `out/` (ignore par git, .gitignore:44) avant que le trap ne parte. Ca ne
+    # change RIEN a ce qui est bake — c'est une copie, apres coup, du fichier deja fige.
+    SKIN_KEEP="$(dirname "$ENHANCED_OUT")/skin"
+    mkdir -p "$SKIN_KEEP" 2>/dev/null || true
+    cp -f "$PREPPED" "$SKIN_KEEP/$char-lod0.glb" 2>/dev/null \
+      && log "skin-keep: $char-lod0.glb conserve pour la mesure ($SKIN_KEEP)" \
+      || log "skin-keep: copie de $char-lod0.glb IMPOSSIBLE — la mesure de peau restera sur le rip brut"
     if grep -q '^  !!' "$RESKIN_LOG" 2>/dev/null; then
       log "RESKIN verification FAILED for $char — a declared transfer did not apply:"; cat "$RESKIN_LOG"
       rm -rf "$ENHANCED_OUT"; exit 1

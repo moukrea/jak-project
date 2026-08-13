@@ -616,19 +616,6 @@ def main():
         if _sys_path_added not in sys.path:
             sys.path.insert(0, _sys_path_added)
         from physics_c6_volumes import load_geometry as _lg
-        _g = _lg('keira-hd')
-        _V = _g['V'] if 'V' in _g else _g['verts']
-        _jn = _g['joint_names'] if 'joint_names' in _g else _g['names']
-        _W = _g['W'] if 'W' in _g else _g['weights']
-        _F = _g.get('F', _g.get('tris', None))
-        _ji = {n: i for i, n in enumerate(_jn)}
-        if _W.ndim == 2 and _W.shape[1] == len(_jn):
-            _Wd = _W
-        else:
-            _J = _g['J'] if 'J' in _g else _g['joints_idx']
-            _Wd = _np.zeros((len(_V), len(_jn)), dtype=_np.float32)
-            for _k in range(_W.shape[1]):
-                _np.add.at(_Wd, (_np.arange(len(_V)), _J[:, _k]), _W[:, _k])
         # parents, pour la fermeture descendante (piege 1)
         _par = {}
         try:
@@ -658,64 +645,126 @@ def main():
                 _cur = _ln.split()[1]; _cj[_cur] = []
             elif _ln.startswith('j ') and _cur:
                 _cj[_cur].append(_ln.split()[1])
-        # aretes uniques
-        _edges = set()
-        if _F is not None:
-            for _t in _F:
-                _a, _b, _c2 = int(_t[0]), int(_t[1]), int(_t[2])
-                for _u, _v in ((_a, _b), (_b, _c2), (_a, _c2)):
-                    _edges.add((_u, _v) if _u < _v else (_v, _u))
-        if not _edges:
+        # LA MEME ARITHMETIQUE POUR LES DEUX COLONNES. Elle est dans UNE fonction et pas recopiee :
+        # deux colonnes qu'on veut comparer doivent etre calculees par le meme code, sinon elles
+        # derivent l'une de l'autre et l'ecart ne veut plus rien dire.
+        def _skincov_rows(_g):
+            _V = _g['V'] if 'V' in _g else _g['verts']
+            _jn = _g['joint_names'] if 'joint_names' in _g else _g['names']
+            _W = _g['W'] if 'W' in _g else _g['weights']
+            _F = _g.get('F', _g.get('tris', None))
+            _ji = {n: i for i, n in enumerate(_jn)}
+            if _W.ndim == 2 and _W.shape[1] == len(_jn):
+                _Wd = _W
+            else:
+                _J = _g['J'] if 'J' in _g else _g['joints_idx']
+                _Wd = _np.zeros((len(_V), len(_jn)), dtype=_np.float32)
+                for _k in range(_W.shape[1]):
+                    _np.add.at(_Wd, (_np.arange(len(_V)), _J[:, _k]), _W[:, _k])
+            _edges = set()
+            if _F is not None:
+                for _t in _F:
+                    _a, _b, _c2 = int(_t[0]), int(_t[1]), int(_t[2])
+                    for _u, _v in ((_a, _b), (_b, _c2), (_a, _c2)):
+                        _edges.add((_u, _v) if _u < _v else (_v, _u))
+            _pos = {}
+            for _i in range(len(_V)):
+                _pos.setdefault((round(float(_V[_i][0]), 3), round(float(_V[_i][1]), 3),
+                                 round(float(_V[_i][2]), 3)), []).append(_i)
+            _out = []
+            for _cn in sorted(_cj):
+                _sim = [_j for _j in _cj[_cn] if _j in _ji]
+                if not _sim:
+                    continue
+                _drv = set(_sim)                      # fermeture descendante (piege 1)
+                _chg = True
+                while _chg and _par:
+                    _chg = False
+                    for _j, _p in _par.items():
+                        if _p in _drv and _j not in _drv and _j in _ji:
+                            _drv.add(_j); _chg = True
+                _cols = [_ji[_j] for _j in _drv if _j in _ji]
+                _ws = _Wd[:, _cols].sum(1)
+                _own = _np.where(_ws > 0.0)[0]
+                if len(_own) == 0:
+                    continue
+                _cov = float(_ws[_own].mean())
+                _lost = {}
+                for _v in _own:
+                    for _c3 in _np.where(_Wd[_v] > 0)[0]:
+                        if _c3 not in _cols:
+                            _lost[_jn[_c3]] = _lost.get(_jn[_c3], 0.0) + float(_Wd[_v][_c3])
+                _top = sorted(_lost.items(), key=lambda x: -x[1])[:3]
+                _ownset = set(int(x) for x in _own)
+                _tear = sum(1 for (_u, _v) in _edges
+                            if (_u in _ownset or _v in _ownset) and abs(_ws[_u] - _ws[_v]) > 0.5)
+                _weld = 0
+                for _grp in _pos.values():
+                    if len(_grp) > 1 and any(_i in _ownset for _i in _grp):
+                        _vals = [_ws[_i] for _i in _grp]
+                        if max(_vals) - min(_vals) > 0.5:
+                            _weld += 1
+                _out.append((_cn, _cov, len(_own), (str(_tear) if _edges else '?'), _weld,
+                             ' · '.join('%s %.0f%%'
+                                        % (_k, 100.0 * _v / max(sum(_lost.values()), 1e-9))
+                                        for _k, _v in _top) or '-', bool(_edges)))
+            return _out
+
+        _g = _lg('keira-hd')
+        A('ROOM-SKINCOV: couverture de peau par chaine — quelle part de la geometrie la physique tient')
+        A('   cov = poids moyen porte par des joints PILOTES (simules ou descendants d\'un simule).')
+        A('   tear = aretes dont les deux bouts different de plus de 0.5. weld = sommets COINCIDENTS')
+        A('   a pilotes discordants : ceux-la ouvrent le maillage par construction.')
+        A('   SOURCE (2026-08-13) : %s — c\'est le rip BRUT du donneur.' % _g.get('src', '?'))
+        _rows_donor = _skincov_rows(_g)
+        if _rows_donor and not _rows_donor[0][6]:
             # SANS ARETES, `tear` vaudrait 0 PARTOUT — et un zero qui veut dire « je n'ai pas
             # regarde » est indistinguable d'un zero qui veut dire « pas de cassure ». C'est
             # exactement le faux vert que ce cycle a passe sa journee a debusquer : on le dit.
             A('ROOM-SKINCOV: AVERTISSEMENT liste de triangles illisible — `tear` NON MESURE,'
               ' ne pas lire ses zeros comme une absence de cassure')
-        # sommets coincidents
-        _pos = {}
-        for _i in range(len(_V)):
-            _pos.setdefault((round(float(_V[_i][0]), 3), round(float(_V[_i][1]), 3),
-                             round(float(_V[_i][2]), 3)), []).append(_i)
-        A('ROOM-SKINCOV: couverture de peau par chaine — quelle part de la geometrie la physique tient')
-        A('   cov = poids moyen porte par des joints PILOTES (simules ou descendants d\'un simule).')
-        A('   tear = aretes dont les deux bouts different de plus de 0.5. weld = sommets COINCIDENTS')
-        A('   a pilotes discordants : ceux-la ouvrent le maillage par construction.')
-        for _cn in sorted(_cj):
-            _sim = [_j for _j in _cj[_cn] if _j in _ji]
-            if not _sim:
-                continue
-            _drv = set(_sim)                      # fermeture descendante (piege 1)
-            _chg = True
-            while _chg and _par:
-                _chg = False
-                for _j, _p in _par.items():
-                    if _p in _drv and _j not in _drv and _j in _ji:
-                        _drv.add(_j); _chg = True
-            _cols = [_ji[_j] for _j in _drv if _j in _ji]
-            _ws = _Wd[:, _cols].sum(1)
-            _own = _np.where(_ws > 0.0)[0]
-            if len(_own) == 0:
-                continue
-            _cov = float(_ws[_own].mean())
-            _lost = {}
-            for _v in _own:
-                for _c3 in _np.where(_Wd[_v] > 0)[0]:
-                    if _c3 not in _cols:
-                        _lost[_jn[_c3]] = _lost.get(_jn[_c3], 0.0) + float(_Wd[_v][_c3])
-            _top = sorted(_lost.items(), key=lambda x: -x[1])[:3]
-            _ownset = set(int(x) for x in _own)
-            _tear = sum(1 for (_u, _v) in _edges
-                        if (_u in _ownset or _v in _ownset) and abs(_ws[_u] - _ws[_v]) > 0.5)
-            _weld = 0
-            for _grp in _pos.values():
-                if len(_grp) > 1 and any(_i in _ownset for _i in _grp):
-                    _vals = [_ws[_i] for _i in _grp]
-                    if max(_vals) - min(_vals) > 0.5:
-                        _weld += 1
+        for _r in _rows_donor:
             A('ROOM-SKINCOV: chain=%-12s cov=%.4f n=%-5d tear=%-4s weld=%-3d lost=%s'
-              % (_cn, _cov, len(_own), (str(_tear) if _edges else '?'), _weld,
-                 ' · '.join('%s %.0f%%' % (_k, 100.0 * _v / max(sum(_lost.values()), 1e-9))
-                            for _k, _v in _top) or '-'))
+              % (_r[0], _r[1], _r[2], _r[3], _r[4], _r[5]))
+
+        # ---- LA MEME MESURE SUR LE MESH QUI PART REELLEMENT ----------------------------------
+        # Jusqu'au 2026-08-13, `ROOM-SKINCOV` ne lisait QUE la ligne ci-dessus, c'est-a-dire le rip
+        # du 2 aout, en AMONT de `prep_hd_actor_glb.py` et du reskin. Consequence mesuree, pas
+        # supposee : la course du 13 aout 01:50 republiait `rmidhair tear=82` alors que le bake du
+        # 12 aout 23:53 avait justement mis cette valeur a zero, et publiait `pantflapL cov=0.1096`
+        # pour un etat que le mesh livre n'a plus depuis le 11 aout. Une correction de poids ne
+        # pouvait STRUCTURELLEMENT pas s'y voir : la colonne ne bougeait jamais, quoi qu'on fasse.
+        # On n'enleve rien — la colonne du donneur reste, au bit pres, pour que l'ecart entre les
+        # deux soit lisible. On AJOUTE celle qui peut voir.
+        _ship = os.path.join('out', 'jak1', 'fr3', 'skin', 'keira-hd-lod0.glb')
+        _gs = _lg('keira-hd', glb=_ship)
+        if _gs is None:
+            A('ROOM-SKINCOV-SHIPPED: ABSENT (%s) — le bake n\'a pas encore conserve le glb'
+              ' preppe+reskinne. Les lignes ci-dessus sont le rip BRUT : elles ne montrent AUCUNE'
+              ' correction de poids, ni celles deja livrees. Ne pas les lire comme l\'etat du mesh'
+              ' que l\'owner a en main.' % _ship)
+        else:
+            A('ROOM-SKINCOV-SHIPPED: source=%s — mesh PREPPE+RESKINNE, celui du pack livre.'
+              % _gs.get('src', _ship))
+            _rows_ship = _skincov_rows(_gs)
+            _dmap = {_r[0]: _r for _r in _rows_donor}
+            _moved = 0
+            for _r in _rows_ship:
+                _d = _dmap.get(_r[0])
+                _dc = ('%+.4f' % (_r[1] - _d[1])) if _d else '?'
+                _dt = ('%s->%s' % (_d[3], _r[3])) if _d else '?'
+                if _d and (abs(_r[1] - _d[1]) > 1e-6 or _r[3] != _d[3]):
+                    _moved += 1
+                A('ROOM-SKINCOV-SHIPPED: chain=%-12s cov=%.4f n=%-5d tear=%-4s weld=%-3d'
+                  ' dcov=%s dtear=%s' % (_r[0], _r[1], _r[2], _r[3], _r[4], _dc, _dt))
+            # CONTROLE : si AUCUNE chaine ne bouge entre les deux colonnes, c'est que le glb
+            # conserve est en fait le rip, ou que le reskin n'a rien applique. Un ecart nul partout
+            # est le signe que la nouvelle colonne ne voit pas mieux que l'ancienne — on le dit au
+            # lieu de laisser croire qu'elle a ete verifiee.
+            A('ROOM-SKINCOV-SHIPPED: %d chaine(s) sur %d different du rip brut.%s'
+              % (_moved, len(_rows_ship),
+                 '' if _moved else ' ZERO ECART : cette colonne ne voit RIEN de plus que le rip —'
+                                   ' a traiter comme non mesuree.'))
     except Exception as _e:
         # une mesure qui n'a pas pu etre prise se DIT ; elle ne fait pas tomber le tableau, et elle
         # ne se remplace pas par une estimation.

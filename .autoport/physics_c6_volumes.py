@@ -131,10 +131,26 @@ def _gather_model_vertices(js, binc):
     return pos[idx] * UNITS, jts[idx], wts[idx], F
 
 
-def load_geometry(model):
+def load_geometry(model, glb=None):
     """-> dict(names, parent, P (bind positions, game units), V, J, W, F) or None.
 
-    F = triangles, indices dans l'espace COMPACTE de V (voir _gather_model_vertices)."""
+    F = triangles, indices dans l'espace COMPACTE de V (voir _gather_model_vertices).
+
+    `glb` : chemin d'un glb A LIRE A LA PLACE du rip du donneur. Ajoute le 2026-08-13 parce que
+    TOUTE mesure de peau lisait jusqu'ici `decompiler_out/.../keira-highres-lod0.glb`, c'est-a-dire
+    le rip BRUT du 2 aout — en AMONT de `prep_hd_actor_glb.py` et du reskin. Aucune correction de
+    poids ne pouvait donc s'y voir : `ROOM-SKINCOV` republiait `tear=82` sur `rmidhair` le 13 aout
+    01:50 alors que le mesh livre porte la graduation depuis le bake du 12 aout 23:53, et publiait
+    `pantflapL cov=0.1096` pour un etat que le mesh livre n'a plus depuis le 11 aout. Une mesure qui
+    ne peut pas voir ce qu'elle mesure ne vaut rien (SPEC 7, question 3 : « que lit-elle quand le
+    defaut est ABSENT ? » — ici : la meme chose, toujours).
+    Le parametre est OPTIONNEL et par defaut le comportement est inchange au bit pres : on AJOUTE
+    une lecture, on n'en remplace aucune, pour que les deux colonnes restent comparables."""
+    if glb:
+        path = glb if os.path.isabs(glb) else os.path.join(REPO, glb)
+        if not os.path.exists(path):
+            return None
+        return _read_geometry(path, os.path.relpath(path, REPO))
     k2e = os.path.join(HD_ANIM, model + '-k2e.json')
     if os.path.exists(k2e):
         meta = json.load(open(k2e))
@@ -148,6 +164,13 @@ def load_geometry(model):
         src = os.path.relpath(path, REPO)
     if not os.path.exists(path):
         return None
+    return _read_geometry(path, src)
+
+
+def _read_geometry(path, src):
+    """La lecture elle-meme, extraite pour que `load_geometry` puisse la faire sur un AUTRE glb que
+    le rip du donneur sans dupliquer une ligne de la mesure. Le chemin de lecture est donc
+    strictement le meme pour les deux colonnes : si elles different, c'est le MESH qui differe."""
     js, bufs = read_glb(path)
     binc = consolidate_buffers(js, bufs)
     names, ibms, parent = skin_info(js, binc)
