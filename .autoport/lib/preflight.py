@@ -264,6 +264,22 @@ def check_guards_still_installed():
                "n'existe plus, donc plus rien ne verifie qu'un verrou n'a pas ete supprime.")
         return
     import re as _re
+
+    # Le marqueur d'un verrou est une CITATION de prose (DIRECTIVES.md, owner-defects.txt), pas un
+    # identifiant. Une comparaison litterale le rend donc sensible a la MISE EN FORME du texte cite
+    # -- emphase markdown inseree au milieu de la citation, majuscule de debut de phrase, retour a
+    # la ligne d'un paragraphe reflowe. Mesure du 2026-08-13 : les deux verrous `target-is-response`
+    # et `recipe-not-transferable` etaient annonces DISPARUS alors que leur lecon est intacte a
+    # DIRECTIVES.md:118 et :48 -- seuls `**` et un `L` majuscule les separaient de leur motif. Deux
+    # cycles de suite ont paye un BLOCKER permanent pour ca, ce qui est exactement l'inverse du but :
+    # un BLOCKER qu'on apprend a ignorer ne protege plus rien.
+    # On normalise donc LES DEUX COTES a l'identique avant de comparer -- emphase retiree, espaces
+    # replies, casse ignoree. Aucun marqueur qui passait avant ne peut echouer maintenant : la
+    # comparaison litterale reste tentee en premier et la normalisation ne fait qu'ajouter des
+    # correspondances. Ce qui est verifie reste le FOND de la lecon, pas sa typographie.
+    def _norm(s):
+        return _re.sub(r"\s+", " ", s.replace("*", "").replace("`", "")).strip().casefold()
+
     for m in _re.finditer(r"^GUARD (\S+) (\S+) (.+)$", reg, _re.M):
         gid, path, marker = m.group(1), m.group(2), m.group(3).strip()
         body = _read(path)
@@ -271,7 +287,7 @@ def check_guards_still_installed():
             yield ("BLOCKER", "GUARD-GONE",
                    "verrou '%s' : son fichier %s a disparu. Le piege qu'il empechait peut "
                    "revenir sans que rien ne le signale." % (gid, path))
-        elif marker not in body:
+        elif marker not in body and _norm(marker) not in _norm(body):
             yield ("BLOCKER", "GUARD-GONE",
                    "verrou '%s' : le marqueur \"%s\" n'est plus dans %s. Il a ete retire ou "
                    "renomme par une refonte -- le piege correspondant n'est plus couvert."
