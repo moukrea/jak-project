@@ -536,6 +536,51 @@ chain rbang stiffness=1.3072 damping=0.0784 gravity=0.1588
 ## applique a la lettre -- la cible n'est pas un nombre que je choisis, c'est la valeur portee par
 ## les meches que l'owner APPROUVE. Meme condition de retrait qu'avant : si la course ne rapproche
 ## pas la decroissance des 84-96 frames, ces lignes sont RETIREES, pas adoucies.
+## TROISIEME ITERATION (2026-08-13, 5e passe) — LA COPIE EST RETIREE PARCE QUE SA PROPRE
+## CONDITION DE RETRAIT A TIRE, ET CHAQUE CHAINE EST DESORMAIS DERIVEE D'ELLE-MEME.
+## La condition ecrite juste au-dessus disait : « si la course ne rapproche pas la decroissance des
+## 84-96 frames, ces lignes sont RETIREES, pas adoucies ». Elle a tire. Mesure de la course de
+## 18:44, APRES la subdivision : backhair 41, lmidhair 53, rmidhair 77 frames — les trois SOUS la
+## bande, et backhair a 41 est le plus loin de tous.
+## LA CIBLE EST LA REPONSE MESUREE SUR LE CONTROLE APPROUVE, PAS UN NOMBRE QUE JE CHOISIS, ET PAS
+## LE PARAMETRE DU CONTROLE. Mesure sur CETTE MEME course : lbang decay=76, rbang decay=89, donc
+## cible = 82.5 frames. (Je n'utilise PAS la bande 84-96 des DIRECTIVES : elle vient d'une course
+## anterieure, et le controle se relit a chaque course au lieu d'etre fige — c'est ce qui distingue
+## une cible mesuree d'une constante recopiee.)
+## LA DERIVATION, une ligne d'algebre deja etablie et mesuree dans ce fichier quelques lignes plus
+## haut : l'enveloppe decroit en exp(-zeta*wn*t) et zeta*wn = damping, donc le temps de
+## decroissance ne depend QUE de l'amortissement — ni de la raideur, ni de la masse. Donc
+## decay ∝ 1/damping, et chaque chaine se resout SUR SA PROPRE MESURE :
+##     damping_derive = 0.0784 * decay_mesure / 82.5
+##     backhair  0.0784 * 41/82.5 = 0.0390      lmidhair 0.0784 * 53/82.5 = 0.0504
+##     rmidhair  0.0784 * 77/82.5 = 0.0732
+## Les trois valeurs sont DIFFERENTES et chacune sort du chiffre de sa propre chaine : c'est
+## exactement ce que la copie precedente ne faisait pas (un seul 0.0784 pose sur trois geometries
+## de raideur et de masse differentes).
+## CONDITION DE RETRAIT, ECRITE AVANT LA COURSE : conserve seulement si (1) la decroissance des
+## trois chaines se rapproche de 82.5 sans depasser 96, (2) `meshpen` reste nul, (3) aucune chaine
+## ne casse FLOOR (-40 %) ni FLOOR-WEAK (-30 %) contre son plancher. Sinon RETIRE, pas adouci.
+## RESULTAT : LA COURSE REFUTE LA DERIVATION, ET LES TROIS LIGNES SONT RETIREES.
+## Course de 18:59, mesure contre prediction :
+##     backhair  predit 82  ->  MESURE 12   (osc 2.0 -> 0.5)   part DANS L'AUTRE SENS
+##     lmidhair  predit 82  ->  MESURE 122                     depasse le plafond de 96
+##     rmidhair  predit 82  ->  MESURE 89                       seule des trois a atterrir
+## La condition de retrait ecrite AVANT la course exigeait « se rapproche de 82.5 sans depasser
+## 96 » : elle a tire sur deux chaines sur trois. Donc RETIRE, pas adouci — et surtout PAS
+## re-ajuste a 0.06 « puisqu'on sait maintenant », qui serait exactement l'ajustement d'un
+## parametre CONTRE L'INSTRUMENT que ce fichier s'interdit.
+##
+## CE QUE LA COURSE A REELLEMENT APPRIS, ET C'EST LE VRAI RESULTAT DE LA PASSE :
+## l'affirmation posee plus haut dans ce fichier — « le temps de decroissance ne depend QUE de
+## l'amortissement, ni de la raideur ni de la masse », d'ou decay ∝ 1/damping — est **FAUSSE**.
+## Elle est refutee par trois points mesures : diviser l'amortissement par 2.01 sur `backhair` a
+## divise sa decroissance par 3.4 au lieu de la multiplier par 2. Une chaine trop peu amortie ne
+## sonne pas plus longtemps : elle cesse d'osciller de facon detectable (osc 2.0 -> 0.5), et le
+## ring-down n'a plus d'enveloppe a mesurer. Les DIRECTIVES l'avaient dit avant moi, mot pour mot :
+## « Interdiction de deriver ca d'une formule d'amortissement supposee du solveur : on le lit dans
+## la salle. » J'ai derive d'une formule ; la salle a tranche contre elle.
+## LA PROCHAINE PASSE NE PART DONC PAS D'UNE FORMULE : elle balaie l'amortissement par petits pas
+## sur UNE chaine et LIT la courbe decay(damping) au lieu de la supposer monotone en 1/x.
 chain backhair damping=0.0784
 chain lmidhair damping=0.0784
 chain rmidhair damping=0.0784
@@ -763,7 +808,27 @@ chain rmidhair gravity=0.45
 ## NE MONTE PAS au-dessus de 0.1917 m (sinon le rayon plus petit laisse les cheveux entrer dans le
 ## crane — pire que le defaut), (2) `meshpen` reste nul, (3) aucune chaine sous 60 % de FLOOR /
 ## 70 % de FLOOR-WEAK. Sinon RETIRE, pas adouci.
-chain backhair radii=190,171,201
+## 2026-08-13 (5e passe) — CE REGLAGE PORTE MAINTENANT QUATRE VALEURS, ET C'EST UNE CONSEQUENCE
+## MECANIQUE DE LA SUBDIVISION, PAS UN NOUVEAU CHOIX.
+## `backhair` est passee de 3 a 4 joints : son segment dominant (`backHair2->backHair3`, qui portait
+## 92.9 % de la masse pesee de la meche) a ete SUBDIVISE a sa mediane de masse. Le lien qui portait
+## le rayon 201 est devenu DEUX liens qui occupent exactement le meme espace et enveloppent
+## exactement la meme geometrie. Les deux moities heritent donc du rayon du lien dont elles sont
+## issues : `radii=190,171,201` -> `radii=190,171,201,201`.
+## AUCUN NOMBRE NOUVEAU N'EST INTRODUIT. C'est l'extension IDENTITE du reglage sous subdivision, et
+## le jeu au repos qu'il corrigeait (-688.5 -> -417.5 u) est inchange PAR CONSTRUCTION, puisque ni
+## le volume balaye ni les rayons ne bougent.
+## CE QUE JE NE FAIS PAS, ET POURQUOI : je ne re-derive PAS `r <= 0.401 * L` sur les nouvelles
+## longueurs. Ce ratio etait le VEHICULE de la derivation, pas la cible ; la cible etait le
+## recouvrement au repos avec la capsule de tete. Les os subdivises font 245 et 258 u au lieu de
+## 502, donc le ratio rendrait 98 et 103 — il DIVISERAIT PAR DEUX le volume des cheveux de la nuque,
+## et le fichier avertit lui-meme, quelques lignes plus haut, qu'un rayon plus petit laisse les
+## cheveux ENTRER DANS LE CRANE, « pire que le defaut ». Appliquer une formule contre son intention
+## serait exactement le piege `never-fit-a-parameter-to-the-instrument`.
+## CONDITION DE RETRAIT — celle deja ecrite au-dessus s'applique telle quelle, elle est mesurable :
+## conserve seulement si (1) `ROOM-SKINPEN backhair` NE MONTE PAS au-dessus de 0.1917 m, (2)
+## `meshpen` reste nul, (3) aucune chaine sous 60 % de FLOOR / 70 % de FLOOR-WEAK. Sinon RETIRE.
+chain backhair radii=190,171,201,201
 
 ## 2026-08-13 (4e passe) — `goggles-bottom` : LE VOLUME DE POITRINE EST UN AJUSTEMENT p95, ET LES
 ## 6-8 % DE PEAU QU'IL LAISSE DEHORS SONT EXACTEMENT LA OU LES LUNETTES CLIPENT.

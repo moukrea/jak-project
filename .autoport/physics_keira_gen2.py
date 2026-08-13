@@ -263,11 +263,29 @@ EXPECTED_GROUPS = {
     # The EARS are deliberately NOT extended: same rule would apply (s_p95 2.259) but the owner has
     # reported no geometry break on them, and they are animation-driven (mode 1/3, not glue).
     # Measured and reported, not silently skipped.
-    'backhair':   ['backHair1', 'backHair2', 'backHair3'],
+    # 2026-08-13, 3e passe — SUBDIVISION du segment dominant de `backhair`/`lmidhair`/`rmidhair`
+    # (defaut `hair-pudding`). Ces trois chaines partaient de DEUX joints dans le rig donneur, les
+    # bangs de TROIS : apres la passe precedente elles etaient donc a 3 contre 4, soit UN SEUL
+    # maillon libre (rootlock verrouille le premier os). Mesure sur le mesh livre, part de la masse
+    # pesee de la meche portee par son SEUL segment libre :
+    #     backhair 92.9 %   lmidhair 62.4 %   rmidhair 60.2 %
+    # contre 35.0 % (lbang) et 36.6 % (rbang), que l'owner APPROUVE. Un segment libre unique qui
+    # porte 60 a 93 % de la masse est un BLOC par construction : il n'y a rien derriere lui pour
+    # etre en retard, donc aucune valeur d'amortissement ne peut y creer une propagation
+    # racine->pointe. C'est le « pudding », et c'est structurel, pas un reglage.
+    # L'os N'EST PAS AJOUTE EN BOUT : il n'y a aucune geometrie au-dela de la pointe (orphan
+    # 3.8/4.8/4.5 %, tail_m = 0.0000 -- `backhair` est meme MIEUX couvert que `lbang` a 4.9 %), donc
+    # un os appendu ne piloterait rien et serait un maillon inerte. Le segment dominant est SUBDIVISE
+    # a sa mediane de masse : le joint de pointe recule, un nouveau joint prend sa place, et la
+    # rampe lineaire du transfert partage la geometrie exactement 50/50 (mesure a l'execution :
+    # backHair4 16.661 sur 33.321, Lmidhaird 29.477 sur 58.954, Rmidhaird 28.207 sur 56.413).
+    # Le pire segment libre tombe ainsi a ~46 % (backhair) et ~31/30 % (les deux laterales, soit
+    # SOUS le controle approuve). `mono` devient enfin jugeable : il exige DEUX retards libres.
+    'backhair':   ['backHair1', 'backHair2', 'backHair3', 'backHair4'],
     'lbang':      ['Lbanga', 'Lbangb', 'Lbangc', 'Lbangd'],
     'rbang':      ['Rbanga', 'Rbangb', 'Rbangc', 'Rbangd'],
-    'lmidhair':   ['Lmidhaira', 'Lmidhairb', 'Lmidhairc'],
-    'rmidhair':   ['Rmidhaira', 'Rmidhairb', 'Rmidhairc'],
+    'lmidhair':   ['Lmidhaira', 'Lmidhairb', 'Lmidhairc', 'Lmidhaird'],
+    'rmidhair':   ['Rmidhaira', 'Rmidhairb', 'Rmidhairc', 'Rmidhaird'],
     'chestL':     ['lBoob'],
     'chestR':     ['rBoob'],
     # les VERRES (gogglesLeft/gogglesRight, 488 des 515 sommets des lunettes) sont deux branches

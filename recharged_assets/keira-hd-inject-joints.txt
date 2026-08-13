@@ -35,3 +35,18 @@ rbang       Rbangc        Rbangd          -0.217618     2.351408     0.221992
 # separee a piloter, il y a une languette dont le seul joint est mal place.
 kneeflapL   lKneeFlap     lKneeFlap2       0.232774     0.806341    -0.087814
 kneeflapR   rKneeFlap     rKneeFlap2      -0.232775     0.806341    -0.087813
+#
+# 2026-08-13, TROISIEME PASSE — SUBDIVISION DU SEGMENT DOMINANT (defaut `hair-pudding`).
+# Mesure sur le mesh livre: la masse pesee de la meche dans son SEUL segment libre vaut
+#   backhair 92.9 %   lmidhair 62.4 %   rmidhair 60.2 %
+# contre 35.0 % / 36.6 % sur lbang/rbang que l'owner APPROUVE. Un segment libre unique portant
+# 60 a 93 % de la masse est un BLOC par construction: rien derriere lui ne peut etre en retard,
+# et aucune valeur d'amortissement ne cree une propagation racine->pointe. C'est le « pudding ».
+# Il n'y a AUCUNE geometrie au-dela de la pointe (orphan 3.8/4.8/4.5 %, tail_m=0.0000), donc un os
+# AJOUTE EN BOUT ne piloterait rien: le correctif est une SUBDIVISION, pas un allongement.
+# Position = mediane de masse du segment (t resolu pour que la rampe transfere exactement 50 %),
+# ce qui MINIMISE le pire segment libre: 92.9 -> ~46 % (backhair), 62.4 -> ~31 %, 60.2 -> ~30 %,
+# soit au niveau du controle approuve (35 %) pour les deux meches laterales.
+subdiv backhair    backHair3   backHair4      0.000000     2.208748    -0.061500
+subdiv lmidhair    Lmidhairc   Lmidhaird      0.319941     2.409896     0.113380
+subdiv rmidhair    Rmidhairc   Rmidhaird     -0.321267     2.408081     0.112194

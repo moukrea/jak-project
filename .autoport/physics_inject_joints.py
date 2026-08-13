@@ -20,8 +20,17 @@ WHAT IT DOES, and nothing else:
     ordinary linear skinning ramp w_new = clamp((s-1)/(s_new-1), 0, 1). A hard boundary would
     manufacture exactly the tear this cycle is closing.
 
-APPEND ONLY. Existing joint indices never move, so every artefact keyed on them (JOINTS_0,
-the k2e rows, jak-hd.gc's arrays, merc bone slots) stays valid; only the count grows.
+SECOND VERB, `subdiv`. Appending past the tip only helps when there IS geometry past the tip.
+On backhair/lmidhair/rmidhair there is none (orphan mass 3.8/4.8/4.5 %, tail_m = 0.0000) while
+their SINGLE free segment carries 60-93 % of the strand's mass — a block by construction, which
+is the owner's « pudding ». For those, `subdiv` SPLITS that segment: it moves the leaf joint back
+up the bone and re-appends the position it vacated as a new tip joint, so the ramp hands the
+distal half of the mass to the new joint.
+
+APPEND ONLY at the INDEX level. No joint index ever moves and none is ever removed, so every
+artefact keyed on them (JOINTS_0, the k2e rows, jak-hd.gc's arrays, merc bone slots) stays valid;
+only the count grows. `subdiv` does rewrite ONE joint's bind matrix and node matrix — its index,
+its name and its parent are untouched, and it is asserted to be a leaf so nothing rides along.
 
 The donor is a LEVEL rip whose vertex pool holds other objects. Weight transfer therefore
 considers ONLY vertices reachable from the primitives' index buffers — the same compaction
@@ -51,16 +60,36 @@ def referenced_vertices(js, binc):
 
 
 def load_spec(path):
-    """Spec lines:  <chain> <parentJoint> <newJoint> <x> <y> <z>   (bind position, metres)"""
+    """Spec lines, two verbs:
+
+      append (6 fields, historical form, unchanged):
+        <chain> <parentJoint> <newJoint> <x> <y> <z>            (bind position, metres)
+
+      subdiv (7 fields, first field the literal `subdiv`):
+        subdiv <chain> <jointToMove> <newTipJoint> <mx> <my> <mz>
+      <mx,my,mz> is the NEW bind position of <jointToMove>; the joint's CURRENT position
+      becomes the bind position of <newTipJoint>, appended as its child. This splits the
+      chain's dominant free segment in two instead of extending it past the drawn strand
+      (there is no geometry past the tip to drive: measured orphan mass 3.8/4.8/4.5 %,
+      tail_m = 0.0000).
+    """
     out = []
     for ln in open(path, errors='ignore'):
         ln = ln.split('#', 1)[0].strip()
         if not ln:
             continue
         f = ln.split()
+        if len(f) == 7 and f[0] == 'subdiv':
+            out.append({'op': 'subdiv', 'chain': f[1], 'move': f[2], 'name': f[3],
+                        'pos': np.array([float(f[4]), float(f[5]), float(f[6])])})
+            continue
         if len(f) != 6:
             raise SystemExit("spec: expected 6 fields, got %d: %s" % (len(f), ln))
-        out.append({'chain': f[0], 'parent': f[1], 'name': f[2],
+        if f[0] == 'subdiv':
+            # fail closed: a mistyped subdiv line must never be parsed as an append whose
+            # chain is named "subdiv".
+            raise SystemExit("spec: `subdiv` takes 7 fields, got %d: %s" % (len(f), ln))
+        out.append({'op': 'append', 'chain': f[0], 'parent': f[1], 'name': f[2],
                     'pos': np.array([float(f[3]), float(f[4]), float(f[5])])})
     return out
 
@@ -84,32 +113,94 @@ def main():
     for e in spec:
         if e['name'] in idx:
             raise SystemExit("joint %s already exists — append-only, refusing" % e['name'])
-        if e['parent'] not in idx:
+        # a `subdiv` may target a joint an earlier line of the SAME file creates, so its
+        # existence is checked in file order below, not here.
+        if e['op'] == 'append' and e['parent'] not in idx:
             raise SystemExit("parent joint %s absent from rig" % e['parent'])
 
-    bind = np.array([np.linalg.inv(m) for m in ibms])
+    # LIST, not ndarray: the rig grows as we go (a `subdiv` may target a joint an earlier
+    # line appended) and a `subdiv` REWRITES one entry.
+    bind = [np.linalg.inv(m) for m in ibms]
+    parent_of = list(parent)
     ref = referenced_vertices(js, binc)
     log = []
     evicted, evicted_mass = {}, {}
 
     # ---- 1. nodes + skin.joints + IBMs ---------------------------------------------------
     new_ibms = list(ibms)
-    for e in spec:
-        pj = idx[e['parent']]
+
+    def add_joint(pj, name, pos):
+        """THE append implementation — both verbs go through it, so a subdivided tip joint
+        is created exactly like an appended one. Returns the parent's bind world matrix."""
         pw = bind[pj]
         # keep the parent's bind ORIENTATION: the strand continues straight, so the new link's
         # rest angle is zero and the model pose is unchanged by construction (SPEC §4).
         bw = pw.copy()
-        bw[:3, 3] = e['pos']
+        bw[:3, 3] = pos
         local = np.linalg.inv(pw) @ bw
-        node = {'name': e['name'],
+        node = {'name': name,
                 'matrix': [float(x) for x in local.T.reshape(16)]}   # glTF is column-major
         ni = len(js['nodes'])
         js['nodes'].append(node)
         js['nodes'][skin['joints'][pj]].setdefault('children', []).append(ni)
         skin['joints'].append(ni)
         new_ibms.append(np.linalg.inv(bw))
-        idx[e['name']] = len(new_ibms) - 1
+        idx[name] = len(new_ibms) - 1
+        bind.append(bw)
+        parent_of.append(pj)
+        return pw
+
+    for e in spec:
+        if e['op'] == 'subdiv':
+            if e['move'] not in idx:
+                raise SystemExit("subdiv: joint %s is absent from the rig and is not created "
+                                 "by an earlier spec line" % e['move'])
+            jm = idx[e['move']]
+            # HARD ASSERTION. Moving a joint moves its whole subtree implicitly, which would
+            # silently displace geometry this spec says nothing about. Only a leaf may move.
+            jset = set(skin['joints'])
+            kids = [c for c in js['nodes'][skin['joints'][jm]].get('children', []) if c in jset]
+            if kids:
+                raise SystemExit(
+                    "subdiv: %s is not a leaf — skinned child joint(s) %s would be dragged "
+                    "along by the move" %
+                    (e['move'], ", ".join(js['nodes'][c].get('name', '?%d' % c) for c in kids)))
+            pj = parent_of[jm]
+            if pj < 0:
+                raise SystemExit("subdiv: %s is a root joint, it carries no bone to split"
+                                 % e['move'])
+            orig = bind[jm][:3, 3].copy()      # becomes the bind position of the new tip
+            pw = bind[pj]
+            bw = pw.copy()
+            bw[:3, 3] = e['pos']               # same orientation convention as append, SPEC §4
+            local = np.linalg.inv(pw) @ bw
+            nd = js['nodes'][skin['joints'][jm]]
+            nd['matrix'] = [float(x) for x in local.T.reshape(16)]
+            for k in ('translation', 'rotation', 'scale'):
+                nd.pop(k, None)                # glTF forbids matrix + TRS on the same node
+            new_ibms[jm] = np.linalg.inv(bw)
+            bind[jm] = bw
+            log.append("MOVE  %-12s de (%.6f, %.6f, %.6f) vers (%.6f, %.6f, %.6f)  "
+                       "os parent->joint %.4f -> %.4f m" %
+                       (e['move'], orig[0], orig[1], orig[2],
+                        e['pos'][0], e['pos'][1], e['pos'][2],
+                        float(np.linalg.norm(orig - pw[:3, 3])),
+                        float(np.linalg.norm(e['pos'] - pw[:3, 3]))))
+            # transfer axis FROZEN AT CREATION: the moved joint cedes the mass that now lies
+            # past its new position, along the segment it just gave up.
+            e['_from'], e['_fromname'] = jm, e['move']
+            e['_head'], e['_tip'] = e['pos'], orig
+            ppw = add_joint(jm, e['name'], orig)
+            log.append("JOINT %-12s parent=%-12s bind=(%.6f, %.6f, %.6f) bone=%.4f m" %
+                       (e['name'], e['move'], orig[0], orig[1], orig[2],
+                        float(np.linalg.norm(orig - ppw[:3, 3]))))
+            continue
+        pj = idx[e['parent']]
+        # FROZEN AT CREATION, not re-read in phase 2: a later `subdiv` moves joints, and
+        # re-reading `bind` there would silently change the axis of every earlier entry.
+        e['_from'], e['_fromname'] = pj, e['parent']
+        e['_head'], e['_tip'] = bind[pj][:3, 3].copy(), e['pos']
+        pw = add_joint(pj, e['name'], e['pos'])
         log.append("JOINT %-12s parent=%-12s bind=(%.6f, %.6f, %.6f) bone=%.4f m" %
                    (e['name'], e['parent'], e['pos'][0], e['pos'][1], e['pos'][2],
                     float(np.linalg.norm(e['pos'] - pw[:3, 3]))))
@@ -141,9 +232,9 @@ def main():
             touched = set()
 
             for e in spec:
-                pj, nj = idx[e['parent']], idx[e['name']]
-                head = bind[pj][:3, 3]
-                axis = e['pos'] - head
+                pj, nj = e['_from'], idx[e['name']]
+                head = e['_head']
+                axis = e['_tip'] - head
                 blen = np.linalg.norm(axis)
                 if blen < 1e-9:
                     continue
@@ -195,7 +286,7 @@ def main():
                         moved += t
                         nv += 1
                 log.append("XFER  %-12s <- %-12s verts=%-5d mass=%.3f evicted=%d (%.4f)" %
-                           (e['name'], e['parent'], nv, moved,
+                           (e['name'], e['_fromname'], nv, moved,
                             evicted.get(e['name'], 0), evicted_mass.get(e['name'], 0.0)))
 
             # RENORMALISE ONLY THE ROWS WE ACTUALLY TOUCHED.
