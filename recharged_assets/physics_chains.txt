@@ -257,20 +257,20 @@ capsule Rmidhairb Rmidhaira radius=213 radius2=228
 # capsule Rmidhairc->Rmidhairb [rmidhair]  Rmidhairc: 64v @w>0.5   Rmidhairb: 21v @w>0.5
 #   COUVERTURE: Rmidhairc 58v dans le segment, couverture p95=474 contre 384 livre (x0.81) | Rmidhairb SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve)
 capsule Rmidhairc Rmidhairb radius=384 radius2=213
-# sphere main [body]  43v @w>0.25   centre = measured centroid of the geometry this joint owns, 481u off the joint, in its bind space   COVER p95: 7% of its vertices outside (inner-quartile mean 560 left 51% outside)
-collider main radius=671 offset=-17,-473,83
-# sphere lEara [earL]  14v @w>0.5   centre = measured centroid of the geometry this joint owns, 451u off the joint, in its bind space   COVER p95: 0% of its vertices outside (inner-quartile mean 194 left 57% outside)
-collider lEara radius=333 offset=7,446,66
-# sphere rEara [earR]  14v @w>0.5   centre = measured centroid of the geometry this joint owns, 451u off the joint, in its bind space   COVER p95: 0% of its vertices outside (inner-quartile mean 194 left 57% outside)
-collider rEara radius=333 offset=-7,-446,-66
-# sphere Lbanga [lbang]  103v @w>0.5   centre = measured centroid of the geometry this joint owns, 293u off the joint, in its bind space   COVER p95: 6% of its vertices outside (inner-quartile mean 199 left 51% outside)
-collider Lbanga radius=361 offset=293,-10,4
-# sphere Rbanga [rbang]  106v @w>0.5   centre = measured centroid of the geometry this joint owns, 281u off the joint, in its bind space   COVER p95: 6% of its vertices outside (inner-quartile mean 213 left 46% outside)
-collider Rbanga radius=347 offset=-280,17,2
-# sphere Lmidhaira [lmidhair]  65v @w>0.5   centre = measured centroid of the geometry this joint owns, 652u off the joint, in its bind space   COVER p95: 6% of its vertices outside (inner-quartile mean 374 left 49% outside)
-collider Lmidhaira radius=610 offset=583,39,290
-# sphere Rmidhaira [rmidhair]  58v @w>0.5   centre = measured centroid of the geometry this joint owns, 751u off the joint, in its bind space   COVER p95: 5% of its vertices outside (inner-quartile mean 382 left 50% outside)
-collider Rmidhaira radius=766 offset=-673,-77,-325
+# sphere main [body]  43v @w>0.25   centre = measured centroid of the geometry this joint owns, 481u off the joint, in its bind space   COVER p95: 7% of its vertices outside (inner-quartile mean 560 left 51% outside)   BORNE PERPENDICULAIRE: p95 671 -> 549 (ce joint est deja une extremite de capsule, qui mesure son epaisseur PERPENDICULAIREMENT ; le p95 d'une geometrie allongee rend sa LONGUEUR)
+collider main radius=549 offset=-17,-473,83
+# sphere lEara [earL]  14v @w>0.5   centre = measured centroid of the geometry this joint owns, 451u off the joint, in its bind space   COVER p95: 0% of its vertices outside (inner-quartile mean 194 left 57% outside)   BORNE PERPENDICULAIRE: p95 333 -> 148 (ce joint est deja une extremite de capsule, qui mesure son epaisseur PERPENDICULAIREMENT ; le p95 d'une geometrie allongee rend sa LONGUEUR)
+collider lEara radius=148 offset=7,446,66
+# sphere rEara [earR]  14v @w>0.5   centre = measured centroid of the geometry this joint owns, 451u off the joint, in its bind space   COVER p95: 0% of its vertices outside (inner-quartile mean 194 left 57% outside)   BORNE PERPENDICULAIRE: p95 333 -> 148 (ce joint est deja une extremite de capsule, qui mesure son epaisseur PERPENDICULAIREMENT ; le p95 d'une geometrie allongee rend sa LONGUEUR)
+collider rEara radius=148 offset=-7,-446,-66
+# sphere Lbanga [lbang]  103v @w>0.5   centre = measured centroid of the geometry this joint owns, 293u off the joint, in its bind space   COVER p95: 6% of its vertices outside (inner-quartile mean 199 left 51% outside)   BORNE PERPENDICULAIRE: p95 361 -> 112 (ce joint est deja une extremite de capsule, qui mesure son epaisseur PERPENDICULAIREMENT ; le p95 d'une geometrie allongee rend sa LONGUEUR)
+collider Lbanga radius=112 offset=293,-10,4
+# sphere Rbanga [rbang]  106v @w>0.5   centre = measured centroid of the geometry this joint owns, 281u off the joint, in its bind space   COVER p95: 6% of its vertices outside (inner-quartile mean 213 left 46% outside)   BORNE PERPENDICULAIRE: p95 347 -> 118 (ce joint est deja une extremite de capsule, qui mesure son epaisseur PERPENDICULAIREMENT ; le p95 d'une geometrie allongee rend sa LONGUEUR)
+collider Rbanga radius=118 offset=-280,17,2
+# sphere Lmidhaira [lmidhair]  65v @w>0.5   centre = measured centroid of the geometry this joint owns, 652u off the joint, in its bind space   COVER p95: 6% of its vertices outside (inner-quartile mean 374 left 49% outside)   BORNE PERPENDICULAIRE: p95 610 -> 222 (ce joint est deja une extremite de capsule, qui mesure son epaisseur PERPENDICULAIREMENT ; le p95 d'une geometrie allongee rend sa LONGUEUR)
+collider Lmidhaira radius=222 offset=583,39,290
+# sphere Rmidhaira [rmidhair]  58v @w>0.5   centre = measured centroid of the geometry this joint owns, 751u off the joint, in its bind space   COVER p95: 5% of its vertices outside (inner-quartile mean 382 left 50% outside)   BORNE PERPENDICULAIRE: p95 766 -> 228 (ce joint est deja une extremite de capsule, qui mesure son epaisseur PERPENDICULAIREMENT ; le p95 d'une geometrie allongee rend sa LONGUEUR)
+collider Rmidhaira radius=228 offset=-673,-77,-325
 # sphere lBoob [chestL]  34v @w>0.25   centre = measured centroid of the geometry this joint owns, 662u off the joint, in its bind space   COVER p95: 6% of its vertices outside (inner-quartile mean 183 left 53% outside)
 collider lBoob radius=322 offset=-1,655,94
 # sphere rBoob [chestR]  25v @w>0.25   centre = measured centroid of the geometry this joint owns, 662u off the joint, in its bind space   COVER p95: 8% of its vertices outside (inner-quartile mean 188 left 56% outside)

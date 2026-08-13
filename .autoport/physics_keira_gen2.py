@@ -1372,6 +1372,45 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
         # radius2=` : c'est cet axe et ces rayons que la regle des coques interroge, exactement
         # comme le moteur les lira.
         emitted_capsules.append((jn, pn, float(r1), float(r2)))
+    # ---------------------------------------------------------------------------------------------
+    # UNE SPHERE AJUSTEE SUR UNE GEOMETRIE ALLONGEE MESURE SA LONGUEUR, PAS SON EPAISSEUR.
+    #
+    # `blob_centre_radius` rend le p95 de la distance AU CENTROIDE. Sur une part compacte (un sein,
+    # le moyeu du buste) c'est bien une epaisseur. Sur une MECHE — un tube long et fin — le p95 rend
+    # la moitie de sa LONGUEUR, et le volume emis n'a plus rien a voir avec ce que le joint occupe :
+    #
+    #     Rmidhaira   sphere p95 = 766 u (18.7 cm de RAYON, centre a 745 u du joint)
+    #                 alors que la capsule `Rmidhairb->Rmidhaira` mesure 228 u a ce meme joint
+    #
+    # Ce sont deux mesures de la MEME chose au MEME endroit : l'une perpendiculaire a l'axe de l'os
+    # (l'epaisseur), l'autre radiale autour d'un centroide (la longueur). Elles ne peuvent pas etre
+    # toutes les deux justes, et c'est la perpendiculaire qui decrit un obstacle.
+    #
+    # CE QUE LE SUR-DIMENSIONNEMENT COUTE, MESURE PAR `probe_rest_containment.py` sur le fichier
+    # LIVRE : les meches FINES reposent DEJA a l'interieur de la sphere de la meche EPAISSE —
+    # `Rbangc` a -467 u dedans, `Lbangc` a -267 u. Le moteur accorde ce recouvrement de repos
+    # (`feff = floor0`), donc sur cette profondeur le volume ne protege rien ; mais des que la meche
+    # fine bouge d'un millimetre vers l'interieur elle rencontre un mur de 18 cm de rayon. C'est la
+    # signature exacte de ce que l'owner decrit depuis six passes : « les meches fines sont
+    # completement statiques » a cote de « ca part en vrille au milieu ».
+    #
+    # LA REGLE, DERIVEE DU RIG ET SANS AUCUN FILTRE PAR CHAINE (DIRECTIVES regle 4) : un joint qui
+    # est DEJA une extremite de capsule dans sa propre part possede une epaisseur MESUREE
+    # perpendiculairement a cet endroit. Sa sphere ne peut pas la depasser. La regle se limite
+    # d'elle-meme — `lBoob`/`rBoob`, chaines a un seul maillon, ne sont l'extremite d'aucune capsule
+    # et gardent leur blob entier, ce qui est correct : un sein EST compact.
+    #
+    # ON BORNE, ON NE SUPPRIME PAS. Retirer la ligne `collider` ferait retomber le rayon du LIEN sur
+    # `radii=` (jak-hd-physics.gc:1032-1042) et ferait disparaitre un obstacle la ou la capsule ne
+    # couvre pas tout (les 45 sommets d'oreille au-dela de `lEarb`, jusqu'a 30 cm, mesures par
+    # `probe_skin_profile.py`). Borner retire le sur-dimensionnement sans retirer le volume.
+    cap_end_radius = {}
+    for _a, _b, _r1, _r2 in emitted_capsules:
+        cap_end_radius[_a] = max(cap_end_radius.get(_a, 0.0), float(_r1))
+        cap_end_radius[_b] = max(cap_end_radius.get(_b, 0.0), float(_r2))
+    log('')
+    log('  BORNE PERPENDICULAIRE DES SPHERES (un joint deja porte par une capsule)')
+
     for jn, pname in spheres:
         j = idx_of[jn]
         c, r, n, t, cov = blob_centre_radius(geo, j)
@@ -1381,6 +1420,18 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
         cx, cy, cz = (int(round(float(v))) for v in c)
         r = int(round(r))
         r_iq, was_out, now_out = cov
+        bound = None
+        cap_r = cap_end_radius.get(jn)
+        if cap_r is not None and r > int(round(cap_r)):
+            bound = (r, int(round(cap_r)))
+            log(f'  {jn:<14} p95 {r:>4} > epaisseur perpendiculaire {int(round(cap_r)):>4} '
+                f'(capsule) — BORNE')
+            r = int(round(cap_r))
+        elif cap_r is not None:
+            log(f'  {jn:<14} p95 {r:>4} <= epaisseur perpendiculaire {int(round(cap_r)):>4} '
+                f'— inchange')
+        else:
+            log(f'  {jn:<14} p95 {r:>4}, extremite d\'aucune capsule — blob conserve')
         off = math.sqrt(cx * cx + cy * cy + cz * cz)
         log(f"sphere {jn}: centre ({cx},{cy},{cz}) |{off:.0f}u| radius {r} "
             f"(couverture p{COVER_PCT:.0f}: {100*now_out:.0f}% des sommets dehors — "
@@ -1388,7 +1439,11 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
         col_block.append(f'# sphere {jn} [{pname}]  {n}v @w>{t}   centre = measured centroid of the '
                          f'geometry this joint owns, {off:.0f}u off the joint, in its bind space'
                          f'   COVER p{COVER_PCT:.0f}: {100*now_out:.0f}% of its vertices outside'
-                         f' (inner-quartile mean {r_iq:.0f} left {100*was_out:.0f}% outside)')
+                         f' (inner-quartile mean {r_iq:.0f} left {100*was_out:.0f}% outside)'
+                         + (f'   BORNE PERPENDICULAIRE: p95 {bound[0]} -> {bound[1]} (ce joint est'
+                            f' deja une extremite de capsule, qui mesure son epaisseur'
+                            f' PERPENDICULAIREMENT ; le p95 d\'une geometrie allongee rend sa'
+                            f' LONGUEUR)' if bound else ''))
         col_block.append(f'collider {jn} radius={r} offset={cx},{cy},{cz}')
         col_report.append(('sphere', jn, r, None, n, None))
 

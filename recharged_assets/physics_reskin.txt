@@ -70,6 +70,100 @@ transfer LpantFlap from=Lknee,Lthigh cap=0.90 shape=0.75
 transfer RpantFlap from=Rknee,Rthigh cap=0.90 shape=0.75
 
 # =============================================================================================
+# LA POINTE D'UNE CHAINE DOIT ETRE LIBRE — et sur deux chaines elle ne l'est PAS.
+#
+# Defaut PRIORITE 1 de l'owner (`hair-skinning`, 13e passe) et defaut `hair-nape` :
+#   « la physique ne s'applique pas a toute la geometrie de ces deux meches mais a seulement une
+#     partie » · « les cheveux de nuque clipent dans son cou et NE BOUGENT PAS OU MAL ».
+#
+# CE QUI A CACHE CE DEFAUT PENDANT SIX PASSES — une mesure qui comptait un os IMMOBILE comme moteur.
+# `ROOM-SKINCOV` calcule la part du poids portee par « les joints simules de la chaine », maillon 0
+# COMPRIS. Or `rootlock=1` veut dire que le maillon 0 chevauche son os porteur RIGIDEMENT, et la
+# course le publie elle-meme : `ROOM-GRADIENT ... link0=0.0000` sur les CINQ pilotages. Un sommet
+# pese sur ce joint est donc aussi immobile que s'il etait pese sur `head` — mais il etait compte
+# comme pilote. L'ecart mesure (`.autoport/probe_skin_profile.py`, mesh LIVRE) :
+#
+#     chaine      cov publie   part reellement MOBILE      pointe (dernier decile)
+#     rbang         0.9703            0.4353                     1.00
+#     lbang         0.9791            0.4734                     1.00
+#     backhair      0.7390            0.3339                     0.46   <-- la pointe est SOUDEE
+#     earL          0.8432            0.5183                     0.71   <-- idem
+#     earR          0.8438            0.5210                     0.71   <-- idem
+#
+# LA REGLE, ET ELLE SE LIMITE D'ELLE-MEME : une chaine ancree a la racine DOIT avoir un profil qui
+# MONTE vers 1.0 a la pointe (SPEC 2 : « le mouvement croit vers la pointe, et c'est SUR LA POINTE
+# qu'on juge s'il y a du mouvement »). `lbang`/`rbang` finissent a 1.00 — leur profil bas au depart
+# est l'ANCRAGE, il est correct, et on n'y touche pas. `backhair` plafonne a 0.48 sur TOUTE sa
+# longueur et `earL/R` a 0.71 : ce ne sont pas des ancrages, ce sont des pointes qui ne peuvent pas
+# bouger quel que soit le reglage du solveur. Seules ces deux-la sont traitees.
+#
+# LES TROIS QUESTIONS DE LA SPEC 7, repondues avant d'ecrire la mesure qui juge ce bloc :
+#   NATURE : un PROFIL le long de la meche, pas un scalaire — deux etats opposes (ancrage sain vs
+#            pointe soudee) rendent le meme `cov`, et c'est ce qui a laisse passer le defaut.
+#   REPERE : abscisse curviligne de la polyligne des joints de la chaine, pose de bind, racine=0.
+#   ABSENT : le profil monte vers ~1.0 au dernier decile. `lbang`/`rbang` le font DEJA et servent
+#            de temoin sain interne — si ce bloc les degradait, il serait faux.
+#
+# `shape=1.0` EST UN CHOIX CONTRAINT, PAS UN REGLAGE : c'est le rescale PUR, qui multiplie tout le
+# profil par une constante et preserve donc EXACTEMENT la falloff de l'artiste — c'est-a-dire
+# l'ancrage. Un `shape<1` elargirait l'epaule et remonterait la RACINE, ce qui produirait « cheveux
+# decolles du crane », etat que l'owner a deja vu et rejete. `cap=0.90` est celui de `rBoob`/`lBoob`,
+# le seul que son oeil ait valide (« les seins, les mouvements subtils sont toujours OK »).
+# `backHair2` est plafonne PLUS BAS que `backHair3` parce qu'il est plus pres de la racine : la
+# monotonie du plafond le long de la chaine est la meme regle que le profil qu'on cherche a obtenir.
+#
+# ORDRE : ces `transfer` sont places AVANT le bloc `grade` (plus bas) a dessein — `grade` regradue
+# la jonction cuir chevelu/meche sur les poids FINAUX. L'inverse rouvrirait la dechirure que
+# `grade` vient de fermer.
+# EFFET PREDIT AVANT LE BAKE, pour qu'une regle morte ne parte pas en production (le profil du
+# joint cible est lu sur le mesh LIVRE, et `transfer` ne peut que MONTER : `gain = max(new-wt, 0)`) :
+#     backHair3   132 sommets   p90 0.4488 -> cap 0.90   = x2.01 sur le profil, +33.3 de masse
+#     backHair2   162 sommets   p90 0.2481 -> cap 0.80   = x3.22 sur le profil, +49.3 de masse
+#
+# `[model keira-hd]` ET PAS `keira-hd keira3-hd`, ET C'EST LE BAKE QUI L'A TRANCHE, pas moi : la
+# gate de verification du bake (« RESKIN verification FAILED — a declared transfer did not apply »)
+# a refuse la premiere version, posee sur les deux looks. Les deux raisons, lues dans sa sortie :
+#     keira3-hd : `!! target joint backHair3 not in rig — skipped`
+#                 verifie dans le rig : keira-hd porte ['backHair1','backHair2','backHair3'],
+#                 keira3-hd seulement ['backHair1','backHair2']. Le joint n'existe pas la-bas.
+#     keira3-hd : `-- backHair2: already at or above the target profile` — son backHair2 est DEJA
+#                 au-dessus de 0.80, donc la regle y serait un no-op.
+# Ce n'est donc pas un de-scope du look J3 : il n'y a rien a y transferer. Sa nuque est peinte
+# autrement et n'a pas le defaut. C'est mesure, pas suppose.
+#
+# LE DONNEUR N'EST PAS SEULEMENT `head`, ET C'EST LE BAKE QUI ME L'A APPRIS. Premiere version,
+# `from=head` seul : la masse deplacee est tombee a +9.2 et +16.7 la ou la prediction annoncait
+# +33.3 et +49.3. `transfer` borne le gain par ce que les DONNEURS detiennent a ce sommet
+# (`g = min(gain[vi], pool)`), et le poids manquant n'etait pas sur `head`. Repartition mesuree sur
+# les 170 sommets de la nuque APRES ce premier bake :
+#     backHair1  39.8 %  IMMOBILE (rootlock=1)      backHair3  25.0 %  mobile
+#     head       11.6 %  IMMOBILE (os de corps)     backHair2  23.6 %  mobile
+# `backHair1` est le maillon 0 VERROUILLE : il chevauche `head` rigidement, donc du poids pose sur
+# lui est dynamiquement IDENTIQUE a du poids pose sur `head` — c'est la meme soudure, sous un autre
+# nom. Il doit donc etre donneur au meme titre.
+#
+# POURQUOI CA NE DECOLLE PAS LES CHEVEUX DU CRANE, et c'est `shape=1.0` qui le garantit : le gain
+# n'a lieu que la ou la CIBLE porte deja du poids (`gain = max(cap*(wt/p90) - wt, 0)`, nul quand
+# `wt` est nul). Au cuir chevelu, `backHair3` vaut ~0, donc il n'y prend rien et `backHair1` y
+# garde tout. La securite est SPATIALE, portee par le profil de l'artiste, pas par un plafond.
+[model keira-hd]
+transfer backHair3 from=head,backHair1 cap=0.90 shape=1.0
+transfer backHair2 from=head,backHair1 cap=0.80 shape=1.0
+#
+# LES OREILLES SONT MESUREES ET NON TRAITEES, ET JE LE DIS AU LIEU DE LE TAIRE (regle 3).
+# J'avais ecrit `transfer lEarb/rEarb from=head cap=0.90 shape=1.0`. La prediction ci-dessus les
+# donne MORTES : `lEarb` porte deja **p90 = 0.9412**, au-dessus du plafond de 0.90, donc
+# `gain = max(new-wt, 0)` vaut zero partout et la regle n'aurait rien fait — un no-op qui aurait
+# pris le credit du chiffre du prochain cycle.
+# CE QUE CA APPREND SUR LE DEFAUT DE L'OREILLE : il n'est PAS « lEarb est trop faible la ou il est
+# peint » (il est a 0.94), c'est que 14 sommets sur 90 ne le portent PAS DU TOUT. Le levier serait
+# `grow=` (dilatation spatiale du support), pas un rescale. Je ne le pose pas ce cycle : le profil
+# de l'oreille est le seul que je ne sache pas encore lire proprement — 45 de ses 90 sommets sont
+# AU-DELA du dernier joint, donc l'abscisse curviligne les tasse tous dans le dernier decile et je
+# ne peux pas distinguer une base saine d'une pointe soudee. Poser une regle sur une mesure que je
+# ne sais pas lire, c'est exactement ce qui a produit les faux verts. `ears-physics` reste OUVERT.
+
+# =============================================================================================
 # GRADUATION DE JONCTION — defaut PRIORITE 1 `hair-skinning`, diagnostic de l'owner (2026-08-12)
 #
 #   « La physique ne s'applique pas a toute la geometrie de ces deux meches mais a seulement une
