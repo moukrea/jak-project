@@ -485,43 +485,76 @@ sous-pas à 60 FPS, 3-4 sur impact. Un maillon ne devrait pas TRAVERSER un axe e
 réparerait alors moins souvent, et plus petit. Corriger après coup est un pis-aller, et le dire
 est le seul honnête.
 
-3f quater. LE CONTRÔLE APPARIÉ QUI DÉSIGNE LA CAUSE, ET IL EST GRATUIT
------------------------------------------------------------------------
-`ROOM-CONTACT-VOL` de la course 7 dit contre QUOI chaque mèche est réellement contrainte, et le
-partage est net :
+3f quater. LA GATE QUI BLOQUE LA PHASE MESURE UNE GRANDEUR QUI AUGMENTE QUAND LES CHEVEUX
+           S'ELOIGNENT DU CORPS. C'EST LE RESULTAT LE PLUS IMPORTANT DE LA NUIT.
+------------------------------------------------------------------------------------------------
+`COLLIDE` echoue a 0.565 sur `rbang`. Ce n'est pas une penetration, et l'arithmetique le prouve
+sans avoir besoin d'une course :
 
-    backhair   678   head->neck 422 · Lshoulder->chest 62 · Rshoulder->chest 59 · neck->chest 56
-               -> obstacles majoritairement du CORPS      -> meshpen 0.0059, crossing 3
-    lmidhair  4031   head->neck 1174 · lEarb->lEara 923 · Lbangd->Lbangc 710 · sphere:lEara 502
-    rbang     1567   head->neck 490 · Rmidhairb->Rmidhaira 376 · Lbangc->Lbangb 232 · Lbangd 204
-               -> obstacles majoritairement d'AUTRES CHEVEUX -> meshpen 0.36 a 0.56, crossing 122-1245
+    rbang, pointe :  meshpen mesure         = 2313.6 u
+                     plafond de PROFONDEUR  = rr + rl = 915 + 193 = 1108 u
+                     (`phys-collide-depth` rend `(rr + rlink) - d` : borne de construction)
 
-Les 17 chaînes qui se sont refermées cette nuit ont pour obstacles dominants des capsules de
-CORPS ; les 5 qui résistent ont pour obstacles dominants des capsules portées par d'AUTRES CHAÎNES
-SIMULÉES. `backhair` est le témoin : même modèle, même course, mais des obstacles de corps — et son
-résidu est déjà quasi nul.
+2313.6 > 1108. **Aucune profondeur ne peut valoir ca.** Ce que le nombre dit reellement : la pointe
+de `rbang` est a **56.5 cm de l'axe tete->cou**, donc **1398 u (34 cm) EN DEHORS** de la sphere de
+crane de 915 u qu'elle est accusee de traverser.
 
-MÉCANISME SUSPECTÉ, lu dans le source et pas encore confirmé par la mesure. Le prédicat de
-franchissement (`phys-link-pen`, ~:2620) s'écrit :
+**LA GATE ECHOUE D'AUTANT PLUS QUE LE CHEVEU EST LOIN DU CORPS.** C'est l'inverse exact d'une
+penetration, et c'est pourquoi aucun travail de solveur ne l'a jamais fermee.
 
-    (phys-axis-dir rest ca cb ua)   ; ou est la pose d'AUTEUR du lien, vue de l'axe COURANT
-    (phys-axis-dir q    ca cb ub)   ; ou est le lien SIMULE, vue du meme axe
+LA LIGNE : `goal_src/jak1/pc/jak-hd-physics.gc:2870-2872`. `phys-link-pen` alimente son maximum par
+DEUX grandeurs incommensurables — une profondeur (bornee), et `(-> ub w)`, la distance a l'AXE de
+l'obstacle, versee telle quelle dans la meme colonne, en metres, des que `ua . ub < 0`.
 
-`ca`/`cb` viennent de `phys-col-now!` : la position COURANTE de l'obstacle. Contre une capsule de
-corps, portée par l'animation, « le côté où l'auteur l'a mis » est une grandeur CONSERVÉE et le
-test a un sens. Contre une capsule portée par une chaîne que la physique écrit elle-même, l'axe a
-bougé : `ua` peut changer de signe sans qu'aucun franchissement n'ait eu lieu, et le solveur
-« corrige » alors un franchissement FANTÔME — en boucle, ce qui expliquerait aussi le `jump`.
-C'est la même faute de mélange de repères que le commentaire :2612-2614 dit avoir corrigée sur
-`floor0` (lequel prend `max(floors, floorc)` précisément pour ne pas mélanger), appliquée de façon
-inconsistante au terme de côté.
+POURQUOI CA SE DECLENCHE SUR DES CHEVEUX QUI NE TOUCHENT RIEN. Le test de cote ne distingue pas
+« traverser l'axe » de « tourner de plus de 90 degres d'azimut ». La pointe de `lbang` devie de
+122.7 degres par maillon (`ROOM-GRADIENT`), et sa pose d'auteur n'est enfoncee que de **6 a 10 u**
+dans une sphere de 915 — elle EFFLEURE la surface. Le moindre balayage lateral la met « de l'autre
+cote » sans qu'elle approche jamais le crane.
 
-**NON TRANCHÉ. Une investigation est en cours et sa conclusion doit précéder toute correction** —
-parce que restreindre ce veto RÉDUIT `meshpen`, et réduire un chiffre que la gate lit sans avoir
-prouvé qu'il mesurait un fantôme serait exactement le faux vert que tout ce contrat interdit. Le
-terme de PROFONDEUR, lui, continuerait de mesurer et de résoudre la pénétration cheveu↔cheveu
-réelle : ce n'est que le veto de TUNNELING, indéfinissable sans détection continue (§37), qui
-serait borné aux obstacles d'auteur.
+L'HYPOTHESE D'ENFERMEMENT EST REFUTEE, chiffree : `lbang`/`rbang` ont 2400 u de marge, et leur ancre
+est deja a 1689 u du joint `head`, hors du volume. La note du 08-12 (« 820 u de portee contre 915 de
+rayon ») visait la NUQUE et ne vaut que pour elle. **Aucun rayon de collider n'est a changer.**
+
+`backhair` EST LE TEMOIN, ET IL EST PROPRE. Ses maillons sont profondement DANS le volume (584 /
+458 / 248 u au bind) et PRES de l'axe (477-583 u), avec 929 u de portee contre 1815 pour `lbang` :
+elle ne peut pas atteindre l'autre cote de l'axe sans traverser le crane (il lui faudrait 454 u,
+19x son residu). `ROOM-SIDE inside_frames = 3` sur toute la course, contre 233 et 122. Son 24.3 u
+est donc, PAR ARITHMETIQUE, un vrai residu de profondeur — **la seule des cinq dont `meshpen`
+mesure ce que son nom dit.**
+
+DEFAUT ANNEXE TROUVE AU PASSAGE, a verifier separement : `capsule head neck` est DEGENEREE
+(`L^2 = 303336 < dr^2 = 443556`). `phys-collide-depth` la traite donc comme une SPHERE de 915 sur
+`head`, pendant que `phys-axis-dir` projette sur le SEGMENT de 550 u. La profondeur et le cote sont
+calcules sur deux solides differents.
+
+**CE QUE JE NE FAIS PAS, ET POURQUOI.** Corriger ca veut dire changer ce que `meshpen` publie —
+c'est-a-dire l'ENTREE d'une gate gelee. La regle 5 est explicite : « Si une gate te semble fausse,
+tu le rapportes ; c'est le superviseur qui tranche. » Je l'ai deja appris a mes depens cette nuit en
+retirant unilateralement la calibration §24 sur la foi de `FLOOR-WEAK` (§3e bis). **Donc je
+rapporte, et je ne touche a rien.** Baisser un chiffre que la gate lit, meme avec de bonnes raisons,
+serait exactement le faux vert que tout ce contrat existe pour empecher.
+
+CE QUE CA IMPLIQUE POUR LE TRAVAIL DEJA FAIT : la fermeture du franchissement corrige des violations
+REELLES sur les chaines dont les obstacles sont des capsules de corps (goggles -80 %, anklestrapR
+-73 %, chestR -48 %) et des violations FANTOMES sur les meches frontales, qui ne traversent rien.
+Le `jump` qu'elle coute est donc, pour partie, paye pour rien.
+
+3f quinquies. LE LIMITEUR DE RETOUR A ETE ESSAYE ET RETIRE — MA PROPRE CONDITION L'EXIGEAIT
+---------------------------------------------------------------------------------------------
+Pose pour tuer le `jump` : un maillon ne revenait plus que de `rl` (son rayon MESURE) par frame.
+Condition ecrite AVANT la course : « si `jump` ne baisse pas, le limiteur sera retire ».
+
+    jump : chaines > 0.30 m   7 -> 6      max 0.5912 -> 0.5855      (negligeable)
+    tipvar : 0 chaine en baisse de plus de 5 %  (il ne coutait bien aucun mouvement)
+    MAIS il DEFAIT les deux plus gros gains :
+        goggles meshpen      0.1094 -> 0.4866
+        anklestrapR meshpen  0.2131 -> 0.7412
+        topstrapL meshpen    0.4565 -> 0.5479
+
+RETIRE. Preuve que le retrait est exact et non « a peu pres » : apres recompilation, `GAME.CGO`
+rend le md5 **`1c29275b8ed16f132ccdf1c74e780249`**, bit pour bit celui de la course 7. L'etat livre
+est donc mesure par le tableau de la course 7, sans repayer une course.
 
 3h. LES GATES QUI RESTENT ROUGES
 -----------------------------------
