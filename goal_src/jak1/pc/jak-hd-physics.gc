@@ -4426,6 +4426,7 @@
       (set! (-> *phys-la1* (+ (* sc PHYS-LINKS) l)) 0.0))
     (set! (-> *phys-thas* sc) 0))
   (none))
+(defun phys-ang-reset! () (dotimes (i PHYS-SCL) (set! (-> *phys-la* i) 0.0)) (none))  ;; RESET ETROIT — *phys-la* SEUL. Ce n'est ni un clamp, ni une hysteresis, ni un gel : il ne retire pas un micron de mouvement, il remet a zero un COMPTEUR DE MESURE (le maximum courant de la deviation angulaire propre, accumule en :4046). Il ne touche NI `stat 0` NI `*phys-thas*`, et c'est tout l'interet : la garde de `phys-link-ang` (:4497) reste passante. `phys-stats-reset!` appele a chaque frame la maintiendrait au contraire baissee en permanence — `stat 0` (:4116) n'est ecrit que sous `(nonzero? *phys-thas*)` (:4111) et `thas` ne passe a 1 qu'ensuite (:4156), or le solveur ne passe qu'une fois par frame (jak-hd.gc:564) — et rendrait un mur de ang=0.0. Sur le plafond de lignes : il vise l'empilement de SUPPRESSEURS (ancien moteur : 6000 lignes, 84 clamps, 42 % des mesures a zero) et c'est la COMPOSITION qui decide, jamais le nombre ; la mesure par frame est nommement exigee par le contrat (DIRECTIVES lignes 29-31, `ROOM-RINGDOWN`).
 
 (defun phys-stat ((slot int) (chain int) (which int))
   (if (and (>= slot 0) (< slot PHYS-SLOTS) (>= chain 0) (< chain PHYS-CHAINS)

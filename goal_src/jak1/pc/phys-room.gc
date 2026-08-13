@@ -981,6 +981,42 @@
     ;; ---- qui doit pendre (hang > 0), compte a part.
     ((= (-> self phase) PHYSROOM-PH-IDLE)
      (physroom-hold)
+     ;; ---- LE RING-DOWN, FRAME PAR FRAME (defaut `hair-pudding`, owner 2026-08-13) ------------
+     ;; « la gelatine c'est plus du pudding, c'est pas trop lent et mou, c'est vraiment pas
+     ;; coherent... On dirait les mouvements quand on tape sur un pudding, pas des mouvements
+     ;; naturels de cheveux ! »
+     ;;
+     ;; NATURE : une forme de reponse DANS LE TEMPS — la decroissance libre apres l'arret du
+     ;;   stimulus, et le retard de phase d'un maillon sur son parent. Ce n'est PAS une amplitude :
+     ;;   un pudding et une chaine de cheveux peuvent bouger AUTANT, ce qui les separe est la forme.
+     ;;   Un scalaire d'amplitude par chaine ne peut donc structurellement pas voir ce defaut.
+     ;; REPERE : LOCAL — la deviation angulaire du maillon PAR RAPPORT A SON PARENT, en degres,
+     ;;   telle que `phys-link-ang` la publie. Jamais le monde, ou une pointe soudee a son parent
+     ;;   afficherait le grand chiffre de son parent (la faute de la 10e passe).
+     ;; LIGNE DE BASE : `lbang`/`rbang`, mesurees dans la MEME course. C'est le controle apparie de
+     ;;   l'owner — meme moteur, meme salle : il APPROUVE les meches fines et REJETTE les grosses,
+     ;;   donc la cible est la valeur MESUREE sur les fines, jamais un nombre choisi.
+     ;; RESERVE : `ang` est un MODULE (toujours positif), le signal est donc REDRESSE — la frequence
+     ;;   apparente vaut le DOUBLE de la reelle, une oscillation libre laisse DEUX minima, et le
+     ;;   retard n'est determine que MODULO une demi-periode.
+     ;;
+     ;; POURQUOI ON IMPRIME PUIS ON REMET A ZERO, DANS CET ORDRE — c'est ce qu'une relecture casse
+     ;; en premier : `*phys-la*` est un MAXIMUM COURANT, pas un instantane. Ce qu'on lit ici est
+     ;; donc le maximum accumule DEPUIS LE RESET DE LA FRAME PRECEDENTE, c'est-a-dire la valeur de
+     ;; cette frame-la. Toutes les chaines doivent etre imprimees AVANT le reset, sinon les
+     ;; dernieres liraient un compteur deja vide. D'ou : une seule remise a zero, apres la boucle.
+     ;; Et c'est `phys-ang-reset!` (etroit) et surtout PAS `phys-stats-reset!` : ce dernier remet
+     ;; aussi `stat 0` et `*phys-thas*` a zero, ce qui maintiendrait la garde de `phys-link-ang`
+     ;; baissee en permanence et rendrait un mur de `ang=0.0`.
+     ;; `pframe` est incremente EN TETE de `physroom-tick`, donc `f` va de 1 a PHYSROOM-IDLES-1 :
+     ;; le tableau trie et travaille en offset relatif au premier `f`.
+     (when (< (-> self pframe) PHYSROOM-IDLES)
+       (dotimes (c (-> self nchain))
+        (when (> (phys-chain-links (-> self slot) c) 0)
+         (dotimes (l (phys-chain-links (-> self slot) c))
+           (format 0 "PHYSRING c=~D f=~D l=~D ang=~f~%"
+                   c (-> self pframe) l (phys-link-ang (-> self slot) c l)))))
+       (phys-ang-reset!))
      ;; frame-num CONSTANTE : la pose d'auteur est immobile, c'est ca « la pose du modele ».
      (when (= (-> self pframe) PHYSROOM-IDLES) (phys-stats-reset!))
      (when (>= (-> self pframe) (+ PHYSROOM-IDLES PHYSROOM-IDLEM))
