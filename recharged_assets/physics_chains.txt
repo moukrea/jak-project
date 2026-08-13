@@ -179,9 +179,9 @@ capsule hips main radius=810 radius2=549
 # capsule chest->main [body]  chest: 887v @w>0.5   main: 43v @w>0.25
 #   COUVERTURE: chest 30v dans le segment, couverture p95=601 contre 671 livre (x1.12) | main 43v dans le segment, couverture p95=676 contre 549 livre (x0.81)
 capsule chest main radius=671 radius2=549
-# capsule neck->chest [body]  neck: 37v @w>0.5   chest: 887v @w>0.5
+# capsule neck->chest [body]  neck: 37v @w>0.5   chest: 887v @w>0.5   ONE-JOINT-ONE-THICKNESS: neck 246->249 (span-empty -> own-bone thickness neck->head, 37v)
 #   COUVERTURE: neck SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | chest 782v dans le segment, couverture p95=1001 contre 671 livre (x0.67)
-capsule neck chest radius=246 radius2=671
+capsule neck chest radius=249 radius2=671
 # capsule head->neck [body]  head: 1699v @w>0.5   neck: 37v @w>0.5
 #   COUVERTURE: head 177v dans le segment, couverture p95=1005 contre 915 livre (x0.91) | neck 37v dans le segment, couverture p95=360 contre 249 livre (x0.69)
 capsule head neck radius=915 radius2=249
@@ -203,18 +203,18 @@ capsule Relbow Rshoulder radius=308 radius2=256
 # capsule Rhand->Relbow [body]  Rhand: 131v @w>0.5   Relbow: 175v @w>0.5
 #   COUVERTURE: Rhand 8v dans le segment, couverture p95=286 contre 228 livre (x0.80) | Relbow 173v dans le segment, couverture p95=695 contre 279 livre (x0.40)
 capsule Rhand Relbow radius=228 radius2=279
-# capsule Lthigh->hips [body]  Lthigh: 130v @w>0.5   hips: 479v @w>0.5
+# capsule Lthigh->hips [body]  Lthigh: 130v @w>0.5   hips: 479v @w>0.5   ONE-JOINT-ONE-THICKNESS: Lthigh 1321->362 (span-empty -> own-bone thickness Lthigh->Lknee, 130v)
 #   COUVERTURE: Lthigh SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | hips 204v dans le segment, couverture p95=940 contre 699 livre (x0.74)
-capsule Lthigh hips radius=1321 radius2=699
+capsule Lthigh hips radius=362 radius2=699
 # capsule Lknee->Lthigh [body]  Lknee: 246v @w>0.5   Lthigh: 130v @w>0.5
 #   COUVERTURE: Lknee SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | Lthigh 116v dans le segment, couverture p95=643 contre 362 livre (x0.56)
 capsule Lknee Lthigh radius=485 radius2=362
 # capsule Lankle->Lknee [body]  Lankle: 172v @w>0.5   Lknee: 246v @w>0.5
 #   COUVERTURE: Lankle 26v dans le segment, couverture p95=861 contre 411 livre (x0.48) | Lknee 234v dans le segment, couverture p95=538 contre 329 livre (x0.61)
 capsule Lankle Lknee radius=411 radius2=329
-# capsule Rthigh->hips [body]  Rthigh: 132v @w>0.5   hips: 479v @w>0.5
+# capsule Rthigh->hips [body]  Rthigh: 132v @w>0.5   hips: 479v @w>0.5   ONE-JOINT-ONE-THICKNESS: Rthigh 1276->381 (span-empty -> own-bone thickness Rthigh->Rknee, 132v)
 #   COUVERTURE: Rthigh SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | hips 207v dans le segment, couverture p95=923 contre 702 livre (x0.76)
-capsule Rthigh hips radius=1276 radius2=702
+capsule Rthigh hips radius=381 radius2=702
 # capsule Rknee->Rthigh [body]  Rknee: 231v @w>0.5   Rthigh: 132v @w>0.5
 #   COUVERTURE: Rknee SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | Rthigh 118v dans le segment, couverture p95=673 contre 381 livre (x0.57)
 capsule Rknee Rthigh radius=480 radius2=381

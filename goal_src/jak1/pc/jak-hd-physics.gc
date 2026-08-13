@@ -173,6 +173,27 @@
 (define *phys-shell* (new 'global 'array 'float PHYS-SC))    ;; rayon interne, 0 = pas un fourreau
 (define *phys-shell-n* 0)     ;; corrections de concentricite appliquees, sur la fenetre
 (define *phys-shell-off* 0)   ;; CONTROLE POSITIF : 1 = fourreau traite comme avant (poussee)
+(define *phys-shell-in-n* 0)  ;; corrections VERS L'EXTERIEUR appliquees, sur la fenetre
+;; ------------------------------------------------------------------------------------------------
+;; L'EXCURSION RENTRANTE : DE COMBIEN LE FOURREAU EST PASSE SOUS SA DISTANCE DE POSE MODELE.
+;;
+;; POURQUOI ELLE EXISTE. Le limiteur radial ci-dessus n'avait qu'une MOITIE : il ne s'executait que
+;; sur `rad > 0`, le cas ou le pan S'ECARTE de l'axe. Le cas symetrique `rad < 0` — le pan s'est
+;; RAPPROCHE de l'axe, c'est-a-dire que le tissu est entre dans la chair — ne declenchait RIEN : ni
+;; ce limiteur, ni l'ejection ordinaire, puisque sur une paire fourreau la branche `else` n'est pas
+;; prise. C'est le defaut `pant-calf`, « le bas du pantacourt est toujours a l'interieur des
+;; mollets », cinq fois signale.
+;;
+;; NATURE : une distance RADIALE SIGNEE, en unites de jeu. Surtout pas une profondeur de
+;; penetration, pour la meme raison que `phys-shell-res` : une profondeur est MAXIMALE quand le lien
+;; est sur l'axe, c'est-a-dire exactement la ou un fourreau est CORRECT.
+;; REPERE : celui du volume — distance a son axe, segment borne.
+;; LECTURE QUAND LE DEFAUT EST ABSENT : 0. La pose du modele rend exactement 0 par construction.
+;; Valeur publiee : le `min` des `rad` negatifs de la fenetre, RELEVE AVANT correction. C'est le
+;; phenomene a sa pleine echelle, donc cette colonne est son propre controle positif : elle ne peut
+;; pas tomber a zero parce que la correction l'aurait fait disparaitre, elle mesure ce que la
+;; correction a eu a corriger.
+(define *phys-shellin* (new 'global 'array 'float PHYS-SC))
 ;; ------------------------------------------------------------------------------------------------
 ;; LA LONGUEUR DE L'AXE DU MEMBRE QU'UN FOURREAU ENTOURE. 0 = pas encore vue.
 ;;
@@ -2029,14 +2050,39 @@
                          ;; l'appariement fourreau<->volume est etabli.
                          (set! (-> *phys-shellax* sc) (vector-vector-distance ca cb))
                          (let ((rad (phys-shell-res rest pt ca cb nrm)))
-                           (when (> rad 0.0)
-                             (set! *phys-shell-n* (+ *phys-shell-n* 1))
-                             (let ((push (+ rad margin)))
-                               ;; `nrm` sort de `phys-shell-res` dirigee VERS l'axe : le lien
-                               ;; revient a sa distance de pose modele, il n'est pas ecarte.
-                               (set! (-> pt x) (+ (-> pt x) (* (-> nrm x) push)))
-                               (set! (-> pt y) (+ (-> pt y) (* (-> nrm y) push)))
-                               (set! (-> pt z) (+ (-> pt z) (* (-> nrm z) push)))))))
+                           (cond
+                             ((> rad 0.0)
+                              (set! *phys-shell-n* (+ *phys-shell-n* 1))
+                              (let ((push (+ rad margin)))
+                                ;; `nrm` sort de `phys-shell-res` dirigee VERS l'axe : le lien
+                                ;; revient a sa distance de pose modele, il n'est pas ecarte.
+                                (set! (-> pt x) (+ (-> pt x) (* (-> nrm x) push)))
+                                (set! (-> pt y) (+ (-> pt y) (* (-> nrm y) push)))
+                                (set! (-> pt z) (+ (-> pt z) (* (-> nrm z) push)))))
+                             ;; ---- L'AUTRE MOITIE DE LA MEME CONDITION : `rad < 0` -------------
+                             ;; `rad` est `distance_a_l_axe(courant) - distance_a_l_axe(pose
+                             ;; modele)`. Negatif, il dit que le pan est passe SOUS sa distance de
+                             ;; pose modele : le tissu est entre dans le mollet. Jusqu'ici cette
+                             ;; moitie ne faisait rien du tout — le `when (> rad 0.0)` la laissait
+                             ;; passer, et l'ejection ordinaire est hors de portee sur une paire
+                             ;; fourreau (branche `else` non prise). C'est `pant-calf`.
+                             ;; Aucun degre de liberte n'est retire : tourner autour du membre et
+                             ;; glisser le long ne changent pas la distance a l'axe.
+                             ((< rad 0.0)
+                              ;; l'excursion BRUTE, relevee AVANT de corriger : c'est le phenomene
+                              ;; a sa pleine echelle, et c'est ce qui rend la colonne mesurable
+                              ;; meme quand la correction ci-dessous la ramene a zero.
+                              (when (< rad (-> *phys-shellin* sc))
+                                (set! (-> *phys-shellin* sc) rad))
+                              (set! *phys-shell-in-n* (+ *phys-shell-in-n* 1))
+                              (let ((push (+ (- 0.0 rad) margin)))
+                                ;; ATTENTION AU SIGNE — C'EST TOUT LE DEFAUT. `nrm` sort de
+                                ;; `phys-shell-res` dirigee VERS l'axe ; sortir du membre, c'est
+                                ;; donc `-nrm`, et la poussee se SOUSTRAIT. Ajouter comme la
+                                ;; branche du haut enfoncerait le pan plus profond encore.
+                                (set! (-> pt x) (- (-> pt x) (* (-> nrm x) push)))
+                                (set! (-> pt y) (- (-> pt y) (* (-> nrm y) push)))
+                                (set! (-> pt z) (- (-> pt z) (* (-> nrm z) push))))))))
                         (else
                          (let* ((floors (phys-collide-depth rest rl ra rb (-> *phys-cr* sco)
                                                             (-> *phys-cr2* sco) cap? nrm))
@@ -4289,8 +4335,26 @@
    prouve rien tout seul, c'est `phys-shell-off-set!` qui doit le faire monter."
   (the float *phys-shell-n*))
 
+(defun phys-shell-in-count ()
+  "Corrections VERS L'EXTERIEUR appliquees sur la fenetre — la moitie du limiteur radial qui
+   n'existait pas, celle qui ressort le pan de pantacourt du mollet.
+   NATURE : un COMPTE d'evenements. LECTURE QUAND LE DEFAUT EST ABSENT : 0 — aucun lien-fourreau
+   n'est passe sous sa distance de pose modele."
+  (the float *phys-shell-in-n*))
+
+(defun phys-shell-in-worst ((slot int) (c int))
+  "L'excursion RENTRANTE la plus profonde vue sur la fenetre pour cette chaine, en unites de jeu,
+   relevee AVANT correction (voir `*phys-shellin*`).
+   NATURE : une distance radiale SIGNEE — negative sous le defaut. REPERE : celui du volume.
+   LECTURE QUAND LE DEFAUT EST ABSENT : 0."
+  (if (and (>= slot 0) (< slot PHYS-SLOTS) (>= c 0) (< c PHYS-CHAINS))
+    (-> *phys-shellin* (+ (* slot PHYS-CHAINS) c))
+    0.0))
+
 (defun phys-shell-reset! ()
   (set! *phys-shell-n* 0)
+  (set! *phys-shell-in-n* 0)
+  (dotimes (i PHYS-SC) (set! (-> *phys-shellin* i) 0.0))
   (none))
 
 (defun phys-inversions-reset! ()
