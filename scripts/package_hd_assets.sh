@@ -80,6 +80,20 @@ while IFS= read -r -d '' f; do
   printf 'fr3/enhanced/%s\t%s\n' "$base" "$ROOT/$f" >> "$INDEX"
 done < <(find "$ENH_DIR" -maxdepth 1 -type f -name '*.fr3' -print0 | sort -z)
 
+# ZERO fr3 IS A FAILURE, NOT AN EMPTY PACK (2026-08-13).
+# `$ENH_DIR` exists for the whole duration of a bake but is `rm -rf`'d and recreated at its
+# start, so a packaging run that overlaps a bake sees the directory EMPTY. It then produced a
+# perfectly valid 128 666-byte zip carrying the 11 art-groups and NOT ONE MESH — and the
+# publisher shipped it to the owner, whose HD models would simply not be there. The directory
+# check above passed, the zip was well-formed, and nothing anywhere said the word "empty".
+# The meshes are the entire point of this pack: none of them is a hard error.
+_nfr3=$(grep -c '^fr3/enhanced/' "$INDEX" 2>/dev/null || true)
+if [ "${_nfr3:-0}" -eq 0 ]; then
+  fail "no .fr3 in $ENH_DIR — refusing to ship an HD pack with zero meshes.
+  The enhanced dir is recreated at the START of scripts/shell/build_enhanced_models.sh, so this
+  is what a packaging run CONCURRENT with a bake sees. Re-run the bake, then package."
+fi
+
 # Grecharged-hd-models3: also carry the anim-retarget HD art-group (ND-derived, external-only).
 # Entry hd/jak-hd-ag.go extracts to <gameRoot>/assets/hd/jak-hd-ag.go, which Loader.cpp copies at boot
 # into <jak_project_dir>/out/jak1/obj/ (where GOAL loado resolves it). Never in the APK/binary.
