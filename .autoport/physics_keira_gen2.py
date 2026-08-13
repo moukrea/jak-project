@@ -1222,6 +1222,43 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
         for jn2, r2v in zip(groups[cname], radii):
             link_radius[jn2] = r2v
 
+    # LA MEME REGLE, ETENDUE AUX JOINTS DE CORPS (2026-08-13).
+    #
+    # `link_radius` ne contient que des joints de CHAINE : un joint de corps n'a jamais beneficie de
+    # « un joint, une epaisseur », et son bout de capsule reste mesure perpendiculairement a l'axe
+    # joint -> son PARENT. Quand aucun sommet ne se projette dans ce segment (`SPAN-EMPTY`), le
+    # generateur ECRIT LUI-MEME que la distance perpendiculaire y mesure une autre partie du corps —
+    # puis livre le nombre quand meme. Mesure sur le fichier livre le 2026-08-13 :
+    #     Lthigh->hips  rayon 1321 u pour |Lthigh->hips| = 631.5 u, soit rayon/os = 2.09
+    #     le volume deborde de 0.17 m au-dela du joint, et attrape la POITRINE et les BRETELLES
+    #     (ROOM-CONTACT-VOL : chestR/Rthigh->hips 26 contre chestL 3 ; botstrapR 90 contre 18)
+    # Toutes les autres capsules de membre sont a rayon/os <= 0.40.
+    #
+    # Un bout SPAN-EMPTY est donc remplace par l'EPAISSEUR PROPRE du joint, mesuree par la MEME
+    # fonction et la meme echelle de seuils que partout ailleurs, perpendiculairement a l'os
+    # joint -> son enfant. L'enfant se lit dans la hierarchie du rig, jamais dans une liste ecrite a
+    # la main ; zero enfant, plusieurs enfants (quel os est le sien ?) ou un ajustement vide laissent
+    # le rayon INCHANGE, avec la raison journalisee.
+    kids_of = {}
+    for _k, _pk in enumerate(parent):
+        if _pk >= 0:
+            kids_of.setdefault(_pk, []).append(_k)
+
+    def own_bone_radius(name):
+        """(rayon, raison) — epaisseur du joint perpendiculairement a SON PROPRE os, ou (None, raison)
+        quand cet os n'est pas defini de facon univoque par le rig."""
+        ji = idx_of[name]
+        kids = kids_of.get(ji, [])
+        if not kids:
+            return None, 'aucun enfant dans le rig: ce joint n a pas d os propre'
+        if len(kids) > 1:
+            return None, ('%d enfants dans le rig (%s): os propre ambigu'
+                          % (len(kids), ', '.join(names[k] for k in kids)))
+        rr, _tt, nn = fit_radius(geo, ji, geo['P'][ji], geo['P'][kids[0]])
+        if rr is None or nn == 0:
+            return None, f'fit_radius ne rend rien sur {name}->{names[kids[0]]}'
+        return rr, f'{name}->{names[kids[0]]}, {nn}v'
+
     col_block, col_report = [], []
     emitted_capsules = []
     for jn, pn, pname in capsules:
@@ -1293,6 +1330,30 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
                 cov.append(f'{who} {nspan}v dans le segment, couverture p{COVER_PCT:.0f}='
                            f'{pcov:.0f} contre {rlivre} livre (x{ratio:.2f})')
         fix = []
+        # bout SPAN-EMPTY : le rayon inter-quartile ne mesure pas ce joint, il mesure ce qui passe a
+        # cote. On lui substitue son epaisseur propre (os joint -> son enfant), ou rien du tout.
+        if s1 == 0:
+            nr1, why1 = own_bone_radius(jn)
+            if nr1 is None:
+                log(f'ONE-JOINT-ONE-THICKNESS capsule {jn}->{pn}: {jn} SPAN-EMPTY, rayon {r1} '
+                    f'INCHANGE — {why1}')
+            elif nr1 != r1:
+                fix.append(f'{jn} {r1}->{nr1} (span-empty -> own-bone thickness {why1})')
+                r1 = nr1
+            else:
+                log(f'ONE-JOINT-ONE-THICKNESS capsule {jn}->{pn}: {jn} SPAN-EMPTY, rayon {r1} deja '
+                    f'egal a son epaisseur propre ({why1})')
+        if s2 == 0:
+            nr2, why2 = own_bone_radius(pn)
+            if nr2 is None:
+                log(f'ONE-JOINT-ONE-THICKNESS capsule {jn}->{pn}: {pn} SPAN-EMPTY, rayon {r2} '
+                    f'INCHANGE — {why2}')
+            elif nr2 != r2:
+                fix.append(f'{pn} {r2}->{nr2} (span-empty -> own-bone thickness {why2})')
+                r2 = nr2
+            else:
+                log(f'ONE-JOINT-ONE-THICKNESS capsule {jn}->{pn}: {pn} SPAN-EMPTY, rayon {r2} deja '
+                    f'egal a son epaisseur propre ({why2})')
         if jn in link_radius and link_radius[jn] != r1:
             fix.append(f'{jn} {r1}->{link_radius[jn]} (own-bone thickness)')
             r1 = link_radius[jn]

@@ -317,11 +317,16 @@ def main():
     #           les volumes se contredisent. shellrad : ecart radial d'un lien-fourreau a l'axe du
     #           membre qu'il entoure, en metres apres division. Les deux sont ABSENTS des courses
     #           d'avant ce cycle : le `.get(..., None)` les distingue d'un zero mesure.
+    #           shellin : l'excursion RENTRANTE la plus profonde du meme lien-fourreau -- de combien
+    #           il est passe SOUS sa distance de pose modele, donc DANS la chair. Signee, negative
+    #           sous le defaut, en metres apres division. Absente des vieilles traces : le
+    #           `.get(..., None)` la distingue d'un zero mesure.
     for m in re.finditer(r'^PHYSDIAG5 tag=(\S+) c=(\d+) volprio=([-\d.e+]+)'
-                         r'(?: shellrad=([-\d.e+]+))?', txt, re.M):
+                         r'(?: shellrad=([-\d.e+]+))?(?: shellin=([-\d.e+]+))?', txt, re.M):
         diag.setdefault(m.group(1), {}).setdefault(int(m.group(2)), {}).update(
             volprio=float(m.group(3)),
-            shellrad=(float(m.group(4)) / UNITS) if m.group(4) is not None else None)
+            shellrad=(float(m.group(4)) / UNITS) if m.group(4) is not None else None,
+            shellin=(float(m.group(5)) / UNITS) if m.group(5) is not None else None)
     # rootrot : l'angle ECRIT dans la 3x3 du maillon `rootlock` -- le premier segment de la meche,
     #           celui qui part du cuir chevelu. ABSENT des courses d'avant ce cycle, et valant zero
     #           STRUCTURELLEMENT avant le correctif (la boucle d'ecriture sautait tout `l < rlk`) :
@@ -1488,16 +1493,23 @@ def main():
     #           dans le mollet. REPERE celui du volume. LECTURE HORS DEFAUT 0 (la pose du modele
     #           rend exactement 0). Mesuree meme sous controle arme, sinon le chiffre TOMBERAIT
     #           sous le defaut au lieu de MONTER.
+    # inward :  l'AUTRE moitie de la meme grandeur (m, SIGNEE, negative sous le defaut) : de combien
+    #           le lien-fourreau est passe SOUS sa distance de pose modele, donc dans la chair.
+    #           `shellrad` ne voit que le pan qui S'ECARTE de l'axe ; `pant-calf` (« le bas du
+    #           pantacourt est toujours a l'interieur des mollets ») est exactement l'autre cas, et
+    #           aucune colonne ne le voyait. Relevee AVANT correction, donc elle mesure le
+    #           phenomene a sa pleine echelle. Absente d'une vieille trace = 0.0.
     sh_run = {c: dr_run.get(c, {}).get('shellrad') for c in sorted(chains)}
     if any(v is not None for v in sh_run.values()):
         dr_shoff = diag.get('shell-disarmed', {})
         dr_shon  = diag.get('shell-armed', {})
         for v, c in sorted(((v or 0.0, c) for c, v in sh_run.items()), reverse=True):
             if v > 0 or (dr_shon.get(c, {}).get('shellrad') or 0) > 0:
-                A('ROOM-SHELL: chain=%-12s run=%.4f disarmed=%.4f armed=%.4f'
+                A('ROOM-SHELL: chain=%-12s run=%.4f disarmed=%.4f armed=%.4f inward=%.4f'
                   % (names[c], v,
                      (dr_shoff.get(c, {}).get('shellrad') or 0.0),
-                     (dr_shon.get(c, {}).get('shellrad') or 0.0)))
+                     (dr_shon.get(c, {}).get('shellrad') or 0.0),
+                     (dr_run.get(c, {}).get('shellin') or 0.0)))
         sd = sum((dr_shoff.get(c, {}).get('shellrad') or 0.0) for c in chains)
         sa = sum((dr_shon.get(c, {}).get('shellrad') or 0.0) for c in chains)
         A('ROOM-SHELL-CONTROL: armed=%.4f disarmed=%.4f' % (sa, sd))
