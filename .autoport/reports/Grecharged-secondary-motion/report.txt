@@ -77,9 +77,42 @@ Deux raisons, et les deux sont dans le contrat :
      encaisse **10 421 reculs** sur la phase d'animations, et quasiment aucun pendant la tenue.
      L'owner, lui, regarde des animations de jeu.
 
-  => `hair-hysteresis` RESTE OUVERT. La grandeur existe maintenant et elle est mesurable ;
-     ce qu'il faut ensuite, c'est la mesurer dans le régime où le défaut vit — un aller-retour
-     `jerk`, pas un `tilt`. C'est le premier travail du prochain cycle.
+  => `hair-hysteresis` RESTE OUVERT.
+
+1c bis. J'AI FAIT LA MESURE DANS LE BON RÉGIME — ET MON CONTRÔLE POSITIF N'A PAS TIRÉ
+--------------------------------------------------------------------------------------
+Plutôt que de renvoyer ça au prochain cycle, je l'ai construit : quatre phases de plus
+(`PH-SHAKE` / `PH-SHAKEN` / `PH-SHAKEPC` / `PH-SHAKENPC`) — une secousse `jerk`, un relâchement,
+puis LA MÊME secousse avec la contrainte de côté LEVÉE (bouton existant, aucun opérateur ajouté).
+Les cinq jambes ont tiré : `idle`, `tilt`, `back`, `shaken`, `shakenpc` = 22 lignes chacune.
+
+    chaîne      écart cycle tilt   écart SECOUSSE   écart CONTRÔLE   rapport
+    lbang           0.00175          0.00314          0.00145         0.46
+    rbang           0.00077          0.00060          0.00022         0.37
+    lmidhair        0.00071          0.00058          0.00024         0.41
+    rmidhair        0.00143          0.00039          0.00031         0.78
+    backhair        0.00009          0.00160          0.00000         0.00
+    -> contrôle qui monte de plus de 50 % : **1 chaîne sur 18**, et cette unique chaîne
+       (`Lanklestrap`) passe de 0,00002 à 0,00008 m, c'est-à-dire du bruit au micron.
+
+**LE CONTRÔLE POSITIF N'A PAS TIRÉ, DONC AUCUN DES DEUX ZÉROS N'EST RECEVABLE.** Je ne peux pas
+écrire « il n'y a pas d'hystérésis » : je peux seulement écrire que je n'ai pas réussi à en
+mesurer, ce qui n'est pas la même chose et ne ferme rien.
+
+ET LE DÉFAUT EST DANS MON CONTRÔLE, PAS SEULEMENT DANS L'HYPOTHÈSE. Mes deux jambes sont
+SÉQUENTIELLES : la jambe armée démarre de l'état `shaken`, c'est-à-dire d'un état que la première
+secousse a déjà installé, pendant que la jambe normale démarrait de `back`. **Les deux branches ne
+partent pas du même endroit, donc leurs écarts ne sont pas comparables** — et c'est exactement
+pourquoi la branche armée rend souvent 0,00000 : ce qu'il y avait à déplacer, la première secousse
+l'avait déjà déplacé.
+Cette leçon est écrite **dans le fichier que je viens d'éditer**, ligne 223, à propos du contrôle
+de côté : « les deux branches balayent les MÊMES animations […] exposition identique de part et
+d'autre, ce qui est la seule façon de comparer deux comptes ». Je l'ai lue et je l'ai quand même
+enfreinte.
+Correctif pour le prochain cycle, et il est simple : les deux jambes doivent repartir de la MÊME
+pose de référence (ré-établissement entre les deux, ou alternance normal/armé/normal/armé), et le
+contrôle doit peut-être viser un autre terme que la contrainte de côté — elle ne se déclenche que
+10 à 35 fois sur les mèches fines, ce qui en fait un levier trop faible pour servir de contrôle.
 
 1d. LES TERMES À MÉMOIRE, IDENTIFIÉS DANS LE CODE (audit ligne à ligne du solveur)
 -----------------------------------------------------------------------------------
