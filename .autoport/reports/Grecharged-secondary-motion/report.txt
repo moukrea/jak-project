@@ -48,7 +48,7 @@ preuve de passage), et diffe les tableaux a la main. Etat des gates de donnees :
     [COLLIDE]       penetration nulle sur les trois paires, controle positif 0.214 contre 0.000
     [IDLE]          ecart max au modele 0.023   [ANIM] 8 chaines pilotees, toutes respectees
     [SIDE-CONTROL]  0 franchissement, controle present (arme 3755 contre 0 desarme)
-    [FLOOR-WEAK]    ECHEC — pantflapR 0.0201->0.0000, pantflapL 0.0840->0.0083, kneeflapL 0.0884->0.0412
+    [FLOOR-WEAK]    ECHEC — pantflapL 0.0840->0.0132, pantflapR 0.0201->0.0084, kneeflapL 0.0884->0.0412
 
 FLOOR-WEAK est la seule gate de donnees rouge, elle l'etait deja avant ce cycle, et elle porte
 exactement sur les deux defauts ouverts `pant-calf` et `knee-tabs`. Elle n'a pas bouge : ce cycle
