@@ -263,9 +263,30 @@ brusques », `chestR` plafonne a **0.679** : pas de saturation du tout. **L'inst
 chiffre domine par le regime que l'owner approuve, sur un defaut qu'il decrit dans l'autre regime.**
 Et comme `excess = ratio - baseline`, sa plage utile sur `chestR` est de **0.014 sur une echelle
 [0,1]** : il ne peut plus rien discriminer. C'est la classe « Measurement must discriminate ».
-Une mediane, ou un profil par quartile, separerait les deux chaines de 0.17 a 0.64 au lieu de 0.014.
-**Je ne corrige pas l'instrument — gates gelees, regle 5. Je le rapporte, l'arbitrage est au
-superviseur.**
+
+--- 5b. `ROOM-JELLY-AMP` — LA MESURE QUI MANQUAIT, PUBLIEE ---------------------------------------
+
+Le contrat exige depuis le 2026-08-11 21:20 que la deformation soit **« correlee au stimulus :
+elle doit croitre avec la force du mouvement, et etre quasi nulle sur les mouvements subtils »**.
+Rien ne mesurait ca. J'AJOUTE donc `ROOM-JELLY-AMP` (mediane du ratio par QUARTILE d'amplitude) —
+**ajout pur : les lignes `ROOM-JELLY` existantes sont bit-pour-bit identiques** (`diff` vide), et
+aucune gate du validateur ne lit ni l'ancienne ni la nouvelle. Je ne touche a aucune gate (regle 5).
+Base declaree quand le defaut est absent : le profil MONTE de Q1 vers Q4.
+
+    chaine     n     Q1      Q2      Q3      Q4      verdict
+    chestL    139  0.1662  0.5296  0.3778  0.3176   MONTE
+    chestR    136  0.8045  0.7344  0.5882  0.4793   **DESCEND**
+    (les 21 autres chaines : MONTE — backhair, lbang, rbang, lmidhair, rmidhair toutes saines)
+
+**`chestR` est la SEULE chaine des 22 dont la deformation DECROIT quand le mouvement forcit.** Son
+`ratio=0.9999` publie vient de son quartile le plus FAIBLE. La ou l'owner regarde (Q4), l'ecart
+avec `chestL` est 0.479 contre 0.318 — reel, mais 3x plus petit que ce que l'ancien chiffre
+suggerait. Et le nouvel instrument separe les deux chaines de **0.64 en Q1** la ou `excess` les
+separait de 0.014 : il discrimine ou l'autre etait aveugle.
+
+**Ce que ca change pour `flesh-jelly` :** le defaut existe (chestR est anormal, et il l'est dans le
+mauvais sens), mais il n'est PAS ce que le tableau annonçait. Aucun reglage ne doit etre pose sur
+l'ancien chiffre — c'aurait ete regler contre les mouvements subtils que l'owner approuve.
 
 **ET UNE DECISION DU CONTRAT QUI N'A JAMAIS TOURNE.** La « DECISION 1 — priorite de volume » du
 2026-08-11 16:00 est implementee mais **desarmee** : `(define *phys-prio-off* 1)`
@@ -309,9 +330,27 @@ Ce cycle n'ajoute aucun suppresseur et n'en retire aucun. Le moteur n'a pas ete 
 * `hair-pudding` : rien de neuf ce cycle. Le correctif de rayon du cycle precedent est parti a
   16:56 et **n'a pas encore ete juge**. La moitie structurelle (4e os) est chiffree en §3 et
   volontairement reportee pour ne pas confondre deux variables dans un meme bake.
-* `hair-fine-grav` : NON corrige, et la raison est inchangee — le pilotage `tilt` est un tangage
-  AVANT pur, donc `tf` vaut 0.98-1.00 a gauche et 0.47-0.58 a droite. Regler `gravity=` la-dessus
-  serait regler un parametre contre un biais d'instrument. Le prealable est un `tilt` a deux axes.
+* `hair-fine-grav` : NON corrige, mais il est **enfin MESURABLE**, et c'est un resultat neuf.
+  Le pilotage `tilt` est un tangage AVANT pur, donc `tf` (part tangentielle de la gravite, la seule
+  qui puisse faire tourner un lien) vaut 0.98 a gauche et 0.58 a droite : `sagn` n'etait PAS
+  comparable d'un cote a l'autre, et regler `gravity=` dessus aurait ete regler un parametre contre
+  un biais d'instrument. J'AJOUTE `ROOM-GRAVSAG-TF` (`sagt = sagn / tf`) et `ROOM-GRAVSAG-MIRROR` —
+  **ajout pur, les lignes `ROOM-GRAVSAG` sont bit-pour-bit identiques**, aucune gate lue, et surtout
+  **aucun pilotage touche** : ajouter un axe de roulis aurait deplace le stimulus le plus FAIBLE,
+  dont depend la gate FLOOR-WEAK, et fabrique des faux rouges sur les 22 chaines.
+
+      paire                ecart brut (sagn)    ecart corrige (sagt)
+      lbang / rbang            3.61x                **2.14x**     <- SURVIT : defaut reel
+      lmidhair / rmidhair      1.92x                **1.10x**     <- disparait : c'etait l'instrument
+      earL / earR              1.35x                  1.14x
+      chestL / chestR          1.03x                **1.46x**     <- APPARAIT : le brut le CACHAIT
+
+  Deux enseignements que le brut donnait a l'envers : l'asymetrie des mèches LATERALES etait
+  entierement instrumentale (1.10x, elles vont bien), tandis que celle des mèches FINES survit a
+  2.14x — c'est exactement la paire dont l'owner dit qu'elle « ne suit pas vraiment la gravite »,
+  et c'est desormais un chiffre et non une impression. Et la poitrine, que le brut donnait
+  symetrique a 1.03x, est en fait a 1.46x. Correctif non pose : ce cycle porte deja un bake d'asset,
+  et poser un reglage en plus le rendrait inattribuable.
 * `pant-calf` : NON corrige. Cause racine mesuree = reprise de RIG (le pan est un TUBE dont l'unique
   joint est SUR L'AXE). Le fourreau retire au cycle precedent lui a rendu 2.7x de mouvement.
 * `goggles-bottom` : rien de neuf. Le volume corrige au cycle precedent est parti a 16:56.
@@ -319,8 +358,13 @@ Ce cycle n'ajoute aucun suppresseur et n'en retire aucun. Le moteur n'a pas ete 
   un defaut d'INSTRUMENT et un levier moteur chiffre, pas un correctif.
 * Je n'ai touche NI au validateur, NI a une gate, NI a `owner-defects.txt`, NI a `DIRECTIVES.md`,
   NI a `motion-floor*.txt` (remis a l'octet apres chaque diagnostic), NI au moteur (4798 lignes),
-  NI a `physics_chains.txt`. Les seuls fichiers versionnes que j'ai modifies sont
-  `decompiler/config/jak3/jak3_config.jsonc` (une valeur booleenne) et ce rapport.
+  NI a `physics_chains.txt`. Les fichiers versionnes que j'ai modifies sont
+  `decompiler/config/jak3/jak3_config.jsonc` (une valeur booleenne), ce rapport, et
+  `.autoport/physics_room_table.py` — DEUX AJOUTS de lecture (`ROOM-JELLY-AMP`,
+  `ROOM-GRAVSAG-TF`/`-MIRROR`), zero remplacement : toutes les lignes preexistantes sont
+  bit-pour-bit identiques (`diff` vide sur `ROOM-JELLY:` et `ROOM-GRAVSAG:`), et aucune des deux
+  nouvelles n'est lue par une gate. Les deux se re-derivent du log de course DEJA au dossier :
+  aucun rebuild, aucune course de salle supplementaire.
 * Deux arbres de build supprimes pour faire de la place : `build-mbrowse` et
   `build-android-checker`. Ce sont des arbres cmake regenerables de phases fermees, aucun code.
 
