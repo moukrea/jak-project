@@ -1662,6 +1662,57 @@ def main():
         A('   (debout, la meme gravite effective vaut : %s)'
           % ' '.join('%s=%s' % (names[c], fnum(g0[c][0]))
                      for c in sorted(g0) if c < len(names)))
+    # ------------------------------------------------------------------------------------------
+    # ROOM-HYST — L'HYSTERESIS, defaut PRIORITE 1 (owner 2026-08-13 21:30 : « beaucoup
+    # d'hysteresis pour tous les cheveux […] j'ai envie de la desactiver parce que c'est
+    # horrible ! »). AJOUTE, ne remplace aucune colonne.
+    #
+    # NATURE : un DEPLACEMENT SOUTENU RESIDUEL apres un cycle FERME (0 deg -> 60 deg -> 0 deg).
+    #   L'hysteresis est le fait que la meme entree ne rende pas la meme sortie selon le chemin
+    #   parcouru. Aucune grandeur prise a UNE extremite du chemin ne peut la voir : ni une
+    #   amplitude (ROOM-RESPONSE), ni une forme (ROOM-GRADIENT), ni une duree de ballottement
+    #   (ROOM-RINGDOWN). Il faut deux poses ETABLIES au meme point et comparer.
+    # REPERE : celui de l'ANCRE, herite de `phys-tip-mean` (jak-hd-physics.gc:4455).
+    # LECTURE QUAND LE DEFAUT EST ABSENT : ZERO. Un systeme dissipatif sans terme a memoire revient
+    #   au meme equilibre des lors que l'inclinaison qui le definit est revenue a la meme valeur et
+    #   qu'on lui a laisse le meme temps pour s'etablir — et `back` lui donne EXACTEMENT le meme
+    #   etablissement que `idle` (meme appel, meme PHYSROOM-IDLES, meme PHYSROOM-IDLEM, meme
+    #   emetteur). Un ecart non nul n'a pas d'autre explication que le chemin.
+    #
+    # LES TROIS COLONNES SE LISENT ENSEMBLE, et c'est le piege `zero from an empty domain` qui
+    # l'impose : `ret` est un RAPPORT, donc il fabrique un grand nombre a partir de rien des que
+    # son denominateur est petit. Une chaine qui n'a pas bouge pendant l'aller n'a rien a rendre au
+    # retour : son `ret` n'est pas vert, il est NON CONCLUANT, et il est marque comme tel.
+    #   gap   = |moyenne(back) - moyenne(idle)|, en metres. C'est l'hysteresis brute.
+    #   hystn = gap / longueur de chaine. Sans lui une chaine d'un maillon et une chaine de quatre
+    #           ne sont pas comparables — meme raison que `sagn`.
+    #   ret   = gap / exc, la part de l'excursion que la chaine n'a PAS rendue. exc est le `sag`
+    #           de ROOM-GRAVSAG : le meme aller, deja mesure.
+    mback = mean.get('back', {})
+    A('')
+    A('-- L\'HYSTERESIS : LA CHAINE REVIENT-ELLE ? (ROOM-HYST) -----------------------------------')
+    if not mback:
+        A('ROOM-HYST: NON MESURE — aucune ligne PHYSMEAN tag=back dans la trace. La phase de retour')
+        A('   (PHYSROOM-PH-BACK) n\'a pas tourne : ce tableau vient d\'une course anterieure a')
+        A('   l\'instrument. Ce n\'est PAS un zero, c\'est une absence de mesure, et le defaut')
+        A('   PRIORITE 1 reste non instrumente.')
+    else:
+        A('   Cycle ferme 0 deg -> 60 deg -> 0 deg. `idle` et `back` sont la MEME pose commandee,')
+        A('   etablie de la MEME facon ; seul le chemin parcouru entre les deux differe. Tout ecart')
+        A('   s\'impute donc au chemin, et c\'est la definition de l\'hysteresis.')
+        _EXCFLOOR = 0.01   # 1 cm : en dessous, l'aller n'a rien excite et le rapport ne veut rien dire
+        for c in sorted(chains):
+            a, b, k = m0.get(c), m60.get(c), mback.get(c)
+            if a is None or k is None:
+                continue
+            gap = sum((y - x) ** 2 for x, y in zip(a, k)) ** 0.5
+            exc = sum((y - x) ** 2 for x, y in zip(a, b)) ** 0.5 if b is not None else 0.0
+            blen = sum(bones.get(c, {}).values()) / UNITS
+            ret = ('%s' % fnum(gap / exc)) if exc >= _EXCFLOOR else 'n/c(exc<1cm)'
+            A('ROOM-HYST: chain=%-12s gap=%-9s exc=%-9s hystn=%-8s ret=%-12s fam=%s'
+              % (names[c], fnum(gap), fnum(exc),
+                 fnum(gap / blen) if blen > 1e-6 else '-', ret,
+                 'A' if chains[c]['fam'] == 1 else 'B'))
     A('')
     A('-- LE PIRE CAS DE CHAQUE CHAINE, AVEC LE NOM DE L\'ANIMATION OU IL S\'EST PRODUIT ------------')
     for c in sorted(chains):

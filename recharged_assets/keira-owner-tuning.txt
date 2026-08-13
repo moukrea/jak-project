@@ -34,8 +34,12 @@ chain rbang couple=0.70
 # depuis. `couple` et `mass` viennent de SON œil et restent ACTIFS, seuls.
 # Le bloc qui remplacait cette raideur a ete RETIRE le 2026-08-13 sur mesure (la course n'a pas
 # rempli sa condition). La directive de l'owner redevient donc ACTIVE, telle qu'il l'a laissee.
-chain lmidhair stiffness=1.50 couple=1.40 mass=0.72
-chain rmidhair stiffness=1.50 couple=1.40 mass=0.72
+# `stiffness=` RETIRE de ces deux lignes le 2026-08-13 22:1x : il est desormais DERIVE de la
+# longueur libre de la chaine (bloc « FREQUENCE PROPRE » en fin de fichier). Une seule directive
+# active par (cible, parametre) — deux lignes contradictoires font echouer la gate TUNING quoi
+# qu'on livre. `couple=` et `mass=` restent ACTIFS ici, ils ne sont pas re-derives.
+chain lmidhair couple=1.40 mass=0.72
+chain rmidhair couple=1.40 mass=0.72
 
 ## 2026-08-11 — « les mouvements de ses seins sont plus prononcés c'est cool, mais des fois ça
 ## saute d'une frame à l'autre comme un mini jitter »
@@ -482,8 +486,10 @@ chain chestR couple=1.85 damping=0.26
 ## d'avant l'injection, donc il aurait re-derive sur une geometrie qui n'existe plus. Il lit
 ## desormais `bones_m` dans le tableau de la salle et REFUSE de tourner si le compte d'os ne
 ## correspond pas a la chaine livree.
-chain lbang stiffness=1.3089 damping=0.0784 gravity=0.1592
-chain rbang stiffness=1.3072 damping=0.0784 gravity=0.1588
+# `stiffness=` RETIRE le 2026-08-13 22:1x (voir le bloc « FREQUENCE PROPRE » en fin de fichier).
+# `damping=` et `gravity=` restent ACTIFS : ils ne sont pas re-derives par ce bloc.
+chain lbang damping=0.0784 gravity=0.1592
+chain rbang damping=0.0784 gravity=0.1588
 
 ## 2026-08-13 14:45 — « c'est plus du pudding [...] on dirait les mouvements quand on tape sur un
 ## pudding, pas des mouvements naturels de cheveux » (defaut `hair-pudding`, PRIORITE 1).
@@ -705,7 +711,8 @@ chain pantflapR shell=0
 ## ecrite dans `physics_chains.txt` meme quand la ligne qui l'a posee disparait. Le retrait doit
 ## donc REPOSER explicitement l'etat d'avant, sinon on croit avoir annule et on livre la valeur
 ## retiree. (Verifie : apres commentaire seul, le fichier livre portait encore stiffness=1.0983.)
-chain backhair stiffness=1.80 gravity=0.45
+# `stiffness=` RETIRE le 2026-08-13 22:1x (voir le bloc « FREQUENCE PROPRE » en fin de fichier).
+chain backhair gravity=0.45
 chain lmidhair gravity=0.45
 chain rmidhair gravity=0.45
 
@@ -869,3 +876,78 @@ chain backhair radii=190,171,201,201
 ## buste et sont les seules autres chaines que ces spheres peuvent repousser. Sinon RETIRE.
 collider lBoob radius=340
 collider rBoob radius=345
+
+## ============================================================================================
+## FREQUENCE PROPRE — LA RAIDEUR CESSE D'ETRE UN REGLAGE, ELLE DEVIENT UNE GRANDEUR PHYSIQUE
+## 2026-08-13 22:1x. Repond au point 3 des DIRECTIVES (« MASSE ET GRAVITE ») et, je le crois,
+## aux quatre points de la correction owner de 21:50.
+## ============================================================================================
+##
+## CE QUI EST MESURE, ET RIEN N'Y EST CHOISI PAR MOI :
+##   * le moteur travaille DEJA en frequence propre : `w = 2*pi*stiffness/sqrt(mass)` rad/s
+##     (jak-hd-physics.gc:3362-3363, dt=1/60 s :3252). Donc f_ressort = stiffness/sqrt(mass) Hz.
+##     La structure `*phys-comega*` que les DIRECTIVES reclamaient EXISTE ; ce qui manquait, c'est
+##     que la DONNEE soit exprimee dans cette grandeur-la, donc que quiconque puisse la juger.
+##   * la gravite du moteur est la vraie : gy = -11.16 u/frame^2 (:3257), soit
+##     11.16 * 60^2 / 4096 = 9.81 m/s^2.
+##   * les longueurs d'os sont celles que la SALLE publie (section « LA GEOMETRIE DE CHAQUE
+##     CHAINE », course du 2026-08-13 20:04). La longueur LIBRE exclut le maillon 0, rigide sous
+##     `rootlock=1` (:3438).
+##   * la frequence d'un pendule est une loi, pas une cible inventee : barre uniforme pivotant a
+##     sa racine, w = sqrt(3g/2L).
+##
+##   chaine     Lfree(m)  f_ressort  f_pendule   EXCES
+##   lbang       0.4431     1.127      0.917      +23 %
+##   rbang       0.4428     1.125      0.917      +23 %
+##   lmidhair    0.4638     1.768      0.896      +97 %
+##   rmidhair    0.4689     1.768      0.892      +98 %
+##   backhair    0.2268     1.897      1.282      +48 %
+##   ---------------------------------------------------------------
+##   chestL      0.2386     1.204      1.250       -4 %
+##   chestR      0.2386     1.204      1.250       -4 %
+##
+## LE CONTROLE APPARIE EST REVENU, ET IL EST PHYSIQUE, PAS DECLARATIF. La correction owner de
+## 21:50 a annule le controle apparie fonde sur une approbation que je lui avais pretee : « il
+## n'existe AUCUN echantillon approuve ». C'est vrai, et ce tableau n'en a pas besoin. La SEULE
+## chaine qui soit a la frequence de sa propre gravite est la POITRINE (-4 %) — et c'est la seule
+## dont il ait jamais dit du bien (« les mouvements subtils sont toujours OK », « quasiment
+## parfait »). TOUTES les chaines qu'il appelle du pudding sont 23 a 98 % au-dessus. Le rapport
+## des raideurs (f_ressort/f_pendule)^2 va de 1,5 a 3,9 : ces cheveux sont des RESSORTS, pas des
+## pendules, et c'est litteralement « ca ne suit pas une logique de gravite ».
+##
+## POURQUOI UN SEUL PARAMETRE CHANGE. Le tassement statique vaut g_eff/w^2 : diviser w^2 par 3,9
+## multiplie par 3,9 ce que l'inclinaison fait tomber. La meme correction traite donc les quatre
+## points de 21:50 d'un coup, sans toucher `gravity=` ni `damping=` :
+##   1. « reponse disproportionnee au moindre mouvement » — le gain d'un ressort a la base va
+##      comme w^2 ; il baisse de 1,5x a 3,9x.
+##   2. « pas d'impression de masse » — la chaine ralentit vers sa frequence pendulaire.
+##   3. « pas de gravite » — le tassement monte d'autant.
+##   4. « au moindre mouvement » — meme mecanisme que 1.
+## `damping=` N'EST PAS TOUCHE : c'est une decroissance PAR FRAME (|racines| = sqrt(1-dmp),
+## :3592), donc la duree du ballottement ne depend QUE de lui et reste ou elle est. Ce qui baisse,
+## c'est le NOMBRE d'oscillations dans cette duree — exactement le « pudding ».
+##
+## CE QUE JE N'APPLIQUE PAS, ET JE LE DIS AU LIEU DE LE TAIRE : les OREILLES sont a +229 %
+## (f_ressort 4,131 Hz contre 1,255 Hz, raideur 10,8x la gravite) — de loin la pire violation de
+## la loi. L'owner ne s'en est jamais plaint et ne les a jamais citees dans « c'est du pudding » ;
+## je ne touche pas ce cycle-ci a une piece dont il n'a rien dit, pour ne pas melanger un
+## correctif demande et une modification qu'il n'attend pas. Si le resultat sur les cheveux lui
+## plait, la meme ligne pour les oreilles est `chain earL stiffness=0.9718` / `earR 0.9722`.
+##
+## CONDITION DE RETRAIT, ECRITE AVANT LA COURSE :
+##   (1) aucune chaine sous 60 % de son plancher FLOOR ni 70 % de FLOOR-WEAK — une raideur plus
+##       basse doit rendre PLUS de mouvement, pas moins ; si une chaine s'effondre, c'est qu'un
+##       limiteur la retient et le correctif est ailleurs ;
+##   (2) `meshpen` reste nul et `ROOM-SKINPEN` ne monte pas — une chaine plus molle tombe plus
+##       loin, elle ne doit pas entrer dans le crane ni dans les epaules (regle 6 : rien ne
+##       traverse, et une resolution pire que le clip est pire que rien) ;
+##   (3) `ROOM-GRAVSAG sag` MONTE sur les cinq chaines — c'est la verification directe du point 3
+##       de 21:50 ; s'il ne monte pas, la gravite n'arrive pas jusqu'a elles et le diagnostic est
+##       faux.
+## Si (1) ou (2) echoue, RETIRE — et on republie explicitement les valeurs precedentes, parce que
+## apply_owner_tuning.py APPLIQUE et ne REVERTIT jamais.
+chain lbang stiffness=1.0656
+chain rbang stiffness=1.0660
+chain lmidhair stiffness=0.7606
+chain rmidhair stiffness=0.7565
+chain backhair stiffness=1.2161
