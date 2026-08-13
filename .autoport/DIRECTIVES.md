@@ -10,6 +10,62 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
+## 2026-08-13 23:35 — SPEC POITRINE DE L'OWNER : `SPEC-breast-softbody.md`. AUTORITAIRE.
+
+Il a écrit une spécification complète (Keira + Maia, 39 sections chacune, presets chiffrés). Elle
+est dans le dépôt à la racine : **`SPEC-breast-softbody.md`**. À appliquer **À LA LETTRE** pour la
+poitrine, et à **TRANSPOSER** pour tout le reste (cheveux, mèches, lanières, lunettes) : même
+architecture de solveur, valeurs propres à chaque organe.
+
+### ELLE ME CORRIGE SUR UN POINT, ET IL FAUT LE DIRE
+
+J'ai écrit à 22:40 que « la pose au repos doit ÉMERGER de la gravité, pas être ramenée à un dessin ».
+**C'est faux, et sa spec dit l'inverse — §2 et §9 :** le modèle debout livré EST l'équilibre 1 g à
+100 %, `AdditionalStandingSag = 0`, et « no additional gravity sag shall be applied merely because
+the simulation is active ». Le rappel vers la pose d'auteur n'est donc PAS le défaut.
+
+### CE QUI EST VRAIMENT LE DÉFAUT, ET SA SPEC LE NOMME EXACTEMENT — §3
+
+    a_drive = (g_local - g_ref) - a_torso + a_angular
+
+Notre moteur pilote par `fl = -couple · acc`, où `acc` est la **dérivée seconde de la POSE ANIMÉE**
+(`jak-hd-physics.gc:3409`). Ce n'est aucun des trois termes de la spec. Conséquence directe et
+mesurable : **un à-coup d'animation produit un coup**, ce qui est mot pour mot « un pudding sur
+lequel on tape très fort au moindre mouvement ». La spec exige au contraire une réponse à
+la **réorientation de la gravité** et à l'**accélération du torse** — deux grandeurs qui valent zéro
+quand le personnage est immobile, et qui varient continûment, pas par à-coups.
+
+C'est LE correctif de fond, et il est petit : remplacer le terme moteur. Pas 274 fonctions.
+
+### CE QUE LA SPEC APPORTE ET QUI N'EXISTE NULLE PART CHEZ NOUS
+
+  - **Fréquences propres par axe** (Keira 2.30 / 2.50 / 2.65 Hz — la verticale la PLUS LENTE),
+    ζ = 0.35, premier rebond 31 %, stabilisation 1.0–1.5 s. Des cibles physiques, vérifiables,
+    qui ne viennent pas de moi.
+  - **Conservation de volume** 98–101 % (96–102 % en transitoire) — et explicitement PAS une mise à
+    l'échelle affine globale : la racine bouge peu, le distal se déforme le plus.
+  - **Saturation en `tanh`** pour combiner translation et rotation, au lieu d'un écrêtage brutal.
+  - **Anisotropie** (vertical 1.00 / AP 0.90 / latéral 0.82 / torsion 0.72).
+  - **Gradient racine→pointe** `w(r) = r^1.6…2.0`, 30 % de volume fortement ancré, **aucune frontière
+    d'attache nette** — exactement le contraire de notre « 124 sommets sur une seule charnière ».
+  - **Indépendance gauche/droite** avec variation ±2–5 %, et collision sein↔sein (restitution 0.06)
+    et sein↔thorax (0.02) : l'énergie devient déformation, pas rebond.
+  - **≥120 Hz effectifs**, 2 sous-pas à 60 FPS, 3–4 sur impact ; rebase sur téléport/cinématique/
+    discontinuité — « artificial transforms must not generate physical breast impulses ».
+
+### TRANSPOSITION AUX CHEVEUX (ce qu'il demande explicitement)
+
+Même solveur, valeurs propres : pilotage par `(g_local - g_ref) - a_root + a_angular`, jamais par la
+dérivée seconde de l'animation ; fréquence propre et ζ calibrés par mèche ; gradient racine→pointe
+sans frontière nette ; saturation `tanh` ; collision qui dissipe au lieu de rebondir.
+
+### CE QUE ÇA CHANGE POUR LE TRAVAIL EN COURS
+
+L'interdiction de régler reste. Mais la cible n'est plus à inventer : **elle est chiffrée section par
+section dans son fichier.** Toute mesure de la salle doit désormais se lire contre une ligne de cette
+spec, et toute valeur publiée doit citer la section dont elle relève.
+
+
 ## 2026-08-13 22:40 — LE MODÈLE EST FAUX, PAS SES RÉGLAGES. C'EST LA SEULE TÂCHE.
 
 Owner : « Physique = simulation, gravité, masse, élasticité, déformation, solidité… J'ai
