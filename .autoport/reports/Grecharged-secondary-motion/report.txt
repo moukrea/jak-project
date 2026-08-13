@@ -1,355 +1,327 @@
 DIRECTIVES v0a88eb98b6
 
 =================================================================================================
-CYCLE — LE PANTACOURT N'ETAIT RETENU QUE DANS UN SENS, ET LES DEUX VOLUMES DE CUISSE ETAIENT
-         DES BOULES DE 32 CM QUI DEMANDAIENT DES CORRECTIONS SUR LA POITRINE.
+CYCLE — DEUX DE MES INSTRUMENTS MENTAIENT EN SENS CONTRAIRES, ET LES DEUX HYPOTHESES QUE J'AI
+         BATIES DESSUS SONT MORTES. CE QUI RESTE EST MESURE, CLASSE, ET DESIGNE LA SUITE.
 =================================================================================================
 
 Perimetre : phase `Grecharged-secondary-motion`, branche `physics-keira-clean`, SCOPE-SERIAL 3,
 KEIRA SEULE. Contrat : `.autoport/prompts/SPEC-keira-physique.md`.
 
--------------------------------------------------------------------------------------------------
-0. CE QUE CE CYCLE FERME, EN UNE PHRASE
--------------------------------------------------------------------------------------------------
-
-Deux defauts ouverts avaient la MEME FORME — une regle ecrite a moitie — et aucun des deux n'etait
-un reglage :
-
-  `pant-calf`   le limiteur du fourreau ne s'executait que quand le pan S'ECARTE de la jambe. Le
-                cas symetrique — le tissu qui ENTRE dans la chair — ne declenchait RIEN : ni ce
-                limiteur, ni l'ejection ordinaire, qui est REMPLACEE et non completee sur une paire
-                fourreau. Mesure neuve : le pan entrait de 4,5 cm sous sa distance de pose modele.
-
-  poitrine      la regle « UN JOINT, UNE EPAISSEUR » n'etait branchee que sur les joints de CHAINE.
-  et bretelles  `Lthigh` portait donc DEUX epaisseurs contradictoires dans le fichier livre : 1321 u
-                dans sa capsule vers les hanches, 362 u dans celle vers le genou. La boule de cuisse
-                demandait des corrections sur le SEIN DROIT (26) et la BRETELLE DROITE (90).
-
-SUPPRESSORS: 0    (aucun limiteur ajoute : la correction du fourreau REND une contrainte qui
-                   manquait dans un sens, et ne touche aucun degre de liberte tangentiel)
+SUPPRESSORS: 0    (aucun limiteur, aucun clamp, aucune hysteresis ajoutes. La seule modification
+                   du moteur est une passe de COMPTAGE, desarmee par defaut, que seule la salle
+                   arme ; en jeu le comportement est identique AU BIT PRES.)
 
 -------------------------------------------------------------------------------------------------
-1. `pant-calf` — LE FOURREAU N'ETAIT RETENU QUE DANS UN SENS
+0. CE QUE CE CYCLE ETABLIT, EN QUATRE PHRASES
 -------------------------------------------------------------------------------------------------
 
-L'owner, cinq fois : « le bas de son pantacourt clipe toujours a l'interieur de ses mollets au lieu
-d'etre visible, comme si son pantacourt s'arretait aux genoux ».
-
-CE QUE LE CODE FAISAIT (`goal_src/jak1/pc/jak-hd-physics.gc:2031-2039`, avant ce cycle) :
-
-    (let ((rad (phys-shell-res rest pt ca cb nrm)))
-      (when (> rad 0.0)                       ;; <- UNIQUEMENT si le pan S'ECARTE de l'axe
-        ... pt += nrm * (rad + margin) ...))  ;; nrm dirigee VERS l'axe
-
-`phys-shell-res` (`:1325-1349`) rend `rad = distance_a_l_axe(courant) - distance_a_l_axe(pose
-modele)`. Donc `rad < 0` — le pan passe SOUS sa distance de pose, c'est-a-dire dans le mollet —
-tombait dans le `when` et ne faisait rien du tout. `pantflapL`/`pantflapR` sont les SEULES chaines
-portant `shell=` (452 / 448), donc les seules pour lesquelles l'ejection ordinaire est remplacee.
-
-TROIS TRACES D'EXECUTION QUI L'ETABLISSENT, prises AVANT ce cycle (course du 2026-08-13 04:49),
-et pas une seule ligne de commentaire :
-  * `ROOM-SHELL: pantflapL run=0.0000 disarmed=0.0000` — le limiteur n'a JAMAIS agi de la course.
-  * AUCUNE ligne `PHYSCVOL c=16` ni `c=17` dans `keira-room-x86.log` (95 lignes, chaines 0-15 et
-    18-21 presentes) : les deux pans ne sont en violation d'AUCUN volume, jamais.
-  * colonne `buried` : `pantflapL 0`, `pantflapR 0`.
-Le pan n'etait contraint par rien vers l'interieur, et aucun compteur ne pouvait le dire.
-
-POURQUOI `ROOM-SIDE = 0` COEXISTAIT AVEC LE DEFAUT — la cecite est structurelle, pas un reglage.
-Le predicat de cote (`:2312-2316`) exige `(> floor0 0.0)`, c'est-a-dire que la POSE D'AUTEUR du
-maillon chevauche DEJA ce volume. Toute paire dont la pose d'auteur est dehors est aveugle au
-franchissement de ce volume, quelle que soit la trajectoire. C'est exactement le cas du pan, et
-c'est pourquoi un zero vert coexistait avec ce que l'owner voit. Il n'y a par ailleurs AUCUN test
-balaye (swept) dans le moteur : tout est evalue a la position finale de la frame.
-
-LA CORRECTION — l'autre moitie de la meme condition, et rien d'autre. `rad < 0` pousse desormais le
-pan VERS L'EXTERIEUR de `|rad| + margin`. Le signe EST le defaut : `nrm` sort dirigee VERS l'axe,
-donc la sortie se SOUSTRAIT (`pt -= nrm * push`) ; l'ajouter comme la branche du haut aurait enfonce
-le pan plus profond encore. Aucun degre de liberte n'est retire : tourner autour du membre et
-glisser le long ne changent pas la distance a l'axe et restent entierement libres.
-
-LA MESURE QUI MANQUAIT — `ROOM-SHELL ... inward=` :
-  NATURE  : une distance radiale SIGNEE (m), surtout pas une profondeur de penetration — une
-            profondeur est MAXIMALE quand le lien est sur l'axe, c'est-a-dire exactement la ou un
-            fourreau est CORRECT.
-  REPERE  : celui du volume — distance a son axe, segment borne.
-  ABSENT  : 0, la pose du modele le rend par construction.
-
-    ROOM-SHELL: chain=pantflapL  run=0.0000 disarmed=0.0000 armed=0.0852 inward=-0.0450
-    ROOM-SHELL: chain=pantflapR  run=0.0000 disarmed=0.0000 armed=0.0764 inward=-0.0450
-
-**Le pan entrait de 4,5 cm sous sa distance de pose, sur les DEUX jambes.** Cette valeur est
-relevee AVANT correction : c'est le phenomene a sa PLEINE ECHELLE, donc la colonne est son propre
-controle positif — elle ne peut pas tomber a zero parce que la correction l'aurait effacee. Les
-colonnes `armed`/`disarmed` sont inchangees au millieme (0.0852 / 0.0764 contre 0.0852 / 0.0765) :
-la moitie qui existait deja n'a pas ete touchee.
-
-RESERVE HONNETE SUR CETTE MESURE : sa fenetre est plus large que celle de `shellrad` (`*phys-shellin*`
-n'est remis a zero que par `phys-shell-reset!`, pas par `phys-diag-reset!`). Comme c'est un `min`,
-une fenetre plus large ne peut que SUR-declarer le defaut, jamais le masquer.
+1. `ROOM-CONTACT-VOL` ne decrit PAS le jeu : ses chiffres viennent presque entierement d'une
+   fenetre de controle positif de 90 frames qui injecte un deplacement synthetique. Un FAUX ROUGE.
+2. `ROOM-VOLPRIO: pairs_ignored=0` ne decrivait rien du tout : le compteur vivait DANS la branche
+   desarmee. Un FAUX VERT, corrige — la salle compte desormais le conflit sans l'arbitrer.
+3. Un instrument neuf, hors moteur, mesure le RECOUVREMENT AU REPOS de chaque couple (maillon,
+   volume) sur le fichier LIVRE. Il classe enfin les defauts ouverts par une grandeur physique.
+4. Deux hypotheses que j'avais formees ce cycle sont FAUSSES et je les ferme avec leurs chiffres,
+   pour que le prochain cycle ne les rouvre pas.
 
 -------------------------------------------------------------------------------------------------
-2. LES VOLUMES DE CUISSE — UN JOINT QUI PORTAIT DEUX EPAISSEURS CONTRADICTOIRES
+1. FAUX ROUGE — `ROOM-CONTACT-VOL` MESURE LE CONTROLE POSITIF, PAS LA COURSE
 -------------------------------------------------------------------------------------------------
 
-MESURE (pose de bind du mesh livre, unites de jeu, 4096 u = 1 m) :
+La ligne qui m'a lance :
 
-    capsule                |AB| u     rayon en A    rayon/|AB|
-    Lthigh->hips            631.5        1321          2.09     <- boule de 0.32 m sur un os de 0.15
-    Rthigh->hips            631.5        1276          2.02
-    Lknee->Lthigh          2364.4         485          0.21     <- MEME MEMBRE, segment suivant
-    toutes les autres capsules de membre                <= 0.40
+    ROOM-CONTACT-VOL: chain=chestL  total=271  Rshoulder->chest 90 · Lshoulder->chest 90 · neck->chest 63
 
-Le generateur ANNOTE lui-meme ces deux bouts `SPAN-EMPTY` — « aucun sommet ne se projette dans le
-segment: la distance perpendiculaire y mesure une autre partie » — puis livre le nombre quand meme.
-C'est la regle 0 appliquee a sa propre sortie.
+`chestL` n'a qu'UN maillon. « 90 sur 90 » se lit comme un volume qui pousse le sein a chaque frame.
+J'en avais tire un diagnostic entier. IL EST FAUX, et voici la mesure qui le dit :
 
-CE QUE CA PRODUISAIT (`ROOM-CONTACT-VOL` compte les paires (lien, volume) EN VIOLATION, donc les
-volumes qui ont DEMANDE une correction cette frame) — AVANT -> APRES :
+  * l'increment (`jak-hd-physics.gc:2480-2482`) n'a lieu que si `*phys-buried-tally*` est leve, et
+    seul `phys-pen-chain` le leve — appelee APRES tout le solveur (`:3597` contre `:3474-3482`).
+    Elle compte donc la penetration RESIDUELLE non resolue, pas « une correction demandee ».
+    Le commentaire du source (`:2476-2479`) dit l'inverse : **le code contredit le commentaire**.
+  * pendant les phases de MESURE, `meshpen_max = 0.0000` sur les cinq pilotages (5 x 682 fenetres,
+    `keira-room-table.txt:263-267`) : aucune violation residuelle n'y contribue.
+  * `PHYSPC injections=2610 armed=882.85 disarmed=0.0000` (`keira-room-x86.log:36989`) et
+    `PHYSROOM-PCW = 90` (`phys-room.gc:132`) : seule la fenetre PCON alimente le seau, 90 frames,
+    avec un deplacement synthetique injecte vers l'ancre APRES le solveur et AVANT la mesure.
 
-    chestR    <- Rthigh->hips   26  ->  ABSENT        chestL    <- Rthigh->hips   3  ->  ABSENT
-    botstrapR <- Rthigh->hips   90  ->  ABSENT        botstrapL <- Lthigh->hips  18  ->  ABSENT
-    totaux :  chestR 309 -> 298      botstrapR 608 -> 521
+Donc `90` = 90 frames sur les 90 de la fenetre de CONTROLE. `chestR 94` et `93` sont 90 + 4 et
+90 + 3, ce residu venant des phases RESP/IDLE/TILT sans qu'on puisse dire laquelle.
 
-Un volume de CUISSE qui demandait des corrections sur un SEIN. L'asymetrie gauche/droite sur une
-paire miroir (26 contre 3, 90 contre 18) est ce qui l'a designe — le meme raisonnement qui avait
-designe la liste du grader pour `rmidhair` au cycle precedent.
-
-LA CORRECTION EST UNE REGLE QUI EXISTAIT DEJA, ETENDUE. « Un joint, une epaisseur » : l'epaisseur
-d'un joint se mesure perpendiculairement a SON PROPRE os (joint -> son enfant), l'axe le long duquel
-sa geometrie est allongee. Elle etait branchee sur `link_radius`, qui ne contient que des joints de
-CHAINE. Un bout de capsule SPAN-EMPTY prend desormais l'epaisseur propre du joint, par la MEME
-fonction et la meme echelle de seuils que partout ailleurs.
-
-ET C'EST LA REGLE QUI SE LIMITE, PAS MOI — l'enfant se lit dans la hierarchie du rig ; zero enfant,
-ou plusieurs (quel os est le sien ?), laissent le rayon INCHANGE avec la raison journalisee :
-
-    joint     ancien -> nouveau    os propre mesure          rayon/os
-    Lthigh      1321 -> 362        Lthigh->Lknee, 130v       2.09 -> 0.57
-    Rthigh      1276 -> 381        Rthigh->Rknee, 132v       2.02 -> 0.60
-    neck         246 -> 249        neck->head, 37v           0.14 -> 0.14   (negligeable)
-
-    INCHANGES, chacun avec sa raison : main (2 enfants: chest, hips) · Lshoulder (Lelbow,
-    lTopStrap) · Rshoulder · Lelbow (Lhand, lGlove) · Relbow · Lknee (4) · Rknee (4).
-
-Ce n'est pas moi qui ai protege les epaules : la regle REFUSE de les toucher parce que le rig ne
-leur designe pas d'os propre sans ambiguite. Un retrecissement d'epaule aurait mis en danger un
-acquis (« les bretelles c'est vraiment pas mal du tout »).
-
-LE TUNING DE L'OWNER A SURVECU A LA REGENERATION : `git diff -U0 | grep '^[-+]chain '` rend ZERO
-ligne — aucune ligne `chain` n'a change. Autocontroles du generateur 11/11, deux generations dans
-le meme processus octet-pour-octet identiques (sha c771536e6fba379a).
+CE QUE CA COUTE, ET JE L'ECRIS PARCE QUE C'EST LA FAUTE : un controle positif et une mesure qui
+partagent un accumulateur produisent un nombre parfaitement exact et parfaitement trompeur. C'est
+le miroir du faux vert, et il envoie un cycle chasser un defaut que la course n'a jamais observe.
 
 -------------------------------------------------------------------------------------------------
-3. CE QUE CA COUTE EN MOUVEMENT — ET CE QUE CA EN REND
+2. FAUX VERT — LE CONFLIT ENTRE VOLUMES N'ETAIT PAS MESURE, IL ETAIT DESARME AVEC SON ARBITRAGE
 -------------------------------------------------------------------------------------------------
 
-Amplitude de pointe (`worst tipvar`), AVANT -> APRES, sur les 22 chaines :
+La DECISION 1 du superviseur (2026-08-11 16:00) — un seul volume decide par frame et par lien — a
+ete implementee puis DESARMEE, et le desarmement est justifie par une mesure que je ne remets pas
+en cause (`jak-hd-physics.gc:430-441`) : « ecarter un volume ne resout pas le conflit, il le
+deplace. Le lien sort du volume prioritaire, entre dans celui qu'on a ignore, et le recul — a qui
+l'on a retire le meme volume — n'a plus de quoi l'en sortir. » L'armer ferait TRAVERSER, ce que la
+regle 6 interdit. **Je ne l'arme pas.**
 
-    IDENTIQUES AU BIT PRES (14 chaines) : earL 0.2604 · earR 0.2724 · backhair 0.4982 ·
-      lbang 0.9303 · rbang 0.9167 · lmidhair 0.9270 · rmidhair 1.0572 · topstrapL 0.4445 ·
-      kneeflapL 0.2472 · kneeflapR 0.3038 · toestrapL 0.1905 · toestrapR 0.1786 ·
-      anklestrapL 0.1809 · anklestrapR 0.1638
-    EN HAUSSE, et ce sont exactement les chaines que la cuisse attrapait :
-      chestR     0.3518 -> 0.3744   (+6.4 %)
-      botstrapL  0.6158 -> 0.6629   (+7.6 %)
-      botstrapR  0.5078 -> 0.5225   (+2.9 %)
-    EN BAISSE :
-      chestL     0.4316 -> 0.4185   (-3.0 %, et son maximum a change d'animation)
-      goggles    0.5304 -> 0.5297   (-0.1 %)   topstrapR +0.0001   pantflap : voir ci-dessous
+MAIS le meme commentaire affirme : « le conflit est MESURE sans etre ARBITRE ». C'ETAIT FAUX. La
+passe de selection ET ses trois compteurs etaient TOUS a l'interieur du `(when (zero?
+*phys-prio-off*)` (`:1960`), y compris la ligne qui incremente (`:1990-1992`). Desarmee, la passe
+ne tournait pas : `ROOM-VOLPRIO: pairs_ignored=0 chains=0` est un zero tire d'un DOMAINE VIDE, qui
+se lit comme « les volumes ne se contredisent plus ». Le chiffre de 346 055 paires cite dans ce
+meme commentaire vient d'une course ou la priorite etait ARMEE.
 
-Les cheveux, les oreilles, les languettes et les sangles ne bougent pas d'un bit : la correction
-n'a touche que ce qu'elle visait.
+LA CORRECTION, ET ELLE NE TOUCHE AUCUN DEGRE DE LIBERTE : un drapeau `*phys-prio-meas*` (0 par
+defaut) fait tourner la passe de selection POUR SES COMPTEURS SEULEMENT ; `*phys-lwin*` est rendu a
+-1 juste apres, donc aucun volume n'est ecarte. Seule la salle l'arme (`phys-room.gc`, au reset de
+course) : le jeu ne paie pas la passe supplementaire (52 volumes par lien et par frame).
 
-LES DEUX PANS : `pantflapL 0.1005 -> 0.1001`, `pantflapR 0.1004 -> 0.1003`. L'amplitude maximale est
-INCHANGEE — la rotation autour du mollet et le glissement le long, qui la portent, restent libres.
+SON PROPRE CONTROLE : desarme, les trois compteurs doivent retomber a zero EXACTEMENT — et c'est
+la course precedente qui le fournit, `pairs_ignored=0 chains=0`.
 
--------------------------------------------------------------------------------------------------
-4. UNE GATE ECHOUE, ET JE NE LA TOUCHE PAS — `FLOOR-WEAK`, TROIS CHAINES
--------------------------------------------------------------------------------------------------
+CE QUE LE COMPTEUR DIT UNE FOIS VIVANT — course du 2026-08-13 06:41, 708 s, 3410 mesures,
+31/31 animations :
 
-    FLOOR-WEAK  pantflapL   0.0840 -> 0.0132  (-84 %)   <- CAUSE PAR CE CYCLE
-    FLOOR-WEAK  pantflapR   0.0201 -> 0.0084  (-58 %)   <- CAUSE PAR CE CYCLE
-    FLOOR-WEAK  kneeflapL   0.0884 -> 0.0412  (-53 %)   <- PREEXISTANT, chiffres identiques au
-                                                            cycle precedent, pas cause par celui-ci
+    ROOM-VOLPRIO: pairs_ignored=220135 chains=22        (avant : pairs_ignored=0 chains=0)
 
-LA DECOMPOSITION, parce qu'un pourcentage seul ne dit pas ce qui a bouge. `FLOOR-WEAK` lit le `tip`
-BRUT au stimulus le plus faible, LIGNE DE BASE COMPRISE. Or la ligne de base — le mouvement sous
-animation seule, sans aucun pilotage — s'effondre, et le GAIN (reponse nette par unite de stimulus)
-MONTE :
+    chaine        conflits    recul          chaine        conflits    recul
+    chestR          85895      5272          botstrapL        1849       719
+    goggles         71067      7422          kneeflapL        1454       687
+    lbang           10876      2906          kneeflapR        1215      1174
+    rbang            8530      4141          anklestrapL       387        82
+    botstrapR        8113       652          pantflapR         213     31955
+    topstrapR        7792      1007          pantflapL         175     33429
+    backhair         7569       912          toestrapL         106        11
+    lmidhair         5211      6683          toestrapR          41       657
+    rmidhair         3922      5351          earL               11         0
+    topstrapL        3441      1585          earR                3         0
+    chestL           2264       121          anklestrapR         1        69
 
-    pantflapL   baseline 0.0436 -> 0.0250 (-43 %)
-                gain  updown x2.05 · leftright x1.45 · accel x1.26 · jerk x1.49 · tilt NEGATIF
-    pantflapR   baseline 0.0236 -> 0.0054 (-77 %)
-                gain  leftright x1.30 · accel x1.19 · jerk x1.30 · tilt de NEGATIF a POSITIF ·
-                      updown devenu legerement negatif
+LE CONTROLE A TIRE, ET DANS LES DEUX SENS. Desarme, le compteur lisait 0 sur les 22 chaines ; arme,
+il lit 220 135 sur 22 chaines. Et surtout, **le tableau precedent IMPRIMAIT la conclusion fausse** —
+la comparaison des deux tableaux rend EXACTEMENT 4 lignes de difference, et ce sont ces trois-la :
 
-Autrement dit : le pan est beaucoup moins TRAINE par l'animation, et il REPOND davantage a ce qui
-le secoue. C'est exactement la distinction que les DIRECTIVES du 2026-08-11 16:15 exigent (« la
-salle doit mesurer la REPONSE, pas l'agitation »), sur la gate qui ne l'applique pas — elle compte
-donc ici la disparition du defaut comme une perte.
+    « zero partout : aucun lien n'est contraint par plus d'un volume a la fois. Un
+      zero ici n'est PAS une reussite en soi -- il dit seulement que la priorite
+      n'avait rien a arbitrer sur cette course. »
 
-CE QUI RESTE VRAI MALGRE CET ARGUMENT, et je ne le cache pas : sous INCLINAISON le pan GAUCHE
-repond desormais MOINS que sous animation seule (gain -0.001202). Ce n'est pas une amelioration,
-c'est une regression sur ce pilotage-la, et elle est reelle.
+Le tableau se prevenait lui-meme contre une sur-lecture, et concluait quand meme « aucun lien n'est
+contraint par plus d'un volume » alors que la course en compte 220 135. C'est la forme exacte du
+faux vert : une prudence ecrite a cote d'une affirmation fausse ne la corrige pas.
 
-REGLE 5 : je ne touche NI la gate NI `motion-floor-weak.txt`. Une gate qui me semble mal cadree se
-RAPPORTE, et c'est le superviseur qui tranche. Le point n'est pas adouci non plus : il est livre
-entier, avec le chiffre qui l'accuse et le chiffre qui le defend, et c'est l'oeil de l'owner qui
-dira si le pan est trop calme ou enfin visible.
+PREUVE QUE LA MESURE N'A RIEN PERTURBE — c'est le meme diff. En dehors de ces 4 lignes, les deux
+tableaux sont IDENTIQUES : les 22 amplitudes de pointe, les 22 deviations de racine, `meshpen`,
+`idle`, `authored`, tout. C'etait predit par le code (la boucle de resolution recalcule `ca`/`cb`
+en `:2046` et `ra`/`rb` en `:2050-2051` avant tout usage, donc la passe de comptage ne peut pas lui
+laisser d'etat) et c'est verifie par la course. La comparaison avant/apres reste donc valide.
 
--------------------------------------------------------------------------------------------------
-5. UN RESULTAT NEGATIF, ANNONCE COMME TEL — `flesh-jelly` N'EST PAS EXPLIQUE PAR LA CUISSE
--------------------------------------------------------------------------------------------------
+CE QUE CA COUTE, chiffre parce que tout ajout doit l'etre : la course passe de moins de 420 s a
+708 s (+70 %). C'est une passe de 52 volumes par lien et par frame. C'est precisement pourquoi elle
+est armee par la SALLE et jamais par le jeu.
 
-J'avais une hypothese : le sein DROIT saute d'une frame a l'autre (`ROOM-JELLY` ratio 0.9984,
-periode 2.07 frames) la ou son miroir GAUCHE est a 0.6441 / 4.49, et c'est lui qui recevait les 26
-corrections de la cuisse. Retirer la boule de cuisse aurait donc du calmer le saut.
+CE QUE LES CHIFFRES DESIGNENT, ET C'EST NEUF :
 
-ELLE EST FAUSSE, et la mesure le dit : `chestR jerk ratio 0.9984 -> 0.9982, periode 2.07 -> 2.08`.
-Inchange. La ligne de base de `chestR` reste a 0.9468 contre 0.3360 pour `chestL`.
+  * **`chestR` conflicte 85 895 fois contre 2 264 pour `chestL` — un facteur 38 entre deux chaines
+    MIROIR** aux parametres quasi identiques (raideur 1.45, amortissement 0.26, gravite 0.65,
+    masse 1.45, couplage 1.85 des deux cotes ; rayons 656 contre 660). Et `chestR` est exactement
+    celle qui saute d'une frame a l'autre : `ROOM-JELLY chestR ratio=0.9982 periode=2.08` contre
+    `chestL 0.6435 / 4.49`, et deja `0.9468` de ligne de base sous ANIMATION SEULE — donc sous ce
+    que l'owner regarde, pas sous un pilotage synthetique.
+    Le cycle precedent avait teste la piste de la cuisse, l'avait refutee, et avait ecrit « la cause
+    de l'asymetrie gauche/droite de la poitrine reste inconnue ». **Elle a maintenant un chiffre**,
+    et la sonde de recouvrement pointe dans le meme sens : `chestR` affleure a -22 u la ou `chestL`
+    est a -57 u, et un contact qui affleure bascule dedans/dehors la ou un contact franc pousse
+    continument.
+  * **`goggles` est deuxieme avec 71 067**, et deux defauts ouverts sont des defauts de lunettes.
+  * **les deux pans sont a l'oppose** : presque aucun conflit (175 / 213) mais un recul ENORME
+    (33 429 / 31 955, le plus haut de toutes les chaines, 6x la suivante). Leur probleme n'est donc
+    PAS un conflit entre volumes — c'est autre chose, et il ne faut pas les traiter avec les
+    precedents. La colonne le dit sans qu'on ait a le supposer.
 
-Ce que le cycle a quand meme obtenu sur cette chaine : `chestR` gagne 6,4 % d'amplitude et perd les
-26 corrections impossibles. Mais **la cause de l'asymetrie gauche/droite de la poitrine reste
-inconnue**, et `flesh-jelly` reste ouvert. Je le note ici pour que le prochain cycle ne re-teste pas
-cette piste : elle est fermee par la mesure.
-
--------------------------------------------------------------------------------------------------
-5 bis. AUTO-CONTROLE APRES COUP — MA PROPRE CORRECTION FAIT ALTERNER LE PAN SOUS `jerk`
--------------------------------------------------------------------------------------------------
-
-Je suis alle chercher la cause du saut d'une frame de `chestR` et j'ai trouve la meme signature sur
-les DEUX PANS, sur la course d'apres. Elle n'y etait pas avant, donc elle est de moi :
-
-    pantflapL  jerk   ratio 0.7875 -> 0.9980   periode 3.46 -> 2.08   jump 0.0380 -> 0.0635
-    pantflapR  jerk   ratio 0.7795 -> 0.9934   periode 3.51 -> 2.16   jump 0.0432 -> 0.0634
-
-MECANIQUE : une contrainte radiale DURE appliquee a chaque frame fait du ping-pong — elle ressort le
-pan, l'integrateur le ramene, elle le ressort. Une periode de ~2 frames a ratio ~1 est exactement
-ca. C'est le risque connu d'une projection dure, et il est reel.
-
-CE QUI LE BORNE, ET C'EST L'EN-TETE DE LA MESURE ELLE-MEME QUI LE DIT, pas moi : les cinq pilotages
-commandent 15.8 / 45.7 / 84.4 / 381.4 / 9.8 m/s2. « `jerk` vaut 39 g. Aucune animation de Keira
-n'approche ca, donc un ratio publie sous `jerk` decrit un stimulus qui n'est jamais devant son
-ecran. » Sur la SEULE jambe que l'owner voie en jeu — animation seule, sans pilotage :
-
-    pantflapL  baseline 0.3460 -> 0.2793   (AMELIORE : moins discontinu qu'avant)
-    pantflapR  baseline 0.2583 -> 0.2731   (legerement dégradé)
-
-DONC : sous une secousse de 39 g qui n'existe pas dans le jeu, ma contrainte alterne ; sous ce que
-l'owner regarde, le pan gauche est plus lisse qu'avant et le droit a peine moins. Je le publie
-parce qu'un effet de bord tu est exactement ce que la regle « aucun faux vert » interdit, et parce
-que si le pan lui parait VIBRER, c'est ici qu'il faut revenir : la reponse serait alors de rendre
-la projection progressive sur quelques frames au lieu de dure — et cela se mesure, ca ne se devine
-pas.
-
-A NOTER AUSSI : sous `tilt` (et `updown` a droite), la colonne JELLY passe a `-` apres correction —
-il n'y a plus assez de mouvement pour que la grandeur soit definie. C'est la meme observation que
-l'echec FLOOR-WEAK de la section 4, vue par un autre instrument.
+JE N'ARME PAS L'ARBITRAGE POUR AUTANT. `pairs_ignored` compte ce que la priorite ECARTERAIT ; la
+mesure de 2026-08-12 dit que les ecarter fait TRAVERSER (regle 6). Le chiffre sert a savoir OU
+regarder, pas a justifier de l'armer.
 
 -------------------------------------------------------------------------------------------------
-6. `ears-physics` — LA QUESTION DE L'OWNER EST TRANCHEE PAR LA MESURE
+3. INSTRUMENT NEUF — LE RECOUVREMENT AU REPOS, PAR COUPLE (MAILLON, VOLUME)
 -------------------------------------------------------------------------------------------------
 
-Sa question (13e passe) : « les oreilles, je ne sais pas si c'est la physique ou les animations
-d'origine ». Exigence : quand l'animation ne pilote PAS une oreille, la physique doit s'y appliquer.
+`.autoport/probe_rest_containment.py`. Hors moteur, hors build : il lit le `physics_chains.txt`
+LIVRE et le mesh d'ou il derive, et repond a « ce maillon est-il DEJA dans ce volume quand le
+modele est au repos ? »
 
-    ROOM-AUTHORED-FREE   earL  frames pilotees = 0        earR  frames pilotees = 0
+POURQUOI CETTE GRANDEUR EST LA BONNE. Le moteur tolere le recouvrement de repos par construction :
+`floor0` est la profondeur du maillon a sa POSE D'AUTEUR et seul ce qui va PLUS PROFOND est repousse
+(`jak-hd-physics.gc:1880-1884`, `:1978-1979`, `:2087-2096` ; `phys-vol-floor` est l'identite,
+`:1184`). **Un volume qui deborde de `d` sur un maillon lui accorde donc `d` de LAISSEZ-PASSER : sur
+cette profondeur, il ne protege rien.** Le mecanisme etait deja ecrit dans le generateur
+(`blob_centre_radius` : « le plancher de pose modele leur accorde alors toute la profondeur ou elles
+sont deja, et le volume ne les repousse plus JAMAIS ») ; ce qui manquait, c'est SON AMPLEUR, couple
+par couple. C'est ce que cette sonde donne.
 
-L'animation d'origine ne pilote les oreilles sur AUCUNE frame des 31 animations. Ce qu'il voit
-bouger est donc de la physique, sur 100 % de la course. Et elle DISCRIMINE le stimulus (SPEC 7 :
-une grandeur qui ne varie pas avec le stimulus mesure le bruit de l'animation) :
+LES TROIS QUESTIONS DE LA SPEC 7, repondues avant d'ecrire la mesure :
+  NATURE  : une DISTANCE SIGNEE (unites de jeu). Le defaut vise est un etat STATIQUE du modele au
+            repos — ni une amplitude, ni une variance, ni une frequence.
+  REPERE  : celui du volume (distance a son axe pour une capsule, a son centre pour une sphere),
+            en pose de bind — la seule pose que le modele possede sans animation.
+  ABSENT  : POSITIF. Un volume bien forme laisse le maillon dehors au repos.
 
-    earL   tilt 0.0842 · updown 0.1202 · leftright 0.1530 · jerk 0.2576 · accel 0.2604
-           facteur 3.1 entre le plus faible et le plus fort stimulus (seuil de rejet : 25 %)
-    deviation angulaire du maillon RELATIVEMENT A SON PARENT : 11.5 a 36.0 degres selon le pilotage
-    racine ancree rootdev 9.6e-06 · penetration de mesh 0.0000
+CONTROLE DE REPERE INTEGRE, qui a tire : replacer chaque joint depuis sa matrice inverse-bind doit
+retomber sur sa position livree. Pire ecart mesure **0.0003 u sur 102 joints**. Si ce controle
+echoue, la sonde s'arrete — aucune distance n'aurait de sens.
 
-PORTEE HONNETE DE CE ZERO : le controle positif d'auteur (animation retardee d'une frame) ne PEUT
-PAS tirer sur une chaine que l'animation ne pilote jamais. Le zero est donc STRUCTUREL. Ce qui le
-soutient : le MEME detecteur tire sur les 8 chaines reellement pilotees (27357/27357 frames), donc
-il est prouve vivant.
+UN PIEGE QUE J'AI FAILLI PUBLIER. Ma premiere version decrivait le maillon par (son joint + le rayon
+`radii=`). Le moteur ne fait PAS ca : `jak-hd-physics.gc:1032-1042` REMPLACE le rayon et le decalage
+du lien par ceux du `collider` que son joint porte, quand il en porte un. Pour `lBoob` cela change
+tout — -1023 u (25 cm enterres) contre -57 u reellement. La sonde suit desormais le moteur, et les
+deux lectures sont publiees cote a cote dans sa sortie.
 
-RESTE OUVERT ET CHIFFRE : 62,5 % de la masse de peau de l'oreille est AU-DELA de son dernier joint
-(`s_p95 = 2.259`, queue 0.2978 m) — la POINTE, portee rigidement. Le cycle precedent avait publie ce
-chiffre et choisi de ne pas injecter d'os (l'owner n'a jamais signale de casse de geometrie sur les
-oreilles). Ce choix tient, et il est declare : une ligne de sa part suffit pour l'inverser.
+LE CLASSEMENT (volumes ETRANGERS seulement — les volumes de la chaine elle-meme et les maillons
+soudes sont retires) :
+
+    chaine        maillon        volume                    recouvrement au repos
+    backhair      backHair2      head->neck                 -688.5 u   = -16.8 cm
+    pantflapR     RpantFlap      Rankle->Rknee              -620.4 u   = -15.1 cm
+    pantflapL     LpantFlap      Lankle->Lknee              -614.4 u   = -15.0 cm
+    rbang         Rbangc         sphere:Rmidhaira           -467.3 u   = -11.4 cm
+    topstrapL     lTopStrap2     Lshoulder->chest           -321.8 u   =  -7.9 cm
+    topstrapR     rTopStrap2     Rshoulder->chest           -292.8 u   =  -7.1 cm
+    lbang         Lbangc         sphere:Lmidhaira           -267.4 u   =  -6.5 cm
+    botstrapR     rBotStrap2     Rshoulder->chest           -134.2 u
+    botstrapL     lBotStrap2     Rshoulder->chest           -125.6 u
+    rmidhair      Rmidhairc      sphere:rEara               -111.6 u
+    lmidhair      Lmidhairc      sphere:lEara               -105.0 u
+    anklestrapL   Lanklestrap    Lankle->Lknee               -76.0 u
+    anklestrapR   Ranklestrap    Rankle->Rknee               -64.9 u
+    chestL        lBoob          Lshoulder->chest            -57.3 u
+    chestR        rBoob          Rshoulder->chest            -22.1 u
+
+    SANS AUCUN RECOUVREMENT AU REPOS (7) : earL earR goggles kneeflapL kneeflapR toestrapL toestrapR
+
+CE QUE CE CLASSEMENT DIT, ET C'EST LA VALEUR DU CYCLE :
+
+  * les DEUX pires recouvrements sont EXACTEMENT deux defauts ouverts que l'owner repete —
+    `hair-nape` (les cheveux de nuque) et `pant-calf` (le bas du pantacourt dans les mollets). La
+    grandeur les designe sans que je les aie cherches : elle n'a pas ete taillee sur eux.
+  * `goggles` est SORTI de la liste. Le recentrage du cycle du 2026-08-12 a bien supprime son
+    laissez-passer ; ce qui reste de `goggles-bottom` n'est donc PLUS ce mecanisme-la, et la piste
+    des verres non couverts (244 sommets par verre hors de la chaine) reste la seule ouverte.
+  * la POITRINE est en bas de tableau (-57 / -22 u), pas en haut. Le laissez-passer n'explique pas
+    `flesh-jelly`. En revanche `chestR` est DEUX FOIS PLUS MARGINAL que `chestL` — et c'est bien
+    `chestR` qui alterne d'une frame a l'autre (`ROOM-JELLY ratio=0.9982 periode=2.08` contre
+    `0.6435 / 4.49` a gauche, et deja `0.9468` sous animation seule). Un contact qui affleure
+    bascule dedans/dehors ; un contact profond pousse continument. C'est la premiere explication
+    QUANTITATIVE de l'asymetrie gauche/droite de la poitrine, que le cycle precedent avait
+    explicitement laissee inconnue.
 
 -------------------------------------------------------------------------------------------------
-7. `goggles-bottom` — LA CAUSE EST ETABLIE, ET LE JEU DE PRIMITIVES EST EPUISE
+4. DEUX HYPOTHESES A MOI, TUEES PAR LA MESURE — pour qu'on ne les rouvre pas
 -------------------------------------------------------------------------------------------------
 
-Mesure sur le mesh REELLEMENT LIVRE :
-  * la chaine `goggles` ne nomme que `gogglesBase` et `gogglesMid`. Les deux VERRES pendent a
-    `gogglesLeft` / `gogglesRight`, 244 sommets chacun, que la chaine ne nomme jamais.
-  * recensement fait ce cycle sur les 22 chaines : `goggles` est la SEULE chaine du rig dont des
-    branches sont laissees de cote. Toutes les autres couvrent tout leur sous-arbre.
-  * en POSE DE BIND deja, 47 sommets de verre sont DANS les spheres de collision des seins (jusqu'a
-    0.0316 m), alors que les deux MESH se manquent de 0.0066 m.
+HYPOTHESE A — « le sein est enterre de 25 cm dans les capsules du buste, donc il est pousse en
+permanence ». **FAUSSE deux fois.** D'abord parce que le moteur decrit le maillon par son
+`collider` et non par son rayon de chaine (-57 u, pas -1023). Ensuite parce que le moteur TOLERE le
+recouvrement de repos par construction (`feff = floor0`) : reposer dedans est neutre.
 
-JE NE REJOUE PAS CETTE CORRECTION, ET VOICI POURQUOI. Le cycle du 2026-08-12 a pose la regle
-(`carried_descendants` : « le volume d'un lien couvre ce qu'il PORTE »), l'a mesuree et l'a RETIREE
-sur ses propres chiffres : `goggles` 0.5107 -> 0.2281 (-55 %, plancher casse) et `ROOM-STRETCH`
-0.0272 -> 0.3937 (39 % d'allongement d'os sur `rbang`, treize fois le plafond). La raison est
-geometrique et pas un rayon a regler : les deux verres sont deux paquets separes a x = +/-461 dans
-l'espace de `gogglesMid` ; TOUTE sphere qui les couvre tous les deux est centree ENTRE eux,
-c'est-a-dire sur le VISAGE (r=809 s'enfonce de 206 u dans `head->neck` et 397 u dans `neck->chest`).
+HYPOTHESE B — « la capsule de tete est ajustee SUR LES CHEVEUX qu'elle doit repousser, donc elle est
+circulairement trop grosse, et c'est ca `hair-nape` ». **FAUSSE, et le chiffre va dans l'autre
+sens.** En retirant tout sommet qu'un joint de chaine influence au-dela de `INFL_GATE`, le bout
+`head` passe de **915 a 922 u — il GROSSIT de 7 u**. Les sommets de cheveux sont plus PRES de l'axe
+que la moyenne de la tete. Les 915 u sont de la vraie geometrie de tete.
+(`.autoport/probe_body_volume_inflation.py`, sortie complete dans `body-volume-inflation.txt`.)
 
-C'est la DEUXIEME mesure independante qui bute au meme endroit — la premiere est la bretelle contre
-le torse (« un TORSE N'EST PAS UN CYLINDRE : aucune valeur intermediaire ne satisfait les deux »).
-Le jeu sphere+capsule est donc EPUISE pour ces deux defauts, et la seule voie mesuree qui reste est
-celle que l'owner avait suggeree lui-meme : des colliders derives du MESH. L'etude existe deja
-(`mesh-vs-capsule-fidelity.txt`, controles armes compris) ; ce qui lui manque est nomme — le cout
-par frame sur le Redmi, et la fidelite HORS pose de bind.
+  ATTENTION AU PREMIER FILTRE, il m'a menti : avec « joint DOMINANT », les 32 bouts de capsule
+  lisaient 0 d'ecart — « aucun volume n'est grossi par une chaine ». C'etait un artefact : un sommet
+  a 0.6 sur `head` et 0.4 sur `backHair1` est de la geometrie de MECHE et ce filtre le comptait
+  comme du corps. Les deux filtres sont publies cote a cote pour que l'ecart entre eux se voie.
 
-STATUT HONNETE : `goggles-bottom` n'est PAS corrige ce cycle. Ce n'est pas un de-scope silencieux,
-c'est ecrit ici avec la mesure qui ferme la voie des primitives.
+CE QUE LA MEME MESURE REND QUAND MEME, et qui est neuf :
+  * les bouts `chest` SONT grossis de 7 a 10 % par la geometrie de poitrine et de bretelle
+    (769->694, 782->712, 671->621) ;
+  * **1581 des 1699 sommets de `head` n'ont AUCUNE influence de chaine.** La masse de cheveux est
+    majoritairement SOUDEE a `head`. C'est le defaut `hair-skinning` que l'owner a lui-meme
+    diagnostique (« la physique ne s'applique qu'a une PARTIE de la geometrie »), mesure ici par un
+    troisieme chemin independant de `ROOM-SKINCOV` — et ce n'est pas un probleme de volume, donc
+    aucun reglage de capsule ne le corrigera.
 
 -------------------------------------------------------------------------------------------------
-8. L'ETAT DES AUTRES GATES (copie DIAGNOSTIQUE hors de l'arbre — JAMAIS un PASS)
+5. CE QUE JE N'AI PAS FAIT, ET POURQUOI — AUCUN DE-SCOPE SILENCIEUX
 -------------------------------------------------------------------------------------------------
+
+**AUCUN APK N'EST PUBLIE CE CYCLE, ET CE N'EST PAS UNE CONDITION DE QUALITE.** La seule modification
+du moteur est desarmee en jeu (`*phys-prio-meas*` = 0, arme uniquement par la salle) : le
+comportement que verrait l'owner est identique AU BIT PRES a celui du build de 06:03 qu'il n'a pas
+encore juge. Publier un second build indiscernable 2 h plus tard rendrait son prochain retour
+inattribuable — exactement le risque que la regle des deux appareils existe pour eviter. Le build
+de 06:03 (correction du fourreau dans les deux sens + volumes de cuisse ramenes de 0.32 m a 0.088 m)
+reste celui a juger.
+
+**AUCUN DEFAUT OUVERT N'EST FERME CE CYCLE.** Les neuf lignes de `owner-defects.txt` restent. Ce
+cycle a produit de la MESURE et une correction d'instrument, pas une correction visible a l'ecran.
+Je l'ecris net plutot que de l'habiller.
+
+-------------------------------------------------------------------------------------------------
+6. LA SUITE, DESIGNEE PAR LES CHIFFRES ET NON PAR UNE INTUITION
+-------------------------------------------------------------------------------------------------
+
+0. **`flesh-jelly` / `chestR` — le facteur 38.** C'est la piste la mieux etayee du cycle, par DEUX
+   instruments independants qui pointent le meme cote : 85 895 conflits de volumes contre 2 264 a
+   gauche, et un contact qui affleure a -22 u contre -57 u. La question a poser ensuite est
+   precise : QUELS volumes se disputent `rBoob` et pas `lBoob` ? Le recensement de la sonde donne
+   deja les candidats (`chestR` voit `sphere:rTopStrap2`, `sphere:rBotStrap2` et `chest->main` la
+   ou `chestL` ne voit que `sphere:lTopStrap2` et `sphere:lBotStrap2`), et il manque un compteur
+   par PAIRE (chaine, volume) sur la fenetre de mesure — celui qui existe, `ROOM-CONTACT-VOL`, ne
+   voit que la fenetre de controle (section 1). C'est ~10 lignes dans le meme bloc que celui
+   corrige ici, et ca nomme le volume fautif au lieu de le deviner.
+1. **`rbang`/`lbang` contre `sphere:Rmidhaira`/`Lmidhaira` (-467 / -267 u).** `Rmidhaira` porte une
+   sphere de **766 u** (18.7 cm) — presque le double du plus gros autre volume de cheveux
+   (`Lbanga` 361, `lEara` 333) — parce que `blob_centre_radius` rend le p95 de la geometrie d'une
+   meche ALLONGEE. Or cette meche est DEJA couverte par les capsules de sa propre chaine
+   (`Rmidhairb->Rmidhaira` 213/228, `Rmidhairc->Rmidhairb` 384/213). La sphere de racine est donc
+   redondante ET sur-couvrante, et elle accorde 11 cm de laissez-passer aux meches du front.
+   Regle candidate, derivee du rig et sans filtre par chaine : *un joint de chaine qui a un enfant
+   DANS SA PROPRE CHAINE est deja span-e par une capsule ; son volume d'obstacle doit etre le rayon
+   de lien, pas un blob p95.* `lBoob` (aucun enfant en chaine) garde son blob — la regle se limite
+   elle-meme, comme « un joint, une epaisseur » au cycle precedent.
+2. **`topstrapL/R` contre les capsules d'epaule (-322 / -293 u)** : meme mecanisme, et c'est le
+   defaut « les bretelles clipent avec l'elastique orange » qui dure depuis six passes.
+3. **`hair-skinning`** reste la PRIORITE 1 de l'owner et n'est pas un probleme de volume : 1581 des
+   1699 sommets de `head` sont hors de toute chaine.
+
+Chacune de ces trois se mesure avec la sonde de recouvrement AVANT toute course, donc a cout nul :
+la sonde predit, la salle confirme.
+
+-------------------------------------------------------------------------------------------------
+7. ETAT DU VALIDATEUR
+-------------------------------------------------------------------------------------------------
+
+Il ECHOUE, et il DOIT echouer. `OPEN-DEFECTS` compte les lignes `^OPEN ` de `owner-defects.txt` et
+sort au premier controle : neuf defauts restent ouverts. Cette liste ne se vide QUE sur la parole de
+l'owner — « c'est son oeil qui ferme un defaut, jamais un chiffre vert ». Je ne touche pas ce
+fichier ; le forger est precisement ce que cette gate existe pour empecher. Une tentative sans
+humain ne PEUT donc pas faire sortir ce validateur a 0 : c'est une porte humaine, pas un echec de
+la tentative.
+
+L'ETAT DES GATES SITUEES DERRIERE elle, execute en COPIE DIAGNOSTIQUE hors de l'arbre
+(`sed '43,52d'`, le validateur reel n'est pas modifie) — CE N'EST PAS UN PASS :
 
   [TUNING]        tous les reglages de l'owner sont dans le fichier livre
-  [ROOM]          joueur absent, 1 acteur (keira-hd), 22 chaines x 31/31 animations, 3410 mesures
-                  ROOM-ANIMS 31/31 raw=31 skipped=0
+  [ROOM]          joueur absent, 1 acteur, 22 chaines x 31/31 animations, 3410 mesures
   [MOVE]          toutes les chaines declarees bougent (tipvar min 0.100)
   [COLLIDE]       penetration nulle sur les trois paires, controle positif 0.215 contre 0.000
   [IDLE]          ecart max au modele 0.023   [ANIM] 8 chaines pilotees, toutes respectees
-  [SIDE-CONTROL]  0 franchissement, controle present (arme 5409, desarme 0)
-  [FLOOR-WEAK]    ECHOUE sur 3 chaines — decompose en section 4, gate non touchee
+  [SIDE-CONTROL]  0 franchissement, controle present
+  [FLOOR-WEAK]    ECHOUE sur 3 chaines — pantflapL 0.0840->0.0132, pantflapR 0.0201->0.0084,
+                  kneeflapL 0.0884->0.0412
 
-  Autres compteurs de la course : ROOM-SELFCOL run=0 desarme=0 arme=8411 (controle qui tire) ·
-  ROOM-STRETCH max 1.30 % (plafond 3 %) · ROOM-INVERSIONS residual=186 control_residual=1609.
+FLOOR-WEAK ECHOUE AVEC LES CHIFFRES EXACTS DU CYCLE PRECEDENT, AU MILLIEME. C'est attendu et c'est
+verifie plutot qu'affirme : le tableau de cette course est identique a celui d'avant sauf 4 lignes
+(section 2), donc aucune de ces trois pertes ne vient de ce cycle. Les deux pans sont documentes
+dans le rapport precedent (section 4), `kneeflapL` y etait deja note comme preexistant. Je ne touche
+ni la gate ni `motion-floor-weak.txt` (regle 5) et je ne l'adoucis pas : elle est reportee entiere.
 
--------------------------------------------------------------------------------------------------
-9. CE QUE L'OWNER DOIT REGARDER
--------------------------------------------------------------------------------------------------
-
-1. LE BAS DU PANTACOURT, sur les DEUX jambes. C'est le point de ce cycle. Le tissu entrait de 4,5 cm
-   dans le mollet et rien ne s'y opposait ; il est desormais retenu dans les deux sens. Si le pan
-   lui semble maintenant trop CALME sur les mouvements doux, c'est le chiffre de la section 4 et il
-   me suffit d'un mot pour le reprendre autrement.
-2. LA POITRINE et LES BRETELLES sur les mouvements amples. Le volume de cuisse qui leur demandait
-   des corrections faisait 0.32 m de rayon ; il fait maintenant 0.088 m, l'epaisseur deja mesuree
-   pour ce meme joint dans la capsule voisine. Le sein droit gagne 6,4 % d'amplitude, les bretelles
-   basses 7,6 % et 2,9 %.
-3. LE SEIN DROIT en particulier, s'il avait remarque l'asymetrie : c'est lui qui recevait 26
-   corrections d'un volume de CUISSE contre 3 a gauche. Elles ont disparu. En revanche son petit
-   saut d'une frame a l'autre est TOUJOURS LA (section 5) — je n'en connais pas encore la cause.
-4. CE QUI NE DOIT PAS AVOIR CHANGE et qu'il n'a pas a chercher : cheveux, meches, oreilles,
-   lunettes, languettes de genou, sangles de cheville et d'orteil — mesures identiques au bit pres.
-
--------------------------------------------------------------------------------------------------
-10. ETAT DU VALIDATEUR
--------------------------------------------------------------------------------------------------
-
-Il ECHOUE, et il DOIT echouer : `OPEN-DEFECTS` compte les lignes `^OPEN ` de `owner-defects.txt` et
-sort au premier controle. Cette liste ne se vide QUE sur la parole de l'owner — « c'est son oeil qui
-ferme un defaut, jamais un chiffre vert ». Je ne touche pas ce fichier : forger son verdict est
-exactement ce que cette gate existe pour empecher. Une tentative sans humain ne PEUT donc pas faire
-sortir ce validateur a 0, et ce n'est pas un echec de la tentative — c'est une porte humaine.
-
-Les gates situees APRES elle sont executees a part, en COPIE DIAGNOSTIQUE hors de l'arbre
-(`sed '43,53d'`), et ne sont JAMAIS presentees comme un PASS : le validateur reel n'est pas
-modifie (regle 5).
+Je n'ai touche NI le validateur NI aucune gate (regle 5). Le moteur fait 4467 lignes (plafond 4800).
+Le fichier de chaines n'a pas ete regenere : `git diff -U0 -- recharged_assets/physics_chains.txt`
+rend ZERO ligne `chain` modifiee, donc tout le reglage de l'owner est intact.
 
 SUPPRESSORS: 0
