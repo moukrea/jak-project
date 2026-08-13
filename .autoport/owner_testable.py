@@ -27,11 +27,15 @@ DEFECT_OF = [
     (r'^(lbang|rbang)$',                     'hair-fine-grav',    'les mèches fines'),
     (r'^(backhair|lmidhair|rmidhair|lbang|rbang)$', 'hair-pudding', 'le ballottement des cheveux'),
     (r'pantflap',                            'pant-calf',         'le bas du pantacourt'),
+    (r'^(backhair|lmidhair|rmidhair)$',      'hair-anchored-geo', 'la nuque et les grosses mèches'),
     (r'goggle|visor',                        'goggles-bottom',    'le bas des lunettes'),
     (r'chest|breast|boob',                   'flesh-jelly',       'la poitrine'),
 ]
 
-PARAMS = ('stiffness', 'damping', 'gravity', 'mass', 'maxangle', 'couple')
+# `shell` et `radii` pilotent ce que l'owner VOIT autant que la raideur : le correctif du
+# pantacourt du 2026-08-13 16:48 etait un `shell=0`, et le declencheur l'a manque -- il a
+# annonce les cheveux (revenus a leur valeur d'avant) au lieu du seul vrai changement.
+PARAMS = ('stiffness', 'damping', 'gravity', 'mass', 'maxangle', 'couple', 'shell', 'radius')
 
 
 def chain_params():
