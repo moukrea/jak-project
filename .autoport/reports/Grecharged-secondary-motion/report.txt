@@ -178,15 +178,33 @@ regarde.
 MESURE ET NON CORRIGE, chacun avec son chiffre :
   * `botstrapL/R` gardent **18 et 19** aretes dechirees sur la frontiere aveugle — la plus grosse
     dechirure restante du modele. Aucune regle `grade` ne les couvre, alors que le meme traitement
-    y est applicable tel quel (poids seuls, aucun risque pour le mouvement). **Non embarque
-    deliberement** : ce n'est pas une des neuf lignes ouvertes, et l'ajouter aurait mis dans le
-    build que l'owner s'apprete a juger une variable qu'il n'a pas demandee. Pret pour le cycle
-    suivant, avec le chiffre.
+    y est applicable tel quel (poids seuls, aucun risque pour le mouvement).
+    **ESSAYE HORS ARBRE ET VERIFIE, pour que le cycle suivant parte d'un fait et pas d'une idee :**
+        grade lBotStrap chain=lBotStrap,lBotStrap2 from=hips,lTopStrap2,main step=0.45
+        grade rBotStrap chain=rBotStrap,rBotStrap2 from=hips,rTopStrap2,main step=0.45
+    rend **18/19 -> 0**, marche max 0.706 -> 0.450, `bascules>0.5=0` (ancrage tenu), `tear_mov`
+    inchange a 0. **Non embarque deliberement** : ce n'est pas une des neuf lignes ouvertes, et
+    l'ajouter aurait mis dans le build que l'owner s'apprete a juger une variable qu'il n'a pas
+    demandee. Deux lignes a coller, deja mesurees.
   * `rmidhair` garde **1** sommet coincident a pilotes discordants (`weld`). Un sommet coincident
     ouvre le maillage par construction a chaque frame, quel que soit le reglage.
 
-NON TRAITES CE CYCLE, mesures inchangees : `hair-fine-dead`, `hair-nape`, `ears-physics`,
-`knee-tabs`, `pant-calf`, `goggles-bottom`, `goggles-tunnel`, `flesh-jelly`.
+NON TRAITES CE CYCLE, mesures inchangees : `hair-fine-dead`, `hair-nape`, `knee-tabs`,
+`pant-calf`, `goggles-bottom`, `goggles-tunnel`, `flesh-jelly`. (`ears-physics` a recu sa mesure
+manquante, section 6 bis, mais reste OPEN.)
+
+**L'INJECTION D'UN JOINT DANS LES OREILLES A ETE ENVISAGEE PUIS REFUSEE, ET CE N'EST PAS MON
+ARBITRAGE.** Le deficit y est le pire du modele (`s_p95 2.259`, orphan 62.5 %, queue 0.2978 m sur
+un os de 0.2366 m — contre 1.000 et ~4.5 % sur les cinq meches corrigees). Mais `EXPECTED_GROUPS`
+porte deja la decision d'un cycle precedent, avec sa raison : « The EARS are deliberately NOT
+extended: same rule would apply (s_p95 2.259) but the owner has reported no geometry break on them,
+and they are animation-driven ». La premiere moitie de cette raison tient (il ne signale aucune
+cassure sur les oreilles) ; **la seconde est fausse et je viens de le mesurer** — elles ne sont
+animees par rien (section 6 bis). La decision reste neanmoins la bonne pour ce cycle : injecter un
+os change le RIG, donc les entrees du solveur, donc il faut une course de salle complete et un
+controle du plancher, et ca ne se fait pas en fin de cycle a cote d'une livraison deja partie.
+C'est designe pour le suivant, avec les deux lignes derivees deja calculees par l'outil
+(`lEarc` / `rEarc`, residu 4.2 %).
 
 **LE PLANCHER ABSOLU DE VISIBILITE (`hair-fine-dead`) N'EST PAS POSE, ET C'EST DELIBERE.** Il
 demande une gate ; la DIRECTIVE 5 dit « n'ajoute, ne modifie et n'assouplis AUCUNE gate du
@@ -220,6 +238,41 @@ l'echelle vraie dans ce cycle, et changer un instrument sans pouvoir le verifier
 qui fabrique un faux vert.
 
 -------------------------------------------------------------------------------------------------
+6 bis. `ears-physics` — LA QUESTION CENTRALE DE L'OWNER A MAINTENANT UNE REPONSE CONTROLEE
+-------------------------------------------------------------------------------------------------
+
+Owner : « les oreilles, je ne sais pas si c'est la physique ou les animations d'origine ». Exigence
+ecrite : « quand l'animation ne pilote PAS une oreille, la physique doit s'y appliquer ».
+
+La salle repondait deja `ROOM-AUTHORED-FREE: earL/earR frames pilotees=0` — mais elle publiait
+elle-meme la limite de ce zero : « STRUCTUREL, pas controle [...] le controler vraiment demanderait
+de lire les canaux des 31 animations dans les donnees d'art-group, pas la course ». C'est fait,
+avec `.autoport/probe_stock_ear_channels.py`.
+
+**L'ENJEU N'ETAIT PAS COSMETIQUE, et j'ai failli conclure a l'envers.** `keira-hd-k2e.json` montre
+que les oreilles HD ont un pilote jak1 REEL (`lEara -> lEar1` mode 1, `rEara -> rEar1` mode 3), la
+ou les meches n'en ont AUCUN (`Lbanga : e=None, tier4 ancestor fallback, would glue to head`). Une
+oreille POUVAIT donc etre pilotee par l'animation d'auteur — et si elle l'etait, nous l'ecraserions,
+ce que la SPEC 5 interdit. C'est exactement son inquietude.
+
+RESULTAT sur les 31 animations des SIX art-groups : la rotation de `lEar1/lEar2/rEar1/rEar2` a une
+amplitude de **0.000000 partout**. Les os existent dans le rig et ne sont keyes nulle part. Temoin
+interne **31/31** (head/neck/chest varient, avec des valeurs DIFFERENTES par os — head 0.053,
+neck 0.040, chest 0.022). Donc sur les oreilles la physique a la main 100 % du temps, a juste
+titre, et elle les bouge (tipvar 0.26). La ligne reste OPEN : c'est son oeil qui la ferme.
+
+**LA PREMIERE VERSION DE CET INSTRUMENT CONCLUAIT L'INVERSE ET ELLE ETAIT FAUSSE — je la publie.**
+Elle annoncait « 31/31 animations pilotent les oreilles », ce qui aurait declenche une correction
+de moteur sur un defaut inexistant. Cause : ce glb porte 1989 bufferViews repartis sur plusieurs
+CENTAINES de buffers, dont un SEUL vit dans le chunk BIN ; le lecteur lisait tout dans ce chunk et,
+les bufferViews d'animation ayant tous `byteOffset=0`, chaque accesseur relisait les memes octets.
+Signature : `head`, `chest` et les quatre os d'oreille rendaient le meme triple
+(0.069862 / 2.292015 / 0.069862). C'est la marque de fabrique de tout ce dossier — une grandeur
+identique pour deux choses differentes — et c'est ce qui l'a fait rejeter avant publication.
+La panne est convertie en **gate dans l'instrument** : si temoins et oreilles rendent la meme
+valeur au milliardieme, le script refuse de conclure et sort 1.
+
+-------------------------------------------------------------------------------------------------
 7. LIVRAISON, ET DEUX POINTS DE PROCESS
 -------------------------------------------------------------------------------------------------
 
@@ -249,9 +302,18 @@ qui fabrique un faux vert.
     est parti sur l'empreinte `f0f96973d8fbca40ea4f988e62d8f929` — exactement celle que j'avais
     recalculee a la main avec sa propre formule, donc il a bien pris MON commit. Il enchaine build
     arm64 coherent -> APK -> `package_hd_assets.sh` (rebati sans condition a chaque build
-    publiable) -> publieur. La paire APK + pack part donc du meme commit `5ce634f5c5`, sans
-    intervention. Le seul cout a ete **25 minutes de latence**, dues au demon Gradle : c'est le
-    genre de retard qu'il vaut mieux mesurer que court-circuiter.
+    publiable) -> publieur. **Boucle fermee et verifiee a 11:25:35** : pack refait
+    (48304244 -> 48304613 octets, +369 — exactement le delta de `GAME.fr3`, donc c'est bien mon
+    changement qui est dedans), version passee de `c5968af0bd5fd` a `c02ceb031d12d`, et
+    `BUILD-INFO.txt` porte `TAG: 5ce634-c90e79 / commit: 5ce634f5c5`. **La paire APK + pack vient
+    donc du meme commit, le mien.** Le seul cout a ete **25 minutes de latence**, dues au demon
+    Gradle : c'est le genre de retard qu'il vaut mieux mesurer que court-circuiter.
+  * **LA FILE D'ATTENTE DE L'OWNER DECRIVAIT ENCORE LE BUILD DU 11 AOUT 18:00**
+    (`.autoport/OWNER-VERIFY-QUEUE.md`, commit `613218dfa3`, « les seins s'allongent / pas de
+    sag »). Elle est le document qu'il lit pour savoir quoi tester : la laisser telle quelle
+    l'aurait envoye chercher des changements vieux de deux jours. Reecrite pour ce build, avec en
+    tete l'avertissement qui compte — **le correctif ne voyage que par `jak1_hd_assets.zip`**, donc
+    un APK frais sur un ancien pack ne montre RIEN.
   * Environnement, sans consequence sur les resultats : le canal de retour de l'outil Bash est
     bloque toute la session (les commandes s'executent, stdout revient vide, les codes de sortie
     sont faux — le bake a ete rapporte « failed » par le harnais alors que son propre journal dit
