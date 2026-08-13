@@ -160,6 +160,49 @@ donc revenir a l'etat qu'il a approuve (0.679 Hz) ou a tout autre point ne deman
 Un mot de lui et c'est dans le pack suivant.
 
 -------------------------------------------------------------------------------------------------
+3 bis. `ears-physics` — LA REPONSE ETAIT DANS LA COURSE, ELLE N'ETAIT PAS PUBLIEE
+-------------------------------------------------------------------------------------------------
+
+SA QUESTION : « quand l'animation d'origine ne pilote PAS les oreilles, la physique doit les
+prendre en compte — verifier qu'elle s'y applique vraiment. »
+
+CE QUE LA COURSE DIT, et c'est une trace d'execution, pas un raisonnement :
+
+    PHYSCHAIN c=0 j0=lEara      PHYSAUTH c=0 hit=0.0000 ok=0.0000
+    PHYSCHAIN c=1 j0=rEara      PHYSAUTH c=1 hit=0.0000 ok=0.0000
+
+`hit` = nombre de frames ou l'animation pilote la chaine. Sur les 31 animations x 5 pilotages,
+l'animation ne pilote les oreilles sur AUCUNE frame. Elle ne les suspend donc jamais : la physique
+a la main sur 100 % de la course.
+
+ET LA PHYSIQUE Y AGIT, mesure par `ROOM-GRADIENT` (deviation angulaire par rapport au PARENT) :
+
+    earL   updown 15.98   leftright 21.30   accel 34.22   jerk 35.95   tilt 11.50   (degres)
+    earR   updown 14.38   leftright 23.32   accel 35.20
+
+La reponse DISCRIMINE : 3,1x d'ecart entre le plus faible (tilt) et le plus fort (jerk) pilotage,
+tres au-dessus du seuil de 25 % de la regle 7. Ce n'est donc pas du bruit d'animation.
+
+JE CORRIGE UNE AFFIRMATION QUE J'AI ECRITE PLUS HAUT DANS CE MEME RAPPORT : j'avais dit que « rien
+dans `phys-room.gc` ni dans le log » ne portait le detail par chaine. C'EST FAUX — j'avais cherche
+`AUTHORED` dans le log alors que le moteur ecrit `PHYSAUTH`. Le detail PAR CHAINE existe depuis le
+debut ; ce qui manquait, c'est sa PUBLICATION : la boucle du tableau n'iterait que `a_driven`
+(hit > 0), donc une chaine que l'animation ne pilote jamais n'apparaissait NULLE PART. Corrige :
+`ROOM-AUTHORED-FREE` publie les 15 chaines concernees, oreilles comprises.
+
+PORTEE HONNETE DE CE ZERO, et je ne le maquille pas en vert : le controle positif de l'auteur
+(animation retardee d'une frame) NE PEUT PAS tirer sur une chaine que l'animation ne pilote jamais
+— il lui faut une frame pilotee pour exister (`PHYSAUTHPC c=0 hit=0`, alors qu'il tire bien sur
+les chaines pilotees : 13, 72, 28, 5, 19). Ce zero est donc STRUCTUREL, pas controle. Le controler
+vraiment demande de lire les canaux locaux des 31 animations dans les donnees d'art-group, pas la
+course. Ce qui EST prouve vivant, c'est le detecteur : il compte 631 a 6986 frames pilotees sur
+sept autres chaines dans la meme course.
+
+CE QUI RESTE DU aux DIRECTIVES : le detail PAR ANIMATION (a) canal local variable, (b) chaine
+suspendue, (c) nombre de frames. Le par-chaine est la ; le par-animation demande une instrumentation
+du moteur et une nouvelle course.
+
+-------------------------------------------------------------------------------------------------
 4. INJECTION D'OS — LE PRECEDENT INVOQUE N'EXISTE PAS
 -------------------------------------------------------------------------------------------------
 
@@ -215,11 +258,10 @@ etait la scission en deux jeux d'attributs (section 1).
   hair-fine-dead   NON CORRIGE. Erreur de derivation etablie (section 3) ; le correctif ne coute
                    aucun build et attend son arbitrage.
   hair-nape        NON CORRIGE. Reprise d'asset chiffree (section 4), 2 os, outil a ecrire.
-  ears-physics     NON CORRIGE, ET L'INSTRUMENT NE PEUT PAS LE VOIR : `ROOM-AUTHORED` ne publie
-                   qu'un agregat (`chains=7 respected=7`), sans le detail PAR ANIMATION ET PAR
-                   CHAINE que les DIRECTIVES exigent (canal local variable / chaine suspendue /
-                   nombre de frames). Rien dans `phys-room.gc` ni dans le log ne le porte. Demande
-                   une instrumentation GOAL + une course complete.
+  ears-physics     MESURE, ET LA REPONSE EST DANS LA COURSE (section 3 bis) : l'animation ne pilote
+                   les oreilles sur AUCUNE frame, et les oreilles bougent sous physique. Elle s'y
+                   applique donc sur 100 % de la course. Desormais PUBLIE (`ROOM-AUTHORED-FREE`).
+                   Reste du : le detail PAR ANIMATION que les DIRECTIVES exigent.
   knee-tabs        8 aretes dechirees par bande FERMEES ce cycle (section 2) — plausible pour le
                    « c'est chelou », pas forcement pour tout le defaut. L'os manque toujours.
   pant-calf        6 aretes dechirees par pan FERMEES ce cycle (section 2).

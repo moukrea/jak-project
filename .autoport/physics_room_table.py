@@ -821,6 +821,26 @@ def main():
           '  pose-auteur parcourue=%s m'
           % (names[c], int(d['hit']), int(d['ok']), int(d['hit']), d['tr'], ratio,
              fnum(d.get('tmov', 0.0))))
+    # LES CHAINES QUE L'ANIMATION NE PILOTE JAMAIS — publiees, parce que c'est LA question de
+    # l'owner sur les oreilles (`ears-physics`) : « quand l'animation d'origine ne pilote PAS les
+    # oreilles, la physique doit les prendre en compte -- verifier qu'elle s'y applique vraiment ».
+    # La boucle ci-dessus n'itere que `a_driven` (hit > 0) : une chaine que l'animation ne touche
+    # jamais n'apparaissait NULLE PART, donc la reponse a sa question n'etait pas lisible. Elle
+    # l'est maintenant, et pour toutes les chaines a la fois.
+    a_free = sorted(c for c in auth if auth[c]['hit'] <= 0.0 and c not in dropped)
+    A('ROOM-AUTHORED-FREE: chains=%d  (l\'animation ne les pilote sur AUCUNE frame)' % len(a_free))
+    A('   Sur ces chaines la physique garde la main sur 100 % de la course. Leur mouvement propre')
+    A('   est publie par ROOM-GRADIENT (deviation angulaire par rapport au PARENT) et par les')
+    A('   lignes `worst`, chaine par chaine : c\'est la que se verifie qu\'elle s\'y applique.')
+    A('   PORTEE HONNETE DE CE ZERO : le controle positif de l\'auteur (animation retardee d\'une')
+    A('   frame) ne PEUT PAS tirer sur une chaine que l\'animation ne pilote jamais — il lui faut')
+    A('   une frame pilotee pour exister. Ce zero est donc STRUCTUREL, pas controle : il dit que le')
+    A('   detecteur n\'a jamais vu de canal local sur ces joints, et le detecteur est prouve vivant')
+    A('   par les %d chaines ci-dessus. Le controler vraiment demanderait de lire les canaux des'
+      % len(a_driven))
+    A('   31 animations dans les donnees d\'art-group, pas la course.')
+    for c in a_free:
+        A('     %-12s frames pilotees=0' % names[c])
     A('')
     A('-- CE QUE LES LIMITEURS ONT RETIRE (SPEC 7 : un suppresseur se chiffre) --------------------')
     A('   recul vers la pose du modele : %d fois, %s m au total%s'
