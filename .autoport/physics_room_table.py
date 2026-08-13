@@ -1713,6 +1713,58 @@ def main():
               % (names[c], fnum(gap), fnum(exc),
                  fnum(gap / blen) if blen > 1e-6 else '-', ret,
                  'A' if chains[c]['fam'] == 1 else 'B'))
+    # ------------------------------------------------------------------------------------------
+    # ROOM-HYST-SHAKE — LA MEME GRANDEUR, DANS LE REGIME OU LE DEFAUT VIT, AVEC SON CONTROLE.
+    #
+    # POURQUOI ELLE EXISTE A COTE DE ROOM-HYST : le cycle `tilt` est QUASI-STATIQUE et n'exerce pas
+    # les termes a memoire du solveur (recul, reflexion de cote, attenuation), qui ne se declenchent
+    # que sur du mouvement rapide. Un zero mesure dans un regime ou les causes ne tirent pas ne
+    # prouve rien (`stimulus-must-be-representative`). Ici le cycle est une SECOUSSE `jerk` suivie
+    # d'un relachement : meme etat commande au depart et a l'arrivee, meme etablissement, meme
+    # fenetre que `idle`/`back`.
+    #
+    # NATURE / REPERE / LECTURE QUAND LE DEFAUT EST ABSENT : identiques a ROOM-HYST (deplacement
+    #   soutenu residuel apres cycle ferme ; repere de l'ancre ; zero).
+    # REFERENCE : chaque cycle est rapporte a la pose ETABLIE QUI LE PRECEDE IMMEDIATEMENT —
+    #   `shaken` contre `back`, `shakenpc` contre `shaken`. Les trois sont mesurees de la meme
+    #   facon, donc comparables ; prendre une reference lointaine melangerait les cycles.
+    # CONTROLE POSITIF : la seconde secousse est identique, contrainte de cote LEVEE. Contrainte
+    #   levee, un maillon passe du mauvais cote d'un volume Y RESTE — un equilibre stable mais faux,
+    #   c'est-a-dire un non-retour. Le rapport `armed/normal` DOIT etre nettement > 1. S'il ne l'est
+    #   pas, la mesure ne discrimine pas et le zero du regime normal ne vaut rien : c'est ecrit
+    #   ci-dessous en toutes lettres plutot que laisse a l'interpretation.
+    mshk, mshkpc = mean.get('shaken', {}), mean.get('shakenpc', {})
+    A('')
+    A('-- L\'HYSTERESIS DANS LE REGIME REPRESENTATIF (ROOM-HYST-SHAKE) ---------------------------')
+    if not mshk:
+        A('ROOM-HYST-SHAKE: NON MESURE — aucune ligne PHYSMEAN tag=shaken. La phase de secousse')
+        A('   n\'a pas tourne : ce tableau vient d\'une course anterieure a l\'instrument. Ce n\'est')
+        A('   PAS un zero, c\'est une absence de mesure.')
+    else:
+        _n_fire, _n_tot = 0, 0
+        for c in sorted(chains):
+            b, s, q = mback.get(c), mshk.get(c), mshkpc.get(c)
+            if b is None or s is None:
+                continue
+            blen = sum(bones.get(c, {}).values()) / UNITS
+            gs = sum((y - x) ** 2 for x, y in zip(b, s)) ** 0.5
+            gp = (sum((y - x) ** 2 for x, y in zip(s, q)) ** 0.5) if q is not None else float('nan')
+            rat = (gp / gs) if (gs > 1e-9 and gp == gp) else float('nan')
+            if rat == rat:
+                _n_tot += 1
+                if rat > 1.5:
+                    _n_fire += 1
+            A('ROOM-HYST-SHAKE: chain=%-12s gap=%-9s gapn=%-8s control=%-9s ratio=%-8s fam=%s'
+              % (names[c], fnum(gs), fnum(gs / blen) if blen > 1e-6 else '-',
+                 fnum(gp) if gp == gp else '-', fnum(rat) if rat == rat else '-',
+                 'A' if chains[c]['fam'] == 1 else 'B'))
+        if _n_tot:
+            A('ROOM-HYST-SHAKE-CONTROL: %d chaine(s) sur %d ou la contrainte levee fait monter'
+              ' l\'ecart de plus de 50%%' % (_n_fire, _n_tot))
+            if _n_fire == 0:
+                A('   => LE CONTROLE POSITIF N\'A PAS TIRE. Aucun zero de cette colonne n\'est')
+                A('      recevable tant que ce n\'est pas explique : une mesure que le defaut')
+                A('      injecte ne fait pas bouger ne mesure pas ce defaut.')
     A('')
     A('-- LE PIRE CAS DE CHAQUE CHAINE, AVEC LE NOM DE L\'ANIMATION OU IL S\'EST PRODUIT ------------')
     for c in sorted(chains):

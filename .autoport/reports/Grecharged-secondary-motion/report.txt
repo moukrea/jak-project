@@ -280,6 +280,53 @@ CE QUE J'AVAIS PRÉDIT ET QUI EST FAUX — je le rapporte parce que c'est une pr
   sag et ne mesure plus ce qu'il annonce dès que la gravité agit.** À trancher avant de s'en
   servir comme cible ; c'est exactement la classe de faux vert que le contrat traque.
 
+CE QUE LE CORRECTIF COÛTE — quatre choses qui n'étaient PAS dans mes conditions de retrait, donc
+que je ne peux pas invoquer pour retirer après coup, mais que je refuse de laisser sous le tapis
+-------------------------------------------------------------------------------------------------
+  1. **`ROOM-STRETCH` monte : 4,08 % -> 5,38 %** (`lmidhair`). La SPEC dit « un os ne s'allonge pas,
+     ≤ 3 % » : on était DÉJÀ hors spec avant, on l'est davantage. Aucune gate ne lit cette colonne.
+     Une chaîne plus molle s'allonge plus — c'est la contrainte de longueur qui cède, pas la
+     fréquence, mais c'est mon changement qui l'a rendu pire.
+  2. **`ROOM-IDLE maxdev` triple : 0,0237 -> 0,0721.** Debout, au repos, les cheveux pendent plus
+     bas qu'avant. La SPEC §4 dit « au repos on retrouve EXACTEMENT la pose du modèle, pas plus
+     bas ». C'est une dérive contre le contrat, très loin du plafond de gate (1,0) mais réelle.
+     ET ELLE DIT QUELQUE CHOSE DE PLUS GRAVE : la gravité effective est censée s'ANNULER debout
+     (`g_eff = R_ancre⁻¹·g − R_bind⁻¹·g`, :3350-3360). Si baisser la raideur fait tomber la pose de
+     repos — `lmidhair at0` 0,0182 -> 0,0708, x3,9 — c'est que **l'annulation debout n'est pas
+     exacte** : il reste un résidu que la raideur masquait. Ce résidu est un défaut à part entière,
+     antérieur à mon changement, et personne ne l'avait vu parce que rien ne le sollicitait.
+  3. **La réponse au stimulus le PLUS FAIBLE baisse** sur trois mèches : `lbang` 0,6047 -> 0,3924
+     (−35 %), `rmidhair` −15 %, `rbang` −8 %. Deux lectures, et je donne les deux :
+       - dans le sens voulu : il se plaint d'« un pudding sur lequel on tape très fort AU MOINDRE
+         mouvement » ; moins de réponse au moindre mouvement est exactement la cible ;
+       - dans le mauvais sens : c'est la signature du « muted » que le plancher FLOOR-WEAK existe
+         précisément pour attraper, et il a déjà rejeté ça une fois sur la poitrine.
+     Les planchers tiennent (4,2 à 4,5 × la référence sur ces chaînes), donc rien ne se déclenche.
+     C'est son œil qui tranche, pas moi.
+  4. **`ROOM-JELLY excess` explose sur `lbang`/`rbang`/`backhair` — et c'est un ARTEFACT**, pas une
+     dégradation. Son dénominateur est le ratio MINIMUM de la chaîne sur les cinq pilotages, donc
+     il s'effondre dès que le minimum s'effondre (lbang tilt 0,4476 -> 0,1581). Les quatre autres
+     ratios bougent de ±0,05. Classe `zero-from-an-empty-domain` appliquée à un dénominateur
+     auto-référencé : la colonne se lit comme une dégradation alors que rien n'a bougé.
+     À l'inverse, sur `lmidhair`/`rmidhair` l'`excess` du tilt BAISSE vraiment (0,315 -> 0,188 et
+     0,346 -> 0,165).
+
+ET LA LOI NE PRÉDIT BIEN QUE SUR UNE CHAÎNE — je ne surinterprète pas mon propre résultat
+-------------------------------------------------------------------------------------------
+Prédit `(stiff_A/stiff_B)²` contre mesuré :
+    lbang     prédit x1,51   mesuré x1,49   -> pile
+    rmidhair  prédit x3,93   mesuré x3,20
+    rbang     prédit x1,50   mesuré x2,22
+    backhair  prédit x2,19   mesuré x1,05   -> la moitié de l'effet
+    lmidhair  prédit x3,89   mesuré x1,29   -> le tiers
+Donc **le sens est confirmé partout, l'amplitude ne l'est que sur `lbang`.** Les chaînes sont en
+contact permanent (13 000 à 18 000 frames de contact) : la collision absorbe une part de la chute,
+et c'est probablement elle qui explique l'écart. Je n'ai pas mesuré cette part — je le dis plutôt
+que d'attribuer au hasard.
+Effet secondaire net et non cherché : les paires MIROIR se recollent. `lbang/rbang` 3,63x -> 2,43x,
+`lmidhair/rmidhair` 4,30x -> 1,73x. Une partie de l'asymétrie gauche/droite qu'on traînait depuis
+des jours était de la raideur mal placée, pas de la géométrie.
+
 BACKHAIR EST L'EXCEPTION, ET ELLE EST INSTRUCTIVE
   Sa raideur a baissé d'un facteur 2,19 en w², son affaissement n'a monté que de **5 %** (contre
   +49 à +220 % sur les quatre autres). Donc **son affaissement n'est pas limité par la raideur** :

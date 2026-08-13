@@ -176,12 +176,39 @@
 ;; AUCUN OPERATEUR N'EST AJOUTE AU SOLVEUR (DIRECTIVES 21:30 : « on arrete d'ajouter »). Cette phase
 ;; est de l'INSTRUMENT : elle rejoue une phase existante et reutilise un emetteur existant.
 (defconstant PHYSROOM-PH-BACK   5)
-(defconstant PHYSROOM-PH-PCOFF  6)
-(defconstant PHYSROOM-PH-PCON   7)
-(defconstant PHYSROOM-PH-AUTHPC 8)
-(defconstant PHYSROOM-PH-INVPC  9)
-(defconstant PHYSROOM-PH-SELFOFF 10)
-(defconstant PHYSROOM-PH-SELFON 11)
+;; LE CYCLE FERME DANS LE REGIME OU LE DEFAUT VIT, ET SON CONTROLE POSITIF.
+;;
+;; POURQUOI CES QUATRE PHASES EXISTENT. Le cycle `tilt` (PHYSROOM-PH-BACK) est QUASI-STATIQUE : elle
+;; se penche lentement et tient la pose. Il a rendu un ecart de retour <= 1,75 % de l'excursion —
+;; et ce zero-la ne prouve RIEN, pour deux raisons ecrites dans le contrat : aucun controle positif
+;; n'avait tire, et le stimulus n'exerce pas les termes a memoire du solveur (recul, reflexion de
+;; cote, attenuation), qui ne se declenchent que sur du mouvement RAPIDE. Les compteurs le disent :
+;; `lmidhair` encaisse 10 421 reculs sur la phase d'animations et quasiment aucun pendant la tenue.
+;; L'owner, lui, regarde des animations de jeu. Mesurer l'hysteresis dans un regime ou ses causes
+;; ne tirent pas, c'est la classe `stimulus-must-be-representative`.
+;;
+;; LE CYCLE : on SECOUE (`jerk`, la meme commande que le controle positif de penetration), puis on
+;; relache et on tient la pose. L'etat COMMANDE au depart et a l'arrivee est le meme — `home`,
+;; quaternion identite, animation figee sur la meme frame — exactement comme `back`. Un systeme sans
+;; memoire revient donc a la meme pose ; l'ecart EST l'hysteresis, cette fois dans le bon regime.
+;; REFERENCE : `back`, pas `idle` — c'est la pose etablie qui precede immediatement, mesuree de la
+;; meme facon, ce qui retire du calcul tout ce que le cycle `tilt` aurait pu laisser.
+;;
+;; LE CONTROLE POSITIF, ET IL N'AJOUTE AUCUN OPERATEUR : on rejoue le MEME cycle avec la contrainte
+;; de cote LEVEE (`phys-side-off-set!`, le bouton qui existe deja et que la salle arme deja plus
+;; bas). Contrainte levee, un maillon qui passe du mauvais cote de l'axe d'un volume y RESTE — un
+;; equilibre stable mais faux, qui est precisement un non-retour. Si `gap` ne monte pas quand on
+;; leve ce verrou, c'est que la mesure ne mesure rien, et je le dirai.
+(defconstant PHYSROOM-PH-SHAKE    6)   ;; secousse `jerk`,       cycle NORMAL
+(defconstant PHYSROOM-PH-SHAKEN   7)   ;; relache + tenue,       emet `shaken`
+(defconstant PHYSROOM-PH-SHAKEPC  8)   ;; secousse `jerk`,       contrainte de cote LEVEE
+(defconstant PHYSROOM-PH-SHAKENPC 9)   ;; relache + tenue,       emet `shakenpc`
+(defconstant PHYSROOM-PH-PCOFF 10)
+(defconstant PHYSROOM-PH-PCON 11)
+(defconstant PHYSROOM-PH-AUTHPC 12)
+(defconstant PHYSROOM-PH-INVPC 13)
+(defconstant PHYSROOM-PH-SELFOFF 14)
+(defconstant PHYSROOM-PH-SELFON 15)
 ;; CONTROLE POSITIF DE LA CONTRAINTE DE COTE — DEUX BRANCHES QUI BALAYENT LES ANIMATIONS.
 ;;
 ;; Ce que faisait la version precedente, et pourquoi elle a rendu `armed=0 disarmed=0` : la branche
@@ -196,14 +223,14 @@
 ;; pilotage : exposition identique de part et d'autre, ce qui est la seule facon de comparer deux
 ;; comptes. C'est aussi la correction que le cycle precedent avait ecrite sans la poser : comparer
 ;; 43 evenements sur 90 frames a 11446 sur 16740 rapprochait deux expositions differentes.
-(defconstant PHYSROOM-PH-SIDEOFF 12)   ;; contrainte EN PLACE   — la reference
-(defconstant PHYSROOM-PH-SIDEON  13)   ;; contrainte LEVEE      — le compteur DOIT monter
+(defconstant PHYSROOM-PH-SIDEOFF 16)   ;; contrainte EN PLACE   — la reference
+(defconstant PHYSROOM-PH-SIDEON 17)   ;; contrainte LEVEE      — le compteur DOIT monter
 ;; CONTROLE POSITIF DU FOURREAU (defaut ouvert `pant-calf`). La contrainte de concentricite
 ;; remplace l'ejection laterale du pan de pantacourt hors du mollet ; son residu doit tomber a zero,
 ;; et un zero que rien ne peut faire monter ne prouve rien. ARMEE, `phys-shell-off-set!` rend au pan
 ;; sa sphere de poussee d'avant : l'ecart radial DOIT remonter.
-(defconstant PHYSROOM-PH-SHELLOFF 14)
-(defconstant PHYSROOM-PH-SHELLON  15)
+(defconstant PHYSROOM-PH-SHELLOFF 18)
+(defconstant PHYSROOM-PH-SHELLON 19)
 ;; CONTROLE POSITIF DU PREDICAT CONIQUE. Les 24 capsules livrees sont TOUTES coniques, et le moteur
 ;; testait jusqu'ici le rayon interpole au parametre de PROJECTION au lieu du solide que la donnee
 ;; designe — un ensemble strictement plus PETIT, donc un solveur qui cesse de pousser trop tot.
@@ -211,10 +238,10 @@
 ;; le solide exact des deux cotes (`phys-pen-chain` force l'exactitude), sinon le compteur
 ;; tomberait sous le defaut au lieu de monter. Les deux branches balayent les MEMES animations —
 ;; c'est la lecon du controle de cote qui rendait 0 contre 0 sur une fenetre trop etroite.
-(defconstant PHYSROOM-PH-CONEOFF  16)
-(defconstant PHYSROOM-PH-CONEON   17)
-(defconstant PHYSROOM-PH-REPORT 18)
-(defconstant PHYSROOM-PH-DONE   19)
+(defconstant PHYSROOM-PH-CONEOFF 20)
+(defconstant PHYSROOM-PH-CONEON 21)
+(defconstant PHYSROOM-PH-REPORT 22)
+(defconstant PHYSROOM-PH-DONE 23)
 
 (deftype phys-subject (process-drawable)
   ((phase   int32)
@@ -1107,6 +1134,42 @@
        ;; la POSITION MOYENNE redressee, APRES l'aller-retour. Son ecart avec `idle` EST
        ;; l'hysteresis ; son ecart avec `tilt` est la part du sag qui a bien ete rendue.
        (physroom-emit-mean "back")
+       (set! (-> self phase) PHYSROOM-PH-SHAKE)
+       (set! (-> self pframe) 0)
+       (phys-stats-reset!)))
+
+    ;; ---- 4 ter. ON SECOUE, PUIS ON RELACHE — le cycle ferme dans le regime ou le defaut vit.
+    ;; ---- Voir la note de PHYSROOM-PH-SHAKE : le cycle `tilt` est quasi-statique et n'exerce pas
+    ;; ---- les termes a memoire ; celui-ci les exerce.
+    ((= (-> self phase) PHYSROOM-PH-SHAKE)
+     (physroom-drive 3 (-> self pframe))            ;; `jerk` : vitesse posee d'un coup, arrets brutaux
+     (when (>= (-> self pframe) PHYSROOM-PCW)
+       (set! (-> self phase) PHYSROOM-PH-SHAKEN)
+       (set! (-> self pframe) 0)))
+
+    ((= (-> self phase) PHYSROOM-PH-SHAKEN)
+     (physroom-hold)
+     (when (= (-> self pframe) PHYSROOM-IDLES) (phys-stats-reset!))
+     (when (>= (-> self pframe) (+ PHYSROOM-IDLES PHYSROOM-IDLEM))
+       ;; meme etablissement et meme fenetre que `idle` et `back` : les trois poses sont comparables.
+       (physroom-emit-mean "shaken")
+       (set! (-> self phase) PHYSROOM-PH-SHAKEPC)
+       (set! (-> self pframe) 0)
+       (phys-side-off-set! 1)                       ;; CONTROLE POSITIF : contrainte de cote LEVEE
+       (phys-stats-reset!)))
+
+    ((= (-> self phase) PHYSROOM-PH-SHAKEPC)
+     (physroom-drive 3 (-> self pframe))            ;; MEME secousse, meme duree : seule la garde differe
+     (when (>= (-> self pframe) PHYSROOM-PCW)
+       (set! (-> self phase) PHYSROOM-PH-SHAKENPC)
+       (set! (-> self pframe) 0)))
+
+    ((= (-> self phase) PHYSROOM-PH-SHAKENPC)
+     (physroom-hold)
+     (when (= (-> self pframe) PHYSROOM-IDLES) (phys-stats-reset!))
+     (when (>= (-> self pframe) (+ PHYSROOM-IDLES PHYSROOM-IDLEM))
+       (physroom-emit-mean "shakenpc")
+       (phys-side-off-set! 0)                       ;; on DESARME : la suite de la course est normale
        (set! (-> self phase) PHYSROOM-PH-PCOFF)
        (set! (-> self pframe) 0)
        (phys-inject-set! 0.0)
