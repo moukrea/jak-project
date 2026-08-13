@@ -30,6 +30,40 @@ pudding, pas des mouvements naturels de cheveux ! »
    racine→pointe. Repère LOCAL. **Ne pas dériver ça d'une formule d'amortissement supposée du
    solveur : on le lit dans la salle.**
 
+**CAUSE STRUCTURELLE TROUVÉE 16:35 — ARRÊTER DE RÉGLER L'AMORTISSEMENT SUR CES TROIS CHAÎNES.**
+
+La salle le dit elle-même à l'exécution : `mono=n/a(1 lien libre)` sur `backhair`, `lmidhair`,
+`rmidhair`, contre `lag01/lag12/lag23` sur `lbang`/`rbang`. Confirmé par la donnée livrée, le
+compte de `radii` = un rayon par maillon :
+
+    backhair   radii=358,442,360           3 articulations  -> 1 maillon libre (root verrouillé)
+    lmidhair   radii=222,145,363           3 articulations  -> 1 maillon libre
+    rmidhair   3 articulations                              -> 1 maillon libre
+    lbang      radii=112,104,154,189       4 articulations  -> l'onde peut descendre
+    rbang      4 articulations                              -> l'onde peut descendre
+
+**UN MAILLON LIBRE EST UN BLOC PAR CONSTRUCTION.** Il n'y a rien derrière lui pour être en retard :
+aucune valeur d'amortissement, de raideur ou de masse ne peut créer une propagation racine→pointe
+sur une chaîne qui n'a qu'un seul maillon qui bouge. Le « tout part en bloc » que l'owner appelle
+pudding **n'est pas un réglage mal choisi, c'est l'absence du degré de liberté**.
+
+**LES CHAÎNES QU'IL REJETTE SONT EXACTEMENT CELLES QUI N'ONT PAS REÇU D'OS.** `keira-hd-inject-joints.txt`
+déclare pourtant une ligne pour chacune (`backhair backHair2 backHair3`, `lmidhair Lmidhairb
+Lmidhairc`, `rmidhair Rmidhairb Rmidhairc`) — mais `lbang`/`rbang` sont passés à 4 articulations et
+ces trois-là sont restées à 3. **L'injection n'a pas abouti pour elles : c'est ÇA le travail.**
+
+C'est la même classe que `knee-tabs`, que l'owner a fermé, et que le passage de `lbang` à 4 maillons.
+Recette connue, ~45 min, plafond `PHYS-LINKS 4` (`jak-hd-physics.gc:125`) — ces chaînes vont de 3 à
+4, donc **sous le plafond, aucune constante à toucher**.
+
+Et ça referme les DEUX défauts prioritaires d'un coup : `hair-pudding` (l'onde pourra descendre) et
+`hair-anchored-geo` (le repesage accompagne l'injection, cov 0.73–0.86 → profil de `lbang` 0.977) —
+mêmes chaînes, même correctif d'asset.
+
+**PREUVE EXIGÉE, à l'exécution, pas dans un commentaire** : `radii=` à 4 valeurs sur les trois
+chaînes, la salle qui cesse d'écrire `1 lien libre`, et `ROOM-RINGDOWN` qui remonte dans la bande
+approuvée (84–96 frames, retard racine→pointe ≥ 5).
+
 **PRÉCISION 16:05 — MA FORMULATION ÉTAIT AMBIGUË ET ELLE A PRODUIT UNE COPIE.**
 J'ai écrit « la cible est la valeur mesurée sur lbang/rbang ». Le worker a copié le PARAMÈTRE
 (`damping=0.0784` recopié tel quel sur trois chaînes de raideur et de masse différentes). Ce n'est
