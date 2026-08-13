@@ -600,6 +600,23 @@ CE QUE JE NE FAIS PAS : la directive du 22:40 interdit explicitement « tout nou
 repesage » tant que le modele n'est pas en place. Je mesure, je publie, je m'arrete la. Le correctif
 est un repesage du donneur, et il appartient a l'owner ou au superviseur de l'autoriser.
 
+3j. `pant-calf` EST INERTE AU SOLVEUR, ET LES SEPT COURSES DE LA NUIT LE PROUVENT SANS RIEN COUTER
+------------------------------------------------------------------------------------------------
+`pantflapL` et `pantflapR` publient **exactement 0.3294** de `meshpen`, aux quatre decimales, dans
+CHACUNE des courses de la nuit — course 1 (terme moteur), 2 (fermeture du franchissement), 4, 6
+(calibration §24), 7 (finition alternee). Ces courses portent des solveurs qui different sur le
+terme moteur, sur le terme elastique, sur le gradient, sur l'ordre des contraintes et sur les
+parametres. Tout le reste du modele bouge d'une course a l'autre ; ces deux chaines, jamais.
+
+Une grandeur qui ne bouge sous AUCUN changement de solveur n'est pas produite par le solveur.
+C'est le meme raisonnement que pour `meshpen` (un chiffre qui depasse sa borne arithmetique) et pour
+la propriete de peau (un profil qui s'effondre) : **`pant-calf` est un defaut d'ASSET/RIG, pas de
+moteur**, ce que le dossier disait deja (« pantflap est un TUBE, il faut le re-rigger ») et que ces
+sept courses confirment gratuitement.
+
+Consequence pratique : continuer a chercher `pant-calf` dans le solveur est du temps perdu, et je le
+signale pour que le prochain cycle ne recommence pas.
+
 3h. LES GATES QUI RESTENT ROUGES
 -----------------------------------
   * `COLLIDE` : `meshpen` max cheveux **0.5648** (`rbang`) — légèrement PIRE qu'avant la course 7,
