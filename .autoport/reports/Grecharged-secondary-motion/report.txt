@@ -425,6 +425,44 @@ CE QUI N'EST PAS PROUVÉ — liste explicite, aucun de-scope silencieux
      reposerait sur un instrument dont je ne sais pas ce qu'il mesure.
 
 
+DIRECTIVE ARRIVÉE PENDANT CE CYCLE (22:37) — ELLE SUPERSÈDE MON CORRECTIF, ET MES CHIFFRES LA SERVENT
+======================================================================================================
+Owner : « Physique = simulation, gravité, masse, élasticité, déformation, solidité… j'ai
+l'impression que tu fais juste bouger des trucs, tu simules rien du tout. » Diagnostic du
+superviseur : ce que le solveur intègre est un **ÉCART À LA POSE ANIMÉE**, rappelé vers zéro
+(`position = pose animée + écart`), donc **l'équilibre est le dessin de l'animateur et non une
+position déterminée par la gravité**. Et l'excitation est l'ACCÉLÉRATION de l'animation, donc un
+mouvement petit mais sec donne un coup — littéralement « taper sur un pudding au moindre
+mouvement ». La consigne : **INTERDIT de régler `stiffness`/`damping`/`gravity`/`maxangle`, d'ajouter
+un opérateur ou une gate** tant qu'une vraie simulation de particules n'est pas en place.
+
+**Je m'y arrête donc, et je ne toucherai plus un réglage.** Mais il faut voir que les mesures de ce
+cycle ne sont pas perdues : elles sont la preuve chiffrée de ce diagnostic-là.
+  * « pas de masse, pas de chute » : je l'ai quantifié — chaque mèche est un ressort **1,5 à 3,9 ×
+    plus raide que la gravité** de sa propre longueur, les oreilles 10,8 ×. Un ressort aussi raide
+    devant la gravité NE PEUT PAS avoir une pose de repos déterminée par la gravité.
+  * la meilleure preuve est un effet secondaire que je n'avais pas prévu : en desserrant le
+    ressort, **la pose de repos DEBOUT est tombée** (`ROOM-IDLE maxdev` 0,0237 -> 0,0721,
+    `lmidhair at0` x3,9). Or l'annulation de gravité debout est censée être exacte. Ce que ça
+    montre, c'est que le rappel vers la pose de l'animateur MASQUAIT un résidu de gravité — le
+    ressort tenait la chaîne à la place que l'animateur avait dessinée. C'est exactement
+    « l'équilibre est le dessin de l'animateur », mesuré.
+  * et la seule chaîne dont l'owner ait jamais dit du bien est la seule qui soit à la fréquence de
+    sa propre gravité (−4 %). Dans le modèle à venir, où la pose de repos ÉMERGE de la gravité,
+    c'est ce régime-là qui devient la norme pour toutes.
+
+CE QUE JE LAISSE AU MODÈLE SUIVANT, chiffré, pour qu'il n'ait pas à le redécouvrir :
+  * longueurs libres par chaîne (0,227 à 0,469 m) et fréquence pendulaire correspondante ;
+  * `g` du moteur = 9,81 m/s² exactement (`gy = −11,16` u/frame², :3257) — pas besoin d'un facteur ;
+  * `damping=` est une décroissance PAR FRAME, donc la durée de ballottement en dépend seule ;
+  * `ROOM-RINGDOWN` est probablement confondu par l'affaissement : ne pas en faire une cible ;
+  * `hang=` est déclaré sur 11 chaînes et **consommé par personne** dans le solveur ;
+  * deux passes du solveur sont MORTES (`phys-prio-off-set!`, `phys-jacobi-off-set!` sans appelant) ;
+  * `phys-softmin` est appliquée deux fois par frame sur les cheveux malgré sa propre docstring.
+  Les quatre derniers points sont des RETRAITS possibles — la boucle doit être petite (1 241 lignes
+  couvraient tout le casting, 4 798 font moins bien sur un personnage).
+
+
 ÉTAT DU VALIDATEUR
 ====================
 Le vrai validateur s'arrête sur **OPEN-DEFECTS : 13 défauts** rapportés par l'owner. Cette gate ne
