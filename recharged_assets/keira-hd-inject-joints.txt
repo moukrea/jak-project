@@ -1,0 +1,22 @@
+# keira-hair-joints.txt — DERIVED by .autoport/probe_hair_joint_deficit.py.
+# DO NOT HAND-EDIT: regenerate with
+#   python3 .autoport/probe_hair_joint_deficit.py \
+#       --glb out/jak1/fr3/skin/keira-hd-lod0.glb --emit-spec recharged_assets/keira-hd-inject-joints.txt
+#
+# One appended joint per hair chain, at s = s_p95 of that chain's own skinned
+# mass, measured on the SHIPPED mesh (prep re-indexes joints; the raw donor rip
+# still carries the level's vertex pool and reads 3.6 m of 'hair'). Donor and
+# prepped bind spaces verified identical to 0.00000000 m, so these positions
+# apply to the donor unchanged.
+#
+# chain      parentJoint   newJoint      x            y            z    (metres)
+backhair    backHair2     backHair3        0.000000     2.149793    -0.083691
+#   s_p95 2.162  new bone 0.1227 m  residual mass past it 4.4%
+lmidhair    Lmidhairb     Lmidhairc        0.354272     2.362916     0.082650
+#   s_p95 1.974  new bone 0.2289 m  residual mass past it 4.8%
+rmidhair    Rmidhairb     Rmidhairc       -0.356873     2.359355     0.080323
+#   s_p95 1.996  new bone 0.2339 m  residual mass past it 4.6%
+lbang       Lbangc        Lbangd           0.217718     2.351184     0.221877
+#   s_p95 1.813  new bone 0.1555 m  residual mass past it 4.9%
+rbang       Rbangc        Rbangd          -0.217618     2.351408     0.221992
+#   s_p95 1.811  new bone 0.1552 m  residual mass past it 4.4%

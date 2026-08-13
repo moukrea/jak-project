@@ -50,6 +50,10 @@ from retarget_hd_models import read_glb, consolidate_buffers, skin_info    # noq
 MODEL = 'keira-hd'
 RIG_REL = 'recharged_assets/hd_anim/keira-hd-k2e.json'
 GLB_REL = 'decompiler_out/jak2/levels/lintcstb/keira-highres-lod0.glb'
+# The mesh actually read, resolved from the rig json at generate() time. GLB_REL is the BASE donor;
+# when joints are injected the rig records the derived donor and this carries it into the header,
+# so the emitted file never misstates its own input.
+RESOLVED_GLB = GLB_REL
 BAK_REL = 'recharged_assets/physics_chains.FULL-CAST.bak'
 OUT_REL = 'recharged_assets/physics_chains.txt'
 
@@ -242,11 +246,22 @@ CATEGORY_RULES = [
 EXPECTED_GROUPS = {
     'earL':       ['lEara', 'lEarb'],
     'earR':       ['rEara', 'rEarb'],
-    'backhair':   ['backHair1', 'backHair2'],
-    'lbang':      ['Lbanga', 'Lbangb', 'Lbangc'],
-    'rbang':      ['Rbanga', 'Rbangb', 'Rbangc'],
-    'lmidhair':   ['Lmidhaira', 'Lmidhairb'],
-    'rmidhair':   ['Rmidhaira', 'Rmidhairb'],
+    # 2026-08-13 — the five HAIR chains each gained ONE appended joint
+    # (recharged_assets/keira-hd-inject-joints.txt, injected at the point of production by
+    # scripts/shell/build_hd_actor_artgroup.sh and build_enhanced_models.sh).
+    # Measured cause: 95 % of every strand's skinned mass sat at s = 1.8..2.2 bone lengths while
+    # the articulated part reached 1.0, so the whole distal half was carried RIGIDLY by the last
+    # joint — the owner's "les pointes sont ancrées au même titre que les racines". It is also why
+    # no gradient was representable: with rootlock=1 a 2-joint chain has exactly ONE free link.
+    # After injection, s_p95 = 1.000 on all five and the 2-joint chains have TWO free links.
+    # The EARS are deliberately NOT extended: same rule would apply (s_p95 2.259) but the owner has
+    # reported no geometry break on them, and they are animation-driven (mode 1/3, not glue).
+    # Measured and reported, not silently skipped.
+    'backhair':   ['backHair1', 'backHair2', 'backHair3'],
+    'lbang':      ['Lbanga', 'Lbangb', 'Lbangc', 'Lbangd'],
+    'rbang':      ['Rbanga', 'Rbangb', 'Rbangc', 'Rbangd'],
+    'lmidhair':   ['Lmidhaira', 'Lmidhairb', 'Lmidhairc'],
+    'rmidhair':   ['Rmidhaira', 'Rmidhairb', 'Rmidhairc'],
     'chestL':     ['lBoob'],
     'chestR':     ['rBoob'],
     # les VERRES (gogglesLeft/gogglesRight, 488 des 515 sommets des lunettes) sont deux branches
@@ -934,11 +949,23 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
     if list(geo['names']) != names:
         raise SystemExit('GLB skin joint list does not match the rig json joint list')
     rel_src = geo['src'].replace('\\', '/')
-    if rel_src != GLB_REL:
-        raise SystemExit(f"rig points at {rel_src}, expected {GLB_REL}")
+    # THE RIG IS THE SINGLE SOURCE OF TRUTH FOR WHICH MESH TO READ.
+    # This used to be `rel_src != GLB_REL -> die`, which made the constant below authoritative over
+    # the rig. Since 2026-08-13 the donor is augmented with physics joints before the art-group and
+    # the bake read it, so <char>-k2e.json legitimately records a DERIVED donor and the hard
+    # equality killed every regeneration ("rig points at ... expected ...").
+    # Nothing is loosened: the check that actually protects correctness is the joint-list identity
+    # immediately above (mesh skin joints == rig joint list), and it is untouched. What this one
+    # protected was "don't silently read a different mesh than documented" — so it now RESOLVES
+    # from the rig, says so out loud, and the emitted header records the path really read (it used
+    # to print GLB_REL unconditionally, i.e. it would have lied about its own input).
+    global RESOLVED_GLB
+    RESOLVED_GLB = rel_src
     idx_of = {n: i for i, n in enumerate(names)}
     log(f"rig  {RIG_REL}: {len(names)} joints")
-    log(f"mesh {GLB_REL}: {len(geo['V'])} vertices skinned to this model's primitives")
+    if rel_src != GLB_REL:
+        log(f"mesh OVERRIDE by the rig: {rel_src}  (base donor {GLB_REL})")
+    log(f"mesh {rel_src}: {len(geo['V'])} vertices skinned to this model's primitives")
 
     groups, order = derive_groups(names, parent)
     if groups != EXPECTED_GROUPS:
@@ -1406,7 +1433,7 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
     L.append(f'# generated: {stamp}   (regenerate: python3 .autoport/physics_keira_gen2.py --stamp {stamp})')
     L.append('#')
     L.append(f'# rig  (joint order + hierarchy) : {RIG_REL}')
-    L.append(f'# mesh (skin weights, radii fit) : {GLB_REL}')
+    L.append(f'# mesh (skin weights, radii fit) : {RESOLVED_GLB}')
     L.append('#')
     L.append('# Contract: .autoport/prompts/SPEC-keira-physique.md (clean restart 2026-08-11).')
     L.append('# SPEC section 1 — what has physics, and NOTHING else: ears, hair (root anchored),')

@@ -75,6 +75,38 @@ mkdir -p "$OUT"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
+# a-bis. PHYSICS JOINT INJECTION, at the point of production (secondary-motion, 2026-08-13).
+# A hair chain only articulates the geometry it has joints for, and Keira's ran out halfway
+# down every strand: measured on the shipped mesh, 95% of a strand's skinned mass sat at
+# s=1.8..2.2 bone lengths while the articulated part reached 1.0, so the whole distal half was
+# carried RIGIDLY by the last joint. That is the owner's most-repeated defect ("les pointes sont
+# ancrées au même titre que les racines"), and it is also why no root->tip gradient was
+# representable: with rootlock=1 a 2-joint chain has exactly ONE free link.
+#
+# The injection runs HERE, on the donor, and identically in build_enhanced_models.sh — the art
+# group, the k->e table and the baked mesh must agree on the joint list or the physics resolves
+# its joints by name against a rig the mesh does not have. Driving both from ONE committed spec
+# is what makes disagreement impossible, rather than detectable later (owner: "quand une perte
+# se répète, on la rend impossible au point de production").
+#
+# No spec for a character => untouched donor, byte-identical passthrough.
+#
+# The augmented donor goes to a STABLE path, not the scratch dir: retarget_fill_table.py records
+# the donor path it read into <char>-k2e.json's `hd_glb`, and every later reader resolves the mesh
+# through it (physics_c6_volumes.load_geometry, hence physics_keira_gen2). A temp path there
+# produces a k2e that points at a directory deleted on exit — measured: gen2 died with "could not
+# load geometry for keira-hd" immediately after the first regeneration.
+INJ_SPEC="recharged_assets/$CHAR-inject-joints.txt"
+if [ -f "$INJ_SPEC" ]; then
+  INJ_OUT="out/jak1/fr3/skin/$CHAR-donor-injected.glb"
+  mkdir -p "$(dirname "$INJ_OUT")"
+  log "0/3 inject physics joints from $INJ_SPEC -> $INJ_OUT"
+  python3 .autoport/physics_inject_joints.py --in "$HD" --out "$INJ_OUT" \
+      --spec "$INJ_SPEC" --report "$TMP/$CHAR-inject.txt" \
+    || { log "FATAL: joint injection for $CHAR failed"; exit 1; }
+  HD="$INJ_OUT"
+fi
+
 log "1/3 prep rip GLB -> build_actor-ready (keep HD skeleton, drop align, u32->u8, compact)"
 python3 "$PREP" --in "$HD" --out "$TMP/$CHAR.glb" --report "$TMP/$CHAR-prep.txt"
 

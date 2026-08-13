@@ -214,6 +214,27 @@ for lvl in "${APPEND_LEVELS[@]}"; do
       log "FATAL: donor fr3 '$donor_fr3' missing for $char — cannot stamp draw modes/eye slots"
       rm -rf "$ENHANCED_OUT"; exit 1
     fi
+    # ---- PHYSICS JOINT INJECTION (secondary-motion, 2026-08-13) ----------------------------
+    # Same spec, same tool, same donor as scripts/shell/build_hd_actor_artgroup.sh — see the
+    # long note there. The art-group and the baked mesh MUST agree on the joint list: physics
+    # resolves its joints BY NAME against the art-group's jgeo, so a mesh with joints the art
+    # group lacks moves nothing, and the reverse indexes past the end. One committed spec drives
+    # both, so they cannot disagree.
+    # No spec for a character => untouched donor, byte-identical passthrough.
+    # Same STABLE path as build_hd_actor_artgroup.sh writes: <char>-k2e.json records the donor it
+    # was built from, so the file must outlive the run. The injector is deterministic (no clock, no
+    # randomness), so whichever script writes it last produces identical bytes.
+    INJ_SPEC="recharged_assets/$char-inject-joints.txt"
+    if [ -f "$INJ_SPEC" ]; then
+      INJECTED="$FR3_DIR/skin/$char-donor-injected.glb"
+      mkdir -p "$(dirname "$INJECTED")"
+      python3 .autoport/physics_inject_joints.py --in "$glb" --out "$INJECTED" \
+          --spec "$INJ_SPEC" --report "$HD_TMP/$char-inject.txt" >/dev/null 2>&1 \
+        || { log "FATAL: joint injection of $char from '$INJ_SPEC' failed"; rm -rf "$ENHANCED_OUT"; exit 1; }
+      log "inject: $char donor carries the physics joints of $INJ_SPEC"
+      glb="$INJECTED"
+    fi
+
     STAMPED="$HD_TMP/$char-stamped.glb"
     "$SWAP_BIN" stamp "$donor_fr3" "$donor_model" "$glb" "$STAMPED" \
       || { log "STAMP of $char from '$donor_fr3' ($donor_model) failed"; rm -rf "$ENHANCED_OUT"; exit 1; }
