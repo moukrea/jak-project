@@ -25,6 +25,24 @@
 # separe pour plus tard, au lieu de voir que c'etait le MEME chantier pas termine.
 # ============================================================================================
 #
+# ============================================================================================
+# 2026-08-13 20:40 — LES DEUX DEFAUTS PRIORITE 1 N'EN SONT QU'UN, ET IL EST MESURE
+# ============================================================================================
+# `backHair4` a bien ete injecte, le solveur le fait bouger (PHYSBONE c=2 l=3 len=258.0191,
+# aucun NaN) -- et AUCUN sommet ne le suit. Repartition des sommets par joint MAJORITAIRE
+# (w>0.5), racine -> pointe, sur le mesh LIVRE :
+#       lbang     APPROUVE    94   9  10  36     la peau est repartie sur les quatre
+#       backhair  REJETE       0   0 124   0     toute la nuque sur UN seul joint
+# Une piece rigide pendue a une seule charniere. « La geometrie reste ancree » et « ca part en
+# bloc » sont LE MEME MECANISME, et aucune valeur de raideur, de masse ou d'amortissement ne
+# peut y toucher.
+#
+# ET MA MESURE NE POUVAIT PAS LE VOIR : `cov` SOMME sur les joints. Elle affichait 0.83 sur la
+# nuque -- que j'ai rapporte comme un progres -- alors que les 124 sommets etaient sur un seul
+# joint. Une couverture elevee et une concentration totale sont indiscernables pour elle.
+# La grandeur qui discrimine est la REPARTITION par joint, pas la somme.
+# ============================================================================================
+#
 OPEN hair-anchored-geo  PRIORITE 1 -- « une partie de la geometrie reste ancree et ca casse » (3e passe
 #                    de l'owner sur ce point). CE N'EST PAS LE `tear`, ET C'EST LA MON ERREUR: le
 #                    cycle precedent a ferme la COUTURE (rmidhair tear 82->0) et la couture est bien

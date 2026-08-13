@@ -159,3 +159,23 @@ Mesure : il n'y a **aucune géométrie au-delà de leur pointe** (`tail_m` 0,000
 35–37 % sur les chaînes approuvées, ce qui appelle une **subdivision**, pas une extension.
 Verrou : avant de transposer une recette, mesurer que la chaîne cible présente le même manque que
 celle où la recette a marché — « même famille » ne veut pas dire « même défaut ».
+
+GUARD sum-hides-concentration .autoport/reports/Grecharged-secondary-motion/owner-defects.txt cov` SOMME sur les joints
+**Publier une somme là où le défaut est une concentration.** `ROOM-SKINCOV` additionne les sommets
+pilotés par n'importe quel joint de la chaîne. Sur la nuque elle affichait **0,83** — que j'ai
+rapporté à l'owner comme un progrès — alors que **les 124 sommets étaient sur UN SEUL joint** (0, 0,
+124, 0 contre 94, 9, 10, 36 sur la chaîne qu'il approuve). Une pièce rigide pendue à une charnière
+unique : « la géométrie reste ancrée » et « ça part en bloc » étaient le même mécanisme, invisible à
+la somme. Verrou : quand un défaut se décrit par une **répartition** (« une partie ne suit pas »,
+« tout part ensemble »), la mesure doit publier la distribution, jamais son total — un total élevé et
+une concentration totale sont indiscernables. Voir aussi [[measurement must discriminate]].
+
+GUARD floor-ratchet-mirror .autoport/validators/phase-Grecharged-secondary-motion.sh FLOOR-WEAK
+**Un plancher qui encliquette sa propre plus haute excursion.** `FLOOR-WEAK` stocke un maximum
+courant. Sur `kneeflapL`/`kneeflapR` — paire miroir aux paramètres **identiques** et aux réponses
+mesurées quasi identiques (tilt 0,0412 contre 0,0334) — les planchers stockés valaient **0,0884 et
+0,0174, un facteur 5,1**. Sur une grandeur à faible signal, le plancher retient le bruit le plus
+favorable jamais vu et exige ensuite de le reproduire : la gate rouge n'était pas une régression,
+c'était mon propre encliquetage. Verrou : sur une paire miroir, les planchers doivent être calés
+ensemble ; et un plancher se calibre sur une statistique robuste, pas sur le maximum jamais observé.
+Même famille que [[feedback_ratchet_running_max_eats_itself]].
