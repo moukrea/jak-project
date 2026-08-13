@@ -845,6 +845,11 @@ Deux affirmations de source contredites par la mesure, à corriger ou à retirer
 
 7. CE QUE L'OWNER DOIT REGARDER SUR CE BUILD
 =============================================
+AVANT LA LISTE, UNE QUESTION PRECISE QUE J'AI BESOIN QU'IL TRANCHE (§3o) : quand il dit
+« beaucoup d'hysteresis pour TOUS les cheveux », est-ce que ce sont les MECHES elles-memes, ou les
+BRETELLES et les LUNETTES qui bougent avec elles ? L'instrument dit que les cheveux reviennent a
+moins d'un millimetre apres un aller-retour a 60 degres, et que les sangles restent a 12-43 cm.
+Son oeil tranche, pas mon chiffre — mais la reponse change entierement ou il faut chercher.
 Par ordre de risque, le premier étant celui dont je ne sais pas s'il se voit :
 
   1. **UN SAUT BREF SUR LES SANGLES ET LES BRETELLES.** C'est le prix mesuré de la fermeture du
