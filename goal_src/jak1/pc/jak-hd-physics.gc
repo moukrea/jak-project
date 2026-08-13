@@ -887,6 +887,16 @@
                     (when (>= role 0)
                       (let ((c    (shr role 8))
                             (link (logand role 255)))
+                        ;; UNE TRONCATURE SILENCIEUSE EST UN DE-SCOPE (2026-08-13). Un maillon
+                        ;; au-dela de PHYS-LINKS etait simplement ignore, sans un mot : la chaine
+                        ;; tournait avec moins d'os que les donnees en declarent et rien ne le
+                        ;; disait. L'injection de joints de ce cycle amene lbang/rbang a EXACTEMENT
+                        ;; 4 maillons, soit le plafond — le prochain os ajoute tomberait dans ce
+                        ;; trou. On ne releve pas le plafond (il dimensionne plusieurs tableaux),
+                        ;; on le rend BRUYANT.
+                        (when (and (< c nc) (>= link PHYS-LINKS))
+                          (format 0 "PHYSTRUNC c=~D link=~D cap=~D joint=~S~%"
+                                  c link PHYS-LINKS jn))
                         (when (and (< c nc) (< link PHYS-LINKS))
                           (let ((sc (+ (* slot PHYS-CHAINS) c)))
                             (set! (-> *phys-joint* (+ (* sc PHYS-LINKS) link)) k)

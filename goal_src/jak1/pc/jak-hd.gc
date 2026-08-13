@@ -299,7 +299,16 @@
   "jak-hd" "dax-hd" "keira-hd" "samos-hd"
   "jak2-hd" "jak3-hd" "daxp-hd" "keira3-hd" "ysamos-hd"
   "jakm-hd" "jakp-hd"))
-(define *hd-joint-counts* (new 'static 'array int32 11 75 62 95 80 63 59 65 94 58 59 63))
+;; UN QUATRIEME ENDROIT QUI PORTE LE COMPTE DE JOINTS, ET IL A FAIT ECHOUER L'INJECTION (2026-08-13).
+;; `init-jak-hd` en tire `hd-joints`, qui BORNE la boucle de retargeting (:487 `(dotimes (k (-> obj
+;; hd-joints)))`). keira-hd est passee a 100 joints dans les quatre tableaux k2e ci-dessus, mais ce
+;; compte-ci etait reste a 95 : les joints 95..99 n'etaient JAMAIS ecrits, leurs matrices d'os
+;; restaient non initialisees, et le moteur mesurait `PHYSBONE c=2 l=2 len=NaN` -> maillon degenere,
+;; `amp=0.0000` sur les cinq os injectes. Symptome exact : l'os existe partout (art-group, mesh,
+;; k2e, chaine resolue par nom) et ne bouge pas.
+;; Ces onze nombres DOIVENT egaler la taille declaree des tableaux `*<char>-hd->driver-joint*`.
+;; Verifie par `python3 .autoport/hd_check_joint_counts.py`, qui lit les deux et refuse un ecart.
+(define *hd-joint-counts* (new 'static 'array int32 11 75 62 100 80 63 59 65 94 58 59 63))
 ;; asset-missing latch per entry, int 0/1 (NEVER a symbol in a static array: 0 is truthy).
 ;; Latched when the external HD art-group is absent (user has no jak2/jak3 dump -> the IP gating
 ;; ships no <char>-ag.go). Prevents a respawn-retry storm; cleared when the toggle goes OFF so
