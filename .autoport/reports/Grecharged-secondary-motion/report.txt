@@ -556,6 +556,50 @@ RETIRE. Preuve que le retrait est exact et non « a peu pres » : apres recompil
 rend le md5 **`1c29275b8ed16f132ccdf1c74e780249`**, bit pour bit celui de la course 7. L'etat livre
 est donc mesure par le tableau de la course 7, sans repayer une course.
 
+3i. DEUX INSTRUMENTS INDEPENDANTS TOMBENT SUR LE MEME PARTAGE 3-CONTRE-4, ET LE SECOND DIT QUE
+    QUATRE DEFAUTS SUR CINQ NE SONT PAS DANS LE SOLVEUR
+------------------------------------------------------------------------------------------------
+Mesure faite sur le mesh LIVRE (`.autoport/probe_hair_ownership_profile.py`, 2026-08-14). Elle ne
+regarde ni le solveur ni la salle : uniquement les POIDS DE PEAU, tranche par tranche le long de la
+meche, de la racine vers la pointe. NATURE : une fraction de propriete, sans dimension. REPERE :
+abscisse normalisee dans la pose de BIND.
+
+  chaine     racine  0-25%  25-50%  50-75%  75-100%  100-150%  >150%     tendance
+  lbang       0.952  1.000  1.000   1.000   1.000    0.535     **0.081**  -0.919  DEFAUT
+  rbang       0.933  1.000  1.000   1.000   1.000    0.613     **0.080**  -0.920  DEFAUT
+  lmidhair    0.131  0.480  0.835   0.777   0.930    0.830     0.249      -0.230  DEFAUT
+  rmidhair    0.203  0.527  0.807   0.738   0.923    0.849     0.270      -0.257  DEFAUT
+  backhair      -    0.220  0.282   0.348   0.504    0.575     0.607      +0.325  SAIN
+  earL          -    0.483  0.735   0.846   0.871    0.925     1.000      +0.517  SAIN
+  earR          -    0.483  0.766   0.846   0.871    0.925     1.000      +0.517  SAIN
+
+**LES QUATRE CHAINES DONT LA PROPRIETE S'EFFONDRE VERS LA POINTE SONT EXACTEMENT LES QUATRE QUI
+RESISTENT A TOUT DEPUIS DES JOURS. LES TROIS SAINES SONT EXACTEMENT LES TROIS A RESIDU NUL.**
+C'est le meme partage 3-contre-4 que `ROOM-SIDE` et `meshpen` — obtenu par un instrument qui n'a
+rien a voir : des poids de peau contre une trace d'execution.
+
+CE QUE ÇA VEUT DIRE, ET C'EST DUR : la pointe de `lbang` ne porte que **8 %** de son poids sur la
+chaine. Le joint peut bouger parfaitement — et il bouge, `ROOM-GRADIENT` le montre — la GEOMETRIE ne
+suivra qu'a 8 %. Les 92 % restants appartiennent au crane. C'est mot pour mot `hair-anchored-geo`
+(« une partie de la geometrie reste ancree et ca casse », 3e passe de l'owner) et ca explique aussi
+`hair-upper-half` et le degrade inverse qu'il signale depuis sept passes : **le degrade qu'il
+regarde est celui des SOMMETS, pas celui des JOINTS.**
+
+ET ÇA DISQUALIFIE UNE PARTIE DE MON PROPRE TRAVAIL DE CETTE NUIT. Le gradient §31 rend la suite des
+JOINTS plus monotone, et c'est mesure. Mais aucun reglage de solveur, aucun gradient de raideur,
+aucun os injecte ne peut faire bouger une geometrie qui appartient a 92 % au crane. **Quatre des
+cinq defauts de cheveux sont gates sur un REPESAGE DU DONNEUR, pas sur le moteur.**
+
+POURQUOI `cov` NE POUVAIT PAS LE VOIR — meme lecon que `meshpen`, le meme soir. `cov` SOMME la
+propriete sur les joints de la chaine et rendait 0.977 sur `lbang` : une couverture elevee et une
+pointe a 0.081 sont indiscernables pour elle. C'est le PROFIL qui discrimine, jamais le scalaire.
+La note du dossier qui presentait `lbang` comme l'echantillon sain a 0.977 mesurait donc autre chose
+que ce que l'owner regarde.
+
+CE QUE JE NE FAIS PAS : la directive du 22:40 interdit explicitement « tout nouvel operateur de
+repesage » tant que le modele n'est pas en place. Je mesure, je publie, je m'arrete la. Le correctif
+est un repesage du donneur, et il appartient a l'owner ou au superviseur de l'autoriser.
+
 3h. LES GATES QUI RESTENT ROUGES
 -----------------------------------
   * `COLLIDE` : `meshpen` max cheveux **0.5648** (`rbang`) — légèrement PIRE qu'avant la course 7,
