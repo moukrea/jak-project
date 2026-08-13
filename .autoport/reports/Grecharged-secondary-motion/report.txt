@@ -265,13 +265,28 @@ presentees comme un PASS (le validateur reel n'est pas modifie, regle 5) :
   `motion-floor-weak.txt` (regle 5 : une gate qui semble fausse se RAPPORTE). C'est au superviseur
   de trancher si sa reference doit etre recalee sur un etat approuve.
 
-RESERVE HONNETE SUR LA LIVRAISON. Le pack HD a ete produit VIDE une fois pendant ce cycle
-(128 666 octets, 11 fichiers au lieu de 48 303 494 et 14) : j'ai lance un rebake manuel pendant
-que le constructeur automatique empaquetait, et `build_enhanced_models.sh` fait `rm -rf` sur
-`out/jak1/fr3/enhanced/` au demarrage. Le paquetier a donc trouve zero fr3. Repare et verifie
-(48 303 494 octets, 14 fr3, version `cee593c64aed4`), et c'est MA faute de concurrence, pas un
-defaut du paquetier — mais un `find | wc -l` egal a zero devrait le faire echouer au lieu de
-produire un zip valide et vide.
+LA LIVRAISON A ETE CASSEE PENDANT CE CYCLE, PAR MOI, ET ELLE EST REPAREE.
+Le pack HD a ete produit VIDE (128 666 octets, 11 entrees au lieu de 48 303 494 et 14) : j'ai
+lance un rebake manuel pendant que le constructeur automatique empaquetait, et
+`build_enhanced_models.sh` fait `rm -rf` sur `out/jak1/fr3/enhanced/` a son DEMARRAGE. Le
+paquetier a donc trouve zero fr3, produit un zip parfaitement VALIDE sans un seul mesh, et le
+publieur l'a envoye a l'owner (release du 04:09).
+
+  * REPARE ET REPUBLIE : `jak1_hd_assets.zip` 48 303 494 octets, 3 fr3 + 11 art-groups,
+    `GAME.fr3` 25 437 577 octets, version `cee593c64aed4`. Verifie sur la release.
+  * `BUILD-INFO.txt` annoncait encore l'ancienne version du pack — c'est LA ligne que l'owner
+    lit pour savoir s'il doit re-telecharger. Corrigee et republiee avec.
+  * RENDU IMPOSSIBLE : `scripts/package_hd_assets.sh` refuse desormais zero fr3 au lieu de
+    produire un pack vide. Controle positif : repertoire vide -> FATAL (verifie). Controle
+    negatif : run normal -> 48 303 494 octets (verifie). Le test `[ -d ]` passait, le zip etait
+    bien forme, et rien nulle part ne prononcait le mot « vide ».
+
+CE QUI EST PUBLIE MAINTENANT, et c'est une paire coherente :
+  APK `app-jak1-HD-recharged.apk` (585 200 536 o), commit `7e9ac0a3f9` — il porte la correction
+  GOAL du compte de joints, donc les cinq os y sont ecrits par le retargeting ;
+  pack HD `cee593c64aed4` — il porte le mesh, l'art-group a 99 joints et les poids gradues.
+  Les commits suivants (`b6f8728968`, `6ba77ae4fa`, `c7d2fabc03`) ne touchent que le MESH et la
+  chaine de production, jamais le code de l'APK.
 
 RESERVE SUR LE PLANCHER : la gate FLOOR reecrit `motion-floor.txt` avec le maximum courant. Les
 cinq chaines de cheveux montent d'un facteur 1.5 a 1.9 ce cycle, donc leur plancher monte d'autant
