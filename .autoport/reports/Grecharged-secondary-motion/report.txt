@@ -413,6 +413,44 @@ ces unités-là suppose une équivalence que rien n'a vérifiée. **La calibrati
 parce que le superviseur l'ordonne et parce qu'elle est SA valeur ; je signale que la §27, mesurée,
 ne suit pas.** C'est à vérifier avant de croire que la poitrine est aux cibles de la spec.
 
+3f ter. COURSE 7 — LONGUEUR ET FRANCHISSEMENT SONT DEUX CONTRAINTES SIMULTANÉES
+---------------------------------------------------------------------------------
+Les deux ordres purs avaient été mesurés et AUCUN ne suffit — c'est ce qui m'a mis sur la piste :
+décroisement AVANT la reprojection laisse `crossing` à 11282 ; APRÈS, il tombe à 8112 mais
+`ROOM-STRETCH` explose à 1.2090. Il n'y a pas d'ordre gagnant parce que ce ne sont pas deux étapes :
+ce sont deux PROJECTIONS SIMULTANÉES — une SPHÈRE (la longueur, centrée sur l'attache) et un
+DEMI-ESPACE (le bon côté de l'axe). Leur intersection est non vide sauf si la sphère est entièrement
+du mauvais côté. On les alterne donc (`PHYS-FIN-ITERS = 4`) en FINISSANT sur la longueur, dont le
+résidu est publié et plafonné.
+
+    ROOM-SIDE crossing   11282 -> **7775**    (ligne de base 83488 : **-90.7 %**)
+    ROOM-SIDE-CONTROL    11.6x -> **15.5x**
+    ROOM-POSCONTROL      disarmed 0.6942 -> 0.4195 — il baisse AVEC le franchissement, ce qui
+                         confirme la cause racine commune ; il ne tire toujours pas (il faudrait
+                         disarmed <= 0.0767 pour que `armed=0.2301` vaille 3x)
+    ROOM-IDLE maxdev     0.0629 -> **0.0560**
+    ROOM-STRETCH         0.0003 -> **0.0003**  — l'invariant de longueur tient, c'était le but
+    goggles meshpen      0.5405 -> **0.1094**  (-80 %)
+    anklestrapR meshpen  0.7834 -> **0.2131**  (-73 %)
+    chestR meshpen       0.3354 -> **0.1760**  (-48 %)
+
+**ET LES CHEVEUX NE BOUGENT PAS.** `rbang` 0.5555 -> 0.5648, `lbang` 0.5313 -> 0.5612 : deux
+empirent légèrement. `COLLIDE` teste exactement cette paire, donc la gate reste rouge à 0.565
+pendant que tout le reste du modèle se referme. Un correctif qui marche sur 17 chaînes et sur
+aucune des 5 chaînes de cheveux désigne une cause PROPRE AUX CHEVEUX, pas un solveur qui n'aurait
+pas convergé.
+**HYPOTHÈSE PRINCIPALE, déjà au dossier et en cours de vérification** : la mèche est enfermée par
+construction — « la pointe a 820 u de portée contre 915 de rayon de capsule de tête, elle ne peut
+pas en sortir ». Si le volume est plus grand que la portée de la chaîne depuis son ancre, aucune
+rotation autour de l'attache ne peut la sortir et AUCUN solveur ne fermera ce zéro : ce serait un
+défaut d'ASSET (rayon de volume), pas de moteur. Le contrôle apparié est gratuit et il est dans la
+même course : `backhair` est la seule chaîne de cheveux dont le résidu est déjà quasi nul (0.0059).
+NON TRANCHÉ À L'HEURE DE CE RAPPORT.
+
+CE QUE ÇA COÛTE ENCORE : `jump` monte sur trois chaînes de plus (`chestL` 0.0874 -> 0.2306,
+`botstrapR` 0.2900 -> 0.4140, `rbang` 0.1416 -> 0.2195), et le compte des chaînes au-dessus de
+0.30 m passe de 6 à 7.
+
 3g. CE QUE ÇA COÛTE, ET JE LE METS AU MÊME NIVEAU QUE CE QUE ÇA RAPPORTE
 --------------------------------------------------------------------------
 La fermeture du franchissement se paie en `jump` — le pire saut d'UNE frame :
