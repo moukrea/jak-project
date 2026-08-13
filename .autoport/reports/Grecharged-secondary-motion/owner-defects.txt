@@ -8,17 +8,58 @@
 #                       doivent l'être » et « vraiment pas mal »
 #   - poitrine sur mouvements SUBTILS (2026-08-12) : « toujours OK »
 #
-OPEN hair-jelly      PRIORITE 1 -- « la physique fait très gélatine, c'est pas très cohérent », sur les
-#                    mèches fines ET les grosses. CAUSE PROBABLE, deja anticipee en memoire projet:
-#                    l'injection d'os a fait passer lbang de 3 a 4 maillons, et *phys-lmean* est
-#                    calcule sur les maillons LIBRES -- donc toutes les frequences propres par maillon
-#                    ont bouge. Les parametres de raideur/masse avaient ete derives pour une chaine a
-#                    3 maillons: ils ne correspondent plus. A RE-DERIVER, pas a tatonner. Mesure
-#                    exigee: frequence propre par chaine avant/apres injection, et la cible est celle
-#                    que l'owner avait approuvee (1.07 Hz sur lbang).
-OPEN hair-skinning   les grosses meches: « une partie de la geometrie est figee, causant des cassures
-#                    massives ». Mesure: ROOM-SKINCOV backhair cov=0.7390 (26 % de la geometrie pesee
-#                    sur `head`, donc figee), anklestrap cov=0.4716. Toute fraction < 100 % est le defaut.
+# ============================================================================================
+# LE CONTROLE QUE L'OWNER M'A DONNE SANS QUE JE LE DEMANDE  (2026-08-13 14:45)
+# ============================================================================================
+# Il approuve les MECHES FINES et rejette les GROSSES. Meme moteur, meme salle, meme frame.
+# C'est un controle apparie: le bon et le mauvais echantillon sont cote a cote. Toute correction
+# se mesure desormais comme un ECART A COMBLER vers lbang/rbang, jamais vers un chiffre que
+# j'invente. Les deux defauts ouverts suivent EXACTEMENT ce partage:
+#
+#                        lbang / rbang  (APPROUVE)     backhair / lmidhair / rmidhair (REJETE)
+#   couverture de peau   0.977 / 0.970                 0.726-0.856 / 0.781 / 0.775
+#   parametres livres    derives  1.3089/0.0784/1.35   generiques ronds  1.80/0.18/0.90
+#
+# CONCLUSION: les grosses meches n'ont jamais recu la passe que les fines ont recue. C'est
+# ca que j'avais rate -- j'ai corrige les fines, puis j'ai fiche les grosses comme un chantier
+# separe pour plus tard, au lieu de voir que c'etait le MEME chantier pas termine.
+# ============================================================================================
+#
+OPEN hair-anchored-geo  PRIORITE 1 -- « une partie de la geometrie reste ancree et ca casse » (3e passe
+#                    de l'owner sur ce point). CE N'EST PAS LE `tear`, ET C'EST LA MON ERREUR: le
+#                    cycle precedent a ferme la COUTURE (rmidhair tear 82->0) et la couture est bien
+#                    fermee -- mais la geometrie ancree, elle, est TOUJOURS ancree. Lisser le raccord
+#                    enleve la fissure visible, ca ne fait pas bouger le morceau fige.
+#                    MESURE SUR LE MESH LIVRE: backhair cov=0.7259..0.8560, lmidhair 0.7814,
+#                    rmidhair 0.7750 -- 14 a 27 % des sommets de la meche sont peses `head 100%`,
+#                    donc soudes au crane pendant que le reste balance. Les fines: 0.977 / 0.970.
+#                    CE QU'IL FAUT MESURER EN PLUS, et qui manque: la LARGEUR DE LA BANDE DE
+#                    MELANGE -- combien de sommets ont un poids mixte (0 < w_chaine < 1). Sur les
+#                    fines la transition crane->meche est progressive; sur les grosses la frontiere
+#                    est binaire, et une coquille rigide par-dessus un coeur qui bouge, ca casse.
+#                    CIBLE: le PROFIL de lbang, pas cov=1.0 aveugle -- le haut de la meche DOIT
+#                    rester au crane, c'est l'ancrage qu'il a valide.
+#                    C'est un correctif d'ASSET (repesage du donneur), pas un reglage du solveur.
+OPEN hair-pudding    PRIORITE 1 -- l'owner CORRIGE mon interpretation: « c'est plus du pudding, c'est
+#                    PAS trop lent et mou, c'est vraiment pas coherent... on dirait les mouvements
+#                    quand on tape sur un pudding, pas des mouvements naturels de cheveux ».
+#                    => J'avais diagnostique une FREQUENCE (trop lent). C'EST FAUX. Il decrit une
+#                    FORME DE REPONSE: une masse qui ballotte apres un choc au lieu d'une chaine qui
+#                    balance. Un pudding sonne a sa frequence propre quel que soit le coup recu;
+#                    des cheveux SUIVENT le mouvement de la tete, la racine mene et la pointe suit
+#                    avec un retard.  (rappel PITFALLS/metric-frame: nature du defaut d'abord)
+#                    MESURE EXIGEE, nouvelle, `ROOM-RINGDOWN`, deux grandeurs, repere LOCAL:
+#                      1. nombre d'oscillations libres APRES l'arret du stimulus jusqu'a 10 % de
+#                         l'amplitude initiale  -- le ballottement, c'est ca.
+#                      2. retard de phase racine->pointe: dans une chaine, le maillon k+1 est en
+#                         retard sur le maillon k et l'onde descend. Dans une gelee, tout bouge en
+#                         phase (un bloc) ou n'importe comment. Un retard ~0 ou incoherent = pudding.
+#                    CIBLE: la valeur MESUREE sur lbang/rbang, qu'il a approuves. Pas un chiffre
+#                    choisi par moi. Interdiction de deriver ca d'une formule d'amortissement
+#                    supposee du solveur: on lit le ring-down dans la salle.
+#                    INDICE DEJA EN MAIN: les grosses meches portent encore stiffness=1.80
+#                    damping=0.18 mass=0.90 -- des ronds generiques -- la ou lbang porte des valeurs
+#                    derivees. Le 1.80 est deja fiche en memoire comme 1.8x l'entrainement du rig.
 OPEN hair-fine-grav  les meches fines « ne suivent pas vraiment la gravite » -- elles sont bien ancrees
 #                    et bougent, mais l'inclinaison ne les fait pas tomber. Meme classe que le sag de
 #                    la poitrine: mesurer ROOM-GRAVSAG sur lbang/rbang, il doit etre franc.

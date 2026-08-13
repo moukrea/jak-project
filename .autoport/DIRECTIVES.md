@@ -10,9 +10,35 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
+## RETOUR OWNER 2026-08-13 14:45 — IL CORRIGE MON DIAGNOSTIC, LIRE AVANT TOUTE ACTION
+
+Verbatim : « Les grosses mèches sont pas bonnes hein, une partie de la géométrie reste encrée et ça
+casse ! J'ai pas l'impression que t'a saisi ce feedback ! Et la gélatine c'est plus du pudding, c'est
+pas trop lent et mou, c'est vraiment pas cohérent... On dirait les mouvements quand on tape sur un
+pudding, pas des mouvements naturels de cheveux ! »
+
+**Deux corrections de MA part d'analyse, pas deux nouveaux défauts.**
+
+1. `hair-anchored-geo` — la passe précédente a fermé la **couture** (`tear` 82→0) alors qu'il parle de
+   la **géométrie figée**. Mesure sur le mesh livré : backhair cov 0.726–0.856, lmidhair 0.781,
+   rmidhair 0.775 → 14 à 27 % des sommets pesés `head 100%`, soudés au crâne. Correctif d'ASSET
+   (repesage du donneur), et la cible est le **profil de bande de mélange de lbang**, pas cov=1.0.
+
+2. `hair-pudding` — j'avais diagnostiqué une fréquence (trop lent). **C'est faux.** Il décrit une
+   forme de réponse : une masse qui ballotte après un choc, pas une chaîne qui balance. Mesure neuve
+   exigée `ROOM-RINGDOWN` : (a) oscillations libres après l'arrêt du stimulus, (b) retard de phase
+   racine→pointe. Repère LOCAL. **Ne pas dériver ça d'une formule d'amortissement supposée du
+   solveur : on le lit dans la salle.**
+
+**LE CONTRÔLE APPARIÉ.** Il approuve les mèches fines, il rejette les grosses — même moteur, même
+salle. Toute cible chiffrée de ces deux défauts est désormais la valeur **mesurée sur lbang/rbang**,
+jamais un nombre choisi. Les grosses mèches portent encore `stiffness=1.80 damping=0.18 mass=0.90`
+(ronds génériques) là où lbang porte des valeurs dérivées : elles n'ont jamais reçu la passe.
+
+
 ## PÉRIMÈTRE ACTIF (2026-08-11)
 
-SCOPE-SERIAL: 3
+SCOPE-SERIAL: 4
 <!-- Bump ce numéro UNIQUEMENT pour un vrai changement de périmètre : il invalide
      immédiatement la tentative en cours (gate SYNC). Corriger une coquille ou
      reformuler ne doit jamais coûter une tentative. -->

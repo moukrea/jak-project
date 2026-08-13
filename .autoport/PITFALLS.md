@@ -98,3 +98,22 @@ dimensionnement des volumes. **Repartir propre ne veut pas dire repartir vide.**
 Verrou : avant toute table rase, produire l'**inventaire des acquis** de l'état parké — ce qui
 fonctionnait, avec la mesure qui l'atteste — et porter ces acquis un par un, mesurés contre le
 plancher, au lieu de tout réécrire à l'aveugle. Un état parké se **mine**, il ne s'oublie pas.
+
+GUARD adjacent-fix .autoport/reports/Grecharged-secondary-motion/owner-defects.txt CE N'EST PAS LE `tear`
+**Corriger ce qui est à côté du défaut, et croire l'avoir corrigé.** L'owner a signalé **trois fois**
+que sur les grosses mèches « une partie de la géométrie reste ancrée et ça casse ». J'ai fermé la
+**couture** (`tear` rmidhair 82 → 0) — proprement, la mesure est vraie — mais la géométrie ancrée est
+restée ancrée : 14 à 27 % des sommets pesés `head 100%`. Lisser un raccord enlève la fissure, ça ne
+fait pas bouger le morceau figé. Il l'a vu immédiatement et m'a dit « j'ai pas l'impression que t'as
+saisi ce feedback ». Verrou : une mesure ne ferme un défaut que si elle **porte sur la grandeur que
+l'owner décrit**, pas sur une grandeur voisine du même fichier. Quand il répète un défaut après une
+correction verte, c'est la correction qui visait à côté, jamais lui qui n'a pas vu.
+
+GUARD paired-control .autoport/reports/Grecharged-secondary-motion/owner-defects.txt CONTROLE QUE L'OWNER M'A DONNE
+**Chercher une cible chiffrée alors qu'il vient d'en approuver une.** Il approuve les mèches fines et
+rejette les grosses : même moteur, même salle, même repère — un **contrôle apparié** offert. Les deux
+défauts ouverts suivaient exactement ce partage (couverture 0.977 vs 0.73–0.86 ; paramètres dérivés
+vs ronds génériques 1.80/0.18/0.90), et la conclusion tombait toute seule : les grosses mèches n'ont
+jamais reçu la passe que les fines ont reçue. Verrou : dès qu'il valide un échantillon et en rejette
+un autre de la même classe, la cible n'est plus un nombre que je choisis — c'est la valeur **mesurée
+sur l'échantillon qu'il a approuvé**, et la correction se formule comme un écart à combler.
