@@ -1,49 +1,102 @@
-# À TESTER — Keira : la géométrie des mèches ne devrait plus casser
+# RIEN À TESTER SUR CE BUILD — et c'est volontaire
 
-Branche `physics-keira-clean`, commit `5ce634f5c5`.
-(Le tag est lisible sur le device : `files/.custom_pack_stamp_jak1`. Si ce n'est pas ce commit-là,
-tu testes un vieux build.)
+Branche `physics-keira-clean`.
+(Le tag est lisible sur le device : `files/.custom_pack_stamp_jak1`.)
 
-⚠️ **RE-TÉLÉCHARGE `jak1_hd_assets.zip`.** Le correctif est ENTIÈREMENT dans le mesh, donc il voyage
-uniquement par le pack HD externe — un APK frais avec l'ancien pack ne changera **rien** du tout.
+⚠️ **Ce build est, pour la physique, IDENTIQUE au précédent.** Aucune ligne de `goal_src/`, aucun
+octet de `physics_chains.txt`, aucun mesh n'a changé. Te faire chercher une différence te ferait
+perdre ton temps. Le cycle a servi à **mesurer**, et ce qu'il a trouvé répond à la question que tu
+poses depuis le début.
 
-## LE SEUL CHANGEMENT DE CE BUILD, ET C'EST TON DIAGNOSTIC
+---
 
-Ton retour du 12 août : « la physique ne s'applique pas à toute la géométrie de ces deux mèches mais
-à seulement une partie, donc on a des polygones qui bougent et des polygones voisins parfaitement
-statiques, causant la géométrie qui casse ».
+## CE QUE J'AI MESURÉ, ET POURQUOI ÇA EXPLIQUE TES QUATRE DÉFAUTS D'UN COUP
 
-**C'était exact, et voici ce qui se passait.** Le correcteur de poids graduait la frontière entre
-« la mèche » et « le crâne » — mais il comptait le **maillon de racine** parmi les os qui bougent,
-alors que ce maillon est *verrouillé* : il est soudé au crâne, aussi immobile que lui. Donc un
-polygone tenu par la racine (figé) collé à un polygone tenu par le maillon suivant (mobile) lui
-paraissait parfaitement continu. Il lissait une frontière qui ne casse pas, et **la vraie cassure
-lui était invisible** — comme à tous mes instruments, qui faisaient la même erreur.
+Tous mes compteurs de collision (`meshpen`, `ROOM-SIDE`, `SELFCOL`) surveillent les **os** des
+chaînes. J'ai enfin mesuré ce que ces os **représentent** de la géométrie qu'ils portent, sur le
+mesh que tu as en main :
 
-Mesuré sur le mesh que tu as en main : **116 arêtes déchirées** que rien ne voyait —
-`backhair` 28, `rmidhair` 48, `rbang` 20, `lbang` 18, `lmidhair` 2. Toutes **au milieu** de la mèche,
-pas à la racine. Après correction : **0**, sur les cinq mèches.
+> **Les volumes de collision représentent 29,7 % de ce qui bouge sur Keira.**
+> (546 sommets couverts sur 1837.)
 
-## CE QUE JE TE DEMANDE DE REGARDER
+Le détail qui fait mal :
 
-1. **La géométrie des mèches quand elle bouge la tête** — c'est le seul endroit où ça doit se voir.
-   Les polygones qui « partaient tout seuls » à mi-mèche ne devraient plus le faire. `rmidhair` et
-   `backhair` étaient les pires, regarde-les en priorité.
-2. **Les mèches ne doivent PAS s'être décollées du crâne.** C'est le seul risque de ce correctif :
-   pour recoller la peau, il faut lui donner un peu de poids mobile, et trop en donner détacherait
-   la coiffe. La mesure dit que la limite tient (aucun sommet n'est passé majoritairement du côté
-   mobile), mais c'est ton œil qui tranche — si tu vois la chevelure « flotter » ou se détacher à la
-   racine, dis-le, c'est ça le signe.
+| pièce | ce que la collision en voit |
+|---|---|
+| **nuque, bas de pantacourt gauche et droit** | **0 %** — ces trois pièces ne présentent **rien** |
+| **lunettes** | **10 %** — 531 sommets étalés sur 38 cm, testés comme **deux billes** de 5 cm |
+| oreilles | 20 % |
+| languettes de genou | 29 % |
+| grosses mèches | 36–42 % |
+| mèches fines | 51–53 % |
+| **seins** | **59 % / 70 %** — la sphère s'arrête à 322 u, la peau va jusqu'à 467 |
 
-## CE QUI N'A PAS CHANGÉ, POUR QUE TU NE LE CHERCHES PAS
+**Donc un zéro sur mes compteurs est compatible avec absolument tout ce que tu vois.** Ce ne sont
+pas des faux verts au sens habituel : les compteurs sont honnêtes, c'est leur *domaine* qui est trop
+petit. Ça vaut pour les trois défauts que tu répètes :
 
-**L'amplitude est identique au build précédent, au bit près.** Ce build ne touche QUE les poids de
-peau : le solveur, les chaînes, les volumes sont rigoureusement les mêmes fichiers. Donc :
+* **« les lunettes traversent le buste pour se poser dans le dos »** — les deux billes peuvent
+  contourner un torse sans jamais le pénétrer pendant que la monture le traverse. `ROOM-SIDE = 0`
+  est vrai *pour les deux billes*, et n'a jamais rien dit du reste.
+* **« le bas des lunettes clipe dans les seins »** — la sphère du sein s'arrête 3,5 cm avant la
+  vraie surface. Les lunettes peuvent donc s'enfoncer de 3,5 cm dans le sein sans qu'aucun compteur
+  ne bouge : il compte contre le *volume*, pas contre la peau.
+* **« les cheveux de nuque clipent dans son cou »** — **50,7 % de la peau de la nuque est DANS la
+  capsule de la tête**, jusqu'à 15 cm de profondeur, dans la pose du modèle elle-même.
 
-* si les mèches fines te semblent toujours trop mortes (ou trop vives), c'est **un autre sujet** et
-  ton retour là-dessus reste nécessaire ;
-* le pantacourt dans les mollets, les lunettes, les languettes de genoux, l'effet gelée sur les
-  mouvements brusques, la nuque : **rien n'a bougé**, je ne te fais pas chercher une différence qui
-  n'existe pas.
+**Ton intuition — « pourquoi dériver du rig et pas du mesh ? » — n'est plus une suggestion à
+évaluer.** Les capsules échouent maintenant **deux fois pour la même raison**, sur le torse et sur
+la tête, chacune avec un A/B : trop petite, la peau sort du volume ; trop grande, la pièce est
+déclarée enterrée et traverse tout. Il n'existe pas de valeur intermédiaire, parce qu'un torse
+n'est pas un cylindre et une tête non plus.
 
-Les neuf défauts que tu as signalés restent ouverts tant que tu ne les as pas fermés toi-même.
+---
+
+## `pant-calf` A UNE RÉPONSE, ET ELLE NE VA PAS TE PLAIRE À MOITIÉ
+
+Tu l'as signalé quatre fois (« le bas du pantacourt est à l'intérieur des mollets, comme si son
+pantacourt s'arrêtait aux genoux »). C'est tranché, et ce n'est pas un problème de réglage :
+
+* le mollet **n'avale pas** le tissu — 0 % de la peau du pan est dans la capsule de la jambe
+  (l'hypothèse évidente, que j'avais formée, est **fausse** et mesurée telle) ;
+* le pan **fait le tour de la jambe** : sa peau occupe **10 secteurs angulaires sur 12** ;
+* il n'a qu'**UN seul joint**, posé quasiment **sur l'axe** de la jambe (184 u).
+
+Un joint au centre d'un anneau ne peut lui donner que trois mouvements : tourner autour de la jambe
+(**invisible** par symétrie), glisser le long de la jambe (un ourlet qui monte et descend — ce n'est
+pas ce que fait du tissu), ou décentrer l'anneau, ce qui enfonce mécaniquement sa moitié dans le
+mollet. C'est pour ça que tout ce que j'ai tenté a échoué, et pourquoi lever la contrainte avait
+**empiré** les choses.
+
+Pour comparaison, sur la même jambe : la languette de genou occupe **1 secteur sur 12** — c'est une
+vraie languette, sur un côté — et elle, elle bouge.
+
+**Il faut re-rigger l'ourlet** (plusieurs joints répartis *autour*, ou l'ourlet fendu en pans).
+Tant que ce n'est pas fait, aucun réglage ne le fera pendre. Je ne l'ai pas fermé dans la liste des
+défauts — c'est ton œil qui ferme, pas mon explication.
+
+---
+
+## CE QUE JE N'AI PAS FAIT, ET POURQUOI
+
+Deux correctifs sont chiffrés et prêts : ajuster les volumes de poitrine sur leur peau (+145/+157 u)
+et donner un volume aux trois chaînes qui n'en ont aucune. Les deux sont des changements de
+**volume**, et mes deux dernières tentatives de déplacement de volume ont cassé le plancher de
+mouvement (backhair −41 %, midhair −42/−43 %). Avec le plancher déjà rouge sur trois chaînes, en
+poser un troisième à l'aveugle en fin de cycle aurait eu toutes les chances de payer une correction
+avec du mouvement. Ils partent au prochain cycle, **un seul à la fois**, chacun mesuré contre le
+plancher avant d'être conservé.
+
+Et la vraie sortie — les colliders dérivés du mesh que tu proposes — existe **déjà à moitié dans
+l'arbre** : la moitié C++ est intacte et enregistrée, le format de données colle au bit près, et le
+chemin de livraison est déjà câblé. Ce qui manque, c'est la moitié GOAL… que le « départ propre » a
+emportée avec le reste. Elle fait ~136 lignes et il en reste 188 sous le plafond du moteur :
+**ça tient**. C'est le sujet du prochain cycle.
+
+---
+
+## SI TU VEUX QUAND MÊME REGARDER QUELQUE CHOSE
+
+Rien n'a changé depuis ton dernier retour, donc tes observations d'hier tiennent toujours. Le seul
+retour qui m'aiderait maintenant : **est-ce que la nuque et les lunettes te gênent plus que les
+mèches ?** Ça décide de l'ordre dans lequel je câble les volumes de surface.
