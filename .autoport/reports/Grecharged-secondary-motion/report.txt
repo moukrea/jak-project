@@ -193,6 +193,56 @@ rig HD — meme classe, et l'outil d'injection existe maintenant pour le faire),
 (le detail PAR ANIMATION que les DIRECTIVES exigent reste du).
 
 -------------------------------------------------------------------------------------------------
+5 bis. DEUXIEME PASSE — `knee-tabs`, ET L'INSTRUMENT APPLIQUE A TOUTE LA DISTRIBUTION
+-------------------------------------------------------------------------------------------------
+
+L'instrument est desormais generique : il lit la composition des chaines DANS
+`physics_chains.txt` au lieu d'une liste en dur (une sixieme copie aurait ete la faute des cinq
+autres). Applique aux 22 chaines, il designe un cas extreme :
+
+    kneeflapL/R   s_p50 2.178   s_p95 2.627   orphan 100.0 %   queue 0.1305 m   os 0.0802 m
+
+CENT POUR CENT de la geometrie de la languette est au-dela de son unique joint : le joint est
+entierement EN AMONT de ce qu'il pilote, donc le faire tourner TRANSLATE la languette en bloc au
+lieu de la faire battre. C'est « ca essaie de bouger mais c'est chelou », mot pour mot. Le
+nouvel os fait 0.1305 m (1.63x l'ancien), ce qui leve aussi le plafond d'amplitude 2 x longueur
+d'os que le fichier de reglages avait identifie comme le vrai blocage — et `LfootFlaps` du rig
+stock n'etait pas la reponse : il n'y a pas de piece separee, il y a un joint mal place.
+
+VALIDATION DE L'INSTRUMENT PAR SON OEIL, ET ELLE NE VIENT PAS DE MOI : la SEULE chaine a 0 % de
+masse orpheline est `topstrapL/R` — exactement la piece dont il a dit « les bretelles c'est
+vraiment pas mal du tout ». La grandeur suit son jugement la ou `ROOM-SKINCOV` ne le suivait pas.
+
+CE QUE CA DONNE, ET LE CHIFFRE QUI EMBETE :
+
+    kneeflapL  amplitude max  0.1839 -> 0.2472  (x1.34)
+    kneeflapR  amplitude max  0.1366 -> 0.3038  (x2.22)
+    gain (reponse NETTE de la ligne de base, par unite de stimulus) :
+       updown x2.2 · leftright x2.2..3.1 · accel x2.0..2.8 · jerk x1.7..2.4 · tilt x0.50 et NEGATIF
+
+    FLOOR-WEAK ECHOUE :  kneeflapL 0.0884 -> 0.0412 (-53 %)
+
+POURQUOI JE LE GARDE, ET C'EST UN ARBITRAGE DECLARE, PAS UN VERT REPEINT :
+  * la REGLE DE CONSERVATION de l'owner porte sur le plancher a 60 % (FLOOR), et il TIENT
+    largement : `kneeflapL` est a 134 % de son plancher, `kneeflapR` a 222 %.
+  * `FLOOR-WEAK` lit le `tip` BRUT au plus faible stimulus, ligne de base COMPRISE. Or la ligne de
+    base — le mouvement sous animation seule, sans pilotage — est passee de 0.0640 a 0.0266 : la
+    languette est deux fois moins TRAINEE par l'animation. Une amelioration est donc comptee comme
+    une perte. C'est litteralement le defaut que les DIRECTIVES du 2026-08-11 16:15 decrivent
+    (« la salle doit mesurer la REPONSE, pas l'agitation »), sur la gate qui ne l'applique pas.
+  * regle 5 : je ne touche NI la gate NI `motion-floor-weak.txt`. Une gate qui me semble fausse se
+    RAPPORTE, et c'est le superviseur qui tranche. La voici rapportee, avec la decomposition.
+
+CE QUI RESTE VRAI MALGRE MON ARGUMENT : sous INCLINAISON la languette repond moins qu'avant, et
+sur `kneeflapR` le gain devient NEGATIF (elle bouge moins que sous animation seule). L'explication
+mecanique est que le generateur impose `rootlock=1` a toute chaine de 2+ joints — regle tiree de
+la SPEC 2, qui parle des CHEVEUX — alors que la languette avait une racine LIBRE quand elle
+n'avait qu'un joint. Elle est famille B, `hang=0.90` : « ce qui pend reste pendu ». LA REPRISE
+EVIDENTE est donc `rootlock=0` sur ces deux chaines, et elle ne coute aucun build. Je ne l'ai pas
+prise seul parce qu'elle deroge a une regle de generation que l'owner a validee ailleurs
+(topstrap / botstrap / goggles sont famille B, 2 joints, `rootlock=1`, et il les apprecie).
+
+-------------------------------------------------------------------------------------------------
 6. L'ATTIC — CE QU'IL DIT, ET POURQUOI JE NE L'AI PAS REPRIS
 -------------------------------------------------------------------------------------------------
 
@@ -235,8 +285,11 @@ dans l'ART-GROUP : reprendre le seul APK ne montrera rien.
 3. LA NUQUE (`backhair`) : c'est elle qui gagne le plus (x1.92, x3.16 sur les petits mouvements)
    et sa queue de 12 cm avait zero joint.
 4. LA GEOMETRIE aux jonctions cuir chevelu / meche : 0 arete dechiree sur les sept chaines.
-5. CE QUI N'A PAS CHANGE et qu'il n'a pas a chercher : poitrine, lunettes, bretelles, pans de
-   pantacourt, sangles, oreilles — mesures identiques au bit pres.
+5. LES LANGUETTES DE GENOU : elles battent au lieu de se translater en bloc. Amplitude x1.34 a
+   gauche, x2.22 a droite. Si elles lui semblent MOINS vivantes quand elle S'INCLINE, c'est
+   attendu et c'est ecrit en section 5 bis — un mot et je libere leur racine, sans build.
+6. CE QUI N'A PAS CHANGE et qu'il n'a pas a chercher : poitrine, lunettes, bretelles, pans de
+   pantacourt, sangles de cheville et d'orteil, oreilles — mesures identiques au bit pres.
 
 -------------------------------------------------------------------------------------------------
 8. ETAT DU VALIDATEUR
@@ -254,11 +307,12 @@ presentees comme un PASS (le validateur reel n'est pas modifie, regle 5) :
   [ROOM]          joueur absent, 1 acteur, 22 chaines x 31/31 animations, 3410 mesures
   [MOVE]          toutes les chaines declarees bougent (tipvar min 0.100)
   [COLLIDE]       penetration nulle sur les trois paires, controle positif 0.215 contre 0.000
-  [IDLE]          ecart max au modele 0.023   [ANIM] 7 chaines pilotees, toutes respectees
+  [IDLE]          ecart max au modele 0.023   [ANIM] 8 chaines pilotees, toutes respectees
   [SIDE-CONTROL]  0 franchissement, controle present
 
-  FLOOR-WEAK ECHOUE, INCHANGE AU CHIFFRE PRES, et ce n'est pas cause par ce cycle :
-      FLOOR-WEAK  pantflapL  0.0840 -> 0.0544  (-35 %, seuil 30 %)
+  FLOOR-WEAK ECHOUE SUR DEUX CHAINES :
+      FLOOR-WEAK  kneeflapL  0.0884 -> 0.0412  (-53 %)   <- 2e passe, decompose en section 5 bis
+      FLOOR-WEAK  pantflapL  0.0840 -> 0.0544  (-35 %)   <- INCHANGE, pas cause par ce cycle
   `pantflapL` est mesuree x1.00 avant/apres, au bit pres : ce cycle ne l'a pas touchee. Le cycle
   precedent a montre que sa reference (0.0840) est un etat que l'owner a rejete trois fois et dont
   le gain etait NEGATIF (le pan etait TRAINE a travers le mollet). Je ne touche ni la gate ni
