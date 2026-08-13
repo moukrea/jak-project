@@ -1,23 +1,27 @@
 # DÉFAUTS OUVERTS — la phase ne passe pas tant qu'il en reste. Une ligne se retire UNIQUEMENT
 # quand l'owner dit que c'est bon, jamais parce qu'une mesure est verte.
 #
-# ACQUIS AU 2026-08-12 22:00 (confirmé par lui, à protéger) :
-#   - poitrine sur mouvements SUBTILS : « toujours OK »
+# FERMÉS PAR L'OWNER (2026-08-13 12:45) — à protéger, une régression dessus est un échec :
+#   - knee-tabs      : « les languettes/lanières des genoux bougent ! »
+#   - goggles-tunnel : « je vois plus les lunettes partir dans son dos »
+#   - hair anchoring : « les mèches fines et les cheveux de la nuque sont bien ancrés là où ils
+#                       doivent l'être » et « vraiment pas mal »
+#   - poitrine sur mouvements SUBTILS (2026-08-12) : « toujours OK »
 #
-OPEN hair-skinning   PRIORITE 1 -- son diagnostic: la physique ne s'applique qu'a UNE PARTIE de la
-#                    geometrie d'une meche. Des polygones bougent, leurs voisins sont figes, la
-#                    geometrie casse. Il faut que la MECHE ENTIERE soit prise en compte. Mesurer la
-#                    COUVERTURE: quelle fraction des sommets peses sur la meche est reellement pilotee
-#                    par un joint simule ? Toute fraction < 100 % est le defaut.
-OPEN hair-fine-dead  REGRESSION: les meches fines de l'avant du visage sont maintenant STATIQUES
-#                    (0.3467 contre plancher 0.4191, et 0.0838 au stimulus faible). Mes deux planchers
-#                    ont laisse passer: ils protegent le RELATIF, pas le VISIBLE. Il faut un plancher
-#                    ABSOLU de visibilite, calibre sur ce qu'il a approuve.
-OPEN hair-nape       les cheveux de nuque clipent dans son cou et ne bougent pas ou mal
-OPEN ears-physics    quand l'animation d'origine ne pilote PAS les oreilles, la physique doit les
-#                    prendre en compte -- verifier qu'elle s'y applique vraiment
-OPEN knee-tabs       les languettes twitchent maintenant: ca essaie de bouger mais c'est chelou
+OPEN hair-jelly      PRIORITE 1 -- « la physique fait très gélatine, c'est pas très cohérent », sur les
+#                    mèches fines ET les grosses. CAUSE PROBABLE, deja anticipee en memoire projet:
+#                    l'injection d'os a fait passer lbang de 3 a 4 maillons, et *phys-lmean* est
+#                    calcule sur les maillons LIBRES -- donc toutes les frequences propres par maillon
+#                    ont bouge. Les parametres de raideur/masse avaient ete derives pour une chaine a
+#                    3 maillons: ils ne correspondent plus. A RE-DERIVER, pas a tatonner. Mesure
+#                    exigee: frequence propre par chaine avant/apres injection, et la cible est celle
+#                    que l'owner avait approuvee (1.07 Hz sur lbang).
+OPEN hair-skinning   les grosses meches: « une partie de la geometrie est figee, causant des cassures
+#                    massives ». Mesure: ROOM-SKINCOV backhair cov=0.7390 (26 % de la geometrie pesee
+#                    sur `head`, donc figee), anklestrap cov=0.4716. Toute fraction < 100 % est le defaut.
+OPEN hair-fine-grav  les meches fines « ne suivent pas vraiment la gravite » -- elles sont bien ancrees
+#                    et bougent, mais l'inclinaison ne les fait pas tomber. Meme classe que le sag de
+#                    la poitrine: mesurer ROOM-GRAVSAG sur lbang/rbang, il doit etre franc.
 OPEN pant-calf       le bas du pantacourt est toujours a l'interieur des mollets
-OPEN goggles-bottom  le bas des lunettes clipe dans les seins
-OPEN goggles-tunnel  en cinematique les lunettes traversent le buste pour se poser dans le dos
-OPEN flesh-jelly     ballons d'eau sur les mouvements brusques
+OPEN goggles-bottom  le bas des lunettes clipe encore legerement au niveau des seins
+OPEN flesh-jelly     ballons d'eau sur les mouvements brusques (poitrine)
