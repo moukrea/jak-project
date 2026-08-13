@@ -337,9 +337,16 @@ franchissement et les paramètres de poitrine étaient arrivés ensemble).
                     son plancher), chestR 0.1672 (ratio 1.148). La réponse aux petits mouvements
                     ne revient pas seulement : elle MONTE.
     FLOOR           **0 chaîne** sous 60 % de son plancher.
-    ROOM-RINGDOWN   **chestL osc 0.5 -> 1.5, chestR 0.5 -> 1.0.** La poitrine cesse de ramper et
-                    se met à REBONDIR. C'est la §26 (« first opposite rebound ~31 % »), mesurée
-                    dans la salle et pas déduite d'une formule.
+    ROOM-RINGDOWN   contre la ligne de base (course 1, `osc` 0.5 des deux côtés) :
+                    **chestL osc 0.5 -> 1.5 · chestR osc 0.5 -> 1.0**, et la décroissance de
+                    chestR passe de **>148 à 45 frames**. La poitrine cesse de ramper et se met à
+                    REBONDIR : c'est la §26 (« first opposite rebound ~31 % »), lue dans la salle
+                    et pas déduite d'une formule.
+                    PRÉCISION D'ATTRIBUTION, vérifiée fichier contre fichier : le passage 0.5 -> 1.0
+                    de chestR datait déjà de la course 4 (celle qui portait AUSSI la fréquence).
+                    Entre la 4 et la 5, chestR garde `osc` = 1.0 et c'est `decay` qui porte le
+                    signal (11 -> 45). Je le note pour ne pas créditer ce tour d'un gain qui n'est
+                    pas entièrement le sien.
     ROOM-STRETCH    0.0003   ·   ROOM-IDLE maxdev 0.0629   ·   ROOM-ANIMS 31/31 skipped=0
     ROOM-SIDE       crossing 11465  (ligne de base 83488 : **-86.3 %**)
     ROOM-SIDE-CONTROL  armed=15315 disarmed=1352 = **11.3x**   (il valait 0.99x : mort)
@@ -363,6 +370,16 @@ reprojection de longueur ; déplacement minimal dans le balayage). Le troisième
 62 mesures au-dessus de 0.15 m contre 31 au départ, sur 3410. Ce sont des évènements rares (1.8 %),
 mais ils sont réels et je ne sais pas s'ils se voient.
 
+DEUX CAUSES DISTINCTES, ET IL FAUT LES SÉPARER — sinon j'impute au correctif ce qui vient d'ailleurs :
+  * les SANGLES et les LUNETTES (botstrapL, topstrapL/R, anklestrapL/R, goggles) sautent à cause de
+    la fermeture du franchissement : leur `jump` monte dès la course 2 et ne redescend pas ;
+  * **`chestR` (0.0930 -> 0.3381) est un cas à part et il vient de la BAISSE D'AMORTISSEMENT**, pas
+    de la collision : son `jump` était encore à 0.0930 à la course 4, et il triple à la course 5,
+    où seule la donnée a changé. C'est la physique attendue — moins d'amortissement = réponse plus
+    vive = plus grand déplacement par frame — et c'est le revers exact du gain qu'on cherchait.
+    Son maximum tombe sur la MÊME ligne que son `meshpen` max (`idle-hut-stop-welding`,
+    `leftright`) : je note la co-occurrence, je n'affirme pas la causalité.
+
 POURQUOI JE LIVRE QUAND MÊME AVEC : sans la fermeture, `goggles-tunnel` — que l'owner a FERMÉ le
 2026-08-13 12:45 — est structurellement rouvert, `pant-calf` aussi, et la règle 6 ne se négocie pas.
 Un défaut qu'il a fermé qui se rouvre est un échec explicite du contrat ; un saut rare n'est pas
@@ -385,6 +402,9 @@ est le seul honnête.
     famille B dont l'ancre est portée par l'animation du pied et du genou : leur réponse est
     dominée par l'animation, pas par le pilotage de la salle. Je le signale, je ne touche pas à la
     gate.
+  * `ROOM-INVERSIONS` : `residual=589 corrected=11967 control_residual=1032`. Le contrôle ne vaut
+    que **1.75x** le résidu là où les DIRECTIVES exigent >= 4x : ce zéro-là n'est pas encore
+    prouvé, et je ne le compte pas comme acquis.
   * `SIDE-CONTROL` passerait (11.3x) **mais sa sous-gate d'échelle ne s'évalue pas** :
     `ROOM-SIDE-BASELINE` est absent du tableau, donc le test « le contrôle doit atteindre >= 20 %
     de la ligne de base » — ajouté le 2026-08-12 précisément parce qu'un contrôle à 0.4 % avait
@@ -432,6 +452,28 @@ a changé sur ce plan, en clair :
     suppresseur, et c'est vérifiable sur `FLOOR`/`FLOOR-WEAK` ;
   * INCHANGÉ : l'atténuation d'angle des cheveux (`phys-bend-chain`), bornée aux chaînes portant
     `maxangle`, demandée par l'owner lui-même en 11e passe.
+
+
+5 bis. UN CONFLIT DE CONTRAT QUE JE SIGNALE AU LIEU DE LE TRANCHER TOUT SEUL
+=============================================================================
+Le sous-agent testeur l'a relevé et il a raison de le relever. La section du **2026-08-13 22:40**
+dit : « INTERDIT tant que ce modèle n'est pas en place : tout réglage de `stiffness`, `damping`,
+`gravity`, `maxangle` ». La section du **23:35** ne la lève pas — elle dit « L'interdiction de
+régler reste » — tout en ajoutant « la cible n'est plus à inventer : elle est chiffrée section par
+section dans son fichier […] toute valeur publiée doit citer la section dont elle relève ».
+
+MA LECTURE, ET ELLE EST DISCUTABLE : « régler » veut dire choisir un nombre pour poursuivre un
+symptôme. Ce que ce cycle a fait sur `damping` est l'inverse — c'est la valeur que sa §25 impose,
+obtenue par la formule standard (`damping = 2·ζ·ω·dt`), recoupée indépendamment par sa §26
+(rebond 0.309 contre sa cible 0.31), et je publie la dérivation entière plutôt que le seul nombre.
+La moitié qui ressemblait vraiment à un réglage — la fréquence — a d'ailleurs été RETIRÉE dès que
+le plancher a parlé.
+
+Si le superviseur ou l'owner lit l'interdiction au sens strict, **la ligne à défaire est
+`chain chestL damping=0.0883` / `chain chestR damping=0.0918` dans
+`recharged_assets/keira-owner-tuning.txt`**, en republiant explicitement `damping=0.26`
+(`apply_owner_tuning.py` APPLIQUE et ne REVERTIT jamais). Tout le reste du cycle est du MOTEUR et
+ne dépend pas de cette question.
 
 
 6. INCIDENT DE PROCESS À REMONTER AU SUPERVISEUR
