@@ -764,3 +764,43 @@ chain rmidhair gravity=0.45
 ## crane — pire que le defaut), (2) `meshpen` reste nul, (3) aucune chaine sous 60 % de FLOOR /
 ## 70 % de FLOOR-WEAK. Sinon RETIRE, pas adouci.
 chain backhair radii=190,171,201
+
+## 2026-08-13 (4e passe) — `goggles-bottom` : LE VOLUME DE POITRINE EST UN AJUSTEMENT p95, ET LES
+## 6-8 % DE PEAU QU'IL LAISSE DEHORS SONT EXACTEMENT LA OU LES LUNETTES CLIPENT.
+## ORIGINE : derivation du worker, mesuree sur le mesh livre. Pas l'oeil de l'owner.
+##
+## LE MECANISME, ET IL EST ECRIT DANS LE FICHIER LUI-MEME depuis le debut :
+##     # sphere lBoob [chestL] 34v @w>0.25 ... COVER p95: **6 % of its vertices outside**
+##     # sphere rBoob [chestR] 25v @w>0.25 ... COVER p95: **8 % of its vertices outside**
+## Les lunettes ne collisionnent QUE contre le VOLUME. Six a huit pour cent de la geometrie du sein
+## sont donc, par construction, hors de tout obstacle : les lunettes y entrent legalement. Ce n'est
+## pas un reglage rate, c'est la coquille residuelle d'un ajustement au 95e centile.
+##
+## MESURE, sur `out/jak1/fr3/skin/keira-hd-lod0.glb`, distance du centre MESURE de la sphere aux
+## sommets qu'elle possede (w>0.25), pose de bind (controle du repere : replacement des 102 joints
+## depuis leur ibm, pire ecart 0.0003 u) :
+##     sphere   n    p50    p95    p99   p100  |  livre   % hors a r_livre
+##     lBoob   34    195    322    340    340  |   322        5.9 %
+##     rBoob   25    195    311    339    345  |   311        8.0 %
+## Couvrir la peau entiere demande donc **340 et 345 u**, soit **+18 et +34 u**. Rien de plus.
+##
+## LE PIEGE HISTORIQUE NE S'APPLIQUE PAS ICI, ET C'EST MESURE — PAS SUPPOSE. Le fichier porte, plus
+## haut, un bloc qui dit qu'ELARGIR AGGRAVAIT le clipping : une sphere assez grosse englobait la
+## POSE DE REPOS des lunettes, et le plancher de pose modele leur accordait alors toute la
+## profondeur ou elles etaient deja — le volume ne les repoussait plus jamais. C'etait vrai quand la
+## sphere etait posee SUR LE JOINT avec un rayon de 708. Elle est desormais PLACEE (centroide
+## mesure, offset ~655 u). Marge de repos mesuree entre `gogglesMid` et les spheres :
+##     lBoob  250.0 u   ->  rayon maximal avant que le piege ne se declenche : **572 u**
+##     rBoob  269.1 u   ->                                                     **580 u**
+## On monte a 340/345 contre une frontiere a 572/580 : il reste **232 et 235 u de marge**. La
+## crainte est donc bornee, chiffree, et tres loin.
+## (Au passage : la note de memoire qui annoncait « +145/+157 u » est FAUSSE — la mesure dit
+## +18/+34. J'ai mesure au lieu de recopier.)
+##
+## CONDITION DE RETRAIT, ECRITE AVANT LA COURSE : conserve seulement si (1) `ROOM-SKINPEN goggles`
+## BAISSE (c'est la grandeur qui mesure la traversee contre le mesh DESSINE, la seule qui
+## corresponde a ce que l'owner voit) ; (2) `meshpen` reste nul ; (3) aucune chaine sous 60 % de
+## FLOOR / 70 % de FLOOR-WEAK — en particulier `topstrapL/R` et `botstrapL/R`, qui vivent contre le
+## buste et sont les seules autres chaines que ces spheres peuvent repousser. Sinon RETIRE.
+collider lBoob radius=340
+collider rBoob radius=345

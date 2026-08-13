@@ -272,9 +272,9 @@ collider Lmidhaira radius=222 offset=583,39,290
 # sphere Rmidhaira [rmidhair]  58v @w>0.5   centre = measured centroid of the geometry this joint owns, 751u off the joint, in its bind space   COVER p95: 5% of its vertices outside (inner-quartile mean 382 left 50% outside)   BORNE PERPENDICULAIRE: p95 766 -> 228 (ce joint est deja une extremite de capsule, qui mesure son epaisseur PERPENDICULAIREMENT ; le p95 d'une geometrie allongee rend sa LONGUEUR)
 collider Rmidhaira radius=228 offset=-673,-77,-325
 # sphere lBoob [chestL]  34v @w>0.25   centre = measured centroid of the geometry this joint owns, 662u off the joint, in its bind space   COVER p95: 6% of its vertices outside (inner-quartile mean 183 left 53% outside)
-collider lBoob radius=322 offset=-1,655,94
+collider lBoob radius=340 offset=-1,655,94
 # sphere rBoob [chestR]  25v @w>0.25   centre = measured centroid of the geometry this joint owns, 662u off the joint, in its bind space   COVER p95: 8% of its vertices outside (inner-quartile mean 188 left 56% outside)
-collider rBoob radius=311 offset=4,-657,-84
+collider rBoob radius=345 offset=4,-657,-84
 # sphere lEarb [earL] RECENTREE  50v   le volume de ce lien etait pose sur son joint alors que sa geometrie est a 592 u de la : la TAILLE ne change pas (le rayon de lien livre, resynchronise par le tuning), seul le CENTRE bouge (centroide mesure, espace bind)
 collider lEarb radius=79 offset=-41,569,157
 # sphere rEarb [earR] RECENTREE  50v   le volume de ce lien etait pose sur son joint alors que sa geometrie est a 592 u de la : la TAILLE ne change pas (le rayon de lien livre, resynchronise par le tuning), seul le CENTRE bouge (centroide mesure, espace bind)
