@@ -87,11 +87,34 @@ poser un troisième à l'aveugle en fin de cycle aurait eu toutes les chances de
 avec du mouvement. Ils partent au prochain cycle, **un seul à la fois**, chacun mesuré contre le
 plancher avant d'être conservé.
 
-Et la vraie sortie — les colliders dérivés du mesh que tu proposes — existe **déjà à moitié dans
-l'arbre** : la moitié C++ est intacte et enregistrée, le format de données colle au bit près, et le
-chemin de livraison est déjà câblé. Ce qui manque, c'est la moitié GOAL… que le « départ propre » a
-emportée avec le reste. Elle fait ~136 lignes et il en reste 188 sous le plafond du moteur :
-**ça tient**. C'est le sujet du prochain cycle.
+## LES COLLIDERS DÉRIVÉS DU MESH — TON IDÉE EST CÂBLÉE, ET ELLE N'EST PAS ENCORE UTILISABLE
+
+C'était à moitié dans l'arbre depuis toujours : la moitié C++ intacte, le format de données bon au
+jeton près, la livraison déjà branchée. Ce qui manquait, c'est la moitié GOAL — que le « départ
+propre » avait emportée avec les 6000 lignes de suppresseurs. Elle est réécrite, et les deux bouts
+sont prouvés par la trace de la course :
+
+```
+[hd-phys] BSURFSRC=package bsets=55 dropped=0
+[HD-PHYS] bsurf ag=keira-hd sets=55/55 lies=55 non-lies=0
+```
+
+55 os portent maintenant de vrais échantillons de la surface skinnée — y compris les doigts, les
+gants, le masque et les deux moitiés des lunettes, qui n'avaient **aucune** représentation de
+collision. La passe est armée par la salle de test seule : **ton téléphone ne la paie pas.**
+
+**Mais je ne te vends pas le résultat, parce qu'il ne vaut rien en l'état.** 25 millions
+d'échantillons comparés, et les 22 chaînes rendent 7 à 49 cm de pénétration là où l'ancien compteur
+rendait 0,0000017 m. C'était tentant à publier. Sauf que les **paires miroir** — paramètres
+identiques, géométrie miroir, donc tout écart est de l'erreur d'instrument — divergent de 60 %
+(`lmidhair` 0,197 contre `rmidhair` 0,489), et les sangles d'orteil, que je prouve propres au
+repos, rendent quand même 7 cm. Le plancher d'erreur est de 0,29 m et dépasse presque toutes les
+valeurs publiées.
+
+La cause est la **densité** : 12 échantillons par os, c'est un espacement du même ordre que ce
+qu'on mesure. La colonne se déclare donc « non discriminante » dans la course même qui la produit.
+Le câblage, lui, est acquis et ne sera pas à refaire — c'est un problème de densité, chiffré et
+localisé, pas un problème de principe.
 
 ---
 
