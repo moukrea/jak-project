@@ -2782,23 +2782,35 @@
                           ;; « une resolution pire que le clip est pire que rien ». Retires, pas
                           ;; adoucis.
                           ;;
-                          ;; POURQUOI LA POSE DU MODELE NE SAUVE PAS, alors qu'elle est admissible
-                          ;; « par construction » : elle ne l'est plus depuis que `floor0` se mesure
-                          ;; contre l'INSTANTANE D'AUTEUR du volume pendant que `dep` se mesure
-                          ;; contre sa position COURANTE (voir la note de `phys-snapshot-colliders!`
-                          ;; plus bas). Pour un volume porte par un joint SIMULE les deux membres ne
-                          ;; decrivent plus le meme obstacle — et la pointe de `lmidhair`/`rmidhair`
-                          ;; est justement enfermee par des volumes portes par D'AUTRES CHAINES
-                          ;; SIMULEES : `lEarb->lEara` 74 contacts, `Lbangc->Lbangb` 46,
-                          ;; `Lbangd->Lbangc` 44 (ROOM-CONTACT-VOL). Sur la sphere du modele il
-                          ;; n'existe alors AUCUN point admissible, et le balayage 7x9 le confirme :
-                          ;; c'est bien pour ca qu'on est dans ce repli.
+                          ;; POURQUOI LA POSE DU MODELE NE SAUVE PAS, alors que l'invariant dit
+                          ;; qu'elle est admissible « par construction ». L'invariant ne couvre que
+                          ;; `rest` — la POSITION D'AUTEUR DU JOINT — et il tient bien : dans
+                          ;; `phys-link-pen`, `floor0 = max(floorc, floors)` avec `floorc` = la
+                          ;; profondeur de `rest` contre le volume A SA POSITION COURANTE, donc
+                          ;; `dep(rest) = floorc <= floor0 <= feff`. (L'ecart `floor0`/`dep` sur un
+                          ;; obstacle mobile est DEJA corrige par ce max : ne pas le rouvrir.)
                           ;;
-                          ;; LA VRAIE CAUSE EST DONC EN AMONT, ET ELLE EST NOMMEE : soit l'ecart
-                          ;; `floor0` / `dep` sur un obstacle mobile, soit le volume de la pointe
-                          ;; elle-meme (rayon 363/384 u pour un os de 938/958 u, les plus gros du
-                          ;; jeu de cheveux). Tant qu'elle tient, l'allongement est le MOINS mauvais
-                          ;; des trois etats : il ne fait traverser personne.
+                          ;; Mais le point que ce repli appelle « la pose du modele » N'EST PAS
+                          ;; `rest` : c'est `b_sim + m`, la DIRECTION d'os de l'auteur accrochee a
+                          ;; l'attache SIMULEE. Les deux ne coincident que si l'attache n'a pas
+                          ;; bouge — et la garde de ce bloc exige justement qu'elle ait bouge. Dans
+                          ;; 100 % des cas ou ce chemin s'execute, le point teste n'est donc PAS
+                          ;; celui que l'invariant protege. C'est pourquoi s'y replier (v2) a fait
+                          ;; MONTER la penetration au lieu de la faire tomber.
+                          ;;
+                          ;; LE CONFLIT EST CREE EN AMONT, PAR LA DERIVE DU PARENT. Quand le maillon
+                          ;; precedent s'eloigne de sa pose d'auteur, la sphere de rayon `ml` autour
+                          ;; de lui peut ne contenir AUCUN point admissible — le balayage 7x9 le
+                          ;; constate, c'est ce qui nous amene ici. La pointe de `lmidhair`/`rmidhair`
+                          ;; est en plus enfermee par des volumes portes par D'AUTRES CHAINES
+                          ;; SIMULEES (`lEarb->lEara` 74 contacts, `Lbangc->Lbangb` 46,
+                          ;; `Lbangd->Lbangc` 44, ROOM-CONTACT-VOL) et porte le plus gros volume de
+                          ;; pointe du jeu de cheveux (363/384 u pour un os de 938/958 u).
+                          ;; Aucune regle LOCALE a ce maillon ne peut donc tenir la longueur ET la
+                          ;; regle 6 : le correctif est chez le PARENT (borner sa derive quand elle
+                          ;; rend son enfant improplacable) ou dans une resolution CONJOINTE des deux
+                          ;; maillons. Tant que ce n'est pas fait, l'allongement est le MOINS mauvais
+                          ;; des trois etats mesures : il ne fait traverser personne.
                           ))))
                     (else
                      (set! wx mx) (set! wy my) (set! wz mz) (set! want ml))))

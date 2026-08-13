@@ -131,9 +131,35 @@ a ferme le sujet.
 -------------------------------------------------------------------------------------------------
 
 V2 reposait sur un invariant ecrit dans le moteur : « la pose du modele est toujours admissible ».
-Elle ne l'est plus, et le moteur le dit lui-meme : `floor0` se mesure contre l'INSTANTANE D'AUTEUR
-du volume pendant que `dep` se mesure contre sa position COURANTE. Pour un volume porte par un joint
-SIMULE, les deux membres ne decrivent plus le meme obstacle.
+
+PREMIERE EXPLICATION, ET ELLE EST FAUSSE — JE LA CORRIGE AVANT QU'ELLE NE SERVE DE PISTE. J'avais
+ecrit que `floor0` se mesure contre l'instantane d'auteur du volume pendant que `dep` se mesure
+contre sa position courante, donc que l'invariant serait rompu pour un volume porte par un joint
+simule. **C'est deja corrige dans le moteur, et je l'ai lu au lieu de le supposer** :
+
+    floors = profondeur de `rest` contre le volume A SA POSE D'AUTEUR      (ra/rb)
+    floorc = profondeur de `rest` contre le volume A SA POSITION COURANTE  (ca/cb)
+    floor0 = max(floorc, floors)          feff = phys-vol-floor(floor0, rl) >= floor0
+    dep    = profondeur du point EVALUE contre le volume a sa position courante
+
+`dep(rest) = floorc <= floor0 <= feff` : l'invariant TIENT, par construction, et le MAX est
+precisement ce qui l'a restaure. Ma piste designee etait un commentaire perime lu trop vite —
+exactement la faute que la regle 0 vise. Le prochain cycle ne doit PAS la suivre.
+
+LA VRAIE RAISON, VERIFIEE. L'invariant ne couvre que `rest`, c'est-a-dire la POSITION D'AUTEUR DU
+JOINT. Or le point que le recul appelle « la pose du modele » n'est pas `rest` : c'est
+`b_sim + m` — la DIRECTION d'os de l'auteur accrochee a l'attache SIMULEE. Les deux ne coincident
+que si l'attache n'a pas bouge, et **le bloc ne tourne QUE quand elle a bouge** (garde
+`|ml - want| > 0.01`). Donc dans 100 % des cas ou ce chemin s'execute, le point teste n'est pas
+celui que l'invariant protege, et rien ne garantit son admissibilite. C'est pour ca que V2 a fait
+MONTER la penetration au lieu de la faire tomber.
+
+CE QUE CA DEPLACE, ET C'EST LE VRAI RESULTAT : le conflit n'est pas cree par la politique de repli,
+il est cree EN AMONT par la DERIVE DU PARENT. Quand le maillon 1 est pousse loin de sa pose
+d'auteur, la sphere de rayon `ml` autour de lui peut ne contenir AUCUN point admissible — et aucune
+regle locale au maillon 2 ne peut alors satisfaire a la fois la longueur et la regle 6. Le seul
+point connu admissible est `rest`, et y aller casse la longueur vis-a-vis de l'attache derivee :
+c'est exactement l'allongement de 131 %.
 
 Or la pointe de ces deux chaines est precisement enfermee par des volumes portes par d'AUTRES
 CHAINES SIMULEES — mesure par `ROOM-CONTACT-VOL` sur la course :
@@ -339,10 +365,17 @@ DEUX CHOSES, DONC :
 12. LA SUITE, DESIGNEE PAR LES CHIFFRES
 -------------------------------------------------------------------------------------------------
 
-1. **La coherence `floor0` / `dep` sur un obstacle porte par un joint SIMULE.** C'est la cause
-   commune de l'allongement de 131 % ET de l'impossibilite de le corriger depuis le repli. Elle
-   touche les 22 chaines, donc elle se mesure contre le plancher avant d'etre gardee. C'est le
-   premier geste du prochain cycle.
+1. **LA DERIVE DU PARENT, PAS LA POLITIQUE DE REPLI** (section 5, verifie dans le code). Le maillon
+   2 n'a plus de place admissible parce que le maillon 1 s'est eloigne de sa pose d'auteur : la
+   sphere de rayon `ml` autour d'une attache derivee peut etre entierement fermee, et aucune regle
+   locale au maillon 2 ne peut alors tenir la longueur ET la regle 6 en meme temps.
+   Deux directions, a mesurer et non a supposer : (a) borner la derive du maillon PARENT quand elle
+   rend son enfant improplacable — ce qui deplace la contrainte la ou elle est soluble ; (b) resoudre
+   les deux maillons ENSEMBLE au lieu de l'un apres l'autre. Les deux touchent les 22 chaines, donc
+   se mesurent contre le plancher avant d'etre gardees.
+   **NE PAS reouvrir la piste `floor0`/`dep`** : elle est deja corrigee (`floor0 = max(floorc,
+   floors)`), je l'avais designee a tort sur la foi d'un commentaire perime, et la section 5 donne
+   l'algebre qui le montre.
 2. **L'attenuation d'angle sur `backhair`/`lmidhair`/`rmidhair`** (section 9) : valeurs deja
    derivees du rig, `tiprot` a 176-180 deg, demande explicite de l'owner. Point GROUPE B, seul
    changement de son cycle, garde uniquement si le plancher tient.
