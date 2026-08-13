@@ -1210,7 +1210,16 @@
      (physroom-drive 3 (-> self pframe))
      (physroom-advance-anim 1.0)
      (when (>= (-> self pframe) PHYSROOM-PCW)
-       (format 0 "PHYSSHELL tag=shell-disarmed corrections=~f~%" (phys-shell-count))
+       ;; DEUX compteurs, jamais un seul. `corrections` ne compte que la moitie `rad>0` (le pan
+       ;; s'ecarte de l'axe, on le ramene) ; `inward` compte la moitie `rad<0` (le pan est passe
+       ;; SOUS sa distance de pose modele, donc DANS le mollet, on l'en ressort). Publier la
+       ;; premiere seule laissait croire que le limiteur radial etait une politique unique alors
+       ;; que ce sont deux branches exclusives : c'est leur RAPPORT qui dit ce qui epingle le
+       ;; fourreau, et il n'a jamais ete lisible.
+       ;; NATURE : deux COMPTES d'evenements sur la fenetre. REPERE : sans objet (des comptes).
+       ;; LECTURE HORS DEFAUT : `inward` = 0 -- aucun lien-fourreau n'est entre dans la chair.
+       (format 0 "PHYSSHELL tag=shell-disarmed corrections=~f inward=~f~%"
+               (phys-shell-count) (phys-shell-in-count))
        ;; l'ecart radial par chaine sort dans PHYSDIAG5 ci-dessous : c'est LUI qui doit monter
        ;; quand le controle est arme. `corrections` ne le peut pas -- armee, la contrainte ne
        ;; tourne plus, donc son compteur tombe a zero. Les deux sont publies, jamais confondus.
@@ -1225,7 +1234,8 @@
      (physroom-drive 3 (-> self pframe))
      (physroom-advance-anim 1.0)
      (when (>= (-> self pframe) PHYSROOM-PCW)
-       (format 0 "PHYSSHELL tag=shell-armed corrections=~f~%" (phys-shell-count))
+       (format 0 "PHYSSHELL tag=shell-armed corrections=~f inward=~f~%"
+               (phys-shell-count) (phys-shell-in-count))
        (physroom-emit-diag "shell-armed")
        (phys-shell-off-set! 0)
        (phys-diag-reset!)
