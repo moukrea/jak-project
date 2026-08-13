@@ -90,6 +90,7 @@ def main():
     bind = np.array([np.linalg.inv(m) for m in ibms])
     ref = referenced_vertices(js, binc)
     log = []
+    evicted, evicted_mass = {}, {}
 
     # ---- 1. nodes + skin.joints + IBMs ---------------------------------------------------
     new_ibms = list(ibms)
@@ -137,6 +138,7 @@ def main():
             W = W / wscale
             mask_ref = np.zeros(len(P), bool)
             mask_ref[list(ref & set(range(len(P))))] = True
+            touched = set()
 
             for e in spec:
                 pj, nj = idx[e['parent']], idx[e['name']]
@@ -168,26 +170,48 @@ def main():
                         else:
                             free = np.nonzero(row_w <= 1e-9)[0]
                             if not len(free):
-                                # 4 influences already used: take the lightest, but only if it
-                                # is lighter than what we are adding, else skip this vertex and
-                                # SAY SO rather than silently dropping a real influence.
+                                # 4 INFLUENCES ALREADY USED. The first version skipped the vertex
+                                # when the lightest existing influence outweighed the incoming one.
+                                # MEASURED: that produced 22 torn edges on rmidhair in the shipped
+                                # mesh (ROOM-SKINCOV-SHIPPED dtear 82->0 became 82->22) — a skipped
+                                # vertex keeps the OLD joint set while its neighbours get the new
+                                # one, and a weight discontinuity across an edge IS the tear. It is
+                                # the exact defect this cycle exists to close ("des polygones qui
+                                # bougent et des polygones voisins parfaitement statiques").
+                                # So we always evict the lightest influence and COUNT it: losing an
+                                # influence smaller than the one replacing it is strictly less
+                                # harmful than tearing the skin, and the count is published rather
+                                # than assumed negligible.
                                 lo = int(np.argmin(row_w))
-                                if row_w[lo] >= t:
-                                    continue
+                                evicted[e['name']] = evicted.get(e['name'], 0) + 1
+                                evicted_mass[e['name']] = (evicted_mass.get(e['name'], 0.0)
+                                                           + float(row_w[lo]))
                                 row_w[lo] = 0.0
                                 free = [lo]
                             row_j[free[0]] = nj
                             row_w[free[0]] = t
                         row_w[slot] -= t
+                        touched.add(int(vi))
                         moved += t
                         nv += 1
-                log.append("XFER  %-12s <- %-12s verts=%-5d mass=%.3f" %
-                           (e['name'], e['parent'], nv, moved))
+                log.append("XFER  %-12s <- %-12s verts=%-5d mass=%.3f evicted=%d (%.4f)" %
+                           (e['name'], e['parent'], nv, moved,
+                            evicted.get(e['name'], 0), evicted_mass.get(e['name'], 0.0)))
 
-            # renormalize (the ramp conserves mass, but float drift is real)
-            rs = W.sum(axis=1, keepdims=True)
-            rs[rs <= 1e-9] = 1.0
-            W = W / rs
+            # RENORMALISE ONLY THE ROWS WE ACTUALLY TOUCHED.
+            # Renormalising the whole array looked harmless and was not: the donor's rows do not
+            # all sum to exactly 1, so rescaling them shifted the weights of vertices this tool
+            # never touched. Measured on the shipped mesh: `rmidhair` went from 0 to 22 torn edges
+            # (ROOM-SKINCOV-SHIPPED dtear 82->0 became 82->22) and its owned-vertex count moved
+            # 244->243 — a chain-ownership sum crossing the 0.5 edge threshold on vertices that had
+            # nothing to do with the injection. The transfer itself conserves mass exactly (t is
+            # subtracted from the parent slot and added to the new one), so only float drift on the
+            # touched rows needs correcting.
+            if touched:
+                ti = np.fromiter(touched, dtype=np.int64)
+                rs = W[ti].sum(axis=1, keepdims=True)
+                rs[rs <= 1e-9] = 1.0
+                W[ti] = W[ti] / rs
             jmax = int(J.max())
             jdt, jct = (np.uint8, 5121) if jmax < 256 else (np.uint16, 5123)
             aj = append_accessor(js, binc, J.astype(jdt), jct, 'VEC4')

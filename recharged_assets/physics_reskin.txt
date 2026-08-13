@@ -140,11 +140,22 @@ transfer Fromid   from=head cap=0.85 shape=0.85
 transfer Froback  from=head cap=0.85 shape=0.85
 
 [model keira-hd keira3-hd]
-grade Rmidhaira chain=Rmidhaira,Rmidhairb from=head step=0.45
-grade Lmidhaira chain=Lmidhaira,Lmidhairb from=head step=0.45
-grade Lbanga    chain=Lbanga,Lbangb,Lbangc from=head step=0.45
-grade Rbanga    chain=Rbanga,Rbangb,Rbangc from=head step=0.45
-grade backHair1 chain=backHair1,backHair2  from=head step=0.45
+# 2026-08-13 — LES CINQ CHAINES DE CHEVEUX ONT GAGNE UN JOINT (injection au point de production,
+# recharged_assets/keira-hd-inject-joints.txt). `chain=` est la LISTE D'APPARTENANCE que le grader
+# utilise pour reconnaitre un sommet de la meche face au cuir chevelu : un joint absent de cette
+# liste rend ses sommets invisibles au grader, la jonction cuir chevelu / meche cesse d'etre
+# graduee, et la dechirure revient.
+# MESURE QUI L'A ETABLI : apres l'injection, `rmidhair` est passe de 0 a 22 aretes dechirees sur le
+# mesh livre, cote bas a `head 0.97..1.00` — exactement la jonction. `lmidhair` restait a 0, et
+# cette ASYMETRIE sur une paire miroir est ce qui a designe la liste plutot que le transfert de
+# poids (le donneur porte 82 dechirures a droite contre 19 a gauche).
+# C'est le CINQUIEME endroit de l'arbre qui duplique la composition d'une chaine (avec
+# physics_chains.txt, EXPECTED_GROUPS, les tableaux k2e et *hd-joint-counts*). Signale.
+grade Rmidhaira chain=Rmidhaira,Rmidhairb,Rmidhairc from=head step=0.45
+grade Lmidhaira chain=Lmidhaira,Lmidhairb,Lmidhairc from=head step=0.45
+grade Lbanga    chain=Lbanga,Lbangb,Lbangc,Lbangd   from=head step=0.45
+grade Rbanga    chain=Rbanga,Rbangb,Rbangc,Rbangd   from=head step=0.45
+grade backHair1 chain=backHair1,backHair2,backHair3 from=head step=0.45
 grade lEara     chain=lEara,lEarb          from=head step=0.45
 grade rEara     chain=rEara,rEarb          from=head step=0.45
 
