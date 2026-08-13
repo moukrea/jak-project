@@ -760,6 +760,14 @@
 ;; frame par `phys-pen-chain`) : les trois reculs et leurs treize pas de dichotomie ne comptent pas,
 ;; sinon le chiffre mesurerait l'effort du solveur au lieu de l'obstacle.
 (define *phys-cvh* (new 'global 'array 'int32 (* PHYS-SC PHYS-COLS)))
+;; LE MEME SEAU, MAIS POUR LE CONFLIT — combien de fois le volume `ci` s'est DISPUTE un lien de la
+;; chaine avec au moins un autre volume, dans la meme frame. Distinct de `*phys-cvh*`, qui compte la
+;; penetration RESIDUELLE apres solveur et n'est alimente que par la fenetre de controle positif
+;; (mesure du 2026-08-13 : `meshpen_max = 0.0000` sur toutes les phases de mesure, donc les 90 de
+;; `ROOM-CONTACT-VOL` sont les 90 frames de PCON). Celui-ci est alimente par la passe de SELECTION,
+;; donc par toute la course, et il repond a la question que `ROOM-VOLPRIO` pose sans y repondre :
+;; `chestR` conflicte 85895 fois contre 2264 a gauche — MAIS AVEC QUI ?
+(define *phys-cfh* (new 'global 'array 'int32 (* PHYS-SC PHYS-COLS)))
 
 ;; ------------------------------------------------------------------------------------------------
 ;; DIAGNOSTIC PAR CHAINE (6e passe de l'owner). Les trois defauts qu'il decrit se decident chaine
@@ -1977,7 +1985,7 @@
             ;; (prio-meas = 1) elle ne fait que COMPTER, et `*phys-lwin*` est rendu a -1 juste
             ;; apres, donc rien n'est ecarte. Voir *phys-prio-meas*.
             (when (or (zero? *phys-prio-off*) (nonzero? *phys-prio-meas*))
-              (let ((best 2000000000) (nviol 0))
+              (let ((best 2000000000) (nviol 0) (lastci 0))
                 (dotimes (ci nco)
                   (let* ((sco (+ (* slot PHYS-COLS) ci))
                          (cj  (-> *phys-cj* sco))
@@ -2000,10 +2008,23 @@
                                                          (-> *phys-cr2* sco) cap? nrm)))
                         (when (> dep feff)
                           (+! nviol 1)
+                          ;; ATTRIBUTION PAR VOLUME. On incremente d'abord tout violeur, et si le
+                          ;; lien n'en avait qu'UN on le retire juste apres : ce seau ne compte donc
+                          ;; que les volumes qui se DISPUTAIENT le lien. Une seule passe, aucune
+                          ;; geometrie recalculee.
+                          (set! lastci ci)
+                          ;; `sc` PORTE DEJA LE SLOT (`sc = slot*PHYS-CHAINS + c`, cf. :922) : le
+                          ;; remultiplier ecrirait HORS du tableau des le slot 1. Meme indexation
+                          ;; que `*phys-cvh*` (:2508) et que l'accesseur `phys-chain-vol`.
+                          (let ((h (+ (* sc PHYS-COLS) ci)))
+                            (set! (-> *phys-cfh* h) (+ 1 (-> *phys-cfh* h))))
                           (let ((key (phys-col-key sco cj)))
                             (when (< key best)
                               (set! best key)
                               (set! (-> *phys-lwin* scl) sco))))))))
+                (when (= nviol 1)
+                  (let ((h (+ (* sc PHYS-COLS) lastci)))
+                    (set! (-> *phys-cfh* h) (- (-> *phys-cfh* h) 1))))
                 (when (> nviol 1)
                   (set! *phys-prio-multi* (+ *phys-prio-multi* 1))
                   (set! *phys-prio-n* (+ *phys-prio-n* (- nviol 1)))
@@ -4420,6 +4441,13 @@
     (-> *phys-cvh* (+ (* (+ (* slot PHYS-CHAINS) chain) PHYS-COLS) ci))
     0))
 
+;; COMBIEN DE FOIS LE VOLUME `ci` S'EST DISPUTE UN LIEN DE `chain` AVEC UN AUTRE VOLUME.
+(defun phys-chain-conf ((slot int) (chain int) (ci int))
+  (if (and (>= slot 0) (< slot PHYS-SLOTS) (>= chain 0) (< chain PHYS-CHAINS)
+           (>= ci 0) (< ci PHYS-COLS))
+    (-> *phys-cfh* (+ (* (+ (* slot PHYS-CHAINS) chain) PHYS-COLS) ci))
+    0))
+
 (defun phys-limiter-reset! ()
   (set! *phys-retreat-n* 0)
   (set! *phys-retreat-sum* 0.0)
@@ -4429,6 +4457,7 @@
   (set! *phys-retfb-n* 0)
   (set! *phys-sphere-n* 0)
   (dotimes (i (* PHYS-SC PHYS-COLS)) (set! (-> *phys-cvh* i) 0))
+  (dotimes (i (* PHYS-SC PHYS-COLS)) (set! (-> *phys-cfh* i) 0))
   (none))
 
 ;; SPEC 5. which 0 = frames ou l'anim pilotait cette chaine, 1 = celles ou la pose ecrite est partie

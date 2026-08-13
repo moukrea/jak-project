@@ -143,6 +143,63 @@ mesure de 2026-08-12 dit que les ecarter fait TRAVERSER (regle 6). Le chiffre se
 regarder, pas a justifier de l'armer.
 
 -------------------------------------------------------------------------------------------------
+2 bis. L'ATTRIBUTION — QUELS VOLUMES SE DISPUTENT LE SEIN DROIT, ET PAS LE GAUCHE
+-------------------------------------------------------------------------------------------------
+
+`ROOM-VOLPRIO` dit COMBIEN (85 895 contre 2 264) mais pas AVEC QUI. `ROOM-CONTACT-VOL` ne peut pas
+repondre : il ne se remplit que pendant la fenetre de controle (section 1). J'ai donc ajoute le seau
+manquant, `*phys-cfh*`, alimente par la passe de SELECTION — donc par toute la course — et publie
+par `PHYSCFVOL c= ci= n=`. Meme nature que `pairs_ignored`, mais attribuee par volume.
+
+    chestR (c=8) — celle qui saute            chestL (c=7) — celle qui ne saute pas
+      Lshoulder->chest      31525               Lshoulder->chest       1187
+      chest->main           28797               Lelbow->Lshoulder       704
+      sphere:main           22705               neck->chest             593
+      sphere:lBotStrap2     16948               head->neck              507
+      Rshoulder->chest      11608               Lhand->Lelbow           322
+      neck->chest           11605               sphere:rBoob            308
+      sphere:lBoob           1786               sphere:gogglesMid       154
+      head->neck              803               Rshoulder->chest        136
+      hips->main              631               sphere:lTopStrap2        94
+
+CE QUE CA MONTRE, ET CE N'EST PAS SUBTIL. Comparons chaque volume a son MIROIR :
+
+    le sein GAUCHE vu par l'epaule OPPOSEE (Rshoulder->chest)  :     136
+    le sein DROIT  vu par l'epaule OPPOSEE (Lshoulder->chest)  :  31 525      -> x232
+
+    le sein GAUCHE vu par sa PROPRE epaule (Lshoulder->chest)  :   1 187
+    le sein DROIT  vu par sa PROPRE epaule (Rshoulder->chest)  :  11 608      -> x10
+
+    `chest->main`, `sphere:main`, `sphere:lBotStrap2` : ABSENTS de la colonne du sein gauche,
+    et respectivement 28 797, 22 705 et 16 948 sur celle du sein droit.
+
+Le sein droit est donc dispute par un ensemble de volumes que le sein gauche ne voit quasiment
+jamais — dont plusieurs volumes du cote GAUCHE (`Lshoulder->chest`, `lBotStrap2`, `lBoob`) et les
+deux gros volumes de tronc. Ce n'est pas une difference de reglage : c'est une difference de
+GEOMETRIE, sur une paire miroir.
+
+CE QUE JE NE CONCLUS PAS. Je n'ai pas identifie la cause. Ce que la mesure autorise a dire, c'est
+que la position simulee de `rBoob` — ou le placement de son volume — part vers le tronc et le cote
+gauche, la ou `lBoob` reste chez elle. Deux pistes restent ouvertes et je ne tranche ni l'une ni
+l'autre sans mesure :
+  * les deux decalages livres ne sont PAS des miroirs sur l'axe lateral :
+    `lBoob offset=-1,655,94` et `rBoob offset=4,-657,-84` — le signe s'inverse sur Y et Z, pas sur
+    X. En pose de BIND cela se resout correctement (la sonde de recouvrement le verifie, controle
+    de repere a 0.0003 u), donc ce n'est pas fautif en soi ; mais c'est le genre d'asymetrie qui
+    cesse d'etre benigne des que la matrice tourne.
+  * `phys-link-off!` fait tourner ce decalage par la matrice de l'os ANIMEE et non par
+    l'orientation SIMULEE du lien. A 662 u de decalage, le volume est pose la ou le lien n'est pas
+    des que le sein s'ecarte. La version corrigee existe (`phys-link-off-sim!`, `:1750`) et n'est
+    branchee que sur 2 des 5 sites (`:1969`, `:2317`) ; `:1961`, `:2218` et `:2311` utilisent
+    encore la version animee. Je n'y touche PAS ce cycle : c'est le coeur du solveur, deux essais
+    passes de deplacement de volume ont casse le plancher de mouvement, et il ne reste pas assez de
+    cycle pour le mesurer honnetement. C'est la premiere chose a faire au prochain, avec le
+    plancher sous les yeux.
+
+(`:2218` est ecarte des suspects par lecture : il ajoute le MEME decalage a `rest` et a `cur`, donc
+la difference des deux — la seule grandeur qu'il utilise — n'en depend pas.)
+
+-------------------------------------------------------------------------------------------------
 3. INSTRUMENT NEUF — LE RECOUVREMENT AU REPOS, PAR COUPLE (MAILLON, VOLUME)
 -------------------------------------------------------------------------------------------------
 
@@ -264,15 +321,15 @@ Je l'ecris net plutot que de l'habiller.
 6. LA SUITE, DESIGNEE PAR LES CHIFFRES ET NON PAR UNE INTUITION
 -------------------------------------------------------------------------------------------------
 
-0. **`flesh-jelly` / `chestR` — le facteur 38.** C'est la piste la mieux etayee du cycle, par DEUX
-   instruments independants qui pointent le meme cote : 85 895 conflits de volumes contre 2 264 a
-   gauche, et un contact qui affleure a -22 u contre -57 u. La question a poser ensuite est
-   precise : QUELS volumes se disputent `rBoob` et pas `lBoob` ? Le recensement de la sonde donne
-   deja les candidats (`chestR` voit `sphere:rTopStrap2`, `sphere:rBotStrap2` et `chest->main` la
-   ou `chestL` ne voit que `sphere:lTopStrap2` et `sphere:lBotStrap2`), et il manque un compteur
-   par PAIRE (chaine, volume) sur la fenetre de mesure — celui qui existe, `ROOM-CONTACT-VOL`, ne
-   voit que la fenetre de controle (section 1). C'est ~10 lignes dans le meme bloc que celui
-   corrige ici, et ca nomme le volume fautif au lieu de le deviner.
+0. **`flesh-jelly` / `chestR` — REPRENDRE PAR `phys-link-off!`.** La question « quels volumes ? »
+   est repondue (section 2 bis) : le sein droit est dispute par l'epaule OPPOSEE 232 fois plus que
+   le gauche, et par trois volumes que le gauche ne voit jamais. Le suspect nomme est
+   `phys-link-off!`, qui pose le volume d'un lien selon la matrice ANIMEE et non selon
+   l'orientation SIMULEE, avec 662 u de bras de levier sur la poitrine. La version corrigee existe
+   deja et n'est branchee que sur 2 sites sur 5. **Le brancher partout est le premier geste du
+   prochain cycle**, avec `motion-floor.txt` sous les yeux : deux essais passes de deplacement de
+   volume ont casse le plancher, donc la regle « on garde seulement si le plancher tient »
+   s'applique mot pour mot.
 1. **`rbang`/`lbang` contre `sphere:Rmidhaira`/`Lmidhaira` (-467 / -267 u).** `Rmidhaira` porte une
    sphere de **766 u** (18.7 cm) — presque le double du plus gros autre volume de cheveux
    (`Lbanga` 361, `lEara` 333) — parce que `blob_centre_radius` rend le p95 de la geometrie d'une

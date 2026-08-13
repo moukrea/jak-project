@@ -1045,6 +1045,21 @@
              (let ((n (phys-chain-vol (-> self slot) c ci)))
                (when (> n 0)
                  (format 0 "PHYSCVOL c=~D ci=~D n=~D~%" c ci n))))))
+       ;; QUELS VOLUMES SE DISPUTENT QUEL LIEN — l'attribution que `PHYSCVOL` ne peut pas donner,
+       ;; parce qu'il ne se remplit que pendant la fenetre de controle positif (mesure du
+       ;; 2026-08-13 : `meshpen_max=0.0000` sur toutes les phases de mesure). Celui-ci vient de la
+       ;; passe de SELECTION, donc de toute la course.
+       ;;   NATURE  : un COMPTE de triplets (frame, lien, volume) ou ce volume etait l'un d'au moins
+       ;;             DEUX a contraindre le meme lien. Ni une distance, ni une amplitude.
+       ;;   REPERE  : sans objet (c'est un compte).
+       ;;   ABSENT  : 0 — le lien n'a jamais eu plus d'un volume a la fois, donc rien a arbitrer.
+       ;;   CONTROLE: le desarmement de `*phys-prio-meas*`, qui doit rendre TOUTE la colonne a zero.
+       (dotimes (c (-> self nchain))
+         (when (> (phys-chain-links (-> self slot) c) 0)
+           (dotimes (ci (phys-slot-colliders (-> self slot)))
+             (let ((n (phys-chain-conf (-> self slot) c ci)))
+               (when (> n 0)
+                 (format 0 "PHYSCFVOL c=~D ci=~D n=~D~%" c ci n))))))
        (dotimes (c (-> self nchain))
         (when (> (phys-chain-links (-> self slot) c) 0)
          (format 0 "PHYSAUTH c=~D hit=~f ok=~f dot=~f nrm=~f dsum=~f~%"
