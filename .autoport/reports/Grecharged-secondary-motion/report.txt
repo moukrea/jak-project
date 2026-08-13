@@ -303,6 +303,34 @@ tire. Combinee a la prediction faite AVANT le bake (qui avait deja tue les deux 
 aucune regle inerte n'est partie en production.
 
 -------------------------------------------------------------------------------------------------
+6 ter. LIVRAISON — UN CORRECTIF DE MESH SEUL NE PARTAIT JAMAIS, ET CE CYCLE EN EST LA PREUVE
+-------------------------------------------------------------------------------------------------
+
+LE FAIT, MESURE : le pack HD publie a l'owner (`cfc51c7c50be8`, 07:14) PRECEDE le `GAME.fr3` de
+07:48. **Le correctif de nuque n'etait pas dans ce qu'il a en main**, et rien ne le signalait.
+
+LA CAUSE, LUE DANS LE CODE : `.autoport/auto_push_builds.sh:32` sortait de l'iteration sur le SEUL
+hash de l'APK (`[ "$h" = "$LAST" ] && continue`), avant meme d'atteindre la branche du zip HD. Un
+cycle qui ne corrige QUE le mesh — exactement celui-ci, ou le reskin ne touche ni GOAL ni C++ — ne
+pouvait donc JAMAIS etre publie, quel que soit le changement du pack. Le fichier portait pourtant
+en commentaire, deux lignes plus haut, « The HD asset pack is a SEPARATE deliverable » : l'intention
+etait ecrite, la garde disait le contraire. **Un commentaire n'est pas une preuve** — regle 0, et
+elle vaut aussi pour le code de livraison.
+
+LA CORRECTION, au POINT DE PRODUCTION et non au point de controle (« quand une perte se repete, on
+la rend impossible ») : on ne sort que si les DEUX hash sont inchanges, on n'envoie que ce qui a
+change (un APK de 581 Mo identique ne repart pas pour un correctif de mesh de 47 Mo), et `LASTZIP`
+n'est pose qu'apres un televersement REUSSI — le poser avant faisait oublier definitivement un zip
+dont l'envoi avait echoue. La ligne de log nomme desormais les deux (`PUSHED apk=… zip=…`).
+
+APPLIQUEE SANS TOUCHER AU PROCESSUS VIVANT. Le watcher tourne (PID 1049886) et bash relit un script
+par decalage d'octets : l'editer en place peut le faire sauter dans du vide. La nouvelle version est
+donc ecrite sur un INODE NEUF puis echangee par `mv` — le process garde son inode ouvert et continue
+sur l'ancien code jusqu'a son prochain demarrage. Verifie : inode 14961098 -> 15716285, `bash -n`
+passe, `kill -0 1049886` repond toujours. La livraison d'aujourd'hui n'en depend pas (le build en
+cours change l'APK, donc les deux partent de toute facon).
+
+-------------------------------------------------------------------------------------------------
 7. CE QUE JE N'AI PAS FAIT, ET POURQUOI — AUCUN DE-SCOPE SILENCIEUX
 -------------------------------------------------------------------------------------------------
 
@@ -353,8 +381,27 @@ tentative.** Sortie integrale, telle quelle :
       - hair-skinning · hair-fine-dead · hair-nape · ears-physics · knee-tabs
       - pant-calf · goggles-bottom · goggles-tunnel · flesh-jelly
 
+L'ETAT DES GATES SITUEES DERRIERE elle, execute en COPIE DIAGNOSTIQUE hors de l'arbre
+(`sed '43,52d'` vers `~/.autoport-scratch/`, le validateur reel n'est pas modifie) — **CE N'EST PAS
+UN PASS**, c'est une lecture :
+
+    [TUNING]        tous les reglages de l'owner sont dans le fichier livre
+    [ROOM]          joueur absent, 1 acteur, 22 chaines x 31/31 animations, 3410 mesures
+    [MOVE]          toutes les chaines declarees bougent (tipvar min 0.100)
+    [COLLIDE]       penetration nulle sur les trois paires, controle positif 0.214 contre 0.000
+    [IDLE]          ecart max au modele 0.023   [ANIM] 8 chaines pilotees, toutes respectees
+    [SIDE-CONTROL]  0 franchissement, controle present
+    [FLOOR-WEAK]    ECHOUE sur 3 chaines — pantflapL 0.0840->0.0132, pantflapR 0.0201->0.0084,
+                    kneeflapL 0.0884->0.0412
+
+FLOOR-WEAK ECHOUE AVEC LES CHIFFRES EXACTS DU CYCLE PRECEDENT, AU DIX-MILLIEME. Ce n'est pas une
+affirmation : le comparatif avant/apres du testeur donne ces trois chaines a variation **exactement
+nulle** ce cycle. Aucune de ces pertes ne vient d'ici. Je ne touche ni la gate ni
+`motion-floor-weak.txt` (regle 5) et je ne l'adoucis pas : elle est reportee entiere.
+
 Je n'ai touche NI le validateur NI aucune gate NI `motion-floor.txt` / `motion-floor-weak.txt`
-(regle 5) — le testeur a confirme leurs mtimes du 12 aout inchanges.
+(regle 5) : `git status` sur `.autoport/validators/` ne rend rien et le validateur porte toujours
+md5 `6391a8903add5303119a5eede217924e`.
 
 -------------------------------------------------------------------------------------------------
 9. CE QUE L'OWNER DOIT REGARDER SUR CE BUILD
@@ -374,9 +421,74 @@ Je n'ai touche NI le validateur NI aucune gate NI `motion-floor.txt` / `motion-f
 10. LA SUITE, DESIGNEE PAR LES CHIFFRES
 -------------------------------------------------------------------------------------------------
 
-1. **`ROOM-STRETCH` a 131 % sur `lmidhair`/`rmidhair`.** Un os qui s'allonge de 131 % est
-   probablement ce que l'owner voit comme « deformations extremes qui cassent la geometrie » sur les
-   grosses meches. Aucune gate ne le garde ; il est le plus gros ecart mesure du dossier.
+1. **`ROOM-STRETCH` a 131 % sur `lmidhair`/`rmidhair`** — le plus gros ecart du dossier, garde par
+   AUCUNE gate, et probablement ce que l'owner voit comme « deformations extremes qui cassent la
+   geometrie » sur les grosses meches. J'ai instruit la question ce cycle et voici ce qui est
+   ETABLI, avec ce qui a ete refute au passage :
+
+   * `NATURE : |longueur/longueur_de_repos - 1|`, sans dimension (docstring du producteur). 1.3088
+     est donc bien **131 % d'allongement d'os**, pas un artefact d'unite.
+   * **CONFINE** a `lmidhair` (1.3088) et `rmidhair` (1.2488). Les 20 autres chaines sont entre
+     0.0000 et 0.0003 — la contrainte de longueur fonctionne partout ailleurs.
+   * **BIMODAL PAR PILOTAGE** : ~1.3 sous `leftright`/`accel`/`jerk`, **exactement 0.0000** sous
+     `updown` et `tilt`. Un defaut qui s'allume et s'eteint selon le stimulus, pas une derive.
+   * REFUTE — **l'os degenere**. J'ai suppose un `L0` minuscule (un rapport explose alors pour un
+     deplacement derisoire). Mesure des longueurs d'os au repos : `lmidhair` 962.3 / 937.7 u, ce
+     sont les **plus LONGS** os de toutes les chaines de cheveux. Hypothese morte.
+   * REFUTE — **le nombre de volumes en conflit**. `backhair` en conteste **12 868** contre 7 951
+     pour `lmidhair`, et s'allonge de 0.0001. Le volume de conflit n'explique rien.
+   * REFUTE — **une contrainte non iteree**. Le pas fait 8 tours (longueur + collision) puis 3 tours
+     de finition : la projection est bien iteree.
+   * CE QUI RESTE, et c'est un correlat propre : `lmidhair`/`rmidhair` sont les **SEULES chaines
+     multi-maillons a porter `couple=1.40`** (toutes les autres sont a 1.00 ou 0.70 ; `chestL/R`
+     sont a 1.85 mais n'ont qu'UN maillon, donc aucun os intermediaire a etirer). Et le couplage
+     est une deviation POSITIONNELLE proportionnelle a l'acceleration de l'ancre — ce qui predit
+     exactement la bimodalite observee : nul sous `tilt` (rotation lente), maximal sous les
+     pilotages impulsifs.
+
+   * **REFUTE AUSSI — LE COUPLAGE, ET C'ETAIT MON HYPOTHESE.** Course complete de controle
+     (couple 1.40 -> 1.00 sur ces deux chaines pour seule variable, 3410 mesures, puis restauration
+     verifiee). Trois arguments independants la tuent :
+       - CONTROLE APPARIE : `backhair` porte `couple=1.00` ET 3 joints — identique au `lmidhair`
+         modifie sur les DEUX criteres — et s'allonge de 0.0001 quand `lmidhair` a 1.00 s'allonge
+         de **1.3057**. Facteur ~13 000 a parametre et topologie egaux.
+       - AUCUNE PROPORTIONNALITE : -28.6 % de couplage achetent **-0.24 %** sur le pic
+         (1.3088 -> 1.3057). Seule la POSITION du pic migre (`leftright` -> `accel`). C'est la
+         signature d'une grandeur SATUREE, pas d'une grandeur pilotee.
+       - LA DEPENDANCE A L'AXE SURVIT : `updown` et `tilt` valent exactement 0.0000 AUX DEUX
+         reglages. Une deviation positionnelle proportionnelle a l'acceleration de l'ancre devrait
+         s'allonger aussi sous `updown`, qui en a. Elle ne le fait a aucun reglage.
+     LE LEVIER ETAIT VIVANT — donc ce zero n'est pas un instrument mort : la meme baisse a bien
+     deplace `tipvar` de -6.0 % / -5.0 % et le `stretch` sous `jerk` de -30 % / -50 %. Le couplage
+     MODULE la repartition entre pilotages ; il ne fixe pas le plafond. **Je ferme l'hypothese avec
+     ses chiffres pour que le prochain cycle ne la rouvre pas.**
+
+   CE QUI RESTE, ET C'EST LE SEUL DISCRIMINANT ENCORE DEBOUT : le PROFIL DE RAYONS. `lmidhair` et
+   `rmidhair` sont les seules chaines dont le maillon du MILIEU est plus fin que la POINTE :
+
+       lmidhair  radii=222,145,363   pointe / milieu = 2.50   stretch 1.3088
+       rmidhair  radii=228,213,384   pointe / milieu = 1.80   stretch 1.2488
+       backhair  radii=358,442,360   milieu le PLUS EPAIS     stretch 0.0001
+       lbang     radii=112,104,154,189   croissant            stretch 0.0000
+
+   L'ordre des rapports suit l'ordre des allongements. Mecanisme plausible, et il reste A TESTER :
+   un maillon fin se glisse DANS un volume ou la pointe epaisse ne rentre pas ; la collision chasse
+   alors la pointe pendant que le milieu reste dedans, et c'est l'os entre les deux qui s'etire.
+   **Je ne le presente pas comme etabli** — l'ordre est monotone sur un echantillon de DEUX, ce qui
+   ne demontre rien. C'est la premiere chose a instrumenter au prochain cycle : publier, par
+   maillon, la profondeur de penetration ET l'allongement de l'os qui le suit.
+
+   Le correctif, quand la cause sera tenue, est dans le MOTEUR et se mesurera contre le plancher.
+   Il ne passe PAS par le couplage : les DIRECTIVES l'interdisent, et la mesure vient de montrer
+   que ca ne marcherait pas de toute facon.
+
+   INCIDENT DE MA PART, SIGNALE. Mon premier essai de ce controle a lance la course en AVANT-PLAN :
+   l'outil coupe a 10 minutes, la course en demande ~12, le shell a ete tue a mi-parcours et le bloc
+   de restauration qui suivait n'a jamais tourne. L'arbre est reste avec `couple=1.00` pendant
+   quelques minutes. Repare et VERIFIE (md5 `a6a5c1592d06990e2a5a216f54982bff`, `couple=1.40` x2,
+   `git status` muet sur le fichier). Rien n'a ete livre dans cet etat — le pack etait deja bati.
+   La lecon est generale : une sequence « modifier / mesurer / restaurer » ne doit jamais dependre
+   d'un processus qui peut etre tue, la restauration doit vivre dans un appel separe.
 2. **Les verres des lunettes ne sont confrontes a rien.** Profil decroissant 0.65 -> 0.07, 1re du
    classement VOLPRIO. Demande qu'un lien puisse porter PLUSIEURS volumes — changement de moteur, a
    mesurer contre le plancher.
