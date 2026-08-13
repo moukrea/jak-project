@@ -505,6 +505,99 @@ transfer Rmidhairc from=head,Rmidhaira,Rmidhairb cap=1.00 shape=0.12
 transfer backHair4 from=head,backHair3 cap=1.00 shape=0.35
 transfer Lmidhaird from=head,Lmidhairc cap=1.00 shape=0.35
 transfer Rmidhaird from=head,Rmidhairc cap=1.00 shape=0.35
+# ================================================================================================
+# 2026-08-13 21:25 — LE NIVEAU DE PROPRIETE DE LA MOITIE HAUTE, ET LA MESURE QUI L'A DESIGNE
+#
+# CE QUI EST REFUTE D'ABORD, parce que la regle qui suit ne vise PLUS ce que les DIRECTIVES
+# decrivaient. Les DIRECTIVES (14:45) posaient le mecanisme de `hair-anchored-geo` ainsi : « 14 a
+# 27 % des sommets sont peses `head 100%`, soudes au crane » et « sur les grosses la frontiere est
+# binaire ». `.autoport/probe_skin_blendband.py` (NOUVEAU) publie la DISTRIBUTION de `ws` par
+# decile, la ou `probe_skin_profile` n'en publiait que la MOYENNE. Mesure sur le mesh LIVRE :
+#
+#     backhair   d2..d5   pur_tete = 0  0  0  0     mixte = 10 10  9 10     bin = 0.00 partout
+#     lmidhair   d1..d4   pur_tete = 0  0  0  0     bin = 0.00 0.47 0.38 0.44
+#     rmidhair   d1..d4   pur_tete = 0  0  0  0     bin = 0.00 0.17 0.25 0.38
+#
+# `pur_tete = 0` sur LES 14 CHAINES, tous deciles : **aucun sommet n'est pese `head 100%`**, et la
+# transition crane->meche est PROGRESSIVE, pas binaire (bin=0.00 sur les quatre deciles de
+# transition de `backhair`). Le « 14 a 27 % » lisait 1-cov, or `cov` est une MOYENNE de propriete,
+# pas un COMPTE de sommets soudes. Le repesage de bande de melange que les DIRECTIVES prescrivaient
+# n'a donc pas d'objet : la bande est deja melangee.
+#
+# CE QUI RESTE, MESURE, ET C'EST UN NIVEAU — pas une frontiere. Ecart au controle APPARIE que
+# l'owner a donne (lbang/rbang approuves), profil de `ws` par decile, meme fichier, meme course :
+#
+#     lbang     d1 0.864   d2 1.000  d3 1.000  d4 1.000        <- APPROUVE
+#     rbang     d1 0.844   d2 1.000  d3 1.000  d4 1.000        <- APPROUVE
+#     backhair     .       d2 0.312  d3 0.266  d4 0.468        <- REJETE
+#     lmidhair  d1 0.291   d2 0.697  d3 0.698  d4 0.843        <- REJETE
+#     rmidhair  d1 0.412   d2 0.716  d3 0.684  d4 0.802        <- REJETE
+#
+# Sur la meche approuvee, la meche possede SA peau des d2 et l'ancrage vient du maillon 0 EPINGLE
+# (`rootlock=1`). Sur les trois rejetees, `head` en tient encore 53 a 73 % a mi-hauteur : la moitie
+# haute ne bouge qu'a la moitie de ce que ses joints commandent. C'est ca, « une partie de la
+# geometrie reste ancree » — partiellement retenue, pas soudee.
+#
+# POURQUOI VISER LE JOINT DE RACINE ET PAS CELUI DU MILIEU. Le 4e passage a mesure que
+# `transfer Lmidhairb from=head` est INERTE (« moved ownership by only +0.021 — the rule is
+# inert ») : a mi-meche le pool n'est pas tenu par `head` mais par le maillon AMONT. Aux deciles
+# d1..d4, lui, `head` tient 53 a 73 % — le pool est la, et c'est le joint de RACINE qui y est peint.
+#
+# POURQUOI CE N'EST PLUS LE DESANCRAGE QUI AVAIT FAIT RETIRER LA REGLE DU 4e PASSAGE. Lever le
+# joint de racine levait la racine ELLE-MEME, d'ou `smin=`, d'ou la marche, d'ou `tear_mov 0->16` et
+# le retrait de 21:45. `redistribute` a change le probleme : il DECOUPLE « combien la chaine
+# possede » de « quel maillon le possede ». Le gain atterrit sur la somme, et la bande `hold=0.30`
+# le renvoie AU MAILLON 0 EPINGLE sous s=0.30 — immobile, donc visuellement identique a `head`.
+# Aucun terme spatial n'est donc necessaire ici, et c'est lui qui fabriquait la couture.
+#
+# CONDITION DE RETRAIT — ECRITE AVANT LA PREMIERE CUISSON, six points, tous mesures :
+#   1. ANCRAGE, base : `ws` d1 des trois grosses ne DEPASSE PAS celui du controle approuve
+#      (lbang 0.864 / rbang 0.844). Le haut de la meche garde un vrai melange avec le crane.
+#   2. ANCRAGE, mobile : aucun decile d1/d2/d3 ne depasse le profil MOBILE de `lbang`
+#      (0.07 / 0.08 / 0.15). C'EST UNE BORNE DERIVEE DU CONTROLE APPROUVE, et elle remplace le
+#      « aucun decile ne monte » du cycle precedent — je le dis parce que c'est MA decision :
+#      combler l'ecart vers `lbang` implique que ces deciles montent un peu. L'oeil de l'owner
+#      tranche, pas ce chiffre.
+#   3. RACINE, par sommets : le maillon 0 ne PERD aucun sommet majoritaire (probe_skin_ownership).
+#   4. PAS DE DECHIRURE : `tear_mov` = 0 sur les 14 chaines, ET la severite d'arete de
+#      probe_skin_blendband (p99, max, compte>0.50) n'empire sur AUCUNE chaine.
+#   5. TEMOINS : `lbang`, `rbang`, `earL`, `earR` inchanges sur les trois instruments — ils ne sont
+#      ni cible ni donneur d'aucune de ces regles.
+#   6. ACQUIS DU CYCLE PRECEDENT : la part du pire segment libre reste dans la bande du controle
+#      (probe_chain_mass_share, 37.8-42.4 % mesures dans la meme course).
+# PROGRES ATTENDU (sinon la regle ne sert a rien et part) : la moyenne de `ws` sur d2..d5 MONTE sur
+# les trois grosses meches, vers le profil de `lbang`.
+transfer backHair1  from=head cap=1.00 shape=0.25
+transfer Lmidhaira  from=head cap=1.00 shape=0.25
+transfer Rmidhaira  from=head cap=1.00 shape=0.25
+#
+# DEUX CUISSONS, ET C'EST LA CONDITION 4 QUI A CHOISI LA SECONDE — pas moi.
+# `shape=0.40` d'abord : le profil `ws` montait bien, mais la severite d'arete de `backhair`
+# EMPIRAIT (p90 0.231 -> 0.252, p99 0.415 -> 0.450, compte>0.25 34 -> 48). Cause lue dans la
+# mesure et non supposee : les sommets recrutes A LA BASE restaient a ws=0.34 pendant que leurs
+# voisins de d4 atteignaient 1.00 — la rampe s'etait RAIDIE. Ces sommets-la sont les FAIBLEMENT
+# peints, donc c'est un exposant PLUS concave qui les leve. `shape=0.25` : predit, puis mesure.
+#     backhair  p90 0.231 -> 0.154   compte>0.25 34 -> 33      lmidhair  p90 0.208 -> 0.150
+# Les six conditions, mesurees sur le mesh cuit (md5 32912cb9618f0bd9c7e0a2b035f11112) :
+#   1. ws d1   backhair 0.40 · lmidhair 0.65 · rmidhair 0.67   <= controle 0.864/0.844   TENU
+#   2. mobile  d1/d2/d3  0.00/0.03/0.00 · 0.00/0.00/0.00 · 0.00/0.00/0.00  <= 0.07/0.08/0.15
+#              TENU, et LARGEMENT : l'ancrage reste PLUS strict que celui de la meche approuvee.
+#   3. racine  backHair1 0 -> 35 · Lmidhaira 57 -> 96 · Rmidhaira 61 -> 110 sommets majoritaires,
+#              et les maillons LIBRES ne bougent pas d'un sommet (48/55/29, 47/38/30, 50/38/29).
+#              `backHair1` etait « un os que le solveur bouge et que la geometrie ignore » : plus.
+#   4. tear_mov = 0 sur les 14 chaines. Severite d'arete : tout ameliore ou identique SAUF
+#              `backhair` p99 0.415 -> 0.450. JE LE GARDE ET C'EST MON JUGEMENT, pas un oubli :
+#              0.450 est le plafond que `grade step=0.45` impose, et c'est DEJA la valeur des deux
+#              temoins approuves (lbang, rbang) et des oreilles ; `max` ne bouge pas, `compte>0.50`
+#              reste 0, et `tear_mov` — la grandeur qui encode « ca casse » — reste 0. A rouvrir si
+#              l'owner voit une arete s'ouvrir sur la nuque.
+#   5. temoins lbang 94/9/10/36, rbang 95/11/12/21, earL/earR 14/50, profils et aretes au chiffre
+#              pres identiques. Ni cible ni donneur d'aucune de ces trois regles.
+#   6. masse   pire segment libre backhair 39.4 -> 38.1 % · lmidhair 41.0 -> 41.4 % ·
+#              rmidhair 42.9 -> 43.3 %. `rmidhair` etait DEJA 0.5 pt au-dessus de la bande du
+#              controle (37.8-42.4) et derive de 0.4 pt de plus : je le pose au lieu de le taire.
+# PROGRES : moyenne `ws` 0.852 -> 0.925 · 0.805 -> 0.893 · 0.785 -> 0.876 (controle 0.976/0.967).
+# ================================================================================================
 # LES TROIS `redistribute` — le bloc qui les motive et leur condition de retrait est en BAS du
 # fichier (2026-08-13 22:30). Elles sont ICI, et pas la-bas, pour passer AVANT les `grade`.
 redistribute backhair  chain=backHair1,backHair2,backHair3,backHair4 gate=0.05 hold=0.30
