@@ -2403,27 +2403,6 @@
             ;;
             ;; NATURE : une projection alternee (Gauss-Seidel sur deux contraintes). REPERE : monde.
             ;; LECTURE HORS DEFAUT : la boucle est un no-op des le premier tour.
-            ;; BUDGET DE RETOUR PAR FRAME, ET C'EST UN LIMITEUR ASSUME — CHIFFRE, PAS SILENCIEUX.
-            ;;
-            ;; DEFAUT MESURE QUI L'EXIGE (courses du 2026-08-14) : refermer un franchissement PROFOND
-            ;; en une seule frame TELEPORTE le maillon. La colonne `jump` (pire saut d'UNE frame)
-            ;; l'a chiffre : chestL 0.0874 -> 0.2306 m entre la course 6 et la course 7, et 8
-            ;; chaines au-dessus de 0.30 m contre 1 avant la fermeture. Un saut de cet ordre est
-            ;; litteralement ce que l'owner appelle du jitter, et sa regle tranche : « une
-            ;; resolution pire que le clip est pire que rien ».
-            ;;
-            ;; L'ECHELLE N'EST PAS INVENTEE : `rl` est le rayon du lien, MESURE sur les sommets
-            ;; skinnes du mesh par le generateur. Un morceau de geometrie qui revient d'au plus sa
-            ;; propre epaisseur par frame ne peut pas « sauter » — il rentre en quelques frames.
-            ;; C'est la transition douce que l'owner a lui-meme demandee en 11e passe (« pas un
-            ;; clamp brutal qui ferait un a-coup »).
-            ;;
-            ;; CE QU'IL RETIRE, ET COMMENT LE LIRE : il ne retire AUCUNE amplitude de mouvement (il
-            ;; ne borne qu'une CORRECTION, jamais la physique) ; ce qu'il coute est de la VITESSE DE
-            ;; FERMETURE, donc `ROOM-SIDE crossing` doit remonter un peu. Les deux chiffres sont
-            ;; publies cote a cote et c'est ce qui rend l'arbitrage verifiable.
-            (let ((used 0.0)
-                  (budget (fmax 0.01 rl)))
             (dotimes (fin PHYS-FIN-ITERS)
               ;; --- (a) LE FRANCHISSEMENT D'AXE, sur le centre du volume porte par le lien.
               (when (zero? *phys-side-off*)
@@ -2455,12 +2434,7 @@
                                             (+ (* (-> ua y) (-> ub y))
                                                (* (-> ua z) (-> ub z))))))
                                 (when (< dt1 0.0)
-                                  ;; `cc` est NEGATIF ; le retour vaut |cc| le long de `ua`. On ne
-                                  ;; depense que ce qui reste du budget de la frame.
-                                  (let* ((raw  (* dt1 (-> ub w)))
-                                         (left (fmax 0.0 (- budget used)))
-                                         (cc   (fmax raw (- 0.0 left))))
-                                    (set! used (+ used (fabs cc)))
+                                  (let ((cc (* dt1 (-> ub w))))
                                     (set! qx (- qx (* cc (-> ua x))))
                                     (set! qy (- qy (* cc (-> ua y))))
                                     (set! qz (- qz (* cc (-> ua z)))))))))))))
@@ -2491,7 +2465,7 @@
                     (let ((s (/ want ul)))
                       (set! (-> pt x) (+ bx (* ux s)))
                       (set! (-> pt y) (+ by (* uy s)))
-                      (set! (-> pt z) (+ bz (* uz s)))))))))
+                      (set! (-> pt z) (+ bz (* uz s))))))))
             (set! (-> *phys-px* scl) (-> pt x))
             (set! (-> *phys-py* scl) (-> pt y))
             (set! (-> *phys-pz* scl) (-> pt z)))))))
