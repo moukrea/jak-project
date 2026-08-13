@@ -3809,9 +3809,15 @@
                     ;; la frame ecrite. La regle 6 reste tenue — la frame se termine TOUJOURS sur
                     ;; (collision, recul), et l'attenuation ramene le lien vers la direction du
                     ;; MODELE sur le meme arc, donc dans le meme sens que le recul.
-                    (phys-bend-chain skel sc n rlk an nbone)
-                    (phys-collide-chain skel sc n rlk nbone nco PHYS-COL-MARGIN 3)
-                    (phys-retreat-chain skel sc n rlk nbone nco)
+                    ;; GARDE : la passe entiere est reservee aux chaines qui PORTENT une limite
+                    ;; d'angle, c'est-a-dire les cheveux (« c'est juste sur les meches, pas le
+                    ;; reste », owner 22:35). `phys-bend-chain` s'auto-annule deja sur amax=0, mais
+                    ;; pas le (collision, recul) qui la suit : sans cette garde il coutait encore
+                    ;; pantflapL 0.0132 -> 0.0096 et pantflapR 0.0084 -> 0.0042 au pilotage faible.
+                    (when (> (-> *phys-maxang* sc) 0.0)
+                      (phys-bend-chain skel sc n rlk an nbone)
+                      (phys-collide-chain skel sc n rlk nbone nco PHYS-COL-MARGIN 3)
+                      (phys-retreat-chain skel sc n rlk nbone nco))
                     ;; combien de paires (lien, volume) ont bascule d'etat de contrainte depuis la
                     ;; frame precedente : la mesure du defaut « jitter » lui-meme.
                     (phys-flip-count skel sc n rlk nbone nco)
