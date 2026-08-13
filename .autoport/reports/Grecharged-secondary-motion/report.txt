@@ -546,6 +546,8 @@ Pose pour tuer le `jump` : un maillon ne revenait plus que de `rl` (son rayon ME
 Condition ecrite AVANT la course : « si `jump` ne baisse pas, le limiteur sera retire ».
 
     jump : chaines > 0.30 m   7 -> 6      max 0.5912 -> 0.5855      (negligeable)
+    et sur SA CIBLE, `chestL` reste **bit-identique a 0.2306 m** : le limiteur n'a pas mordu du
+    tout la ou le defaut avait ete constate.
     tipvar : 0 chaine en baisse de plus de 5 %  (il ne coutait bien aucun mouvement)
     MAIS il DEFAIT les deux plus gros gains :
         goggles meshpen      0.1094 -> 0.4866
@@ -616,6 +618,50 @@ sept courses confirment gratuitement.
 
 Consequence pratique : continuer a chercher `pant-calf` dans le solveur est du temps perdu, et je le
 signale pour que le prochain cycle ne recommence pas.
+
+3k. UN CHIFFRE QUE J'AI PUBLIE ETAIT FAUX, ET LE SOUS-AGENT L'A ATTRAPE
+------------------------------------------------------------------------------------------------
+J'ai ecrit, dans ce rapport ET dans un message de commit, « 8 chaines au-dessus de 0.30 m de `jump`
+contre 1 avant la fermeture », en le presentant comme la paire course 6 -> course 7. **C'est faux.**
+Compte reel, course par course, avec la meme agregation :
+
+    RUN1=1   RUN2=5   RUN3=7   RUN4=6   RUN5=8   RUN6=6   RUN7=7
+
+Le « 8 contre 1 » est RUN5 contre RUN1 — deux courses qui different par bien plus que la fermeture
+du franchissement. La paire honnete pour la fermeture est **RUN6=6 -> RUN7=7, soit +1**, et c'est
+ce que dit deja le paragraphe 3f ter. En revanche `chestL 0.0874 -> 0.2306` EST exact pour
+RUN6 -> RUN7 : ce chiffre-la tient.
+
+Je le corrige ici plutot que de le laisser courir, parce que c'est exactement la faute que ce
+contrat sanctionne : un chiffre agrege sur le mauvais couple de courses, publie comme une mesure.
+
+3l. POURQUOI LE LIMITEUR NE POUVAIT PAS MORDRE SA CIBLE — LA LEÇON EST GENERALE
+------------------------------------------------------------------------------------------------
+Le budget valait `rl`, le rayon du lien. Or `chestL`/`chestR` portent **les deux plus gros rayons
+des 22 chaines** (656 et 660 u = 0.160 m), donc les deux budgets les PLUS LARGES — 70 % du saut de
+0.2306 m que je voulais borner. Le limiteur etait donc calibre sur une grandeur qui est MAXIMALE
+exactement la ou le defaut a ete constate : il ne pouvait pas mordre sa propre cible.
+
+Il a mordu a la place sur les petites chaines, ou il a converti une correction resolue en
+penetration residuelle — `anklestrapR` passe de `meshpen` **-0.0002** (une marge) a **+0.7412** sur
+la MEME ligne (`assistant-idle-leaning-left`, `jerk`), et `goggles` empire sur les deux axes a la
+fois (`jump` +45 %, `meshpen` x4.4).
+
+    budget par chaine :  chestL/R 0.160 m (cible du defaut, INCHANGEE)
+                         anklestrapR 0.055 m · goggles 0.037 m · botstrapR 0.023 m (touchees)
+
+REGLE A RETENIR AVANT DE CHOISIR L'ECHELLE D'UN LIMITEUR : verifier la CORRELATION entre l'echelle
+choisie et l'endroit ou le defaut se produit. Une echelle qui croit avec le defaut rend le limiteur
+inoperant precisement la ou il est necessaire, et nuisible partout ailleurs.
+
+3m. `RUN6-SHIPPED` EST BYTE-IDENTIQUE A `RUN4` — C'EST ATTENDU, PAS UNE ERREUR D'ARCHIVAGE
+------------------------------------------------------------------------------------------------
+Le sous-agent l'a signale comme suspect, et il a eu raison de le signaler. L'explication : la
+course 6 portait le MEME code que la course 4 (aucun changement moteur entre les deux) et les MEMES
+donnees (la calibration §24, retiree a la course 5, avait ete remise a l'identique sur ordre du
+superviseur). Une salle deterministe rend donc le meme tableau au bit pres. C'est une confirmation
+du determinisme, pas un tableau recopie — et c'est verifiable : les deux fichiers ont le md5
+`19317db53a3e3b40773c41012ddeb804`.
 
 3h. LES GATES QUI RESTENT ROUGES
 -----------------------------------
