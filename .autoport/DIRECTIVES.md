@@ -30,6 +30,25 @@ pudding, pas des mouvements naturels de cheveux ! »
    racine→pointe. Repère LOCAL. **Ne pas dériver ça d'une formule d'amortissement supposée du
    solveur : on le lit dans la salle.**
 
+**17:40 — LE BLOCAGE DU §6 EST LEVÉ. L'INJECTION EST LA SEULE CHOSE À FAIRE MAINTENANT.**
+
+Le rapport avait raison sur le fait et tort sur la fatalité : `decompiler_out/jak2` et `jak3`
+avaient bien disparu — **c'est mon nettoyage disque de 12:17 qui les a supprimés**, pas une panne du
+pipeline. Les ISO étaient intactes ; `rip_levels` était à `false` dans la config jak2, ce qui est la
+raison pour laquelle un simple `decomp2.sh` ne les rendait pas.
+
+**État vérifié à 17:37, fichier par fichier :**
+  - `rip_levels: true` remis dans `decompiler/config/jak2/jak2_config.jsonc`
+  - décompilation jak2 relancée : **finie en 110 s**, 401 rips `*-highres-lod0.glb`
+  - **11 donneurs sur 11** présents parmi les entrées déclarées de `build_enhanced_models.sh`
+  - les fr3 sources exigées sont là : `out/jak2/fr3/lintcstb.fr3`, `introcst.fr3`, `out/jak3/fr3/ldax.fr3`
+  - `GAME.fr3` cuit (25 438 408 octets) **sauvegardé** dans
+    `/home/emeric/.autoport-scratch/meshbak-20260813-1737/` avant toute cuisson
+
+Donc `build_enhanced_models.sh` ne sortira plus en deux lignes, **le repesage peut être cuit et le
+4e os peut être posé**. Plus aucune raison de reporter : c'est le seul travail du prochain cycle.
+Rappel du plafond : `PHYS-LINKS 4`, ces chaînes vont de 3 à 4, rien à toucher.
+
 **CAUSE STRUCTURELLE TROUVÉE 16:35 — ARRÊTER DE RÉGLER L'AMORTISSEMENT SUR CES TROIS CHAÎNES.**
 
 La salle le dit elle-même à l'exécution : `mono=n/a(1 lien libre)` sur `backhair`, `lmidhair`,

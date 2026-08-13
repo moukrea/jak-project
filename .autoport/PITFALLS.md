@@ -126,3 +126,16 @@ atteint la cible sur deux d'entre elles et rate la troisième — `backhair`, la
 28 frames de ballottement contre 84–96 visés, exactement la mèche dont l'owner se plaint le plus.
 Verrou : une cible se formule **toujours** par la grandeur observable (durée de ballottement, retard
 racine→pointe), jamais par le réglage ; et un réglage se dérive de la géométrie de SA chaîne.
+
+GUARD regenerable-is-not-unused decompiler/config/jak2/jak2_config.jsonc "rip_levels": true
+**Supprimer des « sorties régénérables » qui sont en fait des ENTRÉES.** Le 2026-08-13 à 12:17 j'ai
+libéré 7 Go en effaçant `decompiler_out/jak2` et `jak3`, classés « sorties de build régénérables ».
+Ils contenaient les **onze rips donneurs HD** dont dépend tout le pipeline de maillages HD.
+Conséquence : `build_enhanced_models.sh` sortait en deux lignes sans rien faire, les deux défauts
+PRIORITÉ 1 de l'owner étaient impossibles à corriger, et **j'ai passé trois cycles à reprocher au
+worker de ne pas lancer une injection que ma propre commande rendait incuisable**. Régénérable ne
+veut pas dire inutilisé, et « je peux le refaire » ne dit rien du coût ni de la recette.
+Verrou : avant d'effacer un répertoire produit, chercher qui le LIT (`grep -rn <chemin> scripts/`) ;
+et si la recette de régénération dépend d'un réglage non évident, la rendre permanente — ici
+`rip_levels` était à `false`, donc une simple redécompilation ne rendait PAS les rips. Il est
+maintenant à `true` dans la config suivie, pour que la réparation soit à un `decomp2.sh` de distance.
