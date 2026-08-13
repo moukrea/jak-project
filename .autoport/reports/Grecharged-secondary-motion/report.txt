@@ -1,8 +1,10 @@
 DIRECTIVES v0a88eb98b6
 
 Phase Grecharged-secondary-motion — branche physics-keira-clean — KEIRA SEULE.
-Cycle du 2026-08-13 apres-midi. Substrat : x86 (course de salle complete, PHYSEND atteint,
-3410 mesures, 31/31 animations, skipped=0). Aucune ligne de moteur modifiee dans ce cycle.
+Cycle du 2026-08-13 apres-midi. Substrat : x86 (DEUX courses de salle completes, PHYSEND atteint,
+3410 mesures chacune, 31/31 animations, skipped=0). Le SOLVEUR n'est pas touche : la seule addition
+au moteur est une MESURE (SPEC 18, section 11), et les colonnes de regression sont identiques au
+bit pres entre les deux courses.
 
 SUPPRESSORS: 1
 SUPPRESSOR: fourreau-sortant removed-motion=0.3449
@@ -51,14 +53,15 @@ preuve de passage), et diffe les tableaux a la main. Etat des gates de donnees :
     [FLOOR-WEAK]    ECHEC — pantflapL 0.0840->0.0132, pantflapR 0.0201->0.0084, kneeflapL 0.0884->0.0412
 
 FLOOR-WEAK est la seule gate de donnees rouge, elle l'etait deja avant ce cycle, et elle porte
-exactement sur les deux defauts ouverts `pant-calf` et `knee-tabs`. Elle n'a pas bouge : ce cycle
-ne touche aucune ligne de solveur.
+exactement sur les deux defauts ouverts `pant-calf` et `knee-tabs`. Elle n'a pas bouge d'un
+millieme (`pantflapL` 0.0132, `pantflapR` 0.0084, `kneeflapL` 0.0412 avant ET apres l'ajout
+SPEC 18) : aucune ligne de solveur n'est touchee.
 
-ANTI-REGRESSION, verifiee a la main colonne par colonne entre la course d'avant et celle-ci :
+ANTI-REGRESSION, verifiee a la main colonne par colonne sur les DEUX courses de ce cycle :
 `meshpen` max 1.68457e-06 -> **1.68457e-06** (identique), `ROOM-POSCONTROL` injections=2610
 arme=0.2137 desarme=0.0000 -> **identique**, `ROOM-INVERSIONS` residual=333 -> **333**,
 `ROOM-SELFCOL` run=0 -> **0**, `ROOM-SIDE` crossing=0 -> **0**. Rien n'a regresse, et rien n'a
-progresse non plus : la course de ce cycle est une REPRODUCTION, plus deux colonnes nouvelles.
+progresse non plus dans le COMPORTEMENT : ce qui a change, ce sont les instruments.
 
 -------------------------------------------------------------------------------------------------
 2. L'INSTRUMENT QUI MANQUAIT — ON MESURAIT DES JOINTS, IL REGARDE DE LA PEAU
@@ -260,9 +263,9 @@ le refait pas. La section 6 dit pourquoi le retirer ne pouvait pas marcher.
   toutes les chances de payer une correction avec du mouvement — ce que la regle de conservation
   interdit. Ils sont chiffres, prets, et c'est le premier item du cycle suivant : un seul a la
   fois, chacun mesure contre le plancher avant d'etre conserve.
-* **Je n'ai pas cable SPEC 18 / `bsurf`** (les echantillons de surface du mesh skinne, qui sont la
-  reponse structurelle a la section 3 et la suggestion de l'owner lui-meme). Un cablage a moitie
-  fait serait pire que rien. Son etat exact est audite en section 10, avec le budget de lignes.
+* **SPEC 18 / `bsurf` EST cable dans ce cycle** (section 11) — mais uniquement sa MESURE, jamais le
+  solveur. Et la mesure qui en sort est declaree NON DISCRIMINANTE par son propre controle : voir
+  section 11, c'est le point le plus important de cette moitie de cycle.
 * **Je n'ai touche ni le validateur, ni `owner-defects.txt`.** Les neuf lignes OPEN sont intactes,
   y compris `pant-calf` que la section 6 explique : expliquer un defaut n'est pas le fermer, et
   c'est son oeil qui ferme.
@@ -273,11 +276,12 @@ le refait pas. La section 6 dit pourquoi le retirer ne pouvait pas marcher.
 9. CE QUE L'OWNER DOIT REGARDER SUR CE BUILD
 -------------------------------------------------------------------------------------------------
 
-**RIEN N'A CHANGE DANS LE JEU.** Ce cycle n'a modifie aucune ligne de `goal_src/`, aucun octet de
-`recharged_assets/physics_chains.txt`, et aucun mesh. Le build qu'il recevra est, pour la physique,
-**identique** au precedent. Lui faire chercher une difference serait lui faire perdre son temps, et
-la regle de livraison au fil de l'eau dit de livrer meme quand ce n'est pas vert — elle ne dit pas
-d'annoncer un changement qui n'existe pas.
+**RIEN N'A CHANGE DANS CE QU'IL VOIT.** `physics_chains.txt` n'a pas bouge d'un octet, aucun mesh
+n'a bouge, et la seule addition au moteur est une MESURE armee par la salle seule — le jeu ne
+l'execute jamais. Les colonnes de regression le prouvent au bit pres. Le build qu'il recevra est,
+pour la physique, **identique** au precedent. Lui faire chercher une difference serait lui faire
+perdre son temps, et la regle de livraison au fil de l'eau dit de livrer meme quand ce n'est pas
+vert — elle ne dit pas d'annoncer un changement qui n'existe pas.
 
 Ce qu'il y a a la place, c'est une reponse chiffree a la question qu'il pose depuis le debut :
 
@@ -348,3 +352,64 @@ RESERVE HONNETE, non tranchable en lecture seule : le producteur porte des `asse
 convention IBM (`physics_c14_meshsamples.py:160-171`) qui peuvent lever sur le rig actuel a
 102 joints (injection du 13 aout). Il faudra le lancer pour le savoir — ce n'est pas un obstacle,
 c'est une etape.
+
+-------------------------------------------------------------------------------------------------
+11. SPEC 18 EST CABLE — ET SA MESURE SE DECLARE ELLE-MEME NON DISCRIMINANTE
+-------------------------------------------------------------------------------------------------
+
+La section 10 disait que le cablage tenait dans le budget. Il est fait, de bout en bout, et les
+deux moities sont prouvees PAR LA TRACE, jamais par un commentaire :
+
+    [hd-phys] BSURFSRC=package bsets=55 dropped=0            <- le parseur C++ a lu le fichier
+    [HD-PHYS] bsurf ag=keira-hd sets=55/55 lies=55 non-lies=0 <- les 55 os se lient au rig porteur
+
+**LA DONNEE, ET UN PIEGE EVITE.** `recharged_assets/physics_mesh.txt` est regenere : 55 os,
+644 echantillons, 0 malforme, 0 normale non unitaire, 0 au-dela du plafond de son propre os.
+Surtout, il est mesure sur le mesh **LIVRE** : le producteur appelait `c6.load_geometry(model)`
+sans `glb=`, donc il aurait decrit le glb DONNEUR que personne ne voit. Un `--glb` a ete ajoute.
+C'est la meme lecon que `ROOM-SKINCOV`, qui republiait `tear=82` sur un mesh corrige depuis dix
+heures. Les seuils de validation du producteur (`models < 50`, `ms < 300`, deux chaines de
+`mayor-lod0` nommees en dur) dataient du fichier a 43 modeles et faisaient echouer le script sous
+« KEIRA SEULE » : ils se derivent maintenant du perimetre declare — ce qui est **plus strict** ici,
+puisque TOUTE chaine declaree doit produire des echantillons, au lieu de deux nommees a la main.
+
+**LE MOTEUR : MESURE SEULE, ET C'EST DELIBERE.** Le consommateur supprime par le depart propre est
+reimplemente a la main (chargement des ensembles + `phys-surf-sd`, une SDF de nuage de points
+signee par la normale du plus proche echantillon). **Aucune ligne de solveur n'est touchee**, donc
+la mesure ne peut pas retirer de mouvement — et le tableau le confirme colonne par colonne :
+`meshpen` 1.68457e-06 -> **1.68457e-06**, `INVERSIONS residual` 333 -> **333**, `POSCONTROL`
+2610/0.2137/0.0000 -> **identique**, `SELFCOL` 0 -> **0**, `ROOM-SIDE` 0 -> **0**, FLOOR-WEAK
+exactement les memes trois chaines aux memes valeurs. Le moteur fait 4775 lignes, plafond 4800.
+La passe est **armee par la salle seule** (`*phys-skin-meas*`, 0 par defaut) : 55 ensembles x 12
+echantillons par lien et par frame est le prix d'une mesure, et le telephone de l'owner ne le paie
+pas.
+
+**ET MAINTENANT LE POINT QUI COMPTE : LA COLONNE NE VAUT RIEN EN L'ETAT, ET ELLE LE DIT.**
+25 214 698 echantillons compares, et les 22 chaines rendent toutes une penetration non nulle
+(0.066 a 0.489 m) la ou `meshpen` rend 0.0000017 m. Il aurait ete facile de publier ca comme « la
+vraie mesure enfin » — cinq ordres de grandeur d'ecart, et l'oeil de l'owner du bon cote.
+
+C'est faux, et le controle est dans les donnees elles-memes. Une paire MIROIR porte des parametres
+identiques sur une geometrie miroir : ce qui separe ses deux membres est de l'erreur d'instrument,
+pas un defaut. Or :
+
+    ROOM-SKINPEN-MIRROR: lmidhair    0.1972 vs rmidhair    0.4890   ecart 60 %
+    ROOM-SKINPEN-MIRROR: anklestrapL 0.1325 vs anklestrapR 0.3178   ecart 58 %
+    ROOM-SKINPEN-MIRROR: topstrapL   0.0930 vs topstrapR   0.1495   ecart 38 %
+    ROOM-SKINPEN-FLOOR: 0.2918 m
+
+Le plancher d'erreur (0.2918 m) **depasse toutes les valeurs publiees sauf une**. Et
+`toestrapL/R` — que la sonde de la section 4 prouve propres au repos (0 % de peau dans un volume
+etranger, 100 % couverts par leur propre volume) — rendent quand meme 0.071 / 0.066 m. La cause est
+la DENSITE : 12 echantillons par os donnent un espacement du meme ordre que les profondeurs
+mesurees, et une SDF de nuage de points a une erreur bornee par cet espacement. La colonne se
+declare donc `NON DISCRIMINANTE` **dans la course meme qui la produit**, avec son plancher a cote.
+
+C'est la SPEC 7 appliquee a mon propre instrument avant que quiconque ait a le rattraper — la
+question 3 (« que lit-elle quand le defaut est ABSENT ? ») a enfin une reponse ecrite, et cette
+reponse est « pas zero ». Le cablage, lui, est acquis : il ne sera pas a refaire. Ce qui reste est
+un probleme de DENSITE, chiffre et localise (`BSURF_MAX` = 12 dans le producteur, 12 dans le pool
+du moteur), pas un probleme de principe.
+
+**CE QUE CA CHANGE POUR L'OWNER SUR CE BUILD : rien de visible.** Aucune correction n'est appliquee
+a partir de cette mesure. Le build reste, pour la physique, identique a celui d'hier.

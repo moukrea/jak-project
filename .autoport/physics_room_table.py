@@ -1613,6 +1613,48 @@ def main():
               % (names[c] if c < len(names) else c, v,
                  (dr_run.get(c, {}) or {}).get('pen', 0.0) if isinstance(dr_run.get(c), dict) else 0.0))
         A('ROOM-SKINPEN-TESTS: %d echantillons de surface compares sur la fenetre' % _tot)
+        # LE PLANCHER D'ERREUR DE L'INSTRUMENT, MESURE PAR SES PROPRES PAIRES MIROIR.
+        #
+        # Une paire L/R porte des parametres identiques sur une geometrie miroir : tout ecart entre
+        # les deux est de l'ERREUR D'INSTRUMENT, pas un defaut. C'est le controle que la SPEC 7
+        # exige (« que lit-elle quand le defaut est ABSENT ? ») et il se derive des donnees au lieu
+        # d'etre une liste de chaines « propres » ecrite a la main.
+        # La SDF est un nuage de points : son erreur est bornee par l'ECART ENTRE ECHANTILLONS.
+        # Tant que cet ecart est du meme ordre que les valeurs publiees, la colonne ne DISCRIMINE
+        # pas, et la publier comme une penetration serait exactement le faux vert que ce validateur
+        # existe pour empecher — a l'envers : un faux ROUGE.
+        _byname = {(names[c] if c < len(names) else str(c)): v for c, (v, _t) in sp_run.items()}
+        _pairs, _worst = [], 0.0
+        for _n, _v in sorted(_byname.items()):
+            _o = None
+            for _a, _b in (('L', 'R'), ('l', 'r')):
+                if _n.startswith(_a):
+                    _o = _b + _n[1:]
+                elif _n.endswith(_a):
+                    _o = _n[:-1] + _b
+                if _o and _o in _byname:
+                    break
+                _o = None
+            if _o and _n < _o:
+                _hi, _lo = max(_v, _byname[_o]), min(_v, _byname[_o])
+                _sp = (_hi - _lo) / _hi if _hi > 0 else 0.0
+                _pairs.append((_sp, _n, _o, _v, _byname[_o]))
+                _worst = max(_worst, _hi - _lo)
+        if _pairs:
+            A('')
+            A('ROOM-SKINPEN-MIRROR: l\'ecart entre paires MIROIR est l\'erreur de l\'instrument —')
+            A('   parametres identiques, geometrie miroir : ce qui les separe n\'est pas un defaut.')
+            for _sp, _n, _o, _a2, _b2 in sorted(_pairs, reverse=True):
+                A('ROOM-SKINPEN-MIRROR: %-12s %.4f  vs %-12s %.4f   ecart %4.0f %%'
+                  % (_n, _a2, _o, _b2, 100 * _sp))
+            A('ROOM-SKINPEN-FLOOR: %.4f m — AUCUNE valeur de la colonne ci-dessus n\'est'
+              ' interpretable en dessous de ce plancher.' % _worst)
+            if _worst >= min(_byname.values()):
+                A('ROOM-SKINPEN: NON DISCRIMINANTE — le plancher d\'erreur (%.4f m) atteint ou'
+                  ' depasse la plus petite valeur publiee (%.4f m). La cause est la DENSITE : 12'
+                  ' echantillons par os donnent un espacement du meme ordre que les profondeurs'
+                  ' mesurees. A ne PAS lire comme des penetrations tant que la densite ne monte'
+                  ' pas.' % (_worst, min(_byname.values())))
     if shellfire:
         for tag in ('shell-disarmed', 'shell-armed'):
             if tag in shellfire:
