@@ -83,10 +83,18 @@ HEADER = [
 ]
 
 
-def load_geometry_ibm(model):
+def load_geometry_ibm(model, glb=None):
     """c6.load_geometry plus each joint's inverseBindMatrix (glTF metres, column-major
-    already transposed to row convention by skin_info)."""
-    geo = c6.load_geometry(model)
+    already transposed to row convention by skin_info).
+
+    `glb` : le mesh A MESURER, quand ce n'est pas celui que le k2e designe. Sans lui, ce script
+    lit `meta['hd_glb']` — c'est-a-dire le glb DONNEUR (`keira-hd-donor-injected.glb`) — alors que
+    ce qui part chez l'owner est `out/jak1/fr3/skin/keira-hd-lod0.glb`, PREPPE puis RESKINNE. Les
+    echantillons de surface SPEC 18 decrivent la peau : les tirer d'un mesh que le joueur ne voit
+    pas produirait un collider qui n'epouse rien, et le defaut serait invisible a la mesure comme
+    a la relecture. Meme lecon que ROOM-SKINCOV, qui republiait `tear=82` sur un mesh corrige
+    depuis dix heures parce qu'il lisait le rip brut."""
+    geo = c6.load_geometry(model, glb=glb) if glb else c6.load_geometry(model)
     if geo is None:
         return None
     js, bufs = read_glb(geo['path'])
@@ -596,6 +604,11 @@ def main():
     ap.add_argument('--bsurf-only', action='store_true',
                     help='regenerate only the `bs` body-surface records, leaving every `ms` '
                          'record and every other line of physics_mesh.txt byte-identical')
+    ap.add_argument('--glb', default=None,
+                    help='mesh a MESURER a la place de celui que le k2e designe. Le defaut du k2e '
+                         'est le glb DONNEUR ; ce qui part chez l\'owner est le glb PREPPE+RESKINNE '
+                         '(out/jak1/fr3/skin/<model>-lod0.glb). Des echantillons de SURFACE tires '
+                         'du mauvais mesh decrivent une peau que personne ne voit.')
     args = ap.parse_args()
     bsurf_only = args.bsurf_only
     lines, sections = c6.parse_chains_file(CHAINS)
@@ -616,7 +629,7 @@ def main():
         geo, err = None, None
         for nm in sec.names:
             try:
-                geo = load_geometry_ibm(nm)
+                geo = load_geometry_ibm(nm, glb=args.glb)
             except Exception as e:  # noqa: BLE001 — recorded, never silently skipped
                 err = '%s: %s' % (type(e).__name__, e)
                 geo = None
@@ -748,25 +761,32 @@ def main():
 
     # ---- validation: fail loudly, never a vacuous zero ----
     problems = bsurf_problems(bs_stats, total_bs, total_bs_samples, bs_caps, as_list=True)
-    if models_processed < 50:
-        problems.append('models processed %d < 50' % models_processed)
-    if total_ms < 300:
-        problems.append('ms lines %d < 300' % total_ms)
-    for cn in ('chestR', 'chestL'):
-        if per_chain_samples.get(('keira-hd', cn), 0) < 1:
-            problems.append('keira-hd %s produced 0 samples' % cn)
-    for cn in ('tieL', 'tieR'):
-        key = ('mayor-lod0', cn)
-        if per_chain_samples.get(key, 0) < 1:
-            problems.append('mayor-lod0 %s produced 0 samples' % cn)
-            continue
-        ext = per_chain_extents.get(key, [])
-        if not any(p > r or a > r for r, p, a in ext):
-            problems.append(
-                'mayor-lod0 %s: no link with mesh extent beyond its radius — measured '
-                '%s' % (cn, '; '.join('link%d rad=%.0f perp=%.1f axial=%.1f'
-                                      % (i, r, p, a)
-                                      for i, (r, p, a) in enumerate(ext))))
+    # LES ATTENTES SE DERIVENT DU PERIMETRE, ELLES NE SONT PLUS DES CONSTANTES (2026-08-13).
+    #
+    # Elles valaient `models_processed < 50`, `total_ms < 300`, et deux chaines de `mayor-lod0`
+    # nommees en dur. Ces trois seuils datent du fichier a 43 modeles ; depuis « KEIRA SEULE »
+    # (owner : « on ne passera a un autre personnage que quand Keira sera 100 % valide »),
+    # `physics_chains.txt` ne declare plus qu'UNE section et 22 chaines. Le producteur echouait
+    # donc en affirmant l'absence de modeles que l'owner a lui-meme retires du perimetre — c'est
+    # une gate qui survit a son perimetre, et elle rend le script inutilisable exactement quand on
+    # en a besoin.
+    #
+    # La regle qui remplace est PLUS STRICTE ici, pas plus laxiste : au lieu de deux chaines
+    # nommees a la main, TOUTE chaine declaree dans le fichier livre doit avoir produit des
+    # echantillons, et le compte de modeles se compare a ce que le fichier declare. Une section
+    # ajoutee demain est couverte sans qu'on y pense ; une section retiree ne fait plus echouer.
+    if models_processed < len(sections):
+        problems.append('models processed %d < %d sections declarees dans %s'
+                        % (models_processed, len(sections), CHAINS))
+    declared = [(sec.names[0], ch.name) for sec in sections for ch in sec.chains]
+    if not bsurf_only:
+        if total_ms < 1:
+            problems.append('ms lines %d — la moitie des liens de chaine n\'a rien produit'
+                            % total_ms)
+        silent = [k for k in declared if per_chain_samples.get(k, 0) < 1]
+        if silent:
+            problems.append('%d chaine(s) DECLAREE(S) sans un seul echantillon : %s'
+                            % (len(silent), ', '.join('%s/%s' % k for k in silent[:8])))
     if problems:
         print('VALIDATION FAILED:')
         for p in problems:

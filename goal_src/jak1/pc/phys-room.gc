@@ -694,6 +694,17 @@
               (phys-diag (-> self slot) c 13)
               (phys-shell-in-worst (-> self slot) c)
               (phys-shell-out-worst (-> self slot) c))
+      ;;   skinpen  (SPEC 18) la pire entree du lien SOUS LA VRAIE PEAU, en unites de jeu. A lire
+      ;;            A COTE de `pen` : `pen` mesure contre les VOLUMES, qui ne representent que
+      ;;            29.7 % de la geometrie pilotee (mesure du 2026-08-13, probe_skin_in_volume.py),
+      ;;            et 0 % pour backhair et les deux pantflap. Un zero de `pen` ne dit donc rien
+      ;;            de ce que l'owner voit ; `skinpen` mesure la meme position contre le mesh qui
+      ;;            est DESSINE. NATURE : profondeur signee, positive = sous la peau. REPERE : le
+      ;;            monde, a la frame ecrite. LECTURE HORS DEFAUT : 0.
+      ;;            `tests` = echantillons reellement compares. Un skinpen nul avec tests=0 veut
+      ;;            dire « je n'ai pas regarde » et se lit comme tel, jamais comme « rien ne passe ».
+      (format 0 "PHYSSKIN tag=~S c=~D skinpen=~f tests=~D~%"
+              tag c (phys-skinpen-worst (-> self slot) c) (phys-skintest-count))
       ;;   rootrot  l'angle, EN DEGRES, reellement ecrit dans la 3x3 du maillon `rootlock` — le
       ;;            PREMIER SEGMENT de la meche, celui qui part du cuir chevelu. Il valait 0.0000
       ;;            structurellement jusqu'a ce cycle : la boucle d'ecriture du moteur sautait tout
@@ -900,6 +911,7 @@
        (phys-prio-meas-set! 1)
        (phys-limiter-reset!)
        (phys-inversions-reset!)
+       (phys-skinpen-reset!)
        (phys-diag-reset!)
        (set! (-> self phase) PHYSROOM-PH-MEAS)
        (set! (-> self pframe) 0)

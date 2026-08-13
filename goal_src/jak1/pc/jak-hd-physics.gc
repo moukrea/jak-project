@@ -58,6 +58,14 @@
 (define-extern pc-physics-collider-param-mi    (function string int int int))
 (define-extern pc-physics-collider-is-joint    (function string int string int))
 (define-extern pc-physics-collider-is-joint2   (function string int string int))
+;; SPEC 18 — les echantillons de SURFACE du mesh skinne. Le C++ les parse depuis
+;; `recharged_assets/physics_mesh.txt` (prefixe `bs`) et les expose depuis toujours ; aucune ligne
+;; de GOAL ne les appelait. Le consommateur avait existe (bdd5d07d9c) et le depart propre l'a
+;; emporte avec les 6000 lignes de suppresseurs — on reimplemente, on ne recupere pas de bloc.
+(define-extern pc-physics-num-bsurf            (function string int))
+(define-extern pc-physics-bsurf-is-joint       (function string int string int))
+(define-extern pc-physics-bsurf-count          (function string int int))
+(define-extern pc-physics-bsurf-mi             (function string int int int int))
 
 ;; parametres de chaine (ids: kmachine.cpp:998-1038)
 (defconstant PHYS-P-STIFF   0)
@@ -873,6 +881,33 @@
 ;;      retiree. Le compte (slot 6) disait combien de fois il mordait, jamais combien il coutait.
 ;; 17 depuis le 2026-08-13 : le slot 16 porte l'erreur de longueur que le repli du recul AURAIT
 ;; ecrite (phys-retreat-chain), gardee comme controle positif de sa correction.
+;; ------------------------------------------------------------------------------------------------
+;; SPEC 18 — LA SURFACE REELLE DU PERSONNAGE. Mesure du 2026-08-13 (probe_skin_in_volume.py, sur le
+;; mesh LIVRE) : les volumes de collision representent 29.7 % de la geometrie que la physique
+;; pilote — 0 % pour backhair et les deux pantflap, 10 % pour les lunettes (531 sommets sur 0.38 m
+;; decrits par deux billes). `meshpen`, ROOM-SIDE et SELFCOL mesurent tous contre ces VOLUMES : leur
+;; zero est donc compatible avec tout ce que l'owner voit. Les compteurs sont honnetes, leur DOMAINE
+;; est trop petit. Ce qui suit ne touche PAS le solveur — c'est une MESURE contre le mesh DESSINE,
+;; donc elle ne peut pas retirer de mouvement. 55 os portent des echantillons, 12 au plus chacun.
+(defconstant PHYS-BSURF-SETS 64)
+(defconstant PHYS-BSURF-MAX  12)
+(defconstant PHYS-SB  (* PHYS-SLOTS PHYS-BSURF-SETS))
+(define *phys-bsk*  (new 'global 'array 'int32 PHYS-SB))   ;; index de joint de l'ensemble
+(define *phys-bsn*  (new 'global 'array 'int32 PHYS-SB))   ;; echantillons retenus
+(define *phys-bsr*  (new 'global 'array 'float PHYS-SB))   ;; rayon englobant (phase large)
+(define *phys-bsp*  (new 'global 'inline-array 'vector (* PHYS-SB PHYS-BSURF-MAX)))
+(define *phys-bsnm* (new 'global 'inline-array 'vector (* PHYS-SB PHYS-BSURF-MAX)))
+(define *phys-slot-nbsurf* (new 'global 'array 'int32 PHYS-SLOTS))
+;; La pire ENTREE sous la peau, par chaine, sur la fenetre de mesure.
+;; NATURE : une profondeur signee, en unites de jeu, positive quand le lien est SOUS la surface.
+;; REPERE : le monde, a la frame ecrite — la meme position que celle dont `meshpen` est tire, pour
+;;          que les deux colonnes soient comparables terme a terme.
+;; LECTURE QUAND LE DEFAUT EST ABSENT : 0. Un lien qui reste dehors n'ecrit jamais rien ici.
+(define *phys-skinpen* (new 'global 'array 'float PHYS-SC))
+;; combien d'echantillons ont ete VRAIMENT testes : un zero avec un compteur de tests a zero veut
+;; dire « je n'ai pas regarde », pas « rien ne penetre ». Les deux se distinguent, toujours.
+(define *phys-skintest* 0)
+
 (defconstant PHYS-DG 17)
 (define *phys-dg* (new 'global 'array 'float (* PHYS-SC PHYS-DG)))
 ;; etat de contrainte de la frame precedente, par (lien, volume), pour compter les bascules.
@@ -1012,6 +1047,57 @@
                       (when (> (-> *phys-nlink* sc) 0)
                         (+! armed 1)
                         (+! links (-> *phys-nlink* sc)))))
+                  ;; --- 2 ter. SPEC 18 : les echantillons de surface, resolus vers des joints ---
+                  ;; Meme forme que les colliders juste apres : on lit ce que le C++ expose et on
+                  ;; resout les NOMS d'os vers des index du rig porteur. Un ensemble dont l'os
+                  ;; n'existe pas sur ce rig est de la surface qui n'a jamais pu se lier : il est
+                  ;; COMPTE, jamais avale en silence.
+                  (set! (-> *phys-slot-nbsurf* slot) 0)
+                  (let ((nbs (pc-physics-num-bsurf agname))
+                        (nb 0)
+                        (unbound 0)
+                        (sb (* slot PHYS-BSURF-SETS)))
+                    (dotimes (i (min nbs PHYS-BSURF-SETS))
+                      (let ((found -1))
+                        (dotimes (k njoint)
+                          (let ((jn (-> obj draw jgeo data k name)))
+                            (when (and jn (< found 0)
+                                       (nonzero? (pc-physics-bsurf-is-joint agname i jn)))
+                              (set! found k))))
+                        (cond
+                          ((< found 0) (+! unbound 1))
+                          (else
+                           (let ((nk (min (pc-physics-bsurf-count agname i) PHYS-BSURF-MAX))
+                                 (br 0.0))
+                             (when (> nk 0)
+                               (set! (-> *phys-bsk* (+ sb nb)) found)
+                               (set! (-> *phys-bsn* (+ sb nb)) nk)
+                               (dotimes (q nk)
+                                 (let ((qi (+ (* (+ sb nb) PHYS-BSURF-MAX) q))
+                                       (pv (-> *phys-bsp* (+ (* (+ sb nb) PHYS-BSURF-MAX) q)))
+                                       (nv (-> *phys-bsnm* (+ (* (+ sb nb) PHYS-BSURF-MAX) q))))
+                                   (set-vector! pv
+                                     (phys-mi->f (pc-physics-bsurf-mi agname i q 0))
+                                     (phys-mi->f (pc-physics-bsurf-mi agname i q 1))
+                                     (phys-mi->f (pc-physics-bsurf-mi agname i q 2)) 0.0)
+                                   (set-vector! nv
+                                     (phys-mi->f (pc-physics-bsurf-mi agname i q 3))
+                                     (phys-mi->f (pc-physics-bsurf-mi agname i q 4))
+                                     (phys-mi->f (pc-physics-bsurf-mi agname i q 5)) 0.0)
+                                   (let ((l (vector-length pv)))
+                                     (when (> l br) (set! br l)))
+                                   qi))
+                               ;; le rayon englobant vient des echantillons RETENUS, jamais du
+                               ;; nombre declare : un prefixe ne peut alors que le RETRECIR, et
+                               ;; jamais revendiquer une portee qu'il n'a pas.
+                               (set! (-> *phys-bsr* (+ sb nb)) br)
+                               (+! nb 1)))))))
+                    (set! (-> *phys-slot-nbsurf* slot) nb)
+                    ;; PREUVE D'EXECUTION (regle 0) : sans cette ligne, un fichier absent, un
+                    ;; parseur muet ou un rig sans ces os rendraient la mesure identiquement nulle
+                    ;; et indistinguable d'une peau que rien ne traverse.
+                    (format 0 "[HD-PHYS] bsurf ag=~S sets=~D/~D lies=~D non-lies=~D~%"
+                            agname nb nbs nb unbound))
                   ;; --- 3. les colliders, ajustes sur le mesh, resolus vers des index de joint ---
                   (let ((nco (min (pc-physics-num-colliders agname) PHYS-COLS)))
                     (set! (-> *phys-slot-nco* slot) nco)
@@ -2298,6 +2384,64 @@
 ;; definition de « ca traverse » du moteur, et elle sert aux trois usages (resoudre, reculer,
 ;; mesurer) — il n'y a donc pas d'instrument de mesure different de l'instrument de decision.
 ;; ------------------------------------------------------------------------------------------------
+(defun phys-surf-sd ((skel skeleton) (slot int) (p vector) (nbone int))
+  "(SPEC 18) DISTANCE SIGNEE du point `p` a la VRAIE SURFACE SKINNEE. Positive = dehors.
+   NATURE : une distance, unites de jeu. REPERE : le monde, frame courante. LECTURE HORS DEFAUT :
+   positive. La sentinelle 1000000.0 = « aucun echantillon a portee », ce qui n'est PAS zero.
+   La surface est l'ensemble `bs` : de vrais sommets du mesh skinne avec leur normale sortante,
+   dans le repere de leur os ; chaque ensemble monte la matrice VIVANTE de son os, donc en toute
+   pose les echantillons SONT la surface. Plus proche echantillon puis signe par SA normale — une
+   SDF de nuage de points, dont l'erreur est bornee par l'ecart entre echantillons et non par la
+   façon dont une capsule epouse une machoire. C'est tout l'argument. L'echelle du rig est dans les
+   matrices d'os, donc la normale tournee est renormalisee."
+  (let ((best 1000000.0)
+        (bestd2 1000000000000.0)
+        (qw (new 'stack-no-clear 'vector))
+        (nw (new 'stack-no-clear 'vector))
+        (dv (new 'stack-no-clear 'vector))
+        (sb (* slot PHYS-BSURF-SETS)))
+    (dotimes (s (-> *phys-slot-nbsurf* slot))
+      (let ((k (-> *phys-bsk* (+ sb s))))
+        (when (and (>= k 0) (< (+ k 1) nbone))
+          (let ((bm (the-as matrix (-> skel bones (+ k 1) transform))))
+            (vector-! dv p (the-as vector (-> bm vector 3)))
+            (set! (-> dv w) 0.0)
+            ;; phase large : cet os est-il seulement dans les parages ?
+            (when (< (vector-length dv) (+ (-> *phys-bsr* (+ sb s)) 512.0))
+              (dotimes (q (-> *phys-bsn* (+ sb s)))
+                (let ((qi (+ (* (+ sb s) PHYS-BSURF-MAX) q)))
+                  (vector-rotate*! qw (-> *phys-bsp* qi) bm)
+                  (set! (-> qw w) 0.0)
+                  (vector+! qw qw (the-as vector (-> bm vector 3)))
+                  (vector-! dv p qw)
+                  (set! (-> dv w) 0.0)
+                  (+! *phys-skintest* 1)
+                  (let ((d2 (vector-dot dv dv)))
+                    (when (< d2 bestd2)
+                      (set! bestd2 d2)
+                      (vector-rotate*! nw (-> *phys-bsnm* qi) bm)
+                      (set! (-> nw w) 0.0)
+                      (let ((nl (vector-length nw)))
+                        (when (> nl 0.000001)
+                          (vector-float*! nw nw (/ 1.0 nl))
+                          (set! best (vector-dot dv nw)))))))))))))
+    best))
+
+(defun phys-skinpen-worst ((slot int) (chain int))
+  "La pire entree SOUS la peau vue sur la fenetre, en unites de jeu, ou 0 si le lien est reste
+   dehors. A lire A COTE de `meshpen` : celui-ci mesure contre les VOLUMES (29.7 % de la
+   geometrie), celui-la contre la PEAU."
+  (if (and (>= slot 0) (< slot PHYS-SLOTS) (>= chain 0) (< chain PHYS-CHAINS))
+    (-> *phys-skinpen* (+ (* slot PHYS-CHAINS) chain))
+    0.0))
+
+(defun phys-skinpen-reset! ()
+  (set! *phys-skintest* 0)
+  (dotimes (i PHYS-SC) (set! (-> *phys-skinpen* i) 0.0))
+  (none))
+
+(defun phys-skintest-count () *phys-skintest*)
+
 (defun phys-link-pen ((skel skeleton) (sc int) (n int) (nbone int) (nco int) (l int) (pt vector)
                       (prio int))
   "LA PENETRATION DU LIEN `l` SI SON JOINT ETAIT EN `pt`.
@@ -2578,7 +2722,14 @@
           (set! (-> pt z) (-> *phys-pz* scl))
           (set! (-> pt w) 1.0)
           (let ((r (phys-link-pen skel sc n nbone nco l pt 0)))
-            (when (> r worst) (set! worst r))))))
+            (when (> r worst) (set! worst r)))
+          ;; SPEC 18, MESURE SEULE — le meme point, mesure contre la PEAU au lieu des volumes.
+          ;; Aucune correction n'en decoule : cette passe ne deplace rien, donc cette ligne ne peut
+          ;; pas retirer de mouvement. Elle donne l'echelle qui manquait a `meshpen`.
+          (let ((sd (phys-surf-sd skel (/ sc PHYS-CHAINS) pt nbone)))
+            (when (and (< sd 0.0) (> sd -100000.0))
+              (when (> (- 0.0 sd) (-> *phys-skinpen* sc))
+                (set! (-> *phys-skinpen* sc) (- 0.0 sd))))))))
     (set! *phys-buried-tally* 0)
     (set! *phys-cone-off* coneprev)
     ;; la sentinelle est RENDUE TELLE QUELLE : « aucun contact » n'est pas « penetration nulle »,

@@ -340,6 +340,16 @@ def main():
     # `inward` = branche `rad<0` (le pan est DANS la chair, on l'en ressort -- regle 6).
     # NATURE : des COMPTES d'evenements. REPERE : sans objet. `inward` absent d'une vieille trace
     # reste None, ce qui le distingue d'un zero mesure.
+    # SPEC 18 — la penetration mesuree contre la PEAU et non contre les volumes. Les deux colonnes
+    # existent cote a cote exprès : `meshpen` mesure contre des volumes qui ne representent que
+    # 29.7 % de la geometrie pilotee (0 % pour backhair et les pantflap), donc son zero ne dit rien
+    # de ce que l'owner voit. NATURE : profondeur signee, positive = SOUS la peau, en metres apres
+    # division. REPERE : le monde, a la frame ecrite — la meme position d'ou `meshpen` est tire.
+    # LECTURE HORS DEFAUT : 0. `tests` distingue un zero MESURE d'un zero « je n'ai pas regarde ».
+    skinpen = {}
+    for m in re.finditer(r'^PHYSSKIN tag=(\S+) c=(\d+) skinpen=([-\d.e+]+) tests=(\d+)', txt, re.M):
+        skinpen.setdefault(m.group(1), {})[int(m.group(2))] = (
+            float(m.group(3)) / UNITS, int(m.group(4)))
     for m in re.finditer(r'^PHYSSHELL tag=(\S+) corrections=([-\d.e+]+)'
                          r'(?: inward=([-\d.e+]+))?', txt, re.M):
         shellfire[m.group(1)] = (
@@ -1583,6 +1593,26 @@ def main():
     # pas du mouvement legitime. Si `out` domine, c'est l'inverse et la moitie `rad>0` epingle.
     # NATURE : des COMPTES d'evenements sur la fenetre de controle. REPERE : sans objet.
     # LECTURE HORS DEFAUT : inward=0. `--` = trace anterieure a la publication du compteur.
+    # ---- ROOM-SKINPEN : la penetration contre la PEAU, a lire A COTE de meshpen ------------------
+    sp_run = skinpen.get('run', {})
+    if sp_run:
+        A('')
+        A('-- SPEC 18 : LA PENETRATION MESUREE CONTRE LA PEAU, PAS CONTRE LES VOLUMES ------------')
+        A('   `meshpen` compte contre les volumes de collision, qui ne representent que 29.7 % de la')
+        A('   geometrie que la physique pilote (0 % pour backhair, pantflapL, pantflapR ; 10 % pour')
+        A('   les lunettes). Son zero est donc compatible avec ce que l\'owner voit. Cette colonne-ci')
+        A('   mesure la MEME position ecrite contre le mesh qui est DESSINE.')
+        A('   NATURE : profondeur en metres, positive = SOUS la peau. REPERE : le monde, frame')
+        A('   ecrite. LECTURE HORS DEFAUT : 0. tests=0 veut dire « pas regarde », jamais « rien ».')
+        _tot = max((t for _v, t in sp_run.values()), default=0)
+        if _tot == 0:
+            A('   ROOM-SKINPEN: AUCUN echantillon teste — le fichier physics_mesh.txt n\'est pas')
+            A('   charge, ou aucun os du rig ne porte d\'ensemble. Ces zeros ne sont PAS une mesure.')
+        for v, c in sorted(((v, c) for c, (v, _t) in sp_run.items()), reverse=True):
+            A('ROOM-SKINPEN: chain=%-12s skinpen=%.4f m   meshpen=%.4f m'
+              % (names[c] if c < len(names) else c, v,
+                 (dr_run.get(c, {}) or {}).get('pen', 0.0) if isinstance(dr_run.get(c), dict) else 0.0))
+        A('ROOM-SKINPEN-TESTS: %d echantillons de surface compares sur la fenetre' % _tot)
     if shellfire:
         for tag in ('shell-disarmed', 'shell-armed'):
             if tag in shellfire:
