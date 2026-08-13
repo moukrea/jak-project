@@ -852,7 +852,9 @@
 ;; 14 = `rootrot`, l'angle ecrit dans la 3x3 du maillon `rootlock` (voir le bloc d'ecriture).
 ;; 15 = `raddrop-m`, le PRIX du mur dur d'excursion : somme, par chaine, de l'excursion qu'il a
 ;;      retiree. Le compte (slot 6) disait combien de fois il mordait, jamais combien il coutait.
-(defconstant PHYS-DG 16)
+;; 17 depuis le 2026-08-13 : le slot 16 porte l'erreur de longueur que le repli du recul AURAIT
+;; ecrite (phys-retreat-chain), gardee comme controle positif de sa correction.
+(defconstant PHYS-DG 17)
 (define *phys-dg* (new 'global 'array 'float (* PHYS-SC PHYS-DG)))
 ;; etat de contrainte de la frame precedente, par (lien, volume), pour compter les bascules.
 ;; 1 bit par volume, un mot par lien : PHYS-COLS <= 96 tient sur trois mots de 32 bits.
@@ -2731,7 +2733,45 @@
                           (set! *phys-sphere-n* (+ *phys-sphere-n* 1))
                           (set! wx fx) (set! wy fy) (set! wz fz) (set! want ml))
                          (else
-                          (set! *phys-retfb-n* (+ *phys-retfb-n* 1))))))
+                          (set! *phys-retfb-n* (+ *phys-retfb-n* 1))
+                          ;; LE REPLI ABANDONNAIT LA LONGUEUR D'OS, ET C'EST LUI QUI ECRIVAIT EN
+                          ;; DERNIER. `want` vaut ici |auteur(kk) - attache SIMULEE| (2616), pas la
+                          ;; longueur du modele `ml` (2622) : les deux ne coincident que si l'attache
+                          ;; n'a pas bouge, et ce bloc ne tourne QUE quand elle a bouge (garde 2648).
+                          ;; Les deux branches soeurs remettent `want` a `ml` (2732, 2736) ; celle-ci
+                          ;; ne le faisait pas, donc l'ecriture finale de la frame (2828-2837) posait
+                          ;; le lien sur une sphere de rayon |auteur - attache| et l'os s'allongeait
+                          ;; d'exactement |want/ml - 1|.
+                          ;;
+                          ;; CE QUE CA MESURAIT, ET LA DATE LE PROUVE : `ROOM-STRETCH` valait 0.0003
+                          ;; (botstrapR) sur toutes les courses jusqu'a `keira-room-table.PRE-INJECT`,
+                          ;; et 1.3000 sur `lmidhair` des la course SUIVANTE. L'injection de joints du
+                          ;; 2026-08-13 a donne a `lmidhair`/`rmidhair` un TROISIEME maillon, donc un
+                          ;; lien `l >= 2` dont l'attache est elle-meme SIMULEE — le seul cas ou ce
+                          ;; repli peut tirer (pour `l = rlk`, `b_sim` EST la pose animee du parent,
+                          ;; donc `want == ml` et la garde 2648 est fausse). Avant l'injection ces deux
+                          ;; chaines n'avaient que deux maillons : le chemin etait inatteignable, et
+                          ;; leur allongement valait exactement 0.0000 sur les cinq pilotages.
+                          ;;
+                          ;; REGLE 6 N'EST PAS SACRIFIEE : le balayage vient d'etablir qu'AUCUN point
+                          ;; de la sphere du modele n'est admissible. L'ancien code ne se repliait donc
+                          ;; pas sur un point admissible, il se repliait sur une AUTRE sphere, jamais
+                          ;; testee non plus. La dichotomie qui suit teste l'admissibilite dans les deux
+                          ;; cas ; une seule des deux respecte l'os. On garde la direction, on rend la
+                          ;; longueur.
+                          ;;
+                          ;; L'ERREUR QUE L'ANCIEN CHEMIN AURAIT ECRITE EST CONSERVEE, par chaine, et
+                          ;; c'est le controle positif de cette correction : elle doit rester NON NULLE
+                          ;; et du meme ordre que l'ancien `ROOM-STRETCH` (le chemin tire toujours,
+                          ;; a la meme echelle) pendant que l'allongement REELLEMENT ecrit tombe sous
+                          ;; le plafond de 3 % de la SPEC. Un zero des DEUX voudrait dire que le
+                          ;; chemin a cesse d'etre atteint, et ne prouverait rien.
+                          ;; NATURE : rapport sans dimension |want/ml - 1|. REPERE : aucun, une
+                          ;; longueur sur une longueur, meme attache. ABSENT : 0.
+                          (let ((er (fabs (- (/ want ml) 1.0))))
+                            (when (> er (-> *phys-dg* (+ (* sc PHYS-DG) 16)))
+                              (set! (-> *phys-dg* (+ (* sc PHYS-DG) 16)) er)))
+                          (set! want ml)))))
                     (else
                      (set! wx mx) (set! wy my) (set! wz mz) (set! want ml))))
                 ;; ------------------------------------------------------------------------
