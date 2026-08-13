@@ -316,13 +316,28 @@ def apply_model(js, binc, rules, verbose=True):
                     e.add((u, v) if u < v else (v, u))
 
     # every primitive shares one attribute set in a prepped glb, but do not assume it
+    #
+    # LE CACHE DOIT PORTER LES DEUX ACCESSEURS, ET C'EST LA CAUSE DE `hair-skinning`.
+    # `_grade` et `transfer` MUTENT `J` (ils volent le creneau le plus leger : `J[vi, slot] = t`),
+    # donc le `W` neuf n'a de sens QUE contre le `J` neuf. Ce cache ne rendait que `WEIGHTS_0` :
+    # la premiere primitive d'une cle recevait bien les deux accesseurs neufs, TOUTES LES SUIVANTES
+    # recevaient le poids neuf contre la table de joints PERIMEE. Le poids gradue atterrissait alors
+    # sur le joint que l'ancienne table portait dans ce creneau — `prejoint`.
+    # MESURE SUR LE MESH LIVRE (out/jak1/fr3/skin/keira-hd-lod0.glb, md5 8af2f36d) :
+    #     J=3  W=35  27 primitives (LE CORPS, ce qui rend) : prejoint 85 sommets, masse 17.81
+    #     J=34 W=35   1 primitive                          : prejoint  0 sommets, masse  0.00
+    # Ces 85 sommets sont autour des jonctions cuir chevelu/meche : ils restent immobiles pendant
+    # que leurs voisins bougent — mot pour mot le defaut que l'owner decrit (« des polygones qui
+    # bougent et des polygones voisins parfaitement statiques, causant la geometrie qui casse »).
+    # Et c'est pour ca que chaque correctif de peau mesurait vert : la mesure lisait la primitive 0,
+    # la seule dont la table etait juste.
     seen = {}
     for mesh in js.get('meshes', []):
         for pr in mesh.get('primitives', []):
             at = pr['attributes']
             key = (at['JOINTS_0'], at['WEIGHTS_0'])
             if key in seen:
-                at['WEIGHTS_0'] = seen[key]
+                at['JOINTS_0'], at['WEIGHTS_0'] = seen[key]
                 continue
             J = read_accessor(js, binc, at['JOINTS_0']).astype(np.int32)
             W = read_accessor(js, binc, at['WEIGHTS_0']).astype(np.float64)
@@ -420,7 +435,9 @@ def apply_model(js, binc, rules, verbose=True):
             acc_w = append_accessor(js, binc, W.astype(np.float32), 5126, 'VEC4')
             at['JOINTS_0'] = acc_j
             at['WEIGHTS_0'] = acc_w
-            seen[key] = acc_w
+            # LES DEUX, jamais le poids seul : voir le commentaire du cache plus haut. `J` a ete
+            # MUTE par les regles, donc `acc_w` n'a de sens que contre `acc_j`.
+            seen[key] = (acc_j, acc_w)
     return rep
 
 

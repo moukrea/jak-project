@@ -147,3 +147,41 @@ grade Rbanga    chain=Rbanga,Rbangb,Rbangc from=head step=0.45
 grade backHair1 chain=backHair1,backHair2  from=head step=0.45
 grade lEara     chain=lEara,lEarb          from=head step=0.45
 grade rEara     chain=rEara,rEarb          from=head step=0.45
+
+# LES PANS DE PANTACOURT — `transfer` OUVRE la jonction, et rien ne la refermait.
+#
+# `transfer LpantFlap ... cap=0.90` (plus haut) porte le coeur du pan a 0.90 et laisse la rangee de
+# bordure a 0.000 PILE : une marche de 0.900 entre deux sommets VOISINS, donc 6 aretes dechirees par
+# pan. Les 7 regles `grade` ci-dessus ne couvraient que les cheveux et les oreilles ; aucune ne
+# visait les pans, alors que ce sont eux qui portent la plus grosse marche du modele.
+#
+# MESURE, sur le mesh reellement livre (`out/jak1/fr3/skin/keira-hd-lod0.glb`), APRES le correctif
+# de liaison JOINTS_0/WEIGHTS_0 qui rendait cette colonne aveugle :
+#     pantflapL  cov=0.6654 n=49  tear=6        pantflapR  cov=0.6817 n=41  tear=6
+# Les 6 dechirures de chaque pan ne portent que sur 4 sommets de bordure, tous a w_pan=0.000 face a
+# des voisins a 0.900, et tout leur poids est sur `Lknee 0.96 · Lthigh 0.04` — d'ou les memes
+# donneurs que le `transfer`. Ces sommets n'occupent que 2 creneaux d'influence sur 4 : leur donner
+# un creneau ne coute aucune eviction et ne peut pas casser l'invariant a 4 os.
+#
+# L'ANCRAGE JOUE ICI COMME POUR LES CHEVEUX, et c'est ce qu'on veut : le plafond dur a 0.50 laisse
+# la rangee de bordure majoritairement tenue par `Lknee`, donc le HAUT du pan reste soude a la
+# jambe pendant que le BAS suit la physique. C'est exactement la bande de melange qui manquait.
+grade LpantFlap chain=LpantFlap from=Lknee,Lthigh step=0.45
+grade RpantFlap chain=RpantFlap from=Rknee,Rthigh step=0.45
+
+# LES BANDES DE GENOUX — meme defaut, mais celui-la est D'ORIGINE, pas cree par nous.
+#
+# La colonne « mesh livre » (une fois la liaison JOINTS_0/WEIGHTS_0 reparee) publie
+# `kneeflapL tear=8` et `kneeflapR tear=8` avec `dtear=8->8` : le rip BRUT du donneur les porte
+# deja. Aucune de nos regles ne les a ouvertes — c'est la ponderation de l'artiste.
+#
+# DONNEUR MESURE, pas devine : les 8 aretes de chaque bande ne portent que sur 4 sommets de
+# bordure, tous a ws=0.000 PILE, et 100 % de leur poids est sur `Lknee` (resp. `Rknee`) — un os
+# de corps statique, exactement la meme forme que les pans. Le cote haut demarre a 0.604.
+# `botstrapL/R` (18 et 19 aretes) NE SONT PAS traites ici et ce n'est pas un oubli : leur cote bas
+# est a 38 % sur `lTopStrap2`, c'est-a-dire sur le joint d'une AUTRE chaine simulee. Une jonction
+# entre deux pieces qui bougent toutes les deux n'est pas le meme defaut qu'une jonction avec de la
+# peau statique, et l'owner a valide les bretelles (« vraiment pas mal du tout ») : on ne touche pas
+# a un acquis sur une hypothese. Mesure publiee dans le rapport, a traiter pour elle-meme.
+grade lKneeFlap chain=lKneeFlap from=Lknee step=0.45
+grade rKneeFlap chain=rKneeFlap from=Rknee step=0.45

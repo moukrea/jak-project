@@ -105,23 +105,48 @@ def _gather_model_vertices(js, binc):
     polygones voisins parfaitement statiques » — n'a pas d'ARETES a regarder : `ROOM-SKINCOV`
     calculait son `tear` sur un ensemble vide et rendait 0 sur les 22 chaines, un zero qui voulait
     dire « je n'ai pas regarde » et qui etait indistinguable de « pas de cassure »."""
+    # CHAQUE PRIMITIVE APPORTE SA PROPRE TABLE (JOINTS_0, WEIGHTS_0), ET C'EST LA RAISON POUR
+    # LAQUELLE `hair-skinning` EST RESTE INVISIBLE HUIT CYCLES.
+    # L'ancienne forme (`if pos is None:`) lisait J/W de la PREMIERE primitive et les appliquait a
+    # l'indexation de TOUTES les autres. Quand le glb porte plus d'un jeu d'attributs, elle mesure
+    # donc une table que la geometrie du corps n'utilise pas. Mesure sur le mesh livre du
+    # 2026-08-13 02:22 (md5 8af2f36d) : J=34 sur 1 primitive (celle qui etait lue, saine) contre
+    # J=3 sur les 27 primitives DU CORPS (celles qui rendent, et qui portaient 85 sommets a
+    # `prejoint` pour une masse de 17.81). La colonne publiait la sante d'une piece de decor
+    # pendant que le corps portait le defaut.
+    # On lie donc J/W PAR PRIMITIVE, sur les sommets que cette primitive reference : ce qui est
+    # mesure est alors exactement ce qui est rendu.
     pos = jts = wts = None
     used = set()
     tris = []
+    akeys = set()
     for mesh in js.get('meshes', []):
         for pr in mesh.get('primitives', []):
             at = pr['attributes']
             if pos is None:
                 pos = read_accessor(js, binc, at['POSITION']).astype(np.float64)
-                jts = read_accessor(js, binc, at['JOINTS_0']).astype(np.int32)
-                wts = read_accessor(js, binc, at['WEIGHTS_0']).astype(np.float64)
+                jts = np.zeros((len(pos), 4), dtype=np.int32)
+                wts = np.zeros((len(pos), 4), dtype=np.float64)
+            akeys.add((at['JOINTS_0'], at['WEIGHTS_0']))
             if 'indices' in pr:
                 ind = np.asarray(read_accessor(js, binc, pr['indices']).reshape(-1), dtype=np.int64)
                 used.update(ind.tolist())
+                u = np.unique(ind)
+                pj = read_accessor(js, binc, at['JOINTS_0']).astype(np.int32)
+                pw = read_accessor(js, binc, at['WEIGHTS_0']).astype(np.float64)
+                jts[u] = pj[u]
+                wts[u] = pw[u]
                 # mode 4 = TRIANGLES (defaut glTF). Le rip merc ne produit pas d'autre topologie ;
                 # une topologie inconnue n'est pas DEVINEE, elle reste hors de la liste.
                 if int(pr.get('mode', 4)) == 4 and len(ind) >= 3:
                     tris.append(ind[:(len(ind) // 3) * 3].reshape(-1, 3))
+    # Un mesh sain n'a QU'UN jeu d'attributs. Plus d'un = l'ecrivain d'assets a laisse des
+    # primitives sur des tables differentes, et c'est exactement le defaut ci-dessus : il doit
+    # CRIER au lieu d'etre moyenne en silence.
+    if len(akeys) > 1:
+        sys.stderr.write('[skincov] !! %d jeux (JOINTS_0,WEIGHTS_0) dans le mesh : %s — les'
+                         ' primitives ne partagent pas la meme table de joints\n'
+                         % (len(akeys), sorted(akeys)))
     if pos is None or not used:
         return None
     idx = np.fromiter(sorted(used), dtype=np.int64)
