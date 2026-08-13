@@ -485,10 +485,52 @@ sous-pas à 60 FPS, 3-4 sur impact. Un maillon ne devrait pas TRAVERSER un axe e
 réparerait alors moins souvent, et plus petit. Corriger après coup est un pis-aller, et le dire
 est le seul honnête.
 
+3f quater. LE CONTRÔLE APPARIÉ QUI DÉSIGNE LA CAUSE, ET IL EST GRATUIT
+-----------------------------------------------------------------------
+`ROOM-CONTACT-VOL` de la course 7 dit contre QUOI chaque mèche est réellement contrainte, et le
+partage est net :
+
+    backhair   678   head->neck 422 · Lshoulder->chest 62 · Rshoulder->chest 59 · neck->chest 56
+               -> obstacles majoritairement du CORPS      -> meshpen 0.0059, crossing 3
+    lmidhair  4031   head->neck 1174 · lEarb->lEara 923 · Lbangd->Lbangc 710 · sphere:lEara 502
+    rbang     1567   head->neck 490 · Rmidhairb->Rmidhaira 376 · Lbangc->Lbangb 232 · Lbangd 204
+               -> obstacles majoritairement d'AUTRES CHEVEUX -> meshpen 0.36 a 0.56, crossing 122-1245
+
+Les 17 chaînes qui se sont refermées cette nuit ont pour obstacles dominants des capsules de
+CORPS ; les 5 qui résistent ont pour obstacles dominants des capsules portées par d'AUTRES CHAÎNES
+SIMULÉES. `backhair` est le témoin : même modèle, même course, mais des obstacles de corps — et son
+résidu est déjà quasi nul.
+
+MÉCANISME SUSPECTÉ, lu dans le source et pas encore confirmé par la mesure. Le prédicat de
+franchissement (`phys-link-pen`, ~:2620) s'écrit :
+
+    (phys-axis-dir rest ca cb ua)   ; ou est la pose d'AUTEUR du lien, vue de l'axe COURANT
+    (phys-axis-dir q    ca cb ub)   ; ou est le lien SIMULE, vue du meme axe
+
+`ca`/`cb` viennent de `phys-col-now!` : la position COURANTE de l'obstacle. Contre une capsule de
+corps, portée par l'animation, « le côté où l'auteur l'a mis » est une grandeur CONSERVÉE et le
+test a un sens. Contre une capsule portée par une chaîne que la physique écrit elle-même, l'axe a
+bougé : `ua` peut changer de signe sans qu'aucun franchissement n'ait eu lieu, et le solveur
+« corrige » alors un franchissement FANTÔME — en boucle, ce qui expliquerait aussi le `jump`.
+C'est la même faute de mélange de repères que le commentaire :2612-2614 dit avoir corrigée sur
+`floor0` (lequel prend `max(floors, floorc)` précisément pour ne pas mélanger), appliquée de façon
+inconsistante au terme de côté.
+
+**NON TRANCHÉ. Une investigation est en cours et sa conclusion doit précéder toute correction** —
+parce que restreindre ce veto RÉDUIT `meshpen`, et réduire un chiffre que la gate lit sans avoir
+prouvé qu'il mesurait un fantôme serait exactement le faux vert que tout ce contrat interdit. Le
+terme de PROFONDEUR, lui, continuerait de mesurer et de résoudre la pénétration cheveu↔cheveu
+réelle : ce n'est que le veto de TUNNELING, indéfinissable sans détection continue (§37), qui
+serait borné aux obstacles d'auteur.
+
 3h. LES GATES QUI RESTENT ROUGES
 -----------------------------------
-  * `COLLIDE` : `meshpen` max cheveux **0.5555** (`rbang`). Le résidu est ce qui reste de
-    franchissement, dominé par `goggles` (3420 des 11465). NON FERMÉ.
+  * `COLLIDE` : `meshpen` max cheveux **0.5648** (`rbang`) — légèrement PIRE qu'avant la course 7,
+    pendant que tout le reste du corps se refermait. NON FERMÉ, et la cause probable est au §3f
+    quater. À savoir aussi, pour ne pas se croire à un cheveu du vert : même cheveux fermés, la
+    gate testerait ensuite `lunettes vs corps et seins` (goggles 0.1094 > 0, échoue) puis le
+    contrôle positif (`armed=0.2301` contre `disarmed=0.4195`, il faut 3x, échoue). Il reste donc
+    TROIS verrous derrière celui-ci, pas un.
   * `ROOM-POSCONTROL` : `armed=0.2301` contre `disarmed=0.6942` — la gate veut armé >= 3x désarmé.
     MÊME CAUSE RACINE : `disarmed` est gonflé par le franchissement résiduel, et il baisse avec lui
     (0.6960 -> 0.5593 -> 0.6942 selon les courses). Il se fermera avec `COLLIDE`, pas avant.
