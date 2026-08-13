@@ -179,3 +179,12 @@ favorable jamais vu et exige ensuite de le reproduire : la gate rouge n'était p
 c'était mon propre encliquetage. Verrou : sur une paire miroir, les planchers doivent être calés
 ensemble ; et un plancher se calibre sur une statistique robuste, pas sur le maximum jamais observé.
 Même famille que [[feedback_ratchet_running_max_eats_itself]].
+
+GUARD hyst-substring .autoport/PITFALLS.md `HYST` matchait `PHYSTILT`
+**Conclure « c'est déjà instrumenté » sur une correspondance de sous-chaîne.** J'ai cherché `HYST`
+pour savoir si l'hystérésis était mesurée : 10 occurrences, donc oui. En réalité `HYST` matchait
+`PHYSTILT` et le mot « hystériques » dans des commentaires citant l'owner — **la grandeur n'existait
+pas**. J'ai failli rapporter comme instrumenté le défaut PRIORITÉ 1 du moment. Même famille que
+[[feedback_gate_field_name_substring]], que j'avais déjà consigné : un compteur de sous-chaîne ne
+prouve l'existence de rien. Verrou : chercher le **nom exact publié** (`ROOM-<NOM>:`) et exiger une
+valeur mesurée dans un rapport, jamais une occurrence dans du source.
