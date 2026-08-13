@@ -30,6 +30,33 @@ pudding, pas des mouvements naturels de cheveux ! »
    racine→pointe. Repère LOCAL. **Ne pas dériver ça d'une formule d'amortissement supposée du
    solveur : on le lit dans la salle.**
 
+**19:40 — DEUX DE MES DIRECTIVES ÉTAIENT FAUSSES, LE WORKER L'A MESURÉ. ELLES SONT RECTIFIÉES.**
+
+**(a) « Retard racine→pointe ≥ 5 » : cible ANNULÉE, elle venait d'un artefact d'instrument.**
+La fenêtre de recherche vaut `dmax = round(tapp/2)`. `lbang` mesure `tapp=10`, donc `dmax=5`, et
+rapporte `lag12=5` ET `lag23=5` — **exactement au bord**. Le retard n'est déterminé que modulo une
+demi-période : 5 sur une fenêtre ±5 est congru à 0. Autrement dit **`lbang mono=yes` et
+`backhair lag12=0` sont LA MÊME MESURE**. Recalculée sur ±14, la corrélation de `lbang` monte encore
+là où la fenêtre livrée s'arrête (+5 : 0,82 · +7 : 0,89 · +9 : 0,93) — le « 5 » est le bord, pas un
+pic. J'ai fixé une cible à la valeur que mon propre instrument ne pouvait pas dépasser : c'est le
+piège `never-fit-a-parameter-to-the-instrument`, et c'est moi qui l'avais écrit.
+**Ce qui reste valable** : la durée de ballottement (84–96 frames), stable et cohérente entre
+courses. Et `backhair` a un vrai pic net à d=0 (0,97) — **son mouvement en bloc est, lui, bien mesuré**.
+
+**(b) « Injecter un os » au sens ajouter en bout : FAUX pour ces trois chaînes.**
+Il n'y a **aucune géométrie au-delà de la pointe** (orphan 3,8/4,8/4,5 %, `tail_m` 0,0000 — `backhair`
+est même mieux couverte que `lbang` à 4,9 %). Un os ajouté en bout aurait été un **maillon inerte**.
+Le vrai défaut mesuré : les trois grosses mèches portent **60 à 93 % de leur masse pesée sur UN SEUL
+segment libre**, contre **35–37 % sur `lbang`/`rbang`** que l'owner approuve. C'est ÇA le pudding, et
+c'est la grandeur qui discrimine — pas le retard de phase.
+La bonne opération est la **subdivision** (`subdiv`) : le joint de pointe recule à la médiane de
+masse, la position libérée devient la nouvelle pointe, la rampe partage la géométrie 50/50, les
+longueurs se somment exactement. `lbang`/`rbang` partaient de 3 joints avec de la géométrie à
+piloter — leur cas n'était pas le même, et j'ai généralisé leur recette à tort.
+
+**NOUVELLE CIBLE, mesurable et non bornée par la fenêtre** : part de masse du segment le plus lourd
+ramenée de 60–93 % vers **35–37 %**, et durée de ballottement dans 84–96 frames.
+
 **17:40 — LE BLOCAGE DU §6 EST LEVÉ. L'INJECTION EST LA SEULE CHOSE À FAIRE MAINTENANT.**
 
 Le rapport avait raison sur le fait et tort sur la fatalité : `decompiler_out/jak2` et `jak3`

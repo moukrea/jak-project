@@ -139,3 +139,23 @@ Verrou : avant d'effacer un répertoire produit, chercher qui le LIT (`grep -rn 
 et si la recette de régénération dépend d'un réglage non évident, la rendre permanente — ici
 `rip_levels` était à `false`, donc une simple redécompilation ne rendait PAS les rips. Il est
 maintenant à `true` dans la config suivie, pour que la réparation soit à un `decomp2.sh` de distance.
+
+GUARD target-bounded-by-window .autoport/DIRECTIVES.md cible ANNULÉE, elle venait d'un artefact
+**Fixer une cible à une valeur que l'instrument ne peut pas dépasser.** J'ai posé « retard
+racine→pointe ≥ 5 » en lisant `lag12=5` sur la chaîne approuvée. Or la fenêtre de recherche vaut
+`dmax = round(tapp/2)` = 5 : la mesure était **au bord de sa propre fenêtre**, et un retard n'est
+déterminé que modulo une demi-période — `lbang mono=yes` et `backhair lag12=0` étaient la même
+mesure. Recalculée sur ±14, la corrélation montait encore là où la fenêtre s'arrêtait. J'ai donc
+demandé pendant trois cycles qu'on atteigne un chiffre qui ne voulait rien dire.
+Verrou : avant de faire d'une valeur une cible, vérifier qu'elle n'est pas **saturée par la borne de
+son propre calcul** — si la grandeur maximale observée égale la limite de la fenêtre, ce n'est pas un
+résultat, c'est le bord. Élargir la fenêtre et regarder si la courbe monte encore.
+
+GUARD recipe-not-transferable .autoport/DIRECTIVES.md aurait été un maillon inerte
+**Généraliser une recette qui a marché ailleurs sans vérifier que le cas est le même.** L'injection
+d'un 4e os avait réussi sur `lbang`/`rbang` ; j'ai prescrit la même chose aux trois grosses mèches.
+Mesure : il n'y a **aucune géométrie au-delà de leur pointe** (`tail_m` 0,0000) — l'os ajouté aurait
+été inerte. Leur défaut réel est ailleurs : 60 à 93 % de la masse sur un seul segment libre contre
+35–37 % sur les chaînes approuvées, ce qui appelle une **subdivision**, pas une extension.
+Verrou : avant de transposer une recette, mesurer que la chaîne cible présente le même manque que
+celle où la recette a marché — « même famille » ne veut pas dire « même défaut ».
