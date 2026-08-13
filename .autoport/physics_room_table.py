@@ -337,6 +337,16 @@ def main():
         diag.setdefault(m.group(1), {}).setdefault(int(m.group(2)), {}).update(
             rootrot=float(m.group(3)),
             raddropm=(float(m.group(4)) / UNITS) if m.group(4) is not None else None)
+    # retfblen : l'erreur de longueur d'os que le REPLI du recul aurait ecrite sur cette chaine.
+    #            Le repli gardait `want = |auteur(kk) - attache SIMULEE|` au lieu de la longueur du
+    #            modele, et il ecrit EN DERNIER dans la frame : l'os s'allongeait d'exactement ce
+    #            rapport. C'est la cause mesuree de `ROOM-STRETCH` a 1.3088, et cette colonne est le
+    #            CONTROLE POSITIF de sa correction -- elle reste non nulle pendant que l'allongement
+    #            ecrit tombe. ABSENTE des courses d'avant ce cycle : `.get(..., None)` distingue
+    #            « pas mesure » de « mesure a zero ».
+    for m in re.finditer(r'^PHYSDIAG7 tag=(\S+) c=(\d+) retfblen=([-\d.e+]+)', txt, re.M):
+        diag.setdefault(m.group(1), {}).setdefault(int(m.group(2)), {}).update(
+            retfblen=float(m.group(3)))
     # la re-assise : combien de liens le moteur a replaces, et combien ont du retomber sur
     # l'ancienne heuristique (rayon le long de l'os du porteur) au lieu de la place du rig.
     global RESEAT_FB
@@ -1196,6 +1206,39 @@ def main():
             A('     %-12s %-10s %s' % (nmc, nmd, fnum(v)))
     else:
         A('   Aucun couple (chaine, pilotage) au-dessus de 3 %% : la contrainte de longueur tient.')
+    A('')
+    # ---- OU S'ALLONGE L'OS : L'ATTRIBUTION DE `stretch` A UN CHEMIN PRECIS ---------------------
+    # Le repli de `phys-retreat-chain` (sphere entiere fermee) garde `want = |auteur(kk) - attache
+    # SIMULEE|` au lieu de la longueur du modele, et il ecrit EN DERNIER dans la frame. Cette
+    # colonne mesure l'erreur qu'il laisse, PAR CHAINE : c'est ce que le `stretch` ci-dessus ne
+    # savait pas localiser.
+    _d7 = diag.get('run', {})
+    _fb = {c: _d7.get(c, {}).get('retfblen') for c in sorted(chains)}
+    if all(v is None for v in _fb.values()):
+        A('-- REPLI DU RECUL (retfblen) : NON MESURE par cette course -------------------------------')
+        A('   La trace ne porte aucune ligne PHYSDIAG7. La cause de l\'allongement reste non')
+        A('   instrumentee : `ROOM-STRETCH` ci-dessus se lit alors sans son controle.')
+    else:
+        A('-- REPLI DU RECUL — OU S\'ALLONGE L\'OS, ET DE COMBIEN ------------------------------------')
+        A('   NATURE : rapport sans dimension |want/ml - 1|, un MAXIMUM sur la fenetre. REPERE :')
+        A('            aucun, une longueur sur une longueur depuis la MEME attache. ABSENT : 0, et')
+        A('            le repli n\'a alors jamais tire sur cette chaine.')
+        A('   LECTURE : `retfb` est l\'allongement laisse PAR CE CHEMIN, `elong` celui qui est')
+        A('            REELLEMENT ecrit pour la chaine. Quand les deux coincident, tout')
+        A('            l\'allongement de la chaine vient de ce repli et de rien d\'autre : c\'est une')
+        A('            ATTRIBUTION, pas un controle de correctif.')
+        _hot = [(v, c) for c, v in _fb.items() if v]
+        for v, c in sorted(_hot, reverse=True):
+            A('   retfb %-12s retfb=%-10s elong=%s'
+              % (names[c], fnum(v), fnum(_d7.get(c, {}).get('elong', 0.0))))
+        if not _hot:
+            A('   Le repli n\'a tire sur AUCUNE chaine de cette course.')
+        else:
+            A('   %d chaine(s) ont emprunte le repli. Deux correctifs ont ete essayes a cet endroit'
+              % len(_hot))
+            A('   le 2026-08-13 et la mesure les a REFUSES : ils ramenaient stretch a 0.0003 en')
+            A('   faisant monter meshpen a 0.2238 puis 0.2726 m et ROOM-SIDE a 1056 puis 1089')
+            A('   franchissements (regle 6). La cause reste en amont, pas dans cette branche.')
     A('')
     A('-- ANIMATION SEULE — LA SEULE JAMBE QUE L\'OWNER VOIE EN JEU (18e passe) ---------------------')
     A('   NATURE   trois grandeurs distinctes de la MEME jambe non pilotee : une amplitude (tip),')

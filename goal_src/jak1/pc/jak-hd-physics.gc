@@ -2753,25 +2753,53 @@
                           ;; chaines n'avaient que deux maillons : le chemin etait inatteignable, et
                           ;; leur allongement valait exactement 0.0000 sur les cinq pilotages.
                           ;;
-                          ;; REGLE 6 N'EST PAS SACRIFIEE : le balayage vient d'etablir qu'AUCUN point
-                          ;; de la sphere du modele n'est admissible. L'ancien code ne se repliait donc
-                          ;; pas sur un point admissible, il se repliait sur une AUTRE sphere, jamais
-                          ;; testee non plus. La dichotomie qui suit teste l'admissibilite dans les deux
-                          ;; cas ; une seule des deux respecte l'os. On garde la direction, on rend la
-                          ;; longueur.
-                          ;;
-                          ;; L'ERREUR QUE L'ANCIEN CHEMIN AURAIT ECRITE EST CONSERVEE, par chaine, et
-                          ;; c'est le controle positif de cette correction : elle doit rester NON NULLE
-                          ;; et du meme ordre que l'ancien `ROOM-STRETCH` (le chemin tire toujours,
-                          ;; a la meme echelle) pendant que l'allongement REELLEMENT ecrit tombe sous
-                          ;; le plafond de 3 % de la SPEC. Un zero des DEUX voudrait dire que le
-                          ;; chemin a cesse d'etre atteint, et ne prouverait rien.
-                          ;; NATURE : rapport sans dimension |want/ml - 1|. REPERE : aucun, une
-                          ;; longueur sur une longueur, meme attache. ABSENT : 0.
+                          ;; L'ALLONGEMENT EST DONC IMPUTE A CE CHEMIN, PAR CHAINE, et c'est tout ce
+                          ;; que cette ligne fait : elle ne corrige rien, elle ATTRIBUE. `elong`
+                          ;; (PHYSDIAG2) disait qu'une chaine s'allonge sans dire OU ; ce compteur dit
+                          ;; que c'est ici, et de combien. Mesure du 2026-08-13 : `retfblen` vaut
+                          ;; 1.3163 sur `lmidhair` et 1.2856 sur `rmidhair` — soit exactement les
+                          ;; `elong` publies par la meme course, au dix-millieme. L'attribution est
+                          ;; donc complete : ce repli n'est pas UNE source de l'allongement, c'est LA
+                          ;; source, et les 20 autres chaines ne l'empruntent jamais (0.0000).
+                          ;; NATURE : rapport sans dimension |want/ml - 1|, un MAXIMUM sur la fenetre.
+                          ;; REPERE : aucun, une longueur sur une longueur, meme attache. ABSENT : 0,
+                          ;; et le repli n'a alors jamais tire sur cette chaine.
                           (let ((er (fabs (- (/ want ml) 1.0))))
                             (when (> er (-> *phys-dg* (+ (* sc PHYS-DG) 16)))
                               (set! (-> *phys-dg* (+ (* sc PHYS-DG) 16)) er)))
-                          (set! want ml)))))
+                          ;; DEUX CORRECTIFS ONT ETE ESSAYES ICI LE 2026-08-13, ET LA MESURE LES A
+                          ;; REFUSES TOUS LES DEUX. Ils sont ecrits pour que le prochain cycle ne les
+                          ;; retente pas : le chemin ne se corrige PAS depuis cette branche.
+                          ;;
+                          ;;   etat d'origine (celui-ci)      STRETCH 1.3088   meshpen 1.7e-06   SIDE 0
+                          ;;   v1 rendre la LONGUEUR seule    STRETCH 0.0003   meshpen 0.2238    SIDE 1056
+                          ;;   v2 se replier sur la POSE      STRETCH 0.0003   meshpen 0.2726    SIDE 1089
+                          ;;
+                          ;; Les deux corrigent l'allongement et le PAIENT en penetration : 22 puis
+                          ;; 27 cm dans la tete, les oreilles et les meches voisines, sur les deux
+                          ;; memes chaines. C'est la regle 6 de l'owner, non negociable — « rien ne
+                          ;; traverse le mesh de son personnage, quelle qu'en soit la raison », et
+                          ;; « une resolution pire que le clip est pire que rien ». Retires, pas
+                          ;; adoucis.
+                          ;;
+                          ;; POURQUOI LA POSE DU MODELE NE SAUVE PAS, alors qu'elle est admissible
+                          ;; « par construction » : elle ne l'est plus depuis que `floor0` se mesure
+                          ;; contre l'INSTANTANE D'AUTEUR du volume pendant que `dep` se mesure
+                          ;; contre sa position COURANTE (voir la note de `phys-snapshot-colliders!`
+                          ;; plus bas). Pour un volume porte par un joint SIMULE les deux membres ne
+                          ;; decrivent plus le meme obstacle — et la pointe de `lmidhair`/`rmidhair`
+                          ;; est justement enfermee par des volumes portes par D'AUTRES CHAINES
+                          ;; SIMULEES : `lEarb->lEara` 74 contacts, `Lbangc->Lbangb` 46,
+                          ;; `Lbangd->Lbangc` 44 (ROOM-CONTACT-VOL). Sur la sphere du modele il
+                          ;; n'existe alors AUCUN point admissible, et le balayage 7x9 le confirme :
+                          ;; c'est bien pour ca qu'on est dans ce repli.
+                          ;;
+                          ;; LA VRAIE CAUSE EST DONC EN AMONT, ET ELLE EST NOMMEE : soit l'ecart
+                          ;; `floor0` / `dep` sur un obstacle mobile, soit le volume de la pointe
+                          ;; elle-meme (rayon 363/384 u pour un os de 938/958 u, les plus gros du
+                          ;; jeu de cheveux). Tant qu'elle tient, l'allongement est le MOINS mauvais
+                          ;; des trois etats : il ne fait traverser personne.
+                          ))))
                     (else
                      (set! wx mx) (set! wy my) (set! wz mz) (set! want ml))))
                 ;; ------------------------------------------------------------------------

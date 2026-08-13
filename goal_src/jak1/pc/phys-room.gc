@@ -714,16 +714,21 @@
               tag c
               (phys-diag (-> self slot) c 14)
               (phys-diag (-> self slot) c 15))
-      ;;   retfblen L'ERREUR DE LONGUEUR D'OS QUE LE REPLI DU RECUL AURAIT ECRITE sur cette chaine.
-      ;;            Le repli de `phys-retreat-chain` (la sphere entiere fermee, aucune direction
-      ;;            admissible) gardait `want = |auteur(kk) - attache SIMULEE|` au lieu de la
-      ;;            longueur du modele, et il ecrit EN DERNIER dans la frame : l'os s'allongeait
-      ;;            d'exactement ce rapport. Depuis le 2026-08-13 la longueur est rendue et cette
-      ;;            colonne conserve ce que l'ancien chemin aurait pose.
-      ;;            C'EST LE CONTROLE POSITIF DE SA PROPRE CORRECTION : elle doit rester NON NULLE
-      ;;            (le chemin tire toujours, a la meme echelle qu'avant) pendant que `elong`
-      ;;            (PHYSDIAG2) tombe sous le plafond de 3 % de la SPEC. Deux zeros diraient que le
-      ;;            chemin n'est plus atteint et ne prouveraient rien du tout.
+      ;;   retfblen OU S'ALLONGE L'OS, ET DE COMBIEN — l'ATTRIBUTION de `elong` a un chemin precis.
+      ;;            `elong` (PHYSDIAG2) dit qu'une chaine s'allonge, jamais OU. Cette colonne compte
+      ;;            l'erreur de longueur laissee par LE REPLI de `phys-retreat-chain` : quand la
+      ;;            sphere du modele est entierement fermee (aucune des 63 directions balayees n'est
+      ;;            admissible), le repli garde `want = |auteur(kk) - attache SIMULEE|` au lieu de la
+      ;;            longueur du modele, et c'est lui qui ecrit EN DERNIER dans la frame — l'os
+      ;;            s'allonge donc d'exactement ce rapport.
+      ;;            CE QUE LA MESURE A ETABLI (2026-08-13) : `retfblen` vaut 1.3163 sur `lmidhair` et
+      ;;            1.2856 sur `rmidhair`, soit exactement leur `elong` de la meme course au
+      ;;            dix-millieme, et 0.0000 sur les vingt autres chaines. Ce repli n'est donc pas UNE
+      ;;            source de l'allongement, c'est LA source.
+      ;;            ELLE N'EST PAS LE CONTROLE D'UN CORRECTIF : deux correctifs ont ete essayes a cet
+      ;;            endroit le 2026-08-13 et la mesure les a REFUSES tous les deux (ils ramenaient
+      ;;            STRETCH a 0.0003 en faisant monter `meshpen` a 0.2238 puis 0.2726 m et `ROOM-SIDE`
+      ;;            a 1056 puis 1089 — regle 6). Le detail est dans `jak-hd-physics.gc`, meme branche.
       ;;            NATURE : un rapport sans dimension, |want/ml - 1| — un MAXIMUM sur la fenetre,
       ;;            pas un cumul. REPERE : aucun, une longueur sur une longueur prises depuis la
       ;;            meme attache. LECTURE QUAND LE DEFAUT EST ABSENT : 0, et le repli n'a alors
