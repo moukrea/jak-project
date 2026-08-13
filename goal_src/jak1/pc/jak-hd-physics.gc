@@ -443,6 +443,22 @@
 (define *phys-prio-n* 0)      ;; paires (lien, volume) ignorees par la priorite, sur la fenetre
 (define *phys-prio-multi* 0)  ;; liens contraints par plus d'un volume dans la meme frame
 
+;; MESURER LE CONFLIT SANS L'ARBITRER — 2026-08-13.
+;;
+;; Le commentaire ci-dessus affirme « le conflit est MESURE sans etre ARBITRE ». C'ETAIT FAUX, et le
+;; code le dit : la passe de selection ET ses trois compteurs etaient TOUS a l'interieur du
+;; `(when (zero? *phys-prio-off*)`. Desarmee, la passe ne tournait pas, donc `ROOM-VOLPRIO` publiait
+;; `pairs_ignored=0 chains=0` — un zero tire d'un DOMAINE VIDE, pas une absence de conflit. Le
+;; chiffre de 346 055 paires cite plus haut vient d'une course ou la priorite etait ARMEE ; depuis
+;; qu'elle est desarmee, la ligne lit 0 et se laisse lire comme « les volumes ne se contredisent
+;; plus ». C'est exactement le faux vert que la SPEC 7 interdit.
+;;
+;; Ce drapeau-ci fait tourner la passe de selection POUR SES COMPTEURS SEULEMENT : `*phys-lwin*` est
+;; remis a -1 avant la resolution, donc aucun volume n'est ecarte et le comportement reste celui du
+;; desarmement AU BIT PRES. Il vaut 0 par defaut : le jeu ne paie pas la passe supplementaire (52
+;; volumes par lien et par frame) ; seule la salle l'arme, parce que seule la salle mesure.
+(define *phys-prio-meas* 0)
+
 ;; ------------------------------------------------------------------------------------------------
 ;; MESURE (SPEC 7). Les colonnes du tableau de la salle sont accumulees ICI parce que c'est ici que
 ;; la position ecrite est connue. La salle remet a zero au debut de chaque fenetre et relit a la
@@ -1957,7 +1973,10 @@
             ;; d'un volume pour l'enfoncer dans le voisin a l'iteration suivante, et le recul
             ;; finissait par l'epingler sur la pose du modele (kneeflapR, 15913 frames sur 17893).
             (set! (-> *phys-lwin* scl) -1)
-            (when (zero? *phys-prio-off*)
+            ;; ARMEE (prio-off = 0) elle DESIGNE et ses compteurs comptent ; en mesure seule
+            ;; (prio-meas = 1) elle ne fait que COMPTER, et `*phys-lwin*` est rendu a -1 juste
+            ;; apres, donc rien n'est ecarte. Voir *phys-prio-meas*.
+            (when (or (zero? *phys-prio-off*) (nonzero? *phys-prio-meas*))
               (let ((best 2000000000) (nviol 0))
                 (dotimes (ci nco)
                   (let* ((sco (+ (* slot PHYS-COLS) ci))
@@ -1989,7 +2008,15 @@
                   (set! *phys-prio-multi* (+ *phys-prio-multi* 1))
                   (set! *phys-prio-n* (+ *phys-prio-n* (- nviol 1)))
                   (set! (-> *phys-dg* (+ (* sc PHYS-DG) 12))
-                        (+ (the float (- nviol 1)) (-> *phys-dg* (+ (* sc PHYS-DG) 12)))))))
+                        (+ (the float (- nviol 1)) (-> *phys-dg* (+ (* sc PHYS-DG) 12)))))
+                ;; MESURE SEULE : on a compte, on ne decide pas. Rendre `*phys-lwin*` a -1 remet le
+                ;; comportement a l'identique du desarmement — c'est la valeur que la ligne 1959
+                ;; venait d'y mettre, et les deux seuls consommateurs (`skip` en poussee, `skip` au
+                ;; recul) exigent de toute facon `(zero? *phys-prio-off*)`. La remise est donc
+                ;; redondante par deux fois, et c'est voulu : une mesure ne doit pas pouvoir
+                ;; devenir un arbitrage par accident.
+                (when (nonzero? *phys-prio-off*)
+                  (set! (-> *phys-lwin* scl) -1))))
             (dotimes (sub sweeps)
               (dotimes (ci nco)
                 (let* ((sco (+ (* slot PHYS-COLS) ci))
@@ -4301,6 +4328,14 @@
   "1 = tous les volumes poussent, comme avant la DECISION 1. `retreat` et les inversions
    residuelles doivent alors REMONTER."
   (set! *phys-prio-off* v)
+  (none))
+
+(defun phys-prio-meas-set! ((v int))
+  "1 = la passe de selection tourne POUR COMPTER, sans jamais ecarter un volume. C'est ce qui rend
+   `ROOM-VOLPRIO` non vide pendant que la priorite reste desarmee. Le controle de cette mesure est
+   son propre desarmement : a 0, la passe ne tourne pas et les trois compteurs doivent retomber a
+   zero exactement — un compteur qui resterait non nul mesurerait autre chose que cette passe."
+  (set! *phys-prio-meas* v)
   (none))
 
 (defun phys-cone-off-set! ((v int))

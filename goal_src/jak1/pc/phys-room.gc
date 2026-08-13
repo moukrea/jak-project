@@ -859,6 +859,14 @@
                (format 0 "PHYSFAIL reason=skeleton-not-posed-bones-at-origin~%")
                (set! (-> self phase) PHYSROOM-PH-DONE)))))
        (phys-auth-reset!)
+       ;; MESURER LE CONFLIT ENTRE VOLUMES SANS L'ARBITRER. La priorite (DECISION 1) reste DESARMEE
+       ;; — elle a ete retiree sur mesure, parce qu'ecarter un volume deplace le conflit au lieu de
+       ;; le resoudre et fait TRAVERSER (DIRECTIVES regle 6). Mais ses compteurs vivaient DANS la
+       ;; branche desarmee, donc `ROOM-VOLPRIO` publiait `pairs_ignored=0 chains=0` : un zero tire
+       ;; d'un domaine vide, qui se lit comme « les volumes ne se contredisent plus ». La salle arme
+       ;; donc la passe de SELECTION seule : elle compte, elle ne decide pas. Le jeu, lui, ne l'arme
+       ;; jamais et ne paie pas la passe.
+       (phys-prio-meas-set! 1)
        (phys-limiter-reset!)
        (phys-inversions-reset!)
        (phys-diag-reset!)
