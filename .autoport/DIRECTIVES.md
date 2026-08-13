@@ -10,6 +10,44 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
+## 2026-08-13 22:40 — LE MODÈLE EST FAUX, PAS SES RÉGLAGES. C'EST LA SEULE TÂCHE.
+
+Owner : « Physique = simulation, gravité, masse, élasticité, déformation, solidité… J'ai
+l'impression là que tu fais juste bouger des trucs, tu simules rien du tout. »
+
+**Il a raison, et c'est lisible dans le solveur** (`jak-hd-physics.gc:3399-3520`). Ce qui est
+intégré n'est pas la position d'un cheveu : c'est un **ÉCART À LA POSE ANIMÉE** (`*phys-ox/oy/oz*`,
+rappelé vers 0). Chaque maillon est un ressort qui ramène l'os au dessin de l'animateur, excité par
+la **dérivée seconde de cette pose** multipliée par `couple` (`fl = -couple · acc`, ligne 3452).
+
+    position finale  =  pose animée  +  petit écart amorti
+
+**Un seul défaut explique les quatre plaintes**, ce ne sont pas quatre chantiers :
+  - « pas d'impression de masse » → l'équilibre est la POSE ANIMÉE, pas une position déterminée par
+    la gravité. Les cheveux ne pendent pas, ils reviennent à leur dessin.
+  - « ça suit pas la gravité » → la gravité n'est qu'une perturbation autour de cette pose ; elle ne
+    peut pas faire tomber la mèche, seulement la décaler.
+  - « un pudding sur lequel on tape très fort AU MOINDRE MOUVEMENT » → littéral : le pilotage est
+    l'ACCÉLÉRATION de l'animation. Un mouvement petit mais sec donne un pic d'accélération, donc un
+    coup. Le moteur ne suit pas le mouvement, il réagit à ses à-coups.
+  - « hystérésis » → l'écart intégré a sa propre mémoire et revient lentement à zéro.
+
+**CE QU'IL FAUT À LA PLACE — et c'est la seule tâche jusqu'à nouvel ordre :**
+une vraie simulation de particules. Des points portant une MASSE, tombant sous la GRAVITÉ, reliés à
+leur parent par une CONTRAINTE DE DISTANCE, arrêtés par des COLLISIONS. Dans un tel système la pose
+au repos **émerge** de la gravité : les cheveux pendent parce qu'ils tombent, pas parce qu'un
+ressort les ramène à un dessin. L'animation d'auteur n'entre plus que par l'ANCRE (la racine suit le
+crâne) — plus par un rappel sur chaque maillon.
+
+**INTERDIT tant que ce modèle n'est pas en place** : tout réglage de `stiffness`, `damping`,
+`gravity`, `maxangle`, tout nouvel opérateur de repesage, toute nouvelle gate. Ils portent tous sur
+un modèle qui ne peut pas produire ce qu'il demande.
+
+**Rappel de proportion** : le moteur qui couvrait TOUT le casting faisait 1 241 lignes. Celui-ci en
+fait 4 798 pour un personnage et fait moins bien. La nouvelle boucle doit être **petite** — si elle
+ne tient pas dans quelques centaines de lignes, c'est qu'on ré-empile.
+
+
 ## CORRECTION OWNER 2026-08-13 21:50 — J'AI INVENTÉ DEUX VALIDATIONS QUI N'ONT JAMAIS EU LIEU
 
 Verbatim : « je t'ai jamais dit que la branche parquée je la validais… il y a eu des bons trucs dans
