@@ -262,20 +262,16 @@ minute (07:25:11Z et 07:25:33Z) — l'APK changeant a chaque cycle, le zip parta
 **AUCUN DEFAUT OUVERT N'EST FERME.** Les neuf lignes de `owner-defects.txt` restent : c'est son oeil
 qui les ferme, jamais un chiffre. Ce cycle ne produit AUCUN changement de comportement visible.
 
-**L'ATTENUATION D'ANGLE N'EST PAS ACTIVE SUR LES GROSSES MECHES, et c'est une decouverte du cycle.**
-L'owner l'a demandee le 2026-08-11 pour les meches (« c'est juste sur les meches, pas le reste »),
-et le fichier livre donne :
+**L'ATTENUATION D'ANGLE N'EST PAS ACTIVE SUR LES GROSSES MECHES.** Le fichier livre donne :
 
     lbang maxangle=137.29   rbang maxangle=136.79   backhair 0   lmidhair 0   rmidhair 0
 
-Elle ne tire donc que sur les deux mèches FINES. Or ce sont les trois autres qui plient le plus :
-`tiprot` mesure **176.69 deg sur lmidhair et 179.82 sur rmidhair** — un maillon replie bout pour
-bout. Les valeurs derivees du rig sont deja calculees par le generateur (137.7 pour `Lmidhairc`,
-136.3 pour `Rmidhairc`). JE NE LES POSE PAS CE CYCLE, pour deux raisons ecrites : c'est un point du
-GROUPE B (« peut museler — UN SEUL A LA FOIS, et on garde seulement si le plancher tient ») et ce
-cycle avait deja sa variable ; et la regle 4 interdit de rustiner une donnee generee — la valeur
-doit venir de la regle du generateur, pas d'une main. C'est le candidat le plus direct pour
-« deformations extremes qui cassent la geometrie » sur les grosses meches.
+Elle ne tire donc que sur les deux meches FINES, alors que ce sont les trois autres qui plient le
+plus (`tiprot` 176.69 deg sur `lmidhair`, 179.82 sur `rmidhair`). MA PREMIERE LECTURE ETAIT
+QU'IL S'AGISSAIT D'UN OUBLI — c'est FAUX, et je l'ai verifie avant de le proposer : c'est une
+decision deliberee et datee (`keira-owner-tuning.txt:316-318`), prise quand ces trois chaines
+n'avaient qu'un maillon libre. Sa condition de sortie est ecrite dans la meme note, et le travail
+de ce matin vient de la remplir. Le detail et la marche a suivre sont en section 12, point 2.
 
 **LE `transfer` DESIGNE PAR LE CYCLE PRECEDENT N'EST PAS APPLIQUE, ET LA MESURE DIT POURQUOI.** Le
 rapport d'hier annoncait « `lmidhair`/`rmidhair` plafonnent a 0.46 de pilotage reel, c'est le
@@ -376,9 +372,38 @@ DEUX CHOSES, DONC :
    **NE PAS reouvrir la piste `floor0`/`dep`** : elle est deja corrigee (`floor0 = max(floorc,
    floors)`), je l'avais designee a tort sur la foi d'un commentaire perime, et la section 5 donne
    l'algebre qui le montre.
-2. **L'attenuation d'angle sur `backhair`/`lmidhair`/`rmidhair`** (section 9) : valeurs deja
-   derivees du rig, `tiprot` a 176-180 deg, demande explicite de l'owner. Point GROUPE B, seul
-   changement de son cycle, garde uniquement si le plancher tient.
+2. **L'ATTENUATION D'ANGLE SUR LES TROIS GROSSES MECHES EST DESORMAIS DEBLOQUEE, ET C'EST LE
+   TRAVAIL D'AUJOURD'HUI QUI L'A DEBLOQUEE.** Corrige apres verification : ce n'est ni un oubli ni
+   un bug de generateur. `recharged_assets/keira-owner-tuning.txt:316-318` porte explicitement
+   `chain backhair/lmidhair/rmidhair maxangle=0`, et sa note explique pourquoi : a l'epoque ces
+   trois chaines n'avaient qu'UN maillon libre, donc aucun angle INTER-MAILLON ne pouvait exister
+   et l'attenuation n'etait qu'un plafond d'amplitude deguise — elle coutait `bendcut` 15855.7 deg
+   a `backhair`, 3701.9 a `rmidhair`, 3356.2 a `lmidhair`, sur des plis qui ne pouvaient pas se
+   produire. L'ecart a la liste litterale de l'owner (« les cinq meches ») etait assume et ecrit.
+
+   LA MEME NOTE DONNE SA CONDITION DE SORTIE, mot pour mot : « S'il veut l'attenuation sur les
+   cinq, le vrai chemin n'est pas de la remettre ici : c'est de donner un SECOND maillon libre a
+   ces trois chaines, et alors ces trois lignes se retirent d'elles-memes. »
+
+   **L'injection de joints de ce matin a fait exactement cela** : `rootlock=1` et 3 maillons donnent
+   maintenant DEUX maillons libres a chacune des trois, donc un angle inter-maillon reel. La
+   condition est remplie, les trois lignes ont expire, et leur retrait rend a l'owner sa demande
+   litterale sans rustiner quoi que ce soit — la valeur revient du RIG (137.7 deg pour `Lmidhairc`,
+   136.3 pour `Rmidhairc`, deja calculee et ecrite dans le commentaire du fichier livre).
+
+   POURQUOI JE NE LE FAIS PAS CE CYCLE, et c'est une raison technique, pas une prudence :
+   `apply_owner_tuning.py` ne fait qu'APPLIQUER des surcharges, il ne restaure pas une valeur
+   derivee quand on en retire une. Il faut donc **re-passer le generateur** (`physics_keira_gen2.py`,
+   jamais `physics_keira_gen.py` qui detruit les chaines), puis re-appliquer le reglage owner et
+   verifier la gate TUNING. C'est une regeneration complete : elle merite d'etre LA variable unique
+   d'un cycle, decidee et mesuree, pas ajoutee en fin de course a un cycle ou un mauvais build est
+   deja parti une fois chez l'owner (section 7).
+
+   ET C'EST UN POINT GROUPE B AU SENS STRICT : ici on REMET un plafond, donc le risque de muselage
+   est reel et inverse de celui qu'avait la note d'origine. `tiprot` vaut 176.69 deg sur `lmidhair`
+   et 179.82 sur `rmidhair` — un maillon replie bout pour bout, ce qui est exactement
+   « deformations extremes qui cassent la geometrie ». A garder uniquement si FLOOR et FLOOR-WEAK
+   tiennent.
 3. **Le volume de pointe des deux midhair** (363 et 384 u, les plus gros du jeu de cheveux) : c'est
    lui qui ferme la sphere. A confronter a la mesure perpendiculaire comme l'a ete le reste.
 4. **`ears-physics`** : mesurer l'oreille avec un axe qui ne tasse pas 45 sommets dans le dernier
