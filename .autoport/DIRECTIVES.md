@@ -10,6 +10,44 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
+## 2026-08-14 01:00 — MA GATE BLOQUAIT SA SPEC. LA SPEC GAGNE. ARBITRAGE DU SUPERVISEUR.
+
+Fait constaté dans `keira-owner-tuning.txt` :
+
+    # chain chestL stiffness=2.7696 damping=0.1686   (RETIRE : cassait FLOOR-WEAK sur chestR)
+    # chain chestR stiffness=2.8804 damping=0.1753   (RETIRE : idem)
+
+La calibration **exacte de sa §24** (2.300 Hz, vérifiée par recalcul) a été appliquée puis
+**retirée parce qu'elle faisait échouer `FLOOR-WEAK`** — une gate que J'AI écrite. Le rapport le dit
+sans détour : « la porter à 2.30 Hz divise la flèche par 3.65 et casse le plancher ».
+
+**ARBITRAGE : la spécification de l'owner prime sur toutes mes gates, sans exception.**
+
+Et `FLOOR-WEAK` est ici invalide pour trois raisons cumulées, toutes déjà consignées :
+  1. **Elle est calée sur un état qu'il n'a jamais approuvé.** J'ai établi à 21:50 qu'aucun
+     échantillon approuvé n'existe sur ce personnage. Le plancher protège donc du pudding.
+  2. **Elle encliquette un maximum courant** — piège `floor-ratchet-mirror` : sur la paire miroir
+     `kneeflapL`/`kneeflapR`, paramètres identiques, planchers stockés 0.0884 contre 0.0174,
+     facteur 5,1.
+  3. **Elle protège une flèche que la spec INTERDIT.** Ses §2 et §9 : le modèle debout livré est
+     l'équilibre 1 g, `AdditionalStandingSag = 0`. Une flèche statique divisée par 3,65 n'est pas
+     une perte de mouvement, c'est le **retour à la pose d'auteur qu'il exige**. Le plancher
+     mesurait un affaissement qui n'a pas le droit d'exister.
+
+**CONSÉQUENCES, à appliquer :**
+  - Réappliquer la calibration §24 sur `chestL`/`chestR` (2.30 Hz vertical, asymétrie §32 ±3–5 %),
+    et ne plus jamais la retirer au motif d'une de mes gates.
+  - `FLOOR` et `FLOOR-WEAK` sont **suspendues sur toute chaîne couverte par la spec**, jusqu'à être
+    recalées sur les cibles de la spec elle-même (§16 §17 §18 §22 donnent les amplitudes attendues
+    par régime) plutôt que sur un maximum observé.
+  - Toute gate qui contredit une ligne de `SPEC-breast-softbody.md` est fausse par construction :
+    on corrige la gate, jamais la spec.
+
+**RÈGLE GÉNÉRALE QUI EN DÉCOULE** — à vérifier avant d'ajouter une gate, en plus des trois questions
+déjà en vigueur : *« que se passe-t-il si l'owner demande précisément ce que cette gate interdit ? »*
+Une gate calée sur l'état courant transforme le statu quo en obligation.
+
+
 ## 2026-08-13 23:35 — SPEC POITRINE DE L'OWNER : `SPEC-breast-softbody.md`. AUTORITAIRE.
 
 Il a écrit une spécification complète (Keira + Maia, 39 sections chacune, presets chiffrés). Elle

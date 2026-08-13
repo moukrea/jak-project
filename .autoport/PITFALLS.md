@@ -199,3 +199,16 @@ la journée dessus — contrôle apparié, cible « combler l'écart vers `lbang
 commit écrit par moi. Verrou : une validation de l'owner se cite **verbatim, avec sa date**, et rien
 d'autre ne peut servir de cible ; une formulation comparative (« mieux », « moins pire », « pas
 mal ») n'est PAS une validation ; et un message de commit n'est jamais une source de verdict.
+
+GUARD gate-vetoes-the-owner .autoport/DIRECTIVES.md MA GATE BLOQUAIT SA SPEC
+**Une gate calée sur l'état courant qui finit par interdire ce que l'owner demande.** `FLOOR-WEAK`
+protégeait l'amplitude observée ; quand la calibration **exacte de la §24 de sa propre spécification**
+(2.300 Hz, vérifiée) a été appliquée, la flèche statique a été divisée par 3,65 et la gate a échoué —
+alors que ses §2 et §9 exigent justement `AdditionalStandingSag = 0`. La calibration a donc été
+retirée **pour satisfaire mon garde-fou**, et le worker l'a consigné noir sur blanc dans le fichier
+de réglages. Le plancher protégeait un affaissement que la spec interdit, sur un état que l'owner
+n'a jamais approuvé, avec un encliquetage déjà connu.
+Verrou : une gate qui contredit une ligne de spécification de l'owner est fausse par construction —
+on corrige la gate. Et avant d'en poser une, répondre à une quatrième question, en plus des trois
+déjà en vigueur : **« que se passe-t-il si l'owner demande précisément ce qu'elle interdit ? »**
+Une gate calée sur l'état courant transforme le statu quo en obligation.
