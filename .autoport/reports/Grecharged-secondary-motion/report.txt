@@ -345,6 +345,36 @@ CE QUI N'EST PAS PROUVÉ — liste explicite, aucun de-scope silencieux
      reposerait sur un instrument dont je ne sais pas ce qu'il mesure.
 
 
+ÉTAT DU VALIDATEUR
+====================
+Le vrai validateur s'arrête sur **OPEN-DEFECTS : 13 défauts** rapportés par l'owner. Cette gate ne
+peut PAS être satisfaite par du travail de ma part — une ligne ne se retire que sur sa parole. Je ne
+peux donc pas le faire sortir à 0 ce cycle, et je ne fais pas semblant du contraire.
+
+Pour savoir si mon travail avait cassé une gate en aval, j'ai fait tourner une **copie de
+diagnostic** avec ce seul bloc retiré (le validateur lui-même n'est pas touché, md5
+`6391a8903add5303119a5eede217924e` — règle 5 : les gates sont gelées). Résultat :
+
+    [TUNING] tous les réglages de l'owner sont dans le fichier livré
+    [ROOM]   joueur absent, 1 acteur, 22 chaînes x 31/31 animations, 3410 mesures
+    [MOVE]   toutes les chaînes déclarées bougent (tipvar min 0.164)
+    [COLLIDE] pénétration nulle sur les trois paires, contrôle positif 0.208 contre 0.000
+    [IDLE]   écart max au modèle 0.072   [ANIM] 8 chaînes pilotées, toutes respectées
+    [SIDE-CONTROL] 0 franchissement, contrôle présent
+    FAIL FLOOR-WEAK: kneeflapL 0.0884 -> 0.0412 (53 % de perte sur stimulus faible)
+
+**Le seul rouge en aval ne vient pas de moi, et c'est vérifiable de deux façons :**
+  * `kneeflapL` n'est pas une des cinq chaînes touchées, et sa réponse est **identique au chiffre
+    près entre mes deux courses** (0.2472 -> 0.2472) ;
+  * c'est l'encliquetage déjà consigné dans `.autoport/PITFALLS.md` (GUARD floor-ratchet-mirror) :
+    `kneeflapL`/`kneeflapR` sont une paire MIROIR aux paramètres identiques dont les planchers
+    stockés valent 0,0884 et 0,0174 — un facteur 5,1 sur une grandeur à faible signal. Le plancher
+    a retenu le meilleur bruit jamais vu et exige de le reproduire. La valeur rouge d'aujourd'hui,
+    0,0412, est **exactement** celle que ce GUARD cite déjà.
+Je ne touche pas à cette gate (elle est gelée) : je signale que son plancher `kneeflapL` est faux
+et que c'est au superviseur de trancher.
+
+
 CE QUE L'OWNER DOIT REGARDER DANS CE BUILD
 ============================================
 Un seul changement, sur les cheveux : **ils sont 1,5 à 3,9 × moins raides**, parce qu'ils sonnaient
