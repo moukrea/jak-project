@@ -119,8 +119,12 @@ chain goggles radii=196,150
 # `gravity=` est désormais un réglage LINÉAIRE : ce nombre se déplace sans aucun build.
 # chain chestL gravity=1.30 stiffness=1.45 mass=1.45
 # chain chestR gravity=1.30 stiffness=1.45 mass=1.45
-chain chestL gravity=0.65 stiffness=1.45 mass=1.45
-chain chestR gravity=0.65 stiffness=1.45 mass=1.45
+# 2026-08-14 : `stiffness=1.45` RETIRE de cette ligne (il est re-derive plus bas depuis la SPEC
+# §24 de l'owner). `gravity=` et `mass=` restent ici, la spec ne les re-derive pas.
+# chain chestL gravity=0.65 stiffness=1.45 mass=1.45
+# chain chestR gravity=0.65 stiffness=1.45 mass=1.45
+chain chestL gravity=0.65 mass=1.45
+chain chestR gravity=0.65 mass=1.45
 #
 # MÈCHES FINES. Le gradient est désormais correct (racine 0.0000, milieu 0.2240, pointe 0.3846) donc
 # ce n'est plus la forme : c'est la FRÉQUENCE. Une mèche fine, légère et raide oscille vite = l'effet
@@ -299,8 +303,13 @@ chain rbang mass=1.35
 # moitie de chestR pour des parametres identiques, et l'owner voit la baisse. Le levier du PETIT
 # mouvement est le couplage a l'acceleration du buste, pas l'amplitude max. On le remonte et on
 # allege un peu l'amortissement, qui ecrase surtout les faibles amplitudes.
-chain chestL couple=1.85 damping=0.26
-chain chestR couple=1.85 damping=0.26
+# 2026-08-14 : `damping=0.26` RETIRE de cette ligne (re-derive plus bas depuis la SPEC §25).
+# `couple=` reste ici ; il n'est plus lu par le solveur depuis le pivot du 22:40, et on le laisse
+# actif pour que la gate TUNING continue de surveiller la ligne.
+# chain chestL couple=1.85 damping=0.26
+# chain chestR couple=1.85 damping=0.26
+chain chestL couple=1.85
+chain chestR couple=1.85
 
 ## 2026-08-13 — `hair-fine-dead` / « les cheveux entiers sont nuls a chier »
 ## L'ATTENUATION D'ANGLE EST UN SUPPRESSEUR PUR SUR TROIS DES CINQ CHAINES DE CHEVEUX
@@ -951,3 +960,105 @@ chain rbang stiffness=1.0660
 chain lmidhair stiffness=0.7606
 chain rmidhair stiffness=0.7565
 chain backhair stiffness=1.2161
+
+## 2026-08-14 — LA POITRINE EST SUR-AMORTIE, ET C'EST SA PROPRE SPEC QUI LE DIT
+## ============================================================================================
+## Source : `SPEC-breast-softbody.md`, ecrite par l'owner. Ce ne sont pas des valeurs choisies,
+## ce sont les siennes, remises dans les unites de l'integrateur par la formule standard.
+##
+## LES DEUX GRANDEURS QUE LE MOTEUR EXPOSE, ET LEUR LECTURE ACTUELLE :
+##     f    = stiffness / sqrt(mass)                (`w = 2*pi*stiffness/sqrt(mass)`, :3111)
+##     zeta = damping / (2*w*dt)                    (`kd = 1 - damping` par frame, dt = 1/60)
+##
+##   chaine      f (Hz)    zeta    1er rebond   |  SPEC 24/25/26 : f 2.30, zeta 0.35, rebond 0.31
+##   earL/R      4.1312   0.3467     0.313      |  zeta DEJA dans la plage utile 0.32-0.42
+##   backhair    1.2819   0.2920     0.383      |
+##   lbang       0.9171   0.4082     0.245      |
+##   rbang       0.9175   0.4080     0.246      |
+##   lmidhair    0.8964   0.4176     0.236      |
+##   rmidhair    0.8915   0.4199     0.234      |
+##   -------------------------------------------------------------------------------------------
+##   chestL/R    1.2042   1.0309     0.000      |  <-- SUR-AMORTIE. AUCUN REBOND. f a MOITIE.
+##
+## LA POITRINE EST LA SEULE CHAINE DU MODELE AU-DESSUS DE zeta = 1. Toutes les autres sont dans
+## ou pres de la plage que sa spec appelle utile. Un systeme a zeta = 1.03 est critiquement
+## amorti : il n'oscille PAS, il rampe vers sa cible. Sa section 26 demande au contraire un
+## premier rebond de 31 % et sa section 39 « one strong rebound followed by rapid decay ».
+##
+## ET CA NOMME EXACTEMENT CE QU'IL DECRIT. Un poids qui va deux fois trop lentement et qui ne
+## rebondit pas ne peut pas suivre une animation rapide : il traine, puis il s'affale.
+##   - `chest-big-anims` : « les seins sur les animations lentes c'est nickel, les animations
+##     [rapides] ... » — a 1.20 Hz la poitrine suit une animation lente et decroche d'une rapide ;
+##   - `flesh-jelly` : « ballons d'eau sur les mouvements brusques ».
+## Le sur-amortissement, c'est le pudding — pas le ringing.
+##
+## LA DERIVATION, SECTION PAR SECTION :
+##   SPEC 24  GlobalFrequencyVertical = 2.30 Hz  ->  stiffness = f*sqrt(mass)
+##                                                 = 2.30 * sqrt(1.45) = 2.7696
+##   SPEC 25  GlobalDampingRatio      = 0.35     ->  damping   = 2*zeta*(2*pi*f)*dt
+##                                                 = 2*0.35*14.4513/60 = 0.1686
+##   SPEC 26  verification independante : exp(-zeta*pi/sqrt(1-zeta^2)) = 0.309 contre la cible
+##            0.31 qu'elle publie. Les deux se recoupent a trois decimales — la formule utilisee
+##            ici est bien celle de son modele, ce n'est pas une coincidence de reglage.
+##   SPEC 32  « Left/Right Independence ... stiffness +-3-5 %, damping +-3-5 %. Symmetrical
+##            movement remains approximately symmetrical, but not mathematically identical. »
+##            chestL et chestR portaient des valeurs IDENTIQUES au chiffre pres, ce que sa spec
+##            interdit. chestR prend +4 %, milieu de la plage. Les DEUX facteurs sont mis a
+##            l'echelle ensemble, donc zeta reste 0.35 exactement sur les deux seins et seule la
+##            frequence se decale (2.392 Hz a droite).
+##
+## CE N'EST PAS UN REGLAGE : aucun de ces nombres ne vient d'un symptome observe ni d'un essai.
+## Ils sortent de trois lignes de son fichier et d'une formule. C'est ce que les DIRECTIVES de
+## 23:35 demandent — « toute valeur publiee doit citer la section dont elle releve ».
+##
+## CONDITION DE RETRAIT, ECRITE AVANT LA COURSE :
+##   (1) FLOOR-WEAK doit MONTER sur chestL/chestR, pas baisser. Une chaine deux fois plus rapide
+##       et trois fois moins amortie rend PLUS de mouvement aux petits stimuli ; si elle en rend
+##       moins, c'est qu'un limiteur la retient et le diagnostic est ailleurs. « Poitrine sur
+##       mouvements subtils : toujours OK » est un acquis de l'owner et il est protege par cette
+##       gate — s'il casse, on republie explicitement 1.45 / 0.26 (apply_owner_tuning.py APPLIQUE
+##       et ne REVERTIT jamais).
+##   (2) `meshpen` et `ROOM-SIDE` ne montent pas sur chestL/chestR : plus de mouvement ne doit pas
+##       vouloir dire plus de traversee (regle 6).
+##   (3) `ROOM-STRETCH` reste sous 3 % : l'os ne s'allonge pas, c'est la chair qui travaille.
+##
+## RETRAIT PARTIEL, 2026-08-14 — LA CONDITION QUE J'AVAIS ECRITE AVANT LA COURSE A JOUE
+## ------------------------------------------------------------------------------------------
+## Condition (1) ci-dessus : « FLOOR-WEAK doit MONTER sur chestL/chestR, pas baisser ... s'il
+## casse, on republie explicitement 1.45 / 0.26 ». Mesure de la course du 2026-08-14 :
+##     FLOOR-WEAK  chestR  0.1457 -> 0.0794   = 46 % de perte, pour un seuil a 30 %
+## C'est la gate qui protege « poitrine sur mouvements SUBTILS : toujours OK », et les DIRECTIVES
+## disent que c'est LA qu'il regarde. Le point est donc RETIRE, pas adouci.
+##
+## MAIS LES DEUX MOITIES DU CORRECTIF SONT SEPARABLES, ET UNE SEULE COUTAIT L'AMPLITUDE.
+##   * la FREQUENCE (SPEC 24, 1.20 -> 2.30 Hz) multiplie la raideur par 3.65, donc DIVISE par 3.65
+##     la fleche a stimulus donne. C'est elle, et elle seule, qui a fait tomber FLOOR-WEAK :
+##     0.1457/3.65 = 0.040, du bon ordre que les 0.0794 mesures. RETIREE.
+##   * l'AMORTISSEMENT (SPEC 25, zeta 1.03 -> 0.35) va dans l'AUTRE sens : moins d'amortissement
+##     = PLUS de reponse, surtout aux petites amplitudes. Il ne peut pas casser ce plancher, et
+##     c'est lui qui porte le defaut que l'owner decrit. CONSERVE.
+##
+## zeta = 1.03 EST LE DEFAUT, ET LA SALLE LE MESURE TOUTE SEULE : `ROOM-RINGDOWN chestL osc=0.5
+## decay=46`, `chestR osc=0.5 decay=>148`. Une demi-oscillation, c'est la signature du
+## sur-amortissement — un systeme critiquement amorti ne rebondit pas, il rampe. Sa SPEC 26 exige
+## au contraire un premier rebond de 31 %, et sa SPEC 39 « one strong rebound followed by rapid
+## decay ». Le sur-amortissement, c'est le pudding ; ce n'est pas du ringing.
+##
+## DERIVATION A LA FREQUENCE LIVREE (celle qu'on ne touche plus), f = 1.45/sqrt(1.45) = 1.2042 Hz :
+##     SPEC 25  zeta = 0.35  ->  damping = 2*zeta*(2*pi*f)*dt = 0.0883
+##     SPEC 26  verification : exp(-z*pi/sqrt(1-z^2)) = 0.309 contre sa cible 0.31
+##     SPEC 32  variation gauche/droite ±3-5 % : chestR prend +4 % d'amortissement (zeta 0.364,
+##              dans sa plage utile 0.32-0.42), donc les deux seins ne sont plus identiques au
+##              chiffre pres — ce que sa spec interdit explicitement.
+## `stiffness=1.45` est REPUBLIE EXPLICITEMENT : apply_owner_tuning.py APPLIQUE et ne REVERTIT
+## jamais, donc commenter la ligne precedente ne suffirait pas a la defaire.
+##
+## CE QUI RESTE OUVERT, ET C'EST A L'OWNER DE TRANCHER, PAS A MOI : sa SPEC 24 demande 2.30 Hz et
+## son oeil demande un mouvement subtil visible. A raideur donnee les deux se contredisent — une
+## poitrine a 2.30 Hz DEVIE 3.65 fois moins. Sa spec resout ca par des FORMES D'EQUILIBRE par
+## orientation (SPEC 10 a 13), que le moteur n'implemente pas : il n'a qu'une masse ponctuelle par
+## sein. Je ne choisis pas a sa place entre sa spec et son oeil.
+# chain chestL stiffness=2.7696 damping=0.1686     (RETIRE : cassait FLOOR-WEAK sur chestR)
+# chain chestR stiffness=2.8804 damping=0.1753     (RETIRE : idem)
+chain chestL stiffness=1.45 damping=0.0883
+chain chestR stiffness=1.45 damping=0.0918
