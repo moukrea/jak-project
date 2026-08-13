@@ -80,7 +80,7 @@ def load_cfg(path=CFG):
                 out.setdefault(x, [])
             continue
         f = ln.split()
-        if f[0] not in ('transfer', 'grade') or not cur:
+        if f[0] not in ('transfer', 'grade', 'redistribute') or not cur:
             continue
         kv = dict(x.split('=', 1) for x in f[2:] if '=' in x)
         r = dict(kind=f[0],
@@ -144,10 +144,151 @@ def load_cfg(path=CFG):
                  # -> 0.48 (d4) -> 0.97 (d6), une transition etalee sur ~0.25 d'abscisse, jamais un
                  # saut. On copie une forme mesuree sur l'echantillon que l'owner valide.
                  sramp=float(kv.get('sramp', 0.0)),
+                 # `redistribute` only : poids SOMME minimal sur la chaine pour qu'un sommet soit
+                 # considere comme appartenant a la meche. Meme seuil que le `GATE` de
+                 # `probe_skin_profile.py`, pour que la regle et la sonde parlent des memes sommets.
+                 gate=float(kv.get('gate', 0.05)),
+                 # `redistribute` only : BANDE D'ANCRAGE. Le maillon 0 (verrouille par `rootlock=1`)
+                 # detient SEUL toute la peau sous cette abscisse ; les maillons libres se partagent
+                 # ce qui reste, au-dela. 0.0 = pas de bande (partition sur la meche entiere).
+                 #
+                 # POURQUOI (mesure du 2026-08-13 22:45). Sans bande, la partition rend le maillon 0
+                 # majoritaire seulement AU VOISINAGE de s=0 : des que l'abscisse depasse celle du
+                 # premier joint libre, la racine passe au maillon 1 et la nuque SE DECOLLE —
+                 # `backhair` d1 0.00 -> 0.11, `lmidhair` d3 0.14 -> 0.39. Or `rootlock=1` dit
+                 # exactement le contraire : cette peau est SOUDEE a l'os porteur (SPEC 2, acquis
+                 # FERME par l'owner : « les cheveux de la nuque sont bien ancres la ou ils doivent
+                 # l'etre »). La bande n'est pas un reglage, c'est l'expression de `rootlock`.
+                 hold=float(kv.get('hold', 0.0)),
                  iters=int(kv.get('iters', 8)))
         for x in cur:
             out[x].append(r)
     return out
+
+
+def _redistribute(r, J, W, idx, P, bind_pos):
+    """REPARTIT le poids de la chaine ENTRE ses joints, selon l'abscisse. Mute J/W en place.
+
+    POURQUOI CET OPERATEUR EXISTE (2026-08-13, apres trois cuissons mesurees). `transfer` et `grade`
+    travaillent tous les deux A PARTIR du poids peint par l'artiste : l'un vise
+    `cap*(wt/p90)**shape`, l'autre diffuse la marche existante. Aucun des deux ne peut SUPPRIMER la
+    frontiere binaire du donneur — ils ne font que la deplacer — et toute coupure spatiale qu'on
+    leur ajoute FABRIQUE une marche a l'endroit de la coupure (mesure : `tear_mov` 0 -> 21/15/31,
+    aretes cassees a s=0.16..0.56, exactement sur la frontiere).
+
+    Celui-ci ne rustine pas la peinture : il la RECALCULE le long de la meche.
+
+    L'INVARIANT QUI REND LE DESANCRAGE IMPOSSIBLE : le poids SOMME de la chaine sur un sommet
+    (`ws`) est CONSERVE. On ne touche jamais au partage tete/meche — donc la peau soudee au crane le
+    reste, `cov` ne bouge pas, et le seul degre de liberte est : lequel des maillons de la chaine
+    porte ce poids. A l'abscisse 0 la partition donne tout au maillon 0, celui que `rootlock=1`
+    verrouille : la racine reste soudee (SPEC 2, et c'est l'acquis que l'owner a FERME).
+
+    L'INVARIANT QUI REND LA DECHIRURE IMPOSSIBLE : la partition est une fonction CONTINUE de
+    l'abscisse (interpolation lineaire entre les positions des joints, en pose de bind). La fraction
+    mobile varie donc continument le long de la meche. Il n'y a plus de marche a refermer parce
+    qu'il n'y a plus de frontiere — au lieu d'en deplacer une.
+
+    EFFET DE BORD UTILE : l'interpolation lineaire ne rend que DEUX joints non nuls par sommet, donc
+    la regle ne peut pas saturer les 4 creneaux d'influence.
+    """
+    rep = []
+    joints = [j for j in r['chain'] if j in idx]
+    if len(joints) < 2:
+        rep.append(f"  !! {r['target']}: moins de 2 joints de `chain=` dans ce rig"
+                   f" — regle REFUSEE plutot qu'appliquee a moitie")
+        return rep
+    grp = [idx[j] for j in joints]
+
+    ws = np.zeros(len(W))
+    for c in range(J.shape[1]):
+        ws += np.where(np.isin(J[:, c], grp), W[:, c], 0.0)
+    vi = np.nonzero(ws > r['gate'])[0]
+    if not len(vi):
+        rep.append(f"  -- {r['target']}: aucun sommet au-dessus de gate={r['gate']:.2f}")
+        return rep
+
+    pts = np.asarray([bind_pos(j) for j in joints], dtype=float)
+    seg = pts[1:] - pts[:-1]
+    seglen = np.linalg.norm(seg, axis=1)
+    total = float(seglen.sum())
+    if total <= 1e-9:
+        rep.append(f"  !! {r['target']}: polyligne de longueur nulle — regle REFUSEE")
+        return rep
+    cum = np.concatenate([[0.0], np.cumsum(seglen)])
+    tk = cum / total                                   # abscisse de chaque JOINT
+    # BANDE D'ANCRAGE : on comprime TOUTE la polyligne des noeuds dans [hold, 1]. Le maillon 0 tient
+    # alors seul alors tout ce qui est sous `hold` (branche `s < tk[0]` plus bas), et son influence
+    # decroit ENSUITE continument jusqu'au premier maillon libre — pas de saut, donc pas de couture.
+    if r['hold'] > 0.0:
+        tk = r['hold'] + (1.0 - r['hold']) * tk
+
+    # Abscisse de chaque sommet — meme construction que `probe_skin_profile.py:arc_param`, la mesure
+    # qui reproduit le verdict de l'owner : on projette sur CHAQUE segment, parametre borne a [0,1],
+    # on garde le plus proche.
+    V = P[vi]
+    best_d = np.full(len(vi), np.inf)
+    s = np.zeros(len(vi))
+    for k in range(len(seg)):
+        L2 = float(seg[k] @ seg[k])
+        if L2 <= 1e-12:
+            continue
+        t = np.clip(((V - pts[k]) @ seg[k]) / L2, 0.0, 1.0)
+        d = np.linalg.norm(V - (pts[k] + t[:, None] * seg[k]), axis=1)
+        m = d < best_d
+        best_d[m] = d[m]
+        s[m] = (cum[k] + t[m] * seglen[k]) / total
+
+    # PARTITION DE L'UNITE, lineaire par morceaux : un sommet a l'abscisse d'un joint lui appartient
+    # entierement, entre deux joints il se partage lineairement. C'est la forme qu'a une peau bien
+    # peinte, et c'est la plus simple qui soit continue.
+    A = np.zeros((len(vi), len(joints)))
+    for a in range(len(joints) - 1):
+        lo, hi = tk[a], tk[a + 1]
+        last = (a == len(joints) - 2)
+        m = (s >= lo) & (s <= hi) if last else (s >= lo) & (s < hi)
+        if not m.any():
+            continue
+        u = (s[m] - lo) / (hi - lo) if (hi - lo) > 1e-12 else np.zeros(int(m.sum()))
+        A[m, a] += 1.0 - u
+        A[m, a + 1] += u
+    A[s < tk[0], 0] = 1.0                              # au-dessus de la racine
+    A[s > tk[-1], -1] = 1.0                            # au-dela de la pointe
+    rs = A.sum(axis=1)
+    A = A / np.where(rs < 1e-12, 1.0, rs)[:, None]
+
+    moved = 0.0
+    for i, v in enumerate(vi):
+        keep = [(int(J[v, c]), float(W[v, c])) for c in range(J.shape[1])
+                if int(J[v, c]) not in grp and W[v, c] > 0.0]
+        new = [(grp[k], float(ws[v]) * float(A[i, k])) for k in range(len(joints))
+               if A[i, k] > 1e-6]
+        rows = keep + new
+        if len(rows) > J.shape[1]:                     # ne peut pas arriver avec 2 joints non nuls,
+            rows.sort(key=lambda x: -x[1])             # mais on ne laisse pas un depassement muet
+            rows = rows[:J.shape[1]]
+        before = {int(J[v, c]): float(W[v, c]) for c in range(J.shape[1])}
+        J[v, :] = 0
+        W[v, :] = 0.0
+        for c, (jj, wv) in enumerate(rows):
+            J[v, c] = jj
+            W[v, c] = wv
+        tot = W[v].sum()
+        if tot > 1e-12:
+            W[v] /= tot
+        moved += sum(abs(w - before.get(j, 0.0)) for j, w in rows) * 0.5
+
+    after = np.zeros(len(joints))
+    for c in range(J.shape[1]):
+        for k, g in enumerate(grp):
+            after[k] += float(np.where(J[:, c] == g, W[:, c], 0.0).sum())
+    tot = after.sum() if after.sum() > 1e-12 else 1.0
+    free = after[1:] / (after[1:].sum() if after[1:].sum() > 1e-12 else 1.0)
+    rep.append(f"  {r['target']:<10} redistribue verts={len(vi)} masse deplacee={moved:.1f}"
+               f" — part des segments LIBRES: "
+               + " ".join(f"{100.0 * x:.1f}%" for x in free)
+               + f" (pire {100.0 * free.max():.1f}%)")
+    return rep
 
 
 def _grade(r, J, W, idx, ed, sarc=None):
@@ -449,6 +590,12 @@ def apply_model(js, binc, rules, verbose=True):
             P = read_accessor(js, binc, at['POSITION']).astype(np.float64) * UNITS
 
             for r in rules:
+                if r['kind'] == 'redistribute':
+                    # Il ne partage la queue d'aucun des deux autres : il ne vise pas un joint
+                    # unique (`transfer`) et il ne diffuse pas une marche existante (`grade`) — il
+                    # REPARTIT un poids somme conserve entre les joints de la chaine.
+                    rep.extend(_redistribute(r, J, W, idx, P, bind_pos))
+                    continue
                 if r['kind'] == 'grade':
                     # `grade` travaille sur le poids SOMME de la chaine et distribue le gain sur un
                     # receveur qui varie par sommet : il ne peut pas partager la queue de `transfer`,

@@ -505,6 +505,11 @@ transfer Rmidhairc from=head,Rmidhaira,Rmidhairb cap=1.00 shape=0.12
 transfer backHair4 from=head,backHair3 cap=1.00 shape=0.35
 transfer Lmidhaird from=head,Lmidhairc cap=1.00 shape=0.35
 transfer Rmidhaird from=head,Rmidhairc cap=1.00 shape=0.35
+# LES TROIS `redistribute` — le bloc qui les motive et leur condition de retrait est en BAS du
+# fichier (2026-08-13 22:30). Elles sont ICI, et pas la-bas, pour passer AVANT les `grade`.
+redistribute backhair  chain=backHair1,backHair2,backHair3,backHair4 gate=0.05 hold=0.30
+redistribute lmidhair  chain=Lmidhaira,Lmidhairb,Lmidhairc,Lmidhaird gate=0.05 hold=0.30
+redistribute rmidhair  chain=Rmidhaira,Rmidhairb,Rmidhairc,Rmidhaird gate=0.05 hold=0.30
 #
 # LES OREILLES SONT MESUREES ET NON TRAITEES, ET JE LE DIS AU LIEU DE LE TAIRE (regle 3).
 # J'avais ecrit `transfer lEarb/rEarb from=head cap=0.90 shape=1.0`. La prediction ci-dessus les
@@ -763,3 +768,100 @@ grade RpantFlap chain=RpantFlap from=Rknee,Rthigh step=0.45
 # c'est exactement ce qui a coute 22 aretes dechirees a `rmidhair` quelques heures plus tot.
 grade lKneeFlap chain=lKneeFlap,lKneeFlap2 from=Lknee step=0.45
 grade rKneeFlap chain=rKneeFlap,rKneeFlap2 from=Rknee step=0.45
+
+# ================================================================================================
+# 2026-08-13 22:30 — `redistribute` : ON ARRETE DE RUSTINER LA PEINTURE, ON LA RECALCULE.
+#
+# CE QUE LES TROIS CUISSONS PRECEDENTES ONT PROUVE, et qui rend cet operateur necessaire :
+# `transfer` et `grade` travaillent tous les deux A PARTIR du poids peint (`new = cap*(wt/p90)^shape`
+# pour l'un, une diffusion de la marche existante pour l'autre). Ils ne peuvent donc que DEPLACER la
+# frontiere binaire du donneur, jamais la supprimer — et toute coupure spatiale qu'on leur ajoute
+# FABRIQUE une marche a l'endroit de la coupure (`tear_mov` 0 -> 21/15/31, aretes a s=0.16..0.56).
+# La conclusion ecrite au bilan ci-dessus etait : « la masse doit etre redistribuee A LA SOURCE ».
+# C'est ce que fait cet operateur, et c'est le seul changement de ce cycle.
+#
+# CE QU'IL FAIT, exactement, et pourquoi il ne PEUT PAS produire les deux defauts precedents :
+#   Pour chaque sommet dont le poids SOMME sur les joints de `chain=` depasse `gate`, il garde ce
+#   poids somme INCHANGE et ne fait que le repartir ENTRE les joints de la chaine, selon une
+#   partition de l'unite en fonction de l'abscisse curviligne (interpolation lineaire entre les
+#   positions des joints, en pose de bind).
+#   * IL NE PEUT PAS DESANCRER : le partage tete/meche de chaque sommet est preserve au bit pres
+#     (c'est `ws` qui est conserve), donc la peau soudee au crane le reste, et `cov` ne bouge pas.
+#     A l'abscisse 0 la partition donne tout au maillon 0, celui que `rootlock=1` verrouille : la
+#     racine reste soudee, ce que l'owner a explicitement FERME (« les cheveux de la nuque sont bien
+#     ancres la ou ils doivent l'etre »).
+#   * IL NE PEUT PAS DECHIRER : la partition est une fonction CONTINUE de l'abscisse, donc la
+#     fraction mobile est continue le long de la meche. Il n'y a plus de marche a refermer, parce
+#     qu'il n'y a plus de frontiere — au lieu d'en deplacer une.
+#   * IL DEPLACE LA MASSE, qui est la cible des DIRECTIVES du 19:40 : avec 4 joints dont le premier
+#     verrouille, la masse libre se partage entre les maillons 1, 2 et 3 au lieu de s'entasser sur
+#     un seul (60-93 % mesures). C'est la grandeur que `probe_chain_mass_share.py` publie.
+#
+# IL NE S'APPLIQUE QU'AUX TROIS CHAINES REJETEES. `lbang`/`rbang` et les oreilles sont les TEMOINS
+# APPROUVES : on ne recalcule pas la peinture de ce que l'owner valide. Section `[model keira-hd]`
+# seule — le look J3 ne porte ni `backHair3`/`backHair4` ni les `*d`, il reste hors de ce cycle.
+# PLACE EN DERNIER, apres toutes les regles `grade`, pour que rien ne rediffuse derriere lui : le
+# profil lisse qu'il calcule est celui qui part dans le mesh livre.
+#
+# CONDITION DE RETRAIT, ECRITE AVANT LA CUISSON — les trois lignes sont CONSERVEES seulement si
+# TOUT tient, sinon RETIREES, pas adoucies. Ce sont les MEMES cinq criteres que l'essai precedent,
+# avec les memes valeurs de reference, pour que la comparaison soit honnete :
+#   1. ANCRAGE, profil MOBILE : aucun des deciles d1/d2/d3 ne MONTE de plus de 0.02 sur les trois
+#      chaines. Reference mesuree : backhair 0.00/0.10/0.06 · lmidhair 0.03/0.11/0.14 ·
+#      rmidhair 0.18/0.23/0.29.
+#   2. ANCRAGE, par sommets : aucun sommet majoritaire perdu par un maillon 0 SOUS s=0.30.
+#   3. PROGRES : le pire segment libre BAISSE sur les trois, sans qu'aucune ne monte
+#      (reference backhair 52.0 % · lmidhair 48.2 % · rmidhair 43.4 %, bande du controle 37.8-42.4 %).
+#   4. TEMOINS APPROUVES `lbang`/`rbang`/`earL`/`earR` identiques : part de masse au dixieme,
+#      majorite a l'unite, profil mobile au centieme. Ils ne sont ni cibles ni donneurs.
+#   5. `tear_mov` reste 0 sur TOUTES les chaines. C'est le critere qui a tue l'essai precedent et
+#      c'est celui que cet operateur est cense rendre impossible par construction : s'il echoue
+#      encore, ce n'est pas un reglage a trouver, c'est l'approche entiere qui est refutee et je le
+#      dirai comme tel.
+# ================================================================================================
+# LES TROIS REGLES ONT ETE DEPLACEES : elles tournent maintenant AVANT les `grade`, juste
+# apres les `transfer` (ligne ~508). Mesure du 22:40 qui l'impose : placees en DERNIER elles
+# rouvraient la couture que `grade` avait fermee (`tear_mov` 6/0/1) — `grade` lisse la somme
+# MOBILE, et re-partitionner apres lui defait son travail. L'ordre correct est : recalculer la
+# repartition, PUIS refermer ce qui depasse. Mon « en dernier pour que rien ne rediffuse » etait
+# le mauvais raisonnement : la rediffusion de `grade` est justement ce qui ferme la couture.
+
+# ------------------------------------------------------------------------------------------------
+# RESULTAT : CUIT TROIS FOIS, MESURE, ET **CONSERVE** — LES CINQ CRITERES TIENNENT (22:55).
+#
+# Les deux premieres cuissons ont ECHOUE et leur echec a designe le correctif suivant. Je les laisse
+# ecrites parce que c'est la mesure qui a choisi, pas moi :
+#   a) `redistribute` place EN DERNIER, apres les `grade`  ->  `tear_mov` 6/0/1. En re-partitionnant
+#      apres `grade`, on defait le lissage de la somme MOBILE qu'il venait de faire. Mon « en dernier
+#      pour que rien ne rediffuse » etait le mauvais raisonnement : la rediffusion de `grade` est
+#      justement ce qui ferme la couture. Ordre corrige : transferts -> redistribute -> grade.
+#   b) sans `hold=`  ->  la nuque SE DECOLLE (`backhair` d1 0.00 -> 0.11, `lmidhair` d3 0.14 -> 0.39).
+#      La partition ne rendait le maillon 0 majoritaire qu'AU VOISINAGE de s=0 ; des que l'abscisse
+#      depassait celle du premier joint libre, la racine passait au maillon 1. `hold=0.30` exprime
+#      ce que `rootlock=1` dit deja : cette peau est SOUDEE. Ce n'est pas un reglage trouve a
+#      tatons, c'est la meme frontiere que le critere 1 protege, et la meme que `smin` visait.
+#
+# LES CINQ CRITERES, mesures sur le mesh cuit (md5 9c3a8602ad5133362b25e3b586c75125) :
+#   1. ANCRAGE, profil MOBILE d1/d2/d3 — AUCUN decile ne MONTE, les trois BAISSENT :
+#        backhair 0.00/0.10/0.06 ->   . /0.02/0.00      (`.` = plus aucun sommet dans ce decile)
+#        lmidhair 0.03/0.11/0.14 -> 0.00/0.00/0.00
+#        rmidhair 0.18/0.23/0.29 -> 0.00/0.00/0.00
+#   2. ANCRAGE, par sommets — le maillon 0 n'en perd AUCUN, il en GAGNE :
+#        Lmidhaira 46 -> 57 · Rmidhaira 32 -> 61 · backHair1 0 -> 0
+#   3. PROGRES, pire segment libre (bande du controle 37.8-42.4 %) :
+#        backhair 52.0 -> 39.4 %   lmidhair 48.2 -> 41.0 %   rmidhair 43.4 -> 42.9 %
+#      `backhair` PASSE SOUS LE PLANCHER DE 49.9 % que le bilan precedent avait calcule comme
+#      indepassable PAR REPESAGE — et c'est la preuve directe que recalculer n'est pas repeser.
+#   4. TEMOINS APPROUVES identiques : `lbang` 94/9/10/36 et part 37.8 %, `rbang` 95/11/12/21 et
+#      42.4 %, `earL`/`earR` 14/50 ; profils mobiles au centieme. Ni cibles ni donneurs.
+#   5. `tear_mov` = 0 sur LES 14 CHAINES — et le `weld=1` de `rmidhair`, qui etait la AVANT ce
+#      cycle, est tombe a 0. C'est le critere qui avait tue l'essai `smin`, et l'operateur le rend
+#      impossible par construction : la partition est continue, il n'y a plus de frontiere.
+#
+# CE QUE JE N'AI PAS FAIT, ET QUI RESTE OUVERT : `physics_mesh.txt` n'a PAS ete regenere depuis ce
+# mesh. Sa regeneration echoue a SA PROPRE validation (« 2 chaine(s) DECLAREE(S) sans un seul
+# echantillon : pantflapL, pantflapR ») — et cet echec est PRE-EXISTANT, reproduit a l'identique sur
+# le mesh D'AVANT ce cycle, donc il n'est pas de moi. Livrer ce fichier aurait retire les
+# echantillons de collision des pans de pantacourt, alors que `pant-calf` est un defaut OUVERT. Le
+# fichier livre est donc celui, valide, du 19:55 — connu STALE pour les poids de cheveux. Le cycle
+# precedent a mesure que sa regeneration ne changeait pas d'un bit la table de la salle.
