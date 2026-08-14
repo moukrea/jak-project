@@ -160,10 +160,20 @@ def main():
         m = measure(jn, ibm, pos, J, W, area, name, mirror)
         r, ww = m['r'], m['w']
         print('\n== %s  joint=%d  verts=%d  masse=%.3f' % (name, m['k'], m['nvert'], m['mass']))
-        print('   SPEC 6  B0 = %.4f m  (chair de y=%.4f a y=%.4f dans son espace bind)'
-              % (m['b0'], m['y0'], m['y1']))
+        print('   SPEC 6  B0 = %.4f m = %.0f u  (chair de y=%.4f a y=%.4f dans son espace bind)'
+              % (m['b0'], m['b0'] * 4096.0, m['y0'], m['y1']))
+        # SPEC 6 EXIGE QUE B0 VIENNE DU MAILLAGE (« the game implementation shall derive
+        # normalized dimensions directly from the character mesh »). Le moteur, lui, borne
+        # l'excursion d'apex de §22 contre la LONGUEUR D'OS ancre->joint (`PHYSBONE len=`), qui
+        # n'est pas une longueur racine->apex : c'est la distance du thorax au joint, apex non
+        # compris. Publier les deux cote a cote est le seul moyen de voir l'ecart.
+        bone = float(np.linalg.norm(np.linalg.inv(ibm[m['k']].T)[:3, 3]
+                                    - np.linalg.inv(ibm[jn.index('chest')].T)[:3, 3]))
+        print('   SPEC 6  longueur d os chest->%s = %.4f m = %.0f u  -> le moteur borne §22 contre'
+              ' un B0 %.2fx TROP GRAND' % (name, bone, bone * 4096.0, bone / m['b0']))
 
-        rec = {'b0': m['b0'], 'nvert': m['nvert'], 'mass': m['mass'], 'bands': [], 'fit': {}}
+        rec = {'b0': m['b0'], 'nvert': m['nvert'], 'mass': m['mass'], 'bands': [], 'fit': {},
+               'b0_mesh_u': m['b0'] * 4096.0, 'b0_bone_u': bone * 4096.0}
         for axname in ('rotX', 'rotZ'):
             dn = m['prof'][axname]
             rec['fit'][axname] = fit_exponent(r, dn, ww)

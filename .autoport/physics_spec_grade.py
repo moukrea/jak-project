@@ -44,6 +44,11 @@ import sys
 LOG = ".autoport/reports/Grecharged-secondary-motion/keira-room-x86.log"
 CHAINS_FILE = "recharged_assets/physics_chains.txt"
 
+# B0 au sens de sa §6 — longueur racine->apex de la CHAIR, mesuree sur le maillage livre par
+# `.autoport/probe_breast_shape.py --glb out/jak1/fr3/skin/keira-hd-lod0.glb` (0.1470 m x 4096).
+# Elle est identique sur les deux seins (le maillage est miroir), d'ou une seule valeur.
+B0_MESH_U = 602.1
+
 
 def deg_for(bfrac):
     """L'angle qui vaut `bfrac` B0 d'excursion. D/B0 = 2 sin(theta/2), exactement."""
@@ -71,8 +76,23 @@ def main():
     print("SPEC-BREAST — NOTATION SECTION PAR SECTION   (trace : %s)" % log)
     print("  chaines resolues par le moteur : %s"
           % ", ".join("c=%s %s" % (k, v) for k, v in sorted(j0.items(), key=lambda kv: int(kv[0]))))
-    print("  SPEC 6  B0 (longueur d'os MESUREE du rig) : %s"
+    print("  SPEC 6  B0 tel que LE MOTEUR le prend (longueur d'os ancre->joint) : %s"
           % ", ".join("c=%d l=%d len=%.2f" % (c, l, v) for (c, l), v in sorted(bone.items())))
+    # --------------------------------------------------------------------------------------
+    # ET LE B0 QUE SA §6 DEFINIT, QUI N'EST PAS LE MEME — mesure du 2026-08-14.
+    # §6 : « B0 neutral characteristic root-to-apex length […] the game implementation shall
+    # derive normalized dimensions directly from the character mesh », reference humaine
+    # 115-125 mm. La longueur d'os `chest->lBoob` vaut 977 u = 238 mm : c'est la distance du
+    # thorax a un JOINT qui se trouve DERRIERE la chair (elle commence 34 mm apres lui et finit
+    # 181 mm apres lui). La longueur racine->apex de la chair, mesuree sur le maillage livre par
+    # `.autoport/probe_breast_shape.py`, vaut 602 u = 147 mm.
+    # Le rapport 1.62 ne se devine pas : il rend la borne de §22 1.62x TROP LACHE, donc une
+    # excursion « conforme » a 0.48 B0 vaut en realite 0.78 B0. Les deux colonnes sont publiees
+    # cote a cote pour que personne n'ait a le recalculer, et l'ancienne reste la premiere pour
+    # que la serie des cycles precedents reste comparable.
+    # --------------------------------------------------------------------------------------
+    print("  SPEC 6  B0 tel que sa §6 le DEFINIT (racine->apex, mesure sur le maillage) : %.0f u"
+          % B0_MESH_U)
     print("  SPEC 22/38 plafonds convertis : 0.42 B0 = %.2f deg (normal) · 0.50 B0 = %.2f deg (dur)"
           % (NORMAL, HARD))
     print()
@@ -96,17 +116,26 @@ def main():
         k["o1"] += v1 > HARD
 
     print("SPEC 22 / 38 — EXCURSION D'APEX (plafond dur HardMaxApexDisplacement = 0.50 B0)")
-    print("  %-8s %-8s %8s %8s %8s %8s %10s %10s"
-          % ("c", "chaine", "cellules", "a0 max", "a0 B0", "a1 max", "a0>0.50B0", "a1>0.50B0"))
+    print("  %-8s %-8s %8s %8s %10s %10s %8s %10s"
+          % ("c", "chaine", "cellules", "a0 max", "B0 os", "B0 §6", "a1 max", "a0>0.50"))
+    worst6 = 0.0
     for c in sorted(per):
         k = per[c]
         nm = names[c] if c < len(names) else "?"
-        print("  %-8d %-8s %8d %7.3f° %8.3f %7.3f° %10d %10d"
-              % (c, nm, k["n"], k["m0"], 2 * math.sin(math.radians(k["m0"]) / 2), k["m1"],
-                 k["o0"], k["o1"]))
+        b_os = 2 * math.sin(math.radians(k["m0"]) / 2)
+        # meme excursion, exprimee dans le B0 que sa §6 definit : la deviation angulaire est
+        # convertie en corde par la longueur d'os REELLE du maillon, puis divisee par B0_MESH_U.
+        blen = bone.get((c, 0), 0.0)
+        b_s6 = (b_os * blen / B0_MESH_U) if blen > 0 else float('nan')
+        worst6 = max(worst6, b_s6)
+        print("  %-8d %-8s %8d %7.3f° %10.3f %10.3f %7.3f° %10d"
+              % (c, nm, k["n"], k["m0"], b_os, b_s6, k["m1"], k["o0"] + k["o1"]))
     tot = sum(k["o0"] + k["o1"] for k in per.values())
-    print("  VERDICT SPEC 22/38 : %d depassement(s) du plafond dur sur %d cellule(s) x 2 etages"
+    print("  VERDICT SPEC 22/38 contre le B0 DU MOTEUR : %d depassement(s) sur %d cellule(s) x 2"
           % (tot, sum(k["n"] for k in per.values())))
+    print("  VERDICT SPEC 22/38 contre le B0 DE SA §6   : pire excursion %.3f B0 pour un plafond"
+          " dur de 0.50 — %s" % (worst6, "TENU" if worst6 <= 0.50 else
+                                 "DEPASSE de %.2fx" % (worst6 / 0.50)))
     print()
 
     # --- SPEC 9 : la pose debout revient-elle EXACTEMENT ? -------------------------------------
