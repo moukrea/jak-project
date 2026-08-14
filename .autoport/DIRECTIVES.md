@@ -10,6 +10,50 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
+## 2026-08-14 07:30 — ORDRE DE L'OWNER : PLUS AUCUNE PHYSIQUE SUR KEIRA SAUF LES SEINS
+
+Verbatim : « Les cheveux, les bretelles, les lunettes sont complètement pétées, les languettes des
+genoux sont complètement pétées… Les languettes sur ses bottines aussi… On voit un peu plus son
+pantacourt mais c'est aussi pété et toujours dans ses mollets. **Tu sais quoi, retire toute physique
+de Keira hormis ses seins. Fais la spec de ses seins à 100% comme spécifié, on fera le reste
+après.** »
+
+**NOUVEAU PÉRIMÈTRE, IL REMPLACE TOUS LES PRÉCÉDENTS :**
+
+  1. **Une seule chose simulée sur Keira : `chestL` et `chestR`.** Tout le reste — cheveux, mèches,
+     oreilles, bretelles, sangles, lunettes, languettes de genoux, languettes de bottines,
+     pantacourt — **n'est plus simulé du tout**. Ces os suivent l'animation d'auteur, exactement,
+     sans aucune correction. Pas « atténué », pas « calmé » : **absent**.
+  2. **La poitrine se fait à 100 % de `SPEC-breast-softbody.md`, section par section.** Ce n'est plus
+     une transposition ni une approximation : chaque section applicable doit être implémentée et
+     mesurée contre son propre chiffre, et le rapport doit dire, pour chacune, **implémentée /
+     mesurée / écart**.
+  3. Le reste du personnage vient **après**, sur son ordre à lui, jamais par initiative.
+
+**COMMENT LE FAIRE, ET CE QUI EST INTERDIT.**
+La désactivation doit vivre dans le **producteur** (`physics_keira_gen2.py`), pas dans une édition à
+la main de `physics_chains.txt` qui serait effacée à la première régénération — c'est un piège déjà
+payé trois fois. Une chaîne désactivée ne doit **pas** être émise, plutôt que d'être émise inerte :
+un `PHYSBONE` qui existe et ne bouge pas reste un risque de dérive et de coût.
+
+**PREUVE DE SORTIE EXIGÉE, à l'exécution :**
+  - la salle publie exactement **2 chaînes** (`chestL`, `chestR`) et zéro ailleurs ;
+  - sur un os de cheveu, de sangle ou de languette : écart à la pose d'auteur **nul au bit près**,
+    puisque plus rien ne l'écrit ;
+  - la poitrine reste mesurée contre §22/§38 (apex < 0.50 B0), §24 (2.30 / 2.50 / 2.65 Hz),
+    §25–26 (ζ = 0.35, rebond 31 %), §27 (stabilisation 1.0–1.5 s), §8 (volume 98–101 %).
+
+**LES DÉFAUTS NON-POITRINE NE SONT PAS FERMÉS, ILS SONT GELÉS.** L'owner ne les a pas validés : il a
+retiré la physique qui les portait. Ils restent au dossier avec leur mesure, et reviendront quand il
+le décidera. Personne ne les efface.
+
+**ET LA LEÇON, PUISQU'ELLE EST CHÈRE.** Deux semaines de physique sur tout, puis trois jours sur
+Keira seule, pour un verdict « complètement pétées » sur six organes. La seule chose qui ait produit
+un résultat mesurable est sa spécification écrite : cible chiffrée, section par section, vérifiable.
+**On ne travaille plus sans ça.** Un organe sans spec chiffrée de sa part n'est pas un chantier
+prêt, c'est une devinette — et les devinettes, c'est ce qui a produit six organes cassés.
+
+
 ## 2026-08-14 07:10 — CONVENTION OBLIGATOIRE POUR LE VERROU `.deploy-in-progress`
 
 Un verrou **vide** posé à 05:32 hors des scripts prévus a coûté à l'owner **108 minutes sans APK**
@@ -437,7 +481,7 @@ jamais un nombre choisi. Les grosses mèches portent encore `stiffness=1.80 damp
 
 ## PÉRIMÈTRE ACTIF (2026-08-11)
 
-SCOPE-SERIAL: 4
+SCOPE-SERIAL: 5
 <!-- Bump ce numéro UNIQUEMENT pour un vrai changement de périmètre : il invalide
      immédiatement la tentative en cours (gate SYNC). Corriger une coquille ou
      reformuler ne doit jamais coûter une tentative. -->
