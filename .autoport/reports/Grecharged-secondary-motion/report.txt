@@ -182,8 +182,8 @@ référencée nulle part compte comme ABSENTE.**
       is INSUFFICIENT »                   gradué à r^1.63                       un seul ressort
 24    Trois fréquences propres       P    CÂBLÉE, DÉSARMÉE (`PHYSAXIS arm=0`)   les 3 axes rendent
                                           verticale 2.3000 Hz par la donnée     la même valeur
-25    ζ = 0.35                       O    0.1686/(2·√k2) = 0.3500 (chestL)      DANS SA BANDE
-                                          0.1753/(2·√k2) = 0.3501 (chestR)      (0.32-0.42)
+25    ζ = 0.35                       O    paramètre livré 0.3500 / 0.3501 ;     DANS SA BANDE
+                                          ring-down mesuré 0.370 (cycle 6)      (0.32-0.42)
 26    Rebond 31 %                    P    29.1 % (cycle 6, hors moteur)         −6 % relatif
 27    Stabilisation 1.0-1.5 s        N    non franchie : dépend de §9           bloquée par §9
 29    Anisotropie 1.00/0.90/0.82     P    CÂBLÉE (sap 1.1111 / slat 1.2195      désarmée : coût
@@ -200,10 +200,13 @@ référencée nulle part compte comme ABSENTE.**
 36    Mode secondaire 5.2 Hz         N    —                                     ZÉRO occurrence
 37    Sous-pas ≥ 120 Hz              O    ns=2 (120 Hz), 4 sur impact fort      dans le code
 
-RÉCAPITULATIF : **7 tenues (§21 §25 §30 §31 §32 §37 + §26 à 6 % près)**, 6 partielles
-(§6 §9 §22 §23 §24 §29), 5 absentes (§8, §10-13, §27, §33/34, §36), 1 non applicable.
-L'audit de 09:45 en comptait **3 sur 12**. Ce cycle ferme §30 et §31 — les deux que la directive
-déclarait non représentables — et rouvre §22 sur une mesure au lieu de la laisser fausse-verte.
+RÉCAPITULATIF, compté ligne à ligne sur le tableau ci-dessus et pas arrondi en ma faveur :
+**6 tenues** (§21 §25 §30 §31 §32 §37), **7 partielles** (§6 §9 §22 §23 §24 §26 §29),
+**5 absentes** (§8, §10-13, §27, §33/34, §36), 1 non applicable (la torsion de §29).
+L'audit de 09:45 en comptait **3 tenues sur 12**. Ce cycle en ferme deux de plus — §30 et §31,
+précisément celles que la directive déclarait non représentables — et rouvre §22 sur une mesure
+au lieu de la laisser fausse-verte. §26 (29.1 % pour 31 %) n'a pas été re-mesurée ce cycle :
+elle vient de la course du cycle 6 et elle est marquée comme telle.
 
 
 6. NON-RÉGRESSION : LE NIVEAU DU JOINT EST INCHANGÉ, AU CHIFFRE PRÈS
