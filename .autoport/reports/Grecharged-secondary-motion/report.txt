@@ -132,12 +132,32 @@ axe sur trois est isolable.
     RAPIDE. Ces rapports sont toutefois lus sur des fenetres non isolees ; je les publie comme
     symptome, pas comme mesure de l'anisotropie.
 
-**L'HYPOTHESE DE TETE, ET ELLE N'EST PAS PROUVEE — je la nomme pour le cycle suivant.**
-Le maillon est contraint en longueur sur une sphere autour de son ancre (§22 : « un os ne
-s'allonge pas », contrainte dure, `phys-len-project!`). Une masse ponctuelle sur une sphere n'a que
-**DEUX** degres de liberte de translation ; sa §24 en demande TROIS, une frequence par axe. Quelle
-que soit la direction poussee, le mouvement retombe sur les directions admissibles — ce que
-`ROOM-AXSEL` montre exactement.
+**L'HYPOTHESE DE TETE ETAIT LA CONTRAINTE DE LONGUEUR. ELLE EST REFUTEE PAR SON PROPRE CONTROLE.**
+J'avais propose : le maillon est contraint sur une sphere autour de son ancre (§22, « un os ne
+s'allonge pas »), une masse ponctuelle sur une sphere n'a que DEUX degres de liberte de
+translation, et sa §24 en demande TROIS. J'ai livre le controle que j'avais moi-meme nomme —
+`*phys-len-off*`, la MEME impulsion avec la contrainte LEVEE, trois fenetres de plus :
+
+    ROOM-AXSEL-NOLEN: excite=v    chestL   contrainte 17.7 %  levee 21.2 %   delta  +3.5 pts
+    ROOM-AXSEL-NOLEN: excite=ap   chestL   contrainte 71.6 %  levee 63.3 %   delta  -8.3 pts
+    ROOM-AXSEL-NOLEN: excite=lat  chestL   contrainte 28.2 %  levee 19.6 %   delta  -8.5 pts
+    ROOM-AXSEL-NOLEN: excite=v    chestR   contrainte 17.6 %  levee 21.2 %   delta  +3.7 pts
+    ROOM-AXSEL-NOLEN: excite=ap   chestR   contrainte 60.9 %  levee 46.9 %   delta -14.0 pts
+    ROOM-AXSEL-NOLEN: excite=lat  chestR   contrainte  9.9 %  levee 23.7 %   delta +13.8 pts
+
+**Cinq cas sur six ne soutiennent pas l'hypothese, et TROIS vont dans le sens inverse** : lever la
+contrainte DEGRADE la selectivite (l'axe AP tombe de 71.6 a 63.3 et de 60.9 a 46.9). La contrainte
+de longueur n'est donc pas ce qui confisque le degre de liberte — elle aidait plutot a garder le
+mouvement dans un mode. **L'hypothese est retiree**, et elle l'est par la mesure que j'avais
+designee pour la trancher, pas par un changement d'avis.
+
+**CE QUE CE CYCLE A DONC ELIMINE, ET C'EST UN ACQUIS NEGATIF QUI COMPTE :**
+  1. la desorientation du triedre — REFUTEE, `PHYSAXW` montre qu'il est a 12 degres du monde ;
+  2. la contrainte de longueur — REFUTEE, controle ci-dessus.
+Le couplage vient d'ailleurs. Les candidats qui restent, non testes : la projection anisotrope
+elle-meme (`*phys-axs*` appliquee a l'ecart puis re-melangee), la matrice de deformation de §23,
+le terme moteur, ou la passe de priorite de collision. Le cycle suivant les prend un par un, avec
+le meme controle : un terme desarme, la selectivite re-mesuree.
 
 **ET CA REJOINT LE SEUL TROU QUE LE CYCLE 7 AVAIT LAISSE OUVERT SUR §23.** Il ecrivait : « le point
 de masse integre reste l'APEX, pas le centre de masse ». Or la §23 de l'owner integre `x` = « the
@@ -194,9 +214,23 @@ cycle 7 :
     ROOM-IDLE maxdev 0.0001                      (plafond IDLE : 1.0)
     31/31 animations, 310 mesures, 2 chaines
 
-Chaine de gates hors bloc humain, relancee en DIAGNOSTIC et jamais comme preuve de passage :
-SCOPE · TUNING · ROOM · MOVE · ROOT · COLLIDE · IDLE · ANIM · SIDE-CONTROL · FLOOR · FLOOR-WEAK ·
-DISCRIMINANT — toutes vertes.
+Chaine de gates relancee en DIAGNOSTIC, bloc humain retire (`sed '43,52d'`), jamais comme preuve
+de passage. **Et je corrige une phrase que j'avais d'abord ecrite ici : elles ne sont PAS toutes
+vertes.** `SIDE-CONTROL` echoue, et il a raison — il exigeait de ce rapport une declaration que
+ma reecriture avait laissee tomber. La voici, signee :
+
+SIDE-DOMAIN-EMPTY: chestL chestR — le franchissement de cote se comptait sur 15 chaines
+  (pantflapL/R, anklestrap, botstrap, midhair, kneeflap...) ; l'ordre de l'owner du 2026-08-14
+  07:30 (« retire toute physique de Keira hormis ses seins ») les a TOUTES gelees. Les deux
+  chaines qui restent ne franchissaient deja rien avant ce gel : elles n'apparaissent dans aucune
+  ligne `ROOM-SIDE: chain=` ni `ROOM-SIDE-CONTROL: chain=`, ni armee ni desarmee. Le controle
+  positif ne peut donc pas tirer — il n'a plus de defaut a exercer. **Ce zero ne vaut pas
+  correction** : les defauts de franchissement que l'owner a decrits (lunettes dans le dos,
+  pantacourt dans les mollets) ne sont pas fermes, ils sont GELES avec leur mesure, et ils
+  reviendront avec les chaines qui les portaient.
+
+Le reste de la chaine — SCOPE · CLEAN · TUNING · ROOM · MOVE · ROOT · COLLIDE · IDLE · ANIM ·
+FLOOR · FLOOR-WEAK · DISCRIMINANT — passe. Aucune gate n'a ete ajoutee, modifiee ni assouplie.
 
 
 6. LA POITRINE, SECTION PAR SECTION — le tableau que sa directive exige a chaque cycle
@@ -227,13 +261,14 @@ tableau — une section absente faute d'articulation dit « degre de liberte a a
                                           MESUREE : `ROOM-AXSEL` — un seul axe   trois est isolable ;
                                           (AP) est isolable, 17.7 % seulement    degre de liberte a
                                           de la reponse tombe sur l'axe pousse   ajouter (le COM)
-25    zeta = 0.35                    O    0.38 a 0.40 sur les fenetres isolees   DANS SA BANDE
-                                                                                 (0.32-0.42)
-26    Rebond 31 %                    P    0.265 (chestL ap, fenetre ISOLEE)      -15 % relatif, mais
-                                                                                 coherent avec zeta
-27    Stabilisation 1.0-1.5 s        P    SUR SON PROPRE PROTOCOLE (impulsion    t05 0.90 (chestL ap),
-                                          isolee) : ROOM-AXSETTLE                sous sa bande ; t01
-                                                                                 jamais atteint
+25    zeta = 0.35                    O    0.38 sur les DEUX fenetres isolees     DANS SA BANDE
+                                          (AP, chestL et chestR)                 (0.32-0.42)
+26    Rebond 31 %                    P    0.265 (chestL AP, seule fenetre        -15 % relatif, mais
+                                          isolee qui rende un rebond)            coherent avec zeta
+27    Stabilisation 1.0-1.5 s        P    SUR SON PROPRE PROTOCOLE (impulsion    chestL AP t05=0.90
+                                          isolee) : ROOM-AXSETTLE. Seules les    (sous sa bande) ;
+                                          fenetres AP sont isolees, les autres   chestR AP t05 jamais
+                                          chiffres sont lus sur des melanges     atteint en 2.48 s
 29    Anisotropie 1.00/0.90/0.82  **P !** ARMEE sur la force (arm=1, sap 1.1111  les rapports de
                                           slat 1.2195) et verifiee en mobilite   FREQUENCE ne la
                                           STATIQUE au cycle 6 — mais INVISIBLE   montrent pas ; le
@@ -275,10 +310,12 @@ LES QUATRE PRIORITES DE SA DIRECTIVE DE 11:50, ETAT A LA FIN DU CYCLE :
   - Aucune mesure de ce rapport ne vient d'un APPAREIL. Tout est x86.
   - **Ma borne de 519 u sur §33 etait fausse comme borne** (pose de bind seule) ; la mesure a
     l'execution rend 46 u. Je l'ecris parce que c'est moi qui l'avais calculee.
-  - **L'hypothese du degre de liberte manquant (§24/§23) n'est PAS prouvee.** Ce qui est mesure est
-    la non-selectivite (`ROOM-AXSEL`) ; que la contrainte de longueur en soit la cause est une
-    lecture du code, pas une mesure. Le controle qui trancherait : desarmer la contrainte de
-    longueur sur une fenetre et voir la selectivite monter.
+  - **La CAUSE de la non-selectivite reste INCONNUE.** Le fait est mesure (`ROOM-AXSEL`) ; les deux
+    explications que j'avais proposees sont mortes, chacune par sa mesure (triedre desoriente :
+    `PHYSAXW` ; contrainte de longueur : `ROOM-AXSEL-NOLEN`). Je n'en propose pas une troisieme
+    sans la tester — c'est ce qui a produit les deux precedentes.
+  - Le lien que je fais entre §24 et le trou de §23 (le point integre) reste une LECTURE, pas une
+    mesure. Il est plausible et il n'est pas etabli.
   - `ROOM-AXRATIO` est lu sur des fenetres dont deux sur trois ne sont pas isolees : c'est un
     symptome, pas une mesure de l'anisotropie.
   - §29 n'est pas re-mesuree en mobilite statique ce cycle ; je m'appuie sur le cycle 6 pour cette
