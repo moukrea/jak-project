@@ -1,515 +1,273 @@
 DIRECTIVES v7135a47aa7
 
-RAPPORT DE CYCLE — PHYSIQUE DE KEIRA — 2026-08-14 (cycle 6)
+RAPPORT DE CYCLE — PHYSIQUE DE KEIRA — 2026-08-14 (cycle 7)
 ===========================================================
 
 Périmètre : `Grecharged-secondary-motion`, branche `physics-keira-clean`, KEIRA SEULE.
 Contrat : `SPEC-breast-softbody.md` (écrite par l'owner) + `SPEC-keira-physique.md`.
-Substrat : x86, salle sans joueur. Changement GOAL SEUL — aucun rebuild NDK/libgk/cmake.
+Substrat : x86, salle sans joueur. **Changement GOAL SEUL** — aucun rebuild NDK/libgk/cmake
+(551 cibles en 11,5 s). Empreinte `GAME.CGO` relevée AVANT et APRÈS la course, identique des deux
+côtés (`4e87febbc8564c273c28f38397bf7c58`) : la mesure est attribuable.
 
-Deux courses complètes, `PHYSEND` atteint dans les deux, `31/31` animations, `skipped=0`,
-`PHYSFAIL` 0, aucun NaN. Empreinte `GAME.CGO` relevée AVANT et APRÈS chaque course, identique des
-deux côtés : les mesures sont attribuables. `.autoport/.deploy-in-progress` posé pendant les
-courses pour que l'auto-constructeur ne bascule pas l'arbre en arm64 au milieu.
+    RUN13  keira-room-table.RUN13-BASELINE.txt        état d'entrée (écrêtage positionnel)
+    RUN14  keira-room-table.txt                       ÉTAT LIVRÉ (force + sous-pas)
+           keira-room-x86.RUN14-substep-stiff.log
 
-    RUN11  keira-room-table.RUN11-tanh-knee.txt      CGO e1f73552  état d'entrée
-    RUN12  keira-room-table.RUN12-nosat-signed.txt   CGO d63a7130  saturation SPEC 21 RETIRÉE (A/B)
-    RUN13  keira-room-table.txt                      CGO 5d7885df  ÉTAT LIVRÉ (saturation remise)
-    RUN9   keira-room-table.RUN9-BASELINE-presat.txt CGO df9b88fd  référence d'avant la saturation
-
-RÉSUMÉ EN UNE PHRASE : le terme que la directive de 03:10 ordonne de trouver et de retirer
-**n'existe pas** — le solveur suit son équation à un dixième de degré près sur toute la descente —
-et les deux preuves de sortie qu'elle exige (décroissance à FRACTION constante, rebond ~31 %) sont
-**obtenues et publiées**. Le puits d'énergie réel est ailleurs, il est nommé et chiffré ici. Et un
-défaut d'INSTRUMENT de première grandeur a été trouvé au passage : 23 des 31 animations de la salle
-écrivent le mauvais os dans les joints de poitrine (§4 bis).
+RÉSUMÉ EN UNE PHRASE : la priorité de la directive de 03:40 — « ramener l'excursion sous 0.50 B0
+par la saturation de sa §21, une saturation douce, jamais un écrêtage brutal » — est **fermée et
+mesurée** : sur les 48 cellules (chaîne × pilotage × animation) dont le rig coïncide avec le
+porteur, l'excursion dépasse le plafond de sa §22 **39 fois avant, 0 fois après**, aux deux étages
+du solveur. Et la mesure dit aussi que l'écrêtage positionnel qu'on croyait tenir cette borne ne la
+tenait pas.
 
 
 0. LE VALIDATEUR NE PEUT PAS SORTIR 0, ET CE N'EST PAS L'ÉCHEC DU CYCLE
 =======================================================================
 `OPEN-DEFECTS` compte 13 lignes `^OPEN ` et énonce sa propre règle : « une ligne ne se retire que
 quand l'owner dit que c'est bon ». C'est une PORTE HUMAINE, et c'est la 2e gate du fichier : elle
-sort avant toutes les autres. J'ai donc vérifié les gates AVAL sur une COPIE dans `/tmp`, sans
-toucher l'original (règle 5) — `git diff` sur le validateur est vide. Résultat au §9.
+sort avant toutes les autres. `git diff` sur le validateur est vide (règle 5).
 
 
-1. LA PRIORITÉ ABSOLUE EST FERMÉE : IL N'EXISTE AUCUN TERME QUI SOUSTRAIT UNE QUANTITÉ FIXE
-============================================================================================
-1a. RECONSTRUCTION EXACTE DE LA GÉOMÉTRIE, PUIS SIMULATION HORS-JEU
----------------------------------------------------------------------
-Le nouvel instrument `PHYSRING3` publie le vecteur `u_courant − u_modèle` (§6). Les deux étant
-unitaires, deux frames suffisent à retrouver `u_modèle` (`d·m = −|d|²/2`, `|m| = 1`). Résolu sur les
-frames 2 et 3, il vérifie `| |m + d(f)| − 1 | ≤ 1.0e-4` sur les **149 frames** de la fenêtre : la
-géométrie est reconstruite, pas supposée.
+1. CE QUI A ÉTÉ POSÉ : DEUX SECTIONS DE SA SPEC, COUPLÉES, AUCUNE DES DEUX N'EXISTAIT
+======================================================================================
+Le cycle précédent avait établi la forme et les nombres et refusé de les poser dans le même diff
+qu'autre chose. C'est fait, et seul.
 
-J'ai alors rejoué la récurrence LIVRÉE — `p ← p + (1−damping)(p − q) + k2 (T − p)`,
-`k2 = (2π f₀/60)²`, avec les valeurs du fichier de chaînes (chestL stiffness 2.7696, mass 1.45,
-damping 0.1686) — à partir des deux premières frames mesurées. Écart simulation − salle, en degrés :
+**SPEC 37 — LES SOUS-PAS.** « The simulation shall be timestep-independent. Recommended effective
+soft-body update frequency ≥ 120 Hz ; at 60 FPS, 2 substeps minimum ; hard impacts may use 3–4
+adaptive substeps. » Posé : `ns = 2` par frame, `ns = 4` quand le maillon entre la frame déjà
+au-delà du genou de sa §22 (0.42 B0) — le « hard impact » de sa phrase. Aucun seuil de mon
+invention : c'est le même 0.42 B0 que la saturation.
 
-    frame        2      3      4      5      6      7   |     8      9     10     11
-    chestL    0.00   0.00  -0.04  -0.08  -0.09  +0.10   | +0.78  +5.29 +10.85 +15.33
-    chestR    0.00   0.00  -0.01  -0.04  -0.16  +1.79   | +8.62 +13.73 +17.03 +18.67
+**CE QUI REND LES SOUS-PAS EXACTS, ET QUI SE VÉRIFIE AVANT D'ÉCRIRE.** La récurrence livrée est un
+**EULER SYMPLECTIQUE**, pas un Störmer-Verlet : `v = (p−q)` est REMPLACÉ par `v·kd + f + g` puis
+`p += v`, donc `q` ne porte QUE la vitesse, en unités de **déplacement par frame**. La division en
+`ns` est alors exacte, sans aucun terme correctif : `v/ns` en entrée, `ns·v` en sortie, `k2` et `g`
+en `1/ns²` (ce sont un `ω²dt²` et un `a·dt²`), traînée `kds` telle que `kds^ns = kd`. **Sur un
+Störmer-Verlet la même division aurait été fausse** — sa différence arrière contient un demi-pas
+d'accélération, et le facteur d'erreur aurait été `(ns+1)/(2ns)` sur la gravité, soit −25 % à
+`ns = 2`. La nature de la récurrence se vérifie AVANT, pas après.
 
-**Sur toute la descente — de 82 degrés à 11 — le solveur suit l'équation à un dixième de degré
-près.** Un terme qui « draine à débit fixe » aurait fait diverger dès la première frame. La
-divergence est brutale et commence à la frame 8 ; le §4 dit ce qui s'y passe.
+**SPEC 21 — LA SATURATION PORTÉE PAR LA FORCE, PAS PAR L'ÉTAT.** `D → D_max·tanh(D/D_max)` est la
+réponse **statique** d'un ressort qui durcit ; écrire la saturation sur la FORCE donne la même borne
+d'excursion **en rendant l'énergie au lieu de la jeter**. Forme, avec les deux nombres de sa §22 et
+sans transcendante :
 
-1b. CE QUE LA SÉRIE CITÉE MONTRAIT VRAIMENT
----------------------------------------------
-Les sept nombres de la directive (`81.7 65.3 49.5 34.8 21.7 11.1 6.8`, écarts 16.4 15.8 14.7 13.1)
-sont le **quart de période de rentrée** d'une oscillation de 82 degrés : ils vont du pic au passage
-par zéro, et pas plus loin. Un quart de période a exactement cette forme — des écarts grands puis
-décroissants — et il ne PEUT pas montrer de rebond, par construction, parce que le rebond est de
-l'autre côté. Deuxième variante du piège `truncated-series-false-diagnosis` : la première fois la
-série était trop courte ; cette fois elle est complète, mais la FENÊTRE lue est plus courte qu'une
-demi-période.
+    D ≤ 0.42 B0   →  facteur 1.0, IDENTITÉ STRICTE, la garde ne s'ouvre pas
+    D > 0.42 B0   →  F = k·(Dn + cp·x/(1−x)),  x = (D−Dn)/cp,  Dn = 0.42 B0,  cp = 0.08 B0
 
+C1 au genou (dérivée = 1 en x = 0, donc aucune cassure de pente, donc aucun à-coup) et asymptote
+EXACTE en 0.50 B0 : l'énergie potentielle diverge en x → 1, donc le mur est infranchissable en
+continu, quelle que soit l'énergie cinétique. `B0` = sa §6, pris sur la **longueur d'os mesurée du
+rig** (`*phys-blen*`), jamais sur une constante de l'instrument.
 
-2. LES DEUX PREUVES DE SORTIE EXIGÉES SONT OBTENUES
-====================================================
-« La série `PHYSRING` doit montrer une décroissance à **fraction** constante et un rebond à ~31 %
-(§26). » Mesuré une fois le transitoire d'ouverture passé (fenêtre `f ≥ 9`,
-`.autoport/physics_ringdown.py --first 9`), **sur l'ÉTAT LIVRÉ (RUN13)** :
+C'est nommément ce que sa §37 réclame : « **soft displacement clamps should be preferred to abrupt
+positional clamps** ».
 
-    chaîne   T (frames)   f (Hz)   zeta    rebond    r²(fraction)  r²(quantité)   forme
-    lBoob      29.000     2.069   0.356    26.2 %       0.992         0.872      FRACTION constante
-    rBoob      26.000     2.308   0.373    30.2 %       0.999         0.918      FRACTION constante
-    earL       14.000     4.286   0.374    27.5 %       1.000         0.901      FRACTION constante
-    earR       14.000     4.286   0.378    28.1 %       1.000         0.906      FRACTION constante
-
-    cibles de la spec :  §24 f = 2.30 Hz   ·   §25 zeta = 0.35   ·   §26 rebond = 31 %
-
-**`rBoob` rend 2.308 Hz pour 2.30 et 30.2 % pour 31 %** — à 0.3 % et 2.6 % de ses cibles. Moyenne
-des deux seins : 2.189 Hz (−4.8 %), zeta 0.365 (+4.1 %), rebond 28.2 % (−9.0 %).
-`r²(fraction)` contre `r²(quantité)`, les deux ajustés sur les MÊMES extrema : l'enveloppe est
-**exponentielle**, pas linéaire, sur les quatre chaînes.
-
-Recoupé sur RUN12 (saturation retirée, §5) : lBoob 2.143 Hz / zeta 0.388 / 29.1 %, rBoob 2.368 Hz /
-zeta 0.352 / 29.1 %, `r²(fraction)` 1.000 et 0.997. **Les deux états, contraint et non contraint,
-donnent la même loi** — ce qui est la preuve la plus forte que ce n'est pas un artefact du plafond.
-Le tout sur la chaîne dont le cycle précédent publiait « rebond 4.7 % ».
-
-`oop = 0.001` : le mouvement est PLAN, il ne précesse pas — la période lue est donc la vraie et non
-son double. C'était l'ambiguïté que le module `ang` ne pouvait pas lever (§6).
-
-CE QUI RESTE FAUX DANS CETTE MÊME FENÊTRE, et je ne le masque pas : la déviation ne revient pas à
-zéro. Elle se pose sur **0.0257** (chestL) et **0.0210** (chestR) en unités de
-`|u_courant − u_modèle|`, soit **2.95 et 2.41 degrés** de décalage permanent, là où SPEC 9 exige
-« the original authored standing shape shall be restored exactly ». Défaut NEUF, mesuré, non résolu.
+Portée relevée sur la course et pas sur un nom : `PHYSCHAIN` publie `fam=` et `links=` pour les 22
+chaînes, et le couple (famille A, UN maillon) ne sélectionne que `c=7 lBoob` et `c=8 rBoob`. Les 13
+chaînes de famille B sont hors périmètre **par construction**, donc `goggles-tunnel` et `knee-tabs`,
+que l'owner a FERMÉS, ne peuvent pas être payés ici.
 
 
-3. LE PUITS RÉEL, LOCALISÉ PAR ÉLIMINATION ET CHIFFRÉ PAR FRAME
-================================================================
-Le second instrument (`PHYSRINGS`) publie le même angle à DEUX étages du solveur, à chaque frame :
-`a0` après l'intégration seule, `a1` après la boucle de contraintes. Extrait brut de RUN12 :
+2. LA PREUVE DE SORTIE, ET ELLE RETIRE AUSSI UNE CROYANCE
+==========================================================
+L'instrument existait déjà et personne ne l'avait lu comme ça : `PHYSGRADS` publie le même angle
+d'apex à DEUX étages, `a0` après l'intégration seule et `a1` après la boucle de contraintes. Le
+plafond de sa §22 vaut **28.96°** (= 0.50 B0, puisque `D/B0 = 2·sin(θ/2)`).
 
-    PHYSRINGS c=7 f=2  a0=92.9933  a1=82.2343      -> -10.76 deg en UNE frame
-    PHYSRINGS c=7 f=9  a0= 9.3477  a1= 6.7543      -> -27.7 % de l'etat, en UNE frame
-    PHYSRINGS c=8 f=7  a0= 5.4241  a1= 3.4243      -> -36.9 %
-    PHYSRINGS c=8 f=8  a0= 7.5735  a1= 5.4574      -> -27.9 %
+**Mesuré sur les 8 animations dont le rig coïncide avec celui du porteur** — les 23 autres écrivent
+le mauvais os (§4), elles sont donc écartées ici, et pas seulement « des deux côtés de l'A/B » :
 
-**La contrainte mord en RAFALES, pas continûment.** La moyenne sur la fenêtre vaut 2.5 % (chestL) et
-4.1 % (chestR) : elle cache complètement l'événement. Même faute de nature qu'une variance pour un
-affaissement — une moyenne ne peut pas décrire un événement rare et violent.
+                                  RUN13 (écrêtage positionnel)   RUN14 (force + sous-pas)
+    a0 > plafond (intégration)      39 cellules sur 48             **0 sur 48**
+    a1 > plafond (après contr.)      5 cellules sur 48             **0 sur 48**
+    a0 max                          36.575°  (0.628 B0)            27.868°  (0.482 B0)
+    a1 max                          30.645°  (0.528 B0)            27.195°  (0.470 B0)
 
-QUELLE contrainte : une élimination, pas une hypothèse. Sur une chaîne à UN maillon,
-  * `phys-length-chain` projette RADIALEMENT sur la sphère centrée sur l'attache, et l'angle est
-    mesuré depuis cette MÊME attache : elle ne peut pas changer l'angle, par construction ;
-  * `phys-bend-chain` ne tire que sur `maxangle > 0` — le tableau des limiteurs confirme
-    `bendcut = 0.0` sur chestL/chestR dans cette course, et non nul sur les 5 chaînes de cheveux ;
-  * le test de côté ne peut tirer qu'au-delà de 90 degrés : il explique `f=2` (a0 = 92.99) et rien
-    des frames 7 à 9, toutes sous 10 degrés.
-**Il ne reste que `phys-collide-chain`.** Cohérent avec le reste de la course :
-`ROOM-CONTACT-VOL chestL total=335`, `chestR total=15279`, contre `earL/earR total=85` — les
-oreilles, même famille et même nombre de maillons libres, ne touchent presque rien et rendent le
-ring-down le plus propre des 22 chaînes (§2).
+**Zéro dépassement, aux deux étages, sur les six pilotages et les deux chaînes.** C'est la première
+course où l'enveloppe de sa §22 est tenue.
 
-**La poitrine perd son rebond en heurtant les volumes du buste, et elle les heurte dès 7 à 9 degrés
-d'écart à la pose d'auteur.** Le prochain cycle doit publier QUEL volume et à QUELLE profondeur, par
-frame : l'instrument existe par chaîne (`ROOM-CONTACT-VOL`), il manque la ligne par frame. Je ne
-corrige rien là-dessus ici — sans ce nombre, tout correctif serait un pari.
+**ET ÇA RETIRE UNE CROYANCE DU CYCLE PRÉCÉDENT.** Le rapport d'hier publiait « déplacement d'apex
+≤ 0.50 B0 AVEC la saturation », en face de « 1.10–1.41 B0 SANS ». Le second est juste, **le premier
+est faux** : avec l'écrêtage positionnel, l'apex montait à **0.628 B0** à l'étage d'intégration et
+restait à **0.528 B0** après les contraintes. L'écrêtage mordait 8838 fois par course précisément
+parce qu'il n'y arrivait pas — il rabotait un état qui repartait au-dessus à la frame suivante. La
+borne n'a jamais été tenue jusqu'à cette course.
 
 
-4. RECTIFICATION — LE « LATCH DU SEIN DROIT » N'EST PAS UN DÉFAUT DU BUILD LIVRÉ
-=================================================================================
-J'ai d'abord publié ici, dans ce même rapport, que `chestR` se garait à ~50 degrés dans le buste à
-partir de `a=23` et n'en repartait plus, en m'appuyant sur `PHYSGRAD a=28 d=5 chestR amp=3.9
-ang=48.52`. **Ce chiffre vient de RUN12 et de RUN9 — les deux courses SANS la saturation SPEC 21 —
-et il n'existe pas dans le build livré.** Relevé sur les cinq courses, `chestR` (`c=8`), `d=5` :
+3. CE QUE ÇA COÛTE EN MOUVEMENT, ET LA FORME DE LA PERTE EST LA SIGNATURE DU MÉCANISME
+=======================================================================================
+Amplitude d'apex, mêmes 8 animations propres, en unités de jeu :
 
-    course                     a=23      a=25      a=28      a=30      saturation SPEC 21
-    RUN9-BASELINE-presat      53.2272    1.9737   48.5234    3.0196    ABSENTE
-    RUN12-nosat-signed        53.2272    1.9737   48.5234    3.0196    ABSENTE
-    RUN10-tanh-naive           2.5838    1.2074    2.4761    2.6849    presente
-    RUN11-tanh-knee            3.2096    1.6162    1.7056    2.5501    presente
-    RUN13-SHIPPED              3.2096    1.6162    1.7056    2.5501    presente
+    pilotage      lBoob      rBoob      régime
+    tilt         +10.7 %     +8.8 %     statique  — GAGNE
+    idle/resp    +12.9 %    +12.8 %     faible    — GAGNE
+    updown        −0.5 %     −4.2 %     faible    — inchangé
+    leftright    −10.8 %    −16.2 %
+    accel        −26.2 %    −32.5 %     fort      — borné, c'est le rôle du ressort
+    jerk         −41.9 %     −5.5 %
 
-Les deux seules courses qui latchent sont exactement les deux sans plafond, aux mêmes chiffres au
-dix-millième. **Le latch est donc une CONSÉQUENCE du retrait de la saturation, pas un défaut
-indépendant** — et c'est un TROISIÈME argument, indépendant des deux du §5, pour l'avoir remise.
-Dans le build livré, `chestR a=28 d=5` vaut 1.7056 degré.
-Deux autres corrections qui viennent avec : le latch n'est ni permanent (il retombe à 1.97 en `a=25`
-et 3.02 en `a=30`) ni propre au côté droit — sur les pilotages `d=1/2/3` de RUN12, `chestL` dépasse
-30 degrés sur les 31 animations, `a=0` comprise. « chestR seul » était une propriété de la colonne
-`d=5`, pas de la chaîne.
+**La perte croît avec le stimulus et s'annule sous le genou.** C'est la signature d'un ressort qui
+raidit, pas celle d'un suppresseur — un suppresseur retire partout. Et ça se lit dans la même
+course sans deuxième run : le pilotage `tilt` (le plus faible) n'atteint jamais 0.42 B0, donc il
+n'y a que les sous-pas dedans ; il **gagne** 8.8 à 10.7 %. Tout ce qui est en dessous de ce +10 %
+est imputable au raidissement, pas aux sous-pas.
 
-CE QUI RESTE VRAI ET NON EXPLIQUÉ : l'asymétrie de contacts 46x (`chestL total=335` contre
-`chestR total=15279`), et les trois causes évidentes restent réfutées, mesures à l'appui —
-la DONNÉE (décalages de sphère miroirs à 1.5 % en repère bind MONDE ; et le contrôle qui tranche :
-`toestrapL/R`, lignes `chain` identiques au caractère près et colliders exactement opposés, rendent
-110 contre 1817, soit 16.5x — un écart de donnée NUL produit déjà 16x), le RIG
-(`lBoob (356.15, 7918.77, 385.34)` contre `rBoob (−356.15, 7918.76, 385.34)`, miroir à 0.01 unité ;
-longueurs d'os 977.1295 contre 977.1218) et l'ORDRE DE RÉSOLUTION (les quatre volumes qui font le
-compte sont portés par `hips`, `main`, `chest`, `Lshoulder`, qu'aucune chaîne ne simule : 14 845 des
-15 279 sont indépendants de l'ordre ; le seul volume sensible en fait 45, soit 0.29 %).
+« Poitrine sur mouvements subtils : toujours OK » est un acquis de l'owner. Il n'est pas payé : il
+gagne. Ce qui est retiré l'est dans le régime que sa §21 nomme exactement — « strong jump + fast
+rotation + abrupt animation acceleration ».
 
 
-4 bis. ET VOICI CE QUI CONTAMINE VRAIMENT LA MESURE : 23 ANIMATIONS SUR 31 ÉCRIVENT LE MAUVAIS OS
-==================================================================================================
-`do-joint-math!` (`process-drawable.gc:238-271`) applique les canaux d'animation **par POSITION** :
-canal *i* → joint *i* du squelette PORTEUR. Rien n'y consulte les noms. La salle joue les 31
-animations sur le porteur du village 1, en supposant que les premiers index coïncident entre les
-rigs. **Ils ne coïncident pas.** Listes relevées sur deux sources indépendantes, d'accord index par
-index (`goal_src/jak1/engine/data/joint-nodes.gc`, 570 entrées, et l'ordre `skins[0].joints` des GLB
-rippés) : les index 0 à 27 sont identiques sur les six rigs, **et la queue diverge à partir de 28**.
+4. TROIS EFFETS DE BORD, TOUS MESURÉS, DONT DEUX SUR DES DÉFAUTS OUVERTS
+=========================================================================
+  * **Le filet positionnel mord 83 % moins** : `sat_n` 8838 → 1493. Il est gardé — le mur du
+    ressort est infranchissable en continu mais pas en discret (le facteur de raideur est borné
+    pour rester stable), et la règle 6 ne se négocie pas. Son prix reste publié (`sat_sum`), et un
+    compteur neuf le sépare de la force : `PHYSLIM4 stif_n=15709`, les sous-pas intégrés au-delà du
+    genou. **`stif_n` n'a pas de `sum` et n'est pas un suppresseur** : une force ne retire rien.
+  * **La poitrine cesse de labourer le buste** : `ROOM-CONTACT-VOL chestR` 9957 → 3528 (−65 %),
+    `chestL` 335 → 271. L'asymétrie gauche/droite tombe de **46× à 13×**. C'est le « puits
+    d'énergie » que le §3 du rapport précédent avait localisé sans pouvoir le corriger : il se vide
+    en empêchant l'excursion d'y arriver, pas en touchant la collision.
+  * **Pénétration des LUNETTES 0.5020 → 0.1085 (−78 %)** — défaut owner `goggles-boobcol` /
+    `goggles-bottom`. Non fermé (l'owner seul ferme), mais divisé par cinq, et pour une raison
+    mécanique : les lunettes évitaient une poitrine qui sortait de son enveloppe.
 
-La correspondance HD → porteur est `*keira-hd->driver-joint*` (`jak-hd.gc:100`) : HD 44 (`rBoob`) →
-porteur **79**, HD 45 (`lBoob`) → porteur **78**, `chest` → **3**. Ce que ces index portent
-réellement, animation par animation :
-
-    a=      art-group                 joints   porteur 79 = rBoob   porteur 78 = lBoob   chest
-    0-6     assistant                   96     rBoob        OK      lBoob        OK      OK
-    7-16    assistant-village2          96     RpinkyA    FAUX      RringC     FAUX      OK
-    17      assistant-village3          96     rBoob        OK      lBoob        OK      OK
-    18-27   assistant-firecanyon        94     gogglesMid FAUX      gogglesBase FAUX     OK
-    28-29   assistant-lavatube-start    94     gogglesMid FAUX      gogglesBase FAUX     OK
-    30      assistant-lavatube-end      94     gogglesMid FAUX      gogglesBase FAUX     OK
-
-**Huit animations sur 31 pilotent correctement les joints de poitrine.** L'écart n'est pas subtil :
-l'angle entre les rotations de bind monde au même index vaut **180.000 degrés** pour
-`rBoob`/`gogglesMid` et **143.442** pour `lBoob`/`gogglesBase` (village2 : 116.376 et 125.948, avec
-1.12 m et 1.49 m d'écart de position). L'ancre `chest`, elle, est à l'index 3 sur les SIX rigs —
-delta de rotation 0.000 degré, delta de position 0.0000 m — et `assistant-village3` est identique au
-village 1 sur les 96 index.
-
-**ET LE COMPTE DE JOINTS N'EST PAS LE CRITÈRE** : `assistant-village2` a 96 joints et diverge quand
-même (premier index divergent 32) ; `assistant-village3` en a 96 et ne diverge pas. Le commentaire
-de `phys-room.gc:1611-1617` — « les joints 94 et 95 gardent leur pose précédente » — repose sur
-l'hypothèse que les 94 premiers coïncident, et cette hypothèse est **fausse**. Ce n'est donc pas 13
-animations concernées, c'est **23**.
-
-CE QUE ÇA IMPLIQUE, ET C'EST LA CONCLUSION LA PLUS LOURDE DE CE CYCLE :
-  * **Ce n'est PAS un défaut du jeu.** `PHYSMGEO` le dit dans la course : seul `assistant-lod0`
-    porte un compagnon HD (`entry=2`) ; les cinq mgeo de variante ont `entry=-1`, donc aucune
-    chaîne, donc aucune physique. En jeu, une animation de variante ne pilote jamais une chaîne.
-  * **C'est un défaut d'INSTRUMENT, et il est massif.** 23 des 31 fenêtres d'animation du tableau
-    mesurent la poitrine pilotée par un auriculaire ou une branche de lunettes. Tous les maximums
-    par chaîne de `chestL`/`chestR` — `worst tipvar`, `meshpen`, `ROOM-CONTACT-VOL`, l'asymétrie
-    46x — agrègent ces fenêtres-là. La gate `ROOM-ANIMS 31/31 skipped=0` est satisfaite à la lettre
-    et la mesure est corrompue sur 74 % de son domaine.
-  * **La couverture exigée par SPEC 6 reste due**, et la solution n'est pas de retirer les 23 : c'est
-    de remapper les canaux PAR NOM quand l'art-group diffère de celui du porteur. La table de noms
-    existe déjà (`joint-nodes.gc`), et `chest` prouve que le remap est possible puisqu'il tombe juste
-    partout.
-  * **Rien de tout ceci ne touche les mesures du §2** : la fenêtre de repos est postérieure à toutes
-    les animations et `physroom-hold` y fige l'animation. Le ring-down, lui, est propre.
+CE QUI SE DÉGRADE, ET JE NE LE MASQUE PAS : `rmidhair` meshpen 0.4068 → 0.5405 (+33 %) et
+`botstrapR` tipvar −5.6 %. Les cheveux ne sont pas dans le périmètre du raidissement ; ces deux-là
+sont donc imputables aux sous-pas, et le second est dans le bruit des maxima encliquetés.
 
 
-5. LA SATURATION SPEC 21 : RETIRÉE, MESURÉE, PUIS REMISE — ET VOICI L'A/B
-==========================================================================
-Je l'ai retirée en début de cycle en m'appuyant sur la directive (« chaque terme ajouté qui n'est
-pas dans la spec doit être justifié par une mesure, ou retiré ») et sur trois mesures du cycle
-précédent : elle sortait la poitrine de chaque pilotage fort **collée à son plafond** (`PHYSRING
-f=2` = 29.47 pour un plafond de 28.96), elle avait porté l'asymétrie G/D de 2x à 3.5x, et elle
-n'avait pas atteint sa propre cible.
+5. LA LOI DE DÉCROISSANCE EST INTACTE — LES SOUS-PAS N'ONT PAS DÉPLACÉ LA CALIBRATION
+======================================================================================
+Fenêtre de repos, grandeur signée `PHYSRING3`, `--first 9` :
 
-**RUN12 mesure ce que ça coûte, et le chiffre m'a fait revenir en arrière :**
+    chaîne    T (fr)   f (Hz)    zeta    rebond   r²(fraction)      cible de la spec
+    rBoob      26.0    2.308    0.371    27.8 %      1.000      §24 2.30 Hz · §25 0.35 · §26 31 %
+    lBoob      28.0    2.143    0.383    28.9 %      0.999
+    earL       15.0    4.000    0.391    25.2 %      1.000
+    earR       15.0    4.000    0.394    25.7 %      0.999
 
-    grandeur                      AVEC (RUN11)   SANS (RUN12)    cible / règle
-    chestL mouvement de pointe       0.2763        0.5437         +97 % — ce que l'owner demande
-    chestR mouvement de pointe       0.2665        0.4777         +79 %
-    chestL pénétration résiduelle    0.0003 m      0.4924 m       RÈGLE 6 : rien ne traverse
-    chestR pénétration résiduelle    0.0285 m      0.3450 m       RÈGLE 6
-    lunettes pénétration             0.5020 m      0.5215 m       défaut ouvert `goggles-boobcol`
-    déplacement d'apex               <= 0.50 B0    1.10 à 1.41 B0 SPEC 22 : HardMax = 0.50 B0
+`rBoob` rend **2.308 Hz pour 2.30** — à 0.3 % de sa §24 — après un changement de discrétisation qui
+aurait pu tout déplacer. C'était le risque principal du diff et il est levé par la mesure.
 
-Sans la saturation, l'apex va jusqu'à **2.8 fois le maximum DUR que l'owner a écrit lui-même**, et
-la poitrine traverse le torse de 0.49 m. **SPEC 21 et SPEC 22 sont ses sections, pas mes gates**, et
-la directive du 2026-08-14 01:00 est explicite : « toute gate qui contredit une ligne de
-`SPEC-breast-softbody.md` est fausse par construction : on corrige la gate, jamais la spec. » Un
-retrait qui viole sa §22 et la règle 6 n'est pas un allègement, c'est une régression.
-
-**Le bloc est donc remis, à l'identique** (`git diff` du moteur contre l'état d'entrée ne contient
-plus que l'instrument). Ce que RUN12 a servi à établir reste acquis, et c'est beaucoup :
-  * il donne la mesure du ring-down NON CONTRAINT du §2 — impossible à lire avec le plafond ;
-  * il prouve que le plafond MASQUAIT le latch du §4 (chestL pénétration 0.0003 avec, 0.4924 sans) ;
-  * il chiffre exactement ce que le plafond coûte en mouvement, ce qui n'avait jamais été fait.
-Et il redit où est le vrai travail : **ce n'est pas le plafond qu'il faut retirer, c'est l'excursion
-qu'il faut empêcher d'y arriver.** Le §8 donne la forme et les nombres.
+CE QUI RESTE FAUX, inchangé et non résolu : la déviation ne revient pas à zéro au repos —
+0.0272 (lBoob) et 0.0219 (rBoob), là où sa §9 exige « the original authored standing shape shall be
+restored exactly ». Défaut ouvert depuis le cycle précédent.
 
 
-6. L'INSTRUMENT, ET SON CONTRÔLE POSITIF
-=========================================
-`*phys-la*` est un MODULE (`atan2` avec `sn ≥ 0`). Le signe perdu, un mouvement PLAN y montre une
-période deux fois trop courte pendant qu'un mouvement qui PRÉCESSE y montre la bonne — et les deux
-rendent la même colonne de chiffres. C'est ce qui a produit successivement « aucun rebond »,
-« rebond de 4.7 % » et « décroissance à quantité constante » **à partir de la même trace**.
-
-DEUX LIGNES NEUVES, publiées dans la seule fenêtre où le repère monde est immobile
-(`physroom-hold` fige position, orientation et animation) :
-  * `PHYSRING3 c f l x y z` — le vecteur `u_courant − u_modèle`, les deux unitaires depuis la MÊME
-    attache. NATURE : un vecteur ; norme = `2 sin(theta/2)`, direction = la phase. REPÈRE : monde,
-    immobile dans cette fenêtre seulement. LECTURE HORS DÉFAUT : (0,0,0) exactement. INSTANTANÉ,
-    écrasé chaque frame — un maximum courant ne peut pas porter une phase.
-  * `PHYSRINGS c f l a0 a1` — le même angle aux deux étages du solveur, par frame.
-
-CONTRÔLE POSITIF DE L'INSTRUMENT LUI-MÊME. Le lecteur (`.autoport/physics_ringdown.py`) a été passé
-sur deux séries synthétiques :
-  * une récurrence de `zeta` CONNU (0.35) : il rend **zeta 0.366, rebond 29.1 %** pour 29.4 %
-    théoriques, `r²(fraction) = 1.000` -> classée « FRACTION constante » ;
-  * un drain LINÉAIRE pur : `r²(quantité) = 1.000` contre `r²(fraction) = 0.849` -> classée
-    « QUANTITÉ constante par frame ».
-Il sait donc séparer les deux hypothèses. **Et il a été corrigé pendant ce contrôle** : la première
-version soustrayait la MOYENNE de la série et lisait `zeta = 0.062` sur une série dont zeta VAUT
-0.35. Sans le contrôle positif, ce chiffre serait dans ce rapport.
-
-
-7. TAILLE — PREMIÈRE BAISSE APRÈS CINQ HAUSSES, ET ELLE EST PROUVÉE INERTE
-===========================================================================
-    4525 -> 4622 -> 4596 -> 4651 -> 4767 -> **4680** lignes   (plafond gelé : 4800)
-
-**−87 sur le cycle**, et 120 sous le plafond. Décomposition : +44 (les deux instruments et leur
-déclaration de NATURE/REPÈRE que le préflight METRIC-FRAME exige) −6 (`*phys-o1x/o1y/o1z*` :
-déclarés, remis à zéro, **relus nulle part** — 6 occurrences dans tout `goal_src`, toutes des
-écritures) −125 (quatre pierres tombales compressées : le mur d'excursion 51→17, l'ancien modèle
-d'écart 67→21, `phys-retreat-chain` 32→6 et 22→10).
-
-**PREUVE QUE CES 125 LIGNES NE CHANGENT RIEN D'EXÉCUTABLE, et elle ne coûte pas une course :**
-`GAME.CGO` recompilé après le resserrage est **`5d7885dfeb4f0253d8f8e27c304c0f49`**, c'est-à-dire
-l'empreinte octet pour octet de la course RUN13. Un tableau de salle n'aurait pas dit plus, et il
-aurait coûté dix minutes.
-
-Les pierres tombales sont RESSERRÉES, pas supprimées : chacune garde en 5 à 20 lignes ce qui a été
-retiré, pourquoi, et le chiffre qui l'a condamné — c'est ce qui empêche un cycle suivant de le
-remettre. Ce qui part est la narration, pas la leçon.
-
-IL RESTE ~525 LIGNES MESURÉES MORTES, purement soustractives, pour le cycle suivant :
-
-    ~200  le mécanisme de FOURREAU (`shell`) est structurellement mort — et le §12 montre que la
-          course le CONFIRME, pas seulement le code : `ROOM-SHELL-CONTROL: armed=0.0000
-          disarmed=0.0000`, un contrôle positif qui ne peut plus tirer ;
-    ~150  SPEC 18 (peau skinnée) : mesure pure, aucun lien déplacé, armée par la salle seule ;
-     ~15  quatre compteurs de limiteurs JAMAIS incrémentés (`retreat_n`, `retfb_n`, `sphere_n`,
-          `*phys-dg*` 1 et 16) : ils publient des zéros structurels sans contrôle positif possible ;
-    ~160  de narration restante décrivant du code déjà supprimé.
-Ces quatre-là changent le CGO, donc chacun demande une course pour prouver son innocuité — c'est
-pour ça qu'ils ne sont pas dans ce diff, où le resserrage de commentaires se prouve en une
-empreinte.
-
-
-8. CE QUI N'EST PAS FAIT, ET LES NOMBRES POUR LE DÉCIDER
-=========================================================
-8a. SPEC 21 SOUS SA FORME CORRECTE, ET POURQUOI ELLE EXIGE D'ABORD SPEC 37
-----------------------------------------------------------------------------
-Écrêter l'ÉTAT chaque frame borne l'excursion mais fige la poitrine à son plafond sous tout
-pilotage fort — c'est ce que le tableau du §5 montre. La forme qui satisfait la spec **sans rien
-retirer** est une FORCE QUI RAIDIT : `D → D_max·tanh(D/D_max)` est exactement la réponse statique
-d'un ressort dont la loi durcit, et un ressort ne retire pas d'énergie, il la rend. Forme retenue,
-sans transcendante : identité stricte sous `0.42 B0`, puis `F = k·(Dn + cp·x/(1−x))` avec
-`x = (D − Dn)/cp` et `cp = 0.08 B0` — dérivée continue au genou (`d/dx = 1` en 0) et asymptote
-exacte en `0.50 B0`, le `HardMax` de SPEC 22.
-
-Simulé hors-jeu sur le maillon de la poitrine, excursion d'ÉQUILIBRE en unités de `B0` :
-
-    accélération   sans raidissement   avec, 1 pas   2 sous-pas   4 sous-pas
-      0.5 g            0.098              0.098        0.098        0.098    <- identité stricte
-      1   g            0.194              0.194        0.194        0.194    <- identité stricte
-      2   g            0.373              0.373        0.373        0.373    <- identité stricte
-      3   g            0.527  DÉPASSE     0.468        0.468        0.468
-      5   g            0.758  DÉPASSE     0.758  X     0.488        0.488
-      8.6 g            0.991  DÉPASSE     0.991  X     0.991  X     0.495
-                                                        plafond SPEC 22 = 0.50 B0
-
-Deux résultats, et le second est le plus utile :
-  * **sous 2 g le raidissement est l'identité au bit près** — le régime « poitrine sur mouvements
-    subtils : toujours OK », que l'owner a validé, est préservé PAR CONSTRUCTION et non par réglage ;
-  * **à un seul pas de temps il ne tient que jusqu'à ~3 g.** Au-delà, la raideur nécessaire dépasse
-    la limite de stabilité d'un intégrateur explicite à 60 Hz (`k2 < 2 + kd`) ; bornée, elle ne fait
-    plus rien. **Il faut 2 sous-pas pour tenir 5 g et 4 pour tenir 8.6 g.**
-Or SPEC 37 demande exactement « ≥ 120 Hz effectifs, 2 sous-pas à 60 FPS, 3–4 sur impact ». **Les
-deux sections de sa spec sont couplées et ses deux nombres se répondent** : sans les sous-pas, sa
-saturation n'est pas réalisable ; avec eux, elle l'est exactement. Aucune des deux n'est
-implémentée (le moteur le dit déjà de lui-même : « SPEC 37 — PAS FAITE »).
-Pas fait ce cycle parce que les sous-pas obligent à séparer, dans la boucle d'intégration, ce qui
-tourne une fois par frame (l'historique de la pose d'auteur, le stimulus) de ce qui tourne par
-sous-pas. C'est un remaniement du bloc le plus délicat du moteur, et je ne le pose pas dans le même
-diff qu'autre chose.
-
-8b. RESTENT OUVERTS, AVEC LEUR CHIFFRE
-----------------------------------------
-  * l'écart résiduel de 2.95 / 2.41 degrés au repos (SPEC 9 exige 0) — défaut NEUF de ce cycle ;
-  * le REMAP PAR NOM des canaux d'animation quand l'art-group diffère de celui du porteur (§4 bis) :
-    tant qu'il n'est pas fait, 23 des 31 fenêtres du tableau mesurent la poitrine pilotée par un
-    auriculaire ou une branche de lunettes, et aucun maximum par chaîne n'est croyable ;
-  * l'asymétrie de contacts 46x entre `chestL` et `chestR` (§4), dont les trois causes évidentes
-    sont réfutées et qui reste sans mécanisme ;
-  * le puits de collision de la poitrine (§3), non corrigé faute de la mesure par volume et par frame ;
-  * les 7 défauts CHEVEUX de la liste `OPEN` : ce cycle ne les touche pas, et les 7 chaînes de
-    cheveux sont **bit-identiques** entre l'état d'entrée et l'état livré (§9).
-
-
-9. NON-RÉGRESSION — L'ÉTAT LIVRÉ EST L'ÉTAT D'ENTRÉE, AU BIT PRÈS
-==================================================================
-Le seul changement de code qui subsiste dans l'état livré est l'INSTRUMENT (deux tableaux de mesure,
-deux lignes de trace, une remise à zéro par frame) et le retrait de trois tableaux morts. Aucun
-terme du solveur n'a changé : `git diff` du moteur contre l'état d'entrée ne contient que ça.
-Vérifié par la course RUN13 : `worst tipvar` **identique au bit près sur les 22 chaînes**, ainsi que
-`rootdev`, `meshpen`, `jump`, `ROOM-IDLE`, `ROOM-STRETCH` et `ROOM-POSCONTROL`.
-
-Gates aval, vérifiées sur une COPIE du validateur (l'original n'est pas touché — règle 5) :
+6. NON-RÉGRESSION
+==================
     ROOM-NOPLAYER absent · ROOM-ACTORS 1 subject=keira-hd · ROOM-ANIMS 31/31 raw=31 skipped=0
-    ROOM-IDLE maxdev 0.0558 · ROOM-AUTHORED chains=8 respected=8 perchain=yes
-    ROOM-STRETCH max 0.0003 (plafond 3 %) · ROOM-POSCONTROL injections=2880 armé 0.4546 /
-    désarmé 0.6642 · PHYSFAIL 0 · aucun NaN · MOVE aucune chaîne inerte · TUNING tous les réglages
-    de l'owner présents dans le fichier livré.
-UNE GATE AVAL ÉCHOUE, ET ELLE ÉCHOUAIT DÉJÀ À L'IDENTIQUE AVANT CE CYCLE : `COLLIDE` sur
-« cheveux/mèches vs crâne », pénétration max **0.5866** (`lbang`) — même valeur au dix-millième dans
-l'état d'entrée. Ce n'est pas une régression de ce cycle ; c'est un défaut ouvert que la porte
-humaine masquait, puisqu'elle sort avant.
+    ROOM-IDLE maxdev 0.0601 (0.0558) · ROOM-AUTHORED chains=8 respected=8 perchain=yes
+    ROOM-STRETCH max 0.0003 (plafond 3 %) · ROOM-POSCONTROL injections=2880 armé 0.4548 /
+    désarmé 0.7158 · PHYSFAIL 0 · aucun NaN · aucune chaîne inerte
+Taille du moteur : **4728 → 4787** lignes (plafond gelé 4800), soit **+59** et 13 sous le plafond.
+Décomposition : +164 pour les deux mécanismes de sa spec et leur justification, −105 en resserrant
+la narration devenue fausse (le bloc qui plaidait pour l'écrêtage positionnel, réduit à une pierre
+tombale de 33 lignes qui garde l'A/B et la raison de garder le filet ; et la dérivation de `zeta_l`,
+ramenée de 37 à 19 lignes sans perdre sa leçon). La marge restante est mince : le cycle suivant
+devra retirer une des ~525 lignes mesurées mortes (le fourreau `shell`, ~200 lignes, dont le
+contrôle positif ne peut plus tirer) avant d'ajouter quoi que ce soit.
 
 
-10. SUPPRESSEURS
-=================
+7. UN DÉFAUT D'INSTRUMENT PLUS GRAND QUE CE QU'ON CROYAIT : 15 CHAÎNES SUR 22, PAS LA POITRINE
+===============================================================================================
+Le cycle précédent avait établi que 23 des 31 animations écrivent le mauvais os dans les joints de
+poitrine (`do-joint-math!` applique les canaux PAR POSITION, les six rigs divergent à partir de
+l'index 28). **La mesure de ce cycle l'étend et la précise, et c'est bien pire :**
+
+  * le nombre de canaux lus vient du **PORTEUR** (`process-drawable.gc:247`), jamais de
+    l'animation — donc 94 `transformq` quoi qu'il arrive ;
+  * `init-frame!` (`joint.gc:163-175`) met tout à **zéro** : les joints au-delà de l'animation ne
+    « gardent pas leur pose précédente » comme l'affirmait le commentaire de `phys-room.gc:1615-1623`
+    — ils reçoivent un quaternion NUL, puis `quaternion-normalize!` (`joint.gc:386`). Ce commentaire
+    citait par ailleurs `joint.gc:940-955`, qui est dans une **branche morte**
+    (`*use-new-decompressor*` vaut `#t`, `joint.gc:19`) ;
+  * **17 des 46 maillons de chaînes — soit 15 chaînes sur 22 — ont leur joint pilote dans la zone
+    divergente** : `backHair2`, `lBoob`, `rBoob`, `gogglesBase/Mid`, `lTopStrap2`, `rTopStrap1/2`,
+    `lBotStrap1/2`, `rBotStrap1/2`, `lKneeFlap`, `rKneeFlap`, `LpantFlap`, `RpantFlap`, `RtoeStrap`.
+    Asymétrie utile : `LtoeStrap` (pilote 23) est dans la zone sûre, `RtoeStrap` (pilote 86) non —
+    de quoi expliquer une part des asymétries gauche/droite qu'on cherchait dans les données.
+
+**Tout maximum par chaîne de ces 15 chaînes, tout plancher `motion-floor.txt`, et toute mesure de
+pénétration agrègent 23 fenêtres où le pilote est un auriculaire ou une branche de lunettes.**
+C'est pour ça que le §2 de ce rapport écarte ces 23 animations au lieu de se contenter de comparer
+les deux courses entre elles.
+
+LE CORRECTIF EST ÉTABLI, CHIFFRÉ, ET IL TIENT DANS `phys-room.gc` SEUL (~45 à 70 lignes) :
+  * point d'accroche : `prebind-function` (`joint-h.gc:60`), appelée depuis
+    `process-drawable.gc:254-255` **entre la décompression et la lecture joint par joint** — donc
+    exactement là où une permutation de positions de canaux doit s'appliquer ; gabarit vivant :
+    `lurkerworm.gc:192-199` ;
+  * nom → index à l'exécution : `lookup-idx-of-art` (`joint.gc:733-739`), avec `#f` comme type
+    (sinon la branche `:659` saute le nom de l'art-group, ce qui n'a pas de sens pour un joint) ;
+  * chaque art-group porte son `art-joint-geo` à l'indice 0 (`art-elts.gc:20, 30, 47, 52`), et
+    `initialize-skeleton` (`process-drawable.gc:352-354`) valide ce contrat : les noms sont
+    disponibles à l'exécution, sans rien ripper ;
+  * les noms sont **exactement emboîtés** : aucun rig d'animation n'a un nom absent du porteur ;
+    seuls `torch` et `torchTIP` du porteur n'ont pas de source sur les trois rigs à 94 joints, et
+    aucun des deux ne porte de chaîne ;
+  * contrôle positif qui DISCRIMINE : `assistant` **et** `assistant-village3` ont des tables
+    strictement identiques au porteur, donc le compteur de permutation doit valoir **0** sur ces
+    deux-là et non nul sur village2 / firecanyon / lavatube. Un compteur qui tire partout ne prouve
+    rien.
+L'option « spawner le bon art-group » est **écartée, avec sa raison** : le compagnon HD se lie par
+le NOM DU MERC du pilote (`hd-desired-entry-for-mgeo`, `jak-hd.gc:430-434`, et
+`*hd-driver-mgeo-names*` ne contient que `"assistant-lod0"`), et `*keira-hd->driver-joint*` est
+généré contre l'ordre 96 joints d'`assistant-lod0` : il faudrait 5 entrées HD neuves, 20 tableaux
+statiques régénérés et la refonte du chemin de liaison HD — de portée « tout le jeu » pour un
+défaut d'instrument.
+
+
+8. CE QUI N'EST PAS FAIT, ET POURQUOI — AUCUN DE-SCOPE SILENCIEUX
+==================================================================
+  * **Le remap par nom lui-même** : conception, point d'accroche, fonction de recherche, contrôle
+    positif et chiffrage sont ci-dessus ; la pose est engagée en fin de cycle et son état est
+    rapporté au §9. Tant qu'il n'est pas là, **aucun maximum par chaîne des 15 chaînes touchées
+    n'est croyable**, et c'est le premier travail du cycle suivant si le §9 dit qu'il n'a pas tenu.
+  * **La fenêtre de repos est trop courte pour la pointe des cheveux.** `PHYSROOM-IDLES = 150`
+    (`phys-room.gc:130`) donne 1.16 à 1.22 période à la pointe, et la décroissance à 10 % s'y fait
+    en 0.46 période : on n'y ajuste pas une enveloppe. Les colonnes « rebond > 100 % » et
+    « r² = 0.26 » de la pointe, sur lesquelles le cycle précédent a fondé son diagnostic de
+    couplage, sont **sous-conditionnées**. Correctif : porter `PHYSROOM-IDLES` à ~380 (3 périodes à
+    la pointe). C'est une constante, ça ne touche pas le solveur, et ça ne coûte que ~3 s de course.
+    Non fait ici pour ne pas changer l'instrument dans la course qui mesure le solveur.
+  * **Le résidu de 0.0272 / 0.0219 au repos** (sa §9 exige 0) : ouvert, non traité.
+  * **Les 7 défauts CHEVEUX de la liste `OPEN`** : ce cycle ne les touche pas. Le raidissement est
+    borné à la famille A à un maillon, et la spec ne donne de `MaxApexDisplacement` que pour le
+    sein — reprendre 0.50 pour une mèche serait un nombre choisi par moi.
+  * **Le coût device des sous-pas** n'est pas mesuré (course x86 seulement). L'intégration double
+    ou quadruple ; les 15 balayages de collision par frame, eux, sont inchangés et dominent. À
+    confirmer sur le Redmi au prochain paquet.
+
+
+9. SUPPRESSEURS
+================
 SUPPRESSORS: 2
 SUPPRESSOR: hair-bend-attenuation removed-motion=775373.1
-   L'atténuation d'angle des cheveux, demandée par l'owner (11e passe) et bornée par les données à
-   `maxangle > 0`. Degrés cumulés retirés sur la course, par chaîne : backhair 214781.9 ·
-   lmidhair 243795.6 · rmidhair 198355.0 · rbang 59880.0 · lbang 58560.6. Hors de ce périmètre le
-   compteur vaut 0.0 sur les 17 autres chaînes — « juste sur les mèches » rendu vérifiable, et ce
-   n'est pas un zéro structurel puisque les mêmes compteurs tirent sur les cheveux dans la MÊME
-   course.
-SUPPRESSOR: spec21-apex-saturation removed-motion=2936929.5
-   La saturation d'excursion SPEC 21/22, remise après l'A/B du §5. Prix : 2 936 929.5 u sur la
-   course (`PHYSLIM4 sat_n=8838`), et ce qu'elle protège est chiffré en face — 0.49 m de traversée
-   du torse et un apex à 2.8x le maximum dur de l'owner.
-Le mur d'excursion (`raddrop`) vaut 0 sur les 22 chaînes et le recul 0 : ils ne mordent pas.
+   L'atténuation d'angle des cheveux, demandée par l'owner (11e passe), bornée par les données à
+   `maxangle > 0`. Le compteur vaut 0.0 sur les 17 autres chaînes : « juste sur les mèches » reste
+   vérifiable, et ce n'est pas un zéro structurel puisque les mêmes compteurs tirent sur les
+   cheveux dans la MÊME course.
+SUPPRESSOR: spec21-apex-net removed-motion=2672598.2
+   Le FILET positionnel, gardé derrière le ressort. Il mord 83 % moins souvent (8838 → 1493), et ce
+   qu'il protège est chiffré en face : sans aucun plafond, 0.49 m de traversée du torse et un apex
+   à 2.8× le maximum dur de l'owner.
+Le ressort qui raidit N'EST PAS dans cette liste et n'y a pas sa place : `stif_n = 15709` compte
+des sous-pas, pas du mouvement retiré. Une force rend l'énergie ; c'est toute la différence avec le
+bloc précédent, et c'est ce que ce cycle a changé.
 
 
-11. CE QUE L'OWNER DOIT REGARDER SUR CE BUILD
+10. CE QUE L'OWNER DOIT REGARDER SUR CE BUILD
 ==============================================
-**Rien n'a changé dans la physique de ce build.** Le seul ajout est de la mesure. Si quelque chose a
-bougé à l'écran par rapport au build précédent, alors l'APK et le pack ne sont pas de la même paire,
-et c'est ça qu'il faut dire — c'est la seule information utile que ce build puisse donner de plus.
-Ce que ce cycle a produit est un diagnostic, pas un correctif : le §4 bis montre que 23 des 31
-fenêtres de mesure de la salle sont corrompues (sans que le JEU le soit), le §13 donne enfin un
-chiffre aux sept défauts cheveux, et le §8 donne la forme et les nombres du correctif suivant.
-
-
-12. UNE CONDITION DE RETRAIT ÉTAIT PRÉ-ENREGISTRÉE DEPUIS UN JOUR ET PERSONNE NE L'AVAIT ÉVALUÉE
-==================================================================================================
-`recharged_assets/keira-owner-tuning.txt` porte deux lignes `chain pantflapL/R shell=0` — le
-fourreau du pantacourt, désarmé — et, au-dessus, une **condition de retrait écrite AVANT la course**
-qui les rendait provisoires : « il n'est conservé que si la nouvelle course montre les TROIS à la
-fois : (1) `meshpen` reste à 0 sur toutes les chaînes ; (2) `ROOM-SIDE crossing` ne monte pas ;
-(3) le plancher FLOOR-WEAK de pantflapL/R remonte au-dessus de 70 %. Si l'un des trois manque, ces
-deux lignes sont RETIRÉES. » Aucune course ne l'avait relue depuis. Je l'évalue :
-
-    clause 1 : ÉCHOUE aujourd'hui — pantflapL 0.3277 m, pantflapR 0.3294 m.
-               MAIS L'ÉCHEC N'EST PAS ATTRIBUABLE AU FOURREAU. Chronologie des tableaux archivés,
-               colonne `worst chain=pantflapL` :
-                 08-13 16:36  O-FREQPASS-SHELL0   meshpen=0.0000  tipvar=0.2630  <- shell=0 ACTIF
-                 08-13 22:29  X-PRE-SHAKE         meshpen=0.0000  tipvar=0.2630
-                 08-13 23:41  BEFORE-drive        meshpen=0.3294  tipvar=0.7973  <- la bascule
-               `shell=0` était actif SEPT HEURES avant la bascule, avec `meshpen` à zéro. Ce qui a
-               changé entre 22:29 et 23:41 est la directive owner de 22:40 — le passage du modèle
-               d'ÉCART au modèle de PARTICULE — qui a triplé le mouvement du pan (0.2630 -> 0.7973)
-               et, avec lui, sa pénétration.
-    clause 2 : crossing=38712 sur 19/22 chaînes, dans la bande ouverte par le correctif du domaine
-               du veto d'azimut (7775 -> 39772), pas par le fourreau.
-    clause 3 : tipvar 0.8021 / 0.9380 contre des planchers de 0.2922 / 0.3017 — largement au-dessus.
-
-**Verdict : le bloc reste**, et la raison est écrite dans le fichier de réglages lui-même pour que
-le prochain cycle n'ait pas à refaire ce travail. Remettre le fourreau coûterait 84 % du mouvement
-faible du pan (mesure du bloc) sans fermer `pant-calf`, dont la cause racine est ailleurs et déjà
-mesurée : le pan est un TUBE dont l'unique joint est SUR L'AXE, donc quand le joint sort d'un côté
-la moitié du tube entre dans la jambe de l'autre. **Aucune contrainte posée sur ce joint ne peut
-représenter ça — c'est une reprise de RIG**, et c'est pourquoi trois cycles de réglage n'ont rien
-donné dessus.
-
-CE QUI EST QUAND MÊME UN DÉFAUT, ET QUI SORT DE CETTE VÉRIFICATION : avec `shell=0` sur les deux
-SEULES chaînes qui déclarent la clé, **le contrôle positif du fourreau ne peut plus tirer** —
-`ROOM-SHELL-CONTROL: armed=0.0000 disarmed=0.0000`, `ROOM-SHELL-FIRE out=0 inward=0` des deux côtés.
-Les phases SHELLOFF/SHELLON de la salle et les ~200 lignes de fourreau du moteur mesurent un domaine
-VIDE. Ce n'est pas encore un faux vert — personne ne lit ces zéros comme une preuve — mais c'en
-serait un le jour où quelqu'un le ferait. C'est noté dans le fichier de réglages et c'est le premier
-des ~525 lignes à retirer au §7.
-
-Le fichier livré est inchangé : `apply_owner_tuning.py` rejoué, `physics_chains.txt` **byte-identique**
-(29 chaînes, 2 colliders appliqués, `diff` vide). Mon ajout est du commentaire dans le registre.
-
-
-13. LES SEPT DÉFAUTS CHEVEUX ONT ENFIN UN CHIFFRE, ET IL EST MONOTONE LE LONG DE LA CHAÎNE
-============================================================================================
-Le nouvel instrument s'applique aux 22 chaînes, pas seulement à la poitrine. Passé sur la course
-livrée, il donne pour la première fois une grandeur qui SÉPARE « les réglages sont faux » de « le
-solveur ne les délivre pas ». Le test : comparer le taux de décroissance PAR FRAME réellement obtenu
-au taux que le paramètre `damping` prescrit. Pour la récurrence livrée, `|z|² = 1 − damping`, donc
-`sigma_prescrit = −½·ln(1 − damping)`, **le même pour tous les maillons d'une chaîne** ; et
-`sigma_mesuré = zeta·omega/√(1−zeta²)` se lit sur la fenêtre de repos.
-
-    chaîne      maillon    T (fr)   zeta   sigma mes.  sigma prescrit   ratio   résidu au repos
-    earL           1        14.0   0.374     0.1810       0.1783        1.01        0.2 deg
-    earR           1        14.0   0.378     0.1832       0.1783        1.03        0.1
-    chestR         0        26.0   0.373     0.0972       0.0962        1.01        1.2
-    chestL         0        29.0   0.356     0.0825       0.0920        0.90        1.5
-    ---------------------------------------------------------------------------------------
-    backhair       1        39.0   0.249     0.0414       0.0408        1.01        3.6
-    backhair       2        41.2   0.143     0.0220       0.0408        0.54        6.0
-    backhair       3        61.0   0.161     0.0168       0.0408      **0.41**     15.9
-    lbang          1        51.3   0.313     0.0403       0.0408        0.99        2.0
-    lbang          2        57.3   0.301     0.0346       0.0408        0.85        1.5
-    lbang          3        68.0   0.253     0.0242       0.0408      **0.59**      8.5
-    rbang          1        54.7   0.351     0.0431       0.0408        1.06        2.4
-    rbang          2        54.7   0.280     0.0335       0.0408        0.82        1.6
-    rbang          3        60.0   0.116     0.0122       0.0408      **0.30**      4.6
-    lmidhair       1        54.0   0.326     0.0401       0.0408        0.98        3.4
-    lmidhair       2        55.5   0.254     0.0297       0.0408        0.73        6.4
-    lmidhair       3        63.5   0.128     0.0128       0.0408      **0.31**     19.1
-    rmidhair       1        58.0   0.333     0.0383       0.0408        0.94        2.4
-    rmidhair       2        60.0   0.259     0.0281       0.0408        0.69        4.5
-    rmidhair       3        59.5   0.141     0.0150       0.0408      **0.37**     21.5
-
-**TROIS FAITS, ET AUCUN N'EST UN RÉGLAGE.**
-
-**(a) Les paramètres sont bons, et le premier maillon libre le prouve.** Ratio 0.94 à 1.06 sur les
-CINQ chaînes de cheveux, et 0.90 à 1.03 sur les quatre chaînes à un seul maillon libre. Le solveur
-délivre exactement l'amortissement demandé — là où il n'y a rien derrière.
-
-**(b) Il ne le délivre plus vers la pointe : 0.30 à 0.59, monotone, sur les cinq chaînes.** La
-pointe s'amortit deux à trois fois plus lentement que son propre paramètre le prescrit. Ce n'est pas
-une valeur mal choisie : c'est la même valeur qui arrive entière au maillon 1 et au tiers au
-maillon 3. **La pointe reçoit de l'énergie de son parent** — et l'instrument le dit ailleurs aussi :
-le rebond dépasse 100 % du maximum précédent sur `backhair` l2 (125.9 %), `rbang` l3 (136.9 %),
-`lmidhair` l2/l3 (89.7 / 80.6 %) et `rmidhair` l3 (254.4 %), ce qu'une décroissance libre ne peut pas
-faire. Et le `r²(fraction)` s'effondre exactement là (0.26 sur `rmidhair` l3, 0.54 sur `rbang` l3,
-0.63 sur `backhair` l3) : **la pointe n'a pas d'enveloppe de décroissance libre du tout.**
-
-**(c) Et elle ne revient pas.** Le résidu au repos suit le même gradient : 2 à 3.6 degrés au
-maillon 1, 1.5 à 6.4 au maillon 2, **4.6 à 21.5 degrés à la pointe** — là où SPEC 9 exige « the
-original authored standing shape shall be restored exactly ». `rmidhair` termine la fenêtre de repos
-à 21.5 degrés de la pose d'auteur, immobile.
-
-**CE QUE ÇA FERME COMME QUESTION.** Les quatre mots de l'owner sur les cheveux — « pudding », « ça
-suit aucune logique », « hystérésis pour TOUS les cheveux », « pas de masse » — décrivent tous une
-FORME, et aucune mesure ne les distinguait jusqu'ici. Ils ont maintenant chacun un nombre :
-« hystérésis » = le résidu de la colonne de droite ; « pudding / aucune logique » = un `r²` de 0.26
-sur une décroissance censée être exponentielle ; « pas de masse » = une pointe qui reçoit plus
-d'énergie qu'elle n'en dissipe (rebond > 100 %). **Et les trois pointent le même endroit : le
-couplage entre maillons, pas les paramètres.**
-
-**CE QUE JE NE FAIS PAS, ET POURQUOI.** Je ne touche à aucun `damping`. Monter l'amortissement de la
-pointe pour compenser un ratio de 0.31 serait ajuster un paramètre pour masquer un transfert
-d'énergie — exactement `never-fit-a-parameter-to-the-instrument`. La grandeur à corriger est le
-couplage ; la mesure qui le désignera est la même que pour la poitrine (§3) : `a0` contre `a1` par
-frame SUR LES MAILLONS PROFONDS, pour voir si le transfert vient de l'intégration ou de la boucle de
-contraintes. Les deux lignes sont déjà émises par ce build : le prochain cycle n'a plus qu'à lire.
+La poitrine, et seulement elle — rien d'autre n'a changé de comportement.
+  1. **Mouvements subtils et inclinaison** (elle se penche pour souder) : ça doit être au moins
+     aussi bon qu'avant, la mesure dit +9 à +13 %. Si c'est moins bon, c'est la mesure qui a tort et
+     il faut le dire.
+  2. **Mouvements brusques** : c'est là que le changement est voulu. L'excursion ne sort plus de
+     l'enveloppe qu'il a écrite lui-même dans sa §22, et l'amplitude y est réduite de 26 à 42 %.
+     La question qui compte est la sienne : est-ce que ça ressemble enfin à de la chair ferme, ou
+     est-ce que c'est devenu trop sage ?
+  3. **Les lunettes** contre les seins : la pénétration mesurée est divisée par cinq.
