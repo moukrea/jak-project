@@ -2058,6 +2058,34 @@
 ;; est defini comme la profondeur du lien A CETTE POSE. Les deux contraintes cessent donc de se
 ;; contredire : la longueur devient dure sans que la collision cede quoi que ce soit.
 ;; ------------------------------------------------------------------------------------------------
+(defun phys-len-project! ((skel skeleton) (scl int) (l int) (kk int) (kp int) (nbone int)
+                          (pt vector))
+  "RAMENE LE LIEN SUR LA SPHERE DE SON ATTACHE — ROTATION, PAS TRANSLATION. `want` est la longueur
+   que le MODELE donne a cet os ; un os que le modele ne donne pas (`want` ~ 0) n'a pas de sphere et
+   garde son comportement en translation. `pt` est en coordonnees de JOINT, pas en centre de volume.
+   DEUX APPELANTS depuis ce cycle : c'est le correctif du residu, voir la note au balayage."
+  (when (and (>= kp 0) (< (+ kp 1) nbone))
+    (let* ((bx (if (> l 0) (-> *phys-px* (- scl 1)) (-> skel bones (+ kp 1) transform vector 3 x)))
+           (by (if (> l 0) (-> *phys-py* (- scl 1)) (-> skel bones (+ kp 1) transform vector 3 y)))
+           (bz (if (> l 0) (-> *phys-pz* (- scl 1)) (-> skel bones (+ kp 1) transform vector 3 z)))
+           (mx (- (-> skel bones (+ kk 1) transform vector 3 x)
+                  (-> skel bones (+ kp 1) transform vector 3 x)))
+           (my (- (-> skel bones (+ kk 1) transform vector 3 y)
+                  (-> skel bones (+ kp 1) transform vector 3 y)))
+           (mz (- (-> skel bones (+ kk 1) transform vector 3 z)
+                  (-> skel bones (+ kp 1) transform vector 3 z)))
+           (want (sqrtf (+ (* mx mx) (+ (* my my) (* mz mz)))))
+           (ux (- (-> pt x) bx))
+           (uy (- (-> pt y) by))
+           (uz (- (-> pt z) bz))
+           (ul (sqrtf (+ (* ux ux) (+ (* uy uy) (* uz uz))))))
+      (when (and (> want 0.01) (> ul 0.0001))
+        (let ((s (/ want ul)))
+          (set! (-> pt x) (+ bx (* ux s)))
+          (set! (-> pt y) (+ by (* uy s)))
+          (set! (-> pt z) (+ bz (* uz s)))))))
+  (none))
+
 (defun phys-collide-chain ((skel skeleton) (sc int) (n int) (rlk int) (nbone int)
                            (nco int) (margin float) (sweeps int))
   (let ((slot (/ sc PHYS-CHAINS))
@@ -2350,7 +2378,21 @@
                               (let ((cc (* dt0 (-> ub w))))
                                 (set! (-> pt x) (- (-> pt x) (* cc (-> ua x))))
                                 (set! (-> pt y) (- (-> pt y) (* cc (-> ua y))))
-                                (set! (-> pt z) (- (-> pt z) (* cc (-> ua z)))))))))))))))
+                                (set! (-> pt z) (- (-> pt z) (* cc (-> ua z))))))))))))))
+              ;; LA LONGUEUR, A CHAQUE BALAYAGE — le correctif du residu de penetration. Appliquee
+              ;; seulement APRES les `sweeps`, elle defaisait la part RADIALE de chaque poussee de
+              ;; profondeur sans jamais la retester contre le volume, et monter le nombre de tours
+              ;; n'y pouvait rien — chaque tour finissait pareil. Alternee DANS la boucle, c'est une
+              ;; projection alternee sur deux ensembles (sphere de l'attache, complementaire du
+              ;; volume) qui converge vers leur intersection des qu'elle est non vide. `pt` est ici
+              ;; le CENTRE DU VOLUME : on repasse en coordonnees de joint pour la reprojection.
+              (set! (-> pt x) (- (-> pt x) (-> offs x)))
+              (set! (-> pt y) (- (-> pt y) (-> offs y)))
+              (set! (-> pt z) (- (-> pt z) (-> offs z)))
+              (phys-len-project! skel scl l kk kp nbone pt)
+              (set! (-> pt x) (+ (-> pt x) (-> offs x)))
+              (set! (-> pt y) (+ (-> pt y) (-> offs y)))
+              (set! (-> pt z) (+ (-> pt z) (-> offs z))))
             ;; retour aux coordonnees du JOINT : le solveur, la contrainte de longueur et l'ecriture
             ;; dans le squelette raisonnent tous sur le joint, jamais sur le centre du volume.
             (set! (-> pt x) (- (-> pt x) (-> offs x)))
@@ -2426,31 +2468,9 @@
                   (set! (-> pt x) (- qx (-> offs x)))
                   (set! (-> pt y) (- qy (-> offs y)))
                   (set! (-> pt z) (- qz (-> offs z)))))
-              ;; --- (b) LA LONGUEUR. ROTATION, PAS TRANSLATION : le lien est ramene sur la sphere
-              ;; --- de l'attache. Un os que le modele ne donne pas (`want` ~ 0) n'a pas de sphere :
-              ;; --- il garde le comportement en translation, borne ailleurs par son propre rayon.
-              ;; --- C'est la DERNIERE operation de la boucle, donc du solveur : `ROOM-STRETCH` est
-              ;; --- exact par construction.
-              (when (and (>= kp 0) (< (+ kp 1) nbone))
-                (let* ((bx (if (> l 0) (-> *phys-px* (- scl 1)) (-> skel bones (+ kp 1) transform vector 3 x)))
-                       (by (if (> l 0) (-> *phys-py* (- scl 1)) (-> skel bones (+ kp 1) transform vector 3 y)))
-                       (bz (if (> l 0) (-> *phys-pz* (- scl 1)) (-> skel bones (+ kp 1) transform vector 3 z)))
-                       (mx (- (-> skel bones (+ kk 1) transform vector 3 x)
-                              (-> skel bones (+ kp 1) transform vector 3 x)))
-                       (my (- (-> skel bones (+ kk 1) transform vector 3 y)
-                              (-> skel bones (+ kp 1) transform vector 3 y)))
-                       (mz (- (-> skel bones (+ kk 1) transform vector 3 z)
-                              (-> skel bones (+ kp 1) transform vector 3 z)))
-                       (want (sqrtf (+ (* mx mx) (+ (* my my) (* mz mz)))))
-                       (ux (- (-> pt x) bx))
-                       (uy (- (-> pt y) by))
-                       (uz (- (-> pt z) bz))
-                       (ul (sqrtf (+ (* ux ux) (+ (* uy uy) (* uz uz))))))
-                  (when (and (> want 0.01) (> ul 0.0001))
-                    (let ((s (/ want ul)))
-                      (set! (-> pt x) (+ bx (* ux s)))
-                      (set! (-> pt y) (+ by (* uy s)))
-                      (set! (-> pt z) (+ bz (* uz s))))))))
+              ;; --- (b) LA LONGUEUR, et c'est la DERNIERE operation de la boucle, donc du
+              ;; --- solveur : `ROOM-STRETCH` reste exact par construction.
+              (phys-len-project! skel scl l kk kp nbone pt))
             (set! (-> *phys-px* scl) (-> pt x))
             (set! (-> *phys-py* scl) (-> pt y))
             (set! (-> *phys-pz* scl) (-> pt z)))))))
@@ -2969,16 +2989,12 @@
                   ;; LA GRAVITE, VUE DEPUIS LE REPERE DE L'ANCRE. Owner, 6e passe : « les seins
                   ;; n'ont pas l'air d'etre soumis a la gravite, aucun mouvement quand elle se
                   ;; penche en avant pour souder, pas coherent du tout. »
-                  ;;
-                  ;; Famille B (ce qui PEND) : gravite absolue. Elle deplace l'equilibre, ca pend
-                  ;; et ca reste pendu — c'est l'exception de SPEC 4.
-                  ;;
-                  ;; Famille A (ce qu'elle EST) : SPEC 4 exige qu'au repos on retrouve EXACTEMENT
-                  ;; la pose du modele, donc une gravite absolue est interdite — elle affaisserait
-                  ;; la poitrine en permanence. Mais la pose du modele est deja une pose SOUS
-                  ;; gravite : le sculpteur l'a modelee debout. Ce qui doit agir, c'est donc l'ECART
-                  ;; entre la gravite d'aujourd'hui et celle de la pose de reference, tous deux
-                  ;; exprimes dans le repere de l'ancre :
+                  ;; Famille B (ce qui PEND) : gravite absolue, elle deplace l'equilibre, ca pend et
+                  ;; ca reste pendu — l'exception de SPEC 4. Famille A (ce qu'elle EST) : SPEC 4
+                  ;; exige qu'au repos on retrouve EXACTEMENT la pose du modele, donc une gravite
+                  ;; absolue est interdite. Mais la pose du modele est deja une pose SOUS gravite (le
+                  ;; sculpteur l'a modelee debout) : ce qui doit agir est l'ECART entre la gravite
+                  ;; d'aujourd'hui et celle de la pose de reference, dans le repere de l'ancre :
                   ;;
                   ;;     g_effective = R_ancre^-1 . g_monde  -  g_ref
                   ;;
@@ -2991,15 +3007,12 @@
                   ;; tf=0.9876` — 20,77 % de g en permanence, quasi toute tangentielle, soit l'ecart
                   ;; de SPEC 9 (23.86 / 19.40 u pour 0.0000). Un HD retargete n'est pas lie debout :
                   ;; sa bind-pose porte l'orientation du DONNEUR, ~11,9 deg a cote (gn = 2 sin(t/2)).
-                  ;; `g_ref` est donc relevee a la premiere frame de la chaine (`warm = 0`), sur
-                  ;; `R_ancre^-1 . g` lui-meme, MEME FRAME que `*phys-ux*` : le terme moteur est nul
-                  ;; au bit pres (on soustrait un vecteur a lui-meme), la cible elastique est la pose
-                  ;; d'auteur, donc l'equilibre EST la pose d'auteur. `*phys-warm*` repart a 0 a
-                  ;; l'init du slot (:1041) : c'est le « rebase on teleport » de sa SPEC 7, pas un
-                  ;; etat qui vieillit. INCHANGE : buste incline -> `R_ancre` bouge, `g_ref` non,
-                  ;; l'ecart apparait et la poitrine tombe ; rotation autour de l'axe de la gravite
-                  ;; -> toujours invariante. Les deux termes ont enfin la meme unite PAR CONSTRUCTION
-                  ;; (meme `gl` renormalise a |g|), donc plus de (1 - echelle) x |g| residuel debout.
+                  ;; Relevee a la premiere frame (`warm = 0`), sur `R_ancre^-1 . g` lui-meme et a la
+                  ;; MEME frame que `*phys-ux*` : terme moteur nul au bit pres, cible elastique sur la
+                  ;; pose d'auteur, donc l'equilibre EST la pose d'auteur. `*phys-warm*` repart a 0 a
+                  ;; l'init du slot (:1041) — le « rebase on teleport » de sa SPEC 7, pas un etat qui
+                  ;; vieillit. INCHANGE : buste incline -> `R_ancre` bouge, `g_ref` non, l'ecart
+                  ;; apparait et la poitrine tombe ; rotation autour de l'axe de g -> invariante.
                   ;; ---------------------------------------------------------------------------
                   (set-vector! gl 0.0 gy 0.0 0.0)
                   (vector-rotate*! gl gl w2l)
@@ -3067,14 +3080,12 @@
                   ;; differentiel. C'est le fond du correctif du 22:40 — tant que l'equilibre etait
                   ;; la pose animee, la fleche gravitaire etait plafonnee a g/omega^2 (1.3 a 1.9 cm
                   ;; sur ces chaines) et aucun reglage de `gravity=` ne pouvait faire pendre une
-                  ;; meche. Le moteur de reference le disait deja de lui-meme
-                  ;; (physics-attic-2026-08-11, d99b193792 : « a stiff spring allows (g/omega^2) is
-                  ;; all gravity can ever buy »).
+                  ;; meche (physics-attic-2026-08-11, d99b193792 : « a stiff spring allows
+                  ;; (g/omega^2) is all gravity can ever buy »).
                   (vector-copy! gla gl)
                   (when (= (-> *phys-fam* sc) 1)
                     (let ((gb (* sc 3)))
-                      ;; RELEVE, une fois, a la premiere frame de la chaine — la pose debout
-                      ;; d'auteur. Meme instant que `*phys-ux*`, meme raison.
+                      ;; RELEVE une fois, premiere frame de la chaine : la pose debout d'auteur.
                       (when (zero? (-> *phys-warm* sc))
                         (set! (-> *phys-gref* (+ gb 0)) (-> gl x))
                         (set! (-> *phys-gref* (+ gb 1)) (-> gl y))
@@ -4673,20 +4684,9 @@
   (set! *phys-side-off* v)
   (none))
 
-;; --- LES DEUX CONTROLES DE CE CYCLE. Chacun REINJECTE son defaut quand on l'arme : c'est ce que
-;; --- « tout zero exige un controle positif qui a fait MONTER le compteur » demande.
-(defun phys-jacobi-off-set! ((v int))
-  "1 = les chaines relisent l'obstacle dans le squelette courant, donc chacune selon son rang
-   (Gauss-Seidel). Le saut d'une frame a l'autre doit alors REMONTER sur la chaine la plus tardive."
-  (set! *phys-jacobi-off* v)
-  (none))
-
-(defun phys-prio-off-set! ((v int))
-  "1 = tous les volumes poussent, comme avant la DECISION 1. `retreat` et les inversions
-   residuelles doivent alors REMONTER."
-  (set! *phys-prio-off* v)
-  (none))
-
+;; `phys-jacobi-off-set!` et `phys-prio-off-set!` retirees : ZERO site d'appel dans tout `goal_src`,
+;; leurs interrupteurs restaient donc a leur valeur livree (1 et 1, la priorite de volume que le
+;; superviseur a retiree sur mesure). Pas un controle perdu — il etait deja injoignable.
 (defun phys-prio-meas-set! ((v int))
   "1 = la passe de selection tourne POUR COMPTER, sans jamais ecarter un volume. C'est ce qui rend
    `ROOM-VOLPRIO` non vide pendant que la priorite reste desarmee. Le controle de cette mesure est
