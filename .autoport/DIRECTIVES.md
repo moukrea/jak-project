@@ -10,6 +10,37 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
+## 2026-08-14 03:10 — LE SOLVEUR N'EXECUTE PAS L'EQUATION QUE SES PARAMETRES DECRIVENT
+
+Mesure du worker à 02:42, série brute `PHYSRING c=7 l=0` (chestL, maillon libre) :
+
+    81.7  65.3  49.5  34.8  21.7  11.1  6.8
+    écarts successifs : 16.4  15.8  14.7  13.1
+
+**Une QUANTITÉ constante part chaque frame.** Un amortissement visqueux retirerait une FRACTION
+constante — l'exponentielle donnerait `23.3 16.7 11.0 6.1`. Et **aucun rebond** là où sa §26 en exige
+un à 31 %, alors que les paramètres livrés encodent `ζ = 0.3500` exact.
+
+**Donc le solveur ne résout pas `M·ẍ + C·ẋ + K·x = M·a_drive`.** Il draine linéairement. C'est un
+limiteur ou un écrêtage qui vide un montant fixe par frame, pas une force. Ça explique d'un coup
+« pas d'impression de masse », « pas de gravité » et « ça suit aucune logique » : la forme même de
+la décroissance n'est pas physique, quelles que soient les valeurs qu'on y met.
+
+**PRIORITÉ ABSOLUE : trouver et retirer le terme qui soustrait une quantité fixe par frame.** Tant
+qu'il est là, aucune calibration — pas même la §24 vérifiée à 2,300 Hz — ne peut produire le
+comportement décrit par la spec. Preuve de sortie exigée : la série `PHYSRING` doit montrer une
+décroissance à **fraction** constante et un rebond à ~31 % (§26).
+
+**RAPPEL DE TAILLE, troisième mesure consécutive à la hausse :**
+
+    4525 → 4622 → 4596 → 4651 → 4767 lignes
+
+Le moteur est revenu à son point de départ (4798 avant la bascule). La directive de 22:37 demandait
+une boucle **petite**. Chaque terme ajouté qui n'est pas dans `SPEC-breast-softbody.md` §23 doit être
+justifié par une mesure, ou retiré. Un solveur qui draine linéairement pendant qu'on lui ajoute des
+correctifs est exactement le ré-empilement qu'on a décidé d'arrêter.
+
+
 ## 2026-08-14 01:00 — MA GATE BLOQUAIT SA SPEC. LA SPEC GAGNE. ARBITRAGE DU SUPERVISEUR.
 
 Fait constaté dans `keira-owner-tuning.txt` :
