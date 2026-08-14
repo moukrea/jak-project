@@ -1714,57 +1714,23 @@
                      (set! (-> *phys-px* scl) (+ bx (* dx s)))
                      (set! (-> *phys-py* scl) (+ by (* dy s)))
                      (set! (-> *phys-pz* scl) (+ bz (* dz s))))))
-               ;; LE MUR D'EXCURSION EST RETIRE ICI, ET IL RESTE DANS L'AUTRE BRANCHE.
-               ;;
-               ;; CE QU'IL FAISAIT, MESURE. Il bornait |p - pose animee du lien| par `rmax`, le
-               ;; rayon que le mesh mesure pour ce lien. Mais dans CETTE branche la contrainte de
-               ;; longueur vient de forcer |p - attache| = `want` exactement : le lien est deja sur
-               ;; une sphere. Un plafond de corde sur une sphere N'EST PAS un budget de course,
-               ;; c'est une BUTEE ANGULAIRE, de valeur 2*asin(rmax / (2*want)) — et cette valeur est
-               ;; le rapport entre la DEMI-EPAISSEUR d'un morceau de geometrie et la LONGUEUR de son
-               ;; os, cote a cote par accident de proportions :
-               ;;     anklestrapL/R   225 / 2160 u  ->   5.96 deg      kneeflapL/R  244 / 328 u -> 43.7
-               ;;     toestrapL/R     188 /  700 u  ->  15.39 deg      chestL/R     656 / 977 u -> 39.2
-               ;; Trois instruments independants lisaient cette butee et pas de la physique :
-               ;; `tiprot` (l'angle REELLEMENT ecrit dans la 3x3) vaut son plafond a 0.03 deg pres
-               ;; sur les huit chaines, `shape` en est l'image exacte (`shape` = 2*sin(tiprot/2),
-               ;; verifie sur les 22 chaines) et `rootdev` vaut `rmax` a moins de 0.6 mm.
-               ;; PRIX, impute par chaine (`*phys-dg*` 15) sur la course complete : 293.66 m
-               ;; d'excursion retires, dont 167.9 m sur `kneeflapL` seule, en 4531 morsures de 9 mm
-               ;; chacune pour un plafond de 59.6 mm — un cinquieme de la course autorisee, des
-               ;; milliers de fois. Ce n'est pas un garde-fou, c'est le regime.
-               ;;
-               ;; POURQUOI IL DOIT PARTIR, ET CE N'EST PAS UN ARBITRAGE DE CONFORT. C'est un
-               ;; LIMITEUR D'ANGLE non declare, applique a des chaines qui ne sont pas des cheveux.
-               ;; L'owner a ferme ce perimetre lui-meme le 2026-08-11 a 22:35 : « l'attenuation pour
-               ;; eviter la geometrie extreme c'est juste sur les meches, pas le reste, ENCORE MOINS
-               ;; LES SEINS ». Le limiteur d'angle du moteur, c'est `phys-cap-ang!`, et il ne tire
-               ;; que sur `maxangle > 0`, c'est-a-dire les cheveux. Celui-ci tirait sur la poitrine,
-               ;; les languettes de genou et les sangles, sans etre declare nulle part.
-               ;; Il explique mot pour mot un defaut OUVERT : « les LANGUETTES au niveau des genoux
-               ;; ne bougent pas » — et le cycle precedent avait monte leur couplage (1.00 -> 1.60)
-               ;; et leur masse (0.60 -> 0.85) sans le moindre effet, ce qui est MECANIQUEMENT
-               ;; NORMAL : aucun reglage de ressort ne deplace un lien plaque contre une butee dure.
-               ;; La signature visuelle d'un limiteur sature est l'immobilite, pas une amplitude
-               ;; reduite. (Et la note des DIRECTIVES qui rangeait `knee-tabs` en « reprise d'asset,
-               ;; l'os n'existe pas dans le rig HD » est INFIRMEE : `lKneeFlap` k=88 et `rKneeFlap`
-               ;; k=92 existent, portent 24 sommets skinnes chacun (wsum 17.58) et sont chaines.)
-               ;;
-               ;; CE QUI BORNE LE LIEN MAINTENANT, ET C'EST DEJA ECRIT AU-DESSUS :
-               ;;   1. la contrainte de longueur, DURE — |p - attache| = `want`, donc il tourne sans
-               ;;      s'allonger et ne peut pas partir a l'infini ;
-               ;;   2. le test de COTE — il ne se replie pas au-dela de son propre point d'attache ;
-               ;;   3. la collision et le recul, qui gardent le dernier mot sur « rien ne traverse ».
-               ;; Le defaut que le mur avait ete pose pour eteindre (`anklestrapL` a 1.49 m de pointe,
-               ;; mesure le 2026-08-11) est anterieur a la contrainte de longueur dure : c'etait une
-               ;; excursion NON BORNEE, elle ne l'est plus. Le mur repondait a un defaut qui n'existe
-               ;; plus, sur un plafond qu'aucune mesure ne justifie.
-               ;;
-               ;; IL RESTE INTACT DANS LA BRANCHE `(< want 0.01)` : la, l'os n'existe pas, la sphere
-               ;; est un point, la contrainte de longueur EPINGLERAIT le lien, et le rayon du mesh
-               ;; est le seul plafond que la geometrie donne. C'est le cas qui avait tue `LpantFlap`.
-               ;; Cette branche-la garde donc le mur AU BIT PRES, et `pantflapL/R` ne sont pas
-               ;; touchees par ce commit (leur compteur de morsures vaut deja 0).
+               ;; PIERRE TOMBALE — LE MUR D'EXCURSION EST RETIRE DE CETTE BRANCHE, A NE PAS
+               ;; REMETTRE. Il bornait |p - pose animee| par `rmax` ; mais ici la contrainte de
+               ;; longueur vient de poser le lien sur une sphere, donc un plafond de CORDE y est
+               ;; une BUTEE ANGULAIRE `2*asin(rmax/(2*want))` — le rapport entre la demi-epaisseur
+               ;; d'un morceau de geometrie et la longueur de son os, cote a cote par accident
+               ;; (chestL/R 39.2 deg, kneeflapL/R 43.7, toestrapL/R 15.4, anklestrapL/R 5.96).
+               ;; Trois instruments lisaient cette butee et pas de la physique (`tiprot` a 0.03 deg
+               ;; pres, `shape` = 2*sin(tiprot/2), `rootdev` = `rmax` a 0.6 mm), et son prix mesure
+               ;; etait de 293.66 m d'excursion, dont 167.9 m sur `kneeflapL` seule. C'etait un
+               ;; limiteur d'angle non declare sur des chaines qui ne sont pas des cheveux, alors
+               ;; que l'owner a ferme ce perimetre le 2026-08-11 22:35 (« juste sur les meches,
+               ;; encore moins les seins ») ; il explique `knee-tabs` mot pour mot, car aucun
+               ;; reglage de ressort ne deplace un lien plaque contre une butee dure.
+               ;; CE QUI BORNE LE LIEN MAINTENANT : la longueur (dure), le test de COTE, et la
+               ;; collision. IL RESTE INTACT DANS LA BRANCHE `(< want 0.01)`, ou l'os n'existe pas,
+               ;; ou la sphere est un point et ou la contrainte de longueur EPINGLERAIT le lien —
+               ;; c'est le cas qui avait tue `LpantFlap`.
                )))))))
   (none))
 
@@ -2999,38 +2965,12 @@
     ;; zero mesure la ou rien n'a ete mesure.
     worst))
 ;; ------------------------------------------------------------------------------------------------
-;; `phys-retreat-chain` A ETE RETIREE ICI LE 2026-08-13 (directive owner de 22:40).
-;;
-;; Elle cherchait par dichotomie un point admissible SUR LE CHEMIN QUI VA VERS LA POSE DU MODELE :
-;; chaque contact ramenait le maillon vers le dessin de l'animateur, d'autant plus fort que le
-;; contact etait profond, et le resultat dependait donc de l'HISTORIQUE des contacts. C'est
-;; l'hysteresis que l'owner signale sur TOUS les cheveux (21:30), et c'est un morceau du modele
-;; d'ecart : dans une simulation de particules il n'existe aucune raison de revenir vers un dessin.
-;;
-;; Le meme mecanisme, arrive a son terme, est visible dans l'historique de la branche parkee :
-;; `d436c4488a` corrige en toutes lettres « the clamp was writing the ANIMATOR's pose onto every
-;; chain that penetrated ».
-;;
-;; CE QUI TIENT LA REGLE 6 A SA PLACE : la frame se termine desormais sur une COLLISION (projection
-;; dure hors des volumes), pas sur un recul. Les compteurs `*phys-retreat-*` restent definis et
-;; restent a zero — un limiteur retire se chiffre, il ne se tait pas.
+;; ------------------------------------------------------------------------------------------------
+;; PIERRE TOMBALE — `phys-retreat-chain` a ete retiree ici le 2026-08-13 ; la note complete est a
+;; l'endroit ou elle etait appelee, dans `jak-hd-physics-step`. Ses compteurs `*phys-retreat-*`
+;; restent definis et restent a zero : un limiteur retire se chiffre, il ne se tait pas.
 ;; ------------------------------------------------------------------------------------------------
 
-;; ------------------------------------------------------------------------------------------------
-;; LA POSE DU MODELE EST-ELLE PLAUSIBLE ? — verifie a la premiere frame de chaque chaine, sur le
-;; squelette retargete, et publie.
-;;
-;; Un morceau de geometrie ne peut pas pendre a cinquante fois sa propre epaisseur de l'os qui le
-;; porte : ce n'est plus un appendice, c'est un joint que le retarget a envoye ailleurs, et le
-;; simuler ne produirait que du bruit autour d'une position fausse. Mesure du 2026-08-11 sur le rig
-;; keira-hd : `LpantFlap` est a 1 061 122 unites (259 m) de Lknee, soit 2473 fois son rayon ajuste,
-;; et sa pose ne bougeait pas d'une frame a l'autre pendant que le personnage etait secoue — alors
-;; que la pire chaine SAINE est a 15.1 fois son rayon (lbang). Le seuil de 50 tombe donc dans un
-;; fosse de deux ordres de grandeur, il n'est pas ajuste pour faire passer quoi que ce soit. Les
-;; rapports des 22 chaines sont publies dans le tableau.
-;;
-;; Ce n'est pas un flag de derogation (DIRECTIVES 4) : rien dans les donnees ne le declare, c'est
-;; une mesure faite sur la pose retargetee a l'execution, et la chaine est ecartee AVEC son chiffre.
 (defconstant PHYS-POSE-RATIO 50.0)
 
 (defun phys-pose-repair ((obj jak-hd) (skel skeleton) (sc int) (n int) (an int) (nbone int)
@@ -3364,73 +3304,27 @@
                       (set! *phys-lmean* (if (> lcnt 0) (/ lsum (the float lcnt)) 0.0)))
                     ;; ---- 1. UNE PARTICULE PAR MAILLON, INTEGREE EN POSITION MONDE. -------------
                     ;;
-                    ;; CE QUE CE BLOC FAISAIT, ET POURQUOI IL EST REMPLACE. Owner, 2026-08-13 22:40 :
-                    ;; « le modele est faux, pas ses reglages... j'ai l'impression la que tu fais
-                    ;; juste bouger des trucs, tu simules rien du tout ». Il integrait `*phys-o**` —
-                    ;; un ECART A LA POSE ANIMEE rappele vers zero — excite par la DERIVEE SECONDE de
-                    ;; cette pose (`fl = -couple * acc`). Les quatre plaintes en decoulent
-                    ;; mecaniquement ; ce ne sont pas quatre chantiers, c'est une seule forme :
-                    ;;   * « pas d'impression de masse » : l'equilibre etait le dessin de
-                    ;;     l'animateur, jamais un etat determine par la gravite ;
-                    ;;   * « ca suit pas la gravite » : la fleche d'un ressort-vers-la-pose vaut
-                    ;;     g/omega^2 et rien de plus — 1.3 a 1.9 cm sur ces chaines, quel que soit
-                    ;;     `gravity=`. C'est pourquoi le tripler (0.45 -> 1.30) n'avait rien change
-                    ;;     de visible. Le moteur de reference le disait deja de lui-meme
-                    ;;     (physics-attic-2026-08-11, d99b193792 : « a stiff spring allows
-                    ;;     (g/omega^2) is all gravity can ever buy ») ;
-                    ;;   * « un pudding sur lequel on tape tres fort AU MOINDRE MOUVEMENT » : le
-                    ;;     pilotage etait l'ACCELERATION de la pose animee, donc un mouvement petit
-                    ;;     mais SEC donnait un pic de force. Le moteur ne suivait pas le mouvement,
-                    ;;     il reagissait a ses a-coups ;
-                    ;;   * « hysteresis » : l'ecart integre portait sa propre memoire et revenait
-                    ;;     lentement a zero.
+                    ;; PIERRE TOMBALE — L'ANCIEN MODELE D'ECART, RETIRE le 2026-08-13 22:40 sur
+                    ;; ordre de l'owner (« le modele est faux, pas ses reglages »), A NE PAS
+                    ;; REMETTRE. Il integrait `*phys-o**`, un ECART A LA POSE ANIMEE rappele vers
+                    ;; zero et excite par la DERIVEE SECONDE de cette pose (`fl = -couple * acc`).
+                    ;; Ses quatre symptomes decoulaient d'une seule forme : l'equilibre etait le
+                    ;; dessin (pas de masse), la fleche gravitaire y etait plafonnee a g/omega^2
+                    ;; (1.3 a 1.9 cm ici, d'ou « pas de gravite » quel que soit `gravity=`), le
+                    ;; pilotage etait un a-coup (« un pudding sur lequel on tape au moindre
+                    ;; mouvement ») et l'ecart integre portait sa propre memoire (hysteresis).
                     ;;
                     ;; CE QUI EST INTEGRE MAINTENANT : la POSITION MONDE d'un point qui porte une
-                    ;; masse. Il n'y a plus qu'un seul etat, `p` et sa valeur de la frame precedente
-                    ;; `q`. La vitesse implicite `p - q` EST l'inertie : la chaine TRAINE derriere
-                    ;; son ancre au lieu de sauter avec elle, donc gain < 1 et retard — « de la
-                    ;; physique qui donne une impression de masse, de gravite, qui suit le
-                    ;; mouvement ». La gravite est une acceleration MONDE, constante et non
-                    ;; plafonnee. La contrainte de distance (`phys-length-chain`, deja une
-                    ;; projection dure) et les collisions font le reste. LA POSE AU REPOS N'EST PLUS
-                    ;; IMPOSEE : elle emerge de cet equilibre.
-                    ;;
-                    ;; L'ANIMATION N'ENTRE PLUS QUE PAR L'ANCRE. Les maillons `rootlock` copient la
-                    ;; pose d'auteur (la racine suit rigidement le crane, SPEC 2) ; tout ce qui est
-                    ;; derriere eux est simule et ne recoit AUCUN rappel vers le dessin. `couple`
-                    ;; n'est plus lu par le solveur.
-                    ;;
-                    ;; LA SEULE EXCEPTION, ET ELLE EST DE L'OWNER, PAS DE MOI. Une chaine a UN SEUL
-                    ;; maillon libre de famille A — les oreilles et la poitrine, 4 chaines sur 22 —
-                    ;; n'est pas une corde : c'est une masse sur un tissu elastique, et sa reference
-                    ;; est fixee par SPEC 1bis dans ses mots (« le point de reference c'est quand
-                    ;; elle est debout, position naturelle des seins car c'est comme ca que le modele
-                    ;; est fait, MAIS ils suivent la gravite »). Elle garde donc un terme ELASTIQUE
-                    ;; vers une direction de repos du MATERIAU — statique, portee rigidement par
-                    ;; l'ancre, et jamais la pose animee du maillon. AUCUNE des chaines dont il se
-                    ;; plaint n'en a un : les cinq chaines de cheveux sont des cordes pures, et les
-                    ;; treize chaines de famille B (ce qui PEND) aussi.
-                    ;;
-                    ;; L'ACCELERATION DE LA POSE D'AUTEUR EST TOUJOURS CALCULEE ET NE PILOTE PLUS
-                    ;; RIEN : elle reste la definition du STIMULUS que la salle publie
-                    ;; (`*phys-st*` 16). L'instrument ne bouge pas en meme temps que ce qu'il mesure.
-                    ;;
-                    ;; 2026-08-13 23:35 — LA SPEC DE L'OWNER (`SPEC-breast-softbody.md`) CORRIGE LE
-                    ;; PIVOT DE 22:40, ET C'EST ELLE QUI FAIT AUTORITE. Sa section 2 dit que le
-                    ;; modele debout livre EST l'equilibre 1 g a 100 % et que `AdditionalStandingSag
-                    ;; = 0` : « no additional gravity sag shall be applied merely because the
-                    ;; simulation is active ». Le rappel vers la pose d'auteur n'est donc PAS le
-                    ;; defaut, et une corde pure — qui pend jusqu'a la verticale — VIOLE sa section 9
-                    ;; (« once settled, the original authored standing shape shall be restored
-                    ;; exactly »). Le terme elastique est donc etendu a TOUTE la famille A, cheveux
-                    ;; compris, comme il le demande explicitement pour la transposition.
-                    ;;
-                    ;; CE QUI CHANGE VRAIMENT EST LE TERME MOTEUR, ET C'EST SA SECTION 3 :
-                    ;;     a_drive = (g_local - g_ref) - a_torso + a_angular
-                    ;; (voir le calcul de `gdw` plus haut). Debout, les trois termes valent zero,
-                    ;; donc l'equilibre est la pose d'auteur SANS pre-compensation — le bloc qui
-                    ;; creusait la fleche d'avance a ete retire avec cette bascule, les deux sont
-                    ;; une seule et meme piece.
+                    ;; masse ; `p` et `q` sont tout l'etat, et `p - q` EST l'inertie. L'animation
+                    ;; n'entre plus que par l'ANCRE ; `couple` n'est plus lu par le solveur.
+                    ;; SEULE EXCEPTION, et elle est de SPEC 2 / SPEC 9 de l'owner (le modele debout
+                    ;; livre EST l'equilibre 1 g, `AdditionalStandingSag = 0`, et la pose d'auteur
+                    ;; doit etre restauree exactement) : la famille A garde un terme ELASTIQUE vers
+                    ;; une direction de repos du MATERIAU — statique, portee par l'ancre, jamais la
+                    ;; pose animee du maillon. Une corde pure violerait sa section 9.
+                    ;; LE TERME MOTEUR EST SA SECTION 3, `a_drive = (g_local - g_ref) - a_torso +
+                    ;; a_angular` (voir `gdw` plus haut) : debout il vaut zero, donc l'equilibre est
+                    ;; la pose d'auteur sans pre-compensation.
                     (let* ((nfr (- n rlk))
                            (ela (if (= (-> *phys-fam* sc) 1) 1 0))
                            ;; SPEC 31 — GRADIENT RACINE -> POINTE, `w(r) = r^1.6..2.0`. On prend
@@ -3741,27 +3635,15 @@
                     ;; et attenuation retirent.
                     (phys-cap-ang! skel sc n rlk an nbone 1)
                     ;; ------------------------------------------------------------------------
-                    ;; LE RECUL (`phys-retreat-chain`) EST RETIRE, ET C'EST UNE SUPPRESSION DE
-                    ;; MODELE, PAS UN ALLEGEMENT.
-                    ;;
-                    ;; Il cherchait, par dichotomie, un point admissible SUR LE SEGMENT QUI VA VERS
-                    ;; LA POSE DU MODELE. Autrement dit : chaque fois qu'un maillon touchait quoi
-                    ;; que ce soit, on le ramenait vers le dessin de l'animateur — d'autant plus
-                    ;; fort que le contact etait profond. C'est un aimant vers le dessin, avec un
-                    ;; etat qui depend de l'historique du contact : la definition meme de
-                    ;; l'HYSTERESIS que l'owner signale sur TOUS les cheveux (21:30).
-                    ;;
-                    ;; L'historique de `physics-attic-2026-08-11` montre ce mecanisme arriver a son
-                    ;; terme : `d436c4488a` corrige, en toutes lettres, « the clamp was writing the
-                    ;; ANIMATOR's pose onto every chain that penetrated ». C'est la meme piece, au
-                    ;; meme endroit, dans le meme role.
-                    ;;
-                    ;; CE QUI TIENT LA REGLE 6 A SA PLACE (« rien ne traverse le mesh, quelle qu'en
-                    ;; soit la raison ») : la frame se termine sur une COLLISION, qui est une
-                    ;; projection dure hors des volumes, et non plus sur un recul. La sequence
-                    ;; ci-dessous finit donc par (longueur, collision) et la collision a le dernier
-                    ;; mot — c'est la garantie standard d'un solveur de contraintes, et elle ne
-                    ;; passe par aucune reference a la pose animee.
+                    ;; PIERRE TOMBALE — `phys-retreat-chain`, RETIREE le 2026-08-13, A NE PAS
+                    ;; REMETTRE. Elle cherchait par dichotomie un point admissible SUR LE SEGMENT
+                    ;; QUI VA VERS LA POSE DU MODELE : un aimant vers le dessin de l'animateur,
+                    ;; d'autant plus fort que le contact etait profond, donc un etat qui depend de
+                    ;; l'HISTORIQUE du contact — la definition meme de l'hysteresis que l'owner
+                    ;; signale sur TOUS les cheveux (21:30). Meme piece, meme role, meme aveu dans
+                    ;; l'attic : `d436c4488a`, « the clamp was writing the ANIMATOR's pose onto
+                    ;; every chain that penetrated ». La regle 6 est desormais tenue par la
+                    ;; COLLISION, qui a le dernier mot ci-dessous et ne cite jamais la pose animee.
                     ;; ------------------------------------------------------------------------
                     (dotimes (it 3)
                       (phys-length-chain skel sc n rlk an nbone)

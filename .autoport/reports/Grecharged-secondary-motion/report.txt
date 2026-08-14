@@ -250,28 +250,37 @@ version soustrayait la MOYENNE de la série et lisait `zeta = 0.062` sur une sé
 0.35. Sans le contrôle positif, ce chiffre serait dans ce rapport.
 
 
-7. TAILLE — SIXIÈME HAUSSE, ET JE NE LA MAQUILLE PAS
-=====================================================
-    4525 -> 4622 -> 4596 -> 4651 -> 4767 -> **4798** lignes   (plafond gelé : 4800)
+7. TAILLE — PREMIÈRE BAISSE APRÈS CINQ HAUSSES, ET ELLE EST PROUVÉE INERTE
+===========================================================================
+    4525 -> 4622 -> 4596 -> 4651 -> 4767 -> **4680** lignes   (plafond gelé : 4800)
 
-+44 (les deux instruments et leur déclaration de NATURE/REPÈRE que le préflight METRIC-FRAME exige)
-−6 (`*phys-o1x/o1y/o1z*` : déclarés, remis à zéro, **relus nulle part** — 6 occurrences dans tout
-`goal_src`, toutes des écritures) −7 (commentaire resserré). Solde **+31**. Le moteur est à **deux
-lignes** du plafond gelé : c'est le signal, et je le traite comme tel.
+**−87 sur le cycle**, et 120 sous le plafond. Décomposition : +44 (les deux instruments et leur
+déclaration de NATURE/REPÈRE que le préflight METRIC-FRAME exige) −6 (`*phys-o1x/o1y/o1z*` :
+déclarés, remis à zéro, **relus nulle part** — 6 occurrences dans tout `goal_src`, toutes des
+écritures) −125 (quatre pierres tombales compressées : le mur d'excursion 51→17, l'ancien modèle
+d'écart 67→21, `phys-retreat-chain` 32→6 et 22→10).
 
-LE SCAN DE CE CYCLE A TROUVÉ DE QUOI FAIRE BEAUCOUP MIEUX, MESURÉ ET NON ESTIMÉ. Total ~650 lignes,
-**purement soustractives** :
+**PREUVE QUE CES 125 LIGNES NE CHANGENT RIEN D'EXÉCUTABLE, et elle ne coûte pas une course :**
+`GAME.CGO` recompilé après le resserrage est **`5d7885dfeb4f0253d8f8e27c304c0f49`**, c'est-à-dire
+l'empreinte octet pour octet de la course RUN13. Un tableau de salle n'aurait pas dit plus, et il
+aurait coûté dix minutes.
 
-    ~200  le mécanisme de FOURREAU (`shell`) est structurellement mort : les deux seules chaînes qui
-          déclarent la clé (`pantflapL`/`pantflapR`) déclarent `shell=0`, donc `phys-shell-pair?`
-          rend #f partout — et les phases de salle SHELLOFF/SHELLON mesurent le vide, c'est-à-dire
-          un contrôle positif sur un domaine vide ;
+Les pierres tombales sont RESSERRÉES, pas supprimées : chacune garde en 5 à 20 lignes ce qui a été
+retiré, pourquoi, et le chiffre qui l'a condamné — c'est ce qui empêche un cycle suivant de le
+remettre. Ce qui part est la narration, pas la leçon.
+
+IL RESTE ~525 LIGNES MESURÉES MORTES, purement soustractives, pour le cycle suivant :
+
+    ~200  le mécanisme de FOURREAU (`shell`) est structurellement mort — et le §12 montre que la
+          course le CONFIRME, pas seulement le code : `ROOM-SHELL-CONTROL: armed=0.0000
+          disarmed=0.0000`, un contrôle positif qui ne peut plus tirer ;
     ~150  SPEC 18 (peau skinnée) : mesure pure, aucun lien déplacé, armée par la salle seule ;
      ~15  quatre compteurs de limiteurs JAMAIS incrémentés (`retreat_n`, `retfb_n`, `sphere_n`,
           `*phys-dg*` 1 et 16) : ils publient des zéros structurels sans contrôle positif possible ;
-    ~281  de narration décrivant du code déjà supprimé.
-C'est le **premier item du cycle suivant**, avant tout changement de comportement : mélanger les
-deux rendrait le diff inattribuable, et c'est précisément pour ça que je ne l'ai pas fait ici.
+    ~160  de narration restante décrivant du code déjà supprimé.
+Ces quatre-là changent le CGO, donc chacun demande une course pour prouver son innocuité — c'est
+pour ça qu'ils ne sont pas dans ce diff, où le resserrage de commentaires se prouve en une
+empreinte.
 
 
 8. CE QUI N'EST PAS FAIT, ET LES NOMBRES POUR LE DÉCIDER
@@ -367,3 +376,46 @@ bougé à l'écran par rapport au build précédent, alors l'APK et le pack ne s
 et c'est ça qu'il faut dire — c'est la seule information utile que ce build puisse donner de plus.
 Ce que ce cycle a produit est un diagnostic, pas un correctif : le §4 nomme un défaut neuf (le sein
 droit se gare dans le buste et y reste) et le §8 donne la forme et les nombres du correctif suivant.
+
+
+12. UNE CONDITION DE RETRAIT ÉTAIT PRÉ-ENREGISTRÉE DEPUIS UN JOUR ET PERSONNE NE L'AVAIT ÉVALUÉE
+==================================================================================================
+`recharged_assets/keira-owner-tuning.txt` porte deux lignes `chain pantflapL/R shell=0` — le
+fourreau du pantacourt, désarmé — et, au-dessus, une **condition de retrait écrite AVANT la course**
+qui les rendait provisoires : « il n'est conservé que si la nouvelle course montre les TROIS à la
+fois : (1) `meshpen` reste à 0 sur toutes les chaînes ; (2) `ROOM-SIDE crossing` ne monte pas ;
+(3) le plancher FLOOR-WEAK de pantflapL/R remonte au-dessus de 70 %. Si l'un des trois manque, ces
+deux lignes sont RETIRÉES. » Aucune course ne l'avait relue depuis. Je l'évalue :
+
+    clause 1 : ÉCHOUE aujourd'hui — pantflapL 0.3277 m, pantflapR 0.3294 m.
+               MAIS L'ÉCHEC N'EST PAS ATTRIBUABLE AU FOURREAU. Chronologie des tableaux archivés,
+               colonne `worst chain=pantflapL` :
+                 08-13 16:36  O-FREQPASS-SHELL0   meshpen=0.0000  tipvar=0.2630  <- shell=0 ACTIF
+                 08-13 22:29  X-PRE-SHAKE         meshpen=0.0000  tipvar=0.2630
+                 08-13 23:41  BEFORE-drive        meshpen=0.3294  tipvar=0.7973  <- la bascule
+               `shell=0` était actif SEPT HEURES avant la bascule, avec `meshpen` à zéro. Ce qui a
+               changé entre 22:29 et 23:41 est la directive owner de 22:40 — le passage du modèle
+               d'ÉCART au modèle de PARTICULE — qui a triplé le mouvement du pan (0.2630 -> 0.7973)
+               et, avec lui, sa pénétration.
+    clause 2 : crossing=38712 sur 19/22 chaînes, dans la bande ouverte par le correctif du domaine
+               du veto d'azimut (7775 -> 39772), pas par le fourreau.
+    clause 3 : tipvar 0.8021 / 0.9380 contre des planchers de 0.2922 / 0.3017 — largement au-dessus.
+
+**Verdict : le bloc reste**, et la raison est écrite dans le fichier de réglages lui-même pour que
+le prochain cycle n'ait pas à refaire ce travail. Remettre le fourreau coûterait 84 % du mouvement
+faible du pan (mesure du bloc) sans fermer `pant-calf`, dont la cause racine est ailleurs et déjà
+mesurée : le pan est un TUBE dont l'unique joint est SUR L'AXE, donc quand le joint sort d'un côté
+la moitié du tube entre dans la jambe de l'autre. **Aucune contrainte posée sur ce joint ne peut
+représenter ça — c'est une reprise de RIG**, et c'est pourquoi trois cycles de réglage n'ont rien
+donné dessus.
+
+CE QUI EST QUAND MÊME UN DÉFAUT, ET QUI SORT DE CETTE VÉRIFICATION : avec `shell=0` sur les deux
+SEULES chaînes qui déclarent la clé, **le contrôle positif du fourreau ne peut plus tirer** —
+`ROOM-SHELL-CONTROL: armed=0.0000 disarmed=0.0000`, `ROOM-SHELL-FIRE out=0 inward=0` des deux côtés.
+Les phases SHELLOFF/SHELLON de la salle et les ~200 lignes de fourreau du moteur mesurent un domaine
+VIDE. Ce n'est pas encore un faux vert — personne ne lit ces zéros comme une preuve — mais c'en
+serait un le jour où quelqu'un le ferait. C'est noté dans le fichier de réglages et c'est le premier
+des ~525 lignes à retirer au §7.
+
+Le fichier livré est inchangé : `apply_owner_tuning.py` rejoué, `physics_chains.txt` **byte-identique**
+(29 chaînes, 2 colliders appliqués, `diff` vide). Mon ajout est du commentaire dans le registre.

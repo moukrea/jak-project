@@ -642,6 +642,36 @@ chain rmidhair damping=0.0784
 ## DECLARE comme suppresseur (SPEC 7 : « on chiffre combien de mouvement il retire »), ce que le
 ## rapport ne faisait pas -- il annoncait `SUPPRESSORS: 0` alors que `ROOM-SHELL wants=` mesure
 ## 0.2911 m et 0.3449 m retires et que `ROOM-SHELL-FIRE` compte 5676 declenchements par course.
+## 2026-08-14 (cycle 6) — LA CONDITION DE RETRAIT CI-DESSUS EST ENFIN EVALUEE, ET ELLE NE TIRE PAS.
+## Elle n'avait jamais ete relue depuis qu'elle a ete ecrite. Verdict, avec les tableaux archives :
+##
+##   Clause 1 (`meshpen` reste a 0 sur toutes les chaines) : ELLE ECHOUE AUJOURD'HUI —
+##     pantflapL 0.3277 m, pantflapR 0.3294 m. MAIS L'ECHEC N'EST PAS ATTRIBUABLE AU FOURREAU.
+##     Chronologie des tableaux, colonne `worst chain=pantflapL` :
+##       08-13 16:36  O-FREQPASS-SHELL0   meshpen=0.0000  tipvar=0.2630   <- `shell=0` DEJA actif
+##       08-13 22:29  X-PRE-SHAKE         meshpen=0.0000  tipvar=0.2630
+##       08-13 23:41  BEFORE-drive        meshpen=0.3294  tipvar=0.7973   <- la bascule est ICI
+##     `shell=0` etait actif SEPT HEURES avant la bascule, avec `meshpen` a zero. Ce qui a change
+##     entre 22:29 et 23:41 est la directive owner de 22:40 (« le modele est faux, pas ses
+##     reglages ») : le passage du modele d'ECART au modele de PARTICULE, qui a triple le mouvement
+##     du pan (0.2630 -> 0.7973) et, avec lui, sa penetration. La clause visait le fourreau ; c'est
+##     un autre changement qui l'a fait echouer. **Le bloc RESTE.**
+##   Clause 2 (`ROOM-SIDE crossing` ne monte pas) : crossing=38712 sur 19/22 chaines, dans la bande
+##     ouverte par le correctif du domaine du veto d'azimut (7775 -> 39772), pas par le fourreau.
+##   Clause 3 (plancher FLOOR-WEAK au-dessus de 70 %) : tipvar 0.8021 / 0.9380 contre des planchers
+##     de 0.2922 / 0.3017 — largement au-dessus.
+##
+## CE QUI RESTE VRAI ET QUI DOIT ETRE DIT : avec ces deux lignes, `shell=0` sur les deux SEULES
+## chaines qui declarent la cle, le controle positif du fourreau ne peut plus tirer —
+## `ROOM-SHELL-CONTROL: armed=0.0000 disarmed=0.0000`, et `ROOM-SHELL-FIRE` compte 0 des deux cotes.
+## C'est un ZERO SUR UN DOMAINE VIDE : les phases SHELLOFF/SHELLON de la salle et le mecanisme de
+## fourreau du moteur (~200 lignes) ne mesurent plus rien. Ce n'est pas un faux vert tant que
+## personne ne le lit comme une preuve — c'est ecrit ici pour que personne ne le fasse.
+##
+## ET `pant-calf` RESTE OUVERT POUR LA RAISON DEJA MESUREE, qui n'est ni le fourreau ni un reglage :
+## le pan est un TUBE (10 secteurs sur 12) dont l'unique joint est SUR L'AXE, donc quand le joint
+## sort d'un cote la moitie du tube entre dans la jambe de l'autre. Aucune contrainte posee sur ce
+## joint ne peut representer ca. C'est une reprise de RIG.
 chain pantflapL shell=0
 chain pantflapR shell=0
 
