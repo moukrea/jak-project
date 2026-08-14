@@ -3500,10 +3500,44 @@
                                  ;; ---- du materiau quand il y en a une. Aucun etat par chaine
                                  ;; ---- au-dela de `p` et `q` : c'est ce qui rend l'hysteresis
                                  ;; ---- impossible a fabriquer ici.
+                                 ;; ---- LA TRAINEE EST DERIVEE DE LA RAIDEUR DE CE MAILLON-CI, PAS
+                                 ;; ---- RECOPIEE DE LA CHAINE. SPEC 25 fait de `zeta` une constante
+                                 ;; du MATERIAU (0.35, bande 0.32-0.42) et SPEC 26 y accroche le
+                                 ;; rebond, exp(-pi*z/sqrt(1-z^2)) ~ 31 %. Or SPEC 31 REDISTRIBUE la
+                                 ;; raideur le long de la chaine (`k2l` ci-dessus) pendant que
+                                 ;; `damping` reste UN scalaire par chaine : zeta_l = dmp/(2*sqrt(k2l))
+                                 ;; derive donc d'un facteur sqrt(1.438/0.452) = 1.78 de la racine a
+                                 ;; la pointe. Ce n'est pas une hypothese, c'est de l'arithmetique sur
+                                 ;; la donnee LIVREE -- zeta et rebond par maillon, lien 1/2/3 :
+                                 ;;   lbang     0.3403 32.1%   0.3875 26.7%   0.6071  9.1%
+                                 ;;   rmidhair  0.3501 30.9%   0.3986 25.5%   0.6245  8.1%
+                                 ;;   backhair  0.2435 45.4%   0.2772 40.4%   0.4343 22.0%
+                                 ;; La POINTE des quatre meches avant/mediane sort de la bande de
+                                 ;; SPEC 25 par le HAUT (0.61-0.62 contre 0.42) et rebondit a 8-9 %
+                                 ;; la ou SPEC 26 en exige 31 : trois maillons d'une meme meche se
+                                 ;; comportent comme trois materiaux differents. C'est « ca suit
+                                 ;; aucune logique », et une pointe sur-amortie est exactement le
+                                 ;; « pudding » (sur-amortissement, pas resonance).
+                                 ;;
+                                 ;; LE CORRECTIF EST UNE DERIVATION, PAS UN REGLAGE : on impose
+                                 ;; zeta_l = zeta_chaine, donc dmp_l = 2*zeta*sqrt(k2l) = dmp*sqrt(k2l/k2).
+                                 ;; Aucun parametre nouveau, aucun nombre choisi par moi, et rien
+                                 ;; d'ajuste contre un instrument -- la cible sort de SPEC 25.
+                                 ;; DEUX INVARIANTS VERIFIES AVANT D'ECRIRE :
+                                 ;;   * chaine a UN maillon libre (chestL/chestR/earL/earR) : `k2l`
+                                 ;;     vaut `k2` au bit pres (nfr=1 -> r=0.5 -> (1-r^2)/gmean = 1.0),
+                                 ;;     donc sqrt(k2l/k2) = 1 et `kd` est INCHANGE AU BIT PRES. La
+                                 ;;     poitrine sur mouvements subtils est un acquis de l'owner : on
+                                 ;;     ne la paie pas pour corriger les cheveux.
+                                 ;;   * famille B (ce qui pend) : `ela` = 0, aucune force elastique
+                                 ;;     n'est appliquee, donc `zeta` n'y est pas defini et `dmp` y
+                                 ;;     reste une trainee pure. Elle n'est pas touchee.
                                  (let* ((px (-> *phys-px* scl))
                                         (py (-> *phys-py* scl))
                                         (pz (-> *phys-pz* scl))
-                                        (kd (fmax 0.0 (- 1.0 dmp)))
+                                        (kd (fmax 0.0 (- 1.0 (if (and (nonzero? ela) (> k2 0.000001))
+                                                               (* dmp (sqrtf (/ k2l k2)))
+                                                               dmp))))
                                         (vx (* (- px (-> *phys-qx* scl)) kd))
                                         (vy (* (- py (-> *phys-qy* scl)) kd))
                                         (vz (* (- pz (-> *phys-qz* scl)) kd)))
@@ -3627,8 +3661,22 @@
                     ;; intelligente, soit une attenuation sur les angles extremes ») et elle est
                     ;; bornee aux chaines qui portent `maxangle`, c'est-a-dire les cheveux
                     ;; (« c'est juste sur les meches, pas le reste, encore moins les seins », 22:35).
-                    ;; Ce n'est pas un rappel vers le dessin : elle borne un PLI entre deux maillons
-                    ;; voisins, ce que la peau a faible densite de polygones ne peut pas encaisser.
+                    ;; CORRECTION 2026-08-14 — CE COMMENTAIRE AFFIRMAIT LE CONTRAIRE DU CODE, ET LA
+                    ;; PHRASE RETIREE ETAIT : « Ce n'est pas un rappel vers le dessin : elle borne un
+                    ;; PLI entre deux maillons voisins ». Releve dans `phys-bend-chain` (:1811-1816) :
+                    ;; `mx/my/mz` est pris entre les os ANIMES `kk` et `kp` (`skel bones ... transform`),
+                    ;; donc l'angle mesure est l'ECART DE CE MAILLON A SA POSE D'AUTEUR, pas le pli
+                    ;; entre deux maillons simules. C'EST DONC BIEN UN RAPPEL VERS LE DESSIN, adouci.
+                    ;; Consequence a connaitre avant d'y toucher : `phys-softmin` (:1348) n'est PAS un
+                    ;; ecretage — f(e) < e pour TOUT e > 0 — donc il rogne des l'ecart non nul, et le
+                    ;; seuil effectif tombe tres au-dessous de `maxangle` (backhair 14.09 deg contre
+                    ;; maxangle 60.99, lmidhair 15.07 contre 66.39, rmidhair 15.15 contre 66.79).
+                    ;; MESURE, fenetre de REPOS, stimulus arrete, frames 41-149 (N=109) : il tire
+                    ;; 0 fois au maillon 1 et jusqu'a 91 fois au maillon 3 (lmidhair), retirant
+                    ;; 21.11 deg sur rmidhair l3. C'est un SUPPRESSEUR a gradient racine->pointe, et
+                    ;; il agit quand plus rien n'excite la chaine. Il n'est pas retire ici : l'owner
+                    ;; a demande l'attenuation lui-meme (11e passe), et la retirer sans mesurer ce
+                    ;; qu'elle tient serait le meme geste que l'ajouter sans mesurer ce qu'elle coute.
                     (phys-bend-chain skel sc n rlk an nbone)
                     ;; ETAGE 1 : apres la boucle de contraintes ET l'attenuation d'angle, avant la
                     ;; finition. L'ecart entre l'etage 0 et celui-ci est ce que longueur, collision
