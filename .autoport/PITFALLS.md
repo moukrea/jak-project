@@ -246,3 +246,22 @@ la réouverture manuelle, la boucle serait passée à autre chose en silence.
 Verrou : quand on retire des lignes d'une liste qui sert de gate, vérifier **ce que la gate mesure
 encore**. Un changement de périmètre doit s'accompagner d'une ligne `OPEN` décrivant le travail
 NOUVELLEMENT commandé — sinon réduire le périmètre revient à déclarer la phase finie.
+
+GUARD wired-but-disarmed .autoport/DIRECTIVES.md `PHYSAXIS arm=0`
+**Rapporter « câblé » un mécanisme dont l'interrupteur est à zéro.** À 10:42 j'ai annoncé les §24 et
+§29 de l'owner « câblées dans le calcul » parce que les constantes étaient enfin référencées. Elles
+l'étaient — derrière `PHYSAXIS arm=0`, donc **les trois axes rendaient la même valeur**. Deux heures
+plus tôt j'avais moi-même relevé ces mêmes sections comme « déclarées, jamais utilisées » : le
+défaut a simplement changé de costume, et je l'ai laissé passer parce que je cherchais une
+référence au symbole au lieu d'une **valeur mesurée qui discrimine**.
+Verrou : une section n'est TENUE que si une mesure montre l'effet du mécanisme — ici, trois axes
+rendant des valeurs DIFFERENTES. Une lecture identique sur les trois prouve le désarmement.
+
+GUARD wrong-yardstick .autoport/DIRECTIVES.md `B0` du moteur est FAUX d'un facteur 1.62
+**Mesurer une cible de la spec contre une référence qui n'est pas la sienne.** Sa §6 définit `B0`
+comme la longueur racine→apex de la CHAIR (602 u) ; le moteur prenait celle de l'OS (977 u), 1.62×
+trop grande. J'ai donc annoncé à 06:08 « l'excursion passe sous 0.50 B0 — première cible de sa spec
+atteinte » alors qu'elle valait **0.778 / 0.795 B0 contre sa référence, dépassée de 1.59×**. Le
+mécanisme (sous-pas + saturation) était bon ; le mètre était faux, et le vert venait du mètre.
+Verrou : toute cible exprimée en unité dérivée (`B0`, `W0`, `L0`…) publie **la valeur de l'unité
+elle-même et sa provenance** à côté du résultat. Un ratio sans son dénominateur n'est pas une mesure.

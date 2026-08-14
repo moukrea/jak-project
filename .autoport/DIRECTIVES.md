@@ -10,6 +10,44 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
+## 2026-08-14 11:50 — « NON APPLICABLE » EST INTERDIT. ET TROIS DE MES ANNONCES ETAIENT FAUSSES.
+
+L'owner : « "non applicable"… Comment ça ? S'il manque des bones ou autre, bah faut juste les
+mettre. Pas de non applicable qui tiennent, ou alors justifie moi pourquoi ».
+
+**Il a raison, et la seule ligne N/A tombe.** C'était la **compliance en torsion de sa §29 (0.72)**,
+justifiée par « 1 maillon rigide = pas de degré de liberté ». Ce n'est pas une impossibilité, c'est
+un **os manquant** — exactement ce qu'il dit. Un degré de liberté qui manque **s'ajoute**.
+**REGLE : le mot « non applicable » est banni du tableau de conformité.** Une section est TENUE,
+PARTIELLE, ou ABSENTE — et si elle est absente parce qu'il manque une articulation, la ligne dit
+« os manquant à injecter », pas « non représentable ».
+
+**ET EN VERIFIANT, J'AI TROUVE TROIS ANNONCES DE MA PART QUI ETAIENT FAUSSES :**
+
+  1. **§24 et §29 : « câblées » mais DESARMEES** (`PHYSAXIS arm=0`) — « les 3 axes rendent la même
+     valeur ». J'ai annoncé à 10:42 qu'elles étaient « câblées dans le calcul » : c'est le piège
+     `declared-but-never-selected` sous un autre costume, et je l'ai rapporté comme un progrès.
+  2. **§6 : le `B0` du moteur est FAUX d'un facteur 1.62** — 977 u (l'os) là où sa §6 définit 602 u
+     (la chair). Conséquence : l'excursion d'apex que j'ai annoncée « sous 0.50 B0 » à 06:08 comme
+     première cible atteinte vaut en réalité **0.778 / 0.795 B0 contre sa référence — DEPASSEE de
+     1.59×**. La cible n'était pas atteinte, elle était mesurée contre le mauvais mètre.
+  3. **§9 : l'état debout neutre n'est pas neutre** — écart 26.60 u / 21.43 u là où sa cible est
+     **0.0000**. Ses §2 et §9 exigent le retour EXACT à la pose d'auteur ; on ne l'a pas, et §27
+     (stabilisation) est bloquée par ça.
+
+**PRIORITE, DANS CET ORDRE :**
+  1. **Le bon `B0`** (§6) — tant que le mètre est faux, toute mesure d'excursion est fausse, et
+     plusieurs de mes verts en dépendent.
+  2. **ARMER §24 et §29** — une mesure doit montrer les trois axes rendant des valeurs DIFFERENTES ;
+     une réponse identique dans les trois directions prouve qu'elles sont désarmées.
+  3. **§9** : retour exact à la pose d'auteur, ce qui débloque §27.
+  4. **L'os de torsion** (§29), puis §23, §8, §36, §33/§34, §37, §10-13.
+
+**REGLE GENERALE, TROISIEME RAPPEL** : une section n'est TENUE que si sa valeur est **lue à
+l'exécution sur le mécanisme armé**, contre la référence que la spec définit — pas contre celle qui
+nous arrange, pas avec un interrupteur à zéro.
+
+
 ## 2026-08-14 09:45 — AUDIT DE LA SPEC POITRINE : 3 SECTIONS SUR 12. L'OWNER AVAIT RAISON.
 
 Il a écrit : « je suis sûr à 99.99999 % que t'as pas implémenté la spec comme il faut ». Vérifié
