@@ -1,3 +1,18 @@
+# ============================================================================================
+# 2026-08-14 07:30 — L'OWNER RETIRE TOUTE PHYSIQUE DE KEIRA SAUF LES SEINS
+# ============================================================================================
+# « Les cheveux, les bretelles, les lunettes sont completement petees, les languettes des genoux
+#   sont completement petees... Les languettes sur ses bottines aussi... On voit un peu plus son
+#   pantacourt mais c'est aussi pete et toujours dans ses mollets. Tu sais quoi, retire toute
+#   physique de Keira hormis ses seins. Fais la spec de ses seins a 100% comme specifie, on fera
+#   le reste apres. »
+#
+# TOUS LES DEFAUTS NON-POITRINE CI-DESSOUS SONT **GELES**, PAS FERMES. Il ne les a pas valides:
+# il a retire la physique qui les portait. Ils gardent leur mesure et reviendront sur SON ordre.
+#
+# SEUL CHANTIER OUVERT: la poitrine, a 100 % de SPEC-breast-softbody.md, section par section.
+# ============================================================================================
+
 # DÉFAUTS OUVERTS — la phase ne passe pas tant qu'il en reste. Une ligne se retire UNIQUEMENT
 # quand l'owner dit que c'est bon, jamais parce qu'une mesure est verte.
 #
@@ -44,7 +59,7 @@
 # La grandeur qui discrimine est la REPARTITION par joint, pas la somme.
 # ============================================================================================
 #
-OPEN hair-anchored-geo  PRIORITE 1 -- « une partie de la geometrie reste ancree et ca casse » (3e passe
+GELE hair-anchored-geo  PRIORITE 1 -- « une partie de la geometrie reste ancree et ca casse » (3e passe
 #                    de l'owner sur ce point). CE N'EST PAS LE `tear`, ET C'EST LA MON ERREUR: le
 #                    cycle precedent a ferme la COUTURE (rmidhair tear 82->0) et la couture est bien
 #                    fermee -- mais la geometrie ancree, elle, est TOUJOURS ancree. Lisser le raccord
@@ -59,7 +74,7 @@ OPEN hair-anchored-geo  PRIORITE 1 -- « une partie de la geometrie reste ancree
 #                    CIBLE: le PROFIL de lbang, pas cov=1.0 aveugle -- le haut de la meche DOIT
 #                    rester au crane, c'est l'ancrage qu'il a valide.
 #                    C'est un correctif d'ASSET (repesage du donneur), pas un reglage du solveur.
-OPEN hair-pudding    PRIORITE 1 -- l'owner CORRIGE mon interpretation: « c'est plus du pudding, c'est
+GELE hair-pudding    PRIORITE 1 -- l'owner CORRIGE mon interpretation: « c'est plus du pudding, c'est
 #                    PAS trop lent et mou, c'est vraiment pas coherent... on dirait les mouvements
 #                    quand on tape sur un pudding, pas des mouvements naturels de cheveux ».
 #                    => J'avais diagnostique une FREQUENCE (trop lent). C'EST FAUX. Il decrit une
@@ -79,36 +94,36 @@ OPEN hair-pudding    PRIORITE 1 -- l'owner CORRIGE mon interpretation: « c'est 
 #                    INDICE DEJA EN MAIN: les grosses meches portent encore stiffness=1.80
 #                    damping=0.18 mass=0.90 -- des ronds generiques -- la ou lbang porte des valeurs
 #                    derivees. Le 1.80 est deja fiche en memoire comme 1.8x l'entrainement du rig.
-OPEN hair-fine-grav  les meches fines « ne suivent pas vraiment la gravite » -- elles sont bien ancrees
+GELE hair-fine-grav  les meches fines « ne suivent pas vraiment la gravite » -- elles sont bien ancrees
 #                    et bougent, mais l'inclinaison ne les fait pas tomber. Meme classe que le sag de
 #                    la poitrine: mesurer ROOM-GRAVSAG sur lbang/rbang, il doit etre franc.
-OPEN pant-calf       le bas du pantacourt est toujours a l'interieur des mollets
-OPEN goggles-bottom  le bas des lunettes clipe encore legerement au niveau des seins
-OPEN flesh-jelly     ballons d'eau sur les mouvements brusques (poitrine)
+GELE pant-calf       le bas du pantacourt est toujours a l'interieur des mollets
+GELE goggles-bottom  le bas des lunettes clipe encore legerement au niveau des seins
+GELE flesh-jelly     ballons d'eau sur les mouvements brusques (poitrine)
 
 # ============================================================================================
 # RETOUR OWNER 2026-08-13 21:30 — REOUVERTURES ET NOUVEAUX DEFAUTS
 # ============================================================================================
-OPEN hair-hysteresis  PRIORITE 1 -- « beaucoup d'hysteresis pour TOUS les cheveux ». Mot neuf et
+GELE hair-hysteresis  PRIORITE 1 -- « beaucoup d'hysteresis pour TOUS les cheveux ». Mot neuf et
 #                    precis: la reponse depend de l'historique et ne revient pas. Piste nommee par
 #                    l'historique parke: `*phys-cfric*` (friction de contact) ou un limiteur qui
 #                    latche. MESURE: apres un aller-retour identique, la chaine revient-elle a la
 #                    meme pose ? L'ecart EST l'hysteresis. A traiter AVANT tout le reste.
-OPEN hair-fine-pudding  PRIORITE 1 -- les meches FINES sont du pudding, et l'ONT TOUJOURS ETE.
+GELE hair-fine-pudding  PRIORITE 1 -- les meches FINES sont du pudding, et l'ONT TOUJOURS ETE.
 #                    (a 14:45 « vraiment pas mal » = moins pire, PAS valide.) Leurs parametres sont INCHANGES depuis
 #                    14:37 -- c'est le MESH que la campagne de repesage a degrade. J'ai tue mon
 #                    propre echantillon de controle.
-OPEN hair-no-mass    « ca suit pas une logique de gravite, ca n'a pas l'air d'avoir une masse
+GELE hair-no-mass    « ca suit pas une logique de gravite, ca n'a pas l'air d'avoir une masse
 #                    particuliere ». Le moteur qui marchait decrivait chaque chaine par sa
 #                    FREQUENCE PROPRE (omega = 2*pi*f); aujourd'hui la donnee livre raideur/masse
 #                    crues. A repasser en grandeurs physiques.
-OPEN knee-tabs-idle  REOUVERTURE d'une fermeture du 12:45: « les languettes des genoux bougent dans
+GELE knee-tabs-idle  REOUVERTURE d'une fermeture du 12:45: « les languettes des genoux bougent dans
 #                    les cinematiques mais pas (ou pas remarquable) sur l'animation IDLE ».
-OPEN goggles-boobcol « les collisions des lunettes contre les seins sont mal gerees et ca clip
+GELE goggles-boobcol « les collisions des lunettes contre les seins sont mal gerees et ca clip
 #                    toujours un peu ». Les lunettes suivent mieux la physique par ailleurs.
-OPEN chest-big-anims « les seins sur les animations lentes c'est nickel, les animations
+GELE chest-big-anims « les seins sur les animations lentes c'est nickel, les animations
 #                    IMPORTANTES toujours pareil » -- le defaut vit dans le regime fort.
-OPEN hair-upper-half « la moitie basse a l'air detachee du crane et bouge independamment, mais la
+GELE hair-upper-half « la moitie basse a l'air detachee du crane et bouge independamment, mais la
 #                    moitie HAUTE est toujours partiellement ancree (ET PAS QUE LES RACINES) ».
 #                    Le redistribute a libere le bas, pas le haut.
 

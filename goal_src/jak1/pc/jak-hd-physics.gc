@@ -90,11 +90,6 @@
 (defconstant PHYS-P-HANG   20)
 (defconstant PHYS-P-FAMILY 22)
 (defconstant PHYS-P-COUPLE 27)
-;; RAYON INTERNE DU FOURREAU que ce lien forme autour d'un membre, en unites. 0 = ce lien n'est pas
-;; un fourreau, et c'est le cas de toutes les chaines sauf `pantflapL`/`pantflapR`. Derive du mesh
-;; par le generateur (couverture angulaire des sommets du joint autour de l'axe d'un volume
-;; ETRANGER : >= 10 secteurs sur 12 et ecart <= 60 degres), jamais ecrit a la main.
-(defconstant PHYS-P-SHELL  28)
 ;; L'ANGLE QUE LA PEAU PEUT ENCAISSER, EN DEGRES — CHEVEUX SEULEMENT, 0 = pas de limite.
 ;; Owner 2026-08-11 21:15 : « certains maillons meriteraient un traitement pour eviter de creer des
 ;; angles extremes qui mettent en lumiere le lack of geometrie » ; 22:35, le perimetre : « juste sur
@@ -156,99 +151,12 @@
 ;; (« cheveux decolles du crane »). Ce parametre n'existe pas pour etre mis a 1.
 (define *phys-rootgr* (new 'global 'array 'float PHYS-SC))
 (define *phys-maxang* (new 'global 'array 'float PHYS-SC))   ;; degres, 0 = aucune limite d'angle
-;; ------------------------------------------------------------------------------------------------
-;; LE FOURREAU. Owner, plusieurs passes : « le bas du pantacourt est toujours a l'interieur des
-;; mollets, comme si son pantacourt s'arretait aux genoux ».
-;;
-;; Le pan de pantacourt n'est pas un pendentif, c'est une COQUE FERMEE autour du mollet : ses
-;; sommets occupent 10 secteurs angulaires sur 12 autour de l'axe de la capsule `Lankle->Lknee`,
-;; ecart max 60 degres — exactement le profil de la PEAU de la jambe, et tout autre que celui d'une
-;; languette plate (`lKneeFlap` : 5 secteurs, ecart 210). Son centroide est a 95 u de l'axe du
-;; mollet, c'est-a-dire SUR l'axe.
-;;
-;; POUSSER UN FOURREAU « HORS » DU MEMBRE QU'IL ENTOURE N'A PAS DE SENS GEOMETRIQUE. Le moteur
-;; calculait pourtant `dep = (rayon_lien 429 + rayon_mollet 358) - 95 = 692 u` de penetration et
-;; ejectait le pan lateralement de presque 700 u a chaque frame ; la moitie du tissu se retrouvait
-;; alors enfoncee dans la jambe. C'est le defaut que l'owner decrit, et ce n'est ni un rayon a
-;; regler ni un manque de force : c'est la NATURE de la contrainte qui etait fausse.
-;;
-;; CE QUI LA REMPLACE : la CONCENTRICITE. Le membre doit rester dans la coque, donc le lien ne peut
-;; pas s'ecarter de l'axe plus que la pose du modele ne l'ecarte. Tourner autour du membre et
-;; glisser le long restent entierement libres — la contrainte ne borne que l'excursion RADIALE, la
-;; seule qui fasse rentrer le tissu dans la chair. Comme partout ailleurs dans ce moteur, la pose du
-;; modele est le plancher : elle satisfait la contrainte par construction, donc le recul garde son
-;; point d'arrivee.
-(define *phys-shell* (new 'global 'array 'float PHYS-SC))    ;; rayon interne, 0 = pas un fourreau
-(define *phys-shell-n* 0)     ;; corrections de concentricite appliquees, sur la fenetre
-(define *phys-shell-off* 0)   ;; CONTROLE POSITIF : 1 = fourreau traite comme avant (poussee)
-(define *phys-shell-in-n* 0)  ;; corrections VERS L'EXTERIEUR appliquees, sur la fenetre
-;; ------------------------------------------------------------------------------------------------
-;; L'EXCURSION RENTRANTE : DE COMBIEN LE FOURREAU EST PASSE SOUS SA DISTANCE DE POSE MODELE.
-;;
-;; POURQUOI ELLE EXISTE. Le limiteur radial ci-dessus n'avait qu'une MOITIE : il ne s'executait que
-;; sur `rad > 0`, le cas ou le pan S'ECARTE de l'axe. Le cas symetrique `rad < 0` — le pan s'est
-;; RAPPROCHE de l'axe, c'est-a-dire que le tissu est entre dans la chair — ne declenchait RIEN : ni
-;; ce limiteur, ni l'ejection ordinaire, puisque sur une paire fourreau la branche `else` n'est pas
-;; prise. C'est le defaut `pant-calf`, « le bas du pantacourt est toujours a l'interieur des
-;; mollets », cinq fois signale.
-;;
-;; NATURE : une distance RADIALE SIGNEE, en unites de jeu. Surtout pas une profondeur de
-;; penetration, pour la meme raison que `phys-shell-res` : une profondeur est MAXIMALE quand le lien
-;; est sur l'axe, c'est-a-dire exactement la ou un fourreau est CORRECT.
-;; REPERE : celui du volume — distance a son axe, segment borne.
-;; LECTURE QUAND LE DEFAUT EST ABSENT : 0. La pose du modele rend exactement 0 par construction.
-;; Valeur publiee : le `min` des `rad` negatifs de la fenetre, RELEVE AVANT correction. C'est le
-;; phenomene a sa pleine echelle, donc cette colonne est son propre controle positif : elle ne peut
-;; pas tomber a zero parce que la correction l'aurait fait disparaitre, elle mesure ce que la
-;; correction a eu a corriger.
-(define *phys-shellin* (new 'global 'array 'float PHYS-SC))
-;; ------------------------------------------------------------------------------------------------
-;; LA MEME GRANDEUR, DANS L'AUTRE SENS — L'EXCURSION SORTANTE QUE LE TISSU TENTE.
-;;
-;; POURQUOI ELLE MANQUAIT, ET C'EST UNE MESURE NON DISCRIMINANTE AU SENS DE LA SPEC 7. La colonne
-;; `shellrad` (`ROOM-SHELL run=`) est relevee dans la passe de MESURE, donc APRES que le solveur a
-;; corrige : quand la contrainte est en place elle ramene `rad` a -marge, et un maximum de valeurs
-;; POSITIVES ne peut alors rien lire d'autre que 0. `run=0.0000` se lit donc identiquement que le
-;; fourreau soit epingle ou parfaitement libre — c'est exactement la troisieme question de la SPEC 7
-;; (« que lit-elle quand le defaut est ABSENT ? ») sans reponse, et ce zero-la a servi de preuve
-;; qu'« autre chose epingle le fourreau ». Il ne prouvait rien.
-;;
-;; NATURE : une distance radiale SIGNEE POSITIVE — de combien le tissu s'ecarte de l'axe au-dela de
-;; sa pose de modele. REPERE : celui du volume, comme `shellin`.
-;; LECTURE QUAND LE DEFAUT EST ABSENT : 0. Relevee AVANT correction, donc elle mesure ce que la
-;; correction a eu a corriger et non ce qu'il en reste — c'est ce qui la rend son propre temoin.
-;; S'ECARTER DE LA JAMBE N'EST PAS UN DEFAUT : c'est ce que fait un pan de tissu. Cette colonne ne
-;; dit pas « il faut corriger », elle dit COMBIEN DE MOUVEMENT la moitie `rad>0` retire (SPEC 7 :
-;; « on chiffre combien de mouvement il retire »).
-(define *phys-shellout* (new 'global 'array 'float PHYS-SC))
-;; ------------------------------------------------------------------------------------------------
-;; LA LONGUEUR DE L'AXE DU MEMBRE QU'UN FOURREAU ENTOURE. 0 = pas encore vue.
-;;
-;; POURQUOI ELLE EXISTE, ET C'EST LA PHRASE CI-DESSUS QUI ETAIT FAUSSE. Le commentaire de
-;; `*phys-shell*` affirme : « tourner autour du membre et glisser le long restent ENTIEREMENT
-;; libres — la contrainte ne borne que l'excursion RADIALE ». C'est vrai de la contrainte de
-;; concentricite, et FAUX du systeme : le pan de pantacourt a un os DEGENERE dans le modele (son
-;; joint est confondu avec son attache), donc `phys-length-chain` lui applique a la place un mur de
-;; POSITION `|p - T| <= radius`. Ce mur borne les trois directions, y compris les deux que la
-;; concentricite declare libres. Regle 0 : un commentaire n'est pas une preuve, et celui-la etait
-;; dementi par `raddrop` = 5120 impacts par course sur `pantflapL`.
-;;
-;; ET LE NOMBRE UTILISE ETAIT LE MAUVAIS. `radius` vaut 429 (gauche) / 443 (droite) : c'est le rayon
-;; du FOURREAU, la distance du tissu a l'axe de la jambe — la seule grandeur que la concentricite
-;; borne deja. Servir de plafond d'excursion en plus, c'est le meme symbole pour deux grandeurs sans
-;; rapport, exactement la faute que le generateur corrige ailleurs sous le nom
-;; ONE-JOINT-ONE-THICKNESS (`Lbangb` 558 -> 104).
-;;
-;; CE QUI LE REMPLACE, DERIVE ET NON INVENTE : les deux mouvements qu'un fourreau peut faire sont
-;; GLISSER le long du membre et TOURNER autour. Le budget geometrique du glissement est la longueur
-;; du segment de membre qu'il entoure — `|cb - ca|` du volume que `phys-shell-pair?` a deja
-;; apparie —, pas la demi-epaisseur du tissu. Aucune constante n'entre : la valeur est relue sur le
-;; squelette anime, et une chaine qui n'est pas un fourreau garde son mur d'avant AU BIT PRES.
-;;
-;; DETERMINISME : plusieurs paires (lien, volume) peuvent etre des fourreaux dans la meme frame ;
-;; l'ordre des volumes est fixe, donc la derniere ecriture est reproductible. Sur le rig de Keira le
-;; generateur n'en retient qu'une par chaine.
-(define *phys-shellax* (new 'global 'array 'float PHYS-SC))
+;; PIERRE TOMBALE DU FOURREAU — retire le 2026-08-14. Le pan de pantacourt (`pantflapL/R`) etait
+;; contraint par CONCENTRICITE (borner son ecart radial a l'axe du mollet qu'il entoure) au lieu
+;; d'etre ejecte de ce membre. Le mecanisme est mort dans la course actuelle : 0 chaine sur 22
+;; declare `shell > 0` — les deux seules qui portent la cle sont a `shell=0` —, donc le predicat
+;; rendait #f partout et le controle positif ne pouvait plus tirer (`ROOM-SHELL-CONTROL
+;; armed=disarmed=0`). La cle `shell=` reste dans les donnees livrees ; seul le code mort part.
 (define *phys-rad*    (new 'global 'array 'float PHYS-SCL))  ;; demi-epaisseur par lien
 ;; ------------------------------------------------------------------------------------------------
 ;; LA LONGUEUR D'OS DE CHAQUE MAILLON, ET LA MOYENNE SUR LES MAILLONS LIBRES DE SA CHAINE.
@@ -930,16 +838,7 @@
 ;;              en conflit avec aucun volume n'ecarte personne. Une chaine dont ce compteur est
 ;;              GRAND est une chaine que des volumes se disputaient, donc une chaine que le recul
 ;;              epinglait (kneeflapR : retreat 15913 sur 17893 frames).
-;;   13 shellrad ECART RADIAL MAXIMUM d'un lien-fourreau a l'axe du membre qu'il entoure, au-dela
-;;              de ce que sa pose de modele donne, en unites de jeu.
-;;              NATURE : une DISTANCE radiale. Surtout pas une profondeur de penetration : celle-ci
-;;              est MAXIMALE quand le lien est sur l'axe, c'est-a-dire exactement la ou un fourreau
-;;              est CORRECT, et c'est pour ca que `meshpen` lisait 0.0000 pendant que l'owner
-;;              voyait le pan de pantacourt disparaitre dans le mollet.
-;;              REPERE : celui du volume — distance a son axe, segment borne.
-;;              LECTURE QUAND LE DEFAUT EST ABSENT : 0. La pose du modele rend exactement 0.
-;;              MESUREE MEME QUAND LE CONTROLE EST ARME : c'est ce qui permet au chiffre de MONTER
-;;              sous le defaut au lieu de disparaitre avec la contrainte qui le corrige.
+;;   13 libre — il portait l'ecart radial du mecanisme retire le 2026-08-14 (pierre tombale plus haut).
 ;; 14 = `rootrot`, l'angle ecrit dans la 3x3 du maillon `rootlock` (voir le bloc d'ecriture).
 ;; 15 = `raddrop-m`, le PRIX du mur dur d'excursion : somme, par chaine, de l'excursion qu'il a
 ;;      retiree. Le compte (slot 6) disait combien de fois il mordait, jamais combien il coutait.
@@ -1096,24 +995,15 @@
                       (set! (-> *phys-fam* sc)    (the int (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-FAMILY))))
                       (set! (-> *phys-rootlk* sc) (the int (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-ROOTLK))))
                       (set! (-> *phys-rootgr* sc) (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-GRADIENT)))
-                      ;; PREUVE D'EXECUTION (regle 0), meme forme que `shell=` juste en dessous, et
-                      ;; pour la meme raison : `gradient=` traverse le fichier de donnees, le parseur
-                      ;; C++ et la garde `param_id < kPhysNumChainParams` avant d'arriver ici, et un
-                      ;; zero silencieux a n'importe laquelle de ces couches rendrait la racine
+                      ;; PREUVE D'EXECUTION (regle 0) : `gradient=` traverse le fichier de donnees,
+                      ;; le parseur C++ et la garde `param_id < kPhysNumChainParams` avant d'arriver
+                      ;; ici, et un zero silencieux a l'une de ces couches rendrait la racine
                       ;; graduee INERTE sans qu'aucun chiffre ne le dise -- on croirait avoir mesure
                       ;; le correctif alors qu'on aurait mesure son absence. La ligne ne s'imprime
                       ;; que pour les chaines qui le declarent, donc son ABSENCE est aussi une mesure.
                       (when (> (-> *phys-rootgr* sc) 0.0)
                         (format 0 "[HD-PHYS] rootgrade c=~D g=~f~%" c (-> *phys-rootgr* sc)))
                       (set! (-> *phys-maxang* sc) (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-MAXANG)))
-                      (set! (-> *phys-shell* sc)  (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-SHELL)))
-                      ;; PREUVE D'EXECUTION (regle 0). `shell=` a traverse trois couches avant
-                      ;; d'arriver ici — le fichier de donnees, le parseur C++, le garde
-                      ;; `param_id < kPhysNumChainParams` — et un zero silencieux a chacune rendrait
-                      ;; le fourreau INERTE sans qu'aucun chiffre ne le dise. La ligne ne s'imprime
-                      ;; que pour les chaines concernees, donc son ABSENCE est aussi une mesure.
-                      (when (> (-> *phys-shell* sc) 0.0)
-                        (format 0 "[HD-PHYS] shell c=~D r=~f~%" c (-> *phys-shell* sc)))
                       ;; rayons par lien : `radii=` s'il existe, sinon le `radius=` de la chaine
                       (let ((base (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-RADIUS))))
                         (dotimes (l PHYS-LINKS)
@@ -1327,24 +1217,54 @@
 ;;     cisaillement lineaire, et ca donne un changement de taille qui n'est correle a rien. C'est
 ;;     la definition meme de « gelee ».
 ;;
-;; LA FORME UTILISEE ICI est le min DOUX de norme p (p = 4) :
-;;     e' = e / (1 + (e/cap)^4)^(1/4)
-;; C'est un REMPLACEMENT du plafond dur, pas un suppresseur de plus (SPEC 7) :
-;;   e = 0.25 cap -> 99.9 % conserve      e = 0.50 cap -> 98.5 %      e = cap -> 84.1 %
-;;   e = 2 cap    -> 0.985 cap            e -> inf     -> cap
-;; Donc : identique en dessous de la moitie du plafond (le mouvement subtil que l'owner juge
-;; « quasiment parfait » n'est pas touche), meme plafond a l'infini (aucune amplitude gagnee sur
-;; un defaut), STRICTEMENT CROISSANT partout (la sortie suit l'entree, donc la deformation redevient
-;; correlee au stimulus) et derivable partout (plus de bascule d'une frame a l'autre).
+;; LA FORME UTILISEE ICI est une SATURATION A GENOU (remplacement du 2026-08-14, mesure plus bas).
+;; Avec `cap` le mur — pour les cheveux, `maxangle`, une donnee du rig :
+;;     kn = 0.84 * cap                      le genou
+;;     cp = cap - kn = 0.16 * cap           la marge jusqu'au mur
+;;     v <= kn  ->  f(v) = v                                     IDENTITE STRICTE
+;;     v >  kn  ->  x = (v - kn) / cp   puis   f(v) = kn + cp * x / (1 + x)
+;; Proprietes, toutes verifiables a la main :
+;;   f(kn) = kn et f'(v) = 1/(1+x)^2 donc f'(kn) = 1 : AUCUNE CASSURE DE PENTE au raccord ;
+;;   f' > 0 partout, donc strictement croissante (la sortie suit l'entree) ;
+;;   f(v) < v pour tout v > kn, donc c'est bien un limiteur ;
+;;   f -> cap quand v -> inf, donc LE MUR EST INCHANGE. f(cap) = 0.92 cap, f(3 cap) = 0.989 cap.
+;;
+;; LE SEUL NOMBRE TRANSPOSE EST 0.84, ET IL N'Y EN A PAS D'AUTRE. C'est le rapport genou/mur de la
+;; SPEC de l'owner, §22 : `NormalMaxApexDisplacement = 0.42 B0`, `HardMaxApexDisplacement = 0.50 B0`,
+;; soit 0.42/0.50 = 0.84 — transpose comme la directive du 2026-08-13 23:35 l'ordonne (« meme
+;; architecture de solveur, valeurs propres a chaque organe »). C'est la forme deja en service sur
+;; la poitrine (SPEC 21, bloc du plafond positionnel) : identite sous le genou, exces seul sature.
+;;
+;; CE QU'ELLE REMPLACE ET POURQUOI. L'ancienne forme etait le min doux de norme p (p = 4),
+;; `f(v) = v / (1 + (v/cap)^4)^(1/4)`. Elle n'a AUCUNE ZONE MORTE : f(v) < v pour TOUT v > 0. Avec
+;; la garde `adg2 < adeg - 0.01` de son unique appelant, son seuil de morsure effectif tombait donc
+;; tres au-dessous du mur declare par la donnee :
+;;     backhair 14.09 deg pour maxangle 60.99      lmidhair 15.07 / 66.39   rmidhair 15.15 / 66.79
+;;     rbang    26.87 / 136.79                     lbang    26.95 / 137.29
+;; soit 4.3 a 5.1 fois trop bas. Mesure en fenetre de REPOS (stimulus arrete, frames 41-149) : elle
+;; tirait jusqu'a 91 fois sur 109 au maillon 3 de `lmidhair` et retirait 21.11 deg sur `rmidhair`
+;; l3 — elle agissait quand plus rien n'excitait la chaine. Et l'angle qu'elle borne est l'ECART A
+;; LA POSE D'AUTEUR (voir la note de son appelant), donc c'etait un rappel vers le dessin qui taxait
+;; le mouvement NORMAL, pas l'attenuation des angles EXTREMES que l'owner a demandee (11e passe).
+;; `bendcut` (PHYSDIAG3) le chiffrait : 250533 deg sur backhair, 234293 lmidhair, 186203 rmidhair,
+;; 60600 rbang, 56925 lbang, 0.0 sur les 17 autres chaines. Le mur ne bouge pas d'un degre ici :
+;; c'est la MORSURE SOUS LE GENOU qui est retiree, et rien d'autre.
+;;
+;; SECURITE — relacher cette morsure ne retire aucune protection qui existait : 7 passes de
+;; collision (3 a la boucle `dotimes (it 3)` + 4 a la boucle `dotimes (it 4)`) tournent APRES
+;; l'unique application du limiteur, donc ce n'est jamais lui qui tient le plafond en fin de frame.
 ;; ------------------------------------------------------------------------------------------------
 ;; IL NE S'APPLIQUE QU'UNE FOIS PAR FRAME, ET CE N'EST PAS UN DETAIL D'IMPLEMENTATION.
 ;;
 ;; Un plafond dur est IDEMPOTENT : min(min(e,c),c) = min(e,c). On peut donc l'appeler autant de fois
-;; qu'on veut dans une boucle de Gauss-Seidel, il ne retire rien de plus. Ce min doux ne l'est PAS :
-;; f(e) < e pour TOUT e > 0, meme tres en dessous du plafond, donc l'appeler onze fois par frame
-;; (8 + 3 iterations de contraintes) compose : f^11(c) = 0.841^11 = 0.15 c.
+;; qu'on veut dans une boucle de Gauss-Seidel, il ne retire rien de plus. LA FORME A GENOU L'EST
+;; SOUS LE GENOU — v <= kn donne f(v) = v, donc f^k(v) = v — MAIS PAS AU-DESSUS : chaque appel y
+;; rapproche un peu plus du mur, donc onze appels comprimeraient la bande kn..cap. `phys-bend-chain`
+;; l'appelle UNE SEULE FOIS PAR FRAME, en dehors des deux boucles de contraintes : c'est correct, et
+;; ca doit le rester. L'ancienne forme, elle, n'etait idempotente NULLE PART (f(v) < v des v > 0) :
+;;   f^11(cap) = 0.841^11 = 0.15 cap.
 ;;
-;; CE N'EST PAS UNE DEDUCTION, C'EST UNE MESURE. Premiere version posee DANS la boucle de
+;; CE N'EST PAS UNE DEDUCTION, C'EST UNE MESURE. Cette ancienne forme, posee DANS la boucle de
 ;; contraintes, course x86 du 2026-08-12 : onze chaines sous 60 % de leur plancher —
 ;;     chestL 0.3866 -> 0.1987 (-49 %)   chestR 0.3789 -> 0.1846 (-51 %)
 ;;     kneeflapL 0.1680 -> 0.0840 (-50 %)  toestrapL 0.1279 -> 0.0654 (-49 %)
@@ -1355,13 +1275,16 @@
 ;; REGLE GENERALE, parce que le piege se representera : un limiteur pose dans une boucle de solveur
 ;; DOIT etre idempotent. S'il ne l'est pas, il n'a rien a y faire — il se pose en dehors, une fois.
 (defun phys-softmin ((v float) (cap float))
-  "min DOUX de v et cap : identite loin en dessous, asymptote a cap loin au-dessus, croissant et
-   derivable partout. NON IDEMPOTENT : ne jamais l'appeler dans une boucle de contraintes."
-  (if (or (<= cap 0.0) (<= v 0.0))
-    v
-    (let* ((r  (/ v cap))
-           (r2 (* r r)))
-      (/ v (sqrtf (sqrtf (+ 1.0 (* r2 r2))))))))
+  "min DOUX de v et cap A ZONE MORTE : IDENTITE STRICTE sous le genou kn = 0.84 cap, puis l'EXCES
+   seul est sature, asymptote exacte a cap. Pente continue au genou (f'(kn) = 1), strictement
+   croissante partout. NON IDEMPOTENT AU-DESSUS DU GENOU (en dessous c'est l'identite, donc
+   idempotent) : ne jamais l'appeler dans une boucle de contraintes."
+  (let ((kn (* 0.84 cap)))
+    (if (or (<= cap 0.0) (<= v kn))
+      v
+      (let* ((cp (- cap kn))
+             (x  (/ (- v kn) cp)))
+        (+ kn (* cp (/ x (+ 1.0 x))))))))
 
 (defun phys-vol-floor ((floor0 float) (rl float))
   "Profondeur maximale que cette paire (lien, volume) tolere : SA PROFONDEUR D'AUTEUR, ni plus ni
@@ -1523,58 +1446,6 @@
          (set! (-> nrm x) (/ dx d)) (set! (-> nrm y) (/ dy d)) (set! (-> nrm z) (/ dz d))
          (- want d))))))
 
-(defun phys-shell-pair? ((rest vector) (shell float) (ca vector) (cb vector) (capsule? symbol))
-  "CE LIEN EST-IL UN FOURREAU AUTOUR DE CE VOLUME-CI ?
-
-   Evalue A LA POSE DU MODELE, donc stable d'une frame a l'autre et independant de ce que la
-   simulation fait : la reponse ne peut pas osciller.
-
-   LES DEUX MOITIES SONT NECESSAIRES. Le generateur declare qu'un lien EST un fourreau (`shell` >
-   0, derive du mesh : >= 10 secteurs angulaires sur 12 autour de l'axe d'un volume etranger) mais
-   il ne dit pas AUTOUR DE QUOI, et la reponse depend de la pose. C'est la geometrie qui la donne :
-   l'axe du volume passe-t-il a l'interieur de la coque ? Le pan de pantacourt entoure le mollet et
-   RIEN D'AUTRE — contre le buste, le bras ou l'autre jambe il reste un obstacle ordinaire, repousse
-   comme avant.
-
-   CE PREDICAT NE CONSULTE PAS LE CONTROLE `*phys-shell-off*`, ET C'EST DELIBERE : il enonce un
-   FAIT GEOMETRIQUE, pas une politique. La mesure de l'ecart radial doit rester disponible quand le
-   controle est arme — sinon le compteur TOMBERAIT a zero sous le defaut au lieu de MONTER, et ce
-   serait un controle casse, exactement celui que les DIRECTIVES sanctionnent."
-  (cond
-    ((or (not capsule?) (<= shell 0.0)) #f)
-    (else
-     (let ((d (new 'stack-no-clear 'vector)))
-       (cond
-         ;; le lien est EXACTEMENT sur l'axe : il l'entoure par definition
-         ((not (phys-axis-dir rest ca cb d)) #t)
-         (else (< (-> d w) shell)))))))
-
-(defun phys-shell-res ((rest vector) (q vector) (ca vector) (cb vector) (nrm vector))
-  "DE COMBIEN LE FOURREAU S'EST ECARTE DE L'AXE AU-DELA DE SA POSE DE MODELE.
-
-   NATURE : une distance RADIALE, en unites de jeu. Ce n'est PAS une profondeur de penetration, et
-   la distinction est le fond du defaut : une profondeur est MAXIMALE quand le lien est sur l'axe,
-   c'est-a-dire exactement la ou un fourreau est CORRECT. La grandeur qui decrit « le tissu rentre
-   dans la chair » est l'ecart a la concentricite, et rien d'autre.
-   REPERE : celui du volume — distance a son axe, segment borne comme dans `phys-collide-depth`.
-   LECTURE QUAND LE DEFAUT EST ABSENT : <= 0. La pose du modele rend exactement 0 par construction,
-   donc elle reste admissible et le recul garde son point d'arrivee.
-
-   Remplit `nrm` avec la direction du retour : VERS l'axe. Le fourreau revient a sa distance de pose
-   modele ; il n'est jamais ecarte, et il garde toute sa liberte de tourner autour du membre et de
-   glisser le long — les deux mouvements qui ne peuvent pas enfoncer le tissu dans la jambe."
-  (let ((ua (new 'stack-no-clear 'vector))
-        (ub (new 'stack-no-clear 'vector)))
-    (cond
-      ((not (phys-axis-dir q ca cb ub)) 0.0)
-      (else
-       (set! (-> nrm x) (- 0.0 (-> ub x)))
-       (set! (-> nrm y) (- 0.0 (-> ub y)))
-       (set! (-> nrm z) (- 0.0 (-> ub z)))
-       (if (phys-axis-dir rest ca cb ua)
-         (- (-> ub w) (-> ua w))
-         (-> ub w))))))
-
 ;; ------------------------------------------------------------------------------------------------
 ;; CONTRAINTE 1 — CE QUE LA GEOMETRIE DU PERSONNAGE AUTORISE. Deux cas, et un seul des deux est une
 ;; longueur d'os :
@@ -1632,13 +1503,7 @@
                ;; point et le lien serait EPINGLE. C'est exactement ce qui avait tue LpantFlap.
                ;; Ce lien-la garde le seul plafond que la geometrie lui donne : SA PROPRE TAILLE,
                ;; le rayon que le mesh lui mesure. Compte et publie comme le limiteur qu'il est.
-               ;; UN FOURREAU N'EST PAS BORNE PAR SA PROPRE EPAISSEUR. Voir `*phys-shellax*` : la
-               ;; concentricite tient deja la seule direction qui enfonce le tissu dans la chair,
-               ;; et le budget des deux autres (glisser, tourner) est la longueur du membre
-               ;; entoure. Une chaine qui n'est pas un fourreau, ou dont le volume n'a pas encore
-               ;; ete apparie, garde le mur d'avant AU BIT PRES.
-               (let* ((shax (if (> (-> *phys-shell* sc) 0.0) (-> *phys-shellax* sc) 0.0))
-                      (rmax (if (> shax 0.01) shax (-> *phys-rad* scl)))
+               (let* ((rmax (-> *phys-rad* scl))
                       (tx (-> skel bones (+ kk 1) transform vector 3 x))
                       (ty (-> skel bones (+ kk 1) transform vector 3 y))
                       (tz (-> skel bones (+ kk 1) transform vector 3 z))
@@ -1756,7 +1621,12 @@
 ;; pas les aretes pour ca, se croise.
 ;;
 ;; TROIS PROPRIETES, et chacune repond a un mot de sa phrase :
-;;   * « attenuation », pas clamp : min DOUX (phys-softmin), donc pas d'a-coup au passage du seuil ;
+;;   * « attenuation », pas clamp : min DOUX a genou (phys-softmin, :1277) — identite stricte sous
+;;     0.84 * maxangle et pente continue au raccord, donc aucun a-coup au passage du seuil, et rien
+;;     de retire tant que l'angle reste dans la zone que la donnee declare representable ;
+;;   * « les angles EXTREMES » : la zone morte est ce qui rend la phrase vraie. La forme d'avant
+;;     (min doux de norme p) mordait des 14 a 27 deg pour des maxangle de 61 a 137 — voir la note
+;;     de `phys-softmin` ;
 ;;   * « certains maillons » : chaque maillon est teste separement, seul le fautif paie ;
 ;;   * longueur invariante : on ne fait que ramener la direction vers celle du modele SUR LE MEME
 ;;     ARC, donc l'os ne change pas de taille et `elong` n'en voit rien.
@@ -2238,191 +2108,139 @@
                     ;; Prendre le MAX des deux restaure l'invariant par construction — `floorc` est
                     ;; exactement `dep` evalue en `rest` — sans jamais RESSERRER une paire par
                     ;; rapport a aujourd'hui, donc sans pouvoir retirer du mouvement.
-                    (let* ((cap?   (and (>= cj2 0) (< (+ cj2 1) nbone)))
-                           (sleeve (phys-shell-pair? rest (-> *phys-shell* sc) ra rb cap?)))
-                      (cond
-                        ;; ---- LE FOURREAU : concentricite, pas ejection. Voir `*phys-shell*`. ----
-                        ;; ARME, le controle rend au fourreau sa sphere de poussee d'avant : on
-                        ;; retombe dans la branche `else`, le pan est de nouveau ejecte, et l'ecart
-                        ;; radial mesure plus bas DOIT remonter.
-                        ((and sleeve (zero? *phys-shell-off*))
-                         ;; le budget de GLISSEMENT du fourreau, releve sur le volume qu'il entoure
-                         ;; (voir `*phys-shellax*`). Ecrit ici parce que c'est le seul endroit ou
-                         ;; l'appariement fourreau<->volume est etabli.
-                         (set! (-> *phys-shellax* sc) (vector-vector-distance ca cb))
-                         (let ((rad (phys-shell-res rest pt ca cb nrm)))
-                           (cond
-                             ((> rad 0.0)
-                              ;; l'excursion SORTANTE brute, relevee AVANT de corriger — exactement
-                              ;; comme la branche `rad<0` releve la rentrante. Sans elle, la seule
-                              ;; colonne existante etait post-correction et lisait 0 quoi qu'il
-                              ;; arrive (voir *phys-shellout*).
-                              (when (> rad (-> *phys-shellout* sc))
-                                (set! (-> *phys-shellout* sc) rad))
-                              (set! *phys-shell-n* (+ *phys-shell-n* 1))
-                              (let ((push (+ rad margin)))
-                                ;; `nrm` sort de `phys-shell-res` dirigee VERS l'axe : le lien
-                                ;; revient a sa distance de pose modele, il n'est pas ecarte.
-                                (set! (-> pt x) (+ (-> pt x) (* (-> nrm x) push)))
-                                (set! (-> pt y) (+ (-> pt y) (* (-> nrm y) push)))
-                                (set! (-> pt z) (+ (-> pt z) (* (-> nrm z) push)))))
-                             ;; ---- L'AUTRE MOITIE DE LA MEME CONDITION : `rad < 0` -------------
-                             ;; `rad` est `distance_a_l_axe(courant) - distance_a_l_axe(pose
-                             ;; modele)`. Negatif, il dit que le pan est passe SOUS sa distance de
-                             ;; pose modele : le tissu est entre dans le mollet. Jusqu'ici cette
-                             ;; moitie ne faisait rien du tout — le `when (> rad 0.0)` la laissait
-                             ;; passer, et l'ejection ordinaire est hors de portee sur une paire
-                             ;; fourreau (branche `else` non prise). C'est `pant-calf`.
-                             ;; Aucun degre de liberte n'est retire : tourner autour du membre et
-                             ;; glisser le long ne changent pas la distance a l'axe.
-                             ((< rad 0.0)
-                              ;; l'excursion BRUTE, relevee AVANT de corriger : c'est le phenomene
-                              ;; a sa pleine echelle, et c'est ce qui rend la colonne mesurable
-                              ;; meme quand la correction ci-dessous la ramene a zero.
-                              (when (< rad (-> *phys-shellin* sc))
-                                (set! (-> *phys-shellin* sc) rad))
-                              (set! *phys-shell-in-n* (+ *phys-shell-in-n* 1))
-                              (let ((push (+ (- 0.0 rad) margin)))
-                                ;; ATTENTION AU SIGNE — C'EST TOUT LE DEFAUT. `nrm` sort de
-                                ;; `phys-shell-res` dirigee VERS l'axe ; sortir du membre, c'est
-                                ;; donc `-nrm`, et la poussee se SOUSTRAIT. Ajouter comme la
-                                ;; branche du haut enfoncerait le pan plus profond encore.
-                                (set! (-> pt x) (- (-> pt x) (* (-> nrm x) push)))
-                                (set! (-> pt y) (- (-> pt y) (* (-> nrm y) push)))
-                                (set! (-> pt z) (- (-> pt z) (* (-> nrm z) push))))))))
-                        (else
-                         (let* ((floors (phys-collide-depth rest rl ra rb (-> *phys-cr* sco)
-                                                            (-> *phys-cr2* sco) cap? nrm))
-                                (floorc (phys-collide-depth rest rl ca cb (-> *phys-cr* sco)
-                                                            (-> *phys-cr2* sco) cap? nrm))
-                                (floor0 (if (> floorc floors) floorc floors))
-                                (feff   (if selfpair 0.0 (phys-vol-floor floor0 rl)))
-                                (dep    (phys-collide-depth pt rl ca cb (-> *phys-cr* sco)
-                                                            (-> *phys-cr2* sco) cap? nrm)))
-                           (when (> dep feff)
-                             (let ((push (+ (- dep feff) margin)))
-                               ;; une correction issue d'un volume PROPRE a la chaine : elle ne peut
-                               ;; arriver que sous controle positif, et c'est ce compteur qui le dit.
-                               (when (nonzero? *phys-self-inject*)
-                                 (when (phys-col-own? sc n cj cj2)
-                                   (set! (-> *phys-dg* (* sc PHYS-DG))
-                                         (+ 1.0 (-> *phys-dg* (* sc PHYS-DG))))))
-                               (set! (-> pt x) (+ (-> pt x) (* (-> nrm x) push)))
-                               (set! (-> pt y) (+ (-> pt y) (* (-> nrm y) push)))
-                               (set! (-> pt z) (+ (-> pt z) (* (-> nrm z) push)))))
-                           ;; ----------------------------------------------------------------
-                           ;; LA FERMETURE DU FRANCHISSEMENT D'AXE — LA GRANDEUR QUE `meshpen`
-                           ;; PUBLIE ET QUE CE SOLVEUR N'AVAIT AUCUN CODE POUR RESOUDRE.
-                           ;;
-                           ;; PREUVE ARITHMETIQUE, SANS COURSE. La profondeur est bornee par
-                           ;; construction a `rr + rl` : `phys-collide-depth` rend
-                           ;; `(rr + rlink) - d` et `feff = floor0 >= 0`. Sur `anklestrapR` c'est
-                           ;; 411 + 225 = 636 u = 0.1553 m — et la colonne publiait 0.7697 m, soit
-                           ;; 4.96 fois le maximum atteignable. 16 chaines sur 19 depassent ainsi
-                           ;; leur propre borne : ce n'est pas une profondeur. C'est l'AUTRE terme
-                           ;; de `phys-link-pen` (:2628-2630), la DISTANCE A L'AXE DU MAUVAIS COTE
-                           ;; que `phys-axis-dir` ecrit dans `w`.
-                           ;;
-                           ;; CORROBORATION EXACTE, PAS UNE CORRELATION : les 19 chaines a
-                           ;; `meshpen > 0` sont exactement les 19 de `ROOM-SIDE`, et les 3
-                           ;; absentes (earL, earR, toestrapL) exactement les 3 a residu nul.
-                           ;; C'est le meme predicat, dans le meme `when` (:2624).
-                           ;;
-                           ;; C'EST L'INVARIANT QUE `phys-retreat-chain` TENAIT SANS LE DIRE : il
-                           ;; visait la pose du modele, qui est du BON cote de CHAQUE axe par
-                           ;; construction. En le retirant on a rouvert `goggles-tunnel`, que
-                           ;; l'owner avait FERME le 2026-08-13 12:45.
-                           ;;
-                           ;; POURQUOI ICI, DANS LE BALAYAGE, ET PAS APRES LA REPROJECTION DE
-                           ;; LONGUEUR — C'EST MESURE, PAS SUPPOSE. Essaye apres la reprojection
-                           ;; (course du 2026-08-14 00:26), la fermeture devient bien la derniere
-                           ;; ecriture et `crossing` descend plus bas (12282 -> 8112), mais plus
-                           ;; rien ne tient la longueur : `ROOM-STRETCH` passe de 0.0003 a 1.2090,
-                           ;; soit 120 % d'allongement d'os sur `topstrapR` contre un plafond de
-                           ;; 3 %. « Un os ne s'allonge pas » : on garde donc la reprojection en
-                           ;; dernier mot, et le franchissement se ferme DANS le balayage, ou les
-                           ;; deux contraintes se partagent les iterations.
-                           ;;
-                           ;; DEPLACEMENT MINIMAL, PAS UNE ROTATION. On projette orthogonalement
-                           ;; sur le PLAN FRONTIERE du demi-espace admissible : le plus court
-                           ;; chemin qui satisfait la contrainte. Une rotation a rayon constant
-                           ;; jusqu'a la perpendiculaire parcourt strictement plus, et ca se
-                           ;; mesure — elle portait la colonne `jump` (pire saut d'UNE frame) de
-                           ;; 0.1155 a 0.8053 m sur `botstrapL`.
-                           ;;
-                           ;; CE QU'ELLE N'EST PAS. Ce qui est emprunte a la pose d'auteur est le
-                           ;; SIGNE D'UN AZIMUT (`ua`, une direction unitaire) — exactement
-                           ;; l'information que la MESURE utilise deja pour DECLARER la violation
-                           ;; — jamais une position, jamais une distance. Elle est IDEMPOTENTE :
-                           ;; des que `ua . ub >= 0` c'est un no-op, donc aucune memoire de
-                           ;; l'historique du contact, donc aucune hysteresis fabriquee ici. Et
-                           ;; elle ne borne aucune amplitude : tourner autour du membre reste
-                           ;; libre, seul le passage AU TRAVERS de l'axe est refuse.
-                           ;;
-                           ;; NATURE : un deplacement, en unites monde. REPERE : monde. LECTURE
-                           ;; HORS DEFAUT : nul. Sous `*phys-side-off*` comme la mesure, pour que
-                           ;; le controle positif commande enfin quelque chose : il valait
-                           ;; `armed=15171 disarmed=15399` — 1.2 % d'ecart, c'est-a-dire rien.
-                           ;; ----------------------------------------------------------------
-                           ;; SON DOMAINE EST CELUI DE L'OBSTACLE, ET IL NE L'ETAIT PAS.
-                           ;; (2026-08-14, correctif de ce cycle.)
-                           ;;
-                           ;; L'ARMEMENT NE REGARDAIT QUE `floor0`, C'EST-A-DIRE LA PROFONDEUR DE
-                           ;; LA POSE D'AUTEUR. Le lien SIMULE, lui, n'entrait pas dans la
-                           ;; condition — on pouvait donc teleporter un maillon situe tres loin
-                           ;; DEHORS parce que sa pose d'auteur, elle, effleurait le volume.
-                           ;;
-                           ;; PREUVE ARITHMETIQUE, SANS COURSE, sur la pire chaine de la course 7 :
-                           ;;   rbang pointe   distance a l'axe tete->cou = 2313.6 u
-                           ;;                  portee du volume  rr + rl  =  915 + 193 = 1108 u
-                           ;; La pointe est donc 1205 u (29 cm) DEHORS d'une sphere qu'on
-                           ;; l'accusait de traverser, et sa pose d'auteur n'est enfoncee que de
-                           ;; 6 a 10 u dans cette meme sphere de 915 : elle EFFLEURE la surface.
-                           ;; Le moindre balayage lateral la met « de l'autre cote » de l'azimut
-                           ;; sans qu'elle approche jamais le crane.
-                           ;;
-                           ;; ET LE PRIX EST EXACTEMENT LE `jump` QUE LA COURSE 7 A PAYE. Le
-                           ;; deplacement vaut `cc = dt0 * (ub w)`, donc il CROIT avec la distance
-                           ;; a l'axe : plus le cheveu est loin du corps, plus la correction le
-                           ;; teleporte. C'est la forme mesuree (`botstrapL` 0.1155 -> 0.5372 m,
-                           ;; `goggles` 0.1183 -> 0.4237) et c'est la regle 6 a l'envers — « une
-                           ;; resolution pire que le clip est pire que rien ».
-                           ;;
-                           ;; CE QUI CHANGE : `(> dep 0.0)`. `dep` est deja calcule au-dessus
-                           ;; (:2298) — c'est la profondeur du CENTRE DU VOLUME SIMULE dans cet
-                           ;; obstacle-ci, avant la poussee. Le veto d'azimut ne s'applique donc
-                           ;; plus qu'aux maillons qui sont REELLEMENT dans le volume, la ou « de
-                           ;; quel cote » decide si la poussee de profondeur les sort du bon cote.
-                           ;; Dehors, il n'y a rien a traverser : le domaine de la RESOLUTION
-                           ;; devient egal au domaine de l'OBSTACLE.
-                           ;;
-                           ;; CE QUE CA NE COUVRE PLUS, ET JE NE LE TAIS PAS : un maillon qui
-                           ;; traverserait le volume de part en part EN UNE FRAME ressort dehors,
-                           ;; donc `dep <= 0`, donc il echappe au veto. C'est le tunneling, et sa
-                           ;; reponse structurelle est la SPEC 37 de l'owner (>= 120 Hz effectifs,
-                           ;; 2 sous-pas a 60 FPS) — PAS FAITE. La contrainte de longueur borne le
-                           ;; trajet d'un maillon par frame, ce qui le rend rare, pas impossible.
-                           ;;
-                           ;; NATURE : un deplacement, en unites monde. REPERE : monde. LECTURE
-                           ;; HORS DEFAUT : nul (idempotent des que `ua . ub >= 0`). CE QUE LA
-                           ;; COURSE DOIT MONTRER : `jump` redescend vers sa ligne de base (~0.12 m)
-                           ;; sur les sangles et les lunettes, et `meshpen` REMONTE sur les meches
-                           ;; frontales — parce que la resolution zeroutait sa propre mesure, et
-                           ;; que cette mesure-la est fausse (voir la note de `phys-link-pen`).
-                           ;; ----------------------------------------------------------------
-                           (when (and (zero? *phys-side-off*)
-                                      (> floor0 0.0)
-                                      (> dep 0.0)
-                                      (phys-axis-dir rest ca cb ua)
-                                      (phys-axis-dir pt ca cb ub))
-                             (let ((dt0 (+ (* (-> ua x) (-> ub x))
-                                           (+ (* (-> ua y) (-> ub y))
-                                              (* (-> ua z) (-> ub z))))))
-                               (when (< dt0 0.0)
-                                 (let ((cc (* dt0 (-> ub w))))
-                                   (set! (-> pt x) (- (-> pt x) (* cc (-> ua x))))
-                                   (set! (-> pt y) (- (-> pt y) (* cc (-> ua y))))
-                                   (set! (-> pt z) (- (-> pt z) (* cc (-> ua z)))))))))))))))))
+                    (let* ((cap?   (and (>= cj2 0) (< (+ cj2 1) nbone))))
+                      (let* ((floors (phys-collide-depth rest rl ra rb (-> *phys-cr* sco)
+                                                         (-> *phys-cr2* sco) cap? nrm))
+                             (floorc (phys-collide-depth rest rl ca cb (-> *phys-cr* sco)
+                                                         (-> *phys-cr2* sco) cap? nrm))
+                             (floor0 (if (> floorc floors) floorc floors))
+                             (feff   (if selfpair 0.0 (phys-vol-floor floor0 rl)))
+                             (dep    (phys-collide-depth pt rl ca cb (-> *phys-cr* sco)
+                                                         (-> *phys-cr2* sco) cap? nrm)))
+                        (when (> dep feff)
+                          (let ((push (+ (- dep feff) margin)))
+                            ;; une correction issue d'un volume PROPRE a la chaine : elle ne peut
+                            ;; arriver que sous controle positif, et c'est ce compteur qui le dit.
+                            (when (nonzero? *phys-self-inject*)
+                              (when (phys-col-own? sc n cj cj2)
+                                (set! (-> *phys-dg* (* sc PHYS-DG))
+                                      (+ 1.0 (-> *phys-dg* (* sc PHYS-DG))))))
+                            (set! (-> pt x) (+ (-> pt x) (* (-> nrm x) push)))
+                            (set! (-> pt y) (+ (-> pt y) (* (-> nrm y) push)))
+                            (set! (-> pt z) (+ (-> pt z) (* (-> nrm z) push)))))
+                        ;; ----------------------------------------------------------------
+                        ;; LA FERMETURE DU FRANCHISSEMENT D'AXE — LA GRANDEUR QUE `meshpen`
+                        ;; PUBLIE ET QUE CE SOLVEUR N'AVAIT AUCUN CODE POUR RESOUDRE.
+                        ;;
+                        ;; PREUVE ARITHMETIQUE, SANS COURSE. La profondeur est bornee par
+                        ;; construction a `rr + rl` : `phys-collide-depth` rend
+                        ;; `(rr + rlink) - d` et `feff = floor0 >= 0`. Sur `anklestrapR` c'est
+                        ;; 411 + 225 = 636 u = 0.1553 m — et la colonne publiait 0.7697 m, soit
+                        ;; 4.96 fois le maximum atteignable. 16 chaines sur 19 depassent ainsi
+                        ;; leur propre borne : ce n'est pas une profondeur. C'est l'AUTRE terme
+                        ;; de `phys-link-pen` (:2628-2630), la DISTANCE A L'AXE DU MAUVAIS COTE
+                        ;; que `phys-axis-dir` ecrit dans `w`.
+                        ;;
+                        ;; CORROBORATION EXACTE, PAS UNE CORRELATION : les 19 chaines a
+                        ;; `meshpen > 0` sont exactement les 19 de `ROOM-SIDE`, et les 3
+                        ;; absentes (earL, earR, toestrapL) exactement les 3 a residu nul.
+                        ;; C'est le meme predicat, dans le meme `when` (:2624).
+                        ;;
+                        ;; C'EST L'INVARIANT QUE `phys-retreat-chain` TENAIT SANS LE DIRE : il
+                        ;; visait la pose du modele, qui est du BON cote de CHAQUE axe par
+                        ;; construction. En le retirant on a rouvert `goggles-tunnel`, que
+                        ;; l'owner avait FERME le 2026-08-13 12:45.
+                        ;;
+                        ;; POURQUOI ICI, DANS LE BALAYAGE, ET PAS APRES LA REPROJECTION DE
+                        ;; LONGUEUR — C'EST MESURE, PAS SUPPOSE. Essaye apres la reprojection
+                        ;; (course du 2026-08-14 00:26), la fermeture devient bien la derniere
+                        ;; ecriture et `crossing` descend plus bas (12282 -> 8112), mais plus
+                        ;; rien ne tient la longueur : `ROOM-STRETCH` passe de 0.0003 a 1.2090,
+                        ;; soit 120 % d'allongement d'os sur `topstrapR` contre un plafond de
+                        ;; 3 %. « Un os ne s'allonge pas » : on garde donc la reprojection en
+                        ;; dernier mot, et le franchissement se ferme DANS le balayage, ou les
+                        ;; deux contraintes se partagent les iterations.
+                        ;;
+                        ;; DEPLACEMENT MINIMAL, PAS UNE ROTATION. On projette orthogonalement
+                        ;; sur le PLAN FRONTIERE du demi-espace admissible : le plus court
+                        ;; chemin qui satisfait la contrainte. Une rotation a rayon constant
+                        ;; jusqu'a la perpendiculaire parcourt strictement plus, et ca se
+                        ;; mesure — elle portait la colonne `jump` (pire saut d'UNE frame) de
+                        ;; 0.1155 a 0.8053 m sur `botstrapL`.
+                        ;;
+                        ;; CE QU'ELLE N'EST PAS. Ce qui est emprunte a la pose d'auteur est le
+                        ;; SIGNE D'UN AZIMUT (`ua`, une direction unitaire) — exactement
+                        ;; l'information que la MESURE utilise deja pour DECLARER la violation
+                        ;; — jamais une position, jamais une distance. Elle est IDEMPOTENTE :
+                        ;; des que `ua . ub >= 0` c'est un no-op, donc aucune memoire de
+                        ;; l'historique du contact, donc aucune hysteresis fabriquee ici. Et
+                        ;; elle ne borne aucune amplitude : tourner autour du membre reste
+                        ;; libre, seul le passage AU TRAVERS de l'axe est refuse.
+                        ;;
+                        ;; NATURE : un deplacement, en unites monde. REPERE : monde. LECTURE
+                        ;; HORS DEFAUT : nul. Sous `*phys-side-off*` comme la mesure, pour que
+                        ;; le controle positif commande enfin quelque chose : il valait
+                        ;; `armed=15171 disarmed=15399` — 1.2 % d'ecart, c'est-a-dire rien.
+                        ;; ----------------------------------------------------------------
+                        ;; SON DOMAINE EST CELUI DE L'OBSTACLE, ET IL NE L'ETAIT PAS.
+                        ;; (2026-08-14, correctif de ce cycle.)
+                        ;;
+                        ;; L'ARMEMENT NE REGARDAIT QUE `floor0`, C'EST-A-DIRE LA PROFONDEUR DE
+                        ;; LA POSE D'AUTEUR. Le lien SIMULE, lui, n'entrait pas dans la
+                        ;; condition — on pouvait donc teleporter un maillon situe tres loin
+                        ;; DEHORS parce que sa pose d'auteur, elle, effleurait le volume.
+                        ;;
+                        ;; PREUVE ARITHMETIQUE, SANS COURSE, sur la pire chaine de la course 7 :
+                        ;;   rbang pointe   distance a l'axe tete->cou = 2313.6 u
+                        ;;                  portee du volume  rr + rl  =  915 + 193 = 1108 u
+                        ;; La pointe est donc 1205 u (29 cm) DEHORS d'une sphere qu'on
+                        ;; l'accusait de traverser, et sa pose d'auteur n'est enfoncee que de
+                        ;; 6 a 10 u dans cette meme sphere de 915 : elle EFFLEURE la surface.
+                        ;; Le moindre balayage lateral la met « de l'autre cote » de l'azimut
+                        ;; sans qu'elle approche jamais le crane.
+                        ;;
+                        ;; ET LE PRIX EST EXACTEMENT LE `jump` QUE LA COURSE 7 A PAYE. Le
+                        ;; deplacement vaut `cc = dt0 * (ub w)`, donc il CROIT avec la distance
+                        ;; a l'axe : plus le cheveu est loin du corps, plus la correction le
+                        ;; teleporte. C'est la forme mesuree (`botstrapL` 0.1155 -> 0.5372 m,
+                        ;; `goggles` 0.1183 -> 0.4237) et c'est la regle 6 a l'envers — « une
+                        ;; resolution pire que le clip est pire que rien ».
+                        ;;
+                        ;; CE QUI CHANGE : `(> dep 0.0)`. `dep` est deja calcule au-dessus
+                        ;; (:2298) — c'est la profondeur du CENTRE DU VOLUME SIMULE dans cet
+                        ;; obstacle-ci, avant la poussee. Le veto d'azimut ne s'applique donc
+                        ;; plus qu'aux maillons qui sont REELLEMENT dans le volume, la ou « de
+                        ;; quel cote » decide si la poussee de profondeur les sort du bon cote.
+                        ;; Dehors, il n'y a rien a traverser : le domaine de la RESOLUTION
+                        ;; devient egal au domaine de l'OBSTACLE.
+                        ;;
+                        ;; CE QUE CA NE COUVRE PLUS, ET JE NE LE TAIS PAS : un maillon qui
+                        ;; traverserait le volume de part en part EN UNE FRAME ressort dehors,
+                        ;; donc `dep <= 0`, donc il echappe au veto. C'est le tunneling, et sa
+                        ;; reponse structurelle est la SPEC 37 de l'owner (>= 120 Hz effectifs,
+                        ;; 2 sous-pas a 60 FPS) — PAS FAITE. La contrainte de longueur borne le
+                        ;; trajet d'un maillon par frame, ce qui le rend rare, pas impossible.
+                        ;;
+                        ;; NATURE : un deplacement, en unites monde. REPERE : monde. LECTURE
+                        ;; HORS DEFAUT : nul (idempotent des que `ua . ub >= 0`). CE QUE LA
+                        ;; COURSE DOIT MONTRER : `jump` redescend vers sa ligne de base (~0.12 m)
+                        ;; sur les sangles et les lunettes, et `meshpen` REMONTE sur les meches
+                        ;; frontales — parce que la resolution zeroutait sa propre mesure, et
+                        ;; que cette mesure-la est fausse (voir la note de `phys-link-pen`).
+                        ;; ----------------------------------------------------------------
+                        (when (and (zero? *phys-side-off*)
+                                   (> floor0 0.0)
+                                   (> dep 0.0)
+                                   (phys-axis-dir rest ca cb ua)
+                                   (phys-axis-dir pt ca cb ub))
+                          (let ((dt0 (+ (* (-> ua x) (-> ub x))
+                                        (+ (* (-> ua y) (-> ub y))
+                                           (* (-> ua z) (-> ub z))))))
+                            (when (< dt0 0.0)
+                              (let ((cc (* dt0 (-> ub w))))
+                                (set! (-> pt x) (- (-> pt x) (* cc (-> ua x))))
+                                (set! (-> pt y) (- (-> pt y) (* cc (-> ua y))))
+                                (set! (-> pt z) (- (-> pt z) (* cc (-> ua z)))))))))))))))
             ;; retour aux coordonnees du JOINT : le solveur, la contrainte de longueur et l'ecriture
             ;; dans le squelette raisonnent tous sur le joint, jamais sur le centre du volume.
             (set! (-> pt x) (- (-> pt x) (-> offs x)))
@@ -2747,49 +2565,15 @@
               (when (not (phys-col-rest! sco ra rb))
                 (vector-copy! ra ca) (vector-copy! rb cb))
               (let* ((cap?   (and (>= cj2 0) (< (+ cj2 1) nbone)))
-                     ;; LE FOURREAU EST JUGE SUR SON ECART RADIAL, PAS SUR UNE PROFONDEUR — sans
-                     ;; quoi le recul le tirerait vers l'axe pour « reduire la penetration », ce
-                     ;; qui est exactement le contraire de ce qu'il faut. Voir `phys-shell-res`.
-                     (sleeve (phys-shell-pair? rest (-> *phys-shell* sc) ra rb cap?))
-                     (sleevec (and sleeve (zero? *phys-shell-off*)))
-                     ;; `floor0` EST LE PREDICAT D'ACTIVATION DU COMPTEUR DE FRANCHISSEMENT, ET LE
-                     ;; FOURREAU LE METTAIT A ZERO — donc le compteur ne pouvait PAS etre non nul sur
-                     ;; les deux seules chaines dont il decrit le defaut.
-                     ;;
-                     ;; Le `(if sleevec 0.0 ...)` portait sur les QUATRE grandeurs a la fois. Sur une
-                     ;; paire fourreau, `floors` et `floorc` valaient donc 0, donc `floor0` = 0, donc
-                     ;; la garde `(> floor0 0.0)` du test de cote (ligne ~2270) etait STRUCTURELLEMENT
-                     ;; fausse. `ROOM-SIDE: chains=0/22 crossing=0` n'etait pas une correction : le
-                     ;; commentaire trente lignes plus bas garde la trace de ce que ce meme compteur
-                     ;; lisait avant que le fourreau existe — `pantflapR 1901 / pantflapL 1792`,
-                     ;; attribues mot pour mot a « le bas du pantacourt est a l'interieur des
-                     ;; mollets ». Le chiffre n'est pas tombe a zero, il a cesse d'etre evaluable.
-                     ;; C'est le piege que la gate SIDE-CONTROL vise, et son controle ne l'a pas vu
-                     ;; parce qu'il tire sur les AUTRES chaines (goggles 554, kneeflapL 426...) :
-                     ;; `pantflapL/R` n'apparaissent dans AUCUNE ligne `ROOM-SIDE-CONTROL`.
-                     ;;
-                     ;; CE BLOC NE CHANGE QUE LA MESURE. `feff` et `dep` gardent leur garde
-                     ;; `sleevec`, donc `res` reste l'ecart radial pour un fourreau, au bit pres ; et
-                     ;; la contribution a `worst` — la seule valeur que cette fonction RENDE au
-                     ;; solveur — est explicitement refusee aux paires fourreau plus bas. La
-                     ;; contrainte appliquee est donc inchangee : ce commit publie un nombre, il ne
-                     ;; corrige pas encore le defaut.
                      (floors (phys-collide-depth rest rl ra rb (-> *phys-cr* sco)
                                                  (-> *phys-cr2* sco) cap? nrm))
                      (floorc (phys-collide-depth rest rl ca cb (-> *phys-cr* sco)
                                                  (-> *phys-cr2* sco) cap? nrm))
                      (floor0 (if (> floorc floors) floorc floors))
-                     (feff   (if sleevec 0.0 (phys-vol-floor floor0 rl)))
-                     (dep    (if sleevec 0.0
-                               (phys-collide-depth q rl ca cb (-> *phys-cr* sco)
-                                                   (-> *phys-cr2* sco) cap? nrm)))
-                     (res    (if sleevec (phys-shell-res rest q ca cb nrm) (- dep feff))))
-                ;; L'ECART RADIAL DU FOURREAU, MESURE QUE LA CONTRAINTE SOIT ACTIVE OU NON. C'est
-                ;; le chiffre du defaut `pant-calf`, et il doit rester lisible sous controle arme.
-                (when (and sleeve (nonzero? *phys-buried-tally*))
-                  (let ((rr2 (phys-shell-res rest q ca cb nrm)))
-                    (when (> rr2 (-> *phys-dg* (+ (* sc PHYS-DG) 13)))
-                      (set! (-> *phys-dg* (+ (* sc PHYS-DG) 13)) rr2))))
+                     (feff   (phys-vol-floor floor0 rl))
+                     (dep    (phys-collide-depth q rl ca cb (-> *phys-cr* sco)
+                                                 (-> *phys-cr2* sco) cap? nrm))
+                     (res    (- dep feff)))
                 ;; CHANGER DE COTE EST UNE PENETRATION, ET C'EST LA SEULE QUE LA PROFONDEUR NE PEUT
                 ;; PAS VOIR. Elle est maximale SUR l'axe et redescend en ressortant : un lien qui
                 ;; traverse la piece de part en part repasse donc sous son propre plancher et
@@ -2821,30 +2605,8 @@
                   (when (nonzero? *phys-buried-tally*)
                     (set! (-> *phys-dg* (+ (* sc PHYS-DG) 11))
                           (+ 1.0 (-> *phys-dg* (+ (* sc PHYS-DG) 11)))))
-                  ;; LA PAIRE FOURREAU : LA CONTRAINTE EST ETENDUE AUX FOURREAUX, BORNEE A LEUR
-                  ;; `shell` — une grandeur MESUREE et PAR CHAINE (452 u sur `pantflapL`, 448 sur
-                  ;; `pantflapR`), jamais une constante choisie a la main (regle 4). Sans borne, un
-                  ;; pan qui a tunnele se voit rappeler de TOUTE sa distance a l'axe en une frame,
-                  ;; et ce rappel-la ecrase la reponse aux petits stimuli au lieu de la corriger.
-                  ;; CE QUE L'HISTORIQUE DE CE BLOC A ETABLI, ET QU'IL NE FAUT PAS REFAIRE :
-                  ;;  * elle FERME sa cible — `ROOM-SIDE crossing` 5643 -> 0, `disarmed` 1011 -> 0,
-                  ;;    perimetre propre (233 lignes `row` changent, TOUTES pantflapL/R) ;
-                  ;;  * elle a ete retiree une fois parce qu'elle cassait `FLOOR-WEAK` (-35 % au
-                  ;;    stimulus le plus faible), puis RE-ETENDUE : cette gate ne mesure pas une
-                  ;;    reponse sur ce pan. `pantflapL` publie `gain=-0.000827` (tilt) et
-                  ;;    `-0.000116` (updown) — la pointe bouge MOINS que sous animation SEULE. Ce
-                  ;;    que `tipvar` y compte est le pan TRAINE PAR L'ANIMATION A TRAVERS LE MOLLET,
-                  ;;    c'est-a-dire le defaut lui-meme. Un plancher pose la protege le defaut ;
-                  ;;  * le « budget de glissement 67-75 u » cite par une note anterieure N'EXISTE
-                  ;;    nulle part dans le contrat ni dans les mesures : le reprendre serait taper
-                  ;;    une constante a la main en la presentant comme mesuree.
-                  ;; RESERVE : si son oeil dit que le pan est trop raide, la reprise se fait par un
-                  ;; rappel BORNE EN VITESSE, jamais par le retrait de la contrainte.
-                  ;; ETAT : `keira-owner-tuning.txt` porte `shell=0` sur les deux seules chaines qui
-                  ;; declarent la cle, donc ce bloc est INERTE dans la course actuelle et son
-                  ;; controle positif ne peut plus tirer (`ROOM-SHELL-CONTROL armed=disarmed=0`).
                   (when (zero? *phys-side-off*)
-                    (let ((wv (if sleevec (fmin (-> ub w) (-> *phys-shell* sc)) (-> ub w))))
+                    (let ((wv (-> ub w)))
                       (when (> wv worst) (set! worst wv)))))
                 ;; `buried` = le lien est entierement dans ce volume A SA POSE DE MODELE. Depuis le
                 ;; 2026-08-12 c'est une MESURE et plus une DECISION : elle ne dispense plus la paire
@@ -2862,16 +2624,7 @@
                 ;; deviendrait un zero constant, c.-a-d. indistinguable d'une colonne fabriquee.
                 ;; `skip` ne porte QUE sur la profondeur : c'est la seule grandeur sur laquelle
                 ;; deux volumes qui se recouvrent peuvent se contredire.
-                ;;
-                ;; LE FOURREAU EST UN CONTACT PERMANENT PAR NATURE — le membre est DANS la coque,
-                ;; donc `floor0` et `dep` y valent zero et le predicat de contact ordinaire ne le
-                ;; verrait jamais. Son residu est publie sur son propre critere.
-                ;; Il n'est pas non plus soumis au veto de COTE, et ce n'est pas une derogation :
-                ;; « changer de cote de l'axe » n'a aucun sens pour une piece qui ENTOURE cet axe —
-                ;; tourner autour du mollet est un mouvement legitime du tissu, et ce qui doit etre
-                ;; interdit (le tissu qui rentre dans la chair) est exactement ce que l'ecart radial
-                ;; mesure. Le veto de cote reste entier pour toutes les autres paires.
-                (when (and (not skip) (or sleevec (> floor0 0.0) (> dep 0.0)) (> res worst))
+                (when (and (not skip) (or (> floor0 0.0) (> dep 0.0)) (> res worst))
                   (set! worst res))
                 ;; QUEL VOLUME CONTRAINT CETTE CHAINE. Compte les paires (lien, volume) en
                 ;; VIOLATION, pas en contact : `res > 0` veut dire que ce volume-ci demande une
@@ -3663,20 +3416,24 @@
                     ;; (« c'est juste sur les meches, pas le reste, encore moins les seins », 22:35).
                     ;; CORRECTION 2026-08-14 — CE COMMENTAIRE AFFIRMAIT LE CONTRAIRE DU CODE, ET LA
                     ;; PHRASE RETIREE ETAIT : « Ce n'est pas un rappel vers le dessin : elle borne un
-                    ;; PLI entre deux maillons voisins ». Releve dans `phys-bend-chain` (:1811-1816) :
+                    ;; PLI entre deux maillons voisins ». Releve dans `phys-bend-chain` (:1690-1695) :
                     ;; `mx/my/mz` est pris entre les os ANIMES `kk` et `kp` (`skel bones ... transform`),
                     ;; donc l'angle mesure est l'ECART DE CE MAILLON A SA POSE D'AUTEUR, pas le pli
                     ;; entre deux maillons simules. C'EST DONC BIEN UN RAPPEL VERS LE DESSIN, adouci.
-                    ;; Consequence a connaitre avant d'y toucher : `phys-softmin` (:1348) n'est PAS un
-                    ;; ecretage — f(e) < e pour TOUT e > 0 — donc il rogne des l'ecart non nul, et le
-                    ;; seuil effectif tombe tres au-dessous de `maxangle` (backhair 14.09 deg contre
-                    ;; maxangle 60.99, lmidhair 15.07 contre 66.39, rmidhair 15.15 contre 66.79).
-                    ;; MESURE, fenetre de REPOS, stimulus arrete, frames 41-149 (N=109) : il tire
-                    ;; 0 fois au maillon 1 et jusqu'a 91 fois au maillon 3 (lmidhair), retirant
-                    ;; 21.11 deg sur rmidhair l3. C'est un SUPPRESSEUR a gradient racine->pointe, et
-                    ;; il agit quand plus rien n'excite la chaine. Il n'est pas retire ici : l'owner
-                    ;; a demande l'attenuation lui-meme (11e passe), et la retirer sans mesurer ce
-                    ;; qu'elle tient serait le meme geste que l'ajouter sans mesurer ce qu'elle coute.
+                    ;; ELLE A DONC UNE ZONE MORTE DEPUIS LE 2026-08-14, ET C'EST TOUT LE CORRECTIF.
+                    ;; `phys-softmin` (:1277) etait un min doux de norme p SANS zone morte — f(e) < e
+                    ;; pour TOUT e > 0 — donc il rognait des l'ecart non nul : seuil de morsure
+                    ;; effectif 14.09 deg pour un `maxangle` de 60.99 (backhair), 15.07 / 66.39
+                    ;; (lmidhair), 15.15 / 66.79 (rmidhair), 26.87 / 136.79 (rbang), 26.95 / 137.29
+                    ;; (lbang). MESURE, fenetre de REPOS, stimulus arrete, frames 41-149 (N=109) : il
+                    ;; tirait 0 fois au maillon 1 et jusqu'a 91 fois au maillon 3 (lmidhair), retirant
+                    ;; 21.11 deg sur rmidhair l3 — un SUPPRESSEUR a gradient racine->pointe qui
+                    ;; agissait quand plus rien n'excitait la chaine, c'est-a-dire une taxe sur le
+                    ;; mouvement NORMAL, pas sur les angles EXTREMES que l'owner a demande d'attenuer.
+                    ;; Il est donc CORRIGE, pas retire : identite stricte sous 0.84 * maxangle, meme
+                    ;; mur a l'infini (voir la note de `phys-softmin`). `bendcut` (PHYSDIAG3) mesure
+                    ;; l'effet en A/B : avant, 250533 deg backhair / 234293 lmidhair / 186203 rmidhair
+                    ;; / 60600 rbang / 56925 lbang, et 0.0 sur les 17 autres chaines.
                     (phys-bend-chain skel sc n rlk an nbone)
                     ;; ETAGE 1 : apres la boucle de contraintes ET l'attenuation d'angle, avant la
                     ;; finition. L'ecart entre l'etage 0 et celui-ci est ce que longueur, collision
@@ -4620,52 +4377,6 @@
 (defun phys-prio-reset! ()
   (set! *phys-prio-n* 0)
   (set! *phys-prio-multi* 0)
-  (none))
-
-(defun phys-shell-off-set! ((v int))
-  "1 = le fourreau redevient une sphere de poussee ordinaire, comme avant ce cycle. C'est le
-   controle positif du `pant-calf` : arme, le pan est de nouveau ejecte lateralement du mollet et
-   son ecart radial doit REMONTER."
-  (set! *phys-shell-off* v)
-  (none))
-
-(defun phys-shell-count ()
-  "Corrections de concentricite appliquees sur la fenetre.
-   NATURE : un COMPTE d'evenements. LECTURE QUAND LE DEFAUT EST ABSENT : 0 — et un zero ici ne
-   prouve rien tout seul, c'est `phys-shell-off-set!` qui doit le faire monter."
-  (the float *phys-shell-n*))
-
-(defun phys-shell-in-count ()
-  "Corrections VERS L'EXTERIEUR appliquees sur la fenetre — la moitie du limiteur radial qui
-   n'existait pas, celle qui ressort le pan de pantacourt du mollet.
-   NATURE : un COMPTE d'evenements. LECTURE QUAND LE DEFAUT EST ABSENT : 0 — aucun lien-fourreau
-   n'est passe sous sa distance de pose modele."
-  (the float *phys-shell-in-n*))
-
-(defun phys-shell-in-worst ((slot int) (c int))
-  "L'excursion RENTRANTE la plus profonde vue sur la fenetre pour cette chaine, en unites de jeu,
-   relevee AVANT correction (voir `*phys-shellin*`).
-   NATURE : une distance radiale SIGNEE — negative sous le defaut. REPERE : celui du volume.
-   LECTURE QUAND LE DEFAUT EST ABSENT : 0."
-  (if (and (>= slot 0) (< slot PHYS-SLOTS) (>= c 0) (< c PHYS-CHAINS))
-    (-> *phys-shellin* (+ (* slot PHYS-CHAINS) c))
-    0.0))
-
-(defun phys-shell-out-worst ((slot int) (c int))
-  "L'excursion SORTANTE la plus grande vue sur la fenetre pour cette chaine, en unites de jeu,
-   relevee AVANT correction (voir `*phys-shellout*`).
-   NATURE : une distance radiale positive. REPERE : celui du volume.
-   LECTURE QUAND LE DEFAUT EST ABSENT : 0 — le tissu n'a jamais tente de s'ecarter de l'axe.
-   Ce n'est PAS une colonne de defaut : elle chiffre le mouvement que la moitie `rad>0` retire."
-  (if (and (>= slot 0) (< slot PHYS-SLOTS) (>= c 0) (< c PHYS-CHAINS))
-    (-> *phys-shellout* (+ (* slot PHYS-CHAINS) c))
-    0.0))
-
-(defun phys-shell-reset! ()
-  (set! *phys-shell-n* 0)
-  (set! *phys-shell-in-n* 0)
-  (dotimes (i PHYS-SC) (set! (-> *phys-shellin* i) 0.0))
-  (dotimes (i PHYS-SC) (set! (-> *phys-shellout* i) 0.0))
   (none))
 
 (defun phys-inversions-reset! ()

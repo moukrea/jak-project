@@ -225,12 +225,7 @@
 ;; 43 evenements sur 90 frames a 11446 sur 16740 rapprochait deux expositions differentes.
 (defconstant PHYSROOM-PH-SIDEOFF 16)   ;; contrainte EN PLACE   — la reference
 (defconstant PHYSROOM-PH-SIDEON 17)   ;; contrainte LEVEE      — le compteur DOIT monter
-;; CONTROLE POSITIF DU FOURREAU (defaut ouvert `pant-calf`). La contrainte de concentricite
-;; remplace l'ejection laterale du pan de pantacourt hors du mollet ; son residu doit tomber a zero,
-;; et un zero que rien ne peut faire monter ne prouve rien. ARMEE, `phys-shell-off-set!` rend au pan
-;; sa sphere de poussee d'avant : l'ecart radial DOIT remonter.
-(defconstant PHYSROOM-PH-SHELLOFF 18)
-(defconstant PHYSROOM-PH-SHELLON 19)
+;; 18 et 19 sont LIBRES : ils portaient le controle positif du mecanisme retire le 2026-08-14.
 ;; CONTROLE POSITIF DU PREDICAT CONIQUE. Les 24 capsules livrees sont TOUTES coniques, et le moteur
 ;; testait jusqu'ici le rayon interpole au parametre de PROJECTION au lieu du solide que la donnee
 ;; designe — un ensemble strictement plus PETIT, donc un solveur qui cesse de pousser trop tot.
@@ -936,27 +931,9 @@
       ;;            (kneeflapR : retreat 15913 frames sur 17893).
       ;;            NATURE : un compte de paires sur la fenetre. REPERE : sans objet.
       ;;            LECTURE QUAND LE DEFAUT EST ABSENT : 0 — aucun conflit, personne n'est ecarte.
-      ;;   shellin  L'EXCURSION RENTRANTE la plus profonde d'un lien-fourreau : de combien il est
-      ;;            passe SOUS sa distance de pose modele a l'axe du membre, relevee AVANT
-      ;;            correction. C'est la moitie du limiteur radial qui n'existait pas — `shellrad`
-      ;;            ne voit que le cas ou le pan S'ECARTE de l'axe, et `pant-calf` est exactement
-      ;;            l'autre : le tissu entre dans la chair. NATURE : une distance radiale SIGNEE,
-      ;;            en unites de jeu, negative sous le defaut. REPERE : celui du volume, distance a
-      ;;            son axe. LECTURE QUAND LE DEFAUT EST ABSENT : 0.
-      ;;   shellout L'EXCURSION SORTANTE la plus grande du meme lien-fourreau, relevee elle aussi
-      ;;            AVANT correction. Elle repare une mesure NON DISCRIMINANTE : `shellrad` est
-      ;;            relevee dans la passe de mesure, donc APRES correction, et un maximum de valeurs
-      ;;            positives y lit 0 des que la contrainte tourne — que le fourreau soit epingle ou
-      ;;            libre. `shellout` lit ce que la correction a eu a corriger.
-      ;;            S'ECARTER DE LA JAMBE N'EST PAS UN DEFAUT : cette colonne chiffre le mouvement
-      ;;            que la moitie `rad>0` RETIRE (SPEC 7). NATURE : distance radiale positive, en
-      ;;            unites de jeu. REPERE : celui du volume. LECTURE HORS DEFAUT : 0.
-      (format 0 "PHYSDIAG5 tag=~S c=~D volprio=~f shellrad=~f shellin=~f shellout=~f~%"
+      (format 0 "PHYSDIAG5 tag=~S c=~D volprio=~f~%"
               tag c
-              (phys-diag (-> self slot) c 12)
-              (phys-diag (-> self slot) c 13)
-              (phys-shell-in-worst (-> self slot) c)
-              (phys-shell-out-worst (-> self slot) c))
+              (phys-diag (-> self slot) c 12))
       ;;   skinpen  (SPEC 18) la pire entree du lien SOUS LA VRAIE PEAU, en unites de jeu. A lire
       ;;            A COTE de `pen` : `pen` mesure contre les VOLUMES, qui ne representent que
       ;;            29.7 % de la geometrie pilotee (mesure du 2026-08-13, probe_skin_in_volume.py),
@@ -1611,52 +1588,10 @@
           (physroom-emit-diag "side-armed")
           (phys-side-off-set! 0)
           (phys-diag-reset!)
-          (phys-shell-reset!)
-          (set! (-> self phase) PHYSROOM-PH-SHELLOFF)))))
-
-    ;; ---- 9ter. CONTROLE POSITIF DU FOURREAU (`pant-calf`). Le pan de pantacourt est une COQUE
-    ;; ---- autour du mollet : le pousser « dehors » l'ejecte lateralement de ~700 u et enfonce la
-    ;; ---- moitie du tissu dans la jambe. La contrainte est desormais la CONCENTRICITE, et son
-    ;; ---- residu doit valoir zero. DESARMEE d'abord (contrainte en place), ARMEE ensuite
-    ;; ---- (`phys-shell-off-set! 1` rend au pan sa sphere de poussee) : le compteur DOIT monter.
-    ((= (-> self phase) PHYSROOM-PH-SHELLOFF)
-     (physroom-drive 3 (-> self pframe))
-     (physroom-advance-anim 1.0)
-     (when (>= (-> self pframe) PHYSROOM-PCW)
-       ;; DEUX compteurs, jamais un seul. `corrections` ne compte que la moitie `rad>0` (le pan
-       ;; s'ecarte de l'axe, on le ramene) ; `inward` compte la moitie `rad<0` (le pan est passe
-       ;; SOUS sa distance de pose modele, donc DANS le mollet, on l'en ressort). Publier la
-       ;; premiere seule laissait croire que le limiteur radial etait une politique unique alors
-       ;; que ce sont deux branches exclusives : c'est leur RAPPORT qui dit ce qui epingle le
-       ;; fourreau, et il n'a jamais ete lisible.
-       ;; NATURE : deux COMPTES d'evenements sur la fenetre. REPERE : sans objet (des comptes).
-       ;; LECTURE HORS DEFAUT : `inward` = 0 -- aucun lien-fourreau n'est entre dans la chair.
-       (format 0 "PHYSSHELL tag=shell-disarmed corrections=~f inward=~f~%"
-               (phys-shell-count) (phys-shell-in-count))
-       ;; l'ecart radial par chaine sort dans PHYSDIAG5 ci-dessous : c'est LUI qui doit monter
-       ;; quand le controle est arme. `corrections` ne le peut pas -- armee, la contrainte ne
-       ;; tourne plus, donc son compteur tombe a zero. Les deux sont publies, jamais confondus.
-       (physroom-emit-diag "shell-disarmed")
-       (phys-diag-reset!)
-       (phys-shell-reset!)
-       (phys-shell-off-set! 1)
-       (set! (-> self phase) PHYSROOM-PH-SHELLON)
-       (set! (-> self pframe) 0)))
-
-    ((= (-> self phase) PHYSROOM-PH-SHELLON)
-     (physroom-drive 3 (-> self pframe))
-     (physroom-advance-anim 1.0)
-     (when (>= (-> self pframe) PHYSROOM-PCW)
-       (format 0 "PHYSSHELL tag=shell-armed corrections=~f inward=~f~%"
-               (phys-shell-count) (phys-shell-in-count))
-       (physroom-emit-diag "shell-armed")
-       (phys-shell-off-set! 0)
-       (phys-diag-reset!)
-       (phys-stats-reset!)
-       (set! (-> self ai) 0)
-       (physroom-set-anim 0)
-       (set! (-> self phase) PHYSROOM-PH-CONEOFF)
-       (set! (-> self pframe) 0)))
+          (phys-stats-reset!)
+          (set! (-> self ai) 0)
+          (physroom-set-anim 0)
+          (set! (-> self phase) PHYSROOM-PH-CONEOFF)))))
 
     ;; ---- 9quater. CONTROLE POSITIF DU PREDICAT CONIQUE, DEUX BRANCHES A EXPOSITION EGALE.
     ;; ---- DESARMEE = le predicat corrige (le solide que la donnee designe). ARMEE = le rayon

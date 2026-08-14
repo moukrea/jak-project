@@ -2021,18 +2021,42 @@ def main():
         A('-- SPEC 18 : LA PENETRATION MESUREE CONTRE LA PEAU, PAS CONTRE LES VOLUMES ------------')
         A('   `meshpen` compte contre les volumes de collision, qui ne representent que 29.7 % de la')
         A('   geometrie que la physique pilote (0 % pour backhair, pantflapL, pantflapR ; 10 % pour')
-        A('   les lunettes). Son zero est donc compatible avec ce que l\'owner voit. Cette colonne-ci')
-        A('   mesure la MEME position ecrite contre le mesh qui est DESSINE.')
+        A('   les lunettes). Un zero y reste donc compatible avec ce que l\'owner voit. Cette')
+        A('   colonne-ci mesure la MEME position ecrite contre le mesh qui est DESSINE.')
+        A('   LEGENDE CORRIGEE le 2026-08-14 : elle disait « son zero est donc compatible avec ce')
+        A('   que l\'owner voit » a une epoque ou la colonne `meshpen` de CETTE ligne valait zero')
+        A('   sur les 22 chaines — non pas parce que rien ne penetrait, mais parce qu\'elle lisait')
+        A('   une cle absente (voir juste dessous). Corrigee, 18 chaines sur 22 publient une valeur')
+        A('   non nulle, jusqu\'a 0.7578 m. La phrase decrivait un faux zero, pas une mesure.')
         A('   NATURE : profondeur en metres, positive = SOUS la peau. REPERE : le monde, frame')
         A('   ecrite. LECTURE HORS DEFAUT : 0. tests=0 veut dire « pas regarde », jamais « rien ».')
         _tot = max((t for _v, t in sp_run.values()), default=0)
         if _tot == 0:
             A('   ROOM-SKINPEN: AUCUN echantillon teste — le fichier physics_mesh.txt n\'est pas')
             A('   charge, ou aucun os du rig ne porte d\'ensemble. Ces zeros ne sont PAS une mesure.')
+        # LA COLONNE `meshpen` DE CETTE LIGNE LISAIT UNE CLE QUI N'EXISTE PAS.
+        #
+        # Elle valait `dr_run[c].get('pen', 0.0)`, or `dr_run` est le dictionnaire des lignes
+        # PHYSDIAG* : il ne porte QUE selfcol/retreat/flip/inv/invres/elong/rad/bendcut/shape/
+        # buried/tiprot/side/volprio/shellrad/shellin/shellout/rootrot/raddropm/retfblen. La cle
+        # 'pen' n'y est ecrite NULLE PART, donc le `.get(..., 0.0)` retombait TOUJOURS sur son
+        # defaut : les 22 chaines publiaient `meshpen=0.0000` pendant que les lignes `worst` du
+        # MEME tableau publiaient 0.5405 sur rmidhair. Deux grandeurs sous un seul nom, dont une
+        # inventee — exactement le faux vert que la regle 1 interdit, et un zero qu'aucun controle
+        # positif ne pouvait faire monter puisqu'il ne venait d'aucune mesure.
+        #
+        # La penetration contre les VOLUMES est `PHYSROW pen=`, agregee dans `worst[c]['pen']`.
+        # On lit desormais CETTE source, la meme que les lignes `worst` (l. ~1776) et que le resume
+        # d'ecran (l. ~2418) : les trois endroits ne peuvent plus diverger, c'est tout l'interet.
+        # `fnum` et non `%.4f` pour la meme raison qu'ailleurs : une penetration de 1.7e-07 m ne
+        # doit pas etre arrondie en « 0.0000 ».
+        # Et une chaine SANS ligne PHYSROW n'a pas de penetration mesuree : elle ecrit
+        # `NON-MESURE`, en mots, jamais un zero qu'on ne pourrait pas distinguer d'une mesure.
         for v, c in sorted(((v, c) for c, (v, _t) in sp_run.items()), reverse=True):
-            A('ROOM-SKINPEN: chain=%-12s skinpen=%.4f m   meshpen=%.4f m'
+            _mp = (worst.get(c) or {}).get('pen')
+            A('ROOM-SKINPEN: chain=%-12s skinpen=%.4f m   meshpen=%s'
               % (names[c] if c < len(names) else c, v,
-                 (dr_run.get(c, {}) or {}).get('pen', 0.0) if isinstance(dr_run.get(c), dict) else 0.0))
+                 ('%s m' % fnum(_mp['v'])) if _mp else 'NON-MESURE'))
         A('ROOM-SKINPEN-TESTS: %d echantillons de surface compares sur la fenetre' % _tot)
         # LE PLANCHER D'ERREUR DE L'INSTRUMENT, MESURE PAR SES PROPRES PAIRES MIROIR.
         #
