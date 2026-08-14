@@ -2904,6 +2904,23 @@ def main():
             A('ROOM-AXSETTLE: chain=%-12s axe=%-3s t5=%-7s t1=%-7s t05=%-7s t01=%-7s a0=%.5f'
               % (_nm, _ax, _st['t5'], _st['t1'], _st['t05'], _st['t01'], _a0))
     A('')
+    A('-- ROOM-AXBLIND / AXSEL-ABS / AXFIT-ABS : SPEC 24 SUR UN INSTRUMENT NON AVEUGLE ----------')
+    A('   Tout ce qui precede sur SPEC 24 est lu sur `PHYSRINGAX`, qui projette une DIFFERENCE DE')
+    A('   VECTEURS UNITAIRES : sa composante radiale est nulle par construction. Le bloc ci-dessous')
+    A('   republie les memes mesures sur `PHYSRINGBX` (la meme deviation, NON normalisee, meme')
+    A('   instant, meme triedre) et donne le controle qui prouve l\'aveuglement. L\'ancien bloc n\'est')
+    A('   PAS retire : l\'ecart entre les deux EST la mesure de l\'erreur, et il lui faut un avant.')
+    # L'analyse vit dans `.autoport/ldb_axsel.py` et est IMPORTEE, comme `physics_ringdown` plus
+    # haut : deux copies d'un meme calcul derivent, et c'est alors le tableau qui dit une chose et
+    # le script une autre sur la meme trace.
+    try:
+        import ldb_axsel
+        for _ln in ldb_axsel.lines(txt, {c: (names[c] if c < len(names) else 'c%d' % c)
+                                         for c in chains}):
+            A(_ln)
+    except Exception as _e:                                  # noqa: BLE001
+        A('   ROOM-AXBLIND: ABSENT (ldb_axsel indisponible : %s)' % _e)
+    A('')
     A('-- ROOM-ORI : SPEC 10-13, LES EQUILIBRES PAR ORIENTATION, ET LEUR CONTINUITE --------------')
     A('   SPEC 13 : « supine, prone, upright and lateral states shall NOT exist as unrelated')
     A('   hard-coded morph targets ; the equilibrium state shall vary CONTINUOUSLY with the local')

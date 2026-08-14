@@ -1695,7 +1695,27 @@
                            "PHYSRINGAZ2 c=~D f=~D ax=~D l=~D ap=~,,7f lat=~,,7f~%")
                        c (- (-> self pframe) PHYSROOM-IMPF) ax l
                        (phys-link-dev-anc (-> self slot) c l 1)
-                       (phys-link-dev-anc (-> self slot) c l 2))))))
+                       (phys-link-dev-anc (-> self slot) c l 2))
+               ;; ---- LA MEME FENETRE, LUE PAR L'INSTRUMENT NON AVEUGLE -------------------------
+               ;; `PHYSRINGAX` porte une difference de vecteurs UNITAIRES : elle ne peut pas voir
+               ;; le degre de liberte RADIAL, qui est a 92 % l'axe VERTICAL de SPEC 24 (PCA du
+               ;; cycle 8 : serie plane a 1 %, meme direction nulle dans les 12 fenetres). Les
+               ;; deux tags sortent du MEME instant de la MEME course, donc la frequence lue sur
+               ;; l'une et sur l'autre ne differe que par la grandeur projetee.
+               ;; NATURE : deplacement signe en unites de jeu. REPERE : triedre de l'ancre (SPEC 7).
+               ;; LIGNE DE BASE : 0 partout a la pose d'auteur. Voir `*phys-ldb*`.
+               ;; `PHYSRINGAX` N'EST PAS RETIREE : sans elle, la comparaison n'aurait pas d'avant.
+               (format 0 (if (zero? nolen)
+                           "PHYSRINGBX c=~D f=~D l=~D ax=~D v=~,,7f~%"
+                           "PHYSRINGBZ c=~D f=~D l=~D ax=~D v=~,,7f~%")
+                       c (- (-> self pframe) PHYSROOM-IMPF) l ax
+                       (phys-link-dev-anc-abs (-> self slot) c l 0))
+               (format 0 (if (zero? nolen)
+                           "PHYSRINGBX2 c=~D f=~D ax=~D l=~D ap=~,,7f lat=~,,7f~%"
+                           "PHYSRINGBZ2 c=~D f=~D ax=~D l=~D ap=~,,7f lat=~,,7f~%")
+                       c (- (-> self pframe) PHYSROOM-IMPF) ax l
+                       (phys-link-dev-anc-abs (-> self slot) c l 1)
+                       (phys-link-dev-anc-abs (-> self slot) c l 2))))))
        (when (>= (-> self pframe) PHYSROOM-AXW)
          (set! (-> self pframe) 0)
          (phys-stats-reset!)

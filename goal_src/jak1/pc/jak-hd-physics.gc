@@ -419,6 +419,42 @@
 ;; LECTURE QUAND LE DEFAUT EST ABSENT : (0,0,0) exactement, a la pose du modele.
 (define *phys-lda* (new 'global 'array 'float (* PHYS-SCL 3)))
 
+;; ============================================================================================
+;; LA MEME DEVIATION, NON NORMALISEE — ET C'EST LA CORRECTION D'UN AVEUGLEMENT DE `*phys-lda*`.
+;;
+;; `*phys-lda*` projette `(u/|u| - m/|m|)` : une DIFFERENCE DE DEUX VECTEURS UNITAIRES. Deux
+;; points de la sphere unite, donc une grandeur TANGENTE a `m` au premier ordre — sa composante
+;; RADIALE est nulle PAR CONSTRUCTION, quelle que soit la physique. Mesure sur la trace du cycle 8
+;; (PCA des 12 fenetres d'impulsion) : la serie est PLANE, sigma3/sigma1 = 0.9 a 3.1 %, et la
+;; direction nulle est LA MEME dans les 12 — (0.92, 0.35, 0.18) en (v, ap, lat). Autrement dit
+;; l'instrument est aveugle a 92 % de l'axe VERTICAL, celui dont SPEC 24 dit qu'il est « le plus
+;; lent » : sa frequence propre ne pouvait structurellement pas se lire.
+;; LES FENETRES A CONTRAINTE LEVEE (`PHYSRINGAZ`) SONT TOUT AUSSI PLANES (0.97 a 2.5 %), et c'est
+;; la que le cycle 8 s'est trompe de conclusion. Il avait pose la bonne hypothese — la contrainte
+;; de longueur confisque le degre de liberte — puis l'a declaree REFUTEE parce que la lever ne
+;; changeait pas la selectivite. Mais il a EVALUE ce controle avec `*phys-lda*`, qui ne peut pas
+;; voir le degre de liberte que le controle venait de rendre. Un controle valide, lu par un
+;; instrument aveugle a ce qu'il restaure, ne refute rien.
+;; Et les deux manques se superposent, ils ne s'excluent pas :
+;;   - le SOLVEUR n'a pas de mouvement radial quand la contrainte est armee — `el`, l'allongement
+;;     d'os du meme bloc, vaut `0.0000` sur TOUTES les courses de la phase (`PHYSSTR el=`), donc la
+;;     longueur est exactement invariante et le point vit sur une sphere : 2 degres de liberte de
+;;     translation la ou SPEC 24 en demande 3 ;
+;;   - la MESURE ne le verrait pas non plus si on le rendait.
+;; L'axe VERTICAL etant a 92 % l'axe RADIAL, c'est precisement la frequence que SPEC 24 appelle
+;; « la plus lente » qui est doublement inaccessible. `*phys-ldb*` retire le second manque ; le
+;; premier se lit alors sur les fenetres a contrainte levee, et lui seul releve du solveur.
+;;
+;; NATURE : deplacement instantane signe du maillon par rapport a sa pose d'auteur, en UNITES DE
+;;   JEU (u) — pas un ecart de directions. Les TROIS degres de liberte sont portes.
+;; REPERE : le meme triedre orthonorme de l'ANCRE (torse) que `*phys-lda*`, meme ordre (v, ap, lat),
+;;   meme instant, meme point de la frame — les deux series sont donc directement comparables, et
+;;   leur ECART EST LA MESURE DE L'AVEUGLEMENT.
+;; LECTURE QUAND LE DEFAUT EST ABSENT : (0,0,0) exactement, a la pose du modele.
+;; `*phys-lda*` N'EST PAS RETIREE ni modifiee : elle continue d'etre publiee telle quelle, pour que
+;; les chiffres du cycle 8 restent lisibles et que la comparaison ait un avant.
+(define *phys-ldb* (new 'global 'array 'float (* PHYS-SCL 3)))
+
 (define *phys-tx*  (new 'global 'array 'float PHYS-SC))   ;; ecart de pointe, frame precedente
 (define *phys-ty*  (new 'global 'array 'float PHYS-SC))
 (define *phys-tz*  (new 'global 'array 'float PHYS-SC))
@@ -3094,7 +3130,16 @@
                                       (when (nonzero? (-> *phys-axok* sc))
                                         (let ((dvx (- (* ux iu) (* mx im)))
                                               (dvy (- (* uy iu) (* my im)))
-                                              (dvz (- (* uz iu) (* mz im))))
+                                              (dvz (- (* uz iu) (* mz im)))
+                                              ;; LA MEME DIFFERENCE, SANS NORMALISER (voir la note
+                                              ;; de `*phys-ldb*`). `u` et `m` partent de LA MEME
+                                              ;; ATTACHE, donc `u - m` EST le deplacement du
+                                              ;; maillon par rapport a sa pose d'auteur — les trois
+                                              ;; degres de liberte, dont le RADIAL que la version
+                                              ;; normalisee annule par construction.
+                                              (bvx (- ux mx))
+                                              (bvy (- uy my))
+                                              (bvz (- uz mz)))
                                           (dotimes (ii 3)
                                             (let* ((row (cond ((= ii 0) (-> *phys-axv* sc))
                                                               ((= ii 1) (-> *phys-axa* sc))
@@ -3106,6 +3151,12 @@
                                               (set! (-> *phys-lda* (+ sv3 ii))
                                                     (if (> rl 0.0001)
                                                       (/ (+ (* dvx rx) (+ (* dvy ry) (* dvz rz))) rl)
+                                                      0.0))
+                                              ;; MEME LIGNE, MEME NORMALISATION DE LIGNE, MEME
+                                              ;; INSTANT : seule la grandeur projetee change.
+                                              (set! (-> *phys-ldb* (+ sv3 ii))
+                                                    (if (> rl 0.0001)
+                                                      (/ (+ (* bvx rx) (+ (* bvy ry) (* bvz rz))) rl)
                                                       0.0))))))))
                                   ;; L'INSTRUMENT DE MESURE EST L'INSTRUMENT DE DECISION : le
                                   ;; solveur ne corrige le cote QUE sur le PREMIER LIEN LIBRE, celui
@@ -3916,6 +3967,19 @@
           (< (phys-stat slot chain 0) 0.5))
     0.0
     (-> *phys-lda* (+ (* (+ (* (+ (* slot PHYS-CHAINS) chain) PHYS-LINKS) link) 3) axis))))
+
+(defun phys-link-dev-anc-abs ((slot int) (chain int) (link int) (axis int))
+  "LA MEME DEVIATION QUE `phys-link-dev-anc`, MAIS NON NORMALISEE (voir la note de `*phys-ldb*`).
+   `phys-link-dev-anc` projette une difference de vecteurs UNITAIRES : sa composante radiale est
+   nulle par construction, et la PCA des fenetres d'impulsion du cycle 8 le montre (serie plane a
+   1 %, direction nulle a 92 % verticale). Celle-ci porte les TROIS degres de liberte, en unites de
+   jeu. Meme triedre d'ancre, meme ordre (v, ap, lat), meme instant, meme garde de classification —
+   l'ecart entre les deux series EST la mesure de l'aveuglement, pas une seconde opinion."
+  (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS)
+          (< link 0) (>= link PHYS-LINKS) (< axis 0) (> axis 2)
+          (< (phys-stat slot chain 0) 0.5))
+    0.0
+    (-> *phys-ldb* (+ (* (+ (* (+ (* slot PHYS-CHAINS) chain) PHYS-LINKS) link) 3) axis))))
 
 (defun phys-chain-axis ((slot int) (chain int) (which int))
   "LA CLASSIFICATION DU TRIEDRE, TELLE QUE LE SOLVEUR L'A FAITE — pour que la salle la publie et
