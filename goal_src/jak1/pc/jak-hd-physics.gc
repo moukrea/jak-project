@@ -290,6 +290,10 @@
 (define *phys-axa*  (new 'global 'array 'int32 PHYS-SC))   ;; ...              avant-arriere
 (define *phys-axl*  (new 'global 'array 'int32 PHYS-SC))   ;; ...              lateral
 (define *phys-axok* (new 'global 'array 'int32 PHYS-SC))   ;; 1 = classe
+;; la direction MONDE des trois lignes du triedre de l'ancre, normalisee : `sc*9 + ligne*3 + comp`.
+;; C'est ce qui permet a la salle d'EXCITER un axe du solveur au lieu d'un axe monde — voir la note
+;; du site d'ecriture, et la mesure qui l'a rendue necessaire.
+(define *phys-axw*  (new 'global 'array 'float (* PHYS-SC 9)))
 ;; LE FACTEUR DE RAIDEUR PAR LIGNE DE LA MATRICE DE L'ANCRE, `1/mobilite` de sa §29. Il reste a 1.0
 ;; sur les trois lignes tant qu'aucun triedre n'a pu etre classe : la mise a jour par axe redevient
 ;; alors la mise a jour scalaire d'avant, BIT POUR BIT, au lieu de pousser dans une direction
@@ -572,6 +576,28 @@
 ;; donc par toute la course, et il repond a la question que `ROOM-VOLPRIO` pose sans y repondre :
 ;; `chestR` conflicte 85895 fois contre 2264 a gauche — MAIS AVEC QUI ?
 (define *phys-cfh* (new 'global 'array 'int32 (* PHYS-SC PHYS-COLS)))
+
+;; LE DOMAINE D'UNE PAIRE, ET PAS SEULEMENT SES CONTACTS — SPEC 33.
+;; `*phys-cfh*` compte les violations. Quand il rend ZERO il ne dit pas laquelle des deux choses
+;; s'est produite : la paire a-t-elle failli se toucher, ou est-elle restee a un metre l'une de
+;; l'autre ? Le cycle 7 a publie « 0 contact sein<->sein sur 2978 » sans pouvoir trancher, et a
+;; ecrit lui-meme que la cause n'etait pas etablie. C'est le piege `zero-from-an-empty-domain` :
+;; un zero dont on ne connait pas le domaine ne prouve rien.
+;;   `*phys-cdm*` NATURE : une longueur (profondeur d'approche MAXIMALE atteinte par la paire sur
+;;                toute la course), en unites de jeu, 4096 u = 1 m. REPERE : monde.
+;;   `*phys-cfl*` NATURE : une longueur (le plancher `feff` que cette paire tolere, c'est-a-dire sa
+;;                profondeur A LA POSE D'AUTEUR). Meme unite, meme repere.
+;; CE QU'ILS RENDENT QUAND LE DEFAUT EST ABSENT : `cdm <= cfl`, et l'ecart `cfl - cdm` est la marge
+;; que la paire n'a jamais franchie. `cdm` NEGATIF veut dire que les deux volumes ne se sont jamais
+;; recouverts du tout — sa valeur est alors l'oppose de la distance minimale entre les surfaces, et
+;; c'est CE nombre qui dit si « ils s'entrechoquent » est atteignable ou hors de portee.
+;; Ecrits une fois par (lien, volume) et par frame, dans le balayage, AVANT toute poussee.
+;; la derniere profondeur SIGNEE calculee par `phys-collide-depth`, en unites de jeu. Ecrite a
+;; chaque appel, lue seulement par la mesure ci-dessus, jamais par le solveur.
+(define *phys-depsigned* 0.0)
+(define *phys-cdm* (new 'global 'array 'float (* PHYS-SC PHYS-COLS)))
+(define *phys-cfl* (new 'global 'array 'float (* PHYS-SC PHYS-COLS)))
+(define *phys-cdmok* (new 'global 'array 'int32 (* PHYS-SC PHYS-COLS)))
 
 ;; [NOTE-19] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
 (defconstant PHYS-BSURF-SETS 64)
@@ -1080,6 +1106,13 @@
            (d2 (+ (* dx dx) (* dy dy) (* dz dz)))
            (d  (sqrtf d2))
            (want (+ rr rlink)))
+      ;; LA PROFONDEUR NON BORNEE, POUR LA MESURE SEULE. La valeur RENDUE est bornee a 0 par le bas
+      ;; — c'est ce que veut une poussee — et deux paires qui ne se touchent pas rendent donc le
+      ;; MEME zero, qu'elles soient a un cheveu ou a un metre. Ce store rend la grandeur SIGNEE
+      ;; `want - d` : positive = recouvrement, negative = l'ecart entre les deux surfaces.
+      ;; Un seul store, avant le `cond`, aucune branche touchee : la valeur de retour et la normale
+      ;; sont inchangees au bit pres. Aucun consommateur du solveur ne lit cette variable.
+      (set! *phys-depsigned* (- want d))
       (cond
         ((>= d want)
          (set! (-> nrm x) 0.0) (set! (-> nrm y) 1.0) (set! (-> nrm z) 0.0)
@@ -1645,6 +1678,22 @@
                              (feff   (if selfpair 0.0 (phys-vol-floor floor0 rl)))
                              (dep    (phys-collide-depth pt rl ca cb (-> *phys-cr* sco)
                                                          (-> *phys-cr2* sco) cap? nrm)))
+                        ;; SPEC 33 — LE DOMAINE DE LA PAIRE. Un echantillon par (lien, volume) et
+                        ;; par frame, pris a l'ENTREE (`sub` = 0, avant toute poussee de ce
+                        ;; balayage). `*phys-depsigned*` porte la profondeur NON bornee que
+                        ;; `phys-collide-depth` vient de calculer pour `pt` — c'est le dernier des
+                        ;; trois appels du `let*`, donc la variable porte bien celle de `dep`.
+                        ;; Le drapeau evite un sentinelle flottant (piege deja paye) : premier
+                        ;; echantillon = affectation, les suivants = maximum.
+                        (when (= sub 0)
+                          (let ((h (+ (* sc PHYS-COLS) ci)))
+                            (set! (-> *phys-cfl* h) feff)
+                            (cond
+                              ((zero? (-> *phys-cdmok* h))
+                               (set! (-> *phys-cdm* h) *phys-depsigned*)
+                               (set! (-> *phys-cdmok* h) 1))
+                              ((> *phys-depsigned* (-> *phys-cdm* h))
+                               (set! (-> *phys-cdm* h) *phys-depsigned*)))))
                         (when (> dep feff)
                           (let ((push (+ (- dep feff) margin)))
                             ;; une correction issue d'un volume PROPRE a la chaine : elle ne peut
@@ -2252,6 +2301,27 @@
                           (set! (-> *phys-axa* sc) ia)
                           (set! (-> *phys-axl* sc) il)
                           (set! (-> *phys-axok* sc) 1)
+                          ;; LA DIRECTION MONDE DE CHACUNE DES TROIS LIGNES DU TRIEDRE, normalisee.
+                          ;; POURQUOI ELLE EXISTE, ET C'EST UNE MESURE QUI L'EXIGE : la salle a
+                          ;; excite les trois axes MONDE (Y, Z, X) et a mesure la part de reponse
+                          ;; tombant sur chaque projection du triedre. Une impulsion MONDE-Y ne met
+                          ;; que 21.5 % (chestL) a 25.7 % (chestR) de sa reponse sur l'axe VERTICAL
+                          ;; du solveur ; cinq des six fenetres sont dominees par l'axe AP. Le
+                          ;; repere du sujet et le triedre de l'ancre ne sont PAS alignes — donc
+                          ;; aucune excitation en axes monde n'isole un mode propre, et SPEC 24
+                          ;; reste indecidable tant qu'on pousse dans le mauvais repere.
+                          ;; NATURE : un vecteur unitaire. REPERE : monde. Indexation
+                          ;; `sc*9 + ligne*3 + composante`, la LIGNE etant celle de `am`, pas le
+                          ;; role : c'est `phys-axis-world` qui fait la traduction role -> ligne.
+                          (dotimes (rr 3)
+                            (let* ((lr (sqrtf (+ (* (-> am vector rr x) (-> am vector rr x))
+                                                 (+ (* (-> am vector rr y) (-> am vector rr y))
+                                                    (* (-> am vector rr z) (-> am vector rr z))))))
+                                   (ir (if (> lr 0.0001) (/ 1.0 lr) 0.0))
+                                   (bb (+ (* sc 9) (* rr 3))))
+                              (set! (-> *phys-axw* (+ bb 0)) (* (-> am vector rr x) ir))
+                              (set! (-> *phys-axw* (+ bb 1)) (* (-> am vector rr y) ir))
+                              (set! (-> *phys-axw* (+ bb 2)) (* (-> am vector rr z) ir))))
                           ;; ARMEE DES QU'IL Y A UN MAILLON LIBRE. Ce verrou exigeait DEUX
                           ;; articulations, et sa raison n'etait pas physique — une masse ponctuelle
                           ;; sur un ressort anisotrope a bien trois frequences propres. C'etait un
@@ -4045,6 +4115,45 @@
            (>= ci 0) (< ci PHYS-COLS))
     (-> *phys-cfh* (+ (* (+ (* slot PHYS-CHAINS) chain) PHYS-COLS) ci))
     0))
+
+;; LA DIRECTION MONDE DE L'AXE `axis` DU SOLVEUR : 0 = vertical, 1 = avant-arriere, 2 = lateral —
+;; les ROLES de SPEC 7, pas les lignes de la matrice. La traduction role -> ligne se fait ici, par
+;; `*phys-axv*` / `*phys-axa*` / `*phys-axl*`, exactement comme le solveur la fait pour la raideur.
+;; NATURE : composante d'un vecteur unitaire. REPERE : monde.
+;; REND 0.0 TANT QUE LA CHAINE N'EST PAS CLASSEE (`axok` = 0) — l'appelant doit le voir, sinon une
+;; impulsion nulle passerait pour une impulsion sans reponse. C'est pour ca que la salle publie la
+;; direction qu'elle a REELLEMENT utilisee au lieu de la supposer.
+(defun phys-axis-world ((slot int) (chain int) (axis int) (comp int))
+  (if (and (>= slot 0) (< slot PHYS-SLOTS) (>= chain 0) (< chain PHYS-CHAINS)
+           (>= axis 0) (< axis 3) (>= comp 0) (< comp 3))
+    (let ((sc (+ (* slot PHYS-CHAINS) chain)))
+      (if (zero? (-> *phys-axok* sc))
+        0.0
+        (let ((row (cond ((zero? axis) (-> *phys-axv* sc))
+                         ((= axis 1)   (-> *phys-axa* sc))
+                         (else         (-> *phys-axl* sc)))))
+          (-> *phys-axw* (+ (* sc 9) (+ (* row 3) comp))))))
+    0.0))
+
+;; SPEC 33 — LE DOMAINE DE LA PAIRE (chaine, volume), pas son compte de contacts.
+;;   `which` = 0 -> `cdm`, la profondeur d'approche MAXIMALE atteinte sur toute la course.
+;;              1 -> `cfl`, le plancher que la paire tolere (sa profondeur a la pose d'auteur).
+;;              2 -> 1.0 si la paire a ete echantillonnee au moins une fois, 0.0 sinon. C'est le
+;;                   discriminant qui empeche de lire un tableau jamais ecrit comme un « 0 mesure » :
+;;                   une paire jamais testee et une paire testee qui ne se touche pas rendraient
+;;                   toutes deux 0.0 sans lui.
+;; NATURE : une longueur, unites de jeu (4096 u = 1 m). REPERE : monde. `cdm` NEGATIF = les deux
+;; surfaces ne se sont jamais rejointes, et sa valeur absolue EST l'ecart minimal atteint.
+;; Accumulees sur TOUTE la course : volontairement hors de `phys-diag-reset!`, qui est par fenetre.
+(defun phys-chain-vol-dom ((slot int) (chain int) (ci int) (which int))
+  (if (and (>= slot 0) (< slot PHYS-SLOTS) (>= chain 0) (< chain PHYS-CHAINS)
+           (>= ci 0) (< ci PHYS-COLS))
+    (let ((h (+ (* (+ (* slot PHYS-CHAINS) chain) PHYS-COLS) ci)))
+      (cond
+        ((= which 0) (-> *phys-cdm* h))
+        ((= which 1) (-> *phys-cfl* h))
+        (else (the float (-> *phys-cdmok* h)))))
+    0.0))
 
 (defun phys-limiter-reset! ()
   (set! *phys-retreat-n* 0)

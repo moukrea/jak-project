@@ -235,6 +235,12 @@
 ;; c'est la lecon du controle de cote qui rendait 0 contre 0 sur une fenetre trop etroite.
 (defconstant PHYSROOM-PH-CONEOFF 20)
 (defconstant PHYSROOM-PH-CONEON 21)
+;; SPEC 24/25/26/27 — les trois impulsions ISOLEES, une par axe, chacune suivie de son ring-down
+;; libre. Numeros pris dans les trous laisses libres sous PHYSROOM-PH-REPORT (18, 19, 22) : toute
+;; phase de TRAVAIL doit rester INFERIEURE a 30, cf. la note de PHYSROOM-PH-REPORT.
+(defconstant PHYSROOM-PH-AXV 18)     ;; impulsion VERTICALE   puis ring-down
+(defconstant PHYSROOM-PH-AXB 19)     ;; impulsion AVANT-ARRIERE puis ring-down
+(defconstant PHYSROOM-PH-AXL 22)     ;; impulsion LATERALE    puis ring-down
 (defconstant PHYSROOM-PH-ORI 24)     ;; SPEC 10-13 : le balayage d'orientation
 (defconstant PHYSROOM-PH-RESTA 25)   ;; SPEC 33/34 : secousse, restitution AUX VALEURS DE LA SPEC
 (defconstant PHYSROOM-PH-RESTB 26)   ;; SPEC 33/34 : MEME secousse, coefficient x15 (controle +)
@@ -538,6 +544,80 @@
          (amp (/ mag (* (/ 6.2831853 24.0) (/ 6.2831853 24.0)))))
     (set! (-> self root trans x) (+ (-> self home x) (* amp (sin ph))))
     (set! (-> self root trans y) (+ (-> self home y) (* 0.4 amp (sin (* 2.0 ph))))))
+  (none))
+
+;; ------------------------------------------------------------------------------------------------
+;; SPEC 24/25/26/27 — UNE IMPULSION ISOLEE, SUR UN SEUL AXE, PUIS ON LACHE.
+;;
+;; POURQUOI CETTE PHASE EXISTE, ET C'EST UNE MESURE QUI LA MOTIVE, PAS UNE IDEE.
+;; La fenetre de repos (`PHYSROOM-PH-IDLE`) suit CINQ pilotages et une courbe de reponse : ce qui y
+;; sonne est un MELANGE de modes, pas un mode propre. La table de la course precedente le dit
+;; elle-meme : `ROOM-RINGFIT-SEP: chain=chestL v/ap confondus`, et les deux projections rendent
+;; 2.420 et 2.435 Hz — 0.6 % d'ecart la ou la raideur livree (`slat=1.2195`, `sap=1.1111`) impose
+;; 5.4 %. Une serie projetee sur trois axes ne rend trois frequences que si les trois modes ont ete
+;; excites SEPAREMENT ; sinon les trois projections rendent le meme mode dominant.
+;; Et l'axe lateral n'y est pratiquement pas excite : residu ABSOLU identique aux trois axes
+;; (1.0e-4 a 1.9e-4) pour une valeur efficace 8 a 13 fois plus petite — le residu relatif de 0.095
+;; et 0.194 mesure donc l'ABSENCE D'EXCITATION, pas un mauvais ajustement.
+;;
+;; C'est le protocole que sa §27 ecrit mot pour mot — « After ONE STRONG ISOLATED IMPULSE » — et
+;; que la salle n'a jamais execute.
+;;
+;; LA FORME DE L'IMPULSION. Demi-cosinus sur `PHYSROOM-IMPF` frames : deplacement 0 -> A, vitesse
+;; NULLE aux deux bouts, acceleration maximale au milieu. Aucune discontinuite de position ni de
+;; vitesse — donc rien qui puisse declencher le rebasement de discontinuite de sa §37 (« artificial
+;; transforms must not generate physical breast impulses ») et faire avaler l'impulsion.
+;; Apres `PHYSROOM-IMPF` le sujet est TENU immobile a `home + A` : le mode sonne librement autour
+;; d'un equilibre identique a celui de `home`, puisque l'orientation n'a pas bouge.
+;;
+;; L'AMPLITUDE EST CHOISIE DANS LA BANDE LINEAIRE, ET C'EST UN CHOIX METHODOLOGIQUE.
+;; `a_max = A/2 * (pi/T)^2` = 365 * 0.5 * (3.1416/10)^2 = 18.0 u/frame^2 — exactement le niveau que
+;; la salle documente comme « DANS LA BANDE LINEAIRE, la reponse y est proportionnelle » (voir la
+;; table des pilotages). Une frequence propre et un rapport d'amortissement sont des proprietes du
+;; systeme LINEARISE : les mesurer sous saturation `tanh` (§21) rendrait la signature du limiteur,
+;; pas celle du ressort. Ce que ces fenetres ne mesurent donc PAS, et il faut le dire : le regime
+;; fort de sa §27. Celui-la reste mesure par la fenetre de repos, qui suit les cinq pilotages.
+;;
+;; `ax` : 0 = VERTICAL (Y monde), 1 = AVANT-ARRIERE (Z monde), 2 = LATERAL (X monde). Le sujet est
+;; a quaternion identite pendant toute la phase, donc les axes monde coincident avec le triedre de
+;; sa §7 (+X lateral, +Y haut, +Z avant) — c'est ce qui rend l'axe d'EXCITATION comparable a l'axe
+;; de MESURE, qui lui est pris dans le triedre de l'ancre.
+(defconstant PHYSROOM-IMPF 10)      ;; duree de l'impulsion, en frames (comparaisons entieres)
+(defconstant PHYSROOM-IMPFF 10.0)   ;; la MEME duree en flottant. Deux constantes et pas un `the` :
+                                    ;; `(the float <litteral entier>)` se replie en REINTERPRETATION
+                                    ;; de bits, pas en conversion — 10 y deviendrait 1.4e-44.
+(defconstant PHYSROOM-IMPA 365.0)   ;; amplitude du pas, en unites de jeu -> 18.0 u/frame^2 de pic
+(defconstant PHYSROOM-AXW 160)      ;; fenetre totale : 10 d'impulsion + 150 de ring-down libre
+
+(defbehavior physroom-drive-imp phys-subject ((f int) (ax int))
+  (set-vector! (-> self vel) 0.0 0.0 0.0 1.0)
+  (vector-copy! (-> self root trans) (-> self home))
+  (quaternion-identity! (-> self root quat))
+  ;; `f` est BORNE par l'appelant a PHYSROOM-IMPF : au-dela, `s` vaut 1.0 et le sujet est tenu
+  ;; immobile au bout de son pas. Un seul chemin de code pour l'impulsion et pour la tenue.
+  ;; ON POUSSE DANS LE TRIEDRE DE L'ANCRE, PAS EN AXES MONDE — ET C'EST UNE MESURE QUI L'IMPOSE.
+  ;; Premiere version : impulsions le long de MONDE-Y / MONDE-Z / MONDE-X. Part de la reponse
+  ;; tombant sur la projection VERTICALE du solveur, relevee sur la course :
+  ;;     chestL  MONDE-Y -> v 21.5 %  ap 38.9 %  lat 39.5 %   (dominee par LAT)
+  ;;     chestR  MONDE-Y -> v 25.7 %  ap 56.7 %  lat 17.5 %   (dominee par AP)
+  ;; Cinq fenetres sur six dominees par le MEME axe : le repere du sujet et le triedre de l'ancre
+  ;; ne sont pas alignes, donc aucune de ces trois impulsions n'isolait un mode propre — et les
+  ;; trois frequences qu'elles rendaient etaient trois melanges, pas trois frequences propres.
+  ;; Conclure §24 la-dessus aurait ete exactement la mesure non discriminante que le contrat
+  ;; interdit. On demande donc au solveur la direction MONDE de SON axe, et on pousse dessus.
+  (let* ((tt (if (>= f PHYSROOM-IMPF) 1.0 (/ (the float f) PHYSROOM-IMPFF)))
+         (s  (* 0.5 (- 1.0 (cos (* 32768.0 tt)))))
+         (d  (* PHYSROOM-IMPA s))
+         ;; les deux seins partagent la MEME ancre (le buste), donc le meme triedre : la chaine 0
+         ;; suffit a le porter. Si elle n'est pas encore classee, les trois composantes valent 0 —
+         ;; c'est le cas que `PHYSAXW` publie, pour qu'une impulsion nulle ne se lise jamais comme
+         ;; une absence de reponse.
+         (ux (phys-axis-world (-> self slot) 0 ax 0))
+         (uy (phys-axis-world (-> self slot) 0 ax 1))
+         (uz (phys-axis-world (-> self slot) 0 ax 2)))
+    (set! (-> self root trans x) (+ (-> self home x) (* d ux)))
+    (set! (-> self root trans y) (+ (-> self home y) (* d uy)))
+    (set! (-> self root trans z) (+ (-> self home z) (* d uz))))
   (none))
 
 ;; les six niveaux d'excitation, en unites de jeu par frame^2 (4096 u = 1 m, 60 Hz). Echelle
@@ -1399,7 +1479,13 @@
            ;; de huit parametres, destination et chaine de format comprises (cf. la note de
            ;; `PHYSGRADS` plus haut). Celle-ci en fait exactement huit : c'est le plafond, aucun
            ;; champ ne peut y etre ajoute.
-           (format 0 "PHYSRINGA c=~D f=~D l=~D v=~f ap=~f lat=~f~%"
+           ;; SEPT DECIMALES, ET C'EST UNE CORRECTION D'INSTRUMENT MESUREE. `~f` en imprime quatre,
+           ;; soit un pas de quantification de 1e-4 ; la serie LATERALE vaut 1e-3 a 7.6e-3, donc
+           ;; un a deux chiffres significatifs, et elle ne prend que 33 valeurs distinctes sur 149
+           ;; echantillons. Le bruit de quantification qui en resulte (rms 2.9e-5) faisait 16 a
+           ;; 28 % du residu d'ajustement qui a fait declarer l'axe lateral « non lisible ».
+           ;; On ne peut pas conclure sur une bande de 4 % avec un instrument qui quantifie a 10 %.
+           (format 0 "PHYSRINGA c=~D f=~D l=~D v=~,,7f ap=~,,7f lat=~,,7f~%"
                    c (-> self pframe) l
                    (phys-link-dev-anc (-> self slot) c l 0)
                    (phys-link-dev-anc (-> self slot) c l 1)
@@ -1484,7 +1570,8 @@
        (dotimes (c (-> self nchain))
         (when (> (phys-chain-links (-> self slot) c) 0)
          (dotimes (l (phys-chain-links (-> self slot) c))
-           (format 0 "PHYSRINGAT c=~D f=~D l=~D v=~f ap=~f lat=~f~%"
+           ;; meme correction de resolution que `PHYSRINGA` — voir sa note.
+           (format 0 "PHYSRINGAT c=~D f=~D l=~D v=~,,7f ap=~,,7f lat=~,,7f~%"
                    c (-> self pframe) l
                    (phys-link-dev-anc (-> self slot) c l 0)
                    (phys-link-dev-anc (-> self slot) c l 1)
@@ -1526,10 +1613,69 @@
        ;; la POSITION MOYENNE redressee, APRES l'aller-retour. Son ecart avec `idle` EST
        ;; l'hysteresis ; son ecart avec `tilt` est la part du sag qui a bien ete rendue.
        (physroom-emit-mean "back")
-       (set! (-> self phase) PHYSROOM-PH-ORI)
+       (set! (-> self phase) PHYSROOM-PH-AXV)
        (set! (-> self ori) 0)
        (set! (-> self pframe) 0)
        (phys-stats-reset!)))
+
+    ;; ---- 4 ter. SPEC 24/25/26/27 — UNE IMPULSION ISOLEE PAR AXE, PUIS ON LACHE.
+    ;; Les trois phases sont IDENTIQUES a l'axe pres, et c'est voulu : trois series produites par
+    ;; le meme chemin de code se comparent entre elles sans qu'aucun ecart puisse venir de
+    ;; l'instrument. Voir la note de `physroom-drive-imp` pour la forme de l'impulsion et pour le
+    ;; choix de l'amplitude (bande LINEAIRE — une frequence propre est une propriete du systeme
+    ;; linearise ; sous saturation §21 on lirait le limiteur).
+    ;;
+    ;; NATURE : une SERIE TEMPORELLE de deplacement signe du maillon par rapport a sa pose
+    ;;   d'auteur, projetee sur les trois axes. Ce n'est pas une amplitude agregee.
+    ;; REPERE : le triedre orthonorme de l'ANCRE (torse) — le meme que `PHYSRINGA`, donc les
+    ;;   valeurs des deux fenetres sont directement comparables. Jamais le monde.
+    ;; LIGNE DE BASE : la serie vaut 0 partout quand la chaine est exactement sur la pose d'auteur.
+    ;; CE QUI DISCRIMINE : l'axe EXCITE. Si les trois fenetres rendaient la meme frequence, c'est
+    ;;   que l'anisotropie de §29 n'atteint pas le solveur — le contraire du resultat qu'on cherche
+    ;;   a confirmer, et c'est bien ce qui rend la mesure decidable.
+    ((or (= (-> self phase) PHYSROOM-PH-AXV)
+         (= (-> self phase) PHYSROOM-PH-AXB)
+         (= (-> self phase) PHYSROOM-PH-AXL))
+     (let ((ax (cond ((= (-> self phase) PHYSROOM-PH-AXV) 0)
+                     ((= (-> self phase) PHYSROOM-PH-AXB) 1)
+                     (else 2))))
+       (physroom-drive-imp (-> self pframe) ax)
+       ;; LA DIRECTION REELLEMENT POUSSEE, publiee une fois par fenetre. Sans elle, une impulsion
+       ;; nulle (chaine non classee) et une impulsion sans reponse rendraient la meme serie plate.
+       (when (= (-> self pframe) 1)
+         (format 0 "PHYSAXW ax=~D ux=~,,5f uy=~,,5f uz=~,,5f~%"
+                 ax
+                 (phys-axis-world (-> self slot) 0 ax 0)
+                 (phys-axis-world (-> self slot) 0 ax 1)
+                 (phys-axis-world (-> self slot) 0 ax 2)))
+       ;; la serie ne commence QU'APRES l'impulsion : pendant les 10 frames du pas, le sujet bouge,
+       ;; et ce qu'on veut est la decroissance LIBRE qui suit. Le `skip` de l'ajustement (12) reste
+       ;; celui des autres fenetres — on ne change pas l'estimateur pour une fenetre seulement.
+       (when (> (-> self pframe) PHYSROOM-IMPF)
+         (dotimes (c (-> self nchain))
+           (let ((nl (phys-chain-links (-> self slot) c)))
+             (dotimes (l nl)
+               (format 0 "PHYSRINGAX c=~D f=~D l=~D ax=~D v=~,,7f~%"
+                       c (- (-> self pframe) PHYSROOM-IMPF) l ax
+                       (phys-link-dev-anc (-> self slot) c l 0))
+               ;; DEUX LIGNES, et ce n'est pas un choix de style : `format` de GOAL plafonne a huit
+               ;; parametres, destination et chaine comprises. Avec `ax` en plus, les trois axes ne
+               ;; tiennent plus sur une ligne — voir la note de `PHYSRINGA`.
+               ;; `ax` EST REPETE SUR LA SECONDE LIGNE, et c'est necessaire : les trois fenetres
+               ;; repartent chacune a la frame 0, donc `f` seule ne designe pas une fenetre. Sans
+               ;; `ax` ici, l'appariement des deux lignes serait ambigu entre les trois axes.
+               ;; Huit parametres exactement : c'est le plafond, aucun champ de plus.
+               (format 0 "PHYSRINGAX2 c=~D f=~D ax=~D l=~D ap=~,,7f lat=~,,7f~%"
+                       c (- (-> self pframe) PHYSROOM-IMPF) ax l
+                       (phys-link-dev-anc (-> self slot) c l 1)
+                       (phys-link-dev-anc (-> self slot) c l 2))))))
+       (when (>= (-> self pframe) PHYSROOM-AXW)
+         (set! (-> self pframe) 0)
+         (phys-stats-reset!)
+         (set! (-> self phase)
+               (cond ((= ax 0) PHYSROOM-PH-AXB)
+                     ((= ax 1) PHYSROOM-PH-AXL)
+                     (else     PHYSROOM-PH-ORI))))))
 
     ;; ---- 4 quater. SPEC 10-13 — LES EQUILIBRES PAR ORIENTATION, ET LEUR CONTINUITE.
     ;; Chaque orientation est TENUE (aucun pilotage, aucune acceleration) le temps que la reponse
@@ -1699,6 +1845,27 @@
              (let ((n (phys-chain-conf (-> self slot) c ci)))
                (when (> n 0)
                  (format 0 "PHYSCFVOL c=~D ci=~D n=~D~%" c ci n))))))
+       ;; SPEC 33 — LE DOMAINE DE CHAQUE PAIRE, ET PAS SEULEMENT SES CONTACTS.
+       ;; Le cycle 7 a publie « 0 contact sein<->sein sur 2978 » puis a ecrit lui-meme, dans ses
+       ;; non-prouves, que la cause geometrique n'etait PAS etablie. Un zero dont on ignore le
+       ;; domaine ne prouve rien : la paire a-t-elle failli se toucher, ou est-elle restee a
+       ;; un demi-metre ? Cette ligne repond, a l'execution, pour TOUTE paire effectivement testee.
+       ;;   NATURE  : `dm` et `fl` sont des LONGUEURS (unites de jeu, 4096 u = 1 m), pas des comptes.
+       ;;             `dm` = profondeur d'approche MAXIMALE atteinte sur toute la course ;
+       ;;             `fl` = le plancher que la paire tolere (sa profondeur A LA POSE D'AUTEUR).
+       ;;   REPERE  : monde.
+       ;;   ABSENT  : `dm` NEGATIF — les deux surfaces ne se sont jamais rejointes, et |dm| EST
+       ;;             l'ecart minimal atteint entre elles. `dm > fl` est la condition de contact.
+       ;;   DISCRIMINANT : `ok=0` veut dire que la paire n'a JAMAIS ete echantillonnee (exclusion
+       ;;             structurelle, joint hors squelette) — a ne pas lire comme « 0 mesure ».
+       (dotimes (c (-> self nchain))
+         (when (> (phys-chain-links (-> self slot) c) 0)
+           (dotimes (ci (phys-slot-colliders (-> self slot)))
+             (when (> (phys-chain-vol-dom (-> self slot) c ci 2) 0.0)
+               (format 0 "PHYSPAIR c=~D ci=~D dm=~f fl=~f~%"
+                       c ci
+                       (phys-chain-vol-dom (-> self slot) c ci 0)
+                       (phys-chain-vol-dom (-> self slot) c ci 1))))))
        (dotimes (c (-> self nchain))
         (when (> (phys-chain-links (-> self slot) c) 0)
          (format 0 "PHYSAUTH c=~D hit=~f ok=~f dot=~f nrm=~f dsum=~f~%"

@@ -815,6 +815,33 @@ def main():
             det = ' · '.join('%s %d' % (colname.get(k, 'ci%d' % k), n)
                              for n, k in sorted(cvol[ci_chain], reverse=True)[:6])
             A('ROOM-CONTACT-VOL: chain=%-12s total=%-8d %s' % (nm, tot, det))
+    # ---- ROOM-PAIRDOM : SPEC 33, LE DOMAINE D'UNE PAIRE ET PAS SEULEMENT SES CONTACTS --------
+    # Le cycle 7 a publie « 0 contact sein<->sein sur 2978 » puis a ecrit lui-meme, dans ses
+    # non-prouves, que la cause geometrique n'etait PAS etablie. Un zero dont on ignore le domaine
+    # ne prouve rien : la paire a-t-elle failli se toucher, ou est-elle restee a un demi-metre ?
+    # NATURE : `dm` et `fl` sont des LONGUEURS, en unites de jeu (4096 u = 1 m) — pas des comptes.
+    #   `dm` = profondeur d'approche MAXIMALE atteinte sur toute la course ; `fl` = le plancher que
+    #   la paire tolere, c'est-a-dire sa profondeur A LA POSE D'AUTEUR.
+    # REPERE : monde.
+    # LECTURE QUAND LE DEFAUT EST ABSENT : `dm` NEGATIF — les deux surfaces ne se sont jamais
+    #   rejointes, et |dm| EST l'ecart minimal atteint entre elles. Contact ssi `dm > fl`.
+    pdom = {}
+    for m in re.finditer(r'^PHYSPAIR c=(\d+) ci=(\d+) dm=([-\d.e+]+) fl=([-\d.e+]+)', txt, re.M):
+        pdom[(int(m.group(1)), int(m.group(2)))] = (float(m.group(3)), float(m.group(4)))
+    if not pdom:
+        A('ROOM-PAIRDOM: non publie par la course')
+    else:
+        A('')
+        A('ROOM-PAIRDOM: SPEC 33 — de combien chaque paire a-t-elle MANQUE le contact ?')
+        A('   `dm` negatif = jamais de recouvrement, et |dm| est l\'ecart minimal ATTEINT entre les')
+        A('   deux surfaces, en unites de jeu (4096 u = 1 m). `marge` = dm - fl : positive, il y a')
+        A('   eu contact ; negative, c\'est ce qu\'il aurait fallu gagner EN PLUS pour en avoir un.')
+        for (ci_chain, k) in sorted(pdom, key=lambda t: -pdom[t][0] + 1e9 * t[0]):
+            dm, fl = pdom[(ci_chain, k)]
+            nm = names[ci_chain] if ci_chain < len(names) else 'c%d' % ci_chain
+            A('ROOM-PAIRDOM: chain=%-12s vol=%-18s dm=%10.2f  fl=%8.2f  marge=%+10.2f  (%s)'
+              % (nm, colname.get(k, 'ci%d' % k), dm, fl, dm - fl,
+                 'CONTACT' if dm > fl else 'jamais atteint : %.4f m manquants' % ((fl - dm) / 4096.0)))
     # ---- ROOM-SKINCOV : LA PHYSIQUE COUVRE-T-ELLE TOUTE LA GEOMETRIE DE LA MECHE ? -----------
     # Defaut PRIORITE 1 `hair-skinning`, owner du 2026-08-12 : « des polygones qui bougent et des
     # polygones voisins parfaitement statiques, causant la geometrie qui casse — faudrait que la
@@ -2702,6 +2729,135 @@ def main():
                                   'SEPARES' if (_x[1] < _y[0] or _y[1] < _x[0]) else 'confondus'))
             A('ROOM-RINGFIT-SEP: chain=%-12s %s' % (_nm, ' · '.join(_pairs) if _pairs else
                                                     'pas assez d\'axes lisibles'))
+    A('')
+    A('-- ROOM-AXFIT : SPEC 24/25/26/27, TROIS IMPULSIONS ISOLEES, UNE PAR AXE -------------------')
+    A('   SPEC 27 ecrit le protocole mot pour mot : « After ONE STRONG ISOLATED IMPULSE ». La')
+    A('   fenetre de repos ne l\'execute pas — elle suit CINQ pilotages, donc ce qui y sonne est un')
+    A('   melange de modes, et c\'est pour ca que `ROOM-RINGFIT-SEP` rendait « v/ap confondus ».')
+    A('   Ici chaque axe recoit SON impulsion (demi-cosinus, 10 frames, pic 18 u/frame^2 — la bande')
+    A('   LINEAIRE, ou une frequence propre et un zeta sont definis), puis on lache 150 frames.')
+    A('')
+    A('   NATURE : une FREQUENCE (Hz) et un rapport d\'amortissement, tires de la serie temporelle')
+    A('     de deplacement `PHYSRINGAX`. REPERE : triedre de l\'ancre (torse), SPEC 7 — le meme que')
+    A('     `PHYSRINGA`, donc les deux fenetres sont comparables.')
+    A('   CE QUI DISCRIMINE : la colonne `axe` contre la colonne `excite`. Sur la ligne ou les deux')
+    A('     coincident, la serie EST le mode propre de cet axe. Les deux autres lignes chiffrent la')
+    A('     diaphonie — et si les trois fenetres rendaient la meme frequence, l\'anisotropie de')
+    A('     SPEC 29 n\'atteindrait pas le solveur.')
+    A('   ABSENT : aucune ligne PHYSRINGAX dans la trace (phases AXV/AXB/AXL non jouees).')
+    _axs = {}
+    for m in re.finditer(r'^PHYSRINGAX c=(\d+) f=(\d+) l=(\d+) ax=(\d+) v=([-\d.e+]+)', txt, re.M):
+        _axs.setdefault((int(m.group(4)), int(m.group(1)), 'v'), []).append(
+            (int(m.group(2)), float(m.group(5))))
+    # `ax` est REPETE sur la seconde ligne : les trois fenetres repartent chacune a la frame 0,
+    # donc `f` seule ne designerait pas une fenetre et l'appariement serait ambigu.
+    for m in re.finditer(r'^PHYSRINGAX2 c=(\d+) f=(\d+) ax=(\d+) l=(\d+)'
+                         r' ap=([-\d.e+]+) lat=([-\d.e+]+)', txt, re.M):
+        _axs.setdefault((int(m.group(3)), int(m.group(1)), 'ap'), []).append(
+            (int(m.group(2)), float(m.group(5))))
+        _axs.setdefault((int(m.group(3)), int(m.group(1)), 'lat'), []).append(
+            (int(m.group(2)), float(m.group(6))))
+    if not _HAVE_NP:
+        A('ROOM-AXFIT: ABSENT (numpy indisponible)')
+    elif not _axs:
+        A('ROOM-AXFIT: ABSENT (aucune serie PHYSRINGAX dans la trace)')
+    else:
+        _AXN = {0: 'v', 1: 'ap', 2: 'lat'}
+        _T2 = {'v': '2.30 (2.1-2.5)', 'ap': '2.50 (2.3-2.7)', 'lat': '2.65 (2.4-2.9)'}
+        _B2 = {'v': (2.1, 2.5), 'ap': (2.3, 2.7), 'lat': (2.4, 2.9)}
+        A('')
+        # ---- LE CONTROLE DE LA MESURE ELLE-MEME : l'impulsion isole-t-elle bien UN axe ? -------
+        # Sans cette ligne, trois fenetres qui rendent trois frequences seraient prises pour trois
+        # frequences PROPRES. La premiere version de cette phase poussait en axes MONDE et cinq
+        # fenetres sur six etaient dominees par le MEME axe du solveur : les trois « frequences »
+        # etaient trois melanges. Une mesure qui ne montre pas sa propre selectivite ne decide rien.
+        # NATURE : une part d'energie, sans dimension (valeur efficace d'une projection rapportee a
+        # la somme des trois). REPERE : triedre de l'ancre. ABSENT : 33 % partout (aucune selectivite).
+        A('   SELECTIVITE DE L\'EXCITATION — part de la reponse tombant sur chaque projection.')
+        A('   L\'axe EXCITE doit dominer sa propre fenetre ; sinon la frequence lue est un melange.')
+        for m in re.finditer(r'^PHYSAXW ax=(\d+) ux=([-\d.e+]+) uy=([-\d.e+]+) uz=([-\d.e+]+)',
+                             txt, re.M):
+            A('ROOM-AXDIR: axe=%-3s direction monde poussee = (%.5f, %.5f, %.5f)'
+              % (_AXN[int(m.group(1))], float(m.group(2)), float(m.group(3)), float(m.group(4))))
+        for _c in sorted({c for (_k, c, _a) in _axs}):
+            _nm = names[_c] if _c < len(names) else 'c%d' % _c
+            for _k in (0, 1, 2):
+                _r = {}
+                for _a in ('v', 'ap', 'lat'):
+                    if (_k, _c, _a) in _axs:
+                        _vv = [v for _f, v in _axs[(_k, _c, _a)]]
+                        _r[_a] = (sum(x * x for x in _vv) / max(1, len(_vv))) ** 0.5
+                if len(_r) != 3:
+                    continue
+                _tt = sum(_r.values()) or 1.0
+                _dom = max(_r, key=_r.get)
+                A('ROOM-AXSEL: excite=%-3s chain=%-12s v=%4.1f%% ap=%4.1f%% lat=%4.1f%%   -> %s'
+                  % (_AXN[_k], _nm, 100 * _r['v'] / _tt, 100 * _r['ap'] / _tt,
+                     100 * _r['lat'] / _tt,
+                     'ISOLE' if _dom == _AXN[_k] else 'MELANGE, domine par %s' % _dom.upper()))
+        A('')
+        A('   excite  chaine        axe  n    f (Hz)  intervalle       zeta   residu  rebond'
+          '   cible §24')
+        _fv = {}
+        for (_k, _c, _ax) in sorted(_axs):
+            _vals = [v for _f, v in sorted(_axs[(_k, _c, _ax)])]
+            _r = _fitseries(_vals)
+            if not _r:
+                continue
+            _rb = _rebound(_vals)
+            _nm = names[_c] if _c < len(names) else 'c%d' % _c
+            _lo, _hi = _B2[_ax]
+            _in = 'DANS' if _lo <= _r['f'] <= _hi else 'HORS'
+            if _r['rel'] > 0.08:
+                _in = 'residu trop grand, non lisible'
+            _mark = '*' if _AXN[_k] == _ax else ' '
+            A('ROOM-AXFIT:%s%-6s %-12s %-3s %3d  %6.3f  [%.3f..%.3f]  %.2f   %.3f   %-6s  %s  %s'
+              % (_mark, _AXN[_k], _nm, _ax, _r['n'], _r['f'], _r['fmin'], _r['fmax'], _r['zeta'],
+                 _r['rel'], ('%.3f' % _rb) if _rb else 'n/a', _T2[_ax], _in))
+            if _AXN[_k] == _ax and _r['rel'] <= 0.08:
+                _fv[(_c, _ax)] = _r
+        A('')
+        A('   (* = la ligne ou l\'axe MESURE est celui qu\'on a EXCITE : c\'est elle qui porte le')
+        A('   mode propre. Les autres chiffrent la diaphonie.)')
+        A('')
+        # SPEC 29 : les rapports de frequence que les compliances livrees imposent. Ce ne sont pas
+        # des cibles choisies — ils se DERIVENT de `sap`/`slat` que le moteur publie (PHYSAXISS),
+        # et c'est la seule facon de dire si l'anisotropie ARRIVE au solveur.
+        A('   SPEC 29 — L\'ANISOTROPIE ARRIVE-T-ELLE ? Les compliances livrees (1.00 / 0.90 / 0.82)')
+        A('   imposent, a masse unique, f_ap/f_v = sqrt(1/0.90) = 1.0541 et f_lat/f_v =')
+        A('   sqrt(1/0.82) = 1.1043. Mesure contre attendu :')
+        for _c in sorted({c for (c, _a) in _fv}):
+            _nm = names[_c] if _c < len(names) else 'c%d' % _c
+            if (_c, 'v') not in _fv:
+                A('ROOM-AXRATIO: chain=%-12s axe vertical non lisible — rapports indisponibles' % _nm)
+                continue
+            _f0 = _fv[(_c, 'v')]['f']
+            _out = []
+            for _a, _exp in (('ap', 1.05409), ('lat', 1.10432)):
+                if (_c, _a) in _fv:
+                    _rr = _fv[(_c, _a)]['f'] / _f0
+                    _out.append('%s %.4f (attendu %.4f, ecart %+.2f%%)'
+                                % (_a, _rr, _exp, 100.0 * (_rr - _exp) / _exp))
+                else:
+                    _out.append('%s non lisible' % _a)
+            A('ROOM-AXRATIO: chain=%-12s f_v=%.3f Hz  %s' % (_nm, _f0, '  ·  '.join(_out)))
+        A('')
+        # SPEC 27 sur SON protocole : le temps de stabilisation apres UNE impulsion isolee.
+        A('   SPEC 27 SUR SON PROPRE PROTOCOLE — l\'echelle de stabilisation apres l\'impulsion')
+        A('   isolee de l\'axe excite. `a0` = maximum des 5 premiers echantillons de la serie ;')
+        A('   les seuils sont les memes que `ROOM-SETTLE` (5 %, 1 %, 0.5 %, 0.1 % de `a0`), donc')
+        A('   les deux se comparent directement. Bandes SPEC 27 : « mostly settled ~1.0-1.5 s »,')
+        A('   « essentially stationary ~1.3-1.7 s ».')
+        for (_c, _ax) in sorted(_fv):
+            _vals = [v for _f, v in sorted(_axs[({'v': 0, 'ap': 1, 'lat': 2}[_ax], _c, _ax)])]
+            _frames = list(range(len(_vals)))
+            _w = max(2, int(round(60.0 / max(0.5, _fv[(_c, _ax)]['f']))))
+            _env = ring_env([abs(v) for v in _vals], _w)
+            _a0 = max([abs(v) for v in _vals[:5]]) if _vals else 0.0
+            _st = {k: settle_time(_env, _frames, _a0, fr) for fr, k in SETTLE_BANDS}
+            _nm = names[_c] if _c < len(names) else 'c%d' % _c
+            A('ROOM-AXSETTLE: chain=%-12s axe=%-3s t5=%-7s t1=%-7s t05=%-7s t01=%-7s a0=%.5f'
+              % (_nm, _ax, _st['t5'], _st['t1'], _st['t05'], _st['t01'], _a0))
     A('')
     A('-- ROOM-ORI : SPEC 10-13, LES EQUILIBRES PAR ORIENTATION, ET LEUR CONTINUITE --------------')
     A('   SPEC 13 : « supine, prone, upright and lateral states shall NOT exist as unrelated')
