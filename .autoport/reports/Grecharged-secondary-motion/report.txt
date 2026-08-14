@@ -234,6 +234,82 @@ plus d'energie**. Un solveur qui recevait 2978 poussees converties en vitesse ne
 poser exactement sur la pose d'auteur.
 
 
+7 bis. §24, §25, §26 — L'INSTRUMENT QUI NE POUVAIT PAS TRANCHER, ET CELUI QUI TRANCHE
+========================================================================================
+Le cycle 6 avait etabli l'impasse et ecrit la sortie : « une fenetre de ring-down assez LONGUE
+pour porter 6 a 10 demi-periodes, ou un AJUSTEMENT FREQUENTIEL SUR TOUTE LA SERIE plutot qu'un
+comptage de croisements ». Le comptage de croisements donne +/- 4 % au mieux pour des bandes
+separees de 6 % : il ne peut pas conclure, ni dans un sens ni dans l'autre.
+
+C'est le second qui est livre, et il ne coute AUCUNE course : la trace portait deja les 137 frames
+qu'il faut. A `(f, zeta)` fixes, le modele `A e^{-zeta w t} cos(wd t + phi) + c` est LINEAIRE en
+`(A cos phi, A sin phi, c)` — on le resout exactement par moindres carres, sur une grille de
+`(f, zeta)`. Le minimum donne `f` ; l'ensemble des `f` dont le residu reste sous 1.10x le minimum
+donne son INTERVALLE. **Aucun parametre du solveur n'a ete touche : on change l'instrument, jamais
+la chose mesuree.**
+
+    fenetre de repos    axe   f (Hz)   intervalle        zeta   residu   sa cible §24
+    chestL              v     2.420    [2.400..2.435]    0.36   0.034    2.30 (2.1-2.5)   DANS
+    chestL              ap    2.435    [2.430..2.440]    0.39   0.014    2.50 (2.3-2.7)   DANS
+    chestL              lat   2.325    [2.260..2.395]    0.49   0.095    2.65 (2.4-2.9)   ILLISIBLE
+    chestR              v     2.500    [2.480..2.525]    0.39   0.052    2.30 (2.1-2.5)   DANS
+    chestR              ap    2.540    [2.535..2.545]    0.39   0.012    2.50 (2.3-2.7)   DANS
+    chestR              lat   2.775    [2.690..2.870]    0.21   0.194    2.65 (2.4-2.9)   ILLISIBLE
+
+**LES DEUX MODES LISIBLES SONT SEPARES SUR chestR** : `v [2.480..2.525]` et `ap [2.535..2.545]` ne
+se recouvrent pas. C'est la premiere fois que la salle montre DEUX des trois frequences de sa §24
+comme distinctes A L'EXECUTION, et dans le bon ordre (« vertical motion is intentionally the
+slowest »). Sur chestL les deux intervalles se touchent (2.430-2.435) : **confondus**, et je
+l'ecris tel quel.
+
+**L'AXE LATERAL N'EST PAS MESURABLE DANS CETTE FENETRE**, sur les deux chaines : residu 0.095 et
+0.194 la ou les axes lisibles sont a 0.012-0.052. La fenetre de repos n'excite pas le lateral —
+c'est le meme constat que le cycle 6 (« un mode plan »), maintenant chiffre par un residu au lieu
+d'etre deduit. Un chiffre publie sous un residu pareil ne serait pas une frequence.
+
+**§25 CESSE D'ETRE UN PARAMETRE LU DANS LE FICHIER ET DEVIENT UNE MESURE.** Jusqu'ici la ligne
+disait « parametre livre 0.3500 » — ce qui prouve seulement ce qu'on a ecrit dans la donnee. Le
+zeta AJUSTE SUR LA REPONSE vaut **0.36 a 0.40**, dans sa bande 0.32-0.42.
+
+**§26 EST RE-MESUREE CE CYCLE** (le cycle 6 la reportait sans la re-mesurer) : premier depassement
+oppose **0.280** (chestL ap), **0.270** (chestR ap), **0.227** (chestR v), contre 0.31.
+Et le controle interne tient : sa §26 donne `exp(-zeta pi / sqrt(1-zeta^2))`, soit **0.264 pour le
+zeta 0.39 qu'on vient de mesurer** — le rebond observe (0.270-0.280) tombe dessus. Le ring-down est
+donc bien une reponse du second ordre, et l'ecart a 0.31 est l'ecart de zeta a 0.35, pas un defaut
+separe.
+
+
+7 ter. §23 — LES CINQ DERIVATIONS DE SA PHRASE, ET CELLE QUI MANQUAIT
+======================================================================
+Sa §23 ne demande pas seulement un modele : elle enumere ce que le solveur doit en DERIVER —
+« the solver should then derive local deformation from COM DISPLACEMENT, ANGULAR LAG, ROOT
+CONSTRAINTS, VOLUME CONSERVATION, and LOCAL COLLISION PRESSURE ». Quatre etaient livrees a la fin
+du bloc precedent ; la cinquieme ne l'etait pas, et elle ne demandait aucune grandeur nouvelle :
+**la poussee de contact cumulee etait deja calculee pour §33/34.**
+
+Le tissu s'aplatit LE LONG DE LA NORMALE de contact et se redistribue sur les deux perpendiculaires,
+determinant exactement 1. C'est la moitie « deformation » de sa §34 (« collision energy should
+primarily become DEFORMATION, redistribution and damping »), dont seule la moitie « damping » etait
+livree par la restitution.
+
+    pilotage      aplatissement (%)   brut avant plafond   sa reference
+    updown         5.40 / 5.78         idem                 contact doux
+    tilt           5.09 / 5.90         idem                 idem
+    jerk          21.46 / 18.11        idem                 §12 : -15 a -25 % quand tout le poids
+    leftright     23.37 / 23.84        idem                 porte sur un sein, nominal -20 %
+    accel         25.00 / 24.37        25.37 (chestL)       une seule fenetre effleure le plafond
+
+Premier essai a gain 1.00 : 40 a 56 % bruts pour un plafond a 25 % — un limiteur sature sur les
+trois pilotages forts. **Le meme piege que le mode secondaire, attrape par le meme instrument** (la
+valeur AVANT plafond, publiee a cote). Recale a 0.45 sur SA bande, pas sur l'instrument.
+
+CE QUI RESTE A §23, ET C'EST DIT PRECISEMENT : le modele global est complet (masse, amortissement,
+raideur ANISOTROPE, force de collision) et les cinq derivations locales sont livrees ; ce qui reste
+est que le point de masse integre est l'APEX et non le CENTRE DE MASSE. Sa phrase « a single spring
+attached to the nipple/apex is insufficient » visait un ressort d'apex dont RIEN n'etait derive ;
+il ne l'est plus. La section reste PARTIELLE tant que le point integre n'est pas le COM.
+
+
 8. LA POITRINE, SECTION PAR SECTION — le tableau que sa directive exige a chaque cycle
 =======================================================================================
 Regle qu'elle pose et que j'applique : une section « implementee » dont la constante n'est
@@ -259,14 +335,22 @@ tableau — une section absente parce qu'il manque une articulation dit « os ma
                                                                                  ce cycle)
 22/38 Etirement dynamique          **O**  16.4 % a 21.9 % de pic                  entre Normal 0.15 et
                                                                                  Strong 0.21, < 0.25
-23    « single spring at the apex    P    3 DDL de translation anisotropes + 1    le solveur reste
-      is INSUFFICIENT »                   de TORSION + 6 de deformation + un      UNE masse ponctuelle
-                                          mode secondaire + champ gradue r^1.63   pour la position
-24    Trois frequences propres       P    ext_fn 2.807 / 2.769 / 4.397 (chestL)   resolution ±4-8 %
-                                                                                 pour des bandes a 6 %
-                                                                                 : INDECIDABLE
-25    zeta = 0.35                    O    0.3500 / 0.3501                         DANS SA BANDE
-26    Rebond 31 %                    P    29.1 % (cycle 6, NON re-mesure)         -6 % relatif
+23    « single spring at the apex  **P**  LES CINQ DERIVATIONS DE SA PHRASE      le point integre est
+      is INSUFFICIENT »                   sont livrees : COM 16-22 %, torsion    l'APEX et non le
+                                          3.8-6.7 deg, ancrage 35.6/31.0 %,      CENTRE DE MASSE
+                                          volume det=1, PRESSION DE CONTACT
+                                          5.1-25.0 % (§12 : -15 a -25 %)
+24    Trois frequences propres     **P**  AJUSTEMENT SUR TOUTE LA SERIE :        v et ap DANS leurs
+                                          v 2.420 [2.400-2.435] et ap 2.435      bandes sur LES DEUX
+                                          [2.430-2.440] (chestL) ; v 2.500       chaines, et SEPARES
+                                          [2.480-2.525] et ap 2.540              sur chestR. lat non
+                                          [2.535-2.545] (chestR)                 mesurable au repos
+                                                                                 (residu 0.095/0.194)
+25    zeta = 0.35                  **O**  AJUSTE SUR LA REPONSE : 0.36 a 0.40    DANS SA BANDE
+                                          (et non plus le parametre livre)       (0.32-0.42)
+26    Rebond 31 %                  **P**  RE-MESURE : 0.280 / 0.270 / 0.227      -10 a -27 % relatif,
+                                          et 0.264 attendu pour le zeta 0.39     mais COHERENT avec
+                                          mesure -> coherence interne tenue      le zeta mesure
 27    Stabilisation 1.0-1.5 s        P    chestL t1=0.83 t05=0.88 ;               MESUREE des DEUX
                                           chestR t1=0.83 t05=1.05                 cotes ; chestL plus
                                                                                  RAPIDE que sa bande
@@ -312,10 +396,15 @@ LES QUATRE PRIORITES DE SA DIRECTIVE DE 11:50, ETAT A LA FIN DU CYCLE :
   - **§8 `det = 1` est vrai par construction**, pas par mesure de l'incompressibilite.
   - **§36 sature son plafond sur 6 groupes de fenetres sur 10** (brut jusqu'a 10.23 % pour 7.00).
     Le regime « normal » (updown) rend 1.68 % sur chestL, SOUS sa bande 2-5 %.
-  - §24 : la resolution du ring-down est de ±4 a 8 % pour des bandes separees de 6 % — la salle ne
-    peut toujours pas decider si les trois frequences sont tenues, ni dans un sens ni dans l'autre.
-    Aucun parametre n'a ete ajuste sur ces chiffres.
-  - §26 (rebond 31 %) n'a pas ete re-mesure ce cycle ; le chiffre vient du cycle 6.
+  - §24 : l'axe LATERAL n'est pas mesurable dans la fenetre de repos (residu 0.095 et 0.194) — il
+    n'y est pas excite. Deux axes sur trois sont dans leurs bandes ; leur separation n'est etablie
+    que sur chestR. Aucun parametre n'a ete ajuste sur ces chiffres.
+  - §26 : re-mesuree ce cycle a 0.227-0.280 contre 0.31. L'ecart suit celui du zeta mesure (0.39
+    au lieu de 0.35) et n'est donc pas un defaut independant — mais il n'est pas nul.
+  - La CAUSE GEOMETRIQUE du domaine vide de §33 n'est PAS etablie : ma lecture hors-ligne du rig
+    a rendu une distance nulle entre les deux joints, ce qui est un artefact de lecture et non une
+    mesure. Je ne la publie pas. Ce qui est etabli l'est a l'execution : 0 contact sur 2978, et
+    `PHYSCVOL` ne cite jamais `lBoob` ni `rBoob` parmi les volumes qui decident.
   - §22/38 (excursion d'apex) est reportee TENUE sur la base du cycle 5, non re-derivee ici.
   - §35 est tenue par construction et n'est pas mesuree.
   - Le residu de §9 n'est pas zero : 0.49 u et 0.58 u (0.12 et 0.14 mm). Sa §9 dit « exactly ».
@@ -323,6 +412,10 @@ LES QUATRE PRIORITES DE SA DIRECTIVE DE 11:50, ETAT A LA FIN DU CYCLE :
   - La deformation ecrite est celle COMMANDEE a la racine. La deformation VUE sur le mesh en est la
     part que le champ de poids transmet (gradue en r^1.63) : elle n'est pas mesuree ici, et aucun
     chiffre de ce rapport ne pretend le contraire.
+  - §23 : le point de masse integre reste l'APEX, pas le centre de masse. Les cinq derivations
+    locales de sa phrase sont livrees, le modele global ne l'est qu'a cette substitution pres.
+  - §23 pression de contact : une fenetre sur dix effleure encore son plafond (chestL accel, brut
+    25.37 % pour 25.00 %). C'est un effleurement, pas la saturation du premier essai (40-56 %).
   - La QUALITE se juge a son oeil, jamais ici.
 
 SIDE-DOMAIN-EMPTY: chestL, chestR — `ROOM-SIDE chains=0/2 crossing=0`, controle `armed=0
@@ -371,6 +464,9 @@ SUPPRESSOR: spec29-torsion-softmin removed-motion=0.0000
   3. **Sur les mouvements brusques** : la chair travaille (jusqu'a ~20 % d'etirement le long du
      mouvement) et un petit tremblement rapide (5.2 Hz) apparait APRES un changement de direction,
      plafonne a 7 % d'epaisseur. Trop ? Pas assez ? C'est le seul reglage que son oeil peut trancher.
+  3 bis. **Quand la poitrine appuie contre le buste ou le bras** : elle s'APLATIT la ou elle touche
+     (5 % sur un contact doux, jusqu'a 25 % quand tout le poids porte) et se redistribue ailleurs,
+     au lieu de garder sa forme et de rebondir.
   4. **Les chocs ne rebondissent plus** : un contact contre le buste rend 2 % de la vitesse
      d'arrivee au lieu de 100 %.
   5. **Debout et immobile** : la poitrine doit etre exactement sur le modele (residu 0.12 mm).
