@@ -254,7 +254,54 @@ Le solveur intègre **exactement** ce qu'il intégrait : aucune ligne de `jak-hd
 
 Course : joueur ABSENT (`ROOM-NOPLAYER: absent`, `PHYSNOPLAY viol=0`), 1 acteur
 (`ROOM-ACTORS: 1 subject=keira-hd`), 31/31 animations jouées (`raw=31 skipped=0`), 310 mesures,
-2 chaînes. Moteur inchangé à **4787 lignes** (plafond 4800).
+2 chaînes.
+
+MOTEUR : **4787 → 4768 lignes** (plafond 4800). `*phys-lmean*` est retirée : c'était une variable
+**écrite et lue par personne** dans tout `goal_src/` (recensement complet), qui ne servait qu'au
+ressort angulaire `k2a` — lequel n'existe plus depuis la bascule du 2026-08-13 22:40. Sa narration
+décrivait donc un mécanisme absent, et deux blocs de commentaire raisonnaient encore dessus.
+**Inertie PROUVÉE, pas raisonnée** : course relancée après recompilation (551 cibles), tableau
+**byte-identique** au précédent (0 ligne de différence sur 1072).
+
+
+6 bis. LE PLAFOND DE LIGNES EST DEVENU LE VERROU DE LA MOITIÉ DE LA SPEC — ET C'EST À LUI DE TRANCHER
+======================================================================================================
+Ce n'est pas une plainte, c'est un chiffre et une décision qui ne m'appartient pas (règle 5).
+
+Les cinq rangées encore ABSENTES se répartissent en trois familles, et deux d'entre elles sont
+bloquées par des mesures publiées plus haut :
+
+    §33/§34   bloquées par le RÉSIDU de collision (mesuré : 0.0010 pour un plafond de 0.0005)
+    §27       bloquée par §9 (un seuil relatif ne se franchit pas au-dessus d'un résidu statique)
+    §8, §10-13, §36   **partagent UN SEUL mécanisme** : un canal de DÉFORMATION écrit dans la
+                      matrice du joint (tenseur d'échelle à déterminant 1 pour §8, équilibres par
+                      orientation de la gravité locale pour §10-13, second oscillateur 5.2 Hz /
+                      ζ 0.65 pour §36).
+
+Ce mécanisme est aujourd'hui **exprimable** — et il ne l'était pas avant ce cycle. §8 exige que la
+déformation « ne soit pas une seule échelle affine pour tout le sein » : or le dégradé de peau
+mesuré à r^1.63 fait qu'une échelle écrite sur le joint s'applique **progressivement** le long de
+`r`, presque nulle à la racine et pleine au distal. C'est exactement la répartition que §8 décrit,
+et c'est le correctif de ce cycle qui la rend vraie.
+
+Ce qui manque est de la PLACE : le canal, ses trois usages et leur mesure demandent 150 à 250
+lignes ; il en reste **32**. Je n'ai pas essayé de l'y faire entrer en rabotant la narration —
+ce serait contourner le plafond au lieu de le respecter.
+
+CE QUE J'AI VÉRIFIÉ MOI-MÊME ET QUE JE LUI SOUMETS, avec la composition sous les yeux, puisque son
+propre commentaire dit que « le plafond ne monte jamais pour laisser passer un suppresseur : c'est
+la composition qui décide » :
+  - **le canal de déformation n'est PAS un suppresseur** — il n'enlève rien, il ajoute une
+    expression que trois sections de sa spec réclament ;
+  - **208 lignes sont mesurablement inertes** : `phys-bend-chain` + `phys-softmin` + leur narration,
+    gardées par `(> amax 0.0)` alors que **aucune chaîne ne déclare `maxangle=`** (vérifié :
+    `grep -c maxangle recharged_assets/physics_chains.txt` → **0**). Je ne les ai PAS retirées :
+    c'est le mécanisme d'atténuation d'angle des CHEVEUX, et ses défauts sont GELÉS, pas fermés —
+    les retirer serait du travail à refaire le jour où il les dégèle. **C'est son arbitrage, pas
+    le mien.**
+Trois voies, dans l'ordre où je les recommanderais : (a) autoriser le retrait des 208 lignes gelées,
+(b) relever le plafond après lecture de la composition, (c) laisser §8/§10-13/§36 absentes et le
+dire. Je ne fais aucune des trois sans son mot.
 
 BREAST-PENETRATION: 0.0005 m résiduels sur `chestR` (plafond épinglé 0.0005 ; `chestL` −1.7e-07).
   Ce n'est pas réglé, c'est SOUS le plafond — et tant que ce n'est pas zéro, ça se signe à chaque

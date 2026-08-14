@@ -158,16 +158,12 @@
 ;; rendait #f partout et le controle positif ne pouvait plus tirer (`ROOM-SHELL-CONTROL
 ;; armed=disarmed=0`). La cle `shell=` reste dans les donnees livrees ; seul le code mort part.
 (define *phys-rad*    (new 'global 'array 'float PHYS-SCL))  ;; demi-epaisseur par lien
-;; ------------------------------------------------------------------------------------------------
-;; LA LONGUEUR D'OS DE CHAQUE MAILLON, ET LA MOYENNE SUR LES MAILLONS LIBRES DE SA CHAINE.
-;; Relevees sur la pose ANIMEE a chaque frame (elles sont quasi constantes, mais les lire evite de
-;; supposer que le retarget n'a pas change une longueur). Elles servent a une seule chose : rendre
-;; le ressort ANGULAIRE — voir la note au point d'usage dans l'integrateur. La normalisation par la
-;; moyenne est ce qui garantit qu'une chaine a UN SEUL maillon libre rend exactement 1.0, donc reste
-;; inchangee AU BIT PRES : c'est vrai pour 20 des 22 chaines de Keira.
-;; ------------------------------------------------------------------------------------------------
+;; LA LONGUEUR D'OS DE CHAQUE MAILLON, relevee sur la pose ANIMEE a chaque frame.
+;; (Sa moyenne `*phys-lmean*` a ete retiree le 2026-08-14 : elle ne servait qu'au ressort angulaire
+;; `k2a`, qui n'existe plus depuis la bascule du 2026-08-13 22:40 — le symbole etait ecrit et lu
+;; par personne dans tout `goal_src/`, verifie par recensement, et sa narration decrivait un
+;; mecanisme absent.)
 (define *phys-blen*  (new 'global 'array 'float PHYS-SCL))   ;; longueur d'os du maillon
-(define *phys-lmean* 0.0)                                    ;; leur moyenne, chaine courante
 ;; ------------------------------------------------------------------------------------------------
 ;; LE VOLUME QU'UN LIEN PORTE QUAND IL BOUGE — et c'est LE MEME que celui qu'il presente quand il
 ;; est un OBSTACLE. Owner, 6e passe : « c'est pas juste les capsules de collision qui bougent pas,
@@ -2934,19 +2930,13 @@
               (when (and (> (-> *phys-nlink* sc) 0) (>= an 0) (< (+ an 1) nbone))
                 (phys-pose-repair obj skel sc (-> *phys-nlink* sc) an nbone
                                   (zero? (-> *phys-warm* sc))))
-              ;; DEUX JEUX D'INDICES LA OU IL N'Y EN AVAIT QU'UN, ET LA DISTINCTION EST LE CŒUR DU
-              ;; CORRECTIF. `rootlock` portait DEUX roles a la fois :
+              ;; DEUX JEUX D'INDICES LA OU IL N'Y EN AVAIT QU'UN. `rootlock` portait DEUX roles :
               ;;   (1) « quels maillons sont epingles » — ce que toutes les gardes `(>= l rlk)`
               ;;       lisent (contrainte de longueur, collision, recul, angles, mesures) ;
-              ;;   (2) « sur quels maillons se calcule `*phys-lmean*` », la longueur d'os de
-              ;;       reference du ressort ANGULAIRE (voir la note de `k2a`).
-              ;; Les confondre est un piege chiffre : liberer la racine ferait entrer son os dans la
-              ;; moyenne, et `lmean` passerait de 0.1438 a 0.2333 m sur `lbang` — donc la frequence
-              ;; propre de la POINTE sauterait de 1.070 a 1.736 Hz. Or 1.07 Hz est la SEULE valeur
-              ;; que l'oeil de l'owner ait jamais qualifiee positivement (« vraiment pas mal »), et
-              ;; elle a coute deux cycles a retrouver. Un changement cense corriger le degrade aurait
-              ;; ainsi detruit `hair-fine-dead` en silence, sans qu'aucune ligne de donnees ne bouge.
-              ;; `rlk0` garde donc le role (2), intact ; `rlk` porte le role (1) et lui seul.
+              ;;   (2) « quel maillon les DONNEES declarent epingle », qui doit rester lisible meme
+              ;;       quand une racine graduee met `rlk` a 0 — sinon le diagnostic `rootrot`
+              ;;       disparait au lieu de publier l'angle reellement ecrit dans sa 3x3.
+              ;; `rlk0` porte le role (2), `rlk` le role (1) et lui seul.
               (let* ((n    (-> *phys-nlink* sc))
                      (rlk0 (max 0 (min (-> *phys-rootlk* sc) (max 0 (- n 1)))))
                      (rgr  (-> *phys-rootgr* sc))
@@ -3130,27 +3120,18 @@
                            (gm  (/ (vector-length gl) (fabs gy))))
                       (when (> gm (-> *phys-st* (+ stb 18))) (set! (-> *phys-st* (+ stb 18)) gm)))
                     ;; ---- 0. LES LONGUEURS D'OS, avant d'integrer quoi que ce soit. -------------
-                    ;; Relevees sur la pose animee ; la moyenne ne porte que sur les maillons
-                    ;; LIBRES, de sorte qu'une chaine qui n'en a qu'un rende exactement 1.0 et
-                    ;; reste inchangee au bit pres.
-                    (let ((lsum 0.0) (lcnt 0))
-                      (dotimes (l n)
-                        (let* ((scl (+ (* sc PHYS-LINKS) l))
-                               (kk  (-> *phys-joint* scl))
-                               (kp  (if (> l 0) (-> *phys-joint* (- scl 1)) an)))
-                          (set! (-> *phys-blen* scl) 0.0)
-                          (when (and (>= kk 0) (>= kp 0) (< (+ kk 1) nbone) (< (+ kp 1) nbone))
-                            (let ((bl (vector-vector-distance
-                                        (the-as vector (-> skel bones (+ kk 1) transform vector 3))
-                                        (the-as vector (-> skel bones (+ kp 1) transform vector 3)))))
-                              (set! (-> *phys-blen* scl) bl)
-                              ;; `rlk0`, PAS `rlk` : la reference du ressort angulaire ne doit pas
-                              ;; bouger quand la racine devient graduee, sinon la frequence de la
-                              ;; pointe se deplace toute seule (voir la note du `let*` ci-dessus).
-                              (when (>= l rlk0)
-                                (set! lsum (+ lsum bl))
-                                (set! lcnt (+ lcnt 1)))))))
-                      (set! *phys-lmean* (if (> lcnt 0) (/ lsum (the float lcnt)) 0.0)))
+                    ;; Relevees sur la pose ANIMEE a chaque frame : elles sont quasi constantes,
+                    ;; mais les lire evite de supposer que le retarget n'a pas change une longueur.
+                    (dotimes (l n)
+                      (let* ((scl (+ (* sc PHYS-LINKS) l))
+                             (kk  (-> *phys-joint* scl))
+                             (kp  (if (> l 0) (-> *phys-joint* (- scl 1)) an)))
+                        (set! (-> *phys-blen* scl) 0.0)
+                        (when (and (>= kk 0) (>= kp 0) (< (+ kk 1) nbone) (< (+ kp 1) nbone))
+                          (set! (-> *phys-blen* scl)
+                                (vector-vector-distance
+                                  (the-as vector (-> skel bones (+ kk 1) transform vector 3))
+                                  (the-as vector (-> skel bones (+ kp 1) transform vector 3)))))))
                     ;; ---- 1. UNE PARTICULE PAR MAILLON, INTEGREE EN POSITION MONDE. -------------
                     ;;
                     ;; PIERRE TOMBALE — L'ANCIEN MODELE D'ECART, RETIRE le 2026-08-13 22:40 sur
