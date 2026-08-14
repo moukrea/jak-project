@@ -2361,8 +2361,56 @@
                            ;; HORS DEFAUT : nul. Sous `*phys-side-off*` comme la mesure, pour que
                            ;; le controle positif commande enfin quelque chose : il valait
                            ;; `armed=15171 disarmed=15399` — 1.2 % d'ecart, c'est-a-dire rien.
+                           ;; ----------------------------------------------------------------
+                           ;; SON DOMAINE EST CELUI DE L'OBSTACLE, ET IL NE L'ETAIT PAS.
+                           ;; (2026-08-14, correctif de ce cycle.)
+                           ;;
+                           ;; L'ARMEMENT NE REGARDAIT QUE `floor0`, C'EST-A-DIRE LA PROFONDEUR DE
+                           ;; LA POSE D'AUTEUR. Le lien SIMULE, lui, n'entrait pas dans la
+                           ;; condition — on pouvait donc teleporter un maillon situe tres loin
+                           ;; DEHORS parce que sa pose d'auteur, elle, effleurait le volume.
+                           ;;
+                           ;; PREUVE ARITHMETIQUE, SANS COURSE, sur la pire chaine de la course 7 :
+                           ;;   rbang pointe   distance a l'axe tete->cou = 2313.6 u
+                           ;;                  portee du volume  rr + rl  =  915 + 193 = 1108 u
+                           ;; La pointe est donc 1205 u (29 cm) DEHORS d'une sphere qu'on
+                           ;; l'accusait de traverser, et sa pose d'auteur n'est enfoncee que de
+                           ;; 6 a 10 u dans cette meme sphere de 915 : elle EFFLEURE la surface.
+                           ;; Le moindre balayage lateral la met « de l'autre cote » de l'azimut
+                           ;; sans qu'elle approche jamais le crane.
+                           ;;
+                           ;; ET LE PRIX EST EXACTEMENT LE `jump` QUE LA COURSE 7 A PAYE. Le
+                           ;; deplacement vaut `cc = dt0 * (ub w)`, donc il CROIT avec la distance
+                           ;; a l'axe : plus le cheveu est loin du corps, plus la correction le
+                           ;; teleporte. C'est la forme mesuree (`botstrapL` 0.1155 -> 0.5372 m,
+                           ;; `goggles` 0.1183 -> 0.4237) et c'est la regle 6 a l'envers — « une
+                           ;; resolution pire que le clip est pire que rien ».
+                           ;;
+                           ;; CE QUI CHANGE : `(> dep 0.0)`. `dep` est deja calcule au-dessus
+                           ;; (:2298) — c'est la profondeur du CENTRE DU VOLUME SIMULE dans cet
+                           ;; obstacle-ci, avant la poussee. Le veto d'azimut ne s'applique donc
+                           ;; plus qu'aux maillons qui sont REELLEMENT dans le volume, la ou « de
+                           ;; quel cote » decide si la poussee de profondeur les sort du bon cote.
+                           ;; Dehors, il n'y a rien a traverser : le domaine de la RESOLUTION
+                           ;; devient egal au domaine de l'OBSTACLE.
+                           ;;
+                           ;; CE QUE CA NE COUVRE PLUS, ET JE NE LE TAIS PAS : un maillon qui
+                           ;; traverserait le volume de part en part EN UNE FRAME ressort dehors,
+                           ;; donc `dep <= 0`, donc il echappe au veto. C'est le tunneling, et sa
+                           ;; reponse structurelle est la SPEC 37 de l'owner (>= 120 Hz effectifs,
+                           ;; 2 sous-pas a 60 FPS) — PAS FAITE. La contrainte de longueur borne le
+                           ;; trajet d'un maillon par frame, ce qui le rend rare, pas impossible.
+                           ;;
+                           ;; NATURE : un deplacement, en unites monde. REPERE : monde. LECTURE
+                           ;; HORS DEFAUT : nul (idempotent des que `ua . ub >= 0`). CE QUE LA
+                           ;; COURSE DOIT MONTRER : `jump` redescend vers sa ligne de base (~0.12 m)
+                           ;; sur les sangles et les lunettes, et `meshpen` REMONTE sur les meches
+                           ;; frontales — parce que la resolution zeroutait sa propre mesure, et
+                           ;; que cette mesure-la est fausse (voir la note de `phys-link-pen`).
+                           ;; ----------------------------------------------------------------
                            (when (and (zero? *phys-side-off*)
                                       (> floor0 0.0)
+                                      (> dep 0.0)
                                       (phys-axis-dir rest ca cb ua)
                                       (phys-axis-dir pt ca cb ub))
                              (let ((dt0 (+ (* (-> ua x) (-> ub x))
@@ -2424,10 +2472,17 @@
                                                        (-> *phys-cr2* sco) cap? nrm))
                                (fc (phys-collide-depth rest rl ca cb (-> *phys-cr* sco)
                                                        (-> *phys-cr2* sco) cap? nrm)))
-                          ;; meme condition d'armement que la mesure (:2624) : la pose d'AUTEUR est
-                          ;; dans ce volume, donc « de quel cote » veut dire quelque chose pour elle.
-                          (when (> (if (> fc fs) fc fs) 0.0)
-                            (set-vector! pv qx qy qz 1.0)
+                          ;; DEUX CONDITIONS, PAS UNE — MEME CORRECTIF QU'AU BALAYAGE (voir la
+                          ;; note complete la-bas). La pose d'AUTEUR doit etre dans ce volume pour
+                          ;; que « de quel cote » veuille dire quelque chose pour elle, ET le
+                          ;; maillon SIMULE doit y etre aussi pour qu'il y ait quoi que ce soit a
+                          ;; traverser. Sans la seconde, on teleportait de 0.5 m un maillon situe
+                          ;; 29 cm hors du volume (rbang : 2313.6 u a l'axe pour une portee de
+                          ;; 1108 u), et le deplacement CROISSAIT avec l'eloignement.
+                          (set-vector! pv qx qy qz 1.0)
+                          (let ((fq (phys-collide-depth pv rl ca cb (-> *phys-cr* sco)
+                                                        (-> *phys-cr2* sco) cap? nrm)))
+                          (when (and (> (if (> fc fs) fc fs) 0.0) (> fq 0.0))
                             (when (and (phys-axis-dir rest ca cb ua)
                                        (phys-axis-dir pv ca cb ub))
                               (let ((dt1 (+ (* (-> ua x) (-> ub x))
@@ -2437,7 +2492,7 @@
                                   (let ((cc (* dt1 (-> ub w))))
                                     (set! qx (- qx (* cc (-> ua x))))
                                     (set! qy (- qy (* cc (-> ua y))))
-                                    (set! qz (- qz (* cc (-> ua z)))))))))))))
+                                    (set! qz (- qz (* cc (-> ua z))))))))))))))
                   (set! (-> pt x) (- qx (-> offs x)))
                   (set! (-> pt y) (- qy (-> offs y)))
                   (set! (-> pt z) (- qz (-> offs z)))))
