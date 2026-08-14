@@ -2589,6 +2589,119 @@ def main():
     # Ajoutees le 2026-08-14 (cycle 7). Ces lignes ne REMPLACENT rien : elles publient des
     # grandeurs qui n'avaient aucun instrument, ce que l'audit du 09:45 comptait comme ABSENT.
     # ============================================================================================
+    # ============================================================================================
+    # SPEC 24/25/26 — L'AJUSTEMENT SUR TOUTE LA SERIE, AVEC SON INTERVALLE DE CONFIANCE.
+    # Le cycle 6 avait etabli que le comptage de croisements de zero ne PEUT PAS trancher §24 :
+    # a 60 Hz une demi-periode vaut 12 a 15 frames, le ring-down libre en offre 2 a 3, donc +/- 4 %
+    # au mieux pour des bandes separees de 6 %. Sa conclusion, mot pour mot : « un ajustement
+    # frequentiel sur TOUTE la serie plutot qu'un comptage de croisements ». C'est ce bloc.
+    # METHODE : a (f, zeta) fixes, le modele A e^{-zeta w t} cos(wd t + phi) + c est LINEAIRE en
+    # (A cos phi, A sin phi, c) ; on le resout exactement par moindres carres, sur une grille de
+    # (f, zeta). Le minimum donne f ; l'ensemble des f dont le residu reste sous 1.10x le minimum
+    # donne l'INTERVALLE. Aucun parametre du solveur n'est touche : on change l'instrument, jamais
+    # la chose mesuree.
+    # ============================================================================================
+    A('')
+    A('-- ROOM-RINGFIT : SPEC 24/25/26, AJUSTEES SUR TOUTE LA SERIE ------------------------------')
+    A('   SPEC 24 : Vertical 2.30 Hz (2.1-2.5) / Front-Back 2.50 Hz (2.3-2.7) / Lateral 2.65 Hz')
+    A('   (2.4-2.9), « vertical motion is intentionally the slowest ». SPEC 25 : zeta 0.35')
+    A('   (0.32-0.42). SPEC 26 : premier depassement oppose 0.31 pour zeta = 0.35.')
+    A('   NATURE : une frequence propre et un taux d\'amortissement, tires par moindres carres de la')
+    A('   serie ENTIERE de deviation (PHYSRINGA, fenetre de repos ; PHYSRINGAT, fenetre inclinee),')
+    A('   apres saut du transitoire (12 frames).  REPERE : le triedre de l\'ANCRE (SPEC 7).')
+    A('   `residu` = ecart-type residuel rapporte a l\'amplitude du signal : au-dela de ~0.08 la')
+    A('   serie ne porte pas un mode unique et le chiffre ne doit PAS etre lu comme une frequence.')
+    A('   `[fmin..fmax]` = les frequences dont le residu reste sous 1.10x le minimum. DEUX AXES DONT')
+    A('   LES INTERVALLES NE SE RECOUVRENT PAS SONT DEUX MODES DISTINCTS : c\'est la forme que')
+    A('   demande le contrat (« une reponse identique dans les trois directions prouve qu\'elles ne')
+    A('   sont pas appliquees »), lue dans les deux sens.')
+    try:
+        import numpy as _np
+        _HAVE_NP = True
+    except Exception:
+        _HAVE_NP = False
+    def _fitseries(vals, skip=12):
+        y = _np.array(vals[skip:], dtype=float)
+        n = len(y)
+        if n < 20:
+            return None
+        t = _np.arange(n) / 60.0
+        sy = float(_np.sum(y * y))
+        if sy <= 0:
+            return None
+        best = None
+        keep = []
+        for f in _np.arange(1.20, 6.001, 0.005):
+            w = 2.0 * math.pi * float(f)
+            for z in _np.arange(0.10, 0.701, 0.01):
+                a = float(z) * w
+                wd = w * math.sqrt(max(1e-9, 1.0 - float(z) * float(z)))
+                e = _np.exp(-a * t)
+                M = _np.stack([e * _np.cos(wd * t), e * _np.sin(wd * t), _np.ones(n)], axis=1)
+                sol, _r, _rk, _sv = _np.linalg.lstsq(M, y, rcond=None)
+                r = float(_np.sum((M @ sol - y) ** 2))
+                keep.append((r, float(f)))
+                if best is None or r < best[0]:
+                    best = (r, float(f), float(z))
+        okf = [f for r, f in keep if r <= 1.10 * best[0]]
+        return dict(f=best[1], zeta=best[2], rel=math.sqrt(best[0] / sy),
+                    fmin=min(okf), fmax=max(okf), n=n)
+    def _rebound(vals, skip=12):
+        y = vals[skip:]
+        ext = [y[i] for i in range(1, len(y) - 1) if (y[i] - y[i - 1]) * (y[i + 1] - y[i]) < 0]
+        if len(ext) < 2 or abs(ext[0]) < 1e-9:
+            return None
+        for k in range(1, len(ext)):
+            if ext[k] * ext[0] < 0:
+                return abs(ext[k]) / abs(ext[0])
+        return None
+    _ser = {}
+    for _tag in ('PHYSRINGA', 'PHYSRINGAT'):
+        for m in re.finditer(r'^%s c=(\d+) f=(\d+) l=(\d+) v=([-\d.e+]+) ap=([-\d.e+]+)'
+                             r' lat=([-\d.e+]+)' % _tag, txt, re.M):
+            for _ax, _g in (('v', 4), ('ap', 5), ('lat', 6)):
+                _ser.setdefault((_tag, int(m.group(1)), _ax), []).append(
+                    (int(m.group(2)), float(m.group(_g))))
+    if not _HAVE_NP:
+        A('ROOM-RINGFIT: ABSENT (numpy indisponible)')
+    elif not _ser:
+        A('ROOM-RINGFIT: ABSENT (aucune serie PHYSRINGA/PHYSRINGAT dans la trace)')
+    else:
+        A('')
+        A('   fenetre      chaine        axe  n    f (Hz)  intervalle       zeta   residu  rebond'
+          '   cible §24')
+        _TGT = {'v': '2.30 (2.1-2.5)', 'ap': '2.50 (2.3-2.7)', 'lat': '2.65 (2.4-2.9)'}
+        _band = {'v': (2.1, 2.5), 'ap': (2.3, 2.7), 'lat': (2.4, 2.9)}
+        _iv = {}
+        for (_tag, _c, _ax) in sorted(_ser):
+            _vals = [v for _f, v in sorted(_ser[(_tag, _c, _ax)])]
+            _r = _fitseries(_vals)
+            if not _r:
+                continue
+            _rb = _rebound(_vals)
+            _nm = names[_c] if _c < len(names) else 'c%d' % _c
+            _win = 'repos' if _tag == 'PHYSRINGA' else 'inclinaison'
+            _lo, _hi = _band[_ax]
+            _in = 'DANS' if _lo <= _r['f'] <= _hi else 'HORS'
+            if _r['rel'] > 0.08:
+                _in = 'residu trop grand, non lisible'
+            A('ROOM-RINGFIT: %-11s %-12s %-3s %3d  %6.3f  [%.3f..%.3f]  %.2f   %.3f   %-6s  %s  %s'
+              % (_win, _nm, _ax, _r['n'], _r['f'], _r['fmin'], _r['fmax'], _r['zeta'], _r['rel'],
+                 ('%.3f' % _rb) if _rb else 'n/a', _TGT[_ax], _in))
+            if _tag == 'PHYSRINGA' and _r['rel'] <= 0.08:
+                _iv[(_c, _ax)] = (_r['fmin'], _r['fmax'])
+        A('')
+        A('   LES TROIS MODES SONT-ILS SEPARES ? (fenetre de repos, residu <= 0.08 seulement)')
+        for _c in sorted({c for (c, _a) in _iv}):
+            _nm = names[_c] if _c < len(names) else 'c%d' % _c
+            _pairs = []
+            for _a, _b in (('v', 'ap'), ('ap', 'lat'), ('v', 'lat')):
+                if (_c, _a) in _iv and (_c, _b) in _iv:
+                    _x, _y = _iv[(_c, _a)], _iv[(_c, _b)]
+                    _pairs.append('%s/%s %s' % (_a, _b,
+                                  'SEPARES' if (_x[1] < _y[0] or _y[1] < _x[0]) else 'confondus'))
+            A('ROOM-RINGFIT-SEP: chain=%-12s %s' % (_nm, ' · '.join(_pairs) if _pairs else
+                                                    'pas assez d\'axes lisibles'))
     A('')
     A('-- ROOM-ORI : SPEC 10-13, LES EQUILIBRES PAR ORIENTATION, ET LEUR CONTINUITE --------------')
     A('   SPEC 13 : « supine, prone, upright and lateral states shall NOT exist as unrelated')
