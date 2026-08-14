@@ -223,3 +223,16 @@ courte sur une exponentielle ressemble exactement à une droite.** Verrou : avan
 FORME d'une décroissance, publier le nombre d'échantillons de la trace ET celui des échantillons
 utilisés ; un rapport inférieur à 1 interdit toute conclusion sur la forme. Même famille que
 [[target-bounded-by-window]] : la borne de la mesure fabriquait le résultat.
+
+GUARD deploy-lock-needs-pid .autoport/DIRECTIVES.md verrou `.deploy-in-progress`
+**Un verrou de livraison sans détenteur identifiable.** Le 2026-08-14 à 05:32, un
+`.autoport/.deploy-in-progress` **vide** a été posé hors des deux scripts prévus (`keira_a3_redeliver.sh`
+et `keira_a8_redeploy.sh` écrivent tous deux `pid=$$` et nettoient par `trap ... EXIT`). Personne ne
+l'a relâché : le constructeur a refusé trois builds d'affilée (05:22, 05:50, 06:18) et **l'owner est
+resté 108 minutes sans APK** alors que l'acquis de 05:52 était prêt. Seule la borne aveugle de 60 min
+a fini par débloquer la chaîne. Le message de refus affichait `(, 2707s)` — champ détenteur vide,
+donc aucun diagnostic possible sans recouper les horaires à la main.
+Verrou : tout processus qui pose ce fichier y écrit **son PID** et installe un `trap` de nettoyage ;
+et le constructeur doit traiter comme périmé, **immédiatement**, un verrou dont le PID ne répond plus
+à `kill -0` — au lieu d'attendre l'heure. C'est le principe `pid-files` déjà au registre, non appliqué
+ici : une borne temporelle est un dernier recours, pas un mécanisme de détection.

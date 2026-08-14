@@ -10,6 +10,29 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
+## 2026-08-14 07:10 — CONVENTION OBLIGATOIRE POUR LE VERROU `.deploy-in-progress`
+
+Un verrou **vide** posé à 05:32 hors des scripts prévus a coûté à l'owner **108 minutes sans APK**
+(trois builds refusés : 05:22, 05:50, 06:18), alors que le passage sous `0.50 B0` était prêt depuis
+05:52. Seule la borne aveugle de 60 min a débloqué la chaîne.
+
+**Règle, sans exception :** tout processus qui pose `.autoport/.deploy-in-progress` y écrit son PID
+et installe son nettoyage, exactement comme le font déjà `keira_a3_redeliver.sh:100` et
+`keira_a8_redeploy.sh:73` :
+
+    printf '<nom> pid=%s started=%s\n' "$$" "$(date -Is)" > "$LOCK"
+    trap 'rm -f "$LOCK"' EXIT
+
+**Jamais** un `touch` ni un `> fichier` nu. Un verrou sans détenteur n'est pas un verrou, c'est une
+panne silencieuse de la chaîne de livraison — et la livraison au fil de l'eau est une consigne
+permanente de l'owner.
+
+**Amélioration à appliquer au constructeur** (à faire quand le démon peut être relancé proprement,
+jamais en éditant un script en cours d'exécution) : lire le PID du verrou et le déclarer périmé
+**immédiatement** si `kill -0` échoue, au lieu d'attendre les 60 minutes. La borne temporelle reste
+comme dernier recours pour un détenteur vivant mais bloqué.
+
+
 ## 2026-08-14 03:40 — CORRECTION : MA DIRECTIVE DE 03:10 S'APPUYAIT SUR UNE SERIE TRONQUEE
 
 **Ce que j'ai écrit à 03:10 est FAUX et retiré.** J'ai gravé en priorité absolue « le solveur draine
