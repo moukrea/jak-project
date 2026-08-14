@@ -189,9 +189,11 @@ articulation dit « os manquant a injecter ».
 22/38 Excursion d'apex               O    sous le plafond dur 0.50 B0            TENUE
 23    « single spring at the apex    P    1 articulation + champ de peau         le SOLVEUR reste
       is INSUFFICIENT »                   gradue a r^1.63                        un seul ressort
-24    Trois frequences propres       P    ARMEE (`PHYSAXIS arm=1`). Ordre        l'ordre est acquis,
-                                          v < ap < lat tenu ; ROOM-RINGAXIS      les valeurs sortent
-                                          2.65 / 2.66 / 2.59 (L)                des bandes sur 3/6
+24    Trois frequences propres       P    ARMEE. Base DELIVREE (demi-periode    la BASE est tenue ;
+                                          13 frames = 2.308 Hz pour 2.300      les TROIS frequences
+                                          nominal). Mais v et ap rendent la    DISTINCTES ne sont
+                                          MEME demi-periode -> UN mode plan,   PAS demontrees
+                                          pas trois. Voir section 5 bis.
 25    zeta = 0.35                    O    parametre livre 0.3500 / 0.3501       DANS SA BANDE
 26    Rebond 31 %                    P    29.1 % (cycle 6, non re-mesure)       -6 % relatif
 27    Stabilisation 1.0-1.5 s      **P**  DEBLOQUEE : chestR t5=0.52 t1=0.75    mesurable enfin ;
@@ -226,10 +228,56 @@ LES QUATRE PRIORITES DE SA DIRECTIVE DE 11:50, ETAT A LA FIN DU CYCLE :
      n'existe pas encore.
 
 
+5 bis. SPEC 24 — JE ME CORRIGE EN COURS DE CYCLE, ET LE VERROU N'EST PAS CELUI QUE JE CROYAIS
+==============================================================================================
+`ROOM-RINGAXIS` publie `ext_fn=2.653` sur la verticale de chestL pour une cible de 2.30, et j'ai
+d'abord lu ca comme « la calibration §24 n'est pas delivree ». **C'est faux, et c'est l'estimateur
+qui l'est.** Les croisements de zero de la serie brute sont
+`[5, 17, 30, 43, 62, 63, 73, 74]` : trois demi-periodes propres de 12-13 frames, PUIS une queue qui
+degenere (62, 63 ... 73, 74 — des intervalles de 1 a 2 frames). L'estimateur moyenne le mode et le
+bruit ensemble et remonte de 15 %. C'est le piege `ringdown-transient-hides-the-law` de mon propre
+registre : on ajuste APRES le transitoire, sinon on mesure le transitoire.
+
+Refit avec le transitoire saute (12 frames) et la queue sous 8 % d'enveloppe ecartee :
+
+    chestL   v 2.308 Hz (13,13)   ap 2.308 Hz (13,13)   lat pas d'oscillation exploitable
+    chestR   v 2.500 Hz (12)      ap 2.308 Hz (13)      lat 2.000 Hz (15)
+    cibles   v 2.30 (2.1-2.5)     ap 2.50 (2.3-2.7)     lat 2.65 (2.45-2.85)
+
+**RESOLUTION DE L'INSTRUMENT, AVANT TOUTE CONCLUSION** : a 60 Hz une demi-periode de 13 frames se
+quantifie a +/- 1 frame, soit **+/- 8 % en frequence**. Je ne peux donc RIEN affirmer de plus fin
+que ~8 %, et je ne dirai pas « 2.308 pour 2.300, donc juste a 0.3 % » — ce serait lire une precision
+que l'instrument n'a pas.
+
+Ce qui EST etabli : la frequence de base est **delivree** — le parametre livre encode
+`stiffness/sqrt(mass)` = 2.7696/1.2042 = **2.3000 Hz** nominal et la serie rend 13 frames de
+demi-periode, compatible dans la resolution. La calibration §24 du superviseur (01:00) est donc
+bien dans le moteur, et non perdue.
+
+**CE QUI N'EST PAS ETABLI, ET C'EST LE VRAI VERROU : les TROIS frequences distinctes.** Sur chestL,
+`v` et `ap` rendent la MEME liste de croisements et la MEME demi-periode. Ce n'est pas une
+coincidence de reglage : dans la fenetre de repos la poitrine fait un **balancement PLAN** — un seul
+degre de liberte tangentiel excite — et deux projections d'un meme vecteur qui oscille selon une
+direction fixe croisent zero aux memes instants, quelles que soient les raideurs par axe. §29 est
+pourtant bien armee (`sap 1.1111`, `slat 1.2195` lus a l'execution) : les raideurs DIFFERENT, c'est
+l'EXCITATION qui ne separe pas les modes.
+
+C'est exactement la regle du contrat — « une reponse identique dans les trois directions prouve
+qu'elles ne sont pas appliquees » — et il faut la lire dans les deux sens : ici elle ne prouve pas
+qu'elles ne sont pas appliquees, elle prouve que **la salle ne sait pas encore les separer**.
+
+CHANTIER SUIVANT POUR §24, ET IL EST DE L'INSTRUMENT, PAS DU REGLAGE : une impulsion par AXE
+(exciter selon `v` seul, puis `ap` seul, puis `lat` seul, chacune suivie de sa fenetre libre), au
+lieu d'un residu de balancement quelconque. Tant que cette fenetre n'existe pas, §24 reste
+PARTIELLE et **aucun parametre ne doit etre ajuste sur ces chiffres** : ce serait ajuster un
+parametre a l'instrument, ce que le registre interdit nommement.
+
 6. CE QUI N'EST PAS PROUVE, ET JE LE DIS
 ==========================================
   - Aucune mesure de ce rapport ne vient d'un APPAREIL. Tout est x86.
   - §26 (rebond 31 %) n'a pas ete re-mesuree ce cycle : le chiffre vient du cycle 6.
+  - §24 : les TROIS frequences distinctes ne sont PAS demontrees (section 5 bis), et la resolution
+    de l'instrument est de +/- 8 % — aucune affirmation plus fine n'est faite.
   - §22/38 est reportee TENUE sur la base du plafond dur du cycle precedent, non re-derivee ici.
   - Le residu statique de chestR (0.85 u) n'est pas zero. Sa §9 dit « exactly ».
   - §27 est mesurable mais hors bande du cote RAPIDE sur chestR, et chestL garde une oscillation
