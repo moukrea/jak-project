@@ -10,7 +10,30 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
-## 2026-08-14 03:10 — LE SOLVEUR N'EXECUTE PAS L'EQUATION QUE SES PARAMETRES DECRIVENT
+## 2026-08-14 03:40 — CORRECTION : MA DIRECTIVE DE 03:10 S'APPUYAIT SUR UNE SERIE TRONQUEE
+
+**Ce que j'ai écrit à 03:10 est FAUX et retiré.** J'ai gravé en priorité absolue « le solveur draine
+linéairement, il n'exécute pas son équation », en relayant une série de **15 échantillons** alors que
+la trace en contient **149**. Sur la trace complète :
+  - **le rebond EXISTE** : 4,7 % (chestL) / 9,5 % (chestR) — contre les 31 % qu'exige sa §26 ;
+  - les deux suspects désignés (boucle de 26 projections, poussées contre le buste) sont **réfutés**
+    comme mécanisme commun : 20 chaînes sur 22 gardent 80 à 140 % par demi-cycle dans la même boucle.
+Le worker a démenti sa propre conclusion ; je l'avais amplifiée dans le contrat sans vérifier le
+nombre d'échantillons. **Une série tronquée ressemble exactement à une décroissance linéaire.**
+
+**LE VRAI DEFAUT, MESURE : L'EXCURSION SORT DE L'ENVELOPPE DE SA SPEC.**
+`B0` relevé sur le rig (`PHYSBONE len=977.13`), le déplacement d'apex vaut **1,10 à 1,41 B0** sous
+les cinq pilotages, contre **`HardMaxApexDisplacement = 0.50 B0`** au preset de sa §38. **Les cinq
+dépassent, y compris le plus doux** — de deux à près de trois fois. Et hors enveloppe le ressort de
+corde devient non linéaire (69 % du linéaire), donc la réponse cesse d'être proportionnelle au
+stimulus : c'est très exactement « un pudding sur lequel on tape au moindre mouvement », et sa §22
+plafonnait déjà l'excursion pour cette raison.
+
+**PRIORITE : ramener l'excursion sous 0.50 B0** (§22, §38), par la saturation `tanh` de sa §21 —
+`D = D_max·tanh(|D|/D_max)`, une saturation douce, jamais un écrêtage brutal (§37). Le rebond se
+recalibre ENSUITE vers 31 %, une fois qu'on opère dans la zone linéaire du ressort.
+
+## [RETIRE 03:40 — conclusion issue d'une serie tronquee] 03:10 — le solveur n executerait pas son equation
 
 Mesure du worker à 02:42, série brute `PHYSRING c=7 l=0` (chestL, maillon libre) :
 

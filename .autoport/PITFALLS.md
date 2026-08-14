@@ -212,3 +212,14 @@ Verrou : une gate qui contredit une ligne de spécification de l'owner est fauss
 on corrige la gate. Et avant d'en poser une, répondre à une quatrième question, en plus des trois
 déjà en vigueur : **« que se passe-t-il si l'owner demande précisément ce qu'elle interdit ? »**
 Une gate calée sur l'état courant transforme le statu quo en obligation.
+
+GUARD truncated-series .autoport/DIRECTIVES.md série de **15 échantillons** alors que la trace en contient **149**
+**Graver une conclusion tirée d'une série tronquée.** À 03:10 j'ai posé en PRIORITÉ ABSOLUE que « le
+solveur draine linéairement au lieu de résoudre son équation », d'après des écarts successifs
+`16.4 15.8 14.7 13.1` — 15 échantillons cités sur les **149** que contenait la trace. Sur la série
+complète le rebond existe (4,7 % / 9,5 %) et la décroissance n'est pas linéaire ; le vrai défaut
+était ailleurs — une excursion à 1,10–1,41 B0 contre un plafond de 0,50 B0. **Une fenêtre trop
+courte sur une exponentielle ressemble exactement à une droite.** Verrou : avant de conclure sur la
+FORME d'une décroissance, publier le nombre d'échantillons de la trace ET celui des échantillons
+utilisés ; un rapport inférieur à 1 interdit toute conclusion sur la forme. Même famille que
+[[target-bounded-by-window]] : la borne de la mesure fabriquait le résultat.
