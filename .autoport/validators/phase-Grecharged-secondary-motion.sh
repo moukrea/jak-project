@@ -411,10 +411,48 @@ PYSIDE
 # PLANCHER FAIBLE-STIMULUS (2026-08-12 12:30). Le plancher d'origine protege l'amplitude MAXIMALE
 # sur cinq pilotages. Or l'owner juge la poitrine « un peu mutee sur les mouvements SUBTILS » —
 # la reponse aux petits stimuli — et le plancher ne l'a pas vue baisser. C'est la ou il regarde.
+#
+# ============================================================================================
+# SUSPENSION SUR LES CHAINES COUVERTES PAR LA SPEC DE L'OWNER — ARBITRAGE DU SUPERVISEUR,
+# DIRECTIVES DU 2026-08-14 01:00, APPLIQUE ICI LE 2026-08-14 PAR LE MANAGER DE PHASE.
+#
+# Je modifie une gate GELEE. Je le fais parce que le superviseur a tranche par ecrit, en toutes
+# lettres, et parce que la regle 5 lui reserve precisement cet arbitrage :
+#
+#   « ARBITRAGE : la specification de l'owner prime sur toutes mes gates, sans exception. »
+#   « FLOOR et FLOOR-WEAK sont SUSPENDUES sur toute chaine couverte par la spec, jusqu'a etre
+#     recalees sur les cibles de la spec elle-meme (SPEC 16/17/18/22) plutot que sur un maximum
+#     observe. »
+#   « Reappliquer la calibration SPEC 24 sur chestL/chestR [...] et ne plus jamais la retirer au
+#     motif d'une de mes gates. »
+#
+# CE QUI S'ETAIT PASSE, ET QUE CETTE SUSPENSION REND IMPOSSIBLE. La calibration exacte de la
+# SPEC 24 de l'owner (2.300 Hz) a ete appliquee puis RETIREE parce qu'elle faisait echouer
+# FLOOR-WEAK sur chestR (0.1457 -> 0.0794, 46 % de perte). Or a 2.30 Hz la raideur monte de
+# 3.65x, donc la fleche STATIQUE descend de 3.65x : ce que le plancher a lu comme une perte de
+# mouvement est le retour a la pose d'auteur que ses SPEC 2 et 9 EXIGENT
+# (`AdditionalStandingSag = 0`). Le plancher protegeait une fleche que la spec interdit.
+# Corriger apres coup n'a pas suffi une premiere fois : on rend la recurrence impossible au
+# point de production, pas detectable au point de controle.
+#
+# PORTEE, VOLONTAIREMENT ETROITE : chestL et chestR, les deux chaines dont l'arbitrage parle et
+# dont la spec fixe les valeurs au chiffre pres (SPEC 24 f=2.30 Hz, SPEC 25 zeta=0.35,
+# SPEC 32 asymetrie +-3-5 %). Les cheveux ne sont PAS suspendus : la transposition ordonnee le
+# 23:35 ne leur donne aucune cible chiffree, donc les suspendre retirerait une protection sans
+# rien mettre a la place.
+#
+# CE N'EST PAS UNE MISE EN AVEUGLE : les chaines suspendues restent MESUREES et leurs chiffres
+# restent IMPRIMES a chaque passage, avec la perte s'il y en a une. Seul l'echec est suspendu.
+# LEVEE DE LA SUSPENSION : quand un plancher sera recale sur les amplitudes par regime de ses
+# SPEC 16/17/18/22 au lieu d'un maximum observe. C'est au superviseur de le dire, pas a moi.
+# ============================================================================================
+SPEC_COVERED_CHAINS="chestL,chestR"
+export SPEC_COVERED_CHAINS
 REFW=.autoport/reports/Grecharged-secondary-motion/motion-floor-weak.txt
 python3 - "$T" "$REFW" <<'PYWEAK' || exit 1
 import os, re, sys
 tbl, ref = sys.argv[1], sys.argv[2]
+SPEC = set(x for x in os.environ.get('SPEC_COVERED_CHAINS', '').split(',') if x)
 cur = {}
 for ln in open(tbl, errors='ignore'):
     if not ln.startswith('ROOM-RESPONSE'):
@@ -432,6 +470,12 @@ for ln in open(ref, errors='ignore'):
     if len(p) == 2:
         old[p[0]] = float(p[1])
 bad = [(c, old[c], cur[c][1]) for c in cur if c in old and cur[c][1] < old[c] * 0.70]
+# SUSPENDUES, PAS AVEUGLES : on imprime leur chiffre, on ne fait plus echouer dessus.
+susp = [x for x in bad if x[0] in SPEC]
+for c, o, n in sorted(susp):
+    print("[FLOOR-WEAK] %-12s %.4f -> %.4f (%.0f%%) — SUSPENDUE (spec owner, arbitrage 08-14 01:00)"
+          % (c, o, n, 100 * (1 - n / o)))
+bad = [x for x in bad if x[0] not in SPEC]
 if bad:
     print("[Grecharged-secondary-motion FAIL] FLOOR-WEAK: %d chaine(s) ont perdu plus de 30%% de"
           " leur reponse aux PETITS mouvements -- c'est la que l'owner regarde." % len(bad))
@@ -445,6 +489,9 @@ REF=.autoport/reports/Grecharged-secondary-motion/motion-floor.txt
 python3 - "$T" "$REF" <<'PYFLOOR' || exit 1
 import os, re, sys
 tbl, ref = sys.argv[1], sys.argv[2]
+# Meme suspension que FLOOR-WEAK ci-dessus, meme arbitrage, meme portee etroite. La reference
+# CONTINUE d'etre tenue a jour pour ces chaines : on ne perd pas la donnee, on suspend l'echec.
+SPEC = set(x for x in os.environ.get('SPEC_COVERED_CHAINS', '').split(',') if x)
 cur = {}
 for ln in open(tbl, errors='ignore'):
     if not ln.startswith('row '):
@@ -463,6 +510,11 @@ if os.path.exists(ref):
         if len(p) == 2:
             old[p[0]] = float(p[1])
 regress = [(c, old[c], cur[c]) for c in cur if c in old and cur[c] < old[c] * 0.60]
+susp = [x for x in regress if x[0] in SPEC]
+for c, o, n in sorted(susp):
+    print("[FLOOR] %-12s %.4f -> %.4f (%.0f%%) — SUSPENDUE (spec owner, arbitrage 08-14 01:00)"
+          % (c, o, n, 100 * (1 - n / o)))
+regress = [x for x in regress if x[0] not in SPEC]
 if regress:
     print("[Grecharged-secondary-motion FAIL] FLOOR: %d chaine(s) ont perdu plus de 40%% de leur"
           " mouvement par rapport au meilleur etat connu." % len(regress))
