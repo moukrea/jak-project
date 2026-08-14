@@ -140,3 +140,14 @@ GELE hair-upper-half « la moitie basse a l'air detachee du crane et bouge indep
 #   3. pas de gravite: elle ne pend pas, ne retombe pas
 #   4. seuil de declenchement trop bas: excitee par le bruit d'animation
 # Ces quatre points remplacent TOUTES les cibles chiffrees de la journee.
+
+OPEN breast-spec-incomplete  PRIORITE 1 -- LA SEULE LIGNE QUI TIENT LA PHASE OUVERTE.
+#   L'owner: « je suis sur a 99.99999% que t'as pas implemente la spec comme il faut ». Audit du
+#   2026-08-14 09:45, verifie ligne par ligne: 3 sections sur 12.
+#   ABSENT: §23 (le modele -- on a exactement le 'single spring at the apex' que la spec declare
+#   insuffisant), §8 volume, §10-13 orientations, §30-31 ancrage et gradient, §36 mode secondaire.
+#   COMMENTAIRE SEUL: §37 sous-pas, §33/§34 restitutions.
+#   FAIT: §21 tanh, §22 apex < 0.50 B0, §32 gauche/droite, et depuis 10:11 §24/§29 cablees.
+#   CAUSE COMMUNE: un sein = UNE articulation (radii=656/660). Rien de §8, §30-31, §36, §10-13
+#   n'est exprimable avec un point unique. LA STRUCTURE D'ABORD.
+#   CETTE LIGNE NE SE RETIRE QUE SUR LE MOT DE L'OWNER, jamais sur un tableau vert.
