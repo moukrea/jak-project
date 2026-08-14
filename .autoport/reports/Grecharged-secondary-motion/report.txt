@@ -419,3 +419,70 @@ des ~525 lignes à retirer au §7.
 
 Le fichier livré est inchangé : `apply_owner_tuning.py` rejoué, `physics_chains.txt` **byte-identique**
 (29 chaînes, 2 colliders appliqués, `diff` vide). Mon ajout est du commentaire dans le registre.
+
+
+13. LES SEPT DÉFAUTS CHEVEUX ONT ENFIN UN CHIFFRE, ET IL EST MONOTONE LE LONG DE LA CHAÎNE
+============================================================================================
+Le nouvel instrument s'applique aux 22 chaînes, pas seulement à la poitrine. Passé sur la course
+livrée, il donne pour la première fois une grandeur qui SÉPARE « les réglages sont faux » de « le
+solveur ne les délivre pas ». Le test : comparer le taux de décroissance PAR FRAME réellement obtenu
+au taux que le paramètre `damping` prescrit. Pour la récurrence livrée, `|z|² = 1 − damping`, donc
+`sigma_prescrit = −½·ln(1 − damping)`, **le même pour tous les maillons d'une chaîne** ; et
+`sigma_mesuré = zeta·omega/√(1−zeta²)` se lit sur la fenêtre de repos.
+
+    chaîne      maillon    T (fr)   zeta   sigma mes.  sigma prescrit   ratio   résidu au repos
+    earL           1        14.0   0.374     0.1810       0.1783        1.01        0.2 deg
+    earR           1        14.0   0.378     0.1832       0.1783        1.03        0.1
+    chestR         0        26.0   0.373     0.0972       0.0962        1.01        1.2
+    chestL         0        29.0   0.356     0.0825       0.0920        0.90        1.5
+    ---------------------------------------------------------------------------------------
+    backhair       1        39.0   0.249     0.0414       0.0408        1.01        3.6
+    backhair       2        41.2   0.143     0.0220       0.0408        0.54        6.0
+    backhair       3        61.0   0.161     0.0168       0.0408      **0.41**     15.9
+    lbang          1        51.3   0.313     0.0403       0.0408        0.99        2.0
+    lbang          2        57.3   0.301     0.0346       0.0408        0.85        1.5
+    lbang          3        68.0   0.253     0.0242       0.0408      **0.59**      8.5
+    rbang          1        54.7   0.351     0.0431       0.0408        1.06        2.4
+    rbang          2        54.7   0.280     0.0335       0.0408        0.82        1.6
+    rbang          3        60.0   0.116     0.0122       0.0408      **0.30**      4.6
+    lmidhair       1        54.0   0.326     0.0401       0.0408        0.98        3.4
+    lmidhair       2        55.5   0.254     0.0297       0.0408        0.73        6.4
+    lmidhair       3        63.5   0.128     0.0128       0.0408      **0.31**     19.1
+    rmidhair       1        58.0   0.333     0.0383       0.0408        0.94        2.4
+    rmidhair       2        60.0   0.259     0.0281       0.0408        0.69        4.5
+    rmidhair       3        59.5   0.141     0.0150       0.0408      **0.37**     21.5
+
+**TROIS FAITS, ET AUCUN N'EST UN RÉGLAGE.**
+
+**(a) Les paramètres sont bons, et le premier maillon libre le prouve.** Ratio 0.94 à 1.06 sur les
+CINQ chaînes de cheveux, et 0.90 à 1.03 sur les quatre chaînes à un seul maillon libre. Le solveur
+délivre exactement l'amortissement demandé — là où il n'y a rien derrière.
+
+**(b) Il ne le délivre plus vers la pointe : 0.30 à 0.59, monotone, sur les cinq chaînes.** La
+pointe s'amortit deux à trois fois plus lentement que son propre paramètre le prescrit. Ce n'est pas
+une valeur mal choisie : c'est la même valeur qui arrive entière au maillon 1 et au tiers au
+maillon 3. **La pointe reçoit de l'énergie de son parent** — et l'instrument le dit ailleurs aussi :
+le rebond dépasse 100 % du maximum précédent sur `backhair` l2 (125.9 %), `rbang` l3 (136.9 %),
+`lmidhair` l2/l3 (89.7 / 80.6 %) et `rmidhair` l3 (254.4 %), ce qu'une décroissance libre ne peut pas
+faire. Et le `r²(fraction)` s'effondre exactement là (0.26 sur `rmidhair` l3, 0.54 sur `rbang` l3,
+0.63 sur `backhair` l3) : **la pointe n'a pas d'enveloppe de décroissance libre du tout.**
+
+**(c) Et elle ne revient pas.** Le résidu au repos suit le même gradient : 2 à 3.6 degrés au
+maillon 1, 1.5 à 6.4 au maillon 2, **4.6 à 21.5 degrés à la pointe** — là où SPEC 9 exige « the
+original authored standing shape shall be restored exactly ». `rmidhair` termine la fenêtre de repos
+à 21.5 degrés de la pose d'auteur, immobile.
+
+**CE QUE ÇA FERME COMME QUESTION.** Les quatre mots de l'owner sur les cheveux — « pudding », « ça
+suit aucune logique », « hystérésis pour TOUS les cheveux », « pas de masse » — décrivent tous une
+FORME, et aucune mesure ne les distinguait jusqu'ici. Ils ont maintenant chacun un nombre :
+« hystérésis » = le résidu de la colonne de droite ; « pudding / aucune logique » = un `r²` de 0.26
+sur une décroissance censée être exponentielle ; « pas de masse » = une pointe qui reçoit plus
+d'énergie qu'elle n'en dissipe (rebond > 100 %). **Et les trois pointent le même endroit : le
+couplage entre maillons, pas les paramètres.**
+
+**CE QUE JE NE FAIS PAS, ET POURQUOI.** Je ne touche à aucun `damping`. Monter l'amortissement de la
+pointe pour compenser un ratio de 0.31 serait ajuster un paramètre pour masquer un transfert
+d'énergie — exactement `never-fit-a-parameter-to-the-instrument`. La grandeur à corriger est le
+couplage ; la mesure qui le désignera est la même que pour la poitrine (§3) : `a0` contre `a1` par
+frame SUR LES MAILLONS PROFONDS, pour voir si le transfert vient de l'intégration ou de la boucle de
+contraintes. Les deux lignes sont déjà émises par ce build : le prochain cycle n'a plus qu'à lire.
