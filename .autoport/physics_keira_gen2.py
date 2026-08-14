@@ -154,6 +154,35 @@ SHELL_GAP_MAX = 60.0            # plus grand trou angulaire tolere, en degres
 # produit, pas une liste qui la remplace : le classement est calcule pour les 37 liens et publie.
 SHELL_EXPECTED = ('pantflapL', 'pantflapR')
 
+# ---- PERIMETRE SIMULE — ORDRE DE L'OWNER DU 2026-08-14 07:30 -----------------------------------
+#
+#   « Les cheveux, les bretelles, les lunettes sont completement petees, les languettes des genoux
+#     sont completement petees... Les languettes sur ses bottines aussi... On voit un peu plus son
+#     pantacourt mais c'est aussi pete et toujours dans ses mollets. Tu sais quoi, RETIRE TOUTE
+#     PHYSIQUE DE KEIRA HORMIS SES SEINS. Fais la spec de ses seins a 100% comme specifie, on fera
+#     le reste apres. »
+#
+# UNE CHAINE HORS PERIMETRE N'EST PAS EMISE INERTE : ELLE N'EST PAS EMISE DU TOUT. Un `PHYSBONE`
+# qui existe et ne bouge pas reste un risque de derive et un cout par frame, et il continuerait a
+# faire croire au tableau qu'il mesure quelque chose.
+#
+# POURQUOI ICI ET NULLE PART AILLEURS. `physics_chains.txt` est GENERE : une desactivation ecrite
+# a la main dans le fichier livre serait effacee a la premiere regeneration — piege deja paye trois
+# fois (DIRECTIVES, regle de non-destruction du 2026-08-11). La desactivation vit donc au POINT DE
+# PRODUCTION, ou elle est impossible a perdre, pas au point de controle ou elle serait seulement
+# detectable.
+#
+# CE QUI N'EST PAS CONCERNE : LES COLLIDERS. Ce sont des OBSTACLES, pas des chaines simulees. La
+# poitrine doit continuer a les rencontrer — SPEC-breast-softbody 33 (sein<->sein, restitution
+# 0.06) et 34 (sein<->thorax, 0.02) — et SPEC-keira-physique 3 exige que le crane, les epaules et
+# les oreilles restent des volumes. Le bloc de colliders lit `order`/`groups`, jamais cette liste :
+# il est inchange au chiffre pres par le gel des chaines.
+#
+# LEVEE DU GEL : c'est l'owner qui la prononce, jamais une mesure verte. Rajouter un nom ici suffit
+# a reactiver l'organe ET toutes les gates qui le concernent (le validateur derive son perimetre de
+# la liste des chaines DECLAREES, pas d'une liste ecrite en dur de son cote).
+SIMULATED_CHAINS = ('chestL', 'chestR')
+
 # ---- TUNING CONSTANTS — one row per category, the ONLY hand-chosen numbers in the file ---------
 # stiffness is a natural frequency in Hz: short and stiff pieces oscillate fast, long and loose ones
 # slow.  damping is 0..1 (fraction of critical).  mass scales the inertia of a link.  couple is the
@@ -1540,6 +1569,37 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
         col_block.append(f'collider {jn} radius={r} offset={cx},{cy},{cz}')
         col_report.append(('sphere', jn, r, None, ntot, None))
 
+    # ---- GEL DU PERIMETRE (owner 2026-08-14 07:30) ----------------------------------------------
+    # « retire toute physique de Keira hormis ses seins ». Voir SIMULATED_CHAINS en tete de fichier.
+    #
+    # LE FILTRE EST POSE **ICI**, ET LA POSITION EST LE POINT IMPORTANT : APRES le bloc de
+    # colliders, AVANT l'ecriture des chaines. Ce qui precede a donc lu la mesure des 22 chaines
+    # et n'est pas altere d'un chiffre :
+    #   * `link_radius` (ONE-JOINT-ONE-THICKNESS) garde les 46 rayons de lien mesures, donc les
+    #     capsules `Lbangb`/`Rbangb` gardent 104/102 au lieu de remonter a 558/559 — l'inflation
+    #     qui EST le defaut « les meches fines jittent des que la tete bouge » ;
+    #   * les 15 spheres RECENTREES, collectees dans la boucle de chaines, restent emises : ce sont
+    #     des obstacles (oreilles, lunettes, sangles) que SPEC-keira-physique 3 exige et que la gate
+    #     ROOM-COLLIDER-COVERAGE verifie.
+    # Autrement dit : on retire les SIMULATIONS, on ne retire pas la CONNAISSANCE du corps.
+    #
+    # `chain_report` est filtre EN MEME TEMPS que `chain_entries` : l'auto-controle n.1 (« every
+    # emitted chain parses back ») compare les deux, et les desynchroniser aurait fait echouer la
+    # generation avec un message sans rapport avec la cause.
+    frozen_chains = [e['cname'] for e in chain_entries if e['cname'] not in SIMULATED_CHAINS]
+    chain_entries = [e for e in chain_entries if e['cname'] in SIMULATED_CHAINS]
+    chain_report = [r for r in chain_report if r[0] in SIMULATED_CHAINS]
+    if frozen_chains:
+        log(f'PERIMETRE (owner 07:30) : {len(chain_entries)} chaine(s) simulee(s) '
+            f'{list(SIMULATED_CHAINS)}, {len(frozen_chains)} GELEE(S) et NON EMISES : '
+            + ', '.join(frozen_chains))
+    missing_scope = [c for c in SIMULATED_CHAINS if c not in {e['cname'] for e in chain_entries}]
+    if missing_scope:
+        # Un perimetre qui se vide en silence est le de-scope que la regle 3 interdit. Si un nom de
+        # SIMULATED_CHAINS n'existe pas dans le rig, la generation s'arrete au lieu de livrer moins.
+        raise SystemExit('SIMULATED_CHAINS nomme une chaine que le rig ne produit pas : %s'
+                         % ', '.join(missing_scope))
+
     # ---- coques : `shell=` ----------------------------------------------------------------------
     # Mesure contre les volumes qui viennent d'etre emis, puis ecriture des lignes de chaine.
     shells = classify_shells(geo, groups, idx_of, emitted_capsules, log)
@@ -1629,6 +1689,22 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
         L.append('# ---- [levels] : copied VERBATIM from the same .bak.')
         L.append(levels)
         L.append('')
+    L.append('# ---- PERIMETRE SIMULE — ORDRE DE L\'OWNER DU 2026-08-14 07:30 ------------------')
+    L.append('# « Tu sais quoi, retire toute physique de Keira hormis ses seins. Fais la spec de')
+    L.append('#   ses seins a 100% comme specifie, on fera le reste apres. »')
+    L.append(f'# SIMULEES ({len(chain_report)}) : ' + ', '.join(sorted(SIMULATED_CHAINS)))
+    if frozen_chains:
+        L.append(f'# GELEES ({len(frozen_chains)}), mesurees puis NON EMISES — une chaine inerte')
+        L.append('# resterait un cout et un risque de derive, donc elle n\'existe pas du tout :')
+        for i in range(0, len(frozen_chains), 6):
+            L.append('#   ' + ', '.join(frozen_chains[i:i + 6]))
+        L.append('# Ces organes ne sont pas FERMES, ils sont GELES : leurs defauts restent au')
+        L.append('# dossier avec leur mesure et reviennent quand l\'owner le decide. Le gel se leve')
+        L.append('# en rajoutant le nom dans SIMULATED_CHAINS (physics_keira_gen2.py), jamais ici.')
+    L.append('#')
+    L.append('# ---- Les COLLIDERS ci-dessous ne sont PAS geles : ce sont des obstacles, pas des')
+    L.append('# chaines. La poitrine doit les rencontrer (SPEC-breast-softbody 33 et 34) et')
+    L.append('# SPEC-keira-physique 3 exige que crane, epaules et oreilles restent des volumes.')
     L.append(f'# ---- Keira, and only Keira: {len(chain_report)} chains, {len(col_report)} volumes.')
     L.append('[model keira-hd]')
     L.extend(chain_block)
@@ -1734,13 +1810,33 @@ def self_checks(text, info, rig_names, bak_path, log):
             if len([x for x in c['kv'].get('radii', '').split(',') if x]) != len(c['joints'])]
     ck(not prob, 'len(radii) == number of j lines for every chain', str(prob))
 
-    # 5. owner coverage regexes (the phase validator's own set)
+    # 5. PERIMETRE SIMULE, puis couverture des parties que l'owner a nommees.
+    #
+    # AVANT LE 2026-08-14 cette check exigeait les CINQ regex de l'owner (ear / hair / bang|strand /
+    # chest|breast / goggle) sur les chaines emises. Son ordre du 07:30 retire quatre de ces cinq
+    # organes de la simulation : telle quelle, la check EXIGEAIT donc exactement ce qu'il vient
+    # d'interdire. Elle n'est pas assouplie, elle est RETOURNEE — et elle attrape desormais deux
+    # defauts que l'ancienne ne voyait pas :
+    #   * une chaine GELEE qui reviendrait par une regeneration (l'ancienne s'en serait rejouie) ;
+    #   * un organe DU perimetre qui disparaitrait en silence (de-scope, regle 3).
+    emitted = sorted(c['name'] for c in chains)
+    want_scope = sorted(SIMULATED_CHAINS)
+    ck(emitted == want_scope,
+       'les chaines emises sont EXACTEMENT le perimetre simule (owner 2026-08-14 07:30)',
+       f'emises={emitted} perimetre={want_scope}')
     cover = {}
     for pat in ('ear', 'hair', 'bang|strand', 'chest|breast', 'goggle'):
-        cover[pat] = [c['name'] for c in chains if re.search(pat, c['name'], re.I)]
-    missing = [p for p, v in cover.items() if not v]
-    ck(not missing, 'chain-name coverage: ear / hair / bang|strand / chest|breast / goggle',
-       ' '.join(f'{p}->{len(v)}' for p, v in cover.items()) + (f' MISSING {missing}' if missing else ''))
+        # GELE = aucun nom du perimetre ne matche : l'organe n'est plus simule, donc l'exiger dans
+        # le fichier livre serait exiger sa resurrection. La ligne reste imprimee pour que le gel
+        # soit LISIBLE dans le journal de generation, jamais silencieux.
+        inscope = [c for c in SIMULATED_CHAINS if re.search(pat, c, re.I)]
+        cover[pat] = ([c['name'] for c in chains if re.search(pat, c['name'], re.I)]
+                      if inscope else None)
+    missing = [p for p, v in cover.items() if v is not None and not v]
+    ck(not missing,
+       'couverture owner sur les parties DANS le perimetre (les autres sont GELEES, pas oubliees)',
+       ' '.join(f'{p}->{"GELE" if v is None else len(v)}' for p, v in cover.items())
+       + (f' MISSING {missing}' if missing else ''))
 
     # 6. no exemption / obsolete keys anywhere — on the lines the parser actually reads as data.
     # Comment lines (first non-blank character '#') are skipped: they are prose, not keys.
@@ -1788,9 +1884,17 @@ def self_checks(text, info, rig_names, bak_path, log):
     # w>0.05 pour tout le monde elle declarerait la POITRINE fourreau. Une regle qui derive doit
     # faire ECHOUER la generation, pas produire silencieusement d'autres donnees. La verification
     # porte sur le TEXTE EMIS, pas sur ce que le classement pretend avoir fait.
+    # 2026-08-14 : LA REGLE RESTE EVALUEE SUR LES 37 LIENS, ET SON RESULTAT RESTE ASSERTE. Ce qui
+    # devient dependant du perimetre, c'est seulement le TEXTE EMIS : `pantflapL`/`pantflapR` sont
+    # gelees par l'ordre du 07:30, donc aucune ligne `shell=` ne peut plus etre ecrite pour elles.
+    # Le detecteur de derive, lui, est INCHANGE : `classify_shells` designe-t-il toujours exactement
+    # ces deux pans ? C'est l'assertion ci-dessous, et elle ne depend d'aucun gel.
+    ck(sorted(info['shells']) == sorted(SHELL_EXPECTED),
+       'la regle des coques designe toujours EXACTEMENT pantflapL/pantflapR sur les 37 liens',
+       f'classees={sorted(info["shells"])} attendu={sorted(SHELL_EXPECTED)}')
     got = sorted(c['name'] for c in chains if 'shell' in c['kv'])
-    want = sorted(SHELL_EXPECTED)
-    detail = (f'shell= sur {got} (attendu {want})'
+    want = sorted(c for c in SHELL_EXPECTED if c in SIMULATED_CHAINS)
+    detail = (f'shell= sur {got} (attendu {want} — perimetre simule {sorted(SIMULATED_CHAINS)})'
               + ''.join(f' | {k}: {v["joint"]} autour de {v["vol"]} {v["sect"]}/{SHELL_NSEC} '
                         f'gap={v["gap"]:.0f} shell={v["r_int"]}'
                         for k, v in sorted(info['shells'].items())))

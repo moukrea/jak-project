@@ -213,7 +213,19 @@ def main():
         # Un volume RECENTRÉ dont le joint n'appartient à aucune chaîne n'a pas de rayon de lien à
         # suivre : la règle qui l'a produit ne s'applique plus, et le taire laisserait un volume
         # dont personne ne sait d'où vient la taille.
-        missing.append("collider RECENTRE sans chaîne porteuse : " + ", ".join(sorted(orphan)))
+        #
+        # SAUF QUAND LE FICHIER DÉCLARE UN PÉRIMÈTRE GELÉ (owner 2026-08-14 07:30, « retire toute
+        # physique de Keira hormis ses seins »). Là, l'absence de chaîne porteuse est VOULUE : la
+        # chaîne a été retirée et le volume reste comme OBSTACLE, à son rayon ajusté au mesh. Crier
+        # à la perte serait crier contre l'ordre qu'on vient d'exécuter. L'exemption est bornée par
+        # la présence du bloc que le générateur écrit lui-même : sans gel déclaré, la règle dure
+        # reprend telle quelle.
+        if "PERIMETRE SIMULE — ORDRE DE L'OWNER" in s:
+            print("[tuning] %d volume(s) RECENTRÉ(s) sans chaîne porteuse — ATTENDU : leur chaîne "
+                  "est GELÉE par l'ordre de l'owner du 2026-08-14 07:30, le volume reste comme "
+                  "OBSTACLE au rayon ajusté au mesh : %s" % (len(orphan), ", ".join(sorted(orphan))))
+        else:
+            missing.append("collider RECENTRE sans chaîne porteuse : " + ", ".join(sorted(orphan)))
 
     if skipped:
         # La trace reste DANS le fichier livré : c'est le seul endroit que personne ne peut

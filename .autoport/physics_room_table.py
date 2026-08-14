@@ -2122,7 +2122,17 @@ def main():
             A('   (arme %.4f contre desarme %.4f, il faut arme >= 3x desarme). Ce qui est mesure ne'
               % (cone_arm, cone_dis))
             A('   soutient donc PAS que la correction change le comportement du solveur -- SPEC 7.')
-        if sa <= sd * 3.0:
+        # `sa`/`sd` ne sont assignes que dans la branche du FOURREAU, plus haut, et cette branche
+        # n'existe que s'il reste au moins une chaine a `shell=`. Depuis l'ordre de l'owner du
+        # 2026-08-14 07:30 (« retire toute physique de Keira hormis ses seins »), les deux seules —
+        # `pantflapL` et `pantflapR` — sont GELEES : le bloc ne tourne plus et cette ligne levait un
+        # UnboundLocalError qui tuait la generation du tableau entier. Le controle du fourreau n'est
+        # pas « vert », il est SANS OBJET, et c'est ce qui est ecrit.
+        if 'sa' not in dir() or 'sd' not in dir():
+            A('   Le controle du FOURREAU est sans objet : plus aucune chaine ne porte `shell=`')
+            A('   (pantflapL/pantflapR gelees par l\'owner le 2026-08-14 07:30). Rien de prouve,')
+            A('   rien de reclame -- un domaine vide n\'est pas un zero gagne.')
+        elif sa <= sd * 3.0:
             A('   ATTENTION : le controle du fourreau n\'a PAS fait monter l\'ecart radial')
             A('   (arme %.4f contre desarme %.4f, il faut arme >= 3x desarme). Le zero de la'
               % (sa, sd))

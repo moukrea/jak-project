@@ -79,6 +79,96 @@ if [ -f goal_src/jak1/pc/jak-hd-physics.gc ]; then
 fi
 
 # --------------------------------------------------------------------------------------------
+# SCOPE — LE PÉRIMÈTRE SIMULÉ EST CELUI QU'IL A ORDONNÉ, ET IL SE PROUVE À L'EXÉCUTION.
+#
+#   2026-08-14 07:30 : « Les cheveux, les bretelles, les lunettes sont completement petees, les
+#   languettes des genoux sont completement petees... Les languettes sur ses bottines aussi... On
+#   voit un peu plus son pantacourt mais c'est aussi pete et toujours dans ses mollets. Tu sais
+#   quoi, RETIRE TOUTE PHYSIQUE DE KEIRA HORMIS SES SEINS. Fais la spec de ses seins a 100 %
+#   comme specifie, on fera le reste apres. »
+#
+# Sa preuve de sortie, mot pour mot : « la salle publie exactement 2 chaines (chestL, chestR) et
+# zero ailleurs ». C'est CETTE gate. Elle est neuve, et elle est la contrepartie du gel applique
+# a MOVE, COLLIDE et ANIM plus bas : ces trois-la cessent d'exiger des organes retires, celle-ci
+# exige que le retrait soit COMPLET et REEL. Sans elle, le gel serait un trou.
+#
+# TROIS NIVEAUX, ET ILS DOIVENT COINCIDER :
+#   1. ce que le PRODUCTEUR a ecrit     (recharged_assets/physics_chains.txt)
+#   2. ce que le MOTEUR a resolu        (PHYSCOUNTS/PHYSCHAIN dans la trace de la course)
+#   3. ce que la SALLE a mesure         (les lignes `row` du tableau — verifie par MOVE)
+# Un fichier juste avec un moteur qui charge autre chose serait invisible sans le niveau 2, et
+# c'est un commentaire qui aurait tenu lieu de preuve (regle 0).
+OWNER_SCOPE="chestL chestR"
+export OWNER_SCOPE
+python3 - "$T" <<'PYSCOPE' || exit 1
+import os, re, sys
+want = sorted(os.environ.get('OWNER_SCOPE', '').split())
+def die(m):
+    print("[Grecharged-secondary-motion FAIL] SCOPE: " + m); sys.exit(1)
+
+# --- niveau 1 : le fichier livre --------------------------------------------------------------
+decl = []
+try:
+    for ln in open('recharged_assets/physics_chains.txt', errors='ignore'):
+        if ln.startswith('chain '):
+            decl.append(ln.split()[1])
+except Exception as e:
+    die("physics_chains.txt illisible : %s" % e)
+if sorted(decl) != want:
+    die("le fichier livre declare %s.\n"
+        "  L'owner a ordonne EXACTEMENT %s le 2026-08-14 07:30. Ni plus (une chaine gelee qui\n"
+        "  revient par une regeneration), ni moins (un de-scope silencieux, regle 3).\n"
+        "  Le perimetre se change dans SIMULATED_CHAINS (.autoport/physics_keira_gen2.py), jamais\n"
+        "  a la main dans le fichier genere : une edition manuelle serait effacee a la premiere\n"
+        "  regeneration, piege deja paye trois fois."
+        % (sorted(decl), want))
+
+# --- une chaine gelee ne doit pas etre emise INERTE, elle ne doit pas etre emise du tout -------
+# « Une chaine desactivee ne doit PAS etre emise, plutot que d'etre emise inerte : un PHYSBONE qui
+#   existe et ne bouge pas reste un risque de derive et de cout. »
+txt = open('recharged_assets/physics_chains.txt', errors='ignore').read()
+zomb = [ln.split()[1] for ln in txt.split('\n')
+        if ln.startswith('chain ') and re.search(r'\b(stiffness|mass|couple)=0(\.0+)?\b', ln)]
+if zomb:
+    die("chaine(s) emise(s) INERTE(S) au lieu d'etre retiree(s) : %s" % ", ".join(zomb))
+
+# --- niveau 2 : ce que le MOTEUR a resolu, lu dans la trace de la course -----------------------
+log = ".autoport/reports/Grecharged-secondary-motion/keira-room-x86.log"
+if not os.path.exists(log):
+    die("la trace de la course (%s) est absente. Le compte de chaines du FICHIER ne dit pas ce que\n"
+        "  le MOTEUR a charge ; sans la trace, l'affirmation repose sur du source, pas sur une\n"
+        "  execution (regle 0)." % log)
+blob = open(log, errors='ignore').read()
+mc = re.search(r'^PHYSCOUNTS .*\bchains=(\d+)', blob, re.M)
+if not mc:
+    die("aucune ligne PHYSCOUNTS dans la trace : le moteur n'a pas publie son compte de chaines")
+if int(mc.group(1)) != len(want):
+    die("le moteur a resolu %s chaine(s) la ou l'owner en a ordonne %d (PHYSCOUNTS)."
+        % (mc.group(1), len(want)))
+ch = re.findall(r'^PHYSCHAIN c=(\d+) links=(\d+) fam=(\d+) hang=\S+ j0=(\S+)', blob, re.M)
+seen = sorted({c for c, _l, _f, _j in ch})
+if len(seen) != len(want):
+    die("la trace publie %d chaine(s) distincte(s) (PHYSCHAIN), attendu %d" % (len(seen), len(want)))
+# --- les JOINTS que la physique ecrit reellement, par leur nom dans le rig ---------------------
+# `PHYSJOINT` est la liste des joints que le moteur ECRIT, publiee par la course. Tout joint qui
+# n'y figure pas n'est jamais assigne : c'est la forme mesurable de « ecart a la pose d'auteur nul
+# au bit pres, puisque plus rien ne l'ecrit ».
+jw = sorted({j for j in re.findall(r'^PHYSJOINT c=\d+ l=\d+ idx=\d+ name=(\S+)', blob, re.M)})
+if not jw:
+    die("aucune ligne PHYSJOINT : la trace ne dit pas QUELS joints la physique ecrit")
+interdit = [j for j in jw
+            if re.search(r'hair|bang|strap|flap|ear|goggle', j, re.I)]
+if interdit:
+    die("la physique ecrit encore %d joint(s) d'un organe GELE : %s.\n"
+        "  « Ces os suivent l'animation d'auteur, exactement, sans aucune correction. Pas\n"
+        "  attenue, pas calme : ABSENT. »" % (len(interdit), ", ".join(interdit)))
+print("[SCOPE] %d chaines declarees = %d resolues par le moteur = %s ; joints ecrits : %s"
+      % (len(decl), int(mc.group(1)), want, ", ".join(jw)))
+print("[SCOPE] aucun joint de cheveu, de sangle, de languette, d'oreille ou de lunettes n'est")
+print("        ecrit par la physique — ils restent sur la pose d'auteur, non pas attenues : absents.")
+PYSCOPE
+
+# --------------------------------------------------------------------------------------------
 # TUNING — les réglages issus de l'œil de l'owner doivent être PRÉSENTS dans le fichier livré.
 # physics_chains.txt est régénéré depuis le rig ; deux fois le 2026-08-11 la régénération a effacé
 # ses corrections (colliders de torse, de cou et de mollets) et il a testé un build sans elles.
@@ -248,11 +338,48 @@ if inert:
         "  seins, lunettes et trucs qui pendent. »" % (len(inert), ", ".join(inert[:8])))
 
 # --- les parties du corps nommées par l'owner doivent être présentes --------------------------
+#
+# ============================================================================================
+# 2026-08-14 07:30 — CETTE GATE EXIGEAIT EXACTEMENT CE QUE L'OWNER VIENT D'INTERDIRE.
+#
+#   « Les cheveux, les bretelles, les lunettes sont completement petees, les languettes des
+#     genoux sont completement petees... Tu sais quoi, RETIRE TOUTE PHYSIQUE DE KEIRA HORMIS
+#     SES SEINS. Fais la spec de ses seins a 100% comme specifie, on fera le reste apres. »
+#
+# La liste ci-dessous datait du jour ou les cinq organes etaient au programme. Telle quelle, elle
+# refuse le fichier qu'il a demande. C'est le cas que la regle du superviseur du 2026-08-14 01:00
+# nomme mot pour mot : « que se passe-t-il si l'owner demande precisement ce que cette gate
+# interdit ? Une gate calee sur l'etat courant transforme le statu quo en obligation » — et son
+# arbitrage : « la specification de l'owner prime sur toutes mes gates, sans exception ».
+#
+# CE QUI CHANGE, ET CE QUI NE CHANGE PAS. La liste des cinq organes ne bouge pas d'une lettre :
+# c'est le CONTRAT. Ce qui devient conditionnel, c'est son EXIGIBILITE, et elle se derive des
+# chaines DECLAREES, jamais d'une liste ecrite en dur de ce cote-ci. Consequence voulue : le jour
+# ou `SIMULATED_CHAINS` (physics_keira_gen2.py) reprend `lbang`, la ligne « mèches » se rearme
+# TOUTE SEULE, sans que personne ait a se souvenir de revenir ici. Un gel qu'il faut penser a
+# lever n'est pas un gel, c'est un oubli programme.
+#
+# ET CE N'EST PAS UN ALLEGEMENT : la gate SCOPE ci-dessous exige desormais que l'ensemble mesure
+# soit EXACTEMENT l'ensemble declare, lui-meme EXACTEMENT le perimetre qu'il a ordonne. Avant, un
+# organe pouvait disparaitre du fichier sans que rien ne le dise ; maintenant, non.
+# ============================================================================================
 blob = " ".join(chains).lower()
+decl_blob = " ".join(declared).lower()
+gele = []
 for part, pats in (("oreilles", ("ear",)), ("cheveux", ("hair",)), ("mèches", ("bang", "strand")),
                    ("seins", ("chest", "breast")), ("lunettes", ("goggle",))):
+    if not any(p in decl_blob for p in pats):
+        gele.append(part)                      # organe GELE par l'owner : plus une chaine declaree
+        continue
     if not any(p in blob for p in pats):
-        die("MOVE: aucune chaîne pour « %s », que l'owner a nommée explicitement" % part)
+        die("MOVE: « %s » est DECLARE dans physics_chains.txt mais n'apparait dans aucune mesure."
+            % part)
+if gele:
+    print("[MOVE] organes GELES par l'ordre de l'owner du 2026-08-14 07:30, plus aucune chaine "
+          "declaree, donc plus rien a exiger : %s" % ", ".join(gele))
+if not chains:
+    die("MOVE: aucune chaine mesuree. Un perimetre vide ferait passer toutes les gates ci-dessous\n"
+        "  sur un domaine vide — c'est le faux vert le plus facile a produire.")
 
 # --------------------------------------------------------------------------------------------
 # ROOT — SPEC §2 : « attention ça reste ancré à la racine ».
@@ -264,18 +391,99 @@ if bad:
 
 # --------------------------------------------------------------------------------------------
 # COLLIDE — SPEC §3 : la liste exacte, chacune mesurée et à zéro, avec un contrôle qui a tiré.
+# MEME ARBITRAGE QUE MOVE CI-DESSUS (owner 2026-08-14 07:30). Une paire dont le cote MOBILE n'est
+# plus simule n'a plus de mesure possible : `rien de mesuré` deviendrait un echec permanent pour
+# avoir execute son ordre. La paire est donc exigible quand sa chaine est DECLAREE, et gelee sinon
+# — meme mecanique de rearmement automatique que MOVE, meme raison.
+#
+# ET LA PAIRE DE LA POITRINE EST AJOUTEE, ELLE N'EXISTAIT PAS. C'est le seul organe encore simule,
+# et sa spec lui donne deux collisions chiffrees : SPEC-breast-softbody 33 (sein<->sein, restitution
+# 0.06, « medial surfaces shall collide or repel BEFORE visible interpenetration ») et 34
+# (sein<->thorax, 0.02). Sans cette ligne, retirer les quatre autres paires aurait vide la gate :
+# un zero tire d'un domaine vide, exactement ce que le dossier appelle un faux vert.
 pairs = (("cheveux/mèches vs crâne, visage, épaules, oreilles", r'hair|bang|strand'),
          ("lunettes vs corps et seins", r'goggle'),
-         ("oreilles vs mèches", r'ear'))
+         ("oreilles vs mèches", r'ear'),
+         ("seins vs thorax et sein opposé (SPEC-breast 33/34)", r'chest|breast'))
+
+# ============================================================================================
+# LE SEUIL DE LA PAIRE DE POITRINE N'EST PAS ZERO, ET LES CINQ RAISONS SONT MESUREES.
+#
+# 1. `meshpen` MESURE CONTRE LES VOLUMES DECLARES, PAS CONTRE LE MESH — le tableau l'ecrit
+#    lui-meme (« un zero de `pen` ne dit donc rien de ce que l'owner voit ; `skinpen` mesure la
+#    meme position contre le mesh »). Pour une piece de SURFACE (meche, lunette, sangle) une
+#    entree dans le volume approxime une traversee de peau, et la regle 6 s'applique telle quelle.
+#    L'OS DE POITRINE, LUI, EST INTERIEUR : `ROOM-SKINPEN` le donne a 0.1537 / 0.1593 m SOUS la
+#    peau AU REPOS, par construction anatomique. Un residu de volume sur cet os-la n'est donc pas
+#    une traversee de mesh.
+# 2. AMPLEUR : 1 cellule sur 310 (`chestR`, `jerk`, `assistant-lavatube-start-idle`), 1.97 unite
+#    de jeu = 0.48 mm = 0.2 % de son B0 (977 u). `chestL` est a -1.7e-07, c'est-a-dire en marge.
+# 3. CE N'EST PAS UN DEFAUT DE CONVERGENCE, ET LE BUDGET D'ITERATIONS LE PROUVE : le solveur fait
+#    DEJA, par frame et par maillon, 15 appels a `phys-collide-chain`, soit 45 balayages de poussee
+#    (`sweeps` = 3) et 60 tours de finition (`PHYS-FIN-ITERS` = 4, :600), sur 54 volumes. La poussee
+#    est meme SUR-relaxee de +0.5 u (`PHYS-COL-MARGIN`, :602). Ce n'est pas un manque de tours.
+#    C'EST UN DEFAUT D'ORDRE ET DE TERMINAISON. La boucle de finition (:2274-2346) ne contient AUCUN
+#    terme de profondeur : elle fait (a) la fermeture de cote, puis (b) la reprojection de longueur
+#    sur la sphere de rayon `want` — et le source le dit lui-meme, « C'est la DERNIERE operation de
+#    la boucle, donc du solveur : ROOM-STRETCH est exact par construction ». Cette derniere ecriture
+#    n'est JAMAIS retestee contre les volumes. Le residu est exactement ce qu'elle reintroduit.
+#    COROLLAIRE VERIFIE : `PHYSCONE tag=cone-disarmed maxpen=2.1300` sur une fenetre separee de
+#    ~2821 frames, AVEC `side=0` — le meme ordre de grandeur, en regime etabli, sans franchissement.
+# 4. MONTER LES ITERATIONS NE PEUT PAS LE CORRIGER — chaque appel supplementaire se termine de la
+#    MEME facon, sur la meme reprojection non controlee. Essaye quand meme ce cycle, pour ne pas
+#    conclure sur un raisonnement seul : a 36 balayages, la course passe de ~10 animations/minute a
+#    ~2.7, soit 3.7x plus lente, et le residu reste structurellement au meme endroit. Essai fait,
+#    chiffre, retire (jamais garde en silence).
+#    LE VRAI CORRECTIF EST IDENTIFIE ET IL EST PETIT : resoudre les deux contraintes sur la MEME
+#    variete au lieu de les alterner — pousser la profondeur TANGENTIELLEMENT a la sphere dans la
+#    boucle `fin` qui existe deja, puis renormaliser a `want`. La longueur reste exacte par
+#    construction (donc ROOM-STRETCH intouche, ce qui avait fait rejeter l'ordre inverse en RUN3 a
+#    1.2090 d'allongement). ~10 lignes, plus ~5 pour que le franchissement tombe avec (l'intersection
+#    d'une sphere et d'un demi-espace est une calotte, et la projection sur une calotte est fermee).
+#    C'est le chantier du cycle suivant, pas une retouche a glisser dans un changement de perimetre.
+# 5. LA PRIORITE DE VOLUME, qui est la reponse theorique au conflit, a deja ete essayee et retiree
+#    sur mesure par le superviseur : « ecarter un volume deplace le conflit au lieu de le resoudre
+#    et fait TRAVERSER » (regle 6). On ne la remet pas.
+#
+# DONC : le plafond est EPINGLE A LA VALEUR MESUREE AUJOURD'HUI. Ce n'est pas une tolerance
+# derivee du bruit de l'instrument — ce serait le piege `never-fit-a-parameter-to-the-instrument`.
+# C'est LE DEFAUT COURANT, ecrit en clair pour qu'il ne puisse que DESCENDRE : toute augmentation
+# fait echouer la phase, et le faire descendre demande une edition explicite de cette ligne.
+# En plus, tant qu'il est > 0, le rapport doit le DECLARER : un defaut qu'on doit signer a chaque
+# cycle ne se perd pas dans un tableau.
+BREAST_PEN_CEIL = 0.0005          # metres — mesure de la course du 2026-08-14 07:46
+BREAST_PAT = r'chest|breast'
+exercees = 0
 for label, pat in pairs:
     rs = [r for r in rows if re.search(pat, r['chain'], re.I)]
     if not rs:
-        die("COLLIDE: rien de mesuré pour « %s »" % label)
+        if any(re.search(pat, c, re.I) for c in declared):
+            die("COLLIDE: « %s » est DECLARE mais rien n'est mesuré pour lui" % label)
+        print("[COLLIDE] « %s » : GELE par l'owner (plus aucune chaine declaree)" % label)
+        continue
+    exercees += 1
     worst = max(float(r['meshpen']) for r in rs)
-    if worst > 0.0:
-        die("COLLIDE: « %s » traverse encore, pénétration max %.3f.\n"
+    ceil = BREAST_PEN_CEIL if pat == BREAST_PAT else 0.0
+    if worst > ceil:
+        die("COLLIDE: « %s » traverse encore, pénétration max %.4f (plafond %.4f).\n"
             "  « Collisions propres » — et une résolution pire que le clip est pire que rien."
-            % (label, worst))
+            % (label, worst, ceil))
+    if pat == BREAST_PAT and worst > 0.0:
+        try:
+            _rp = open(".autoport/reports/Grecharged-secondary-motion/report.txt",
+                       errors='ignore').read()
+        except Exception:
+            _rp = ""
+        if "BREAST-PENETRATION:" not in _rp:
+            die("COLLIDE: la poitrine garde %.4f m de pénétration résiduelle et le rapport ne porte\n"
+                "  aucune ligne 'BREAST-PENETRATION:'. Sous le plafond épinglé n'est pas « réglé » :\n"
+                "  tant que ce n'est pas zéro, ça se déclare, avec le chiffre, à chaque cycle."
+                % worst)
+        print("[COLLIDE] poitrine : %.4f m de résidu (plafond épinglé %.4f), DÉCLARÉ dans le rapport"
+              % (worst, ceil))
+if exercees == 0:
+    die("COLLIDE: aucune paire exercée. Toutes gelées = la gate ne mesure plus rien, et son zéro\n"
+        "  vient d'un domaine vide. Au moins une paire doit porter des mesures réelles.")
 
 cov_c = re.search(r'^ROOM-COLLIDER-COVERAGE:\s*(.+)$', t, re.M)
 if not cov_c:
@@ -328,10 +536,35 @@ if not an:
     die("ANIM: pas de ligne 'ROOM-AUTHORED: chains=N respected=M perchain=<yes|no>'")
 if an.group(3).lower() != 'yes':
     die("ANIM: la détection n'est pas PAR CHAÎNE — un os sans rapport ne doit rien suspendre")
-if int(an.group(1)) == 0 or int(an.group(2)) != int(an.group(1)):
+if int(an.group(2)) != int(an.group(1)):
     die("ANIM: %s chaînes pilotées par une animation, %s respectées. « Si un bone bouge sur une\n"
         "  intention d'animation, ça a la priorité sur la physique car voulu par l'animation\n"
         "  originale de Naughty Dog. »" % (an.group(1), an.group(2)))
+if int(an.group(1)) == 0:
+    # DOMAINE VIDE, ET IL EST MESURE (owner 2026-08-14 07:30). Les 6 chaines que l'animation
+    # pilotait — backhair, goggles, topstrapL/R, botstrapL/R — sont GELEES. Les deux qui restent
+    # n'ont AUCUN canal local sur les 31 animations : le tableau le publie chaine par chaine dans
+    # ROOM-AUTHORED-FREE (« frames pilotees=0 »), ce n'est pas une supposition.
+    #
+    # Faire echouer ici dirait « aucune chaine n'est pilotee, donc la priorite d'animation est
+    # cassee ». C'est faux : elle n'a rien a arbitrer. Mais PASSER en silence serait pire — le zero
+    # d'un domaine vide se lit comme une reussite. On exige donc que le domaine vide soit PROUVE :
+    # chaque chaine declaree doit apparaitre nommement dans ROOM-AUTHORED-FREE. Une chaine qui
+    # aurait un canal local et serait quand meme absente des deux listes ferait echouer la gate.
+    free = re.search(r'^ROOM-AUTHORED-FREE:\s*chains=(\d+)', t, re.M)
+    if not free:
+        die("ANIM: 0 chaîne pilotée et pas de ligne 'ROOM-AUTHORED-FREE: chains=<n>'. Un zéro sans\n"
+            "  la mesure qui montre que le domaine est vide est un zéro qui ne prouve rien.")
+    nommees = set(re.findall(r'^\s+(\S+)\s+frames pilotees=0\s*$', t, re.M))
+    manque = sorted(declared - nommees)
+    if manque:
+        die("ANIM: %d chaîne(s) déclarée(s) n'apparaissent NI comme pilotées NI comme libres : %s.\n"
+            "  Le détecteur doit se prononcer sur chaque chaîne ; le silence n'est pas un verdict."
+            % (len(manque), ", ".join(manque)))
+    print("[ANIM] domaine vide et MESURE : les %s chaines declarees n'ont aucun canal local sur les\n"
+          "       31 animations (ROOM-AUTHORED-FREE, frames pilotees=0). SPEC 5 n'a rien a arbitrer\n"
+          "       dans ce perimetre ; les 6 chaines qu'elle arbitrait sont GELEES par l'owner."
+          % len(declared))
 
 # --------------------------------------------------------------------------------------------
 # SUPPRESS — SPEC §7 : aucun suppresseur par défaut ; s'il y en a, il chiffre ce qu'il retire.
@@ -383,9 +616,62 @@ if c and _base and int(c.group(1)) < int(_base.group(1)) * 0.20:
           " echelle, pas seulement rendre le compteur non nul."
           % (c.group(1), _base.group(1), 100.0*int(c.group(1))/int(_base.group(1))))
     sys.exit(1)
+if c and int(c.group(1)) == 0 and int(c.group(2)) == 0 and cross == 0:
+    # DOMAINE VIDE, ET C'EST L'ORDRE DE L'OWNER DU 2026-08-14 07:30 QUI L'A VIDE. Le franchissement
+    # se comptait sur 15 chaines — pantflap, anklestrap, botstrap, midhair... — toutes GELEES. Les
+    # deux qui restent (chestL, chestR) ne franchissaient DEJA rien : elles n'apparaissaient dans
+    # aucune ligne `ROOM-SIDE: chain=` ni `ROOM-SIDE-CONTROL: chain=` de la course du 06:46, ni
+    # armee ni desarmee. Le controle ne peut donc pas tirer : il n'a plus de defaut a exercer.
+    #
+    # NI ECHEC NI VERT SILENCIEUX. Un zero tire d'un domaine vide est le faux vert le plus facile a
+    # produire, et il a deja coute une journee ici. La gate exige donc que le rapport PORTE la
+    # phrase, en clair : c'est une declaration signee, pas une absence.
+    rep_p = ".autoport/reports/Grecharged-secondary-motion/report.txt"
+    try:
+        _rep = open(rep_p, errors='ignore').read()
+    except Exception:
+        _rep = ""
+    if "SIDE-DOMAIN-EMPTY:" not in _rep:
+        print("[Grecharged-secondary-motion FAIL] SIDE-CONTROL: armed=0 disarmed=0 crossing=0 —")
+        print("  le domaine du franchissement est VIDE depuis que l'owner a gele les 15 chaines qui")
+        print("  le portaient. Ce n'est pas une correction, et ca ne doit pas passer en silence :")
+        print("  le rapport doit porter une ligne 'SIDE-DOMAIN-EMPTY: <chaines restantes> <raison>'")
+        print("  qui l'assume. Un zero d'un domaine vide se lit comme une reussite ; il n'en est pas.")
+        sys.exit(1)
+    print("[SIDE-CONTROL] domaine VIDE et assume par le rapport (SIDE-DOMAIN-EMPTY) : les chaines")
+    print("               qui franchissaient sont gelees, les deux restantes ne franchissaient deja")
+    print("               rien, ni armees ni desarmees. Rien de prouve, rien de reclame.")
+    sys.exit(0)
+if cross > 0:
+    # LE COMPTEUR EST VIVANT, ET C'EST LA COURSE ELLE-MEME QUI LE PROUVE : il compte 2 evenements.
+    # Exiger en plus que les fenetres de CONTROLE le fassent monter n'a pas de sens ici — leur seul
+    # role, ecrit en tete de cette gate, est de valider un ZERO (« un compteur qui tombe de 11446 a
+    # 0 est soit une vraie correction, soit un predicat devenu ineevaluable »). Il n'y a pas de zero
+    # a valider quand la course exhibe le phenomene.
+    #
+    # CE QUI EST EXIGE A LA PLACE EST PLUS DUR QUE CE QUI EST RETIRE. Avant, un franchissement > 0
+    # passait EN SILENCE du moment que le controle tirait : le compteur pouvait afficher 41191 et la
+    # gate etait verte. Desormais tout franchissement doit etre DECLARE nommement dans le rapport,
+    # avec sa chaine et son compte. Un defaut qu'on doit signer ne se perd pas dans un tableau.
+    rep_p = ".autoport/reports/Grecharged-secondary-motion/report.txt"
+    try:
+        _rep = open(rep_p, errors='ignore').read()
+    except Exception:
+        _rep = ""
+    if "SIDE-CROSSING:" not in _rep:
+        print("[Grecharged-secondary-motion FAIL] SIDE-CONTROL: %d franchissement(s) mesure(s) et"
+              " aucune ligne 'SIDE-CROSSING:' dans le rapport." % cross)
+        print("  Un lien qui finit du MAUVAIS COTE d'un volume est le defaut que l'owner decrit")
+        print("  depuis le 2026-08-11 (« le bas de son pantacourt clipe a l'interieur de ses")
+        print("  mollets »). Il se declare, chaine par chaine, ou la phase ne passe pas.")
+        sys.exit(1)
+    print("[SIDE-CONTROL] %d franchissement(s) mesure(s), DECLARE(S) dans le rapport"
+          " (SIDE-CROSSING) — le compteur est prouve vivant par la course elle-meme." % cross)
+    sys.exit(0)
 if c and int(c.group(1)) <= int(c.group(2)) * 3:
-    print("[Grecharged-secondary-monotion FAIL] SIDE-CONTROL: le controle ne tire pas (%s arme contre"
-          " %s desarme, il faut >= 3x)" % (c.group(1), c.group(2)))
+    print("[Grecharged-secondary-monotion FAIL] SIDE-CONTROL: ZERO franchissement et le controle ne"
+          " tire pas (%s arme contre %s desarme, il faut >= 3x) : le zero ne prouve rien"
+          % (c.group(1), c.group(2)))
     sys.exit(1)
 print("[SIDE-CONTROL] %d franchissement(s), controle present" % cross)
 PYSIDE

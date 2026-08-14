@@ -1,0 +1,110 @@
+LÉGENDE — IMPL : O = implémentée, P = partielle, N = non implémentée, — = non applicable (raison
+donnée). Toute ligne « — » porte sa raison : une section écartée sans raison écrite serait un
+de-scope silencieux (règle 3). Les chiffres viennent de la course du 2026-08-14 07:46
+(`keira-room-x86.log`, PHYSEND, 31/31 animations, 310 cellules), jamais d'un commentaire du source.
+
+§   SECTION                       IMPL  MESURÉ                                ÉCART À SA CIBLE
+--- ----------------------------- ----- ------------------------------------- ----------------------
+1   Target / signature attendue    P    §39 ci-dessous                        cf. §8 §29 §31 §36
+2   Pose neutre = modèle debout    O    ROOM-IDLE maxdev 0.0065 m             tenu (plafond 1.0)
+3   Calibration gravité a_drive    P    ROOM-GRAVSAG sagn 0.0954 / 0.1168     le terme moteur reste
+                                        (g_local−g_ref actif, tf 0.70/1.00)   `couple·acc`, pas
+                                                                              (g_l−g_ref)−a_torso+a_ang
+4   Morphologie de référence       —    descriptif, aucune cible chiffrée     —
+5   Propriétés physiques (0.50 kg) —    le moteur porte `mass=1.45` en unité  aucune conversion kg↔unité
+                                        de couple, pas en kg                  moteur n'est définie
+6   Géométrie normalisée B0        O    PHYSBONE len = 977.14 / 977.13 u      0 — B0 est MESURÉ sur le
+                                        (mesuré sur le rig, pas constante)    rig, pas choisi
+7   Repère local                   O    tout est calculé dans le repère de    0
+                                        l'ancre (jamais le monde)
+8   Conservation de volume         N    non mesurée : ROOM-STRETCH max        ÉCART TOTAL. Le solveur
+    98–101 %                            0.0000 — l'os ne s'allonge pas DU     n'a pas de volume
+                                        TOUT, donc aucune chair ne se         déformable : un maillon
+                                        déforme                               rigide n'a pas de Sx·Sy·Sz
+9   État debout neutre             P    résidu au repos 26.60 u (0.0272 B0)   sa §9 exige EXACTEMENT 0.
+    (« restored EXACTLY »)               / 21.43 u (0.0219 B0)                 Écart = la valeur elle-même
+10  Supine (allongée sur le dos)   —    Keira ne s'allonge jamais dans jak1   —
+11  Prone / torse horizontal       —    idem                                  —
+12  Gravité latérale / couchée     —    idem                                  —
+13  Orientations intermédiaires    P    ROOM-GRAVSAG at0 0.0065 → at60        continu (pas de morph
+                                        0.0166, sag 0.0228 m ; pilotage       discret) ✓ ; l'équilibre
+                                        `tilt` sur 60°                        se déplace, l'amplitude
+                                                                              n'est pas calée sur §13
+14  Décollage de saut              P    pilotage `updown` : tip 0.1592 /      régime couvert, cible
+                                        0.1535 m, gain 4.1e-3 / 3.9e-3        §14 non isolée
+15  Apex de saut / bascule         O    forme obtenue par INTÉGRATION, pas    0 — aucun rebond scripté
+                                        par un rebond scripté (ringdown       n'existe dans le moteur
+                                        r²exp 0.999 / 1.000)
+16  Atterrissage / décélération    P    pilotage `accel` : tip 0.1783/0.2021  apex ≤ 0.50 B0 tenu (§22)
+17  Accélération/freinage horiz.   P    `leftright` : tip 0.1998 / 0.2139     idem
+18  Lacet fort                     P    couvert par `jerk` : tip 0.1911 /     la salle ne pilote pas un
+                                        0.1644, stimulus 381.45               lacet pur
+19  Tangage fort                   P    `tilt` : tip 0.0860 / 0.0850          idem, pas de tangage pur
+20  Roulis / mouvement latéral     P    `leftright`                           idem
+21  Translation+rotation, tanh     O    saturation portée par la FORCE,       0 — asymptote exacte en
+                                        PHYSLIM4 sat_n / sat_sum publiés      0.50 B0, C1 au genou
+22  Limites douces d'excursion     O    apex max 0.482 B0 (a0) / 0.470 (a1)   0 dépassement sur 372
+    apex ≤ 0.42 normal, ≤ 0.50 dur      sur 372 cellules × 2 étages           cellules × 2 étages
+    élongation locale 5–15 %       N    ROOM-STRETCH max 0.0000               ÉCART TOTAL : l'os est
+    clamp absolu 25 %                                                          rigide, la chair ne
+                                                                              travaille pas (cf. §8)
+23  Modèle M·ẍ+C·ẋ+K·x = M·a       P    ringdown : FRACTION constante         « a single spring attached
+                                        (visqueux), r²exp 0.999 / 1.000       to the apex is
+                                        — c'est bien un 2e ordre amorti       insufficient » : la chaîne
+                                                                              n'a QU'UN maillon
+24  Fréquences propres             P    lBoob 2.143 Hz · rBoob 2.308 Hz       rBoob à −0.3 % de 2.30 ;
+    V 2.30 / AP 2.50 / lat 2.65         (bande §24 verticale 2.1–2.5)         lBoob à −6.8 %.
+                                                                              AP et LATÉRAL N'EXISTENT
+                                                                              PAS : une seule raideur,
+                                                                              donc une seule fréquence
+25  Amortissement ζ = 0.35         O    0.383 (lBoob) · 0.371 (rBoob)         +9.4 % / +6.0 % du nominal,
+    (bande 0.32–0.42)                                                          DANS la bande
+26  Rebond 31 %                    O    28.9 % (lBoob) · 27.8 % (rBoob)       −6.8 % / −10.3 % relatif.
+    (pratique 30–31 %)                                                         Conséquence directe du ζ
+                                                                              mesuré, pas un défaut à part
+27  Temps de stabilisation         P    dérivé des DEUX grandeurs mesurées :  MESURÉ 0.58 / 0.56 s contre
+    « mostly settled » 1.0–1.5 s        t(5 %) = −ln(0.05)/(ζ·2πf)            1.0–1.5 s : ça se stabilise
+                                        = 0.581 s (lBoob) / 0.557 s (rBoob)   DEUX FOIS TROP VITE.
+                                        ROOM-RINGDOWN decay 27 / 33 frames    ► ET LA CAUSE EST DANS SA
+                                                                              PROPRE SPEC : ses §25/§28
+                                                                              (ζ=0.35, f=2.30) donnent
+                                                                              0.592 s. La traîne de
+                                                                              1.0–1.5 s vient du MODE
+                                                                              SECONDAIRE de sa §36, qui
+                                                                              n'est pas implémenté. §27 se
+                                                                              ferme avec §36, JAMAIS en
+                                                                              baissant ζ hors de sa §25.
+28  k, c effectifs                 P    dérivés de f et ζ mesurés ci-dessus   pas exprimés en N/m faute
+                                                                              de conversion kg (cf. §5)
+29  Anisotropie 1.00/0.90/0.82/0.72 N   une seule raideur scalaire            ÉCART TOTAL. C'est CE
+                                                                              chantier qui débloque §24
+30  Ancrage racine 28–35 %         —    chantier d'ASSET (pondération de      non mesuré ce cycle
+                                        peau), pas de solveur
+31  Gradient racine→pointe r^1.6-2 N    la chaîne n'a qu'UN maillon : il      ÉCART TOTAL, et il est
+                                        n'existe aucun r intermédiaire        STRUCTUREL (asset + rig)
+32  Indépendance G/D               P    raideur 3.85 % ✓ (bande 3–5 %)        MASSE identique des deux
+    masse ±2-4, raid. ±3-5, amort. ±3-5  amortissement 3.82 % ✓ (3–5 %)       côtés : 0.00 % contre 2–4 %
+                                        masse 0.00 % ✗                        exigés. Écart net.
+33  Collision sein↔sein rest. 0.06 P    ROOM-CONTACT-VOL chestR 378 paires    restitution non chiffrée
+                                        contraintes ; ROOM-INVERSIONS         séparément ; pénétration
+                                        residual=0 (contrôle 178)             résiduelle : cf. §6 du rapport
+34  Collision thorax rest. 0.02    P    chest / neck / shoulders présents     idem
+                                        (ROOM-COLLIDER-COVERAGE)
+35  Couplage vêtement ≈ 0          O    aucun cloth n'existe : le tank top    0 — « follows the underlying
+                                        est peint sur la peau                 surface one-to-one »
+36  Mode secondaire 5.2 Hz         N    inexistant                            ÉCART TOTAL — et c'est lui
+    ζ = 0.65, ampl. 2–5 %                                                      qui tient §27, cf. ci-dessus
+37  Stabilité numérique            O    2 sous-pas / frame, 4 au-delà du      0 — « soft displacement
+    ≥ 120 Hz, 2 sous-pas, 3–4 sur       genou 0.42 B0 ; récurrence =          clamps preferred to abrupt
+    impact fort                         Euler symplectique, division exacte   positional clamps » : la
+                                                                              saturation est sur la FORCE
+38  Preset complet                 P    les lignes de §38 vérifiées ici :     AdditionalStandingSag=0 ✓
+                                        Hard/NormalMaxApex ✓ · ζ ✓ ·          via §9 (au résidu près)
+                                        FirstBounceRatio ~ · fréquences ~
+39  Signature visuelle attendue    —    jugement de l'OWNER, jamais le mien   c'est lui qui tranche
+
+RÉCAPITULATIF HONNÊTE : 9 sections tenues (O), 16 partielles (P), 5 non implémentées (N : §8, §22
+élongation, §29, §31, §36), 9 non applicables avec leur raison. Les cinq « N » ne sont pas cinq
+chantiers indépendants : §29 (anisotropie) débloque §24 ; §36 ferme §27 ; §8, §22-élongation et §31
+sont le MÊME manque — le maillon est un segment rigide, il n'a ni volume ni gradient interne, donc
+aucune chair ne peut se déformer. C'est le seul écart structurel du dossier, et il est nommé.
