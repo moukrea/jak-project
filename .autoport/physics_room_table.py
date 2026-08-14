@@ -2785,17 +2785,28 @@ def main():
         e = shp.setdefault((c, dr), dict(det_lo=9.9, det_hi=0.0, sec=0.0, tw=0.0, n=0))
         e['secr'] = max(e.get('secr', 0.0), float(m.group(4)))
         e['dyn'] = max(e.get('dyn', 0.0), float(m.group(5)))
+    for m in re.finditer(r'^PHYSSHAPE4 c=(\d+) a=(\d+) d=(\d+) prsm=([-\d.e+]+) prsr=([-\d.e+]+)',
+                         txt, re.M):
+        c, dr = int(m.group(1)), int(m.group(3))
+        if dr >= len(DRIVE_NAMES):
+            continue
+        e = shp.setdefault((c, dr), dict(det_lo=9.9, det_hi=0.0, sec=0.0, tw=0.0, n=0))
+        e['prs'] = max(e.get('prs', 0.0), float(m.group(4)))
+        e['prsr'] = max(e.get('prsr', 0.0), float(m.group(5)))
     if not shp:
         A('ROOM-SHAPE: ABSENT (aucune ligne PHYSSHAPE2) — SPEC 8/36 restent NON MESUREES.')
     else:
         A('')
-        A('   chaine        drive       fenetres  det_min  det_max  secm(%%)  secr(%%)  dyn(%%)  twm(deg)')
+        A('   chaine        drive       fenetres  det_min  det_max  secm(%%)  secr(%%)  dyn(%%)'
+          '  twm(deg)  prs(%%)  prsr(%%)')
         for (c, dr) in sorted(shp):
             e = shp[(c, dr)]
             A('ROOM-SHAPE: %-12s %-10s %5d     %7.5f  %7.5f  %6.2f  %7.2f  %6.2f  %8.4f'
+              '  %6.2f  %7.2f'
               % (names[c] if c < len(names) else 'c%d' % c, DRIVE_NAMES[dr], e['n'],
                  e['det_lo'], e['det_hi'], 100.0 * e['sec'], 100.0 * e.get('secr', 0.0),
-                 100.0 * e.get('dyn', 0.0), math.degrees(e['tw'])))
+                 100.0 * e.get('dyn', 0.0), math.degrees(e['tw']),
+                 100.0 * e.get('prs', 0.0), 100.0 * e.get('prsr', 0.0)))
         sat = [(c, dr) for (c, dr) in sorted(shp) if shp[(c, dr)].get('secr', 0.0) > 0.0701]
         if sat:
             A('ROOM-SHAPE-SATURE: %d fenetre(s) sur %d ou le mode secondaire de SPEC 36 depasse son'

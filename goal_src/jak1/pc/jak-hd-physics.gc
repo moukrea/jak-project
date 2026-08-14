@@ -325,6 +325,21 @@
 (defconstant PHYS-SEC-K   0.05)
 (defconstant PHYS-DYN-K   0.43)    ;; §38 NormalDynamicStretch 0.15 atteint a 0.35 B0
 (defconstant PHYS-DYN-MAX 0.25)    ;; §38 AbsoluteStretchClamp
+;; §23 — « the solver should then derive local deformation from COM displacement, angular lag,
+;; root constraints, VOLUME CONSERVATION and LOCAL COLLISION PRESSURE ». Les quatre premiers sont
+;; livres (etirement dynamique, torsion, ancrage a la racine + poids gradues, determinant a 1) ;
+;; le cinquieme est ce couple de constantes. La pression de contact APLATIT le tissu le long de la
+;; normale et le redistribue sur les deux perpendiculaires — sa §34 : « collision energy should
+;; primarily become DEFORMATION, redistribution and damping ». Le plafond est celui de sa §12,
+;; l'aplatissement lateral qu'elle chiffre a 15-25 % quand tout le poids porte sur un sein.
+;; LE GAIN, CALE SUR SA §12 ET SUR RIEN D'AUTRE. Mesure de la course F, qui publie l'aplatissement
+;; AVANT plafond : a 1.00 les trois pilotages forts rendaient 40 a 56 % brut pour un plafond a 25 %,
+;; donc un limiteur sature — la meme signature que le mode secondaire au premier essai, et la meme
+;; correction. A 0.45 les memes fenetres rendent ~5 % sur les contacts doux (updown, tilt) et 18 a
+;; 25 % sur les forts : c'est exactement la bande que sa §12 chiffre pour un appui de tout le poids
+;; (« gravity-side lateral flattening -15 a -25 %, nominal -20 % »).
+(defconstant PHYS-PRS-K   0.45)
+(defconstant PHYS-PRS-MAX 0.25)    ;; §12 : -25 % au pire, borne haute de sa bande
 (defconstant PHYS-RST-BB  0.06)    ;; §33 restitution sein <-> sein
 (defconstant PHYS-RST-CH  0.02)    ;; §34 restitution sein <-> buste / externe
 ;; LE TRIEDRE DE SA SPEC 7 (+X lateral sortant, +Y haut du torse, +Z vers l'avant du buste), en
@@ -364,6 +379,8 @@
 ;; caler sur SA bande (2-5 % normal, 5-7 % impulsion forte) sans le regler sur l'instrument.
 (define *phys-secr* (new 'global 'array 'float PHYS-SC))
 (define *phys-dynm* (new 'global 'array 'float PHYS-SC))   ;; son maximum sur la fenetre
+(define *phys-prsm* (new 'global 'array 'float PHYS-SC))  ;; §23 aplatissement de contact, max fenetre
+(define *phys-prsr* (new 'global 'array 'float PHYS-SC))  ;; le meme AVANT plafond (anti-saturation)
 (define *phys-vp*   (new 'global 'inline-array 'vector PHYS-SC))  ;; vitesse de pointe, frame -1
 (define *phys-tw*   (new 'global 'array 'float PHYS-SC))   ;; §29 torsion : angle du TISSU (rad)
 (define *phys-twv*  (new 'global 'array 'float PHYS-SC))
@@ -679,6 +696,8 @@
                     (set! (-> *phys-secm* sc) 0.0)
                     (set! (-> *phys-secr* sc) 0.0)
                     (set! (-> *phys-dynm* sc) 0.0)
+                    (set! (-> *phys-prsm* sc) 0.0)
+                    (set! (-> *phys-prsr* sc) 0.0)
                     (set-vector! (-> *phys-vp* sc) 0.0 0.0 0.0 0.0)
                     (dotimes (ii 3)
                       (set! (-> *phys-dfs* (+ (* sc 3) ii)) 1.0))
@@ -2163,6 +2182,7 @@
               (tmp  (new 'stack-no-clear 'matrix))
               (dfa  (new 'stack-no-clear 'matrix))
               (dfb  (new 'stack-no-clear 'matrix))
+              (dfc  (new 'stack-no-clear 'matrix))
               (anc  (new 'stack-no-clear 'vector))
               (tw   (new 'stack-no-clear 'vector))
               (acc  (new 'stack-no-clear 'vector))
@@ -3446,6 +3466,45 @@
                                    (set! (-> dfb vector i data 3) 0.0))
                                  (set-vector! (-> dfb vector 3) 0.0 0.0 0.0 1.0)))
                               (else (matrix-identity! dfb)))
+                            ;; §23 — LA PRESSION DE CONTACT, CINQUIEME ET DERNIER TERME DE SA LISTE.
+                            ;; La poussee cumulee de la frame est deja calculee pour §33/34 : on la
+                            ;; reutilise, aucune grandeur nouvelle n'est inventee. Le tissu s'aplatit
+                            ;; LE LONG DE LA NORMALE et se redistribue sur les deux perpendiculaires,
+                            ;; determinant exactement 1. Un contact nul ne change rien au bit pres.
+                            (let* ((cx (-> *phys-cpu* tl x))
+                                   (cy (-> *phys-cpu* tl y))
+                                   (cz (-> *phys-cpu* tl z))
+                                   (cl (sqrtf (+ (* cx cx) (+ (* cy cy) (* cz cz)))))
+                                   (pr0 (* PHYS-PRS-K (/ cl b0f)))
+                                   (prs (fmin PHYS-PRS-MAX pr0))
+                                   (pe  (- 1.0 prs))
+                                   (pt2 (/ 1.0 (sqrtf (fmax 0.0001 pe)))))
+                              (when (> pr0 (-> *phys-prsr* sc)) (set! (-> *phys-prsr* sc) pr0))
+                              (when (> prs (-> *phys-prsm* sc)) (set! (-> *phys-prsm* sc) prs))
+                              (when (> prs 0.000001)
+                                ;; la normale est celle de la poussee, exprimee en MONDE ; le tenseur
+                                ;; de deformation vit en espace ANCRE, on y ramene donc la normale.
+                                (let* ((nx (/ cx cl)) (ny (/ cy cl)) (nz (/ cz cl))
+                                       (ax2 (+ (* nx (-> w2l vector 0 x))
+                                               (+ (* ny (-> w2l vector 1 x)) (* nz (-> w2l vector 2 x)))))
+                                       (ay2 (+ (* nx (-> w2l vector 0 y))
+                                               (+ (* ny (-> w2l vector 1 y)) (* nz (-> w2l vector 2 y)))))
+                                       (az2 (+ (* nx (-> w2l vector 0 z))
+                                               (+ (* ny (-> w2l vector 1 z)) (* nz (-> w2l vector 2 z)))))
+                                       (al2 (sqrtf (+ (* ax2 ax2) (+ (* ay2 ay2) (* az2 az2))))))
+                                  (when (> al2 0.0001)
+                                    (let ((ux2 (/ ax2 al2)) (uy2 (/ ay2 al2)) (uz2 (/ az2 al2)))
+                                      (dotimes (i 3)
+                                        (dotimes (j 3)
+                                          (set! (-> dfc vector i data j)
+                                                (* (- pe pt2)
+                                                   (* (cond ((= i 0) ux2) ((= i 1) uy2) (else uz2))
+                                                      (cond ((= j 0) ux2) ((= j 1) uy2) (else uz2))))))
+                                        (set! (-> dfc vector i data i) (+ pt2 (-> dfc vector i data i)))
+                                        (set! (-> dfc vector i data 3) 0.0))
+                                      (set-vector! (-> dfc vector 3) 0.0 0.0 0.0 1.0)
+                                      (matrix*! tmp dfb dfc)
+                                      (matrix-copy! dfb tmp))))))
                             (dotimes (i 3)
                               (dotimes (j 3)
                                 (set! (-> dfa vector i data j)
@@ -3653,6 +3712,8 @@
     (set! (-> *phys-secm* sc) 0.0)
     (set! (-> *phys-secr* sc) 0.0)
     (set! (-> *phys-dynm* sc) 0.0)
+    (set! (-> *phys-prsm* sc) 0.0)
+    (set! (-> *phys-prsr* sc) 0.0)
     (set! (-> *phys-twm* sc) 0.0)
     (set! (-> *phys-thas* sc) 0))
   ;; SPEC 33/34 — les compteurs de restitution, par fenetre eux aussi.
@@ -4041,7 +4102,8 @@
    vue par le solveur dans ce meme triedre (l'ENTREE de §10-13, unitaire, (0,-1,0) debout) ;
    12 = le maximum de fenetre du mode secondaire AVANT le plafond de §38 (c'est lui qui dit si le
    `0.0700` publie est une saturation ou une valeur) ; 13 = le maximum de fenetre de l'etirement
-   dynamique de §22/38 ; 18 = le nombre de frames ou la saturation douce de la torsion a mordu.
+   dynamique de §22/38 ; 18 = le nombre de frames ou la saturation douce de la torsion a mordu ;
+   19 = l'aplatissement de PRESSION DE CONTACT de §23 (max de fenetre), 20 = le meme AVANT plafond.
    REPERE : le triedre de sa SPEC 7 (+X lateral, +Y haut, +Z avant), releve a la pose debout
    d'auteur. LECTURE HORS DEFAUT : 1.000 / 1.000 / 1.000 / 1.000 / 0 / 0 / 0 / 0 debout et immobile.
    CE QUE CE N'EST PAS : la deformation VUE sur le mesh. Un sommet partage avec le buste ne recoit
@@ -4063,6 +4125,8 @@
         ((= which 13) (-> *phys-dynm* sc))
         ((< which 18) (-> *phys-gr* (+ (* sc 3) (- which 15))))
         ((= which 18) (the float *phys-twsat*))
+        ((= which 19) (-> *phys-prsm* sc))
+        ((= which 20) (-> *phys-prsr* sc))
         (else 0.0)))))
 
 (defun phys-rest ((which int))

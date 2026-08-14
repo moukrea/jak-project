@@ -907,7 +907,14 @@
     (format 0 "PHYSSHAPE3 c=~D a=~D d=~D secr=~f dynm=~f~%"
             c (-> self ai) (-> self drive)
             (phys-shape (-> self slot) c 12)
-            (phys-shape (-> self slot) c 13))))
+            (phys-shape (-> self slot) c 13))
+    ;; §23, cinquieme terme de sa liste : la PRESSION DE CONTACT. `prsr` est publie a cote de `prsm`
+    ;; pour la meme raison que `secr` a cote de `secm` : un plafond touche partout n'est pas une
+    ;; amplitude, et sans la valeur brute on ne peut pas le savoir.
+    (format 0 "PHYSSHAPE4 c=~D a=~D d=~D prsm=~f prsr=~f~%"
+            c (-> self ai) (-> self drive)
+            (phys-shape (-> self slot) c 19)
+            (phys-shape (-> self slot) c 20))))
   ;; SPEC 33/34 — LA RESTITUTION SUR CETTE FENETRE. Une ligne par fenetre, pas par chaine : les
   ;; compteurs sont globaux au solveur. `n` est le DOMAINE (contacts ou elle a mordu) ; sans lui,
   ;; `vin`/`vout` a zero ne distinguent pas « rien ne touche » de « rien ne s'applique ».
