@@ -9,9 +9,14 @@ Substrat : x86, salle sans joueur. **Changement GOAL SEUL** — aucun rebuild ND
 (551 cibles en 11,5 s). Empreinte `GAME.CGO` relevée AVANT et APRÈS la course, identique des deux
 côtés (`4e87febbc8564c273c28f38397bf7c58`) : la mesure est attribuable.
 
-    RUN13  keira-room-table.RUN13-BASELINE.txt        état d'entrée (écrêtage positionnel)
-    RUN14  keira-room-table.txt                       ÉTAT LIVRÉ (force + sous-pas)
-           keira-room-x86.RUN14-substep-stiff.log
+    RUN13  keira-room-table.RUN13-BASELINE.txt         état d'entrée (écrêtage positionnel)
+    RUN14  keira-room-table.RUN14-substep-stiff.txt     sous-pas + ressort qui raidit
+    RUN15  keira-room-table.RUN15-colvel-inert-remap.txt  + remap, + 1re absorption (sans effet)
+    RUN16  keira-room-table.RUN16-colabsorb-REJECTED.txt  2e absorption — REJETÉE par la mesure
+    RUN17  keira-room-table.RUN17-SHIPPED.txt           **ÉTAT LIVRÉ** = RUN14 + remap
+           keira-room-x86.RUN17-SHIPPED.log
+Le solveur livré est celui de RUN14, prouvé mécaniquement : le `diff` du moteur contre le commit de
+RUN14 ne contient QUE des lignes de commentaire.
 
 RÉSUMÉ EN UNE PHRASE : la priorité de la directive de 03:40 — « ramener l'excursion sous 0.50 B0
 par la saturation de sa §21, une saturation douce, jamais un écrêtage brutal » — est **fermée et
@@ -88,6 +93,13 @@ le mauvais os (§4), elles sont donc écartées ici, et pas seulement « des deu
 **Zéro dépassement, aux deux étages, sur les six pilotages et les deux chaînes.** C'est la première
 course où l'enveloppe de sa §22 est tenue.
 
+**ET LE REMAP (§7 ter) PERMET DE LE REDIRE SUR LE DOMAINE ENTIER.** Une fois les 31 animations
+pilotant le bon os, la même mesure sur l'état livré (RUN17) porte sur **372 cellules** au lieu de
+48 : `a0 > plafond` = **0**, `a1 > plafond` = **0**, maximum **0.482 B0**. Le résidu de chestR que
+RUN14 montrait encore (0.598 B0) a disparu — il n'existait que dans les fenêtres où la poitrine
+était pilotée par une branche de lunettes. **Les deux corrections de ce cycle expliquent chacune le
+résidu de l'autre.**
+
 **ET ÇA RETIRE UNE CROYANCE DU CYCLE PRÉCÉDENT.** Le rapport d'hier publiait « déplacement d'apex
 ≤ 0.50 B0 AVEC la saturation », en face de « 1.10–1.41 B0 SANS ». Le second est juste, **le premier
 est faux** : avec l'écrêtage positionnel, l'apex montait à **0.628 B0** à l'étage d'intégration et
@@ -159,10 +171,11 @@ restored exactly ». Défaut ouvert depuis le cycle précédent.
 
 6. NON-RÉGRESSION
 ==================
+État livré (RUN17) :
     ROOM-NOPLAYER absent · ROOM-ACTORS 1 subject=keira-hd · ROOM-ANIMS 31/31 raw=31 skipped=0
-    ROOM-IDLE maxdev 0.0601 (0.0558) · ROOM-AUTHORED chains=8 respected=8 perchain=yes
-    ROOM-STRETCH max 0.0003 (plafond 3 %) · ROOM-POSCONTROL injections=2880 armé 0.4548 /
-    désarmé 0.7158 · PHYSFAIL 0 · aucun NaN · aucune chaîne inerte
+    ROOM-IDLE maxdev 0.0600 (0.0558 à l'entrée) · ROOM-AUTHORED chains=6 respected=6 perchain=yes
+    ROOM-STRETCH max 0.0001 (plafond 3 %) · PHYSFAIL 0 · aucun NaN · aucune chaîne inerte
+    PHYSLIM4 sat_n=1315 sat_sum=2.66e6 stif_n=15395
 Taille du moteur : **4728 → 4787** lignes (plafond gelé 4800), soit **+59** et 13 sous le plafond.
 Décomposition : +164 pour les deux mécanismes de sa spec et leur justification, −105 en resserrant
 la narration devenue fausse (le bloc qui plaidait pour l'écrêtage positionnel, réduit à une pierre
@@ -281,12 +294,117 @@ traverse le mesh, quelle qu'en soit la raison »), et l'adoucir sans mesure de p
 échangerait un défaut contre un pire. C'est le premier travail du cycle suivant, et il commence par
 la mesure de pénétration par volume et par frame, pas par le correctif.
 
+7 ter. LE REMAP PAR NOM EST POSÉ, ET SON CONTRÔLE DISCRIMINE
+==============================================================
+Écrit dans `phys-room.gc` SEUL (+217 lignes, 0 suppression), sans toucher au moteur, aux données de
+chaînes ni au validateur. Le canal d'animation est permuté PAR NOM vers la position de canal du
+porteur, dans une `prebind-function` posée entre la décompression et la lecture joint par joint.
+
+**PREUVE D'EXÉCUTION, et c'est un contrôle qui SÉPARE :**
+
+    art-group                   joints   permuted
+    assistant                     96        0      <- rig du porteur : identité, prebind retirée
+    assistant-village3            96        0      <- OBJET DIFFÉRENT, table IDENTIQUE : 0 aussi
+    assistant-village2            96       60
+    assistant-firecanyon          94       65
+    assistant-lavatube-start      94       65
+    assistant-lavatube-end        94       65
+
+`assistant-village3` est le contrôle qui compte : c'est un `art-joint-geo` distinct, donc le chemin
+court « même objet » ne s'y applique pas — la permutation est calculée par nom, et elle sort à
+l'identité. **Un compteur qui aurait tiré partout n'aurait rien prouvé.**
+
+Les canaux SANS SOURCE sont exactement les deux annoncés, et leur secours est publié, pas silencieux :
+`PHYSREMAPORPHAN a=18 chan=26 joint=torch fallback=carrier-rest-pose` et `chan=27 joint=torchTIP`.
+Aucun des deux ne porte de chaîne.
+
+ÉCART ENTRE LA PRÉVISION ET LA COURSE, et je le signale : le pré-contrôle statique sur
+`joint-nodes.gc` annonçait 68 pour les trois rigs à 94 joints ; la course en rend **65**. La raison
+est que le porteur n'expose que **91 canaux** (`PHYSREST chan=91`, soit `(-> draw mgeo num-joints)`),
+et non 94 : les positions au-delà ne sont jamais lues par `do-joint-math!`, donc jamais permutées.
+La couverture est exacte sur ce qui est lu ; c'est la prévision qui était trop large.
+
+CE QUE ÇA CHANGE DANS LA MESURE, chiffré en comparant les deux courses : sur les 23 animations
+remappées, **67 % des cellules `(chaîne, pilotage, maillon)` changent de plus de 1 %** ; sur les 8
+animations non remappées, la course est inchangée au bruit près (écart relatif médian 1,4e-3).
+Autrement dit le remap agit là où il doit et nulle part ailleurs.
+
+`restok=42` sur 91 : la pose de repos du porteur n'a pu être dérivée que pour 42 canaux, les autres
+retombant sur l'identité locale. Ça ne concerne que les canaux orphelins — il y en a deux — mais le
+chiffre est publié et reste à comprendre.
+
+**CE QUE LE REMAP RÉVÈLE, ET IL FAUT LE LIRE COMME UNE RÉVÉLATION, PAS COMME UNE RÉGRESSION.**
+État livré (RUN17) contre entrée de cycle (RUN13), pénétration `meshpen` :
+
+    kneeflapL   0.1245 -> 0.0040     kneeflapR  0.1740 -> 0.0031     toestrapR 0.1298 -> 0.0000
+    anklestrapR 0.7691 -> 0.6118     chestR     0.0285 -> 0.0005
+    backhair    0.0059 -> 0.1899     rmidhair   0.4068 -> 0.5405     goggles   0.5020 -> 0.7301
+
+Les trois premières chaînes sont exactement des chaînes dont le joint pilote était dans la zone
+divergente (`lKneeFlap`, `rKneeFlap`, `RtoeStrap`) : leur pénétration s'effondre de 97 à 100 %
+parce qu'elles sont enfin pilotées par le bon os. À l'inverse `backhair` (`backHair2`), `rmidhair`
+et les lunettes montent — **ces chiffres-là ne sont pas neufs, ils étaient cachés.** La mesure
+corrompue les rendait plus flatteurs qu'ils ne sont.
+En particulier : le −78 % de pénétration des lunettes annoncé au §4 est mesuré sur
+`assistant-village3-idle`, une animation PROPRE, et il tient ; mais le pire cas du domaine entier
+est maintenant 0.7301 sur une fenêtre `village2` qui n'avait aucun sens avant. **`goggles-boobcol`
+n'est pas fermé, et il est plus grand qu'on ne le mesurait.**
+
+`ROOM-AUTHORED` passe de `chains=8 respected=8` à `chains=6 respected=6` (`perchain=yes` des deux
+côtés) : deux chaînes cessent d'être détectées comme pilotées par l'animation, ce qui est la
+conséquence directe et attendue du remap — la détection portait sur des canaux qui n'étaient pas
+les leurs.
+
+
+7 quater. UNE TENTATIVE MESURÉE ET RETIRÉE : ABSORBER LA CORRECTION DE COLLISION DANS LA VITESSE
+=================================================================================================
+Le §7 bis désignait un mécanisme. Je l'ai mesuré, puis j'ai essayé de le corriger, et **la
+correction est retirée parce que la mesure la condamne.** Elle est consignée ici et en pierre
+tombale dans le moteur pour qu'un cycle suivant ne la repose pas telle quelle.
+
+**LE DÉFAUT EST RÉEL ET IL EST CHIFFRÉ.** La fermeture de collision écrit `p` sans toucher `q` ; or
+la vitesse de la frame suivante EST `p − q`. Toute la poussée hors du volume repart donc en vitesse.
+Mesuré par frame dans la fenêtre de REPOS (stimulus arrêté, animation figée), rapport
+« ce qui repousse à f+1 » / « ce que la contrainte a retiré à f » :
+
+    Lmidhaira l3  0.75    Rmidhaira l3  0.65    backHair1 l3  0.53      <- les trois pires selon lui
+    Lbanga    l3 -0.17    Rbanga    l3 -0.30    Lbanga l1    -4.43      <- décroissance réelle
+
+Ses §33 et §34 chiffrent la restitution à **0.02–0.06** et écrivent « contact shall not create
+billiard-ball rebound ». On est 9 à 35× au-dessus, et le contrôle qui discrimine est dans la course.
+
+**CE QUI L'A CONDAMNÉE — RUN16 :** `chestL` tipvar **0.2174 → 0.0833 (−62 %)**, `sat_n`
+1493 → 37766, `sat_sum` 2.67e6 → 3.35e10, et la pénétration des mèches **INCHANGÉE** (0.4990 /
+0.5277). Aucun NaN, aucun `PHYSFAIL` : ce n'est pas une divergence numérique, **c'est un muselage**,
+et la règle de conservation ne se négocie pas — « si le plancher casse, le point est retiré, pas
+adouci ».
+
+**POURQUOI, ET C'EST LA LEÇON QUI SURVIT À LA TENTATIVE.** En contact **persistant**, la poussée
+n'est pas une impulsion : c'est la surface qui TIENT le maillon. L'absorber à chaque frame accumule
+une fausse vitesse **vers** la surface, qui creuse le contact, qui agrandit la poussée — une boucle
+positive, que le filet d'apex doit ensuite écrêter (d'où `sat_n` ×25). Une reprise doit distinguer
+l'IMPACT du CONTACT REPOSANT : ne retirer que la vitesse d'**approche**, jamais ajouter de vitesse
+de séparation.
+
+Une première version, plus prudente (instantané avant les 4 derniers balayages purement collision),
+n'avait **pas changé la grandeur du défaut** (0.53 → 0.53, 0.29 → 0.29) : à ce stade les 11
+balayages précédents ont déjà résolu les contacts. C'est ce qui a conduit à poser l'accumulateur
+dans `phys-collide-chain` lui-même — et c'est cette version-là qui a musellé.
+
+**L'état livré ne contient donc AUCUNE de ces deux versions.** Vérifié mécaniquement : le `diff` du
+moteur contre le commit qui a produit RUN14 ne contient **que des lignes de commentaire**, donc le
+solveur livré est celui qui a été mesuré au §2.
+
+
 8. CE QUI N'EST PAS FAIT, ET POURQUOI — AUCUN DE-SCOPE SILENCIEUX
 ==================================================================
-  * **Le remap par nom lui-même** : conception, point d'accroche, fonction de recherche, contrôle
-    positif et chiffrage sont ci-dessus ; la pose est engagée en fin de cycle et son état est
-    rapporté au §9. Tant qu'il n'est pas là, **aucun maximum par chaîne des 15 chaînes touchées
-    n'est croyable**, et c'est le premier travail du cycle suivant si le §9 dit qu'il n'a pas tenu.
+  * **Le remap par nom est POSÉ et prouvé** (§7 ter). Ce qui reste dû : les planchers
+    `motion-floor.txt` et les maxima encliquetés des 15 chaînes touchées ont été relevés sur la
+    mesure CORROMPUE. Ils sont maintenant faux dans l'autre sens et doivent être **re-relevés** sur
+    une course remappée avant d'être réutilisés comme gate.
+  * **La restitution de collision** (§7 quater) : le défaut est mesuré et chiffré, la correction
+    naïve est retirée par la mesure, et la forme correcte est nommée (ne retirer que la vitesse
+    d'approche, jamais ajouter de vitesse de séparation). Non posée.
   * **La fenêtre de repos est trop courte pour la pointe des cheveux.** `PHYSROOM-IDLES = 150`
     (`phys-room.gc:130`) donne 1.16 à 1.22 période à la pointe, et la décroissance à 10 % s'y fait
     en 0.46 période : on n'y ajuste pas une enveloppe. Les colonnes « rebond > 100 % » et
