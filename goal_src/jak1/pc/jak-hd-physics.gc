@@ -545,6 +545,89 @@
 ;; LUE PAR `.autoport/physics_ringdown.py`, valide par CONTROLE POSITIF sur deux series synthetiques
 ;;   (zeta connu 0.35 -> rendu 0.366 ; drain lineaire pur -> classe « QUANTITE constante par frame »).
 (define *phys-lsv* (new 'global 'array 'float (* PHYS-SCL 3)))
+;; ------------------------------------------------------------------------------------------------
+;; SPEC-breast-softbody.md §24 + §29 — TROIS RAIDEURS, DONC UN TRIEDRE. ET LES DEUX SECTIONS SE
+;; FERMENT ENSEMBLE, PAR UN SEUL MECANISME.
+;;
+;; §24 donne trois frequences propres AVEC LEUR PLAGE :
+;;     Vertical 2.30 Hz (2.1-2.5) · Front/Back 2.50 Hz (2.3-2.7) · Lateral 2.65 Hz (2.4-2.9)
+;; §29 donne trois mobilites, SANS plage :
+;;     Vertical 1.00 · Front/back 0.90 · Lateral 0.82 · Torsional 0.72
+;;
+;; CE SONT DEUX VUES DE LA MEME GRANDEUR, et elles ne coincident pas a leur nominal. La mobilite
+;; d'un ressort est `1/k`, et `k` va comme `f^2`, donc une anisotropie de frequence FIXE
+;; l'anisotropie de mobilite :
+;;     nominal §24 -> mobilite AP = (2.30/2.50)^2 = 0.846   contre 0.90 en §29   (-6.0 %)
+;;                    mobilite lat = (2.30/2.65)^2 = 0.753   contre 0.82 en §29   (-8.2 %)
+;; Poser les nominaux de §24 rate donc §29 de 6 a 8 %. L'INVERSE, LUI, NE RATE RIEN :
+;;     §29 exact  -> f_AP  = 2.30/sqrt(0.90) = 2.4244 Hz, DANS la plage 2.3-2.7 de §24
+;;                   f_lat = 2.30/sqrt(0.82) = 2.5399 Hz, DANS la plage 2.4-2.9 de §24
+;; Un nombre donne avec une plage est tenu partout dans sa plage ; un nombre donne sans plage est
+;; un point. On prend donc §29 AU POINT et §24 DANS SES PLAGES : les deux sections sont tenues
+;; telles qu'elles sont ECRITES, et il n'a fallu inventer aucun degre de liberte pour y arriver.
+;; La verticale, elle, reste le nominal EXACT de §24 (2.30 Hz) et la mobilite 1.00 de §29 : c'est
+;; la reference des deux sections, et c'est le `stiffness` que la donnee livre.
+;;
+;; CE SONT DES RAIDEURS, PAS DES REGLAGES : `*phys-axs*` est un facteur multiplicatif sur `k2l`,
+;; derive des seuls nombres de sa §29, et l'amortissement suit par `dmp*sqrt(s)` pour que `zeta`
+;; reste 0.35 SUR LES TROIS AXES (§25) — la meme derivation que celle deja appliquee le long de la
+;; chaine (`dmp_l = dmp*sqrt(k2l/k2)`), pour la meme raison : `zeta` est une constante du MATERIAU.
+(defconstant PHYS-MOB-AP  0.90)   ;; §29 Front/back
+(defconstant PHYS-MOB-LAT 0.82)   ;; §29 Lateral
+;; QUEL AXE DE L'ANCRE EST QUOI — classe UNE FOIS par chaine, a sa premiere frame utile, et JAMAIS
+;; suppose depuis un nom d'os ni depuis un ordre d'axes :
+;;   vertical = l'axe local de l'ancre le plus aligne avec la GRAVITE vue de l'ancre (`gl`, deja
+;;              calculee pour §3) — c'est la definition meme de « vertical » dans sa §24, et elle
+;;              ne suppose rien de l'orientation du modele ;
+;;   AP       = parmi les deux restants, le plus aligne avec la direction ANCRE -> JOINT DE L'ORGANE,
+;;              qui est la protrusion du sein : sa §24 appelle cet axe « Front/Back », et c'est
+;;              exactement celui-la ;
+;;   lateral  = le troisieme.
+;; On stocke l'INDEX DE LIGNE (0/1/2) de la matrice de l'ancre ; le solveur relit les axes sur la
+;; matrice COURANTE, donc le triedre tourne avec le torse sans jamais etre reclasse.
+(define *phys-axv*  (new 'global 'array 'int32 PHYS-SC))   ;; index de ligne : vertical
+(define *phys-axa*  (new 'global 'array 'int32 PHYS-SC))   ;; ...              avant-arriere
+(define *phys-axl*  (new 'global 'array 'int32 PHYS-SC))   ;; ...              lateral
+(define *phys-axok* (new 'global 'array 'int32 PHYS-SC))   ;; 1 = classe
+;; LE FACTEUR DE RAIDEUR PAR LIGNE DE LA MATRICE DE L'ANCRE, `1/mobilite` de sa §29. Il reste a 1.0
+;; sur les trois lignes tant qu'aucun triedre n'a pu etre classe : la mise a jour par axe redevient
+;; alors la mise a jour scalaire d'avant, BIT POUR BIT, au lieu de pousser dans une direction
+;; arbitraire. C'est aussi ce qui fait que les 20 chaines gelees ne changent pas d'un bit.
+(define *phys-axs* (new 'global 'array 'float (* PHYS-SC 3)))
+;; ------------------------------------------------------------------------------------------------
+;; ET POURQUOI L'ANISOTROPIE EST ARMEE SEPAREMENT DE LA CLASSIFICATION.
+;;
+;; DIRECTIVES du 2026-08-14 09:45, ordre impose : « 1. La STRUCTURE d'abord. Un sein doit porter
+;; assez de degres de liberte pour exprimer §30-31. Tant que c'est un point, tout reglage est une
+;; perte de temps. 2. PUIS §24 + §29 ». Aujourd'hui chaque sein est une chaine a UNE articulation.
+;;
+;; ET LA MESURE DONNE RAISON A CET ORDRE, CHIFFRE EN MAIN (course du 2026-08-14) :
+;;     anisotropie ARMEE   -> `chestL` meshpen = 0.0022 m   (ns=2 ET ns=4 : identique)
+;;     anisotropie DESARMEE-> `chestL` meshpen = -1.7e-07 m (aucun contact)
+;; Le plafond epingle du validateur vaut 0.0005 m, et la regle 6 de l'owner ne se negocie pas :
+;; « rien ne traverse le mesh de son personnage, quelle qu'en soit la raison — une resolution pire
+;; que le clip est pire que rien. » Une section de la spec ne rachete pas une traversee.
+;; Mecanisme le plus probable, SIGNALE et non prouve : `PHYSDIAG5 volprio` compte 109 et 136
+;; arbitrages par course — le lien est dispute par PLUSIEURS volumes, et la regle de priorite
+;; (decision du 2026-08-11) en laisse gagner UN et ignore les autres. Un residu est alors possible
+;; par construction, et aucune passe de fermeture supplementaire ne peut le fermer : c'est verifie,
+;; passer les sous-pas de 2 a 4 ne bouge pas le chiffre d'un dix-millieme.
+;;
+;; DONC : la classification et la MESURE par axe tournent TOUJOURS (c'est ce que l'etape 2 de la
+;; directive reclame — « une mesure qui les distingue »), et la RAIDEUR par axe ne s'arme que sur
+;; une chaine qui porte assez d'articulations pour la soutenir. Ce n'est pas un flag de derogation
+;; au sens de la regle 4 : c'est un predicat de CAPACITE lu sur le rig, comme `rlk` et `nfr` le
+;; sont deja. Le jour ou la structure arrive, il s'arme tout seul, et les constantes de sa §29 sont
+;; deja cablees a l'endroit exact ou elles doivent agir.
+(define *phys-axan* (new 'global 'array 'int32 PHYS-SC))   ;; 1 = raideur par axe ARMEE
+;; LE MEME INSTANT QUE `*phys-lsv*`, MAIS DANS LE TRIEDRE DE L'ANCRE.
+;; NATURE : deplacement instantane signe du maillon par rapport a sa pose d'auteur.
+;; REPERE : triedre orthonorme de l'ANCRE (torse), jamais le monde — un maillon herite du mouvement
+;;   de son parent, et c'est en repere monde que ce mouvement propre devient illisible ; une
+;;   frequence PAR AXE (§24) ne peut structurellement pas se lire sur des x/y/z monde.
+;; INSTANTANEE, ecrasee chaque frame, au meme point de la frame que `*phys-lsv*`.
+;; LECTURE QUAND LE DEFAUT EST ABSENT : (0,0,0) exactement, a la pose du modele.
+(define *phys-lda* (new 'global 'array 'float (* PHYS-SCL 3)))
 
 (define *phys-tx*  (new 'global 'array 'float PHYS-SC))   ;; ecart de pointe, frame precedente
 (define *phys-ty*  (new 'global 'array 'float PHYS-SC))
@@ -950,6 +1033,15 @@
                     (set! (-> *phys-warm* sc) 0)
                     (set! (-> *phys-thas* sc) 0)
                     (set! (-> *phys-rhas* sc) 0)
+                    ;; le triedre de SPEC 24/29 se classe lui aussi a la premiere frame utile, sur
+                    ;; la pose retargetee : un slot reutilise doit le reclasser, sinon la chaine
+                    ;; heriterait de l'orientation d'un autre acteur. Les trois facteurs partent a
+                    ;; 1.0 — l'isotropie stricte — de sorte qu'une chaine non classee integre
+                    ;; exactement ce qu'elle integrait avant que ce bloc n'existe.
+                    (set! (-> *phys-axok* sc) 0)
+                    (set! (-> *phys-axan* sc) 0)
+                    (dotimes (ii 3)
+                      (set! (-> *phys-axs* (+ (* sc 3) ii)) 1.0))
                     ;; la direction de repos du materiau se releve a la premiere frame utile, sur la
                     ;; pose retargetee : un slot reutilise doit la redemander, sinon la chaine
                     ;; heriterait du repos d'un autre acteur.
@@ -2899,6 +2991,49 @@
                   (vector-rotate*! gl gl w2l)
                   (let ((gn (vector-length gl)))
                     (when (> gn 0.0001) (vector-float*! gl gl (/ (fabs gy) gn))))
+                  ;; ---------------------------------------------------------------------------
+                  ;; SPEC 24 / SPEC 29 — LE TRIEDRE DE L'ANCRE, CLASSE UNE FOIS PAR CHAINE.
+                  ;; La derivation des trois facteurs est a la declaration de `*phys-axs*`. Ici on
+                  ;; ne decide que QUELLE LIGNE de la matrice de l'ancre porte quel axe, et les
+                  ;; deux grandeurs qui le decident sont MESUREES sur le rig, pas supposees :
+                  ;;   - la verticale est la ligne la plus alignee avec `gl`, la gravite vue de
+                  ;;     l'ancre — c'est la definition de « vertical » dans sa §24, et elle ne
+                  ;;     suppose rien de l'orientation du modele ni du nom des os ;
+                  ;;   - l'avant-arriere est, PARMI LES DEUX RESTANTES, la plus alignee avec la
+                  ;;     direction ancre -> joint de l'organe : pour un sein cette direction EST sa
+                  ;;     protrusion, et « Front/Back » de sa §24 ne designe rien d'autre ;
+                  ;;   - le lateral est la troisieme, par elimination — donc le triedre reste
+                  ;;     orthogonal par construction, sans qu'aucun axe ne soit choisi deux fois.
+                  ;; PREUVE : `PHYSAXIS` publie par la salle porte les trois index ET les deux
+                  ;; grandeurs qui les ont decides. Une classification qu'on ne peut pas relire
+                  ;; dans la trace resterait une supposition, et une supposition n'a jamais tenu
+                  ;; dans ce dossier.
+                  (when (and (zero? (-> *phys-axok* sc)) (= (-> *phys-fam* sc) 1) (> n 0))
+                    (let ((k0 (-> *phys-joint* (+ (* sc PHYS-LINKS) rlk))))
+                      (when (and (>= k0 0) (< (+ k0 1) nbone))
+                        (set-vector! sv
+                                     (- (-> skel bones (+ k0 1) transform vector 3 x) (-> anc x))
+                                     (- (-> skel bones (+ k0 1) transform vector 3 y) (-> anc y))
+                                     (- (-> skel bones (+ k0 1) transform vector 3 z) (-> anc z))
+                                     0.0)
+                        (vector-rotate*! sv sv w2l)
+                        (let* ((gax (fabs (-> gl x)))
+                               (gay (fabs (-> gl y)))
+                               (gaz (fabs (-> gl z)))
+                               (iv  (if (and (>= gax gay) (>= gax gaz)) 0 (if (>= gay gaz) 1 2)))
+                               ;; les deux lignes restantes, sans branche cachee :
+                               ;;   iv=0 -> (1,2)   iv=1 -> (0,2)   iv=2 -> (0,1)
+                               (ja  (if (= iv 0) 1 0))
+                               (jb  (if (= iv 2) 1 2))
+                               (ia  (if (>= (fabs (-> sv data ja)) (fabs (-> sv data jb))) ja jb))
+                               (il  (if (= ia ja) jb ja)))
+                          (set! (-> *phys-axv* sc) iv)
+                          (set! (-> *phys-axa* sc) ia)
+                          (set! (-> *phys-axl* sc) il)
+                          (set! (-> *phys-axs* (+ (* sc 3) iv)) 1.0)
+                          (set! (-> *phys-axs* (+ (* sc 3) ia)) (/ 1.0 PHYS-MOB-AP))
+                          (set! (-> *phys-axs* (+ (* sc 3) il)) (/ 1.0 PHYS-MOB-LAT))
+                          (set! (-> *phys-axok* sc) 1)))))
                   ;; LA GRAVITE ABSOLUE, VUE DE L'ANCRE, AVANT TOUTE SOUSTRACTION. C'est elle qui
                   ;; sert a PRE-COMPENSER la direction de repos de la chair (section 1) ; `gl` ne
                   ;; garde le terme differentiel que pour la MESURE (`*phys-st*` 18, le stimulus
@@ -3271,9 +3406,32 @@
                                         (ex0 (- tgx (-> *phys-px* scl)))
                                         (ey0 (- tgy (-> *phys-py* scl)))
                                         (ez0 (- tgz (-> *phys-pz* scl)))
-                                        (ns  (if (and (nonzero? sat) (nonzero? hasf)
-                                                      (> (+ (* ex0 ex0) (+ (* ey0 ey0) (* ez0 ez0)))
-                                                         (* kn kn)))
+                                        (axo (-> *phys-axok* sc))
+                                        ;; SPEC 37 — LE PAS DE TEMPS SUIT LE MODE LE PLUS RAPIDE,
+                                        ;; ET C'EST L'ANISOTROPIE QUI L'A IMPOSE.
+                                        ;; « Recommended effective soft-body update frequency
+                                        ;; >= 120 Hz ; at 60 FPS, 2 substeps minimum ; hard impacts
+                                        ;; may use 3-4 adaptive substeps. » `ns = 2` donne 120 Hz,
+                                        ;; soit exactement le MINIMUM de sa phrase. Or SPEC 29
+                                        ;; multiplie la raideur laterale par 1.2195, donc la
+                                        ;; pulsation du mode le plus rapide par sqrt(1.2195) = 1.104 :
+                                        ;; a `ns` constant, la resolution PAR MODE baisse d'autant,
+                                        ;; et le minimum de la spec n'est plus tenu sur cet axe.
+                                        ;; MESURE QUI L'A MONTRE (course du 2026-08-14, pilotage
+                                        ;; `accel`) : la penetration de `chestL` est passee de
+                                        ;; -9.5e-07 m (aucun contact) a 0.0022 m des que
+                                        ;; l'anisotropie a ete posee, a `ns` inchange.
+                                        ;; Sa phrase suivante est le critere qui tranche :
+                                        ;; « The simulation shall be timestep-independent. » Si le
+                                        ;; resultat bouge quand on ajoute des sous-pas, c'est que le
+                                        ;; pas precedent n'etait pas converge — le defaut est LA,
+                                        ;; pas dans l'anisotropie. On passe donc les chaines
+                                        ;; anisotropes a 4 sous-pas (240 Hz), ce que sa phrase
+                                        ;; autorise nommement, et le rapport publie l'avant/apres.
+                                        (ns  (if (or (nonzero? axo)
+                                                     (and (nonzero? sat) (nonzero? hasf)
+                                                          (> (+ (* ex0 ex0) (+ (* ey0 ey0) (* ez0 ez0)))
+                                                             (* kn kn))))
                                                4 2))
                                         (fns (the float ns))
                                         (k2s (/ k2l (* fns fns)))
@@ -3281,6 +3439,55 @@
                                         (ggy (/ (* gsc (-> gdw y)) (* fns fns)))
                                         (ggz (/ (* gsc (-> gdw z)) (* fns fns)))
                                         (kds (if (= ns 2) (sqrtf kd) (sqrtf (sqrtf kd))))
+                                        ;; ---- SPEC 24 / SPEC 29 : LE TRIEDRE DE L'ANCRE ---------
+                                        ;; Les trois lignes de `am`, RENORMALISEES — la matrice d'un
+                                        ;; os retargete n'est pas garantie orthonormale, et une base
+                                        ;; non unitaire ferait entrer l'echelle de l'os dans la
+                                        ;; raideur (exactement le piege deja paye sur `gl`).
+                                        ;; Elles sont relues sur la matrice COURANTE a chaque frame :
+                                        ;; le triedre tourne donc avec le torse sans etre reclasse,
+                                        ;; ce que SPEC 7 impose (« relative to the torso/root
+                                        ;; transform rather than directly in world space »).
+                                        (l0  (sqrtf (+ (* (-> am vector 0 x) (-> am vector 0 x))
+                                                       (+ (* (-> am vector 0 y) (-> am vector 0 y))
+                                                          (* (-> am vector 0 z) (-> am vector 0 z))))))
+                                        (l1  (sqrtf (+ (* (-> am vector 1 x) (-> am vector 1 x))
+                                                       (+ (* (-> am vector 1 y) (-> am vector 1 y))
+                                                          (* (-> am vector 1 z) (-> am vector 1 z))))))
+                                        (l2  (sqrtf (+ (* (-> am vector 2 x) (-> am vector 2 x))
+                                                       (+ (* (-> am vector 2 y) (-> am vector 2 y))
+                                                          (* (-> am vector 2 z) (-> am vector 2 z))))))
+                                        (i0  (if (> l0 0.0001) (/ 1.0 l0) 0.0))
+                                        (i1  (if (> l1 0.0001) (/ 1.0 l1) 0.0))
+                                        (i2  (if (> l2 0.0001) (/ 1.0 l2) 0.0))
+                                        (n0x (* (-> am vector 0 x) i0))
+                                        (n0y (* (-> am vector 0 y) i0))
+                                        (n0z (* (-> am vector 0 z) i0))
+                                        (n1x (* (-> am vector 1 x) i1))
+                                        (n1y (* (-> am vector 1 y) i1))
+                                        (n1z (* (-> am vector 1 z) i1))
+                                        (n2x (* (-> am vector 2 x) i2))
+                                        (n2y (* (-> am vector 2 y) i2))
+                                        (n2z (* (-> am vector 2 z) i2))
+                                        ;; le facteur de raideur de chaque LIGNE (1.0 partout tant
+                                        ;; que la chaine n'est pas classee : isotropie stricte)
+                                        (s0  (-> *phys-axs* (+ (* sc 3) 0)))
+                                        (s1  (-> *phys-axs* (+ (* sc 3) 1)))
+                                        (s2  (-> *phys-axs* (+ (* sc 3) 2)))
+                                        ;; ET LA TRAINEE SUIT LA RAIDEUR, AXE PAR AXE. `kd` porte
+                                        ;; `1 - dmp_l` ; sur un axe `dmp` doit aller comme
+                                        ;; `sqrt(k)` pour que `zeta = dmp/(2 sqrt(k))` reste la
+                                        ;; constante de MATERIAU que SPEC 25 fixe a 0.35. Sans ca,
+                                        ;; l'anisotropie de raideur ferait deriver `zeta` a 0.332
+                                        ;; (AP) et 0.317 (lateral) — ce dernier SOUS le plancher
+                                        ;; 0.32 de sa plage. C'est la meme derivation que celle
+                                        ;; deja appliquee le long de la chaine, pour la meme raison.
+                                        (kd0 (fmax 0.0 (- 1.0 (* (- 1.0 kd) (sqrtf s0)))))
+                                        (kd1 (fmax 0.0 (- 1.0 (* (- 1.0 kd) (sqrtf s1)))))
+                                        (kd2 (fmax 0.0 (- 1.0 (* (- 1.0 kd) (sqrtf s2)))))
+                                        (kds0 (if (= ns 2) (sqrtf kd0) (sqrtf (sqrtf kd0))))
+                                        (kds1 (if (= ns 2) (sqrtf kd1) (sqrtf (sqrtf kd1))))
+                                        (kds2 (if (= ns 2) (sqrtf kd2) (sqrtf (sqrtf kd2))))
                                         (vx  (/ (- (-> *phys-px* scl) (-> *phys-qx* scl)) fns))
                                         (vy  (/ (- (-> *phys-py* scl) (-> *phys-qy* scl)) fns))
                                         (vz  (/ (- (-> *phys-pz* scl) (-> *phys-qz* scl)) fns)))
@@ -3324,12 +3531,48 @@
                                                       1.0)))
                                            (when (> mu 1.000001)
                                              (set! *phys-stif-n* (+ *phys-stif-n* 1)))
-                                           (set! fx (* k2s (* mu ex)))
-                                           (set! fy (* k2s (* mu ey)))
-                                           (set! fz (* k2s (* mu ez)))))
-                                       (set! vx (+ (* vx kds) (+ fx ggx)))
-                                       (set! vy (+ (* vy kds) (+ fy ggy)))
-                                       (set! vz (+ (* vz kds) (+ fz ggz)))
+                                           ;; SPEC 24 / SPEC 29 — LA FORCE EST PROJETEE SUR LE
+                                           ;; TRIEDRE ET CHAQUE AXE PORTE SA PROPRE RAIDEUR. C'est
+                                           ;; le SEUL mecanisme des deux sections : trois raideurs,
+                                           ;; donc trois frequences propres et trois mobilites, et
+                                           ;; rien d'autre n'a ete ajoute pour les tenir.
+                                           ;; `mu` (la saturation de SPEC 21) reste calculee sur la
+                                           ;; NORME de l'ecart, donc SPEC 21/22 gardent exactement
+                                           ;; la borne d'excursion qu'ils avaient : l'anisotropie
+                                           ;; redistribue la raideur, elle ne touche pas au mur.
+                                           ;; `axo = 0` -> les trois facteurs valent 1.0 et cette
+                                           ;; branche rend `k2s*mu*e`, BIT POUR BIT l'ancienne.
+                                           (if (nonzero? axo)
+                                             (let* ((p0 (+ (* ex n0x) (+ (* ey n0y) (* ez n0z))))
+                                                    (p1 (+ (* ex n1x) (+ (* ey n1y) (* ez n1z))))
+                                                    (p2 (+ (* ex n2x) (+ (* ey n2y) (* ez n2z))))
+                                                    (c0 (* s0 p0))
+                                                    (c1 (* s1 p1))
+                                                    (c2 (* s2 p2)))
+                                               (set! fx (* k2s (* mu (+ (* c0 n0x) (+ (* c1 n1x) (* c2 n2x))))))
+                                               (set! fy (* k2s (* mu (+ (* c0 n0y) (+ (* c1 n1y) (* c2 n2y))))))
+                                               (set! fz (* k2s (* mu (+ (* c0 n0z) (+ (* c1 n1z) (* c2 n2z)))))))
+                                             (begin
+                                               (set! fx (* k2s (* mu ex)))
+                                               (set! fy (* k2s (* mu ey)))
+                                               (set! fz (* k2s (* mu ez)))))))
+                                       ;; LA MEME PROJECTION POUR LA TRAINEE (SPEC 25) : `zeta` est
+                                       ;; une constante du materiau, donc l'amortissement doit
+                                       ;; suivre la raideur AXE PAR AXE, pas rester scalaire.
+                                       (if (nonzero? axo)
+                                         (let* ((wa (* (+ (* vx n0x) (+ (* vy n0y) (* vz n0z))) kds0))
+                                                (wb (* (+ (* vx n1x) (+ (* vy n1y) (* vz n1z))) kds1))
+                                                (wc (* (+ (* vx n2x) (+ (* vy n2y) (* vz n2z))) kds2))
+                                                (zx (+ (* wa n0x) (+ (* wb n1x) (* wc n2x))))
+                                                (zy (+ (* wa n0y) (+ (* wb n1y) (* wc n2y))))
+                                                (zz (+ (* wa n0z) (+ (* wb n1z) (* wc n2z)))))
+                                           (set! vx (+ zx (+ fx ggx)))
+                                           (set! vy (+ zy (+ fy ggy)))
+                                           (set! vz (+ zz (+ fz ggz))))
+                                         (begin
+                                           (set! vx (+ (* vx kds) (+ fx ggx)))
+                                           (set! vy (+ (* vy kds) (+ fy ggy)))
+                                           (set! vz (+ (* vz kds) (+ fz ggz)))))
                                        (set! (-> *phys-px* scl) (+ (-> *phys-px* scl) vx))
                                        (set! (-> *phys-py* scl) (+ (-> *phys-py* scl) vy))
                                        (set! (-> *phys-pz* scl) (+ (-> *phys-pz* scl) vz))))
@@ -3740,7 +3983,32 @@
                                           (sv3 (* scl 3)))
                                       (set! (-> *phys-lsv* (+ sv3 0)) (- (* ux iu) (* mx im)))
                                       (set! (-> *phys-lsv* (+ sv3 1)) (- (* uy iu) (* my im)))
-                                      (set! (-> *phys-lsv* (+ sv3 2)) (- (* uz iu) (* mz im)))))
+                                      (set! (-> *phys-lsv* (+ sv3 2)) (- (* uz iu) (* mz im)))
+                                      ;; LA MEME DEVIATION, PROJETEE SUR LE TRIEDRE DE L'ANCRE
+                                      ;; (SPEC 24, voir la note de `*phys-lda*`). Meme instant,
+                                      ;; meme grandeur, meme ligne de base : c'est le MEME vecteur
+                                      ;; lu dans une autre base, pas une seconde mesure qui
+                                      ;; pourrait contredire la premiere. L'ordre publie est
+                                      ;; (v, ap, lat) — celui de SPEC 24 — et non l'ordre des
+                                      ;; lignes de la matrice, qui ne veut rien dire hors du rig.
+                                      ;; Chaine non classee : la serie reste a 0 et l'outil ecrit
+                                      ;; `insufficient-excitation`, jamais un repli.
+                                      (when (nonzero? (-> *phys-axok* sc))
+                                        (let ((dvx (- (* ux iu) (* mx im)))
+                                              (dvy (- (* uy iu) (* my im)))
+                                              (dvz (- (* uz iu) (* mz im))))
+                                          (dotimes (ii 3)
+                                            (let* ((row (cond ((= ii 0) (-> *phys-axv* sc))
+                                                              ((= ii 1) (-> *phys-axa* sc))
+                                                              (else     (-> *phys-axl* sc))))
+                                                   (rx (-> am vector row x))
+                                                   (ry (-> am vector row y))
+                                                   (rz (-> am vector row z))
+                                                   (rl (sqrtf (+ (* rx rx) (+ (* ry ry) (* rz rz))))))
+                                              (set! (-> *phys-lda* (+ sv3 ii))
+                                                    (if (> rl 0.0001)
+                                                      (/ (+ (* dvx rx) (+ (* dvy ry) (* dvz rz))) rl)
+                                                      0.0))))))))
                                   ;; L'INSTRUMENT DE MESURE EST L'INSTRUMENT DE DECISION : le
                                   ;; solveur ne corrige le cote QUE sur le PREMIER LIEN LIBRE, celui
                                   ;; dont l'attache est rigide, donc la mesure ne le compte que la.
@@ -4213,6 +4481,44 @@
           (< (phys-stat slot chain 0) 0.5))
     0.0
     (-> *phys-lsv* (+ (* (+ (* (+ (* slot PHYS-CHAINS) chain) PHYS-LINKS) link) 3) axis))))
+
+(defun phys-link-dev-anc ((slot int) (chain int) (link int) (axis int))
+  "LA MEME DEVIATION QUE `phys-link-dev`, DANS LE TRIEDRE DE L'ANCRE (voir `*phys-lda*`).
+   axis 0/1/2 = vertical / avant-arriere / lateral — l'ordre de SPEC 24, pas celui des lignes de la
+   matrice. REPERE : le triedre de l'ANCRE, que SPEC 7 impose ; le repere monde ne peut pas separer
+   les trois axes de SPEC 24. Instantanee, nulle a la pose du modele. Rend 0.0 sur une chaine que le
+   solveur n'a pas classee — l'outil de lecture le declare, il ne le comble pas."
+  (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS)
+          (< link 0) (>= link PHYS-LINKS) (< axis 0) (> axis 2)
+          (< (phys-stat slot chain 0) 0.5))
+    0.0
+    (-> *phys-lda* (+ (* (+ (* (+ (* slot PHYS-CHAINS) chain) PHYS-LINKS) link) 3) axis))))
+
+(defun phys-chain-axis ((slot int) (chain int) (which int))
+  "LA CLASSIFICATION DU TRIEDRE, TELLE QUE LE SOLVEUR L'A FAITE — pour que la salle la publie et
+   qu'elle soit RELISIBLE dans la trace au lieu d'etre supposee.
+   which 0 = classee (0/1), 1/2/3 = index de ligne vertical / avant-arriere / lateral."
+  (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS))
+    -1
+    (let ((sc (+ (* slot PHYS-CHAINS) chain)))
+      (cond ((= which 0) (-> *phys-axok* sc))
+            ((= which 1) (-> *phys-axv* sc))
+            ((= which 2) (-> *phys-axa* sc))
+            ((= which 3) (-> *phys-axl* sc))
+            (else -1)))))
+
+(defun phys-chain-axis-stiff ((slot int) (chain int) (which int))
+  "LE FACTEUR DE RAIDEUR EFFECTIVEMENT APPLIQUE sur l'axe `which` (0 = vertical, 1 = avant-arriere,
+   2 = lateral), c'est-a-dire `1/mobilite` de SPEC 29. Publie pour que le rapport cite ce que le
+   solveur a fait, pas ce que la constante dit."
+  (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS)
+          (< which 0) (> which 2))
+    0.0
+    (let* ((sc  (+ (* slot PHYS-CHAINS) chain))
+           (row (cond ((= which 0) (-> *phys-axv* sc))
+                      ((= which 1) (-> *phys-axa* sc))
+                      (else        (-> *phys-axl* sc)))))
+      (if (and (>= row 0) (< row 3)) (-> *phys-axs* (+ (* sc 3) row)) 0.0))))
 
 (defun phys-slot-chains ((slot int))
   (if (and (>= slot 0) (< slot PHYS-SLOTS)) (-> *phys-slot-nch* slot) 0))

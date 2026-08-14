@@ -1097,6 +1097,27 @@
                        (if (and (>= j0 0) (nonzero? (-> hd draw)) (nonzero? (-> hd draw jgeo)))
                          (-> hd draw jgeo data j0 name)
                          "?")))
+             ;; LE TRIEDRE DE SPEC 24/29, TEL QUE LE SOLVEUR L'A CLASSE — et les trois facteurs de
+             ;; raideur qu'il a REELLEMENT appliques, pas ceux qu'une constante annonce.
+             ;; NATURE : des index de ligne (sans unite) et des facteurs multiplicatifs (sans
+             ;; unite). REPERE : les lignes de la matrice de l'ANCRE. LIGNE DE BASE : `ok=0` avec
+             ;; les trois facteurs a 1.000 = chaine non classee, donc integration isotrope, donc
+             ;; bit pour bit celle d'avant l'anisotropie.
+             ;; `sv/sap/slat` sont `1/mobilite` de sa §29 : 1.000 / 1.111 / 1.220 attendus.
+             ;; DEUX LIGNES, ET CE N'EST PAS UN CHOIX DE STYLE : `format` de GOAL n'accepte pas
+             ;; plus de huit parametres, destination et chaine de format comprises (meme plafond
+             ;; que `PHYSGRADS` et `PHYSRINGA`). Huit champs ne tiennent pas sur une ligne.
+             (format 0 "PHYSAXIS c=~D ok=~D rv=~D rap=~D rlat=~D~%"
+                     c
+                     (phys-chain-axis (-> self slot) c 0)
+                     (phys-chain-axis (-> self slot) c 1)
+                     (phys-chain-axis (-> self slot) c 2)
+                     (phys-chain-axis (-> self slot) c 3))
+             (format 0 "PHYSAXISS c=~D sv=~f sap=~f slat=~f~%"
+                     c
+                     (phys-chain-axis-stiff (-> self slot) c 0)
+                     (phys-chain-axis-stiff (-> self slot) c 1)
+                     (phys-chain-axis-stiff (-> self slot) c 2))
              (dotimes (l (phys-chain-links (-> self slot) c))
                (format 0 "PHYSBONE c=~D l=~D len=~f~%"
                        c l (phys-chain-bone hd (-> self slot) c l))
@@ -1269,6 +1290,31 @@
                    (phys-link-dev (-> self slot) c l 0)
                    (phys-link-dev (-> self slot) c l 1)
                    (phys-link-dev (-> self slot) c l 2))
+           ;; LA MEME DEVIATION, MAIS PROJETEE PAR AXE DANS LE REPERE DE L'ANCRE — c'est ce que
+           ;; SPEC 24 exige, et c'est la seule forme qui puisse le rendre : elle demande TROIS
+           ;; frequences propres (vertical 2.30 Hz, avant-arriere 2.50 Hz, lateral 2.65 Hz), et une
+           ;; serie projetee sur son axe principal ne peut en rendre qu'UNE, celle de l'axe
+           ;; dominant. SPEC 7 fixe le repere : « all dynamic calculations shall occur relative to
+           ;; the torso/root transform rather than directly in world space ».
+           ;;
+           ;; NATURE : deplacement instantane signe du maillon par rapport a sa pose d'auteur — une
+           ;;   SERIE TEMPORELLE, pas une amplitude agregee.
+           ;; REPERE : triedre orthonorme de l'ANCRE (torse), jamais le monde : un maillon herite du
+           ;;   mouvement de son parent, et c'est en repere monde que son mouvement propre devient
+           ;;   illisible.
+           ;; LIGNE DE BASE : la serie vaut 0 sur toute sa longueur quand la chaine est exactement
+           ;;   sur la pose d'auteur.
+           ;;
+           ;; `v` = axe 0 (vertical), `ap` = axe 1 (avant-arriere), `lat` = axe 2 (lateral).
+           ;; LIGNE SEPAREE, et ce n'est pas un choix de style : `format` de GOAL n'accepte pas plus
+           ;; de huit parametres, destination et chaine de format comprises (cf. la note de
+           ;; `PHYSGRADS` plus haut). Celle-ci en fait exactement huit : c'est le plafond, aucun
+           ;; champ ne peut y etre ajoute.
+           (format 0 "PHYSRINGA c=~D f=~D l=~D v=~f ap=~f lat=~f~%"
+                   c (-> self pframe) l
+                   (phys-link-dev-anc (-> self slot) c l 0)
+                   (phys-link-dev-anc (-> self slot) c l 1)
+                   (phys-link-dev-anc (-> self slot) c l 2))
            ;; ET L'ATTRIBUTION PAR ETAGE, LA MEME FRAME : `a0` = l'angle que L'INTEGRATION SEULE
            ;; produit, `a1` = ce qu'il reste apres la boucle de contraintes et l'attenuation.
            ;; `a0 - a1` EST, en degres et par frame, ce que les contraintes retirent — la seule
