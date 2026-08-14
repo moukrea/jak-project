@@ -266,11 +266,39 @@ C'est exactement la regle du contrat — « une reponse identique dans les trois
 qu'elles ne sont pas appliquees » — et il faut la lire dans les deux sens : ici elle ne prouve pas
 qu'elles ne sont pas appliquees, elle prouve que **la salle ne sait pas encore les separer**.
 
-CHANTIER SUIVANT POUR §24, ET IL EST DE L'INSTRUMENT, PAS DU REGLAGE : une impulsion par AXE
-(exciter selon `v` seul, puis `ap` seul, puis `lat` seul, chacune suivie de sa fenetre libre), au
-lieu d'un residu de balancement quelconque. Tant que cette fenetre n'existe pas, §24 reste
-PARTIELLE et **aucun parametre ne doit etre ajuste sur ces chiffres** : ce serait ajuster un
-parametre a l'instrument, ce que le registre interdit nommement.
+SECONDE EXCITATION, OBTENUE SANS RIEN AJOUTER AU SOLVEUR — ET CE QU'ELLE TRANCHE.
+Les 60 degres de la phase d'inclinaison sont rendus en UNE frame : le debut de cette fenetre est
+donc une IMPULSION, d'azimut different de celui du residu de repos. `PHYSRINGAT` publie la meme
+serie sur cette fenetre-la (phys-room.gc seul, fichier non plafonne ; aucune ligne de solveur
+touchee — verifie : `tipvar`, `meshpen`, `idle` sont IDENTIQUES au bit pres a la course precedente).
+
+    axe   cible    REPOS                  INCLINAISON            ecart
+    v     2.30     2.308  (13, 13)        2.500  (12)            8 %
+    ap    2.50     2.308  (13, 13)        2.308  (13)            0 %
+    lat   2.65     pas d'oscillation      2.647  (7, 13, 14)     —
+
+**LA REPONSE DEPEND BIEN DE LA DIRECTION** : sur `v`, deux excitations differentes rendent 2.308 et
+2.500. Ce n'est donc pas un mode unique global, et l'anisotropie de §29 atteint la reponse.
+
+**ET LE `2.647` POUR UNE CIBLE DE `2.65` N'EST PAS UNE REUSSITE — je l'ecris avant qu'on me le
+lise a l'envers.** Ses demi-periodes sont 7, 13, 14 : un facteur DEUX d'ecart. La serie ne porte pas
+un mode unique, la moyenne n'a pas de sens, et elle tombe sur la cible par coincidence. C'est
+exactement le faux vert que ce dossier fabrique le plus facilement ; le chiffre est publie et
+REJETE.
+
+**LE VRAI VERROU DE §24 EST LA RESOLUTION DE L'INSTRUMENT, ET IL EST ARITHMETIQUE.** A 60 Hz une
+demi-periode vaut 12 a 15 frames ; le ring-down libre en offre 2 a 3 avant de passer sous le bruit.
+La periode est donc connue a environ +/- 1 frame sur 26, soit **+/- 4 % au mieux**. Or les trois
+cibles de sa §24 sont separees de **8,7 % (2.30 -> 2.50) et 6,0 % (2.50 -> 2.65)**. La marge
+d'erreur est du meme ordre que ce qu'il faut distinguer : **la salle ne peut pas, aujourd'hui,
+decider si §24 est tenue** — ni dans un sens ni dans l'autre.
+
+CE QU'IL FAUT, ET CE N'EST PAS UN REGLAGE : une fenetre de ring-down assez LONGUE pour porter 6 a
+10 demi-periodes propres (donc une impulsion franche par axe suivie d'une decroissance libre non
+interrompue), ou un ajustement frequentiel sur toute la serie plutot qu'un comptage de croisements.
+Tant que la resolution est de +/- 4 % pour des bandes a 6 %, **aucun parametre ne doit etre ajuste
+sur ces chiffres** — ce serait ajuster un parametre a l'instrument, ce que le registre interdit
+nommement, et c'est ce qui a deja coute une cible entiere sur les meches.
 
 6. CE QUI N'EST PAS PROUVE, ET JE LE DIS
 ==========================================

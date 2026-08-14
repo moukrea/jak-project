@@ -1375,6 +1375,36 @@
     ;; ---- que reclame la 6e passe : « aucun mouvement quand elle se penche en avant pour souder ».
     ((= (-> self phase) PHYSROOM-PH-TILT)
      (physroom-lean PHYSROOM-TILTDEG)
+     ;; ---- SPEC 24 — LA MEME SERIE, MAIS SOUS UNE EXCITATION DE DIRECTION DIFFERENTE ----------
+     ;; Le refit du ring-down de REPOS donne la MEME demi-periode sur `v` et `ap` (13 frames), et
+     ;; les MEMES croisements de zero : dans cette fenetre-la la poitrine fait un balancement PLAN,
+     ;; donc deux projections d'un seul vecteur oscillant selon une direction fixe. Une seule
+     ;; frequence peut en sortir, quelles que soient les raideurs par axe — et §29 est pourtant bien
+     ;; armee (`sap 1.1111`, `slat 1.2195` lus a l'execution). Ce n'est donc pas le solveur qui ne
+     ;; separe pas les trois modes de sa §24, c'est L'EXCITATION.
+     ;;
+     ;; Cette phase en fournit une SECONDE, gratuitement et sans rien ajouter au solveur : les 60
+     ;; degres sont rendus en UNE frame (voir la note de `physroom-hold`), donc le debut de la
+     ;; fenetre est une IMPULSION, et son azimut dans le plan tangent de l'ancre n'a aucune raison
+     ;; d'etre celui du residu de la fenetre de repos. Deux directions d'excitation, deux ring-downs
+     ;; a comparer : si les demi-periodes DIFFERENT, l'anisotropie de §29 est demontree a
+     ;; l'execution ; si elles sont egales, c'est que la raideur par axe n'atteint pas la reponse,
+     ;; et il faudra une impulsion par axe.
+     ;;
+     ;; NATURE / REPERE / LIGNE DE BASE : identiques a `PHYSRINGA` de la fenetre de repos (voir sa
+     ;; note) — deviation signee du maillon a sa pose d'auteur, projetee sur le triedre de l'ANCRE
+     ;; (SPEC 7), nulle sur toute sa longueur quand la chaine est sur la pose d'auteur. Le seul
+     ;; changement est le CHEMIN parcouru avant la fenetre, ce qui est precisement la variable.
+     ;; Le suffixe `T` distingue les deux fenetres : les melanger rendrait le refit ininterpretable.
+     (when (< (-> self pframe) PHYSROOM-IDLES)
+       (dotimes (c (-> self nchain))
+        (when (> (phys-chain-links (-> self slot) c) 0)
+         (dotimes (l (phys-chain-links (-> self slot) c))
+           (format 0 "PHYSRINGAT c=~D f=~D l=~D v=~f ap=~f lat=~f~%"
+                   c (-> self pframe) l
+                   (phys-link-dev-anc (-> self slot) c l 0)
+                   (phys-link-dev-anc (-> self slot) c l 1)
+                   (phys-link-dev-anc (-> self slot) c l 2))))))
      (when (= (-> self pframe) PHYSROOM-IDLES) (phys-stats-reset!))
      (when (>= (-> self pframe) (+ PHYSROOM-IDLES PHYSROOM-IDLEM))
        (dotimes (c (-> self nchain))
