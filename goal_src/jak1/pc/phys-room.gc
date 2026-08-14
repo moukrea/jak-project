@@ -1230,6 +1230,13 @@
        ;; la course. REPERE : sans objet (ce n'est pas une grandeur geometrique). LECTURE QUAND LE
        ;; DEFAUT EST ABSENT : zero des deux cotes — la pose du modele est admissible et l'arc suffit.
        (format 0 "PHYSLIM3 sphere_n=~f~%" (phys-limiter 8))
+       ;; SPEC 21/22 — CE QUE LA SATURATION D'EXCURSION A RETIRE. NATURE : `sat_n` est un compte
+       ;; d'evenements sur la course, `sat_sum` une LONGUEUR cumulee en unites de jeu. REPERE : une
+       ;; magnitude de deplacement, invariante par rotation. LECTURE QUAND LE DEFAUT EST ABSENT :
+       ;; `sat_n=0` — la poitrine est restee sous le `HardMaxApexDisplacement = 0.50 B0` de l'owner
+       ;; et rien n'a ete borne. C'est le chiffrage que la SPEC 7 du contrat exige de tout
+       ;; suppresseur : sans lui, « borne » et « brime » seraient indiscernables.
+       (format 0 "PHYSLIM4 sat_n=~f sat_sum=~f~%" (phys-limiter 9) (phys-limiter 10))
        ;; QUEL VOLUME CONTRAINT QUELLE CHAINE, sur toute la course. Une ligne par paire non nulle :
        ;; c'est la question que trois cycles ont posee sans instrument (« lbang est en contact
        ;; 17893 frames sur 17893 avec un AUTRE volume, non identifie »). Le nom du volume est deja

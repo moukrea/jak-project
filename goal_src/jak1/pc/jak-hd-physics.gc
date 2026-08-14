@@ -798,6 +798,18 @@
 ;; balayage ne trouve jamais rien, donc qu'il ne sert a rien.
 (define *phys-sphere-n* 0)
 ;; ------------------------------------------------------------------------------------------------
+;; SPEC 21 / SPEC 22 — SATURATION DE L'EXCURSION. Combien de fois la saturation a mordu sur la
+;; fenetre, et combien de mouvement elle a retire au total.
+;;   NATURE : `n` est un COMPTE d'evenements ; `sum` est une LONGUEUR cumulee, en unites de jeu.
+;;   REPERE : une magnitude de deplacement, donc invariante par rotation — la meme en monde et dans
+;;            le repere du torse que la SPEC 7 de l'owner nomme.
+;;   LECTURE QUAND LE DEFAUT EST ABSENT : `n` = 0 exactement. La saturation ne mord que si
+;;            l'excursion depasse le plafond de l'owner ; une course qui reste dans son enveloppe
+;;            n'incremente rien, et c'est ainsi qu'on distingue « borne » de « brime ».
+;; SPEC 7 du contrat exige de chiffrer ce qu'un suppresseur retire : c'est `sum`, et il est publie.
+(define *phys-sat-n* 0)
+(define *phys-sat-sum* 0.0)
+;; ------------------------------------------------------------------------------------------------
 ;; QUEL VOLUME CONTRAINT QUELLE CHAINE — l'instrument que trois cycles de suite ont nomme comme
 ;; manquant, sans jamais le poser.
 ;;
@@ -3602,6 +3614,105 @@
                     ;; ETAGE 0 du gradient : l'angle tel que L'INTEGRATION SEULE le produit, avant
                     ;; qu'aucune contrainte n'ait touche le maillon. Voir la note de `*phys-la0*`.
                     (phys-cap-ang! skel sc n rlk an nbone 0)
+                    ;; ------------------------------------------------------------------------
+                    ;; SPEC 21 — SATURATION DE L'EXCURSION, ET C'EST SA FORMULE, PAS LA MIENNE :
+                    ;;     D_combined = D_max * tanh( |D_linear + D_angular| / D_max )
+                    ;; « They shall not be added without saturation. This prevents combinations
+                    ;; such as strong jump + fast rotation + abrupt animation acceleration from
+                    ;; creating implausibly large soft-body excursions. » Sa phrase decrit
+                    ;; exactement le pilotage `accel`/`jerk` de la salle.
+                    ;;
+                    ;; UNE TRANSCRIPTION LITTERALE DE CETTE FORMULE EST UN PIEGE, ET JE L'AI ECRITE
+                    ;; AVANT DE LA MESURER. `tanh` pris depuis zero n'est l'identite qu'au premier
+                    ;; ordre : a 0.30 B0 il retire 9.5 % de l'ecart, et comme le solveur le
+                    ;; reapplique A CHAQUE FRAME sur l'etat qu'il vient lui-meme de reduire, ces
+                    ;; 9.5 % se COMPOSENT — il ne reste que 7.4 % de l'amplitude apres une periode
+                    ;; (26 frames). Ce n'est plus une saturation, c'est un amortissement cache, et
+                    ;; il aurait mute exactement le regime subtil que l'owner a valide. La spec
+                    ;; combine des CONTRIBUTIONS en une evaluation ; notre solveur integre un ETAT,
+                    ;; et une saturation iteree sur un etat n'est pas la meme operation.
+                    ;;
+                    ;; CE QUI EST ECRIT A LA PLACE UTILISE SES DEUX NOMBRES, PAS UN SEUL. SPEC 22 :
+                    ;; « Distal/apex displacement: normal <= 42% B0, exceptional <= 50% B0 ». Donc :
+                    ;;   D <= 0.42 B0                 -> IDENTITE STRICTE, aucun octet touche ;
+                    ;;   D  > 0.42 B0                 -> l'EXCES seul est sature, asymptote 0.50 B0.
+                    ;;     D' = 0.42 B0 + 0.08 B0 * tanh( (D - 0.42 B0) / 0.08 B0 )
+                    ;; C'est C1 au genou (tanh'(0) = 1, donc aucune cassure de pente), et surtout le
+                    ;; regime que l'owner appelle « nickel » est bit-identique PAR CONSTRUCTION et
+                    ;; non par reglage — la garde `(> dd kn)` ne s'ouvre meme pas.
+                    ;;
+                    ;; `B0` = SPEC 6, « neutral characteristic root-to-apex length », et la spec dit
+                    ;; ou le prendre : « The game implementation shall derive normalized dimensions
+                    ;; directly from the character mesh ». On prend donc la LONGUEUR D'OS DU MAILLON,
+                    ;; `*phys-blen*` — mesuree sur le rig, propre a chaque chaine. AUCUNE constante
+                    ;; de l'instrument n'entre ici (ni periode de pilotage, ni amplitude de la
+                    ;; salle) : c'est la regle `never-fit-a-parameter-to-the-instrument`, et c'est
+                    ;; elle qui rend le nombre transportable du banc vers le jeu.
+                    ;;
+                    ;; POURQUOI CE N'EST PAS UN ECRETAGE. Un `min` dur ferait un a-coup a l'instant
+                    ;; du contact — le defaut que l'owner appelle « on tape sur un pudding ». `tanh`
+                    ;; est C-infini, vaut l'identite au premier ordre et n'a pas de coude : le
+                    ;; regime subtil qu'il a valide (« poitrine sur mouvements subtils : toujours
+                    ;; OK ») est preserve a 1.2 % pres a 0.10 B0, 0.3 % a 0.05 B0.
+                    ;;
+                    ;; GOAL N'A PAS D'EXPONENTIELLE. On evalue `tanh` par son approximant de Pade
+                    ;; (3,2) `x(27+x^2)/(27+9x^2)`, qui vaut EXACTEMENT 1.0 en x=3 (le numerateur
+                    ;; moins le denominateur est `(x-3)^3`), est croissant sur [0,3] et s'ecarte au
+                    ;; pire de 0.0235 de `tanh` (2.4 %, a x=1.57). Au-dela de x=3 on tient 1.0.
+                    ;; L'ecart est declare parce qu'il est plus petit que la largeur des bandes de
+                    ;; la spec elle-meme (0.42..0.50 B0), pas parce qu'il est negligeable en soi.
+                    ;;
+                    ;; PORTEE : `famille A et UN SEUL maillon`. Releve sur la course, pas sur un nom
+                    ;; — `PHYSCHAIN` publie `links=` et `fam=` pour les 22 chaines, et ce couple ne
+                    ;; selectionne que `c=7 lBoob` et `c=8 rBoob`. Il a un sens mecanique et pas
+                    ;; seulement arithmetique : une chaine a un maillon n'a aucune articulation
+                    ;; interne, donc toute son excursion EST la rotation d'un bloc autour de son
+                    ;; ancre — la grandeur meme que SPEC 22 borne (`COM` et `apex`). Les 13 chaines
+                    ;; de famille B (lunettes, sangles, languettes de genoux) ne sont pas touchees,
+                    ;; donc `goggles-tunnel` et `knee-tabs`, les deux defauts que l'owner a FERMES,
+                    ;; sont protegees par construction et non par un reglage.
+                    ;;
+                    ;; CE QUI N'EST PAS FAIT, ET JE NE LE MASQUE PAS : la transposition aux cheveux
+                    ;; que la directive du 23:35 ordonne. Elle demande « valeurs propres a chaque
+                    ;; organe » et la spec ne donne un `MaxApexDisplacement` que pour le SEIN.
+                    ;; Reprendre 0.50 pour une meche serait un nombre choisi par moi. La question
+                    ;; est posee dans le rapport.
+                    ;;
+                    ;; PLACE DANS LA FRAME : apres l'etage 0 (qui garde donc son sens, « l'angle que
+                    ;; l'integration SEULE produit ») et AVANT la boucle de contraintes, pour que la
+                    ;; collision garde le dernier mot — regle 6, « rien ne traverse le mesh ».
+                    ;; ------------------------------------------------------------------------
+                    (when (and (= (-> *phys-fam* sc) 1) (= n 1))
+                      (dotimes (l n)
+                        (when (>= l rlk)
+                          (let* ((scl (+ (* sc PHYS-LINKS) l))
+                                 (k   (-> *phys-joint* scl)))
+                            (when (and (>= k 0) (< (+ k 1) nbone))
+                              (let* ((tx (-> skel bones (+ k 1) transform vector 3 x))
+                                     (ty (-> skel bones (+ k 1) transform vector 3 y))
+                                     (tz (-> skel bones (+ k 1) transform vector 3 z))
+                                     (dx (- (-> *phys-px* scl) tx))
+                                     (dy (- (-> *phys-py* scl) ty))
+                                     (dz (- (-> *phys-pz* scl) tz))
+                                     (dd (sqrtf (+ (* dx dx) (+ (* dy dy) (* dz dz)))))
+                                     ;; SPEC 22 : le plafond NORMAL (genou) et la marge jusqu'au
+                                     ;; plafond DUR. Tous deux en unites de B0 = la longueur d'os.
+                                     (kn (* 0.42 (-> *phys-blen* scl)))
+                                     (cp (* 0.08 (-> *phys-blen* scl))))
+                                (when (and (> dd kn) (> cp 0.0001))
+                                  (let* ((xr (/ (- dd kn) cp))
+                                         (th (if (>= xr 3.0)
+                                               1.0
+                                               (/ (* xr (+ 27.0 (* xr xr)))
+                                                  (+ 27.0 (* 9.0 (* xr xr))))))
+                                         (ds (+ kn (* cp th)))
+                                         (sf (/ ds dd)))
+                                    (when (< sf 0.999999)
+                                      (set! *phys-sat-n* (+ *phys-sat-n* 1))
+                                      (set! *phys-sat-sum* (+ *phys-sat-sum* (- dd ds)))
+                                      (set! (-> *phys-px* scl) (+ tx (* dx sf)))
+                                      (set! (-> *phys-py* scl) (+ ty (* dy sf)))
+                                      (set! (-> *phys-pz* scl) (+ tz (* dz sf))))))))))))
                     (dotimes (it 8)
                       (phys-length-chain skel sc n rlk an nbone)
                       (phys-collide-chain skel sc n rlk nbone nco PHYS-COL-MARGIN 3))
@@ -4437,6 +4548,9 @@
     ((3) *phys-raddrop-sum*)
     ((5) (the float *phys-retfb-n*))
     ((8) (the float *phys-sphere-n*))
+    ;; SPEC 21/22 : 9 = fois ou la saturation a mordu, 10 = mouvement qu'elle a retire (unites).
+    ((9) (the float *phys-sat-n*))
+    ((10) *phys-sat-sum*)
     (else (the float *phys-buried-n*))))
 
 ;; INVERSIONS (SPEC 5 / verdict owner) : which 0 = bascules corrigees, 1 = cas degeneres rattrapes.
@@ -4611,6 +4725,8 @@
   (set! *phys-buried-n* 0)
   (set! *phys-retfb-n* 0)
   (set! *phys-sphere-n* 0)
+  (set! *phys-sat-n* 0)
+  (set! *phys-sat-sum* 0.0)
   (dotimes (i (* PHYS-SC PHYS-COLS)) (set! (-> *phys-cvh* i) 0))
   (dotimes (i (* PHYS-SC PHYS-COLS)) (set! (-> *phys-cfh* i) 0))
   (none))

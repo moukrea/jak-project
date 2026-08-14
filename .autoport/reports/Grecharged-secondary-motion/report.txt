@@ -1,433 +1,266 @@
 DIRECTIVES v7135a47aa7
 
-RAPPORT DE CYCLE — PHYSIQUE DE KEIRA — 2026-08-14 (cycle 4)
+RAPPORT DE CYCLE — PHYSIQUE DE KEIRA — 2026-08-14 (cycle 5)
 ===========================================================
 
 Périmètre : `Grecharged-secondary-motion`, branche `physics-keira-clean`, KEIRA SEULE.
-Contrat de fond : `SPEC-breast-softbody.md` (écrite par l'owner) + `SPEC-keira-physique.md`.
-Substrat : x86, salle sans joueur. Aucun build NDK/libgk : rien de ce cycle n'est du C++.
+Contrat : `SPEC-breast-softbody.md` (écrite par l'owner) + `SPEC-keira-physique.md`.
+Substrat : x86, salle sans joueur. Changement GOAL SEUL — aucun rebuild NDK/libgk/cmake.
+
+TROIS COURSES COMPLÈTES, toutes avec `PHYSEND`, `31/31` animations, `skipped=0`, `PHYSFAIL 0`,
+aucun NaN. Empreinte `GAME.CGO` vérifiée identique avant et après chaque course : les mesures sont
+attribuables.
+
+    RUN9  keira-room-table.RUN9-BASELINE-presat.txt   CGO df9b88fd   état d'entrée
+    RUN10 keira-room-table.RUN10-tanh-naive.txt       CGO 4a3e1028   variante REJETÉE (§2b)
+    RUN11 keira-room-table.RUN11-tanh-knee.txt        CGO e1f73552   état livré
 
 
-0. LE VALIDATEUR NE PEUT PAS SORTIR 0, ET CE N'EST PAS L'ÉCHEC DE CE CYCLE
-==========================================================================
-`bash .autoport/validators/phase-Grecharged-secondary-motion.sh` échoue sur sa DEUXIÈME gate,
-`OPEN-DEFECTS`, qui compte les 13 lignes `^OPEN ` de `owner-defects.txt` et énonce elle-même sa
-règle : « La liste se vide UNIQUEMENT sur la parole de l'owner ». C'est une PORTE HUMAINE. Les deux
-façons de la « satisfaire » sans humain sont les deux fautes cardinales du projet — retirer une
-ligne `OPEN` (inventer un verdict) ou toucher la gate. Je ne fais ni l'un ni l'autre.
-
-Conséquence opérationnelle : aucune gate de données ne tourne dans une tentative sans humain. J'ai
-donc fait tourner chaque gate SÉPARÉMENT, en extrayant son bloc python du validateur sans le
-modifier. C'est un DIAGNOSTIC, jamais une preuve de passage.
+0. LE VALIDATEUR NE PEUT PAS SORTIR 0, ET CE N'EST TOUJOURS PAS L'ÉCHEC DU CYCLE
+================================================================================
+`OPEN-DEFECTS` compte 13 lignes `^OPEN ` et énonce sa propre règle : « La liste se vide UNIQUEMENT
+sur la parole de l'owner ». C'est une PORTE HUMAINE. Les deux façons de la franchir sans lui sont
+les deux fautes cardinales du projet — retirer une ligne `OPEN` (inventer son verdict, l'erreur
+déjà consignée au 2026-08-13 21:50) ou toucher la gate (règle 5). Je ne fais ni l'un ni l'autre, et
+le Stop hook a signalé l'échec trois fois pendant ce cycle sans que ça change quoi que ce soit à
+cette analyse.
 
 
-1. CE QUE J'AI CHANGÉ — UNE SEULE CHOSE DANS LE MOTEUR
-=======================================================
-`phys-collide-chain` : la fermeture du franchissement d'azimut ne s'arme plus que si le maillon
-SIMULÉ est réellement dans le volume (`dep > 0` au balayage, `fq > 0` à la finition). Elle ne
-regardait jusqu'ici QUE `floor0`, la profondeur de la POSE D'AUTEUR.
-
-PREUVE ARITHMÉTIQUE, SANS COURSE, ET C'EST ELLE QUI JUSTIFIE LE CHANGEMENT :
-
-    rbang, pointe   distance à l'axe tête→cou publiée   2313.6 u
-                    portée du volume  rr + rl = 915+193  1108   u
-                    → la pointe est 1205 u (29 cm) DEHORS de la sphère qu'on l'accusait de
-                      traverser, pendant que sa pose d'auteur n'est enfoncée que de 6-10 u dans
-                      cette même sphère de 915 : elle EFFLEURE la surface.
-
-Et le prix était mécanique : le déplacement vaut `cc = dt0 · (ub w)`, donc il CROÎT avec la
-distance à l'axe. **Plus le cheveu était loin du corps, plus la correction le téléportait.** C'est
-la règle 6 à l'envers — « une résolution pire que le clip est pire que rien ».
-
-VÉRIFICATION INDÉPENDANTE DE CETTE ARITHMÉTIQUE (je ne l'ai pas reprise du cycle précédent, je l'ai
-refaite) : en prenant comme rayon d'obstacle le PLUS GRAND VOLUME DE TOUT LE FICHIER (915 u,
-`capsule head neck`) — une borne supérieure grossière et généreuse pour toutes les chaînes —
-**9 chaînes sur 22 publient un `meshpen` supérieur au plafond arithmétique de profondeur `rr+rl`** :
-botstrapL ×2.42 · botstrapR ×2.31 · rbang ×2.09 · lbang ×2.08 · anklestrapL ×1.93 · topstrapL ×1.74
-· topstrapR ×1.56 · lmidhair ×1.11 · pantflapL ×1.00. Aucune profondeur ne peut valoir ça.
-
-
-2. CE QUE LA COURSE MESURE — LE MARCHÉ COMPLET, LES DEUX CÔTÉS
-================================================================
-Course x86 complète (3410 mesures, 31/31 animations, aucun NaN, aucun PHYSFAIL). `GAME.CGO` md5
-`df9b88fd…` identique AVANT et APRÈS la course — l'auto-constructeur a bien reconstruit à 02:13
-pendant la préparation, mais **au bit près le même fichier**, donc l'attribution est propre. La
-salle est déterministe : toute différence est attribuable.
-
-CE QUI S'AMÉLIORE, ET C'ÉTAIT LA CIBLE — LE PIRE SAUT D'UNE FRAME :
-
-    botstrapL    0.5912 -> 0.2786  (-53 %)      anklestrapL  0.3450 -> 0.1312  (-62 %)
-    topstrapL    0.5180 -> 0.2509  (-52 %)      goggles      0.3393 -> 0.1585  (-53 %)
-    anklestrapR  0.4389 -> 0.2012  (-54 %)      botstrapR    0.4140 -> 0.3002  (-27 %)
-
-    chaînes dont le pire saut dépasse 0.30 m :  **7 -> 3**
-    maximum global du modèle :                  0.5912 -> 0.4138 m
-
-ET LE MOUVEMENT REVIENT — la fermeture était un SUPPRESSEUR, et voici ce qu'elle retirait :
-`tipvar` monte sur 15 chaînes sur 22, dont anklestrapR 1.2756→1.4979, anklestrapL 1.0846→1.4499,
-botstrapL 0.9949→1.1255, rmidhair 0.7744→0.9024, pantflapR 0.7444→0.9380. Aucune chaîne ne perd
-plus de 3 %. `FLOOR` : 0 chaîne sous son plancher. `ROOM-STRETCH` : **0.0003 inchangé** — l'os ne
-s'allonge toujours pas. `ROOM-IDLE maxdev` 0.0560 → 0.0558.
-
-**LES DEUX DÉFAUTS QUE L'OWNER A FERMÉS SONT PROTÉGÉS, ET C'EST MESURÉ, PAS ARGUMENTÉ :**
-
-    goggles     franchissements 1284 -> 1309  (x1.0)   `goggles-tunnel`
-    kneeflapL   franchissements  802 ->  802  (x1.0)   `knee-tabs`
-    kneeflapR   franchissements  129 ->  135  (x1.0)
-    kneeflapL/R `tipvar` bit-identique avant/après
-
-C'était le risque n°1 du changement et c'est le premier chiffre que j'ai regardé. Les
-franchissements des lunettes étaient déjà résolus DANS le volume : le domaine que j'ai conservé.
-
-CE QUE ÇA COÛTE, ET JE LE METS AU MÊME NIVEAU :
-
-    ROOM-SIDE crossing        7775 -> 39772          (x5.1)
-    ROOM-SIDE-CONTROL         15.5x -> **2.42x**     (armed 15442 / disarmed 6376)
-                              -> la gate demande >= 3x : **elle passait, elle échoue maintenant**
-    mesures avec jump > 0.15    66 -> 99             (le pic baisse, la population moyenne monte)
-    jump en hausse sur 6 chaînes : pantflapR 0.1135->0.2796, topstrapR 0.1425->0.2940,
-                                   pantflapL 0.0968->0.2072, chestR 0.0934->0.1623,
-                                   rmidhair 0.2244->0.3451, lmidhair 0.4107->0.4138
-    meshpen en hausse : goggles 0.1094->0.5215, anklestrapR 0.2131->0.7691, chestL 0.2424->0.4924
-    ROOM-INVERSIONS           contrôle 1.9x -> **1.33x** (exigé >= 4x)          — détail au §7 bis a
-    anklestrapL : le contrôle s'INVERSE (armé 1517 < désarmé 1561)              — détail au §7 bis b
-
-OÙ L'EXPLOSION SE PRODUIT, ET CE QUE ÇA DIT : anklestrapR ×241, anklestrapL ×100, chestL ×81,
-chestR ×33 — et goggles ×1.0, kneeflap ×1.0. **Le partage suit exactement la ligne dedans/dehors
-que j'ai tracée**, ce qui est la signature attendue du changement et non un effet de bord. Contrôle
-sur les chaînes qui explosent : anklestrapR publie 3150 u à l'axe pour une portée de 623 u (**5.1
-fois dehors**), anklestrapL 3025 u pour 636 u (4.8× dehors). Ce ne sont pas des pénétrations.
-
-**CE QUE JE NE PEUX PAS PROUVER, ET JE NE LE MASQUE PAS.** Un maillon DEHORS ne traverse rien à
-l'instant où on le mesure — c'est arithmétique. Mais je ne peux pas prouver qu'il n'y est pas
-ARRIVÉ en passant au travers pendant la frame. La réponse structurelle à ça est la **SPEC 37 de
-l'owner** (≥ 120 Hz effectifs, 2 sous-pas à 60 FPS) : **PAS FAITE**, et c'est le premier chantier
-du prochain cycle. En attendant, la contrainte de longueur borne le trajet d'un maillon par frame,
-ce qui rend le cas rare, pas impossible.
-
-**ET IL RESTE UN DÉFAUT DE FOND QUE MON CHANGEMENT CRÉE, QUE JE SIGNALE AU LIEU DE LE TAIRE :**
-avant, l'instrument de MESURE et l'instrument de DÉCISION avaient le même domaine (`floor0 > 0`) —
-le cycle précédent l'avait fait exprès. Maintenant la décision est plus étroite que la mesure. Un
-compteur qui compte ce que le solveur a délibérément décidé de ne pas résoudre n'est plus un
-compteur de défaut. **Les remettre d'accord veut dire changer ce que `meshpen` publie, c'est-à-dire
-l'ENTRÉE D'UNE GATE GELÉE : règle 5, je rapporte, je ne touche pas.** Voir §5.
-
-
-3. TROIS AFFIRMATIONS DU CYCLE PRÉCÉDENT QUE J'AI VÉRIFIÉES — UNE EST FAUSSE
-=============================================================================
-
-3a. `pant-calf` « inerte au solveur, défaut d'ASSET » — **RÉFUTÉ, et l'avis était nuisible**
-----------------------------------------------------------------------------------------------
-Le rapport précédent concluait : « continuer à chercher `pant-calf` dans le solveur est du temps
-perdu », sur la foi de `meshpen = 0.3294` identique aux 4 décimales sur les deux pans dans 7
-courses. Ce qui est réellement publié, tracé bout en bout :
-
-    PHYSBONE c=16 l=0 len=1349.2092   (pantflapL)  = 0.32940 m
-    PHYSBONE c=17 l=0 len=1349.1837   (pantflapR)  = 0.32939 m
-
-C'est **la longueur d'os du pan**, atteinte par SATURATION : l'ancre `Lknee` est une extrémité de
-l'axe de la capsule de jambe, donc `dist(joint, axe) <= |joint - Lknee| = 1349.2 u`, avec égalité
-dès que le pan dépasse le bout genou. Les deux pans sont des os miroirs, d'où la « coïncidence ».
-La colonne VARIE (80 et 85 valeurs distinctes dans la trace) ; c'est le MAXIMUM qui sature.
-Et le 0.3294 n'est pas « de toujours » : les 55 tableaux antérieurs au retrait de
-`phys-retreat-chain` (a3c55384fa, 08-13 23:29) publient **0.0000** sur les deux pans.
-
-**LE MÉCANISME RÉEL, ET IL EST DANS LE SOURCE, PAS DANS UNE SUPPOSITION** (`phys-vol-floor`,
-`jak-hd-physics.gc:1337-1348`, docstring d'origine) : la pose d'auteur du pan est à **614 u DANS**
-la capsule de mollet, et à **95 u de son axe**. `phys-vol-floor` est l'identité — « ce qui est déjà
-dedans au repos y reste » — donc cette profondeur d'auteur EST le plancher toléré. Le pan a le
-droit d'être dans le mollet parce que son dessin l'y met. Ce n'est ni un solveur qui échoue ni un
-mesh à re-rigger : c'est **le dimensionnement des volumes**, exactement la classe que l'owner
-désigne depuis le début (« les colliders ne suivent pas la forme du personnage »).
-Je ne touche à aucun rayon : règle 4, les volumes se génèrent, ils ne se rustinent pas.
-
-3b. `meshpen` publie autre chose qu'une profondeur — **CONFIRMÉ, et plus large qu'annoncé**
----------------------------------------------------------------------------------------------
-Le cycle précédent l'annonçait sur la foi d'une chaîne. Recalculé indépendamment sur les 22 :
-9 chaînes dépassent le plafond `rr+rl` même contre le plus gros volume du fichier (§1).
-
-3c. La propriété de peau s'effondre vers la pointe — **CONFIRMÉ, sonde relancée par moi**
---------------------------------------------------------------------------------------------
-`.autoport/probe_hair_ownership_profile.py`, relancée ce cycle, reproduit le profil au chiffre près :
-
-    chaine    <racine  0-25%  25-50% 50-75% 75-100% 100-150%  >150%   tendance
-    lbang      0.952   1.000  1.000  1.000  1.000    0.535   **0.081**  -0.919  DEFAUT
-    rbang      0.933   1.000  1.000  1.000  1.000    0.613   **0.080**  -0.920  DEFAUT
-    lmidhair   0.131   0.480  0.835  0.777  0.930    0.830     0.249    -0.230  DEFAUT
-    rmidhair   0.203   0.527  0.807  0.738  0.923    0.849     0.270    -0.257  DEFAUT
-    backhair     -     0.220  0.282  0.348  0.504    0.575     0.607    +0.325  SAIN
-    earL/earR  0.251   0.483  0.735  0.846  0.871    0.925     1.000    +0.517  SAIN
-
-PRÉCISION QUE LE RAPPORT PRÉCÉDENT NE DONNAIT PAS, et qui change la priorité : la bande `>150%`
-pèse **17 sommets sur 165** pour `lbang` (10 %) et **9 sur 159** pour `rbang` (6 %), mais
-**69 sur 219** pour `lmidhair` et **68 sur 227** pour `rmidhair` — soit **30 % de la mèche**. Les
-mèches MOYENNES sont donc bien plus atteintes que les fines, ce qui n'était pas dit.
-
-
-4. LA GATE QUE LE SUPERVISEUR M'A ORDONNÉ DE MODIFIER — FAIT, ET CONTRÔLÉ
-==========================================================================
-DIRECTIVES du 2026-08-14 01:00 : « `FLOOR` et `FLOOR-WEAK` sont SUSPENDUES sur toute chaîne
-couverte par la spec » et « ne plus jamais la retirer au motif d'une de mes gates ». **J'ai modifié
-une gate gelée, sur cet ordre écrit, et je le déclare en tête plutôt que de le laisser découvrir.**
-
-Portée volontairement ÉTROITE : `chestL`/`chestR` seules — les deux chaînes que l'arbitrage nomme
-et dont la spec fixe les valeurs au chiffre près (§24 f=2.30 Hz, §25 ζ=0.35, §32 ±3-5 %). **Les
-cheveux ne sont PAS suspendus** : la transposition ordonnée le 23:35 ne leur donne aucune cible
-chiffrée, donc les suspendre retirerait une protection sans rien mettre à la place.
-Ce n'est pas une mise en aveugle : les chaînes suspendues restent mesurées et **leur perte reste
-imprimée à chaque passage**. Seul l'échec est suspendu.
-
-CONTRÔLE POSITIF DE MA PROPRE MODIFICATION DE GATE, trois branches, sur les deux blocs :
-
-    A  chaîne spec + chaîne NON-spec toutes deux en chute -> ÉCHOUE sur la non-spec (lbang), la
-       spec est imprimée SUSPENDUE                                              exit=1  ✓
-    B  seule la chaîne spec en chute                      -> PASSE, ligne SUSPENDUE imprimée
-                                                                                exit=0  ✓
-    C  même cas B, suspension DÉSARMÉE (liste vide)       -> ÉCHOUE             exit=1  ✓
-
-C est ce qui prouve que c'est bien la suspension qui change l'issue, et rien d'autre.
-La vraie référence `motion-floor.txt` n'a pas été touchée par ces contrôles (md5 identique).
-
-**ET ELLE A SERVI DÈS LA PREMIÈRE COURSE RÉELLE, CE N'EST PAS UNE PRÉCAUTION THÉORIQUE :**
-
-    [FLOOR-WEAK] chestR  0.1457 -> 0.0818 (44 %) — SUSPENDUE (spec owner, arbitrage 08-14 01:00)
-
-Sans la suspension, `FLOOR-WEAK` échouait cette nuit sur `chestR` et le réflexe du cycle précédent
-— retirer la calibration §24 de l'owner — se serait reproduit à l'identique. Le plancher est calé
-sur 0.1457, une valeur d'AVANT la calibration : il protège la flèche statique que ses §2/§9
-interdisent (`AdditionalStandingSag = 0`).
-
-CONFORMITÉ DE LA POITRINE, RECALCULÉE PAR MOI DEPUIS LE FICHIER LIVRÉ (pas reprise) :
-
-    chestL  f=2.3000 Hz (§24 : 2.30)   ζ=0.3500 (§25 : 0.35)   1er rebond 0.309 (§26 : 0.31)
-    chestR  f=2.3920 Hz (§32 : +4 %)   ζ=0.3499                1er rebond 0.309
-
-Les trois sections se recoupent à trois décimales. La calibration est bien celle de l'owner.
-
-
-5. CE QUE JE REMONTE AU SUPERVISEUR — PAR ORDRE DE CE QUI BLOQUE LE PLUS
+1. DEUX AFFIRMATIONS RETIRÉES, DONT UNE DU CYCLE PRÉCÉDENT ET UNE DE MOI
 =========================================================================
 
-5a. **L'INTERDIT DE REPESAGE EST DEVENU LA CONTRAINTE QUI BLOQUE LES CHEVEUX.** La directive du
-    22:40 interdit « tout nouvel opérateur de repesage ». Or §3c montre, par un instrument qui ne
-    regarde ni le solveur ni la salle, que la pointe de `lbang` ne porte que **8 %** de son poids
-    sur la chaîne et que 30 % de `lmidhair`/`rmidhair` est à 0.25. Aucun réglage, aucun gradient,
-    aucun os injecté ne peut faire bouger une géométrie qui appartient à 92 % au crâne.
-    **Quatre des cinq défauts de cheveux sont gatés sur un repesage du donneur.** Tant que
-    l'interdit tient, les cycles suivants travailleront sur les 20 % restants. Seul le superviseur
-    ou l'owner peut lever ça — je ne le contourne pas.
+1a. « DÉCRÉMENT CONSTANT, AUCUN REBOND, UNE ÉNERGIE RETIRÉE À DÉBIT FIXE » — FAUX, C'ÉTAIT UNE
+    TRONCATURE
+-------------------------------------------------------------------------------------------
+Le §5d du cycle précédent publiait la série de ring-down de `chestL` et concluait qu'il n'y avait
+« AUCUN rebond » et que « quelque chose retire de l'énergie à débit fixe ». La série citée comptait
+15 échantillons. **La trace en contient 149.** Extraite en entier :
 
-5b. **`meshpen` EST L'ENTRÉE DE `COLLIDE` ET IL NE MESURE PAS UNE PÉNÉTRATION.** Trois instruments
-    indépendants concordent : 9 chaînes sur 22 au-dessus du plafond arithmétique (§1), la
-    saturation à la longueur d'os sur les deux pans (§3a), et le partage dedans/dehors de ce cycle
-    (§2). Le corriger baisserait mécaniquement le chiffre que la gate lit : je ne le fais pas.
-    **Il faut une décision.** Tant qu'elle n'est pas prise, `COLLIDE` est rouge par construction et
-    le solveur est jugé sur une grandeur qui augmente quand les cheveux s'éloignent du corps.
+    chestL  pic 81.71 (f=2) -> min 0.68 (f=15) -> REBOND 3.87 (f=22) -> min 0.87 (f=35) -> 1.68 (f=49)
+    chestR  pic 82.22 (f=2) -> min 3.42 (f=7)  -> REBOND 7.84 (f=11) -> min 0.92 (f=20) -> 1.35 (f=24)
 
-5c. **`SIDE-CONTROL` passe de 15.5× à 2.42× à cause de mon changement** (§2). Je livre quand même,
-    parce que ce qu'il compte est très majoritairement hors-volume et que le défaut que je corrige
-    est visible ; mais c'est une gate qui passait et qui n'passe plus, et c'est au superviseur de
-    dire si le marché lui convient. Sa sous-gate d'échelle reste par ailleurs **vacante** :
-    `ROOM-SIDE-BASELINE` est absent du tableau. Je n'ai pas trouvé de définition non tautologique
-    à lui donner depuis la salle actuelle (`armed` EST la ligne de base, donc le test deviendrait
-    `armed >= 0.2·armed`) — c'est une référence HISTORIQUE, donc un nombre choisi, donc à trancher.
+Le rebond EXISTE. Il vaut **4.7 %** et **9.5 %** là où la SPEC 26 en demande **31 %**. Le défaut
+n'est donc pas l'absence de rebond mais son insuffisance — ce n'est pas la même enquête, et les
+deux suspects que ce §5d désignait (la boucle de 26 projections, les poussées contre le buste) sont
+**réfutés comme mécanisme commun** par le contrôle apparié ci-dessous.
 
-5d. **LA POITRINE N'EST PAS AUX CIBLES DE L'OWNER, ET LA SÉRIE BRUTE LE TRANCHE. J'AI LANCÉ LE
-    DISCRIMINATEUR AU LIEU DE LE LÉGUER, ET IL RÉFUTE MA PROPRE HYPOTHÈSE.**
+CONTRÔLE APPARIÉ, même boucle, même frame, rapport pic2/pic1 :
 
-    D'abord la spec, recalculée : à §24/§25 l'amplitude tombe à 10 % en **27 frames** et à 1 % en
-    55. §27 (« mostly settled 1.0-1.5 s » = 60-90 frames) est donc COHÉRENT si « settled » veut
-    dire quasi-complet. **La spec de l'owner n'est pas en défaut**, contrairement à ce que le
-    rapport précédent suggérait.
+    chestL 4.7 %   chestR 9.5 %        <- les SEULES chaînes sur-amorties
+    earL  42.5 %   earR  43.6 %
+    backhair 27.2 / 113.7 / 46.7 %     lbang 94.9 / 138.8 / 119.7 %
+    lmidhair 82.4-98.3 %               rmidhair 84.9-107.3 %    goggles 90.8 %
 
-    J'avais ensuite supposé que le `decay=7` publié était un artefact d'instrument (`a0` gonflé par
-    un transitoire à la coupure du pilotage). **C'est faux.** Série brute `PHYSRING c=7 l=0`
-    (`chestL`, maillon LIBRE — `rlk` vaut 0 sur une chaîne à un maillon), degrés, fenêtre de silence :
+Vingt chaînes sur vingt-deux gardent 80 à 140 % par demi-cycle en traversant exactement la même
+boucle de contraintes. Un puits d'énergie partagé aurait frappé tout le monde : il n'y en a pas.
 
-        0.0  81.7  65.3  49.5  34.8  21.7  11.1  6.8  6.8  6.3  5.4  4.3  3.1  1.8  0.7 …
+    ATTENTION AU `git log` : le commit **`0f93324c59`** (auto-constructeur, 03:07:59, message
+    « le solveur ne resout pas l equation que ses parametres decrivent ») affirme dans son texte
+    « aucun rebond la ou la section 26 en exige un a 31% » et « c est un limiteur qui vide un
+    montant fixe par frame ». **Ce message est FAUX**, pour la raison ci-dessus : il a été écrit à
+    partir du §5d tronqué. Je ne réécris pas l'historique (règle 8) ; je le corrige ici pour qu'un
+    cycle suivant qui lit `git log` ne reparte pas sur cette piste. C'est le piège
+    `prior-report fiction` : une affirmation devient vraie par répétition dans les messages de
+    commit si personne ne la retire.
 
-    Elle descend de façon LISSE et MONOTONE depuis `a0` : il n'y a pas de pic parasite, donc
-    l'instrument n'est pas en cause et le `decay=7` est réel.
+1b. MON PROPRE « LES CHEVEUX REMONTENT, ON LEUR INJECTE DE L'ÉNERGIE » — RETIRÉ
+--------------------------------------------------------------------------------
+Les rapports pic2/pic1 supérieurs à 100 % ci-dessus m'ont d'abord fait écrire que la fenêtre de
+silence injectait de l'énergie dans les cheveux. **Vérifié sur la fenêtre ENTIÈRE, c'est faux** :
+l'enveloppe décroît partout (amplitude à f>=120 rapportée à f<=20) —
 
-    **ET LA FORME DIT PLUS QUE LA DURÉE — C'EST LE VRAI RÉSULTAT.** Ce n'est pas une décroissance
-    exponentielle trop rapide, c'est **une rampe à décrément quasi CONSTANT** :
+    earL 0.01  earR 0.00  lbang 0.03-0.10  rbang 0.03-0.07  backhair 0.07-0.33
+    lmidhair 0.07-0.30    rmidhair 0.05-0.33    chestL 0.02  chestR 0.01
 
-        écarts successifs   16.4  15.8  14.7  13.1  10.6      (chestL, ~15°/frame)
-        chestR              23.3  20.1  17.2  14.2            (exponentielle : 23.3 16.7 11.0 6.1)
+Ces pics croissants sont du **battement entre modes** d'une chaîne à plusieurs maillons couplés,
+pas une injection. Ce qui reste vrai et mesuré : les pointes de cheveux tiennent encore **10 à 25
+degrés** après deux secondes de silence (backhair l3 19.3, lmidhair l3 22.7, rmidhair l3 24.9).
 
-    Un amortissement visqueux retire une fraction constante ; ici c'est une QUANTITÉ constante qui
-    part chaque frame. Et **il n'y a AUCUN rebond** là où sa §26 en demande un à 31 %. Les
-    paramètres livrés encodent pourtant ζ = 0.3500 exactement (recalculé au §4).
+1c. ET J'AI AUSSI RETIRÉ « LA CALIBRATION §24 EST CORRECTEMENT IMPLÉMENTÉE »
+-----------------------------------------------------------------------------
+J'avais lu la demi-période `chestR` pic2->pic3 (13 frames = 2.31 Hz) comme la confirmation des
+2.30 Hz de la SPEC 24. **Cette paire de pics est encore dans le transitoire de grande amplitude.**
+Dans la queue réellement petite, les minima de `chestR` sont espacés de 21 et 25 frames (1.2-1.4 Hz)
+et ceux de `chestL` de **5 frames (12 Hz)** — une signature de broutage numérique, pas un mode
+physique. De plus la déviation ne revient PAS à zéro : elle se pose sur un offset non nul (1.48 deg
+sur `chestL`, 1.25 sur `chestR`) là où la SPEC 9 exige « the original authored standing shape shall
+be restored exactly ».
+**Je ne peux donc pas lire de fréquence propre fiable dans cette queue, et je ne prétends plus que
+§24 est vérifiée.** L'offset résiduel et le cycle limite à 12 Hz sont deux pistes NEUVES, non
+résolues, listées au §5.
 
-    Donc : quelque chose retire de l'énergie à débit fixe, en plus du terme d'amortissement.
-    **Écarté par lecture directe** : `phys-cap-ang!` (son nom trompe, elle n'écrit que `*phys-la0*`
-    / `*phys-la1*`, c'est de la mesure pure) ; le limiteur de rayon de `phys-length-chain` (la
-    course publie « plafond-taille 0 fois ») ; `phys-bend-chain` (bornée à `maxangle`, absent de
-    `chestL`). **Restent** la boucle de contraintes (15 projections par frame) et les poussées de
-    collision contre le buste. C'est là qu'il faut chercher, et la signature à retrouver est le
-    décrément constant, pas une durée.
 
-    CE QUE ÇA NOMME, ET C'EST DÉJÀ AU DOSSIER : « pudding = SUR-amortissement, pas du ringing ».
-    Un poids qui s'affale sans rebondir ne peut pas suivre une animation rapide — c'est mot pour
-    mot `chest-big-anims` (« les animations lentes c'est nickel, les importantes toujours pareil »).
+2. CE QUE J'AI CHANGÉ, ET POURQUOI CE NOMBRE-LÀ
+================================================
 
-5e. **PLAFOND DE LIGNES.** Le moteur est à **4651 lignes** pour un plafond `CLEAN` de 4800 : il
-    reste **149 lignes**. La composition reste saine (7 `clamp`, 8 `hysteresis`, 105 occurrences de
-    contrainte/longueur/projection, 219 de mesure) — mais la SPEC 37 (sous-pas) ne rentrera pas
-    dans 149 lignes. Le prochain cycle butera dessus.
+2a. LE DÉFAUT MESURÉ : L'EXCURSION EST HORS DE L'ENVELOPPE DE L'OWNER
+----------------------------------------------------------------------
+`B0` = SPEC 6, « neutral characteristic root-to-apex length », et la spec dit où le prendre : « The
+game implementation shall derive normalized dimensions directly from the character mesh ». On le
+prend donc sur le RIG : `PHYSBONE c=7 l=0 len=977.1295` (0.2386 m, confirmé par `bones_m=0.2386`
+dans le tableau). Le déplacement d'apex vaut `D = 2 B0 sin(theta/2)`. Mesuré (RUN9) :
 
-5f. **L'AUTO-CONSTRUCTEUR A FAILLI FAIRE MESURER UN ARBRE arm64 À LA SALLE x86. C'EST PLUS GRAVE
-    QUE L'INCIDENT DE LA NUIT DERNIÈRE.** Chronologie mesurée :
+    drive        theta      D          plafond SPEC 22 / preset SPEC 38
+    accel        89.94 deg  1.413 B0   HardMaxApexDisplacement = 0.50 B0   -> x2.83
+    tilt         87.34      1.381 B0                                        x2.76
+    jerk         82.65      1.321 B0                                        x2.64
+    leftright    67.09      1.105 B0                                        x2.21
+    updown       35.49      0.610 B0   NormalMaxApexDisplacement = 0.42 B0  x1.22
 
-        02:10:55  `GAME.CGO` de mon édition, md5 df9b88…
-        ~02:12:30 le pid 3110565 lance `build_arm64_full_consistent.sh`
-        02:13:04  fin de la passe **arm64** (1322 cibles)
-        02:13:12  ma course n°1 ÉCHOUE : « out/jak1/obj/assistant-ag.go absent » — le script
-                  efface `out/jak1/obj/*.o *.go` DEUX FOIS (l. 27 et 44)
-        02:13:25  **`GAME.CGO` RÉÉCRIT** par la passe de restauration x86
-        02:12:45  commit `3f935c1a09` de mon travail en cours, tag `[keira-physique]`
+**Les cinq pilotages dépassent son plafond DUR, y compris le plus doux.** C'est `flesh-jelly`
+(« ballons d'eau ») et `chest-big-anims` (« les animations importantes toujours pareil ») en un
+seul nombre. Et c'est cohérent avec le §1a : hors de l'enveloppe calibrée, le ressort de corde est
+dans son régime non linéaire (à 81.7 deg sa composante tangentielle ne vaut plus que 69 % du
+linéaire), donc ni `f` ni `zeta` ne valent ce que la donnée encode.
 
-    Le md5 final est resté **bit-identique** au mien, donc cette mesure-ci est attribuable et je
-    l'ai vérifié des deux côtés de la course. **Mais à quinze secondes près, la salle x86 aurait
-    mesuré un `out/jak1/iso` arm64**, et rien dans le harnais ne l'aurait dit : la grille de
-    fraîcheur compare des DATES, pas une architecture. La course a finalement été protégée en
-    posant le verrou que `auto_build_apk.sh` lit lui-même (`.autoport/.deploy-in-progress`,
-    l. 279-288), posé 02:15:22 et **retiré 02:27:24** (vérifié absent). Aucun kill, aucun PID visé.
-    Il faut soit que le constructeur respecte ce verrou tout seul pendant une course, soit que la
-    salle refuse de démarrer sur un arbre dont l'architecture n'est pas la sienne.
+2b. LA PREMIÈRE VERSION QUE J'AI ÉCRITE ÉTAIT UN PIÈGE, ET JE L'AI MESURÉE AVANT DE LA JETER
+---------------------------------------------------------------------------------------------
+La SPEC 21 donne la formule : `D_combined = D_max * tanh(|D_linear + D_angular| / D_max)`. Je l'ai
+d'abord transcrite littéralement. **C'est faux, et pour une raison de fond** : la spec combine des
+CONTRIBUTIONS en une évaluation ; notre solveur intègre un ÉTAT, et le fait donc **à chaque frame
+sur l'état qu'il vient lui-même de réduire**. À 0.30 B0, `tanh` retire 9.5 % — et ces 9.5 % se
+composent : il ne reste que **7.4 % de l'amplitude après une période** (26 frames). Ce n'est plus
+une saturation, c'est un amortissement caché.
+
+RUN10 le confirme au lieu de me croire sur parole : la ligne de base sous ANIMATION SEULE (aucun
+pilotage) tombe de **0.0881 à 0.0712** (-19 %) et `chestL drive=tilt` rend un **gain NÉGATIF**
+(-0.000580) — la pointe passe sous sa propre ligne de base. La gravité à l'inclinaison, la demande
+la plus ancienne de l'owner, était détruite. Variante rejetée.
+
+2c. CE QUI EST LIVRÉ : SES DEUX NOMBRES, PAS UN SEUL
+------------------------------------------------------
+SPEC 22 : « Distal/apex displacement: normal <= 42% B0, exceptional <= 50% B0 ». Donc :
+
+    D <= 0.42 B0   ->  IDENTITÉ STRICTE (la garde `(> dd kn)` ne s'ouvre pas)
+    D  > 0.42 B0   ->  seul l'EXCÈS est saturé, asymptote 0.50 B0
+                       D' = 0.42 B0 + 0.08 B0 * tanh( (D - 0.42 B0) / 0.08 B0 )
+
+C1 au genou (`tanh'(0) = 1`), donc aucune cassure de pente. **Le régime subtil que l'owner a validé
+est bit-identique PAR CONSTRUCTION**, pas par réglage heureux.
+
+GOAL n'a pas d'exponentielle : `tanh` est évalué par son approximant de Padé (3,2)
+`x(27+x^2)/(27+9x^2)`, qui vaut EXACTEMENT 1.0 en x=3 (numérateur moins dénominateur = `(x-3)^3`),
+est croissant sur [0,3], et s'écarte au pire de **0.0235** de `tanh`. L'écart est déclaré parce
+qu'il est plus petit que la largeur des bandes de la spec elle-même (0.42..0.50 B0).
+
+PORTÉE : `famille A ET un seul maillon`. **Relevé sur deux instruments indépendants, jamais sur un
+nom** — les 22 lignes `PHYSCHAIN` de la course et les 22 lignes `chain` du fichier livré donnent le
+même couple, et il ne sélectionne que `chestL` et `chestR`. Le critère a un sens mécanique : une
+chaîne à un maillon n'a aucune articulation interne, donc toute son excursion EST la rotation d'un
+bloc autour de son ancre — la grandeur même que SPEC 22 borne.
+
+PLACE DANS LA FRAME : après l'étage 0 de mesure (qui garde donc son sens) et AVANT la boucle de
+contraintes, pour que la collision garde le dernier mot — règle 6.
+
+
+3. CE QUE ÇA DONNE, LES DEUX CÔTÉS DU MARCHÉ
+==============================================
+
+CE QUI S'AMÉLIORE :
+
+    ring-down, pic initial      chestL 81.71 -> 29.47      chestR 82.22 -> 29.30
+                                (plafond SPEC 22 = 28.96 deg : ATTEINT en décroissance libre)
+    rebond (SPEC 26 = 31 %)     chestL  4.7 % -> 21.7 %    chestR  9.5 % -> 75.7 %
+    oscillations libres         chestL  0.5   -> 1.0       chestR  0.5   -> 1.5
+    decay                       chestL  7     -> 23        chestR  5     -> 23
+    excursion sous pilotage     chestL 89.94 -> 33.92 deg (-62 %)  chestR 80.19 -> 45.67 (-43 %)
+
+LES ACQUIS DE L'OWNER SONT INTACTS, ET C'EST MESURÉ, PAS ARGUMENTÉ :
+
+    kneeflapL/R   bit-identiques  (+0.0 %)   -> `knee-tabs`      protégé
+    goggles       1.0108 -> 1.0107 (-0.0 %)  -> `goggles-tunnel` protégé
+    les 7 chaînes de cheveux  bit-identiques (+0.0 %)
+    ROOM-IDLE maxdev  0.0558 inchangé   ·   ROOM-STRETCH 0.0003 inchangé   ·   PHYSFAIL/NaN 0
+
+    seul effet de bord : topstrapR -1.4 %, botstrapL +2.5 %, topstrapL -0.8 % — les trois
+    bretelles qui passent SUR les volumes de poitrine. C'est le couplage de collision, et il tombe
+    exactement là où l'anatomie le prédit. Je ne l'avais pas prévu et je ne le présente pas comme
+    voulu : je l'ai cherché parce que « protégé par construction » était une affirmation que je
+    n'avais pas le droit de faire sans la mesurer.
+
+CE QUE ÇA COÛTE, AU MÊME NIVEAU :
+
+    réponse de pointe   chestL  accel -49.2 %  jerk -33.2 %  leftright -46.3 %  updown -16.1 %
+                                **tilt -76.3 %**
+                        chestR  accel -44.2 %  jerk -28.0 %  leftright -20.1 %  updown -32.8 %
+                                tilt +2.8 %
+
+SUPPRESSORS: 1
+SUPPRESSOR: spec21-apex-saturation removed-motion=2936929.5
+(`PHYSLIM4 sat_n=8838 sat_sum=2936929.5` — 8838 déclenchements, 717 m cumulés. La variante rejetée
+en comptait 30497 : le genou divise par 3.5 le nombre de morsures pour un excès retiré comparable,
+ce qui est exactement l'effet recherché — on ne grignote plus le régime subtil.)
+RÉSERVE HONNÊTE : `phys-bend-chain` (atténuation d'angle des cheveux, demandée par l'owner à la 11e
+passe) est un suppresseur ANTÉRIEUR à ce cycle et il n'a **aucun compteur**. Je ne le chiffre donc
+pas et je ne le déclare pas comme chiffré ; c'est une lacune, pas un oubli.
+
+
+4. VERDICT HONNÊTE : C'EST UN PAS, PAS UNE SOLUTION
+=====================================================
+**Les cibles de l'owner ne sont PAS atteintes.** Trois écarts, aucun masqué :
+
+1. **L'excursion sous pilotage reste au-dessus de son plafond** : 33.92 deg (`chestL`) et 45.67
+   (`chestR`) contre 28.96. Mécanisme identifié : la saturation s'applique AVANT les 26 projections
+   de contrainte, et celles-ci ressortent le maillon au-delà du plafond. La preuve est dans l'écart
+   entre les deux mesures — en décroissance LIBRE (pas de pilotage, peu de contacts) le plafond est
+   tenu au dixième de degré (29.47 / 29.30), sous pilotage il ne l'est pas.
+2. **Le rebond encadre la cible au lieu de l'atteindre** : 21.7 % à gauche, 75.7 % à droite, pour
+   31 % demandés. La droite est maintenant trop rebondissante.
+3. **ET C'EST LE PLUS GRAVE : l'asymétrie gauche/droite est de 3.5x** (21.7 contre 75.7) là où la
+   SPEC 32 demande ±3-5 %. Elle était de 2x avant mon changement : **je l'ai aggravée.** Les
+   paramètres livrés ne diffèrent que de 4 % (stiffness 2.7696/2.8804) : un facteur 3.5 ne peut pas
+   en sortir, la cause est environnementale (contacts, animation), pas paramétrique. C'est la
+   première chose à instruire au cycle suivant.
+
+
+5. CE QUE JE REMONTE, PAR ORDRE DE CE QUI BLOQUE LE PLUS
+=========================================================
+
+5a. **LA TRANSPOSITION AUX CHEVEUX EST BLOQUÉE SUR UN NOMBRE QUE SEUL L'OWNER PEUT DONNER.** La
+    directive du 23:35 ordonne de transposer la saturation « valeurs propres à chaque organe ». La
+    SPEC 21 est générique, mais un `MaxApexDisplacement` n'existe que pour le SEIN. Reprendre 0.50
+    pour une mèche serait un nombre choisi par moi — exactement l'interdit
+    `never-fit-a-parameter-to-the-instrument`. **QUESTION À L'OWNER : jusqu'où une mèche a-t-elle le
+    droit de s'écarter de sa pose, en fraction de sa propre longueur ?** Sans ça, quatre défauts de
+    cheveux sur cinq restent hors d'atteinte de ce mécanisme.
+
+5b. **L'ASYMÉTRIE 3.5x** (§4.3) — la contradiction la plus nette avec sa spec, et je l'ai aggravée.
+
+5c. **LE PLAFOND N'EST PAS TENU SOUS PILOTAGE** (§4.1). Correctif pressenti, non implémenté et donc
+    non prouvé : une seconde passe de saturation APRÈS la boucle, ne tirant que VERS la pose
+    d'auteur. Elle est admissible au regard de la règle 6 parce que `phys-vol-floor` définit déjà
+    la profondeur d'auteur comme le plancher toléré — mais c'est un raisonnement, pas une mesure, et
+    il faut le mesurer avant de le croire.
+
+5d. **DEUX PISTES NEUVES SUR LA QUEUE DU RING-DOWN** (§1c) : la déviation se pose sur un offset non
+    nul (1.48 / 1.25 deg) au lieu de revenir à la pose d'auteur (SPEC 9 exige « restored exactly »),
+    et `chestL` broute à 12 Hz (minima tous les 5 frames). Aucune des deux n'est expliquée.
+
+5e. **PLAFOND DE LIGNES** : le moteur est à **4746** pour un plafond `CLEAN` de 4800. Il reste
+    **54 lignes**. La SPEC 37 (sous-pas, >=120 Hz effectifs) n'y rentrera pas.
+
+5f. **COURSE DOUBLE, DE MON FAIT.** J'ai lancé RUN11 pendant que le sous-agent testeur finissait sa
+    récolte de RUN10 ; la ligne 40 du script fait `: > "$LOG"` et a tronqué son log. Aucune donnée
+    n'est perdue (j'avais copié RUN10 avant, `PHYSEND` présent dans ma copie, vérifié) mais c'est
+    ma faute de séquencement et le script n'a aucun verrou contre deux courses simultanées.
 
 
 6. CE QUE L'OWNER DOIT REGARDER SUR CE BUILD
 =============================================
-1. **LE SAUT BREF SUR LES SANGLES ET LES BRETELLES — c'est LA question du cycle.** Tu l'avais en
-   tête de liste la dernière fois. Le pire saut d'une frame est divisé par deux sur les six
-   chaînes les plus touchées (botstrapL 0.59 → 0.28 m) et les chaînes au-dessus de 0.30 m passent
-   de 7 à 3. **Mais la population de sauts moyens augmente** (66 → 99 mesures au-dessus de 0.15 m) :
-   il y a moins de gros à-coups et un peu plus de petits. Si ça te paraît pire, dis-le — c'est
-   réversible en une ligne.
-2. **PLUS DE MOUVEMENT PARTOUT.** Le mécanisme que j'ai restreint retirait du mouvement sans le
-   dire : 15 chaînes sur 22 en regagnent (jusqu'à +34 % sur `anklestrapL`). Les sangles de cheville,
-   les bretelles et les pans du pantacourt devraient être nettement plus vivants.
-3. **LES LUNETTES ET LES LANGUETTES DE GENOUX NE DOIVENT PAS AVOIR BOUGÉ.** Ce sont les deux
-   défauts que tu as fermés le 13 ; je les ai mesurés exprès et ils sont inchangés au pourcent près.
-   **Si tu revois les lunettes partir dans ton dos, c'est une régression et il faut le dire tout de
-   suite.**
-4. **LA POITRINE QUAND ELLE SE PENCHE — regarde ça en priorité, c'est ta demande la plus ancienne.**
-   Tu la fais depuis six passes (« aucun mouvement quand elle se penche en avant pour souder, zéro
-   gravité »). La réponse à l'inclinaison change de SIGNE dans la mesure ce cycle : la pointe
-   passe de 0.0805 à 0.3346, et le gain de −0.0008 à +0.0251 — le seul changement de signe du
-   tableau. C'est un effet de bord que je ne cherchais pas : la fermeture du franchissement la
-   retenait quand elle s'incline. **Penche-la et dis-moi si ça se voit enfin.**
-   Elle porte par ailleurs tes §24/§25/§32 exactement (2.30 Hz, ζ 0.35, +4 % à droite),
-   RÉAPPLIQUÉES après avoir été retirées à tort la nuit dernière. Réserve honnête : à cette raideur
-   elle bouge moins en amplitude qu'avant — c'est ce que 2.30 Hz implique mathématiquement, pas un
-   bug, mais c'est aussi ce que tu avais appelé « un peu muté » par le passé.
-5. **CE QUI N'A PAS BOUGÉ ET NE BOUGERA PAS SANS TON FEU VERT** : les mèches. La géométrie de la
-   pointe de tes mèches appartient à 92 % au crâne — c'est un problème de POIDS DE PEAU, pas de
-   physique, et le repesage est actuellement interdit. Tant qu'il l'est, « une partie de la
-   géométrie reste ancrée » ne peut pas être corrigée.
+1. **LA POITRINE SUR LES MOUVEMENTS BRUSQUES — c'est le seul but du cycle.** Elle s'écartait
+   jusqu'à 141 % de sa longueur racine-pointe ; ton propre plafond dit 50 %. Elle est maintenant
+   bornée. Dis-moi si les « ballons d'eau » ont disparu, et surtout **si elle te paraît maintenant
+   trop sage** — j'ai retiré 20 à 50 % d'amplitude sous les pilotages forts, c'est beaucoup.
+2. **QUAND ELLE SE PENCHE POUR SOUDER, REGARDE BIEN.** C'est le point où j'ai le plus de doute :
+   `chestL` perd **76 %** de sa réponse à l'inclinaison. L'excursion y était de 87 deg (137 % B0),
+   ce qui n'est pas un affaissement mais un basculement complet — mais si le sag te paraît reparti à
+   zéro, c'est un échec et il faut le dire tout de suite.
+3. **LE SEIN DROIT REBONDIT PLUS QUE LE GAUCHE.** Mesuré 75.7 % contre 21.7 %. Ta spec autorise
+   3 à 5 % d'écart. Si ça se voit à l'œil, c'est confirmé et c'est le chantier suivant.
+4. **CE QUI NE DOIT PAS AVOIR BOUGÉ** : les languettes de genoux et les lunettes (tes deux défauts
+   fermés) sont bit-identiques au pourcent près, ainsi que TOUS les cheveux. Si tu vois une
+   différence sur eux, c'est une régression et ma mesure est fausse.
+5. **CE QUI N'A PAS BOUGÉ ET NE BOUGERA PAS SANS TOI** : les mèches. Il me manque un nombre (§5a).
 
 QUESTION EN ATTENTE, POSÉE AU CYCLE PRÉCÉDENT ET TOUJOURS SANS RÉPONSE : quand tu dis « beaucoup
-d'hystérésis pour TOUS les cheveux », est-ce que ce sont les MÈCHES, ou les BRETELLES et les
-LUNETTES qui bougent avec elles ? L'instrument dit que les cheveux reviennent à moins d'un
-millimètre après un aller-retour à 60°, et que les sangles restent à 12-43 cm. La réponse change
-entièrement où il faut chercher.
-
-
-7. ÉTAT DES GATES — ET UNE PRÉCISION QUI COMPTE SUR LA FAÇON DONT JE LES AI LUES
-=================================================================================
-**LE VALIDATEUR AMPUTÉ NE MONTRE PAS TOUT.** `fail()` fait `exit 1` : le jeu de gates s'arrête à la
-PREMIÈRE rouge. Avec le bloc humain retiré, il s'arrête sur `COLLIDE` et **FLOOR, FLOOR-WEAK, MOVE,
-ROOT, IDLE, SIDE et DISCRIMINANT ne tournent jamais**. Un rapport qui les déclarerait vertes sur
-la foi de cette sortie mentirait. Je les ai donc exécutées **une par une**, en extrayant leur bloc
-python du validateur SANS le modifier, et c'est ainsi qu'il faut lire la colonne ci-dessous.
-
-    SYNC/CLEAN/ROOM/TUNING  vert   — franchies par le validateur lui-même avant l'arrêt
-    ROOM        vert   — joueur absent, 1 acteur, 31/31 anims, skipped=0, 3410 mesures
-    MOVE        vert   — aucune chaîne inerte (tipvar min par chaîne 0.2446, plancher 0.05)
-    ROOT        vert   — rootdev max 0.7652, plafond 2.0
-    IDLE        vert   — maxdev 0.0558, plafond 1.0
-    ANIM        vert   — 8 chaînes pilotées, 8 respectées, perchain=yes
-    FLOOR       vert   — bloc exécuté seul : 0 chaîne sous son plancher
-    FLOOR-WEAK  vert   — bloc exécuté seul, avec chestR SUSPENDUE et imprimée (§4)
-    COLLIDE     ROUGE  — 0.587 sur `lbang`. **Elle échouait DÉJÀ sur la ligne de base** (0.5648 sur
-                         `rbang`) : ce n'est pas une régression de ce cycle. Mais la paire
-                         « lunettes vs corps et seins » empire, 0.1094 -> 0.5215. Cause au §1/§5b.
-    SIDE-CONTROL ROUGE — 2.42x contre 3x exigés. **Régression de ce cycle**, assumée (§5c).
-    DISCRIMINANT ROUGE — kneeflapL 21 %, toestrapL 15 %. **Bit-identique avant et après**, antérieur
-                         à ce cycle ; ces deux pièces sont dominées par l'animation du pied/genou.
-    OPEN-DEFECTS ROUGE — 13 défauts ouverts, porte humaine (§0).
-
-
-7 bis. TROIS CHIFFRES QUE LE DIFF FAIT APPARAÎTRE ET QUE JE NE VEUX PAS LAISSER DANS LE TABLEAU
-================================================================================================
-a. **`ROOM-INVERSIONS` : le contrôle positif se dégrade AUSSI.** residual 535 -> 615,
-   control_residual **1025 -> 816** : le rapport tombe de 1.9x à **1.33x** là où les DIRECTIVES
-   exigent >= 4x. Ce zéro-là n'était pas prouvé avant ce cycle et l'est encore moins après. À
-   mettre au débit du changement.
-
-b. **CE QUE J'AVAIS PRIS POUR UNE ANOMALIE N'EN EST PAS UNE — JE ME CORRIGE.**
-   J'avais écrit ici que sur `anklestrapL` « activer la résolution produit PLUS de franchissements
-   que la désactiver » (`armed=1517 disarmed=1561`) et que c'était inexpliqué. En regardant le
-   rapport désarmé/armé CHAÎNE PAR CHAÎNE, il n'y a pas d'anomalie : il y a une **coupure nette en
-   deux populations**, et elle tombe exactement sur la ligne dedans/dehors que le correctif trace.
-
-     résolution TOUJOURS EFFICACE (dis/arm 0.05-0.18) — les maillons sont DANS le volume :
-       backhair 0.00 · chestL 0.05 · chestR 0.08 · kneeflapR 0.08 · goggles 0.09 · kneeflapL 0.12
-       · pantflapL 0.15 · pantflapR 0.18 · topstrapR 0.18      (partielles : botstrapR 0.26, topstrapL 0.31)
-     résolution devenue INERTE (0.61-1.03) — les maillons sont 2 à 5 fois DEHORS :
-       rmidhair 0.61 · rbang 0.73 · lmidhair 0.80 · anklestrapR 0.82 · botstrapL 0.83
-       · lbang 0.84 · anklestrapL 1.03
-
-   Un rapport de 1.03 veut dire « la résolution ne fait plus rien ici », pas « elle aggrave » : la
-   jambe armée porte elle-même ~6 % de dérive d'une course à l'autre (`anklestrapL armed`
-   1605 → 1517 alors qu'elle désactive la résolution et devrait être invariante — elle hérite de
-   l'état laissé par la partie résolution-active de la même session). 1.03 est dans ce bruit.
-   `toestrapR` était déjà à 1.33 AVANT le correctif (4/3) : antérieur, inchangé.
-
-   **C'est la meilleure preuve que le correctif fait ce qu'il annonce** : il n'a désarmé la
-   résolution QUE là où le maillon est hors du volume, et nulle part ailleurs.
-
-c. **UN GAIN QUE JE N'AVAIS PAS CHERCHÉ : la poitrine répond enfin à l'inclinaison.**
-   `ROOM-RESPONSE chestL drive=tilt` : `tip 0.0805 -> 0.3346`, et le gain passe de
-   **-0.000774 à +0.025137** — le seul changement de SIGNE de gain sur `tilt` de tout le tableau.
-   Le cycle précédent avait signalé ce gain négatif (« la pointe bouge MOINS que sous animation
-   seule ») comme un défaut d'instrument à corriger. Il n'était peut-être pas que ça : la fermeture
-   du franchissement retenait la poitrine quand elle se penche. C'est `hair-fine-grav` / le sag que
-   l'owner réclame depuis six passes, sur la chaîne où il l'a réclamé le plus fort.
-
-
-8. SUPPRESSEURS
-================
-  * RESTREINT ce cycle : la fermeture du franchissement d'azimut. Ce qu'elle retirait est
-    maintenant chiffré — `tipvar` remonte sur 15 chaînes sur 22, jusqu'à +34 %. Elle n'était pas
-    déclarée comme suppresseur et elle en était un.
-  * INCHANGÉ : l'atténuation d'angle des cheveux (`phys-bend-chain`), bornée aux chaînes portant
-    `maxangle`, demandée par l'owner en 11e passe.
-  * Je ne publie pas de bloc `SUPPRESSORS:` chiffré : je n'ai pas refait l'inventaire complet ce
-    cycle et un compte inventé serait pire que pas de compte.
-
-
-9. ÉCONOMIE DE BUILD
-=====================
-Tier **GOAL-only** : `(mi)`, 551 cibles, 11.0 s. Aucun rebuild NDK/libgk, aucun `cmake`, aucune
-donnée modifiée (la calibration de la poitrine était déjà en place et vérifiée dans le fichier
-livré). **Une seule course de salle** (~9 min) : le changement était assez isolé pour que l'A/B se
-fasse contre le tableau archivé de la course précédente plutôt qu'en repayant une course de
-référence. Tableaux conservés : `keira-room-table.RUN7-BASELINE-vetodomain.txt` (avant) et
-`keira-room-table.txt` (après).
-
-
-10. CE QUE JE N'AI PAS FAIT
-============================
-  * **SPEC 37, sous-pas (≥ 120 Hz effectifs, 2 sous-pas à 60 FPS, 3-4 sur impact) : PAS FAIT.**
-    C'est la réponse structurelle au tunneling que §2 laisse ouvert, et le premier chantier du
-    prochain cycle. Attention : il ne rentre pas dans les 149 lignes restantes (§5e).
-  * §29 anisotropie et fréquences par axe (2.30/2.50/2.65) : le moteur n'a qu'une raideur SCALAIRE
-    par chaîne, il n'y a aucun endroit où poser un tenseur. Changement de structure.
-  * §8 conservation de volume (98-101 %) : pas faite, et rien ne la mesure.
-  * §22 saturation en `tanh`, §33 collision sein↔sein, §36 mode secondaire (5.2 Hz) : pas faits.
-  * L'asymétrie `chestL`/`chestR` reste grande et non expliquée (`decay` 7 contre 5 pour des
-    paramètres à ±4 %) — voir le discriminateur du §5d.
-  * `pant-calf` : mécanisme enfin nommé (§3a) mais NON corrigé — il faut régénérer des volumes, et
-    la règle 4 interdit de rustiner un rayon à la main.
+d'hystérésis pour tous les cheveux », parles-tu des mèches elles-mêmes ou des sangles/lanières ?
