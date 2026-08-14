@@ -824,6 +824,15 @@
 ;; SPEC 7 du contrat exige de chiffrer ce qu'un suppresseur retire : c'est `sum`, et il est publie.
 (define *phys-sat-n* 0)
 (define *phys-sat-sum* 0.0)
+;; SPEC 21 SOUS SA FORME DE FORCE (le RESSORT QUI RAIDIT, 2026-08-14). Combien de SOUS-PAS ont ete
+;; integres au-dela du genou de SPEC 22, donc avec un facteur de raideur > 1.
+;;   NATURE : un COMPTE d'evenements (sous-pas), pas une longueur.
+;;   REPERE : sans objet — c'est un compte.
+;;   LECTURE QUAND LE DEFAUT EST ABSENT : 0 exactement. Sous 0.42 B0 le facteur vaut 1.0 et la garde
+;;            `(> dd kn)` ne s'ouvre pas : le regime subtil que l'owner a valide n'incremente rien.
+;; CE N'EST PAS UN SUPPRESSEUR ET IL N'A PAS DE `sum` : une force ne retire pas d'energie, elle la
+;; rend. Ce qui en retire, c'est le plafond POSITIONNEL, et lui garde ses deux compteurs ci-dessus.
+(define *phys-stif-n* 0)
 ;; ------------------------------------------------------------------------------------------------
 ;; QUEL VOLUME CONTRAINT QUELLE CHAINE — l'instrument que trois cycles de suite ont nomme comme
 ;; manquant, sans jamais le poser.
@@ -3327,6 +3336,16 @@
                     ;; la pose d'auteur sans pre-compensation.
                     (let* ((nfr (- n rlk))
                            (ela (if (= (-> *phys-fam* sc) 1) 1 0))
+                           ;; PORTEE DE SPEC 21/22, RELEVEE SUR LA COURSE ET PAS SUR UN NOM :
+                           ;; `PHYSCHAIN` publie `fam=` et `links=` pour les 22 chaines, et le couple
+                           ;; (famille A, UN maillon) ne selectionne que `c=7 lBoob` et `c=8 rBoob`.
+                           ;; Sens mecanique : une chaine a un maillon n'a aucune articulation
+                           ;; interne, donc toute son excursion EST la rotation d'un bloc autour de
+                           ;; son ancre — la grandeur meme que SPEC 22 borne. Les 13 chaines de
+                           ;; famille B (lunettes, sangles, languettes) sont hors perimetre par
+                           ;; construction, donc `goggles-tunnel` et `knee-tabs`, que l'owner a
+                           ;; FERMES, ne peuvent pas etre payes ici.
+                           (sat (if (and (nonzero? ela) (= n 1)) 1 0))
                            ;; SPEC 31 — GRADIENT RACINE -> POINTE, `w(r) = r^1.6..2.0`. On prend
                            ;; l'exposant 2.0, borne HAUTE de l'intervalle que la spec donne
                            ;; elle-meme : c'est un carre (une multiplication), et surtout ce n'est
@@ -3450,9 +3469,14 @@
                                              (let ((r (/ (+ (the float (- l rlk)) 0.5) (the float nfr))))
                                                (* k2 (/ (- 1.0 (* r r)) gmean)))
                                              k2))
-                                      (fx 0.0)
-                                      (fy 0.0)
-                                      (fz 0.0))
+                                      ;; LA CIBLE du ressort de materiau, pas sa force : elle ne
+                                      ;; depend pas de `p`, donc elle se calcule UNE FOIS PAR FRAME
+                                      ;; pendant que la force, elle, se recalcule a chaque SOUS-PAS.
+                                      ;; C'est exactement la separation que SPEC 37 impose.
+                                      (tgx 0.0)
+                                      (tgy 0.0)
+                                      (tgz 0.0)
+                                      (hasf 0))
                                  ;; ---- LA CHAIR : direction de repos du MATERIAU, relevee UNE fois
                                  ;; ---- et constante ensuite. Elle ne suit pas l'animation.
                                  (when (and (nonzero? ela) (zero? (-> *phys-ucap* scl))
@@ -3483,7 +3507,7 @@
                                        (set! (-> *phys-uy* scl) (/ (-> sv y) sl))
                                        (set! (-> *phys-uz* scl) (/ (-> sv z) sl))
                                        (set! (-> *phys-ucap* scl) 1))))
-                                 ;; ---- LA FORCE ELASTIQUE DU MATERIAU. Sa cible est portee
+                                 ;; ---- LA CIBLE DE LA FORCE ELASTIQUE DU MATERIAU. Elle est portee
                                  ;; ---- rigidement par l'ancre ; elle ne connait pas l'animation du
                                  ;; ---- maillon, donc elle ne peut pas la « suivre ».
                                  (when (and (nonzero? ela) (nonzero? (-> *phys-ucap* scl)) (> bl 0.01))
@@ -3492,61 +3516,128 @@
                                    (let ((ul (vector-length uv)))
                                      (when (> ul 0.0001)
                                        (vector-float*! uv uv (/ bl ul))
-                                       (set! fx (* k2l (- (+ ax (-> uv x)) (-> *phys-px* scl))))
-                                       (set! fy (* k2l (- (+ ay (-> uv y)) (-> *phys-py* scl))))
-                                       (set! fz (* k2l (- (+ az (-> uv z)) (-> *phys-pz* scl)))))))
-                                 ;; ---- VERLET EN POSITION MONDE. Trois termes, et c'est TOUT :
+                                       (set! tgx (+ ax (-> uv x)))
+                                       (set! tgy (+ ay (-> uv y)))
+                                       (set! tgz (+ az (-> uv z)))
+                                       (set! hasf 1))))
+                                 ;; ---- INTEGRATION EN POSITION MONDE. Trois termes, et c'est TOUT :
                                  ;; ---- l'inertie (retenue par la trainee), la gravite, et la force
                                  ;; ---- du materiau quand il y en a une. Aucun etat par chaine
                                  ;; ---- au-dela de `p` et `q` : c'est ce qui rend l'hysteresis
                                  ;; ---- impossible a fabriquer ici.
                                  ;; ---- LA TRAINEE EST DERIVEE DE LA RAIDEUR DE CE MAILLON-CI, PAS
-                                 ;; ---- RECOPIEE DE LA CHAINE. SPEC 25 fait de `zeta` une constante
-                                 ;; du MATERIAU (0.35, bande 0.32-0.42) et SPEC 26 y accroche le
-                                 ;; rebond, exp(-pi*z/sqrt(1-z^2)) ~ 31 %. Or SPEC 31 REDISTRIBUE la
-                                 ;; raideur le long de la chaine (`k2l` ci-dessus) pendant que
-                                 ;; `damping` reste UN scalaire par chaine : zeta_l = dmp/(2*sqrt(k2l))
-                                 ;; derive donc d'un facteur sqrt(1.438/0.452) = 1.78 de la racine a
-                                 ;; la pointe. Ce n'est pas une hypothese, c'est de l'arithmetique sur
-                                 ;; la donnee LIVREE -- zeta et rebond par maillon, lien 1/2/3 :
-                                 ;;   lbang     0.3403 32.1%   0.3875 26.7%   0.6071  9.1%
-                                 ;;   rmidhair  0.3501 30.9%   0.3986 25.5%   0.6245  8.1%
-                                 ;;   backhair  0.2435 45.4%   0.2772 40.4%   0.4343 22.0%
-                                 ;; La POINTE des quatre meches avant/mediane sort de la bande de
-                                 ;; SPEC 25 par le HAUT (0.61-0.62 contre 0.42) et rebondit a 8-9 %
-                                 ;; la ou SPEC 26 en exige 31 : trois maillons d'une meme meche se
-                                 ;; comportent comme trois materiaux differents. C'est « ca suit
-                                 ;; aucune logique », et une pointe sur-amortie est exactement le
-                                 ;; « pudding » (sur-amortissement, pas resonance).
+                                 ;; ---- RECOPIEE DE LA CHAINE, et c'est une DERIVATION, pas un
+                                 ;; reglage : SPEC 25 fait de `zeta` une constante du MATERIAU (0.35)
+                                 ;; alors que SPEC 31 redistribue la raideur le long de la chaine
+                                 ;; (`k2l`) pendant que `damping` reste UN scalaire. Sans correction,
+                                 ;; zeta_l = dmp/(2 sqrt(k2l)) derivait d'un facteur 1.78 racine ->
+                                 ;; pointe (mesure sur la donnee livree : pointe a 0.61-0.62 pour une
+                                 ;; bande 0.32-0.42, rebond 8-9 % pour 31 % — trois maillons d'une
+                                 ;; meche se comportaient comme trois materiaux). On impose donc
+                                 ;; zeta_l = zeta_chaine, soit dmp_l = dmp*sqrt(k2l/k2).
+                                 ;; DEUX INVARIANTS VERIFIES AVANT D'ECRIRE : sur une chaine a UN
+                                 ;; maillon libre `k2l` vaut `k2` au bit pres, donc `kd` est inchange
+                                 ;; (l'acquis « poitrine subtile » n'est pas paye pour les cheveux) ;
+                                 ;; et la famille B a `ela = 0`, donc aucun `zeta` a definir.
+                                 ;; ---- SPEC 37 — LES SOUS-PAS, ET POURQUOI ILS SONT EXACTS ICI.
+                                 ;; « The simulation shall be timestep-independent. Recommended
+                                 ;; effective soft-body update frequency >= 120 Hz ; at 60 FPS,
+                                 ;; 2 substeps minimum ; hard impacts may use 3-4 adaptive substeps. »
                                  ;;
-                                 ;; LE CORRECTIF EST UNE DERIVATION, PAS UN REGLAGE : on impose
-                                 ;; zeta_l = zeta_chaine, donc dmp_l = 2*zeta*sqrt(k2l) = dmp*sqrt(k2l/k2).
-                                 ;; Aucun parametre nouveau, aucun nombre choisi par moi, et rien
-                                 ;; d'ajuste contre un instrument -- la cible sort de SPEC 25.
-                                 ;; DEUX INVARIANTS VERIFIES AVANT D'ECRIRE :
-                                 ;;   * chaine a UN maillon libre (chestL/chestR/earL/earR) : `k2l`
-                                 ;;     vaut `k2` au bit pres (nfr=1 -> r=0.5 -> (1-r^2)/gmean = 1.0),
-                                 ;;     donc sqrt(k2l/k2) = 1 et `kd` est INCHANGE AU BIT PRES. La
-                                 ;;     poitrine sur mouvements subtils est un acquis de l'owner : on
-                                 ;;     ne la paie pas pour corriger les cheveux.
-                                 ;;   * famille B (ce qui pend) : `ela` = 0, aucune force elastique
-                                 ;;     n'est appliquee, donc `zeta` n'y est pas defini et `dmp` y
-                                 ;;     reste une trainee pure. Elle n'est pas touchee.
-                                 (let* ((px (-> *phys-px* scl))
-                                        (py (-> *phys-py* scl))
-                                        (pz (-> *phys-pz* scl))
-                                        (kd (fmax 0.0 (- 1.0 (if (and (nonzero? ela) (> k2 0.000001))
+                                 ;; CE QUE `p` ET `q` SONT VRAIMENT, et c'est la verification qui
+                                 ;; conditionne tout le reste : la recurrence livree est un EULER
+                                 ;; SYMPLECTIQUE, pas un Stormer-Verlet. `v = p - q` est REMPLACE par
+                                 ;; `v*kd + f + g` puis `p += v`, donc `q` ne porte QUE la vitesse, en
+                                 ;; unites de DEPLACEMENT PAR FRAME. Decouper la frame en `ns` est
+                                 ;; alors une division exacte, sans aucun terme correctif : `v/ns` en
+                                 ;; entree, `ns*v` en sortie, `k2` et `g` en `1/ns^2` (ce sont un
+                                 ;; `w^2 dt^2` et un `a dt^2`), trainee `kds` telle que `kds^ns = kd`.
+                                 ;; Sur un Stormer-Verlet la meme division aurait ete FAUSSE (la
+                                 ;; difference arriere y contient un demi-pas d'acceleration) : c'est
+                                 ;; pour ca que la nature de la recurrence se verifie avant, pas apres.
+                                 ;; A `ns = 1` ce bloc est BIT-IDENTIQUE a celui d'hier : fns=1 donne
+                                 ;; k2s=k2l, gg*=gsc*gdw, kds=kd, v=(p-q), une seule passe, et
+                                 ;; `q <- p - v` rend exactement l'ancien `p`.
+                                 ;;
+                                 ;; `ns` EST ADAPTATIF ET SES DEUX VALEURS SONT CELLES DE LA SPEC :
+                                 ;; 2 par defaut, 4 quand le maillon entre deja la frame au-dela du
+                                 ;; genou de SPEC 22 (0.42 B0) — le « hard impact » de sa phrase.
+                                 ;; Aucun seuil de mon invention : c'est le meme 0.42 B0 que la
+                                 ;; saturation, et il ne s'ouvre que sur les chaines que SPEC 21
+                                 ;; couvre (`sat`), donc les 20 autres tournent a `ns = 2` fixe.
+                                 (let* ((kd  (fmax 0.0 (- 1.0 (if (and (nonzero? ela) (> k2 0.000001))
                                                                (* dmp (sqrtf (/ k2l k2)))
                                                                dmp))))
-                                        (vx (* (- px (-> *phys-qx* scl)) kd))
-                                        (vy (* (- py (-> *phys-qy* scl)) kd))
-                                        (vz (* (- pz (-> *phys-qz* scl)) kd)))
-                                   (set! (-> *phys-qx* scl) px)
-                                   (set! (-> *phys-qy* scl) py)
-                                   (set! (-> *phys-qz* scl) pz)
-                                   (set! (-> *phys-px* scl) (+ px (+ vx (+ fx (* gsc (-> gdw x))))))
-                                   (set! (-> *phys-py* scl) (+ py (+ vy (+ fy (* gsc (-> gdw y))))))
-                                   (set! (-> *phys-pz* scl) (+ pz (+ vz (+ fz (* gsc (-> gdw z))))))))))))))
+                                        (kn  (* 0.42 bl))
+                                        (cpp (* 0.08 bl))
+                                        (ex0 (- tgx (-> *phys-px* scl)))
+                                        (ey0 (- tgy (-> *phys-py* scl)))
+                                        (ez0 (- tgz (-> *phys-pz* scl)))
+                                        (ns  (if (and (nonzero? sat) (nonzero? hasf)
+                                                      (> (+ (* ex0 ex0) (+ (* ey0 ey0) (* ez0 ez0)))
+                                                         (* kn kn)))
+                                               4 2))
+                                        (fns (the float ns))
+                                        (k2s (/ k2l (* fns fns)))
+                                        (ggx (/ (* gsc (-> gdw x)) (* fns fns)))
+                                        (ggy (/ (* gsc (-> gdw y)) (* fns fns)))
+                                        (ggz (/ (* gsc (-> gdw z)) (* fns fns)))
+                                        (kds (if (= ns 2) (sqrtf kd) (sqrtf (sqrtf kd))))
+                                        (vx  (/ (- (-> *phys-px* scl) (-> *phys-qx* scl)) fns))
+                                        (vy  (/ (- (-> *phys-py* scl) (-> *phys-qy* scl)) fns))
+                                        (vz  (/ (- (-> *phys-pz* scl) (-> *phys-qz* scl)) fns)))
+                                   (dotimes (ss ns)
+                                     (let ((fx 0.0) (fy 0.0) (fz 0.0))
+                                       (when (nonzero? hasf)
+                                         (let* ((ex (- tgx (-> *phys-px* scl)))
+                                                (ey (- tgy (-> *phys-py* scl)))
+                                                (ez (- tgz (-> *phys-pz* scl)))
+                                                (dd (sqrtf (+ (* ex ex) (+ (* ey ey) (* ez ez)))))
+                                                ;; SPEC 21 SOUS LA SEULE FORME QUI NE RETIRE RIEN :
+                                                ;; UN RESSORT QUI RAIDIT. `D -> D_max tanh(D/D_max)`
+                                                ;; est la reponse STATIQUE d'un ressort durcissant ;
+                                                ;; ecrire la saturation sur la FORCE plutot que sur
+                                                ;; l'ETAT donne la meme borne d'excursion en rendant
+                                                ;; l'energie au lieu de la jeter. Forme, avec les DEUX
+                                                ;; nombres de SPEC 22 (« normal <= 42% B0,
+                                                ;; exceptional <= 50% B0 ») et sans transcendante :
+                                                ;;   D <= 0.42 B0  -> facteur 1.0, IDENTITE STRICTE ;
+                                                ;;   D  > 0.42 B0  -> F = k (Dn + cp x/(1-x)),
+                                                ;;                    x = (D-Dn)/cp, cp = 0.08 B0.
+                                                ;; C1 au genou (d/dx = 1 en x=0, donc aucune cassure
+                                                ;; de pente, donc aucun a-coup) et asymptote EXACTE en
+                                                ;; 0.50 B0 : l'energie potentielle diverge en x -> 1,
+                                                ;; donc le mur est infranchissable en continu, quelle
+                                                ;; que soit l'energie cinetique. `B0` = SPEC 6, pris
+                                                ;; sur la LONGUEUR D'OS mesuree du rig (`*phys-blen*`),
+                                                ;; jamais sur une constante de l'instrument.
+                                                ;; LES DEUX BORNES SONT DES BORNES DE STABILITE, PAS
+                                                ;; DES REGLAGES : `x` est borne a 0.99 pour que le
+                                                ;; facteur reste fini, et `k2s*mu` a 1.0 parce qu'un
+                                                ;; Euler symplectique diverge au-dela de ~4. Avec
+                                                ;; `ns = 4` sur la poitrine (k2s ~ 0.0036) le plafond
+                                                ;; vaut ~275 la ou le mur en demande 17 : il ne mord
+                                                ;; pas, et c'est LUI qui exigeait les sous-pas.
+                                                (mu (if (and (nonzero? sat) (> dd kn)
+                                                             (> cpp 0.0001) (> dd 0.0001))
+                                                      (let ((xr (fmin 0.99 (/ (- dd kn) cpp))))
+                                                        (fmin (/ (+ kn (* cpp (/ xr (- 1.0 xr)))) dd)
+                                                              (/ 1.0 (fmax 0.000001 k2s))))
+                                                      1.0)))
+                                           (when (> mu 1.000001)
+                                             (set! *phys-stif-n* (+ *phys-stif-n* 1)))
+                                           (set! fx (* k2s (* mu ex)))
+                                           (set! fy (* k2s (* mu ey)))
+                                           (set! fz (* k2s (* mu ez)))))
+                                       (set! vx (+ (* vx kds) (+ fx ggx)))
+                                       (set! vy (+ (* vy kds) (+ fy ggy)))
+                                       (set! vz (+ (* vz kds) (+ fz ggz)))
+                                       (set! (-> *phys-px* scl) (+ (-> *phys-px* scl) vx))
+                                       (set! (-> *phys-py* scl) (+ (-> *phys-py* scl) vy))
+                                       (set! (-> *phys-pz* scl) (+ (-> *phys-pz* scl) vz))))
+                                   (set! (-> *phys-qx* scl) (- (-> *phys-px* scl) (* fns vx)))
+                                   (set! (-> *phys-qy* scl) (- (-> *phys-py* scl) (* fns vy)))
+                                   (set! (-> *phys-qz* scl) (- (-> *phys-pz* scl) (* fns vz)))))))))))
 
                     ;; ---- 2. LES CONTRAINTES. Gauss-Seidel : longueur puis collision, puis des
                     ;; ---- balayages de collision seuls pour finir — la collision est la contrainte
@@ -3555,72 +3646,37 @@
                     ;; qu'aucune contrainte n'ait touche le maillon. Voir la note de `*phys-la0*`.
                     (phys-cap-ang! skel sc n rlk an nbone 0)
                     ;; ------------------------------------------------------------------------
-                    ;; SPEC 21 — SATURATION DE L'EXCURSION, ET C'EST SA FORMULE, PAS LA MIENNE :
-                    ;;     D_combined = D_max * tanh( |D_linear + D_angular| / D_max )
-                    ;; « They shall not be added without saturation. This prevents combinations
-                    ;; such as strong jump + fast rotation + abrupt animation acceleration from
-                    ;; creating implausibly large soft-body excursions. » Sa phrase decrit
-                    ;; exactement le pilotage `accel`/`jerk` de la salle.
+                    ;; SPEC 21 — LE PLAFOND POSITIONNEL EST DEVENU UN FILET, PAS LE MECANISME.
+                    ;; Le mecanisme est desormais le RESSORT QUI RAIDIT, applique dans l'integration
+                    ;; ci-dessus (voir sa note) : c'est la forme que SPEC 37 reclame nommement,
+                    ;; « soft displacement clamps should be preferred to abrupt positional clamps ».
+                    ;; UNE FORCE NE RETIRE PAS D'ENERGIE, ELLE LA REND ; ce bloc-ci, lui, ECRIT
+                    ;; l'etat, donc il en retire — et son prix est publie (`PHYSLIM4 sat_sum`).
                     ;;
-                    ;; UNE TRANSCRIPTION LITTERALE DE CETTE FORMULE EST UN PIEGE, ET JE L'AI ECRITE
-                    ;; AVANT DE LA MESURER. `tanh` pris depuis zero n'est l'identite qu'au premier
-                    ;; ordre : a 0.30 B0 il retire 9.5 % de l'ecart, et comme le solveur le
-                    ;; reapplique A CHAQUE FRAME sur l'etat qu'il vient lui-meme de reduire, ces
-                    ;; 9.5 % se COMPOSENT — il ne reste que 7.4 % de l'amplitude apres une periode
-                    ;; (26 frames). Ce n'est plus une saturation, c'est un amortissement cache, et
-                    ;; il aurait mute exactement le regime subtil que l'owner a valide. La spec
-                    ;; combine des CONTRIBUTIONS en une evaluation ; notre solveur integre un ETAT,
-                    ;; et une saturation iteree sur un etat n'est pas la meme operation.
+                    ;; POURQUOI IL RESTE QUAND MEME. Le mur du ressort est infranchissable en
+                    ;; CONTINU (son energie potentielle diverge en 0.50 B0), pas en discret : le
+                    ;; facteur de raideur est borne pour rester stable, donc un depassement
+                    ;; transitoire reste arithmetiquement possible. La regle 6 de l'owner (« rien ne
+                    ;; traverse le mesh, quelle qu'en soit la raison ») et SPEC 22 (`HardMax
+                    ;; 0.50 B0`) ne se negocient pas : on garde un filet, et on MESURE combien de
+                    ;; fois il sert. `sat_n` doit s'effondrer maintenant que la force fait le
+                    ;; travail — s'il ne s'effondre pas, c'est le ressort qui est mal pose, et
+                    ;; c'est ce chiffre-la qui le dira.
                     ;;
-                    ;; CE QUI EST ECRIT A LA PLACE UTILISE SES DEUX NOMBRES, PAS UN SEUL. SPEC 22 :
-                    ;; « Distal/apex displacement: normal <= 42% B0, exceptional <= 50% B0 ». Donc :
-                    ;;   D <= 0.42 B0                 -> IDENTITE STRICTE, aucun octet touche ;
-                    ;;   D  > 0.42 B0                 -> l'EXCES seul est sature, asymptote 0.50 B0.
-                    ;;     D' = 0.42 B0 + 0.08 B0 * tanh( (D - 0.42 B0) / 0.08 B0 )
-                    ;; C'est C1 au genou (tanh'(0) = 1, donc aucune cassure de pente), et surtout le
-                    ;; regime que l'owner appelle « nickel » est bit-identique PAR CONSTRUCTION et
-                    ;; non par reglage — la garde `(> dd kn)` ne s'ouvre meme pas.
+                    ;; A/B QUI INTERDIT DE LE RETIRER (2026-08-14, deux courses completes) : sans
+                    ;; aucun plafond, `chestL` traverse le torse de 0.4924 m (contre 0.0003 avec) et
+                    ;; l'apex monte a 1.10-1.41 B0, soit 2.8x le maximum DUR que l'owner a ecrit
+                    ;; lui-meme. Le retrait n'est pas un allegement, c'est une regression.
                     ;;
-                    ;; `B0` = SPEC 6, « neutral characteristic root-to-apex length », et la spec dit
-                    ;; ou le prendre : « The game implementation shall derive normalized dimensions
-                    ;; directly from the character mesh ». On prend donc la LONGUEUR D'OS DU MAILLON,
-                    ;; `*phys-blen*` — mesuree sur le rig, propre a chaque chaine. AUCUNE constante
-                    ;; de l'instrument n'entre ici (ni periode de pilotage, ni amplitude de la
-                    ;; salle) : c'est la regle `never-fit-a-parameter-to-the-instrument`, et c'est
-                    ;; elle qui rend le nombre transportable du banc vers le jeu.
+                    ;; LA FORME, INCHANGEE : identite stricte sous 0.42 B0, puis l'EXCES seul est
+                    ;; sature, asymptote 0.50 B0 (SPEC 22, ses deux nombres). `tanh` par son
+                    ;; approximant de Pade (3,2) `x(27+x^2)/(27+9x^2)` — GOAL n'a pas
+                    ;; d'exponentielle — exact en x=3, ecart maximal 0.0235, plus petit que la
+                    ;; largeur de la bande 0.42..0.50 que la spec donne elle-meme.
                     ;;
-                    ;; POURQUOI CE N'EST PAS UN ECRETAGE. Un `min` dur ferait un a-coup a l'instant
-                    ;; du contact — le defaut que l'owner appelle « on tape sur un pudding ». `tanh`
-                    ;; est C-infini, vaut l'identite au premier ordre et n'a pas de coude : le
-                    ;; regime subtil qu'il a valide (« poitrine sur mouvements subtils : toujours
-                    ;; OK ») est preserve a 1.2 % pres a 0.10 B0, 0.3 % a 0.05 B0.
-                    ;;
-                    ;; GOAL N'A PAS D'EXPONENTIELLE. On evalue `tanh` par son approximant de Pade
-                    ;; (3,2) `x(27+x^2)/(27+9x^2)`, qui vaut EXACTEMENT 1.0 en x=3 (le numerateur
-                    ;; moins le denominateur est `(x-3)^3`), est croissant sur [0,3] et s'ecarte au
-                    ;; pire de 0.0235 de `tanh` (2.4 %, a x=1.57). Au-dela de x=3 on tient 1.0.
-                    ;; L'ecart est declare parce qu'il est plus petit que la largeur des bandes de
-                    ;; la spec elle-meme (0.42..0.50 B0), pas parce qu'il est negligeable en soi.
-                    ;;
-                    ;; PORTEE : `famille A et UN SEUL maillon`. Releve sur la course, pas sur un nom
-                    ;; — `PHYSCHAIN` publie `links=` et `fam=` pour les 22 chaines, et ce couple ne
-                    ;; selectionne que `c=7 lBoob` et `c=8 rBoob`. Il a un sens mecanique et pas
-                    ;; seulement arithmetique : une chaine a un maillon n'a aucune articulation
-                    ;; interne, donc toute son excursion EST la rotation d'un bloc autour de son
-                    ;; ancre — la grandeur meme que SPEC 22 borne (`COM` et `apex`). Les 13 chaines
-                    ;; de famille B (lunettes, sangles, languettes de genoux) ne sont pas touchees,
-                    ;; donc `goggles-tunnel` et `knee-tabs`, les deux defauts que l'owner a FERMES,
-                    ;; sont protegees par construction et non par un reglage.
-                    ;;
-                    ;; CE QUI N'EST PAS FAIT, ET JE NE LE MASQUE PAS : la transposition aux cheveux
-                    ;; que la directive du 23:35 ordonne. Elle demande « valeurs propres a chaque
-                    ;; organe » et la spec ne donne un `MaxApexDisplacement` que pour le SEIN.
-                    ;; Reprendre 0.50 pour une meche serait un nombre choisi par moi. La question
-                    ;; est posee dans le rapport.
-                    ;;
-                    ;; PLACE DANS LA FRAME : apres l'etage 0 (qui garde donc son sens, « l'angle que
+                    ;; PLACE DANS LA FRAME : apres l'etage 0 (qui garde son sens, « l'angle que
                     ;; l'integration SEULE produit ») et AVANT la boucle de contraintes, pour que la
-                    ;; collision garde le dernier mot — regle 6, « rien ne traverse le mesh ».
+                    ;; collision garde le dernier mot — regle 6.
                     ;; ------------------------------------------------------------------------
                     (when (and (= (-> *phys-fam* sc) 1) (= n 1))
                       (dotimes (l n)
@@ -4509,7 +4565,9 @@
     ((3) *phys-raddrop-sum*)
     ((5) (the float *phys-retfb-n*))
     ((8) (the float *phys-sphere-n*))
-    ;; SPEC 21/22 : 9 = fois ou la saturation a mordu, 10 = mouvement qu'elle a retire (unites).
+    ;; SPEC 21/22 : 6 = sous-pas integres avec le RESSORT QUI RAIDIT actif (pas un suppresseur, il
+    ;; ne retire rien) ; 9 = fois ou le FILET positionnel a mordu, 10 = ce que LUI a retire (unites).
+    ((6) (the float *phys-stif-n*))
     ((9) (the float *phys-sat-n*))
     ((10) *phys-sat-sum*)
     (else (the float *phys-buried-n*))))
@@ -4688,6 +4746,7 @@
   (set! *phys-sphere-n* 0)
   (set! *phys-sat-n* 0)
   (set! *phys-sat-sum* 0.0)
+  (set! *phys-stif-n* 0)
   (dotimes (i (* PHYS-SC PHYS-COLS)) (set! (-> *phys-cvh* i) 0))
   (dotimes (i (* PHYS-SC PHYS-COLS)) (set! (-> *phys-cfh* i) 0))
   (none))
