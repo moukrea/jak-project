@@ -93,10 +93,10 @@ level 2 substeps=4 iters=20 collide=2 classmask=7 fixedhz=240
 # ---- Keira, and only Keira: 2 chains, 54 volumes.
 [model keira-hd]
 # chestL [A] lBoob verts=76 wsum=17.69 r=656
-chain chestL class=primary stiffness=2.7696 damping=0.1686 gravity=0.65 radius=656 mass=1.45 hang=0.00 family=A couple=1.85 radii=656   # radii notes (fitted below w>0.5, or inherited): lBoob@w>0.25(34v)
+chain chestL class=primary stiffness=2.7696 damping=0.1686 gravity=0.65 radius=656 mass=1.45 hang=0.00 family=A couple=1.85 radii=656 b0=602   # radii notes (fitted below w>0.5, or inherited): lBoob@w>0.25(34v)
 j lBoob
 # chestR [A] rBoob verts=71 wsum=14.95 r=660
-chain chestR class=primary stiffness=2.9081 damping=0.1753 gravity=0.65 radius=660 mass=1.4800 hang=0.00 family=A couple=1.85 radii=660   # radii notes (fitted below w>0.5, or inherited): rBoob@w>0.25(25v)
+chain chestR class=primary stiffness=2.9081 damping=0.1753 gravity=0.65 radius=660 mass=1.4800 hang=0.00 family=A couple=1.85 radii=660 b0=602   # radii notes (fitted below w>0.5, or inherited): rBoob@w>0.25(25v)
 j rBoob
 
 # ---- COLLIDERS, fitted from the same mesh. One capsule per obstacle bone segment,

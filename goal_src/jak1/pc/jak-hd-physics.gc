@@ -90,6 +90,17 @@
 (defconstant PHYS-P-HANG   20)
 (defconstant PHYS-P-FAMILY 22)
 (defconstant PHYS-P-COUPLE 27)
+;; SPEC 6 — `B0`, LA LONGUEUR CARACTERISTIQUE RACINE->APEX DE LA CHAIR, EN UNITES, MESUREE SUR LE
+;; MAILLAGE. Ce n'est PAS la longueur d'os, et la confusion coutait une gate muette : sa §6 dit
+;; « B0 neutral characteristic root-to-apex length […] shall derive normalized dimensions directly
+;; from the character mesh », reference humaine 115-125 mm. Sur Keira l'os `chest->lBoob` fait
+;; 977 u (238 mm) — la distance du thorax a un joint qui est DERRIERE la chair — la ou la chair
+;; elle-meme court sur 602 u (147 mm). Une borne exprimee « en B0 » contre l'os est donc 1.62x trop
+;; large, et le plafond d'apex de sa §22 ne pouvait pas mordre : l'excursion mesuree « 0.479 B0 »
+;; vaut 0.778 B0 contre sa reference.
+;; 0 = NON DECLARE : on retombe alors exactement sur la longueur d'os, donc une chaine qui ne porte
+;; pas la cle ne bouge pas d'un bit.
+(defconstant PHYS-P-B0     29)
 ;; L'ANGLE QUE LA PEAU PEUT ENCAISSER, EN DEGRES — CHEVEUX SEULEMENT, 0 = pas de limite.
 ;; Owner 2026-08-11 21:15 : « certains maillons meriteraient un traitement pour eviter de creer des
 ;; angles extremes qui mettent en lumiere le lack of geometrie » ; 22:35, le perimetre : « juste sur
@@ -150,6 +161,7 @@
 ;; d'une racine libre. g=1 = racine entierement libre, et c'est l'etat que l'owner a DEJA rejete
 ;; (« cheveux decolles du crane »). Ce parametre n'existe pas pour etre mis a 1.
 (define *phys-rootgr* (new 'global 'array 'float PHYS-SC))
+(define *phys-b0*     (new 'global 'array 'float PHYS-SC))   ;; SPEC 6, unites, 0 = non declare
 (define *phys-maxang* (new 'global 'array 'float PHYS-SC))   ;; degres, 0 = aucune limite d'angle
 ;; PIERRE TOMBALE DU FOURREAU — retire le 2026-08-14. Le pan de pantacourt (`pantflapL/R`) etait
 ;; contraint par CONCENTRICITE (borner son ecart radial a l'axe du mollet qu'il entoure) au lieu
@@ -1083,6 +1095,14 @@
                       (set! (-> *phys-fam* sc)    (the int (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-FAMILY))))
                       (set! (-> *phys-rootlk* sc) (the int (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-ROOTLK))))
                       (set! (-> *phys-rootgr* sc) (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-GRADIENT)))
+                      (set! (-> *phys-b0* sc) (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-B0)))
+                      ;; PREUVE D'EXECUTION (regle 0) : un zero silencieux au parseur C++ ou a la
+                      ;; garde `param_id < kPhysNumChainParams` ferait retomber la borne de SPEC 22
+                      ;; sur l'os — 1.62x trop large — sans qu'aucun chiffre ne le dise. La ligne ne
+                      ;; s'imprime que pour les chaines qui portent la cle : son absence est une
+                      ;; mesure. L'os se lit a cote, sur `PHYSBONE`, a l'execution.
+                      (when (> (-> *phys-b0* sc) 0.0)
+                        (format 0 "[HD-PHYS] b0 c=~D flesh=~f~%" c (-> *phys-b0* sc)))
                       ;; PREUVE D'EXECUTION (regle 0) : `gradient=` traverse le fichier de donnees,
                       ;; le parseur C++ et la garde `param_id < kPhysNumChainParams` avant d'arriver
                       ;; ici, et un zero silencieux a l'une de ces couches rendrait la racine
@@ -3281,6 +3301,10 @@
                                       (ay (if (> l 0) (-> *phys-py* (- scl 1)) (-> anc y)))
                                       (az (if (> l 0) (-> *phys-pz* (- scl 1)) (-> anc z)))
                                       (bl (-> *phys-blen* scl))
+                                      ;; SPEC 6 — LE METRE DES BORNES DE SPEC 22, ET CE N'EST PAS
+                                      ;; `bl` : `bl` est l'OS (la contrainte de longueur porte bien
+                                      ;; sur lui), `b0e` est la CHAIR. Voir PHYS-P-B0.
+                                      (b0e (if (> (-> *phys-b0* sc) 0.0) (-> *phys-b0* sc) bl))
                                       ;; LA RAIDEUR DE CE MAILLON-CI (SPEC 31). `k2` est la raideur
                                       ;; de la chaine ; `k2l` est sa part pour ce maillon, ancree
                                       ;; pres de la racine et libre vers la pointe. Sur une chaine a
@@ -3389,8 +3413,8 @@
                                  (let* ((kd  (fmax 0.0 (- 1.0 (if (and (nonzero? ela) (> k2 0.000001))
                                                                (* dmp (sqrtf (/ k2l k2)))
                                                                dmp))))
-                                        (kn  (* 0.42 bl))
-                                        (cpp (* 0.08 bl))
+                                        (kn  (* 0.42 b0e))
+                                        (cpp (* 0.08 b0e))
                                         (ex0 (- tgx (-> *phys-px* scl)))
                                         (ey0 (- tgy (-> *phys-py* scl)))
                                         (ez0 (- tgz (-> *phys-pz* scl)))
@@ -3625,10 +3649,12 @@
                                      (dy (- (-> *phys-py* scl) ty))
                                      (dz (- (-> *phys-pz* scl) tz))
                                      (dd (sqrtf (+ (* dx dx) (+ (* dy dy) (* dz dz)))))
-                                     ;; SPEC 22 : le plafond NORMAL (genou) et la marge jusqu'au
-                                     ;; plafond DUR. Tous deux en unites de B0 = la longueur d'os.
-                                     (kn (* 0.42 (-> *phys-blen* scl)))
-                                     (cp (* 0.08 (-> *phys-blen* scl))))
+                                     ;; SPEC 22 : plafond NORMAL (genou) et marge jusqu'au plafond
+                                     ;; DUR, en unites de `B0` — la CHAIR (SPEC 6), pas l'os.
+                                     (b0f (if (> (-> *phys-b0* sc) 0.0) (-> *phys-b0* sc)
+                                            (-> *phys-blen* scl)))
+                                     (kn (* 0.42 b0f))
+                                     (cp (* 0.08 b0f)))
                                 (when (and (> dd kn) (> cp 0.0001))
                                   (let* ((xr (/ (- dd kn) cp))
                                          (th (if (>= xr 3.0)
