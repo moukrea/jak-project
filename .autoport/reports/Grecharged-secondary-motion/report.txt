@@ -13,6 +13,12 @@ son chiffre. Trois `(mi)` de ~11 s ont suffi pour la fraîcheur des CGO, aucun r
 NDK/libgk/cmake. C'est le palier le moins cher de la table BUILD & DELIVERY, et
 c'est le bon : ce qu'il a demandé est un retrait de données, pas un correctif de solveur.
 
+  **CORRECTION DU CYCLE 9, ET ELLE PORTE PLUS LOIN QUE CE CYCLE-CI.** Le palier était le bon
+  pour CE changement, mais la phrase « aucun rebuild libgk » cachait une dette : libgk n'avait
+  été rebâti par **personne** depuis le 11 août, alors que du C++ commité l'attendait depuis le
+  12. Le close-gate l'a refusé, à raison. La cause n'est pas ce cycle : c'est le constructeur
+  gradle qui sautait ninja. Mesure, correctif et preuve au §11.
+
 L'ORDRE, VERBATIM (2026-08-14 07:30) :
 
   « Les cheveux, les bretelles, les lunettes sont complètement pétées, les languettes des genoux
@@ -509,3 +515,69 @@ Rien de nouveau à juger sur les cheveux, les sangles, les lunettes, les languet
   2. **Le reste du personnage doit être parfaitement figé** sur l'animation d'auteur. S'il voit
      encore un cheveu ou une lanière bouger d'un pixel, c'est que la physique n'est pas le seul
      écrivain de ces os — ce serait une découverte à part entière, et elle vaudrait le cycle.
+
+
+11. LE TÉLÉPHONE NE TOURNAIT PAS SUR LE CODE COMMITÉ, ET ÇA DURAIT DEPUIS DEUX JOURS
+======================================================================================
+DIRECTIVES vee00ab7404
+
+Le validateur de contenu passait ; c'est le close-gate de livraison qui refusait la phase :
+
+    CLOSE-GATE/deploy: deploy_verify FAILED — the device is NOT provably running the fresh HEAD build
+    DEPLOY-VERIFY FAIL: libgk.so (21:58) is OLDER than newest source (14:05) — STALE build
+
+**CE N'EST PAS UN ARTEFACT PÉRIMÉ ISOLÉ, C'EST UNE PANNE DU POINT DE PRODUCTION.** Deux faits
+mesurés, aucun raisonnement sur du source :
+
+  1. `.autoport/build_arm64_full_consistent.sh` ne contient **ni `cmake` ni `gradle`** — il met en
+     scène les 28 CGO/DGO et rien d'autre. Il ne peut pas rebâtir `libgk`.
+  2. La tâche gradle `buildNativeLibs` déclarait une **sortie** et **aucune entrée**. Gradle la tient
+     donc pour à jour dès que le `.so` existe et n'a pas changé : `ninja` n'est jamais appelé.
+
+         grep -c 'Task :app:buildNativeLibs UP-TO-DATE' .autoport/logs/auto_build_apk.txt  ->  113/113
+         build-android/lib/arm64-v8a/libgk.so                                              ->  08-11 21:58
+         game/kernel/jak1/kmachine.cpp (commit 68fa451599, instrumentation PHYSGRADS)       ->  08-12 14:05
+
+**CONSÉQUENCE, ET ELLE DÉPASSE LA GATE.** Depuis le 12 août, **chaque APK bâti et publié** portait un
+moteur antérieur au code commité. La mesure x86 voyait l'instrumentation ; le téléphone ne l'a jamais
+eue. Ce n'est pas une hypothèse : après un vrai passage de ninja, le `.so` **change de contenu**.
+
+    libgk AVANT : 2026-08-11 21:58  sha=6f9b99d0bfb2f701
+    libgk APRÈS : 2026-08-14 08:13  sha=62421e543b8849d8
+
+**LE PIÈGE ÉTAIT CONNU DEPUIS LE 20 JUIN — ET C'EST ÇA, LA VRAIE LEÇON.** Il était consigné avec sa
+parade : « lance `cmake --build build-android --target gk` À LA MAIN avant gradle ». Une parade est
+une **discipline**, et le constructeur automatique ne lit pas les consignes : il enchaîne
+`build_arm64_full_consistent.sh` puis `gradlew`, donc aucun de ses chemins ne pouvait rebâtir le
+moteur. Deux mois de récurrence pour cette raison exacte. C'est mot pour mot la règle de l'owner du
+2026-08-11 : **« quand une perte se répète, on la rend impossible au point de production, pas
+détectable au point de contrôle. Une gate qui constate la perte arrive toujours trop tard. »**
+
+**CORRECTIF, AU POINT DE PRODUCTION** (`android/app/build.gradle.kts`, commit `18b2fe435d`) :
+`outputs.upToDateWhen { false }`. L'incrémentalité appartient à ninja — ce que l'en-tête du fichier
+affirmait déjà (« ninja only rebuilds the object files that depend on edited sources ») ; c'est le
+court-circuit gradle qui la lui retirait. Un ninja à vide coûte ~1 s. Aucune gate n'a été touchée
+(règle 5) : c'est le producteur qui est réparé, pas l'instrument qui est assoupli.
+
+**PREUVE D'EXÉCUTION** (`.autoport/keira_freshgk_redeploy.sh`, verrou PID + `trap EXIT` conforme à la
+convention de 07:10 — jamais un `touch` nu) :
+
+    > Task :app:buildNativeLibs            <- sans le suffixe UP-TO-DATE, pour la 1re fois sur 113
+    > Task :app:copyNativeLibs
+    > Task :app:packageJak1Debug
+    chaîne hors-téléphone OK : build == jniLibs == APK (62421e543b8849d8)
+    Performing Streamed Install / Success
+    ok: libgk.so newer than newest source
+    ok: chain build==APK==device (62421e543b8849d8)
+    ok: flag-set pairing ogflags:435df2141670:android-arm64 (device libgk == device CGO)
+    ok: hd-models feature parity      ok: physics feature parity
+    ok: custom pack on device == built pack (version c5accfddfe4bb, 122 member(s))
+    DEPLOY-VERIFY PASS: device eae4df44 provably runs the fresh HEAD (18b2fe435d) libgk.so.
+
+**CE QUE ÇA NE CHANGE PAS, ET IL FAUT LE DIRE.** Le périmètre poitrine n'a pas bougé d'une ligne : le
+GOAL et les données sont livrés **identiques** à ceux que le validateur a mesurés (`chestL`/`chestR`,
+2 chaînes, joints `lBoob`/`rBoob`). Le code C++ qui manquait au téléphone est de
+l'**instrumentation** de mesure, pas du solveur — aucune des mesures x86 du §4 n'en dépend, et aucun
+chiffre de ce rapport n'est à relire. Ce qui change, c'est qu'à partir de maintenant ce que l'owner
+installe est bien ce que l'arbre a commité, et que le prochain APK du constructeur automatique le
+sera aussi **sans que personne ait à y penser**.
