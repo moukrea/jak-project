@@ -265,3 +265,13 @@ atteinte » alors qu'elle valait **0.778 / 0.795 B0 contre sa référence, dépa
 mécanisme (sous-pas + saturation) était bon ; le mètre était faux, et le vert venait du mètre.
 Verrou : toute cible exprimée en unité dérivée (`B0`, `W0`, `L0`…) publie **la valeur de l'unité
 elle-même et sa provenance** à côté du résultat. Un ratio sans son dénominateur n'est pas une mesure.
+
+GUARD absent-by-wrong-name .autoport/PITFALLS.md deform|shape|scl
+**Conclure « absent » parce qu'on a cherché un nom que le code n'emploie pas.** Deux fois le
+2026-08-14 : `HYST` ne trouvait que `PHYSTILT` (l'hystérésis semblait instrumentée alors qu'elle
+n'existait pas), puis `scale` et `ROOM-SHAPE` rendaient 0 et 1 sur un canal de déformation qui pèse
+**+659 lignes** de moteur et **369 occurrences** sous les noms `deform|shape|scl`. La première
+erreur inventait une mesure, la seconde a failli faire signaler comme manquant le plus gros
+changement de la journée. Verrou : avant de conclure à l'absence d'un mécanisme, vérifier par une
+grandeur INDÉPENDANTE du nom — la taille du diff sur les fichiers concernés, ou une valeur publiée à
+l'exécution. Une absence ne se prouve pas par un motif de recherche.
