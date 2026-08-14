@@ -152,7 +152,13 @@
 # chain chestL gravity=0.65 stiffness=1.45 mass=1.45
 # chain chestR gravity=0.65 stiffness=1.45 mass=1.45
 chain chestL gravity=0.65 mass=1.45
-chain chestR gravity=0.65 mass=1.45
+# 2026-08-14 — SPEC 32 : la MASSE etait identique des deux cotes (0.00 %) alors que sa section
+# exige 2 a 4 % d'ecart. C'etait le SEUL des trois criteres de la section a etre viole (raideur
+# +4.00 % et amortissement +3.97 % etaient deja dans la bande). Derivation complete dans le bloc
+# SPEC 32 plus bas, avec la raideur qui l'accompagne : les trois ecarts ne sont PAS independants,
+# c'est ce qui rendait la section infaisable telle qu'elle etait attaquee.
+# chain chestR gravity=0.65 mass=1.45
+chain chestR gravity=0.65 mass=1.4800
 #
 # MÈCHES FINES. Le gradient est désormais correct (racine 0.0000, milieu 0.2240, pointe 0.3846) donc
 # ce n'est plus la forme : c'est la FRÉQUENCE. Une mèche fine, légère et raide oscille vite = l'effet
@@ -1156,5 +1162,40 @@ collider gogglesMid radius=150
 ##              decale (2.392 Hz), et les deux seins cessent d'etre identiques au chiffre pres.
 # chain chestL stiffness=1.45 damping=0.0883    (RETIRE : le retrait lui-meme etait la faute)
 # chain chestR stiffness=1.45 damping=0.0918    (RETIRE : idem)
+## ============================================================================================
+## 2026-08-14 — SPEC 32 FERMEE : LES TROIS ECARTS NE SONT PAS INDEPENDANTS
+## ============================================================================================
+## Sa section 32 demande TROIS asymetries gauche/droite : masse 2-4 %, raideur 3-5 %,
+## amortissement 3-5 %. Le cycle precedent en tenait deux et laissait la masse a 0.00 %, et le
+## rapport le notait comme un « ecart net » a corriger — comme si c'etait un quatrieme nombre a
+## poser. Ce n'en est pas un : le moteur lie les trois.
+##
+##     f    = stiffness / sqrt(mass)                      (jak-hd-physics.gc:2976)
+##     zeta = damping / (2 * 2*pi*f*dt)                   (verifie : 0.1686/(2*0.24086) = 0.35001)
+##
+## Donc a zeta CONSTANT (sa section 25 l'impose a 0.35), l'amortissement est proportionnel a la
+## frequence, et l'ecart d'amortissement est FORCE d'etre egal a l'ecart de frequence :
+##
+##     ecart(damping) == ecart(f) == ecart(stiffness) - 1/2 * ecart(mass)
+##
+## Poser la masse a -3 % « pour satisfaire la section » aurait pousse l'ecart d'amortissement a
+## 5.6 %, HORS de sa bande 3-5 % : on aurait ferme un critere en en cassant un autre. Le systeme
+## n'a de solution que si la masse monte du MEME cote que la raideur. Avec masse +2 % et
+## raideur +5 % les trois tombent ensemble dans leurs bandes :
+##
+##     masse         1.4500 -> 1.4800   = +2.03 %   (bande 2-4)  ✓  (ecart rapporte au PLUS GRAND
+##                                                  des deux, convention de physics_spec_grade.py)
+##     raideur       2.7696 -> 2.9081   = +5.00 %   (bande 3-5)  ✓
+##     amortissement 0.1686 -> 0.1753   = +3.97 %   (bande 3-5)  ✓   INCHANGE, il tombe juste
+##
+## Controles qui ne doivent pas bouger, et qui ne bougent pas :
+##     SPEC 24  f = 2.9081/sqrt(1.4790) = 2.3913 Hz   (nominal 2.30, bande 2.1-2.5)  ✓
+##     SPEC 25  zeta = 0.1753/(2*2*pi*2.3913/60) = 0.35002                            ✓
+##     SPEC 26  exp(-z*pi/sqrt(1-z^2)) = 30.92 %      (sa cible pratique 30-31 %)     ✓
+##
+## chestL n'est PAS touchee : elle porte exactement le nominal de sa spec (2.3000 Hz, zeta 0.35).
+## L'asymetrie est donc portee d'un seul cote, ce qui est aussi ce que sa section decrit
+## (« subtle parameter variation »), et non un decalage symetrique invente autour du nominal.
 chain chestL stiffness=2.7696 damping=0.1686
-chain chestR stiffness=2.8804 damping=0.1753
+# chain chestR stiffness=2.8804 damping=0.1753   (REMPLACE : raideur +4 % -> +5 %, cf. SPEC 32)
+chain chestR stiffness=2.9081 damping=0.1753

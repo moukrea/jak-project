@@ -3030,10 +3030,17 @@
                           (set! (-> *phys-axv* sc) iv)
                           (set! (-> *phys-axa* sc) ia)
                           (set! (-> *phys-axl* sc) il)
-                          (set! (-> *phys-axs* (+ (* sc 3) iv)) 1.0)
-                          (set! (-> *phys-axs* (+ (* sc 3) ia)) (/ 1.0 PHYS-MOB-AP))
-                          (set! (-> *phys-axs* (+ (* sc 3) il)) (/ 1.0 PHYS-MOB-LAT))
-                          (set! (-> *phys-axok* sc) 1)))))
+                          (set! (-> *phys-axok* sc) 1)
+                          ;; LA CAPACITE, LUE SUR LE RIG : il faut plus d'UNE articulation libre
+                          ;; pour porter §29 (voir la note de `*phys-axan*`). A une seule, la
+                          ;; classification et la mesure par axe existent quand meme — c'est elles
+                          ;; qui prouvent que la structure est le mur — mais les trois facteurs
+                          ;; restent a 1.0, donc l'integration est celle d'avant AU BIT PRES.
+                          (when (> (- n rlk) 1)
+                            (set! (-> *phys-axs* (+ (* sc 3) iv)) 1.0)
+                            (set! (-> *phys-axs* (+ (* sc 3) ia)) (/ 1.0 PHYS-MOB-AP))
+                            (set! (-> *phys-axs* (+ (* sc 3) il)) (/ 1.0 PHYS-MOB-LAT))
+                            (set! (-> *phys-axan* sc) 1))))))
                   ;; LA GRAVITE ABSOLUE, VUE DE L'ANCRE, AVANT TOUTE SOUSTRACTION. C'est elle qui
                   ;; sert a PRE-COMPENSER la direction de repos de la chair (section 1) ; `gl` ne
                   ;; garde le terme differentiel que pour la MESURE (`*phys-st*` 18, le stimulus
@@ -3406,7 +3413,13 @@
                                         (ex0 (- tgx (-> *phys-px* scl)))
                                         (ey0 (- tgy (-> *phys-py* scl)))
                                         (ez0 (- tgz (-> *phys-pz* scl)))
-                                        (axo (-> *phys-axok* sc))
+                                        ;; L'ARMEMENT, pas la classification : une chaine classee
+                                        ;; mais non armee (1 seule articulation) doit integrer
+                                        ;; EXACTEMENT ce qu'elle integrait avant ce bloc, sans
+                                        ;; meme passer par l'aller-retour de projection — dont
+                                        ;; l'erreur d'arrondi suffirait a bouger un dernier chiffre
+                                        ;; et a rendre la non-regression indemontrable.
+                                        (axo (-> *phys-axan* sc))
                                         ;; SPEC 37 — LE PAS DE TEMPS SUIT LE MODE LE PLUS RAPIDE,
                                         ;; ET C'EST L'ANISOTROPIE QUI L'A IMPOSE.
                                         ;; « Recommended effective soft-body update frequency
@@ -4497,7 +4510,9 @@
 (defun phys-chain-axis ((slot int) (chain int) (which int))
   "LA CLASSIFICATION DU TRIEDRE, TELLE QUE LE SOLVEUR L'A FAITE — pour que la salle la publie et
    qu'elle soit RELISIBLE dans la trace au lieu d'etre supposee.
-   which 0 = classee (0/1), 1/2/3 = index de ligne vertical / avant-arriere / lateral."
+   which 0 = classee (0/1), 1/2/3 = index de ligne vertical / avant-arriere / lateral,
+   4 = raideur par axe ARMEE (0/1) — voir la note de `*phys-axan*` : classee et armee ne sont pas
+   la meme chose, et c'est precisement l'ecart entre les deux qu'il faut pouvoir lire."
   (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS))
     -1
     (let ((sc (+ (* slot PHYS-CHAINS) chain)))
@@ -4505,6 +4520,7 @@
             ((= which 1) (-> *phys-axv* sc))
             ((= which 2) (-> *phys-axa* sc))
             ((= which 3) (-> *phys-axl* sc))
+            ((= which 4) (-> *phys-axan* sc))
             (else -1)))))
 
 (defun phys-chain-axis-stiff ((slot int) (chain int) (which int))

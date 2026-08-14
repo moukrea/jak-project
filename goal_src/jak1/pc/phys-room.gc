@@ -1107,9 +1107,14 @@
              ;; DEUX LIGNES, ET CE N'EST PAS UN CHOIX DE STYLE : `format` de GOAL n'accepte pas
              ;; plus de huit parametres, destination et chaine de format comprises (meme plafond
              ;; que `PHYSGRADS` et `PHYSRINGA`). Huit champs ne tiennent pas sur une ligne.
-             (format 0 "PHYSAXIS c=~D ok=~D rv=~D rap=~D rlat=~D~%"
+             ;; `ok` = CLASSEE (la mesure par axe tourne) ; `arm` = raideur par axe ARMEE. Les deux
+             ;; sont publies separement parce qu'ils ne disent pas la meme chose : aujourd'hui
+             ;; ok=1 arm=0 sur les deux seins, et c'est exactement l'etat que la directive du
+             ;; 09:45 decrit — mesure oui, application non, tant que la structure est un point.
+             (format 0 "PHYSAXIS c=~D ok=~D arm=~D rv=~D rap=~D rlat=~D~%"
                      c
                      (phys-chain-axis (-> self slot) c 0)
+                     (phys-chain-axis (-> self slot) c 4)
                      (phys-chain-axis (-> self slot) c 1)
                      (phys-chain-axis (-> self slot) c 2)
                      (phys-chain-axis (-> self slot) c 3))

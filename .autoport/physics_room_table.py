@@ -26,6 +26,14 @@ import os
 import re
 import sys
 
+# SPEC 24 se mesure PAR AXE, et l'estimateur qui sait le faire vit deja dans
+# `.autoport/physics_ringdown.py`. On l'IMPORTE au lieu d'en ecrire une seconde version : deux
+# copies d'un estimateur derivent, et c'est alors le tableau qui dit une chose et le script une
+# autre sur la meme trace. Le chemin est calcule depuis ce fichier-ci, pas depuis le cwd : le
+# tableau est lance aussi bien depuis la racine du depot que depuis un script de salle.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import physics_ringdown
+
 UNITS = 4096.0   # unites de jeu par metre
 
 # Seuil de TRANSMISSION au-dela duquel une chaine est declaree respectueuse de l'intention
@@ -113,6 +121,43 @@ def ring_env(series, w):
     if n == 0 or w < 1:
         return list(series)
     return [max(series[f:min(n, f + w)]) for f in range(n)]
+
+
+# SPEC 27 — LES QUATRE BANDES DE STABILISATION, ET LEUR SEUIL D'ENVELOPPE.
+#
+#     « After one strong isolated impulse: dominant visible response 0.3-0.6 s; secondary movement
+#       0.6-1.2 s; mostly settled ~1.0-1.5 s; essentially stationary ~1.3-1.7 s. »
+#
+#   t5%   -> « dominant visible response »   0.3-0.6 s
+#   t1%   -> « secondary movement »          0.6-1.2 s
+#   t05%  -> « mostly settled »              1.0-1.5 s
+#   t01%  -> « essentially stationary »      1.3-1.7 s
+#
+# CE SONT DES CIBLES, PAS UNE GATE : ce bloc MESURE, il ne juge pas (DIRECTIVES regle 5, les gates
+# sont gelees). Le seuil existant a 10 % de `a0` (`decay`) n'est ni touche ni remplace : SPEC 27
+# decrit QUATRE bandes et un seul seuil ne peut en rendre qu'une.
+SETTLE_BANDS = ((0.05, 't5'), (0.01, 't1'), (0.005, 't05'), (0.001, 't01'))
+SETTLE_FPS = 60.0
+
+
+def settle_time(env, frames, a0, frac):
+    """Instant, en SECONDES depuis le debut de la fenetre, ou l'ENVELOPPE observee passe sous
+    `frac * a0`.
+
+    Meme enveloppe et meme `a0` que le `decay` a 10 % qui existe deja : ces quatre temps sont le
+    MEME instrument lu a quatre seuils, pas une seconde mesure qui pourrait le contredire.
+
+    Un plafond atteint doit SE VOIR : quand le seuil n'est jamais franchi dans la fenetre, on ecrit
+    `>` suivi de la duree reellement observee — jamais la duree elle-meme, qui se lirait comme une
+    mesure, et jamais un nombre invente."""
+    span_s = (frames[-1] - frames[0]) / SETTLE_FPS if len(frames) > 1 else 0.0
+    if a0 <= 0.0:
+        return '>%.2f' % span_s
+    thr = frac * a0
+    for i, v in enumerate(env):
+        if v < thr:
+            return '%.2f' % ((frames[i] - frames[0]) / SETTLE_FPS)
+    return '>%.2f' % span_s
 
 
 def ring_extrema(series, delta):
@@ -372,6 +417,18 @@ def main():
     # niveau d'excitation. `ang` est la deviation angulaire du maillon PAR RAPPORT A SON PARENT, en
     # degres, et la valeur de CETTE frame-la. Voir le bloc RING-DOWN en tete de fichier pour la
     # nature, le repere, la ligne de base et la reserve du signal redresse.
+    # ---- LA MEME FENETRE, PROJETEE PAR AXE DANS LE REPERE DE L'ANCRE (SPEC 24) ------------------
+    # `PHYSRINGA v=/ap=/lat=`. Structure identique a celle de `physics_ringdown.load()`, et c'est
+    # voulu : c'est son estimateur qui la lit, pas une seconde copie ecrite ici. Un dictionnaire
+    # VIDE veut dire que la trace ne porte pas la mesure — ca se declare, ca ne se comble pas.
+    ringa = {}
+    for m in re.finditer(r'^PHYSRINGA c=(\d+) f=(\d+) l=(\d+) v=([-\d.e+]+) ap=([-\d.e+]+)'
+                         r' lat=([-\d.e+]+)', txt, re.M):
+        ringa.setdefault((int(m.group(1)), int(m.group(3))), []).append(
+            (int(m.group(2)), float(m.group(4)), float(m.group(5)), float(m.group(6))))
+    for k in ringa:
+        ringa[k].sort()
+
     ring = {}
     for m in re.finditer(r'^PHYSRING c=(\d+) f=(\d+) l=(\d+) ang=([-\d.e+]+)', txt, re.M):
         ring.setdefault((int(m.group(1)), int(m.group(3))), {})[
@@ -1411,8 +1468,34 @@ def main():
               % (span + 1, len(links), a0,
                  ('%.1f' % tapp) if tapp else 'indeterminee',
                  ' '.join('%.2f' % r for r in rs) if rs else 'aucune'))
+            # ---- SPEC 27 : LES QUATRE BANDES DE STABILISATION -------------------------------
+            # La MEME enveloppe observee (`env`) et le MEME `a0` que le `decay` a 10 % ci-dessus,
+            # lus a quatre seuils. SPEC 27 decrit quatre bandes de temps, et un seuil unique ne
+            # peut en rendre qu'une : c'est un ajout, pas un remplacement — `decay` reste publie
+            # tel quel, avec son seuil a 10 %, et ne bouge pas.
+            settle = {k: settle_time(env, frames, a0, frac) for frac, k in SETTLE_BANDS}
+            A('ROOM-SETTLE: chain=%-12s t5=%-7s t1=%-7s t05=%-7s t01=%-7s a0=%-8s frames=%d'
+              % (nm, settle['t5'], settle['t1'], settle['t05'], settle['t01'],
+                 '%.2f' % a0, span + 1))
             ring_row[nm] = dict(osc=osc, decay=decay, peak=peak, a0=a0, lags=lags, mono=mono,
-                                di=di, span=span)
+                                di=di, span=span, settle=settle)
+        # ---- SPEC 27 : ce que ces quatre temps valent, et contre quoi ils se lisent --------------
+        A('')
+        A('-- ROOM-SETTLE : SPEC 27, LE TEMPS DE STABILISATION A QUATRE SEUILS ----------------------')
+        A('   SPEC 27 : « After one strong isolated impulse: dominant visible response 0.3-0.6 s;')
+        A('   secondary movement 0.6-1.2 s; mostly settled ~1.0-1.5 s; essentially stationary')
+        A('   ~1.3-1.7 s. Long-running obvious oscillation should not occur. »')
+        A('   NATURE : un TEMPS, en secondes a 60 FPS, pris sur l\'ENVELOPPE de la pointe — la meme')
+        A('   enveloppe glissante et le meme `a0` que le `decay` a 10 % publie au-dessus, lus a')
+        A('   quatre seuils au lieu d\'un. Ce n\'est donc pas une seconde mesure qui pourrait')
+        A('   contredire la premiere : c\'est le meme instrument, a quatre hauteurs.')
+        A('   LECTURE : `>x.xx` = le seuil n\'a jamais ete franchi dans la fenetre observee, et la')
+        A('   valeur ecrite est la duree de cette fenetre — pas le temps de stabilisation.')
+        A('   CIBLES SPEC 27 (ce bloc MESURE, il ne juge pas — les gates sont gelees) :')
+        A('     t5%   -> « dominant visible response »   0.3-0.6 s')
+        A('     t1%   -> « secondary movement »          0.6-1.2 s')
+        A('     t05%  -> « mostly settled »              1.0-1.5 s')
+        A('     t01%  -> « essentially stationary »      1.3-1.7 s')
         # ---- LE CONTROLE APPARIE : ce qu'il approuve contre ce qu'il rejette --------------------
         A('')
         A('   CONTROLE APPARIE — meme moteur, meme salle, meme fenetre. L\'owner APPROUVE les meches')
@@ -1448,6 +1531,78 @@ def main():
         A('   Un `lag` proche de zero ou negatif = tout le volume bouge EN PHASE, ce qui est')
         A('   exactement le pudding et jamais des cheveux. Le verdict reste celui de l\'owner ; ces')
         A('   chiffres disent seulement de quelle grandeur il parle.')
+    A('')
+
+    # ---- SPEC 24 : LES TROIS FREQUENCES PROPRES, REPUBLIEES PAR AXE -----------------------------
+    # Le tableau les republie, il ne les recalcule pas : l'estimateur est celui de
+    # `.autoport/physics_ringdown.py`, importe. Une seconde implementation derive, et c'est alors
+    # le tableau qui dit une chose et le script une autre sur la MEME trace.
+    A('-- ROOM-RINGAXIS : SPEC 24, LES TROIS FREQUENCES PROPRES, UNE PAR AXE ---------------------')
+    A('   SPEC 24 : Vertical 2.30 Hz (2.1-2.5) / Front-Back 2.50 Hz (2.3-2.7) / Lateral 2.65 Hz')
+    A('   (2.4-2.9), et « Vertical motion is intentionally the slowest ».')
+    A('   NATURE : une FREQUENCE, tiree de la serie temporelle `PHYSRINGA` — la deviation signee du')
+    A('   maillon a sa pose d\'auteur, projetee axe par axe.  REPERE : le triedre de l\'ANCRE (le')
+    A('   torse), que SPEC 7 impose : « all dynamic calculations shall occur relative to the')
+    A('   torso/root transform rather than directly in world space ». Le repere monde ne peut pas')
+    A('   separer ces trois axes, et une projection sur l\'axe principal (ROOM-RINGDOWN ci-dessus)')
+    A('   n\'en rend qu\'UNE, celle de l\'axe dominant : c\'est pour ca que cette mesure existe a')
+    A('   cote et non a la place.')
+    A('   `fn` = frequence PROPRE = fd / sqrt(1-zeta^2). Une periode relevee sur une oscillation qui')
+    A('   DECROIT rend la frequence AMORTIE `fd` ; c\'est `fn` que SPEC 24 specifie, et c\'est `fn`')
+    A('   qui se compare a la cible — jamais `fd`.')
+    A('   `status=insufficient-excitation` = l\'axe n\'a pas assez d\'extrema alternes pour porter un')
+    A('   ajustement ; `fn` et `zeta` valent alors `n/a`, jamais un repli ni la valeur d\'un autre')
+    A('   axe. Une mesure qui ne peut pas etre faite se declare.')
+    ax_names = {c: (names[c] if c < len(names) else 'c%d' % c) for c in chains}
+    ax_rows = physics_ringdown.axis_rows(ringa, ax_names)
+    if not ringa:
+        A('ROOM-RINGAXIS: ABSENT (aucune ligne PHYSRINGA dans la trace)')
+        A('   Cette course a ete produite par une salle qui ne publiait pas encore la deviation')
+        A('   projetee sur le triedre de l\'ancre. Les trois frequences de SPEC 24 ne sont donc PAS')
+        A('   mesurees ici, et elles ne sont remplacees par rien : la frequence de l\'axe principal')
+        A('   publiee par ROOM-RINGDOWN n\'est aucune des trois.')
+    else:
+        A('   TROIS ESTIMATEURS SUR LA MEME SERIE, ET C\'EST VOULU : `ext` compte les extrema,')
+        A('   `ar2` ajuste une recurrence d\'ordre 2 sur les 149 echantillons, `zc` mesure les')
+        A('   croisements de zero (seul des trois a etre INDEPENDANT DE L\'AMPLITUDE, donc le seul')
+        A('   que la montee initiale ne deplace pas). Les trois rendent la reponse des series')
+        A('   synthetiques a moins de 0.05 % pres (`physics_ringdown.py --selftest`, 5 controles')
+        A('   positifs + 2 negatifs). LEUR ECART SUR LA TRACE REELLE EST DONC UNE MESURE : quand')
+        A('   ils divergent, ce n\'est pas l\'un d\'eux qui a tort, c\'est la SERIE qui ne porte pas')
+        A('   d\'oscillation libre exploitable. `spread` = ecart-type des demi-periodes ; au-dela')
+        A('   de ~20 % de la demi-periode, la periode n\'est pas stable et le chiffre ne veut rien')
+        A('   dire.')
+        for d in ax_rows:
+            A('ROOM-RINGAXIS: chain=%-12s axis=%-3s ext_fn=%-7s ar2_fn=%-7s zc_fn=%-7s'
+              % (d['chain'], d['axis'],
+                 '%.3f' % d['fn'] if d['fn'] is not None else 'n/a',
+                 '%.3f' % d['ar_fn'] if d['ar_fn'] is not None else 'n/a',
+                 '%.3f' % d['zc_fn'] if d['zc_fn'] is not None else 'n/a'))
+            A('   zeta ext=%-7s ar2=%-7s zc=%-7s | demi-periodes=%d spread=%s | statuts %s/%s/%s'
+              % ('%.3f' % d['zeta'] if d['zeta'] is not None else 'n/a',
+                 '%.3f' % d['ar_zeta'] if d['ar_zeta'] is not None else 'n/a',
+                 '%.3f' % d['zc_zeta'] if d['zc_zeta'] is not None else 'n/a',
+                 d['zc_nhalf'],
+                 '%.2f' % d['zc_spread'] if d['zc_spread'] is not None else 'n/a',
+                 d['status'], d['ar_status'], d['zc_status']))
+            A('   croisements de zero (frames) = %s' % (d['zc_cross'][:10],))
+            fns = [v for v in (d['fn'], d['ar_fn'], d['zc_fn']) if v is not None]
+            if fns:
+                spread = 100.0 * (max(fns) / min(fns) - 1.0)
+                A('   cible SPEC 24 = %.2f Hz | les estimateurs s\'ecartent de %.0f %% entre eux'
+                  % (d['target'], spread))
+                if spread > 20.0:
+                    A('   -> NON MESURABLE sur cette fenetre : trois instruments valides par')
+                    A('      controle positif ne peuvent pas diverger de %.0f %% sur une serie qui'
+                      % spread)
+                    A('      porterait vraiment une oscillation libre. C\'est le STIMULUS qui')
+                    A('      manque, pas le solveur qui derive — et un ecart a la cible calcule')
+                    A('      la-dessus serait un chiffre invente.')
+                else:
+                    A('   -> mesure CONVERGENTE ; ecart a la cible %+.1f %% (zc)'
+                      % (100.0 * (d['zc_fn'] / d['target'] - 1.0) if d['zc_fn'] else float('nan')))
+            else:
+                A('   cible SPEC 24 = %.2f Hz  NON MESUREE sur cet axe' % d['target'])
     A('')
 
     # ---- L'ALLONGEMENT, PAR PILOTAGE (10e passe : « ils s'allongent de nouveau ») ---------------
