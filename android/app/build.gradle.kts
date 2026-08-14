@@ -277,9 +277,22 @@ val buildNativeLibs by tasks.registering(Exec::class) {
     dependsOn(configureNativeLibs)
     workingDir = rootProject.file("..")
     commandLine("cmake", "--build", ndkBuildDir.absolutePath, "--target", "gk")
-    // The output is the .so the next task picks up; declaring it as an
-    // output lets Gradle skip the task on an up-to-date incremental run.
+    // The output is the .so the next task picks up; declaring it wires
+    // copyNativeLibs to this task's result.
     outputs.file(ndkOutLib)
+    // ...but it must NEVER make Gradle skip the ninja invocation. A task that
+    // declares an output and NO inputs is up-to-date as soon as that output
+    // exists and is unchanged — so editing a .cpp could not re-run it.
+    // MEASURED 2026-08-14: `Task :app:buildNativeLibs UP-TO-DATE` on 113 of 113
+    // gradle runs in .autoport/logs/auto_build_apk.txt, with
+    // build-android/lib/arm64-v8a/libgk.so frozen at 08-11 21:58 while
+    // game/kernel/jak1/kmachine.cpp was edited 08-12 14:05 (commit 68fa451599)
+    // — every APK built and shipped since carried a libgk WITHOUT that code, and
+    // deploy_verify's freshness check is what finally caught it.
+    // Incrementality belongs to ninja, exactly as this file's header comment
+    // already claims ("ninja only rebuilds the object files that depend on
+    // edited sources"); a no-op ninja run costs ~1 s.
+    outputs.upToDateWhen { false }
 }
 
 val copyNativeLibs by tasks.registering(Copy::class) {
