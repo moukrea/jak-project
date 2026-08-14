@@ -232,20 +232,44 @@ Les trois sections se recoupent à trois décimales. La calibration est bien cel
     à lui donner depuis la salle actuelle (`armed` EST la ligne de base, donc le test deviendrait
     `armed >= 0.2·armed`) — c'est une référence HISTORIQUE, donc un nombre choisi, donc à trancher.
 
-5d. **LA DÉCROISSANCE DE LA POITRINE : LE CHIFFRE PUBLIÉ NE COLLE PAS AU MODÈLE, ET LE RAPPORT
-    PRÉCÉDENT EN A TIRÉ UNE CONCLUSION QUI N'EST PAS ÉTABLIE.** Il écrit « l'état livré s'éteint 5 à
-    10 fois plus vite que sa propre §27 ». Ce que je trouve en refaisant le calcul :
-      * à §24/§25, l'amplitude tombe à 10 % en **27 frames** et à 1 % en 55. §27 (« mostly settled
-        1.0-1.5 s » = 60-90 frames) est donc COHÉRENT si « settled » veut dire quasi-complet, et
-        incohérent s'il vise les 10 %. **La spec n'est pas en défaut**, contrairement à ce qui était
-        suggéré ;
-      * la salle publie `decay` 5 à 7 frames, soit 4 à 5 fois plus vite que le modèle. L'écart est
-        réel MAIS l'instrument peut l'expliquer seul : `a0 = max(tip[:5])`, le maximum sur les
-        CINQ PREMIÈRES frames de la fenêtre de silence. Un transitoire à la coupure du pilotage
-        fixe alors l'échelle, et le seuil à 10 % de ce transitoire est franchi tout de suite.
-      DISCRIMINATEUR À UN COUP pour le prochain cycle : comparer `a0` à l'amplitude aux frames
-      5-15 de la MÊME fenêtre. Tant que ce n'est pas fait, **personne ne peut affirmer que la
-      poitrine est aux cibles §24/§27**, ni dans un sens ni dans l'autre.
+5d. **LA POITRINE N'EST PAS AUX CIBLES DE L'OWNER, ET LA SÉRIE BRUTE LE TRANCHE. J'AI LANCÉ LE
+    DISCRIMINATEUR AU LIEU DE LE LÉGUER, ET IL RÉFUTE MA PROPRE HYPOTHÈSE.**
+
+    D'abord la spec, recalculée : à §24/§25 l'amplitude tombe à 10 % en **27 frames** et à 1 % en
+    55. §27 (« mostly settled 1.0-1.5 s » = 60-90 frames) est donc COHÉRENT si « settled » veut
+    dire quasi-complet. **La spec de l'owner n'est pas en défaut**, contrairement à ce que le
+    rapport précédent suggérait.
+
+    J'avais ensuite supposé que le `decay=7` publié était un artefact d'instrument (`a0` gonflé par
+    un transitoire à la coupure du pilotage). **C'est faux.** Série brute `PHYSRING c=7 l=0`
+    (`chestL`, maillon LIBRE — `rlk` vaut 0 sur une chaîne à un maillon), degrés, fenêtre de silence :
+
+        0.0  81.7  65.3  49.5  34.8  21.7  11.1  6.8  6.8  6.3  5.4  4.3  3.1  1.8  0.7 …
+
+    Elle descend de façon LISSE et MONOTONE depuis `a0` : il n'y a pas de pic parasite, donc
+    l'instrument n'est pas en cause et le `decay=7` est réel.
+
+    **ET LA FORME DIT PLUS QUE LA DURÉE — C'EST LE VRAI RÉSULTAT.** Ce n'est pas une décroissance
+    exponentielle trop rapide, c'est **une rampe à décrément quasi CONSTANT** :
+
+        écarts successifs   16.4  15.8  14.7  13.1  10.6      (chestL, ~15°/frame)
+        chestR              23.3  20.1  17.2  14.2            (exponentielle : 23.3 16.7 11.0 6.1)
+
+    Un amortissement visqueux retire une fraction constante ; ici c'est une QUANTITÉ constante qui
+    part chaque frame. Et **il n'y a AUCUN rebond** là où sa §26 en demande un à 31 %. Les
+    paramètres livrés encodent pourtant ζ = 0.3500 exactement (recalculé au §4).
+
+    Donc : quelque chose retire de l'énergie à débit fixe, en plus du terme d'amortissement.
+    **Écarté par lecture directe** : `phys-cap-ang!` (son nom trompe, elle n'écrit que `*phys-la0*`
+    / `*phys-la1*`, c'est de la mesure pure) ; le limiteur de rayon de `phys-length-chain` (la
+    course publie « plafond-taille 0 fois ») ; `phys-bend-chain` (bornée à `maxangle`, absent de
+    `chestL`). **Restent** la boucle de contraintes (15 projections par frame) et les poussées de
+    collision contre le buste. C'est là qu'il faut chercher, et la signature à retrouver est le
+    décrément constant, pas une durée.
+
+    CE QUE ÇA NOMME, ET C'EST DÉJÀ AU DOSSIER : « pudding = SUR-amortissement, pas du ringing ».
+    Un poids qui s'affale sans rebondir ne peut pas suivre une animation rapide — c'est mot pour
+    mot `chest-big-anims` (« les animations lentes c'est nickel, les importantes toujours pareil »).
 
 5e. **PLAFOND DE LIGNES.** Le moteur est à **4651 lignes** pour un plafond `CLEAN` de 4800 : il
     reste **149 lignes**. La composition reste saine (7 `clamp`, 8 `hysteresis`, 105 occurrences de
@@ -342,12 +366,27 @@ a. **`ROOM-INVERSIONS` : le contrôle positif se dégrade AUSSI.** residual 535 
    exigent >= 4x. Ce zéro-là n'était pas prouvé avant ce cycle et l'est encore moins après. À
    mettre au débit du changement.
 
-b. **`anklestrapL` et `anklestrapR` : le contrôle s'inverse, et c'est une anomalie franche.**
-   anklestrapL `armed=1517 disarmed=1561`, anklestrapR `armed=1221 disarmed=998`. Sur la première,
-   **activer la résolution produit PLUS de franchissements que la désactiver**. Une résolution qui
-   augmente la grandeur qu'elle doit réduire n'est pas une résolution. Ce sont exactement les deux
-   chaînes dont le compteur explose le plus (x241 et x100) et dont les maillons sont mesurés 4.8 à
-   5.1 fois hors de la portée du volume. Je ne sais pas encore l'expliquer et je ne le masque pas.
+b. **CE QUE J'AVAIS PRIS POUR UNE ANOMALIE N'EN EST PAS UNE — JE ME CORRIGE.**
+   J'avais écrit ici que sur `anklestrapL` « activer la résolution produit PLUS de franchissements
+   que la désactiver » (`armed=1517 disarmed=1561`) et que c'était inexpliqué. En regardant le
+   rapport désarmé/armé CHAÎNE PAR CHAÎNE, il n'y a pas d'anomalie : il y a une **coupure nette en
+   deux populations**, et elle tombe exactement sur la ligne dedans/dehors que le correctif trace.
+
+     résolution TOUJOURS EFFICACE (dis/arm 0.05-0.18) — les maillons sont DANS le volume :
+       backhair 0.00 · chestL 0.05 · chestR 0.08 · kneeflapR 0.08 · goggles 0.09 · kneeflapL 0.12
+       · pantflapL 0.15 · pantflapR 0.18 · topstrapR 0.18      (partielles : botstrapR 0.26, topstrapL 0.31)
+     résolution devenue INERTE (0.61-1.03) — les maillons sont 2 à 5 fois DEHORS :
+       rmidhair 0.61 · rbang 0.73 · lmidhair 0.80 · anklestrapR 0.82 · botstrapL 0.83
+       · lbang 0.84 · anklestrapL 1.03
+
+   Un rapport de 1.03 veut dire « la résolution ne fait plus rien ici », pas « elle aggrave » : la
+   jambe armée porte elle-même ~6 % de dérive d'une course à l'autre (`anklestrapL armed`
+   1605 → 1517 alors qu'elle désactive la résolution et devrait être invariante — elle hérite de
+   l'état laissé par la partie résolution-active de la même session). 1.03 est dans ce bruit.
+   `toestrapR` était déjà à 1.33 AVANT le correctif (4/3) : antérieur, inchangé.
+
+   **C'est la meilleure preuve que le correctif fait ce qu'il annonce** : il n'a désarmé la
+   résolution QUE là où le maillon est hors du volume, et nulle part ailleurs.
 
 c. **UN GAIN QUE JE N'AVAIS PAS CHERCHÉ : la poitrine répond enfin à l'inclinaison.**
    `ROOM-RESPONSE chestL drive=tilt` : `tip 0.0805 -> 0.3346`, et le gain passe de
