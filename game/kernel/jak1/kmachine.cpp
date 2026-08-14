@@ -997,7 +997,7 @@ enum PhysClassBits { kPhysClassPrimary = 1, kPhysClassSecondary = 2, kPhysClassA
 //      owes is CONCENTRICITY, and this id is how the engine is told which links are sleeves and how
 //      wide. 0 = this link is not a sleeve, and 0 is the default of every chain that shipped before
 //      this cycle, so adding the key moves nothing that does not declare it.)
-static constexpr int kPhysNumChainParams = 29;
+static constexpr int kPhysNumChainParams = 30;
 // level param ids (pc_physics_level_param_mi):
 //   0 substeps 1 iters 2 collide 3 classmask 4 fixedhz  -- ALSO returned in milli.
 static constexpr int kPhysNumLevelParams = 5;
@@ -1052,6 +1052,15 @@ struct PhysChain {
                                        // is not a sleeve", which is what every chain written
                                        // before cycle 8 says by omission, so the concentricity
                                        // constraint can only ever engage where the data asks.
+                                       0.f,
+                                       // 29 b0 — SPEC 6's B0: the ROOT-TO-APEX length of the FLESH,
+                                       // in units, measured on the mesh. NOT the bone length: on
+                                       // Keira the bone chest->lBoob is 977 u while the tissue runs
+                                       // 602 u, so a bound expressed "in B0" against the bone is
+                                       // 1.62x too loose and SPEC 22's apex ceiling cannot fire.
+                                       // 0 = UNDECLARED, and the engine then falls back to the bone
+                                       // length exactly as before — so adding this key moves no
+                                       // chain that does not carry it.
                                        0.f};
   std::vector<std::string> joints;   // ordered root -> tip
   std::vector<float> link_radius;    // radii= : per-LINK collision radius, mesh-derived
@@ -1534,6 +1543,10 @@ static int pc_physics_parse_file() {
           // generator only for links measured to be closed shells around a FOREIGN volume; a chain
           // that is not a sleeve carries no `shell=` at all, not `shell=0`.
           ch.params[28] = phys_to_float(v);
+        } else if (k == "b0") {
+          // SPEC 6's characteristic root-to-apex length of the FLESH, in units, measured on the
+          // mesh — the yardstick SPEC 22 expresses its apex ceiling in. See the default above.
+          ch.params[29] = phys_to_float(v);
         } else if (!warned_unknown) {
           warned_unknown = true;
           lg::warn("[hd-phys] unknown key '{}' in physics_chains.txt (skipped)", k);

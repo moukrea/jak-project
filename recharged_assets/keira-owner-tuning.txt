@@ -1269,3 +1269,30 @@ collider gogglesMid radius=150
 chain chestL stiffness=2.7696 damping=0.1686
 # chain chestR stiffness=2.8804 damping=0.1753   (REMPLACE : raideur +4 % -> +5 %, cf. SPEC 32)
 chain chestR stiffness=2.9081 damping=0.1753
+
+## =============================================================================================
+## 2026-08-14 — SPEC 6 : LE METRE DE SPEC 22 ETAIT FAUX D'UN FACTEUR 1.62.
+##
+## Sa §6 : « B0 neutral characteristic root-to-apex length […] the game implementation shall derive
+## normalized dimensions directly from the character mesh », reference humaine 115-125 mm.
+## Le moteur bornait l'apex de sa §22 (« normal <= 42 % B0, exceptional <= 50 % B0 ») contre
+## `*phys-blen*`, la longueur d'OS `chest->lBoob` = 977 u = 238 mm. Or ce joint est DERRIERE la
+## chair : elle commence 34 mm apres lui et finit 181 mm apres lui. La longueur racine->apex de la
+## chair, mesuree sur le maillage LIVRE, vaut 602 u = 147 mm.
+##
+## Consequence : la borne etait 1.62x trop large et ne pouvait pas mordre. Les 0.479 / 0.490 B0
+## publies comme « TENU » valent 0.778 / 0.795 B0 contre sa reference — DEPASSES de 1.59x.
+##
+## REPRODUCTION, une commande :
+##   python3 .autoport/probe_breast_shape.py --glb out/jak1/fr3/skin/keira-hd-lod0.glb
+##   -> « SPEC 6  B0 = 0.1470 m = 602 u », identique sur les deux seins (le maillage est miroir).
+##
+## POURQUOI ICI ET PAS DANS LE GENERATEUR : `physics_keira_gen2.py` lit le DONNEUR
+## (`k2e:hd_glb`), un rip de NIVEAU dont le pool de sommets porte d'autres objets — la sonde le
+## refuse explicitement dessus (« l axe dominant n est plus +Y »). B0 doit donc etre mesure sur le
+## maillage PREPARE, qui n'existe qu'apres le bake. Le jour ou le generateur lira le maillage
+## livre, c'est lui qui emettra `b0=` et ces deux lignes disparaitront. C'est ecrit ici pour que
+## ce ne soit pas redecouvert.
+## =============================================================================================
+chain chestL b0=602
+chain chestR b0=602
