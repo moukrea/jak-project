@@ -221,6 +221,66 @@ statiques régénérés et la refonte du chemin de liaison HD — de portée « 
 défaut d'instrument.
 
 
+7 bis. LES CHEVEUX : LA POINTE NE REÇOIT PAS D'ÉNERGIE, ELLE EN PERD UN TIERS À CHAQUE FENÊTRE
+===============================================================================================
+Le cycle précédent avait laissé les 7 défauts CHEVEUX avec un chiffre (« l'amortissement arrive
+entier au maillon 1 et au tiers à la pointe ») et une hypothèse : « la pointe reçoit de l'énergie de
+son parent ». Il désignait lui-même la mesure qui trancherait — `PHYSGRADS`, l'angle aux DEUX étages
+du solveur, lu **sur les maillons profonds** — et notait que le build l'émettait déjà. Elle est lue.
+
+**Fenêtres d'animation, 8 animations au rig correct, moyenne du pic par fenêtre :**
+
+    chaîne        maillon 1      maillon 2      maillon 3 (pointe)
+    Lmidhaira     −8.0 %         −16.0 %        **−33.9 %**
+    Rmidhaira     −7.0 %         −11.9 %        **−27.9 %**
+    backHair1     −11.9 %        −16.8 %        −17.0 %
+    Lbanga        −5.9 %          −2.7 %         −5.5 %      (plat)
+    Rbanga        −5.4 %          −2.7 %         −5.5 %      (plat)
+
+C'est la part du pic de déviation que la **boucle de contraintes** retire, entre l'étage 0
+(intégration seule) et l'étage 1. Deux faits :
+
+**(a) La boucle de contraintes n'ajoute JAMAIS à la pointe.** `a1 > a0` sur 0 à 2,1 % des fenêtres
+au maillon 3, avec un maximum de +0,2° sur `Lmidhaira` et +2,0° sur `Rmidhaira`. **Elle ne peut donc
+pas être la source d'énergie que le cycle précédent cherchait.** Ce que cette mesure ne tranche pas,
+et je ne le prétends pas : un transfert parent→pointe à l'étage d'INTÉGRATION serait déjà contenu
+dans `a0` et resterait invisible ici.
+
+**(b) Elle est un PUITS, avec un gradient racine→pointe de 4,2× sur les deux mèches médianes.**
+Un tiers du pic de la pointe est retiré par une **troncature positionnelle** à chaque fenêtre. Et
+une trajectoire tronquée n'est pas une décroissance libre : ça suffit à expliquer, **sans aucune
+source d'énergie**, les trois anomalies de la pointe relevées hier — l'effondrement du `r²`
+exponentiel (0,26 à 0,63), le « rebond > 100 % », et un `zeta` apparent sans rapport avec celui que
+le paramètre prescrit. Un seul mécanisme, mesuré, au lieu de trois anomalies.
+
+**Le chiffre est stable entre RUN13 et RUN14** (33,9 % contre 32,0 % sur `Lmidhaira`) : c'est une
+propriété du solveur, pas un effet de ce cycle.
+
+**QUEL VOLUME, ET C'EST L'OREILLE AUTANT QUE LE CRÂNE.** `ROOM-CONTACT-VOL`, mêmes chaînes :
+
+    lmidhair  3411 contacts   head->neck 1013 · lEarb->lEara 752 · sphere:lEara 574 · Lbangd 488
+    rmidhair  2496 contacts   rEarb->rEara 654 · head->neck 595 · sphere:rEara 488 · Rbangd 350
+    lbang      879 contacts   head->neck 277 · Lmidhairb 267 · ...   (gradient plat)
+
+Sur `rmidhair`, **l'oreille pèse 1142 contacts contre 595 pour le crâne** — c'est le premier
+obstacle de la chaîne, devant la tête. Sur `lmidhair`, 1326 contre 1013. Les deux mèches dont le
+gradient est le plus raide sont exactement les deux qui frottent le plus contre une oreille, et les
+deux au gradient plat (`lbang`/`rbang`) sont celles qui la touchent le moins. La collision
+mèches↔oreilles est **exigée** par la §3 du contrat : il n'est pas question de la retirer.
+
+**CE QUE ÇA DÉSIGNE COMME CORRECTIF, ET C'EST LA MÊME PIÈCE QUE §1.** La poitrine vient de montrer
+qu'une borne portée par une TRONCATURE DE L'ÉTAT ne tient pas la borne et détruit la forme du
+mouvement, alors que la même borne portée par une FORCE la tient et rend l'énergie. La pointe des
+mèches subit aujourd'hui exactement la première : une correction positionnelle, appliquée à l'état,
+qui fait suivre au maillon le contour du collider au lieu d'une loi physique. C'est mot pour mot
+« ça suit aucune logique » et « pudding ». La transposition que la directive du 23:35 ordonne
+(« même architecture de solveur, valeurs propres à chaque organe ») a donc une cible précise et un
+précédent mesuré.
+**Je ne la pose pas ici** : `phys-collide-chain` est la contrainte qui tient la règle 6 (« rien ne
+traverse le mesh, quelle qu'en soit la raison »), et l'adoucir sans mesure de pénétration en face
+échangerait un défaut contre un pire. C'est le premier travail du cycle suivant, et il commence par
+la mesure de pénétration par volume et par frame, pas par le correctif.
+
 8. CE QUI N'EST PAS FAIT, ET POURQUOI — AUCUN DE-SCOPE SILENCIEUX
 ==================================================================
   * **Le remap par nom lui-même** : conception, point d'accroche, fonction de recherche, contrôle
