@@ -162,6 +162,34 @@ prochain cycle, et son risque est nommé : la gate `COLLIDE` épingle `meshpen �
 C'est aussi, littéralement, ce qu'il répète depuis le début : « les colliders ne suivent pas les
 formes du mesh ».
 
+**ET JE L'AI ESSAYÉ, MESURÉ, PUIS RETIRÉ — parce que ma propre condition de retrait a tiré.**
+Rayons portés à 449/455 (dérivés : `r_l + r_r = 1204 − 300 = 904`, en gardant le rapport L/R
+mesuré), donnée seule, sans build. Course x86 complète, quatre conditions écrites AVANT la course :
+
+                                      AVANT 340/345      APRÈS 449/455
+    contact chestR ↔ sphère lBoob     ABSENT             **38 fois**     ← contrôle positif : IL TIRE
+    ROOM-SKINPEN chestL / chestR      0.1537 / 0.1594    0.1415 / 0.1401 ← MIEUX (−8 % / −12 %)
+    ROOM-SIDE crossing                2                  0               ← mieux
+    tipvar chestL / chestR            0.1998 / 0.2140    0.1769 / 0.1873 ← OK (−11 %, ≫ le plancher)
+    meshpen chestL / chestR          −1.7e-07 / 0.0005   0.0009 / 0.0010 ← **ÉCHOUE**, plafond 0.0005
+
+**Trois conditions sur quatre passent, et le contrôle positif tire pour la première fois de la
+phase : les deux seins se touchent enfin, et la traversée mesurée contre le mesh DESSINÉ baisse de
+8 à 12 %.** Mais `meshpen` double et sort du plafond épinglé. Sa règle 6 ne se négocie pas, et une
+condition écrite avant la course ne se renégocie pas après : **retiré**, en re-postant explicitement
+340/345 (`apply_owner_tuning.py` applique et ne revient jamais en arrière — commenter la ligne
+aurait laissé 449/455 dans le fichier livré en croyant l'avoir annulé). `physics_chains.txt` est
+vérifié **byte-identique** à l'état livré, et la course qui produit le tableau de ce rapport a été
+relancée APRÈS le retrait, pas restaurée depuis une copie.
+
+CE QUE ÇA APPREND, ET C'EST LE VRAI RÉSULTAT DE L'EXPÉRIENCE : **le dimensionnement n'est pas le
+problème, il est correct.** Le problème est le RÉSIDU de la résolution, et il a un suspect déjà
+nommé dans le moteur — la règle de priorité laisse gagner UN volume par lien et par frame et ignore
+les autres (1858 paires ignorées par course). Plus un lien touche de volumes à la fois — et c'est
+exactement ce que ce réglage augmente, 287→420 et 382→464 contacts — plus le résidu grandit.
+**Fermer le résidu vient AVANT d'agrandir les volumes**, et c'est la même dépendance que pour
+l'injection d'os. Les deux chantiers bloqués de cette phase butent donc sur le MÊME verrou.
+
 
 5. LA POITRINE, SECTION PAR SECTION — le tableau que sa directive de 09:45 exige
 =================================================================================
@@ -196,7 +224,9 @@ référencée nulle part compte comme ABSENTE.**
 32    Indépendance G/D               O    masse +2.03 % · raideur +4.76 %       LES TROIS DANS
                                           amortissement +3.82 %                 LA BANDE
 33/34 Restitution 0.06 / 0.02        N    domaine VIDE mesuré : 519 u d'écart   rien à mesurer
-                                          entre volumes, 300 u entre chairs     avant §4 ci-dessus
+                                          entre volumes, 300 u entre chairs.    tant que le résidu
+                                          Ouvrable (38 contacts à r=449/455)    de collision est là
+                                          mais RETIRÉ : meshpen 0.0005→0.0010
 36    Mode secondaire 5.2 Hz         N    —                                     ZÉRO occurrence
 37    Sous-pas ≥ 120 Hz              O    ns=2 (120 Hz), 4 sur impact fort      dans le code
 

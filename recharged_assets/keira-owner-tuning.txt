@@ -947,6 +947,76 @@ chain chestR couple=1.85
 ## corresponde a ce que l'owner voit) ; (2) `meshpen` reste nul ; (3) aucune chaine sous 60 % de
 ## FLOOR / 70 % de FLOOR-WEAK — en particulier `topstrapL/R` et `botstrapL/R`, qui vivent contre le
 ## buste et sont les seules autres chaines que ces spheres peuvent repousser. Sinon RETIRE.
+## =============================================================================================
+## 2026-08-14 — SPEC 33 N'A PAS DE DOMAINE : LES DEUX SEINS NE PEUVENT PAS SE TOUCHER.
+##
+## Sa §33 : « medial surfaces shall collide or repel BEFORE visible interpenetration ».
+## Mesure sur le maillage livre, espace bind, unites de jeu (`.autoport/probe_breast_shape.py`
+## et le calcul de centres qui l'accompagne) :
+##
+##     distance entre les deux CENTRES de volume            1204 u
+##     somme des rayons livres (340 + 345)                   685 u   ->  ecart 519 u
+##     plus petite distance CHAIR <-> CHAIR au repos         300 u
+##     part de la chair HORS de son propre volume       23 % (lBoob) · 33 % (rBoob)
+##
+## Autrement dit **les deux seins s'interpenetrent de 219 u AVANT que les volumes se touchent**.
+## Aucune restitution (§33 : 0.06 ; §34 : 0.02) ne peut etre ni implementee utilement ni mesuree
+## tant que le contact ne peut pas se produire : ce serait un zero sur domaine vide.
+## C'est aussi, littéralement, ce que l'owner repete depuis le debut : « les colliders ne suivent
+## pas les formes du mesh ».
+##
+## DERIVATION, pas un chiffre choisi : pour que les volumes se touchent EXACTEMENT quand la chair
+## se touche, il faut `r_l + r_r = 1204 - 300 = 904 u`. On garde le rapport L/R mesure sur le mesh
+## (340:345) et on met a l'echelle par 904/685 = 1.3197 -> **449 et 455**, somme 904 exactement.
+## Verification de couverture : la chair de lBoob est a p95 412 u / max 467 u de son centre, celle
+## de rBoob a p95 415 u — 449/455 couvre donc entre le p95 et le max, la ou 340/345 laissait
+## 23 %/33 % des sommets dehors. On reste sous la frontiere de 572/580 mesuree plus haut.
+##
+## CONDITION DE RETRAIT, ECRITE AVANT LA COURSE, comme la regle l'exige :
+##   (1) `meshpen` reste <= 0.0005 m sur les deux chaines (plafond epingle du validateur). S'il
+##       monte, RETIRE — la regle 6 de l'owner ne se negocie pas, une resolution pire que le clip
+##       est pire que rien, et une section de la spec ne rachete pas une traversee.
+##   (2) aucune chaine sous 60 % de FLOOR ni 70 % de FLOOR-WEAK.
+##   (3) `ROOM-SKINPEN` ne monte pas (c'est la grandeur qui mesure la traversee contre le mesh
+##       DESSINE, la seule qui corresponde a ce que l'owner voit).
+##   (4) CONTROLE POSITIF EXIGE : un contact chestL<->chestR doit etre reellement COMPTE sur la
+##       course. Si le compte reste a zero, le domaine est toujours vide et ce reglage n'a rien
+##       achete — il est retire aussi, meme si les trois autres conditions passent.
+##
+## ---------------------------------------------------------------------------------------------
+## RESULTAT DE LA COURSE, ET **RETIRE** PARCE QUE MA PROPRE CONDITION (1) A TIRE.
+## Course x86 du 2026-08-14 avec r=449/455, mesures cote a cote :
+##
+##                                   AVANT 340/345      APRES 449/455
+##   contact chestR <-> sphere lBoob   ABSENT             **38 fois**      <- (4) TIRE : le domaine
+##                                                                            de la §33 EXISTE
+##   ROOM-SKINPEN chestL / chestR      0.1537 / 0.1594    0.1415 / 0.1401  <- (3) MIEUX (-8 %/-12 %)
+##   ROOM-SIDE crossing                2                  0                <- mieux
+##   tipvar chestL / chestR            0.1998 / 0.2140    0.1769 / 0.1873  <- (2) OK (-11 %/-12 %,
+##                                                                            tres au-dessus des 60 %)
+##   meshpen chestL / chestR          -1.7e-07 / 0.0005   0.0009 / 0.0010  <- (1) **ECHOUE**,
+##                                                                            plafond epingle 0.0005
+##
+## Trois conditions sur quatre passent, et le controle positif tire pour la premiere fois : les
+## deux seins se touchent enfin, et la traversee mesuree contre le mesh DESSINE baisse de 8 a 12 %.
+## Mais `meshpen` double et sort du plafond epingle du validateur, et la regle 6 de l'owner ne se
+## negocie pas : « rien ne traverse le mesh, quelle qu'en soit la raison — une resolution pire que
+## le clip est pire que rien ». Une section de la spec ne rachete pas une traversee, et une
+## condition ecrite AVANT la course ne se renegocie pas APRES.
+##
+## DONC RETIRE, en RE-POSTANT explicitement les valeurs precedentes — `apply_owner_tuning.py`
+## applique, il ne revient jamais en arriere : commenter la ligne aurait LAISSE 449/455 dans le
+## fichier livre en croyant l'avoir annule.
+##
+## CE QUE LA MESURE LAISSE AU CYCLE SUIVANT, pour qu'il ne recommence pas a l'aveugle : le
+## dimensionnement N'EST PAS le probleme, il est correct (couverture de la chair, contact au bon
+## moment, moins de traversee visible). Le probleme est le RESIDU de la resolution, et il a un
+## suspect deja nomme dans le moteur : la regle de priorite de volumes laisse gagner UN volume par
+## lien et par frame et ignore les autres (1858 paires ignorees par course, `ROOM-VOLPRIO`). Plus
+## un lien touche de volumes a la fois — et c'est exactement ce que ce reglage augmente, 287->420
+## et 382->464 contacts — plus le residu grandit. **Fermer le residu vient AVANT d'agrandir les
+## volumes**, et c'est la meme dependance que pour l'injection d'os.
+## ---------------------------------------------------------------------------------------------
 collider lBoob radius=340
 collider rBoob radius=345
 
