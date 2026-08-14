@@ -1340,6 +1340,28 @@
                  (phys-chain-hang (-> self slot) c)
                  (phys-tip-amp (-> self slot) c)
                  (phys-chain-family (-> self slot) c))))
+       ;; ---- SPEC 9 : POURQUOI L'ETAT DEBOUT N'EST PAS NEUTRE. `PHYSIDLE dev` dit QUE l'ecart
+       ;; ---- existe (23.86 / 19.40 u la ou sa SPEC 9 exige 0.0000) ; il ne dit pas D'OU il vient,
+       ;; ---- et deux mecanismes le produiraient a l'identique : un terme moteur non nul au repos,
+       ;; ---- ou une cible elastique qui n'est pas la pose d'auteur. `PHYSRINGS a0=1.3975
+       ;; ---- a1=1.3993` a deja tranche que ce n'est PAS la boucle de contraintes (elle n'ajoute
+       ;; ---- que 0.0018 deg) : c'est donc une FORCE, et la seule qui subsiste au repos est
+       ;; ---- `gsc * g_effective`.
+       ;;
+       ;; NATURE : un rapport sans dimension, |g_local - g_ref| / |g| — l'AMPLITUDE DU STIMULUS
+       ;;   gravitaire, pas la reponse. C'est le meme `*phys-st*` 18 que ROOM-GRAVSAG publie pour
+       ;;   l'inclinaison ; ici il est lu sur la fenetre de REPOS, ou personne ne l'avait lu.
+       ;; REPERE : celui de l'ancre (SPEC 7), comme `gl` dont il est tire.
+       ;; LIGNE DE BASE, ET C'EST TOUT L'INTERET : la SPEC 3 la donne elle-meme — « standing still
+       ;;   gives g_local = g_ref [...] therefore a_drive = 0 ». Debout, ce nombre DOIT valoir 0 ;
+       ;;   a 60 degres il vaut ~1.0 (mesure : 0.8326). Un `gn` non nul dans cette fenetre-ci EST
+       ;;   la cause de SPEC 9, lue a l'execution, et non plus deduite du source.
+       ;; `tf` est sa part TANGENTIELLE : la part radiale ne peut produire aucun deplacement
+       ;;   angulaire, donc c'est `gn * tf` qui porte l'ecart, pas `gn` seul.
+       (dotimes (c (-> self nchain))
+        (when (> (phys-chain-links (-> self slot) c) 0)
+         (format 0 "PHYSIDLEG c=~D gn=~f tf=~f~%"
+                 c (phys-stat (-> self slot) c 18) (phys-stat (-> self slot) c 19))))
        ;; la POSITION MOYENNE debout : c'est le terme `at0` de ROOM-GRAVSAG.
        (physroom-emit-mean "idle")
        (set! (-> self phase) PHYSROOM-PH-TILT)

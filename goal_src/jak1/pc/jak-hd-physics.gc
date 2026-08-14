@@ -231,6 +231,9 @@
 (define *phys-uy*   (new 'global 'array 'float PHYS-SCL))
 (define *phys-uz*   (new 'global 'array 'float PHYS-SCL))
 (define *phys-ucap* (new 'global 'array 'int32 PHYS-SCL))   ;; 1 = direction de repos relevee
+;; `g_ref` DE SA SPEC 3 — la gravite de la pose debout d'auteur, vue de l'ancre, relevee une fois par
+;; chaine a la meme frame que `*phys-ux*`. Derivation, mesure et raison complete au site d'usage.
+(define *phys-gref* (new 'global 'array 'float (* 3 PHYS-SC)))
 ;; historique MONDE de la pose d'auteur, par lien : sa difference seconde est l'acceleration du
 ;; repere que la chaine subit. C'est la seule chose qui EXCITE une chaine dont l'ecart cible est nul.
 (define *phys-t1x* (new 'global 'array 'float PHYS-SCL))
@@ -982,8 +985,7 @@
 ;; est soit une correction, soit un predicat devenu inevaluable — le piege de `(= l 0)`.
 (define *phys-side-off* 0)
 
-;; nombre de joints du rig courant (relu a chaque step, pas de cache douteux)
-(define *phys-njoint* 0)
+;; `*phys-njoint*` retiree : ecrite chaque step, RELUE PAR PERSONNE. Classe de `*phys-lmean*`.
 
 ;; deltas de propagation aux descendants non simules (les verres de lunettes pendent sous
 ;; gogglesMid : si on bouge le milieu sans eux, ils se decrochent).
@@ -2913,7 +2915,6 @@
              ;; 0.044 u/frame^2, 250 fois trop faible : la famille B ne pendait pas du tout. C'est
              ;; une erreur d'unites, pas un reglage.
              (gy     -11.16))
-        (set! *phys-njoint* njoint)
         (dotimes (k njoint) (set! (-> *phys-dhas* k) 0))
         ;; LA POSE D'AUTEUR DES VOLUMES, AVANT QUE LA PREMIERE CHAINE N'ECRIVE. Les chaines sont
         ;; resolues l'une apres l'autre et chacune ecrit son joint dans le squelette : passe ce
@@ -2931,7 +2932,6 @@
               (gl   (new 'stack-no-clear 'vector))
               (gla  (new 'stack-no-clear 'vector))
               (gdw  (new 'stack-no-clear 'vector))
-              (gref (new 'stack-no-clear 'vector))
               (ov   (new 'stack-no-clear 'vector))
               (uv   (new 'stack-no-clear 'vector))
               (uv2  (new 'stack-no-clear 'vector))
@@ -2980,22 +2980,26 @@
                   ;; entre la gravite d'aujourd'hui et celle de la pose de reference, tous deux
                   ;; exprimes dans le repere de l'ancre :
                   ;;
-                  ;;     g_effective = R_ancre^-1 . g_monde  -  R_bind^-1 . g_monde
+                  ;;     g_effective = R_ancre^-1 . g_monde  -  g_ref
                   ;;
-                  ;; Le second terme est CONSTANT (la bind-pose du rig porte l'inverse-bind, donc sa
-                  ;; rotation EST R_bind^-1). Buste droit -> les deux termes s'annulent, l'equilibre
-                  ;; reste la pose du modele au bit pres. Buste incline -> l'ecart apparait et la
-                  ;; poitrine tombe. Rotation autour de l'axe de la gravite -> invariante, donc un
-                  ;; simple demi-tour n'invente aucune force.
-                  ;; La bind-pose peut porter une echelle : on renormalise, sinon l'amplitude de la
-                  ;; reference ne serait pas celle de la gravite.
-                  ;;
-                  ;; LES DEUX TERMES SONT RAMENES A LA MEME LONGUEUR AVANT D'ETRE SOUSTRAITS. Le
-                  ;; premier sortait BRUT de `w2l` — donc a l'echelle de la matrice de l'os, qui
-                  ;; n'est pas garantie orthonormale sur un squelette retargete — pendant que le
-                  ;; second etait explicitement renormalise a |g|. La difference de deux vecteurs
-                  ;; qui n'ont pas la meme unite n'est pas une difference de gravites : debout, ou
-                  ;; les deux rotations sont censees s'annuler, il restait (1 - echelle) x |g|.
+                  ;; ET `g_ref` EST LA POSE DEBOUT D'AUTEUR, PAS LA BIND-POSE DU RIG — l'erreur a ete
+                  ;; MESUREE, pas deduite. Sa SPEC 3 : « g_ref = local gravity vector in the AUTHORED
+                  ;; UPRIGHT STANDING POSE », puis « standing still gives g_local = g_ref [...]
+                  ;; therefore a_drive = 0 ». Le code prenait `R_bind^-1 . g` en AFFIRMANT en
+                  ;; commentaire que debout les deux termes s'annulent ; personne ne l'avait lu a
+                  ;; l'execution (regle 0). Lu sur la fenetre de repos : `PHYSIDLEG c=0 gn=0.2077
+                  ;; tf=0.9876` — 20,77 % de g en permanence, quasi toute tangentielle, soit l'ecart
+                  ;; de SPEC 9 (23.86 / 19.40 u pour 0.0000). Un HD retargete n'est pas lie debout :
+                  ;; sa bind-pose porte l'orientation du DONNEUR, ~11,9 deg a cote (gn = 2 sin(t/2)).
+                  ;; `g_ref` est donc relevee a la premiere frame de la chaine (`warm = 0`), sur
+                  ;; `R_ancre^-1 . g` lui-meme, MEME FRAME que `*phys-ux*` : le terme moteur est nul
+                  ;; au bit pres (on soustrait un vecteur a lui-meme), la cible elastique est la pose
+                  ;; d'auteur, donc l'equilibre EST la pose d'auteur. `*phys-warm*` repart a 0 a
+                  ;; l'init du slot (:1041) : c'est le « rebase on teleport » de sa SPEC 7, pas un
+                  ;; etat qui vieillit. INCHANGE : buste incline -> `R_ancre` bouge, `g_ref` non,
+                  ;; l'ecart apparait et la poitrine tombe ; rotation autour de l'axe de la gravite
+                  ;; -> toujours invariante. Les deux termes ont enfin la meme unite PAR CONSTRUCTION
+                  ;; (meme `gl` renormalise a |g|), donc plus de (1 - echelle) x |g| residuel debout.
                   ;; ---------------------------------------------------------------------------
                   (set-vector! gl 0.0 gy 0.0 0.0)
                   (vector-rotate*! gl gl w2l)
@@ -3067,17 +3071,17 @@
                   ;; (physics-attic-2026-08-11, d99b193792 : « a stiff spring allows (g/omega^2) is
                   ;; all gravity can ever buy »).
                   (vector-copy! gla gl)
-                  (when (and (= (-> *phys-fam* sc) 1)
-                             (nonzero? (-> obj draw jgeo))
-                             (< an (-> obj draw jgeo length)))
-                    (set-vector! gref 0.0 gy 0.0 0.0)
-                    (vector-rotate*! gref gref (-> obj draw jgeo data an bind-pose))
-                    (let ((gn (vector-length gref)))
-                      (when (> gn 0.0001)
-                        (vector-float*! gref gref (/ (fabs gy) gn))
-                        (set! (-> gl x) (- (-> gl x) (-> gref x)))
-                        (set! (-> gl y) (- (-> gl y) (-> gref y)))
-                        (set! (-> gl z) (- (-> gl z) (-> gref z))))))
+                  (when (= (-> *phys-fam* sc) 1)
+                    (let ((gb (* sc 3)))
+                      ;; RELEVE, une fois, a la premiere frame de la chaine — la pose debout
+                      ;; d'auteur. Meme instant que `*phys-ux*`, meme raison.
+                      (when (zero? (-> *phys-warm* sc))
+                        (set! (-> *phys-gref* (+ gb 0)) (-> gl x))
+                        (set! (-> *phys-gref* (+ gb 1)) (-> gl y))
+                        (set! (-> *phys-gref* (+ gb 2)) (-> gl z)))
+                      (set! (-> gl x) (- (-> gl x) (-> *phys-gref* (+ gb 0))))
+                      (set! (-> gl y) (- (-> gl y) (-> *phys-gref* (+ gb 1))))
+                      (set! (-> gl z) (- (-> gl z) (-> *phys-gref* (+ gb 2))))))
                   ;; ---------------------------------------------------------------------------
                   ;; `a_drive` — LE TERME MOTEUR, ET C'EST LA SECTION 3 DE LA SPEC DE L'OWNER,
                   ;; PORTEE EN REPERE MONDE PARCE QUE L'INTEGRATEUR Y TRAVAILLE.
