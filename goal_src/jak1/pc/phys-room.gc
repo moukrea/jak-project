@@ -268,6 +268,8 @@
    (conarm  float)     ;; predicat conique D'AVANT   : la meme, elle doit MONTER
    (injn    int32)     ;; poussees reellement injectees
    (lvl     int32)     ;; niveau d'excitation courant de la courbe de reponse
+   (nchan   int32)     ;; canaux d'animation du PORTEUR (= (-> draw mgeo num-joints))
+   (nperm   int32)     ;; positions de canal deplacees par la permutation de l'animation courante
    (vel     vector :inline)
    (home    vector :inline))
   (:states phys-subject-run))
@@ -275,6 +277,38 @@
 (define *physroom-anim-ag* (new 'static 'array art-group PHYSROOM-MAXANIM))
 (define *physroom-anim-ix* (new 'global 'array 'int32 PHYSROOM-MAXANIM))
 (define *physroom-proc*    (the-as (pointer phys-subject) #f))
+
+;; ------------------------------------------------------------------------------------------------
+;; LE REMAPPAGE PAR NOM — les tables. Voir le pave devant `physroom-build-perm!` pour le defaut
+;; qu'elles corrigent.
+;;
+;; Capacite : le rig du village 1 porte 96 joints, donc 94 canaux d'animation (canal t -> joint
+;; d'indice t+2 du art-joint-geo -> node-list t+3, cf. make-nodes-from-jg process-drawable.gc:151-161
+;; et la boucle de lecture process-drawable.gc:265-271). 96 laisse la marge des deux entrees que le
+;; decompresseur touche au-dela (joint.gc:216 « TODO - not sure if this is too many »).
+;; ------------------------------------------------------------------------------------------------
+(defconstant PHYSROOM-MAXCH 96)
+
+;; permutation COURANTE : position de canal du PORTEUR -> position de canal de l'ANIMATION.
+;; -1 = aucune source (le nom du joint porteur n'existe pas dans le rig de l'animation).
+(define *physroom-perm*   (new 'global 'array 'int32 PHYSROOM-MAXCH))
+
+;; INSTANTANE des canaux tels que l'animation vient de les ecrire, lu par la permutation.
+;; ALLOUE UNE SEULE FOIS, au chargement du fichier, et JAMAIS sur la pile GOAL.
+;; DEVIATION ASSUMEE ET CHIFFREE par rapport au « tas du processus » demande : le sujet nait de
+;; *pc-dead-pool* (pckernel.gc:666), soit 16384 octets de tas TOTAL par processus, et
+;; `initialize-skeleton` y a deja pose le cspace-array (97 x 32 = 3104 o) et le skeleton
+;; (97 x 96 = 9312 o) du rig a 96 joints, plus draw-control / joint-control / trsqv : ~12,9 Ko sur
+;; 16 Ko. 4608 octets de plus ne rentrent pas. Le tas global les porte, avec la meme garantie
+;; (une allocation, au chargement, jamais par frame).
+(define *physroom-tqbuf*  (new 'global 'inline-array 'transformq PHYSROOM-MAXCH))
+
+;; POSE DE REPOS DU PORTEUR, canal par canal, derivee de la bind-pose de SON rig — c'est ce que
+;; recoivent les canaux sans source (point 3). Calculee UNE SEULE FOIS a la naissance du sujet.
+(define *physroom-tqrest* (new 'global 'inline-array 'transformq PHYSROOM-MAXCH))
+;; combien de canaux de cette table ont ete VRAIMENT derives de la bind-pose (les autres sont
+;; retombes sur la transformation identite) — publie, jamais suppose.
+(define *physroom-restok* 0)
 
 ;; --- balayage de la zone (deux phases : on collecte, PUIS on tue — jamais muter l'arbre pendant
 ;; --- qu'on le parcourt, meme piege que hd-scan-visit).
@@ -489,6 +523,176 @@
     (else 96.0)))
 
 ;; ------------------------------------------------------------------------------------------------
+;; REMAPPAGE PAR NOM DES CANAUX D'ANIMATION — CORRECTION D'UN DEFAUT DE L'INSTRUMENT.
+;;
+;; LE DEFAUT, MESURE. `do-joint-math!` (process-drawable.gc:238-278) applique les canaux d'animation
+;; PAR POSITION : le canal `t` va au node-list `t+3` du squelette PORTEUR (boucle :265-271), et le
+;; NOMBRE de canaux vient du porteur (`(-> obj draw mgeo num-joints)`, :247) — jamais de l'animation.
+;; La salle joue les 31 animations de Keira sur le seul porteur du village 1 : `physroom-set-anim` ne
+;; change que `(-> self draw art-group)` puis re-evalue le channel.
+;;
+;; Or les six rigs de Keira sont identiques sur les node-list 1 a 28 et DIVERGENT ensuite :
+;;
+;;     art-group                  joints   positions fausses / 96
+;;     assistant                    96      0
+;;     assistant-village3           96      0     (table strictement identique au village 1)
+;;     assistant-village2           96     60
+;;     assistant-firecanyon         94     68
+;;     assistant-lavatube-start     94     68
+;;     assistant-lavatube-end       94     68
+;;
+;; 8 animations sur 31 pilotent donc le bon os, 23 pilotent le mauvais ; 17 des 46 maillons de
+;; chaines (15 chaines sur 22) ont leur joint pilote dans la zone divergente. Le JEU n'est pas
+;; touche (seul `assistant-lod0` porte un compagnon HD) : c'est l'INSTRUMENT qui est corrompu sur
+;; 74 % de son domaine.
+;;
+;; LE POINT D'ACCROCHE. `prebind-function` (joint-h.gc:60) est appelee depuis
+;; process-drawable.gc:254-255, ENTRE la decompression et la lecture joint par joint : c'est
+;; exactement la ou le tableau de transformq peut encore etre remis dans l'ordre du porteur.
+;; Disposition du scratchpad, confirmee par lurkerworm.gc:192-199 (`(&+ arg0 432)` = tq[6].quat) :
+;; 128 octets de matrices, puis 48 octets par transformq. Le canal `t` est donc le transformq
+;; d'indice `t` a `arg0 + 128`, et il correspond au joint d'indice `t+2` du art-joint-geo.
+;;
+;; CE QUI N'EST PAS FAIT ICI, ET POURQUOI : ni spawn d'un second art-group (5 entrees HD, 20 tables
+;; statiques regenerees, refonte de hd-char-for-mgeo), ni retrait des 23 animations (SPEC 6 exige la
+;; couverture complete et `ROOM-ANIMS 31/31 skipped=0` doit rester vrai).
+;; ------------------------------------------------------------------------------------------------
+
+(defun physroom-build-rest! ((jg art-joint-geo) (nch int))
+  "Pose de repos LOCALE du PORTEUR, canal par canal, dans *physroom-tqrest*. C'est ce que recoivent
+   les canaux sans source (point 3 : `torch` et `torchTIP` n'existent pas sur les trois rigs a 94
+   joints). La bind-pose stockee par un joint EST son inverse-bind (jak-hd.gc:471), donc la
+   transformation LOCALE de repos du joint k vaut inv(bind-pose[k]) . bind-pose[parent(k)] — le
+   L'_k de jak-hd.gc:510-512. Elle est decomposee en (translation, quaternion, echelle) parce que
+   c'est la forme que consomme la lecture (cspace<-parented-transformq-joint!,
+   process-drawable.gc:271). Retourne le nombre de canaux effectivement derives ; tout canal dont la
+   decomposition ne tient pas reste a l'identite et manque a ce compte, qui est publie."
+  (set! *physroom-restok* 0)
+  (let ((ib (new 'stack-no-clear 'matrix))
+        (lk (new 'stack-no-clear 'matrix)))
+    (dotimes (p PHYSROOM-MAXCH)
+      (let ((tq (-> *physroom-tqrest* p)))
+        ;; valeur par defaut, ecrite AVANT toute tentative : identite locale.
+        (set-vector! (-> tq trans) 0.0 0.0 0.0 1.0)
+        (quaternion-identity! (-> tq quat))
+        (set-vector! (-> tq scale) 1.0 1.0 1.0 1.0)
+        (when (and (< p nch) (< (+ p 2) (-> jg length)))
+          (let ((j (-> jg data (+ p 2))))
+            (when (and j (nonzero? (the-as int j)) (-> j parent))
+              (matrix-4x4-inverse! ib (-> j bind-pose))
+              (matrix*! lk ib (-> j parent bind-pose))
+              ;; decomposition : longueur de ligne = echelle, ligne normalisee = rotation. Une
+              ;; longueur nulle ou non finie fait echouer le test et laisse l'identite en place —
+              ;; c'est le garde-fou anti-NaN, une matrice singuliere ne peut pas polluer le squelette.
+              (let ((ok #t))
+                (dotimes (r 3)
+                  (let ((len (vector-length (-> lk vector r))))
+                    (cond
+                      ((> len 0.000001)
+                       (set! (-> tq scale data r) len)
+                       (vector-float*! (-> lk vector r) (-> lk vector r) (/ 1.0 len)))
+                      (else (set! ok #f)))))
+                (when ok
+                  (matrix->quaternion (-> tq quat) lk)
+                  (let ((qn (vector-length (the-as vector (-> tq quat)))))
+                    (cond
+                      ((and (> qn 0.5) (< qn 2.0))
+                       (quaternion-normalize! (-> tq quat))
+                       (set! (-> tq trans quad) (-> lk vector 3 quad))
+                       (set! (-> tq trans w) 1.0)
+                       (+! *physroom-restok* 1))
+                      (else
+                       ;; quaternion inexploitable : on remet TOUT a l'identite, echelle comprise.
+                       (set-vector! (-> tq trans) 0.0 0.0 0.0 1.0)
+                       (quaternion-identity! (-> tq quat))
+                       (set-vector! (-> tq scale) 1.0 1.0 1.0 1.0))))))))))))
+  *physroom-restok*)
+
+(defun physroom-chan-of ((ajg art-joint-geo) (nm string))
+  "Position de CANAL, dans le rig `ajg`, du joint qui porte le nom `nm`. -1 s'il n'y est pas.
+   Le type passe a lookup-idx-of-art (joint.gc:733-739) est #f EXPRES : la branche typee compare
+   `(-> data i type)` a un type, ce qu'un `joint` ne satisfait jamais, et la variante art-group de la
+   meme methode (joint.gc:659) applique en plus la ruse « sauter le nom de l'art-group », qui n'a
+   aucun sens pour un nom de joint.
+   Les indices 0 et 1 du art-joint-geo sont les node-list 1 et 2 (align / prejoint) : ils sont
+   pilotes par les DEUX MATRICES du scratchpad (process-drawable.gc:260-264), pas par un canal, donc
+   ils ne sont la source de rien."
+  (let ((s (lookup-idx-of-art ajg nm (the-as type #f))))
+    (if s
+      (let ((i (the-as int s))) (if (>= i 2) (- i 2) -1))
+      -1)))
+
+(defun physroom-prebind ((arg0 pointer) (arg1 int) (arg2 process-drawable))
+  "Permute le tableau de transformq du scratchpad AVANT la lecture joint par joint. Posee sur le
+   squelette du sujet par `physroom-build-perm!`, et RETIREE des que la permutation est l'identite :
+   sur `assistant` et `assistant-village3` cette fonction n'est jamais appelee.
+   `arg1` est `num-joints + 2` (process-drawable.gc:248), donc le nombre de canaux vaut arg1 - 2."
+  (let* ((subj (the-as phys-subject arg2))
+         (n    (min (- arg1 2) (min (-> subj nchan) PHYSROOM-MAXCH)))
+         (dst  (the-as (inline-array transformq) (&+ arg0 128))))
+    (when (> (-> subj nperm) 0)
+      ;; instantane des canaux tels que l'animation vient de les ecrire. Sans lui, une permutation
+      ;; qui n'est pas une suite de transpositions disjointes ecraserait ses propres sources.
+      (dotimes (i n)
+        (set! (-> *physroom-tqbuf* i trans quad) (-> dst i trans quad))
+        (set! (-> *physroom-tqbuf* i quat quad) (-> dst i quat quad))
+        (set! (-> *physroom-tqbuf* i scale quad) (-> dst i scale quad)))
+      (dotimes (p n)
+        (let ((s (-> *physroom-perm* p)))
+          (cond
+            ((= s p))   ;; la source est deja a la bonne place
+            ((and (>= s 0) (< s n))
+             (set! (-> dst p trans quad) (-> *physroom-tqbuf* s trans quad))
+             (set! (-> dst p quat quad) (-> *physroom-tqbuf* s quat quad))
+             (set! (-> dst p scale quad) (-> *physroom-tqbuf* s scale quad)))
+            (else
+             ;; AUCUNE SOURCE : pose de repos du porteur. Le choix est publie par animation
+             ;; (PHYSREMAPORPHAN), jamais silencieux.
+             (set! (-> dst p trans quad) (-> *physroom-tqrest* p trans quad))
+             (set! (-> dst p quat quad) (-> *physroom-tqrest* p quat quad))
+             (set! (-> dst p scale quad) (-> *physroom-tqrest* p scale quad))))))))
+  0
+  (none))
+
+(defbehavior physroom-build-perm! phys-subject ((ai int) (ag art-group))
+  "Construit la permutation POSITION DE CANAL DE L'ANIMATION -> POSITION DE CANAL DU PORTEUR, une
+   fois par changement d'animation, et arme (ou desarme) la prebind-function.
+   Le rig de l'animation est `(-> ag data 0)` : chaque art-group porte son art-joint-geo a l'indice
+   0 (art-elts.gc:20,30,47,52) et `initialize-skeleton` (process-drawable.gc:352-354) valide ce
+   contrat. Le type est verifie ici quand meme, et un manquement est publie."
+  (set! (-> self nperm) 0)
+  (let* ((jg  (-> self draw jgeo))
+         ;; n = 0 si le porteur n'a pas de rig : la boucle de noms ne s'ouvre pas, et aucune branche
+         ;; de ce corps ne lit `jg` quand n vaut 0.
+         (n   (if (nonzero? jg) (min (-> self nchan) (min PHYSROOM-MAXCH (- (-> jg length) 2))) 0))
+         (e   (-> ag data 0))
+         (ajg (the-as art-joint-geo e))
+         (njo (if (and e (nonzero? (the-as int e)) (= (-> e type) art-joint-geo)) (-> ajg length) -1)))
+    (cond
+      ((< njo 0)
+       (format 0 "PHYSREMAPFAIL a=~D ag=~S reason=no-joint-geo-at-index-0~%" ai (-> ag name)))
+      ((= ajg jg)
+       ;; le rig du PORTEUR lui-meme : identite, aucun tampon, aucun appel, aucune recherche de nom.
+       (dotimes (p n) (set! (-> *physroom-perm* p) p)))
+      (else
+       (dotimes (p n)
+         (let ((s (physroom-chan-of ajg (-> jg data (+ p 2) name))))
+           (set! (-> *physroom-perm* p) s)
+           (when (!= s p) (+! (-> self nperm) 1))))
+       (when (> (-> self nperm) 0)
+         (dotimes (p n)
+           (when (< (-> *physroom-perm* p) 0)
+             (format 0 "PHYSREMAPORPHAN a=~D chan=~D joint=~S fallback=carrier-rest-pose restok=~D~%"
+                     ai p (-> jg data (+ p 2) name) *physroom-restok*))))))
+    (format 0 "PHYSREMAP a=~D ag=~S joints=~D permuted=~D identity=~D~%"
+            ai (-> ag name) njo (-> self nperm) (if (> (-> self nperm) 0) 0 1)))
+  (when (nonzero? (-> self skel))
+    (if (> (-> self nperm) 0)
+      (set! (-> self skel prebind-function) physroom-prebind)
+      (set! (-> self skel prebind-function) (the-as (function pointer int process-drawable none) #f))))
+  (none))
+
+;; ------------------------------------------------------------------------------------------------
 ;; ANIMATION. On pose le groupe de frames du channel 0 a la main et on avance frame-num nous-memes
 ;; (num-func-identity) : c'est exactement ce que fait initialize-skeleton (process-drawable.gc:405)
 ;; et ca nous laisse maitre du temps, donc de la reproductibilite des fenetres. Le `draw art-group`
@@ -499,6 +703,9 @@
   (let* ((ag (-> *physroom-anim-ag* ai))
          (an (the-as art-joint-anim (-> ag data (-> *physroom-anim-ix* ai)))))
     (set! (-> self draw art-group) ag)
+    ;; LES CANAUX DE CETTE ANIMATION SONT CEUX DE SON RIG, PAS CEUX DU PORTEUR : on construit la
+    ;; permutation par NOM avant que la premiere frame ne soit lue.
+    (physroom-build-perm! ai ag)
     (ja-channel-set! 1)
     (let ((ch (-> self skel root-channel 0)))
       (joint-control-channel-group-eval! ch an num-func-identity)
@@ -1568,6 +1775,8 @@
   (set! (-> self arm) 0.0)
   (set! (-> self injn) 0)
   (set! (-> self lvl) 0)
+  (set! (-> self nchan) 0)
+  (set! (-> self nperm) 0)
   (set! (-> self fnum) 0.0)
   (set! (-> self adir) 1.0)
   (set! (-> self aspeed) 1.0)
@@ -1586,6 +1795,14 @@
        (+! (-> self nag) 1)
        (initialize-skeleton self *phys-subject-sg* '())
        (logclear! (-> self draw status) (draw-status no-skeleton-update))
+       ;; LE NOMBRE DE CANAUX DU PORTEUR, tel que `do-joint-math!` le lit (process-drawable.gc:247),
+       ;; et la pose de repos qui servira aux canaux sans source. Les deux sont etablis AVANT le
+       ;; premier `physroom-set-anim`, donc avant la premiere permutation.
+       (set! (-> self nchan)
+             (if (nonzero? (-> self draw mgeo)) (the int (-> self draw mgeo num-joints)) 0))
+       (when (and (nonzero? (-> self draw jgeo)) (> (-> self nchan) 0))
+         (physroom-build-rest! (-> self draw jgeo) (-> self nchan)))
+       (format 0 "PHYSREST chan=~D restok=~D~%" (-> self nchan) *physroom-restok*)
        (let ((njoint (if (nonzero? (-> self draw jgeo)) (-> self draw jgeo length) -1)))
          (format 0 "PHYSSUBJECT ag=~S elems=~D bones=~D joints=~D mgeo=~S~%"
                  (-> ag0 name)

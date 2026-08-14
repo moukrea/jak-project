@@ -2821,83 +2821,28 @@
                   (when (nonzero? *phys-buried-tally*)
                     (set! (-> *phys-dg* (+ (* sc PHYS-DG) 11))
                           (+ 1.0 (-> *phys-dg* (+ (* sc PHYS-DG) 11)))))
-                  ;; LA PAIRE FOURREAU DECIDE MAINTENANT, ET LE CHIFFRE QUI MANQUAIT A ETE LU.
-                  ;; La version precedente portait `(not sleevec)` : les fourreaux comptaient sans
-                  ;; contraindre, en attendant qu'on mesure l'ampleur reelle du franchissement.
-                  ;; C'est fait, et c'est sans ambiguite — `ROOM-SIDE-CONTROL` desarme vaut 1011,
-                  ;; dont `pantflapR 520 + pantflapL 491` = 1011 EXACTEMENT, zero ailleurs. Les
-                  ;; deux pans sont les seules paires fourreau du modele, et ils franchissaient que
-                  ;; le controle soit arme ou non : la contrainte ne s'appliquait tout simplement
-                  ;; pas a eux. C'est la cause de `pant-calf` (« le bas du pantacourt est a
-                  ;; l'interieur des mollets, comme s'il s'arretait aux genoux »).
-                  ;;
-                  ;; POURQUOI UNE BORNE, ET POURQUOI CELLE-CI. Inclure les fourreaux sans borner a
-                  ;; deja ete essaye et a coute 49 % du mouvement des deux pans sans fermer le
-                  ;; defaut : un pan qui a tunnele se voit rappeler de TOUTE sa distance a l'axe en
-                  ;; une frame, et ce rappel-la ecrase le mouvement au lieu de le corriger. On
-                  ;; borne donc le rappel au budget radial PROPRE du fourreau, `shell` — une
-                  ;; grandeur MESUREE et PAR CHAINE (452 pour `pantflapL`, 448 pour `pantflapR`),
-                  ;; pas une constante choisie a la main (regle 4). Meme unite que `ub w` : c'est
-                  ;; deja a `shell` que `phys-shell-pair?` compare une distance (voir sa derniere
-                  ;; ligne).
-                  ;; Le pan revient donc du bon cote de l'axe par pas bornes, au lieu d'y etre
-                  ;; teleporte ou d'y rester. Une chaine qui n'est pas un fourreau garde sa
-                  ;; contrainte AU BIT PRES : la borne ne s'applique que si `sleevec`.
-                  ;; ESSAYE, MESURE, RETIRE — LE PLANCHER A CASSE (2026-08-13).
-                  ;; La contrainte a bien ete etendue aux fourreaux, bornee a leur `shell`. Elle
-                  ;; FERME sa cible, c'est mesure sur une course complete (31/31 animations) :
-                  ;;     ROOM-SIDE            crossing 5643 -> 0   (chains 2/22 -> 0/22)
-                  ;;     ROOM-SIDE-CONTROL    disarmed 1011 -> 0,  arme inchange a 2715
-                  ;;     gate SIDE-CONTROL    FAIL -> PASS
-                  ;; et son perimetre est propre : 233 lignes `row` changent, TOUTES pantflapL/R ;
-                  ;; les 20 autres chaines sont identiques au bit pres.
-                  ;; MAIS elle se paie avec le mouvement, la ou l'owner regarde :
-                  ;;     pantflapL/R tipvar   -20.9 %
-                  ;;     pantflapL au stimulus le PLUS FAIBLE  0.0840 -> 0.0544  (-35 %)
-                  ;;     gate FLOOR-WEAK      PASS -> FAIL   (seuil 30 %) — regression NOUVELLE
-                  ;;     courbe de reponse    dernier bac -26 % (L) et -43.6 % (R) : signature de
-                  ;;                          limiteur qui sature, pas d'amortissement
-                  ;; La regle de conservation ne se negocie pas : « si le plancher casse, le point
-                  ;; est retire — pas adouci, retire — et repris autrement ». Donc retire.
-                  ;;
-                  ;; CE QU'IL FAUT SAVOIR POUR LE REPRENDRE, et ce n'est pas une nuance : le
-                  ;; plafond utilise ici etait `shell` (452 / 448 u). Le contrat, lui, chiffre le
-                  ;; budget de glissement a 67-75 u — DIX FOIS plus serre. Un plafond large laisse
-                  ;; le rappel ramener le pan de toute sa distance en une frame, et c'est ce
-                  ;; rappel-la qui ecrase la reponse aux petits stimuli. La reprise se fait avec le
-                  ;; budget mesure, pas avec `shell`, et elle doit republier FLOOR-WEAK.
-                  ;; A CONNAITRE AUSSI : sur `pantflapL` la ligne de base sous animation seule
-                  ;; tombait de 0.0878 a 0.0437 et les GAINS devenaient positifs la ou ils etaient
-                  ;; negatifs — une part de ce que `tipvar` comptait sur ce pan est du BRUIT
-                  ;; d'animation, pas de la reponse. Le plancher est donc en partie un plancher sur
-                  ;; du bruit ; c'est a verifier avant de conclure que la reprise a « coute » ce
-                  ;; que le chiffre annonce.
-                  ;; REPRISE DU 2026-08-13 02:00 — ET C'EST LA GATE QUI EST EN CAUSE, PAS LA
-                  ;; CORRECTION. La note ci-dessus disait de reprendre avec « le budget de
-                  ;; glissement 67-75 u » plutot qu'avec `shell`. J'ai cherche ce chiffre : il
-                  ;; n'existe nulle part dans le contrat ni dans les mesures. Le reprendre aurait
-                  ;; ete taper une constante a la main (regle 4) en la presentant comme mesuree.
-                  ;;
-                  ;; CE QUI EST MESURE, EN REVANCHE, C'EST QUE `FLOOR-WEAK` NE MESURE PAS UNE
-                  ;; REPONSE SUR CE PAN. La gate lit la ligne au stimulus le PLUS FAIBLE, et sur
-                  ;; `pantflapL` la course actuelle publie :
-                  ;;     drive=tilt      stimulus=9.81    tip=0.0797  baseline=0.0878  gain=-0.000827
-                  ;;     drive=updown    stimulus=15.82   tip=0.0860  baseline=0.0878  gain=-0.000116
-                  ;; La pointe bouge MOINS que sous animation SEULE : le gain est NEGATIF. Ce que
-                  ;; `tipvar` compte a ces stimuli n'est donc pas de la physique, c'est le pan
-                  ;; TRAINE PAR L'ANIMATION A TRAVERS LE MOLLET — precisement le defaut que l'owner
-                  ;; signale (« le bas du pantacourt est a l'interieur des mollets »). Un plancher
-                  ;; pose sur cette grandeur protege le defaut, pas l'acquis.
-                  ;;
-                  ;; La contrainte est donc RE-ETENDUE aux fourreaux, bornee a leur `shell` — une
-                  ;; grandeur MESUREE et par chaine (452 / 448 u), pas une constante choisie. Les
-                  ;; deux chiffres partent ensemble dans le rapport, et c'est SON oeil qui tranche :
-                  ;; soit le pan sort du mollet et se voit, soit il garde une amplitude qui n'est
-                  ;; mesurable que parce qu'il traverse. Je ne peux pas trancher ca avec un scalaire
-                  ;; dont je viens de montrer qu'il ne discrimine pas.
-                  ;; RESERVE HONNETE : si son oeil dit que le pan est devenu trop raide, la reprise
-                  ;; se fait par un rappel BORNE EN VITESSE, pas par le retrait de la contrainte —
-                  ;; le franchissement, lui, est ferme et mesure a zero.
+                  ;; LA PAIRE FOURREAU : LA CONTRAINTE EST ETENDUE AUX FOURREAUX, BORNEE A LEUR
+                  ;; `shell` — une grandeur MESUREE et PAR CHAINE (452 u sur `pantflapL`, 448 sur
+                  ;; `pantflapR`), jamais une constante choisie a la main (regle 4). Sans borne, un
+                  ;; pan qui a tunnele se voit rappeler de TOUTE sa distance a l'axe en une frame,
+                  ;; et ce rappel-la ecrase la reponse aux petits stimuli au lieu de la corriger.
+                  ;; CE QUE L'HISTORIQUE DE CE BLOC A ETABLI, ET QU'IL NE FAUT PAS REFAIRE :
+                  ;;  * elle FERME sa cible — `ROOM-SIDE crossing` 5643 -> 0, `disarmed` 1011 -> 0,
+                  ;;    perimetre propre (233 lignes `row` changent, TOUTES pantflapL/R) ;
+                  ;;  * elle a ete retiree une fois parce qu'elle cassait `FLOOR-WEAK` (-35 % au
+                  ;;    stimulus le plus faible), puis RE-ETENDUE : cette gate ne mesure pas une
+                  ;;    reponse sur ce pan. `pantflapL` publie `gain=-0.000827` (tilt) et
+                  ;;    `-0.000116` (updown) — la pointe bouge MOINS que sous animation SEULE. Ce
+                  ;;    que `tipvar` y compte est le pan TRAINE PAR L'ANIMATION A TRAVERS LE MOLLET,
+                  ;;    c'est-a-dire le defaut lui-meme. Un plancher pose la protege le defaut ;
+                  ;;  * le « budget de glissement 67-75 u » cite par une note anterieure N'EXISTE
+                  ;;    nulle part dans le contrat ni dans les mesures : le reprendre serait taper
+                  ;;    une constante a la main en la presentant comme mesuree.
+                  ;; RESERVE : si son oeil dit que le pan est trop raide, la reprise se fait par un
+                  ;; rappel BORNE EN VITESSE, jamais par le retrait de la contrainte.
+                  ;; ETAT : `keira-owner-tuning.txt` porte `shell=0` sur les deux seules chaines qui
+                  ;; declarent la cle, donc ce bloc est INERTE dans la course actuelle et son
+                  ;; controle positif ne peut plus tirer (`ROOM-SHELL-CONTROL armed=disarmed=0`).
                   (when (zero? *phys-side-off*)
                     (let ((wv (if sleevec (fmin (-> ub w) (-> *phys-shell* sc)) (-> ub w))))
                       (when (> wv worst) (set! worst wv)))))
@@ -3674,8 +3619,7 @@
                     ;; d'exponentielle — exact en x=3, ecart maximal 0.0235, plus petit que la
                     ;; largeur de la bande 0.42..0.50 que la spec donne elle-meme.
                     ;;
-                    ;; PLACE DANS LA FRAME : apres l'etage 0 (qui garde son sens, « l'angle que
-                    ;; l'integration SEULE produit ») et AVANT la boucle de contraintes, pour que la
+                    ;; PLACE DANS LA FRAME : apres l'etage 0 et AVANT les contraintes, pour que la
                     ;; collision garde le dernier mot — regle 6.
                     ;; ------------------------------------------------------------------------
                     (when (and (= (-> *phys-fam* sc) 1) (= n 1))
@@ -3780,6 +3724,29 @@
                     ;; chaine par chaine, au lieu d'etre suppose.
                     (dotimes (it 4)
                       (phys-collide-chain skel sc n rlk nbone nco PHYS-COL-MARGIN 3))
+                    ;; ------------------------------------------------------------------------
+                    ;; PIERRE TOMBALE — ABSORBER LA CORRECTION DE COLLISION DANS `q`. ESSAYE DEUX
+                    ;; FOIS LE 2026-08-14, MESURE, RETIRE. A NE PAS REMETTRE SOUS CETTE FORME.
+                    ;; L'IDEE ETAIT JUSTE ET LE DEFAUT EST REEL : la fermeture ecrit `p` sans toucher
+                    ;; `q`, or la vitesse de la frame suivante EST `p - q`, donc la poussee hors du
+                    ;; volume repart en vitesse — restitution de fait 0.53 a 0.83 sur les pointes de
+                    ;; `Lmidhaira`/`Rmidhaira`/`backHair1`, mesuree dans la fenetre de REPOS, stimulus
+                    ;; arrete, contre 0.02-0.06 aux §33/§34 (« not bounce »). Controle qui discrimine
+                    ;; dans la meme course : `Lbanga`/`Rbanga` rendent un NEGATIF (vraie decroissance).
+                    ;; CE QUI L'A CONDAMNEE, RUN16 : `chestL` tipvar 0.2174 -> 0.0833 (-62 %),
+                    ;; `sat_n` 1493 -> 37766, `sat_sum` 2.67e6 -> 3.35e10, penetration des meches
+                    ;; INCHANGEE (0.4990 / 0.5277). Aucun NaN, aucun PHYSFAIL : ce n'est pas une
+                    ;; divergence numerique, c'est un muselage.
+                    ;; POURQUOI, ET C'EST LA LECON : en contact PERSISTANT la poussee n'est pas une
+                    ;; impulsion, c'est la surface qui TIENT le maillon. L'absorber a chaque frame
+                    ;; accumule une fausse vitesse VERS la surface, qui creuse le contact, qui
+                    ;; agrandit la poussee — boucle positive, que le filet d'apex doit ensuite ecreter
+                    ;; (d'ou sat_n x25). Une reprise doit distinguer l'IMPACT du CONTACT REPOSANT :
+                    ;; ne retirer que la vitesse d'APPROCHE, jamais ajouter de vitesse de separation.
+                    ;; La premiere version (instantane avant les 4 derniers balayages purement
+                    ;; collision) ne changeait meme pas la grandeur du defaut (0.53 -> 0.53) : a ce
+                    ;; stade les 11 balayages precedents ont deja resolu les contacts.
+                    ;; ------------------------------------------------------------------------
                     ;; combien de paires (lien, volume) ont bascule d'etat de contrainte depuis la
                     ;; frame precedente : la mesure du defaut « jitter » lui-meme.
                     (phys-flip-count skel sc n rlk nbone nco)
