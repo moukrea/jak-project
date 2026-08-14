@@ -2584,6 +2584,173 @@ def main():
     A('%d lignes de mesure, %d chaines x %d animations x %d pilotages.'
       % (len(rows), len(chains), played, len(DRIVE_NAMES)))
 
+    # ============================================================================================
+    # SPEC 8 / 10-13 / 29-torsion / 33-34 / 36 — LE CANAL DE DEFORMATION, LA TORSION, LA RESTITUTION
+    # Ajoutees le 2026-08-14 (cycle 7). Ces lignes ne REMPLACENT rien : elles publient des
+    # grandeurs qui n'avaient aucun instrument, ce que l'audit du 09:45 comptait comme ABSENT.
+    # ============================================================================================
+    A('')
+    A('-- ROOM-ORI : SPEC 10-13, LES EQUILIBRES PAR ORIENTATION, ET LEUR CONTINUITE --------------')
+    A('   SPEC 13 : « supine, prone, upright and lateral states shall NOT exist as unrelated')
+    A('   hard-coded morph targets ; the equilibrium state shall vary CONTINUOUSLY with the local')
+    A('   gravity direction ».')
+    A('   NATURE : `gx/gy/gz` est l\'ENTREE — la direction de la gravite VUE PAR LE SOLVEUR, unitaire.')
+    A('   `sx/sy/sz` est la SORTIE — les trois echelles commandees a la racine du sein (lateral,')
+    A('   vertical, projection), sans dimension, rapport a la forme d\'auteur. `det` est leur produit,')
+    A('   le volume de SPEC 8.  REPERE : le triedre de SPEC 7 (+X lateral, +Y haut, +Z avant), releve')
+    A('   a la pose debout d\'auteur.  LECTURE HORS DEFAUT : a l\'orientation 0 (debout) les trois')
+    A('   echelles valent 1.000 — sinon toutes les autres sont decalees et rien n\'est comparable.')
+    A('   CE QUE CE N\'EST PAS : la deformation VUE sur le mesh. C\'est ce que le solveur COMMANDE ;')
+    A('   la peau, graduee en r^1.63 (SPEC 31), n\'en recoit qu\'une part croissante vers la pointe.')
+    ori = {}
+    for m in re.finditer(r'^PHYSORI c=(\d+) i=(\d+) gx=([-\d.e+]+) gy=([-\d.e+]+) gz=([-\d.e+]+)',
+                         txt, re.M):
+        ori.setdefault((int(m.group(1)), int(m.group(2))), {}).update(
+            gx=float(m.group(3)), gy=float(m.group(4)), gz=float(m.group(5)))
+    for m in re.finditer(r'^PHYSORI2 c=(\d+) i=(\d+) sx=([-\d.e+]+) sy=([-\d.e+]+)'
+                         r' sz=([-\d.e+]+) det=([-\d.e+]+)', txt, re.M):
+        ori.setdefault((int(m.group(1)), int(m.group(2))), {}).update(
+            sx=float(m.group(3)), sy=float(m.group(4)), sz=float(m.group(5)), det=float(m.group(6)))
+    for m in re.finditer(r'^PHYSORI3 c=(\d+) i=(\d+) ax=(\d+) deg=([-\d.e+]+) arm=([-\d.e+]+)',
+                         txt, re.M):
+        ori.setdefault((int(m.group(1)), int(m.group(2))), {}).update(
+            ax=int(m.group(3)), deg=float(m.group(4)), arm=float(m.group(5)))
+    if not ori:
+        A('ROOM-ORI: ABSENT (aucune ligne PHYSORI dans la trace) — la salle de cette course ne')
+        A('   balayait pas encore les orientations : SPEC 10-13 reste NON MESUREE, pas verte.')
+    else:
+        A('')
+        A('   chaine        i  ax   deg      gx       gy       gz       sx      sy      sz     det')
+        for (c, i) in sorted(ori):
+            d = ori[(c, i)]
+            A('ROOM-ORI: %-12s %2d  %d  %6.1f  %7.4f %7.4f %7.4f  %6.4f %6.4f %6.4f %7.5f'
+              % (names[c] if c < len(names) else 'c%d' % c, i, d.get('ax', -1), d.get('deg', 0.0),
+                 d.get('gx', 0.0), d.get('gy', 0.0), d.get('gz', 0.0),
+                 d.get('sx', 0.0), d.get('sy', 0.0), d.get('sz', 0.0), d.get('det', 0.0)))
+        armed = {d.get('arm', 0.0) for d in ori.values()}
+        A('')
+        A('   arme (phys-shape which=8) sur toutes les lignes : %s'
+          % ('oui' if armed == {1.0} else 'NON — %s' % sorted(armed)))
+        # DISCRIMINATION : une reponse identique a toutes les orientations prouverait que
+        # l'orientation n'entre pas dans le calcul. C'est le meme test que la gate DISCRIMINANT.
+        for c in sorted({c for (c, _i) in ori}):
+            vals = [ori[(c, i)].get('sz', 0.0) for i in range(9) if (c, i) in ori]
+            if len(vals) >= 2:
+                span = max(vals) - min(vals)
+                A('ROOM-ORI-SPAN: chain=%-12s sz_min=%.4f sz_max=%.4f span=%.4f  %s'
+                  % (names[c] if c < len(names) else 'c%d' % c, min(vals), max(vals), span,
+                     'DISCRIMINE' if span > 0.05 else 'PLAT — l\'orientation n\'atteint pas la forme'))
+    A('')
+    A('-- ROOM-SHAPE : SPEC 8 (volume) et SPEC 36 (mode secondaire), PAR PILOTAGE ----------------')
+    A('   SPEC 8 : volume 98-101 % en mouvement normal, 96-102 % en transitoire fort.')
+    A('   SPEC 36 : amplitude 2-5 % de l\'epaisseur locale, 5-7 % sur impulsion forte, plafond 7 %.')
+    A('   NATURE : `det` est un rapport de volume de la deformation AFFINE commandee ; `secm` est le')
+    A('   maximum sur la fenetre de la modulation d\'epaisseur de SPEC 36 ; `twm` le maximum de la')
+    A('   torsion de SPEC 29, en degres.  LECTURE HORS DEFAUT : det=1, secm=0, twm=0.')
+    A('   AVERTISSEMENT, ECRIT PARCE QU\'IL COMPTE : `det` est ramene a 1 PAR CONSTRUCTION (racine')
+    A('   cubique appliquee au triplet). Il VERIFIE que la normalisation tourne, il ne MESURE pas')
+    A('   l\'incompressibilite du tissu — un nombre qui se compare a lui-meme n\'est pas une preuve.')
+    A('   Ce qui discrimine vraiment est ROOM-ORI ci-dessus (la forme change avec l\'orientation) et')
+    A('   `secm` ci-dessous (il change avec le pilotage).')
+    shp = {}
+    for m in re.finditer(r'^PHYSSHAPE2 c=(\d+) a=(\d+) d=(\d+) det=([-\d.e+]+) secm=([-\d.e+]+)'
+                         r' twm=([-\d.e+]+)', txt, re.M):
+        c, dr = int(m.group(1)), int(m.group(3))
+        if dr >= len(DRIVE_NAMES):
+            continue
+        e = shp.setdefault((c, dr), dict(det_lo=9.9, det_hi=0.0, sec=0.0, tw=0.0, n=0))
+        e['det_lo'] = min(e['det_lo'], float(m.group(4)))
+        e['det_hi'] = max(e['det_hi'], float(m.group(4)))
+        e['sec'] = max(e['sec'], float(m.group(5)))
+        e['tw'] = max(e['tw'], float(m.group(6)))
+        e['n'] += 1
+    for m in re.finditer(r'^PHYSSHAPE3 c=(\d+) a=(\d+) d=(\d+) secr=([-\d.e+]+) dynm=([-\d.e+]+)',
+                         txt, re.M):
+        c, dr = int(m.group(1)), int(m.group(3))
+        if dr >= len(DRIVE_NAMES):
+            continue
+        e = shp.setdefault((c, dr), dict(det_lo=9.9, det_hi=0.0, sec=0.0, tw=0.0, n=0))
+        e['secr'] = max(e.get('secr', 0.0), float(m.group(4)))
+        e['dyn'] = max(e.get('dyn', 0.0), float(m.group(5)))
+    if not shp:
+        A('ROOM-SHAPE: ABSENT (aucune ligne PHYSSHAPE2) — SPEC 8/36 restent NON MESUREES.')
+    else:
+        A('')
+        A('   chaine        drive       fenetres  det_min  det_max  secm(%%)  secr(%%)  dyn(%%)  twm(deg)')
+        for (c, dr) in sorted(shp):
+            e = shp[(c, dr)]
+            A('ROOM-SHAPE: %-12s %-10s %5d     %7.5f  %7.5f  %6.2f  %7.2f  %6.2f  %8.4f'
+              % (names[c] if c < len(names) else 'c%d' % c, DRIVE_NAMES[dr], e['n'],
+                 e['det_lo'], e['det_hi'], 100.0 * e['sec'], 100.0 * e.get('secr', 0.0),
+                 100.0 * e.get('dyn', 0.0), math.degrees(e['tw'])))
+        sat = [(c, dr) for (c, dr) in sorted(shp) if shp[(c, dr)].get('secr', 0.0) > 0.0701]
+        if sat:
+            A('ROOM-SHAPE-SATURE: %d fenetre(s) sur %d ou le mode secondaire de SPEC 36 depasse son'
+              ' plafond de 7 %% AVANT ecretage.' % (len(sat), len(shp)))
+            A('   Un `secm` colle a 0.0700 n\'est alors PAS une amplitude mesuree, c\'est une'
+              ' saturation : le gain d\'excitation est a recaler sur SA bande (2-5 %%), pas sur'
+              ' l\'instrument.')
+        for c in sorted({c for (c, _d) in shp}):
+            vals = [shp[(c, d)]['sec'] for d in range(len(DRIVE_NAMES)) if (c, d) in shp]
+            if len(vals) >= 2 and max(vals) > 0.0:
+                A('ROOM-SHAPE-SPAN: chain=%-12s secm_min=%.4f secm_max=%.4f  %s'
+                  % (names[c] if c < len(names) else 'c%d' % c, min(vals), max(vals),
+                     'DISCRIMINE (le mode secondaire depend du pilotage)'
+                     if (max(vals) - min(vals)) > 0.25 * max(vals)
+                     else 'PLAT — le pilotage n\'atteint pas le mode secondaire'))
+    A('')
+    A('-- ROOM-REST : SPEC 33/34, LA RESTITUTION DE CONTACT ---------------------------------------')
+    A('   SPEC 33 : sein<->sein, restitution 0.00-0.15, nominal 0.06. SPEC 34 : buste, 0.00-0.05,')
+    A('   nominal 0.02, et « collision energy should primarily become deformation, redistribution')
+    A('   and damping — NOT bounce ».')
+    A('   NATURE : des vitesses normales en unites de jeu par frame. `vin` = ce qui ARRIVE sur le')
+    A('   volume, `vout` = ce qui en repart, RELU a la frame suivante (donc mesure, pas deduit de')
+    A('   `e`).  `n` = le DOMAINE : sans lui un zero ne distingue pas « rien ne touche » de « rien')
+    A('   ne s\'applique ».')
+    legs = {}
+    for m in re.finditer(r'^PHYSRESTLEG tag=(\S+) n=([-\d.e+]+) m=([-\d.e+]+) vin=([-\d.e+]+)'
+                         r' vout=([-\d.e+]+) esum=([-\d.e+]+)', txt, re.M):
+        legs[m.group(1)] = dict(n=float(m.group(2)), m=float(m.group(3)), vin=float(m.group(4)),
+                                vout=float(m.group(5)), esum=float(m.group(6)))
+    rtot = dict(n=0.0, m=0.0, vin=0.0, vout=0.0, esum=0.0)
+    for m in re.finditer(r'^PHYSREST a=\d+ d=\d+ n=([-\d.e+]+) m=([-\d.e+]+) vin=([-\d.e+]+)',
+                         txt, re.M):
+        rtot['n'] += float(m.group(1)); rtot['m'] += float(m.group(2)); rtot['vin'] += float(m.group(3))
+    tws = 0.0
+    for m in re.finditer(r'^PHYSREST2 a=\d+ d=\d+ vout=([-\d.e+]+) esum=([-\d.e+]+)'
+                         r'(?: twsat=([-\d.e+]+))?', txt, re.M):
+        rtot['vout'] += float(m.group(1)); rtot['esum'] += float(m.group(2))
+        if m.group(3):
+            tws = max(tws, float(m.group(3)))
+    A('')
+    A('ROOM-REST: course entiere  contacts=%d  sorties_relues=%d  vin=%.4f  vout=%.4f  esum=%.4f'
+      % (int(rtot['n']), int(rtot['m']), rtot['vin'], rtot['vout'], rtot['esum']))
+    A('ROOM-TWSAT: %d frame(s) ou la saturation douce de la torsion (SPEC 29, bornee par'
+      ' l\'enveloppe d\'apex de SPEC 38) a mordu sur une fenetre.' % int(tws))
+    if rtot['n'] <= 0:
+        A('ROOM-REST-DOMAIN-EMPTY: aucun contact n\'a mordu sur toute la course. SPEC 33/34 sont')
+        A('   IMPLEMENTEES et NON MESUREES : un zero tire d\'un domaine vide ne prouve rien.')
+    else:
+        A('ROOM-REST-MIX: coefficient moyen applique = %.4f  (0.02 = tout buste, SPEC 34 ;'
+          ' 0.06 = tout sein<->sein, SPEC 33)' % (rtot['esum'] / rtot['n']))
+    for tag in ('spec', 'x15'):
+        if tag in legs:
+            d = legs[tag]
+            A('ROOM-REST-LEG: %-5s contacts=%-5d relues=%-5d vin=%-9.4f vout=%-9.4f e_moy=%s'
+              % (tag, int(d['n']), int(d['m']), d['vin'], d['vout'],
+                 ('%.4f' % (d['esum'] / d['n'])) if d['n'] > 0 else 'n/a'))
+    if 'spec' in legs and 'x15' in legs:
+        a, b = legs['spec'], legs['x15']
+        if a['n'] > 0 and b['n'] > 0 and a['vin'] > 0 and b['vin'] > 0:
+            ra, rb = a['vout'] / a['vin'], b['vout'] / b['vin']
+            A('ROOM-REST-CONTROL: vout/vin  spec=%.4f  x15=%.4f  rapport=%.2fx  %s'
+              % (ra, rb, (rb / ra) if ra > 0 else float('inf'),
+                 'LE CONTROLE A TIRE' if rb > 1.5 * ra else
+                 'LE CONTROLE N\'A PAS TIRE — rien n\'est prouve ici'))
+        else:
+            A('ROOM-REST-CONTROL: domaine vide sur au moins une jambe (spec n=%d, x15 n=%d) :'
+              ' le controle est NON CONCLUANT.' % (int(a['n']), int(b['n'])))
+
     os.makedirs(REPDIR, exist_ok=True)
     open(OUT, 'w').write('\n'.join(L) + '\n')
     print('ecrit %s : %d lignes, %d mesures, %d chaines, %d/%d animations'

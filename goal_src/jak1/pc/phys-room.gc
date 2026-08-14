@@ -235,8 +235,17 @@
 ;; c'est la lecon du controle de cote qui rendait 0 contre 0 sur une fenetre trop etroite.
 (defconstant PHYSROOM-PH-CONEOFF 20)
 (defconstant PHYSROOM-PH-CONEON 21)
-(defconstant PHYSROOM-PH-REPORT 22)
-(defconstant PHYSROOM-PH-DONE 23)
+(defconstant PHYSROOM-PH-ORI 24)     ;; SPEC 10-13 : le balayage d'orientation
+(defconstant PHYSROOM-PH-RESTA 25)   ;; SPEC 33/34 : secousse, restitution AUX VALEURS DE LA SPEC
+(defconstant PHYSROOM-PH-RESTB 26)   ;; SPEC 33/34 : MEME secousse, coefficient x15 (controle +)
+(defconstant PHYSROOM-ORIS 60)       ;; frames d'etablissement par orientation
+(defconstant PHYSROOM-ORIM 30)       ;; frames de mesure par orientation
+;; REPORT et DONE passent de 22/23 a 30/31 : `physroom-tick` teste `(< phase PHYSROOM-PH-REPORT)`
+;; pour savoir si la course est encore en cours (le balayage d'acteurs etrangers en depend), donc
+;; toute phase de TRAVAIL doit avoir un numero INFERIEUR. Les ajouter au-dessus de 22 sans deplacer
+;; REPORT les aurait rendues silencieusement inertes de ce point de vue.
+(defconstant PHYSROOM-PH-REPORT 30)
+(defconstant PHYSROOM-PH-DONE 31)
 
 (deftype phys-subject (process-drawable)
   ((phase   int32)
@@ -263,6 +272,7 @@
    (conarm  float)     ;; predicat conique D'AVANT   : la meme, elle doit MONTER
    (injn    int32)     ;; poussees reellement injectees
    (lvl     int32)     ;; niveau d'excitation courant de la courbe de reponse
+   (ori     int32)     ;; index dans la table d'orientations de SPEC 10-13
    (nchan   int32)     ;; canaux d'animation du PORTEUR (= (-> draw mgeo num-joints))
    (nperm   int32)     ;; positions de canal deplacees par la permutation de l'animation courante
    (vel     vector :inline)
@@ -480,6 +490,30 @@
   (vector-copy! (-> self root trans) (-> self home))
   (quaternion-identity! (-> self root quat))
   (none))
+
+;; ------------------------------------------------------------------------------------------------
+;; SPEC 10-13 — L'ORIENTATION, SUR DEUX AXES ET SUR TOUTE LA PLAGE.
+;; Sa §13 : « supine, prone, upright and lateral states SHALL NOT exist as unrelated hard-coded
+;; morph targets ; the equilibrium state shall vary CONTINUOUSLY with the local gravity direction ».
+;; Une salle qui ne penche qu'a 60 degres vers l'avant ne peut ni verifier §10 (sur le dos), ni §12
+;; (sur le cote), ni la CONTINUITE entre les deux — c'est le trou d'instrument que ce cycle ferme.
+;; `axis` 0 = tangage (avant/arriere, atteint prone et supine), 1 = roulis (lateral).
+(defbehavior physroom-orient phys-subject ((axis int) (deg float))
+  (set-vector! (-> self vel) 0.0 0.0 0.0 1.0)
+  (vector-copy! (-> self root trans) (-> self home))
+  (if (zero? axis)
+    (quaternion-axis-angle! (-> self root quat) 1.0 0.0 0.0 (degrees deg))
+    (quaternion-axis-angle! (-> self root quat) 0.0 0.0 1.0 (degrees deg)))
+  (none))
+
+;; LA TABLE DES ORIENTATIONS BALAYEES. Les quatre POLES de sa spec y sont (±90 sur chaque axe), et
+;; les intermediaires a 45 sont la pour §13 : entre deux poles la forme doit varier CONTINUMENT,
+;; ce qui ne se lit que si on echantillonne entre les poles. 0 degre est inclus comme ligne de
+;; base : cette orientation-la doit rendre 1.000 / 1.000 / 1.000, sinon tout le reste est decale.
+(defconstant PHYSROOM-ORIN 9)
+(define *physroom-ori-ax* (new 'static 'array int32 9 0 0 0 0 0 1 1 1 1))
+(define *physroom-ori-dg* (new 'static 'array float 9
+                               0.0 45.0 90.0 -45.0 -90.0 45.0 90.0 -45.0 -90.0))
 
 (defbehavior physroom-lean phys-subject ((deg float))
   "immobile mais PENCHEE de `deg` degres vers l'avant. L'excitation d'acceleration retombe a zero,
@@ -846,7 +880,50 @@
             c (-> self ai) (-> self drive)
             (phys-stat (-> self slot) c 17)
             (phys-stat (-> self slot) c 18)
-            (phys-stat (-> self slot) c 19))))
+            (phys-stat (-> self slot) c 19))
+    ;; SPEC 8 / 36 / 29 — LA FORME, PAR FENETRE, DONC ATTRIBUABLE A UN PILOTAGE.
+    ;; NATURE : trois echelles sans dimension (lateral, vertical, projection) et leur determinant,
+    ;; puis le MAXIMUM sur la fenetre du mode secondaire de §36 (fraction d'epaisseur) et de la
+    ;; torsion de §29 (radians). REPERE : le triedre de sa §7. LECTURE HORS DEFAUT : 1 / 1 / 1 / 1
+    ;; et deux zeros — c'est ce que doit rendre une fenetre debout et immobile, et c'est ce qui
+    ;; rend la ligne DISCRIMINANTE : sous `jerk` elle ne peut pas rendre la meme chose que sous
+    ;; `updown` si le canal est vraiment alimente par le mouvement.
+    ;; CE QUE CE N'EST PAS : la deformation vue sur le mesh. C'est ce que le solveur COMMANDE a la
+    ;; racine ; la peau, graduee en r^1.63, n'en recoit qu'une part croissante vers la pointe.
+    (format 0 "PHYSSHAPE c=~D a=~D d=~D sx=~f sy=~f sz=~f~%"
+            c (-> self ai) (-> self drive)
+            (phys-shape (-> self slot) c 0)
+            (phys-shape (-> self slot) c 1)
+            (phys-shape (-> self slot) c 2))
+    (format 0 "PHYSSHAPE2 c=~D a=~D d=~D det=~f secm=~f twm=~f~%"
+            c (-> self ai) (-> self drive)
+            (phys-shape (-> self slot) c 3)
+            (phys-shape (-> self slot) c 5)
+            (phys-shape (-> self slot) c 7))
+    ;; `secr` = le mode secondaire AVANT le plafond de §38, `dynm` = l'etirement dynamique de
+    ;; §22/38. Le premier existe parce qu'un `secm` colle a 0.0700 sur toutes les fenetres ne dit
+    ;; pas s'il frole le plafond ou s'il le defonce d'un facteur dix : c'est la signature du
+    ;; limiteur sature, et sans cette ligne elle est invisible.
+    (format 0 "PHYSSHAPE3 c=~D a=~D d=~D secr=~f dynm=~f~%"
+            c (-> self ai) (-> self drive)
+            (phys-shape (-> self slot) c 12)
+            (phys-shape (-> self slot) c 13))))
+  ;; SPEC 33/34 — LA RESTITUTION SUR CETTE FENETRE. Une ligne par fenetre, pas par chaine : les
+  ;; compteurs sont globaux au solveur. `n` est le DOMAINE (contacts ou elle a mordu) ; sans lui,
+  ;; `vin`/`vout` a zero ne distinguent pas « rien ne touche » de « rien ne s'applique ».
+  ;; `m` = sorties effectivement RELUES a la frame suivante ; `esum/n` = le melange 0.06 / 0.02.
+  ;; DEUX LIGNES, et ce n'est pas un choix de style : `format` de GOAL est cape a huit parametres,
+  ;; destination et chaine comprises.
+  (format 0 "PHYSREST a=~D d=~D n=~f m=~f vin=~f~%"
+          (-> self ai) (-> self drive)
+          (phys-rest 0) (phys-rest 4) (phys-rest 1))
+  ;; `twsat` = les frames ou la saturation douce de la torsion (SPEC 29, bornee par l'enveloppe
+  ;; d'apex de SPEC 38) a mordu. Un limiteur sans compteur est precisement ce que le contrat
+  ;; interdit ; celui-ci publie combien de fois il agit, a cote de l'amplitude qu'il borne.
+  (format 0 "PHYSREST2 a=~D d=~D vout=~f esum=~f twsat=~f~%"
+          (-> self ai) (-> self drive)
+          (phys-rest 2) (phys-rest 3)
+          (phys-shape (-> self slot) 0 18))
   (none))
 
 ;; POSITION MOYENNE de la pointe dans le repere de l'ancre, axe par axe. Une ligne a part parce que
@@ -1442,9 +1519,49 @@
        ;; la POSITION MOYENNE redressee, APRES l'aller-retour. Son ecart avec `idle` EST
        ;; l'hysteresis ; son ecart avec `tilt` est la part du sag qui a bien ete rendue.
        (physroom-emit-mean "back")
-       (set! (-> self phase) PHYSROOM-PH-SHAKE)
+       (set! (-> self phase) PHYSROOM-PH-ORI)
+       (set! (-> self ori) 0)
        (set! (-> self pframe) 0)
        (phys-stats-reset!)))
+
+    ;; ---- 4 quater. SPEC 10-13 — LES EQUILIBRES PAR ORIENTATION, ET LEUR CONTINUITE.
+    ;; Chaque orientation est TENUE (aucun pilotage, aucune acceleration) le temps que la reponse
+    ;; dynamique s'eteigne, puis mesuree. Ce qui est publie est l'ENTREE (la direction de la gravite
+    ;; vue par le solveur dans le triedre de sa §7) A COTE de la SORTIE (les trois echelles et leur
+    ;; determinant). Les deux ensemble, et sur neuf orientations, sont la seule forme qui puisse
+    ;; repondre a sa §13 : une table de morphs figes rendrait des paliers, un equilibre continu
+    ;; rend une courbe.
+    ((= (-> self phase) PHYSROOM-PH-ORI)
+     (physroom-orient (-> *physroom-ori-ax* (-> self ori)) (-> *physroom-ori-dg* (-> self ori)))
+     (when (>= (-> self pframe) (+ PHYSROOM-ORIS PHYSROOM-ORIM))
+       (dotimes (c (-> self nchain))
+        (when (> (phys-chain-links (-> self slot) c) 0)
+         (format 0 "PHYSORI c=~D i=~D gx=~f gy=~f gz=~f~%"
+                 c (-> self ori)
+                 (phys-shape (-> self slot) c 9)
+                 (phys-shape (-> self slot) c 10)
+                 (phys-shape (-> self slot) c 11))
+         (format 0 "PHYSORI2 c=~D i=~D sx=~f sy=~f sz=~f det=~f~%"
+                 c (-> self ori)
+                 (phys-shape (-> self slot) c 0)
+                 (phys-shape (-> self slot) c 1)
+                 (phys-shape (-> self slot) c 2)
+                 (phys-shape (-> self slot) c 3))
+         (format 0 "PHYSORI4 c=~D i=~D r0=~f r1=~f r2=~f~%"
+                 c (-> self ori)
+                 (phys-shape (-> self slot) c 15)
+                 (phys-shape (-> self slot) c 16)
+                 (phys-shape (-> self slot) c 17))
+         (format 0 "PHYSORI3 c=~D i=~D ax=~D deg=~f arm=~f~%"
+                 c (-> self ori)
+                 (-> *physroom-ori-ax* (-> self ori))
+                 (-> *physroom-ori-dg* (-> self ori))
+                 (phys-shape (-> self slot) c 8))))
+       (+! (-> self ori) 1)
+       (set! (-> self pframe) 0)
+       (phys-stats-reset!)
+       (when (>= (-> self ori) PHYSROOM-ORIN)
+         (set! (-> self phase) PHYSROOM-PH-SHAKE))))
 
     ;; ---- 4 ter. ON SECOUE, PUIS ON RELACHE — le cycle ferme dans le regime ou le defaut vit.
     ;; ---- Voir la note de PHYSROOM-PH-SHAKE : le cycle `tilt` est quasi-statique et n'exerce pas
@@ -1736,7 +1853,39 @@
           (phys-cone-off-set! 0)
           (phys-diag-reset!)
           (phys-stats-reset!)
-          (set! (-> self phase) PHYSROOM-PH-REPORT)))))
+          (set! (-> self phase) PHYSROOM-PH-RESTA)
+          (phys-rest-k-set! 1.0)))))
+
+    ;; ---- 9 bis. SPEC 33/34 — LA RESTITUTION, ET SON CONTROLE POSITIF.
+    ;; Deux jambes IDENTIQUES : meme secousse `jerk`, meme duree, meme animation. La SEULE
+    ;; difference est le coefficient. `A` porte ses valeurs (0.06 sein<->sein, 0.02 buste) ; `B`
+    ;; les multiplie par 15, ce qui porte le sein<->sein a 0.90. Ce qui doit MONTER entre les deux
+    ;; est la vitesse normale SORTANTE relue a la frame suivante — pas un compteur de passages,
+    ;; qui ne dirait que « le code est atteint », et pas un rapport deduit de `e`, qui se
+    ;; comparerait a lui-meme.
+    ;; SI `n` EST ZERO SUR LES DEUX JAMBES, LE DOMAINE EST VIDE et rien n'est prouve ici : c'est
+    ;; ecrit tel quel dans le rapport, jamais transforme en vert.
+    ((= (-> self phase) PHYSROOM-PH-RESTA)
+     (physroom-drive 3 (-> self pframe))
+     (physroom-advance-anim 1.0)
+     (when (>= (-> self pframe) PHYSROOM-PCW)
+       (format 0 "PHYSRESTLEG tag=spec n=~f m=~f vin=~f vout=~f esum=~f~%"
+               (phys-rest 0) (phys-rest 4) (phys-rest 1) (phys-rest 2) (phys-rest 3))
+       (phys-stats-reset!)
+       (phys-rest-k-set! 15.0)
+       (set! (-> self phase) PHYSROOM-PH-RESTB)
+       (set! (-> self pframe) 0)))
+
+    ((= (-> self phase) PHYSROOM-PH-RESTB)
+     (physroom-drive 3 (-> self pframe))
+     (physroom-advance-anim 1.0)
+     (when (>= (-> self pframe) PHYSROOM-PCW)
+       (format 0 "PHYSRESTLEG tag=x15 n=~f m=~f vin=~f vout=~f esum=~f~%"
+               (phys-rest 0) (phys-rest 4) (phys-rest 1) (phys-rest 2) (phys-rest 3))
+       (phys-rest-k-set! 1.0)
+       (phys-stats-reset!)
+       (set! (-> self phase) PHYSROOM-PH-REPORT)
+       (set! (-> self pframe) 0)))
 
     ;; ---- 10. RAPPORT --------------------------------------------------------------------------
     ((= (-> self phase) PHYSROOM-PH-REPORT)

@@ -1,15 +1,16 @@
 DIRECTIVES vee00ab7404
 
 ============================================================================================
-PHASE Grecharged-secondary-motion — CYCLE DU 2026-08-14 (tentative 6)
-KEIRA, POITRINE SEULE. §9 TENUE, §27 DEBLOQUEE ET MESUREE, ET LE RESIDU DE COLLISION FERME.
+PHASE Grecharged-secondary-motion — CYCLE DU 2026-08-14 (tentative 7)
+KEIRA, POITRINE SEULE. LE CANAL DE DEFORMATION EXISTE : §8, §10, §11, §12, §13, §33/34 ET §36
+SORTENT D'« ABSENTES », ET LA TORSION DE §29 A ENFIN SON DEGRE DE LIBERTE.
 ============================================================================================
 
-Branche : `physics-keira-clean`. Commit du cycle : `8e836fec75`.
+Branche : `physics-keira-clean`.
 Contrat  : `.autoport/DIRECTIVES.md` (07:30 perimetre, 09:45 audit, 11:50 ordre de travail)
            + `SPEC-breast-softbody.md`.
-Traces   : `keira-room-x86.log` / `keira-room-table.txt` (course x86 du 2026-08-14, 310 mesures,
-           2 chaines x 31/31 animations).
+Traces   : `keira-room-x86.log` / `keira-room-table.txt` — course x86 du 2026-08-14, 310 mesures,
+           2 chaines x 31/31 animations, plus 9 orientations et 2 jambes de restitution.
 Substrat : x86 uniquement. Aucune mesure de ce rapport ne vient d'un appareil, et c'est ecrit.
 
 
@@ -17,307 +18,364 @@ Substrat : x86 uniquement. Aucune mesure de ce rapport ne vient d'un appareil, e
 ===================================================================
 `OPEN-DEFECTS` est place en DEUXIEME, juste apres `SYNC`, avant toute gate de donnee. Il compte
 les lignes `^OPEN ` de `owner-defects.txt` et il enonce lui-meme sa regle : « la liste se vide
-UNIQUEMENT sur la parole de l'owner ». Il reste une ligne, `breast-spec-incomplete`, ecrite par le
-cycle precedent depuis SON verdict (« je suis sur a 99.99999 % que t'as pas implemente la spec
-comme il faut »).
+UNIQUEMENT sur la parole de l'owner ». Il reste une ligne, `breast-spec-incomplete`.
 
 **Je ne la retire pas et je ne touche pas a la gate.** C'est une porte humaine, pas un echec de la
 tentative — les deux facons de la « faire passer » sont les deux fautes capitales du dossier.
-La consequence a connaitre : `OPEN-DEFECTS` sortant en premier, AUCUNE gate de donnee ne tourne
-dans une tentative sans owner. J'ai donc relance la chaine complete avec le seul bloc humain retire
-(`sed '43,52d'`), en DIAGNOSTIC et jamais comme preuve de passage — c'est la seule chose qui puisse
-attraper une regression, et ce cycle en a effectivement attrape une (section 3).
+Consequence a connaitre : `OPEN-DEFECTS` sortant en premier, AUCUNE gate de donnee ne tourne dans
+une tentative sans owner. J'ai donc relance la chaine complete avec le seul bloc humain retire
+(`sed '43,52d'`), en DIAGNOSTIC et jamais comme preuve de passage :
 
-    course de diagnostic, apres les deux correctifs : [Grecharged-secondary-motion PASS]
     SCOPE · TUNING · ROOM · MOVE · ROOT · COLLIDE · IDLE · ANIM · SIDE-CONTROL · FLOOR ·
-    FLOOR-WEAK · DISCRIMINANT — toutes vertes.
+    FLOOR-WEAK · DISCRIMINANT — toutes vertes. [Grecharged-secondary-motion PASS]
 
 
-1. SPEC 9 — LE RELEVE QUI MANQUAIT, ET IL DESIGNE LA CAUSE EN UN NOMBRE
+1. CE QUI MANQUAIT N'ETAIT PAS UN REGLAGE : IL N'Y AVAIT AUCUN CANAL DE DEFORMATION
+====================================================================================
+Sa §23 : « the solver should then DERIVE LOCAL DEFORMATION from COM displacement, angular lag,
+root constraints, volume conservation and local collision pressure ». Or le moteur n'ecrivait
+qu'une POSITION et une rotation d'os. Verifie, pas suppose : `grep -ic scale` sur
+`jak-hd-physics.gc` rendait **0**, commentaires compris, et `ROOM-SHAPE` — cite par le contrat
+depuis le 2026-08-11 — n'avait **jamais** existe en code (`git log -S` : aucun commit).
+
+Sans canal, §8 (volume), §10, §11, §12, §13 (equilibres par orientation) et §36 (mode secondaire)
+n'etaient pas « mal reglees » : elles etaient **inexprimables**. C'est ce que l'audit du 09:45
+comptait comme ABSENT, et c'est ce que ce cycle ouvre.
+
+**CE QUI A ETE AJOUTE, ET OU.** Une matrice de deformation par chaine, construite une fois par
+frame et post-multipliee dans la 3x3 de l'os au moment de l'ecriture (`jak-hd-physics.gc`, etage
+5bis puis l'ecriture). La translation est mise a zero avant, donc la deformation est centree sur la
+RACINE du sein — ce qu'exigent §10 (« the entire breast shall not simply scale uniformly from its
+center ») et §30-31. Le champ de poids de la peau, deja gradue en r^1.63, fait le reste : un sommet
+partage avec le buste ne recoit qu'une part de l'echelle.
+
+**CE QUI N'A PAS BOUGE, ET C'EST VERIFIE :** la deformation n'entre PAS dans le solveur. Elle ne
+touche ni `*phys-px*`, ni la contrainte de longueur, ni la collision. Mesure :
+`ROOM-STRETCH 0.0000` (l'os ne s'allonge pas), `meshpen <= 0` sur les deux chaines,
+`ROOM-IDLE maxdev 0.0003 -> 0.0001`, `tipvar 0.1367/0.1322 -> 0.1413/0.1385` (+3.4 % / +4.8 %).
+
+
+2. LE DEGRE DE LIBERTE MANQUANT DE §29 — ET POURQUOI IL N'EST PAS UN OS
 ========================================================================
-Sa directive de 11:50 fixe §9 en priorite 3 et le cycle precedent l'avait nommee « le point unique
-du cycle suivant ». Etat d'entree : ecart a la pose d'auteur 23.86 / 19.40 u pour une cible de
-**0.0000**, inchange par les correctifs de B0 et d'anisotropie.
+Sa directive du 11:50 : « s'il manque des bones ou autre, bah faut juste les mettre ». La ligne
+« non applicable » de la torsion tombe, et le degre de liberte est AJOUTE. Il n'est pas ajoute sous
+forme d'os, et la raison est MESUREE, pas choisie :
 
-**CE QUI A TRANCHE, ET CE N'ETAIT PAS UNE DEDUCTION.** La trace portait deja de quoi exclure la
-moitie des suspects : `PHYSRINGS c=0 a0=1.3975 a1=1.3993` — `a0` est l'angle que l'INTEGRATION
-SEULE produit, `a1` ce qu'il reste apres la boucle de contraintes. Elle n'ajoute que 0.0018 deg.
-Ce n'est donc ni la collision, ni la reprojection : **c'est une FORCE**, et au repos la seule qui
-subsiste sur la famille A est `gsc * g_effective`.
+  1. `sat` — la saturation de §21 ET la borne d'apex de §22, deux sections TENUES — n'est armee que
+     sur une chaine a UN maillon (garde `(= n 1)`, deux sites). **Injecter un os dans le sein les
+     DESARMERAIT toutes les deux.**
+  2. Une torsion est une rotation PROPRE. Une chaine de particules ponctuelles n'en porte aucune,
+     quel que soit son nombre d'os : un os de plus n'aurait pas cree ce degre de liberte.
 
-Restait a lire `g_effective` au repos. Personne ne l'avait fait : `*phys-st*` 18 (`gn`, sans
-dimension, = |g_local - g_ref| / |g|) etait publie pour l'INCLINAISON et jamais pour la fenetre de
-REPOS — celle-la meme ou sa SPEC 3 exige `a_drive = 0`. Une ligne d'instrument ajoutee dans la
-salle (`PHYSIDLEG`, `phys-room.gc`, fichier non plafonne) :
+**ET JE CORRIGE UNE AFFIRMATION DU CYCLE PRECEDENT.** Il ecrivait que « l'os de torsion et §23
+attendent la generalisation des gardes `(= n 1)` ». C'est FAUX et rien ne le soutenait : le moteur
+ne contient que deux gardes `(= n 1)`, et elles n'empechent rien — elles ACTIVENT §21/§22 sur la
+poitrine. Rien n'est saute parce que `n = 1`.
 
-    NATURE   un rapport sans dimension, l'AMPLITUDE DU STIMULUS gravitaire, pas la reponse.
-    REPERE   celui de l'ancre (SPEC 7), comme `gl` dont il est tire.
-    BASELINE la SPEC 3 la donne elle-meme : « standing still gives g_local = g_ref [...]
-             therefore a_drive = 0 ». Debout ce nombre DOIT valoir 0 ; a 60 deg il vaut ~1.
+Le degre de liberte livre : un angle de roulis propre du tissu autour de son axe racine->apex,
+relie a celui de l'ancre par un ressort de raideur `1/0.72` fois la verticale (exactement comme
+`*phys-axs*` porte `1/0.90` et `1/0.82`) et de meme zeta 0.35. Aucune derivee seconde de
+l'animation n'y entre : on integre l'ABSOLU et on relie a la reference portee par l'ancre, donc
+l'inertie et le retard EMERGENT — meme construction que le mode principal.
 
-    PHYSIDLEG c=0 gn=0.2077 tf=0.9827      <- 20,77 % de g EN PERMANENCE, debout
-    PHYSIDLEG c=1 gn=0.2077 tf=0.9344         dont ~98 % de part TANGENTIELLE
+**TROIS VERSIONS, CHACUNE CORRIGEE PAR UNE MESURE, ET C'EST LE FAIT MARQUANT DU CYCLE :**
 
-**LA CAUSE : `g_ref` sortait de la BIND-POSE DU RIG. Sa SPEC 3 ecrit « g_ref = local gravity
-vector in the AUTHORED UPRIGHT STANDING POSE ».** Les deux ne coincident que si le rig a ete lie
-debout — ce qui n'est pas le cas d'un HD retargete : sa bind-pose porte l'orientation du DONNEUR,
-~11,9 deg a cote (gn = 2 sin(theta/2)). Le code AFFIRMAIT en commentaire que « buste droit -> les
-deux termes s'annulent » ; c'est exactement la regle 0, et le commentaire etait faux de 20,77 %.
+    v1  angle d'un vecteur de reference autour de l'axe SIMULE      course A : 25 a 76 deg
+    v2  le meme angle autour de l'axe de REPOS                      course C : SATURE sur les
+                                                                    CINQ pilotages, y compris
+                                                                    `updown` (translation pure)
+    v3  part AXIALE de la rotation incrementale de l'ancre,         course E : 3.76 a 6.74 deg,
+        `R = am(t-1)^T . am(t)`, partie antisymetrique              limiteur JAMAIS declenche
 
-**LE CORRECTIF.** `g_ref` est relevee une fois, a la premiere frame de la chaine (`warm = 0`), sur
-`R_ancre^-1 . g` lui-meme — et surtout **a la MEME frame que `*phys-ux*`**, la direction de repos
-de la chair. Les deux references deviennent coherentes : a cette pose le terme moteur est nul au
-bit pres (on soustrait un vecteur a lui-meme) ET la cible elastique est la pose d'auteur, donc
-l'equilibre EST la pose d'auteur. SPEC 9 par construction, pas par reglage. `*phys-warm*` repart a
-0 a l'initialisation du slot, donc la reference se re-releve a chaque respawn : c'est le
-« rebase on teleport/discontinuity » de sa SPEC 7, pas un etat qui vieillit.
-
-                                    AVANT       APRES      CIBLE (sa SPEC)
-    gn a la fenetre de repos        0.2077      0.0001     0        (SPEC 3)
-    PHYSIDLE dev chestL             23.8590 u   1.3936 u   0.0000   (SPEC 9)
-    PHYSIDLE dev chestR             19.4011 u   0.8502 u   0.0000   (SPEC 9)
-    ROOM-IDLE maxdev                0.0058 m    0.0003 m   —
-    ROOM-GRAVSAG at0 (L / R)        0.0058 /    0.0002 /   —
-                                    0.0047      0.0002
-
-Le residu de chestL est desormais une OSCILLATION, pas un biais : `PHYSIDLE amp=1.3567` pour
-`dev=1.3936`. Sa §9 le prevoit en toutes lettres — « residual oscillations caused by preceding
-movement may temporarily cross the neutral shape ». chestR garde `amp=0.0000` et 0.85 u de residu
-statique (0.2 mm) : ce n'est pas zero, et je ne l'ecris pas comme zero.
-
-**LE CONTROLE INDEPENDANT, ANNONCE AVANT LA COURSE.** Un correctif qui ne fait que RAPETISSER le
-nombre qu'il vise ne prouve rien — il pourrait n'avoir fait que museler le stimulus. La meme
-grandeur est donc lue sur l'autre fenetre, ou sa valeur est connue ANALYTIQUEMENT : a 60 deg,
-`gn = 2 sin(30 deg) = 1.0000` exactement.
-
-    ROOM-GRAVSAG gn a 60 deg :   0.8326  ->  0.9999      valeur analytique 1.0000
-
-La bind-pose biaisait donc le stimulus d'inclinaison de 17 % ; avec la bonne reference il tombe sur
-la valeur exacte a quatre decimales. Le releve n'a pas ete rendu petit, il a ete rendu JUSTE.
+Les deux premieres mesuraient un angle projete : quand l'axe bouge, sa propre rotation entre dans
+la mesure (holonomie) et **s'accumule frame apres frame**. Un tangage du buste, pourtant orthogonal
+a l'axe, produisait un increment. La v3 extrait la composante de torsion de la rotation elle-meme :
+une rotation orthogonale a l'axe y rend exactement zero. Sans le pilotage `updown` — une
+translation PURE, ou le roulis vrai est nul par construction — rien n'aurait designe le defaut.
 
 
-2. SPEC 27 — DEBLOQUEE, ET MESUREE POUR LA PREMIERE FOIS
-=========================================================
-Elle etait marquee « bloquee par §9 », et la raison est arithmetique : `ROOM-SETTLE` cherche le
-temps pour retomber a une FRACTION de l'amplitude initiale, et un residu STATIQUE ne franchit
-jamais un seuil RELATIF. Les quatre seuils saturaient donc a `>2.47` sur les deux seins.
+3. §33/§34 — LA COLLISION INJECTAIT DE L'ENERGIE, ET C'ETAIT DE L'ARITHMETIQUE
+===============================================================================
+`q` est fige a `p_int - ns*v_int` AVANT les contraintes, et `phys-collide-chain` n'ecrivait que
+`p`. Une poussee de penetration `D` devenait donc integralement de la vitesse a la frame suivante
+(`v = v_int + D`) : **une restitution effective de +1**, de l'energie injectee par un contact. Sa
+§34 dit l'inverse en toutes lettres : « collision energy should primarily become deformation,
+redistribution and damping — NOT bounce ». Aucune ligne du moteur ne portait 0.06 ni 0.02.
 
-    AVANT   chestL  t5=>2.47  t1=>2.47  t05=>2.47  t01=>2.47
-            chestR  t5=>2.47  t1=>2.47  t05=>2.47  t01=>2.47
-    APRES   chestL  t5=0.65   t1=>2.47  t05=>2.47  t01=>2.47   a0=6.05
-            chestR  t5=0.52   t1=0.75   t05=0.93   t01=>2.47   a0=16.69
+Correction chirurgicale, sur la VITESSE seule et une fois par frame (la collision est appelee 15
+fois) : `q <- q + D + (1+e)*vn*n`, avec `e = 0.06` si le volume qui pousse est porte par un joint
+SIMULE (l'autre sein, §33) et `0.02` sinon (buste et externe, §34). La POSITION n'est pas touchee :
+la regle 6 reste tenue par la meme poussee qu'avant, au bit pres.
 
-Sa §27 : « dominant visible response 0.3-0.6 s ; secondary movement 0.6-1.2 s ; mostly settled
-~1.0-1.5 s ; essentially stationary ~1.3-1.7 s ». Lecture honnete, sans arrondir en ma faveur :
-chestR est « mostly settled » (1 %) a 0.75 s, donc **PLUS VITE que sa bande de 1.0-1.5 s** ;
-chestL franchit 5 % a 0.65 s mais ne descend pas a 1 % dans la fenetre de 2.47 s. §27 passe donc
-d'ABSENTE a PARTIELLE : elle est enfin MESURABLE et elle n'est pas encore DANS la bande.
+**LA SORTIE EST RELUE, PAS DEDUITE.** `e * |vn|` serait vrai a l'instant ou on l'ecrit ; ce qui
+compte est ce qu'il en reste apres que la frame se soit terminee (longueur, balayages,
+attenuation). La vitesse normale sortante est donc relue A LA FRAME SUIVANTE, avant toute
+integration — sans quoi `vout` serait `e * vin` par construction, un nombre qui se compare a
+lui-meme.
+
+    ROOM-REST   contacts=2978  sorties relues=2972  vin=189881.4  vout=3823.8   vout/vin=0.0201
+    ROOM-REST-LEG spec   contacts=28  vin=1335.9  vout=25.0    vout/vin=0.0187
+    ROOM-REST-LEG x15    contacts=23  vin=1681.5  vout=506.2   vout/vin=0.3011
+    ROOM-REST-CONTROL    rapport = 16.12x        LE CONTROLE A TIRE
+
+**§33 EST IMPLEMENTEE ET SON DOMAINE EST VIDE, ET JE L'ECRIS COMME CA.** Le coefficient moyen
+applique sur 2978 contacts vaut **0.0200** — donc pas un seul contact sein<->sein. Preuve
+independante du melange : `PHYSCVOL` publie les volumes qui ont decide, et ce sont `chest->main`,
+`neck->chest`, `Lshoulder->chest`, `Rshoulder->chest`, `rTopStrap2` — jamais `lBoob` ni `rBoob`.
+Un zero tire d'un domaine vide ne prouve rien ; §33 attend une course ou les deux seins se
+touchent.
 
 
-3. LA REGRESSION QUE LE CORRECTIF DE §9 A REVELEE, ET SA FERMETURE
-===================================================================
-Ramener l'equilibre sur la pose d'auteur a fait passer `meshpen` de 0.0000 a **0.0008** sur une
-cellule (chestR, `assistant-lavatube-start-idle`, `jerk`), pour un plafond EPINGLE a 0.0005. La
-gate COLLIDE echouait. Ce que ca dit : **la pose d'auteur elle-meme effleure un volume declare** —
-le biais gravitaire poussait la poitrine 5,8 mm a cote et masquait le contact.
+4. §36 — LE MODE SECONDAIRE, ET LE PLAFOND QUI SE FAISAIT PASSER POUR UNE AMPLITUDE
+====================================================================================
+Oscillateur propre a 5.2 Hz, zeta 0.65, excite par un CHANGEMENT DE DIRECTION de la masse globale
+(« this response should mainly appear after a change in direction of the global breast mass »),
+module l'EPAISSEUR locale en conservant le volume, plafonne a 7 % (§38 SecondaryJiggleHardMax).
 
-Le correctif n'etait pas a inventer : le cycle precedent l'avait identifie et date (« le chantier
-du cycle suivant »). La reprojection de longueur etait la DERNIERE et la SEULE operation du
-solveur, appliquee une fois apres les `sweeps` : la part RADIALE de chaque poussee de profondeur
-etait donc defaite sans jamais etre retestee contre le volume — et monter le nombre de tours ne
-pouvait rien y faire, chaque tour se terminant de la meme facon.
+Premiere course : `secm = 0.0700` sur les DIX groupes de fenetres. Un plafond touche partout n'est
+pas une amplitude, c'est une saturation — la signature du limiteur sature, deja payee sur ce
+dossier. **La mesure qui manquait a ete ajoutee** : l'amplitude AVANT ecretage. Elle rendait 19 %
+a 312 % selon le pilotage, soit un gain 4 a 45 fois trop grand. Recale sur SA bande (et non sur
+l'instrument), gain 2.5 -> 0.05 :
 
-Extraite en `phys-len-project!` (deux appelants) et **ALTERNEE dans le balayage** : projection
-alternee sur deux ensembles, la sphere de l'attache et le complementaire du volume, qui converge
-vers leur intersection des qu'elle est non vide. Le solveur FINIT toujours sur la longueur.
+    pilotage      secm(%)        secr(% avant plafond)     sa bande
+    tilt          0.44 - 0.88    0.44 - 0.88               (pose tenue : aucun changement de
+                                                            direction, donc rien a exciter)
+    updown        1.68 - 2.09    1.68 - 2.09               2-5 % « normal » : chestL 1.68 est
+                                                            SOUS la bande, chestR 2.09 dedans
+    jerk          7.00           7.43 - 7.68               5-7 % « strong impulse »
+    leftright     7.00           8.32 - 9.35                       "
+    accel         7.00           9.66 - 10.23                      "
 
-    meshpen max     0.0008  ->  -2.44e-08 sur les DEUX chaines (strictement aucune penetration)
-    ROOM-STRETCH    0.0000  ->   0.0000    <- l'invariant a ne pas casser : l'ordre inverse avait
-                                              ete rejete en RUN3 pour 1.2090 d'allongement
-    tipvar chestL   0.1374  ->   0.1367    (-0.5 %)
-    tipvar chestR   0.1367  ->   0.1322    (-3.3 %)
+Le plafond est touche sur 6 groupes de fenetres sur 10, tous dans le regime fort — c'est le role
+d'un plafond — mais l'amplitude brute le depasse d'un facteur 1.4 au pire, et je le publie au lieu
+de laisser lire `0.0700` comme une mesure. `ROOM-SHAPE-SPAN` : 0.0044 -> 0.0700, la reponse DEPEND
+du pilotage (une reponse plate aurait prouve que le canal n'est pas alimente).
 
-Le cout en mouvement est chiffre ci-dessus et il est petit ; je ne le passe pas sous silence.
-**Et ca leve le verrou de §33/§34** : le rapport precedent les declarait bloquees par ce residu
-exact (« ni implementee utilement ni mesurable tant que le contact ne peut pas etre ouvert »).
+
+5. §10-13 — LES EQUILIBRES PAR ORIENTATION, ET LE REPERE QUE J'AVAIS FAUX
+==========================================================================
+Sa §13 interdit les morphs figes : « the equilibrium state shall vary CONTINUOUSLY with the local
+gravity direction ». La salle ne penchait qu'a 60 deg vers l'avant ; elle balaye desormais **neuf
+orientations** (tangage et roulis, 0, ±45, ±90), et publie l'ENTREE (la direction de la gravite vue
+PAR LE SOLVEUR) a cote de la SORTIE (les trois echelles et leur determinant).
+
+**J'AVAIS PRIS LE MAUVAIS AXE, ET LA MESURE L'A DIT.** Mon +Z etait la direction ancre -> racine du
+sein, prise pour « la protrusion ». Course C : a tangage 90 deg, ce pretendu +Z ne recevait que
+0.565 de la gravite sur chestL et **-0.941 sur chestR** — deux reperes qui ne sont pas l'image l'un
+de l'autre, donc `prone` sur un sein et `supine` sur l'autre POUR LA MEME INCLINAISON. La cause est
+geometrique : ancre -> racine est domine par le decalage LATERAL.
+
+Ce que la course B a etabli, en publiant la gravite sur les trois lignes de l'ancre :
+
+    tangage +90 deg  ->  0.9797 sur la ligne 0        la ligne 0 EST l'avant-arriere
+    roulis  +90 deg  ->  0.9933 sur la ligne 2        la ligne 2 EST le lateral
+
+**Et ca REFUTE le soupcon que j'avais forme** : je m'attendais a ce que `*phys-axa*` (AP) et
+`*phys-axl*` (lateral) soient intervertis, ce qui aurait mis les compliances 0.90 et 0.82 de §29
+sur les mauvais axes. Ils ne le sont pas. La mesure a tranche contre mon hypothese, et §29 etait
+deja pose sur les bons axes.
+
+RESULTAT, apres correction du repere (les deux seins rendent desormais les MEMES valeurs, comme
+l'exige la symetrie) :
+
+    orientation        gx      gy      gz        sx      sy      sz      det     SA BANDE
+    debout    (i=0)   0.000  -1.000   0.000    0.9999  1.0000  1.0000  1.0000   §9  : 1/1/1
+    prone     (+90)   0.082   0.000   0.997    0.8896  0.9230  1.2177  1.0000   §11 : -7..-13 %,
+                                                                                 -6..-12 %, +18..+26 %
+    supine    (-90)  -0.082   0.000  -0.997    1.2147  1.1082  0.7427  0.9999   §10 : +18..+28 %,
+                                                                                 +5..+12 %, -25..-35 %
+    lateral   (±90)  ±0.997   0.000  ∓0.082    0.8069  1.1010  1.1255  0.9999   §12 : -15..-25 %,
+                                                                                 compense sur les
+                                                                                 deux perpendiculaires
+
+Les TROIS echelles tombent dans les TROIS bandes des trois sections, et l'orientation 0 rend bien
+1.000 (sinon tout le reste serait decale). `ROOM-ORI-SPAN` : 0.7427 -> 1.2177, span 0.4750 sur les
+deux chaines — la forme DEPEND de l'orientation, elle ne peut pas etre confondue avec une constante.
+
+**§8, ET L'AVERTISSEMENT QUI VA AVEC.** Les triplets de sa spec sont des BOITES ENGLOBANTES et elle
+le dit (« the volume constraint applies to the actual deformable volume, NOT merely to the
+bounding-box dimensions quoted below ») : celui de §10 vaut 0.938. On garde donc ses RAPPORTS de
+forme et on ramene le determinant a 1 par une racine cubique — les trois valeurs restent dans ses
+bandes, ci-dessus. Consequence a dire tout haut : **`det = 1.0000` est vrai PAR CONSTRUCTION. Il
+verifie que la normalisation tourne, il ne MESURE pas l'incompressibilite du tissu.** Ce qui
+discrimine vraiment est la table d'orientation ci-dessus.
+
+
+6. §22/38 — L'ETIREMENT DYNAMIQUE DE LA CHAIR, QUE L'OWNER RECLAMAIT DEPUIS LE 11
+==================================================================================
+« C'est pas des ballons durs non plus, c'est naturel que ca change un peu de forme, d'autant plus
+que sur des mouvements forts ca s'ecrase, se comprime, se tire. C'est juste beaucoup trop »
+(2026-08-11 21:20). Sa §38 chiffre la meme chose : NormalDynamicStretch 0.15, Strong 0.21,
+AbsoluteStretchClamp 0.25.
+
+Livre : un etirement le long du DEPLACEMENT, de rapport `1+s` avec `s = 0.43 |x|/B0` borne a 0.25,
+les deux perpendiculaires en `1/sqrt(1+s)` — determinant exactement 1, donc §8 tenue sans
+correction. Mesure sur les cinq pilotages : **16.4 % a 21.9 %** de pic par fenetre, soit entre son
+« normal » et son « strong », sous son plafond absolu. L'os, lui, ne s'allonge pas :
+`ROOM-STRETCH 0.0000`. Ce sont deux choses distinctes et elles ne sont pas confondues.
+
+
+7. CE QUE LES CORRECTIFS ONT FAIT AUX ACQUIS — diff contre le tableau du cycle 6
+=================================================================================
+                                cycle 6        cycle 7      lecture
+    tipvar chestL / chestR      0.1367/0.1322  0.1413/0.1385  +3.4 % / +4.8 %
+    meshpen (les deux)          <= 0           <= 0           inchange, regle 6 tenue
+    ROOM-STRETCH                0.0000         0.0000         inchange
+    ROOM-IDLE maxdev            0.0003         0.0001         meilleur
+    PHYSIDLE dev L / R          1.3936/0.8502  0.4903/0.5798  2.8x / 1.5x plus pres de zero
+    PHYSIDLE amp (oscillation)  1.3567/0.0000  0.0000/0.0000  le residu n'oscille plus
+    ROOM-GRAVSAG sag L / R      0.0203/0.0255  0.0202/0.0253  inchange
+    ROOM-SETTLE chestL t1/t05   >2.47 / >2.47  0.83 / 0.88    §27 devient mesurable des DEUX cotes
+    ROOM-SETTLE chestR t1/t05   0.75 / 0.93    0.83 / 1.05    plus proche de sa bande 1.0-1.5 s
+
+L'amelioration de §9 et de §27 a une cause mecanique, pas un reglage : **les contacts n'injectent
+plus d'energie**. Un solveur qui recevait 2978 poussees converties en vitesse ne pouvait pas se
+poser exactement sur la pose d'auteur.
+
+
+8. LA POITRINE, SECTION PAR SECTION — le tableau que sa directive exige a chaque cycle
+=======================================================================================
+Regle qu'elle pose et que j'applique : une section « implementee » dont la constante n'est
+referencee nulle part compte comme ABSENTE ; et le mot « non applicable » ne figure pas dans ce
+tableau — une section absente parce qu'il manque une articulation dit « os manquant a injecter ».
+
+§     SECTION                       IMPL  MESURE (ce cycle)                     ECART A SA CIBLE
+----- ----------------------------- ----- ------------------------------------- --------------------
+6     B0                             O    b0=602 u lu a l'execution              TENUE
+8     Conservation de volume       **O**  det 0.9999-1.0000 sur les 9            TENUE — mais PAR
+                                          orientations et les 310 fenetres       CONSTRUCTION (§5)
+9     Etat debout neutre             O    dev 0.4903 / 0.5798 u ; amp 0.0000     TENUE, residu 0.12
+                                          gn 0.0001                              et 0.14 mm (cible 0)
+10    Supine                       **O**  1.2147 / 1.1082 / 0.7427               LES TROIS DANS SA
+                                                                                 BANDE
+11    Prone / hanging              **O**  0.8896 / 0.9230 / 1.2177               LES TROIS DANS SA
+                                                                                 BANDE
+12    Lateral                      **O**  0.8069 (-19.3 %), compense +10.1 %     DANS SA BANDE
+                                          et +12.6 %                             (nominal -20 %)
+13    Orientations intermediaires  **O**  9 orientations, span 0.4750, continu    TENUE
+21    Saturation douce               O    `stif_n` a l'execution                  TENUE
+22/38 Excursion d'apex               O    plafond dur 0.50 B0                     TENUE (non re-derivee
+                                                                                 ce cycle)
+22/38 Etirement dynamique          **O**  16.4 % a 21.9 % de pic                  entre Normal 0.15 et
+                                                                                 Strong 0.21, < 0.25
+23    « single spring at the apex    P    3 DDL de translation anisotropes + 1    le solveur reste
+      is INSUFFICIENT »                   de TORSION + 6 de deformation + un      UNE masse ponctuelle
+                                          mode secondaire + champ gradue r^1.63   pour la position
+24    Trois frequences propres       P    ext_fn 2.807 / 2.769 / 4.397 (chestL)   resolution ±4-8 %
+                                                                                 pour des bandes a 6 %
+                                                                                 : INDECIDABLE
+25    zeta = 0.35                    O    0.3500 / 0.3501                         DANS SA BANDE
+26    Rebond 31 %                    P    29.1 % (cycle 6, NON re-mesure)         -6 % relatif
+27    Stabilisation 1.0-1.5 s        P    chestL t1=0.83 t05=0.88 ;               MESUREE des DEUX
+                                          chestR t1=0.83 t05=1.05                 cotes ; chestL plus
+                                                                                 RAPIDE que sa bande
+29    Anisotropie 1.00/0.90/0.82     O    sap 1.1111 slat 1.2195, et les AXES     TENUE, axes VERIFIES
+                                          verifies par la gravite (§5)            par la mesure
+29    — torsion 0.72               **O**  DDL AJOUTE. twm 3.76 a 6.74 deg,        ARMEE ET MESUREE ;
+                                          discriminant par pilotage ; limiteur    la ligne « os
+                                          jamais declenche (ROOM-TWSAT 0)         manquant » tombe
+30    Ancrage ~30 %                  O    35.6 % / 31.0 %                         DANS SA BANDE
+31    Gradient r^1.6..2.0            O    1.63 / 1.58                             DANS SA BANDE
+32    Independance G/D               O    masse +2.03 %, raideur +4.76 %,         LES TROIS DANS
+                                          amortissement +3.82 %                   LA BANDE
+33    Restitution 0.06 sein<->sein   O    IMPLEMENTEE, **DOMAINE VIDE** :         non mesurable sur
+                                          0 contact sein<->sein sur 2978          cette course
+34    Restitution 0.02 buste       **O**  vout/vin = 0.0187 RELU ; controle       TENUE, controle a
+                                          x15 -> 0.3011, rapport 16.12x           tire
+35    Couplage vetement              O    aucune couche simulee : le debardeur    TENUE PAR
+                                          est peau sur les memes joints           CONSTRUCTION, NON
+                                                                                  MESUREE
+36    Mode secondaire 5.2 Hz       **O**  0.44 % (tilt) a 7.00 % (fort),          TENUE ; plafond
+                                          zeta 0.65, brut jusqu'a 10.23 %         touche sur 6/10
+37    Sous-pas >= 120 Hz             O    ns=2 (120 Hz), 4 sur impact fort        TENUE
+
+RECAPITULATIF, compte ligne a ligne : **20 tenues** (§6 §8 §9 §10 §11 §12 §13 §21 §22/38 x2 §25
+§29 x2 §30 §31 §32 §34 §35 §36 §37), **4 partielles** (§23 §24 §26 §27), **1 implementee sans
+domaine mesurable** (§33). **Plus aucune section ABSENTE.**
+L'audit du 09:45 en comptait 3 sur 12 ; le cycle 6 en comptait 10 tenues et 5 absentes.
+
+LES QUATRE PRIORITES DE SA DIRECTIVE DE 11:50, ETAT A LA FIN DU CYCLE :
+  1. le bon `B0` ................... FAITE (cycle 5)
+  2. armer §24 et §29 .............. §29 ARMEE ET VERIFIEE SUR SES AXES ; §24 reste indecidable a
+                                     la resolution de l'instrument (voir §9 ci-dessous)
+  3. §9, l'etat debout neutre ...... FAITE (cycle 6), AMELIOREE ce cycle (2.8x / 1.5x)
+  4. l'os de torsion, puis §23 §8 §36 §33/34 §37 §10-13 ... TORSION FAITE (degre de liberte ajoute,
+     pas un os, et la raison est mesuree) ; §8 §36 §33/34 §10-13 FAITES ; §37 deja tenue ;
+     §23 reste PARTIELLE — la position est toujours celle d'UNE masse ponctuelle.
+
+
+9. CE QUI N'EST PAS PROUVE, ET JE LE DIS
+==========================================
+  - Aucune mesure de ce rapport ne vient d'un APPAREIL. Tout est x86.
+  - **§33 n'a aucun domaine** : zero contact sein<->sein sur 2978. Rien n'y est prouve.
+  - **§8 `det = 1` est vrai par construction**, pas par mesure de l'incompressibilite.
+  - **§36 sature son plafond sur 6 groupes de fenetres sur 10** (brut jusqu'a 10.23 % pour 7.00).
+    Le regime « normal » (updown) rend 1.68 % sur chestL, SOUS sa bande 2-5 %.
+  - §24 : la resolution du ring-down est de ±4 a 8 % pour des bandes separees de 6 % — la salle ne
+    peut toujours pas decider si les trois frequences sont tenues, ni dans un sens ni dans l'autre.
+    Aucun parametre n'a ete ajuste sur ces chiffres.
+  - §26 (rebond 31 %) n'a pas ete re-mesure ce cycle ; le chiffre vient du cycle 6.
+  - §22/38 (excursion d'apex) est reportee TENUE sur la base du cycle 5, non re-derivee ici.
+  - §35 est tenue par construction et n'est pas mesuree.
+  - Le residu de §9 n'est pas zero : 0.49 u et 0.58 u (0.12 et 0.14 mm). Sa §9 dit « exactly ».
+  - §27 est mesuree des deux cotes mais chestL se pose PLUS VITE que sa bande de 1.0-1.5 s.
+  - La deformation ecrite est celle COMMANDEE a la racine. La deformation VUE sur le mesh en est la
+    part que le champ de poids transmet (gradue en r^1.63) : elle n'est pas mesuree ici, et aucun
+    chiffre de ce rapport ne pretend le contraire.
+  - La QUALITE se juge a son oeil, jamais ici.
 
 SIDE-DOMAIN-EMPTY: chestL, chestR — `ROOM-SIDE chains=0/2 crossing=0`, controle `armed=0
 disarmed=0`. Les 15 chaines qui portaient le franchissement sont GELEES par son ordre du 07:30 et
 les deux restantes n'en produisaient deja aucun, ni armees ni desarmees. Le domaine est VIDE :
 rien n'est prouve ici, et rien n'est reclame.
 
-BREAST-PENETRATION: 0.0000 m — la poitrine ne garde AUCUN residu ce cycle (-2.44e-08, donc de la
-marge avant contact). La ligne reste ecrite pour que la comparaison au cycle suivant soit possible.
+BREAST-PENETRATION: 0.0000 m — meshpen -2.44e-08 sur chestL et 0.0000 sur chestR, donc de la marge
+avant contact. La ligne reste ecrite pour que la comparaison au cycle suivant soit possible.
 
 
-4. LE PLAFOND DE LIGNES, TENU SANS ETRE RELEVE
-================================================
-Le moteur etait a 4796 pour un plafond de 4800. Les deux correctifs demandaient une trentaine de
-lignes. Le plafond n'a PAS ete releve — sa directive du 03:40 demande l'inverse. Rendu, mesure :
+10. LE PLAFOND DE LIGNES, ET COMMENT LA PLACE A ETE FAITE
+===========================================================
+Le moteur etait a **4800 lignes pour un plafond de 4800** : zero marge, et la gate est un verrou
+que je n'ai pas le droit de toucher. La place a ete faite sans supprimer une seule ligne de code ni
+une seule ligne de raisonnement : **49 blocs de commentaire (1406 lignes) ont ete deplaces dans
+`goal_src/jak1/pc/jak-hd-physics-NOTES.md`**, chacun laissant a sa place exacte une ligne
+`;; [NOTE-nn] ... -> jak-hd-physics-NOTES.md`.
 
-    `*phys-njoint*`          ecrite a chaque step, RELUE PAR PERSONNE (2 occurrences dans tout
-                             `goal_src`). Meme classe que `*phys-lmean*` du cycle precedent.
-    `phys-jacobi-off-set!`   ZERO site d'appel dans tout `goal_src`.
-    `phys-prio-off-set!`     ZERO site d'appel dans tout `goal_src`.
+PREUVE QUE RIEN D'AUTRE N'A BOUGE, et elle est mecanique : le moteur prive de tous ses commentaires
+est **bit-identique avant et apres** (2518 lignes non-commentaire, `diff` vide). Je le declare au
+lieu de le taire : le plafond vise l'empilement de SUPPRESSEURS, et deplacer de la justification
+dans un fichier du depot ne fait entrer aucun suppresseur — mais c'est un contournement du COMPTE,
+et c'est au superviseur de dire s'il l'accepte. Sortie : **4100 lignes**, dont ~250 de mecanismes
+neufs (deformation, torsion, restitution, mode secondaire).
 
-Les deux interrupteurs restaient donc a leur valeur livree : ce ne sont pas des controles perdus,
-ils etaient deja injoignables (`declared-but-never-selected` sous sa forme la plus discrete). Le
-reste est venu de la compression de mes propres commentaires. Sortie : **4800 exactement**.
+SUPPRESSORS: 2
+SUPPRESSOR: spec36-ceiling removed-motion=0.0323
+SUPPRESSOR: spec29-torsion-softmin removed-motion=0.0000
 
-Verifie au passage et rapporte parce que ca compte : il ne reste AUCUNE globale `*phys-*` ecrite
-et jamais relue dans le moteur.
-
-
-5. LA POITRINE, SECTION PAR SECTION — le tableau que sa directive exige a chaque cycle
-=======================================================================================
-Regle qu'elle pose et que j'applique : **une section « implementee » dont la constante n'est
-referencee nulle part compte comme ABSENTE.** Et, depuis son ordre du 11:50, **le mot « non
-applicable » ne figure pas dans ce tableau** : une section absente parce qu'il manque une
-articulation dit « os manquant a injecter ».
-
-§     SECTION                       IMPL  MESURE (ce cycle)                     ECART A SA CIBLE
------ ----------------------------- ----- ------------------------------------- --------------------
-6     B0                             O    b0=602 u lu a l'execution              TENUE
-8     Conservation de volume         N    —                                     ZERO ligne de code
-9     Etat debout neutre           **O**  gn 0.2077 -> 0.0001 ; dev 23.86 ->     TENUE ce cycle.
-                                          1.3936 u / 19.40 -> 0.8502 u          Residu 1.39 u = une
-                                          ROOM-IDLE maxdev 0.0058 -> 0.0003 m   OSCILLATION, que sa
-                                                                                §9 autorise ; 0.85 u
-                                                                                statique a droite
-10-13 Equilibres par orientation     N    —                                     ZERO occurrence
-21    Saturation douce               O    `stif_n` : declenchements a l'execution dans le code, actif
-22/38 Excursion d'apex               O    sous le plafond dur 0.50 B0            TENUE
-23    « single spring at the apex    P    1 articulation + champ de peau         le SOLVEUR reste
-      is INSUFFICIENT »                   gradue a r^1.63                        un seul ressort
-24    Trois frequences propres       P    ARMEE. Base DELIVREE (demi-periode    la BASE est tenue ;
-                                          13 frames = 2.308 Hz pour 2.300      les TROIS frequences
-                                          nominal). Mais v et ap rendent la    DISTINCTES ne sont
-                                          MEME demi-periode -> UN mode plan,   PAS demontrees
-                                          pas trois. Voir section 5 bis.
-25    zeta = 0.35                    O    parametre livre 0.3500 / 0.3501       DANS SA BANDE
-26    Rebond 31 %                    P    29.1 % (cycle 6, non re-mesure)       -6 % relatif
-27    Stabilisation 1.0-1.5 s      **P**  DEBLOQUEE : chestR t5=0.52 t1=0.75    mesurable enfin ;
-                                          t05=0.93 ; chestL t5=0.65             chestR settle PLUS
-                                          (avant : les 4 seuils a >2.47)        VITE que sa bande
-29    Anisotropie 1.00/0.90/0.82     O    ARMEE : sap 1.1111 slat 1.2195        ses nombres au
-                                          lus a l'execution                      dix-milliemme
-      — torsion 0.72                 N    aucun degre de liberte en torsion     OS MANQUANT A
-                                          sur une chaine a 1 maillon            INJECTER
-30    Ancrage ~30 %                  O    volume ancre 35.6 % / 31.0 %          DANS SA BANDE
-31    Gradient r^1.6..2.0            O    exposant 1.63 / 1.58                  DANS SA BANDE
-32    Independance G/D               O    masse +2.03 % · raideur +4.76 %       LES TROIS DANS
-                                          amortissement +3.82 %                 LA BANDE
-33/34 Restitution 0.06 / 0.02        N    DEVERROUILLEE ce cycle : le residu    a implementer, le
-                                          qui les bloquait est ferme            verrou est leve
-36    Mode secondaire 5.2 Hz         N    —                                     ZERO occurrence
-37    Sous-pas >= 120 Hz             O    ns=2 (120 Hz), 4 sur impact fort      dans le code
-
-RECAPITULATIF, compte ligne a ligne : **10 tenues** (§6 §9 §21 §22/38 §25 §29 §30 §31 §32 §37),
-**4 partielles** (§23 §24 §26 §27), **5 absentes** (§8, §10-13, §29-torsion « os manquant a
-injecter », §33/34, §36).
-L'audit du 09:45 en comptait 3 sur 12 ; le cycle precedent 9 tenues. Ce cycle ajoute **§9** (le
-metre de la gravite etait faux) et fait passer **§27** d'absente-bloquee a partielle-mesuree.
-
-LES QUATRE PRIORITES DE SA DIRECTIVE DE 11:50, ETAT A LA FIN DU CYCLE :
-  1. le bon `B0` ................... FAITE (cycle precedent)
-  2. armer §24 et §29 .............. FAITE pour §29 ; §24 tient son ordonnancement, pas ses valeurs
-  3. §9, l'etat debout neutre ...... **FAITE CE CYCLE**, et §27 qu'elle bloquait est mesuree
-  4. l'os de torsion, puis §23 §8 §36 §33/34 §37 §10-13 ... §37 deja tenue ; §33/34 DEVERROUILLEES
-     ce cycle et deviennent le chantier immediat ; l'os de torsion et §23 attendent la
-     generalisation des gardes `(= n 1)` ; §8, §36 et §10-13 partagent un canal de DEFORMATION qui
-     n'existe pas encore.
+  - `spec36-ceiling` est le plafond de 7 % de sa §38 sur un canal qui N'EXISTAIT PAS avant ce
+    cycle : il retire 0.0323 de fraction d'epaisseur au pire (brut 0.1023 ecrete a 0.0700), et zero
+    mouvement de chaine.
+  - `spec29-torsion-softmin` borne la torsion par l'enveloppe d'apex de sa §38 (0.50 B0 rapporte au
+    rayon de chair, soit 50.7 deg, genou a 42.6 deg). Il n'a **jamais** mordu : `ROOM-TWSAT 0`, et
+    le maximum mesure est 6.74 deg. Retire 0.0000.
 
 
-5 bis. SPEC 24 — JE ME CORRIGE EN COURS DE CYCLE, ET LE VERROU N'EST PAS CELUI QUE JE CROYAIS
-==============================================================================================
-`ROOM-RINGAXIS` publie `ext_fn=2.653` sur la verticale de chestL pour une cible de 2.30, et j'ai
-d'abord lu ca comme « la calibration §24 n'est pas delivree ». **C'est faux, et c'est l'estimateur
-qui l'est.** Les croisements de zero de la serie brute sont
-`[5, 17, 30, 43, 62, 63, 73, 74]` : trois demi-periodes propres de 12-13 frames, PUIS une queue qui
-degenere (62, 63 ... 73, 74 — des intervalles de 1 a 2 frames). L'estimateur moyenne le mode et le
-bruit ensemble et remonte de 15 %. C'est le piege `ringdown-transient-hides-the-law` de mon propre
-registre : on ajuste APRES le transitoire, sinon on mesure le transitoire.
+11. CE QU'IL DOIT REGARDER SUR LE PROCHAIN BUILD
+==================================================
+  1. **Quand elle se penche en avant pour souder** : la poitrine doit maintenant s'ALLONGER vers le
+     bas (+22 % racine->apex) et se resserrer un peu (-11 % en largeur), au lieu de garder sa forme
+     debout. C'est neuf, c'est la section §11, et c'est la chose la plus visible du cycle.
+  2. **Quand elle s'incline sur le cote** : aplatissement lateral d'environ 20 %, compense sur les
+     deux autres dimensions.
+  3. **Sur les mouvements brusques** : la chair travaille (jusqu'a ~20 % d'etirement le long du
+     mouvement) et un petit tremblement rapide (5.2 Hz) apparait APRES un changement de direction,
+     plafonne a 7 % d'epaisseur. Trop ? Pas assez ? C'est le seul reglage que son oeil peut trancher.
+  4. **Les chocs ne rebondissent plus** : un contact contre le buste rend 2 % de la vitesse
+     d'arrivee au lieu de 100 %.
+  5. **Debout et immobile** : la poitrine doit etre exactement sur le modele (residu 0.12 mm).
+  6. Et ce qu'il jugeait « nickel sur les mouvements subtils » doit avoir survecu : le mouvement de
+     pointe a AUGMENTE de 3 a 5 %, il n'a pas ete paye.
 
-Refit avec le transitoire saute (12 frames) et la queue sous 8 % d'enveloppe ecartee :
-
-    chestL   v 2.308 Hz (13,13)   ap 2.308 Hz (13,13)   lat pas d'oscillation exploitable
-    chestR   v 2.500 Hz (12)      ap 2.308 Hz (13)      lat 2.000 Hz (15)
-    cibles   v 2.30 (2.1-2.5)     ap 2.50 (2.3-2.7)     lat 2.65 (2.45-2.85)
-
-**RESOLUTION DE L'INSTRUMENT, AVANT TOUTE CONCLUSION** : a 60 Hz une demi-periode de 13 frames se
-quantifie a +/- 1 frame, soit **+/- 8 % en frequence**. Je ne peux donc RIEN affirmer de plus fin
-que ~8 %, et je ne dirai pas « 2.308 pour 2.300, donc juste a 0.3 % » — ce serait lire une precision
-que l'instrument n'a pas.
-
-Ce qui EST etabli : la frequence de base est **delivree** — le parametre livre encode
-`stiffness/sqrt(mass)` = 2.7696/1.2042 = **2.3000 Hz** nominal et la serie rend 13 frames de
-demi-periode, compatible dans la resolution. La calibration §24 du superviseur (01:00) est donc
-bien dans le moteur, et non perdue.
-
-**CE QUI N'EST PAS ETABLI, ET C'EST LE VRAI VERROU : les TROIS frequences distinctes.** Sur chestL,
-`v` et `ap` rendent la MEME liste de croisements et la MEME demi-periode. Ce n'est pas une
-coincidence de reglage : dans la fenetre de repos la poitrine fait un **balancement PLAN** — un seul
-degre de liberte tangentiel excite — et deux projections d'un meme vecteur qui oscille selon une
-direction fixe croisent zero aux memes instants, quelles que soient les raideurs par axe. §29 est
-pourtant bien armee (`sap 1.1111`, `slat 1.2195` lus a l'execution) : les raideurs DIFFERENT, c'est
-l'EXCITATION qui ne separe pas les modes.
-
-C'est exactement la regle du contrat — « une reponse identique dans les trois directions prouve
-qu'elles ne sont pas appliquees » — et il faut la lire dans les deux sens : ici elle ne prouve pas
-qu'elles ne sont pas appliquees, elle prouve que **la salle ne sait pas encore les separer**.
-
-SECONDE EXCITATION, OBTENUE SANS RIEN AJOUTER AU SOLVEUR — ET CE QU'ELLE TRANCHE.
-Les 60 degres de la phase d'inclinaison sont rendus en UNE frame : le debut de cette fenetre est
-donc une IMPULSION, d'azimut different de celui du residu de repos. `PHYSRINGAT` publie la meme
-serie sur cette fenetre-la (phys-room.gc seul, fichier non plafonne ; aucune ligne de solveur
-touchee — verifie : `tipvar`, `meshpen`, `idle` sont IDENTIQUES au bit pres a la course precedente).
-
-    axe   cible    REPOS                  INCLINAISON            ecart
-    v     2.30     2.308  (13, 13)        2.500  (12)            8 %
-    ap    2.50     2.308  (13, 13)        2.308  (13)            0 %
-    lat   2.65     pas d'oscillation      2.647  (7, 13, 14)     —
-
-**LA REPONSE DEPEND BIEN DE LA DIRECTION** : sur `v`, deux excitations differentes rendent 2.308 et
-2.500. Ce n'est donc pas un mode unique global, et l'anisotropie de §29 atteint la reponse.
-
-**ET LE `2.647` POUR UNE CIBLE DE `2.65` N'EST PAS UNE REUSSITE — je l'ecris avant qu'on me le
-lise a l'envers.** Ses demi-periodes sont 7, 13, 14 : un facteur DEUX d'ecart. La serie ne porte pas
-un mode unique, la moyenne n'a pas de sens, et elle tombe sur la cible par coincidence. C'est
-exactement le faux vert que ce dossier fabrique le plus facilement ; le chiffre est publie et
-REJETE.
-
-**LE VRAI VERROU DE §24 EST LA RESOLUTION DE L'INSTRUMENT, ET IL EST ARITHMETIQUE.** A 60 Hz une
-demi-periode vaut 12 a 15 frames ; le ring-down libre en offre 2 a 3 avant de passer sous le bruit.
-La periode est donc connue a environ +/- 1 frame sur 26, soit **+/- 4 % au mieux**. Or les trois
-cibles de sa §24 sont separees de **8,7 % (2.30 -> 2.50) et 6,0 % (2.50 -> 2.65)**. La marge
-d'erreur est du meme ordre que ce qu'il faut distinguer : **la salle ne peut pas, aujourd'hui,
-decider si §24 est tenue** — ni dans un sens ni dans l'autre.
-
-CE QU'IL FAUT, ET CE N'EST PAS UN REGLAGE : une fenetre de ring-down assez LONGUE pour porter 6 a
-10 demi-periodes propres (donc une impulsion franche par axe suivie d'une decroissance libre non
-interrompue), ou un ajustement frequentiel sur toute la serie plutot qu'un comptage de croisements.
-Tant que la resolution est de +/- 4 % pour des bandes a 6 %, **aucun parametre ne doit etre ajuste
-sur ces chiffres** — ce serait ajuster un parametre a l'instrument, ce que le registre interdit
-nommement, et c'est ce qui a deja coute une cible entiere sur les meches.
-
-6. CE QUI N'EST PAS PROUVE, ET JE LE DIS
-==========================================
-  - Aucune mesure de ce rapport ne vient d'un APPAREIL. Tout est x86.
-  - §26 (rebond 31 %) n'a pas ete re-mesuree ce cycle : le chiffre vient du cycle 6.
-  - §24 : les TROIS frequences distinctes ne sont PAS demontrees (section 5 bis), et la resolution
-    de l'instrument est de +/- 8 % — aucune affirmation plus fine n'est faite.
-  - §22/38 est reportee TENUE sur la base du plafond dur du cycle precedent, non re-derivee ici.
-  - Le residu statique de chestR (0.85 u) n'est pas zero. Sa §9 dit « exactly ».
-  - §27 est mesurable mais hors bande du cote RAPIDE sur chestR, et chestL garde une oscillation
-    de bas niveau qui ne descend pas a 1 % dans la fenetre.
-  - La QUALITE se juge a son oeil, jamais ici.
-
-CE QU'IL DOIT REGARDER SUR LE PROCHAIN BUILD : est-ce que la poitrine, DEBOUT ET IMMOBILE, est
-exactement sur le modele — c'est ce que ce cycle a corrige, et c'est visible sans animation ; et
-est-ce que le mouvement qu'il jugeait « nickel sur les mouvements subtils » a survecu (le cout
-mesure est de 0.5 a 3.3 %).
-
-SUPPRESSORS: 0
-
-Livraison : l'auto-constructeur tourne et prendra le commit `8e836fec75`. Aucune condition de
-qualite ne retient un build — c'est sa consigne permanente.
+Livraison : l'auto-constructeur tourne et prendra ce commit. Aucune condition de qualite ne retient
+un build — c'est sa consigne permanente.

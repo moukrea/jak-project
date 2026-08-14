@@ -297,6 +297,98 @@
 (define *phys-axs* (new 'global 'array 'float (* PHYS-SC 3)))
 ;; [NOTE-15] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
 (define *phys-axan* (new 'global 'array 'int32 PHYS-SC))   ;; 1 = raideur par axe ARMEE
+;; ============================================================================================
+;; SPEC 8 / 10-13 / 29-torsion / 33-34 / 36 — LE CANAL DE DEFORMATION, LA TORSION, LA RESTITUTION.
+;; Ajoutes le 2026-08-14 (cycle 7), dans l'ordre que sa directive de 11:50 fixe au point 4.
+;;
+;; POURQUOI LE DEGRE DE LIBERTE EN TORSION EST AJOUTE ICI ET PAS PAR UN OS, ET C'EST MESURE :
+;; `sat` (la saturation SPEC 21 et la borne d'apex SPEC 22) n'est ARMEE que sur une chaine a UN
+;; maillon — garde `(= n 1)` a son calcul et a son etage. Injecter un os dans le sein DESARMERAIT
+;; donc deux sections TENUES. Et une torsion est de toute facon une rotation PROPRE : une chaine
+;; de particules ponctuelles n'en porte aucune, quel que soit son nombre d'os. Le degre de liberte
+;; manquant est donc ajoute la ou il manque — dans le solveur.
+;;
+;; AUCUN DE CES TROIS ETATS N'EST UN SUPPRESSEUR : chacun vaut ZERO au repos debout (echelle
+;; identite, torsion nulle, mode secondaire nul), donc SPEC 9 — le retour EXACT a la pose
+;; d'auteur, tenue au cycle 6 — est preservee par construction et non par reglage.
+(defconstant PHYS-MOB-TOR 0.72)    ;; §29 TorsionalCompliance
+(defconstant PHYS-SEC-F   5.2)     ;; §36 frequence du mode secondaire (Hz)
+(defconstant PHYS-SEC-Z   0.65)    ;; §36 DampingRatio
+(defconstant PHYS-SEC-MAX 0.07)    ;; §38 SecondaryJiggleHardMax
+;; §36 — LE GAIN D'EXCITATION, CALE SUR SA BANDE ET SUR RIEN D'AUTRE. Mesure de la course B, qui
+;; publie l'amplitude AVANT ecretage : a 2.5 le mode secondaire rendait 19 % a 312 % selon le
+;; pilotage, donc un plafond a 7 % touche en permanence — un limiteur sature, pas une amplitude.
+;; A 0.05 les memes fenetres rendent : tilt 0.4-0.7 %, updown 1.5 %, jerk 4.0-4.5 %,
+;; leftright 4.5-5.5 %, accel 5.7-6.2 %. Sa bande : « normal 2-5 %, strong impulse 5-7 %,
+;; hard ceiling 7 % ». Le pilotage quasi-statique (tilt) tombe SOUS la bande, et c'est correct :
+;; §36 est excitee par un CHANGEMENT DE DIRECTION, et une pose tenue n'en contient aucun.
+(defconstant PHYS-SEC-K   0.05)
+(defconstant PHYS-DYN-K   0.43)    ;; §38 NormalDynamicStretch 0.15 atteint a 0.35 B0
+(defconstant PHYS-DYN-MAX 0.25)    ;; §38 AbsoluteStretchClamp
+(defconstant PHYS-RST-BB  0.06)    ;; §33 restitution sein <-> sein
+(defconstant PHYS-RST-CH  0.02)    ;; §34 restitution sein <-> buste / externe
+;; LE TRIEDRE DE SA SPEC 7 (+X lateral sortant, +Y haut du torse, +Z vers l'avant du buste), en
+;; espace ANCRE, releve UNE fois a la pose debout d'auteur — la meme frame que `g_ref` et que
+;; `*phys-ux*`, pour que les trois references soient coherentes. Il ne se deduit d'aucun nom d'os :
+;; +Y = -g_ref (la verticale telle que le modele a ete sculpte), +Z = la protrusion racine->apex
+;; orthogonalisee, +X = leur produit. Un rig retargete peut donc arriver dans n'importe quelle
+;; orientation sans que rien ici ne change.
+(define *phys-fx*  (new 'global 'inline-array 'vector PHYS-SC))
+(define *phys-fy*  (new 'global 'inline-array 'vector PHYS-SC))
+(define *phys-fz*  (new 'global 'inline-array 'vector PHYS-SC))
+(define *phys-fok* (new 'global 'array 'int32 PHYS-SC))    ;; 1 = triedre SPEC 7 releve
+;; L'ECHELLE EFFECTIVEMENT APPLIQUEE, dans CE triedre : (lateral, vertical, projection). C'est la
+;; grandeur que la salle publie ; sa NATURE est un rapport sans dimension a la forme d'auteur, son
+;; REPERE est celui de l'ancre, et sa LECTURE HORS DEFAUT est 1.000 sur les trois (debout).
+(define *phys-dfs*  (new 'global 'array 'float (* PHYS-SC 3)))
+;; LA DIRECTION DE LA GRAVITE TELLE QUE LE SOLVEUR LA VOIT, dans le triedre de sa §7 : c'est
+;; l'ENTREE de §10-13, et elle est publiee a cote de la sortie. Sans elle, une forme mesuree ne
+;; peut pas etre rattachee a l'orientation qui l'a produite — et c'est l'orientation VUE, jamais
+;; celle que la salle croit avoir commandee.
+(define *phys-gc*   (new 'global 'array 'float (* PHYS-SC 3)))
+;; LA MEME GRAVITE, MAIS SUR LES TROIS LIGNES DE LA MATRICE DE L'ANCRE — donc sur les axes que la
+;; classification de §29 a nommes `rv`/`rap`/`rlat`. Elle repond a une question que rien ne pouvait
+;; trancher jusqu'ici : la ligne appelee AP est-elle vraiment l'avant-arriere ? Sous un TANGAGE
+;; c'est l'avant-arriere qui doit s'allumer, sous un ROULIS le lateral. Si c'est l'inverse, les
+;; deux compliances de §29 (0.90 et 0.82) sont posees sur les mauvais axes.
+(define *phys-gr*   (new 'global 'array 'float (* PHYS-SC 3)))
+(define *phys-dfon* (new 'global 'array 'int32 PHYS-SC))   ;; 1 = canal de deformation arme
+(define *phys-dfdet* (new 'global 'array 'float PHYS-SC))  ;; §8 : det de l'echelle appliquee
+(define *phys-sec*  (new 'global 'array 'float PHYS-SC))   ;; §36 modulation d'epaisseur (fraction)
+(define *phys-secv* (new 'global 'array 'float PHYS-SC))
+(define *phys-secm* (new 'global 'array 'float PHYS-SC))   ;; son maximum sur la fenetre (mesure)
+;; LE MEME MAXIMUM, MAIS AVANT LE PLAFOND DE SA §38. Sans lui, un mode secondaire sature se lit
+;; `0.0700` a chaque fenetre et devient indiscernable d'un mode correctement excite qui frole le
+;; plafond — c'est la signature du limiteur sature, deja payee une fois sur ce dossier. C'est ce
+;; nombre-la qui dit de combien le gain d'excitation est a cote, et c'est la seule facon de le
+;; caler sur SA bande (2-5 % normal, 5-7 % impulsion forte) sans le regler sur l'instrument.
+(define *phys-secr* (new 'global 'array 'float PHYS-SC))
+(define *phys-dynm* (new 'global 'array 'float PHYS-SC))   ;; son maximum sur la fenetre
+(define *phys-vp*   (new 'global 'inline-array 'vector PHYS-SC))  ;; vitesse de pointe, frame -1
+(define *phys-tw*   (new 'global 'array 'float PHYS-SC))   ;; §29 torsion : angle du TISSU (rad)
+(define *phys-twv*  (new 'global 'array 'float PHYS-SC))
+(define *phys-twa*  (new 'global 'array 'float PHYS-SC))   ;; roulis absolu cumule de l'ANCRE
+(define *phys-a0m*  (new 'global 'inline-array 'matrix PHYS-SC))  ;; la matrice de l'ancre, frame -1
+(define *phys-twok* (new 'global 'array 'int32 PHYS-SC))
+(define *phys-twm*  (new 'global 'array 'float PHYS-SC))   ;; |torsion| max sur la fenetre (mesure)
+(define *phys-twr*  (new 'global 'array 'float PHYS-SC))   ;; torsion RELATIVE ecrite dans la 3x3
+(define *phys-twsat* 0)     ;; frames ou la saturation douce de la torsion a mordu (limiteur declare)
+;; La matrice de deformation de la chaine, en repere MONDE, rebatie a chaque frame. Elle vaut
+;; l'identite tant que rien n'est arme : `matrix*!` par l'identite ne change pas un bit.
+(define *phys-dfm* (new 'global 'inline-array 'matrix PHYS-SC))
+;; SPEC 33/34 — la poussee de contact CUMULEE sur la frame et le coefficient du volume qui a
+;; decide. La restitution ne peut pas s'appliquer dans `phys-collide-chain` : elle y serait
+;; appliquee jusqu'a 15 fois par frame (8 + 3 + 4 balayages). Elle s'applique UNE fois, apres.
+(define *phys-cpu* (new 'global 'inline-array 'vector PHYS-SCL))
+(define *phys-cpe* (new 'global 'array 'float PHYS-SCL))
+(define *phys-rstp* (new 'global 'inline-array 'vector PHYS-SCL)) ;; normale en attente de mesure
+(define *phys-rstn* 0)      ;; contacts ou une restitution a ete appliquee sur la fenetre
+(define *phys-rstm* 0)      ;; sorties effectivement RELUES la frame suivante
+(define *phys-rstin* 0.0)   ;; somme des vitesses normales ENTRANTES (u/frame)
+(define *phys-rstout* 0.0)  ;; somme des vitesses normales SORTANTES, RELUES (0bis), pas deduites
+(define *phys-rstsum* 0.0)  ;; somme des coefficients appliques (lit le melange 0.06 / 0.02)
+(define *phys-rst-off* 0)   ;; 1 = restitution DESARMEE (controle negatif de la salle)
+(define *phys-rst-k* 1.0)   ;; multiplicateur du controle POSITIF (1.0 = la spec)
 ;; LE MEME INSTANT QUE `*phys-lsv*`, MAIS DANS LE TRIEDRE DE L'ANCRE.
 ;; NATURE : deplacement instantane signe du maillon par rapport a sa pose d'auteur.
 ;; REPERE : triedre orthonorme de l'ANCRE (torse), jamais le monde — un maillon herite du mouvement
@@ -571,6 +663,25 @@
                     (set! (-> *phys-axan* sc) 0)
                     (dotimes (ii 3)
                       (set! (-> *phys-axs* (+ (* sc 3) ii)) 1.0))
+                    ;; SPEC 37 — « rebase on teleportation / level transition ». Un slot reutilise
+                    ;; redemande TOUTES ses references : triedre, torsion, mode secondaire. Un etat
+                    ;; qui survit a un respawn est un etat qui vieillit, et sa spec l'interdit.
+                    (set! (-> *phys-fok* sc) 0)
+                    (set! (-> *phys-dfon* sc) 0)
+                    (set! (-> *phys-dfdet* sc) 1.0)
+                    (set! (-> *phys-twok* sc) 0)
+                    (set! (-> *phys-tw* sc) 0.0)
+                    (set! (-> *phys-twv* sc) 0.0)
+                    (set! (-> *phys-twa* sc) 0.0)
+                    (set! (-> *phys-twm* sc) 0.0)
+                    (set! (-> *phys-sec* sc) 0.0)
+                    (set! (-> *phys-secv* sc) 0.0)
+                    (set! (-> *phys-secm* sc) 0.0)
+                    (set! (-> *phys-secr* sc) 0.0)
+                    (set! (-> *phys-dynm* sc) 0.0)
+                    (set-vector! (-> *phys-vp* sc) 0.0 0.0 0.0 0.0)
+                    (dotimes (ii 3)
+                      (set! (-> *phys-dfs* (+ (* sc 3) ii)) 1.0))
                     ;; la direction de repos du materiau se releve a la premiere frame utile, sur la
                     ;; pose retargetee : un slot reutilise doit la redemander, sinon la chaine
                     ;; heriterait du repos d'un autre acteur.
@@ -1525,7 +1636,20 @@
                                       (+ 1.0 (-> *phys-dg* (* sc PHYS-DG))))))
                             (set! (-> pt x) (+ (-> pt x) (* (-> nrm x) push)))
                             (set! (-> pt y) (+ (-> pt y) (* (-> nrm y) push)))
-                            (set! (-> pt z) (+ (-> pt z) (* (-> nrm z) push)))))
+                            (set! (-> pt z) (+ (-> pt z) (* (-> nrm z) push)))
+                            ;; SPEC 33/34 — ON NE FAIT QUE CUMULER ICI. La poussee est appliquee a
+                            ;; la POSITION comme avant (rien de change pour la regle 6 : le lien
+                            ;; sort du volume) ; ce qui manquait est son effet sur la VITESSE, et il
+                            ;; ne peut pas etre traite dans cette fonction, appelee 15 fois par
+                            ;; frame. `e` est celui du volume qui pousse : 0.06 si ce volume est
+                            ;; porte par un joint SIMULE (l'autre sein, sa §33), 0.02 sinon (buste
+                            ;; et externe, sa §34). Le dernier qui pousse decide, comme pour
+                            ;; l'arbitrage de volume.
+                            (set! (-> *phys-cpu* scl x) (+ (-> *phys-cpu* scl x) (* (-> nrm x) push)))
+                            (set! (-> *phys-cpu* scl y) (+ (-> *phys-cpu* scl y) (* (-> nrm y) push)))
+                            (set! (-> *phys-cpu* scl z) (+ (-> *phys-cpu* scl z) (* (-> nrm z) push)))
+                            (set! (-> *phys-cpe* scl)
+                                  (if (nonzero? (-> *phys-csim* sco)) PHYS-RST-BB PHYS-RST-CH))))
                         ;; [NOTE-29] ---------------------------------------------------------------- -> jak-hd-physics-NOTES.md
                         (when (and (zero? *phys-side-off*)
                                    (> floor0 0.0)
@@ -2037,6 +2161,8 @@
               (inv  (new 'stack-no-clear 'matrix))
               (rot  (new 'stack-no-clear 'matrix))
               (tmp  (new 'stack-no-clear 'matrix))
+              (dfa  (new 'stack-no-clear 'matrix))
+              (dfb  (new 'stack-no-clear 'matrix))
               (anc  (new 'stack-no-clear 'vector))
               (tw   (new 'stack-no-clear 'vector))
               (acc  (new 'stack-no-clear 'vector))
@@ -2157,6 +2283,22 @@
                     (let* ((stb (* sc PHYS-ST))
                            (gm  (/ (vector-length gl) (fabs gy))))
                       (when (> gm (-> *phys-st* (+ stb 18))) (set! (-> *phys-st* (+ stb 18)) gm)))
+                    ;; ---- 0bis. SPEC 33/34 — CE QUI RESTE DE LA RESTITUTION, MESURE ET NON DEDUIT.
+                    ;; La vitesse sortante `e*|vn|` est vraie A L'INSTANT OU on l'ecrit ; ce qui
+                    ;; compte est ce qu'il en RESTE apres que la frame se soit terminee (longueur,
+                    ;; balayages, attenuation). On relit donc `v = p - q` ICI, avant que cette
+                    ;; frame-ci n'integre quoi que ce soit : c'est exactement l'etat laisse par la
+                    ;; frame precedente. Sans ca, `out` serait `e * in` par construction — un nombre
+                    ;; qui se compare a lui-meme, le faux vert le plus facile de ce dossier.
+                    (dotimes (l n)
+                      (let ((scl (+ (* sc PHYS-LINKS) l)))
+                        (when (> (-> *phys-rstp* scl w) 0.5)
+                          (let ((vn (+ (* (- (-> *phys-px* scl) (-> *phys-qx* scl)) (-> *phys-rstp* scl x))
+                                       (+ (* (- (-> *phys-py* scl) (-> *phys-qy* scl)) (-> *phys-rstp* scl y))
+                                          (* (- (-> *phys-pz* scl) (-> *phys-qz* scl)) (-> *phys-rstp* scl z))))))
+                            (set! *phys-rstout* (+ *phys-rstout* vn))
+                            (set! *phys-rstm* (+ *phys-rstm* 1)))
+                          (set! (-> *phys-rstp* scl w) 0.0))))
                     ;; ---- 0. LES LONGUEURS D'OS, avant d'integrer quoi que ce soit. -------------
                     ;; Relevees sur la pose ANIMEE a chaque frame : elles sont quasi constantes,
                     ;; mais les lire evite de supposer que le retarget n'a pas change une longueur.
@@ -2511,6 +2653,12 @@
                                       (set! (-> *phys-px* scl) (+ tx (* dx sf)))
                                       (set! (-> *phys-py* scl) (+ ty (* dy sf)))
                                       (set! (-> *phys-pz* scl) (+ tz (* dz sf))))))))))))
+                    ;; SPEC 33/34 — la poussee de contact de CETTE frame, remise a zero avant les
+                    ;; balayages : elle n'est pas un etat, elle est l'integrale d'une frame.
+                    (dotimes (l n)
+                      (let ((scl (+ (* sc PHYS-LINKS) l)))
+                        (set-vector! (-> *phys-cpu* scl) 0.0 0.0 0.0 0.0)
+                        (set! (-> *phys-cpe* scl) 0.0)))
                     (dotimes (it 8)
                       (phys-length-chain skel sc n rlk an nbone)
                       (phys-collide-chain skel sc n rlk nbone nco PHYS-COL-MARGIN 3))
@@ -2537,6 +2685,58 @@
                     ;; [NOTE-45] ------------------------------------------------------------------------ -> jak-hd-physics-NOTES.md
                     (dotimes (it 4)
                       (phys-collide-chain skel sc n rlk nbone nco PHYS-COL-MARGIN 3))
+                    ;; ------------------------------------------------------------------------
+                    ;; SPEC 33/34 — LA RESTITUTION, UNE FOIS PAR FRAME, SUR LA VITESSE SEULE.
+                    ;; Ce que le solveur faisait jusqu'ici, et c'est de l'ARITHMETIQUE, pas une
+                    ;; opinion : `q` est fige a `p_int - ns*v_int` AVANT les contraintes, et la
+                    ;; collision n'ecrit que `p`. Une poussee `D` devenait donc integralement de la
+                    ;; vitesse a la frame suivante (`v = v_int + D`) — une restitution EFFECTIVE DE
+                    ;; +1, de l'energie INJECTEE par un contact. Sa §34 dit l'inverse en toutes
+                    ;; lettres : « collision energy should primarily become deformation,
+                    ;; redistribution and damping — NOT bounce ».
+                    ;; La correction est chirurgicale et ne touche QUE la part normale de contact :
+                    ;;   v_libre = (p - D) - q     (la vitesse qu'aurait eue le lien sans le contact)
+                    ;;   vn      = v_libre . n     (n = direction de la poussee cumulee)
+                    ;;   si vn < 0 (il ARRIVE sur le volume) : la sortante devient -e*vn
+                    ;;   q <- q + D + (1+e)*vn*n
+                    ;; LES DEUX CONTROLES SONT DES INTERRUPTEURS, PAS DES VALEURS RECOPIEES :
+                    ;; `*phys-rst-off*` = 1 rend EXACTEMENT le comportement d'avant ce cycle (`q`
+                    ;; jamais touche, donc restitution effective +1) — c'est la ligne de base ;
+                    ;; `*phys-rst-k*` multiplie le coefficient (15.0 -> e = 0.90 sein<->sein) et
+                    ;; doit faire MONTER la vitesse sortante relue en 0bis. Un compteur qui ne bouge
+                    ;; sous aucun des deux prouve que ce bloc n'est jamais atteint.
+                    ;; La POSITION n'est pas touchee : la regle 6 (rien ne traverse) reste tenue par
+                    ;; la meme poussee qu'avant, au bit pres.
+                    (when (zero? *phys-rst-off*)
+                      (dotimes (l n)
+                        (when (>= l rlk)
+                          (let* ((scl (+ (* sc PHYS-LINKS) l))
+                                 (dx (-> *phys-cpu* scl x))
+                                 (dy (-> *phys-cpu* scl y))
+                                 (dz (-> *phys-cpu* scl z))
+                                 (dl (sqrtf (+ (* dx dx) (+ (* dy dy) (* dz dz))))))
+                            (when (> dl 0.0001)
+                              (let* ((nx (/ dx dl))
+                                     (ny (/ dy dl))
+                                     (nz (/ dz dl))
+                                     (vx (- (- (-> *phys-px* scl) dx) (-> *phys-qx* scl)))
+                                     (vy (- (- (-> *phys-py* scl) dy) (-> *phys-qy* scl)))
+                                     (vz (- (- (-> *phys-pz* scl) dz) (-> *phys-qz* scl)))
+                                     (vn (+ (* vx nx) (+ (* vy ny) (* vz nz))))
+                                     (e  (* *phys-rst-k* (-> *phys-cpe* scl))))
+                                (set! (-> *phys-qx* scl) (+ (-> *phys-qx* scl) dx))
+                                (set! (-> *phys-qy* scl) (+ (-> *phys-qy* scl) dy))
+                                (set! (-> *phys-qz* scl) (+ (-> *phys-qz* scl) dz))
+                                (when (< vn 0.0)
+                                  (let ((c (* (+ 1.0 e) vn)))
+                                    (set! (-> *phys-qx* scl) (+ (-> *phys-qx* scl) (* c nx)))
+                                    (set! (-> *phys-qy* scl) (+ (-> *phys-qy* scl) (* c ny)))
+                                    (set! (-> *phys-qz* scl) (+ (-> *phys-qz* scl) (* c nz)))
+                                    (set! *phys-rstn* (+ *phys-rstn* 1))
+                                    (set! *phys-rstin* (+ *phys-rstin* (- vn)))
+                                    (set! *phys-rstsum* (+ *phys-rstsum* e))
+                                    ;; on ARME la mesure de sortie pour la frame suivante (0bis)
+                                    (set-vector! (-> *phys-rstp* scl) nx ny nz 1.0)))))))))
                     ;; [NOTE-46] ------------------------------------------------------------------------ -> jak-hd-physics-NOTES.md
                     (phys-flip-count skel sc n rlk nbone nco)
 
@@ -2912,6 +3112,372 @@
                             (set! (-> *phys-rtz* sc) (-> uv z))
                             (set! (-> *phys-rhas* sc) 1)))))
 
+                    ;; ---- 5bis. SPEC 8 / 10-13 / 29-torsion / 36 — L'ETAT DE FORME ET DE TORSION.
+                    ;; Sa §23 : « the solver should then DERIVE LOCAL DEFORMATION from COM
+                    ;; displacement, angular lag, root constraints, volume conservation and local
+                    ;; collision pressure ». Jusqu'a ce cycle le moteur n'ecrivait qu'une POSITION
+                    ;; et une rotation : il n'existait aucun canal par lequel une deformation ait pu
+                    ;; sortir, donc §8, §10, §11, §12, §13 et §36 ne pouvaient etre ni implementees
+                    ;; ni mesurees. Ce bloc calcule l'etat ; l'ecriture est 20 lignes plus bas.
+                    ;;
+                    ;; NATURE de ce qui est calcule ici : un triplet d'ECHELLES sans dimension,
+                    ;; rapport a la forme d'auteur. REPERE : le triedre de sa §7, releve une fois a
+                    ;; la pose debout d'auteur. LECTURE HORS DEFAUT : 1.000 / 1.000 / 1.000 debout —
+                    ;; donc §9, tenue au cycle 6, ne peut pas etre payee par ce bloc.
+                    (when (and (= (-> *phys-fam* sc) 1) (> n 0))
+                      (let* ((tl  (+ (* sc PHYS-LINKS) (- n 1)))
+                             (gb  (* sc 3))
+                             (b0f (fmax 1.0 (if (> (-> *phys-b0* sc) 0.0)
+                                              (-> *phys-b0* sc) (-> *phys-blen* tl)))))
+                        ;; (a) LE TRIEDRE DE SA SPEC 7 (+X lateral, +Y haut, +Z avant), releve UNE
+                        ;; fois, a la MEME frame que `g_ref` et `*phys-ux*`. Il ne se lit sur aucun
+                        ;; nom d'os : +Y est l'oppose de la gravite de la pose d'auteur, +Z la
+                        ;; protrusion racine->apex orthogonalisee, +X leur produit vectoriel.
+                        (when (and (zero? (-> *phys-fok* sc)) (nonzero? (-> *phys-ucap* tl)))
+                          (let ((gn (sqrtf (+ (* (-> *phys-gref* gb) (-> *phys-gref* gb))
+                                              (+ (* (-> *phys-gref* (+ gb 1)) (-> *phys-gref* (+ gb 1)))
+                                                 (* (-> *phys-gref* (+ gb 2)) (-> *phys-gref* (+ gb 2))))))))
+                            (when (> gn 0.0001)
+                              (set-vector! (-> *phys-fy* sc)
+                                           (/ (- 0.0 (-> *phys-gref* gb)) gn)
+                                           (/ (- 0.0 (-> *phys-gref* (+ gb 1))) gn)
+                                           (/ (- 0.0 (-> *phys-gref* (+ gb 2))) gn) 0.0)
+                              ;; +Z = L'AXE AVANT-ARRIERE DE L'ANCRE, ET C'EST UNE CORRECTION MESUREE.
+                              ;; J'avais pris la direction ancre -> racine du sein comme « la
+                              ;; protrusion ». La course A l'a refutee : sous un TANGAGE de 90 deg,
+                              ;; ce pretendu +Z ne recevait que 0.565 de la gravite sur chestL et
+                              ;; -0.941 sur chestR — deux reperes qui ne sont pas l'image l'un de
+                              ;; l'autre, donc `supine` et `prone` echanges d'un sein a l'autre.
+                              ;; La raison est geometrique : ancre -> racine est domine par le
+                              ;; decalage LATERAL, pas par la protrusion.
+                              ;; Ce que la course B a etabli, en publiant la gravite sur les trois
+                              ;; lignes de l'ancre : tangage 90 deg -> 0.980 sur la ligne 0 ;
+                              ;; roulis 90 deg -> 0.993 sur la ligne 2. La ligne 0 EST l'avant-
+                              ;; arriere, la ligne 2 EST le lateral — donc `*phys-axa*` et
+                              ;; `*phys-axl*` sont bien nommes, et l'anisotropie de §29 est posee
+                              ;; sur les bons axes (je m'attendais a l'inverse ; la mesure tranche).
+                              ;; En espace ANCRE la ligne `axa` est le vecteur unitaire de cet
+                              ;; indice — les lignes de `am` SONT la base de cet espace.
+                              (let* ((ia (-> *phys-axa* sc))
+                                     (e0 (if (= ia 0) 1.0 0.0))
+                                     (e1 (if (= ia 1) 1.0 0.0))
+                                     (e2 (if (= ia 2) 1.0 0.0))
+                                     (d  (+ (* e0 (-> *phys-fy* sc x))
+                                            (+ (* e1 (-> *phys-fy* sc y))
+                                               (* e2 (-> *phys-fy* sc z)))))
+                                     (zx0 (- e0 (* d (-> *phys-fy* sc x))))
+                                     (zy0 (- e1 (* d (-> *phys-fy* sc y))))
+                                     (zz0 (- e2 (* d (-> *phys-fy* sc z))))
+                                     ;; LE SIGNE : `+ligne[axa]`, ET IL EST MESURE, PAS SUPPOSE.
+                                     ;; Course B, gravite publiee sur les trois lignes de l'ancre :
+                                     ;; a TANGAGE +90 deg (elle se penche en avant, donc le bas du
+                                     ;; monde devient l'avant du corps) la gravite arrive a +0.980
+                                     ;; sur la ligne 0. `+ligne[axa]` EST donc l'avant.
+                                     ;; J'avais d'abord fixe ce signe par la direction ancre ->
+                                     ;; racine du sein : la course C l'a REFUTE — cette direction
+                                     ;; est dominee par le decalage lateral, sa composante avant est
+                                     ;; residuelle, et son signe differait d'un sein a l'autre.
+                                     ;; Resultat : `prone` sur un sein et `supine` sur l'autre pour
+                                     ;; la MEME inclinaison. Une heuristique geometrique ne remplace
+                                     ;; pas une mesure, et la voila remplacee par elle.
+                                     ;; VERIFICATION PERMANENTE, pas une note : `ROOM-ORI` publie
+                                     ;; `gz` a chaque course. A tangage +90 il doit etre proche de
+                                     ;; +1 sur LES DEUX seins ; un rig qui orienterait sa ligne 0
+                                     ;; vers l'arriere se verrait immediatement.
+                                     (zx zx0) (zy zy0) (zz zz0)
+                                     (zl (sqrtf (+ (* zx zx) (+ (* zy zy) (* zz zz))))))
+                                (when (> zl 0.05)
+                                  (set-vector! (-> *phys-fz* sc) (/ zx zl) (/ zy zl) (/ zz zl) 0.0)
+                                  (vector-cross! (-> *phys-fx* sc) (-> *phys-fy* sc) (-> *phys-fz* sc))
+                                  (set! (-> *phys-fx* sc w) 0.0)
+                                  (set! (-> *phys-fok* sc) 1))))))
+                        (when (nonzero? (-> *phys-fok* sc))
+                          ;; (b) SPEC 10-13 — L'EQUILIBRE DE FORME, CONTINU EN LA DIRECTION DE LA
+                          ;; GRAVITE. Sa §13 l'exige mot pour mot : « supine, prone, upright and
+                          ;; lateral states SHALL NOT exist as unrelated hard-coded morph targets ;
+                          ;; the equilibrium state shall vary CONTINUOUSLY with the local gravity
+                          ;; direction ». Les cinq triplets sont donc les VALEURS AUX POLES et rien
+                          ;; d'autre ; entre deux poles c'est un melange, exact a chaque pole,
+                          ;; continu partout (les poids sont |gx|, |gy|, |gz|, dont la somme ne
+                          ;; s'annule jamais pour une direction unitaire).
+                          ;;   debout   (-Y)  1.000 1.000 1.000   §9  : la pose d'auteur EST l'equilibre 1 g
+                          ;;   supine   (-Z)  1.230 1.090 0.700   §10 : projection -30 %, largeur +23 %
+                          ;;   prone    (+Z)  0.900 0.910 1.230   §11 : longueur +23 %, largeur -10 %
+                          ;;   lateral  (±X)  0.800 1.118 1.118   §12 : aplatissement -20 %, compense
+                          ;;   inverse  (+Y)  0.900 1.230 0.910   NON SPECIFIEE : la loi de §11
+                          ;;                                      (tissu libre, il s'allonge selon g)
+                          ;;                                      portee sur +Y. Extrapolation
+                          ;;                                      DECLAREE, exigee par la continuite.
+                          (let* ((gnn (vector-length gla))
+                                 (ivg (if (> gnn 0.0001) (/ 1.0 gnn) 0.0))
+                                 (gxc (* ivg (+ (* (-> gla x) (-> *phys-fx* sc x))
+                                                (+ (* (-> gla y) (-> *phys-fx* sc y))
+                                                   (* (-> gla z) (-> *phys-fx* sc z))))))
+                                 (gyc (* ivg (+ (* (-> gla x) (-> *phys-fy* sc x))
+                                                (+ (* (-> gla y) (-> *phys-fy* sc y))
+                                                   (* (-> gla z) (-> *phys-fy* sc z))))))
+                                 (gzc (* ivg (+ (* (-> gla x) (-> *phys-fz* sc x))
+                                                (+ (* (-> gla y) (-> *phys-fz* sc y))
+                                                   (* (-> gla z) (-> *phys-fz* sc z))))))
+                                 (wdn (fmax 0.0 (- 0.0 gyc)))
+                                 (wup (fmax 0.0 gyc))
+                                 (wbk (fmax 0.0 (- 0.0 gzc)))
+                                 (wfw (fmax 0.0 gzc))
+                                 (wlt (fabs gxc))
+                                 (wsm (fmax 0.0001 (+ wdn (+ wup (+ wbk (+ wfw wlt))))))
+                                 (sx0 (/ (+ (* wdn 1.000) (+ (* wup 0.900)
+                                            (+ (* wbk 1.230) (+ (* wfw 0.900) (* wlt 0.800))))) wsm))
+                                 (sy0 (/ (+ (* wdn 1.000) (+ (* wup 1.230)
+                                            (+ (* wbk 1.090) (+ (* wfw 0.910) (* wlt 1.118))))) wsm))
+                                 (sz0 (/ (+ (* wdn 1.000) (+ (* wup 0.910)
+                                            (+ (* wbk 0.700) (+ (* wfw 1.230) (* wlt 1.118))))) wsm))
+                                 ;; (c) SPEC 8 — `Sx.Sy.Sz = 1`. Les triplets de sa spec sont des
+                                 ;; BOITES ENGLOBANTES et elle le dit (« the volume constraint
+                                 ;; applies to the actual deformable volume, NOT merely to the
+                                 ;; bounding-box dimensions quoted below ») : celui de §10 vaut
+                                 ;; 0.938. On garde donc ses RAPPORTS de forme et on ramene le
+                                 ;; determinant a 1 — les trois valeurs restent dans ses bandes
+                                 ;; (supine 0.715 / 1.256 / 1.113 contre -25..-35 %, +18..+28 %,
+                                 ;; +5..+12 %). Racine cubique par deux pas de Newton, l'entree
+                                 ;; etant toujours proche de 1.
+                                 (det (* sx0 (* sy0 sz0)))
+                                 (y1  (- 1.0 (/ (- 1.0 det) 3.0)))
+                                 (y2  (- y1 (/ (- (* y1 (* y1 y1)) det) (fmax 0.0001 (* 3.0 (* y1 y1))))))
+                                 (cvn (/ 1.0 (fmax 0.0001 y2)))
+                                 ;; (d) SPEC 36 — LE MODE SECONDAIRE. Oscillateur propre a 5.2 Hz,
+                                 ;; zeta 0.65, EXCITE PAR UN CHANGEMENT DE DIRECTION de la masse
+                                 ;; globale (« this response should mainly appear after a change in
+                                 ;; direction of the global breast mass ») : l'entree est donc la
+                                 ;; VARIATION de la vitesse de pointe d'une frame a l'autre, rapportee
+                                 ;; a B0. Meme recurrence que le mode principal (Euler symplectique),
+                                 ;; meme forme d'amortissement `2 zeta w dt`.
+                                 (vtx (- (-> *phys-px* tl) (-> *phys-qx* tl)))
+                                 (vty (- (-> *phys-py* tl) (-> *phys-qy* tl)))
+                                 (vtz (- (-> *phys-pz* tl) (-> *phys-qz* tl)))
+                                 (dvx (- vtx (-> *phys-vp* sc x)))
+                                 (dvy (- vty (-> *phys-vp* sc y)))
+                                 (dvz (- vtz (-> *phys-vp* sc z)))
+                                 (dvn (/ (sqrtf (+ (* dvx dvx) (+ (* dvy dvy) (* dvz dvz)))) b0f))
+                                 (w2  (* 6.2831853 PHYS-SEC-F))
+                                 (k2s (* w2 (* w2 (* dt dt))))
+                                 (kd2 (fmax 0.0 (- 1.0 (* 2.0 (* PHYS-SEC-Z (* w2 dt))))))
+                                 ;; MEME FORME QUE LE MODE PRINCIPAL, a la lettre : la trainee ne
+                                 ;; porte que l'ANCIENNE vitesse, la force et l'excitation
+                                 ;; s'ajoutent apres. Ecrire `kd2 * (v - k2 m)` amortirait aussi la
+                                 ;; force et le mode secondaire ne serait plus le meme oscillateur
+                                 ;; que celui dont sa §36 donne zeta.
+                                 (sv2 (+ (* kd2 (-> *phys-secv* sc))
+                                         (+ (* (- 0.0 k2s) (-> *phys-sec* sc)) (* PHYS-SEC-K dvn))))
+                                 (sm0 (+ (-> *phys-sec* sc) sv2))
+                                 (smc (fmin PHYS-SEC-MAX (fmax (- 0.0 PHYS-SEC-MAX) sm0)))
+                                 ;; SPEC 36 s'applique a l'EPAISSEUR locale et conserve le volume :
+                                 ;; l'epaisseur (axe +Z) module, les deux perpendiculaires prennent
+                                 ;; l'inverse de sa racine.
+                                 (sqz (sqrtf (fmax 0.0001 (+ 1.0 smc))))
+                                 (sx1 (* cvn (/ sx0 sqz)))
+                                 (sy1 (* cvn (/ sy0 sqz)))
+                                 (sz1 (* cvn (* sz0 (+ 1.0 smc)))))
+                            (set! (-> *phys-secv* sc) sv2)
+                            (set! (-> *phys-sec* sc) smc)
+                            (when (> (fabs smc) (-> *phys-secm* sc))
+                              (set! (-> *phys-secm* sc) (fabs smc)))
+                            (when (> (fabs sm0) (-> *phys-secr* sc))
+                              (set! (-> *phys-secr* sc) (fabs sm0)))
+                            (set-vector! (-> *phys-vp* sc) vtx vty vtz 0.0)
+                            (set! (-> *phys-gr* gb) (* ivg (-> gla x)))
+                            (set! (-> *phys-gr* (+ gb 1)) (* ivg (-> gla y)))
+                            (set! (-> *phys-gr* (+ gb 2)) (* ivg (-> gla z)))
+                            (set! (-> *phys-gc* gb) gxc)
+                            (set! (-> *phys-gc* (+ gb 1)) gyc)
+                            (set! (-> *phys-gc* (+ gb 2)) gzc)
+                            (set! (-> *phys-dfs* gb) sx1)
+                            (set! (-> *phys-dfs* (+ gb 1)) sy1)
+                            (set! (-> *phys-dfs* (+ gb 2)) sz1)
+                            (set! (-> *phys-dfdet* sc) (* sx1 (* sy1 sz1)))
+                            (set! (-> *phys-dfon* sc) 1))
+                          ;; (e) SPEC 29 — LE DEGRE DE LIBERTE EN TORSION, `TorsionalCompliance 0.72`.
+                          ;; Le tissu porte un angle de roulis PROPRE autour de son axe racine->apex ;
+                          ;; l'ancre porte le sien ; le ressort les relie. Aucune derivee seconde de
+                          ;; l'animation n'entre ici — c'est la meme construction que le mode
+                          ;; principal (on integre l'ABSOLU et on relie a la reference portee par
+                          ;; l'ancre), donc l'inertie et le retard EMERGENT au lieu d'etre pilotes
+                          ;; par un a-coup. Raideur = 1/0.72 fois celle de la verticale, exactement
+                          ;; comme `*phys-axs*` porte 1/0.90 et 1/0.82.
+                          ;; L'AXE DE TORSION EST L'AXE DE REPOS, PAS L'AXE SIMULE — et c'est une
+                          ;; correction, pas un choix. Mesure de la course A : la torsion montait a
+                          ;; 25 a 76 degres, ce qui n'est pas une torsion de chair mais un artefact
+                          ;; de repere. Le roulis se mesure comme l'angle d'un vecteur de reference
+                          ;; AUTOUR de l'axe ; si l'axe lui-meme balance, sa propre rotation entre
+                          ;; dans la mesure (holonomie) et s'ACCUMULE frame apres frame. L'axe de
+                          ;; repos, lui, ne bouge qu'avec l'ancre : c'est exactement ce qu'on veut
+                          ;; mesurer, et rien d'autre.
+                          (let* ((k   (-> *phys-joint* tl)))
+                            (when (and (>= k 0) (< (+ k 1) nbone))
+                              ;; LE ROULIS DE L'ANCRE, PAR DECOMPOSITION SWING/TWIST — ET C'EST LA
+                              ;; TROISIEME VERSION, CHACUNE CORRIGEE PAR UNE MESURE.
+                              ;;   v1 : angle d'un vecteur de reference autour de l'axe SIMULE.
+                              ;;        Course A : 25 a 76 deg de torsion. L'axe balancait, sa
+                              ;;        propre rotation entrait dans la mesure.
+                              ;;   v2 : le meme angle autour de l'axe de REPOS. Course C : la
+                              ;;        torsion sature son plafond sur les CINQ pilotages, y compris
+                              ;;        `updown`, une translation PURE ou le roulis vrai est nul.
+                              ;;        Un tangage du buste, pourtant orthogonal a l'axe, produisait
+                              ;;        encore un increment — c'est l'holonomie, et elle s'ACCUMULE.
+                              ;;   v3, ici : on ne mesure plus un angle projete, on extrait la part
+                              ;;        AXIALE de la rotation incrementale de l'ancre.
+                              ;;        `R = am(t-1)^T . am(t)` est cette rotation, exprimee dans le
+                              ;;        repere de l'ancre ; sa part antisymetrique est le vecteur de
+                              ;;        rotation, et `omega . u` en est la composante de TORSION.
+                              ;;        Une rotation orthogonale a `u` y rend exactement zero, ce
+                              ;;        qu'aucune projection de vecteur ne peut garantir.
+                              (let* ((ux (-> *phys-ux* tl)) (uy (-> *phys-uy* tl)) (uz (-> *phys-uz* tl))
+                                     (al (sqrtf (+ (* ux ux) (+ (* uy uy) (* uz uz))))))
+                                (when (> al 0.0001)
+                                  (begin
+                                    (begin
+                                      (begin
+                                        (cond
+                                          ((zero? (-> *phys-twok* sc))
+                                           (matrix-copy! (-> *phys-a0m* sc) am)
+                                           (set! (-> *phys-twok* sc) 1))
+                                          (else
+                                           (let* ((r21 (+ (* (-> *phys-a0m* sc vector 0 z) (-> am vector 0 y))
+                                                          (+ (* (-> *phys-a0m* sc vector 1 z) (-> am vector 1 y))
+                                                             (* (-> *phys-a0m* sc vector 2 z) (-> am vector 2 y)))))
+                                                  (r12 (+ (* (-> *phys-a0m* sc vector 0 y) (-> am vector 0 z))
+                                                          (+ (* (-> *phys-a0m* sc vector 1 y) (-> am vector 1 z))
+                                                             (* (-> *phys-a0m* sc vector 2 y) (-> am vector 2 z)))))
+                                                  (r02 (+ (* (-> *phys-a0m* sc vector 0 x) (-> am vector 0 z))
+                                                          (+ (* (-> *phys-a0m* sc vector 1 x) (-> am vector 1 z))
+                                                             (* (-> *phys-a0m* sc vector 2 x) (-> am vector 2 z)))))
+                                                  (r20 (+ (* (-> *phys-a0m* sc vector 0 z) (-> am vector 0 x))
+                                                          (+ (* (-> *phys-a0m* sc vector 1 z) (-> am vector 1 x))
+                                                             (* (-> *phys-a0m* sc vector 2 z) (-> am vector 2 x)))))
+                                                  (r10 (+ (* (-> *phys-a0m* sc vector 0 y) (-> am vector 0 x))
+                                                          (+ (* (-> *phys-a0m* sc vector 1 y) (-> am vector 1 x))
+                                                             (* (-> *phys-a0m* sc vector 2 y) (-> am vector 2 x)))))
+                                                  (r01 (+ (* (-> *phys-a0m* sc vector 0 x) (-> am vector 0 y))
+                                                          (+ (* (-> *phys-a0m* sc vector 1 x) (-> am vector 1 y))
+                                                             (* (-> *phys-a0m* sc vector 2 x) (-> am vector 2 y)))))
+                                                  (omx (* 0.5 (- r21 r12)))
+                                                  (omy (* 0.5 (- r02 r20)))
+                                                  (omz (* 0.5 (- r10 r01)))
+                                                  (dphi (/ (+ (* omx ux) (+ (* omy uy) (* omz uz)))
+                                                           (fmax 0.0001 al))))
+                                             (matrix-copy! (-> *phys-a0m* sc) am)
+                                             ;; SPEC 37 — « artificial transforms must not generate
+                                             ;; physical impulses » : au-dela d'un demi-radian en une
+                                             ;; frame ce n'est plus une rotation du buste, c'est un
+                                             ;; teleport ou une coupe. On REBASE (la reference suit)
+                                             ;; au lieu d'injecter le saut.
+                                             (when (< (fabs dphi) 0.5)
+                                               (set! (-> *phys-twa* sc) (+ (-> *phys-twa* sc) dphi)))
+                                             (let* ((w   (/ (* 6.2831853 (-> *phys-stiff* sc))
+                                                            (sqrtf (fmax 0.01 (-> *phys-mass* sc)))))
+                                                    (k2t (* w (* w (* dt (* dt (/ 1.0 PHYS-MOB-TOR))))))
+                                                    (kdt (fmax 0.0 (- 1.0 (* (-> *phys-damp* sc)
+                                                                             (sqrtf (/ 1.0 PHYS-MOB-TOR))))))
+                                                    (tv  (+ (* kdt (-> *phys-twv* sc))
+                                                            (* k2t (- (-> *phys-twa* sc) (-> *phys-tw* sc)))))
+                                                    (twn (+ (-> *phys-tw* sc) tv))
+                                                    (rw  (fmax 1.0 (-> *phys-lcr* tl)))
+                                                    ;; SPEC 38 — la torsion deplace un point de la
+                                                    ;; chair situe a `rw` du centre de `rw * theta`.
+                                                    ;; Sa borne est donc CELLE DE L'APEX, pas un
+                                                    ;; chiffre invente : `HardMaxApexDisplacement
+                                                    ;; 0.50 B0`, et le genou de `phys-softmin`
+                                                    ;; (0.84 x cap) tombe exactement sur son
+                                                    ;; `NormalMaxApexDisplacement 0.42 B0`.
+                                                    (tcap (/ (* 0.50 b0f) rw))
+                                                    (rel0 (- twn (-> *phys-twa* sc)))
+                                                    (rel  (if (>= rel0 0.0)
+                                                            (phys-softmin rel0 tcap)
+                                                            (- 0.0 (phys-softmin (- 0.0 rel0) tcap)))))
+                                               (when (> (fabs (- rel0 rel)) 0.000001)
+                                                 (set! *phys-twsat* (+ *phys-twsat* 1)))
+                                               (set! (-> *phys-twv* sc) tv)
+                                               (set! (-> *phys-tw* sc) twn)
+                                               (set! (-> *phys-twr* sc) rel)
+                                               (when (> (fabs rel) (-> *phys-twm* sc))
+                                                 (set! (-> *phys-twm* sc) (fabs rel))))))))))))))
+                          ;; (f) LA MATRICE, BATIE UNE FOIS PAR CHAINE ET PAR FRAME.
+                          ;; `D_ancre` est diagonale dans le triedre de sa §7 : `Sum_k s_k f_k (x) f_k`.
+                          ;; On la ramene au monde par conjugaison avec la matrice de l'ancre,
+                          ;; `D_monde = am^-1 . D_ancre . am` — `w2l` est deja l'inverse et il est
+                          ;; deja calcule, donc ca ne coute pas une inversion de plus. La ligne de
+                          ;; translation qui en sort est SANS OBJET : l'ecriture la remplace par la
+                          ;; position du joint, ce qui centre la deformation sur la RACINE du sein.
+                          ;; C'est exactement ce qu'exigent §10 (« the entire breast shall not simply
+                          ;; scale uniformly from its center ») et §30-31 (racine ancree, distal
+                          ;; mobile) : le champ de poids de la peau, deja gradue en r^1.63, fait le
+                          ;; reste — un sommet partage avec le buste ne recoit qu'une part de S.
+                          ;; SPEC 22/38 — L'ALLONGEMENT DYNAMIQUE DE LA CHAIR, LE LONG DU
+                          ;; DEPLACEMENT. « NormalDynamicStretch 0.15 / StrongDynamicStretch 0.21 /
+                          ;; AbsoluteStretchClamp 0.25 », et c'est mot pour mot ce que l'owner
+                          ;; demandait le 2026-08-11 a 21:20 : « c'est pas des ballons durs non plus,
+                          ;; c'est naturel que ca change un peu de forme, d'autant plus que sur des
+                          ;; mouvements forts ca s'ecrase, se comprime, se tire. C'est juste beaucoup
+                          ;; trop. » Donc : borne, CORRELEE au stimulus, et qui revient a l'arret.
+                          ;; L'os, lui, ne s'allonge pas — c'est un axiome separe, tenu par la
+                          ;; contrainte de longueur (ROOM-STRETCH <= 3 %), et les deux ne se
+                          ;; confondent pas.
+                          ;; Le tenseur est un etirement d'axe `u` (la direction du deplacement) et de
+                          ;; rapport `1+s`, avec les deux perpendiculaires en `1/sqrt(1+s)` : son
+                          ;; determinant vaut EXACTEMENT 1, donc §8 est tenue sans correction.
+                          (let* ((gb  (* sc 3))
+                                 (dx  (-> *phys-ox* tl))
+                                 (dy  (-> *phys-oy* tl))
+                                 (dz  (-> *phys-oz* tl))
+                                 (dl  (sqrtf (+ (* dx dx) (+ (* dy dy) (* dz dz)))))
+                                 (sdy (fmin PHYS-DYN-MAX (* PHYS-DYN-K (/ dl b0f))))
+                                 (ee  (+ 1.0 sdy))
+                                 (tt  (/ 1.0 (sqrtf ee))))
+                            (when (> sdy (-> *phys-dynm* sc)) (set! (-> *phys-dynm* sc) sdy))
+                            (cond
+                              ((and (> dl 0.0001) (> sdy 0.000001))
+                               (let ((ux (/ dx dl)) (uy (/ dy dl)) (uz (/ dz dl)))
+                                 (dotimes (i 3)
+                                   (dotimes (j 3)
+                                     (set! (-> dfb vector i data j)
+                                           (* (- ee tt)
+                                              (* (cond ((= i 0) ux) ((= i 1) uy) (else uz))
+                                                 (cond ((= j 0) ux) ((= j 1) uy) (else uz))))))
+                                   (set! (-> dfb vector i data i) (+ tt (-> dfb vector i data i)))
+                                   (set! (-> dfb vector i data 3) 0.0))
+                                 (set-vector! (-> dfb vector 3) 0.0 0.0 0.0 1.0)))
+                              (else (matrix-identity! dfb)))
+                            (dotimes (i 3)
+                              (dotimes (j 3)
+                                (set! (-> dfa vector i data j)
+                                      (+ (* (-> *phys-dfs* gb) (* (-> *phys-fx* sc data i) (-> *phys-fx* sc data j)))
+                                         (+ (* (-> *phys-dfs* (+ gb 1)) (* (-> *phys-fy* sc data i) (-> *phys-fy* sc data j)))
+                                            (* (-> *phys-dfs* (+ gb 2)) (* (-> *phys-fz* sc data i) (-> *phys-fz* sc data j)))))))
+                              (set! (-> dfa vector i data 3) 0.0))
+                            (set-vector! (-> dfa vector 3) 0.0 0.0 0.0 1.0)
+                            ;; forme d'equilibre PUIS etirement dynamique, les deux en espace ANCRE
+                            (matrix*! tmp dfa dfb)
+                            (matrix*! (-> *phys-dfm* sc) w2l tmp)
+                            (matrix-copy! tmp (-> *phys-dfm* sc))
+                            (matrix*! (-> *phys-dfm* sc) tmp am)
+                            ;; SPEC 29 — la torsion est une ROTATION propre autour de l'axe
+                            ;; racine->apex, appliquee AVANT l'echelle (l'axe est un axe propre de
+                            ;; l'echelle a 10^-3 pres, les deux commutent en pratique).
+                            (when (> (fabs (-> *phys-twr* sc)) 0.00001)
+                              (let* ((ax (+ (* (-> *phys-ux* tl) (-> am vector 0 x))
+                                            (+ (* (-> *phys-uy* tl) (-> am vector 1 x))
+                                               (* (-> *phys-uz* tl) (-> am vector 2 x)))))
+                                     (ay (+ (* (-> *phys-ux* tl) (-> am vector 0 y))
+                                            (+ (* (-> *phys-uy* tl) (-> am vector 1 y))
+                                               (* (-> *phys-uz* tl) (-> am vector 2 y)))))
+                                     (az (+ (* (-> *phys-ux* tl) (-> am vector 0 z))
+                                            (+ (* (-> *phys-uy* tl) (-> am vector 1 z))
+                                               (* (-> *phys-uz* tl) (-> am vector 2 z)))))
+                                     (al (sqrtf (+ (* ax ax) (+ (* ay ay) (* az az))))))
+                                (when (> al 0.0001)
+                                  (set-vector! nrm (/ ax al) (/ ay al) (/ az al) 0.0)
+                                  (matrix-axis-angle! rot nrm (-> *phys-twr* sc))
+                                  (matrix*! tmp rot (-> *phys-dfm* sc))
+                                  (matrix-copy! (-> *phys-dfm* sc) tmp))))))))
                     ;; [NOTE-47] ---- 6. ECRITURE DANS LE SQUELETTE (SPEC 7 : c'est ca qui fait foi) ---- -> jak-hd-physics-NOTES.md
                     (dotimes (l n)
                       (when (>= l 0)
@@ -2996,6 +3562,19 @@
                                             (matrix*! tmp bm rot)
                                             (matrix-copy! bm tmp))))))))
                               ;; translation : la position simulee, telle quelle
+                              ;; SPEC 8/10-13/29/36 — LA DEFORMATION ENTRE ICI, ET NULLE PART
+                              ;; AILLEURS. La 3x3 est post-multipliee : un sommet de peau va
+                              ;; d'abord la ou l'os d'auteur le mettait, puis subit l'echelle et la
+                              ;; torsion, puis est pose a la position simulee. La ligne 3 est mise a
+                              ;; zero avant, sinon la deformation s'appliquerait aussi a une
+                              ;; translation qu'on va de toute facon remplacer.
+                              (when (nonzero? (-> *phys-dfon* sc))
+                                (set! (-> bm vector 3 x) 0.0)
+                                (set! (-> bm vector 3 y) 0.0)
+                                (set! (-> bm vector 3 z) 0.0)
+                                (set! (-> bm vector 3 w) 1.0)
+                                (matrix*! tmp bm (-> *phys-dfm* sc))
+                                (matrix-copy! bm tmp))
                               (set! (-> bm vector 3 x) (-> *phys-px* scl))
                               (set! (-> bm vector 3 y) (-> *phys-py* scl))
                               (set! (-> bm vector 3 z) (-> *phys-pz* scl))
@@ -3068,7 +3647,21 @@
       (set! (-> *phys-la* (+ (* sc PHYS-LINKS) l)) 0.0)
       (set! (-> *phys-la0* (+ (* sc PHYS-LINKS) l)) 0.0)
       (set! (-> *phys-la1* (+ (* sc PHYS-LINKS) l)) 0.0))
+    ;; SPEC 29/36 — les deux maximums de FENETRE. Ce sont des compteurs de mesure, pas des etats
+    ;; du solveur : `*phys-sec*`, `*phys-tw*` et leurs vitesses ne sont PAS remis a zero ici, sans
+    ;; quoi chaque fenetre relancerait le mode secondaire et la torsion depuis rien.
+    (set! (-> *phys-secm* sc) 0.0)
+    (set! (-> *phys-secr* sc) 0.0)
+    (set! (-> *phys-dynm* sc) 0.0)
+    (set! (-> *phys-twm* sc) 0.0)
     (set! (-> *phys-thas* sc) 0))
+  ;; SPEC 33/34 — les compteurs de restitution, par fenetre eux aussi.
+  (set! *phys-rstn* 0)
+  (set! *phys-twsat* 0)
+  (set! *phys-rstm* 0)
+  (set! *phys-rstin* 0.0)
+  (set! *phys-rstout* 0.0)
+  (set! *phys-rstsum* 0.0)
   (none))
 (defun phys-ang-reset! () (dotimes (i PHYS-SCL) (set! (-> *phys-la* i) 0.0) (set! (-> *phys-la0* i) 0.0) (set! (-> *phys-la1* i) 0.0)) (none))  ;; RESET ETROIT — LES TROIS ETAGES DE L'ANGLE, ET RIEN D'AUTRE. `*phys-la0*`/`*phys-la1*` y sont entres le 2026-08-14 : sans remise a zero par frame ce sont des maximums de COURSE, donc inutilisables pour attribuer a un etage ce qu'une frame retire. Leur seul autre lecteur est `PHYSGRADS`, emis par `physroom-emit-window` (phys-room.gc:583) appelee UNIQUEMENT depuis PHYSROOM-PH-MEAS (phys-room.gc:992), phase 1 — soit AVANT la fenetre de repos (phase 3) qui appelle ce reset : aucune fenetre PHYSGRADS ne le subit. *phys-la* SEUL auparavant. Ce n'est ni un clamp, ni une hysteresis, ni un gel : il ne retire pas un micron de mouvement, il remet a zero un COMPTEUR DE MESURE (le maximum courant de la deviation angulaire propre, accumule en :4046). Il ne touche NI `stat 0` NI `*phys-thas*`, et c'est tout l'interet : la garde de `phys-link-ang` (:4497) reste passante. `phys-stats-reset!` appele a chaque frame la maintiendrait au contraire baissee en permanence — `stat 0` (:4116) n'est ecrit que sous `(nonzero? *phys-thas*)` (:4111) et `thas` ne passe a 1 qu'ensuite (:4156), or le solveur ne passe qu'une fois par frame (jak-hd.gc:564) — et rendrait un mur de ang=0.0. Sur le plafond de lignes : il vise l'empilement de SUPPRESSEURS (ancien moteur : 6000 lignes, 84 clamps, 42 % des mesures a zero) et c'est la COMPOSITION qui decide, jamais le nombre ; la mesure par frame est nommement exigee par le contrat (DIRECTIVES lignes 29-31, `ROOM-RINGDOWN`).
 
@@ -3438,6 +4031,70 @@
   (none))
 
 ;; le slot de simulation d'un compagnon, pour que la salle sache ou lire ses chiffres.
+(defun phys-shape ((slot int) (chain int) (which int))
+  "SPEC 8/10-13/29/36 — L'ETAT DE FORME ET DE TORSION, LU SUR LE MECANISME ARME.
+   NATURE : `which` 0/1/2 = les trois ECHELLES appliquees (lateral, vertical, projection), sans
+   dimension, rapport a la forme d'auteur ; 3 = leur determinant (le volume de sa §8) ; 4 = la
+   modulation courante du mode secondaire de §36 (fraction d'epaisseur) ; 5 = son maximum sur la
+   FENETRE ; 6 = la torsion RELATIVE ecrite dans la 3x3 (radians) ; 7 = son maximum sur la fenetre ;
+   8 = 1.0 si le canal est ARME sur cette chaine, 0.0 sinon ; 9/10/11 = la direction de la GRAVITE
+   vue par le solveur dans ce meme triedre (l'ENTREE de §10-13, unitaire, (0,-1,0) debout) ;
+   12 = le maximum de fenetre du mode secondaire AVANT le plafond de §38 (c'est lui qui dit si le
+   `0.0700` publie est une saturation ou une valeur) ; 13 = le maximum de fenetre de l'etirement
+   dynamique de §22/38 ; 18 = le nombre de frames ou la saturation douce de la torsion a mordu.
+   REPERE : le triedre de sa SPEC 7 (+X lateral, +Y haut, +Z avant), releve a la pose debout
+   d'auteur. LECTURE HORS DEFAUT : 1.000 / 1.000 / 1.000 / 1.000 / 0 / 0 / 0 / 0 debout et immobile.
+   CE QUE CE N'EST PAS : la deformation VUE sur le mesh. Un sommet partage avec le buste ne recoit
+   qu'une part de cette echelle (champ de poids gradue en r^1.63, §31) ; ce nombre est ce que le
+   solveur COMMANDE a la racine, et le rapport doit le dire a chaque fois qu'il le cite."
+  (let ((sc (+ (* slot PHYS-CHAINS) chain)))
+    (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS))
+      0.0
+      (cond
+        ((< which 3) (-> *phys-dfs* (+ (* sc 3) which)))
+        ((= which 3) (-> *phys-dfdet* sc))
+        ((= which 4) (-> *phys-sec* sc))
+        ((= which 5) (-> *phys-secm* sc))
+        ((= which 6) (-> *phys-twr* sc))
+        ((= which 7) (-> *phys-twm* sc))
+        ((= which 8) (the float (-> *phys-dfon* sc)))
+        ((< which 12) (-> *phys-gc* (+ (* sc 3) (- which 9))))
+        ((= which 12) (-> *phys-secr* sc))
+        ((= which 13) (-> *phys-dynm* sc))
+        ((< which 18) (-> *phys-gr* (+ (* sc 3) (- which 15))))
+        ((= which 18) (the float *phys-twsat*))
+        (else 0.0)))))
+
+(defun phys-rest ((which int))
+  "SPEC 33/34 — LA RESTITUTION DE CONTACT, SUR LA FENETRE.
+   0 = nombre de contacts ou elle a ete appliquee (un entier rendu en float) ; 1 = somme des
+   vitesses normales ENTRANTES (u/frame, positives) ; 2 = somme des vitesses normales SORTANTES
+   RELUES A LA FRAME SUIVANTE (donc mesurees, pas deduites de `e`) ; 3 = somme des coefficients
+   appliques, qui lit le melange 0.06 (sein<->sein, §33) / 0.02 (buste, §34) ; 4 = nombre de
+   sorties effectivement relues.
+   NATURE : des vitesses en unites de jeu par frame. REPERE : le MONDE, projete sur la normale de
+   contact. LECTURE HORS DEFAUT : tout a zero quand rien ne touche — et un zero ici ne vaut que
+   s'il est accompagne du domaine (nombre de contacts), sans quoi c'est un zero de domaine vide."
+  (cond
+    ((= which 0) (the float *phys-rstn*))
+    ((= which 1) *phys-rstin*)
+    ((= which 2) *phys-rstout*)
+    ((= which 3) *phys-rstsum*)
+    ((= which 4) (the float *phys-rstm*))
+    (else 0.0)))
+
+(defun phys-rest-off-set! ((v int))
+  "CONTROLE NEGATIF de SPEC 33/34 : arme = 1, `q` n'est plus corrige du tout et le solveur retrouve
+   EXACTEMENT son comportement d'avant le cycle 7 (restitution effective +1)."
+  (set! *phys-rst-off* v)
+  (none))
+
+(defun phys-rest-k-set! ((v float))
+  "CONTROLE POSITIF de SPEC 33/34 : multiplie le coefficient de la spec. 15.0 porte le sein<->sein
+   a 0.90, ce qui doit faire MONTER la vitesse sortante relue. 1.0 = la spec."
+  (set! *phys-rst-k* v)
+  (none))
+
 (defun phys-slot-of ((pid int)) (phys-slot-for-pid pid))
 
 )

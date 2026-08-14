@@ -141,6 +141,20 @@ GELE hair-upper-half « la moitie basse a l'air detachee du crane et bouge indep
 #   4. seuil de declenchement trop bas: excitee par le bruit d'animation
 # Ces quatre points remplacent TOUTES les cibles chiffrees de la journee.
 
+#
+# ETAT AU CYCLE 7 (2026-08-14) -- LA LIGNE RESTE OUVERTE, SEUL SON CONTENU EST MIS A JOUR.
+#   Il n'y a PLUS AUCUNE section ABSENTE. 20 tenues, 4 partielles (§23 §24 §26 §27), 1 implementee
+#   sans domaine mesurable (§33 : zero contact sein<->sein sur 2978).
+#   Ajoutees ce cycle : le CANAL DE DEFORMATION (§8 volume, §10 supine, §11 prone, §12 lateral,
+#   §13 continuite -- les trois echelles tombent dans les trois bandes de sa spec), le DEGRE DE
+#   LIBERTE EN TORSION de §29 (3.76 a 6.74 deg, discriminant, limiteur jamais declenche), la
+#   RESTITUTION de §33/34 (0.02 buste mesure a 0.0187, controle x15 -> 0.3011, rapport 16x) et le
+#   MODE SECONDAIRE de §36 (5.2 Hz, zeta 0.65, 0.44 a 7.00 %).
+#   CE QUI RESTE, ET QUI EMPECHE DE PARLER DE SPEC TENUE A 100 % :
+#     §23 la POSITION reste celle d'une masse ponctuelle ; §24 indecidable a la resolution de
+#     l'instrument (±4-8 % pour des bandes a 6 %) ; §26 non re-mesuree ; §27 hors bande du cote
+#     rapide ; §33 sans domaine ; §36 sature son plafond sur 6 groupes de fenetres sur 10.
+#   ET SURTOUT : rien de tout cela n'est un verdict. C'est SON oeil qui ferme cette ligne.
 OPEN breast-spec-incomplete  PRIORITE 1 -- LA SEULE LIGNE QUI TIENT LA PHASE OUVERTE.
 #   L'owner: « je suis sur a 99.99999% que t'as pas implemente la spec comme il faut ». Audit du
 #   2026-08-14 09:45, verifie ligne par ligne: 3 sections sur 12.
