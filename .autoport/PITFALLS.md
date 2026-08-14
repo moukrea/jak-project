@@ -236,3 +236,13 @@ Verrou : tout processus qui pose ce fichier y écrit **son PID** et installe un 
 et le constructeur doit traiter comme périmé, **immédiatement**, un verrou dont le PID ne répond plus
 à `kill -0` — au lieu d'attendre l'heure. C'est le principe `pid-files` déjà au registre, non appliqué
 ici : une borne temporelle est un dernier recours, pas un mécanisme de détection.
+
+GUARD freezing-empties-the-gate .autoport/reports/Grecharged-secondary-motion/owner-defects.txt breast-spec-incomplete
+**Geler des défauts vide la gate qui tenait la phase ouverte.** Le 2026-08-14, sur ordre de l'owner,
+j'ai passé les 13 défauts non-poitrine de `OPEN` à `GELE`. La gate `OPEN-DEFECTS` compte les lignes
+`OPEN` : la liste étant vide, elle est passée, et **la phase s'est refermée deux fois** (08:22 et
+10:13) alors que le travail commandé — la spec poitrine — n'était fait qu'à 3 sections sur 12. Sans
+la réouverture manuelle, la boucle serait passée à autre chose en silence.
+Verrou : quand on retire des lignes d'une liste qui sert de gate, vérifier **ce que la gate mesure
+encore**. Un changement de périmètre doit s'accompagner d'une ligne `OPEN` décrivant le travail
+NOUVELLEMENT commandé — sinon réduire le périmètre revient à déclarer la phase finie.
