@@ -246,6 +246,19 @@ le bake dans `/home/emeric/.autoport-scratch/meshbak-20260814-1100` (md5 identiq
 et le retour sera « aucune amélioration » sur quelque chose qu'il n'a jamais reçu. Le pack doit
 être re-téléchargé et ré-extrait.
 
+LIVRAISON VÉRIFIÉE SUR LA RELEASE, pas dans un log local : `jak1_hd_assets.zip` publié à
+11:16:15 UTC+2 sur `moukrea/jak-builds` (`jak1-rtlight-wip`), md5 `1bdd9323…` identique à celui
+d'`out/artifacts`, `PACK HD EXTERNE : cbff74b1f190e → cc30e685a014e`, BUILD-INFO sur le commit
+`8a650423df`.
+
+**ET UN EFFET DE BORD QUE JE DÉCLARE PARCE QU'IL LUI COÛTE DU TÉLÉCHARGEMENT.** Le pack passe de
+**25.5 Mo à 48.3 Mo**. Ce n'est pas la poitrine : avant ce cycle, `out/jak1/fr3/enhanced/` ne
+contenait plus que `GAME.fr3` (vérifié sur la sauvegarde prise avant le bake). Le bake recrée aussi
+`village1.fr3` et `village2.fr3`, deux overlays **identiques au stock** que le script ship
+délibérément pour écraser un ancien overlay abîmé resté sur l'appareil. C'est donc un retour à
+l'état complet, pas un gonflement — mais c'est 23 Mo de plus à retélécharger, et il doit le savoir
+avant de le constater.
+
 Ce qu'il doit juger de ses yeux, en une phrase : **le sein ne part plus en bloc.** La racine reste
 collée au buste (mobilité 11.7 % → 1.5 % de celle de l'apex) et le mouvement croît vers la pointe.
 En contrepartie honnête, la pointe suit la physique 7 % moins fort qu'avant — s'il trouve que c'est
