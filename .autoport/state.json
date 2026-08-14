@@ -225,7 +225,7 @@
     "Gmenu-flag-off": 3,
     "Grecharged-hd-models5": 1,
     "Grecharged-foliage-wind2": 0,
-    "Grecharged-secondary-motion": 3,
+    "Grecharged-secondary-motion": 1,
     "Grecharged-hd-eye-scale": 2,
     "Grecharged-title-logo-fullres": 1
   },
@@ -546,6 +546,7 @@
       "8eb4017349f0",
       "8eb4017349f0",
       "8eb4017349f0",
+      "59d8de918220",
       "59d8de918220",
       "59d8de918220"
     ]
@@ -990,7 +991,7 @@
     "Grecharged-title-logo-fullres": 1786153395.9536324,
     "Grecharged-materials-modern-parity": 1786167637.0459936
   },
-  "last_update": "2026-08-13T23:58:33.948719+00:00",
+  "last_update": "2026-08-14T00:43:39.631310+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
