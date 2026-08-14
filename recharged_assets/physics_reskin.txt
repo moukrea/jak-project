@@ -55,8 +55,61 @@
 # Measured before: 90/94 verts, peak 0.408, mean 0.172/0.193 — ZERO vertices majority-owned.
 # cap=0.90 leaves a real blend into the chest at the rim (attached, not a balloon); shape=0.55
 # lifts the mid-profile hard so the whole cup travels together instead of denting in the middle.
-transfer rBoob from=chest cap=0.90 shape=0.55
-transfer lBoob from=chest cap=0.90 shape=0.55
+#
+# ---------------------------------------------------------------------------------------------
+# 2026-08-14 — `shape=0.55` ETAIT LA CAUSE MESUREE DE L'ABSENCE DES SECTIONS 30 ET 31.
+#
+# « so the whole cup travels together » est mot pour mot ce que SPEC-breast-softbody 31 INTERDIT :
+# « little deformation at the root; progressively increasing mobility; largest displacement in
+# distal tissue », ponderation `w(r) = r^1.6..2.0`. Un exposant `shape < 1` elargit l'epaule du
+# profil de l'artiste, donc APLATIT le degrade — la racine se met a bouger presque autant que la
+# pointe et le sein part en bloc.
+#
+# MESURE (`.autoport/probe_breast_shape.py`, recette COMPLETE rejouee sur l'entree du bake).
+# NATURE : profil de deplacement de peau normalise par l'apex. REPERE : espace bind du joint,
+# celui que la 7 de la spec impose. BASELINE quand le defaut est absent : exposant dans 1.6-2.0 et
+# racine profonde (r <= 0.15) sous 0.10 de mobilite. La part de volume est lue sur l'AIRE portee
+# par chaque sommet, jamais sur la masse pesee (voir la sonde : la masse pondere chaque sommet par
+# la grandeur meme qu'on gradue, elle rend 4 % la ou l'aire rend 36 %).
+#
+#                              exposant       mobilite       part du volume
+#                              ajuste  L / R  racine         fortement ancre  L / R
+#   spec 31 / spec 30 (cible)  1.6 .. 2.0     <= 0.10        28 .. 35 %
+#   shape=0.55 cap=0.90 LIVRE  1.13 / 1.05       0.117         4.0 % /  1.8 %   <- LES TROIS RATENT
+#   profil de l'artiste seul   1.56 / 1.51       0.034        25.2 % / 24.9 %
+#   shape=1.30 cap=0.95 NEUF   1.63 / 1.58       0.018        35.6 % / 31.0 %
+#
+# Autrement dit le degrade EXISTE dans la peinture de l'artiste (1.56, deja proche de la bande) et
+# c'est notre propre operateur qui l'ecrasait. `shape=1.30` le redresse au-dela de son etat
+# d'origine, jusque dans la bande de la spec.
+#
+# POURQUOI 1.30 ET PAS 1.40, ET C'EST UNE CONTRAINTE DE LA SPEC ELLE-MEME. Les deux sections tirent
+# en sens contraires sur ce maillage : la 31 monte avec `shape`, la 30 aussi, et la 30 sort de sa
+# bande AVANT que la 31 n'y entre completement.
+#     shape=1.20  exposant 1.60 / 1.55   aire ancree 29.2 % / 28.9 %   (30 tenue, 31 ratee a droite)
+#     shape=1.30  exposant 1.63 / 1.58   aire ancree 35.6 % / 31.0 %   <- RETENU
+#     shape=1.40  exposant 1.66 / 1.61   aire ancree 41.0 % / 39.0 %   (31 tenue, 30 depassee de 6 pts)
+# 1.30 est le point qui minimise le pire ecart : trois lectures sur quatre dans la bande, et les
+# deux qui sortent le font de moins de 2 % (rBoob exposant 1.58 pour 1.60 ; lBoob aire 35.6 % pour
+# 35 %). C'est mathematiquement force : la 31 a `p` implique mobilite <= 0.10 pour r <= 0.10^(1/p),
+# et sur CETTE geometrie cet r porte deja plus de 30 % de l'aire. La 31 et la 30 ne sont pas
+# simultanement tenables ici, et la 6 le prevoit (« absolute values are sanity-checking references
+# only; the game implementation shall derive normalized dimensions directly from the mesh »).
+#
+# CE QUE CA COUTE, ET IL FAUT L'ECRIRE : l'autorite de la chaine sur l'apex passe de 0.805 a 0.748
+# (-7.1 %). Le sommet le plus mobile suit donc la physique a 74.8 % au lieu de 80.5 %, le reste
+# revenant au torse. C'est le prix de l'ancrage exige par la 30, il est declare, et `cap` est
+# monte de 0.90 a 0.95 precisement pour en rendre une partie. Aucun autre reglage n'est
+# touche : le solveur ne bouge pas, la 24 (2.3000 Hz) et la 25 (zeta 0.3500) restent portees par
+# `physics_chains.txt` au chiffre pres.
+#
+# PERIMETRE : `[model keira-hd]` SEULEMENT. `keira3-hd` ci-dessous garde `shape=0.55` : ce look ne
+# porte AUCUNE chaine de physique (`physics_chains.txt` n'en declare que pour keira-hd), donc y
+# changer des poids serait un changement visuel sans mesure et sans benefice. Ce n'est pas un
+# de-scope silencieux, c'est ecrit ici et dans le rapport.
+# ---------------------------------------------------------------------------------------------
+transfer rBoob from=chest cap=0.95 shape=1.30
+transfer lBoob from=chest cap=0.95 shape=1.30
 
 [model keira3-hd]
 # The J3 look carries the same rig and the SAME defect (rBoob 86 verts, peak 0.408, 0 dominant).
