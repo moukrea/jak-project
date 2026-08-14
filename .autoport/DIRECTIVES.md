@@ -10,6 +10,46 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
+## 2026-08-14 09:45 — AUDIT DE LA SPEC POITRINE : 3 SECTIONS SUR 12. L'OWNER AVAIT RAISON.
+
+Il a écrit : « je suis sûr à 99.99999 % que t'as pas implémenté la spec comme il faut ». Vérifié
+ligne par ligne dans le code livré, pas à l'intuition :
+
+    §23 modèle « a single spring at the apex is INSUFFICIENT »  ABSENT — c'est exactement ce qu'on a
+    §24 trois frequences par axe (2.30 / 2.50 / 2.65 Hz)        DECLARE, JAMAIS UTILISE (:555-556)
+    §29 anisotropie (1.00 / 0.90 / 0.82 / 0.72)                 ZERO occurrence
+    §8  conservation de volume 98-101 %                         ZERO ligne de code
+    §10-13 equilibres par orientation (4 sections)              ZERO occurrence
+    §30-31 ancrage 30 % + gradient r^1.6-2.0                    non representable a 1 articulation
+    §36 mode secondaire 5.2 Hz, ζ 0.65                          ZERO occurrence
+    §37 sous-pas >= 120 Hz                                      COMMENTAIRE SEUL
+    §33/§34 restitution 0.06 / 0.02                             COMMENTAIRE SEUL
+    §21 saturation tanh                                         OK, dans le code
+    §22 apex < 0.50 B0                                          OK, mesure
+    §32 independance gauche/droite                              OK (chestR +2.1 % masse, +5.0 % raideur)
+
+**`PHYS-FR-AP` et `PHYS-FR-LAT` sont définies et n'apparaissent nulle part ailleurs.** C'est le
+piège `declared-but-never-selected` du registre, sur la section la plus visible de sa spec.
+
+**LA CAUSE COMMUNE, ET ELLE EST STRUCTURELLE :** chaque sein est **une chaîne à UNE articulation**
+(`radii=656` / `radii=660`). Volume, gradient racine→pointe, ancrage à 30 %, déformation par
+orientation, mode secondaire : **rien de tout cela n'est exprimable avec un point unique.** C'est le
+même mur que sur les mèches — signalé, jamais franchi.
+
+**ORDRE DE TRAVAIL, ET IL N'Y EN A PAS D'AUTRE :**
+  1. **La STRUCTURE d'abord.** Un sein doit porter assez de degrés de liberté pour exprimer §30–31
+     (racine ancrée, mobilité croissante vers le distal). Tant que c'est un point, tout réglage est
+     une perte de temps — c'est démontré deux fois aujourd'hui.
+  2. Puis §24 + §29 : les trois axes RÉELLEMENT appliqués, vérifiés par une mesure qui les distingue
+     (une réponse identique dans les trois directions prouve qu'ils ne sont pas appliqués).
+  3. Puis §8 (volume), §36 (mode secondaire), §33/§34 (collisions qui dissipent).
+  4. §10–13 (équilibres par orientation) en dernier, ils dépendent de tout le reste.
+
+**RÈGLE DE RAPPORT :** chaque cycle publie le tableau ci-dessus remis à jour, avec pour chaque
+section **implémentée / mesurée / écart**. Une section « implémentée » dont la constante n'est
+référencée nulle part compte comme ABSENTE.
+
+
 ## 2026-08-14 07:30 — ORDRE DE L'OWNER : PLUS AUCUNE PHYSIQUE SUR KEIRA SAUF LES SEINS
 
 Verbatim : « Les cheveux, les bretelles, les lunettes sont complètement pétées, les languettes des
