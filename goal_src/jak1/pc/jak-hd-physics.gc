@@ -291,9 +291,8 @@
 (define *phys-ox*  (new 'global 'array 'float PHYS-SCL))
 (define *phys-oy*  (new 'global 'array 'float PHYS-SCL))
 (define *phys-oz*  (new 'global 'array 'float PHYS-SCL))
-(define *phys-o1x* (new 'global 'array 'float PHYS-SCL))
-(define *phys-o1y* (new 'global 'array 'float PHYS-SCL))
-(define *phys-o1z* (new 'global 'array 'float PHYS-SCL))
+;; `*phys-o1x/o1y/o1z*` sont retires : declares, remis a zero dans la branche d'ancre, et RELUS
+;; NULLE PART — 6 occurrences dans tout `goal_src`, toutes des ecritures.
 ;; ETAT SIMULE — LA POSITION MONDE DE LA PARTICULE. C'est desormais le SEUL etat integre, et il n'y
 ;; en a pas d'autre : `p` (courant) et `q` (frame precedente), soit un verlet en position. Toute la
 ;; physique en decoule — la vitesse implicite `p - q` EST l'inertie, donc la masse ; la gravite s'y
@@ -622,6 +621,22 @@
 ;; etages.
 (define *phys-la0* (new 'global 'array 'float PHYS-SCL))
 (define *phys-la1* (new 'global 'array 'float PHYS-SCL))
+;; ------------------------------------------------------------------------------------------------
+;; LA DEVIATION SIGNEE. `*phys-la*` est un MODULE (`atan2`, `sn >= 0`) : le signe est perdu, donc un
+;; mouvement PLAN y montre une periode DEUX FOIS trop courte pendant qu'un mouvement qui PRECESSE y
+;; montre la bonne — et les deux rendent la MEME colonne. D'ou « aucun rebond », « rebond 4.7 % » et
+;; « decroissance a quantite constante » tires successivement de la MEME trace.
+;; NATURE : un VECTEUR, `u_courant - u_modele`, tous deux UNITAIRES depuis la MEME attache (simulee
+;;   pour le courant, animee pour le modele : la convention de `*phys-la*`). Norme = 2 sin(theta/2),
+;;   monotone en l'angle ; DIRECTION = la phase.
+;; REPERE : le MONDE — legitime dans la seule fenetre de repos, ou `physroom-hold` fige position,
+;;   orientation et animation, donc ou la direction du modele est constante. Publiee la seulement.
+;; INSTANTANEE, ecrasee chaque frame : un maximum courant ne peut pas porter une phase.
+;; LECTURE QUAND LE DEFAUT EST ABSENT : (0,0,0) exactement, a la pose du modele comme pour un maillon
+;;   qui suit rigidement son parent.
+;; LUE PAR `.autoport/physics_ringdown.py`, valide par CONTROLE POSITIF sur deux series synthetiques
+;;   (zeta connu 0.35 -> rendu 0.366 ; drain lineaire pur -> classe « QUANTITE constante par frame »).
+(define *phys-lsv* (new 'global 'array 'float (* PHYS-SCL 3)))
 
 (define *phys-tx*  (new 'global 'array 'float PHYS-SC))   ;; ecart de pointe, frame precedente
 (define *phys-ty*  (new 'global 'array 'float PHYS-SC))
@@ -3492,10 +3507,7 @@
                                (set! (-> *phys-qz* scl) (-> tw z))
                                (set! (-> *phys-ox* scl) 0.0)
                                (set! (-> *phys-oy* scl) 0.0)
-                               (set! (-> *phys-oz* scl) 0.0)
-                               (set! (-> *phys-o1x* scl) 0.0)
-                               (set! (-> *phys-o1y* scl) 0.0)
-                               (set! (-> *phys-o1z* scl) 0.0))
+                               (set! (-> *phys-oz* scl) 0.0))
                               (else
                                ;; ET LA PART DE CETTE GRAVITE QUE LA GEOMETRIE AUTORISE. La
                                ;; contrainte de longueur n'admet qu'une ROTATION autour de
@@ -4009,6 +4021,16 @@
                                            (ang (* 0.0054931641 (atan sn dot))))
                                       (when (> ang (-> *phys-la* scl))
                                         (set! (-> *phys-la* scl) ang))))
+                                  ;; LA MEME DEVIATION, MAIS SIGNEE ET VECTORIELLE (voir la note de
+                                  ;; `*phys-lsv*`). Ecrasee, jamais accumulee : c'est l'etat de
+                                  ;; CETTE frame, la seule forme qui puisse porter une phase.
+                                  (when (> u2 0.0001)
+                                    (let ((iu (/ 1.0 (sqrtf u2)))
+                                          (im (/ 1.0 (sqrtf m2)))
+                                          (sv3 (* scl 3)))
+                                      (set! (-> *phys-lsv* (+ sv3 0)) (- (* ux iu) (* mx im)))
+                                      (set! (-> *phys-lsv* (+ sv3 1)) (- (* uy iu) (* my im)))
+                                      (set! (-> *phys-lsv* (+ sv3 2)) (- (* uz iu) (* mz im)))))
                                   ;; L'INSTRUMENT DE MESURE EST L'INSTRUMENT DE DECISION : le
                                   ;; solveur ne corrige le cote QUE sur le PREMIER LIEN LIBRE, celui
                                   ;; dont l'attache est rigide, donc la mesure ne le compte que la.
@@ -4390,7 +4412,7 @@
       (set! (-> *phys-la1* (+ (* sc PHYS-LINKS) l)) 0.0))
     (set! (-> *phys-thas* sc) 0))
   (none))
-(defun phys-ang-reset! () (dotimes (i PHYS-SCL) (set! (-> *phys-la* i) 0.0)) (none))  ;; RESET ETROIT — *phys-la* SEUL. Ce n'est ni un clamp, ni une hysteresis, ni un gel : il ne retire pas un micron de mouvement, il remet a zero un COMPTEUR DE MESURE (le maximum courant de la deviation angulaire propre, accumule en :4046). Il ne touche NI `stat 0` NI `*phys-thas*`, et c'est tout l'interet : la garde de `phys-link-ang` (:4497) reste passante. `phys-stats-reset!` appele a chaque frame la maintiendrait au contraire baissee en permanence — `stat 0` (:4116) n'est ecrit que sous `(nonzero? *phys-thas*)` (:4111) et `thas` ne passe a 1 qu'ensuite (:4156), or le solveur ne passe qu'une fois par frame (jak-hd.gc:564) — et rendrait un mur de ang=0.0. Sur le plafond de lignes : il vise l'empilement de SUPPRESSEURS (ancien moteur : 6000 lignes, 84 clamps, 42 % des mesures a zero) et c'est la COMPOSITION qui decide, jamais le nombre ; la mesure par frame est nommement exigee par le contrat (DIRECTIVES lignes 29-31, `ROOM-RINGDOWN`).
+(defun phys-ang-reset! () (dotimes (i PHYS-SCL) (set! (-> *phys-la* i) 0.0) (set! (-> *phys-la0* i) 0.0) (set! (-> *phys-la1* i) 0.0)) (none))  ;; RESET ETROIT — LES TROIS ETAGES DE L'ANGLE, ET RIEN D'AUTRE. `*phys-la0*`/`*phys-la1*` y sont entres le 2026-08-14 : sans remise a zero par frame ce sont des maximums de COURSE, donc inutilisables pour attribuer a un etage ce qu'une frame retire. Leur seul autre lecteur est `PHYSGRADS`, emis par `physroom-emit-window` (phys-room.gc:583) appelee UNIQUEMENT depuis PHYSROOM-PH-MEAS (phys-room.gc:992), phase 1 — soit AVANT la fenetre de repos (phase 3) qui appelle ce reset : aucune fenetre PHYSGRADS ne le subit. *phys-la* SEUL auparavant. Ce n'est ni un clamp, ni une hysteresis, ni un gel : il ne retire pas un micron de mouvement, il remet a zero un COMPTEUR DE MESURE (le maximum courant de la deviation angulaire propre, accumule en :4046). Il ne touche NI `stat 0` NI `*phys-thas*`, et c'est tout l'interet : la garde de `phys-link-ang` (:4497) reste passante. `phys-stats-reset!` appele a chaque frame la maintiendrait au contraire baissee en permanence — `stat 0` (:4116) n'est ecrit que sous `(nonzero? *phys-thas*)` (:4111) et `thas` ne passe a 1 qu'ensuite (:4156), or le solveur ne passe qu'une fois par frame (jak-hd.gc:564) — et rendrait un mur de ang=0.0. Sur le plafond de lignes : il vise l'empilement de SUPPRESSEURS (ancien moteur : 6000 lignes, 84 clamps, 42 % des mesures a zero) et c'est la COMPOSITION qui decide, jamais le nombre ; la mesure par frame est nommement exigee par le contrat (DIRECTIVES lignes 29-31, `ROOM-RINGDOWN`).
 
 (defun phys-stat ((slot int) (chain int) (which int))
   (if (and (>= slot 0) (< slot PHYS-SLOTS) (>= chain 0) (< chain PHYS-CHAINS)
@@ -4472,6 +4494,15 @@
     0.0
     (let ((i (+ (* (+ (* slot PHYS-CHAINS) chain) PHYS-LINKS) link)))
       (if (zero? stage) (-> *phys-la0* i) (-> *phys-la1* i)))))
+
+(defun phys-link-dev ((slot int) (chain int) (link int) (axis int))
+  "UNE composante de la deviation SIGNEE de ce maillon (voir la note de `*phys-lsv*`).
+   axis 0/1/2 = x/y/z, repere MONDE, instantanee, nulle a la pose du modele."
+  (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS)
+          (< link 0) (>= link PHYS-LINKS) (< axis 0) (> axis 2)
+          (< (phys-stat slot chain 0) 0.5))
+    0.0
+    (-> *phys-lsv* (+ (* (+ (* (+ (* slot PHYS-CHAINS) chain) PHYS-LINKS) link) 3) axis))))
 
 (defun phys-slot-chains ((slot int))
   (if (and (>= slot 0) (< slot PHYS-SLOTS)) (-> *phys-slot-nch* slot) 0))

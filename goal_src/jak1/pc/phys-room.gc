@@ -1071,7 +1071,28 @@
         (when (> (phys-chain-links (-> self slot) c) 0)
          (dotimes (l (phys-chain-links (-> self slot) c))
            (format 0 "PHYSRING c=~D f=~D l=~D ang=~f~%"
-                   c (-> self pframe) l (phys-link-ang (-> self slot) c l)))))
+                   c (-> self pframe) l (phys-link-ang (-> self slot) c l))
+           ;; LA MEME DEVIATION, SIGNEE ET VECTORIELLE — voir la note de `*phys-lsv*`.
+           ;; NATURE : un vecteur `u_courant - u_modele`, tous deux unitaires depuis la MEME
+           ;;   attache ; sa norme vaut 2 sin(theta/2), sa direction porte la PHASE que `ang`
+           ;;   detruit. REPERE : le MONDE, et il n'est immobile QUE dans cette fenetre-ci
+           ;;   (`physroom-hold` fige position, orientation et animation) — c'est pourquoi elle
+           ;;   n'est publiee nulle part ailleurs. LECTURE QUAND LE DEFAUT EST ABSENT : (0,0,0).
+           ;; Sans elle, une periode plane et une precession rendent la MEME colonne de chiffres,
+           ;; et trois cycles ont conclu trois choses differentes de la meme trace.
+           (format 0 "PHYSRING3 c=~D f=~D l=~D x=~f y=~f z=~f~%"
+                   c (-> self pframe) l
+                   (phys-link-dev (-> self slot) c l 0)
+                   (phys-link-dev (-> self slot) c l 1)
+                   (phys-link-dev (-> self slot) c l 2))
+           ;; ET L'ATTRIBUTION PAR ETAGE, LA MEME FRAME : `a0` = l'angle que L'INTEGRATION SEULE
+           ;; produit, `a1` = ce qu'il reste apres la boucle de contraintes et l'attenuation.
+           ;; `a0 - a1` EST, en degres et par frame, ce que les contraintes retirent — la seule
+           ;; facon de separer « le solveur n'oscille pas » de « quelque chose vide l'oscillation ».
+           (format 0 "PHYSRINGS c=~D f=~D l=~D a0=~f a1=~f~%"
+                   c (-> self pframe) l
+                   (phys-link-ang-stage (-> self slot) c l 0)
+                   (phys-link-ang-stage (-> self slot) c l 1)))))
        (phys-ang-reset!))
      ;; frame-num CONSTANTE : la pose d'auteur est immobile, c'est ca « la pose du modele ».
      (when (= (-> self pframe) PHYSROOM-IDLES) (phys-stats-reset!))
