@@ -20,8 +20,9 @@ courses pour que l'auto-constructeur ne bascule pas l'arbre en arm64 au milieu.
 RÉSUMÉ EN UNE PHRASE : le terme que la directive de 03:10 ordonne de trouver et de retirer
 **n'existe pas** — le solveur suit son équation à un dixième de degré près sur toute la descente —
 et les deux preuves de sortie qu'elle exige (décroissance à FRACTION constante, rebond ~31 %) sont
-**obtenues et publiées**. Le puits d'énergie réel est ailleurs, il est nommé et chiffré ici, et un
-défaut neuf de première grandeur a été trouvé au passage.
+**obtenues et publiées**. Le puits d'énergie réel est ailleurs, il est nommé et chiffré ici. Et un
+défaut d'INSTRUMENT de première grandeur a été trouvé au passage : 23 des 31 animations de la salle
+écrivent le mauvais os dans les joints de poitrine (§4 bis).
 
 
 0. LE VALIDATEUR NE PEUT PAS SORTIR 0, ET CE N'EST PAS L'ÉCHEC DU CYCLE
@@ -129,66 +130,89 @@ frame : l'instrument existe par chaîne (`ROOM-CONTACT-VOL`), il manque la ligne
 corrige rien là-dessus ici — sans ce nombre, tout correctif serait un pari.
 
 
-4. DÉFAUT NEUF, ET IL EST DE PREMIÈRE GRANDEUR : LE SEIN DROIT SE GARE DANS LE BUSTE
-=====================================================================================
-En cherchant la cause de l'asymétrie 46x (15279 contacts contre 335), les trois explications
-évidentes ont été mesurées et **les trois sont réfutées** :
+4. RECTIFICATION — LE « LATCH DU SEIN DROIT » N'EST PAS UN DÉFAUT DU BUILD LIVRÉ
+=================================================================================
+J'ai d'abord publié ici, dans ce même rapport, que `chestR` se garait à ~50 degrés dans le buste à
+partir de `a=23` et n'en repartait plus, en m'appuyant sur `PHYSGRAD a=28 d=5 chestR amp=3.9
+ang=48.52`. **Ce chiffre vient de RUN12 et de RUN9 — les deux courses SANS la saturation SPEC 21 —
+et il n'existe pas dans le build livré.** Relevé sur les cinq courses, `chestR` (`c=8`), `d=5` :
 
-  A. LA DONNÉE. Les deux lignes `chain` diffèrent de 4.0 % (l'asymétrie §32 volontaire) ; en repère
-     bind MONDE les décalages de sphère sont miroirs à **1.5 %** (L (244.27, 43.77, 613.42) contre
-     R (−247.51, 33.64, 613.46)). Les volumes qui font le compte (`hips->main`, `chest->main`,
-     `sphere:main`) sont MÉDIANS, donc identiques pour les deux côtés.
-     ET LE CONTRÔLE QUI TRANCHE : `toestrapL`/`toestrapR` ont des lignes `chain` identiques AU
-     CARACTÈRE PRÈS et des colliders exactement opposés — leurs compteurs valent 110 contre 1817,
-     soit **16.5x**. Un écart de donnée NUL produit déjà 16x : le compteur n'est pas une preuve
-     d'asymétrie de donnée.
-  B. LE RIG. Recalculé depuis les matrices inverse-bind du mesh livré :
-     `lBoob (356.15, 7918.77, 385.34)` contre `rBoob (−356.15, 7918.76, 385.34)` — miroir à
-     **0.01 unité**. Longueurs d'os 977.1295 contre 977.1218 (0.0008 %).
-  C. L'ORDRE DE RÉSOLUTION. Les quatre volumes qui font le compte de `chestR` sont portés par
-     `hips`, `main`, `chest`, `Lshoulder` — **qu'aucune chaîne ne simule** : ils sont bit-pour-bit
-     les mêmes quel que soit l'ordre. Ils totalisent 14 845 des 15 279. Le seul volume sensible à
-     l'ordre (la sphère `lBoob`, écrite juste avant) en fait **45, soit 0.29 %**.
+    course                     a=23      a=25      a=28      a=30      saturation SPEC 21
+    RUN9-BASELINE-presat      53.2272    1.9737   48.5234    3.0196    ABSENTE
+    RUN12-nosat-signed        53.2272    1.9737   48.5234    3.0196    ABSENTE
+    RUN10-tanh-naive           2.5838    1.2074    2.4761    2.6849    presente
+    RUN11-tanh-knee            3.2096    1.6162    1.7056    2.5501    presente
+    RUN13-SHIPPED              3.2096    1.6162    1.7056    2.5501    presente
 
-CE QUE LA DONNÉE SOUTIENT À LA PLACE. Le pilotage reçu est symétrique à 0.67 % (moyenne de `PHYSACC`
-sur les 186 couples animation x pilotage : 89.69 contre 90.29). La SORTIE ne l'est pas, et l'écart
-est un **DÉCALAGE STATIQUE LATCHÉ**, pas du mouvement :
+Les deux seules courses qui latchent sont exactement les deux sans plafond, aux mêmes chiffres au
+dix-millième. **Le latch est donc une CONSÉQUENCE du retrait de la saturation, pas un défaut
+indépendant** — et c'est un TROISIÈME argument, indépendant des deux du §5, pour l'avoir remise.
+Dans le build livré, `chestR a=28 d=5` vaut 1.7056 degré.
+Deux autres corrections qui viennent avec : le latch n'est ni permanent (il retombe à 1.97 en `a=25`
+et 3.02 en `a=30`) ni propre au côté droit — sur les pilotages `d=1/2/3` de RUN12, `chestL` dépasse
+30 degrés sur les 31 animations, `a=0` comprise. « chestR seul » était une propriété de la colonne
+`d=5`, pas de la chaîne.
 
-    a=28 d=5 (animation seule)   chestL amp=5.4   ang= 0.33     chestR amp=3.9   ang=48.52
-    a=29 d=5                     chestL amp=29.5  ang= 1.22     chestR amp=15.0  ang=50.82
-    PHYSGRADS a=23 d=5           chestR a0=50.3143  a1=52.3269   (chestL a0=0.3299)
+CE QUI RESTE VRAI ET NON EXPLIQUÉ : l'asymétrie de contacts 46x (`chestL total=335` contre
+`chestR total=15279`), et les trois causes évidentes restent réfutées, mesures à l'appui —
+la DONNÉE (décalages de sphère miroirs à 1.5 % en repère bind MONDE ; et le contrôle qui tranche :
+`toestrapL/R`, lignes `chain` identiques au caractère près et colliders exactement opposés, rendent
+110 contre 1817, soit 16.5x — un écart de donnée NUL produit déjà 16x), le RIG
+(`lBoob (356.15, 7918.77, 385.34)` contre `rBoob (−356.15, 7918.76, 385.34)`, miroir à 0.01 unité ;
+longueurs d'os 977.1295 contre 977.1218) et l'ORDRE DE RÉSOLUTION (les quatre volumes qui font le
+compte sont portés par `hips`, `main`, `chest`, `Lshoulder`, qu'aucune chaîne ne simule : 14 845 des
+15 279 sont indépendants de l'ordre ; le seul volume sensible en fait 45, soit 0.29 %).
 
-Un maillon de 977.12 u dévié de 48.5 degrés est à **803 u** de sa pose animée — et il y RESTE
-(`amp` = 3.9 u, il ne bouge plus). 803 u couvre exactement les 693 u qui manquaient pour entrer dans
-`sphere:main` et les 329 u pour `chest->main`. **Et `a0` porte déjà les 50 degrés : le décalage naît
-AVANT les contraintes, dans l'état intégré. La collision n'ajoute que 2 degrés.**
 
-L'ENTRÉE SE DATE : elle apparaît à `a=23` (`assistant-firecanyon-idle-a`) et ne se résorbe plus
-jusqu'à `a=30`. Huit animations sur 31 = 25.8 % de la course, et les trois compteurs du tronc valent
-20.8 % / 22.8 % / 21.2 % de `contact_frames = 18883`. **Le compte colle : ce n'est pas une suite
-d'excursions, c'est un état permanent.**
+4 bis. ET VOICI CE QUI CONTAMINE VRAIMENT LA MESURE : 23 ANIMATIONS SUR 31 ÉCRIVENT LE MAUVAIS OS
+==================================================================================================
+`do-joint-math!` (`process-drawable.gc:238-271`) applique les canaux d'animation **par POSITION** :
+canal *i* → joint *i* du squelette PORTEUR. Rien n'y consulte les noms. La salle joue les 31
+animations sur le porteur du village 1, en supposant que les premiers index coïncident entre les
+rigs. **Ils ne coïncident pas.** Listes relevées sur deux sources indépendantes, d'accord index par
+index (`goal_src/jak1/engine/data/joint-nodes.gc`, 570 entrées, et l'ordre `skins[0].joints` des GLB
+rippés) : les index 0 à 27 sont identiques sur les six rigs, **et la queue diverge à partir de 28**.
 
-ET LA PÉNÉTRATION, PAR ANIMATION, LE CONFIRME (RUN12, résidu au-delà du plancher de pose modèle,
-converti en mètres) :
+La correspondance HD → porteur est `*keira-hd->driver-joint*` (`jak-hd.gc:100`) : HD 44 (`rBoob`) →
+porteur **79**, HD 45 (`lBoob`) → porteur **78**, `chest` → **3**. Ce que ces index portent
+réellement, animation par animation :
 
-    chestL : NÉGATIF (donc de la marge) sur les 31 animations au pilotage le plus FAIBLE ; positif
-             seulement sous `accel` (8.6 g), jusqu'à 0.492 m.
-    chestR : positif sur les 13 animations de rig VARIANTE (94 joints, a=18..30) à TOUS les
-             pilotages, y compris le plus faible — 0.007 à 0.033 m, faible mais PERMANENT ;
-             et jusqu'à 0.345 m sous `accel`, 0.266 m sous `updown`, sur
-             `assistant-village2-idle-hut-breath` (96 joints, animation bien réelle).
+    a=      art-group                 joints   porteur 79 = rBoob   porteur 78 = lBoob   chest
+    0-6     assistant                   96     rBoob        OK      lBoob        OK      OK
+    7-16    assistant-village2          96     RpinkyA    FAUX      RringC     FAUX      OK
+    17      assistant-village3          96     rBoob        OK      lBoob        OK      OK
+    18-27   assistant-firecanyon        94     gogglesMid FAUX      gogglesBase FAUX     OK
+    28-29   assistant-lavatube-start    94     gogglesMid FAUX      gogglesBase FAUX     OK
+    30      assistant-lavatube-end      94     gogglesMid FAUX      gogglesBase FAUX     OK
 
-Deux conséquences, et la seconde vaut pour tout le tableau :
-  1. **Le sein droit entre dans le torse pendant l'animation de respiration dans la hutte, au
-     pilotage le plus faible.** C'est un défaut de JEU, pas de banc.
-  2. **13 des 31 animations tournent sur un rig de VARIANTE à 94 joints** et `chestR` s'y latche sur
-     TOUTES. La piste à mesurer en premier au cycle suivant est l'ORDRE DES JOINTS entre le rig
-     village 1 (96) et les rigs de variante (94) : si l'indexation diffère, une animation de
-     variante écrit d'autres os que ceux qu'elle croit, la pose d'auteur du porteur de chaîne devient
-     fausse, et la cible du ressort part de 50 degrés. La gate `ROOT` ne l'attrape pas
-     (`rootdev` max 0.7652 m pour un seuil de 2.0) — elle est trop lâche pour ça.
-     **Tant que ce point n'est pas tranché, une part inconnue des maximums publiés par le tableau
-     (dont l'asymétrie 46x et une partie des pénétrations) est de la contamination d'instrument.**
+**Huit animations sur 31 pilotent correctement les joints de poitrine.** L'écart n'est pas subtil :
+l'angle entre les rotations de bind monde au même index vaut **180.000 degrés** pour
+`rBoob`/`gogglesMid` et **143.442** pour `lBoob`/`gogglesBase` (village2 : 116.376 et 125.948, avec
+1.12 m et 1.49 m d'écart de position). L'ancre `chest`, elle, est à l'index 3 sur les SIX rigs —
+delta de rotation 0.000 degré, delta de position 0.0000 m — et `assistant-village3` est identique au
+village 1 sur les 96 index.
+
+**ET LE COMPTE DE JOINTS N'EST PAS LE CRITÈRE** : `assistant-village2` a 96 joints et diverge quand
+même (premier index divergent 32) ; `assistant-village3` en a 96 et ne diverge pas. Le commentaire
+de `phys-room.gc:1611-1617` — « les joints 94 et 95 gardent leur pose précédente » — repose sur
+l'hypothèse que les 94 premiers coïncident, et cette hypothèse est **fausse**. Ce n'est donc pas 13
+animations concernées, c'est **23**.
+
+CE QUE ÇA IMPLIQUE, ET C'EST LA CONCLUSION LA PLUS LOURDE DE CE CYCLE :
+  * **Ce n'est PAS un défaut du jeu.** `PHYSMGEO` le dit dans la course : seul `assistant-lod0`
+    porte un compagnon HD (`entry=2`) ; les cinq mgeo de variante ont `entry=-1`, donc aucune
+    chaîne, donc aucune physique. En jeu, une animation de variante ne pilote jamais une chaîne.
+  * **C'est un défaut d'INSTRUMENT, et il est massif.** 23 des 31 fenêtres d'animation du tableau
+    mesurent la poitrine pilotée par un auriculaire ou une branche de lunettes. Tous les maximums
+    par chaîne de `chestL`/`chestR` — `worst tipvar`, `meshpen`, `ROOM-CONTACT-VOL`, l'asymétrie
+    46x — agrègent ces fenêtres-là. La gate `ROOM-ANIMS 31/31 skipped=0` est satisfaite à la lettre
+    et la mesure est corrompue sur 74 % de son domaine.
+  * **La couverture exigée par SPEC 6 reste due**, et la solution n'est pas de retirer les 23 : c'est
+    de remapper les canaux PAR NOM quand l'art-group diffère de celui du porteur. La table de noms
+    existe déjà (`joint-nodes.gc`), et `chest` prouve que le remap est possible puisqu'il tombe juste
+    partout.
+  * **Rien de tout ceci ne touche les mesures du §2** : la fenêtre de repos est postérieure à toutes
+    les animations et `physroom-hold` y fige l'animation. Le ring-down, lui, est propre.
 
 
 5. LA SATURATION SPEC 21 : RETIRÉE, MESURÉE, PUIS REMISE — ET VOICI L'A/B
@@ -324,9 +348,11 @@ diff qu'autre chose.
 8b. RESTENT OUVERTS, AVEC LEUR CHIFFRE
 ----------------------------------------
   * l'écart résiduel de 2.95 / 2.41 degrés au repos (SPEC 9 exige 0) — défaut NEUF de ce cycle ;
-  * le latch de `chestR` à ~50 degrés (§4) — défaut NEUF, le plus grave trouvé ce cycle ;
-  * l'ordre des joints entre le rig 96 et les rigs de variante 94 (§4) — à mesurer AVANT de croire
-    les maximums du tableau ;
+  * le REMAP PAR NOM des canaux d'animation quand l'art-group diffère de celui du porteur (§4 bis) :
+    tant qu'il n'est pas fait, 23 des 31 fenêtres du tableau mesurent la poitrine pilotée par un
+    auriculaire ou une branche de lunettes, et aucun maximum par chaîne n'est croyable ;
+  * l'asymétrie de contacts 46x entre `chestL` et `chestR` (§4), dont les trois causes évidentes
+    sont réfutées et qui reste sans mécanisme ;
   * le puits de collision de la poitrine (§3), non corrigé faute de la mesure par volume et par frame ;
   * les 7 défauts CHEVEUX de la liste `OPEN` : ce cycle ne les touche pas, et les 7 chaînes de
     cheveux sont **bit-identiques** entre l'état d'entrée et l'état livré (§9).
@@ -374,8 +400,9 @@ Le mur d'excursion (`raddrop`) vaut 0 sur les 22 chaînes et le recul 0 : ils ne
 **Rien n'a changé dans la physique de ce build.** Le seul ajout est de la mesure. Si quelque chose a
 bougé à l'écran par rapport au build précédent, alors l'APK et le pack ne sont pas de la même paire,
 et c'est ça qu'il faut dire — c'est la seule information utile que ce build puisse donner de plus.
-Ce que ce cycle a produit est un diagnostic, pas un correctif : le §4 nomme un défaut neuf (le sein
-droit se gare dans le buste et y reste) et le §8 donne la forme et les nombres du correctif suivant.
+Ce que ce cycle a produit est un diagnostic, pas un correctif : le §4 bis montre que 23 des 31
+fenêtres de mesure de la salle sont corrompues (sans que le JEU le soit), le §13 donne enfin un
+chiffre aux sept défauts cheveux, et le §8 donne la forme et les nombres du correctif suivant.
 
 
 12. UNE CONDITION DE RETRAIT ÉTAIT PRÉ-ENREGISTRÉE DEPUIS UN JOUR ET PERSONNE NE L'AVAIT ÉVALUÉE
