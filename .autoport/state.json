@@ -225,7 +225,7 @@
     "Gmenu-flag-off": 3,
     "Grecharged-hd-models5": 1,
     "Grecharged-foliage-wind2": 0,
-    "Grecharged-secondary-motion": 3,
+    "Grecharged-secondary-motion": 4,
     "Grecharged-hd-eye-scale": 2,
     "Grecharged-title-logo-fullres": 1
   },
@@ -999,7 +999,7 @@
     "Grecharged-title-logo-fullres": 1786153395.9536324,
     "Grecharged-materials-modern-parity": 1786167637.0459936
   },
-  "last_update": "2026-08-14T06:22:43.187541+00:00",
+  "last_update": "2026-08-14T08:13:00.334936+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -1102,8 +1102,7 @@
     "Gmenu-flag-off",
     "Grecharged-hd-models5",
     "Grecharged-title-logo-fullres",
-    "Grecharged-hud-jak1",
-    "Grecharged-hd-eye-scale"
+    "Grecharged-hud-jak1"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",
