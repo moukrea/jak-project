@@ -3041,12 +3041,14 @@
                           (set! (-> *phys-axa* sc) ia)
                           (set! (-> *phys-axl* sc) il)
                           (set! (-> *phys-axok* sc) 1)
-                          ;; LA CAPACITE, LUE SUR LE RIG : il faut plus d'UNE articulation libre
-                          ;; pour porter §29 (voir la note de `*phys-axan*`). A une seule, la
-                          ;; classification et la mesure par axe existent quand meme — c'est elles
-                          ;; qui prouvent que la structure est le mur — mais les trois facteurs
-                          ;; restent a 1.0, donc l'integration est celle d'avant AU BIT PRES.
-                          (when (> (- n rlk) 1)
+                          ;; ARMEE DES QU'IL Y A UN MAILLON LIBRE. Ce verrou exigeait DEUX
+                          ;; articulations, et sa raison n'etait pas physique — une masse ponctuelle
+                          ;; sur un ressort anisotrope a bien trois frequences propres. C'etait un
+                          ;; INTERVERROUILLAGE : §29 armee avait ete mesuree a `meshpen` 0.0022 m
+                          ;; contre le plafond de 0.0005. Le correctif de B0 (SPEC 6) ayant reduit
+                          ;; l'excursion de 30-36 %, l'interverrouillage se re-mesure au lieu d'etre
+                          ;; suppose — et il se retire si `meshpen` remonte au-dessus de 0.0005.
+                          (when (> (- n rlk) 0)
                             (set! (-> *phys-axs* (+ (* sc 3) iv)) 1.0)
                             (set! (-> *phys-axs* (+ (* sc 3) ia)) (/ 1.0 PHYS-MOB-AP))
                             (set! (-> *phys-axs* (+ (* sc 3) il)) (/ 1.0 PHYS-MOB-LAT))

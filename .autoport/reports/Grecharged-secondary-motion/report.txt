@@ -94,22 +94,53 @@ l'aire**, un facteur 7 dans le mauvais sens. Sa §30 parle de VOLUME : la sonde 
 par chaque sommet, jamais `Σw`.
 
 
-2. POURQUOI JE N'AI PAS INJECTÉ D'OS — DEUX FAITS MESURÉS, PAS UNE PRÉFÉRENCE
-==============================================================================
+2 bis. §29 EST ARMÉE — SA PRIORITÉ N°2, ET ELLE N'AVAIT PAS BESOIN D'UN OS
+============================================================================
+Sa directive de 11:50 : « 2. ARMER §24 et §29 — une mesure doit montrer les trois axes rendant des
+valeurs DIFFÉRENTES ». Fait, et le verrou qui l'en empêchait n'était pas ce que son intitulé disait.
+
+Le prédicat était `(> (- n rlk) 1)` : « il faut deux articulations ». **Ce n'est pas une limite
+physique** — une masse ponctuelle sur un ressort anisotrope a bel et bien trois fréquences propres.
+C'était un **interverrouillage** posé après une mesure : §29 armée avait donné `meshpen = 0.0022 m`
+contre le plafond de 0.0005. Le correctif de B0 ayant réduit l'excursion de 30 à 36 %, la raison de
+l'interverrouillage a disparu — et ça se re-mesure, ça ne se suppose pas :
+
+    PHYSAXIS  c=0 ok=1 arm=1 rv=1 rap=0 rlat=2      ← armée, sur les deux chaînes
+    PHYSAXISS c=0 sv=1.0000 sap=1.1111 slat=1.2195  ← 1/0.90 et 1/0.82, ses nombres au dix-millième
+    meshpen chestL / chestR : 0.0000 / 0.0000       ← la condition de retrait ne tire pas
+
+ET LA MESURE QUI DISCRIMINE, celle qu'il exige — `ROOM-RINGAXIS`, fréquence propre par axe :
+
+                     vertical   avant/arrière   latéral      ordre exigé par §24
+    chestL AVANT     2.546      2.706           2.571        (aucun : le latéral est plus LENT)
+    chestL APRÈS     2.551      2.614           3.275        v < ap < lat  ✔
+    chestR AVANT     2.812      2.819           2.750        (aucun : décroissant à la fin)
+    chestR APRÈS     2.896      3.080           3.196        v < ap < lat  ✔
+
+**« Vertical motion is intentionally the slowest » (§24) est vrai pour la première fois, sur les
+deux seins.** Ce qui ne l'est pas encore, et je le dis : les valeurs ABSOLUES sortent de ses bandes
+(v 2.1–2.5, ap 2.3–2.7, lat 2.4–2.9) sur trois des six lectures, et les trois estimateurs de la
+salle divergent de plus de 20 % sur certains axes — ce qui, par la règle déjà écrite, veut dire que
+la série ne porte pas une oscillation propre exploitable sur ces axes-là. §24 reste donc
+**PARTIELLE** : son ordonnancement est acquis, ses valeurs ne le sont pas.
+
+
+2. POURQUOI JE N'AI PAS INJECTÉ D'OS — UN FAIT MESURÉ, PAS UNE PRÉFÉRENCE
+==========================================================================
 L'injection de deux os par sein est prête (recette, outils et pièges cartographiés dans ce cycle).
 Elle est bloquée par deux mesures, toutes deux lues dans l'arbre courant :
 
-1. **Passer à 3 maillons ARME §29 tout seul** — le prédicat de capacité `(> (- n rlk) 1)`
-   (`jak-hd-physics.gc:3039`). Et §29 armée est mesurée à `meshpen = 0.0022 m` sur `chestL`
-   contre le plafond épinglé du validateur de **0.0005 m** (`:604-609`). Sa règle 6 ne se négocie
-   pas : « rien ne traverse le mesh, quelle qu'en soit la raison ». Une section de la spec ne
-   rachète pas une traversée.
-2. **Passer à 3 maillons DÉSARME §21 et §22** — les deux blocs sont gardés par `(= n 1)`
-   (`:3188` et `:3634`). Ce sont la saturation douce et **la borne d'apex, qui est SA spec**.
-   Les livrer en les retirant serait un de-scope déguisé.
+**Passer à 3 maillons DÉSARME §21 et §22** — les deux blocs sont gardés par `(= n 1)`
+(`:3188` et `:3634`). Ce sont la saturation douce et **la borne d'apex, qui est SA spec** et qui
+vient tout juste de se mettre à mordre (§3). Injecter aujourd'hui la retirerait : ce serait rendre
+d'une main ce que ce cycle a gagné de l'autre.
 
-Donc l'ordre réel est : fermer le résidu de collision et généraliser les deux gardes, PUIS
-injecter. Ce qui reste vrai de sa directive : **le gradient du SOLVEUR** (`a(r) = 1 − r²`,
+(Le deuxième blocage que j'annonçais — « l'injection armerait §29 et ferait traverser » — **est
+tombé pendant ce cycle** : §29 est armée à `meshpen = 0.0000`, cf. §2 bis. Je le corrige au lieu
+de le laisser dans le rapport comme un obstacle qui n'existe plus.)
+
+Donc l'ordre réel est : généraliser les deux gardes `(= n 1)` à une chaîne à plusieurs maillons,
+PUIS injecter. Ce qui reste vrai de sa directive : **le gradient du SOLVEUR** (`a(r) = 1 − r²`,
 `:3308-3311` — l'exposant 2.0 est exactement la borne haute de sa §31) est normalisé par sa propre
 moyenne, donc à un maillon libre il vaut **1.0000 exactement**. Il est câblé, correct, et inerte.
 C'est lui qui attend la structure, pas le gradient de la chair.
@@ -243,14 +274,15 @@ référencée nulle part compte comme ABSENTE.**
                                                                                 encore de 4 % à G
 23    « single spring at the apex    P    1 articulation + un champ de peau     le SOLVEUR reste
       is INSUFFICIENT »                   gradué à r^1.63                       un seul ressort
-24    Trois fréquences propres       P    CÂBLÉE, DÉSARMÉE (`PHYSAXIS arm=0`)   les 3 axes rendent
-                                          verticale 2.3000 Hz par la donnée     la même valeur
+24    Trois fréquences propres       P    **ARMÉE** (`PHYSAXIS arm=1`). Ordre    l'ordre est acquis,
+                                          v < ap < lat TENU sur les 2 seins      les valeurs sortent
+                                          (2.55/2.61/3.28 · 2.90/3.08/3.20)      des bandes sur 3/6
 25    ζ = 0.35                       O    paramètre livré 0.3500 / 0.3501 ;     DANS SA BANDE
                                           ring-down mesuré 0.370 (cycle 6)      (0.32-0.42)
 26    Rebond 31 %                    P    29.1 % (cycle 6, hors moteur)         −6 % relatif
 27    Stabilisation 1.0-1.5 s        N    non franchie : dépend de §9           bloquée par §9
-29    Anisotropie 1.00/0.90/0.82     P    CÂBLÉE (sap 1.1111 / slat 1.2195      désarmée : coût
-                                          quand armée), DÉSARMÉE                mesuré 0.0022 m
+29    Anisotropie 1.00/0.90/0.82   **O**  **ARMÉE** : sap 1.1111 slat 1.2195     ses nombres au
+                                          lus à l'exécution, meshpen 0.0000      dix-millième
       — torsion 0.72                 N    aucun degré de liberté en torsion     **OS MANQUANT À
                                           sur une chaîne à 1 maillon            INJECTER** (son
                                                                                 ordre du 11:50)
@@ -271,16 +303,27 @@ référencée nulle part compte comme ABSENTE.**
 
 RÉCAPITULATIF, compté ligne à ligne sur le tableau ci-dessus et pas arrondi en ma faveur, et
 **sans aucune ligne « non applicable » — le mot est banni par son ordre du 11:50** :
-**8 tenues** (§6 §21 §22/38 §25 §30 §31 §32 §37), **5 partielles** (§9 §23 §24 §26 §29),
+**9 tenues** (§6 §21 §22/38 §25 §29 §30 §31 §32 §37), **4 partielles** (§9 §23 §24 §26),
 **6 absentes** (§8, §10-13, §27, §29-torsion « os manquant à injecter », §33/34, §36).
-L'audit de 09:45 en comptait **3 tenues sur 12**. Ce cycle en ferme deux de plus — §30 et §31,
-précisément celles que la directive déclarait non représentables — et rouvre §22 sur une mesure
-au lieu de la laisser fausse-verte. §26 (29.1 % pour 31 %) n'a pas été re-mesurée ce cycle :
-elle vient de la course du cycle 6 et elle est marquée comme telle.
+L'audit de 09:45 en comptait **3 tenues sur 12**. Ce cycle en ajoute six : §30 et §31 (le gradient
+vivait dans la peau, pas dans le nombre d'os), §6 et §22/38 (le mètre était faux de 1.62× ; corrigé,
+la borne mord et les deux seins passent sous 0.50 B0), §29 (armée, `meshpen` 0.0000), §25 (les deux
+chiffres publiés). §26 (29.1 % pour 31 %) n'a pas été re-mesurée ce cycle : elle vient de la course
+du cycle 6 et elle est marquée comme telle.
+
+LES QUATRE PRIORITÉS DE SA DIRECTIVE DE 11:50, ÉTAT À LA FIN DU CYCLE :
+  1. le bon `B0` .................... **FAITE** (§3)
+  2. armer §24 et §29 ............... **FAITE pour §29**, et §24 gagne son ordonnancement (§2 bis)
+  3. §9, l'état debout neutre ....... PAS FAITE — dev 26.60 / 21.43 u, inchangé, et §27 reste
+                                      bloquée derrière elle. C'est le point unique du cycle suivant.
+  4. l'os de torsion, puis §23 §8 §36 §33/34 §37 §10-13 ... §37 est déjà TENUE ; l'os de torsion et
+                                      §23 attendent la généralisation des gardes `(= n 1)` (§2) ;
+                                      §8, §36 et §10-13 partagent un mécanisme qui ne rentre pas
+                                      dans les 4 lignes restantes (§6 bis).
 
 
-6. LES QUATRE COURSES DU CYCLE, ET CE QUE CHAQUE CHANGEMENT A COÛTÉ
-=====================================================================
+6. LES CINQ COURSES DU CYCLE, ET CE QUE CHAQUE CHANGEMENT A COÛTÉ
+====================================================================
 Un changement par course, chacun mesuré séparément, aucun empilement :
 
     course                              chestL/chestR tipvar   meshpen L/R        idle
@@ -288,6 +331,7 @@ Un changement par course, chacun mesuré séparément, aucun empilement :
     2. volumes 449/455 (§33)            0.1769 / 0.1873        0.0009  / 0.0010   0.0065  → RETIRÉ
     3. retrait de `*phys-lmean*`        0.1998 / 0.2140       -1.7e-07 / 0.0005   0.0065
     4. B0 corrigé (§6 → §22)            0.1403 / 0.1373       -1.7e-07 / 0.0000   0.0065
+    5. §29 armée (anisotropie)          0.1374 / 0.1367        0.0000  / 0.0000   0.0065
 
 Ce qu'il faut lire dans ce tableau, et je préfère l'écrire que le laisser deviner :
   - **la course 1 ne change RIEN au niveau du joint** — même `tipvar` au dix-millième. C'est la
@@ -302,7 +346,7 @@ Course : joueur ABSENT (`ROOM-NOPLAYER: absent`, `PHYSNOPLAY viol=0`), 1 acteur
 (`ROOM-ACTORS: 1 subject=keira-hd`), 31/31 animations jouées (`raw=31 skipped=0`), 310 mesures,
 2 chaînes.
 
-MOTEUR : **4787 → 4768 → 4794 lignes** (plafond 4800, il reste **6 lignes**). Les 19 rendues par
+MOTEUR : **4787 → 4768 → 4796 lignes** (plafond 4800, il reste **6 lignes**). Les 19 rendues par
 `*phys-lmean*` ont servi a payer `b0=` (+26 : la constante, le tableau, la lecture, sa preuve
 d'execution et les deux points d'usage). `*phys-lmean*` est retirée : c'était une variable
 **écrite et lue par personne** dans tout `goal_src/` (recensement complet), qui ne servait qu'au
@@ -333,8 +377,8 @@ mesuré à r^1.63 fait qu'une échelle écrite sur le joint s'applique **progres
 et c'est le correctif de ce cycle qui la rend vraie.
 
 Ce qui manque est de la PLACE : le canal, ses trois usages et leur mesure demandent 150 à 250
-lignes ; il en reste **6** (les 32 rendues par `*phys-lmean*` sont parties dans `b0=`, qui était
-sa priorité n°1). Je n'ai pas essayé de l'y faire entrer en rabotant la narration — ce serait
+lignes ; il en reste **4** (les 19 rendues par `*phys-lmean*` sont parties dans `b0=` et dans
+l'armement de §29, qui étaient ses priorités n°1 et n°2). Je n'ai pas essayé de l'y faire entrer en rabotant la narration — ce serait
 contourner le plafond au lieu de le respecter.
 
 CE QUE J'AI VÉRIFIÉ MOI-MÊME ET QUE JE LUI SOUMETS, avec la composition sous les yeux, puisque son
