@@ -241,6 +241,14 @@
 (defconstant PHYSROOM-PH-AXV 18)     ;; impulsion VERTICALE   puis ring-down
 (defconstant PHYSROOM-PH-AXB 19)     ;; impulsion AVANT-ARRIERE puis ring-down
 (defconstant PHYSROOM-PH-AXL 22)     ;; impulsion LATERALE    puis ring-down
+;; LES MEMES TROIS, CONTRAINTE DE LONGUEUR DESARMEE — le controle positif de l'hypothese du
+;; cycle 8. `ROOM-AXSEL` mesure qu'un seul axe sur trois est isolable ; l'explication proposee est
+;; qu'un point contraint sur une sphere n'a que deux degres de liberte de translation. Si c'est
+;; vrai, desarmer la contrainte doit faire MONTER la selectivite. Si elle ne bouge pas, l'hypothese
+;; est fausse — et c'est un resultat aussi, publie tel quel.
+(defconstant PHYSROOM-PH-AXZV 23)    ;; idem AXV, contrainte de longueur LEVEE
+(defconstant PHYSROOM-PH-AXZB 27)    ;; idem AXB, contrainte de longueur LEVEE
+(defconstant PHYSROOM-PH-AXZL 28)    ;; idem AXL, contrainte de longueur LEVEE
 (defconstant PHYSROOM-PH-ORI 24)     ;; SPEC 10-13 : le balayage d'orientation
 (defconstant PHYSROOM-PH-RESTA 25)   ;; SPEC 33/34 : secousse, restitution AUX VALEURS DE LA SPEC
 (defconstant PHYSROOM-PH-RESTB 26)   ;; SPEC 33/34 : MEME secousse, coefficient x15 (controle +)
@@ -1635,10 +1643,22 @@
     ;;   a confirmer, et c'est bien ce qui rend la mesure decidable.
     ((or (= (-> self phase) PHYSROOM-PH-AXV)
          (= (-> self phase) PHYSROOM-PH-AXB)
-         (= (-> self phase) PHYSROOM-PH-AXL))
-     (let ((ax (cond ((= (-> self phase) PHYSROOM-PH-AXV) 0)
-                     ((= (-> self phase) PHYSROOM-PH-AXB) 1)
-                     (else 2))))
+         (= (-> self phase) PHYSROOM-PH-AXL)
+         (= (-> self phase) PHYSROOM-PH-AXZV)
+         (= (-> self phase) PHYSROOM-PH-AXZB)
+         (= (-> self phase) PHYSROOM-PH-AXZL))
+     (let ((ax (cond ((or (= (-> self phase) PHYSROOM-PH-AXV)
+                          (= (-> self phase) PHYSROOM-PH-AXZV)) 0)
+                     ((or (= (-> self phase) PHYSROOM-PH-AXB)
+                          (= (-> self phase) PHYSROOM-PH-AXZB)) 1)
+                     (else 2)))
+           ;; les trois fenetres Z sont les MEMES que les trois premieres, contrainte de longueur
+           ;; en moins : meme impulsion, meme amplitude, meme fenetre, meme emetteur. C'est ce qui
+           ;; rend la comparaison des deux selectivites lisible — un seul terme change.
+           (nolen (if (or (= (-> self phase) PHYSROOM-PH-AXZV)
+                          (= (-> self phase) PHYSROOM-PH-AXZB)
+                          (= (-> self phase) PHYSROOM-PH-AXZL)) 1 0)))
+       (phys-len-off-set! nolen)
        (physroom-drive-imp (-> self pframe) ax)
        ;; LA DIRECTION REELLEMENT POUSSEE, publiee une fois par fenetre. Sans elle, une impulsion
        ;; nulle (chaine non classee) et une impulsion sans reponse rendraient la meme serie plate.
@@ -1655,7 +1675,12 @@
          (dotimes (c (-> self nchain))
            (let ((nl (phys-chain-links (-> self slot) c)))
              (dotimes (l nl)
-               (format 0 "PHYSRINGAX c=~D f=~D l=~D ax=~D v=~,,7f~%"
+               ;; DEUX TAGS, pas un champ `len=` : la seconde ligne est deja a huit parametres,
+               ;; le plafond de `format`. `PHYSRINGAZ` porte les fenetres a contrainte LEVEE, avec
+               ;; exactement la meme disposition de champs, donc le meme parseur a un nom pres.
+               (format 0 (if (zero? nolen)
+                           "PHYSRINGAX c=~D f=~D l=~D ax=~D v=~,,7f~%"
+                           "PHYSRINGAZ c=~D f=~D l=~D ax=~D v=~,,7f~%")
                        c (- (-> self pframe) PHYSROOM-IMPF) l ax
                        (phys-link-dev-anc (-> self slot) c l 0))
                ;; DEUX LIGNES, et ce n'est pas un choix de style : `format` de GOAL plafonne a huit
@@ -1665,17 +1690,26 @@
                ;; repartent chacune a la frame 0, donc `f` seule ne designe pas une fenetre. Sans
                ;; `ax` ici, l'appariement des deux lignes serait ambigu entre les trois axes.
                ;; Huit parametres exactement : c'est le plafond, aucun champ de plus.
-               (format 0 "PHYSRINGAX2 c=~D f=~D ax=~D l=~D ap=~,,7f lat=~,,7f~%"
+               (format 0 (if (zero? nolen)
+                           "PHYSRINGAX2 c=~D f=~D ax=~D l=~D ap=~,,7f lat=~,,7f~%"
+                           "PHYSRINGAZ2 c=~D f=~D ax=~D l=~D ap=~,,7f lat=~,,7f~%")
                        c (- (-> self pframe) PHYSROOM-IMPF) ax l
                        (phys-link-dev-anc (-> self slot) c l 1)
                        (phys-link-dev-anc (-> self slot) c l 2))))))
        (when (>= (-> self pframe) PHYSROOM-AXW)
          (set! (-> self pframe) 0)
          (phys-stats-reset!)
+         ;; LE CONTROLE EST RENDU A 0 A CHAQUE SORTIE DE FENETRE. Un controle qui resterait arme
+         ;; contaminerait toutes les mesures suivantes — c'est la faute que `phys-rest-k-set!`
+         ;; evite deja de la meme facon.
+         (phys-len-off-set! 0)
          (set! (-> self phase)
-               (cond ((= ax 0) PHYSROOM-PH-AXB)
-                     ((= ax 1) PHYSROOM-PH-AXL)
-                     (else     PHYSROOM-PH-ORI))))))
+               (cond ((= (-> self phase) PHYSROOM-PH-AXV)  PHYSROOM-PH-AXB)
+                     ((= (-> self phase) PHYSROOM-PH-AXB)  PHYSROOM-PH-AXL)
+                     ((= (-> self phase) PHYSROOM-PH-AXL)  PHYSROOM-PH-AXZV)
+                     ((= (-> self phase) PHYSROOM-PH-AXZV) PHYSROOM-PH-AXZB)
+                     ((= (-> self phase) PHYSROOM-PH-AXZB) PHYSROOM-PH-AXZL)
+                     (else PHYSROOM-PH-ORI))))))
 
     ;; ---- 4 quater. SPEC 10-13 — LES EQUILIBRES PAR ORIENTATION, ET LEUR CONTINUITE.
     ;; Chaque orientation est TENUE (aucun pilotage, aucune acceleration) le temps que la reponse

@@ -2745,7 +2745,19 @@ def main():
     A('     diaphonie — et si les trois fenetres rendaient la meme frequence, l\'anisotropie de')
     A('     SPEC 29 n\'atteindrait pas le solveur.')
     A('   ABSENT : aucune ligne PHYSRINGAX dans la trace (phases AXV/AXB/AXL non jouees).')
+    # `_axs` = contrainte de longueur ARMEE (PHYSRINGAX), `_axz` = DESARMEE (PHYSRINGAZ). Meme
+    # disposition de champs, donc meme parseur au nom pres.
     _axs = {}
+    _axz = {}
+    for m in re.finditer(r'^PHYSRINGAZ c=(\d+) f=(\d+) l=(\d+) ax=(\d+) v=([-\d.e+]+)', txt, re.M):
+        _axz.setdefault((int(m.group(4)), int(m.group(1)), 'v'), []).append(
+            (int(m.group(2)), float(m.group(5))))
+    for m in re.finditer(r'^PHYSRINGAZ2 c=(\d+) f=(\d+) ax=(\d+) l=(\d+)'
+                         r' ap=([-\d.e+]+) lat=([-\d.e+]+)', txt, re.M):
+        _axz.setdefault((int(m.group(3)), int(m.group(1)), 'ap'), []).append(
+            (int(m.group(2)), float(m.group(5))))
+        _axz.setdefault((int(m.group(3)), int(m.group(1)), 'lat'), []).append(
+            (int(m.group(2)), float(m.group(6))))
     for m in re.finditer(r'^PHYSRINGAX c=(\d+) f=(\d+) l=(\d+) ax=(\d+) v=([-\d.e+]+)', txt, re.M):
         _axs.setdefault((int(m.group(4)), int(m.group(1)), 'v'), []).append(
             (int(m.group(2)), float(m.group(5))))
@@ -2795,6 +2807,39 @@ def main():
                   % (_AXN[_k], _nm, 100 * _r['v'] / _tt, 100 * _r['ap'] / _tt,
                      100 * _r['lat'] / _tt,
                      'ISOLE' if _dom == _AXN[_k] else 'MELANGE, domine par %s' % _dom.upper()))
+        A('')
+        # ---- LE CONTROLE POSITIF DE L'HYPOTHESE : contrainte de longueur DESARMEE -------------
+        # Hypothese du cycle 8 : un point contraint sur une sphere autour de son ancre n'a que DEUX
+        # degres de liberte de translation, la ou SPEC 24 en demande TROIS. Si c'est la cause de la
+        # non-selectivite, la LEVER doit faire MONTER la part de reponse tombant sur l'axe pousse.
+        # LECTURE : `delta` positif = l'hypothese est soutenue ; nul ou negatif = elle est REFUTEE,
+        # et la cause du melange est ailleurs. Les deux issues sont publiees telles quelles.
+        if not _axz:
+            A('ROOM-AXSEL-NOLEN: ABSENT (aucune serie PHYSRINGAZ — phases AXZ non jouees)')
+        else:
+            A('   CONTROLE POSITIF — LA MEME IMPULSION, CONTRAINTE DE LONGUEUR (SPEC 22) LEVEE.')
+            A('   `sel` = part de la reponse tombant sur l\'axe POUSSE. Si la contrainte est ce qui')
+            A('   confisque le troisieme degre de liberte, `sel` doit MONTER quand on la leve.')
+            for _c in sorted({c for (_k, c, _a) in _axz}):
+                _nm = names[_c] if _c < len(names) else 'c%d' % _c
+                for _k in (0, 1, 2):
+                    def _sel(_d):
+                        _q = {}
+                        for _a in ('v', 'ap', 'lat'):
+                            if (_k, _c, _a) in _d:
+                                _vv = [v for _f, v in _d[(_k, _c, _a)]]
+                                _q[_a] = (sum(x * x for x in _vv) / max(1, len(_vv))) ** 0.5
+                        if len(_q) != 3:
+                            return None
+                        return 100.0 * _q[_AXN[_k]] / (sum(_q.values()) or 1.0)
+                    _on, _off = _sel(_axs), _sel(_axz)
+                    if _on is None or _off is None:
+                        continue
+                    A('ROOM-AXSEL-NOLEN: excite=%-3s chain=%-12s sel_contrainte=%4.1f%%'
+                      '  sel_levee=%4.1f%%  delta=%+5.1f pts  -> %s'
+                      % (_AXN[_k], _nm, _on, _off, _off - _on,
+                         'HYPOTHESE SOUTENUE' if _off - _on >= 5.0 else
+                         'HYPOTHESE REFUTEE (la contrainte n\'est pas la cause)'))
         A('')
         A('   excite  chaine        axe  n    f (Hz)  intervalle       zeta   residu  rebond'
           '   cible §24')
