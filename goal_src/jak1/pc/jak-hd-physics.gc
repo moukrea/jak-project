@@ -280,10 +280,12 @@
 ;;   vertical = l'axe local de l'ancre le plus aligne avec la GRAVITE vue de l'ancre (`gl`, deja
 ;;              calculee pour §3) — c'est la definition meme de « vertical » dans sa §24, et elle
 ;;              ne suppose rien de l'orientation du modele ;
-;;   AP       = parmi les deux restants, le plus aligne avec la direction ANCRE -> JOINT DE L'ORGANE,
-;;              qui est la protrusion du sein : sa §24 appelle cet axe « Front/Back », et c'est
-;;              exactement celui-la ;
-;;   lateral  = le troisieme.
+;;   lateral  = parmi les deux restants, celui que le SEGMENT INTER-SEINS designe — voir la note de
+;;              `*phys-axsep*`. CETTE LIGNE A ETE CORRIGEE LE 2026-08-14 (cycle 10) : elle disait
+;;              « AP = le plus aligne avec la direction ancre -> joint de l'organe », ce qui posait
+;;              le role AP sur la ligne 0 de `chest`, mesuree a (+1,0,0) — le lateral du personnage.
+;;              §29 et §24 travaillaient donc sur deux axes intervertis ;
+;;   AP       = le troisieme, celui qui reste.
 ;; On stocke l'INDEX DE LIGNE (0/1/2) de la matrice de l'ancre ; le solveur relit les axes sur la
 ;; matrice COURANTE, donc le triedre tourne avec le torse sans jamais etre reclasse.
 (define *phys-axv*  (new 'global 'array 'int32 PHYS-SC))   ;; index de ligne : vertical
@@ -301,6 +303,30 @@
 (define *phys-axs* (new 'global 'array 'float (* PHYS-SC 3)))
 ;; [NOTE-15] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
 (define *phys-axan* (new 'global 'array 'int32 PHYS-SC))   ;; 1 = raideur par axe ARMEE
+;; ============================================================================================
+;; CE QUI NOMME LES AXES, ET POURQUOI CE N'EST PLUS UNE HEURISTIQUE (cycle 10).
+;;
+;; La regle precedente disait : « AP = celle des deux lignes restantes sur laquelle l'OS se
+;; projette le plus ». Rien d'anatomique n'entrait dans ce choix, et il etait FAUX : mesure sur le
+;; rig, `chest` a pour ligne 0 (+1,0,0) — le lateral gauche-droite du personnage — et c'est
+;; precisement la ligne que cette regle appelait `ap`. Consequence : §29 posait la compliance 0.90
+;; (avant-arriere) sur le LATERAL et 0.82 (lateral) sur l'AVANT-ARRIERE, et §24 comparait ses
+;; 2.50 / 2.65 Hz aux mauvais axes. Le mecanisme etait arme, la mesure etait propre, et les deux
+;; sections etaient fausses sans que rien ne puisse le signaler : une mesure par axe qui ne publie
+;; que des VALEURS ne peut pas attraper une permutation de ses propres axes.
+;;
+;; LA NOUVELLE REGLE REPOSE SUR UN INVARIANT QUE L'ETIQUETAGE NE PEUT PAS INFLUENCER : les deux
+;; seins sont separes GAUCHE-DROITE. `lBoob` et `rBoob` partagent le meme parent (`chest`), donc
+;; la difference de leurs positions EST le segment inter-seins, et il est lateral par definition
+;; anatomique. La ligne sur laquelle il tombe est le LATERAL ; l'autre est l'avant-arriere.
+;; Mesure du rig : (+712.31, +0.01, -0.00) u = 17.4 cm, 100 % sur la ligne 0.
+;;
+;; ET LE RESULTAT EST PUBLIE, pas suppose : `*phys-axsep*` porte les deux projections que la
+;; decision a comparees et `*phys-axsrc*` dit LAQUELLE des deux regles a tranche. La salle en fait
+;; `PHYSAXNAME`, donc l'affectation se lit dans la trace d'une course — un commentaire ne prouve
+;; rien (regle 0), et c'est exactement ce qui manquait pour voir l'interversion.
+(define *phys-axsep* (new 'global 'array 'float (* PHYS-SC 3)))  ;; sep. inter-chaine, repere ancre
+(define *phys-axsrc* (new 'global 'array 'int32 PHYS-SC))  ;; 0 = pas de partenaire, 1 = separation
 ;; ============================================================================================
 ;; SPEC 8 / 10-13 / 29-torsion / 33-34 / 36 — LE CANAL DE DEFORMATION, LA TORSION, LA RESTITUTION.
 ;; Ajoutes le 2026-08-14 (cycle 7), dans l'ordre que sa directive de 11:50 fixe au point 4.
@@ -383,6 +409,68 @@
 ;; caler sur SA bande (2-5 % normal, 5-7 % impulsion forte) sans le regler sur l'instrument.
 (define *phys-secr* (new 'global 'array 'float PHYS-SC))
 (define *phys-dynm* (new 'global 'array 'float PHYS-SC))   ;; son maximum sur la fenetre
+;; ============================================================================================
+;; SPEC 23 — LE TROISIEME DEGRE DE LIBERTE, CELUI QUE LA CONTRAINTE DE LONGUEUR CONFISQUAIT.
+;;
+;; « M.x'' + C.x' + K.x = M.a_drive + F_collision, ou `x` = relative breast COM displacement [...]
+;;   A SINGLE SPRING ATTACHED TO THE NIPPLE/APEX IS INSUFFICIENT. »
+;;
+;; CE QUI MANQUAIT, ET C'EST MESURE, PAS SUPPOSE. Le point integre est l'APEX, et il est projete
+;; chaque frame sur la sphere de rayon `want` autour de son ancre (`phys-length-chain`, 11 fois par
+;; frame). Un point sur une sphere a DEUX degres de liberte ; sa §24 en demande TROIS. Le degre
+;; manquant est le RADIAL — et le rig dit lequel c'est : l'os `chest -> lBoob` vaut
+;; (+0.3646, -0.9192, -0.1490) dans le triedre de l'ancre, donc **84.5 % de l'axe VERTICAL**,
+;; celui que sa §24 appelle « intentionally the SLOWEST ». La fréquence propre verticale ne pouvait
+;; donc structurellement pas exister, et deux cycles ont cherche une cause a un degre de liberte
+;; absent. Controle du cycle 9, contrainte levee : la selectivite verticale passe de 17.8 % a
+;; 60.6 % et la serie s'ajuste a 2.3400 Hz contre les 2.30 Hz de sa §24.
+;;
+;; POURQUOI IL S'AJOUTE ICI ET PAS EN LIBERANT LA PROJECTION. Sa §22 ordonne que l'OS ne s'allonge
+;; pas (« ROOM-STRETCH <= 3 % », `el = 0.0000` aujourd'hui) et sa §22 AUTORISE en meme temps le
+;; TISSU a s'allonger (« local tissue elongation: common 5-15 %, large 15-21 %, exceptional
+;; 21-25 %, absolute clamp 25 % »). Ce sont deux grandeurs distinctes, et le dossier a deja paye
+;; de les avoir confondues. Le degre de liberte radial est donc celui de la CHAIR : il s'integre
+;; comme les deux autres, avec la meme raideur projetee sur le triedre (§29) et le meme
+;; amortissement (§25), et il atteint l'ecran par le canal de deformation qui existe deja — pas
+;; par la position du joint. L'os reste invariant, le tissu respire.
+;;
+;; CE N'EST PAS UN SUPPRESSEUR : il vaut ZERO au repos debout (aucune elongation), donc §9 — le
+;; retour EXACT a la pose d'auteur — est preservee par construction. Et il n'atteint QUE les
+;; chaines de famille A dont le triedre est arme : les organes geles par l'owner ne le voient pas.
+;;
+;; COMMENT IL EST INTEGRE, ET POURQUOI PAS AUTREMENT. Premiere ecriture de ce cycle : un
+;; oscillateur SCALAIRE sur la coordonnee radiale relative. RETIREE AVANT TOUTE MESURE, parce
+;; qu'elle etait morte par construction et que le code le dit : pour une chaine de famille A,
+;; `gdw` ne porte QUE la reorientation de la gravite (`gl - g_ref`, :2513-2523) ; la TRANSLATION du
+;; torse n'y entre pas — elle atteint la particule par l'ANCRE qui deplace la cible du ressort
+;; (« c'est par elle, et par elle seule, que le mouvement du crane atteint la particule — par la
+;; contrainte, pas par un ressort »). Une coordonnee RELATIVE n'a pas d'ancre qui bouge : elle
+;; n'aurait vu que l'inclinaison, et serait restee plate sous `updown`, `accel` et `jerk`. Un
+;; degre de liberte qui ne repond qu'a un pilotage sur cinq aurait rendu une serie plate qu'on
+;; aurait lue « le degre de liberte n'arrive pas », pour une raison qui n'a rien de physique.
+;;
+;; CE QUI EST INTEGRE A LA PLACE : LE MEME POINT, SANS LA PROJECTION. Un compagnon integre avec la
+;; MEME cible, la MEME raideur anisotrope, le MEME amortissement et le MEME pilotage que l'apex —
+;; et qui n'est simplement JAMAIS projete sur la sphere. Son excitation vient donc du meme
+;; mecanisme que celle de l'apex, sans terme invente. L'ecart de RAYON entre lui et la sphere de
+;; l'os EST le degre de liberte confisque, et c'est lui qui nourrit l'elongation du tissu.
+;; Sa borne est celle que sa §22 donne au COM (« normal <= 35 % B0, hard transient <= 40 % B0 »),
+;; distincte de celle de l'apex (42 % / 50 %) : deux lignes de sa spec, deux bandes.
+;;
+;; CE QUE CE N'EST PAS, ET JE L'ECRIS ICI POUR QUE PERSONNE NE LE LISE DE TRAVERS : le point
+;; integre reste situe A L'APEX, pas au centre de masse du sein. Sa §23 nomme `x` « the relative
+;; breast COM displacement ». Le nombre de degres de liberte est desormais celui qu'elle demande,
+;; et la deformation locale en derive comme elle l'ordonne ; le POINT D'APPLICATION, lui, reste
+;; celui d'avant. C'est le residu de §23, il est connu, et il est ecrit dans le rapport.
+(define *phys-cpx*  (new 'global 'array 'float PHYS-SC))   ;; §23 le point LIBRE, monde
+(define *phys-cpy*  (new 'global 'array 'float PHYS-SC))
+(define *phys-cpz*  (new 'global 'array 'float PHYS-SC))
+(define *phys-cqx*  (new 'global 'array 'float PHYS-SC))   ;; le meme, frame -1 (verlet)
+(define *phys-cqy*  (new 'global 'array 'float PHYS-SC))
+(define *phys-cqz*  (new 'global 'array 'float PHYS-SC))
+(define *phys-rok*  (new 'global 'array 'int32 PHYS-SC))   ;; 1 = le point libre est amorce
+(define *phys-rr*   (new 'global 'array 'float PHYS-SC))   ;; §23 elongation radiale, unites de jeu
+(define *phys-rrm*  (new 'global 'array 'float PHYS-SC))   ;; |elongation|/B0 max sur la fenetre
 (define *phys-prsm* (new 'global 'array 'float PHYS-SC))  ;; §23 aplatissement de contact, max fenetre
 (define *phys-prsr* (new 'global 'array 'float PHYS-SC))  ;; le meme AVANT plafond (anti-saturation)
 (define *phys-vp*   (new 'global 'inline-array 'vector PHYS-SC))  ;; vitesse de pointe, frame -1
@@ -753,8 +841,10 @@
                     ;; exactement ce qu'elle integrait avant que ce bloc n'existe.
                     (set! (-> *phys-axok* sc) 0)
                     (set! (-> *phys-axan* sc) 0)
+                    (set! (-> *phys-axsrc* sc) 0)
                     (dotimes (ii 3)
-                      (set! (-> *phys-axs* (+ (* sc 3) ii)) 1.0))
+                      (set! (-> *phys-axs* (+ (* sc 3) ii)) 1.0)
+                      (set! (-> *phys-axsep* (+ (* sc 3) ii)) 0.0))
                     ;; SPEC 37 — « rebase on teleportation / level transition ». Un slot reutilise
                     ;; redemande TOUTES ses references : triedre, torsion, mode secondaire. Un etat
                     ;; qui survit a un respawn est un etat qui vieillit, et sa spec l'interdit.
@@ -773,6 +863,13 @@
                     (set! (-> *phys-dynm* sc) 0.0)
                     (set! (-> *phys-prsm* sc) 0.0)
                     (set! (-> *phys-prsr* sc) 0.0)
+                    ;; SPEC 37 « rebase on teleportation / level transition » : le degre de liberte
+                    ;; radial est un ETAT, il repart donc de zero comme la torsion et le mode
+                    ;; secondaire. Un tissu qui garderait son elongation a travers un respawn
+                    ;; violerait §9 des la premiere frame.
+                    (set! (-> *phys-rr* sc) 0.0)
+                    (set! (-> *phys-rrm* sc) 0.0)
+                    (set! (-> *phys-rok* sc) 0)
                     (set-vector! (-> *phys-vp* sc) 0.0 0.0 0.0 0.0)
                     (dotimes (ii 3)
                       (set! (-> *phys-dfs* (+ (* sc 3) ii)) 1.0))
@@ -2298,6 +2395,7 @@
               (uv   (new 'stack-no-clear 'vector))
               (uv2  (new 'stack-no-clear 'vector))
               (sv   (new 'stack-no-clear 'vector))
+              (sep  (new 'stack-no-clear 'vector))
               (pt   (new 'stack-no-clear 'vector))
               (tgt  (new 'stack-no-clear 'vector))
               (rest (new 'stack-no-clear 'vector))
@@ -2342,6 +2440,31 @@
                                      (- (-> skel bones (+ k0 1) transform vector 3 z) (-> anc z))
                                      0.0)
                         (vector-rotate*! sv sv w2l)
+                        ;; L'INVARIANT EXTERNE QUI NOMME LE LATERAL — voir la note de `*phys-axsep*`.
+                        ;; On cherche l'AUTRE chaine de famille A pendue a la MEME ancre : c'est le
+                        ;; sein oppose, et le segment qui va de l'un a l'autre est lateral par
+                        ;; anatomie, pas par convention de rig. Rien ici ne suppose une orientation
+                        ;; de modele, un nom d'os ni un ordre d'axes.
+                        (set-vector! sep 0.0 0.0 0.0 0.0)
+                        (set! (-> *phys-axsrc* sc) 0)
+                        (dotimes (c2 nch)
+                          (let ((sc2 (+ (* slot PHYS-CHAINS) c2)))
+                            (when (and (zero? (-> *phys-axsrc* sc)) (!= c2 c)
+                                       (= (-> *phys-fam* sc2) 1)
+                                       (= (-> *phys-anchor* sc2) an)
+                                       (> (-> *phys-nlink* sc2) 0))
+                              (let ((k2 (-> *phys-joint* (* sc2 PHYS-LINKS))))
+                                (when (and (>= k2 0) (< (+ k2 1) nbone))
+                                  (set-vector! sep
+                                               (- (-> skel bones (+ k0 1) transform vector 3 x)
+                                                  (-> skel bones (+ k2 1) transform vector 3 x))
+                                               (- (-> skel bones (+ k0 1) transform vector 3 y)
+                                                  (-> skel bones (+ k2 1) transform vector 3 y))
+                                               (- (-> skel bones (+ k0 1) transform vector 3 z)
+                                                  (-> skel bones (+ k2 1) transform vector 3 z))
+                                               0.0)
+                                  (vector-rotate*! sep sep w2l)
+                                  (set! (-> *phys-axsrc* sc) 1))))))
                         (let* ((gax (fabs (-> gl x)))
                                (gay (fabs (-> gl y)))
                                (gaz (fabs (-> gl z)))
@@ -2350,8 +2473,24 @@
                                ;;   iv=0 -> (1,2)   iv=1 -> (0,2)   iv=2 -> (0,1)
                                (ja  (if (= iv 0) 1 0))
                                (jb  (if (= iv 2) 1 2))
-                               (ia  (if (>= (fabs (-> sv data ja)) (fabs (-> sv data jb))) ja jb))
-                               (il  (if (= ia ja) jb ja)))
+                               ;; LATERAL D'ABORD, et c'est le renversement du cycle 10 : c'est le
+                               ;; segment INTER-SEINS qui designe une ligne, et l'avant-arriere est
+                               ;; « celle qui reste ». Le repli (chaine seule, pas de partenaire) lit
+                               ;; la protrusion propre de l'organe et la nomme LATERALE elle aussi :
+                               ;; la racine d'un sein est decalee lateralement par rapport au sternum,
+                               ;; mesure sur le rig a (+356, -898, -146) u en repere `chest`, donc
+                               ;; parmi les deux lignes non verticales c'est bien le lateral qui
+                               ;; domine (13.3 % contre 2.2 %). Les deux regles rendent donc le meme
+                               ;; verdict ici, et `*phys-axsrc*` dit laquelle a tranche.
+                               (il  (if (nonzero? (-> *phys-axsrc* sc))
+                                      (if (>= (fabs (-> sep data ja)) (fabs (-> sep data jb))) ja jb)
+                                      (if (>= (fabs (-> sv data ja)) (fabs (-> sv data jb))) ja jb)))
+                               (ia  (if (= il ja) jb ja)))
+                          ;; CE QUE LA DECISION A COMPARE, publie tel quel : sans ces deux nombres,
+                          ;; « le lateral est la ligne 0 » resterait une affirmation de source.
+                          (set! (-> *phys-axsep* (+ (* sc 3) 0)) (-> sep data ja))
+                          (set! (-> *phys-axsep* (+ (* sc 3) 1)) (-> sep data jb))
+                          (set! (-> *phys-axsep* (+ (* sc 3) 2)) (vector-length sep))
                           (set! (-> *phys-axv* sc) iv)
                           (set! (-> *phys-axa* sc) ia)
                           (set! (-> *phys-axl* sc) il)
@@ -2613,6 +2752,20 @@
                                        (set! tgy (+ ay (-> uv y)))
                                        (set! tgz (+ az (-> uv z)))
                                        (set! hasf 1))))
+                                 ;; SPEC 23 — AMORCAGE DU POINT LIBRE, une seule fois par chaine.
+                                 ;; Il part exactement de l'etat de l'apex : meme position, meme
+                                 ;; vitesse verlet. Donc a la premiere frame l'elongation radiale
+                                 ;; qu'il produit vaut ZERO, et §9 (« retour EXACT a la pose
+                                 ;; d'auteur ») est preservee par construction et non par reglage.
+                                 (when (and (nonzero? (-> *phys-axan* sc)) (= l rlk)
+                                            (zero? (-> *phys-rok* sc)))
+                                   (set! (-> *phys-cpx* sc) (-> *phys-px* scl))
+                                   (set! (-> *phys-cpy* sc) (-> *phys-py* scl))
+                                   (set! (-> *phys-cpz* sc) (-> *phys-pz* scl))
+                                   (set! (-> *phys-cqx* sc) (-> *phys-qx* scl))
+                                   (set! (-> *phys-cqy* sc) (-> *phys-qy* scl))
+                                   (set! (-> *phys-cqz* sc) (-> *phys-qz* scl))
+                                   (set! (-> *phys-rok* sc) 1))
                                  ;; [NOTE-40] ---- INTEGRATION EN POSITION MONDE. Trois termes, et c'est TOUT : -> jak-hd-physics-NOTES.md
                                  (let* ((kd  (fmax 0.0 (- 1.0 (if (and (nonzero? ela) (> k2 0.000001))
                                                                (* dmp (sqrtf (/ k2l k2)))
@@ -2692,7 +2845,27 @@
                                         (kds2 (if (= ns 2) (sqrtf kd2) (sqrtf (sqrtf kd2))))
                                         (vx  (/ (- (-> *phys-px* scl) (-> *phys-qx* scl)) fns))
                                         (vy  (/ (- (-> *phys-py* scl) (-> *phys-qy* scl)) fns))
-                                        (vz  (/ (- (-> *phys-pz* scl) (-> *phys-qz* scl)) fns)))
+                                        (vz  (/ (- (-> *phys-pz* scl) (-> *phys-qz* scl)) fns))
+                                        ;; ---- SPEC 23 : LE TROISIEME DEGRE DE LIBERTE ----------
+                                        ;; Voir la note de `*phys-cpx*`. Le point LIBRE part de
+                                        ;; l'etat de l'apex a sa premiere frame, puis vit sa vie :
+                                        ;; meme cible, meme raideur, meme traineee, meme pilotage,
+                                        ;; et AUCUNE projection. `rlo` l'arme sur le seul maillon
+                                        ;; qui porte l'ancre rigide.
+                                        (rlo (if (and (nonzero? axo) (= l rlk) (nonzero? hasf)) 1 0))
+                                        ;; §22 SUR LE COM, ET C'EST UNE AUTRE BANDE QUE CELLE DE
+                                        ;; L'APEX : « Breast COM: normal <= 35 % B0, hard transient
+                                        ;; <= 40 % B0 » contre « distal/apex: 42 % / 50 % ». Meme
+                                        ;; construction que `kn`/`cpp`, deux bandes parce que sa
+                                        ;; spec en donne deux.
+                                        (ckn (* 0.35 b0e))
+                                        (ccp (* 0.05 b0e))
+                                        (cpx (-> *phys-cpx* sc))
+                                        (cpy (-> *phys-cpy* sc))
+                                        (cpz (-> *phys-cpz* sc))
+                                        (cvx (/ (- cpx (-> *phys-cqx* sc)) fns))
+                                        (cvy (/ (- cpy (-> *phys-cqy* sc)) fns))
+                                        (cvz (/ (- cpz (-> *phys-cqz* sc)) fns)))
                                    (dotimes (ss ns)
                                      (let ((fx 0.0) (fy 0.0) (fz 0.0))
                                        (when (nonzero? hasf)
@@ -2753,7 +2926,68 @@
                                            (set! vz (+ (* vz kds) (+ fz ggz)))))
                                        (set! (-> *phys-px* scl) (+ (-> *phys-px* scl) vx))
                                        (set! (-> *phys-py* scl) (+ (-> *phys-py* scl) vy))
-                                       (set! (-> *phys-pz* scl) (+ (-> *phys-pz* scl) vz))))
+                                       (set! (-> *phys-pz* scl) (+ (-> *phys-pz* scl) vz))
+                                       ;; ---- SPEC 23, LE MEME SOUS-PAS, LE POINT LIBRE -----------
+                                       ;; Il s'integre DANS la boucle de sous-pas, donc a la meme
+                                       ;; frequence effective que l'apex (§37 : `ns` = 4 sur cette
+                                       ;; chaine, soit 240 Hz). L'integrer dehors lui donnerait
+                                       ;; 60 Hz et sa §37 serait fausse pour lui seul.
+                                       ;; MEME CIBLE, MEME RAIDEUR ANISOTROPE, MEME TRAINEE, MEME
+                                       ;; PILOTAGE que l'apex : le seul terme qui differe est la
+                                       ;; bande de saturation (§22 donne 0.35/0.40 B0 au COM et
+                                       ;; 0.42/0.50 B0 a l'apex), et l'absence de projection.
+                                       (when (nonzero? rlo)
+                                         (let* ((cex (- tgx cpx))
+                                                (cey (- tgy cpy))
+                                                (cez (- tgz cpz))
+                                                (cdd (sqrtf (+ (* cex cex) (+ (* cey cey) (* cez cez)))))
+                                                (cmu (if (and (nonzero? sat) (> cdd ckn)
+                                                              (> ccp 0.0001) (> cdd 0.0001))
+                                                       (let ((xr (fmin 0.99 (/ (- cdd ckn) ccp))))
+                                                         (fmin (/ (+ ckn (* ccp (/ xr (- 1.0 xr)))) cdd)
+                                                               (/ 1.0 (fmax 0.000001 k2s))))
+                                                       1.0))
+                                                (q0 (+ (* cex n0x) (+ (* cey n0y) (* cez n0z))))
+                                                (q1 (+ (* cex n1x) (+ (* cey n1y) (* cez n1z))))
+                                                (q2 (+ (* cex n2x) (+ (* cey n2y) (* cez n2z))))
+                                                (d0 (* s0 q0))
+                                                (d1 (* s1 q1))
+                                                (d2 (* s2 q2))
+                                                (cfx (* k2s (* cmu (+ (* d0 n0x) (+ (* d1 n1x) (* d2 n2x))))))
+                                                (cfy (* k2s (* cmu (+ (* d0 n0y) (+ (* d1 n1y) (* d2 n2y))))))
+                                                (cfz (* k2s (* cmu (+ (* d0 n0z) (+ (* d1 n1z) (* d2 n2z))))))
+                                                (ea (* (+ (* cvx n0x) (+ (* cvy n0y) (* cvz n0z))) kds0))
+                                                (eb (* (+ (* cvx n1x) (+ (* cvy n1y) (* cvz n1z))) kds1))
+                                                (ec (* (+ (* cvx n2x) (+ (* cvy n2y) (* cvz n2z))) kds2)))
+                                           (set! cvx (+ (+ (* ea n0x) (+ (* eb n1x) (* ec n2x)))
+                                                        (+ cfx ggx)))
+                                           (set! cvy (+ (+ (* ea n0y) (+ (* eb n1y) (* ec n2y)))
+                                                        (+ cfy ggy)))
+                                           (set! cvz (+ (+ (* ea n0z) (+ (* eb n1z) (* ec n2z)))
+                                                        (+ cfz ggz)))
+                                           (set! cpx (+ cpx cvx))
+                                           (set! cpy (+ cpy cvy))
+                                           (set! cpz (+ cpz cvz))))))
+                                   ;; L'ELONGATION RADIALE : l'ecart de RAYON entre le point libre et
+                                   ;; la sphere que la contrainte impose a l'os. C'est exactement le
+                                   ;; degre de liberte que la projection confisque, et rien d'autre :
+                                   ;; la part TANGENTIELLE du point libre n'est consommee nulle part.
+                                   (when (nonzero? rlo)
+                                     (set! (-> *phys-cpx* sc) cpx)
+                                     (set! (-> *phys-cpy* sc) cpy)
+                                     (set! (-> *phys-cpz* sc) cpz)
+                                     (set! (-> *phys-cqx* sc) (- cpx (* fns cvx)))
+                                     (set! (-> *phys-cqy* sc) (- cpy (* fns cvy)))
+                                     (set! (-> *phys-cqz* sc) (- cpz (* fns cvz)))
+                                     (let* ((rx (- cpx ax))
+                                            (ry (- cpy ay))
+                                            (rz (- cpz az))
+                                            (rl (sqrtf (+ (* rx rx) (+ (* ry ry) (* rz rz)))))
+                                            (drr (if (> bl 0.01) (- rl bl) 0.0)))
+                                       (set! (-> *phys-rr* sc) drr)
+                                       (let ((ar (/ (fabs drr) (fmax 1.0 b0e))))
+                                         (when (> ar (-> *phys-rrm* sc))
+                                           (set! (-> *phys-rrm* sc) ar)))))
                                    (set! (-> *phys-qx* scl) (- (-> *phys-px* scl) (* fns vx)))
                                    (set! (-> *phys-qy* scl) (- (-> *phys-py* scl) (* fns vy)))
                                    (set! (-> *phys-qz* scl) (- (-> *phys-pz* scl) (* fns vz)))))))))))
@@ -3584,17 +3818,34 @@
                           ;; Le tenseur est un etirement d'axe `u` (la direction du deplacement) et de
                           ;; rapport `1+s`, avec les deux perpendiculaires en `1/sqrt(1+s)` : son
                           ;; determinant vaut EXACTEMENT 1, donc §8 est tenue sans correction.
+                          ;; SPEC 23 — LE DEGRE DE LIBERTE RADIAL ARRIVE ICI, ET NULLE PART AILLEURS.
+                          ;; Deux contributions a UNE SEULE elongation de tissu, sommees EN VECTEUR
+                          ;; avant le plafond :
+                          ;;   - celle que le deplacement du maillon impose (cinematique, deja la) ;
+                          ;;   - celle que l'oscillateur radial de §23 porte, le long de l'axe de
+                          ;;     l'os (`*phys-u**`, meme repere d'ancre que `*phys-o**`).
+                          ;; SOMMEES, PAS COMPOSEES : deux tenseurs multiplies auraient laisse
+                          ;; l'elongation atteindre 1.25 x 1.25 = 1.56 quand les deux axes
+                          ;; s'alignent, et sa §22 fixe un CLAMP ABSOLU a 25 %. Une seule norme, un
+                          ;; seul plafond, une seule direction : la borne de sa §22 est exacte par
+                          ;; construction, et `*phys-dynm*` continue de la mesurer telle quelle.
+                          ;; A `*phys-rr*` = 0 ce bloc rend BIT POUR BIT l'ancien : `dl` vaut
+                          ;; `PHYS-DYN-K * |o| / b0f` et l'axe vaut `o/|o|`, comme avant.
                           (let* ((gb  (* sc 3))
-                                 (dx  (-> *phys-ox* tl))
-                                 (dy  (-> *phys-oy* tl))
-                                 (dz  (-> *phys-oz* tl))
+                                 (rdr (/ (-> *phys-rr* sc) b0f))
+                                 (dx  (+ (* PHYS-DYN-K (/ (-> *phys-ox* tl) b0f))
+                                         (* rdr (-> *phys-ux* tl))))
+                                 (dy  (+ (* PHYS-DYN-K (/ (-> *phys-oy* tl) b0f))
+                                         (* rdr (-> *phys-uy* tl))))
+                                 (dz  (+ (* PHYS-DYN-K (/ (-> *phys-oz* tl) b0f))
+                                         (* rdr (-> *phys-uz* tl))))
                                  (dl  (sqrtf (+ (* dx dx) (+ (* dy dy) (* dz dz)))))
-                                 (sdy (fmin PHYS-DYN-MAX (* PHYS-DYN-K (/ dl b0f))))
+                                 (sdy (fmin PHYS-DYN-MAX dl))
                                  (ee  (+ 1.0 sdy))
                                  (tt  (/ 1.0 (sqrtf ee))))
                             (when (> sdy (-> *phys-dynm* sc)) (set! (-> *phys-dynm* sc) sdy))
                             (cond
-                              ((and (> dl 0.0001) (> sdy 0.000001))
+                              ((and (> dl 0.000001) (> sdy 0.000001))
                                (let ((ux (/ dx dl)) (uy (/ dy dl)) (uz (/ dz dl)))
                                  (dotimes (i 3)
                                    (dotimes (j 3)
@@ -3854,6 +4105,10 @@
     (set! (-> *phys-dynm* sc) 0.0)
     (set! (-> *phys-prsm* sc) 0.0)
     (set! (-> *phys-prsr* sc) 0.0)
+    ;; §23 : maximum de FENETRE, donc remis a zero ici. `*phys-rr*` et `*phys-rq*` — l'etat — ne le
+    ;; sont PAS, pour la meme raison que le mode secondaire et la torsion : chaque fenetre
+    ;; relancerait sinon l'oscillateur radial depuis rien.
+    (set! (-> *phys-rrm* sc) 0.0)
     (set! (-> *phys-twm* sc) 0.0)
     (set! (-> *phys-thas* sc) 0))
   ;; SPEC 33/34 — les compteurs de restitution, par fenetre eux aussi.
@@ -3995,7 +4250,42 @@
             ((= which 2) (-> *phys-axa* sc))
             ((= which 3) (-> *phys-axl* sc))
             ((= which 4) (-> *phys-axan* sc))
+            ;; 5 = QUELLE REGLE A NOMME LES AXES (0 = protrusion propre, faute de partenaire ;
+            ;; 1 = segment inter-seins, l'invariant externe). Sans ce champ, une course ne dirait
+            ;; pas si le verdict vient de l'anatomie ou du repli.
+            ((= which 5) (-> *phys-axsrc* sc))
             (else -1)))))
+
+(defun phys-chain-radial ((slot int) (chain int) (which int))
+  "SPEC 23 — LE TROISIEME DEGRE DE LIBERTE, LU A L'EXECUTION. Voir la note de `*phys-rr*`.
+   which 0 = elongation radiale du tissu en unites de jeu (signee) ;
+         1 = la meme, rapportee a B0 (SPEC 6) — c'est la grandeur que borne sa SPEC 22
+             (« local tissue elongation: common 5-15 %, large 15-21 %, exceptional 21-25 % ») ;
+         2 = son maximum absolu sur la fenetre de mesure courante.
+   NATURE : une DEFORMATION signee (sans unite pour 1 et 2), pas une amplitude agregee : c'est une
+   serie temporelle, et c'est ce qui permet d'en ajuster la frequence propre.
+   REPERE : l'axe de l'OS, dans le triedre de l'ANCRE (SPEC 7) — le degre de liberte que la
+   projection de longueur confisquait, a 84.5 % l'axe VERTICAL de sa SPEC 24.
+   LIGNE DE BASE : 0.0 exactement a la pose debout d'auteur (SPEC 9) — un tissu au repos ne
+   s'allonge pas, donc un zero ici n'est pas un trou de mesure, c'est l'etat neutre."
+  (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS)
+          (< which 0) (> which 2))
+    0.0
+    (let* ((sc (+ (* slot PHYS-CHAINS) chain))
+           (b0 (fmax 1.0 (-> *phys-b0* sc))))
+      (cond ((= which 0) (-> *phys-rr* sc))
+            ((= which 1) (/ (-> *phys-rr* sc) b0))
+            (else        (-> *phys-rrm* sc))))))
+
+(defun phys-chain-axsep ((slot int) (chain int) (which int))
+  "LES DEUX PROJECTIONS QUE LA DECISION DE NOMMAGE A COMPARE, et la norme du segment inter-seins.
+   which 0 = projection sur la premiere ligne candidate, 1 = sur la seconde, 2 = |separation|.
+   REPERE : le triedre de l'ANCRE (SPEC 7). NATURE : une longueur signee, en unites de jeu.
+   LIGNE DE BASE : 0 quand il n'y a pas de chaine partenaire — et `phys-chain-axis … 5` le dit."
+  (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS)
+          (< which 0) (> which 2))
+    0.0
+    (-> *phys-axsep* (+ (* (+ (* slot PHYS-CHAINS) chain) 3) which))))
 
 (defun phys-chain-axis-stiff ((slot int) (chain int) (which int))
   "LE FACTEUR DE RAIDEUR EFFECTIVEMENT APPLIQUE sur l'axe `which` (0 = vertical, 1 = avant-arriere,

@@ -1002,7 +1002,19 @@
     (format 0 "PHYSSHAPE4 c=~D a=~D d=~D prsm=~f prsr=~f~%"
             c (-> self ai) (-> self drive)
             (phys-shape (-> self slot) c 19)
-            (phys-shape (-> self slot) c 20))))
+            (phys-shape (-> self slot) c 20))
+    ;; §23/§22 — L'ELONGATION DU TISSU PORTEE PAR LE DEGRE DE LIBERTE RADIAL, sur cette fenetre.
+    ;; Elle se lit CONTRE SA PROPRE BANDE, qui n'est pas celle de l'apex : « local tissue
+    ;; elongation: common 5-15 %, large 15-21 %, exceptional 21-25 %, absolute clamp 25 % ».
+    ;; `rrm` est le maximum de |elongation|/B0 sur la fenetre, `rr` sa valeur a l'instant de la
+    ;; publication — les deux, parce qu'un maximum seul ne dit pas si l'oscillateur est encore
+    ;; vivant a la fin de la fenetre ou s'il s'est eteint.
+    ;; NATURE : deformation sans unite. REPERE : axe de l'os, triedre de l'ancre.
+    ;; LIGNE DE BASE : 0.0 exactement au repos debout (§9).
+    (format 0 "PHYSRAD c=~D a=~D d=~D rr=~f rrm=~f~%"
+            c (-> self ai) (-> self drive)
+            (phys-chain-radial (-> self slot) c 1)
+            (phys-chain-radial (-> self slot) c 2))))
   ;; SPEC 33/34 — LA RESTITUTION SUR CETTE FENETRE. Une ligne par fenetre, pas par chaine : les
   ;; compteurs sont globaux au solveur. `n` est le DOMAINE (contacts ou elle a mordu) ; sans lui,
   ;; `vin`/`vout` a zero ne distinguent pas « rien ne touche » de « rien ne s'applique ».
@@ -1295,6 +1307,26 @@
                      (phys-chain-axis-stiff (-> self slot) c 0)
                      (phys-chain-axis-stiff (-> self slot) c 1)
                      (phys-chain-axis-stiff (-> self slot) c 2))
+             ;; CE QUI A NOMME LES AXES, ET AVEC QUELS CHIFFRES. Le cycle 9 a trouve que les roles
+             ;; `ap` et `lat` etaient INTERVERTIS : §29 posait 0.90 sur le lateral et 0.82 sur
+             ;; l'avant-arriere, §24 comparait 2.50/2.65 Hz aux mauvais axes, et RIEN ne pouvait le
+             ;; signaler — une mesure par axe qui ne publie que des VALEURS ne peut pas attraper une
+             ;; permutation de ses propres axes. Il faut une grandeur dont la reponse est connue
+             ;; D'AVANCE par la geometrie : le segment qui va d'un sein a l'autre est lateral par
+             ;; anatomie. Il doit donc tomber ENTIEREMENT sur la ligne nommee `lat`.
+             ;; NATURE : deux longueurs signees et une norme, en unites de jeu. REPERE : le triedre
+             ;; de l'ANCRE. LIGNE DE BASE : `src=0` et trois zeros = pas de chaine partenaire, le
+             ;; nommage est retombe sur la protrusion propre de l'organe.
+             ;; CE QUI DISCRIMINE : `slat` doit porter ~712 u (17.4 cm mesures sur le rig) et `sap`
+             ;; ~0. Si les deux sont du meme ordre, la separation ne designe rien et le verdict de
+             ;; nommage est sans valeur — a lire avant toute conclusion sur §24 ou §29.
+             (format 0 "PHYSAXNAME c=~D src=~D rlat=~D sja=~f sjb=~f len=~f~%"
+                     c
+                     (phys-chain-axis (-> self slot) c 5)
+                     (phys-chain-axis (-> self slot) c 3)
+                     (phys-chain-axsep (-> self slot) c 0)
+                     (phys-chain-axsep (-> self slot) c 1)
+                     (phys-chain-axsep (-> self slot) c 2))
              (dotimes (l (phys-chain-links (-> self slot) c))
                (format 0 "PHYSBONE c=~D l=~D len=~f~%"
                        c l (phys-chain-bone hd (-> self slot) c l))
@@ -1715,7 +1747,24 @@
                            "PHYSRINGBZ2 c=~D f=~D ax=~D l=~D ap=~,,7f lat=~,,7f~%")
                        c (- (-> self pframe) PHYSROOM-IMPF) ax l
                        (phys-link-dev-anc-abs (-> self slot) c l 1)
-                       (phys-link-dev-anc-abs (-> self slot) c l 2))))))
+                       (phys-link-dev-anc-abs (-> self slot) c l 2))
+               ;; ---- SPEC 23 : LE TROISIEME DEGRE DE LIBERTE, DANS LA MEME FENETRE -------------
+               ;; `PHYSRINGAX` et `PHYSRINGBX` lisent toutes deux la position du JOINT, et ce joint
+               ;; vit sur une sphere : leur composante radiale est nulle par construction (la
+               ;; premiere parce qu'elle differencie des vecteurs UNITAIRES, la seconde parce que
+               ;; |u| = |m|). Aucune des deux ne peut donc porter le mode que sa §24 appelle
+               ;; « intentionally the SLOWEST » — il est a 84.5 % radial. Cette ligne-ci porte
+               ;; l'etat radial LUI-MEME, celui que §23 integre.
+               ;; NATURE : une DEFORMATION signee rapportee a B0 (§6), serie temporelle.
+               ;; REPERE : l'axe de l'os, dans le triedre de l'ancre. LIGNE DE BASE : 0.0 a la pose
+               ;; d'auteur. CE QUI DISCRIMINE : c'est le SEUL des trois tags dont la valeur peut
+               ;; etre non nulle quand le joint ne bouge pas — si elle reste plate quand les deux
+               ;; autres oscillent, le degre de liberte n'est pas arrive.
+               (format 0 (if (zero? nolen)
+                           "PHYSRINGCX c=~D f=~D l=~D ax=~D v=~,,7f~%"
+                           "PHYSRINGCZ c=~D f=~D l=~D ax=~D v=~,,7f~%")
+                       c (- (-> self pframe) PHYSROOM-IMPF) l ax
+                       (phys-chain-radial (-> self slot) c 1))))))
        (when (>= (-> self pframe) PHYSROOM-AXW)
          (set! (-> self pframe) 0)
          (phys-stats-reset!)
