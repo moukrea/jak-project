@@ -165,6 +165,13 @@ GELE hair-upper-half « la moitie basse a l'air detachee du crane et bouge indep
 #     2 a 4x ce que ses §11/§12 accordent, et ca ne se corrige pas en raidissant (sag et frequence
 #     sont lies, et la frequence est juste). §24 AP reste non lisible. §29 pas re-mesuree.
 #     §26/§27 non re-mesurees. §33 sans domaine.
+#   §12 REMONTE a TENUE, et pour la premiere fois sur la grandeur qu'elle NOMME. Son deplacement
+#     de COM n'avait jamais ete lu : le joint n'en porte que la moitie TANGENTIELLE (0.1286/0.1579
+#     B0, sous sa cible), le canal radial de §23 porte l'autre (0.1449/0.0538), et les deux sont
+#     ORTHOGONAUX par construction. Compose : 0.1937 / 0.1668 B0 contre ses 0.19 -- +1.9 % / -12 %.
+#     Aucun reglage du joint ne pouvait combler l'ecart : il manquait un degre de liberte.
+#   §11 reste PARTIELLE, faute de FENETRE et non de moteur : aucun pilotage de la salle ne met le
+#     buste en prone/hanging, donc ses 0.24 B0 ne sont pas exerces. Fenetre a ajouter.
 #   ET SURTOUT : rien de tout cela n'est un verdict. C'est SON oeil qui ferme cette ligne.
 #
 # --- etat precedent (cycle 7) conserve pour l'historique ---

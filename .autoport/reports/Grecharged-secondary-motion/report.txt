@@ -227,16 +227,73 @@ de 25 %. La valeur BRUTE, elle, discrimine parfaitement (0.3535 a 0.8547, un fac
 borne mord de 2 a 14 frames par fenetre. **La saturation n'a pas disparu, elle est descendue d'un
 etage** : le canal de deformation est libre, le canal radial ne l'est pas.
 
-Et la cause est maintenant chiffree, ce qui n'etait pas le cas en ouvrant le cycle : **l'excursion
-radiale du compagnon libre vaut 2 a 4 fois ce que sa spec accorde** — sa §38 donne
-`HangingCOMDisplacement 0.24 B0` et `SideGravityCOM 0.19 B0` pour une reorientation complete de la
-gravite ; on mesure 0.85 B0 sous `tilt`.
+**CE QUI EST SOUTENU PAR LA MESURE, ET CE QUI NE L'EST PAS — J'AI CORRIGE MA PROPRE LIGNE ICI.**
+Ma premiere redaction ecrivait « l'excursion radiale vaut 2 a 4 fois ce que sa spec accorde »,
+en comparant `rrm` a `HangingCOMDisplacement 0.24 B0` (§11) et `SideGravityCOM 0.19 B0` (§12).
+**C'est une erreur de NATURE, la meme que celle que je viens de corriger dans l'instrument** (§8) :
+`rrm` est un MAXIMUM DE FENETRE, donc un transitoire ; §11 et §12 donnent des EQUILIBRES
+STATIQUES. On ne compare pas les deux.
 
-**Et ca ne se corrige PAS en raidissant.** La fleche statique et la frequence sont liees par
-`sag = a / omega^2`, et `omega` est exactement la ou sa §24 le veut (2.325 Hz). Raidir pour reduire
-la fleche sortirait la frequence de sa bande ; c'est le meme arbitrage qui a coute le cycle 8.
-**C'est le PILOTAGE du compagnon qu'il faut re-deriver, pas sa raideur** — et c'est le travail du
-cycle suivant, designe par un nombre et non choisi.
+La comparaison qui TIENT est celle de sa §22, qui est justement ecrite pour un transitoire :
+« Breast COM: hard transient <= 40 % B0 ». Le maximum brut atteint **0.8547 B0 sous `tilt`**, soit
+**2.1 fois sa borne transitoire**. C'est ce depassement-la qui est etabli, et il suffit a justifier
+la borne.
+**La fleche STATIQUE du canal radial n'est PAS mesuree** — il n'existe pas de `ROOM-GRAVSAG` pour
+lui, seulement pour le joint. C'est la premiere chose que le cycle suivant doit instrumenter, avant
+de toucher quoi que ce soit.
+
+**ET LA MESURE QUI EXISTE DEJA DIT L'AUTRE MOITIE DE L'HISTOIRE — ELLE N'AVAIT JAMAIS ETE CONVERTIE
+DANS SON METRE.** `ROOM-GRAVSAG` publie la fleche du JOINT a 60 degres en `sagn`, rapporte a la
+LONGUEUR D'OS (977 u). Sa §11 et sa §12, elles, sont en **B0** (602 u, la CHAIR — c'est la lecon
+`b0-is-root-to-apex-not-bone-length`, deja payee une fois). Converti (4096 u/m) :
+
+    chaine   sag mesure   en unites   en B0      cibles §11 / §12          verdict
+    chestL   0.0189 m      77.4 u     0.1286     0.24 B0 / 0.19 B0         SOUS, d'un facteur 1.5
+    chestR   0.0232 m      95.0 u     0.1579     0.24 B0 / 0.19 B0         SOUS, d'un facteur 1.2
+    (verification de la normalisation : sagn = sag / L donne L = 975 u, l'os a 977 — coherent)
+
+**ET LA FLECHE STATIQUE DU CANAL RADIAL SE LISAIT DEJA DANS LA TRACE — JE L'AI CHERCHEE AVANT DE
+CONCLURE, ET ELLE RETOURNE MA CONCLUSION.** `PHYSRAD` publie `rr`, la valeur INSTANTANEE a la fin
+de la fenetre ; pour le pilotage `tilt`, cette fin EST l'etat maintenu incline. Aucun instrument
+neuf, aucune course de plus :
+
+    canal RADIAL, valeur TENUE en fin de fenetre `tilt` (mediane sur les 31 animations), en B0
+      chestL   +0.1449      (|max| 0.3057)
+      chestR   +0.0538      (|max| 0.3272)
+    controle de coherence : sur la fenetre de repos, la mediane vaut +0.0077 / -0.0006 — le canal
+    revient a zero quand rien ne l'excite, donc ce n'est pas un decalage constant (§9).
+
+**LES DEUX CANAUX SONT ORTHOGONAUX PAR CONSTRUCTION** — le joint ne peut bouger que
+TANGENTIELLEMENT (il est contraint sur sa sphere), le canal radial que le long de l'os. Le
+deplacement de COM que ses §11/§12 chiffrent n'est NI l'un NI l'autre : c'est leur composition.
+
+    chaine   tangentiel (joint)   radial (§23)   compose      §12 SideGravityCOM 0.19 B0
+    chestL      0.1286              0.1449       0.1937       ecart +1.9 %
+    chestR      0.1579              0.0538       0.1668       ecart -12 %
+
+**JE RETIRE DONC LA CONCLUSION QUE JE VENAIS D'ECRIRE.** J'avais deduit du seul depassement
+transitoire que « le pilotage est trop grand et doit etre re-derive ». **C'est faux : la reponse
+TENUE est juste** — 0.1937 B0 contre les 0.19 B0 de sa §12, a 2 % sur `chestL`. Ce qui depasse est
+le PIC transitoire (0.8547 B0 contre la borne transitoire de 0.40), et un pic transitoire est
+exactement ce qu'une saturation douce existe pour tenir. **Le gain de gravite n'est pas a toucher**,
+et j'aurais casse un chiffre juste en le « corrigeant ».
+
+C'est la troisieme fois dans ce seul cycle qu'une conclusion tombe en verifiant la NATURE d'un
+nombre (transitoire contre equilibre, deplacement contre deformation, rayon contre projection).
+Je l'ecris tel quel : la regle « de quelle nature est le defaut ? » ne se lit pas une fois en debut
+de cycle, elle se repasse sur CHAQUE ligne avant de la publier.
+
+**ET C'EST LA PREMIERE FOIS QUE CETTE GRANDEUR EST MESURABLE**, parce que la moitie radiale
+n'existait pas avant ce cycle : le joint seul plafonne a 0.1286 / 0.1579 B0, sous sa cible. Aucun
+reglage du joint ne pouvait combler l'ecart — il lui manquait un degre de liberte, pas du gain.
+C'est la meme demonstration que pour §24, sur une autre section.
+
+**CE QUI RESTE VRAI DU DEFAUT :** la valeur LIVREE du canal radial ne discrimine plus (etalement
+8.5 %) parce que la borne mord sur les pics. Le travail du cycle suivant n'est donc PAS de
+re-deriver le pilotage, c'est de regarder pourquoi les PICS montent a 0.85 B0 quand l'etat tenu,
+lui, est juste — un transitoire 5.9 fois l'equilibre sur `tilt` designe un amortissement
+insuffisant sur ce canal, pas un gain trop fort. Sa §25 (zeta = 0.35) est la grandeur a verifier
+sur le canal radial, et `ROOM-AXFIT-RAD` la lit deja a 0.38.
 
 
 8. LES INSTRUMENTS AJOUTES, ET LEUR CONTROLE POSITIF
@@ -275,8 +332,14 @@ tableau. **Les lignes (!) sont celles que ce cycle change.**
                                                                                   CONSTRUCTION
 9      Etat debout neutre            O     ROOM-IDLE maxdev 0.0001                TENUE, residu != 0
 10     Supine                        O     1.2147 / 1.1082 / 0.7427               DANS SA BANDE
-11     Prone / hanging               O     0.8896 / 0.9230 / 1.2177               DANS SA BANDE
-12     Lateral                       O     0.8069, compense +10.1 / +12.6 %       DANS SA BANDE
+                                           (echelles de DEFORMATION)              — voir l'avert. (!)
+11     Prone / hanging             **P !** echelles 0.8896/0.9230/1.2177 DANS ;   son DEPLACEMENT
+                                           son deplacement de COM (0.24 B0) n'est (0.24 B0) n'est pas
+                                           PAS exerce par la fenetre `tilt` a 60  EXERCE — fenetre a
+                                                                                  ajouter (!)
+12     Lateral                    **O !**  echelle 0.8069 DANS **et** deplacement DANS SA BANDE —
+                                           de COM COMPOSE 0.1937 / 0.1668 B0      mesurable pour la
+                                           contre sa cible 0.19 (+1.9 % / -12 %)  PREMIERE FOIS (!)
 13     Orientations intermediaires   O     9 orientations, continu                TENUE
 21     Saturation douce              O     `stif_n` a l'execution                 TENUE
 22/38  Excursion d'apex              O     plafond dur 0.50 B0                    TENUE (cycle 5)
@@ -315,10 +378,23 @@ tableau. **Les lignes (!) sont celles que ce cycle change.**
                                                                                   touche 6/10
 37     Sous-pas >= 120 Hz            O     ns=2 (120 Hz), 4 sur impact fort       TENUE
 
-RECAPITULATIF : **19 tenues**, **5 partielles** (§23 §24 §26 §27 §29-anisotropie), **aucune
+RECAPITULATIF : **18 tenues**, **6 partielles** (§11 §23 §24 §26 §27 §29-anisotropie), **aucune
 ABSENTE**. Deux lignes entrent au tableau (le deplacement du COM et l'elongation du tissu, qui
 n'etaient pas mesurees separement), et §24 passe de « non decidable » a **deux axes sur trois tenus
 sur la configuration livree**.
+
+**ET J'AI VERIFIE MES PROPRES VERTS SUR §11/§12, CE QUI A DONNE UN ALLER-RETOUR — les deux etapes
+sont ecrites parce que la seconde n'a de valeur que si la premiere est visible.** §11 et §12
+etaient reportees TENUES depuis le cycle 7 sur les seules ECHELLES DE DEFORMATION (`ROOM-ORI`).
+Or elles donnent AUSSI un DEPLACEMENT DE COM (`HangingCOMDisplacement 0.24 B0`, `SideGravityCOM
+0.19 B0`), jamais converti dans le bon metre : `ROOM-GRAVSAG` normalise par la LONGUEUR D'OS
+(977 u) quand sa spec parle en B0 (602 u — la CHAIR ; c'est la lecon deja payee une fois).
+Converti, le joint donne 0.1286 / 0.1579 B0, **sous sa cible**, et j'ai retrograde les deux lignes.
+**Puis j'ai trouve la moitie manquante** (§7) : le joint ne porte que la composante TANGENTIELLE,
+le canal radial de §23 porte l'autre, et ses §11/§12 chiffrent leur COMPOSITION — 0.1937 / 0.1668 B0,
+soit sa §12 a +1.9 % / -12 %. **§12 remonte donc a TENUE, et pour la premiere fois sur la grandeur
+qu'elle nomme.** §11 reste PARTIELLE, non pas faute de mecanisme mais faute de FENETRE : son
+orientation (prone/hanging) n'est pas exercee par le pilotage `tilt` a 60 degres.
 
 LES QUATRE PRIORITES DE SA DIRECTIVE DE 11:50, ETAT A LA FIN DU CYCLE :
   1. le bon `B0` ................... FAITE (cycle 5), non retouchee
@@ -338,6 +414,20 @@ LES QUATRE PRIORITES DE SA DIRECTIVE DE 11:50, ETAT A LA FIN DU CYCLE :
   - Aucune mesure de ce rapport ne vient d'un APPAREIL. Tout est x86.
   - **La part tangentielle de mon diagnostic valait 6 %** (§5). Corrigee par une mesure.
   - **La valeur livree du canal radial est PLATE** (§7). Ce n'est pas resolu, c'est localise.
+  - **TROIS conclusions de ce rapport sont tombees en verifiant la NATURE d'un nombre**, et les
+    trois sont ecrites la ou elles sont tombees : un maximum de fenetre compare a un equilibre
+    (§7), un deplacement compare aux bandes d'une deformation (§8), un rayon pris pour une mesure
+    directionnelle (§3). La derniere m'aurait fait « corriger » un gain de gravite qui est juste.
+  - **La fleche tenue du canal radial est lue sur la MEDIANE des 31 animations** de la fenetre
+    `tilt`, pas sur une pose unique : c'est une valeur centrale, pas un equilibre analytique.
+  - **§12 est comparee a une fenetre `tilt` a 60 degres**, pas a un decubitus lateral exact. La
+    concordance a 1.9 % est indicative, et je ne la presente pas comme une egalite.
+  - **§11 n'est pas exercee** : aucune fenetre de la salle ne met le buste en prone/hanging. Sa
+    ligne reste PARTIELLE pour cette raison-la, qui est une lacune de PROTOCOLE et non de moteur.
+  - Le PIC transitoire du canal radial vaut 5.9x son etat tenu sous `tilt` (0.8547 contre 0.1449).
+    Je designe l'amortissement de ce canal comme la piste, sans l'affirmer : `ROOM-AXFIT-RAD` lit
+    zeta = 0.38, dans sa bande §25, ce qui ne colle PAS avec un transitoire aussi grand. La
+    contradiction est notee, non resolue, et c'est le premier travail du cycle suivant.
   - L'axe AP reste non lisible sur le canal du joint (residus 0.128 a 0.154). Je n'en propose pas
     la cause sans la tester : c'est ce qui a produit les deux hypotheses mortes du cycle 8.
   - **§29 n'est pas re-mesuree ce cycle.** Ses axes sont enfin nommes correctement, ce qui est un
