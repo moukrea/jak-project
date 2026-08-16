@@ -1109,6 +1109,31 @@
              (x  (/ (- v kn) cp)))
         (+ kn (* cp (/ x (+ 1.0 x))))))))
 
+;; [NOTE-50] ---- UN TAUX D'AMORTISSEMENT N'EST PAS UN FACTEUR DE RETENTION --------------------
+;; `1 - taux` est le premier terme de `e^-taux`. L'ecart est MESURE, pas theorique : il livrait
+;; zeta 0.379 au mode principal (SPEC 25 en demande 0.350, la salle a lu 0.38) et 0.838 a 7.01 Hz
+;; au mode secondaire (SPEC 36 en demande 0.650 a 5.20). -> jak-hd-physics-NOTES.md
+(defun phys-decay ((x float))
+  "e^-x pour x >= 0 : le facteur de RETENTION qu'un taux `x` produit sur UN pas. Pade(3,3),
+   erreur relative < 1e-6 sur [0, 0.8] — la plage reellement utilisee ici est [0.021, 0.708].
+   Ne depend pas de `exp` de trigonometry.gc, routine PS2 decompilee non verifiee."
+  (let* ((a (fmax 0.0 x))
+         (h (* 0.5 a))
+         (q (* 0.1 (* a a)))
+         (c (* 0.00833333 (* a (* a a)))))
+    (/ (+ (- 1.0 h) (- q c)) (+ (+ 1.0 h) (+ q c)))))
+
+(defun phys-osc-k2 ((z float) (wh float))
+  "Raideur par pas telle que la recurrence symplectique rende EXACTEMENT l'amortissement `z` et
+   la pulsation dont `wh` = omega * pas. Retention a lui associer : `(phys-decay (* 2.0 z wh))`.
+   `4 r sin^2(theta/2)` et JAMAIS `1 - cos theta` : egaux en algebre, mais `1 - cos` perd ses
+   chiffres significatifs quand theta est petit, et theta vaut 0.06 sur le mode principal.
+   Somme de termes positifs, donc k2 > 0 toujours : ne peut pas destabiliser la boucle."
+  (let* ((r (phys-decay (* z wh)))
+         (u (* 0.5 (* wh (sqrtf (fmax 0.0 (- 1.0 (* z z)))))))
+         (s (* u (+ (- 1.0 (* 0.16666667 (* u u))) (* 0.00833333 (* (* u u) (* u u)))))))
+    (+ (* (- 1.0 r) (- 1.0 r)) (* 4.0 (* r (* s s))))))
+
 (defun phys-vol-floor ((floor0 float) (rl float))
   "Profondeur maximale que cette paire (lien, volume) tolere : SA PROFONDEUR D'AUTEUR, ni plus ni
    moins. C'est la phrase de la SPEC sans exception — « ce qui est deja dedans au repos y reste ».
@@ -2772,9 +2797,13 @@
                                    (set! (-> *phys-cqz* sc) (-> *phys-qz* scl))
                                    (set! (-> *phys-rok* sc) 1))
                                  ;; [NOTE-40] ---- INTEGRATION EN POSITION MONDE. Trois termes, et c'est TOUT : -> jak-hd-physics-NOTES.md
-                                 (let* ((kd  (fmax 0.0 (- 1.0 (if (and (nonzero? ela) (> k2 0.000001))
-                                                               (* dmp (sqrtf (/ k2l k2)))
-                                                               dmp))))
+                                 ;; `rate` = le TAUX (2 zeta omega dt), `kd` la RETENTION qu'il
+                                 ;; produit sur une frame. Voir NOTE-50 : c'est `e^-rate`, pas
+                                 ;; `1 - rate`, et l'ecart valait +8.3 % sur le zeta de SPEC 25.
+                                 (let* ((rate (if (and (nonzero? ela) (> k2 0.000001))
+                                                (* dmp (sqrtf (/ k2l k2)))
+                                                dmp))
+                                        (kd  (phys-decay rate))
                                         (kn  (* 0.42 b0e))
                                         (cpp (* 0.08 b0e))
                                         (ex0 (- tgx (-> *phys-px* scl)))
@@ -2834,17 +2863,18 @@
                                         (s0  (-> *phys-axs* (+ (* sc 3) 0)))
                                         (s1  (-> *phys-axs* (+ (* sc 3) 1)))
                                         (s2  (-> *phys-axs* (+ (* sc 3) 2)))
-                                        ;; ET LA TRAINEE SUIT LA RAIDEUR, AXE PAR AXE. `kd` porte
-                                        ;; `1 - dmp_l` ; sur un axe `dmp` doit aller comme
-                                        ;; `sqrt(k)` pour que `zeta = dmp/(2 sqrt(k))` reste la
-                                        ;; constante de MATERIAU que SPEC 25 fixe a 0.35. Sans ca,
-                                        ;; l'anisotropie de raideur ferait deriver `zeta` a 0.332
-                                        ;; (AP) et 0.317 (lateral) — ce dernier SOUS le plancher
-                                        ;; 0.32 de sa plage. C'est la meme derivation que celle
-                                        ;; deja appliquee le long de la chaine, pour la meme raison.
-                                        (kd0 (fmax 0.0 (- 1.0 (* (- 1.0 kd) (sqrtf s0)))))
-                                        (kd1 (fmax 0.0 (- 1.0 (* (- 1.0 kd) (sqrtf s1)))))
-                                        (kd2 (fmax 0.0 (- 1.0 (* (- 1.0 kd) (sqrtf s2)))))
+                                        ;; ET LA TRAINEE SUIT LA RAIDEUR, AXE PAR AXE : sur un axe
+                                        ;; le TAUX doit aller comme `sqrt(k)` pour que
+                                        ;; `zeta = taux/(2 sqrt(k))` reste la constante de MATERIAU
+                                        ;; que SPEC 25 fixe a 0.35. Sans ca, l'anisotropie de
+                                        ;; raideur ferait deriver `zeta` a 0.332 (AP) et 0.317
+                                        ;; (lateral) — ce dernier SOUS le plancher 0.32 de sa plage.
+                                        ;; La mise a l'echelle porte sur le TAUX, pas sur `1 - kd` :
+                                        ;; c'est le taux qui est proportionnel a `sqrt(k)`, et la
+                                        ;; retention en est l'exponentielle (NOTE-50).
+                                        (kd0 (phys-decay (* rate (sqrtf s0))))
+                                        (kd1 (phys-decay (* rate (sqrtf s1))))
+                                        (kd2 (phys-decay (* rate (sqrtf s2))))
                                         (kds0 (if (= ns 2) (sqrtf kd0) (sqrtf (sqrtf kd0))))
                                         (kds1 (if (= ns 2) (sqrtf kd1) (sqrtf (sqrtf kd1))))
                                         (kds2 (if (= ns 2) (sqrtf kd2) (sqrtf (sqrtf kd2))))
@@ -3706,9 +3736,14 @@
                                  (dvy (- vty (-> *phys-vp* sc y)))
                                  (dvz (- vtz (-> *phys-vp* sc z)))
                                  (dvn (/ (sqrtf (+ (* dvx dvx) (+ (* dvy dvy) (* dvz dvz)))) b0f))
+                                 ;; OSCILLATEUR SCALAIRE, SANS ANISOTROPIE : la forme EXACTE de
+                                 ;; NOTE-50 s'y pose directement. Elle n'est pas un raffinement
+                                 ;; ici — `omega dt` vaut 0.545, et l'ancienne ecriture livrait
+                                 ;; zeta 0.838 a 7.01 Hz la ou sa SPEC 36 demande 0.65 a 5.20.
                                  (w2  (* 6.2831853 PHYS-SEC-F))
-                                 (k2s (* w2 (* w2 (* dt dt))))
-                                 (kd2 (fmax 0.0 (- 1.0 (* 2.0 (* PHYS-SEC-Z (* w2 dt))))))
+                                 (wh2 (* w2 dt))
+                                 (k2s (phys-osc-k2 PHYS-SEC-Z wh2))
+                                 (kd2 (phys-decay (* 2.0 (* PHYS-SEC-Z wh2))))
                                  ;; MEME FORME QUE LE MODE PRINCIPAL, a la lettre : la trainee ne
                                  ;; porte que l'ANCIENNE vitesse, la force et l'excitation
                                  ;; s'ajoutent apres. Ecrire `kd2 * (v - k2 m)` amortirait aussi la
@@ -3820,11 +3855,18 @@
                                              ;; au lieu d'injecter le saut.
                                              (when (< (fabs dphi) 0.5)
                                                (set! (-> *phys-twa* sc) (+ (-> *phys-twa* sc) dphi)))
+                                             ;; OSCILLATEUR SCALAIRE : forme EXACTE de NOTE-50.
+                                             ;; `zt` n'introduit AUCUNE constante neuve — c'est le
+                                             ;; zeta que la donnee livree porte deja, relu comme
+                                             ;; `taux / (2 omega h)` au lieu d'etre suppose.
                                              (let* ((w   (/ (* 6.2831853 (-> *phys-stiff* sc))
                                                             (sqrtf (fmax 0.01 (-> *phys-mass* sc)))))
-                                                    (k2t (* w (* w (* dt (* dt (/ 1.0 PHYS-MOB-TOR))))))
-                                                    (kdt (fmax 0.0 (- 1.0 (* (-> *phys-damp* sc)
-                                                                             (sqrtf (/ 1.0 PHYS-MOB-TOR))))))
+                                                    (mbt (sqrtf (/ 1.0 PHYS-MOB-TOR)))
+                                                    (wht (* w (* dt mbt)))
+                                                    (zt  (/ (* (-> *phys-damp* sc) mbt)
+                                                            (* 2.0 (fmax 0.000001 wht))))
+                                                    (k2t (phys-osc-k2 zt wht))
+                                                    (kdt (phys-decay (* 2.0 (* zt wht))))
                                                     (tv  (+ (* kdt (-> *phys-twv* sc))
                                                             (* k2t (- (-> *phys-twa* sc) (-> *phys-tw* sc)))))
                                                     (twn (+ (-> *phys-tw* sc) tv))

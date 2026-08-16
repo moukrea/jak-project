@@ -1662,3 +1662,70 @@ REELLEMENT ecrit dans la 3x3 du dernier maillon.
 Avant ce cycle il valait structurellement zero.
 ```
 
+
+## NOTE-50  (moteur, aux alentours de la ligne 1112)
+
+```
+UN TAUX D'AMORTISSEMENT N'EST PAS UN FACTEUR DE RETENTION.
+
+Le solveur ecrivait, aux TROIS endroits ou il amortit une vitesse, `retention = 1 - taux`, avec
+`taux = 2 zeta omega dt`. C'est le PREMIER TERME du developpement de `e^-taux`, et l'ecart n'est
+pas academique : il est MESURE sur la course du cycle 10, et il explique trois lignes du tableau
+de conformite d'un coup.
+
+CE QUE LA LINEARISATION LIVRE REELLEMENT (racines de la recurrence symplectique, pas une
+approximation continue : module `sqrt(det)`, phase `acos(tr / 2 sqrt(det))`) :
+
+  site                          taux     retention      zeta livre   f livre     cible SPEC
+  mode principal (l. 2775)      0.1686   0.8314         0.3789       2.327 Hz    0.35 / 2.30
+  mode secondaire (l. 3711)     0.7079   0.2921         0.8384       7.009 Hz    0.65 / 5.20
+  torsion SPEC 29 (l. 3826)     0.1987   0.8013         0.3682       2.873 Hz    0.35
+
+CE QUE LA SALLE A LU, et c'est ce qui valide le modele plutot qu'une conviction :
+  zeta 0.38 / 0.38 / 0.40 sur les fenetres a residu 0.002-0.004, contre 0.3789 predit ;
+  f 2.325 Hz contre 2.327 predit ; rebond 0.250 / 0.269 / 0.274 contre 0.2763 predit.
+Le modele tombe sur la mesure a la troisieme decimale. Ce n'est donc pas une hypothese.
+
+ET SPEC 36 ETAIT UN FAUX VERT. Le tableau la reportait TENUE « zeta 0.65 » en LISANT LA
+CONSTANTE `PHYS-SEC-Z`, jamais une mesure. Le mode livre est a 0.838 et 7.01 Hz : sur-amorti et
+35 % trop rapide. C'est exactement le piege `declared-but-never-selected`, sur la section que
+l'owner voit le moins mais qui porte le « second mouvement » de sa spec.
+
+LA CONVERSION EXACTE. Pour la retention, `e^-taux`. On ne s'appuie PAS sur `exp` de
+`trigonometry.gc` : c'est une routine PS2 decompilee dont la borne interne (0x435C6BBA =
+220.42) ne correspond a aucune base evidente, et un solveur ne doit pas dependre d'une
+primitive qu'on n'a pas verifiee. Un Pade(3,3) rend l'erreur relative sous 1e-6 sur [0, 0.8] —
+la plage REELLEMENT utilisee ici est [0.021, 0.708] — et ne depend de rien :
+
+    e^-x ~= (1 - x/2 + x^2/10 - x^3/120) / (1 + x/2 + x^2/10 + x^3/120)
+
+MEME FAMILLE D'ERREUR DU COTE DU RESSORT. `k2 = (omega dt)^2` est le terme dominant, pas la
+valeur qui fait rendre `omega` a la recurrence. Sur le mode principal l'ecart vaut 1.2 %
+(2.327 Hz lus pour 2.300 nominal) ; sur SPEC 36, ou `omega dt` vaut 0.545, il vaut 35 %. La
+valeur exacte s'obtient en IMPOSANT les racines au lieu de les subir : on veut un module
+`r = e^-zeta omega h` et une phase `theta = omega h sqrt(1 - zeta^2)`, donc
+
+    kd = r^2                        k2 = (1 - r)^2 + 4 r sin^2(theta/2)
+
+ECRIT `4 r sin^2(theta/2)` ET JAMAIS `1 - cos theta` : les deux sont egaux en algebre, mais
+`1 - cos` perd ses chiffres significatifs quand theta est petit, et theta vaut 0.06 sur le mode
+principal. La forme retenue est une somme de termes positifs, donc `k2 > 0` toujours : elle ne
+peut pas destabiliser la boucle.
+
+OU LA CORRECTION EXACTE EST APPLIQUEE, ET OU ELLE NE L'EST PAS — c'est un choix, pas un oubli.
+  - SPEC 36 et la torsion SPEC 29 sont des oscillateurs SCALAIRES, sans anisotropie : la forme
+    exacte s'y pose en deux expressions, et elle les met tous les deux sur leur nominal.
+  - Le mode PRINCIPAL porte l'anisotropie de SPEC 29 (`s0/s1/s2` sur la force, `sqrt(s)` sur la
+    trainee). Y imposer aussi la raideur exacte demanderait de rendre `k2s` dependant de l'axe,
+    donc de restructurer le chemin de force. On n'y corrige donc QUE la retention. Ce que ca
+    laisse sur la table est chiffre et non cache : la frequence reste a 2.325 Hz au lieu de
+    2.300, soit +1.1 %, sur une ligne que le cycle 10 rapporte deja DANS sa bande. Le gain
+    aurait ete de 1.1 % contre un risque reel sur le seul acquis que l'owner a valide.
+
+CE QUE LA CORRECTION DOIT PRODUIRE, ecrit AVANT la course pour qu'elle puisse la dementir :
+  mode principal   zeta 0.3789 -> 0.3463    rebond 0.2763 -> 0.3136    f inchangee (2.325)
+  mode secondaire  zeta 0.8384 -> 0.6500    f 7.009 -> 5.200 Hz
+  torsion          zeta 0.3682 -> 0.3500    f 2.873 -> 2.711 Hz
+SPEC 25 passe de +8.3 % a -1.1 % de son nominal ; SPEC 26 de -11 % a +1.2 % de sa cible 0.31 ;
+SPEC 36 cesse d'etre un faux vert. Une seule derivation, quatre lignes du tableau.
+```

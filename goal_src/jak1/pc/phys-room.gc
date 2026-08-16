@@ -2372,6 +2372,21 @@
         (the-as (pointer phys-subject)
                 (process-spawn phys-subject :init init-phys-subject :from *pc-dead-pool* :to *default-pool*)))
   (format 0 "PHYSROOM-START target-after=~A spawned=~D~%" *target* (if (nonzero? (the-as int *physroom-proc*)) 1 0))
+  ;; PREUVE D'EXECUTION DES DEUX CONVERTISSEURS DE NOTE-50, et pas une relecture de leur source.
+  ;; Un Pade transcrit de travers en GOAL rendrait un nombre plausible et fausserait TOUT
+  ;; l'amortissement en silence ; ces deux lignes sont ce qui l'interdit. Les valeurs attendues
+  ;; sont calculees hors du jeu et ecrites dans le rapport AVANT la course :
+  ;;   phys-decay 0.1686  -> 0.844847   (mode principal, retention par frame)
+  ;;   phys-decay 0.7079  -> 0.492673   (mode secondaire SPEC 36)
+  ;;   phys-osc-k2 0.65 0.5445367 -> 0.207351  et sa retention 0.492672  (SPEC 36 exact)
+  ;;   phys-osc-k2 0.35 0.2838553 -> 0.072584                            (torsion SPEC 29)
+  ;; NATURE : facteurs sans dimension d'une recurrence. REPERE : aucun, ce sont des scalaires.
+  ;; LECTURE HORS DEFAUT : les six nombres ci-dessus, au 1e-5.
+  (format 0 "PHYSDECAY a=~f b=~f~%" (phys-decay 0.1686) (phys-decay 0.7079))
+  (format 0 "PHYSOSCK2 sec=~f seckd=~f tor=~f~%"
+          (phys-osc-k2 0.65 0.5445367)
+          (phys-decay (* 2.0 (* 0.65 0.5445367)))
+          (phys-osc-k2 0.35 0.2838553))
   (none))
 
 )
