@@ -1802,6 +1802,38 @@
     ;; rend une courbe.
     ((= (-> self phase) PHYSROOM-PH-ORI)
      (physroom-orient (-> *physroom-ori-ax* (-> self ori)) (-> *physroom-ori-dg* (-> self ori)))
+     ;; ---- LE PIC TRANSITOIRE D'ETABLISSEMENT, PUIS LA REMISE A ZERO DE LA FENETRE -------------
+     ;; Deux choses en un seul point, et elles vont ensemble :
+     ;;
+     ;; 1. `PHYSORITR` publie le maximum du canal radial sur les 60 frames d'ETABLISSEMENT, juste
+     ;;    avant qu'elles soient effacees. C'est la seule ligne de sa spec qui parle d'un
+     ;;    TRANSITOIRE d'orientation : §11 `HangingTransientLengthMax = 1.30` contre
+     ;;    `HangingLengthScale = 1.23` en tenu. Sans cet emetteur le transitoire est perdu, et un
+     ;;    depassement d'etablissement serait indistinguable de l'equilibre.
+     ;;
+     ;; 2. `phys-stats-reset!` remet la fenetre a zero A LA FIN DE L'ETABLISSEMENT. Sans lui, la
+     ;;    POSITION MOYENNE de la pointe (`phys-tip-mean`) couvrirait les 60 frames de transitoire
+     ;;    EN PLUS des 30 de mesure, et rendrait une moyenne de trajectoire au lieu d'un
+     ;;    equilibre. `PH-TILT` fait deja exactement ca a `PHYSROOM-IDLES` (voir sa note) ; c'est
+     ;;    la meme correction, au meme endroit du meme motif.
+     ;;
+     ;; POURQUOI 60 FRAMES SUFFISENT, et ce n'est pas une supposition : le mode principal livre
+     ;; `omega = 14.4515 rad/s` et `zeta = 0.35` (SPEC 24/25, verifies par identite arithmetique
+     ;; sur la donnee livree), donc une constante de temps `1/(zeta.omega) = 0.198 s`, soit 11.9
+     ;; frames a 60 Hz. 60 frames = 5.05 constantes de temps, residu `e^-5.05 = 0.6 %`. Ce que
+     ;; `PHYSORICOM` mesure ensuite est donc bien un EQUILIBRE, a 0.6 % pres, et non un transitoire.
+     ;; `PHYSORITR` est la pour le prouver au lieu de le supposer : si le pic d'etablissement
+     ;; n'excede pas le tenu, il n'y avait rien a attendre ; s'il l'excede, sa §11 le chiffre.
+     ;;
+     ;; AUCUNE LIGNE EXISTANTE N'EST TOUCHEE PAR CE RESET : `PHYSORI`, `PHYSORI2`, `PHYSORI3` et
+     ;; `PHYSORI4` lisent toutes `phys-shape`, dont aucun des index publies (0-3, 8-11, 15-17) ne
+     ;; figure dans `phys-stats-reset!`. Verifiable par diff du tableau avant/apres.
+     (when (= (-> self pframe) PHYSROOM-ORIS)
+       (dotimes (c (-> self nchain))
+        (when (> (phys-chain-links (-> self slot) c) 0)
+         (format 0 "PHYSORITR c=~D i=~D rrt=~,,7f~%"
+                 c (-> self ori) (phys-chain-radial (-> self slot) c 2))))
+       (phys-stats-reset!))
      (when (>= (-> self pframe) (+ PHYSROOM-ORIS PHYSROOM-ORIM))
        (dotimes (c (-> self nchain))
         (when (> (phys-chain-links (-> self slot) c) 0)
@@ -1825,7 +1857,52 @@
                  c (-> self ori)
                  (-> *physroom-ori-ax* (-> self ori))
                  (-> *physroom-ori-dg* (-> self ori))
-                 (phys-shape (-> self slot) c 8))))
+                 (phys-shape (-> self slot) c 8))
+         ;; ---- LA REPONSE STATIQUE, A COTE DE L'ENTREE STATIQUE ---------------------------------
+         ;; CE QUE §10-§13 NOMMENT ET QUE PERSONNE N'A JAMAIS LU. Ses trois sections d'orientation
+         ;; donnent chacune un DEPLACEMENT, pas seulement des echelles de forme :
+         ;;     §10 supine   `SupineCOMDepth        = 0.23 B0`
+         ;;     §11 prone    `HangingCOMDisplacement = 0.24 B0`
+         ;;     §12 lateral  `SideGravityCOM         = 0.19 B0`
+         ;; `PHYSORI2` ne publie que les ECHELLES (la forme). Le deplacement n'etait emis nulle
+         ;; part dans cette phase — c'est le trou que le cycle 11 a nomme pour §11 et qui vaut en
+         ;; realite pour les trois.
+         ;;
+         ;; ET C'EST AUSSI L'INSTRUMENT DE §29, QUI N'EN AVAIT AUCUN. Son preset nomme ses quatre
+         ;; valeurs `VerticalCompliance / APCompliance / LateralCompliance / TorsionalCompliance` :
+         ;; ce sont des COMPLIANCES, c'est-a-dire des deplacements par unite de force. Les mesurer
+         ;; par des FREQUENCES melange raideur et masse et rend §24 et §29 sur-determinees l'une
+         ;; par l'autre ; les mesurer ICI ne demande que des equilibres tenus. Neuf orientations
+         ;; donnent neuf couples (direction de gravite, deplacement) : de quoi ajuster un tenseur
+         ;; de compliance 3x3 et en lire l'anisotropie, avec son residu.
+         ;;
+         ;; DEUX CANAUX, ET ILS SONT ORTHOGONAUX PAR CONSTRUCTION — donc publies SEPAREMENT et
+         ;; jamais additionnes en un seul nombre dont la nature serait ambigue :
+         ;;   `tx/ty/tz` = position MOYENNE de la pointe sur la fenetre de mesure, ecart a la pose
+         ;;      d'auteur. La contrainte de longueur lui confisque la composante le long de l'os :
+         ;;      ce canal est donc TANGENTIEL, et c'est un deplacement d'APEX (le point que le
+         ;;      solveur integre), pas de COM — §22 lui donne ses propres bandes (0.42 / 0.50 B0).
+         ;;   `rr` = le canal radial de §23, le long de l'os, que la contrainte confisquait. Sa
+         ;;      nature declaree est le deplacement de COM rapporte a B0 (§22 : 0.35 / 0.40).
+         ;; NATURE : deux DEPLACEMENTS SOUTENUS (moyennes de fenetre), pas des variances — un
+         ;; equilibre ne bouge plus, donc toute grandeur de dispersion y lit zero par construction.
+         ;; REPERE : le triedre de SPEC 7 (+X lateral, +Y haut, +Z avant), celui-la meme dans
+         ;; lequel `PHYSORI` publie deja `gx/gy/gz`. Les deux se lisent donc composante a composante.
+         ;; UNITES : `tx/ty/tz` en unites de jeu (B0 = 602 est dans la trace, ligne `[HD-PHYS] b0`) ;
+         ;; `rr` et `rrm` deja rapportes a B0.
+         ;; LIGNE DE BASE : l'orientation i=0 est la pose debout d'auteur, ou §9 exige 0.0000 —
+         ;; c'est la ligne de base MESUREE de ce bloc, pas une supposition, et si elle n'est pas
+         ;; nulle toutes les autres sont decalees d'autant.
+         (format 0 "PHYSORICOM c=~D i=~D tx=~f ty=~f tz=~f~%"
+                 c (-> self ori)
+                 (phys-tip-mean (-> self slot) c 0)
+                 (phys-tip-mean (-> self slot) c 1)
+                 (phys-tip-mean (-> self slot) c 2))
+         (format 0 "PHYSORICOM2 c=~D i=~D rr=~,,7f rrm=~,,7f n=~f~%"
+                 c (-> self ori)
+                 (phys-chain-radial (-> self slot) c 1)
+                 (phys-chain-radial (-> self slot) c 2)
+                 (phys-stat (-> self slot) c 15))))
        (+! (-> self ori) 1)
        (set! (-> self pframe) 0)
        (phys-stats-reset!)
@@ -1843,6 +1920,43 @@
 
     ((= (-> self phase) PHYSROOM-PH-SHAKEN)
      (physroom-hold)
+     ;; ---- §36 ET §29-TORSION — LA SERIE LIBRE DES DEUX MODES SCALAIRES ----------------------
+     ;; LE FAUX VERT DU CYCLE 11 VENAIT D'ICI, ET IL FAUT LE DIRE : sa §36 etait rapportee
+     ;; « zeta 0.65 » parce que la constante `PHYS-SEC-Z` vaut 0.65 — le piege
+     ;; `declared-but-never-selected`. Le cycle 11 l'a corrige au niveau des COEFFICIENTS (les
+     ;; deux nombres sont imprimes a l'init et le polynome caracteristique donne 0.6502 / 5.1995
+     ;; Hz), et a ecrit lui-meme que ce n'est PAS la meme chose qu'observer 5.20 Hz dans une
+     ;; serie. Voici la serie. C'est le seul endroit de la course ou les deux modes decroissent
+     ;; LIBREMENT : `physroom-hold` fige la position ET l'orientation, et cette phase n'appelle
+     ;; PAS `physroom-advance-anim` — l'animation ne les excite donc plus, contrairement aux
+     ;; fenetres par animation ou §27 lit un plancher d'excitation au lieu d'un ring-down.
+     ;; Ce qui precede est `PH-SHAKE` (`jerk`, vitesse posee d'un coup) : sa §36 demande
+     ;; precisement « after a change in direction of the global breast mass ».
+     ;;
+     ;; NATURE : deux SERIES TEMPORELLES, une valeur signee par frame — pas des maximums. C'est
+     ;; ce qui permet d'en ajuster frequence et amortissement ; `secm`/`twm`, qui sont des
+     ;; maximums de fenetre, ne le permettent pas et c'est pour ca qu'ils ont laisse passer
+     ;; le faux vert. `s` = modulation d'epaisseur de §36 (fraction, sans dimension) ;
+     ;; `tw` = torsion relative de §29 (radians).
+     ;; REPERE : la racine de la chaine. LIGNE DE BASE : 0.0 exactement au repos.
+     ;;
+     ;; CE QUE LA SERIE PEUT MONTRER ET QUE LES COEFFICIENTS NE PEUVENT PAS : `*phys-sec*` est
+     ;; ECRETE A `PHYS-SEC-MAX` **DANS L'ETAT** (`(set! (-> *phys-sec* sc) smc)`), pas seulement
+     ;; en sortie. Un ecretage a l'interieur de la boucle n'est pas une borne d'affichage : il
+     ;; change la dynamique, et le mode livre cesse d'etre l'oscillateur dont le polynome donne
+     ;; 0.6502. Le cycle 11 a mesure que ce plafond est atteint sur 6 fenetres sur 10. La serie
+     ;; le rend lisible : tout echantillon a |s| = 0.0700000 est ECRETE, et l'ajustement ne doit
+     ;; porter que sur les autres. Sa §37 demande d'ailleurs l'inverse de cet ecretage
+     ;; (« soft displacement clamps should be preferred to abrupt positional clamps »).
+     ;; 90 frames = 7.8 periodes amorties du mode a 5.2 Hz (T_d = 15.2 frames a zeta 0.65) :
+     ;; assez pour le premier depassement, qui est ce qui porte zeta, et pour voir le plancher.
+     (when (<= (-> self pframe) 90)
+       (dotimes (c (-> self nchain))
+        (when (> (phys-chain-links (-> self slot) c) 0)
+         (format 0 "PHYSSEC c=~D f=~D s=~,,7f tw=~,,7f~%"
+                 c (-> self pframe)
+                 (phys-shape (-> self slot) c 4)
+                 (phys-shape (-> self slot) c 6)))))
      (when (= (-> self pframe) PHYSROOM-IDLES) (phys-stats-reset!))
      (when (>= (-> self pframe) (+ PHYSROOM-IDLES PHYSROOM-IDLEM))
        ;; meme etablissement et meme fenetre que `idle` et `back` : les trois poses sont comparables.
