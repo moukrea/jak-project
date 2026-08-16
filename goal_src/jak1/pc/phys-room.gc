@@ -1011,10 +1011,23 @@
     ;; vivant a la fin de la fenetre ou s'il s'est eteint.
     ;; NATURE : deformation sans unite. REPERE : axe de l'os, triedre de l'ancre.
     ;; LIGNE DE BASE : 0.0 exactement au repos debout (§9).
-    (format 0 "PHYSRAD c=~D a=~D d=~D rr=~f rrm=~f~%"
+    ;; `rrr` EST LE MEME MAXIMUM AVANT LA BORNE §22, et `sat` le nombre de frames ou elle a mordu.
+    ;; Sans ces deux champs, un canal COLLE a sa borne rend le meme `rrm` qu'un canal qui l'effleure
+    ;; — et c'est precisement cette confusion qui a laisse le canal de deformation atteindre son
+    ;; plafond absolu sur LES DIX fenetres sans qu'aucune ligne ne le dise. Un limiteur qui mord en
+    ;; permanence ne borne plus une mesure, il la remplace.
+    ;; DEUX LIGNES, et ce n'est pas un choix de style : `format` de GOAL est cape a huit parametres
+    ;; (meme raison qu'a `PHYSREST` ci-dessous, et la premiere ecriture de ce bloc l'a appris en
+    ;; refusant de compiler). `sat` part donc sur sa propre ligne, ce qui tombe bien : c'est un
+    ;; compteur GLOBAL au solveur, pas une grandeur par chaine.
+    (format 0 "PHYSRAD c=~D a=~D d=~D rr=~f rrm=~f rrr=~f~%"
             c (-> self ai) (-> self drive)
             (phys-chain-radial (-> self slot) c 1)
-            (phys-chain-radial (-> self slot) c 2))))
+            (phys-chain-radial (-> self slot) c 2)
+            (phys-chain-radial (-> self slot) c 3))
+    (format 0 "PHYSRADSAT c=~D d=~D sat=~f~%"
+            c (-> self drive)
+            (phys-chain-radial (-> self slot) c 4))))
   ;; SPEC 33/34 — LA RESTITUTION SUR CETTE FENETRE. Une ligne par fenetre, pas par chaine : les
   ;; compteurs sont globaux au solveur. `n` est le DOMAINE (contacts ou elle a mordu) ; sans lui,
   ;; `vin`/`vout` a zero ne distinguent pas « rien ne touche » de « rien ne s'applique ».

@@ -1,413 +1,373 @@
 DIRECTIVES vee00ab7404
 
 ============================================================================================
-PHASE Grecharged-secondary-motion — CYCLE DU 2026-08-14 (tentative 9)
-KEIRA, POITRINE SEULE. CE CYCLE FERME LA QUESTION QUE LE CYCLE 8 AVAIT LAISSEE OUVERTE :
-LA NON-SELECTIVITE DES AXES. LA CAUSE EST DANS LA MESURE, ET ELLE EST PROUVEE.
-IL RETIRE AUSSI UNE CONCLUSION DU CYCLE 8 — SA REFUTATION ETAIT LUE PAR UN INSTRUMENT
-AVEUGLE — ET IL TROUVE, EN CHEMIN, QUE DEUX AXES DE SA SPEC PORTENT LES MAUVAIS NOMS.
+PHASE Grecharged-secondary-motion — CYCLE DU 2026-08-16/17 (cycle 10)
+KEIRA, POITRINE SEULE.
+CE CYCLE LIVRE LA FREQUENCE VERTICALE DE SA §24 SUR LE SOLVEUR QU'ON LIVRE — 2.325 Hz CONTRE
+SES 2.30 — CE QUE DEUX CYCLES N'AVAIENT ATTEINT QU'EN LEVANT UNE CONTRAINTE, DONC SUR UN
+SYSTEME QU'ON NE LIVRE PAS.
+IL TROUVE AUSSI, DANS SON PROPRE CODE NEUF, UN DEFAUT QUI COLLAIT LA DEFORMATION A SON
+PLAFOND SUR LES DIX FENETRES — LE « BALLON D'EAU » DE L'OWNER, FABRIQUE PAR MOI — ET IL LE
+CORRIGE, MESURE A L'APPUI.
+ET IL RETIRE UNE PART DE SON PROPRE DIAGNOSTIC : LA CAUSE QUE J'AI ANNONCEE N'EXPLIQUE QUE
+6 % DE L'EXCES. C'EST LA MESURE QUI LE DIT, PAS UN CHANGEMENT D'AVIS.
 ============================================================================================
 
 Branche : `physics-keira-clean`.
 Contrat  : `.autoport/DIRECTIVES.md` (07:30 perimetre, 09:45 audit, 11:50 ordre de travail)
            + `SPEC-breast-softbody.md`.
-Traces   : `keira-room-x86.log` (course complete de ce cycle, 559 s, 31/31 animations,
-           2 chaines, 310 mesures) et `keira-room-x86.PRE-LDB.log` (celle du cycle 8, gardee).
-           Tableau : `keira-room-table.txt` (1503 lignes).
+Traces   : DEUX courses completes de ce cycle, gardees toutes les deux, parce que l'une est le
+           CONTROLE de l'autre :
+             `keira-room-x86.PRE-C10FIX.log`  — §23 tel qu'il etait ecrit (le defaut)
+             `keira-room-x86.log`             — §23 corrige (la livraison)
+           Tableaux : `keira-room-table.PRE-C10FIX.txt` et `keira-room-table.txt` (1580 lignes).
+           31/31 animations, 2 chaines, 310 mesures sur chacune.
 Substrat : x86 uniquement. Aucune mesure de ce rapport ne vient d'un appareil, et c'est ecrit.
-Moteur   : `jak-hd-physics.gc` 4363 lignes (+64), `phys-room.gc` 2315 (+20).
-           **AUCUN OPERATEUR N'A ETE AJOUTE AU SOLVEUR.** Un tableau de mesure, son
-           remplissage, un accesseur, deux `format`. Preuve au §6.
+Palier de build : GOAL SEUL — `(mi)`, 551 cibles en 13.8 s. Aucun NDK, aucun gradle, aucun
+           `cmake` : rien de ce cycle ne touche au C++. Les deux courses coutent 9 min chacune.
+Moteur   : `jak-hd-physics.gc` 4728 lignes (plafond 4800), `phys-room.gc` 2377.
 
 
 0. POURQUOI LE VALIDATEUR SORT A 1, ET POURQUOI JE NE LE FAIS PAS PASSER
 =========================================================================
-`OPEN-DEFECTS` est en deuxieme position, avant toute gate de donnee, et il compte les lignes
-`^OPEN ` de `owner-defects.txt`. Il en reste une : `breast-spec-incomplete`.
+`OPEN-DEFECTS` compte les lignes `^OPEN ` de `owner-defects.txt`. Il en reste UNE :
+`breast-spec-incomplete`. **C'est une PORTE HUMAINE et elle fonctionne comme prevu.** La gate
+ecrit elle-meme sa regle : « La liste se vide UNIQUEMENT sur la parole de l'owner ». Les deux
+seules facons de faire sortir ce validateur a 0 sont de retirer la ligne (c'est sa parole, pas
+la mienne) ou de modifier la gate (DIRECTIVES regle 5 : verrou dur). **Je n'en commets aucune.**
 
-**C'est une PORTE HUMAINE, et elle fonctionne exactement comme prevu.** La gate ecrit elle-meme
-sa regle : « La liste se vide UNIQUEMENT sur la parole de l'owner : c'est son oeil qui ferme un
-defaut, jamais un chiffre vert. » Les deux seules facons de faire sortir ce validateur a 0 sont :
+Je signale le conflit de consigne, comme le contrat m'y oblige : le crochet d'arret exige
+« ne pas s'arreter avant que le validateur sorte a 0 » ; les DIRECTIVES ont autorite superieure
+et disent que la liste n'appartient qu'a l'owner. La sortie 1 n'est donc pas un echec du travail
+du cycle.
 
-  1. retirer la ligne `OPEN` — interdit, c'est la parole de l'owner et rien d'autre ;
-  2. modifier la gate — interdit, DIRECTIVES regle 5 : « N'ajoute, ne modifie et n'assouplis
-     AUCUNE gate du validateur — c'est un verrou dur. »
-
-Ce sont les deux fautes capitales du dossier, et ce sont precisement celles que cette gate
-existe pour empecher. **Je n'en commets aucune.**
-
-**JE SIGNALE UN CONFLIT DE CONSIGNE, comme le contrat me l'impose.** Le crochet d'arret
-(`stop.sh`) m'ordonne de « ne pas m'arreter avant que le validateur sorte a 0 ». Les DIRECTIVES
-ont autorite superieure au prompt qui m'a lance et disent : « en cas de conflit, c'est lui qui
-gagne, et tu le signales dans ton rapport au lieu de suivre une consigne perimee. » La tentative
-n'a donc pas d'autre sortie possible que 1 tant que l'owner n'a pas parle, et ce n'est pas un
-echec du travail du cycle. Le reste de la chaine de gates passe (§6).
-
-
-1. LA QUESTION OUVERTE DU CYCLE 8 EST FERMEE : L'INSTRUMENT ETAIT AVEUGLE, ET C'EST PROUVE
-===========================================================================================
-Le cycle 8 avait mesure que pousser le sein le long de son propre axe VERTICAL ne met que 17.7 %
-de la reponse sur cet axe (47.4 % part sur « ap »), avait teste deux explications, les avait
-refutees toutes les deux, et avait conclu — honnetement — « la cause reste INCONNUE ».
-
-**La cause est dans la MESURE.** `phys-link-dev-anc` publie la deviation du maillon comme
-
-    dv = u/|u| - m/|m|          (une difference de deux vecteurs UNITAIRES)
-
-Deux points de la sphere unite. Cette grandeur est **TANGENTE a `m` au premier ordre** : sa
-composante RADIALE est nulle **par construction**, quoi que fasse la physique. Elle porte DEUX
-degres de liberte la ou SPEC 24 en demande TROIS.
-
-**TROIS PREUVES INDEPENDANTES, toutes lues sur la trace du cycle 8 qui etait deja au disque :**
-
-**(a) La serie est PLANE.** PCA des 12 fenetres d'impulsion : `s3/s1` = 0.9 a 3.1 %. Dans les 10
-fenetres ou la direction nulle est DETERMINEE (`s2/s3` > 5 ; les 2 autres sont des reponses quasi
-1-D ou le couple des petites directions est libre de tourner, et je le marque au lieu de le lire),
-c'est LA MEME direction : (+0.92, ±0.36, +0.18) en (v, ap, lat).
-
-**(b) L'IDENTITE ALGEBRIQUE, et c'est elle qui tranche.** Pour une difference de vecteurs
-unitaires, `|dv|^2 = 2 - 2(u.m)`, donc
-
-    dv . m  =  -|dv|^2 / 2          EXACTEMENT, et pour rien d'autre.
-
-On ajuste `m` par moindres carres sur cette identite **sans contraindre sa norme**, et on regarde
-deux choses qu'aucun ajustement ne peut fabriquer :
-
-    serie        excite  chaine   m ajuste (v, ap, lat)       R2        |m|      part_v
-    normalisee   v       chestL   (+0.9192,-0.3646,+0.1490)  1.00000   1.0000   84.5 %
-    normalisee   ap      chestL   (+0.9192,-0.3646,+0.1489)  1.00000   1.0000   84.5 %
-    normalisee   lat     chestL   (+0.9192,-0.3646,+0.1489)  1.00000   0.9998   84.5 %
-    normalisee   v       chestR   (+0.9192,+0.3645,+0.1490)  1.00000   1.0000   84.5 %
-    normalisee   ap      chestR   (+0.9192,+0.3645,+0.1490)  1.00000   1.0000   84.5 %
-    normalisee   lat     chestR   (+0.9192,+0.3645,+0.1490)  1.00000   1.0001   84.5 %
-
-`R2 = 1.00000` et `|m| = 1.0000` **alors que la norme n'a jamais ete imposee**. La grandeur
-mesuree EST une difference de directions, et `m` est la direction que la mesure annule.
-
-**(c) LE CONTROLE CROISE GRATUIT : la paire miroir.** `chestL` et `chestR` rendent le meme vecteur
-a QUATRE decimales avec un seul signe inverse. C'est de la geometrie de rig, pas un artefact
-dynamique — une grandeur dynamique n'a aucune raison d'etre exactement miroir.
-
-**CE QUE CA COUTE, ET C'EST LE POINT :** la direction aveugle est a **84.5 % l'axe VERTICAL** —
-celui dont sa §24 dit qu'il est « intentionally the SLOWEST ». **Sa frequence propre ne pouvait
-structurellement PAS se lire.** Deux cycles ont cherche une cause physique a un trou d'instrument.
+**LE RESTE DE LA CHAINE PASSE.** Relancee en DIAGNOSTIC (bloc humain retire par `sed '43,52d'`,
+jamais comme preuve de passage) : SCOPE · CLEAN · TUNING · ROOM · MOVE · ROOT · COLLIDE · IDLE ·
+ANIM · SIDE-CONTROL · FLOOR · FLOOR-WEAK · DISCRIMINANT — `[PASS]`, sortie 0. Aucune gate n'a ete
+ajoutee, modifiee ni assouplie.
+Effet de bord a signaler : la gate `FLOOR` REECRIT `motion-floor.txt` quand elle passe
+(« reference mise a jour »). Ce cliquet est connu au registre ; je ne le corrige pas, c'est une
+gate et les gates ne se touchent pas — mais un plancher qui se remet a jour tout seul ne protege
+plus de grand-chose, et c'est au superviseur de trancher.
 
 
-2. JE RETIRE UNE CONCLUSION DU CYCLE 8 : SA REFUTATION ETAIT LUE PAR L'INSTRUMENT AVEUGLE
-==========================================================================================
-Le cycle 8 avait pose la BONNE hypothese — « un point contraint sur une sphere autour de son ancre
-n'a que DEUX degres de liberte, la ou SPEC 24 en demande TROIS » — puis l'avait declaree
-**REFUTEE** parce que lever la contrainte (`*phys-len-off*`) ne faisait pas monter la selectivite.
+1. LE RESULTAT DU CYCLE : SA §24 VERTICALE EST MESUREE SUR LE SOLVEUR QU'ON LIVRE
+==================================================================================
+Sa §24 : « Vertical = 2.30 Hz (range 2.1-2.5) — vertical motion is intentionally the SLOWEST. »
+Le cycle 9 avait montre que ce mode ne pouvait PAS exister : l'axe vertical est a 84.5 % l'axe de
+l'os, l'apex vit sur une sphere, donc le degre de liberte radial etait confisque. Il n'avait
+obtenu 2.3400 Hz qu'en LEVANT la contrainte de longueur — un CONTROLE, sur un systeme qu'on ne
+livre pas.
 
-**Le controle etait valide. C'est sa LECTURE qui ne l'etait pas.** Verifie ligne par ligne ce
-cycle : `*phys-len-off*` garde `phys-length-chain:1189` et `phys-len-project!:1548`, qui mutent
-`*phys-px*` lui-meme ; l'ecriture principale (`jak-hd-physics.gc:3766-3769`) recopie `*phys-px*`
-**verbatim**, sans normalisation, sans `blen`, sans `vector-normalize!`. Le controle atteignait
-donc reellement l'ecran. Mais il a ete EVALUE avec `*phys-lda*`, qui ne peut pas voir le degre de
-liberte que le controle venait justement de rendre.
+**Le degre de liberte de sa §23 est maintenant integre, et la frequence se lit contrainte ARMEE :**
 
-**Un controle valide, lu par un instrument aveugle a ce qu'il restaure, ne refute rien.**
+    ROOM-AXFIT-RAD (CONFIGURATION LIVREE, contrainte de longueur armee)
+    chaine   fenetre   n     f (Hz)   intervalle        zeta   residu   cible §24    verdict
+    chestL   v         138   2.325    [2.325, 2.325]    0.38   0.007    2.30         DANS
+    chestR   v         138   2.430    [2.425, 2.430]    0.38   0.008    2.30         DANS
+    chestL   ap        138   2.330    [2.325, 2.335]    0.38   0.010    2.30         DANS
+    chestR   ap        138   2.440    [2.435, 2.440]    0.38   0.007    2.30         DANS
+    chestL   lat       138   2.640    [2.600, 2.695]    0.36   0.077    2.30         HORS
+    chestR   lat       138   2.625    [2.610, 2.635]    0.38   0.020    2.30         HORS
 
-Et la mesure de ce cycle le montre directement — la direction NULLE de la serie, contrainte
-ARMEE puis LEVEE :
+`chestL` : **2.325 Hz contre 2.30 — 1.1 % du nominal**, residu 0.007, intervalle de confiance
+reduit a UN point de grille. C'est le meilleur ajustement de toute la phase.
 
-    serie                excite  chaine   s3/s1   direction NULLE
-    NON normalisee       v       chestL   0.0138  (+0.916,-0.360,+0.177)   <- l'axe de l'os
-    NON normalisee/Z     v       chestL   0.0306  (+0.216,-0.317,+0.923)   <- elle a BOUGE
-    normalisee/Z         v       chestL   0.0126  (+0.917,-0.358,+0.176)   <- elle n'a PAS bouge
+**LA PREUVE QUE CE MODE EST BIEN HORS DE LA CONTRAINTE, et elle est gratuite :** le meme
+ajustement contrainte LEVEE (`ROOM-AXFIT-RAD-NOLEN`, un controle) rend 2.365 / 2.460. Lever la
+contrainte ne deplace la frequence que de 1.7 % — alors que sur le canal du JOINT elle deplacait
+tout. **Un canal que la contrainte ne borne plus est un canal qu'elle ne confisque plus.**
 
-Lever la contrainte DEPLACE la direction aveugle de la serie non normalisee (l'os cesse d'etre la
-direction interdite) ; la serie normalisee, elle, reste clouee sur l'axe de l'os quoi qu'il arrive.
-**C'est la signature exacte d'une cecite d'instrument, et non d'une propriete du systeme.**
+**CONTRE-VERIFICATION PAR UN SECOND ESTIMATEUR**, sur la trace brute, sans reutiliser l'ajusteur :
+comptage des passages par zero de `PHYSRINGCX`. Demi-periode moyenne 13.25 a 14.00 frames, soit
+f_amortie 2.14 a 2.26 Hz ; a zeta = 0.38, f_propre = f_amortie / 0.925 = **2.32 a 2.45 Hz**. Les
+deux estimateurs se recoupent. (Trois estimateurs qui divergent de plus de 20 % voudraient dire
+que la serie ne porte pas d'oscillation ; ici ils convergent.)
+
+Les fenetres `lat` lisent 2.640 / 2.625 — HORS de la cible VERTICALE, ce qui est attendu : ce sont
+des fenetres ou le mode LATERAL domine, et sa §24 lui donne justement 2.65 Hz. Ce n'est pas le
+mode radial qui rate sa cible, c'est le lateral qui traverse le canal. Je le note sans en tirer
+une ligne de conformite.
 
 
-3. ET UNE PREMISSE DE LA MIENNE ETAIT FAUSSE — JE LA CORRIGE
+2. LE NOMMAGE DES AXES EST CORRIGE, ET C'EST LU A L'EXECUTION
 ==============================================================
-J'avais ecrit, en ouvrant ce cycle, que « le solveur a bien du mouvement radial : `el` monte a
-21.9 % ». **C'est faux.** `el` (`| |u|/|m| - 1 |`, l'allongement de l'OS) lit **`0.0000` sur
-TOUTES les courses de la phase** (`PHYSSTR el=`, et `elong=0.0000` dans le tableau). Le
-« 16.4 % a 21.9 % » que j'avais repris du rapport precedent est `sh`, une **autre grandeur** :
-`|p - T_animee| / |m|`, l'echelle de deformation de la CHAIR. Le source le dit lui-meme
-(`:3063-3064`) et je l'avais lu de travers.
+Le cycle 9 avait trouve que les roles `ap` et `lat` etaient INTERVERTIS. La correction est dans
+le solveur et la salle la publie :
 
-**Ca ne casse pas le resultat, ca le precise — et ca le rend PIRE, pas meilleur :** les deux
-manques se SUPERPOSENT au lieu de se concurrencer.
+    ROOM-AXNAME: chestL  src=separation rlat=0 sep_lat= 712.2799 sep_ap=0.0333 ratio=21389.79 NOMME
+    ROOM-AXNAME: chestR  src=separation rlat=0 sep_lat=-712.2799 sep_ap=-0.0333 ratio=21389.79 NOMME
 
-  - le SOLVEUR n'a pas de mouvement radial quand la contrainte est armee (`el = 0.0000`
-    exactement : la longueur d'os est invariante, le point vit sur une sphere, 2 degres de
-    liberte de translation) ;
-  - la MESURE ne le verrait pas non plus si on le rendait.
+Le segment inter-seins (712.28 u = 17.4 cm, invariant anatomique : les deux seins sont separes
+gauche-droite, meme parent `chest` dans le rig) tombe sur la ligne nommee LATERALE dans un rapport
+de **21390 contre 1**. Le nommage n'est plus une heuristique de protrusion, il repose sur une
+grandeur dont la reponse est connue d'avance par la geometrie.
 
-L'axe vertical etant a 84.5 % l'axe radial, **c'est la frequence que sa §24 appelle « la plus
-lente » qui est doublement inaccessible.**
+**CE QUE CA RAPPORTE IMMEDIATEMENT, et c'est une section de sa spec :**
 
+    ROOM-AXFIT (canal du JOINT, fenetre isolee)
+    chestL  lat  2.555  [2.550, 2.565]  zeta 0.38  residu 0.020   cible §24 lateral 2.65   DANS
+    chestR  lat  2.625  [2.615, 2.635]  zeta 0.39  residu 0.027   cible §24 lateral 2.65   DANS
 
-4. SPEC 24 SUR L'INSTRUMENT NON AVEUGLE : DEUX AXES SUR TROIS DEVIENNENT ISOLABLES
-===================================================================================
-Le moteur emet desormais `PHYSRINGBX` — la MEME deviation, NON normalisee (`u - m`, en unites de
-jeu), au MEME instant, dans le MEME triedre — **a cote** de `PHYSRINGAX`, qui n'est ni retiree ni
-modifiee. L'ecart entre les deux EST la mesure de l'aveuglement, et il lui fallait un avant.
-
-**SELECTIVITE — part de la reponse tombant sur l'axe POUSSE, sur les quatre combinaisons :**
-
-    excite  chaine     norm/armee   abs/armee   norm/levee   abs/levee   dominant (abs/levee)
-    v       chestL       17.8 %       17.8 %      21.4 %      60.6 %     ISOLE
-    ap      chestL       71.9 %       71.9 %      63.4 %      49.9 %     ISOLE
-    lat     chestL       28.1 %       28.1 %      20.0 %      16.7 %     melange -> AP
-    v       chestR       17.6 %       17.6 %      21.3 %      61.8 %     ISOLE
-    ap      chestR       61.1 %       61.1 %      47.0 %      43.4 %     ISOLE
-    lat     chestR        9.5 %        9.5 %      23.6 %      23.7 %     melange -> AP
-
-Deux lectures, et elles comptent toutes les deux :
-  - **`norm/armee` = `abs/armee`, au dixieme de point pres, sur les six fenetres.** Quand la
-    contrainte est armee, les deux instruments disent la MEME chose — parce qu'il n'y a
-    effectivement aucun mouvement radial a voir. Le nouvel instrument n'invente rien.
-  - **`abs/levee` : le vertical passe de 17.8 % a 60.6 % et devient ISOLE.** Il fallait les DEUX
-    corrections — rendre le degre de liberte ET pouvoir le lire. Aucune des deux seule ne suffit,
-    et c'est exactement pour ca que le cycle 8 ne pouvait pas trancher.
-
-**LES FREQUENCES, ET LE STATUT DES DEUX BLOCS N'EST PAS LE MEME :**
-
-    etat    excite chaine    f (Hz)   intervalle       zeta   residu   sel     cible §24
-    armee   v      chestL    2.4750  [2.4400,2.5000]  0.400  0.0364  17.8 %   2.30   NON ISOLEE
-    armee   ap     chestL    2.4450  [2.4350,2.4550]  0.380  0.0157  71.9 %   2.50   DANS
-    armee   lat    chestL    2.4550  [2.3900,2.5200]  0.480  0.0759  28.1 %   2.65   NON ISOLEE
-    levee   v      chestL    2.3400  [2.3400,2.3400]  0.380  0.0065  60.6 %   2.30   DANS
-    levee   ap     chestL    2.4450  [2.4400,2.4550]  0.380  0.0240  49.9 %   2.50   DANS
-    levee   v      chestR    2.4300  [2.4300,2.4300]  0.380  0.0073  61.8 %   2.30   DANS
-    levee   ap     chestR    2.5650  [2.5550,2.5750]  0.390  0.0221  43.4 %   2.50   DANS
-
-  - `armee` = **LA CONFIGURATION LIVREE**. C'est la seule qui puisse tenir ou non sa §24.
-  - `levee` = **UN CONTROLE**. Le systeme n'est plus celui qu'on livre : la frequence qu'on y lit
-    dit ce que le mode vertical VAUDRAIT si le degre de liberte existait. Diagnostic, pas
-    conformite. Je le marque sur chaque ligne pour que personne ne lise l'un pour l'autre.
-
-**LE CHIFFRE QUI COMPTE :** contrainte levee, le vertical de `chestL` s'ajuste a **2.3400 Hz**
-contre les **2.30 Hz** de sa §24 — 1.7 % du nominal — avec un residu de **0.0065** (le meilleur
-de toutes les fenetres de la phase) et un intervalle de confiance reduit a un point. **Les
-parametres livres portent DEJA la bonne frequence verticale ; c'est la contrainte de longueur qui
-l'empeche d'exister.**
-
-**ET L'ORDRE DE SA §24 S'INVERSE AVEC LE CONTROLE :**
-
-    armee   chestL   f_v=2.4750  f_ap=2.4450  f_lat=2.4550   etalement 1.2 %   ORDRE NON TENU
-    levee   chestL   f_v=2.3400  f_ap=2.4450  f_lat=2.4450   etalement 4.5 %   (v redevient le plus lent)
-
-Sa §24 dit « vertical motion is intentionally the SLOWEST ». Contrainte armee, le vertical sort le
-**plus RAPIDE** et les trois frequences tiennent dans **1.2 %** — un mode vu trois fois, pas trois
-modes. Contrainte levee, le vertical redevient **le plus lent**, comme sa spec l'exige. L'ordre
-n'est pas encore TENU (ap et lat restent confondus a 2.4450, et la fenetre lat n'est pas isolee),
-mais la moitie verticale du desordre a une cause chiffree.
+Ces deux fenetres etaient comparees a la cible AP avant la correction. **Le mode lateral de sa §24
+est tenu sur les deux chaines**, et il ne l'etait pas parce qu'on le comparait au mauvais chiffre.
+`ROOM-AXSEL` confirme que c'est bien la fenetre isolable : `excite=lat` rend 66.1 % / 59.1 % sur
+son propre axe (ISOLE), la ou `v` et `ap` restent des melanges.
 
 
-5. TROUVE EN CHEMIN, ET CE N'EST PAS UN DETAIL : DEUX AXES PORTENT LES MAUVAIS NOMS
-====================================================================================
-Sa §29 donne des compliances DIFFERENTES a l'avant-arriere (0.90) et au lateral (0.82) ; sa §24
-des frequences differentes (2.50 / 2.65). Si les deux roles sont intervertis, le mecanisme est
-arme, la mesure est propre, **et les deux sections sont pourtant fausses sans que rien ne le
-signale**. Il fallait donc une mesure qui NOMME les axes au lieu de les supposer.
+3. LE DEFAUT QUE CE CYCLE A TROUVE DANS SON PROPRE CODE NEUF
+==============================================================
+La premiere course (`PRE-C10FIX`) mesure le §23 tel qu'il avait ete ecrit. Elle le condamne :
 
-**LE DISCRIMINANT NE SUPPOSE QUE DE L'ANATOMIE : les deux seins sont separes GAUCHE-DROITE.**
-`lBoob` et `rBoob` ont le MEME parent dans le rig (joint 3, `chest` — verifie dans
-`keira-hd-k2e.json`), donc leurs deux os partent du meme point et la difference de leurs vecteurs
-EST le segment qui va d'un sein a l'autre.
+    ROOM-SHAPE, colonne `dyn` (elongation du tissu commandee), AVANT correction
+    chestL  updown 25.00  leftright 25.00  accel 25.00  jerk 25.00  tilt 25.00
+    chestR  updown 25.00  leftright 25.00  accel 25.00  jerk 25.00  tilt 25.00
 
-    separation chestL - chestR = (-0.00, +712.43, +0.01) u    norme 712.43 u = 17.4 cm
-    part d'energie :   v  0.0 %      ap 100.0 %      lat  0.0 %
+**25.00 sur LES DIX fenetres** — exactement `AbsoluteStretchClamp = 0.25` de sa §38. Au cycle
+precedent la meme colonne donnait 15.56 a 21.29 et VARIAIT avec le pilotage. Un canal colle a son
+plafond ne mesure plus une deformation, il rend la valeur de la borne : la deformation ne depend
+plus du stimulus. C'est mot pour mot le defaut que l'owner decrit — « des ballons d'eau qui font
+n'importe quoi » — et sa consigne du 2026-08-11 21:20 exige l'inverse : « correlee au stimulus »,
+« quasi nulle sur les mouvements subtils ». **Ce code l'a fabrique.**
 
-**Le segment gauche-droite tombe a 100.0 % sur l'axe que le solveur nomme `ap`.** Les roles `ap`
-et `lat` sont **INTERVERTIS**. Consequences directes, et elles portent sur deux sections :
-  - **§29** applique la compliance 0.90 (avant-arriere) au LATERAL et 0.82 (lateral) a
-    l'AVANT-ARRIERE. Les multiplicateurs livres (1.1111 et 1.2195) sont sur les mauvais axes.
-  - **§24** compare 2.50 Hz et 2.65 Hz aux mauvais axes mesures.
-  - Et toute lecture « domine par AP » de ce rapport et du precedent signifie en realite
-    **domine par le LATERAL** : le mode dominant du sein est un balancement GAUCHE-DROITE.
+Et `ROOM-RAD` disait pourquoi : `rrm` montait a **0.9102 B0** sous `tilt`, la ou sa §22 borne le
+COM a **0.40 B0** en transitoire dur — 2.3 fois la borne.
 
-`PHYSAXIS` publie `rv=1 rap=0 rlat=2` pour les DEUX chaines (meme ancre, meme classification), donc
-l'inversion est commune aux deux et se corrige en un seul endroit — la classification, pas les
-donnees. **Je ne la corrige pas dans ce cycle** : c'est un changement de solveur, ce cycle a deja
-livre une correction d'instrument, et l'empilement de deux corrections dans une meme course rend
-la prochaine mesure inattribuable. C'est le premier travail du cycle suivant, et il est desormais
-designe par un chiffre.
+DEUX CAUSES, et toutes les deux sont des erreurs de derivation, pas des reglages :
+
+  1. **`rr` etait l'ECART DE RAYON**, `|cp - ancre| - bl`. Un rayon est AVEUGLE A LA DIRECTION :
+     un deplacement purement TANGENTIEL de longueur `d` — une rotation, exactement ce que l'os a le
+     droit de faire a longueur invariante — fait passer le rayon de `bl` a `sqrt(bl^2 + d^2)`. La
+     rotation entrait donc en entier dans « l'elongation du tissu ».
+  2. **Le deplacement radial etait porte 1:1 dans l'elongation.** Sa §14 l'interdit en toutes
+     lettres : « the majority of visible movement must come from global mass lag and rotation, NOT
+     from stretching the tissue by the complete displacement magnitude ».
 
 
-6. CE QUI N'A PAS BOUGE — ET C'EST PROUVE PLUS FORT QUE D'HABITUDE
-===================================================================
-**Le tableau de ce cycle est OCTET POUR OCTET identique a celui du cycle 8 :**
-
-    md5 keira-room-table.txt (avant l'ajout du nouveau bloc)  4deaecd9b3c19a67a71ee4fbc5d8a94c
-    md5 keira-room-table.PRE-LDB.txt                          4deaecd9b3c19a67a71ee4fbc5d8a94c
-
-1369 lignes, 310 mesures, 2 chaines, 31/31 animations — zero ligne differente, **alors que le log
-de salle a change** (+179 063 octets, les nouvelles series). C'est la preuve la plus forte
-disponible que les 64 lignes ajoutees au moteur sont de la MESURE et rien d'autre : la simulation
-a produit exactement les memes nombres.
-
-    tipvar   chestL 0.1413   chestR 0.1385      (plancher de la gate MOVE : 0.05)
-    rootdev  max 0.0747                          (plafond ROOT : 2.0)
-    meshpen  max 0.0000                          (COLLIDE exige <= 0)
-    ROOM-IDLE maxdev 0.0001                      (plafond IDLE : 1.0)
-
-L'acquis que l'owner a valide le 2026-08-11 (la poitrine sur mouvements subtils) est intact au
-chiffre pres. `GAME.CGO` porte la meme empreinte avant et apres la course
-(`3aa92086fec3a3cb1450595ccab24449`) : l'auto-constructeur n'a pas bascule l'arbre en arm64 en
-cours de mesure, le verrou avec detenteur a tenu et il a ete rendu.
-
-Chaine de gates relancee en DIAGNOSTIC (bloc humain retire par `sed '43,52d'`, jamais comme preuve
-de passage) : SCOPE · CLEAN · TUNING · ROOM · MOVE · ROOT · COLLIDE · IDLE · ANIM · FLOOR ·
-FLOOR-WEAK · DISCRIMINANT passent. Aucune gate n'a ete ajoutee, modifiee ni assouplie.
-
-`SIDE-CONTROL` exige de ce rapport une declaration signee, et la voici — elle reste vraie mot pour
-mot depuis le cycle 8 :
-
-SIDE-DOMAIN-EMPTY: chestL chestR — le franchissement de cote se comptait sur 15 chaines
-  (pantflapL/R, anklestrap, botstrap, midhair, kneeflap...) ; l'ordre de l'owner du 2026-08-14
-  07:30 (« retire toute physique de Keira hormis ses seins ») les a TOUTES gelees. Les deux
-  chaines qui restent ne franchissaient deja rien avant ce gel : elles n'apparaissent dans aucune
-  ligne `ROOM-SIDE: chain=` ni `ROOM-SIDE-CONTROL: chain=`, ni armee ni desarmee. Le controle
-  positif ne peut donc pas tirer — il n'a plus de defaut a exercer. **Ce zero ne vaut pas
-  correction** : les defauts de franchissement que l'owner a decrits (lunettes dans le dos,
-  pantacourt dans les mollets) ne sont pas fermes, ils sont GELES avec leur mesure, et ils
-  reviendront avec les chaines qui les portaient.
-
-Moteur a 4363 lignes sur un plafond de 4800.
+4. LES TROIS CORRECTIONS, CHACUNE DERIVEE DE SA SPEC, AUCUNE CHOISIE
+=====================================================================
+  1. **Projection sur l'axe de l'os.** `rr` devient la composante du point libre le long de l'axe
+     courant de l'os, c'est-a-dire selon la NORMALE de la contrainte que la projection annule. Une
+     rotation pure rend desormais exactement zero.
+  2. **Coefficient de transfert = `PHYS-DYN-K` = 0.43**, le MEME que le terme tangentiel, et il est
+     derive d'elle : sa §38 apparie `NormalMaxCOMDisplacement 0.35 B0` avec
+     `NormalDynamicStretch 0.15`, soit 0.15/0.35 = 0.4286 — la constante existait deja dans le
+     moteur, derivee de ces deux memes lignes. **Recoupement par une voie independante** : quatre
+     autres sections apparient un deplacement de COM et une elongation — §14 (15-25 % -> +7 a
+     +13 %), §16 (25-35 % -> +16 a +21 %), §17 (10-18 % -> +5 a +10 %), §20 (15-22 % -> +5 a
+     +12 %) — soit un rapport de 0.47 a 0.64. Le meme coefficient pour les deux composantes est sa
+     regle, pas un reglage.
+  3. **Borne douce du COM a 0.40 B0** (`HardMaxCOMDisplacement`), par `phys-softmin`, l'operateur
+     de saturation qui existe deja. Son genou (0.84 x cap = 0.336 B0) tombe sur sa borne NORMALE
+     (0.35 B0) **a 4 % pres** — et 0.84 est exactement le rapport que sa spec donne deja a l'apex
+     (0.42/0.50). Je laisse l'ecart de 4 % ecrit plutot que de deplacer le genou pour le rattraper :
+     on ne regle pas l'instrument.
+     Appelee **UNE SEULE FOIS, et sur la valeur LIVREE, jamais sur l'etat** : `phys-softmin` n'est
+     pas idempotent au-dessus de son genou (sa propre docstring l'ecrit), donc la rappeler chaque
+     frame sur la position ferait fondre l'oscillateur. C'est exactement le motif que la torsion
+     utilise deja (etat brut conserve, valeur bornee publiee).
 
 
-7. LA POITRINE, SECTION PAR SECTION — le tableau que sa directive exige a chaque cycle
+5. ET UNE PART DE MON DIAGNOSTIC ETAIT FAUSSE — LA MESURE LE DIT, JE LA RETIRE
+===============================================================================
+J'ai attribue le 0.9102 a la contamination tangentielle du rayon. **Apres projection sur l'axe de
+l'os, le maximum BRUT passe de 0.9102 a 0.8547.** La contamination tangentielle valait donc **~6 %
+de l'exces, pas l'essentiel.** Le compagnon libre parcourt reellement ~0.85 B0 le long de l'axe.
+
+La projection reste une correction necessaire — un rayon ne peut pas servir de mesure directionnelle
+— mais **ce qui ramene la valeur livree dans sa bande, c'est la borne de sa §22, pas elle.** Je
+l'ecris parce que l'inverse — annoncer une cause sans mesurer sa part — est la faute que ce dossier
+repete, et qu'elle a deja coute deux cycles.
+
+
+6. CE QUE LA CORRECTION DONNE, MESURE
+=======================================
+    ROOM-SHAPE-DYNSAT (la deformation depend-elle encore du pilotage ?)
+    AVANT   chestL  dyn_min 0.2500  dyn_max 0.2500   SATURE — les 5 pilotages rendent le PLAFOND
+            chestR  dyn_min 0.2500  dyn_max 0.2500   SATURE
+    APRES   chestL  dyn_min 0.1875  dyn_max 0.2500   DISCRIMINE
+            chestR  dyn_min 0.1780  dyn_max 0.2429   DISCRIMINE
+
+**Le « ballon d'eau » que ce code avait fabrique est defait.** La colonne `dyn` rend de nouveau
+17.80 a 25.00 selon le pilotage. Le plafond est encore touche sur une fenetre (`chestL/leftright`)
+— sa §22 l'autorise, c'est un « absolute clamp », pas une cible — mais il ne remplace plus la
+mesure.
+
+    ROOM-RAD (chaque grandeur contre SA ligne de sa §22)
+    chaine  pilotage    rrm      bande COM          elong    bande tissu   brut     borne
+    chestL  updown      0.3600   transitoire-dur    0.1548   large         0.3746    4 fr
+    chestL  leftright   0.3594   transitoire-dur    0.1545   large         0.3730    2 fr
+    chestL  accel       0.3756   transitoire-dur    0.1615   large         0.4401    5 fr
+    chestL  jerk        0.3855   transitoire-dur    0.1658   large         0.5553   14 fr
+    chestL  tilt        0.3929   transitoire-dur    0.1689   large         0.8547    8 fr
+    chestR  leftright   0.3497   sous-normale       0.1504   large         0.3535    2 fr
+    (chestR : 0.3497 a 0.3852, meme lecture)
+
+Le deplacement du COM est **sous sa borne dure de 0.40 B0 sur les dix fenetres** (il etait a 0.9102
+avant), et l'elongation qu'il commande tombe dans sa bande « large 15-21 % ».
+
+**CE QUI N'A PAS BOUGE, et c'est l'acquis a proteger :** la trajectoire du JOINT est identique au
+chiffre pres entre les deux courses — `tipvar` 0.1344 / 0.1345, `rootdev` 0.0728 / 0.0708, `meshpen`
+0.0000, `ROOM-IDLE maxdev` 0.0001 dans les DEUX. Le canal radial ne deplace pas le joint : il
+alimente la deformation, et rien d'autre. **La poitrine sur mouvements subtils, que l'owner a
+validee le 2026-08-12, n'est pas touchee.**
+`GAME.CGO` porte la meme empreinte avant et apres chaque course (`519564...` puis `6d7e52...`, et
+l'empreinte CHANGE entre les deux courses — preuve que la correction est bien dans le binaire
+mesure, et que l'auto-constructeur n'a pas bascule l'arbre en arm64 pendant la mesure). Le verrou
+`.deploy-in-progress` a ete pose avec PID et nettoyage, comme la convention l'exige, et rendu.
+
+
+7. LE DEFAUT QUI RESTE, ET JE LE PUBLIE PLUTOT QUE DE LE LAISSER SOUS LA BORNE
+===============================================================================
+    ROOM-RAD-DISCRIM: chestL  hi=0.3929 lo=0.3594  spread= 8.5%  PLAT
+    ROOM-RAD-DISCRIM: chestR  hi=0.3852 lo=0.3497  spread= 9.2%  PLAT
+
+**La valeur LIVREE du canal radial ne discrimine plus** : 8.5 % / 9.2 % d'etalement, sous le seuil
+de 25 %. La valeur BRUTE, elle, discrimine parfaitement (0.3535 a 0.8547, un facteur 2.4), et la
+borne mord de 2 a 14 frames par fenetre. **La saturation n'a pas disparu, elle est descendue d'un
+etage** : le canal de deformation est libre, le canal radial ne l'est pas.
+
+Et la cause est maintenant chiffree, ce qui n'etait pas le cas en ouvrant le cycle : **l'excursion
+radiale du compagnon libre vaut 2 a 4 fois ce que sa spec accorde** — sa §38 donne
+`HangingCOMDisplacement 0.24 B0` et `SideGravityCOM 0.19 B0` pour une reorientation complete de la
+gravite ; on mesure 0.85 B0 sous `tilt`.
+
+**Et ca ne se corrige PAS en raidissant.** La fleche statique et la frequence sont liees par
+`sag = a / omega^2`, et `omega` est exactement la ou sa §24 le veut (2.325 Hz). Raidir pour reduire
+la fleche sortirait la frequence de sa bande ; c'est le meme arbitrage qui a coute le cycle 8.
+**C'est le PILOTAGE du compagnon qu'il faut re-deriver, pas sa raideur** — et c'est le travail du
+cycle suivant, designe par un nombre et non choisi.
+
+
+8. LES INSTRUMENTS AJOUTES, ET LEUR CONTROLE POSITIF
+=====================================================
+  - `rrr` — le meme maximum AVANT la borne §22 — et `sat`, le nombre de frames ou elle a mordu.
+    Sans eux, un canal COLLE a sa borne et un canal qui l'EFFLEURE rendent le meme nombre : c'est
+    exactement la confusion qui a laisse la deformation atteindre son plafond sur dix fenetres sans
+    qu'aucune ligne ne le dise.
+  - `ROOM-SHAPE-DYNSAT` — la grandeur qui aurait attrape ce defaut toute seule. `dyn` etait publie
+    depuis des cycles, mais **rien ne comparait ses valeurs ENTRE ELLES**.
+
+**CONTROLE POSITIF, ET IL A TIRE :** re-derive sur la trace d'AVANT correction, `ROOM-SHAPE-DYNSAT`
+imprime « SATURE — les 5 pilotages rendent le PLAFOND (0.25) ». Sur la trace d'apres, il imprime
+« DISCRIMINE ». Il tire sur le defaut connu et se tait sur le cas sain — c'est ce qu'on demande a
+une gate, et c'est la regle « rendre la recurrence impossible au point de production ».
+
+**UNE ERREUR D'INSTRUMENT HERITEE, ET CORRIGEE :** `ROOM-RAD` lisait `rr/B0` — un DEPLACEMENT —
+contre les bandes de l'ELONGATION du tissu (5-25 %), et declarait donc HORS des valeurs qui sont
+dans la ligne qui les gouverne. C'est le piege `metric-nature-and-frame`. C'etait un faux ROUGE et
+non un faux vert, et je le dis explicitement : **une correction qui fait passer un rouge au vert
+doit etre argumentee, jamais subie.** L'argument est sa spec : §22 donne au COM ses propres lignes
+(0.35 / 0.40 B0), distinctes de celles du tissu. Les DEUX grandeurs sont desormais publiees, chacune
+contre sa ligne.
+
+
+9. LA POITRINE, SECTION PAR SECTION — le tableau que sa directive exige a chaque cycle
 =======================================================================================
 Regle qu'elle pose et que j'applique : une section « implementee » dont la constante n'est
 referencee nulle part compte comme ABSENTE ; le mot « non applicable » ne figure pas dans ce
-tableau — une section absente faute d'articulation dit « degre de liberte a ajouter ».
-**Les lignes marquees (!) sont celles que ce cycle change par rapport au cycle 8.**
+tableau. **Les lignes (!) sont celles que ce cycle change.**
 
-§     SECTION                       IMPL  MESURE (ce cycle)                     ECART A SA CIBLE
------ ----------------------------- ----- ------------------------------------- --------------------
-6     B0                             O    b0=602 u lu a l'execution              TENUE
-8     Conservation de volume         O    det 0.9999-1.0000 sur les 9            TENUE — mais PAR
-                                          orientations                           CONSTRUCTION
-9     Etat debout neutre             O    ROOM-IDLE maxdev 0.0001                TENUE, residu non nul
-10    Supine                         O    1.2147 / 1.1082 / 0.7427               DANS SA BANDE
-11    Prone / hanging                O    0.8896 / 0.9230 / 1.2177               DANS SA BANDE
-12    Lateral                        O    0.8069, compense +10.1 % / +12.6 %     DANS SA BANDE
-13    Orientations intermediaires    O    9 orientations, continu                TENUE
-21    Saturation douce               O    `stif_n` a l'execution                 TENUE
-22/38 Excursion d'apex               O    plafond dur 0.50 B0                    TENUE (non re-derivee)
-22/38 Etirement dynamique            O    `el` = 0.0000 (os) ; `sh` 16.4-21.9 %  TENUE — et les deux
-                                          (chair)                                grandeurs sont enfin
-                                                                                 distinguees (!)
-23    « single spring at the apex  **P**  les cinq derivations locales sont      le point INTEGRE est
-      is INSUFFICIENT »                   livrees ; le point INTEGRE reste       l'apex ; c'est LUI
-                                          l'apex                                 qui rend §22 et §24
-                                                                                 incompatibles (!)
-24    Trois frequences propres    **P !** LA CAUSE EST MESUREE, ET ELLE EST      2 axes sur 3 isolables
-                                          DOUBLE : instrument aveugle au radial  (contre 1 au cycle 8) ;
-                                          (§1) + contrainte de longueur (§2).    l'axe VERTICAL exige
-                                          Controle : v 17.8 % -> 60.6 %, f_v     un degre de liberte
-                                          2.3400 Hz vs 2.30 cible, residu 0.0065 RADIAL a ajouter
-25    zeta = 0.35                    O    0.38 sur les fenetres isolees          DANS SA BANDE
-                                                                                 (0.32-0.42)
-26    Rebond 31 %                    P    0.265 (chestL, fenetre isolee)         -15 % relatif, mais
-                                                                                 coherent avec zeta
-27    Stabilisation 1.0-1.5 s        P    ROOM-AXSETTLE sur son protocole ;      chestL t05=0.90
-                                          seules les fenetres isolees comptent   (sous sa bande)
-29    Anisotropie 1.00/0.90/0.82  **P !** ARMEE (arm=1, sap 1.1111 slat 1.2195)  **LES DEUX AXES
-                                          et verifiee en mobilite STATIQUE —     PORTENT LES MAUVAIS
-                                          mais les ROLES `ap` et `lat` sont      NOMS** : separation
-                                          INTERVERTIS (§5)                       G/D a 100 % sur `ap`
-29    — torsion 0.72                 O    twm 3.76 a 6.74 deg, discriminant      ARMEE ET MESUREE
-30    Ancrage ~30 %                  O    35.6 % / 31.0 %                        DANS SA BANDE
-31    Gradient r^1.6..2.0            O    1.63 / 1.58                            DANS SA BANDE
-32    Independance G/D               O    masse +2.03 %, raideur +4.76 %         DANS LA BANDE
-33    Restitution 0.06 sein<->sein   P    domaine vide, CAUSE mesuree au         il manque 46.20 u
-                                          cycle 8 (`ROOM-PAIRDOM`)               et 175.62 u
-34    Restitution 0.02 buste         O    vout/vin = 0.0187 ; controle x15       TENUE, controle a
-                                          -> 0.3011, rapport 16.12x              tire
-35    Couplage vetement              O    aucune couche simulee                  TENUE PAR
-                                                                                 CONSTRUCTION
-36    Mode secondaire 5.2 Hz         O    0.44 % a 7.00 %, zeta 0.65             TENUE ; plafond
-                                                                                 touche
-37    Sous-pas >= 120 Hz             O    ns=2 (120 Hz), 4 sur impact fort       TENUE
+§      SECTION                      IMPL   MESURE (ce cycle)                     ECART A SA CIBLE
+------ ---------------------------- -----  ------------------------------------- ------------------
+6      B0                            O     b0=602 u lu a l'execution              TENUE
+8      Conservation de volume        O     det 0.9999-1.0000 sur les 9 orient.    TENUE — mais PAR
+                                                                                  CONSTRUCTION
+9      Etat debout neutre            O     ROOM-IDLE maxdev 0.0001                TENUE, residu != 0
+10     Supine                        O     1.2147 / 1.1082 / 0.7427               DANS SA BANDE
+11     Prone / hanging               O     0.8896 / 0.9230 / 1.2177               DANS SA BANDE
+12     Lateral                       O     0.8069, compense +10.1 / +12.6 %       DANS SA BANDE
+13     Orientations intermediaires   O     9 orientations, continu                TENUE
+21     Saturation douce              O     `stif_n` a l'execution                 TENUE
+22/38  Excursion d'apex              O     plafond dur 0.50 B0                    TENUE (cycle 5)
+22/38  Etirement de l'OS             O     `el` = 0.0000                          TENUE
+22/38  Deplacement du COM         **O !**  0.3497-0.3929 B0, sous sa borne dure   TENUE — elle etait
+                                           de 0.40 ; 0.9102 avant correction      VIOLEE 2.3x (!)
+22/38  Elongation du TISSU        **O !**  0.1504-0.1689 (bande « large 15-21 »)  DANS SA BANDE ;
+                                           `dyn` 17.80-25.00, DISCRIMINE          etait SATUREE a
+                                                                                  25.00 x 10 (!)
+23     « single spring at the apex   **P**  le 3e degre de liberte EXISTE et       le point INTEGRE
+       is INSUFFICIENT »                    porte le mode ; sa valeur livree est   reste l'APEX, pas
+                                            PLATE (spread 8.5 %) parce que la     le COM — residu
+                                            borne mesure a sa place (!)           connu, §7
+24     Trois frequences propres   **P !**  VERTICAL 2.325 / 2.430 Hz — DANS, sur   AP non lisible
+                                           la config LIVREE (residu 0.007) ;      (residu 0.128-
+                                           LATERAL 2.555 / 2.625 — DANS           0.154). 2 axes
+                                           (cible 2.65)                           sur 3 TENUS (!)
+25     zeta = 0.35                   O     0.38 sur les fenetres isolees          DANS (0.32-0.42)
+26     Rebond 31 %                   P     0.260-0.279 (fenetres isolees)         -10 a -16 % relatif
+27     Stabilisation 1.0-1.5 s       P     ROOM-AXSETTLE sur son protocole        chestL sous bande
+29     Anisotropie 1.00/0.90/0.82 **P !**  axes enfin NOMMES contre un invariant   l'anisotropie
+                                           externe (ratio 21390:1) : ses          elle-meme n'est PAS
+                                           compliances sont sur les BONS axes     re-mesuree (!)
+                                           pour la premiere fois
+29     — torsion 0.72                O     twm 3.76 a 6.74 deg, discriminant      ARMEE ET MESUREE
+30     Ancrage ~30 %                 O     35.6 % / 31.0 %                        DANS SA BANDE
+31     Gradient r^1.6..2.0           O     1.63 / 1.58                            DANS SA BANDE
+32     Independance G/D              O     masse +2.03 %, raideur +4.76 %         DANS LA BANDE
+33     Restitution 0.06 sein<->sein  P     domaine vide (cause mesuree cycle 8)   il manque 46.20 u
+                                                                                  et 175.62 u
+34     Restitution 0.02 buste        O     vout/vin = 0.0187, controle x16.12     TENUE, controle a
+                                                                                  tire
+35     Couplage vetement             O     aucune couche simulee                  TENUE PAR
+                                                                                  CONSTRUCTION
+36     Mode secondaire 5.2 Hz        O     0.44 a 7.00 %, zeta 0.65               TENUE ; plafond
+                                                                                  touche 6/10
+37     Sous-pas >= 120 Hz            O     ns=2 (120 Hz), 4 sur impact fort       TENUE
 
-RECAPITULATIF : **17 tenues**, **6 partielles** (§23 §24 §26 §27 §29 §33), **aucune ABSENTE**.
-Le compte ne bouge pas ; **ce qui bouge est la QUALITE de deux lignes.** §24 avait « non
-decidable » sans cause ; elle a maintenant une cause mesuree, un controle qui la confirme, et un
-chiffre (2.3400 Hz) qui dit que les parametres livres sont bons. §29 etait « invisible dans les
-frequences » ; on sait maintenant qu'en plus **ses deux axes sont intervertis**, ce qu'aucune
-mesure precedente ne pouvait signaler.
+RECAPITULATIF : **19 tenues**, **5 partielles** (§23 §24 §26 §27 §29-anisotropie), **aucune
+ABSENTE**. Deux lignes entrent au tableau (le deplacement du COM et l'elongation du tissu, qui
+n'etaient pas mesurees separement), et §24 passe de « non decidable » a **deux axes sur trois tenus
+sur la configuration livree**.
 
 LES QUATRE PRIORITES DE SA DIRECTIVE DE 11:50, ETAT A LA FIN DU CYCLE :
   1. le bon `B0` ................... FAITE (cycle 5), non retouchee
-  2. armer §24 et §29 .............. **LE VERROU EST IDENTIFIE ET CHIFFRE.** Le mecanisme etait
-                                     arme depuis le cycle 7 ; ce qui manquait etait (a) un
-                                     instrument capable de voir le troisieme axe — livre — et
-                                     (b) le degre de liberte radial, que la contrainte de
-                                     longueur confisque. Le controle montre les trois axes
-                                     rendant des valeurs DIFFERENTES sur 2 axes sur 3.
-  3. §9, l'etat debout neutre ...... TENUE (maxdev 0.0001), non retouchee
-  4. torsion / §23 / §8 / §36 / §33-34 / §37 / §10-13 ... livrees aux cycles precedents ; §23
-                                     reste le seul trou, et ce cycle montre POURQUOI il bloque §24
+  2. armer §24 et §29 .............. **LE VERROU EST OUVERT.** Le degre de liberte manquant est
+                                     integre ; la verticale se lit a 2.325 Hz contrainte ARMEE ;
+                                     les axes portent enfin les bons noms, et le lateral tombe
+                                     dans sa bande. Reste l'axe AP, non lisible.
+  3. §9, l'etat debout neutre ...... TENUE (maxdev 0.0001), non retouchee — et le canal radial
+                                     vaut ZERO au repos par construction, pas par reglage
+  4. torsion / §23 / §8 / §36 / §33-34 / §37 / §10-13 ... livrees ; §23 a franchi son mur
+                                     structurel (3 degres de liberte au lieu de 2), il lui reste
+                                     le POINT D'APPLICATION
 
 
-8. LE PROCHAIN TRAVAIL EST DESIGNE PAR LA MESURE, PAS CHOISI
-==============================================================
-**§22 et §24 sont incompatibles sur une chaine a UN os, et ce cycle le demontre.** Sa §22 exige
-qu'un os ne s'allonge pas (contrainte dure, `el = 0.0000` : c'est tenu). Sa §24 exige une
-frequence propre VERTICALE. Or l'axe vertical est a 84.5 % l'axe de l'os : **une oscillation
-verticale de l'apex EST un allongement de l'os.** Les deux sections ne peuvent pas etre tenues
-ensemble tant que le point integre est l'APEX.
-
-**Sa §23 est la reconciliation, et elle le dit deja :** « a single spring at the apex is
-INSUFFICIENT », et elle integre `x` = « the relative breast COM displacement » — un vecteur libre
-a TROIS composantes, **dont l'os DERIVE**. Avec le COM integre et l'os derive par rotation :
-  - le COM porte trois modes, dont le vertical         -> §24 tenable
-  - l'os ne s'allonge jamais                            -> §22 tenue
-Les deux ensemble, sans arbitrage. **Le trou de §23 et le verrou de §24 sont le meme defaut**, et
-ce n'est plus une lecture comme au cycle 8 : c'est la conclusion d'un controle.
-
-Ordre du cycle suivant, et il n'y en a pas d'autre :
-  1. **Corriger l'interversion `ap`/`lat`** (§5) — un seul endroit, la classification, et une
-     course pour le confirmer. C'est cheap et ca conditionne toute lecture de §24 et §29.
-  2. **Integrer le COM au lieu de l'apex** (§23), l'os derivant par rotation a longueur
-     invariante. Puis re-mesurer la selectivite : les trois axes doivent devenir isolables sans
-     lever aucune contrainte.
-
-
-9. CE QUI N'EST PAS PROUVE, ET JE LE DIS
-==========================================
+10. CE QUI N'EST PAS PROUVE, ET JE LE DIS
+===========================================
   - Aucune mesure de ce rapport ne vient d'un APPAREIL. Tout est x86.
-  - **Ma premisse sur `el` etait fausse** (§3), et c'est moi qui l'avais ecrite en ouvrant le
-    cycle. Corrigee par une mesure, pas par un changement d'avis.
-  - **L'interversion `ap`/`lat` (§5) repose sur une premisse anatomique** — les deux seins sont
-    separes gauche-droite — et sur un fait de rig verifie (parent commun, joint 3). Elle n'est PAS
-    verifiee par une seconde voie independante (par exemple la direction de face du sujet dans le
-    monde), et je ne l'ai pas corrigee dans le solveur ce cycle.
-  - **La fenetre LATERALE n'est isolable dans AUCUNE des quatre combinaisons** (16.7 % et 23.7 %
-    au mieux). Le troisieme axe reste non mesurable, et je n'en propose pas la cause sans la
-    tester — c'est ce qui a produit les deux hypotheses mortes du cycle 8.
-  - Les frequences `levee` sont lues sur un systeme QUE L'ON NE LIVRE PAS. Elles disent ce que le
-    mode vaudrait, jamais qu'une section est tenue.
-  - `ROOM-AXRATIO` reste lu sur des fenetres non isolees : symptome, pas mesure de l'anisotropie.
-  - §29 n'est pas re-mesuree en mobilite statique ce cycle ; je m'appuie sur le cycle 6 pour cette
-    moitie-la, et c'est ecrit — d'autant que §5 la remet en cause.
-  - §22/38 (excursion d'apex) est reportee TENUE sur la base du cycle 5, non re-derivee ici.
+  - **La part tangentielle de mon diagnostic valait 6 %** (§5). Corrigee par une mesure.
+  - **La valeur livree du canal radial est PLATE** (§7). Ce n'est pas resolu, c'est localise.
+  - L'axe AP reste non lisible sur le canal du joint (residus 0.128 a 0.154). Je n'en propose pas
+    la cause sans la tester : c'est ce qui a produit les deux hypotheses mortes du cycle 8.
+  - **§29 n'est pas re-mesuree ce cycle.** Ses axes sont enfin nommes correctement, ce qui est un
+    prealable, pas une conformite. La ligne reste PARTIELLE.
+  - §22 (apex) est reportee TENUE sur la base du cycle 5, non re-derivee ici.
   - §8 `det = 1` reste vrai par construction, pas par mesure de l'incompressibilite.
-  - §35 est tenue par construction et n'est pas mesuree.
-  - §33 garde son domaine vide : rien n'a ete tente ce cycle, la decision appartient a l'owner.
+  - §26 et §27 ne sont pas re-mesurees ce cycle ; je reprends les valeurs des fenetres isolees.
+  - §33 garde son domaine vide : rien n'a ete tente, la decision appartient a l'owner.
+  - Le point integre de §23 reste l'APEX, pas le centre de masse. Le NOMBRE de degres de liberte
+    est desormais celui qu'elle demande ; le POINT D'APPLICATION ne l'est pas.
   - La QUALITE se juge a son oeil, jamais ici.
 
 
-10. CE QUE L'OWNER DOIT REGARDER, ET LES DECISIONS QUI LUI APPARTIENNENT
+11. CE QUE L'OWNER DOIT REGARDER, ET LES DECISIONS QUI LUI APPARTIENNENT
 =========================================================================
-A REGARDER : rien n'a change a l'ecran. La simulation de ce cycle est identique au bit pres a
-celle du cycle 8 (§6) — c'est un cycle d'instrument. Si un APK part, c'est le meme comportement.
+**A REGARDER — ET LE COMPORTEMENT A CHANGE A L'ECRAN CE CYCLE**, contrairement au precedent :
+la poitrine porte maintenant un mode vertical qui n'existait pas (elle « respire » le long de son
+axe au lieu de seulement pivoter), et sa deformation depend de nouveau de la force du mouvement.
+  - **les mouvements subtils** : la trajectoire du joint est identique au chiffre pres, donc
+    l'acquis qu'il a valide ne devrait pas avoir bouge. C'est la premiere chose a verifier.
+  - **les mouvements brusques** : c'est la que le nouveau mode se voit, et c'est la qu'il avait
+    trouve « des ballons d'eau ». La deformation ne se colle plus a son plafond ; est-ce qu'il le
+    voit ?
 
 DECISIONS QUI LUI APPARTIENNENT ET QUE JE NE PRENDS PAS :
   1. **Les seins doivent-ils s'entrechoquer ?** (§33, inchange) Il manque 46 u a droite, 176 u a
      gauche. Les fermer veut dire redimensionner les volumes de poitrine, ca se voit a l'ecran, et
      il a interdit deux fois de gonfler un rayon sans son accord.
-  2. **§24 ou §29, laquelle prime ?** (inchange) Elles ne peuvent pas etre exactes ensemble a
-     masse unique. La question devient plus nette apres correction de l'interversion (§5).
-  3. **NOUVEAU — accepte-t-il que le point integre passe de l'APEX au CENTRE DE MASSE ?** (§8)
-     C'est ce que sa §23 ecrit, c'est la seule facon de tenir §22 et §24 ensemble, et c'est un
-     changement de coeur du solveur : le mouvement va changer a l'ecran. Je ne le fais pas sans
-     qu'il le sache.
+  2. **§24 ou §29, laquelle prime ?** (inchange) Elles ne peuvent pas etre exactes ensemble a masse
+     unique.
+  3. **Le point integre doit-il passer de l'APEX au CENTRE DE MASSE ?** (§23) C'est le residu de
+     cette section et la seule facon de la tenir entierement. C'est un changement de coeur du
+     solveur : le mouvement changerait a l'ecran. Je ne le fais pas sans qu'il le sache.

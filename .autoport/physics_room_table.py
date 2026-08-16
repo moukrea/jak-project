@@ -2730,6 +2730,91 @@ def main():
             A('ROOM-RINGFIT-SEP: chain=%-12s %s' % (_nm, ' · '.join(_pairs) if _pairs else
                                                     'pas assez d\'axes lisibles'))
     A('')
+    # ============================================================================================
+    # ROOM-AXNAME — LA MESURE QUI NOMME LES AXES, CONTRE UN INVARIANT EXTERNE.  (cycle 10)
+    # POURQUOI ELLE EXISTE, ET C'EST LA SEULE RAISON : une mesure par axe qui ne publie que des
+    # VALEURS ne peut pas attraper une permutation de ses propres axes. Les trois lignes du triedre
+    # rendent trois nombres ; aucun d'eux ne dit lequel est l'avant-arriere. Le cycle 9 a paye
+    # exactement ca — §29 posait 0.90 sur le lateral et 0.82 sur l'avant-arriere, §24 comparait
+    # 2.50 / 2.65 Hz aux mauvais axes, le mecanisme etait arme, la mesure etait propre, et RIEN ne
+    # pouvait le signaler. Il faut donc une grandeur dont la reponse est connue D'AVANCE par la
+    # geometrie : le segment qui va d'un sein a l'autre est LATERAL par anatomie. Il doit tomber
+    # entierement sur la ligne que le solveur a nommee `lat`, et ~rien sur l'autre.
+    # NATURE : deux longueurs signees, en unites de jeu (les projections du segment inter-seins sur
+    #   les deux lignes non verticales du triedre), et leur rapport, sans dimension.
+    # REPERE : les lignes de la matrice de l'ANCRE (torse), SPEC 7 — le meme triedre que `PHYSAXIS`
+    #   et que toutes les mesures par axe qui suivent.
+    # LIGNE DE BASE : `src=separation` = la separation gauche-droite a tranche (l'invariant est
+    #   porte) ; `src=protrusion` = pas de chaine partenaire, repli sur la protrusion propre de
+    #   l'organe, qui ne porte PLUS l'invariant anatomique et dont le verdict vaut donc moins.
+    # ABSENT : aucune ligne PHYSAXNAME (trace anterieure au cycle 10). La ligne le dit et ne
+    #   substitue aucune autre grandeur.
+    # ============================================================================================
+    A('-- ROOM-AXNAME : LES AXES PORTENT-ILS LES BONS NOMS ? (prealable a SPEC 24 et SPEC 29) -----')
+    A('   Une mesure par axe qui ne publie que des VALEURS ne peut pas attraper une permutation de')
+    A('   ses propres axes : trois nombres sortent, et rien ne dit lequel est l\'avant-arriere. Il')
+    A('   faut une grandeur dont la reponse est connue D\'AVANCE par la geometrie. Le segment qui va')
+    A('   d\'un sein a l\'autre est LATERAL par anatomie : il doit tomber sur la ligne nommee `lat`,')
+    A('   et ~rien sur l\'autre. Tant que cette ligne n\'est pas verte, tous les verdicts par axe')
+    A('   ci-dessous SUPPOSENT leurs etiquettes au lieu de les verifier.')
+    A('   `sja` est la projection sur la PREMIERE ligne candidate `ja`, `sjb` sur la seconde `jb` ;')
+    A('   les deux candidates sont celles qui ne sont pas la verticale `rv` de `PHYSAXIS`, dans')
+    A('   l\'ordre du solveur : rv=0 -> (1,2), rv=1 -> (0,2), rv=2 -> (0,1). `rlat` dit LAQUELLE des')
+    A('   deux a ete nommee laterale, et c\'est elle qui donne `sep_lat`.')
+    _axnm = {}
+    for m in re.finditer(r'^PHYSAXNAME c=(\d+) src=(\d+) rlat=(\d+) sja=([-\d.e+]+)'
+                         r' sjb=([-\d.e+]+) len=([-\d.e+]+)', txt, re.M):
+        _axnm[int(m.group(1))] = dict(src=int(m.group(2)), rlat=int(m.group(3)),
+                                      sja=float(m.group(4)), sjb=float(m.group(5)),
+                                      seg=float(m.group(6)))
+    _axrv = {}
+    for m in re.finditer(r'^PHYSAXIS c=(\d+) ok=(\d+) arm=(\d+) rv=(\d+) rap=(\d+) rlat=(\d+)',
+                         txt, re.M):
+        _axrv[int(m.group(1))] = dict(rv=int(m.group(4)), rlat=int(m.group(6)))
+    # La regle du solveur, recopiee telle quelle : les deux candidates sont les deux lignes qui ne
+    # sont pas la verticale. Elle est ECRITE ici pour que la lecture soit verifiable, pas devinee.
+    _JCAND = {0: (1, 2), 1: (0, 2), 2: (0, 1)}
+    if not _axnm:
+        A('ROOM-AXNAME: ABSENT (aucune ligne PHYSAXNAME dans la trace) — le nommage des axes n\'a')
+        A('   PAS ete mesure sur cette course. Aucune autre grandeur n\'est substituee : les')
+        A('   verdicts par axe qui suivent supposent leurs etiquettes.')
+    else:
+        for _c in sorted(_axnm):
+            _d = _axnm[_c]
+            _nm = names[_c] if _c < len(names) else 'c%d' % _c
+            if _c not in _axrv:
+                A('ROOM-AXNAME: chain=%-12s PHYSAXIS absente pour cette chaine — la ligne verticale'
+                  ' `rv` est inconnue, donc `ja`/`jb` ne sont pas derivables et rien n\'est'
+                  ' attribue.' % _nm)
+                continue
+            _iv = _axrv[_c]['rv']
+            if _iv not in _JCAND:
+                A('ROOM-AXNAME: chain=%-12s rv=%d hors 0..2 — la regle ja/jb du solveur ne'
+                  ' s\'applique pas, aucune attribution.' % (_nm, _iv))
+                continue
+            _ja, _jb = _JCAND[_iv]
+            if _d['rlat'] == _ja:
+                _slat, _sap = _d['sja'], _d['sjb']
+            elif _d['rlat'] == _jb:
+                _slat, _sap = _d['sjb'], _d['sja']
+            else:
+                A('ROOM-AXNAME: chain=%-12s INCOHERENT : rlat=%d n\'est ni ja=%d ni jb=%d (rv=%d).'
+                  ' Aucune attribution possible sans deviner — rien n\'est publie ici.'
+                  % (_nm, _d['rlat'], _ja, _jb, _iv))
+                continue
+            _ratio = abs(_slat) / max(1e-9, abs(_sap))
+            _dis = ''
+            if _axrv[_c]['rlat'] != _d['rlat']:
+                _dis = '  (DESACCORD : PHYSAXIS annonce rlat=%d)' % _axrv[_c]['rlat']
+            A('ROOM-AXNAME: chain=%-12s src=%-10s rlat=%d sep_lat=%9.4f sep_ap=%9.4f'
+              ' ratio=%10.2f verdict=%-7s seg=%.2f u%s'
+              % (_nm, 'separation' if _d['src'] == 1 else 'protrusion', _d['rlat'],
+                 _slat, _sap, _ratio, 'NOMME' if _ratio >= 10.0 else 'AMBIGU', _d['seg'], _dis))
+        A('   `seg` = la norme du segment publiee par le moteur, en unites de jeu : elle donne')
+        A('   l\'ECHELLE de ce qui a ete projete (~712 u = 17.4 cm mesures sur le rig). Un `seg`')
+        A('   qui n\'est pas de cet ordre veut dire que le segment mesure n\'est pas celui-la, et le')
+        A('   verdict de nommage ne vaut alors rien, quel que soit son ratio.')
+    A('')
     A('-- ROOM-AXFIT : SPEC 24/25/26/27, TROIS IMPULSIONS ISOLEES, UNE PAR AXE -------------------')
     A('   SPEC 27 ecrit le protocole mot pour mot : « After ONE STRONG ISOLATED IMPULSE ». La')
     A('   fenetre de repos ne l\'execute pas — elle suit CINQ pilotages, donc ce qui y sonne est un')
@@ -2871,6 +2956,17 @@ def main():
         A('   SPEC 29 — L\'ANISOTROPIE ARRIVE-T-ELLE ? Les compliances livrees (1.00 / 0.90 / 0.82)')
         A('   imposent, a masse unique, f_ap/f_v = sqrt(1/0.90) = 1.0541 et f_lat/f_v =')
         A('   sqrt(1/0.82) = 1.1043. Mesure contre attendu :')
+        # SPEC 24 donne, elle, des FREQUENCES (2.30 / 2.50 / 2.65 Hz), donc ses propres rapports :
+        # 2.50/2.30 = 1.0870 et 2.65/2.30 = 1.1522. Les deux sections sont SUR-DETERMINEES et
+        # legerement incompatibles (+3.1 % et +4.3 %) : le tableau le DIT au lieu de le taire, en
+        # publiant les deux references cote a cote. La seconde reference ne remplace pas la
+        # premiere — l'ancienne ligne est intacte juste au-dessus.
+        # NATURE : des rapports de frequences, sans dimension. REPERE : le triedre de l'ANCRE
+        # (SPEC 7), axes nommes par ROOM-AXNAME. LIGNE DE BASE : 1.0000 = trois axes confondus,
+        # donc anisotropie qui n'atteint pas le solveur.
+        _R24 = {'ap': 2.50 / 2.30, 'lat': 2.65 / 2.30}
+        _R29 = {'ap': 1.05409, 'lat': 1.10432}
+        _B24 = {'ap': (2.3, 2.7), 'lat': (2.4, 2.9)}
         for _c in sorted({c for (c, _a) in _fv}):
             _nm = names[_c] if _c < len(names) else 'c%d' % _c
             if (_c, 'v') not in _fv:
@@ -2886,6 +2982,27 @@ def main():
                 else:
                     _out.append('%s non lisible' % _a)
             A('ROOM-AXRATIO: chain=%-12s f_v=%.3f Hz  %s' % (_nm, _f0, '  ·  '.join(_out)))
+            _o24 = []
+            for _a in ('ap', 'lat'):
+                if (_c, _a) not in _fv:
+                    _o24.append('%s non lisible' % _a)
+                    continue
+                _fa = _fv[(_c, _a)]['f']
+                _rr = _fa / _f0
+                _lo, _hi = _B24[_a]
+                _o24.append('%s %.4f (SPEC24 %.4f, ecart %+.2f%% · SPEC29 %.4f, ecart %+.2f%%)'
+                            ' f=%.3f Hz plage [%.1f,%.1f] %s'
+                            % (_a, _rr, _R24[_a], 100.0 * (_rr - _R24[_a]) / _R24[_a],
+                               _R29[_a], 100.0 * (_rr - _R29[_a]) / _R29[_a],
+                               _fa, _lo, _hi, 'DANS' if _lo <= _fa <= _hi else 'HORS'))
+            A('ROOM-AXRATIO-SPEC24: chain=%-12s %s' % (_nm, '  ·  '.join(_o24)))
+        A('   LES DEUX REFERENCES NE SONT PAS LA MEME, ET C\'EST LA SPEC ELLE-MEME QUI EST')
+        A('   SUR-DETERMINEE : SPEC 29 impose 1.0541 / 1.1043 (racine des mobilites), SPEC 24')
+        A('   impose 1.0870 / 1.1522 (rapport de ses frequences nominales) — soit +3.13 % et')
+        A('   +4.34 % d\'ecart entre les deux, avant toute mesure. CE QUI TRANCHE : le moteur derive')
+        A('   la raideur des mobilites de SPEC 29, donc les frequences qui en RESULTENT doivent')
+        A('   tomber dans les PLAGES de SPEC 24 (AP 2.3-2.7 Hz, lateral 2.4-2.9 Hz) — c\'est la')
+        A('   plage qu\'il faut verifier, pas le nominal, et c\'est la colonne DANS/HORS ci-dessus.')
         A('')
         # SPEC 27 sur SON protocole : le temps de stabilisation apres UNE impulsion isolee.
         A('   SPEC 27 SUR SON PROPRE PROTOCOLE — l\'echelle de stabilisation apres l\'impulsion')
@@ -2903,6 +3020,104 @@ def main():
             _nm = names[_c] if _c < len(names) else 'c%d' % _c
             A('ROOM-AXSETTLE: chain=%-12s axe=%-3s t5=%-7s t1=%-7s t05=%-7s t01=%-7s a0=%.5f'
               % (_nm, _ax, _st['t5'], _st['t1'], _st['t05'], _st['t01'], _a0))
+    A('')
+    # ============================================================================================
+    # ROOM-AXFIT-RAD — SPEC 24 LUE SUR LE TROISIEME DEGRE DE LIBERTE (SPEC 23).  (cycle 10)
+    # `PHYSRINGAX` et `PHYSRINGBX` lisent toutes deux la POSITION DU JOINT, et ce joint vit sur une
+    # sphere autour de son ancre : leur composante radiale est nulle par construction (la premiere
+    # parce qu'elle differencie des vecteurs UNITAIRES, la seconde parce que |u| = |m|). Le mode que
+    # SPEC 24 appelle « intentionally the SLOWEST » ne peut donc pas y apparaitre. `PHYSRINGCX`
+    # porte l'etat radial LUI-MEME, celui que SPEC 23 integre, dans les MEMES fenetres et aux MEMES
+    # frames que les deux autres.
+    # L'ESTIMATEUR N'EST PAS REECRIT : c'est `_fitseries`, celui de `ROOM-AXFIT`, avec son `skip`
+    # par defaut (12 frames de transitoire), sa grille f x zeta, son intervalle a 1.10x le residu
+    # minimum et son residu relatif. Deux copies d'un meme calcul divergent ; il n'y en a qu'une.
+    # LA CIBLE EST LA VERTICALE DE SPEC 24 (2.30 Hz, plage 2.1-2.5), et c'est justifie par le rig :
+    # l'axe de l'os vaut (+0.3646, -0.9192, -0.1490) dans le repere `chest`, donc 0.9192^2 = 0.845
+    # — 84.5 % de son energie tombe sur l'axe VERTICAL du triedre. Le mode radial EST, a 84.5 %, le
+    # mode vertical de sa §24. Sans ce chiffre, la cible aurait l'air choisie.
+    # NATURE : une FREQUENCE (Hz) et un rapport d'amortissement, tires d'une serie d'ELONGATION
+    #   RADIALE DU TISSU rapportee a B0 (SPEC 6) — sans dimension, signee.
+    # REPERE : l'axe de l'os, dans le triedre de l'ANCRE (SPEC 7) — meme instant, meme fenetre et
+    #   meme triedre que `ROOM-AXFIT`, donc les deux se comparent directement.
+    # LIGNE DE BASE : 0.0 exactement a la pose d'auteur debout (SPEC 9).
+    # ABSENT / INSUFFISANT : `INSUFFISANT` porte le motif (serie absente, trop courte apres le
+    #   `skip`, identiquement nulle, ou residu au-dela de 0.08). Un 0.0000 n'est JAMAIS publie comme
+    #   une frequence : une serie plate ne se lit pas, elle se declare.
+    # ============================================================================================
+    A('-- ROOM-AXFIT-RAD : SPEC 24 SUR LE DEGRE DE LIBERTE RADIAL DE SPEC 23 ---------------------')
+    A('   `PHYSRINGAX` et `PHYSRINGBX` lisent la position du JOINT, qui vit sur une sphere : leur')
+    A('   composante radiale est nulle PAR CONSTRUCTION. Le mode que SPEC 24 dit « le plus lent » ne')
+    A('   peut donc pas y apparaitre. `PHYSRINGCX` porte l\'elongation radiale du tissu elle-meme,')
+    A('   rapportee a B0 (SPEC 6), dans les MEMES fenetres et aux MEMES frames.')
+    A('   CIBLE 2.30 Hz, BANDE [2.10, 2.50] — la VERTICALE de SPEC 24, et le rig le justifie :')
+    A('   l\'axe de l\'os vaut (+0.3646, -0.9192, -0.1490) en repere `chest`, donc 0.9192^2 = 0.845 :')
+    A('   84.5 % de son energie tombe sur l\'axe vertical du triedre. Le mode radial EST, a 84.5 %,')
+    A('   le mode vertical de sa §24.')
+    A('   ESTIMATEUR : exactement celui de `ROOM-AXFIT` (meme fonction, meme skip=12, meme grille,')
+    A('   meme intervalle a 1.10x le residu minimum). Aucun ajusteur n\'a ete reecrit.')
+    # `_cxs` = contrainte de longueur ARMEE (PHYSRINGCX, la CONFIGURATION LIVREE),
+    # `_cxz` = contrainte LEVEE (PHYSRINGCZ, un CONTROLE). Meme disposition de champs, meme parseur
+    # au nom pres. La cle est (axe EXCITE, chaine) : `ax` designe la fenetre, pas la projection —
+    # cette serie n'a qu'une seule composante, l'elongation radiale.
+    _cxs, _cxz = {}, {}
+    for _tg, _dst in (('PHYSRINGCX', _cxs), ('PHYSRINGCZ', _cxz)):
+        for m in re.finditer(r'^%s c=(\d+) f=(\d+) l=(\d+) ax=(\d+) v=([-\d.e+]+)' % _tg,
+                             txt, re.M):
+            _dst.setdefault((int(m.group(4)), int(m.group(1))), []).append(
+                (int(m.group(2)), float(m.group(5))))
+
+    def _radfit_lines(_src, _srctag, _tag, _note):
+        """Une ligne par (chaine, fenetre). `_tag` nomme la sortie, `_note` dit son STATUT.
+
+        Le motif d'INSUFFISANT est toujours ecrit : une serie absente, plate ou trop courte se
+        DECLARE ; elle ne se publie pas a 0.0000 comme si elle avait ete mesuree.
+        """
+        if not _src:
+            A('%s: ABSENT (aucune serie %s dans la trace) — SPEC 24 sur le degre de liberte'
+              ' radial reste NON MESUREE sur cette course.%s' % (_tag, _srctag, _note))
+            return
+        _AX3 = {0: 'v', 1: 'ap', 2: 'lat'}
+        for (_k, _c) in sorted(_src):
+            _nm = names[_c] if _c < len(names) else 'c%d' % _c
+            _vals = [v for _f, v in sorted(_src[(_k, _c)])]
+            _r = _fitseries(_vals) if _HAVE_NP else None
+            if _r is None:
+                # Le MEME critere que `ROOM-AXFIT` : `_fitseries` rend None sur une serie de moins
+                # de 20 echantillons apres le `skip`, ou de somme des carres nulle. On le dit au
+                # lieu de sauter la ligne en silence.
+                if not _HAVE_NP:
+                    _why = 'numpy indisponible'
+                elif len(_vals) - 12 < 20:
+                    _why = 'n=%d apres skip=12, il en faut 20' % max(0, len(_vals) - 12)
+                elif not any(abs(v) > 0.0 for v in _vals[12:]):
+                    _why = 'serie identiquement nulle : le canal radial n\'a rien ecrit'
+                else:
+                    _why = 'ajustement impossible'
+                A('%s: chain=%-12s ax=%-3s n=%-3d f=n/a ci=[n/a,n/a] zeta=n/a resid=n/a'
+                  ' cible=2.30 bande=[2.10,2.50] verdict=INSUFFISANT (%s)%s'
+                  % (_tag, _nm, _AX3.get(_k, '?'), len(_vals), _why, _note))
+                continue
+            _vd = 'DANS' if 2.10 <= _r['f'] <= 2.50 else 'HORS'
+            if _r['rel'] > 0.08:
+                # Meme seuil de lisibilite que `ROOM-AXFIT` : au-dela de 0.08 la serie ne porte pas
+                # un mode unique et le chiffre ne doit PAS etre lu comme une frequence.
+                _vd = 'INSUFFISANT (residu %.3f > 0.08 : la serie ne porte pas un mode unique)' \
+                      % _r['rel']
+            A('%s: chain=%-12s ax=%-3s n=%-3d f=%.3f ci=[%.3f,%.3f] zeta=%.2f resid=%.3f'
+              ' cible=2.30 bande=[2.10,2.50] verdict=%s%s'
+              % (_tag, _nm, _AX3.get(_k, '?'), _r['n'], _r['f'], _r['fmin'], _r['fmax'],
+                 _r['zeta'], _r['rel'], _vd, _note))
+    A('')
+    A('   CONFIGURATION LIVREE (contrainte de longueur ARMEE) — c\'est la seule qui puisse tenir')
+    A('   ou non sa §24 :')
+    _radfit_lines(_cxs, 'PHYSRINGCX', 'ROOM-AXFIT-RAD', '')
+    A('')
+    A('   CONTROLE, PAS UNE CONFORMITE (contrainte de longueur de SPEC 22 LEVEE) : le systeme n\'est')
+    A('   plus celui qu\'on livre. Ce qu\'on y lit dit ce que le mode radial VAUDRAIT si la contrainte')
+    A('   ne le bornait pas — un diagnostic, jamais une ligne de conformite.')
+    _radfit_lines(_cxz, 'PHYSRINGCZ', 'ROOM-AXFIT-RAD-NOLEN',
+                  '  [CONTROLE — PAS UNE CONFORMITE]')
     A('')
     A('-- ROOM-AXBLIND / AXSEL-ABS / AXFIT-ABS : SPEC 24 SUR UN INSTRUMENT NON AVEUGLE ----------')
     A('   Tout ce qui precede sur SPEC 24 est lu sur `PHYSRINGAX`, qui projette une DIFFERENCE DE')
@@ -3032,6 +3247,36 @@ def main():
             A('   Un `secm` colle a 0.0700 n\'est alors PAS une amplitude mesuree, c\'est une'
               ' saturation : le gain d\'excitation est a recaler sur SA bande (2-5 %%), pas sur'
               ' l\'instrument.')
+        # ============================================================================================
+        # ROOM-SHAPE-DYNSAT — LA GRANDEUR QUI AURAIT ATTRAPE LE DEFAUT DU 2026-08-16 TOUTE SEULE.
+        # Ce jour-la le canal de deformation de SPEC 22 est passe de 15.56-21.29 % (il DISCRIMINAIT
+        # entre les cinq pilotages) a 25.00 % sur LES DIX fenetres — colle a `AbsoluteStretchClamp`.
+        # Aucune ligne du tableau ne le disait : `dyn` etait publie, mais rien ne comparait ses
+        # valeurs ENTRE ELLES. Un plafond atteint partout n'est plus une deformation mesuree, c'est
+        # la valeur du plafond ; et une deformation qui ne depend plus du stimulus est exactement le
+        # « ballon d'eau » que l'owner decrit (retour du 2026-08-11 21:20 : la deformation doit etre
+        # « correlee au stimulus », « quasi nulle sur les mouvements subtils »).
+        # NATURE : un ETALEMENT (sans unite) sur une deformation, pas une amplitude.
+        # REPERE : celui de `dyn` — l'echelle commandee a la racine, triedre de l'ancre (SPEC 7).
+        # LIGNE DE BASE : hors defaut, `dyn` varie avec le pilotage et reste SOUS 0.25.
+        # ============================================================================================
+        for c in sorted({c for (c, _d) in shp}):
+            _dv = [shp[(c, d)].get('dyn', 0.0) for d in range(len(DRIVE_NAMES)) if (c, d) in shp]
+            if len(_dv) >= 2:
+                _hi, _lo = max(_dv), min(_dv)
+                _pin = sum(1 for v in _dv if v >= 0.2499)
+                if _pin == len(_dv):
+                    _vd = ('SATURE — les %d pilotages rendent le PLAFOND (0.25) : ce n\'est plus une'
+                           ' deformation mesuree, c\'est la valeur de la borne' % len(_dv))
+                elif _hi <= 0.0:
+                    _vd = 'DOMAINE VIDE — le canal de deformation n\'a rien ecrit'
+                elif (_hi - _lo) > 0.10 * _hi:
+                    _vd = 'DISCRIMINE (la deformation depend du pilotage, comme sa SPEC 22 l\'exige)'
+                else:
+                    _vd = ('PLAT — %d/%d au plafond ; la deformation ne depend plus du stimulus'
+                           % (_pin, len(_dv)))
+                A('ROOM-SHAPE-DYNSAT: chain=%-12s dyn_min=%.4f dyn_max=%.4f plafond=0.2500 %s'
+                  % (names[c] if c < len(names) else 'c%d' % c, _lo, _hi, _vd))
         for c in sorted({c for (c, _d) in shp}):
             vals = [shp[(c, d)]['sec'] for d in range(len(DRIVE_NAMES)) if (c, d) in shp]
             if len(vals) >= 2 and max(vals) > 0.0:
@@ -3040,6 +3285,149 @@ def main():
                      'DISCRIMINE (le mode secondaire depend du pilotage)'
                      if (max(vals) - min(vals)) > 0.25 * max(vals)
                      else 'PLAT — le pilotage n\'atteint pas le mode secondaire'))
+    A('')
+    # ============================================================================================
+    # ROOM-RAD — SPEC 22, LE DEPLACEMENT RADIAL DU COM ET L'ELONGATION QU'IL PRODUIT. (cycle 10)
+    #
+    # CORRIGE LE 2026-08-17 : ce bloc lisait `rrm` contre les bandes de l'ELONGATION DU TISSU
+    # (5-15 / 15-21 / 21-25 %). C'est une erreur de NATURE, du type que le registre appelle
+    # `metric-nature-and-frame` : `rr / B0` est un DEPLACEMENT normalise, pas une deformation.
+    # SPEC 22 lui donne ses propres lignes — « Breast COM: normal <= 35 % B0, hard transient
+    # <= 40 % B0 » (SPEC 38 : `NormalMaxCOMDisplacement 0.35`, `HardMaxCOMDisplacement 0.40`) — et
+    # les lire contre les bandes du tissu declarait « HORS » des valeurs qui sont DANS la bande qui
+    # les concerne. L'inverse serait un faux vert ; celui-ci etait un faux rouge, et les deux sont
+    # des mesures qui ne disent pas ce qu'elles pretendent.
+    # LES DEUX SONT DONC PUBLIEES, chacune contre SA ligne de sa spec :
+    #   - `rrm`   : DEPLACEMENT du COM, en B0        -> bandes 0.35 / 0.40 de SPEC 22 ;
+    #   - `elong` : l'ELONGATION que ce deplacement produit dans le tissu, soit `PHYS-DYN-K * rrm`
+    #               (0.43, derive par SPEC 38 de 0.15 / 0.35) -> bandes 5-15 / 15-21 / 21-25 %.
+    # NATURE : un deplacement sans unite (rapporte a B0) et la deformation qu'il commande.
+    # REPERE : l'axe de l'os, dans le triedre de l'ANCRE (SPEC 7).
+    # LIGNE DE BASE : 0.0 exactement a la pose d'auteur debout (SPEC 9) — donc un `rrm` a 0.0000
+    #   sur TOUTE la course ne dit pas « au repos », il dit que rien n'a ete ecrit dans le canal.
+    #   `n` (nombre de fenetres agregees) est publie pour cette raison : sans le DOMAINE, un zero
+    #   ne distingue pas « rien ne bouge » de « rien ne mesure ».
+    # ============================================================================================
+    _RAD_K = 0.43   # PHYS-DYN-K du moteur (:356), derive de SPEC 38 : 0.15 de stretch a 0.35 B0.
+    A('-- ROOM-RAD : SPEC 22, DEPLACEMENT RADIAL DU COM ET ELONGATION QU\'IL PRODUIT -------------')
+    A('   DEUX grandeurs, DEUX lignes de sa spec, et ne pas les confondre est le point :')
+    A('     `rrm`   = DEPLACEMENT du COM / B0   -> « Breast COM: normal <= 35 % B0, hard transient')
+    A('               <= 40 % B0 » (SPEC 22 / SPEC 38) ;')
+    A('     `elong` = l\'ELONGATION commandee au tissu, `PHYS-DYN-K * rrm` avec PHYS-DYN-K = 0.43')
+    A('               (SPEC 38 : 0.15 de stretch a 0.35 B0) -> « local tissue elongation: common')
+    A('               5-15 %, large 15-21 %, exceptional 21-25 %, absolute clamp 25 % ».')
+    A('   NATURE : un deplacement sans unite et la deformation qu\'il commande. REPERE : axe de l\'os')
+    A('   dans le triedre de l\'ancre. LIGNE DE BASE : 0.0 a la pose d\'auteur debout (SPEC 9).')
+    _rad = {}
+    # `rrr` (le maximum AVANT la borne SPEC 22) et `sat` (les frames ou elle a mordu) sont
+    # OPTIONNELS a la lecture : une trace anterieure au 2026-08-16 ne les porte pas, et le bloc doit
+    # rester lisible sur les deux. Absents, ils valent None et la ligne de saturation le DIT au lieu
+    # de rendre un zero qui ressemblerait a « la borne n'a jamais mordu ».
+    for m in re.finditer(r'^PHYSRAD c=(\d+) a=(\d+) d=(\d+) rr=([-\d.e+]+) rrm=([-\d.e+]+)'
+                         r'(?: rrr=([-\d.e+]+))?',
+                         txt, re.M):
+        c, dr = int(m.group(1)), int(m.group(3))
+        if dr >= len(DRIVE_NAMES):
+            continue
+        e = _rad.setdefault((c, dr), dict(rrm=None, rrr=None, sat=None, n=0, neg=0))
+        v = float(m.group(5))
+        if v < 0.0:
+            e['neg'] += 1
+        e['rrm'] = v if e['rrm'] is None else max(e['rrm'], v)
+        if m.group(6) is not None:
+            _v0 = float(m.group(6))
+            e['rrr'] = _v0 if e['rrr'] is None else max(e['rrr'], _v0)
+        e['n'] += 1
+    # `sat` arrive sur sa PROPRE ligne (`format` de GOAL est cape a huit parametres) : c'est un
+    # compteur global au solveur, agrege ici par (chaine, pilotage) comme le reste du bloc.
+    for m in re.finditer(r'^PHYSRADSAT c=(\d+) d=(\d+) sat=([-\d.e+]+)', txt, re.M):
+        c, dr = int(m.group(1)), int(m.group(2))
+        if (c, dr) not in _rad:
+            continue
+        _s = float(m.group(3))
+        e = _rad[(c, dr)]
+        e['sat'] = _s if e['sat'] is None else max(e['sat'], _s)
+
+    def _radband(x):
+        """Les bandes de l'ELONGATION DU TISSU de SPEC 22, dans ses mots. `repos` est SOUS sa plus
+        basse bande. A n'appliquer QU'A une deformation — jamais a un deplacement."""
+        if x < 0.05:
+            return 'repos'
+        if x < 0.15:
+            return 'commun'
+        if x < 0.21:
+            return 'large'
+        if x <= 0.25:
+            return 'exceptionnel'
+        return 'HORS'
+
+    def _comband(x):
+        """Les bandes du DEPLACEMENT DU COM de SPEC 22 : normal <= 0.35 B0, transitoire dur <= 0.40.
+        Au-dela, c'est HORS et sa spec n'a pas de mot pour ca."""
+        if x < 0.05:
+            return 'repos'
+        if x <= 0.35:
+            return 'sous-normale'
+        if x <= 0.40:
+            return 'transitoire-dur'
+        return 'HORS'
+    if not _rad:
+        A('ROOM-RAD: ABSENT (aucune ligne PHYSRAD dans la trace) — l\'elongation radiale de SPEC 22')
+        A('   n\'est pas mesuree sur cette course. Aucune autre grandeur n\'est substituee.')
+    else:
+        A('')
+        for (c, dr) in sorted(_rad):
+            e = _rad[(c, dr)]
+            _mk = '' if not e['neg'] else \
+                  '  (!! %d valeur(s) rrm negatives : rrm est declare ABSOLU)' % e['neg']
+            # `rrr` PUBLIE A COTE DE `rrm`, ET C'EST LA LECON DU 2026-08-16 : le canal de
+            # deformation etait colle a son plafond absolu sur les DIX fenetres (25.00 partout) et
+            # aucune ligne ne pouvait le dire, parce qu'un maximum BORNE et un maximum QUI EFFLEURE
+            # SA BORNE rendent le meme nombre. L'ecart entre les deux EST la saturation.
+            _sx = ''
+            if e['rrr'] is None:
+                _sx = '  rrr=n/a (trace anterieure au champ ; saturation non mesurable ici)'
+            else:
+                _sx = '  rrr=%.4f' % e['rrr']
+                if e['rrr'] > e['rrm'] + 0.0001:
+                    _sx += ' BORNEE (exces %.4f B0)' % (e['rrr'] - e['rrm'])
+                else:
+                    _sx += ' libre'
+                if e['sat'] is not None:
+                    _sx += ' sat=%d fr' % int(e['sat'])
+            A('ROOM-RAD: chain=%-12s drive=%-10s rrm=%.4f com=%-15s elong=%.4f tissu=%-12s n=%d%s%s'
+              % (names[c] if c < len(names) else 'c%d' % c, DRIVE_NAMES[dr], e['rrm'],
+                 _comband(e['rrm']), _RAD_K * e['rrm'], _radband(_RAD_K * e['rrm']),
+                 e['n'], _sx, _mk))
+        for c in sorted({c for (c, _d) in _rad}):
+            _nm = names[c] if c < len(names) else 'c%d' % c
+            _per = {DRIVE_NAMES[d]: _rad[(c, d)]['rrm']
+                    for d in range(len(DRIVE_NAMES)) if (c, d) in _rad}
+            _hi, _lo = max(_per.values()), min(_per.values())
+            A('ROOM-RAD-MAX: chain=%-12s rrm=%.4f com=%s elong=%.4f tissu=%s%s'
+              % (_nm, _hi, _comband(_hi), _RAD_K * _hi, _radband(_RAD_K * _hi),
+                 '   (maximum identiquement nul : le canal radial n\'a rien ecrit sur AUCUN'
+                 ' pilotage — ce n\'est pas un repos mesure, c\'est un domaine vide)'
+                 if _hi <= 0.0 else ''))
+            # LA LIGNE DE DISCRIMINATION. C'est la regle de la gate DISCRIMINANT appliquee A LA MAIN
+            # a une sortie neuve (la gate elle-meme n'est pas touchee : elle est GELEE). Une
+            # grandeur qui rend la meme valeur sous une secousse et sous une inclinaison soutenue ne
+            # mesure pas le stimulus — c'est le motif d'echec qui a coute le plus cher sur ce
+            # dossier, et il ne se voit qu'en publiant l'ETALEMENT, jamais la valeur seule.
+            if len(_per) < 2:
+                A('ROOM-RAD-DISCRIM: chain=%-12s un seul pilotage mesure (%d) — l\'etalement n\'est'
+                  ' pas calculable, rien n\'est conclu.' % (_nm, len(_per)))
+            elif _hi <= 0.0:
+                A('ROOM-RAD-DISCRIM: chain=%-12s hi=%.4f lo=%.4f spread=n/a verdict=PLAT (serie'
+                  ' identiquement nulle sur les %d pilotages : c\'est une ABSENCE de canal, pas une'
+                  ' non-discrimination mesuree)' % (_nm, _hi, _lo, len(_per)))
+            else:
+                _sp = (_hi - _lo) / _hi
+                A('ROOM-RAD-DISCRIM: chain=%-12s hi=%.4f lo=%.4f spread=%.1f%% verdict=%s'
+                  % (_nm, _hi, _lo, 100.0 * _sp,
+                     'DISCRIMINE' if _sp >= 0.25 else
+                     'PLAT — la meme valeur sous une secousse et sous une inclinaison ne mesure'
+                     ' pas le stimulus'))
     A('')
     A('-- ROOM-REST : SPEC 33/34, LA RESTITUTION DE CONTACT ---------------------------------------')
     A('   SPEC 33 : sein<->sein, restitution 0.00-0.15, nominal 0.06. SPEC 34 : buste, 0.00-0.05,')

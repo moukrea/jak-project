@@ -142,7 +142,32 @@ GELE hair-upper-half « la moitie basse a l'air detachee du crane et bouge indep
 # Ces quatre points remplacent TOUTES les cibles chiffrees de la journee.
 
 #
-# ETAT AU CYCLE 7 (2026-08-14) -- LA LIGNE RESTE OUVERTE, SEUL SON CONTENU EST MIS A JOUR.
+# ETAT AU CYCLE 10 (2026-08-17) -- LA LIGNE RESTE OUVERTE, SEUL SON CONTENU EST MIS A JOUR.
+#   19 tenues, 5 partielles (§23 §24 §26 §27 §29-anisotropie), aucune ABSENTE.
+#   CE QUE LE CYCLE 10 CHANGE, et c'est la premiere fois que ca se lit sur le solveur LIVRE :
+#     §24 VERTICALE = 2.325 / 2.430 Hz contre sa cible 2.30 (bande 2.10-2.50), residu 0.007,
+#     contrainte de longueur ARMEE. Les cycles 8 et 9 ne l'obtenaient qu'en LEVANT la contrainte,
+#     donc sur un systeme qu'on ne livre pas. Le degre de liberte manquant de sa §23 est integre.
+#     §24 LATERALE = 2.555 / 2.625 contre 2.65 : DANS, et elle ne l'etait pas parce que les roles
+#     `ap`/`lat` etaient intervertis -- corriges, et le nommage repose desormais sur le segment
+#     inter-seins (ratio 21390:1), un invariant que l'etiquetage ne peut pas influencer.
+#   ET LE CYCLE A TROUVE UN DEFAUT DANS SON PROPRE CODE NEUF, PAR LA MESURE, ET L'A CORRIGE :
+#     le canal de deformation etait colle a son plafond absolu (25.00 sur LES DIX fenetres) ;
+#     c'est le « ballon d'eau » que l'owner decrit, fabrique par ce code. Deux erreurs de
+#     derivation : `rr` pris comme ECART DE RAYON (aveugle a la direction : une rotation pure y
+#     entrait en entier) et porte 1:1 dans l'elongation, ce que sa §14 interdit en toutes lettres.
+#     Apres correction : dyn 17.80-25.00, DISCRIMINE ; COM 0.3497-0.3929 B0 sous sa borne dure de
+#     0.40 (il etait a 0.9102) ; elongation 0.1504-0.1689, bande « large ». Trajectoire du JOINT
+#     identique au chiffre pres (tipvar 0.1344/0.1345) : l'acquis des mouvements subtils est intact.
+#   CE QUI RESTE, ET QUI EMPECHE DE PARLER DE SPEC TENUE A 100 % :
+#     §23 le point INTEGRE reste l'apex, pas le COM ; la valeur LIVREE du canal radial est PLATE
+#     (etalement 8.5 %) parce que la borne §22 mesure a sa place -- l'excursion a la SOURCE vaut
+#     2 a 4x ce que ses §11/§12 accordent, et ca ne se corrige pas en raidissant (sag et frequence
+#     sont lies, et la frequence est juste). §24 AP reste non lisible. §29 pas re-mesuree.
+#     §26/§27 non re-mesurees. §33 sans domaine.
+#   ET SURTOUT : rien de tout cela n'est un verdict. C'est SON oeil qui ferme cette ligne.
+#
+# --- etat precedent (cycle 7) conserve pour l'historique ---
 #   Il n'y a PLUS AUCUNE section ABSENTE. 20 tenues, 4 partielles (§23 §24 §26 §27), 1 implementee
 #   sans domaine mesurable (§33 : zero contact sein<->sein sur 2978).
 #   Ajoutees ce cycle : le CANAL DE DEFORMATION (§8 volume, §10 supine, §11 prone, §12 lateral,

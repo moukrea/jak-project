@@ -471,6 +471,11 @@
 (define *phys-rok*  (new 'global 'array 'int32 PHYS-SC))   ;; 1 = le point libre est amorce
 (define *phys-rr*   (new 'global 'array 'float PHYS-SC))   ;; §23 elongation radiale, unites de jeu
 (define *phys-rrm*  (new 'global 'array 'float PHYS-SC))   ;; |elongation|/B0 max sur la fenetre
+(define *phys-rrr*  (new 'global 'array 'float PHYS-SC))   ;; le meme AVANT la borne §22 (anti-saturation)
+;; Frames ou la borne §22 du COM a effectivement mordu. Un limiteur qui mord en PERMANENCE ne
+;; borne plus, il remplace la mesure par sa propre valeur — c'est ce qui vient d'arriver au canal
+;; de deformation (25.00 sur les dix fenetres). On le compte, exactement comme `*phys-twsat*`.
+(define *phys-rrsat* 0)
 (define *phys-prsm* (new 'global 'array 'float PHYS-SC))  ;; §23 aplatissement de contact, max fenetre
 (define *phys-prsr* (new 'global 'array 'float PHYS-SC))  ;; le meme AVANT plafond (anti-saturation)
 (define *phys-vp*   (new 'global 'inline-array 'vector PHYS-SC))  ;; vitesse de pointe, frame -1
@@ -2968,10 +2973,27 @@
                                            (set! cpx (+ cpx cvx))
                                            (set! cpy (+ cpy cvy))
                                            (set! cpz (+ cpz cvz))))))
-                                   ;; L'ELONGATION RADIALE : l'ecart de RAYON entre le point libre et
-                                   ;; la sphere que la contrainte impose a l'os. C'est exactement le
-                                   ;; degre de liberte que la projection confisque, et rien d'autre :
-                                   ;; la part TANGENTIELLE du point libre n'est consommee nulle part.
+                                   ;; L'ELONGATION RADIALE : LA COMPOSANTE DU POINT LIBRE LE LONG DE
+                                   ;; L'AXE COURANT DE L'OS — c'est-a-dire selon la NORMALE de la
+                                   ;; contrainte que la projection annule, et rien d'autre.
+                                   ;;
+                                   ;; CORRIGE LE 2026-08-16, ET C'EST UNE MESURE QUI L'A EXIGE, pas
+                                   ;; une relecture. La premiere ecriture prenait l'ECART DE RAYON,
+                                   ;; `|cp - ancre| - bl`. UN RAYON EST AVEUGLE A LA DIRECTION : un
+                                   ;; deplacement PUREMENT TANGENTIEL de longueur `d` — une rotation,
+                                   ;; exactement ce que l'os a le droit de faire a longueur
+                                   ;; invariante — fait passer le rayon de `bl` a `sqrt(bl^2 + d^2)`.
+                                   ;; La rotation entrait donc EN ENTIER dans « l'elongation du
+                                   ;; tissu ». Ce que ca a coute, lu dans la salle du 2026-08-16 :
+                                   ;;   - `rrm` monte a 0.9102 B0 sous `tilt`, la ou sa §22 borne le
+                                   ;;     COM a 0.40 B0 — 2.3x la borne dure ;
+                                   ;;   - le canal de deformation s'est colle a son plafond absolu de
+                                   ;;     25 % sur LES DIX fenetres (25.00 partout), la ou il donnait
+                                   ;;     15.56 a 21.29 et DISCRIMINAIT entre les pilotages.
+                                   ;; Un limiteur sature ne repond plus au stimulus : c'est le
+                                   ;; « ballon d'eau » que l'owner decrit, fabrique par ce bloc.
+                                   ;; La projection sur l'axe de l'os rend EXACTEMENT zero pour une
+                                   ;; rotation pure et ne garde que l'elongation vraie.
                                    (when (nonzero? rlo)
                                      (set! (-> *phys-cpx* sc) cpx)
                                      (set! (-> *phys-cpy* sc) cpy)
@@ -2979,12 +3001,44 @@
                                      (set! (-> *phys-cqx* sc) (- cpx (* fns cvx)))
                                      (set! (-> *phys-cqy* sc) (- cpy (* fns cvy)))
                                      (set! (-> *phys-cqz* sc) (- cpz (* fns cvz)))
-                                     (let* ((rx (- cpx ax))
-                                            (ry (- cpy ay))
-                                            (rz (- cpz az))
-                                            (rl (sqrtf (+ (* rx rx) (+ (* ry ry) (* rz rz)))))
-                                            (drr (if (> bl 0.01) (- rl bl) 0.0)))
+                                     (let* ((mx  (- (-> *phys-px* scl) ax))
+                                            (my  (- (-> *phys-py* scl) ay))
+                                            (mz  (- (-> *phys-pz* scl) az))
+                                            (ml  (sqrtf (+ (* mx mx) (+ (* my my) (* mz mz)))))
+                                            (dr0 (if (and (> bl 0.01) (> ml 0.01))
+                                                   (- (/ (+ (* (- cpx ax) mx)
+                                                            (+ (* (- cpy ay) my)
+                                                               (* (- cpz az) mz)))
+                                                         ml)
+                                                      bl)
+                                                   0.0))
+                                            ;; §22 « Breast COM: normal <= 35 % B0, hard transient
+                                            ;; <= 40 % B0 » (§38 `NormalMaxCOMDisplacement 0.35`,
+                                            ;; `HardMaxCOMDisplacement 0.40`). MEME CONSTRUCTION que
+                                            ;; la borne d'apex de la torsion (:3785) : `phys-softmin`
+                                            ;; avec le cap TRANSITOIRE, dont le genou (0.84 x cap =
+                                            ;; 0.336 B0) tombe sur la borne NORMALE a 4 % pres — le
+                                            ;; rapport que sa spec donne deja a l'apex vaut
+                                            ;; 0.42/0.50 = 0.84 EXACTEMENT. Aucun chiffre choisi ici,
+                                            ;; et l'ecart de 4 % est ecrit plutot que rattrape en
+                                            ;; deplacant le genou : on ne regle pas l'instrument.
+                                            (rcap (* 0.40 b0e))
+                                            ;; APPELEE UNE SEULE FOIS, ET SUR LA VALEUR LIVREE, JAMAIS
+                                            ;; SUR L'ETAT : `phys-softmin` n'est pas idempotent
+                                            ;; au-dessus de son genou (sa propre docstring l'ecrit),
+                                            ;; donc la rappeler chaque frame sur `*phys-cp**` ferait
+                                            ;; fondre l'oscillateur frame apres frame. C'est
+                                            ;; exactement ce que fait deja la torsion (:3786-3794 :
+                                            ;; `twn` brut conserve dans l'etat, `rel` borne publie).
+                                            (drr (if (>= dr0 0.0)
+                                                   (phys-softmin dr0 rcap)
+                                                   (- 0.0 (phys-softmin (- 0.0 dr0) rcap)))))
                                        (set! (-> *phys-rr* sc) drr)
+                                       (when (> (fabs (- dr0 drr)) 0.000001)
+                                         (set! *phys-rrsat* (+ *phys-rrsat* 1)))
+                                       (let ((a0 (/ (fabs dr0) (fmax 1.0 b0e))))
+                                         (when (> a0 (-> *phys-rrr* sc))
+                                           (set! (-> *phys-rrr* sc) a0)))
                                        (let ((ar (/ (fabs drr) (fmax 1.0 b0e))))
                                          (when (> ar (-> *phys-rrm* sc))
                                            (set! (-> *phys-rrm* sc) ar)))))
@@ -3831,8 +3885,21 @@
                           ;; construction, et `*phys-dynm*` continue de la mesurer telle quelle.
                           ;; A `*phys-rr*` = 0 ce bloc rend BIT POUR BIT l'ancien : `dl` vaut
                           ;; `PHYS-DYN-K * |o| / b0f` et l'axe vaut `o/|o|`, comme avant.
+                          ;; LE COEFFICIENT DU TERME RADIAL EST `PHYS-DYN-K`, LE MEME QUE LE TERME
+                          ;; TANGENTIEL, ET IL EST DERIVE D'ELLE. La premiere ecriture portait le
+                          ;; deplacement radial 1:1 dans l'elongation ; sa §14 l'interdit en toutes
+                          ;; lettres — « the majority of visible movement must come from global mass
+                          ;; lag and rotation, NOT from stretching the tissue by the complete
+                          ;; displacement magnitude » — et sa §38 donne le couple exact :
+                          ;;   `NormalMaxCOMDisplacement 0.35 B0`  <->  `NormalDynamicStretch 0.15`
+                          ;; soit 0.15 / 0.35 = 0.4286, qui EST `PHYS-DYN-K` (:356, deja derive de
+                          ;; ces deux memes lignes pour le terme tangentiel). Quatre autres sections
+                          ;; donnent le meme ordre par une voie independante : §14 (COM 15-25 % ->
+                          ;; +7 a +13 %), §16 (25-35 % -> +16 a +21 %), §17 (10-18 % -> +5 a +10 %),
+                          ;; §20 (15-22 % -> +5 a +12 %) — un rapport de 0.47 a 0.64. Le meme
+                          ;; coefficient pour les deux composantes est donc sa regle, pas un reglage.
                           (let* ((gb  (* sc 3))
-                                 (rdr (/ (-> *phys-rr* sc) b0f))
+                                 (rdr (* PHYS-DYN-K (/ (-> *phys-rr* sc) b0f)))
                                  (dx  (+ (* PHYS-DYN-K (/ (-> *phys-ox* tl) b0f))
                                          (* rdr (-> *phys-ux* tl))))
                                  (dy  (+ (* PHYS-DYN-K (/ (-> *phys-oy* tl) b0f))
@@ -4109,11 +4176,13 @@
     ;; sont PAS, pour la meme raison que le mode secondaire et la torsion : chaque fenetre
     ;; relancerait sinon l'oscillateur radial depuis rien.
     (set! (-> *phys-rrm* sc) 0.0)
+    (set! (-> *phys-rrr* sc) 0.0)
     (set! (-> *phys-twm* sc) 0.0)
     (set! (-> *phys-thas* sc) 0))
   ;; SPEC 33/34 — les compteurs de restitution, par fenetre eux aussi.
   (set! *phys-rstn* 0)
   (set! *phys-twsat* 0)
+  (set! *phys-rrsat* 0)
   (set! *phys-rstm* 0)
   (set! *phys-rstin* 0.0)
   (set! *phys-rstout* 0.0)
@@ -4261,7 +4330,11 @@
    which 0 = elongation radiale du tissu en unites de jeu (signee) ;
          1 = la meme, rapportee a B0 (SPEC 6) — c'est la grandeur que borne sa SPEC 22
              (« local tissue elongation: common 5-15 %, large 15-21 %, exceptional 21-25 % ») ;
-         2 = son maximum absolu sur la fenetre de mesure courante.
+         2 = son maximum absolu sur la fenetre de mesure courante ;
+         3 = LE MEME MAXIMUM, MAIS AVANT LA BORNE §22 — sans lui, un canal colle a sa borne est
+             indiscernable d'un canal qui l'effleure, et c'est exactement la confusion qui a laisse
+             passer un plafond de deformation atteint sur les dix fenetres ;
+         4 = le nombre de frames ou la borne §22 a mordu (compteur global, rendu en float).
    NATURE : une DEFORMATION signee (sans unite pour 1 et 2), pas une amplitude agregee : c'est une
    serie temporelle, et c'est ce qui permet d'en ajuster la frequence propre.
    REPERE : l'axe de l'OS, dans le triedre de l'ANCRE (SPEC 7) — le degre de liberte que la
@@ -4269,13 +4342,15 @@
    LIGNE DE BASE : 0.0 exactement a la pose debout d'auteur (SPEC 9) — un tissu au repos ne
    s'allonge pas, donc un zero ici n'est pas un trou de mesure, c'est l'etat neutre."
   (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS)
-          (< which 0) (> which 2))
+          (< which 0) (> which 4))
     0.0
     (let* ((sc (+ (* slot PHYS-CHAINS) chain))
            (b0 (fmax 1.0 (-> *phys-b0* sc))))
       (cond ((= which 0) (-> *phys-rr* sc))
             ((= which 1) (/ (-> *phys-rr* sc) b0))
-            (else        (-> *phys-rrm* sc))))))
+            ((= which 2) (-> *phys-rrm* sc))
+            ((= which 3) (-> *phys-rrr* sc))
+            (else        (the float *phys-rrsat*))))))
 
 (defun phys-chain-axsep ((slot int) (chain int) (which int))
   "LES DEUX PROJECTIONS QUE LA DECISION DE NOMMAGE A COMPARE, et la norme du segment inter-seins.
