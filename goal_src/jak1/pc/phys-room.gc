@@ -2183,16 +2183,28 @@
        ;; filet ne sert plus. `sat_n` qui reste haut = le ressort est mal pose.
        (format 0 "PHYSLIM4 sat_n=~f sat_sum=~f stif_n=~f~%"
                (phys-limiter 9) (phys-limiter 10) (phys-limiter 6))
-       ;; QUEL VOLUME CONTRAINT QUELLE CHAINE, sur toute la course. Une ligne par paire non nulle :
+       ;; QUEL VOLUME CONTRAINT QUEL MAILLON, sur toute la course. Une ligne par triplet non nul :
        ;; c'est la question que trois cycles ont posee sans instrument (« lbang est en contact
-       ;; 17893 frames sur 17893 avec un AUTRE volume, non identifie »). Le nom du volume est deja
-       ;; publie par `PHYSCOL ci= j= j2=`, on n'imprime donc que l'index et le compte.
+       ;; 17893 frames sur 17893 avec un AUTRE volume, non identifie »), et depuis le 2026-08-14
+       ;; l'index du MAILLON n'est plus jete a l'ecriture — deux cycles ont bute sur « lequel des
+       ;; deux maillons du sein viole ? » sans pouvoir y repondre.
+       ;;   NATURE  : un COMPTE de triplets (frame, MAILLON, volume) ou ce volume-la demandait une
+       ;;             correction cette frame (`res > 0`). Ni une distance, ni une amplitude — et un
+       ;;             contact a profondeur nulle n'en est pas un.
+       ;;   REPERE  : celui du VOLUME TESTE (le solide `ci`, dans son repere anime), puisque c'est
+       ;;             contre lui que la profondeur `res` est evaluee.
+       ;;   ABSENT  : aucune ligne pour ce maillon — aucun volume ne l'a jamais contraint.
+       ;; Le nom du volume est deja publie par `PHYSCOL ci= j= j2=`, on n'imprime donc que l'index.
+       ;; La borne des maillons vient de `phys-chain-links`, JAMAIS de `PHYS-LINKS` : une chaine a
+       ;; 2 maillons publierait sinon deux colonnes vides indistinguables d'un zero mesure.
        (dotimes (c (-> self nchain))
-         (when (> (phys-chain-links (-> self slot) c) 0)
-           (dotimes (ci (phys-slot-colliders (-> self slot)))
-             (let ((n (phys-chain-vol (-> self slot) c ci)))
-               (when (> n 0)
-                 (format 0 "PHYSCVOL c=~D ci=~D n=~D~%" c ci n))))))
+         (let ((nl (phys-chain-links (-> self slot) c)))
+           (when (> nl 0)
+             (dotimes (ci (phys-slot-colliders (-> self slot)))
+               (dotimes (l nl)
+                 (let ((n (phys-chain-vol (-> self slot) c l ci)))
+                   (when (> n 0)
+                     (format 0 "PHYSCVOL c=~D l=~D ci=~D n=~D~%" c l ci n))))))))
        ;; QUELS VOLUMES SE DISPUTENT QUEL LIEN — l'attribution que `PHYSCVOL` ne peut pas donner,
        ;; parce qu'il ne se remplit que pendant la fenetre de controle positif (mesure du
        ;; 2026-08-13 : `meshpen_max=0.0000` sur toutes les phases de mesure). Celui-ci vient de la
