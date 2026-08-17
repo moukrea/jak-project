@@ -241,6 +241,15 @@ OPEN breast-spec-incomplete  PRIORITE 1 -- LA SEULE LIGNE QUI TIENT LA PHASE OUV
 #       §13 residu du tenseur 0.1869/0.1818 -> 0.0512/0.0582, la ligne imprime LINEAIRE ;
 #       §24 passe de 2 axes lisibles-et-DANS a 5 sur 6, l'AP devenant lisible (residu 0.082->0.009) ;
 #       §26 RE-MESUREE sur les 6 axes: 0.284-0.323 pour une cible de 0.31.
+#     LA CAUSE COMMUNE EST DESORMAIS CHIFFREE, sur le mesh LIVRE (probe_hair_joint_deficit.py):
+#       chestL lBoob orphan 100.0% s_p50 1.227 s_p95 1.365 tail 0.0871 m sur un os de 0.2385 m
+#       chestR rBoob orphan 100.0% s_p50 1.226 s_p95 1.379 tail 0.0905 m
+#       PAS UN SEUL SOMMET n'est en amont du joint: le faire tourner TRANSLATE le sein en bloc au
+#       lieu de le deformer. Meme signature que `knee-tabs` (orphan 100 %), meme remede. Spec
+#       d'injection DERIVEE deposee dans C15-breast-joint-deficit.txt (lBooc / rBooc, os 0.0871 /
+#       0.0905 m, masse residuelle 4.4 % / 2.6 % -- le profil de `lbang`, 4.9 %). Elle explique §23,
+#       §30-31, §36, §29-torsion ET la phrase de §10 « the entire breast shall not simply scale
+#       uniformly from its center ». C'est le chantier du cycle suivant, seul, avec ses predictions.
 #     CE QUI RESTE OUVERT: §23 (le point integre reste l'apex -- la STRUCTURE, cause commune) ;
 #       §29 en torsion 0.3825/0.3520 contre 0.72 (os manquant a INJECTER, pas « non applicable ») ;
 #       §33 sans domaine ; §34 mesuree sur 2 contacts seulement (domaine MINCE, c'est un cout de ce

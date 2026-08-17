@@ -286,6 +286,58 @@ grave que celui qu'il corrigeait.
   precedent n'est pas une mesure de ce cycle.
 
 
+6 bis. LA CAUSE COMMUNE DE L'AUDIT DU 09:45 EST MESUREE — 100 % DE LA CHAIR EST AU-DELA DU JOINT
+==================================================================================================
+L'audit du 2026-08-14 09:45 nommait une cause commune sans la chiffrer : « un sein = UNE
+articulation. Rien de §8, §30-31, §36, §10-13 n'est exprimable avec un point unique. LA STRUCTURE
+D'ABORD. » Elle est maintenant MESUREE, sur le mesh LIVRE, avec l'instrument qui avait servi aux
+mèches et aux languettes de genou (`probe_hair_joint_deficit.py`, lecture seule) :
+
+    chain      lastjoint    nvert   bone_m    s_p50    s_p95    s_max  orphan  tail_m
+    chestL     lBoob           35   0.2385    1.227    1.365    1.391  100.0%  0.0871
+    chestR     rBoob           27   0.2385    1.226    1.379    1.391  100.0%  0.0905
+
+`s` est la distance le long de l'axe, en longueurs d'os, origine a la tete du dernier joint : `s > 1`
+veut dire « geometrie AU-DELA du joint ». La lecture quand le defaut est absent serait
+`s_p95 <= 1.0` et `orphan = 0`.
+
+**`orphan = 100.0 %` : PAS UN SEUL SOMMET de la poitrine n'est en amont de son joint.** La mediane
+de la masse est a 1.227 longueurs d'os DERRIERE lui. Le joint est donc entierement en amont de ce
+qu'il pilote — le faire tourner **TRANSLATE le sein en bloc** au lieu de le deformer. C'est
+exactement la signature relevee sur `kneeflapL/R` (« orphan 100.0 % … ca essaie de bouger mais c'est
+chelou », mot pour mot dans `keira-hd-inject-joints.txt`), et c'est la meme operation qui l'a
+fermee.
+
+**CE CHIFFRE EXPLIQUE PLUSIEURS LIGNES DU TABLEAU D'UN SEUL COUP, ET PAS SEULEMENT §23 :**
+  - §23 « a single spring attached to the nipple/apex is insufficient » — ici c'est pire que ce que
+    la spec redoute : le ressort unique n'est meme pas a l'apex, il est A LA RACINE avec 100 % de la
+    masse en aval ;
+  - §10 « **The entire breast shall not simply scale uniformly from its center** » — avec toute la
+    masse sur un seul joint, une mise a l'echelle uniforme est litteralement le seul comportement
+    disponible ;
+  - §30-31 (30 % de volume fortement ancre, gradient `r^1.6-2.0` sans frontiere nette) exigent que
+    la masse soit REPARTIE sur plusieurs joints : c'est pourquoi §30 est « non re-mesuree » depuis
+    trois cycles — il n'y a rien a repartir ;
+  - §36 (mode secondaire) et §29 en torsion (0.3825 / 0.3520 contre 0.72) demandent un degre de
+    liberte distal qu'une chaine a UN maillon ne possede pas.
+
+**LA SPEC D'INJECTION EST DERIVEE, PAS DEVINEE**, et elle est deposee pour le cycle suivant dans
+`C15-breast-joint-deficit.txt` — meme outil, meme regle que pour les meches (joint appende a `s_p95`
+de la masse pesee de la chaine elle-meme) :
+
+    chestL   lBoob -> lBooc    nouvel os 0.0871 m,  masse residuelle au-dela  4.4 %
+    chestR   rBoob -> rBooc    nouvel os 0.0905 m,  masse residuelle au-dela  2.6 %
+
+Les 4.4 % / 2.6 % restants sont le profil que porte `lbang`, la chaine dont le comportement etait le
+moins mauvais (4.9 %). Le plafond `PHYS-LINKS 4` laisse la place : ces chaines passent de 1 a 2.
+
+**JE NE LANCE PAS L'INJECTION DANS CE CYCLE, ET C'EST DELIBERE.** C'est une operation d'ASSET (cuisson
+du mesh), l'auto-constructeur detient l'arbre en ce moment meme pour le build arm64 du commit livre,
+et une cuisson concurrente est precisement ce qui a deja detruit un mesh irreproductible. Elle se
+fait seule, dans un cycle a elle, avec ses propres predictions — melangee au correctif du mur elle
+aurait rendu les deux inattribuables, ce qui est l'erreur que ce cycle a justement evitee.
+
+
 7. CE QUI N'EST PAS PROUVE, ET JE LE DIS
 ==========================================
   - **Aucune mesure de ce rapport ne vient d'un APPAREIL.** Tout est x86.

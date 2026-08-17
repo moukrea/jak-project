@@ -1,0 +1,16 @@
+# C15-breast-joint-deficit.txt — DERIVED by .autoport/probe_hair_joint_deficit.py.
+# DO NOT HAND-EDIT: regenerate with
+#   python3 .autoport/probe_hair_joint_deficit.py \
+#       --glb out/jak1/fr3/skin/keira-hd-lod0.glb --emit-spec .autoport/reports/Grecharged-secondary-motion/C15-breast-joint-deficit.txt
+#
+# One appended joint per hair chain, at s = s_p95 of that chain's own skinned
+# mass, measured on the SHIPPED mesh (prep re-indexes joints; the raw donor rip
+# still carries the level's vertex pool and reads 3.6 m of 'hair'). Donor and
+# prepped bind spaces verified identical to 0.00000000 m, so these positions
+# apply to the donor unchanged.
+#
+# chain      parentJoint   newJoint      x            y            z    (metres)
+chestL      lBoob         lBooc            0.118709     2.013364     0.107055
+#   s_p95 1.365  new bone 0.0871 m  residual mass past it 4.4%
+chestR      rBoob         rBooc           -0.119944     2.016473     0.107559
+#   s_p95 1.379  new bone 0.0905 m  residual mass past it 2.6%
