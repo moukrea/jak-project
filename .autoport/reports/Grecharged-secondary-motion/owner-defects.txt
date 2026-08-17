@@ -294,4 +294,42 @@ OPEN breast-spec-incomplete  PRIORITE 1 -- LA SEULE LIGNE QUI TIENT LA PHASE OUV
 #     la conduire jusqu'a la verification laisserait un rig a 107 joints non verifie. Le cycle
 #     suivant peut la reposer en UNE course : criteres d'arret chiffres et falsifiables dans
 #     `C17-PREDICTIONS.txt`, dont le premier (A1) se verifie AVANT toute course.
+#
+#   ETAT AU CYCLE 18 (2026-08-17). LA STRUCTURE A ETE REPOSEE, CUITE, MESUREE, PUIS RETIREE DE LA
+#   LIVRAISON PAR LE CRITERE ECRIT AVANT LA COURSE. Le fichier livre est IDENTIQUE AU BIT PRES a
+#   celui d'avant (md5 5022695d...), le rig est revenu a 105 joints, les cinq endroits verifies.
+#     CE QUI A MARCHE, et qui reste acquis au GENERATEUR (inerte a un maillon, actif des que la
+#       structure reviendra) :
+#       - A1 recouvrement au repos contre volumes etrangers : -42.2 / -27.1 u, contre -75.3 / -56.1
+#         a un maillon et -202.3 / -206.0 au cycle 16. Le volume proximal ne derive plus.
+#       - C2 chair possedee par la chaine : 34 -> 13+21 = 34 et 25 -> 10+15 = 25. EXACTEMENT
+#         conserve, ce qui est l'invariant que `chain_influence()` devait garantir.
+#       - `redistribute ... hold=0.00` : le joint injecte passe de 0 (cycle 16, et ma premiere
+#         cuisson de ce cycle avec hold=0.30) a 8 / 3 sommets majoritaires. La peau suit l'os.
+#         `hold` exprime `rootlock`, pas un pourcentage de volume ; la poitrine est rootlock=0.
+#       - le mouvement MONTAIT (tipvar 0.163 -> 0.231) et `skinpen`, seule grandeur qui mesure la
+#         traversee de la PEAU, ne bougeait pas (+0.4 %).
+#     POURQUOI C'EST RETIRE QUAND MEME — A2 et A3, ecrits dans C17-PREDICTIONS AVANT la course :
+#       ROOM-CONTACT-VOL chestL 10888 (predit < 100 ; controle a 1 maillon : 23), chestR 8058 (38).
+#       meshpen +0.0800 / +0.0770 m (predit <= 0.0005 ; controle -1.5e-06 / -1.0e-05, donc DEHORS).
+#       A3 dit « regle 6 : RETRAIT IMMEDIAT, pas d'adoucissement ». Applique sans le relire.
+#     LA CAUSE EST MESUREE, ET CE N'EST PAS LE JOINT INJECTE. Les quatre volumes qui mordent sont
+#       des capsules du TORSE : Lshoulder->chest 2479, Rshoulder->chest 2339, neck->chest 2323,
+#       chest->main 2280 (a un maillon : Lshoulder 20, head->neck 3). Trois d'entre elles portent
+#       un rayon que le generateur DECLARE n'avoir pas pu deriver (« SPAN-EMPTY, rayon INCHANGE —
+#       os propre ambigu » : hips->main 549, Lshoulder->chest 612, Rshoulder->chest 554), et leur
+#       bout CHEST est enorme : radius2 = 769 / 782 / 671 u, soit 16 a 19 cm de RAYON centres sur
+#       le joint `chest`. Ils englobent l'espace ou le second maillon doit vivre.
+#     >>> LE PROCHAIN CHANTIER EST DONC LES CAPSULES DU TORSE, PAS LA POITRINE. Tant que le bout
+#         `chest` de ces capsules recouvre l'organe, aucun degre de liberte supplementaire ne peut
+#         exister a l'exterieur, et §23 / §30 restent hors d'atteinte quelle que soit l'injection.
+#     RESTE OUVERT : §23 et §30 ABSENTES (la structure n'est pas livree) ; §29 torsion 0.3825/0.3520
+#       contre 0.72 ; §33 sans domaine ; §12 3 valeurs sur 4 au-dessus de sa bande ; §36 chestR en
+#       « DESACCORD ». L'axe VERTICAL de §24 a deux maillons reste INDECIDABLE : l'ajustement a deux
+#       modes ecrit ce cycle est REJETE par son propre controle de degenerescence (il invente un
+#       second mode a 21-25 % sur une chaine qui n'en porte qu'un).
+#     UNE INCOHERENCE NON RESOLUE, ecrite pour ne pas etre re-decouverte : a un maillon la sonde de
+#       repos lit lBoob DEDANS Lshoulder->chest de -75.3 u — plus profond qu'a deux maillons — et le
+#       moteur n'y compte que 20 contacts. La sonde et le compteur ne testent pas le meme solide,
+#       donc la sonde de repos ne PREDIT pas le regime de contact. A1 supposait le contraire.
 #   CETTE LIGNE NE SE RETIRE QUE SUR LE MOT DE L'OWNER, jamais sur un tableau vert.

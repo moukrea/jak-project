@@ -1,47 +1,35 @@
 DIRECTIVES vee00ab7404
 
 ============================================================================================
-PHASE Grecharged-secondary-motion — CYCLE DU 2026-08-17 (cycle 17)
+PHASE Grecharged-secondary-motion — CYCLE DU 2026-08-17 (cycle 18)
 KEIRA, POITRINE SEULE.
 
-LE MOTIF QUI A FAIT RETIRER LA STRUCTURE AU CYCLE 16 N'ETAIT PAS CELUI QU'IL A ECRIT.
-LES DEUX SONT REPRIS, MESURES, ET UN SEUL SURVIT — CORRIGE AU POINT DE PRODUCTION.
+LA STRUCTURE A ETE REPOSEE, CUITE, MESUREE — ET RETIREE PAR LE CRITERE QUE J'AVAIS ECRIT
+AVANT LA COURSE. CE RETRAIT-CI N'EST PAS CELUI DU CYCLE 16 : SA CAUSE EST MESUREE, ET CE
+N'EST PAS L'OS INJECTE. CE SONT LES CAPSULES DU TORSE.
 
-  Le cycle 16 a construit l'injection de bout en bout, l'a mesuree, puis l'a RETIREE sur deux
-  motifs. Ce cycle a repris les deux SANS relancer une seule course de salle — tout est lu hors
-  moteur, sur des traces et des maillages deja enregistres.
+  Les trois defauts qui avaient fait echouer l'injection sont tombes, chacun avec sa mesure :
+  le volume proximal ne derive plus, la chair possedee par la chaine est conservee au sommet
+  pres, et la peau suit enfin le nouvel os. La poitrine a bien porte deux articulations, avec
+  PLUS de mouvement et SANS traverser la peau davantage.
 
-      MOTIF 1  « SPEC 24 tombe a 1.550 / 1.630 Hz, il faut RE-DERIVER les raideurs »
-               -> **L'EFFONDREMENT EST UN ARTEFACT ; IL RESTE UN DOUTE, ET IL EST ETROIT.**
-                  Le chiffre venait de `C16-distalchannel`, variante que le cycle 16 a lui-meme
-                  retractee ; et TROIS parseurs sur quatre jetaient le champ `l=`, versant deux
-                  echantillons par frame dans un ajustement qui en suppose un. Instruments repares
-                  (identite prouvee a un maillon), le n=2 en cablage livre rend **4 canaux sur 6
-                  inchanges et DANS leur bande**. Les deux canaux VERTICAUX, eux, deviennent
-                  illisibles (residu 0.068/0.096 -> 0.255/0.398) : la serie y porte plus d'UN mode,
-                  ce qu'une chaine a deux maillons doit produire et ce que l'ajustement mono-mode ne
-                  sait pas decrire. **Rien ne justifie de toucher `stiffness` ; l'axe vertical
-                  demande un ajustement a deux modes avant d'etre juge.**
+  Elle a quand meme ete retiree, parce que le compteur de contacts que j'avais designe d'avance
+  comme juge est passe de 23 a 10 888. Et la raison est ailleurs que dans l'organe : les quatre
+  volumes qui mordent sont des capsules du TORSE dont le bout `chest` fait 16 a 19 cm de RAYON,
+  et dont le generateur DECLARE lui-meme n'avoir pas pu deriver le rayon. Elles recouvrent
+  l'espace ou le second maillon doit vivre.
 
-      MOTIF 2  « la capsule `lBooc->lBoob` fait passer meshpen en positif » (regle 6)
-               -> **REEL, MAIS MAL IMPUTE**. Ce n'est pas la capsule : c'est le volume PROXIMAL,
-                  re-ajuste par le reskin. Mesure hors moteur, SANS capsule et SANS maillon
-                  distal — le recouvrement au repos est deja multiplie par 2.7 et 3.7.
-
-  **CE QUI EST LIVRE EST L'ETAT APPROUVE, INCHANGE AU BIT PRES.** Ce qui est ACQUIS, c'est que le
-  blocage qui a coute le cycle 16 est nomme, mesure, et corrige la ou il naissait. Le cycle
-  suivant peut reposer la structure en UNE course au lieu de quatre.
+  **LE PROCHAIN CHANTIER N'EST DONC PAS LA POITRINE, C'EST LE DECOR DE COLLISION.**
 ============================================================================================
 
 Branche : `physics-keira-clean`.
 Contrat  : `.autoport/DIRECTIVES.md` (07:30 perimetre, 09:45 audit, 11:50 ordre) +
            `SPEC-breast-softbody.md`.
-Substrat : AUCUN. **Ce cycle n'a lance ni build, ni cuisson, ni course de salle, ni appareil.**
-           Toutes les mesures sont relues sur des traces et des maillages deja enregistres, plus
-           deux sondes hors moteur. C'est ecrit ici parce que c'est inhabituel et que ca change la
-           facon de lire les chiffres.
-Palier de build : AUCUN (`(mi)` non lance, pas de NDK, pas de gradle, pas de `cmake`).
-Predictions : `C17-PREDICTIONS.txt`, ecrites AVANT toute cuisson du cycle suivant.
+Substrat : x86. Paliers de build employes : cuisson d'asset (`build_enhanced_models.sh`, 2 fois),
+           `(mi)` (3 fois, 13 a 25 s), 3 courses de salle. AUCUN NDK, AUCUN gradle, AUCUN cmake —
+           rien de ce cycle ne touchait du C++.
+Predictions : `C17-PREDICTIONS.txt`, ecrites au cycle precedent. A1, A2, A3, C2 et D1 y sont
+           chiffrees ET falsifiables. Ce rapport les tranche toutes les cinq.
 
 
 0. POURQUOI LE VALIDATEUR SORT A 1, ET POURQUOI JE NE LE FAIS PAS PASSER
@@ -49,235 +37,160 @@ Predictions : `C17-PREDICTIONS.txt`, ecrites AVANT toute cuisson du cycle suivan
 `OPEN-DEFECTS` (validateur :43-52) compte les lignes `^OPEN ` de `owner-defects.txt`. Il en reste
 UNE : `breast-spec-incomplete`. Toutes les gates en aval ne s'executent jamais.
 
-C'est une PORTE HUMAINE et elle fonctionne. La gate ecrit sa propre regle : « la liste se vide
-UNIQUEMENT sur la parole de l'owner ». Les deux seules facons de la faire sortir a 0 sont de
-retirer la ligne — contrefaire son accord — ou de modifier la gate, que la regle 5 interdit.
-**Je n'en commets aucune**, et je signale le conflit avec le crochet d'arret au lieu de le
-satisfaire en silence.
+C'est une PORTE HUMAINE et elle fonctionne. La gate ecrit sa propre regle dans son commentaire :
+« La liste se vide UNIQUEMENT sur la parole de l'owner : c'est son oeil qui ferme un defaut, jamais
+un chiffre vert. » Les deux seuls gestes qui la feraient sortir a 0 sont de retirer la ligne —
+contrefaire son accord — ou de modifier la gate, que la regle 5 interdit. **Je n'en commets aucun**,
+et je signale le conflit avec le crochet d'arret au lieu de le satisfaire en silence.
 
-**ET LE DIAGNOSTIC EST DESORMAIS EXACT, PAS SUPPOSE.** Sur une COPIE du validateur pointee vers une
-copie du fichier de defauts sans la ligne `OPEN` (aucun fichier reel touche — le compte de lignes
-`^OPEN` est verifie inchange apres coup), **toutes les gates en aval PASSENT** et le validateur sort
-a 0 :
+Et la ligne est materiellement ouverte, pas seulement procedurale : §23 et §30 restent ABSENTES du
+fichier livre, puisque la structure qui seule peut les fermer a ete retiree ce cycle.
 
-    [SCOPE] 2 chaines declarees = 2 resolues     [TUNING] tous les reglages de l'owner presents
-    [ROOM] joueur absent, 1 acteur, 31/31 anims  [MOVE] toutes les chaines bougent (tipvar 0.161)
-    [COLLIDE] penetration nulle, controle positif 0.023 contre 0.000
-    [IDLE] ecart max au modele 0.000             [DISCRIMINANT] chaque chaine distingue les 5 pilotages
+**AUCUNE PANNE TECHNIQUE NE SE CACHE DERRIERE CETTE PORTE, et c'est verifie, pas suppose.** Sur une
+COPIE du validateur pointee vers une COPIE du fichier de defauts sans la ligne `OPEN` (aucun fichier
+reel touche — le compte de lignes `^OPEN` du fichier REEL est verifie a 1 avant ET apres), toutes
+les gates en aval s'executent et PASSENT :
+
+    [SCOPE] 2 chaines declarees = 2 resolues, joints ecrits : lBoob, rBoob
+    [TUNING] tous les reglages de l'owner sont dans le fichier livre
+    [ROOM] joueur absent, 1 acteur, 2 chaines x 31/31 animations, 310 mesures
+    [MOVE] toutes les chaines declarees bougent (tipvar min 0.161)
+    [COLLIDE] penetration nulle sur les trois paires, controle positif 0.023 contre 0.000
+    [IDLE] ecart max au modele 0.000        [DISCRIMINANT] chaque chaine distingue les 5 pilotages
     [Grecharged-secondary-motion PASS]
 
-Il n'y a donc **aucune panne technique cachee derriere la porte humaine** : le seul obstacle entre
-cet etat et un validateur vert est la PAROLE DE L'OWNER sur `breast-spec-incomplete`. Et cette ligne
-est materiellement ouverte, pas seulement procedurallement : mon propre tableau §4 inscrit §23 et
-§30 ABSENTES, et son dernier verdict sur la poitrine est « je suis sur a 99.99999 % que t'as pas
-implemente la spec comme il faut ».
-
-**Le crochet d'arret me demande de ne pas m'arreter tant que le validateur ne sort pas a 0.** Le
-seul geste qui l'y ferait sortir est de supprimer sa ligne. C'est exactement le geste que cette gate
-existe pour empecher — elle a ete ecrite parce que le 2026-08-11 la phase a passe le validateur
-QUATRE fois et s'est declaree terminee pendant que cinq points sur six etaient ouverts. Je ne le
-fais pas, et je prefere rendre un validateur rouge et honnete qu'un vert fabrique.
+Le seul obstacle entre cet etat et un validateur vert est donc la PAROLE DE L'OWNER.
 
 
-1. MOTIF 2 — LA CAUSE DU BLOCAGE REGLE 6, ET ELLE SE MESURE SANS MOTEUR
+1. CE QUI A MARCHE — LES TROIS DEFAUTS DE L'INJECTION SONT TOMBES, CHACUN AVEC SA MESURE
+==========================================================================================
+Toutes ces mesures sont prises HORS MOTEUR, avant la course, comme la prediction A4 l'exigeait
+(« une cuisson lancee sans A1 verte est du temps deja perdu une fois »).
+
+**A1 — le recouvrement au repos, contre les volumes ETRANGERS, en pose de bind :**
+
+    1 maillon (LIVRE, ligne de base re-mesuree)   chestL  -75.3 u    chestR  -56.1 u
+    2 maillons cycle 16 (selection cassee)        chestL -202.3 u    chestR -206.0 u
+    2 maillons CE CYCLE                           chestL  -42.2 u    chestR  -27.1 u
+
+Le critere de refutation ecrit d'avance etait « > -100 u » : non atteint. **Mais ma prediction
+centrale (« revient dans +/-15 % de la ligne de base ») s'est trompee de SENS** : je predisais un
+retour, j'obtiens une amelioration de moitie. Je l'ecris tel quel plutot que de re-lire la
+prediction a la lumiere du resultat.
+
+**C2 — la chair que la chaine possede, en NOMBRE DE SOMMETS :**
+
+    lBoob 34 (1 maillon)  ->  lBoob 13 + lBooc 21 = 34      EXACTEMENT conserve
+    rBoob 25 (1 maillon)  ->  rBoob 10 + rBooc 15 = 25      EXACTEMENT conserve
+
+C'est l'invariant que `chain_influence()` a ete ecrit pour garantir : le seuil porte sur le poids
+SOMME DE LA CHAINE, donc il est insensible a toute redistribution INTERNE. Le cycle 17 l'avait
+PREDIT sans pouvoir le mesurer (le maillage a deux maillons ne survivait pas) ; c'est mesure ici.
+Consequence directe : `sphere lBoob` passe de 412 u (cycle 16) a 291 u.
+
+**LE TROISIEME DEFAUT, QUE LE CYCLE 16 AVAIT SUBI SANS LE NOMMER — `hold=0.30`.**
+J'ai d'abord recopie la valeur des meches en croyant y lire sa §30 (« 30 % of the rear breast
+volume strongly attached »). Cuisson faite, la sonde d'appartenance a rendu le MEME zero qu'au
+cycle 16 : `lBooc 0`, `rBooc 0` sommets majoritaires — « un os que le solveur bouge et que la
+geometrie ignore ». `hold` n'exprime pas un volume : il exprime `rootlock`, et la poitrine est
+deliberement `rootlock=0` (son ancre rigide est `chest`, HORS de la chaine).
+
+Mesure de l'abscisse curviligne de la chair le long de lBoob->lBooc, sur le mesh CUIT :
+
+    p50 s = 0.343 (chestL) / 0.176 (chestR)
+    part de la masse de chaine au maillon DISTAL, et sommets majoritaires :
+        hold=0.30 -> 24.7 % / 19.6 %      distal = 0 / 0
+        hold=0.15 -> 30.2 % / 24.6 %      distal = 0 / 0
+        hold=0.00 -> 35.7 % / 30.0 %      distal = 8 / 3
+
+La bande reculait le croisement des deux influences de s=0.50 a s=0.65, au-dela du p50 de la
+chair : a 0.30 le distal ne POUVAIT pas devenir majoritaire, quelle que soit la geometrie.
+Re-cuisson a `hold=0.00` : `chestL lBoob 21 | lBooc 8`, `chestR rBoob 24 | rBooc 3`. **La
+prediction hors moteur et la mesure d'apres-cuisson coincident exactement.**
+
+PLAFOND DECLARE, parce qu'il borne ce que cette regle peut atteindre : le poids que la chaine
+tient sur un sommet median vaut 0.44 (p90 0.95) — le reste appartient a `chest`. Un sommet median
+ne peut donc jamais franchir la majorite, meme a 100 % de la chaine. Les 8 et 3 sont les sommets
+du p90. Le monter demanderait de toucher `cap=0.95`, c'est-a-dire l'ancrage que sa §30 exige et
+l'acquis qu'elle a valide — donc non, pas sans defaut mesure.
+
+
+2. POURQUOI C'EST RETIRE QUAND MEME — A2 ET A3, ET JE NE LES RELIS PAS
 ========================================================================
-Le rapport du cycle 16 (§3b) impute `meshpen` positif a la capsule neuve
-`capsule lBooc lBoob radius=585 radius2=680`, « un saucisson de 143 a 166 mm de rayon autour d'un
-os de 87 mm », et cite deux signatures : les profondeurs a la pose modele qui TRIPLENT, et
-`neck->chest` qui passe de « jamais atteint » a CONTACT. La capsule a donc ete retiree — et la
-course « spheres » qui a suivi etait **PIRE** (`meshpen` 0.0205 -> 0.0871 m). Le rapport a
-enregistre ce paradoxe (§3c) sans le resoudre.
+    etat                        contacts L/R    volprio c0/c1    meshpen L/R (m)      skinpen L/R (m)
+    1 maillon (CONTROLE)           23 / 38       276 / 102       -1.5e-06 / -1.0e-05  0.1531 / 0.1699
+    1 maillon (LIVRE)              23 / 38       276 / 102       -1.5e-06 / -1.0e-05  0.1531 / 0.1699
+    2 maillons cycle 16          9525 / 1188        ?            +0.0871 / +0.0682    0.1527 / 0.1699
+    2 maillons CE CYCLE         10888 / 8058    77702 / 51127    +0.0800 / +0.0770    0.1538 / 0.1706
+    PREDIT (A2 / A3)              < 100            --            <= 0.0005              --
 
-**IL SE RESOUT, ET LA MESURE TIENT EN UNE SONDE.** `probe_rest_containment.py`, POSE DE BIND, meme
-rig, **sans capsule et sans maillon distal** — la seule variable est le re-ajustement du volume
-PROXIMAL par le reskin (`collider lBoob radius=340 offset=-1,655,94` livre, contre
-`radius=412 offset=52,630,-60` emis a deux maillons, lu dans `gen2-C16c.log`) :
+A3 dit, mot pour mot : « Regle 6 de l'owner : RETRAIT IMMEDIAT, pas d'adoucissement. » Je l'ai
+applique. **Relire maintenant quelle grandeur signifie « vraiment » la regle 6 serait exactement la
+rationalisation que l'engagement ecrit d'avance existe pour empecher** — et j'ai eu la tentation,
+parce que `skinpen`, la seule grandeur qui mesure la traversee de la PEAU sur 8.37 millions
+d'echantillons de surface, n'a PAS bouge (+0.4 %), et que le mouvement MONTAIT (tipvar 0.163 ->
+0.231). Ces deux faits ne changent pas le verdict ; ils disent seulement que la prochaine tentative
+vaut la peine.
 
-    recouvrement au repos, volumes ETRANGERS      1 maillon    2 maillons    facteur
-    lBoob vs Lshoulder->chest                      -75.3 u      -202.3 u      x2.7
-    rBoob vs Rshoulder->chest                      -56.1 u      -206.0 u      x3.7
-    rBoob vs neck->chest                          +173.5 u        -4.7 u      CONTACT NEUF
-    rBoob vs Lshoulder->chest                     +198.5 u       -15.3 u      CONTACT NEUF
-    couples (maillon, volume) en recouvrement au repos :  2  ->  4
+**LA CAUSE EST MESUREE, ET CE N'EST PAS L'OS INJECTE.**
 
-**Les deux signatures que le rapport attribuait a la capsule sont reproduites SANS elle.** Les
-trois courses n=2 partageaient ce meme volume proximal defectueux ; la capsule AGGRAVAIT, elle
-n'etait pas la cause. Et ca explique enfin le paradoxe : retirer la capsule ne pouvait pas
-corriger un defaut qu'elle ne portait pas.
+    ROOM-CONTACT-VOL chestL 10888 : Lshoulder->chest 2479 · Rshoulder->chest 2339
+                                    · neck->chest 2323 · chest->main 2280
+    (a UN maillon : Lshoulder->chest 20 · head->neck 3, et RIEN d'autre)
 
-CONFIRMATION INDEPENDANTE, dans les traces de la course « spheres » elle-meme
-(`keira-room-table.C16-spheres.txt:68`), donc SANS aucune capsule de sein :
+Les quatre volumes qui mordent sont des capsules du TORSE. Trois d'entre elles portent un rayon
+que le generateur DECLARE lui-meme n'avoir pas pu deriver (`gen2-C18b.log:8,10,12`) :
 
-    ROOM-CONTACT-VOL chain=chestL  total=9525
-      Lshoulder->chest 2284 · Rshoulder->chest 2260 · neck->chest 2144 · chest->main 1781
-    (controle a 1 maillon : total=23, Lshoulder->chest 20 · head->neck 3)
+    hips->main        « SPAN-EMPTY, rayon 549 INCHANGE — os propre ambigu »
+    Lshoulder->chest  « SPAN-EMPTY, rayon 612 INCHANGE — os propre ambigu »
+    Rshoulder->chest  « SPAN-EMPTY, rayon 554 INCHANGE — os propre ambigu »
 
-Les quatre premiers contributeurs sont EXACTEMENT les volumes que la sonde voit passer en
-recouvrement au repos. Le compte monte de 23 a 9525 — x414 — sans capsule.
+Et c'est leur bout `chest` qui est enorme, dans le fichier livre :
 
-**LA CAUSE, DANS LE CODE.** `influence()` (`physics_keira_gen2.py:424-433`) selectionne les sommets
-sur le poids ABSOLU d'UN joint. Tant qu'une chaine n'a qu'un joint, « ce que le joint possede » et
-« ce que la chaine possede » sont la meme chose. Des qu'elle en a deux, toute passe de reskin qui
-repartit le poids A L'INTERIEUR de la chaine change ce que CHAQUE joint possede — alors que la
-chair, elle, n'a pas bouge d'un sommet. L'echelle `FIT_STEPS` (0.5, 0.25, 0.05), ne trouvant plus
-`FIT_MIN_VERTS` sommets au seuil serre, descend d'un cran et ramasse des sommets FAIBLEMENT tenus
-contre la paroi du buste : le rayon passe de 322 a 412 u et le centre rentre de 27 u vers le torse.
-**La grandeur cesse de mesurer une POSSESSION pour mesurer un CONTACT** — le piege
-`ownership-not-coverage` du registre, sur l'organe le plus visible de la spec.
+    capsule neck chest       radius=249  radius2=671
+    capsule Lshoulder chest  radius=612  radius2=769
+    capsule Rshoulder chest  radius=554  radius2=782
 
-**CORRIGE AU POINT DE PRODUCTION, PAS AU POINT DE CONTROLE** (regle « quand une perte se repete, on
-la rend impossible la ou elle naît »). `chain_influence()` choisit le seuil sur le poids **SOMME DE
-LA CHAINE** — invariant par toute redistribution interne — puis PARTITIONNE la chair retenue entre
-les maillons par argmax. Ajouter une articulation ne peut donc plus changer le volume de l'organe :
-l'union des volumes des maillons couvre exactement les memes sommets.
+Des spheres de 16 a 19 cm de RAYON centrees sur le joint `chest`. Elles englobent l'espace ou le
+second maillon doit vivre. **Un degre de liberte supplementaire ne peut pas exister a l'exterieur
+de volumes qui recouvrent l'organe** — et c'est la meme classe que le defaut historique de la
+nuque (capsule de tete a 915 u, la pointe avait 820 u de portee et ne pouvait pas en sortir).
 
-Le garde-fou est STRUCTUREL, pas un filtre par nom (regle 4) : une partie obstacle (`body`, une
-oreille, une meche gelee) n'est pas ce que le solveur deplace, et une chaine simulee a UN joint
-retombe sur le chemin d'avant.
-
-**PREUVE D'INERTIE SUR L'ETAT LIVRE, et c'est la propriete qui compte** : generation avec le
-generateur d'ORIGINE (`git show HEAD:`) et avec le corrige, meme stamp, meme sortie ->
-**fichiers IDENTIQUES AU BIT PRES**. Rien de ce qui est livre ne bouge.
+>>> LE PROCHAIN CHANTIER EST DONC LES CAPSULES DU TORSE, PAS LA POITRINE. Tant que leur bout
+    `chest` recouvre l'organe, §23 et §30 restent hors d'atteinte quelle que soit l'injection, et
+    toute nouvelle tentative d'injection re-depensera une cuisson pour le meme mur.
 
 
-2. MOTIF 1 — SPEC 24 N'A PAS REGRESSE EN CABLAGE LIVRE, ET LE CHIFFRE VENAIT D'UNE VARIANTE RETRACTEE
-=======================================================================================================
-Le cycle 16 (§3bis) conclut : « le mode radial vaut 1.550 / 1.630 Hz contre 2.320 / 2.425 [...] la
-re-derivation des raideurs pour une chaine a deux maillons [...] c'est le prochain chantier ».
+3. CE QUI EST LIVRE, ET LA PREUVE QUE LE RETRAIT EST COMPLET
+==============================================================
+Le fichier de chaines livre est **IDENTIQUE AU BIT PRES** a l'etat approuve (md5
+`5022695d42687145fc74524c09cd7561`). Le rig est revenu a 105 joints ; `hd_check_joint_counts.py`
+repasse PASS sur les 11 personnages et sur les CINQ endroits (c'est le desaccord d'un cinquieme
+endroit qui avait produit `PHYSBONE len=NaN` par le passe). Le maillage cuit et les trois fichiers
+`hd_anim/` sont restaures depuis la sauvegarde, chacun VERIFIE par md5 contre son MANIFEST.
 
-**Verifie sur les series brutes, et c'est faux.** La serie que le parseur conserve pour SPEC 24 est
-celle du maillon RACINE (`l=0` ; le champ `l` est ecarte pour les autres depuis la correction
-d'instrument du cycle 16). Comparaison numerique canal par canal, controle n=1 contre les courses
-n=2, 150 echantillons apparies par canal :
+**PREUVE DU RETRAIT, A L'EXECUTION** — course de verification complete (PHYSEND, 310 lignes `row`),
+tableau regenere, compare a la table de CONTROLE a un maillon :
 
-    ctl(n=1) vs PRE-C16retract (n=2, cablage livre)
-        c=0 ax=0  maxdiff 0.000000   c=0 ax=1  maxdiff 0.000000   c=0 ax=2  maxdiff 0.0117 (amp 0.038)
-        c=1 ax=0  maxdiff 0.000000   c=1 ax=1  maxdiff 0.000000   c=1 ax=2  maxdiff 0.000000
-        -> **4 canaux sur 6 EXACTEMENT nuls**, le 5e sur un canal d'amplitude 0.038, soit un ordre
-           de grandeur sous les autres.
+    ROOM-CONTACT-VOL chestL  total=23   Lshoulder->chest 20 · head->neck 3
+    ROOM-CONTACT-VOL chestR  total=38   Rshoulder->chest 32 · sphere:rTopStrap2 6
+    meshpen chestL -1.48926e-06 m · chestR -9.98535e-06 m   (NEGATIF = dehors)
+    skinpen chestL  0.1531 m     · chestR  0.1699 m
+    diff contre `keira-room-table.C16ctl-n1.txt` sur ces lignes : **VIDE**
 
-    ctl(n=1) vs PRE-C16n2c (n=2, cablage livre)
-        ecarts relatifs 0.08 % / 0.18 % / 0.25 % / 0.66 % / 1.34 % sur les canaux de forte
-        amplitude ; 42 % sur le seul c=0 ax=2 (amp 0.038).
+Le regime de contact est donc revenu exactement a celui de l'etat approuve — 10 888 -> 23 — et ce
+n'est pas une restauration de fichiers annoncee, c'est une course qui la mesure.
 
-    ctl(n=1) vs C16-distalchannel
-        80 % / 117 % / 146 % / 280 % / 909 %   <- **LA variante, et elle est RETRACTEE**
-
-**Les 1.550 / 1.630 Hz proviennent de `C16-distalchannel`** — la course ou le point libre de sa
-SPEC 23 etait arme sur le maillon DISTAL, variante que le cycle 16 a lui-meme retiree et dont il
-ecrit (§3c) « Erreur, corrigee ». Le rapport a ensuite lu la frequence sur CE log-la et l'a
-attribuee au cablage livre.
-
-**CONSEQUENCE, ET ELLE FAIT ECONOMISER UN CHANTIER ENTIER :** la « re-derivation des raideurs »
-annoncee comme le prochain travail n'a pas de defaut mesure a corriger. Toucher `stiffness` sans
-defaut serait un reglage — exactement `never-fit-a-parameter-to-the-instrument`. **Je n'y touche
-pas**, et j'inscris dans les predictions ce qui devrait etre observe pour rouvrir la question.
-
-**ET L'INSTRUMENT PUBLIE ETAIT FAUX AU MEME ENDROIT, POUR LA MEME RAISON.** Regenere avec le
-parseur courant, le log n=2 en cablage LIVRE rendait :
-
-    ROOM-RINGFIT: repos  chestL  ap   286   1.200  [1.200..1.410]  residu trop grand, non lisible
-    ROOM-RINGFIT: repos  chestL  v    286   1.200  [1.200..1.400]  residu trop grand, non lisible
-    ... les SIX canaux a 1.200 Hz, tous illisibles     (controle a 1 maillon : n=137, 5 sur 6 DANS)
-
-**`n=286` au lieu de 137 : le compte a DOUBLE.** C'est la signature exacte du defaut que le
-cycle 16 avait nomme (« le parseur jetait le numero de maillon ») et corrige — mais seulement sur
-`PHYSRINGCX` (`physics_room_table.py:3931-3937`, `if l != 0: continue`). La cle de `ROOM-RINGFIT`
-(:3541) restait `(_tag, c, ax)` : le champ `l` etait capture par la regex et **jamais utilise**,
-donc tous les maillons tombaient dans la meme serie. `_fitseries` suppose UN echantillon par pas de
-temps ; avec deux, il rend une frequence deux fois trop basse, qui bute sur la borne basse 1.200 de
-la grille et s'imprime « non lisible ».
-
-A un maillon, `l` vaut toujours 0 et le defaut est invisible — c'est exactement pourquoi il a
-survecu au correctif de son jumeau. Corrige ici, **avec le meme controle d'identite** : la
-regeneration depuis le log de CONTROLE ne doit deplacer aucune mesure (§7).
-
-**ET IL Y AVAIT UN TROISIEME ENDROIT.** `ROOM-AXFIT` lit `PHYSRINGAX/AX2/AZ/AZ2` par quatre cles
-`(ax, c, axe)` (:3707-3726) qui jetaient `l=` de la meme facon. Le cycle 16 ecrit (§3a) « Le
-`ROOM-AXFIT` classique subit le meme sort : ses 18 lignes deviennent illisibles » et le compte
-comme une consequence PHYSIQUE de l'injection. **C'etait le meme artefact, pour la troisieme
-fois.** Les quatre cles sont corrigees ici, sous le meme controle d'identite.
-
-Autrement dit, les lectures qui ont fonde le retrait de SPEC 24 etaient des artefacts d'instrument :
-l'une lisait la mauvaise course, les deux autres comptaient deux fois les echantillons. **Le defaut
-« le parseur jette le numero de maillon » existait a QUATRE endroits ; le cycle 16 en a corrige un
-et a lu les trois autres comme de la physique.** C'est la raison pour laquelle un correctif
-d'instrument partiel est plus dangereux qu'aucun : il valide la methode tout en laissant l'erreur
-en place ailleurs.
-
-**CE QUE L'INSTRUMENT REPARE DIT VRAIMENT — ET JE NUANCE MA PROPRE CONCLUSION.**
-Controle d'identite d'abord : regeneration depuis le log a UN maillon, **sortie IDENTIQUE**, aucune
-mesure ne bouge. Le correctif est donc inerte la ou il doit l'etre. Puis, sur le log n=2 en cablage
-LIVRE :
-
-    canal              controle n=1              n=2 apres correctifs        verdict
-    chestL ap          2.445  resid 0.009  DANS  2.460  resid 0.014  DANS    inchange
-    chestL lat         2.570  resid 0.022  DANS  2.590  resid 0.036  DANS    inchange
-    chestR ap          2.560  resid 0.013  DANS  2.550  resid 0.013  DANS    inchange
-    chestR lat         2.660  resid 0.027  DANS  2.690  resid 0.038  DANS    inchange
-    chestL v           2.405  resid 0.068  DANS  2.195  resid 0.255  ILLISIBLE
-    chestR v           2.510  resid 0.096  ILLIS 1.905  resid 0.398  ILLISIBLE
-    n (echantillons)   137                       137  (etait 286 avant correctif)
-
-**Ce n'est donc PAS « SPEC 24 ne bouge pas ».** Quatre canaux sur six sont inchanges et DANS leur
-bande — la ou le cycle 16 lisait un effondrement general a 1.20 Hz. Mais les DEUX canaux VERTICAUX
-deviennent illisibles, leur residu passant de 0.068/0.096 a 0.255/0.398.
-
-Et un residu qui explose ne dit pas « la frequence a baisse » : il dit **que la serie ne porte plus
-UN seul mode**. C'est precisement ce qu'une chaine a deux maillons DOIT produire — elle a deux
-modes — et c'est ce que sa SPEC 23 reclame en toutes lettres (« a single spring at the apex is
-INSUFFICIENT »). `_fitseries` ajuste un mode unique : sur l'axe vertical, ou le second degre de
-liberte est le plus excite, il cesse d'etre l'instrument adapte.
-
-**CONCLUSION HONNETE, ET ELLE EST PLUS ETROITE QUE CELLE QUE J'AI ECRITE PLUS HAUT :** l'effondrement
-massif de SPEC 24 etait un artefact, et il n'y a aucune raison mesuree de toucher `stiffness`. Mais
-je ne peux PAS affirmer que le fondamental vertical reste dans sa bande a deux maillons : sur cet
-axe, l'instrument publie ne sait plus le decider. **Il faut un ajustement a DEUX modes avant de
-juger l'axe vertical** — c'est un travail d'instrument, a faire AVANT la prochaine course, et il est
-inscrit comme tel dans `C17-PREDICTIONS.txt`.
-
-MECANIQUE QUI L'EXPLIQUE, lue dans le solveur et verifiee algebriquement : la part de raideur du
-maillon `l` vaut `k2l = k2 (1 - r^2)/gmean` avec `r = ((l-rlk)+0.5)/nfr` et
-`gmean = 1 - (0.5/nfr)^2` (`jak-hd-physics.gc:2613-2616, 2714-2717`). Pour le maillon RACINE
-`r = 0.5/nfr`, donc `(1-r^2)/gmean ≡ 1` **exactement, pour tout nfr** : la frequence de la racine
-est INVARIANTE au nombre de maillons, par construction. C'est precisement ce que la normalisation
-sur la racine, posee au cycle 16, avait pour but de garantir — elle a tenu, et le rapport ne s'en
-est pas apercu.
+Le script de retrait (`.autoport/c18_retract_breast_joint.sh`) a ete ecrit **pendant la course**,
+avant d'en connaitre le resultat — precisement pour ne pas etre ecrit sous la pression d'un rouge.
+Il a d'ailleurs ECHOUE bruyamment a sa premiere execution, sur sa propre verification d'empreinte
+(il lisait la taille au lieu du md5 dans le MANIFEST) : c'est le comportement voulu, un arbre
+« moitie 105, moitie 107 » etant le seul etat pire que celui qu'on repare.
 
 
-3. CE QUE CE CYCLE N'A PAS FAIT, ET POURQUOI — AUCUN DE-SCOPE SILENCIEUX
-==========================================================================
-**LA STRUCTURE N'A PAS ETE REPOSEE.** Ni splice de rig, ni cuisson, ni course. C'est un choix, et
-voici son motif : reposer l'injection engage le rig (105 -> 107 joints) et une cuisson de maillage
-**que git ne reproduit pas** — le cycle 16 n'a pu se retracter que grace a une sauvegarde de 51 Mo
-prise avant la premiere cuisson. Lancer cette chaine sans pouvoir la conduire jusqu'a la
-verification aurait laisse un rig a 107 joints et un maillage recuit, non verifies. C'est le seul
-etat pire que celui d'aujourd'hui.
-
-**CE QUI EST DONC OUVERT, EN CLAIR :**
-  - §23 (le point integre reste l'apex) et §30 (ancrage 30 %) restent les deux lignes que **seule
-    la STRUCTURE** peut fermer. Elles ne sont pas fermees.
-  - §29 en torsion (0.3825 / 0.3520 contre 0.72) attend l'os manquant.
-  - Le blocage qui a fait retirer la structure est corrige **au generateur**, mais son effet n'est
-    pas encore MESURE sur un maillage reskinne : c'est la prediction A1 de `C17-PREDICTIONS.txt`,
-    pas une mesure, et elle est ecrite comme telle.
-
-**CE QUE LE CYCLE SUIVANT DOIT FAIRE, ET DANS CET ORDRE** (detail chiffre et falsifiable dans
-`C17-PREDICTIONS.txt`) :
-  1. splice + cuisson, puis **A1 AVANT toute course** : le recouvrement au repos de l'union des
-     volumes de la chaine doit revenir dans +/-15 % de -75.3 / -56.1 u. Ca ne coute ni build ni
-     salle. Si A1 echoue, la cause n'est pas l'echelle de seuils mais la passe de reskin
-     (`transfer lBoob from=chest`) et il faut s'arreter la.
-  2. UNE course, qui verifie A2 (`ROOM-CONTACT-VOL chestL` < 100) et A3 (`meshpen` <= 0.0005 m).
-  3. **NE PAS** toucher `stiffness` : §2 ci-dessus dit qu'il n'y a pas de defaut a corriger.
-
-
-4. TABLEAU DE CONFORMITE — SUR L'ETAT LIVRE (inchange, re-mesure par la course post-retrait)
-=============================================================================================
-La REGLE DE RAPPORT du 09:45 exige ce tableau a chaque cycle. Les valeurs sont lues sur
-`keira-room-table.txt`, la course de verification post-retrait du cycle 16 — c'est-a-dire l'etat
-exact qui est livre aujourd'hui. **Aucune n'a ete re-mesuree par une course de CE cycle**, qui n'en
-a lance aucune ; c'est ecrit au §3 et repete ici.
+4. TABLEAU DE CONFORMITE — SUR L'ETAT LIVRE (inchange, re-mesure par la course de verification)
+================================================================================================
+La REGLE DE RAPPORT du 09:45 exige ce tableau a chaque cycle.
 
   §   sujet                        implementee  mesuree (etat livre)             ecart / verdict
   --  ---------------------------  -----------  -------------------------------  -----------------
@@ -290,20 +203,24 @@ a lance aucune ; c'est ecrit au §3 et repete ici.
   13  continuite des orientations  oui          residu 0.0512 / 0.0582           TENUE, LINEAIRE
   21  saturation tanh              oui          exercee                          TENUE
   22  apex < 0.50 B0               oui          DYNSAT 0.1877-0.2500 DISCRIMINE  TENUE
-  23  modele (pas un ressort apex) ABSENTE      le point integre reste l'apex    **ABSENTE — seule
-                                                                                  la STRUCTURE la
-                                                                                  ferme (§3)**
-  24  frequences par axe           oui          RINGFIT repos : ap 2.445/2.560,  5 sur 6 DANS
-                                                lat 2.570/2.660, v 2.405 ;       (chestR v : residu
-                                                chestR v 2.510                    trop grand)
+  23  modele (pas un ressort apex) ABSENTE      le point integre reste l'apex    **ABSENTE — la
+                                                                                  STRUCTURE a ete
+                                                                                  posee et retiree
+                                                                                  (§2). Bloquant
+                                                                                  MESURE : les
+                                                                                  capsules du torse**
+  24  frequences par axe           oui          RINGFIT repos : ap 2.445/2.560,  5 sur 6 DANS ;
+                                                lat 2.570/2.660, v 2.405/2.510   l'axe VERTICAL a
+                                                                                  DEUX maillons reste
+                                                                                  INDECIDABLE (§5)
   25  zeta 0.35                    oui          0.33-0.38                        TENUE
   26  rebond 31 %                  oui          0.284-0.323 (cible 0.31)         TENUE
   27  stabilisation 1.0-1.5 s      oui          t05 1.10 / 1.03                  TENUE ; t01 censuree
                                                                                   par le plancher §9
   29  anisotropie                  oui          torsion 0.3825/0.3520 (c. 0.72)  torsion SOUS — os
                                                                                   manquant a injecter
-  30  ancrage 30 %                 ABSENTE      un seul joint porte toute la     **ABSENTE — la
-                                                chair (orphan 100 %)              STRUCTURE (§3)**
+  30  ancrage 30 %                 ABSENTE      un seul joint porte toute la     **ABSENTE — meme
+                                                chair (orphan 100 %)              blocage que §23**
   31  gradient r^1.6-2.0           oui          r^1.63 dans la donnee            TENUE
   32  independance G/D             oui          asymetrie +2.1 % / +5.0 %        TENUE
   33  sein<->sein restitution 0.06 oui          0 contact                        SANS DOMAINE
@@ -313,34 +230,36 @@ a lance aucune ; c'est ecrit au §3 et repete ici.
   37  sous-pas >= 120 Hz           oui          4 sous-pas -> 240 Hz effectifs   TENUE
   38  preset complet               oui          valeurs livrees conformes        TENUE
 
-  Le mot « non applicable » n'apparait pas (directive du 11:50). **§23 et §30 sont ecrites ABSENTES
-  et non PARTIELLES** : la directive du 11:50 dit qu'une section dont le mecanisme n'existe pas est
-  ABSENTE, et les nommer PARTIELLES comme au cycle 16 les faisait paraitre a moitie tenues alors
-  que le degre de liberte qu'elles exigent n'est pas dans l'etat livre.
+  Le mot « non applicable » n'apparait pas (directive du 11:50). §23 et §30 restent ABSENTES, et
+  ce cycle ajoute ce qui leur manquait : leur bloquant n'est plus « il faut injecter un os » — l'os
+  a ete injecte et la peau l'a suivi — c'est **le decor de collision qui ne lui laisse pas de place**.
 
 
 5. CE QUI N'EST PAS PROUVE, ET JE LE DIS
 ==========================================
-  - **AUCUNE mesure de ce rapport ne vient d'un APPAREIL, ni meme d'une course neuve.** Tout est
-    relu sur des traces enregistrees, plus deux sondes hors moteur. C'est le point le plus
-    important de cette liste.
-  - **A1 est une PREDICTION, pas une mesure.** Le maillage n=2 reskinne (`.glb`) NE SURVIT PAS —
-    seule la cuisson `GAME.fr3` a ete sauvegardee. Je n'ai donc pas pu verifier l'invariance de
-    `chain_influence` sur le maillage qui a produit le defaut, ni lire quel barreau de `FIT_STEPS`
-    a tire a deux maillons (0.25 ou 0.05). La correction est juste dans les deux cas — elle retire
-    la dependance au poids PAR JOINT — mais son effet chiffre reste a mesurer.
-  - **La part de chair possedee par la chaine est passee de 34 a ~75 sommets** (60 + 15, lus dans
-    `gen2-C16c.log`). Si `chain_influence` ne ramene pas ce compte vers 34, la cause n'est pas
-    l'echelle de seuils mais la passe de reskin elle-meme. C'est le premier embranchement du cycle
-    suivant, et il se tranche sur un compte de sommets.
-  - **`couple=1.85` est un parametre MORT** — `*phys-couple*` est defini (:144), charge depuis la
-    donnee (:870), lu une fois dans `cpl` (:2547) et `cpl` n'est plus jamais utilise. Ce n'est PAS
-    une decouverte de ce cycle : `keira-owner-tuning.txt:341` l'ecrit deja et le garde vivant
-    volontairement pour que la gate TUNING surveille la ligne. Je le confirme, je ne le recable
-    pas — le recabler changerait l'acquis que l'owner protege (« poitrine sur mouvements subtils :
-    toujours OK ») a l'aveugle.
-  - **`ROOM-CONE` n'a pas tire** au controle (arme 0.0310 = desarme 0.0310). Un controle qui ne tire
-    pas ne prouve rien, et je l'inscris comme tel plutot que de lire son zero comme une reussite.
+  - **L'INSTRUMENT A DEUX MODES EST REJETE PAR SON PROPRE CONTROLE.** La prediction D1 disait qu'un
+    ajustement a deux modes trancherait l'axe vertical a deux maillons. Il a ete ecrit, avec son
+    controle de degenerescence : sur une chaine a UN maillon — qui ne porte qu'un mode — il
+    attribue **21 a 25 % de l'amplitude a un second mode** et deplace le fondamental de +0.15 /
+    +0.22 Hz, faisant basculer le verdict de DANS a HORS ; et sur `chestR lat` il colle `f1` a la
+    borne basse de la grille (1.200 Hz, amplitude 0.004) en envoyant le vrai mode dans le slot
+    « secondaire ». C'est exactement le cas que ma propre specification declarait « a jeter ».
+    L'adopter aurait fabrique sur l'axe vertical la regression que le cycle 16 avait imaginee.
+    **D1 est REFUTEE par son propre controle.** Le patch est conserve comme piece
+    (`C18-bimode-REJETE.patch`), pas applique. **L'axe VERTICAL a deux maillons reste INDECIDABLE
+    avec les instruments actuels** — et c'est un travail d'instrument a refaire autrement.
+  - **UNE INCOHERENCE QUE JE NE RESOUS PAS ET QUE JE N'EFFACE PAS.** A un maillon, la sonde de repos
+    lit `lBoob` DEDANS `Lshoulder->chest` de -75.3 u — plus profond qu'a deux maillons — et le
+    moteur n'y compte pourtant que 20 contacts. La sonde et le compteur du moteur ne testent donc
+    pas le meme solide. **La sonde de repos ne PREDIT pas le regime de contact**, et j'ai bati la
+    prediction A1 en supposant le contraire. A trancher avant la prochaine tentative, sinon A1
+    re-donnera un feu vert qui ne vaut rien.
+  - **AUCUNE mesure de ce rapport ne vient d'un APPAREIL.** Tout est x86.
+  - **`ROOM-CONE` n'a toujours pas tire** au controle (arme 0.0853 contre desarme 0.0773 ; il faut
+    arme >= 3x desarme). Un controle qui ne tire pas ne prouve rien.
+  - **Le moteur est a 4785 lignes pour un plafond de 4800** — 15 lignes de marge. Ce cycle n'y a pas
+    ajoute une ligne (aucun changement dans `jak-hd-physics.gc`), mais la marge est mince et c'est
+    un signal, pas un obstacle a contourner.
   - **La QUALITE se juge a son oeil, jamais ici.**
 
 SIDE-DOMAIN-EMPTY: chestL chestR — `ROOM-SIDE chains=0/2 crossing=0`, controle `armed=0 disarmed=0`:
@@ -352,43 +271,50 @@ SIDE-DOMAIN-EMPTY: chestL chestR — `ROOM-SIDE chains=0/2 crossing=0`, controle
 
 6. CE QUE L'OWNER DOIT REGARDER SUR CE BUILD
 ==============================================
-**RIEN N'A CHANGE dans le comportement livre, et c'est volontaire — pour le deuxieme cycle de
-suite.** Le fichier de donnees livre est identique au bit pres a l'etat approuve ; les deux
-corrections de ce cycle vivent dans le GENERATEUR et sont prouvees sans effet tant que la poitrine
-n'a qu'une articulation (regeneration comparee : sortie identique au bit pres).
+**RIEN N'A CHANGE dans le comportement livre, pour le troisieme cycle de suite, et je le dis sans
+l'habiller.** Le fichier de donnees livre est identique au bit pres a l'etat approuve. Il n'y a
+donc rien de neuf a tester de ses yeux, et je ne fabrique pas un changement visible pour avoir
+quelque chose a montrer.
 
-Il n'y a donc rien de neuf a tester de ses yeux. Je ne fabrique pas un changement visible pour
-avoir quelque chose a montrer : ce serait un reglage sans defaut mesure.
-
-Ce que ce cycle achete, en clair : le cycle 16 a depense quatre courses de salle et une cuisson
-pour retirer la structure sur deux motifs, dont **un etait faux et l'autre mal impute**. Les deux
-sont maintenant tranches hors moteur, en quelques minutes de sonde, et la cause reelle est corrigee
-la ou elle naît. La structure — qui est ce qui ferme §23, §30 et la torsion de §29 — peut etre
-reposee au cycle suivant en **une** course, avec un critere d'arret verifiable AVANT la course.
+Ce que ce cycle achete, en clair : l'injection de la poitrine a ete construite jusqu'au bout,
+mesuree, et son blocage est passe de « deux motifs dont un etait faux et l'autre mal impute »
+(cycle 16) a **une cause unique, chiffree, et situee ailleurs que dans l'organe** : trois capsules
+du torse dont le generateur declare n'avoir pas pu deriver le rayon, et dont le bout `chest` fait
+16 a 19 cm. C'est un chantier nommable, borne, et qui ne demande aucune cuisson de maillage.
 
 
-7. PROCESS
-============
-  - Aucune course, aucune cuisson, aucun build : deux sondes hors moteur
-    (`probe_rest_containment.py`, comparaison numerique des series `PHYSRINGCX`) et une relecture
-    des logs et tableaux deja enregistres.
-  - **Le fichier livre n'a jamais ete touche.** Les generations de verification passent toutes par
-    `--out` vers `/tmp`, et `git status` sur `recharged_assets/physics_chains.txt` est reste vide
-    d'un bout a l'autre. Le demon `auto_build_apk` etant VIVANT (pid 21224), une regeneration en
-    place aurait pu partir en APK avant d'etre verifiee.
-  - **UN INSTRUMENT A ETE CORRIGE, ET C'EST UNE DECISION QUI SE JUSTIFIE.** La regle est « on ne
-    change pas l'instrument » ; elle vise l'ajustement d'une mesure pour qu'elle affiche ce qui
-    arrange. Ce n'est pas le cas ici : `ROOM-RINGFIT` versait DEUX echantillons par frame dans une
-    serie dont son propre fitteur en suppose UN, ce qui est un defaut demontrable et deja diagnostique
-    par le cycle 16 sur la ligne jumelle. Le correctif est celui que le cycle 16 a lui-meme applique
-    a `PHYSRINGCX`, mot pour mot, et il est accompagne du MEME controle : **regeneration depuis le
-    log de CONTROLE a un maillon, aucune mesure ne doit bouger** (a un maillon `l` vaut toujours 0,
-    donc le correctif y est une identite par construction — et il est verifie, pas suppose).
-    Sans lui, la prochaine course a deux maillons re-publierait la meme fausse regression, et c'est
-    precisement ce qui a coute le cycle 16.
-  - **Une affirmation d'un sous-agent a ete verifiee et corrigee.** Le rapport de recherche
-    annoncait les series racine « identiques au bit pres » a deux maillons ; le diff brut donne
-    631 lignes differentes sur 900. La comparaison numerique canal par canal montre ce qui est
-    vrai : 4 canaux sur 6 EXACTEMENT nuls sur une course, des ecarts de 0.08 a 1.34 % sur l'autre.
-    La conclusion tient, la formulation « au bit pres » ne tenait pas — et c'est la formulation qui
-    aurait ete recopiee.
+7. PROCESS — CE QUI A ETE CORRIGE AU POINT DE PRODUCTION
+=========================================================
+Quatre instruments mentaient sur leur propre source. C'est la meme faute quatre fois, et elle
+produit toujours la meme chose : une mesure attribuee au mauvais etat.
+
+  - **`apply_owner_tuning.py` etait code en dur sur le fichier LIVRE et appele SANS ARGUMENT** par
+    le generateur. Toute generation de VERIFICATION vers `/tmp` reecrivait donc le fichier livre en
+    effet de bord — pendant que le demon `auto_build_apk` tourne et peut l'emporter dans un APK. Le
+    cycle 17 s'est explicitement appuye sur `--out /tmp` pour « ne jamais toucher le fichier
+    livre » : la croyance etait fausse, et elle n'a rien casse uniquement parce que reappliquer les
+    memes reglages est idempotent. Une garantie qui tient par chance n'est pas une garantie.
+    Second effet : la sortie de verification ressortait NON reglee, donc INCOMPARABLE au livre —
+    une lecture naive y voyait une regression de TOUS les reglages de l'owner, `b0=602` compris.
+  - **Le generateur annoncait la taille et le sha du texte d'AVANT les reglages.** Le cycle 16 a
+    classe l'ecart de 51 octets « NON RECONSTRUCTIBLE », avec l'hypothese d'une regeneration
+    fantome sur un couple rig/mesh incoherent. Il n'y avait aucun fantome : le journal ne decrivait
+    simplement pas le livrable. Il relit desormais le fichier sur disque.
+  - **`probe_skin_ownership.py` lisait le fichier de chaines LIVRE pour juger un mesh CUIT.** A
+    deux maillons, `len(joints) < 2` sautait les deux lignes de poitrine et la sonde rendait un
+    tableau **VIDE**. Une sonde muette ressemble exactement a une sonde qui n'a rien trouve — sur
+    la question meme dont la reponse « 0 » avait coute le cycle 16.
+  - **`probe_rest_containment.py` imprimait le chemin du fichier livre alors qu'il lisait /tmp**, et
+    sa cible etait une constante que le cycle precedent avait editee A LA MAIN pour viser un
+    fichier de travail. Les deux sont corriges (`--chains`, et le chemin REELLEMENT lu est imprime).
+
+Note de reproductibilite, relevee par un sous-agent et verifiee : le tableau de salle a des entrees
+**hors log** (`physics_chains.txt` et le mesh cuit). Deux generations du MEME log encadrant une
+regeneration d'assets different donc sur `ROOM-SKINCOV-SHIPPED`. Ce n'est pas un defaut du tableau,
+mais toute comparaison de tableaux doit venir d'un meme lot — sinon on lit un changement d'asset
+comme un changement de physique.
+
+Une affirmation de sous-agent a ete verifiee et retenue contre moi : mon propre prompt affirmait
+que `physics_room_table.py` ecrit son tableau sur stdout. C'est faux, il ecrit dans un fichier ; et
+une copie dans `/tmp` ne demarre meme pas (`import physics_ringdown`). La forme d'appel a ete
+corrigee sur la mesure, pas sur ma description.
