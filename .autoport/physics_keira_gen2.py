@@ -433,6 +433,59 @@ def influence(geo, j, thr):
     return int(sel.sum()), wsum, np.flatnonzero(sel)
 
 
+def chain_influence(geo, chain_idx, thr):
+    """POSSESSION RELATIVE A LA CHAINE, PAS AU JOINT — et c'est la correction du 2026-08-17.
+
+    `influence()` selectionne sur le poids ABSOLU d'UN joint. Tant qu'une chaine n'a qu'un joint
+    les deux notions coincident. Des qu'elle en a deux, toute passe de reskin qui repartit le poids
+    A L'INTERIEUR de la chaine change ce que CHAQUE joint « possede » — alors que la chair, elle,
+    n'a pas bouge d'un sommet.
+
+    CE QUE CA A COUTE, MESURE (course C16 du 2026-08-17, et la mesure est hors moteur et hors
+    build : `probe_rest_containment.py` sur la POSE DE BIND, meme rig, sans capsule et sans le
+    maillon distal — donc la seule variable est le re-ajustement du volume PROXIMAL) :
+
+        recouvrement au repos            1 maillon      2 maillons      facteur
+        lBoob vs Lshoulder->chest         -75.3 u        -202.3 u        x2.7
+        rBoob vs Rshoulder->chest         -56.1 u        -206.0 u        x3.7
+        rBoob vs neck->chest             +173.5 u          -4.7 u        CONTACT NEUF
+        rBoob vs Lshoulder->chest        +198.5 u         -15.3 u        CONTACT NEUF
+        couples (maillon, volume) en recouvrement au repos : 2 -> 4
+
+    Le rayon passait de 322 a 412 u et le centre rentrait de 27 u vers le buste, parce que
+    l'echelle FIT_STEPS, ne trouvant plus FIT_MIN_VERTS sommets au seuil serre, descendait d'un
+    cran et ramassait des sommets FAIBLEMENT tenus contre la paroi du buste. La grandeur cessait
+    alors de mesurer une POSSESSION pour mesurer un CONTACT — exactement le piege
+    `ownership-not-coverage` du registre, sur l'organe le plus visible de la spec.
+
+    Le cycle 16 a impute ces deux signatures a la capsule `lBooc->lBoob` et l'a retiree ; la course
+    « spheres » qui a suivi etait PIRE (meshpen 0.0205 -> 0.0871 m, contacts chestL 23 -> 9525)
+    parce que les deux variantes partageaient ce meme volume proximal defectueux. La capsule
+    aggravait, elle n'etait pas la cause.
+
+    LA REGLE, ET ELLE EST UN INVARIANT, PAS UN REGLAGE : le seuil se choisit sur le poids SOMME DE
+    LA CHAINE — invariant par toute redistribution interne — et la chair ainsi retenue est ensuite
+    PARTITIONNEE entre les maillons par argmax. Ajouter une articulation ne peut donc plus changer
+    le volume de l'organe : l'union des volumes des maillons couvre exactement les memes sommets.
+
+    -> (indices des sommets retenus, joint argmax par sommet)."""
+    J, W = geo['J'], geo['W']
+    nv = len(W)
+    tot = np.zeros(nv, dtype=float)
+    best = np.full(nv, -1, dtype=int)
+    bestw = np.zeros(nv, dtype=float)
+    for jj in chain_idx:
+        wj = np.zeros(nv, dtype=float)
+        for c in range(J.shape[1]):
+            m = (J[:, c] == jj)
+            wj[m] += W[m, c]
+        tot += wj
+        take = wj > bestw
+        bestw[take] = wj[take]
+        best[take] = jj
+    return np.flatnonzero(tot > thr), best
+
+
 def to_bone_local(ibm, pts_game):
     """world bind position (GAME units) -> the bone's own bind frame (GAME units).
 
@@ -487,8 +540,15 @@ def iq_perp_radius(geo, j, a_world, b_world, thr):
     return float(inner.mean()), len(idx)
 
 
-def blob_centre_radius(geo, j):
+def blob_centre_radius(geo, j, chain_idx=None):
     """CENTRE et RAYON de la geometrie qu'un joint porte, dans SON espace bind, en unites de jeu.
+
+    `chain_idx` (2026-08-17) : les indices des joints de la CHAINE SIMULEE a laquelle `j`
+    appartient. Passe uniquement quand cette chaine porte AU MOINS DEUX joints ; la selection des
+    sommets se fait alors sur le poids SOMME de la chaine puis par partition argmax
+    (`chain_influence`, dont l'en-tete porte la mesure qui l'exige). A UN SEUL joint — l'etat
+    LIVRE — l'argument vaut None et pas une ligne de ce qui suit ne change : c'est verifie par
+    regeneration, le fichier produit est identique au bit pres hors ligne de date.
 
     Owner, 6e passe : « lBoob et rBoob sont des spheres NUES posees sur le joint-racine, alors que
     tout le reste du corps est en capsules derivees. Une sphere au joint ne peut pas epouser un
@@ -508,11 +568,21 @@ def blob_centre_radius(geo, j):
 
     Rend (centre, rayon_de_couverture, nverts, seuil, fraction_dehors_a_l_ancien_rayon)."""
     idx, thr = None, None
-    for cand in FIT_STEPS:
-        _n, _w, i2 = influence(geo, j, cand)
-        idx, thr = i2, cand
-        if len(i2) >= FIT_MIN_VERTS:
-            break
+    if chain_idx is not None and len(chain_idx) > 1:
+        # Le seuil est choisi sur le poids SOMME DE LA CHAINE (invariant par redistribution
+        # interne), la chair retenue est ensuite partitionnee entre les maillons par argmax.
+        for cand in FIT_STEPS:
+            sel, best = chain_influence(geo, chain_idx, cand)
+            thr = f'{cand}(somme chaine)'
+            idx = sel[best[sel] == j]
+            if len(sel) >= FIT_MIN_VERTS:
+                break
+    else:
+        for cand in FIT_STEPS:
+            _n, _w, i2 = influence(geo, j, cand)
+            idx, thr = i2, cand
+            if len(i2) >= FIT_MIN_VERTS:
+                break
     if idx is None or len(idx) == 0:
         return None, None, 0, None, None
     pts = to_bone_local(geo['ibms'][j], geo['V'][idx])
@@ -1505,7 +1575,14 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
 
     for jn, pname in spheres:
         j = idx_of[jn]
-        c, r, n, t, cov = blob_centre_radius(geo, j)
+        # POSSESSION RELATIVE A LA CHAINE des que la chaine SIMULEE porte 2+ joints (cf.
+        # `chain_influence`). Le garde-fou est STRUCTUREL, pas un filtre par nom : une partie
+        # obstacle (`body`, une oreille, une meche gelee) n'est pas ce que le solveur deplace, et
+        # une chaine simulee a UN joint retombe sur `None`, donc sur le chemin d'avant, inchange.
+        _members = parts_map.get(pname, [])
+        _cidx = ([idx_of[m] for m in _members]
+                 if pname in SIMULATED_CHAINS and len(_members) > 1 else None)
+        c, r, n, t, cov = blob_centre_radius(geo, j, chain_idx=_cidx)
         if r is None or n == 0:
             log(f"DROPPED collider sphere {jn}: fitted from 0 vertices")
             continue
