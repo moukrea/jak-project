@@ -1,0 +1,191 @@
+DIRECTIVES vee00ab7404
+
+C19 — PREDICTIONS ECRITES AVANT TOUTE MESURE DE CE CYCLE
+=========================================================
+Ecrites le 2026-08-17, apres lecture du moteur (`jak-hd-physics.gc:1088-1113`, `:1679-1745`) et
+AVANT le retour des deux sondes lancees en parallele, AVANT toute course de salle, AVANT toute
+cuisson. Chaque prediction porte son FALSIFICATEUR : la mesure qui, si elle sort, me donne tort.
+
+Raison d'etre : le cycle 18 a tenu parce que ses predictions etaient ecrites d'avance et qu'il a
+refuse de les relire a la lumiere du resultat. On continue.
+
+
+P1 — CE QUE LE MOTEUR TESTE N'EST PAS UNE CONTENANCE, C'EST UN EXCEDENT SUR LA POSE D'AUTEUR
+-----------------------------------------------------------------------------------------------
+Le test de violation est `dep > feff` (`:1741`), avec
+    floor0 = max(profondeur de la pose de REPOS dans le volume au repos,
+                 profondeur de la pose de REPOS dans le volume COURANT)     `:1733-1737`
+    feff   = floor0 + 0.30 * b0                                             `:1088-1104`
+Le moteur ne demande donc JAMAIS « le maillon est-il dans le volume ? », il demande « est-il PLUS
+DEDANS que la pose de l'auteur ne l'etait deja, plus la bande de chair de sa SPEC 10 ? ».
+
+CONSEQUENCE : `probe_rest_containment.py`, qui mesure une contenance ABSOLUE, ne peut pas predire
+le regime de contact — c'est exactement l'incoherence que le cycle 18 a laissee ouverte (« -75.3 u
+dedans, et pourtant 20 contacts »). Elle n'est pas un mystere, c'est une confusion d'instrument.
+
+FALSIFICATEUR : `floor0` ne serait pas derive de la pose de repos, OU les quatre volumes du buste
+ne recevraient pas la bande. Alors P1 tombe.
+
+
+P2 — LA PREDICTION QUI CONTREDIT MON PREDECESSEUR, ET C'EST LE POINT DE CE CYCLE
+----------------------------------------------------------------------------------
+Le cycle 18 a designe comme prochain chantier « les capsules du torse, dont le bout `chest` fait
+16 a 19 cm ». Or `phys-vol-yield` (`:1106-1113`) accorde DEJA la bande de complaisance a exactement
+ces quatre volumes — le critere est structurel : « le volume doit porter l'ANCRE de la chaine comme
+extremite ». Ancre `chest` => `chest->main`, `neck->chest`, `L|Rshoulder->chest`, rien d'autre.
+
+Et `floor0` CROIT avec la taille de l'obstacle : plus la capsule est grosse, plus la pose d'auteur
+est profondement dedans, donc plus le moteur PARDONNE. Un obstacle plus gros produit donc PLUS de
+tolerance, pas moins.
+
+PREDICTION CHIFFREE : retrecir les bouts `chest` (769 / 782 / 671 -> ~400) **AUGMENTE** le compte
+de contacts au lieu de le reduire. A UN maillon, je predis `ROOM-CONTACT-VOL chestL` > 100 (etat
+livre : 23). Le chantier nomme par le cycle 18 serait alors vise a l'envers, et une cuisson de
+maillage depensee dessus serait perdue une troisieme fois.
+
+FALSIFICATEUR, ET IL EST NET : une course a rayons `chest` reduits qui fait TOMBER les contacts
+vers le regime 23, ou qui les laisse inchanges. Alors P2 tombe et le cycle 18 avait raison.
+
+Cette prediction se teste SANS CUISSON : donnees seules + une course de salle.
+
+
+P3 — LA CAUSE DES 10888 N'EST PAS LA TAILLE DES CAPSULES
+------------------------------------------------------------
+Si P2 tient, l'explosion 23 -> 10888 a l'injection du 2e os vient d'ailleurs. Candidat principal,
+a confirmer ou refuter par la mesure et non par l'accord : le maillon PROXIMAL nouvellement cree
+n'a pas de `floor0` representatif — soit parce que sa pose de repos n'est pas lue au bon endroit
+(`phys-col-rest!`, `phys-link-off!`), soit parce que `b0` reste une grandeur PAR CHAINE (`:1113`,
+`-> *phys-b0* sc`) alors que la bande de chair devrait valoir pour le maillon qui est reellement
+dans le buste.
+
+Je ne fige PAS ce candidat : P3 est la question, pas la reponse. Ce que je m'interdis, c'est de
+declarer la cause trouvee sans une mesure qui distingue ces branches.
+
+FALSIFICATEUR : une mesure montrant que le maillon proximal recoit bien un `floor0` egal a sa
+profondeur d'auteur, et viole quand meme — alors la cause est ailleurs et je le dis.
+
+
+P4 — LE RAYON `chest` EST GONFLE PAR LA POITRINE ELLE-MEME
+--------------------------------------------------------------
+Le bout `chest` est ajuste sur les sommets pesés sur `chest`, et la chair de la poitrine est
+majoritairement pesée sur `chest` (cycle 18 : le poids que la chaine tient sur un sommet median
+vaut 0.44, « le reste appartient a `chest` »). L'obstacle serait donc derive de l'organe qu'il
+chasse — circulaire.
+
+PREDICTION : en excluant les sommets possedes par une chaine de physique, le bout `chest` perd au
+moins 15 %. FALSIFICATEUR : moins de 5 % de variation, ou une selection de `fit_radius` qui exclut
+deja ces sommets. Alors P4 tombe.
+
+NOTE : P4 vraie n'implique PAS que la corriger aide. Si P2 tient, la corriger RETIRE de la
+tolerance. P4 et P2 peuvent etre vraies ensemble, et c'est meme le cas le plus probable — auquel
+cas la bonne reponse n'est ni « grossir » ni « retrecir », mais le fait que la capsule est une
+mauvaise FORME pour un torse (mesure deja acquise : `feedback_obstacle_volume_coverage_not_mean`,
+p95 emmene `Lshoulder->chest` de 612 a 1477 sur une forme qu'une capsule epouse mal).
+
+
+=================================================================================================
+CORRECTION ECRITE LE MEME JOUR, AVANT TOUT RETOUR DE SONDE — P2 EST REFUTEE, ET PAR MOI
+=================================================================================================
+Je laisse le texte de P2 ci-dessus INTACT. Il est faux, et le montrer vaut mieux que le reecrire.
+
+**P2 EST REFUTEE ANALYTIQUEMENT, sur des donnees que j'avais deja sous la main** (le tableau du
+cycle 18, `ROOM-PAIRDOM`, que je n'avais pas lu avant d'ecrire la prediction) :
+
+    chestL  vol=Lshoulder->chest   dm=393.48  fl=246.80   marge=+146.68  (CONTACT)
+    chestL  vol=neck->chest        dm=102.64  fl=180.60   marge= -77.96  (jamais atteint)
+    chestR  vol=Rshoulder->chest   dm=374.62  fl=236.01   marge=+138.61  (CONTACT)
+
+`fl` = `feff`. La bande vaut exactement 180.60 = 0.30 x 602 = `PHYS-FLESH-YIELD * b0`, ce qui
+confirme P1 et confirme que les quatre volumes du buste recoivent bien la bande. Et `floor0` se lit
+par difference : 66.20 sur `Lshoulder->chest`, 55.41 sur `Rshoulder->chest`, **0.00 sur les trois
+autres** — au repos, le maillon unique est DEHORS de `neck->chest`, `chest->main`, et du volume de
+l'epaule opposee.
+
+Mon raisonnement etait : « obstacle plus gros -> pose d'auteur plus profonde -> plus de pardon ».
+Il omet deux choses. (a) `floor0` est BORNE A ZERO des que la pose d'auteur est dehors — c'est le
+cas sur trois volumes sur quatre, donc le pardon n'y grandit pas avec le rayon. (b) `dm` grandit
+avec le rayon EXACTEMENT comme `floor0` : la difference `dm - floor0`, seule grandeur qui decide,
+est INSENSIBLE au rayon tant que les deux restent dedans, et DIMINUE des que `floor0` touche zero.
+Retrecir ne peut donc que REDUIRE les contacts, jamais les augmenter. Ma prediction chiffree
+(« > 100 ») est fausse de sens.
+
+**CE QUI EN SORT DE PLUS IMPORTANT QUE MON ERREUR — LE COMPTEUR QUI A CONDAMNE L'INJECTION NE
+MESURE PAS UNE PENETRATION.** Verifie dans le moteur, `jak-hd-physics.gc:1741-1759` :
+
+    (when (> dep feff)  (+! nviol 1)  ... (+ 1 (-> *phys-cfh* h)))
+    (when (= nviol 1)   ... (- (-> *phys-cfh* h) 1))        ;; <-- retire le violeur UNIQUE
+
+Le seau `*phys-cfh*`, qui alimente `ROOM-CONTACT-VOL`, incremente tout violeur PUIS retire le cas
+ou il n'y en avait qu'UN. Il ne compte donc que les volumes qui **se DISPUTAIENT** le maillon —
+c'est ecrit dans le commentaire, et le code le fait.
+
+Consequence directe sur le verdict du cycle 18 : un maillon proximal qui vit dans le recouvrement
+de QUATRE capsules du torse produit QUATRE entrees par frame des qu'il viole une seule fois. Les
+quatre comptes quasi egaux (2479 / 2339 / 2323 / 2280) sont la signature de CE mecanisme : c'est le
+meme evenement compte quatre fois, pas quatre penetrations. **`23 -> 10888` est un facteur de
+DISPUTE DE VOLUMES, pas une mesure de traversee** — et pendant ce temps `skinpen`, la seule
+grandeur qui regarde la vraie surface (8.37 M echantillons), n'a pas bouge (+0.4 %).
+
+Je n'en conclus PAS encore que le retrait etait injustifie : `meshpen` est passe de -1.5e-06 a
++0.0800 m et je ne sais pas encore, avec preuve, contre quoi il est mesure. C'est la question 3
+posee a la sonde en cours. **Tant qu'elle n'a pas repondu, je ne re-injecte rien.**
+
+CE QUE CETTE CORRECTION CHANGE POUR LE CYCLE : la course « rayons `chest` reduits » n'a plus
+d'objet sous cette forme — elle est ECONOMISEE. La question devient : le critere de retrait A2 du
+cycle 18 portait-il sur la bonne grandeur ?
+
+
+=================================================================================================
+SECONDE CORRECTION — MA CORRECTION ETAIT ELLE-MEME FAUSSE SUR UN POINT, ET C'EST LE PLUS GROS
+=================================================================================================
+Je laisse tout le texte ci-dessus INTACT, y compris l'erreur.
+
+Dans la correction precedente j'ai ecrit : « le compteur qui a condamne l'injection ne mesure pas
+une penetration », en citant `jak-hd-physics.gc:1741-1759`. **C'EST FAUX. J'ai lu le mauvais
+compteur.** Le moteur en porte DEUX, presque identiques :
+
+    *phys-cfh*  :1751-1752  passe de SELECTION, AVANT toute poussee. Incremente tout violeur puis
+                            RETIRE le cas ou il n'y en avait qu'un -> compte les DISPUTES.
+                            Accesseur `phys-chain-conf` (:4610).
+    *phys-cvh*  :2211-2213  dans `phys-link-pen`, APRES les 15 passes de contrainte. Incremente une
+                            fois par (frame, lien, volume) avec `res = dep - feff > 0`.
+                            Accesseur `phys-chain-vol` (:4602).
+
+**`ROOM-CONTACT-VOL` lit `*phys-cvh*`** (`phys-room.gc:2190-2195` -> `physics_room_table.py:1655`),
+donc le SECOND : un RESIDU que le solveur n'a PAS su nettoyer. Verifie moi-meme apres coup, pas
+seulement rapporte.
+
+**CONSEQUENCE, ET ELLE VA CONTRE LE SENS QUI M'ARRANGEAIT :** `23 -> 10888` est une vraie mesure de
+violations non resolues. **Le critere de retrait A2/A3 du cycle 18 portait sur la bonne grandeur, et
+le retrait etait justifie.** Je n'ai donc AUCUN argument pour re-injecter en changeant de juge, et
+la question que j'avais posee en cloture de la premiere correction (« A2 portait-il sur la bonne
+grandeur ? ») a pour reponse OUI.
+
+Ce qui SURVIT de la premiere correction : (a) P1 est confirmee et meme chiffree — `fl` du moteur
+donne `floor0 = 66.20 u` la ou la sonde publie -75.3 u, soit **la meme grandeur au signe pres** :
+le « -75.3 u dedans » du cycle 18 EST la franchise du moteur, pas une penetration, et l'incoherence
+est tranchee ; (b) `skinpen` ne peut PAS arbitrer — non pas « il n'a pas bouge » mais parce qu'il
+sonde le JOINT NU en profondeur ABSOLUE sans reference (`:2232-2242`), une quasi-constante du rig
+que l'ajout d'un os dans la meme chair ne peut pas deplacer. La reassurance que le cycle 18 en a
+tiree n'etait pas une preuve. (c) P2 et P4 restent refutees.
+
+DEUX LECONS DE PROCESS QUE JE PORTE AU DOSSIER, contre moi :
+  1. J'ai conclu sur un SITE D'ECRITURE sans remonter a l'ACCESSEUR ni a l'emetteur. Quand deux
+     sites d'ecriture se ressemblent, seule la chaine complete ecriture -> accesseur -> emetteur ->
+     parseur de tableau etablit la semantique d'une metrique publiee.
+  2. J'ai ecrit une memoire sur cette conclusion avant qu'elle soit verifiee de bout en bout. Elle
+     est retiree et remplacee.
+
+=================================================================================================
+
+
+CE QUE JE M'INTERDIS CE CYCLE
+--------------------------------
+  - Relancer une CUISSON de maillage avant que P2 soit tranchee. Le cycle 18 en a paye une pour un
+    mur ; en payer une seconde pour le meme mur mal oriente serait la faute que ce fichier existe
+    pour empecher.
+  - Toucher une gate du validateur (regle 5) ou retirer la ligne `OPEN` de `owner-defects.txt` :
+    c'est la parole de l'owner, pas un chiffre vert, qui la ferme.
+  - Ecrire « non applicable » dans le tableau de conformite (directive du 11:50).
+  - Declarer une section TENUE sur autre chose qu'une valeur lue A L'EXECUTION sur le mecanisme
+    ARME, contre la reference que la spec definit.

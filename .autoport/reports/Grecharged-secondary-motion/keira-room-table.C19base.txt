@@ -1,0 +1,1866 @@
+==================================================================================================
+KEIRA — SALLE DE TEST SANS JOUEUR : TABLEAU DE MESURE
+genere par .autoport/physics_room_table.py depuis .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
+contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 7 (ce qui fait foi)
+
+Toutes les longueurs sont en METRES (la trace est en unites de jeu, 4096 u = 1 m). Ce que
+mesure chaque colonne, et rien d'autre :
+  tipvar  AMPLITUDE de mouvement de la POINTE due a la PHYSIQUE SEULE sur la fenetre : la
+          diagonale de la boite englobante de l'ecart pointe-vs-pose-d'auteur, dans le
+          repere de l'os porteur. Le mouvement de l'animation n'y compte pas d'un micron :
+          une chaine qui se contente de suivre son os anime mesure ZERO ici.
+          C'est une VARIANCE : elle mesure ce qui bouge, jamais ou ca s'est pose. Sous une
+          pose TENUE (drive=tilt) elle vaut donc presque zero, et c'est correct — le
+          deplacement soutenu que produit la gravite se lit dans ROOM-GRAVSAG. Confondre les
+          deux est ce qui a fait coexister un chiffre vert et « zero gravite sur ses seins ».
+  rootdev residu d'ANCRAGE de la racine : le pire de (a) l'ecart entre la racine ECRITE et
+          la racine du modele, (b) l'ecart de longueur du premier lien libre a son attache.
+  meshpen RESIDU SIGNE de penetration au-dela du plancher de pose modele, apres tout le
+          solveur : > 0 = ca traverse (interdit), <= 0 = la marge qui reste avant de
+          traverser. Mesure sur les paires (lien, volume) EN CONTACT — dedans a la pose du
+          modele, ou dedans maintenant ; une paire dont les deux profondeurs sont nulles
+          n'est pas un contact. Meme predicat, memes volumes, meme plancher que la
+          resolution : il n'y a pas d'instrument de mesure different de l'instrument de
+          decision.
+  jump    pire saut de l'ecart de pointe sur UNE frame.
+  ns      frames effectivement echantillonnees dans la fenetre.
+==================================================================================================
+
+-- CE QUE LA COURSE A PROUVE ---------------------------------------------------------------
+ROOM-NOPLAYER: absent
+   trace : PHYSROOM-START target-after=#f | PHYSNOPLAY viol=0 actors=0 killed=0
+   `viol` compte les frames de MESURE ou un target existait encore : la salle recompte l'arbre
+   de processus a chaque frame et tuerait un target reapparu. Aucune.
+ROOM-ACTORS: 1 subject=keira-hd
+   sujet spawne PAR NOM : art-group=assistant, mgeo=assistant-lod0, 97 os, 96 joints de rig.
+   le compagnon HD qui porte les chaines : keira-hd, 2 chaines / 2 liens / 54 volumes resolus
+ROOM-ANIMS: 31/31 raw=31 skipped=0
+   `raw` est le total BRUT enumere dans les six art-groups de Keira, sans aucun filtre du
+   programme. Owner 2026-08-11 16:15 : « faut tester vraiment TOUTES les animations qu'utilise
+   le perso tout au long du jeu, pas quelques unes ! » — donc joue = raw, et skipped = 0.
+   31 animations enumerees dans ses 6 art-groups, 31 jouees et mesurees.
+   13 d'entre elles vivent sur un rig de VARIANTE (Fire Canyon, Lava Tubes) a 94 joints la
+   ou le porteur de physique en a 96. Elles sont jouees SUR LEUR PROPRE art-group : le
+   nombre de joints ecrits est porte par le bloc compresse de l'ANIMATION
+   (joint.gc:940-955), pas par le squelette, donc une animation a 94 joints en pilote 94
+   et les joints propres au rig du village 1 gardent leur pose. Ce n'est pas une
+   supposition : si un joint porteur de chaine n'etait pas pilote, l'ancrage de cette
+   chaine partirait et la gate ROOT le refuserait. rootdev max mesure = 0.0728 m.
+   Les 13 concernees : assistant-firecanyon-idle-twist, assistant-firecanyon-idle-down, assistant-firecanyon-idle-examine, assistant-firecanyon-idle-up, assistant-firecanyon-idle-fiddle, assistant-firecanyon-idle-a ...
+   La physique elle-meme ne vit que sur le compagnon HD du mgeo du village 1 :
+     PHYSMGEO assistant-lod0                 entry=2   compagnon HD keira-hd
+     PHYSMGEO assistant-village2-lod0        entry=-1  AUCUN compagnon HD sur ce mgeo
+     PHYSMGEO assistant-village3-lod0        entry=-1  AUCUN compagnon HD sur ce mgeo
+     PHYSMGEO assistant-firecanyon-lod0      entry=-1  AUCUN compagnon HD sur ce mgeo
+     PHYSMGEO assistant-lavatube-start-lod0  entry=-1  AUCUN compagnon HD sur ce mgeo
+     PHYSMGEO assistant-lavatube-end-lod0    entry=-1  AUCUN compagnon HD sur ce mgeo
+   C'est pour ca que le SUJET reste celui du village 1 et que ce sont les ANIMATIONS qui
+   viennent a lui, et non l'inverse : un sujet spawne sur un mgeo de variante n'aurait
+   aucune chaine, donc rien a mesurer.
+ROOM-COLLIDER-COVERAGE: Lankle Lanklestrap Lbanga Lbangb Lbangc Lbangd Lelbow Lhand Lknee Lmidhaira Lmidhairb Lmidhairc Lmidhaird Lshoulder Lthigh LtoeStrap Rankle Ranklestrap Rbanga Rbangb Rbangc Rbangd Relbow Rhand Rknee Rmidhaira Rmidhairb Rmidhairc Rmidhaird Rshoulder Rthigh RtoeStrap chest gogglesMid head hips lBoob lBotStrap lBotStrap2 lEara lEarb lKneeFlap lTopStrap2 main neck rBoob rBotStrap rBotStrap2 rEara rEarb rKneeFlap rTopStrap2
+   54 volumes resolus par le moteur, sur les joints ci-dessus. meshpen mesure l'entree dans
+   un collider DECLARE, pas la traversee du corps : un zero contre un ensemble qui ne couvre
+   pas le corps ne prouve rien, et c'est pour ca que la liste est ici et pas dans un
+   commentaire.
+ROOM-CONTACT-VOL: 2 chaine(s) contraintes par au moins un volume
+   par chaine, les volumes qui ont demande une correction, du plus frequent au moins
+   frequent. Un contact a profondeur nulle n'est PAS compte : seule une violation l'est.
+ROOM-CONTACT-VOL: chain=chestL       total=23       Lshoulder->chest 20 · head->neck 3
+ROOM-CONTACT-VOL: chain=chestR       total=38       Rshoulder->chest 32 · sphere:rTopStrap2 6
+
+ROOM-PAIRDOM: SPEC 33 — de combien chaque paire a-t-elle MANQUE le contact ?
+   `dm` negatif = jamais de recouvrement, et |dm| est l'ecart minimal ATTEINT entre les
+   deux surfaces, en unites de jeu (4096 u = 1 m). `marge` = dm - fl : positive, il y a
+   eu contact ; negative, c'est ce qu'il aurait fallu gagner EN PLUS pour en avoir un.
+ROOM-PAIRDOM: chain=chestL       vol=Lelbow->Lshoulder  dm=    459.98  fl=    0.00  marge=   +459.98  (CONTACT)
+ROOM-PAIRDOM: chain=chestL       vol=Lshoulder->chest   dm=    393.48  fl=  246.80  marge=   +146.68  (CONTACT)
+ROOM-PAIRDOM: chain=chestL       vol=Lhand->Lelbow      dm=    292.69  fl=    0.00  marge=   +292.69  (CONTACT)
+ROOM-PAIRDOM: chain=chestL       vol=sphere:gogglesMid  dm=    193.04  fl=    0.00  marge=   +193.04  (CONTACT)
+ROOM-PAIRDOM: chain=chestL       vol=neck->chest        dm=    102.64  fl=  180.60  marge=    -77.96  (jamais atteint : 0.0190 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=head->neck         dm=     91.35  fl=    0.00  marge=    +91.35  (CONTACT)
+ROOM-PAIRDOM: chain=chestL       vol=Rshoulder->chest   dm=     19.11  fl=  180.60  marge=   -161.49  (jamais atteint : 0.0394 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=sphere:lTopStrap2  dm=     -3.93  fl=    0.00  marge=     -3.93  (jamais atteint : 0.0010 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=chest->main        dm=    -91.93  fl=  180.60  marge=   -272.53  (jamais atteint : 0.0665 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=sphere:lBotStrap   dm=   -115.97  fl=    0.00  marge=   -115.97  (jamais atteint : 0.0283 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=sphere:lBotStrap2  dm=   -124.82  fl=    0.00  marge=   -124.82  (jamais atteint : 0.0305 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=sphere:rBoob       dm=   -174.16  fl=    0.00  marge=   -174.16  (jamais atteint : 0.0425 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=Lmidhaird->Lmidhairc dm=   -204.87  fl=    0.00  marge=   -204.87  (jamais atteint : 0.0500 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=Rhand->Relbow      dm=   -431.89  fl=    0.00  marge=   -431.89  (jamais atteint : 0.1054 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=sphere:main        dm=   -445.48  fl=    0.00  marge=   -445.48  (jamais atteint : 0.1088 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=sphere:rBotStrap   dm=   -467.57  fl=    0.00  marge=   -467.57  (jamais atteint : 0.1142 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=Lbangd->Lbangc     dm=   -495.77  fl=    0.00  marge=   -495.77  (jamais atteint : 0.1210 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=Lmidhairc->Lmidhairb dm=   -565.77  fl=    0.00  marge=   -565.77  (jamais atteint : 0.1381 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=Relbow->Rshoulder  dm=   -592.60  fl=    0.00  marge=   -592.60  (jamais atteint : 0.1447 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=hips->main         dm=   -638.65  fl=    0.00  marge=   -638.65  (jamais atteint : 0.1559 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=sphere:rTopStrap2  dm=   -654.37  fl=    0.00  marge=   -654.37  (jamais atteint : 0.1598 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=Rthigh->hips       dm=   -679.76  fl=    0.00  marge=   -679.76  (jamais atteint : 0.1660 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=Lthigh->hips       dm=   -682.76  fl=    0.00  marge=   -682.76  (jamais atteint : 0.1667 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=sphere:rBotStrap2  dm=   -842.81  fl=    0.00  marge=   -842.81  (jamais atteint : 0.2058 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=sphere:lEara       dm=   -878.90  fl=    0.00  marge=   -878.90  (jamais atteint : 0.2146 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=lEarb->lEara       dm=   -888.61  fl=    0.00  marge=   -888.61  (jamais atteint : 0.2169 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=Rbangd->Rbangc     dm=  -1036.29  fl=    0.00  marge=  -1036.29  (jamais atteint : 0.2530 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=Lbangc->Lbangb     dm=  -1100.33  fl=    0.00  marge=  -1100.33  (jamais atteint : 0.2686 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=Lknee->Lthigh      dm=  -1237.39  fl=    0.00  marge=  -1237.39  (jamais atteint : 0.3021 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=Lmidhairb->Lmidhaira dm=  -1261.15  fl=    0.00  marge=  -1261.15  (jamais atteint : 0.3079 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=Rmidhaird->Rmidhairc dm=  -1280.64  fl=    0.00  marge=  -1280.64  (jamais atteint : 0.3127 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=sphere:lEarb       dm=  -1288.06  fl=    0.00  marge=  -1288.06  (jamais atteint : 0.3145 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=sphere:Lmidhaira   dm=  -1393.26  fl=    0.00  marge=  -1393.26  (jamais atteint : 0.3402 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=Rmidhairc->Rmidhairb dm=  -1409.51  fl=    0.00  marge=  -1409.51  (jamais atteint : 0.3441 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=rEarb->rEara       dm=  -1425.12  fl=    0.00  marge=  -1425.12  (jamais atteint : 0.3479 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=Rbangc->Rbangb     dm=  -1473.01  fl=    0.00  marge=  -1473.01  (jamais atteint : 0.3596 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=Rknee->Rthigh      dm=  -1477.96  fl=    0.00  marge=  -1477.96  (jamais atteint : 0.3608 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=Rmidhairb->Rmidhaira dm=  -1698.26  fl=    0.00  marge=  -1698.26  (jamais atteint : 0.4146 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=Lbangb->Lbanga     dm=  -1701.75  fl=    0.00  marge=  -1701.75  (jamais atteint : 0.4155 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=Rbangb->Rbanga     dm=  -1723.46  fl=    0.00  marge=  -1723.46  (jamais atteint : 0.4208 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=sphere:Rmidhaira   dm=  -1738.75  fl=    0.00  marge=  -1738.75  (jamais atteint : 0.4245 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=sphere:rEara       dm=  -1762.88  fl=    0.00  marge=  -1762.88  (jamais atteint : 0.4304 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=sphere:Lbanga      dm=  -1848.12  fl=    0.00  marge=  -1848.12  (jamais atteint : 0.4512 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=Lankle->Lknee      dm=  -1926.62  fl=    0.00  marge=  -1926.62  (jamais atteint : 0.4704 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=sphere:Rbanga      dm=  -1960.82  fl=    0.00  marge=  -1960.82  (jamais atteint : 0.4787 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=sphere:lKneeFlap   dm=  -1975.90  fl=    0.00  marge=  -1975.90  (jamais atteint : 0.4824 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=Rankle->Rknee      dm=  -2151.29  fl=    0.00  marge=  -2151.29  (jamais atteint : 0.5252 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=sphere:rKneeFlap   dm=  -2609.60  fl=    0.00  marge=  -2609.60  (jamais atteint : 0.6371 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=sphere:rEarb       dm=  -2747.71  fl=    0.00  marge=  -2747.71  (jamais atteint : 0.6708 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=sphere:Lanklestrap dm=  -4004.62  fl=    0.00  marge=  -4004.62  (jamais atteint : 0.9777 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=sphere:Ranklestrap dm=  -4352.01  fl=    0.00  marge=  -4352.01  (jamais atteint : 1.0625 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=sphere:LtoeStrap   dm=  -4856.31  fl=    0.00  marge=  -4856.31  (jamais atteint : 1.1856 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=sphere:RtoeStrap   dm=  -4863.50  fl=    0.00  marge=  -4863.50  (jamais atteint : 1.1874 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=Relbow->Rshoulder  dm=    489.06  fl=    0.00  marge=   +489.06  (CONTACT)
+ROOM-PAIRDOM: chain=chestR       vol=Rhand->Relbow      dm=    377.10  fl=    0.00  marge=   +377.10  (CONTACT)
+ROOM-PAIRDOM: chain=chestR       vol=Rshoulder->chest   dm=    374.62  fl=  236.01  marge=   +138.61  (CONTACT)
+ROOM-PAIRDOM: chain=chestR       vol=neck->chest        dm=    108.85  fl=  180.60  marge=    -71.75  (jamais atteint : 0.0175 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=sphere:gogglesMid  dm=    100.58  fl=    0.00  marge=   +100.58  (CONTACT)
+ROOM-PAIRDOM: chain=chestR       vol=head->neck         dm=     69.40  fl=    0.00  marge=    +69.40  (CONTACT)
+ROOM-PAIRDOM: chain=chestR       vol=sphere:lBoob       dm=     38.30  fl=    0.00  marge=    +38.30  (CONTACT)
+ROOM-PAIRDOM: chain=chestR       vol=Lshoulder->chest   dm=     26.91  fl=  180.60  marge=   -153.69  (jamais atteint : 0.0375 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=sphere:rTopStrap2  dm=      8.71  fl=    0.00  marge=     +8.71  (CONTACT)
+ROOM-PAIRDOM: chain=chestR       vol=chest->main        dm=    -85.34  fl=  180.60  marge=   -265.94  (jamais atteint : 0.0649 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=sphere:rBotStrap   dm=    -87.69  fl=    0.00  marge=    -87.69  (jamais atteint : 0.0214 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=sphere:rBotStrap2  dm=   -121.47  fl=    0.00  marge=   -121.47  (jamais atteint : 0.0297 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=sphere:main        dm=   -395.84  fl=    0.00  marge=   -395.84  (jamais atteint : 0.0966 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=hips->main         dm=   -476.51  fl=    0.00  marge=   -476.51  (jamais atteint : 0.1163 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=Rmidhaird->Rmidhairc dm=   -554.29  fl=    0.00  marge=   -554.29  (jamais atteint : 0.1353 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=sphere:lBotStrap   dm=   -564.82  fl=    0.00  marge=   -564.82  (jamais atteint : 0.1379 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=Rthigh->hips       dm=   -584.51  fl=    0.00  marge=   -584.51  (jamais atteint : 0.1427 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=Lhand->Lelbow      dm=   -584.93  fl=    0.00  marge=   -584.93  (jamais atteint : 0.1428 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=Lthigh->hips       dm=   -587.51  fl=    0.00  marge=   -587.51  (jamais atteint : 0.1434 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=Rbangd->Rbangc     dm=   -618.58  fl=    0.00  marge=   -618.58  (jamais atteint : 0.1510 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=Lelbow->Lshoulder  dm=   -683.16  fl=    0.00  marge=   -683.16  (jamais atteint : 0.1668 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=Rmidhairc->Rmidhairb dm=   -784.59  fl=    0.00  marge=   -784.59  (jamais atteint : 0.1915 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=sphere:lTopStrap2  dm=   -817.60  fl=    0.00  marge=   -817.60  (jamais atteint : 0.1996 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=sphere:lBotStrap2  dm=   -882.20  fl=    0.00  marge=   -882.20  (jamais atteint : 0.2154 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=Rknee->Rthigh      dm=   -983.80  fl=    0.00  marge=   -983.80  (jamais atteint : 0.2402 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=Lbangd->Lbangc     dm=  -1015.33  fl=    0.00  marge=  -1015.33  (jamais atteint : 0.2479 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=rEarb->rEara       dm=  -1045.23  fl=    0.00  marge=  -1045.23  (jamais atteint : 0.2552 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=Lmidhaird->Lmidhairc dm=  -1067.33  fl=    0.00  marge=  -1067.33  (jamais atteint : 0.2606 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=Rbangc->Rbangb     dm=  -1230.08  fl=    0.00  marge=  -1230.08  (jamais atteint : 0.3003 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=sphere:rEara       dm=  -1267.01  fl=    0.00  marge=  -1267.01  (jamais atteint : 0.3093 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=Rmidhairb->Rmidhaira dm=  -1307.00  fl=    0.00  marge=  -1307.00  (jamais atteint : 0.3191 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=Lknee->Lthigh      dm=  -1308.81  fl=    0.00  marge=  -1308.81  (jamais atteint : 0.3195 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=Lmidhairc->Lmidhairb dm=  -1355.11  fl=    0.00  marge=  -1355.11  (jamais atteint : 0.3308 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=lEarb->lEara       dm=  -1389.33  fl=    0.00  marge=  -1389.33  (jamais atteint : 0.3392 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=sphere:Rmidhaira   dm=  -1415.88  fl=    0.00  marge=  -1415.88  (jamais atteint : 0.3457 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=Lbangc->Lbangb     dm=  -1426.85  fl=    0.00  marge=  -1426.85  (jamais atteint : 0.3484 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=Rankle->Rknee      dm=  -1561.64  fl=    0.00  marge=  -1561.64  (jamais atteint : 0.3813 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=sphere:lEara       dm=  -1562.62  fl=    0.00  marge=  -1562.62  (jamais atteint : 0.3815 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=Lmidhairb->Lmidhaira dm=  -1760.64  fl=    0.00  marge=  -1760.64  (jamais atteint : 0.4298 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=Rbangb->Rbanga     dm=  -1766.74  fl=    0.00  marge=  -1766.74  (jamais atteint : 0.4313 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=Lbangb->Lbanga     dm=  -1774.59  fl=    0.00  marge=  -1774.59  (jamais atteint : 0.4332 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=sphere:Lmidhaira   dm=  -1793.26  fl=    0.00  marge=  -1793.26  (jamais atteint : 0.4378 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=Lankle->Lknee      dm=  -1874.69  fl=    0.00  marge=  -1874.69  (jamais atteint : 0.4577 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=sphere:rKneeFlap   dm=  -1943.42  fl=    0.00  marge=  -1943.42  (jamais atteint : 0.4745 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=sphere:Rbanga      dm=  -1963.76  fl=    0.00  marge=  -1963.76  (jamais atteint : 0.4794 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=sphere:Lbanga      dm=  -1980.84  fl=    0.00  marge=  -1980.84  (jamais atteint : 0.4836 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=sphere:rEarb       dm=  -2068.46  fl=    0.00  marge=  -2068.46  (jamais atteint : 0.5050 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=sphere:lKneeFlap   dm=  -2136.07  fl=    0.00  marge=  -2136.07  (jamais atteint : 0.5215 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=sphere:lEarb       dm=  -2160.01  fl=    0.00  marge=  -2160.01  (jamais atteint : 0.5273 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=sphere:Ranklestrap dm=  -3897.19  fl=    0.00  marge=  -3897.19  (jamais atteint : 0.9515 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=sphere:Lanklestrap dm=  -4208.47  fl=    0.00  marge=  -4208.47  (jamais atteint : 1.0275 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=sphere:RtoeStrap   dm=  -4386.10  fl=    0.00  marge=  -4386.10  (jamais atteint : 1.0708 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=sphere:LtoeStrap   dm=  -5064.91  fl=    0.00  marge=  -5064.91  (jamais atteint : 1.2365 m manquants)
+ROOM-SKINCOV: couverture de peau par chaine — quelle part de la geometrie la physique tient
+   cov = poids moyen porte par des joints PILOTES (simules ou descendants d'un simule).
+   tear = aretes dont les deux bouts different de plus de 0.5. weld = sommets COINCIDENTS
+   a pilotes discordants : ceux-la ouvrent le maillage par construction.
+   SOURCE (2026-08-13) : out/jak1/fr3/skin/keira-hd-donor-injected.glb — c'est le rip BRUT du donneur.
+ROOM-SKINCOV: chain=chestL       cov=0.1934 n=94    tear=0    weld=0   lost=chest 99% · Lshoulder 1%
+ROOM-SKINCOV: chain=chestR       cov=0.1718 n=90    tear=0    weld=0   lost=chest 99% · Rshoulder 1%
+ROOM-SKINCOV-SHIPPED: source=out/jak1/fr3/skin/keira-hd-lod0.glb — mesh PREPPE+RESKINNE, celui du pack livre.
+ROOM-SKINCOV-SHIPPED: chain=chestL       cov=0.4293 n=94    tear=0    weld=0   dcov=+0.2360 dtear=0->0
+ROOM-SKINCOV-SHIPPED: chain=chestR       cov=0.3839 n=90    tear=1    weld=0   dcov=+0.2121 dtear=0->1
+ROOM-SKINCOV-SHIPPED: 2 chaine(s) sur 2 different du rip brut.
+ROOM-INVERSIONS: residual=0 corrected=0 degenerate=0 control_residual=178 reseated=0
+   Owner, deux fois : « j'ai vu un coup ou un des seins etait retourne vers l'interieur ».
+   Un volume est une coquille SYMETRIQUE autour de son axe : les deux cotes sont admissibles,
+   donc un lien pousse au travers de l'axe s'y retrouve tenu du MAUVAIS cote — stable et
+   faux — et la poussee suivante l'y enfonce au lieu de l'en sortir. D'ou l'intermittence.
+   `residual` = liens restes du mauvais cote APRES tout le solveur : c'est CE nombre qui doit
+   valoir zero, mesure avec le meme predicat et les memes volumes que la penetration.
+   `corrected` = fois ou le solveur a remis un lien de son cote ; ce nombre a le DROIT d'etre
+   grand, c'est le solveur qui travaille (le pilotage de la salle est brutal).
+   CONTROLE POSITIF : miroiter chaque lien libre a travers son attache APRES la resolution
+   fait passer le residu de 0 a 178.
+   `reseated` = liens dont la pose du modele etait hors de portee de leur porteur et que le
+   moteur a replaces sur lui (une chaine se REPARE, elle ne se retire pas).
+ROOM-POSCONTROL: injections=180 armed=0.0228 disarmed=0.0000
+   le defaut injecte pousse chaque lien libre de 400 u (~10 cm) vers l'interieur du corps
+   APRES resolution ; le compteur de penetration doit MONTER. 180 poussees reelles.
+   residus SIGNES bruts des deux branches (negatif = marge restante avant de traverser) :
+   arme 0.0228 m, desarme -0.0001 m.
+ROOM-IDLE: maxdev=0.0002 hanging=0 measured=2
+   SPEC 4 : au repos, ce qui n'est pas cense pendre retrouve la pose du modele. Les 0
+   chaines a hang>0 (ce qui pend) sont comptees a part : 
+ROOM-AUTHORED: chains=0 respected=0 perchain=yes
+   Detection PAR CHAINE, dans le repere de l'os porteur (rotation comprise) : un os que
+   l'animateur n'a pas touche ne bouge PAS dans ce repere, donc il ne declenche rien — et
+   un simple tour de tete n'est pas confondu avec une intention d'auteur sur les cheveux.
+   RESPECTEE = sur chaque frame pilotee par l'animation, la position ECRITE valait la pose
+   d'auteur PLUS l'ecart simule, a 0.05 u pres (12 micrometres) : le deplacement d'auteur
+   arrive au joint a coefficient 1, jamais mis a l'echelle, mixe ni retarde.
+   CONTROLE POSITIF : l'animation retardee d'une frame dans la position ecrite — le defaut
+   exact que la SPEC 5 interdit. Desarme, sur la course entiere, l'identite tient 0 fois
+   sur 0 frames pilotees. Arme, sur sa propre fenetre, elle tient 0 fois sur 0 : le
+   compteur s'effondre completement, donc il mesure bien ce qu'il pretend mesurer.
+   La colonne `transmission` est PUBLIEE MAIS NON GATEE : c'est la correlation du
+   deplacement ecrit avec celui d'auteur, et le rapport |delta ecart| / |delta auteur| dit
+   pourquoi elle est bruitee — sous un a-coup la physique deplace la pointe des dizaines de
+   fois plus que l'animation, et aucune correlation ne resout un coefficient 1 la-dedans.
+ROOM-AUTHORED-FREE: chains=2  (l'animation ne les pilote sur AUCUNE frame)
+   Sur ces chaines la physique garde la main sur 100 % de la course. Leur mouvement propre
+   est publie par ROOM-GRADIENT (deviation angulaire par rapport au PARENT) et par les
+   lignes `worst`, chaine par chaine : c'est la que se verifie qu'elle s'y applique.
+   PORTEE HONNETE DE CE ZERO : le controle positif de l'auteur (animation retardee d'une
+   frame) ne PEUT PAS tirer sur une chaine que l'animation ne pilote jamais — il lui faut
+   une frame pilotee pour exister. Ce zero est donc STRUCTUREL, pas controle : il dit que le
+   detecteur n'a jamais vu de canal local sur ces joints, et le detecteur est prouve vivant
+   par les 0 chaines ci-dessus. Le controler vraiment demanderait de lire les canaux des
+   31 animations dans les donnees d'art-group, pas la course.
+     chestL       frames pilotees=0
+     chestR       frames pilotees=0
+
+-- CE QUE LES LIMITEURS ONT RETIRE (SPEC 7 : un suppresseur se chiffre) --------------------
+   recul vers la pose du modele : 0 fois, 0.0000 m au total (jamais declenche)
+   plafond de taille d'un lien libre : 0 fois, 0.0000 m au total (jamais declenche)
+     PERIMETRE REEL, corrige le 2026-08-12 : il ne porte QUE sur le maillon 0, donc que sur
+     les chaines SANS rootlock. Le texte affirmait ici « il porte desormais sur tout maillon
+     libre » ; le code lisait `l = 0` (jak-hd-physics.gc), et la colonne `raddrop` ci-dessous
+     le demontrait deja : 15 000 a 25 000 declenchements sur chaque chaine a un seul os,
+     EXACTEMENT ZERO sur chacune des onze chaines rootlockees. Un commentaire n'est pas une
+     preuve, y compris dans ce tableau.
+     ET IL NE DOIT PAS L'ETRE : ce plafond est la DEMI-EPAISSEUR du morceau de geometrie.
+     Etendu au maillon libre d'une bretelle il vaudrait 157 u sur un os de 1366 u, soit une
+     butee a 6.6 degres — la bretelle serait morte. Ce qui borne un maillon libre profond est
+     le test de COTE (demi-sphere autour de la direction du modele), pas ce rayon.
+   marge de sortie de collision : 0.5 u = 0.000122 m par contact resolu, constante.
+   LIGNE RETIREE ICI, ET C'EST UNE CORRECTION D'INSTRUMENT : « part radiale de la force,
+     ecartee : N fois, N u/frame^2 » lisait `(phys-limiter 6)` et `(phys-limiter 7)`, deux
+     index qui n'existent pas dans le moteur et tombent dans sa branche `else` — donc les
+     deux rendaient `*phys-buried-n*`. Course du 2026-08-12 : buried=987636 et radial_n =
+     radial_sum = 987636, ratio 1.0000, un compteur divise par lui-meme. La grandeur qu'elle
+     nommait n'a jamais ete mesuree ; ce qui la remplace (ROOM-RETREAT-SPHERE) l'est.
+ROOM-RETREAT-ANCHOR: fallback=0
+   fois ou le recul n'a trouve AUCUN point admissible sur son chemin — pas meme la pose du
+   modele — et s'est pose sur le MOINS MAUVAIS. NATURE : un compte. LECTURE QUAND LE DEFAUT
+   EST ABSENT : 0. Ce n'est pas un limiteur de plus : c'est l'aveu que l'invariant « la pose
+   du modele est admissible » a cede. Il cede parce que `floor0` est mesure contre
+   l'INSTANTANE d'auteur du volume et `dep` contre sa position COURANTE : pour un volume
+   porte par un joint SIMULE (une meche voisine, un sein), les deux membres ne decrivent plus
+   le meme obstacle. C'est par la que `rmidhair` sortait a 0.0017 m de penetration — la
+   SEULE ligne positive sur 3410. Le compteur etait emis par la salle et n'etait lu par
+   personne ; il l'est desormais.
+ROOM-RETREAT-SPHERE: rescued=0
+   fois ou le recul, son point de depart du modele etant inadmissible, a trouve une direction
+   ADMISSIBLE ailleurs sur la MEME sphere — celle que l'arc [pose du modele -> position
+   courante] ne pouvait pas atteindre. NATURE : un compte d'evenements. LECTURE QUAND LE
+   DEFAUT EST ABSENT : 0, comme `fallback` : les deux repondent au MEME evenement declencheur,
+   l'un le sauve, l'autre y renonce. Leur SOMME est le nombre de fois ou l'arc etait aveugle,
+   et c'est la seule lecture qui ait un sens : `rescued` grand avec `fallback` a zero dit que
+   la longueur d'os est tenue sans rien laisser traverser ; `rescued` a zero avec `fallback`
+   non nul dirait que le balayage ne trouve jamais rien et ne sert donc a rien.
+   paires (lien, volume) ou le lien est ENTIEREMENT dans le volume a sa pose de modele :
+   0 occurrences de mesure. Critere geometrique calcule sur la pose du modele
+   (profondeur_repos >= 2 x rayon du lien), pas une liste ni un masque.
+   CE N'EST PLUS UN LIMITEUR depuis le 2026-08-12 : cet etat dispensait la paire de TOUTE
+   contrainte (`phys-vol-floor` rendait PHYS-VOL-FREE), au motif qu'un lien deja entierement
+   dedans n'a pas de surface devant lui. Vrai sur la surface, faux sur la decision : ne pas
+   avoir de surface devant soi n'autorise pas a s'enfoncer plus loin. 50 642 fois par
+   course, les lunettes n'avaient plus AUCUN volume devant elles — c'est `goggles-tunnel`.
+   La franchise accordee est desormais la profondeur d'auteur, sans exception ; le nombre
+   reste publie parce que c'est lui qui a designe le defaut, mais il ne commande plus rien.
+
+-- CE QUE LE MOTEUR A ECARTE, ET AVEC QUELS CHIFFRES ---------------------------------------
+   Aucune chaine ecartee : les 2 chaines du fichier de donnees sont toutes simulees et
+   toutes mesurees.
+
+-- LE PILOTAGE (SPEC 6 : haut/bas, gauche/droite, diverses accelerations, a-coups) ---------
+drive=updown     windows=62   tipvar_max=0.1284 tipvar_min=0.0551 rootdev_max=0.0701 meshpen_max=-1.48926e-06 jump_max=0.0311
+drive=leftright  windows=62   tipvar_max=0.1556 tipvar_min=0.1047 rootdev_max=0.0710 meshpen_max=-8.17871e-06 jump_max=0.0527
+drive=accel      windows=62   tipvar_max=0.1630 tipvar_min=0.1065 rootdev_max=0.0718 meshpen_max=-6.95801e-06 jump_max=0.0914
+drive=jerk       windows=62   tipvar_max=0.1585 tipvar_min=0.0922 rootdev_max=0.0728 meshpen_max=-8.34961e-06 jump_max=0.0695
+drive=tilt       windows=62   tipvar_max=0.0901 tipvar_min=0.0003 rootdev_max=0.0647 meshpen_max=-6.39648e-06 jump_max=0.0202
+   fenetre de mesure = 90 frames par (animation x pilotage).
+   `tilt` n'est pas une secousse : elle se penche a 60 degres sur 24 frames puis TIENT LA
+   POSE, et la mesure ne demarre qu'a la frame 54 — 30 frames de tenue apres la fin de la
+   rampe. Son amplitude est donc PETITE par construction, et c'est la reponse correcte :
+   une pose tenue ne fait pas vibrer une chaine, elle la DEPLACE. Ce deplacement se lit dans
+   ROOM-GRAVSAG plus bas, pas ici.
+
+-- LA REPONSE, ET NON L'AGITATION (superviseur 2026-08-11 16:15) ---------------------------
+   « publier l'amplitude de pointe rapportee a l'amplitude du stimulus, et la valeur sous
+   animation seule comme ligne de base a soustraire. Un pilotage dont la reponse ne depasse
+   pas la ligne de base n'a rien excite. »
+   stimulus  acceleration COMMANDEE par la salle, en m/s^2 (pour `tilt`, plus aucune
+             acceleration de repere : le stimulus EST la gravite, 9.81 m/s^2).
+   baseline  amplitude de pointe de la MEME chaine sous la MEME animation SANS aucun
+             pilotage. C'est ce que l'animation faisait de toute facon.
+   gain      (tip - baseline) / stimulus, en metres par m/s^2. Un gain qui s'effondre quand
+             le stimulus monte est une SATURATION : la chaine est collee a son plafond
+             geometrique et ne mesure plus le stimulus. C'est ce qui rendait 16 chaines sur
+             22 identiques sous cinq stimuli differents.
+ROOM-RESPONSE: chain=chestL       drive=updown     stimulus=15.82     tip=0.1182    baseline=0.0987    gain=0.001227    recu=60.27
+ROOM-RESPONSE: chain=chestL       drive=leftright  stimulus=45.70     tip=0.1556    baseline=0.0987    gain=0.001244    recu=85.93
+ROOM-RESPONSE: chain=chestL       drive=accel      stimulus=84.38     tip=0.1630    baseline=0.0987    gain=0.000761    recu=108.19
+ROOM-RESPONSE: chain=chestL       drive=jerk       stimulus=381.45    tip=0.1462    baseline=0.0987    gain=0.000124    recu=294.42
+ROOM-RESPONSE: chain=chestL       drive=tilt       stimulus=9.81      tip=0.0901    baseline=0.0987    gain=-0.000881   recu=74.10
+ROOM-RESPONSE: chain=chestR       drive=updown     stimulus=15.82     tip=0.1284    baseline=0.1078    gain=0.001300    recu=63.21
+ROOM-RESPONSE: chain=chestR       drive=leftright  stimulus=45.70     tip=0.1479    baseline=0.1078    gain=0.000877    recu=85.59
+ROOM-RESPONSE: chain=chestR       drive=accel      stimulus=84.38     tip=0.1607    baseline=0.1078    gain=0.000628    recu=107.25
+ROOM-RESPONSE: chain=chestR       drive=jerk       stimulus=381.45    tip=0.1585    baseline=0.1078    gain=0.000133    recu=294.97
+ROOM-RESPONSE: chain=chestR       drive=tilt       stimulus=9.81      tip=0.0829    baseline=0.1078    gain=-0.002535   recu=74.04
+
+-- LE STIMULUS COMMANDE CONTRE LE STIMULUS RECU (la cause racine, en un tableau) ------------
+   `recu` ci-dessus est le pire module de l'acceleration de la pose d'auteur de la pointe,
+   mesure dans le moteur : c'est ce que la chaine a VRAIMENT subi, d'ou que ca vienne. La
+   colonne sans aucun pilotage (ligne de base) est la preuve du defaut d'instrument :
+   longueur x vitesse de lecture des animations (les six premieres) : assistant-idle-leaning-right=16f@0.125, assistant-idle-transition-right-to-left=9f@0.167, assistant-idle-leaning-left=16f@0.125, assistant-idle-transition-left-to-right=9f@0.167, assistant-idle-wiping-brow=17f@0.167, assistant-idle-transition-to-welding=11f@0.156
+   A la vitesse du jeu, une fenetre de 90 frames contient 0.5 a 4.5 demi-tours de
+   lecture. La salle avancait `frame-num` de 1.0 par frame en ignorant `speed` : elle en
+   contenait alors 4.7 a 90.0, et chacun etait un RETOUR BRUTAL a la frame 0 — une
+   teleportation du squelette entier en une frame. L'acceleration croissant comme le
+   carre du facteur de vitesse, les animations les plus lentes (speed 0.042) etaient
+   jouees 24 fois trop vite, soit 578 fois trop d'acceleration.
+   pire acceleration recue SANS AUCUN PILOTAGE, toutes chaines : 74.08 m/s^2
+   la plus forte acceleration COMMANDEE par la salle : 381.45 m/s^2
+
+-- LA GRAVITE : UN DEPLACEMENT SOUTENU, PAS UNE VARIANCE ------------------------------------
+   Owner, trois fois : « les seins n'ont pas l'air d'etre soumis a la gravite, aucun
+   mouvement quand elle se penche en avant pour souder ». Aucune colonne ne mesurait ca :
+   toutes mesuraient de la VARIANCE, et une pose tenue n'en produit aucune (PHYSTILT
+   amp=0.0000 sur 19 chaines sur 22 — le chiffre etait la, il disait juste autre chose).
+   at0/at60 = position MOYENNE de la pointe dans le repere de l'ancre, debout puis penchee
+   a 60 degres, meme animation figee, meme duree. sag = la distance entre les deux, et c'est
+   EXACTEMENT la reponse a la gravite. Un sag nul sur une chaine de famille A avec
+   gravity>0 est un echec.
+-- LE GRADIENT LE LONG DE LA CHAINE (7e passe de l'owner, 2026-08-11 16:30) ----------------
+   « Entre la racine et les pointes c'est zone de guerre et les pointes bougent quasi pas, au
+   lieu d'un degrade progressif des racines aux pointes. »
+   Il decrit une FORME ; le tableau ne publiait qu'un SCALAIRE par chaine (`tipvar`, pris sur
+   la POINTE). Une chaine dont le maillon du milieu part en vrille pendant que la pointe reste
+   collee a la pose d'auteur rendait exactement le meme `tipvar` qu'une chaine saine : aucune
+   mesure ne pouvait voir ce defaut. Voici donc un chiffre PAR MAILLON, meme instrument que
+   `tipvar`. SPEC 2 exige la suite CROISSANTE de la racine (link0) vers la pointe.
+
+   CORRECTION DE LA 10e PASSE — LE REPERE. L'owner : « le milieu est plus hysterique (bouge
+   beaucoup plus) que les pointes, c'est pas cense ! » pendant que ce tableau publiait
+   link0=0.0000 link1=0.2240 link2=0.3846, donc CROISSANT. C'est la mesure qui avait tort :
+   elle prend l'ecart de chaque maillon a sa pose d'auteur, un ecart qui se CUMULE le long
+   de la chaine. Une pointe soudee a son parent — donc immobile PAR RAPPORT A LUI — herite
+   integralement de l'ecart du parent et affiche un grand chiffre. Meme faute de repere que
+   « differencier la position au lieu de la sortie ».
+   La colonne qui fait foi est desormais `ang` : la deviation ANGULAIRE du maillon par
+   rapport a SON ATTACHE, en degres, nulle pour un maillon qui suit rigidement son parent.
+   `amp` (metres, ancienne mesure) reste publiee a cote : l'ecart entre les deux series EST
+   la mesure de l'erreur de l'ancienne, et il ne se raconte pas, il se lit.
+ROOM-GRADIENT: chain=chestL       drive=updown     anim=assistant-firecanyon-idle-up           link0=16.9012
+   (ancienne mesure, ecart cumule en m : link0=0.1182)
+ROOM-GRADIENT: chain=chestL       drive=leftright  anim=assistant-lavatube-start-idle-b        link0=17.0797
+   (ancienne mesure, ecart cumule en m : link0=0.1312)
+ROOM-GRADIENT: chain=chestL       drive=accel      anim=assistant-firecanyon-idle-to-b         link0=17.3228
+   (ancienne mesure, ecart cumule en m : link0=0.1630)
+ROOM-GRADIENT: chain=chestL       drive=jerk       anim=assistant-firecanyon-idle-fiddle       link0=17.5649
+   (ancienne mesure, ecart cumule en m : link0=0.1283)
+ROOM-GRADIENT: chain=chestL       drive=tilt       anim=assistant-village2-idle-to-a           link0=15.5794
+   (ancienne mesure, ecart cumule en m : link0=0.0753)
+ROOM-GRADIENT: chain=chestR       drive=updown     anim=assistant-firecanyon-idle-fiddle       link0=16.4465
+   (ancienne mesure, ecart cumule en m : link0=0.1197)
+ROOM-GRADIENT: chain=chestR       drive=leftright  anim=assistant-firecanyon-idle-to-b         link0=17.1205
+   (ancienne mesure, ecart cumule en m : link0=0.1352)
+ROOM-GRADIENT: chain=chestR       drive=accel      anim=assistant-village2-idle-to-a           link0=17.0723
+   (ancienne mesure, ecart cumule en m : link0=0.1607)
+ROOM-GRADIENT: chain=chestR       drive=jerk       anim=assistant-firecanyon-idle-fiddle       link0=17.4537
+   (ancienne mesure, ecart cumule en m : link0=0.1545)
+ROOM-GRADIENT: chain=chestR       drive=tilt       anim=assistant-village2-idle-to-a           link0=15.0787
+   (ancienne mesure, ecart cumule en m : link0=0.0643)
+
+   Aucune inversion : sur chaque chaine et chaque pilotage, la deviation propre CROIT de
+   la racine vers la pointe, ce que SPEC 2 exige.
+   Pour comparaison, l'ANCIENNE mesure (ecart cumule) en signalait 0 : l'ecart entre les
+   deux comptes est la part du defaut que le repere monde rendait invisible.
+
+-- ROOM-RINGDOWN : LA FORME DE LA REPONSE APRES L'ARRET DU STIMULUS ----------------------
+   Owner 2026-08-13 : « la gelatine c'est plus du pudding, c'est pas trop lent et mou,
+   c'est vraiment pas coherent... On dirait les mouvements quand on tape sur un pudding, pas
+   des mouvements naturels de cheveux ! »
+   NATURE : une forme de reponse dans le TEMPS — decroissance libre apres l'arret du
+   stimulus, et retard de phase entre maillons. Ni une amplitude ni une variance : un
+   scalaire d'amplitude ne peut pas distinguer un pudding d'une chaine, les deux peuvent
+   bouger AUTANT.  REPERE : LOCAL, la deviation angulaire de chaque maillon PAR RAPPORT A
+   SON PARENT (degres) — jamais le monde, ou une pointe soudee a son parent afficherait un
+   grand chiffre.  LIGNE DE BASE : lbang/rbang, mesurees dans la MEME course, parce que
+   l'owner APPROUVE les meches fines et REJETTE les grosses. La cible est mesuree, pas
+   choisie.
+   RESERVE : `ang` est un MODULE (toujours positif), donc le signal est REDRESSE. La
+   frequence apparente est le DOUBLE de la reelle, une oscillation libre = DEUX minima
+   (d'ou osc = minima/2), et le retard n'est determine que MODULO une demi-periode.
+ROOM-RINGDOWN: chain=chestL       osc=1.5   decay=29     peak=10.65     mono=n/a(0 lien libre)
+   (fenetre=149 frames  maillons=1  a0(pointe)=10.65 deg  periode apparente=9.0 frames  correlations=aucune)
+ROOM-SETTLE: chain=chestL       t5=0.65    t1=0.92    t05=1.10    t01=>2.47   a0=10.65    frames=149
+ROOM-RINGDOWN: chain=chestR       osc=1.5   decay=27     peak=13.27     mono=n/a(0 lien libre)
+   (fenetre=149 frames  maillons=1  a0(pointe)=13.27 deg  periode apparente=8.0 frames  correlations=aucune)
+ROOM-SETTLE: chain=chestR       t5=0.63    t1=0.87    t05=1.03    t01=>2.47   a0=13.27    frames=149
+
+-- ROOM-SETTLE : SPEC 27, LE TEMPS DE STABILISATION A QUATRE SEUILS ----------------------
+   SPEC 27 : « After one strong isolated impulse: dominant visible response 0.3-0.6 s;
+   secondary movement 0.6-1.2 s; mostly settled ~1.0-1.5 s; essentially stationary
+   ~1.3-1.7 s. Long-running obvious oscillation should not occur. »
+   NATURE : un TEMPS, en secondes a 60 FPS, pris sur l'ENVELOPPE de la pointe — la meme
+   enveloppe glissante et le meme `a0` que le `decay` a 10 % publie au-dessus, lus a
+   quatre seuils au lieu d'un. Ce n'est donc pas une seconde mesure qui pourrait
+   contredire la premiere : c'est le meme instrument, a quatre hauteurs.
+   LECTURE : `>x.xx` = le seuil n'a jamais ete franchi dans la fenetre observee, et la
+   valeur ecrite est la duree de cette fenetre — pas le temps de stabilisation.
+   CIBLES SPEC 27 (ce bloc MESURE, il ne juge pas — les gates sont gelees) :
+     t5%   -> « dominant visible response »   0.3-0.6 s
+     t1%   -> « secondary movement »          0.6-1.2 s
+     t05%  -> « mostly settled »              1.0-1.5 s
+     t01%  -> « essentially stationary »      1.3-1.7 s
+
+   CONTROLE APPARIE — meme moteur, meme salle, meme fenetre. L'owner APPROUVE les meches
+   fines et REJETTE les grosses : la cible chiffree des grosses est donc la valeur
+   MESUREE sur les fines, jamais un nombre choisi.
+   chaine       verdict  osc     decay    lags             mono
+   lbang        APPROUVE (absente de la fenetre de ring-down)
+   rbang        APPROUVE (absente de la fenetre de ring-down)
+   backhair     REJETE   (absente de la fenetre de ring-down)
+   lmidhair     REJETE   (absente de la fenetre de ring-down)
+   rmidhair     REJETE   (absente de la fenetre de ring-down)
+   Lecture : un `osc` nettement plus grand que la reference = ca BALLOTTE (le pudding).
+   Un `lag` proche de zero ou negatif = tout le volume bouge EN PHASE, ce qui est
+   exactement le pudding et jamais des cheveux. Le verdict reste celui de l'owner ; ces
+   chiffres disent seulement de quelle grandeur il parle.
+
+-- ROOM-RINGAXIS : SPEC 24, LES TROIS FREQUENCES PROPRES, UNE PAR AXE ---------------------
+   SPEC 24 : Vertical 2.30 Hz (2.1-2.5) / Front-Back 2.50 Hz (2.3-2.7) / Lateral 2.65 Hz
+   (2.4-2.9), et « Vertical motion is intentionally the slowest ».
+   NATURE : une FREQUENCE, tiree de la serie temporelle `PHYSRINGA` — la deviation signee du
+   maillon a sa pose d'auteur, projetee axe par axe.  REPERE : le triedre de l'ANCRE (le
+   torse), que SPEC 7 impose : « all dynamic calculations shall occur relative to the
+   torso/root transform rather than directly in world space ». Le repere monde ne peut pas
+   separer ces trois axes, et une projection sur l'axe principal (ROOM-RINGDOWN ci-dessus)
+   n'en rend qu'UNE, celle de l'axe dominant : c'est pour ca que cette mesure existe a
+   cote et non a la place.
+   `fn` = frequence PROPRE = fd / sqrt(1-zeta^2). Une periode relevee sur une oscillation qui
+   DECROIT rend la frequence AMORTIE `fd` ; c'est `fn` que SPEC 24 specifie, et c'est `fn`
+   qui se compare a la cible — jamais `fd`.
+   `status=insufficient-excitation` = l'axe n'a pas assez d'extrema alternes pour porter un
+   ajustement ; `fn` et `zeta` valent alors `n/a`, jamais un repli ni la valeur d'un autre
+   axe. Une mesure qui ne peut pas etre faite se declare.
+   TROIS ESTIMATEURS SUR LA MEME SERIE, ET C'EST VOULU : `ext` compte les extrema,
+   `ar2` ajuste une recurrence d'ordre 2 sur les 149 echantillons, `zc` mesure les
+   croisements de zero (seul des trois a etre INDEPENDANT DE L'AMPLITUDE, donc le seul
+   que la montee initiale ne deplace pas). Les trois rendent la reponse des series
+   synthetiques a moins de 0.05 % pres (`physics_ringdown.py --selftest`, 5 controles
+   positifs + 2 negatifs). LEUR ECART SUR LA TRACE REELLE EST DONC UNE MESURE : quand
+   ils divergent, ce n'est pas l'un d'eux qui a tort, c'est la SERIE qui ne porte pas
+   d'oscillation libre exploitable. `spread` = ecart-type des demi-periodes ; au-dela
+   de ~20 % de la demi-periode, la periode n'est pas stable et le chiffre ne veut rien
+   dire.
+ROOM-RINGAXIS: chain=chestL       axis=v   ext_fn=2.614   ar2_fn=3.184   zc_fn=2.696  
+   zeta ext=0.292   ar2=0.210   zc=0.313   | demi-periodes=5 spread=1.97 | statuts ok/ok/ok
+   croisements de zero (frames) = [0, 9, 23, 35, 48, 59]
+   cible SPEC 24 = 2.30 Hz | les estimateurs s'ecartent de 22 % entre eux
+   -> NON MESURABLE sur cette fenetre : trois instruments valides par
+      controle positif ne peuvent pas diverger de 22 % sur une serie qui
+      porterait vraiment une oscillation libre. C'est le STIMULUS qui
+      manque, pas le solveur qui derive — et un ecart a la cible calcule
+      la-dessus serait un chiffre invente.
+ROOM-RINGAXIS: chain=chestL       axis=ap  ext_fn=2.616   ar2_fn=5.531   zc_fn=2.696  
+   zeta ext=0.295   ar2=0.930   zc=0.301   | demi-periodes=6 spread=2.87 | statuts ok/ok/ok
+   croisements de zero (frames) = [0, 5, 18, 31, 45, 57, 70]
+   cible SPEC 24 = 2.50 Hz | les estimateurs s'ecartent de 111 % entre eux
+   -> NON MESURABLE sur cette fenetre : trois instruments valides par
+      controle positif ne peuvent pas diverger de 111 % sur une serie qui
+      porterait vraiment une oscillation libre. C'est le STIMULUS qui
+      manque, pas le solveur qui derive — et un ecart a la cible calcule
+      la-dessus serait un chiffre invente.
+ROOM-RINGAXIS: chain=chestL       axis=lat ext_fn=2.515   ar2_fn=2.510   zc_fn=2.710  
+   zeta ext=0.336   ar2=0.368   zc=0.365   | demi-periodes=5 spread=1.75 | statuts ok/ok/ok
+   croisements de zero (frames) = [0, 14, 26, 38, 51, 60]
+   cible SPEC 24 = 2.65 Hz | les estimateurs s'ecartent de 8 % entre eux
+   -> mesure CONVERGENTE ; ecart a la cible +2.3 % (zc)
+ROOM-RINGAXIS: chain=chestR       axis=v   ext_fn=3.002   ar2_fn=n/a     zc_fn=2.934  
+   zeta ext=0.222   ar2=n/a     zc=0.220   | demi-periodes=6 spread=4.05 | statuts ok/no-oscillation/ok
+   croisements de zero (frames) = [0, 2, 12, 25, 37, 49, 63]
+   cible SPEC 24 = 2.30 Hz | les estimateurs s'ecartent de 2 % entre eux
+   -> mesure CONVERGENTE ; ecart a la cible +27.6 % (zc)
+ROOM-RINGAXIS: chain=chestR       axis=ap  ext_fn=2.842   ar2_fn=5.591   zc_fn=2.776  
+   zeta ext=0.282   ar2=0.924   zc=0.301   | demi-periodes=6 spread=3.03 | statuts ok/ok/ok
+   croisements de zero (frames) = [0, 5, 17, 30, 43, 54, 68]
+   cible SPEC 24 = 2.50 Hz | les estimateurs s'ecartent de 101 % entre eux
+   -> NON MESURABLE sur cette fenetre : trois instruments valides par
+      controle positif ne peuvent pas diverger de 101 % sur une serie qui
+      porterait vraiment une oscillation libre. C'est le STIMULUS qui
+      manque, pas le solveur qui derive — et un ecart a la cible calcule
+      la-dessus serait un chiffre invente.
+ROOM-RINGAXIS: chain=chestR       axis=lat ext_fn=2.949   ar2_fn=3.547   zc_fn=3.448  
+   zeta ext=0.247   ar2=0.933   zc=0.444   | demi-periodes=7 spread=5.00 | statuts ok/ok/ok
+   croisements de zero (frames) = [0, 2, 14, 26, 39, 50, 66, 68]
+   cible SPEC 24 = 2.65 Hz | les estimateurs s'ecartent de 20 % entre eux
+   -> NON MESURABLE sur cette fenetre : trois instruments valides par
+      controle positif ne peuvent pas diverger de 20 % sur une serie qui
+      porterait vraiment une oscillation libre. C'est le STIMULUS qui
+      manque, pas le solveur qui derive — et un ecart a la cible calcule
+      la-dessus serait un chiffre invente.
+
+-- ALLONGEMENT RELATIF DES MAILLONS (10e passe de l'owner, 2026-08-11 18:00) -------------
+   « Les seins s'allongent de nouveau sur les mouvements brusques. » Le build precedent
+   pariait par ecrit : si l'etirement revient, c'est la contrainte de longueur qui cede, et
+   le couplage ne sera PAS rebaisse. Il est revenu ; le couplage reste a 1.55 et c'est le
+   solveur qui a change — la poussee de collision, seule operation qui deplacait encore le
+   lien hors de sa sphere, est desormais reprojetee dessus (elle fait TOURNER, elle
+   n'ALLONGE plus).
+   NATURE : un rapport sans dimension, |longueur/longueur_de_repos - 1|. REPERE : aucun,
+   c'est une longueur sur une longueur mesuree depuis l'attache du maillon. LECTURE QUAND
+   LE DEFAUT EST ABSENT : 0. Cible de la DECISION 2 du superviseur : <= 3 % sur jerk/accel.
+ROOM-STRETCH: max=0.0000 chain=chestL drive=updown anim=assistant-idle-leaning-right
+   stretch chestL       updown=0.0000 leftright=0.0000 accel=0.0000 jerk=0.0000 tilt=0.0000
+   stretch chestR       updown=0.0000 leftright=0.0000 accel=0.0000 jerk=0.0000 tilt=0.0000
+   Aucun couple (chaine, pilotage) au-dessus de 3 %% : la contrainte de longueur tient.
+
+-- REPLI DU RECUL — OU S'ALLONGE L'OS, ET DE COMBIEN ------------------------------------
+   NATURE : rapport sans dimension |want/ml - 1|, un MAXIMUM sur la fenetre. REPERE :
+            aucun, une longueur sur une longueur depuis la MEME attache. ABSENT : 0, et
+            le repli n'a alors jamais tire sur cette chaine.
+   LECTURE : `retfb` est l'allongement laisse PAR CE CHEMIN, `elong` celui qui est
+            REELLEMENT ecrit pour la chaine. Quand les deux coincident, tout
+            l'allongement de la chaine vient de ce repli et de rien d'autre : c'est une
+            ATTRIBUTION, pas un controle de correctif.
+   Le repli n'a tire sur AUCUNE chaine de cette course.
+
+-- ANIMATION SEULE — LA SEULE JAMBE QUE L'OWNER VOIE EN JEU (18e passe) ---------------------
+   NATURE   trois grandeurs distinctes de la MEME jambe non pilotee : une amplitude (tip),
+            une DISCONTINUITE (jump = pire ecart d'une frame a la suivante) et un
+            allongement d'os relatif (elong).
+   REPERE   ecart a la pose d'AUTEUR, dans le repere de l'ancre — le meme que `row`. La
+            chaine n'herite donc pas du mouvement de son porteur.
+   A DEFAUT ABSENT une chaine qui suit exactement l'animation lit tip=0, jump=0, elong=0.
+   TEXTE PERIME RETIRE (2026-08-12) : cette ligne citait « kneeflapR a 0.0093 m » comme
+            lecture de reference. Ce chiffre venait des courses de la mi-journee et il ne
+            correspond plus a rien — la course courante lit 0.0640 (L) / 0.0432 (R), et en
+            MEDIANE sous animation seule l'ordre est meme INVERSE (0.0019 L / 0.0126 R).
+            Un nombre grave dans un commentaire cesse d'etre une mesure des que la course
+            change : il n'y en aura plus ici, seulement des grandeurs relues du tableau.
+   POURQUOI CETTE SECTION EXISTE : les cinq pilotages commandent 15.8 / 45.7 / 84.4 /
+   381.4 / 9.8 m/s^2. `jerk` vaut 39 g. Aucune animation de Keira n'approche ca, donc un
+   ratio publie sous `jerk` decrit un stimulus qui n'est jamais devant son ecran. Le
+   `baseline` de ROOM-JELLY est le minimum des trois pilotages DOUX, pas cette jambe-ci :
+   il n'a jamais mesure ce qu'il voit.
+   chain          tip_max   tip_med  jump_max     ratio     elong
+   chestL          0.0987    0.0104    0.0188    0.2335    0.0000
+   chestR          0.1078    0.0097    0.0292    0.2709    0.0000
+
+
+   CE QUE LA 10e PASSE AJOUTE. « Le sag est invisible sur l'inclinaison toujours » — et la
+   gravite avait pourtant ete TRIPLEE (0.45 -> 1.30) entre les deux builds sans que le
+   chiffre bouge de 0.0156. Une grandeur insensible a un triplement de son propre reglage ne
+   depend pas de ce reglage : ce n'etait plus un reglage, c'etait un defaut de mecanisme.
+   Trois colonnes le tranchent maintenant, et elles se lisent ENSEMBLE :
+     gn  = |gravite effective| / |g| vue par l'ancre. 0 debout (les deux gravites
+           s'annulent), 1.0 a 60 degres. Si gn est nul a 60 degres, la gravite n'arrive pas
+           jusqu'a cette chaine et aucun reglage n'y changera rien.
+     tf  = la part TANGENTIELLE de cette gravite. La contrainte de longueur n'autorise
+           qu'une ROTATION autour de l'attache : la composante dirigee LE LONG de l'os est
+           annulee par construction. tf ~ 0 avec gn = 1.0 veut dire « la gravite arrive et la
+           geometrie du rig l'annule » — un fait, pas un bug, mais il fallait le mesurer
+           pour cesser de le confondre avec un bug.
+     sagn = sag rapporte a la LONGUEUR TOTALE de la chaine. Sans lui, une chaine d'un
+           maillon et une chaine de trois ne sont pas comparables et le classement ment.
+ROOM-GRAVSAG: chain=chestL       at0=0.0001    at60=0.0187    sag=0.0188    sagn=0.0786   gn=0.9999  tf=0.7797  fam=A
+ROOM-GRAVSAG: chain=chestR       at0=0.0002    at60=0.0236    sag=0.0238    sagn=0.0996   gn=0.9999  tf=0.9982  fam=A
+
+-- SAG RAPPORTE A LA GRAVITE REELLEMENT RECUE (ROOM-GRAVSAG-TF) -------------------------
+   sagt = sagn / tf. Deux chaines MIROIR doivent rendre le MEME sagt ; tout ecart qui
+   survit a cette division est physique, tout ecart qui disparait etait de l'instrument.
+ROOM-GRAVSAG-TF: chain=chestL       sagn=0.0786   tf=0.7797  sagt=0.1008  
+ROOM-GRAVSAG-TF: chain=chestR       sagn=0.0996   tf=0.9982  sagt=0.0998  
+ROOM-GRAVSAG-MIRROR: chestL/chestR  ecart brut(sagn)=1.27x  ecart corrige(sagt)=1.01x
+   (debout, la meme gravite effective vaut : chestL=0.0001 chestR=0.0001)
+
+-- L'HYSTERESIS : LA CHAINE REVIENT-ELLE ? (ROOM-HYST) -----------------------------------
+   Cycle ferme 0 deg -> 60 deg -> 0 deg. `idle` et `back` sont la MEME pose commandee,
+   etablie de la MEME facon ; seul le chemin parcouru entre les deux differe. Tout ecart
+   s'impute donc au chemin, et c'est la definition de l'hysteresis.
+ROOM-HYST: chain=chestL       gap=0.0001    exc=0.0188    hystn=0.0005   ret=0.0058       fam=A
+ROOM-HYST: chain=chestR       gap=0.0002    exc=0.0238    hystn=0.0010   ret=0.0098       fam=A
+
+-- L'HYSTERESIS DANS LE REGIME REPRESENTATIF (ROOM-HYST-SHAKE) ---------------------------
+ROOM-HYST-SHAKE: chain=chestL       gap=0.0001    gapn=0.0003   control=0.0000    ratio=0.0000   fam=A
+ROOM-HYST-SHAKE: chain=chestR       gap=0.0002    gapn=0.0009   control=2.2891e-05 ratio=0.1103   fam=A
+ROOM-HYST-SHAKE-CONTROL: 0 chaine(s) sur 2 ou la contrainte levee fait monter l'ecart de plus de 50%
+   => LE CONTROLE POSITIF N'A PAS TIRE. Aucun zero de cette colonne n'est
+      recevable tant que ce n'est pas explique : une mesure que le defaut
+      injecte ne fait pas bouger ne mesure pas ce defaut.
+
+-- LE PIRE CAS DE CHAQUE CHAINE, AVEC LE NOM DE L'ANIMATION OU IL S'EST PRODUIT ------------
+worst chain=chestL       tipvar=0.1630    anim=assistant-firecanyon-idle-to-b         drive=accel     rootdev=0.0728    meshpen=-1.48926e-06 jump=0.0914
+      (pire rootdev sur assistant-firecanyon-idle-fiddle/jerk, pire meshpen sur assistant-idle-transition-to-welding/updown, pire jump sur assistant-lavatube-end-idle/accel)
+worst chain=chestR       tipvar=0.1607    anim=assistant-village2-idle-to-a           drive=accel     rootdev=0.0724    meshpen=-9.98535e-06 jump=0.0793
+      (pire rootdev sur assistant-firecanyon-idle-fiddle/jerk, pire meshpen sur assistant-village3-idle/updown, pire jump sur assistant-idle-leaning-right/accel)
+
+-- LA GEOMETRIE DE CHAQUE CHAINE, TELLE QUE LE MOTEUR L'A RESOLUE ------------------------
+   (la longueur d'os est le PLAFOND geometrique de l'amplitude d'un lien : personne n'a a
+   deviner si une chaine « ne bouge pas assez » ou « ne peut pas bouger plus ».)
+   `contact_frames` = frames de la course ou cette chaine avait au moins une paire
+   (lien, volume) en contact. Une chaine a contact_frames=0 n'a JAMAIS approche une
+   surface : son meshpen 0.0000 veut dire « n'a rien touche », pas « mesure a zero ». La
+   distinction est publiee ici plutot que noyee dans un zero commun.
+   chain chestL       links=1 fam=A hang=0.00 contact_frames=23084  joints=lBoob                        bones_m=0.2386
+   chain chestR       links=1 fam=A hang=0.00 contact_frames=23084  joints=rBoob                        bones_m=0.2386
+
+-- LES JOINTS QUE CHAQUE CHAINE ECRIT REELLEMENT --------------------------------------------
+   Verdict owner du 2026-08-11 : « un polygone de la semelle de la chaussure gauche se fait
+   la malle » et « les languettes des bandes de genoux ne bougent pas du tout ». Les deux se
+   decident sur cette liste — ce que la chaine ECRIT — et pas sur ce que son nom suggere.
+   chestL       -> lBoob(idx 45)
+   chestR       -> rBoob(idx 44)
+
+-- 6e PASSE DE L'OWNER, DEFAUT 1 : L'AUTO-COLLISION DES MECHES -----------------------------
+   « Les meches fines jittent like crazy des que la tete bouge (peu importe si c'est la tete
+   qui bouge ou si elle est deplacee dans l'espace par le reste du squelette). »
+   Les colliders Lbanga / Rbanga / Lmidhaira / lBoob sont les JOINTS-RACINES des chaines
+   elles-memes, et les capsules Lbangb->Lbanga sont leurs MAILLONS. Une chaine ne doit donc
+   jamais entrer en collision avec ses propres volumes. `selfcol` compte les corrections qui
+   en viennent : ZERO exige, et la branche ARMEE leve l'exclusion pour prouver que le
+   compteur voit quelque chose.
+ROOM-SELFCOL: run=0 disarmed=0 armed=882
+ROOM-SIDE-CONTROL: armed=0 disarmed=0
+ROOM-SIDE: chains=0/2 crossing=0
+   ATTENTION : zero partout — ce zero exige un controle positif qui l'a fait MONTER
+   avant d'etre cru (SPEC 7). Il n'en existe pas encore.
+   selfcol chestL       run=0        armed=289       (retreat=0       flip=580      inv=0      invres=0      elong=0.0000 raddrop=0)
+   selfcol chestR       run=0        armed=593       (retreat=0       flip=752      inv=0      invres=0      elong=0.0000 raddrop=0)
+-- LE PREMIER SEGMENT DE LA MECHE (rootrot) ---------------------------------------------
+   L'angle ecrit dans la 3x3 du maillon `rootlock`. Il valait 0.0000 STRUCTURELLEMENT
+   avant ce cycle : la boucle d'ecriture du moteur sautait tout `l < rlk`, donc ~50 % de
+   la geometrie des cheveux etait soudee au crane et une meche a 2 joints se reduisait a
+   un segment rigide articule EN SON MILIEU. Zero ici = le defaut est present.
+   rootrot chestL         0.0000 deg   (maillons=1)
+   rootrot chestR         0.0000 deg   (maillons=1)
+   Toutes les chaines a 2+ maillons ecrivent une rotation non nulle sur leur premier
+   segment : le cuir chevelu est devenu une charniere au lieu d'une soudure. Le
+   controle positif est la version precedente du moteur, ou ce meme chiffre valait
+   0.0000 sur TOUTES ces chaines — un zero structurel, pas un zero mesure.
+
+-- LE PRIX DU MUR DUR D'EXCURSION (raddrop) --------------------------------------------
+   NATURE : une longueur CUMULEE sur la fenetre (somme des ecarts retires), pas une
+   amplitude — elle ne se compare qu'entre chaines d'une MEME course. REPERE : ecart a
+   la pose animee du lien. LECTURE QUAND LE MUR NE MORD PAS : 0.
+   prix total du mur sur la course : 0.000 m
+   Un mur qui mord des milliers de fois n'est pas un garde-fou, c'est le regime de
+   fonctionnement : aucun reglage de raideur, de masse ou de couplage ne deplace un lien
+   plaque contre une butee dure. C'est la lecture mecanique de `knee-tabs` (couplage
+   monte de 1.00 a 1.60 au cycle precedent, sans effet visible) et de la poitrine
+   « un peu mutee sur les mouvements subtils ».
+
+ROOM-VOLPRIO: pairs_ignored=378 chains=2
+ROOM-VOLPRIO: chain=chestL       ignored=276      retreat=0
+ROOM-VOLPRIO: chain=chestR       ignored=102      retreat=0
+
+-- SPEC 18 : LA PENETRATION MESUREE CONTRE LA PEAU, PAS CONTRE LES VOLUMES ------------
+   `meshpen` compte contre les volumes de collision, qui ne representent que 29.7 % de la
+   geometrie que la physique pilote (0 % pour backhair, pantflapL, pantflapR ; 10 % pour
+   les lunettes). Un zero y reste donc compatible avec ce que l'owner voit. Cette
+   colonne-ci mesure la MEME position ecrite contre le mesh qui est DESSINE.
+   LEGENDE CORRIGEE le 2026-08-14 : elle disait « son zero est donc compatible avec ce
+   que l'owner voit » a une epoque ou la colonne `meshpen` de CETTE ligne valait zero
+   sur les 22 chaines — non pas parce que rien ne penetrait, mais parce qu'elle lisait
+   une cle absente (voir juste dessous). Corrigee, 18 chaines sur 22 publient une valeur
+   non nulle, jusqu'a 0.7578 m. La phrase decrivait un faux zero, pas une mesure.
+   NATURE : profondeur en metres, positive = SOUS la peau. REPERE : le monde, frame
+   ecrite. LECTURE HORS DEFAUT : 0. tests=0 veut dire « pas regarde », jamais « rien ».
+ROOM-SKINPEN: chain=chestR       skinpen=0.1699 m   meshpen=-9.98535e-06 m
+ROOM-SKINPEN: chain=chestL       skinpen=0.1531 m   meshpen=-1.48926e-06 m
+ROOM-SKINPEN-TESTS: 4235144 echantillons de surface compares sur la fenetre
+
+ROOM-SKINPEN-MIRROR: l'ecart entre paires MIROIR est l'erreur de l'instrument —
+   parametres identiques, geometrie miroir : ce qui les separe n'est pas un defaut.
+ROOM-SKINPEN-MIRROR: chestL       0.1531  vs chestR       0.1699   ecart   10 %
+ROOM-SKINPEN-FLOOR: 0.0168 m — AUCUNE valeur de la colonne ci-dessus n'est interpretable en dessous de ce plancher.
+
+-- LE PREDICAT CONIQUE : LE SOLIDE TESTE EST ENFIN CELUI QUE LA DONNEE DESIGNE ----------
+   Les 24 capsules livrees sont TOUTES coniques (radius != radius2). Le moteur testait le
+   rayon interpole au parametre de PROJECTION, c'est-a-dire f(t) evaluee au mauvais t au
+   lieu d'etre MINIMISEE sur [0,1] : un ensemble strictement plus PETIT que l'enveloppe
+   convexe des deux spheres. Le solveur cessait donc de pousser avant la vraie surface.
+   NATURE : une profondeur (m). REPERE : monde, MEME solide exact des deux cotes.
+   LECTURE HORS DEFAUT : desarme = la course ; arme, elle doit MONTER.
+ROOM-CONE: disarmed=0.0006 armed=0.0227   (metres, converties depuis les unites de jeu)
+   Le controle du FOURREAU est sans objet : plus aucune chaine ne porte `shell=`
+   (pantflapL/pantflapR gelees par l'owner le 2026-08-14 07:30). Rien de prouve,
+   rien de reclame -- un domaine vide n'est pas un zero gagne.
+   `raddrop` = fois ou le PLAFOND D'EXCURSION du lien (son propre rayon mesure) a mordu.
+   C'est un suppresseur, donc SPEC 7 exige qu'il chiffre ce qu'il retire PAR CHAINE : un
+   affaissement gravitaire ecrete par ce plafond se lit ici et nulle part ailleurs.
+
+-- 11e PASSE DE L'OWNER : LA FORME, PAS L'AMPLITUDE ----------------------------------------
+   « Lors de mouvements brusques il y a un effet d'etirement et un peu gelee ou ca change de
+   taille (plus petit, plus gros, plus long, plus court, ecrase), c'est pas coherent ! » ...
+   « certains maillons meriteraient un traitement pour eviter de creer des angles extremes qui
+   mettent en lumiere le lack of geometrie » ... « le bas de son pantacourt clipe toujours a
+   l'interieur de ses mollets, comme si son pantacourt s'arretait aux genoux ».
+   Trois defauts de FORME, que ni tipvar (une variance) ni elong (la longueur de l'OS, qui
+   est invariante par construction) ne pouvaient decrire. Trois grandeurs, chacune avec sa
+   NATURE, son REPERE et sa lecture quand le defaut est ABSENT :
+
+   bendcut  DEGRES retires par l'attenuation d'angle. NATURE : un angle cumule, donc un
+            SUPPRESSEUR qui se chiffre (SPEC 7). REPERE : l'attache du maillon. ABSENT : 0 —
+            et il DOIT valoir 0 hors des cheveux, l'owner ayant ferme le perimetre a
+            « juste les meches, pas le reste, encore moins les seins ».
+   shape    |p - T| / longueur de l'os, SANS DIMENSION. NATURE, CORRIGEE LE 2026-08-12 : ce
+            n'est PAS l'echelle de la deformation imposee a la chair, c'est la CORDE de la
+            rotation du lien autour de son attache. La contrainte de longueur etant dure,
+            |p - attache| et |T - attache| valent tous deux la longueur de l'os, donc
+            |p - T| = 2 L sin(tiprot/2) : shape = 2 sin(tiprot/2), la grandeur deja publiee
+            dans la colonne voisine. VERIFIE sur ce tableau, sur les 17 chaines sans
+            attenuation d'angle (bendcut = 0) : ecart maximal 0.072 % — earL 1.9572 contre
+            1.9572, chestL 0.6727 contre 0.6727, goggles 1.9986 contre 1.9987, anklestrapL
+            0.1039 contre 0.1040. Les 5 chaines de cheveux portent une attenuation d'angle,
+            qui s'applique ENTRE les deux releves : deux d'entre elles s'en ecartent nettement
+            (lbang 29.6 %, rbang 27.1 %), les trois autres restent a 0.0 %.
+            CONSEQUENCE (test d'admissibilite SPEC 7) : shape lit son MAXIMUM precisement
+            quand le moteur fait ce que la SPEC exige — une rotation rigide autour de l'ancre,
+            a longueur invariante. Elle ne peut donc pas distinguer le defaut de son absence,
+            et TOUT CE QUI EN A ETE CONCLU SUR `flesh-jelly` EST RETIRE. La colonne reste
+            publiee : c'est la mesure honnete de l'excursion angulaire, rien de plus.
+            REPERE : aucun, une longueur sur une longueur. ABSENT : 0 (le maillon est a sa
+            pose de modele) — et c'est bien la le probleme, 0 = immobile, pas 0 = sain.
+   buried   paires (lien, volume) ou le lien est ENTIEREMENT dans un volume A SA POSE DE
+            MODELE, comptees une fois par frame. NATURE : un compte. ABSENT : 0. Un pan dont
+            la pose est DANS la jambe n'a aucune surface a traverser : meshpen reste a zero
+            pendant que l'owner le voit disparaitre. C'est la mesure de ce defaut-la.
+
+   tiprot   ROTATION D'OS effectivement ECRITE dans la matrice du DERNIER maillon, en degres.
+            NATURE : un angle. Elle se lit A L'ENVERS des autres : jusqu'au 2026-08-12 elle
+            valait STRUCTURELLEMENT ZERO. Le bloc d'ecriture ne tournait un maillon que s'il
+            avait un enfant SIMULE a viser, donc le DERNIER maillon de chaque chaine ne
+            recevait qu'une TRANSLATION. `chestL`/`chestR` n'ayant qu'UN SEUL maillon, le sein
+            n'avait JAMAIS tourne : il GLISSAIT de 16 cm, orientation figee — et un os qui se
+            deplace sans tourner cisaille sa peau exactement de la rotation qu'il n'a pas
+            appliquee. C'est « ca change de taille, plus long, plus court, ECRASE ».
+            Un NON-ZERO est donc la preuve d'execution du chemin neuf, et il doit EGALER la
+            deviation du meme maillon dans ROOM-GRADIENT : deux instruments independants.
+
+   chaine         bendcut     shape    buried    tiprot   limite d'angle
+   chestL             0.0    0.3304         0     19.02   -
+   chestR             0.0    0.3118         0     17.94   -
+   PERIMETRE : 0 chaine(s) portent une limite d'angle () et 0 chaine(s) hors perimetre
+   ont paye de l'attenuation. Le second nombre DOIT etre zero : c'est la phrase de l'owner
+   « juste sur les meches » rendue verifiable. Le premier n'est pas un zero structurel — les
+   memes compteurs sont non nuls sur les cheveux dans la MEME course, donc ils tirent.
+   RE-ASSISE : 0 liens replaces, dont 0 retombes sur l'ancienne heuristique (rayon le
+   long de l'os du porteur). Le second DOIT etre zero. La preuve n'est pas ce drapeau mais
+   la DISTANCE publiee par la course (`reseat-at ... bind=...`) : elle ne peut sortir que du
+   chemin qui lit la bind-pose du rig, l'ancien rendant exactement le rayon du lien.
+
+-- 11e PASSE : L'EFFET GELEE EST UNE DISCONTINUITE — ROOM-JELLY ----------------------------
+   « Lors de mouvements brusques il y a un effet d'etirement et un peu gelee ou ca change de
+   taille, c'est pas coherent ! » ... « c'est pourtant nickel sur le reste des animations plus
+   subtiles. » Le defaut est donc une INCOHERENCE TEMPORELLE, pas une amplitude — et c'est
+   pour ca qu'aucune colonne d'amplitude ne pouvait le voir.
+
+   LES TROIS QUESTIONS DE LA SPEC 7, AVANT LE CHIFFRE :
+   NATURE  : un rapport SANS DIMENSION — la fraction de l'amplitude de fenetre parcourue en
+             UNE frame. C'est une mesure de DISCONTINUITE (donc une frequence), pas une
+             amplitude. Une amplitude ne pouvait pas decrire « ca change de taille sans etre
+             coherent », de la meme facon qu'une variance ne pouvait pas decrire un
+             affaissement sous gravite.
+   REPERE  : celui de l'ANCRE, applique a l'ecart `o` = position ecrite moins pose d'auteur du
+             MEME joint (jak-hd-physics.gc:1950-1958, vector-rotate*! par w2l, donc rotation
+             seule). Ni le repere monde, ni un ecart brut : les deux a la fois. Numerateur =
+             norme euclidienne de l'increment d'UNE frame (jak-hd-physics.gc:2201) ;
+             denominateur = diagonale de la boite englobante du MEME vecteur, du MEME maillon,
+             sur la MEME fenetre (jak-hd-physics.gc:2458-2463). Meme grandeur, meme repere,
+             meme fenetre — c'est pour ca que le rapport se calcule PAR FENETRE puis se prend
+             au maximum, et jamais comme max(jump)/max(tipvar), qui melangerait deux fenetres
+             differentes (sur chestL/jerk ce melange lit 0.4300 la ou la pire fenetre reelle
+             lit 0.7811 : il DILUE le defaut au lieu de le montrer).
+   ABSENT  : sin(pi/T) pour une oscillation de periode T ; ~0.16 a 3 Hz, ~0.31 a 6 Hz. Mesure
+             sur chestL sous les pilotages doux : 0.175.
+   RESERVE : le denominateur est une DIAGONALE de boite englobante ; pour un mouvement
+             isotrope elle surestime l'etendue le long d'un axe d'un facteur allant jusqu'a
+             racine de 3. Le ratio publie est donc une BORNE INFERIEURE de la discontinuite
+             reelle.
+
+   LA BORNE SE DERIVE, ELLE N'EST PAS CHOISIE. Pour une oscillation de periode T frames,
+   l'increment maximal par frame rapporte a l'etendue crete-a-crete vaut sin(pi/T). Donc
+   ratio = sin(pi/T), soit T = pi / asin(ratio). Lecture (a 60 images/s) :
+     T = 20 frames (3 Hz)    -> ratio 0.156      T = 10 frames (6 Hz)  -> ratio 0.309
+     T =  6 frames (10 Hz)   -> ratio 0.500      T =  4 frames (15 Hz) -> ratio 0.707
+     T =  3.5 frames (17 Hz) -> ratio 0.781   <- ce que chestL mesure sous jerk
+   (la note de cadrage ecrivait « 3.3 frames (18 Hz) -> 0.781 » : pi/asin(0.781) = 3.51, et
+   3.3 frames correspond a 0.814. Le pas de la lecture est corrige ici, pas le chiffre mesure.)
+   La SPEC 1bis exige que la poitrine ait une MASSE : « l'inertie retarde la reponse sur un
+   depart brusque : ils restent en arriere puis rattrapent — dephasage mesurable entre l'ancre
+   et la pointe ». Une chair qui oscille a 17 Hz n'a pas d'inertie, c'est du broutement
+   numerique. PLAFOND : ratio <= 0.5 (T >= 6 frames, 10 Hz). Le `baseline` mesure de chestL
+   (0.175, soit T = 18 frames = 3.3 Hz) est ce a quoi ressemble de la chair.
+
+   baseline = le MINIMUM des ratio de la MEME chaine sur les trois pilotages DOUX (updown,
+   leftright, tilt) : la lecture de la meme chaine quand le defaut est ABSENT, exactement la
+   comparaison que l'owner fait lui-meme entre « brusque » et « subtil ». excess = ratio -
+   baseline. Un ratio n'est calcule que si tipvar > 0.02 m : un rapport sur un denominateur
+   nul ne veut rien dire, et dans ce cas la ligne porte ratio=- et n'autorise aucune
+   conclusion.
+
+ROOM-JELLY: chain=chestL       drive=updown     jump=0.0165    tipvar=0.0819    ratio=0.2018   baseline=0.2018   excess=0.0000   period=15.46
+ROOM-JELLY: chain=chestL       drive=leftright  jump=0.0393    tipvar=0.1152    ratio=0.3415   baseline=0.2018   excess=0.1397   period=9.01
+ROOM-JELLY: chain=chestL       drive=accel      jump=0.0914    tipvar=0.1479    ratio=0.6182   baseline=0.2018   excess=0.4164   period=4.71
+ROOM-JELLY: chain=chestL       drive=jerk       jump=0.0466    tipvar=0.0973    ratio=0.4787   baseline=0.2018   excess=0.2769   period=6.29
+ROOM-JELLY: chain=chestL       drive=tilt       jump=0.0083    tipvar=0.0281    ratio=0.2957   baseline=0.2018   excess=0.0939   period=10.47
+ROOM-JELLY: chain=chestR       drive=updown     jump=0.0311    tipvar=0.1263    ratio=0.2464   baseline=0.2464   excess=0.0000   period=12.62
+ROOM-JELLY: chain=chestR       drive=leftright  jump=0.0527    tipvar=0.1331    ratio=0.3956   baseline=0.2464   excess=0.1492   period=7.72
+ROOM-JELLY: chain=chestR       drive=accel      jump=0.0700    tipvar=0.1092    ratio=0.6407   baseline=0.2464   excess=0.3943   period=4.52
+ROOM-JELLY: chain=chestR       drive=jerk       jump=0.0648    tipvar=0.1187    ratio=0.5461   baseline=0.2464   excess=0.2997   period=5.44
+ROOM-JELLY: chain=chestR       drive=tilt       jump=0.0188    tipvar=0.0643    ratio=0.2916   baseline=0.2464   excess=0.0452   period=10.62
+ROOM-JELLY-WORST: chain=chestR drive=accel ratio=0.6407 period=4.52 over=3
+
+-- LA GELEE EN FONCTION DE LA FORCE DU MOUVEMENT (ROOM-JELLY-AMP) ------------------------
+   mediane du ratio par QUARTILE d'amplitude. Sain = MONTE de Q1 vers Q4.
+ROOM-JELLY-AMP: chain=chestL       n=135  amp=0.0281..0.1630 m  Q1=0.1289 Q2=0.3415 Q3=0.2998 Q4=0.3338  MONTE
+ROOM-JELLY-AMP: chain=chestR       n=135  amp=0.0300..0.1607 m  Q1=0.1411 Q2=0.2750 Q3=0.3170 Q4=0.3607  MONTE
+   `over` = nombre de couples (chaine, pilotage) au-dessus du plafond derive de 0.5, soit une
+   oscillation plus rapide que 6 frames / 10 Hz : de la chair n'oscille pas la.
+   Le ratio est pris PAR FENETRE puis au MAXIMUM sur les fenetres (numerateur et denominateur
+   viennent donc de la MEME fenetre) ; le nom de l'animation de la pire fenetre est celui du
+   bloc `row` correspondant.
+   PLAFOND STRUCTUREL : les deux extremites d'un increment d'une frame sont dans la boite de
+   la fenetre, donc jump <= diagonale et le ratio ne peut pas depasser 1.0000. Un ratio a
+   1.0000 exactement (period=2.00, la limite de Nyquist) n'est donc pas une saturation
+   d'instrument : il dit que TOUTE l'excursion de la fenetre s'est faite en UNE frame — une
+   marche, pas une oscillation. C'est la lecture la plus severe que cette grandeur puisse
+   rendre, et elle est atteinte.
+
+-- 6e PASSE, DEFAUT 2 : LA COURBE DE REPONSE ------------------------------------------------
+   « Les meches les plus grosses sont trop statiques sur les mouvements faibles, trop
+   hysteriques sur les mouvements brusques. » Une reponse non lineaire, c'est un seuil. Meme
+   animation figee, meme chaine, meme fenetre : la SEULE chose qui change d'un niveau au
+   suivant est l'amplitude de l'excitation (unites de jeu par frame^2). `gain` = amplitude
+   de pointe / excitation, normalise sur le premier niveau : une droite a 1.00 est une
+   reponse LINEAIRE, une marche designe le seuil coupable.
+   chain        exc=1.5     exc=3.5     exc=8.0     exc=18.0    exc=42.0    exc=96.0   
+   resp chestL       1.000       0.848       0.870       0.461       0.239       0.104         amp: 0.0210 0.0416 0.0976 0.1164 0.1409 0.1401
+   resp chestR       1.000       0.808       0.851       0.485       0.238       0.121         amp: 0.0219 0.0414 0.0996 0.1276 0.1464 0.1704
+
+-- 6e PASSE, DEFAUT 3 : LA GRAVITE EXISTE-T-ELLE QUAND ELLE SE PENCHE ? ---------------------
+   « Les seins n'ont pas l'air d'etre soumis a la gravite, aucun mouvement quand elle se
+   penche en avant pour souder, pas coherent du tout. » Meme chaine, meme animation figee,
+   meme duree que le repos : la SEULE difference est l'inclinaison du tronc. La famille A
+   porte une gravite exprimee dans le repere de l'ancre — nulle quand elle est droite
+   (l'equilibre reste la pose du modele), non nulle des qu'elle penche. `dev` doit donc
+   MONTER de la colonne droite a la colonne penchee, et pour elles seules.
+ROOM-TILT: deg=60 chains=2
+   tilt chestL       fam=A  dev_droite=0.0001    dev_penchee=0.0187     ratio=235.1x
+   tilt chestR       fam=A  dev_droite=0.0002    dev_penchee=0.0236     ratio=145.0x
+
+-- LES MESURES, UNE LIGNE PAR (CHAINE x ANIMATION x PILOTAGE) ------------------------------
+row chain=chestL       anim=assistant-idle-leaning-right           drive=updown    tipvar=0.0700    rootdev=0.0416    meshpen=-0.0204   jump=0.0076    ns=35
+row chain=chestL       anim=assistant-idle-leaning-right           drive=leftright tipvar=0.1125    rootdev=0.0658    meshpen=-0.0008   jump=0.0358    ns=35
+row chain=chestL       anim=assistant-idle-leaning-right           drive=accel     tipvar=0.1437    rootdev=0.0681    meshpen=-0.0001   jump=0.0647    ns=35
+row chain=chestL       anim=assistant-idle-leaning-right           drive=jerk      tipvar=0.1042    rootdev=0.0613    meshpen=-0.0005   jump=0.0441    ns=35
+row chain=chestL       anim=assistant-idle-leaning-right           drive=tilt      tipvar=0.0037    rootdev=0.0201    meshpen=-0.0407   jump=0.0010    ns=35
+row chain=chestL       anim=assistant-idle-transition-right-to-left drive=updown    tipvar=0.1050    rootdev=0.0654    meshpen=-0.0246   jump=0.0179    ns=35
+row chain=chestL       anim=assistant-idle-transition-right-to-left drive=leftright tipvar=0.1556    rootdev=0.0699    meshpen=-0.0005   jump=0.0373    ns=35
+row chain=chestL       anim=assistant-idle-transition-right-to-left drive=accel     tipvar=0.1502    rootdev=0.0624    meshpen=-0.0007   jump=0.0647    ns=35
+row chain=chestL       anim=assistant-idle-transition-right-to-left drive=jerk      tipvar=0.1400    rootdev=0.0651    meshpen=-0.0011   jump=0.0550    ns=35
+row chain=chestL       anim=assistant-idle-transition-right-to-left drive=tilt      tipvar=0.0343    rootdev=0.0394    meshpen=-0.0412   jump=0.0073    ns=35
+row chain=chestL       anim=assistant-idle-leaning-left            drive=updown    tipvar=0.0919    rootdev=0.0623    meshpen=-0.0299   jump=0.0127    ns=35
+row chain=chestL       anim=assistant-idle-leaning-left            drive=leftright tipvar=0.1218    rootdev=0.0682    meshpen=-0.0014   jump=0.0365    ns=35
+row chain=chestL       anim=assistant-idle-leaning-left            drive=accel     tipvar=0.1481    rootdev=0.0620    meshpen=-0.0014   jump=0.0643    ns=35
+row chain=chestL       anim=assistant-idle-leaning-left            drive=jerk      tipvar=0.1250    rootdev=0.0653    meshpen=-0.0001   jump=0.0497    ns=35
+row chain=chestL       anim=assistant-idle-leaning-left            drive=tilt      tipvar=0.0043    rootdev=0.0210    meshpen=-0.0408   jump=0.0008    ns=35
+row chain=chestL       anim=assistant-idle-transition-left-to-right drive=updown    tipvar=0.0810    rootdev=0.0507    meshpen=-0.0192   jump=0.0083    ns=35
+row chain=chestL       anim=assistant-idle-transition-left-to-right drive=leftright tipvar=0.1220    rootdev=0.0680    meshpen=-0.0006   jump=0.0385    ns=35
+row chain=chestL       anim=assistant-idle-transition-left-to-right drive=accel     tipvar=0.1449    rootdev=0.0679    meshpen=-0.0002   jump=0.0634    ns=35
+row chain=chestL       anim=assistant-idle-transition-left-to-right drive=jerk      tipvar=0.1122    rootdev=0.0635    meshpen=-0.0002   jump=0.0487    ns=35
+row chain=chestL       anim=assistant-idle-transition-left-to-right drive=tilt      tipvar=0.0392    rootdev=0.0387    meshpen=-0.0406   jump=0.0073    ns=35
+row chain=chestL       anim=assistant-idle-wiping-brow             drive=updown    tipvar=0.1003    rootdev=0.0617    meshpen=-0.0223   jump=0.0105    ns=35
+row chain=chestL       anim=assistant-idle-wiping-brow             drive=leftright tipvar=0.1322    rootdev=0.0664    meshpen=-0.0007   jump=0.0377    ns=35
+row chain=chestL       anim=assistant-idle-wiping-brow             drive=accel     tipvar=0.1471    rootdev=0.0679    meshpen=-0.0002   jump=0.0720    ns=35
+row chain=chestL       anim=assistant-idle-wiping-brow             drive=jerk      tipvar=0.1337    rootdev=0.0608    meshpen=-0.0008   jump=0.0439    ns=35
+row chain=chestL       anim=assistant-idle-wiping-brow             drive=tilt      tipvar=0.0293    rootdev=0.0245    meshpen=-0.0332   jump=0.0034    ns=35
+row chain=chestL       anim=assistant-idle-transition-to-welding   drive=updown    tipvar=0.1019    rootdev=0.0561    meshpen=-1.48926e-06 jump=0.0105    ns=35
+row chain=chestL       anim=assistant-idle-transition-to-welding   drive=leftright tipvar=0.1072    rootdev=0.0680    meshpen=-0.0005   jump=0.0282    ns=35
+row chain=chestL       anim=assistant-idle-transition-to-welding   drive=accel     tipvar=0.1427    rootdev=0.0710    meshpen=-0.0002   jump=0.0796    ns=35
+row chain=chestL       anim=assistant-idle-transition-to-welding   drive=jerk      tipvar=0.1117    rootdev=0.0577    meshpen=-2.96875e-05 jump=0.0444    ns=35
+row chain=chestL       anim=assistant-idle-transition-to-welding   drive=tilt      tipvar=0.0281    rootdev=0.0150    meshpen=-0.0001   jump=0.0083    ns=35
+row chain=chestL       anim=assistant-idle-welding                 drive=updown    tipvar=0.0876    rootdev=0.0524    meshpen=-0.0001   jump=0.0102    ns=35
+row chain=chestL       anim=assistant-idle-welding                 drive=leftright tipvar=0.1152    rootdev=0.0702    meshpen=-0.0010   jump=0.0393    ns=35
+row chain=chestL       anim=assistant-idle-welding                 drive=accel     tipvar=0.1095    rootdev=0.0713    meshpen=-0.0001   jump=0.0515    ns=35
+row chain=chestL       anim=assistant-idle-welding                 drive=jerk      tipvar=0.0973    rootdev=0.0571    meshpen=-0.0001   jump=0.0466    ns=35
+row chain=chestL       anim=assistant-idle-welding                 drive=tilt      tipvar=0.0003    rootdev=0.0006    meshpen=-0.0002   jump=0.0003    ns=35
+row chain=chestL       anim=assistant-village2-idle-a              drive=updown    tipvar=0.0706    rootdev=0.0419    meshpen=-0.0206   jump=0.0077    ns=35
+row chain=chestL       anim=assistant-village2-idle-a              drive=leftright tipvar=0.1200    rootdev=0.0670    meshpen=-0.0002   jump=0.0295    ns=35
+row chain=chestL       anim=assistant-village2-idle-a              drive=accel     tipvar=0.1437    rootdev=0.0703    meshpen=-0.0005   jump=0.0567    ns=35
+row chain=chestL       anim=assistant-village2-idle-a              drive=jerk      tipvar=0.1032    rootdev=0.0509    meshpen=-0.0005   jump=0.0466    ns=35
+row chain=chestL       anim=assistant-village2-idle-a              drive=tilt      tipvar=0.0051    rootdev=0.0189    meshpen=-0.0454   jump=0.0011    ns=35
+row chain=chestL       anim=assistant-village2-idle-to-b           drive=updown    tipvar=0.0775    rootdev=0.0564    meshpen=-0.0229   jump=0.0100    ns=35
+row chain=chestL       anim=assistant-village2-idle-to-b           drive=leftright tipvar=0.1453    rootdev=0.0655    meshpen=-0.0002   jump=0.0318    ns=35
+row chain=chestL       anim=assistant-village2-idle-to-b           drive=accel     tipvar=0.1448    rootdev=0.0671    meshpen=-0.0002   jump=0.0630    ns=35
+row chain=chestL       anim=assistant-village2-idle-to-b           drive=jerk      tipvar=0.1252    rootdev=0.0714    meshpen=-0.0006   jump=0.0471    ns=35
+row chain=chestL       anim=assistant-village2-idle-to-b           drive=tilt      tipvar=0.0761    rootdev=0.0414    meshpen=-0.0458   jump=0.0181    ns=35
+row chain=chestL       anim=assistant-village2-idle-b              drive=updown    tipvar=0.0910    rootdev=0.0621    meshpen=-0.0303   jump=0.0126    ns=35
+row chain=chestL       anim=assistant-village2-idle-b              drive=leftright tipvar=0.1268    rootdev=0.0696    meshpen=-0.0012   jump=0.0325    ns=35
+row chain=chestL       anim=assistant-village2-idle-b              drive=accel     tipvar=0.1492    rootdev=0.0696    meshpen=-0.0013   jump=0.0395    ns=35
+row chain=chestL       anim=assistant-village2-idle-b              drive=jerk      tipvar=0.1462    rootdev=0.0675    meshpen=-0.0004   jump=0.0443    ns=35
+row chain=chestL       anim=assistant-village2-idle-b              drive=tilt      tipvar=0.0043    rootdev=0.0196    meshpen=-0.0447   jump=0.0012    ns=35
+row chain=chestL       anim=assistant-village2-idle-to-a           drive=updown    tipvar=0.0794    rootdev=0.0480    meshpen=-0.0260   jump=0.0075    ns=35
+row chain=chestL       anim=assistant-village2-idle-to-a           drive=leftright tipvar=0.1227    rootdev=0.0682    meshpen=-0.0005   jump=0.0200    ns=35
+row chain=chestL       anim=assistant-village2-idle-to-a           drive=accel     tipvar=0.1519    rootdev=0.0707    meshpen=-0.0003   jump=0.0707    ns=35
+row chain=chestL       anim=assistant-village2-idle-to-a           drive=jerk      tipvar=0.1268    rootdev=0.0635    meshpen=-0.0017   jump=0.0467    ns=35
+row chain=chestL       anim=assistant-village2-idle-to-a           drive=tilt      tipvar=0.0753    rootdev=0.0647    meshpen=-0.0450   jump=0.0176    ns=35
+row chain=chestL       anim=assistant-village2-idle-after          drive=updown    tipvar=0.1091    rootdev=0.0673    meshpen=-0.0017   jump=0.0196    ns=35
+row chain=chestL       anim=assistant-village2-idle-after          drive=leftright tipvar=0.1176    rootdev=0.0693    meshpen=-0.0031   jump=0.0330    ns=35
+row chain=chestL       anim=assistant-village2-idle-after          drive=accel     tipvar=0.1265    rootdev=0.0578    meshpen=-0.0002   jump=0.0265    ns=35
+row chain=chestL       anim=assistant-village2-idle-after          drive=jerk      tipvar=0.1244    rootdev=0.0690    meshpen=-0.0002   jump=0.0499    ns=35
+row chain=chestL       anim=assistant-village2-idle-after          drive=tilt      tipvar=0.0039    rootdev=0.0190    meshpen=-0.0485   jump=0.0012    ns=35
+row chain=chestL       anim=assistant-village2-idle-hut-breath     drive=updown    tipvar=0.0628    rootdev=0.0372    meshpen=-0.0245   jump=0.0069    ns=35
+row chain=chestL       anim=assistant-village2-idle-hut-breath     drive=leftright tipvar=0.1106    rootdev=0.0693    meshpen=-0.0007   jump=0.0363    ns=35
+row chain=chestL       anim=assistant-village2-idle-hut-breath     drive=accel     tipvar=0.1429    rootdev=0.0671    meshpen=-0.0002   jump=0.0806    ns=35
+row chain=chestL       anim=assistant-village2-idle-hut-breath     drive=jerk      tipvar=0.1025    rootdev=0.0586    meshpen=-0.0002   jump=0.0436    ns=35
+row chain=chestL       anim=assistant-village2-idle-hut-breath     drive=tilt      tipvar=0.0042    rootdev=0.0214    meshpen=-0.0379   jump=0.0008    ns=35
+row chain=chestL       anim=assistant-village2-idle-hut-look-right drive=updown    tipvar=0.0872    rootdev=0.0538    meshpen=-0.0230   jump=0.0087    ns=35
+row chain=chestL       anim=assistant-village2-idle-hut-look-right drive=leftright tipvar=0.1303    rootdev=0.0697    meshpen=-0.0004   jump=0.0319    ns=35
+row chain=chestL       anim=assistant-village2-idle-hut-look-right drive=accel     tipvar=0.1495    rootdev=0.0698    meshpen=-0.0002   jump=0.0732    ns=35
+row chain=chestL       anim=assistant-village2-idle-hut-look-right drive=jerk      tipvar=0.1120    rootdev=0.0554    meshpen=-0.0004   jump=0.0446    ns=35
+row chain=chestL       anim=assistant-village2-idle-hut-look-right drive=tilt      tipvar=0.0296    rootdev=0.0315    meshpen=-0.0154   jump=0.0031    ns=35
+row chain=chestL       anim=assistant-village2-idle-hut-start-welding drive=updown    tipvar=0.0644    rootdev=0.0417    meshpen=-1.24512e-05 jump=0.0074    ns=35
+row chain=chestL       anim=assistant-village2-idle-hut-start-welding drive=leftright tipvar=0.1134    rootdev=0.0665    meshpen=-0.0010   jump=0.0319    ns=35
+row chain=chestL       anim=assistant-village2-idle-hut-start-welding drive=accel     tipvar=0.1509    rootdev=0.0709    meshpen=-6.95801e-06 jump=0.0692    ns=35
+row chain=chestL       anim=assistant-village2-idle-hut-start-welding drive=jerk      tipvar=0.1155    rootdev=0.0594    meshpen=-0.0001   jump=0.0439    ns=35
+row chain=chestL       anim=assistant-village2-idle-hut-start-welding drive=tilt      tipvar=0.0783    rootdev=0.0488    meshpen=-0.0009   jump=0.0102    ns=35
+row chain=chestL       anim=assistant-village2-idle-hut-welding    drive=updown    tipvar=0.0921    rootdev=0.0553    meshpen=-1.00098e-05 jump=0.0125    ns=35
+row chain=chestL       anim=assistant-village2-idle-hut-welding    drive=leftright tipvar=0.1242    rootdev=0.0690    meshpen=-8.17871e-06 jump=0.0331    ns=35
+row chain=chestL       anim=assistant-village2-idle-hut-welding    drive=accel     tipvar=0.1065    rootdev=0.0619    meshpen=-0.0001   jump=0.0450    ns=35
+row chain=chestL       anim=assistant-village2-idle-hut-welding    drive=jerk      tipvar=0.1146    rootdev=0.0647    meshpen=-8.34961e-06 jump=0.0501    ns=35
+row chain=chestL       anim=assistant-village2-idle-hut-welding    drive=tilt      tipvar=0.0046    rootdev=0.0041    meshpen=-3.29834e-05 jump=0.0007    ns=35
+row chain=chestL       anim=assistant-village2-idle-hut-stop-welding drive=updown    tipvar=0.1098    rootdev=0.0534    meshpen=-0.0001   jump=0.0164    ns=35
+row chain=chestL       anim=assistant-village2-idle-hut-stop-welding drive=leftright tipvar=0.1095    rootdev=0.0565    meshpen=-0.0006   jump=0.0260    ns=35
+row chain=chestL       anim=assistant-village2-idle-hut-stop-welding drive=accel     tipvar=0.1432    rootdev=0.0662    meshpen=-0.0005   jump=0.0762    ns=35
+row chain=chestL       anim=assistant-village2-idle-hut-stop-welding drive=jerk      tipvar=0.1279    rootdev=0.0629    meshpen=-3.68408e-05 jump=0.0575    ns=35
+row chain=chestL       anim=assistant-village2-idle-hut-stop-welding drive=tilt      tipvar=0.0901    rootdev=0.0603    meshpen=-6.39648e-06 jump=0.0169    ns=35
+row chain=chestL       anim=assistant-village3-idle                drive=updown    tipvar=0.1006    rootdev=0.0620    meshpen=-0.0104   jump=0.0101    ns=35
+row chain=chestL       anim=assistant-village3-idle                drive=leftright tipvar=0.1259    rootdev=0.0695    meshpen=-0.0348   jump=0.0394    ns=35
+row chain=chestL       anim=assistant-village3-idle                drive=accel     tipvar=0.1422    rootdev=0.0674    meshpen=-0.0061   jump=0.0366    ns=35
+row chain=chestL       anim=assistant-village3-idle                drive=jerk      tipvar=0.1135    rootdev=0.0520    meshpen=-0.0023   jump=0.0483    ns=35
+row chain=chestL       anim=assistant-village3-idle                drive=tilt      tipvar=0.0045    rootdev=0.0192    meshpen=-0.0577   jump=0.0013    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-twist        drive=updown    tipvar=0.1173    rootdev=0.0697    meshpen=-0.0001   jump=0.0175    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-twist        drive=leftright tipvar=0.1236    rootdev=0.0688    meshpen=-0.0221   jump=0.0283    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-twist        drive=accel     tipvar=0.1327    rootdev=0.0578    meshpen=-0.0058   jump=0.0350    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-twist        drive=jerk      tipvar=0.1241    rootdev=0.0692    meshpen=-0.0029   jump=0.0541    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-twist        drive=tilt      tipvar=0.0100    rootdev=0.0232    meshpen=-0.0489   jump=0.0015    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-down         drive=updown    tipvar=0.1181    rootdev=0.0657    meshpen=-0.0009   jump=0.0205    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-down         drive=leftright tipvar=0.1228    rootdev=0.0634    meshpen=-0.0193   jump=0.0269    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-down         drive=accel     tipvar=0.1474    rootdev=0.0634    meshpen=-0.0006   jump=0.0398    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-down         drive=jerk      tipvar=0.1206    rootdev=0.0646    meshpen=-0.0016   jump=0.0505    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-down         drive=tilt      tipvar=0.0676    rootdev=0.0541    meshpen=-0.0294   jump=0.0120    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-examine      drive=updown    tipvar=0.1141    rootdev=0.0656    meshpen=-0.0002   jump=0.0198    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-examine      drive=leftright tipvar=0.1265    rootdev=0.0661    meshpen=-0.0274   jump=0.0274    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-examine      drive=accel     tipvar=0.1083    rootdev=0.0485    meshpen=-0.0142   jump=0.0332    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-examine      drive=jerk      tipvar=0.1216    rootdev=0.0506    meshpen=-0.0031   jump=0.0508    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-examine      drive=tilt      tipvar=0.0063    rootdev=0.0240    meshpen=-0.0486   jump=0.0009    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-up           drive=updown    tipvar=0.1182    rootdev=0.0701    meshpen=-0.0001   jump=0.0206    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-up           drive=leftright tipvar=0.1295    rootdev=0.0656    meshpen=-0.0235   jump=0.0384    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-up           drive=accel     tipvar=0.1389    rootdev=0.0634    meshpen=-0.0053   jump=0.0355    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-up           drive=jerk      tipvar=0.1261    rootdev=0.0551    meshpen=-0.0021   jump=0.0515    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-up           drive=tilt      tipvar=0.0538    rootdev=0.0444    meshpen=-0.0335   jump=0.0086    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-fiddle       drive=updown    tipvar=0.1095    rootdev=0.0628    meshpen=-0.0001   jump=0.0177    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-fiddle       drive=leftright tipvar=0.1303    rootdev=0.0671    meshpen=-0.0191   jump=0.0358    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-fiddle       drive=accel     tipvar=0.1364    rootdev=0.0542    meshpen=-0.0079   jump=0.0343    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-fiddle       drive=jerk      tipvar=0.1283    rootdev=0.0728    meshpen=-0.0011   jump=0.0421    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-fiddle       drive=tilt      tipvar=0.0134    rootdev=0.0252    meshpen=-0.0457   jump=0.0028    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-a            drive=updown    tipvar=0.0553    rootdev=0.0313    meshpen=-0.0269   jump=0.0061    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-a            drive=leftright tipvar=0.1161    rootdev=0.0645    meshpen=-0.0309   jump=0.0378    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-a            drive=accel     tipvar=0.1592    rootdev=0.0699    meshpen=-0.0004   jump=0.0513    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-a            drive=jerk      tipvar=0.1210    rootdev=0.0545    meshpen=-0.0012   jump=0.0438    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-a            drive=tilt      tipvar=0.0037    rootdev=0.0180    meshpen=-0.0557   jump=0.0011    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-to-b         drive=updown    tipvar=0.0819    rootdev=0.0577    meshpen=-0.0314   jump=0.0165    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-to-b         drive=leftright tipvar=0.1285    rootdev=0.0671    meshpen=-0.0340   jump=0.0410    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-to-b         drive=accel     tipvar=0.1630    rootdev=0.0718    meshpen=-0.0001   jump=0.0503    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-to-b         drive=jerk      tipvar=0.1089    rootdev=0.0525    meshpen=-0.0006   jump=0.0423    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-to-b         drive=tilt      tipvar=0.0084    rootdev=0.0193    meshpen=-0.0559   jump=0.0014    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-b            drive=updown    tipvar=0.0907    rootdev=0.0617    meshpen=-0.0318   jump=0.0126    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-b            drive=leftright tipvar=0.1160    rootdev=0.0658    meshpen=-0.0310   jump=0.0306    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-b            drive=accel     tipvar=0.1551    rootdev=0.0702    meshpen=-0.0003   jump=0.0471    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-b            drive=jerk      tipvar=0.1147    rootdev=0.0519    meshpen=-0.0004   jump=0.0409    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-b            drive=tilt      tipvar=0.0049    rootdev=0.0181    meshpen=-0.0549   jump=0.0011    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-to-a         drive=updown    tipvar=0.0815    rootdev=0.0422    meshpen=-0.0259   jump=0.0087    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-to-a         drive=leftright tipvar=0.1269    rootdev=0.0700    meshpen=-0.0314   jump=0.0380    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-to-a         drive=accel     tipvar=0.1525    rootdev=0.0653    meshpen=-0.0005   jump=0.0503    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-to-a         drive=jerk      tipvar=0.1265    rootdev=0.0603    meshpen=-0.0006   jump=0.0455    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-to-a         drive=tilt      tipvar=0.0099    rootdev=0.0212    meshpen=-0.0550   jump=0.0019    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-wipe-brow    drive=updown    tipvar=0.0845    rootdev=0.0588    meshpen=-0.0320   jump=0.0124    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-wipe-brow    drive=leftright tipvar=0.1196    rootdev=0.0579    meshpen=-0.0254   jump=0.0285    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-wipe-brow    drive=accel     tipvar=0.1568    rootdev=0.0673    meshpen=-0.0001   jump=0.0523    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-wipe-brow    drive=jerk      tipvar=0.1066    rootdev=0.0578    meshpen=-0.0020   jump=0.0441    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-wipe-brow    drive=tilt      tipvar=0.0166    rootdev=0.0247    meshpen=-0.0546   jump=0.0022    ns=35
+row chain=chestL       anim=assistant-lavatube-start-idle          drive=updown    tipvar=0.0846    rootdev=0.0515    meshpen=-0.0281   jump=0.0093    ns=35
+row chain=chestL       anim=assistant-lavatube-start-idle          drive=leftright tipvar=0.1322    rootdev=0.0695    meshpen=-0.0253   jump=0.0450    ns=35
+row chain=chestL       anim=assistant-lavatube-start-idle          drive=accel     tipvar=0.1544    rootdev=0.0699    meshpen=-0.0001   jump=0.0494    ns=35
+row chain=chestL       anim=assistant-lavatube-start-idle          drive=jerk      tipvar=0.1136    rootdev=0.0544    meshpen=-0.0190   jump=0.0495    ns=35
+row chain=chestL       anim=assistant-lavatube-start-idle          drive=tilt      tipvar=0.0067    rootdev=0.0296    meshpen=-0.0165   jump=0.0009    ns=35
+row chain=chestL       anim=assistant-lavatube-start-idle-b        drive=updown    tipvar=0.0905    rootdev=0.0549    meshpen=-0.0234   jump=0.0098    ns=35
+row chain=chestL       anim=assistant-lavatube-start-idle-b        drive=leftright tipvar=0.1312    rootdev=0.0708    meshpen=-0.0307   jump=0.0266    ns=35
+row chain=chestL       anim=assistant-lavatube-start-idle-b        drive=accel     tipvar=0.1551    rootdev=0.0715    meshpen=-0.0002   jump=0.0502    ns=35
+row chain=chestL       anim=assistant-lavatube-start-idle-b        drive=jerk      tipvar=0.1120    rootdev=0.0551    meshpen=-0.0249   jump=0.0511    ns=35
+row chain=chestL       anim=assistant-lavatube-start-idle-b        drive=tilt      tipvar=0.0106    rootdev=0.0310    meshpen=-0.0149   jump=0.0017    ns=35
+row chain=chestL       anim=assistant-lavatube-end-idle            drive=updown    tipvar=0.0551    rootdev=0.0312    meshpen=-0.0267   jump=0.0061    ns=35
+row chain=chestL       anim=assistant-lavatube-end-idle            drive=leftright tipvar=0.1199    rootdev=0.0687    meshpen=-0.0310   jump=0.0324    ns=35
+row chain=chestL       anim=assistant-lavatube-end-idle            drive=accel     tipvar=0.1479    rootdev=0.0707    meshpen=-0.0001   jump=0.0914    ns=35
+row chain=chestL       anim=assistant-lavatube-end-idle            drive=jerk      tipvar=0.1189    rootdev=0.0488    meshpen=-0.0002   jump=0.0469    ns=35
+row chain=chestL       anim=assistant-lavatube-end-idle            drive=tilt      tipvar=0.0027    rootdev=0.0293    meshpen=-0.0187   jump=0.0003    ns=35
+row chain=chestR       anim=assistant-idle-leaning-right           drive=updown    tipvar=0.0958    rootdev=0.0595    meshpen=-0.0296   jump=0.0135    ns=35
+row chain=chestR       anim=assistant-idle-leaning-right           drive=leftright tipvar=0.1226    rootdev=0.0706    meshpen=-0.0008   jump=0.0397    ns=35
+row chain=chestR       anim=assistant-idle-leaning-right           drive=accel     tipvar=0.1468    rootdev=0.0672    meshpen=-0.0006   jump=0.0793    ns=35
+row chain=chestR       anim=assistant-idle-leaning-right           drive=jerk      tipvar=0.1257    rootdev=0.0562    meshpen=-0.0005   jump=0.0484    ns=35
+row chain=chestR       anim=assistant-idle-leaning-right           drive=tilt      tipvar=0.0081    rootdev=0.0260    meshpen=-0.0385   jump=0.0016    ns=35
+row chain=chestR       anim=assistant-idle-transition-right-to-left drive=updown    tipvar=0.0552    rootdev=0.0490    meshpen=-0.0264   jump=0.0055    ns=35
+row chain=chestR       anim=assistant-idle-transition-right-to-left drive=leftright tipvar=0.1298    rootdev=0.0700    meshpen=-0.0001   jump=0.0378    ns=35
+row chain=chestR       anim=assistant-idle-transition-right-to-left drive=accel     tipvar=0.1481    rootdev=0.0703    meshpen=-0.0001   jump=0.0752    ns=35
+row chain=chestR       anim=assistant-idle-transition-right-to-left drive=jerk      tipvar=0.1187    rootdev=0.0518    meshpen=-0.0001   jump=0.0648    ns=35
+row chain=chestR       anim=assistant-idle-transition-right-to-left drive=tilt      tipvar=0.0340    rootdev=0.0491    meshpen=-0.0373   jump=0.0076    ns=35
+row chain=chestR       anim=assistant-idle-leaning-left            drive=updown    tipvar=0.0634    rootdev=0.0339    meshpen=-0.0280   jump=0.0070    ns=35
+row chain=chestR       anim=assistant-idle-leaning-left            drive=leftright tipvar=0.1047    rootdev=0.0629    meshpen=-0.0022   jump=0.0264    ns=35
+row chain=chestR       anim=assistant-idle-leaning-left            drive=accel     tipvar=0.1547    rootdev=0.0674    meshpen=-0.0004   jump=0.0638    ns=35
+row chain=chestR       anim=assistant-idle-leaning-left            drive=jerk      tipvar=0.1334    rootdev=0.0611    meshpen=-0.0001   jump=0.0636    ns=35
+row chain=chestR       anim=assistant-idle-leaning-left            drive=tilt      tipvar=0.0054    rootdev=0.0289    meshpen=-0.0384   jump=0.0010    ns=35
+row chain=chestR       anim=assistant-idle-transition-left-to-right drive=updown    tipvar=0.1080    rootdev=0.0609    meshpen=-0.0285   jump=0.0197    ns=35
+row chain=chestR       anim=assistant-idle-transition-left-to-right drive=leftright tipvar=0.1379    rootdev=0.0658    meshpen=-0.0022   jump=0.0350    ns=35
+row chain=chestR       anim=assistant-idle-transition-left-to-right drive=accel     tipvar=0.1364    rootdev=0.0626    meshpen=-0.0003   jump=0.0432    ns=35
+row chain=chestR       anim=assistant-idle-transition-left-to-right drive=jerk      tipvar=0.1429    rootdev=0.0640    meshpen=-0.0001   jump=0.0474    ns=35
+row chain=chestR       anim=assistant-idle-transition-left-to-right drive=tilt      tipvar=0.0446    rootdev=0.0478    meshpen=-0.0382   jump=0.0075    ns=35
+row chain=chestR       anim=assistant-idle-wiping-brow             drive=updown    tipvar=0.0693    rootdev=0.0438    meshpen=-0.0274   jump=0.0069    ns=35
+row chain=chestR       anim=assistant-idle-wiping-brow             drive=leftright tipvar=0.1413    rootdev=0.0682    meshpen=-0.0002   jump=0.0386    ns=35
+row chain=chestR       anim=assistant-idle-wiping-brow             drive=accel     tipvar=0.1386    rootdev=0.0583    meshpen=-0.0004   jump=0.0563    ns=35
+row chain=chestR       anim=assistant-idle-wiping-brow             drive=jerk      tipvar=0.1346    rootdev=0.0623    meshpen=-0.0024   jump=0.0546    ns=35
+row chain=chestR       anim=assistant-idle-wiping-brow             drive=tilt      tipvar=0.0300    rootdev=0.0368    meshpen=-0.0327   jump=0.0036    ns=35
+row chain=chestR       anim=assistant-idle-transition-to-welding   drive=updown    tipvar=0.1106    rootdev=0.0606    meshpen=-0.0026   jump=0.0102    ns=35
+row chain=chestR       anim=assistant-idle-transition-to-welding   drive=leftright tipvar=0.1143    rootdev=0.0630    meshpen=-0.0001   jump=0.0402    ns=35
+row chain=chestR       anim=assistant-idle-transition-to-welding   drive=accel     tipvar=0.1400    rootdev=0.0640    meshpen=-0.0003   jump=0.0763    ns=35
+row chain=chestR       anim=assistant-idle-transition-to-welding   drive=jerk      tipvar=0.1443    rootdev=0.0704    meshpen=-0.0003   jump=0.0546    ns=35
+row chain=chestR       anim=assistant-idle-transition-to-welding   drive=tilt      tipvar=0.0110    rootdev=0.0298    meshpen=-0.0433   jump=0.0016    ns=35
+row chain=chestR       anim=assistant-idle-welding                 drive=updown    tipvar=0.1057    rootdev=0.0595    meshpen=-0.0070   jump=0.0102    ns=35
+row chain=chestR       anim=assistant-idle-welding                 drive=leftright tipvar=0.1141    rootdev=0.0665    meshpen=-0.0005   jump=0.0296    ns=35
+row chain=chestR       anim=assistant-idle-welding                 drive=accel     tipvar=0.1431    rootdev=0.0627    meshpen=-0.0002   jump=0.0516    ns=35
+row chain=chestR       anim=assistant-idle-welding                 drive=jerk      tipvar=0.1385    rootdev=0.0687    meshpen=-0.0004   jump=0.0484    ns=35
+row chain=chestR       anim=assistant-idle-welding                 drive=tilt      tipvar=0.0075    rootdev=0.0311    meshpen=-0.0439   jump=0.0012    ns=35
+row chain=chestR       anim=assistant-village2-idle-a              drive=updown    tipvar=0.0959    rootdev=0.0595    meshpen=-0.0294   jump=0.0134    ns=35
+row chain=chestR       anim=assistant-village2-idle-a              drive=leftright tipvar=0.1103    rootdev=0.0673    meshpen=-0.0004   jump=0.0355    ns=35
+row chain=chestR       anim=assistant-village2-idle-a              drive=accel     tipvar=0.1387    rootdev=0.0649    meshpen=-0.0006   jump=0.0515    ns=35
+row chain=chestR       anim=assistant-village2-idle-a              drive=jerk      tipvar=0.1266    rootdev=0.0568    meshpen=-0.0005   jump=0.0479    ns=35
+row chain=chestR       anim=assistant-village2-idle-a              drive=tilt      tipvar=0.0027    rootdev=0.0253    meshpen=-0.0442   jump=0.0005    ns=35
+row chain=chestR       anim=assistant-village2-idle-to-b           drive=updown    tipvar=0.0714    rootdev=0.0531    meshpen=-0.0273   jump=0.0166    ns=35
+row chain=chestR       anim=assistant-village2-idle-to-b           drive=leftright tipvar=0.1342    rootdev=0.0619    meshpen=-0.0013   jump=0.0274    ns=35
+row chain=chestR       anim=assistant-village2-idle-to-b           drive=accel     tipvar=0.1432    rootdev=0.0697    meshpen=-0.0005   jump=0.0483    ns=35
+row chain=chestR       anim=assistant-village2-idle-to-b           drive=jerk      tipvar=0.1328    rootdev=0.0632    meshpen=-0.0001   jump=0.0695    ns=35
+row chain=chestR       anim=assistant-village2-idle-to-b           drive=tilt      tipvar=0.0829    rootdev=0.0535    meshpen=-0.0427   jump=0.0189    ns=35
+row chain=chestR       anim=assistant-village2-idle-b              drive=updown    tipvar=0.0634    rootdev=0.0335    meshpen=-0.0278   jump=0.0070    ns=35
+row chain=chestR       anim=assistant-village2-idle-b              drive=leftright tipvar=0.1080    rootdev=0.0637    meshpen=-0.0019   jump=0.0270    ns=35
+row chain=chestR       anim=assistant-village2-idle-b              drive=accel     tipvar=0.1519    rootdev=0.0657    meshpen=-0.0004   jump=0.0667    ns=35
+row chain=chestR       anim=assistant-village2-idle-b              drive=jerk      tipvar=0.1129    rootdev=0.0512    meshpen=-0.0001   jump=0.0609    ns=35
+row chain=chestR       anim=assistant-village2-idle-b              drive=tilt      tipvar=0.0038    rootdev=0.0307    meshpen=-0.0427   jump=0.0005    ns=35
+row chain=chestR       anim=assistant-village2-idle-to-a           drive=updown    tipvar=0.0865    rootdev=0.0580    meshpen=-0.0264   jump=0.0155    ns=35
+row chain=chestR       anim=assistant-village2-idle-to-a           drive=leftright tipvar=0.1319    rootdev=0.0611    meshpen=-0.0001   jump=0.0287    ns=35
+row chain=chestR       anim=assistant-village2-idle-to-a           drive=accel     tipvar=0.1607    rootdev=0.0708    meshpen=-0.0001   jump=0.0773    ns=35
+row chain=chestR       anim=assistant-village2-idle-to-a           drive=jerk      tipvar=0.1149    rootdev=0.0579    meshpen=-0.0001   jump=0.0477    ns=35
+row chain=chestR       anim=assistant-village2-idle-to-a           drive=tilt      tipvar=0.0643    rootdev=0.0626    meshpen=-0.0334   jump=0.0188    ns=35
+row chain=chestR       anim=assistant-village2-idle-after          drive=updown    tipvar=0.1129    rootdev=0.0652    meshpen=-0.0037   jump=0.0233    ns=35
+row chain=chestR       anim=assistant-village2-idle-after          drive=leftright tipvar=0.1089    rootdev=0.0639    meshpen=-0.0005   jump=0.0300    ns=35
+row chain=chestR       anim=assistant-village2-idle-after          drive=accel     tipvar=0.1477    rootdev=0.0712    meshpen=-0.0003   jump=0.0603    ns=35
+row chain=chestR       anim=assistant-village2-idle-after          drive=jerk      tipvar=0.1350    rootdev=0.0694    meshpen=-0.0004   jump=0.0523    ns=35
+row chain=chestR       anim=assistant-village2-idle-after          drive=tilt      tipvar=0.0040    rootdev=0.0295    meshpen=-0.0464   jump=0.0007    ns=35
+row chain=chestR       anim=assistant-village2-idle-hut-breath     drive=updown    tipvar=0.0923    rootdev=0.0588    meshpen=-0.0309   jump=0.0162    ns=35
+row chain=chestR       anim=assistant-village2-idle-hut-breath     drive=leftright tipvar=0.1240    rootdev=0.0704    meshpen=-0.0009   jump=0.0355    ns=35
+row chain=chestR       anim=assistant-village2-idle-hut-breath     drive=accel     tipvar=0.1375    rootdev=0.0625    meshpen=-0.0003   jump=0.0538    ns=35
+row chain=chestR       anim=assistant-village2-idle-hut-breath     drive=jerk      tipvar=0.1129    rootdev=0.0523    meshpen=-0.0013   jump=0.0481    ns=35
+row chain=chestR       anim=assistant-village2-idle-hut-breath     drive=tilt      tipvar=0.0088    rootdev=0.0264    meshpen=-0.0351   jump=0.0012    ns=35
+row chain=chestR       anim=assistant-village2-idle-hut-look-right drive=updown    tipvar=0.1026    rootdev=0.0617    meshpen=-0.0203   jump=0.0144    ns=35
+row chain=chestR       anim=assistant-village2-idle-hut-look-right drive=leftright tipvar=0.1313    rootdev=0.0708    meshpen=-0.0002   jump=0.0398    ns=35
+row chain=chestR       anim=assistant-village2-idle-hut-look-right drive=accel     tipvar=0.1403    rootdev=0.0683    meshpen=-0.0003   jump=0.0532    ns=35
+row chain=chestR       anim=assistant-village2-idle-hut-look-right drive=jerk      tipvar=0.1101    rootdev=0.0542    meshpen=-0.0078   jump=0.0295    ns=35
+row chain=chestR       anim=assistant-village2-idle-hut-look-right drive=tilt      tipvar=0.0470    rootdev=0.0479    meshpen=-0.0001   jump=0.0062    ns=35
+row chain=chestR       anim=assistant-village2-idle-hut-start-welding drive=updown    tipvar=0.0788    rootdev=0.0435    meshpen=-0.0001   jump=0.0082    ns=35
+row chain=chestR       anim=assistant-village2-idle-hut-start-welding drive=leftright tipvar=0.1264    rootdev=0.0647    meshpen=-0.0003   jump=0.0368    ns=35
+row chain=chestR       anim=assistant-village2-idle-hut-start-welding drive=accel     tipvar=0.1389    rootdev=0.0650    meshpen=-0.0002   jump=0.0643    ns=35
+row chain=chestR       anim=assistant-village2-idle-hut-start-welding drive=jerk      tipvar=0.1371    rootdev=0.0712    meshpen=-0.0001   jump=0.0574    ns=35
+row chain=chestR       anim=assistant-village2-idle-hut-start-welding drive=tilt      tipvar=0.0672    rootdev=0.0454    meshpen=-0.0270   jump=0.0100    ns=35
+row chain=chestR       anim=assistant-village2-idle-hut-welding    drive=updown    tipvar=0.0987    rootdev=0.0576    meshpen=-0.0001   jump=0.0155    ns=35
+row chain=chestR       anim=assistant-village2-idle-hut-welding    drive=leftright tipvar=0.1132    rootdev=0.0702    meshpen=-0.0001   jump=0.0346    ns=35
+row chain=chestR       anim=assistant-village2-idle-hut-welding    drive=accel     tipvar=0.1256    rootdev=0.0678    meshpen=-0.0002   jump=0.0380    ns=35
+row chain=chestR       anim=assistant-village2-idle-hut-welding    drive=jerk      tipvar=0.0951    rootdev=0.0529    meshpen=-0.0011   jump=0.0478    ns=35
+row chain=chestR       anim=assistant-village2-idle-hut-welding    drive=tilt      tipvar=0.0115    rootdev=0.0287    meshpen=-0.0135   jump=0.0015    ns=35
+row chain=chestR       anim=assistant-village2-idle-hut-stop-welding drive=updown    tipvar=0.1284    rootdev=0.0579    meshpen=-0.0118   jump=0.0157    ns=35
+row chain=chestR       anim=assistant-village2-idle-hut-stop-welding drive=leftright tipvar=0.1479    rootdev=0.0695    meshpen=-0.0001   jump=0.0320    ns=35
+row chain=chestR       anim=assistant-village2-idle-hut-stop-welding drive=accel     tipvar=0.1392    rootdev=0.0614    meshpen=-0.0003   jump=0.0732    ns=35
+row chain=chestR       anim=assistant-village2-idle-hut-stop-welding drive=jerk      tipvar=0.1272    rootdev=0.0672    meshpen=-0.0001   jump=0.0503    ns=35
+row chain=chestR       anim=assistant-village2-idle-hut-stop-welding drive=tilt      tipvar=0.0798    rootdev=0.0516    meshpen=-0.0004   jump=0.0202    ns=35
+row chain=chestR       anim=assistant-village3-idle                drive=updown    tipvar=0.1016    rootdev=0.0603    meshpen=-9.98535e-06 jump=0.0143    ns=35
+row chain=chestR       anim=assistant-village3-idle                drive=leftright tipvar=0.1331    rootdev=0.0669    meshpen=-0.0089   jump=0.0527    ns=35
+row chain=chestR       anim=assistant-village3-idle                drive=accel     tipvar=0.1092    rootdev=0.0694    meshpen=-0.0004   jump=0.0700    ns=35
+row chain=chestR       anim=assistant-village3-idle                drive=jerk      tipvar=0.1345    rootdev=0.0613    meshpen=-0.0004   jump=0.0621    ns=35
+row chain=chestR       anim=assistant-village3-idle                drive=tilt      tipvar=0.0049    rootdev=0.0242    meshpen=-0.0003   jump=0.0010    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-twist        drive=updown    tipvar=0.1213    rootdev=0.0667    meshpen=-0.0003   jump=0.0231    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-twist        drive=leftright tipvar=0.1351    rootdev=0.0699    meshpen=-0.0198   jump=0.0415    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-twist        drive=accel     tipvar=0.1367    rootdev=0.0683    meshpen=-0.0015   jump=0.0392    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-twist        drive=jerk      tipvar=0.1359    rootdev=0.0649    meshpen=-0.0001   jump=0.0556    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-twist        drive=tilt      tipvar=0.0076    rootdev=0.0132    meshpen=-0.0494   jump=0.0015    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-down         drive=updown    tipvar=0.1263    rootdev=0.0671    meshpen=-0.0006   jump=0.0311    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-down         drive=leftright tipvar=0.1275    rootdev=0.0669    meshpen=-0.0258   jump=0.0307    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-down         drive=accel     tipvar=0.1277    rootdev=0.0637    meshpen=-0.0010   jump=0.0322    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-down         drive=jerk      tipvar=0.1400    rootdev=0.0562    meshpen=-0.0006   jump=0.0500    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-down         drive=tilt      tipvar=0.0520    rootdev=0.0296    meshpen=-0.0311   jump=0.0096    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-examine      drive=updown    tipvar=0.1162    rootdev=0.0649    meshpen=-0.0016   jump=0.0217    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-examine      drive=leftright tipvar=0.1255    rootdev=0.0651    meshpen=-0.0282   jump=0.0337    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-examine      drive=accel     tipvar=0.1185    rootdev=0.0596    meshpen=-0.0273   jump=0.0305    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-examine      drive=jerk      tipvar=0.1485    rootdev=0.0705    meshpen=-0.0004   jump=0.0571    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-examine      drive=tilt      tipvar=0.0054    rootdev=0.0115    meshpen=-0.0478   jump=0.0009    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-up           drive=updown    tipvar=0.1208    rootdev=0.0673    meshpen=-0.0014   jump=0.0187    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-up           drive=leftright tipvar=0.1221    rootdev=0.0645    meshpen=-0.0270   jump=0.0278    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-up           drive=accel     tipvar=0.1451    rootdev=0.0655    meshpen=-0.0005   jump=0.0548    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-up           drive=jerk      tipvar=0.1585    rootdev=0.0713    meshpen=-0.0001   jump=0.0498    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-up           drive=tilt      tipvar=0.0390    rootdev=0.0236    meshpen=-0.0362   jump=0.0072    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-fiddle       drive=updown    tipvar=0.1197    rootdev=0.0682    meshpen=-0.0037   jump=0.0220    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-fiddle       drive=leftright tipvar=0.1199    rootdev=0.0641    meshpen=-0.0295   jump=0.0265    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-fiddle       drive=accel     tipvar=0.1356    rootdev=0.0652    meshpen=-0.0109   jump=0.0361    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-fiddle       drive=jerk      tipvar=0.1545    rootdev=0.0724    meshpen=-0.0010   jump=0.0511    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-fiddle       drive=tilt      tipvar=0.0138    rootdev=0.0148    meshpen=-0.0456   jump=0.0028    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-a            drive=updown    tipvar=0.0954    rootdev=0.0589    meshpen=-0.0329   jump=0.0137    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-a            drive=leftright tipvar=0.1235    rootdev=0.0651    meshpen=-0.0207   jump=0.0354    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-a            drive=accel     tipvar=0.1336    rootdev=0.0594    meshpen=-0.0003   jump=0.0311    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-a            drive=jerk      tipvar=0.1277    rootdev=0.0688    meshpen=-0.0028   jump=0.0653    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-a            drive=tilt      tipvar=0.0049    rootdev=0.0208    meshpen=-0.0548   jump=0.0010    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-to-b         drive=updown    tipvar=0.0874    rootdev=0.0469    meshpen=-0.0305   jump=0.0095    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-to-b         drive=leftright tipvar=0.1352    rootdev=0.0710    meshpen=-0.0242   jump=0.0381    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-to-b         drive=accel     tipvar=0.1442    rootdev=0.0607    meshpen=-0.0008   jump=0.0309    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-to-b         drive=jerk      tipvar=0.1447    rootdev=0.0678    meshpen=-0.0024   jump=0.0514    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-to-b         drive=tilt      tipvar=0.0096    rootdev=0.0231    meshpen=-0.0550   jump=0.0017    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-b            drive=updown    tipvar=0.0610    rootdev=0.0329    meshpen=-0.0310   jump=0.0067    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-b            drive=leftright tipvar=0.1315    rootdev=0.0688    meshpen=-0.0274   jump=0.0409    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-b            drive=accel     tipvar=0.1391    rootdev=0.0604    meshpen=-0.0007   jump=0.0358    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-b            drive=jerk      tipvar=0.1363    rootdev=0.0673    meshpen=-0.0003   jump=0.0539    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-b            drive=tilt      tipvar=0.0042    rootdev=0.0232    meshpen=-0.0546   jump=0.0010    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-to-a         drive=updown    tipvar=0.0966    rootdev=0.0555    meshpen=-0.0306   jump=0.0087    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-to-a         drive=leftright tipvar=0.1357    rootdev=0.0704    meshpen=-0.0270   jump=0.0422    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-to-a         drive=accel     tipvar=0.1394    rootdev=0.0548    meshpen=-0.0007   jump=0.0377    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-to-a         drive=jerk      tipvar=0.1272    rootdev=0.0621    meshpen=-0.0006   jump=0.0492    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-to-a         drive=tilt      tipvar=0.0094    rootdev=0.0255    meshpen=-0.0546   jump=0.0013    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-wipe-brow    drive=updown    tipvar=0.0730    rootdev=0.0398    meshpen=-0.0264   jump=0.0072    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-wipe-brow    drive=leftright tipvar=0.1270    rootdev=0.0687    meshpen=-0.0270   jump=0.0346    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-wipe-brow    drive=accel     tipvar=0.1485    rootdev=0.0640    meshpen=-0.0007   jump=0.0387    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-wipe-brow    drive=jerk      tipvar=0.1236    rootdev=0.0628    meshpen=-0.0005   jump=0.0522    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-wipe-brow    drive=tilt      tipvar=0.0403    rootdev=0.0456    meshpen=-0.0479   jump=0.0039    ns=35
+row chain=chestR       anim=assistant-lavatube-start-idle          drive=updown    tipvar=0.0902    rootdev=0.0492    meshpen=-0.0315   jump=0.0100    ns=35
+row chain=chestR       anim=assistant-lavatube-start-idle          drive=leftright tipvar=0.1335    rootdev=0.0687    meshpen=-0.0231   jump=0.0438    ns=35
+row chain=chestR       anim=assistant-lavatube-start-idle          drive=accel     tipvar=0.1428    rootdev=0.0652    meshpen=-0.0008   jump=0.0378    ns=35
+row chain=chestR       anim=assistant-lavatube-start-idle          drive=jerk      tipvar=0.1146    rootdev=0.0709    meshpen=-0.0004   jump=0.0392    ns=35
+row chain=chestR       anim=assistant-lavatube-start-idle          drive=tilt      tipvar=0.0172    rootdev=0.0376    meshpen=-2.64404e-05 jump=0.0073    ns=35
+row chain=chestR       anim=assistant-lavatube-start-idle-b        drive=updown    tipvar=0.0936    rootdev=0.0509    meshpen=-0.0263   jump=0.0103    ns=35
+row chain=chestR       anim=assistant-lavatube-start-idle-b        drive=leftright tipvar=0.1344    rootdev=0.0686    meshpen=-0.0209   jump=0.0438    ns=35
+row chain=chestR       anim=assistant-lavatube-start-idle-b        drive=accel     tipvar=0.1394    rootdev=0.0616    meshpen=-0.0009   jump=0.0264    ns=35
+row chain=chestR       anim=assistant-lavatube-start-idle-b        drive=jerk      tipvar=0.1126    rootdev=0.0703    meshpen=-0.0166   jump=0.0400    ns=35
+row chain=chestR       anim=assistant-lavatube-start-idle-b        drive=tilt      tipvar=0.0136    rootdev=0.0298    meshpen=-0.0172   jump=0.0019    ns=35
+row chain=chestR       anim=assistant-lavatube-end-idle            drive=updown    tipvar=0.0939    rootdev=0.0582    meshpen=-0.0335   jump=0.0134    ns=35
+row chain=chestR       anim=assistant-lavatube-end-idle            drive=leftright tipvar=0.1234    rootdev=0.0690    meshpen=-0.0209   jump=0.0350    ns=35
+row chain=chestR       anim=assistant-lavatube-end-idle            drive=accel     tipvar=0.1385    rootdev=0.0614    meshpen=-3.66699e-05 jump=0.0301    ns=35
+row chain=chestR       anim=assistant-lavatube-end-idle            drive=jerk      tipvar=0.0922    rootdev=0.0670    meshpen=-0.0182   jump=0.0355    ns=35
+row chain=chestR       anim=assistant-lavatube-end-idle            drive=tilt      tipvar=0.0048    rootdev=0.0239    meshpen=-0.0232   jump=0.0009    ns=35
+
+310 lignes de mesure, 2 chaines x 31 animations x 5 pilotages.
+
+-- ROOM-RINGFIT : SPEC 24/25/26, AJUSTEES SUR TOUTE LA SERIE ------------------------------
+   SPEC 24 : Vertical 2.30 Hz (2.1-2.5) / Front-Back 2.50 Hz (2.3-2.7) / Lateral 2.65 Hz
+   (2.4-2.9), « vertical motion is intentionally the slowest ». SPEC 25 : zeta 0.35
+   (0.32-0.42). SPEC 26 : premier depassement oppose 0.31 pour zeta = 0.35.
+   NATURE : une frequence propre et un taux d'amortissement, tires par moindres carres de la
+   serie ENTIERE de deviation (PHYSRINGA, fenetre de repos ; PHYSRINGAT, fenetre inclinee),
+   apres saut du transitoire (12 frames).  REPERE : le triedre de l'ANCRE (SPEC 7).
+   `residu` = ecart-type residuel rapporte a l'amplitude du signal : au-dela de ~0.08 la
+   serie ne porte pas un mode unique et le chiffre ne doit PAS etre lu comme une frequence.
+   `[fmin..fmax]` = les frequences dont le residu reste sous 1.10x le minimum. DEUX AXES DONT
+   LES INTERVALLES NE SE RECOUVRENT PAS SONT DEUX MODES DISTINCTS : c'est la forme que
+   demande le contrat (« une reponse identique dans les trois directions prouve qu'elles ne
+   sont pas appliquees »), lue dans les deux sens.
+
+   fenetre      chaine        axe  n    f (Hz)  intervalle       zeta   residu  rebond   cible §24
+ROOM-RINGFIT: repos       chestL       ap  137   2.445  [2.440..2.450]  0.35   0.009   0.311   2.50 (2.3-2.7)  DANS
+ROOM-RINGFIT: repos       chestL       lat 137   2.570  [2.560..2.575]  0.35   0.022   0.320   2.65 (2.4-2.9)  DANS
+ROOM-RINGFIT: repos       chestL       v   137   2.405  [2.355..2.450]  0.38   0.068   0.284   2.30 (2.1-2.5)  DANS
+ROOM-RINGFIT: repos       chestR       ap  137   2.560  [2.550..2.565]  0.34   0.013   0.314   2.50 (2.3-2.7)  DANS
+ROOM-RINGFIT: repos       chestR       lat 137   2.660  [2.650..2.670]  0.35   0.027   0.323   2.65 (2.4-2.9)  DANS
+ROOM-RINGFIT: repos       chestR       v   137   2.510  [2.470..2.555]  0.33   0.096   0.299   2.30 (2.1-2.5)  residu trop grand, non lisible
+ROOM-RINGFIT: inclinaison chestL       ap  137   2.515  [2.505..2.530]  0.33   0.010   22.952  2.50 (2.3-2.7)  DANS
+ROOM-RINGFIT: inclinaison chestL       lat 137   2.590  [2.590..2.595]  0.34   0.002   n/a     2.65 (2.4-2.9)  DANS
+ROOM-RINGFIT: inclinaison chestL       v   137   2.595  [2.580..2.605]  0.36   0.010   n/a     2.30 (2.1-2.5)  HORS
+ROOM-RINGFIT: inclinaison chestR       ap  137   2.925  [2.855..3.005]  0.36   0.065   1.146   2.50 (2.3-2.7)  HORS
+ROOM-RINGFIT: inclinaison chestR       lat 137   2.875  [2.835..2.920]  0.35   0.017   n/a     2.65 (2.4-2.9)  DANS
+ROOM-RINGFIT: inclinaison chestR       v   137   2.775  [2.730..2.825]  0.29   0.013   n/a     2.30 (2.1-2.5)  HORS
+
+   LES TROIS MODES SONT-ILS SEPARES ? (fenetre de repos, residu <= 0.08 seulement)
+ROOM-RINGFIT-SEP: chain=chestL       v/ap confondus · ap/lat SEPARES · v/lat SEPARES
+ROOM-RINGFIT-SEP: chain=chestR       ap/lat SEPARES
+
+-- ROOM-AXNAME : LES AXES PORTENT-ILS LES BONS NOMS ? (prealable a SPEC 24 et SPEC 29) -----
+   Une mesure par axe qui ne publie que des VALEURS ne peut pas attraper une permutation de
+   ses propres axes : trois nombres sortent, et rien ne dit lequel est l'avant-arriere. Il
+   faut une grandeur dont la reponse est connue D'AVANCE par la geometrie. Le segment qui va
+   d'un sein a l'autre est LATERAL par anatomie : il doit tomber sur la ligne nommee `lat`,
+   et ~rien sur l'autre. Tant que cette ligne n'est pas verte, tous les verdicts par axe
+   ci-dessous SUPPOSENT leurs etiquettes au lieu de les verifier.
+   `sja` est la projection sur la PREMIERE ligne candidate `ja`, `sjb` sur la seconde `jb` ;
+   les deux candidates sont celles qui ne sont pas la verticale `rv` de `PHYSAXIS`, dans
+   l'ordre du solveur : rv=0 -> (1,2), rv=1 -> (0,2), rv=2 -> (0,1). `rlat` dit LAQUELLE des
+   deux a ete nommee laterale, et c'est elle qui donne `sep_lat`.
+ROOM-AXNAME: chain=chestL       src=separation rlat=0 sep_lat= 712.2799 sep_ap=   0.0333 ratio=  21389.79 verdict=NOMME   seg=712.28 u
+ROOM-AXNAME: chain=chestR       src=separation rlat=0 sep_lat=-712.2799 sep_ap=  -0.0333 ratio=  21389.79 verdict=NOMME   seg=712.28 u
+   `seg` = la norme du segment publiee par le moteur, en unites de jeu : elle donne
+   l'ECHELLE de ce qui a ete projete (~712 u = 17.4 cm mesures sur le rig). Un `seg`
+   qui n'est pas de cet ordre veut dire que le segment mesure n'est pas celui-la, et le
+   verdict de nommage ne vaut alors rien, quel que soit son ratio.
+
+-- ROOM-AXFIT : SPEC 24/25/26/27, TROIS IMPULSIONS ISOLEES, UNE PAR AXE -------------------
+   SPEC 27 ecrit le protocole mot pour mot : « After ONE STRONG ISOLATED IMPULSE ». La
+   fenetre de repos ne l'execute pas — elle suit CINQ pilotages, donc ce qui y sonne est un
+   melange de modes, et c'est pour ca que `ROOM-RINGFIT-SEP` rendait « v/ap confondus ».
+   Ici chaque axe recoit SON impulsion (demi-cosinus, 10 frames, pic 18 u/frame^2 — la bande
+   LINEAIRE, ou une frequence propre et un zeta sont definis), puis on lache 150 frames.
+
+   NATURE : une FREQUENCE (Hz) et un rapport d'amortissement, tires de la serie temporelle
+     de deplacement `PHYSRINGAX`. REPERE : triedre de l'ancre (torse), SPEC 7 — le meme que
+     `PHYSRINGA`, donc les deux fenetres sont comparables.
+   CE QUI DISCRIMINE : la colonne `axe` contre la colonne `excite`. Sur la ligne ou les deux
+     coincident, la serie EST le mode propre de cet axe. Les deux autres lignes chiffrent la
+     diaphonie — et si les trois fenetres rendaient la meme frequence, l'anisotropie de
+     SPEC 29 n'atteindrait pas le solveur.
+   ABSENT : aucune ligne PHYSRINGAX dans la trace (phases AXV/AXB/AXL non jouees).
+
+   SELECTIVITE DE L'EXCITATION — part de la reponse tombant sur chaque projection.
+   L'axe EXCITE doit dominer sa propre fenetre ; sinon la frequence lue est un melange.
+ROOM-AXDIR: axe=v   direction monde poussee = (0.08216, -0.97844, 0.18948)
+ROOM-AXDIR: axe=ap  direction monde poussee = (0.99331, 0.09586, 0.06432)
+ROOM-AXDIR: axe=lat direction monde poussee = (-0.08110, 0.18292, 0.97977)
+ROOM-AXDIR: axe=v   direction monde poussee = (0.08216, -0.97844, 0.18948)
+ROOM-AXDIR: axe=ap  direction monde poussee = (0.99331, 0.09586, 0.06432)
+ROOM-AXDIR: axe=lat direction monde poussee = (-0.08110, 0.18292, 0.97977)
+ROOM-AXSEL: excite=v   chain=chestL       v=24.4% ap=23.1% lat=52.5%   -> MELANGE, domine par LAT
+ROOM-AXSEL: excite=ap  chain=chestL       v=11.9% ap=42.8% lat=45.3%   -> MELANGE, domine par LAT
+ROOM-AXSEL: excite=lat chain=chestL       v=12.3% ap=47.9% lat=39.8%   -> MELANGE, domine par AP
+ROOM-AXSEL: excite=v   chain=chestR       v=24.4% ap=23.2% lat=52.3%   -> MELANGE, domine par LAT
+ROOM-AXSEL: excite=ap  chain=chestR       v=11.7% ap=43.3% lat=45.1%   -> MELANGE, domine par LAT
+ROOM-AXSEL: excite=lat chain=chestR       v=16.5% ap=52.0% lat=31.5%   -> MELANGE, domine par AP
+
+   CONTROLE POSITIF — LA MEME IMPULSION, CONTRAINTE DE LONGUEUR (SPEC 22) LEVEE.
+   `sel` = part de la reponse tombant sur l'axe POUSSE. Si la contrainte est ce qui
+   confisque le troisieme degre de liberte, `sel` doit MONTER quand on la leve.
+ROOM-AXSEL-NOLEN: excite=v   chain=chestL       sel_contrainte=24.4%  sel_levee=28.5%  delta= +4.1 pts  -> HYPOTHESE REFUTEE (la contrainte n'est pas la cause)
+ROOM-AXSEL-NOLEN: excite=ap  chain=chestL       sel_contrainte=42.8%  sel_levee=70.8%  delta=+28.0 pts  -> HYPOTHESE SOUTENUE
+ROOM-AXSEL-NOLEN: excite=lat chain=chestL       sel_contrainte=39.8%  sel_levee=37.6%  delta= -2.1 pts  -> HYPOTHESE REFUTEE (la contrainte n'est pas la cause)
+ROOM-AXSEL-NOLEN: excite=v   chain=chestR       sel_contrainte=24.4%  sel_levee=18.0%  delta= -6.5 pts  -> HYPOTHESE REFUTEE (la contrainte n'est pas la cause)
+ROOM-AXSEL-NOLEN: excite=ap  chain=chestR       sel_contrainte=43.3%  sel_levee=65.2%  delta=+21.9 pts  -> HYPOTHESE SOUTENUE
+ROOM-AXSEL-NOLEN: excite=lat chain=chestR       sel_contrainte=31.5%  sel_levee=38.0%  delta= +6.5 pts  -> HYPOTHESE SOUTENUE
+
+   excite  chaine        axe  n    f (Hz)  intervalle       zeta   residu  rebond   cible §24
+ROOM-AXFIT: v      chestL       ap  138   2.550  [2.505..2.600]  0.35   0.072   0.326   2.50 (2.3-2.7)  DANS
+ROOM-AXFIT: v      chestL       lat 138   2.520  [2.500..2.535]  0.35   0.041   0.314   2.65 (2.4-2.9)  DANS
+ROOM-AXFIT:*v      chestL       v   138   2.530  [2.520..2.545]  0.36   0.027   0.324   2.30 (2.1-2.5)  HORS
+ROOM-AXFIT: v      chestR       ap  138   2.615  [2.570..2.665]  0.33   0.089   0.348   2.50 (2.3-2.7)  residu trop grand, non lisible
+ROOM-AXFIT: v      chestR       lat 138   2.630  [2.600..2.660]  0.35   0.069   0.324   2.65 (2.4-2.9)  DANS
+ROOM-AXFIT:*v      chestR       v   138   2.635  [2.615..2.655]  0.35   0.048   0.333   2.30 (2.1-2.5)  HORS
+ROOM-AXFIT:*ap     chestL       ap  138   2.420  [2.405..2.430]  0.36   0.031   0.308   2.50 (2.3-2.7)  DANS
+ROOM-AXFIT: ap     chestL       lat 138   2.545  [2.540..2.555]  0.35   0.016   0.319   2.65 (2.4-2.9)  DANS
+ROOM-AXFIT: ap     chestL       v   138   2.560  [2.510..2.610]  0.43   0.045   0.313   2.30 (2.1-2.5)  HORS
+ROOM-AXFIT:*ap     chestR       ap  138   2.545  [2.540..2.550]  0.35   0.019   0.307   2.50 (2.3-2.7)  DANS
+ROOM-AXFIT: ap     chestR       lat 138   2.635  [2.615..2.650]  0.34   0.027   0.334   2.65 (2.4-2.9)  DANS
+ROOM-AXFIT: ap     chestR       v   138   2.660  [2.610..2.710]  0.41   0.048   0.359   2.30 (2.1-2.5)  HORS
+ROOM-AXFIT: lat    chestL       ap  138   2.465  [2.460..2.470]  0.35   0.015   0.310   2.50 (2.3-2.7)  DANS
+ROOM-AXFIT:*lat    chestL       lat 138   2.550  [2.545..2.555]  0.34   0.015   0.311   2.65 (2.4-2.9)  DANS
+ROOM-AXFIT: lat    chestL       v   138   2.580  [2.555..2.610]  0.29   0.061   0.408   2.30 (2.1-2.5)  HORS
+ROOM-AXFIT: lat    chestR       ap  138   2.545  [2.535..2.550]  0.35   0.018   0.310   2.50 (2.3-2.7)  DANS
+ROOM-AXFIT:*lat    chestR       lat 138   2.625  [2.615..2.640]  0.33   0.031   0.325   2.65 (2.4-2.9)  DANS
+ROOM-AXFIT: lat    chestR       v   138   2.620  [2.610..2.630]  0.36   0.024   0.284   2.30 (2.1-2.5)  HORS
+
+   (* = la ligne ou l'axe MESURE est celui qu'on a EXCITE : c'est elle qui porte le
+   mode propre. Les autres chiffrent la diaphonie.)
+
+   SPEC 29 — L'ANISOTROPIE ARRIVE-T-ELLE ? Les compliances livrees (1.00 / 0.90 / 0.82)
+   imposent, a masse unique, f_ap/f_v = sqrt(1/0.90) = 1.0541 et f_lat/f_v =
+   sqrt(1/0.82) = 1.1043. Mesure contre attendu :
+ROOM-AXRATIO: chain=chestL       f_v=2.530 Hz  ap 0.9565 (attendu 1.0541, ecart -9.26%)  ·  lat 1.0079 (attendu 1.1043, ecart -8.73%)
+ROOM-AXRATIO-SPEC24: chain=chestL       ap 0.9565 (SPEC24 1.0870, ecart -12.00% · SPEC29 1.0541, ecart -9.26%) f=2.420 Hz plage [2.3,2.7] DANS  ·  lat 1.0079 (SPEC24 1.1522, ecart -12.52% · SPEC29 1.1043, ecart -8.73%) f=2.550 Hz plage [2.4,2.9] DANS
+ROOM-AXRATIO: chain=chestR       f_v=2.635 Hz  ap 0.9658 (attendu 1.0541, ecart -8.37%)  ·  lat 0.9962 (attendu 1.1043, ecart -9.79%)
+ROOM-AXRATIO-SPEC24: chain=chestR       ap 0.9658 (SPEC24 1.0870, ecart -11.14% · SPEC29 1.0541, ecart -8.37%) f=2.545 Hz plage [2.3,2.7] DANS  ·  lat 0.9962 (SPEC24 1.1522, ecart -13.54% · SPEC29 1.1043, ecart -9.79%) f=2.625 Hz plage [2.4,2.9] DANS
+   LES DEUX REFERENCES NE SONT PAS LA MEME, ET C'EST LA SPEC ELLE-MEME QUI EST
+   SUR-DETERMINEE : SPEC 29 impose 1.0541 / 1.1043 (racine des mobilites), SPEC 24
+   impose 1.0870 / 1.1522 (rapport de ses frequences nominales) — soit +3.13 % et
+   +4.34 % d'ecart entre les deux, avant toute mesure. CE QUI TRANCHE : le moteur derive
+   la raideur des mobilites de SPEC 29, donc les frequences qui en RESULTENT doivent
+   tomber dans les PLAGES de SPEC 24 (AP 2.3-2.7 Hz, lateral 2.4-2.9 Hz) — c'est la
+   plage qu'il faut verifier, pas le nominal, et c'est la colonne DANS/HORS ci-dessus.
+
+   SPEC 27 SUR SON PROPRE PROTOCOLE — l'echelle de stabilisation apres l'impulsion
+   isolee de l'axe excite. `a0` = maximum des 5 premiers echantillons de la serie ;
+   les seuils sont les memes que `ROOM-SETTLE` (5 %, 1 %, 0.5 %, 0.1 % de `a0`), donc
+   les deux se comparent directement. Bandes SPEC 27 : « mostly settled ~1.0-1.5 s »,
+   « essentially stationary ~1.3-1.7 s ».
+ROOM-AXSETTLE: chain=chestL       axe=ap  t5=0.65    t1=0.87    t05=>2.48   t01=>2.48   a0=0.09019
+ROOM-AXSETTLE: chain=chestL       axe=lat t5=0.58    t1=0.97    t05=1.00    t01=>2.48   a0=0.09806
+ROOM-AXSETTLE: chain=chestL       axe=v   t5=0.62    t1=0.85    t05=0.87    t01=>2.48   a0=0.02220
+ROOM-AXSETTLE: chain=chestR       axe=ap  t5=0.62    t1=1.02    t05=1.03    t01=>2.48   a0=0.08456
+ROOM-AXSETTLE: chain=chestR       axe=lat t5=0.57    t1=0.93    t05=0.97    t01=>2.48   a0=0.08883
+ROOM-AXSETTLE: chain=chestR       axe=v   t5=0.60    t1=0.83    t05=>2.48   t01=>2.48   a0=0.02098
+
+-- ROOM-AXFIT-RAD : SPEC 24 SUR LE DEGRE DE LIBERTE RADIAL DE SPEC 23 ---------------------
+   `PHYSRINGAX` et `PHYSRINGBX` lisent la position du JOINT, qui vit sur une sphere : leur
+   composante radiale est nulle PAR CONSTRUCTION. Le mode que SPEC 24 dit « le plus lent » ne
+   peut donc pas y apparaitre. `PHYSRINGCX` porte l'elongation radiale du tissu elle-meme,
+   rapportee a B0 (SPEC 6), dans les MEMES fenetres et aux MEMES frames.
+   CIBLE 2.30 Hz, BANDE [2.10, 2.50] — la VERTICALE de SPEC 24, et le rig le justifie :
+   l'axe de l'os vaut (+0.3646, -0.9192, -0.1490) en repere `chest`, donc 0.9192^2 = 0.845 :
+   84.5 % de son energie tombe sur l'axe vertical du triedre. Le mode radial EST, a 84.5 %,
+   le mode vertical de sa §24.
+   ESTIMATEUR : exactement celui de `ROOM-AXFIT` (meme fonction, meme skip=12, meme grille,
+   meme intervalle a 1.10x le residu minimum). Aucun ajusteur n'a ete reecrit.
+
+   CONFIGURATION LIVREE (contrainte de longueur ARMEE) — c'est la seule qui puisse tenir
+   ou non sa §24 :
+ROOM-AXFIT-RAD: chain=chestL       ax=v   n=138 f=2.320 ci=[2.320,2.320] zeta=0.35 resid=0.008 cible=2.30 bande=[2.10,2.50] verdict=DANS
+ROOM-AXFIT-RAD: chain=chestR       ax=v   n=138 f=2.425 ci=[2.420,2.430] zeta=0.34 resid=0.012 cible=2.30 bande=[2.10,2.50] verdict=DANS
+ROOM-AXFIT-RAD: chain=chestL       ax=ap  n=138 f=2.335 ci=[2.315,2.345] zeta=0.33 resid=0.021 cible=2.30 bande=[2.10,2.50] verdict=DANS
+ROOM-AXFIT-RAD: chain=chestR       ax=ap  n=138 f=2.425 ci=[2.415,2.440] zeta=0.34 resid=0.017 cible=2.30 bande=[2.10,2.50] verdict=DANS
+ROOM-AXFIT-RAD: chain=chestL       ax=lat n=138 f=1.875 ci=[1.660,2.090] zeta=0.41 resid=0.470 cible=2.30 bande=[2.10,2.50] verdict=INSUFFISANT (residu 0.470 > 0.08 : la serie ne porte pas un mode unique)
+ROOM-AXFIT-RAD: chain=chestR       ax=lat n=138 f=2.680 ci=[2.665,2.695] zeta=0.37 resid=0.021 cible=2.30 bande=[2.10,2.50] verdict=HORS
+
+   CONTROLE, PAS UNE CONFORMITE (contrainte de longueur de SPEC 22 LEVEE) : le systeme n'est
+   plus celui qu'on livre. Ce qu'on y lit dit ce que le mode radial VAUDRAIT si la contrainte
+   ne le bornait pas — un diagnostic, jamais une ligne de conformite.
+ROOM-AXFIT-RAD-NOLEN: chain=chestL       ax=v   n=138 f=2.460 ci=[2.435,2.485] zeta=0.32 resid=0.068 cible=2.30 bande=[2.10,2.50] verdict=DANS  [CONTROLE — PAS UNE CONFORMITE]
+ROOM-AXFIT-RAD-NOLEN: chain=chestR       ax=v   n=138 f=2.495 ci=[2.470,2.510] zeta=0.43 resid=0.017 cible=2.30 bande=[2.10,2.50] verdict=DANS  [CONTROLE — PAS UNE CONFORMITE]
+ROOM-AXFIT-RAD-NOLEN: chain=chestL       ax=ap  n=138 f=2.330 ci=[2.325,2.335] zeta=0.35 resid=0.013 cible=2.30 bande=[2.10,2.50] verdict=DANS  [CONTROLE — PAS UNE CONFORMITE]
+ROOM-AXFIT-RAD-NOLEN: chain=chestR       ax=ap  n=138 f=2.425 ci=[2.420,2.430] zeta=0.35 resid=0.009 cible=2.30 bande=[2.10,2.50] verdict=DANS  [CONTROLE — PAS UNE CONFORMITE]
+ROOM-AXFIT-RAD-NOLEN: chain=chestL       ax=lat n=138 f=2.000 ci=[1.800,2.215] zeta=0.43 resid=0.438 cible=2.30 bande=[2.10,2.50] verdict=INSUFFISANT (residu 0.438 > 0.08 : la serie ne porte pas un mode unique)  [CONTROLE — PAS UNE CONFORMITE]
+ROOM-AXFIT-RAD-NOLEN: chain=chestR       ax=lat n=138 f=2.670 ci=[2.655,2.685] zeta=0.36 resid=0.026 cible=2.30 bande=[2.10,2.50] verdict=HORS  [CONTROLE — PAS UNE CONFORMITE]
+
+-- ROOM-AXBLIND / AXSEL-ABS / AXFIT-ABS : SPEC 24 SUR UN INSTRUMENT NON AVEUGLE ----------
+   Tout ce qui precede sur SPEC 24 est lu sur `PHYSRINGAX`, qui projette une DIFFERENCE DE
+   VECTEURS UNITAIRES : sa composante radiale est nulle par construction. Le bloc ci-dessous
+   republie les memes mesures sur `PHYSRINGBX` (la meme deviation, NON normalisee, meme
+   instant, meme triedre) et donne le controle qui prouve l'aveuglement. L'ancien bloc n'est
+   PAS retire : l'ecart entre les deux EST la mesure de l'erreur, et il lui faut un avant.
+   ROOM-AXPLANE — LA SERIE PORTE-T-ELLE TROIS DEGRES DE LIBERTE, OU DEUX ?
+   `s3/s1` est le rapport de la plus petite a la plus grande valeur singuliere du nuage des
+   vecteurs (v, ap, lat). Une serie PLANE (s3/s1 ~ 1 %) ne peut pas porter trois frequences
+   propres : la direction NULLE est celle que la mesure annule, pas celle que la physique
+   interdit. Les fenetres `Z` ont la contrainte de longueur LEVEE — si elles restent planes,
+   la cecite n'est pas dans le solveur.
+
+   `s2/s3` dit si la direction nulle est DETERMINEE : une reponse quasi 1-D (s2 ~ s3) laisse
+   le couple des deux petites directions libre de tourner dans son plan, et la direction
+   imprimee n'y veut alors rien dire. On ne lit la colonne de droite que sur les lignes ou
+   `s2/s3` est franchement > 5.
+
+   serie             excite chaine     s1        s2        s3      s3/s1  s2/s3  direction NULLE
+   normalisee        v     chestL     1.01e-02 5.29e-04 1.98e-04  0.0196   2.7  (+0.919,+0.097,-0.383) <- indeterminee
+   normalisee        ap    chestL     2.51e-02 1.15e-02 1.04e-03  0.0413  11.1  (+0.947,+0.111,-0.302) 
+   normalisee        lat   chestL     3.32e-02 3.02e-03 9.30e-04  0.0280   3.2  (+0.902,+0.119,-0.416) <- indeterminee
+   normalisee        v     chestR     9.66e-03 6.19e-04 1.78e-04  0.0184   3.5  (+0.916,+0.080,+0.392) <- indeterminee
+   normalisee        ap    chestR     2.39e-02 9.95e-03 9.42e-04  0.0395  10.6  (+0.948,+0.104,+0.302) 
+   normalisee        lat   chestR     3.61e-02 3.19e-03 1.14e-03  0.0316   2.8  (+0.939,+0.100,+0.329) <- indeterminee
+   NON normalisee    v     chestL     9.86e+00 5.16e-01 1.92e-01  0.0194   2.7  (+0.919,+0.097,-0.383) <- indeterminee
+   NON normalisee    ap    chestL     2.45e+01 1.12e+01 1.01e+00  0.0412  11.1  (+0.947,+0.111,-0.302) 
+   NON normalisee    lat   chestL     3.24e+01 2.95e+00 9.09e-01  0.0280   3.2  (+0.902,+0.119,-0.416) <- indeterminee
+   NON normalisee    v     chestR     9.44e+00 6.05e-01 1.74e-01  0.0184   3.5  (+0.917,+0.082,+0.391) <- indeterminee
+   NON normalisee    ap    chestR     2.33e+01 9.72e+00 9.20e-01  0.0395  10.6  (+0.948,+0.104,+0.302) 
+   NON normalisee    lat   chestR     3.52e+01 3.12e+00 1.11e+00  0.0316   2.8  (+0.939,+0.100,+0.329) <- indeterminee
+   normalisee/Z      v     chestL     4.02e-02 8.86e-03 1.33e-03  0.0329   6.7  (+0.890,+0.129,-0.437) 
+   normalisee/Z      ap    chestL     2.86e-02 5.88e-03 6.53e-04  0.0228   9.0  (+0.918,+0.100,-0.383) 
+   normalisee/Z      lat   chestL     3.52e-02 1.25e-03 9.74e-04  0.0277   1.3  (-0.500,-0.442,+0.745) <- indeterminee
+   normalisee/Z      v     chestR     2.71e-02 3.43e-03 6.39e-04  0.0236   5.4  (+0.928,+0.189,+0.321) 
+   normalisee/Z      ap    chestR     2.87e-02 2.84e-03 6.63e-04  0.0231   4.3  (+0.919,+0.098,+0.383) <- indeterminee
+   normalisee/Z      lat   chestR     3.79e-02 3.35e-03 1.21e-03  0.0318   2.8  (+0.947,+0.124,+0.295) <- indeterminee
+   NON normalisee/Z  v     chestL     4.18e+01 8.45e+00 3.79e+00  0.0907   2.2  (-0.634,-0.079,+0.769) <- indeterminee
+   NON normalisee/Z  ap    chestL     3.36e+01 1.20e+01 1.60e-01  0.0048  75.4  (-0.000,-0.001,+1.000) 
+   NON normalisee/Z  lat   chestL     3.54e+01 1.19e+00 1.88e-01  0.0053   6.4  (+0.999,+0.027,-0.047) 
+   NON normalisee/Z  v     chestR     4.93e+01 9.41e+00 1.34e-01  0.0027  70.1  (-0.000,+1.000,-0.001) 
+   NON normalisee/Z  ap    chestR     3.84e+01 4.86e+00 1.28e-01  0.0033  37.8  (-0.006,+0.008,+1.000) 
+   NON normalisee/Z  lat   chestR     3.80e+01 3.27e+00 2.73e-02  0.0007 119.6  (+1.000,-0.002,+0.001) 
+
+   ROOM-AXBLIND — POURQUOI LA SERIE EST PLANE : L'IDENTITE DE LA DIFFERENCE D'UNITAIRES.
+   `dv.m = -|dv|^2/2` est vraie EXACTEMENT pour une difference de deux vecteurs unitaires, et
+   pour rien d'autre. `m` est ajuste sans contrainte de norme : s'il sort a |m|=1, la
+   grandeur mesuree EST une difference de directions, et `m` est la direction AVEUGLE.
+
+   serie             excite chaine     m ajuste (v, ap, lat)        R2        |m|     part_v
+   normalisee        v     chestL     (+0.9192,+0.1490,-0.3646)    1.00000  1.0000   84.5%
+   normalisee        ap    chestL     (+0.9192,+0.1490,-0.3646)    1.00000  1.0000   84.5%
+   normalisee        lat   chestL     (+0.9192,+0.1490,-0.3646)    1.00000  1.0000   84.5%
+   normalisee        v     chestR     (+0.9192,+0.1490,+0.3645)    1.00000  0.9999   84.5%
+   normalisee        ap    chestR     (+0.9192,+0.1490,+0.3645)    1.00000  1.0000   84.5%
+   normalisee        lat   chestR     (+0.9192,+0.1490,+0.3645)    1.00000  1.0000   84.5%
+   NON normalisee    v     chestL     (+0.9191,+0.1454,-0.3661)    0.99891  981.0513   84.5%
+   NON normalisee    ap    chestL     (+0.9192,+0.1489,-0.3645)    0.99999  977.3679   84.5%
+   NON normalisee    lat   chestL     (+0.9192,+0.1489,-0.3645)    1.00000  976.5925   84.5%
+   NON normalisee    v     chestR     (+0.9192,+0.1508,+0.3637)    0.99969  977.5681   84.5%
+   NON normalisee    ap    chestR     (+0.9192,+0.1489,+0.3644)    0.99999  977.5941   84.5%
+   NON normalisee    lat   chestR     (+0.9192,+0.1490,+0.3646)    1.00000  976.7493   84.5%
+
+   LECTURE : sur la serie NORMALISEE, R2 = 1 et |m| = 1 -> la grandeur est bien une
+   difference de directions, et `part_v` dit quelle FRACTION de la direction aveugle tombe
+   sur l'axe VERTICAL — celui dont SPEC 24 dit qu'il est « le plus lent ». Sur la serie NON
+   normalisee la meme identite doit ECHOUER (R2 loin de 1) : c'est la preuve qu'elle porte
+   autre chose qu'un ecart de directions.
+
+   ROOM-AXLABEL — LE TRIEDRE PORTE-T-IL LES BONS NOMS ?
+   Le segment qui separe les deux seins est LATERAL par anatomie. On le reconstruit
+   (meme attache : parent commun joint 3 `chest`) et on regarde sur quel axe il tombe.
+   separation chestL - chestR = (-0.01, +0.01, +712.41) u   norme 712.41 u = 17.4 cm
+   part d'energie :  v   0.0%   ap   0.0%   lat 100.0%
+   -> le segment gauche-droite tombe sur l'axe nomme `lat`. LES NOMS SONT BONS.
+
+   ROOM-AXSEL-ABS — LA MEME SELECTIVITE, SUR LES QUATRE COMBINAISONS.
+   Deux facteurs se croisent, et le cycle 8 ne pouvait en voir qu'un :
+     INSTRUMENT  `norm` = difference d'unitaires (aveugle au radial) · `abs` = non normalise
+     SOLVEUR     contrainte de longueur ARMEE · LEVEE (`*phys-len-off*`, fenetres Z)
+   `sel` = part de la reponse tombant sur l'axe POUSSE. La case qui decide est `abs/levee` :
+   c'est la seule ou le degre de liberte radial existe ET peut etre vu. Si la selectivite y
+   monte, la contrainte de longueur EST ce qui confisque le troisieme mode — l'hypothese que
+   le cycle 8 avait posee puis declaree refutee en la lisant avec l'instrument aveugle.
+
+   excite chaine        norm/armee   abs/armee    norm/levee   abs/levee    -> dominant (abs/levee)
+   v      chestL          24.3%      24.3%      28.3%      47.6%    ISOLE
+   ap     chestL          42.7%      42.7%      70.6%      55.6%    ISOLE
+   lat    chestL          39.8%      39.8%      37.7%      45.4%    melange->AP
+   v      chestR          24.4%      24.4%      18.1%      49.7%    melange->LAT
+   ap     chestR          43.1%      43.1%      65.4%      49.6%    melange->V
+   lat    chestR          31.5%      31.5%      38.0%      48.7%    melange->AP
+
+   ROOM-AXFIT-ABS — SPEC 24 : TROIS FREQUENCES PROPRES, UNE PAR AXE.
+   Lue sur la serie NON normalisee, sur la projection de l'axe EXCITE (la fenetre ou cet
+   axe est le mode, pas la diaphonie). `sel` rappelle la selectivite de cette fenetre : une
+   frequence lue sur une fenetre non isolee reste un MELANGE et le dit.
+
+   ATTENTION AU STATUT DES DEUX BLOCS, ILS NE SE COMPARENT PAS A SA SPEC DE LA MEME FACON :
+     `armee` = LA CONFIGURATION LIVREE. C'est la seule qui puisse tenir ou non sa §24.
+     `levee` = UN CONTROLE, contrainte de longueur desarmee. Le systeme n'est plus celui
+        qu'on livre : la frequence qu'on y lit dit ce que le mode vertical VAUDRAIT si le
+        degre de liberte existait. C'est un diagnostic, pas une conformite.
+
+   etat   excite chaine        n    f (Hz)   intervalle        zeta   residu   sel     cible §24
+   armee  v      chestL       138   2.5300  [2.5150,2.5400]  0.360  0.0286  24.3%  2.30 (2.1-2.5) HORS (fenetre NON ISOLEE, sel<40% : melange)
+   armee  ap     chestL       138   2.4200  [2.4050,2.4300]  0.360  0.0307  42.7%  2.50 (2.3-2.7) DANS
+   armee  lat    chestL       138   2.5500  [2.5450,2.5550]  0.340  0.0147  39.8%  2.65 (2.4-2.9) DANS (fenetre NON ISOLEE, sel<40% : melange)
+   armee  v      chestR       138   2.6350  [2.6150,2.6550]  0.350  0.0476  24.4%  2.30 (2.1-2.5) HORS (fenetre NON ISOLEE, sel<40% : melange)
+   armee  ap     chestR       138   2.5450  [2.5400,2.5500]  0.350  0.0193  43.1%  2.50 (2.3-2.7) DANS
+   armee  lat    chestR       138   2.6250  [2.6150,2.6400]  0.330  0.0306  31.5%  2.65 (2.4-2.9) DANS (fenetre NON ISOLEE, sel<40% : melange)
+   levee  v      chestL       138   2.3250  [2.3250,2.3250]  0.350  0.0072  47.6%  2.30 (2.1-2.5) DANS
+   levee  ap     chestL       138   2.4500  [2.4450,2.4550]  0.340  0.0168  55.6%  2.50 (2.3-2.7) DANS
+   levee  lat    chestL       138   2.5700  [2.5650,2.5800]  0.350  0.0204  45.4%  2.65 (2.4-2.9) DANS
+   levee  v      chestR       138   2.4200  [2.4200,2.4200]  0.350  0.0073  49.7%  2.30 (2.1-2.5) DANS
+   levee  ap     chestR       138   2.5600  [2.5500,2.5650]  0.340  0.0195  49.6%  2.50 (2.3-2.7) DANS
+   levee  lat    chestR       138   2.6700  [2.6650,2.6800]  0.340  0.0153  48.7%  2.65 (2.4-2.9) DANS
+
+   ROOM-AXORDER — SPEC 24 : « vertical motion is intentionally the SLOWEST ».
+   L'ordre f_v < f_ap < f_lat est une exigence de SA section, independante des nominaux.
+   armee  chestL       f_v=2.5300  f_ap=2.4200  f_lat=2.5500  etalement=5.4%  -> ORDRE NON TENU
+   armee  chestL         (dont 2 fenetre(s) NON ISOLEE(s) : l'ordre lu dessus ne decide rien)
+   armee  chestR       f_v=2.6350  f_ap=2.5450  f_lat=2.6250  etalement=3.5%  -> ORDRE NON TENU
+   armee  chestR         (dont 2 fenetre(s) NON ISOLEE(s) : l'ordre lu dessus ne decide rien)
+   levee  chestL       f_v=2.3250  f_ap=2.4500  f_lat=2.5700  etalement=10.5%  -> ORDRE TENU
+   levee  chestR       f_v=2.4200  f_ap=2.5600  f_lat=2.6700  etalement=10.3%  -> ORDRE TENU
+
+-- ROOM-ORI : SPEC 10-13, LES EQUILIBRES PAR ORIENTATION, ET LEUR CONTINUITE --------------
+   SPEC 13 : « supine, prone, upright and lateral states shall NOT exist as unrelated
+   hard-coded morph targets ; the equilibrium state shall vary CONTINUOUSLY with the local
+   gravity direction ».
+   NATURE : `gx/gy/gz` est l'ENTREE — la direction de la gravite VUE PAR LE SOLVEUR, unitaire.
+   `sx/sy/sz` est la SORTIE — les trois echelles commandees a la racine du sein (lateral,
+   vertical, projection), sans dimension, rapport a la forme d'auteur. `det` est leur produit,
+   le volume de SPEC 8.  REPERE : le triedre de SPEC 7 (+X lateral, +Y haut, +Z avant), releve
+   a la pose debout d'auteur.  LECTURE HORS DEFAUT : a l'orientation 0 (debout) les trois
+   echelles valent 1.000 — sinon toutes les autres sont decalees et rien n'est comparable.
+   CE QUE CE N'EST PAS : la deformation VUE sur le mesh. C'est ce que le solveur COMMANDE ;
+   la peau, graduee en r^1.63 (SPEC 31), n'en recoit qu'une part croissante vers la pointe.
+
+   chaine        i  ax   deg      gx       gy       gz       sx      sy      sz     det
+ROOM-ORI: chestL        0  0     0.0   0.0000 -1.0000 -0.0001  0.9999 0.9999 1.0000 1.00000
+ROOM-ORI: chestL        1  0    45.0  -0.7056 -0.7071  0.0455  0.9071 1.0560 1.0439 1.00000
+ROOM-ORI: chestL        2  0    90.0  -0.9979 -0.0000  0.0645  0.8240 1.1134 1.0898 1.00000
+ROOM-ORI: chestL        3  0   -45.0   0.7056 -0.7070 -0.0457  0.8971 1.0507 1.0607 0.99990
+ROOM-ORI: chestL        4  0   -90.0   0.9979  0.0000 -0.0645  0.8054 1.1045 1.1240 1.00000
+ROOM-ORI: chestL        5  1    45.0  -0.0456 -0.7070 -0.7057  0.9415 0.9563 1.1105 1.00000
+ROOM-ORI: chestL        6  1    90.0  -0.0645  0.0001 -0.9979  0.8912 0.9199 1.2195 1.00000
+ROOM-ORI: chestL        7  1   -45.0   0.0456 -0.7071  0.7055  1.1073 1.0495 0.8604 0.99990
+ROOM-ORI: chestL        8  1   -90.0   0.0645 -0.0001  0.9979  1.2231 1.1091 0.7371 0.99990
+ROOM-ORI: chestR        0  0     0.0   0.0000 -1.0000 -0.0001  0.9999 0.9999 1.0000 1.00000
+ROOM-ORI: chestR        1  0    45.0  -0.7056 -0.7071  0.0455  0.9071 1.0560 1.0439 1.00000
+ROOM-ORI: chestR        2  0    90.0  -0.9979 -0.0000  0.0645  0.8240 1.1134 1.0898 1.00000
+ROOM-ORI: chestR        3  0   -45.0   0.7056 -0.7070 -0.0457  0.8971 1.0507 1.0608 0.99990
+ROOM-ORI: chestR        4  0   -90.0   0.9979  0.0000 -0.0645  0.8054 1.1045 1.1239 1.00000
+ROOM-ORI: chestR        5  1    45.0  -0.0456 -0.7070 -0.7057  0.9415 0.9563 1.1105 1.00000
+ROOM-ORI: chestR        6  1    90.0  -0.0645  0.0001 -0.9979  0.8912 0.9199 1.2196 1.00000
+ROOM-ORI: chestR        7  1   -45.0   0.0456 -0.7071  0.7055  1.1073 1.0494 0.8604 0.99990
+ROOM-ORI: chestR        8  1   -90.0   0.0645 -0.0001  0.9979  1.2231 1.1091 0.7370 0.99990
+
+   arme (phys-shape which=8) sur toutes les lignes : oui
+ROOM-ORI-SPAN: chain=chestL       sz_min=0.7371 sz_max=1.2195 span=0.4824  DISCRIMINE
+ROOM-ORI-SPAN: chain=chestR       sz_min=0.7370 sz_max=1.2196 span=0.4826  DISCRIMINE
+
+-- ROOM-ORICOM : SPEC 10/11/12, LE DEPLACEMENT STATIQUE — ET SPEC 29, LA COMPLIANCE -------
+   CONTROLE POSITIF DE L'ALGEBRE : un tenseur diag(0.82, 1.00, 0.90) POSE, les reponses
+     qu'il produirait fabriquees, puis retrouve — erreur 1.1e-16 ; normale d'un nuage plan
+     retrouvee a 0.0e+00 pres. L'instrument sait donc rendre la reponse qu'on lui donne.
+   NATURE : des DEPLACEMENTS SOUTENUS (moyennes de 30 frames sur un equilibre tenu), pas des
+     variances — un equilibre ne bouge plus, toute grandeur de dispersion y lit zero.
+   REPERE : le triedre de SPEC 7 (+X lateral, +Y haut, +Z avant), le meme que `gx/gy/gz`.
+   LIGNE DE BASE : l'orientation i=0 est la pose debout d'auteur, ou §9 exige 0.0000. Elle
+     est MESUREE ci-dessous et non supposee : si elle n'est pas nulle, tout est decale.
+   DEUX CANAUX, ORTHOGONAUX PAR CONSTRUCTION, JAMAIS ADDITIONNES EN AVEUGLE :
+     `t`  = deplacement TANGENTIEL de l'APEX (le point que le solveur integre). La
+            contrainte de longueur lui confisque l'axe de l'os. Bandes §22 : 0.42 / 0.50 B0.
+     `rr` = le canal radial de §23, LE LONG de l'os. Bandes §22 du COM : 0.35 / 0.40 B0.
+   AVERTISSEMENT QUI COMPTE, ET QUI N'EST PAS UNE FORMALITE : le point INTEGRE reste
+     l'APEX (residu connu de §23). Les cibles de §10/§11/§12 sont des COM. Un apex se
+     deplace PLUS qu'un COM sous une rotation autour de l'ancre, donc les valeurs `t`
+     ci-dessous sont une BORNE SUPERIEURE du COM, pas le COM. Ce bloc ne franchit pas cet
+     ecart : il le NOMME. Les RAPPORTS de §29, eux, sont immunises — le meme point sert aux
+     trois axes, et un facteur commun disparait d'un rapport.
+
+ROOM-ORICOM-ROLE: chain=chestL       §10 supine -> i=8 (ecart 0.0631, 2e meilleur 0.3236) ;  §11 prone -> i=6 (ecart 0.0292, 2e 0.2073)
+ROOM-ORICOM-ROLE: chain=chestR       §10 supine -> i=8 (ecart 0.0630, 2e meilleur 0.3237) ;  §11 prone -> i=6 (ecart 0.0291, 2e 0.2073)
+   (le role vient du TRIPLET D'ECHELLES compare aux valeurs que sa spec nomme, pas de
+    l'etiquette `ax`/`deg` : une etiquette ne se verifie pas, un ecart de 16x si.)
+
+   chaine        i   gx      gy      gz   | ex      ey      ez   |  tx/B0  ty/B0  tz/B0  |t|/B0 |   rr     rrm    rrt
+ROOM-ORICOM: chestL       0  0.0000 -1.0000 -0.0001 | 0.0000  0.0000 -0.0001 | 0.0004 0.0000 0.0006 0.0007 |-0.00047 0.00107 0.17429
+ROOM-ORICOM: chestL       1 -0.7056 -0.7071  0.0455 |-0.7056  0.2929  0.0455 | 0.0996 0.0397 0.0234 0.1098 | 0.08791 0.18117 0.39985
+ROOM-ORICOM: chestL       2 -0.9979 -0.0000  0.0645 |-0.9979  1.0000  0.0645 | 0.1147 0.0428 0.0541 0.1339 | 0.23425 0.35271 0.39985
+ROOM-ORICOM: chestL       3  0.7056 -0.7070 -0.0457 | 0.7056  0.2930 -0.0457 |-0.1198-0.0426 0.0029 0.1271 | 0.07017 0.30591 0.39993
+ROOM-ORICOM: chestL       4  0.9979  0.0000 -0.0645 | 0.9979  1.0000 -0.0645 |-0.1759-0.0623 0.0279 0.1887 | 0.18704 0.30240 0.39983
+ROOM-ORICOM: chestL       5 -0.0456 -0.7070 -0.7057 |-0.0456  0.2930 -0.7057 |-0.0098 0.0174-0.1069 0.1087 | 0.08712 0.13180 0.39991
+ROOM-ORICOM: chestL       6 -0.0645  0.0001 -0.9979 |-0.0645  1.0001 -0.9979 |-0.0287 0.0124-0.1166 0.1207 | 0.25441 0.34854 0.39979
+ROOM-ORICOM: chestL       7  0.0456 -0.7071  0.7055 | 0.0456  0.2929  0.7055 |-0.0094-0.0196 0.1384 0.1401 | 0.02844 0.04151 0.39992
+ROOM-ORICOM: chestL       8  0.0645 -0.0001  0.9979 | 0.0645  0.9999  0.9979 |-0.0305-0.0306 0.2070 0.2114 | 0.16129 0.20019 0.39982
+ROOM-ORICOM: chestR       0  0.0000 -1.0000 -0.0001 | 0.0000  0.0000 -0.0001 |-0.0000-0.0001 0.0007 0.0007 | 0.00001 0.00156 0.21823
+ROOM-ORICOM: chestR       1 -0.7056 -0.7071  0.0455 |-0.7056  0.2929  0.0455 | 0.1141-0.0422 0.0119 0.1222 |-0.01941 0.11291 0.39985
+ROOM-ORICOM: chestR       2 -0.9979 -0.0000  0.0645 |-0.9979  1.0000  0.0645 | 0.2006-0.0700 0.0373 0.2158 | 0.06967 0.13359 0.39985
+ROOM-ORICOM: chestR       3  0.7056 -0.7070 -0.0457 | 0.7056  0.2930 -0.0457 |-0.0618 0.0241 0.0118 0.0674 | 0.14731 0.34858 0.39993
+ROOM-ORICOM: chestR       4  0.9979  0.0000 -0.0645 | 0.9979  1.0000 -0.0645 |-0.0413 0.0117 0.0355 0.0557 | 0.26421 0.35862 0.39983
+ROOM-ORICOM: chestR       5 -0.0456 -0.7070 -0.7057 |-0.0456  0.2930 -0.7057 | 0.0397 0.0048-0.1019 0.1094 | 0.06993 0.11513 0.39991
+ROOM-ORICOM: chestR       6 -0.0645  0.0001 -0.9979 |-0.0645  1.0001 -0.9979 | 0.0947-0.0117-0.1140 0.1487 | 0.21366 0.30596 0.39980
+ROOM-ORICOM: chestR       7  0.0456 -0.7071  0.7055 | 0.0456  0.2929  0.7055 | 0.0079-0.0183 0.1283 0.1298 | 0.02396 0.04069 0.39992
+ROOM-ORICOM: chestR       8  0.0645 -0.0001  0.9979 | 0.0645  0.9999  0.9979 | 0.0546-0.0389 0.1927 0.2040 | 0.14240 0.21882 0.39982
+   `ex/ey/ez` = `g_eff = g_local - g_ref` de sa SPEC 3, avec `g_ref = (0,-1,0)` la pose
+     debout d'auteur. C'EST LUI L'ENTREE DU SOLVEUR, pas `g` : debout les deux termes
+     s'annulent et §9 exige exactement 0. Regresser sur `g` au lieu de `g_eff` mettrait
+     une reponse nulle en face d'une entree unitaire et rendrait une compliance fausse.
+
+-- ROOM-ORIAXIS : L'AXE DE L'OS, LU DANS LES DONNEES AU LIEU D'ETRE SUPPOSE -------------
+   La contrainte de longueur confisque au canal du joint la composante LE LONG de l'os :
+   les 9 deplacements tangentiels sont donc confines a un PLAN, et la normale de ce plan EST
+   l'axe de l'os. On la lit comme le plus petit vecteur propre de leur matrice de dispersion.
+   CE QUI LE PROUVE, ET C'EST PUBLIE A COTE : les deux premieres valeurs propres doivent
+   dominer la troisieme. Si les trois sont du meme ordre, le nuage n'est pas plan, la
+   confiscation n'a pas lieu, et tout ce qui suit est a jeter.
+ROOM-ORIAXIS: chain=chestL       vp=3.3862e+04 2.8536e+04 9.3324e+01  vp3/vp2=3.27e-03  axe=(-0.3402,+0.9336,+0.1128)  PLAN (confiscation confirmee)
+   composante VERTICALE de cet axe : 93.4 % — l'axe de l'os n'est PAS l'axe anatomique racine->apex (qui est +Z, celui que §11 allonge de 23 %).
+ROOM-ORIAXIS: chain=chestR       vp=3.1731e+04 2.6830e+04 3.4136e+01  vp3/vp2=1.27e-03  axe=(+0.3078,+0.9436,+0.1221)  PLAN (confiscation confirmee)
+   composante VERTICALE de cet axe : 94.4 % — l'axe de l'os n'est PAS l'axe anatomique racine->apex (qui est +Z, celui que §11 allonge de 23 %).
+
+-- ROOM-COMPLIANCE : SPEC 29, MESUREE SUR LA GRANDEUR QUE SON PRESET NOMME ----------------
+   §38 : `VerticalCompliance 1.00 / APCompliance 0.90 / LateralCompliance 0.82`.
+   ON AJUSTE `d = C.g_eff` SUR LES 9 EQUILIBRES, `d` etant le deplacement TOTAL en B0 :
+     `d = t/B0 + rr . axe_de_l_os`, les deux canaux remis dans le meme vecteur — ils sont
+     orthogonaux par construction, donc cette somme-la est licite alors qu'additionner
+     leurs MODULES ne le serait pas.
+   PREDICTION ECRITE AVANT LA COURSE, et c'est ce qui donne sa valeur au test : la donnee
+     livree porte `sv=1.0000 sap=1.1111 slat=1.2195` (raideurs par axe, lues a l'execution
+     dans `PHYSAXISS`). Une compliance est l'inverse d'une raideur, donc les rapports
+     ATTENDUS sont 1/1.0000 : 1/1.1111 : 1/1.2195 = 1.000 / 0.900 / 0.820 — exactement sa
+     §29. Si la mesure les rend, §29 est TENUE et mesuree pour la premiere fois ; sinon
+     l'ecart est le resultat, et il est chiffre au lieu d'etre suppose.
+   POURQUOI CE QUE LA FREQUENCE NE POUVAIT PAS FAIRE : `f` varie comme sqrt(k), donc un
+     ecart de raideur de 7.5 % n'y pese que 3.7 % — sous le residu des ajustements de
+     ring-down (0.02 a 0.16). Une compliance porte l'ecart ENTIER, et se lit sur des
+     moyennes de 30 frames d'un etat immobile, sans ajustement du tout.
+
+ROOM-COMPLIANCE: chain=chestL   n=9   residu relatif de l'ajustement = 0.0512  LINEAIRE (donc §13 continue : une table de morphs figes ne serait pas lineaire)
+   C[lateral] =  -0.14056  -0.10219  +0.02388
+   C[vertical] =  -0.07706  +0.18809  -0.06008
+   C[AP     ] =  -0.00540  +0.06743  +0.16128
+ROOM-COMPLIANCE-ANISO: chain=chestL  vertical=1.0000 (=1.000 par normalisation)  AP=0.7742  lateral=0.7147
+   cible §29                          vertical=1.000              AP=0.900   lateral=0.820
+   ecart                                                           -14.0 %    -12.8 %
+   (compliances brutes, en B0 par unite de g_eff : vertical 0.22442, AP 0.17376, lateral 0.16039)
+
+ROOM-COMPLIANCE: chain=chestR   n=9   residu relatif de l'ajustement = 0.0582  LINEAIRE (donc §13 continue : une table de morphs figes ne serait pas lineaire)
+   C[lateral] =  -0.09190  +0.13130  -0.02562
+   C[vertical] =  +0.13778  +0.13679  -0.05615
+   C[AP     ] =  +0.02191  +0.05947  +0.15117
+ROOM-COMPLIANCE-ANISO: chain=chestR  vertical=1.0000 (=1.000 par normalisation)  AP=0.8217  lateral=0.8407
+   cible §29                          vertical=1.000              AP=0.900   lateral=0.820
+   ecart                                                            -8.7 %     +2.5 %
+   (compliances brutes, en B0 par unite de g_eff : vertical 0.19872, AP 0.16328, lateral 0.16706)
+
+-- ROOM-ORIRECT : LA LINEARITE, TESTEE PAR PAIRES DE POLES OPPOSES ------------------------
+   Chaque paire : meme `g_eff` vertical, composante d'axe exactement opposee. Un tenseur
+   lineaire borne le rapport des deux reponses ; un rapport qui explose est un REDRESSEMENT
+   (reponse d'un seul cote), que nulle anisotropie ne peut produire.
+   LE CONTROLE EST DANS LE TABLEAU : les paires LATERALES passent par le meme instrument.
+   Elles a ~1 et les AP qui explosent => l'asymetrie est dans la chaine, pas dans la mesure.
+
+   chaine        paire                       |d(a)|   |d(b)|   rapport   lecture
+ROOM-ORIRECT: chestL       LATERAL  90 deg (i=2 / i=4)   0.2758   0.2690     1.03   CONTROLE : symetrique
+ROOM-ORIRECT: chestL       LATERAL  45 deg (i=1 / i=3)   0.1442   0.1459     1.01   CONTROLE : symetrique
+ROOM-ORIRECT: chestL       AVANT-ARRIERE 90 (i=6 / i=8)  0.2889   0.2690     1.07   symetrique
+ROOM-ORIRECT: chestL       AVANT-ARRIERE 45 (i=5 / i=7)  0.1439   0.1431     1.01   symetrique
+ROOM-ORIRECT: chestR       LATERAL  90 deg (i=2 / i=4)   0.2268   0.2726     1.20   CONTROLE : symetrique
+ROOM-ORIRECT: chestR       LATERAL  45 deg (i=1 / i=3)   0.1243   0.1666     1.34   CONTROLE : symetrique
+ROOM-ORIRECT: chestR       AVANT-ARRIERE 90 (i=6 / i=8)  0.2638   0.2508     1.05   symetrique
+ROOM-ORIRECT: chestR       AVANT-ARRIERE 45 (i=5 / i=7)  0.1322   0.1321     1.00   symetrique
+
+-- ROOM-ORICOM-SPEC : LES TROIS DEPLACEMENTS D'ORIENTATION QUE SA SPEC CHIFFRE -----------
+   §10 `SupineCOMDepth 0.23 B0` · §11 `HangingCOMDisplacement 0.24 B0`, transitoire de
+   longueur <= 1.30 · §12 `SideGravityCOM 0.19 B0`. Lus contre |d| = |t/B0 + rr.axe|, le
+   MEME vecteur compose que le tenseur ci-dessus. Rappel de l'avertissement : c'est un
+   APEX, donc une BORNE SUPERIEURE du COM que ces trois lignes visent.
+ROOM-ORICOM-SPEC: chestL       §10 supine  i=8  |d|=0.2690 B0   cible 0.23 (bande 0.18-0.28)  DANS
+ROOM-ORICOM-SPEC: chestL       §11 prone   i=6  |d|=0.2889 B0   cible 0.24 (bande 0.20-0.30)  DANS
+ROOM-ORICOM-SPEC: chestL       §12 lateral i=2  |d|=0.2758 B0   cible 0.19 (bande 0.15-0.24)  AU-DESSUS
+ROOM-ORICOM-SPEC: chestL       §12 lateral i=4  |d|=0.2690 B0   cible 0.19 (bande 0.15-0.24)  AU-DESSUS
+ROOM-ORICOM-SPEC: chestL       §11 transitoire  pic d'etablissement=0.39979  tenu=0.25441  rapport=1.571  (§11 : 1.30 contre 1.23, soit 1.057)
+ROOM-ORICOM-SPEC: chestR       §10 supine  i=8  |d|=0.2508 B0   cible 0.23 (bande 0.18-0.28)  DANS
+ROOM-ORICOM-SPEC: chestR       §11 prone   i=6  |d|=0.2638 B0   cible 0.24 (bande 0.20-0.30)  DANS
+ROOM-ORICOM-SPEC: chestR       §12 lateral i=2  |d|=0.2268 B0   cible 0.19 (bande 0.15-0.24)  DANS
+ROOM-ORICOM-SPEC: chestR       §12 lateral i=4  |d|=0.2726 B0   cible 0.19 (bande 0.15-0.24)  AU-DESSUS
+ROOM-ORICOM-SPEC: chestR       §11 transitoire  pic d'etablissement=0.39980  tenu=0.21366  rapport=1.871  (§11 : 1.30 contre 1.23, soit 1.057)
+
+-- ROOM-ORICTL : LE REDRESSEMENT, ET SES TROIS SUSPECTS DESARMES TOUR A TOUR -------------
+   NATURE : le meme deplacement soutenu que `ROOM-ORICOM`, mesure sur la meme fenetre par
+     le meme emetteur, une fois par passe. REPERE : triedre de SPEC 7. Le rapport compare
+     deux POLES OPPOSES, donc a stimulus vertical identique.
+   `inv` et `flip` sont les compteurs de la FENETRE DE MESURE (collision / limiteur) : ils
+     disent si un mecanisme a mordu pendant l'equilibre, ou si le redressement se produit
+     sans qu'aucun contact n'ait lieu — auquel cas la cause est dans la FORCE, pas dans une
+     contrainte.
+
+   chaine       passe              LAT 90  LAT 45 | AP 90   AP 45  | verdict sur AP
+ROOM-ORICTL: chestL       k=0 reference       1.03    1.01 |   1.07    1.01 | reference (redressement 1.1x contre 1.0x en lateral)
+ROOM-ORICTL-POLES: chestL       k=0 reference     LAT90 0.27579/0.26902  LAT45 0.14424/0.14587  AP90 0.28886/0.26901  AP45 0.14394/0.14308
+ROOM-ORICTL: chestL       k=1 LONGUEUR off    1.49    1.20 |   1.56    1.21 | SYMETRISE — CE MECANISME EST LA CAUSE
+ROOM-ORICTL-POLES: chestL       k=1 LONGUEUR off  LAT90 0.14236/0.21250  LAT45 0.11210/0.13475  AP90 0.14588/0.22780  AP45 0.11726/0.14195
+ROOM-ORICTL: chestL       k=2 COTE off        1.02    1.01 |   1.07    1.01 | SYMETRISE — CE MECANISME EST LA CAUSE
+ROOM-ORICTL-POLES: chestL       k=2 COTE off      LAT90 0.27537/0.26902  LAT45 0.14435/0.14587  AP90 0.28886/0.26901  AP45 0.14394/0.14308
+ROOM-ORICTL: chestL       k=3 CAPSULE cone    1.02    1.01 |   1.07    1.01 | SYMETRISE — CE MECANISME EST LA CAUSE
+ROOM-ORICTL-POLES: chestL       k=3 CAPSULE cone  LAT90 0.27538/0.26896  LAT45 0.14443/0.14574  AP90 0.28886/0.26903  AP45 0.14394/0.14308
+ROOM-ORICTL: chestL       k=4 MUR COLLIS.     1.02    1.01 |   1.07    1.00 | SYMETRISE — CE MECANISME EST LA CAUSE
+ROOM-ORICTL-POLES: chestL       k=4 MUR COLLIS.   LAT90 0.27536/0.26896  LAT45 0.14429/0.14588  AP90 0.28886/0.26926  AP45 0.14407/0.14344
+ROOM-ORICTL-DIAG: chestL       k=0 reference      supine i=6 inv=0 flip=0 · prone i=8 inv=0 flip=0 · i=5 flip=0 · i=7 flip=0
+ROOM-ORICTL-DIAG: chestL       k=1 LONGUEUR off   supine i=6 inv=0 flip=0 · prone i=8 inv=0 flip=0 · i=5 flip=0 · i=7 flip=0
+ROOM-ORICTL-DIAG: chestL       k=2 COTE off       supine i=6 inv=0 flip=0 · prone i=8 inv=0 flip=0 · i=5 flip=0 · i=7 flip=0
+ROOM-ORICTL-DIAG: chestL       k=3 CAPSULE cone   supine i=6 inv=0 flip=0 · prone i=8 inv=0 flip=0 · i=5 flip=0 · i=7 flip=0
+ROOM-ORICTL-DIAG: chestL       k=4 MUR COLLIS.    supine i=6 inv=0 flip=0 · prone i=8 inv=0 flip=0 · i=5 flip=0 · i=7 flip=0
+ROOM-ORICTL: chestR       k=0 reference       1.20    1.34 |   1.05    1.00 | reference (redressement 1.1x contre 1.3x en lateral)
+ROOM-ORICTL-POLES: chestR       k=0 reference     LAT90 0.22680/0.27258  LAT45 0.12427/0.16662  AP90 0.26375/0.25084  AP45 0.13217/0.13214
+ROOM-ORICTL: chestR       k=1 LONGUEUR off    3.58    1.49 |   1.30    1.15 | SYMETRISE — CE MECANISME EST LA CAUSE
+ROOM-ORICTL-POLES: chestR       k=1 LONGUEUR off  LAT90 0.22512/0.06286  LAT45 0.12171/0.08164  AP90 0.16809/0.21786  AP45 0.11497/0.13187
+ROOM-ORICTL: chestR       k=2 COTE off        1.20    1.34 |   1.05    1.00 | SYMETRISE — CE MECANISME EST LA CAUSE
+ROOM-ORICTL-POLES: chestR       k=2 COTE off      LAT90 0.22692/0.27268  LAT45 0.12447/0.16676  AP90 0.26374/0.25084  AP45 0.13206/0.13214
+ROOM-ORICTL: chestR       k=3 CAPSULE cone    1.20    1.34 |   1.05    1.00 | SYMETRISE — CE MECANISME EST LA CAUSE
+ROOM-ORICTL-POLES: chestR       k=3 CAPSULE cone  LAT90 0.22692/0.27268  LAT45 0.12447/0.16676  AP90 0.26374/0.25082  AP45 0.13206/0.13208
+ROOM-ORICTL: chestR       k=4 MUR COLLIS.     1.20    1.34 |   1.05    1.01 | SYMETRISE — CE MECANISME EST LA CAUSE
+ROOM-ORICTL-POLES: chestR       k=4 MUR COLLIS.   LAT90 0.22693/0.27268  LAT45 0.12447/0.16671  AP90 0.26374/0.25085  AP45 0.13183/0.13260
+ROOM-ORICTL-DIAG: chestR       k=0 reference      supine i=6 inv=0 flip=0 · prone i=8 inv=0 flip=0 · i=5 flip=0 · i=7 flip=0
+ROOM-ORICTL-DIAG: chestR       k=1 LONGUEUR off   supine i=6 inv=0 flip=0 · prone i=8 inv=0 flip=0 · i=5 flip=0 · i=7 flip=0
+ROOM-ORICTL-DIAG: chestR       k=2 COTE off       supine i=6 inv=0 flip=0 · prone i=8 inv=0 flip=0 · i=5 flip=0 · i=7 flip=0
+ROOM-ORICTL-DIAG: chestR       k=3 CAPSULE cone   supine i=6 inv=0 flip=0 · prone i=8 inv=0 flip=0 · i=5 flip=0 · i=7 flip=0
+ROOM-ORICTL-DIAG: chestR       k=4 MUR COLLIS.    supine i=6 inv=0 flip=0 · prone i=8 inv=0 flip=0 · i=5 flip=0 · i=7 flip=0
+
+   LECTURE DES COMPTEURS : si `flip` et `inv` sont a ZERO des deux cotes alors que la
+   reponse est redressee, aucune collision ni aucun limiteur n'a mordu pendant la mesure —
+   et le redressement vient alors de la FORCE elle-meme (le ressort vers la pose d'auteur,
+   ou le terme de gravite), pas d'une contrainte. C'est le partage que ce bloc tranche.
+
+-- ROOM-SEC-RING : SPEC 36 et SPEC 29-torsion, AJUSTES SUR LA SERIE LIBRE ------------------
+   FENETRE : `PH-SHAKEN`, la tenue qui suit la secousse `jerk`. C'est la seule decroissance
+     LIBRE de la course : position et orientation figees, et cette phase n'avance PAS
+     l'animation — donc rien ne re-excite les modes, contrairement aux fenetres par
+     animation ou §27 lit un plancher d'excitation au lieu d'un ring-down.
+   NATURE : deux series temporelles signees, une valeur par frame. REPERE : la racine de la
+     chaine. LIGNE DE BASE : 0.0 au repos.
+   ESTIMATEUR : ajustement de la recurrence lineaire d'ordre 2 `s[n+1] = a.s[n] + b.s[n-1]`,
+     puis zeta et f par ses racines. A zeta = 0.65 l'enveloppe perd un facteur 217 par
+     periode : un estimateur par extrema n'aurait qu'UN SEUL depassement exploitable, celui-ci
+     utilise tous les echantillons.
+   PREDICTION ECRITE AVANT LA COURSE, depuis les coefficients que la salle imprime a l'init
+     (`PHYSOSCK2 sec=0.2073 seckd=0.4926`) : la recurrence livree doit rendre a = 1 + kd - k2
+     = 1.2853 et b = -kd = -0.4926, donc zeta = 0.651 et f = 5.20 Hz. Retrouver CES DEUX
+     NOMBRES depuis la serie ferme l'ecart que le cycle 11 a laisse ouvert.
+   ECRETAGE — ET C'EST LA QUE LA SERIE VOIT CE QUE LES COEFFICIENTS NE PEUVENT PAS VOIR :
+     `*phys-sec*` est borne a `PHYS-SEC-MAX = 0.07` DANS L'ETAT, pas seulement en sortie.
+     Un ecretage a l'interieur de la boucle change la dynamique : le mode livre cesse
+     d'etre l'oscillateur dont le polynome donne 0.6502. Les echantillons ecretes sont
+     COMPTES et EXCLUS de l'ajustement, et le compte est publie : si l'ajustement ne
+     porte que sur la queue, il faut le savoir.
+
+   chaine        canal   n_tot n_ecrete n_fit    a        b       zeta     f(Hz)   residu
+ROOM-SEC-RING: chestL       sec §36    90        6     6  +1.1794  -0.4145    0.7294    5.764  0.0197  accord des 2 fenetres
+   §36 cible zeta 0.65 (bande 0.55-0.75) et f 5.20 Hz (bande 4-7) : zeta DANS, f DANS   [amplitude max : 0.07000, plafond §38 = 0.07]
+   ECRETAGE MESURE : 6 frames sur 90 collees a |s| = 0.0700000 exactement, soit 100 ms.
+     Pendant ces frames l'etat de l'oscillateur est REECRIT par la borne,
+     donc le mode livre n'est pas celui dont le polynome caracteristique
+     donne 0.6502 — et sa §37 demande l'inverse (« soft displacement clamps
+     should be preferred to abrupt positional clamps »). L'ajustement
+     ci-dessus EXCLUT ces frames ; il decrit la detente, pas la saturation.
+ROOM-SEC-RING: chestL       torsion    90        0    16  +1.7288  -0.8025    0.3825    2.746  0.0282  accord des 2 fenetres
+ROOM-SEC-RING: chestR       sec §36    90        6    80  +1.1624  -0.3907    0.7802    5.752  0.0544  DESACCORD — prudence
+   §36 cible zeta 0.65 (bande 0.55-0.75) et f 5.20 Hz (bande 4-7) : zeta HORS, f DANS   [amplitude max : 0.07000, plafond §38 = 0.07]
+   ECRETAGE MESURE : 6 frames sur 90 collees a |s| = 0.0700000 exactement, soit 100 ms.
+     Pendant ces frames l'etat de l'oscillateur est REECRIT par la borne,
+     donc le mode livre n'est pas celui dont le polynome caracteristique
+     donne 0.6502 — et sa §37 demande l'inverse (« soft displacement clamps
+     should be preferred to abrupt positional clamps »). L'ajustement
+     ci-dessus EXCLUT ces frames ; il decrit la detente, pas la saturation.
+ROOM-SEC-RING: chestR       torsion    90        0    17  +1.7314  -0.8108    0.3520    2.845  0.0166  accord des 2 fenetres
+
+-- ROOM-SHRING : SPEC 27 SUR L'IMPULSION *FORTE*, ET SPEC 24/25 SANS ANIMATION -----------
+   §27 : « dominant visible response 0.3-0.6 s ; secondary movement 0.6-1.2 s ; mostly
+     settled ~1.0-1.5 s ; essentially stationary ~1.3-1.7 s ». Seuils 5 / 1 / 0.5 / 0.1 %
+     de `a0`, identiques a `ROOM-SETTLE` et `ROOM-AXSETTLE` — les trois sont comparables.
+   NATURE : une SERIE TEMPORELLE signee (deviation du maillon a sa pose d'auteur), dont on
+     lit l'ENVELOPPE. REPERE : triedre de l'ancre (SPEC 7), le meme que `PHYSRINGA`.
+     LIGNE DE BASE : 0.0 sur la pose d'auteur.
+   POURQUOI `a0` EST PUBLIE EN GRAS DANS SA PROPRE COLONNE : un temps de stabilisation n'a
+     de sens que rapporte a l'amplitude dont il part. `ROOM-AXSETTLE` rendait `>2.48` sur
+     l'axe vertical avec `a0 = 0.013` : le seuil `t01` y valait 1.3e-5. Le meme `>2.48` sur
+     un `a0` cent fois plus grand voudrait dire tout autre chose.
+
+   chaine       l  axe   a0        t5      t1      t05     t01     |  n  a       b       zeta    f(Hz)  residu  accord
+ROOM-SHRING: chestL       0 v      0.10879    0.48    0.72    0.90   >2.48 |   3  pas d'oscillation ajustable sur la fenetre libre — NE PAS LIRE de zeta ici
+ROOM-SHRING: chestL       0 ap     0.14626    0.62    0.85    1.03   >2.48 |  18 +1.7743 -0.8359  0.3446  2.484  0.0018  oui
+ROOM-SHRING: chestL       0 lat    0.22122    0.53    0.75    0.95   >2.48 |  18 +1.7555 -0.8220  0.3614  2.590  0.0015  oui
+ROOM-SHRING: chestR       0 v      0.08153    0.53    0.77    0.92    1.20 |  16 +1.5774 -0.6467  0.7429  2.802  0.0494  oui
+ROOM-SHRING: chestR       0 ap     0.27561    0.57    0.95    1.10    1.18 |  15 +1.7715 -0.8363  0.3350  2.548  0.0017  oui
+ROOM-SHRING: chestR       0 lat    0.03474    0.17    0.97   >2.48   >2.48 |   8  pas d'oscillation ajustable sur la fenetre libre — NE PAS LIRE de zeta ici
+
+-- ROOM-SHFLOOR : CE QUE LA CHAINE LAISSE DERRIERE ELLE, ET POURQUOI §27 EST CENSUREE ----
+   Sa §2 et sa §9 exigent le retour EXACT a la pose d'auteur. La serie libre dit ou la
+   chaine se pose REELLEMENT une fois la secousse eteinte. Ce n'est pas zero.
+   ET C'EST LA CAUSE MESUREE DE LA CENSURE DE §27 : son barreau le plus fin (`t01`) est a
+   0.1 %% de `a0`. Quand le plancher depasse ce seuil, `t01` ne peut PAS etre atteint —
+   la chaine est immobile mais pas revenue, et l'instrument ecrit `>` a l'infini. La
+   lecture « ca sonne encore » etait donc fausse : ca ne sonne plus, ca ne REVIENT pas.
+
+   chaine       axe   plancher s_inf   a0         s_inf/a0    seuil t01    verdict
+ROOM-SHFLOOR: chestL       v      +0.0001546    0.10879     0.142 %   0.0001088  CENSURE t01 (plancher > seuil)
+ROOM-SHFLOOR: chestL       ap     +0.0003537    0.14626     0.242 %   0.0001463  CENSURE t01 (plancher > seuil)
+ROOM-SHFLOOR: chestL       lat    +0.0005338    0.22122     0.241 %   0.0002212  CENSURE t01 (plancher > seuil)
+ROOM-SHFLOOR: chestR       v      -0.0000794    0.08153     0.097 %   0.0000815  t01 mesurable
+ROOM-SHFLOOR: chestR       ap     -0.0002265    0.27561     0.082 %   0.0002756  t01 mesurable
+ROOM-SHFLOOR: chestR       lat    +0.0002930    0.03474     0.843 %   0.0000347  CENSURE t01 (plancher > seuil)
+
+   PREDICTION ECRITE AVANT LA COURSE pour le mode principal, depuis la donnee livree et
+     l'ecriture du solveur : `chestL` porte `stiffness=2.7696 mass=1.45`, d'ou
+     `omega = 14.4515 rad/s` (f = 2.3000 Hz, sa §24 verticale au chiffre pres) et
+     `2.zeta.omega.dt = 0.16860` = le `damping=0.1686` du fichier. Le mode principal recoit
+     la retention EXACTE (`kd = e^-0.1686 = 0.84485`, cycle 11) mais PAS la raideur exacte
+     (`k2 = (omega.dt)^2 = 0.058013`, choix chiffre et publie du cycle 11). La recurrence
+     livree doit donc rendre a = 1 + kd - k2 = 1.7868 et b = -kd = -0.8449, soit
+     **zeta = 0.334 et f = 2.410 Hz**. Ce n'est PAS 0.350 / 2.300 : l'ecart est celui que
+     le cycle 11 a assume en n'imposant pas la raideur exacte au mode anisotrope. Si la
+     serie libre rend 0.334, alors la mediane 0.350 lue sur les fenetres PAR ANIMATION
+     etait legerement gonflee par l'excitation de l'animation, et cette fenetre-ci est le
+     meilleur instrument des deux.
+   RESERVE, ECRITE PARCE QU'ELLE PEUT INVALIDER LES COLONNES `zeta`/`f` : le mode principal
+     est TRIDIMENSIONNEL et anisotrope. Chaque axe du triedre porte donc un MELANGE des
+     modes propres, et une recurrence d'ordre 2 ne peut representer qu'UN mode. C'est le
+     `residu` qui tranche : petit, l'axe est domine par un mode et les deux colonnes valent ;
+     grand, elles ne valent rien et il ne faut pas les lire. Les publier sans le residu
+     serait exactement le faux vert que ce dossier paie.
+
+-- ROOM-SHAPE : SPEC 8 (volume) et SPEC 36 (mode secondaire), PAR PILOTAGE ----------------
+   SPEC 8 : volume 98-101 % en mouvement normal, 96-102 % en transitoire fort.
+   SPEC 36 : amplitude 2-5 % de l'epaisseur locale, 5-7 % sur impulsion forte, plafond 7 %.
+   NATURE : `det` est un rapport de volume de la deformation AFFINE commandee ; `secm` est le
+   maximum sur la fenetre de la modulation d'epaisseur de SPEC 36 ; `twm` le maximum de la
+   torsion de SPEC 29, en degres.  LECTURE HORS DEFAUT : det=1, secm=0, twm=0.
+   AVERTISSEMENT, ECRIT PARCE QU'IL COMPTE : `det` est ramene a 1 PAR CONSTRUCTION (racine
+   cubique appliquee au triplet). Il VERIFIE que la normalisation tourne, il ne MESURE pas
+   l'incompressibilite du tissu — un nombre qui se compare a lui-meme n'est pas une preuve.
+   Ce qui discrimine vraiment est ROOM-ORI ci-dessus (la forme change avec l'orientation) et
+   `secm` ci-dessous (il change avec le pilotage).
+
+   chaine        drive       fenetres  det_min  det_max  secm(%%)  secr(%%)  dyn(%%)  twm(deg)  prs(%%)  prsr(%%)
+ROOM-SHAPE: chestL       updown        31     0.99990  1.00000    2.30     2.30   22.05    5.1394    3.52     3.52
+ROOM-SHAPE: chestL       leftright     31     0.99990  1.00000    6.41     6.41   22.42    6.8927   12.09    12.09
+ROOM-SHAPE: chestL       accel         31     0.99990  1.00000    7.00     9.89   25.00    6.4057   22.14    22.14
+ROOM-SHAPE: chestL       jerk          31     0.99990  1.00000    7.00     9.30   25.00    7.4313   10.87    10.87
+ROOM-SHAPE: chestL       tilt          31     0.99990  1.00000    1.25     1.25   18.77    5.6494    2.59     2.59
+ROOM-SHAPE: chestR       updown        31     0.99990  1.00000    3.12     3.12   21.39    4.3545    2.31     2.31
+ROOM-SHAPE: chestR       leftright     31     0.99990  1.00000    7.00     8.24   22.87    4.9561   10.22    10.22
+ROOM-SHAPE: chestR       accel         31     0.99990  1.00000    7.00    10.14   23.58    4.5321   16.99    16.99
+ROOM-SHAPE: chestR       jerk          31     0.99990  1.00000    7.00     9.61   24.47    6.6349    9.05     9.05
+ROOM-SHAPE: chestR       tilt          31     0.99990  1.00000    0.72     0.72   21.60    4.2227    3.88     3.88
+ROOM-SHAPE-SATURE: 5 fenetre(s) sur 10 ou le mode secondaire de SPEC 36 depasse son plafond de 7 % AVANT ecretage.
+   Un `secm` colle a 0.0700 n'est alors PAS une amplitude mesuree, c'est une saturation : le gain d'excitation est a recaler sur SA bande (2-5 %%), pas sur l'instrument.
+ROOM-SHAPE-DYNSAT: chain=chestL       dyn_min=0.1877 dyn_max=0.2500 plafond=0.2500 DISCRIMINE (la deformation depend du pilotage, comme sa SPEC 22 l'exige)
+ROOM-SHAPE-DYNSAT: chain=chestR       dyn_min=0.2139 dyn_max=0.2447 plafond=0.2500 DISCRIMINE (la deformation depend du pilotage, comme sa SPEC 22 l'exige)
+ROOM-SHAPE-SPAN: chain=chestL       secm_min=0.0125 secm_max=0.0700  DISCRIMINE (le mode secondaire depend du pilotage)
+ROOM-SHAPE-SPAN: chain=chestR       secm_min=0.0072 secm_max=0.0700  DISCRIMINE (le mode secondaire depend du pilotage)
+
+-- ROOM-RAD : SPEC 22, DEPLACEMENT RADIAL DU COM ET ELONGATION QU'IL PRODUIT -------------
+   DEUX grandeurs, DEUX lignes de sa spec, et ne pas les confondre est le point :
+     `rrm`   = DEPLACEMENT du COM / B0   -> « Breast COM: normal <= 35 % B0, hard transient
+               <= 40 % B0 » (SPEC 22 / SPEC 38) ;
+     `elong` = l'ELONGATION commandee au tissu, `PHYS-DYN-K * rrm` avec PHYS-DYN-K = 0.43
+               (SPEC 38 : 0.15 de stretch a 0.35 B0) -> « local tissue elongation: common
+               5-15 %, large 15-21 %, exceptional 21-25 %, absolute clamp 25 % ».
+   NATURE : un deplacement sans unite et la deformation qu'il commande. REPERE : axe de l'os
+   dans le triedre de l'ancre. LIGNE DE BASE : 0.0 a la pose d'auteur debout (SPEC 9).
+
+ROOM-RAD: chain=chestL       drive=updown     rrm=0.3792 com=transitoire-dur elong=0.1631 tissu=large        n=31  rrr=0.4691 BORNEE (exces 0.0899 B0) sat=3 fr
+ROOM-RAD: chain=chestL       drive=leftright  rrm=0.3513 com=transitoire-dur elong=0.1511 tissu=large        n=31  rrr=0.3561 BORNEE (exces 0.0048 B0) sat=1 fr
+ROOM-RAD: chain=chestL       drive=accel      rrm=0.3782 com=transitoire-dur elong=0.1626 tissu=large        n=31  rrr=0.4599 BORNEE (exces 0.0817 B0) sat=6 fr
+ROOM-RAD: chain=chestL       drive=jerk       rrm=0.3872 com=transitoire-dur elong=0.1665 tissu=large        n=31  rrr=0.5935 BORNEE (exces 0.2063 B0) sat=19 fr
+ROOM-RAD: chain=chestL       drive=tilt       rrm=0.3900 com=transitoire-dur elong=0.1677 tissu=large        n=31  rrr=0.6841 BORNEE (exces 0.2941 B0) sat=10 fr
+ROOM-RAD: chain=chestR       drive=updown     rrm=0.3606 com=transitoire-dur elong=0.1551 tissu=large        n=31  rrr=0.3761 BORNEE (exces 0.0155 B0) sat=3 fr
+ROOM-RAD: chain=chestR       drive=leftright  rrm=0.2974 com=sous-normale    elong=0.1279 tissu=commun       n=31  rrr=0.2974 libre sat=1 fr
+ROOM-RAD: chain=chestR       drive=accel      rrm=0.3595 com=transitoire-dur elong=0.1546 tissu=large        n=31  rrr=0.3732 BORNEE (exces 0.0137 B0) sat=6 fr
+ROOM-RAD: chain=chestR       drive=jerk       rrm=0.3844 com=transitoire-dur elong=0.1653 tissu=large        n=31  rrr=0.5348 BORNEE (exces 0.1504 B0) sat=19 fr
+ROOM-RAD: chain=chestR       drive=tilt       rrm=0.3887 com=transitoire-dur elong=0.1671 tissu=large        n=31  rrr=0.6371 BORNEE (exces 0.2484 B0) sat=10 fr
+ROOM-RAD-MAX: chain=chestL       rrm=0.3900 com=transitoire-dur elong=0.1677 tissu=large
+ROOM-RAD-DISCRIM: chain=chestL       hi=0.3900 lo=0.3513 spread=9.9% verdict=PLAT — la meme valeur sous une secousse et sous une inclinaison ne mesure pas le stimulus
+ROOM-RAD-MAX: chain=chestR       rrm=0.3887 com=transitoire-dur elong=0.1671 tissu=large
+ROOM-RAD-DISCRIM: chain=chestR       hi=0.3887 lo=0.2974 spread=23.5% verdict=PLAT — la meme valeur sous une secousse et sous une inclinaison ne mesure pas le stimulus
+
+-- ROOM-REST : SPEC 33/34, LA RESTITUTION DE CONTACT ---------------------------------------
+   SPEC 33 : sein<->sein, restitution 0.00-0.15, nominal 0.06. SPEC 34 : buste, 0.00-0.05,
+   nominal 0.02, et « collision energy should primarily become deformation, redistribution
+   and damping — NOT bounce ».
+   NATURE : des vitesses normales en unites de jeu par frame. `vin` = ce qui ARRIVE sur le
+   volume, `vout` = ce qui en repart, RELU a la frame suivante (donc mesure, pas deduit de
+   `e`).  `n` = le DOMAINE : sans lui un zero ne distingue pas « rien ne touche » de « rien
+   ne s'applique ».
+
+ROOM-REST: course entiere  contacts=609  sorties_relues=605  vin=57281.3624  vout=1125.3428  esum=12.1701
+ROOM-TWSAT: 0 frame(s) ou la saturation douce de la torsion (SPEC 29, bornee par l'enveloppe d'apex de SPEC 38) a mordu sur une fenetre.
+ROOM-REST-MIX: coefficient moyen applique = 0.0200  (0.02 = tout buste, SPEC 34 ; 0.06 = tout sein<->sein, SPEC 33)
+ROOM-REST-LEG: spec  contacts=2     relues=2     vin=41.3102   vout=0.8482    e_moy=0.0199
+ROOM-REST-LEG: x15   contacts=4     relues=4     vin=88.4443   vout=26.5449   e_moy=0.3000
+ROOM-REST-CONTROL: vout/vin  spec=0.0205  x15=0.3001  rapport=14.62x  LE CONTROLE A TIRE

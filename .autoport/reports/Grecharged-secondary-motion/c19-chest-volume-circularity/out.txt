@@ -1,0 +1,179 @@
+mesh out/jak1/fr3/skin/keira-hd-donor-injected.glb  joints=105  verts=7963
+
+=== ATTRIBUTION DE LA CHAIR AUX CHAINES (echelle FIT_STEPS du generateur) ===
+  chestL/lBoob : seuil w>0.25  34 sommets
+  chestR/rBoob : seuil w>0.25  25 sommets
+  union chaines de physique : 59 sommets sur 7963 (0.74 %)
+
+=== SECTION 1 — SELECTION DE SOMMETS DE fit_radius POUR LE JOINT `chest` ===
+  seuil retenu par l echelle : w>0.5   n=887 sommets
+  dont possedes par chestL/chestR (meme seuil que le generateur, w>0.25) : 59  = 6.65 %
+    detail : chestL 34/34   chestR 25/25
+
+  Repartition du poids de POITRINE sur les sommets selectionnes pour `chest` :
+    w(lBoob)+w(rBoob) > 0.00 :   184 sommets  =  20.74 %
+    w(lBoob)+w(rBoob) > 0.05 :   147 sommets  =  16.57 %
+    w(lBoob)+w(rBoob) > 0.10 :   116 sommets  =  13.08 %
+    w(lBoob)+w(rBoob) > 0.25 :    59 sommets  =   6.65 %
+    w(lBoob)+w(rBoob) > 0.44 :     0 sommets  =   0.00 %
+    w(lBoob)+w(rBoob) > 0.50 :     0 sommets  =   0.00 %
+
+  sur ces 184 sommets de `chest` qui portent AUSSI de la poitrine :
+    w(chest)  mediane 0.8255   w(poitrine) mediane 0.1569
+
+  Contre-mesure : la chair de poitrine, vue depuis la poitrine
+    sommets portant un poids NON NUL de lBoob ou rBoob : 184
+    dont selectionnes par `chest` a w>0.5 : 184 (100.00 %)
+    dont selectionnes par la chaine (w>0.25) : 59
+    w(chest) mediane sur la chair de chaine : 0.6627   w(chaine) mediane : 0.3373
+
+=== SECTION 2 — RAYON AVANT / APRES EXCLUSION DE LA CHAIR DE CHAINE ===
+  (meme fonction iq_perp_radius, meme statistique inter-quartile, meme echelle de
+   seuils ; SEULE la selection change : on retire les sommets attribues a chestL/chestR)
+
+  30 capsules lues dans le fichier livre
+
+  capsule                    bout         seuil      n  n-excl  livre  refit  apres   delta
+  -----------------------------------------------------------------------------------------
+  hips->main                 hips         w>0.5    479       0    810    810    810      +0
+  hips->main                 main         w>0.25    43       0    549    549    549      +0
+  chest->main                chest        w>0.5    887      59    671    671    654     -17
+  chest->main                main         w>0.25    43       0    549    549    549      +0
+  neck->chest                neck         w>0.5     37       0    249    246    246      -3
+  neck->chest                chest        w>0.5    887      59    671    671    654     -17
+  head->neck                 head         w>0.5   1699       0    915    915    915      +0
+  head->neck                 neck         w>0.5     37       0    249    249    249      +0
+  Lshoulder->chest           Lshoulder    w>0.5     43       0    612    612    612      +0
+  Lshoulder->chest           chest        w>0.5    887      59    769    769    738     -31
+  Lelbow->Lshoulder          Lelbow       w>0.5    131       0    265    265    265      +0
+  Lelbow->Lshoulder          Lshoulder    w>0.5     43       0    257    257    257      +0
+  Lhand->Lelbow              Lhand        w>0.5    126       0    229    229    229      +0
+  Lhand->Lelbow              Lelbow       w>0.5    131       0    242    242    242      +0
+  Rshoulder->chest           Rshoulder    w>0.5     47       0    554    554    554      +0
+  Rshoulder->chest           chest        w>0.5    887      59    782    782    752     -30
+  Relbow->Rshoulder          Relbow       w>0.5    175       0    308    308    308      +0
+  Relbow->Rshoulder          Rshoulder    w>0.5     47       0    256    256    256      +0
+  Rhand->Relbow              Rhand        w>0.5    131       0    228    228    228      +0
+  Rhand->Relbow              Relbow       w>0.5    175       0    279    279    279      +0
+  Lthigh->hips               Lthigh       w>0.5    130       0    362   1321   1321    +959
+  Lthigh->hips               hips         w>0.5    479       0    699    699    699      +0
+  Lknee->Lthigh              Lknee        w>0.5    246       0    485    485    485      +0
+  Lknee->Lthigh              Lthigh       w>0.5    130       0    362    362    362      +0
+  Lankle->Lknee              Lankle       w>0.5    172       0    411    411    411      +0
+  Lankle->Lknee              Lknee        w>0.5    246       0    329    329    329      +0
+  Rthigh->hips               Rthigh       w>0.5    132       0    381   1276   1276    +895
+  Rthigh->hips               hips         w>0.5    479       0    702    702    702      +0
+  Rknee->Rthigh              Rknee        w>0.5    231       0    480    480    480      +0
+  Rknee->Rthigh              Rthigh       w>0.5    132       0    381    381    381      +0
+  Rankle->Rknee              Rankle       w>0.5    172       0    398    398    398      +0
+  Rankle->Rknee              Rknee        w>0.5    231       0    326    326    326      +0
+  lEarb->lEara               lEarb        w>0.5     50       0     79     79     79      +0
+  lEarb->lEara               lEara        w>0.5     14       0    148    148    148      +0
+  rEarb->rEara               rEarb        w>0.5     50       0     79     79     79      +0
+  rEarb->rEara               rEara        w>0.5     14       0    148    148    148      +0
+  Lbangb->Lbanga             Lbangb       w>0.5     18       0    104    558    558    +454
+  Lbangb->Lbanga             Lbanga       w>0.5    103       0    112    112    112      +0
+  Lbangc->Lbangb             Lbangc       w>0.5     10       0    154    154    154      +0
+  Lbangc->Lbangb             Lbangb       w>0.5     18       0    104    104    104      +0
+  Lbangd->Lbangc             Lbangd       w>0.5     36       0    189    189    189      +0
+  Lbangd->Lbangc             Lbangc       w>0.5     10       0    154    154    154      +0
+  Rbangb->Rbanga             Rbangb       w>0.5     22       0    102    559    559    +457
+  Rbangb->Rbanga             Rbanga       w>0.5    106       0    118    118    118      +0
+  Rbangc->Rbangb             Rbangc       w>0.5     12       0    156    156    156      +0
+  Rbangc->Rbangb             Rbangb       w>0.5     22       0    102    102    102      +0
+  Rbangd->Rbangc             Rbangd       w>0.5     21       0    193    193    193      +0
+  Rbangd->Rbangc             Rbangc       w>0.5     12       0    156    156    156      +0
+  Lmidhairb->Lmidhaira       Lmidhairb    w>0.5      8       0    145    145    145      +0
+  Lmidhairb->Lmidhaira       Lmidhaira    w>0.5     65       0    222    222    222      +0
+  Lmidhairc->Lmidhairb       Lmidhairc    w>0.5     17       0    278    278    278      +0
+  Lmidhairc->Lmidhairb       Lmidhairb    w>0.5      8       0    145    145    145      +0
+  Lmidhaird->Lmidhairc       Lmidhaird    w>0.5     30       0    412    412    412      +0
+  Lmidhaird->Lmidhairc       Lmidhairc    w>0.5     17       0    278    278    278      +0
+  Rmidhairb->Rmidhaira       Rmidhairb    w>0.5     21       0    213    213    213      +0
+  Rmidhairb->Rmidhaira       Rmidhaira    w>0.5     58       0    228    228    228      +0
+  Rmidhairc->Rmidhairb       Rmidhairc    w>0.5     19       0    312    312    312      +0
+  Rmidhairc->Rmidhairb       Rmidhairb    w>0.5     21       0    213    213    213      +0
+  Rmidhaird->Rmidhairc       Rmidhaird    w>0.5     30       0    424    424    424      +0
+  Rmidhaird->Rmidhairc       Rmidhairc    w>0.5     19       0    312    312    312      +0
+
+  BOUTS DEPLACES PAR LA REGLE : 4 / 60
+    chest->main                chest        671 -> 654  (59 sommets retires)
+    neck->chest                chest        671 -> 654  (59 sommets retires)
+    Lshoulder->chest           chest        769 -> 738  (59 sommets retires)
+    Rshoulder->chest           chest        782 -> 752  (59 sommets retires)
+
+=== SECTION 3 — GEOMETRIE BRUTE, EN UNITES DE RIG (4096 u = 1 m) ===
+  P[chest]  = [   0.   7020.79  239.81]
+  P[lBoob]  = [ 356.15 7918.77  385.34]   |chest->lBoob| =   976.93 u = 0.2385 m
+  P[rBoob]  = [-356.15 7918.76  385.34]   |chest->rBoob| =   976.92 u = 0.2385 m
+
+  lBoob : chair de chaine 34v
+    centroide monde      [ 600.6 7962.1  998.7]  a   661.7 u du joint,  1350.1 u de chest
+    sommet le plus loin  [ 630.  7735.6 1059.8]  a   750.6 u du joint,  1257.1 u de chest
+    sommet p95           [ 525.7 7798.2 1101.5]  a   745.8 u du joint,  1274.1 u de chest
+  rBoob : chair de chaine 25v
+    centroide monde      [-603.5 7952.4  998.5]  a   662.1 u du joint,  1344.5 u de chest
+    sommet le plus loin  [-630.  7735.6 1059.8]  a   750.6 u du joint,  1257.1 u de chest
+    sommet p95           [-525.7 7798.2 1101.5]  a   745.8 u du joint,  1274.1 u de chest
+
+  PROFONDEUR DANS LES SPHERES `chest` (rayon - distance a chest ; >0 = DEDANS) :
+    --- sphere chest r=671 ---
+      joint lBoob              d=   976.9 u  profondeur=  -305.9 u (-0.0747 m)
+      joint rBoob              d=   976.9 u  profondeur=  -305.9 u (-0.0747 m)
+      centroide chair lBoob    d=  1350.1 u  profondeur=  -679.1 u (-0.1658 m)
+      pointe (max) lBoob       d=  1257.1 u  profondeur=  -586.1 u (-0.1431 m)
+      centroide chair rBoob    d=  1344.5 u  profondeur=  -673.5 u (-0.1644 m)
+      pointe (max) rBoob       d=  1257.1 u  profondeur=  -586.1 u (-0.1431 m)
+      lBooc (cycle 18)         d=  1333.7 u  profondeur=  -662.7 u (-0.1618 m)
+      rBooc (cycle 18)         d=  1347.6 u  profondeur=  -676.6 u (-0.1652 m)
+    --- sphere chest r=769 ---
+      joint lBoob              d=   976.9 u  profondeur=  -207.9 u (-0.0508 m)
+      joint rBoob              d=   976.9 u  profondeur=  -207.9 u (-0.0508 m)
+      centroide chair lBoob    d=  1350.1 u  profondeur=  -581.1 u (-0.1419 m)
+      pointe (max) lBoob       d=  1257.1 u  profondeur=  -488.1 u (-0.1192 m)
+      centroide chair rBoob    d=  1344.5 u  profondeur=  -575.5 u (-0.1405 m)
+      pointe (max) rBoob       d=  1257.1 u  profondeur=  -488.1 u (-0.1192 m)
+      lBooc (cycle 18)         d=  1333.7 u  profondeur=  -564.7 u (-0.1379 m)
+      rBooc (cycle 18)         d=  1347.6 u  profondeur=  -578.6 u (-0.1413 m)
+    --- sphere chest r=782 ---
+      joint lBoob              d=   976.9 u  profondeur=  -194.9 u (-0.0476 m)
+      joint rBoob              d=   976.9 u  profondeur=  -194.9 u (-0.0476 m)
+      centroide chair lBoob    d=  1350.1 u  profondeur=  -568.1 u (-0.1387 m)
+      pointe (max) lBoob       d=  1257.1 u  profondeur=  -475.1 u (-0.1160 m)
+      centroide chair rBoob    d=  1344.5 u  profondeur=  -562.5 u (-0.1373 m)
+      pointe (max) rBoob       d=  1257.1 u  profondeur=  -475.1 u (-0.1160 m)
+      lBooc (cycle 18)         d=  1333.7 u  profondeur=  -551.7 u (-0.1347 m)
+      rBooc (cycle 18)         d=  1347.6 u  profondeur=  -565.6 u (-0.1381 m)
+
+=== SECTION 4 — COMBIEN DE CHAIR EST DEDANS / DEHORS (sd_round_cone = le solide moteur) ===
+  --- chair chestL (chaine, w>0.25) : 34 sommets ---
+    chest->main   r= 671/ 549 : DEDANS    0 (  0.00 %)  profondeur max   -582.4 u (-0.1422 m)
+    neck->chest  r= 249/ 671 : DEDANS    0 (  0.00 %)  profondeur max   -360.1 u (-0.0879 m)
+    Lshoulder->chest  r= 612/ 769 : DEDANS    0 (  0.00 %)  profondeur max   -118.3 u (-0.0289 m)
+    Rshoulder->chest  r= 554/ 782 : DEDANS    0 (  0.00 %)  profondeur max   -445.2 u (-0.1087 m)
+    UNION DES 4      : DEDANS    0 (  0.00 %)   DEHORS   34 (100.00 %)
+
+  --- chair chestR (chaine, w>0.25) : 25 sommets ---
+    chest->main   r= 671/ 549 : DEDANS    0 (  0.00 %)  profondeur max   -582.4 u (-0.1422 m)
+    neck->chest  r= 249/ 671 : DEDANS    0 (  0.00 %)  profondeur max   -360.1 u (-0.0879 m)
+    Lshoulder->chest  r= 612/ 769 : DEDANS    0 (  0.00 %)  profondeur max   -437.7 u (-0.1068 m)
+    Rshoulder->chest  r= 554/ 782 : DEDANS    0 (  0.00 %)  profondeur max   -148.7 u (-0.0363 m)
+    UNION DES 4      : DEDANS    0 (  0.00 %)   DEHORS   25 (100.00 %)
+
+  --- chair `chest` (fit_radius, w>0.5) : 887 sommets ---
+    chest->main   r= 671/ 549 : DEDANS  109 ( 12.29 %)  profondeur max    401.8 u (+0.0981 m)
+    neck->chest  r= 249/ 671 : DEDANS  160 ( 18.04 %)  profondeur max    400.1 u (+0.0977 m)
+    Lshoulder->chest  r= 612/ 769 : DEDANS  401 ( 45.21 %)  profondeur max    498.1 u (+0.1216 m)
+    Rshoulder->chest  r= 554/ 782 : DEDANS  372 ( 41.94 %)  profondeur max    511.1 u (+0.1248 m)
+    UNION DES 4      : DEDANS  614 ( 69.22 %)   DEHORS  273 ( 30.78 %)
+
+  CHAQUE VOLUME CONTIENT-IL SA PROPRE GEOMETRIE ? (sommets du joint du bout, echelle FIT_STEPS)
+    chest->main   bout chest      r= 671 :  887v  DEHORS  778 ( 87.71 %)
+    chest->main   bout main       r= 549 :   43v  DEHORS    7 ( 16.28 %)
+    neck->chest  bout neck       r= 249 :   37v  DEHORS   37 (100.00 %)
+    neck->chest  bout chest      r= 671 :  887v  DEHORS  727 ( 81.96 %)
+    Lshoulder->chest  bout Lshoulder  r= 612 :   43v  DEHORS   22 ( 51.16 %)
+    Lshoulder->chest  bout chest      r= 769 :  887v  DEHORS  486 ( 54.79 %)
+    Rshoulder->chest  bout Rshoulder  r= 554 :   47v  DEHORS   24 ( 51.06 %)
+    Rshoulder->chest  bout chest      r= 782 :  887v  DEHORS  515 ( 58.06 %)
+

@@ -1,0 +1,35 @@
+=== 2bis — EXCLUSION MAXIMALE : tout sommet portant le MOINDRE poids de poitrine ===
+  (version la plus GENEREUSE pour l hypothese : 184 sommets retires au lieu de 59)
+  `chest` selection w>0.5 : 887 sommets
+    exclusion w_poitrine>0.25 (attribution generateur) : reste 828
+    exclusion w_poitrine>0.00 (TOUT contact)           : reste 703
+
+  capsule                 livre   refit  excl>0.25  excl>0.00
+  chest->main               671     671        654        620
+  neck->chest               671     671        654        620
+  Lshoulder->chest          769     769        738        685
+  Rshoulder->chest          782     782        752        706
+
+=== 5 — LE MAILLON DE SEIN CONTRE LES 4 VOLUMES `chest`, POSE DE BIND ===
+  Deux descriptions du maillon coexistent dans le fichier livre, cf.
+  probe_rest_containment.py:196-200 : le moteur prend le COLLIDER quand le joint en
+  porte un (jak-hd-physics.gc:1032-1042).
+  --- lBoob ---
+    A: joint [ 356.2 7918.8  385.3]  + rayon de lien 656
+    B: collider centre [ 600.4 7962.5  998.8] (a 661.7 u du joint) + rayon 340
+    chest->main          jeu_A=   -350.1 u (-0.0855 m)   jeu_B=   +339.3 u (+0.0828 m)
+    neck->chest          jeu_A=   -741.3 u (-0.1810 m)   jeu_B=   +151.5 u (+0.0370 m)
+    Lshoulder->chest     jeu_A=  -1024.3 u (-0.2501 m)   jeu_B=    -79.0 u (-0.0193 m)
+    Rshoulder->chest     jeu_A=   -605.2 u (-0.1477 m)   jeu_B=   +200.8 u (+0.0490 m)
+  --- rBoob ---
+    A: joint [-356.2 7918.8  385.3]  + rayon de lien 660
+    B: collider centre [-603.7 7952.4  998.8] (a 662.4 u du joint) + rayon 345
+    chest->main          jeu_A=   -354.1 u (-0.0864 m)   jeu_B=   +328.8 u (+0.0803 m)
+    neck->chest          jeu_A=   -745.4 u (-0.1820 m)   jeu_B=   +146.1 u (+0.0357 m)
+    Lshoulder->chest     jeu_A=   -617.4 u (-0.1507 m)   jeu_B=   +193.5 u (+0.0472 m)
+    Rshoulder->chest     jeu_A=  -1005.8 u (-0.2456 m)   jeu_B=    -63.9 u (-0.0156 m)
+
+  De combien faudrait-il reduire le rayon du bout `chest` pour que jeu_B = 0 ?
+    lBoob vs Lshoulder->chest        : rayon 769 -> 605 (reduction 164 u = 21.4 %) ; exclusion de la chair de chaine n en rend que 31 u
+    rBoob vs Rshoulder->chest        : rayon 782 -> 657 (reduction 125 u = 16.0 %) ; exclusion de la chair de chaine n en rend que 30 u
+
