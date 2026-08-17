@@ -156,8 +156,12 @@ def main():
     say()
 
     chains, capsules, spheres = parse_chains(chains_path)
+    # LE NOM IMPRIME EST CELUI QUI A ETE LU, PAS LA CONSTANTE. Sur la premiere course a deux
+    # maillons cette ligne annoncait `recharged_assets/physics_chains.txt` alors que les chiffres
+    # venaient de `/tmp` : un rapport qui nomme la mauvaise source est precisement ce qui fait
+    # attribuer une mesure au fichier livre des semaines plus tard.
     say(f"LU: {len(chains)} chaines, {len(capsules)} capsules, {len(spheres)} spheres "
-        f"depuis {os.path.relpath(CHAINS, REPO)}")
+        f"depuis {os.path.relpath(chains_path, REPO) if not os.path.isabs(chains_path) or chains_path.startswith(REPO) else chains_path}")
     say()
 
     # centre monde de chaque sphere, en pose de bind

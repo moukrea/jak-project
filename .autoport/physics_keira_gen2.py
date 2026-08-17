@@ -319,17 +319,35 @@ EXPECTED_GROUPS = {
     'rbang':      ['Rbanga', 'Rbangb', 'Rbangc', 'Rbangd'],
     'lmidhair':   ['Lmidhaira', 'Lmidhairb', 'Lmidhairc', 'Lmidhaird'],
     'rmidhair':   ['Rmidhaira', 'Rmidhairb', 'Rmidhairc', 'Rmidhaird'],
-    # 2026-08-17 : l'injection du joint distal (`lBooc`/`rBooc`) a ete faite, MESUREE, puis
-    # RETIREE de la livraison — pas abandonnee. Elle halvait la frequence du mode radial de sa
-    # SPEC 24 (2.32 -> 1.20 Hz, HORS de la bande [2.10, 2.50]) et rendait `meshpen` positif, ce
-    # que la regle 6 de l'owner interdit. La regle de conservation du contrat est explicite :
-    # « si le plancher casse, le point est retire — pas adouci, retire. »
-    # Pour le remettre : `recharged_assets/keira-hd-inject-joints.txt` (spec derivee conservee
-    # dans le rapport C15-breast-joint-deficit.txt), la regle `redistribute` de
-    # `physics_reskin.txt`, et cette table qui repasse a ['lBoob','lBooc'] / ['rBoob','rBooc'].
-    # La regex de categorie ci-dessus couvre DEJA `Boo[bc]`, elle n'aura pas a rebouger.
-    'chestL':     ['lBoob'],
-    'chestR':     ['rBoob'],
+    # 2026-08-17, CYCLE 18 — LE JOINT DISTAL EST REMIS, ET LES DEUX MOTIFS DE SON RETRAIT SONT
+    # TOMBES. Le cycle 16 l'avait retire sur deux motifs ; le cycle 17 les a repris hors moteur :
+    #
+    #   MOTIF 1  « SPEC 24 tombe de 2.32 a 1.20 Hz »  ->  ARTEFACT D'INSTRUMENT, a QUATRE
+    #            endroits. Le parseur jetait le champ `l=` et versait DEUX echantillons par frame
+    #            dans un ajustement qui en suppose UN : la frequence sort deux fois trop basse et
+    #            bute sur la borne 1.200 de la grille. Le produit `f x n` conserve (n passait de
+    #            137 a 286) est la signature d'une densite d'echantillonnage mal lue, pas d'un
+    #            changement physique. Instruments repares, le cablage LIVRE a deux maillons rend
+    #            4 canaux sur 6 INCHANGES et DANS leur bande. Et c'est vrai PAR CONSTRUCTION :
+    #            pour le maillon racine `r = 0.5/nfr` donne `(1-r^2)/gmean = 1` exactement, quel
+    #            que soit `nfr` (jak-hd-physics.gc:2613-2616, 2714-2717) — la frequence de la
+    #            racine est invariante au nombre de maillons.
+    #   MOTIF 2  « la capsule `lBooc->lBoob` rend meshpen positif »  ->  REEL MAIS MAL IMPUTE.
+    #            La course « spheres » qui a suivi son retrait etait PIRE (0.0205 -> 0.0871 m).
+    #            La cause est le volume PROXIMAL, re-ajuste parce que `influence()` selectionnait
+    #            sur le poids ABSOLU d'UN joint : toute redistribution INTERNE a la chaine
+    #            changeait ce que chaque joint « possede », `FIT_STEPS` descendait d'un cran et
+    #            ramassait des sommets faiblement tenus contre la paroi du buste (rayon 322 ->
+    #            412 u). Corrige au point de production par `chain_influence()` ci-dessus, dont
+    #            le seuil porte sur le poids SOMME DE LA CHAINE — invariant par construction a
+    #            toute redistribution interne, donc a l'ajout d'une articulation.
+    #
+    # Les deux correctifs vivent en amont de cette table ; celle-ci ne fait que rendre a l'organe
+    # le degre de liberte que sa SPEC 23 exige. La regex de categorie plus haut couvre deja
+    # `Boo[bc]`, et `rootlock` est deja exclu pour `cat == 'chest'` (SPEC 30 : l'ancre est dans
+    # le TISSU, et epingler le maillon proximal figerait 75 % de la masse de l'organe).
+    'chestL':     ['lBoob', 'lBooc'],
+    'chestR':     ['rBoob', 'rBooc'],
     # les VERRES (gogglesLeft/gogglesRight, 488 des 515 sommets des lunettes) sont deux branches
     # de gogglesMid et restent HORS chaine : ce sont des pieces rigides d'une monture, pas des
     # trucs qui pendent. Ce qui leur manque est un VOLUME, pas un ressort — voir la note mesuree
@@ -2139,8 +2157,24 @@ def main():
         except Exception as _e:
             print('[gen] ATTENTION: reglages owner NON reappliques: %s' % _e)
         log('')
-        log(f'wrote {args.out}  ({len(text)} bytes, '
-            f'sha256={hashlib.sha256(text.encode()).hexdigest()})')
+        # LE SHA ANNONCE EST CELUI DU FICHIER SUR DISQUE, PAS DU TEXTE D'AVANT LES REGLAGES.
+        # Cette ligne relisait `text`, c'est-a-dire l'etat AVANT `apply_owner_tuning.py`. Le
+        # fichier reellement livre est plus long (les reglages de l'owner s'y ajoutent), donc le
+        # journal annoncait une taille et une empreinte que le fichier n'a jamais eues. Le cycle
+        # 16 s'est casse les dents dessus : son log de retrait dit « 26309 bytes, sha b5f3387… »
+        # alors que le fichier livre en fait 26360, et l'ecart de 51 octets a ete classe « NON
+        # RECONSTRUCTIBLE » avec l'hypothese d'une regeneration fantome sur un couple rig/mesh
+        # incoherent. Il n'y avait aucun fantome : le journal ne decrivait pas le livrable.
+        try:
+            _disk = open(args.out, 'rb').read()
+            log(f'wrote {args.out}  ({len(_disk)} bytes, '
+                f'sha256={hashlib.sha256(_disk).hexdigest()})  [apres reglages owner]')
+            if len(_disk) != len(text):
+                log(f'      (le generateur seul en produisait {len(text)} ; la difference EST '
+                    f'l\'apport de keira-owner-tuning.txt)')
+        except OSError as _e:
+            log(f'wrote {args.out}  — RELECTURE IMPOSSIBLE ({_e}) ; empreinte du texte genere '
+                f'seul : {len(text)} bytes, sha256={hashlib.sha256(text.encode()).hexdigest()}')
     return 0
 
 

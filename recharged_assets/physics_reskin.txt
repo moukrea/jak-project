@@ -111,6 +111,70 @@
 transfer rBoob from=chest cap=0.95 shape=1.30
 transfer lBoob from=chest cap=0.95 shape=1.30
 
+# ---------------------------------------------------------------------------------------------
+# LA POITRINE PASSE A DEUX MAILLONS — ET INJECTER L'OS NE SUFFIT PAS, C'EST MESURE.
+#
+# `recharged_assets/keira-hd-inject-joints.txt` appende `lBooc`/`rBooc` (SPEC 23 : « a single
+# spring attached to the nipple/apex is INSUFFICIENT »). Le cycle 16 l'a fait, a cuit, et a
+# compte les sommets que chaque joint detient EN MAJORITE apres la premiere cuisson :
+#
+#     chestL   lBoob 31  |  lBooc 0          chestR   rBoob 29  |  rBooc 0
+#
+# ZERO. La rampe de l'injecteur pose bien un profil, puis la passe de reskin qui la SUIT
+# (`build_enhanced_models.sh` : injection :231 -> prep :242 -> reskin :252) le REMPLACE :
+# `transfer` recalcule le poids depuis la peinture de l'artiste (`cap*(wt/p90)**shape`), qui ne
+# connait que `lBoob`. L'os etait pose et n'entrainait rien — la lecon du registre, « injecter
+# l'os n'est que la moitie du travail, la peau ne le suit pas toute seule ».
+#
+# `redistribute` est le seul des trois operateurs qui ne rustine pas la peinture : il RECALCULE
+# la partition le long de la chaine en CONSERVANT le poids somme (`ws`), donc le partage
+# torse/sein ne bouge pas d'un iota — seul change LEQUEL des deux maillons le porte.
+#
+# `hold=0.0` — ET J'AI D'ABORD ECRIT 0.30 EN CROYANT Y LIRE SA SPEC 30. C'ETAIT FAUX, MESURE.
+#
+# `hold` est la BANDE D'ANCRAGE, et le code dit ce qu'elle exprime : « le maillon 0 (verrouille
+# par `rootlock=1`) detient SEUL toute la peau sous cette abscisse » (`physics_c7_reskin.py:151`).
+# C'est l'expression de `rootlock`, pas d'un pourcentage de volume. Or la poitrine est
+# explicitement `rootlock=0` (`physics_keira_gen2.py`, `if len(joints) >= 2 and cat != 'chest'`) :
+# sur une meche la racine chevauche le crane et doit y etre soudee ; sur un sein l'ancre rigide
+# est `chest`, qui est HORS de la chaine, et epingler le maillon proximal figerait 75 % de la
+# masse de l'organe. Une chaine sans maillon verrouille n'a pas de bande a exprimer -> 0.0,
+# valeur que le code documente comme « pas de bande (partition sur la meche entiere) » (:153).
+#
+# CE QUE `hold=0.30` A COUTE, ET C'EST LE MEME ZERO QU'AU CYCLE 16. Cuisson faite, puis
+# `probe_skin_ownership.py` sur le mesh cuit :
+#     chestL  lBoob 28 | lBooc 0        chestR  rBoob 28 | rBooc 0
+# Le joint injecte ne possedait AUCUN sommet en majorite — « un os que le solveur bouge et que
+# la geometrie ignore ». La regle avait pourtant tire (`verts=85` / `80`), mais elle ne deplacait
+# que `masse deplacee=2.6` / `1.7`, contre 48 a 53 sur les trois meches.
+#
+# LA CAUSE, MESUREE SUR LE MESH CUIT (abscisse curviligne le long de lBoob->lBooc, ponderee par
+# le poids que la CHAINE tient, meme construction que `_redistribute:226-240`) :
+#     lBoob->lBooc  n=85  p50 s=0.343  p75 0.620  p90 0.789  p95 0.927
+#     rBoob->rBooc  n=80  p50 s=0.176  p75 0.566  p90 0.752  p95 0.892
+#     part de la masse de la chaine qui revient au maillon DISTAL :
+#         hold=0.30 -> 24.7 % / 19.6 %   sommets majoritaires distal = 0 / 0
+#         hold=0.15 -> 30.2 % / 24.6 %   sommets majoritaires distal = 0 / 0
+#         hold=0.00 -> 35.7 % / 30.0 %   sommets majoritaires distal = 8 / 3
+# La bande comprime la polyligne dans [hold, 1], ce qui recule le croisement des deux influences
+# de s=0.50 a s=0.65 — au-dela du p50 de la chair. A 0.30 le distal ne pouvait PAS devenir
+# majoritaire, quelle que soit la geometrie.
+#
+# ET IL Y A UN PLAFOND QU'IL FAUT ECRIRE, PARCE QU'IL BORNE CE QUE CETTE REGLE PEUT ATTEINDRE :
+# le poids que la chaine tient sur un sommet median vaut `ws` p50 = 0.44 (p90 = 0.95) — le reste
+# appartient a `chest`. Un sommet median ne peut donc JAMAIS depasser 0.50 pour un maillon, meme
+# en lui donnant 100 % de la chaine. Les 8 et 3 sommets majoritaires sont ceux du p90, la ou la
+# chair est presque entierement a la chaine. Le monter demanderait de toucher `cap=0.95` du
+# `transfer` ci-dessus, c'est-a-dire l'ancrage que sa 30 exige et l'acquis que l'owner a valide
+# (« poitrine sur mouvements subtils : toujours OK ») — donc NON, pas sans defaut mesure.
+#
+# `gate=0.05` reprend le seuil de `probe_skin_profile.py`, pour que la regle et la sonde qui la
+# verifie parlent EXACTEMENT des memes sommets — sinon la mesure d'apres-cuisson ne juge pas ce
+# que la regle a fait.
+# ---------------------------------------------------------------------------------------------
+redistribute chestL  chain=lBoob,lBooc gate=0.05 hold=0.00
+redistribute chestR  chain=rBoob,rBooc gate=0.05 hold=0.00
+
 [model keira3-hd]
 # The J3 look carries the same rig and the SAME defect (rBoob 86 verts, peak 0.408, 0 dominant).
 # Owner 2026-08-05 11:55: the physics applies to every look of the carousel, not just the default.

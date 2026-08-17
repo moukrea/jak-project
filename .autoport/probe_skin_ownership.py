@@ -79,9 +79,23 @@ def fmt(row):
 
 
 def main():
-    if len(sys.argv) < 2:
+    # `--chains` : LA LISTE DES MAILLONS DOIT VENIR DU MEME ETAT QUE LE MESH QU'ON MESURE.
+    # Mesure du 2026-08-17 : appelee sur le mesh FRAICHEMENT CUIT a deux maillons, cette sonde
+    # rendait un tableau VIDE. Elle lisait le fichier de chaines LIVRE (encore a un maillon),
+    # et `len(joints) < 2` sautait les deux lignes de poitrine. Une sonde muette ressemble
+    # exactement a une sonde qui n'a rien trouve — et la question qu'on lui posait etait
+    # precisement « le nouveau joint possede-t-il de la peau ? », dont la reponse « 0 » avait
+    # deja coute le cycle 16.
+    argv = [a for a in sys.argv[1:]]
+    chains_file = CHAINS_FILE
+    if '--chains' in argv:
+        i = argv.index('--chains')
+        chains_file = argv[i + 1]
+        del argv[i:i + 2]
+    if len(argv) < 1:
         raise SystemExit(__doc__)
-    chains = parse_chains(CHAINS_FILE)
+    sys.argv = [sys.argv[0]] + argv
+    chains = parse_chains(chains_file)
     cur = ownership(sys.argv[1], chains)
     ref = ownership(sys.argv[2], chains) if len(sys.argv) > 2 else None
 
