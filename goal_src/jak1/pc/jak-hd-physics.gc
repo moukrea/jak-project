@@ -767,19 +767,12 @@
 ;; ARME, LA CONTRAINTE DE COTE EST LEVEE et son compteur doit MONTER. Un compteur tombe a zero
 ;; est soit une correction, soit un predicat devenu inevaluable — le piege de `(= l 0)`.
 (define *phys-side-off* 0)
-;; CONTROLE DE LA CONTRAINTE DE LONGUEUR — 1 = elle est DESARMEE, sur la fenetre de mesure seule.
-;; Ce n'est pas un assouplissement : c'est le controle qui tranche l'hypothese de tete du cycle 8.
-;; `ROOM-AXSEL` mesure qu'un seul axe sur trois est isolable — pousser le sein le long de son
-;; propre axe vertical ne met que 17.7 % de la reponse sur cet axe. L'explication proposee est
-;; qu'un point contraint sur une sphere autour de son ancre n'a que DEUX degres de liberte de
-;; translation, la ou SPEC 24 en demande TROIS (une frequence par axe). C'est une lecture du code,
-;; pas une mesure — et une lecture du code n'est pas une preuve.
-;; LE CONTROLE : si la contrainte de longueur est bien ce qui confisque le troisieme degre de
-;; liberte, la desarmer doit faire MONTER la selectivite. Si la selectivite ne bouge pas,
-;; l'hypothese est fausse et la cause est ailleurs.
-;; RESTE A 0 EN LIVRAISON : aucune fenetre de mesure hors des phases AXZ ne le voit non nul, et
-;; SPEC 22 (« un os ne s'allonge pas ») garde sa contrainte dure partout ailleurs.
+;; [NOTE-54] CONTROLE DE LA CONTRAINTE DE LONGUEUR — 1 = elle est DESARMEE, sur la fenetre de
+;; mesure seule. RESTE A 0 EN LIVRAISON. -> jak-hd-physics-NOTES.md
 (define *phys-len-off* 0)
+;; [NOTE-53] CONTROLE k=4 — 1 = LE MUR DE COLLISION EST DESARME (`feff` -> PHYS-VOL-FREE), sur la
+;; fenetre d'orientation seule. C'est le suspect que le cycle 13 a dimensionne sans le desarmer.
+(define *phys-col-off* 0)
 
 ;; `*phys-njoint*` retiree : ecrite chaque step, RELUE PAR PERSONNE. Classe de `*phys-lmean*`.
 
@@ -1157,8 +1150,11 @@
 
    LA POSE DU MODELE RESTE ADMISSIBLE — l'invariant dont depend `phys-retreat-chain` : a cette pose
    `dep` vaut exactement `floor0`, donc exactement `feff`, et le test est STRICT (`dep > feff`).
-   L'egalite est exacte : les deux appels passent par cette fonction avec les memes entrees."
-  floor0)
+   L'egalite est exacte : les deux appels passent par cette fonction avec les memes entrees.
+
+   `*phys-col-off*` DESARME le mur (tout devient admissible) : c'est le controle k=4, et il passe
+   par ICI pour couvrir les TROIS sites de `feff` d'un seul point. Voir [NOTE-53]."
+  (if (nonzero? *phys-col-off*) PHYS-VOL-FREE floor0))
 
 ;; ------------------------------------------------------------------------------------------------
 ;; GEOMETRIE — un lien contre un collider. Le collider est une SPHERE (joint2 < 0) ou une CAPSULE
@@ -4563,6 +4559,12 @@
    son propre desarmement : a 0, la passe ne tourne pas et les trois compteurs doivent retomber a
    zero exactement — un compteur qui resterait non nul mesurerait autre chose que cette passe."
   (set! *phys-prio-meas* v)
+  (none))
+
+(defun phys-col-off-set! ((v int))
+  "1 = le MUR DE COLLISION est desarme (voir [NOTE-53]). La salle l'arme sur la passe k=4 du
+   balayage d'orientation et le REND A 0 en sortant."
+  (set! *phys-col-off* v)
   (none))
 
 (defun phys-cone-off-set! ((v int))
