@@ -508,9 +508,16 @@ CE QU'IL MANQUAIT, mot pour mot dans le rapport du cycle 21 : « il faudrait la 
 permanent reste une enigme, `chestR` qui recule 6466 fois contre `chestL` 104 reste une
 asymetrie sans cause, et chaque cycle repart en devinant.
 
-NATURE : un COMPTE d'evenements (frames x liens), par (chaine, volume). REPERE : sans objet,
-ce n'est pas une grandeur geometrique. LECTURE QUAND LE DEFAUT EST ABSENT : zero — une chaine
-qu'aucun volume ne contraint n'a aucune ligne.
+NATURE : un COMPTE de triplets (frame, MAILLON, volume). REPERE : celui du volume teste, c'est
+contre lui que la profondeur `res` est evaluee. LECTURE QUAND LE DEFAUT EST ABSENT : zero — un
+maillon qu'aucun volume ne contraint n'a aucune ligne.
+
+2026-08-14 — LE SEAU PORTE DESORMAIS L'INDEX DU MAILLON. Il etait indexe (chaine, volume) et
+jetait `l` a l'ecriture ; deux cycles de suite ont bute sur « lequel des deux maillons du sein
+viole ? » sans pouvoir y repondre. Indexation : `(sc * PHYS-LINKS + l) * PHYS-COLS + ci`, taille
+`PHYS-SCL * PHYS-COLS`. La salle publie `PHYSCVOL c= l= ci= n=`, et le tableau continue de
+sommer sur les maillons pour son total par chaine, sinon la serie historique de
+`ROOM-CONTACT-VOL` cesserait d'etre comparable. `*phys-cfh*` (le conflit) reste PAR CHAINE.
 
 Il ne compte QUE pendant la passe de MESURE (le meme drapeau que `buried`, arme une fois par
 frame par `phys-pen-chain`) : les trois reculs et leurs treize pas de dichotomie ne comptent pas,

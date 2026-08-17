@@ -1651,21 +1651,61 @@ def main():
     colname = {}
     for ci, j, j2 in cols:
         colname[ci] = ('%s->%s' % (j, j2)) if j2 not in ('-', '?') else ('sphere:%s' % j)
+    # ROOM-CONTACT-LINK, ajoute le 2026-08-14 : la MEME grandeur, mais ventilee PAR MAILLON.
+    # Le seau du moteur etait indexe (chaine, volume) et jetait l'index du maillon a l'ecriture ;
+    # deux cycles de suite ont bute sur « lequel des deux maillons du sein viole ? » sans pouvoir
+    # y repondre. NATURE : un COMPTE de triplets (frame, MAILLON, volume) ou ce volume demandait
+    # une correction cette frame (res > 0) — ni une distance, ni une amplitude. REPERE : celui du
+    # VOLUME TESTE, puisque c'est contre lui que la profondeur est evaluee.
+    # PIEGE EXPLICITE : un parseur qui laisse tomber le champ `l=` FUSIONNE les maillons et rend
+    # une serie qui ressemble a de la physique. Le total par chaine ci-dessous reste donc la somme
+    # sur maillons ET volumes — identique a ce qu'il valait avant l'ajout du champ, pour rester
+    # comparable aux tableaux deja au dossier — et la ventilation est une ligne SEPAREE.
     cvol = {}
-    for m in re.finditer(r'^PHYSCVOL c=(\d+) ci=(\d+) n=(\d+)', txt, re.M):
-        cvol.setdefault(int(m.group(1)), []).append((int(m.group(3)), int(m.group(2))))
+    cvlink = {}
+    per_link = False
+    for m in re.finditer(r'^PHYSCVOL c=(\d+) l=(\d+) ci=(\d+) n=(\d+)', txt, re.M):
+        per_link = True
+        c, l, k, n = (int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4)))
+        cvol.setdefault(c, {})
+        cvol[c][k] = cvol[c].get(k, 0) + n
+        cvlink.setdefault(c, {})
+        cvlink[c][l] = cvlink[c].get(l, 0) + n
+    if not per_link:
+        # Trace ANCIENNE : le moteur n'ecrivait pas encore `l=`. Le total par chaine reste lisible,
+        # la ventilation par maillon ne l'est pas — et on l'ECRIT, on ne publie pas des zeros :
+        # un zero de domaine vide se lit comme une mesure.
+        for m in re.finditer(r'^PHYSCVOL c=(\d+) ci=(\d+) n=(\d+)', txt, re.M):
+            c, k, n = (int(m.group(1)), int(m.group(2)), int(m.group(3)))
+            cvol.setdefault(c, {})
+            cvol[c][k] = cvol[c].get(k, 0) + n
     if not cvol:
         A('ROOM-CONTACT-VOL: non publie par la course')
     else:
         A('ROOM-CONTACT-VOL: %d chaine(s) contraintes par au moins un volume' % len(cvol))
         A('   par chaine, les volumes qui ont demande une correction, du plus frequent au moins')
         A('   frequent. Un contact a profondeur nulle n\'est PAS compte : seule une violation l\'est.')
+        A('   ROOM-CONTACT-LINK ventile le MEME total par MAILLON. NATURE : un compte de triplets')
+        A('   (frame, maillon, volume) a res > 0. REPERE : celui du volume teste. ABSENT : aucune')
+        A('   ligne pour ce maillon — aucun volume ne l\'a jamais contraint.')
         for ci_chain in sorted(cvol):
             nm = names[ci_chain] if ci_chain < len(names) else 'c%d' % ci_chain
-            tot = sum(n for n, _ in cvol[ci_chain])
+            tot = sum(cvol[ci_chain].values())
             det = ' · '.join('%s %d' % (colname.get(k, 'ci%d' % k), n)
-                             for n, k in sorted(cvol[ci_chain], reverse=True)[:6])
+                             for n, k in sorted(((n, k) for k, n in cvol[ci_chain].items()),
+                                                reverse=True)[:6])
             A('ROOM-CONTACT-VOL: chain=%-12s total=%-8d %s' % (nm, tot, det))
+            if not per_link:
+                A('ROOM-CONTACT-LINK: chain=%-12s NON DISPONIBLE sur cette trace — le moteur y'
+                  ' ecrivait `PHYSCVOL c= ci= n=` sans le champ `l=`, l\'index du maillon etait'
+                  ' jete a l\'ecriture. Aucun chiffre par maillon n\'est publiable ici.' % nm)
+                continue
+            lk = cvlink.get(ci_chain, {})
+            nl = chains.get(ci_chain, {}).get('links', 0)
+            nl = max(nl, (max(lk) + 1) if lk else 0)
+            A('ROOM-CONTACT-LINK: chain=%-12s %s total=%d'
+              % (nm, ' '.join('link%d=%-8d' % (l, lk.get(l, 0)) for l in range(nl)),
+                 sum(lk.values())))
     # ---- ROOM-PAIRDOM : SPEC 33, LE DOMAINE D'UNE PAIRE ET PAS SEULEMENT SES CONTACTS --------
     # Le cycle 7 a publie « 0 contact sein<->sein sur 2978 » puis a ecrit lui-meme, dans ses
     # non-prouves, que la cause geometrique n'etait PAS etablie. Un zero dont on ignore le domaine
