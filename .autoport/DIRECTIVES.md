@@ -10,6 +10,38 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
+## 2026-08-17 23:50 — ORDRE OWNER : LA SPEC S'APPLIQUE COÛTE QUE COÛTE, RIG COMPRIS. LES RETRAITS SONT INTERDITS.
+
+Verbatim : « Je comprends pas le blocage, faut juste que tu appliques la spec coûte que coûte même
+si ça implique de modifier le rig. Arrête un peu de me prendre pour un con. »
+
+**IL A RAISON, ET VOICI L'ERREUR QU'IL CORRIGE.** Les cycles 16 et 18 ont construit la structure
+(2e os, peau qui suit), l'ont mesurée, puis l'ont RETIRÉE parce qu'elle cassait des planchers
+(fréquence §24 hors bande, meshpen, saturation §22). La règle « si le plancher casse, le point est
+retiré » a fait passer la NON-RÉGRESSION avant la SPEC. C'est inversé à partir de maintenant :
+
+**RÈGLE NOUVELLE, ELLE REMPLACE LA RÈGLE DE CONSERVATION SUR CE CHANTIER :**
+  1. **La structure de §23/§30 est OBLIGATOIRE et elle RESTE.** Deuxième os (`lBooc`/`rBooc`),
+     rig modifié (105 → 107), peau redistribuée vers ~30 % d'ancrage (§30), degré de liberté de
+     torsion réel (§29 : 0.72). Le rig N'EST PAS sacré — l'owner vient de le dire explicitement.
+  2. **Un plancher qui casse n'est plus un motif de retrait : c'est la LISTE DE TRAVAIL.** La
+     fréquence tombe à 1.55 Hz ? On re-dérive raideur/masse pour la nouvelle géométrie jusqu'à
+     revenir dans la bande §24 (k = m(2πf)², sa §28 donne la formule). meshpen monte ? On corrige
+     la collision POUR la nouvelle structure. La saturation §22 sature ? On la recalibre sur le
+     nouveau B0. On avance À TRAVERS les rouges, on ne recule plus devant eux.
+  3. **Le « type de primitive » n'est pas un blocage, c'est une tâche.** Si la capsule ne peut pas
+     héberger le 2e os, on CHANGE la primitive (deux sphères, capsule par os, ce que la géométrie
+     demande). C'est du code à nous, pas une loi de la nature.
+  4. **Des régressions transitoires sur les builds intermédiaires sont ACCEPTÉES par l'owner** —
+     c'est le sens de « coûte que coûte ». On continue de publier au fil de l'eau ; on ne retient
+     rien en attendant que tout soit vert.
+  5. Ce qui reste interdit : les faux verts. Un rouge se PUBLIE comme rouge avec sa mesure — il ne
+     bloque plus l'avancée, il la dirige.
+
+**ORDRE DE TRAVAIL : structure d'abord (§23/§30, elle reste posée), puis re-dérivation §24/§28 sur
+la nouvelle géométrie, puis §29-torsion (0.72), puis §12 latéral et §36 chestR, puis §33.**
+
+
 ## 2026-08-14 11:50 — « NON APPLICABLE » EST INTERDIT. ET TROIS DE MES ANNONCES ETAIENT FAUSSES.
 
 L'owner : « "non applicable"… Comment ça ? S'il manque des bones ou autre, bah faut juste les
@@ -559,7 +591,7 @@ jamais un nombre choisi. Les grosses mèches portent encore `stiffness=1.80 damp
 
 ## PÉRIMÈTRE ACTIF (2026-08-11)
 
-SCOPE-SERIAL: 5
+SCOPE-SERIAL: 6
 <!-- Bump ce numéro UNIQUEMENT pour un vrai changement de périmètre : il invalide
      immédiatement la tentative en cours (gate SYNC). Corriger une coquille ou
      reformuler ne doit jamais coûter une tentative. -->
