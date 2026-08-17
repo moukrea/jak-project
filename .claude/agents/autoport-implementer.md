@@ -2,7 +2,7 @@
 name: autoport-implementer
 description: Use PROACTIVELY for mechanical code edits in the autoport project once the manager has decided the exact change — multi-file patches, applying a precise spec (files, lines, semantics), regenerating boilerplate. Compiles to verify but does not design.
 tools: Bash, Read, Edit, Write, Grep, Glob
-effort: xhigh
+effort: medium
 ---
 
 ## AVANT TOUT OUTIL DE TRAVAIL — LIS LE CONTRAT COURANT (obligatoire)
