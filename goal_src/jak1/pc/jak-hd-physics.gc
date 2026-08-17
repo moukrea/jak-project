@@ -3703,12 +3703,18 @@
                                  (wfw (fmax 0.0 gzc))
                                  (wlt (fabs gxc))
                                  (wsm (fmax 0.0001 (+ wdn (+ wup (+ wbk (+ wfw wlt))))))
+                                 ;; [NOTE-52] SPEC 10 ET SPEC 11 ETAIENT INTERVERTIES — les colonnes `wbk` et `wfw` recevaient
+                                 ;; le triplet l'une de l'autre. Aucune constante n'est modifiee : les memes cinq triplets,
+                                 ;; affectes a l'autre signe de `gzc`. Trois preuves (anatomie du rig livre, mecanique du
+                                 ;; pole bloque, incoherence interne) -> jak-hd-physics-NOTES.md
+                                 ;;   gzc < 0  gravite vers l'AVANT   -> face contre terre -> §11 prone
+                                 ;;   gzc > 0  gravite vers l'ARRIERE -> sur le dos        -> §10 supine
                                  (sx0 (/ (+ (* wdn 1.000) (+ (* wup 0.900)
-                                            (+ (* wbk 1.230) (+ (* wfw 0.900) (* wlt 0.800))))) wsm))
+                                            (+ (* wbk 0.900) (+ (* wfw 1.230) (* wlt 0.800))))) wsm))
                                  (sy0 (/ (+ (* wdn 1.000) (+ (* wup 1.230)
-                                            (+ (* wbk 1.090) (+ (* wfw 0.910) (* wlt 1.118))))) wsm))
+                                            (+ (* wbk 0.910) (+ (* wfw 1.090) (* wlt 1.118))))) wsm))
                                  (sz0 (/ (+ (* wdn 1.000) (+ (* wup 0.910)
-                                            (+ (* wbk 0.700) (+ (* wfw 1.230) (* wlt 1.118))))) wsm))
+                                            (+ (* wbk 1.230) (+ (* wfw 0.700) (* wlt 1.118))))) wsm))
                                  ;; (c) SPEC 8 — `Sx.Sy.Sz = 1`. Les triplets de sa spec sont des
                                  ;; BOITES ENGLOBANTES et elle le dit (« the volume constraint
                                  ;; applies to the actual deformable volume, NOT merely to the
@@ -4632,20 +4638,9 @@
           (-> *phys-axw* (+ (* sc 9) (+ (* row 3) comp))))))
     0.0))
 
-;; LE TRIEDRE DE SPEC 7 LUI-MEME, EN MONDE — ET POURQUOI IL LUI FALLAIT UN ACCESSEUR.
-;; `phys-chain-axis` ne rend que des INDICES DE LIGNE (rv/rap/rlat) : il dit quelle ligne porte
-;; l'avant-arriere, jamais dans quel SENS elle pointe. Or le sens est la seule chose qui distingue
-;; supine de prone, et il decide a lui seul de quel triplet de §10/§11 s'applique. La note de
-;; `*phys-fz*` (:3649-3664) fixe ce sens par une mesure — mais elle a ete ecrite quand `axa` valait
-;; 0 (« la ligne 0 EST l'avant-arriere, la ligne 2 EST le lateral »), alors que la course publie
-;; aujourd'hui `rap=2 rlat=0` : les roles ont ete renommes depuis par l'invariant inter-seins, et le
-;; SIGNE, lui, n'a jamais ete re-mesure. Un indice de ligne juste avec un signe perime est
-;; exactement le piege `axis-role-labels-need-naming-measurement`, une couche plus bas.
-;; NATURE : trois cosinus directeurs, sans unite. REPERE : MONDE, comme `phys-axis-world`, ce qui
-;; permet de comparer `fz` aux lignes de l'ancre que `PHYSAXW` publie deja.
-;; CE QUI DISCRIMINE : `fz . ligne[rap]` vaut +1 ou -1. C'est ce signe, croise avec un invariant
-;; ANATOMIQUE externe releve sur le rig livre, qui nomme l'avant — jamais l'inverse.
-;; LIGNE DE BASE : `fok=0` -> trois zeros, le triedre n'est pas releve et rien ne doit etre conclu.
+;; [NOTE-51] LE TRIEDRE DE SPEC 7 ET POURQUOI IL LUI FALLAIT UN ACCESSEUR -> jak-hd-physics-NOTES.md
+;; REPERE : espace ANCRE (le meme que `gla`), PAS le monde de `phys-axis-world`. LIGNE DE BASE :
+;; `fok=0` -> trois zeros, le triedre n'est pas releve et rien ne doit etre conclu.
 (defun phys-tri-world ((slot int) (chain int) (axis int) (comp int))
   (if (and (>= slot 0) (< slot PHYS-SLOTS) (>= chain 0) (< chain PHYS-CHAINS)
            (>= axis 0) (< axis 3) (>= comp 0) (< comp 3))

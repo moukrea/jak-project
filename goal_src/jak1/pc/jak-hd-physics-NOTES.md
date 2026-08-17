@@ -1729,3 +1729,73 @@ CE QUE LA CORRECTION DOIT PRODUIRE, ecrit AVANT la course pour qu'elle puisse la
 SPEC 25 passe de +8.3 % a -1.1 % de son nominal ; SPEC 26 de -11 % a +1.2 % de sa cible 0.31 ;
 SPEC 36 cesse d'etre un faux vert. Une seule derivation, quatre lignes du tableau.
 ```
+
+## NOTE-51  (moteur, aux alentours de la ligne 4700) — LE TRIEDRE DE SPEC 7, ET POURQUOI IL LUI FALLAIT UN ACCESSEUR
+
+`phys-chain-axis` ne rend que des INDICES DE LIGNE (`rv`/`rap`/`rlat`) : il dit quelle ligne porte
+l'avant-arriere, jamais dans quel SENS elle pointe. Or le sens est la seule chose qui distingue
+supine de prone, et il decide a lui seul de quel triplet de SPEC 10 / SPEC 11 s'applique.
+
+La note de `*phys-fz*` fixe ce sens par une mesure — mais elle a ete ecrite quand `axa` valait 0
+(« la ligne 0 EST l'avant-arriere, la ligne 2 EST le lateral »), alors que la course publie
+aujourd'hui `PHYSAXIS rv=1 rap=2 rlat=0` : les roles ont ete RENOMMES depuis par l'invariant
+inter-seins (`PHYSAXNAME src=1`), et le SIGNE, lui, n'a jamais ete re-mesure. Un indice de ligne
+juste avec un signe perime — c'est `axis-role-labels-need-naming-measurement`, une couche plus bas.
+
+NATURE : trois cosinus directeurs, sans unite. REPERE : le meme que `gla`, c'est-a-dire l'espace
+ANCRE — et c'est le piege du bloc : `phys-axis-world` / `PHYSAXW` rendent des lignes en espace
+MONDE. Croiser les deux « prouve » que le triedre est melange (`fz . ligne_AP = +0.06`) alors qu'il
+ne l'est pas ; en espace ancre `fz ≈ e2` a 0.995. Toujours verifier que les deux operandes sont
+dans le meme repere avant de conclure qu'un axe est mal affecte.
+
+CE QUI DISCRIMINE : le signe de `fz` croise avec un invariant ANATOMIQUE externe releve sur le rig
+LIVRE. LIGNE DE BASE : `fok=0` -> trois zeros, le triedre n'est pas releve, rien a conclure.
+
+## NOTE-52  (moteur, aux alentours de la ligne 3706) — SPEC 10 ET SPEC 11 ETAIENT INTERVERTIES
+
+Les colonnes `wbk` et `wfw` recevaient le triplet l'une de l'autre. Aucune constante n'est modifiee
+par la correction : les memes cinq triplets, affectes a l'autre signe de `gzc`.
+
+    gzc < 0   gravite vers l'AVANT    -> face contre terre -> SPEC 11 prone   0.900 / 0.910 / 1.230
+    gzc > 0   gravite vers l'ARRIERE  -> sur le dos        -> SPEC 10 supine  1.230 / 1.090 / 0.700
+
+TROIS PREUVES INDEPENDANTES, aucune n'est un commentaire :
+
+1. ANATOMIE, sur le rig LIVRE (`recharged_assets/hd_anim/keira-hd-k2e.json` -> `hd_glb` =
+   `out/jak1/fr3/skin/keira-hd-donor-injected.glb`), en espace chest, composante sur la ligne 2
+   (celle que la course nomme `rap`) :
+       Lbanga / Rbanga  (frange, AVANT du crane)      -0.3
+       gogglesMid       (lunettes, portees AU VISAGE) -0.2
+       backHair1 / 2    (nuque, ARRIERE)              +0.1
+   Trois marqueurs, deux sens opposes, verdict unique : **+ligne2 = ARRIERE**. Les memes lignes
+   nomment les deux autres axes gratuitement et confirment `rap=2` (`lBoob`/`rBoob` se separent sur
+   la ligne 0 = lateral ; `head`/`hips` sur la ligne 1 = vertical). UN SEUL marqueur n'aurait pas
+   suffi : la protrusion propre du sein vaut -0.0 sur cette ligne, et c'est exactement
+   l'heuristique que la course C avait deja refutee.
+
+2. MECANIQUE. A stimulus IDENTIQUE (|g_eff| = 1.4142 aux deux poles), le canal du joint rend
+   0.1205 B0 d'un cote et 0.0107 B0 de l'autre. La direction BLOQUEE est celle ou il y a un corps :
+   l'ARRIERE. Le seul volume en contact est `Lshoulder->chest`, normale a 95.7 % sur l'axe
+   avant-arriere, et la pose d'auteur est EXACTEMENT sur sa frontiere (`dep = feff`, test strict).
+
+3. INCOHERENCE INTERNE de l'etat livre : le morph « hanging freely » de SPEC 11 (sz=1.2195) etait
+   applique la ou le joint ne peut PAS bouger, et le morph « comprime contre le thorax » de
+   SPEC 10 (sz=0.7370) la ou il bouge le plus.
+
+CHAINE DE SIGNES, FERMEE A L'EXECUTION : `gy = -11.16` -> `gl` part en (0,-11.16,0) = BAS monde
+puis `vector-rotate*! gl gl w2l`, donc `gla` EST la gravite en espace ancre ; `*phys-fy*` vaut
+`-g_ref/|g_ref|`, donc le HAUT, d'ou `gyc = -1.0000` debout et `wdn` qui tire bien le triplet
+(1,1,1) de SPEC 9 ; `*phys-fz*` = `e[rap]` orthogonalise contre `fy`, mesure a l'execution par
+`PHYSTRI` a (-0.01761, 0.09422, 0.99539), soit `e2` a 0.995.
+
+CE QUE CA CHANGE A L'ECRAN : quand elle se penche en avant pour souder, la poitrine recevait
+`sz = 0.700` — elle S'APLATISSAIT de 30 % — la ou SPEC 11 exige `1.230`, c'est-a-dire qu'elle PEND
+(« the root remains relatively stable while DISTAL TISSUE becomes longer »). Le morph tournait a
+l'envers.
+
+VERIFIE PAR LA COURSE, contre `C13-PREDICTIONS.txt` ecrit avant de lire une ligne : `i=6` et `i=8`
+ECHANGENT leurs triplets ; le multi-ensemble des `sz` est IDENTIQUE et `ROOM-ORI-SPAN` reste
+0.7370 / 1.2195 / 0.4825 (c'est le controle qui distingue une permutation d'une deformation) ;
+`det` reste 1.0000 ; le canal du JOINT est BIT-IDENTIQUE aux neuf orientations, ce qui prouve que
+le canal de deformation est bien un canal de RENDU sans retro-action. SPEC 11 passe de SOUS
+(0.1465 / 0.1332) a DANS sa bande (0.2823 / 0.2605, bande 0.20-0.30) sur LES DEUX chaines.
