@@ -603,6 +603,11 @@
 
 (defconstant PHYS-COL-MARGIN 0.5)
 
+;; SPEC 10 `SupineProjectionScale = 0.70` : la projection avant perd 30 % contre le thorax. BANDE que
+;; la chair cede avant que le mur ne redevienne dur, en B0 (SPEC 6 : 602 u de CHAIR, pas l'os). Elle
+;; ne se regle pas, sa spec l'ecrit. Voir `phys-vol-floor` / `phys-vol-yield`.
+(defconstant PHYS-FLESH-YIELD 0.30)
+
 ;; [NOTE-16] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
 
 ;; [NOTE-17] SENTINELLE « aucun contact ». Un residu de penetration reel ne depasse jamais quelques m -> jak-hd-physics-NOTES.md
@@ -923,7 +928,7 @@
                       ;; s'imprime que pour les chaines qui portent la cle : son absence est une
                       ;; mesure. L'os se lit a cote, sur `PHYSBONE`, a l'execution.
                       (when (> (-> *phys-b0* sc) 0.0)
-                        (format 0 "[HD-PHYS] b0 c=~D flesh=~f~%" c (-> *phys-b0* sc)))
+                        (format 0 "[HD-PHYS] b0 c=~D flesh=~f anc=~D~%" c (-> *phys-b0* sc) (-> *phys-anchor* sc)))
                       ;; PREUVE D'EXECUTION (regle 0) : `gradient=` traverse le fichier de donnees,
                       ;; le parseur C++ et la garde `param_id < kPhysNumChainParams` avant d'arriver
                       ;; ici, et un zero silencieux a l'une de ces couches rendrait la racine
@@ -1127,34 +1132,32 @@
          (s (* u (+ (- 1.0 (* 0.16666667 (* u u))) (* 0.00833333 (* (* u u) (* u u)))))))
     (+ (* (- 1.0 r) (- 1.0 r)) (* 4.0 (* r (* s s))))))
 
-(defun phys-vol-floor ((floor0 float) (rl float))
-  "Profondeur maximale que cette paire (lien, volume) tolere : SA PROFONDEUR D'AUTEUR, ni plus ni
-   moins. C'est la phrase de la SPEC sans exception — « ce qui est deja dedans au repos y reste ».
-
-   DEUX FORMES ONT ETE ESSAYEES ET RETIREES, chacune sur une mesure :
-   1. `floor0 / w` avec `w = (2 rl - floor0) / rl` : une fonction qui DIVERGE quand `floor0`
-      approche `2 rl`. Elle ne disait plus « reste ou tu es » mais « enfonce-toi de plus en plus a
-      mesure que tu es deja enfonce ». Mesure sur `LpantFlap` (rl = 429, capsule de mollet) :
-      profondeur au repos 614 u, tolerance accordee 1082 u = 468 u de penetration EN PLUS de la
-      pose sculptee, soit la moitie d'un mollet. C'est `pant-calf`, mot pour mot.
-   2. La branche PHYS-VOL-FREE (`floor0 >= 2 rl` => plus AUCUNE contrainte) : n'avoir aucune
-      surface devant soi n'autorise pas a s'enfoncer plus loin. Colonne `buried` : les lunettes
-      etaient declarees libres 50 642 fois par course, et c'est `goggles-tunnel`.
-
-   LA FORME UNIFORME SE DEGRADE TOUTE SEULE DANS LE CAS QUI AVAIT MOTIVE LA BRANCHE : `dep` est
-   maximale sur l'AXE et vaut alors `rr + rl`, donc un lien dont la pose d'auteur est SUR l'axe a
-   `floor0` au maximum atteignable et `dep > floor0` devient impossible — libre par arithmetique,
-   sans branche. Pour un lien enfoui mais EXCENTRE (le pan de pantacourt, a 95 u de l'axe du
-   mollet) elle se lit « ne t'approche pas de l'axe plus que l'auteur ne t'y a mis » : toute la
-   rotation autour de la jambe reste libre, seul l'enfoncement est refuse.
-
-   LA POSE DU MODELE RESTE ADMISSIBLE — l'invariant dont depend `phys-retreat-chain` : a cette pose
-   `dep` vaut exactement `floor0`, donc exactement `feff`, et le test est STRICT (`dep > feff`).
-   L'egalite est exacte : les deux appels passent par cette fonction avec les memes entrees.
-
-   `*phys-col-off*` DESARME le mur (tout devient admissible) : c'est le controle k=4, et il passe
+(defun phys-vol-floor ((floor0 float) (b0 float))
+  "Profondeur maximale que cette paire (lien, volume) tolere : sa profondeur d'auteur PLUS ce que la
+   chair cede avant de toucher l'os. La bande n'est pas choisie, c'est le seul chiffre de sa spec qui
+   dise jusqu'ou la chair s'ecrase contre le thorax : SPEC 10 `SupineProjectionScale = 0.70` donne
+   `0.30 * B0`, pas un point de plus. La PROFONDEUR DE COM qui en resulte n'est PAS posee : elle sort
+   de l'equilibre des forces (dans la bande seule la raideur SPEC 24/29 resiste) et se lit ENSUITE
+   contre la ligne de SPEC 10 qui la chiffre, 0.23 B0.
+   POURQUOI ELLE NE POUVAIT PAS RESTER A `floor0` : mur UNILATERAL pose EXACTEMENT au point de repos,
+   donc il repoussait le premier micron vers le thorax et laissait l'autre sens libre. Cycle 14,
+   stimulus IDENTIQUE : pole libre 0.13997 B0 contre pole bloque 0.02511 B0. REDRESSEE. NOTE-55.
+   `b0` = 0 rend la forme d'avant, sans complaisance : c'est ce que recoit toute paire que
+   `phys-vol-yield` n'a pas reconnue comme du buste. LA POSE DU MODELE RESTE ADMISSIBLE a fortiori :
+   `feff >= floor0`, test STRICT. `*phys-col-off*` DESARME le mur entierement (controle k=4) et passe
    par ICI pour couvrir les TROIS sites de `feff` d'un seul point. Voir [NOTE-53]."
-  (if (nonzero? *phys-col-off*) PHYS-VOL-FREE floor0))
+  (if (nonzero? *phys-col-off*)
+    PHYS-VOL-FREE
+    (+ floor0 (* PHYS-FLESH-YIELD b0))))
+
+(defun phys-vol-yield ((sc int) (cj int) (cj2 int))
+  "La bande de SPEC 10 est la compression de la chair CONTRE SON PROPRE BUSTE — pas une licence de
+   traverser un bras, une main ou les lunettes (regle 6). Critere STRUCTUREL, tire du rig et jamais
+   d'une liste a la main (regle 4) : le volume doit porter l'ANCRE de la chaine comme extremite.
+   Ancre `chest` => `chest->main`, `neck->chest`, `L|Rshoulder->chest`, RIEN d'autre : les bras,
+   `head->neck` et `sphere:gogglesMid` gardent le mur dur. Meme plancher pour la mesure. NOTE-55."
+  (let ((a (-> *phys-anchor* sc)))
+    (if (and (>= a 0) (or (= cj a) (= cj2 a))) (-> *phys-b0* sc) 0.0)))
 
 ;; ------------------------------------------------------------------------------------------------
 ;; GEOMETRIE — un lien contre un collider. Le collider est une SPHERE (joint2 < 0) ou une CAPSULE
@@ -1779,7 +1782,7 @@
                              (floorc (phys-collide-depth rest rl ca cb (-> *phys-cr* sco)
                                                          (-> *phys-cr2* sco) cap? nrm))
                              (floor0 (if (> floorc floors) floorc floors))
-                             (feff   (if selfpair 0.0 (phys-vol-floor floor0 rl)))
+                             (feff   (if selfpair 0.0 (phys-vol-floor floor0 (phys-vol-yield sc cj cj2))))
                              (dep    (phys-collide-depth pt rl ca cb (-> *phys-cr* sco)
                                                          (-> *phys-cr2* sco) cap? nrm)))
                         (when (> dep feff)
@@ -1853,7 +1856,7 @@
                              (floorc (phys-collide-depth rest rl ca cb (-> *phys-cr* sco)
                                                          (-> *phys-cr2* sco) cap? nrm))
                              (floor0 (if (> floorc floors) floorc floors))
-                             (feff   (if selfpair 0.0 (phys-vol-floor floor0 rl)))
+                             (feff   (if selfpair 0.0 (phys-vol-floor floor0 (phys-vol-yield sc cj cj2))))
                              (dep    (phys-collide-depth pt rl ca cb (-> *phys-cr* sco)
                                                          (-> *phys-cr2* sco) cap? nrm)))
                         ;; SPEC 33 — LE DOMAINE DE LA PAIRE. Un echantillon par (lien, volume) et
@@ -2207,7 +2210,11 @@
                      (floorc (phys-collide-depth rest rl ca cb (-> *phys-cr* sco)
                                                  (-> *phys-cr2* sco) cap? nrm))
                      (floor0 (if (> floorc floors) floorc floors))
-                     (feff   (phys-vol-floor floor0 rl))
+                     ;; MEME PLANCHER QUE LE SOLVEUR, IMPOSE PAR UNE MESURE : ancre a la pose d'AUTEUR
+                     ;; il lisait un OFFSET CONSTANT (+0.0441 m, la bande SPEC 10) qui noyait le
+                     ;; controle positif (POSCONTROL 0.0668/0.0440, CONE 0.0440 SOUS 0.0441). Une
+                     ;; compression que la spec AUTORISE n'est pas une penetration. NOTE-55.
+                     (feff   (phys-vol-floor floor0 (phys-vol-yield sc cj cj2)))
                      (dep    (phys-collide-depth q rl ca cb (-> *phys-cr* sco)
                                                  (-> *phys-cr2* sco) cap? nrm))
                      (res    (- dep feff)))

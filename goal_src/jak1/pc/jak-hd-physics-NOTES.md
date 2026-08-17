@@ -1853,3 +1853,115 @@ fausse et la cause est ailleurs.
 
 RESTE A 0 EN LIVRAISON : aucune fenetre de mesure hors des phases AXZ ne le voit non nul, et
 SPEC 22 (« un os ne s'allonge pas ») garde sa contrainte dure partout ailleurs.
+
+## NOTE-55  (moteur, `PHYS-FLESH-YIELD` ~ligne 605 et `phys-vol-floor` ~ligne 1136) — LE MUR DE COLLISION CESSE D'ETRE UN REDRESSEUR
+
+### CE QUE LE MUR FAISAIT, ET C'EST UNE MESURE QUI LE DIT
+
+`feff = floor0` : la profondeur admissible d'une paire (lien, volume) etait EXACTEMENT sa
+profondeur a la pose d'auteur. Comme `floor0` vaut **0.0000 sur toutes les paires de la poitrine
+sauf deux** (`PHYSPAIR c=0 ci=4 fl=66.1956`, `c=1 ci=7 fl=55.4145`), la regle se lisait en clair :
+**la poitrine n'a pas le droit d'entrer d'un seul micron dans le thorax.**
+
+Un mur unilateral pose exactement au point de repos ne reduit pas une reponse, il la REDRESSE.
+Cycle 14, `ROOM-ORICTL-POLES`, stimulus IDENTIQUE (|g_eff| = 0.7653 a 45 deg) :
+
+    chestL AP45   pole libre   0.13997 B0      pole bloque   0.02511 B0      rapport 5.57
+    chestR AP45   pole libre   0.12980 B0      pole bloque   0.02420 B0      rapport 5.36
+
+Sur le canal du joint (`PHYSORICTL c=0`, composante `tz`), le signe apparait et ne laisse aucune
+place au doute : `i=5` (pole libre) `tz = -64.50`, `i=7` (pole bloque) `tz = -0.17`. Desarme, le
+meme canal rend `-64.42` et `+83.55` : **bipolaire**. Le degre de liberte n'etait pas echange
+contre autre chose, il etait confisque.
+
+### POURQUOI C'EST UNE CONTRADICTION AVEC SA SPEC, PAS UN COMPROMIS
+
+`SPEC 10` : « COM toward thorax: 18–28 % B0, nominal 23 % B0 ». Le mur repondait « ce qui est deja
+dedans au repos y reste, ni plus ni moins », c'est-a-dire **zero**. Mesure armee : 0.1465 / 0.1332
+B0, SOUS la bande. Mur desarme (k=4) : 0.2773 / 0.2561 B0, DANS la bande, **sans que `SPEC 11`
+(prone), `SPEC 12` (lateral) ni les poles lateraux ne bougent de plus de 1.3 %**.
+
+Et `SPEC 10` / `SPEC 11` sont quasi symetriques — 0.23 B0 contre 0.24 B0. La spec dit donc que le
+thorax ne doit PAS raidir la reponse du COM : ce qu'il produit, sa `SPEC 34` l'ecrit, c'est de la
+**deformation** (`SupineProjectionScale = 0.70`, `SupineWidthScale = 1.23`), « collision energy
+should primarily become deformation, redistribution and damping — **not bounce** ».
+
+### LA BANDE N'EST PAS CHOISIE, ELLE EST LUE DANS SA SPEC 10
+
+`PHYS-FLESH-YIELD = 0.30` vient de `SupineProjectionScale = 0.70` : sur le dos, la projection avant
+perd 30 %, donc l'apex approche le thorax de `0.30 * B0` avant que la chair ne touche l'os. C'est
+le SEUL chiffre de sa spec qui dise jusqu'ou la chair s'ecrase, et c'est une ligne de `SPEC 10`
+DISTINCTE de celle que l'instrument mesure (la profondeur de COM, 0.23 B0).
+
+**C'est la difference entre poser une raideur et ajuster un parametre sur son instrument.** Dans la
+bande, la seule chose qui resiste est la raideur propre de la chaine (`SPEC 24` / `SPEC 29`) : la
+profondeur d'equilibre n'est pas posee, elle SORT de l'equilibre des forces, et on lit ensuite ou
+`SPEC 10` tombe. L'ordre inverse — choisir la bande pour que l'instrument affiche 0.23 — est
+`never-fit-a-parameter-to-the-instrument`, et le cycle 14 avait refuse de le faire pour cette
+raison exacte.
+
+`0.30 * 602 = 180.6 u`. Le mur bite donc a 180.6 u d'approche au lieu de 0 : au-dela il redevient
+DUR, ce qui garde la regle 6 de l'owner (« rien ne traverse le mesh ») avec une borne, au lieu de
+la garder avec une interdiction totale qui contredisait sa spec.
+
+### CE QUE LA BANDE N'EST PAS
+
+Ce n'est PAS un mur compliant au sens de `SPEC 23` (`F_collision` comme force dans l'equation).
+Une poussee FRACTIONNAIRE ne survivrait pas a la structure du solveur : `phys-collide-chain` est
+appelee **15 fois par frame** (8 + 3 + 4) avec `sweeps = 3`, soit **45 projections**, et toute
+correction de la forme « retirer une fraction de l'exces » converge vers le mur dur en quelques
+iterations (`e_N = band / (N + band/e_0)`, soit ~4 u apres 45 passes). Le mur reste donc une
+projection dure, POSEE AU BON ENDROIT. La complaisance dans la bande est fournie par la raideur de
+la chaine elle-meme, ce qui est une lecture defendable de `SPEC 23` : `F_collision` est nul tant que
+la chair n'a pas touche l'os.
+
+### L'INSTRUMENT NE BOUGE PAS AVEC LE SOLVEUR
+
+`phys-link-pen` (le troisieme site de `feff`, celui qui publie `meshpen`) passe **`b0 = 0`** et
+mesure donc toujours la profondeur au-dela de la pose d'AUTEUR. Sans ca, elargir le mur ferait
+BAISSER la penetration mesuree **par construction** et le chiffre cesserait de valoir quoi que ce
+soit. C'est le principe deja ecrit dans `phys-pen-chain` : « l'instrument mesure toujours contre le
+solide que la DONNEE designe, quel que soit le predicat que le SOLVEUR utilise ».
+
+### LES DEUX FORMES RETIREES AVANT CELLE-CI (historique, ne pas les remettre)
+
+1. `floor0 / w` avec `w = (2 rl - floor0) / rl` : DIVERGE quand `floor0` approche `2 rl`. Elle ne
+   disait plus « reste ou tu es » mais « enfonce-toi de plus en plus a mesure que tu es deja
+   enfonce ». Mesure sur `LpantFlap` (rl = 429, capsule de mollet) : profondeur au repos 614 u,
+   tolerance accordee 1082 u — 468 u de penetration EN PLUS de la pose sculptee, la moitie d'un
+   mollet. C'est `pant-calf`, mot pour mot.
+2. Branche `PHYS-VOL-FREE` (`floor0 >= 2 rl` => plus AUCUNE contrainte) : n'avoir aucune surface
+   devant soi n'autorise pas a s'enfoncer plus loin. Colonne `buried` : les lunettes etaient
+   declarees libres 50 642 fois par course, et c'est `goggles-tunnel`.
+
+La difference avec `PHYS-FLESH-YIELD` : ces deux-la accordaient une tolerance **sans borne** ou
+**proportionnelle a l'erreur deja commise**. Celle-ci est une CONSTANTE de la spec, bornee, la meme
+pour toutes les paires, et le mur redevient dur au-dela.
+
+### ADDENDA CYCLE 15 — DEUX CORRECTIONS QUE LA MESURE A IMPOSEES, DANS L'ORDRE OU ELLE LES A IMPOSEES
+
+**(a) LA BANDE NE S'APPLIQUE QU'AU BUSTE (`phys-vol-yield`).** Le premier jet accordait la bande a
+TOUS les volumes. Mesure de la course : `ROOM-CONTACT-VOL` chestL passe de 274 a 14398 frames et
+fait apparaitre `Lhand->Lelbow` 1143, `Lelbow->Lshoulder` 869, `sphere:gogglesMid` 278 — c'est-a-dire
+que la poitrine gagnait le droit de s'enfoncer de 44 mm dans un BRAS, une MAIN et les LUNETTES. Sa
+`SPEC 10` parle de la compression contre le THORAX, et la regle 6 de l'owner interdit le reste
+(« les lunettes clipent sur ses seins » est un defaut qu'il a signale six fois). Le critere est
+STRUCTUREL et vient du rig, jamais d'une liste ecrite a la main (regle 4) : le volume doit porter
+l'ANCRE de la chaine comme extremite. Pour `chestL`/`chestR` (ancre `chest`) ca designe exactement
+`chest->main`, `neck->chest`, `Lshoulder->chest`, `Rshoulder->chest` — c'est-a-dire les 3 volumes qui
+portaient 100 % des contacts au cycle 14, donc la bande garde tout son effet sur `SPEC 10`.
+
+**(b) L'INSTRUMENT REPREND LE PLANCHER DU SOLVEUR, ET C'EST L'INVERSE DE CE QUE J'AVAIS ECRIT.**
+Premier jet : `phys-link-pen` passait `b0 = 0` pour « ne pas faire baisser `meshpen` par
+construction ». La course a montre que c'etait faux, et le chiffre est net — ancre a la pose
+d'AUTEUR, l'instrument lit un **offset constant** egal a la bande (0.0441 m) que le controle positif
+ne peut plus dominer :
+
+    ROOM-POSCONTROL  arme 0.0668  desarme 0.0440     la gate exige arme >= 3x desarme  -> ECHEC
+    ROOM-CONE        arme 0.0440  desarme 0.0441     l'arme passe SOUS le desarme      -> N'A PAS TIRE
+
+**Une compression que la spec AUTORISE n'est pas une penetration.** La violation, c'est ce qui
+depasse l'admissible — donc l'instrument doit mesurer contre le meme plancher que le solveur. Ce qui
+protege contre le « j'elargis le mur, le chiffre baisse » n'est pas l'ancrage de l'instrument, c'est
+que la bande est une CONSTANTE DE LA SPEC nommee et publiee, et que `skinpen` (distance signee a la
+PEAU, `phys-surf-sd`) ne passe pas par `feff` du tout et ne bouge donc avec rien.

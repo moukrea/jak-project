@@ -1,0 +1,191 @@
+C15-PREDICTIONS — ecrit AVANT le lancement de la course, donc avant d'en lire une ligne.
+DIRECTIVES vee00ab7404
+
+PREUVE D'ANTERIORITE : au moment ou ce fichier est ecrit, `keira-room-x86.log` porte encore la
+trace du CYCLE 14 (md5 du CGO qui l'a produite : 1c987d651956714b0ffa2ec4dfafcc14). Le CGO de ce
+cycle vient d'etre bati et vaut fc526e75a9d86a126cd07f0d83c8291b : aucune course ne l'a encore
+exerce. Le script archive le log precedent sous `keira-room-x86.<horodatage>.log` avant d'ecrire.
+
+
+CHANGEMENT UNIQUE DU CYCLE (solveur, une constante et une fonction)
+====================================================================
+`phys-vol-floor` rendait `floor0` — la profondeur admissible d'une paire (lien, volume) etait
+EXACTEMENT sa profondeur a la pose d'auteur. Elle rend desormais `floor0 + 0.30 * B0`.
+
+  - `PHYS-FLESH-YIELD = 0.30` vient de sa SPEC 10 : `SupineProjectionScale = 0.70`, la projection
+    avant perd 30 % contre le thorax. C'est le SEUL chiffre de sa spec qui dise jusqu'ou la chair
+    s'ecrase avant de toucher l'os, et c'est une ligne de SPEC 10 **distincte** de celle que
+    l'instrument mesure (la profondeur de COM, 0.23 B0). `0.30 * 602 = 180.6 u`.
+  - Au-dela de la bande, le mur redevient DUR : la regle 6 de l'owner (« rien ne traverse le
+    mesh ») est tenue par une BORNE au lieu d'une interdiction totale.
+  - Dans la bande, la seule chose qui resiste est la raideur propre de la chaine (SPEC 24 / 29).
+    La profondeur d'equilibre n'est donc PAS posee : elle sort de l'equilibre des forces, et on lit
+    ENSUITE ou SPEC 10 tombe. L'ordre inverse serait `never-fit-a-parameter-to-the-instrument`.
+  - L'INSTRUMENT NE BOUGE PAS AVEC LE SOLVEUR : `phys-link-pen`, le troisieme site de `feff`,
+    passe `b0 = 0` et continue de mesurer la profondeur au-dela de la pose d'AUTEUR. Sans ca,
+    elargir le mur ferait BAISSER `meshpen` par construction.
+
+POURQUOI. Cycle 14, mesure : le mur etait unilateral et pose exactement au point de repos, donc il
+repoussait le premier micron vers le thorax et laissait l'autre sens libre — pole libre 0.13997 B0
+contre pole bloque 0.02511 B0 a stimulus identique, canal du joint -64.50 u contre -0.17 u. Une
+reponse REDRESSEE, pas reduite. Et sa SPEC 10 exige exactement l'enfoncement que ce mur interdisait.
+
+
+REFERENCE — course du cycle 14, comportement LIVRE (`k=0`), a battre
+=====================================================================
+    SPEC 10 supine     chestL 0.1465 B0   chestR 0.1332 B0    cible 0.23, bande 0.18-0.28   SOUS
+    SPEC 11 prone      chestL 0.2823 B0   chestR 0.2605 B0    cible 0.24, bande 0.20-0.30   DANS
+    SPEC 12 lateral i2 chestL 0.2753      chestR 0.2224       cible 0.19, bande 0.15-0.24
+    SPEC 12 lateral i4 chestL 0.2681      chestR 0.2716
+    SPEC 29 AP         chestL 0.3892      chestR 0.4188       cible 0.900
+    SPEC 29 lateral    chestL 0.7527      chestR 0.8849       cible 0.820
+    residu du tenseur  chestL 0.1869      chestR 0.1818       NON LINEAIRE (seuil 0.15)
+    ROOM-ORICTL k=0    chestL 1.03 1.01 | 1.93 5.57     chestR 1.22 1.36 | 1.96 5.36
+    ROOM-ORICTL k=4    chestL 1.02 1.01 | 1.02 1.04     chestR 1.20 1.34 | 1.02 1.03
+    poles AP90 k=0     chestL 0.28233/0.14651            k=4  chestL 0.28239/0.27728
+    ROOM-IDLE maxdev 0.0001 · ROOM-STRETCH 0.0000 · ROOM-ANIMS 31/31 skipped=0
+    ROOM-GRAVSAG sagn 0.0786 / 0.0974 · ROOM-SETTLE t5 0.60  t1 0.82  t05 1.03 / 1.00
+    ROOM-ORI-SPAN span 0.4825 / 0.4826
+    ROOM-REST-LEG spec contacts=29 e_moy=0.0200 · ROOM-REST-CONTROL rapport 16.17x
+    BREAST-PENETRATION meshpen chestL -1.2207e-07 m · chestR 0.0000 m
+
+
+PREDICTIONS, chiffrees. Toute ligne fausse REFUTE l'hypothese.
+================================================================
+
+ P1. SPEC 10 REMONTE DANS SA BANDE, SUR LES DEUX CHAINES.
+     `ROOM-ORICOM-SPEC ... §10 supine` : chestL dans [0.24, 0.29], chestR dans [0.22, 0.28], et
+     dans les deux cas a moins de 8 % du pole mesure au cycle 14 mur DESARME (0.2773 / 0.2561).
+     RAISON : le trajet que le mur refusait vaut ~79 u (0.1308 B0 d'ecart entre k=0 et k=4), soit
+     MOINS DE LA MOITIE de la bande de 180.6 u. Le mur ne doit donc plus mordre du tout en supine.
+     REFUTATION : une valeur restee sous 0.18 dit que le mur n'etait pas la cause entiere ;
+     une valeur au-dessus de 0.29 dit que la bande est trop permissive et qu'elle laisse passer
+     autre chose que la compression de SPEC 10.
+
+ P2. LE COMPORTEMENT LIVRE DEVIENT CELUI DU CONTROLE, ET LE CONTROLE NE CHANGE PLUS RIEN.
+     `ROOM-ORICTL` ligne `k=0 reference` de CE cycle porte AP90 <= 1.6 et AP45 <= 2.2 sur les deux
+     chaines (contre 1.93 / 5.57 et 1.96 / 5.36), et le tableau imprime « SYMETRISE ».
+     ET, la prediction la plus dure : la ligne `k=4 MUR COLLIS.` est desormais a moins de 0.15 de
+     la ligne `k=0` sur AP90 et AP45 — desarmer un mur qui ne mord plus ne peut plus rien liberer.
+     REFUTATION : si k=4 reste tres au-dessous de k=0, la bande n'a pas atteint le site qui
+     bloquait, c'est-a-dire qu'un des trois `feff` a ete oublie (`declared-but-never-selected`).
+
+ P3. ISOLATION — LES ACQUIS NE BOUGENT PAS. Le changement doit LIBERER un axe, pas en retirer
+     ailleurs. Tous ces chiffres restent :
+       ROOM-IDLE maxdev = 0.0001            (au repos `dep = floor0 < feff` : aucune poussee, avant
+                                             comme apres — la pose d'auteur reste admissible)
+       ROOM-STRETCH max = 0.0000
+       ROOM-ANIMS 31/31 skipped=0
+       ROOM-SETTLE t5 = 0.60 +-0.05  t1 = 0.82 +-0.06
+       SPEC 11 prone a +-6 % de 0.2823 / 0.2605   (le mur n'a jamais agi dans ce sens)
+       SPEC 12 lateral a +-12 % de 0.2753 / 0.2224 / 0.2681 / 0.2716
+       ROOM-ORI-SPAN span a +-0.03 de 0.4825
+     SI P3 TOMBE, le reste du cycle ne vaut rien : une bande qui deplace la verticale ou le lateral
+     n'est pas la compression thoracique de SPEC 10, c'est un relachement general.
+
+ P4. SPEC 29 — L'AXE AVANT-ARRIERE REMONTE, ET LUI SEUL.
+     `ROOM-COMPLIANCE-ANISO` : AP >= 0.55 sur les deux chaines (contre 0.3892 / 0.4188), soit une
+     hausse d'au moins +40 %, vers sa cible de 0.900. Le LATERAL reste a +-12 % de 0.7527 / 0.8849.
+     REFUTATION : si le lateral monte autant que l'AP, la bande n'est pas specifique a l'axe que
+     le mur bloquait et l'attribution du cycle 14 ne tient pas — je le dirai au lieu de garder P1.
+
+ P5. SPEC 13 — LE TENSEUR DEVIENT PLUS LINEAIRE.
+     `ROOM-COMPLIANCE ... residu relatif` passe sous 0.15 sur au moins une chaine (contre 0.1869 /
+     0.1818), et la ligne imprime LINEAIRE. RAISON : un redresseur est l'archetype de la
+     non-linearite qu'un ajustement lineaire ne peut pas absorber.
+     REFUTATION : un residu qui MONTE dirait que la bande a introduit une non-linearite neuve
+     (saturation au fond de la bande) — c'est un resultat aussi, et il se publie.
+
+ P6. LA REGLE 6 TIENT, ET C'EST L'INSTRUMENT NON DEPLACE QUI LE DIT.
+     `BREAST-PENETRATION meshpen` devient POSITIF (il mesure maintenant une compression reellement
+     autorisee, alors qu'il lisait ~0) et reste SOUS 0.060 m sur les deux chaines. 0.0441 m est la
+     bande elle-meme ; la marge tient compte du fait que `dm` est echantillonne A L'ENTREE, avant
+     la projection de la passe.
+     REFUTATION : au-dela de 0.060 m la bande fuit — un site de `feff` a ete manque, ou la
+     projection ne converge pas dans les 45 passes de la frame.
+
+ P7. SPEC 34 GARDE SON DOMAINE. `ROOM-REST-LEG spec` conserve au moins 5 contacts (29 au cycle 14)
+     et `e_moy` reste 0.0200 ; `ROOM-REST-CONTROL` continue d'imprimer « LE CONTROLE A TIRE ».
+     RAISON : les profondeurs d'approche atteignaient 459.9 u (chestL) et 513.1 u (chestR), tres
+     au-dela des 180.6 u de la bande — le contact continue donc d'exister.
+     REFUTATION : un domaine tombe a zero voudrait dire que j'ai paye SPEC 34 pour acheter SPEC 10,
+     et il faudrait le dire au lieu de le laisser disparaitre du tableau.
+
+
+================================================================================================
+PASSE b — LA BANDE EST RESTREINTE AU BUSTE. Ecrit APRES la lecture de la passe a, AVANT la course b.
+================================================================================================
+CE QUE LA PASSE a A MONTRE, ET QUI EXIGEAIT UNE SECONDE PASSE : la bande uniforme s'appliquait a
+TOUS les volumes. `ROOM-CONTACT-VOL` passe de 274 a 14398 frames sur chestL et fait apparaitre
+`Lhand->Lelbow` 1143, `Lelbow->Lshoulder` 869, `sphere:gogglesMid` 278 — c'est-a-dire que la
+poitrine gagnait le droit de s'enfoncer de 44 mm dans un BRAS, une MAIN et les LUNETTES. Sa SPEC 10
+parle de la compression contre le THORAX ; la regle 6 de l'owner (« rien ne traverse le mesh, quelle
+qu'en soit la raison ») interdit le reste, et « les lunettes clipent sur ses seins » est un defaut
+qu'il a signale six fois. La bande devient donc conditionnee par un critere STRUCTUREL tire du rig,
+jamais par une liste ecrite a la main (regle 4) : `phys-vol-yield` n'accorde la bande qu'aux volumes
+qui portent l'ANCRE de la chaine comme extremite.
+
+ Q1. SPEC 10 NE BOUGE PAS : |d| a +-0.02 de 0.2690 (chestL) et 0.2508 (chestR), et reste DANS sa
+     bande. RAISON : les trois volumes qui bloquaient portent tous `chest` (Lshoulder->chest 11538,
+     Rshoulder->chest 10859, neck->chest) et gardent donc la bande.
+     REFUTATION : un retour vers 0.1465 dirait que l'ancre de la chaine n'est PAS `chest`, et le
+     critere designerait autre chose que ce que j'annonce.
+
+ Q2. LES VOLUMES QUI NE SONT PAS DU BUSTE REDEVIENNENT DURS. `ROOM-CONTACT-VOL` : `Lhand->Lelbow`,
+     `Lelbow->Lshoulder`, `Rhand->Relbow`, `Relbow->Rshoulder` et `sphere:gogglesMid` retombent
+     sous 150 frames chacun (contre 278 a 1143), pendant que `L|Rshoulder->chest` restent au-dessus
+     de 5000. C'est la preuve d'execution que le critere SELECTIONNE, et pas seulement qu'il existe.
+
+ Q3. SPEC 34 RETROUVE SON DOMAINE. La passe a l'a vide : `ROOM-REST-LEG spec contacts=0`, controle
+     NON CONCLUANT — c'etait la seule prediction refutee du cycle (P7). Les contacts non-buste
+     redevenant durs, ils repoussent, donc ils restituent : `contacts >= 5` et `ROOM-REST-CONTROL`
+     reimprime « LE CONTROLE A TIRE ».
+     REFUTATION : un domaine encore vide dirait que la jambe de test de SPEC 34 n'exerce QUE des
+     contacts de buste, et alors la perte est intrinseque a la bande — je le dirai au lieu de
+     retrecir la bande pour repeupler un compteur (`never-fit-a-parameter-to-the-instrument`).
+
+ Q4. SPEC 29 GARDE CE QUI A ETE GAGNE : AP >= 0.70 sur les deux chaines (0.7744 / 0.8215 en passe
+     a), lateral a +-12 % de 0.7527 / 0.8849.
+
+ Q5. SPEC 13 : le residu du tenseur reste sous 0.15 et la ligne imprime LINEAIRE.
+
+ Q6. `meshpen` ne peut que baisser ou rester : <= 0.0441 m sur les deux chaines.
+
+ Q7. ACQUIS : ROOM-IDLE 0.0001 · ROOM-STRETCH 0.0000 · ROOM-ANIMS 31/31 skipped=0 ·
+     SPEC 11 prone a +-6 % de 0.2823 / 0.2605.
+
+ Q8. PREUVE DE L'ANCRE, a l'execution : `[HD-PHYS] b0 c=~D flesh=~f anc=~D` publie desormais
+     l'indice du joint d'ancrage. C'est la reponse a la regle 0 — l'affirmation « l'ancre est
+     `chest` » ne repose plus sur une lecture du rig mais sur une ligne de trace, et Q1+Q2 en sont
+     le controle croise.
+
+
+================================================================================================
+PASSE c — L'INSTRUMENT REPREND LE PLANCHER DU SOLVEUR. Ecrit APRES la passe b, AVANT la course c.
+================================================================================================
+CE QUE LA PASSE a A IMPOSE. Ancre a la pose d'AUTEUR, l'instrument de penetration lit un OFFSET
+CONSTANT egal a la bande (0.0441 m) que le controle positif ne peut plus dominer :
+    ROOM-POSCONTROL  arme 0.0668  desarme 0.0440   la gate COLLIDE exige arme >= 3x desarme -> ECHEC
+    ROOM-CONE        arme 0.0440  desarme 0.0441   l'arme passe SOUS le desarme -> N'A PAS TIRE
+J'avais ecrit l'inverse en passe a (« l'instrument ne bouge pas avec le solveur »). La mesure me
+donne tort : une compression que la spec AUTORISE n'est pas une penetration, la violation est ce qui
+DEPASSE l'admissible. Ce qui protege du « j'elargis le mur, le chiffre baisse » n'est pas l'ancrage
+de l'instrument, c'est que la bande est une CONSTANTE DE SPEC nommee, et que `skinpen` (distance
+signee a la PEAU) ne passe pas par `feff` et ne bouge donc avec rien.
+
+LE CHANGEMENT NE TOUCHE QUE `phys-link-pen`, jamais le solveur. Donc :
+
+ R1. LA PHYSIQUE EST INCHANGEE, AU CENTIEME. Toutes ces lignes doivent etre IDENTIQUES a la passe b :
+     SPEC 10 / SPEC 11 / SPEC 12, ROOM-ORIRECT, ROOM-ORICTL, ROOM-COMPLIANCE-ANISO, ROOM-RINGFIT,
+     ROOM-SETTLE, ROOM-IDLE, ROOM-STRETCH, ROOM-ORI-SPAN.
+     REFUTATION : le moindre ecart physique voudrait dire que l'instrument PILOTAIT quelque chose,
+     ce qui serait un defaut bien plus grave que celui qu'on corrige.
+
+ R2. `ROOM-POSCONTROL` : `desarme` retombe SOUS 0.005 et `arme >= 3x desarme`. La gate COLLIDE
+     redevient satisfaite pour la raison qu'elle exige : le defaut injecte fait MONTER le compteur.
+
+ R3. `ROOM-CONE` : `arme > desarme` de nouveau, et `desarme` proche de 0.
+
+ R4. `BREAST-PENETRATION meshpen` retombe a ~0 (il mesure ce qui depasse l'ADMISSIBLE, et le solveur
+     n'y laisse rien) — la lecture redevient « rien ne va au-dela de ce que SPEC 10 autorise ».
+     `skinpen`, lui, ne bouge pas d'un iota par rapport a la passe b : c'est le temoin independant.
