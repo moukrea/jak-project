@@ -3537,6 +3537,25 @@ def main():
     for _tag in ('PHYSRINGA', 'PHYSRINGAT'):
         for m in re.finditer(r'^%s c=(\d+) f=(\d+) l=(\d+) v=([-\d.e+]+) ap=([-\d.e+]+)'
                              r' lat=([-\d.e+]+)' % _tag, txt, re.M):
+            # LE MAILLON, ENCORE — MEME DEFAUT QUE `PHYSRINGCX` PLUS BAS (2026-08-17).
+            # Cette cle etait `(_tag, c, ax)` : le champ `l` etait capture par la regex et JAMAIS
+            # utilise, donc tous les maillons tombaient dans la MEME serie. A un maillon c'est sans
+            # effet (`l` vaut toujours 0), et c'est pourquoi le defaut a survecu. A deux maillons la
+            # serie recoit DEUX echantillons par frame alors que `_fitseries` en suppose UN : elle
+            # rend une frequence deux fois trop basse, qui bute sur la borne basse 1.200 de la
+            # grille et s'imprime « residu trop grand, non lisible » sur les SIX canaux.
+            # Mesure sur la course n=2 en cablage LIVRE (`PRE-C16n2c`) AVANT ce correctif :
+            #     n=286 au lieu de 137, les 6 canaux a 1.200 Hz, tous « non lisibles »
+            # alors que la serie du maillon RACINE lue directement est identique au controle a
+            # 1 maillon (4 canaux sur 6 a maxdiff EXACTEMENT 0.000000).
+            # Le cycle 16 a corrige ce defaut sur `PHYSRINGCX` (:3931-3937) et a laisse celui-ci,
+            # puis a lu la baisse de frequence comme une regression PHYSIQUE de SPEC 24 et retire
+            # la structure en partie sur ce motif.
+            # On garde le maillon RACINE, celui que la mesure lisait deja quand la chaine n'en avait
+            # qu'un : la sortie est donc IDENTIQUE a un maillon, ce qui se verifie en regenerant le
+            # tableau depuis le log de controle (aucune mesure ne doit bouger).
+            if int(m.group(3)) != 0:
+                continue
             for _ax, _g in (('v', 4), ('ap', 5), ('lat', 6)):
                 _ser.setdefault((_tag, int(m.group(1)), _ax), []).append(
                     (int(m.group(2)), float(m.group(_g))))
@@ -3685,22 +3704,36 @@ def main():
     # disposition de champs, donc meme parseur au nom pres.
     _axs = {}
     _axz = {}
+    # LE MAILLON, TROISIEME ENDROIT — cf. `ROOM-RINGFIT` plus haut et `PHYSRINGCX` plus bas.
+    # Ces quatre cles jetaient elles aussi le champ `l=` : `(ax, c, axe)` sans le maillon. A deux
+    # maillons chaque frame verse DEUX echantillons, `_fitseries` en suppose UN, et les 18 lignes
+    # `ROOM-AXFIT` deviennent illisibles — ce que le cycle 16 a lu comme une consequence PHYSIQUE
+    # de l'injection (« le ROOM-AXFIT classique subit le meme sort »). C'etait le meme artefact.
+    # On garde le maillon RACINE : identite a un maillon, ou `l` vaut toujours 0.
     for m in re.finditer(r'^PHYSRINGAZ c=(\d+) f=(\d+) l=(\d+) ax=(\d+) v=([-\d.e+]+)', txt, re.M):
+        if int(m.group(3)) != 0:
+            continue
         _axz.setdefault((int(m.group(4)), int(m.group(1)), 'v'), []).append(
             (int(m.group(2)), float(m.group(5))))
     for m in re.finditer(r'^PHYSRINGAZ2 c=(\d+) f=(\d+) ax=(\d+) l=(\d+)'
                          r' ap=([-\d.e+]+) lat=([-\d.e+]+)', txt, re.M):
+        if int(m.group(4)) != 0:
+            continue
         _axz.setdefault((int(m.group(3)), int(m.group(1)), 'ap'), []).append(
             (int(m.group(2)), float(m.group(5))))
         _axz.setdefault((int(m.group(3)), int(m.group(1)), 'lat'), []).append(
             (int(m.group(2)), float(m.group(6))))
     for m in re.finditer(r'^PHYSRINGAX c=(\d+) f=(\d+) l=(\d+) ax=(\d+) v=([-\d.e+]+)', txt, re.M):
+        if int(m.group(3)) != 0:
+            continue
         _axs.setdefault((int(m.group(4)), int(m.group(1)), 'v'), []).append(
             (int(m.group(2)), float(m.group(5))))
     # `ax` est REPETE sur la seconde ligne : les trois fenetres repartent chacune a la frame 0,
     # donc `f` seule ne designerait pas une fenetre et l'appariement serait ambigu.
     for m in re.finditer(r'^PHYSRINGAX2 c=(\d+) f=(\d+) ax=(\d+) l=(\d+)'
                          r' ap=([-\d.e+]+) lat=([-\d.e+]+)', txt, re.M):
+        if int(m.group(4)) != 0:
+            continue
         _axs.setdefault((int(m.group(3)), int(m.group(1)), 'ap'), []).append(
             (int(m.group(2)), float(m.group(5))))
         _axs.setdefault((int(m.group(3)), int(m.group(1)), 'lat'), []).append(
