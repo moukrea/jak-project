@@ -142,14 +142,53 @@ representer un buste. Ma section 1 annoncait -25 % a -60 % ; la mesure dit -71 %
 le sens qui renforce la conclusion. **Le retrecissement n'est pas un compromis defavorable, c'est
 une impossibilite.**
 
-**CE QUE CETTE COURSE NE PEUT PAS MESURER, ET JE NE LE MAQUILLE PAS EN ZERO.** Le cout attendu du
-retrecissement porte sur les bretelles, les lunettes et l'elastique du debardeur. Or l'ordre du
-2026-08-14 07:30 a GELE toutes les chaines sauf les deux seins : la salle publie
-`ROOM-ACTORS: 1 subject=keira-hd` et deux chaines. Ces organes existent encore comme VOLUMES mais
-ne sont plus SIMULES, donc leur penetration n'a aucun domaine ou se manifester. **Le cout sur les
-bretelles est NON MESURABLE dans le perimetre actuel** — ce n'est pas « aucun cout detecte ».
-C'est une raison de plus de ne pas livrer un retrecissement : son benefice est chiffre, son risque
-ne l'est pas, et il porte precisement sur les defauts que l'owner a signales six fois.
+**LE COUT EST EN PARTIE NON MESURABLE — ET LA PARTIE MESURABLE EST DEFAVORABLE.**
+
+D'abord ce qui ne peut pas etre mesure, et que je ne maquille pas en zero : le cout redoute porte
+sur les bretelles, les lunettes et l'elastique du debardeur. L'ordre du 2026-08-14 07:30 a GELE
+toutes les chaines sauf les deux seins (`[hd-phys] params loaded: 1 models, 2 chains` a
+l'execution). Ces organes n'existent plus que comme VOLUMES immobiles : **leur traversee n'a aucun
+domaine ou se manifester, et cette course ne peut ni la confirmer ni l'infirmer.**
+
+Mais le sens INVERSE, lui, est mesurable — la poitrine va-t-elle plus loin VERS ces volumes ? Oui :
+
+    chestL x sphere:lTopStrap2    dm  -3.93 -> +14.78   **BASCULE « jamais atteint » -> CONTACT**
+    chestR x sphere:lBoob         dm  38.30 -> 85.86    (+47.56, contact plus profond)
+    chestR x sphere:gogglesMid    dm 100.58 -> 116.20   (+15.62, contact plus profond)
+
+Le seul basculement de statut du tableau entier est une BRETELLE. Il est tenu (la paire etait deja
+a 1 mm du contact), mais il va dans le sens du cout, pas contre.
+
+Et deux degradations franches, dont une sur l'axe exact de la plainte de l'owner :
+
+    ROOM-JELLY (broutement / « pudding sur lequel on tape », plafond 0.5)
+        pire ratio  0.6407 -> 0.7268  (+13.4 %)   couples au-dessus du plafond  3 -> 4
+    ROOM-SHRING (lisibilite de zeta par axe)
+        chestR perd LES DEUX axes ou zeta etait lisible -> **§25 et §26 deviennent NON MESURABLES
+        sur le sein droit**. Retrecir aveugle l'instrument sur deux sections de la spec.
+
+Le desengagement, lui, est net et va dans le bon sens : `contact_frames` chestL 23084 -> 17272
+(-25.2 %) et chestR 23084 -> 18519 (-19.8 %).
+
+    >>> BILAN : benefice reel mais tres insuffisant (il faudrait -71 % a -83 %, pas -21 %/-16 %),
+        cout partiellement non mesurable, et la partie mesurable AGGRAVE le broutement de 13 % tout
+        en rendant deux sections de la spec illisibles a droite. **Rien de tout cela ne se livre.**
+
+NOTE DE LECTURE SUR `meshpen` : 18 lignes `row` passent de ~-0.05 m a exactement 0.0000, et il
+serait faux d'y lire un degagement effondre. Le tableau l'ecrit lui-meme
+(`physics_room_table.py:2820`) : « son meshpen 0.0000 veut dire "n'a rien touche", pas "mesure a
+zero" ». C'est un zero de DOMAINE VIDE — la capsule retrecie ne qualifie plus la paire. Aucune
+ligne n'est positive dans aucune des deux courses (310/310 negatives avant ; 292 negatives + 18
+nulles apres).
+
+NOTE DE PROCESS, CONTRE MOI : **j'ai propage ma propre erreur dans le prompt du sous-agent.** Je lui
+ai ecrit que `ROOM-CONTACT-VOL` ne compte que les disputes ; il l'a donc repete fidelement dans son
+rapport. C'est faux (section 3), et c'est le risque exact d'une consigne de manager erronee — elle
+ne se fait pas corriger par l'executant, elle se fait amplifier. Les chiffres qu'il rend sont bons ;
+c'est leur etiquette que j'avais faussee.
+
+NOTE D'INSTRUMENT : la course a dure **615 s**, pas les ~520 s attendues. Le defaut
+`ROOM_TIMEOUT=420` l'aurait tronquee EN SILENCE en laissant la table precedente en place.
 
 
 2. L'INCOHERENCE QUE LE CYCLE 18 A LAISSEE OUVERTE EST TRANCHEE, ET NUMERIQUEMENT
@@ -259,7 +298,10 @@ et la salle est DETERMINISTE : les valeurs sont celles de la course de verificat
    9  etat debout neutre = 0       oui          IDLE maxdev 0.0002               TENUE (plancher ULP)
   10  supine COM 0.23 B0           oui          0.2690 / 0.2508 (b. 0.18-0.28)   TENUE
   11  prone COM 0.24 B0            oui          0.2889 / 0.2638 (b. 0.20-0.30)   TENUE
-  11  prone transitoire 1.057      oui          1.571 / 1.871                    AU-DESSUS
+  11  prone transitoire (longueur) **PAS         le numerateur publie est la      **MESURE RETIREE —
+      HangingTransientLengthMax     MESUREE**    SATURATION §22 (0.39979 /        elle ne mesurait pas
+      = 1.30 contre 1.23                         0.39980 = 0.40 B0), pas une      ce qu'elle annoncait.
+                                                 reponse. Voir §5 bis.             Voir §5 bis**
   12  lateral COM 0.19 B0          oui          0.2758/0.2690 · 0.2268/0.2726    3 sur 4 AU-DESSUS
   13  continuite des orientations  oui          residu 0.0512 / 0.0582           TENUE, LINEAIRE
   21  saturation tanh              oui          exercee                          TENUE
@@ -313,6 +355,59 @@ et la salle est DETERMINISTE : les valeurs sont celles de la course de verificat
   coincident donc pas necessairement. Ecrire « §33 a un domaine » sur cette base serait exactement
   le zero-d'un-domaine-vide a l'envers. **A trancher par un instrument etiquete par phase, qui
   n'existe pas aujourd'hui.**
+
+
+5 bis. UN QUATRIEME FAUX CHIFFRE TROUVE ET RETIRE : LE « TRANSITOIRE §11 »
+============================================================================
+Trouve en continuant a travailler sur `breast-spec-incomplete` apres la fermeture du chantier des
+capsules. La ligne publiee depuis plusieurs cycles etait :
+
+    chestL  §11 transitoire  pic d'etablissement=0.39979  tenu=0.25441  rapport=1.571
+    chestR  §11 transitoire  pic d'etablissement=0.39980  tenu=0.21366  rapport=1.871
+                                                          (§11 : 1.30 contre 1.23, soit 1.057)
+
+et le tableau de conformite en tirait « AU-DESSUS », c'est-a-dire un defaut de physique.
+
+**CE QUI CLOCHE SAUTE AUX YEUX DES QU'ON REGARDE LES DEUX NUMERATEURS : 0.39979 et 0.39980.**
+Deux chaines de masse, de raideur et de geometrie differentes ne rendent pas la meme valeur a
+cinq decimales. C'est la signature d'une saturation, et elle est confirmee dans le code :
+
+    jak-hd-physics.gc:3038   (rcap (* 0.40 b0e))          ;; §22 HardMaxCOMDisplacement 0.40
+    jak-hd-physics.gc:3046-3049
+        (drr (if (>= dr0 0.0) (phys-softmin dr0 rcap) (- 0.0 (phys-softmin (- 0.0 dr0) rcap))))
+        (set! (-> *phys-rr* sc) drr)
+
+`*phys-rr*` est EXACTEMENT le canal que `PHYSORITR rrt` publie (`phys-room.gc:1902`, « le maximum
+du canal radial sur les 60 frames d'ETABLISSEMENT »). Le « pic d'etablissement » n'est donc pas
+une reponse mesuree : **c'est l'asymptote du limiteur de la §22.** Le rapport publie vaut
+`saturation / tenu`, il ne varie qu'avec le DENOMINATEUR, et il ne peut rien dire d'un depassement.
+
+**TROIS DEFAUTS CUMULES, CHACUN SUFFISANT POUR RETIRER LA LIGNE :**
+  1. **Le numerateur est une constante de clamp**, pas une grandeur observee.
+  2. **La cible n'est pas de la meme NATURE que la mesure.** `1.057 = 1.30 / 1.23` est le rapport
+     de deux echelles de LONGUEUR racine->apex (`HangingTransientLengthMax` contre
+     `HangingLengthScale`). La mesure, elle, est un DEPLACEMENT DE COM radial. La §11 donne au COM
+     ses propres chiffres (20-28 % B0, borne statique haute 30 %) — et sur CEUX-LA la ligne
+     `§11 prone` est DANS la bande (0.2889 / 0.2638). On comparait une longueur a un deplacement.
+  3. **Un rapport dont le numerateur sature ne discrimine plus.** Il classait `chestR` (1.871) comme
+     « pire » que `chestL` (1.571) alors que la seule chose qui les separe est leur equilibre tenu.
+
+**CE QUE JE FAIS, ET CE QUE JE NE FAIS PAS.** Je retire la ligne du tableau de conformite et je la
+remplace par « PAS MESUREE », parce que la vraie grandeur de la §11 — l'echelle de LONGUEUR
+racine->apex en transitoire (1.30) contre son tenu (1.23) — **n'a aucun instrument dans la salle**.
+Conformement a la directive du 11:50, je n'ecris pas « non applicable » : la section est ABSENTE
+D'INSTRUMENT, et c'est un instrument a ecrire.
+**Je n'ai PAS elargi la bande, ni deplace la cible, ni touche a une gate.** La protection contre
+« deplacer l'instrument pour obtenir un vert » est ici que (a) le defaut est dans le NUMERATEUR et
+se lit sans connaitre le resultat (deux chaines, cinq decimales identiques), et (b) la ligne
+retiree ne devient pas verte : elle devient **non mesuree**, ce qui est pire pour moi, pas mieux.
+
+**ET UNE CONSEQUENCE QUI, ELLE, N'EST PAS CONFORTABLE.** Que `phys-softmin` sature veut dire que la
+valeur BRUTE `dr0` depasse largement 0.40 B0 pendant l'etablissement en position ventrale. La
+conformite a la §22 sur ce transitoire est donc **TENUE PAR LE LIMITEUR, pas par la dynamique**.
+C'est admissible — la §21 exige explicitement une saturation douce — mais ca doit etre dit ainsi
+plutot que lu comme « le modele respecte la borne ». Aucune mesure actuelle ne publie `dr0` brut ;
+tant qu'elle n'existe pas, on ignore de combien la dynamique depasse.
 
 
 6. CE QUE L'OWNER DOIT REGARDER SUR CE BUILD
