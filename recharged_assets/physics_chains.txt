@@ -16,8 +16,13 @@
 #            gravity=0.00 and hang=0.00 are asserted for every family A chain.
 # family B = what she WEARS (goggles, straps, flaps): SPEC section 4 exception, what
 #            hangs stays hung — gravity>0 and hang>0 are asserted for every one.
-# rootlock=1 on every chain of 2+ joints (SPEC section 2: the root rides its carrier
-#            bone rigidly); omitted on 1-joint chains, where the parser default is 0.
+# rootlock=1 on every chain of 2+ joints EXCEPT the breast (SPEC section 2: the root
+#            rides its carrier bone rigidly — that is a STRAND, whose root joint
+#            overlaps the skull); omitted on 1-joint chains, where the parser default
+#            is 0, and omitted on chestL/chestR, where SPEC 30 puts the anchor in the
+#            TISSUE ("no hard attachment boundary") and where 75% of the chain mass
+#            sits on the root link — pinning it would freeze three quarters of the
+#            organ. The rigid anchor there is `chest`, which is OUTSIDE the chain.
 # radius/radii = MEASURED off the skinned mesh, in GAME UNITS (4096 = 1 m): per link,
 #            the inner-quartile (25..75 pct) mean of the perpendicular distance from
 #            the vertices that link owns to its bone axis, in that link's bind space.
