@@ -4632,6 +4632,32 @@
           (-> *phys-axw* (+ (* sc 9) (+ (* row 3) comp))))))
     0.0))
 
+;; LE TRIEDRE DE SPEC 7 LUI-MEME, EN MONDE — ET POURQUOI IL LUI FALLAIT UN ACCESSEUR.
+;; `phys-chain-axis` ne rend que des INDICES DE LIGNE (rv/rap/rlat) : il dit quelle ligne porte
+;; l'avant-arriere, jamais dans quel SENS elle pointe. Or le sens est la seule chose qui distingue
+;; supine de prone, et il decide a lui seul de quel triplet de §10/§11 s'applique. La note de
+;; `*phys-fz*` (:3649-3664) fixe ce sens par une mesure — mais elle a ete ecrite quand `axa` valait
+;; 0 (« la ligne 0 EST l'avant-arriere, la ligne 2 EST le lateral »), alors que la course publie
+;; aujourd'hui `rap=2 rlat=0` : les roles ont ete renommes depuis par l'invariant inter-seins, et le
+;; SIGNE, lui, n'a jamais ete re-mesure. Un indice de ligne juste avec un signe perime est
+;; exactement le piege `axis-role-labels-need-naming-measurement`, une couche plus bas.
+;; NATURE : trois cosinus directeurs, sans unite. REPERE : MONDE, comme `phys-axis-world`, ce qui
+;; permet de comparer `fz` aux lignes de l'ancre que `PHYSAXW` publie deja.
+;; CE QUI DISCRIMINE : `fz . ligne[rap]` vaut +1 ou -1. C'est ce signe, croise avec un invariant
+;; ANATOMIQUE externe releve sur le rig livre, qui nomme l'avant — jamais l'inverse.
+;; LIGNE DE BASE : `fok=0` -> trois zeros, le triedre n'est pas releve et rien ne doit etre conclu.
+(defun phys-tri-world ((slot int) (chain int) (axis int) (comp int))
+  (if (and (>= slot 0) (< slot PHYS-SLOTS) (>= chain 0) (< chain PHYS-CHAINS)
+           (>= axis 0) (< axis 3) (>= comp 0) (< comp 3))
+    (let ((sc (+ (* slot PHYS-CHAINS) chain)))
+      (if (zero? (-> *phys-fok* sc))
+        0.0
+        (let ((v (cond ((zero? axis) (-> *phys-fx* sc))
+                       ((= axis 1)   (-> *phys-fy* sc))
+                       (else         (-> *phys-fz* sc)))))
+          (cond ((zero? comp) (-> v x)) ((= comp 1) (-> v y)) (else (-> v z))))))
+    0.0))
+
 ;; SPEC 33 — LE DOMAINE DE LA PAIRE (chaine, volume), pas son compte de contacts.
 ;;   `which` = 0 -> `cdm`, la profondeur d'approche MAXIMALE atteinte sur toute la course.
 ;;              1 -> `cfl`, le plancher que la paire tolere (sa profondeur a la pose d'auteur).

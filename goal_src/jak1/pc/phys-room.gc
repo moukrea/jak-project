@@ -1340,6 +1340,38 @@
                      (phys-chain-axsep (-> self slot) c 0)
                      (phys-chain-axsep (-> self slot) c 1)
                      (phys-chain-axsep (-> self slot) c 2))
+             ;; LE SENS DU TRIEDRE, PAS SEULEMENT SES INDICES. `PHYSAXIS` dit QUELLE ligne porte
+             ;; l'avant-arriere ; il ne dit pas dans quel SENS elle pointe, et c'est ce sens seul
+             ;; qui separe supine de prone — donc qui decide lequel des deux triplets de §10/§11
+             ;; s'applique. Voir la note de `phys-tri-world` : la mesure qui a fixe ce signe date
+             ;; d'une epoque ou `axa` valait 0, et la course publie aujourd'hui `rap=2`.
+             ;; NATURE : cosinus directeurs, sans unite. REPERE : MONDE — les memes axes que
+             ;; `PHYSAXW`, pour que `fz . ligne[rap]` se calcule sur la trace sans rien supposer.
+             ;; LIGNE DE BASE : trois zeros = triedre non releve (`fok=0`), aucune conclusion.
+             (format 0 "PHYSTRI c=~D a=2 x=~,,5f y=~,,5f z=~,,5f~%"
+                     c
+                     (phys-tri-world (-> self slot) c 2 0)
+                     (phys-tri-world (-> self slot) c 2 1)
+                     (phys-tri-world (-> self slot) c 2 2))
+             (format 0 "PHYSTRI c=~D a=1 x=~,,5f y=~,,5f z=~,,5f~%"
+                     c
+                     (phys-tri-world (-> self slot) c 1 0)
+                     (phys-tri-world (-> self slot) c 1 1)
+                     (phys-tri-world (-> self slot) c 1 2))
+             ;; LES LIGNES DE L'ANCRE AU MEME INSTANT, par ROLE (0=vertical, 1=AP, 2=lateral) —
+             ;; `PHYSAXW` publie les memes vecteurs, mais dans une phase ULTERIEURE et sous une
+             ;; autre pose. Comparer `fz` a une ligne relevee 3000 frames plus tard n'aurait aucun
+             ;; sens ; ces deux lignes-ci sont lues sur LA MEME frame que `PHYSTRI`.
+             (format 0 "PHYSAXR c=~D a=1 x=~,,5f y=~,,5f z=~,,5f~%"
+                     c
+                     (phys-axis-world (-> self slot) c 1 0)
+                     (phys-axis-world (-> self slot) c 1 1)
+                     (phys-axis-world (-> self slot) c 1 2))
+             (format 0 "PHYSAXR c=~D a=0 x=~,,5f y=~,,5f z=~,,5f~%"
+                     c
+                     (phys-axis-world (-> self slot) c 0 0)
+                     (phys-axis-world (-> self slot) c 0 1)
+                     (phys-axis-world (-> self slot) c 0 2))
              (dotimes (l (phys-chain-links (-> self slot) c))
                (format 0 "PHYSBONE c=~D l=~D len=~f~%"
                        c l (phys-chain-bone hd (-> self slot) c l))
