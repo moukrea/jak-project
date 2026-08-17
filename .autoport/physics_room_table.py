@@ -3911,10 +3911,28 @@ def main():
     # `_cxz` = contrainte LEVEE (PHYSRINGCZ, un CONTROLE). Meme disposition de champs, meme parseur
     # au nom pres. La cle est (axe EXCITE, chaine) : `ax` designe la fenetre, pas la projection —
     # cette serie n'a qu'une seule composante, l'elongation radiale.
+    # LE CHAMP `l=` DOIT ETRE FILTRE, PAS IGNORE — MESURE LE 2026-08-17.
+    # Cette cle etait `(ax, c)` : elle jetait le numero de MAILLON et versait la serie de TOUS les
+    # maillons dans la meme liste. Sur une chaine a un maillon c'est sans effet (`l` vaut toujours
+    # 0). Des que la poitrine est passee a DEUX maillons, la trace a porte deux echantillons par
+    # frame au lieu d'un — compte verifie sur les logs : 900 lignes `PHYSRINGCX` et `l` = {0} au
+    # controle, 1800 lignes et `l` = {0,1} a deux maillons, soit 150 -> 300 echantillons pour
+    # (c=0, ax=0). Le lisseur `_fitseries` suppose UN echantillon par pas de temps : avec deux
+    # fois plus d'echantillons pour la meme duree reelle, il rend une frequence DEUX FOIS PLUS
+    # BASSE. Mesure : SPEC 24 verticale « tombait » de 2.320 a 1.200 Hz et `n` passait de 138 a
+    # 288 — le PRODUIT f x n est conserve, ce qui est la signature d'une densite d'echantillonnage
+    # mal lue, pas d'un changement physique. J'ai failli enregistrer ca comme une regression du
+    # solveur : c'etait l'instrument.
+    # On garde le maillon RACINE, celui que la mesure lisait deja quand la chaine n'en avait qu'un,
+    # pour que la sortie soit IDENTIQUE a un maillon (verifiable en regenerant le tableau depuis le
+    # log de controle). Le maillon distal n'est pas perdu : il est simplement hors de CETTE ligne,
+    # et sa publication par maillon est un ajout a faire quand la structure reviendra.
     _cxs, _cxz = {}, {}
     for _tg, _dst in (('PHYSRINGCX', _cxs), ('PHYSRINGCZ', _cxz)):
         for m in re.finditer(r'^%s c=(\d+) f=(\d+) l=(\d+) ax=(\d+) v=([-\d.e+]+)' % _tg,
                              txt, re.M):
+            if int(m.group(3)) != 0:
+                continue
             _dst.setdefault((int(m.group(4)), int(m.group(1))), []).append(
                 (int(m.group(2)), float(m.group(5))))
 

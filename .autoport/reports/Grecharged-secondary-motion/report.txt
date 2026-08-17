@@ -12,8 +12,10 @@ LA STRUCTURE A ETE CONSTRUITE, MESUREE — ET RETIREE DE LA LIVRAISON. ELLE CASS
 
   Puis la salle a dit non, deux fois, sur des grandeurs que l'owner protege :
 
-      SPEC 24 mode radial   4 axes sur 6 DANS (residu 0.008-0.021)  ->  1.20 Hz, HORS
+      SPEC 24 mode radial   4 axes sur 6 DANS (residu 0.008-0.021)  ->  1.55 / 1.63 Hz, HORS
                             2.320 / 2.425 Hz                            (bande [2.10, 2.50])
+                            [CHIFFRE CORRIGE — voir le paragraphe 3 bis : j'avais d'abord
+                             ecrit 1.20 Hz, et 1.20 etait un ARTEFACT D'INSTRUMENT.]
       meshpen (regle 6)     -1.5e-06 m (DEHORS)                    ->  +0.0205 m sur 132 lignes
                                                                        `row` sur 310 (0 au controle)
       SPEC 22 deformation   DISCRIMINE (dyn 0.1877-0.2500)         ->  SATURE au plafond 0.2500
@@ -173,6 +175,47 @@ l'instrument reaffiche 2.30 Hz serait `never-fit-a-parameter-to-the-instrument`.
 de derivation a part entiere, et c'est le prochain chantier.
 
 
+3 bis. CORRECTION : LA MOITIE DE MA REGRESSION SPEC 24 ETAIT UN ARTEFACT D'INSTRUMENT
+=======================================================================================
+**J'ai d'abord ecrit que le mode radial etait DIVISE PAR DEUX (2.320 -> 1.200 Hz). C'est faux, et
+je le corrige ici plutot que de le laisser au dossier.** Le vrai chiffre est **1.550 / 1.630 Hz**,
+soit x0.67 et non x0.52.
+
+CE QUI M'A MIS SUR LA PISTE, ET C'ETAIT DANS MES PROPRES CHIFFRES : `n` passait de 138 a 288
+echantillons pendant que `f` passait de 2.320 a 1.200. **Le PRODUIT `f x n` etait conserve** — la
+signature d'une densite d'echantillonnage mal lue, jamais d'un changement physique.
+
+LA CAUSE, LUE DANS LE CODE PUIS COMPTEE DANS LES TRACES. `physics_room_table.py:3915-3919` cle la
+serie radiale sur `(ax, c)` et **jette le champ `l=`**, donc verse les echantillons de TOUS les
+maillons dans la meme liste. Compte sur les deux logs :
+
+    controle (1 maillon)   900 lignes `PHYSRINGCX`, l = {0},    150 echantillons pour (c=0, ax=0)
+    injection (2 maillons) 1800 lignes,             l = {0,1},  300 echantillons
+
+Deux fois plus d'echantillons pour la MEME duree reelle, et `_fitseries` suppose UN echantillon
+par pas de temps : il rend donc une frequence deux fois trop basse. Sur une chaine a un maillon
+l'erreur n'existe pas (`l` vaut toujours 0), ce qui est exactement pourquoi elle a survecu jusqu'a
+ce que la structure change.
+
+CORRIGE (`l != 0` ecarte, le maillon RACINE est conserve — celui que la mesure lisait deja quand la
+chaine n'en avait qu'un). **Identite verifiee** : le tableau regenere depuis le log de CONTROLE ne
+differe que par la ligne d'en-tete qui cite le chemin du log — aucune mesure ne bouge.
+
+CE QUE LE VRAI CHIFFRE VEUT DIRE, ET IL EST PLUS INSTRUCTIF QUE LE FAUX. Avec l'instrument corrige,
+les residus tombent a 0.010-0.064 : la serie porte bien un mode unique, et il vaut 1.55-1.69 Hz
+contre 2.32-2.43. Le rapport est **0.67, soit ~1/racine(2.2)** — exactement ce qu'on attend en
+ajoutant de la masse a un oscillateur (`w = racine(k/m)`). **Ce n'est donc pas un defaut, c'est une
+consequence mecanique normale : les raideurs livrees ont ete calibrees pour une chaine a UN
+maillon** (arbitrage du 2026-08-14 01:00) et ne decrivent plus une chaine qui en porte deux.
+La re-derivation est arithmetique et connue — mais elle doit etre DERIVEE, pas ajustee jusqu'a ce
+que l'instrument reaffiche 2.30, ce qui serait `never-fit-a-parameter-to-the-instrument`.
+
+**CE QUE CETTE CORRECTION NE CHANGE PAS : LE RETRAIT.** Il reposait sur DEUX motifs ; celui-ci est
+attenue (SPEC 24 reste HORS de sa bande, a 1.55 au lieu de 2.30, mais pour une raison comprise et
+corrigeable), l'autre est intact — `meshpen` positif sur 132 lignes et les contacts multiplies par
+366 par la capsule neuve, ce que la regle 6 interdit. **Le retrait tient sur ce second motif seul.**
+
+
 4. CE QUI EST LIVRE, ET IL EST IDENTIQUE A L'ETAT APPROUVE
 ============================================================
 Le rig, le mesh, les specs d'injection et de reskin, et les donnees de chaines sont RESTAURES :
@@ -280,10 +323,16 @@ l'identique (0 ligne de diff sur 16 720 echantillons), ce qui est une re-mesure 
 7. CE QUI N'EST PAS PROUVE, ET JE LE DIS
 ==========================================
   - **Aucune mesure de ce rapport ne vient d'un APPAREIL.** Tout est x86.
-  - **Je ne sais pas POURQUOI la frequence du mode radial est divisee par deux a 2 maillons.** Je
-    sais que ce n'est pas `gmean` (corrige et verifie invariant a la racine) et que ce n'est pas un
-    artefact d'estimateur (residus 0.049-0.074, sous le seuil). La cause reste a trouver, et c'est
-    la premiere chose a faire avant de remettre l'injection.
+  - **La baisse du mode radial est comprise, et ce n'est plus une inconnue** (paragraphe 3 bis) :
+    la moitie venait d'un artefact d'instrument, desormais corrige et verifie identite a un
+    maillon ; le reste (x0.67, soit ~1/racine(2.2)) est l'effet mecanique normal de la masse
+    ajoutee. Ce qui RESTE a faire est la re-derivation des raideurs pour une chaine a deux
+    maillons — une derivation, pas un reglage.
+  - **Je n'ai PAS re-mesure la course a deux maillons apres la correction de l'instrument.** Les
+    chiffres de SPEC 24 du paragraphe 3 bis viennent du tableau REGENERE depuis le log de la
+    course a deux maillons deja enregistree, pas d'une nouvelle course. C'est legitime — la
+    correction est cote lecture, la trace est la meme — mais ce n'est pas une course neuve et je
+    l'ecris.
   - **`ROOM-RINGDOWN mono` est VACUE** (`n/a(0 lien libre)`) : son code fait `free = lags[1:]`, ce
     qui suppose le maillon 0 verrouille — faux pour chestL/chestR. Je l'avais ecrit d'avance dans
     les predictions et je n'ai PAS corrige l'instrument dans le meme cycle que le changement de
