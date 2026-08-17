@@ -255,4 +255,43 @@ OPEN breast-spec-incomplete  PRIORITE 1 -- LA SEULE LIGNE QUI TIENT LA PHASE OUV
 #       §33 sans domaine ; §34 mesuree sur 2 contacts seulement (domaine MINCE, c'est un cout de ce
 #       correctif et il est ecrit) ; §36 sature 5 groupes de fenetres sur 10 (6 au cycle 14) ;
 #       §12 3 valeurs sur 4 au-dessus de sa bande ; §30 non re-mesuree.
+#
+#   ETAT AU CYCLE 17 (2026-08-17). AUCUNE COURSE, AUCUNE CUISSON, AUCUN BUILD : tout est relu sur
+#   des traces deja enregistrees + deux sondes hors moteur. Le tableau complet est au rapport §4.
+#   CE CYCLE NE FAIT PAS AVANCER LA SPEC : IL RETIRE LE BLOCAGE QUI A COUTE LE CYCLE 16.
+#     Le cycle 16 a construit l'injection puis l'a RETIREE sur deux motifs. Les deux sont repris :
+#     MOTIF 1 « SPEC 24 tombe a 1.550/1.630 Hz, il faut re-deriver les raideurs » -> **REFUTE, ET
+#       DEUX FOIS**. (a) Ce chiffre vient de `C16-distalchannel`, variante que le cycle 16 a
+#       lui-meme retractee ; sur les courses en cablage LIVRE la serie du maillon RACINE est
+#       identique au controle (4 canaux sur 6 a maxdiff EXACTEMENT 0.000000, les autres a 0.08-1.34
+#       %). (b) `ROOM-RINGFIT` publiait quand meme 1.200 Hz « non lisible » sur les 6 canaux a deux
+#       maillons : sa cle `(_tag, c, ax)` JETAIT le champ `l=`, donc versait DEUX echantillons par
+#       frame dans une serie dont le fitteur en suppose UN (n=286 au lieu de 137). C'est le MEME
+#       defaut que le cycle 16 a corrige sur `PHYSRINGCX` et laisse ici. Corrige, avec controle
+#       d'identite sur le log a un maillon. **Il n'y a pas de regression de SPEC 24 a corriger, et
+#       `stiffness` NE DOIT PAS etre touche.**
+#     MOTIF 2 « la capsule lBooc->lBoob fait passer meshpen en positif » (regle 6) -> **REEL MAIS
+#       MAL IMPUTE**. Mesure hors moteur (`probe_rest_containment.py`, pose de bind, meme rig, SANS
+#       capsule et SANS maillon distal — seule variable : le volume PROXIMAL re-ajuste par le
+#       reskin) : lBoob vs Lshoulder->chest -75.3 -> -202.3 u (x2.7), rBoob vs Rshoulder->chest
+#       -56.1 -> -206.0 u (x3.7), et DEUX contacts neufs (neck->chest, epaule opposee). Ce sont
+#       exactement les deux signatures que le cycle 16 attribuait a la capsule, reproduites SANS
+#       elle — ce qui explique enfin pourquoi la course « spheres » etait PIRE (contacts chestL
+#       23 -> 9525 sans aucune capsule de sein).
+#       CAUSE : `influence()` selectionne sur le poids ABSOLU d'UN joint ; des que la chaine a deux
+#       joints, une passe de reskin qui repartit le poids A L'INTERIEUR change ce que chaque joint
+#       « possede » alors que la chair n'a pas bouge. La grandeur mesurait un CONTACT, plus une
+#       POSSESSION (`ownership-not-coverage`).
+#       CORRIGE AU POINT DE PRODUCTION : `chain_influence()` choisit le seuil sur le poids SOMME DE
+#       LA CHAINE (invariant) puis partitionne par argmax. Preuve d'inertie : generation avec le
+#       generateur d'origine et avec le corrige -> sortie IDENTIQUE AU BIT PRES.
+#   RESTE OUVERT, ET C'EST TOUJOURS LA STRUCTURE : §23 (le point integre reste l'apex) et §30
+#     (ancrage 30 %) sont ABSENTES, pas partielles — le degre de liberte qu'elles exigent n'existe
+#     pas dans l'etat livre. §29 en torsion 0.3825/0.3520 contre 0.72 attend l'os manquant. §33 sans
+#     domaine. §12 3 valeurs sur 4 au-dessus de sa bande. §36 chestR en « DESACCORD ».
+#   LA STRUCTURE N'A PAS ETE REPOSEE CE CYCLE, et ce n'est pas un de-scope silencieux : reposer
+#     l'injection engage une cuisson de maillage que git ne reproduit pas, et la lancer sans pouvoir
+#     la conduire jusqu'a la verification laisserait un rig a 107 joints non verifie. Le cycle
+#     suivant peut la reposer en UNE course : criteres d'arret chiffres et falsifiables dans
+#     `C17-PREDICTIONS.txt`, dont le premier (A1) se verifie AVANT toute course.
 #   CETTE LIGNE NE SE RETIRE QUE SUR LE MOT DE L'OWNER, jamais sur un tableau vert.
