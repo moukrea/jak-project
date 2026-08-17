@@ -39,6 +39,7 @@ CONTROLE INTEGRE (le zero doit pouvoir tirer) : le script verifie d'abord qu'il 
 joint a partir de sa matrice inverse-bind — `P[j]` recalcule depuis l'ibm doit retomber sur `P[j]`
 livre par le mesh. Si ce controle ne passe pas, tout le reste est faux et le script s'arrete.
 """
+import argparse
 import os
 import re
 import sys
@@ -114,6 +115,18 @@ def seg_clearance(p, a, b, ra, rb):
 
 
 def main():
+    # `--chains` EST UN ARGUMENT PARCE QUE L'ALTERNATIVE A DEJA ETE PRATIQUEE : EDITER LA CONSTANTE.
+    # La sortie enregistree le 2026-08-17 porte « LU: ... depuis ../../../../tmp/chains-n2prox.txt »,
+    # c'est-a-dire une modification A LA MAIN de la ligne 56 pour viser un fichier de travail. Un
+    # chemin de /tmp oublie dans le source ferait mesurer, au cycle suivant, un fichier qui n'existe
+    # plus ou — pire — qui existe encore et n'est pas celui qui est livre. Le defaut reste le
+    # fichier LIVRE : viser autre chose devient un geste explicite, visible dans la ligne de commande.
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--chains', default=CHAINS,
+                    help='fichier de chaines a sonder (defaut : celui qui est livre)')
+    args = ap.parse_args()
+    chains_path = args.chains
+
     rig_path = os.path.join(REPO, G.RIG_REL)
     names, parent, _ = G.load_rig(rig_path)
     geo = G.load_mesh(G.MODEL)
@@ -142,7 +155,7 @@ def main():
         return 2
     say()
 
-    chains, capsules, spheres = parse_chains(CHAINS)
+    chains, capsules, spheres = parse_chains(chains_path)
     say(f"LU: {len(chains)} chaines, {len(capsules)} capsules, {len(spheres)} spheres "
         f"depuis {os.path.relpath(CHAINS, REPO)}")
     say()
