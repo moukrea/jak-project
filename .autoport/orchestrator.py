@@ -1326,9 +1326,14 @@ def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
     # `instructions` reinforces max thinking at the prompt level too, which
     # works regardless of build version. See REDESIGN.md §5 on why
     # ultrathink is mandatory for every phase.
+    # 2026-08-17: le prompt passe par STDIN, plus jamais en argv. Un argument
+    # unique est plafonne a MAX_ARG_STRLEN (~128 Ko) sur Linux; le contrat a
+    # depasse cette taille et l'exec mourait en OSError E2BIG ('Argument list
+    # too long') AVANT tout travail. `claude -p` sans valeur lit le prompt sur
+    # stdin — aucune limite de taille, et argv reste court.
     cmd = [
         "claude",
-        "-p", instructions,
+        "-p",
         "--model", MODEL,
         "--effort", effort,
         "--max-turns", str(phase.get("max_turns", 150)),
@@ -1369,12 +1374,19 @@ def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
             cmd,
             cwd=REPO_ROOT,
             env=env,
+            stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             bufsize=1,
             text=True,
             start_new_session=True,
         )
+        # Le prompt part par stdin (voir la note sur MAX_ARG_STRLEN au-dessus
+        # de `cmd`). close() envoie EOF, sans quoi claude attend indefiniment.
+        try:
+            proc.stdin.write(instructions)
+        finally:
+            proc.stdin.close()
         _CURRENT_CHILD = proc
 
         stall_forced = False

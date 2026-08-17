@@ -275,3 +275,15 @@ erreur inventait une mesure, la seconde a failli faire signaler comme manquant l
 changement de la journée. Verrou : avant de conclure à l'absence d'un mécanisme, vérifier par une
 grandeur INDÉPENDANTE du nom — la taille du diff sur les fichiers concernés, ou une valeur publiée à
 l'exécution. Une absence ne se prouve pas par un motif de recherche.
+
+GUARD prompt-via-stdin .autoport/orchestrator.py Le prompt part par stdin
+**Un contrat qui grossit finit par tuer l'exec qui le transporte.** Le 2026-08-17 à 23:41,
+l'orchestrateur est mort en `OSError: [Errno 7] Argument list too long` : le prompt du worker
+(directives 106 Ko + preflight 14 Ko + préambule) passait en **un seul argument argv**, et Linux
+plafonne chaque argument à `MAX_ARG_STRLEN` ≈ 128 Ko — bien avant l'`ARG_MAX` global de 2 Mo. Chaque
+consigne que j'ajoutais au contrat rapprochait silencieusement la boucle de ce mur, et elle est
+morte à l'exec, AVANT tout travail, sans consommer une tentative. Diagnostic retardé parce que le
+symptôme (« ZERO work done — hard rate limit at the door ») a d'abord été lu comme du quota.
+Verrou : le prompt part par **stdin** (`claude -p` sans valeur + write/close), plus jamais en argv.
+Et la leçon de lecture : « exited 1 with ZERO work done » a plusieurs causes — vérifier le log
+d'erreur du subprocess avant de conclure au quota.
