@@ -346,8 +346,8 @@ EXPECTED_GROUPS = {
     # le degre de liberte que sa SPEC 23 exige. La regex de categorie plus haut couvre deja
     # `Boo[bc]`, et `rootlock` est deja exclu pour `cat == 'chest'` (SPEC 30 : l'ancre est dans
     # le TISSU, et epingler le maillon proximal figerait 75 % de la masse de l'organe).
-    'chestL':     ['lBoob', 'lBooc'],
-    'chestR':     ['rBoob', 'rBooc'],
+    'chestL':     ['lBoob'],
+    'chestR':     ['rBoob'],
     # les VERRES (gogglesLeft/gogglesRight, 488 des 515 sommets des lunettes) sont deux branches
     # de gogglesMid et restent HORS chaine : ce sont des pieces rigides d'une monture, pas des
     # trucs qui pendent. Ce qui leur manque est un VOLUME, pas un ressort — voir la note mesuree

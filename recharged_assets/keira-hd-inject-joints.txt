@@ -50,34 +50,3 @@ kneeflapR   rKneeFlap     rKneeFlap2      -0.232775     0.806341    -0.087813
 subdiv backhair    backHair3   backHair4      0.000000     2.208748    -0.061500
 subdiv lmidhair    Lmidhairc   Lmidhaird      0.319941     2.409896     0.113380
 subdiv rmidhair    Rmidhairc   Rmidhaird     -0.321267     2.408081     0.112194
-#
-# 2026-08-17, QUATRIEME PASSE — LA POITRINE. C'est la SEULE chaine encore simulee sur Keira
-# (ordre de l'owner du 2026-08-14 07:30), et c'est l'organe dont sa spec est la moins tenue.
-#
-# POURQUOI UN OS, ET PAS UN REGLAGE. Son audit du 2026-08-14 09:45 nomme la cause commune :
-# « chaque sein est une chaine a UNE articulation (radii=656/660). Volume, gradient racine->pointe,
-# ancrage a 30 %, deformation par orientation, mode secondaire : rien de tout cela n'est
-# exprimable avec un point unique. » Sa SPEC 23 le dit dans ses propres termes : « a single
-# spring attached to the nipple/apex is INSUFFICIENT ». Un degre de liberte qui manque s'ajoute
-# — sa consigne du 11:50 : « pas de non applicable qui tiennent ».
-#
-# LE VERBE EST `append`, ET LA MESURE LE DECIDE (probe_hair_joint_deficit.py sur le mesh LIVRE) :
-#   chestL lBoob  orphan 100.0 %  s_p50 1.227  s_p95 1.365  tail 0.0871 m sur un os de 0.2385 m
-#   chestR rBoob  orphan 100.0 %  s_p50 1.226  s_p95 1.379  tail 0.0905 m
-# PAS UN SEUL sommet n'est en amont du joint : toute la chair est AU-DELA, donc chaque sommet
-# candidat a une rampe > 0 et un os appendu MORD. C'est l'inverse exact des meches, ou
-# `tail_m = 0.0000` rendait l'ajout en bout inerte et imposait `subdiv`.
-#
-# Les six champs sont recopies SANS RETOUCHE de la sortie de l'outil,
-# `.autoport/reports/Grecharged-secondary-motion/C15-breast-joint-deficit.txt:13` et `:15` :
-chestL      lBoob         lBooc            0.118709     2.013364     0.107055
-#   s_p95 1.365  new bone 0.0871 m  residual mass past it 4.4%
-chestR      rBoob         rBooc           -0.119944     2.016473     0.107559
-#   s_p95 1.379  new bone 0.0905 m  residual mass past it 2.6%
-#
-# INJECTER L'OS N'EST QUE LA MOITIE DU TRAVAIL : LA PEAU NE LE SUIT PAS TOUTE SEULE.
-# Cycle 16, apres la premiere cuisson : `chestL lBoob 31 | lBooc 0`, `chestR rBoob 29 | rBooc 0`
-# — le nouveau joint ne possedait AUCUN sommet en majorite. La passe de reskin qui suit
-# l'injection (`build_enhanced_models.sh:252`) REMPLACE le profil que la rampe de l'injecteur
-# venait de poser. D'ou les deux regles `redistribute` de `recharged_assets/physics_reskin.txt`,
-# qui sont indissociables de ces deux lignes-ci : sans elles, l'os est pose et n'entraine rien.

@@ -58,8 +58,13 @@ restore(){ # <src-relatif-au-bak> <dst>
   local s="$BAK/$1" d="$2"
   [ -f "$s" ] || { echo "FAIL: $s absent de la sauvegarde"; return 1; }
   cp -p "$s" "$d" || return 1
+  # LE MANIFEST PORTE DEUX SECTIONS QUI CITENT LE MEME CHEMIN : les tailles, puis les md5.
+  # Chercher le chemin dans TOUT le fichier ramenait la TAILLE (« 28050 ») et la comparait a une
+  # empreinte — le script echouait sur un fichier pourtant correctement restaure. Il a echoue
+  # bruyamment, ce qui est le comportement voulu ; mais il faut lire la bonne section.
   local want got
-  want=$(grep -F " ./$1" "$BAK/MANIFEST.txt" | awk '{print $1}' | head -1)
+  want=$(sed -n '/^--- md5 ---$/,$p' "$BAK/MANIFEST.txt" | grep -F " ./$1" | awk '{print $1}' | head -1)
+  [ -n "$want" ] || { echo "FAIL: $1 absent de la section md5 du MANIFEST"; return 1; }
   got=$(md5sum "$d" | cut -d' ' -f1)
   [ "$want" = "$got" ] || { echo "FAIL: $d restaure mais md5 $got != $want attendu"; return 1; }
   echo "  bak: $d  (md5 $got verifie)"
