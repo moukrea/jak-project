@@ -1965,3 +1965,66 @@ depasse l'admissible — donc l'instrument doit mesurer contre le meme plancher 
 protege contre le « j'elargis le mur, le chiffre baisse » n'est pas l'ancrage de l'instrument, c'est
 que la bande est une CONSTANTE DE LA SPEC nommee et publiee, et que `skinpen` (distance signee a la
 PEAU, `phys-surf-sd`) ne passe pas par `feff` du tout et ne bouge donc avec rien.
+
+
+## NOTE-57  (moteur, `*phys-cpx*` ~ligne 412) — SPEC 23, LE TROISIEME DEGRE DE LIBERTE
+
+Externalise du moteur le 2026-08-17 (cycle 16) : le plafond de 4800 lignes est un
+signal, et la directive du cycle 15 disait « le prochain cycle doit externaliser avant
+d'ajouter ». Le texte n'est pas resume, il est deplace tel quel.
+
+```
+============================================================================================
+SPEC 23 — LE TROISIEME DEGRE DE LIBERTE, CELUI QUE LA CONTRAINTE DE LONGUEUR CONFISQUAIT.
+
+« M.x'' + C.x' + K.x = M.a_drive + F_collision, ou `x` = relative breast COM displacement [...]
+  A SINGLE SPRING ATTACHED TO THE NIPPLE/APEX IS INSUFFICIENT. »
+
+CE QUI MANQUAIT, ET C'EST MESURE, PAS SUPPOSE. Le point integre est l'APEX, et il est projete
+chaque frame sur la sphere de rayon `want` autour de son ancre (`phys-length-chain`, 11 fois par
+frame). Un point sur une sphere a DEUX degres de liberte ; sa §24 en demande TROIS. Le degre
+manquant est le RADIAL — et le rig dit lequel c'est : l'os `chest -> lBoob` vaut
+(+0.3646, -0.9192, -0.1490) dans le triedre de l'ancre, donc **84.5 % de l'axe VERTICAL**,
+celui que sa §24 appelle « intentionally the SLOWEST ». La fréquence propre verticale ne pouvait
+donc structurellement pas exister, et deux cycles ont cherche une cause a un degre de liberte
+absent. Controle du cycle 9, contrainte levee : la selectivite verticale passe de 17.8 % a
+60.6 % et la serie s'ajuste a 2.3400 Hz contre les 2.30 Hz de sa §24.
+
+POURQUOI IL S'AJOUTE ICI ET PAS EN LIBERANT LA PROJECTION. Sa §22 ordonne que l'OS ne s'allonge
+pas (« ROOM-STRETCH <= 3 % », `el = 0.0000` aujourd'hui) et sa §22 AUTORISE en meme temps le
+TISSU a s'allonger (« local tissue elongation: common 5-15 %, large 15-21 %, exceptional
+21-25 %, absolute clamp 25 % »). Ce sont deux grandeurs distinctes, et le dossier a deja paye
+de les avoir confondues. Le degre de liberte radial est donc celui de la CHAIR : il s'integre
+comme les deux autres, avec la meme raideur projetee sur le triedre (§29) et le meme
+amortissement (§25), et il atteint l'ecran par le canal de deformation qui existe deja — pas
+par la position du joint. L'os reste invariant, le tissu respire.
+
+CE N'EST PAS UN SUPPRESSEUR : il vaut ZERO au repos debout (aucune elongation), donc §9 — le
+retour EXACT a la pose d'auteur — est preservee par construction. Et il n'atteint QUE les
+chaines de famille A dont le triedre est arme : les organes geles par l'owner ne le voient pas.
+
+COMMENT IL EST INTEGRE, ET POURQUOI PAS AUTREMENT. Premiere ecriture de ce cycle : un
+oscillateur SCALAIRE sur la coordonnee radiale relative. RETIREE AVANT TOUTE MESURE, parce
+qu'elle etait morte par construction et que le code le dit : pour une chaine de famille A,
+`gdw` ne porte QUE la reorientation de la gravite (`gl - g_ref`, :2513-2523) ; la TRANSLATION du
+torse n'y entre pas — elle atteint la particule par l'ANCRE qui deplace la cible du ressort
+(« c'est par elle, et par elle seule, que le mouvement du crane atteint la particule — par la
+contrainte, pas par un ressort »). Une coordonnee RELATIVE n'a pas d'ancre qui bouge : elle
+n'aurait vu que l'inclinaison, et serait restee plate sous `updown`, `accel` et `jerk`. Un
+degre de liberte qui ne repond qu'a un pilotage sur cinq aurait rendu une serie plate qu'on
+aurait lue « le degre de liberte n'arrive pas », pour une raison qui n'a rien de physique.
+
+CE QUI EST INTEGRE A LA PLACE : LE MEME POINT, SANS LA PROJECTION. Un compagnon integre avec la
+MEME cible, la MEME raideur anisotrope, le MEME amortissement et le MEME pilotage que l'apex —
+et qui n'est simplement JAMAIS projete sur la sphere. Son excitation vient donc du meme
+mecanisme que celle de l'apex, sans terme invente. L'ecart de RAYON entre lui et la sphere de
+l'os EST le degre de liberte confisque, et c'est lui qui nourrit l'elongation du tissu.
+Sa borne est celle que sa §22 donne au COM (« normal <= 35 % B0, hard transient <= 40 % B0 »),
+distincte de celle de l'apex (42 % / 50 %) : deux lignes de sa spec, deux bandes.
+
+CE QUE CE N'EST PAS, ET JE L'ECRIS ICI POUR QUE PERSONNE NE LE LISE DE TRAVERS : le point
+integre reste situe A L'APEX, pas au centre de masse du sein. Sa §23 nomme `x` « the relative
+breast COM displacement ». Le nombre de degres de liberte est desormais celui qu'elle demande,
+et la deformation locale en derive comme elle l'ordonne ; le POINT D'APPLICATION, lui, reste
+celui d'avant. C'est le residu de §23, il est connu, et il est ecrit dans le rapport.
+```

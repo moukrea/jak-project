@@ -106,8 +106,22 @@ def rot(axis, ang):
 
 
 def measure(jn, ibm, pos, J, W, area, name, mirror):
-    k = jn.index(name)
+    # `name` peut etre UN joint ou LA CHAINE ENTIERE. Sa SPEC 6 definit `B0` comme la longueur
+    # caracteristique racine->apex de la CHAIR : c'est une propriete du MAILLAGE, donc ajouter un
+    # os ne doit PAS la changer. Or la selection se fait par poids de peau : apres l'injection du
+    # 2026-08-17, la rampe retire 100 % du poids `lBoob` de tout sommet au-dela de `lBooc` — soit
+    # precisement ceux de plus grand `y`. Mesure sur `lBoob` SEUL, `y1` s'effondrerait et `B0`
+    # passerait de ~147 mm a ~53 mm. Comme `B0` NORMALISE §10, §11, §12, §22 et §29, toutes ces
+    # sections auraient ete multipliees par ~2.8 d'un coup : un faux vert massif et invisible.
+    # Le repere reste celui du joint RACINE, inchange, pour que `y0`/`y1` restent comparables aux
+    # cycles precedents ; seule la SELECTION s'elargit a la chaine. Un joint absent du rig est
+    # ignore, donc l'appel d'avant l'injection rend exactement la meme valeur qu'avant.
+    names = [name] if isinstance(name, str) else list(name)
+    k = jn.index(names[0])
     w = joint_weight(J, W, k)
+    for extra in names[1:]:
+        if extra in jn:
+            w = w + joint_weight(J, W, jn.index(extra))
     M = ibm[k].T                       # glTF stocke en colonnes
     loc = ((pos @ M[:3, :3].T) + M[:3, 3]) * mirror
     sel = w > 1e-6
@@ -115,7 +129,7 @@ def measure(jn, ibm, pos, J, W, area, name, mirror):
 
     cen = (L * ww[:, None]).sum(0) / ww.sum()
     if abs(cen[AXIS]) < 0.9 * np.linalg.norm(cen):
-        raise SystemExit('!! %s : l axe dominant n est plus +Y (centroide %s)' % (name, cen))
+        raise SystemExit('!! %s : l axe dominant n est plus +Y (centroide %s)' % (names[0], cen))
 
     y = L[:, AXIS]
     y0, y1 = float(y.min()), float(y.max())
@@ -156,10 +170,11 @@ def main():
     print('BREAST-SHAPE  mesh=%s' % args.glb)
     print('  NATURE=profil de deplacement normalise  REPERE=espace bind du joint (SPEC 7)'
           '  BASELINE=r^1.6..2.0, racine r<=0.15 mobilite<=0.10 (SPEC 30)')
-    for name, mirror in (('lBoob', 1.0), ('rBoob', -1.0)):
+    for name, mirror in ((['lBoob', 'lBooc'], 1.0), (['rBoob', 'rBooc'], -1.0)):
         m = measure(jn, ibm, pos, J, W, area, name, mirror)
         r, ww = m['r'], m['w']
-        print('\n== %s  joint=%d  verts=%d  masse=%.3f' % (name, m['k'], m['nvert'], m['mass']))
+        print('\n== %s  joint=%d  verts=%d  masse=%.3f'
+              % ('+'.join(name), m['k'], m['nvert'], m['mass']))
         print('   SPEC 6  B0 = %.4f m = %.0f u  (chair de y=%.4f a y=%.4f dans son espace bind)'
               % (m['b0'], m['b0'] * 4096.0, m['y0'], m['y1']))
         # SPEC 6 EXIGE QUE B0 VIENNE DU MAILLAGE (« the game implementation shall derive

@@ -1,0 +1,287 @@
+DIRECTIVES vee00ab7404
+
+C16-PREDICTIONS — CYCLE 16, L'INJECTION DU JOINT DISTAL DE POITRINE
+====================================================================
+Chaque bloc est ecrit AVANT l'operation qu'il predit, et n'est plus touche ensuite. Une
+prediction refutee est un RESULTAT, pas un echec : c'est la seule facon de distinguer « ma
+correction a marche » de « j'ai lu le chiffre apres coup et je l'ai raconte a l'endroit ».
+
+CE QUE CE CYCLE FAIT, ET POURQUOI C'EST LE SEUL CHANTIER
+--------------------------------------------------------
+L'audit de l'owner du 2026-08-14 09:45 nomme une cause commune : « chaque sein est une chaine a
+UNE articulation. Volume, gradient racine->pointe, ancrage a 30 %, deformation par orientation,
+mode secondaire : rien de tout cela n'est exprimable avec un point unique. LA STRUCTURE D'ABORD. »
+Le cycle 15 l'a CHIFFREE sur le mesh livre (`probe_hair_joint_deficit.py`) :
+
+    chain    lastjoint  nvert  bone_m   s_p50   s_p95   s_max  orphan  tail_m
+    chestL   lBoob         35  0.2385   1.227   1.365   1.391  100.0%  0.0871
+    chestR   rBoob         27  0.2385   1.226   1.379   1.391  100.0%  0.0905
+
+`orphan = 100.0 %` : pas un seul sommet en amont du joint. Le faire tourner TRANSLATE le sein en
+bloc. La spec d'injection est DERIVEE par ce meme outil et deposee dans
+`C15-breast-joint-deficit.txt` (lBooc / rBooc). Ce cycle l'applique, SEUL, avec ses predictions.
+
+La directive du 11:50 interdit « non applicable » : « s'il manque des bones, bah faut juste les
+mettre ». C'est litteralement cette operation.
+
+
+BLOC 1 — LA PEAU (ecrit avant l'injection et avant la cuisson)
+===============================================================
+Derive par `.autoport/predict_breast_injection.py`, qui rejoue l'arithmetique du transfert de
+`physics_inject_joints.py:303-374` sur le mesh qui ship AUJOURD'HUI. Ce ne sont donc pas des
+estimations : c'est le calcul de l'outil, execute d'avance.
+
+LE PIEGE QUE CE BLOC EXISTE POUR ATTRAPER. Le registre projet le dit en une ligne : « INJECTER
+L'OS EST LA MOITIE DU TRAVAIL — LA PEAU NE LE SUIT PAS TOUTE SEULE ». Sur les meches, un joint
+avait ete injecte, le solveur le bougeait (`PHYSBONE c=2 l=3 len=258.0191`, aucun NaN) et AUCUN
+sommet ne le suivait : la rampe partage un poids que le parent ne detenait qu'en MINORITE, et la
+moitie d'une minorite reste une minorite. Le cas de la poitrine est arithmetiquement DIFFERENT
+(`orphan = 100 %`, donc toute la chair est au-dela du joint et la rampe mord), et c'est
+exactement ce pari-la qui est chiffre ici au lieu d'etre suppose.
+
+ P1  **LES DEUX JOINTS POSSEDENT DE LA PEAU** — l'injection n'est ni inerte, ni un simple
+     deplacement de charniere. Proprietaire majoritaire (w > 0.5), racine -> pointe :
+         chestL   lBoob 35        ->   lBoob  7  |  lBooc 20
+         chestR   rBoob 27        ->   rBoob  7  |  rBooc 13
+     REFUTEE si l'un des deux joints tombe a 0 : `lBooc 0` serait l'injection inerte des meches,
+     `lBoob 0` serait une charniere deplacee et sa SPEC 30 resterait non representable.
+     Instrument : `.autoport/probe_skin_ownership.py <mesh livre>`.
+     NOTE D'INSTRUMENT, ecrite d'avance pour qu'elle ne serve pas d'excuse apres coup : cette
+     sonde SAUTE aujourd'hui les chaines a moins de deux joints (`probe_skin_ownership.py:97`).
+     `chestL`/`chestR` n'y ont donc JAMAIS figure. Leur simple apparition dans sa sortie est
+     elle-meme une preuve d'execution que la chaine porte bien deux joints.
+
+ P2  **LA CHAINE NE PERD PAS UN SEUL SOMMET.** Somme sur les DEUX joints, meme seuil w > 0.5 :
+         chestL 35 -> 35   (+0)        chestR 27 -> 27   (+0)
+     C'est la grandeur qui discrimine, et elle n'est pas redondante avec P1 : partager le poids
+     d'un joint entre DEUX joints de la MEME chaine abaisse mecaniquement chaque majorite par
+     joint (un sommet a lBoob 0.6 / chest 0.4 devient lBoob 0.3 / lBooc 0.3 / chest 0.4 et bascule
+     par joint vers `chest`, alors que la chaine l'entraine toujours a 60 %). Lire la seule
+     colonne par joint ferait donc rapporter une perte que la chair ne subit pas.
+     REFUTEE si la somme BAISSE : ces sommets-la quitteraient vraiment la chaine et redeviendraient
+     de la chair STATIQUE — soit exactement le defaut « des polygones qui bougent et des polygones
+     voisins parfaitement statiques » que l'owner decrit. Une baisse est un motif de RETRACTION
+     de l'injection, pas un cout a accepter.
+
+ P3  **LA MASSE SE PARTAGE PROGRESSIVEMENT, ELLE NE BASCULE PAS EN BLOC.**
+         chestL  51.6 % distal / 48.4 % proximal        chestR  45.5 % / 54.5 %
+     Sa SPEC 30 veut ~30 % du volume FORTEMENT ANCRE : 48 % et 55 % restent au proximal, donc
+     l'ancrage est representable pour la premiere fois (il sera au-DESSUS de 30 %, ce qui se
+     mesure et se corrige par l'exposant de la rampe — sa SPEC 31 veut `r^1.6-2.0`, la rampe de
+     l'injecteur est lineaire `r^1`). Je NE touche PAS a l'exposant ce cycle : on pose la
+     structure, on mesure ou elle tombe, et on corrige ensuite. Choisir l'exposant maintenant
+     pour que l'instrument affiche 30 % serait `never-fit-a-parameter-to-the-instrument`.
+
+ P4  **LE RIG PASSE DE 104 A 106 JOINTS**, en APPEND PUR : aucun indice existant ne bouge, aucun
+     joint n'est retire. Verification programmatique exigee (et non « verifiee a l'oeil ») : les
+     quatre tableaux splices dans `goal_src/jak1/pc/jak-hd.gc` doivent COMMENCER par exactement
+     les anciens. REFUTEE si un indice existant change : ce serait une corruption silencieuse de
+     tout le reste du rig.
+
+ P5  **LA POSE DE REPOS EST PRESERVEE AU BIT PRES.** L'IBM du nouveau joint est recalcule, donc
+     `Sum w.bindWorld.inv(bindWorld).v = v` : le mesh au repos doit etre INCHANGE. Mesure :
+     `ROOM-IDLE maxdev` reste au plancher (0.0002 au cycle 15, plancher ULP de sa SPEC 9).
+     REFUTEE si l'idle bouge : sa SPEC 2 et sa SPEC 9 exigent le retour EXACT a la pose d'auteur,
+     et une pose de repos deplacee par une injection serait une regression sur l'acquis qu'il a
+     valide (« poitrine sur mouvements subtils : toujours OK », 2026-08-12).
+
+
+BLOC 1 bis — CORRECTION DE MA PROPRE PREDICTION, ECRITE AVANT LA CUISSON
+=========================================================================
+**P1/P2/P3 CI-DESSUS SONT CALCULES DANS LE MAUVAIS ORDRE, ET JE LE CORRIGE AVANT DE CUIRE PLUTOT
+QUE DE L'EXPLIQUER APRES.** Je les laisse ecrits : une prediction qu'on efface ne prouve plus rien.
+
+L'ordre reel du pipeline est lu dans le script, pas suppose
+(`scripts/shell/build_enhanced_models.sh:231` injection -> `:242` prep -> `:252` reskin) :
+
+    INJECTION (sur le DONNEUR)  ->  PREP  ->  RESKIN
+
+Or le reskin porte, pour ce modele precisement, deux regles sur la poitrine
+(`recharged_assets/physics_reskin.txt:111-112`, section `[model keira-hd]`) :
+
+    transfer rBoob from=chest cap=0.95 shape=1.30
+    transfer lBoob from=chest cap=0.95 shape=1.30
+
+et cet operateur ne s'AJOUTE pas, il REMPLACE le profil (`physics_c7_reskin.py:26-27`) :
+
+    s         = w_target / max(w_target)      le profil normalise de l'auteur
+    w_target' = cap * s**shape                remis a l'echelle pour que le pic atteigne `cap`
+
+CE QUE LA JOURNALISATION DE LA DERNIERE CUISSON MESURE (`bake-breast-grad.log:200-201`), et qui
+rend le probleme non-hypothetique :
+
+    lBoob   verts=94  mean 0.193->0.429  dominant 0->35   weight moved off chest = 22.2
+    rBoob   verts=90  mean 0.172->0.384  dominant 0->27   weight moved off chest = 19.1
+
+**AVANT LE RESKIN, `lBoob` N'EST DOMINANT SUR AUCUN SOMMET** (`dominant 0->35`). La totalite de la
+propriete de la poitrine est FABRIQUEE par ce transfert. Mes P1-P3 ont donc ete calcules sur le
+maillage POST-reskin, alors que l'injecteur, lui, mord sur le maillage PRE-reskin ou le poids de
+`lBoob` vaut 0.193 en moyenne — **une MINORITE**. Et le registre projet enonce exactement ce
+cas : « la rampe partage un poids que le parent ne detenait qu'en MINORITE, et la moitie d'une
+minorite reste une minorite ». C'est le mecanisme qui a rendu l'injection des meches INERTE.
+
+ P1'  **PREDICTION CORRIGEE, ET C'EST UN ECHEC ATTENDU : `lBooc`/`rBooc` seront possesseurs de
+      TRES PEU, voire ZERO sommet** apres cette premiere cuisson. `lBoob` verra son profil —
+      desormais ampute de sa partie distale par la rampe — RENORMALISE a un pic de 0.95 par le
+      transfert, pendant que `lBooc` ne porte aucune regle et garde des poids de l'ordre de 0.19.
+      Le proximal ecrase alors le distal partout ou les deux ont du support.
+      CE N'EST PAS UNE RAISON DE NE PAS CUIRE : cette cuisson est le CONTROLE qui etablit que la
+      regle de reskin manque. Un zero mesure ici vaut une preuve ; un zero suppose ne vaut rien.
+      REFUTEE si `lBooc` possede d'emblee une part comparable a `lBoob` — alors le transfert ne
+      domine pas comme je le crois, et c'est le raisonnement ci-dessus qui tombe.
+
+ P2'  **LE REMEDE SERA UNE REGLE DE RESKIN POUR LE JOINT DISTAL**, declaree dans la spec commitee
+      (`[model keira-hd]`, section ouverte a `physics_reskin.txt:52`), et NON un reglage du
+      solveur. Sa SPEC 30 veut une mobilite CROISSANTE vers le distal (« Distal volume 5-30 % »
+      d'ancrage contre « Deep root 90-100 % ») : le distal ne doit donc pas etre moins bien servi
+      que le proximal. La forme exacte se derive de la mesure de la premiere cuisson, jamais
+      choisie pour que l'instrument affiche la cible.
+
+ P3'  **LA GARDE `check_reskin_knows_new_joints` NE TIRERA PAS**, et c'est un TROU, pas un feu
+      vert. Elle ne lit que les listes `chain=` des regles `grade`
+      (`physics_inject_joints.py:78-84`) ; `lBoob`/`rBoob` n'apparaissent que dans des regles
+      `transfer`, donc `missing == []`. L'invariant « un joint cree a partir d'un joint que le
+      correcteur connait deja doit etre declare a cote de lui » est JUSTE ; son implementation ne
+      couvre qu'un des deux operateurs qui connaissent un joint. A signaler, pas a contourner.
+
+ P4'  **`B0` NE DOIT PAS BOUGER, ET C'EST LE RISQUE LE PLUS GRAVE DU CYCLE.** Sa SPEC 6 definit
+      `B0` comme la longueur caracteristique racine->apex de la CHAIR. La chair ne bouge pas quand
+      on ajoute un os : `B0` doit donc rester 602 u. Mais la sonde qui le mesure
+      (`.autoport/probe_breast_shape.py:108-123`) selectionne les sommets par `w > 1e-6` sur
+      **`lBoob` SEUL**, et la rampe retire 100 % du poids `lBoob` de tout sommet au-dela de
+      `lBooc` : ces sommets — precisement ceux de plus grand `y` — sortiraient de la selection et
+      `b0 = y1 - y0` s'effondrerait (ordre de grandeur ~53 mm au lieu de 147 mm).
+      `B0` NORMALISE §10, §11, §12, §22 et §29 : un `B0` divise par ~2.8 multiplierait toutes ces
+      mesures d'autant et rendrait VERTES des sections qui ne le sont pas. C'est un faux vert de
+      grande ampleur, et il serait invisible.
+      DONC : la valeur LIVREE reste `b0=602` (elle est commitee dans
+      `recharged_assets/keira-owner-tuning.txt:1297-1298`, pas recalculee par le generateur), et
+      la sonde doit apprendre a mesurer l'UNION `lBoob ∪ lBooc`. Prediction verifiable : mesuree
+      sur l'union apres cuisson, `B0` doit revenir a **602 u a quelques unites pres**. Si l'union
+      ne rend pas ~602, c'est que l'injection a bouge de la chair, ce qu'elle ne doit pas faire.
+
+ P5'  **LES COLLIDERS DE POITRINE VONT CHANGER, ET CE N'EST PAS DEMANDE.** Aujourd'hui `chestL`
+      n'a qu'un membre, donc son collider est une SPHERE posee sur le joint
+      (`physics_chains.txt:214-217`, `collider lBoob radius=340`). Avec `lBooc` dont le parent est
+      dans le meme groupe, le generateur emettra une CAPSULE `lBooc->lBoob`, `lBoob` deviendra une
+      extremite de capsule, et la borne perpendiculaire des spheres plafonnera son rayon de 340 a
+      l'epaisseur mesuree. A MESURER, et a comparer a la penetration : sa regle 6 (« rien ne
+      traverse le mesh ») et son defaut ouvert « les lunettes clipent sur ses seins » vivent
+      exactement la. Une capsule plus fine qu'une sphere de 340 est un RISQUE de clip, pas un gain.
+
+ P6'  **CINQ ENDROITS PORTENT LE COMPTE DE JOINTS, PAS QUATRE.** Les 4 tableaux
+      (`jak-hd.gc:100,102,104,106`) ET `*hd-joint-counts*` (`:312`, entree 2). Le fichier
+      documente lui-meme (`:303-311`) le 2026-08-13 ou l'oubli du cinquieme a produit
+      `PHYSBONE c=2 l=2 len=NaN` : les joints au-dela du compteur n'etaient jamais ecrits.
+      105 -> 107 dans les cinq. Verification : `python3 .autoport/hd_check_joint_counts.py`.
+
+
+BLOC 2 — LE SOLVEUR (ecrit AVANT la course de controle, donc avant toute mesure)
+================================================================================
+Le moteur a ete modifie en QUATRE endroits, et les quatre sont des IDENTITES a n=1. C'est
+volontaire : ca fait de la course de controle une garantie d'ATTRIBUTION. Sans elle je ne
+pourrais pas distinguer l'effet de l'injection de l'effet de mon edition du moteur — l'erreur
+que le cycle 15 avait justement evitee en separant ses passes.
+
+ Q1  **`sat` (~:2644) : la garde `(= n 1)` est retiree.** Le moteur l'ecrivait lui-meme (:334-339) :
+     « injecter un os dans le sein DESARMERAIT deux sections TENUES » — §21 (saturation tanh) et
+     §22 (apex < 0.50 B0). Un zero produit par un bloc qui ne s'execute plus n'est pas un zero
+     gagne, c'est un faux vert. La famille A selectionne deja exactement chestL/chestR, seules
+     chaines simulees depuis son ordre du 07:30, donc le `n` etait un doublon de selecteur.
+ Q2  **Le mur d'apex de §22 (~:3108) : meme garde retiree, meme raison.** Sinon `*phys-sat-n*`
+     aurait publie 0 par disparition du bloc.
+ Q3  **`gmean` (~:2646) : normalise sur le maillon RACINE et non sur la MOYENNE.**
+     Avec la moyenne, nfr 1->2 multiplie la raideur du maillon racine par 1.3636, donc sa
+     frequence par 1.1677 : §24 verticale serait passee de 2.320 a ~2.709 Hz, HORS de sa bande
+     [2.10, 2.50], sans qu'aucun parametre livre soit touche. Ce n'est pas un reglage, c'est un
+     artefact de normalisation. Normalise sur le terme du maillon `rlk`, la racine est INVARIANTE
+     au nombre de maillons et le distal devient plus souple — ce que §31 demande en toutes lettres
+     (« little deformation at the root; progressively increasing mobility »).
+     A nfr=1 : `1 - 0.25 = 0.75`, identique au bit pres a l'ancienne moyenne.
+ Q4  **Le canal radial §23 (~:2893) : arme sur le DERNIER maillon et non sur `rlk`.**
+     `*phys-cpx*` est indexe par CHAINE, donc un seul maillon doit l'armer. Le laisser sur `rlk`
+     l'aurait arme, a n=2, sur le maillon PROXIMAL epingle pres du thorax : le deplacement de COM
+     de §22 y aurait ete lu artificiellement petit et sa bande (0.35 / 0.40 B0) satisfaite par
+     construction. A n=1, `(- n 1)` vaut 0 = `rlk` : identite.
+
+ Q5  **PREDICTION DE LA COURSE DE CONTROLE, ECRITE AVANT DE LA LIRE : le tableau doit etre
+     IDENTIQUE a celui du cycle 15**, hors horodatages, chemins et md5. Toute difference de
+     CHIFFRE de physique refute l'une des quatre identites ci-dessus et doit etre traitee comme
+     un defaut de mon edition, pas comme du bruit.
+     Garde-fou de fraicheur, et il compte double ce cycle : le controle du script ne regarde que
+     `phys-room.gc` et `jak-hd-physics.gc` — il ne verrait PAS un `jak-hd.gc` perime. La seule
+     preuve recevable que le rig est bien encore a un maillon est `PHYSCHAIN links=1` dans la
+     trace ; a n=2 ce sera `links=2`. Aucun chiffre n'est accepte sans cette ligne.
+
+
+BLOC 3 — LA SALLE APRES INJECTION (ecrit AVANT la course a 2 maillons)
+=======================================================================
+CE QUI S'EST PASSE ENTRE LE BLOC 2 ET ICI, EN TROIS MESURES :
+
+  1. **P1' TENUE, exactement.** Premiere cuisson, sans regle de reskin pour le distal :
+     `chestL lBoob 31 | lBooc 0` et `chestR rBoob 29 | rBooc 0`. Pas un sommet ne suivait le
+     nouvel os. La cause predite etait la bonne : l'injecteur mord AVANT le reskin, sur un poids
+     dont la moyenne vaut 0.11 et qui n'est majoritaire nulle part.
+  2. **Le remede est `redistribute`, pas un troisieme `transfer`** — l'operateur conserve le poids
+     SOMME de la chaine par sommet et partitionne CONTINUMENT en abscisse, donc il ne peut ni
+     perdre de la chair ni fabriquer une frontiere. `hold=0.30` est le chiffre de sa SPEC 30, lu et
+     non ajuste. Resultat mesure : le distal porte desormais 51 sommets, poids max 0.4260, p95
+     0.3997, soit **24.7 % / 19.6 % de la masse de la chaine**.
+  3. **ET UNE TROISIEME CHOSE, QUE JE N'AVAIS PAS PREVUE ET QUI ETAIT LE VRAI DANGER.** Le
+     generateur pose `rootlock=1` sur toute chaine de 2+ joints. Sur la poitrine cela EPINGLE le
+     maillon racine — qui porte 75 % de la chair. Les trois quarts de l'organe seraient devenus
+     RIGIDES, la ou aujourd'hui la totalite suit un maillon libre. C'est mot pour mot la plainte de
+     l'owner « on dirait qu'ils ont ete un peu mutes ». La regle est desormais bornee aux chaines
+     de type cheveu : sa SPEC 2 (« la racine suit rigidement l'os porteur ») decrit une MECHE, et
+     l'ancrage d'un organe mou vit dans le TISSU — sa SPEC 30 le met dans un degrade de poids et
+     interdit ensuite « any hard attachment boundary », ce qu'un joint epingle est exactement.
+
+ R1  **`PHYSCHAIN links=2` sur les deux chaines.** C'est la SEULE preuve recevable que la course
+     mesure bien le nouveau rig : le controle de fraicheur du script ne regarde ni `jak-hd.gc` ni
+     les donnees, donc un artefact perime passerait en silence. Aucun chiffre n'est lu sans elle.
+     Et `PHYSTRUNC` ne doit PAS apparaitre (plafond `PHYS-LINKS 4`, on passe a 2).
+ R2  **`b0 flesh=602.0000`** sur les deux, inchange. Deja verifie hors salle sur le mesh cuit
+     (union `lBoob+lBooc`, 0.1470 m = 602 u, y de 0.0336 a 0.1806 — identique au bit pres a avant
+     l'injection). La chair n'a pas bouge, seul le rig a gagne un os.
+ R3  **`ROOM-IDLE maxdev` reste au plancher** (0.0002 au controle). Ses SPEC 2 et SPEC 9 exigent le
+     retour EXACT a la pose d'auteur ; l'IBM du nouveau joint est recalcule, donc la pose de repos
+     doit etre preservee par construction. Une derive ici serait une regression, pas un detail.
+ R4  **SPEC 24 verticale reste DANS sa bande [2.10, 2.50].** Mesuree 2.320 au controle. Avec
+     `rlk=0` et `n=2`, `nfr` passe de 1 a 2 : c'est precisement le cas que la re-normalisation de
+     `gmean` sur le maillon racine rend invariant. Predite a **2.32 +- 0.10**. Si elle sort vers
+     ~2.71, c'est que ma correction de `gmean` ne mord pas et il faudra le dire.
+ R5  **SPEC 21 et SPEC 22 restent ARMEES**, ce qui est tout l'objet des deux gardes retirees.
+     Preuve exigee : le domaine de `DYNSAT` reste non vide et DISCRIMINANT (0.1877-0.2500 au
+     cycle 15). Un `*phys-sat-n*` a 0 accompagne d'un domaine vide signifierait que le bloc ne
+     tourne plus — le faux vert que ce cycle existe pour empecher.
+ R6  **LE MOUVEMENT NE S'EFFONDRE PAS.** Plancher du controle : `tipvar` chestL 0.1630, chestR
+     0.1607. La regle de conservation du contrat interdit qu'une chaine passe sous **60 %** de son
+     plancher. Predit : `tipvar >= 0.098` sur les deux, et je m'attends a ce qu'il MONTE plutot
+     qu'a ce qu'il baisse, le distal ajoutant un degre de liberte sans en retirer au proximal.
+     REFUTEE sous 60 % => l'injection est RETIREE, pas adoucie.
+ R7  **SPEC 30 devient mesurable pour la premiere fois**, mais HORS SALLE et je l'ecris ainsi :
+     aucune ligne `ROOM-*` ne la publie (verifie dans `physics_room_table.py`). L'instrument est
+     `probe_skin_ownership.py` sur le mesh livre. Valeurs deja mesurees : part distale 24.7 % /
+     19.6 %. Sa bande est « 28-35 % fortement ancre » ; ces chiffres decrivent le partage entre
+     joints, PAS la meme grandeur, et je ne les presenterai pas comme si c'etait le cas.
+ R8  **LE JOINT DISTAL RESTE SANS PROPRIETE MAJORITAIRE** (`lBooc 0`, pic 0.4260 < 0.5), et je le
+     PREDIS au lieu de le decouvrir : il entraine reellement la chair (jusqu'a 43 % du deplacement
+     de 51 sommets) mais ne franchit pas le seuil `w>0.5`, donc il ne porte AUCUN echantillon `ms`
+     et sa peau n'existe pas pour la COLLISION. C'est un cout reel, il est declare, et je ne le
+     corrigerai PAS en poussant `hold` jusqu'a faire franchir le seuil : ce serait ajuster un
+     parametre pour que l'instrument affiche la cible, ce que le registre interdit nommement.
+
+DECISION D'INSTRUMENT, PRISE D'AVANCE ET ASSUMEE : `ROOM-RINGDOWN mono` restera `n/a` a 2
+maillons. Son code fait `free = lags[1:]` (`physics_room_table.py:2332-2338`), ce qui suppose que
+le maillon 0 est verrouille — faux pour chestL/chestR (`rlk=0`, aucune cle `rootlk=`). A nl=2,
+`lags` porte un seul element et `free` reste vide. **JE NE CORRIGE PAS CET INSTRUMENT CE CYCLE.**
+Changer l'instrument dans le meme cycle que le changement de structure rendrait les deux
+inattribuables, et c'est exactement la faute que le cycle 15 a evitee. La ligne est donc declaree
+VACUE au rapport, comme le cycle 15 a declare vacue la colonne verdict de `ROOM-ORICTL`, au lieu
+d'etre lue comme un resultat. `lag01` reste publie et exploitable.
+
+
+CE QUE JE NE PREDIS PAS, ET JE LE DIS
+--------------------------------------
+  - La QUALITE. C'est son oeil qui juge, jamais ce fichier.
+  - Aucune mesure de ce cycle ne viendra d'un APPAREIL : tout est x86.

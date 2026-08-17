@@ -30,9 +30,17 @@ def main():
         print("FAIL: *hd-ag-names* not found"); return 1
     names = re.findall(r'"([^"]+)"', m.group(0))
 
-    m = re.search(r"\(define \*hd-joint-counts\* \(new 'static 'array int32 (\d+)([^)]*)\)\)", src)
+    # ANCRE EN DEBUT DE LIGNE (`^`, re.M) — UN `(define ...)` COMMENTE N'EST PAS UNE DEFINITION.
+    # Le 2026-08-17 ce controle a rendu PASS sur un `jak-hd.gc` qui NE COMPILAIT PAS : un outil de
+    # splice avait avale le saut de ligne du commentaire precedent, laissant `;; ... (define
+    # *hd-joint-counts* ...)` sur une seule ligne. `re.search` sur le texte brut y voyait le motif,
+    # et le compilateur, lui, refusait avec « The symbol *hd-joint-counts* was looked up as a global
+    # variable, but it does not exist ». Un garde-fou aveugle au commentaire est un faux vert sur
+    # exactement le mode de panne qu'il est cense couvrir.
+    m = re.search(r"^\(define \*hd-joint-counts\* \(new 'static 'array int32 (\d+)([^)]*)\)\)",
+                  src, re.M)
     if not m:
-        print("FAIL: *hd-joint-counts* not found"); return 1
+        print("FAIL: *hd-joint-counts* not found (ou commente — il doit debuter une ligne)"); return 1
     declared_n = int(m.group(1))
     counts = [int(x) for x in m.group(2).split()]
 

@@ -260,7 +260,11 @@ CATEGORY_RULES = [
     ('backhair',   r'^backHair\d+$',                       'backhair'),
     ('bang',       r'^(?P<side>[LR])bang[a-z]$',           '{l}bang'),
     ('midhair',    r'^(?P<side>[LR])midhair[a-z]$',        '{l}midhair'),
-    ('chest',      r'^(?P<side>[lr])Boob$',                'chest{U}'),
+    # `Boo[bc]` et non `Boob` : l'injection du 2026-08-17 ajoute le joint distal `lBooc`/`rBooc`.
+    # Meme piege que `lKneeFlap2` documente juste en dessous — sans elargir la regex le joint
+    # injecte n'appartient a AUCUN groupe, la chaine reste a UN maillon, et `EXPECTED_GROUPS`
+    # serait d'accord avec elle : les deux se tromperaient ensemble, sans que rien ne le dise.
+    ('chest',      r'^(?P<side>[lr])Boo[bc]$',             'chest{U}'),
     ('goggles',    r'^goggles[A-Z][a-z]*$',                'goggles'),
     ('topstrap',   r'^(?P<side>[lr])TopStrap\d*$',         'topstrap{U}'),
     ('botstrap',   r'^(?P<side>[lr])BotStrap\d*$',         'botstrap{U}'),
@@ -315,6 +319,15 @@ EXPECTED_GROUPS = {
     'rbang':      ['Rbanga', 'Rbangb', 'Rbangc', 'Rbangd'],
     'lmidhair':   ['Lmidhaira', 'Lmidhairb', 'Lmidhairc', 'Lmidhaird'],
     'rmidhair':   ['Rmidhaira', 'Rmidhairb', 'Rmidhairc', 'Rmidhaird'],
+    # 2026-08-17 : l'injection du joint distal (`lBooc`/`rBooc`) a ete faite, MESUREE, puis
+    # RETIREE de la livraison — pas abandonnee. Elle halvait la frequence du mode radial de sa
+    # SPEC 24 (2.32 -> 1.20 Hz, HORS de la bande [2.10, 2.50]) et rendait `meshpen` positif, ce
+    # que la regle 6 de l'owner interdit. La regle de conservation du contrat est explicite :
+    # « si le plancher casse, le point est retire — pas adouci, retire. »
+    # Pour le remettre : `recharged_assets/keira-hd-inject-joints.txt` (spec derivee conservee
+    # dans le rapport C15-breast-joint-deficit.txt), la regle `redistribute` de
+    # `physics_reskin.txt`, et cette table qui repasse a ['lBoob','lBooc'] / ['rBoob','rBooc'].
+    # La regex de categorie ci-dessus couvre DEJA `Boo[bc]`, elle n'aura pas a rebouger.
     'chestL':     ['lBoob'],
     'chestR':     ['rBoob'],
     # les VERRES (gogglesLeft/gogglesRight, 488 des 515 sommets des lunettes) sont deux branches
@@ -1124,7 +1137,20 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
                  f'damping={fnum(t["damping"])}',
                  f'gravity={fnum(t["gravity"])}',
                  f'radius={rep}']
-        if len(joints) >= 2:
+        # `rootlock=1` EXPRIME LA SPEC 2 DES CHEVEUX, ET ELLE NE S'APPLIQUE PAS A UN ORGANE MOU.
+        # Pour une meche, le joint racine CHEVAUCHE le crane : le verrouiller est l'ancrage que
+        # l'owner a valide. Pour la poitrine, l'ancrage n'est PAS un joint epingle, il est dans le
+        # TISSU — sa SPEC 30 le met dans un degrade de poids avec le thorax (« Deep root 90-100 %,
+        # Rear/intermediate 55-85 %, Mid-volume 25-55 %, Distal 5-30 % ») et interdit ensuite en
+        # toutes lettres « There shall be no hard attachment boundary ». Epingler le joint racine
+        # EST une frontiere d'attache dure.
+        # MESURE QUI TRANCHE (2026-08-17, mesh livre) : apres l'injection du joint distal, 75 % de
+        # la masse pesee de la chaine reste sur le maillon RACINE. Le verrouiller rendrait donc les
+        # trois quarts de la chair RIGIDES, alors qu'aujourd'hui la totalite suit un maillon libre —
+        # une regression franche sur l'acquis que l'owner a valide (« poitrine sur mouvements
+        # subtils : toujours OK », 2026-08-12), et precisement sa plainte « on dirait qu'ils ont ete
+        # un peu mutes ». L'ancre rigide de la chaine reste `chest`, qui est HORS chaine (`anc=3`).
+        if len(joints) >= 2 and cat != 'chest':
             parts.append('rootlock=1')                  # 1-joint chains omit it (parser default 0)
         parts += [f'mass={fnum(t["mass"])}',
                   f'hang={fnum(t["hang"])}',
@@ -1169,9 +1195,11 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
 
     # ---- colliders -----------------------------------------------------------------------------
     parts_map = {'body': list(BODY_PART)}
-    for cat, cname in order:
+    cat_of_part = {}                      # la CATEGORIE derriere chaque partie, pour le choix du
+    for cat, cname in order:              # volume ci-dessous : jamais une liste ecrite a la main.
         if cat in OBSTACLE_CHAIN_CATS:
             parts_map[cname] = list(groups[cname])
+            cat_of_part[cname] = cat
     for pname, members in parts_map.items():
         for jn in members:
             if jn not in idx_of:
@@ -1184,7 +1212,24 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
         for jn in members:
             j = idx_of[jn]
             pj = parent[j]
-            if pj >= 0 and names[pj] in mset:
+            # UNE POITRINE EST UN BLOB, PAS UN SEGMENT DE MEMBRE — PAS DE CAPSULE (2026-08-17).
+            # La capsule est une sphere BALAYEE le long d'un os : c'est la bonne abstraction pour un
+            # bras ou une meche, pas pour un organe. Des que l'injection du joint distal a donne au
+            # sein un second maillon, ce bloc a emis `capsule lBooc lBoob radius=585 radius2=680` —
+            # un saucisson de 143 a 166 mm de rayon autour d'un os de 87 mm.
+            # ET LA MESURE DIT CE QUE CA COUTE (course C16n2, contre le controle a 1 maillon) :
+            #   ROOM-CONTACT-VOL chestL  23 -> 8411 contacts (x366), chestR 38 -> 2822 (x74),
+            #   premier contributeur de chaque chaine = la capsule du sein OPPOSE ;
+            #   profondeur a la pose modele chestL vs Lshoulder->chest  dm 393 -> 1123,
+            #   neck->chest passe de « jamais atteint » a CONTACT ;
+            #   meshpen passe de NEGATIF (dehors) a +0.0205 m sur 132 lignes `row` sur 310 — soit
+            #   la regle 6 de l'owner, « rien ne traverse le mesh, quelle qu'en soit la raison ».
+            # LA CAUSE EST STRUCTURELLE, PAS UN RAYON A REGLER : les spheres passent par la BORNE
+            # PERPENDICULAIRE qui les plafonne a l'epaisseur mesuree du mesh, les capsules NON.
+            # Emettre des spheres rend donc au sein le volume borne qu'il avait a un maillon, avec
+            # une sphere PAR maillon au lieu d'une seule — ce qui est aussi ce dont sa SPEC 33
+            # (« medial surfaces shall collide before visible interpenetration ») a besoin.
+            if pj >= 0 and names[pj] in mset and cat_of_part.get(pname) != 'chest':
                 capsules.append((jn, names[pj], pname))
                 capped.add(jn)
     for pname, members in parts_map.items():
