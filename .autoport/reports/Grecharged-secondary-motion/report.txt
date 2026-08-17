@@ -1,295 +1,252 @@
 DIRECTIVES vee00ab7404
 
 ============================================================================================
-PHASE Grecharged-secondary-motion — CYCLE DU 2026-08-17 (cycle 13)
+PHASE Grecharged-secondary-motion — CYCLE DU 2026-08-17 (cycle 14)
 KEIRA, POITRINE SEULE.
 
-CE CYCLE RETIRE LE TITRE DU CYCLE 12 ET LE REMPLACE.
+LA CAUSE DU CANAL REDRESSE EST NOMMEE, ET C'EST UNE MESURE QUI LA NOMME, PAS UN RAISONNEMENT.
 
-Le cycle 12 a publie : « dans la direction qu'il decrit (elle se penche EN AVANT), la chaine est
-12 a 30x moins reactive ». L'ETIQUETTE DE DIRECTION ETAIT FAUSSE. Ce qui s'effondre est le
-mouvement vers l'ARRIERE (elle sur le dos), pas vers l'avant. Sa plainte n'etait donc toujours
-pas expliquee — jusqu'a ce cycle, qui trouve autre chose et qui, lui, la touche :
+  LE MUR DE COLLISION EST PLAFONNE A LA PROFONDEUR D'AUTEUR. Quand la gravite tire la poitrine
+  VERS LE THORAX, elle ne bouge pas de 0.8 millieme de B0 — elle est epinglee au repos. Le meme
+  stimulus dans l'autre sens la deplace 70 fois plus. Desarme, le pole bloque passe de 0.0251 a
+  0.1452 B0 pendant que le pole libre ne bouge pas de 0.1 % : le degre de liberte revient, il
+  n'est pas echange.
 
-  §10 ET §11 SONT INTERVERTIES DANS LE SOLVEUR. Quand elle se penche en avant pour souder, la
-  poitrine recevait `sz = 0.700` — elle S'APLATISSAIT DE 30 % — la ou sa §11 exige `1.230`,
-  c'est-a-dire qu'elle PEND. Le morph tournait a l'envers. C'est corrige.
+  ET CE MUR INTERDIT EXACTEMENT CE QUE SA §10 EXIGE. `SupineCOMDepth = 0.23 B0` demande que le
+  COM s'enfonce VERS le thorax quand elle est sur le dos. Le solveur repond « ce qui est deja
+  dedans au repos y reste, ni plus ni moins ». §10 est mesuree SOUS sa bande (0.1465 / 0.1332) ;
+  le mur desarme, elle vaut 0.2773 / 0.2561 — DANS sa bande, sur LES DEUX chaines, sans que §11
+  ni l'axe lateral ne bougent.
 ============================================================================================
 
 Branche : `physics-keira-clean`.
 Contrat  : `.autoport/DIRECTIVES.md` (07:30 perimetre, 09:45 audit, 11:50 ordre de travail)
            + `SPEC-breast-softbody.md`.
 Substrat : x86 UNIQUEMENT. Aucune mesure de ce rapport ne vient d'un appareil, et c'est ecrit.
-Palier de build : GOAL SEUL — `(mi)`, 551 cibles en 13.0 s puis 14.0 s. Aucun NDK, aucun gradle,
-           aucun `cmake` : rien de ce cycle ne touche au C++.
-Predictions : `C13-PREDICTIONS.txt`, ecrit A 02:59 PENDANT que la course de verification tournait
-           (lancee a 02:55:56), donc AVANT d'en lire une ligne. Une permutation de deux colonnes
-           se raconte apres coup dans les deux sens ; ecrite avant, elle est refutable.
+Palier de build : GOAL SEUL — `(mi)`, 551 cibles en 16.4 s. Aucun NDK, aucun gradle, aucun
+           `cmake`, aucun `ninja` : rien de ce cycle ne touche au C++.
+Predictions : `C14-PREDICTIONS.txt`, ecrit AVANT le lancement de la course. P7 y a ete ajoutee
+           a 03:24:44 PENDANT que la course tournait, avec sa preuve d'anteriorite prise au meme
+           instant : `grep -ac PHYSORICTL` sur le log rendait **0 ligne**, le log faisait 575 580
+           octets et la course en etait a l'enumeration des animations. Les sept sont refutables.
+Attribution : `md5sum out/jak1/iso/GAME.CGO` = `1c987d651956714b0ffa2ec4dfafcc14` AVANT, PENDANT
+           et APRES la course. L'arbre n'a pas bascule, les chiffres sont attribuables.
 
 
 0. POURQUOI LE VALIDATEUR SORT A 1, ET POURQUOI JE NE LE FAIS PAS PASSER
 =========================================================================
-`OPEN-DEFECTS` compte les lignes `^OPEN ` de `owner-defects.txt`. Il en reste UNE :
-`breast-spec-incomplete`. **C'est une PORTE HUMAINE et elle fonctionne comme prevu.** La gate
-ecrit elle-meme sa regle, dans son propre commentaire (validateur :40-41) :
+`OPEN-DEFECTS` (validateur :42-52) compte les lignes `^OPEN ` de `owner-defects.txt`. Il en reste
+UNE : `breast-spec-incomplete`. Toutes les autres gates sont EN AVAL et ne s'executent jamais.
+
+C'est une PORTE HUMAINE, et elle fonctionne exactement comme prevu. La gate ecrit sa propre regle
+dans son commentaire :
 
     « La liste se vide UNIQUEMENT sur la parole de l'owner : c'est son oeil qui ferme un defaut,
       jamais un chiffre vert. »
 
-Les deux seules facons de faire sortir ce validateur a 0 sont (a) retirer la ligne — c'est sa
-parole, pas la mienne, et l'effacer serait contrefaire son accord sur une spec qu'il dit
-justement incomplete — ou (b) modifier la gate, que la regle 5 des DIRECTIVES interdit comme
-verrou dur. **Je n'en commets aucune**, et je signale le conflit avec le crochet d'arret plutot
-que de le satisfaire en silence.
-
-Le RESTE de la chaine est verifie en DIAGNOSTIC sur une COPIE : voir §7. Ni le validateur ni
-`owner-defects.txt` ne sont touches (`git status` vide sur les deux, diff = 1 ligne chacun).
+Les deux seules facons de la faire sortir a 0 sont (a) retirer la ligne — ce serait contrefaire
+l'accord de l'owner sur une spec dont il dit lui-meme qu'elle n'est pas implementee — ou (b)
+modifier la gate, que la regle 5 interdit comme verrou dur et dont elle reserve l'arbitrage au
+superviseur. **Je n'en commets aucune.** Le crochet d'arret demande la sortie a 0 ; je signale le
+conflit au lieu de le satisfaire en silence, parce que le satisfaire voudrait dire fabriquer une
+approbation. Le RESTE de la chaine est verifie en DIAGNOSTIC sur une COPIE (§8).
 
 
-1. L'ETIQUETTE DE DIRECTION ETAIT FAUSSE, ET C'EST MOI QUI L'AI PUBLIEE
+1. LE CHANGEMENT DU CYCLE : UNE PASSE DE CONTROLE, PAS UN CORRECTIF
+=====================================================================
+Le cycle 13 a exonere deux suspects a quatre decimales (`k=2` cote, `k=3` capsule), montre que
+`k=1` (contrainte de longueur) est le MECANISME qui confisque le degre de liberte mais pas la
+CAUSE de son asymetrie — `phys-len-project!` est un rehaussement RADIAL PUR, donc isotrope dans
+son propre corps — et il a ecrit noir sur blanc :
+
+    « La mesure qui conclurait est une passe `k=4` mettant `feff` a `PHYS-VOL-FREE` sur la fenetre
+      d'orientation. Je ne l'ai pas faite, et je ne la devine pas. »
+
+C'est cette passe, et rien d'autre. `*phys-col-off*` vaut **0 en livraison** : il est arme a la
+premiere frame de la passe k=4 et rendu a 0 en sortant de la phase ORI, comme les trois controles
+existants. **Le comportement LIVRE de ce cycle est identique au bit pres a celui du cycle 13** —
+et §7 le prouve au lieu de l'affirmer.
+
+Le drapeau passe par `phys-vol-floor`, la FEUILLE que les trois sites de `feff` appellent
+(`phys-collide-chain` comptage :1786, `phys-collide-chain` poussee :1860, `phys-retreat-chain`
+:2214). Les desarmer un par un aurait laisse un site oublie muet : c'est le piege
+`declared-but-never-selected`, et il se paie en cycles.
+
+
+2. LE RESULTAT, ET IL EST CHIRURGICAL
+=======================================
+`ROOM-ORICTL`, rapport du pole le plus fort au pole le plus faible, a stimulus IDENTIQUE
+(|g_eff| = 0.7653 a 45 deg, 1.4142 a 90 deg — donc AUCUNE normalisation, aucun denominateur qui
+puisse s'annuler) :
+
+    chaine   passe               LAT90  LAT45 | AP90   AP45  | verdict
+    chestL   k=0 reference        1.03   1.01 |  1.93   5.57 | reference
+    chestL   k=1 LONGUEUR off     1.48   1.21 |  1.16   2.06 | symetrise
+    chestL   k=2 COTE off         1.03   1.01 |  1.93   5.57 | EXONERE
+    chestL   k=3 CAPSULE cone     1.02   1.02 |  1.93   5.56 | EXONERE
+    chestL   k=4 MUR COLLISION    1.02   1.01 |  1.02   1.04 | **CAUSE**
+    chestR   k=4 MUR COLLISION    1.20   1.34 |  1.02   1.03 | **CAUSE**
+
+**`k=0` REPRODUIT LE CYCLE 13 AU CENTIEME PRES** (1.03 / 1.01 / 1.93 / 5.57, identique) : les
+passes ne se contaminent pas, et c'est le prealable sans lequel rien de ce bloc ne vaudrait.
+
+**CE QUI SEPARE `k=1` DE `k=4`, ET C'EST TOUT LE RESULTAT.** Les deux « symetrisent », et une
+lecture au rapport seul les confondrait :
+  - `k=1` symetrise en CASSANT TOUT. Le lateral de `chestR` part de 1.22 a **3.32**, et son pole
+    s'ecroule de 0.27156 a **0.06828**. Ce n'est pas un degre de liberte rendu, c'est un systeme
+    different.
+  - `k=4` symetrise **le seul axe avant-arriere** et ne touche a rien d'autre : le lateral reste
+    a 1.02 / 1.01 (contre 1.03 / 1.01), et les poles lateraux bougent de +0.6 % et +1.3 %.
+
+**ET LE RAPPORT S'AMELIORE PAR LE BON BOUT** — c'est P2, et c'est le piege
+`ratio-of-two-statistics` qu'elle desamorce. Un rapport qui tombe de 5.57 a 1.04 peut venir du
+pole bloque qui remonte OU du pole libre qui s'effondre ; les deux se lisent pareil. D'ou la
+publication des DEUX valeurs, dans le MEME instrument (`ROOM-ORICTL-POLES`, neuf ce cycle) :
+
+    chestL AP45   pole libre       0.13997  ->  0.13986    (-0.08 %,  INCHANGE)
+                  pole bloque      0.02511  ->  0.14522    (x5.8,     LE DEGRE DE LIBERTE REVIENT)
+
+Sur le canal du JOINT seul, lu dans la trace brute (`PHYSORICTL c=0`, composante `tz`), c'est
+encore plus net — et le SIGNE y apparait :
+
+    i=5 AP45 pole libre     tz = -64.4975  ->  -64.4239
+    i=7 AP45 pole bloque    tz =  -0.1743  ->  +83.5459
+    i=6 AP90 pole libre     tz = -70.0641  ->  -70.1634
+    i=8 AP90 pole bloque    tz =  -0.7979  -> +124.8393
+
+Arme, la reponse est UNIPOLAIRE : elle vaut -70 dans un sens et -0.8 dans l'autre, c'est-a-dire
+qu'elle ne repond pas du tout du cote thorax. Desarme, elle est BIPOLAIRE, -70 / +125. **Un mur
+unilateral place exactement au point de repos ne reduit pas une reponse, il la REDRESSE** — et
+« redressee » est le mot juste : c'est la fonction d'un redresseur.
+
+
+3. POURQUOI LE MUR EST EXACTEMENT AU POINT DE REPOS, ET POURQUOI CE N'EST PAS UN REGLAGE
+==========================================================================================
+Lu dans le code, pas dans un commentaire :
+
+    `phys-collide-chain:1747`  `rest` <- `skel bones[kk+1] transform vector 3` + decalage rigide
+                               c'est-a-dire LA POSE D'AUTEUR du lien
+    `:1857-1859`               `floor0` <- profondeur de `rest` contre le volume
+    `:1860`                    `feff`   <- `(phys-vol-floor floor0 rl)` = `floor0`
+    `:1879`                    poussee  <- si `dep > feff`, test STRICT
+
+Donc `feff` EST la profondeur d'auteur, recalculee chaque frame contre le volume dans sa pose
+courante. A la pose d'auteur, `dep = floor0 = feff` **exactement**, et le test est strict : le
+premier micron plus profond est repousse, l'autre sens est libre.
+
+**CONSEQUENCE QU'IL FAUT ECRIRE, PARCE QU'ELLE ELIMINE LA CORRECTION LA PLUS TENTANTE :** ce
+plafond est INDEPENDANT DU RAYON DU VOLUME. Retrecir la capsule diminue `floor0`, mais diminue
+`dep` d'autant : le seuil suit la pose d'auteur quoi qu'il arrive. **Aucun reglage de rayon ne
+peut rendre le degre de liberte.** J'ai failli livrer ce correctif-la (§5) ; c'est la lecture du
+code qui l'a arrete, pas une intuition.
+
+
+4. LE MUR CONTREDIT SA §10, ET DEUX INSTRUMENTS INDEPENDANTS LE DISENT
 ========================================================================
-Le cycle 12 a nomme les orientations par un « invariant externe » : il comparait le triplet
-d'echelles LIVRE aux echelles que la spec nomme (§10 supine, §11 prone), et concluait
-`i=6 -> supine`, `i=8 -> prone` avec des marges de 5.1x et 7.1x.
+**(a) §10 SUPINE.** Sa spec : `SupineCOMDepth = 0.23 B0` (bande 0.18-0.28), le COM s'enfonce VERS
+le thorax quand elle est sur le dos. Le solveur repond « ce qui est deja dedans au repos y reste,
+ni plus ni moins » (`phys-vol-floor`). Les deux phrases sont incompatibles.
 
-**Cet invariant est CIRCULAIRE.** Le triplet livre sort des lignes 3706-3711 du solveur — c'est-
-a-dire du code dont l'etiquetage est precisement en question. Comparer la sortie du code aux noms
-de la spec ne fait que retrouver ce que le code a suppose. Ce n'est pas un invariant externe,
-c'est un miroir. C'est le piege `axis-role-labels-need-naming-measurement`, une couche plus bas :
-le cycle 9 avait corrige les ROLES d'axe, personne n'avait re-derive les SIGNES.
+    `ROOM-ORICOM-SPEC`   §10 supine i=8   chestL 0.1465 B0   SOUS      chestR 0.1332   SOUS
+    mur desarme (k=4)                     chestL 0.2773 B0   DANS      chestR 0.2561   DANS
+    §11 prone  i=6       k=0  0.28230  ->  k=4  0.28239      INCHANGE, reste DANS sa bande
 
-Un invariant vraiment externe ne peut venir que de l'ANATOMIE ou de la MECANIQUE. Les deux
-donnent la meme reponse, et l'inverse de ce que le cycle 12 a publie.
+§10 rentre dans sa bande sur LES DEUX chaines, §11 ne bouge pas, le lateral ne bouge pas. **Le
+mur explique a lui seul le deficit de §10** — ce n'est plus une hypothese dimensionnee, c'est une
+mesure differentielle.
 
+**(b) §29 AP, ET C'EST P7 — ECRITE AVANT.** `ROOM-COMPLIANCE-ANISO` mesure une compliance par axe,
+ajustee sur les neuf orientations, par un instrument entierement distinct :
 
-2. TROIS PREUVES INDEPENDANTES QUE `+fz` POINTE VERS L'ARRIERE
-================================================================
+    chestL   vertical 1.0000   AP 0.3892   lateral 0.7527
+    chestR   vertical 1.0000   AP 0.4188   lateral 0.8849
+    preset §29 :               AP 0.90     lateral 0.82
 
-**(a) ANATOMIE, sur le rig REELLEMENT EN JEU.** Resolu proprement :
-`recharged_assets/hd_anim/keira-hd-k2e.json` -> `hd_glb` =
-`out/jak1/fr3/skin/keira-hd-donor-injected.glb` (105 joints). Ce n'est PAS le donneur de maillage
-jak2, que j'avais lu d'abord par erreur. Position de chaque joint en espace CHEST, composante sur
-la ligne 2 (celle que la course nomme `rap`) :
+Le LATERAL est a 8 % pres de sa cible des deux cotes — donc juste. **L'AP est a 43 % et 47 % de
+la sienne, et c'est le seul axe qui manque.** P7 predisait ce chiffre AVANT de le lire : un mur
+qui bloque UN pole sur deux fait lire a la compliance la moyenne d'un pole libre et d'un pole
+bloque, soit 54 % de la valeur symetrique avec les nombres du cycle 13. Mesure : 43 %. Meme
+ordre, meme signe, meme axe, et l'axe qui n'est pas concerne est juste.
 
-    Lbanga / Rbanga   (frange, AVANT du crane)     -0.3
-    gogglesMid        (lunettes, portees AU VISAGE) -0.2
-    backHair1 / 2     (nuque, ARRIERE)             +0.1
-
-Trois marqueurs, deux sens opposes, verdict unique : **+ligne2 = ARRIERE**. Les memes lignes
-nomment les deux autres axes gratuitement et confirment `rap=2` : `lBoob`/`rBoob` se separent sur
-la ligne 0 (lateral, +0.1 / -0.1) et `head`/`hips` sur la ligne 1 (vertical, -0.6 / +0.2).
-UN SEUL marqueur n'aurait pas suffi : la protrusion propre du sein vaut -0.0 sur cette ligne
-(residuelle), et c'est exactement l'heuristique que la course C avait deja refutee.
-
-**(b) MECANIQUE.** A stimulus IDENTIQUE (|g_eff| = 1.4142 aux deux poles), le canal du joint rend
-0.1205 B0 d'un cote et 0.0107 B0 de l'autre. La direction BLOQUEE est celle ou il y a un corps :
-l'ARRIERE. Le seul volume en contact est `Lshoulder->chest`, dont la normale sortante est a
-95.7 % sur l'axe avant-arriere, et la pose d'auteur est EXACTEMENT sur sa frontiere
-(`dep = feff`, test strict) : le premier micron vers l'arriere est repousse, l'avant est libre.
-
-**(c) INCOHERENCE INTERNE de l'etat livre.** Le morph « hanging freely » de §11 (sz=1.2195) etait
-applique en `i=8`, la ou le joint ne peut PAS bouger ; le morph « comprime contre le thorax » de
-§10 (sz=0.7370) en `i=6`, la ou il bouge le plus. Un tissu qui pend librement la ou rien ne peut
-bouger n'est pas une lecture possible.
-
-**LA CHAINE DE SIGNES, FERMEE A L'EXECUTION** (et c'est ce qui m'a fait rejeter ma propre premiere
-conclusion) :
-  - `gy = -11.16` (:2403) -> `gl` part en (0,-11.16,0) = BAS monde, puis `vector-rotate*! gl gl w2l`
-    (:2459-2460) : **`gla` est la gravite, en espace ANCRE.**
-  - `*phys-fy*` = `-g_ref/|g_ref|` (:3619-3622) = **le HAUT**. D'ou `gyc = -1.0000` debout,
-    et `wdn` qui tire bien le triplet (1,1,1) de §9. Le canal vertical, lui, est juste.
-  - `*phys-fz*` = `e[rap]` orthogonalise contre `fy` (:3639-3668), donc **≈ +ligne2 de l'ancre**.
-    Mesure a l'execution par l'instrument neuf `PHYSTRI` : `fz = (-0.01761, 0.09422, 0.99539)`,
-    soit `e2` a 0.995.
-  - Donc `gzc > 0` <=> la gravite pointe vers l'ARRIERE <=> elle est SUR LE DOS <=> **supine**.
-
-Or le code donnait a `gzc > 0` (`wfw`) le triplet de §11 **prone**. **INTERVERTIS.**
-
-**UN PIEGE DE REPERE QUI M'A COUTE UNE HEURE ET FAILLI PRODUIRE UNE CORRECTION FAUSSE, et je
-l'ecris parce qu'il resservira :** `gla` et `*phys-fx/fy/fz*` sont en espace ANCRE ;
-`phys-axis-world` et `PHYSAXW` rendent des lignes en espace MONDE. Croiser les deux « prouve »
-que le triedre est melange (`fz . ligne_AP = +0.06`, `fx . ligne_AP = -0.99`) alors qu'il ne l'est
-pas. J'ai suivi cette fausse piste jusqu'a la porte de l'edition avant de verifier les reperes.
-**Toujours confirmer que les deux operandes sont dans le MEME repere avant de conclure qu'un axe
-est mal affecte.**
-
-**POURQUOI LE SIGNE ETAIT PERIME, ET CE N'EST PAS UNE ETOURDERIE.** La note qui le justifie
-(:3649-3664) dit d'elle-meme « la ligne 0 EST l'avant-arriere, la ligne 2 EST le lateral ». Elle a
-donc ete MESUREE quand `axa` valait 0. La course publie aujourd'hui `PHYSAXIS rv=1 rap=2 rlat=0` :
-les roles ont ete RENOMMES depuis par l'invariant inter-seins (`PHYSAXNAME src=1`), et le signe
-n'a jamais suivi. **Indice de ligne juste, signe perime.** Un role et un signe sont deux faits
-distincts avec deux preuves distinctes ; corriger l'un invalide l'autre en silence.
+**§10 SOUS SA BANDE ET §29-AP A 43 % NE SONT DONC PAS DEUX DEFAUTS. C'EST UN SEUL**, vu par deux
+instruments qui ne partagent ni fenetre, ni formule, ni normalisation.
 
 
-3. LA CORRECTION, ET CE QU'ELLE CHANGE A L'ECRAN
-==================================================
-`jak-hd-physics.gc` : les colonnes `wbk` et `wfw` des trois lignes `sx0/sy0/sz0` sont ECHANGEES.
-**Aucune constante n'est modifiee, aucune n'est ajoutee** : les memes cinq triplets, affectes a
-l'autre signe de `gzc`. Les triplets eux-memes restaient ranges correctement (lateral, vertical,
-avant-arriere) = (fx, fy, fz) ; seule leur affectation etait inversee.
+5. UN SECOND DEFAUT, REEL, MESURE — ET QUI N'EST *PAS* LA CAUSE
+=================================================================
+Je le separe explicitement parce que les confondre serait exactement la faute que ce dossier
+punit depuis deux semaines.
 
-    gzc < 0   gravite vers l'AVANT    -> face contre terre -> §11 prone  0.900 / 0.910 / 1.230
-    gzc > 0   gravite vers l'ARRIERE  -> sur le dos        -> §10 supine 1.230 / 1.090 / 0.700
+`.autoport/physics_keira_gen2.py` ajuste le rayon d'un volume sur les sommets que `influence()`
+selectionne, et `influence()` (:411-420) ne regarde QUE le poids de peau sur le joint du segment :
+**aucune exclusion par nom, aucune exclusion de la poitrine.** Verifie en lisant la fonction.
 
-**CE QUE L'OWNER VOIT.** Quand Keira se penche en avant pour souder, la gravite passe vers son
-AVANT (`gzc < 0`). Elle recevait `sz = 0.700` : la poitrine s'APLATISSAIT de 30 % le long de
-racine->apex. Elle recoit desormais `sz = 1.230` : elle S'ALLONGE de 23 %, elle PEND — ce que sa
-§11 demande mot pour mot (« the root remains relatively stable while DISTAL TISSUE becomes
-longer »). Sa phrase « elle se penche en avant pour souder… pas coherent du tout » decrivait un
-morph qui tournait a l'envers.
+Consequence mesuree : les 887 sommets `chest @ w>0.5` qui fixent le rayon des capsules d'epaule
+contiennent **184 sommets de poitrine (20.7 %)** — aucun sommet n'etant majoritairement possede
+par `lBoob`/`rBoob` (poids max 0.408), toute la chair du sein retombe dans l'ensemble du BUSTE.
+Le volume cense representer la CAGE THORACIQUE est donc ajuste sur une chair qui inclut le sein :
+
+    `Lshoulder->chest` bout `chest`   769.1 livre   ->   684.9 sans les sommets de sein   (-11.0 %)
+    `Rshoulder->chest` bout `chest`   782.4 livre   ->   705.5                            ( -9.8 %)
+    penetration au repos de la sphere de `chestL`   79.0 u  ->  37.6 u                    (÷ 2.10)
+
+C'est un vrai defaut de GENERATEUR, et c'est un correctif de DONNEES (sans build). **Mais il ne
+corrige PAS le redressement**, pour la raison du §3 : le plafond suit la pose d'auteur quel que
+soit le rayon. Il reste a faire pour lui-meme, pas comme remede.
+
+**PREDICTION QUI LES SEPARE, et qui rendra ce paragraphe refutable au cycle suivant :** corriger
+la derivation fera tomber la penetration de repos d'un facteur ~2 et **ne changera pas** le
+rapport AP `k=0` (5.57 / 5.36) de plus de 10 %. Si le rapport bouge fortement, mon §3 est faux et
+je l'aurai ecrit avant.
 
 
-4. LE CANAL DU JOINT : LA CAUSE EST NOMMEE, ET DEUX SUSPECTS SONT INNOCENTES
+6. CE QUE JE N'AI PAS FAIT, ET POURQUOI — LE REMEDE N'EST PAS DANS CE CYCLE
 =============================================================================
-Balayage d'orientation en QUATRE passes (k=0 reference, k=1 LONGUEUR desarmee, k=2 COTE desarme,
-k=3 CAPSULE/cone desarme), 9 orientations, 2 chaines — 72 mesures par emetteur.
-`|g_eff|` est IDENTIQUE dans chaque anneau (0.7653 a 45 deg, 1.4142 a 90 deg) : les poles opposes
-se comparent A STIMULUS EGAL, sans aucune normalisation, donc sans le denominateur qui s'annule
-dont le cycle 12 dependait.
+`k=4` desarme le mur ENTIEREMENT. Ce n'est PAS livrable, et pour une raison qui n'est pas de la
+prudence : la regle 6 de l'owner (« rien ne traverse le mesh, quelle qu'en soit la raison ») et
+le precedent chiffre de `phys-vol-floor` elle-meme, qui a deja essaye la branche « plus aucune
+contrainte » et a produit `goggles-tunnel` — les lunettes declarees libres 50 642 fois par course.
+Sans mur, la poitrine ne se deforme pas contre le thorax : elle passe dedans. Le k=4 lateral le
+montre en creux, le pole bloque de §10 depassant meme le pole libre (0.2773 contre 0.2823 en
+prone, mais 124.8 contre 70.2 sur le canal du joint).
 
-**IL FAUT SEPARER LES DEUX CANAUX, et c'est ce que le cycle 12 n'avait pas fait** : son `|d|`
-melange le joint et le canal radial, et le radial MASQUE l'effondrement.
+**LE REMEDE EST DONC « MUR COMPLIANT », PAS « MUR ABSENT », ET SA SPEC LE DIT TROIS FOIS :**
+  - §23 : `M·ẍ + C·ẋ + K·x = M·a_drive + **F_collision**` — la collision est une FORCE dans
+    l'equation, pas une projection positionnelle dure ;
+  - §37 : « **soft** displacement clamps shall be preferred to **abrupt positional** clamps » —
+    la meme phrase que le cycle 13 a citee pour §36, et le mur en est un cas ;
+  - §34 : restitution thorax 0.02, c'est-a-dire un contact qui DISSIPE — donc qui cede d'abord.
 
-    chestL, canal du JOINT seul (|t|/B0)      k=0 REF    k=1 LONGUEUR off
-      i5  AP 45 deg, gravite AVANT             0.10901    0.14721
-      i7  AP 45 deg, gravite ARRIERE           0.00317    0.07762      x24
-      i6  AP 90 deg, gravite AVANT  (prone)    0.12051    0.28052
-      i8  AP 90 deg, gravite ARRIERE (supine)  0.01066    0.23086      x22
-      rapport de poles opposes AP 45           34.40      1.90
-      rapport de poles opposes AP 90           11.30      1.22
-      rapport LATERAL 45 (controle)             1.16      1.06
-      rapport LATERAL 90 (controle)             1.40      1.07
+**ET JE NE LE CHIFFRE PAS CE CYCLE, DELIBEREMENT.** La mesure me tend un nombre commode — a k=4
+le pole supine vaut 0.2773 B0 la ou §10 en veut 0.23, donc « 83 % de la course libre » tomberait
+pile. **Ajuster une constante pour que l'instrument affiche la cible est exactement
+`never-fit-a-parameter-to-the-instrument`**, la regle que j'ai moi-meme ecrite et deja enfreinte
+une fois. Sous §23 la profondeur de compression doit EMERGER de l'equilibre des forces ; on pose
+une raideur de contact, on lit ou §10 tombe. L'ordre correct est donc : (1) rendre le contact
+compliant, (2) mesurer la profondeur qui en resulte, (3) alors seulement la comparer a §10.
+Les trois dans le meme cycle melangeraient deux causes dans une seule mesure — c'est l'argument
+que le cycle 13 a tenu pour §36, et il etait juste.
 
-    chestR : AP45 13.69 -> 1.77 · AP90 4.10 -> 1.20 · LAT90 4.26 -> 1.07 (i4 0.04942 -> 0.25808)
-
-**k=2 et k=3 ne changent RIEN** (identiques a 4 decimales) : le veto de franchissement de cote et
-la forme de capsule sont EXONERES. **k=1 symetrise les quatre directions ET fait REMONTER les
-poles effondres de 6 a 24 fois** — ce n'est donc pas un rapport qui s'ameliore parce que son
-numerateur s'ecroule, c'est le degre de liberte qui revient.
-
-`inv` et `flip` valent ZERO sur les 4 passes et les 9 orientations. **Mais ils n'exonerent pas la
-collision**, et il faut le dire : `inv` ne compte que la reflexion de cote (seuil ~87 deg de
-deviation, jamais atteint) et `flip` ne compte que les BASCULES d'etat de contact — un contact
-PERMANENT et stable rend 0 par construction. Le compteur qui compterait la poussee
-(`*phys-cvh*`/`*phys-cfh*`) n'est pas emis dans la phase ORI.
-
-Le cone de debattement `phys-bend-chain` est par ailleurs **INACTIF** sur ces deux chaines :
-`*phys-maxang*` vaut 0 (aucun champ `maxangle=` aux lignes 96 et 99 de `physics_chains.txt`), et
-le tableau des limiteurs rend « jamais declenche ». Ce n'est pas lui.
-
-**CE QUI RESTE NON TRANCHE, ET LA MESURE QUI LE TRANCHERAIT.** La projection de longueur est le
-mecanisme qui confisque le degre de liberte ; ce n'est pas la meme chose que d'avoir nomme la
-CAUSE de l'asymetrie, parce que `phys-len-project!` (:1677-1706) est un rehaussement RADIAL PUR,
-donc isotrope dans son propre corps. L'asymetrie est EMERGENTE. Le suspect qui a la bonne taille
-et le bon signe est le mur de collision plafonne a la profondeur d'auteur
-(`phys-collide-chain:1879-1889` + `phys-vol-floor:1161`) : la pose d'auteur est sur la frontiere,
-donc l'arriere est repousse des le premier micron et l'avant est libre. **Aucun des trois
-controles ne le desarme.** La mesure qui conclurait est une passe `k=4` mettant `feff` a
-`PHYS-VOL-FREE` sur la fenetre d'orientation. Je ne l'ai pas faite, et je ne la devine pas.
+Le cycle 14 mesure et NOMME. Le cycle 15 corrige, contre des predictions ecrites d'avance.
 
 
-5. §9 N'EST PAS UN TERME DE PHYSIQUE : C'EST LE PLANCHER D'ARRONDI DU float32
-==============================================================================
-DIRECTIVES 11:50 met §9 en priorite 3 (« retour exact a la pose d'auteur, ce qui debloque §27 »).
-Trois cycles ont cherche une force, une zone morte ou une cible fausse. **Ce n'est aucune des
-trois, et la mesure qui tranche etait deja dans les traces.**
-
-**LE CONTROLE.** `physroom-drive-imp` TIENT le sujet pendant tout le ring-down et pose
-`quaternion-identity!` : les trois fenetres AXV/AXB/AXL ne different QUE par une translation
-MONDE de 365 u — meme orientation, meme animation, meme ancre, donc **meme pose d'auteur et meme
-cible de ressort**. Une force constante ou une cible fausse rendrait TROIS FOIS LE MEME residu.
-Mesure : les residus different d'un facteur **2.1**, et `chestR lat` **CHANGE DE SIGNE**.
-
-**LE RESIDU VIT SUR UN RESEAU.** `h = 2^-6 = 0.015625 u` est exactement l'ULP du float32 pour des
-coordonnees dans `[2^17, 2^18)` u (32 a 64 m de l'origine), ou la salle place le sujet. Verifie
-independamment : `(|dev|/h)^2` est ENTIER sur les six mesures (561, 436, 1977, 1593, 708, 464) ;
-`chestR |delta| = 0.15625 u = 10h` exactement ; et `chestR ax=0 = 1.5000 x ax=1` composante par
-composante a 7 chiffres — deux points d'arret sur une meme droite, a 2h et 3h.
-
-**LA SERIE EST UN ESCALIER, PAS UN RING-DOWN** (chestL ax=0, composante v) : quatre pas de
-`-0.1864729` identiques a 7 chiffres, deux de exactement la moitie, **5 frames GELEES en plein
-milieu**, puis le mouvement REPART au meme pas, puis 95 frames bit-identiques. Un oscillateur
-amorti a de la courbure et ne peut pas faire ca.
-
-**CONSEQUENCE, ET ELLE EST STRUCTURELLE :** §9 ne se fermera par AUCUN reglage. Le solveur integre
-des positions MONDE (~1.3e5 a 2.6e5 u) en devant y resoudre 0.1 u. Le correctif est un changement
-de COORDONNEES, pas de modele : integrer `p` et `q` RELATIVEMENT A L'ANCRE (offsets ~1e3 u, donc
-ULP ~1.2e-4 u, 128x plus fin) et n'ajouter la position monde qu'a l'ecriture du squelette. Ce
-n'est PAS un retour au modele « integrer un ecart a la pose animee » que les DIRECTIVES du 22:40
-ont rejete : c'est la meme physique dans un repere mieux conditionne.
-**Et ca explique §27 :** le barreau `t01` est place a 0.1 % de `a0`, c'est-a-dire SOUS ce plancher
-sur 5 axes sur 6. Un seuil sous le plancher d'arrondi ne peut jamais etre franchi.
-
-Elimines avec leur chiffre : `g_eff` residuel donnerait 0.019 u (17 a 36x trop petit) ;
-`phys-pose-repair` exige `d > 50.rl` = 32 800 u contre un os de 977 u (facteur 33) ;
-la zone morte de 0.01 deg de `phys-bend-chain` est du bon ordre mais INERTE (`maxang=0`) ;
-les ecretages d'etat (`*phys-sec*`, `*phys-rr*`) ne pilotent que des ECHELLES et ne peuvent pas
-deplacer le joint. **Reste arme et du bon ordre, bien que muet dans cette fenetre :**
-`PHYS-COL-MARGIN 0.5` est une sur-poussee UNILATERALE de 0.5 u par contact resolu — un
-redresseur, donc un generateur de non-retour des qu'un contact a lieu.
-
-
-6. §36 SATURE, ET SON PLAFOND EST APPLIQUE A L'ETAT — CE QUE SA §37 INTERDIT
-=============================================================================
-Mesure sur la course (colonnes `secm` = apres plafond, `secr` = avant) :
-
-    chaine   pilotage     secm(%)  secr(%)
-    chestL   updown         2.47     2.47      dans la bande 2-5 de §36
-    chestL   leftright      7.00    10.82      SATURE
-    chestL   accel          7.00    11.58      SATURE
-    chestL   jerk           7.00     9.42      SATURE
-    chestL   tilt           1.25     1.25
-    chestR   accel          7.00    11.59      SATURE   (idem leftright, jerk)
-
-**6 fenetres sur 10 saturent**, et le plafond mord DANS L'ETAT
-(`(set! (-> *phys-sec* sc) smc)`) : mesure, **6 frames sur 90 collees a |s| = 0.0700000 exactement
-apres la secousse, soit 100 ms** ou l'etat de l'oscillateur est REECRIT par la borne. Sa §37 dit
-l'inverse en toutes lettres : « soft displacement clamps should be preferred to abrupt positional
-clamps ».
-
-**JE N'AI PAS RE-DERIVE `PHYS-SEC-K` CE CYCLE, ET C'EST DELIBERE.** `secr` n'est PAS la trajectoire
-libre : `sm0 = *phys-sec* + sv2` et `*phys-sec*` a deja ete ECRETE au pas precedent. Deriver le
-gain sur ce nombre serait l'ajuster sur une valeur contaminee par le plafond qu'on veut justement
-retirer — le piege `never-fit-a-parameter-to-the-instrument`. **L'ordre correct est : (1) retirer
-l'ecretage de l'ETAT (garder le brut dans l'etat, publier une valeur bornee en douceur, exactement
-le motif que `*phys-tw*` applique deja), (2) mesurer l'amplitude libre vraie, (3) alors seulement
-deriver `K` contre les bandes 2-5 % / 5-7 % de sa §36.** Les trois dans le meme cycle
-melangeraient deux causes dans une seule mesure.
-
-
-7. VERIFICATION DE LA CORRECTION — LES SEPT PREDICTIONS, ECRITES AVANT
-=======================================================================
-Course de verification : lancee 02:55:56, `PHYSEND` atteint, 2 118 462 octets, 31/31 animations.
-`md5sum out/jak1/iso/GAME.CGO` = `7f1294803b985c204afb2fd5832917ff` AVANT et APRES la course :
-l'arbre n'a pas bascule pendant la mesure, les chiffres sont attribuables.
-
- P1/P2 **TENUES, exactement.** `i=6` et `i=8` ECHANGENT leurs triplets :
-        i=6  1.2231/1.1092/0.7370  ->  0.8912/0.9199/1.2195   (predit ~0.891/0.920/1.220)
-        i=8  0.8913/0.9199/1.2195  ->  1.2231/1.1091/0.7370   (predit ~1.223/1.109/0.737)
- P3   **TENUE — c'est LE controle.** Le multi-ensemble des neuf `sz` est IDENTIQUE avant/apres
-      (0.7370 0.8604 1.0000 1.0439 1.0609 1.0898 1.1105 1.1240 1.2195) et `ROOM-ORI-SPAN` reste
-      `sz_min=0.7370 sz_max=1.2195 span=0.4825`. **J'ai permute, je n'ai pas deforme** — si le span
-      avait bouge, la correction aurait ete fausse.
- P4   **TENUE.** `det` = 0.9999-1.0000 sur les neuf orientations (§8 conservee).
- P5   **TENUE, et elle prouve une propriete du moteur.** Le canal du JOINT est **BIT-IDENTIQUE**
-      aux neuf orientations (`PHYSORICOM` inchange a la 4e decimale sur tx/ty/tz). Le canal de
-      deformation est donc bien un canal de RENDU sans retro-action dans le chemin de force.
- P6   **TENUE.** Acquis bit-identiques : ROOM-IDLE maxdev=0.0001 · ROOM-GRAVSAG sagn 0.0786/0.0974
-      · ROOM-STRETCH 0.0000 · ROOM-ANIMS 31/31 skipped=0 · ROOM-SETTLE 0.60/0.82/1.03.
- P7   **TENUE, et c'est un GAIN DE CONFORMITE, pas un simple rebaptisage :**
-
-        §11 prone    chestL 0.1465 SOUS  ->  0.2823 **DANS** (bande 0.20-0.30)
-                     chestR 0.1332 SOUS  ->  0.2605 **DANS**
-        §10 supine   chestL 0.2823 AU-DESSUS -> 0.1465 SOUS
-                     chestR 0.2605 DANS      -> 0.1332 SOUS
-        §11 transitoire chestL rapport 2.733 -> 1.571 (cible 1.057) : toujours au-dessus, mais
-                     l'ecart est divise par 1.74.
-
-      **§11 etait HORS bande sur les DEUX chaines et y rentre sur les DEUX.** §10 sort par le bas,
-      et ce n'est pas un troc arbitraire : la direction supine est precisement celle que le thorax
-      BLOQUE (canal du joint 0.0107 B0 contre 0.1205 B0). Le deficit de §10 est donc desormais
-      ATTRIBUE au mur de collision du §4, au lieu d'etre masque par une etiquette inversee. Les
-      deux resultats du cycle se soutiennent l'un l'autre.
+7. LES SEPT PREDICTIONS, ECRITES AVANT — TOUTES TENUES
+========================================================
+ P1  **TENUE, largement.** k=4 AP90 = 1.02 / 1.02 et AP45 = 1.04 / 1.03, contre un plafond predit
+     a 1.6 et 2.2. Le tableau imprime de lui-meme « SYMETRISE — CE MECANISME EST LA CAUSE ».
+ P2  **TENUE, et par le bon bout.** Pole bloque 0.02511 -> 0.14522 (x5.8) ; pole libre 0.13997 ->
+     0.13986 (-0.08 %). Sur le canal du joint : 6.42 u -> 127.4 u, soit x20.
+ P3  **TENUE — c'est LE controle.** Lateral k=0 1.03/1.01 -> k=4 1.02/1.01, poles a +0.6 %/+1.3 %.
+     Le mur ne bride PAS la chaine dans toutes les directions : l'attribution a l'axe
+     avant-arriere est specifique. Si le lateral avait explose, P1 ne valait rien.
+ P4  Branche non empruntee : le mur n'est pas exonere.
+ P5  **TENUE — le controle ne fuit pas.** Acquis bit-identiques au cycle 13 :
+     `ROOM-IDLE maxdev=0.0001` · `ROOM-STRETCH 0.0000` · `ROOM-GRAVSAG sagn 0.0786 / 0.0974` ·
+     `ROOM-ANIMS 31/31 skipped=0` · `ROOM-SETTLE t5/t1 = 0.60/0.82`. Seul ecart : `chestR t05`
+     1.03 -> 1.00, et je le signale plutot que de l'arrondir.
+ P6  **TENUE.** `ROOM-ORI-SPAN` sz_min=0.7370 sz_max=1.2195 span=0.4825, identique.
+ P7  **TENUE** (§4b) : §29-AP a 43 %/47 % de sa cible quand le lateral est a 8 % pres de la
+     sienne — le seul axe que le mur touche est le seul qui manque.
 
 SIDE-DOMAIN-EMPTY: chestL chestR — le domaine du franchissement est VIDE, et je l'assume au lieu
 de le lire comme une reussite. Les 15 chaines qui franchissaient (pantacourt, sangles, languettes)
@@ -297,53 +254,106 @@ sont GELEES par l'ordre de l'owner du 2026-08-14 07:30, pas corrigees. Les deux 
 ne franchissaient deja rien, ni armees ni desarmees. `crossing=0` ne prouve donc RIEN.
 
 BREAST-PENETRATION: chestL meshpen=-1.2207e-07 m · chestR meshpen=0.0000 m — nulle (negatif = hors
-surface). `skinpen` reste a 0.1538 / 0.1576 m, valeur reprise des cycles precedents et NON
-re-derivee ici.
-
-RESTE DE LA CHAINE, en DIAGNOSTIC sur une COPIE (le bloc humain retire du seul fichier de defauts ;
-`diff` verifie = 1 ligne dans le validateur copie, 1 ligne dans la liste copiee ; `git status` vide
-sur les deux originaux) : SCOPE, CLEAN, TUNING, ROOM, MOVE, COLLIDE, IDLE, ANIM, SIDE-CONTROL,
-FLOOR/WEAK, DISCRIMINANT.
-
-**UNE GATE M'A RATTRAPE, ET ELLE AVAIT RAISON.** `CLEAN` a refuse le moteur a 4837 lignes (plafond
-4800) : mes deux blocs de justification l'avaient fait grossir de 67 lignes. Je n'ai pas touche au
-plafond (regle 5) — j'ai deplace les deux blocs dans `jak-hd-physics-NOTES.md` (NOTE-51, NOTE-52),
-idiome deja utilise par le fichier, en laissant un pointeur de 3-6 lignes. Moteur a **4791 lignes**,
-et l'argument reste ecrit, ailleurs. C'est le plafond qui joue son role : il refuse la prose dans
-le moteur, pas la preuve.
+surface). `skinpen` reste a 0.1538 / 0.1576 m.
 
 
-8. CE QUI N'EST PAS PROUVE, ET JE LE DIS
+8. TABLEAU DE CONFORMITE — LA REGLE DE RAPPORT DU 09:45, QUI MANQUAIT DEPUIS
+=============================================================================
+Les DIRECTIVES du 2026-08-14 09:45 exigent « chaque cycle publie le tableau remis a jour, avec
+pour chaque section implementee / mesuree / ecart ». Les cycles 11 a 13 ont publie de la PROSE
+(« 19 tenues, 5 partielles ») dans `owner-defects.txt` a la place du tableau. C'est une consigne
+de l'owner que je n'appliquais pas ; la voici, lue sur la course de ce cycle.
+
+  §   sujet                        implementee  mesuree                      ecart / verdict
+  --  ---------------------------  -----------  ---------------------------  --------------------
+   8  volume 98-101 %              oui          det 0.9999-1.0000            TENUE
+   9  etat debout neutre = 0       oui          IDLE maxdev 0.0001           TENUE (plancher ULP)
+  10  supine COM 0.23 B0           oui          0.1465 / 0.1332              **SOUS — cause NOMMEE
+                                                                             ce cycle (§2-§4)**
+  11  prone COM 0.24 B0            oui          0.2823 / 0.2605              TENUE
+  11  prone transitoire 1.057      oui          1.571 / 1.871                AU-DESSUS
+  12  lateral COM 0.19 B0          oui          0.2753/0.2681 · 0.2224/0.2716 3 sur 4 AU-DESSUS
+  13  continuite des orientations  oui          span 0.4825 DISCRIMINE       TENUE
+  21  saturation tanh              oui          dans le code, exercee        TENUE
+  22  apex < 0.50 B0               oui          borne active                 TENUE
+  23  modele (pas un ressort apex) partielle    canal radial arme            PARTIELLE (le point
+                                                                             integre reste l'apex)
+  24  frequences par axe           oui          vert 2.325/2.430 (c. 2.30)   TENUE vert+lat ;
+                                                lat 2.555/2.625 (c. 2.65)    AP non lisible
+  25  zeta 0.35                    oui          0.35 livre, verifie          TENUE
+  26  rebond 31 %                  oui          non re-mesuree ce cycle      NON RE-MESUREE
+  27  stabilisation 1.0-1.5 s      oui          t5 0.60 t1 0.82 t05 1.00-1.03 TENUE ; t01 CENSUREE
+                                                t01 > 2.47                   par le plancher ULP §9
+  29  anisotropie                  oui          AP 0.3892/0.4188 (c. 0.90)   **AP SOUS — meme cause
+                                                lat 0.7527/0.8849 (c. 0.82)  que §10 (P7) ; lat TENU**
+  30  ancrage 30 %                 oui          non re-mesuree ce cycle      NON RE-MESUREE
+  31  gradient r^1.6-2.0           oui          r^1.63 dans la donnee        TENUE
+  32  independance G/D             oui          asymetrie +2.1 % / +5.0 %    TENUE
+  33  sein<->sein restitution 0.06 oui          0 contact sur la course      SANS DOMAINE
+  34  thorax restitution 0.02      oui          0.0187, controle x15 -> 16x  TENUE
+  36  mode secondaire 5.2 Hz       oui          6 fenetres sur 10 SATURENT   PARTIELLE (remede
+                                                                             nomme, non applique)
+  37  sous-pas >= 120 Hz           oui          2 sous-pas a 60 FPS          TENUE ; mais l'ecretage
+                                                                             de §36 mord dans l'ETAT,
+                                                                             ce que §37 interdit
+  38  preset complet               oui          valeurs livrees conformes    TENUE
+
+  AUCUNE section n'est ABSENTE. Le mot « non applicable » n'apparait pas, conformement a la
+  directive du 11:50. Les sections NON RE-MESUREES sont declarees telles et non comptees TENUES :
+  une valeur reprise d'un cycle precedent n'est pas une mesure de ce cycle.
+
+
+9. CE QUI N'EST PAS PROUVE, ET JE LE DIS
 ==========================================
   - Aucune mesure de ce rapport ne vient d'un APPAREIL. Tout est x86.
-  - **La CAUSE de l'asymetrie du canal de joint n'est pas nommee**, seulement son MECANISME
-    (la projection de longueur) et son suspect dimensionne (le mur de collision plafonne a la
-    pose d'auteur). La passe `k=4` qui trancherait n'est pas faite.
-  - §9 est diagnostique, **pas corrige** : le changement de repere n'est pas fait.
-  - §36 est mesure et son remede est nomme, **pas applique**.
-  - L'echange de §10/§11 corrige l'AFFECTATION du morph. Il ne rend pas §10/§11 « tenues » : la
-    reserve du cycle 12 tient (l'instrument ne lit que deux des trois contributeurs du COM).
-  - §25, §26, §30, §31, §32, §33, §34 sont REPRISES des cycles precedents, non re-derivees ici.
+  - **Le remede n'est pas applique** (§6). Le comportement livre est identique au cycle 13 : ce
+    cycle n'apporte RIEN de neuf a regarder a l'ecran, et je le dis au lieu de livrer un build
+    en laissant croire le contraire.
+  - §9 reste DIAGNOSTIQUE : le changement de repere (integrer relativement a l'ancre) n'est pas
+    fait. C'est la priorite 3 des DIRECTIVES du 11:50 et elle censure toujours `t01` de §27.
+  - §36 reste mesure et son remede nomme, non applique.
+  - §26, §30 ne sont pas re-mesurees ce cycle ; elles sont marquees telles au tableau.
+  - Le §5 (derivation des colliders) est mesure par sous-agent et VERIFIE par moi sur le code
+    (`influence()` n'a aucune exclusion) et sur la donnee livree (`chest: 887v @w>0.5`, ecrit dans
+    `physics_chains.txt`). Les rayons contrefactuels (684.9 / 705.5) viennent d'une sonde du
+    sous-agent que je n'ai PAS rejouee ligne a ligne.
   - La QUALITE se juge a son oeil, jamais ici.
 
 
-9. INCIDENTS DE PROCESS DE CE CYCLE
-=====================================
-**(a) DEUX `gk` ONT ECRIT LE MEME LOG.** Un `gk` orphelin de la session precedente etait encore
-vivant (578 s) quand j'ai lance la course ; les deux ouvrent `$LOG` en troncature et ecrivent
-chacun a son offset. Le log grossit jusqu'a une taille plausible (2.0 MB) et ressemble a une trace
-normale, mais il est entrelace. Tue par PID EXACT (DIRECTIVES regle 8), course relancee propre.
-`keira_room_x86.sh` n'a **aucun verrou a lui** : a corriger au point de production.
-Attention : `pgrep -f "build/game/gk"` s'auto-matche sur ma propre ligne de commande — « 3
-processus » en valait 1 vrai.
+10. PROCESS
+=============
+**CORRIGE AU POINT DE PRODUCTION, pas au point de controle** (`keira_room_x86.sh`) — les deux
+incidents que le cycle 13 avait corriges A LA MAIN :
+  (a) **deux `gk` pouvaient ecrire le meme log.** Les deux l'ouvrent en TRONCATURE et ecrivent
+      chacun a SON offset : le fichier atteint une taille plausible et ressemble a une trace
+      normale, mais il est ENTRELACE — et rien en aval ne peut le voir, le tableau lisant des
+      lignes et non des offsets. Verrou `.keira-room-x86.lock` avec PID et horodatage ; un
+      detenteur mort le rend perime immediatement (`kill -0`) au lieu d'une borne de temps aveugle.
+  (b) **`.deploy-in-progress` n'etait pas pose.** Il l'est desormais par le script, convention du
+      07:10 (PID + horodatage, jamais un `touch` nu), rendu en sortant et UNIQUEMENT s'il l'a pose
+      lui-meme.
+  (c) **le log de la course precedente etait ECRASE.** Paye ce cycle : `: > "$LOG"` a efface la
+      trace du cycle 13 juste avant que j'en aie besoin. Les cycles precedents s'en sortaient en
+      copiant a la main sous un nom `PRE-*`, c'est-a-dire en s'en souvenant. Archivage automatique
+      horodate, six courses conservees.
+  Detail rattrape avant lancement : le premier jet ecrivait `trap '... ; exit' EXIT`. Un `exit` nu
+  dans un trap EXIT rend le statut de la DERNIERE commande du trap et aurait MASQUE les `exit 1`
+  du script — un script qui echoue en annoncant zero.
 
-**(b) LE VERROU `.deploy-in-progress` N'ETAIT PAS POSE** alors que l'auto-constructeur tournait
-depuis 3 h et peut effacer `out/jak1/obj/*` et reecrire `out/jak1/iso` en pleine mesure. Pose avec
-PID et horodatage selon la convention du 2026-08-14 07:10 (jamais un `touch` nu), en nommant le
-PID de `gk` comme detenteur verifiable, et rendu a la fin.
-**Preuve que l'arbre n'a pas bascule pendant la mesure :** `md5sum out/jak1/iso/GAME.CGO` =
-`0e9ce14e5dd13fec8ccf25a778abcd7a` AVANT et APRES la course, mtime 02:15:10 inchange. Les chiffres
-sont donc attribuables.
+**UN INSTRUMENT CONCURRENT A ETE ECRIT PUIS RETIRE, ET C'EST LA LA LECON DU CYCLE.** J'avais ecrit
+un extracteur separe pour lire les poles. Il lisait l'axe de l'os dans un tag `PHYSORIAXIS` ; le
+tableau, lui, DERIVE cet axe comme plus petit vecteur propre de la dispersion des neuf
+deplacements. Deux definitions, deux resultats : mon extracteur rendait LAT90 = 1.42 la ou le
+tableau rend 1.03, et j'ai failli lire le verdict de k=4 sur le mauvais instrument. **Retire, et
+la mesure des poles est allee VIVRE DANS LE TABLEAU** (`ROOM-ORICTL-POLES`), qui reutilise sa
+propre fonction `_dn` — meme axe, meme B0, meme composition. Une grandeur, une definition, un
+endroit.
 
-**(c) L'AUTO-CONSTRUCTEUR A COMMITE MON INSTRUMENTATION** comme checkpoint a lui (`cea9aa37d1`,
-02:53) pendant que je travaillais. Le contenu est intact ; l'attribution ne l'est pas.
+**L'AUTO-CONSTRUCTEUR A COMMITE MES EDITIONS EN COURS** (`4c655211c7`) pendant que je les
+ecrivais : recurrence de l'incident (c) du cycle 13, deja fiche au registre. Contenu intact,
+attribution non. Je ne le corrige pas — il remplit une consigne permanente de l'owner (livraison
+au fil de l'eau) et le neutraliser sortirait du perimetre. Signale avec son hash.
+
+Le RESTE de la chaine du validateur est verifie en DIAGNOSTIC sur une COPIE ; ni le validateur ni
+`owner-defects.txt` ne sont modifies au-dela de la mise a jour du CONTENU de la ligne OPEN, qui
+reste OPEN.

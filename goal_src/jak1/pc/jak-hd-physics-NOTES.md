@@ -1799,3 +1799,57 @@ ECHANGENT leurs triplets ; le multi-ensemble des `sz` est IDENTIQUE et `ROOM-ORI
 `det` reste 1.0000 ; le canal du JOINT est BIT-IDENTIQUE aux neuf orientations, ce qui prouve que
 le canal de deformation est bien un canal de RENDU sans retro-action. SPEC 11 passe de SOUS
 (0.1465 / 0.1332) a DANS sa bande (0.2823 / 0.2605, bande 0.20-0.30) sur LES DEUX chaines.
+
+## NOTE-53  (moteur, `*phys-col-off*` ~ligne 770 et `phys-vol-floor` ~ligne 1130) — LE CONTROLE k=4 : LE MUR DE COLLISION DESARME
+
+POURQUOI CE CONTROLE EXISTE. Le cycle 13 a mesure, a stimulus IDENTIQUE (`|g_eff| = 1.4142` aux
+deux poles), un canal de joint qui rend 0.1205 B0 vers l'AVANT et 0.0107 B0 vers l'ARRIERE sur
+`chestL` — un rapport de 11.3 a 90 deg et de 34.4 a 45 deg, la ou les paires LATERALES du meme
+instrument et de la meme fenetre restent entre 1.16 et 1.40. Aucune anisotropie de sa SPEC 29 ne
+produit ca : son rapport le plus extreme est 1.00/0.72.
+
+TROIS SUSPECTS ETAIENT DEJA DESARMES, ET DEUX SONT EXONERES : `k=2` (contrainte de COTE) et `k=3`
+(rayon de capsule) rendent des chiffres IDENTIQUES A QUATRE DECIMALES a la reference. `k=1`
+(contrainte de LONGUEUR) symetrise, mais c'est le MECANISME qui confisque le degre de liberte, pas
+la CAUSE de son asymetrie : `phys-len-project!` est un rehaussement RADIAL PUR, donc isotrope dans
+son propre corps. L'asymetrie est EMERGENTE, et le cycle 13 a ecrit qu'il ne la devinait pas.
+
+LE SUSPECT QUI A LA BONNE TAILLE ET LE BON SIGNE, et que rien ne desarmait : le mur de collision
+plafonne a la PROFONDEUR D'AUTEUR. `phys-vol-floor` rend `floor0`, le test est STRICT (`dep >
+feff`), et la pose d'auteur est EXACTEMENT sur la frontiere (`dep = floor0 = feff`). Le seul volume
+en contact est `Lshoulder->chest`, dont la normale sortante est a 95.7 % sur l'axe avant-arriere.
+Consequence mecanique : le premier micron vers l'ARRIERE est repousse, l'AVANT est libre. Un mur
+unilateral place exactement au point de repos produit precisement un canal redresse.
+
+CE QUE LE CONTROLE FAIT, ET POURQUOI IL PASSE PAR `phys-vol-floor`. `feff` est calcule a TROIS
+sites (`phys-collide-chain` passe de comptage, `phys-collide-chain` passe de poussee,
+`phys-retreat-chain`). Les desarmer un par un aurait laisse un site oublie muet — le piege
+`declared-but-never-selected`. Le drapeau vit donc dans la FEUILLE que les trois appellent :
+`(if (nonzero? *phys-col-off*) PHYS-VOL-FREE floor0)`. Un seul point, trois sites couverts.
+
+CE QU'IL N'EST PAS. Ce n'est PAS la branche `PHYS-VOL-FREE` retiree en aout (`floor0 >= 2 rl` =>
+plus aucune contrainte), qui avait produit `goggles-tunnel` en declarant les lunettes libres 50 642
+fois par course. Celle-la etait un COMPORTEMENT LIVRE ; celui-ci est un CONTROLE, arme a la
+premiere frame de la passe k=4 et rendu a 0 en sortant de la phase d'orientation, comme
+`phys-len-off-set!` / `phys-side-off-set!` / `phys-cone-off-set!` le sont deja.
+
+COMMENT LE LIRE. Si `k=4` symetrise les quatre directions comme `k=1` le fait, le mur est la CAUSE
+et la correction porte sur lui. S'il ne change rien, le mur est EXONERE comme le cote et la
+capsule, la liste des suspects tombe a zero et la cause est dans la FORCE (le ressort vers la pose
+d'auteur, ou le terme de gravite) — ce qui est un resultat, pas un echec.
+
+## NOTE-54  (moteur, `*phys-len-off*` ~ligne 770) — LE CONTROLE DE LA CONTRAINTE DE LONGUEUR
+
+Ce n'est pas un assouplissement : c'est le controle qui tranche l'hypothese de tete du cycle 8.
+`ROOM-AXSEL` mesure qu'un seul axe sur trois est isolable — pousser le sein le long de son propre
+axe vertical ne met que 17.7 % de la reponse sur cet axe. L'explication proposee est qu'un point
+contraint sur une sphere autour de son ancre n'a que DEUX degres de liberte de translation, la ou
+SPEC 24 en demande TROIS (une frequence par axe). C'est une lecture du code, pas une mesure — et
+une lecture du code n'est pas une preuve.
+
+LE CONTROLE : si la contrainte de longueur est bien ce qui confisque le troisieme degre de liberte,
+la desarmer doit faire MONTER la selectivite. Si la selectivite ne bouge pas, l'hypothese est
+fausse et la cause est ailleurs.
+
+RESTE A 0 EN LIVRAISON : aucune fenetre de mesure hors des phases AXZ ne le voit non nul, et
+SPEC 22 (« un os ne s'allonge pas ») garde sa contrainte dure partout ailleurs.

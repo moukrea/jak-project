@@ -1,0 +1,108 @@
+C14-PREDICTIONS — ecrit AVANT le lancement de la course, donc avant d'en lire une ligne.
+DIRECTIVES vee00ab7404
+
+CHANGEMENT UNIQUE DU CYCLE (solveur) : une PASSE DE CONTROLE de plus sur le balayage
+d'orientation, `k=4`, qui DESARME LE MUR DE COLLISION (`phys-vol-floor` rend `PHYS-VOL-FREE` quand
+`*phys-col-off*` est arme). Aucune constante livree n'est modifiee. Le drapeau vaut 0 en
+livraison, il est arme a la premiere frame de la passe k=4 et rendu a 0 en sortant de la phase ORI,
+exactement comme les trois controles existants.
+
+POURQUOI CETTE PASSE. Le cycle 13 a mesure un canal de joint REDRESSE sur l'axe avant-arriere
+(chestL : 0.1205 B0 vers l'avant contre 0.0107 B0 vers l'arriere a stimulus IDENTIQUE, rapport
+11.3 a 90 deg et 34.4 a 45 deg, contre 1.16-1.40 en lateral). Il a exonere `k=2` (cote) et `k=3`
+(capsule) a quatre decimales, montre que `k=1` (longueur) est le MECANISME mais pas la CAUSE
+— `phys-len-project!` est un rehaussement radial pur, donc isotrope dans son propre corps — et il
+a ecrit noir sur blanc : « La mesure qui conclurait est une passe `k=4` mettant `feff` a
+`PHYS-VOL-FREE` sur la fenetre d'orientation. Je ne l'ai pas faite, et je ne la devine pas. »
+C'est cette passe-la, et rien d'autre.
+
+L'HYPOTHESE, ET ELLE EST REFUTABLE. Le mur est plafonne a la PROFONDEUR D'AUTEUR (`feff = floor0`,
+test STRICT `dep > feff`), la pose d'auteur est EXACTEMENT sur sa frontiere, et le seul volume en
+contact (`Lshoulder->chest`) a sa normale sortante a 95.7 % sur l'axe avant-arriere. Un mur
+UNILATERAL place exactement au point de repos repousse le premier micron vers l'ARRIERE et laisse
+l'AVANT libre : c'est la forme exacte d'un canal redresse.
+
+REFERENCE (course du cycle 13, `ROOM-ORICTL`, a battre) :
+    chestL  k=0   LAT90 1.03  LAT45 1.01 | AP90 1.93  AP45 5.57
+    chestR  k=0   LAT90 1.22  LAT45 1.36 | AP90 1.96  AP45 5.36
+    chestL  k=1   LAT90 1.48  LAT45 1.21 | AP90 1.16  AP45 2.06   SYMETRISE
+    chestR  k=1   LAT90 3.32  LAT45 1.50 | AP90 1.38  AP45 2.00   SYMETRISE
+
+PREDICTIONS, chiffrees. Toute ligne fausse REFUTE l'hypothese :
+
+ P1. SI LE MUR EST LA CAUSE : `ROOM-ORICTL` ligne `k=4 MUR COLLIS.` porte AP45 <= 2.2 et AP90
+     <= 1.6 sur les DEUX chaines, et le verdict imprime est « SYMETRISE — CE MECANISME EST LA
+     CAUSE » (le tableau l'ecrit tout seul quand AP <= 1.5x LAT de la MEME passe).
+
+ P2. SI LE MUR EST LA CAUSE : le pole effondre REMONTE. `PHYSORICTL c=0 k=4 i=8` doit rendre un
+     |t|/B0 du meme ordre que `i=6` — rapport i6/i8 sous 3.0, contre 11.3 en reference.
+
+ P3. CONTROLE QUI DISTINGUE « LE MUR EST LA CAUSE » DE « LE MUR CONTRAINT TOUT » : les rapports
+     LATERAUX de k=4 restent du meme ordre qu'en k=0 (chestL 1.0-1.5). Si le lateral explose
+     lui aussi, le mur bride la chaine dans TOUTES les directions et l'attribution specifique a
+     l'axe avant-arriere n'est PAS soutenue — je devrai le dire au lieu de garder P1.
+
+ P4. SI LE MUR EST EXONERE : k=4 rend des chiffres identiques a k=0 a ~4 decimales, comme k=2 et
+     k=3, et le tableau imprime « inchange — ce mecanisme est EXONERE ». Alors les QUATRE suspects
+     sont tombes et la cause est dans la FORCE (ressort vers la pose d'auteur, ou terme de
+     gravite), pas dans une contrainte. C'est un resultat, pas un echec, et je le publierai tel.
+
+ P5. ISOLATION — LE CONTROLE NE DOIT PAS FUIR HORS DE SA FENETRE. Les acquis restent
+     bit-identiques a la course du cycle 13 :
+       ROOM-IDLE maxdev=0.0001 · ROOM-STRETCH 0.0000 · ROOM-GRAVSAG sagn 0.0786/0.0974
+       ROOM-ANIMS 31/31 skipped=0 · ROOM-SETTLE t5/t1/t05 = 0.60/0.82/1.03
+       BREAST-PENETRATION chestL -1.2207e-07 / chestR 0.0000
+     PRECEDENT QUI REND CETTE PREDICTION FORTE, et ce n'est pas une supposition : `k=1` DESARME
+     la contrainte de longueur, c'est-a-dire exactement la grandeur que `ROOM-STRETCH` mesure, et
+     `ROOM-STRETCH` est reste a 0.0000 au cycle 13. L'isolation des fenetres ORI est donc deja
+     prouvee par une course, pas seulement par lecture du code.
+     SI P5 TOMBE, tout le reste du cycle est nul : un controle qui fuit contamine ses propres
+     mesures et celles de tout ce qui suit.
+
+ P6. `ROOM-ORI-SPAN`, `PHYSORI2` (les neuf triplets d'echelle) et `det` sont INCHANGES : le canal
+     de deformation est un canal de RENDU sans retro-action, le cycle 13 l'a prouve par P5. Le mur
+     agit sur la POSITION, pas sur la forme.
+
+CE QUE CE CYCLE NE FAIT PAS, et je l'ecris avant pour ne pas le decouvrir apres :
+  - il ne CORRIGE rien tant que la mesure n'a pas parle ; k=4 est un instrument, pas un correctif ;
+  - il ne touche PAS §9 (plancher d'arrondi float32, changement de repere non fait) ;
+  - il ne touche PAS la saturation de §36 (6 fenetres sur 10) ;
+  - il ne remet PAS la branche `PHYS-VOL-FREE` livree qui avait produit `goggles-tunnel` : ce
+    drapeau est un CONTROLE rendu a 0, pas un comportement.
+
+--------------------------------------------------------------------------------------------
+AJOUT 03:24:44 — P7, ECRITE PENDANT QUE LA COURSE TOURNE ET AVANT QU'AUCUNE LIGNE k=4 N'EXISTE.
+PREUVE D'ANTERIORITE, verifiable et prise a cet instant :
+    date                    : 2026-08-17T03:24:44+02:00
+    `grep -ac PHYSORICTL` sur le log de la course : 0 ligne
+    taille du log           : 575 580 octets (la course en est a l'enumeration des animations)
+La course n'a donc PAS encore atteint la phase ORI. P7 est refutable au meme titre que P1-P6.
+
+ P7. LE MEME MUR DOIT EXPLIQUER §29, ET C'EST UNE SECTION DIFFERENTE MESUREE PAR UN AUTRE
+     INSTRUMENT. `ROOM-COMPLIANCE-ANISO` du cycle 13 rend :
+         chestL  vertical 1.0000  AP 0.3892  lateral 0.7527
+         chestR  vertical 1.0000  AP 0.4188  lateral 0.8849
+     contre le preset de sa §29 : vertical 1.00 / AP 0.90 / lateral 0.82 / torsion 0.72.
+     Le LATERAL est A 8 % PRES de sa cible des deux cotes (0.7527/0.82 = 92 %, 0.8849/0.82 =
+     108 %) — donc juste. **L'AP, lui, est a 43 % et 47 % de la sienne (0.3892/0.90, 0.4188/0.90),
+     et c'est le seul axe qui manque.**
+     (Formulation corrigee a 03:26 : la premiere redaction ecrivait « tombe a 8 % de sa cible », ce
+     qui se lit comme un facteur 12 alors que la mesure dit un ECART de 8 %. Le chiffre lu n'a pas
+     bouge, seule la phrase etait fausse — et une phrase fausse dans un fichier de predictions vaut
+     un chiffre faux.)
+
+     CE QUE CA PREDIT, ARITHMETIQUEMENT. Si le mur bloque UN pole sur deux en avant-arriere, la
+     compliance AP ajustee sur les neuf orientations lit la MOYENNE d'un pole libre et d'un pole
+     bloque. Avec les chiffres du canal de joint du cycle 13 (chestL : 0.1205 libre, 0.0107
+     bloque), cette moyenne vaut 0.0656, soit **54 % de la valeur symetrique** — a comparer aux
+     **43 %** que §29 lit. Meme ordre, meme signe, meme axe.
+
+     DONC : si k=4 confirme le mur (P1/P2), alors §29 AP et §10 supine ne sont PAS deux defauts,
+     c'est UN SEUL, vu par deux instruments independants. Et si k=4 exonere le mur (P4), il faut
+     une AUTRE explication au fait que l'AP soit le seul axe a 43 % de sa cible — je ne pourrai
+     pas garder les deux histoires.
+
+     CE QUE P7 N'EST PAS : une prediction sur la valeur que `ROOM-COMPLIANCE-ANISO` rendra DANS
+     CETTE COURSE. La compliance est ajustee sur la passe k=0 (le comportement livre), qui n'est
+     pas modifiee ce cycle : elle doit donc rester a 0.3892 / 0.4188. P7 porte sur la COHERENCE
+     entre deux instruments, pas sur un chiffre qui bougerait.

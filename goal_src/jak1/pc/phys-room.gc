@@ -1846,7 +1846,15 @@
      ;;   k=0  rien de desarme      -> la mesure de reference, IDENTIQUE au cycle 12
      ;;   k=1  contrainte de LONGUEUR levee   (`phys-len-off-set!`)
      ;;   k=2  contrainte de COTE levee       (`phys-side-off-set!`)
-     ;;   k=3  rayon de capsule interpole     (`phys-cone-off-set!`) — sonde la COLLISION
+     ;;   k=3  rayon de capsule interpole     (`phys-cone-off-set!`) — sonde la FORME du volume
+     ;;   k=4  MUR DE COLLISION desarme       (`phys-col-off-set!`)  — sonde son PLANCHER
+     ;;
+     ;; k=4 EST NEUVE (cycle 14) ET ELLE COMBLE LE TROU QUE LE CYCLE 13 A NOMME. k=2 et k=3 sont
+     ;; exoneres a quatre decimales, k=1 symetrise mais c'est le MECANISME (rehaussement radial
+     ;; pur, donc isotrope dans son propre corps), pas la CAUSE de l'asymetrie. Le seul suspect qui
+     ;; ait la bonne taille ET le bon signe — le mur plafonne a la profondeur d'auteur, avec la
+     ;; pose d'auteur EXACTEMENT sur sa frontiere — n'etait desarme par AUCUNE des trois passes.
+     ;; Voir [NOTE-53] de `jak-hd-physics-NOTES.md`.
      ;;
      ;; LA PASSE k=0 EST BIT POUR BIT CELLE DU CYCLE 12 : tous les emetteurs existants
      ;; (`PHYSORI`, `PHYSORI2/3/4`, `PHYSORICOM`, `PHYSORICOM2`, `PHYSORITR`) restent gardes par
@@ -1859,7 +1867,8 @@
       (when (= (-> self pframe) 1)
         (phys-len-off-set!  (if (= ok 1) 1 0))
         (phys-side-off-set! (if (= ok 2) 1 0))
-        (phys-cone-off-set! (if (= ok 3) 1 0)))
+        (phys-cone-off-set! (if (= ok 3) 1 0))
+        (phys-col-off-set!  (if (= ok 4) 1 0)))
      ;; ---- LE PIC TRANSITOIRE D'ETABLISSEMENT, PUIS LA REMISE A ZERO DE LA FENETRE -------------
      ;; Deux choses en un seul point, et elles vont ensemble :
      ;;
@@ -1995,13 +2004,14 @@
        (+! (-> self ori) 1)
        (set! (-> self pframe) 0)
        (phys-stats-reset!)
-       (when (>= (-> self ori) (* 4 PHYSROOM-ORIN))
-         ;; LES TROIS CONTROLES SONT RENDUS AVANT DE SORTIR. Un controle laisse arme
+       (when (>= (-> self ori) (* 5 PHYSROOM-ORIN))
+         ;; LES QUATRE CONTROLES SONT RENDUS AVANT DE SORTIR. Un controle laisse arme
          ;; contaminerait tout le reste de la course — c'est la faute que `phys-len-off-set!`
          ;; evite deja de la meme facon a la sortie des fenetres d'axe.
          (phys-len-off-set! 0)
          (phys-side-off-set! 0)
          (phys-cone-off-set! 0)
+         (phys-col-off-set! 0)
          (set! (-> self phase) PHYSROOM-PH-SHAKE)))))
 
     ;; ---- 4 ter. ON SECOUE, PUIS ON RELACHE — le cycle ferme dans le regime ou le defaut vit.

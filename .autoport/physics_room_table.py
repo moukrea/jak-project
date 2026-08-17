@@ -788,7 +788,7 @@ def _orictl_block(A, txt, names, ori, axis, b0):
         A('   n\'est pas la meme chose qu\'absente.')
         return
     KN = {0: 'k=0 reference    ', 1: 'k=1 LONGUEUR off ', 2: 'k=2 COTE off     ',
-          3: 'k=3 CAPSULE cone '}
+          3: 'k=3 CAPSULE cone ', 4: 'k=4 MUR COLLIS.  '}
     A('   NATURE : le meme deplacement soutenu que `ROOM-ORICOM`, mesure sur la meme fenetre par')
     A('     le meme emetteur, une fois par passe. REPERE : triedre de SPEC 7. Le rapport compare')
     A('     deux POLES OPPOSES, donc a stimulus vertical identique.')
@@ -836,6 +836,25 @@ def _orictl_block(A, txt, names, ori, axis, b0):
                 verdict = 'inchange — ce mecanisme est EXONERE'
             A('ROOM-ORICTL: %-12s %s %6.2f  %6.2f | %6.2f  %6.2f | %s'
               % (nm, KN.get(k, 'k=%d' % k), l90, l45, a90, a45, verdict))
+            # ---- LES DEUX POLES EN VALEUR ABSOLUE, A COTE DE LEUR RAPPORT ----------------------
+            # UN RAPPORT NE DIT PAS LEQUEL DES DEUX POLES A BOUGE. Un rapport qui tombe de 5.7 a
+            # 1.2 peut venir du pole BLOQUE qui remonte (le degre de liberte revient) ou du pole
+            # LIBRE qui s'effondre (une perte de mouvement deguisee en symetrie). Les deux se
+            # lisent pareil sur la ligne ci-dessus, et c'est le piege `ratio-of-two-statistics`
+            # du registre. On publie donc les valeurs elles-memes, dans le MEME instrument :
+            # meme `_dn`, meme axe derive, meme B0 — surtout pas un second script qui aurait sa
+            # propre definition de l'axe et rendrait des chiffres incomparables.
+            # NATURE : |t|/B0, deplacement soutenu (moyenne de fenetre d'equilibre), sans unite.
+            # REPERE : triedre de SPEC 7. LIGNE DE BASE : i=0 (pose debout), ou SPEC 9 exige 0.
+            # CE QUI DISCRIMINE : les deux poles d'une paire sont a |g_eff| IDENTIQUE, donc
+            # comparables SANS normalisation — aucun denominateur qui puisse s'annuler.
+            _p = []
+            for _lab, _ia, _ib in (('LAT90', 2, 4), ('LAT45', 1, 3),
+                                   ('AP90', 6, 8), ('AP45', 5, 7)):
+                _a, _b = _dn(k, _ia), _dn(k, _ib)
+                _p.append('%s %.5f/%.5f' % (_lab, _a if _a is not None else float('nan'),
+                                            _b if _b is not None else float('nan')))
+            A('ROOM-ORICTL-POLES: %-12s %s %s' % (nm, KN.get(k, 'k=%d' % k), '  '.join(_p)))
         # les compteurs, sur la paire qui porte le redressement
         for k in sorted({k for (_c, k, _i) in ctl if _c == c}):
             r6 = dg.get((c, k, 6), (0.0, 0.0, 0.0))

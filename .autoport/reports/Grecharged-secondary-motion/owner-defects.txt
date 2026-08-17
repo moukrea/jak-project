@@ -142,7 +142,40 @@ GELE hair-upper-half « la moitie basse a l'air detachee du crane et bouge indep
 # Ces quatre points remplacent TOUTES les cibles chiffrees de la journee.
 
 #
-# ETAT AU CYCLE 10 (2026-08-17) -- LA LIGNE RESTE OUVERTE, SEUL SON CONTENU EST MIS A JOUR.
+# ETAT AU CYCLE 14 (2026-08-17) -- LA LIGNE RESTE OUVERTE, SEUL SON CONTENU EST MIS A JOUR.
+#   Le tableau de conformite section par section est desormais dans `report.txt` §8, comme la
+#   REGLE DE RAPPORT du 09:45 l'exige. Les cycles 11 a 13 publiaient de la prose ici a la place.
+#   CE QUE LE CYCLE 14 ETABLIT, et c'est une MESURE differentielle, pas un raisonnement :
+#     LE MUR DE COLLISION EST PLAFONNE A LA PROFONDEUR D'AUTEUR, et c'est LUI qui redresse la
+#     reponse avant-arriere. Passe de controle k=4 (`feff` -> PHYS-VOL-FREE sur la seule fenetre
+#     d'orientation) : le rapport de poles opposes tombe de 5.57 a 1.04 sur chestL et de 5.36 a
+#     1.03 sur chestR, PENDANT QUE LE LATERAL NE BOUGE PAS (1.03 -> 1.02). Le pole bloque REMONTE
+#     (0.02511 -> 0.14522) et le pole libre est INCHANGE (-0.08 %) : c'est le degre de liberte qui
+#     revient, pas un rapport qui s'ameliore parce que son numerateur s'ecroule.
+#     k=2 et k=3 restent EXONERES a quatre decimales ; k=1 « symetrise » mais en cassant tout
+#     (lateral chestR 1.22 -> 3.32) : c'est le MECANISME, pas la CAUSE. k=4 est chirurgical.
+#   CE QUE CA FERME, ET CE QUE CA N'A PAS FERME :
+#     §10 supine passe de SOUS (0.1465 / 0.1332) a DANS sa bande (0.2773 / 0.2561) quand le mur
+#     est desarme, SANS que §11 ni le lateral bougent. Et §29-AP, mesuree par un instrument tout
+#     autre, est a 43 % / 47 % de sa cible quand le lateral y est a 8 % pres : MEME CAUSE, deux
+#     instruments. §10 et §29-AP ne sont donc pas deux defauts, c'en est UN.
+#     MAIS LE REMEDE N'EST PAS APPLIQUE. Desarmer le mur n'est pas livrable (regle 6, et la
+#     branche « aucune contrainte » a deja produit `goggles-tunnel`). Le remede est un mur
+#     COMPLIANT, que ses §23 (`F_collision` est une FORCE), §37 (« soft » plutot qu'« abrupt
+#     positional ») et §34 (restitution 0.02, donc un contact qui cede) demandent toutes les trois.
+#     Il n'est PAS chiffre ce cycle, deliberement : la mesure tend un nombre commode (83 % de la
+#     course libre tomberait pile sur 0.23 B0) et l'y ajuster serait
+#     `never-fit-a-parameter-to-the-instrument`. La profondeur doit EMERGER d'une raideur de
+#     contact, pas etre choisie pour que l'instrument affiche la cible.
+#   SECOND DEFAUT, REEL ET SEPARE : les capsules du buste sont ajustees sur 887 sommets `chest`
+#     dont 184 (20.7 %) sont de la chair de SEIN -- `influence()` (physics_keira_gen2.py:411-420)
+#     ne filtre que par poids de peau, aucune exclusion par nom. Rayon 769 livre contre 685 sans
+#     eux (-11 %), penetration de repos divisee par 2.1. C'est un defaut de GENERATEUR, correctif
+#     de DONNEES sans build -- mais il NE corrige PAS le redressement, le plafond suivant la pose
+#     d'auteur QUEL QUE SOIT le rayon (verifie dans le code : `rest` = pose d'auteur, :1747).
+#   ET SURTOUT : rien de tout cela n'est un verdict. C'est SON oeil qui ferme cette ligne.
+#
+# --- etat du cycle 10, conserve pour l'historique ---
 #   19 tenues, 5 partielles (§23 §24 §26 §27 §29-anisotropie), aucune ABSENTE.
 #   CE QUE LE CYCLE 10 CHANGE, et c'est la premiere fois que ca se lit sur le solveur LIVRE :
 #     §24 VERTICALE = 2.325 / 2.430 Hz contre sa cible 2.30 (bande 2.10-2.50), residu 0.007,
