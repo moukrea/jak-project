@@ -364,6 +364,15 @@ aurait rendu les deux inattribuables, ce qui est l'erreur que ce cycle a justeme
     contourne : le prochain cycle doit externaliser avant d'ajouter.
   - **La QUALITE se juge a son oeil, jamais ici.**
 
+SIDE-DOMAIN-EMPTY: chestL chestR — `ROOM-SIDE chains=0/2 crossing=0`, et `ROOM-SIDE-CONTROL armed=0
+  disarmed=0` : LE CONTROLE N'A PAS TIRE. Ce zero ne prouve donc RIEN et je ne le lis pas comme une
+  reussite. Les 15 chaines qui franchissaient reellement (pantacourt, sangles, languettes) sont
+  GELEES par l'ordre de l'owner du 2026-08-14 07:30 — elles ne sont pas corrigees, elles sont
+  retirees de la simulation. Les deux chaines restantes ne franchissaient deja rien, ni armees ni
+  desarmees, avant comme apres le changement de ce cycle : le domaine est VIDE par construction.
+  Le franchissement redeviendra mesurable le jour ou il rendra la physique aux autres organes, et
+  c'est a ce moment-la, pas avant, qu'un zero vaudra quelque chose.
+
 
 8. CE QUE L'OWNER DOIT REGARDER SUR CE BUILD
 ==============================================
