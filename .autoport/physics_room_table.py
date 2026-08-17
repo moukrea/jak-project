@@ -234,6 +234,738 @@ def ring_lag(a, b, dmax):
     return best_d, (best_r if best_r > -2.0 else 0.0)
 
 
+# ================================================================================================
+# ALGEBRE 3x3, ECRITE ICI ET PAS IMPORTEE — trois raisons, toutes payees au moins une fois :
+#   1. le tableau doit rester lisible sur une machine sans numpy, sinon un composant optionnel
+#      fait tomber TOUTE la mesure et pas seulement son bloc ;
+#   2. ces routines sont testables a la main (`_selftest_linalg`), et elles LE SONT au demarrage
+#      du bloc : une decomposition fausse rendrait des compliances plausibles et fausses, ce qui
+#      est exactement la classe de faux vert que ce dossier paie depuis deux semaines ;
+#   3. elles tiennent en 40 lignes.
+# ================================================================================================
+def _sym3_eig(m):
+    """Valeurs et vecteurs propres d'une 3x3 SYMETRIQUE, par rotations de Jacobi.
+    Rend (valeurs triees decroissantes, vecteurs colonnes correspondants)."""
+    a = [row[:] for row in m]
+    v = [[1.0 if i == j else 0.0 for j in range(3)] for i in range(3)]
+    for _ in range(64):
+        p, q, off = 0, 1, 0.0
+        for i in range(3):
+            for j in range(i + 1, 3):
+                if abs(a[i][j]) > off:
+                    off, p, q = abs(a[i][j]), i, j
+        if off < 1e-18:
+            break
+        theta = (a[q][q] - a[p][p]) / (2.0 * a[p][q])
+        t = (1.0 if theta >= 0 else -1.0) / (abs(theta) + math.sqrt(theta * theta + 1.0))
+        c = 1.0 / math.sqrt(t * t + 1.0)
+        s = t * c
+        for k in range(3):
+            akp, akq = a[k][p], a[k][q]
+            a[k][p], a[k][q] = c * akp - s * akq, s * akp + c * akq
+        for k in range(3):
+            apk, aqk = a[p][k], a[q][k]
+            a[p][k], a[q][k] = c * apk - s * aqk, s * apk + c * aqk
+        for k in range(3):
+            vkp, vkq = v[k][p], v[k][q]
+            v[k][p], v[k][q] = c * vkp - s * vkq, s * vkp + c * vkq
+    pairs = sorted(((a[i][i], [v[0][i], v[1][i], v[2][i]]) for i in range(3)),
+                   key=lambda e: -e[0])
+    return [p[0] for p in pairs], [p[1] for p in pairs]
+
+
+def _solve3(m, b):
+    """Resout m.x = b (3x3) par elimination de Gauss a pivot partiel. None si singuliere."""
+    a = [m[i][:] + [b[i]] for i in range(3)]
+    for col in range(3):
+        piv = max(range(col, 3), key=lambda r: abs(a[r][col]))
+        if abs(a[piv][col]) < 1e-14:
+            return None
+        a[col], a[piv] = a[piv], a[col]
+        for r in range(3):
+            if r == col:
+                continue
+            f = a[r][col] / a[col][col]
+            for k in range(col, 4):
+                a[r][k] -= f * a[col][k]
+    return [a[i][3] / a[i][i] for i in range(3)]
+
+
+def _selftest_linalg():
+    """Un controle POSITIF de l'algebre elle-meme : on POSE un tenseur connu, on fabrique les
+    reponses qu'il produirait, et on verifie qu'on le retrouve. Sans ca, `_solve3` pourrait rendre
+    des compliances plausibles et fausses en silence, et rien dans la trace ne le dirait."""
+    c_true = [[0.82, 0.0, 0.0], [0.0, 1.00, 0.0], [0.0, 0.0, 0.90]]
+    gs = [(-0.9979, 1.0, 0.0645), (0.9979, 1.0, -0.0645), (-0.0645, 1.0, -0.9979),
+          (0.0645, 1.0, 0.9979), (-0.7056, 0.2929, 0.0455), (0.7056, 0.2930, -0.0457),
+          (-0.0456, 0.2930, -0.7057), (0.0456, 0.2929, 0.7055), (0.0, 0.0, 0.0)]
+    ds = [[sum(c_true[k][j] * g[j] for j in range(3)) for k in range(3)] for g in gs]
+    mm = [[sum(g[i] * g[j] for g in gs) for j in range(3)] for i in range(3)]
+    got = []
+    for k in range(3):
+        rhs = [sum(g[i] * d[k] for g, d in zip(gs, ds)) for i in range(3)]
+        row = _solve3(mm, rhs)
+        if row is None:
+            return None
+        got.append(row)
+    err = max(abs(got[i][j] - c_true[i][j]) for i in range(3) for j in range(3))
+    # et l'eigen : le plus petit vecteur propre d'un nuage confine a un plan doit etre sa normale
+    ts = [(1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.7, 0.7, 0.0), (-0.3, 0.9, 0.0)]
+    mt = [[sum(t[i] * t[j] for t in ts) for j in range(3)] for i in range(3)]
+    ev, evec = _sym3_eig(mt)
+    nerr = max(abs(ev[2]), 1.0 - abs(evec[2][2]))
+    return err, nerr
+
+
+def _fit_recurrence(series):
+    """AJUSTE `s[n+1] = a.s[n] + b.s[n-1]` PAR MOINDRES CARRES, puis en tire zeta et f.
+
+    POURQUOI CETTE FORME ET PAS UN COMPTAGE DE PICS. Le mode de sa §36 est amorti a zeta = 0.65 :
+    sur une periode amortie l'enveloppe est divisee par `exp(-2.pi.zeta/sqrt(1-zeta^2))` = 0.0046.
+    Il n'y a donc QU'UN SEUL depassement visible, et un estimateur par extrema n'a qu'un point.
+    Or le solveur est une recurrence LINEAIRE d'ordre 2 exactement de cette forme (elimination de
+    la vitesse dans `v <- kd.v - k2.s ; s <- s + v` donne a = 1 + kd - k2, b = -kd) : l'ajuster
+    utilise TOUS les echantillons, pas deux. C'est le meme estimateur que le polynome
+    caracteristique du cycle 11, mais nourri par la SERIE LIVREE au lieu des coefficients.
+
+    Rend (a, b, zeta, f_Hz, n, residu_rms_relatif) ou None si le systeme est mal pose."""
+    n = len(series)
+    if n < 8:
+        return None
+    s11 = s12 = s22 = r1 = r2 = 0.0
+    used = 0
+    for i in range(1, n - 1):
+        x1, x2, y = series[i], series[i - 1], series[i + 1]
+        s11 += x1 * x1
+        s12 += x1 * x2
+        s22 += x2 * x2
+        r1 += x1 * y
+        r2 += x2 * y
+        used += 1
+    det = s11 * s22 - s12 * s12
+    if used < 6 or abs(det) < 1e-24:
+        return None
+    a = (r1 * s22 - r2 * s12) / det
+    b = (r2 * s11 - r1 * s12) / det
+    # residu, rapporte a l'amplitude : un ajustement dont le residu vaut l'amplitude ne mesure rien
+    num = den = 0.0
+    for i in range(1, n - 1):
+        pred = a * series[i] + b * series[i - 1]
+        num += (series[i + 1] - pred) ** 2
+        den += series[i + 1] ** 2
+    resid = math.sqrt(num / den) if den > 0 else 9.99
+    # racines de z^2 - a.z - b = 0
+    disc = a * a + 4.0 * b
+    if disc >= 0.0:
+        return (a, b, None, None, used, resid)     # sur-amorti : pas d'oscillation, pas de f
+    re_z, im_z = a / 2.0, math.sqrt(-disc) / 2.0
+    mod = math.hypot(re_z, im_z)
+    if mod <= 0.0 or mod >= 1.0:
+        return (a, b, None, None, used, resid)     # instable ou fige : zeta n'a pas de sens
+    th = math.atan2(im_z, re_z)
+    lg = -math.log(mod)
+    wh = math.hypot(lg, th)
+    if wh <= 0.0:
+        return (a, b, None, None, used, resid)
+    return (a, b, lg / wh, wh * 60.0 / (2.0 * math.pi), used, resid)
+
+
+def _free_decay(vals, skip_after_peak=0):
+    """ISOLE LA DECROISSANCE LIBRE D'UNE SERIE, ET RETOURNE AUSSI CE QU'ELLE LAISSE DERRIERE.
+
+    Trois corrections, chacune imposee par une mesure de ce cycle et pas par une preference :
+
+    1. **ON SOUSTRAIT LE PLANCHER `s_inf`** (moyenne des 20 derniers echantillons). La serie livree
+       ne converge PAS vers zero : elle se pose sur +1.6e-4 a +4.3e-4. Une recurrence homogene
+       d'ordre 2 n'admet pas une constante non nulle comme solution, donc une longue queue
+       constante TIRE l'ajustement vers `a + b = 1` et ecrase le mode. Mesure : sans la
+       soustraction, le residu vaut 0.94 ; avec, 0.002 sur le meme axe.
+       ET CE PLANCHER N'EST PAS UN DETAIL D'AJUSTEMENT — c'est le residu de sa §9 (« retour EXACT
+       a la pose d'auteur »), et c'est LUI qui censure le barreau fin de sa §27 : le seuil `t01`
+       vaut 0.1 % de `a0`, soit moins que le plancher sur 5 axes sur 6. Il est donc PUBLIE.
+
+    2. **ON DEMARRE AU PIC** (+ `skip_after_peak`). Les premieres frames de la fenetre portent
+       encore l'impulsion elle-meme, pas sa decroissance. Ajuster a travers cette discontinuite
+       melange le stimulus et la reponse.
+
+    3. **ON S'ARRETE A 2 % DE `a0`**. Au-dela, ce qui reste est le plancher et le bruit du
+       flottant ; les inclure revient a ajuster du bruit et gonfle le residu sans informer.
+
+    Rend (segment, s_inf, a0, i0, i1)."""
+    if len(vals) < 8:
+        return [], 0.0, 0.0, 0, 0
+    tail = vals[-20:] if len(vals) >= 20 else vals[len(vals) // 2:]
+    s_inf = sum(tail) / len(tail)
+    d = [v - s_inf for v in vals]
+    a0 = max(abs(x) for x in d)
+    if a0 <= 0.0:
+        return [], s_inf, 0.0, 0, 0
+    i0 = min(len(d) - 1, max(range(len(d)), key=lambda i: abs(d[i])) + skip_after_peak)
+    i1 = len(d)
+    for i in range(i0, len(d)):
+        if abs(d[i]) < 0.02 * a0:
+            i1 = i
+            break
+    return d[i0:i1], s_inf, a0, i0, i1
+
+
+def _fit_two_windows(vals, skip_after_peak=0, contaminated_ref=True):
+    """AJUSTE LA MEME SERIE SUR DEUX CHOIX DE FENETRE, ET PUBLIE LES DEUX.
+
+    Un estimateur qu'on ne peut pas contredire n'est pas une mesure. Mais LE TEMOIN DOIT ETRE
+    LEGITIME — et c'est une correction que ce cycle s'est faite a lui-meme :
+
+    la premiere ecriture comparait la fenetre libre a la serie ENTIERE. Sur le mode secondaire
+    c'est licite (la serie complete non ecretee est propre). Sur la fenetre de secousse ca ne
+    l'est pas : la serie entiere contient L'IMPULSION elle-meme (frames 1-3, verifiees sur la
+    trace brute) et une longue queue constante. Le desaccord y est donc GARANTI PAR
+    CONSTRUCTION, et il declarait « ne pas lire » un ajustement dont le residu valait 0.0020.
+    Comparer un bon estimateur a un temoin qu'on sait faux ne teste rien.
+
+      `contaminated_ref=True`  -> temoin = la serie entiere moins son plancher (mode secondaire)
+      `contaminated_ref=False` -> temoin = LA MEME decroissance libre demarree 2 frames plus
+                                  tard. Deux decoupages PROPRES du meme phenomene : s'ils
+                                  tombent au meme endroit, l'estimation ne depend pas du
+                                  decoupage, ce qui est exactement ce qu'on veut savoir.
+    Rend (fit_temoin, fit_libre, s_inf, a0, i0, i1)."""
+    seg, s_inf, a0, i0, i1 = _free_decay(vals, skip_after_peak)
+    if contaminated_ref:
+        ref = [v - s_inf for v in vals]
+    else:
+        ref, _si, _a, _j0, _j1 = _free_decay(vals, skip_after_peak + 2)
+    return _fit_recurrence(ref), _fit_recurrence(seg), s_inf, a0, i0, i1
+
+
+def _agree(f1, f2, tol=0.20):
+    """Les deux fenetres tombent-elles au meme endroit ? Compare zeta ET f, en relatif."""
+    if not f1 or not f2 or f1[2] is None or f2[2] is None or f1[3] is None or f2[3] is None:
+        return False
+    for k in (2, 3):
+        m = max(abs(f1[k]), abs(f2[k]))
+        if m > 0 and abs(f1[k] - f2[k]) / m > tol:
+            return False
+    return True
+
+
+def _oricom_block(A, txt, names, ori):
+    """SPEC 10/11/12/13 ET SPEC 29 — LE DEPLACEMENT STATIQUE PAR ORIENTATION, ET LA COMPLIANCE.
+
+    Ce bloc est neuf au cycle 12. Il existe parce que le preset de sa spec nomme les quatre valeurs
+    de §29 `VerticalCompliance / APCompliance / LateralCompliance / TorsionalCompliance` : ce sont
+    des DEPLACEMENTS PAR UNITE DE FORCE, et jusqu'ici on les cherchait dans des FREQUENCES. Une
+    frequence melange raideur et masse ; une compliance ne depend que de la raideur. C'est en
+    passant par la frequence qu'on avait rendu §24 et §29 sur-determinees l'une par l'autre."""
+    com, com2, tr = {}, {}, {}
+    for m in re.finditer(r'^PHYSORICOM c=(\d+) i=(\d+) tx=([-\d.e+]+) ty=([-\d.e+]+)'
+                         r' tz=([-\d.e+]+)', txt, re.M):
+        com[(int(m.group(1)), int(m.group(2)))] = (float(m.group(3)), float(m.group(4)),
+                                                   float(m.group(5)))
+    for m in re.finditer(r'^PHYSORICOM2 c=(\d+) i=(\d+) rr=([-\d.e+]+) rrm=([-\d.e+]+)'
+                         r' n=([-\d.e+]+)', txt, re.M):
+        com2[(int(m.group(1)), int(m.group(2)))] = (float(m.group(3)), float(m.group(4)),
+                                                    float(m.group(5)))
+    for m in re.finditer(r'^PHYSORITR c=(\d+) i=(\d+) rrt=([-\d.e+]+)', txt, re.M):
+        tr[(int(m.group(1)), int(m.group(2)))] = float(m.group(3))
+    b0 = {}
+    for m in re.finditer(r'^\[HD-PHYS\] b0 c=(\d+) flesh=([-\d.e+]+)', txt, re.M):
+        b0[int(m.group(1))] = float(m.group(2))
+
+    A('-- ROOM-ORICOM : SPEC 10/11/12, LE DEPLACEMENT STATIQUE — ET SPEC 29, LA COMPLIANCE -------')
+    if not com:
+        A('ROOM-ORICOM: ABSENT (aucune ligne PHYSORICOM) — la salle de cette course n\'emettait pas')
+        A('   encore le deplacement par orientation. Les COM de §10/§11/§12 et la compliance de §29')
+        A('   restent NON MESURES, ce qui n\'est pas la meme chose que verts.')
+        return
+    st = _selftest_linalg()
+    if st is None or st[0] > 1e-9 or st[1] > 1e-9:
+        A('ROOM-ORICOM: l\'algebre de ce bloc ECHOUE son propre controle (%s) — aucun chiffre'
+          % ('singuliere' if st is None else 'err=%.2e / %.2e' % st))
+        A('   n\'est publie plutot que d\'en publier de faux.')
+        return
+    A('   CONTROLE POSITIF DE L\'ALGEBRE : un tenseur diag(0.82, 1.00, 0.90) POSE, les reponses')
+    A('     qu\'il produirait fabriquees, puis retrouve — erreur %.1e ; normale d\'un nuage plan'
+      % st[0])
+    A('     retrouvee a %.1e pres. L\'instrument sait donc rendre la reponse qu\'on lui donne.'
+      % st[1])
+    A('   NATURE : des DEPLACEMENTS SOUTENUS (moyennes de 30 frames sur un equilibre tenu), pas des')
+    A('     variances — un equilibre ne bouge plus, toute grandeur de dispersion y lit zero.')
+    A('   REPERE : le triedre de SPEC 7 (+X lateral, +Y haut, +Z avant), le meme que `gx/gy/gz`.')
+    A('   LIGNE DE BASE : l\'orientation i=0 est la pose debout d\'auteur, ou §9 exige 0.0000. Elle')
+    A('     est MESUREE ci-dessous et non supposee : si elle n\'est pas nulle, tout est decale.')
+    A('   DEUX CANAUX, ORTHOGONAUX PAR CONSTRUCTION, JAMAIS ADDITIONNES EN AVEUGLE :')
+    A('     `t`  = deplacement TANGENTIEL de l\'APEX (le point que le solveur integre). La')
+    A('            contrainte de longueur lui confisque l\'axe de l\'os. Bandes §22 : 0.42 / 0.50 B0.')
+    A('     `rr` = le canal radial de §23, LE LONG de l\'os. Bandes §22 du COM : 0.35 / 0.40 B0.')
+    A('   AVERTISSEMENT QUI COMPTE, ET QUI N\'EST PAS UNE FORMALITE : le point INTEGRE reste')
+    A('     l\'APEX (residu connu de §23). Les cibles de §10/§11/§12 sont des COM. Un apex se')
+    A('     deplace PLUS qu\'un COM sous une rotation autour de l\'ancre, donc les valeurs `t`')
+    A('     ci-dessous sont une BORNE SUPERIEURE du COM, pas le COM. Ce bloc ne franchit pas cet')
+    A('     ecart : il le NOMME. Les RAPPORTS de §29, eux, sont immunises — le meme point sert aux')
+    A('     trois axes, et un facteur commun disparait d\'un rapport.')
+    A('')
+
+    # ---- LES ROLES D'ORIENTATION, NOMMES PAR UN INVARIANT EXTERNE -------------------------------
+    # `axis-role-labels-need-naming-measurement` : une etiquette `ax=0/deg=90` ne dit pas si c'est
+    # supine ou prone, et se tromper inverserait DEUX lignes de conformite. Le nom est donc decide
+    # par le TRIPLET D'ECHELLES LIVRE compare aux echelles que sa spec nomme elle-meme, et l'ecart
+    # des deux hypotheses est publie pour qu'on voie la marge.
+    _SUP = (1.23, 1.09, 0.70)     # §10 SupineWidthScale / SupineHeightScale / SupineProjectionScale
+    _PRO = (0.90, 0.91, 1.23)     # §11 HangingWidthScale / HangingThicknessScale / HangingLengthScale
+    role = {}
+    for c in sorted({c for (c, _i) in com}):
+        best = {}
+        for i in range(9):
+            d = ori.get((c, i))
+            if not d or 'sx' not in d:
+                continue
+            s = (d['sx'], d['sy'], d['sz'])
+            e_sup = sum(abs(s[k] - _SUP[k]) for k in range(3))
+            e_pro = sum(abs(s[k] - _PRO[k]) for k in range(3))
+            best[i] = (e_sup, e_pro)
+        if not best:
+            continue
+        i_sup = min(best, key=lambda i: best[i][0])
+        i_pro = min(best, key=lambda i: best[i][1])
+        role[c] = dict(sup=i_sup, pro=i_pro)
+        A('ROOM-ORICOM-ROLE: chain=%-12s §10 supine -> i=%d (ecart %.4f, 2e meilleur %.4f) ;'
+          '  §11 prone -> i=%d (ecart %.4f, 2e %.4f)'
+          % (names[c] if c < len(names) else 'c%d' % c,
+             i_sup, best[i_sup][0], sorted(v[0] for v in best.values())[1],
+             i_pro, best[i_pro][1], sorted(v[1] for v in best.values())[1]))
+    A('   (le role vient du TRIPLET D\'ECHELLES compare aux valeurs que sa spec nomme, pas de')
+    A('    l\'etiquette `ax`/`deg` : une etiquette ne se verifie pas, un ecart de 16x si.)')
+    A('')
+
+    A('   chaine        i   gx      gy      gz   | ex      ey      ez   |  tx/B0  ty/B0  tz/B0'
+      '  |t|/B0 |   rr     rrm    rrt')
+    for c in sorted({c for (c, _i) in com}):
+        bb = b0.get(c, 602.0)
+        for i in range(9):
+            if (c, i) not in com:
+                continue
+            tx, ty, tz = com[(c, i)]
+            d = ori.get((c, i), {})
+            gx, gy, gz = d.get('gx', 0.0), d.get('gy', 0.0), d.get('gz', 0.0)
+            rr, rrm, _n = com2.get((c, i), (0.0, 0.0, 0.0))
+            tn = math.sqrt(tx * tx + ty * ty + tz * tz) / bb
+            A('ROOM-ORICOM: %-12s %d %7.4f %7.4f %7.4f |%7.4f %7.4f %7.4f |%7.4f%7.4f%7.4f'
+              ' %6.4f |%8.5f%8.5f%8.5f'
+              % (names[c] if c < len(names) else 'c%d' % c, i, gx, gy, gz,
+                 gx, gy + 1.0, gz, tx / bb, ty / bb, tz / bb, tn,
+                 rr, rrm, tr.get((c, i), float('nan'))))
+    A('   `ex/ey/ez` = `g_eff = g_local - g_ref` de sa SPEC 3, avec `g_ref = (0,-1,0)` la pose')
+    A('     debout d\'auteur. C\'EST LUI L\'ENTREE DU SOLVEUR, pas `g` : debout les deux termes')
+    A('     s\'annulent et §9 exige exactement 0. Regresser sur `g` au lieu de `g_eff` mettrait')
+    A('     une reponse nulle en face d\'une entree unitaire et rendrait une compliance fausse.')
+    A('')
+
+    # ---- L'AXE DE L'OS, MESURE ET NON SUPPOSE ---------------------------------------------------
+    A('-- ROOM-ORIAXIS : L\'AXE DE L\'OS, LU DANS LES DONNEES AU LIEU D\'ETRE SUPPOSE -------------')
+    A('   La contrainte de longueur confisque au canal du joint la composante LE LONG de l\'os :')
+    A('   les 9 deplacements tangentiels sont donc confines a un PLAN, et la normale de ce plan EST')
+    A('   l\'axe de l\'os. On la lit comme le plus petit vecteur propre de leur matrice de dispersion.')
+    A('   CE QUI LE PROUVE, ET C\'EST PUBLIE A COTE : les deux premieres valeurs propres doivent')
+    A('   dominer la troisieme. Si les trois sont du meme ordre, le nuage n\'est pas plan, la')
+    A('   confiscation n\'a pas lieu, et tout ce qui suit est a jeter.')
+    axis = {}
+    for c in sorted({c for (c, _i) in com}):
+        ts = [com[(c, i)] for i in range(9) if (c, i) in com]
+        mt = [[sum(t[a] * t[b] for t in ts) for b in range(3)] for a in range(3)]
+        ev, evec = _sym3_eig(mt)
+        nrm = evec[2]
+        ln = math.sqrt(sum(x * x for x in nrm)) or 1.0
+        nrm = [x / ln for x in nrm]
+        ratio = (ev[2] / ev[1]) if ev[1] > 0 else 9.99
+        axis[c] = nrm
+        A('ROOM-ORIAXIS: chain=%-12s vp=%.4e %.4e %.4e  vp3/vp2=%.2e  axe=(%+.4f,%+.4f,%+.4f)  %s'
+          % (names[c] if c < len(names) else 'c%d' % c, ev[0], ev[1], ev[2], ratio,
+             nrm[0], nrm[1], nrm[2],
+             'PLAN (confiscation confirmee)' if ratio < 0.02 else
+             'NON PLAN — la confiscation n\'a pas lieu, le reste du bloc est invalide'))
+        A('   composante VERTICALE de cet axe : %.1f %% — l\'axe de l\'os n\'est PAS l\'axe'
+          ' anatomique racine->apex (qui est +Z, celui que §11 allonge de 23 %%).'
+          % (100.0 * abs(nrm[1])))
+    A('')
+
+    # ---- LE TENSEUR DE COMPLIANCE ---------------------------------------------------------------
+    A('-- ROOM-COMPLIANCE : SPEC 29, MESUREE SUR LA GRANDEUR QUE SON PRESET NOMME ----------------')
+    A('   §38 : `VerticalCompliance 1.00 / APCompliance 0.90 / LateralCompliance 0.82`.')
+    A('   ON AJUSTE `d = C.g_eff` SUR LES 9 EQUILIBRES, `d` etant le deplacement TOTAL en B0 :')
+    A('     `d = t/B0 + rr . axe_de_l_os`, les deux canaux remis dans le meme vecteur — ils sont')
+    A('     orthogonaux par construction, donc cette somme-la est licite alors qu\'additionner')
+    A('     leurs MODULES ne le serait pas.')
+    A('   PREDICTION ECRITE AVANT LA COURSE, et c\'est ce qui donne sa valeur au test : la donnee')
+    A('     livree porte `sv=1.0000 sap=1.1111 slat=1.2195` (raideurs par axe, lues a l\'execution')
+    A('     dans `PHYSAXISS`). Une compliance est l\'inverse d\'une raideur, donc les rapports')
+    A('     ATTENDUS sont 1/1.0000 : 1/1.1111 : 1/1.2195 = 1.000 / 0.900 / 0.820 — exactement sa')
+    A('     §29. Si la mesure les rend, §29 est TENUE et mesuree pour la premiere fois ; sinon')
+    A('     l\'ecart est le resultat, et il est chiffre au lieu d\'etre suppose.')
+    A('   POURQUOI CE QUE LA FREQUENCE NE POUVAIT PAS FAIRE : `f` varie comme sqrt(k), donc un')
+    A('     ecart de raideur de 7.5 % n\'y pese que 3.7 % — sous le residu des ajustements de')
+    A('     ring-down (0.02 a 0.16). Une compliance porte l\'ecart ENTIER, et se lit sur des')
+    A('     moyennes de 30 frames d\'un etat immobile, sans ajustement du tout.')
+    for c in sorted({c for (c, _i) in com}):
+        bb = b0.get(c, 602.0)
+        ax = axis.get(c, [0.0, 1.0, 0.0])
+        gs, ds = [], []
+        for i in range(9):
+            if (c, i) not in com or (c, i) not in ori:
+                continue
+            d = ori[(c, i)]
+            e = (d.get('gx', 0.0), d.get('gy', 0.0) + 1.0, d.get('gz', 0.0))
+            tx, ty, tz = com[(c, i)]
+            rr = com2.get((c, i), (0.0, 0.0, 0.0))[0]
+            gs.append(e)
+            ds.append([tx / bb + rr * ax[0], ty / bb + rr * ax[1], tz / bb + rr * ax[2]])
+        if len(gs) < 4:
+            A('ROOM-COMPLIANCE: chain=%s — %d orientations seulement, tenseur non ajustable'
+              % (names[c] if c < len(names) else 'c%d' % c, len(gs)))
+            continue
+        mm = [[sum(g[a] * g[b] for g in gs) for b in range(3)] for a in range(3)]
+        cmat = []
+        for k in range(3):
+            rhs = [sum(g[a] * d[k] for g, d in zip(gs, ds)) for a in range(3)]
+            row = _solve3(mm, rhs)
+            if row is None:
+                cmat = None
+                break
+            cmat.append(row)
+        if cmat is None:
+            A('ROOM-COMPLIANCE: chain=%s — systeme singulier (orientations degenerees)'
+              % (names[c] if c < len(names) else 'c%d' % c))
+            continue
+        num = den = 0.0
+        for g, d in zip(gs, ds):
+            for k in range(3):
+                pred = sum(cmat[k][a] * g[a] for a in range(3))
+                num += (d[k] - pred) ** 2
+                den += d[k] ** 2
+        resid = math.sqrt(num / den) if den > 0 else 9.99
+        nm = names[c] if c < len(names) else 'c%d' % c
+        A('')
+        A('ROOM-COMPLIANCE: chain=%s   n=%d   residu relatif de l\'ajustement = %.4f  %s'
+          % (nm, len(gs), resid,
+             'LINEAIRE (donc §13 continue : une table de morphs figes ne serait pas lineaire)'
+             if resid < 0.15 else 'NON LINEAIRE — saturation ou morphs figes, voir §21/§22'))
+        for k, lab in enumerate(('lateral', 'vertical', 'AP     ')):
+            A('   C[%s] = %+9.5f %+9.5f %+9.5f' % (lab, cmat[k][0], cmat[k][1], cmat[k][2]))
+        # compliance selon chaque axe du triedre = module de la reponse a une gravite unitaire
+        # portee par cet axe. C'est la definition operationnelle de son preset.
+        cx = math.sqrt(sum(cmat[k][0] ** 2 for k in range(3)))
+        cy = math.sqrt(sum(cmat[k][1] ** 2 for k in range(3)))
+        cz = math.sqrt(sum(cmat[k][2] ** 2 for k in range(3)))
+        if cy > 0:
+            A('ROOM-COMPLIANCE-ANISO: chain=%s  vertical=%.4f (=1.000 par normalisation)'
+              '  AP=%.4f  lateral=%.4f' % (nm, cy / cy, cz / cy, cx / cy))
+            A('   cible §29                          vertical=1.000              AP=0.900'
+              '   lateral=0.820')
+            A('   ecart                                                          %+6.1f %%'
+              '   %+6.1f %%' % (100.0 * (cz / cy / 0.900 - 1.0), 100.0 * (cx / cy / 0.820 - 1.0)))
+            A('   (compliances brutes, en B0 par unite de g_eff : vertical %.5f, AP %.5f,'
+              ' lateral %.5f)' % (cy, cz, cx))
+    A('')
+
+    # ---- LE REDRESSEMENT, ET SON PROPRE CONTROLE ------------------------------------------------
+    # Le residu de 0.18 dit qu'un tenseur lineaire n'explique pas tout, mais il ne dit pas OU la
+    # linearite casse. Ce bloc le localise, et il porte son controle avec lui.
+    #
+    # LE PRINCIPE : les 9 orientations contiennent quatre paires de POLES OPPOSES. Dans chaque
+    # paire les deux membres ont EXACTEMENT la meme composante verticale de `g_eff` (+1 a 90 deg,
+    # +0.293 a 45 deg) et une composante d'axe EXACTEMENT opposee. Pour une compliance lineaire les
+    # deux reponses valent donc |C.Y + C.a| et |C.Y - C.a| : leur rapport est borne, et il vaut 1
+    # quand la reponse est dominee par la partie verticale commune.
+    # UN RAPPORT QUI EXPLOSE N'EST PAS UNE ANISOTROPIE, C'EST UN REDRESSEMENT — la chaine repond
+    # d'un cote et pas de l'autre. Aucune valeur d'anisotropie ne peut produire ca.
+    #
+    # ET LE CONTROLE EST DANS LE TABLEAU LUI-MEME, il n'a pas a etre fabrique : les paires
+    # LATERALES subissent le meme instrument, la meme fenetre, le meme estimateur. Si elles
+    # rendent ~1 pendant que les paires AVANT-ARRIERE explosent, l'asymetrie est dans la CHAINE et
+    # pas dans la mesure. Si les deux explosaient, ce serait l'instrument qu'il faudrait suspecter.
+    A('-- ROOM-ORIRECT : LA LINEARITE, TESTEE PAR PAIRES DE POLES OPPOSES ------------------------')
+    A('   Chaque paire : meme `g_eff` vertical, composante d\'axe exactement opposee. Un tenseur')
+    A('   lineaire borne le rapport des deux reponses ; un rapport qui explose est un REDRESSEMENT')
+    A('   (reponse d\'un seul cote), que nulle anisotropie ne peut produire.')
+    A('   LE CONTROLE EST DANS LE TABLEAU : les paires LATERALES passent par le meme instrument.')
+    A('   Elles a ~1 et les AP qui explosent => l\'asymetrie est dans la chaine, pas dans la mesure.')
+    A('')
+    A('   chaine        paire                       |d(a)|   |d(b)|   rapport   lecture')
+    for c in sorted({c for (c, _i) in com}):
+        bb = b0.get(c, 602.0)
+        ax = axis.get(c, [0.0, 1.0, 0.0])
+        nm = names[c] if c < len(names) else 'c%d' % c
+
+        def _dn(i, _c=c, _bb=bb, _ax=ax):
+            if (_c, i) not in com:
+                return None
+            tx, ty, tz = com[(_c, i)]
+            rr = com2.get((_c, i), (0.0, 0.0, 0.0))[0]
+            v = [tx / _bb + rr * _ax[0], ty / _bb + rr * _ax[1], tz / _bb + rr * _ax[2]]
+            return math.sqrt(sum(x * x for x in v))
+        for lab, ia, ib, kind in (('LATERAL  90 deg (i=2 / i=4)', 2, 4, 'ctrl'),
+                                  ('LATERAL  45 deg (i=1 / i=3)', 1, 3, 'ctrl'),
+                                  ('AVANT-ARRIERE 90 (i=6 / i=8)', 6, 8, 'test'),
+                                  ('AVANT-ARRIERE 45 (i=5 / i=7)', 5, 7, 'test')):
+            da, db = _dn(ia), _dn(ib)
+            if da is None or db is None or min(da, db) <= 0.0:
+                continue
+            rat = max(da, db) / min(da, db)
+            A('ROOM-ORIRECT: %-12s %-28s %7.4f  %7.4f  %7.2f   %s'
+              % (nm, lab, da, db, rat,
+                 ('CONTROLE : symetrique' if rat < 1.5 else 'CONTROLE ASYMETRIQUE — suspecter'
+                  ' l\'instrument') if kind == 'ctrl' else
+                 ('symetrique' if rat < 1.5 else 'REDRESSE — reponse d\'un seul cote')))
+    A('')
+
+    # ---- LES TROIS DEPLACEMENTS QUE SA SPEC CHIFFRE ---------------------------------------------
+    A('-- ROOM-ORICOM-SPEC : LES TROIS DEPLACEMENTS D\'ORIENTATION QUE SA SPEC CHIFFRE -----------')
+    A('   §10 `SupineCOMDepth 0.23 B0` · §11 `HangingCOMDisplacement 0.24 B0`, transitoire de')
+    A('   longueur <= 1.30 · §12 `SideGravityCOM 0.19 B0`. Lus contre |d| = |t/B0 + rr.axe|, le')
+    A('   MEME vecteur compose que le tenseur ci-dessus. Rappel de l\'avertissement : c\'est un')
+    A('   APEX, donc une BORNE SUPERIEURE du COM que ces trois lignes visent.')
+    for c in sorted({c for (c, _i) in com}):
+        bb = b0.get(c, 602.0)
+        ax = axis.get(c, [0.0, 1.0, 0.0])
+        nm = names[c] if c < len(names) else 'c%d' % c
+        r = role.get(c, {})
+        lat = [i for i in (2, 4) if (c, i) in com]
+        todo = [('§10 supine ', r.get('sup'), 0.23, (0.18, 0.28)),
+                ('§11 prone  ', r.get('pro'), 0.24, (0.20, 0.30))]
+        todo += [('§12 lateral', i, 0.19, (0.15, 0.24)) for i in lat]
+        for lab, i, nom, band in todo:
+            if i is None or (c, i) not in com:
+                A('ROOM-ORICOM-SPEC: %-12s %s  i introuvable — NON MESURE' % (nm, lab))
+                continue
+            tx, ty, tz = com[(c, i)]
+            rr = com2.get((c, i), (0.0, 0.0, 0.0))[0]
+            dv = [tx / bb + rr * ax[0], ty / bb + rr * ax[1], tz / bb + rr * ax[2]]
+            dn = math.sqrt(sum(x * x for x in dv))
+            A('ROOM-ORICOM-SPEC: %-12s %s i=%d  |d|=%.4f B0   cible %.2f (bande %.2f-%.2f)  %s'
+              % (nm, lab, i, dn, nom, band[0], band[1],
+                 'DANS' if band[0] <= dn <= band[1] else
+                 ('SOUS' if dn < band[0] else 'AU-DESSUS')))
+        # §11 : le transitoire d'etablissement contre l'equilibre tenu
+        ip = r.get('pro')
+        if ip is not None and (c, ip) in tr:
+            eq = abs(com2.get((c, ip), (0.0, 0.0, 0.0))[0])
+            A('ROOM-ORICOM-SPEC: %-12s §11 transitoire  pic d\'etablissement=%.5f  tenu=%.5f'
+              '  rapport=%s  (§11 : 1.30 contre 1.23, soit 1.057)'
+              % (nm, tr[(c, ip)], eq, ('%.3f' % (tr[(c, ip)] / eq)) if eq > 1e-6 else 'n/a'))
+
+
+def _shake_ring_block(A, txt, names):
+    """SPEC 27 — LA STABILISATION APRES L'IMPULSION *FORTE*, ET SPEC 24/25 SANS ANIMATION.
+
+    POURQUOI CETTE FENETRE EXISTE, alors que `ROOM-AXSETTLE` execute deja « one isolated impulse ».
+    Sa §27 ecrit « after one STRONG isolated impulse », et l'impulsion de `ROOM-AXFIT` est
+    DELIBEREMENT FAIBLE : demi-cosinus a 18 u/frame^2, choisi pour rester dans la bande LINEAIRE ou
+    une frequence propre et un zeta sont definis. Consequence lisible dans le tableau livre :
+
+        ROOM-AXSETTLE chestL axe=v   a0=0.01296   t1=>2.48   t05=>2.48   t01=>2.48
+
+    Le seuil `t01` vaut 0.1 %% de `a0`, soit **1.3e-5** — c'est-a-dire SOUS le plancher de la
+    fenetre. Les censures de §27 ne disent donc pas « ca n'arrete pas de sonner », elles disent
+    « le seuil est descendu sous la resolution de l'instrument ». C'est la lecon
+    `instrument-resolution-vs-spec-bands`, et on ne la franchit pas en reglant le solveur : on la
+    franchit en donnant a la mesure la DYNAMIQUE qui lui manque, c'est-a-dire une impulsion FORTE.
+    `PH-SHAKE` (`jerk`, vitesse posee d'un coup) est cette impulsion, et `PH-SHAKEN` la lache
+    position/orientation/ANIMATION figees — donc rien ne re-excite la chaine pendant la descente.
+
+    Ce bloc ne remplace ni `ROOM-SETTLE` ni `ROOM-AXSETTLE` : il s'ajoute a cote, avec le MEME
+    estimateur et les MEMES seuils, pour que les trois se comparent directement. L'ecart entre
+    leurs `a0` EST la mesure de la dynamique gagnee."""
+    ser = {}
+    for m in re.finditer(r'^PHYSRINGSH c=(\d+) f=(\d+) l=(\d+) v=([-\d.e+]+) ap=([-\d.e+]+)'
+                         r' lat=([-\d.e+]+)', txt, re.M):
+        c, f, l = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        ser.setdefault((c, l), []).append((f, float(m.group(4)), float(m.group(5)),
+                                           float(m.group(6))))
+    A('-- ROOM-SHRING : SPEC 27 SUR L\'IMPULSION *FORTE*, ET SPEC 24/25 SANS ANIMATION -----------')
+    if not ser:
+        A('ROOM-SHRING: ABSENT (aucune ligne PHYSRINGSH) — cette course n\'emettait pas la')
+        A('   descente libre apres la secousse. §27 reste lue sur des fenetres dont les seuils fins')
+        A('   sont sous le plancher, ce qui n\'est pas la meme chose qu\'une §27 tenue.')
+        return
+    A('   §27 : « dominant visible response 0.3-0.6 s ; secondary movement 0.6-1.2 s ; mostly')
+    A('     settled ~1.0-1.5 s ; essentially stationary ~1.3-1.7 s ». Seuils 5 / 1 / 0.5 / 0.1 %')
+    A('     de `a0`, identiques a `ROOM-SETTLE` et `ROOM-AXSETTLE` — les trois sont comparables.')
+    A('   NATURE : une SERIE TEMPORELLE signee (deviation du maillon a sa pose d\'auteur), dont on')
+    A('     lit l\'ENVELOPPE. REPERE : triedre de l\'ancre (SPEC 7), le meme que `PHYSRINGA`.')
+    A('     LIGNE DE BASE : 0.0 sur la pose d\'auteur.')
+    A('   POURQUOI `a0` EST PUBLIE EN GRAS DANS SA PROPRE COLONNE : un temps de stabilisation n\'a')
+    A('     de sens que rapporte a l\'amplitude dont il part. `ROOM-AXSETTLE` rendait `>2.48` sur')
+    A('     l\'axe vertical avec `a0 = 0.013` : le seuil `t01` y valait 1.3e-5. Le meme `>2.48` sur')
+    A('     un `a0` cent fois plus grand voudrait dire tout autre chose.')
+    A('')
+    A('   chaine       l  axe   a0        t5      t1      t05     t01     |  n  a       b       '
+      'zeta    f(Hz)  residu  accord')
+    _floors = []
+    for (c, l) in sorted(ser):
+        rows = sorted(ser[(c, l)])
+        frames = [r[0] for r in rows]
+        nm = names[c] if c < len(names) else 'c%d' % c
+        for ai, lab in ((1, 'v  '), (2, 'ap '), (3, 'lat')):
+            vals = [r[ai] for r in rows]
+            if not vals:
+                continue
+            # +2 apres le pic : les 3 premieres frames de la fenetre portent encore l'impulsion
+            # `jerk` elle-meme (verifie sur la serie brute — le pic est a f=3 et la decroissance
+            # propre commence a f=4). Ajuster a travers ce raccord melange stimulus et reponse.
+            ffull, ffree, s_inf, a0d, i0, i1 = _fit_two_windows(vals, skip_after_peak=2,
+                                                                contaminated_ref=False)
+            a0 = max(abs(v) for v in vals)
+            _floors.append((nm, lab.strip(), s_inf, a0))
+            # LA FENETRE D'ENVELOPPE EST DERIVEE DE LA FREQUENCE AJUSTEE, exactement comme
+            # `ROOM-AXSETTLE` (`_w = round(60 / f)`), et surtout PAS fixee a un nombre choisi :
+            # une enveloppe glissante plus courte qu'une periode redescend entre deux lobes et
+            # declenche le seuil au premier passage par zero — le defaut que la note de `ring_env`
+            # decrit deja. Repli sur 26 frames (une periode a 2.3 Hz, la nominale de SPEC 24).
+            _wf = 26
+            if ffree and ffree[3] is not None and ffree[3] > 0.5:
+                _wf = max(2, int(round(60.0 / ffree[3])))
+            env = ring_env([abs(v) for v in vals], _wf)
+            st = {k: settle_time(env, frames, a0, fr) for fr, k in SETTLE_BANDS}
+            if not ffree or ffree[2] is None:
+                A('ROOM-SHRING: %-12s %d %-4s %9.5f %7s %7s %7s %7s | %3d  %s'
+                  % (nm, l, lab, a0, st['t5'], st['t1'], st['t05'], st['t01'], i1 - i0,
+                     'pas d\'oscillation ajustable sur la fenetre libre — NE PAS LIRE de zeta ici'))
+                continue
+            a, b, z, f, _nu, rs = ffree
+            A('ROOM-SHRING: %-12s %d %-4s %9.5f %7s %7s %7s %7s | %3d %+7.4f %+7.4f %7.4f %6.3f '
+              ' %.4f  %s'
+              % (nm, l, lab, a0, st['t5'], st['t1'], st['t05'], st['t01'], i1 - i0, a, b, z, f,
+                 rs, 'oui' if _agree(ffull, ffree) else 'NON — ne pas lire'))
+    A('')
+    A('-- ROOM-SHFLOOR : CE QUE LA CHAINE LAISSE DERRIERE ELLE, ET POURQUOI §27 EST CENSUREE ----')
+    A('   Sa §2 et sa §9 exigent le retour EXACT a la pose d\'auteur. La serie libre dit ou la')
+    A('   chaine se pose REELLEMENT une fois la secousse eteinte. Ce n\'est pas zero.')
+    A('   ET C\'EST LA CAUSE MESUREE DE LA CENSURE DE §27 : son barreau le plus fin (`t01`) est a')
+    A('   0.1 %% de `a0`. Quand le plancher depasse ce seuil, `t01` ne peut PAS etre atteint —')
+    A('   la chaine est immobile mais pas revenue, et l\'instrument ecrit `>` a l\'infini. La')
+    A('   lecture « ca sonne encore » etait donc fausse : ca ne sonne plus, ca ne REVIENT pas.')
+    A('')
+    A('   chaine       axe   plancher s_inf   a0         s_inf/a0    seuil t01    verdict')
+    for nm, lab, s_inf, a0 in _floors:
+        thr = 0.001 * a0
+        A('ROOM-SHFLOOR: %-12s %-4s %+12.7f  %9.5f  %8.3f %%  %10.7f  %s'
+          % (nm, lab, s_inf, a0, 100.0 * abs(s_inf) / a0 if a0 > 0 else 0.0, thr,
+             'CENSURE t01 (plancher > seuil)' if abs(s_inf) > thr else 't01 mesurable'))
+    A('')
+    A('   PREDICTION ECRITE AVANT LA COURSE pour le mode principal, depuis la donnee livree et')
+    A('     l\'ecriture du solveur : `chestL` porte `stiffness=2.7696 mass=1.45`, d\'ou')
+    A('     `omega = 14.4515 rad/s` (f = 2.3000 Hz, sa §24 verticale au chiffre pres) et')
+    A('     `2.zeta.omega.dt = 0.16860` = le `damping=0.1686` du fichier. Le mode principal recoit')
+    A('     la retention EXACTE (`kd = e^-0.1686 = 0.84485`, cycle 11) mais PAS la raideur exacte')
+    A('     (`k2 = (omega.dt)^2 = 0.058013`, choix chiffre et publie du cycle 11). La recurrence')
+    A('     livree doit donc rendre a = 1 + kd - k2 = 1.7868 et b = -kd = -0.8449, soit')
+    A('     **zeta = 0.334 et f = 2.410 Hz**. Ce n\'est PAS 0.350 / 2.300 : l\'ecart est celui que')
+    A('     le cycle 11 a assume en n\'imposant pas la raideur exacte au mode anisotrope. Si la')
+    A('     serie libre rend 0.334, alors la mediane 0.350 lue sur les fenetres PAR ANIMATION')
+    A('     etait legerement gonflee par l\'excitation de l\'animation, et cette fenetre-ci est le')
+    A('     meilleur instrument des deux.')
+    A('   RESERVE, ECRITE PARCE QU\'ELLE PEUT INVALIDER LES COLONNES `zeta`/`f` : le mode principal')
+    A('     est TRIDIMENSIONNEL et anisotrope. Chaque axe du triedre porte donc un MELANGE des')
+    A('     modes propres, et une recurrence d\'ordre 2 ne peut representer qu\'UN mode. C\'est le')
+    A('     `residu` qui tranche : petit, l\'axe est domine par un mode et les deux colonnes valent ;')
+    A('     grand, elles ne valent rien et il ne faut pas les lire. Les publier sans le residu')
+    A('     serait exactement le faux vert que ce dossier paie.')
+
+
+def _sec_ringdown_block(A, txt, names):
+    """SPEC 36 ET SPEC 29-TORSION — LES DEUX MODES SCALAIRES, AJUSTES SUR LA SERIE LIVREE.
+
+    Le cycle 11 a prouve §36 AU NIVEAU DES COEFFICIENTS (`PHYSDECAY` / `PHYSOSCK2` imprimes a
+    l'init, polynome caracteristique -> 0.6502 et 5.1995 Hz) et a ecrit lui-meme que ce n'est pas
+    la meme chose qu'observer 5.20 Hz dans une serie. Voici la serie."""
+    ser = {}
+    for m in re.finditer(r'^PHYSSEC c=(\d+) f=(\d+) s=([-\d.e+]+) tw=([-\d.e+]+)', txt, re.M):
+        ser.setdefault(int(m.group(1)), []).append(
+            (int(m.group(2)), float(m.group(3)), float(m.group(4))))
+    A('-- ROOM-SEC-RING : SPEC 36 et SPEC 29-torsion, AJUSTES SUR LA SERIE LIBRE ------------------')
+    if not ser:
+        A('ROOM-SEC-RING: ABSENT (aucune ligne PHYSSEC) — cette course n\'emettait pas la serie du')
+        A('   mode secondaire. §36 reste prouvee AU NIVEAU DES COEFFICIENTS seulement, ce qui est')
+        A('   ce que le cycle 11 a explicitement dit ne pas suffire.')
+        return
+    A('   FENETRE : `PH-SHAKEN`, la tenue qui suit la secousse `jerk`. C\'est la seule decroissance')
+    A('     LIBRE de la course : position et orientation figees, et cette phase n\'avance PAS')
+    A('     l\'animation — donc rien ne re-excite les modes, contrairement aux fenetres par')
+    A('     animation ou §27 lit un plancher d\'excitation au lieu d\'un ring-down.')
+    A('   NATURE : deux series temporelles signees, une valeur par frame. REPERE : la racine de la')
+    A('     chaine. LIGNE DE BASE : 0.0 au repos.')
+    A('   ESTIMATEUR : ajustement de la recurrence lineaire d\'ordre 2 `s[n+1] = a.s[n] + b.s[n-1]`,')
+    A('     puis zeta et f par ses racines. A zeta = 0.65 l\'enveloppe perd un facteur 217 par')
+    A('     periode : un estimateur par extrema n\'aurait qu\'UN SEUL depassement exploitable, celui-ci')
+    A('     utilise tous les echantillons.')
+    A('   PREDICTION ECRITE AVANT LA COURSE, depuis les coefficients que la salle imprime a l\'init')
+    A('     (`PHYSOSCK2 sec=0.2073 seckd=0.4926`) : la recurrence livree doit rendre a = 1 + kd - k2')
+    A('     = 1.2853 et b = -kd = -0.4926, donc zeta = 0.651 et f = 5.20 Hz. Retrouver CES DEUX')
+    A('     NOMBRES depuis la serie ferme l\'ecart que le cycle 11 a laisse ouvert.')
+    A('   ECRETAGE — ET C\'EST LA QUE LA SERIE VOIT CE QUE LES COEFFICIENTS NE PEUVENT PAS VOIR :')
+    A('     `*phys-sec*` est borne a `PHYS-SEC-MAX = 0.07` DANS L\'ETAT, pas seulement en sortie.')
+    A('     Un ecretage a l\'interieur de la boucle change la dynamique : le mode livre cesse')
+    A('     d\'etre l\'oscillateur dont le polynome donne 0.6502. Les echantillons ecretes sont')
+    A('     COMPTES et EXCLUS de l\'ajustement, et le compte est publie : si l\'ajustement ne')
+    A('     porte que sur la queue, il faut le savoir.')
+    A('')
+    A('   chaine        canal   n_tot n_ecrete n_fit    a        b       zeta     f(Hz)   residu')
+    for c in sorted(ser):
+        rows = sorted(ser[c])
+        nm = names[c] if c < len(names) else 'c%d' % c
+        for lab, idx, clip in (('sec §36', 1, 0.07), ('torsion', 2, None)):
+            vals = [r[idx] for r in rows]
+            if clip is not None:
+                nclip = sum(1 for v in vals if abs(v) >= clip - 1e-6)
+                # on garde la plus longue plage CONSECUTIVE non ecretee : un ajustement de
+                # recurrence a besoin de voisins, recoller deux morceaux fabriquerait un saut.
+                best, cur = [], []
+                for v in vals:
+                    if abs(v) >= clip - 1e-6:
+                        if len(cur) > len(best):
+                            best = cur
+                        cur = []
+                    else:
+                        cur.append(v)
+                if len(cur) > len(best):
+                    best = cur
+                fitv = best
+            else:
+                nclip = 0
+                fitv = vals
+            # une serie deja eteinte ne porte aucune information : on le DIT au lieu d'ajuster
+            # du bruit de flottant.
+            amp = max(abs(v) for v in vals) if vals else 0.0
+            if amp <= 1e-7:
+                A('ROOM-SEC-RING: %-12s %-7s %5d %8d %5s  %s'
+                  % (nm, lab, len(vals), nclip, len(fitv),
+                     'serie plate (amp=%.2e) — RIEN A AJUSTER, et ce n\'est pas un zero vert'
+                     % amp))
+                continue
+            ffull, ffree, s_inf, _a0, i0, i1 = _fit_two_windows(fitv, skip_after_peak=0)
+            fr = ffree if (ffree and ffree[2] is not None) else ffull
+            if fr is None or fr[2] is None:
+                A('ROOM-SEC-RING: %-12s %-7s %5d %8d %5d  %s'
+                  % (nm, lab, len(vals), nclip, i1 - i0,
+                     'aucune des deux fenetres ne rend un mode oscillant — NE PAS LIRE de zeta'))
+                continue
+            a, b, z, f, nu, rs = fr
+            A('ROOM-SEC-RING: %-12s %-7s %5d %8d %5d %+8.4f %+8.4f  %8.4f %8.3f  %.4f  %s'
+              % (nm, lab, len(vals), nclip, nu, a, b, z, f, rs,
+                 'accord des 2 fenetres' if _agree(ffull, ffree) else 'DESACCORD — prudence'))
+            if lab.startswith('sec'):
+                A('   §36 cible zeta 0.65 (bande 0.55-0.75) et f 5.20 Hz (bande 4-7) :'
+                  ' zeta %s, f %s   [amplitude max : %.5f, plafond §38 = 0.07]'
+                  % ('DANS' if 0.55 <= z <= 0.75 else 'HORS',
+                     'DANS' if 4.0 <= f <= 7.0 else 'HORS', amp))
+                if nclip:
+                    A('   ECRETAGE MESURE : %d frames sur %d collees a |s| = 0.0700000 exactement,'
+                      ' soit %.0f ms.' % (nclip, len(vals), 1000.0 * nclip / 60.0))
+                    A('     Pendant ces frames l\'etat de l\'oscillateur est REECRIT par la borne,')
+                    A('     donc le mode livre n\'est pas celui dont le polynome caracteristique')
+                    A('     donne 0.6502 — et sa §37 demande l\'inverse (« soft displacement clamps')
+                    A('     should be preferred to abrupt positional clamps »). L\'ajustement')
+                    A('     ci-dessus EXCLUT ces frames ; il decrit la detente, pas la saturation.')
+
+
 def main():
     global OUT
     log = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_LOG
@@ -3186,6 +3918,12 @@ def main():
                 A('ROOM-ORI-SPAN: chain=%-12s sz_min=%.4f sz_max=%.4f span=%.4f  %s'
                   % (names[c] if c < len(names) else 'c%d' % c, min(vals), max(vals), span,
                      'DISCRIMINE' if span > 0.05 else 'PLAT — l\'orientation n\'atteint pas la forme'))
+    A('')
+    _oricom_block(A, txt, names, ori)
+    A('')
+    _sec_ringdown_block(A, txt, names)
+    A('')
+    _shake_ring_block(A, txt, names)
     A('')
     A('-- ROOM-SHAPE : SPEC 8 (volume) et SPEC 36 (mode secondaire), PAR PILOTAGE ----------------')
     A('   SPEC 8 : volume 98-101 % en mouvement normal, 96-102 % en transitoire fort.')
