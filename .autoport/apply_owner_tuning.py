@@ -9,6 +9,7 @@ dérivée d'une règle : il survit donc à la génération.
 À appeler APRÈS toute régénération de physics_chains.txt, et avant tout empaquetage.
 Idempotent : réappliquer ne change rien.
 """
+import argparse
 import re
 import sys
 from pathlib import Path
@@ -49,14 +50,28 @@ def _apply_kvs(line, kvs):
 
 
 def main():
+    # LA CIBLE EST UN ARGUMENT, ET CE N'EST PAS UN CONFORT — MESURE LE 2026-08-17.
+    # `physics_keira_gen2.py:2126` appelait ce script SANS AUCUN ARGUMENT, donc sur le chemin
+    # code en dur ci-dessus, QUEL QUE SOIT son propre `--out`. Une generation de VERIFICATION
+    # vers `/tmp` reecrivait donc le fichier LIVRE en effet de bord, pendant que le demon
+    # `auto_build_apk` tourne et peut l'emporter dans un APK. Le cycle 17 s'est explicitement
+    # appuye sur `--out /tmp` pour « ne jamais toucher le fichier livre » : cette croyance etait
+    # fausse, et elle n'a rien casse uniquement parce que reappliquer les memes reglages sur un
+    # fichier deja regle est idempotent. Une garantie qui tient par chance n'est pas une garantie.
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--chains", default=str(CHAINS),
+                    help="fichier de chaines a regler (defaut : celui qui est livre)")
+    args = ap.parse_args()
+    chains = Path(args.chains)
+
     if not TUNING.exists():
         print("[tuning] aucun fichier de réglages owner — rien à appliquer")
         return 0
-    if not CHAINS.exists():
-        print("[tuning] physics_chains.txt absent", file=sys.stderr)
+    if not chains.exists():
+        print("[tuning] %s absent" % chains, file=sys.stderr)
         return 1
 
-    s = CHAINS.read_text(errors="ignore")
+    s = chains.read_text(errors="ignore")
     nchain = ncol = nadd = 0
     missing = []
     skipped = []
@@ -64,7 +79,11 @@ def main():
     # les joints que le rig HD porte REELLEMENT : une directive qui en nomme un autre n'a pas de
     # cible, et ça se dit à voix haute (voir `+chain` plus bas).
     rig_joints = set()
-    rig_path = CHAINS.parent / "hd_anim" / "keira-hd-k2e.json"
+    # Le rig est ancre sur le DEPOT, jamais sur le dossier du fichier de chaines : une
+    # generation de verification vers `/tmp` chercherait sinon `/tmp/hd_anim/…`, ne trouverait
+    # rien, et le controle « ce joint existe-t-il dans le rig ? » se degraderait EN SILENCE en
+    # laissant passer une directive sans cible.
+    rig_path = ROOT / "recharged_assets" / "hd_anim" / "keira-hd-k2e.json"
     if rig_path.exists():
         import json
         rig_joints = {r["hd_name"] for r in json.load(open(rig_path))["rows"]}
@@ -240,7 +259,7 @@ def main():
         note.append("#   refuse à juste titre. La directive doit être re-visée sur un joint réel.")
         s = s + "\n".join(note) + "\n"
 
-    CHAINS.write_text(s)
+    chains.write_text(s)
     print("[tuning] appliqué : %d chaîne(s), %d collider(s) modifié(s), %d ajouté(s)"
           % (nchain, ncol, nadd))
     for name, absent in skipped:

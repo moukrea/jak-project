@@ -2123,7 +2123,14 @@ def main():
         try:
             import subprocess as _sp, os as _os
             _root = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
-            _r = _sp.run(['python3', _os.path.join(_root, '.autoport', 'apply_owner_tuning.py')],
+            # `--chains args.out` — SANS LUI, UNE GENERATION DE VERIFICATION REECRIT LE LIVRE.
+            # Mesure du 2026-08-17 : cet appel n'avait AUCUN argument, donc il reglait toujours
+            # `recharged_assets/physics_chains.txt`, y compris quand ce generateur ecrivait vers
+            # `/tmp`. Le fichier de verification ressortait NON regle (donc incomparable au
+            # livre), et le livre etait reecrit en effet de bord alors que le demon
+            # `auto_build_apk` tourne. Les deux fautes tombent avec le meme argument.
+            _r = _sp.run(['python3', _os.path.join(_root, '.autoport', 'apply_owner_tuning.py'),
+                          '--chains', args.out],
                          capture_output=True, text=True, timeout=120)
             print((_r.stdout or _r.stderr).strip())
             if _r.returncode not in (0,):
