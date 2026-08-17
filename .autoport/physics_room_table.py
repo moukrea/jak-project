@@ -750,6 +750,106 @@ def _oricom_block(A, txt, names, ori):
             A('ROOM-ORICOM-SPEC: %-12s §11 transitoire  pic d\'etablissement=%.5f  tenu=%.5f'
               '  rapport=%s  (§11 : 1.30 contre 1.23, soit 1.057)'
               % (nm, tr[(c, ip)], eq, ('%.3f' % (tr[(c, ip)] / eq)) if eq > 1e-6 else 'n/a'))
+    A('')
+    _orictl_block(A, txt, names, ori, axis, b0)
+
+
+def _orictl_block(A, txt, names, ori, axis, b0):
+    """LE REDRESSEMENT AVANT-ARRIERE, ET LES TROIS MECANISMES SUSPECTS DESARMES TOUR A TOUR.
+
+    Le cycle 12 a mesure que la reponse est redressee sur l'axe avant-arriere (8.7 a 30.3x contre
+    1.2 a 2.3 en lateral, meme instrument) et a ECRIT qu'il ne devinait pas la cause. Ce bloc lit
+    l'experience qui la designe : LE MEME balayage, refait trois fois, avec chaque fois UN des
+    mecanismes suspects desarme par un controle que le moteur porte deja.
+
+        k=0  rien de desarme (reference)      k=2  contrainte de COTE levee
+        k=1  contrainte de LONGUEUR levee     k=3  rayon de capsule interpole (sonde la COLLISION)
+
+    COMMENT SE LIT LE VERDICT, et il est ecrit AVANT de voir les chiffres :
+      - le controle dont le desarmement fait TOMBER le rapport avant-arriere vers celui du
+        lateral designe le mecanisme ;
+      - si AUCUN ne le fait, les trois sont exoneres et la cause est ailleurs. C'est un resultat,
+        pas un echec : la liste des suspects se reduit de trois.
+      - `k=0` doit reproduire la reference du cycle 12. S'il ne la reproduit pas, c'est que les
+        passes de controle se contaminent entre elles et RIEN de ce bloc ne vaut."""
+    ctl, dg = {}, {}
+    for m in re.finditer(r'^PHYSORICTL c=(\d+) k=(\d+) i=(\d+) tx=([-\d.e+]+) ty=([-\d.e+]+)'
+                         r' tz=([-\d.e+]+)', txt, re.M):
+        ctl[(int(m.group(1)), int(m.group(2)), int(m.group(3)))] = (
+            float(m.group(4)), float(m.group(5)), float(m.group(6)))
+    for m in re.finditer(r'^PHYSORICTL2 c=(\d+) k=(\d+) i=(\d+) rr=([-\d.e+]+) inv=([-\d.e+]+)'
+                         r' flip=([-\d.e+]+)', txt, re.M):
+        dg[(int(m.group(1)), int(m.group(2)), int(m.group(3)))] = (
+            float(m.group(4)), float(m.group(5)), float(m.group(6)))
+    A('-- ROOM-ORICTL : LE REDRESSEMENT, ET SES TROIS SUSPECTS DESARMES TOUR A TOUR -------------')
+    if not ctl:
+        A('ROOM-ORICTL: ABSENT (aucune ligne PHYSORICTL) — cette course ne refaisait pas le')
+        A('   balayage avec les controles. La CAUSE du redressement reste non mesuree, ce qui')
+        A('   n\'est pas la meme chose qu\'absente.')
+        return
+    KN = {0: 'k=0 reference    ', 1: 'k=1 LONGUEUR off ', 2: 'k=2 COTE off     ',
+          3: 'k=3 CAPSULE cone '}
+    A('   NATURE : le meme deplacement soutenu que `ROOM-ORICOM`, mesure sur la meme fenetre par')
+    A('     le meme emetteur, une fois par passe. REPERE : triedre de SPEC 7. Le rapport compare')
+    A('     deux POLES OPPOSES, donc a stimulus vertical identique.')
+    A('   `inv` et `flip` sont les compteurs de la FENETRE DE MESURE (collision / limiteur) : ils')
+    A('     disent si un mecanisme a mordu pendant l\'equilibre, ou si le redressement se produit')
+    A('     sans qu\'aucun contact n\'ait lieu — auquel cas la cause est dans la FORCE, pas dans une')
+    A('     contrainte.')
+    A('')
+    A('   chaine       passe              LAT 90  LAT 45 | AP 90   AP 45  | verdict sur AP')
+    for c in sorted({c for (c, _k, _i) in ctl}):
+        bb = b0.get(c, 602.0)
+        ax = axis.get(c, [0.0, 1.0, 0.0])
+        nm = names[c] if c < len(names) else 'c%d' % c
+
+        def _dn(k, i, _c=c, _bb=bb, _ax=ax):
+            if (_c, k, i) not in ctl:
+                return None
+            tx, ty, tz = ctl[(_c, k, i)]
+            rr = dg.get((_c, k, i), (0.0, 0.0, 0.0))[0]
+            v = [tx / _bb + rr * _ax[0], ty / _bb + rr * _ax[1], tz / _bb + rr * _ax[2]]
+            return math.sqrt(sum(x * x for x in v))
+
+        def _rat(k, ia, ib):
+            a, b = _dn(k, ia), _dn(k, ib)
+            if a is None or b is None or min(a, b) <= 1e-9:
+                return None
+            return max(a, b) / min(a, b)
+        base = None
+        for k in sorted({k for (_c, k, _i) in ctl if _c == c}):
+            l90, l45 = _rat(k, 2, 4), _rat(k, 1, 3)
+            a90, a45 = _rat(k, 6, 8), _rat(k, 5, 7)
+            if None in (l90, l45, a90, a45):
+                continue
+            lat = max(l90, l45)
+            ap = max(a90, a45)
+            if k == 0:
+                base = ap
+                verdict = 'reference (redressement %.1fx contre %.1fx en lateral)' % (ap, lat)
+            elif ap <= lat * 1.5:
+                verdict = 'SYMETRISE — CE MECANISME EST LA CAUSE'
+            elif base and ap < base * 0.6:
+                verdict = 'attenue (%.0f %% du redressement de reference) — contributeur' \
+                          % (100.0 * ap / base)
+            else:
+                verdict = 'inchange — ce mecanisme est EXONERE'
+            A('ROOM-ORICTL: %-12s %s %6.2f  %6.2f | %6.2f  %6.2f | %s'
+              % (nm, KN.get(k, 'k=%d' % k), l90, l45, a90, a45, verdict))
+        # les compteurs, sur la paire qui porte le redressement
+        for k in sorted({k for (_c, k, _i) in ctl if _c == c}):
+            r6 = dg.get((c, k, 6), (0.0, 0.0, 0.0))
+            r8 = dg.get((c, k, 8), (0.0, 0.0, 0.0))
+            r5 = dg.get((c, k, 5), (0.0, 0.0, 0.0))
+            r7 = dg.get((c, k, 7), (0.0, 0.0, 0.0))
+            A('ROOM-ORICTL-DIAG: %-12s %s  supine i=6 inv=%.0f flip=%.0f · prone i=8 inv=%.0f'
+              ' flip=%.0f · i=5 flip=%.0f · i=7 flip=%.0f'
+              % (nm, KN.get(k, 'k=%d' % k), r6[1], r6[2], r8[1], r8[2], r5[2], r7[2]))
+    A('')
+    A('   LECTURE DES COMPTEURS : si `flip` et `inv` sont a ZERO des deux cotes alors que la')
+    A('   reponse est redressee, aucune collision ni aucun limiteur n\'a mordu pendant la mesure —')
+    A('   et le redressement vient alors de la FORCE elle-meme (le ressort vers la pose d\'auteur,')
+    A('   ou le terme de gravite), pas d\'une contrainte. C\'est le partage que ce bloc tranche.')
 
 
 def _shake_ring_block(A, txt, names):

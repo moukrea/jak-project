@@ -1801,7 +1801,33 @@
     ;; repondre a sa §13 : une table de morphs figes rendrait des paliers, un equilibre continu
     ;; rend une courbe.
     ((= (-> self phase) PHYSROOM-PH-ORI)
-     (physroom-orient (-> *physroom-ori-ax* (-> self ori)) (-> *physroom-ori-dg* (-> self ori)))
+     ;; ---- QUATRE PASSES SUR LE MEME BALAYAGE : LA MESURE, PUIS SES TROIS CONTROLES ----------
+     ;; Le cycle 12 a mesure que la reponse de la chaine est REDRESSEE sur l'axe avant-arriere :
+     ;; a stimulus tangentiel egal a 12-39 % pres, elle repond 8.7 a 30.3 fois plus quand la
+     ;; gravite tire vers l'ARRIERE que vers l'AVANT, pendant que les paires LATERALES — meme
+     ;; instrument, meme fenetre — restent entre 1.2 et 2.3. Aucune anisotropie ne produit ca.
+     ;; Le cycle 12 a nomme le defaut et a ecrit qu'il ne devinait pas sa cause. Voici la mesure
+     ;; qui la designe, au lieu d'une hypothese : on refait LE MEME balayage avec, tour a tour,
+     ;; chacun des trois mecanismes suspects DESARME. Celui dont le desarmement rend le canal
+     ;; symetrique est le coupable ; si aucun ne le fait, les trois sont innocentes et la liste
+     ;; se reduit d'autant — ce qui est aussi un resultat.
+     ;;   k=0  rien de desarme      -> la mesure de reference, IDENTIQUE au cycle 12
+     ;;   k=1  contrainte de LONGUEUR levee   (`phys-len-off-set!`)
+     ;;   k=2  contrainte de COTE levee       (`phys-side-off-set!`)
+     ;;   k=3  rayon de capsule interpole     (`phys-cone-off-set!`) — sonde la COLLISION
+     ;;
+     ;; LA PASSE k=0 EST BIT POUR BIT CELLE DU CYCLE 12 : tous les emetteurs existants
+     ;; (`PHYSORI`, `PHYSORI2/3/4`, `PHYSORICOM`, `PHYSORICOM2`, `PHYSORITR`) restent gardes par
+     ;; `(zero? ok)`, donc le tableau et ses gates ne voient aucun changement. Les trois passes de
+     ;; controle n'ajoutent que `PHYSORICTL`, un tag neuf que rien d'existant ne lit.
+     (let ((oi (mod (-> self ori) PHYSROOM-ORIN))
+           (ok (/ (-> self ori) PHYSROOM-ORIN)))
+      (physroom-orient (-> *physroom-ori-ax* oi) (-> *physroom-ori-dg* oi))
+      ;; le controle de CETTE passe, arme a sa premiere frame et jamais ailleurs
+      (when (= (-> self pframe) 1)
+        (phys-len-off-set!  (if (= ok 1) 1 0))
+        (phys-side-off-set! (if (= ok 2) 1 0))
+        (phys-cone-off-set! (if (= ok 3) 1 0)))
      ;; ---- LE PIC TRANSITOIRE D'ETABLISSEMENT, PUIS LA REMISE A ZERO DE LA FENETRE -------------
      ;; Deux choses en un seul point, et elles vont ensemble :
      ;;
@@ -1828,35 +1854,40 @@
      ;; AUCUNE LIGNE EXISTANTE N'EST TOUCHEE PAR CE RESET : `PHYSORI`, `PHYSORI2`, `PHYSORI3` et
      ;; `PHYSORI4` lisent toutes `phys-shape`, dont aucun des index publies (0-3, 8-11, 15-17) ne
      ;; figure dans `phys-stats-reset!`. Verifiable par diff du tableau avant/apres.
-     (when (= (-> self pframe) PHYSROOM-ORIS)
+      (when (= (-> self pframe) PHYSROOM-ORIS)
+       (when (zero? ok)
+        (dotimes (c (-> self nchain))
+         (when (> (phys-chain-links (-> self slot) c) 0)
+          (format 0 "PHYSORITR c=~D i=~D rrt=~,,7f~%"
+                  c oi (phys-chain-radial (-> self slot) c 2)))))
+       (phys-stats-reset!)
+       ;; les compteurs de diagnostic couvrent la FENETRE DE MESURE et rien d'autre : sans ce
+       ;; reset ils cumuleraient l'etablissement, ou vit justement le pic de §37.
+       (phys-diag-reset!))
+      (when (>= (-> self pframe) (+ PHYSROOM-ORIS PHYSROOM-ORIM))
        (dotimes (c (-> self nchain))
         (when (> (phys-chain-links (-> self slot) c) 0)
-         (format 0 "PHYSORITR c=~D i=~D rrt=~,,7f~%"
-                 c (-> self ori) (phys-chain-radial (-> self slot) c 2))))
-       (phys-stats-reset!))
-     (when (>= (-> self pframe) (+ PHYSROOM-ORIS PHYSROOM-ORIM))
-       (dotimes (c (-> self nchain))
-        (when (> (phys-chain-links (-> self slot) c) 0)
+         (when (zero? ok)
          (format 0 "PHYSORI c=~D i=~D gx=~f gy=~f gz=~f~%"
-                 c (-> self ori)
+                 c oi
                  (phys-shape (-> self slot) c 9)
                  (phys-shape (-> self slot) c 10)
                  (phys-shape (-> self slot) c 11))
          (format 0 "PHYSORI2 c=~D i=~D sx=~f sy=~f sz=~f det=~f~%"
-                 c (-> self ori)
+                 c oi
                  (phys-shape (-> self slot) c 0)
                  (phys-shape (-> self slot) c 1)
                  (phys-shape (-> self slot) c 2)
                  (phys-shape (-> self slot) c 3))
          (format 0 "PHYSORI4 c=~D i=~D r0=~f r1=~f r2=~f~%"
-                 c (-> self ori)
+                 c oi
                  (phys-shape (-> self slot) c 15)
                  (phys-shape (-> self slot) c 16)
                  (phys-shape (-> self slot) c 17))
          (format 0 "PHYSORI3 c=~D i=~D ax=~D deg=~f arm=~f~%"
-                 c (-> self ori)
-                 (-> *physroom-ori-ax* (-> self ori))
-                 (-> *physroom-ori-dg* (-> self ori))
+                 c oi
+                 (-> *physroom-ori-ax* oi)
+                 (-> *physroom-ori-dg* oi)
                  (phys-shape (-> self slot) c 8))
          ;; ---- LA REPONSE STATIQUE, A COTE DE L'ENTREE STATIQUE ---------------------------------
          ;; CE QUE §10-§13 NOMMENT ET QUE PERSONNE N'A JAMAIS LU. Ses trois sections d'orientation
@@ -1894,20 +1925,52 @@
          ;; c'est la ligne de base MESUREE de ce bloc, pas une supposition, et si elle n'est pas
          ;; nulle toutes les autres sont decalees d'autant.
          (format 0 "PHYSORICOM c=~D i=~D tx=~f ty=~f tz=~f~%"
-                 c (-> self ori)
+                 c oi
                  (phys-tip-mean (-> self slot) c 0)
                  (phys-tip-mean (-> self slot) c 1)
                  (phys-tip-mean (-> self slot) c 2))
          (format 0 "PHYSORICOM2 c=~D i=~D rr=~,,7f rrm=~,,7f n=~f~%"
-                 c (-> self ori)
+                 c oi
                  (phys-chain-radial (-> self slot) c 1)
                  (phys-chain-radial (-> self slot) c 2)
-                 (phys-stat (-> self slot) c 15))))
+                 (phys-stat (-> self slot) c 15)))
+         ;; ---- LA MEME REPONSE, PASSE PAR PASSE : c'est le corps de l'experience -------------
+         ;; Emis sur les QUATRE passes, y compris k=0, pour que la comparaison se fasse entre
+         ;; lignes de MEME nature et de MEME emetteur. Comparer une passe de controle a la ligne
+         ;; `PHYSORICOM` de reference marcherait aussi, mais ferait dependre le verdict de deux
+         ;; formats differents — et c'est le genre d'ecart qui se paie.
+         ;; `inv`/`flip`/`retreat` sont les compteurs de la FENETRE DE MESURE (remis a zero a
+         ;; `PHYSROOM-ORIS`) : ils disent si une COLLISION ou un LIMITEUR a mordu pendant
+         ;; l'equilibre. Une reponse redressee accompagnee d'un compteur asymetrique designe le
+         ;; mecanisme ; une reponse redressee avec des compteurs a zero des deux cotes l'exclut.
+         (format 0 "PHYSORICTL c=~D k=~D i=~D tx=~f ty=~f tz=~f~%"
+                 c ok oi
+                 (phys-tip-mean (-> self slot) c 0)
+                 (phys-tip-mean (-> self slot) c 1)
+                 (phys-tip-mean (-> self slot) c 2))
+         ;; `format` de GOAL est cape a SIX parametres apres la chaine — `retreat` part donc sur
+         ;; sa propre ligne plutot que d'etre sacrifie. C'est la meme contrainte qui a deja
+         ;; impose de scinder `PHYSRAD` / `PHYSRADSAT`.
+         (format 0 "PHYSORICTL2 c=~D k=~D i=~D rr=~,,7f inv=~f flip=~f~%"
+                 c ok oi
+                 (phys-chain-radial (-> self slot) c 1)
+                 (phys-diag (-> self slot) c 3)
+                 (phys-diag (-> self slot) c 2))
+         (format 0 "PHYSORICTL3 c=~D k=~D i=~D retreat=~f shape=~f~%"
+                 c ok oi
+                 (phys-diag (-> self slot) c 1)
+                 (phys-diag (-> self slot) c 8))))
        (+! (-> self ori) 1)
        (set! (-> self pframe) 0)
        (phys-stats-reset!)
-       (when (>= (-> self ori) PHYSROOM-ORIN)
-         (set! (-> self phase) PHYSROOM-PH-SHAKE))))
+       (when (>= (-> self ori) (* 4 PHYSROOM-ORIN))
+         ;; LES TROIS CONTROLES SONT RENDUS AVANT DE SORTIR. Un controle laisse arme
+         ;; contaminerait tout le reste de la course — c'est la faute que `phys-len-off-set!`
+         ;; evite deja de la meme facon a la sortie des fenetres d'axe.
+         (phys-len-off-set! 0)
+         (phys-side-off-set! 0)
+         (phys-cone-off-set! 0)
+         (set! (-> self phase) PHYSROOM-PH-SHAKE)))))
 
     ;; ---- 4 ter. ON SECOUE, PUIS ON RELACHE — le cycle ferme dans le regime ou le defaut vit.
     ;; ---- Voir la note de PHYSROOM-PH-SHAKE : le cycle `tilt` est quasi-statique et n'exerce pas
