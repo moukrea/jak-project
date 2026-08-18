@@ -11,12 +11,15 @@ KEIRA / POITRINE SEULE (ordre owner 2026-08-14 07:30).
 PALIER DE LIVRAISON : GOAL SEUL — `make-group` + repack, aucun rebuild NDK, aucune donnee touchee.
 `recharged_assets/physics_chains.txt` et le mesh livre sont INCHANGES au bit pres.
 
-**LE COMPORTEMENT LIVRE EST INCHANGE, ET JE LE DIS EN TETE.** Les deux ajouts au moteur sont des
-EMETTEURS : ils calculent deux distances et les publient, ils ne produisent aucune force et ne
-deplacent aucun os. La preuve n'est pas une affirmation : la course de ce cycle rend, au chiffre
-pres, les memes grandeurs que celle du cycle 29 (`comex` max 1.8058 / 1.9325, moyenne 0.4743 /
-0.4605, part au-dessus du plafond 54.6 % / 52.1 %, ventilation de contact 40.0 % / 28.9 % de
-vetement). L'owner teste donc le meme physique qu'aux cycles 28 et 29.
+**CE QUI CHANGE POUR L'OWNER, ET JE LE DIS EN TETE.** Une seule chose bouge a l'ecran, et elle est
+petite : le CORRECTIF F (section 13) rend au maillon distal la frequence que sa §24 lui fixe, ce qui
+retire **5 % du mouvement sur les pilotages doux et 18 % au pire**. Tout le reste du cycle est de la
+MESURE — deux emetteurs qui calculent deux distances, deux ablations dont les drapeaux sont revenus
+a zero et le moteur bit-identique (`md5sum -c`), une ablation de donnees dont le fichier est revenu
+a son md5. Les grandeurs mesurees AVANT le correctif F reproduisent celles du cycle 29 au chiffre
+pres (`comex` max 1.8058 / 1.9325, moyenne 0.4743 / 0.4605, part hors bande 54.6 % / 52.1 %,
+`PHYSAUTH hit` 391 / 401, `meshpen` 0.1114 / 0.0887) : les emetteurs n'ont rien deplace, et la
+comparaison avant/apres du correctif porte donc sur un seul facteur.
 
 METHODE DE CE CYCLE, EN UNE LIGNE, PARCE QU'ELLE EST LE RESULTAT AUTANT QUE LES CHIFFRES
 =========================================================================================
@@ -87,6 +90,17 @@ EN UN COUP D'OEIL
                 distal, qui pilote pourtant 43.5 % de la chair. §24 est gradee TENUE parce que le
                 fit de ring-down est publie PAR CHAINE : il rend le mode dominant, celui du maillon
                 le plus raide. Section 5 quater.
+    CORRIGE     **§24 EST MAINTENANT TENUE SUR LES DEUX MAILLONS — 12 CANAUX SUR 12.** Le solveur
+                cesse de graduer la RAIDEUR par maillon : dans cette formulation graduer la raideur
+                EST graduer la frequence, et le gradient racine->pointe de §31 est deja porte, et
+                mesure, par la PEAU. Le maillon racine est INCHANGE par construction (verifie :
+                `ang0` 11.18 -> 11.13 deg). Prix mesure : **-4.9 % sur le pilotage le plus doux**,
+                -18.2 % au pire, contre un seuil de retrait ecrit d'avance a -35 %. Section 13.
+    CORRIGE     **ET J'Y CORRIGE DEUX DE MES PROPRES PREDICTIONS** : j'annoncais `ang1` -53 % et
+                `comex` -23 %, la mesure rend -10.2 % et -4.3 %. La formule `a/w^2` suppose un
+                regime force lineaire que ce cycle a mesure trois fois comme absent. **Ce correctif
+                ferme §24, il ne ferme PAS §22** — et le maximum de course de `comex` monte meme un
+                peu (1.8058 -> 2.0052) pendant que sa moyenne baisse. Section 13.
     RESTE       **§28 PASSE DE TENUE A PARTIELLE, PAR DATE ET NON PAR MESURE.** `stiffness` et
                 `mass` de la poitrine sont INCHANGES depuis le 2026-08-14 01:00, derives quand la
                 chaine avait UN SEUL maillon d'os 656 u. Elle en a deux, de 1040 u et 140 u
@@ -94,18 +108,25 @@ EN UN COUP D'OEIL
                 du 17/08 place juste apres la structure n'a jamais ete faite. Premier point du
                 cycle 31. Section 8.
 
-BREAST-PENETRATION: chestL 0.1114 m · chestR 0.0887 m  (plafond epingle 0.0005 m — NON TENU)
-    Declaration exigee a chaque cycle tant que ce n'est pas zero. INCHANGEES : ce cycle n'ajoute que
-    des emetteurs. **GATE `COLLIDE` ROUGE**, et ce cycle lui donne pour la premiere fois une cause
-    geometrique mesuree (section 4) au lieu d'un mecanisme suppose.
+BREAST-PENETRATION: chestL 0.0976 m · chestR 0.0904 m  (plafond epingle 0.0005 m — NON TENU)
+    Declaration exigee a chaque cycle tant que ce n'est pas zero. **GATE `COLLIDE` TOUJOURS ROUGE**,
+    mais elle BAISSE pour la premiere fois du cote gauche : 0.1114 -> 0.0976 m (-12.4 %) sous l'effet
+    du correctif F ; a droite elle monte de 0.0887 a 0.0904 (+1.9 %). Avant le correctif, la course
+    de ce cycle reproduisait exactement les valeurs du cycle 29 (0.1114 / 0.0887).
 
-SIDE-CROSSING: 5 franchissements — `chestR` 5, `chestL` 0
-    Inchange, meme raison. Le compteur est vivant (il compte 5) et le defaut reste ouvert.
+SIDE-CROSSING: 9 franchissements (chestR 8 · chestL 1) — **EN HAUSSE, ET C'EST UNE REGRESSION**
+    5 au cycle 29, et une seule chaine concernee ; 9 maintenant, sur les deux. C'est le prix du
+    correctif F, il n'etait pas prevu, et je le declare comme regression et non comme bruit : un
+    maillon distal plus raide reagit plus vite et franchit plus souvent l'axe de son attache avant
+    que la correction de cote ne l'attrape. A instruire au cycle 31 en meme temps que §33 — les deux
+    portent sur la meme resolution de contact.
 
-COMEX (SPEC 22): chestL 1.8058 B0 · chestR 1.9325 B0 au maximum, 0.4743 / 0.4605 en moyenne
-    (plafond dur 0.40 B0 ; 54.6 % / 52.1 % des 33 480 echantillons au-dessus). Identique au
-    cycle 29 au chiffre pres — preuve que les emetteurs n'ont rien deplace. **Ventile pour la
-    premiere fois** : 55 % levier, 45 % maillon distal, le tout x ~1.9 par la deformation.
+COMEX (SPEC 22): chestL 2.0052 B0 · chestR 1.9858 B0 au maximum  (plafond dur 0.40 B0)
+    Le MAXIMUM monte (1.8058 / 1.9325 avant le correctif) pendant que la MOYENNE baisse
+    (0.4743 -> 0.4603 et 0.4605 -> 0.4391) et que la part hors bande passe de 54.6 % a 52.3 % et de
+    52.1 % a 47.8 %. **§22 reste ABSENTE** : ce cycle en nomme la cause (le bras de levier, sections
+    5 bis et 5 ter) et la ventile pour la premiere fois (55 % levier / 45 % distal, x ~1.9 par la
+    deformation), il ne la ferme pas.
 
 1. §23/§30 — L'OS INJECTE PILOTE LA CHAIR, ET LE ZERO DE LA DIRECTIVE VENAIT D'UN FICHIER D'AMONT
 ==================================================================================================
@@ -507,18 +528,24 @@ a cote (`keira-room-x86.C30-REF.log`) pour que la comparaison soit refaisable.
 
 7. CE QUE J'AI CHANGE, FICHIER PAR FICHIER
 ============================================
-  `goal_src/jak1/pc/jak-hd-physics.gc`   4701 -> 4747 lignes (plafond `CLEAN` : 4800)
+  `goal_src/jak1/pc/jak-hd-physics.gc`   4701 -> 4735 lignes (plafond `CLEAN` : 4800)
+      **LE SEUL CHANGEMENT DE COMPORTEMENT DU CYCLE (correctif F, section 13) :** `k2l = k2` — le
+      solveur cesse de graduer la RAIDEUR par maillon. `nfr` et `gmean` n'avaient plus d'autre
+      lecteur et partent avec, commentaire perime compris. Diff de CODE, hors commentaires : trois
+      liaisons retirees et une substitution, rien d'autre.
+      Le reste :
       + `PHYS-DG` 24 -> 29 et les emplacements 24..28 : `rgap` (max, somme), `perr` (max, somme),
         le nombre d'echantillons. Portee = la fenetre (chaine, animation, pilotage), remise a zero
         par `phys-comexw-reset!`, qui les couvre desormais tous les cinq.
       + le calcul, au site MEME ou la cible du ressort est posee (:2686), garde par
         `(and (nonzero? hasf) (> warm 1) (= l rlk))` — la restriction au premier maillon libre est
         ce qui rend la grandeur STATIQUE, et elle est expliquee sur place.
-      **AUCUNE FORCE, AUCUN OS DEPLACE.** Deux distances calculees et rangees dans un tableau de
-      diagnostic. La preuve n'est pas une affirmation : `PHYSAUTH c=0 hit=391.0000 ok=391.0000` est
-      BIT-IDENTIQUE entre le log du cycle 29 et celui de ce cycle, comme `comex` (1.8058 / 1.9325
-      au maximum, 0.4743 / 0.4605 en moyenne, 54.6 % / 52.1 % au-dessus du plafond), `meshpen`
-      (0.1114 / 0.0887) et la ventilation de contact (40.0 % / 28.9 % de vetement).
+      **CES DEUX-LA NE PRODUISENT AUCUNE FORCE ET NE DEPLACENT AUCUN OS.** La preuve n'est pas une
+      affirmation : sur la course prise AVANT le correctif F, `PHYSAUTH c=0 hit=391.0000
+      ok=391.0000` est BIT-IDENTIQUE au log du cycle 29, comme `comex` (1.8058 / 1.9325 au maximum,
+      0.4743 / 0.4605 en moyenne, 54.6 % / 52.1 % au-dessus du plafond), `meshpen` (0.1114 /
+      0.0887) et la ventilation de contact (40.0 % / 28.9 % de vetement). C'est cette course-la qui
+      sert de reference au correctif F, donc la comparaison porte sur UN seul facteur.
   `goal_src/jak1/pc/phys-room.gc`        2890 -> 2909 lignes
       + `PHYSRESTW` et `PHYSRESTS`, a cote de `PHYSCOMW`, meme fenetre, meme forme. Deux lignes
         parce que `format` de GOAL est cape a huit parametres.
@@ -578,19 +605,27 @@ anterieur, NON re-mesure — et dit comme tel. Aucune section « non applicable 
                                section 1 avec la colonne d'amont a cote. Reste PARTIELLE : le
                                modele de §23 (masse-ressort-amortisseur anisotrope avec
                                `F_collision`) n'est pas integralement en place.
-  §24 3 frequences  PARTIELLE  [M] **ELLE BAISSE DE TENUE A PARTIELLE, PAR ARITHMETIQUE ET SANS
-                               COURSE.** Le fit de ring-down publie (6 canaux sur 6 DANS, residus
-                               <= 0.042) est fait PAR CHAINE. Or le moteur gradue la raideur par
-                               maillon en normalisant sur la RACINE : `f_0` reste pile a 2.3000 /
-                               2.3904 Hz et `f_1` vaut **1.5712 / 1.6330 Hz**, soit 25 % SOUS le
-                               plancher de 2.10 Hz de sa bande la plus basse — sur le maillon qui
-                               pilote 43.5 % / 37.5 % de la chair. Un fit par chaine rend le mode
-                               dominant, donc celui du maillon le plus raide : il ne PEUT PAS voir
-                               ce defaut. Section 5 quater.
+  §24 3 frequences  TENUE      [M] **DEFAUT TROUVE ET CORRIGE DANS LE MEME CYCLE.** Le fit de
+                               ring-down publie (6 canaux sur 6) est fait PAR CHAINE et ne peut donc
+                               pas voir un maillon hors bande. Calcul par maillon : le solveur
+                               graduait la raideur en normalisant sur la racine, si bien que `f_0`
+                               tenait 2.3000 / 2.3904 Hz pendant que `f_1` valait 1.5712 / 1.6330 Hz
+                               — SOUS la bande sur les SIX canaux (section 5 quater). CORRECTIF F
+                               (section 13) : la graduation de raideur est retiree, le gradient de
+                               §31 revenant a la peau qui le porte deja. Les DEUX maillons sont
+                               desormais DANS leurs trois bandes : **12 canaux sur 12**, racine
+                               verifiee inchangee (`ang0` 11.18 -> 11.13 deg).
+                               RESERVE EXPLICITE : cette conformite est ARITHMETIQUE. Le fit de
+                               ring-down reste par chaine ; un fit PAR MAILLON reste a construire
+                               avant de la declarer mesuree.
   §25 zeta 0.35     TENUE      [R] 0.33-0.36 sur les six canaux, bande 0.32-0.42.
   §26 rebond 31 %   PARTIELLE  [R] 0.281-0.324 pour une cible de 0.31.
   §27 stabilisation TENUE      [R] six canaux sur six dans 0.6-1.2 s.
-  §28 derivation k  PARTIELLE  [M] **ELLE BAISSE DE TENUE A PARTIELLE, ET C'EST UN FAIT DE DATE,
+  §28 derivation k  PARTIELLE  [M] **ELLE RESTE PARTIELLE MEME APRES LE CORRECTIF F**, et c'est un
+                               fait de date autant qu'une mesure. Le correctif rend a chaque maillon
+                               la frequence de la CHAINE ; il ne DERIVE pas encore `k` et `m` par
+                               maillon depuis `k = m(2 pi f)^2` et la geometrie de chacun, ce que sa
+                               §28 decrit. Le constat de date reste entier :
                                PAS UNE MESURE NEUVE.** `stiffness` et `mass` de `chestL`/`chestR`
                                sont INCHANGES depuis le 2026-08-14 01:00 (2.7696/1.45 et
                                2.9081/1.48, verifie par `git log -p` sur le fichier livre), c'est-a-
@@ -606,10 +641,12 @@ anterieur, NON re-mesure — et dit comme tel. Aucune section « non applicable 
   §29 aniso+torsion PARTIELLE  [R] compliance laterale 1.0276 / 0.9956 pour une cible de 0.820.
   §30 ancrage       TENUE      [S] re-mesure ce cycle sur le mesh livre : os distal majoritaire sur
                                43.5 % / 37.5 % du nuage, barre 30 %.
-  §31 gradient      PARTIELLE  [R] profil monotone decroissant, `tear` toujours non mesure. [M] et
-                               sa mise en oeuvre dans le solveur (graduer la RAIDEUR par maillon)
-                               est ce qui sort §24 de sa bande sur le distal : le gradient de §31
-                               s'exprime aujourd'hui en rabotant une frequence que §24 fixe.
+  §31 gradient      PARTIELLE  [R] profil monotone decroissant, `tear` toujours non mesure. [M] sa
+                               mise en oeuvre etait DOUBLE — dans la peau (profil d'ancrage §30,
+                               exposant 1.63, mesure) ET dans la raideur du solveur, et c'est la
+                               seconde qui sortait §24 de sa bande. Le correctif F retire la
+                               seconde : le gradient reste porte par la peau, ou il est mesurable.
+                               Reste PARTIELLE parce que `tear` n'est toujours pas mesure.
   §32 independance  PARTIELLE  [T] asymetrie de CONTACT toujours ouverte : 24 599 corrections a
                                gauche contre 21 572 a droite, et le recouvrement au repos est lui
                                symetrique a 3 u pres (231.3 contre 228.5) — donc l'asymetrie ne
@@ -645,18 +682,15 @@ anterieur, NON re-mesure — et dit comme tel. Aucune section « non applicable 
 
 9. CE QUE JE N'AI PAS FAIT, ET POURQUOI — AUCUN DE-SCOPE SILENCIEUX (regle 3)
 ==============================================================================
-  1. **JE N'AI PAS RE-DERIVE §24/§28 SUR LA NOUVELLE GEOMETRIE**, alors que l'ordre du 17/08 23:50
-     la place juste apres la structure, que j'ai etabli qu'elle n'a jamais ete faite (raideur et
-     masse figees au 14/08 01:00, derivees pour une chaine a UN maillon d'os 656 u) et que ce cycle
-     mesure l'ecart qu'elle doit fermer (maillon distal a 1.57 / 1.63 Hz pour un plancher de
-     2.10 Hz, section 5 quater). La raison n'est pas une prudence : c'est que la derivation correcte
-     CHANGE LA FORME du parametre livre. Aujourd'hui la chaine porte UN couple
-     (`stiffness`, `mass`) et le solveur en deduit les deux maillons par la graduation de §31 ;
-     tenir §24 sur les DEUX maillons demande soit un couple PAR MAILLON dans le fichier livre
-     (donc un format de donnees neuf et un producteur qui le derive), soit de deplacer la
-     graduation de §31 de la raideur vers la masse. Les deux sont des chantiers a part entiere, et
-     les livrer a la va-vite en fin de cycle serait exactement l'empilement que la consigne du
-     13/08 22:40 interdit. Le cycle 31 s'ouvre dessus, avec la cible chiffree de la section 5 bis.
+  1. **§24 EST CORRIGEE, §28 NE L'EST PAS, ET LA DIFFERENCE EST NETTE.** Le correctif F (section
+     13) rend a chaque maillon la frequence de la CHAINE, donc §24 est tenue sur les douze canaux.
+     Il ne DERIVE pas `k` et `m` PAR MAILLON depuis `k = m(2 pi f)^2` et la geometrie de chacun, ce
+     que sa §28 decrit : cela demanderait un couple par maillon dans le fichier livre, donc un
+     format de donnees neuf, un producteur qui le derive et un parseur C++ qui le lit. Je ne livre
+     pas ce chantier-la en fin de cycle. **Et la conformite obtenue est ARITHMETIQUE, pas mesuree** :
+     le fit de ring-down reste PAR CHAINE et ne peut structurellement pas voir un maillon hors
+     bande — c'est ce qui a laisse le defaut passer. Un fit par maillon est le premier outil du
+     cycle 31.
 
   2. **JE N'AI PAS CORRIGE §33.** La gate `COLLIDE` reste rouge a 0.1114 m. Ce cycle lui apporte
      pour la premiere fois une cause GEOMETRIQUE mesuree (0.38 B0 de recouvrement au repos sur le
@@ -749,6 +783,22 @@ anterieur, NON re-mesure — et dit comme tel. Aucune section « non applicable 
      moitie de sa chair — tourne a **1,57 Hz**, un quart en dessous du minimum que sa spec autorise.
      Notre mesure ne pouvait pas le voir : elle regarde la chaine entiere et rend le mode du plus
      raide des deux. C'est le premier chantier du prochain cycle.
+  9. **ET J'AI CORRIGE CE DEFAUT DANS LE MEME CYCLE, MAIS QU'IL NE S'ATTENDE PAS A VOIR GRAND-CHOSE.**
+     Le second os tourne maintenant a la bonne frequence, comme le premier : sa §24 est tenue sur
+     les deux, au lieu du seul premier. Le prix est mesure : **5 % de mouvement en moins sur les
+     mouvements doux** (ceux qu'il juge « nickel »), 18 % au pire sur une secousse verticale. Je
+     m'attendais a beaucoup plus d'effet sur le ballottement et il n'y en a presque pas : **ca
+     corrige une conformite de spec, pas le « pudding ».** Le pudding, lui, vient du bras de levier
+     (point 6), et il reste ouvert.
+  10. **ET CE CORRECTIF A UN EFFET DE BORD, JE NE LE CACHE PAS.** Ses seins traversent un peu MOINS
+     son buste qu'avant (la penetration baisse de 12 % a gauche, c'est la premiere fois qu'elle
+     baisse), mais le compteur de « passages du mauvais cote » monte de 5 a 9. Un os plus raide
+     reagit plus vite et passe la ligne avant que la correction ne le rattrape. C'est au dossier
+     avec le reste.
+  11. **CE QU'IL PEUT REGARDER SUR CE BUILD** : la poitrine devrait etre tres legerement plus ferme
+     sur les a-coups verticaux, et quasiment identique partout ailleurs. S'il voit une difference
+     plus grande que ca, c'est moi qui me trompe et il faut me le dire — la mesure annonce -5 % sur
+     les mouvements doux et -18 % au pire.
 
 12. LE PLAN DU CYCLE 31, DANS L'ORDRE QUE L'OWNER A FIXE
 ==========================================================
@@ -757,21 +807,15 @@ Son ordre du 2026-08-17 23:50 : « structure d'abord (§23/§30, elle reste pose
 §33 ». La structure est posee ET PROUVEE (section 1). Le point suivant est donc nomme, et ce cycle
 lui donne pour la premiere fois une cible chiffree :
 
-  1. **RE-DERIVATION §24/§28 SUR LA NOUVELLE GEOMETRIE — PAR MAILLON, ET LE DEFAUT EST DEJA
-     CHIFFRE.** Le fichier livre porte UN couple (`stiffness`, `mass`) par chaine, derive le 14/08
-     pour une chaine a UN os de 656 u ; le solveur en deduit les deux maillons par la graduation de
-     §31, normalisee sur la racine. Consequence arithmetique, section 5 quater : la racine tient
-     2.3000 / 2.3904 Hz et le distal tombe a **1.5712 / 1.6330 Hz**, 25 % sous le plancher de
-     2.10 Hz — sur le maillon qui pilote 43.5 % de la chair. Deux voies, et il faut choisir :
-       (a) un couple PAR MAILLON dans le fichier livre, derive par le producteur depuis `k = m(2 pi
-           f)^2` (sa §28) et la geometrie mesuree de chaque maillon ; ou
-       (b) deplacer la graduation de §31 de la RAIDEUR vers la MASSE, de sorte que le gradient
-           racine->pointe ne rabote plus une frequence que §24 fixe.
-     Dans les deux cas, §24, §25 (zeta 0.35) et §26 (rebond 31 %) se re-verifient APRES, et le fit
-     de ring-down doit devenir PAR MAILLON — un fit par chaine ne peut structurellement pas voir ce
-     defaut, et c'est pour ca qu'il ne l'a jamais vu.
-     Cible d'amplitude, derivee section 5 bis : deplacement de joint 0.612 -> 0.21 B0, soit la
-     deviation du maillon 0 de 11.2 -> 3.8 deg et celle du maillon 1 de 74.8 -> 26 deg.
+  1. **UN FIT DE RING-DOWN PAR MAILLON, PUIS §28 PAR MAILLON.** Le correctif F a ferme §24 par
+     l'arithmetique (12 canaux sur 12) ; l'instrument qui devrait le CONSTATER n'existe toujours
+     pas : le fit est publie par chaine et rend le mode dominant. C'est lui qui a laisse passer un
+     maillon a 1.57 Hz pendant des cycles. Premier outil du cycle 31.
+     Ensuite seulement, §28 : deriver `k` et `m` PAR MAILLON depuis `k = m(2 pi f)^2` et la
+     geometrie mesuree de chacun, ce qui demande un couple par maillon dans le fichier livre (donc
+     producteur + parseur C++). Cible d'amplitude, derivee section 5 bis : deplacement de joint
+     0.612 -> 0.21 B0, soit `ang0` 11.2 -> 3.8 deg et `ang1` 74.8 -> 26 deg. Le correctif F n'a fait
+     que 10-13 % de ce chemin sur `ang1`, et il faut le dire : **§22 reste ouverte**.
 
   2. **SI LA RE-DERIVATION NE SUFFIT PAS, LE LEVIER LUI-MEME — MAIS PAS PAR EPINGLAGE.**
      L'ablation E a mesure le prix de la suppression pure et simple du degre de liberte : 26-42 %
@@ -788,3 +832,101 @@ lui donne pour la premiere fois une cible chiffree :
      survit a sa course (section 6, remonte au superviseur), et le fait que le seul plancher qui
      protege l'acquis de l'owner (« poitrine sur mouvements subtils : toujours OK ») est SUSPENDU
      depuis l'arbitrage du 14/08 01:00 — donc rien ne le mesure aujourd'hui avant qu'il le voie.
+
+13. CORRECTIF F — §24 EST MAINTENANT TENUE SUR LES DEUX MAILLONS, ET LE GRADIENT DE §31 REVIENT
+     A LA PEAU, QUI LE PORTE DEJA
+=================================================================================================
+Ce cycle ne s'arrete pas au diagnostic : le defaut de la section 5 quater est CORRIGE, et le
+critere de conservation etait ecrit d'avance (prediction F, `C30-restgap-prediction.txt`).
+
+LE CORRECTIF, UN SEUL FACTEUR : `k2l = k2` pour tout maillon libre — le solveur cesse de graduer la
+RAIDEUR par maillon. Raison, et elle n'est pas un arbitrage de gout :
+  - dans cette formulation `w_l = w * sqrt(k2l/k2)`, donc **graduer la raideur EST graduer la
+    frequence propre**, et sa §24 fixe cette frequence par trois bandes chiffrees ;
+  - sa §31 ecrit « a USEFUL deformation weighting », une ponderation suggeree, pas une bande ;
+  - et le gradient racine->pointe de §31 est **deja porte, et mesure, par la PEAU** — profil
+    d'ancrage de §30 decroissant de 0.95 a 0, exposant 1.63, os distal majoritaire sur 43.5 % /
+    37.5 % du nuage (section 1). Le porter une seconde fois dans la frequence le comptait deux fois,
+    et la deuxieme fois sortait §24 de sa bande.
+Entre une suggestion et une bande chiffree, la bande gagne — c'est l'arbitrage que l'owner a rendu
+lui-meme le 14/08 01:00 (« la calibration §24 revient, et ne se retire plus au motif d'une de mes
+gates »).
+
+LE MAILLON RACINE EST INCHANGE PAR CONSTRUCTION, ET C'EST DEMONTRABLE AVANT LA COURSE : pour tout
+`nfr`, `r(rlk) = 0.5/nfr` et `gmean = 1 - (0.5/nfr)^2`, donc `(1 - r^2)/gmean = 1.0000` EXACTEMENT.
+La raison d'etre de la normalisation posee le 17/08 (NOTE-38 : empecher que passer de 1 a 2
+maillons fasse sortir la racine a 2.709 Hz) est donc integralement preservee. `nfr` et `gmean`
+n'avaient plus d'autre lecteur : ils partent avec la graduation, commentaire perime compris.
+
+    F1 — VERIFICATION ARITHMETIQUE, SUR LES SIX CANAUX (elle ne se mesure pas, elle se calcule) :
+    `f(axe, maillon) = stiffness/sqrt(mass) * sqrt(1/mobilite_axe) * sqrt(k2l/k2)`, avec les
+    mobilites de sa §29 (vertical 1.00 / AP 0.90 / lateral 0.82) deja armees dans le solveur.
+
+        chaine   axe        maillon 0   maillon 1 AVANT   maillon 1 APRES   bande §24
+        chestL   vertical    2.3000        1.5713            2.3000         [2.10,2.50]  SOUS -> DANS
+        chestL   AP          2.4244        1.6563            2.4244         [2.30,2.70]  SOUS -> DANS
+        chestL   lateral     2.5400        1.7352            2.5400         [2.40,2.90]  SOUS -> DANS
+        chestR   vertical    2.3904        1.6330            2.3904         [2.10,2.50]  SOUS -> DANS
+        chestR   AP          2.5197        1.7214            2.5197         [2.30,2.70]  SOUS -> DANS
+        chestR   lateral     2.6398        1.8034            2.6398         [2.40,2.90]  SOUS -> DANS
+
+    **Le maillon distal etait SOUS sa bande sur les SIX canaux ; il y est desormais sur les SIX.**
+    Le maillon racine y etait deja : §24 passe donc de 6 canaux tenus sur 12 (racine seule) a
+    **12 sur 12**. Et `rate = dmp * sqrt(k2l/k2)` redevient `dmp` : `zeta` est conserve, §25 n'est
+    pas touchee.
+
+    F4 — LE MAILLON RACINE N'A PAS BOUGE, ET C'ETAIT LA CONDITION DE SURETE :
+        `ang0`  chestL 11.18 -> 11.13 deg (-0.4 %)     chestR 11.81 -> 11.72 deg (-0.8 %)
+    La normalisation de NOTE-38 est donc bien preservee au chiffre pres, comme l'algebre le
+    promettait. Si ce chiffre avait bouge, le correctif partait.
+
+    F2 / F3 — **MES DEUX PREDICTIONS D'AMPLITUDE SONT LARGEMENT SUR-ESTIMEES, ET JE LES CORRIGE :**
+        predit `ang1` -53 %          mesure  74.82 -> 67.16 deg (**-10.2 %**)  et  71.79 -> 62.13 (-13.5 %)
+        predit `comex` -23 %         mesure ligne de base -4.3 % / -0.5 %,
+                                             moyenne de course -2.9 % / -4.6 %,
+                                             part > 0.40 B0 : 54.6 -> 52.3 % et 52.1 -> 47.8 %
+    J'avais raisonne « une reponse forcee vaut `a/w^2`, donc x0.4667 ». Cette formule suppose un
+    regime FORCE LINEAIRE. Ce cycle a mesure trois fois que l'organe n'y est pas : sa reponse ne
+    suit pas son stimulus (r = +0.005 sur un facteur 275, section 2), et le contact la RETIENT au
+    lieu de la produire (section 5). Dans ce regime-la, changer la raideur du maillon ne deplace
+    pas sa sortie a la hauteur de la formule. **La consequence est nette : ce correctif ferme §24,
+    il ne ferme pas §22 — et je ne le presente pas comme un correctif du « pudding ».**
+    A PUBLIER AUSSI PARCE QUE C'EST DEFAVORABLE : le MAXIMUM de course de `comex` MONTE
+    (1.8058 -> 2.0052 sur chestL, 1.9325 -> 1.9858 sur chestR) pendant que la moyenne baisse. Un
+    maillon plus raide reagit plus vite aux extremes ; la distribution se resserre vers le bas et
+    sa queue s'allonge un peu.
+
+    F5 — LE PRIX, ET C'EST LUI QUI DECIDAIT (critere ecrit d'avance : retirer si < -35 % sur le
+         pilotage le plus doux ou sur la ligne de base) :
+        pilotage      chestL                       chestR
+        updown        676.4 -> 553.5   -18.2 %     644.8 -> 562.8   -12.7 %
+        leftright     691.9 -> 703.0    +1.6 %     740.9 -> 777.2    +4.9 %
+        accel         833.7 -> 772.3    -7.4 %     861.4 -> 764.7   -11.2 %
+        jerk          697.1 -> 663.7    -4.8 %     703.7 -> 699.4    -0.6 %
+        tilt          555.2 -> 527.9    -4.9 %     388.1 -> 369.9    -4.7 %
+        LIGNE DE BASE 565.0 -> 478.0   -15.4 %     501.0 -> 500.9    -0.0 %
+    Pire cout sur un pilotage : **-18.2 %**, et **-4.9 % / -4.7 % sur `tilt`**, le pilotage le plus
+    doux — celui ou vit l'acquis « poitrine sur mouvements subtils : toujours OK ». Trois fois moins
+    cher que le seuil que je m'etais fixe, et sept fois moins cher que l'epinglage (ablation E,
+    -56 % sur le meme `tilt`).
+
+**DECISION, PAR LE CRITERE ECRIT D'AVANCE : LE CORRECTIF EST CONSERVE.** F1 verifiee (12 canaux sur
+12), F4 tenue, F5 sous le seuil. Ce qu'il apporte est une conformite de SPEC, pas une amelioration
+visible : sa §24 passe de « tenue sur la racine seule » a « tenue sur les deux maillons », et sa
+§31 cesse d'etre comptee deux fois. **L'owner ne verra pratiquement pas de difference** — c'est dit
+en tete du rapport et c'est mesure (-5 % sur les mouvements doux).
+
+CE QUE LE CORRECTIF COUTE AILLEURS, ET JE LE DECLARE COMME UNE REGRESSION, PAS COMME DU BRUIT :
+    `ROOM-SIDE` (franchissements de l'axe d'attache)   5  ->  **9**, et de 1 chaine a 2
+        (chestR 8, chestL 1 ; c'etait chestR 5, chestL 0)
+Un maillon distal plus raide reagit plus vite et franchit plus souvent l'axe de son attache avant
+que la correction de cote ne l'attrape. Le compteur reste vivant et declare (gate `SIDE-CONTROL`
+verte au sens ou elle exige la declaration), mais le NOMBRE monte et ca doit se lire comme tel.
+A instruire au cycle 31 en meme temps que §33 : les deux portent sur la meme resolution de contact.
+
+CE QU'IL AMELIORE, ET C'EST LA PREMIERE FOIS SUR CETTE GATE :
+    `meshpen` chestL  0.1114  ->  **0.0976 m**  (-12.4 %)      chestR  0.0887 -> 0.0904  (+1.9 %)
+La gate `COLLIDE` reste ROUGE (plafond 0.0005) et je ne la presente pas autrement — mais c'est le
+premier cycle ou la penetration BAISSE, et elle baisse par un correctif derive de la spec, pas par
+un reglage.
+    `tipvar` livre  chestL 0.2035 -> 0.1886      chestR 0.2103 -> 0.1897

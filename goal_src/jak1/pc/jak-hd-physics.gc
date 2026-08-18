@@ -2530,8 +2530,7 @@
                                   (the-as vector (-> skel bones (+ kk 1) transform vector 3))
                                   (the-as vector (-> skel bones (+ kp 1) transform vector 3)))))))
                     ;; [NOTE-37] ---- 1. UNE PARTICULE PAR MAILLON, INTEGREE EN POSITION MONDE. ------------- -> jak-hd-physics-NOTES.md
-                    (let* ((nfr (- n rlk))
-                           (ela (if (= (-> *phys-fam* sc) 1) 1 0))
+                    (let* ((ela (if (= (-> *phys-fam* sc) 1) 1 0))
                            ;; PORTEE DE SPEC 21/22, RELEVEE SUR LA COURSE ET PAS SUR UN NOM :
                            ;; `PHYSCHAIN` publie `fam=` et `links=` pour les 22 chaines, et le couple
                            ;; (famille A, UN maillon) ne selectionne que `c=7 lBoob` et `c=8 rBoob`.
@@ -2546,21 +2545,8 @@
                            ;; selectionne que chestL/chestR (les seules chaines simulees, ordre du
                            ;; 2026-08-14 07:30), donc le `n` etait un doublon de selecteur — et un
                            ;; zero produit par un bloc qui ne s'execute plus n'est pas un zero gagne.
-                           (sat (if (nonzero? ela) 1 0))
-                           ;; [NOTE-38] SPEC 31 — GRADIENT RACINE -> POINTE, `w(r) = r^1.6..2.0`. On prend -> jak-hd-physics-NOTES.md
-                           ;; NORMALISE SUR LE MAILLON RACINE, PAS SUR LA MOYENNE (2026-08-17).
-                           ;; Avec la moyenne, passer de 1 a 2 maillons multipliait la raideur du
-                           ;; maillon racine par 1.3636, donc sa frequence par 1.1677 : SPEC 24
-                           ;; verticale serait sortie de sa bande [2.10, 2.50] a 2.709 Hz SANS
-                           ;; qu'aucun parametre livre soit touche. Normaliser sur le terme du
-                           ;; maillon `rlk` rend la racine INVARIANTE au nombre de maillons et
-                           ;; laisse le distal plus souple — ce que SPEC 31 demande en toutes
-                           ;; lettres. A nfr=1 la valeur vaut 1-0.25 = 0.75, identique au bit pres
-                           ;; a l'ancienne moyenne : le comportement livre ne bouge pas.
-                           (gmean (if (> nfr 0)
-                                    (let ((r0 (/ 0.5 (the float nfr))))
-                                      (- 1.0 (* r0 r0)))
-                                    1.0)))
+                           ;; [NOTE-38] `gmean` et sa normalisation RETIREES le 2026-08-19 : voir NOTE-74. -> jak-hd-physics-NOTES.md
+                           (sat (if (nonzero? ela) 1 0)))
                       (dotimes (l n)
                         (let* ((scl (+ (* sc PHYS-LINKS) l))
                                (k   (-> *phys-joint* scl)))
@@ -2653,15 +2639,17 @@
                                       ;; `bl` : `bl` est l'OS (la contrainte de longueur porte bien
                                       ;; sur lui), `b0e` est la CHAIR. Voir PHYS-P-B0.
                                       (b0e (if (> (-> *phys-b0* sc) 0.0) (-> *phys-b0* sc) bl))
-                                      ;; LA RAIDEUR DE CE MAILLON-CI (SPEC 31). `k2` est la raideur
-                                      ;; de la chaine ; `k2l` est sa part pour ce maillon, ancree
-                                      ;; pres de la racine et libre vers la pointe. Sur une chaine a
-                                      ;; un seul maillon libre, `gmean` vaut le terme unique et le
-                                      ;; rapport vaut 1.0 : `k2l` = `k2`, au bit pres.
-                                      (k2l (if (and (>= l rlk) (> nfr 0) (> gmean 0.0001))
-                                             (let ((r (/ (+ (the float (- l rlk)) 0.5) (the float nfr))))
-                                               (* k2 (/ (- 1.0 (* r r)) gmean)))
-                                             k2))
+                                      ;; [NOTE-74] SPEC 24 CONTRE SPEC 31 : LE GRADIENT NE VIT PLUS DANS LA FREQUENCE. -> jak-hd-physics-NOTES.md
+                                      ;; Ici `w_l = w * sqrt(k2l/k2)` : graduer la raideur EST
+                                      ;; graduer la frequence propre. La graduation precedente
+                                      ;; (`k2 (1-r^2)/gmean`, §31) laissait le maillon distal de la
+                                      ;; poitrine a 1.5712 / 1.6330 Hz pour un plancher de 2.10 Hz
+                                      ;; (§24) — sur l'os qui pilote 43.5 % / 37.5 % de la chair.
+                                      ;; Le gradient racine->pointe de §31 est deja porte, et
+                                      ;; MESURE, par la PEAU (profil d'ancrage de §30, exposant
+                                      ;; 1.63) : le porter une seconde fois dans la frequence le
+                                      ;; comptait deux fois et sortait §24 de sa bande.
+                                      (k2l k2)
                                       ;; LA CIBLE du ressort de materiau, pas sa force : elle ne
                                       ;; depend pas de `p`, donc elle se calcule UNE FOIS PAR FRAME
                                       ;; pendant que la force, elle, se recalcule a chaque SOUS-PAS.

@@ -2677,3 +2677,44 @@ longueur d'os relevee sur la pose animee — leur difference est donc purement a
 Ce sont des EMETTEURS : ils ne produisent aucune force et ne deplacent aucun os.
 `perr` porte un retard d'UNE frame (`tg` se calcule avant l'integration, `p` y est donc l'etat
 laisse par la frame precedente). Au repos c'est sans effet ; c'est dit, pas cache.
+
+## NOTE-74 — SPEC 24 contre SPEC 31 : le gradient racine→pointe ne vit plus dans la frequence
+
+Le solveur calcule la pulsation de la chaine `w = 2*pi*stiffness/sqrt(mass)` puis, jusqu'au
+2026-08-19, GRADUAIT la raideur par maillon pour honorer sa §31 :
+
+    k2l = k2 * (1 - r^2) / gmean     r = (l - rlk + 0.5)/nfr    gmean = 1 - (0.5/nfr)^2
+
+Or dans cette formulation `w_l = w * sqrt(k2l/k2)` : **graduer la raideur EST graduer la frequence
+propre.** Sur la chaine livree (`nfr = 2`, `rlk = 0`) le rapport vaut 1.0000 au maillon racine et
+0.4667 au maillon distal, donc :
+
+| chaine | stiffness | mass | f_chaine | f maillon 0 | f maillon 1 (AVANT) |
+|---|---|---|---|---|---|
+| chestL | 2.7696 | 1.4500 | 2.3000 | 2.3000 Hz | **1.5712 Hz** |
+| chestR | 2.9081 | 1.4800 | 2.3904 | 2.3904 Hz | **1.6330 Hz** |
+
+Sa §24 donne 2.30 / 2.50 / 2.65 Hz, bande la plus basse `[2.10, 2.50]`. Le maillon distal tournait
+donc **25 % sous le plancher, sur les trois axes** — et c'est lui qui pilote 43.5 % / 37.5 % de la
+chair depuis le repesage du cycle 24. Personne ne l'avait vu parce que le fit de ring-down est
+publie PAR CHAINE : il rend le mode dominant, celui du maillon le plus raide.
+
+**Pourquoi la graduation part et pas la §24.** Sa §31 ecrit « a USEFUL deformation weighting is
+`w(r) = r^1.6…2.0` » — une suggestion de ponderation ; sa §24 donne trois bandes chiffrees et sa §28
+les relie a `k = m(2*pi*f)^2`. Entre une suggestion et une bande chiffree, la bande gagne (arbitrage
+de l'owner du 2026-08-14 01:00). Et le gradient de §31 n'est PAS perdu : il est deja porte, et
+mesure, par la PEAU — profil d'ancrage de §30 decroissant de 0.95 a 0, exposant 1.63, os distal
+majoritaire sur 43.5 % / 37.5 % du nuage. Le porter une seconde fois dans la frequence, c'etait le
+compter deux fois, et la deuxieme fois cassait §24.
+
+**Le maillon RACINE est inchange au bit pres, par construction** : pour tout `nfr`,
+`r(rlk) = 0.5/nfr` et `gmean = 1 - (0.5/nfr)^2`, donc `(1 - r^2)/gmean = 1.0000` exactement. La
+raison d'etre de la normalisation introduite le 2026-08-17 (NOTE-38 : empecher que passer de 1 a 2
+maillons fasse sortir la racine de sa bande a 2.709 Hz) est donc integralement preservee — `k2l = k2`
+rend la meme valeur sur ce maillon-la.
+
+`rate = dmp * sqrt(k2l/k2)` redevient `dmp` : `zeta` est conserve, §25 n'est pas touchee.
+
+`nfr` et `gmean` n'avaient plus d'autre lecteur et sont retires avec la graduation — une liaison
+morte et son commentaire perime sont exactement la classe de defaut que ce dossier paie depuis des
+cycles.
