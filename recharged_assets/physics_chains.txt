@@ -2,7 +2,8 @@
 # generated: 2026-08-18   (regenerate: python3 .autoport/physics_keira_gen2.py --stamp 2026-08-18)
 #
 # rig  (joint order + hierarchy) : recharged_assets/hd_anim/keira-hd-k2e.json
-# mesh (skin weights, radii fit) : out/jak1/fr3/skin/keira-hd-donor-injected.glb
+# mesh (hierarchie, pose de bind) : out/jak1/fr3/skin/keira-hd-donor-injected.glb
+# skin (poids, rayons, volumes)   : out/jak1/fr3/skin/keira-hd-lod0.glb
 #
 # Contract: .autoport/prompts/SPEC-keira-physique.md (clean restart 2026-08-11).
 # SPEC section 1 — what has physics, and NOTHING else: ears, hair (root anchored),
@@ -97,12 +98,12 @@ level 2 substeps=4 iters=20 collide=2 classmask=7 fixedhz=240
 # SPEC-keira-physique 3 exige que crane, epaules et oreilles restent des volumes.
 # ---- Keira, and only Keira: 2 chains, 56 volumes.
 [model keira-hd]
-# chestL [A] lBoob verts=60 wsum=8.60 r=680 | lBooc verts=45 wsum=8.68 r=585
-chain chestL class=primary stiffness=2.7696 damping=0.1686 gravity=0.65 radius=632 mass=1.45 hang=0.00 family=A couple=1.85 radii=680,585 b0=602   # radii notes (fitted below w>0.5, or inherited): lBoob@w>0.05(60v) lBooc@w>0.25(15v)
+# chestL [A] lBoob verts=73 wsum=20.14 r=650 | lBooc verts=48 wsum=21.14 r=508
+chain chestL class=primary stiffness=2.7696 damping=0.1686 gravity=0.65 radius=579 mass=1.45 hang=0.00 family=A couple=1.85 radii=650,508 b0=602   # radii notes (fitted below w>0.5, or inherited): lBoob@w>0.25(39v)
 j lBoob
 j lBooc
-# chestR [A] rBoob verts=56 wsum=8.19 r=685 | rBooc verts=36 wsum=6.33 r=563
-chain chestR class=primary stiffness=2.9081 damping=0.1753 gravity=0.65 radius=624 mass=1.4800 hang=0.00 family=A couple=1.85 radii=685,563 b0=602   # radii notes (fitted below w>0.5, or inherited): rBoob@w>0.05(56v) rBooc@w>0.25(9v)
+# chestR [A] rBoob verts=69 wsum=17.58 r=633 | rBooc verts=42 wsum=17.64 r=424
+chain chestR class=primary stiffness=2.9081 damping=0.1753 gravity=0.65 radius=528 mass=1.4800 hang=0.00 family=A couple=1.85 radii=633,424 b0=602   # radii notes (fitted below w>0.5, or inherited): rBoob@w>0.25(33v)
 j rBoob
 j rBooc
 
@@ -117,27 +118,27 @@ j rBooc
 # capsule hips->main [body]  hips: 479v @w>0.5   main: 43v @w>0.25
 #   COUVERTURE: hips 115v dans le segment, couverture p95=1035 contre 810 livre (x0.78) | main SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve)
 capsule hips main radius=810 radius2=549
-# capsule chest->main [body]  chest: 887v @w>0.5   main: 43v @w>0.25
-#   COUVERTURE: chest 30v dans le segment, couverture p95=601 contre 671 livre (x1.12) | main 43v dans le segment, couverture p95=676 contre 549 livre (x0.81)
-capsule chest main radius=671 radius2=549
-# capsule neck->chest [body]  neck: 37v @w>0.5   chest: 887v @w>0.5   ONE-JOINT-ONE-THICKNESS: neck 246->249 (span-empty -> own-bone thickness neck->head, 37v)
-#   COUVERTURE: neck SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | chest 782v dans le segment, couverture p95=1001 contre 671 livre (x0.67)
-capsule neck chest radius=249 radius2=671
-# capsule head->neck [body]  head: 1699v @w>0.5   neck: 37v @w>0.5
-#   COUVERTURE: head 177v dans le segment, couverture p95=1005 contre 915 livre (x0.91) | neck 37v dans le segment, couverture p95=360 contre 249 livre (x0.69)
-capsule head neck radius=915 radius2=249
-# capsule Lshoulder->chest [body]  Lshoulder: 43v @w>0.5   chest: 887v @w>0.5
-#   COUVERTURE: Lshoulder SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | chest 796v dans le segment, couverture p95=1290 contre 769 livre (x0.60)
-capsule Lshoulder chest radius=612 radius2=769
+# capsule chest->main [body]  chest: 805v @w>0.5   main: 43v @w>0.25
+#   COUVERTURE: chest 30v dans le segment, couverture p95=601 contre 650 livre (x1.08) | main 43v dans le segment, couverture p95=676 contre 549 livre (x0.81)
+capsule chest main radius=650 radius2=549
+# capsule neck->chest [body]  neck: 37v @w>0.5   chest: 805v @w>0.5   ONE-JOINT-ONE-THICKNESS: neck 246->249 (span-empty -> own-bone thickness neck->head, 37v)
+#   COUVERTURE: neck SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | chest 700v dans le segment, couverture p95=956 contre 650 livre (x0.68)
+capsule neck chest radius=249 radius2=650
+# capsule head->neck [body]  head: 1559v @w>0.5   neck: 37v @w>0.5
+#   COUVERTURE: head 168v dans le segment, couverture p95=1005 contre 924 livre (x0.92) | neck 37v dans le segment, couverture p95=360 contre 249 livre (x0.69)
+capsule head neck radius=924 radius2=249
+# capsule Lshoulder->chest [body]  Lshoulder: 43v @w>0.5   chest: 805v @w>0.5
+#   COUVERTURE: Lshoulder SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | chest 714v dans le segment, couverture p95=1269 contre 733 livre (x0.58)
+capsule Lshoulder chest radius=612 radius2=733
 # capsule Lelbow->Lshoulder [body]  Lelbow: 131v @w>0.5   Lshoulder: 43v @w>0.5
 #   COUVERTURE: Lelbow SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | Lshoulder 33v dans le segment, couverture p95=292 contre 257 livre (x0.88)
 capsule Lelbow Lshoulder radius=265 radius2=257
 # capsule Lhand->Lelbow [body]  Lhand: 126v @w>0.5   Lelbow: 131v @w>0.5
 #   COUVERTURE: Lhand 8v dans le segment, couverture p95=286 contre 229 livre (x0.80) | Lelbow 129v dans le segment, couverture p95=358 contre 242 livre (x0.68)
 capsule Lhand Lelbow radius=229 radius2=242
-# capsule Rshoulder->chest [body]  Rshoulder: 47v @w>0.5   chest: 887v @w>0.5
-#   COUVERTURE: Rshoulder SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | chest 799v dans le segment, couverture p95=1316 contre 782 livre (x0.59)
-capsule Rshoulder chest radius=554 radius2=782
+# capsule Rshoulder->chest [body]  Rshoulder: 47v @w>0.5   chest: 805v @w>0.5
+#   COUVERTURE: Rshoulder SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | chest 717v dans le segment, couverture p95=1276 contre 749 livre (x0.59)
+capsule Rshoulder chest radius=554 radius2=749
 # capsule Relbow->Rshoulder [body]  Relbow: 175v @w>0.5   Rshoulder: 47v @w>0.5
 #   COUVERTURE: Relbow SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | Rshoulder 35v dans le segment, couverture p95=305 contre 256 livre (x0.84)
 capsule Relbow Rshoulder radius=308 radius2=256
@@ -147,85 +148,85 @@ capsule Rhand Relbow radius=228 radius2=279
 # capsule Lthigh->hips [body]  Lthigh: 130v @w>0.5   hips: 479v @w>0.5   ONE-JOINT-ONE-THICKNESS: Lthigh 1321->362 (span-empty -> own-bone thickness Lthigh->Lknee, 130v)
 #   COUVERTURE: Lthigh SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | hips 204v dans le segment, couverture p95=940 contre 699 livre (x0.74)
 capsule Lthigh hips radius=362 radius2=699
-# capsule Lknee->Lthigh [body]  Lknee: 246v @w>0.5   Lthigh: 130v @w>0.5
+# capsule Lknee->Lthigh [body]  Lknee: 212v @w>0.5   Lthigh: 130v @w>0.5
 #   COUVERTURE: Lknee SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | Lthigh 116v dans le segment, couverture p95=643 contre 362 livre (x0.56)
-capsule Lknee Lthigh radius=485 radius2=362
-# capsule Lankle->Lknee [body]  Lankle: 172v @w>0.5   Lknee: 246v @w>0.5
-#   COUVERTURE: Lankle 26v dans le segment, couverture p95=861 contre 411 livre (x0.48) | Lknee 234v dans le segment, couverture p95=538 contre 329 livre (x0.61)
-capsule Lankle Lknee radius=411 radius2=329
+capsule Lknee Lthigh radius=476 radius2=362
+# capsule Lankle->Lknee [body]  Lankle: 172v @w>0.5   Lknee: 212v @w>0.5
+#   COUVERTURE: Lankle 26v dans le segment, couverture p95=861 contre 411 livre (x0.48) | Lknee 200v dans le segment, couverture p95=504 contre 311 livre (x0.62)
+capsule Lankle Lknee radius=411 radius2=311
 # capsule Rthigh->hips [body]  Rthigh: 132v @w>0.5   hips: 479v @w>0.5   ONE-JOINT-ONE-THICKNESS: Rthigh 1276->381 (span-empty -> own-bone thickness Rthigh->Rknee, 132v)
 #   COUVERTURE: Rthigh SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | hips 207v dans le segment, couverture p95=923 contre 702 livre (x0.76)
 capsule Rthigh hips radius=381 radius2=702
-# capsule Rknee->Rthigh [body]  Rknee: 231v @w>0.5   Rthigh: 132v @w>0.5
+# capsule Rknee->Rthigh [body]  Rknee: 201v @w>0.5   Rthigh: 132v @w>0.5
 #   COUVERTURE: Rknee SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | Rthigh 118v dans le segment, couverture p95=673 contre 381 livre (x0.57)
-capsule Rknee Rthigh radius=480 radius2=381
-# capsule Rankle->Rknee [body]  Rankle: 172v @w>0.5   Rknee: 231v @w>0.5
-#   COUVERTURE: Rankle 24v dans le segment, couverture p95=864 contre 398 livre (x0.46) | Rknee 219v dans le segment, couverture p95=538 contre 326 livre (x0.61)
-capsule Rankle Rknee radius=398 radius2=326
+capsule Rknee Rthigh radius=474 radius2=381
+# capsule Rankle->Rknee [body]  Rankle: 172v @w>0.5   Rknee: 201v @w>0.5
+#   COUVERTURE: Rankle 24v dans le segment, couverture p95=864 contre 398 livre (x0.46) | Rknee 189v dans le segment, couverture p95=496 contre 310 livre (x0.63)
+capsule Rankle Rknee radius=398 radius2=310
 # capsule lEarb->lEara [earL]  lEarb: 50v @w>0.5   lEara: 14v @w>0.5
 #   COUVERTURE: lEarb 17v dans le segment, couverture p95=290 contre 79 livre (x0.27) | lEara 14v dans le segment, couverture p95=259 contre 148 livre (x0.57)
 capsule lEarb lEara radius=79 radius2=148
 # capsule rEarb->rEara [earR]  rEarb: 50v @w>0.5   rEara: 14v @w>0.5
 #   COUVERTURE: rEarb 17v dans le segment, couverture p95=290 contre 79 livre (x0.27) | rEara 14v dans le segment, couverture p95=259 contre 148 livre (x0.57)
 capsule rEarb rEara radius=79 radius2=148
-# capsule Lbangb->Lbanga [lbang]  Lbangb: 18v @w>0.5   Lbanga: 103v @w>0.5   ONE-JOINT-ONE-THICKNESS: Lbangb 558->104 (own-bone thickness)
-#   COUVERTURE: Lbangb 18v dans le segment, couverture p95=597 contre 558 livre (x0.94) | Lbanga 68v dans le segment, couverture p95=256 contre 112 livre (x0.44)
-capsule Lbangb Lbanga radius=104 radius2=112
-# capsule Lbangc->Lbangb [lbang]  Lbangc: 10v @w>0.5   Lbangb: 18v @w>0.5
-#   COUVERTURE: Lbangc SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | Lbangb 18v dans le segment, couverture p95=148 contre 104 livre (x0.70)
+# capsule Lbangb->Lbanga [lbang]  Lbangb: 9v @w>0.5   Lbanga: 94v @w>0.5   ONE-JOINT-ONE-THICKNESS: Lbangb 558->104 (own-bone thickness)
+#   COUVERTURE: Lbangb 9v dans le segment, couverture p95=595 contre 558 livre (x0.94) | Lbanga 64v dans le segment, couverture p95=212 contre 102 livre (x0.48)
+capsule Lbangb Lbanga radius=104 radius2=102
+# capsule Lbangc->Lbangb [lbang]  Lbangc: 10v @w>0.5   Lbangb: 9v @w>0.5
+#   COUVERTURE: Lbangc SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | Lbangb 9v dans le segment, couverture p95=146 contre 104 livre (x0.71)
 capsule Lbangc Lbangb radius=154 radius2=104
 # capsule Lbangd->Lbangc [lbang]  Lbangd: 36v @w>0.5   Lbangc: 10v @w>0.5
 #   COUVERTURE: Lbangd 28v dans le segment, couverture p95=221 contre 189 livre (x0.85) | Lbangc 10v dans le segment, couverture p95=180 contre 154 livre (x0.86)
 capsule Lbangd Lbangc radius=189 radius2=154
-# capsule Rbangb->Rbanga [rbang]  Rbangb: 22v @w>0.5   Rbanga: 106v @w>0.5   ONE-JOINT-ONE-THICKNESS: Rbangb 559->102 (own-bone thickness)
-#   COUVERTURE: Rbangb 22v dans le segment, couverture p95=596 contre 559 livre (x0.94) | Rbanga 70v dans le segment, couverture p95=275 contre 118 livre (x0.43)
-capsule Rbangb Rbanga radius=102 radius2=118
-# capsule Rbangc->Rbangb [rbang]  Rbangc: 12v @w>0.5   Rbangb: 22v @w>0.5
-#   COUVERTURE: Rbangc SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | Rbangb 22v dans le segment, couverture p95=148 contre 102 livre (x0.69)
-capsule Rbangc Rbangb radius=156 radius2=102
+# capsule Rbangb->Rbanga [rbang]  Rbangb: 11v @w>0.5   Rbanga: 95v @w>0.5   ONE-JOINT-ONE-THICKNESS: Rbangb 564->117 (own-bone thickness)
+#   COUVERTURE: Rbangb 11v dans le segment, couverture p95=595 contre 564 livre (x0.95) | Rbanga 65v dans le segment, couverture p95=214 contre 105 livre (x0.49)
+capsule Rbangb Rbanga radius=117 radius2=105
+# capsule Rbangc->Rbangb [rbang]  Rbangc: 12v @w>0.5   Rbangb: 11v @w>0.5
+#   COUVERTURE: Rbangc SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | Rbangb 11v dans le segment, couverture p95=148 contre 117 livre (x0.79)
+capsule Rbangc Rbangb radius=156 radius2=117
 # capsule Rbangd->Rbangc [rbang]  Rbangd: 21v @w>0.5   Rbangc: 12v @w>0.5
 #   COUVERTURE: Rbangd 13v dans le segment, couverture p95=221 contre 193 livre (x0.87) | Rbangc 12v dans le segment, couverture p95=180 contre 156 livre (x0.87)
 capsule Rbangd Rbangc radius=193 radius2=156
-# capsule Lmidhairb->Lmidhaira [lmidhair]  Lmidhairb: 8v @w>0.5   Lmidhaira: 65v @w>0.5
-#   COUVERTURE: Lmidhairb SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | Lmidhaira 50v dans le segment, couverture p95=279 contre 222 livre (x0.79)
-capsule Lmidhairb Lmidhaira radius=145 radius2=222
-# capsule Lmidhairc->Lmidhairb [lmidhair]  Lmidhairc: 17v @w>0.5   Lmidhairb: 8v @w>0.5
-#   COUVERTURE: Lmidhairc 14v dans le segment, couverture p95=445 contre 278 livre (x0.62) | Lmidhairb SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve)
-capsule Lmidhairc Lmidhairb radius=278 radius2=145
-# capsule Lmidhaird->Lmidhairc [lmidhair]  Lmidhaird: 30v @w>0.5   Lmidhairc: 17v @w>0.5
-#   COUVERTURE: Lmidhaird 20v dans le segment, couverture p95=499 contre 412 livre (x0.83) | Lmidhairc SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve)
-capsule Lmidhaird Lmidhairc radius=412 radius2=278
-# capsule Rmidhairb->Rmidhaira [rmidhair]  Rmidhairb: 21v @w>0.5   Rmidhaira: 58v @w>0.5
-#   COUVERTURE: Rmidhairb 12v dans le segment, couverture p95=368 contre 213 livre (x0.58) | Rmidhaira 37v dans le segment, couverture p95=279 contre 228 livre (x0.82)
-capsule Rmidhairb Rmidhaira radius=213 radius2=228
-# capsule Rmidhairc->Rmidhairb [rmidhair]  Rmidhairc: 19v @w>0.5   Rmidhairb: 21v @w>0.5
-#   COUVERTURE: Rmidhairc 13v dans le segment, couverture p95=447 contre 312 livre (x0.70) | Rmidhairb SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve)
-capsule Rmidhairc Rmidhairb radius=312 radius2=213
-# capsule Rmidhaird->Rmidhairc [rmidhair]  Rmidhaird: 30v @w>0.5   Rmidhairc: 19v @w>0.5
-#   COUVERTURE: Rmidhaird 24v dans le segment, couverture p95=580 contre 424 livre (x0.73) | Rmidhairc SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve)
-capsule Rmidhaird Rmidhairc radius=424 radius2=312
+# capsule Lmidhairb->Lmidhaira [lmidhair]  Lmidhairb: 47v @w>0.5   Lmidhaira: 96v @w>0.5
+#   COUVERTURE: Lmidhairb SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | Lmidhaira 70v dans le segment, couverture p95=354 contre 250 livre (x0.71)
+capsule Lmidhairb Lmidhaira radius=251 radius2=250
+# capsule Lmidhairc->Lmidhairb [lmidhair]  Lmidhairc: 38v @w>0.5   Lmidhairb: 47v @w>0.5
+#   COUVERTURE: Lmidhairc 14v dans le segment, couverture p95=445 contre 302 livre (x0.68) | Lmidhairb 44v dans le segment, couverture p95=431 contre 251 livre (x0.58)
+capsule Lmidhairc Lmidhairb radius=302 radius2=251
+# capsule Lmidhaird->Lmidhairc [lmidhair]  Lmidhaird: 30v @w>0.5   Lmidhairc: 38v @w>0.5
+#   COUVERTURE: Lmidhaird 20v dans le segment, couverture p95=499 contre 412 livre (x0.83) | Lmidhairc 24v dans le segment, couverture p95=468 contre 302 livre (x0.64)
+capsule Lmidhaird Lmidhairc radius=412 radius2=302
+# capsule Rmidhairb->Rmidhaira [rmidhair]  Rmidhairb: 50v @w>0.5   Rmidhaira: 110v @w>0.5
+#   COUVERTURE: Rmidhairb SPAN-EMPTY (aucun sommet ne se projette dans le segment: la distance perpendiculaire y mesure une autre partie, rayon inter-quartile conserve) | Rmidhaira 73v dans le segment, couverture p95=380 contre 266 livre (x0.70)
+capsule Rmidhairb Rmidhaira radius=239 radius2=266
+# capsule Rmidhairc->Rmidhairb [rmidhair]  Rmidhairc: 38v @w>0.5   Rmidhairb: 50v @w>0.5
+#   COUVERTURE: Rmidhairc 14v dans le segment, couverture p95=445 contre 352 livre (x0.79) | Rmidhairb 47v dans le segment, couverture p95=434 contre 239 livre (x0.55)
+capsule Rmidhairc Rmidhairb radius=352 radius2=239
+# capsule Rmidhaird->Rmidhairc [rmidhair]  Rmidhaird: 29v @w>0.5   Rmidhairc: 38v @w>0.5
+#   COUVERTURE: Rmidhaird 21v dans le segment, couverture p95=594 contre 448 livre (x0.75) | Rmidhairc 24v dans le segment, couverture p95=470 contre 352 livre (x0.75)
+capsule Rmidhaird Rmidhairc radius=448 radius2=352
 # sphere main [body]  43v @w>0.25   centre = measured centroid of the geometry this joint owns, 481u off the joint, in its bind space   COVER p95: 7% of its vertices outside (inner-quartile mean 560 left 51% outside)   BORNE PERPENDICULAIRE: p95 671 -> 549 (ce joint est deja une extremite de capsule, qui mesure son epaisseur PERPENDICULAIREMENT ; le p95 d'une geometrie allongee rend sa LONGUEUR)
 collider main radius=549 offset=-17,-473,83
 # sphere lEara [earL]  14v @w>0.5   centre = measured centroid of the geometry this joint owns, 451u off the joint, in its bind space   COVER p95: 0% of its vertices outside (inner-quartile mean 194 left 57% outside)   BORNE PERPENDICULAIRE: p95 333 -> 148 (ce joint est deja une extremite de capsule, qui mesure son epaisseur PERPENDICULAIREMENT ; le p95 d'une geometrie allongee rend sa LONGUEUR)
 collider lEara radius=148 offset=7,446,66
 # sphere rEara [earR]  14v @w>0.5   centre = measured centroid of the geometry this joint owns, 451u off the joint, in its bind space   COVER p95: 0% of its vertices outside (inner-quartile mean 194 left 57% outside)   BORNE PERPENDICULAIRE: p95 333 -> 148 (ce joint est deja une extremite de capsule, qui mesure son epaisseur PERPENDICULAIREMENT ; le p95 d'une geometrie allongee rend sa LONGUEUR)
 collider rEara radius=148 offset=-7,-446,-66
-# sphere Lbanga [lbang]  103v @w>0.5   centre = measured centroid of the geometry this joint owns, 293u off the joint, in its bind space   COVER p95: 6% of its vertices outside (inner-quartile mean 199 left 51% outside)   BORNE PERPENDICULAIRE: p95 361 -> 112 (ce joint est deja une extremite de capsule, qui mesure son epaisseur PERPENDICULAIREMENT ; le p95 d'une geometrie allongee rend sa LONGUEUR)
-collider Lbanga radius=112 offset=293,-10,4
-# sphere Rbanga [rbang]  106v @w>0.5   centre = measured centroid of the geometry this joint owns, 281u off the joint, in its bind space   COVER p95: 6% of its vertices outside (inner-quartile mean 213 left 46% outside)   BORNE PERPENDICULAIRE: p95 347 -> 118 (ce joint est deja une extremite de capsule, qui mesure son epaisseur PERPENDICULAIREMENT ; le p95 d'une geometrie allongee rend sa LONGUEUR)
-collider Rbanga radius=118 offset=-280,17,2
-# sphere Lmidhaira [lmidhair]  65v @w>0.5   centre = measured centroid of the geometry this joint owns, 652u off the joint, in its bind space   COVER p95: 6% of its vertices outside (inner-quartile mean 374 left 49% outside)   BORNE PERPENDICULAIRE: p95 610 -> 222 (ce joint est deja une extremite de capsule, qui mesure son epaisseur PERPENDICULAIREMENT ; le p95 d'une geometrie allongee rend sa LONGUEUR)
-collider Lmidhaira radius=222 offset=583,39,290
-# sphere Rmidhaira [rmidhair]  58v @w>0.5   centre = measured centroid of the geometry this joint owns, 751u off the joint, in its bind space   COVER p95: 5% of its vertices outside (inner-quartile mean 382 left 50% outside)   BORNE PERPENDICULAIRE: p95 766 -> 228 (ce joint est deja une extremite de capsule, qui mesure son epaisseur PERPENDICULAIREMENT ; le p95 d'une geometrie allongee rend sa LONGUEUR)
-collider Rmidhaira radius=228 offset=-673,-77,-325
-# sphere lBoob [chestL]  13v @w>0.25(somme chaine)   centre = measured centroid of the geometry this joint owns, 702u off the joint, in its bind space   COVER p95: 0% of its vertices outside (inner-quartile mean 147 left 38% outside)
-collider lBoob radius=340 offset=105,694,13
-# sphere lBooc [chestL]  21v @w>0.25(somme chaine)   centre = measured centroid of the geometry this joint owns, 592u off the joint, in its bind space   COVER p95: 5% of its vertices outside (inner-quartile mean 141 left 48% outside)
-collider lBooc radius=269 offset=34,559,-191
-# sphere rBoob [chestR]  10v @w>0.25(somme chaine)   centre = measured centroid of the geometry this joint owns, 711u off the joint, in its bind space   COVER p95: 10% of its vertices outside (inner-quartile mean 126 left 50% outside)
-collider rBoob radius=345 offset=-73,-707,15
-# sphere rBooc [chestR]  15v @w>0.25(somme chaine)   centre = measured centroid of the geometry this joint owns, 584u off the joint, in its bind space   COVER p95: 7% of its vertices outside (inner-quartile mean 154 left 40% outside)
-collider rBooc radius=264 offset=-50,-548,197
+# sphere Lbanga [lbang]  94v @w>0.5   centre = measured centroid of the geometry this joint owns, 284u off the joint, in its bind space   COVER p95: 5% of its vertices outside (inner-quartile mean 182 left 53% outside)   BORNE PERPENDICULAIRE: p95 298 -> 102 (ce joint est deja une extremite de capsule, qui mesure son epaisseur PERPENDICULAIREMENT ; le p95 d'une geometrie allongee rend sa LONGUEUR)
+collider Lbanga radius=102 offset=282,-37,-6
+# sphere Rbanga [rbang]  95v @w>0.5   centre = measured centroid of the geometry this joint owns, 270u off the joint, in its bind space   COVER p95: 5% of its vertices outside (inner-quartile mean 194 left 48% outside)   BORNE PERPENDICULAIRE: p95 285 -> 105 (ce joint est deja une extremite de capsule, qui mesure son epaisseur PERPENDICULAIREMENT ; le p95 d'une geometrie allongee rend sa LONGUEUR)
+collider Rbanga radius=105 offset=-265,50,14
+# sphere Lmidhaira [lmidhair]  96v @w>0.5   centre = measured centroid of the geometry this joint owns, 324u off the joint, in its bind space   COVER p95: 4% of its vertices outside (inner-quartile mean 431 left 49% outside)   BORNE PERPENDICULAIRE: p95 555 -> 250 (ce joint est deja une extremite de capsule, qui mesure son epaisseur PERPENDICULAIREMENT ; le p95 d'une geometrie allongee rend sa LONGUEUR)
+collider Lmidhaira radius=250 offset=304,74,86
+# sphere Rmidhaira [rmidhair]  110v @w>0.5   centre = measured centroid of the geometry this joint owns, 297u off the joint, in its bind space   COVER p95: 5% of its vertices outside (inner-quartile mean 440 left 50% outside)   BORNE PERPENDICULAIRE: p95 568 -> 266 (ce joint est deja une extremite de capsule, qui mesure son epaisseur PERPENDICULAIREMENT ; le p95 d'une geometrie allongee rend sa LONGUEUR)
+collider Rmidhaira radius=266 offset=-265,-123,-53
+# sphere lBoob [chestL]  24v @w>0.5(somme chaine)   centre = measured centroid of the geometry this joint owns, 603u off the joint, in its bind space   COVER p95: 8% of its vertices outside (inner-quartile mean 228 left 42% outside)
+collider lBoob radius=340 offset=-1,599,69
+# sphere lBooc [chestL]  21v @w>0.5(somme chaine)   centre = measured centroid of the geometry this joint owns, 467u off the joint, in its bind space   COVER p95: 5% of its vertices outside (inner-quartile mean 195 left 57% outside)
+collider lBooc radius=337 offset=20,451,-118
+# sphere rBoob [chestR]  20v @w>0.5(somme chaine)   centre = measured centroid of the geometry this joint owns, 601u off the joint, in its bind space   COVER p95: 5% of its vertices outside (inner-quartile mean 233 left 45% outside)
+collider rBoob radius=345 offset=-9,-596,-73
+# sphere rBooc [chestR]  17v @w>0.5(somme chaine)   centre = measured centroid of the geometry this joint owns, 388u off the joint, in its bind space   COVER p95: 6% of its vertices outside (inner-quartile mean 216 left 41% outside)
+collider rBooc radius=336 offset=-17,-377,88
 # sphere lEarb [earL] RECENTREE  50v   le volume de ce lien etait pose sur son joint alors que sa geometrie est a 592 u de la : la TAILLE ne change pas (le rayon de lien livre, resynchronise par le tuning), seul le CENTRE bouge (centroide mesure, espace bind)
 collider lEarb radius=79 offset=-41,569,157
 # sphere rEarb [earR] RECENTREE  50v   le volume de ce lien etait pose sur son joint alors que sa geometrie est a 592 u de la : la TAILLE ne change pas (le rayon de lien livre, resynchronise par le tuning), seul le CENTRE bouge (centroide mesure, espace bind)
