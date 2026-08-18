@@ -1907,7 +1907,12 @@
                            "PHYSRINGCX c=~D f=~D l=~D ax=~D v=~,,7f~%"
                            "PHYSRINGCZ c=~D f=~D l=~D ax=~D v=~,,7f~%")
                        c (- (-> self pframe) PHYSROOM-IMPF) l ax
-                       (phys-chain-radial (-> self slot) c 1))))))
+                       ;; PAR MAILLON depuis le cycle 31. `phys-chain-radial` lit un tableau PAR
+                       ;; CHAINE, ecrase a chaque tour de la boucle par maillon du solveur : cette
+                       ;; ligne imprimait donc la MEME valeur pour l=0 et l=1 (verifie : max|l0-l1|
+                       ;; = 0 sur les 6 combinaisons chaine x axe, 150 frames). L'axe VERTICAL de
+                       ;; sa §24 se lit sur CE canal — il n'avait donc aucune resolution par maillon.
+                       (phys-chain-radial-link (-> self slot) c l 1))))))
        (when (>= (-> self pframe) PHYSROOM-AXW)
          ;; ---- SPEC 33 : L'INTERPENETRATION, MESUREE DANS UNE FENETRE OU LA CONTRAINTE DE
          ;; ---- LONGUEUR EST TOUR A TOUR EN PLACE ET LEVEE. C'est l'ABLATION que le cycle 28 a

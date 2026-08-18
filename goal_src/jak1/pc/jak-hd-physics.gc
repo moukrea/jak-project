@@ -364,6 +364,8 @@
 (define *phys-cqz*  (new 'global 'array 'float PHYS-SC))
 (define *phys-rok*  (new 'global 'array 'int32 PHYS-SC))   ;; 1 = le point libre est amorce
 (define *phys-rr*   (new 'global 'array 'float PHYS-SC))   ;; §23 elongation radiale, unites de jeu
+;; [NOTE-79] MIROIR PAR MAILLON de `*phys-rr*`, MESURE SEULE (aucun terme du solveur ne le lit). -> jak-hd-physics-NOTES.md
+(define *phys-rrl*  (new 'global 'array 'float PHYS-SCL))  ;; §23 la meme, PAR MAILLON, mesure seule
 (define *phys-rrm*  (new 'global 'array 'float PHYS-SC))   ;; |elongation|/B0 max sur la fenetre
 (define *phys-rrr*  (new 'global 'array 'float PHYS-SC))   ;; le meme AVANT la borne §22 (anti-saturation)
 ;; Frames ou la borne §22 du COM a effectivement mordu. Un limiteur qui mord en PERMANENCE ne
@@ -734,6 +736,8 @@
                     ;; secondaire. Un tissu qui garderait son elongation a travers un respawn
                     ;; violerait §9 des la premiere frame.
                     (set! (-> *phys-rr* sc) 0.0)
+                    (dotimes (ll PHYS-LINKS)
+                      (set! (-> *phys-rrl* (+ (* sc PHYS-LINKS) ll)) 0.0))
                     (set! (-> *phys-rrm* sc) 0.0)
                     (set! (-> *phys-rok* sc) 0)
                     (set-vector! (-> *phys-vp* sc) 0.0 0.0 0.0 0.0)
@@ -2984,6 +2988,8 @@
                                                    (phys-softmin dr0 rcap)
                                                    (- 0.0 (phys-softmin (- 0.0 dr0) rcap)))))
                                        (set! (-> *phys-rr* sc) drr)
+                                       ;; [NOTE-79] le meme `drr`, range PAR MAILLON.
+                                       (set! (-> *phys-rrl* scl) drr)
                                        (when (> (fabs (- dr0 drr)) 0.000001)
                                          (set! *phys-rrsat* (+ *phys-rrsat* 1)))
                                        (let ((a0 (/ (fabs dr0) (fmax 1.0 b0e))))
@@ -4299,6 +4305,19 @@
             ((= which 2) (-> *phys-rrm* sc))
             ((= which 3) (-> *phys-rrr* sc))
             (else        (the float *phys-rrsat*))))))
+
+(defun phys-chain-radial-link ((slot int) (chain int) (link int) (which int))
+  "SPEC 23 — l'elongation radiale du MAILLON `link` (which 0 = unites de jeu, 1 = rapportee a B0).
+   Version RESOLUE PAR MAILLON de `phys-chain-radial`, qui lit un tableau par CHAINE et ne rend donc
+   que le dernier maillon. NATURE deformation signee · REPERE axe de l'os dans le triedre de l'ANCRE
+   (SPEC 7) · LIGNE DE BASE 0.0 a la pose d'auteur (SPEC 9). [NOTE-79] -> jak-hd-physics-NOTES.md"
+  (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS)
+          (< link 0) (>= link PHYS-LINKS) (< which 0) (> which 1))
+    0.0
+    (let* ((sc (+ (* slot PHYS-CHAINS) chain))
+           (b0 (fmax 1.0 (-> *phys-b0* sc)))
+           (v  (-> *phys-rrl* (+ (* sc PHYS-LINKS) link))))
+      (if (= which 0) v (/ v b0)))))
 
 (defun phys-chain-axsep ((slot int) (chain int) (which int))
   "LES DEUX PROJECTIONS QUE LA DECISION DE NOMMAGE A COMPARE, et la norme du segment inter-seins.
