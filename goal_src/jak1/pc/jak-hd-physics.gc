@@ -620,7 +620,7 @@
 ;; un cout qu'on decouvre chez lui.
 (define *phys-skin-meas* 0)
 
-(defconstant PHYS-DG 24)
+(defconstant PHYS-DG 29)
 (define *phys-dg* (new 'global 'array 'float (* PHYS-SC PHYS-DG)))
 ;; etat de contrainte de la frame precedente, par (lien, volume), pour compter les bascules.
 ;; 1 bit par volume, un mot par lien : PHYS-COLS <= 96 tient sur trois mots de 32 bits.
@@ -2696,6 +2696,44 @@
                                        (set! tgy (+ ay (-> uv y)))
                                        (set! tgz (+ az (-> uv z)))
                                        (set! hasf 1))))
+                                 ;; [NOTE-73] SPEC 9 — LA CIBLE DE REPOS DU RESSORT EST-ELLE LA POSE D'AUTEUR ? -> jak-hd-physics-NOTES.md
+                                 ;; NATURE deux longueurs / B0, maximum et somme sur la fenetre.
+                                 ;; REPERE le monde, meme frame, meme attache, meme `bl`. ABSENT
+                                 ;; `rgap` = 0.0000 quand la cible EST la pose d'auteur. `perr`
+                                 ;; porte un retard d'UNE frame (`tg` precede l'integration).
+                                 ;; RESTREINT AU PREMIER MAILLON LIBRE, ET C'EST CE QUI REND LA
+                                 ;; GRANDEUR STATIQUE : la, l'attache est l'ANCRE (pose d'auteur),
+                                 ;; donc `tg` et `tw` sont sur la MEME sphere de rayon `bl` et leur
+                                 ;; ecart est purement angulaire. Au maillon suivant l'attache est
+                                 ;; la position SIMULEE du precedent, ce qui melangerait la
+                                 ;; dynamique a une mesure declaree sans dynamique.
+                                 (when (and (nonzero? hasf) (> warm 1) (= l rlk))
+                                   (let* ((dgb (* sc PHYS-DG))
+                                          (rgx (- tgx (-> tw x)))
+                                          (rgy (- tgy (-> tw y)))
+                                          (rgz (- tgz (-> tw z)))
+                                          (rg  (/ (sqrtf (+ (* rgx rgx) (+ (* rgy rgy) (* rgz rgz))))
+                                                  (fmax 1.0 b0e)))
+                                          (pex (- (-> *phys-px* scl) tgx))
+                                          (pey (- (-> *phys-py* scl) tgy))
+                                          (pez (- (-> *phys-pz* scl) tgz))
+                                          (pe  (/ (sqrtf (+ (* pex pex) (+ (* pey pey) (* pez pez))))
+                                                  (fmax 1.0 b0e))))
+                                     (when (> rg (-> *phys-dg* (+ dgb 24)))
+                                       (set! (-> *phys-dg* (+ dgb 24)) rg))
+                                     (when (> pe (-> *phys-dg* (+ dgb 26)))
+                                       (set! (-> *phys-dg* (+ dgb 26)) pe))
+                                     ;; 28 = la SOMME de `perr`. Le maximum seul ne separe pas « un
+                                     ;; seul instant » de « toutes les frames », et c'est
+                                     ;; exactement la question : un champ de contact permanent
+                                     ;; deplace la particule a CHAQUE frame, un saut de fenetre une
+                                     ;; seule fois. `28/27` rend la moyenne.
+                                     (set! (-> *phys-dg* (+ dgb 28))
+                                           (+ pe (-> *phys-dg* (+ dgb 28))))
+                                     (set! (-> *phys-dg* (+ dgb 25))
+                                           (+ rg (-> *phys-dg* (+ dgb 25))))
+                                     (set! (-> *phys-dg* (+ dgb 27))
+                                           (+ 1.0 (-> *phys-dg* (+ dgb 27))))))
                                  ;; SPEC 23 — AMORCAGE DU POINT LIBRE, une seule fois par chaine.
                                  ;; Il part exactement de l'etat de l'apex : meme position, meme
                                  ;; vitesse verlet. Donc a la premiere frame l'elongation radiale
@@ -4421,7 +4459,15 @@
    sont PAS touches : ils portent des grandeurs de portee differente, deja publiees, et les
    confondre rendrait le maximum de course egal a celui de la derniere fenetre."
   (dotimes (i PHYS-SC)
-    (set! (-> *phys-dg* (+ (* i PHYS-DG) 23)) 0.0))
+    (set! (-> *phys-dg* (+ (* i PHYS-DG) 23)) 0.0)
+    ;; 24/25/26/27 = `rgap` max, `rgap` somme, `perr` max, nombre d'echantillons — MEME PORTEE
+    ;; (chaine, animation, pilotage), donc meme remise a zero. Les mettre ailleurs ferait publier
+    ;; a chaque fenetre le maximum de la course, exactement le defaut que 19 vs 23 evite deja.
+    (set! (-> *phys-dg* (+ (* i PHYS-DG) 24)) 0.0)
+    (set! (-> *phys-dg* (+ (* i PHYS-DG) 25)) 0.0)
+    (set! (-> *phys-dg* (+ (* i PHYS-DG) 26)) 0.0)
+    (set! (-> *phys-dg* (+ (* i PHYS-DG) 27)) 0.0)
+    (set! (-> *phys-dg* (+ (* i PHYS-DG) 28)) 0.0))
   (none))
 
 (defun phys-diag-reset! ()

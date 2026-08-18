@@ -945,6 +945,25 @@
     (format 0 "PHYSCOMW c=~D a=~D d=~D comex=~f~%"
             c (-> self ai) (-> self drive)
             (phys-diag (-> self slot) c 23))
+    ;; SPEC 9 — LA DECOMPOSITION DE `comex` EN CE QUI EST STATIQUE ET CE QUI EST DYNAMIQUE.
+    ;; `comex` se mesure contre la POSE D'AUTEUR ; le ressort, lui, vise `attache +
+    ;; R_ancre . u_capture . bl` (jak-hd-physics.gc:2686). Si ces deux poses different, `comex`
+    ;; est non nul meme avec un solveur immobile et converge — et aucune raideur, aucun limiteur,
+    ;; aucun contact ne peut la faire baisser. Les deux lignes separent les deux :
+    ;;   rgap = |cible de repos - pose d'auteur| / B0   AUCUNE dynamique n'y entre
+    ;;   perr = |position simulee - cible de repos| / B0  la part que la dynamique produit
+    ;; NATURE longueurs / B0 ; REPERE le monde, meme frame, meme attache, meme longueur d'os ;
+    ;; ABSENT rgap = 0.0000 si la cible de repos EST la pose d'auteur. Deux lignes parce que
+    ;; `format` de GOAL est cape a huit parametres, destination et chaine comprises.
+    (format 0 "PHYSRESTW c=~D a=~D d=~D rgap=~f perr=~f~%"
+            c (-> self ai) (-> self drive)
+            (phys-diag (-> self slot) c 24)
+            (phys-diag (-> self slot) c 26))
+    (format 0 "PHYSRESTS c=~D a=~D d=~D rgsum=~f pesum=~f rgn=~f~%"
+            c (-> self ai) (-> self drive)
+            (phys-diag (-> self slot) c 25)
+            (phys-diag (-> self slot) c 28)
+            (phys-diag (-> self slot) c 27))
     ;; LE STIMULUS REELLEMENT RECU, pour CHAQUE fenetre y compris la ligne de base. Compare a
     ;; l'amplitude commandee (PHYSSTIM), il dit si le pilotage a domine ou s'il a ete noye.
     (format 0 "PHYSACC c=~D a=~D d=~D acc=~f wraps=~D~%"

@@ -2643,3 +2643,37 @@ rapport a la forme d'auteur. REPERE : le triedre de sa §7, releve une fois a
 la pose debout d'auteur. LECTURE HORS DEFAUT : 1.000 / 1.000 / 1.000 debout —
 donc §9, tenue au cycle 6, ne peut pas etre payee par ce bloc.
 ```
+
+## NOTE-73 — SPEC 9 : la cible de repos du ressort est-elle la pose d'auteur ?
+
+Le cycle 29 a mesure que `comex` (l'excursion du centre de chair, mesuree **contre la pose
+d'auteur de la meme frame**) vaut 1.04 / 1.07 B0 en moyenne sur la fenetre de LIGNE DE BASE, ou la
+salle ne pousse rien, pour un plafond dur de 0.40 B0 (sa §22), et en a conclu a une SATURATION.
+
+Le cycle 30 a repris la meme trace a exposition egale : sur cette meme fenetre le stimulus
+reellement recu (`PHYSACC`) varie d'un facteur **274** (0.32 a 87.66) et `comex` est PLAT —
+r = +0.005 (chestL) et +0.184 (chestR) — le tiers le plus CALME rendant meme un `comex` plus grand
+(1.1269) que le tiers le plus agite (1.0738). Le minimum sur 186 fenetres vaut 0.6762 B0 : la
+grandeur n'approche jamais zero.
+
+Une grandeur grande, constante et independante de toutes ses entrees n'est pas une reponse.
+
+Or le ressort de materiau ne vise pas la pose d'auteur. Sa cible est, textuellement :
+
+    tg = attache + R_ancre . u_capture . bl
+
+ou `u_capture` est relevee UNE SEULE FOIS (`*phys-ucap*`) a la premiere frame utile et gelee pour
+toute la vie de l'acteur (remise a zero uniquement a l'acquisition d'un slot). C'est deliberé, et
+c'est sa §2/§9 : le repos doit etre la pose du modele debout, jamais ce que l'animation dessine.
+Mais si la pose d'AUTEUR du joint s'ecarte ensuite de cette cible portee par l'ancre, l'ecart entre
+la pose ecrite et la pose d'auteur est non nul **meme avec un solveur immobile et converge**, et
+aucune raideur, aucun limiteur, aucun contact ne peut le faire baisser.
+
+Les deux emplacements 24/26 (maximums de fenetre) et 25/27 (somme et compte) separent les deux
+parts, et les deux se calculent au MEME endroit du solveur, avec la MEME attache et la MEME
+longueur d'os relevee sur la pose animee — leur difference est donc purement angulaire,
+`2.bl.sin(dtheta/2)`.
+
+Ce sont des EMETTEURS : ils ne produisent aucune force et ne deplacent aucun os.
+`perr` porte un retard d'UNE frame (`tg` se calcule avant l'integration, `p` y est donc l'etat
+laisse par la frame precedente). Au repos c'est sans effet ; c'est dit, pas cache.
