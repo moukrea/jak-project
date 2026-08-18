@@ -1,0 +1,69 @@
+DIRECTIVES vb249967379
+CYCLE 31 — PREDICTIONS ECRITES AVANT TOUTE MESURE
+=================================================
+Perimetre : Grecharged-secondary-motion / physics-keira-clean / KEIRA-POITRINE SEULE.
+Point de l'ordre owner (2026-08-17 23:50) traite ici : « puis re-derivation SPEC 24/28 sur la
+nouvelle geometrie » — le point qui suit immediatement la structure, laquelle est posee ET
+prouvee par la repartition (lBooc 43.5 % / rBooc 37.5 %, barre 30 %).
+
+POURQUOI CE CYCLE EXISTE
+------------------------
+Le cycle 30 a grade SPEC 24 « TENUE, 12 canaux sur 12 » sur une VERIFICATION ARITHMETIQUE, et il
+l'a lui-meme assortie d'une reserve ecrite. Or les DIRECTIVES sont explicites, troisieme rappel :
+« une section n'est TENUE que si sa valeur est LUE A L'EXECUTION sur le mecanisme arme ». Une
+conformite calculee n'est pas une conformite mesuree. L'instrument qui pourrait la constater
+n'existe pas : `ROOM-RINGFIT` et `ROOM-AXFIT` ajustent PAR CHAINE et rendent le mode dominant —
+c'est precisement ce qui a laisse un maillon distal a 1.57 Hz passer pour conforme pendant des
+cycles.
+
+H1 — LA VERIFICATION ARITHMETIQUE DU CORRECTIF F EST UNE ERREUR DE CATEGORIE
+---------------------------------------------------------------------------
+Le correctif F egalise la PULSATION MATERIELLE par maillon (`w = 2*pi*stiffness/sqrt(mass)`,
+jak-hd-physics.gc:2489-2490) et conclut que les 12 canaux sont dans les bandes de SPEC 24. Mais
+SPEC 24 specifie des « PRIMARY NATURAL FREQUENCIES », c'est-a-dire les modes propres de l'ORGANE.
+Une chaine a 2 maillons est un systeme a plusieurs degres de liberte : ses modes propres ne sont
+PAS la pulsation par maillon. Egaliser un PARAMETRE n'est donc pas placer un MODE dans une bande.
+
+  ISSUE 1 (H1 CONFIRMEE) : la mesure par maillon rend, sur les deux maillons, des frequences qui
+      ne sont PAS les 2.3000 / 2.4244 / 2.5400 Hz annonces par F1, avec un ecart > 5 %.
+  ISSUE 2 (H1 REFUTEE)   : chaque maillon ring a sa valeur arithmetique a moins de 5 % pres. Le
+      couplage entre maillons est alors negligeable et la verification de F etait legitime ; je
+      le publierai comme tel et je retirerai H1.
+
+H2 — LES DEUX MAILLONS PARTAGENT LEURS MODES, DONC UN FIT A UN SEUL MODE LAISSERA UN RESIDU
+-------------------------------------------------------------------------------------------
+Si les maillons sont couples, la serie de CHAQUE maillon contient les DEUX modes du systeme. Un
+ajustement a un seul mode amorti sur une telle serie est mal pose.
+  ISSUE 3 : le residu du fit a un mode depasse le seuil de lisibilite deja en vigueur (0.08) sur
+      au moins un maillon d'au moins un canal ou le fit PAR CHAINE, lui, est declare lisible.
+      Ce serait la preuve directe que la granularite par chaine masquait la structure.
+  ISSUE 4 : tous les residus par maillon restent sous 0.08 -> les maillons sont decouples, H2
+      tombe avec H1.
+
+H3 — LE SECOND OS EST TROP COURT POUR PORTER LE GRADIENT QUE SPEC 30/31 DEMANDENT
+---------------------------------------------------------------------------------
+Geometrie livree : l'os du maillon 0 (chest -> lBoob) mesure 1040.50 u, celui du maillon 1
+(lBoob -> lBooc) 140.42 u, et la CHAIR (B0, SPEC 6) mesure 602 u. Le second os ne couvre donc que
+140.42 / 602 = 23.3 % de l'organe, et les deux articulations sont voisines a l'extremite d'un
+levier de 1.73 B0. SPEC 31 demande un gradient continu de r=0 (attache au thorax) a r=1 (apex).
+  ISSUE 5 : confirmee si la position MESUREE des deux joints sur le mesh livre montre que les
+      deux tombent au-dela de r = 0.5 le long de l'axe racine->apex de la chair.
+  ISSUE 6 : refutee si un des deux joints tombe sous r = 0.3.
+  NOTE : cette hypothese ne se corrige PAS dans ce cycle (ce serait du rig, point 2 du plan du
+  cycle 30). Elle se MESURE, et son chiffre ira au tableau.
+
+CE QUI EST DEJA ETABLI ET QUI N'EST PAS UNE PREDICTION
+------------------------------------------------------
+  - `couple=1.85` est INERTE. `*phys-couple*` est ecrit (jak-hd-physics.gc:780), relu une seule
+    fois dans le liant `cpl` (2494) et ce liant n'est JAMAIS consomme. Or
+    `recharged_assets/keira-owner-tuning.txt:62` affirme « `couple` et `mass` viennent de SON oeil
+    et restent ACTIFS, seuls ». La donnee livree documente comme actif un reglage que le moteur
+    ignore. A declarer ; ce n'est pas une decouverte de ce cycle (deja au registre), mais
+    l'affirmation contraire vit toujours AU POINT DE PRODUCTION.
+
+CRITERE DE CONSERVATION DU CYCLE (ecrit d'avance)
+-------------------------------------------------
+Ce cycle ajoute un INSTRUMENT et ne change AUCUN parametre de simulation. La preuve que le moteur
+n'a pas bouge sera l'empreinte du fichier de chaines livre, inchangee, et les grandeurs de la
+course (`comex`, `meshpen`, `ang0/ang1`) reproduites a moins de 1 % pres. Si elles bougent plus,
+c'est que l'instrument a un effet de bord et il repart.

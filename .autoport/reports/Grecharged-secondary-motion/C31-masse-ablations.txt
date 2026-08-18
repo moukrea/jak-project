@@ -1,0 +1,68 @@
+DIRECTIVES vb249967379
+CYCLE 31 — SA SPEC 28 EST-ELLE RE-DERIVABLE ? LES DEUX CONTROLES.
+==================================================================
+QUESTION. L'ordre owner du 2026-08-17 23:50 demande « re-derivation SPEC 24/28 sur la nouvelle
+geometrie ». Sa SPEC 28 ecrit `k = m(2 pi f)^2` et `c = 2 zeta sqrt(km)`, et precise que « these
+values describe the EFFECTIVE WHOLE-BREAST MODE ». Avant de re-deriver quoi que ce soit, il faut
+savoir si le moteur possede un parametre a re-deriver.
+
+LECTURE DE CODE (jak-hd-physics.gc). `*phys-mass*` a QUATRE sites et deux seulement sont des
+lectures : :2490 et :3690, toutes deux `w = 2*pi*stiffness / sqrt(mass)`. La masse n'est donc
+observable qu'a travers le RAPPORT `stiffness/sqrt(mass)`. Le couple (stiffness, mass) porte UN
+degre de liberte, pas deux.
+ET IL N'Y A PAS D'AUTRE CANAL : la correction de contact est une PROJECTION POSITIONNELLE —
+`push = (dep - feff) + margin` ecrit directement dans la position (:1761-1763) — et la signature de
+`phys-collide-chain` (:1570-1571) ne recoit ni masse, ni raideur, ni `dt`. Le terme `F_collision/M`
+de sa SPEC 23 n'a donc aucun support : un contact deplace l'organe d'une longueur qui ne depend pas
+de sa masse.
+
+UN ZERO EXIGE UN CONTROLE POSITIF QUI A TIRE (DIRECTIVES). Deux courses, un seul facteur chacune,
+critere ecrit d'avance. `chestR` n'est JAMAIS touchee : c'est le temoin, et il donne le bruit
+course-a-course de l'instrument.
+
+  ABLATION A — CONTROLE POSITIF : masse x4 sur chestL SEULE (1.45 -> 5.80), raideur INCHANGEE.
+      Prediction : f = 2.7696/sqrt(5.80) = 1.1500 Hz, soit la MOITIE. Et comme `damping` est
+      `2 zeta omega dt` fige dans la donnee, omega divise par 2 doit DOUBLER zeta : 0.35 -> 0.70.
+  ABLATION B — CONTROLE NEGATIF : masse x4 ET raideur x2 (2.7696 -> 5.5392).
+      Prediction : f = 5.5392/sqrt(5.80) = 2.3000 Hz, INCHANGE a 6 decimales, et zeta inchange.
+
+RESULTAT (frequence ajustee, fenetre d'impulsion, maillon 0) :
+
+    canal              REFERENCE   ABL. B (rapport constant)   ABL. A (masse seule)
+    chestL  v            2.550            2.575                     1.255
+    chestL  ap           2.465            2.415                     1.210
+    chestL  lat          2.560            2.570                     1.275
+    chestR  v  (temoin)  2.705            2.655                     2.655
+    chestR  ap (temoin)  2.570            2.530                     2.530
+    chestR  lat(temoin)  2.625            2.615                     2.615
+
+    zeta chestL maillon 0   0.35/0.35/0.37   0.36/0.36/0.35        0.70/0.70/0.69
+
+VERDICT, ET LES DEUX CONTROLES SONT CONCLUANTS :
+  - LE CONTROLE POSITIF A TIRE. Masse seule x4 : chestL tombe de ~2.5 Hz a ~1.25 Hz, un facteur 2,
+    exactement ce que `f = stiffness/sqrt(mass)` predit pour sqrt(4). Le parametre ATTEINT bien le
+    moteur, et `zeta` monte a 0.70 (bord de grille) comme la meme algebre le predit, parce que
+    `damping` fige encode `2 zeta omega dt`. La prediction et la mesure s'accordent sur DEUX
+    grandeurs a la fois.
+  - LE CONTROLE NEGATIF EST PLAT. A rapport constant, chestL bouge de 0.010 a 0.050 Hz — c'est-a-
+    dire EXACTEMENT autant que le temoin chestR, jamais touche, bouge entre les memes courses
+    (0.010 a 0.050 Hz). L'effet de l'ablation B n'est pas distinguable du bruit course-a-course.
+
+CONCLUSION. `mass` est REEL mais ALGEBRIQUEMENT REDONDANT : seul `stiffness/sqrt(mass)` est
+observable. **Une « re-derivation de SPEC 28 » qui recalculerait `k` et `m` sans changer leur
+rapport serait INERTE PAR CONSTRUCTION** — elle produirait des nombres neufs dans le fichier livre
+et une simulation bit-identique. Ce n'est pas un refus de faire le travail : c'est la mesure qui dit
+que ce travail-la n'a pas d'objet dans cette parametrisation.
+
+CE QUI RENDRAIT SA SPEC 28 SIGNIFIANTE, et c'est un chantier de MOTEUR (donc un build) :
+donner un canal a `M`. Sa SPEC 23 en nomme un seul, `F_collision / M`. Aujourd'hui le contact est
+une projection de POSITION : il ignore la masse par construction. Tant que c'est le cas, `m` ne
+peut pas etre autre chose qu'une reparametrisation de `f`.
+
+BRUIT DE MESURE ETABLI AU PASSAGE, et il sert a tout le reste du cycle : sur la chaine TEMOIN,
+entre trois courses successives, la frequence ajustee bouge de **jusqu'a 0.050 Hz**. Aucun ecart
+inferieur a ce seuil ne doit etre lu comme un effet.
+ET UNE MISE EN GARDE MESUREE : les series `PHYSRINGA` NE sont PAS reproductibles frame a frame
+d'une course a l'autre — sur le temoin non touche, l'ecart par frame atteint 125 % de l'amplitude.
+Seules les grandeurs AJUSTEES (frequence, zeta) sont comparables entre courses. Toute comparaison
+A/B faite sur la serie brute serait fausse.
