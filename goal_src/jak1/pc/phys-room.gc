@@ -1131,6 +1131,16 @@
       (format 0 "PHYSDIAG5 tag=~S c=~D volprio=~f~%"
               tag c
               (phys-diag (-> self slot) c 12))
+      ;;   worstvol L'ARGMAX DE `pen`, ET IL MANQUAIT. `pen` ne publiait qu'un maximum : on savait
+      ;;            COMBIEN, jamais CONTRE QUOI. `res` = le pire residu de la fenetre (u de jeu,
+      ;;            franchise de pose d'auteur deduite), `ci` = l'indice du volume qui le porte
+      ;;            dans l'ordre de `ROOM-COLLIDER-COVERAGE`. NATURE : une distance signee et un
+      ;;            INDICE, pas une moyenne. REPERE : celui du volume. LECTURE HORS DEFAUT :
+      ;;            res <= 0 et ci sans objet.
+      (format 0 "PHYSDIAG6 tag=~S c=~D worstres=~f worstci=~f~%"
+              tag c
+              (phys-diag (-> self slot) c 17)
+              (phys-diag (-> self slot) c 18))
       ;;   skinpen  (SPEC 18) la pire entree du lien SOUS LA VRAIE PEAU, en unites de jeu. A lire
       ;;            A COTE de `pen` : `pen` mesure contre les VOLUMES, qui ne representent que
       ;;            29.7 % de la geometrie pilotee (mesure du 2026-08-13, probe_skin_in_volume.py),
@@ -2309,6 +2319,13 @@
        ;; porteur) au lieu de la place que le rig donne. Doit valoir ZERO : c'est cette heuristique
        ;; qui posait le pan du pantacourt a 429 u du genou la ou le rig le met a 1349.
        (format 0 "PHYSRESEAT n=~f fallback=~f~%" (phys-inversions 2) (phys-inversions 4))
+       ;; LA POUSSEE TANGENTIELLE DE LA BOUCLE DE FINITION A-T-ELLE TIRE ? Regle 0 : le
+       ;; correctif de NOTE-61 ne se prouve pas par son commentaire. `n` = nombre de poussees,
+       ;; `sumdepth` = somme des profondeurs vues a l'entree (u de jeu), donc `sumdepth/n` est la
+       ;; profondeur MOYENNE que les balayages laissaient derriere eux. A n=0 le bloc n'a jamais
+       ;; ete atteint et tout `meshpen` publie a cote est a lire comme AVANT le correctif.
+       (format 0 "PHYSTAN n=~D sumdepth=~f removed=~f~%"
+               (phys-tan-count) (phys-tan-depth) (phys-tan-eff))
        (format 0 "PHYSINV phase=run flips=~f degen=~f reseat=~f residual=~f~%"
                (phys-inversions 0) (phys-inversions 1) (phys-inversions 2) (phys-inversions 3))
        (phys-inversions-reset!)
