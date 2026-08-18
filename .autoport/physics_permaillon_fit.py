@@ -246,6 +246,11 @@ def block(title, ser, why):
     return rows
 
 
+def _stamp(p):
+    import datetime
+    return datetime.datetime.fromtimestamp(os.path.getmtime(p)).strftime('%Y-%m-%d %H:%M:%S')
+
+
 def main():
     path = (sys.argv[1] if len(sys.argv) > 1
             else '.autoport/reports/Grecharged-secondary-motion/keira-room-x86.log')
@@ -279,6 +284,28 @@ def main():
     tbl = os.path.join(os.path.dirname(path), 'keira-room-table.txt')
     print()
     print("== VALIDATION CROISEE — MES LIGNES l=0 CONTRE `ROOM-RINGFIT` (qui ne lit QUE l=0)")
+    # GARDE DE PROVENANCE — ET ELLE NE PEUT PAS ETRE UN HORODATAGE.
+    # Le tableau est derive d'UNE course precise ; le comparer a une AUTRE course rend un
+    # « DIVERGE » qui n'accuse pas l'instrument mais l'appariement. Je m'y suis pris les pieds dans
+    # ce cycle meme, en lancant la sonde sur une course d'ablation pendant que le tableau venait
+    # encore de la reference.
+    # PREMIERE VERSION DE CETTE GARDE : comparer les dates. ELLE ETAIT FAUSSE, et c'est le piege
+    # « un chemin n'est pas un horodatage » du registre, dans sa version miroir — une trace RESTAUREE
+    # par copie porte la date de la copie, donc la garde refusait l'appariement CORRECT.
+    # CE QUI IDENTIFIE UNE COURSE EST SON CONTENU. Le tableau, lui, ne cite sa source que par
+    # CHEMIN (sa ligne 3 : « depuis .../keira-room-x86.log »), et ce chemin est le meme a toutes les
+    # courses : il n'identifie rien. La sonde ne peut donc pas VERIFIER l'appariement ; elle le
+    # DECLARE non verifiable et publie l'empreinte de la trace qu'elle a lue, pour que la
+    # comparaison soit refaisable. Le vrai correctif est en amont : que le tableau grave l'empreinte
+    # de sa trace au point de production. C'est signale au rapport, pas bricole ici.
+    import hashlib
+    _h = hashlib.md5(open(path, 'rb').read()).hexdigest() if os.path.exists(path) else 'n/a'
+    print("   trace lue : %s" % path)
+    print("   empreinte : md5 %s" % _h)
+    print("   APPARIEMENT NON VERIFIABLE : le tableau ne cite sa source que par CHEMIN (sa ligne 3),")
+    print("   et ce chemin est le meme a toutes les courses. Un `DIVERGE` ci-dessous veut donc dire")
+    print("   `l'instrument derive OU le tableau vient d'une autre course` — les deux se lisent")
+    print("   pareil, et c'est le defaut a corriger en amont, pas ici.")
     if not os.path.exists(tbl):
         print("   tableau absent (%s) : validation non faite, et je le declare." % tbl)
     else:

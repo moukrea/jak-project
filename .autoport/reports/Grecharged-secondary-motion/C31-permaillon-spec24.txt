@@ -42,6 +42,12 @@ bandes SPEC 24 : v [2.10,2.50] · ap [2.30,2.70] · lat [2.40,2.90]   (nominal v
    chestR   1    lat    138   2.520   0.032   0.20   0.098   2.444   NON LISIBLE (residu)         2.6398
 
 == VALIDATION CROISEE — MES LIGNES l=0 CONTRE `ROOM-RINGFIT` (qui ne lit QUE l=0)
+   trace lue : .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
+   empreinte : md5 460a613d5fae05793a31f2f8f7a25a49
+   APPARIEMENT NON VERIFIABLE : le tableau ne cite sa source que par CHEMIN (sa ligne 3),
+   et ce chemin est le meme a toutes les courses. Un `DIVERGE` ci-dessous veut donc dire
+   `l'instrument derive OU le tableau vient d'une autre course` — les deux se lisent
+   pareil, et c'est le defaut a corriger en amont, pas ici.
    chestL   ap     ROOM-RINGFIT   2.440   moi   2.440   ecart -0.0000   IDENTIQUE
    chestL   lat    ROOM-RINGFIT   2.935   moi   2.935   ecart -0.0000   IDENTIQUE
    chestL   v      ROOM-RINGFIT   2.475   moi   2.475   ecart -0.0000   IDENTIQUE
