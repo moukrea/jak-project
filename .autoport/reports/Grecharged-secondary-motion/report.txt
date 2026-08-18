@@ -35,8 +35,10 @@ EN UN COUP D'OEIL
     MESURE      CE QUE LE CORRECTIF A DONNE, ET IL A TIRE 2 418 602 FOIS (`PHYSTAN`) :
                   contacts en violation   chestL 32275 -> 23513 (-27 %) · chestR 26906 -> 21235 (-21 %)
                   mouvement de pointe     chestL 0.1776 -> 0.1937 (+9.1 %) · chestR 0.1816 -> 0.1967 (+8.3 %)
-                  residu MEDIAN par fenetre  227.0 -> 198.7 u, moyen 200.5 -> 178.5 u
-                  fenetres ou le residu BAISSE : 199 sur 310 ; il monte sur 108
+                  residu MEDIAN par fenetre  226.9 -> 199.8 u, moyen 200.5 -> 181.1 u
+                  fenetres ou le residu BAISSE : 194 sur 310 ; il monte sur 113, 3 egales
+                  (appariement par index de fenetre contre la course du cycle 24, meme k = meme
+                   (chaine, animation, pilotage) ; delta moyen -19.5 u)
                   allongement d'os        0.0002 (plafond 3 %) — la longueur reste exacte
     ROUGE       `COLLIDE` RESTE ROUGE ET LE MAXIMUM N'A PAS BOUGE : 0.0974 m (chestL) et 0.0888 m
                 (chestR) contre un plafond epingle de 0.0005 m. Le correctif deplace la

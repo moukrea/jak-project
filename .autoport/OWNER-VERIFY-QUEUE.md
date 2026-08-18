@@ -60,7 +60,7 @@ ramène dans la bande (il coûte un peu sur la traversée).
 
 * **La poitrine traverse encore le buste sur les mouvements forts, et le pire n'a pas baissé**
   (0,097 m à gauche, 0,089 m à droite, contre 0,094 / 0,079). La moitié basse du problème a
-  reculé — la valeur médiane baisse, 199 fenêtres sur 310 s'améliorent — mais **l'extrême n'a pas
+  reculé — la valeur médiane baisse, 194 fenêtres sur 310 s'améliorent — mais **l'extrême n'a pas
   bougé**. Ce build sait pour la première fois **contre quoi** :
   * à gauche, contre **la bretelle** (le petit volume de la sangle du haut). Ce volume n'accorde
     **aucune tolérance** : le mur est posé pile sur la pose d'origine. Or la bretelle **repose dans
