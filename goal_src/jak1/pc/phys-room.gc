@@ -1768,7 +1768,15 @@
                  ax
                  (phys-axis-world (-> self slot) 0 ax 0)
                  (phys-axis-world (-> self slot) 0 ax 1)
-                 (phys-axis-world (-> self slot) 0 ax 2)))
+                 (phys-axis-world (-> self slot) 0 ax 2))
+         ;; LES COMPTEURS DE DIAGNOSTIC COUVRENT CETTE FENETRE ET RIEN D'AUTRE. Sans ce reset,
+         ;; `worstres` publie plus bas serait le maximum depuis la derniere remise a zero — donc
+         ;; celui d'une AUTRE fenetre, et les six lignes seraient toutes egales au meme maximum
+         ;; herite. C'est exactement le defaut que le cycle 28 s'est reproche (« transporter une
+         ;; mesure d'une fenetre a une autre »). Rien d'existant n'est perturbe : entre la sortie
+         ;; de PH-INVPC (`physroom-emit-diag "run"`) et PH-ORI (qui remet a zero lui-meme a
+         ;; `PHYSROOM-ORIS`), aucun emetteur ne lit `*phys-dg*`.
+         (phys-diag-reset!))
        ;; la serie ne commence QU'APRES l'impulsion : pendant les 10 frames du pas, le sujet bouge,
        ;; et ce qu'on veut est la decroissance LIBRE qui suit. Le `skip` de l'ajustement (12) reste
        ;; celui des autres fenetres — on ne change pas l'estimateur pour une fenetre seulement.
@@ -1835,6 +1843,41 @@
                        c (- (-> self pframe) PHYSROOM-IMPF) l ax
                        (phys-chain-radial (-> self slot) c 1))))))
        (when (>= (-> self pframe) PHYSROOM-AXW)
+         ;; ---- SPEC 33 : L'INTERPENETRATION, MESUREE DANS UNE FENETRE OU LA CONTRAINTE DE
+         ;; ---- LONGUEUR EST TOUR A TOUR EN PLACE ET LEVEE. C'est l'ABLATION que le cycle 28 a
+         ;; ---- reclamee sans pouvoir la faire : les six fenetres AX/AXZ portent la MEME
+         ;; ---- impulsion, la MEME amplitude, la MEME duree et le MEME emetteur — un seul terme
+         ;; ---- change (`nolen`). Le residu de penetration est donc comparable ligne a ligne,
+         ;; ---- ce que les tags `self`/`side`/`cone` ne permettent pas (fenetres differentes).
+         ;;   res    NATURE : une PROFONDEUR en unites de jeu (4096 = 1 m), maximum sur la
+         ;;          fenetre, APRES tout le solveur — pas une amplitude, pas une variance.
+         ;;          REPERE : le monde, a la frame ecrite. C'est le residu AU-DELA du plancher de
+         ;;          pose d'auteur, donc 0 = « rien n'entre plus loin que le modele ne le fait ».
+         ;;          LECTURE QUAND LE DEFAUT EST ABSENT : 0.0000.
+         ;;   ci     l'indice du VOLUME qui porte ce residu — sans lui, un residu qui change de
+         ;;          volume se lirait comme un residu qui bouge.
+         ;;   rot0   l'angle REELLEMENT ecrit dans la 3x3 du maillon 0 (degres, max de fenetre).
+         ;;          `rootrot` (PHYSDIAG6) ne peut pas le publier sur une chaine dont les donnees
+         ;;          ne declarent aucun `rootlock` : son site d'ecriture est garde par
+         ;;          `(< l rlk0)`, donc `l < 0`, donc un domaine VIDE — son 0.0000 sur chestL et
+         ;;          chestR n'est pas une mesure. Celui-ci a `l = 0`, qui existe toujours.
+         (dotimes (c (-> self nchain))
+           (when (> (phys-chain-links (-> self slot) c) 0)
+             (format 0 "PHYSAXRES c=~D ax=~D nolen=~D res=~f ci=~f rot0=~f~%"
+                     c ax nolen
+                     (phys-diag (-> self slot) c 17)
+                     (phys-diag (-> self slot) c 18)
+                     (phys-diag (-> self slot) c 13))))
+         ;; LE RENDEMENT GEOMETRIQUE DE LA POUSSEE DE CONTACT, CUMULE, LU A LA SORTIE DE CHAQUE
+         ;; FENETRE. Ces trois compteurs ne sont PAS remis a zero ici : `PHYSTAN` (PH-INVPC) les
+         ;; publie deja en cumule et les remettre a zero changerait sa valeur. C'est la
+         ;; DIFFERENCE entre deux lignes consecutives qui donne la fenetre.
+         ;;   NATURE : `n` un COMPTE, `sumdepth` et `removed` des LONGUEURS CUMULEES (unites de
+         ;;   jeu). `removed/sumdepth` est le rendement moyen `1 - cos^2(normale, radiale)` : a 1
+         ;;   la poussee est entierement tangentielle (la contrainte de longueur n'en retire
+         ;;   rien), a 0 elle est entierement radiale (la contrainte la confisque en totalite).
+         (format 0 "PHYSAXTAN ax=~D nolen=~D n=~D sumdepth=~f removed=~f~%"
+                 ax nolen (phys-tan-count) (phys-tan-depth) (phys-tan-eff))
          (set! (-> self pframe) 0)
          (phys-stats-reset!)
          ;; LE CONTROLE EST RENDU A 0 A CHAQUE SORTIE DE FENETRE. Un controle qui resterait arme
