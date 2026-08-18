@@ -680,7 +680,7 @@
 ;; un cout qu'on decouvre chez lui.
 (define *phys-skin-meas* 0)
 
-(defconstant PHYS-DG 23)
+(defconstant PHYS-DG 24)
 (define *phys-dg* (new 'global 'array 'float (* PHYS-SC PHYS-DG)))
 ;; etat de contrainte de la frame precedente, par (lien, volume), pour compter les bascules.
 ;; 1 bit par volume, un mot par lien : PHYS-COLS <= 96 tient sur trois mots de 32 bits.
@@ -4042,6 +4042,15 @@
                                                 (fmax 1.0 b0c))))
                                     (when (> ee (-> *phys-dg* (+ (* sc PHYS-DG) 19)))
                                       (set! (-> *phys-dg* (+ (* sc PHYS-DG) 19)) ee))
+                                    ;; 23 = LE MEME MAXIMUM, MAIS PAR FENETRE DE PUBLICATION
+                                    ;; (chaine, animation, pilotage). Un emplacement SEPARE, et
+                                    ;; c'est necessaire : remettre 19 a zero a chaque fenetre
+                                    ;; changerait le maximum de course deja publie. Ses §14 a §20
+                                    ;; donnent une bande de COM par REGIME (saut, atterrissage,
+                                    ;; freinage, lacet, tangage, roulis) ; un maximum global ne
+                                    ;; peut se comparer a aucune d'elles.
+                                    (when (> ee (-> *phys-dg* (+ (* sc PHYS-DG) 23)))
+                                      (set! (-> *phys-dg* (+ (* sc PHYS-DG) 23)) ee))
                                     ;; UN MAXIMUM NE DIT PAS SI UNE BORNE CLIPERAIT UN EXTREME OU
                                     ;; MUSELLERAIT LA REPONSE. Trois cumuls le disent, et c'est la
                                     ;; SEULE grandeur qui separe un correctif d'un suppresseur :
@@ -4487,6 +4496,15 @@
            (>= which 0) (< which PHYS-DG))
     (-> *phys-dg* (+ (* (+ (* slot PHYS-CHAINS) chain) PHYS-DG) which))
     0.0))
+
+(defun phys-comexw-reset! ()
+  "REMET A ZERO LE SEUL EMPLACEMENT 23 — le maximum de `comex` de LA FENETRE COURANTE — sur toutes
+   les chaines. Les emplacements 19 (maximum de COURSE) et 20/21/22 (la distribution cumulee) ne
+   sont PAS touches : ils portent des grandeurs de portee differente, deja publiees, et les
+   confondre rendrait le maximum de course egal a celui de la derniere fenetre."
+  (dotimes (i PHYS-SC)
+    (set! (-> *phys-dg* (+ (* i PHYS-DG) 23)) 0.0))
+  (none))
 
 (defun phys-diag-reset! ()
   (dotimes (i (* PHYS-SC PHYS-DG)) (set! (-> *phys-dg* i) 0.0))

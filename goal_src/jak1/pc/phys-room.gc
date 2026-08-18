@@ -928,6 +928,23 @@
                (phys-pen-col (-> self slot) c)
                (phys-stat (-> self slot) c 2)
                (phys-stat (-> self slot) c 0))))
+    ;; ---- SPEC 14-20 : LA REPONSE DE COM PAR REGIME, ET C'EST LA SEULE FORME COMPARABLE ------
+    ;; Ses §14 a §20 sont les SEULES lignes de sa spec qui relient un STIMULUS a une REPONSE
+    ;; attendue, et chacune donne sa propre bande de COM : saut 15-32 % B0, atterrissage 25-40 %,
+    ;; freinage 10-30 %, lacet 10-28 %, tangage 30-40 % d'apex, roulis 15-22 %. Le PLUS GRAND
+    ;; chiffre de COM de toute sa spec est 0.40 B0 (§16, atterrissage tres dur) — et c'est aussi
+    ;; le plafond dur de sa §22. Aucun regime n'en autorise davantage.
+    ;; Un maximum de COURSE (`PHYSDIAG8`) ne se compare a AUCUNE de ces bandes : il melange les
+    ;; regimes. Celui-ci est le maximum de LA fenetre, donc d'un seul (chaine, animation,
+    ;; pilotage), et il est remis a zero juste apres publication.
+    ;; NATURE : une LONGUEUR rapportee a B0, maximum sur la fenetre — pas un cumul, pas une
+    ;; variance. REPERE : le monde, frame ecrite, contre la pose d'auteur de la MEME frame,
+    ;; deformation comprise. LECTURE A LA POSE D'AUTEUR : 0.0000. `d` >= PHYSROOM-DRIVES designe
+    ;; la ligne de base SANS pilotage — c'est elle qui dit ce que l'animation seule produit, donc
+    ;; ce qu'il faut soustraire avant d'attribuer quoi que ce soit au pilotage.
+    (format 0 "PHYSCOMW c=~D a=~D d=~D comex=~f~%"
+            c (-> self ai) (-> self drive)
+            (phys-diag (-> self slot) c 23))
     ;; LE STIMULUS REELLEMENT RECU, pour CHAQUE fenetre y compris la ligne de base. Compare a
     ;; l'amplitude commandee (PHYSSTIM), il dit si le pilotage a domine ou s'il a ete noye.
     (format 0 "PHYSACC c=~D a=~D d=~D acc=~f wraps=~D~%"
