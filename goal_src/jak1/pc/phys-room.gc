@@ -1202,7 +1202,22 @@
       ;;            jamais tire sur cette chaine.
       (format 0 "PHYSDIAG7 tag=~S c=~D retfblen=~f~%"
               tag c
-              (phys-diag (-> self slot) c 16))))
+              (phys-diag (-> self slot) c 16))
+      ;;   comex    SPEC 22 — L'EXCURSION DU CENTRE DE CHAIR, EN B0. Sa §22 borne le COM (« normal
+      ;;            <= 35 % B0, hard transient <= 40 % B0 ») ET l'apex (42 % / 50 %). Le moteur
+      ;;            borne le JOINT avec la bande de l'APEX et le CANAL RADIAL avec la bande du COM :
+      ;;            aucune des deux grandeurs bornees n'EST le centre de masse de la chair. Cette
+      ;;            colonne est la premiere mesure de la grandeur que sa borne de COM nomme.
+      ;;            Elle est prise sur le centroide MESURE de la geometrie que le joint possede,
+      ;;            transporte par la matrice ECRITE (rotation + deformation de §8/§10-13) et
+      ;;            compare a la matrice d'AUTEUR de la meme frame — donc deformation COMPRISE,
+      ;;            comme le cycle 27 l'a etabli pour le COM des §10-12.
+      ;;            NATURE : une LONGUEUR rapportee a B0, MAXIMUM sur la fenetre (pas un cumul,
+      ;;            pas une variance). REPERE : le monde, a la frame ecrite, contre la pose
+      ;;            d'auteur de la MEME frame. LECTURE A LA POSE D'AUTEUR : 0.0000.
+      (format 0 "PHYSDIAG8 tag=~S c=~D comex=~f~%"
+              tag c
+              (phys-diag (-> self slot) c 19))))
   (none))
 
 (defbehavior physroom-max-pen phys-subject ()
@@ -1867,7 +1882,13 @@
                      c ax nolen
                      (phys-diag (-> self slot) c 17)
                      (phys-diag (-> self slot) c 18)
-                     (phys-diag (-> self slot) c 13))))
+                     (phys-diag (-> self slot) c 13))
+             ;; l'excursion du centre de chair de la MEME fenetre (voir PHYSDIAG8) : c'est elle
+             ;; que sa §22 borne a 0.35/0.40 B0, et la seule facon de savoir si un residu de
+             ;; penetration vient d'une excursion hors bande ou d'un solveur qui n'a pas pousse.
+             (format 0 "PHYSAXCOM c=~D ax=~D nolen=~D comex=~f~%"
+                     c ax nolen
+                     (phys-diag (-> self slot) c 19))))
          ;; LE RENDEMENT GEOMETRIQUE DE LA POUSSEE DE CONTACT, CUMULE, LU A LA SORTIE DE CHAQUE
          ;; FENETRE. Ces trois compteurs ne sont PAS remis a zero ici : `PHYSTAN` (PH-INVPC) les
          ;; publie deja en cumule et les remettre a zero changerait sa valeur. C'est la

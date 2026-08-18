@@ -2310,3 +2310,218 @@ sous aucun des deux prouve que ce bloc n'est jamais atteint.
 La POSITION n'est pas touchee : la regle 6 (rien ne traverse) reste tenue par
 la meme poussee qu'avant, au bit pres.
 ```
+
+## NOTE-64  (moteur, aux alentours de la ligne 651)
+
+```
+LE DOMAINE D'UNE PAIRE, ET PAS SEULEMENT SES CONTACTS — SPEC 33.
+`*phys-cfh*` compte les violations. Quand il rend ZERO il ne dit pas laquelle des deux choses
+s'est produite : la paire a-t-elle failli se toucher, ou est-elle restee a un metre l'une de
+l'autre ? Le cycle 7 a publie « 0 contact sein<->sein sur 2978 » sans pouvoir trancher, et a
+ecrit lui-meme que la cause n'etait pas etablie. C'est le piege `zero-from-an-empty-domain` :
+un zero dont on ne connait pas le domaine ne prouve rien.
+  `*phys-cdm*` NATURE : une longueur (profondeur d'approche MAXIMALE atteinte par la paire sur
+               toute la course), en unites de jeu, 4096 u = 1 m. REPERE : monde.
+  `*phys-cfl*` NATURE : une longueur (le plancher `feff` que cette paire tolere, c'est-a-dire sa
+               profondeur A LA POSE D'AUTEUR). Meme unite, meme repere.
+CE QU'ILS RENDENT QUAND LE DEFAUT EST ABSENT : `cdm <= cfl`, et l'ecart `cfl - cdm` est la marge
+que la paire n'a jamais franchie. `cdm` NEGATIF veut dire que les deux volumes ne se sont jamais
+recouverts du tout — sa valeur est alors l'oppose de la distance minimale entre les surfaces, et
+c'est CE nombre qui dit si « ils s'entrechoquent » est atteignable ou hors de portee.
+Ecrits une fois par (lien, volume) et par frame, dans le balayage, AVANT toute poussee.
+la derniere profondeur SIGNEE calculee par `phys-collide-depth`, en unites de jeu. Ecrite a
+chaque appel, lue seulement par la mesure ci-dessus, jamais par le solveur.
+```
+
+## NOTE-65  (moteur, aux alentours de la ligne 718)
+
+```
+CONTROLE k=5 — 1 = LA BORNE §22 DU CANAL RADIAL EST DESARMEE (`rcap` -> +inf), sur la fenetre
+d'orientation seule. C'est le suspect que le cycle 28 a DIMENSIONNE sans pouvoir le desarmer.
+
+POURQUOI IL EXISTE. L'ablation a cinq passes designe la CONTRAINTE DE LONGUEUR comme cause du
+deficit medial de sa §12 (k=1 : le pole medial de `chestL` passe de 0.0807 a 0.2141 B0 et celui
+de `chestR` de 0.0283 a 0.2095, les deux ENTRENT dans la bande 0.15-0.24 ; k=2/3/4 le laissent
+a x1.00). Mais la contrainte de longueur ne peut pas etre retiree — sa §1bis exige que l'OS ne
+s'allonge pas (`ROOM-STRETCH <= 3 %`). Ce qu'elle fait est CONFISQUER la composante du
+pilotage LE LONG de l'os, a charge pour le canal radial de §23 de la rendre. La question
+d'apres, et c'est la seule qui soit actionnable, est donc : ce canal la rend-il, ou est-il
+ecrete avant ?
+
+CE QUI LE DESIGNE, ET C'EST DEJA DANS LA COURSE LIVREE (`ROOM-RAD`) : le canal radial BRUT
+`rrr` vaut jusqu'a 0.6843 B0 la ou le canal BORNE `rrm` rend 0.3900 — 43 % du signal retire —
+et le pic transitoire `rrt` est colle a 0.3998-0.3999 sur les HUIT orientations non nulles des
+DEUX chaines, c'est-a-dire exactement le plafond `0.40 B0`. Un limiteur actif partout ne borne
+plus une exception : il publie sa propre asymptote a la place de la reponse, et c'est ce que
+`ROOM-RAD-DISCRIM` lit deja sur `chestL` — `spread=10.3 % verdict=PLAT`.
+
+CE QU'IL NE FAIT PAS : changer un octet du comportement LIVRE. Il vaut 0 partout sauf pendant
+la passe de mesure k=5, que la salle arme et REND A 0 en sortant, exactement comme les quatre
+autres. Ce n'est pas un assouplissement de la borne de sa §22 — c'est le controle qui dira si
+cette borne est le mecanisme, avant qu'on ait le droit d'y toucher.
+```
+
+## NOTE-66  (moteur, aux alentours de la ligne 3111)
+
+```
+[NOTE-C28] CE `b0f` N'EST PAS LE RAYON DU MAILLON, ET C'EST
+MESURE — mais le corriger a ete ESSAYE ET REFUTE, alors la
+note reste et le code ne bouge pas. Le commentaire vingt
+lignes plus haut affirme qu'a deux maillons la borne « s'
+applique telle quelle a l'apex » : le mesh livre dit non. Le
+joint distal est a **0.2332 B0** de la racine de chaine
+(140.42 u contre B0 = 602), donc la borne de 301 u posee sur
+lui vaut **2.14 x la longueur de son propre os** — un
+plafond de deplacement plus grand que l'os n'impose aucune
+limite d'angle, et l'apex de chair (768.7 u de la racine)
+peut parcourir **2.74 B0** la ou sa SPEC 22 en autorise 0.50.
+Le filet n'est pas inerte pour autant : `PHYSLIM4
+sat_n=16240 sat_sum=14751666`, 908 u retires par morsure.
+
+CE QUE LE CYCLE 28 A ESSAYE : remplacer `b0f` par le rayon
+propre du maillon (0.50 x 140.42 = 70.2 u au distal, racine
+inchangee). MESURE, ET REFUTE — voir
+`.autoport/reports/.../C28-apexr-refutation.txt` :
+  SPEC 33 chestL 487.82 -> 437.17 u  (-10 %, argmax change)
+  SPEC 33 chestR 443.33 -> 509.88 u  (**PIRE de 15 %**)
+  filet    16 240 -> 42 567 morsures (**x2.62**, un limiteur
+           sature : il publie son asymptote, pas la reponse)
+  SPEC 12 medial chestL 0.0807 -> 0.0315 B0 (**-61 %**)
+Raison : seul le maillon DISTAL etait resserre. Le maillon
+RACINE pivote sur l'ancre `chest` a **1040.5 u** (`PHYSBONE
+c=0 l=0 len=1040.5006`) et gardait ses 301 u — c'est LUI qui
+promene l'organe entier. La cinematique est le bon mecanisme,
+le maillon borne n'etait pas celui qui la porte.
+NE PAS refaire ce changement tel quel : commencer par mesurer
+le maillon RACINE (16.6 deg permis a 301 u sur un bras de
+1040.5).
+```
+
+## NOTE-67  (moteur, aux alentours de la ligne 3641)
+
+```
++Z = L'AXE AVANT-ARRIERE DE L'ANCRE, ET C'EST UNE CORRECTION MESUREE.
+J'avais pris la direction ancre -> racine du sein comme « la
+protrusion ». La course A l'a refutee : sous un TANGAGE de 90 deg,
+ce pretendu +Z ne recevait que 0.565 de la gravite sur chestL et
+-0.941 sur chestR — deux reperes qui ne sont pas l'image l'un de
+l'autre, donc `supine` et `prone` echanges d'un sein a l'autre.
+La raison est geometrique : ancre -> racine est domine par le
+decalage LATERAL, pas par la protrusion.
+Ce que la course B a etabli, en publiant la gravite sur les trois
+lignes de l'ancre : tangage 90 deg -> 0.980 sur la ligne 0 ;
+roulis 90 deg -> 0.993 sur la ligne 2. La ligne 0 EST l'avant-
+arriere, la ligne 2 EST le lateral — donc `*phys-axa*` et
+`*phys-axl*` sont bien nommes, et l'anisotropie de §29 est posee
+sur les bons axes (je m'attendais a l'inverse ; la mesure tranche).
+En espace ANCRE la ligne `axa` est le vecteur unitaire de cet
+indice — les lignes de `am` SONT la base de cet espace.
+```
+
+## NOTE-68  (moteur, aux alentours de la ligne 3667)
+
+```
+LE SIGNE : `+ligne[axa]`, ET IL EST MESURE, PAS SUPPOSE.
+Course B, gravite publiee sur les trois lignes de l'ancre :
+a TANGAGE +90 deg (elle se penche en avant, donc le bas du
+monde devient l'avant du corps) la gravite arrive a +0.980
+sur la ligne 0. `+ligne[axa]` EST donc l'avant.
+J'avais d'abord fixe ce signe par la direction ancre ->
+racine du sein : la course C l'a REFUTE — cette direction
+est dominee par le decalage lateral, sa composante avant est
+residuelle, et son signe differait d'un sein a l'autre.
+Resultat : `prone` sur un sein et `supine` sur l'autre pour
+la MEME inclinaison. Une heuristique geometrique ne remplace
+pas une mesure, et la voila remplacee par elle.
+VERIFICATION PERMANENTE, pas une note : `ROOM-ORI` publie
+`gz` a chaque course. A tangage +90 il doit etre proche de
++1 sur LES DEUX seins ; un rig qui orienterait sa ligne 0
+vers l'arriere se verrait immediatement.
+```
+
+## NOTE-69  (moteur, aux alentours de la ligne 3691)
+
+```
+(b) SPEC 10-13 — L'EQUILIBRE DE FORME, CONTINU EN LA DIRECTION DE LA
+GRAVITE. Sa §13 l'exige mot pour mot : « supine, prone, upright and
+lateral states SHALL NOT exist as unrelated hard-coded morph targets ;
+the equilibrium state shall vary CONTINUOUSLY with the local gravity
+direction ». Les cinq triplets sont donc les VALEURS AUX POLES et rien
+d'autre ; entre deux poles c'est un melange, exact a chaque pole,
+continu partout (les poids sont |gx|, |gy|, |gz|, dont la somme ne
+s'annule jamais pour une direction unitaire).
+  debout   (-Y)  1.000 1.000 1.000   §9  : la pose d'auteur EST l'equilibre 1 g
+  supine   (-Z)  1.230 1.090 0.700   §10 : projection -30 %, largeur +23 %
+  prone    (+Z)  0.900 0.910 1.230   §11 : longueur +23 %, largeur -10 %
+  lateral  (±X)  0.800 1.118 1.118   §12 : aplatissement -20 %, compense
+  inverse  (+Y)  0.900 1.230 0.910   NON SPECIFIEE : la loi de §11
+                                     (tissu libre, il s'allonge selon g)
+                                     portee sur +Y. Extrapolation
+                                     DECLAREE, exigee par la continuite.
+```
+
+## NOTE-70  (moteur, aux alentours de la ligne 3779)
+
+```
+SPEC 37 : « soft displacement clamps should be preferred to
+abrupt positional clamps ». C'ETAIT UN ECRETAGE DUR, et il
+etait ecrit DANS L'ETAT juste en dessous : la salle mesurait
+5 frames sur 90 collees a |s| = 0.0700000 EXACTEMENT, que
+l'ajustement de zeta devait EXCLURE — d'ou son « DESACCORD —
+prudence » sur les deux chaines. Un etat reecrit par une
+borne n'est plus l'oscillateur dont sa 36 donne zeta.
+`phys-softmin` (:1051) est deja la borne douce du moteur, et
+sert deja l'apex (:3059) et la torsion (:3890) : IDENTITE
+STRICTE sous kn = 0.84*cap, seul l'EXCES sature, asymptote
+exacte a cap.
+ET LE GENOU TOMBE OU LA SPEC LE VEUT, ce qui est la parade
+au piege `saturation-per-frame-compounds` : kn vaut
+0.84 * 0.07 = 0.0588, soit 5.88 %, AU-DESSUS du haut de la
+bande normale de sa 36 (`SecondaryJiggleAmplitude = 0.02-0.05`).
+La bande normale est donc traversee en identite — aucune perte
+par frame ne peut y composer — et la saturation ne mord que
+dans la plage « strong impulse 5-7 % » que la 36 nomme.
+```
+
+## NOTE-71  (moteur, aux alentours de la ligne 3825)
+
+```
+(e) SPEC 29 — LE DEGRE DE LIBERTE EN TORSION, `TorsionalCompliance 0.72`.
+Le tissu porte un angle de roulis PROPRE autour de son axe racine->apex ;
+l'ancre porte le sien ; le ressort les relie. Aucune derivee seconde de
+l'animation n'entre ici — c'est la meme construction que le mode
+principal (on integre l'ABSOLU et on relie a la reference portee par
+l'ancre), donc l'inertie et le retard EMERGENT au lieu d'etre pilotes
+par un a-coup. Raideur = 1/0.72 fois celle de la verticale, exactement
+comme `*phys-axs*` porte 1/0.90 et 1/0.82.
+L'AXE DE TORSION EST L'AXE DE REPOS, PAS L'AXE SIMULE — et c'est une
+correction, pas un choix. Mesure de la course A : la torsion montait a
+25 a 76 degres, ce qui n'est pas une torsion de chair mais un artefact
+de repere. Le roulis se mesure comme l'angle d'un vecteur de reference
+AUTOUR de l'axe ; si l'axe lui-meme balance, sa propre rotation entre
+dans la mesure (holonomie) et s'ACCUMULE frame apres frame. L'axe de
+repos, lui, ne bouge qu'avec l'ancre : c'est exactement ce qu'on veut
+mesurer, et rien d'autre.
+```
+
+## NOTE-72  (moteur, aux alentours de la ligne 3843)
+
+```
+LE ROULIS DE L'ANCRE, PAR DECOMPOSITION SWING/TWIST — ET C'EST LA
+TROISIEME VERSION, CHACUNE CORRIGEE PAR UNE MESURE.
+  v1 : angle d'un vecteur de reference autour de l'axe SIMULE.
+       Course A : 25 a 76 deg de torsion. L'axe balancait, sa
+       propre rotation entrait dans la mesure.
+  v2 : le meme angle autour de l'axe de REPOS. Course C : la
+       torsion sature son plafond sur les CINQ pilotages, y compris
+       `updown`, une translation PURE ou le roulis vrai est nul.
+       Un tangage du buste, pourtant orthogonal a l'axe, produisait
+       encore un increment — c'est l'holonomie, et elle s'ACCUMULE.
+  v3, ici : on ne mesure plus un angle projete, on extrait la part
+       AXIALE de la rotation incrementale de l'ancre.
+       `R = am(t-1)^T . am(t)` est cette rotation, exprimee dans le
+       repere de l'ancre ; sa part antisymetrique est le vecteur de
+       rotation, et `omega . u` en est la composante de TORSION.
+       Une rotation orthogonale a `u` y rend exactement zero, ce
+       qu'aucune projection de vecteur ne peut garantir.
+```

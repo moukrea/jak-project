@@ -3213,6 +3213,20 @@ def main():
     # REPERE : la direction d'os du joint, pose du modele -> position simulee de son enfant, prise
     # depuis SON ANCRE (donc son mouvement PROPRE, pas celui herite du crane). LECTURE QUAND LE
     # DEFAUT EST PRESENT : 0.0000 exactement, structurellement.
+    # ---- LE ZERO DE `rootrot` PEUT ETRE VIDE DE DOMAINE, ET IL L'EST SUR LA POITRINE -----------
+    # Son site d'ecriture dans le moteur est garde par `(when (< l rlk0))`. Une chaine dont les
+    # DONNEES ne declarent aucun `rootlock` a `rlk0 = 0`, donc la condition est `l < 0` : elle
+    # n'est JAMAIS vraie, et le compteur ne peut pas etre ecrit. `physics_chains.txt` omet
+    # explicitement `rootlock` sur chestL/chestR (« pinning it would freeze three quarters of the
+    # organ »), donc leur `rootrot = 0.0000` n'est pas une mesure — c'est un domaine vide, et le
+    # verdict « leur premier segment ne tourne pas d'un degre » qui en etait tire etait FAUX.
+    # `rot0` (PHYSAXRES, cycle 29) porte le meme angle avec la garde `(= l 0)`, qui existe sur
+    # TOUTE chaine : c'est lui qui discrimine « le maillon ne tourne pas » de « rien ne l'a lu ».
+    rot0 = {}
+    for m in re.finditer(r'^PHYSAXRES c=(\d+) ax=(\d+) nolen=(\d+) res=([-\d.e+]+)'
+                         r' ci=([-\d.e+]+) rot0=([-\d.e+]+)', txt, re.M):
+        c = int(m.group(1))
+        rot0[c] = max(rot0.get(c, 0.0), float(m.group(6)))
     rr = {c: dr_run.get(c, {}).get('rootrot') for c in sorted(chains)}
     if all(v is None for v in rr.values()):
         A('-- PREMIER SEGMENT (rootrot) : NON MESURE par cette course ------------------------------')
@@ -3230,11 +3244,20 @@ def main():
             v, nl = rr.get(c), chains[c]['links']
             if v is None:
                 continue
+            r0 = rot0.get(c)
+            if r0 is not None and v <= 0.0 and r0 > 0.0:
+                A('   rootrot %-12s   DOMAINE VIDE — le compteur ne peut pas etre ecrit sur cette'
+                  % names[c])
+                A('           chaine (aucun `rootlock` dans ses donnees, donc `rlk0 = 0`, donc la')
+                A('           garde `l < rlk0` est toujours fausse). Le maillon 0 tourne bien :')
+                A('           rot0 = %.4f deg, meme angle, garde `l = 0`. (maillons=%d)' % (r0, nl))
+                continue
             A('   rootrot %-12s %8.4f deg   (maillons=%d)' % (names[c], v, nl))
             # une chaine a 1 maillon n'a PAS de lien rootlock : son zero est une definition, pas un
             # defaut. Ne sont fautives que les chaines a 2+ maillons, celles que le generateur
-            # rootlocke.
-            if nl >= 2 and v <= 0.0:
+            # rootlocke. Et une chaine que le generateur NE rootlocke PAS n'a pas de domaine du
+            # tout : `rot0` ci-dessus la retire, sinon le verdict porterait sur un zero vide.
+            if nl >= 2 and v <= 0.0 and not (rot0.get(c, 0.0) > 0.0):
                 mute.append(names[c])
         if mute:
             A('   MUET sur %d chaine(s) a 2+ maillons : %s' % (len(mute), ' '.join(mute)))
@@ -3331,6 +3354,116 @@ def main():
     # pas du mouvement legitime. Si `out` domine, c'est l'inverse et la moitie `rad>0` epingle.
     # NATURE : des COMPTES d'evenements sur la fenetre de controle. REPERE : sans objet.
     # LECTURE HORS DEFAUT : inward=0. `--` = trace anterieure a la publication du compteur.
+    # ---- SPEC 33 : L'ABLATION DE LA CONTRAINTE DE LONGUEUR SUR LE RESIDU D'INTERPENETRATION ----
+    # Le cycle 28 a etabli que le residu (487.82 u sur chestL) n'est PAS un defaut de convergence
+    # — 8x3 balayages + 4 iterations de finition le laissent en place — et a nomme la cinematique
+    # sans pouvoir l'attribuer. L'ablation est ici : les six fenetres AX/AXZ portent la MEME
+    # impulsion, la MEME amplitude, la MEME duree et le MEME emetteur ; un seul terme change,
+    # `phys-len-off-set!`. C'est la seule paire de la course qui ait une exposition egale (les
+    # tags `self`/`side`/`cone` ont des fenetres et des stimuli differents, et les comparer serait
+    # le transport de mesure que le cycle 28 s'est reproche).
+    #
+    # NATURE de `res` : une PROFONDEUR en unites de jeu, maximum sur la fenetre, APRES tout le
+    # solveur, au-dela du plancher de pose d'auteur. REPERE : le monde, a la frame ecrite.
+    # LECTURE HORS DEFAUT : 0.0000. `ci` = le volume qui porte ce residu ; sans lui, un residu qui
+    # change de volume se lirait comme un residu qui bouge.
+    # NATURE de `rend` : un RAPPORT sans dimension, `removed / sumdepth`, c'est-a-dire la moyenne
+    # de `1 - cos^2(normale de contact, direction radiale)` sur les poussees de la fenetre. A 1 la
+    # poussee est entierement tangentielle (la contrainte de longueur ne lui retire rien) ; a 0
+    # elle est entierement radiale (la contrainte la confisque en totalite).
+    _axres = {}
+    for _m in re.finditer(r'^PHYSAXRES c=(\d+) ax=(\d+) nolen=(\d+) res=([-\d.e+]+)'
+                          r' ci=([-\d.e+]+) rot0=([-\d.e+]+)', txt, re.M):
+        _axres[(int(_m.group(1)), int(_m.group(2)), int(_m.group(3)))] = (
+            float(_m.group(4)), float(_m.group(5)), float(_m.group(6)))
+    _axtan = []
+    for _m in re.finditer(r'^PHYSAXTAN ax=(\d+) nolen=(\d+) n=(\d+) sumdepth=([-\d.e+]+)'
+                          r' removed=([-\d.e+]+)', txt, re.M):
+        _axtan.append((int(_m.group(1)), int(_m.group(2)), int(_m.group(3)),
+                       float(_m.group(4)), float(_m.group(5))))
+    _axcom = {}
+    for _m in re.finditer(r'^PHYSAXCOM c=(\d+) ax=(\d+) nolen=(\d+) comex=([-\d.e+]+)', txt, re.M):
+        _axcom[(int(_m.group(1)), int(_m.group(2)), int(_m.group(3)))] = float(_m.group(4))
+    # ---- SPEC 22 : L'EXCURSION DU CENTRE DE CHAIR, CONTRE LA BANDE QUE SA §22 LUI DONNE -------
+    # « Breast COM: normal <= 35 % B0, hard transient <= 40 % B0 ». Le moteur borne le JOINT avec
+    # la bande de l'APEX (0.42/0.50) et le CANAL RADIAL avec celle du COM : aucune des deux n'EST
+    # le centre de masse de la chair. NATURE : une longueur rapportee a B0, maximum de fenetre.
+    # REPERE : le monde, frame ecrite, contre la pose d'auteur de la MEME frame, deformation
+    # comprise. LECTURE A LA POSE D'AUTEUR : 0.0000.
+    _comex = {}
+    for _m in re.finditer(r'^PHYSDIAG8 tag=(\S+) c=(\d+) comex=([-\d.e+]+)', txt, re.M):
+        _comex.setdefault(_m.group(1), {})[int(_m.group(2))] = float(_m.group(3))
+    A('')
+    if _comex.get('run'):
+        A('-- SPEC 22 : L\'EXCURSION DU CENTRE DE CHAIR (comex), CONTRE SA PROPRE BANDE ----------')
+        A('   Sa §22 : COM normal <= 0.35 B0, transitoire dur <= 0.40 B0. Maximum sur la fenetre')
+        A('   de course, deformation comprise. C\'est la grandeur que sa borne de COM NOMME — et')
+        A('   ce que le moteur borne aujourd\'hui est le JOINT (bande d\'apex) et le canal radial.')
+        for _c in sorted(_comex['run']):
+            _v = _comex['run'][_c]
+            _st = ('DANS la bande normale' if _v <= 0.35 else
+                   ('DANS le transitoire dur' if _v <= 0.40 else
+                    'HORS BANDE, x%.2f le plafond dur' % (_v / 0.40)))
+            A('ROOM-COMEX: chain=%-12s comex=%.4f B0   (0.35 / 0.40)   %s'
+              % (names[_c] if _c < len(names) else _c, _v, _st))
+    else:
+        A('-- SPEC 22 / comex : NON MESURE par cette course (aucune ligne PHYSDIAG8) ------------')
+    A('')
+    if not _axres:
+        A('-- SPEC 33 / ABLATION DE LA CONTRAINTE DE LONGUEUR : NON MESUREE par cette course -----')
+        A('   Aucune ligne PHYSAXRES dans la trace (moteur ou salle anterieurs au cycle 29).')
+    else:
+        _AXN = {0: 'VERTICAL', 1: 'AVANT-ARRIERE', 2: 'LATERAL'}
+        A('-- SPEC 33 : LE RESIDU D\'INTERPENETRATION, CONTRAINTE DE LONGUEUR EN PLACE PUIS LEVEE --')
+        A('   Meme impulsion, meme fenetre, meme emetteur ; seul `nolen` change. `res` en unites')
+        A('   de jeu (4096 = 1 m), maximum de fenetre, APRES le solveur, au-dela du plancher de')
+        A('   pose d\'auteur. LECTURE HORS DEFAUT : 0.0000.')
+        A('   axe            chaine        res(len ON)  res(len OFF)   rapport   ci ON/OFF'
+          '   comex ON/OFF (B0)')
+        for _ax in (0, 1, 2):
+            for _c in sorted(chains):
+                _on = _axres.get((_c, _ax, 0))
+                _off = _axres.get((_c, _ax, 1))
+                if _on is None or _off is None:
+                    continue
+                _rat = ('%8.3f' % (_off[0] / _on[0])) if _on[0] > 0.0 else '     n/a'
+                _cx = ''
+                if (_c, _ax, 0) in _axcom and (_c, _ax, 1) in _axcom:
+                    _cx = '   %.4f / %.4f' % (_axcom[(_c, _ax, 0)], _axcom[(_c, _ax, 1)])
+                A('   %-14s %-12s %11.4f %13.4f %9s   %d/%d%s'
+                  % (_AXN[_ax], names[_c] if _c < len(names) else _c,
+                     _on[0], _off[0], _rat, int(_on[1]), int(_off[1]), _cx))
+        _dom = max([v[0] for k, v in _axres.items() if k[2] == 0] or [0.0])
+        if _dom < 50.0:
+            A('   DOMAINE VIDE : le plus gros residu de reference vaut %.4f u (< 50 u). Cette' % _dom)
+            A('   impulsion ne met pas les deux seins en contact, donc l\'ablation ne prouve RIEN')
+            A('   ici — ni dans un sens ni dans l\'autre. Il faut une fenetre de PILOTAGE.')
+        else:
+            _lat = [(names[c] if c < len(names) else c,
+                     _axres[(c, 2, 0)][0], _axres[(c, 2, 1)][0])
+                    for c in sorted(chains) if (c, 2, 0) in _axres and (c, 2, 1) in _axres]
+            _conf = [n for n, a, b in _lat if a >= 50.0 and b <= 0.40 * a]
+            _ref = [n for n, a, b in _lat if a >= 50.0 and b >= 0.85 * a]
+            if _conf:
+                A('   VERDICT (critere pose AVANT la course, C29-lenres-prediction.txt) : la')
+                A('   CONTRAINTE DE LONGUEUR est DESIGNEE sur l\'axe lateral — %s' % ' '.join(_conf))
+            elif len(_ref) == len(_lat) and _lat:
+                A('   VERDICT : la contrainte de longueur est EXONEREE sur l\'axe lateral (residu')
+                A('   inchange a 15 %% pres quand elle est levee). L\'hypothese est REFUTEE.')
+            else:
+                A('   VERDICT : NON CONCLUANT au critere pose avant la course. Publie tel quel.')
+        if _axtan:
+            A('   rendement geometrique de la poussee de contact, par fenetre (delta cumule) :')
+            _pn = _ps = _pr = 0
+            for _ax, _nl, _n, _sd, _rm in _axtan:
+                _dn, _dsd, _drm = _n - _pn, _sd - _ps, _rm - _pr
+                _pn, _ps, _pr = _n, _sd, _rm
+                _e = ('%7.4f' % (_drm / _dsd)) if _dsd > 0.0 else '    n/a'
+                A('     %-14s len=%s  poussees=%-9d rend=%s'
+                  % (_AXN[_ax], 'OFF' if _nl else 'ON ', _dn, _e))
+            A('   Un rendement proche de 0 dit que la poussee est RADIALE et que la projection sur')
+            A('   la sphere de l\'attache la rend a zero : le solveur ne peut alors pas separer,')
+            A('   quel que soit le nombre d\'iterations.')
     # ---- ROOM-SKINPEN : la penetration contre la PEAU, a lire A COTE de meshpen ------------------
     sp_run = skinpen.get('run', {})
     if sp_run:

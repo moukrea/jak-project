@@ -680,7 +680,7 @@
 ;; un cout qu'on decouvre chez lui.
 (define *phys-skin-meas* 0)
 
-(defconstant PHYS-DG 19)
+(defconstant PHYS-DG 20)
 (define *phys-dg* (new 'global 'array 'float (* PHYS-SC PHYS-DG)))
 ;; etat de contrainte de la frame precedente, par (lien, volume), pour compter les bascules.
 ;; 1 bit par volume, un mot par lien : PHYS-COLS <= 96 tient sur trois mots de 32 bits.
@@ -3988,6 +3988,60 @@
                               (set! (-> bm vector 3 y) (-> *phys-py* scl))
                               (set! (-> bm vector 3 z) (-> *phys-pz* scl))
                               (set! (-> bm vector 3 w) 1.0)
+                              ;; ---- SPEC 22 : L'EXCURSION DU **CENTRE DE CHAIR**, EN B0 ---------
+                              ;; Sa §22 borne DEUX grandeurs et les nomme : « Breast COM: normal
+                              ;; <= 35 % B0, hard transient <= 40 % B0 » et « Distal/apex
+                              ;; displacement: normal <= 42 %, exceptional <= 50 % ». Le moteur
+                              ;; borne aujourd'hui le JOINT (borne d'apex, :3115) et le CANAL
+                              ;; RADIAL (borne de COM, :2960) — deux grandeurs dont AUCUNE n'est
+                              ;; le centre de masse de la chair. Il n'existait donc, jusqu'ici,
+                              ;; aucune mesure de la grandeur que la borne de COM designe.
+                              ;; CE QUI EST PRIS ICI : le centre du volume que le generateur a
+                              ;; MESURE sur le mesh (« measured centroid of the geometry this
+                              ;; joint owns »), transporte par la matrice d'AUTEUR (`pre`, copiee
+                              ;; en tete de cette boucle) puis par la matrice ECRITE (`bm`, qui
+                              ;; porte deja la rotation ET la deformation de §8/§10-13). La
+                              ;; difference est donc le deplacement de la chair, deformation
+                              ;; COMPRISE — c'est la lecon du cycle 27 (un COM bati sur les seuls
+                              ;; joints est la moitie de la grandeur).
+                              ;; NATURE : une LONGUEUR rapportee a B0, maximum sur la fenetre.
+                              ;; REPERE : le monde, a la frame ecrite, contre la pose d'AUTEUR de
+                              ;; la meme frame. LIGNE DE BASE : 0.0000 a la pose d'auteur.
+                              (let ((lcx (-> *phys-lcx* scl))
+                                    (lcy (-> *phys-lcy* scl))
+                                    (lcz (-> *phys-lcz* scl)))
+                                (when (or (!= lcx 0.0) (!= lcy 0.0) (!= lcz 0.0))
+                                  (let* ((ex (- (+ (-> bm vector 3 x)
+                                                   (+ (* lcx (-> bm vector 0 x))
+                                                      (+ (* lcy (-> bm vector 1 x))
+                                                         (* lcz (-> bm vector 2 x)))))
+                                                (+ (-> pre vector 3 x)
+                                                   (+ (* lcx (-> pre vector 0 x))
+                                                      (+ (* lcy (-> pre vector 1 x))
+                                                         (* lcz (-> pre vector 2 x)))))))
+                                         (ey (- (+ (-> bm vector 3 y)
+                                                   (+ (* lcx (-> bm vector 0 y))
+                                                      (+ (* lcy (-> bm vector 1 y))
+                                                         (* lcz (-> bm vector 2 y)))))
+                                                (+ (-> pre vector 3 y)
+                                                   (+ (* lcx (-> pre vector 0 y))
+                                                      (+ (* lcy (-> pre vector 1 y))
+                                                         (* lcz (-> pre vector 2 y)))))))
+                                         (ez (- (+ (-> bm vector 3 z)
+                                                   (+ (* lcx (-> bm vector 0 z))
+                                                      (+ (* lcy (-> bm vector 1 z))
+                                                         (* lcz (-> bm vector 2 z)))))
+                                                (+ (-> pre vector 3 z)
+                                                   (+ (* lcx (-> pre vector 0 z))
+                                                      (+ (* lcy (-> pre vector 1 z))
+                                                         (* lcz (-> pre vector 2 z)))))))
+                                         (b0c (if (> (-> *phys-b0* sc) 0.0)
+                                                (-> *phys-b0* sc)
+                                                (-> *phys-blen* scl)))
+                                         (ee (/ (sqrtf (+ (* ex ex) (+ (* ey ey) (* ez ez))))
+                                                (fmax 1.0 b0c))))
+                                    (when (> ee (-> *phys-dg* (+ (* sc PHYS-DG) 19)))
+                                      (set! (-> *phys-dg* (+ (* sc PHYS-DG) 19)) ee)))))
                               ;; delta pour les descendants non simules
                               (when (< k PHYS-JOINTS)
                                 (matrix-4x4-inverse! inv pre)
