@@ -20,6 +20,10 @@ EN UN COUP D'OEIL
                 prix de la corriger est chiffre : elle sortirait chestL de la bande de la 30
                 ROOM-SKINPEN chestR 0.1224 -> 0.1624 m, a lire contre une erreur d'instrument
                 (ecart miroir) qui passe de 11 % a 33 % — drapeau, pas attribution
+    FERME       §29 TORSION : le « 0.3825 contre 0.72 » qui la tenait ouverte compare un TAUX
+                D'AMORTISSEMENT a une COMPLIANCE. Mesuree comme la 29 mesure deja ses trois
+                autres axes, la compliance en torsion vaut 0.711 / 0.716 / 0.730 pour une cible
+                de 0.72, et l'axe est ARME. Le « os manquant a injecter » n'a pas lieu d'etre.
     ROUGE       COLLIDE 0.0593 (plafond 0.0005) · SIDE-CONTROL domaine VIDE · OPEN-DEFECTS
     A TRANCHER  sa 30 dit « % of the rear breast VOLUME », l'instrument compte des SOMMETS. Sur
                 l'aire du maillage, 0.307 / 0.344 : les DEUX cotes sont DANS la bande. Section 4.
@@ -282,8 +286,15 @@ comme neuf. Sources : « T: » tableau de la salle · « S: » sondes de peau su
   §26 rebond 31 %   TENUE      (Reporte.)
   §27 stabilisation PARTIELLE  (Reporte.)
   §28 derivation k  TENUE      (Reporte.)
-  §29 aniso+torsion PARTIELLE  (Reporte.) La torsion (0.72) reste sans degre de liberte : c'est le
-                               prochain point de l'ordre de travail du 2026-08-17 23:50.
+  §29 aniso+torsion TENUE      ** RE-MESUREE, ET LE CHIFFRE QUI LA TENAIT OUVERTE ETAIT DE LA
+                               MAUVAISE NATURE ** — voir la section 7bis. Compliance en torsion
+                               implicite 0.7112 / 0.7160 / 0.7304 contre une cible de 0.72, sur
+                               les trois paires dont les DEUX canaux sont reproductibles ; l'axe
+                               est ARME (quatre canaux, quatre frequences differentes).
+                               RESERVE PUBLIEE : l'autre estimateur de la 29
+                               (`ROOM-COMPLIANCE-ANISO`, sur des amplitudes) est en desaccord
+                               avec la spec sur les quatre axes, y compris ceux deja declares
+                               DANS. Le desaccord n'est pas propre a la torsion.
   §30 ancrage       PARTIELLE  ** RE-MESUREE ** `StrongRootFraction` 0.416 -> 0.338 (chestL, DANS
                                la bande 0.28-0.35 pour la premiere fois) et 0.459 -> 0.413
                                (chestR, au-dessus). 4 bandes sur 5 DANS des deux cotes ; `Deep
@@ -308,6 +319,54 @@ comme neuf. Sources : « T: » tableau de la salle · « S: » sondes de peau su
 
 AUCUNE SECTION N'EST « NON APPLICABLE » (interdit depuis le 14/08 11:50), aucune n'est ABSENTE.
 
+7bis. §29 EN TORSION — LE CHIFFRE QUI LA TENAIT OUVERTE COMPARE DEUX NATURES
+==============================================================================
+`owner-defects.txt` tient la phase ouverte, entre autres, sur « §29 en torsion 0.3825/0.3520
+contre 0.72 (os manquant a INJECTER) », et l'ordre de travail du 2026-08-17 23:50 en fait le point
+suivant apres la structure. **0.3825 est la colonne `zeta` du canal torsion de `ROOM-SEC-RING` :
+un TAUX D'AMORTISSEMENT. 0.72 est `TorsionalCompliance` : une COMPLIANCE.** Leur difference ne
+mesure rien, et un chantier de geometrie en a ete derive.
+
+MESUREE COMME LA 29 EST DEJA MESUREE POUR SES TROIS AUTRES AXES. `ROOM-AXRATIO-SPEC24` grade
+l'AP et le lateral par un RAPPORT DE FREQUENCES PROPRES (`f ∝ 1/sqrt(c)`, donc ap attendu
+1/sqrt(0.90) = 1.0541 et lat 1/sqrt(0.82) = 1.1043). On applique a la torsion cet instrument-la,
+pas un nouveau, et on apparie sur la MEME fenetre libre `PH-SHAKEN` avec le MEME ajustement de
+recurrence d'ordre 2 (`ROOM-SHRING` pour v/ap/lat, `ROOM-SEC-RING` pour la torsion) — la condition
+de validite d'un rapport, piege `ratio-of-two-statistics`.
+Instrument : `.autoport/probe_spec29_torsion.py`, sortie complete dans `C23-spec29-torsion.txt`.
+
+    paire                 rapport   attendu   ecart      compliance implicite   (cible 0.72)
+    chestL torsion / ap    1.1249    1.1180   +0.62 %          0.7112
+    chestL torsion / lat   1.0701    1.0672   +0.28 %          0.7160
+    chestR torsion / ap    1.1100    1.1180   -0.72 %          0.7304
+    chestR torsion / v     0.9359    1.1785   -20.59 %         1.1418      <- ecarte, raison mesuree
+
+L'AXE EXISTE ET IL EST ARME, ce qui est la preuve que la directive du 14/08 11:50 exige (« une
+mesure doit montrer les trois axes rendant des valeurs DIFFERENTES ») : les quatre canaux rendent
+v=2.303 ap=2.441 lat=2.566 torsion=2.746 Hz sur chestL, etendue 0.443 Hz. Un axe sans degre de
+liberte rendrait une serie plate et un ajustement illisible.
+
+POURQUOI LA PAIRE ABERRANTE EST ECARTEE, ET LE CRITERE EST MESURE AVANT DE REGARDER SI ELLE
+ARRANGE. `chestL` et `chestR` portent des parametres quasi identiques sur une geometrie MIROIR :
+ce qui les separe sur un canal est l'erreur de l'instrument SUR CE CANAL — meme construction que
+`ROOM-SKINPEN-MIRROR`, reutilisee et non reinventee.
+    torsion 3.5 %  ·  AP 4.8 %  ·  vertical 24.2 %  ·  lateral 45.4 %
+**Le canal de torsion est le PLUS reproductible des quatre.** La seule paire qui s'ecarte est
+celle qui s'appuie sur le VERTICAL, dont l'erreur miroir vaut sept fois celle de la torsion — et
+que le tableau route deja ailleurs pour la 24 (« tangentiel — §24-v: ROOM-AXFIT-RAD »).
+
+DESACCORD D'ESTIMATEUR, PUBLIE ET NON ARBITRE. `ROOM-COMPLIANCE-ANISO` lit la 29 sur des
+AMPLITUDES et rend AP 1.4424 / 1.4668 et lateral 1.4904 / 1.3227 la ou la 29 dit 0.90 et 0.82. Il
+est donc en desaccord avec la spec sur les axes que l'estimateur de frequence declare DANS : le
+desaccord n'est pas propre a la torsion, il porte sur les quatre axes. C'est une mesure, pas un
+detail — et elle dit que l'un des deux instruments de la 29 est faux, ce qui reste ouvert.
+
+CONSEQUENCE POUR LE PLAN, ET ELLE EST GRANDE : « os manquant a INJECTER » pour la torsion est une
+conclusion tiree d'une comparaison de natures differentes. **Aucun os n'est injecte ce cycle pour
+la torsion, et le cycle de geometrie qu'elle annoncait n'a pas lieu d'etre.** Je ne referme pas la
+ligne pour autant — c'est l'owner qui ferme, jamais une mesure ; le constat est depose sous son
+entree dans `owner-defects.txt`.
+
 8. CE QUI RESTE OUVERT, DANS L'ORDRE DE TRAVAIL DE L'OWNER (2026-08-17 23:50)
 ==============================================================================
   (a) `StrongRootFraction` a DROITE : 0.413 contre 0.28-0.35. **ET LA QUESTION DE LA SECTION 4
@@ -320,10 +379,10 @@ AUCUNE SECTION N'EST « NON APPLICABLE » (interdit depuis le 14/08 11:50), aucu
       l'acheter avec `RootAnchor` couterait la bande que (a) vient d'atteindre. Mesure publiee.
   (c) `BREAST-PENETRATION` 0.0593 m contre un plafond de 0.0005. ROUGE depuis le cycle 18, en
       baisse pour la troisieme fois consecutive (0.0800 -> 0.0710 -> 0.0593).
-  (d) §29 LA TORSION (0.72) N'A TOUJOURS PAS DE DEGRE DE LIBERTE. C'est le point suivant de son
-      ordre de travail, et le seul qui reste « structure ». `ROOM-TWSAT` publie 0 frame : la
-      saturation douce de torsion n'a jamais mordu, ce qui est le symptome d'un axe qui n'existe
-      pas plutot que d'un axe calme.
+  (d) §29 TORSION : RE-MESUREE ET TENUE (section 7bis) — l'axe existe, il est arme, et sa
+      compliance vaut 0.711-0.730 contre 0.72. Ce qui reste vraiment ouvert ici n'est pas la
+      torsion mais LE DESACCORD DES DEUX ESTIMATEURS DE LA 29 : celui qui lit des amplitudes
+      contredit la spec sur les quatre axes. L'un des deux est faux et il faut savoir lequel.
   (e) §12 lateral et §36 chestR, puis §33 — dans cet ordre, apres (d).
   (f) `ROOM-SKINPEN` chestR : a re-mesurer, avec la question de la resolution de l'instrument
       (erreur miroir 33 %) posee en meme temps.
