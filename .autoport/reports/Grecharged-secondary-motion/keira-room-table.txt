@@ -685,6 +685,46 @@ ROOM-VOLPRIO: pairs_ignored=420573 chains=2
 ROOM-VOLPRIO: chain=chestL       ignored=238640   retreat=0
 ROOM-VOLPRIO: chain=chestR       ignored=181933   retreat=0
 
+-- SPEC 14-20 : LA REPONSE DE COM PAR REGIME, CONTRE LES BANDES DE SA SPEC ------------
+   Maximum de `comex` sur CHAQUE fenetre (chaine, animation, pilotage), puis le pire et
+   la moyenne des fenetres pour chaque pilotage. NATURE : longueur rapportee a B0,
+   maximum de fenetre. REPERE : monde, frame ecrite, contre la pose d'auteur de la meme
+   frame, deformation comprise. LECTURE A LA POSE D'AUTEUR : 0.0000.
+   Le PLUS GRAND chiffre de COM de toute sa spec est 0.40 B0 (§16, atterrissage tres
+   dur), egal au plafond dur de sa §22. Aucun de ses regimes n'en autorise plus.
+   chaine        pilotage      pire     moyenne   fenetres   au-dessus de 0.40 B0
+   chestL        updown        1.6680    1.1702        31          31 (100 %)
+   chestL        leftright     1.4132    1.0959        31          31 (100 %)
+   chestL        accel         1.7352    1.2020        31          31 (100 %)
+   chestL        jerk          1.8058    1.2287        31          31 (100 %)
+   chestL        tilt          1.6466    1.2259        31          31 (100 %)
+   chestL        BASE(sans pilotage)   1.6224    1.0443        31          31 (100 %)
+   chestR        updown        1.5798    1.1372        31          31 (100 %)
+   chestR        leftright     1.3866    1.0806        31          31 (100 %)
+   chestR        accel         1.7309    1.2217        31          31 (100 %)
+   chestR        jerk          1.5494    1.2134        31          31 (100 %)
+   chestR        tilt          1.9325    1.2378        31          31 (100 %)
+   chestR        BASE(sans pilotage)   1.3480    1.0667        31          31 (100 %)
+   APPORT DU PILOTAGE, PAIRE PAR PAIRE (meme chaine, MEME animation, avec moins sans)
+     chestL        updown      paires=31   apport moyen  +0.1260   pire  +0.7700   ajoute dans 71 % des paires
+     chestL        leftright   paires=31   apport moyen  +0.0516   pire  +0.6168   ajoute dans 61 % des paires
+     chestL        accel       paires=31   apport moyen  +0.1578   pire  +0.8613   ajoute dans 68 % des paires
+     chestL        jerk        paires=31   apport moyen  +0.1844   pire  +0.7053   ajoute dans 81 % des paires
+     chestL        tilt        paires=31   apport moyen  +0.1816   pire  +0.5924   ajoute dans 81 % des paires
+     chestR        updown      paires=31   apport moyen  +0.0705   pire  +0.8745   ajoute dans 58 % des paires
+     chestR        leftright   paires=31   apport moyen  +0.0139   pire  +0.4553   ajoute dans 48 % des paires
+     chestR        accel       paires=31   apport moyen  +0.1550   pire  +0.7130   ajoute dans 81 % des paires
+     chestR        jerk        paires=31   apport moyen  +0.1467   pire  +0.7995   ajoute dans 77 % des paires
+     chestR        tilt        paires=31   apport moyen  +0.1711   pire  +0.8009   ajoute dans 68 % des paires
+     Un apport qui ne CROIT PAS avec le stimulus (cf. `acc` de PHYSACC) dit que la
+     reponse ne suit pas son excitation : signature de SATURATION, pas de raideur.
+   MAPPING vers ses sections — c'est MA lecture, pas une ligne de sa spec, et elle est
+   ecrite pour pouvoir etre contestee : updown -> §14/§15/§16 (saut, apex, reception) ;
+   leftright et accel -> §17 (acceleration et freinage) ; jerk -> §16/§17 transitoire
+   haut ; tilt -> §19 (tangage) et §20 (roulis). Les bandes de COM correspondantes :
+   §14 0.15-0.32 · §16 0.25-0.40 · §17 0.10-0.30 · §18 0.10-0.28 · §20 0.15-0.22.
+   La comparaison au plafond 0.40 ci-dessus, elle, ne depend d'aucun mapping.
+
 -- SPEC 22 : L'EXCURSION DU CENTRE DE CHAIR (comex), CONTRE SA PROPRE BANDE ----------
    Sa §22 : COM normal <= 0.35 B0, transitoire dur <= 0.40 B0. Maximum sur la fenetre
    de course, deformation comprise. C'est la grandeur que sa borne de COM NOMME — et

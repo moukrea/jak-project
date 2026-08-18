@@ -1,9 +1,11 @@
 DIRECTIVES vb249967379
 
-RAPPORT DE CYCLE 29 — DEUX ROUGES DORMAIENT DERRIERE UNE GATE QUI ECHOUE TOUJOURS ; UN VERDICT
-« DEFAUT STRUCTUREL » DE MON TABLEAU EST TIRE D'UN COMPTEUR QU'AUCUN CHEMIN NE PEUT ECRIRE ; MON
-PROPRE MECANISME POUR SA §33 EST REFUTE PAR LA GEOMETRIE AVANT MEME LA COURSE ; ET LE PREMIER
-CONSTRICTEUR DE SA POITRINE EST SON PROPRE VETEMENT, QUE SA §35 CHIFFRE A ZERO. Phase
+RAPPORT DE CYCLE 29 — LE « PUDDING » EST PRESENT SANS AUCUN STIMULUS, ET AUCUN STIMULUS NE LE
+CHANGE : L'ORGANE EST SATURE, PAS SUR-REACTIF. En chemin : deux rouges dormaient derriere une gate
+qui echoue toujours ; un verdict « defaut structurel » de mon tableau est tire d'un compteur
+qu'aucun chemin ne peut ecrire ; mon propre mecanisme pour sa §33 est refute par la geometrie avant
+meme la course ; le premier constricteur de sa poitrine est son propre vetement, que sa §35 chiffre
+a zero ; et je retire, en cours de cycle, une conclusion que j'y avais moi-meme ecrite. Phase
 Grecharged-secondary-motion, branche physics-keira-clean, KEIRA / POITRINE SEULE (ordre owner
 2026-08-14 07:30).
 
@@ -11,8 +13,9 @@ PALIER DE LIVRAISON : GOAL SEUL — `make-group` + repack, aucun rebuild NDK, au
 `recharged_assets/physics_chains.txt` est inchange au bit pres (md5 4d29e30c759d33fffd794e10947497e6,
 identique aux cycles 24 a 28), le mesh livre est inchange.
 
-**LE COMPORTEMENT LIVRE EST INCHANGE, ET JE LE DIS EN TETE.** Les trois ajouts au moteur sont des
-EMETTEURS et un compteur ; aucun ne deplace un os. Un bloc de commentaires a ete deplace hors du
+**LE COMPORTEMENT LIVRE EST INCHANGE, ET JE LE DIS EN TETE.** Tous les ajouts au moteur sont des
+EMETTEURS et des compteurs ; aucun ne deplace un os, et la course relancee apres leur ajout rend
+des lignes IDENTIQUES au chiffre pres (section 7). Un bloc de commentaires a ete deplace hors du
 moteur (gate CLEAN, section 1) et la PREUVE que ca ne change pas le code est donnee : le moteur
 prive de tous ses commentaires est BIT-IDENTIQUE avant et apres. L'owner teste donc le meme
 physique qu'au cycle 28.
@@ -65,10 +68,21 @@ EN UN COUP D'OEIL
                 0.4743 / 0.4605 B0 — deja au-dessus du plafond dur — et **plus d'un echantillon
                 sur deux (54.6 % / 52.1 %) le depasse**. Poser la borne de §22 telle quelle ferait
                 un limiteur actif sur la moitie des frames : la signature exacte du suppresseur
-                sature que sa §7 interdit. Et la monter par la raideur sortirait sa §24 de sa
-                bande, parce que `excursion = a / omega^2` est DETERMINEE par ses §24 et §3. Trois
-                de ses sections ne sont pas simultanement satisfiables avec le pilotage actuel :
-                le terme jamais verifie est la MAGNITUDE de ce pilotage. Section 4.
+                sature que sa §7 interdit. Section 4.
+    RETIRE      ET JE RETIRE MA PROPRE CONCLUSION DE LA SECTION 4. J'y ecrivais que ses §22, §24 et
+                §3 sont en tension arithmetique parce que `excursion = a / omega^2`. Ce raisonnement
+                suppose une reponse LINEAIRE au stimulus. Mesure par regime, neuve : le stimulus
+                varie d'un facteur **23** (14 -> 334) et la reponse de **20 %** — `jerk`, 23 x plus
+                fort que `tilt`, repond MOINS. Il n'y a pas de proportionnalite a invoquer.
+                Section 4bis.
+    CAUSE       **LE PUDDING EST LA SANS AUCUN STIMULUS.** La fenetre de LIGNE DE BASE —
+                animation d'auteur seule, la salle ne poussant rien — rend **1.0443 / 1.0667 B0 de
+                moyenne sur ses 31 animations** pour un plafond dur de 0.40 : **x2.6**, sur des
+                idles, et **31 fenetres sur 31 y sont, sur les six regimes**. Mesure APPARIEE (meme animation, avec et sans pilotage) : le pilotage
+                n'ajoute que **+0.014 a +0.184 B0**, soit 1 a 18 %. Trois cycles ont cherche un
+                mecanisme de REPONSE pour un defaut qui ne depend presque pas du stimulus. Une
+                reponse qui ne suit pas son stimulus est la signature d'un organe SATURE, et la
+                section 5 dit contre quoi il est plaque. Section 4bis.
 
 BREAST-PENETRATION: chestL 0.1114 m · chestR 0.0887 m  (plafond epingle 0.0005 m — NON TENU)
     Declaration exigee a chaque cycle tant que ce n'est pas zero. INCHANGEES : ce cycle n'ajoute
@@ -84,6 +98,12 @@ COMEX (SPEC 22, NEUF CE CYCLE): chestL 1.8058 B0 · chestR 1.9325 B0  (plafond d
     Distribution sur 33 480 echantillons : moyenne 0.4743 / 0.4605 B0 (deja au-dessus du plafond),
     54.6 % / 52.1 % des echantillons au-dessus. Le regime NORMAL est hors bande, pas seulement la
     queue — ce qui interdit d'y poser une borne sans fabriquer un limiteur sature.
+
+COMEX SANS AUCUN PILOTAGE (SPEC 14-20, NEUF CE CYCLE): chestL 1.0443 B0 · chestR 1.0667 B0
+    Moyenne sur les 31 animations, la salle ne poussant RIEN : x2.6 le plafond dur, sur des idles.
+    Apport du pilotage, mesure APPARIEE sur la meme animation : +0.014 a +0.184 B0 seulement, et il
+    ne suit pas le stimulus (facteur 23 entre `jerk` et `tilt`, meme apport). C'est une SATURATION,
+    pas une reponse disproportionnee. Section 4bis.
 
 
 1. DEUX ROUGES DORMAIENT DERRIERE UNE GATE QUI ECHOUE TOUJOURS
@@ -310,6 +330,11 @@ asymptote a la place de la reponse » — et que sa §7 interdit (« pas de supp
 Le seul acquis que l'owner protege, la poitrine sur mouvements SUBTILS, vit precisement dans cette
 moitie-la.
 
+[[RETIRE EN COURS DE CYCLE — VOIR SECTION 4bis. Le paragraphe qui suit suppose une reponse
+LINEAIRE au stimulus ; la mesure par regime, faite apres, montre que la reponse ne suit pas son
+stimulus. Il est conserve tel quel parce que le contrat exige qu'une conclusion retiree reste
+lisible avec ce qui l'a produite, pas effacee.]]
+
 CE QUE CA DESIGNE A LA PLACE, ET C'EST UNE TENSION INTERNE A SA SPEC — pas une faute du moteur.
 L'excursion d'equilibre d'un ressort force vaut `a / omega^2`. Ses §24 et §28 FIXENT `omega`
 (2.30 Hz vertical, verifie TENU) et sa §3 FIXE le pilotage `a`. L'excursion n'est donc pas un
@@ -330,11 +355,88 @@ sur-echelle, l'excursion rentre dans sa bande sans toucher ni a `omega` (§24) n
 (§22) — et les trois sections redeviennent compatibles. Si le pilotage est juste, alors la tension
 est dans sa spec et c'est a lui de trancher.
 
-Un second instrument, independant, pointe le meme axe : sa §29 mesure une compliance LATERALE de
+[[FIN DU PASSAGE RETIRE.]]
+
+Un second instrument, independant, pointe le meme axe, et CELUI-CI TIENT : sa §29 mesure une compliance LATERALE de
 1.0276 (chestL) et 0.9956 (chestR) pour une cible de **0.820**, soit **+25.3 %** et **+21.4 %** de
 trop — sur l'axe meme ou `comex` depasse le plus (x 2.55 / x 2.57 sous impulsion, section 6). Celle-la
 n'est PAS contrainte par §24 : c'est un RAPPORT entre axes, et il peut se corriger sans deplacer
 aucune frequence.
+
+
+4bis. JE RETIRE LA CONCLUSION DE LA SECTION 4 : LA REPONSE NE DEPEND PAS DU STIMULUS
+=====================================================================================
+La section 4 conclut sur une TENSION ARITHMETIQUE entre ses §22, §24 et §3 : l'excursion
+d'equilibre valant `a / omega^2`, et `omega` etant fixe par §24 (TENUE), l'excursion serait
+determinee par le pilotage de §3. **Ce raisonnement suppose une reponse LINEAIRE au stimulus, et la
+mesure qui suit le refute. Je retire la conclusion.**
+
+Ses §14 a §20 sont les seules lignes de sa spec qui relient un STIMULUS a une REPONSE, chacune avec
+sa bande de COM (0.10 a 0.40 B0 selon le regime) ; rien ne les mesurait. `comex` passe donc par
+FENETRE (chaine, animation, pilotage) — et la salle publie deja, pour CHAQUE animation, une fenetre
+de LIGNE DE BASE ou l'animation joue et ou **aucun pilotage n'est applique**.
+
+LA MESURE EST APPARIEE, ET C'EST CE QUI LA REND SOLIDE : meme chaine, **meme animation**, avec
+pilotage moins sans pilotage. 31 animations, donc 31 paires par pilotage.
+
+    chaine   pilotage    stimulus   apport du pilotage (moyenne)   pire apport   paires ou il ajoute
+    chestL   leftright      53             +0.0516 B0                0.6168            61 %
+    chestL   updown         23             +0.1260                   0.7700            71 %
+    chestL   accel          88             +0.1578                   0.8613            68 %
+    chestL   tilt           14             +0.1816                   0.5924            81 %
+    chestL   jerk          334             +0.1844                   0.7053            81 %
+    chestR   leftright      53             +0.0139                   0.4553            48 %
+    chestR   updown         23             +0.0705                   0.8745            58 %
+    chestR   jerk          334             +0.1467                   0.7995            77 %
+    chestR   accel          88             +0.1550                   0.7130            81 %
+    chestR   tilt           14             +0.1711                   0.8009            68 %
+
+    LIGNE DE BASE, AUCUN PILOTAGE, 31 animations :
+    chestL   moyenne 1.0443 B0   pire 1.6224        plafond dur de sa §22 : 0.40
+    chestR   moyenne 1.0667 B0   pire 1.3480
+    ET LA FORME LA PLUS DURE DE CE CONSTAT : **31 fenetres sur 31 sont au-dessus du plafond, sur
+    CHACUN des six regimes, ligne de base comprise.** Pas une seule animation de son jeu ne tient
+    la borne de sa §22, meme quand rien ne la pousse.
+
+DEUX FAITS, ET ILS DEFONT MA CONCLUSION PRECEDENTE :
+
+**(a) L'EXCURSION EST DEJA A x2.6 SANS QU'ON POUSSE QUOI QUE CE SOIT.** L'animation d'auteur seule
+rend **1.0443 / 1.0667 B0** de moyenne sur ses 31 animations, contre un plafond dur de 0.40, et
+**les 31 fenetres y sont, sans exception**. Ce sont des animations d'IDLE et de soudure, pas des
+sauts.
+
+**(b) LE STIMULUS VARIE D'UN FACTEUR 23, L'APPORT DU PILOTAGE NE LE SUIT PAS.** `jerk` (stimulus
+334) ajoute +0.1844 ; `tilt` (stimulus 14) ajoute +0.1816. Vingt-trois fois plus de stimulus pour
+1.5 % d'apport en plus. Et `leftright` (53) ajoute six fois moins que `tilt` (14). Il n'y a aucune
+proportionnalite a invoquer — donc pas de `a / omega^2` a equilibrer, et ma tension arithmetique
+n'existe pas.
+
+CE QUE JE NE SURVENDS PAS, ET LA RESERVE EST REELLE : `comex` par fenetre est un MAXIMUM, pas une
+amplitude de reponse. Un maximum sur une fenetre longue est domine par la pire frame de
+l'animation, ce qui peut masquer un apport de pilotage reparti ailleurs. C'est precisement pour ca
+que la table ci-dessus est APPARIEE animation par animation plutot que comparee en moyennes
+globales : l'apport mesure est la difference de deux maxima sur la MEME animation. Il reste qu'un
+apport nul en difference de maxima n'exclut pas totalement un apport ailleurs dans la fenetre.
+
+CE QUE CA CHANGE, ET C'EST LE RESULTAT PRINCIPAL DU CYCLE : **le « pudding » que l'owner decrit
+n'est pas une reponse disproportionnee a un mouvement — il est present sur l'animation d'auteur
+seule, a 2.6 fois la borne, et le pilotage n'y ajoute que 1 a 18 %.** Sa toute premiere plainte sur
+le sujet (« ca suit aucune logique », 2026-08-13) decrivait deja ca, et trois cycles ont cherche un
+mecanisme de REPONSE pour un defaut qui ne depend presque pas du stimulus.
+
+ET CA REJOINT LE RESTE DU CYCLE PAR UN SEUL MECANISME : une reponse qui ne suit pas son stimulus est
+la signature d'un organe SATURE — plaque contre quelque chose a chaque frame. La section 5 dit
+contre quoi : 24 599 corrections de contact sur `chestL`, dont 40.0 % viennent de son propre
+debardeur, sur une chaine qui n'est presque jamais libre. Le tableau livre le formule deja pour un
+autre limiteur : « un mur qui mord des milliers de fois n'est pas un garde-fou, c'est le regime de
+fonctionnement ».
+
+CE QUE JE NE CONCLUS PAS : que le vetement soit LA cause. Deux mecanismes de saturation sont
+candidats et ce cycle ne les separe pas — le champ de contact permanent (section 5) et les
+limiteurs internes du solveur (`PHYSLIM4 sat_n=16240`, la borne d'apex mal posee du cycle 28). Les
+distinguer demande une ablation A EXPOSITION EGALE, et la fenetre pour la faire est maintenant
+identifiee : **celle sans pilotage**, ou le defaut est deja entier a 2.6 x la borne et ou aucun
+stimulus ne vient le masquer. C'est le prochain cycle, et il n'a plus besoin de deviner sa fenetre.
 
 
 5. LE PREMIER CONSTRICTEUR DE SA POITRINE EST SON PROPRE DEBARDEUR — SA §35 LE CHIFFRE A ZERO
@@ -448,10 +550,19 @@ instruments differents, la meme direction, le meme sens.
       + index 19 : `comex`, l'excursion du CENTRE DE CHAIR en B0, prise sur le centroide mesure
         du volume du maillon, transporte par la matrice ECRITE (rotation ET deformation) et
         compare a la matrice d'AUTEUR de la meme frame.
+      + index 20/21/22 : sa DISTRIBUTION (somme, compte, compte au-dessus de 0.40 B0) — la seule
+        grandeur qui separe un correctif d'un suppresseur.
+      + index 23 : le MEME maximum, par FENETRE de publication, avec son propre remetteur a zero
+        (`phys-comexw-reset!`) qui ne touche QUE cet emplacement. Ses §14 a §20 donnent une bande
+        de COM par regime ; un maximum de course ne se compare a aucune d'elles.
+      ~ six blocs de justification de plus sortis vers les notes (NOTE-73 a NOTE-78) pour tenir
+        sous le plafond de `CLEAN` : 4783 -> 4701 lignes, code bit-identique hors commentaires.
       AUCUNE ligne de calcul existante n'est modifiee : les deux ajouts sont des maxima ecrits
       dans des emplacements neufs, lus par personne d'autre.
   goal_src/jak1/pc/phys-room.gc
-      + `PHYSDIAG8 tag= c= comex=` sur chaque fenetre taguee (dont `run`).
+      + `PHYSDIAG8 tag= c= comex= comsum= comn= comhi=` sur chaque fenetre taguee (dont `run`).
+      + `PHYSCOMW c= a= d= comex=` dans `physroom-emit-window` — une ligne par (chaine, animation,
+        pilotage), ligne de base SANS pilotage comprise — et le remetteur a zero juste apres.
       + `PHYSAXRES` / `PHYSAXCOM` / `PHYSAXTAN` a la sortie de chacune des six fenetres AX/AXZ :
         l'ablation de la contrainte de longueur sur le residu de §33, a exposition egale.
       + `phys-diag-reset!` a l'entree de chaque fenetre AX, pour que ces maxima portent sur LA
@@ -481,7 +592,7 @@ instruments differents, la meme direction, le meme sens.
 PROVENANCE : [M] mesure PAR MOI ce cycle · [T] lu dans le tableau de la course de ce cycle ·
 [S] mesure sur le mesh (fichier cite) · [R] REPORTE d'un cycle anterieur, NON re-mesure — et dit
 comme tel. Aucune section « non applicable » (interdit depuis le 14/08 11:50).
-DEUX SECTIONS PASSENT A **ABSENTE** CE CYCLE (§22 et §35) : dans les deux cas parce qu'une mesure
+TROIS SECTIONS PASSENT A **ABSENTE** CE CYCLE (§22, §35 et §14-§20) : dans les deux cas parce qu'une mesure
 neuve montre que ce qui etait compte comme partiellement tenu portait sur une AUTRE grandeur que
 celle que la section nomme. Une section ne se degrade pas ici par regression du moteur — le moteur
 n'a pas bouge — mais parce que l'instrument a cesse de se tromper de grandeur.
@@ -516,10 +627,9 @@ n'a pas bouge — mais parce que l'instrument a cesse de se tromper de grandeur.
                                barre 30 %). [M] son axe monte trois fois plus qu'il ne s'ecarte
                                (section 3) — la geometrie de la chaine est mesuree, pas supposee.
   §24 3 frequences  TENUE      [R] 6 canaux sur 6 DANS, residus <= 0.042 pour une barre a 0.08.
-                               [M] MAIS elle est desormais en TENSION ARITHMETIQUE avec §22 : a
-                               2.30 Hz, l'excursion d'equilibre atteint le plafond de §22 des
-                               1.25 g de pilotage. Les deux ne peuvent pas etre tenues ensemble
-                               sans agir sur le pilotage de sa §3. Section 4.
+                               (La « tension arithmetique avec §22 » que j'avais ecrite ici en
+                               cours de cycle est RETIREE : elle supposait une reponse lineaire au
+                               stimulus, que la mesure par regime refute. Section 4bis.)
   §25 zeta 0.35     TENUE      [R] 0.33-0.36 sur les six canaux, bande 0.32-0.42.
   §26 rebond 31 %   PARTIELLE  [R] 0.281-0.324 pour une cible de 0.31.
   §27 stabilisation TENUE      [R] six canaux sur six dans 0.6-1.2 s (0.82-0.95 s).
@@ -545,6 +655,16 @@ n'a pas bouge — mais parce que l'instrument a cesse de se tromper de grandeur.
                                de `chestR`, et `sphere:lTopStrap2` en est le PREMIER constricteur.
                                Non corrigee — tension avec son ordre du 14/08 et avec la regle 6,
                                question posee en section 10.
+  §14-§20 regimes   ABSENTE    [M] **NEUVE AU TABLEAU, ET C'EST LA TROISIEME SECTION QUI PASSE A
+                               ABSENTE PAR MESURE.** Ce sont les seules lignes de sa spec qui
+                               relient un STIMULUS a une REPONSE (bandes de COM 0.10 a 0.40 B0
+                               selon le regime) et rien ne les mesurait. Mesure par fenetre de
+                               pilotage, appariee animation par animation : **1.0443 / 1.0667 B0
+                               de moyenne SANS AUCUN PILOTAGE** (x2.6 le plafond), et le pilotage
+                               n'ajoute que +0.014 a +0.184 B0 sans suivre le stimulus (facteur 23
+                               entre `jerk` et `tilt` pour le meme apport). Aucune de ses bandes
+                               n'est tenue, et la reponse ne depend presque pas du regime.
+                               Section 4bis.
   §36 secondaire    PARTIELLE  [R] amplitude sous le plafond, `zeta`/`f` du mode non re-mesures.
   §37 sous-pas      PARTIELLE  [R] `ns=2/4`, 120-240 Hz. Non re-mesure ce cycle.
 
@@ -559,9 +679,9 @@ n'a pas bouge — mais parce que l'instrument a cesse de se tromper de grandeur.
   2. **JE N'AI PAS CORRIGE §22** alors que je viens d'en mesurer l'ecart — et cette fois la raison
      est une MESURE, pas une prudence. La distribution (section 4) dit que la borne mordrait sur
      54.6 % et 52.1 % des echantillons : ce serait le limiteur sature que sa §7 interdit et que le
-     cycle 28 a deja paye. La monter par la raideur sortirait sa §24 de sa bande, `excursion =
-     a/omega^2` etant determinee par ses §24 et §3. Le seul terme non verifie est la MAGNITUDE du
-     pilotage, et c'est le prochain cycle.
+     cycle 28 a deja paye. Et la mesure par regime (section 4bis) montre que l'excursion ne suit
+     PAS le stimulus — elle vaut deja 1.19 B0 sans aucun pilotage : rien de ce qui agit sur la
+     reponse a un mouvement ne peut la corriger.
   3. **JE N'AI PAS RETIRE LES VOLUMES DE VETEMENT** malgre sa §35 : cela demanderait un flag que
      la regle 4 interdit ET ferait traverser une bretelle figee, ce que la regle 6 interdit.
      Question posee, section 10.
@@ -574,7 +694,7 @@ n'a pas bouge — mais parce que l'instrument a cesse de se tromper de grandeur.
      signale au lieu de resoudre le conflit en silence.
 
 
-10. TROIS QUESTIONS QUI REVIENNENT A L'OWNER — PAS DES DE-SCOPES, DES ARBITRAGES
+10. DEUX QUESTIONS QUI REVIENNENT A L'OWNER, ET UNE QUE JE RETIRE
 ================================================================================
   (a) **SON DEBARDEUR SOUTIENT SES SEINS, ET SA §35 DIT QU'IL NE DOIT PAS.** 40 % des corrections
       subies par le sein gauche viennent de ses bretelles. Sa §35 veut un vetement qui SUIT la
@@ -582,14 +702,15 @@ n'a pas bouge — mais parce que l'instrument a cesse de se tromper de grandeur.
       plus suivre. Les deux issues sont opposees : rendre la physique aux bretelles (il rouvre un
       organe qu'il a gele), ou retirer leur volume (le sein traversera la bretelle, contre sa
       regle 6). Je ne choisis pas a sa place.
-  (b) **TROIS DE SES SECTIONS NE SONT PAS SIMULTANEMENT SATISFIABLES, ET C'EST DE L'ARITHMETIQUE.**
-      §24 fixe la frequence propre (2.30 Hz, TENUE), §3 fixe le pilotage, donc l'excursion
-      d'equilibre `a/omega^2` est determinee — et elle vaut 0.47 B0 en moyenne pour une §22 qui en
-      autorise 0.40. On ne peut la ramener ni par la raideur (on sort de §24) ni par un ecretage
-      (on fabrique le suppresseur que §7 interdit). Le prochain cycle mesure le seul terme restant,
-      la magnitude du pilotage de sa §3, contre ses §14-§20 qui sont les seules lignes de sa spec a
-      relier un stimulus a une reponse. Si ce terme est juste, la tension est dans sa spec et c'est
-      a lui de trancher.
+  (b) **RETIREE EN COURS DE CYCLE, PAR MA PROPRE MESURE.** J'avais pose ici que ses §22, §24 et §3
+      ne sont pas simultanement satisfiables, par l'arithmetique `excursion = a/omega^2`. La mesure
+      par regime (section 4bis) refute la premisse — la reponse ne suit pas le stimulus, qui varie
+      d'un facteur 23 pour 20 % d'ecart de reponse — donc la question ne se pose pas dans ces
+      termes et je ne la lui adresse pas. Ce qui la remplace n'est pas une question mais un
+      chantier : l'organe est SATURE, il l'est deja sans aucun pilotage, et il faut separer les
+      deux mecanismes candidats (champ de contact permanent contre limiteurs internes) sur la
+      fenetre de LIGNE DE BASE, ou le defaut est pleinement present sans qu'aucun stimulus le
+      masque.
   (c) **LA QUESTION DU CYCLE 28 RESTE OUVERTE** : sa §12 demande 0.19 B0 de deplacement de COM aux
       DEUX poles lateraux, sa §33 demande que la poussee vers le sternum produise de la
       COMPRESSION plutot que du deplacement. Au pole medial les deux tirent en sens opposes, et
@@ -616,19 +737,26 @@ n'a pas bouge — mais parce que l'instrument a cesse de se tromper de grandeur.
   4. **ET LE CORRECTIF EVIDENT EST INTERDIT PAR LA MESURE, PAS PAR MA PRUDENCE.** La moyenne de
      cette excursion vaut deja 0.47 (plafond 0.40) et plus d'un instant sur deux depasse : poser
      la limite telle quelle la ferait mordre la moitie du temps, donc museler exactement le
-     mouvement subtil qu'il juge « OK ». Et la corriger par la raideur sortirait ses frequences de
-     leurs bandes, parce que les deux sont liees par une egalite. Le seul terme qui n'a jamais ete
-     verifie est la FORCE du pilotage — c'est le prochain cycle, et il a sa cible chiffree.
-  5. **SON DEBARDEUR SOUTIENT SES SEINS.** 40 % des corrections que subit le sein gauche viennent
+     mouvement subtil qu'il juge « OK ».
+  5. **ET LE PLUS IMPORTANT, TROUVE EN FIN DE CYCLE : LE DEFAUT EST LA SANS AUCUN MOUVEMENT.**
+     J'ai mesure une fenetre ou son animation joue et ou la salle ne pousse RIEN : sur ses 31
+     animations, l'excursion y vaut deja **1.04** en moyenne (1.62 au pire) pour un plafond de
+     0.40 — deux fois et demie trop, sur des idles. Et en comparant la MEME animation avec et sans
+     pilotage, le pilotage n'ajoute que 0.01 a 0.18 — sans suivre sa force : la secousse la plus
+     violente (23 fois plus forte) ajoute autant que la plus douce. Autrement dit : ce n'est pas une
+     reaction disproportionnee au mouvement, c'est un organe SATURE en permanence. Trois cycles ont
+     cherche un mecanisme de reponse pour un defaut qui ne depend presque pas du mouvement, et sa
+     toute premiere phrase sur le sujet — « ca suit aucune logique » — le decrivait deja.
+  6. **SON DEBARDEUR SOUTIENT SES SEINS.** 40 % des corrections que subit le sein gauche viennent
      des volumes de ses bretelles, et `lTopStrap2` est le premier volume de la liste,
      devant chacune des pieces de son buste prise separement. Sa §35 dit
      que le vetement ne doit rien soutenir. Je n'y ai pas touche : le corriger demande soit de
      rendre la physique aux bretelles (qu'il a gelees le 14 aout), soit de laisser le sein
      traverser la bretelle (contre sa regle 6). **C'est une question pour lui**, section 10.
-  6. **DEUX DE MES ROUGES ETAIENT INVISIBLES** parce que le validateur s'arrete a la premiere
+  7. **DEUX DE MES ROUGES ETAIENT INVISIBLES** parce que le validateur s'arrete a la premiere
      gate, celle qui attend son verdict a lui. L'une est corrigee, l'autre (la traversee) est
      desormais nommee comme ce qu'elle est : une gate rouge, pas seulement une ligne de rapport.
-  7. **ET UNE DE MES MESURES LUI ANNONCAIT UN DEFAUT QUI N'EXISTE PAS.** Mon tableau ecrivait que
+  8. **ET UNE DE MES MESURES LUI ANNONCAIT UN DEFAUT QUI N'EXISTE PAS.** Mon tableau ecrivait que
      le premier segment de chaque sein « ne tourne pas d'un degre » et que c'etait structurel. Le
      compteur qui disait ca ne pouvait pas etre ecrit. Mesure pour de vrai : ce segment tourne de
      26 a 147 degres selon le stimulus. Il n'y a rien a chercher de ce cote.
