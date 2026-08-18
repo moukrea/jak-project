@@ -1,0 +1,44 @@
+PREDICTIONS DU CYCLE 25, ECRITES AVANT LA COURSE (predire puis mesurer, jamais l'inverse)
+=========================================================================================
+Changement de ce cycle : UNIQUEMENT le moteur (etape (a2) de la boucle de finition de
+`phys-collide-chain`, NOTE-61) + extraction de 3 blocs de commentaire vers NOTES (code prive de
+commentaires BIT-IDENTIQUE, verifie par diff). `recharged_assets/physics_chains.txt` est
+INCHANGE, donc tout ecart de tableau contre le cycle 24 est attribuable au seul correctif.
+
+P1  `PHYSTAN n` > 0. A zero, le bloc n'a jamais ete atteint et tout le reste est a lire comme
+    AVANT le correctif (regle 0 : le commentaire ne prouve pas que le code a tourne).
+P2  `meshpen` chestL DESCEND sous 0.03 m (reference C24 : 0.0938) et chestR sous 0.03 (0.0791).
+    Base : la profondeur decroit de s^2 par tour, s = 0.231 sur la paire la plus profonde
+    (mesure hors moteur), 4 tours x 15 appels par frame -> residu geometrique ~4 %.
+P3  `ROOM-STRETCH` INCHANGE et <= 3 % : la reprojection de longueur reste la DERNIERE operation.
+P4  Le PLANCHER DE MOUVEMENT tient : `tipvar` ne baisse pas de plus de 10 % (le pas tangentiel
+    ajoute du deplacement le long de la sphere, il n'en retire pas).
+P5  DISCRIMINANT chestL (23.9 % au C24, seuil 25 %) REMONTE, sans certitude qu'il repasse le
+    seuil : un mur qui cesse d'etre viole a chaque frame rend une reponse moins plate.
+P6  Le compte de contacts sein<->sein reste ASYMETRIQUE (~7 contre ~273) : ce cycle ne touche
+    PAS l'ordre de resolution des deux chaines. Publie tel quel, non corrige.
+
+CE QUI FALSIFIE : P1 a 0 ; P2 qui ne bouge pas (le correctif ne serait pas la cause) ; P3 ou P4
+qui casse (le correctif couterait la qualite que l'owner apprecie).
+
+DEUXIEME EXPERIENCE — LE RESIDU EST-IL LIMITE PAR LE NOMBRE DE TOURS, OU STRUCTUREL ?
+=====================================================================================
+Etat mesure avec `PHYS-FIN-ITERS = 4` (course 16:29, 614 s, PHYSEND) :
+    meshpen chestL 0.0974 · chestR 0.0888     (C24 : 0.0938 / 0.0791)
+    PHYSTAN n=2418602 sumdepth=226484850 removed=76427585  -> rendement 33.7 %
+    argmax : chestL worstres=416.9 u sur ci=44 (sphere:lTopStrap2)
+             chestR worstres=476.1 u sur ci=7  (Rshoulder->chest)
+    contacts chestL 32275 -> 23513 (-27 %), chestR 26906 -> 21235 (-21 %)
+    tipvar chestL 0.1776 -> 0.1937 (+9.1 %), chestR 0.1816 -> 0.1967 (+8.3 %)
+    DISCRIMINANT chestL 23.9 % -> 30.0 % (seuil 25) : la gate que le C24 cassait PASSE
+
+P7  `PHYS-FIN-ITERS` 4 -> 8. La decroissance du pas tangentiel est GEOMETRIQUE en le nombre de
+    tours (facteur 1-s^2 par tour) : doubler les tours doit donc ELEVER AU CARRE le facteur
+    restant. Si le residu est limite par les tours, `meshpen` chute nettement (< 0.05 m). S'il
+    ne bouge pas de plus de quelques pour cent, il est STRUCTUREL — la geometrie ou un conflit
+    entre volumes, pas un manque d'iterations — et le nombre de tours revient a 4 (on ne garde
+    pas un cout de 60 % de temps de course pour rien).
+    NOTE : ce n'est PAS le meme essai que celui deja chiffre dans le commentaire de la gate
+    (« a 36 balayages, 3.7x plus lent, residu au meme endroit ») : celui-la montait les
+    BALAYAGES d'une boucle de finition qui ne contenait AUCUN terme de profondeur. Ici la
+    boucle en contient un.

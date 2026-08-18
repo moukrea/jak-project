@@ -2035,3 +2035,228 @@ breast COM displacement ». Le nombre de degres de liberte est desormais celui q
 et la deformation locale en derive comme elle l'ordonne ; le POINT D'APPLICATION, lui, reste
 celui d'avant. C'est le residu de §23, il est connu, et il est ecrit dans le rapport.
 ```
+
+## NOTE-58  (moteur, aux alentours de la ligne 468)
+
+```
+============================================================================================
+LA MEME DEVIATION, NON NORMALISEE — ET C'EST LA CORRECTION D'UN AVEUGLEMENT DE `*phys-lda*`.
+
+`*phys-lda*` projette `(u/|u| - m/|m|)` : une DIFFERENCE DE DEUX VECTEURS UNITAIRES. Deux
+points de la sphere unite, donc une grandeur TANGENTE a `m` au premier ordre — sa composante
+RADIALE est nulle PAR CONSTRUCTION, quelle que soit la physique. Mesure sur la trace du cycle 8
+(PCA des 12 fenetres d'impulsion) : la serie est PLANE, sigma3/sigma1 = 0.9 a 3.1 %, et la
+direction nulle est LA MEME dans les 12 — (0.92, 0.35, 0.18) en (v, ap, lat). Autrement dit
+l'instrument est aveugle a 92 % de l'axe VERTICAL, celui dont SPEC 24 dit qu'il est « le plus
+lent » : sa frequence propre ne pouvait structurellement pas se lire.
+LES FENETRES A CONTRAINTE LEVEE (`PHYSRINGAZ`) SONT TOUT AUSSI PLANES (0.97 a 2.5 %), et c'est
+la que le cycle 8 s'est trompe de conclusion. Il avait pose la bonne hypothese — la contrainte
+de longueur confisque le degre de liberte — puis l'a declaree REFUTEE parce que la lever ne
+changeait pas la selectivite. Mais il a EVALUE ce controle avec `*phys-lda*`, qui ne peut pas
+voir le degre de liberte que le controle venait de rendre. Un controle valide, lu par un
+instrument aveugle a ce qu'il restaure, ne refute rien.
+Et les deux manques se superposent, ils ne s'excluent pas :
+- le SOLVEUR n'a pas de mouvement radial quand la contrainte est armee — `el`, l'allongement
+d'os du meme bloc, vaut `0.0000` sur TOUTES les courses de la phase (`PHYSSTR el=`), donc la
+longueur est exactement invariante et le point vit sur une sphere : 2 degres de liberte de
+translation la ou SPEC 24 en demande 3 ;
+- la MESURE ne le verrait pas non plus si on le rendait.
+L'axe VERTICAL etant a 92 % l'axe RADIAL, c'est precisement la frequence que SPEC 24 appelle
+« la plus lente » qui est doublement inaccessible. `*phys-ldb*` retire le second manque ; le
+premier se lit alors sur les fenetres a contrainte levee, et lui seul releve du solveur.
+
+NATURE : deplacement instantane signe du maillon par rapport a sa pose d'auteur, en UNITES DE
+JEU (u) — pas un ecart de directions. Les TROIS degres de liberte sont portes.
+REPERE : le meme triedre orthonorme de l'ANCRE (torse) que `*phys-lda*`, meme ordre (v, ap, lat),
+meme instant, meme point de la frame — les deux series sont donc directement comparables, et
+leur ECART EST LA MESURE DE L'AVEUGLEMENT.
+LECTURE QUAND LE DEFAUT EST ABSENT : (0,0,0) exactement, a la pose du modele.
+`*phys-lda*` N'EST PAS RETIREE ni modifiee : elle continue d'etre publiee telle quelle, pour que
+les chiffres du cycle 8 restent lisibles et que la comparaison ait un avant.
+```
+
+## NOTE-59  (moteur, aux alentours de la ligne 2863)
+
+```
+---- SPEC 23 : LE TROISIEME DEGRE DE LIBERTE ----------
+Voir la note de `*phys-cpx*`. Le point LIBRE part de
+l'etat de l'apex a sa premiere frame, puis vit sa vie :
+meme cible, meme raideur, meme traineee, meme pilotage,
+et AUCUNE projection. `rlo` l'arme sur le seul maillon
+qui porte l'ancre rigide.
+RESTE SUR `rlk`, ET C'EST UNE CORRECTION MESUREE
+(2026-08-17). Je l'avais deplace sur le DERNIER maillon
+en craignant qu'a n=2 le proximal soit epingle pres du
+thorax et rende le COM de SPEC 22 artificiellement petit.
+Cette crainte supposait `rootlock=1` — regle qui a ete
+retiree de la poitrine depuis, parce qu'elle figeait 75 %
+de la chair. Le maillon 0 est donc LIBRE et porte ces
+75 % : c'est lui le meilleur representant du COM, pas la
+pointe.
+CE QUE LA MESURE A DIT DU DEPLACEMENT, et c'est sans
+appel : arme sur le distal, SPEC 24 tombe de 4 axes sur 6
+DANS (residus 0.008-0.021) a ZERO LISIBLE — les six axes
+se collent a f=1.200 avec des residus de 0.29 a 0.73,
+« la serie ne porte pas un mode unique ». Le canal lisait
+un maillon dont j'avais par ailleurs assoupli la raideur,
+melange au mode du proximal : deux modes, aucun lisible.
+```
+
+## NOTE-60  (moteur, aux alentours de la ligne 3919)
+
+```
+(f) LA MATRICE, BATIE UNE FOIS PAR CHAINE ET PAR FRAME.
+`D_ancre` est diagonale dans le triedre de sa §7 : `Sum_k s_k f_k (x) f_k`.
+On la ramene au monde par conjugaison avec la matrice de l'ancre,
+`D_monde = am^-1 . D_ancre . am` — `w2l` est deja l'inverse et il est
+deja calcule, donc ca ne coute pas une inversion de plus. La ligne de
+translation qui en sort est SANS OBJET : l'ecriture la remplace par la
+position du joint, ce qui centre la deformation sur la RACINE du sein.
+C'est exactement ce qu'exigent §10 (« the entire breast shall not simply
+scale uniformly from its center ») et §30-31 (racine ancree, distal
+mobile) : le champ de poids de la peau, deja gradue en r^1.63, fait le
+reste — un sommet partage avec le buste ne recoit qu'une part de S.
+SPEC 22/38 — L'ALLONGEMENT DYNAMIQUE DE LA CHAIR, LE LONG DU
+DEPLACEMENT. « NormalDynamicStretch 0.15 / StrongDynamicStretch 0.21 /
+AbsoluteStretchClamp 0.25 », et c'est mot pour mot ce que l'owner
+demandait le 2026-08-11 a 21:20 : « c'est pas des ballons durs non plus,
+c'est naturel que ca change un peu de forme, d'autant plus que sur des
+mouvements forts ca s'ecrase, se comprime, se tire. C'est juste beaucoup
+trop. » Donc : borne, CORRELEE au stimulus, et qui revient a l'arret.
+L'os, lui, ne s'allonge pas — c'est un axiome separe, tenu par la
+contrainte de longueur (ROOM-STRETCH <= 3 %), et les deux ne se
+confondent pas.
+Le tenseur est un etirement d'axe `u` (la direction du deplacement) et de
+rapport `1+s`, avec les deux perpendiculaires en `1/sqrt(1+s)` : son
+determinant vaut EXACTEMENT 1, donc §8 est tenue sans correction.
+SPEC 23 — LE DEGRE DE LIBERTE RADIAL ARRIVE ICI, ET NULLE PART AILLEURS.
+Deux contributions a UNE SEULE elongation de tissu, sommees EN VECTEUR
+avant le plafond :
+- celle que le deplacement du maillon impose (cinematique, deja la) ;
+- celle que l'oscillateur radial de §23 porte, le long de l'axe de
+l'os (`*phys-u**`, meme repere d'ancre que `*phys-o**`).
+SOMMEES, PAS COMPOSEES : deux tenseurs multiplies auraient laisse
+l'elongation atteindre 1.25 x 1.25 = 1.56 quand les deux axes
+s'alignent, et sa §22 fixe un CLAMP ABSOLU a 25 %. Une seule norme, un
+seul plafond, une seule direction : la borne de sa §22 est exacte par
+construction, et `*phys-dynm*` continue de la mesurer telle quelle.
+A `*phys-rr*` = 0 ce bloc rend BIT POUR BIT l'ancien : `dl` vaut
+`PHYS-DYN-K * |o| / b0f` et l'axe vaut `o/|o|`, comme avant.
+LE COEFFICIENT DU TERME RADIAL EST `PHYS-DYN-K`, LE MEME QUE LE TERME
+TANGENTIEL, ET IL EST DERIVE D'ELLE. La premiere ecriture portait le
+deplacement radial 1:1 dans l'elongation ; sa §14 l'interdit en toutes
+lettres — « the majority of visible movement must come from global mass
+lag and rotation, NOT from stretching the tissue by the complete
+displacement magnitude » — et sa §38 donne le couple exact :
+`NormalMaxCOMDisplacement 0.35 B0`  <->  `NormalDynamicStretch 0.15`
+soit 0.15 / 0.35 = 0.4286, qui EST `PHYS-DYN-K` (:356, deja derive de
+ces deux memes lignes pour le terme tangentiel). Quatre autres sections
+donnent le meme ordre par une voie independante : §14 (COM 15-25 % ->
++7 a +13 %), §16 (25-35 % -> +16 a +21 %), §17 (10-18 % -> +5 a +10 %),
+§20 (15-22 % -> +5 a +12 %) — un rapport de 0.47 a 0.64. Le meme
+coefficient pour les deux composantes est donc sa regle, pas un reglage.
+```
+
+## NOTE-61  (moteur, boucle de finition de `phys-collide-chain`)
+
+```
+LES DEUX CONTRAINTES SE RESOLVAIENT SUR DEUX VARIETES DIFFERENTES, ET LA DERNIERE ECRITE GAGNAIT.
+
+CE QUE FAISAIT LA BOUCLE `fin` AVANT CE CYCLE : (a) la fermeture de cote, puis (b) la reprojection
+de longueur sur la sphere de l'attache. AUCUN terme de profondeur. Les balayages qui precedent
+poussent le maillon HORS des volumes le long de la normale — donc en partie RADIALEMENT, le long
+de l'os — et (b) annule exactement cette part radiale en ramenant le point sur la sphere de rayon
+`want`. Le maillon revient dans le volume, et plus rien ne le reteste : la derniere ecriture du
+solveur est celle qui reintroduit la profondeur.
+
+MONTER LE NOMBRE DE TOURS NE POUVAIT PAS Y CHANGER QUOI QUE CE SOIT — chaque tour finit de la
+MEME facon, sur la meme reprojection non controlee. C'est ce qui avait ete essaye et chiffre
+(36 balayages : course 3.7x plus lente, residu au meme endroit).
+
+LE CORRECTIF : resoudre les deux contraintes sur la MEME variete. La poussee de profondeur est
+projetee sur le PLAN TANGENT a la sphere de l'attache, `t = (n - (n.u) u) * (fq - fe)` avec `u` la
+direction attache -> maillon. (b) la renormalise ensuite, et comme le pas etait tangent, il ne
+defait presque rien : l'intersection d'une sphere et du complementaire d'un volume est une calotte,
+et deux projections alternees sur une calotte convergent.
+
+AUCUN COEFFICIENT N'EST CHOISI, ET C'EST LE POINT. Le pas n'est PAS amplifie par `1/s` (le pas de
+Newton exact) : il vaut la projection nue, donc la profondeur decroit d'un facteur `s^2` par tour
+avec `s = sin(n,u)`. Un pas de Newton complet aurait un gain de `1/s` non borne — sur la paire la
+plus profonde (`lBooc` / `Lshoulder->chest`, s = 0.231, mesure hors moteur avant d'ecrire une
+ligne) il aurait deplace le maillon de 4.3 fois la profondeur, soit un saut de 0.4 m. La projection
+nue ne peut pas depasser sa cible ; ce qu'elle coute, ce sont des tours, et le budget existe deja
+(PHYS-FIN-ITERS = 4, et `phys-collide-chain` est appelee 15 fois par frame).
+
+QUAND `s -> 0` LE RESIDU RESTE, ET C'EST VOULU. Une normale d'echappement alignee sur l'os veut
+dire que la contrainte de longueur et le volume sont geometriquement incompatibles pour ce
+maillon : aucune rotation autour de l'attache ne l'en sort. On ne cache pas ce cas derriere un
+ecretage — `meshpen` le publie.
+
+CE QUE CE CORRECTIF REMPLACE, ET LA MESURE QUI L'A REOUVERT. Le cycle 24 avait conclu que la cause
+de `COLLIDE` « n'est pas dans le solveur », sur l'argument que 63 % / 73 % du residu publie existe
+deja dans la pose d'auteur (`lBooc` 0.059 m dans `Lshoulder->chest`, physique eteinte). CETTE
+CONCLUSION EST FAUSSE, et c'est une erreur de NATURE de grandeur : `meshpen` n'est pas une
+profondeur, c'est `res = dep - feff` avec `feff = floor0 + 0.30 B0` et `floor0` la profondeur du
+point de POSE D'AUTEUR contre le meme volume (phys-link-pen). La profondeur de repos est donc DEJA
+retranchee, et comparer 0.059 m a 0.0938 m compare deux grandeurs differentes.
+Verification numerique (`/tmp/res_invariance.py`, geometrie livree, distance de tronc de cone
+identique a `phys-collide-depth`) : sous un changement UNIFORME des deux rayons d'une capsule,
+`floor0` bouge de 100 u et `res` ne bouge PAS D'UN BIT (30.39 / 75.57 / 82.38 / -60.44 / 224.26 /
+-212.65 avant comme apres). Un tronc de cone dont on retire d de chaque rayon est sa surface
+offset : les DEUX distances se decalent de d, la difference est invariante. Redimensionner un
+volume ne peut donc pas faire baisser `meshpen` — et l'hypothese que la gate ecrit elle-meme
+(defaut d'ORDRE et de TERMINAISON) redevient la seule en lice.
+```
+
+## NOTE-62  (moteur, aux alentours de la ligne 3025)
+
+```
+L'ELONGATION RADIALE : LA COMPOSANTE DU POINT LIBRE LE LONG DE
+L'AXE COURANT DE L'OS — c'est-a-dire selon la NORMALE de la
+contrainte que la projection annule, et rien d'autre.
+
+CORRIGE LE 2026-08-16, ET C'EST UNE MESURE QUI L'A EXIGE, pas
+une relecture. La premiere ecriture prenait l'ECART DE RAYON,
+`|cp - ancre| - bl`. UN RAYON EST AVEUGLE A LA DIRECTION : un
+deplacement PUREMENT TANGENTIEL de longueur `d` — une rotation,
+exactement ce que l'os a le droit de faire a longueur
+invariante — fait passer le rayon de `bl` a `sqrt(bl^2 + d^2)`.
+La rotation entrait donc EN ENTIER dans « l'elongation du
+tissu ». Ce que ca a coute, lu dans la salle du 2026-08-16 :
+- `rrm` monte a 0.9102 B0 sous `tilt`, la ou sa §22 borne le
+COM a 0.40 B0 — 2.3x la borne dure ;
+- le canal de deformation s'est colle a son plafond absolu de
+25 % sur LES DIX fenetres (25.00 partout), la ou il donnait
+15.56 a 21.29 et DISCRIMINAIT entre les pilotages.
+Un limiteur sature ne repond plus au stimulus : c'est le
+« ballon d'eau » que l'owner decrit, fabrique par ce bloc.
+La projection sur l'axe de l'os rend EXACTEMENT zero pour une
+rotation pure et ne garde que l'elongation vraie.
+```
+
+## NOTE-63  (moteur, aux alentours de la ligne 3175)
+
+```
+------------------------------------------------------------------------
+SPEC 33/34 — LA RESTITUTION, UNE FOIS PAR FRAME, SUR LA VITESSE SEULE.
+Ce que le solveur faisait jusqu'ici, et c'est de l'ARITHMETIQUE, pas une
+opinion : `q` est fige a `p_int - ns*v_int` AVANT les contraintes, et la
+collision n'ecrit que `p`. Une poussee `D` devenait donc integralement de la
+vitesse a la frame suivante (`v = v_int + D`) — une restitution EFFECTIVE DE
++1, de l'energie INJECTEE par un contact. Sa §34 dit l'inverse en toutes
+lettres : « collision energy should primarily become deformation,
+redistribution and damping — NOT bounce ».
+La correction est chirurgicale et ne touche QUE la part normale de contact :
+v_libre = (p - D) - q     (la vitesse qu'aurait eue le lien sans le contact)
+vn      = v_libre . n     (n = direction de la poussee cumulee)
+si vn < 0 (il ARRIVE sur le volume) : la sortante devient -e*vn
+q <- q + D + (1+e)*vn*n
+LES DEUX CONTROLES SONT DES INTERRUPTEURS, PAS DES VALEURS RECOPIEES :
+`*phys-rst-off*` = 1 rend EXACTEMENT le comportement d'avant ce cycle (`q`
+jamais touche, donc restitution effective +1) — c'est la ligne de base ;
+`*phys-rst-k*` multiplie le coefficient (15.0 -> e = 0.90 sein<->sein) et
+doit faire MONTER la vitesse sortante relue en 0bis. Un compteur qui ne bouge
+sous aucun des deux prouve que ce bloc n'est jamais atteint.
+La POSITION n'est pas touchee : la regle 6 (rien ne traverse) reste tenue par
+la meme poussee qu'avant, au bit pres.
+```

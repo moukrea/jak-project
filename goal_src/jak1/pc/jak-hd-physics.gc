@@ -1874,58 +1874,14 @@
             (set! (-> pt z) (- (-> pt z) (-> offs z)))
             ;; [NOTE-30] ------------------------------------------------------------------------------ -> jak-hd-physics-NOTES.md
             (dotimes (fin PHYS-FIN-ITERS)
-              ;; --- (a) LE FRANCHISSEMENT D'AXE, sur le centre du volume porte par le lien.
-              (when (zero? *phys-side-off*)
-                (let ((qx (+ (-> pt x) (-> offs x)))
-                      (qy (+ (-> pt y) (-> offs y)))
-                      (qz (+ (-> pt z) (-> offs z))))
-                  (dotimes (ci nco)
-                    (let* ((sco (+ (* slot PHYS-COLS) ci))
-                           (cj  (-> *phys-cj* sco))
-                           (cj2 (-> *phys-cj2* sco)))
-                      (when (and (not (phys-col-own? sc n cj cj2))
-                                 (>= cj 0) (< (+ cj 1) nbone))
-                        (phys-col-now! skel sco cj cj2 nbone ca cb)
-                        (when (not (phys-col-rest! sco ra rb))
-                          (vector-copy! ra ca)
-                          (vector-copy! rb cb))
-                        (let* ((cap? (and (>= cj2 0) (< (+ cj2 1) nbone)))
-                               (fs (phys-collide-depth rest rl ra rb (-> *phys-cr* sco)
-                                                       (-> *phys-cr2* sco) cap? nrm))
-                               (fc (phys-collide-depth rest rl ca cb (-> *phys-cr* sco)
-                                                       (-> *phys-cr2* sco) cap? nrm)))
-                          ;; DEUX CONDITIONS, PAS UNE — MEME CORRECTIF QU'AU BALAYAGE (voir la
-                          ;; note complete la-bas). La pose d'AUTEUR doit etre dans ce volume pour
-                          ;; que « de quel cote » veuille dire quelque chose pour elle, ET le
-                          ;; maillon SIMULE doit y etre aussi pour qu'il y ait quoi que ce soit a
-                          ;; traverser. Sans la seconde, on teleportait de 0.5 m un maillon situe
-                          ;; 29 cm hors du volume (rbang : 2313.6 u a l'axe pour une portee de
-                          ;; 1108 u), et le deplacement CROISSAIT avec l'eloignement.
-                          (set-vector! pv qx qy qz 1.0)
-                          (let ((fq (phys-collide-depth pv rl ca cb (-> *phys-cr* sco)
-                                                        (-> *phys-cr2* sco) cap? nrm)))
-                          (when (and (> (if (> fc fs) fc fs) 0.0) (> fq 0.0))
-                            (when (and (phys-axis-dir rest ca cb ua)
-                                       (phys-axis-dir pv ca cb ub))
-                              (let ((dt1 (+ (* (-> ua x) (-> ub x))
-                                            (+ (* (-> ua y) (-> ub y))
-                                               (* (-> ua z) (-> ub z))))))
-                                (when (< dt1 0.0)
-                                  (let ((cc (* dt1 (-> ub w))))
-                                    (set! qx (- qx (* cc (-> ua x))))
-                                    (set! qy (- qy (* cc (-> ua y))))
-                                    (set! qz (- qz (* cc (-> ua z))))))))))))))
-                  (set! (-> pt x) (- qx (-> offs x)))
-                  (set! (-> pt y) (- qy (-> offs y)))
-                  (set! (-> pt z) (- qz (-> offs z)))))
-              ;; --- (a2) LA PROFONDEUR, POUSSEE **TANGENTIELLEMENT** A LA SPHERE DE L'ATTACHE.
-              ;; [NOTE-61] LES DEUX CONTRAINTES SE RESOLVAIENT SUR DEUX VARIETES DIFFERENTES -> jak-hd-physics-NOTES.md
-              ;; Le pas est la PROJECTION du gradient de profondeur sur le plan tangent, sans
-              ;; amplification : `n - (n.u)u`, donc la profondeur decroit de `s^2` par tour avec
-              ;; `s = sin(n,u)`. Aucun facteur n'est choisi — le taux sort de la geometrie, et le
-              ;; budget de tours est celui qui existe deja. Quand `s -> 0` (normale le long de
-              ;; l'os) aucune rotation ne peut sortir le maillon : le residu reste, et c'est
-              ;; `meshpen` qui le publie, jamais un ecretage qui le cacherait.
+              ;; --- (a) UNE SEULE PASSE SUR LES VOLUMES, DEUX CORRECTIONS.
+              ;; La mise en place d'un volume (`phys-col-now!`, `phys-col-rest!`, les trois
+              ;; profondeurs) coute le meme prix pour le franchissement de cote et pour la
+              ;; profondeur : la faire DEUX fois doublait le cout de la boucle de finition et la
+              ;; course de la salle ne tenait plus dans son delai. Une passe, deux consommateurs.
+              ;; Le test de cote garde son propre interrupteur (`*phys-side-off*`) et son propre
+              ;; predicat d'exclusion (`phys-col-own?` NON leve par `self-inject`), exactement
+              ;; comme avant : c'est un partage de calcul, pas une fusion de semantiques.
               (let ((qx (+ (-> pt x) (-> offs x)))
                     (qy (+ (-> pt y) (-> offs y)))
                     (qz (+ (-> pt z) (-> offs z))))
@@ -1933,10 +1889,9 @@
                   (let* ((sco (+ (* slot PHYS-COLS) ci))
                          (cj  (-> *phys-cj* sco))
                          (cj2 (-> *phys-cj2* sco))
-                         (own (phys-col-own? sc n cj cj2))
-                         (selfp (and own (nonzero? *phys-self-inject*))))
-                    (when selfp (set! own #f))
-                    (when (and (not own) (>= cj 0) (< (+ cj 1) nbone))
+                         (ownr (phys-col-own? sc n cj cj2))
+                         (selfp (and ownr (nonzero? *phys-self-inject*))))
+                    (when (and (or (not ownr) selfp) (>= cj 0) (< (+ cj 1) nbone))
                       (phys-col-now! skel sco cj cj2 nbone ca cb)
                       (when (not (phys-col-rest! sco ra rb))
                         (vector-copy! ra ca) (vector-copy! rb cb))
@@ -1951,6 +1906,8 @@
                         (set-vector! pv qx qy qz 1.0)
                         (let ((fq (phys-collide-depth pv rl ca cb (-> *phys-cr* sco)
                                                       (-> *phys-cr2* sco) cap? nrm)))
+                          ;; --- (a1) LA PROFONDEUR, POUSSEE **TANGENTIELLEMENT** A LA SPHERE
+                          ;; --- DE L'ATTACHE. [NOTE-61] -> jak-hd-physics-NOTES.md
                           (when (> fq fe)
                             (let* ((ex (- (- qx (-> offs x)) (-> bv x)))
                                    (ey (- (- qy (-> offs y)) (-> bv y)))
@@ -1961,23 +1918,32 @@
                                        (ux (* ex iv)) (uy (* ey iv)) (uz (* ez iv))
                                        (dd (- fq fe))
                                        (cn (+ (* (-> nrm x) ux)
-                                              (+ (* (-> nrm y) uy) (* (-> nrm z) uz))))
-                                       (tx (* dd (- (-> nrm x) (* cn ux))))
-                                       (ty (* dd (- (-> nrm y) (* cn uy))))
-                                       (tz (* dd (- (-> nrm z) (* cn uz)))))
-                                  (set! qx (+ qx tx))
-                                  (set! qy (+ qy ty))
-                                  (set! qz (+ qz tz))
+                                              (+ (* (-> nrm y) uy) (* (-> nrm z) uz)))))
+                                  (set! qx (+ qx (* dd (- (-> nrm x) (* cn ux)))))
+                                  (set! qy (+ qy (* dd (- (-> nrm y) (* cn uy)))))
+                                  (set! qz (+ qz (* dd (- (-> nrm z) (* cn uz)))))
                                   (set! *phys-tan-n* (+ *phys-tan-n* 1))
                                   (set! *phys-tan-d* (+ *phys-tan-d* dd))
-                                  ;; CE QUE LE PAS RETIRE REELLEMENT : `dd * s^2` avec
-                                  ;; `s^2 = 1 - cn^2`. Le rapport `tan-e / tan-d` EST le rendement
-                                  ;; geometrique moyen. S'il est petit, c'est la geometrie qui
-                                  ;; limite (normale d'echappement le long de l'os) et aucun
-                                  ;; nombre de tours n'y peut rien ; s'il est grand et que le
-                                  ;; residu reste, c'est autre chose qui defait le travail.
+                                  ;; `dd * s^2` = ce que le pas retire REELLEMENT. Le rapport
+                                  ;; `removed/sumdepth` EST le rendement geometrique moyen.
                                   (set! *phys-tan-e*
-                                        (+ *phys-tan-e* (* dd (- 1.0 (* cn cn))))))))))))))
+                                        (+ *phys-tan-e* (* dd (- 1.0 (* cn cn)))))))))
+                          ;; --- (a2) LE FRANCHISSEMENT D'AXE. Deux conditions, pas une : la pose
+                          ;; --- d'AUTEUR doit etre dans le volume pour que « de quel cote » ait un
+                          ;; --- sens pour elle, ET le maillon SIMULE doit y etre aussi.
+                          (when (and (zero? *phys-side-off*) (not ownr)
+                                     (> (if (> fc fs) fc fs) 0.0) (> fq 0.0))
+                            (set-vector! pv qx qy qz 1.0)
+                            (when (and (phys-axis-dir rest ca cb ua)
+                                       (phys-axis-dir pv ca cb ub))
+                              (let ((dt1 (+ (* (-> ua x) (-> ub x))
+                                            (+ (* (-> ua y) (-> ub y))
+                                               (* (-> ua z) (-> ub z))))))
+                                (when (< dt1 0.0)
+                                  (let ((cc (* dt1 (-> ub w))))
+                                    (set! qx (- qx (* cc (-> ua x))))
+                                    (set! qy (- qy (* cc (-> ua y))))
+                                    (set! qz (- qz (* cc (-> ua z))))))))))))))
                 (set! (-> pt x) (- qx (-> offs x)))
                 (set! (-> pt y) (- qy (-> offs y)))
                 (set! (-> pt z) (- qz (-> offs z))))
