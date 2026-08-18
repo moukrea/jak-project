@@ -28,6 +28,23 @@ import sys
 
 ARRAYS = ['*keira-hd->driver-joint*', '*keira-hd-mode*',
           '*keira-hd-hd-parent*', '*keira-hd-drv-parent*']
+# LES TABLES QUI PORTENT DES INDICES. Pour elles, « append-only » veut dire ce que le docstring
+# dit : une valeur qui change A UN INDICE EXISTANT invalide silencieusement des references.
+# `*keira-hd-mode*` ne porte PAS d'indice — ses valeurs sont des MODES DE RETARGET (0..3) — donc
+# une valeur qui y change ne deplace aucun indice et n'invalide aucune reference de parent.
+# 2026-08-18, cycle 24 : la garde traitait les quatre tables pareil et refusait un changement de
+# mode legitime. Deplacer `lBoob`/`rBoob` de 0.0159 m a fait passer leur `pivot_err` sous le seuil
+# du selecteur (`retarget_fill_table.py:224`, `thr = max(0.02, 0.25*bone)`), qui bascule alors du
+# repli mode 3 (orient-copy, choisi PARCE QUE les pivots ne s'accordaient pas) vers le mode 0
+# (world-delta, « exact driver-skin follow »). C'est le selecteur qui fait son travail sur une
+# geometrie qui le permet enfin — pas une table qui derive.
+# CE QUI REMPLACE LA GARDE, ET ELLE EST PLUS STRICTE, PAS PLUS LACHE : un changement de mode doit
+# etre DECLARE index par index avec son ancienne et sa nouvelle valeur. Il ne peut donc plus
+# arriver en silence — ce que le tombeau de `jak-hd.gc` reproche precisement au cycle du 08-13
+# (« quatre tables d'accord et la cinquieme en desaccord silencieux ») — et aucun drapeau
+# d'autorisation generale n'existe.
+INDEX_ARRAYS = ['*keira-hd->driver-joint*', '*keira-hd-hd-parent*', '*keira-hd-drv-parent*']
+MODE_ARRAY = '*keira-hd-mode*'
 
 
 def parse_arrays(text):
@@ -51,7 +68,22 @@ def main():
     ap.add_argument('--entry', type=int, required=True,
                     help='index into *hd-joint-counts* for this character')
     ap.add_argument('--apply', action='store_true')
+    ap.add_argument('--expect-mode-change', default='',
+                    help="changements de mode ATTENDUS, declares un par un : "
+                         "`k:ancien->nouveau[,k:ancien->nouveau...]`. Un mode ne deplace aucun "
+                         "indice, mais il change comment le joint est retargete : il doit etre "
+                         "declare pour ne jamais passer en silence. Aucun drapeau d'autorisation "
+                         "generale n'existe volontairement.")
     a = ap.parse_args()
+    expect_mode = set()
+    for tok in [t for t in a.expect_mode_change.split(',') if t.strip()]:
+        try:
+            k, ch = tok.split(':', 1)
+            o, n = ch.split('->', 1)
+            expect_mode.add((int(k), o.strip(), n.strip()))
+        except ValueError:
+            print("!! --expect-mode-change: `%s` n'est pas `k:ancien->nouveau`" % tok)
+            return 1
 
     gc_text = open(a.gc, encoding='utf-8').read()
     sn_text = open(a.snippet, encoding='utf-8').read()
@@ -81,15 +113,37 @@ def main():
                        % (name, oc, nc))
         # THE invariant: the new array must extend the old one exactly.
         elif nv[:oc] != ov:
-            first = next((i for i in range(min(len(ov), len(nv))) if ov[i] != nv[i]), None)
-            bad.append("%s: PAS APPEND-ONLY — l'indice %s change (%s -> %s). Un indice qui bouge "
-                       "invalide toutes les references de parent du rig."
-                       % (name, first,
-                          ov[first] if first is not None else '?',
-                          nv[first] if first is not None else '?'))
+            diffs = [i for i in range(oc) if ov[i] != nv[i]]
+            if name == MODE_ARRAY:
+                undeclared = [i for i in diffs
+                              if (i, str(ov[i]), str(nv[i])) not in expect_mode]
+                for i in diffs:
+                    print("%-26s   mode a l'indice %-3d : %s -> %s   %s"
+                          % (name, i, ov[i], nv[i],
+                             "DECLARE" if i not in undeclared else "NON DECLARE"))
+                if undeclared:
+                    bad.append("%s: %d changement(s) de mode NON DECLARE(S) aux indices %s. Un mode "
+                               "ne deplace aucun indice, mais il change comment un joint est "
+                               "retargete : declare-le avec "
+                               "--expect-mode-change %s"
+                               % (name, len(undeclared), undeclared,
+                                  ",".join("%d:%s->%s" % (i, ov[i], nv[i]) for i in undeclared)))
+            else:
+                first = diffs[0] if diffs else None
+                bad.append("%s: PAS APPEND-ONLY — l'indice %s change (%s -> %s). Un indice qui "
+                           "bouge invalide toutes les references de parent du rig."
+                           % (name, first,
+                              ov[first] if first is not None else '?',
+                              nv[first] if first is not None else '?'))
         counts.add(nc)
-        print("%-26s %3d -> %3d   append-only %s"
-              % (name, oc, nc, "OK" if (nc >= oc and nv[:oc] == ov) else "NON"))
+        ok = (nc >= oc and nv[:oc] == ov)
+        if not ok and name == MODE_ARRAY:
+            ok = (nc >= oc and all((i, str(ov[i]), str(nv[i])) in expect_mode
+                                   for i in range(oc) if ov[i] != nv[i]))
+            print("%-26s %3d -> %3d   append-only %s"
+                  % (name, oc, nc, "OK (modes declares)" if ok else "NON"))
+        else:
+            print("%-26s %3d -> %3d   append-only %s" % (name, oc, nc, "OK" if ok else "NON"))
 
     if len(counts) != 1:
         bad.append("les quatre tableaux ne s'accordent pas sur le nouveau compte : %s"

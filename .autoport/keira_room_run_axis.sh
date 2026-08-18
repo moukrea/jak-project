@@ -2,7 +2,7 @@
 # keira_room_run_axis.sh — UNE course de la salle, avec les trois gardes qui ont deja coute un cycle.
 #
 # Phase Grecharged-secondary-motion, branche physics-keira-clean.
-# DIRECTIVES vee00ab7404 — perimetre : chestL/chestR seules, spec poitrine a 100 %.
+# DIRECTIVES vb249967379 — perimetre : chestL/chestR seules, spec poitrine a 100 %.
 #
 # Ce script ne juge RIEN et ne mesure RIEN : il sequence. Les trois gardes :
 #

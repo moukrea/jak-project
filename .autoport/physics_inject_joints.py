@@ -279,14 +279,25 @@ def main():
     idx = {n: i for i, n in enumerate(names)}
     n0 = len(names)
 
+    # LA PRE-VERIFICATION SUIT L'ORDRE DU FICHIER, COMME L'APPLICATION (2026-08-18, cycle 24).
+    # `add_joint` fait grandir `idx` au fur et a mesure, donc la boucle d'APPLICATION voit deja un
+    # joint cree par une ligne precedente ; celle-ci lisait le rig d'ORIGINE et refusait
+    # « reroot: joint lBooc absent from rig » pour un joint que la ligne du dessus venait de creer.
+    # Le spec livre est passe UNE SEULE FOIS a l'injecteur par la cuisson : sans ca, poser un
+    # maillon puis le placer demanderait deux fichiers et deux passes, c'est-a-dire un etat
+    # intermediaire qu'aucun consommateur ne verifie.
+    known = set(idx)
     for e in spec:
         if e['op'] == 'reroot':
             # it creates nothing; it must find what it moves.
-            if e['joint'] not in idx:
-                raise SystemExit("reroot: joint %s absent from rig" % e['joint'])
-            if e['anchor'] not in idx:
-                raise SystemExit("reroot: anchor joint %s absent from rig" % e['anchor'])
+            if e['joint'] not in known:
+                raise SystemExit("reroot: joint %s absent from rig (and no earlier line of this"
+                                 " spec creates it)" % e['joint'])
+            if e['anchor'] not in known:
+                raise SystemExit("reroot: anchor joint %s absent from rig (and no earlier line of"
+                                 " this spec creates it)" % e['anchor'])
             continue
+        known.add(e['name'])
         if e['name'] in idx:
             raise SystemExit("joint %s already exists — append-only, refusing" % e['name'])
         # a `subdiv` may target a joint an earlier line of the SAME file creates, so its
@@ -395,14 +406,57 @@ def main():
                                  % (e['anchor'], e['joint']))
             t = float(((e['pos'] - aw) @ ab) / L2)
             off = float(np.linalg.norm((e['pos'] - aw) - t * ab))
-            # ON its own bone, or it is not a slide: off the bone the chain polyline would kink
-            # and the SPEC-31 abscissa would stop being the arc length of a straight organ.
-            if not (0.0 < t <= 1.0):
-                raise SystemExit("reroot: %s would land at t=%.4f on %s->%s, off the bone"
-                                 % (e['joint'], t, e['anchor'], e['joint']))
             jset = set(skin['joints'])
             node = js['nodes'][skin['joints'][jm]]
             kids = list(node.get('children', []))
+            # L'INVARIANT EST « SUR LA DROITE DE LA CHAINE, ET DANS L'ORDRE », ET IL EST ICI ECRIT
+            # EN ENTIER (2026-08-18, cycle 24). Ce que la version precedente verifiait est
+            # `0 < t <= 1`, ce qui (a) NE VERIFIAIT PAS `off` — pourtant calcule — donc une position
+            # A COTE de l'os passait des lors que sa PROJECTION tombait sur l'os, et (b) interdisait
+            # tout glissement VERS L'AVANT alors que le seul risque reel est de croiser l'enfant.
+            # Le commentaire d'origine donne la raison de la garde : « off the bone the chain
+            # polyline would kink and the SPEC-31 abscissa would stop being the arc length of a
+            # straight organ ». Un glissement AU-DELA de `t=1` sur la MEME droite ne coude rien ;
+            # depasser l'enfant, si.
+            # POURQUOI CA COMPTE (mesure du cycle 24) : sur l'axe de la CHAIR, `lBoob` est a
+            # r=0.216, c'est-a-dire dans la bande « Rear/intermediate 55-85 % » ou la 30 EXIGE que
+            # le thorax tienne la majorite de la chair. Un os pose la ne peut posseder aucun sommet
+            # — mesure : lBoob majoritaire sur 0 sommet des que le profil est celui de la spec. Le
+            # rapprocher de la chair qu'il doit piloter demande t > 1, et rien dans la geometrie ne
+            # s'y oppose : `chest`, `lBoob` et `lBooc` sont colineaires a 0.00027 deg.
+            kid_ts = []
+            for c in kids:
+                if c not in jset:
+                    continue
+                ci = skin['joints'].index(c)
+                cv = bind[ci][:3, 3] - aw
+                ct = float((cv @ ab) / L2)
+                coff = float(np.linalg.norm(cv - ct * ab))
+                if coff > 1e-3 * np.sqrt(L2):
+                    raise SystemExit("reroot: %s's child %s is %.4f m off the %s->%s line "
+                                     "(%.2f %% of the bone) — this is not a straight chain, a "
+                                     "slide would change its shape; refusing"
+                                     % (e['joint'], allnames[ci], coff, e['anchor'], e['joint'],
+                                        100.0 * coff / np.sqrt(L2)))
+                kid_ts.append((allnames[ci], ct))
+            # LA BORNE HAUTE : l'enfant le plus proche s'il y en a un, sinon la position actuelle
+            # (sans enfant, rien devant ne borne le glissement et on refuse d'extrapoler).
+            hi = min([ct for _n, ct in kid_ts], default=1.0)
+            hi_who = min(kid_ts, key=lambda x: x[1])[0] if kid_ts else "sa propre position (aucun enfant)"
+            # COLINEARITE DE LA CIBLE, qui n'etait PAS verifiee : 1e-3 de la longueur d'os, soit
+            # trois ordres de grandeur PLUS LARGE que le defaut de colinearite mesure de cette
+            # chaine (0.00027 deg ~ 5e-6 en relatif) — la garde ne peut donc pas masquer un vrai
+            # coude, et elle refuse une cible posee a cote de l'os.
+            if off > 1e-3 * np.sqrt(L2):
+                raise SystemExit("reroot: %s would land %.4f m off the %s->%s line (%.2f %% of the "
+                                 "bone) — that is not a slide; refusing"
+                                 % (e['joint'], off, e['anchor'], e['joint'],
+                                    100.0 * off / np.sqrt(L2)))
+            if not (0.0 < t < hi or (not kid_ts and 0.0 < t <= 1.0)):
+                raise SystemExit("reroot: %s would land at t=%.4f on %s->%s, outside the open "
+                                 "interval (0, %.4f) that %s bounds — the chain would invert or "
+                                 "leave its own bone; refusing"
+                                 % (e['joint'], t, e['anchor'], e['joint'], hi, hi_who))
             alien = [c for c in kids if c not in jset]
             if alien:
                 # a non-joint child has no bind pose here, so it cannot be re-based and WOULD be

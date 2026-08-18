@@ -131,8 +131,79 @@ chestR      rBoob         rBooc           -0.119944     2.016473     0.107559
 # La frequence propre du maillon distal bouge avec son os (+13.7 % de longueur) : sa 24 est
 # re-derivee APRES la cuisson, sur la geometrie mesuree, pas avant.
 #
+# =============================================================================================
+# 2026-08-18, CYCLE 24 — LES DEUX MAILLONS SONT REPLACES, ET LE GLISSEMENT DU CYCLE 23 EST DEFAIT
+# POUR UNE RAISON MESUREE : IL AVAIT MIS LA RACINE DANS LA ZONE QUE LA 30 RESERVE AU THORAX.
+# =============================================================================================
+# LE DEFAUT QUE CE CYCLE FERME (directive du 08:55, troisieme rappel) : les os injectes doivent
+# PILOTER de la chair, et la preuve est la REPARTITION. Etat livre au cycle 23, mesure sur le mesh
+# LIVRE : `lBooc` majoritaire sur 21 sommets de 77 (27.3 %) et `rBooc` sur 17 de 75 (22.7 %) —
+# SOUS la barre de 30 %. Le banc `probe_c24_distal_ownership.py` a balaye TOUTE la boite que la
+# spec autorise (`RootAnchor` 0.90-1.00 de la 30 x `RootDeformationExponent` 1.6-2.0 de la 31,
+# 25 points) : le NOMBRE de sommets que l'os distal pilote y est PLAT (23 a gauche, 19-20 a
+# droite) et les seules cases qui affichent >= 30 % le font en RETRECISSANT LE DENOMINATEUR
+# (`root=0.975` sort 24 sommets du nuage) tout en tuant le maillon proximal (1 a 2 sommets). Aucun
+# reglage ne pouvait donc fermer ce defaut : la cause est geometrique.
+#
+# LA CAUSE, MESUREE. Sa 31 ecrit : « r = 0 at chest attachment and r = 1 at distal/apex region ».
+# La regle prenait r=0 AU JOINT proximal et r=1 AU JOINT distal. Sur le mesh livre la chair s'etend
+# de t=-0.333 a t=+1.206 le long de l'os : 26 % (chestL) et 31 % (chestR) du nuage etaient ECRASES
+# par le clampage sur r=0 ou r=1, et le profil d'ancrage de la 30 — qui est une fonction de r —
+# etait sature sur ce quart d'organe. Exprime dans le repere que la 31 definit, `lBoob` vivait a
+# r=0.216 et `rBoob` a r=0.254, c'est-a-dire dans la bande « Rear/intermediate 55-85 % » ou la 30
+# EXIGE que le thorax tienne la majorite de la chair : un os pose la ne peut posseder AUCUN sommet,
+# et la mesure le confirme (0 sommet majoritaire des que le profil est celui de la spec).
+# Le glissement du cycle 23 avait ete derive pour faire baisser `StrongRootFraction` ; il y est
+# parvenu (0.416 -> 0.338 a gauche) mais au prix de mettre la racine hors d'etat de piloter.
+#
+# CE QUI LEVE LA CONTRADICTION : `axis=flesh` dans `physics_reskin.txt`. Le profil d'ancrage se lit
+# desormais sur la CHAIR (les deux bouts du nuage le long de l'axe de l'organe) et non sur la
+# polyligne des joints. `StrongRootFraction` cesse donc de dependre de l'endroit ou on pose un os
+# — mesure : 0.294 / 0.312, DANS la bande 0.28-0.35 des DEUX cotes, et INCHANGE sous les 35
+# placements de joints balayes. Les joints redeviennent libres d'aller la ou ils pilotent.
+#
+# LES DEUX POSITIONS SONT DERIVEES, PAS CHOISIES (`.autoport/derive_c24_breast_nodes.py`,
+# sortie recopiee dans `C24-breast-nodes.txt`), et chacune sort d'une ligne de la spec :
+#   MAILLON PROXIMAL — mediane de MASSE de la bande « Mid-volume » [0.375, 0.625] de la 30,
+#     c'est-a-dire au milieu de la chair que la spec lui laisse. Meme derivation que le cycle 23
+#     pour la racine (« mediane de masse de la chair arriere »), reutilisee et non reinventee.
+#     Mesure : r=0.480 des deux cotes (19 et 20 sommets, masse 12.880 et 12.313).
+#   MAILLON DISTAL — la position pour laquelle la FRONTIERE DE POSSESSION entre les deux maillons
+#     tombe exactement sur r=0.625, la frontiere que la 30 ecrit elle-meme entre « Mid-volume » et
+#     « Distal volume ». Chaque maillon est alors majoritaire sur EXACTEMENT la chair que la spec
+#     lui assigne. Condition : `tgt(0.625) * q(0.625) = 0.5`, ou `tgt = 1 - ancrage` (30) et `q`
+#     est la partition de la 31 dans `u = r^grad`. Mesure : ancrage 0.300 / 0.278 a r=0.625, donc
+#     q=0.714 / 0.692, donc r=0.674 (lBooc) et r=0.680 (rBooc) — DEUX VALEURS DIFFERENTES, chacune
+#     derivee de la chair de son cote (regle 7).
+#     [alternative mesuree et NON retenue : la mediane de masse de la chair distale donne r=0.733
+#      des deux cotes ; elle place la frontiere de possession a r~0.695 et fait donc perdre au
+#      maillon distal la bande [0.625, 0.695] que la 30 lui assigne. Mesure au banc : 27.1 % /
+#      23.8 %, soit SOUS la barre du contrat — c'est pourquoi elle est ecartee.]
+#
+# CE QUE CE N'EST PAS : un reglage du denominateur. Le NOMBRE de sommets que l'os distal pilote
+# passe de 23 a 37 (chestL) et de 19 a 30 (chestR) pour un nuage INCHANGE a 85 / 80 sommets.
+#
+# PREDICTION ECRITE AVANT LA CUISSON, DONC FALSIFIABLE (banc bit-exact avec la cuisson : a
+# parametres livres il reproduit le md5 du mesh livre) :
+#   part du NOUVEL os      chestL 27.1 % -> 43.5 %      chestR 23.8 % -> 37.5 %   (barre 30 %)
+#   os proximal majoritaire chestL 10 -> 8 sommets       chestR 10 -> 10 sommets
+#   StrongRootFraction     chestL 0.338 -> 0.294         chestR 0.413 -> 0.312    (bande 0.28-0.35)
+#   les CINQ bandes de la 30 DANS des deux cotes (elles etaient 4/5 : `Deep root` sous son
+#     plancher) — LUES DANS LE REPERE DE LA 31, celui ou la regle travaille desormais. Lues dans
+#     l'ANCIEN repere (la polyligne des joints) elles sortent, et c'est attendu : les joints ont
+#     bouge, donc cette abscisse-la ne decrit plus l'organe. Les deux colonnes sont publiees cote
+#     a cote par `probe_breast_anchor30.py`, aucune n'est retiree.
+#   possession totale de la chaine  31/77 -> 45/85 (chestL)   27/75 -> 40/80 (chestR)
+# Les longueurs d'os changent (le maillon distal raccourcit) : sa 24 et ses volumes de collision
+# sont re-derives APRES la cuisson, sur la geometrie mesuree, jamais avant.
+#
 # chaine    joint    ancre    x            y            z    (metres)
-reroot  chestL    lBoob    chest       0.082604     1.922331     0.092301
-#   t mediane de masse=0.950 sur chest->lBoob  os chest->lBoob raccourci de 0.0119 m  StrongRootFraction atteignable 0.390 -> 0.338
-reroot  chestR    rBoob    chest      -0.082208     1.921330     0.092139
-#   t mediane de masse=0.945 sur chest->rBoob  os chest->rBoob raccourci de 0.0130 m  StrongRootFraction atteignable 0.446 -> 0.392
+reroot  chestL    lBoob    chest        0.092750     1.947912     0.096447
+#   r=0.480 — mediane de masse de la bande Mid-volume [0.375,0.625] de la 30
+reroot  chestL    lBooc    lBoob        0.105247     1.979423     0.101554
+#   r=0.674 — frontiere de possession posee sur r=0.625 (frontiere Mid-volume/Distal de la 30)
+reroot  chestR    rBoob    chest       -0.092751     1.947912     0.096447
+#   r=0.480 — mediane de masse de la bande Mid-volume [0.375,0.625] de la 30
+reroot  chestR    rBooc    rBoob       -0.105589     1.980281     0.101693
+#   r=0.680 — frontiere de possession posee sur r=0.625 (ancrage 0.278 a droite contre 0.300 a
+#   gauche : la valeur derive de la chair de CHAQUE cote, elle n'est pas recopiee)

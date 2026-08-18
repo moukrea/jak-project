@@ -2368,6 +2368,45 @@ def main():
                       % _r.returncode)
         except Exception as _e:
             print('[gen] ATTENTION: reglages owner NON reappliques: %s' % _e)
+        # --------------------------------------------------------------------------------------
+        # LES ECHANTILLONS DE PEAU SONT DERIVES DE CE FICHIER **ET** DU MESH CUIT : ILS SE
+        # REGENERENT ICI, DANS LE PRODUCTEUR (2026-08-18, cycle 24).
+        # `physics_mesh.txt` porte, par MAILLON de chaine, les sommets skinnes les plus saillants
+        # exprimes dans le repere de bind DE CET OS (`ms <chaine> <maillon> ...`). Deux entrees le
+        # determinent : la position des OS (ce fichier-ci) et la PEAU cuite. Il etait regenere par
+        # une commande separee qu'aucun script de cuisson n'appelait.
+        # MESURE QUI L'A TROUVE : au cycle 24 le fichier livre datait de 11:32 alors que la cuisson
+        # de 14:05 avait deplace la charniere distale de 3.7 cm et lui avait donne 16 sommets de
+        # plus ; regenere, `ms chestL 0` passe de (121.8, 724.1, 1.4) a (230.3, 697.7, -177.8).
+        # ET LE CYCLE 23 AVAIT LIVRE LA MEME INCOHERENCE : son commit ne touche pas ce fichier
+        # alors qu'il fait glisser la racine de chaine de 1.2 cm. La collision de la poitrine
+        # travaillait donc sur une peau attachee a des os qui avaient bouge.
+        # C'est la regle de non-destruction de l'owner (2026-08-11) appliquee telle quelle : quand
+        # une perte se repete, on la rend impossible AU POINT DE PRODUCTION, pas detectable au
+        # point de controle. Une gate qui constate la perte arrive toujours trop tard.
+        # LE GARDE-FOU : `physics_c14_meshsamples.py` n'a pas de `--out`, il ecrit TOUJOURS le
+        # fichier livre. On ne l'appelle donc QUE lorsque ce generateur ecrit lui aussi le fichier
+        # livre — meme precaution que pour `apply_owner_tuning.py` juste au-dessus, dont l'absence
+        # d'argument avait fait reecrire le livre depuis une generation de verification vers /tmp.
+        if os.path.abspath(args.out) == os.path.abspath(os.path.join(REPO, OUT_REL)):
+            try:
+                import subprocess as _sp2
+                _root2 = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                _r2 = _sp2.run(['python3', os.path.join(_root2, '.autoport',
+                                                        'physics_c14_meshsamples.py')],
+                               capture_output=True, text=True, timeout=1800, cwd=_root2)
+                _last = [l for l in (_r2.stdout or '').splitlines() if l.strip()][-1:] \
+                    or [(_r2.stderr or '').strip()[:200]]
+                print('[gen] echantillons de peau: ' + (_last[0] if _last else '(aucune sortie)'))
+                if _r2.returncode != 0:
+                    print('[gen] ATTENTION: physics_mesh.txt NON regenere (%d) — la collision de'
+                          ' la poitrine lirait une peau attachee a des os qui ont bouge'
+                          % _r2.returncode)
+            except Exception as _e2:
+                print('[gen] ATTENTION: physics_mesh.txt NON regenere: %s' % _e2)
+        else:
+            print('[gen] echantillons de peau NON regeneres: --out ne vise pas le fichier livre'
+                  ' (%s), et le producteur d\'echantillons ecrit toujours le livre.' % args.out)
         log('')
         # LE SHA ANNONCE EST CELUI DU FICHIER SUR DISQUE, PAS DU TEXTE D'AVANT LES REGLAGES.
         # Cette ligne relisait `text`, c'est-a-dire l'etat AVANT `apply_owner_tuning.py`. Le

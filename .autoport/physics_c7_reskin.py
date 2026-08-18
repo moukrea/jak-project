@@ -175,6 +175,24 @@ def load_cfg(path=CFG):
                  #   grad=   31 `RootDeformationExponent = 1.6-2.0`, nominal 1.8 : « w(r) =
                  #           r^1.6...2.0 — little deformation at the root; progressively increasing
                  #           mobility; largest displacement in distal tissue ».
+                 #   axis=   REPERE DE `r`, ET SA SPEC LE DEFINIT. 31 : « r = 0 at chest
+                 #           attachment and r = 1 at distal/apex region ». `axis=chain` (defaut,
+                 #           comportement historique bit-pour-bit) prend r=0 AU JOINT proximal et
+                 #           r=1 AU JOINT distal, ce qui n'est pas ce que la 31 dit : mesure du
+                 #           2026-08-18 (cycle 24) sur le mesh LIVRE, la chair s'etend de
+                 #           t=-0.333 a t=+1.206 le long de l'os, donc 26 % (chestL) a 31 %
+                 #           (chestR) du nuage est ECRASE par le clampage sur r=0 ou r=1 — et le
+                 #           profil d'ancrage de la 30, qui est une fonction de r, est SATURE sur
+                 #           ce quart d'organe. `axis=flesh` prend les deux bouts de la CHAIR le
+                 #           long de la meme direction : r=0 au sommet le plus recule (l'attache
+                 #           thoracique), r=1 au plus avance (l'apex). Aucun seuil, aucun centile
+                 #           choisi — ce sont les extremes du nuage que la regle possede deja.
+                 #           CE QUE CA DECOUPLE, et c'est la raison de fond : avec `chain`,
+                 #           DEPLACER UN JOINT DEPLACE LE PROFIL D'ANCRAGE, donc
+                 #           `StrongRootFraction` (30) depend de l'endroit ou on pose un os. Avec
+                 #           `flesh` il ne depend que de l'anatomie, et les joints peuvent etre
+                 #           places pour POSSEDER de la chair sans deranger la 30.
+                 axis=kv.get('axis', 'chain'),
                  root=float(kv.get('root', 0.95)),
                  strong=float(kv.get('strong', 0.55)),
                  frac=float(kv.get('frac', 0.30)),
@@ -407,17 +425,36 @@ def _anchor30(r, J, W, idx, P, bind_pos, ed=None):
     tk = cum / total
 
     V = P[vi]
-    best_d = np.full(len(vi), np.inf)
-    s = np.zeros(len(vi))
-    for k in range(len(seg)):
-        L2 = float(seg[k] @ seg[k])
-        if L2 <= 1e-12:
-            continue
-        t = np.clip(((V - pts[k]) @ seg[k]) / L2, 0.0, 1.0)
-        d = np.linalg.norm(V - (pts[k] + t[:, None] * seg[k]), axis=1)
-        m = d < best_d
-        best_d[m] = d[m]
-        s[m] = (cum[k] + t[m] * seglen[k]) / total
+    if r.get('axis') == 'flesh':
+        # 31 A LA LETTRE : « r = 0 at chest attachment and r = 1 at distal/apex region ». Les deux
+        # bouts sont ceux de la CHAIR, pas ceux du rig. Direction = celle de la chaine (l'axe de
+        # l'organe, deja derive du rig, non choisi) ; origine et echelle = les EXTREMES du nuage que
+        # cette regle possede deja. Le clampage disparait : plus aucun sommet n'est ecrase sur une
+        # borne, et `tk` — les noeuds de la partition de la 31 — devient la position des JOINTS SUR
+        # CET AXE au lieu de valoir 0 et 1 par definition.
+        ax = pts[-1] - pts[0]
+        axn = float(np.linalg.norm(ax))
+        if axn <= 1e-9:
+            return [f"  !! {r['target']}: chaine de longueur nulle — regle REFUSEE"]
+        ax = ax / axn
+        q = (V - pts[0]) @ ax
+        qlo, qhi = float(q.min()), float(q.max())
+        if qhi - qlo <= 1e-9:
+            return [f"  !! {r['target']}: chair plate sur l'axe — regle REFUSEE"]
+        s = (q - qlo) / (qhi - qlo)
+        tk = np.clip((((pts - pts[0]) @ ax) - qlo) / (qhi - qlo), 0.0, 1.0)
+    else:
+        best_d = np.full(len(vi), np.inf)
+        s = np.zeros(len(vi))
+        for k in range(len(seg)):
+            L2 = float(seg[k] @ seg[k])
+            if L2 <= 1e-12:
+                continue
+            t = np.clip(((V - pts[k]) @ seg[k]) / L2, 0.0, 1.0)
+            d = np.linalg.norm(V - (pts[k] + t[:, None] * seg[k]), axis=1)
+            m = d < best_d
+            best_d[m] = d[m]
+            s[m] = (cum[k] + t[m] * seglen[k]) / total
 
     plo, phi = _spec30_p_range(r['root'])
     cand = np.linspace(plo, phi, 2001)
@@ -508,9 +545,16 @@ def _anchor30(r, J, W, idx, P, bind_pos, ed=None):
             return True
 
         def _distal_ok(pt):
+            # LE DENOMINATEUR EST CELUI DU CONTRAT, ET IL NE L'ETAIT PAS (2026-08-18, cycle 24).
+            # Ce test lisait `mj[-1] / sum(mj)` — la part du maillon distal parmi les sommets que
+            # la CHAINE possede — et la comparait a `frac=0.30`, qui est la barre du contrat du
+            # 08:55 sur les sommets DE LA CHAINE. Les deux grandeurs different d'un facteur ~2.5 sur
+            # cet organe (le thorax est majoritaire sur ~60 % du nuage), donc la garde imprimait
+            # « part du maillon distal = 67.7 %, tres au-dessus des 30 % du contrat » pendant que la
+            # valeur du contrat valait 27.3 % — SOUS la barre. Un rapport dont le denominateur n'est
+            # pas celui de la cible ne mesure pas la cible (piege `ratio-of-two-statistics`).
             mj = [int((pt[:, k + 1] > 0.5).sum()) for k in range(len(joints))]
-            t = sum(mj)
-            return t > 0 and mj[-1] > 0 and mj[0] > 0 and (mj[-1] / t) >= r['frac']
+            return mj[0] > 0 and mj[-1] > 0 and (mj[-1] / len(vi)) >= r['frac']
 
         cur = part.copy()
         for _it in range(400):
@@ -576,7 +620,8 @@ def _anchor30(r, J, W, idx, P, bind_pos, ed=None):
         m = (s >= lo) & (s < hi)
         bands.append(f"{lbl}={ancd[m].mean():.2f}" if m.any() else f"{lbl}=n/a")
     tmaj = sum(maj) if sum(maj) else 1
-    rep = [f"  {r['target']:<10} anchor30 verts={len(vi)} p={p:.3f} (bandes 30 admettent"
+    rep = [f"  {r['target']:<10} anchor30 verts={len(vi)} axis={r.get('axis', 'chain')}"
+           f" p={p:.3f} (bandes 30 admettent"
            f" {plo:.3f}..{phi:.3f}) grad={r['grad']:.2f} lissage={smooth_iters} iter (arret: {stop_why})"
            f" masse deplacee={moved:.1f}",
            f"             ancrage mesure APRES: " + " ".join(bands)
@@ -584,7 +629,9 @@ def _anchor30(r, J, W, idx, P, bind_pos, ed=None):
              f" (cible {r['frac']:.2f})",
            f"             sommets MAJORITAIRES (w>0.5): "
            + " ".join(f"{joints[k]}={maj[k]}" for k in range(len(joints)))
-           + f"   part du maillon distal = {100.0 * maj[-1] / tmaj:.1f}%"]
+           + f"   part du maillon distal = {100.0 * maj[-1] / max(1, len(vi)):.1f}% des sommets"
+             f" de la chaine (barre du contrat {100.0 * r['frac']:.0f}%)"
+             f" — parmi les seuls sommets que la chaine possede: {100.0 * maj[-1] / tmaj:.1f}%"]
     return rep
 
 

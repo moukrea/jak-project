@@ -290,8 +290,25 @@ transfer lBoob from=chest cap=0.95 shape=1.30
 # pour gagner du lissage. Les deux exigences sont de la 30 et elles tirent en sens contraire sur
 # CE maillage ; on garde celle qui est chiffree comme cible (`StrongRootFraction = 0.30`) et on
 # publie l'autre comme ouverte, plutot que d'echanger un rouge contre un autre en silence.
-anchor30 chestL  chain=lBoob,lBooc from=chest gate=0.05 root=0.95 strong=0.55 frac=0.30 grad=2.00
-anchor30 chestR  chain=rBoob,rBooc from=chest gate=0.05 root=0.95 strong=0.55 frac=0.30 grad=2.00
+#
+# 2026-08-18, CYCLE 24 — `axis=flesh` : LE `r` DE LA REGLE N'ETAIT PAS LE `r` DE SA 31.
+# Sa 31 ecrit : « r = 0 at chest attachment and r = 1 at distal/apex region ». La regle prenait
+# r=0 AU JOINT proximal et r=1 AU JOINT distal. Mesure sur le mesh LIVRE : la chair s'etend de
+# t=-0.333 a t=+1.206 le long de l'os, donc 26 % (chestL) et 31 % (chestR) du nuage etaient
+# ECRASES par le clampage sur une des deux bornes — et le profil d'ancrage de la 30, qui est une
+# fonction de r, etait SATURE sur ce quart d'organe.
+# CE QUE LE CORRECTIF DONNE, mesure au banc (bit-exact avec la cuisson) :
+#   `StrongRootFraction`  0.338 / 0.413  ->  0.294 / 0.312   DANS 0.28-0.35 DES DEUX COTES, et
+#       pour la premiere fois a DROITE. Il devient de plus INDEPENDANT du placement des joints
+#       (inchange sous les 35 placements balayes) : la 30 cesse d'etre couplee au rig.
+#   les CINQ bandes d'ancrage DANS des deux cotes (elles etaient 4/5, `Deep root` sous son plancher)
+# ET C'EST CE DECOUPLAGE QUI DEBLOQUE LA 23 : tant que deplacer un joint deplacait le profil
+# d'ancrage, poser le maillon proximal la ou il pilote de la chair cassait la 30. Les positions
+# derivees vivent dans `recharged_assets/keira-hd-inject-joints.txt` (bloc du cycle 24).
+# `axis=chain` reste le defaut du parseur et le comportement historique est bit-pour-bit conserve
+# pour toute regle qui ne demande pas `flesh` (verifie : md5 du mesh livre inchange).
+anchor30 chestL  chain=lBoob,lBooc from=chest gate=0.05 root=0.95 strong=0.55 frac=0.30 grad=2.00 axis=flesh
+anchor30 chestR  chain=rBoob,rBooc from=chest gate=0.05 root=0.95 strong=0.55 frac=0.30 grad=2.00 axis=flesh
 
 [model keira3-hd]
 # The J3 look carries the same rig and the SAME defect (rBoob 86 verts, peak 0.408, 0 dominant).

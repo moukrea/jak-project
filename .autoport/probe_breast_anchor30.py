@@ -172,6 +172,52 @@ def main():
         print("  MESURE ACTUELLE            : majoritaires  %s=%d  %s=%d"
               % (d['joints'][0], int((per[0] > MAJORITY).sum()),
                  d['joints'][1], int((per[1] > MAJORITY).sum())))
+
+        # ------------------------------------------------------------------------------------
+        # LE MEME PROFIL, LU DANS LE REPERE QUE LA 31 DEFINIT (ajoute le 2026-08-18, cycle 24).
+        # ON N'EN REMPLACE AUCUN : les deux colonnes restent cote a cote, pour que l'ecart entre
+        # elles reste lisible.
+        # POURQUOI. Sa 31 ecrit : « r = 0 at chest attachment and r = 1 at distal/apex region ».
+        # Le bloc ci-dessus prend r=0 AU JOINT proximal et r=1 AU JOINT distal — ce n'est pas la
+        # meme abscisse. Mesure : la chair s'etend de t=-0.333 a t=+1.206 le long de l'os, donc
+        # 26 % (chestL) a 31 % (chestR) du nuage est ECRASE par le clampage sur une des deux
+        # bornes, et le profil d'ancrage — qui est une fonction de r — y est SATURE.
+        # Depuis le cycle 24 la regle `anchor30` travaille dans CE repere (`axis=flesh`) : lire
+        # son resultat dans l'autre compare deux abscisses differentes, exactement le piege de
+        # repere qui avait rendu le gradient monde/parent illisible le 2026-08-11.
+        pts = np.asarray([P[g] for g in d['grp']], dtype=float)
+        axv = pts[-1] - pts[0]
+        axv = axv / np.linalg.norm(axv)
+        q = (np.asarray(V[d['vi']], dtype=float) - pts[0]) @ axv
+        sf = (q - q.min()) / (q.max() - q.min())
+        print("  --- LE MEME MESH, ABSCISSE DE LA 31 (r=0 attache thoracique, r=1 apex) ---")
+        print("  r : p25=%.3f p50=%.3f p75=%.3f p90=%.3f p95=%.3f"
+              % tuple(np.percentile(sf, qq) for qq in (25, 50, 75, 90, 95)))
+        nb_in = 0
+        for lo, hi, lbl, blo, bhi in ((0.000, 0.125, 'Deep root        r<0.125', 0.90, 1.00),
+                                      (0.125, 0.375, 'Rear/intermed  0.125-0.375', 0.55, 0.85),
+                                      (0.375, 0.625, 'Mid-volume     0.375-0.625', 0.25, 0.55),
+                                      (0.625, 0.875, 'Distal         0.625-0.875', 0.05, 0.30),
+                                      (0.875, 1.001, 'Apex             r>0.875', 0.00, 0.10)):
+            m = (sf >= lo) & (sf < hi)
+            if not m.any():
+                print("    %-28s  n=0" % lbl)
+                continue
+            a = float(anc[m].mean())
+            ok = 'DANS' if blo <= a <= bhi else ('AU-DESSUS' if a > bhi else 'SOUS')
+            nb_in += 1 if ok == 'DANS' else 0
+            print("    %-28s n=%3d  ancrage=%.3f   bande %.2f-%.2f   %s"
+                  % (lbl, int(m.sum()), a, blo, bhi, ok))
+        majp = int((per[0] > MAJORITY).sum())
+        majd = int((per[1] > MAJORITY).sum())
+        print("  StrongRootFraction (repere 31) = %.3f   cible %.2f (bande 0.28-0.35)   bandes"
+              " DANS : %d/5" % (float((anc >= STRONG).mean()), STRONG_FRAC, nb_in))
+        print("  REPARTITION — la grandeur que la directive du 2026-08-18 08:55 exige :")
+        print("    %s majoritaire sur %d sommets (%.1f %% de la chaine)"
+              % (d['joints'][0], majp, 100.0 * majp / max(1, n)))
+        print("    %s majoritaire sur %d sommets (%.1f %% de la chaine)   barre du contrat 30 %%"
+              "   %s" % (d['joints'][1], majd, 100.0 * majd / max(1, n),
+                         'AU-DESSUS' if majd / max(1, n) >= 0.30 else 'SOUS'))
         print("  poids total porte par chaque os (somme des poids de peau) : %s"
               % "  ".join("%s=%.3f" % (d['joints'][k], float(per[k].sum()))
                           for k in range(len(d['joints']))))
