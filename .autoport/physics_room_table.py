@@ -3240,6 +3240,7 @@ def main():
         A('   la geometrie des cheveux etait soudee au crane et une meche a 2 joints se reduisait a')
         A('   un segment rigide articule EN SON MILIEU. Zero ici = le defaut est present.')
         mute = []
+        judged = 0
         for c in sorted(chains):
             v, nl = rr.get(c), chains[c]['links']
             if v is None:
@@ -3257,17 +3258,23 @@ def main():
             # defaut. Ne sont fautives que les chaines a 2+ maillons, celles que le generateur
             # rootlocke. Et une chaine que le generateur NE rootlocke PAS n'a pas de domaine du
             # tout : `rot0` ci-dessus la retire, sinon le verdict porterait sur un zero vide.
-            if nl >= 2 and v <= 0.0 and not (rot0.get(c, 0.0) > 0.0):
-                mute.append(names[c])
+            if nl >= 2:
+                judged += 1
+                if v <= 0.0 and not (rot0.get(c, 0.0) > 0.0):
+                    mute.append(names[c])
         if mute:
             A('   MUET sur %d chaine(s) a 2+ maillons : %s' % (len(mute), ' '.join(mute)))
             A('   Leur premier segment ne tourne pas d\'un degre : le defaut que l\'owner decrit est')
             A('   encore la, et il est STRUCTUREL, pas un reglage.')
-        else:
+        elif judged:
             A('   Toutes les chaines a 2+ maillons ecrivent une rotation non nulle sur leur premier')
             A('   segment : le cuir chevelu est devenu une charniere au lieu d\'une soudure. Le')
             A('   controle positif est la version precedente du moteur, ou ce meme chiffre valait')
             A('   0.0000 sur TOUTES ces chaines — un zero structurel, pas un zero mesure.')
+        else:
+            A('   AUCUNE chaine de cette course n\'est jugeable par ce compteur : toutes ont un')
+            A('   domaine vide (aucun `rootlock` declare). Ce n\'est ni une reussite ni un echec,')
+            A('   c\'est une absence de mesure — et c\'est `rot0` ci-dessus qui porte le chiffre.')
         A('')
 
     # ---- LE PRIX DU MUR DUR D'EXCURSION (cycle 2026-08-12, en poursuivant `knee-tabs`) --------
@@ -3390,9 +3397,15 @@ def main():
     # le centre de masse de la chair. NATURE : une longueur rapportee a B0, maximum de fenetre.
     # REPERE : le monde, frame ecrite, contre la pose d'auteur de la MEME frame, deformation
     # comprise. LECTURE A LA POSE D'AUTEUR : 0.0000.
-    _comex = {}
-    for _m in re.finditer(r'^PHYSDIAG8 tag=(\S+) c=(\d+) comex=([-\d.e+]+)', txt, re.M):
+    _comex, _comdist = {}, {}
+    for _m in re.finditer(r'^PHYSDIAG8 tag=(\S+) c=(\d+) comex=([-\d.e+]+)'
+                          r'(?: comsum=([-\d.e+]+) comn=([-\d.e+]+) comhi=([-\d.e+]+))?',
+                          txt, re.M):
         _comex.setdefault(_m.group(1), {})[int(_m.group(2))] = float(_m.group(3))
+        if _m.group(5) is not None and float(_m.group(5)) > 0.0:
+            _comdist.setdefault(_m.group(1), {})[int(_m.group(2))] = (
+                float(_m.group(4)) / float(_m.group(5)),
+                float(_m.group(6)) / float(_m.group(5)))
     A('')
     if _comex.get('run'):
         A('-- SPEC 22 : L\'EXCURSION DU CENTRE DE CHAIR (comex), CONTRE SA PROPRE BANDE ----------')
@@ -3406,6 +3419,16 @@ def main():
                     'HORS BANDE, x%.2f le plafond dur' % (_v / 0.40)))
             A('ROOM-COMEX: chain=%-12s comex=%.4f B0   (0.35 / 0.40)   %s'
               % (names[_c] if _c < len(names) else _c, _v, _st))
+            _d = _comdist.get('run', {}).get(_c)
+            if _d is not None:
+                A('   distribution : moyenne %.4f B0 · %.1f %% des echantillons au-dessus de 0.40'
+                  % (_d[0], 100.0 * _d[1]))
+        if _comdist.get('run'):
+            A('   La moyenne et la part au-dessus du plafond disent si une borne posee a 0.40')
+            A('   CLIPERAIT un extreme ou MUSELLERAIT la reponse. Sans elles, un maximum hors')
+            A('   bande ne permet pas de dimensionner un correctif sans risquer un suppresseur.')
+        else:
+            A('   distribution : NON MESUREE par cette course (trace anterieure a comsum/comn).')
     else:
         A('-- SPEC 22 / comex : NON MESURE par cette course (aucune ligne PHYSDIAG8) ------------')
     A('')
@@ -3445,8 +3468,24 @@ def main():
             _conf = [n for n, a, b in _lat if a >= 50.0 and b <= 0.40 * a]
             _ref = [n for n, a, b in _lat if a >= 50.0 and b >= 0.85 * a]
             if _conf:
-                A('   VERDICT (critere pose AVANT la course, C29-lenres-prediction.txt) : la')
-                A('   CONTRAINTE DE LONGUEUR est DESIGNEE sur l\'axe lateral — %s' % ' '.join(_conf))
+                # LE CRITERE REND VERT ET IL N'EST PAS DISCRIMINANT — ON NE PREND PAS LE VERT.
+                # Desarmer `phys-length-chain` ne retire pas « la confiscation de la composante
+                # radiale » : il retire LA SEULE restriction cinematique du solveur. Un point
+                # libre sort de n'importe quel volume, quelle que soit la cause qui l'y retenait.
+                # Ce controle aurait donc rendu zero pour TOUTE hypothese — c'est le piege
+                # `attribution-harness-outlives-its-defect`, paye au cycle 28 sur ROOM-ORICTL.
+                # Ce qui discrimine est la GEOMETRIE (probe_c29_chain_axis.py) : l'angle entre la
+                # radiale du maillon et la direction de separation vaut 68-69 deg, donc 86 a 87 %
+                # de la poussee survit a la projection. L'hypothese est REFUTEE, pas confirmee.
+                A('   VERDICT : le critere pose avant la course (C29-lenres-prediction.txt) rend')
+                A('   VERT sur %s — ET IL N\'EST PAS DISCRIMINANT, donc ce vert est REFUSE.'
+                  % ' '.join(_conf))
+                A('   Desarmer la contrainte de longueur ne retire pas une DIRECTION, elle retire')
+                A('   la SEULE restriction cinematique : un point libre sort de tout volume, quelle')
+                A('   que soit la cause. Ce controle aurait rendu zero pour n\'importe quelle')
+                A('   hypothese. Ce qui discrimine est la geometrie (probe_c29_chain_axis.py) :')
+                A('   68-69 deg entre la radiale du maillon et la direction de separation, donc')
+                A('   86-87 %% de la poussee SURVIT a la projection — l\'hypothese est REFUTEE.')
             elif len(_ref) == len(_lat) and _lat:
                 A('   VERDICT : la contrainte de longueur est EXONEREE sur l\'axe lateral (residu')
                 A('   inchange a 15 %% pres quand elle est levee). L\'hypothese est REFUTEE.')
@@ -3455,15 +3494,25 @@ def main():
         if _axtan:
             A('   rendement geometrique de la poussee de contact, par fenetre (delta cumule) :')
             _pn = _ps = _pr = 0
+            _first = True
             for _ax, _nl, _n, _sd, _rm in _axtan:
                 _dn, _dsd, _drm = _n - _pn, _sd - _ps, _rm - _pr
                 _pn, _ps, _pr = _n, _sd, _rm
                 _e = ('%7.4f' % (_drm / _dsd)) if _dsd > 0.0 else '    n/a'
-                A('     %-14s len=%s  poussees=%-9d rend=%s'
-                  % (_AXN[_ax], 'OFF' if _nl else 'ON ', _dn, _e))
-            A('   Un rendement proche de 0 dit que la poussee est RADIALE et que la projection sur')
-            A('   la sphere de l\'attache la rend a zero : le solveur ne peut alors pas separer,')
-            A('   quel que soit le nombre d\'iterations.')
+                # LE PREMIER DELTA N'EST PAS UNE FENETRE : les compteurs sont CUMULES depuis le
+                # debut de la course et rien ne les remet a zero avant (les remettre changerait
+                # `PHYSTAN`, deja publie). La premiere ligne porte donc tout le reste de la
+                # course ; seules les SUIVANTES sont des fenetres, et elles sont minuscules.
+                _flag = ('  <- CUMUL DE TOUTE LA COURSE, pas une fenetre' if _first else
+                         ('  <- domaine trop petit pour conclure' if _dn < 10000 else ''))
+                _first = False
+                A('     %-14s len=%s  poussees=%-9d rend=%s%s'
+                  % (_AXN[_ax], 'OFF' if _nl else 'ON ', _dn, _e, _flag))
+            A('   Un rendement proche de 0 dirait que la poussee est RADIALE et que la projection')
+            A('   sur la sphere de l\'attache la rend a zero. MAIS les fenetres d\'impulsion sont')
+            A('   quasi sans contact (quelques milliers de poussees contre 2.25 millions sur le')
+            A('   reste de la course) : aucune de ces lignes, hors la premiere, ne porte assez')
+            A('   d\'echantillons pour etre lue comme une mesure. Publiees, pas exploitees.')
     # ---- ROOM-SKINPEN : la penetration contre la PEAU, a lire A COTE de meshpen ------------------
     sp_run = skinpen.get('run', {})
     if sp_run:
