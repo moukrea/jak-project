@@ -427,4 +427,81 @@ OPEN breast-spec-incomplete  PRIORITE 1 -- LA SEULE LIGNE QUI TIENT LA PHASE OUV
 #     A TRANCHER AVANT DE DEPENSER UN CYCLE DE PLUS : la 30 dit « % of the rear breast VOLUME »
 #       et l'instrument compte des SOMMETS. Pondere par l'aire du maillage livre,
 #       `StrongRootFraction` vaut 0.307 / 0.344 -- les DEUX cotes DANS la bande.
+#
+#   ETAT AU CYCLE 24 (2026-08-18). L'OS INJECTE PILOTE ENFIN LA CHAIR : LA CONDITION DU 08:55 EST
+#   REMPLIE POUR LA PREMIERE FOIS. Cuisson HD faite (14 s, gates d'integrite PASS), course x86
+#   complete (31/31 anims), livraison au fil de l'eau (APK 9f75cbcc + pack 324e9ebd, 14:43).
+#   Rapport complet : report.txt. Palier DONNEES SEULES, moteur inchange d'un octet.
+#     STRUCTURE (23/30) -- le tableau que la directive du 08:55 exige, mesh LIVRE :
+#         os        poids total   sommets MAJORITAIRES (w>0.5)   part de chaine   barre 30 %
+#         lBoob        17.669           8  (etait 12)                 9.4 %
+#         lBooc        33.016          37  (etait 20)                43.5 %       AU-DESSUS
+#         rBoob        19.747          10  (etait 18)                12.5 %
+#         rBooc        28.567          30  (etait 17)                37.5 %       AU-DESSUS
+#       Historique du mode d'echec : 0 % / 0 % (cycle 21), 27.3 % / 22.7 % (cycle 23), et
+#       maintenant 43.5 % / 37.5 %. LA CAUSE mesuree etait que le maillon proximal vivait a
+#       r = 0.216, DANS la bande que la 30 reserve au thorax (plafond 0.10 de tout sommet) : l'os
+#       etait structurellement condamne a etre ignore, quel que soit le repesage. Les deux noeuds
+#       sont RE-PLACES la ou la 30 leur assigne de la chair ; le repesage suit dans la MEME passe.
+#       `StrongRootFraction` 0.338 -> 0.294 et 0.413 -> 0.312 : les DEUX cotes DANS 0.28-0.35 pour
+#       la premiere fois, et les CINQ bandes d'ancrage DANS des deux cotes. Les QUATRE predictions
+#       ecrites AVANT la cuisson sont confirmees a la decimale (aucune falsifiee).
+#     24/28 : LA RE-DERIVATION ANNONCEE N'A PAS LIEU D'ETRE, ET C'EST MESURE. Les six frequences
+#       de mode propre sont inchangees a 1.0 % pres malgre un os distal divise par 2.9 :
+#       v 2.320/2.425 · ap 2.420/2.525 · lat 2.565/2.620, toutes DANS. `stiffness` non touche.
+#       C'est la DEUXIEME fois de suite que cette re-derivation est annoncee et mesuree inutile.
+#     10/11/12 : L'INSTRUMENT COMPARAIT UN INCREMENT A UN CUMUL, ET IL LE DISAIT LUI-MEME.
+#       `ROOM-ORICOM-MASS` se declarait suspendu (« DESACCORD 57.35 % ») depuis qu'il existe.
+#       `PHYSORICOML` publie `u - m` par maillon, donc un ecart A SON PROPRE PARENT ; l'ecart
+#       absolu du j-eme joint est la somme telescopique `sum(ldb[0..j])`. Le bloc prenait
+#       l'increment pour l'absolu. Sur une chaine a UN maillon les deux coincident -- le defaut
+#       n'etait visible que depuis que la 23 pose un second maillon. Corrige : le controle contre
+#       un accumulateur INDEPENDANT passe de 57.35 / 56.16 % a 1.24 / 2.27 %.
+#       ET LE VERDICT DE LA 12 S'INVERSE : lue sur l'APEX elle rendait « 3 sur 4 AU-DESSUS » depuis
+#       le cycle 15 ; lue sur le COM qu'elle nomme, les QUATRE valeurs sont SOUS (0.0933 / 0.0839 /
+#       0.0855 / 0.0357 B0 contre 0.15-0.24). La 10 et la 11 aussi. C'est une BORNE INFERIEURE :
+#       le tenseur de deformation etire la peau sans deplacer un joint, et aucune somme de `ldb`
+#       ne peut le voir -- tache nommee, pas trou tu. La colonne « compose avec rr » est RETIREE
+#       (double comptage : `rr` est la composante radiale du meme `u - m`, deja dans `ldb`).
+#     COLLIDE : LA CAUSE EST TROUVEE ET ELLE N'EST PAS DANS LE SOLVEUR. `meshpen` remonte
+#       (0.0593 -> 0.0938 m et 0.0351 -> 0.0791 m) et c'est un COUT de ce cycle. Mais au REPOS,
+#       pose d'auteur, physique ETEINTE (`probe_rest_containment.py`) :
+#         REST-IN-WORST chestL lBooc vs Lshoulder->chest = -0.059 m
+#         REST-IN-WORST chestR rBooc vs Rshoulder->chest = -0.058 m
+#       63 % / 73 % du residu existe AVANT que le solveur ne tourne : son ensemble cible est VIDE.
+#       Cela REFUTE, comme cause dominante, l'hypothese ecrite dans la gate elle-meme (« defaut
+#       d'ordre et de terminaison »). Les deux volumes en cause sont EXACTEMENT les deux que le
+#       generateur declare n'avoir pas pu deriver (« Lshoulder SPAN-EMPTY, rayon 612 INCHANGE --
+#       os propre ambigu », idem 554 a droite), et leur bout `chest` porte 17.6 / 18.0 cm de rayon
+#       centres sur le sternum : une sphere qui contient les seins par construction geometrique.
+#       >>> LE CHANTIER SUIVANT EST DONC LE BOUT `chest` DES CAPSULES D'EPAULE, avec son critere
+#           d'arret ecrit d'avance : REST-IN-WORST >= 0, et alors `meshpen` <= 0.035 / 0.021 m.
+#     DEUX AUTRES TEMOINS DE LA MEME SATURATION, ET L'UN CASSE UNE GATE :
+#       (a) le controle positif de COLLIDE ne tire plus -- 2.25x au cycle 23, 1.25x ici (il faut
+#           3x). Ce n'est pas la branche armee qui baisse, c'est la DESARMEE qui double
+#           (0.0380 -> 0.0724) : le maximum est deja au plafond sans injection.
+#       (b) DISCRIMINANT chestL 29.8 % -> 23.9 %, SOUS le seuil de 25 % : CE CYCLE CASSE CETTE
+#           GATE. chestR est inchangee (42.6 -> 43.9 %). Le cote qui s'aplatit est celui dont la
+#           penetration est la pire -- « une defaillance de DISCRIMINANT peut etre un defaut de
+#           dimensionnement ». Publie comme rouge, PAS retire : l'ordre du 2026-08-17 23:50 dit
+#           qu'un plancher qui casse est la LISTE DE TRAVAIL, pas un motif de retrait.
+#     ET UNE GATE ECHOUAIT DEPUIS 13:30 SANS QUE PERSONNE PUISSE LA VOIR : `CLEAN` (moteur 4817
+#       lignes contre un plafond de 4800), franchie par le correctif 37 du cycle PRECEDENT.
+#       `OPEN-DEFECTS` sort avant elle, donc elle n'etait jamais atteinte. Je ne la touche pas
+#       (regle 5) et je ne descends pas sous le plafond en deplacant des commentaires (1561 des
+#       4817 lignes en sont) : la doctrine de la gate dit « c'est la COMPOSITION qui decide ».
+#       Composition mesuree : `clamp` 9 et `hyster` 4, contre 84 et 9 sur le moteur de 6000 lignes
+#       qui avait tue le mouvement. Decision au superviseur.
+#     A TRANCHER PAR LE SUPERVISEUR (regle 5, aucune gate touchee) : COLLIDE exige <= 0.0005 m
+#       d'un lien dont la POSE D'AUTEUR viole deja la contrainte de 0.059 m. Telle qu'elle est
+#       ecrite, elle ne peut etre satisfaite qu'en sortant l'organe de la pose que les 4 et 9
+#       imposent.
+#     COUT PUBLIE, SANS RIEN RETIRER : tipvar max -12.8 % / -10.7 % · GRAVSAG -24 % / -52 %
+#       (le bras total pointe-ancre baisse de 11.5 %, ce qui explique la moitie a gauche et PAS la
+#       droite -- non resolu, nomme) · 27 t1 1.48 / 1.50 s, a la borne haute de 1.0-1.5 · 27 t05
+#       sort de la fenetre mesurable. En regard : `ROOM-SKINPEN` devient fiable (erreur miroir
+#       33 % -> 1 %), 22 et 24 inchangees.
+#     A TRANCHER PAR L'OWNER, ET LA QUESTION LUI EST POSEE : ce placement echange ~12 %
+#       d'amplitude contre 16 points de possession de peau. Deformation contre amplitude : c'est
+#       son oeil qui decide, la mesure ne peut pas.
 #   CETTE LIGNE NE SE RETIRE QUE SUR LE MOT DE L'OWNER, jamais sur un tableau vert.

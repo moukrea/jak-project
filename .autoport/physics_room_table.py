@@ -786,17 +786,45 @@ def _oricom_mass_block(A, txt, names, com, com2, role, axis, b0):
     (`w>0`, `w>=0.05`, `w>=0.25`) sont donnees cote a cote. Si les trois rendent le meme verdict,
     la frontiere ne decide pas ; si elles divergent, c'est CA la mesure.
 
-    LE CONTROLE, ET IL EST INDISPENSABLE. `PHYSORICOML` vient d'un AUTRE accumulateur
-    (`phys-link-dev-anc-abs`, instantane, triedre (v,ap,lat)) que `PHYSORICOM` (`phys-tip-mean`,
-    moyenne de fenetre, triedre (x,y,z) de SPEC 7). Les deux triedres sont orthonormes, donc la
-    NORME doit coincider sur le maillon de POINTE. L'ecart publie ci-dessous mesure d'un coup
-    l'erreur de repere ET l'ecart instantane/moyenne ; il ne se corrige pas, il se lit.
+    CORRIGE LE 2026-08-18 (cycle 24) — CE BLOC LISAIT UN INCREMENT COMME UN ABSOLU.
+    `PHYSORICOML` publie, pour chaque maillon `l`, la quantite `u - m` : le vecteur du maillon
+    COURANT moins le vecteur du maillon d'AUTEUR, tous deux issus de LA MEME ATTACHE. C'est donc
+    un ecart RELATIF A SON PROPRE PARENT, pas un ecart a la pose d'auteur :
 
-    CE QUE CE BLOC NE FAIT PAS, et il faut le dire pour ne pas le redecouvrir : le canal RADIAL
-    (`rr`) reste celui que le solveur COMMANDE A LA RACINE. Sa §31 grade les poids en r^1.63, donc
-    le mesh n'en recoit qu'une part — la meme correction de masse lui est due et n'est pas faite
-    ici. Les deux colonnes `|d|` sont donc publiees : tangentielle seule (exacte) et composee avec
-    `rr` tel quel (majorante sur ce second terme)."""
+        ldb[l]  =  d(enfant du maillon l)  -  d(attache du maillon l)
+
+    donc l'ecart ABSOLU du j-eme joint de la chaine est la somme TELESCOPIQUE `sum(ldb[0..j])`,
+    l'ancre ayant un ecart identiquement nul. Le bloc prenait `ldb[j]` tel quel pour `d_j`. Sur
+    une chaine a UN maillon les deux coincident (l'attache est l'ancre), et c'est pourquoi le
+    defaut est reste invisible jusqu'a ce que la structure de §23 pose un second maillon.
+
+    C'EST SON PROPRE CONTROLE QUI L'A DIT, ET IL DISAIT VRAI. Il comparait `|ldb[dernier]|` a
+    `|t|` (`phys-tip-mean`, un accumulateur INDEPENDANT : autre variable, autre triedre, moyenne
+    de fenetre) et publiait 57.35 % / 56.16 % d'ecart, en se suspendant lui-meme. Mesure sur la
+    course du 2026-08-18 14:16, 18 orientations, les deux chaines :
+
+        |ldb[1]| seul  contre |t| :  -57.4 % a +107.4 %      (ce que le bloc faisait)
+        |ldb[0]+ldb[1]| contre |t| :  -0.40 % a +0.31 %      sur 16 orientations sur 18
+                                      (+1.25 % et +2.32 % sur les deux restantes)
+
+    La somme telescopique retombe sur l'accumulateur independant a 0.4 % pres. Le desaccord
+    n'etait donc ni un repere, ni un ecart instantane/moyenne, ni la physique : c'etait un
+    INCREMENT compare a un CUMUL. Il est corrige ici, et le controle reste publie — c'est lui
+    qui a trouve le defaut, il ne se retire pas une fois vert.
+
+    ET LA COLONNE « COMPOSE AVEC rr » EST RETIREE, POUR DEUX RAISONS MESUREES. `rr` (`*phys-rr*`,
+    :3061) vaut `((cp - a).m_hat) - bl` : c'est la composante RADIALE de ce meme `u - m` au
+    JOINT. Elle est donc (1) DEJA CONTENUE dans `ldb`, qui projette `u - m` sur les trois axes
+    orthonormes de l'ancre — l'ajouter en Pythagore la comptait deux fois ; et (2) d'une autre
+    NATURE que `d_COM`, qui est une moyenne PONDEREE PAR LA MASSE sur ~90 sommets : composer un
+    deplacement de joint (0.21 B0) avec une moyenne d'organe (0.06 B0) melange deux echelles.
+
+    CE QUE CE BLOC NE MESURE TOUJOURS PAS, et il faut le dire pour ne pas le redecouvrir : le
+    tenseur de deformation (`*phys-dfm*`, :3968) etire la PEAU autour de l'os d'un rapport
+    `1 + PHYS-DYN-K.|d|`, et ce deplacement-la ne passe pas par les positions de joints, donc
+    aucune somme de `ldb` ne peut le voir. `d_COM` ci-dessous est exact pour la part SQUELETTIQUE
+    (skinning lineaire) et MUET sur la part tensorielle. C'est une borne INFERIEURE, et elle est
+    declaree comme telle au lieu d'etre completee par un terme de la mauvaise nature."""
     comL = {}
     for m in re.finditer(r'^PHYSORICOML c=(\d+) i=(\d+) l=(\d+) dv=([-\d.e+]+)'
                          r' dap=([-\d.e+]+) dlat=([-\d.e+]+)', txt, re.M):
@@ -824,6 +852,14 @@ def _oricom_mass_block(A, txt, names, com, com2, role, axis, b0):
     A('   LIGNE DE BASE : i=0 (debout d\'auteur), ou §9 exige 0.0000 ; elle est publiee.')
     A('   SOURCE DES POIDS : %s (mesh LIVRE, pas le rip du donneur).' % mass.get('source', '?'))
     A('   d_COM = (W_0.d_0 + W_1.d_1)/N — aucun coefficient choisi ; W_j et N mesures, d_j lus.')
+    A('   d_j EST UN CUMUL, PAS UN INCREMENT (corrige le 2026-08-18) : `PHYSORICOML` publie')
+    A('     `u - m` par maillon, donc un ecart A SON PROPRE PARENT ; l\'ecart a la pose d\'auteur du')
+    A('     j-eme joint est la somme telescopique `sum(ldb[0..j])`, l\'ancre etant a zero. Sur une')
+    A('     chaine a UN maillon les deux coincident — le defaut n\'etait visible que depuis §23.')
+    A('   PART MESUREE : la part SQUELETTIQUE (skinning lineaire). Le tenseur de deformation')
+    A('     (`*phys-dfm*`) etire la peau autour de l\'os sans deplacer un joint : il n\'est PAS ici.')
+    A('     `d_COM` est donc une BORNE INFERIEURE, et la colonne « compose avec rr » est retiree —')
+    A('     `rr` est la composante radiale du MEME `u - m`, deja comptee, et d\'une autre echelle.')
     for c in sorted({c for (c, _i, _l) in comL}):
         nm = names[c] if c < len(names) else 'c%d' % c
         rec = mass.get('chains', {}).get(nm)
@@ -833,26 +869,58 @@ def _oricom_mass_block(A, txt, names, com, com2, role, axis, b0):
             continue
         nl = 1 + max(l for (cc, _i, l) in comL if cc == c)
         bb = b0.get(c, 602.0)
+
+        def dcum(cc, ii, j):
+            """L'ecart ABSOLU du j-eme joint : somme telescopique des increments `ldb[0..j]`.
+
+            `ldb[l] = d(enfant du maillon l) - d(attache du maillon l)` ; l'ancre a un ecart
+            identiquement nul, donc la somme des l premiers increments EST l'ecart a la pose
+            d'auteur. Rend None si un increment manque — on ne comble pas un trou par zero."""
+            acc = [0.0, 0.0, 0.0]
+            for l in range(j + 1):
+                d = comL.get((cc, ii, l))
+                if d is None:
+                    return None
+                for k in range(3):
+                    acc[k] += d[k]
+            return tuple(acc)
+
         # --- le controle : la pointe, lue par les deux instruments ------------------------------
+        # i=0 EST LA LIGNE DE BASE DE CE BLOC, DECLAREE PLUS HAUT : la pose debout d'auteur, ou
+        # §9 exige 0.0000. Les deux instruments y lisent 1 a 3 unites de jeu, soit 0.2 a 0.4 % de
+        # B0 — un rapport RELATIF entre deux quasi-zeros n'est pas une mesure, c'est une division
+        # par le bruit. La ligne de base se juge donc en ABSOLU (c'est la grandeur que §9 nomme)
+        # et l'accord des deux instruments sur les orientations QUI PORTENT UN SIGNAL se juge en
+        # relatif. Ce n'est pas un seuil choisi : c'est le partage des roles deja ecrit au-dessus.
         ictl = [i for (cc, i, l) in comL if cc == c and l == nl - 1 and (cc, i) in com]
-        worst, worst_i = 0.0, None
+        worst, worst_i, nbase = 0.0, None, 0
+        base_a = base_t = float('nan')
         for i in sorted(set(ictl)):
-            da = comL[(c, i, nl - 1)]
+            da = dcum(c, i, nl - 1)
+            if da is None:
+                continue
             na = math.sqrt(sum(x * x for x in da))
             t = com[(c, i)]
             nt = math.sqrt(sum(x * x for x in t))
+            if i == 0:
+                base_a, base_t = na / bb, nt / bb
+                continue
             if max(na, nt) > 1e-6:
+                nbase += 1
                 rel = abs(na - nt) / max(na, nt)
                 if rel > worst:
                     worst, worst_i = rel, i
-        A('ROOM-ORICOM-MASS: %-12s CONTROLE pointe : |d| (PHYSORICOML) contre |t| (PHYSORICOM), pire'
+        A('ROOM-ORICOM-MASS: %-12s CONTROLE pointe : |sum ldb| (PHYSORICOML, cumul) contre |t|'
           % nm)
-        A('   ecart relatif %.4f%s sur %d orientations — deux accumulateurs, deux triedres, un seul'
-          % (worst * 100.0, (' %% (i=%d)' % worst_i) if worst_i is not None else ' %',
-             len(set(ictl))))
-        A('   nombre. %s' % ('accord' if worst < 0.05 else
-                             'DESACCORD > 5 % : le montage est en cause, pas la physique — '
-                             'les lignes ci-dessous sont suspendues a ce constat'))
+        A('   (PHYSORICOM), pire ecart relatif %.4f%s sur %d orientations chargees — deux'
+          % (worst * 100.0, (' %% (i=%d)' % worst_i) if worst_i is not None else ' %', nbase))
+        A('   accumulateurs independants, deux triedres, un seul nombre. %s'
+          % ('accord' if worst < 0.05 else
+             'DESACCORD > 5 % : le montage est en cause, pas la physique — '
+             'les lignes ci-dessous sont suspendues a ce constat'))
+        A('   LIGNE DE BASE i=0 (debout d\'auteur, §9 exige 0.0000), en ABSOLU parce qu\'un rapport'
+          ' entre deux quasi-zeros')
+        A('   ne mesure rien : |sum ldb| = %.5f B0  ·  |t| = %.5f B0.' % (base_a, base_t))
         # --- les trois deplacements que sa spec chiffre, sur le COM ------------------------------
         r = role.get(c, {})
         lat = [i for i in (2, 4) if (c, i, 0) in comL]
@@ -868,7 +936,7 @@ def _oricom_mass_block(A, txt, names, com, com2, role, axis, b0):
                 W, N = d['W'], float(d['n'])
                 acc = [0.0, 0.0, 0.0]
                 for l in range(min(nl, len(W))):
-                    dj = comL.get((c, i, l))
+                    dj = dcum(c, i, l)          # CUMUL, pas l'increment `ldb[l]` (voir docstring)
                     if dj is None:
                         continue
                     for k in range(3):
@@ -878,20 +946,19 @@ def _oricom_mass_block(A, txt, names, com, com2, role, axis, b0):
             # l'apex du meme i, pour que le facteur de conversion soit lisible sans calcul
             t = com.get((c, i))
             napex = math.sqrt(sum(x * x for x in t)) / bb if t else float('nan')
+            # `rr` est publie A COTE, jamais compose : c'est la composante RADIALE du meme
+            # `u - m`, au JOINT — deja contenue dans `d_COM`, et d'une autre echelle (joint
+            # contre moyenne d'organe). Le composer etait un double comptage ; il est retire.
             rr = com2.get((c, i), (0.0, 0.0, 0.0))[0]
-            # les deux canaux sont ORTHOGONAUX par construction (l'un tangentiel, l'autre le long
-            # de l'os) et `ax` est unitaire : la composition est un Pythagore, pas une somme.
             base = cols[0][1] if cols else float('nan')
-            comp = math.sqrt(base * base + rr * rr)
             A('ROOM-ORICOM-MASS: %-12s %s i=%d  |d_COM|=%s B0  (apex %.4f, facteur %s)'
               % (nm, lab, i, '/'.join('%.4f' % v for (_c, v) in cols), napex,
                  ('%.3f' % (base / napex)) if napex == napex and napex > 1e-9 else 'n/a'))
-            A('                              tangentiel seul %s  ·  compose avec rr %.4f  ·'
-              '  cible %.2f (bande %.2f-%.2f)  %s'
+            A('                              squelettique seul %s  ·  cible %.2f (bande %.2f-%.2f)'
+              '  ·  rr(joint, pour memoire, NON compose) %.4f'
               % ('DANS' if band[0] <= base <= band[1] else
-                 ('SOUS' if base < band[0] else 'AU-DESSUS'), comp, nom, band[0], band[1],
-                 'DANS' if band[0] <= comp <= band[1] else
-                 ('SOUS' if comp < band[0] else 'AU-DESSUS')))
+                 ('SOUS — borne INFERIEURE, la part tensorielle manque' if base < band[0]
+                  else 'AU-DESSUS'), nom, band[0], band[1], rr))
         d0 = rec['defs'][0]
         A('   (frontieres w>0 / w>=0.05 / w>=0.25 — les trois colonnes de |d_COM| ci-dessus ;'
           ' N=%d, part de l\'organe portee par la chaine %.4f, le reste est ancre au buste)'

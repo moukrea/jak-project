@@ -684,14 +684,14 @@ ROOM-VOLPRIO: chain=chestR       ignored=241696   retreat=0
    non nulle, jusqu'a 0.7578 m. La phrase decrivait un faux zero, pas une mesure.
    NATURE : profondeur en metres, positive = SOUS la peau. REPERE : le monde, frame
    ecrite. LECTURE HORS DEFAUT : 0. tests=0 veut dire « pas regarde », jamais « rien ».
-ROOM-SKINPEN: chain=chestR       skinpen=0.1373 m   meshpen=0.0791 m
-ROOM-SKINPEN: chain=chestL       skinpen=0.1249 m   meshpen=0.0938 m
+ROOM-SKINPEN: chain=chestL       skinpen=0.1417 m   meshpen=0.0938 m
+ROOM-SKINPEN: chain=chestR       skinpen=0.1408 m   meshpen=0.0791 m
 ROOM-SKINPEN-TESTS: 9977413 echantillons de surface compares sur la fenetre
 
 ROOM-SKINPEN-MIRROR: l'ecart entre paires MIROIR est l'erreur de l'instrument —
    parametres identiques, geometrie miroir : ce qui les separe n'est pas un defaut.
-ROOM-SKINPEN-MIRROR: chestL       0.1249  vs chestR       0.1373   ecart    9 %
-ROOM-SKINPEN-FLOOR: 0.0124 m — AUCUNE valeur de la colonne ci-dessus n'est interpretable en dessous de ce plancher.
+ROOM-SKINPEN-MIRROR: chestL       0.1417  vs chestR       0.1408   ecart    1 %
+ROOM-SKINPEN-FLOOR: 0.0010 m — AUCUNE valeur de la colonne ci-dessus n'est interpretable en dessous de ce plancher.
 
 -- LE PREDICAT CONIQUE : LE SOLIDE TESTE EST ENFIN CELUI QUE LA DONNEE DESIGNE ----------
    Les 24 capsules livrees sont TOUTES coniques (radius != radius2). Le moteur testait le
@@ -1664,29 +1664,41 @@ ROOM-ORICOM-SPEC: chestR       §11 transitoire  pic d'etablissement=0.39980  te
    LIGNE DE BASE : i=0 (debout d'auteur), ou §9 exige 0.0000 ; elle est publiee.
    SOURCE DES POIDS : out/jak1/fr3/skin/keira-hd-lod0.glb (mesh LIVRE, pas le rip du donneur).
    d_COM = (W_0.d_0 + W_1.d_1)/N — aucun coefficient choisi ; W_j et N mesures, d_j lus.
-ROOM-ORICOM-MASS: chestL       CONTROLE pointe : |d| (PHYSORICOML) contre |t| (PHYSORICOM), pire
-   ecart relatif 57.3522 % (i=6) sur 9 orientations — deux accumulateurs, deux triedres, un seul
-   nombre. DESACCORD > 5 % : le montage est en cause, pas la physique — les lignes ci-dessous sont suspendues a ce constat
-ROOM-ORICOM-MASS: chestL       §10 supine  i=8  |d_COM|=0.0260/0.0312/0.0391 B0  (apex 0.1069, facteur 0.243)
-                              tangentiel seul SOUS  ·  compose avec rr 0.1628  ·  cible 0.23 (bande 0.18-0.28)  SOUS
-ROOM-ORICOM-MASS: chestL       §11 prone   i=6  |d_COM|=0.0519/0.0625/0.0781 B0  (apex 0.2104, facteur 0.247)
-                              tangentiel seul SOUS  ·  compose avec rr 0.2645  ·  cible 0.24 (bande 0.20-0.30)  DANS
-ROOM-ORICOM-MASS: chestL       §12 lateral i=2  |d_COM|=0.0591/0.0712/0.0891 B0  (apex 0.2369, facteur 0.250)
-                              tangentiel seul SOUS  ·  compose avec rr 0.2429  ·  cible 0.19 (bande 0.15-0.24)  AU-DESSUS
-ROOM-ORICOM-MASS: chestL       §12 lateral i=4  |d_COM|=0.0514/0.0621/0.0789 B0  (apex 0.2057, facteur 0.250)
-                              tangentiel seul SOUS  ·  compose avec rr 0.1938  ·  cible 0.19 (bande 0.15-0.24)  DANS
+   d_j EST UN CUMUL, PAS UN INCREMENT (corrige le 2026-08-18) : `PHYSORICOML` publie
+     `u - m` par maillon, donc un ecart A SON PROPRE PARENT ; l'ecart a la pose d'auteur du
+     j-eme joint est la somme telescopique `sum(ldb[0..j])`, l'ancre etant a zero. Sur une
+     chaine a UN maillon les deux coincident — le defaut n'etait visible que depuis §23.
+   PART MESUREE : la part SQUELETTIQUE (skinning lineaire). Le tenseur de deformation
+     (`*phys-dfm*`) etire la peau autour de l'os sans deplacer un joint : il n'est PAS ici.
+     `d_COM` est donc une BORNE INFERIEURE, et la colonne « compose avec rr » est retiree —
+     `rr` est la composante radiale du MEME `u - m`, deja comptee, et d'une autre echelle.
+ROOM-ORICOM-MASS: chestL       CONTROLE pointe : |sum ldb| (PHYSORICOML, cumul) contre |t|
+   (PHYSORICOM), pire ecart relatif 1.2382 % (i=1) sur 8 orientations chargees — deux
+   accumulateurs independants, deux triedres, un seul nombre. accord
+   LIGNE DE BASE i=0 (debout d'auteur, §9 exige 0.0000), en ABSOLU parce qu'un rapport entre deux quasi-zeros
+   ne mesure rien : |sum ldb| = 0.00444 B0  ·  |t| = 0.00188 B0.
+ROOM-ORICOM-MASS: chestL       §10 supine  i=8  |d_COM|=0.0681/0.0818/0.1012 B0  (apex 0.1069, facteur 0.637)
+                              squelettique seul SOUS — borne INFERIEURE, la part tensorielle manque  ·  cible 0.23 (bande 0.18-0.28)  ·  rr(joint, pour memoire, NON compose) 0.1607
+ROOM-ORICOM-MASS: chestL       §11 prone   i=6  |d_COM|=0.0829/0.1001/0.1270 B0  (apex 0.2104, facteur 0.394)
+                              squelettique seul SOUS — borne INFERIEURE, la part tensorielle manque  ·  cible 0.24 (bande 0.20-0.30)  ·  rr(joint, pour memoire, NON compose) 0.2593
+ROOM-ORICOM-MASS: chestL       §12 lateral i=2  |d_COM|=0.0933/0.1128/0.1431 B0  (apex 0.2369, facteur 0.394)
+                              squelettique seul SOUS — borne INFERIEURE, la part tensorielle manque  ·  cible 0.19 (bande 0.15-0.24)  ·  rr(joint, pour memoire, NON compose) 0.2356
+ROOM-ORICOM-MASS: chestL       §12 lateral i=4  |d_COM|=0.0839/0.1012/0.1275 B0  (apex 0.2057, facteur 0.408)
+                              squelettique seul SOUS — borne INFERIEURE, la part tensorielle manque  ·  cible 0.19 (bande 0.15-0.24)  ·  rr(joint, pour memoire, NON compose) 0.1868
    (frontieres w>0 / w>=0.05 / w>=0.25 — les trois colonnes de |d_COM| ci-dessus ; N=94, part de l'organe portee par la chaine 0.4961, le reste est ancre au buste)
-ROOM-ORICOM-MASS: chestR       CONTROLE pointe : |d| (PHYSORICOML) contre |t| (PHYSORICOM), pire
-   ecart relatif 56.1642 % (i=4) sur 9 orientations — deux accumulateurs, deux triedres, un seul
-   nombre. DESACCORD > 5 % : le montage est en cause, pas la physique — les lignes ci-dessous sont suspendues a ce constat
-ROOM-ORICOM-MASS: chestR       §10 supine  i=8  |d_COM|=0.0221/0.0262/0.0356 B0  (apex 0.0979, facteur 0.226)
-                              tangentiel seul SOUS  ·  compose avec rr 0.1439  ·  cible 0.23 (bande 0.18-0.28)  SOUS
-ROOM-ORICOM-MASS: chestR       §11 prone   i=6  |d_COM|=0.0616/0.0730/0.0993 B0  (apex 0.2716, facteur 0.227)
-                              tangentiel seul SOUS  ·  compose avec rr 0.2223  ·  cible 0.24 (bande 0.20-0.30)  DANS
-ROOM-ORICOM-MASS: chestR       §12 lateral i=2  |d_COM|=0.0503/0.0597/0.0823 B0  (apex 0.2223, facteur 0.226)
-                              tangentiel seul SOUS  ·  compose avec rr 0.0903  ·  cible 0.19 (bande 0.15-0.24)  SOUS
-ROOM-ORICOM-MASS: chestR       §12 lateral i=4  |d_COM|=0.0228/0.0270/0.0367 B0  (apex 0.1005, facteur 0.227)
-                              tangentiel seul SOUS  ·  compose avec rr 0.2654  ·  cible 0.19 (bande 0.15-0.24)  AU-DESSUS
+ROOM-ORICOM-MASS: chestR       CONTROLE pointe : |sum ldb| (PHYSORICOML, cumul) contre |t|
+   (PHYSORICOM), pire ecart relatif 2.2672 % (i=1) sur 8 orientations chargees — deux
+   accumulateurs independants, deux triedres, un seul nombre. accord
+   LIGNE DE BASE i=0 (debout d'auteur, §9 exige 0.0000), en ABSOLU parce qu'un rapport entre deux quasi-zeros
+   ne mesure rien : |sum ldb| = 0.00397 B0  ·  |t| = 0.00204 B0.
+ROOM-ORICOM-MASS: chestR       §10 supine  i=8  |d_COM|=0.0585/0.0694/0.0925 B0  (apex 0.0979, facteur 0.598)
+                              squelettique seul SOUS — borne INFERIEURE, la part tensorielle manque  ·  cible 0.23 (bande 0.18-0.28)  ·  rr(joint, pour memoire, NON compose) 0.1422
+ROOM-ORICOM-MASS: chestR       §11 prone   i=6  |d_COM|=0.0954/0.1133/0.1572 B0  (apex 0.2716, facteur 0.351)
+                              squelettique seul SOUS — borne INFERIEURE, la part tensorielle manque  ·  cible 0.24 (bande 0.20-0.30)  ·  rr(joint, pour memoire, NON compose) 0.2136
+ROOM-ORICOM-MASS: chestR       §12 lateral i=2  |d_COM|=0.0855/0.1015/0.1389 B0  (apex 0.2223, facteur 0.385)
+                              squelettique seul SOUS — borne INFERIEURE, la part tensorielle manque  ·  cible 0.19 (bande 0.15-0.24)  ·  rr(joint, pour memoire, NON compose) 0.0750
+ROOM-ORICOM-MASS: chestR       §12 lateral i=4  |d_COM|=0.0357/0.0424/0.0588 B0  (apex 0.1005, facteur 0.355)
+                              squelettique seul SOUS — borne INFERIEURE, la part tensorielle manque  ·  cible 0.19 (bande 0.15-0.24)  ·  rr(joint, pour memoire, NON compose) 0.2644
    (frontieres w>0 / w>=0.05 / w>=0.25 — les trois colonnes de |d_COM| ci-dessus ; N=90, part de l'organe portee par la chaine 0.4529, le reste est ancre au buste)
 
 -- ROOM-ORICTL : LE REDRESSEMENT, ET SES TROIS SUSPECTS DESARMES TOUR A TOUR -------------

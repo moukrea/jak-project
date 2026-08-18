@@ -1,57 +1,56 @@
 # CE QU'IL Y A À REGARDER SUR CE BUILD — la poitrine, et elle seule
 
 Branche `physics-keira-clean`. (Le tag est lisible sur le device : `files/.custom_pack_stamp_jak1`.)
+APK `9f75cbcc`, pack `324e9ebd`.
 
-**Deux choses ont changé, et elles se voient toutes les deux sur la poitrine.** Rien d'autre sur
-Keira n'a été touché : cheveux, bretelles, lunettes, languettes, pantacourt restent **gelés** par
-ton ordre du 14/08 — pas réparés, gelés, avec leur mesure au dossier.
+Rien d'autre sur Keira n'a été touché : cheveux, bretelles, lunettes, languettes, pantacourt
+restent **gelés** par ton ordre du 14/08 — pas réparés, gelés, avec leur mesure au dossier.
 
 ---
 
-## 1. LE POINT DE ROTATION DE LA POITRINE A RECULÉ DE 1,2 CM
+## 1. LA PEAU SUIT ENFIN LE DEUXIÈME OS. C'EST LA RÉPONSE À « C'EST DU PUDDING ».
 
-Avant, l'organe pivotait autour d'un point situé **devant** la chair arrière ; un tiers de cette
-chair n'avait aucun nœud à suivre et héritait en bloc de l'ancrage de racine. La racine de chaîne
-a été **glissée** jusqu'à la médiane de masse de cette chair — pas choisie, calculée.
+Tu avais raison, et la mesure te donnait raison : le deuxième os de chaque sein était bien posé
+dans le squelette, mais **presque aucun morceau de chair ne le suivait**. L'organe restait une
+pièce rigide pendue à une seule charnière — il *balançait* au lieu de *se déformer*.
 
-Ce que ça devrait donner à l'œil :
-* la poitrine **se déforme** au lieu de tourner en bloc — la chair arrière participe enfin ;
-* sur les mouvements **doux** (ceux que tu jugeais « quasiment parfaits »), l'amplitude monte
-  légèrement : +3,6 % à gauche, +2,5 % à droite. **C'est le premier régime à vérifier** : si tu
-  le trouves moins bon qu'avant, c'est ce point-là qu'il faut que je reprenne ;
-* quand elle se penche (souder sur le Zoomer), l'affaissement est un peu plus marqué.
+Combien de la chair est maintenant pilotée en priorité par ce deuxième os :
 
-Aucun réglage n'a bougé : ni raideur, ni amortissement, ni masse, ni gravité.
+| | il y a deux builds | build précédent | **ce build** |
+|---|---|---|---|
+| sein gauche | 0 % | 27,3 % | **43,5 %** |
+| sein droit | 0 % | 22,7 % | **37,5 %** |
 
-## 2. LA DÉFORMATION DE CHAIR NE TAPE PLUS DANS UN MUR
+La barre que je m'étais fixée est 30 %. **Les deux la passent pour la première fois.**
 
-Sur les mouvements **brusques**, le petit écrasement/gonflement rapide de la chair arrivait contre
-une butée DURE : il restait collé à sa valeur maximale pendant quelques images — 10 images sur la
-course de test, collées à la valeur exacte du plafond. La butée est maintenant **douce** : la
-valeur s'en approche sans jamais la toucher.
+Ce que ça devrait donner à l'œil : la poitrine **travaille** — la partie avant se déforme par
+rapport à la partie arrière — au lieu de se déplacer d'un bloc.
 
-**Sois averti de ce que ça NE change PAS** : le balancement de la poitrine est identique au
-chiffre près (amplitude, pénétration, retour au repos — tout est inchangé). Ce qui change est
-seulement la **déformation d'épaisseur** de la chair sur les impulsions fortes : elle ne devrait
-plus avoir ce petit plat au sommet. Si tu ne vois pas de différence ici, c'est normal et ce n'est
-pas grave — le point de ce correctif est qu'une butée dure rendait la mesure fausse, et il est
-mesuré, pas supposé.
+## 2. CE QUE ÇA COÛTE, ET C'EST LA QUESTION QUE JE TE POSE
 
-Sur les mouvements doux, **rien ne change**, et c'est vérifié à la décimale.
+Le mouvement est **plus petit** qu'au build précédent, et je le mesure :
+
+* amplitude de la pointe : **−13 %** à gauche, **−11 %** à droite ;
+* affaissement quand elle se penche en avant (souder sur le Zoomer) : **−24 %** à gauche,
+  **−52 %** à droite.
+
+**LA QUESTION** : est-ce que ça rend mieux (ça se déforme, donc ça fait de la chair) ou moins bien
+(ça bouge moins, donc ça fait mou/inerte) ? C'est le seul arbitrage que je ne peux pas faire à ta
+place, et il décide si je garde ce placement ou si je le recule.
+
+Aucun réglage n'a bougé : ni raideur, ni amortissement, ni masse, ni gravité. Les trois fréquences
+propres sont **identiques** au build précédent et toutes dans leurs bandes.
 
 ---
 
 ## CE QUI N'EST TOUJOURS PAS RÉGLÉ, ET JE NE LE CACHE PAS
 
-* **La poitrine traverse encore le buste** sur les mouvements forts (mesuré 0,059 m là où il
-  faudrait 0,0005). Ça baisse pour la troisième fois d'affilée, mais c'est encore loin.
-* **Une couture un peu plus dure à droite** : le fondu du poids de peau est plus abrupt qu'avant
-  sur le sein droit. Si tu vois une arête ou un pli net qui n'y était pas, c'est ça.
-
----
-
-## LA QUESTION QUI M'AIDERAIT LE PLUS
-
-Sur les mouvements **doux**, est-ce que c'est **mieux, pareil, ou moins bien** qu'avant ? C'est le
-seul régime que tu aies validé, et le point 1 le touche (+3,6 % / +2,5 % d'amplitude). Ta réponse
-décide si je continue dans cette direction ou si je reviens en arrière.
+* **La poitrine traverse encore le buste sur les mouvements forts, et c'est PIRE que le build
+  précédent** (mesuré 0,094 m à gauche contre 0,059 m). Mais j'ai enfin trouvé pourquoi, et ce
+  n'est pas le solveur : **dans la pose debout d'origine, physique complètement éteinte, le nœud
+  externe du sein est DÉJÀ 5,9 cm à l'intérieur du volume de collision épaule→torse.** Le solveur
+  n'a donc nulle part où pousser — on lui demande de sortir d'un volume dont la pose d'auteur
+  elle-même est à l'intérieur. C'est le volume qui est à refaire, pas la physique, et c'est le
+  chantier suivant.
+* **Le retour au calme est plus lent** : 1,48 s et 1,50 s (la cible est 1,0–1,5 s) contre 1,23 s
+  et 1,43 s avant. C'est à la limite haute.
