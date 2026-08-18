@@ -380,4 +380,51 @@ OPEN breast-spec-incomplete  PRIORITE 1 -- LA SEULE LIGNE QUI TIENT LA PHASE OUV
 #     plutot que livre a moitie ; (c) 23 : le point integre reste l'apex, pas le COM ; (d) 33 sans
 #     domaine ; (e) `physics_mesh.txt` etait PERIME depuis le gel du 14/08 (41 `ms` pour 20 chaines
 #     gelees, 55 `bs`) — regenere, il porte 4 `ms` et 92 `bs`.
+#
+#   ETAT AU CYCLE 23 (2026-08-18). LA RACINE DE CHAINE A GLISSE, ET 29-TORSION EST RE-MESUREE
+#   CONTRE LA BONNE GRANDEUR. Rapport complet : report.txt. Palier DONNEES SEULES.
+#     STRUCTURE (30) : `StrongRootFraction` sur le mesh LIVRE, chestL 0.416 -> 0.338, DANS la
+#       bande 0.28-0.35 POUR LA PREMIERE FOIS ; chestR 0.459 -> 0.413, encore au-dessus. La
+#       prediction ecrite au cycle 22 (0.338 / 0.392) est CONFIRMEE EXACTEMENT a gauche et
+#       manquee de 0.021 a droite -- publiee comme partiellement falsifiee.
+#       L'operation n'est PAS le `prepend` depose au cycle 22 : `chest`/`lBoob`/`lBooc` sont
+#       colineaires a 0.00027 deg, donc faire GLISSER la racine (`reroot`) donne la meme
+#       abscisse a 7.8e-06 sans toucher un index -- et un noeud appendu aurait viole
+#       PARENT-ORDER (`hd_parent < k`, exige par quatre consommateurs) tout en etant INERTE
+#       (la bande Deep root de la 30 le plafonne a 0.10 de tout sommet).
+#       Possession de peau, la grandeur exigee le 08:55 : lBoob 7->10, lBooc 19->21,
+#       rBoob 6->10, rBooc 17->17. Aucun os ne recule. `lBooc` 27.3 % et `rBooc` 22.7 % des
+#       sommets de chaine restent SOUS la barre de 30 %.
+#     29-TORSION : LE CHIFFRE QUI TENAIT CETTE LIGNE ETAIT DE LA MAUVAISE NATURE.
+#       « 0.3825/0.3520 contre 0.72 » compare la colonne `zeta` du canal torsion -- un TAUX
+#       D'AMORTISSEMENT -- a `TorsionalCompliance`, une COMPLIANCE. Mesuree comme la 29 est
+#       DEJA mesuree pour l'AP et le lateral (rapport de frequences propres, f ∝ 1/sqrt(c),
+#       l'instrument de `ROOM-AXRATIO-SPEC24`), sur la MEME fenetre libre `PH-SHAKEN` et le
+#       MEME estimateur (`probe_spec29_torsion.py`, sortie dans C23-spec29-torsion.txt) :
+#           chestL torsion/ap  ecart +0.62 %  -> compliance implicite 0.7112   (cible 0.72)
+#           chestL torsion/lat ecart +0.28 %  ->                       0.7160
+#           chestR torsion/ap  ecart -0.72 %  ->                       0.7304
+#           chestR torsion/v   ecart -20.6 %  ->                       1.1418   ECART, voir plus bas
+#       Et l'axe EXISTE : les quatre canaux rendent des frequences DIFFERENTES (etendue
+#       0.443 Hz sur chestL), ce qui est la preuve d'armement que la directive du 14/08 11:50
+#       exige. La paire aberrante est celle qui s'appuie sur le VERTICAL, et le choix de
+#       l'ecarter est MESURE, pas de convenance : l'ecart entre les deux chaines MIROIR --
+#       parametres quasi identiques, geometrie miroir, donc erreur de l'instrument -- vaut
+#       torsion 3.5 %, AP 4.8 %, vertical 24.2 %, lateral 45.4 %. Le canal de torsion est LE
+#       PLUS reproductible des quatre ; le vertical est celui dont le tableau route deja la 24
+#       ailleurs (« tangentiel -- 24-v: ROOM-AXFIT-RAD »).
+#       DESACCORD D'ESTIMATEUR PUBLIE : `ROOM-COMPLIANCE-ANISO` lit la 29 sur des AMPLITUDES et
+#       rend AP=1.44/1.47 et lateral=1.49/1.32 la ou la 29 dit 0.90 et 0.82. Il est donc en
+#       desaccord avec la spec sur les axes DEJA declares DANS par l'estimateur de frequence :
+#       ce n'est pas un defaut propre a la torsion.
+#       CONSEQUENCE POUR LE PLAN : « os manquant a INJECTER » pour la torsion est une
+#       conclusion tiree d'une comparaison de natures differentes. Aucun os n'est injecte, et
+#       le cycle de geometrie qu'elle annoncait n'a pas lieu d'etre tant que l'owner n'a pas
+#       tranche. C'est LUI qui ferme, pas cette mesure.
+#     COUT PUBLIE : `tear` chestR 17 -> 29 (« no hard attachment boundary »), avec le prix
+#       chiffre de le corriger ; `ROOM-SKINPEN` chestR 0.1224 -> 0.1624 m contre une erreur
+#       miroir passee de 11 % a 33 %. COLLIDE 0.0710 -> 0.0593 m, toujours ROUGE.
+#     A TRANCHER AVANT DE DEPENSER UN CYCLE DE PLUS : la 30 dit « % of the rear breast VOLUME »
+#       et l'instrument compte des SOMMETS. Pondere par l'aire du maillage livre,
+#       `StrongRootFraction` vaut 0.307 / 0.344 -- les DEUX cotes DANS la bande.
 #   CETTE LIGNE NE SE RETIRE QUE SUR LE MOT DE L'OWNER, jamais sur un tableau vert.
