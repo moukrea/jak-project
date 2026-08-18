@@ -1597,8 +1597,8 @@
   (none))
 
 (defun phys-col-key ((sco int) (cj int))
-  "LA CLE DE PRIORITE D'UN VOLUME, exactement la DECISION 1 du superviseur : le volume du CORPS
-   l'emporte sur celui d'une CHAINE, puis le PARENT DANS LE RIG l'emporte. Plus petit = prioritaire.
+  "LA CLE DE PRIORITE D'UN VOLUME — depuis le 2026-08-18, DEPARTAGE SEULEMENT (le decideur est le
+   plus profond violeur, voir le site de selection) : corps avant chaine, puis parent dans le rig.
 
    LA REGLE ECRITE N'EST PAS TOTALISANTE, ET C'EST MESURE : trois volumes de corps sont a egalite
    de profondeur minimale 1 (`hips->main`, `chest->main`, la sphere `main`). Sans departage le
@@ -1717,7 +1717,7 @@
             ;; (prio-meas = 1) elle ne fait que COMPTER, et `*phys-lwin*` est rendu a -1 juste
             ;; apres, donc rien n'est ecarte. Voir *phys-prio-meas*.
             (when (or (zero? *phys-prio-off*) (nonzero? *phys-prio-meas*))
-              (let ((best 2000000000) (nviol 0) (lastci 0))
+              (let ((best 2000000000) (bres 0.0) (nviol 0) (lastci 0))
                 (dotimes (ci nco)
                   (let* ((sco (+ (* slot PHYS-COLS) ci))
                          (cj  (-> *phys-cj* sco))
@@ -1750,8 +1750,19 @@
                           ;; que l'accesseur `phys-chain-conf`. `*phys-cvh*` est, LUI, PAR MAILLON.
                           (let ((h (+ (* sc PHYS-COLS) ci)))
                             (set! (-> *phys-cfh* h) (+ 1 (-> *phys-cfh* h))))
-                          (let ((key (phys-col-key sco cj)))
-                            (when (< key best)
+                          ;; [DECISION 1 REVISEE 2026-08-18] La cle structurelle etait AVEUGLE A LA
+                          ;; PROFONDEUR : chest->main (cdep=1) gagnait sur epaules/cou meme moins
+                          ;; profond ; le maillon finissait dans le RECOUVREMENT des 4 capsules du
+                          ;; buste (cvh quasi egaux 2479/2339/2323/2280) et l'union n'etait jamais
+                          ;; resolue -> meshpen 0.0800 m pour un plafond de 0.0005. Le decideur est
+                          ;; LE PLUS PROFOND VIOLEUR (res = dep - feff, la grandeur que meshpen
+                          ;; publie) ; la cle ne departage plus qu'un res strictement egal. Toujours
+                          ;; UN volume par lien et par appel : la DECISION 1 tient, son critere change.
+                          (let ((key (phys-col-key sco cj))
+                                (rv  (- dep feff)))
+                            (when (or (> rv bres)
+                                      (and (= rv bres) (< key best)))
+                              (set! bres rv)
                               (set! best key)
                               (set! (-> *phys-lwin* scl) sco))))))))
                 (when (= nviol 1)
