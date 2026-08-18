@@ -276,19 +276,7 @@
 ;; [NOTE-14] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
 (defconstant PHYS-MOB-AP  0.90)   ;; §29 Front/back
 (defconstant PHYS-MOB-LAT 0.82)   ;; §29 Lateral
-;; QUEL AXE DE L'ANCRE EST QUOI — classe UNE FOIS par chaine, a sa premiere frame utile, et JAMAIS
-;; suppose depuis un nom d'os ni depuis un ordre d'axes :
-;;   vertical = l'axe local de l'ancre le plus aligne avec la GRAVITE vue de l'ancre (`gl`, deja
-;;              calculee pour §3) — c'est la definition meme de « vertical » dans sa §24, et elle
-;;              ne suppose rien de l'orientation du modele ;
-;;   lateral  = parmi les deux restants, celui que le SEGMENT INTER-SEINS designe — voir la note de
-;;              `*phys-axsep*`. CETTE LIGNE A ETE CORRIGEE LE 2026-08-14 (cycle 10) : elle disait
-;;              « AP = le plus aligne avec la direction ancre -> joint de l'organe », ce qui posait
-;;              le role AP sur la ligne 0 de `chest`, mesuree a (+1,0,0) — le lateral du personnage.
-;;              §29 et §24 travaillaient donc sur deux axes intervertis ;
-;;   AP       = le troisieme, celui qui reste.
-;; On stocke l'INDEX DE LIGNE (0/1/2) de la matrice de l'ancre ; le solveur relit les axes sur la
-;; matrice COURANTE, donc le triedre tourne avec le torse sans jamais etre reclasse.
+;; [NOTE-73] QUEL AXE DE L'ANCRE EST QUOI — classe UNE FOIS par chaine, a sa premiere frame -> jak-hd-physics-NOTES.md
 (define *phys-axv*  (new 'global 'array 'int32 PHYS-SC))   ;; index de ligne : vertical
 (define *phys-axa*  (new 'global 'array 'int32 PHYS-SC))   ;; ...              avant-arriere
 (define *phys-axl*  (new 'global 'array 'int32 PHYS-SC))   ;; ...              lateral
@@ -304,46 +292,10 @@
 (define *phys-axs* (new 'global 'array 'float (* PHYS-SC 3)))
 ;; [NOTE-15] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
 (define *phys-axan* (new 'global 'array 'int32 PHYS-SC))   ;; 1 = raideur par axe ARMEE
-;; ============================================================================================
-;; CE QUI NOMME LES AXES, ET POURQUOI CE N'EST PLUS UNE HEURISTIQUE (cycle 10).
-;;
-;; La regle precedente disait : « AP = celle des deux lignes restantes sur laquelle l'OS se
-;; projette le plus ». Rien d'anatomique n'entrait dans ce choix, et il etait FAUX : mesure sur le
-;; rig, `chest` a pour ligne 0 (+1,0,0) — le lateral gauche-droite du personnage — et c'est
-;; precisement la ligne que cette regle appelait `ap`. Consequence : §29 posait la compliance 0.90
-;; (avant-arriere) sur le LATERAL et 0.82 (lateral) sur l'AVANT-ARRIERE, et §24 comparait ses
-;; 2.50 / 2.65 Hz aux mauvais axes. Le mecanisme etait arme, la mesure etait propre, et les deux
-;; sections etaient fausses sans que rien ne puisse le signaler : une mesure par axe qui ne publie
-;; que des VALEURS ne peut pas attraper une permutation de ses propres axes.
-;;
-;; LA NOUVELLE REGLE REPOSE SUR UN INVARIANT QUE L'ETIQUETAGE NE PEUT PAS INFLUENCER : les deux
-;; seins sont separes GAUCHE-DROITE. `lBoob` et `rBoob` partagent le meme parent (`chest`), donc
-;; la difference de leurs positions EST le segment inter-seins, et il est lateral par definition
-;; anatomique. La ligne sur laquelle il tombe est le LATERAL ; l'autre est l'avant-arriere.
-;; Mesure du rig : (+712.31, +0.01, -0.00) u = 17.4 cm, 100 % sur la ligne 0.
-;;
-;; ET LE RESULTAT EST PUBLIE, pas suppose : `*phys-axsep*` porte les deux projections que la
-;; decision a comparees et `*phys-axsrc*` dit LAQUELLE des deux regles a tranche. La salle en fait
-;; `PHYSAXNAME`, donc l'affectation se lit dans la trace d'une course — un commentaire ne prouve
-;; rien (regle 0), et c'est exactement ce qui manquait pour voir l'interversion.
+;; [NOTE-74] ============================================================================== -> jak-hd-physics-NOTES.md
 (define *phys-axsep* (new 'global 'array 'float (* PHYS-SC 3)))  ;; sep. inter-chaine, repere ancre
 (define *phys-axsrc* (new 'global 'array 'int32 PHYS-SC))  ;; 0 = pas de partenaire, 1 = separation
-;; ============================================================================================
-;; SPEC 8 / 10-13 / 29-torsion / 33-34 / 36 — LE CANAL DE DEFORMATION, LA TORSION, LA RESTITUTION.
-;; Ajoutes le 2026-08-14 (cycle 7), dans l'ordre que sa directive de 11:50 fixe au point 4.
-;;
-;; POURQUOI LE DEGRE DE LIBERTE EN TORSION EST AJOUTE ICI ET PAS PAR UN OS :
-;; une torsion est une rotation PROPRE, et une chaine de particules PONCTUELLES n'en porte aucune,
-;; QUEL QUE SOIT son nombre d'os. Ajouter un joint distal ne la rend donc pas disponible — c'est
-;; pourquoi le degre de liberte manquant est ajoute la ou il manque, dans le solveur.
-;; CORRECTION DU 2026-08-17 : ce paragraphe portait aussi l'argument « `sat` n'est armee qu'a UN
-;; maillon (garde `(= n 1)`), donc injecter un os DESARMERAIT deux sections TENUES ». C'etait vrai
-;; du code d'alors, et ce n'etait pas une raison de ne pas injecter : les deux gardes ont ete
-;; RETIREES (`sat` ~:2644, mur d'apex ~:3108), la famille A suffisant a selectionner chestL/chestR.
-;;
-;; AUCUN DE CES TROIS ETATS N'EST UN SUPPRESSEUR : chacun vaut ZERO au repos debout (echelle
-;; identite, torsion nulle, mode secondaire nul), donc SPEC 9 — le retour EXACT a la pose
-;; d'auteur, tenue au cycle 6 — est preservee par construction et non par reglage.
+;; [NOTE-75] ============================================================================== -> jak-hd-physics-NOTES.md
 (defconstant PHYS-MOB-TOR 0.72)    ;; §29 TorsionalCompliance
 (defconstant PHYS-SEC-F   5.2)     ;; §36 frequence du mode secondaire (Hz)
 (defconstant PHYS-SEC-Z   0.65)    ;; §36 DampingRatio
@@ -358,19 +310,7 @@
 (defconstant PHYS-SEC-K   0.05)
 (defconstant PHYS-DYN-K   0.43)    ;; §38 NormalDynamicStretch 0.15 atteint a 0.35 B0
 (defconstant PHYS-DYN-MAX 0.25)    ;; §38 AbsoluteStretchClamp
-;; §23 — « the solver should then derive local deformation from COM displacement, angular lag,
-;; root constraints, VOLUME CONSERVATION and LOCAL COLLISION PRESSURE ». Les quatre premiers sont
-;; livres (etirement dynamique, torsion, ancrage a la racine + poids gradues, determinant a 1) ;
-;; le cinquieme est ce couple de constantes. La pression de contact APLATIT le tissu le long de la
-;; normale et le redistribue sur les deux perpendiculaires — sa §34 : « collision energy should
-;; primarily become DEFORMATION, redistribution and damping ». Le plafond est celui de sa §12,
-;; l'aplatissement lateral qu'elle chiffre a 15-25 % quand tout le poids porte sur un sein.
-;; LE GAIN, CALE SUR SA §12 ET SUR RIEN D'AUTRE. Mesure de la course F, qui publie l'aplatissement
-;; AVANT plafond : a 1.00 les trois pilotages forts rendaient 40 a 56 % brut pour un plafond a 25 %,
-;; donc un limiteur sature — la meme signature que le mode secondaire au premier essai, et la meme
-;; correction. A 0.45 les memes fenetres rendent ~5 % sur les contacts doux (updown, tilt) et 18 a
-;; 25 % sur les forts : c'est exactement la bande que sa §12 chiffre pour un appui de tout le poids
-;; (« gravity-side lateral flattening -15 a -25 %, nominal -20 % »).
+;; [NOTE-76] §23 — « the solver should then derive local deformation from COM displacement, -> jak-hd-physics-NOTES.md
 (defconstant PHYS-PRS-K   0.45)
 (defconstant PHYS-PRS-MAX 0.25)    ;; §12 : -25 % au pire, borne haute de sa bande
 (defconstant PHYS-RST-BB  0.06)    ;; §33 restitution sein <-> sein
@@ -2499,18 +2439,7 @@
                           (set! (-> *phys-axa* sc) ia)
                           (set! (-> *phys-axl* sc) il)
                           (set! (-> *phys-axok* sc) 1)
-                          ;; LA DIRECTION MONDE DE CHACUNE DES TROIS LIGNES DU TRIEDRE, normalisee.
-                          ;; POURQUOI ELLE EXISTE, ET C'EST UNE MESURE QUI L'EXIGE : la salle a
-                          ;; excite les trois axes MONDE (Y, Z, X) et a mesure la part de reponse
-                          ;; tombant sur chaque projection du triedre. Une impulsion MONDE-Y ne met
-                          ;; que 21.5 % (chestL) a 25.7 % (chestR) de sa reponse sur l'axe VERTICAL
-                          ;; du solveur ; cinq des six fenetres sont dominees par l'axe AP. Le
-                          ;; repere du sujet et le triedre de l'ancre ne sont PAS alignes — donc
-                          ;; aucune excitation en axes monde n'isole un mode propre, et SPEC 24
-                          ;; reste indecidable tant qu'on pousse dans le mauvais repere.
-                          ;; NATURE : un vecteur unitaire. REPERE : monde. Indexation
-                          ;; `sc*9 + ligne*3 + composante`, la LIGNE etant celle de `am`, pas le
-                          ;; role : c'est `phys-axis-world` qui fait la traduction role -> ligne.
+                          ;; [NOTE-77] LA DIRECTION MONDE DE CHACUNE DES TROIS LIGNES DU TRIEDRE, normalisee. -> jak-hd-physics-NOTES.md
                           (dotimes (rr 3)
                             (let* ((lr (sqrtf (+ (* (-> am vector rr x) (-> am vector rr x))
                                                  (+ (* (-> am vector rr y) (-> am vector rr y))
@@ -3540,18 +3469,7 @@
                             (set! (-> *phys-rtz* sc) (-> uv z))
                             (set! (-> *phys-rhas* sc) 1)))))
 
-                    ;; ---- 5bis. SPEC 8 / 10-13 / 29-torsion / 36 — L'ETAT DE FORME ET DE TORSION.
-                    ;; Sa §23 : « the solver should then DERIVE LOCAL DEFORMATION from COM
-                    ;; displacement, angular lag, root constraints, volume conservation and local
-                    ;; collision pressure ». Jusqu'a ce cycle le moteur n'ecrivait qu'une POSITION
-                    ;; et une rotation : il n'existait aucun canal par lequel une deformation ait pu
-                    ;; sortir, donc §8, §10, §11, §12, §13 et §36 ne pouvaient etre ni implementees
-                    ;; ni mesurees. Ce bloc calcule l'etat ; l'ecriture est 20 lignes plus bas.
-                    ;;
-                    ;; NATURE de ce qui est calcule ici : un triplet d'ECHELLES sans dimension,
-                    ;; rapport a la forme d'auteur. REPERE : le triedre de sa §7, releve une fois a
-                    ;; la pose debout d'auteur. LECTURE HORS DEFAUT : 1.000 / 1.000 / 1.000 debout —
-                    ;; donc §9, tenue au cycle 6, ne peut pas etre payee par ce bloc.
+                    ;; [NOTE-78] ---- 5bis. SPEC 8 / 10-13 / 29-torsion / 36 — L'ETAT DE FORME ET DE TORSION. -> jak-hd-physics-NOTES.md
                     (when (and (= (-> *phys-fam* sc) 1) (> n 0))
                       (let* ((tl  (+ (* sc PHYS-LINKS) (- n 1)))
                              (gb  (* sc 3))
