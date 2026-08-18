@@ -3533,6 +3533,21 @@ def main():
     A('   LES INTERVALLES NE SE RECOUVRENT PAS SONT DEUX MODES DISTINCTS : c\'est la forme que')
     A('   demande le contrat (« une reponse identique dans les trois directions prouve qu\'elles ne')
     A('   sont pas appliquees »), lue dans les deux sens.')
+    # [CORRECTION D'INSTRUMENT 2026-08-18] Les lignes `v` de CET instrument sont AVEUGLES AU MODE
+    # VERTICAL REEL : l'os ancre->lBoob porte 84.5 % de son energie sur la verticale (ROOM-ORIAXIS,
+    # confirme par ROOM-AXBLIND R^2=1.00000 sur les DEUX chaines), et la contrainte de longueur
+    # tient le joint sur une sphere — sa deviation RADIALE (≈ verticale) est structurellement
+    # quasi nulle. Ce que la ligne `v` capte est la FUITE des deux modes TANGENTIELS (valeurs
+    # propres de P·S·P, P = I - b·bT, S = diag(1, 1/0.90, 1/0.82) : lambda1 = 1.1078 ~98 % ap,
+    # lambda2 = 1.1912 ~93 % lat) — verification : f_base×sqrt(lambda) predit les diagonales AXFIT
+    # a ±1 % sur les 6 lignes. Le mode vertical du TISSU vit sur le canal radial de SPEC 23 et se
+    # lit sur ROOM-AXFIT-RAD (PHYSRINGCX). La ligne `v` reste publiee (elle mesure honnetement les
+    # tangentiels) mais son verdict §24-v est retire : il comparerait un mode lateral a une cible
+    # verticale.
+    A('   ATTENTION (correction d\'instrument 2026-08-18) : les lignes `v` ci-dessous lisent la')
+    A('   FUITE des modes tangentiels, pas le mode vertical — le joint vit sur la sphere de la')
+    A('   contrainte de longueur et l\'os est vertical a 84.5 %. Le verdict §24-v (2.30 Hz) se lit')
+    A('   sur ROOM-AXFIT-RAD (canal radial de SPEC 23), plus bas.')
     try:
         import numpy as _np
         _HAVE_NP = True
@@ -3620,6 +3635,9 @@ def main():
             _win = 'repos' if _tag == 'PHYSRINGA' else 'inclinaison'
             _lo, _hi = _band[_ax]
             _in = 'DANS' if _lo <= _r['f'] <= _hi else 'HORS'
+            if _ax == 'v':
+                # Instrument aveugle au radial (voir la note d'en-tete) : pas de verdict §24-v ici.
+                _in = 'tangentiel — §24-v: ROOM-AXFIT-RAD'
             if _r['rel'] > 0.08:
                 _in = 'residu trop grand, non lisible'
             A('ROOM-RINGFIT: %-11s %-12s %-3s %3d  %6.3f  [%.3f..%.3f]  %.2f   %.3f   %-6s  %s  %s'
@@ -3778,6 +3796,17 @@ def main():
             (int(m.group(2)), float(m.group(5))))
         _axs.setdefault((int(m.group(3)), int(m.group(1)), 'lat'), []).append(
             (int(m.group(2)), float(m.group(6))))
+    # Collecte HISSEE ici (2026-08-18) : AXRATIO a besoin du fit radial comme `f_v` (correction
+    # d'instrument — la ligne `v` d'AXFIT lit les modes tangentiels, pas le vertical). La collecte
+    # vivait apres le bloc AXFIT ; elle ne depend que de `txt`, la hisser ne change aucun nombre.
+    _cxs, _cxz = {}, {}
+    for _tg, _dst in (('PHYSRINGCX', _cxs), ('PHYSRINGCZ', _cxz)):
+        for m in re.finditer(r'^%s c=(\d+) f=(\d+) l=(\d+) ax=(\d+) v=([-\d.e+]+)' % _tg,
+                             txt, re.M):
+            if int(m.group(3)) != 0:
+                continue
+            _dst.setdefault((int(m.group(4)), int(m.group(1))), []).append(
+                (int(m.group(2)), float(m.group(5))))
     if not _HAVE_NP:
         A('ROOM-AXFIT: ABSENT (numpy indisponible)')
     elif not _axs:
@@ -3862,6 +3891,13 @@ def main():
             _nm = names[_c] if _c < len(names) else 'c%d' % _c
             _lo, _hi = _B2[_ax]
             _in = 'DANS' if _lo <= _r['f'] <= _hi else 'HORS'
+            if _ax == 'v':
+                # [CORRECTION D'INSTRUMENT 2026-08-18] Meme aveuglement radial que ROOM-RINGFIT
+                # (note d'en-tete la-bas) : PHYSRINGAX est une difference de vecteurs UNITAIRES,
+                # radialement nulle par construction, et l'os est vertical a 84.5 %. La ligne `v`
+                # lit la fuite des modes tangentiels (lambda2 = 1.1912 : f_base×1.0914 predit
+                # 2.511/2.609 pour 2.530/2.635 mesures). Verdict §24-v -> ROOM-AXFIT-RAD.
+                _in = 'tangentiel — §24-v: ROOM-AXFIT-RAD'
             if _r['rel'] > 0.08:
                 _in = 'residu trop grand, non lisible'
             _mark = '*' if _AXN[_k] == _ax else ' '
@@ -3891,12 +3927,31 @@ def main():
         _R24 = {'ap': 2.50 / 2.30, 'lat': 2.65 / 2.30}
         _R29 = {'ap': 1.05409, 'lat': 1.10432}
         _B24 = {'ap': (2.3, 2.7), 'lat': (2.4, 2.9)}
+        # [CORRECTION D'INSTRUMENT 2026-08-18] `f_v` etait pris sur la ligne `v` d'AXFIT, qui lit
+        # les modes TANGENTIELS (voir la note du verdict) : les ecarts -8/-13 % publies jusqu'ici
+        # etaient l'artefact d'un denominateur trop haut de ×1.10. Le denominateur correct est le
+        # mode radial (≈ vertical, os a 84.5 % vertical) : fit PHYSRINGCX de la fenetre d'impulsion
+        # VERTICALE (meme protocole §27, meme estimateur `_fitseries`, meme skip). NATURE : une
+        # frequence propre (Hz). REPERE : canal radial de SPEC 23, triedre de l'ancre. LECTURE
+        # QUAND LE DEFAUT EST ABSENT : f_v = cible §24 (2.30 a gauche, +asymetrie §32 a droite).
+        _frad = {}
+        for (_kk, _cc) in _cxs:
+            if _kk != 0:
+                continue  # fenetre d'impulsion VERTICALE seulement — le protocole de §27
+            _rr_ = _fitseries([v for _f, v in sorted(_cxs[(_kk, _cc)])])
+            if _rr_ and _rr_['rel'] <= 0.08:
+                _frad[_cc] = _rr_
         for _c in sorted({c for (c, _a) in _fv}):
             _nm = names[_c] if _c < len(names) else 'c%d' % _c
-            if (_c, 'v') not in _fv:
-                A('ROOM-AXRATIO: chain=%-12s axe vertical non lisible — rapports indisponibles' % _nm)
+            if _c not in _frad:
+                A('ROOM-AXRATIO: chain=%-12s f_v radial (PHYSRINGCX, fenetre v) non lisible —'
+                  ' rapports indisponibles' % _nm)
                 continue
-            _f0 = _fv[(_c, 'v')]['f']
+            _f0 = _frad[_c]['f']
+            A('ROOM-AXRATIO-SRC: chain=%-12s f_v=%.3f Hz [%.3f..%.3f] source=PHYSRINGCX'
+              ' (mode radial, fenetre d\'impulsion verticale) — la ligne `v` d\'AXFIT est'
+              ' tangentielle et ne sert plus de denominateur'
+              % (_nm, _f0, _frad[_c]['fmin'], _frad[_c]['fmax']))
             _out = []
             for _a, _exp in (('ap', 1.05409), ('lat', 1.10432)):
                 if (_c, _a) in _fv:
@@ -4000,14 +4055,7 @@ def main():
     # pour que la sortie soit IDENTIQUE a un maillon (verifiable en regenerant le tableau depuis le
     # log de controle). Le maillon distal n'est pas perdu : il est simplement hors de CETTE ligne,
     # et sa publication par maillon est un ajout a faire quand la structure reviendra.
-    _cxs, _cxz = {}, {}
-    for _tg, _dst in (('PHYSRINGCX', _cxs), ('PHYSRINGCZ', _cxz)):
-        for m in re.finditer(r'^%s c=(\d+) f=(\d+) l=(\d+) ax=(\d+) v=([-\d.e+]+)' % _tg,
-                             txt, re.M):
-            if int(m.group(3)) != 0:
-                continue
-            _dst.setdefault((int(m.group(4)), int(m.group(1))), []).append(
-                (int(m.group(2)), float(m.group(5))))
+    # (`_cxs`/`_cxz` sont collectees plus haut, avant le bloc AXFIT — voir la note de hissage.)
 
     def _radfit_lines(_src, _srctag, _tag, _note):
         """Une ligne par (chaine, fenetre). `_tag` nomme la sortie, `_note` dit son STATUT.

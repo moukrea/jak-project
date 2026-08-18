@@ -1,6 +1,6 @@
 ==================================================================================================
 KEIRA — SALLE DE TEST SANS JOUEUR : TABLEAU DE MESURE
-genere par .autoport/physics_room_table.py depuis .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
+genere par .autoport/physics_room_table.py depuis /home/emeric/code/jak-project/.autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
 contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 7 (ce qui fait foi)
 
 Toutes les longueurs sont en METRES (la trace est en unites de jeu, 4096 u = 1 m). Ce que
@@ -1208,6 +1208,10 @@ row chain=chestR       anim=assistant-lavatube-end-idle            drive=tilt   
    LES INTERVALLES NE SE RECOUVRENT PAS SONT DEUX MODES DISTINCTS : c'est la forme que
    demande le contrat (« une reponse identique dans les trois directions prouve qu'elles ne
    sont pas appliquees »), lue dans les deux sens.
+   ATTENTION (correction d'instrument 2026-08-18) : les lignes `v` ci-dessous lisent la
+   FUITE des modes tangentiels, pas le mode vertical — le joint vit sur la sphere de la
+   contrainte de longueur et l'os est vertical a 84.5 %. Le verdict §24-v (2.30 Hz) se lit
+   sur ROOM-AXFIT-RAD (canal radial de SPEC 23), plus bas.
 
    fenetre      chaine        axe  n    f (Hz)  intervalle       zeta   residu  rebond   cible §24
 ROOM-RINGFIT: repos       chestL       ap  137   2.455  [2.445..2.460]  0.34   0.010   0.312   2.50 (2.3-2.7)  DANS
@@ -1215,13 +1219,13 @@ ROOM-RINGFIT: repos       chestL       lat 137   2.590  [2.580..2.595]  0.35   0
 ROOM-RINGFIT: repos       chestL       v   137   2.375  [2.315..2.440]  0.37   0.094   0.310   2.30 (2.1-2.5)  residu trop grand, non lisible
 ROOM-RINGFIT: repos       chestR       ap  137   2.555  [2.550..2.560]  0.35   0.015   0.309   2.50 (2.3-2.7)  DANS
 ROOM-RINGFIT: repos       chestR       lat 137   2.650  [2.645..2.655]  0.34   0.014   0.320   2.65 (2.4-2.9)  DANS
-ROOM-RINGFIT: repos       chestR       v   137   2.675  [2.630..2.710]  0.36   0.054   0.302   2.30 (2.1-2.5)  HORS
+ROOM-RINGFIT: repos       chestR       v   137   2.675  [2.630..2.710]  0.36   0.054   0.302   2.30 (2.1-2.5)  tangentiel — §24-v: ROOM-AXFIT-RAD
 ROOM-RINGFIT: inclinaison chestL       ap  137   2.545  [2.535..2.550]  0.33   0.009   2.043   2.50 (2.3-2.7)  DANS
 ROOM-RINGFIT: inclinaison chestL       lat 137   2.595  [2.595..2.595]  0.34   0.001   n/a     2.65 (2.4-2.9)  DANS
-ROOM-RINGFIT: inclinaison chestL       v   137   2.590  [2.585..2.600]  0.37   0.006   n/a     2.30 (2.1-2.5)  HORS
+ROOM-RINGFIT: inclinaison chestL       v   137   2.590  [2.585..2.600]  0.37   0.006   n/a     2.30 (2.1-2.5)  tangentiel — §24-v: ROOM-AXFIT-RAD
 ROOM-RINGFIT: inclinaison chestR       ap  137   2.575  [2.570..2.585]  0.35   0.015   0.886   2.50 (2.3-2.7)  DANS
 ROOM-RINGFIT: inclinaison chestR       lat 137   2.670  [2.670..2.670]  0.35   0.002   n/a     2.65 (2.4-2.9)  DANS
-ROOM-RINGFIT: inclinaison chestR       v   137   2.615  [2.580..2.650]  0.28   0.013   n/a     2.30 (2.1-2.5)  HORS
+ROOM-RINGFIT: inclinaison chestR       v   137   2.615  [2.580..2.650]  0.28   0.013   n/a     2.30 (2.1-2.5)  tangentiel — §24-v: ROOM-AXFIT-RAD
 
    LES TROIS MODES SONT-ILS SEPARES ? (fenetre de repos, residu <= 0.08 seulement)
 ROOM-RINGFIT-SEP: chain=chestL       ap/lat SEPARES
@@ -1289,22 +1293,22 @@ ROOM-AXSEL-NOLEN: excite=lat chain=chestR       sel_contrainte=31.5%  sel_levee=
    excite  chaine        axe  n    f (Hz)  intervalle       zeta   residu  rebond   cible §24
 ROOM-AXFIT: v      chestL       ap  138   2.550  [2.505..2.600]  0.35   0.072   0.326   2.50 (2.3-2.7)  DANS
 ROOM-AXFIT: v      chestL       lat 138   2.520  [2.500..2.535]  0.35   0.041   0.314   2.65 (2.4-2.9)  DANS
-ROOM-AXFIT:*v      chestL       v   138   2.530  [2.520..2.545]  0.36   0.027   0.324   2.30 (2.1-2.5)  HORS
+ROOM-AXFIT:*v      chestL       v   138   2.530  [2.520..2.545]  0.36   0.027   0.324   2.30 (2.1-2.5)  tangentiel — §24-v: ROOM-AXFIT-RAD
 ROOM-AXFIT: v      chestR       ap  138   2.615  [2.570..2.665]  0.33   0.089   0.348   2.50 (2.3-2.7)  residu trop grand, non lisible
 ROOM-AXFIT: v      chestR       lat 138   2.630  [2.600..2.660]  0.35   0.069   0.324   2.65 (2.4-2.9)  DANS
-ROOM-AXFIT:*v      chestR       v   138   2.635  [2.615..2.655]  0.35   0.048   0.333   2.30 (2.1-2.5)  HORS
+ROOM-AXFIT:*v      chestR       v   138   2.635  [2.615..2.655]  0.35   0.048   0.333   2.30 (2.1-2.5)  tangentiel — §24-v: ROOM-AXFIT-RAD
 ROOM-AXFIT:*ap     chestL       ap  138   2.420  [2.405..2.430]  0.36   0.031   0.308   2.50 (2.3-2.7)  DANS
 ROOM-AXFIT: ap     chestL       lat 138   2.545  [2.540..2.555]  0.35   0.016   0.319   2.65 (2.4-2.9)  DANS
-ROOM-AXFIT: ap     chestL       v   138   2.560  [2.510..2.610]  0.43   0.045   0.313   2.30 (2.1-2.5)  HORS
+ROOM-AXFIT: ap     chestL       v   138   2.560  [2.510..2.610]  0.43   0.045   0.313   2.30 (2.1-2.5)  tangentiel — §24-v: ROOM-AXFIT-RAD
 ROOM-AXFIT:*ap     chestR       ap  138   2.545  [2.540..2.550]  0.35   0.019   0.307   2.50 (2.3-2.7)  DANS
 ROOM-AXFIT: ap     chestR       lat 138   2.635  [2.615..2.650]  0.34   0.027   0.334   2.65 (2.4-2.9)  DANS
-ROOM-AXFIT: ap     chestR       v   138   2.660  [2.610..2.710]  0.41   0.048   0.359   2.30 (2.1-2.5)  HORS
+ROOM-AXFIT: ap     chestR       v   138   2.660  [2.610..2.710]  0.41   0.048   0.359   2.30 (2.1-2.5)  tangentiel — §24-v: ROOM-AXFIT-RAD
 ROOM-AXFIT: lat    chestL       ap  138   2.450  [2.445..2.455]  0.35   0.017   0.308   2.50 (2.3-2.7)  DANS
 ROOM-AXFIT:*lat    chestL       lat 138   2.565  [2.560..2.575]  0.34   0.022   0.315   2.65 (2.4-2.9)  DANS
-ROOM-AXFIT: lat    chestL       v   138   2.560  [2.530..2.600]  0.27   0.069   0.441   2.30 (2.1-2.5)  HORS
+ROOM-AXFIT: lat    chestL       v   138   2.560  [2.530..2.600]  0.27   0.069   0.441   2.30 (2.1-2.5)  tangentiel — §24-v: ROOM-AXFIT-RAD
 ROOM-AXFIT: lat    chestR       ap  138   2.545  [2.535..2.550]  0.35   0.018   0.310   2.50 (2.3-2.7)  DANS
 ROOM-AXFIT:*lat    chestR       lat 138   2.625  [2.615..2.640]  0.33   0.031   0.325   2.65 (2.4-2.9)  DANS
-ROOM-AXFIT: lat    chestR       v   138   2.620  [2.610..2.630]  0.36   0.024   0.284   2.30 (2.1-2.5)  HORS
+ROOM-AXFIT: lat    chestR       v   138   2.620  [2.610..2.630]  0.36   0.024   0.284   2.30 (2.1-2.5)  tangentiel — §24-v: ROOM-AXFIT-RAD
 
    (* = la ligne ou l'axe MESURE est celui qu'on a EXCITE : c'est elle qui porte le
    mode propre. Les autres chiffrent la diaphonie.)
@@ -1312,10 +1316,12 @@ ROOM-AXFIT: lat    chestR       v   138   2.620  [2.610..2.630]  0.36   0.024   
    SPEC 29 — L'ANISOTROPIE ARRIVE-T-ELLE ? Les compliances livrees (1.00 / 0.90 / 0.82)
    imposent, a masse unique, f_ap/f_v = sqrt(1/0.90) = 1.0541 et f_lat/f_v =
    sqrt(1/0.82) = 1.1043. Mesure contre attendu :
-ROOM-AXRATIO: chain=chestL       f_v=2.530 Hz  ap 0.9565 (attendu 1.0541, ecart -9.26%)  ·  lat 1.0138 (attendu 1.1043, ecart -8.19%)
-ROOM-AXRATIO-SPEC24: chain=chestL       ap 0.9565 (SPEC24 1.0870, ecart -12.00% · SPEC29 1.0541, ecart -9.26%) f=2.420 Hz plage [2.3,2.7] DANS  ·  lat 1.0138 (SPEC24 1.1522, ecart -12.01% · SPEC29 1.1043, ecart -8.19%) f=2.565 Hz plage [2.4,2.9] DANS
-ROOM-AXRATIO: chain=chestR       f_v=2.635 Hz  ap 0.9658 (attendu 1.0541, ecart -8.37%)  ·  lat 0.9962 (attendu 1.1043, ecart -9.79%)
-ROOM-AXRATIO-SPEC24: chain=chestR       ap 0.9658 (SPEC24 1.0870, ecart -11.14% · SPEC29 1.0541, ecart -8.37%) f=2.545 Hz plage [2.3,2.7] DANS  ·  lat 0.9962 (SPEC24 1.1522, ecart -13.54% · SPEC29 1.1043, ecart -9.79%) f=2.625 Hz plage [2.4,2.9] DANS
+ROOM-AXRATIO-SRC: chain=chestL       f_v=2.320 Hz [2.320..2.320] source=PHYSRINGCX (mode radial, fenetre d'impulsion verticale) — la ligne `v` d'AXFIT est tangentielle et ne sert plus de denominateur
+ROOM-AXRATIO: chain=chestL       f_v=2.320 Hz  ap 1.0431 (attendu 1.0541, ecart -1.04%)  ·  lat 1.1056 (attendu 1.1043, ecart +0.12%)
+ROOM-AXRATIO-SPEC24: chain=chestL       ap 1.0431 (SPEC24 1.0870, ecart -4.03% · SPEC29 1.0541, ecart -1.04%) f=2.420 Hz plage [2.3,2.7] DANS  ·  lat 1.1056 (SPEC24 1.1522, ecart -4.04% · SPEC29 1.1043, ecart +0.12%) f=2.565 Hz plage [2.4,2.9] DANS
+ROOM-AXRATIO-SRC: chain=chestR       f_v=2.425 Hz [2.420..2.430] source=PHYSRINGCX (mode radial, fenetre d'impulsion verticale) — la ligne `v` d'AXFIT est tangentielle et ne sert plus de denominateur
+ROOM-AXRATIO: chain=chestR       f_v=2.425 Hz  ap 1.0495 (attendu 1.0541, ecart -0.44%)  ·  lat 1.0825 (attendu 1.1043, ecart -1.98%)
+ROOM-AXRATIO-SPEC24: chain=chestR       ap 1.0495 (SPEC24 1.0870, ecart -3.45% · SPEC29 1.0541, ecart -0.44%) f=2.545 Hz plage [2.3,2.7] DANS  ·  lat 1.0825 (SPEC24 1.1522, ecart -6.05% · SPEC29 1.1043, ecart -1.98%) f=2.625 Hz plage [2.4,2.9] DANS
    LES DEUX REFERENCES NE SONT PAS LA MEME, ET C'EST LA SPEC ELLE-MEME QUI EST
    SUR-DETERMINEE : SPEC 29 impose 1.0541 / 1.1043 (racine des mobilites), SPEC 24
    impose 1.0870 / 1.1522 (rapport de ses frequences nominales) — soit +3.13 % et
