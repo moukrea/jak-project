@@ -81,3 +81,58 @@ chestR      rBoob         rBooc           -0.119944     2.016473     0.107559
 # l'injection (`build_enhanced_models.sh:252`) REMPLACE le profil que la rampe de l'injecteur
 # venait de poser. D'ou les deux regles `redistribute` de `recharged_assets/physics_reskin.txt`,
 # qui sont indissociables de ces deux lignes-ci : sans elles, l'os est pose et n'entraine rien.
+#
+# 2026-08-18, CINQUIEME PASSE — LE NOEUD PROXIMAL DE LA POITRINE (SPEC 30).
+#
+# LE DEFAUT, MESURE SUR LE MESH LIVRE (`probe_breast_anchor30.py`) : `StrongRootFraction` — la part
+# des sommets de la chaine dont l'ancrage depasse 0.55 — vaut 0.416 / 0.459 contre la cible 0.30
+# (bande 0.28-0.35) de sa 30, et AUCUN exposant admissible ne peut descendre sous 0.390 / 0.446.
+# A exposant donne cette part ne depend plus que de la DISTRIBUTION de `r`, donc de la GEOMETRIE :
+# 26 sommets sur 77 (33.8 %) et 29 sur 74 (39.2 %) se projettent EXACTEMENT sur le noeud racine et
+# heritent en bloc de son ancrage. C'est la chair ARRIERE du sein, celle qui vit entre `chest` et
+# `lBoob`, alors que la polyligne de la chaine COMMENCE a `lBoob`.
+#
+# LA POSITION EST DERIVEE, PAS CHOISIE (`probe_breast_proximal_node.py`, sortie recopiee sans
+# retouche dans `.autoport/reports/Grecharged-secondary-motion/C23-breast-proximal-node.txt`) :
+# c'est la MEDIANE DE MASSE du bloc a s=0 projete sur `chest->racine`, exactement la regle que
+# `subdiv` applique deja aux meches, transposee au bout proximal. La regler pour atteindre 0.30
+# serait `never-fit-a-parameter-to-the-instrument`.
+#
+# LE VERBE EST `reroot` ET PAS `prepend`, ET C'EST UNE MESURE QUI TRANCHE. Le cycle 22 avait depose
+# un `prepend` (inserer un noeud, reparenter la racine). Deux faits l'ecartent :
+#   1. `chest`, `lBoob`, `lBooc` sont COLINEAIRES a 0.00027 deg — `lBoob` est a 0.000000 m de la
+#      droite `chest->lBooc`. La polyligne a 3 noeuds et la polyligne a 2 noeuds dont la racine a
+#      GLISSE decrivent donc la meme courbe : abscisse identique a 8e-6, meme StrongRootFraction
+#      atteignable a la troisieme decimale (0.390 -> 0.338 / 0.446 -> 0.392). Le noeud n'apporte
+#      rien qu'un glissement n'apporte pas.
+#   2. Il couterait un INDEX. Un joint appendu en fin de `skin.joints` donnerait `hd_parent > k`
+#      sur la racine reparentee, et quatre consommateurs exigent `hd_parent < k` :
+#      `retarget_fill_table.py` (PARENT-ORDER, exit 2), `hd_splice_joint_tables.py` (invariant
+#      append-only), `physics_keira_gen2.py:470`, et la boucle de retarget elle-meme
+#      (`jak-hd.gc:497` parcourt les joints dans l'ordre des index et les modes 1/2/3 lisent la
+#      bone du parent DEJA retargetee cette frame).
+#   3. Et l'os ajoute aurait ete INERTE : la bande « Deep root » de la 30 exige 90-100 % d'ancrage
+#      au thorax, donc un joint qui vit dans cette bande est plafonne a 0.10 de tout sommet et ne
+#      peut JAMAIS y etre majoritaire. C'est mot pour mot « un os que la geometrie ignore », que
+#      la directive du 08:55 interdit.
+#
+# CE QUE `reroot` CHANGE, ET RIEN D'AUTRE : la position de bind de la racine, son os d'ancrage
+# (chest->lBoob 0.2385 -> 0.2266 m) et l'os du maillon distal (lBoob->lBooc 0.0871 -> 0.0990 m).
+# La POSE AU REPOS est identique au bit pres par construction (le skinning compose `M_j . IBM_j`,
+# qui vaut l'identite au repos quelle que soit la position de bind), l'orientation de bind est
+# preservee (la peau y est liee), et l'enfant est re-base pour que sa pose de bind monde ne bouge
+# pas. Le repesage qui accompagne l'operation est la regle `anchor30` de `physics_reskin.txt`, qui
+# recalcule la partition le long de la NOUVELLE polyligne dans la MEME cuisson.
+#
+# PREDICTION ECRITE AVANT LA CUISSON, DONC FALSIFIABLE :
+#   chestL  StrongRootFraction atteignable 0.390 -> 0.338   DANS la bande 0.28-0.35
+#   chestR                                0.446 -> 0.392    TOUJOURS AU-DESSUS, et je le publie
+#   les cinq bandes de la 30 predites DANS sur les deux chaines.
+# La frequence propre du maillon distal bouge avec son os (+13.7 % de longueur) : sa 24 est
+# re-derivee APRES la cuisson, sur la geometrie mesuree, pas avant.
+#
+# chaine    joint    ancre    x            y            z    (metres)
+reroot  chestL    lBoob    chest       0.082604     1.922331     0.092301
+#   t mediane de masse=0.950 sur chest->lBoob  os chest->lBoob raccourci de 0.0119 m  StrongRootFraction atteignable 0.390 -> 0.338
+reroot  chestR    rBoob    chest      -0.082208     1.921330     0.092139
+#   t mediane de masse=0.945 sur chest->rBoob  os chest->rBoob raccourci de 0.0130 m  StrongRootFraction atteignable 0.446 -> 0.392

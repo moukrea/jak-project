@@ -185,22 +185,68 @@ def main():
 
         newbone = float(np.linalg.norm(newP - b_w)) / UNITS
         nm = joints[0][0] + joints[0][1:].replace('Boob', 'Booa')
-        spec.append((cname, anch, nm, newP / UNITS, newbone, t_med, f_now, f_new))
+
+        # ---- QUEL VERBE ? LA COLINEARITE TRANCHE, ET ELLE SE MESURE. -------------------------
+        # Le noeud proximal n'a de raison d'exister QUE s'il change l'abscisse. S'il tombe sur la
+        # meme droite que la chaine, la polyligne a 3 noeuds et la polyligne a 2 noeuds dont la
+        # RACINE A GLISSE decrivent la meme courbe — donc la meme abscisse, donc le meme
+        # StrongRootFraction. Alors le noeud n'apporte rien qu'un glissement n'apporte pas, et il
+        # coute un index (PARENT-ORDER), un reparentage, et un os que la bande « Deep root » de la
+        # 30 plafonne a 0.10 de tout sommet : un os que la geometrie ignore.
+        tip_w = P[grp[-1]]
+        ac = tip_w - a_w
+        troot = float(((b_w - a_w) @ ac) / float(ac @ ac))
+        offroot = float(np.linalg.norm((b_w - a_w) - troot * ac)) / UNITS
+        u1 = (b_w - a_w) / np.linalg.norm(b_w - a_w)
+        u2 = (P[grp[1]] - b_w) / np.linalg.norm(P[grp[1]] - b_w)
+        ang = float(np.degrees(np.arccos(np.clip(float(u1 @ u2), -1.0, 1.0))))
+        s2, _b2 = arc_param(np.vstack([newP[None, :], Pc[1:]]), verts)
+        dmax = float(np.abs(s1 - s2).max())
+        print('  COLINEARITE  %s->%s vs %s->%s : %.5f deg   ecart de %s a la droite %s->%s : '
+              '%.6f m' % (anch, joints[0], joints[0], joints[1], ang, joints[0], anch, joints[-1],
+                          offroot))
+        print('  ABSCISSE : |s(3 noeuds) - s(racine glissee)| max = %.2e — les deux operations '
+              'sont la MEME mesure' % dmax)
+        spec.append((cname, anch, nm, newP / UNITS, newbone, t_med, f_now, f_new, joints[0],
+                     ang, offroot, dmax))
         print()
 
     if spec:
-        print('SPEC D INJECTION DERIVEE — a executer par le cycle suivant, PAS par celui-ci.')
-        print('Le verbe `prepend` N EXISTE PAS encore dans .autoport/physics_inject_joints.py :')
-        print('il ne connait que `append` (parent -> nouvelle feuille) et `subdiv` (couper le')
-        print('bone d une feuille). Inserer un noeud AVANT la racine de chaine, en reparentant')
-        print('la racine actuelle, est un TROISIEME verbe. C est le travail du cycle suivant,')
-        print('avec sa non-regression a lui : le rig passe de 107 a 109 joints et TOUS les')
-        print('indices au-dela du point d insertion se decalent.\n')
-        print('# chaine    ancre    nouveauJoint   x            y            z    (metres)')
-        for cname, anch, nm, p, blen, t_med, f0, f1 in spec:
-            print('prepend %-9s %-8s %-12s %11.6f %12.6f %12.6f' % (cname, anch, nm, p[0], p[1], p[2]))
-            print('#   t medians de masse=%.3f sur %s->racine  nouvel os %.4f m  '
-                  'StrongRootFraction atteignable %.3f -> %.3f' % (t_med, anch, blen, f0, f1))
+        print('SPEC DERIVEE — a recopier dans recharged_assets/keira-hd-inject-joints.txt.')
+        print('CORRECTION DE LA NOTE DU CYCLE 22 : elle annoncait « le rig passe de 107 a 109')
+        print('joints et TOUS les indices au-dela du point d insertion se decalent ». Le decalage')
+        print('etait juste, et il est REDHIBITOIRE : quatre consommateurs exigent hd_parent < k')
+        print('(retarget_fill_table.py PARENT-ORDER, hd_splice_joint_tables.py append-only,')
+        print('physics_keira_gen2.py:470, et la boucle de retarget jak-hd.gc:497 qui lit la bone')
+        print('du parent DEJA retargetee cette frame). Un noeud appendu en fin de skin.joints')
+        print('donnerait hd_parent > k et serait refuse. La colinearite mesuree ci-dessus rend le')
+        print('noeud inutile : la racine GLISSE a la meme position, meme abscisse, meme')
+        print('StrongRootFraction, zero index touche.\n')
+        print('# LA POSITION EST LA MEME POUR LES DEUX VERBES ; SEUL LE COUT DIFFERE.')
+        print('# `reroot` GLISSE la racine de chaine a cette position sur son propre os. Aucun')
+        print('# joint cree, aucun index, aucun parent change — donc aucune des quatre gardes')
+        print('# PARENT-ORDER (retarget_fill_table.py / hd_splice_joint_tables.py /')
+        print('# physics_keira_gen2.py:470 / jak-hd.gc:497) n a a etre touchee.')
+        print('# `prepend` INSERE un noeud et reparente la racine. Il ne se justifie que si la')
+        print('# chaine N EST PAS colineaire — sinon il ajoute un os que la bande « Deep root »')
+        print('# de la 30 plafonne a 0.10 de tout sommet, c est-a-dire un os que la geometrie')
+        print('# ignore (regle du 2026-08-18 08:55).')
+        print('# chaine    joint    ancre    x            y            z    (metres)')
+        for (cname, anch, nm, p, blen, t_med, f0, f1, root,
+             ang, offroot, dmax) in spec:
+            print('reroot  %-9s %-8s %-8s %11.6f %12.6f %12.6f'
+                  % (cname, root, anch, p[0], p[1], p[2]))
+            print('#   t mediane de masse=%.3f sur %s->%s  os %s->%s raccourci de %.4f m  '
+                  'StrongRootFraction atteignable %.3f -> %.3f'
+                  % (t_med, anch, root, anch, root, blen, f0, f1))
+            print('#   colinearite %.5f deg, racine a %.6f m de la droite ancre->pointe, '
+                  '|ds| max %.2e vs le noeud insere' % (ang, offroot, dmax))
+        print('#')
+        print('# La forme `prepend`, pour memoire et pour un rig NON colineaire :')
+        for (cname, anch, nm, p, blen, t_med, f0, f1, root,
+             ang, offroot, dmax) in spec:
+            print('# prepend %-9s %-8s %-8s %-12s %11.6f %12.6f %12.6f'
+                  % (cname, anch, root, nm, p[0], p[1], p[2]))
 
 
 if __name__ == '__main__':

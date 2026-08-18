@@ -266,6 +266,30 @@ transfer lBoob from=chest cap=0.95 shape=1.30
 # de la bande (1.60 rend deja lBoob=0 SANS lissage, 1.80 tombe a 2 AVEC) c'est la seule ou les deux
 # maillons gardent une possession exploitable apres le lissage. La part distale
 # y reste 73.1 % / 73.9 %, tres au-dessus des 30 % du contrat.
+#
+# 2026-08-18, CYCLE 23 — LA POLYLIGNE A CHANGE SOUS LA REGLE, ET LA REGLE N'A PAS BOUGE.
+# `recharged_assets/keira-hd-inject-joints.txt` fait maintenant GLISSER la racine de chaine
+# (`reroot`) a la mediane de masse de la chair arriere : chest->lBoob 0.2385 -> 0.2266 m,
+# lBoob->lBooc 0.0871 -> 0.0990 m. La liste `chain=` est INCHANGEE (aucun joint cree), mais
+# l'abscisse que cette regle mesure le long d'elle s'etale enfin sur la chair arriere.
+# CE QUE LA CUISSON A DONNE, sur le mesh LIVRE (`probe_breast_anchor30.py`) :
+#     StrongRootFraction   chestL 0.416 -> 0.338   DANS la bande 0.28-0.35 (predit 0.338, EXACT)
+#                          chestR 0.459 -> 0.413   toujours au-dessus (predit 0.392, manque de 0.021)
+#     sommets majoritaires chestL lBoob 7 -> 10, lBooc 19 -> 21   chestR rBoob 6 -> 10, rBooc 17 -> 17
+#     bandes : 4 sur 5 DANS des deux cotes, `Deep root` a 0.880 / 0.893 pour un plancher de 0.90.
+#
+# `root=0.95` EST CONSERVE, ET C'EST UNE MESURE QUI LE DECIDE, PAS UNE HABITUDE. La bande
+# `Deep root` est SOUS son plancher et le lissage s'arrete sur elle (2 iterations a droite contre
+# 4 avant, d'ou `tear` chestR 17 -> 29 : c'est le cout, il est publie). `RootAnchor = 0.90-1.00`
+# offre la marge — mais elle se paie sur l'autre critere de la MEME section. Predit sur l'abscisse
+# mesuree, sans cuisson :
+#     root=0.950  marge deep-root +0.014   StrongRootFraction  0.338 / 0.400
+#     root=0.975  marge deep-root +0.038                       0.351 / 0.413
+#     root=1.000  marge deep-root +0.060                       0.351 / 0.413
+# Monter `root` sortirait chestL de la bande 0.28-0.35 que ce cycle vient de lui faire atteindre,
+# pour gagner du lissage. Les deux exigences sont de la 30 et elles tirent en sens contraire sur
+# CE maillage ; on garde celle qui est chiffree comme cible (`StrongRootFraction = 0.30`) et on
+# publie l'autre comme ouverte, plutot que d'echanger un rouge contre un autre en silence.
 anchor30 chestL  chain=lBoob,lBooc from=chest gate=0.05 root=0.95 strong=0.55 frac=0.30 grad=2.00
 anchor30 chestR  chain=rBoob,rBooc from=chest gate=0.05 root=0.95 strong=0.55 frac=0.30 grad=2.00
 

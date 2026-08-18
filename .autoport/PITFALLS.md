@@ -312,3 +312,22 @@ trois cycles de supervision gaspillés. C'est ma propre règle
 Verrou : toute mesure de peau publiée nomme **le fichier lu ET sa nature** (donneur / prepped /
 livré), et une affirmation sur ce que l'owner voit se lit sur le **mesh livré**, jamais sur le
 donneur. Les deux divergent par construction — c'est tout l'objet du pipeline entre les deux.
+
+---
+
+GUARD prepend-parent-order .autoport/physics_inject_joints.py hd_parent > k
+**Un joint HD ne peut jamais devenir le PARENT d'un joint existant.** Le cycle 22 a dérivé, chiffré
+et déposé une injection de nœud PROXIMAL (`prepend` : insérer entre `chest` et `lBoob`, reparenter
+`lBoob`). L'injecteur appende les nouveaux joints en FIN de `skin.joints`, donc le nouvel index est
+nécessairement supérieur à celui du joint reparenté : `hd_parent > k`. Quatre consommateurs exigent
+`hd_parent < k` — `retarget_fill_table.py` (PARENT-ORDER, `sys.exit(2)`), `hd_splice_joint_tables.py`
+(invariant append-only), `physics_keira_gen2.py:470`, et la boucle de retarget elle-même
+(`goal_src/jak1/pc/jak-hd.gc:497` parcourt les joints dans l'ordre des index ; les modes 1/2/3 lisent
+la bone du parent DÉJÀ retargetée cette frame — un parent au-dessus serait lu une frame en retard, en
+silence). Le faire marcher demande une INSERTION d'index dans cinq tables, pas un append.
+Verrou : `prepend` est implémenté et refuse TOUJOURS, en énonçant la contrainte au point d'échec.
+La sortie mesurée est le verbe `reroot` : quand la chaîne est colinéaire (mesuré sur Keira,
+`chest`/`lBoob`/`lBooc` à 0.00027 deg, `lBoob` à 0.000000 m de la droite), faire GLISSER la racine
+existante à la position dérivée donne la MÊME abscisse SPEC-31 (|ds| max 7.8e-06) et le même
+`StrongRootFraction`, sans toucher un seul index. `reroot` préserve l'orientation de bind (la peau y
+est liée) et re-base les enfants ; la pose au repos est identique au bit près par construction.
