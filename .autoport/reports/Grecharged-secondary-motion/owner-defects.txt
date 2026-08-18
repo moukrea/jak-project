@@ -492,6 +492,31 @@ OPEN breast-spec-incomplete  PRIORITE 1 -- LA SEULE LIGNE QUI TIENT LA PHASE OUV
 #       4817 lignes en sont) : la doctrine de la gate dit « c'est la COMPOSITION qui decide ».
 #       Composition mesuree : `clamp` 9 et `hyster` 4, contre 84 et 9 sur le moteur de 6000 lignes
 #       qui avait tue le mouvement. Decision au superviseur.
+#     §33 N'EST PLUS « SANS DOMAINE », ET UN CONTROLE D'ORDRE SORT UN DEFAUT NEUF ET DEMONTRE.
+#       Ventilation complete des contacts par volume : 280 corrections sein<->sein, et le
+#       coefficient moyen applique (0.0202 sur 6521 restitutions) implique ~33 restitutions a
+#       0.06 -- domaine MINCE mais REEL, coefficient bien applique. MAIS la paire miroir est
+#       asymetrique 39x (chestR 273 contre chestL 7), ce que l'asymetrie de parametres de la 32
+#       (+-2 a 5 %) ne peut pas produire. CONTROLE FAIT, prediction ecrite avant : on inverse le
+#       RANG des deux chaines dans le fichier livre, rien d'autre.
+#           course              rang 1 (resolue 1re)     rang 2 (resolue 2e)
+#           reference (C24)     chestL   7 contacts      chestR  273 contacts
+#           controle (ORDERCTL) chestR  11 contacts      chestL  281 contacts
+#       LES NOMBRES CHANGENT DE COTE : le compte suit le RANG, pas le cote. Le contact
+#       sein<->sein n'est donc vu QUE par la chaine resolue en SECOND -- la premiere s'ecarte
+#       avant d'etre testee -- et la restitution de la 33 ne s'applique qu'a UN sein sur deux.
+#       La 32 (independance gauche/droite) est cassee par une cause qui n'est dans aucun de ses
+#       parametres. Le code le disait sans le chiffrer (`*phys-csim*` :1559). Fichier livre
+#       restaure et verifie par md5 (4d29e30c759d33fffd794e10947497e6).
+#       >>> DEUXIEME CHANTIER DU CYCLE SUIVANT, avec son critere d'arret : les deux chaines
+#           doivent compter le meme ordre de grandeur (rapport < 2x) et le compte ne doit plus
+#           changer de cote quand on inverse l'ordre.
+#     §36 : JE RETIRE UN CHIFFRE QUE JE PUBLIAIS COMME UN ECART. « f mesuree 3.2 Hz contre 5.20
+#       attendus » n'est pas lisible sur cette fenetre : chestL ne rend AUCUN mode oscillant,
+#       chestR rend un ajustement que l'instrument marque « DESACCORD » (residu 0.1236 contre
+#       0.015-0.023 sur les canaux de torsion de la MEME course) sur 17-20 echantillons sur 90,
+#       soit MOINS D'UNE PERIODE a la frequence ajustee. Ce qui reste solide : amplitude 0.06914
+#       sous le plafond 0.07 et 0 frame ecretee -- le correctif 37 du cycle 23 tient.
 #     A TRANCHER PAR LE SUPERVISEUR (regle 5, aucune gate touchee) : COLLIDE exige <= 0.0005 m
 #       d'un lien dont la POSE D'AUTEUR viole deja la contrainte de 0.059 m. Telle qu'elle est
 #       ecrite, elle ne peut etre satisfaite qu'en sortant l'organe de la pose que les 4 et 9

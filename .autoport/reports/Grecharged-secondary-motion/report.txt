@@ -23,10 +23,24 @@ EN UN COUP D'OEIL
                 A SON PARENT de chaque maillon pour un ecart ABSOLU a la pose d'auteur. Corrige
                 par la somme telescopique, son controle passe de 57.35 % / 56.16 % a
                 1.24 % / 2.27 % contre un accumulateur INDEPENDANT. Section 3.
+    MESURE      §33 N'EST PLUS « SANS DOMAINE » : 280 corrections sein<->sein dans la
+                ventilation par volume, et le coefficient moyen applique (0.0202 sur 6521
+                restitutions) implique ~33 restitutions a 0.06 — le domaine est MINCE mais REEL,
+                et le coefficient y est applique. Mais la paire MIROIR est asymetrique 39x
+                (273 contre 7) — et le CONTROLE D'ORDRE le tranche : en inversant le rang des
+                deux chaines dans le fichier, les nombres CHANGENT DE COTE (11 / 281). Le contact
+                sein<->sein n'est compte que du cote resolu en SECOND, donc la restitution de sa
+                33 ne s'applique qu'a un seul des deux seins. Section 5bis.
     MESURE      ET LA CAUSE DE `COLLIDE` EST TROUVEE, ELLE N'EST PAS DANS LE SOLVEUR. Au REPOS,
                 pose d'auteur, physique eteinte, `lBooc` est deja 0.059 m DANS `Lshoulder->chest`
                 et `rBooc` 0.058 m dans `Rshoulder->chest`. 63 % / 73 % du residu publie existe
                 AVANT que le solveur ne tourne : son ensemble cible est VIDE. Section 5.
+    RETIRE      §36 : le « f = 3.2 Hz contre 5.20 attendus » que je publiais comme un ecart
+                N'EST PAS LISIBLE sur cette fenetre — chestL ne rend aucun mode oscillant,
+                chestR rend un ajustement que l'instrument marque « DESACCORD » (residu 5 a
+                8x celui des canaux de torsion) sur 17-20 echantillons, soit MOINS D'UNE
+                periode. Ce qui reste solide : l'amplitude 0.06914 sous le plafond 0.07,
+                0 frame ecretee — le correctif §37 du cycle 23 tient. Tableau, §36.
     VERT        SCOPE · TUNING · MOVE · ROOT · IDLE · ANIM · SUPPRESS
                 §24 les six frequences INCHANGEES et toutes DANS · §22 apex 0.3900 / 0.3889 SOUS
                 0.50 B0 · mirror de `ROOM-SKINPEN` 33 % -> 1 %
@@ -179,8 +193,14 @@ LA VERIFICATION, sur la course du 2026-08-18 14:16, 18 orientations, les deux ch
 fenetre au lieu d'un instantane) :
 
     |ldb[1]| seul       contre |t| :   -57.4 %  a  +107.4 %      <- ce que le bloc faisait
-    |ldb[0]+ldb[1]|     contre |t| :   -0.40 %  a  +0.31 %  sur 16 orientations sur 18
-                                       (+1.25 % et +2.32 % sur les deux restantes)
+    |ldb[0]+ldb[1]|     contre |t| :   sur les 16 orientations CHARGEES (i != 0), 13 tombent dans
+                                       +-0.40 % et les trois autres a +1.02 %, +1.25 % et +2.32 %.
+                                       (Ecart relatif signe (cumul - t)/t ; le bloc publie la
+                                       variante non signee |a-b|/max(a,b), d'ou 1.24 % et 2.27 %
+                                       comme pires valeurs — meme fait, deux normalisations, et
+                                       je cite les deux plutot que de choisir la plus flatteuse.)
+                                       Les deux orientations i=0 sont la LIGNE DE BASE et sont
+                                       exclues du rapport relatif : voir juste dessous.
 
 Deux instruments independants qui retombent l'un sur l'autre a 0.4 % pres : le desaccord n'etait
 ni un repere, ni un ecart instantane/moyenne, ni la physique. C'etait un increment compare a un
@@ -317,6 +337,85 @@ CE QUE JE NE FAIS PAS, ET POURQUOI (pas de de-scope silencieux, regle 3) :
     c'est-a-dire exactement le cas que le generateur declare ambigu. C'est un chantier a soi seul,
     pose ici avec sa mesure.
 
+5bis. LA 33 N'EST PLUS « SANS DOMAINE » — ET LA PAIRE MIROIR EST ASYMETRIQUE 39x
+=================================================================================
+Depuis le cycle 15 la 33 (restitution sein<->sein, 0.06) etait publiee « SANS DOMAINE SOLIDE » :
+aucun contact sein<->sein mesurable, donc rien a juger. La ventilation COMPLETE des contacts par
+volume, lue sur la trace de cette course (`PHYSCVOL c= l= ci= n=`, 56 volumes nommes), la ferme :
+
+    chaine    volume touche      contacts    part de ses contacts
+    chestL    sphere:rBoob              7          0.02 %
+    chestR    sphere:lBooc            237          0.88 %
+    chestR    sphere:lBoob             36          0.13 %
+    ------------------------------------------------------------
+    sein <-> sein                     280          0.47 % des 59 181 contacts de la course
+
+LE COEFFICIENT DE SA 33 EST BIEN APPLIQUE, ET C'EST UNE SECONDE MESURE QUI LE DIT.
+`ROOM-REST-MIX` publie le coefficient MOYEN reellement applique : 0.0202 sur 6521 restitutions.
+Le moteur choisit entre `PHYS-RST-BB = 0.06` (:375, sa 33) et `PHYS-RST-CH = 0.02` (:376, sa 34)
+selon `*phys-csim*` (1 = volume porte par un joint SIMULE, :1866). Une moyenne de 0.0202 implique
+une part a 0.06 de `(0.0202 - 0.02) / 0.04` = 0.50 %, soit ~33 restitutions — et l'arrondi a
+quatre decimales laisse la fourchette 0.375-0.625 %, soit 24 a 41. Ce n'est donc pas zero : la
+restitution de sa 33 EST appliquee, sur une poignee de contacts.
+
+ET JE PRECISE CE QUE CES DEUX NOMBRES NE SONT PAS, PARCE QUE JE L'AI D'ABORD ECRIT DE TRAVERS.
+Les 0.47 % du tableau et les 0.50 % deduits de la moyenne ne portent PAS sur le meme denominateur
+— 59 181 corrections de contrainte (triplets frame x maillon x volume) d'un cote, 6 521
+restitutions de l'autre — donc leur proximite n'est PAS un recoupement de deux instruments sur
+une meme grandeur. Ce sont deux faits distincts qui vont dans le meme sens : le domaine de sa 33
+existe (280 corrections l'exercent) et son coefficient y est effectivement applique (~33
+restitutions a 0.06). Presenter cette coincidence de RATIOS comme une verification croisee aurait
+ete un faux vert de plus, sur la seule foi que deux pourcentages se ressemblent.
+
+ET LA MESURE SORT UN DEFAUT NEUF, QUE JE NE SAIS PAS EXPLIQUER ET QUE JE NOMME PLUTOT QUE DE
+L'ARRONDIR : la paire MIROIR est asymetrique d'un facteur 39. `chestR` touche les volumes de
+gauche 273 fois ; `chestL` touche ceux de droite 7 fois. Sa 32 n'autorise qu'une asymetrie de
+parametres de +-2 a 5 % (masse +2.07 %, raideur +5.00 %) — elle ne peut pas produire 39x. Le
+suspect designe par le code lui-meme est l'ORDRE DE RESOLUTION : `*phys-csim*` porte deja la note
+« la reponse d'une chaine depend de son rang dans le fichier » (:1559), et `chestL` est resolue
+AVANT `chestR`, donc elle s'ecarte avant d'etre testee contre une chaine qui, elle, n'a pas encore
+bouge. C'est une hypothese, et elle est TESTEE — voir ci-dessous. Le controle est exactement celui que
+le raisonnement appelle : on inverse l'ordre des deux chaines dans le fichier livre et on regarde
+si l'asymetrie SUIT L'ORDRE ou si elle SUIT LE COTE.
+
+PREDICTION ECRITE AVANT DE LIRE LE RESULTAT (course `ORDERCTL`, lancee a 15:07, `chestR` d'abord) :
+  - si l'ORDRE est la cause : les deux nombres CHANGENT DE COTE. `chestL` (resolue seconde
+    desormais) doit porter ~273 contacts sein<->sein et `chestR` ~7.
+  - si le COTE est la cause (geometrie, parametres, volumes) : les nombres RESTENT ou ils sont,
+    `chestR` ~273 et `chestL` ~7, et l'hypothese d'ordre est REFUTEE.
+  Un resultat intermediaire (les deux comptes se rapprochant) dirait que l'ordre explique une
+  PART, et il faudra publier laquelle plutot que de trancher.
+  Aucun autre octet ne change : memes parametres, meme mesh, meme moteur, meme GAME.CGO — seul
+  le RANG des deux blocs dans le fichier est echange, et le fichier livre est restaure ensuite
+  (verification par md5 contre 4d29e30c759d33fffd794e10947497e6).
+
+RESULTAT : L'HYPOTHESE D'ORDRE EST CONFIRMEE. LES NOMBRES ONT CHANGE DE COTE.
+
+    course              rang 1 (resolue en premier)      rang 2 (resolue en second)
+    reference (C24)     chestL      7 contacts           chestR    273 contacts
+    controle (ORDERCTL) chestR     11 contacts           chestL    281 contacts
+                        ^^^^^^                            ^^^^^^
+                        le COTE a change, le RANG non — et c'est le RANG que le compte suit.
+
+Trace de la course de controle : `PHYSCHAIN c=0 ... j0=rBoob` / `c=1 ... j0=lBoob` — l'inversion
+a bien pris. Le total de contacts suit le meme rang (27 398 pour la premiere, 32 443 pour la
+seconde ; 32 275 / 26 906 en reference). `ROOM-REST-MIX` reste a 0.0201 contre 0.0202 : le
+coefficient moyen ne bouge pas, seul l'organe qui le recoit change.
+
+CE QUE CA ETABLIT, ET C'EST PLUS GRAVE QUE L'ASYMETRIE ELLE-MEME : le contact sein<->sein n'est
+compte QU'UNE FOIS, du cote de la chaine resolue en SECOND. La premiere s'ecarte avant que la
+seconde ne soit testee, donc elle ne voit presque rien (7 a 11 contacts residuels contre ~275).
+La restitution de sa 33 est donc appliquee A UN SEUL DES DEUX SEINS, celui qui a le mauvais rang
+dans le fichier — et sa 32 (« independance gauche/droite ») est violee par une cause qui n'est
+dans aucun de ses parametres. Le code le disait deja sans le chiffrer : « la reponse d'une chaine
+depend de son rang dans le fichier » (`*phys-csim*`, :1559).
+
+CE QUE JE NE FAIS PAS : corriger. Resoudre les deux chaines de facon symetrique (detection des
+contacts sur les positions de DEBUT de frame pour les deux, puis application) est un changement
+de solveur, donc de moteur, dans un cycle qui est un palier DONNEES et dont le budget est passe.
+C'est pose ici avec sa mesure et son controle, prioritaire pour le cycle suivant AU MEME TITRE que
+le bout `chest` des capsules — et les deux se mesurent dans la meme course.
+
 6. LE COUT COMPLET DE CE CYCLE, SANS RIEN RETIRER
 ==================================================
     grandeur                     cycle 23      cycle 24     lecture
@@ -424,16 +523,29 @@ republier comme neuf. Sources : « T: » tableau de la salle · « S: » sondes 
                                section 6.
   §32 independance  TENUE      les deux cotes restent distincts (masse +2.07 %, raideur +5.00 %,
                                et les deux chaines rendent des mesures differentes partout).
-  §33 restit. 0.06  PARTIELLE  SANS DOMAINE. `ROOM-PAIRDOM` montre `sphere:rBoob` et
-                               `sphere:rBooc` en CONTACT cote chestL et `sphere:lBoob` /
-                               `sphere:lBooc` cote chestR — le domaine existe enfin — mais
-                               `ROOM-REST-MIX` reste a 0.0202 sur 6521 contacts (0.02 = tout
-                               buste, 0.06 = tout sein<->sein) : la restitution de sa 33 n'a donc
-                               ete appliquee sur AUCUN contact mesurable. Non tranchee.
+  §33 restit. 0.06  PARTIELLE  ** RE-MESUREE, ET ELLE N'EST PLUS « SANS DOMAINE » ** 280
+                               corrections sein<->sein (ventilation par volume) et ~33
+                               restitutions appliquees a 0.06 (deduites de la moyenne 0.0202).
+                               Domaine MINCE mais REEL, coefficient applique. Section 5bis. Reste
+                               PARTIELLE : sa 33 exige aussi « medial surfaces shall collide or
+                               repel BEFORE visible interpenetration », qui n'est pas mesure, et
+                               la paire miroir est asymetrique 39x (controle d'ordre FAIT : c'est le RANG, pas le cote).
   §34 restit. 0.02  TENUE      (Reporte.)
-  §36 secondaire    PARTIELLE  (Reporte du cycle 23 : amplitude sous son plafond, 0 frame collee ;
-                               l'ecart f mesuree 3.17-3.27 Hz contre 5.20 Hz predits par les
-                               coefficients imprimes reste ouvert.)
+  §36 secondaire    PARTIELLE  ** RE-LUE, ET SON CHIFFRE N'EST PAS LISIBLE SUR CETTE FENETRE **
+                               `ROOM-SEC-RING` : chestL rend « aucune des deux fenetres ne rend un
+                               mode oscillant — NE PAS LIRE de zeta » ; chestR rend zeta 0.7655 et
+                               f 2.839 Hz mais avec `residu 0.1236` et la mention « DESACCORD —
+                               prudence », contre 0.0151-0.0226 et « accord des 2 fenetres » sur
+                               les deux canaux de torsion de la MEME course. Et l'ajustement ne
+                               porte que sur `n_fit` = 17-20 echantillons sur 90 : a f = 2.84 Hz
+                               (periode 21 frames a 60 Hz) c'est MOINS D'UNE PERIODE, donc sous la
+                               resolution de l'estimateur. Publier « f HORS » la-dessus serait
+                               lire un nombre que l'instrument declare lui-meme non fiable.
+                               CE QUI RESTE MESURE ET SOLIDE : l'amplitude, 0.06914 contre un
+                               plafond §38 de 0.07, et 0 frame ecretee (`n_ecrete = 0`) — le
+                               correctif §37 du cycle 23 tient. L'ecart aux coefficients imprimes
+                               (5.20 Hz attendu) reste ouvert et sans instrument capable de le
+                               trancher : il faut une fenetre libre plus longue, pas un reglage.
   §37 sous-pas      PARTIELLE  (Reporte : `ns=2/4`, 120-240 Hz, et les autres clamps durs.)
 
 AUCUNE SECTION N'EST « NON APPLICABLE » (interdit depuis le 14/08 11:50), aucune n'est ABSENTE.
@@ -474,9 +586,22 @@ Deux sections changent de rang ce cycle : §30 PARTIELLE -> TENUE, §27 TENUE ->
     et la fraicheur des echantillons a bien l'effet qu'on lui prete.
   livraison : APK `9f75cbcc` + pack `324e9ebd` pousses a 14:43:10, meme commit.
 
-10. CE QUE JE PROPOSE POUR LE CYCLE SUIVANT, ET IL N'Y A QU'UNE LIGNE
-======================================================================
-LE BOUT `chest` DES CAPSULES D'EPAULE. C'est le seul chantier que la mesure de ce cycle designe
+10. CE QUE JE PROPOSE POUR LE CYCLE SUIVANT — DEUX CHANTIERS, ET ILS SE MESURENT ENSEMBLE
+==========================================================================================
+CHANTIER B (neuf, et il est demontre) : LA SYMETRIE DE RESOLUTION DES DEUX CHAINES. Le controle
+d'ordre de la section 5bis prouve que le contact sein<->sein n'est vu que par la chaine resolue
+en SECOND (7-11 contre ~275, et les nombres suivent le RANG quand on l'inverse). Consequence :
+la restitution de sa 33 ne s'applique qu'a un sein sur deux, et son independance gauche/droite
+(sa 32) est cassee par une cause qui n'est dans aucun parametre. Critere d'arret, ecrit d'avance :
+
+    contacts sein<->sein, chestL contre chestR, dans les DEUX ordres du fichier
+      -> les deux chaines doivent en compter le MEME ordre de grandeur (rapport < 2x),
+         et le compte ne doit plus CHANGER DE COTE quand on inverse l'ordre.
+
+Si apres correction l'inversion d'ordre deplace encore les nombres, la correction n'a pas pris et
+il faudra le dire.
+
+CHANTIER A : LE BOUT `chest` DES CAPSULES D'EPAULE. C'est le seul chantier que la mesure de ce cycle designe
 sans ambiguite, il porte le plus gros rouge (COLLIDE), et il est bloque par une derivation
 manquante que le generateur DECLARE lui-meme (« os propre ambigu »). Critere d'arret chiffre et
 falsifiable, a ecrire avant toute cuisson :
