@@ -1,11 +1,16 @@
-# CE QU'IL Y A À SAVOIR SUR CE CYCLE — et il n'y a pas de nouveau build
+# CE QU'IL Y A À SAVOIR SUR CE CYCLE — rien de neuf à regarder à l'écran
 
 Branche `physics-keira-clean`.
 
-**AUCUN OCTET LIVRÉ N'A CHANGÉ.** Le moteur, le maillage, les volumes et les réglages sont
-identiques au bit près au build précédent — tu as déjà exactement ce binaire, et il n'y a donc rien
-à télécharger ni à regarder de neuf à l'écran. Ce n'est pas un build retenu pour cause de qualité
-(ta consigne là-dessus est respectée) : il n'y a pas de build à retenir.
+**LA PHYSIQUE N'A PAS BOUGÉ D'UN BIT, ET C'EST PROUVÉ, PAS AFFIRMÉ.** J'ai ajouté deux mesures dans
+le code (donc le binaire change), mais **rien qui déplace un os**. La preuve : j'ai relancé la salle
+de test au complet et regénéré le tableau de mesures — il est à **zéro ligne d'écart** de celui
+d'avant. Les ~4700 lignes, tous les compteurs, toutes les colonnes : identiques. Le maillage, les
+volumes et tes réglages sont eux aussi inchangés au bit près.
+
+Donc : **tu ne verras aucune différence à l'écran**, et ce n'est pas un build retenu pour cause de
+qualité (ta consigne là-dessus est respectée). Ce qui a changé est ce que je peux MESURER — et cinq
+de mes annonces précédentes étaient fausses à cause de ce que je ne mesurais pas.
 
 Ce cycle a corrigé mes **instruments** et audité mes **chiffres**. Cinq de mes annonces du build
 précédent étaient fausses. Voilà ce qui compte pour toi.
@@ -50,25 +55,31 @@ franchie et mon instrument écrit « jamais » ; à droite il est juste en desso
 Et mon autre instrument, sur la même course, dit que **les six canaux des deux seins se stabilisent
 en 0,82 à 0,95 s**, dans la fenêtre visée. Tu n'as pas cette asymétrie à chercher.
 
-## 3. CE QUI EST MAINTENANT MESURÉ POUR LA PREMIÈRE FOIS, ET QUI EST SOUS TA CIBLE
+## 3. CE QUI EST MAINTENANT MESURÉ POUR LA PREMIÈRE FOIS
 
 Tes sections 10, 11 et 12 chiffrent un déplacement du **centre de masse** du sein selon
-l'orientation. Mon seul instrument qui le mesurait n'en calculait que la moitié : la part portée par
-les **os**, en oubliant la part portée par la **déformation de la chair** — qui est précisément le
-mécanisme que ta §10 décrit (« le centre de masse se rapproche du thorax »). En l'ajoutant :
+l'orientation. Mon instrument n'en calculait que la moitié — la part portée par les **os** — en
+oubliant la part portée par la **déformation de la chair**, qui est précisément le mécanisme que ta
+§10 décrit. Les deux moitiés sont maintenant mesurées. Résultat :
 
-| | ta cible | mesuré |
-|---|---|---|
-| sur le dos (§10) | 23 % | 29 % à gauche, 18 % à droite |
-| à plat ventre (§11) | 24 % | 21 % à gauche, 23 % à droite |
-| **couché sur le côté (§12)** | **19 %** | **8 % et 18 % à gauche · 17 % et 4 % à droite** |
+| | ta cible | mesuré (gauche / droite) | |
+|---|---|---|---|
+| sur le dos (§10) | 23 % (18–28) | 26 % / 27 % | **dans la bande** |
+| à plat ventre (§11) | 24 % (20–30) | 24 % / 25 % | **dans la bande, quelle que soit la définition du contour du sein** |
+| couché sur le côté (§12) | 19 % (15–24) | 8 % et 19 % / 15 % et **3 %** | **le point faible** |
 
-**Le côté est le point faible, et il est asymétrique en miroir** : chaque sein répond correctement
-quand la gravité tire d'un côté et deux à quatre fois trop peu quand elle tire de l'autre. En
-moyenne sur les quatre mesures : 12 % contre les 15–24 % que tu demandes.
+**§11 est la première de tes sections d'orientation à être tenue** sur la grandeur qu'elle nomme, des
+deux côtés, et sans que le choix du contour du sein change le verdict.
 
-En revanche la **forme** (aplatissement, élargissement, allongement) tient tes **neuf** chiffres,
-sur les deux seins, dans les trois orientations. Ça n'avait jamais été comparé à ta spec.
+**§12 (couchée sur le côté) est le défaut qui reste, et il est directionnel.** Chaque sein répond
+correctement quand la gravité tire d'un côté et deux à sept fois trop peu quand elle tire de l'autre
+— et c'est en miroir entre les deux seins. Ce n'est donc pas un manque d'amplitude global : c'est une
+direction qui ne répond pas. C'est le prochain chantier de physique.
+
+**ET JE CORRIGE CE QUE JE T'AI ÉCRIT PLUS HAUT DANS CE MÊME CYCLE.** J'avais annoncé « sur le dos :
+29 % à gauche, 18 % à droite », soit une asymétrie de 59 % entre tes deux seins. C'était la moitié de
+déformation qui me manquait : sur la mesure complète c'est 26 % et 27 %, **1,6 % d'écart**. Il n'y a
+pas d'asymétrie gauche/droite sur le dos, et tu n'as pas à la chercher.
 
 ## 4. CE QUI RESTE OUVERT ET QUE TU PEUX VOIR
 

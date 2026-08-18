@@ -1368,6 +1368,20 @@
                      (phys-tri-world (-> self slot) c 1 0)
                      (phys-tri-world (-> self slot) c 1 1)
                      (phys-tri-world (-> self slot) c 1 2))
+             ;; L'AXE D'OS AU REPOS, PAR MAILLON, LU DANS LE MOTEUR AU LIEU D'ETRE AJUSTE.
+             ;; `ROOM-ORIAXIS` l'ajuste par ACP sur la dispersion de neuf deplacements et imprime
+             ;; « NON PLAN — le reste du bloc est invalide » sur les DEUX chaines ; SPEC 10/11/12 et
+             ;; l'anisotropie de SPEC 29 composent quand meme le long de lui. Le solveur, lui, a
+             ;; releve cette direction une fois a la meme frame que `g_ref` : c'est `*phys-ux*`, et
+             ;; elle n'etait publiee nulle part. Mesure hors moteur du cycle 26 : l'ajustement etait
+             ;; a 4.50 deg de la verite sur `chestL` et a 16.84 deg sur `chestR`. NATURE : vecteur
+             ;; unitaire. REPERE : la base de l'ANCRE, comme `PHYSTRI` et `PHYSORICOML`.
+             (dotimes (l (phys-chain-links (-> self slot) c))
+               (format 0 "PHYSURST c=~D l=~D ux=~,,5f uy=~,,5f uz=~,,5f~%"
+                       c l
+                       (phys-link-rest-dir (-> self slot) c l 0)
+                       (phys-link-rest-dir (-> self slot) c l 1)
+                       (phys-link-rest-dir (-> self slot) c l 2)))
              ;; LES LIGNES DE L'ANCRE AU MEME INSTANT, par ROLE (0=vertical, 1=AP, 2=lateral) —
              ;; `PHYSAXW` publie les memes vecteurs, mais dans une phase ULTERIEURE et sous une
              ;; autre pose. Comparer `fz` a une ligne relevee 3000 frames plus tard n'aurait aucun
@@ -1985,6 +1999,24 @@
                  (phys-chain-radial (-> self slot) c 1)
                  (phys-chain-radial (-> self slot) c 2)
                  (phys-stat (-> self slot) c 15))
+         ;; ---- LA DEFORMATION EN ESPACE ANCRE, TELLE QUELLE ------------------------------------
+         ;; Le cycle 26 a compose le COM de ses §10/§11/§12 en RECONSTRUISANT cette matrice hors
+         ;; moteur depuis les trois echelles de `PHYSORI2` et le triedre. La reconstruction ne
+         ;; couvrait que `dfa` : `dfb` (etirement dynamique, SPEC 38) et `dfc` (pression de contact,
+         ;; SPEC 23) restaient DEHORS, et le COM publie n'etait donc que PARTIEL — il le disait.
+         ;; Ces neuf nombres sont le produit COMPLET que le solveur applique, dans la base de
+         ;; l'ancre : plus rien a reconstruire, plus rien a omettre.
+         ;; NATURE : matrice sans dimension, rapport a la forme d'auteur. REPERE : base de l'ANCRE,
+         ;; celle de `PHYSORICOML` — donc peau et joints se composent enfin dans le meme repere.
+         ;; LECTURE HORS DEFAUT : diag(1,1,1) a l'orientation 0, ou §9 exige la pose d'auteur.
+         ;; UNE LIGNE DE MATRICE PAR LIGNE DE TRACE : `format` est un appel de fonction et GOAL en
+         ;; plafonne les parametres a 8, donc les neuf elements ne tiennent pas sur une ligne.
+         (dotimes (r 3)
+           (format 0 "PHYSDFMA c=~D i=~D r=~D m0=~,,6f m1=~,,6f m2=~,,6f~%"
+                   c oi r
+                   (phys-dfm-anc (-> self slot) c r 0)
+                   (phys-dfm-anc (-> self slot) c r 1)
+                   (phys-dfm-anc (-> self slot) c r 2)))
          ;; ---- LE DEPLACEMENT DE **CHAQUE MAILLON**, POUR QUE §10/§11/§12 SOIENT LUES SUR UN COM
          ;; Ses trois sections chiffrent un deplacement de CENTRE DE MASSE (`SupineCOMDepth 0.23`,
          ;; `HangingCOMDisplacement 0.24`, `SideGravityCOM 0.19`, en B0). `PHYSORICOM` ci-dessus ne

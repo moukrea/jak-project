@@ -577,4 +577,31 @@ OPEN breast-spec-incomplete  PRIORITE 1 -- LA SEULE LIGNE QUI TIENT LA PHASE OUV
 #       SOUS ; §29 anisotropie hors cible ; `dfb` (§38) et `*phys-ux*` non publies (une ligne de
 #       `format` chacun) ; §21, §26, §28, §33, §34, §36, §37 NON re-mesurees ce cycle et marquees
 #       comme telles au tableau.
+#
+#   ETAT AU CYCLE 27 (2026-08-18). LES DEUX MANQUES NOMMES PAR LE CYCLE 26 SONT PUBLIES, ET ILS
+#   CORRIGENT DEUX DE SES CONCLUSIONS. Palier GOAL SEUL, donnees inchangees au bit pres, compile
+#   propre (551 cibles), course complete (`PHYSEND vu apres 614s`, 31/31 animations).
+#     PREUVE QUE L'AJOUT EST INERTE : le tableau de la course NEUVE est a ZERO ligne d'ecart de
+#       celui de la course precedente (`C27-table-diff.txt`, vide). Aucun joint n'a bouge.
+#     `PHYSURST` — l'axe d'os au repos que le solveur avait releve et ne publiait pas. Il concorde
+#       avec l'axe lu dans le RIG a 0.07 deg (chestL) et 0.20 deg (chestR) : deux origines
+#       independantes, un vecteur. L'ajustement par ACP que le tableau consommait en etait a
+#       4.50 et 16.84 deg. §10/§11/§12 et l'anisotropie de §29 composaient le long de celui-la.
+#     `PHYSDFMA` — la deformation COMPLETE (dfa x dfb x dfc) en espace ancre, 54 lignes. Identite a
+#       l'orientation 0 (diag 1.000201 / 1.000039 / 0.999759), ce que §9 exige.
+#     LE COM EXACT : 5 cellules DANS, 2 SOUS, 1 SUSPENDUE (contre 4/2/1/1 sur la deformation
+#       partielle). **§11 (prone) EST TENUE SUR LES DEUX CHAINES ET LA FRONTIERE NE DECIDE PAS** —
+#       premiere section d'orientation fermee sur la grandeur que sa spec nomme.
+#     DEUX CONCLUSIONS DU CYCLE 26 RETIREES, ET CE SONT LES MIENNES :
+#       - « §10 asymetrique de 59 % entre les deux seins » : FAUX. 0.2612 contre 0.2653, soit 1.6 %,
+#         et les deux DANS la bande. L'asymetrie venait de la moitie de deformation qui manquait.
+#       - la retrogradation de §32 (TENUE -> PARTIELLE) qui en decoulait est ANNULEE : §32 est TENUE.
+#     NUANCE SUR « la forme tient 9 cibles sur 9 » : vrai du facteur d'EQUILIBRE `dfa` (16/16), faux
+#       du produit que la peau recoit (6/16). L'ecart vaut +5.5 a +12.8 % d'elongation, donc DANS la
+#       bande « common 5-15 % » de sa §22 : c'est une composition legitime, pas un defaut, et les
+#       deux colonnes doivent desormais etre citees separement.
+#     RESTE OUVERT ET MAINTENANT BIEN MESURE : **§12 lateral est SOUS sa bande d'un pole par sein,
+#       frontiere indifferente** (chestL i=2 0.0807, chestR i=4 0.0283 contre 0.15-0.24), et les
+#       poles opposes tiennent. Le defaut est DIRECTIONNEL et en MIROIR — pas un manque d'amplitude.
+#       C'est le prochain chantier de physique. `COLLIDE` reste a 0.1114 m (physique inchangee).
 #   CETTE LIGNE NE SE RETIRE QUE SUR LE MOT DE L'OWNER, jamais sur un tableau vert.

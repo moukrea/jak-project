@@ -444,6 +444,14 @@
 ;; La matrice de deformation de la chaine, en repere MONDE, rebatie a chaque frame. Elle vaut
 ;; l'identite tant que rien n'est arme : `matrix*!` par l'identite ne change pas un bit.
 (define *phys-dfm* (new 'global 'inline-array 'matrix PHYS-SC))
+;; LA MEME DEFORMATION, MAIS EN ESPACE ANCRE — et c'est celle-la qui est MESURABLE. `*phys-dfm*`
+;; est conjuguee en monde (`w2l . A . am`), donc illisible depuis la trace sans refaire la
+;; conjugaison. Le cycle 26 a du RECONSTRUIRE `A` hors moteur a partir de `PHYSORI2` (les trois
+;; echelles de `dfa`) et du triedre, ce qui laissait dehors `dfb` (etirement dynamique de SPEC 38)
+;; et `dfc` (pression de contact de SPEC 23) : le COM publie n'etait donc que PARTIEL. Publier `A`
+;; telle quelle supprime la reconstruction ET l'omission. Ecriture SEULE, aucun lecteur dans le
+;; solveur : ce tableau ne peut pas deplacer un joint.
+(define *phys-dfa* (new 'global 'inline-array 'matrix PHYS-SC))
 ;; SPEC 33/34 — la poussee de contact CUMULEE sur la frame et le coefficient du volume qui a
 ;; decide. La restitution ne peut pas s'appliquer dans `phys-collide-chain` : elle y serait
 ;; appliquee jusqu'a 15 fois par frame (8 + 3 + 4 balayages). Elle s'applique UNE fois, apres.
@@ -3942,6 +3950,8 @@
                             (set-vector! (-> dfa vector 3) 0.0 0.0 0.0 1.0)
                             ;; forme d'equilibre PUIS etirement dynamique, les deux en espace ANCRE
                             (matrix*! tmp dfa dfb)
+                            ;; `A` en espace ancre, retenue pour la MESURE (voir `*phys-dfa*`).
+                            (matrix-copy! (-> *phys-dfa* sc) tmp)
                             (matrix*! (-> *phys-dfm* sc) w2l tmp)
                             (matrix-copy! tmp (-> *phys-dfm* sc))
                             (matrix*! (-> *phys-dfm* sc) tmp am)
@@ -4260,6 +4270,39 @@
           (< (phys-stat slot chain 0) 0.5))
     0.0
     (-> *phys-lda* (+ (* (+ (* (+ (* slot PHYS-CHAINS) chain) PHYS-LINKS) link) 3) axis))))
+
+(defun phys-dfm-anc ((slot int) (chain int) (i int) (j int))
+  "SPEC 8/10-13/23/38 — L'ELEMENT (i,j) DE LA DEFORMATION EN ESPACE ANCRE, telle que le solveur
+   l'applique : `dfa` (equilibre d'orientation) x `dfb` (etirement dynamique) x `dfc` (pression de
+   contact). NATURE : une matrice sans dimension, rapport a la forme d'auteur ; l'identite quand
+   rien ne deforme. REPERE : la base de l'ANCRE, la meme que `phys-link-dev-anc-abs` — donc un
+   deplacement de peau se compose directement avec un ecart de joint, ce qui etait impossible tant
+   que seule la version conjuguee en monde existait. LECTURE HORS DEFAUT : diag(1,1,1).
+   CE QUE CE N'EST PAS : la deformation VUE sur le mesh. C'est ce que le solveur COMMANDE ; la peau
+   n'en recoit qu'une part graduee en r^1.63 (SPEC 31)."
+  (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS)
+          (< i 0) (> i 2) (< j 0) (> j 2))
+    0.0
+    (-> *phys-dfa* (+ (* slot PHYS-CHAINS) chain) vector i data j)))
+
+(defun phys-link-rest-dir ((slot int) (chain int) (link int) (axis int))
+  "L'AXE D'OS AU REPOS, PAR MAILLON, TEL QUE LE SOLVEUR L'A RELEVE — `*phys-ux*/uy/uz`, releve une
+   fois a la meme frame que `g_ref`. Il existait dans le moteur et n'etait publie nulle part, si
+   bien que le tableau l'AJUSTAIT par ACP sur la dispersion de neuf deplacements : ajustement
+   declare « NON PLAN — le reste du bloc est invalide » sur les deux chaines, et pourtant consomme
+   par SPEC 10/11/12 et par l'anisotropie de SPEC 29. NATURE : un vecteur UNITAIRE, sans dimension.
+   REPERE : la base de l'ANCRE, ordre (x, y, z) de ses lignes. LECTURE HORS DEFAUT : rend 0.0 tant
+   que la direction de repos n'est pas relevee (`*phys-ucap*` = 0), ce qui se distingue d'un axe
+   nul."
+  (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS)
+          (< link 0) (>= link PHYS-LINKS) (< axis 0) (> axis 2))
+    0.0
+    (let ((scl (+ (* (+ (* slot PHYS-CHAINS) chain) PHYS-LINKS) link)))
+      (if (zero? (-> *phys-ucap* scl))
+        0.0
+        (cond ((= axis 0) (-> *phys-ux* scl))
+              ((= axis 1) (-> *phys-uy* scl))
+              (else       (-> *phys-uz* scl)))))))
 
 (defun phys-link-dev-anc-abs ((slot int) (chain int) (link int) (axis int))
   "LA MEME DEVIATION QUE `phys-link-dev-anc`, MAIS NON NORMALISEE (voir la note de `*phys-ldb*`).

@@ -93,6 +93,24 @@ def parse(txt):
               G(r'^PHYSORI c=(\d+) i=(\d+) gx=([-\d.e+]+) gy=([-\d.e+]+) gz=([-\d.e+]+)')}
     d['tri'] = {(int(c), int(a)): np.array([float(x), float(y), float(z)]) for c, a, x, y, z in
                 G(r'^PHYSTRI c=(\d+) a=(\d+) x=([-\d.e+]+) y=([-\d.e+]+) z=([-\d.e+]+)')}
+    # `PHYSDFMA` : la deformation COMPLETE (dfa x dfb x dfc) en espace ANCRE, publiee depuis le
+    # cycle 27. Quand elle est la, plus rien n'est reconstruit et plus rien n'est omis. Quand elle
+    # manque (course anterieure), on retombe sur la reconstruction depuis `PHYSORI2` + le triedre,
+    # qui ne couvre que `dfa` — et le rapport le DIT au lieu de faire comme si.
+    return d
+
+
+def parse_extra(txt, d):
+    G = lambda p: re.findall(p, txt, re.M)
+    rows = {}
+    for c, i, r, a, b, e in G(r'^PHYSDFMA c=(\d+) i=(\d+) r=(\d+) m0=([-\d.e+]+)'
+                              r' m1=([-\d.e+]+) m2=([-\d.e+]+)'):
+        rows.setdefault((int(c), int(i)), {})[int(r)] = [float(a), float(b), float(e)]
+    d['dfma'] = {k: np.array([v[0], v[1], v[2]]) for k, v in rows.items() if len(v) == 3}
+    d['urst'] = {}
+    for c, l, x, y, z in G(r'^PHYSURST c=(\d+) l=(\d+) ux=([-\d.e+]+) uy=([-\d.e+]+)'
+                           r' uz=([-\d.e+]+)'):
+        d['urst'][(int(c), int(l))] = np.array([float(x), float(y), float(z)])
     return d
 
 
@@ -145,7 +163,8 @@ def ang(a, b):
 def main():
     log = sys.argv[1] if len(sys.argv) > 1 else LOG
     glb = sys.argv[2] if len(sys.argv) > 2 else GLB
-    d = parse(open(log, errors='ignore').read())
+    _raw = open(log, errors='ignore').read()
+    d = parse_extra(_raw, parse(_raw))
     geo = geometry(glb)
     if geo is None:
         print('PROBE-ORICOM-EXACT: ABSENT %s — non mesure' % glb)
@@ -203,6 +222,22 @@ def main():
     A('   VERTICAL a 92 pour cent, pas avant-arriere. L\'instrument comparait son ajustement a une')
     A('   attente fausse — celle que la SPEC decrit, pas celle que le RIG porte.')
     A('')
+    if d.get('urst'):
+        A('-- CONTROLE 3 : L\'AXE DE REPOS DU MOTEUR CONTRE CELUI DU RIG --------------------------')
+        A('   `PHYSURST` publie `*phys-ux*`, la direction de repos que le SOLVEUR a relevee. Elle')
+        A('   doit retomber sur l\'axe racine->pointe lu dans le rig : deux origines independantes,')
+        A('   un seul vecteur. Un ecart mesure l\'erreur du montage, il ne se corrige pas.')
+        for c in (0, 1):
+            u = d['urst'].get((c, 0))
+            if u is None or float(np.linalg.norm(u)) < 1e-6:
+                A('   %-8s PHYSURST absent ou non releve (`*phys-ucap*` = 0)' % CH[c][0])
+                continue
+            u = u / np.linalg.norm(u)
+            e = min(ang(u, geo[c]['axis']), 180.0 - ang(u, geo[c]['axis']))
+            A('   %-8s moteur = [%+.5f %+.5f %+.5f]  rig = [%+.5f %+.5f %+.5f]  ecart = %.2f deg  %s'
+              % (CH[c][0], u[0], u[1], u[2], geo[c]['axis'][0], geo[c]['axis'][1],
+                 geo[c]['axis'][2], e, 'CONCORDE' if e < 5.0 else 'DESACCORD'))
+        A('')
     A('-- LA STRUCTURE DE LA CHAINE, MESUREE SUR LE RIG LIVRE ----------------------------------')
     for c in (0, 1):
         g = geo[c]
@@ -243,11 +278,23 @@ def main():
             base.append(np.linalg.norm((gg['W'][0] * d0 + gg['W'][1] * d1) / gg['n']) / B0)
         A('   ligne de base i=0 (§9 exige 0.0000) : |d_COM| = %s B0   -> nulle a la 3e decimale'
           % ' / '.join('%.5f' % x for x in base))
+        _has = sum(1 for (cc, _ii) in d['dfma'] if cc == c)
+        A('   D : %s' % ('LUE dans la trace (PHYSDFMA, %d orientations) — dfa x dfb x dfc, rien'
+                         ' de reconstruit, rien d\'omis' % _has if _has else
+                         'RECONSTRUITE depuis `dfa` seule (PHYSDFMA absent de cette course) —'
+                         ' `dfb` (SPEC 38) et `dfc` (SPEC 23) sont DEHORS, le COM est PARTIEL'))
         A('   %-17s %9s %9s %9s %9s %8s  %s'
           % ('section', 'skel', '+tenseur', 'apex ACP', 'apex VRAI', 'ctrl', 'cible/bande -> verdict'))
         for lab, i, tgt, lo, hi in BANDS:
             s, det = d['s'][(c, i)]
-            D = s[0] * np.outer(fx, fx) + s[1] * np.outer(fy, fy) + s[2] * np.outer(fz, fz)
+            if (c, i) in d['dfma']:
+                D = d['dfma'][(c, i)]            # dfa x dfb x dfc, LUE dans la trace
+                dsrc = 'PHYSDFMA'
+            else:
+                # repli : reconstruction depuis les seules echelles de `dfa`. `dfb` (SPEC 38) et
+                # `dfc` (SPEC 23) restent DEHORS et le COM n'est donc que PARTIEL.
+                D = s[0] * np.outer(fx, fx) + s[1] * np.outer(fy, fy) + s[2] * np.outer(fz, fz)
+                dsrc = 'reconstruite (dfa seule)'
             vals = []
             for cut in CUTS:
                 gg = g[cut]
@@ -275,6 +322,41 @@ def main():
                                                   apex_true=aV, ctrl=ctrl[(c, i)], verdict=vd,
                                                   cuts=allv, target=tgt, band=[lo, hi])
     A('')
+    if d.get('dfma'):
+        A('-- LA FORME : LES NEUF ECHELLES DE §10/§11/§12, DEUX FOIS -------------------------------')
+        A('   `ROOM-ORI` publie `sx/sy/sz`, les echelles du SEUL facteur d\'equilibre `dfa`. Le')
+        A('   solveur applique `dfa x dfb x dfc` : la matrice complete porte en plus l\'etirement')
+        A('   dynamique de SPEC 38 et la pression de contact de SPEC 23, ET DES TERMES DE')
+        A('   CISAILLEMENT que trois echelles ne peuvent pas exprimer. Les deux colonnes ci-dessous')
+        A('   ne visent donc PAS la meme chose, et il faut les lire separement :')
+        A('     `dfa`    = la grandeur que §10/§11/§12 DEFINISSENT (un equilibre d\'orientation) ;')
+        A('     complet  = ce que la PEAU recoit reellement, donc ce que l\'owner VOIT.')
+        A('   L\'echelle d\'extension le long de l\'axe k est |D.e_k|, pas l\'element diagonal — une')
+        A('   matrice non diagonale n\'a pas d\'echelle « par axe » lisible sur sa diagonale.')
+        SH = [('§10 supine', 8, [('projection (z)', 2, 0.70, 0.65, 0.75),
+                                 ('largeur    (x)', 0, 1.23, 1.18, 1.28),
+                                 ('hauteur    (y)', 1, 1.09, 1.05, 1.12)]),
+              ('§11 prone', 6, [('longueur   (z)', 2, 1.23, 1.18, 1.26),
+                                ('largeur    (x)', 0, 0.90, 0.87, 0.93),
+                                ('epaisseur  (y)', 1, 0.91, 0.88, 0.94)]),
+              ('§12 lateral i=2', 2, [('aplatissement (x)', 0, 0.80, 0.75, 0.85)]),
+              ('§12 lateral i=4', 4, [('aplatissement (x)', 0, 0.80, 0.75, 0.85)])]
+        for c in (0, 1):
+            A('   === %s ===' % CH[c][0])
+            A('      %-20s %8s %-9s %8s %-9s  cible  bande' % ('', 'dfa', 'verdict', 'complet',
+                                                              'verdict'))
+            for lab, i, axes in SH:
+                if (c, i) not in d['dfma']:
+                    continue
+                D = d['dfma'][(c, i)]
+                sv = d['s'][(c, i)][0]
+                for nm, k, tgt, lo, hi in axes:
+                    full = float(np.linalg.norm(D[:, k]))
+                    va = 'DANS' if lo <= sv[k] <= hi else ('SOUS' if sv[k] < lo else 'AU-DESSUS')
+                    vf = 'DANS' if lo <= full <= hi else ('SOUS' if full < lo else 'AU-DESSUS')
+                    A('      %-20s %8.4f %-9s %8.4f %-9s  %.2f  %.2f-%.2f'
+                      % ('%s %s' % (lab, nm), sv[k], va, full, vf, tgt, lo, hi))
+        A('')
     A('-- CE QUE CES CHIFFRES DISENT, ET CE QU\'ILS NE DISENT PAS ------------------------------')
     A('   1. La part TENSORIELLE est le mecanisme meme de sa §10 (« COM toward thorax 18-28 % B0 »)')
     A('      et elle etait ABSENTE de l\'unique instrument qui mesurait ces sections. En l\'ajoutant,')

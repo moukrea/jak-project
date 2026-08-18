@@ -6,7 +6,15 @@ DANS LA COURSE LIVREE, LE PARAMETRE QUE L'OWNER REGLE DEPUIS LE 11/08 EST DEBRAN
 Grecharged-secondary-motion, branche physics-keira-clean, KEIRA / POITRINE SEULE (ordre owner
 2026-08-14 07:30).
 
-PALIER DE LIVRAISON : AUCUN. Ce cycle ne change AUCUN octet livre — ni le moteur
+NOTE DE LECTURE — CE RAPPORT COUVRE DEUX PALIERS. Les sections 1 a 17 sont le cycle 26, un cycle
+d'INSTRUMENT ET D'AUDIT sans un octet livre modifie. Les sections 18 a 21 sont le cycle 27, qui
+publie les deux grandeurs que le 26 avait nommees comme manquantes (l'axe d'os au repos et la
+deformation complete) et qui, ce faisant, CORRIGE DEUX CONCLUSIONS DU CYCLE 26 — dont une asymetrie
+de 59 % que j'avais mise en tete et qui vaut 1.6 % sur la mesure exacte. Les sections 4 et 6 portent
+un marqueur de supersession a leur titre. Le cycle 27 est un palier GOAL SEUL : `make-group` +
+repack, aucun rebuild NDK ; donnees inchangees au bit pres.
+
+PALIER DE LIVRAISON DU CYCLE 26 : AUCUN. Il ne change AUCUN octet livre — ni le moteur
 (`jak-hd-physics.gc`, 4730 lignes, inchange), ni la salle (`phys-room.gc`, 2700 lignes,
 inchangee), ni les donnees (`recharged_assets/physics_chains.txt`, md5
 4d29e30c759d33fffd794e10947497e6, identique au cycle 25 et au cycle 24). Il n'y a donc PAS de
@@ -50,6 +58,13 @@ EN UN COUP D'OEIL
                 L'ORGANE EST A 86 DEG DE CET AXE. Le degre de liberte que §23 ajoute n'agit donc
                 pas le long de l'axe que §11 et §31 chiffrent. Ce n'est PAS un defaut de la pose
                 du cycle 24, qui atteint sa cible derivee au millieme. Section 10.
+    CYCLE 27    LES DEUX MANQUES DU CYCLE 26 SONT PUBLIES, ET ILS CORRIGENT SES CONCLUSIONS.
+                `PHYSURST` (axe d'os au repos) concorde avec le rig a 0.07 / 0.20 deg — l'ajustement
+                par ACP en etait a 4.50 / 16.84 deg. `PHYSDFMA` (deformation complete) donne le COM
+                EXACT : 5 cellules DANS au lieu de 4, **§11 TENUE sur les deux chaines et frontiere
+                indifferente**, et mon « §10 asymetrique de 59 % » RETIRE (1.6 % en realite, §32
+                redevient TENUE). L'ajout est prouve inerte : le tableau de la course neuve est a
+                **ZERO ligne d'ecart** de celui de l'ancienne. Sections 18 a 21.
     DECLARE     §23/§30 sur le mesh LIVRE : l'os injecte PILOTE la chair, 43.5 % / 37.5 % des
                 sommets (barre 30 %). Tableau obligatoire de la directive du 18/08 08:55, avec les
                 poids CORRIGES. Section 11.
@@ -179,6 +194,9 @@ propres) et de sa §28 (`k = m(2*pi*f)^2`), tous deux implementes et mesures.
 
 4. LA MOITIE **FORME** DE SES §10/§11/§12 EST TENUE — 9 CIBLES SUR 9, JAMAIS COMPAREES
 ========================================================================================
+*** NUANCE APPORTEE PAR LE CYCLE 27, SECTION 20 : ces neuf echelles sont celles du SEUL facteur
+    d'equilibre `dfa`. Le solveur applique `dfa x dfb x dfc`, et ce PRODUIT ne tient que 6 des 16
+    cibles. Les deux grandeurs sont differentes et se lisent separement — details section 20. ***
 Ses trois sections d'orientation chiffrent DEUX choses : un deplacement de COM (illisible, cf.
 sections 5 et 6) et des ECHELLES DE FORME. Les echelles sont publiees a chaque course
 (`ROOM-ORI`, colonnes sx/sy/sz) et **aucune ligne du tableau ni du producteur ne les compare aux
@@ -268,6 +286,10 @@ fichier de meme taille. Instantane restaure ensuite, concordance revirifiee.
 
 6. SES §10/§11/§12 LUES SUR LE COM — TENSEUR COMPRIS, POUR LA PREMIERE FOIS
 ============================================================================
+*** CHIFFRES REMPLACES PAR LE CYCLE 27, SECTION 19 : cette section compose une deformation
+    PARTIELLE (`dfa` seule) parce que `dfb` et `dfc` n'etaient pas publies. Ils le sont depuis, et
+    les huit valeurs changent — dont une conclusion de cette section qui est RETIREE (l'asymetrie
+    de 59 % sur §10 : elle vaut 1.6 % sur la mesure exacte). Lire la section 19. ***
 Sonde : `.autoport/probe_oricom_exact.py`, sortie complete dans `C26-oricom-exact.txt`. Entrees :
 la course LIVREE (`PHYSORICOML`, `PHYSORICOM`, `PHYSORICOM2`, `PHYSORI2`, `PHYSTRI`) et le mesh
 LIVRE. Aucune course neuve, aucun build, aucun coefficient choisi.
@@ -691,3 +713,137 @@ Pour que la correction de la section 1 soit verifiable sans relire le log :
     549.6072 ci=2 · 643.5922 ci=4 · 676.6364 ci=7
 Ni 416.9 ni 476.1 n'y figurent. `tag=run` — la fenetre de mesure des 31 animations — donne
 `c=0 worstres=487.8160 worstci=39` et `c=1 worstres=443.3293 worstci=7`.
+
+
+================================================================================================
+CYCLE 27 — LES DEUX GRANDEURS QUI MANQUAIENT SONT PUBLIEES, ET ELLES CHANGENT LE VERDICT
+================================================================================================
+Le cycle 26 se terminait en nommant deux manques, chacun « une ligne de `format` dans la salle » :
+l'axe d'os au repos (`*phys-ux*`, que le tableau AJUSTAIT par ACP) et la deformation complete
+(`dfa x dfb x dfc`, dont seul `dfa` etait lisible). Les deux sont faites, mesurees, et elles
+corrigent des conclusions du cycle 26 — y compris une des miennes.
+
+PALIER DE LIVRAISON : **GOAL SEUL**. `make-group` + repack, aucun rebuild NDK, aucun cmake. Compile
+propre : 551 cibles en 13.2 s. Course x86 complete : `PHYSEND vu apres 614s`, `PHYSFAIL 0`,
+31/31 animations. `recharged_assets/physics_chains.txt` INCHANGE au bit pres (md5
+4d29e30c759d33fffd794e10947497e6, le meme depuis le cycle 24).
+
+18. LA PREUVE QUE L'AJOUT EST UNE MESURE ET RIEN D'AUTRE — ZERO LIGNE D'ECART
+=============================================================================
+Un ajout de mesure ne doit deplacer aucun joint. Ce n'est pas une intention, c'est un controle :
+le tableau regenere depuis la course NEUVE (moteur modifie, deux tags de trace en plus) est compare
+a celui de la course PRECEDENTE.
+
+    diff keira-room-table (course precedente)  keira-room-table (course de ce cycle)
+    -> **0 ligne d'ecart**  (`C27-table-diff.txt`, fichier vide)
+
+Les ~4700 lignes du tableau, toutes les colonnes de physique, tous les compteurs, sont identiques
+au bit pres. L'ajout de `*phys-dfa*`, de sa copie par frame et des deux accesseurs n'a donc change
+AUCUNE valeur physique — et la course est reproductible, ce qui vaut aussi comme controle de
+determinisme. Ce qui a change est ce qu'on peut LIRE.
+
+Ce que la salle emet en plus, et rien d'autre :
+    `PHYSURST c= l= ux= uy= uz=`   l'axe d'os au repos, par maillon, en espace ancre (4 lignes)
+    `PHYSDFMA c= i= r= m0= m1= m2=`  la deformation complete en espace ancre, une ligne par rangee
+                                     (54 lignes = 2 chaines x 9 orientations x 3 rangees)
+Note d'implementation, pour la prochaine fois : `format` est un appel de fonction et GOAL en
+plafonne les parametres a HUIT. Les neuf elements d'une matrice ne tiennent pas sur une ligne ;
+d'ou une ligne par rangee. Le premier essai ne compilait pas pour cette seule raison.
+
+19. LE COM EXACT — ET MON ASYMETRIE DE 59 % ETAIT UN ARTEFACT
+==============================================================
+`PHYSDFMA` donne la matrice que le solveur applique reellement. Plus rien n'est reconstruit, plus
+rien n'est omis. Sa validite se lit d'abord sur la ligne de base : a l'orientation 0 (pose debout
+d'auteur) elle rend diag(1.000201, 1.000039, 0.999759) avec des termes hors diagonale a 5e-4 —
+l'identite, ce que sa §9 exige.
+
+    chaine  section          COM cycle 26   COM EXACT   cible  bande        verdict (frontieres)
+    chestL  §10 supine          0.2923       0.2612     0.23  0.18-0.28    DANS (la frontiere decide au cut le plus etroit)
+            §11 prone           0.2104       0.2373     0.24  0.20-0.30    DANS — 0.2152/0.2373/0.2619, FRONTIERE INDIFFERENTE
+            §12 lateral i=2     0.0819       0.0807     0.19  0.15-0.24    SOUS — 0.0734/0.0807/0.0898, FRONTIERE INDIFFERENTE
+            §12 lateral i=4     0.1828       0.1862     0.19  0.15-0.24    SUSPENDUE (controle de son orientation, 10.31 %)
+    chestR  §10 supine          0.1842       0.2653     0.23  0.18-0.28    DANS (la frontiere decide au cut le plus etroit)
+            §11 prone           0.2275       0.2477     0.24  0.20-0.30    DANS — 0.2210/0.2477/0.2680, FRONTIERE INDIFFERENTE
+            §12 lateral i=2     0.1671       0.1533     0.19  0.15-0.24    DANS (la frontiere decide)
+            §12 lateral i=4     0.0427       0.0283     0.19  0.15-0.24    SOUS — 0.0252/0.0283/0.0291, FRONTIERE INDIFFERENTE
+
+  BILAN : 5 cellules DANS, 2 SOUS, 1 SUSPENDUE — contre 4 DANS, 2 SOUS, 1 AU-DESSUS, 1 SUSPENDUE
+  sur la deformation partielle.
+
+CE QUI EST ACQUIS, ET C'EST NEUF : **§11 (prone) EST TENUE SUR LES DEUX CHAINES, ET LA FRONTIERE
+D'ORGANE NE DECIDE PAS** — les trois definitions donnent DANS des deux cotes. C'est la premiere
+section d'orientation qui se ferme sur la grandeur que sa spec nomme.
+
+CE QUE JE RETIRE DE MON PROPRE RAPPORT DE CYCLE 26. J'y ai publie « §10 EST ASYMETRIQUE DE 59 %
+entre les deux seins au meme stimulus (0.2923 contre 0.1842) », et j'en ai fait un point de tete en
+ajoutant que sa §32 « ne prevoit pas 59 % d'ecart de REPONSE ». **C'est faux.** Sur la deformation
+exacte, §10 vaut 0.2612 a gauche et 0.2653 a droite : **1.6 % d'ecart**, et les deux sont DANS la
+bande. L'asymetrie que j'avais annoncee etait produite par la moitie de deformation qui manquait —
+`dfb x dfc` contribuait 44 % de plus a droite qu'a gauche. La retrogradation de §32 que j'en avais
+tiree (TENUE -> PARTIELLE au motif de la reponse d'orientation) est annulee : §32 redevient TENUE.
+
+CE QUI RESISTE, ET C'EST MAINTENANT MESURE SUR LA BONNE GRANDEUR AVEC UNE FRONTIERE INDIFFERENTE :
+**§12 lateral est SOUS sa bande d'un pole par sein** — `chestL` a i=2 (0.0807, la moitie du bas de
+bande) et `chestR` a i=4 (0.0283, le cinquieme). Les deux poles opposes tiennent. Le defaut est donc
+DIRECTIONNEL et en MIROIR, ce qui exclut un simple manque d'amplitude : chaque sein repond quand la
+gravite tire d'un cote et pas quand elle tire de l'autre. C'est le prochain chantier de physique.
+
+20. LA FORME : L'EQUILIBRE TIENT SES NEUF CIBLES, LE PRODUIT LIVRE N'EN TIENT PAS LA MOITIE
+============================================================================================
+Le cycle 26 a publie « la moitie FORME de §10/§11/§12 est tenue, 9 cibles sur 9 ». C'est vrai du
+facteur d'EQUILIBRE `dfa` — la grandeur que ces trois sections DEFINISSENT. Ce n'est pas vrai du
+produit que la peau recoit. L'echelle d'extension le long d'un axe est `|D.e_k|` et non l'element
+diagonal : une matrice non diagonale n'a pas d'echelle par axe lisible sur sa diagonale, et
+`PHYSDFMA` en porte des termes de cisaillement jusqu'a 0.15 que trois echelles ne peuvent pas
+exprimer.
+
+    chaine  cible                       `dfa`   verdict     COMPLET  verdict     bande
+    chestL  §10 projection (z)  0.70   0.7390   DANS        0.8236   AU-DESSUS   0.65-0.75
+            §10 largeur    (x)  1.23   1.2214   DANS        1.1546   SOUS        1.18-1.28
+            §10 hauteur    (y)  1.09   1.1076   DANS        1.0876   DANS        1.05-1.12
+            §11 longueur   (z)  1.23   1.2195   DANS        1.2868   AU-DESSUS   1.18-1.26
+            §11 largeur    (x)  0.90   0.8912   DANS        0.8408   SOUS        0.87-0.93
+            §11 epaisseur  (y)  0.91   0.9199   DANS        0.9551   AU-DESSUS   0.88-0.94
+            §12 aplat. i=2 (x)  0.80   0.8240   DANS        0.9295   AU-DESSUS   0.75-0.85
+            §12 aplat. i=4 (x)  0.80   0.8032   DANS        0.8148   DANS        0.75-0.85
+    chestR  §10 projection (z)  0.70   0.7371   DANS        0.6978   DANS        0.65-0.75
+            §10 largeur    (x)  1.23   1.2231   DANS        1.3685   AU-DESSUS   1.18-1.28
+            §10 hauteur    (y)  1.09   1.1091   DANS        1.2157   AU-DESSUS   1.05-1.12
+            §11 longueur   (z)  1.23   1.2196   DANS        1.2782   AU-DESSUS   1.18-1.26
+            §11 largeur    (x)  0.90   0.8912   DANS        0.8595   SOUS        0.87-0.93
+            §11 epaisseur  (y)  0.91   0.9199   DANS        0.9449   AU-DESSUS   0.88-0.94
+            §12 aplat. i=2 (x)  0.80   0.8216   DANS        0.9004   AU-DESSUS   0.75-0.85
+            §12 aplat. i=4 (x)  0.80   0.8054   DANS        0.8205   DANS        0.75-0.85
+    16 sur 16 DANS sur `dfa`  ·  6 sur 16 DANS sur le produit livre.
+
+ET JE N'EN CONCLUS PAS QUE §10/§11/§12 SONT VIOLEES, PARCE QUE LA MESURE DIT LE CONTRAIRE. L'ecart
+entre les deux colonnes est exactement ce que `dfb` (etirement dynamique, sa §38) et `dfc` (pression
+de contact, sa §23) ajoutent. Rapporte en elongation, cet ajout vaut +5.5 % a +12.8 % sur les huit
+lignes concernees — c'est-a-dire DANS la bande « common 5-15 % » que sa §22 donne pour l'elongation
+locale des tissus. Autrement dit : l'equilibre d'orientation est exactement sur cible, la
+deformation additionnelle est dans sa propre bande, et leur SOMME sort des fenetres de §10-12 parce
+que ces fenetres decrivent l'EQUILIBRE SEUL et non la deformation totale instantanee.
+C'est une distinction de NATURE DE GRANDEUR, pas un defaut — et la publier des deux cotes est la
+seule facon de ne pas transformer une composition legitime en fausse alerte, ni l'inverse.
+
+CE QUE CA IMPOSE AU DOSSIER : toute citation future de ces neuf nombres doit dire LEQUEL des deux
+elle cite. Le tableau `ROOM-ORI` ne publie que `dfa` et ne le dit pas ; c'est le prochain point
+d'instrument, et il est desormais trivial puisque `PHYSDFMA` est dans la trace.
+
+21. L'AXE D'OS : DEUX ORIGINES INDEPENDANTES, UN SEUL VECTEUR
+==============================================================
+Le cycle 26 a lu l'axe d'os dans le RIG et montre que l'ajustement par ACP du tableau en etait a
+4.50 deg (chestL) et 16.84 deg (chestR). `PHYSURST` publie maintenant la valeur que le SOLVEUR a
+relevee au repos. Les deux sources n'ont rien en commun — une position de joint lue dans le glb
+livre d'un cote, une grandeur d'execution de l'autre :
+
+    chaine   moteur (PHYSURST)              rig (mesh livre)               ecart
+    chestL   [+0.36488 -0.91925 -0.14776]   [+0.36454 -0.91919 -0.14897]   **0.07 deg**  CONCORDE
+    chestR   [-0.36148 -0.92057 -0.14794]   [-0.36456 -0.91919 -0.14897]   **0.20 deg**  CONCORDE
+    pour memoire, l'ajustement ACP que §10/§11/§12 et l'anisotropie de §29 consommaient :
+             4.50 deg (chestL) et 16.84 deg (chestR) du meme vecteur.
+
+L'axe est donc etabli a un cinquieme de degre pres par deux mesures independantes, et l'ACP est
+demontree comme la moins bonne des trois. Le tableau peut cesser de l'ajuster : la valeur est dans
+la trace. Cela vaut aussi pour l'anisotropie de §29 (rapport, section 9), qui composait le long du
+meme axe ajuste — sa re-lecture sur l'axe vrai est le point d'instrument suivant.
