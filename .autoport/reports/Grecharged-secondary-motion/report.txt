@@ -2,8 +2,9 @@ DIRECTIVES vb249967379
 
 RAPPORT DE CYCLE 23 — LA RACINE DE CHAINE DE LA POITRINE A GLISSE, ET SPEC-30 EST DANS SA BANDE
 A GAUCHE. Phase Grecharged-secondary-motion, branche physics-keira-clean, KEIRA / POITRINE SEULE
-(ordre owner 2026-08-14 07:30). Palier de livraison : DONNEES SEULES — aucun GOAL recompile,
-aucun C++, `GAME.CGO` md5 IDENTIQUE avant et apres (b6d32607abe5d706ecf4586e0616808f).
+(ordre owner 2026-08-14 07:30). Palier de livraison : DONNEES pour la partie
+STRUCTURE (sections 0-10), puis GOAL SEUL pour la partie 36/37 (section 11) — `(mi)`, 551 cibles,
+aucune reconstruction NDK/C++, aucune cuisson de maillage supplementaire.
 
 EN UN COUP D'OEIL
 ==================
@@ -24,6 +25,10 @@ EN UN COUP D'OEIL
                 D'AMORTISSEMENT a une COMPLIANCE. Mesuree comme la 29 mesure deja ses trois
                 autres axes, la compliance en torsion vaut 0.711 / 0.716 / 0.730 pour une cible
                 de 0.72, et l'axe est ARME. Le « os manquant a injecter » n'a pas lieu d'etre.
+    AUSSI       §37 : l'ecretage POSITIONNEL DUR du mode secondaire de la 36 — que sa 37 interdit
+                nommement — est remplace par la borne douce que le moteur portait deja. 10 frames
+                collees au plafond -> 0, et la dynamique est PROUVEE INCHANGEE (coefficients
+                identiques au dernier chiffre sur 5 fenetres sur 6). Section 11.
     ROUGE       COLLIDE 0.0593 (plafond 0.0005) · SIDE-CONTROL domaine VIDE · OPEN-DEFECTS
     A TRANCHER  sa 30 dit « % of the rear breast VOLUME », l'instrument compte des SOMMETS. Sur
                 l'aire du maillage, 0.307 / 0.344 : les DEUX cotes sont DANS la bande. Section 4.
@@ -265,9 +270,16 @@ comme neuf. Sources : « T: » tableau de la salle · « S: » sondes de peau su
                                1.62x a 1.54x ; sans effet, le moteur consomme deja b0=602.
   §8  volume        PARTIELLE  (Reporte.) det renormalise PAR CONSTRUCTION.
   §9  retour exact  PARTIELLE  (Reporte.)
-  §10 supine        PARTIELLE  (Reporte.)
-  §11 prone         PARTIELLE  (Reporte.)
-  §12 lateral       PARTIELLE  (Reporte.)
+  §10 supine        PARTIELLE  ** RE-LUE ** son verdict AU-DESSUS est un ARTEFACT D'INSTRUMENT :
+                               la salle mesure l'APEX, la 10 vise le COM, et le tableau le declare
+                               lui-meme (« donc une BORNE SUPERIEURE du COM »). Borne calculee sur
+                               la masse de peau du mesh livre : 0.2525 / 0.2210 B0 pour une bande
+                               0.18-0.28 — DANS, et la vraie valeur est encore plus basse. (7ter.)
+  §11 prone         PARTIELLE  ** RE-LUE ** idem : borne 0.2438 / 0.2349 B0, bande 0.20-0.30,
+                               DANS. (7ter.)
+  §12 lateral       PARTIELLE  ** RE-LUE ** 3 bornes sur 4 depassent encore (0.2502 / 0.2853 /
+                               0.2457 / 0.1676 B0 contre 0.15-0.24), mais de 2 a 19 % seulement,
+                               et ce sont des bornes SUPERIEURES. Non tranchee. (7ter.)
   §13 continuite    TENUE      (Reporte.)
   §21 tanh          PARTIELLE  (Reporte.)
   §22/§38 apex      PARTIELLE  ** RE-MESUREE ** rrm max 0.3897 / 0.3888 contre 0.50 B0, SOUS la
@@ -314,8 +326,20 @@ comme neuf. Sources : « T: » tableau de la salle · « S: » sondes de peau su
                                `sphere:lBooc 13` apparait dans les contacts de chestR, mais
                                `ROOM-REST-MIX` reste a 0.0200 (= tout buste).
   §34 restit. 0.02  TENUE      (Reporte.)
-  §36 secondaire    PARTIELLE  (Reporte.)
-  §37 sous-pas      PARTIELLE  (Reporte.)
+  §36 secondaire    PARTIELLE  ** RE-MESUREE, section 11 ** l'amplitude ne touche plus son
+                               plafond : 0 frame collee contre 10, |s|max 0.0700000 -> 0.0696716 /
+                               0.0697055, et les pilotages forts passent de 7.00 a 6.52-6.81, tous
+                               DANS la plage « strong impulse 5-7 % ». La bande normale est
+                               INCHANGEE A LA DECIMALE (updown 2.41/2.57, tilt 1.12/1.18).
+                               CE QUI RESTE, et ce n'est pas cause par ce cycle : la serie livree
+                               rend f = 3.17-3.27 Hz sur la fenetre la mieux ajustee, contre
+                               5.20 Hz predits par les coefficients que la salle imprime — AVANT
+                               comme APRES, au meme chiffre. L'ecretage le masquait.
+  §37 sous-pas      PARTIELLE  ** AMELIOREE ** « soft displacement clamps should be preferred to
+                               abrupt positional clamps » : l'ecretage POSITIONNEL DUR du mode
+                               secondaire, ecrit dans l'etat, est remplace par la borne douce
+                               `phys-softmin` que le moteur portait deja. Reste `ns=2/4`
+                               (120-240 Hz) et les autres clamps durs.
 
 AUCUNE SECTION N'EST « NON APPLICABLE » (interdit depuis le 14/08 11:50), aucune n'est ABSENTE.
 
@@ -367,6 +391,41 @@ la torsion, et le cycle de geometrie qu'elle annoncait n'a pas lieu d'etre.** Je
 ligne pour autant — c'est l'owner qui ferme, jamais une mesure ; le constat est depose sous son
 entree dans `owner-defects.txt`.
 
+7ter. §10 / §11 / §12 — LA SALLE MESURE L'APEX, LA SPEC VISE LE COM
+====================================================================
+Meme classe d'erreur que 7bis, trouvee en poursuivant l'ordre de travail vers « §12 lateral ».
+`ROOM-ORICOM-SPEC` publie six verdicts AU-DESSUS pour la 10, la 11 et la 12 — et son propre
+en-tete dit : « |d| = |t/B0 + rr.axe|, le APEX, donc une BORNE SUPERIEURE du COM que ces trois
+lignes visent ». Or les trois sections chiffrent un deplacement de COM (`SupineCOMDepth 0.23 B0`,
+`HangingCOMDisplacement 0.24 B0`, `SideGravityCOM 0.19 B0`).
+
+CE QUE LA MASSE DE PEAU PERMET DE BORNER, SANS AUCUNE COURSE NOUVELLE. Sous skinning lineaire et
+dans le repere de l'ancre, un joint non simule a un deplacement nul, donc
+`d_COM = (W0*d0 + W1*d1)/N`, et comme `d0 <= d1 <= d_apex` :
+        d_COM  <=  ((W0+W1)/N) * d_apex  =  part_chaine * d_apex
+`part_chaine` re-mesure sur le mesh LIVRE d'aujourd'hui : 0.5979 (chestL) / 0.5373 (chestR).
+
+    section    chaine   apex |d|    borne SUP du COM    bande         verdict sur la BORNE
+    §10 supine chestL   0.4224 B0      0.2525 B0        0.18-0.28     DANS
+    §11 prone  chestL   0.4078 B0      0.2438 B0        0.20-0.30     DANS
+    §12 lat    chestL   0.4185 B0      0.2502 B0        0.15-0.24     AU-DESSUS
+    §12 lat    chestL   0.4772 B0      0.2853 B0        0.15-0.24     AU-DESSUS
+    §10 supine chestR   0.4113 B0      0.2210 B0        0.18-0.28     DANS
+    §11 prone  chestR   0.4372 B0      0.2349 B0        0.20-0.30     DANS
+    §12 lat    chestR   0.4572 B0      0.2457 B0        0.15-0.24     AU-DESSUS
+    §12 lat    chestR   0.3120 B0      0.1676 B0        0.15-0.24     DANS
+
+CINQ des HUIT bornes tombent DANS — dont les QUATRE de la 10 et de la 11, qui etaient declarees
+AU-DESSUS. Et ce sont des bornes SUPERIEURES : la vraie valeur est strictement plus basse. Rien ne
+prouve donc que la 10 ou la 11 soient violees. La 12 n'est PAS tranchee : ses trois bornes
+restantes depassent de 2 a 19 %, du meme ordre que la marge entre la borne et la valeur reelle.
+
+CE QU'IL MANQUE POUR TRANCHER, ET C'EST UNE LIGNE DE PLUS DANS LA SALLE, PAS UN CHANTIER : les
+deplacements PAR MAILLON `d0` et `d1` sous chacune des neuf orientations. La salle integre deja
+les deux maillons, il lui manque de les PUBLIER separement. Avec eux `d_COM` est exact. Aucune
+valeur de physique a choisir, aucun os a injecter.
+Sortie complete : `C23-spec10-12-com-bound.txt`.
+
 8. CE QUI RESTE OUVERT, DANS L'ORDRE DE TRAVAIL DE L'OWNER (2026-08-17 23:50)
 ==============================================================================
   (a) `StrongRootFraction` a DROITE : 0.413 contre 0.28-0.35. **ET LA QUESTION DE LA SECTION 4
@@ -383,8 +442,15 @@ entree dans `owner-defects.txt`.
       compliance vaut 0.711-0.730 contre 0.72. Ce qui reste vraiment ouvert ici n'est pas la
       torsion mais LE DESACCORD DES DEUX ESTIMATEURS DE LA 29 : celui qui lit des amplitudes
       contredit la spec sur les quatre axes. L'un des deux est faux et il faut savoir lequel.
-  (e) §12 lateral et §36 chestR, puis §33 — dans cet ordre, apres (d).
-  (f) `ROOM-SKINPEN` chestR : a re-mesurer, avec la question de la resolution de l'instrument
+  (e) §12 lateral : voir 7ter. Ce qu'il faut est une PUBLICATION par maillon (`d0`, `d1`) dans
+      la salle, pas un reglage — et elle ferme du meme coup §10 et §11, deja DANS sur la borne.
+  (f) §36 : le mode secondaire depassait son plafond de 7 % dans 6 fenetres sur 10 AVANT
+      ecretage, et il etait tenu par un ecretage POSITIONNEL DUR ecrit dans l'etat, ce que sa §37
+      interdit explicitement. Corrige ce cycle par la borne douce que le moteur porte deja
+      (`phys-softmin`), prediction ecrite AVANT la modification dans
+      `C23-PREDICTIONS-spec36.txt` — resultat en section 11.
+  (g) §33 — apres (e) et (f).
+  (h) `ROOM-SKINPEN` chestR : a re-mesurer, avec la question de la resolution de l'instrument
       (erreur miroir 33 %) posee en meme temps.
 
 9. CE QUE L'OWNER DOIT REGARDER SUR CE BUILD
@@ -435,3 +501,103 @@ dans le dos) restent ouverts au dossier avec leur derniere mesure, geles et non 
 reviendront avec leurs chaines, sur son ordre.
 
 Aucune ligne OPEN n'a ete effacee, aucune gate ajoutee, modifiee ou assouplie.
+
+11. §36 / §37 — L'ECRETAGE DUR DU MODE SECONDAIRE EST REMPLACE PAR LA BORNE DOUCE
+==================================================================================
+LE DEFAUT, MESURE AVANT DE TOUCHER QUOI QUE CE SOIT. `ROOM-SHAPE` publie, par pilotage, la valeur
+RETENUE du mode secondaire et sa valeur AVANT ecretage :
+    chestL  updown 2.41 (2.41) · leftright 7.00 (7.46) · accel 7.00 (11.67) · jerk 7.00 (11.53)
+            · tilt 1.12 (1.12)
+    chestR  updown 2.57 (2.57) · leftright 7.00 (7.33) · accel 7.00 (10.53) · jerk 7.00 (9.90)
+            · tilt 1.18 (1.18)
+`ROOM-SHAPE-SATURE` : 6 fenetres sur 10 depassent le plafond de 7 % AVANT ecretage. Et
+`ROOM-SEC-RING` mesurait 5 frames sur 90 collees a |s| = 0.0700000 EXACTEMENT sur chaque chaine,
+qu'il devait EXCLURE de l'ajustement — d'ou son « DESACCORD — prudence » sur zeta des deux cotes.
+Un etat que la borne REECRIT n'est plus l'oscillateur dont sa 36 donne zeta. Et sa §37 le dit en
+toutes lettres : « soft displacement clamps should be preferred to abrupt positional clamps ».
+
+LE CORRECTIF N'INTRODUIT AUCUNE CONSTANTE. `phys-softmin` (`jak-hd-physics.gc:1051`) est la borne
+douce que le moteur porte DEJA, et qui sert deja l'apex (:3059) et la torsion (:3890) : identite
+stricte sous son genou `kn = 0.84*cap`, seul l'EXCES sature, asymptote exacte a `cap`. Un seul
+terme change (3 lignes de code) :
+    -  (smc (fmin PHYS-SEC-MAX (fmax (- 0.0 PHYS-SEC-MAX) sm0)))
+    +  (smc (if (>= sm0 0.0) (phys-softmin sm0 PHYS-SEC-MAX)
+    +                        (- 0.0 (phys-softmin (- 0.0 sm0) PHYS-SEC-MAX))))
+
+ET LE GENOU TOMBE OU LA SPEC LE VEUT — c'est la parade au piege `saturation-per-frame-compounds`,
+qui a deja coute la regression « un peu mute » du 2026-08-14. `kn = 0.84 * 0.07 = 0.0588`, soit
+5.88 %, AU-DESSUS du haut de la bande normale de sa 36 (`SecondaryJiggleAmplitude = 0.02-0.05`).
+La bande normale est donc traversee en IDENTITE — aucune perte par frame ne peut y composer — et
+la saturation ne mord que dans la plage « strong impulse 5-7 % » que la 36 nomme elle-meme.
+
+LES PREDICTIONS, ECRITES AVANT LA MODIFICATION (`C23-PREDICTIONS-spec36.txt`), ET CE QUE LA
+COURSE EN A FAIT :
+
+  P1 — LE GARDE-FOU PRINCIPAL, ET C'EST LUI QUI DECIDAIT DE GARDER OU DE RETIRER. `updown` et
+       `tilt` sont a 1.1-2.6 %, tres en dessous du genou de 5.88 %, donc en identite : leurs
+       valeurs devaient etre INCHANGEES. Mesure directe sur les deux logs (`PHYSSHAPE2 secm`) :
+           pilotage      chestL avant -> apres      chestR avant -> apres
+           updown          2.41  ->  2.41             2.57  ->  2.57
+           tilt            1.12  ->  1.12             1.18  ->  1.18
+           (5e fenetre)    1.10  ->  1.10             1.19  ->  1.19
+       IDENTIQUES A LA DECIMALE. La saturation ne compose pas dans la bande normale, et la
+       regression « un peu mute » du 2026-08-14 n'est pas reproduite. CONFIRMEE.
+
+  P2 — plus AUCUNE frame collee au plafond. Mesure sur les series brutes `PHYSSEC` :
+           avant : 10 frames a |s| = 0.0700000 EXACTEMENT, et |s|max = 0.0700000 sur les deux
+           apres :  0 frame collee, |s|max = 0.0696716 (chestL) / 0.0697055 (chestR)
+       L'etat n'est plus reecrit par la borne : l'ajustement de zeta porte enfin sur toute la
+       serie. CONFIRMEE.
+
+  P3 — les pilotages qui saturaient passent sous le plafond, en asymptote :
+           chestL  leftright 7.00 -> 6.52 · accel 7.00 -> 6.81 · jerk 7.00 -> 6.80
+           chestR  leftright 7.00 -> 6.51 · accel 7.00 -> 6.77 · jerk 7.00 -> 6.75
+       Tous DANS la plage « strong impulse 5-7 % » de sa 36, et plus aucun a la borne. CONFIRMEE.
+
+  P4 — `ROOM-SHAPE-SATURE` reste a 6 fenetres sur 10, et `ROOM-SHAPE-DYNSAT` est inchange au
+       chiffre pres. Ces deux lignes portent sur la valeur AVANT ecretage, que le correctif ne
+       touche pas : leur immobilite confirme qu'il n'a rien touche d'autre. CONFIRMEE.
+       `ROOM-SHAPE-SPAN` : secm_max 0.0700 -> 0.0681 (chestL) / 0.0677 (chestR), les deux
+       chaines restent DISCRIMINE.
+
+  P5 — course x86 complete, 31/31 animations, PHYSEND atteint, `GAME.CGO` md5 identique avant et
+       apres la course (bf441590d881ed390aed54f638c39b80).
+
+ET UNE LIGNE DU TABLEAU PASSE AU ROUGE. IL FAUT LA REGARDER EN FACE.
+`ROOM-SEC-RING` imprimait « zeta DANS, f DANS » pour la 36 et imprime maintenant « zeta HORS,
+f HORS » :
+       AVANT  chestL  n_ecrete=5  n_fit=81  zeta=0.6796  f=5.128 Hz  residu 0.0329
+       APRES  chestL  n_ecrete=0  n_fit=12  zeta=0.4997  f=2.453 Hz  residu 0.0716
+Le `n_ecrete` tombe a 0 comme predit — mais `n_fit` s'effondre de 81 a 12, et le residu DOUBLE.
+Ce n'est pas la physique qui a bouge, c'est la FENETRE de l'estimateur, et la cause est dans son
+code : il garde « la plus longue plage CONSECUTIVE non ecretee ». Avec l'ecretage dur, cette
+plage EXCLUAIT mecaniquement la phase excitee et ne gardait que la queue libre — 81 echantillons
+de detente pure. Sans ecretage, plus rien ne l'exclut : il recoit la serie entiere, rampe
+comprise, et se rabat sur une fenetre libre de 12 echantillons dont le residu 0.0716 est
+DEUX FOIS le seuil que le tableau lui-meme declare illisible ailleurs (0.0353 -> « NON — ne pas
+lire »). Le « DANS » d'avant etait donc obtenu par accident : c'est l'ecretage qui detourait la
+fenetre.
+
+LA PREUVE QUE LE MODE N'A PAS BOUGE, ET ELLE EST DIRECTE. J'ai ajuste la MEME recurrence d'ordre 2
+sur les series brutes `PHYSSEC` des DEUX courses, sur des fenetres IDENTIQUES (les K derniers
+echantillons) :
+       K       AVANT a / b            APRES a / b
+       81   +1.3418 / -0.5074      +1.3542 / -0.5131
+       60   +1.7851 / -0.7966      +1.7849 / -0.7965
+       45   +1.7743 / -0.8010      +1.7743 / -0.8010     <- identiques au dernier chiffre
+       30   +1.7603 / -0.7909      +1.7603 / -0.7909     <- identiques
+       20   +1.8377 / -0.8581      +1.8377 / -0.8581     <- identiques
+       12   +1.3259 / -0.4039      +1.3259 / -0.4039     <- identiques
+Sur CINQ fenetres sur six les coefficients sont identiques au dernier chiffre imprime. La seule
+qui differe (K=81) est precisement celle qui contient les echantillons que l'ecretage dur
+distordait. **La dynamique livree est inchangee ; seule la fenetre de lecture a bouge.** Le
+correctif est donc CONSERVE.
+
+ET UN CONSTAT QUI NE VIENT PAS DE CE CORRECTIF, MAIS QU'IL FAIT APPARAITRE. Sur la fenetre la
+mieux ajustee des deux courses (K=81, residu 0.0043-0.0053, dix fois meilleur que ce que le
+tableau publie), la serie rend f = 3.17-3.27 Hz — alors que le tableau PREDIT 5.20 Hz depuis les
+coefficients que la salle imprime a l'init (`PHYSOSCK2 sec=0.2073 seckd=0.4926` -> a=1.2853,
+b=-0.4926). **La serie livree ne reproduit pas les coefficients livres**, et c'est vrai AVANT
+comme APRES, au meme chiffre. Ce n'est donc pas une regression de ce cycle : c'est un ecart
+pre-existant entre ce que le moteur declare et ce qu'il produit, que l'ecretage masquait. Il
+devient le point suivant de la 36, et il se lit sans rien recuire.

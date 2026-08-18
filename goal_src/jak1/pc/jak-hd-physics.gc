@@ -3758,7 +3758,27 @@
                                  (sv2 (+ (* kd2 (-> *phys-secv* sc))
                                          (+ (* (- 0.0 k2s) (-> *phys-sec* sc)) (* PHYS-SEC-K dvn))))
                                  (sm0 (+ (-> *phys-sec* sc) sv2))
-                                 (smc (fmin PHYS-SEC-MAX (fmax (- 0.0 PHYS-SEC-MAX) sm0)))
+                                 ;; SPEC 37 : « soft displacement clamps should be preferred to
+                                 ;; abrupt positional clamps ». C'ETAIT UN ECRETAGE DUR, et il
+                                 ;; etait ecrit DANS L'ETAT juste en dessous : la salle mesurait
+                                 ;; 5 frames sur 90 collees a |s| = 0.0700000 EXACTEMENT, que
+                                 ;; l'ajustement de zeta devait EXCLURE — d'ou son « DESACCORD —
+                                 ;; prudence » sur les deux chaines. Un etat reecrit par une
+                                 ;; borne n'est plus l'oscillateur dont sa 36 donne zeta.
+                                 ;; `phys-softmin` (:1051) est deja la borne douce du moteur, et
+                                 ;; sert deja l'apex (:3059) et la torsion (:3890) : IDENTITE
+                                 ;; STRICTE sous kn = 0.84*cap, seul l'EXCES sature, asymptote
+                                 ;; exacte a cap.
+                                 ;; ET LE GENOU TOMBE OU LA SPEC LE VEUT, ce qui est la parade
+                                 ;; au piege `saturation-per-frame-compounds` : kn vaut
+                                 ;; 0.84 * 0.07 = 0.0588, soit 5.88 %, AU-DESSUS du haut de la
+                                 ;; bande normale de sa 36 (`SecondaryJiggleAmplitude = 0.02-0.05`).
+                                 ;; La bande normale est donc traversee en identite — aucune perte
+                                 ;; par frame ne peut y composer — et la saturation ne mord que
+                                 ;; dans la plage « strong impulse 5-7 % » que la 36 nomme.
+                                 (smc (if (>= sm0 0.0)
+                                        (phys-softmin sm0 PHYS-SEC-MAX)
+                                        (- 0.0 (phys-softmin (- 0.0 sm0) PHYS-SEC-MAX))))
                                  ;; SPEC 36 s'applique a l'EPAISSEUR locale et conserve le volume :
                                  ;; l'epaisseur (axe +Z) module, les deux perpendiculaires prennent
                                  ;; l'inverse de sa racine.

@@ -331,3 +331,25 @@ La sortie mesurée est le verbe `reroot` : quand la chaîne est colinéaire (mes
 existante à la position dérivée donne la MÊME abscisse SPEC-31 (|ds| max 7.8e-06) et le même
 `StrongRootFraction`, sans toucher un seul index. `reroot` préserve l'orientation de bind (la peau y
 est liée) et re-base les enfants ; la pose au repos est identique au bit près par construction.
+
+---
+
+GUARD hard-clamp-into-state goal_src/jak1/pc/jak-hd-physics.gc phys-softmin sm0
+**Un écrêtage POSITIONNEL DUR écrit DANS L'ÉTAT d'un oscillateur détruit la grandeur qu'on
+mesure sur lui.** Le mode secondaire de la SPEC 36 était borné par
+`(fmin PHYS-SEC-MAX (fmax (- 0.0 PHYS-SEC-MAX) sm0))`, puis `sm0` était réécrit dans
+`*phys-sec*`. Mesuré : **10 frames collées à |s| = 0.0700000 EXACTEMENT**, que l'ajustement de
+`zeta` devait EXCLURE — d'où son « DESACCORD — prudence » sur les deux chaînes. Pendant ces
+frames, le système livré n'est plus l'oscillateur dont la spec donne `zeta` : on ne mesure plus
+rien. Et la SPEC 37 l'interdit en toutes lettres (« soft displacement clamps should be preferred
+to abrupt positional clamps »).
+Verrou : `phys-softmin` (identité stricte sous `kn = 0.84*cap`, seul l'excès sature, asymptote
+exacte à `cap`) remplace le `fmin/fmax`. Mesure après : **0 frame collée**, |s|max 0.0696716.
+**LA CONDITION QUI REND ÇA SÛR, et elle se vérifie AVANT d'y toucher :** une borne douce appliquée
+par frame À L'ÉTAT compose (piège `saturation-per-frame-compounds`, qui a coûté la régression
+« un peu muté » du 2026-08-14). Elle n'est acceptable que si son GENOU tombe **au-dessus** du haut
+de la bande normale que la spec chiffre — ici `0.84*0.07 = 0.0588` contre
+`SecondaryJiggleAmplitude = 0.02-0.05` — de sorte que la bande normale soit traversée en IDENTITÉ.
+La preuve exigée est un pilotage dont la réponse est sous le genou et dont la valeur doit rester
+INCHANGÉE À LA DÉCIMALE : ici `updown` 2.41 → 2.41 et `tilt` 1.12 → 1.12. Si ce garde-fou bouge,
+la borne compose dans la bande normale et le correctif se RETIRE, il ne s'adoucit pas.
