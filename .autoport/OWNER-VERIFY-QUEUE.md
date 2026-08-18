@@ -51,15 +51,41 @@ La MOYENNE est déjà au-dessus de ta limite, et plus d'un instant sur deux la d
 limite telle quelle la ferait mordre la moitié du temps — donc museler exactement le mouvement
 subtil que tu juges « OK ». C'est le piège qui a déjà coûté deux cycles.
 
-Et la corriger en raidissant ne marche pas non plus : tes fréquences (§24) et ton pilotage (§3)
-fixent ensemble l'excursion — `excursion = accélération / (2π·f)²` — donc raidir sort tes
-fréquences de leurs bandes. Avec tes propres chiffres, 2.30 Hz, la limite de 0.40 est atteinte dès
-que le pilotage vaut **1,25 g** : autant dire tout le temps.
+## 2 bis. ET VOICI LE PLUS IMPORTANT : LE DÉFAUT EST LÀ SANS AUCUN MOUVEMENT
 
-**Trois de tes sections ne peuvent donc pas être vraies en même temps avec le pilotage actuel.** Le
-seul terme que personne n'a jamais vérifié est la FORCE de ce pilotage, et tes §14 à §20 sont les
-seules lignes de ta spec qui relient un mouvement à une réponse attendue. C'est le prochain cycle.
-Si ce terme est juste, alors la tension est dans ta spec et c'est toi qui trancheras.
+J'ai mesuré une fenêtre où ton animation joue et où la salle de test **ne pousse rien du tout**.
+Sur tes 31 animations, l'excursion y vaut déjà **1.04** en moyenne (1.62 au pire) pour une limite
+de 0.40 — deux fois et demie trop, sur des **idles** et sur la soudure. Et sous la forme la plus
+dure : **31 animations sur 31 dépassent la limite, sur chacun des six régimes, y compris sans
+qu'on pousse quoi que ce soit.** Il n'y a pas une seule de tes animations où ça tienne.
+
+Et en comparant la **même animation** avec et sans pilotage, ce que le pilotage ajoute ne suit pas
+sa force :
+
+| pilotage | force du stimulus | ce qu'il ajoute |
+|---|---|---|
+| leftright | 53 | +0.05 |
+| updown | 23 | +0.13 |
+| accel | 88 | +0.16 |
+| tilt | **14** | +0.18 |
+| jerk | **334** | +0.18 |
+
+La secousse la plus violente est 23 fois plus forte que l'inclinaison la plus douce et ajoute
+exactement autant.
+
+**Ce n'est donc pas une réaction disproportionnée au mouvement : c'est un organe saturé en
+permanence.** Trois cycles ont cherché un mécanisme de *réponse* pour un défaut qui ne dépend pas
+du mouvement. Ta toute première phrase sur le sujet — « ça suit aucune logique » — le décrivait
+déjà, et je ne l'avais pas lue comme ça.
+
+**Je retire donc ce que j'écrivais plus haut dans ce même cycle** (que tes §22, §24 et §3 seraient
+arithmétiquement incompatibles) : ce raisonnement supposait que la réponse suit le stimulus, et
+elle ne le suit pas.
+
+Ce qui reste à faire est clair et j'ai maintenant la bonne fenêtre pour le faire : séparer les deux
+causes possibles de cette saturation — le champ de contact permanent (§3 ci-dessous) et les
+limiteurs internes du solveur — en les débranchant tour à tour **sur la fenêtre sans pilotage**, là
+où le défaut est déjà entier et où rien ne le masque.
 
 ## 3. TON DÉBARDEUR SOUTIENT TES SEINS — ET TA §35 DIT QU'IL NE DOIT PAS
 

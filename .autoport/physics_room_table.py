@@ -3438,6 +3438,31 @@ def main():
                   % (names[_c] if _c < len(names) else _c,
                      _dn.get(_d, 'BASE(sans pilotage)' if _d >= 5 else 'd%d' % _d),
                      max(_v), sum(_v) / len(_v), len(_v), _hi, 100.0 * _hi / len(_v)))
+        # ---- LA DIFFERENCE APPARIEE, ET C'EST ELLE QUI VAUT --------------------------------
+        # Comparer des MOYENNES de pilotages differents melange les animations. La seule forme
+        # qui isole l'apport du pilotage est la difference sur la MEME animation : `comex` avec
+        # pilotage moins `comex` sans pilotage, paire par paire. NATURE : une difference de deux
+        # MAXIMA de fenetre, en B0 — pas une amplitude de reponse ; un maximum sur une fenetre
+        # longue est domine par la pire frame de l'animation, ce qui peut masquer un apport
+        # reparti ailleurs. C'est dit ici plutot que sous-entendu.
+        _bd = max((k[1] for k in _comw), default=0)
+        _base = {(_c, _a): _v for _c in sorted(chains)
+                 for _a, _v in _comw.get((_c, _bd), [])}
+        if _base:
+            A('   APPORT DU PILOTAGE, PAIRE PAR PAIRE (meme chaine, MEME animation, avec moins sans)')
+            for _c in sorted(chains):
+                for _d in sorted(set(k[1] for k in _comw if k[0] == _c and k[1] != _bd)):
+                    _df = [v - _base[(_c, _a)] for _a, v in _comw[(_c, _d)]
+                           if (_c, _a) in _base]
+                    if not _df:
+                        continue
+                    A('     %-13s %-11s paires=%-4d apport moyen %+8.4f   pire %+8.4f   '
+                      'ajoute dans %.0f %% des paires'
+                      % (names[_c] if _c < len(names) else _c, _dn.get(_d, 'd%d' % _d),
+                         len(_df), sum(_df) / len(_df), max(_df),
+                         100.0 * sum(1 for x in _df if x > 0) / len(_df)))
+            A('     Un apport qui ne CROIT PAS avec le stimulus (cf. `acc` de PHYSACC) dit que la')
+            A('     reponse ne suit pas son excitation : signature de SATURATION, pas de raideur.')
         A('   MAPPING vers ses sections — c\'est MA lecture, pas une ligne de sa spec, et elle est')
         A('   ecrite pour pouvoir etre contestee : updown -> §14/§15/§16 (saut, apex, reception) ;')
         A('   leftright et accel -> §17 (acceleration et freinage) ; jerk -> §16/§17 transitoire')
