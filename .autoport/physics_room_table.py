@@ -751,7 +751,152 @@ def _oricom_block(A, txt, names, ori):
               '  rapport=%s  (§11 : 1.30 contre 1.23, soit 1.057)'
               % (nm, tr[(c, ip)], eq, ('%.3f' % (tr[(c, ip)] / eq)) if eq > 1e-6 else 'n/a'))
     A('')
+    _oricom_mass_block(A, txt, names, com, com2, role, axis, b0)
     _orictl_block(A, txt, names, ori, axis, b0)
+
+
+# ------------------------------------------------------------------------------------------------
+# SPEC 10/11/12 SUR UN **COM**, ET PLUS SUR UN APEX
+# ------------------------------------------------------------------------------------------------
+_COM_MASS_JSON = 'reports/Grecharged-secondary-motion/breast-com-mass.json'
+
+
+def _oricom_mass_block(A, txt, names, com, com2, role, axis, b0):
+    """SES TROIS CIBLES D'ORIENTATION SONT DES COM ; L'INSTRUMENT PUBLIAIT UN APEX.
+
+    `ROOM-ORICOM` ci-dessus le declare lui-meme : `t` est le deplacement du point que le solveur
+    INTEGRE (l'apex), et sous une rotation autour de l'ancre un apex se deplace PLUS qu'un centre
+    de masse. Le comparer aux 0.23 / 0.24 / 0.19 B0 de ses §10 / §11 / §12 est le piege
+    `instrument-axis-vs-complaint` : on lit la bonne chaine, au mauvais point. Tant que l'organe
+    n'avait qu'UN maillon la conversion etait indeterminee ; depuis que la structure de §23 est
+    posee, elle est CALCULABLE.
+
+    LE CALCUL, ET IL NE CONTIENT AUCUN NOMBRE CHOISI. Sous skinning lineaire le deplacement d'un
+    sommet est la somme ponderee des deplacements de ses joints ; dans le repere de l'ancre un
+    joint non simule a un ecart identiquement nul. Donc, sur l'ensemble de sommets de l'organe :
+
+        d_COM = ( W_0 . d_0 + W_1 . d_1 ) / N
+
+    `W_j` (somme des poids de peau du joint j) et `N` (nombre de sommets) sont MESURES sur le mesh
+    LIVRE par `.autoport/probe_breast_com_mass.py` ; les `d_j` sont lus a l'execution sur la ligne
+    `PHYSORICOML`. Rien n'est ajuste.
+
+    LA FRONTIERE DE L'ORGANE EST UN CHOIX, DONC ELLE EST PUBLIEE TROIS FOIS. §30 exige « no hard
+    attachment boundary » : il n'existe pas de bord net a lire dans la donnee. Trois definitions
+    (`w>0`, `w>=0.05`, `w>=0.25`) sont donnees cote a cote. Si les trois rendent le meme verdict,
+    la frontiere ne decide pas ; si elles divergent, c'est CA la mesure.
+
+    LE CONTROLE, ET IL EST INDISPENSABLE. `PHYSORICOML` vient d'un AUTRE accumulateur
+    (`phys-link-dev-anc-abs`, instantane, triedre (v,ap,lat)) que `PHYSORICOM` (`phys-tip-mean`,
+    moyenne de fenetre, triedre (x,y,z) de SPEC 7). Les deux triedres sont orthonormes, donc la
+    NORME doit coincider sur le maillon de POINTE. L'ecart publie ci-dessous mesure d'un coup
+    l'erreur de repere ET l'ecart instantane/moyenne ; il ne se corrige pas, il se lit.
+
+    CE QUE CE BLOC NE FAIT PAS, et il faut le dire pour ne pas le redecouvrir : le canal RADIAL
+    (`rr`) reste celui que le solveur COMMANDE A LA RACINE. Sa §31 grade les poids en r^1.63, donc
+    le mesh n'en recoit qu'une part — la meme correction de masse lui est due et n'est pas faite
+    ici. Les deux colonnes `|d|` sont donc publiees : tangentielle seule (exacte) et composee avec
+    `rr` tel quel (majorante sur ce second terme)."""
+    comL = {}
+    for m in re.finditer(r'^PHYSORICOML c=(\d+) i=(\d+) l=(\d+) dv=([-\d.e+]+)'
+                         r' dap=([-\d.e+]+) dlat=([-\d.e+]+)', txt, re.M):
+        comL[(int(m.group(1)), int(m.group(2)), int(m.group(3)))] = (
+            float(m.group(4)), float(m.group(5)), float(m.group(6)))
+    A('-- ROOM-ORICOM-MASS : SPEC 10/11/12 LUES SUR UN CENTRE DE MASSE ---------------------------')
+    if not comL:
+        A('ROOM-ORICOM-MASS: ABSENT (aucune ligne PHYSORICOML) — cette course precede l\'emission')
+        A('   par maillon. §10/§11/§12 restent lues sur un APEX, donc sur une BORNE SUPERIEURE :')
+        A('   non mesurees sur la grandeur que sa spec nomme, ce qui n\'est pas la meme chose que')
+        A('   fausses. Aucun chiffre n\'est fabrique pour combler le trou.')
+        A('')
+        return
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), _COM_MASS_JSON)
+    try:
+        mass = json.load(open(path))
+    except Exception as e:
+        A('ROOM-ORICOM-MASS: la repartition de masse est ABSENTE (%s) — les d_j sont mesures mais'
+          % e)
+        A('   les W_j ne le sont pas. Relancer `python3 .autoport/probe_breast_com_mass.py`.')
+        A('')
+        return
+    A('   NATURE : un DEPLACEMENT SOUTENU du centre de masse, en B0. REPERE : le triedre de')
+    A('     l\'ANCRE — la NORME, seule grandeur qui traverse les deux triedres orthonormes.')
+    A('   LIGNE DE BASE : i=0 (debout d\'auteur), ou §9 exige 0.0000 ; elle est publiee.')
+    A('   SOURCE DES POIDS : %s (mesh LIVRE, pas le rip du donneur).' % mass.get('source', '?'))
+    A('   d_COM = (W_0.d_0 + W_1.d_1)/N — aucun coefficient choisi ; W_j et N mesures, d_j lus.')
+    for c in sorted({c for (c, _i, _l) in comL}):
+        nm = names[c] if c < len(names) else 'c%d' % c
+        rec = mass.get('chains', {}).get(nm)
+        if not rec or not rec.get('defs'):
+            A('ROOM-ORICOM-MASS: %-12s pas de repartition de masse pour cette chaine — NON MESURE'
+              % nm)
+            continue
+        nl = 1 + max(l for (cc, _i, l) in comL if cc == c)
+        bb = b0.get(c, 602.0)
+        # --- le controle : la pointe, lue par les deux instruments ------------------------------
+        ictl = [i for (cc, i, l) in comL if cc == c and l == nl - 1 and (cc, i) in com]
+        worst, worst_i = 0.0, None
+        for i in sorted(set(ictl)):
+            da = comL[(c, i, nl - 1)]
+            na = math.sqrt(sum(x * x for x in da))
+            t = com[(c, i)]
+            nt = math.sqrt(sum(x * x for x in t))
+            if max(na, nt) > 1e-6:
+                rel = abs(na - nt) / max(na, nt)
+                if rel > worst:
+                    worst, worst_i = rel, i
+        A('ROOM-ORICOM-MASS: %-12s CONTROLE pointe : |d| (PHYSORICOML) contre |t| (PHYSORICOM), pire'
+          % nm)
+        A('   ecart relatif %.4f%s sur %d orientations — deux accumulateurs, deux triedres, un seul'
+          % (worst * 100.0, (' %% (i=%d)' % worst_i) if worst_i is not None else ' %',
+             len(set(ictl))))
+        A('   nombre. %s' % ('accord' if worst < 0.05 else
+                             'DESACCORD > 5 % : le montage est en cause, pas la physique — '
+                             'les lignes ci-dessous sont suspendues a ce constat'))
+        # --- les trois deplacements que sa spec chiffre, sur le COM ------------------------------
+        r = role.get(c, {})
+        lat = [i for i in (2, 4) if (c, i, 0) in comL]
+        todo = [('§10 supine ', r.get('sup'), 0.23, (0.18, 0.28)),
+                ('§11 prone  ', r.get('pro'), 0.24, (0.20, 0.30))]
+        todo += [('§12 lateral', i, 0.19, (0.15, 0.24)) for i in lat]
+        for lab, i, nom, band in todo:
+            if i is None or (c, i, 0) not in comL:
+                A('ROOM-ORICOM-MASS: %-12s %s  i introuvable — NON MESURE' % (nm, lab))
+                continue
+            cols = []
+            for d in rec['defs']:
+                W, N = d['W'], float(d['n'])
+                acc = [0.0, 0.0, 0.0]
+                for l in range(min(nl, len(W))):
+                    dj = comL.get((c, i, l))
+                    if dj is None:
+                        continue
+                    for k in range(3):
+                        acc[k] += W[l] * dj[k]
+                dn = math.sqrt(sum((x / N) ** 2 for x in acc)) / bb
+                cols.append((d['cut'], dn))
+            # l'apex du meme i, pour que le facteur de conversion soit lisible sans calcul
+            t = com.get((c, i))
+            napex = math.sqrt(sum(x * x for x in t)) / bb if t else float('nan')
+            rr = com2.get((c, i), (0.0, 0.0, 0.0))[0]
+            # les deux canaux sont ORTHOGONAUX par construction (l'un tangentiel, l'autre le long
+            # de l'os) et `ax` est unitaire : la composition est un Pythagore, pas une somme.
+            base = cols[0][1] if cols else float('nan')
+            comp = math.sqrt(base * base + rr * rr)
+            A('ROOM-ORICOM-MASS: %-12s %s i=%d  |d_COM|=%s B0  (apex %.4f, facteur %s)'
+              % (nm, lab, i, '/'.join('%.4f' % v for (_c, v) in cols), napex,
+                 ('%.3f' % (base / napex)) if napex == napex and napex > 1e-9 else 'n/a'))
+            A('                              tangentiel seul %s  ·  compose avec rr %.4f  ·'
+              '  cible %.2f (bande %.2f-%.2f)  %s'
+              % ('DANS' if band[0] <= base <= band[1] else
+                 ('SOUS' if base < band[0] else 'AU-DESSUS'), comp, nom, band[0], band[1],
+                 'DANS' if band[0] <= comp <= band[1] else
+                 ('SOUS' if comp < band[0] else 'AU-DESSUS')))
+        d0 = rec['defs'][0]
+        A('   (frontieres w>0 / w>=0.05 / w>=0.25 — les trois colonnes de |d_COM| ci-dessus ;'
+          ' N=%d, part de l\'organe portee par la chaine %.4f, le reste est ancre au buste)'
+          % (d0['n'], sum(d0['W']) / float(d0['n'])))
+    A('')
 
 
 def _orictl_block(A, txt, names, ori, axis, b0):
