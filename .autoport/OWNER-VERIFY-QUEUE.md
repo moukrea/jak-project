@@ -1,96 +1,91 @@
-# CE QU'IL Y A À REGARDER SUR CE BUILD — la poitrine, et elle seule
+# CE QU'IL Y A À SAVOIR SUR CE CYCLE — et il n'y a pas de nouveau build
 
-Branche `physics-keira-clean`. (Le tag est lisible sur le device : `files/.custom_pack_stamp_jak1`.)
+Branche `physics-keira-clean`.
 
-Rien d'autre sur Keira n'a été touché : cheveux, bretelles, lunettes, languettes, pantacourt
-restent **gelés** par ton ordre du 14/08 — pas réparés, gelés, avec leur mesure au dossier.
+**AUCUN OCTET LIVRÉ N'A CHANGÉ.** Le moteur, le maillage, les volumes et les réglages sont
+identiques au bit près au build précédent — tu as déjà exactement ce binaire, et il n'y a donc rien
+à télécharger ni à regarder de neuf à l'écran. Ce n'est pas un build retenu pour cause de qualité
+(ta consigne là-dessus est respectée) : il n'y a pas de build à retenir.
 
-**Aucune donnée n'a changé sur ce build** : les réglages, le maillage et les volumes sont
-identiques au bit près au build précédent. Ce qui a changé est **le solveur**, à un seul endroit.
-Donc tout écart que tu verras vient de là, et de rien d'autre.
+Ce cycle a corrigé mes **instruments** et audité mes **chiffres**. Cinq de mes annonces du build
+précédent étaient fausses. Voilà ce qui compte pour toi.
 
 ---
 
-## 1. D'ABORD, UNE CORRECTION : CE QUE JE T'AI ÉCRIT AU BUILD PRÉCÉDENT ÉTAIT FAUX
+## 1. LE RÉGLAGE QUE TU MONTES DEPUIS LE 11 AOÛT N'EST BRANCHÉ SUR RIEN
 
-Je t'avais écrit que la poitrine traversait le buste **« parce que dans la pose d'origine, physique
-éteinte, le nœud du sein est déjà 5,9 cm à l'intérieur du volume épaule→torse »**, et que c'était
-donc le volume qu'il fallait refaire, pas la physique.
+`couple` — celui que tu as fait passer de 1.00 à 1.45, puis 1.20, 1.55, 1.85 pour que ses seins
+« bougent un peu plus ». Il est lu dans le fichier, rangé dans une variable, et **utilisé nulle
+part**. Vérifié en listant toutes ses occurrences dans le moteur : il y en a trois, et aucune n'est
+un calcul de force.
 
-**Le fait est vrai, la conclusion était fausse**, et je l'ai vérifiée par le calcul avant de
-repartir dessus. Le chiffre que je publie (« pénétration ») n'est pas une profondeur : c'est un
-**écart à la pose d'origine**, donc cette profondeur de départ en est **déjà retranchée**. J'ai
-comparé une distance avec une autre dont elle avait été soustraite.
+**Ce n'est pas un oubli, c'est une conséquence de ta propre spec.** Le 13 août, sur ta demande, le
+terme moteur `−couple × accélération de l'animation` a été remplacé par celui de ta §3
+(réorientation de la gravité + accélération du torse). Cette formule-là n'a pas de coefficient de
+couplage : il n'y avait plus rien à multiplier. Le réglage a survécu au modèle qui l'utilisait.
 
-La vérification : si on rétrécit un volume de collision, la profondeur de départ change de
-plusieurs centimètres et le chiffre que je publie **ne bouge pas d'un cheveu** — c'est exact au
-bit près, pour une raison géométrique. Autrement dit : **refaire ce volume n'aurait rien donné**,
-et j'allais y passer un cycle entier.
+Mon fichier de réglages affirme encore noir sur blanc que `couple` « reste ACTIF ». C'est faux, et
+c'est corrigé au dossier.
 
-## 2. CE QUI A ÉTÉ CORRIGÉ À LA PLACE
+**C'est à toi de trancher, parce que c'est ta ligne dans ton fichier :** je peux la retirer, ou la
+laisser comme trace. Je ne l'efface pas sans que tu le dises. Et le rebrancher n'est pas une
+option — ça remettrait le modèle que tu as fait retirer.
 
-Le solveur finissait chaque image par **remettre l'os à sa bonne longueur** — et cette dernière
-opération **remettait le sein dans le buste** juste après l'en avoir sorti. Personne ne revérifiait
-après. C'est réparé : la poussée qui sort le sein du buste est maintenant faite **le long de son
-arc de rotation**, donc la remise à longueur ne la défait plus.
+**Ce qu'il faut retenir en pratique** : si tu trouves que ça ne bouge pas assez, le levier n'est pas
+`couple`. Ce sont les fréquences de ta §24 et la raideur de ta §28, qui sont implémentées et qui
+mesurent dans leurs bandes.
 
-Ce que ça donne, mesuré :
+## 2. JE RETIRE LA QUESTION QUE JE T'AI POSÉE AU BUILD PRÉCÉDENT
 
-| | build précédent | **ce build** |
+Je t'avais demandé : « est-ce que le sein gauche traîne plus que le droit après un à-coup ? », en
+t'annonçant que le gauche était sorti de ma fenêtre de mesure (>2,5 s) alors que le droit était à
+1,50 s.
+
+**C'était mon instrument, pas ses seins.** Ma mesure cherche l'instant où l'agitation retombe sous
+1 % de son niveau de départ. Le résidu qui reste quand tout est calmé vaut **1,04 %** à gauche et
+**0,67 %** à droite. À gauche il est juste au-dessus de la barre, donc la barre n'est jamais
+franchie et mon instrument écrit « jamais » ; à droite il est juste en dessous, donc il écrit
+« 1,50 s ». Les deux seins se distinguent de 0,37 point de pourcentage et j'en ai fait un abîme.
+
+Et mon autre instrument, sur la même course, dit que **les six canaux des deux seins se stabilisent
+en 0,82 à 0,95 s**, dans la fenêtre visée. Tu n'as pas cette asymétrie à chercher.
+
+## 3. CE QUI EST MAINTENANT MESURÉ POUR LA PREMIÈRE FOIS, ET QUI EST SOUS TA CIBLE
+
+Tes sections 10, 11 et 12 chiffrent un déplacement du **centre de masse** du sein selon
+l'orientation. Mon seul instrument qui le mesurait n'en calculait que la moitié : la part portée par
+les **os**, en oubliant la part portée par la **déformation de la chair** — qui est précisément le
+mécanisme que ta §10 décrit (« le centre de masse se rapproche du thorax »). En l'ajoutant :
+
+| | ta cible | mesuré |
 |---|---|---|
-| mouvement de la pointe | 0,178 / 0,182 | **0,204 / 0,210** (+15 %) |
-| nombre de fois où un volume écrase le sein | 32 275 / 26 906 | **24 440 / 20 958** (−24 % / −22 %) |
-| allongement de l'os | 0,02 % | **0,02 %** (l'os ne s'allonge toujours pas) |
+| sur le dos (§10) | 23 % | 29 % à gauche, 18 % à droite |
+| à plat ventre (§11) | 24 % | 21 % à gauche, 23 % à droite |
+| **couché sur le côté (§12)** | **19 %** | **8 % et 18 % à gauche · 17 % et 4 % à droite** |
 
-**CE QUE ÇA DEVRAIT DONNER À L'ŒIL** : la poitrine devrait réagir **différemment selon le
-mouvement** — une secousse et une inclinaison ne doivent plus se ressembler. Avant ce build, elle
-répondait presque pareil à tout, parce qu'un volume la plaquait à chaque image.
+**Le côté est le point faible, et il est asymétrique en miroir** : chaque sein répond correctement
+quand la gravité tire d'un côté et deux à quatre fois trop peu quand elle tire de l'autre. En
+moyenne sur les quatre mesures : 12 % contre les 15–24 % que tu demandes.
 
-## 3. TES DEUX SEINS S'ENTRECHOQUENT ENFIN DES DEUX CÔTÉS
+En revanche la **forme** (aplatissement, élargissement, allongement) tient tes **neuf** chiffres,
+sur les deux seins, dans les trois orientations. Ça n'avait jamais été comparé à ta spec.
 
-Tu avais écrit, dans ta description de sa poitrine : « ils bougent, bouncent, **s'entrechoquent**
-sur les mouvements brusques ». Ça ne marchait que d'un côté, et je ne le savais que depuis le build
-précédent : le sein résolu **en premier** dans mon fichier s'écartait avant que l'autre ne soit
-testé, donc il ne voyait presque jamais son voisin.
+## 4. CE QUI RESTE OUVERT ET QUE TU PEUX VOIR
 
-| contacts sein↔sein sur la course | build précédent | **ce build** |
-|---|---|---|
-| sein gauche → sein droit | 15 | **535** |
-| sein droit → sein gauche | 217 | **464** |
-| déséquilibre | **14,5×** | **1,15×** |
+**Les deux seins se traversent encore**, jusqu'à 12 cm sur les mouvements forts. C'est même la pire
+traversée du sein gauche — et c'est le mécanisme que le cycle précédent venait d'armer pour
+satisfaire ton « ils s'entrechoquent ». Le contact existe donc bien des deux côtés maintenant, mais
+l'interpénétration n'est pas fermée. Je m'étais trompé au build précédent en accusant la bretelle :
+la mesure de la course livrée désigne le sein opposé.
 
-Le correctif **existait déjà dans le moteur**, avec son interrupteur à zéro depuis des semaines —
-il avait été refusé deux fois parce qu'il faisait s'allonger les os de 9 %. Cette raison-là a
-disparu avec la correction du point 2 : l'allongement reste à 0,02 %, mesuré.
+## 5. UN POINT DE STRUCTURE, ET TU L'AS DÉJÀ AUTORISÉ
 
-## 4. LA QUESTION QUE JE TE POSE, ET C'EST LA SEULE
+Les deux os de chaque sein sont alignés **sur le rayon qui va du torse au sein**, et la masse du
+sein se trouve à **86 degrés** de cet axe. Autrement dit : la déformation de la chair est bien
+orientée (elle tient ses neuf cibles), mais l'**articulation** ne l'est pas — elle ne peut pas
+exprimer l'allongement racine→pointe que ta §11 demande, parce que sa direction n'est pas celle du
+sein.
 
-**Le retour au calme est plus lent, et il est asymétrique.** À droite il est à 1,50 s, dans la
-bande visée ; **à gauche il est sorti de ma fenêtre de mesure** (>2,5 s) alors qu'il était à 1,48 s
-au build précédent. C'est la contrepartie directe des 15 % de mouvement gagnés.
-
-Donc ce qu'il faut regarder précisément : **est-ce que le sein gauche traîne plus que le droit
-après un à-coup ?** Si oui, je sais quoi remonter — j'ai déjà le réglage mesuré qui ramène le
-gauche à 1,43 s (il coûte un peu sur la traversée du buste).
-
-Tu as dit « perky, pas pendouillant ». **Est-ce que c'est encore perky, ou est-ce que ça commence à
-traîner ?** Si ça traîne, je sais exactement quoi remonter, et j'ai déjà le réglage mesuré qui le
-ramène dans la bande (il coûte un peu sur la traversée).
-
-## CE QUI N'EST TOUJOURS PAS RÉGLÉ, ET JE NE LE CACHE PAS
-
-* **La poitrine traverse encore le buste sur les mouvements forts, et le pire n'a pas baissé**
-  (0,111 m à gauche, 0,089 m à droite, contre 0,094 / 0,079). La moitié basse du problème a
-  reculé — la valeur médiane baisse, 194 fenêtres sur 310 s'améliorent — mais **l'extrême n'a pas
-  bougé**. Ce build sait pour la première fois **contre quoi** :
-  * à gauche, contre **la bretelle** (le petit volume de la sangle du haut). Ce volume n'accorde
-    **aucune tolérance** : le mur est posé pile sur la pose d'origine. Or la bretelle **repose dans
-    la chair** — elle est 1,9 cm à l'intérieur du sein au repos. Une bretelle qui s'enfonce dans la
-    chair, c'est normal ; là, c'est interdit par construction. **C'est le prochain chantier**, et
-    c'est une décision à prendre, pas un réglage.
-  * à droite, contre la capsule d'épaule, et là c'est un vrai reste de solveur : la direction de
-    sortie est presque alignée sur l'os, donc la rotation ne peut presque pas l'en sortir.
-* **Les seins qui ne se voyaient pas l'un l'autre : c'est corrigé** (point 3). Ce qui reste ouvert
-  sur ce point, c'est que ta spec demande aussi que les surfaces intérieures **se repoussent avant
-  qu'on voie une interpénétration** — ça, je ne le mesure toujours pas.
-* **Le retour exact au repos** reste très bon (écart 0,0004 sur un plafond de 1,0).
+Le corriger demande de déplacer un os **hors** de ce rayon, donc de retoucher le rig. Tu l'as
+autorisé explicitement le 17 août (« même si ça implique de modifier le rig »). C'est une passe de
+rig et de cuisson de maillage, pas une retouche — c'est le prochain gros morceau.

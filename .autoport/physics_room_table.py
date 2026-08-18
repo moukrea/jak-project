@@ -850,7 +850,39 @@ def _oricom_mass_block(A, txt, names, com, com2, role, axis, b0):
     A('   NATURE : un DEPLACEMENT SOUTENU du centre de masse, en B0. REPERE : le triedre de')
     A('     l\'ANCRE — la NORME, seule grandeur qui traverse les deux triedres orthonormes.')
     A('   LIGNE DE BASE : i=0 (debout d\'auteur), ou §9 exige 0.0000 ; elle est publiee.')
-    A('   SOURCE DES POIDS : %s (mesh LIVRE, pas le rip du donneur).' % mass.get('source', '?'))
+    # REFUS D'UN INSTANTANE PERIME. Ce bloc lit un JSON produit hors course ; le chemin du mesh
+    # qu'il imprime a toujours ete juste, mais rien ne comparait son INSTANT a celui du mesh. Le
+    # 2026-08-18 le JSON datait de 13:15, le mesh de 14:05, et les huit valeurs de §10/§11/§12 de
+    # la course de 17:31 ont ete composees avec les poids d'un mesh remplace 50 minutes avant
+    # (W[lBooc] 23.9 contre 33.0 : 38 % d'ecart). On ne le DETECTE pas au point de controle, on le
+    # rend IMPOSSIBLE au point de consommation : sans horodatage concordant, le bloc se suspend.
+    _msrc = mass.get('source')
+    _mt = mass.get('source_mtime')
+    _msz = mass.get('source_size')
+    _stale = None
+    if _msrc:
+        _mp = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), _msrc)
+        if not os.path.exists(_mp):
+            _stale = 'le mesh %s n\'existe plus' % _msrc
+        elif _mt is None or _msz is None:
+            _stale = ('l\'instantane ne porte pas l\'horodatage de sa source (produit par une '
+                      'version anterieure de probe_breast_com_mass.py)')
+        else:
+            _st = os.stat(_mp)
+            if abs(_st.st_mtime - float(_mt)) > 1.0 or _st.st_size != int(_msz):
+                _stale = ('instantane PERIME : ecrit sur un mesh de mtime %.0f taille %d, le mesh '
+                          'livre porte mtime %.0f taille %d'
+                          % (float(_mt), int(_msz), _st.st_mtime, _st.st_size))
+    if _stale:
+        A('ROOM-ORICOM-MASS: SUSPENDU — %s.' % _stale)
+        A('   Les `d_j` sont mesures, les `W_j` ne decrivent pas le mesh que le jeu recoit. Relancer')
+        A('   `python3 .autoport/probe_breast_com_mass.py` PUIS regenerer ce tableau. Aucun chiffre')
+        A('   n\'est publie ici : des poids perimes donneraient un COM faux avec une provenance juste.')
+        A('')
+        return
+    A('   SOURCE DES POIDS : %s (mesh LIVRE, pas le rip du donneur), mtime %.0f, taille %d —'
+      % (_msrc, float(_mt), int(_msz)))
+    A('     CONCORDANCE VERIFIEE avec le mesh sur disque (sinon ce bloc se suspend).')
     A('   d_COM = (W_0.d_0 + W_1.d_1)/N — aucun coefficient choisi ; W_j et N mesures, d_j lus.')
     A('   d_j EST UN CUMUL, PAS UN INCREMENT (corrige le 2026-08-18) : `PHYSORICOML` publie')
     A('     `u - m` par maillon, donc un ecart A SON PROPRE PARENT ; l\'ecart a la pose d\'auteur du')

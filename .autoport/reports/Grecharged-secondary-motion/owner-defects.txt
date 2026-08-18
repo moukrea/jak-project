@@ -529,4 +529,52 @@ OPEN breast-spec-incomplete  PRIORITE 1 -- LA SEULE LIGNE QUI TIENT LA PHASE OUV
 #     A TRANCHER PAR L'OWNER, ET LA QUESTION LUI EST POSEE : ce placement echange ~12 %
 #       d'amplitude contre 16 points de possession de peau. Deformation contre amplitude : c'est
 #       son oeil qui decide, la mesure ne peut pas.
+#
+#   ETAT AU CYCLE 26 (2026-08-18). CYCLE D'INSTRUMENT ET D'AUDIT : aucun octet livre n'a change
+#   (moteur, salle et donnees bit-identiques), donc AUCUN chiffre de physique n'a pu bouger. Ce qui
+#   a change est ce qu'on SAIT. Rapport complet en sections 1 a 17.
+#     SES §10/§11/§12 SONT LUES POUR LA PREMIERE FOIS SUR LA GRANDEUR QU'ELLES NOMMENT. L'unique
+#       instrument qui les mesurait sur un COM n'en calculait que la part SQUELETTIQUE et lisait
+#       SOUS partout. Le terme manquant est le TENSEUR d'equilibre de §10-13 — c'est-a-dire le
+#       mecanisme meme de « COM toward thorax » — et il porte un levier de 321 u dirige a 93 % vers
+#       l'avant. Ajoute : 4 cellules sur 8 entrent dans leur bande.
+#       ROBUSTE (les trois frontieres d'organe donnent le meme verdict) : §12 lateral est SOUS d'un
+#       pole par sein (chestL i=2 0.082, chestR i=4 0.043 contre 0.15-0.24) ; §11 est DANS sur
+#       chestR. §10 est asymetrique de 59 % entre les deux seins au meme stimulus.
+#     LA MOITIE FORME DE §10/§11/§12 EST TENUE, 9 CIBLES SUR 9, et aucun instrument ne la comparait
+#       a sa spec. C'est la premiere fois que ces neuf nombres sont confrontes.
+#     CINQ CHIFFRES DU CYCLE 25 SONT RETIRES, tous verifies contre la course livree :
+#       - l'argmax de `COLLIDE` : 487.8 u / `sphere:rBoob` (LE SEIN OPPOSE) et 443.3 u / ci=7, non
+#         416.9 / bretelle et 476.1. Les deux valeurs citees n'existent nulle part dans le log.
+#       - « §27 se degrade, chestL HORS FENETRE » : artefact de plancher (1.04 % contre un barreau
+#         a 1.00 % ; chestR 0.67 %), et la bande citee (1.0-1.5) est celle de `t05`, pas de `t1`.
+#         Sur l'estimateur de deplacement les six canaux sont DANS. §27 passe a TENUE.
+#       - « §24 4 canaux sur 6 » : c'est 6 sur 6, le rapport lisait des lignes de diagnostic.
+#       - « §29 TENUE » : le rapport reportait la TORSION sous une section dont l'ANISOTROPIE est
+#         une autre grandeur, hors cible de 21 a 33 % sur 3 mesures sur 4. Passe a PARTIELLE.
+#       - « §10/§11/§12 SOUS » (Reporte) : la course livree portait AU-DESSUS sur l'apex.
+#     UN DEFAUT D'ARTEFACT PERIME, CORRIGE AU POINT DE PRODUCTION : les huit valeurs de COM de la
+#       course livree ont ete composees avec les poids d'un mesh remplace 50 minutes avant elle
+#       (`breast-com-mass.json` 13:15, mesh 14:05, course 17:31 ; W[lBooc] 23.9 au lieu de 33.0).
+#       Le bloc imprimait le CHEMIN du mesh livre — juste — et rien ne comparait l'INSTANT. La sonde
+#       horodate desormais sa source et le consommateur SE SUSPEND si ca ne concorde pas.
+#     ARBITRAGE RENDU (le cycle 25 me l'avait renvoye) : NON, une bretelle ne recoit pas la bande de
+#       compression de §10. 0.30 x B0 = 180.6 u depasse le rayon de la sphere (157 u), donc la bande
+#       rendrait tout point interieur admissible — le volume cesserait d'etre un obstacle. Le meme
+#       critere d'epaisseur separe corps et vetement sur les 26 spheres et donne la MEME reponse que
+#       le predicat en place. Et la question est sans objet : l'argmax n'est pas la bretelle.
+#     PARAMETRE MORT : `couple=` (regle par l'owner 5 fois depuis le 11/08) et `hang=` ne sont
+#       consommes NULLE PART dans le chemin de force. `couple` est mort le 13/08 quand le terme
+#       moteur de sa §3 a remplace `-couple x acceleration`. Son fichier de reglages affirme le
+#       contraire. LA DECISION DE RETIRER SA LIGNE LUI APPARTIENT — elle est dans SON fichier.
+#     STRUCTURE, ET C'EST LE PROCHAIN GROS MORCEAU : les deux os de chaque sein sont colineaires au
+#       rayon `chest`->sein a 0.001 deg, et la masse de l'organe est a 86 deg de cet axe. Le degre
+#       de liberte de §23 existe et la peau le suit (43.5 % / 37.5 %, barre 30 %) mais son AXE n'est
+#       pas celui que §11 et §31 chiffrent. Ce n'est pas un defaut de la pose du cycle 24, qui
+#       atteint sa cible derivee au millieme : `reroot` ne peut que GLISSER le long de ce rayon.
+#       Le corriger demande une passe de rig, que l'owner a explicitement autorisee le 17/08.
+#     RESTE OUVERT : `COLLIDE` a 0.1114 m, dont 0.81 B0 d'interpenetration sein<->sein ; §12 lateral
+#       SOUS ; §29 anisotropie hors cible ; `dfb` (§38) et `*phys-ux*` non publies (une ligne de
+#       `format` chacun) ; §21, §26, §28, §33, §34, §36, §37 NON re-mesurees ce cycle et marquees
+#       comme telles au tableau.
 #   CETTE LIGNE NE SE RETIRE QUE SUR LE MOT DE L'OWNER, jamais sur un tableau vert.

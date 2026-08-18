@@ -86,6 +86,21 @@ def main():
                      ' '.join('%s=%.1f' % (joints[k], arms[k]) for k in range(len(idx))), arm_c))
             rec['defs'].append(dict(cut=cut, n=n, W=Wj, arms=arms, arm_centroid=arm_c))
         out['chains'][cname] = rec
+    # HORODATAGE DE LA SOURCE — sans lui, un consommateur ne peut pas savoir si ce fichier est
+    # PLUS VIEUX que le mesh qu'il pretend decrire. Paye une fois : le 2026-08-18 ce fichier a ete
+    # ecrit a 13:15, le mesh recuit a 14:05, et `ROOM-ORICOM-MASS` a compose les huit valeurs de
+    # §10/§11/§12 de la course de 17:31 avec les poids du mesh d'AVANT (W[lBooc] 23.9 au lieu de
+    # 33.0, soit 38 % d'ecart) en imprimant le chemin du mesh LIVRE comme provenance. Le chemin
+    # etait juste, l'instant etait faux, et rien ne pouvait le voir.
+    path = g.get('path') or os.path.join(REPO, g['src'])
+    src_abs = path if os.path.isabs(path) else os.path.join(REPO, path)
+    try:
+        st = os.stat(src_abs)
+        out['source_mtime'] = st.st_mtime
+        out['source_size'] = st.st_size
+    except OSError:
+        out['source_mtime'] = None
+        out['source_size'] = None
     dest = os.path.join(REPO, '.autoport/reports/Grecharged-secondary-motion/breast-com-mass.json')
     json.dump(out, open(dest, 'w'), indent=1)
     print('PROBE-COM-MASS: ecrit %s' % os.path.relpath(dest, REPO))

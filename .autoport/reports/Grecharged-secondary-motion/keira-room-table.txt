@@ -1672,7 +1672,8 @@ ROOM-ORICOM-SPEC: chestR       §11 transitoire  pic d'etablissement=0.39980  te
    NATURE : un DEPLACEMENT SOUTENU du centre de masse, en B0. REPERE : le triedre de
      l'ANCRE — la NORME, seule grandeur qui traverse les deux triedres orthonormes.
    LIGNE DE BASE : i=0 (debout d'auteur), ou §9 exige 0.0000 ; elle est publiee.
-   SOURCE DES POIDS : out/jak1/fr3/skin/keira-hd-lod0.glb (mesh LIVRE, pas le rip du donneur).
+   SOURCE DES POIDS : out/jak1/fr3/skin/keira-hd-lod0.glb (mesh LIVRE, pas le rip du donneur), mtime 1787054703, taille 1002412 —
+     CONCORDANCE VERIFIEE avec le mesh sur disque (sinon ce bloc se suspend).
    d_COM = (W_0.d_0 + W_1.d_1)/N — aucun coefficient choisi ; W_j et N mesures, d_j lus.
    d_j EST UN CUMUL, PAS UN INCREMENT (corrige le 2026-08-18) : `PHYSORICOML` publie
      `u - m` par maillon, donc un ecart A SON PROPRE PARENT ; l'ecart a la pose d'auteur du
@@ -1687,29 +1688,29 @@ ROOM-ORICOM-MASS: chestL       CONTROLE pointe : |sum ldb| (PHYSORICOML, cumul) 
    accumulateurs independants, deux triedres, un seul nombre. DESACCORD > 5 % : le montage est en cause, pas la physique — les lignes ci-dessous sont suspendues a ce constat
    LIGNE DE BASE i=0 (debout d'auteur, §9 exige 0.0000), en ABSOLU parce qu'un rapport entre deux quasi-zeros
    ne mesure rien : |sum ldb| = 0.00178 B0  ·  |t| = 0.00080 B0.
-ROOM-ORICOM-MASS: chestL       §10 supine  i=8  |d_COM|=0.1306/0.1577/0.1996 B0  (apex 0.3166, facteur 0.413)
+ROOM-ORICOM-MASS: chestL       §10 supine  i=8  |d_COM|=0.1504/0.1656/0.1833 B0  (apex 0.3166, facteur 0.475)
                               squelettique seul SOUS — borne INFERIEURE, la part tensorielle manque  ·  cible 0.23 (bande 0.18-0.28)  ·  rr(joint, pour memoire, NON compose) 0.1607
-ROOM-ORICOM-MASS: chestL       §11 prone   i=6  |d_COM|=0.0829/0.1001/0.1270 B0  (apex 0.2112, facteur 0.392)
+ROOM-ORICOM-MASS: chestL       §11 prone   i=6  |d_COM|=0.0970/0.1069/0.1186 B0  (apex 0.2112, facteur 0.459)
                               squelettique seul SOUS — borne INFERIEURE, la part tensorielle manque  ·  cible 0.24 (bande 0.20-0.30)  ·  rr(joint, pour memoire, NON compose) 0.2593
-ROOM-ORICOM-MASS: chestL       §12 lateral i=2  |d_COM|=0.0933/0.1128/0.1431 B0  (apex 0.2374, facteur 0.393)
+ROOM-ORICOM-MASS: chestL       §12 lateral i=2  |d_COM|=0.1096/0.1207/0.1340 B0  (apex 0.2374, facteur 0.462)
                               squelettique seul SOUS — borne INFERIEURE, la part tensorielle manque  ·  cible 0.19 (bande 0.15-0.24)  ·  rr(joint, pour memoire, NON compose) 0.2356
-ROOM-ORICOM-MASS: chestL       §12 lateral i=4  |d_COM|=0.1049/0.1265/0.1597 B0  (apex 0.2647, facteur 0.396)
+ROOM-ORICOM-MASS: chestL       §12 lateral i=4  |d_COM|=0.1182/0.1302/0.1436 B0  (apex 0.2647, facteur 0.447)
                               squelettique seul SOUS — borne INFERIEURE, la part tensorielle manque  ·  cible 0.19 (bande 0.15-0.24)  ·  rr(joint, pour memoire, NON compose) 0.1868
-   (frontieres w>0 / w>=0.05 / w>=0.25 — les trois colonnes de |d_COM| ci-dessus ; N=94, part de l'organe portee par la chaine 0.4961, le reste est ancre au buste)
+   (frontieres w>0 / w>=0.05 / w>=0.25 — les trois colonnes de |d_COM| ci-dessus ; N=94, part de l'organe portee par la chaine 0.5415, le reste est ancre au buste)
 ROOM-ORICOM-MASS: chestR       CONTROLE pointe : |sum ldb| (PHYSORICOML, cumul) contre |t|
    (PHYSORICOM), pire ecart relatif 39.4949 % (i=1) sur 8 orientations chargees — deux
    accumulateurs independants, deux triedres, un seul nombre. DESACCORD > 5 % : le montage est en cause, pas la physique — les lignes ci-dessous sont suspendues a ce constat
    LIGNE DE BASE i=0 (debout d'auteur, §9 exige 0.0000), en ABSOLU parce qu'un rapport entre deux quasi-zeros
    ne mesure rien : |sum ldb| = 0.00285 B0  ·  |t| = 0.00108 B0.
-ROOM-ORICOM-MASS: chestR       §10 supine  i=8  |d_COM|=0.0679/0.0806/0.1088 B0  (apex 0.1434, facteur 0.474)
+ROOM-ORICOM-MASS: chestR       §10 supine  i=8  |d_COM|=0.0780/0.0873/0.0935 B0  (apex 0.1434, facteur 0.544)
                               squelettique seul SOUS — borne INFERIEURE, la part tensorielle manque  ·  cible 0.23 (bande 0.18-0.28)  ·  rr(joint, pour memoire, NON compose) 0.1422
-ROOM-ORICOM-MASS: chestR       §11 prone   i=6  |d_COM|=0.0954/0.1133/0.1571 B0  (apex 0.2718, facteur 0.351)
+ROOM-ORICOM-MASS: chestR       §11 prone   i=6  |d_COM|=0.1196/0.1338/0.1457 B0  (apex 0.2718, facteur 0.440)
                               squelettique seul SOUS — borne INFERIEURE, la part tensorielle manque  ·  cible 0.24 (bande 0.20-0.30)  ·  rr(joint, pour memoire, NON compose) 0.2136
-ROOM-ORICOM-MASS: chestR       §12 lateral i=2  |d_COM|=0.1063/0.1261/0.1732 B0  (apex 0.2691, facteur 0.395)
+ROOM-ORICOM-MASS: chestR       §12 lateral i=2  |d_COM|=0.1287/0.1441/0.1559 B0  (apex 0.2691, facteur 0.478)
                               squelettique seul SOUS — borne INFERIEURE, la part tensorielle manque  ·  cible 0.19 (bande 0.15-0.24)  ·  rr(joint, pour memoire, NON compose) 0.0750
-ROOM-ORICOM-MASS: chestR       §12 lateral i=4  |d_COM|=0.0357/0.0424/0.0587 B0  (apex 0.1005, facteur 0.355)
+ROOM-ORICOM-MASS: chestR       §12 lateral i=4  |d_COM|=0.0446/0.0499/0.0543 B0  (apex 0.1005, facteur 0.444)
                               squelettique seul SOUS — borne INFERIEURE, la part tensorielle manque  ·  cible 0.19 (bande 0.15-0.24)  ·  rr(joint, pour memoire, NON compose) 0.2644
-   (frontieres w>0 / w>=0.05 / w>=0.25 — les trois colonnes de |d_COM| ci-dessus ; N=90, part de l'organe portee par la chaine 0.4529, le reste est ancre au buste)
+   (frontieres w>0 / w>=0.05 / w>=0.25 — les trois colonnes de |d_COM| ci-dessus ; N=90, part de l'organe portee par la chaine 0.5394, le reste est ancre au buste)
 
 -- ROOM-ORICTL : LE REDRESSEMENT, ET SES TROIS SUSPECTS DESARMES TOUR A TOUR -------------
    NATURE : le meme deplacement soutenu que `ROOM-ORICOM`, mesure sur la meme fenetre par
