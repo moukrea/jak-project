@@ -353,3 +353,13 @@ de la bande normale que la spec chiffre — ici `0.84*0.07 = 0.0588` contre
 La preuve exigée est un pilotage dont la réponse est sous le genou et dont la valeur doit rester
 INCHANGÉE À LA DÉCIMALE : ici `updown` 2.41 → 2.41 et `tilt` 1.12 → 1.12. Si ce garde-fou bouge,
 la borne compose dans la bande normale et le correctif se RETIRE, il ne s'adoucit pas.
+
+GUARD truncated-listing .autoport/PITFALLS.md app-jak1-HD-recharged.apk
+**Tronquer une liste puis conclure sur ce qui reste.** Le 2026-08-18 à 23:19 j'ai listé les assets de
+la release avec `| tail -4`, vu `app-jak1-NORMAL-recharged.apk` daté du 3 août, et alerté l'owner
+que **ses builds ne lui arrivaient plus depuis quinze jours**. Faux : le publieur envoie
+`app-jak1-HD-recharged.apk`, mis à jour le jour même à 21:06 — l'asset que j'accusais n'est
+simplement plus alimenté, et ma troncature l'avait laissé seul visible. Deuxième fois cette semaine
+qu'une sortie coupée fabrique une conclusion (cf. [[truncated-series]] sur une décroissance).
+Verrou : avant d'alerter sur une absence dans une liste, l'afficher ENTIÈRE (ou trier explicitement
+sur le critère qui décide) — jamais un `head`/`tail` suivi d'un verdict.
