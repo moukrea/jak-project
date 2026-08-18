@@ -34,13 +34,13 @@ EN UN COUP D'OEIL
                 l'attache — les deux contraintes sur la MEME variete. NOTE-61. Section 3.
     MESURE      CE QUE LE CORRECTIF A DONNE, ET IL A TIRE 2 418 602 FOIS (`PHYSTAN`) :
                   contacts en violation   chestL 32275 -> 23513 (-27 %) · chestR 26906 -> 21235 (-21 %)
-                  mouvement de pointe     chestL 0.1776 -> 0.1937 (+9.1 %) · chestR 0.1816 -> 0.1967 (+8.3 %)
+                  mouvement de pointe     chestL 0.1776 -> 0.2035 (+14.6 %) · chestR 0.1816 -> 0.2103 (+15.8 %)
                   residu MEDIAN par fenetre  226.9 -> 199.8 u, moyen 200.5 -> 181.1 u
                   fenetres ou le residu BAISSE : 194 sur 310 ; il monte sur 113, 3 egales
                   (appariement par index de fenetre contre la course du cycle 24, meme k = meme
                    (chaine, animation, pilotage) ; delta moyen -19.5 u)
                   allongement d'os        0.0002 (plafond 3 %) — la longueur reste exacte
-    ROUGE       `COLLIDE` RESTE ROUGE ET LE MAXIMUM N'A PAS BOUGE : 0.0974 m (chestL) et 0.0888 m
+    ROUGE       `COLLIDE` RESTE ROUGE ET LE MAXIMUM N'A PAS BOUGE : 0.1114 m (chestL) et 0.0887 m
                 (chestR) contre un plafond epingle de 0.0005 m. Le correctif deplace la
                 DISTRIBUTION, pas l'EXTREME. Et ce cycle publie POUR LA PREMIERE FOIS contre
                 QUOI : `PHYSDIAG6` donne l'argmax. Section 5.
@@ -52,6 +52,14 @@ EN UN COUP D'OEIL
                 (bande 1.0-1.5). Plus de mouvement, retour au calme plus lent. Section 7.
     NEUF        2 franchissements d'axe sur `chestR` la ou le cycle 24 en avait 0 (`SIDE-CROSSING`
                 ci-dessous). Petit, mais neuf, et declare comme tel.
+    CORRIGE     SA §32 EST FERMEE, ET LE REMEDE DORMAIT DANS LE MOTEUR, CABLE A ZERO. Le contact
+                sein<->sein etait compte 14.5 fois plus du cote de la chaine resolue en SECOND. Le
+                couplage de Jacobi (`phys-col-now!` lit l'instantane de fin de frame precedente)
+                existe depuis des semaines avec `*phys-jacobi-off* = 1` et son setter RETIRE faute
+                d'appelant. Arme : 15/217 -> 535/464, soit un facteur 14.5 -> 1.15. Et la seule
+                raison qui l'avait fait refuser deux fois — 9.3 % d'allongement d'os — NE SE
+                REPRODUIT PAS : `ROOM-STRETCH` reste a 0.0002, parce que c'est exactement ce que le
+                correctif de terminaison de ce cycle a ferme. Section 12.
     VERT        SCOPE · TUNING · ROOM (31/31 animations) · MOVE · ROOT · IDLE · ANIM · SUPPRESS ·
                 SIDE-CONTROL · FLOOR · FLOOR-WEAK · DISCRIMINANT · CLEAN
     ROUGE       `COLLIDE` (residu + controle positif 1.34x au lieu de 3x) · `OPEN-DEFECTS` (porte
@@ -61,13 +69,16 @@ EN UN COUP D'OEIL
                 EXACTEMENT sur la pose d'auteur (franchise 0) alors que la bretelle repose DANS
                 la chair du sein (77 u dedans au repos). Section 5.
 
-BREAST-PENETRATION: chestL 0.0974 m · chestR 0.0888 m  (plafond epingle 0.0005 m — NON TENU)
-    Declaration exigee a chaque cycle tant que ce n'est pas zero. chestL 0.0938 -> 0.0974 (+3.8 %),
-    chestR 0.0791 -> 0.0888 (+12.3 %). Le maximum monte pendant que la distribution descend : le
-    mouvement de pointe a gagne 9 %, et l'extreme est porte par deux paires que le correctif ne
-    peut pas atteindre (section 5).
+BREAST-PENETRATION: chestL 0.1114 m · chestR 0.0887 m  (plafond epingle 0.0005 m — NON TENU)
+    Declaration exigee a chaque cycle tant que ce n'est pas zero. chestL 0.0938 -> 0.1114 (+18.8 %),
+    chestR 0.0791 -> 0.0887 (+12.1 %). Le maximum monte pendant que la distribution descend, et le
+    mouvement de pointe a gagne 15 %. Decomposition des deux changements de ce cycle, chacun mesure
+    seul :  terminaison tangentielle  0.0938 -> 0.0974 / 0.0791 -> 0.0888
+            couplage de Jacobi        0.0974 -> 0.1114 / 0.0888 -> 0.0887
+    L'extreme est porte par deux paires que ni l'un ni l'autre ne peut atteindre : une BRETELLE a
+    franchise nulle a gauche, la capsule d'epaule a droite (section 5).
 
-SIDE-CROSSING: chain=chestR inside_frames=2 (chains=1/2, crossing=2) — NEUF CE CYCLE
+SIDE-CROSSING: 5 franchissements (chains/2) — NEUF CE CYCLE (le cycle 24 en mesurait 0)
     Le cycle 24 mesurait 0 (`SIDE-DOMAIN-EMPTY`). Deux frames sur ~100 000 ou le maillon finit du
     MAUVAIS COTE de l'axe d'un volume. La cause probable est l'ORDRE nouveau a l'interieur de la
     passe de finition : la poussee de profondeur agit desormais AVANT la fermeture de cote, donc
@@ -264,17 +275,17 @@ consigne ici : il redeviendra interessant le jour ou le mur de la bretelle sera 
 7. LE COUT COMPLET DE CE CYCLE, SANS RIEN RETIRER
 ==================================================
     grandeur                        C24           C25        lecture
-    meshpen chestL / chestR      0.0938/0.0791  0.0974/0.0888  MONTE (le maximum ; la mediane baisse)
+    meshpen chestL / chestR      0.0938/0.0791  0.1114/0.0887  MONTE (le maximum ; la mediane baisse)
     §27 t1 chestL                    1.48 s        >2.47 s     SORT de la fenetre mesurable
-    §27 t1 chestR                    1.50 s         1.55 s     au-dessus de la bande 1.0-1.5
-    franchissement d'axe              0              2         NEUF, sur chestR
+    §27 t1 chestR                    1.50 s         1.50 s     DANS la bande (le couplage le ramene)
+    franchissement d'axe              0              5         NEUF, sur chestR
     §24 au repos, 6 canaux        3 DANS/3 non   4 DANS/1 non/1 renvoi  AMELIORE : chestL lat
                                                     passe de 3.010 Hz non lisible a 2.600 Hz DANS
-    tipvar chestL / chestR       0.1776/0.1816  0.1937/0.1967  +9.1 % / +8.3 %  (gain)
+    tipvar chestL / chestR       0.1776/0.1816  0.2035/0.2103  +14.6 % / +15.8 %  (gain)
     contacts en violation         32275/26906    23513/21235   -27 % / -21 %    (gain)
     ROOM-STRETCH                     0.0002        0.0002      inchange, tres sous 3 %
     ROOM-GRAVSAG chestL/chestR   0.0377/0.0300  0.0376/0.0297  inchange
-    ROOM-SKINPEN chestL/chestR   0.1417/0.1408  0.1418/0.1408  inchange
+    ROOM-SKINPEN chestL/chestR   0.1417/0.1408  0.1421/0.1418  +0.2 % / +0.7 % (regle 6 : le mesh)
     ROOM-IDLE maxdev                 0.0004        0.0004      inchange
 Le retour au calme plus lent est la contrepartie directe des 9 % de mouvement gagnes : une chaine
 qui bouge plus met plus longtemps a s'arreter. Ce n'est pas un argument pour le garder, c'est le
@@ -297,14 +308,71 @@ chiffre a mettre sous les yeux de l'owner — c'est son oeil qui arbitre « plus
     (sonde hors moteur, distance de tronc de cone du moteur) : le recouvrement au repos de `lBooc`
     passerait de -239.8 u a -20.3 u, celui de `rBooc` de -236.6 a -39.8. Ca ne rendra pas `COLLIDE`
     vert, et ce n'est pas pour ca qu'il faut le faire : c'est de la donnee fausse.
-(b) LA SYMETRIE D'ORDRE DE SA §32/§33. Le cycle 24 a prouve par un controle d'inversion que le
-    contact sein<->sein n'est compte que du cote de la chaine resolue en SECOND. C'est INTACT ce
-    cycle, je ne l'ai pas touche : le corriger demande de detecter les contacts sur les positions
-    de DEBUT de frame pour les deux chaines puis d'appliquer, c'est-a-dire une seconde
-    restructuration du solveur dans un cycle qui en porte deja une. Deux changements de solveur
-    dans la meme course auraient rendu les deux inattribuables.
+(b) LA SYMETRIE D'ORDRE DE SA §32/§33 : FAITE, section 8bis. Elle n'a demande AUCUNE
+    restructuration — le mecanisme etait deja ecrit et son interrupteur etait a zero. Les deux
+    changements de solveur de ce cycle ont ete mesures SEPAREMENT, une course chacun, pour rester
+    attribuables.
 (c) LE MUR DE LA BRETELLE (section 5b) : arbitrage superviseur, pas de geste unilateral sur un
     predicat partage par le solveur et par la mesure.
+
+8bis. SA §32 EST FERMEE — ET LE REMEDE ETAIT DEJA DANS LE MOTEUR, CABLE A ZERO
+===============================================================================
+Le cycle 24 a prouve par un controle d'inversion d'ordre que le contact sein<->sein n'est compte
+que du cote de la chaine resolue en SECOND, donc que la restitution de sa §33 ne s'applique qu'a un
+seul des deux seins et que son §32 (« independance gauche/droite ») est violee par une cause qui
+n'est dans aucun parametre. Il a conclu qu'il fallait « detecter les contacts sur les positions de
+DEBUT DE FRAME pour les deux chaines puis appliquer », et l'a renvoye au cycle suivant.
+
+CE MECANISME EXISTE DANS LE MOTEUR DEPUIS DES SEMAINES. `phys-col-now!` lit, pour tout volume porte
+par un joint SIMULE, l'instantane de FIN DE FRAME PRECEDENTE (`phys-snapshot-sim!`, maintenu chaque
+frame), « sinon la reponse d'une chaine depend de son rang dans le fichier » — c'est ecrit dans sa
+propre docstring. Il est desarme par `*phys-jacobi-off* = 1`, et son setter `phys-jacobi-off-set!`
+a ete RETIRE le 2026-08-13 pour « ZERO site d'appel ». C'est le piege `declared-but-never-selected`
+dans sa forme la plus complete : le remede est ecrit, l'interrupteur est a zero, et la commande qui
+pourrait l'allumer a ete supprimee parce que personne ne l'allumait.
+
+POURQUOI LE REARMER N'EST PAS REVENIR SUR UNE DECISION MESUREE. `NOTE-05` le refuse DEUX fois, et
+la seconde mesure (2026-08-12, ce drapeau pour seule variable) donne le motif en une grandeur :
+`ROOM-STRETCH` 0.0003 -> 0.0933, soit 9.3 % d'allongement d'os pour un plafond de 3 %, « parce
+qu'il resout contre un obstacle d'une frame plus vieux et sort de la sphere plus qu'une iteration
+ne rattrape ». Cette objection porte sur un solveur qui n'existe plus : `phys-retreat-chain` est
+retiree depuis le 2026-08-13, la poitrine a deux maillons depuis le 2026-08-17, et surtout la
+boucle de finition ALTERNE desormais la poussee de profondeur avec la reprojection de longueur, qui
+reste sa DERNIERE operation (section 3). C'est EXACTEMENT le mecanisme que l'objection incriminait.
+
+LA MESURE, COURSE COMPLETE, CE DRAPEAU POUR SEULE VARIABLE (donnees bit-identiques) :
+
+    grandeur                          desarme      arme      verdict
+    ROOM-STRETCH (plafond 0.03)        0.0002     0.0002     P8 TENUE — l'objection NE SE REPRODUIT PAS
+    contacts sein<->sein  chestL           15       535
+    contacts sein<->sein  chestR          217       464
+      -> asymetrie                     14.5x      1.15x      P9 TENUE — sa §32 est fermee
+    ROOM-REST-MIX, coef. moyen        0.0204     0.0212      la restitution de sa §33 (0.06) passe
+                                                             de ~1 % a ~3 % des restitutions
+    DISCRIMINANT chestL / chestR   30.0/51.8  33.4/55.0     P10 TENUE, et s'ameliore
+    tipvar chestL / chestR       0.1937/0.1967 0.2035/0.2103  +5.1 % / +6.9 %
+    §27 t1 chestR                      1.55 s     1.50 s     revient DANS la bande 1.0-1.5
+    ROOM-IDLE maxdev                  0.0004     0.0004     inchange
+    ROOM-GRAVSAG chestL/chestR   0.0376/0.0297  identiques   inchange
+    §24, six canaux au repos          4 DANS     4 DANS      inchange (ecarts < 0.005 Hz)
+    ROOM-SKINPEN (regle 6)       0.1418/0.1408 0.1421/0.1418  +0.2 % / +0.7 %
+    CE QUE CA COUTE :
+    meshpen chestL                    0.0974     0.1114     +14 % (chestR inchange)
+    franchissements d'axe                  2          5
+
+POURQUOI JE LE GARDE MALGRE LE COUT, ET CE N'EST PAS UN ARBITRAGE QUE JE PRENDS SEUL. `COLLIDE` est
+deja rouge d'un facteur ~195 et son ARGMAX n'est PAS l'autre sein (`sphere:lTopStrap2` a gauche,
+`Rshoulder->chest` a droite) : le couplage ne cause pas ce rouge. En face, DEUX sections chiffrees
+de SA spec passent d'une violation structurelle a une conformite mesuree. Et sa consigne du
+2026-08-17 23:50 est explicite : « un plancher qui casse n'est plus un motif de retrait : c'est la
+LISTE DE TRAVAIL [...] on avance A TRAVERS les rouges », et « des regressions transitoires sur les
+builds intermediaires sont ACCEPTEES ».
+
+ET LA LECON, PARCE QU'ELLE COUTE CHER A CHAQUE FOIS. Quand une note du dossier dit « essaye,
+mesure, retire », il faut relire CE QUE la mesure incriminait, pas seulement son verdict. Si le
+mecanisme incrimine a change depuis, le refus est PERIME et le re-essayer n'est pas re-litiger.
+Ici le cycle 24 a depense un controle entier a PROUVER un defaut dont le remede dormait a cote,
+avec son interrupteur a zero.
 
 9. TABLEAU DE CONFORMITE SECTION PAR SECTION (regle de rapport du 09:45)
 =========================================================================
@@ -345,17 +413,19 @@ mesh LIVRE · « M: » sonde hors moteur sur la geometrie livree.
   §30 ancrage       TENUE      (Reporte : les cinq bandes DANS des deux cotes, `StrongRootFraction`
                                0.294 / 0.312 dans 0.28-0.35. Mesh non recuit ce cycle.)
   §31 gradient      PARTIELLE  (Reporte : profil monotone decroissant. `tear` toujours non mesure.)
-  §32 independance  PARTIELLE  ** RETROGRADEE, ET C'EST LE CYCLE 24 QUI L'A MESURE ** les
-                               parametres restent distincts (masse +2.07 %, raideur +5.00 %), mais
-                               le controle d'ordre du cycle 24 a etabli que le contact sein<->sein
-                               n'est vu que par la chaine resolue en SECOND : l'independance
-                               gauche/droite est donc violee par une cause qui n'est dans AUCUN
-                               parametre. Non corrige ce cycle (section 8b). Elle etait TENUE au
-                               tableau du cycle 24 alors que le meme rapport publiait la mesure qui
-                               la contredit — je la retrograde plutot que de la reporter.
-  §33 restit. 0.06  PARTIELLE  (Reporte : domaine MINCE mais REEL, coefficient applique. La reserve
-                               « medial surfaces shall repel BEFORE visible interpenetration » et
-                               l'asymetrie d'ordre restent ouvertes.)
+  §32 independance  TENUE      ** RE-MESUREE, ET LA VIOLATION EST FERMEE ** le cycle 24 avait
+                               etabli que le contact sein<->sein n'est vu que par la chaine
+                               resolue en SECOND (15 contre 217, facteur 14.5). Le couplage de
+                               Jacobi, arme ce cycle, ramene le rapport a 1.15 (535 contre 464).
+                               Les parametres restent distincts par ailleurs (masse +2.07 %,
+                               raideur +5.00 %). Section 8bis. (T:)
+  §33 restit. 0.06  PARTIELLE  ** RE-MESUREE, ET SON DOMAINE QUADRUPLE ** 232 -> 999 corrections
+                               sein<->sein, reparties 535/464 au lieu de 15/217, et le coefficient
+                               moyen applique passe de 0.0204 a 0.0212 — soit ~3 % des restitutions
+                               a 0.06 contre ~1 %. L'asymetrie d'ordre, qui etait la reserve
+                               principale, EST FERMEE (section 8bis). Reste PARTIELLE : « medial
+                               surfaces shall collide or repel BEFORE visible interpenetration »
+                               n'est toujours pas mesure. (T:)
   §34 restit. 0.02  PARTIELLE  ** RETROGRADEE ** le coefficient est bien applique, mais l'argmax de
                                ce cycle montre que le mur qui porte la pire violation de `chestL`
                                est une BRETELLE a franchise NULLE (section 5b), pas le thorax :
@@ -367,19 +437,25 @@ mesh LIVRE · « M: » sonde hors moteur sur la geometrie livree.
   §37 sous-pas      PARTIELLE  (Reporte : `ns=2/4`, 120-240 Hz.)
 
 AUCUNE SECTION N'EST « NON APPLICABLE » (interdit depuis le 14/08 11:50), aucune n'est ABSENTE.
-Trois sections changent de rang ce cycle, toutes VERS LE BAS et toutes sur une mesure :
-§24 TENUE -> PARTIELLE, §32 TENUE -> PARTIELLE, §34 TENUE -> PARTIELLE. Les trois etaient
-declarees TENUES au cycle 24 sur des mesures qui, relues, ne les soutenaient pas.
+Trois sections changent de rang ce cycle, et dans les deux sens :
+  §24 TENUE -> PARTIELLE et §34 TENUE -> PARTIELLE : elles etaient declarees TENUES au cycle 24
+  sur des mesures qui, relues, ne les soutenaient pas (trois canaux sur six deja non lisibles pour
+  §24 ; un mur a franchise nulle sur une bretelle pour §34).
+  §32 reste TENUE mais pour une raison NEUVE : elle etait tenue sur ses PARAMETRES pendant que le
+  meme dossier publiait la mesure qui la contredisait ; elle est desormais tenue sur la MESURE
+  (asymetrie 14.5x -> 1.15x, section 8bis).
 
 10. CE QUE J'AI CHANGE, FICHIER PAR FICHIER
 ============================================
-  MOTEUR — `goal_src/jak1/pc/jak-hd-physics.gc` (4817 -> 4729 lignes)
+  MOTEUR — `goal_src/jak1/pc/jak-hd-physics.gc` (4817 -> 4730 lignes)
     * boucle de finition de `phys-collide-chain` : une seule passe sur les volumes, deux
       consommateurs (profondeur tangentielle + fermeture de cote). NOTE-61.
     * `*phys-tan-n*` / `*phys-tan-d*` / `*phys-tan-e*` + accesseurs `phys-tan-count`,
       `phys-tan-depth`, `phys-tan-eff`, `phys-tan-reset!` — la preuve que le bloc a tire.
     * `PHYS-DG` 17 -> 19 : deux emplacements de diagnostic, le pire residu de la fenetre et
       l'indice du volume qui le porte (argmax, ecrit dans `phys-link-pen`).
+    * `*phys-jacobi-off*` 1 -> 0 : le couplage de Jacobi est ARME (section 8bis). NOTE-05 porte
+      desormais la troisieme mesure, celle qui perime ses deux refus.
     * cinq blocs de raisonnement -> `jak-hd-physics-NOTES.md` (NOTE-58, 59, 60, 62, 63).
   SALLE — `goal_src/jak1/pc/phys-room.gc`
     * `PHYSTAN n= sumdepth= removed=` et `PHYSDIAG6 ... worstres= worstci=`.
@@ -389,8 +465,13 @@ declarees TENUES au cycle 24 sur des mesures qui, relues, ne les soutenaient pas
 
 11. CE QUE L'OWNER DOIT REGARDER SUR CE BUILD
 ==============================================
-  1. LA POITRINE BOUGE 9 % DE PLUS et se deforme sur 27 % de contraintes en moins. Est-ce que ca
+  1. LA POITRINE BOUGE 15 % DE PLUS et se deforme sur ~25 % de contraintes en moins. Est-ce que ca
      rend plus vivant, ou est-ce que ca part vers le ballon d'eau qu'il refuse ?
+  1bis. LES DEUX SEINS S'ENTRECHOQUENT ENFIN DES DEUX COTES (sa §33 : « ils s'entrechoquent sur
+     les mouvements brusques »). Avant ce build, un seul des deux voyait l'autre.
+  2bis. LE RETOUR AU CALME : a DROITE il revient dans la bande (1.50 s), a GAUCHE il reste hors de
+     ma fenetre de mesure. Une asymetrie perceptible entre les deux seins sur l'arret est donc
+     possible, et c'est a lui de le dire.
   2. LE RETOUR AU CALME EST PLUS LENT (§27) : apres un a-coup, ca s'arrete moins vite qu'au build
      precedent. « Perky » est son mot ; c'est le point ou ce cycle peut avoir depasse la cible.
   3. La poitrine traverse toujours le buste sur les mouvements forts, et le maximum n'a pas baisse.

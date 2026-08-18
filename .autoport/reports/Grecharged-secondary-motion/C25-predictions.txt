@@ -42,3 +42,37 @@ P7  `PHYS-FIN-ITERS` 4 -> 8. La decroissance du pas tangentiel est GEOMETRIQUE e
     (« a 36 balayages, 3.7x plus lent, residu au meme endroit ») : celui-la montait les
     BALAYAGES d'une boucle de finition qui ne contenait AUCUN terme de profondeur. Ici la
     boucle en contient un.
+
+TROISIEME EXPERIENCE — REARMER LE COUPLAGE DE JACOBI, ET POURQUOI CE N'EST PAS RE-LITIGER
+==========================================================================================
+CONSTAT : le correctif de l'asymetrie d'ordre de sa 32/33 EXISTE DEJA dans le moteur
+(`phys-col-now!` lit l'instantane de FIN DE FRAME PRECEDENTE pour tout volume porte par un joint
+simule, `phys-snapshot-sim!` le maintient a chaque frame) et il est CABLE A ZERO :
+`*phys-jacobi-off* = 1` (:249), et son setter a ete RETIRE faute d'appelant. C'est le piege
+`declared-but-never-selected`, sur le defaut meme que le cycle 24 a prouve par un controle
+d'inversion d'ordre.
+
+POURQUOI LE REARMER N'EST PAS REVENIR SUR UNE DECISION MESUREE. `NOTE-05` le refuse deux fois, et
+la seconde mesure (2026-08-12, course complete, ce drapeau pour SEULE variable) donne le motif :
+    ROOM-STRETCH 0.0003 -> 0.0933   9.3 % d'allongement d'os, TROIS fois le plafond de 3 %
+et l'explique : « il resout contre un obstacle d'une frame plus vieux et sort de la sphere plus
+qu'une iteration ne rattrape ». CETTE OBJECTION PORTE SUR UN SOLVEUR QUI N'EXISTE PLUS :
+  - `phys-retreat-chain` a ete RETIREE le 2026-08-13 (pierre tombale dans le source) ;
+  - la poitrine avait UN maillon, elle en a DEUX depuis le 2026-08-17 ;
+  - et surtout la boucle de finition se TERMINE desormais sur `phys-len-project!` alterne avec une
+    poussee de profondeur TANGENTIELLE (ce cycle, NOTE-61) : `ROOM-STRETCH` vaut 0.0002 mesure,
+    soit 150 fois SOUS le plafond, la ou il valait 0.0003 avant l'essai et explosait a 0.0933.
+Le mecanisme par lequel Jacobi cassait la longueur est exactement celui que ce cycle a ferme.
+
+P8  `ROOM-STRETCH` reste <= 0.003 (1/10 du plafond). C'EST LE TEST QUI DECIDE : si l'allongement
+    repart au-dessus, l'objection de NOTE-05 tient toujours et je desarme, avec le chiffre.
+P9  L'ASYMETRIE DE CONTACT SEIN<->SEIN S'EFFONDRE. Reference C24 : 7 contacts du cote resolu en
+    premier contre 273 du cote resolu en second (facteur 39). Attendu : les deux cotes du meme
+    ordre de grandeur (facteur < 3).
+P10 `DISCRIMINANT` reste PASSANT sur les deux chaines (>= 25 %) et le plancher de mouvement tient
+    (tipvar ne perd pas plus de 10 %).
+P11 `meshpen` : AUCUNE PREDICTION. Le couplage change ce que chaque chaine voit de l'autre, et le
+    pire residu est porte par une bretelle et une capsule d'epaule, pas par l'autre sein — je ne
+    sais pas dans quel sens ca joue, et je l'ecris plutot que d'inventer une attente.
+CE QUI FALSIFIE : P8 casse (allongement) -> desarme et publie ; P9 ne bouge pas -> le couplage
+n'est pas la cause de l'asymetrie et NOTE-05 avait raison sur ce point aussi.

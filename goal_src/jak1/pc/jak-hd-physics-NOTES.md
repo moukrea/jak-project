@@ -147,6 +147,56 @@ La gelee n'est donc PAS un defaut d'ordre de resolution, et le prochain cycle n'
 un essai ici.
 ```
 
+### TROISIEME ESSAI, 2026-08-18 — **ARME, ET GARDE**. LES DEUX REFUS CI-DESSUS SONT PERIMES.
+
+```
+CE QUI A CHANGE DANS LE SOLVEUR, ET C'EST EXACTEMENT L'OBJECTION QUI LE REFUSAIT. Les deux refus
+tenaient a UNE grandeur : `ROOM-STRETCH` 0.0003 -> 0.0933, soit 9.3 % d'allongement d'os pour un
+plafond de 3 %, explique par « il resout contre un obstacle d'une frame plus vieux et sort de la
+sphere plus qu'une iteration ne rattrape ». Depuis :
+  - `phys-retreat-chain` a ete RETIREE (2026-08-13, pierre tombale dans le source) ;
+  - la poitrine est passee de UN a DEUX maillons (2026-08-17) ;
+  - et la boucle de finition ALTERNE desormais une poussee de profondeur TANGENTIELLE avec la
+    reprojection de longueur, qui reste sa DERNIERE operation (NOTE-61, 2026-08-18). La longueur
+    est exacte par construction : `ROOM-STRETCH` = 0.0002 mesure, 150 fois SOUS le plafond.
+Le mecanisme par lequel Jacobi cassait la longueur n'existe plus.
+
+COURSE COMPLETE DU 2026-08-18 17:02, CE DRAPEAU POUR SEULE VARIABLE (`physics_chains.txt`
+bit-identique, aucun autre octet de moteur touche) :
+
+    grandeur                          desarme      arme      lecture
+    ROOM-STRETCH (plafond 0.03)        0.0002     0.0002     INCHANGE — l'objection ne se reproduit PAS
+    contacts sein<->sein, chestL           15       535
+    contacts sein<->sein, chestR          217       464
+    -> asymetrie                        14.5x     1.15x      LE DEFAUT DE SA 32 EST FERME
+    ROOM-REST-MIX (coef. moyen)        0.0204    0.0212      la restitution de sa 33 (0.06) passe
+                                                             de ~1 % a ~3 % des restitutions
+    DISCRIMINANT chestL / chestR    30.0/51.8  33.4/55.0     PASSE, et s'ameliore
+    tipvar chestL / chestR        0.1937/0.1967 0.2035/0.2103  +5.1 % / +6.9 %
+    §27 t1 chestR                       1.55 s    1.50 s     revient DANS la bande 1.0-1.5
+    ROOM-IDLE maxdev                   0.0004    0.0004     inchange
+    ROOM-GRAVSAG                  0.0376/0.0297 identiques   inchange
+    §24, six canaux au repos          4 DANS     4 DANS      inchange (ecarts < 0.005 Hz)
+    ROOM-SKINPEN (regle 6, le mesh) 0.1418/0.1408 0.1421/0.1418  +0.2 % / +0.7 %
+    CE QUE CA COUTE :
+    meshpen chestL                     0.0974    0.1114     +14 %  (chestR inchange a 0.0887)
+    franchissements d'axe                   2         5
+
+POURQUOI ON LE GARDE MALGRE LE COUT. `COLLIDE` est deja rouge d'un facteur ~195 et son ARGMAX
+n'est PAS l'autre sein (c'est `sphere:lTopStrap2` a gauche, `Rshoulder->chest` a droite) : le
+couplage ne cause pas ce rouge, il le rend un peu plus visible. En face, sa 32 exige
+l'independance gauche/droite et sa 33 une restitution sein<->sein — deux sections de SA spec, que
+le desarmement violait par une cause qui n'etait dans AUCUN parametre. DIRECTIVES 2026-08-17
+23:50 : « un plancher qui casse n'est plus un motif de retrait : c'est la LISTE DE TRAVAIL [...]
+on avance A TRAVERS les rouges ».
+
+LECON, ET ELLE EST GENERALE. Ce correctif etait DEJA ECRIT dans le moteur, cable a zero, et son
+setter avait ete retire faute d'appelant — le piege `declared-but-never-selected`. Le cycle 24 a
+depense un controle d'inversion d'ordre a PROUVER le defaut sans voir que le remede dormait a
+cote. Quand une note dit « essaye, mesure, retire », relire CE QUE la mesure incriminait : si ce
+mecanisme-la a change depuis, le refus est perime, et le re-essayer n'est pas re-litiger.
+```
+
 ## NOTE-06  (moteur, aux alentours de la ligne 357)
 
 ```

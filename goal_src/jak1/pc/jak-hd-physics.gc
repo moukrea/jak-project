@@ -245,8 +245,9 @@
 (define *phys-csby* (new 'global 'array 'float PHYS-SCO))
 (define *phys-csbz* (new 'global 'array 'float PHYS-SCO))
 (define *phys-csok* (new 'global 'array 'int32 PHYS-SCO))   ;; 1 = un instantane existe
-;; [NOTE-05] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
-(define *phys-jacobi-off* 1)
+;; [NOTE-05] COUPLAGE DE JACOBI — **ARME depuis le 2026-08-18**, apres DEUX refus mesures dont
+;; l'objection (allongement d'os) est desormais fermee par NOTE-61. -> jak-hd-physics-NOTES.md
+(define *phys-jacobi-off* 0)
 
 ;; [NOTE-06] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
 (define *phys-lwin* (new 'global 'array 'int32 PHYS-SCL))   ;; volume decideur du lien, -1 = aucun
