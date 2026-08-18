@@ -257,6 +257,15 @@ RENDU IMPOSSIBLE AU POINT DE PRODUCTION, PAS DETECTABLE AU POINT DE CONTROLE (sa
     peut plus qu'etre exact ou muet — jamais faux en silence.
   Une gate aurait constate la perte apres coup ; ceci l'empeche.
 
+CONTROLE POSITIF, ET IL A TIRE (regle : tout zero exige un controle qui fait MONTER le compteur ;
+ici tout refus exige un controle qui le fait REFUSER). J'ai vieilli l'horodatage de l'instantane de
+9999 s et regenere le tableau depuis le meme log. Le bloc rend :
+    ROOM-ORICOM-MASS: SUSPENDU — instantane PERIME : ecrit sur un mesh de mtime 1787044704
+      taille 1002412, le mesh livre porte mtime 1787054703 taille 1002412.
+et ne publie AUCUN chiffre. A noter : la TAILLE est identique dans les deux cas (1002412) — c'est
+l'horodatage seul qui a tire, ce qui est exactement le cas dangereux, une recuisson qui rend un
+fichier de meme taille. Instantane restaure ensuite, concordance revirifiee.
+
 6. SES §10/§11/§12 LUES SUR LE COM — TENSEUR COMPRIS, POUR LA PREMIERE FOIS
 ============================================================================
 Sonde : `.autoport/probe_oricom_exact.py`, sortie complete dans `C26-oricom-exact.txt`. Entrees :
