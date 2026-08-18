@@ -287,3 +287,15 @@ symptôme (« ZERO work done — hard rate limit at the door ») a d'abord été
 Verrou : le prompt part par **stdin** (`claude -p` sans valeur + write/close), plus jamais en argv.
 Et la leçon de lecture : « exited 1 with ZERO work done » a plusieurs causes — vérifier le log
 d'erreur du subprocess avant de conclure au quota.
+
+GUARD bone-without-reskin .autoport/DIRECTIVES.md sommets ou il est MAJORITAIRE
+**Compter une injection d'os comme faite alors que la peau ne le suit pas.** Trois fois : le
+2026-08-13 sur `backHair4` (124 sommets sur un seul joint), au cycle 16 sur la poitrine, puis le
+2026-08-18 où `lBooc`/`rBooc` portaient **0 sommet majoritaire** pour 9.0 et 6.8 de poids résiduel,
+contre 56.8 et 153.3 sur l'os racine. À chaque fois l'os était bien dans le rig, dans le skin et
+résolu par le solveur (`links=2`) — donc tous les contrôles de PRÉSENCE passaient au vert pendant
+que l'organe restait mécaniquement une pièce rigide sur une charnière unique. L'owner l'a vu à
+l'œil les trois fois avant que la mesure ne le dise.
+Verrou : la preuve d'une injection est la **RÉPARTITION** (≥ 30 % des sommets ayant le nouvel os
+pour joint majoritaire, w > 0.5, par sa §30), jamais la présence. Le tableau
+`os / poids total / sommets majoritaires` se publie à chaque injection.

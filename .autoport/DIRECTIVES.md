@@ -10,6 +10,39 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
+## 2026-08-18 08:55 — INJECTER UN OS SANS LE REPESER NE COMPTE PAS. TROISIEME FOIS.
+
+L'owner teste le build `9e1f3f67` et dit « ses seins c'est du pudding un peu quand meme ». **Il a
+raison, et la mesure le prouve.** Poids de peau du mesh LIVRE, mesures directes sur
+`keira-hd-donor-injected.glb` :
+
+    os        poids total   sommets ou il est MAJORITAIRE (w>0.5)
+    lBoob        56.758          30
+    lBooc         9.015           0     <- le nouvel os
+    rBoob       153.321         160
+    rBooc         6.817           0     <- le nouvel os
+
+**Les deux os injectes ne pilotent AUCUN sommet.** Ils sont dans le rig (105 -> 107), dans le skin
+du glb (107 joints), le solveur les resout (`links=2`, `lBooc idx 105`) — et pas un vertex ne les
+suit. La poitrine reste donc une piece rigide pendue a UNE charniere : le §23 est declare fait alors
+qu'il est mecaniquement absent. Les frequences dans les bandes (2.455 / 2.585 / 2.375 Hz) sont
+reelles mais decrivent le mouvement d'UN POINT, pas une deformation.
+
+**C'EST LA TROISIEME FOIS QUE CE MODE D'ECHEC PASSE** : 2026-08-13 sur `backHair4` (124 sommets sur
+un seul joint), cycle 16 sur la poitrine, et maintenant. A chaque fois l'os est pose et le REPESAGE
+ne suit pas — et a chaque fois un tableau de conformite l'a compte comme acquis.
+
+**REGLE, SANS EXCEPTION : une injection d'os n'existe QUE si le repesage l'accompagne dans la MEME
+passe, et la preuve est la REPARTITION, jamais la presence.**
+  - Preuve exigee : au moins **30 % des sommets de la chaine ont le NOUVEL os pour joint majoritaire**
+    (w > 0.5), conformement a `StrongRootFraction = 0.30` de sa §30. En dessous, l'injection est
+    **NON FAITE** et la section §23/§30 reste ABSENTE au tableau.
+  - Publier systematiquement le tableau `os / poids total / sommets majoritaires` — c'est la seule
+    grandeur qui discrimine « os present » de « os qui pilote ».
+  - Interdit de compter §23 ou §30 comme tenues sur la seule presence du joint dans le rig, dans le
+    skin, ou dans `PHYSCHAIN links=2`.
+
+
 ## 2026-08-17 23:50 — ORDRE OWNER : LA SPEC S'APPLIQUE COÛTE QUE COÛTE, RIG COMPRIS. LES RETRAITS SONT INTERDITS.
 
 Verbatim : « Je comprends pas le blocage, faut juste que tu appliques la spec coûte que coûte même
@@ -591,7 +624,7 @@ jamais un nombre choisi. Les grosses mèches portent encore `stiffness=1.80 damp
 
 ## PÉRIMÈTRE ACTIF (2026-08-11)
 
-SCOPE-SERIAL: 6
+SCOPE-SERIAL: 7
 <!-- Bump ce numéro UNIQUEMENT pour un vrai changement de périmètre : il invalide
      immédiatement la tentative en cours (gate SYNC). Corriger une coquille ou
      reformuler ne doit jamais coûter une tentative. -->
