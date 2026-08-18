@@ -680,7 +680,7 @@
 ;; un cout qu'on decouvre chez lui.
 (define *phys-skin-meas* 0)
 
-(defconstant PHYS-DG 20)
+(defconstant PHYS-DG 23)
 (define *phys-dg* (new 'global 'array 'float (* PHYS-SC PHYS-DG)))
 ;; etat de contrainte de la frame precedente, par (lien, volume), pour compter les bascules.
 ;; 1 bit par volume, un mot par lien : PHYS-COLS <= 96 tient sur trois mots de 32 bits.
@@ -4041,7 +4041,23 @@
                                          (ee (/ (sqrtf (+ (* ex ex) (+ (* ey ey) (* ez ez))))
                                                 (fmax 1.0 b0c))))
                                     (when (> ee (-> *phys-dg* (+ (* sc PHYS-DG) 19)))
-                                      (set! (-> *phys-dg* (+ (* sc PHYS-DG) 19)) ee)))))
+                                      (set! (-> *phys-dg* (+ (* sc PHYS-DG) 19)) ee))
+                                    ;; UN MAXIMUM NE DIT PAS SI UNE BORNE CLIPERAIT UN EXTREME OU
+                                    ;; MUSELLERAIT LA REPONSE. Trois cumuls le disent, et c'est la
+                                    ;; SEULE grandeur qui separe un correctif d'un suppresseur :
+                                    ;;   20 = somme des echantillons, 21 = leur nombre,
+                                    ;;   22 = combien depassent le plafond DUR de sa §22 (0.40 B0).
+                                    ;; NATURE : deux COMPTES et une SOMME, cumules sur la fenetre —
+                                    ;; ils croissent avec sa duree et ne se comparent qu'entre
+                                    ;; chaines d'une MEME course. `20/21` rend la moyenne, `22/21`
+                                    ;; la part de frames que la borne mordrait.
+                                    (set! (-> *phys-dg* (+ (* sc PHYS-DG) 20))
+                                          (+ ee (-> *phys-dg* (+ (* sc PHYS-DG) 20))))
+                                    (set! (-> *phys-dg* (+ (* sc PHYS-DG) 21))
+                                          (+ 1.0 (-> *phys-dg* (+ (* sc PHYS-DG) 21))))
+                                    (when (> ee 0.40)
+                                      (set! (-> *phys-dg* (+ (* sc PHYS-DG) 22))
+                                            (+ 1.0 (-> *phys-dg* (+ (* sc PHYS-DG) 22))))))))
                               ;; delta pour les descendants non simules
                               (when (< k PHYS-JOINTS)
                                 (matrix-4x4-inverse! inv pre)

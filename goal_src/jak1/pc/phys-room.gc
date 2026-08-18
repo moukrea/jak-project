@@ -1215,9 +1215,20 @@
       ;;            NATURE : une LONGUEUR rapportee a B0, MAXIMUM sur la fenetre (pas un cumul,
       ;;            pas une variance). REPERE : le monde, a la frame ecrite, contre la pose
       ;;            d'auteur de la MEME frame. LECTURE A LA POSE D'AUTEUR : 0.0000.
-      (format 0 "PHYSDIAG8 tag=~S c=~D comex=~f~%"
+      ;;   comsum / comn / comhi — LA DISTRIBUTION, PARCE QU'UN MAXIMUM NE DIT PAS SI UNE BORNE
+      ;;            CLIPERAIT UN EXTREME OU MUSELLERAIT LA REPONSE. `comsum/comn` rend la moyenne,
+      ;;            `comhi/comn` la part d'echantillons qui depassent deja le plafond DUR de sa
+      ;;            §22 (0.40 B0) — donc la part que la borne mordrait si on la posait. C'est la
+      ;;            seule grandeur qui separe un correctif d'un suppresseur, et son absence est
+      ;;            precisement ce qui a fait echouer les deux tentatives de resserrement.
+      ;;            NATURE : deux COMPTES et une SOMME, CUMULES sur la fenetre — ils croissent
+      ;;            avec sa duree et ne se comparent qu'entre chaines d'une MEME course.
+      (format 0 "PHYSDIAG8 tag=~S c=~D comex=~f comsum=~f comn=~f comhi=~f~%"
               tag c
-              (phys-diag (-> self slot) c 19))))
+              (phys-diag (-> self slot) c 19)
+              (phys-diag (-> self slot) c 20)
+              (phys-diag (-> self slot) c 21)
+              (phys-diag (-> self slot) c 22))))
   (none))
 
 (defbehavior physroom-max-pen phys-subject ()
