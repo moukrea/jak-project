@@ -1872,6 +1872,21 @@
      ;;   k=2  contrainte de COTE levee       (`phys-side-off-set!`)
      ;;   k=3  rayon de capsule interpole     (`phys-cone-off-set!`) — sonde la FORME du volume
      ;;   k=4  MUR DE COLLISION desarme       (`phys-col-off-set!`)  — sonde son PLANCHER
+     ;;   k=5  BORNE §22 DU CANAL RADIAL levee (`phys-rr-off-set!`)  — sonde son ECRETAGE
+     ;;
+     ;; k=5 EST NEUVE (cycle 28) ET ELLE EST LA SUITE DIRECTE DE L'ATTRIBUTION DE §12.
+     ;; Le COM exact, publie desormais sur les CINQ passes (`PHYSCTLDF`/`PHYSCTLML`), designe
+     ;; la CONTRAINTE DE LONGUEUR : k=1 fait passer le pole medial de `chestL` de 0.0807 a
+     ;; 0.2141 B0 et celui de `chestR` de 0.0283 a 0.2095 — les deux ENTRENT dans la bande
+     ;; 0.15-0.24 de sa §12 — pendant que k=2, k=3 et k=4 les laissent a x1.00. Le MUR DE
+     ;; COLLISION est donc EXONERE de ce defaut-la, et l'hypothese du champ de contact permanent
+     ;; est refutee par sa propre ablation.
+     ;; Mais la contrainte de longueur ne peut pas etre retiree (sa §1bis : l'os ne s'allonge
+     ;; pas). Ce qu'elle fait est CONFISQUER la composante du pilotage le long de l'os, a charge
+     ;; pour le canal radial de §23 de la rendre. k=5 demande si ce canal la rend : desarmee, la
+     ;; borne `rcap = 0.40 B0` laisse passer le brut, que `ROOM-RAD` mesure deja jusqu'a
+     ;; 0.6843 B0 (43 % retires) avec `rrt` colle a 0.3999 sur les HUIT orientations non nulles
+     ;; des DEUX chaines. Si le pole medial remonte avec lui, l'ecretage EST le mecanisme.
      ;;
      ;; k=4 EST NEUVE (cycle 14) ET ELLE COMBLE LE TROU QUE LE CYCLE 13 A NOMME. k=2 et k=3 sont
      ;; exoneres a quatre decimales, k=1 symetrise mais c'est le MECANISME (rehaussement radial
@@ -1892,7 +1907,8 @@
         (phys-len-off-set!  (if (= ok 1) 1 0))
         (phys-side-off-set! (if (= ok 2) 1 0))
         (phys-cone-off-set! (if (= ok 3) 1 0))
-        (phys-col-off-set!  (if (= ok 4) 1 0)))
+        (phys-col-off-set!  (if (= ok 4) 1 0))
+        (phys-rr-off-set!   (if (= ok 5) 1 0)))
      ;; ---- LE PIC TRANSITOIRE D'ETABLISSEMENT, PUIS LA REMISE A ZERO DE LA FENETRE -------------
      ;; Deux choses en un seul point, et elles vont ensemble :
      ;;
@@ -2074,11 +2090,56 @@
          (format 0 "PHYSORICTL3 c=~D k=~D i=~D retreat=~f shape=~f~%"
                  c ok oi
                  (phys-diag (-> self slot) c 1)
-                 (phys-diag (-> self slot) c 8))))
+                 (phys-diag (-> self slot) c 8))
+         ;; ---- LES DEUX INGREDIENTS DU **COM EXACT**, SUR LES CINQ PASSES ---------------------
+         ;; POURQUOI CET AJOUT, ET C'EST UN TROU D'INSTRUMENT, PAS UN MANQUE DE MESURE.
+         ;; §12 lateral est SOUS sa bande d'UN POLE PAR SEIN, en miroir (chestL i=2 0.0807,
+         ;; chestR i=4 0.0283, cibles 0.19). Le cycle 27 a nomme ce defaut « le prochain chantier
+         ;; de physique » et l'a laisse SANS CAUSE. L'appareil qui existe pour attribuer une cause
+         ;; est le balayage a cinq passes ci-dessus (k=0 reference, k=1..4 un mecanisme desarme
+         ;; chacun) — mais il ne publie que `PHYSORICTL`, c'est-a-dire l'APEX. Or l'apex est
+         ;; AVEUGLE a ce defaut precis : sur les deux poles lateraux de `chestL` il rend
+         ;; 0.34999 / 0.34112, soit 2.6 % d'ecart, la ou le COM exact en rend 0.0807 / 0.1862,
+         ;; un facteur 2.31. L'ablation ne peut donc pas voir le defaut qu'elle est censee
+         ;; attribuer, et ses quatre verdicts « SYMETRISE — CE MECANISME EST LA CAUSE » sont
+         ;; vacuous par construction : la reference elle-meme est deja symetrique SUR CETTE
+         ;; GRANDEUR-LA. « Une mesure qui ne peut pas voir ce qu'elle mesure ne vaut rien. »
+         ;;
+         ;; CE QUI EST EMIS, ET RIEN D'AUTRE : les deux entrees que `probe_oricom_exact.py`
+         ;; consomme deja pour la passe de reference — la deformation complete en espace ancre
+         ;; (`phys-dfm-anc`, l'equivalent de `PHYSDFMA`) et l'ecart par maillon
+         ;; (`phys-link-dev-anc-abs`, l'equivalent de `PHYSORICOML`). Memes accesseurs, memes
+         ;; unites, meme repere : la passe k=0 de ces lignes doit reproduire `PHYSDFMA` et
+         ;; `PHYSORICOML` AU BIT PRES, et c'est le controle interne de l'ajout.
+         ;;
+         ;; NATURE : `df` matrice sans dimension (rapport a la forme d'auteur) ; `ml` deplacement
+         ;; soutenu par maillon, en unites de jeu, RELATIF AU PARENT (cumul telescopique a faire
+         ;; en aval, comme pour `PHYSORICOML`). REPERE : base de l'ANCRE pour les deux.
+         ;; LIGNE DE BASE : a i=0 (pose debout d'auteur) `df` = diag(1,1,1) et `ml` = 0 — §9.
+         ;;
+         ;; INDICE COMPOSE, ET POURQUOI : `format` n'accepte que SIX parametres apres la chaine
+         ;; (`PHYSDFMA` en use exactement six), or il en faudrait sept avec `k` ET `r`. On plie
+         ;; donc les deux petits indices en un seul, EN BASE DIX pour qu'il reste lisible a l'oeil
+         ;; dans la trace : `kr = 10*k + r` donne 0,1,2 · 10,11,12 · ... · 40,41,42, et
+         ;; `kl = 10*k + l` donne 0,1 · 10,11 · ... · 40,41. Le decodage est `k = kr/10`,
+         ;; `r = kr mod 10`, et l'aval DOIT verifier que `r < 3` / `l < PHYS-LINKS` avant d'y
+         ;; croire — un indice compose mal relu est un piege deja paye sur ce dossier.
+         (dotimes (r 3)
+           (format 0 "PHYSCTLDF c=~D kr=~D i=~D m0=~,,6f m1=~,,6f m2=~,,6f~%"
+                   c (+ (* 10 ok) r) oi
+                   (phys-dfm-anc (-> self slot) c r 0)
+                   (phys-dfm-anc (-> self slot) c r 1)
+                   (phys-dfm-anc (-> self slot) c r 2)))
+         (dotimes (l (phys-chain-links (-> self slot) c))
+           (format 0 "PHYSCTLML c=~D kl=~D i=~D dv=~f dap=~f dlat=~f~%"
+                   c (+ (* 10 ok) l) oi
+                   (phys-link-dev-anc-abs (-> self slot) c l 0)
+                   (phys-link-dev-anc-abs (-> self slot) c l 1)
+                   (phys-link-dev-anc-abs (-> self slot) c l 2)))))
        (+! (-> self ori) 1)
        (set! (-> self pframe) 0)
        (phys-stats-reset!)
-       (when (>= (-> self ori) (* 5 PHYSROOM-ORIN))
+       (when (>= (-> self ori) (* 6 PHYSROOM-ORIN))
          ;; LES QUATRE CONTROLES SONT RENDUS AVANT DE SORTIR. Un controle laisse arme
          ;; contaminerait tout le reste de la course — c'est la faute que `phys-len-off-set!`
          ;; evite deja de la meme facon a la sortie des fenetres d'axe.
@@ -2086,6 +2147,7 @@
          (phys-side-off-set! 0)
          (phys-cone-off-set! 0)
          (phys-col-off-set! 0)
+         (phys-rr-off-set! 0)
          (set! (-> self phase) PHYSROOM-PH-SHAKE)))))
 
     ;; ---- 4 ter. ON SECOUE, PUIS ON RELACHE — le cycle ferme dans le regime ou le defaut vit.

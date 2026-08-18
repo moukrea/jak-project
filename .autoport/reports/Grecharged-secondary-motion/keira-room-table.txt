@@ -68,18 +68,18 @@ ROOM-CONTACT-VOL: 2 chaine(s) contraintes par au moins un volume
    ROOM-CONTACT-LINK ventile le MEME total par MAILLON. NATURE : un compte de triplets
    (frame, maillon, volume) a res > 0. REPERE : celui du volume teste. ABSENT : aucune
    ligne pour ce maillon — aucun volume ne l'a jamais contraint.
-ROOM-CONTACT-VOL: chain=chestL       total=24440    sphere:lTopStrap2 5039 · neck->chest 4247 · Rshoulder->chest 4038 · Lshoulder->chest 3494 · sphere:lBotStrap 2455 · sphere:lBotStrap2 2287
-ROOM-CONTACT-LINK: chain=chestL       link0=44       link1=24396    total=24440
-ROOM-CONTACT-VOL: chain=chestR       total=20958    neck->chest 4888 · Lshoulder->chest 4387 · sphere:rTopStrap2 4030 · Rshoulder->chest 3651 · sphere:rBotStrap 1682 · chest->main 1210
-ROOM-CONTACT-LINK: chain=chestR       link0=124      link1=20834    total=20958
+ROOM-CONTACT-VOL: chain=chestL       total=24599    sphere:lTopStrap2 5083 · neck->chest 4294 · Rshoulder->chest 4072 · Lshoulder->chest 3517 · sphere:lBotStrap 2455 · sphere:lBotStrap2 2294
+ROOM-CONTACT-LINK: chain=chestL       link0=42       link1=24557    total=24599
+ROOM-CONTACT-VOL: chain=chestR       total=21572    neck->chest 5030 · Lshoulder->chest 4512 · sphere:rTopStrap2 4182 · Rshoulder->chest 3752 · sphere:rBotStrap 1732 · chest->main 1237
+ROOM-CONTACT-LINK: chain=chestR       link0=127      link1=21445    total=21572
 
 ROOM-PAIRDOM: SPEC 33 — de combien chaque paire a-t-elle MANQUE le contact ?
    `dm` negatif = jamais de recouvrement, et |dm| est l'ecart minimal ATTEINT entre les
    deux surfaces, en unites de jeu (4096 u = 1 m). `marge` = dm - fl : positive, il y a
    eu contact ; negative, c'est ce qu'il aurait fallu gagner EN PLUS pour en avoir un.
 ROOM-PAIRDOM: chain=chestL       vol=Lshoulder->chest   dm=   1022.70  fl=  408.53  marge=   +614.17  (CONTACT)
-ROOM-PAIRDOM: chain=chestL       vol=Rshoulder->chest   dm=    885.09  fl=  180.60  marge=   +704.49  (CONTACT)
 ROOM-PAIRDOM: chain=chestL       vol=neck->chest        dm=    847.37  fl=  180.60  marge=   +666.77  (CONTACT)
+ROOM-PAIRDOM: chain=chestL       vol=Rshoulder->chest   dm=    843.10  fl=  180.60  marge=   +662.50  (CONTACT)
 ROOM-PAIRDOM: chain=chestL       vol=Relbow->Rshoulder  dm=    665.96  fl=    0.00  marge=   +665.96  (CONTACT)
 ROOM-PAIRDOM: chain=chestL       vol=Lelbow->Lshoulder  dm=    655.24  fl=    0.00  marge=   +655.24  (CONTACT)
 ROOM-PAIRDOM: chain=chestL       vol=chest->main        dm=    631.73  fl=  180.60  marge=   +451.13  (CONTACT)
@@ -132,10 +132,10 @@ ROOM-PAIRDOM: chain=chestL       vol=sphere:Ranklestrap dm=  -4173.99  fl=    0.
 ROOM-PAIRDOM: chain=chestL       vol=sphere:RtoeStrap   dm=  -4691.13  fl=    0.00  marge=  -4691.13  (jamais atteint : 1.1453 m manquants)
 ROOM-PAIRDOM: chain=chestL       vol=sphere:LtoeStrap   dm=  -4812.81  fl=    0.00  marge=  -4812.81  (jamais atteint : 1.1750 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=Rshoulder->chest   dm=   1002.91  fl=  414.23  marge=   +588.68  (CONTACT)
+ROOM-PAIRDOM: chain=chestR       vol=Lshoulder->chest   dm=    979.42  fl=  180.60  marge=   +798.82  (CONTACT)
 ROOM-PAIRDOM: chain=chestR       vol=neck->chest        dm=    845.12  fl=  180.60  marge=   +664.52  (CONTACT)
 ROOM-PAIRDOM: chain=chestR       vol=sphere:lBoob       dm=    702.45  fl=    0.00  marge=   +702.45  (CONTACT)
 ROOM-PAIRDOM: chain=chestR       vol=Relbow->Rshoulder  dm=    660.29  fl=    0.00  marge=   +660.29  (CONTACT)
-ROOM-PAIRDOM: chain=chestR       vol=Lshoulder->chest   dm=    621.63  fl=  180.60  marge=   +441.03  (CONTACT)
 ROOM-PAIRDOM: chain=chestR       vol=chest->main        dm=    541.56  fl=  180.60  marge=   +360.96  (CONTACT)
 ROOM-PAIRDOM: chain=chestR       vol=sphere:rTopStrap2  dm=    491.95  fl=    0.00  marge=   +491.95  (CONTACT)
 ROOM-PAIRDOM: chain=chestR       vol=head->neck         dm=    480.46  fl=    0.00  marge=   +480.46  (CONTACT)
@@ -154,28 +154,28 @@ ROOM-PAIRDOM: chain=chestR       vol=Lelbow->Lshoulder  dm=   -176.13  fl=    0.
 ROOM-PAIRDOM: chain=chestR       vol=Lhand->Lelbow      dm=   -186.55  fl=    0.00  marge=   -186.55  (jamais atteint : 0.0455 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=Rthigh->hips       dm=   -281.65  fl=    0.00  marge=   -281.65  (jamais atteint : 0.0688 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=Lthigh->hips       dm=   -284.65  fl=    0.00  marge=   -284.65  (jamais atteint : 0.0695 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=Lmidhaird->Lmidhairc dm=   -302.76  fl=    0.00  marge=   -302.76  (jamais atteint : 0.0739 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=Rmidhairc->Rmidhairb dm=   -403.51  fl=    0.00  marge=   -403.51  (jamais atteint : 0.0985 m manquants)
-ROOM-PAIRDOM: chain=chestR       vol=Lmidhaird->Lmidhairc dm=   -422.76  fl=    0.00  marge=   -422.76  (jamais atteint : 0.1032 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=Rbangd->Rbangc     dm=   -432.38  fl=    0.00  marge=   -432.38  (jamais atteint : 0.1056 m manquants)
-ROOM-PAIRDOM: chain=chestR       vol=Lbangd->Lbangc     dm=   -561.56  fl=    0.00  marge=   -561.56  (jamais atteint : 0.1371 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=Lbangd->Lbangc     dm=   -463.86  fl=    0.00  marge=   -463.86  (jamais atteint : 0.1132 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=Lmidhairc->Lmidhairb dm=   -541.84  fl=    0.00  marge=   -541.84  (jamais atteint : 0.1323 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=Rknee->Rthigh      dm=   -686.21  fl=    0.00  marge=   -686.21  (jamais atteint : 0.1675 m manquants)
-ROOM-PAIRDOM: chain=chestR       vol=Lmidhairc->Lmidhairb dm=   -694.98  fl=    0.00  marge=   -694.98  (jamais atteint : 0.1697 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=rEarb->rEara       dm=   -787.09  fl=    0.00  marge=   -787.09  (jamais atteint : 0.1922 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=lEarb->lEara       dm=   -906.86  fl=    0.00  marge=   -906.86  (jamais atteint : 0.2214 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=sphere:rEara       dm=   -919.48  fl=    0.00  marge=   -919.48  (jamais atteint : 0.2245 m manquants)
-ROOM-PAIRDOM: chain=chestR       vol=lEarb->lEara       dm=   -961.70  fl=    0.00  marge=   -961.70  (jamais atteint : 0.2348 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=Rmidhairb->Rmidhaira dm=  -1023.68  fl=    0.00  marge=  -1023.68  (jamais atteint : 0.2499 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=Rbangc->Rbangb     dm=  -1046.92  fl=    0.00  marge=  -1046.92  (jamais atteint : 0.2556 m manquants)
-ROOM-PAIRDOM: chain=chestR       vol=sphere:lEara       dm=  -1074.73  fl=    0.00  marge=  -1074.73  (jamais atteint : 0.2624 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=sphere:lEara       dm=  -1057.15  fl=    0.00  marge=  -1057.15  (jamais atteint : 0.2581 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=Lmidhairb->Lmidhaira dm=  -1058.97  fl=    0.00  marge=  -1058.97  (jamais atteint : 0.2585 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=Lbangc->Lbangb     dm=  -1107.75  fl=    0.00  marge=  -1107.75  (jamais atteint : 0.2704 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=Lknee->Lthigh      dm=  -1110.08  fl=    0.00  marge=  -1110.08  (jamais atteint : 0.2710 m manquants)
-ROOM-PAIRDOM: chain=chestR       vol=Lbangc->Lbangb     dm=  -1119.25  fl=    0.00  marge=  -1119.25  (jamais atteint : 0.2733 m manquants)
-ROOM-PAIRDOM: chain=chestR       vol=Lmidhairb->Lmidhaira dm=  -1205.41  fl=    0.00  marge=  -1205.41  (jamais atteint : 0.2943 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=Rankle->Rknee      dm=  -1529.17  fl=    0.00  marge=  -1529.17  (jamais atteint : 0.3733 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=sphere:Rmidhaira   dm=  -1542.47  fl=    0.00  marge=  -1542.47  (jamais atteint : 0.3766 m manquants)
-ROOM-PAIRDOM: chain=chestR       vol=sphere:Lmidhaira   dm=  -1621.80  fl=    0.00  marge=  -1621.80  (jamais atteint : 0.3959 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=sphere:Lmidhaira   dm=  -1573.13  fl=    0.00  marge=  -1573.13  (jamais atteint : 0.3841 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=sphere:rEarb       dm=  -1670.75  fl=    0.00  marge=  -1670.75  (jamais atteint : 0.4079 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=Rbangb->Rbanga     dm=  -1677.46  fl=    0.00  marge=  -1677.46  (jamais atteint : 0.4095 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=Lbangb->Lbanga     dm=  -1713.64  fl=    0.00  marge=  -1713.64  (jamais atteint : 0.4184 m manquants)
-ROOM-PAIRDOM: chain=chestR       vol=sphere:lEarb       dm=  -1801.79  fl=    0.00  marge=  -1801.79  (jamais atteint : 0.4399 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=sphere:lEarb       dm=  -1786.27  fl=    0.00  marge=  -1786.27  (jamais atteint : 0.4361 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=sphere:Rbanga      dm=  -1817.34  fl=    0.00  marge=  -1817.34  (jamais atteint : 0.4437 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=Lankle->Lknee      dm=  -1849.10  fl=    0.00  marge=  -1849.10  (jamais atteint : 0.4514 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=sphere:Lbanga      dm=  -1860.09  fl=    0.00  marge=  -1860.09  (jamais atteint : 0.4541 m manquants)
@@ -209,11 +209,11 @@ ROOM-INVERSIONS: residual=0 corrected=0 degenerate=0 control_residual=178 reseat
    fait passer le residu de 0 a 178.
    `reseated` = liens dont la pose du modele etait hors de portee de leur porteur et que le
    moteur a replaces sur lui (une chaine se REPARE, elle ne se retire pas).
-ROOM-POSCONTROL: injections=360 armed=0.0964 disarmed=0.0696
+ROOM-POSCONTROL: injections=360 armed=0.0828 disarmed=0.0696
    le defaut injecte pousse chaque lien libre de 400 u (~10 cm) vers l'interieur du corps
    APRES resolution ; le compteur de penetration doit MONTER. 360 poussees reelles.
    residus SIGNES bruts des deux branches (negatif = marge restante avant de traverser) :
-   arme 0.0964 m, desarme 0.0696 m.
+   arme 0.0828 m, desarme 0.0696 m.
 ROOM-IDLE: maxdev=0.0004 hanging=0 measured=2
    SPEC 4 : au repos, ce qui n'est pas cense pendre retrouve la pose du modele. Les 0
    chaines a hang>0 (ce qui pend) sont comptees a part : 
@@ -232,8 +232,8 @@ ROOM-AUTHORED: chains=2 respected=2 perchain=yes
    deplacement ecrit avec celui d'auteur, et le rapport |delta ecart| / |delta auteur| dit
    pourquoi elle est bruitee — sous un a-coup la physique deplace la pointe des dizaines de
    fois plus que l'animation, et aucune correlation ne resout un coefficient 1 la-dedans.
-     chestL       frames=391    identite=391/391  transmission=+1.371  |do|/|du|=29.0  pose-auteur parcourue=1018.1674 m
-     chestR       frames=401    identite=401/401  transmission=+1.507  |do|/|du|=27.9  pose-auteur parcourue=1010.7383 m
+     chestL       frames=391    identite=391/391  transmission=+1.371  |do|/|du|=29.0  pose-auteur parcourue=1064.5835 m
+     chestR       frames=401    identite=401/401  transmission=+1.507  |do|/|du|=27.9  pose-auteur parcourue=1056.0483 m
 ROOM-AUTHORED-FREE: chains=0  (l'animation ne les pilote sur AUCUNE frame)
    Sur ces chaines la physique garde la main sur 100 % de la course. Leur mouvement propre
    est publie par ROOM-GRADIENT (deviation angulaire par rapport au PARENT) et par les
@@ -611,12 +611,9 @@ ROOM-HYST: chain=chestL       gap=0.0001    exc=0.0376    hystn=0.0004   ret=0.0
 ROOM-HYST: chain=chestR       gap=0.0004    exc=0.0297    hystn=0.0014   ret=0.0136       fam=A
 
 -- L'HYSTERESIS DANS LE REGIME REPRESENTATIF (ROOM-HYST-SHAKE) ---------------------------
-ROOM-HYST-SHAKE: chain=chestL       gap=0.0005    gapn=0.0017   control=0.0001    ratio=0.1341   fam=A
-ROOM-HYST-SHAKE: chain=chestR       gap=0.0003    gapn=0.0012   control=0.0004    ratio=1.3057   fam=A
-ROOM-HYST-SHAKE-CONTROL: 0 chaine(s) sur 2 ou la contrainte levee fait monter l'ecart de plus de 50%
-   => LE CONTROLE POSITIF N'A PAS TIRE. Aucun zero de cette colonne n'est
-      recevable tant que ce n'est pas explique : une mesure que le defaut
-      injecte ne fait pas bouger ne mesure pas ce defaut.
+ROOM-HYST-SHAKE: chain=chestL       gap=0.0005    gapn=0.0017   control=3.14669e-05 ratio=0.0642   fam=A
+ROOM-HYST-SHAKE: chain=chestR       gap=0.0003    gapn=0.0009   control=0.0004    ratio=1.5185   fam=A
+ROOM-HYST-SHAKE-CONTROL: 1 chaine(s) sur 2 ou la contrainte levee fait monter l'ecart de plus de 50%
 
 -- LE PIRE CAS DE CHAQUE CHAINE, AVEC LE NOM DE L'ANIMATION OU IL S'EST PRODUIT ------------
 worst chain=chestL       tipvar=0.2035    anim=assistant-firecanyon-idle-b            drive=accel     rootdev=0.0738    meshpen=0.1114    jump=0.0873
@@ -631,8 +628,8 @@ worst chain=chestR       tipvar=0.2103    anim=assistant-lavatube-start-idle    
    (lien, volume) en contact. Une chaine a contact_frames=0 n'a JAMAIS approche une
    surface : son meshpen 0.0000 veut dire « n'a rien touche », pas « mesure a zero ». La
    distinction est publiee ici plutot que noyee dans un zero commun.
-   chain chestL       links=2 fam=A hang=0.00 contact_frames=23084  joints=lBoob,lBooc                  bones_m=0.2540,0.0343
-   chain chestR       links=2 fam=A hang=0.00 contact_frames=23084  joints=rBoob,rBooc                  bones_m=0.2537,0.0352
+   chain chestL       links=2 fam=A hang=0.00 contact_frames=23893  joints=lBoob,lBooc                  bones_m=0.2540,0.0343
+   chain chestR       links=2 fam=A hang=0.00 contact_frames=23893  joints=rBoob,rBooc                  bones_m=0.2537,0.0352
 
 -- LES JOINTS QUE CHAQUE CHAINE ECRIT REELLEMENT --------------------------------------------
    Verdict owner du 2026-08-11 : « un polygone de la semelle de la chaussure gauche se fait
@@ -1732,11 +1729,14 @@ ROOM-ORICTL: chestL       k=3 CAPSULE cone    1.14    1.06 |   1.00    1.08 | SY
 ROOM-ORICTL-POLES: chestL       k=3 CAPSULE cone  LAT90 0.35328/0.40244  LAT45 0.27390/0.29008  AP90 0.36211/0.36373  AP45 0.26116/0.28267
 ROOM-ORICTL: chestL       k=4 MUR COLLIS.     1.18    1.16 |   1.19    1.26 | SYMETRISE — CE MECANISME EST LA CAUSE
 ROOM-ORICTL-POLES: chestL       k=4 MUR COLLIS.   LAT90 0.35310/0.41649  LAT45 0.27071/0.31367  AP90 0.36208/0.43154  AP45 0.26118/0.33034
+ROOM-ORICTL: chestL       k=5   1.04    1.07 |   1.00    1.11 | SYMETRISE — CE MECANISME EST LA CAUSE
+ROOM-ORICTL-POLES: chestL       k=5 LAT90 0.34949/0.33560  LAT45 0.26522/0.24850  AP90 0.36233/0.36400  AP45 0.26295/0.29278
 ROOM-ORICTL-DIAG: chestL       k=0 reference      supine i=6 inv=0 flip=0 · prone i=8 inv=0 flip=0 · i=5 flip=0 · i=7 flip=0
 ROOM-ORICTL-DIAG: chestL       k=1 LONGUEUR off   supine i=6 inv=0 flip=0 · prone i=8 inv=0 flip=0 · i=5 flip=0 · i=7 flip=0
 ROOM-ORICTL-DIAG: chestL       k=2 COTE off       supine i=6 inv=0 flip=0 · prone i=8 inv=0 flip=0 · i=5 flip=0 · i=7 flip=0
 ROOM-ORICTL-DIAG: chestL       k=3 CAPSULE cone   supine i=6 inv=0 flip=0 · prone i=8 inv=0 flip=0 · i=5 flip=0 · i=7 flip=0
 ROOM-ORICTL-DIAG: chestL       k=4 MUR COLLIS.    supine i=6 inv=0 flip=0 · prone i=8 inv=0 flip=0 · i=5 flip=0 · i=7 flip=0
+ROOM-ORICTL-DIAG: chestL       k=5  supine i=6 inv=0 flip=0 · prone i=8 inv=0 flip=0 · i=5 flip=0 · i=7 flip=0
 ROOM-ORICTL: chestR       k=0 reference       1.10    1.35 |   1.53    1.09 | reference (redressement 1.5x contre 1.3x en lateral)
 ROOM-ORICTL-POLES: chestR       k=0 reference     LAT90 0.27064/0.29790  LAT45 0.17807/0.23976  AP90 0.35859/0.23407  AP45 0.27102/0.29501
 ROOM-ORICTL: chestR       k=1 LONGUEUR off    1.11    1.36 |   1.22    1.18 | SYMETRISE — CE MECANISME EST LA CAUSE
@@ -1747,11 +1747,14 @@ ROOM-ORICTL: chestR       k=3 CAPSULE cone    1.43    1.34 |   1.36    1.03 | SY
 ROOM-ORICTL-POLES: chestR       k=3 CAPSULE cone  LAT90 0.42561/0.29780  LAT45 0.32327/0.24125  AP90 0.35867/0.26329  AP45 0.27163/0.27977
 ROOM-ORICTL: chestR       k=4 MUR COLLIS.     1.45    1.37 |   1.13    1.15 | SYMETRISE — CE MECANISME EST LA CAUSE
 ROOM-ORICTL-POLES: chestR       k=4 MUR COLLIS.   LAT90 0.43087/0.29765  LAT45 0.32810/0.23931  AP90 0.35880/0.40609  AP45 0.27203/0.31269
+ROOM-ORICTL: chestR       k=5   1.10    1.17 |   1.53    1.08 | SYMETRISE — CE MECANISME EST LA CAUSE
+ROOM-ORICTL-POLES: chestR       k=5 LAT90 0.27128/0.29790  LAT45 0.20485/0.23981  AP90 0.35841/0.23407  AP45 0.27133/0.29435
 ROOM-ORICTL-DIAG: chestR       k=0 reference      supine i=6 inv=0 flip=0 · prone i=8 inv=0 flip=0 · i=5 flip=0 · i=7 flip=0
 ROOM-ORICTL-DIAG: chestR       k=1 LONGUEUR off   supine i=6 inv=0 flip=0 · prone i=8 inv=0 flip=0 · i=5 flip=0 · i=7 flip=0
 ROOM-ORICTL-DIAG: chestR       k=2 COTE off       supine i=6 inv=0 flip=0 · prone i=8 inv=0 flip=0 · i=5 flip=0 · i=7 flip=0
 ROOM-ORICTL-DIAG: chestR       k=3 CAPSULE cone   supine i=6 inv=0 flip=0 · prone i=8 inv=0 flip=0 · i=5 flip=0 · i=7 flip=0
 ROOM-ORICTL-DIAG: chestR       k=4 MUR COLLIS.    supine i=6 inv=0 flip=0 · prone i=8 inv=0 flip=0 · i=5 flip=0 · i=7 flip=1
+ROOM-ORICTL-DIAG: chestR       k=5  supine i=6 inv=0 flip=0 · prone i=8 inv=0 flip=0 · i=5 flip=0 · i=7 flip=0
 
    LECTURE DES COMPTEURS : si `flip` et `inv` sont a ZERO des deux cotes alors que la
    reponse est redressee, aucune collision ni aucun limiteur n'a mordu pendant la mesure —
@@ -1784,7 +1787,7 @@ ROOM-ORICTL-DIAG: chestR       k=4 MUR COLLIS.    supine i=6 inv=0 flip=0 · pro
 ROOM-SEC-RING: chestL       sec §36    90        0     8  +1.7762  -0.8268    0.4023    2.257  0.0637  DESACCORD — prudence
    §36 cible zeta 0.65 (bande 0.55-0.75) et f 5.20 Hz (bande 4-7) : zeta HORS, f HORS   [amplitude max : 0.06970, plafond §38 = 0.07]
 ROOM-SEC-RING: chestL       torsion    90        0    16  +1.7345  -0.8072    0.3754    2.724  0.0226  accord des 2 fenetres
-ROOM-SEC-RING: chestR       sec §36    90        0    19  +1.5418  -0.6006    0.9276    2.624  0.0863  DESACCORD — prudence
+ROOM-SEC-RING: chestR       sec §36    90        0    18  +1.5326  -0.5910    0.9568    2.625  0.0882  DESACCORD — prudence
    §36 cible zeta 0.65 (bande 0.55-0.75) et f 5.20 Hz (bande 4-7) : zeta HORS, f HORS   [amplitude max : 0.06935, plafond §38 = 0.07]
 ROOM-SEC-RING: chestR       torsion    90        0    17  +1.7261  -0.8066    0.3579    2.867  0.0151  accord des 2 fenetres
 
@@ -1807,12 +1810,12 @@ ROOM-SHRING: chestL       0 lat    0.26607    0.53    0.92    0.95    1.15 |  16
 ROOM-SHRING: chestL       1 v      1.09842    0.75    1.07    1.12   >2.48 |   4  pas d'oscillation ajustable sur la fenetre libre — NE PAS LIRE de zeta ici
 ROOM-SHRING: chestL       1 ap     0.56205    1.23    1.60   >2.48   >2.48 |  38 +1.8455 -0.8779  0.3501  1.776  0.0266  NON — ne pas lire
 ROOM-SHRING: chestL       1 lat    1.33367    0.98    1.30   >2.48   >2.48 |   3  pas d'oscillation ajustable sur la fenetre libre — NE PAS LIRE de zeta ici
-ROOM-SHRING: chestR       0 v      0.07364    0.53    0.77    0.97   >2.48 |   3  pas d'oscillation ajustable sur la fenetre libre — NE PAS LIRE de zeta ici
-ROOM-SHRING: chestR       0 ap     0.26059    0.57    0.93    0.98   >2.48 |  16 +1.7715 -0.8365  0.3342  2.551  0.0017  oui
-ROOM-SHRING: chestR       0 lat    0.04095    0.18    0.78   >2.48   >2.48 |   8 +1.4927 -0.7159  0.3224  4.949  0.1762  NON — ne pas lire
-ROOM-SHRING: chestR       1 v      0.84375    0.75    0.95    1.00   >2.48 |   9 +1.7380 -0.7888  0.4957  2.285  0.0092  NON — ne pas lire
-ROOM-SHRING: chestR       1 ap     0.83394    1.23    1.65    1.68   >2.48 |  23 +1.8842 -0.9269  0.1798  2.015  0.0107  oui
-ROOM-SHRING: chestR       1 lat    1.26084    0.77    1.28    1.70   >2.48 |  16  pas d'oscillation ajustable sur la fenetre libre — NE PAS LIRE de zeta ici
+ROOM-SHRING: chestR       0 v      0.07422    0.53    0.77    0.97   >2.48 |   3  pas d'oscillation ajustable sur la fenetre libre — NE PAS LIRE de zeta ici
+ROOM-SHRING: chestR       0 ap     0.26080    0.57    0.95    0.98    1.20 |   3  pas d'oscillation ajustable sur la fenetre libre — NE PAS LIRE de zeta ici
+ROOM-SHRING: chestR       0 lat    0.02967    0.18    0.82   >2.48   >2.48 |   9 +1.4758 -0.7037  0.3342  5.022  0.1857  NON — ne pas lire
+ROOM-SHRING: chestR       1 v      0.79896    0.75    0.93    0.97   >2.48 |   9 +1.7653 -0.8116  0.4597  2.168  0.0078  NON — ne pas lire
+ROOM-SHRING: chestR       1 ap     0.79148    1.27    1.65    1.68   >2.48 |  40 +1.8897 -0.9310  0.1727  1.977  0.0108  oui
+ROOM-SHRING: chestR       1 lat    1.25563    0.75    1.23    1.30   >2.48 |  15  pas d'oscillation ajustable sur la fenetre libre — NE PAS LIRE de zeta ici
 
 -- ROOM-SHFLOOR : CE QUE LA CHAINE LAISSE DERRIERE ELLE, ET POURQUOI §27 EST CENSUREE ----
    Sa §2 et sa §9 exigent le retour EXACT a la pose d'auteur. La serie libre dit ou la
@@ -1829,12 +1832,12 @@ ROOM-SHFLOOR: chestL       lat    -0.0001278    0.26607     0.048 %   0.0002661 
 ROOM-SHFLOOR: chestL       v      +0.0037042    1.09842     0.337 %   0.0010984  CENSURE t01 (plancher > seuil)
 ROOM-SHFLOOR: chestL       ap     -0.0037075    0.56205     0.660 %   0.0005621  CENSURE t01 (plancher > seuil)
 ROOM-SHFLOOR: chestL       lat    +0.0077013    1.33367     0.577 %   0.0013337  CENSURE t01 (plancher > seuil)
-ROOM-SHFLOOR: chestR       v      +0.0001437    0.07364     0.195 %   0.0000736  CENSURE t01 (plancher > seuil)
-ROOM-SHFLOOR: chestR       ap     -0.0002742    0.26059     0.105 %   0.0002606  CENSURE t01 (plancher > seuil)
-ROOM-SHFLOOR: chestR       lat    -0.0002535    0.04095     0.619 %   0.0000410  CENSURE t01 (plancher > seuil)
-ROOM-SHFLOOR: chestR       v      +0.0030566    0.84375     0.362 %   0.0008438  CENSURE t01 (plancher > seuil)
-ROOM-SHFLOOR: chestR       ap     -0.0037967    0.83394     0.455 %   0.0008339  CENSURE t01 (plancher > seuil)
-ROOM-SHFLOOR: chestR       lat    -0.0060746    1.26084     0.482 %   0.0012608  CENSURE t01 (plancher > seuil)
+ROOM-SHFLOOR: chestR       v      +0.0001345    0.07422     0.181 %   0.0000742  CENSURE t01 (plancher > seuil)
+ROOM-SHFLOOR: chestR       ap     -0.0002129    0.26080     0.082 %   0.0002608  t01 mesurable
+ROOM-SHFLOOR: chestR       lat    -0.0002554    0.02967     0.861 %   0.0000297  CENSURE t01 (plancher > seuil)
+ROOM-SHFLOOR: chestR       v      +0.0023839    0.79896     0.298 %   0.0007990  CENSURE t01 (plancher > seuil)
+ROOM-SHFLOOR: chestR       ap     -0.0031893    0.79148     0.403 %   0.0007915  CENSURE t01 (plancher > seuil)
+ROOM-SHFLOOR: chestR       lat    -0.0046580    1.25563     0.371 %   0.0012556  CENSURE t01 (plancher > seuil)
 
    PREDICTION ECRITE AVANT LA COURSE pour le mode principal, depuis la donnee livree et
      l'ecriture du solveur : `chestL` porte `stiffness=2.7696 mass=1.45`, d'ou

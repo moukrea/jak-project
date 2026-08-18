@@ -715,6 +715,30 @@
 ;; [NOTE-53] CONTROLE k=4 — 1 = LE MUR DE COLLISION EST DESARME (`feff` -> PHYS-VOL-FREE), sur la
 ;; fenetre d'orientation seule. C'est le suspect que le cycle 13 a dimensionne sans le desarmer.
 (define *phys-col-off* 0)
+;; CONTROLE k=5 — 1 = LA BORNE §22 DU CANAL RADIAL EST DESARMEE (`rcap` -> +inf), sur la fenetre
+;; d'orientation seule. C'est le suspect que le cycle 28 a DIMENSIONNE sans pouvoir le desarmer.
+;;
+;; POURQUOI IL EXISTE. L'ablation a cinq passes designe la CONTRAINTE DE LONGUEUR comme cause du
+;; deficit medial de sa §12 (k=1 : le pole medial de `chestL` passe de 0.0807 a 0.2141 B0 et celui
+;; de `chestR` de 0.0283 a 0.2095, les deux ENTRENT dans la bande 0.15-0.24 ; k=2/3/4 le laissent
+;; a x1.00). Mais la contrainte de longueur ne peut pas etre retiree — sa §1bis exige que l'OS ne
+;; s'allonge pas (`ROOM-STRETCH <= 3 %`). Ce qu'elle fait est CONFISQUER la composante du
+;; pilotage LE LONG de l'os, a charge pour le canal radial de §23 de la rendre. La question
+;; d'apres, et c'est la seule qui soit actionnable, est donc : ce canal la rend-il, ou est-il
+;; ecrete avant ?
+;;
+;; CE QUI LE DESIGNE, ET C'EST DEJA DANS LA COURSE LIVREE (`ROOM-RAD`) : le canal radial BRUT
+;; `rrr` vaut jusqu'a 0.6843 B0 la ou le canal BORNE `rrm` rend 0.3900 — 43 % du signal retire —
+;; et le pic transitoire `rrt` est colle a 0.3998-0.3999 sur les HUIT orientations non nulles des
+;; DEUX chaines, c'est-a-dire exactement le plafond `0.40 B0`. Un limiteur actif partout ne borne
+;; plus une exception : il publie sa propre asymptote a la place de la reponse, et c'est ce que
+;; `ROOM-RAD-DISCRIM` lit deja sur `chestL` — `spread=10.3 % verdict=PLAT`.
+;;
+;; CE QU'IL NE FAIT PAS : changer un octet du comportement LIVRE. Il vaut 0 partout sauf pendant
+;; la passe de mesure k=5, que la salle arme et REND A 0 en sortant, exactement comme les quatre
+;; autres. Ce n'est pas un assouplissement de la borne de sa §22 — c'est le controle qui dira si
+;; cette borne est le mecanisme, avant qu'on ait le droit d'y toucher.
+(define *phys-rr-off* 0)
 
 ;; `*phys-njoint*` retiree : ecrite chaque step, RELUE PAR PERSONNE. Classe de `*phys-lmean*`.
 
@@ -3026,7 +3050,12 @@
                                             ;; 0.42/0.50 = 0.84 EXACTEMENT. Aucun chiffre choisi ici,
                                             ;; et l'ecart de 4 % est ecrit plutot que rattrape en
                                             ;; deplacant le genou : on ne regle pas l'instrument.
-                                            (rcap (* 0.40 b0e))
+                                            ;; CONTROLE k=5 : desarme, `rcap` part a l'infini et
+                                            ;; `phys-softmin` redevient l'identite (sa branche
+                                            ;; `(<= v kn)`), donc le canal radial passe ENTIER. Vaut
+                                            ;; 0 partout ailleurs : le comportement livre est
+                                            ;; inchange au bit pres hors de la passe de mesure.
+                                            (rcap (if (zero? *phys-rr-off*) (* 0.40 b0e) (* 1000000.0 b0e)))
                                             ;; APPELEE UNE SEULE FOIS, ET SUR LA VALEUR LIVREE, JAMAIS
                                             ;; SUR L'ETAT : `phys-softmin` n'est pas idempotent
                                             ;; au-dessus de son genou (sa propre docstring l'ecrit),
@@ -4545,6 +4574,15 @@
   "1 = le MUR DE COLLISION est desarme (voir [NOTE-53]). La salle l'arme sur la passe k=4 du
    balayage d'orientation et le REND A 0 en sortant."
   (set! *phys-col-off* v)
+  (none))
+
+(defun phys-rr-off-set! ((v int))
+  "1 = la borne §22 du canal RADIAL est desarmee (`rcap` -> +inf), sur la fenetre d'orientation
+   seule. La salle l'arme sur la passe k=5 du balayage et le REND A 0 en sortant. Arme, le canal
+   radial doit REMONTER vers son brut `rrr` (jusqu'a 0.6843 B0 mesures contre 0.3900 bornes) : si
+   le pole medial de sa §12 remonte avec lui, l'ecretage est le mecanisme ; s'il ne bouge pas, la
+   borne est exoneree et la cause est ailleurs dans la confiscation de longueur."
+  (set! *phys-rr-off* v)
   (none))
 
 (defun phys-cone-off-set! ((v int))
