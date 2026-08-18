@@ -3108,6 +3108,37 @@
                                      ;; DUR, en unites de `B0` — la CHAIR (SPEC 6), pas l'os.
                                      (b0f (if (> (-> *phys-b0* sc) 0.0) (-> *phys-b0* sc)
                                             (-> *phys-blen* scl)))
+                                     ;; [NOTE-C28] CE `b0f` N'EST PAS LE RAYON DU MAILLON, ET C'EST
+                                     ;; MESURE — mais le corriger a ete ESSAYE ET REFUTE, alors la
+                                     ;; note reste et le code ne bouge pas. Le commentaire vingt
+                                     ;; lignes plus haut affirme qu'a deux maillons la borne « s'
+                                     ;; applique telle quelle a l'apex » : le mesh livre dit non. Le
+                                     ;; joint distal est a **0.2332 B0** de la racine de chaine
+                                     ;; (140.42 u contre B0 = 602), donc la borne de 301 u posee sur
+                                     ;; lui vaut **2.14 x la longueur de son propre os** — un
+                                     ;; plafond de deplacement plus grand que l'os n'impose aucune
+                                     ;; limite d'angle, et l'apex de chair (768.7 u de la racine)
+                                     ;; peut parcourir **2.74 B0** la ou sa SPEC 22 en autorise 0.50.
+                                     ;; Le filet n'est pas inerte pour autant : `PHYSLIM4
+                                     ;; sat_n=16240 sat_sum=14751666`, 908 u retires par morsure.
+                                     ;;
+                                     ;; CE QUE LE CYCLE 28 A ESSAYE : remplacer `b0f` par le rayon
+                                     ;; propre du maillon (0.50 x 140.42 = 70.2 u au distal, racine
+                                     ;; inchangee). MESURE, ET REFUTE — voir
+                                     ;; `.autoport/reports/.../C28-apexr-refutation.txt` :
+                                     ;;   SPEC 33 chestL 487.82 -> 437.17 u  (-10 %, argmax change)
+                                     ;;   SPEC 33 chestR 443.33 -> 509.88 u  (**PIRE de 15 %**)
+                                     ;;   filet    16 240 -> 42 567 morsures (**x2.62**, un limiteur
+                                     ;;            sature : il publie son asymptote, pas la reponse)
+                                     ;;   SPEC 12 medial chestL 0.0807 -> 0.0315 B0 (**-61 %**)
+                                     ;; Raison : seul le maillon DISTAL etait resserre. Le maillon
+                                     ;; RACINE pivote sur l'ancre `chest` a **1040.5 u** (`PHYSBONE
+                                     ;; c=0 l=0 len=1040.5006`) et gardait ses 301 u — c'est LUI qui
+                                     ;; promene l'organe entier. La cinematique est le bon mecanisme,
+                                     ;; le maillon borne n'etait pas celui qui la porte.
+                                     ;; NE PAS refaire ce changement tel quel : commencer par mesurer
+                                     ;; le maillon RACINE (16.6 deg permis a 301 u sur un bras de
+                                     ;; 1040.5).
                                      (kn (* 0.42 b0f))
                                      (cp (* 0.08 b0f)))
                                 (when (and (> dd kn) (> cp 0.0001))

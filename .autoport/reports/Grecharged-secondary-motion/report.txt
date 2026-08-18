@@ -2,7 +2,7 @@ DIRECTIVES vb249967379
 
 RAPPORT DE CYCLE 28 — LA DIRECTIVE DE 08:55 VISE UN MESH QUI N'EST PAS CELUI QUI PART ; L'ABLATION
 QUI DOIT ATTRIBUER SA §12 NE POUVAIT PAS VOIR LE DEFAUT QU'ELLE MESURE ; ET LA CAUSE EST DESIGNEE —
-CONTRE MES DEUX PROPRES PRONOSTICS, QUE SES PROPRES CONTROLES REFUTENT. Phase
+CONTRE MES TROIS PROPRES PRONOSTICS, QUE LEURS PROPRES CONTROLES REFUTENT. Phase
 Grecharged-secondary-motion, branche physics-keira-clean, KEIRA / POITRINE SEULE (ordre owner
 2026-08-14 07:30).
 
@@ -41,11 +41,17 @@ EN UN COUP D'OEIL
                 il l'annule presque entierement (0.0499 et 0.0478 -> 0.0283). Au pole lateral les
                 deux s'additionnent (+0.783 / +0.175). Ce qui distingue les deux poles n'est pas une
                 amplitude, c'est un SIGNE — d'ou un defaut DIRECTIONNEL et en MIROIR. Section 5.
-    RETIRE      MES DEUX PRONOSTICS DE CE CYCLE SONT FAUX, ET CE SONT MES PROPRES CONTROLES QUI LE
-                DISENT. J'ai construit, mesure a l'appui, (a) l'hypothese d'un CHAMP DE CONTACT
-                PERMANENT bloquant le cote medial, puis (b) celle de la BORNE §22 DU CANAL RADIAL.
-                Les deux mecanismes existent et sont chiffres ; desarmes, ils ne rendent PAS un
-                micron au pole medial. Sections 4, 6 et 7.
+    RETIRE      MES TROIS PRONOSTICS DE CE CYCLE SONT FAUX, ET CE SONT LEURS PROPRES CONTROLES
+                QUI LE DISENT. (a) le CHAMP DE CONTACT PERMANENT, (b) la BORNE §22 DU CANAL RADIAL,
+                (c) la MISE A L'ECHELLE DE LA BORNE §22 PAR LE RAYON — celle-la implementee,
+                mesuree en A/B sur la meme salle, et RETIREE. Les trois mecanismes existent et sont
+                chiffres ; aucun n'est la cause. Sections 4, 6, 7 et 10.
+    NEUF        ET LA BORNE D'APEX DE §22 EST POSEE SUR LE MAUVAIS RAYON — mesure, acquise, et
+                distincte de la correction refutee. Le joint distal est a **0.2332 B0** de la
+                racine (140.42 u contre B0 = 602), donc la borne de 301 u vaut **2.14 x la
+                longueur de son propre os** : un plafond de deplacement plus grand que l'os
+                n'impose AUCUNE limite d'angle, et l'apex de chair peut parcourir **2.74 B0** la ou
+                sa §22 en autorise 0.50. Section 10.
     OUVERT      LE CONTACT SEIN<->SEIN NE PREVIENT PAS L'INTERPENETRATION (sa §33). `chestL` entre
                 de 626.63 u dans `sphere:rBoob` avec un plancher d'auteur NUL, et il en reste
                 487.82 u = 0.81 B0 apres resolution. Chiffre, ouvert, et distinct de §12. Section 7.
@@ -344,12 +350,17 @@ Aucune section « non applicable » (interdit depuis le 14/08 11:50). Aucune ABS
   §13 continuite    PARTIELLE  [R] LINEAIRE sur chestL (residu 0.1470), NON LINEAIRE sur chestR
                                (0.3454). Tenue d'un cote seulement.
   §21 tanh          PARTIELLE  [M] presente et ACTIVE — trop active hors des equilibres : voir §22.
-  §22/§38 apex      PARTIELLE  [M] la borne de COM (0.35 / 0.40 B0) est TENUE en valeur, mais elle
-                               est appliquee au CANAL RADIAL SEUL, ou elle retire jusqu'a 43 % du
-                               signal sous pilotage et colle `rrt` a 0.3999 sur les HUIT
-                               orientations non nulles des DEUX chaines. Une borne active partout
-                               ne borne plus une exception. Section 6. **Et elle est desormais
-                               DESARMABLE** (`phys-rr-off-set!`), donc verifiable.
+  §22/§38 apex      PARTIELLE  [M] DEUX defauts mesures ce cycle, aucun corrige.
+                               (a) la borne de COM est appliquee au CANAL RADIAL SEUL, ou elle
+                               retire jusqu'a 43 % du signal sous pilotage et colle `rrt` a 0.3999
+                               sur les HUIT orientations non nulles des DEUX chaines. Desormais
+                               DESARMABLE (`phys-rr-off-set!`), donc verifiable — et EXONEREE de
+                               §12. Section 6.
+                               (b) **la borne d'APEX est posee sur le mauvais rayon** : le joint
+                               distal est a 0.2332 B0 de la racine, donc 301 u = 2.14 x son propre
+                               os, et l'apex de chair peut parcourir 2.74 B0 pour une cible de 0.50.
+                               Le filet mord (sat_n = 16240). La corriger a ete ESSAYE ET REFUTE en
+                               A/B (section 10) : la cible est le maillon RACINE, pas le distal.
   §23 multi-DOF     PARTIELLE  [S] l'os injecte PILOTE la chair — 43.5 % / 37.5 % des sommets de la
                                chaine, barre 30 %, remesure a la main ce cycle (section 1).
                                [R] MAIS son axe est colineaire au rayon `chest`->sein a 0.001 deg et
@@ -370,6 +381,10 @@ Aucune section « non applicable » (interdit depuis le 14/08 11:50). Aucune ABS
   §33 restit. 0.06  PARTIELLE  [M] **LE CONTACT SEIN<->SEIN NE PREVIENT PAS L'INTERPENETRATION** :
                                `chestL` entre de 626.63 u dans `sphere:rBoob` (plancher d'auteur
                                NUL) et il en reste 487.82 u = 0.81 B0 apres resolution. Section 7.
+                               [M] Ce n'est PAS un defaut de convergence : le solveur dispose de
+                               8 x 3 balayages + 4 iterations de finition. Une correction a ete
+                               tentee et REFUTEE en A/B (section 10) ; la cause reste cinematique et
+                               la cible est nommee pour le cycle suivant (le maillon RACINE).
   §34 restit. 0.02  PARTIELLE  [R] non re-mesuree ce cycle.
   §36 secondaire    PARTIELLE  [R] amplitude sous le plafond, `zeta`/`f` du mode non re-mesures.
   §37 sous-pas      PARTIELLE  [R] `ns=2/4`, 120-240 Hz. Non re-mesure ce cycle.
@@ -403,16 +418,82 @@ sur ce qui ne depend pas de la reponse : §33 (l'interpenetration, section 7) es
 deux lectures, et c'est le prochain chantier.
 
 
-10. CE QUE JE N'AI PAS FAIT, ET POURQUOI — AUCUN DE-SCOPE SILENCIEUX (regle 3)
+10. §33 : LA BORNE D'APEX EST POSEE SUR LE MAUVAIS RAYON — MESURE ACQUIS, CORRECTIF REFUTE
+============================================================================================
+Apres avoir designe la cause de §12, j'ai attaque §33 (l'interpenetration sein<->sein). Le solveur
+n'y manque pas de budget : 8 iterations exterieures x 3 balayages + 4 iterations de finition, et il
+laisse quand meme 487.82 u de residu. Le recouvrement est donc CINEMATIQUE, pas un defaut de
+convergence — et le filet qui devrait le prevenir est celui de sa §22.
+
+LE FAIT, MESURE SUR LE MESH LIVRE, ET IL EST ACQUIS :
+
+    longueur d'os racine -> joint distal      140.4 u  (chestL)    144.2 u  (chestR)
+    distance racine -> apex de chair (max)    768.7 u              768.7 u
+    B0 du moteur (§6, chair)                  602.0 u              602.0 u
+    -> le joint distal est a                  0.2332 B0            0.2396 B0     PAS a 1.00 B0
+    borne §22 posee sur ce joint              301.0 u = 2.14 x son os   2.09 x
+    apex permis sous cette borne              2.74 B0              2.66 B0   (§22 en veut 0.50)
+
+Le commentaire du moteur affirmait le contraire (« a deux maillons elle s'applique telle quelle a
+l'apex »). Une borne de DEPLACEMENT plus grande que l'os lui-meme n'impose aucune limite d'ANGLE :
+le maillon peut tourner jusqu'au cone. Et le filet n'est pas inerte — `PHYSLIM4 sat_n=16240
+sat_sum=14751666`, soit 908 u retires en moyenne par morsure. **Il est actif ET regle 5.5 x trop
+large.**
+
+CE QUE J'EN AI DEDUIT, ET QUI EST FAUX. J'ai remplace `B0` par le rayon propre du maillon
+(0.50 x 140.42 = 70.2 u au distal ; racine inchangee, son rayon depuis la racine de chaine est nul).
+Aucun chiffre invente : le 0.50 est le sien, le 140.42 est mesure. J'ai ecrit la prediction AVANT la
+course (`C28-apexr-prediction.txt`), avec la fourchette 100-250 u pour le residu de `chestL` et, en
+tete, le risque a surveiller : « si §24 sort de bande ou si `tipvar` devient plat, le changement a
+fabrique un limiteur sature et je le dis ». A/B sur la meme salle :
+
+                              AVANT (livre)              APRES                       verdict
+  §33 residu pire chestL   487.82 u ci=39 sphere:rBoob  437.17 u ci=47             -10 %, argmax CHANGE
+  §33 residu pire chestR   443.33 u ci=7                509.88 u ci=7              **+15 %, PIRE**
+  filet §22 : morsures          16 240                      42 567                 **x2.62**
+  §12 medial chestL           0.0807 B0                    0.0315 B0               **-61 %**
+  §12 lateral chestL          0.1862 B0                    0.1267 B0               -32 %
+  §12 lateral chestR          0.1533 B0                    0.1057 B0               -31 %
+
+**REFUTE, ET RETIRE.** Le changement rate son objectif (§33 quasi inchange a gauche, PIRE a droite)
+et produit exactement le defaut que ce meme cycle diagnostique ailleurs : un filet deja actif dont
+les morsures x2.62 en font un limiteur sature, qui publie son asymptote a la place de la reponse.
+
+POURQUOI, ET C'EST LISIBLE APRES COUP : je n'ai resserre que le maillon DISTAL. Le maillon RACINE
+pivote sur l'ancre `chest` a **1040.5 u** (`PHYSBONE c=0 l=0 len=1040.5006`) et gardait ses 301 u —
+c'est LUI qui promene l'organe entier. La cinematique est bien le mecanisme ; le maillon que j'ai
+borne n'est pas celui qui la porte. **La cible du cycle suivant est le maillon RACINE** : a 301 u
+sur un bras de 1040.5, il a droit a 16.6 deg, ce qui suffit deja a traverser.
+
+Le moteur est revenu au comportement livre, et ce n'est pas une affirmation : **une course
+COMPLETE a ete relancee apres le retrait, et ses lignes de trace sont a ZERO ligne d'ecart de celles
+de la course commitee** —
+
+    diff <(grep -oE '^PHYS[A-Z0-9-]+ .*' <course committee> | sort) \
+         <(grep -oE '^PHYS[A-Z0-9-]+ .*' <course apres retrait> | sort)  ->  0 ligne
+
+y compris les deux grandeurs qui portent ce chantier (`worstres=487.8160 worstci=39` et
+`worstres=443.3293 worstci=7`, identiques au chiffre pres). **Et le tableau regenere depuis cette
+course est BIT-IDENTIQUE a celui du commit** (`cmp` contre `git show HEAD:...`, 196 012 octets) :
+il n'y a donc pas seulement « pas de regression visible », il n'y a strictement aucune difference. Il ne reste, au site de la borne, qu'une
+NOTE portant ces mesures et l'interdiction de refaire le changement tel quel. **Aucun interrupteur
+mort n'a ete laisse derriere** (`*phys-apexr-off*` et son setter sont partis avec le changement
+qu'ils servaient a falsifier) : le piege `declared-but-never-selected` n'est pas paye ici.
+
+
+11. CE QUE JE N'AI PAS FAIT, ET POURQUOI — AUCUN DE-SCOPE SILENCIEUX (regle 3)
 ================================================================================
   1. **JE N'AI PAS CORRIGE §12.** La cause est designee et le mecanisme mesure, mais les deux
      lectures de la section 9 menent a des corrections opposees, et le contrat interdit de choisir
      a la place de l'owner sur une question de spec. Ce qui est fait est ce qui ne depend pas de sa
      reponse : l'attribution.
-  2. **JE N'AI PAS CORRIGE §33** (l'interpenetration sein<->sein a 0.81 B0 de residu). Elle est
-     chiffree ce cycle et c'est un chantier de SOLVEUR, qui rendrait le tableau non comparable dans
-     un cycle dont toute la valeur tient a ce que le comportement soit bit-identique pendant qu'on
-     attribue une cause. C'est le premier travail du cycle suivant.
+  2. **JE N'AI PAS CORRIGE §33 — ET CETTE FOIS J'AI ESSAYE.** La correction derivee de sa §22 a
+     ete implementee, mesuree en A/B sur la meme salle, et RETIREE parce que la mesure la refute
+     (section 10) : §33 quasi inchangee a gauche et PIRE de 15 % a droite, pour -61 % sur §12 et un
+     filet dont les morsures triplent. Je ne la garde pas au motif que « ca avance a travers les
+     rouges » : un changement qui rate son objectif ET fabrique un limiteur sature n'est pas un
+     rouge a traverser, c'est une hypothese refutee. Le gain du cycle est que la cible est
+     maintenant NOMMEE (le maillon RACINE, pivot a 1040.5 u) au lieu d'etre devinee.
   3. **JE N'AI PAS TOUCHE A LA GATE PERIMEE de la section 2** — regle 5, les gates sont gelees, je
      la signale au superviseur et je publie a cote d'elle la mesure qui discrimine.
   4. **JE N'AI PAS SUIVI LA DIRECTIVE DE 08:55** (refaire le repesage). Elle vise un fichier qui
@@ -426,7 +507,7 @@ deux lectures, et c'est le prochain chantier.
      resoudre en silence.
 
 
-11. CE QUE J'AI CHANGE, FICHIER PAR FICHIER
+12. CE QUE J'AI CHANGE, FICHIER PAR FICHIER
 =============================================
   goal_src/jak1/pc/phys-room.gc
       + `PHYSCTLDF` / `PHYSCTLML` : le COM exact sur TOUTES les passes du balayage (section 3).
@@ -437,14 +518,22 @@ deux lectures, et c'est le prochain chantier.
       + `*phys-rr-off*` (0 par defaut) et `phys-rr-off-set!`.
       ~ `rcap` devient `(if (zero? *phys-rr-off*) (* 0.40 b0e) (* 1000000.0 b0e))` — inchange au bit
         pres quand le drapeau vaut 0, c'est-a-dire partout hors de la passe k=5.
+      + `[NOTE-C28]` au site de la borne d'apex : les mesures de rayon (0.2332 B0, 2.14 x l'os,
+        2.74 B0 permis) ET le compte rendu de la correction essayee puis refutee, avec
+        l'interdiction de la refaire telle quelle. **Commentaire seul — aucun interrupteur mort
+        n'est reste** : `*phys-apexr-off*` et son setter, ecrits puis mesures, sont retires avec le
+        changement qu'ils servaient a falsifier.
   .autoport/probe_oricom_ctl.py            NEUF — compose le COM exact par passe, avec son controle
                                            interne bloquant (section 3).
   .autoport/reports/.../C28-oricom-ctl.txt        NEUF — la table d'attribution.
   .autoport/reports/.../C28-com-decomposition.txt NEUF — la decomposition sk / tn (section 5).
+  .autoport/reports/.../C28-apexr-prediction.txt  NEUF — la prediction chiffree, ECRITE AVANT la
+                                                  course qui l'a refutee.
+  .autoport/reports/.../C28-apexr-refutation.txt  NEUF — l'A/B qui la refute (section 10).
   DONNEES : aucune. `physics_chains.txt` md5 4d29e30c759d33fffd794e10947497e6, inchange.
 
 
-12. CE QUE L'OWNER DOIT SAVOIR DE CE CYCLE
+13. CE QUE L'OWNER DOIT SAVOIR DE CE CYCLE
 ============================================
   1. **LE BUILD SE COMPORTE EXACTEMENT COMME LE PRECEDENT.** Rien de ce qui bouge a l'ecran n'a
      change. Inutile de chercher une difference : il n'y en a pas, et c'est voulu — on ne peut pas
@@ -457,4 +546,8 @@ deux lectures, et c'est le prochain chantier.
      pole ou le sein est pousse vers le sternum, et la mesure le chiffre. Les deux lectures menent
      a des travaux opposes ; je ne choisis pas a votre place.
   4. **CE QUI EST SUR ET QUI RESTE OUVERT** : les deux seins se traversent (0.81 B0 de residu apres
-     resolution), ce que votre §33 interdit. C'est le premier travail du cycle suivant.
+     resolution), ce que votre §33 interdit. J'ai essaye une correction ce cycle, je l'ai mesuree,
+     elle ne marche pas et je l'ai retiree plutot que de vous livrer un build ou la poitrine bouge
+     61 % moins pour un defaut qui empire d'un cote. Ce qui est gagne : on sait maintenant QUEL
+     maillon porte le probleme (celui qui pivote sur le buste, pas celui du bout), donc le prochain
+     essai ne sera pas une devinette.
