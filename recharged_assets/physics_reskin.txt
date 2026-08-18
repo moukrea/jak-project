@@ -172,8 +172,102 @@ transfer lBoob from=chest cap=0.95 shape=1.30
 # verifie parlent EXACTEMENT des memes sommets — sinon la mesure d'apres-cuisson ne juge pas ce
 # que la regle a fait.
 # ---------------------------------------------------------------------------------------------
-redistribute chestL  chain=lBoob,lBooc gate=0.05 hold=0.00
-redistribute chestR  chain=rBoob,rBooc gate=0.05 hold=0.00
+#
+# 2026-08-18 — LE PLAFOND CI-DESSUS N'ETAIT PAS UN PLAFOND, C'ETAIT LE DEFAUT. `redistribute` EST
+# RETIRE DE LA POITRINE ET REMPLACE PAR `anchor30`. Voici la mesure qui le decide.
+#
+# J'ai ecrit trois paragraphes plus haut : « le monter demanderait de toucher `cap=0.95` du
+# `transfer`, c'est-a-dire l'ancrage que sa 30 exige — donc NON ». J'invoquais sa SPEC 30 pour
+# refuser de bouger l'ancrage. **Je ne l'avais pas mesuree contre sa 30.** Faite depuis, sur le mesh
+# LIVRE `out/jak1/fr3/skin/keira-hd-lod0.glb` (`probe_breast_anchor30.py`), ancrage = poids qui
+# reste hors chaine, par quart d'abscisse curviligne (le `r` que sa 31 definit) :
+#
+#     bande                     chestL   chestR    bande de sa SPEC 30     verdict
+#     Deep root      r<0.125     0.532    0.525      0.90-1.00             SOUS
+#     Rear/interm  0.125-0.375   0.125    0.314      0.55-0.85             SOUS
+#     Mid-volume   0.375-0.625   0.414    0.448      0.25-0.55             DANS
+#     Distal       0.625-0.875   0.402    0.484      0.05-0.30             AU-DESSUS
+#     Apex           r>0.875     0.743    0.787      0.00-0.10             AU-DESSUS
+#     StrongRootFraction         0.506    0.525      0.30 (0.28-0.35)      AU-DESSUS
+#
+# LE PROFIL EST EN U : ancre AUX DEUX BOUTS, libre au milieu. Sa 30 le veut MONOTONE DECROISSANT.
+# L'apex — la chair qui doit se deformer le PLUS — est soude au thorax a 74 % / 79 % ; la racine
+# profonde — celle qui doit etre soudee — ne l'est qu'a 53 %. C'est mot pour mot le defaut de FORME
+# que l'owner nomme depuis le 2026-08-11 sur les cheveux (« le milieu bouge beaucoup plus que les
+# pointes, c'est pas cense »), et il vit dans la PEAU. Aucune raideur, aucune masse, aucun
+# amortissement ne deplace un poids de peau : c'est pour ca que « du pudding » survit a tous les
+# reglages du solveur.
+#
+# POURQUOI `redistribute` NE PEUT PAS LE CORRIGER, PAR CONSTRUCTION. Son invariant est la
+# CONSERVATION du poids somme de la chaine (`physics_c7_reskin.py`, « on ne touche jamais au partage
+# tete/meche »). Cet invariant est JUSTE pour une meche — la racine doit rester soudee au crane — et
+# il interdit exactement ce que sa 30 demande sur un sein : que l'ancrage TOMBE a l'apex. Il n'y a
+# pas de reglage de `hold` qui contourne ca ; les trois cuissons 0.30 / 0.15 / 0.00 mesurees plus
+# haut ne deplacaient que QUI porte un total fige au mauvais endroit.
+#
+# CE QUE `anchor30` FAIT, ET LES QUATRE CONSTANTES SONT RECOPIEES DE SA SPEC :
+#   `root=0.95`   30 `RootAnchor = 0.90-1.00`, milieu de bande.
+#   `strong=0.55` plancher de `RearIntermediateAnchor = 0.55-0.85` : la definition operatoire de
+#                 « strongly attached tissue » que la 30 emploie.
+#   `frac=0.30`   30 `StrongRootFraction = 0.30` (« approximately 28-35% of the rear breast volume
+#                 should behave as strongly attached tissue »).
+#   `grad=1.80`   31 `RootDeformationExponent = 1.6-2.0`, NOMINAL. Pas un choix : le nominal. Et je
+#                 dis ce que les bords donnent, parce que ca discrimine — a 1.60 le maillon PROXIMAL
+#                 tombe a 0 sommet majoritaire sur chestL (l'echec en miroir), a 2.00 le distal
+#                 retombe a 46 %. 1.80 est le seul des trois ou les DEUX maillons pilotent.
+# L'exposant du profil (`p`) n'est PAS dans cette ligne, et c'est deliberé : il est DERIVE a la
+# cuisson, sur la geometrie du mesh, comme l'exposant qui approche le plus `frac` A L'INTERIEUR de
+# l'intervalle que les trois bandes interieures de la 30 autorisent (p dans [0.831, 1.900]).
+# Un exposant ecrit a la main serait un reglage ; celui-la est une consequence.
+#
+# CE QUE LA REGLE ABANDONNE, ET IL FAUT L'ECRIRE : le poids somme de la chaine n'est PLUS conserve.
+# C'est le but. Ce qui est tenu a la place, et qui protege l'acquis :
+#   - l'ancrage a la racine MONTE (0.53 -> 0.95) : la chair arriere devient PLUS solidaire du
+#     thorax, jamais moins — un decollement de racine est impossible par construction ;
+#   - la partition reste une fonction CONTINUE de l'abscisse, donc aucune marche de poids n'est
+#     fabriquee (meme garantie que `redistribute`, et `tear` la mesure).
+#
+# LA LIMITE MESUREE, DITE AU LIEU D'ETRE TUE : `StrongRootFraction` ne peut pas descendre sous
+# 0.447 (chestL) / 0.487 (chestR) quel que soit `p`, parce que 40 % des sommets de la chaine se
+# projettent EXACTEMENT sur le noeud racine (`s` p25 = 0.000) — la chair arriere du sein est en
+# amont de `lBoob`. La cible 0.30 de sa 30 reste donc DEPASSEE, et ce n'est pas un reglage a
+# trouver : c'est la polyligne a deux noeuds qui tasse tout l'arriere en r=0. Ca se retirera avec un
+# noeud proximal, pas avec un exposant.
+#
+# `gate=0.05` reprend le seuil de `probe_skin_profile.py`, pour que la regle et la sonde qui la
+# verifie parlent EXACTEMENT des memes sommets.
+# ---------------------------------------------------------------------------------------------
+#
+# 2026-08-18, DEUXIEME MESURE — LA PREMIERE CUISSON A VIOLE LA DERNIERE LIGNE DE LA 30, ET C'EST
+# CORRIGE ICI. « There shall be no hard attachment boundary ». Mesure sur les deux mesh cuits
+# (`probe_skin_tear_moving.py`, aretes dont la fraction pilotee saute de plus de 0.5) :
+#     AVANT anchor30 : chestL  1   chestR  3
+#     anchor30 nu    : chestL 31   chestR 37     <- REGRESSION, publiee comme telle
+#     + lissage      : chestL 18   chestR 17
+# LA CAUSE N'EST PAS UNE FRONTIERE : les aretes cassees sont etalees sur TOUT l'organe
+# (s=0.00..1.00, mediane 0.48). C'est la RAIDEUR SPATIALE du profil contre la FINESSE DU MESH —
+# 85 sommets pour 8.7 cm de polyligne, donc deux sommets VOISINS peuvent differer de 0.35
+# d'abscisse. Le gradient que sa 31 exige et la densite de ce maillage sont en tension REELLE, et
+# sa spec exige les deux ; le `tear=1` d'avant etait la signature du profil PLAT, pas d'une sante.
+# L'operateur lisse donc le champ SUR LES ARETES (un defaut de voisinage se corrige sur le
+# voisinage) et s'arrete a la derniere iteration qui tient encore les DEUX criteres du contrat :
+# les cinq bandes de la 30, et la part du maillon distal >= `frac`. Aucun seuil invente.
+#
+# `grad=2.00` ET PAS LE NOMINAL 1.80 — la raison est mesuree, pas esthetique. `grad` n'a AUCUN
+# effet sur `tear` (qui porte sur le poids SOMME de la chaine, pas sur son partage interne :
+# verifie, 18/17 aux deux valeurs). Il decide seulement QUEL maillon possede la chair, et apres le
+# lissage il decide si le maillon PROXIMAL survit :
+#     grad=1.80 + lissage : lBoob= 2  lBooc=20      rBoob= 2  rBooc=17
+#     grad=2.00 + lissage : lBoob= 7  lBooc=19      rBoob= 6  rBooc=17
+# A 2 sommets majoritaires le maillon proximal ne porte presque plus d'echantillons `ms` dans
+# `physics_mesh.txt` (meme seuil de majorite), donc sa peau cesse d'exister pour la collision —
+# c'est le meme « os que la geometrie ignore » que la directive du 08:55 interdit, a l'autre bout
+# de la chaine. 2.00 est DANS `RootDeformationExponent = 1.6-2.0`, et des TROIS valeurs mesurees
+# de la bande (1.60 rend deja lBoob=0 SANS lissage, 1.80 tombe a 2 AVEC) c'est la seule ou les deux
+# maillons gardent une possession exploitable apres le lissage. La part distale
+# y reste 73.1 % / 73.9 %, tres au-dessus des 30 % du contrat.
+anchor30 chestL  chain=lBoob,lBooc from=chest gate=0.05 root=0.95 strong=0.55 frac=0.30 grad=2.00
+anchor30 chestR  chain=rBoob,rBooc from=chest gate=0.05 root=0.95 strong=0.55 frac=0.30 grad=2.00
 
 [model keira3-hd]
 # The J3 look carries the same rig and the SAME defect (rBoob 86 verts, peak 0.408, 0 dominant).

@@ -80,7 +80,7 @@ def load_cfg(path=CFG):
                 out.setdefault(x, [])
             continue
         f = ln.split()
-        if f[0] not in ('transfer', 'grade', 'redistribute') or not cur:
+        if f[0] not in ('transfer', 'grade', 'redistribute', 'anchor30') or not cur:
             continue
         kv = dict(x.split('=', 1) for x in f[2:] if '=' in x)
         r = dict(kind=f[0],
@@ -160,7 +160,25 @@ def load_cfg(path=CFG):
                  # FERME par l'owner : « les cheveux de la nuque sont bien ancres la ou ils doivent
                  # l'etre »). La bande n'est pas un reglage, c'est l'expression de `rootlock`.
                  hold=float(kv.get('hold', 0.0)),
-                 iters=int(kv.get('iters', 8)))
+                 iters=int(kv.get('iters', 8)),
+                 # ------------------------------------------------------------------------------
+                 # `anchor30` only — LES QUATRE CONSTANTES SONT RECOPIEES DE SA SPEC, PAS CHOISIES.
+                 # SPEC-breast-softbody.md 30 « Root Attachment » et 31 « Root-to-Apex Shape
+                 # Gradient ». Aucune n'est un reglage : chacune cite la ligne dont elle sort, et
+                 # l'exposant du profil (`p`) n'est PAS ici — il est DERIVE a la cuisson sur la
+                 # geometrie du mesh, precisement pour qu'il ne puisse pas etre choisi a la main.
+                 #   root=   30 `RootAnchor = 0.90-1.00` : ancrage a la racine profonde (r=0).
+                 #   strong= plancher de la bande `RearIntermediateAnchor = 0.55-0.85`, qui est la
+                 #           definition operatoire de « strongly attached tissue » de la 30.
+                 #   frac=   30 `StrongRootFraction = 0.30` (« approximately 28-35% of the rear
+                 #           breast volume should behave as strongly attached tissue »).
+                 #   grad=   31 `RootDeformationExponent = 1.6-2.0`, nominal 1.8 : « w(r) =
+                 #           r^1.6...2.0 — little deformation at the root; progressively increasing
+                 #           mobility; largest displacement in distal tissue ».
+                 root=float(kv.get('root', 0.95)),
+                 strong=float(kv.get('strong', 0.55)),
+                 frac=float(kv.get('frac', 0.30)),
+                 grad=float(kv.get('grad', 1.80)))
         for x in cur:
             out[x].append(r)
     return out
@@ -288,6 +306,285 @@ def _redistribute(r, J, W, idx, P, bind_pos):
                f" — part des segments LIBRES: "
                + " ".join(f"{100.0 * x:.1f}%" for x in free)
                + f" (pire {100.0 * free.max():.1f}%)")
+    return rep
+
+
+# ------------------------------------------------------------------------------------------------
+# SPEC-breast-softbody.md 30 (Root Attachment) + 31 (Root-to-Apex Shape Gradient)
+# ------------------------------------------------------------------------------------------------
+# LES CINQ BANDES DE LA 30, RECOPIEES SANS RETOUCHE. Elles ne sont pas un reglage : ce sont les
+# valeurs que l'owner a ecrites, et elles BORNENT la derivation de l'exposant plus bas.
+#     Deep root           90-100 %      (r ~ 0.00)
+#     Rear/intermediate   55-85  %      (r ~ 0.25)
+#     Mid-volume          25-55  %      (r ~ 0.50)
+#     Distal              5-30   %      (r ~ 0.75)
+#     Apex                minimal       (r ~ 1.00)
+SPEC30_BANDS = ((0.25, 0.55, 0.85), (0.50, 0.25, 0.55), (0.75, 0.05, 0.30))
+
+
+def _spec30_p_range(root):
+    """Intervalle des exposants `p` tels que `root*(1-r)^p` tienne DANS les trois bandes de la 30.
+
+    La spec BORNE la derivation ; la geometrie choisit a l'interieur de la borne. Jamais l'inverse.
+    """
+    lo, hi = 0.0, 99.0
+    for r, blo, bhi in SPEC30_BANDS:
+        u = np.log(1.0 - r)                       # negatif : les inegalites s'inversent
+        lo = max(lo, np.log(bhi / root) / u)
+        hi = min(hi, np.log(blo / root) / u)
+    return lo, hi
+
+
+def _anchor30(r, J, W, idx, P, bind_pos, ed=None):
+    """POSE LE PROFIL D'ANCRAGE DE LA SPEC 30 ET LE GRADIENT DE LA 31 LE LONG DE LA CHAINE.
+
+    POURQUOI CET OPERATEUR EXISTE (2026-08-18, mesure sur le mesh LIVRE). `redistribute` CONSERVE
+    le poids somme de la chaine (`ws`) : c'est son invariant, et il est juste POUR UNE MECHE, dont
+    la racine doit rester soudee au crane. Sur un sein il interdit la seule chose que sa 30 demande.
+    Profil d'ancrage mesure sur `out/jak1/fr3/skin/keira-hd-lod0.glb`, par quart d'abscisse :
+
+        bande               mesure       bande de sa 30      verdict
+        Deep root  r<0.125   0.532        0.90-1.00          SOUS
+        Rear/int   .125-.375 0.125        0.55-0.85          SOUS
+        Mid-volume .375-.625 0.414        0.25-0.55          DANS
+        Distal     .625-.875 0.402        0.05-0.30          AU-DESSUS
+        Apex        r>0.875  0.743        0.00-0.10          AU-DESSUS
+
+    Le profil est en U : ancre AUX DEUX BOUTS, libre au milieu. C'est exactement le defaut de forme
+    que l'owner nomme depuis le debut sur les cheveux — « le milieu bouge beaucoup plus que les
+    pointes, c'est pas cense » — et c'est la peau, pas le solveur, qui le porte. Aucune valeur de
+    raideur, de masse ou d'amortissement ne peut deplacer un poids de peau.
+
+    CE QUE L'OPERATEUR FAIT, ET RIEN D'AUTRE :
+      1. il fixe l'ANCRAGE (le poids qui reste sur les os `from=`, hors chaine) a `root*(1-r)^p`,
+         ou `p` est DERIVE (voir plus bas) et jamais ecrit a la main ;
+      2. il repartit le reste entre les maillons de la chaine selon la 31, par une partition de
+         l'unite lineaire par morceaux dans la coordonnee REPARAMETREE `u = r^grad` — pour deux
+         maillons cela vaut exactement (1 - r^grad, r^grad), « little deformation at the root;
+         progressively increasing mobility; largest displacement in distal tissue ».
+
+    DERIVATION DE `p` — ET ELLE NE PEUT PAS ETRE CHOISIE. La 30 nomme la grandeur cible
+    (`StrongRootFraction = 0.30`) ; on prend l'exposant qui l'approche le plus pres A L'INTERIEUR de
+    l'intervalle que les trois bandes interieures autorisent. Le 30e centile de `r` ne peut pas
+    servir de seuil direct : il vaut 0.000 sur cet organe (40 % des sommets se projettent sur le
+    noeud racine, la chair arriere), donc l'inverse de la courbe y est degeneree. C'est une PROPRIETE
+    MESUREE de la poitrine, pas un reglage — et elle borne par le bas la fraction atteignable, ce que
+    le rapport de la regle imprime au lieu de le taire.
+
+    L'INVARIANT QU'IL ABANDONNE, ET IL FAUT LE DIRE : `ws` n'est PLUS conserve. C'est le but. Le
+    partage torse/sein DOIT bouger, sinon l'apex reste soude au thorax a 74 % et la 30 est
+    inatteignable par construction. En echange, deux invariants sont tenus :
+      - la partition reste une fonction CONTINUE de l'abscisse, donc aucune marche de poids n'est
+        fabriquee (c'est la meme garantie que `_redistribute`, et `tear` la mesure) ;
+      - l'ancrage a r=0 MONTE (0.53 -> `root`), donc la racine ne peut pas se decoller : la chair
+        arriere devient PLUS solidaire du thorax, jamais moins.
+    """
+    joints = [j for j in r['chain'] if j in idx]
+    if len(joints) < 2:
+        rep = [f"  !! {r['target']}: moins de 2 joints de `chain=` dans ce rig"
+               f" — regle REFUSEE plutot qu'appliquee a moitie"]
+        return rep
+    grp = [idx[j] for j in joints]
+    don = [idx[d] for d in r['donors'] if d in idx]
+    if not don:
+        return [f"  !! {r['target']}: `from=` ne nomme aucun joint de ce rig"
+                f" — regle REFUSEE (il n'y aurait nulle part ou poser l'ancrage)"]
+
+    ws = np.zeros(len(W))
+    for c in range(J.shape[1]):
+        ws += np.where(np.isin(J[:, c], grp), W[:, c], 0.0)
+    vi = np.nonzero(ws > r['gate'])[0]
+    if not len(vi):
+        return [f"  -- {r['target']}: aucun sommet au-dessus de gate={r['gate']:.2f}"]
+
+    pts = np.asarray([bind_pos(j) for j in joints], dtype=float)
+    seg = pts[1:] - pts[:-1]
+    seglen = np.linalg.norm(seg, axis=1)
+    total = float(seglen.sum())
+    if total <= 1e-9:
+        return [f"  !! {r['target']}: polyligne de longueur nulle — regle REFUSEE"]
+    cum = np.concatenate([[0.0], np.cumsum(seglen)])
+    tk = cum / total
+
+    V = P[vi]
+    best_d = np.full(len(vi), np.inf)
+    s = np.zeros(len(vi))
+    for k in range(len(seg)):
+        L2 = float(seg[k] @ seg[k])
+        if L2 <= 1e-12:
+            continue
+        t = np.clip(((V - pts[k]) @ seg[k]) / L2, 0.0, 1.0)
+        d = np.linalg.norm(V - (pts[k] + t[:, None] * seg[k]), axis=1)
+        m = d < best_d
+        best_d[m] = d[m]
+        s[m] = (cum[k] + t[m] * seglen[k]) / total
+
+    plo, phi = _spec30_p_range(r['root'])
+    cand = np.linspace(plo, phi, 2001)
+    fr = np.array([float((r['root'] * np.power(1.0 - s, pc) >= r['strong']).mean())
+                   for pc in cand])
+    p = float(cand[int(np.argmin(np.abs(fr - r['frac'])))])
+    anc = r['root'] * np.power(np.clip(1.0 - s, 0.0, 1.0), p)
+    tgt = 1.0 - anc
+
+    # 31 : partition de l'unite lineaire par morceaux dans `u = r^grad`. Deux maillons -> (1-u, u).
+    u = np.power(np.clip(s, 0.0, 1.0), r['grad'])
+    uk = np.power(np.clip(tk, 0.0, 1.0), r['grad'])
+    A = np.zeros((len(vi), len(joints)))
+    for a in range(len(joints) - 1):
+        lo, hi = uk[a], uk[a + 1]
+        last = (a == len(joints) - 2)
+        m = (u >= lo) & (u <= hi) if last else (u >= lo) & (u < hi)
+        if not m.any():
+            continue
+        q = (u[m] - lo) / (hi - lo) if (hi - lo) > 1e-12 else np.zeros(int(m.sum()))
+        A[m, a] += 1.0 - q
+        A[m, a + 1] += q
+    A[u < uk[0], 0] = 1.0
+    A[u > uk[-1], -1] = 1.0
+    rs = A.sum(axis=1)
+    A = A / np.where(rs < 1e-12, 1.0, rs)[:, None]
+
+    # --------------------------------------------------------------------------------------------
+    # « THERE SHALL BE NO HARD ATTACHMENT BOUNDARY » (30, derniere ligne) — ET LA PREMIERE CUISSON
+    # L'A VIOLEE. Mesure, `probe_skin_tear_moving.py` sur les deux mesh cuits :
+    #     aretes cassees (|delta pilote| > 0.5)   chestL 1 -> 31   chestR 3 -> 37
+    # La cause n'est PAS une frontiere : les aretes cassees sont etalees sur TOUT l'organe
+    # (s=0.00..1.00, mediane 0.48). C'est la RAIDEUR SPATIALE du profil contre la FINESSE DU MESH :
+    # 85 sommets pour 8.7 cm de polyligne, donc deux sommets VOISINS peuvent differer de 0.35
+    # d'abscisse, et un profil qui balaie 0.07 -> 1.00 sur cette abscisse leur donne 0.5 d'ecart.
+    # Le profil de la 30 et la finesse du mesh sont en tension REELLE, et la spec tranche : elle
+    # exige les deux. On lisse donc le champ sur les ARETES — un defaut de voisinage se corrige sur
+    # le voisinage — et on s'arrete a la DERNIERE iteration qui tient encore les criteres du
+    # contrat. Aucun seuil invente : les deux conditions d'arret sont des lignes de la spec.
+    #   (a) les CINQ bandes d'ancrage de la 30 restent DANS ;
+    #   (b) la part du maillon distal reste >= `frac` (la barre du contrat du 2026-08-18 08:55).
+    # Les sommets VOISINS HORS DOMAINE sont des valeurs de BORD FIXES (leur ponderation actuelle),
+    # pas des trous : c'est ce qui empeche le seuil `gate=` de fabriquer sa propre falaise.
+    part = np.column_stack([anc] + [tgt * A[:, k] for k in range(len(joints))])
+    smooth_iters = 0
+    stop_why = 'aretes illisibles'
+    # `LAM` EST LA FINESSE DU PAS DE LISSAGE, PAS UNE CIBLE : ce n'est pas ce qu'on veut
+    # atteindre. Ce sont les deux conditions d'arret (bandes de la 30, part distale du
+    # contrat) qui decident OU on s'arrete ; un pas plus fin ne fait que laisser plus de
+    # lissage tenir AVANT que l'une d'elles cede. Mesure : a LAM=0.5 une seule passe
+    # sortait deja l'apex de sa bande (0.006 -> au-dessus de 0.10), donc zero lissage.
+    LAM = 0.10
+    if ed:
+        pos = {int(v): i for i, v in enumerate(vi)}
+        nb_in, nb_out = [[] for _ in range(len(vi))], [[] for _ in range(len(vi))]
+        for (a, b) in ed:
+            ia, ib = pos.get(int(a)), pos.get(int(b))
+            if ia is not None and ib is not None:
+                nb_in[ia].append(ib); nb_in[ib].append(ia)
+            elif ia is not None:
+                nb_out[ia].append(int(b))
+            elif ib is not None:
+                nb_out[ib].append(int(a))
+        # ponderation ACTUELLE des voisins hors domaine, figee : bord de Dirichlet
+        def _outside(v):
+            row = np.zeros(len(joints) + 1)
+            for c in range(J.shape[1]):
+                jj, wv = int(J[v, c]), float(W[v, c])
+                if wv <= 0.0:
+                    continue
+                row[grp.index(jj) + 1 if jj in grp else 0] += wv
+            tt = row.sum()
+            return row / tt if tt > 1e-9 else row
+        out_val = {}
+        for i in range(len(vi)):
+            for v in nb_out[i]:
+                if v not in out_val:
+                    out_val[v] = _outside(v)
+
+        def _bands_ok(pt):
+            a = pt[:, 0]
+            for lo, hi, blo, bhi in ((0.000, 0.125, 0.90, 1.00), (0.125, 0.375, 0.55, 0.85),
+                                     (0.375, 0.625, 0.25, 0.55), (0.625, 0.875, 0.05, 0.30),
+                                     (0.875, 1.001, 0.00, 0.10)):
+                m = (s >= lo) & (s < hi)
+                if m.any() and not (blo <= float(a[m].mean()) <= bhi):
+                    return False
+            return True
+
+        def _distal_ok(pt):
+            mj = [int((pt[:, k + 1] > 0.5).sum()) for k in range(len(joints))]
+            t = sum(mj)
+            return t > 0 and mj[-1] > 0 and mj[0] > 0 and (mj[-1] / t) >= r['frac']
+
+        cur = part.copy()
+        for _it in range(400):
+            nxt = cur.copy()
+            for i in range(len(vi)):
+                acc = [cur[j] for j in nb_in[i]] + [out_val[v] for v in nb_out[i]]
+                if not acc:
+                    continue
+                nxt[i] = (1.0 - LAM) * cur[i] + LAM * np.mean(acc, axis=0)
+            nxt = nxt / np.maximum(nxt.sum(axis=1), 1e-12)[:, None]
+            if not _bands_ok(nxt):
+                stop_why = 'bandes 30'
+                break
+            if not _distal_ok(nxt):
+                stop_why = 'part distale/maillon inerte'
+                break
+            cur = nxt
+            smooth_iters += 1
+        part = cur
+    anc = part[:, 0]
+    tgt = 1.0 - anc
+    Aw = part[:, 1:]
+
+    moved = 0.0
+    for i, v in enumerate(vi):
+        keep = [(int(J[v, c]), float(W[v, c])) for c in range(J.shape[1])
+                if int(J[v, c]) not in grp and W[v, c] > 0.0]
+        ksum = sum(w for _j, w in keep)
+        if ksum > 1e-9:
+            keep = [(j, w * float(anc[i]) / ksum) for j, w in keep]
+        elif anc[i] > 1e-9:
+            keep = [(don[0], float(anc[i]))]      # l'ancre existe meme si l'artiste ne l'a pas peinte
+        new = [(grp[k], float(Aw[i, k])) for k in range(len(joints))
+               if Aw[i, k] > 1e-6]
+        rows = keep + new
+        if len(rows) > J.shape[1]:
+            rows.sort(key=lambda x: -x[1])
+            rows = rows[:J.shape[1]]
+        before = {int(J[v, c]): float(W[v, c]) for c in range(J.shape[1])}
+        J[v, :] = 0
+        W[v, :] = 0.0
+        for c, (jj, wv) in enumerate(rows):
+            J[v, c] = jj
+            W[v, c] = wv
+        tot = W[v].sum()
+        if tot > 1e-12:
+            W[v] /= tot
+        moved += sum(abs(w - before.get(j, 0.0)) for j, w in rows) * 0.5
+
+    # --- CE QUE LA REGLE A REELLEMENT PRODUIT, relu sur J/W APRES mutation (jamais sur la cible).
+    maj = []
+    for g in grp:
+        w = np.zeros(len(vi))
+        for c in range(J.shape[1]):
+            w += np.where(J[vi, c] == g, W[vi, c], 0.0)
+        maj.append(int((w > 0.5).sum()))
+    ancd = np.zeros(len(vi))
+    for c in range(J.shape[1]):
+        ancd += np.where(np.isin(J[vi, c], grp), 0.0, W[vi, c])
+    bands = []
+    for lo, hi, lbl in ((0.000, 0.125, 'root'), (0.125, 0.375, 'rear'),
+                        (0.375, 0.625, 'mid'), (0.625, 0.875, 'dist'), (0.875, 1.001, 'apex')):
+        m = (s >= lo) & (s < hi)
+        bands.append(f"{lbl}={ancd[m].mean():.2f}" if m.any() else f"{lbl}=n/a")
+    tmaj = sum(maj) if sum(maj) else 1
+    rep = [f"  {r['target']:<10} anchor30 verts={len(vi)} p={p:.3f} (bandes 30 admettent"
+           f" {plo:.3f}..{phi:.3f}) grad={r['grad']:.2f} lissage={smooth_iters} iter (arret: {stop_why})"
+           f" masse deplacee={moved:.1f}",
+           f"             ancrage mesure APRES: " + " ".join(bands)
+           + f"   StrongRootFraction={float((ancd >= r['strong']).mean()):.3f}"
+             f" (cible {r['frac']:.2f})",
+           f"             sommets MAJORITAIRES (w>0.5): "
+           + " ".join(f"{joints[k]}={maj[k]}" for k in range(len(joints)))
+           + f"   part du maillon distal = {100.0 * maj[-1] / tmaj:.1f}%"]
     return rep
 
 
@@ -590,6 +887,15 @@ def apply_model(js, binc, rules, verbose=True):
             P = read_accessor(js, binc, at['POSITION']).astype(np.float64) * UNITS
 
             for r in rules:
+                if r['kind'] == 'anchor30':
+                    # IL DOIT ETRE TESTE ICI, ET C'EST UN PIEGE REEL : un `kind` non reconnu par ce
+                    # dispatch tombe dans la branche PAR DEFAUT, qui est `transfer` (plus bas) —
+                    # donc une regle neuve s'appliquerait en silence comme un rescale de peinture,
+                    # sur `target=` qui n'est meme pas un joint. Un operateur s'enregistre a DEUX
+                    # endroits : le filtre du parser (:83) et ce dispatch.
+                    rep.extend(_anchor30(r, J, W, idx, P, bind_pos,
+                                        edges_by_key.get(key)))
+                    continue
                 if r['kind'] == 'redistribute':
                     # Il ne partage la queue d'aucun des deux autres : il ne vise pas un joint
                     # unique (`transfer`) et il ne diffuse pas une marche existante (`grade`) — il

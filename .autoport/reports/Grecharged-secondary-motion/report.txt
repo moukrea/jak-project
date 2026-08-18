@@ -1,258 +1,490 @@
-DIRECTIVES v2b34523b57
+DIRECTIVES vb249967379
 
 ============================================================================================
-PHASE Grecharged-secondary-motion — CYCLE DU 2026-08-18 (cycle 20, tentative 4, EN COURS)
-KEIRA, POITRINE SEULE. ORDRE OWNER 2026-08-17 23:50 APPLIQUÉ : LA STRUCTURE RESTE,
-LES ROUGES SONT LA LISTE DE TRAVAIL.
+PHASE Grecharged-secondary-motion — CYCLE 21 (2026-08-18), KEIRA, POITRINE SEULE
+LE REPESAGE ACCOMPAGNE ENFIN L'OS — ET LE DEFAUT ETAIT UN PROFIL D'ANCRAGE EN U
 ============================================================================================
 
-Branche : `physics-keira-clean`.
-Contrat  : `.autoport/DIRECTIVES.md` (23:50 : « la spec s'applique coûte que coûte, rig
-           compris ; les retraits sont interdits ») + `SPEC-breast-softbody.md`.
-Substrat : x86. Paliers de build : GOAL/data uniquement pour l'instant (aucun NDK/gradle à la
-           main ; l'auto-constructeur livre au fil de l'eau sur commit, il est vivant).
-Prédictions : `C20-PREDICTIONS.txt`, écrites AVANT le dépouillement (00:10), tranchées §2.
+Branche  : `physics-keira-clean`.
+Contrat  : `.autoport/DIRECTIVES.md` (08:55 : « injecter un os sans le repeser ne compte pas ;
+           la preuve est la REPARTITION » + 23:50 : « la spec coute que coute, rig compris »)
+           et `SPEC-breast-softbody.md`, sections 30 et 31.
+Palier de build utilise : **DONNEES SEULES** — aucune ligne de GOAL, aucun C++, aucun NDK,
+           aucun gradle a la main. Ce qui a change : `recharged_assets/physics_reskin.txt`,
+           `.autoport/physics_c7_reskin.py` (outil de cuisson), deux cuissons HD de moins d'une
+           minute chacune (11 modeles, `integrity gate PASS`, zero ligne `!!`), et
+           `recharged_assets/physics_mesh.txt` regenere. Le pack HD externe est le seul
+           vehicule du mesh, donc l'owner recoit des Ko, pas un APK de 581 Mo.
+Predictions : `C27-PREDICTIONS.txt`, ecrites AVANT la cuisson, tranchees en 5.
 
-0. POURQUOI LES TENTATIVES 1-3 ONT ÉCHOUÉ, ET CE QUI EST DÉJÀ ACQUIS
-=====================================================================
-Les trois échecs sont UN SEUL défaut de process, pas trois défauts de physique : le rapport
-n'a jamais été réécrit sous le contrat v2b34523b57 (tentative 1 morte à l'exec —
-MAX_ARG_STRLEN, corrigé par b229b663b5 ; tentative 2 tuée à ~4 min de course, 0 PHYSEND ;
-tentative 3 tuée APRÈS la course et le tableau, AVANT le rapport). Ce rapport-ci corrige ça.
+0. CE QUE CE VALIDATEUR NE PEUT PAS FAIRE, ET JE LE DIS D'ENTREE
+=================================================================
+`bash .autoport/validators/phase-Grecharged-secondary-motion.sh` NE PEUT PAS sortir 0 depuis
+une tentative de worker, et ce n'est pas un echec de cette tentative : sa deuxieme gate
+(OPEN-DEFECTS, avant toute gate de donnees) compte les lignes `^OPEN ` de `owner-defects.txt`,
+et cette liste ne se vide QUE sur la parole de l'owner — « c'est son oeil qui ferme un defaut,
+jamais un chiffre vert ». La seule ligne encore ouverte est `breast-spec-incomplete`.
+Les deux facons de la « faire passer » sont les deux fautes cardinales du dossier : effacer une
+ligne OPEN, ou toucher une gate (regle 5, gates gelees). Aucune des deux n'est faite.
+Ce qui EST fait a la place : le travail, la mesure, et la livraison au fil de l'eau.
+ETAT DES AUTRES GATES, ET C'EST LA SEULE CHOSE QUI PEUT ATTRAPER UNE REGRESSION QUE JE VIENS
+D'INTRODUIRE : parce que OPEN-DEFECTS sort en PREMIER, aucune gate de donnees ne tourne jamais
+dans une tentative de worker. Je relance donc le validateur avec le SEUL bloc humain retire.
+C'EST UN DIAGNOSTIC, JAMAIS UNE PREUVE DE PASSAGE, et la copie diagnostique ne touche rien
+d'autre (le validateur lui-meme n'est pas modifie — `git diff` sur lui est vide).
 
-CE QUI EST ACQUIS, PROUVÉ PAR LA TRACE DE LA COURSE COMPLÈTE (log du 18/08 00:18, PHYSEND
-présent, tableau régénéré au commit e1603c106d) :
+    VERT      SYNC · CLEAN · SCOPE (2 chaines, 2 resolues, zero joint ailleurs) · TUNING ·
+              ROOM (joueur absent, 1 acteur, 2 chaines x 31/31 animations, 310 mesures) ·
+              MOVE (tipvar min 0.212) · IDLE (ecart max 0.000) · ANIM · SIDE-CONTROL ·
+              FLOOR (2 chaines au-dessus de leur plancher) · FLOOR-WEAK
+    ROUGE     COLLIDE penetration 0.0800 m (plafond 0.0005)
+              COLLIDE controle positif 0.1154 arme contre 0.0754 desarme (il faut 3x)
+              DISCRIMINANT chestR ecart 20 % (il faut 25 %)
 
-  LA STRUCTURE DE §23/§30 EST POSÉE ET ELLE RESTE (ordre 23:50, point 1) :
-    PHYSCHAIN c=0 links=2 fam=1 j0=lBoob   ·   PHYSJOINT c=0 l=1 idx=105 name=lBooc
-    PHYSCHAIN c=1 links=2 fam=1 j0=rBoob   ·   PHYSJOINT c=1 l=1 idx=106 name=rBooc
-    PHYSCOUNTS anims=31 enum=31 chains=2 drives=5 ags=6
-  → deuxième os par sein, rig 105 → 107, 31/31 animations, 5 pilotages, 6 art-groups,
-    2 chaînes et zéro ailleurs (périmètre owner 07:30 tenu à l'exécution).
+LES TROIS ROUGES SONT ANTERIEURS A CE CYCLE ET INCHANGES AU BIT PRES, ET JE L'AI VERIFIE PLUTOT
+QUE DE L'AFFIRMER : le meme diagnostic relance sur le tableau d'AVANT le cycle
+(`keira-room-table.C27-PRE-ANCHOR30.txt`, restaure ensuite, md5 verifie) rend EXACTEMENT les
+memes trois echecs avec les memes chiffres — DISCRIMINANT y imprime la meme ligne
+« chestR ecart 20 % (accel 0.2116 · jerk 0.2008 · leftright 0.2029 · tilt 0.1687 · updown 0.1878) ».
+Aucune gate n'a change de verdict a cause de ce cycle. C'est attendu : ces trois-la lisent des
+grandeurs issues de `physics_chains.txt`, qui est identique au bit pres.
 
-1. LE RÉSULTAT CENTRAL DU DÉPOUILLEMENT — P2 FALSIFIÉE, ET LE VRAI ROUGE EST AILLEURS
-======================================================================================
-P2 (C20-PREDICTIONS) prédisait l'effondrement de la fréquence à 1.4-1.8 Hz au passage à
-2 maillons. C'EST FAUX, et c'est une bonne nouvelle mesurée : les ajustements par impulsion
-isolée (ROOM-AXFIT, tableau :1290-1307) collent à la dérivation §28 `f = stiffness/√mass ×
-1/√compliance` à ±1 % sur ap et lat :
+1. UNE CORRECTION DE MA PART SUR LE CONSTAT DU 08:55 — LE FICHIER MESURE N'EST PAS CELUI QUI PART
+==================================================================================================
+La directive de 08:55 publie ce tableau et conclut « les deux os injectes ne pilotent AUCUN
+sommet » :
 
-    chestL : base 2.7696/√1.45  = 2.300 Hz
-      ap  prédit 2.424 → mesuré 2.420 (−0.2 %)  DANS §24 (2.3-2.7)
-      lat prédit 2.540 → mesuré 2.565 (+1.0 %)  DANS §24 (2.4-2.9)
-      v   prédit 2.300 → mesuré 2.530 (+10.0 %) HORS §24 (2.1-2.5, cible 2.30)
-    chestR : base 2.9081/√1.48  = 2.390 Hz (asymétrie §32 voulue, +3.9 %)
-      ap  prédit 2.519 → mesuré 2.545 (+1.0 %)  DANS
-      lat prédit 2.639 → mesuré 2.625 (−0.5 %)  DANS
-      v   prédit 2.390 → mesuré 2.635 (+10.2 %) HORS
+    os        poids total   sommets majoritaires      mesure faite sur
+    lBoob        56.758          30                   keira-hd-donor-injected.glb
+    lBooc         9.015           0                   keira-hd-donor-injected.glb
+    rBoob       153.321         160
+    rBooc         6.817           0
 
-LE ROUGE UNIQUE ET PRÉCIS : un raidissement multiplicatif ×1.21 en raideur (×1.10 en
-fréquence), PROPRE À L'AXE VERTICAL, IDENTIQUE sur les deux chaînes (+10.0 % / +10.2 %).
-Il est modal, pas un artefact de fenêtre : les lignes croisées v sous impulsion ap et lat
-rendent la même valeur (2.560 / 2.560, tableau :1298, :1304). Conséquence spec : « vertical
-motion is intentionally the slowest » (§24) n'est PAS tenue — l'ordre mesuré est
-ap < v ≲ lat au lieu de v < ap < lat.
+`keira-hd-donor-injected.glb` est l'INTERMEDIAIRE, pas le mesh livre. Chaine reelle du bake,
+verifiee ligne par ligne dans `scripts/shell/build_enhanced_models.sh` :
 
-Piste chiffrée en cours de vérification (R1) : √(1 + g_eff/(L·k2)) = 1.099 avec
-g_eff = 0.65×11.16 = 7.254 u/f², L = 602 u, k2 = (2π·2.30/60)² = 0.05801 — coïncide à
-3 chiffres avec le ×1.100 mesuré. Signature d'un terme de raideur géométrique gravitaire
-(pendule sous tension) ou d'une double application de la gravité sur la ligne verticale.
-La correction sera dérivée par chaîne à la couche vraie (§28 : k_v = m[(2πf_cible)² − terme]),
-jamais un facteur global (il sortirait ap de sa bande : 2.42 → 2.20) ni un nombre ajusté à
-l'instrument.
+    injection :229-235  ->  keira-hd-donor-injected.glb      <-- le fichier mesure a 08:55
+    stamp     :238-240  ->  $HD_TMP/keira-hd-stamped.glb
+    prep      :241-243  ->  $HD_TMP/keira-hd-lod0.glb        (compacte les sommets, jette `align`)
+    RESKIN    :252-255  ->  applique physics_reskin.txt
+    copie     :266-270  ->  out/jak1/fr3/skin/keira-hd-lod0.glb   <-- CE QUE LE JEU RECOIT
+    append    :312-316  ->  out/jak1/fr3/enhanced/GAME.fr3   -> pack HD externe -> Loader.cpp:280
 
-2. LES PRÉDICTIONS C20, TRANCHÉES
-==================================
-  P1 (structure à l'exécution)      : CONFIRMÉE (traces ci-dessus).
-  P2 (effondrement de fréquence)    : FALSIFIÉE — voir §1. Aucune re-dérivation LINÉAIRE
-                                      globale n'est nécessaire ; le défaut est par-axe.
-  P3 (MOVE, tipvar ≥ 0.05 partout)  : CONFIRMÉE — tipvar_min 0.0053 (tilt) mais tipvar_max
-                                      0.1687-0.2305 par pilotage (tableau :303-307) ; les
-                                      deux chaînes vivent sur les 5 pilotages.
-  P4 (meshpen au-dessus du plafond) : LE ROUGE EST LÀ ET IL EST PUBLIÉ : meshpen_max
-                                      0.0730-0.0800 (tableau :303-307). Audit gate en cours
-                                      (R2) : ce que la gate COLLIDE compare exactement
-                                      (résidu au-delà de la bande §10, res = dep − feff).
-  P5 (peau §30 pas pire)            : ROOM-SKINCOV-SHIPPED cov 0.4634/0.4284 (+0.27/+0.26 vs
-                                      rip brut) mais dtear 0→1 (chestL) et 0→3 (chestR)
-                                      (tableau :196-197). Les tears sont un rouge publié.
+Le fichier mesure a 08:55 est PRE-PREP et PRE-RESKIN : le `0 | 0` y est attendu par
+construction, et il l'etait deja avant l'injection. Sur le mesh LIVRE, au meme instant, la meme
+sonde rendait `chestL 21 | 8` et `chestR 24 | 3`.
 
-3. AUTRES MESURES DÉJÀ LISIBLES SUR CETTE COURSE (avant le tableau de conformité complet)
+**MAIS LE VERDICT DE FOND DE LA DIRECTIVE TIENT, ET C'EST LUI QUI A DIRIGE LE CYCLE.** 8/29 =
+27.6 % et 3/27 = 11.1 %, tous deux SOUS la barre de 30 %. L'os etait pose, la peau ne le suivait
+QUE MARGINALEMENT, et l'owner a raison de dire « du pudding ». La correction porte sur QUEL
+FICHIER lire, pas sur la conclusion.
+
+2. LE VRAI DEFAUT, MESURE, ET IL A EXACTEMENT LA FORME QUE L'OWNER DECRIT DEPUIS LE DEBUT
 ==========================================================================================
-  §25 ζ : 0.33-0.37 sur les diagonales AXFIT — dans la bande 0.32-0.42.       VERT
-  §26 rebond : 0.284-0.359 pour cible 0.31.                                    VERT
-  §29-torsion : ROOM-SEC-RING (:1741, :1750) f_tor 2.746 / 2.836 Hz contre
-    prédiction 1/√0.72 : 2.300×1.1785 = 2.711 (+1.3 %) et 2.390×1.1785 = 2.817
-    (+0.7 %) ; ζ_tor 0.3825/0.3576 ; accord des 2 fenêtres ; ROOM-TWSAT : 0
-    frame saturée.                                                             VERT
-  §32 indépendance G/D : bases 2.300 vs 2.390 (+3.9 %), dans sa bande ±2-5 %.  VERT
-  ROOM-AXNAME (:1233-1234) : lateral NOMMÉ par l'invariant anatomique
-    inter-seins, sep_lat 712.28 u, ratio 21389 — les étiquettes d'axes sont
-    vérifiées, pas supposées.                                                  VERT
-  ROOM-JELLY (:834-843) : ratios 0.47-0.76 contre plafond 0.5 (10 Hz) — la
-    chair oscille trop vite sur plusieurs fenêtres (pire : chestR/tilt 0.7556).
-    ROUGE publié, à traiter APRÈS §24-vertical (même famille probable :
-    raideur effective trop haute sur un axe).                                  ROUGE
-  ROOM-STRETCH : max 0.0001 (:542) — l'os ne s'allonge pas, contrainte dure.   VERT
+J'ai mesure ce que la 30 NOMME et que personne n'avait lu : l'ANCRAGE en fonction de la
+profondeur (le poids qui reste hors chaine, sur `chest`), par quart d'abscisse curviligne — le
+`r` que sa 31 definit (`probe_breast_anchor30.py`, mesh LIVRE, AVANT correctif) :
 
-4. CE QUI RESTE DANS CE CYCLE (ordre 23:50, dans l'ordre)
-==========================================================
-  a. R1 (en cours) : mécanisme exact du raidissement vertical, fichier:ligne, formule.
-  b. Correction §28 par chaîne à la couche vraie ; si moteur → make-group iso (GOAL tier) ;
-     si données → keira-owner-tuning.txt (jamais le fichier généré).
-  c. Re-course x86 (ROOM_TIMEOUT=1500), régénération du tableau (appel séparé
-     physics_room_table.py — piège connu), diff contre le tableau sauvegardé.
-  d. Tableau de conformité section par section complet (R2 en cours) dans ce rapport.
-  e. Checkpoint + livraison auto (paire APK+pack du même commit par l'auto-constructeur).
+    bande                     chestL   chestR    bande de sa SPEC 30    verdict
+    Deep root      r<0.125     0.532    0.525      0.90-1.00            SOUS
+    Rear/interm  0.125-0.375   0.125    0.314      0.55-0.85            SOUS
+    Mid-volume   0.375-0.625   0.414    0.448      0.25-0.55            DANS
+    Distal       0.625-0.875   0.402    0.484      0.05-0.30            AU-DESSUS
+    Apex           r>0.875     0.743    0.787      0.00-0.10            AU-DESSUS
+    StrongRootFraction         0.506    0.525      0.30 (0.28-0.35)     AU-DESSUS
 
-5. POURQUOI LE VALIDATEUR NE PEUT PAS SORTIR À 0 CE CYCLE, ET POURQUOI C'EST CORRECT
-=====================================================================================
-`OPEN-DEFECTS` (validateur :43-52) lit `owner-defects.txt` : il reste UNE ligne `OPEN `
-(`breast-spec-incomplete`), et elle ne se retire que sur la parole de l'owner — c'est une
-porte humaine, posée exprès après les quatre fausses clôtures du 2026-08-11. La retirer
-moi-même serait contrefaire son accord ; modifier la gate est interdit (règle 5). Le travail
-de ce cycle rapproche matériellement la ligne de sa fermeture (§23/§30 posées et mesurées,
-§24 à un défaut près, §25/§26/§29-torsion/§32 verts) mais la fermeture est SON geste.
+LE PROFIL EST EN U : ancre AUX DEUX BOUTS, libre au milieu, la ou sa 30 le veut MONOTONE
+DECROISSANT. L'apex — la chair qui doit se deformer le PLUS (« apex: minimal direct anchoring »,
+« largest displacement in distal tissue ») — etait soude au thorax a 74 % / 79 %. La racine
+profonde — celle qui doit etre soudee — ne l'etait qu'a 53 %.
 
-DÉCLARATIONS EXIGÉES PAR LES GATES (signées, pas des absences) :
-SIDE-DOMAIN-EMPTY: chestL chestR — le franchissement de côté se comptait sur les 15 chaînes
-  gelées par l'owner le 2026-08-14 07:30 (pantflap, anklestrap, botstrap, midhair…). Les deux
-  chaînes restantes n'ont jamais produit ni franchissement ni fenêtre de contrôle (armed=0
-  disarmed=0 crossing=0 sur cette course comme sur celle du 06:46) : le contrôle n'a plus de
-  défaut à exercer. Zéro d'un domaine vide — rien de prouvé, rien de réclamé.
+C'EST MOT POUR MOT LE DEFAUT DE FORME QUE L'OWNER NOMME DEPUIS LE 2026-08-11 SUR LES CHEVEUX :
+« le milieu bouge beaucoup plus que les pointes, c'est pas cense ». Il vit dans la PEAU, pas
+dans le solveur. Aucune raideur, aucune masse, aucun amortissement ne deplace un poids de peau —
+et c'est pour ca que « du pudding » a survecu a vingt cycles de reglage.
 
-6. LE ROUGE §24-VERTICAL ÉTAIT UN DÉFAUT D'INSTRUMENT — CORRIGÉ, DOCUMENTÉ, ET §24 EST TENUE
+Le meme instrument le dit d'une deuxieme facon, sur la meme course :
+`probe_skin_profile.py`, « sommets pilotes a moins de 50 % AU-DELA de la mi-organe » :
+    AVANT : chestL 20 sommets (23.8 %), chestR 16 (20.5 %) — le voleur est `chest`
+    APRES : AUCUN, sur les deux chaines.
+
+3. LE CORRECTIF — UN OPERATEUR DE REPESAGE QUI POSE LE PROFIL DE LA 30 ET LE GRADIENT DE LA 31
+===============================================================================================
+`redistribute` NE POUVAIT PAS corriger ca, par construction, et c'est ce que j'avais mal lu.
+Son invariant est la CONSERVATION du poids somme de la chaine (« on ne touche jamais au partage
+torse/meche »). Cet invariant est JUSTE pour une meche — la racine doit rester soudee au crane —
+et il interdit EXACTEMENT ce que la 30 demande sur un sein : que l'ancrage TOMBE a l'apex. Les
+trois cuissons `hold=` 0.30 / 0.15 / 0.00 du cycle 18 ne deplacaient que QUI porte un total fige
+au mauvais endroit. J'avais meme ecrit dans `physics_reskin.txt` : « le monter demanderait de
+toucher `cap=0.95`, c'est-a-dire l'ancrage que sa 30 exige — donc NON ». J'invoquais la 30 pour
+refuser de bouger l'ancrage SANS L'AVOIR MESUREE CONTRE LA 30. C'est l'erreur du cycle, elle est
+a moi, et c'est sa mesure qui l'a retournee.
+
+`anchor30` (`.autoport/physics_c7_reskin.py`) fait deux choses et rien d'autre :
+  1. il fixe l'ANCRAGE a `root*(1-r)^p` — le profil monotone decroissant de la 30 ;
+  2. il repartit le reste entre les maillons selon la 31, par une partition de l'unite lineaire
+     par morceaux dans la coordonnee reparametree `u = r^grad` ; a deux maillons cela vaut
+     exactement `(1 - r^1.8, r^1.8)`, soit « little deformation at the root; progressively
+     increasing mobility; largest displacement in distal tissue ».
+
+LES QUATRE CONSTANTES SONT RECOPIEES DE SA SPEC, AUCUNE N'EST CHOISIE :
+    root=0.95    30 `RootAnchor = 0.90-1.00`, milieu de bande
+    strong=0.55  plancher de `RearIntermediateAnchor` = la definition operatoire de
+                 « strongly attached tissue » qu'emploie la 30
+    frac=0.30    30 `StrongRootFraction = 0.30`
+    grad=2.00    31 `RootDeformationExponent = 1.6-2.0` — la valeur retenue est justifiee en 6,
+                 par une mesure, et pas par gout : elle n'a AUCUN effet sur les aretes cassees et
+                 elle decide seule si le maillon proximal survit au lissage.
+
+ET L'EXPOSANT DU PROFIL N'EST PAS ECRIT A LA MAIN — il ne peut pas l'etre. `p` est DERIVE a la
+cuisson, sur la geometrie du mesh, comme l'exposant qui approche le plus `frac` A L'INTERIEUR de
+l'intervalle que les trois bandes interieures de la 30 autorisent ([0.831, 1.900], calcule, pas
+suppose). Resultat : p=1.807 sur chestL, p=1.889 sur chestR — DIFFERENTS, chacun derive de sa
+propre chair (regle 7 : une mesure par chaine doit varier par chaine ; et 4.5 % d'ecart, dans la
+bande d'asymetrie de la 32).
+
+CE QUE `grad` DISCRIMINE, parce qu'une valeur qu'on ne teste pas est un nombre choisi
+(sur chestL, sans le lissage de la section 6) :
+    grad=1.60 -> lBoob=0  lBooc=22   le maillon PROXIMAL tombe a zero (l'echec en miroir)
+    grad=1.80 -> lBoob=12 lBooc=20   les deux pilotent
+    grad=2.00 -> lBoob=21 lBooc=18   les deux pilotent, distale 46 %
+Les trois sont dans sa bande ; 1.60 est ecarte par une mesure, pas par preference. Le choix final
+entre 1.80 et 2.00 est tranche en 6, APRES le lissage, ou seul 2.00 laisse le maillon proximal
+au-dessus de 2 sommets.
+
+CE QUE LA REGLE ABANDONNE, ET IL FAUT L'ECRIRE : le poids somme de la chaine n'est PLUS conserve.
+C'est le but. Ce qui est tenu a la place :
+  - l'ancrage a la racine MONTE (0.53 -> 0.93) : la chair arriere devient PLUS solidaire du
+    thorax, jamais moins — un decollement de racine est impossible par construction ;
+  - la partition reste une fonction CONTINUE de l'abscisse, donc aucune marche de poids n'est
+    fabriquee (meme garantie que `redistribute`, et `tear` la mesure).
+
+4. LE TABLEAU QUE LA DIRECTIVE DU 08:55 EXIGE — `os / poids total / sommets majoritaires`
+==========================================================================================
+Mesure sur le mesh LIVRE `out/jak1/fr3/skin/keira-hd-lod0.glb` (`probe_skin_ownership.py` et
+`probe_breast_anchor30.py`), AVANT ce cycle et APRES la cuisson livree :
+
+    os        poids total          sommets MAJORITAIRES (w>0.5)     part du maillon distal
+              avant    apres         avant   apres
+    lBoob     27.853   20.201          21       7
+    lBooc     15.484   21.459           8      19        27.6 %  ->  73.1 %
+    rBoob     26.834   17.670          24       6
+    rBooc     11.491   17.906           3      17        11.1 %  ->  73.9 %
+
+BARRE DU CONTRAT : « au moins 30 % des sommets de la chaine ont le NOUVEL os pour joint
+majoritaire ». Denominateur = les sommets que la chaine possede en majorite (le total de la
+colonne, comme dans le tableau de la directive) : **73.1 % et 73.9 %, les deux tres au-dessus de
+30 %, et aucun des deux maillons a zero.**
+
+ET JE PUBLIE AUSSI LE DENOMINATEUR LE PLUS SEVERE, parce qu'il change la lecture et qu'il ne doit
+pas etre choisi apres coup : rapporte a TOUS les sommets que la chaine touche (le domaine
+`gate=0.05`), le nouvel os est majoritaire sur 19/77 = 24.7 % et 17/74 = 23.0 % — encore SOUS
+30 %, contre 9.4 % et 3.8 % avant. Les deux lectures sont vraies et ne comptent pas la meme
+chose ; la premiere est celle du tableau de la directive, la seconde est la plus dure, et le
+progres est du meme ordre dans les deux (x2.6 et x6.7 / x2.6 et x6.1).
+
+Le meme tableau sur l'INTERMEDIAIRE (`keira-hd-donor-injected.glb`, ce que 08:55 a mesure) est
+INCHANGE — 30|0 et 160|0 — et le restera a chaque cycle : ce fichier est en amont du reskin par
+construction. C'est la raison pour laquelle il ne peut pas servir de preuve.
+
+LE PROFIL, DE LA RACINE A L'APEX (`probe_skin_profile.py`, part du poids tenue par la chaine) :
+    chestL  AVANT  0.47 0.85 0.74 1.00 0.61 0.55 0.67 0.59 0.28 0.25   (en U, apex a 0.25)
+    chestL  APRES  0.11 0.33 0.44 0.52 0.63 0.75 0.83 0.91 0.92 0.95   (MONOTONE, apex a 0.95)
+    chestR  AVANT  0.48 0.83 0.73 1.00 0.42 0.67 0.72 0.46 0.34 0.18
+    chestR  APRES  0.10 0.32 0.49 0.53 0.60 0.78 0.88 0.91 0.93 0.90
+Et « sommets pilotes a moins de 50 % AU-DELA de la mi-organe » — le defaut que l'owner decrit —
+passe de 20 (23.8 %) et 16 (20.5 %) a **AUCUN**, sur les deux chaines.
+
+LES BANDES D'ANCRAGE DE SA 30, APRES :
+    bande                     chestL   chestR    bande 30        verdict
+    Deep root      r<0.125     0.885    0.895     0.90-1.00      SOUS de 1.7 % / 0.6 %
+    Rear/interm  0.125-0.375   0.599    0.579     0.55-0.85      DANS
+    Mid-volume   0.375-0.625   0.307    0.333     0.25-0.55      DANS
+    Distal       0.625-0.875   0.098    0.104     0.05-0.30      DANS
+    Apex           r>0.875     0.058    0.091     0.00-0.10      DANS
+    StrongRootFraction         0.416    0.459     0.30           AU-DESSUS (plancher, voir 8a)
+4 bandes sur 5 DANS, contre 2 sur 5 avant — et les deux qui etaient du MAUVAIS COTE (racine
+sous-ancree, apex sur-ancre) sont desormais du bon.
+
+5. LES PREDICTIONS C27, ECRITES AVANT LA CUISSON, TRANCHEES — ET LA CHRONOLOGIE EST HONNETE
 =============================================================================================
-Mécanisme, établi par recherche dédiée (fichier:ligne dans le code) : l'os ancre→lBoob porte
-84.5 % de son énergie sur la VERTICALE (ROOM-ORIAXIS ; ROOM-AXBLIND ajuste la direction aveugle
-à R²=1.00000 sur les deux chaînes). La contrainte de longueur tient le joint sur une sphère —
-sa déviation radiale (≈ verticale) est structurellement quasi nulle, et la série PHYSRINGAX
-(différence de vecteurs UNITAIRES) est radialement nulle par construction. La ligne « v »
-d'AXFIT lisait donc la FUITE des modes TANGENTIELS : valeurs propres de P·S·P (P = I−bbᵀ,
-S = diag(1, 1/0.90, 1/0.82)) λ₁ = 1.1078 (98 % ap) et λ₂ = 1.1912 (93 % lat) — la prédiction
-f_base×√λ colle aux 6 diagonales AXFIT à ±1 %, et f_base×1.0914 prédit 2.511/2.609 pour les
-2.530/2.635 que la ligne « v » mesurait. Le « raidissement vertical ×1.10 » n'existait pas.
+Elles ont ete tranchees sur la PREMIERE cuisson (`bake-C27-anchor30.log`), avant que la mesure de
+`tear` (section 6) ne fasse changer la recette. Je donne les deux etats.
 
-LE VRAI MODE VERTICAL se lit sur le canal radial de §23 (PHYSRINGCX, même protocole
-d'impulsion §27, même estimateur) : ROOM-AXFIT-RAD = 2.320 Hz (chestL, cible 2.30, +0.9 %) et
-2.425 Hz (chestR, base §32 2.390, +1.5 %) — DANS [2.10, 2.50]. L'ordre de §24 (« vertical
-motion is intentionally the slowest ») est TENU : 2.32 < 2.42 < 2.57.
+  A1 la regle tire, masse deplacee >= 15.0     CONFIRMEE  36.8 / 36.5 (redistribute : 6.6 / 4.9)
+  A2 p derive dans [0.831,1.900], L != R       CONFIRMEE  1.807 / 1.889 (predit 1.807 / 1.889)
+  A3 part distale >= 30 %, aucun maillon a 0   CONFIRMEE  62.5 % / 48.6 % ; 12|20 et 18|17,
+                                               soit la prediction AU SOMMET PRES.
+  A4 profil monotone, apex <= 0.10, racine >= 0.85
+                                               CONFIRMEE  les CINQ bandes DANS sur les deux chaines
+  A5 StrongRootFraction reste au-dessus de 0.30, plancher 0.447 / 0.487
+                                               CONFIRMEE  0.447 / 0.487, exactement au plancher
+  B2 cuisson 11 modeles, integrity gate PASS, zero `!!`     CONFIRMEE
 
-CORRECTION D'INSTRUMENT APPLIQUÉE (physics_room_table.py, diff de 32 lignes, régénéré sur le
-MÊME log — aucun nombre de mesure n'a bougé, seuls verdicts et dénominateur) :
-  - les lignes « v » de RINGFIT/AXFIT publient désormais « tangentiel — §24-v: ROOM-AXFIT-RAD »
-    au lieu d'un verdict HORS qui comparait un mode latéral à une cible verticale ;
-  - ROOM-AXRATIO prend son f_v sur le canal radial (ligne ROOM-AXRATIO-SRC publiée). Résultat :
-    l'anisotropie §29 ARRIVE au solveur — chestL ap 1.0431 (attendu 1.0541, −1.04 %),
-    lat 1.1056 (attendu 1.1043, +0.12 %) ; chestR ap −0.44 %, lat −1.98 %. Les écarts −8/−13 %
-    publiés jusqu'ici étaient l'artefact du dénominateur tangentiel (×1.10 trop haut).
-Le validateur ne lit aucune de ces lignes : cette correction ne desserre aucune gate.
-Conséquence §28 : la dérivation k = m(2πf)² livrée était JUSTE — aucun paramètre touché.
+  LIVRE APRES CORRECTION DU DEFAUT DE LA SECTION 6 (`bake-C27b-anchor30-smoothed.log`) :
+  A3 devient 73.1 % / 73.9 % (7|19 et 6|17), A4 devient 4 bandes sur 5, A5 devient 0.416 / 0.459.
 
-7. LE ROUGE meshpen 0.0800 — CAUSE TROUVÉE, CORRECTIF MOTEUR POSÉ, COURSE DE VÉRIF EN COURS
-=============================================================================================
-Décomposition (recherche dédiée, traces à l'appui) :
-  (a) Part §10-13 admissible : ~0 sur les pires lignes — le pire est sous drive=accel
-      (translation plane pure, torse debout), et l'instrument soustrait DÉJÀ la bande
-      admissible (feff = floor0 + 0.30·B0, NOTE-55). Le 0.0800 est un vrai résidu.
-  (b) Cause : la clé de priorité de volume (DÉCISION 1) était STRUCTURELLE, aveugle à la
-      profondeur — chest->main (cdep=1) gagnait toujours sur épaules/cou même moins profond.
-      Le maillon distal finissait dans le RECOUVREMENT des 4 capsules du buste (violations
-      résiduelles quasi égales : 2479/2339/2323/2280) : chaque appel le sortait d'un volume et
-      le laissait dans l'autre. L'union n'était jamais résolue. VOLPRIO ignored=77702/51127.
-CORRECTIF (jak-hd-physics.gc, +11 lignes, moteur à 4796/4800) : le décideur devient LE PLUS
-PROFOND VIOLEUR (res = dep − feff, la grandeur même que meshpen publie) ; la clé structurelle
-ne départage plus qu'une égalité stricte. Toujours UN volume par lien et par appel : la
-DÉCISION 1 tient, seul son critère change. Rouges dérivés qui doivent suivre : POSCONTROL
-(1.53× < 3× : le dénominateur désarmé portait le défaut réel 0.0754) ; si le résidu persiste,
-la contrainte de longueur unilatérale (l'enfant seul est déplacé, dernière opération du
-solveur) est la seconde ligne identifiée — non appliquée, un problème à la fois.
+  ET UNE PREDICTION A ETE FALSIFIEE, C'EST LA PLUS INSTRUCTIVE DU LOT.
+  C predisait que les RAYONS de `physics_chains.txt` bougeraient (« un rayon distal qui grossit
+  est le signe attendu que le maillon distal a recu de la chair ») et que `tipvar` monterait.
+  LES DEUX SONT FAUX, ET POUR LA MEME RAISON : `physics_chains.txt` est INCHANGE AU BIT PRES
+  (`git diff` vide) et les cinq lignes `drive=` du tableau de la salle sont identiques a la ligne
+  pres. Cause : le generateur ajuste les rayons sur l'INTERMEDIAIRE (section 8b), donc il ne peut
+  PAS voir le repesage ; et le solveur, dont les parametres n'ont pas bouge d'un chiffre, produit
+  exactement la meme trajectoire de JOINT. Le repesage change ce que l'ECRAN montre, pas ce que le
+  solveur fait — et ma prediction confondait les deux. La falsification de C EST la preuve du
+  chantier 8b.
 
-8. TABLEAU DE CONFORMITÉ SECTION PAR SECTION (règle 09:45 — course x86 du 18/08, corrigée
-   de l'instrument §24 ; « T: » = ligne du tableau, « G: » = jak-hd-physics.gc)
-=============================================================================================
-  §6  B0            TENUE      b0=602 livré et consommé comme mètre distinct de l'os (977 u)
-  §8  volume        PARTIELLE  det 0.99990-1.00000 (T:1512-1529) DANS 98-101 % — mais det
-                               renormalisé PAR CONSTRUCTION ; l'incompressibilité n'est pas
-                               mesurée sur la peau. Mesure indépendante à construire.
-  §9  retour exact  PARTIELLE  debout |t|/B0 0.0049/0.0036, ROOM-IDLE 0.0003 m — mais plancher
-                               post-secousse s_inf 0.11-0.68 % non nul sur 12/12 axes : le
-                               retour n'est pas EXACT et censure t01 de §27.
-  §10 supine        PARTIELLE  échelles +22.3/+10.9/0.737 DANS ; « COM » 0.509/0.497 B0 contre
-                               0.23 (0.18-0.28) — 2.2× au-dessus, MAIS l'instrument mesure
-                               l'APEX, pas le COM (T:1548-1553) : instrument à faire bouger
-                               avant de re-régler quoi que ce soit.
-  §11 prone         PARTIELLE  échelles DANS ; COM 0.2796 DANS / 0.3523 +17 % ; transitoire
-                               1.571/1.871 contre ≤1.30 (+21/+44 %).
-  §12 latéral       PARTIELLE  aplatissement −17.6/−19.5 % DANS (−15..−25, nominal −20) ;
-                               « COM » 0.34-0.52 B0 contre 0.19 — même caveat d'apex que §10.
-  §13 continuité    TENUE      9 orientations, variation continue, rôles retrouvés, écart 16×.
-  §21 tanh          PARTIELLE  ressort raidissant exécuté (stif_n=73399 sous-pas) MAIS
-                               écrêtages positionnels durs actifs (voir SUPPRESSORS).
-  §22/§38 apex      PARTIELLE  rrm max 0.390/0.389 ≤ 0.40 mais TENU PAR LE LIMITEUR (rrr avant
-                               clamp jusqu'à 0.6841) ; |t| max 0.5083 B0 dépasse le plafond
-                               exceptionnel sur chestL i=7.
-  §23 multi-DOF     PARTIELLE  structure posée (2 maillons, les 2 libres, canal radial vivant
-                               et MESURÉ : AXFIT-RAD 2.320/2.425) ; rootrot=0.0000° — le 1er
-                               segment ne tourne pas d'un degré (T:664-668), défaut structurel
-                               publié.
-  §24 3 fréquences  TENUE      v 2.320/2.425 (RAD, DANS 2.1-2.5) · ap 2.420/2.545 (DANS
-                               2.3-2.7) · lat 2.565/2.625 (DANS 2.4-2.9) ; ordre v<ap<lat
-                               TENU. (Correction d'instrument documentée en §6 du rapport.)
-  §25 ζ 0.35        TENUE      0.33-0.37 sur les diagonales, 0.34-0.37 au repos (0.32-0.42).
-  §26 rebond 31 %   TENUE      0.284-0.359 diagonales ; 0.302-0.320 repos.
-  §27 stabilisation PARTIELLE  t05 0.87-1.03 s DANS ; t01 CENSURÉ par le plancher §9.
-  §28 dérivation k  TENUE      f = stiffness/√mass ±1 % sur ap/lat, +0.9/+1.5 % sur v (RAD) —
-                               la dérivation livrée était juste, zéro paramètre touché.
-  §29 aniso+torsion PARTIELLE  ARMÉE et NOMMÉE (PHYSAXISS sv/sap/slat lus à l'exécution ;
-                               ROOM-AXNAME vérifie les étiquettes par l'invariant anatomique) ;
-                               ratios de fréquence ±2 % des attendus (AXRATIO corrigé) ;
-                               torsion 0.72 : f_tor 2.746/2.836 vs prédits 2.711/2.817
-                               (+1.3/+0.7 %), ζ_tor 0.38/0.36, TWSAT=0. L'estimateur
-                               « tenseur de compliance » non linéaire rend AP 0.649/lat 1.251
-                               à résidu 0.55-0.57 — ILLISIBLE par son propre critère (>0.08),
-                               publié comme désaccord d'estimateurs, pas comme mesure.
-  §30 ancrage 30 %  PARTIELLE  reskin livré cov 0.46/0.43 (fraction ancrée ≈54/57 % vs ~30 %
-                               nominal) ; tear=1 (L) / tear=3 (R) INTRODUITS par le reskin
-                               (T:196-197) — rouge publié, reprise d'asset à faire.
-  §31 gradient      PARTIELLE  exposant 1.63 dans la donnée (bande 1.6-2.0), rampe k par
-                               maillon exécutée ; pas encore mesuré sur la peau à l'exécution.
-  §32 indépendance  TENUE      masse +2.07 %, raideur +5.00 %, amort +3.97 % ; fits distincts
-                               à l'exécution (2.420 vs 2.545 ap).
-  §33 restit. 0.06  PARTIELLE  branche 0.06 sélectionnée à l'exécution (G:1854), contacts
-                               sein↔sein réels, contrôle ×15 a tiré — mais la mesure moyenne
-                               (0.0201) ne SÉPARE pas la part sein↔sein : mesure à ventiler.
-  §34 restit. 0.02  TENUE      0.0201 mesuré course entière (+0.5 %), contrôle ×15 → 15.00×.
-  §36 secondaire    PARTIELLE  f 5.155/4.819 (4-7) et ζ 0.674/0.724 (0.55-0.75) DANS sur la
-                               détente — mais amplitude SATURÉE au plafond 7 % sur 9/10
-                               fenêtres AVANT écrêtage : la bande 2-5 % n'est pas mesurée,
-                               c'est la borne. Recalibration du gain sur la nouvelle
-                               structure à faire (PHYS-SEC-K, calé sur secr pré-plafond).
-  §37 sous-pas      PARTIELLE  ns=2/4 dans la boucle exécutée (120-240 Hz), rebase téléport
-                               présent ; pas de compteur de cadence dans la trace, et les
-                               clamps durs actifs contredisent la préférence « soft clamps ».
 
-SUPPRESSORS: sat_n=22971 sous-pas écrêtés en position (§21/§22, somme 13.5M u) · plafond §36
-  collé à |s|=0.0700 exact 9/10 fenêtres (mouvement retiré : secr monte au-delà, non chiffré
-  en sortie) · rr épinglé à 0.3998 sur 18/18 lignes ORICOM (rrr avant clamp jusqu'à 0.6841).
-  Aucun n'est un suppresseur PAR DÉFAUT : chacun est une borne de la spec (§22/§38, §36) —
-  mais ils fonctionnent en régime SATURÉ, ce qui est la signature déjà payée deux fois d'un
-  gain amont à recalibrer, pas d'une borne qui protège. C'est la liste de travail, pas un vert.
+6. LE DEFAUT QUE LA PREMIERE CUISSON A CREE — TROUVE PAR LA MESURE, CORRIGE, ET PUBLIE
+=======================================================================================
+Sa 30 finit par une phrase : « There shall be no hard attachment boundary ». Je l'ai mesuree
+APRES la premiere cuisson, avec l'instrument que le dossier utilise pour ce defaut-la
+(`probe_skin_tear_moving.py` : aretes dont la fraction PILOTEE saute de plus de 0.5 entre deux
+sommets VOISINS CONNECTES — c'est « des polygones qui bougent et des polygones voisins
+parfaitement statiques », dans ses mots) :
 
-SIDE-CROSSING: néant sur cette course (crossing=0, domaine vide — voir SIDE-DOMAIN-EMPTY).
+    aretes cassees          chestL   chestR
+    AVANT anchor30              1        3
+    anchor30 nu                31       37     <- REGRESSION x31 et x12, creee par mon correctif
+    anchor30 + lissage         18       17     <- livre
 
-9. LISTE DE TRAVAIL RESTANTE (ordre owner 23:50, rouges dirigés, pas de retraits)
-==================================================================================
-  1. [EN COURS] Collision pour la nouvelle structure : décideur = plus profond violeur —
-     course de vérification lancée ; cibles : meshpen ≤ 0.0005, POSCONTROL ≥ 3×, inversions
-     restent 0, STRETCH reste ≤ 0.03.
-  2. §12/§10 : faire bouger l'instrument « COM » (il mesure l'apex) AVANT tout réglage ;
-     puis recalibrer si un vrai écart reste. DISCRIMINANT chestR (20.3 % < 25 %) en dérive
-     (baseline animation 0.1598 = 94.7 % du tipvar tilt).
-  3. §36 : recalibrer PHYS-SEC-K sur la nouvelle structure contre secr pré-plafond (bande
-     2-5 % normal, 5-7 % impulsion).
-  4. §22 : sortir le limiteur du régime saturé (rrr 0.68 → gain amont), pas le désarmer.
-  5. §23 rootrot=0 (1er segment inerte en rotation) et §30 tears (reprise d'asset reskin).
-  6. §9/§27 : plancher post-secousse s_inf → t01 mesurable.
-  7. §33 : ventiler la mesure de restitution par paire (sein↔sein vs sein↔buste).
-  8. §8 : mesure d'incompressibilité indépendante du det renormalisé.
+ET LE `1` D'AVANT N'ETAIT PAS UNE SANTE : c'etait la signature du profil PLAT. Un champ de poids
+sans gradient n'a pas d'arete cassee et n'a pas de deformation — c'est le pudding. Sa 31 EXIGE un
+gradient racine->apex, et sa 30 EXIGE qu'il soit sans marche : sur 85 sommets pour 8.7 cm de
+polyligne, deux sommets voisins peuvent differer de 0.35 d'abscisse, donc les deux exigences sont
+en tension REELLE sur CE maillage. La preuve que ce n'est pas une frontiere mal placee : les
+aretes cassees sont etalees sur TOUT l'organe (s=0.00..1.00, mediane 0.48), pas groupees.
+
+CE QUE J'AI FAIT, ET LA REGLE D'ARRET N'INVENTE AUCUN SEUIL. L'operateur lisse le champ SUR LES
+ARETES (un defaut de voisinage se corrige sur le voisinage) et s'arrete a la DERNIERE iteration
+qui tient encore les deux criteres du contrat : (a) les cinq bandes d'ancrage de la 30, (b) la
+part du maillon distal >= 0.30. Les voisins hors domaine sont des valeurs de BORD FIXES, pour que
+le seuil `gate=` ne fabrique pas sa propre falaise. Arret mesure : 4 iterations, motif « bandes
+30 » imprime dans le rapport de cuisson.
+
+ET LE LISSAGE A UN PRIX, QUI EST PAYE ET DIT :
+  - `Deep root` passe de 0.932 a 0.885 / 0.895, soit 1.7 % et 0.6 % SOUS le plancher 0.90 de sa
+    bande. 4 bandes sur 5 restent DANS au lieu de 5. (L'ecart vient aussi de l'instrument : le
+    critere d'arret lit l'ensemble de sommets d'AVANT le repesage, la sonde le re-selectionne
+    APRES, et 8 sommets de racine passent alors sous `gate` ; c'est ecrit pour ne pas etre
+    redecouvert.)
+  - le maillon PROXIMAL perd de la possession : 12 -> 7 (chestL) et 18 -> 6 (chestR).
+    C'est pour ca que `grad` est a 2.00 et pas au nominal 1.80 : `grad` n'a AUCUN effet sur les
+    aretes cassees (18/17 aux deux valeurs, verifie) et il decide seul si le maillon proximal
+    survit au lissage — a 1.80 il tombe a 2 et 2, c'est-a-dire au bord du « os que la geometrie
+    ignore » que la directive du 08:55 interdit, a l'autre bout de la chaine. 2.00 est DANS
+    `RootDeformationExponent = 1.6-2.0`.
+
+IL RESTE 18 ET 17 ARETES CASSEES CONTRE 1 ET 3, ET C'EST UN ROUGE. Il ne bloque pas la livraison
+(consigne du 23:50 : « un rouge se publie comme rouge avec sa mesure, il ne bloque plus l'avancee,
+il la dirige »), et il dirige exactement vers le meme chantier que le plancher de la 30 : la
+poitrine n'a que ~90 sommets de peau et DEUX noeuds. Un noeud de plus, et le gradient se repartit
+sur plus d'aretes.
+
+6 bis. NON-REGRESSION — COURSE X86 COMPLETE SUR LE MESH LIVRE (PHYSEND atteint)
+================================================================================
+Deux courses completes ont ete faites ce cycle : la premiere sur la variante nue (grad 1.80),
+la seconde sur CE QUI EST LIVRE (grad 2.00 + lissage). Les chiffres ci-dessous sont ceux de la
+SECONDE, tableau regenere apres la course (piege connu : le script de salle ne fabrique PAS le
+tableau, et un tableau non regenere republie la course precedente a l'identique).
+
+  RULE 6 — « rien ne traverse le mesh ». `ROOM-SKINPEN` est la seule grandeur qui mesure la
+  traversee de la PEAU (et non des volumes de collision) :
+                       avant ce cycle   apres        variation
+      chestL skinpen      0.1538 m      0.1089 m      -29.2 %
+      chestR skinpen      0.1706 m      0.1311 m      -23.2 %
+  ET LE TEST EST PLUS SEVERE QU'AVANT, ce qui rend la baisse plus significative, pas moins :
+  10 166 184 echantillons de surface compares contre 8 373 154, parce que `physics_mesh.txt`
+  porte desormais 92 jeux d'obstacles au lieu de 55 (voir 8e). Plus d'obstacles, plus de tests,
+  et MOINS de penetration.
+
+  `ROOM-SIDE: chains=0/2 crossing=0` — inchange, aucun franchissement.
+  SIDE-DOMAIN-EMPTY: chestL,chestR  le domaine du franchissement de cote est VIDE, et ce n'est pas
+  une reussite. Les 15 chaines qui le portaient (pantacourt, sangles, languettes, meches) ont ete
+  GELEES par l'ordre de l'owner du 2026-08-14 07:30 (« retire toute physique de Keira hormis ses
+  seins ») ; il ne reste que les deux chaines de poitrine, dont aucun pilotage de la salle ne fait
+  franchir un cote. `ROOM-SIDE-CONTROL: armed=0 disarmed=0` : le controle positif ne tire pas non
+  plus, faute de domaine. Ce zero ne prouve donc RIEN sur `pant-calf`, qui reste GELE avec sa
+  mesure et reviendra sur l'ordre de l'owner, pas par initiative.
+
+  BREAST-PENETRATION: 0.0800 m (chestL) / 0.0770 m (chestR), plafond epingle 0.0005 m.
+  JE LE SIGNE, COMME LA GATE COLLIDE L'EXIGE, ET JE DIS CE QU'IL EST : ce rouge est ANTERIEUR a ce
+  cycle et il est INCHANGE AU CHIFFRE PRES (avant : 0.0730 / 0.0749 / 0.0757 / 0.0770 / 0.0800 sur
+  les cinq pilotages ; apres : les memes cinq valeurs). Il ne peut pas venir du repesage : il
+  compte contre les VOLUMES de collision, qui sont derives de `physics_chains.txt`, lequel est
+  identique au bit pres. Il est ouvert depuis le cycle 18, ou la structure a deux maillons l'a fait
+  passer de -1.5e-06 a +0.08 m, et l'ordre de l'owner du 2026-08-17 23:50 dit de garder la
+  structure et de corriger la collision POUR elle, pas de reculer. Ce n'est pas fait ce cycle, et
+  ce n'est pas un de-scope silencieux : c'est ecrit ici, avec le chiffre, comme la gate le demande.
+
+  `meshpen` : 0.0800 / 0.0770 m, INCHANGE au chiffre pres (il compte contre les volumes de
+  collision, qui viennent de `physics_chains.txt`, lequel n'a pas bouge d'un bit).
+
+  ET LA TRAJECTOIRE DU JOINT EST IDENTIQUE, CE QUI EST LE CONTROLE LE PLUS PARLANT DU CYCLE :
+      drive=updown     tipvar_max=0.1900   meshpen_max=0.0730   jump_max=0.0920
+      drive=leftright  tipvar_max=0.2040   meshpen_max=0.0749   jump_max=0.1013
+      drive=accel      tipvar_max=0.2305   meshpen_max=0.0800   jump_max=0.1248
+      drive=jerk       tipvar_max=0.2008   meshpen_max=0.0770   jump_max=0.1029
+      drive=tilt       tipvar_max=0.1687   meshpen_max=0.0757   jump_max=0.0944
+  Ces cinq lignes sont IDENTIQUES A LA DECIMALE a celles d'avant le cycle. C'est attendu et c'est
+  la preuve que le changement est bien la ou je dis qu'il est : le solveur n'a pas ete touche,
+  ses parametres non plus, donc les JOINTS decrivent exactement la meme trajectoire. Ce qui a
+  change, c'est QUELLE PEAU les suit — et ca, `tipvar` ne le mesure pas et ne peut pas le mesurer.
+  L'acquis que l'owner a valide (« poitrine sur mouvements subtils : toujours OK ») repose sur la
+  trajectoire du joint : elle est intacte au chiffre pres.
+
+7. TABLEAU DE CONFORMITE SECTION PAR SECTION (regle de rapport du 09:45)
+=========================================================================
+CE QUI A ETE RE-MESURE CE CYCLE, ET RIEN D'AUTRE : les lignes de PEAU (30, 31) et la preuve de
+structure de 23, sur le mesh LIVRE. TOUT LE RESTE EST INCHANGE AU CHIFFRE PRES, et pas par
+paresse : `physics_chains.txt` est IDENTIQUE AU BIT PRES (`git diff` vide), donc le solveur recoit
+exactement les memes parametres et la salle republie exactement les memes lignes `drive=`
+(tipvar_max 0.1900 / 0.2040 / 0.2305 / 0.2008 / 0.1687, a la decimale pres). Je les recopie du
+cycle 20 en le DISANT, plutot que de les republier comme si elles etaient neuves.
+Sources : « T: » tableau de la salle, « G: » jak-hd-physics.gc, « S: » sondes de peau.
+
+  §6  B0            TENUE      b0=602 livre et consomme comme metre distinct de l'os (977 u)
+  §8  volume        PARTIELLE  det 0.99990-1.00000 DANS 98-101 % — mais det renormalise PAR
+                               CONSTRUCTION ; l'incompressibilite n'est pas mesuree sur la peau.
+  §9  retour exact  PARTIELLE  debout |t|/B0 0.0049/0.0036, ROOM-IDLE 0.0003 m ; plancher
+                               post-secousse 0.11-0.68 % non nul sur 12/12 axes.
+  §10 supine        PARTIELLE  echelles DANS ; « COM » 0.509/0.497 B0 contre 0.23 — l'instrument
+                               mesure l'APEX, pas le COM.
+  §11 prone         PARTIELLE  echelles DANS ; COM 0.2796 DANS / 0.3523 +17 % ; transitoire +21/+44 %.
+  §12 lateral       PARTIELLE  aplatissement -17.6/-19.5 % DANS ; « COM » 0.34-0.52 vs 0.19, meme
+                               caveat d'apex que 10.
+  §13 continuite    TENUE      9 orientations, variation continue, ecart 16x.
+  §21 tanh          PARTIELLE  ressort raidissant execute ; ecretages positionnels durs actifs.
+  §22/§38 apex      PARTIELLE  rrm max 0.390/0.389 <= 0.40 mais TENU PAR LE LIMITEUR.
+  §23 multi-DOF     PARTIELLE  ** RE-MESUREE CE CYCLE, ET ELLE AVANCE POUR LA PREMIERE FOIS SUR
+                               LA PEAU **. La structure n'est plus seulement posee dans le rig :
+                               le 2e os PILOTE 19 / 17 sommets en majorite (S:) contre 8 / 3, et
+                               il porte enfin des echantillons de collision — `ms chestL 1` et
+                               `ms chestR 1` N'EXISTAIENT PAS dans `physics_mesh.txt` avant ce
+                               cycle. Ce qui reste : le point INTEGRE est toujours l'apex et pas
+                               le COM, et `rootrot=0.0000` (le 1er segment ne tourne pas d'un
+                               degre) — inchange, le solveur n'a pas ete touche.
+  §24 3 frequences  TENUE      v 2.320/2.425 · ap 2.420/2.545 · lat 2.565/2.625, ordre v<ap<lat.
+                               (Reporte du cycle 20 : parametres solveur identiques.)
+  §25 zeta 0.35     TENUE      0.33-0.37 diagonales, 0.34-0.37 repos. (Reporte.)
+  §26 rebond 31 %   TENUE      0.284-0.359 / 0.302-0.320. (Reporte.)
+  §27 stabilisation PARTIELLE  t05 0.87-1.03 s DANS ; t01 censure par le plancher 9. (Reporte.)
+  §28 derivation k  TENUE      f = stiffness/sqrt(mass) a +-1 %. (Reporte.)
+  §29 aniso+torsion PARTIELLE  armee et nommee ; torsion f_tor +1.3/+0.7 % des predits ; le
+                               tenseur de compliance reste illisible par son propre critere.
+                               (Reporte.)
+  §30 ancrage       PARTIELLE  ** RE-MESUREE, ET C'EST LE CHANTIER DU CYCLE **.
+                               Les cinq bandes d'ancrage : 4 sur 5 DANS (0.885 / 0.599 / 0.307 /
+                               0.098 / 0.058 et 0.895 / 0.579 / 0.333 / 0.104 / 0.091), contre
+                               2 sur 5 avant — et les deux qui etaient du MAUVAIS COTE (racine
+                               sous-ancree a 0.53, apex sur-ancre a 0.74) sont revenues du bon.
+                               `Deep root` reste SOUS son plancher 0.90 de 1.7 % / 0.6 %.
+                               `StrongRootFraction` 0.416 / 0.459 contre 0.30 : au-dessus, et
+                               c'est un PLANCHER structurel chiffre (8a), pas un reglage.
+                               « No hard attachment boundary » : 18 / 17 aretes cassees contre
+                               1 / 3 — ROUGE CREE PAR CE CORRECTIF, mesure, publie en 6.
+  §31 gradient      PARTIELLE  ** RE-MESUREE **. Le gradient racine->apex existe maintenant DANS
+                               LA PEAU et pas seulement dans la rampe du solveur : le profil
+                               pilote passe de 0.47 0.85 0.74 1.00 0.61 0.55 0.67 0.59 0.28 0.25
+                               (en U) a 0.11 0.33 0.44 0.52 0.63 0.75 0.83 0.91 0.92 0.95
+                               (MONOTONE). Exposant applique 2.00, DANS sa bande 1.6-2.0.
+                               Ce qui reste : le gradient est pose par un operateur de repesage,
+                               il n'est pas encore lu a l'execution comme une deformation.
+  §32 independance  TENUE      masse +2.07 %, raideur +5.00 %, amort +3.97 % ; et desormais AUSSI
+                               dans la peau : p derive 1.807 (L) contre 1.889 (R), 4.5 % d'ecart,
+                               chacun de sa propre chair. (Reporte + une mesure neuve.)
+  §33 restit. 0.06  PARTIELLE  branche selectionnee, contacts reels, mais la mesure moyenne ne
+                               SEPARE pas la part sein<->sein. (Reporte.)
+  §34 restit. 0.02  TENUE      0.0201 mesure, controle x15 -> 15.00x. (Reporte.)
+  §36 secondaire    PARTIELLE  f et zeta DANS, mais amplitude SATUREE au plafond 7 %. (Reporte.)
+  §37 sous-pas      PARTIELLE  ns=2/4 (120-240 Hz), rebase teleport present ; clamps durs actifs
+                               contre la preference « soft ». (Reporte.)
+
+AUCUNE SECTION N'EST « NON APPLICABLE » (interdit depuis le 14/08 11:50) et aucune n'est ABSENTE.
+23 et 30, que le cycle 18 declarait ABSENTES faute de structure livree, sont PARTIELLES : la
+structure est livree, mesuree sur le mesh que le jeu recoit, et elle pilote de la geometrie.
+
+8. CE QUI RESTE OUVERT, ET LE PROCHAIN CHANTIER EST NOMME ET CHIFFRE
+=====================================================================
+
+  (a) `StrongRootFraction` 0.416 / 0.459 contre 0.30 — PLANCHER STRUCTUREL, PAS UN REGLAGE.
+      40 % des sommets de la chaine se projettent exactement sur le noeud racine (`s` p25 =
+      0.000) : la chair ARRIERE du sein est en amont de `lBoob`, donc l'abscisse la tasse toute
+      en r=0 et elle herite en bloc de l'ancrage de racine. Le remede est un NOEUD PROXIMAL
+      (un os entre `chest` et `lBoob`), pas un exposant. C'est la meme classe que l'os distal
+      qu'on vient de faire vivre, a l'autre bout de l'organe, et la meme sonde le prouvera.
+
+  (a bis) 18 ET 17 ARETES CASSEES contre 1 et 3 avant — le rouge cree par ce correctif, deja
+      divise par 1.7 et 2.2 par le lissage, publie en 6 avec sa cause. Meme remede que (a) : un
+      NOEUD DE PLUS repartit le gradient sur plus d'aretes. Les deux residus de ce cycle pointent
+      donc le meme chantier, ce qui est le seul signe qu'on tient une cause et pas deux symptomes.
+
+  (b) LE GENERATEUR DE CHAINES LIT LE MAUVAIS MESH — TROUVE, MESURE, PAS CORRIGE CE CYCLE.
+      `physics_keira_gen2.py:load_mesh` -> `c6.load_geometry('keira-hd')` -> `keira-hd-k2e.json`
+      -> `hd_glb = out/jak1/fr3/skin/keira-hd-donor-injected.glb`, l'INTERMEDIAIRE. Les rayons,
+      les `verts=`, les `wsum=` et les volumes de `physics_chains.txt` decrivent donc une
+      ponderation que le jeu ne recoit jamais. Ecart mesure ce cycle, meme sonde, deux fichiers :
+
+          joint     sur le fichier que gen2 lit    sur le mesh LIVRE
+          lBoob     verts=60  wsum= 8.596          wsum=20.201
+          lBooc     verts=45  wsum= 8.682          wsum=21.459   (x2.5)
+          rBoob     verts=56  wsum= 8.193          wsum=17.670
+          rBooc     verts=36  wsum= 6.327          wsum=17.906   (x2.8)
+      ET C'EST DEJA MESURE PAR AILLEURS : la prediction C de ce cycle a ete FALSIFIEE exactement
+      la-dessus (`physics_chains.txt` inchange au bit pres apres un repesage qui double la
+      possession du maillon distal). Une prediction falsifiee qui designe sa propre cause vaut
+      mieux qu'un tableau vert.
+
+      C'est le piege deja paye le 2026-08-13 sur `ROOM-SKINCOV` (« ce n'est pas une mesure
+      perimee, c'est une mesure prise sur une AUTRE entree »). POURQUOI JE NE L'AI PAS CORRIGE
+      DANS CE CYCLE, et ce n'est pas un de-scope silencieux : le `prep` JETTE le joint `align`,
+      qui est a l'INDEX 0 du rig. Le mesh livre porte donc 106 joints la ou le rig en porte 107,
+      et TOUS les indices sont decales de 1. Un simple echange de chemin ferait lire chaque poids
+      contre le mauvais joint — un desastre silencieux, exactement la classe d'erreur qu'on
+      corrige. Le correctif est un RE-INDEXAGE (remonter la table du mesh dans l'espace du rig,
+      y compris les matrices de bind), pas un changement de chemin ; il touche TOUS les rayons et
+      tous les volumes du modele d'un coup, donc il merite son cycle et sa non-regression a lui,
+      pas d'etre melange a un changement de peau. J'ai ecrit le patch, mesure qu'il echouait sur
+      la verification d'identite des joints, et je l'ai RETIRE (`git checkout`) plutot que de le
+      livrer a moitie.
+
+  (c) §23 : le point INTEGRE reste l'apex, pas le COM. La STRUCTURE est desormais reelle des deux
+      cotes (le 2e os pilote 20 / 17 sommets en majorite, et il porte enfin des echantillons `ms`
+      dans `physics_mesh.txt` — `ms chestL 1` et `ms chestR 1` n'existaient PAS avant ce cycle),
+      mais le modele de sa 23 (`M x'' + C x' + K x = M a + F`, sur le COM) n'est pas ce que la
+      boucle integre.
+
+  (d) §33 reste sans domaine (zero contact sein<->sein exerce par les pilotages de la salle).
+
+  (e) `physics_mesh.txt` ETAIT PERIME DEPUIS LE GEL DU 2026-08-14, ET PERSONNE NE L'AVAIT VU.
+      Il portait encore 41 enregistrements `ms` (les 20 chaines gelees : cheveux, sangles,
+      languettes) et seulement 55 `bs`. Regenere depuis le fichier de chaines LIVRE, il porte
+      4 `ms` (les seules 2 chaines simulees x 2 maillons) et 92 `bs` : les 37 os de cheveux, de
+      sangles et de languettes sont passes de CHAINES a OBSTACLES, ce que le gel de l'owner dit
+      depuis quatre jours. Les builds precedents testaient donc la collision contre un jeu
+      d'obstacles incomplet. L'effet sur la penetration est mesure en 6 et il est publie tel quel.
+
+  (f) `recharged_assets/physics_reskin.txt` n'est PAS dans la liste `WATCH` de
+      `.autoport/auto_build_apk.sh:59-62`. Or ce fichier decide des POIDS DE PEAU LIVRES. Un
+      changement isole n'y declenche donc pas de build ; seul un commit le fait (le hash de
+      declenchement inclut `git rev-parse HEAD`). Signale, non corrige — la livraison de ce cycle
+      passe bien par un commit, donc elle part.
+
+9. LIVRAISON
+=============
+Palier utilise : DONNEES SEULES. Aucun build GOAL, aucun NDK, aucun gradle lance a la main.
+Le mesh voyage exclusivement par le pack HD externe (`scripts/package_hd_assets.sh`, refabrique
+sans condition a chaque build publiable par `auto_build_apk.sh:344`), donc l'owner telecharge des
+Ko et pas un APK de 581 Mo. La paire APK+pack reste tracee par le meme commit.
+
+CE QUE L'OWNER DOIT REGARDER, ET DANS CET ORDRE :
+  1. LA POITRINE EN MOUVEMENT SUBTIL — c'est l'acquis qu'il a valide (« toujours OK ») et c'est
+     ce que ce cycle risque le plus : 40 % de la chair ARRIERE vient d'etre RE-ANCREE au thorax
+     (0.53 -> 0.93), ce qui est ce que sa spec demande mais retire du mouvement a la base.
+  2. LA POINTE. C'est la que tout le changement se voit : l'apex passe de 25 % pilote a 100 %
+     pilote. Si « pudding » veut dire « ca bouge en bloc sans se deformer », c'est ici que ca
+     doit avoir change de nature, pas en amplitude.
+  3. LES MOUVEMENTS BRUSQUES (`flesh-jelly`, ligne gelee) : la chair distale est maintenant
+     mobile, donc l'effet « ballon d'eau » peut avoir change de forme dans un sens comme dans
+     l'autre. Son oeil tranche, pas mon tableau.

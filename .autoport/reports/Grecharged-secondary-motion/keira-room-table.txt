@@ -1,6 +1,6 @@
 ==================================================================================================
 KEIRA — SALLE DE TEST SANS JOUEUR : TABLEAU DE MESURE
-genere par .autoport/physics_room_table.py depuis /home/emeric/code/jak-project/.autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
+genere par .autoport/physics_room_table.py depuis .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
 contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 7 (ce qui fait foi)
 
 Toutes les longueurs sont en METRES (la trace est en unites de jeu, 4096 u = 1 m). Ce que
@@ -193,8 +193,8 @@ ROOM-SKINCOV: couverture de peau par chaine — quelle part de la geometrie la p
 ROOM-SKINCOV: chain=chestL       cov=0.1934 n=94    tear=0    weld=0   lost=chest 99% · Lshoulder 1%
 ROOM-SKINCOV: chain=chestR       cov=0.1718 n=90    tear=0    weld=0   lost=chest 99% · Rshoulder 1%
 ROOM-SKINCOV-SHIPPED: source=out/jak1/fr3/skin/keira-hd-lod0.glb — mesh PREPPE+RESKINNE, celui du pack livre.
-ROOM-SKINCOV-SHIPPED: chain=chestL       cov=0.4634 n=94    tear=1    weld=0   dcov=+0.2700 dtear=0->1
-ROOM-SKINCOV-SHIPPED: chain=chestR       cov=0.4284 n=90    tear=3    weld=0   dcov=+0.2566 dtear=0->3
+ROOM-SKINCOV-SHIPPED: chain=chestL       cov=0.4495 n=94    tear=18   weld=0   dcov=+0.2561 dtear=0->18
+ROOM-SKINCOV-SHIPPED: chain=chestR       cov=0.4008 n=90    tear=17   weld=0   dcov=+0.2290 dtear=0->17
 ROOM-SKINCOV-SHIPPED: 2 chaine(s) sur 2 different du rip brut.
 ROOM-INVERSIONS: residual=0 corrected=0 degenerate=0 control_residual=178 reseated=0
    Owner, deux fois : « j'ai vu un coup ou un des seins etait retourne vers l'interieur ».
@@ -694,14 +694,14 @@ ROOM-VOLPRIO: chain=chestR       ignored=51127    retreat=0
    non nulle, jusqu'a 0.7578 m. La phrase decrivait un faux zero, pas une mesure.
    NATURE : profondeur en metres, positive = SOUS la peau. REPERE : le monde, frame
    ecrite. LECTURE HORS DEFAUT : 0. tests=0 veut dire « pas regarde », jamais « rien ».
-ROOM-SKINPEN: chain=chestR       skinpen=0.1706 m   meshpen=0.0770 m
-ROOM-SKINPEN: chain=chestL       skinpen=0.1538 m   meshpen=0.0800 m
-ROOM-SKINPEN-TESTS: 8373154 echantillons de surface compares sur la fenetre
+ROOM-SKINPEN: chain=chestR       skinpen=0.1311 m   meshpen=0.0770 m
+ROOM-SKINPEN: chain=chestL       skinpen=0.1089 m   meshpen=0.0800 m
+ROOM-SKINPEN-TESTS: 10166184 echantillons de surface compares sur la fenetre
 
 ROOM-SKINPEN-MIRROR: l'ecart entre paires MIROIR est l'erreur de l'instrument —
    parametres identiques, geometrie miroir : ce qui les separe n'est pas un defaut.
-ROOM-SKINPEN-MIRROR: chestL       0.1538  vs chestR       0.1706   ecart   10 %
-ROOM-SKINPEN-FLOOR: 0.0169 m — AUCUNE valeur de la colonne ci-dessus n'est interpretable en dessous de ce plancher.
+ROOM-SKINPEN-MIRROR: chestL       0.1089  vs chestR       0.1311   ecart   17 %
+ROOM-SKINPEN-FLOOR: 0.0221 m — AUCUNE valeur de la colonne ci-dessus n'est interpretable en dessous de ce plancher.
 
 -- LE PREDICAT CONIQUE : LE SOLIDE TESTE EST ENFIN CELUI QUE LA DONNEE DESIGNE ----------
    Les 24 capsules livrees sont TOUTES coniques (radius != radius2). Le moteur testait le
@@ -1666,6 +1666,37 @@ ROOM-ORICOM-SPEC: chestR       §11 prone   i=6  |d|=0.3523 B0   cible 0.24 (ban
 ROOM-ORICOM-SPEC: chestR       §12 lateral i=2  |d|=0.4827 B0   cible 0.19 (bande 0.15-0.24)  AU-DESSUS
 ROOM-ORICOM-SPEC: chestR       §12 lateral i=4  |d|=0.3356 B0   cible 0.19 (bande 0.15-0.24)  AU-DESSUS
 ROOM-ORICOM-SPEC: chestR       §11 transitoire  pic d'etablissement=0.39980  tenu=0.21366  rapport=1.871  (§11 : 1.30 contre 1.23, soit 1.057)
+
+-- ROOM-ORICOM-MASS : SPEC 10/11/12 LUES SUR UN CENTRE DE MASSE ---------------------------
+   NATURE : un DEPLACEMENT SOUTENU du centre de masse, en B0. REPERE : le triedre de
+     l'ANCRE — la NORME, seule grandeur qui traverse les deux triedres orthonormes.
+   LIGNE DE BASE : i=0 (debout d'auteur), ou §9 exige 0.0000 ; elle est publiee.
+   SOURCE DES POIDS : out/jak1/fr3/skin/keira-hd-lod0.glb (mesh LIVRE, pas le rip du donneur).
+   d_COM = (W_0.d_0 + W_1.d_1)/N — aucun coefficient choisi ; W_j et N mesures, d_j lus.
+ROOM-ORICOM-MASS: chestL       CONTROLE pointe : |d| (PHYSORICOML) contre |t| (PHYSORICOM), pire
+   ecart relatif 59.8286 % (i=0) sur 9 orientations — deux accumulateurs, deux triedres, un seul
+   nombre. DESACCORD > 5 % : le montage est en cause, pas la physique — les lignes ci-dessous sont suspendues a ce constat
+ROOM-ORICOM-MASS: chestL       §10 supine  i=8  |d_COM|=0.0614/0.0673/0.0841 B0  (apex 0.4462, facteur 0.138)
+                              tangentiel seul SOUS  ·  compose avec rr 0.1726  ·  cible 0.23 (bande 0.18-0.28)  SOUS
+ROOM-ORICOM-MASS: chestL       §11 prone   i=6  |d_COM|=0.0618/0.0680/0.0845 B0  (apex 0.2775, facteur 0.223)
+                              tangentiel seul SOUS  ·  compose avec rr 0.2618  ·  cible 0.24 (bande 0.20-0.30)  DANS
+ROOM-ORICOM-MASS: chestL       §12 lateral i=2  |d_COM|=0.0694/0.0763/0.0949 B0  (apex 0.3135, facteur 0.221)
+                              tangentiel seul SOUS  ·  compose avec rr 0.2443  ·  cible 0.19 (bande 0.15-0.24)  AU-DESSUS
+ROOM-ORICOM-MASS: chestL       §12 lateral i=4  |d_COM|=0.0979/0.1076/0.1338 B0  (apex 0.4410, facteur 0.222)
+                              tangentiel seul SOUS  ·  compose avec rr 0.2111  ·  cible 0.19 (bande 0.15-0.24)  DANS
+   (frontieres w>0 / w>=0.05 / w>=0.25 — les trois colonnes de |d_COM| ci-dessus ; N=94, part de l'organe portee par la chaine 0.4634, le reste est ancre au buste)
+ROOM-ORICOM-MASS: chestR       CONTROLE pointe : |d| (PHYSORICOML) contre |t| (PHYSORICOM), pire
+   ecart relatif 46.4181 % (i=0) sur 9 orientations — deux accumulateurs, deux triedres, un seul
+   nombre. DESACCORD > 5 % : le montage est en cause, pas la physique — les lignes ci-dessous sont suspendues a ce constat
+ROOM-ORICOM-MASS: chestR       §10 supine  i=8  |d_COM|=0.0429/0.0474/0.0604 B0  (apex 0.4447, facteur 0.096)
+                              tangentiel seul SOUS  ·  compose avec rr 0.1487  ·  cible 0.23 (bande 0.18-0.28)  SOUS
+ROOM-ORICOM-MASS: chestR       §11 prone   i=6  |d_COM|=0.0711/0.0794/0.1043 B0  (apex 0.3560, facteur 0.200)
+                              tangentiel seul SOUS  ·  compose avec rr 0.2252  ·  cible 0.24 (bande 0.20-0.30)  DANS
+ROOM-ORICOM-MASS: chestR       §12 lateral i=2  |d_COM|=0.0964/0.1077/0.1418 B0  (apex 0.4629, facteur 0.208)
+                              tangentiel seul SOUS  ·  compose avec rr 0.1189  ·  cible 0.19 (bande 0.15-0.24)  SOUS
+ROOM-ORICOM-MASS: chestR       §12 lateral i=4  |d_COM|=0.0267/0.0298/0.0391 B0  (apex 0.1330, facteur 0.200)
+                              tangentiel seul SOUS  ·  compose avec rr 0.2656  ·  cible 0.19 (bande 0.15-0.24)  AU-DESSUS
+   (frontieres w>0 / w>=0.05 / w>=0.25 — les trois colonnes de |d_COM| ci-dessus ; N=90, part de l'organe portee par la chaine 0.4284, le reste est ancre au buste)
 
 -- ROOM-ORICTL : LE REDRESSEMENT, ET SES TROIS SUSPECTS DESARMES TOUR A TOUR -------------
    NATURE : le meme deplacement soutenu que `ROOM-ORICOM`, mesure sur la meme fenetre par

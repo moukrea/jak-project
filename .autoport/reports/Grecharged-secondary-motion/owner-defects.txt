@@ -332,4 +332,52 @@ OPEN breast-spec-incomplete  PRIORITE 1 -- LA SEULE LIGNE QUI TIENT LA PHASE OUV
 #       repos lit lBoob DEDANS Lshoulder->chest de -75.3 u — plus profond qu'a deux maillons — et le
 #       moteur n'y compte que 20 contacts. La sonde et le compteur ne testent pas le meme solide,
 #       donc la sonde de repos ne PREDIT pas le regime de contact. A1 supposait le contraire.
+#
+#   ETAT AU CYCLE 21 (2026-08-18). LE REPESAGE ACCOMPAGNE ENFIN L'OS, ET LE DEFAUT ETAIT UN
+#   PROFIL D'ANCRAGE EN U. Cuisson HD faite (26 s, 11 modeles, integrity gate PASS), course x86
+#   complete, livraison au fil de l'eau. Le tableau complet est au rapport, section 7.
+#     D'ABORD UNE CORRECTION DE MA PART SUR LE CONSTAT DU 08:55. Il mesurait
+#     `keira-hd-donor-injected.glb`, qui est l'INTERMEDIAIRE : pre-prep et pre-reskin
+#     (`build_enhanced_models.sh` injection :231 -> prep :242 -> RESKIN :252 -> copie livree :268).
+#     Le `0 | 0` y est attendu par construction et l'etait deja avant l'injection. Sur le mesh
+#     LIVRE (`out/jak1/fr3/skin/keira-hd-lod0.glb`), la meme sonde rendait `21 | 8` et `24 | 3`.
+#     LE VERDICT DE FOND TIENT QUAND MEME, et c'est lui qui a dirige le cycle : 27.6 % et 11.1 %,
+#     les deux SOUS la barre de 30 %.
+#     LE VRAI DEFAUT, MESURE (`probe_breast_anchor30.py`, mesh livre) — l'ancrage par quart
+#     d'abscisse contre les cinq bandes de sa SPEC 30 :
+#         bande                     chestL   chestR    bande 30        AVANT
+#         Deep root      r<0.125     0.532    0.525     0.90-1.00      SOUS
+#         Rear/interm  0.125-0.375   0.125    0.314     0.55-0.85      SOUS
+#         Mid-volume   0.375-0.625   0.414    0.448     0.25-0.55      DANS
+#         Distal       0.625-0.875   0.402    0.484     0.05-0.30      AU-DESSUS
+#         Apex           r>0.875     0.743    0.787     0.00-0.10      AU-DESSUS
+#     Un profil EN U : ancre AUX DEUX BOUTS, libre au milieu, la ou sa 30 le veut monotone
+#     decroissant. L'apex — la chair qui doit se deformer le PLUS — etait soude au thorax a 74 %.
+#     C'est mot pour mot « le milieu bouge beaucoup plus que les pointes » sur les cheveux, et il
+#     vit dans la PEAU : aucun reglage de solveur ne deplace un poids de peau.
+#     LE CORRECTIF : `anchor30`, un operateur de repesage qui POSE le profil de la 30 et le
+#     gradient de la 31. Ses quatre constantes sont recopiees de la spec (root 0.95, strong 0.55,
+#     frac 0.30, grad 1.80 = `RootDeformationExponent` nominal) et l'exposant du profil est DERIVE
+#     a la cuisson (p 1.807 / 1.889, dans l'intervalle [0.831, 1.900] que les bandes autorisent) —
+#     il ne peut pas etre choisi a la main. `redistribute` ne pouvait PAS corriger ca : son
+#     invariant est la conservation du poids somme, ce qui interdit exactement ce que la 30
+#     demande.
+#     RESULTAT, sur le mesh LIVRE, tableau `os / poids total / sommets majoritaires` :
+#         os        poids total  avant->apres     majoritaires avant->apres
+#         lBoob        27.853 -> 19.827                21 -> 12
+#         lBooc        15.484 -> 22.989                 8 -> 20     part distale 27.6% -> 62.5%
+#         rBoob        26.834 -> 17.679                24 -> 18
+#         rBooc        11.491 -> 19.729                 3 -> 17     part distale 11.1% -> 48.6%
+#     LES CINQ BANDES DE LA 30 SONT DESORMAIS « DANS » SUR LES DEUX CHAINES (2 sur 5 avant, et
+#     les deux bouts du mauvais cote) : 0.932 0.600 0.261 0.083 0.006 / 0.932 0.554 0.273 0.074
+#     0.003. Et « sommets pilotes a moins de 50 % au-dela de la mi-organe » passe de 20 et 16 a
+#     ZERO.
+#     RESTE OUVERT, ET C'EST NOMME ET CHIFFRE : (a) `StrongRootFraction` 0.447/0.487 contre 0.30 —
+#     PLANCHER STRUCTUREL, 40 % des sommets se projettent sur le noeud racine, le remede est un
+#     noeud PROXIMAL et pas un exposant ; (b) `physics_keira_gen2.py` ajuste les rayons sur
+#     l'INTERMEDIAIRE (lBooc y pese 8.68 contre 22.89 sur le mesh livre) — patch ecrit, mesure
+#     comme faux (le `prep` jette `align`, index 0, donc tous les indices decalent de 1) et RETIRE
+#     plutot que livre a moitie ; (c) 23 : le point integre reste l'apex, pas le COM ; (d) 33 sans
+#     domaine ; (e) `physics_mesh.txt` etait PERIME depuis le gel du 14/08 (41 `ms` pour 20 chaines
+#     gelees, 55 `bs`) — regenere, il porte 4 `ms` et 92 `bs`.
 #   CETTE LIGNE NE SE RETIRE QUE SUR LE MOT DE L'OWNER, jamais sur un tableau vert.
