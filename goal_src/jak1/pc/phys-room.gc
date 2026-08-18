@@ -1974,7 +1974,39 @@
                  c oi
                  (phys-chain-radial (-> self slot) c 1)
                  (phys-chain-radial (-> self slot) c 2)
-                 (phys-stat (-> self slot) c 15)))
+                 (phys-stat (-> self slot) c 15))
+         ;; ---- LE DEPLACEMENT DE **CHAQUE MAILLON**, POUR QUE §10/§11/§12 SOIENT LUES SUR UN COM
+         ;; Ses trois sections chiffrent un deplacement de CENTRE DE MASSE (`SupineCOMDepth 0.23`,
+         ;; `HangingCOMDisplacement 0.24`, `SideGravityCOM 0.19`, en B0). `PHYSORICOM` ci-dessus ne
+         ;; sait publier que l'APEX — le point que le solveur integre — et le declare lui-meme comme
+         ;; une BORNE SUPERIEURE : sous une rotation autour de l'ancre un apex se deplace plus qu'un
+         ;; COM. Comparer l'un a la cible de l'autre est le piege `instrument-axis-vs-complaint`, et
+         ;; c'est pour ca que le rapport du cycle 20 refuse de RE-REGLER §10/§12 avant d'avoir fait
+         ;; bouger l'instrument. Depuis que la structure de §23 est posee, l'organe porte DEUX
+         ;; maillons : le COM devient calculable au lieu d'etre borne.
+         ;;   Sous skinning lineaire, le deplacement d'un sommet est la somme ponderee de ceux de
+         ;;   ses joints ; dans le repere de l'ancre un joint NON simule a un ecart identiquement
+         ;;   nul (il ne s'ecarte pas de la pose d'auteur). Donc, sur l'organe :
+         ;;       d_COM = ( W_0 . d_0 + W_1 . d_1 ) / N
+         ;;   ou W_j = somme des poids de peau du joint j et N = nombre de sommets de l'organe,
+         ;;   TOUS TROIS MESURES SUR LE MESH LIVRE par `.autoport/probe_breast_com_mass.py` — aucune
+         ;;   valeur choisie. Cette ligne fournit les d_j, et rien d'autre.
+         ;; NATURE : un DEPLACEMENT SOUTENU (l'equilibre est tenu a 0.6 % sur cette fenetre, cf. la
+         ;;   note de PHYSROOM-ORIM), en unites de jeu — pas une variance, pas une amplitude.
+         ;; REPERE : le triedre de l'ANCRE dans l'ordre de SPEC 24 (v, ap, lat), celui de
+         ;;   `phys-link-dev-anc-abs` — PAS l'ordre (x,y,z) de SPEC 7 qu'emploie `PHYSORICOM`. Les
+         ;;   deux triedres sont orthonormes, donc la NORME se compare directement d'une ligne a
+         ;;   l'autre ; les composantes, elles, ne se melangent pas. Le tableau ne compose que des
+         ;;   normes, et son CONTROLE est precisement la : |d| du maillon de pointe lu ici doit
+         ;;   retomber sur |t| de `PHYSORICOM`, qui vient d'un autre accumulateur et d'un autre
+         ;;   triedre. Un ecart entre les deux mesure l'erreur du montage, il ne se corrige pas.
+         ;; LIGNE DE BASE : l'orientation i=0 est la pose debout d'auteur, ou §9 exige 0.0000.
+         (dotimes (l (phys-chain-links (-> self slot) c))
+           (format 0 "PHYSORICOML c=~D i=~D l=~D dv=~f dap=~f dlat=~f~%"
+                   c oi l
+                   (phys-link-dev-anc-abs (-> self slot) c l 0)
+                   (phys-link-dev-anc-abs (-> self slot) c l 1)
+                   (phys-link-dev-anc-abs (-> self slot) c l 2))))
          ;; ---- LA MEME REPONSE, PASSE PAR PASSE : c'est le corps de l'experience -------------
          ;; Emis sur les QUATRE passes, y compris k=0, pour que la comparaison se fasse entre
          ;; lignes de MEME nature et de MEME emetteur. Comparer une passe de controle a la ligne

@@ -1750,14 +1750,15 @@
                           ;; que l'accesseur `phys-chain-conf`. `*phys-cvh*` est, LUI, PAR MAILLON.
                           (let ((h (+ (* sc PHYS-COLS) ci)))
                             (set! (-> *phys-cfh* h) (+ 1 (-> *phys-cfh* h))))
-                          ;; [DECISION 1 REVISEE 2026-08-18] La cle structurelle etait AVEUGLE A LA
-                          ;; PROFONDEUR : chest->main (cdep=1) gagnait sur epaules/cou meme moins
-                          ;; profond ; le maillon finissait dans le RECOUVREMENT des 4 capsules du
-                          ;; buste (cvh quasi egaux 2479/2339/2323/2280) et l'union n'etait jamais
-                          ;; resolue -> meshpen 0.0800 m pour un plafond de 0.0005. Le decideur est
-                          ;; LE PLUS PROFOND VIOLEUR (res = dep - feff, la grandeur que meshpen
-                          ;; publie) ; la cle ne departage plus qu'un res strictement egal. Toujours
-                          ;; UN volume par lien et par appel : la DECISION 1 tient, son critere change.
+                          ;; [DECISION 1, critere revise 2026-08-18] Le decideur est LE PLUS PROFOND
+                          ;; VIOLEUR (res = dep - feff) ; la cle structurelle ne departage plus qu'un
+                          ;; res strictement egal. ATTENTION, ET C'EST MESURE : ce choix est INERTE
+                          ;; dans l'etat livre — `*phys-prio-off*` vaut 1 (NOTE-07 : l'arbitrage a
+                          ;; ete ARME une fois, il faisait passer `meshpen` positif sur 13 chaines)
+                          ;; et ses deux consommateurs exigent `(zero? *phys-prio-off*)`. Tableau
+                          ;; BIT-IDENTIQUE avant/apres (course du 18/08 09:31). Il ne corrige donc
+                          ;; PAS le `meshpen` de la structure a 2 maillons : cette attribution-la,
+                          ;; ecrite ici le 18/08 au matin, etait fausse et elle est retiree.
                           (let ((key (phys-col-key sco cj))
                                 (rv  (- dep feff)))
                             (when (or (> rv bres)
