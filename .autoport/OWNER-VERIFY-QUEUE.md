@@ -2,101 +2,96 @@
 
 Branche `physics-keira-clean`.
 
-**LA PHYSIQUE N'A PAS BOUGÉ D'UN BIT, ET C'EST PROUVÉ, PAS AFFIRMÉ.** J'ai ajouté deux mesures dans
-le code (donc le binaire change), mais **rien qui déplace un os**. La preuve : j'ai relancé la salle
-de test au complet et regénéré le tableau de mesures — il est à **zéro ligne d'écart** de celui
-d'avant. Les ~4700 lignes, tous les compteurs, toutes les colonnes : identiques. Le maillage, les
-volumes et tes réglages sont eux aussi inchangés au bit près.
+**LA PHYSIQUE N'A PAS BOUGÉ, ET C'EST VÉRIFIABLE.** Les trois ajouts au moteur sont des compteurs ;
+aucun ne déplace un os. Un gros bloc de commentaires a été sorti du moteur vers son fichier de
+notes : le code privé de ses commentaires est **bit-identique** avant et après. Tu ne verras donc
+aucune différence à l'écran, et ce n'est pas un build retenu pour cause de qualité.
 
-Donc : **tu ne verras aucune différence à l'écran**, et ce n'est pas un build retenu pour cause de
-qualité (ta consigne là-dessus est respectée). Ce qui a changé est ce que je peux MESURER — et cinq
-de mes annonces précédentes étaient fausses à cause de ce que je ne mesurais pas.
-
-Ce cycle a corrigé mes **instruments** et audité mes **chiffres**. Cinq de mes annonces du build
-précédent étaient fausses. Voilà ce qui compte pour toi.
+Ce cycle achète une CAUSE — celle du « pudding » — et elle est chiffrée deux fois.
 
 ---
 
-## 1. LE RÉGLAGE QUE TU MONTES DEPUIS LE 11 AOÛT N'EST BRANCHÉ SUR RIEN
+## 1. J'AI TROUVÉ POURQUOI C'EST DU PUDDING, ET C'EST UN NOMBRE
 
-`couple` — celui que tu as fait passer de 1.00 à 1.45, puis 1.20, 1.55, 1.85 pour que ses seins
-« bougent un peu plus ». Il est lu dans le fichier, rangé dans une variable, et **utilisé nulle
-part**. Vérifié en listant toutes ses occurrences dans le moteur : il y en a trois, et aucune n'est
-un calcul de force.
+Ta §22 fixe la limite : le centre de masse d'un sein ne doit pas s'écarter de plus de **0.40** fois
+la longueur racine→pointe de l'organe (0.35 en régime normal).
 
-**Ce n'est pas un oubli, c'est une conséquence de ta propre spec.** Le 13 août, sur ta demande, le
-terme moteur `−couple × accélération de l'animation` a été remplacé par celui de ta §3
-(réorientation de la gravité + accélération du torse). Cette formule-là n'a pas de coefficient de
-couplage : il n'y avait plus rien à multiplier. Le réglage a survécu au modèle qui l'utilisait.
+Mesuré, sur la course complète (tes 5 pilotages × tes 31 animations) :
 
-Mon fichier de réglages affirme encore noir sur blanc que `couple` « reste ACTIF ». C'est faux, et
-c'est corrigé au dossier.
-
-**C'est à toi de trancher, parce que c'est ta ligne dans ton fichier :** je peux la retirer, ou la
-laisser comme trace. Je ne l'efface pas sans que tu le dises. Et le rebrancher n'est pas une
-option — ça remettrait le modèle que tu as fait retirer.
-
-**Ce qu'il faut retenir en pratique** : si tu trouves que ça ne bouge pas assez, le levier n'est pas
-`couple`. Ce sont les fréquences de ta §24 et la raideur de ta §28, qui sont implémentées et qui
-mesurent dans leurs bandes.
-
-## 2. JE RETIRE LA QUESTION QUE JE T'AI POSÉE AU BUILD PRÉCÉDENT
-
-Je t'avais demandé : « est-ce que le sein gauche traîne plus que le droit après un à-coup ? », en
-t'annonçant que le gauche était sorti de ma fenêtre de mesure (>2,5 s) alors que le droit était à
-1,50 s.
-
-**C'était mon instrument, pas ses seins.** Ma mesure cherche l'instant où l'agitation retombe sous
-1 % de son niveau de départ. Le résidu qui reste quand tout est calmé vaut **1,04 %** à gauche et
-**0,67 %** à droite. À gauche il est juste au-dessus de la barre, donc la barre n'est jamais
-franchie et mon instrument écrit « jamais » ; à droite il est juste en dessous, donc il écrit
-« 1,50 s ». Les deux seins se distinguent de 0,37 point de pourcentage et j'en ai fait un abîme.
-
-Et mon autre instrument, sur la même course, dit que **les six canaux des deux seins se stabilisent
-en 0,82 à 0,95 s**, dans la fenêtre visée. Tu n'as pas cette asymétrie à chercher.
-
-## 3. CE QUI EST MAINTENANT MESURÉ POUR LA PREMIÈRE FOIS
-
-Tes sections 10, 11 et 12 chiffrent un déplacement du **centre de masse** du sein selon
-l'orientation. Mon instrument n'en calculait que la moitié — la part portée par les **os** — en
-oubliant la part portée par la **déformation de la chair**, qui est précisément le mécanisme que ta
-§10 décrit. Les deux moitiés sont maintenant mesurées. Résultat :
-
-| | ta cible | mesuré (gauche / droite) | |
+| | ta limite | mesuré | |
 |---|---|---|---|
-| sur le dos (§10) | 23 % (18–28) | 26 % / 27 % | **dans la bande** |
-| à plat ventre (§11) | 24 % (20–30) | 24 % / 25 % | **dans la bande, quelle que soit la définition du contour du sein** |
-| couché sur le côté (§12) | 19 % (15–24) | 8 % et 19 % / 15 % et **3 %** | **le point faible** |
+| sein gauche | 0.40 | **1.81** | **×4.5** |
+| sein droit | 0.40 | **1.93** | **×4.8** |
 
-**§11 est la première de tes sections d'orientation à être tenue** sur la grandeur qu'elle nomme, des
-deux côtés, et sans que le choix du contour du sein change le verdict.
+Le centre de masse parcourt presque **deux fois** la longueur de l'organe. C'est ça, « du pudding » :
+pas une mauvaise fréquence — tes fréquences, ton amortissement et ton temps de stabilisation sont
+tous **dans tes bandes** — mais une amplitude quatre à cinq fois trop grande. Personne ne la
+mesurait : le moteur applique ta limite de centre de masse à un autre canal, et ta limite d'apex à
+un point du squelette qui n'est pas l'apex.
 
-**§12 (couchée sur le côté) est le défaut qui reste, et il est directionnel.** Chaque sein répond
-correctement quand la gravité tire d'un côté et deux à sept fois trop peu quand elle tire de l'autre
-— et c'est en miroir entre les deux seins. Ce n'est donc pas un manque d'amplitude global : c'est une
-direction qui ne répond pas. C'est le prochain chantier de physique.
+## 2. ET ÇA EXPLIQUE AUSSI QUE TES DEUX SEINS SE TRAVERSENT
 
-**ET JE CORRIGE CE QUE JE T'AI ÉCRIT PLUS HAUT DANS CE MÊME CYCLE.** J'avais annoncé « sur le dos :
-29 % à gauche, 18 % à droite », soit une asymétrie de 59 % entre tes deux seins. C'était la moitié de
-déformation qui me manquait : sur la mesure complète c'est 26 % et 27 %, **1,6 % d'écart**. Il n'y a
-pas d'asymétrie gauche/droite sur le dos, et tu n'as pas à la chercher.
+L'écart entre les deux au repos vaut **0.63** longueur d'organe. Chacun en parcourt **1.8**. Aucun
+solveur de collision ne peut rattraper ça : ce n'est pas que la collision ne pousse pas, c'est que
+l'organe part beaucoup trop loin.
 
-## 4. CE QUI RESTE OUVERT ET QUE TU PEUX VOIR
+Deux chemins indépendants concordent : la géométrie du maillage dit qu'il faut 1077 u de
+rapprochement pour produire la traversée déjà mesurée ; le compteur dit que le sein gauche à lui
+seul en parcourt 1087. L'excursion d'un seul des deux suffit donc déjà. C'est ce qui me fait dire que cette fois la cause est solide et pas une hypothèse de plus.
 
-**Les deux seins se traversent encore**, jusqu'à 12 cm sur les mouvements forts. C'est même la pire
-traversée du sein gauche — et c'est le mécanisme que le cycle précédent venait d'armer pour
-satisfaire ton « ils s'entrechoquent ». Le contact existe donc bien des deux côtés maintenant, mais
-l'interpénétration n'est pas fermée. Je m'étais trompé au build précédent en accusant la bretelle :
-la mesure de la course livrée désigne le sein opposé.
+**Je n'ai pas posé la limite, et ce n'est pas de la prudence : c'est la mesure qui l'interdit.**
+J'ai mesuré la part du mouvement qu'une limite à 0.40 mordrait, et elle est énorme :
 
-## 5. UN POINT DE STRUCTURE, ET TU L'AS DÉJÀ AUTORISÉ
+| | moyenne | instants au-dessus de 0.40 |
+|---|---|---|
+| sein gauche | 0.4743 | **54.6 %** |
+| sein droit | 0.4605 | **52.1 %** |
 
-Les deux os de chaque sein sont alignés **sur le rayon qui va du torse au sein**, et la masse du
-sein se trouve à **86 degrés** de cet axe. Autrement dit : la déformation de la chair est bien
-orientée (elle tient ses neuf cibles), mais l'**articulation** ne l'est pas — elle ne peut pas
-exprimer l'allongement racine→pointe que ta §11 demande, parce que sa direction n'est pas celle du
-sein.
+La MOYENNE est déjà au-dessus de ta limite, et plus d'un instant sur deux la dépasse. Poser la
+limite telle quelle la ferait mordre la moitié du temps — donc museler exactement le mouvement
+subtil que tu juges « OK ». C'est le piège qui a déjà coûté deux cycles.
 
-Le corriger demande de déplacer un os **hors** de ce rayon, donc de retoucher le rig. Tu l'as
-autorisé explicitement le 17 août (« même si ça implique de modifier le rig »). C'est une passe de
-rig et de cuisson de maillage, pas une retouche — c'est le prochain gros morceau.
+Et la corriger en raidissant ne marche pas non plus : tes fréquences (§24) et ton pilotage (§3)
+fixent ensemble l'excursion — `excursion = accélération / (2π·f)²` — donc raidir sort tes
+fréquences de leurs bandes. Avec tes propres chiffres, 2.30 Hz, la limite de 0.40 est atteinte dès
+que le pilotage vaut **1,25 g** : autant dire tout le temps.
+
+**Trois de tes sections ne peuvent donc pas être vraies en même temps avec le pilotage actuel.** Le
+seul terme que personne n'a jamais vérifié est la FORCE de ce pilotage, et tes §14 à §20 sont les
+seules lignes de ta spec qui relient un mouvement à une réponse attendue. C'est le prochain cycle.
+Si ce terme est juste, alors la tension est dans ta spec et c'est toi qui trancheras.
+
+## 3. TON DÉBARDEUR SOUTIENT TES SEINS — ET TA §35 DIT QU'IL NE DOIT PAS
+
+Sur les 24 599 corrections de contact que subit le sein gauche, **40 % viennent des volumes de ses
+bretelles** — `lTopStrap2` à lui seul en fait 20.7 %, c'est le **premier** constricteur, devant le
+buste. À droite : 28.9 %. Pour comparaison, le contact sein↔sein que ta §33 décrit (« ils
+s'entrechoquent ») pèse **1.8 %** et **2.2 %**.
+
+Ta §35 est explicite : « The visible tank top is a non-supportive conforming layer. Support
+contribution ≈ 0, Compression ≈ 0 ». Un volume qui pousse l'organe 5 083 fois n'est pas à zéro.
+
+**C'EST UNE QUESTION QUI TE REVIENT, et je ne la tranche pas.** Ta §35 suppose que le vêtement SUIT
+le sein ; ton ordre du 14 août a retiré toute physique aux bretelles, donc elles ne peuvent plus
+suivre. Les deux issues sont opposées :
+* **rendre la physique aux bretelles** — tu rouvres un organe que tu as gelé ;
+* **retirer leur volume** — le sein traversera la bretelle, contre ta règle « rien ne traverse ».
+
+## 4. DEUX DE MES MESURES ÉTAIENT FAUSSES, ET JE LES RETIRE
+
+**(a) Mon tableau t'annonçait un défaut structurel qui n'existe pas.** Il écrivait que le premier
+segment de chaque sein « ne tourne pas d'un degré » et que c'était structurel, pas un réglage. Le
+compteur qui disait ça **ne pouvait pas être écrit** : sa condition d'écriture est vide pour tes
+seins (ils n'ont volontairement pas d'ancrage rigide). Mesuré pour de vrai, ce segment tourne de
+**26 à 147 degrés** selon le stimulus. Il n'y a rien à chercher de ce côté.
+
+**(b) Deux de mes rouges t'étaient invisibles.** Mon validateur s'arrête à sa première porte —
+celle qui attend TON verdict — donc les douze suivantes n'étaient jamais évaluées. En les passant
+sur une copie : le moteur dépassait sa limite de taille (corrigé ce cycle, sans toucher au code),
+et la traversée des seins est une **porte rouge**, pas seulement une ligne de rapport.
+
+## 5. CE QUE J'AI CHERCHÉ ET QUI N'EST PAS LA CAUSE
+
+J'avais posé que la contrainte qui empêche l'os de s'allonger confisquait aussi la direction dans
+laquelle il faut écarter les deux seins. **Faux** : mesuré sur le maillage, elle n'en retire que
+12 à 14 % ; 86 % de la poussée reste utilisable. Écrit avant la mesure, réfuté par elle.

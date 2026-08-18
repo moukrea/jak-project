@@ -658,11 +658,17 @@ ROOM-SIDE: chain=chestR       inside_frames=5
    avant ce cycle : la boucle d'ecriture du moteur sautait tout `l < rlk`, donc ~50 % de
    la geometrie des cheveux etait soudee au crane et une meche a 2 joints se reduisait a
    un segment rigide articule EN SON MILIEU. Zero ici = le defaut est present.
-   rootrot chestL         0.0000 deg   (maillons=2)
-   rootrot chestR         0.0000 deg   (maillons=2)
-   MUET sur 2 chaine(s) a 2+ maillons : chestL chestR
-   Leur premier segment ne tourne pas d'un degre : le defaut que l'owner decrit est
-   encore la, et il est STRUCTUREL, pas un reglage.
+   rootrot chestL         DOMAINE VIDE — le compteur ne peut pas etre ecrit sur cette
+           chaine (aucun `rootlock` dans ses donnees, donc `rlk0 = 0`, donc la
+           garde `l < rlk0` est toujours fausse). Le maillon 0 tourne bien :
+           rot0 = 147.3033 deg, meme angle, garde `l = 0`. (maillons=2)
+   rootrot chestR         DOMAINE VIDE — le compteur ne peut pas etre ecrit sur cette
+           chaine (aucun `rootlock` dans ses donnees, donc `rlk0 = 0`, donc la
+           garde `l < rlk0` est toujours fausse). Le maillon 0 tourne bien :
+           rot0 = 118.4677 deg, meme angle, garde `l = 0`. (maillons=2)
+   AUCUNE chaine de cette course n'est jugeable par ce compteur : toutes ont un
+   domaine vide (aucun `rootlock` declare). Ce n'est ni une reussite ni un echec,
+   c'est une absence de mesure — et c'est `rot0` ci-dessus qui porte le chiffre.
 
 -- LE PRIX DU MUR DUR D'EXCURSION (raddrop) --------------------------------------------
    NATURE : une longueur CUMULEE sur la fenetre (somme des ecarts retires), pas une
@@ -678,6 +684,50 @@ ROOM-SIDE: chain=chestR       inside_frames=5
 ROOM-VOLPRIO: pairs_ignored=420573 chains=2
 ROOM-VOLPRIO: chain=chestL       ignored=238640   retreat=0
 ROOM-VOLPRIO: chain=chestR       ignored=181933   retreat=0
+
+-- SPEC 22 : L'EXCURSION DU CENTRE DE CHAIR (comex), CONTRE SA PROPRE BANDE ----------
+   Sa §22 : COM normal <= 0.35 B0, transitoire dur <= 0.40 B0. Maximum sur la fenetre
+   de course, deformation comprise. C'est la grandeur que sa borne de COM NOMME — et
+   ce que le moteur borne aujourd'hui est le JOINT (bande d'apex) et le canal radial.
+ROOM-COMEX: chain=chestL       comex=1.8058 B0   (0.35 / 0.40)   HORS BANDE, x4.51 le plafond dur
+   distribution : moyenne 0.4743 B0 · 54.6 % des echantillons au-dessus de 0.40
+ROOM-COMEX: chain=chestR       comex=1.9325 B0   (0.35 / 0.40)   HORS BANDE, x4.83 le plafond dur
+   distribution : moyenne 0.4605 B0 · 52.1 % des echantillons au-dessus de 0.40
+   La moyenne et la part au-dessus du plafond disent si une borne posee a 0.40
+   CLIPERAIT un extreme ou MUSELLERAIT la reponse. Sans elles, un maximum hors
+   bande ne permet pas de dimensionner un correctif sans risquer un suppresseur.
+
+-- SPEC 33 : LE RESIDU D'INTERPENETRATION, CONTRAINTE DE LONGUEUR EN PLACE PUIS LEVEE --
+   Meme impulsion, meme fenetre, meme emetteur ; seul `nolen` change. `res` en unites
+   de jeu (4096 = 1 m), maximum de fenetre, APRES le solveur, au-dela du plancher de
+   pose d'auteur. LECTURE HORS DEFAUT : 0.0000.
+   axe            chaine        res(len ON)  res(len OFF)   rapport   ci ON/OFF   comex ON/OFF (B0)
+   VERTICAL       chestL            0.0000        0.0000       n/a   0/0   0.3598 / 1.2890
+   VERTICAL       chestR            0.0000        0.0000       n/a   0/0   0.2658 / 1.3915
+   AVANT-ARRIERE  chestL           30.3332        0.0000     0.000   44/0   0.7966 / 1.2798
+   AVANT-ARRIERE  chestR            0.0000        0.0000       n/a   0/0   0.5640 / 1.3462
+   LATERAL        chestL           70.5874        0.0000     0.000   2/0   1.0195 / 0.8059
+   LATERAL        chestR          192.4727        0.0000     0.000   2/0   1.0274 / 0.8591
+   VERDICT : le critere pose avant la course (C29-lenres-prediction.txt) rend
+   VERT sur chestL chestR — ET IL N'EST PAS DISCRIMINANT, donc ce vert est REFUSE.
+   Desarmer la contrainte de longueur ne retire pas une DIRECTION, elle retire
+   la SEULE restriction cinematique : un point libre sort de tout volume, quelle
+   que soit la cause. Ce controle aurait rendu zero pour n'importe quelle
+   hypothese. Ce qui discrimine est la geometrie (probe_c29_chain_axis.py) :
+   68-69 deg entre la radiale du maillon et la direction de separation, donc
+   86-87 % de la poussee SURVIT a la projection — l'hypothese est REFUTEE.
+   rendement geometrique de la poussee de contact, par fenetre (delta cumule) :
+     VERTICAL       len=ON   poussees=2248912   rend= 0.3436  <- CUMUL DE TOUTE LA COURSE, pas une fenetre
+     AVANT-ARRIERE  len=ON   poussees=104       rend= 0.2684  <- domaine trop petit pour conclure
+     LATERAL        len=ON   poussees=3000      rend= 0.4308  <- domaine trop petit pour conclure
+     VERTICAL       len=OFF  poussees=16        rend=    n/a  <- domaine trop petit pour conclure
+     AVANT-ARRIERE  len=OFF  poussees=0         rend=    n/a  <- domaine trop petit pour conclure
+     LATERAL        len=OFF  poussees=0         rend=    n/a  <- domaine trop petit pour conclure
+   Un rendement proche de 0 dirait que la poussee est RADIALE et que la projection
+   sur la sphere de l'attache la rend a zero. MAIS les fenetres d'impulsion sont
+   quasi sans contact (quelques milliers de poussees contre 2.25 millions sur le
+   reste de la course) : aucune de ces lignes, hors la premiere, ne porte assez
+   d'echantillons pour etre lue comme une mesure. Publiees, pas exploitees.
 
 -- SPEC 18 : LA PENETRATION MESUREE CONTRE LA PEAU, PAS CONTRE LES VOLUMES ------------
    `meshpen` compte contre les volumes de collision, qui ne representent que 29.7 % de la

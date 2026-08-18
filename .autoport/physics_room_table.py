@@ -3485,7 +3485,7 @@ def main():
                 A('   que soit la cause. Ce controle aurait rendu zero pour n\'importe quelle')
                 A('   hypothese. Ce qui discrimine est la geometrie (probe_c29_chain_axis.py) :')
                 A('   68-69 deg entre la radiale du maillon et la direction de separation, donc')
-                A('   86-87 %% de la poussee SURVIT a la projection — l\'hypothese est REFUTEE.')
+                A('   86-87 % de la poussee SURVIT a la projection — l\'hypothese est REFUTEE.')
             elif len(_ref) == len(_lat) and _lat:
                 A('   VERDICT : la contrainte de longueur est EXONEREE sur l\'axe lateral (residu')
                 A('   inchange a 15 %% pres quand elle est levee). L\'hypothese est REFUTEE.')
