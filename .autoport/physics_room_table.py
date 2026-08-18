@@ -3406,6 +3406,44 @@ def main():
             _comdist.setdefault(_m.group(1), {})[int(_m.group(2))] = (
                 float(_m.group(4)) / float(_m.group(5)),
                 float(_m.group(6)) / float(_m.group(5)))
+    # ---- SPEC 14-20 : LA REPONSE DE COM PAR REGIME DE PILOTAGE --------------------------------
+    # Ses §14 a §20 sont les seules lignes de sa spec qui relient un STIMULUS a une REPONSE, et
+    # chacune donne SA bande de COM. Le plus grand chiffre de COM de toute la spec est 0.40 B0
+    # (§16 atterrissage tres dur), qui est aussi le plafond dur de §22 : AUCUN regime n'autorise
+    # davantage, et cette comparaison-la ne demande aucune interpretation.
+    # La ligne de base (`d` >= PHYSROOM-DRIVES, aucun pilotage) est publiee A COTE et jamais
+    # soustraite en silence : c'est ce que l'ANIMATION SEULE produit.
+    _comw = {}
+    for _m in re.finditer(r'^PHYSCOMW c=(\d+) a=(\d+) d=(\d+) comex=([-\d.e+]+)', txt, re.M):
+        _comw.setdefault((int(_m.group(1)), int(_m.group(3))), []).append(
+            (int(_m.group(2)), float(_m.group(4))))
+    if _comw:
+        A('')
+        A('-- SPEC 14-20 : LA REPONSE DE COM PAR REGIME, CONTRE LES BANDES DE SA SPEC ------------')
+        A('   Maximum de `comex` sur CHAQUE fenetre (chaine, animation, pilotage), puis le pire et')
+        A('   la moyenne des fenetres pour chaque pilotage. NATURE : longueur rapportee a B0,')
+        A('   maximum de fenetre. REPERE : monde, frame ecrite, contre la pose d\'auteur de la meme')
+        A('   frame, deformation comprise. LECTURE A LA POSE D\'AUTEUR : 0.0000.')
+        A('   Le PLUS GRAND chiffre de COM de toute sa spec est 0.40 B0 (§16, atterrissage tres')
+        A('   dur), egal au plafond dur de sa §22. Aucun de ses regimes n\'en autorise plus.')
+        _dn = {0: 'updown', 1: 'leftright', 2: 'accel', 3: 'jerk', 4: 'tilt'}
+        A('   chaine        pilotage      pire     moyenne   fenetres   au-dessus de 0.40 B0')
+        for _c in sorted(chains):
+            for _d in sorted(set(k[1] for k in _comw if k[0] == _c)):
+                _v = [v for _a, v in _comw[(_c, _d)]]
+                if not _v:
+                    continue
+                _hi = sum(1 for x in _v if x > 0.40)
+                A('   %-13s %-11s %8.4f %9.4f %9d %11d (%.0f %%)'
+                  % (names[_c] if _c < len(names) else _c,
+                     _dn.get(_d, 'BASE(sans pilotage)' if _d >= 5 else 'd%d' % _d),
+                     max(_v), sum(_v) / len(_v), len(_v), _hi, 100.0 * _hi / len(_v)))
+        A('   MAPPING vers ses sections — c\'est MA lecture, pas une ligne de sa spec, et elle est')
+        A('   ecrite pour pouvoir etre contestee : updown -> §14/§15/§16 (saut, apex, reception) ;')
+        A('   leftright et accel -> §17 (acceleration et freinage) ; jerk -> §16/§17 transitoire')
+        A('   haut ; tilt -> §19 (tangage) et §20 (roulis). Les bandes de COM correspondantes :')
+        A('   §14 0.15-0.32 · §16 0.25-0.40 · §17 0.10-0.30 · §18 0.10-0.28 · §20 0.15-0.22.')
+        A('   La comparaison au plafond 0.40 ci-dessus, elle, ne depend d\'aucun mapping.')
     A('')
     if _comex.get('run'):
         A('-- SPEC 22 : L\'EXCURSION DU CENTRE DE CHAIR (comex), CONTRE SA PROPRE BANDE ----------')

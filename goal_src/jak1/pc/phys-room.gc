@@ -1061,6 +1061,10 @@
           (-> self ai) (-> self drive)
           (phys-rest 2) (phys-rest 3)
           (phys-shape (-> self slot) 0 18))
+  ;; LA FENETRE DE `comex` SE FERME ICI, ET SEULEMENT LA SIENNE. `phys-comexw-reset!` ne touche que
+  ;; l'emplacement 23 : le maximum de COURSE (19) et la distribution cumulee (20/21/22) traversent
+  ;; les fenetres, c'est leur portee. Un `phys-diag-reset!` ici les detruirait tous les quatre.
+  (phys-comexw-reset!)
   (none))
 
 ;; POSITION MOYENNE de la pointe dans le repere de l'ancre, axe par axe. Une ligne a part parce que
