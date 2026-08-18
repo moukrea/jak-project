@@ -299,3 +299,16 @@ l'œil les trois fois avant que la mesure ne le dise.
 Verrou : la preuve d'une injection est la **RÉPARTITION** (≥ 30 % des sommets ayant le nouvel os
 pour joint majoritaire, w > 0.5, par sa §30), jamais la présence. Le tableau
 `os / poids total / sommets majoritaires` se publie à chaque injection.
+
+GUARD measure-the-delivered-mesh .autoport/PITFALLS.md keira-hd-lod0.glb
+**Mesurer le donneur au lieu du mesh livré, et publier trois blocages qui n'existaient pas.** Les
+2026-08-18 08:55, 10:19 et 10:49 j'ai lu les poids de peau sur `keira-hd-donor-injected.glb` — le
+DONNEUR — et rapporté « `lBooc` porte 0 sommet majoritaire, le repesage n'a jamais eu lieu », trois
+digests de suite, en accusant l'outil puis une règle manquante. Le mesh que l'owner teste est
+`out/jak1/fr3/skin/keira-hd-lod0.glb`, et le worker y mesurait au même moment un profil d'ancrage
+§30 **en U** — donc un repesage bien présent mais au profil inversé. Diagnostic faux, cause fausse,
+trois cycles de supervision gaspillés. C'est ma propre règle
+[[feedback_reskin_measure_the_prepped_input]] que je n'ai pas appliquée à moi-même.
+Verrou : toute mesure de peau publiée nomme **le fichier lu ET sa nature** (donneur / prepped /
+livré), et une affirmation sur ce que l'owner voit se lit sur le **mesh livré**, jamais sur le
+donneur. Les deux divergent par construction — c'est tout l'objet du pipeline entre les deux.
