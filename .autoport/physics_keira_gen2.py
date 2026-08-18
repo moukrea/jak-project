@@ -54,6 +54,14 @@ GLB_REL = 'decompiler_out/jak2/levels/lintcstb/keira-highres-lod0.glb'
 # when joints are injected the rig records the derived donor and this carries it into the header,
 # so the emitted file never misstates its own input.
 RESOLVED_GLB = GLB_REL
+# LE MESH QUE LE JEU RECOIT — et donc la SEULE ponderation de peau qui existe a l'ecran.
+# `<char>-k2e.json` designe l'INTERMEDIAIRE (pre-prep, pre-reskin) : c'est le bon fichier pour la
+# HIERARCHIE (il porte les 107 joints du rig, `align` compris) et le mauvais pour les POIDS.
+# `graft_shipped_weights` prend donc la hierarchie chez l'un et les poids chez l'autre.
+SHIPPED_REL = 'out/jak1/fr3/skin/keira-hd-lod0.glb'
+# La source de peau reellement lue, resolue a l'execution et recopiee dans l'en-tete emis, pour que
+# le fichier livre ne puisse pas se tromper sur sa propre entree.
+RESOLVED_SKIN = SHIPPED_REL
 BAK_REL = 'recharged_assets/physics_chains.FULL-CAST.bak'
 OUT_REL = 'recharged_assets/physics_chains.txt'
 
@@ -123,9 +131,47 @@ COVER_PCT = 95.0
 # testee (meme exclusion structurelle que `phys-col-own?`, jak-hd-physics.gc). Un lien n'enroule un
 # os qui n'est pas le sien que s'il en est le fourreau.
 #
-#     12 secteurs de 30 degres autour de l'axe du volume, en espace bind MONDE.
+#     12 secteurs de 30 degres autour de l'axe du volume, en espace bind MONDE,
+#     SUR LES SEULS SOMMETS DONT L'ABSCISSE TOMBE DANS LE SEGMENT (t dans [0,1]).
 #     gap = (plus long run de secteurs vides + 1) * 30 degres.
 #     COQUE  <=>  il existe un volume etranger avec  secteurs >= 10/12  ET  gap <= 60 deg.
+#
+# ---- CORRECTION DU CYCLE 22 : LE TEST ANGULAIRE PRENAIT UNE DROITE POUR UN SEGMENT -------------
+# Le detecteur de derive ci-dessous (`SHELL_EXPECTED`) a TIRE des que le generateur a cesse de lire
+# le donneur pour lire le mesh LIVRE (`graft_shipped_weights`) : il classait alors COQUE
+# `lmidhair` et `rmidhair` EN PLUS des deux pans, et la POITRINE arrivait a 10/12 secteurs / 90 deg
+# — a un cran de gap d'etre declaree fourreau, c'est-a-dire de casser l'acquis que l'owner a
+# valide dessus. La regle avait donc cesse de DISCRIMINER (SPEC 7 : « une mesure doit
+# discriminer »), et ce n'est pas le repesage qui l'a cassee : il l'a REVELEE. Les poids diffus du
+# donneur masquaient le defaut ; les poids concentres du mesh livre l'ont fait sortir.
+#
+# LE DEFAUT, ET IL EST GEOMETRIQUE, PAS STATISTIQUE. La couverture etait calculee autour de la
+# DROITE INFINIE portant l'axe du volume, sans exiger que les sommets soient LE LONG du segment.
+# Or la droite du tibia prolongee vers le haut passe pres du torse et de la tete : tout ce qui est
+# un tube autour de la verticale « enroulait » le mollet. Mesure sur le mesh LIVRE, fraction des
+# sommets du lien dont l'abscisse tombe dans le segment `Lankle->Lknee` :
+#     LpantFlap   t 0.49..0.65   100 %   <- vrai fourreau, il gaine le tibia
+#     RpantFlap   t 0.49..0.65   100 %   <- vrai fourreau
+#     Lmidhaira   t 3.60..3.92     0 %   <- des cheveux, 3.8 longueurs de tibia au-dessus du genou
+#     Rmidhaira   t 3.60..3.92     0 %
+#     lBoob       t 2.65..2.82     0 %   <- la POITRINE, a 10/12 secteurs d'un axe qui ne la
+#     rBoob       t 2.66..2.84     0 %      traverse jamais
+# `shell_rr_at` bornait DEJA `t0` a [0,1] « COMME LE MOTEUR LE FAIT » (`phys-collide-depth`) : le
+# test angulaire etait le seul endroit du fichier qui traitait un volume BORNE comme une droite
+# INFINIE. La correction aligne les deux. AUCUN SEUIL NOUVEAU N'EST INTRODUIT.
+#
+# CE QUE LA CORRECTION DONNE, AVEC SES DEUX CONTROLES :
+#     pantflapL/R  10/12 / 60 deg, 100 % dans le segment      COQUE   (inchange — la regle tient)
+#     lmidhair/rmidhair  leur meilleur volume n'est meme plus le mollet : 7/12 / 180 deg
+#     chestL/chestR  10/12 / 90 deg  ->  3/12 / 300 deg       la marge passe d'un cran a huit
+#     kneeflapL/R (controle NEGATIF de l'owner)  2/12 / 330 deg        inchange
+# CONTROLE POSITIF, la regle DOIT encore tirer — la PEAU autour de SON PROPRE os (l'exclusion
+# « etranger » est levee expres), axe = la capsule EMISE qui porte le joint, car la chair de
+# `Lknee` gaine le TIBIA et non la cuisse :
+#     Lknee 12/12 / 30 deg (94 % dans le segment) · Rknee 12/12 / 30 · Lthigh 12/12 / 30 (89 %)
+#     chest 12/12 / 30 (87 %) · main 12/12 / 30 (100 %) · Lelbow 11/12 / 60 (98 %)
+# soit exactement les valeurs que ce bloc documentait avant la correction. La regle designe donc
+# toujours ce qu'elle doit designer, et ne designe plus ce qu'elle n'aurait jamais du.
 #
 # RESULTAT MESURE (table complete journalisee a chaque generation, section COQUES) :
 #     LpantFlap -> Lankle->Lknee   10/12,  60 deg    COQUE
@@ -426,9 +472,134 @@ def load_rig(path):
     return names, parent, d
 
 
-def load_mesh(model):
+def graft_shipped_weights(geo, log=None):
+    """GREFFE LES POIDS DU MESH QUE LE JEU RECOIT SUR LA GEOMETRIE DU DONNEUR (espace du rig).
+
+    LE DEFAUT QUE CETTE FONCTION FERME, et il a ete mesure au cycle 21 avant d'etre corrige ici.
+    `c6.load_geometry(model)` resout le mesh depuis `<char>-k2e.json`, qui pointe l'INTERMEDIAIRE
+    `out/jak1/fr3/skin/keira-hd-donor-injected.glb`. Or la chaine du bake est :
+
+        injection -> keira-hd-donor-injected.glb     <- ce que ce generateur lisait
+        stamp     -> keira-hd-stamped.glb
+        prep      -> keira-hd-lod0.glb               (compacte, JETTE le joint `align`)
+        RESKIN    -> applique recharged_assets/physics_reskin.txt
+        copie     -> out/jak1/fr3/skin/keira-hd-lod0.glb   <- CE QUE LE JEU RECOIT
+
+    Le reskin est DEUX ETAPES EN AVAL du fichier lu. Tous les `verts=`, `wsum=`, rayons et volumes
+    de physics_chains.txt decrivaient donc une ponderation que le jeu ne recoit jamais. Mesure du
+    cycle 21, meme sonde, deux fichiers :
+
+        joint    lu par ce generateur    mesh LIVRE
+        lBoob    wsum= 9.162             wsum=20.679    x2.3
+        lBooc    wsum= 9.015             wsum=21.569    x2.4
+        rBoob    wsum= 8.646             wsum=17.985    x2.1
+        rBooc    wsum= 6.817             wsum=18.085    x2.7
+
+    Et la preuve la plus dure est une PREDICTION FALSIFIEE : le cycle 21 predisait que le repesage
+    ferait bouger les rayons ; `physics_chains.txt` est ressorti IDENTIQUE AU BIT PRES apres une
+    passe qui double la possession du maillon distal. Un generateur qui ne peut pas voir le
+    repesage ne peut pas dimensionner un volume autour de la chair qui bouge.
+    C'est le meme piege que `ROOM-SKINCOV` le 2026-08-13 : « ce n'est pas une mesure perimee,
+    c'est une mesure prise sur une AUTRE entree ».
+
+    POURQUOI CE N'EST PAS UN SIMPLE ECHANGE DE CHEMIN, et c'est ce qui a fait reculer le cycle 21.
+    `prep` jette `align`, qui est a l'INDEX 0 du rig : le mesh livre porte 106 joints la ou le rig
+    en porte 107, et TOUS les indices sont decales de 1. Lire le mesh livre en croyant lire le rig
+    ferait peser chaque sommet contre le MAUVAIS joint — un desastre silencieux, exactement la
+    classe d'erreur qu'on corrige. La correspondance est donc etablie PAR NOM, jamais par un
+    decalage arithmetique : le `+1` est ici une CONSEQUENCE mesuree et imprimee, jamais une
+    hypothese de calcul.
+
+    ET LA GREFFE NE PORTE QUE SUR LES POIDS. Tout le reste — noms, hierarchie, positions de bind,
+    matrices inverse-bind, positions de sommets, triangles — reste celui du donneur, en espace de
+    rig. Les six egalites ci-dessous le VERIFIENT au lieu de le supposer ; toute violation arrete
+    la generation, parce qu'un greffon pose sur une geometrie qui a bouge serait invisible."""
+    ship_path = os.path.join(REPO, SHIPPED_REL)
+    if not os.path.exists(ship_path):
+        # Pas de bake sur cette machine : on garde le donneur, et ON LE DIT. Un repli silencieux
+        # serait precisement le defaut qu'on ferme (regle 3 : aucun de-scope silencieux).
+        if log:
+            log(f'skin ATTENTION: mesh livre absent ({SHIPPED_REL}) — poids lus sur le DONNEUR, '
+                f'donc EN AMONT du reskin. Les rayons ne decrivent pas ce que le jeu recoit.')
+        return geo, RESOLVED_GLB + '  [MESH LIVRE ABSENT — poids pre-reskin]'
+    ship = c6.load_geometry(MODEL, glb=SHIPPED_REL)
+    if ship is None:
+        raise SystemExit(f'mesh livre illisible : {SHIPPED_REL}')
+
+    dn, sn = list(geo['names']), list(ship['names'])
+    if len(set(dn)) != len(dn) or len(set(sn)) != len(sn):
+        raise SystemExit('GREFFE: un nom de joint est duplique — la correspondance par nom '
+                         'ne serait pas une bijection')
+    idx_of = {n: i for i, n in enumerate(dn)}
+    missing = [n for n in sn if n not in idx_of]
+    if missing:
+        raise SystemExit('GREFFE: le mesh livre porte des joints absents du rig : '
+                         + ', '.join(missing[:8]))
+    lut = np.array([idx_of[n] for n in sn], dtype=np.int64)   # index LIVRE -> index RIG, PAR NOM
+    if list(lut) != sorted(lut):
+        raise SystemExit('GREFFE: `prep` a REORDONNE les joints, il ne fait pas que supprimer. '
+                         'La greffe suppose une sous-suite ; verifier prep_hd_actor_glb.py.')
+
+    # (1) les joints que `prep` jette ne doivent porter AUCUN poids chez le donneur, sans quoi la
+    #     greffe perdrait de la chair au lieu de changer sa repartition.
+    dropped = [n for n in dn if n not in set(sn)]
+    Jd, Wd = geo['J'], geo['W']
+    for n in dropped:
+        j = idx_of[n]
+        w = float(sum(Wd[Jd[:, c] == j, c].sum() for c in range(Jd.shape[1])))
+        if w > 1e-6:
+            raise SystemExit(f'GREFFE: le joint `{n}`, absent du mesh livre, porte {w:.6f} de '
+                             f'poids chez le donneur — la greffe le perdrait en silence')
+
+    # (2) la geometrie doit etre LA MEME, sinon on collerait des poids sur d'autres sommets.
+    if geo['V'].shape != ship['V'].shape:
+        raise SystemExit(f"GREFFE: {geo['V'].shape[0]} sommets chez le donneur contre "
+                         f"{ship['V'].shape[0]} sur le mesh livre — `prep` a change la topologie")
+    dv = float(np.abs(geo['V'] - ship['V']).max())
+    if dv > 1e-3:
+        raise SystemExit(f'GREFFE: les positions de bind des sommets different de {dv:.6f} u — '
+                         f'la correspondance sommet a sommet ne tient pas')
+    if geo['F'].shape != ship['F'].shape or not bool((geo['F'] == ship['F']).all()):
+        raise SystemExit('GREFFE: les triangles different entre le donneur et le mesh livre')
+
+    # (3) meme hierarchie et memes positions d'os pour les joints communs.
+    dp = 0.0
+    for i, n in enumerate(sn):
+        j = int(lut[i])
+        dp = max(dp, float(np.linalg.norm(geo['P'][j] - ship['P'][i])))
+        pa_s = sn[ship['parent'][i]] if ship['parent'][i] >= 0 else None
+        pa_d = dn[geo['parent'][j]] if geo['parent'][j] >= 0 else None
+        if pa_s is not None and pa_s != pa_d:
+            raise SystemExit(f'GREFFE: parent de `{n}` : `{pa_d}` au rig contre `{pa_s}` au '
+                             f'mesh livre')
+    if dp > 1e-3:
+        raise SystemExit(f'GREFFE: une position de bind differe de {dp:.6f} u entre le rig et '
+                         f'le mesh livre')
+
+    # (4) les poids livres doivent etre normalises, comme ceux du donneur.
+    rs = ship['W'].sum(1)
+    if float(np.abs(rs - 1.0).max()) > 1e-3:
+        raise SystemExit('GREFFE: les poids du mesh livre ne somment pas a 1 '
+                         f'(ecart max {float(np.abs(rs - 1.0).max()):.6f})')
+
+    offs = sorted({int(lut[i]) - i for i in range(len(sn))})
+    geo['J'] = lut[ship['J']]
+    geo['W'] = ship['W']
+    if log:
+        log(f'skin GREFFE: poids lus sur le MESH LIVRE {SHIPPED_REL} '
+            f'({len(sn)} joints) et remis en espace de rig ({len(dn)} joints) PAR NOM ; '
+            f'joints jettes par prep : {", ".join(dropped) or "aucun"} (poids nul, verifie) ; '
+            f'decalage d\'index constate {offs} ; geometrie identique '
+            f'(dV={dv:.6f} u, dP={dp:.6f} u, triangles egaux).')
+    return geo, SHIPPED_REL
+
+
+def load_mesh(model, log=None):
     """c6.load_geometry (names/parents/bind positions in game units, V/J/W restricted to the
-    vertices THIS model's primitives index) + the per-joint inverse bind matrices."""
+    vertices THIS model's primitives index) + the per-joint inverse bind matrices.
+
+    Depuis le cycle 22 les POIDS sont ceux du mesh que le jeu recoit : voir
+    `graft_shipped_weights`, qui explique le defaut et verifie la greffe."""
     geo = c6.load_geometry(model)
     if geo is None:
         raise SystemExit(f"could not load geometry for {model}")
@@ -436,6 +607,8 @@ def load_mesh(model):
     binc = consolidate_buffers(js, bufs)
     _n, ibms, _p = skin_info(js, binc)
     geo['ibms'] = ibms
+    geo, skin_src = graft_shipped_weights(geo, log)
+    geo['skin_src'] = skin_src
     return geo
 
 
@@ -806,18 +979,24 @@ def shell_axis_frame(u):
 
 
 def shell_around(pts, a_world, b_world):
-    """Distance perpendiculaire et angle (degres, 0..360) de chaque sommet autour de l'axe a->b,
-    en espace bind MONDE — le repere ou vivent les volumes emis. -> (d, angles, u)."""
+    """Distance perpendiculaire, angle (degres, 0..360) et ABSCISSE `t` de chaque sommet autour de
+    l'axe a->b, en espace bind MONDE — le repere ou vivent les volumes emis.
+
+    `t` est la projection sur le segment, NON bornee : t<0 ou t>1 designe un sommet situe AU-DELA
+    d'un des deux bouts du volume. Il est rendu parce que l'enroulement doit se juger le long du
+    SEGMENT, pas de la droite qui le porte — voir `classify_shells`.
+    -> (d, angles, t, u)."""
     u = b_world - a_world
     L = float(np.linalg.norm(u))
     if L < 1e-6:
         raise SystemExit('shell: zero-length volume axis')
     u = u / L
     rel = pts - a_world
+    t = (rel @ u) / L
     perp = rel - np.outer(rel @ u, u)
     e1, e2 = shell_axis_frame(u)
     ang = np.degrees(np.arctan2(perp @ e2, perp @ e1)) % 360.0
-    return np.linalg.norm(perp, axis=1), ang, u
+    return np.linalg.norm(perp, axis=1), ang, t, u
 
 
 def shell_sectors(ang):
@@ -874,7 +1053,8 @@ def classify_shells(geo, groups, idx_of, volumes, log):
         f'(regle mesuree : secteurs >= {SHELL_SECT_MIN}/{SHELL_NSEC} ET gap <= '
         f'{SHELL_GAP_MAX:.0f} deg autour d\'un volume ETRANGER)')
     log(f"  {'chaine/joint':<26}{'nv':>4} {'seuil':>6}  {'meilleur volume ETRANGER':<24}"
-        f"{'sect':>6}{'gap':>6}{'|c-axe|':>9}{'rr(c)':>7}{'r_int':>7}  verdict")
+        f"{'sect':>6}{'gap':>6}{'in-seg':>7}{'(droite)':>10}{'|c-axe|':>9}{'rr(c)':>7}"
+        f"{'r_int':>7}  verdict")
     out = {}
     for cname in groups:
         for jn in groups[cname]:
@@ -891,13 +1071,37 @@ def classify_shells(geo, groups, idx_of, volumes, log):
                 if an in groups[cname] or bn in groups[cname]:
                     continue                      # volume PROPRE a la chaine : jamais un fourreau
                 a_w, b_w = P[idx_of[an]], P[idx_of[bn]]
-                d, ang, u = shell_around(pts, a_w, b_w)
-                nsec, gap = shell_sectors(ang)
+                d, ang, t, u = shell_around(pts, a_w, b_w)
+                # UN FOURREAU EST LE LONG DE L'OS QU'IL GAINE, PAS QUELQUE PART SUR LA DROITE QUI
+                # LE PORTE. Seuls les sommets dont l'abscisse tombe DANS le segment comptent dans
+                # la couverture angulaire. Correction du cycle 22, et ce n'est pas un reglage :
+                # `shell_rr_at` borne deja `t0` a [0,1] « COMME LE MOTEUR LE FAIT »
+                # (`phys-collide-depth`), donc le test angulaire etait le seul endroit du fichier
+                # qui traitait un volume BORNE comme une droite INFINIE.
+                #
+                # CE QUE LE DEFAUT COUTAIT, mesure sur le mesh LIVRE (fraction des sommets du lien
+                # dont l'abscisse tombe dans le segment du mollet) :
+                #     LpantFlap -> Lankle->Lknee   t 0.49..0.65   100 %   <- vrai fourreau
+                #     RpantFlap -> Rankle->Rknee   t 0.49..0.65   100 %   <- vrai fourreau
+                #     Lmidhaira -> Lankle->Lknee   t 3.60..3.92     0 %   <- cheveux, 3.8 tibias
+                #     Rmidhaira -> Rankle->Rknee   t 3.60..3.92     0 %      au-dessus du genou
+                #     lBoob     -> Lankle->Lknee   t 2.65..2.82     0 %   <- la POITRINE, a 10/12
+                #     rBoob     -> Rankle->Rknee   t 2.66..2.84     0 %      secteurs de l'axe
+                # La droite du tibia prolongee vers le haut passe pres du torse et de la tete :
+                # tout ce qui est un tube autour de la verticale « enroulait » le mollet. Le defaut
+                # etait la depuis toujours et restait INVISIBLE tant que le generateur lisait le
+                # donneur : ce sont les poids concentres du mesh livre qui l'ont fait sortir.
+                # Aucun seuil neuf n'est introduit : les criteres secteurs/gap font le reste, un
+                # lien qui ne garde que quelques sommets ne peut pas atteindre 10/12 sous 60 deg.
+                ins = (t >= 0.0) & (t <= 1.0)
+                nsec, gap = shell_sectors(ang[ins]) if bool(ins.any()) else (0, 360.0)
+                nsec_line, gap_line = shell_sectors(ang)      # l'ancienne lecture, publiee
                 rel = c - a_w
                 off = float(np.linalg.norm(rel - float(rel @ u) * u))
                 rr, _t0 = shell_rr_at(c, a_w, b_w, ra, rb)
                 rows.append(dict(vol=f'{an}->{bn}', sect=nsec, gap=gap, off=off, rr=rr,
-                                 r_int=off + rr))
+                                 r_int=off + rr, frac_in=float(ins.mean()),
+                                 sect_line=nsec_line, gap_line=gap_line))
             if not rows:
                 log(f'  {cname + "/" + jn:<26}{len(idx):>4} {thr:>6}  '
                     f'-- NON MESURE : aucun volume etranger a cette chaine')
@@ -907,7 +1111,11 @@ def classify_shells(geo, groups, idx_of, volumes, log):
                 sorted(rows, key=lambda r: (-r['sect'], r['gap']))[0]
             r_int = int(round(best['r_int']))
             log(f'  {cname + "/" + jn:<26}{len(idx):>4} {thr:>6}  {best["vol"]:<24}'
-                f'{best["sect"]:>4}/{SHELL_NSEC}{best["gap"]:>6.0f}{best["off"]:>9.0f}'
+                f'{best["sect"]:>4}/{SHELL_NSEC}{best["gap"]:>6.0f}'
+                f'{best["frac_in"] * 100:>6.0f}%'
+                f'{str(best["sect_line"]) + "/" + str(SHELL_NSEC):>7}'
+                f'{best["gap_line"]:>3.0f}'
+                f'{best["off"]:>9.0f}'
                 f'{best["rr"]:>7.0f}{r_int:>7}  {"COQUE" if qual else "."}')
             if not qual:
                 continue
@@ -1077,7 +1285,7 @@ def influence_table(rig_path, log):
     and summed weight of the vertices above INFL_GATE, and the radius fitted from that joint's own
     vertices (NONE when it owns none, i.e. nothing was fitted and a fallback will be needed)."""
     names, parent, _rigdoc = load_rig(rig_path)
-    geo = load_mesh(MODEL)
+    geo = load_mesh(MODEL, log)
     if list(geo['names']) != names:
         raise SystemExit('GLB skin joint list does not match the rig json joint list')
     idx_of = {n: i for i, n in enumerate(names)}
@@ -1106,7 +1314,7 @@ def fnum(x):
 
 def generate(stamp, rig_path, glb_path, bak_path, log):
     names, parent, _rigdoc = load_rig(rig_path)
-    geo = load_mesh(MODEL)
+    geo = load_mesh(MODEL, log)
     if list(geo['names']) != names:
         raise SystemExit('GLB skin joint list does not match the rig json joint list')
     rel_src = geo['src'].replace('\\', '/')
@@ -1120,8 +1328,11 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
     # protected was "don't silently read a different mesh than documented" — so it now RESOLVES
     # from the rig, says so out loud, and the emitted header records the path really read (it used
     # to print GLB_REL unconditionally, i.e. it would have lied about its own input).
-    global RESOLVED_GLB
+    global RESOLVED_GLB, RESOLVED_SKIN
     RESOLVED_GLB = rel_src
+    # La peau vient d'un AUTRE fichier que la hierarchie depuis le cycle 22, et l'en-tete doit le
+    # dire : c'est le fichier livre qui decide des rayons et des volumes.
+    RESOLVED_SKIN = geo['skin_src']
     idx_of = {n: i for i, n in enumerate(names)}
     log(f"rig  {RIG_REL}: {len(names)} joints")
     if rel_src != GLB_REL:
@@ -1780,7 +1991,8 @@ def generate(stamp, rig_path, glb_path, bak_path, log):
     L.append(f'# generated: {stamp}   (regenerate: python3 .autoport/physics_keira_gen2.py --stamp {stamp})')
     L.append('#')
     L.append(f'# rig  (joint order + hierarchy) : {RIG_REL}')
-    L.append(f'# mesh (skin weights, radii fit) : {RESOLVED_GLB}')
+    L.append(f'# mesh (hierarchie, pose de bind) : {RESOLVED_GLB}')
+    L.append(f'# skin (poids, rayons, volumes)   : {RESOLVED_SKIN}')
     L.append('#')
     L.append('# Contract: .autoport/prompts/SPEC-keira-physique.md (clean restart 2026-08-11).')
     L.append('# SPEC section 1 — what has physics, and NOTHING else: ears, hair (root anchored),')

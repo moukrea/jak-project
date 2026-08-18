@@ -83,6 +83,29 @@ HEADER = [
 ]
 
 
+def shipped_glb_for(model):
+    """Le mesh que le JEU RECOIT pour ce modele, ou None s'il n'a pas ete cuit sur cette machine.
+
+    LE DEFAUT QUE CETTE RESOLUTION FERME, et il est a un drapeau d'etre livre. Sans `--glb`, ce
+    script lit le glb DONNEUR designe par le k2e — deux etapes EN AMONT du reskin. Mesure du
+    cycle 22, meme script, les deux meshs, sur les quatre maillons de poitrine :
+
+        maillon          sur le DONNEUR        sur le MESH LIVRE
+        chestL lBoob     nverts= 0             nverts=31   perp_max=725.5
+        chestL lBooc     nverts= 2             nverts=26   perp_max=669.4
+        chestR rBoob     nverts= 0             nverts=27   perp_max=725.5
+        chestR rBooc     nverts= 1             nverts=20   perp_max=653.6
+
+    Sur le donneur, DEUX maillons sur quatre rendent un nuage VIDE : les enregistrements `ms` de
+    la poitrine disparaitraient purement et simplement du fichier livre, et rien dans la sortie ne
+    dirait qu'ils manquent — `LINKS WITH EMPTY CLOUD` les listerait comme un fait de la geometrie.
+    Le cycle 21 y a echappe parce qu'il a passe `--glb` a la main. « Quand une perte se repete, on
+    la rend IMPOSSIBLE au point de production, pas detectable au point de controle » : le defaut
+    est donc le MESH LIVRE, et `--glb` ne sert plus qu'a mesurer DELIBEREMENT autre chose."""
+    rel = os.path.join('out', 'jak1', 'fr3', 'skin', model + '-lod0.glb')
+    return rel if os.path.exists(os.path.join(REPO, rel)) else None
+
+
 def load_geometry_ibm(model, glb=None):
     """c6.load_geometry plus each joint's inverseBindMatrix (glTF metres, column-major
     already transposed to row convention by skin_info).
@@ -613,6 +636,10 @@ def main():
     bsurf_only = args.bsurf_only
     lines, sections = c6.parse_chains_file(CHAINS)
     mesh_out = list(HEADER)
+    # LE FICHIER DIT DE QUEL MESH IL SORT. Sans cette ligne, un `physics_mesh.txt` tire du
+    # donneur et un autre tire du mesh livre sont indiscernables a la relecture — et c'est
+    # exactement ainsi qu'une mesure prise sur la mauvaise entree survit a plusieurs cycles.
+    src_note = []
     bs_by_model = {}         # 'alias alias' -> [bs lines]   (for --bsurf-only merging)
     bs_caps = {}             # 'alias alias' -> {bone -> that bone's stray cap}
     bs_stats = []            # (model, stats dict)
@@ -629,7 +656,10 @@ def main():
         geo, err = None, None
         for nm in sec.names:
             try:
-                geo = load_geometry_ibm(nm, glb=args.glb)
+                # LE MESH LIVRE EST LE DEFAUT DEPUIS LE CYCLE 22 (cf. `shipped_glb_for`).
+                # `--glb` reste prioritaire : il sert a mesurer DELIBEREMENT un autre mesh.
+                _g = args.glb or shipped_glb_for(nm)
+                geo = load_geometry_ibm(nm, glb=_g)
             except Exception as e:  # noqa: BLE001 — recorded, never silently skipped
                 err = '%s: %s' % (type(e).__name__, e)
                 geo = None
@@ -640,6 +670,7 @@ def main():
                                                 'decompiler_out levels)'))
             continue
         models_processed += len(sec.names)
+        src_note.append('# skin  %s : %s' % (model, geo.get('src', '?')))
         nmap = {n: i for i, n in enumerate(geo['names'])}
         mesh_out.append('model ' + ' '.join(sec.names))
         for ch in (() if bsurf_only else sec.chains):     # --bsurf-only never touches `ms`
@@ -693,6 +724,8 @@ def main():
     total_bs_dropped = sum(s['dropped'] for _, s in bs_stats)
 
     # ---- write outputs ----
+    # La provenance de la peau est ecrite JUSTE APRES l'en-tete, avant la premiere ligne `model`.
+    mesh_out[len(HEADER):len(HEADER)] = src_note
     os.makedirs(os.path.dirname(OUT_REPORT), exist_ok=True)
     if bsurf_only:
         # only the `bs` lines change; `ms` and every comment survive byte for byte, and the

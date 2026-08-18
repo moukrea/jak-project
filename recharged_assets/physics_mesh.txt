@@ -4,6 +4,7 @@
 # bs <bone> <n> (x y z nx ny nz)*n          BODY bone: surface samples + outward unit normals
 # bs samples are written in farthest-point order: the first k of a bone's n samples are a valid
 # (and near-optimal) k-point subset, so a runtime may take a prefix without losing coverage.
+# skin  keira-hd : out/jak1/fr3/skin/keira-hd-lod0.glb
 model keira-hd
 ms chestL 0 2 121.8 724.1 1.4 -111.4 717.8 -57.7
 ms chestL 1 2 38.1 618.8 -231.0 -6.9 622.5 -280.9
