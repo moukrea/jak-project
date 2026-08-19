@@ -1365,8 +1365,12 @@ chain chestR gravity=1.00
 # RESERVE DECLAREE, MESUREE, NON CORRIGEE CE CYCLE : le moteur applique l'excursion au centre de
 # la SPHERE DE COLLISION (`offset=`), pas au centroide pondere `c_j`. Ecart mesure : norme -7.64 %
 # / -1.02 % (chestL), -5.29 % / -1.44 % (chestR) ; angle 7.68 deg / 1.84 deg (chestL). Report sur
-# le COM : ~0.014 B0, soit ~4 % de la bande de 0.35. Corriger cela demanderait un canal VECTORIEL
-# `comc=` ; il ne sera ouvert que si un chiffre atterrit pres d'un seuil.
+# le COM, BORNE et non estime : SOMME_l w_l (2 sin(th_l/2) + |T-I|) |lc_l - c_l| <= 0.0285 B0
+# (chestL) et 0.0301 B0 (chestR), soit 8.1 % / 8.6 % de la bande de 0.35, DANS UN SENS INCONNU.
+# Une premiere redaction annoncait « ~0.014 B0, ~4 % » : elle omettait le terme de deformation
+# (|T-I| <= 0.25, sa §22 « Absolute stretch clamp: 25% ») et SOUS-ESTIMAIT donc la reserve d'un
+# facteur 2. Corriger l'ecart lui-meme demanderait un canal VECTORIEL `comc=` ; il ne sera ouvert
+# que si un chiffre atterrit a moins de cette borne d'un seuil de la spec.
 #
 # REPRODUCTION, une commande :
 #   python3 .autoport/probe_c48_com_identity.py

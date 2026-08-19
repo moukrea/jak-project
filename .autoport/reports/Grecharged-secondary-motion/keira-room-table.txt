@@ -1,7 +1,7 @@
 ==================================================================================================
 KEIRA — SALLE DE TEST SANS JOUEUR : TABLEAU DE MESURE
 genere par .autoport/physics_room_table.py depuis .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
-empreinte de la trace lue : md5 24b4857de939e5352df224867b5f9e59 (3301826 octets)
+empreinte de la trace lue : md5 b9540c370687ba3e27ebdf5c7d612cd0 (3335870 octets)
 contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 7 (ce qui fait foi)
 
 Toutes les longueurs sont en METRES (la trace est en unites de jeu, 4096 u = 1 m). Ce que
@@ -756,13 +756,86 @@ ROOM-VOLPRIO: chain=chestR       ignored=63346    retreat=0
       Les deux maillons ecrivent le MEME emplacement : sans cette colonne
       l'attribution ne designerait aucune piece.
 
--- SPEC 22 : L'EXCURSION DU CENTRE DE CHAIR (comex), CONTRE SA PROPRE BANDE ----------
-   Sa §22 : COM normal <= 0.35 B0, transitoire dur <= 0.40 B0. Maximum sur la fenetre
-   de course, deformation comprise. C'est la grandeur que sa borne de COM NOMME — et
-   ce que le moteur borne aujourd'hui est le JOINT (bande d'apex) et le canal radial.
-ROOM-COMEX: chain=chestL       comex=0.8865 B0   (0.35 / 0.40)   HORS BANDE, x2.22 le plafond dur
+
+-- SPEC 6 + SPEC 22 : LE COM PONDERE PAR LA MASSE — LA GRANDEUR QUE SA BORNE NOMME ----
+   §6 : « `P0` neutral breast center-of-mass position »
+   §22 : « Breast COM: normal <= 35% B0, hard transient <= 40% B0 »
+   Un centre de masse est une MOYENNE PONDEREE PAR LA MASSE. La chair ANCREE (`chest`,
+   `?shoulder`) n'est pas simulee : son excursion est nulle AU BIT PRES, elle ne peut
+   pas entrer dans un maximum mais elle entre dans une moyenne — et elle la divise
+   presque par deux. `com` est forme VECTORIELLEMENT et DANS LA MEME FRAME par le
+   moteur : ce n'est pas une recomposition majorante.
+   NATURE : longueur rapportee a B0 (602 u). REPERE : monde, frame ecrite, contre la
+   pose d'auteur de la MEME frame, deformation comprise. A LA POSE D'AUTEUR : 0.0000.
+ROOM-COM: chain=chestL       pic_typique=0.3393  max=0.4725 B0   (normal 0.35 / dur 0.40)
+   VERDICT §22 « normal <=35% B0 »        sur le pic TYPIQUE de fenetre : 0.3393 -> DANS
+      CE VERDICT DEPEND DE LA FRONTIERE DE L'ORGANE, ET LE DIRE FAIT PARTIE DU
+      VERDICT. Il est rendu a `w>0`. A `w>=0.25` la borne SUPERIEURE seule (donc
+      un majorant du vrai chiffre) vaut deja plus que 0.35 — voir les deux lignes
+      « borne SUP » ci-dessous : le verdict BASCULERAIT. Ce qui tranche n'est pas
+      le confort du resultat, c'est sa §30, qui compte le tissu fortement ANCRE
+      comme faisant partie du sein (« 28-35% of the **rear breast volume** should
+      behave as strongly attached tissue ») : la chair ancree appartient donc a
+      l'organe, et la frontiere qui l'inclut — `w>0` — est celle que la spec
+      decrit. La borne a l'autre frontiere reste publiee pour que le lecteur
+      puisse refuser cet argument sans avoir a relancer une course.
+   VERDICT §22 « hard transient <=40% B0 » sur le MAXIMUM de course     : 0.4725 -> HORS (x1.18)
+   distribution des maxima de fenetre : p50 0.3383  p95 0.4170  (n=186 fenetres)
+   moyenne sur les FRAMES = 0.1424 B0 sur 16740 frames — publiee parce qu'elle est la
+      population entiere, MAIS elle inclut les frames au repos et FLATTE la borne :
+      elle ne fonde aucun verdict ici.
+   part au-dessus des bandes : 0.32 % des FRAMES > 0.40 · 16.1 % des FENETRES > 0.40 · 34.9 % des FENETRES > 0.35
+   borne SUP recomposee des normes par maillon, w>0     (livree)      : max 0.4736  moy 0.3446
+   borne SUP recomposee des normes par maillon, w>=0.25 (sensibilite) : max 0.5731  moy 0.4163
+   poids lus dans le fichier livre : l=0 0.1891, l=1 0.3524  (somme 0.5415 — le reste est ANCRE)
+   RESERVE DECLAREE, BORNEE, NON CORRIGEE : le moteur applique l'excursion au centre
+      de la SPHERE de collision (`offset=`), pas au centroide pondere `c_j` que
+      l'identite demande. Ecart VECTORIEL mesure 97.5 u / 17.3 u (chestL) et
+      87.4 u / 20.4 u (chestR). Report sur le COM borne par
+      SOMME_l w_l (2 sin(th_l/2) + |T-I|) |lc_l - c_l| <= 0.0285 B0 (chestL) et
+      0.0301 B0 (chestR), soit 8.1 % / 8.6 % de la bande de 0.35 — DANS LE SENS
+      INCONNU. Le corriger demande un canal VECTORIEL `comc=` ; il ne sera ouvert
+      que si un chiffre atterrit a moins de cette borne d'un seuil de la spec.
+ROOM-COM: chain=chestR       pic_typique=0.3278  max=0.4169 B0   (normal 0.35 / dur 0.40)
+   VERDICT §22 « normal <=35% B0 »        sur le pic TYPIQUE de fenetre : 0.3278 -> DANS
+      CE VERDICT DEPEND DE LA FRONTIERE DE L'ORGANE, ET LE DIRE FAIT PARTIE DU
+      VERDICT. Il est rendu a `w>0`. A `w>=0.25` la borne SUPERIEURE seule (donc
+      un majorant du vrai chiffre) vaut deja plus que 0.35 — voir les deux lignes
+      « borne SUP » ci-dessous : le verdict BASCULERAIT. Ce qui tranche n'est pas
+      le confort du resultat, c'est sa §30, qui compte le tissu fortement ANCRE
+      comme faisant partie du sein (« 28-35% of the **rear breast volume** should
+      behave as strongly attached tissue ») : la chair ancree appartient donc a
+      l'organe, et la frontiere qui l'inclut — `w>0` — est celle que la spec
+      decrit. La borne a l'autre frontiere reste publiee pour que le lecteur
+      puisse refuser cet argument sans avoir a relancer une course.
+   VERDICT §22 « hard transient <=40% B0 » sur le MAXIMUM de course     : 0.4169 -> HORS (x1.04)
+   distribution des maxima de fenetre : p50 0.3281  p95 0.4001  (n=186 fenetres)
+   moyenne sur les FRAMES = 0.1432 B0 sur 16740 frames — publiee parce qu'elle est la
+      population entiere, MAIS elle inclut les frames au repos et FLATTE la borne :
+      elle ne fonde aucun verdict ici.
+   part au-dessus des bandes : 0.08 % des FRAMES > 0.40 · 5.4 % des FENETRES > 0.40 · 30.6 % des FENETRES > 0.35
+   borne SUP recomposee des normes par maillon, w>0     (livree)      : max 0.4264  moy 0.3330
+   borne SUP recomposee des normes par maillon, w>=0.25 (sensibilite) : max 0.5134  moy 0.4014
+   poids lus dans le fichier livre : l=0 0.2200, l=1 0.3194  (somme 0.5394 — le reste est ANCRE)
+   RESERVE DECLAREE, BORNEE, NON CORRIGEE : le moteur applique l'excursion au centre
+      de la SPHERE de collision (`offset=`), pas au centroide pondere `c_j` que
+      l'identite demande. Ecart VECTORIEL mesure 97.5 u / 17.3 u (chestL) et
+      87.4 u / 20.4 u (chestR). Report sur le COM borne par
+      SOMME_l w_l (2 sin(th_l/2) + |T-I|) |lc_l - c_l| <= 0.0285 B0 (chestL) et
+      0.0301 B0 (chestR), soit 8.1 % / 8.6 % de la bande de 0.35 — DANS LE SENS
+      INCONNU. Le corriger demande un canal VECTORIEL `comc=` ; il ne sera ouvert
+      que si un chiffre atterrit a moins de cette borne d'un seuil de la spec.
+-- `comex` : LE MAXIMUM SUR LES DEUX CENTROIDES DE MAILLON — CE N'EST PAS LE COM ------
+   CETTE LIGNE NE PORTE PLUS DE VERDICT §22, ET SON NOM A CHANGE POUR LE DIRE.
+   §6 definit `P0` = « neutral breast center-of-mass position » et §22 borne « Breast
+   COM » : un centre de masse est une MOYENNE PONDEREE PAR LA MASSE. `comex` est un
+   MAXIMUM SUR DEUX ECHANTILLONS (NOTE-112, cycle 41) — pas la meme grandeur. Le
+   verdict §22 est publie par ROOM-COM ci-dessus, sur la moyenne ponderee.
+   Conserve ici parce que 40 cycles de rapports le citent et que l'attribution en
+   trois termes (tp/rp/dp) est latchee sur SON argmax, donc s'y rapporte.
+ROOM-COMEX-MAX2: chain=chestL       max2=0.8865 B0   [MAX SUR 2 CENTROIDES, PAS LE COM]
    distribution : moyenne 0.2660 B0 · 22.2 % des echantillons au-dessus de 0.40
-ROOM-COMEX: chain=chestR       comex=0.8506 B0   (0.35 / 0.40)   HORS BANDE, x2.13 le plafond dur
+ROOM-COMEX-MAX2: chain=chestR       max2=0.8506 B0   [MAX SUR 2 CENTROIDES, PAS LE COM]
    distribution : moyenne 0.2688 B0 · 20.9 % des echantillons au-dessus de 0.40
    La moyenne et la part au-dessus du plafond disent si une borne posee a 0.40
    CLIPERAIT un extreme ou MUSELLERAIT la reponse. Sans elles, un maximum hors

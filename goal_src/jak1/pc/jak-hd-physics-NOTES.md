@@ -4269,3 +4269,89 @@ mesure sur le rig a (+356, -898, -146) u en repere `chest`, donc
 parmi les deux lignes non verticales c'est bien le lateral qui
 domine (13.3 % contre 2.2 %). Les deux regles rendent donc le meme
 verdict ici, et `*phys-axsrc*` dit laquelle a tranche.
+
+## NOTE-126  (moteur, `*phys-comw*` et sa lecture dans `jak-hd-physics-init` — CYCLE 48)
+
+**`comw=` EST LA PART DE MASSE DE PEAU DE CHAQUE MAILLON, ET C'EST UN PARAMETRE D'INSTRUMENT.**
+
+Rien dans le solveur ne la lit : elle n'entre dans aucune force, aucune contrainte, aucune
+collision. Elle sert exclusivement a former le CENTRE DE MASSE que sa §22 borne.
+
+Sa §6, mot pour mot : « `P0` neutral breast center-of-mass position ».
+Sa §22, mot pour mot : « Breast COM:              normal <=35% B0, hard transient <=40% B0 ».
+
+**UN CENTRE DE MASSE EST UNE MOYENNE PONDEREE PAR LA MASSE.** Ce que le moteur publiait sous ce nom
+(`comex`) est un MAXIMUM SUR DEUX CENTROIDES DE MAILLON — NOTE-112 le documente depuis le cycle 41,
+mais la ligne de VERDICT n'avait jamais ete rebranchee sur la recomposition. L'arbitrage des
+DIRECTIVES du 2026-08-19 23:50 autorise ce rebranchement a trois conditions (course de controle ;
+la ligne publie borne superieure + moyenne + part au-dessus du plafond dur ; le nom dit ce qu'il
+mesure).
+
+**L'IDENTITE, QUI EST EXACTE SOUS SKINNING LINEAIRE.** Le deplacement d'un sommet est la somme
+ponderee des deplacements de ses joints, donc sur le nuage de chair :
+
+    d_COM = (1/N) * SOMME_j W_j * (M_j^sim - M_j^auth) * c_j
+
+    W_j = somme des poids de peau du joint j        c_j = (SOMME_v w_jv v_bind) / W_j
+    N   = SOMME_v SOMME_j w_jv                      comw[l] = W_l / N
+
+Un joint NON simule a `M^sim == M^auth` : il contribue EXACTEMENT zero. C'est pourquoi la chair
+ANCREE (`chest` 45.57 % / 45.33 %, `?shoulder` 0.28 % / 0.73 %) n'est pas dans la liste et pourquoi
+les poids livres somment volontairement a 0.5415 / 0.5394 et non a 1. Cette moitie de la masse ne
+peut pas entrer dans un MAXIMUM ; elle entre dans une MOYENNE, et elle la divise presque par deux.
+
+**VERIFIEE, PAS SUPPOSEE** (`.autoport/probe_c48_com_identity.py`, mesh LIVRE
+`out/jak1/fr3/skin/keira-hd-lod0.glb` md5 `5cb8a493c43211acf3a04c5b6433df81`) : somme des poids par
+sommet = 1.0 a 4.47e-08 pres sur 7963 sommets, 0 poids negatif ; et sur une pose simulee tiree au
+sort, le COM du nuage par skinning lineaire EXACT contre la formule differe de 2.1e-05 % (chestL) et
+1.1e-05 % (chestR), pour un eps float32 de 1.2e-05 %.
+
+**LA FRONTIERE DE L'ORGANE EST UN CHOIX, ET IL EST DECLARE PARCE QU'IL DEPLACE LE CHIFFRE.**
+Retenue : `w > 0` — un centre de masse integre TOUTE la masse, un seuil en jetterait. A `w >= 0.25`
+la part ancree tombe de 45.85/46.06 % a 34.52/34.90 % (11 points) et les poids deviendraient
+0.2146,0.4402 / 0.2542,0.3968, donc un COM PLUS GRAND. Le seuil retenu n'est donc PAS celui qui
+flatte la borne, et le tableau publie la borne superieure AUX DEUX frontieres pour que la
+sensibilite reste lisible au lieu d'etre un choix cache.
+
+**POURQUOI CETTE DONNEE VIT DANS `keira-owner-tuning.txt` ET PAS DANS LE GENERATEUR.** Meme raison
+que `b0=` : elle se mesure sur le maillage LIVRE, qui n'existe qu'apres le bake, alors que
+`physics_keira_gen2.py` lit le DONNEUR. Le jour ou le generateur lira le maillage livre, c'est lui
+qui emettra `comw=`.
+
+**RESERVE DECLAREE ET BORNEE.** Le moteur applique l'excursion au centre de la SPHERE DE COLLISION
+(`offset=`, `jak-hd-physics.gc` : `*phys-lcx*` <- `*phys-cox*`), pas a `c_j`. Ecart vectoriel mesure
+97.5 u / 17.3 u (chestL) et 87.4 u / 20.4 u (chestR). Report sur le COM borne par
+`SOMME_l w_l (2 sin(th_l/2) + |T-I|) |lc_l - c_l|` <= 0.0285 / 0.0301 B0, soit 8.1 % / 8.6 % de la
+bande de 0.35, DANS UN SENS INCONNU. Le corriger demande un canal VECTORIEL `comc=` ; il ne sera
+ouvert que si un chiffre atterrit a moins de cette borne d'un seuil de la spec.
+
+## NOTE-127  (moteur, etape 6 de `jak-hd-physics-step`, emplacements 43-46 — CYCLE 48)
+
+**LE COM SE FORME VECTORIELLEMENT ET DANS LA MEME FRAME, SINON CE N'EST PAS UN COM.**
+
+L'accumulateur (`cwx/cwy/cwz/cwn`) est ouvert JUSTE AVANT la boucle par maillon de l'etape 6 et
+vide JUSTE APRES : sa portee est exactement UNE FRAME d'UNE chaine. C'est ce qui evite les deux
+pieges qui rendaient toute recomposition a posteriori inexacte :
+
+  1. **L'INEGALITE TRIANGULAIRE.** Recomposer `|SOMME_l w_l e_l|` a partir des NORMES `|e_l|` rend
+     une BORNE SUPERIEURE, jamais la valeur — elle n'est serree que si les excursions sont
+     colineaires. Ici on somme les VECTEURS, donc il n'y a pas de reserve a poser.
+  2. **DEUX MAXIMA DE DEUX FRAMES DIFFERENTES.** Les emplacements 35-42 sont des maxima PAR
+     MAILLON : rien ne garantit qu'ils sont atteints a la meme frame. Les additionner melange deux
+     instants (meme piege que `RAD-FLESH-IPAIR`, cycle 34). L'accumulateur ne peut pas le faire :
+     il n'a acces qu'a la frame courante.
+
+**EMPLACEMENTS.** 43 = maximum de la fenetre · 44 = somme sur les frames · 45 = compte de frames ·
+46 = compte de frames au-dessus du plafond dur de 0.40 B0. Les quatre ont la portee d'une FENETRE
+(chaine, animation, pilotage) et sont balayes par `phys-comexw-reset!`, dont le `dotimes` passe de
+20 a 24 pour les couvrir — c'est le seul endroit a tenir a jour, et NOTE-112 explique pourquoi il
+est ecrit comme un balayage et non comme une enumeration.
+
+**TOUS LES MAILLONS, OU AUCUN CHIFFRE.** La publication est gardee par `(= cwn n)`. Un maillon dont
+le poids est absent, ou dont le joint n'existe pas sur ce rig, fait donc DISPARAITRE la ligne au
+lieu de produire un COM ampute qui se lirait comme un COM sain plus petit. Un poids manquant ne
+doit jamais se lire comme un centre de masse immobile — c'est la forme locale de la regle « tout
+zero exige un controle positif ».
+
+**LECTURE QUAND LE DEFAUT EST ABSENT : 0.0000** — a la pose d'auteur, `M^sim == M^auth` sur tous les
+maillons, donc chaque `e_l` est nul et la somme ponderee aussi.

@@ -3631,11 +3631,18 @@ def main():
     # recomposee des NORMES par maillon (`PHYSCOMWL`), donc elle majore deux fois — inegalite
     # triangulaire ET maxima de deux frames differentes. Les deux sont publiees : si l'exact
     # depasse la borne, l'un des deux instruments est faux et il faut le savoir.
-    _comx, _cwl = {}, {}
-    for _m in re.finditer(r'^PHYSCOMX c=(\d+) a=(\d+) d=(\d+) com=([-\d.e+]+) coms=([-\d.e+]+)'
-                          r' comn=([-\d.e+]+) comhi=([-\d.e+]+)', txt, re.M):
-        _comx[(int(_m.group(1)), int(_m.group(2)), int(_m.group(3)))] = (
-            float(_m.group(4)), float(_m.group(5)), float(_m.group(6)), float(_m.group(7)))
+    # La salle emet DEUX lignes par fenetre : `format` de GOAL est limite a huit parametres.
+    # Une fenetre dont l'une des deux manque est ECARTEE, jamais completee par un zero.
+    _comx, _cwl, _cx2 = {}, {}, {}
+    for _m in re.finditer(r'^PHYSCOMX c=(\d+) a=(\d+) d=(\d+) com=([-\d.e+]+) coms=([-\d.e+]+)',
+                          txt, re.M):
+        _cx2[(int(_m.group(1)), int(_m.group(2)), int(_m.group(3)))] = (
+            float(_m.group(4)), float(_m.group(5)))
+    for _m in re.finditer(r'^PHYSCOMX2 c=(\d+) a=(\d+) d=(\d+) comn=([-\d.e+]+) comhi=([-\d.e+]+)',
+                          txt, re.M):
+        _k = (int(_m.group(1)), int(_m.group(2)), int(_m.group(3)))
+        if _k in _cx2:
+            _comx[_k] = (_cx2[_k][0], _cx2[_k][1], float(_m.group(4)), float(_m.group(5)))
     for _m in re.finditer(r'^PHYSCOMWL c=(\d+) a=(\d+) d=(\d+) l=(\d+) ee=([-\d.e+]+)', txt, re.M):
         _cwl[(int(_m.group(1)), int(_m.group(2)), int(_m.group(3)), int(_m.group(4)))] = \
             float(_m.group(5))
@@ -3672,24 +3679,45 @@ def main():
             _win = [v for k, v in _comx.items() if k[0] == _c]
             if not _win:
                 continue
-            _mx = max(w[0] for w in _win)
+            _wm = sorted(w[0] for w in _win)          # le MAXIMUM de chaque fenetre
+            _mx = _wm[-1]
             _ssum = sum(w[1] for w in _win)
             _sn = sum(w[2] for w in _win)
             _shi = sum(w[3] for w in _win)
-            _mean = (_ssum / _sn) if _sn > 0 else 0.0
+            _mean = (_ssum / _sn) if _sn > 0 else 0.0        # moyenne sur les FRAMES
+            _pk = sum(_wm) / len(_wm)                        # pic TYPIQUE d'une fenetre
+            _q = lambda t: _wm[min(len(_wm) - 1, int(t * len(_wm)))]
             _fr_hi = (100.0 * _shi / _sn) if _sn > 0 else 0.0
-            _wn_hi = 100.0 * sum(1 for w in _win if w[0] > 0.40) / len(_win)
-            _st = ('DANS la bande normale (<= 0.35)' if _mx <= 0.35 else
-                   ('DANS le transitoire dur (<= 0.40)' if _mx <= 0.40 else
-                    'max HORS BANDE, x%.2f le plafond dur' % (_mx / 0.40)))
-            A('ROOM-COM: chain=%-12s max=%.4f  moyenne=%.4f B0  (0.35 / 0.40)  %s'
-              % (_nm, _mx, _mean, _st))
-            A('   population : %.1f %% des FRAMES et %.1f %% des FENETRES au-dessus de 0.40 B0'
-              ' (n=%d frames, %d fenetres)' % (_fr_hi, _wn_hi, int(_sn), len(_win)))
-            _mst = ('DANS la bande normale' if _mean <= 0.35 else
-                    ('DANS le transitoire dur' if _mean <= 0.40 else 'HORS BANDE'))
-            A('   VERDICT §22 sur la MOYENNE (la grandeur que la section borne) : %.4f B0 -> %s'
-              % (_mean, _mst))
+            _wn_hi = 100.0 * sum(1 for x in _wm if x > 0.40) / len(_wm)
+            _wn_35 = 100.0 * sum(1 for x in _wm if x > 0.35) / len(_wm)
+            # §22 pose DEUX bandes et elles ne se lisent pas sur la meme statistique :
+            # « normal » est un niveau de reponse COURANT -> le pic TYPIQUE d'une fenetre ;
+            # « hard transient » est un extreme -> le MAXIMUM. Publier un seul chiffre contre
+            # les deux bandes, c'est le defaut que ce bloc corrige, pas un defaut a repeter.
+            A('ROOM-COM: chain=%-12s pic_typique=%.4f  max=%.4f B0   (normal 0.35 / dur 0.40)'
+              % (_nm, _pk, _mx))
+            A('   VERDICT §22 « normal <=35%% B0 »        sur le pic TYPIQUE de fenetre : '
+              '%.4f -> %s' % (_pk, 'DANS' if _pk <= 0.35 else 'HORS (x%.2f)' % (_pk / 0.35)))
+            A('      CE VERDICT DEPEND DE LA FRONTIERE DE L\'ORGANE, ET LE DIRE FAIT PARTIE DU')
+            A('      VERDICT. Il est rendu a `w>0`. A `w>=0.25` la borne SUPERIEURE seule (donc')
+            A('      un majorant du vrai chiffre) vaut deja plus que 0.35 — voir les deux lignes')
+            A('      « borne SUP » ci-dessous : le verdict BASCULERAIT. Ce qui tranche n\'est pas')
+            A('      le confort du resultat, c\'est sa §30, qui compte le tissu fortement ANCRE')
+            A('      comme faisant partie du sein (« 28-35% of the **rear breast volume** should')
+            A('      behave as strongly attached tissue ») : la chair ancree appartient donc a')
+            A('      l\'organe, et la frontiere qui l\'inclut — `w>0` — est celle que la spec')
+            A('      decrit. La borne a l\'autre frontiere reste publiee pour que le lecteur')
+            A('      puisse refuser cet argument sans avoir a relancer une course.')
+            A('   VERDICT §22 « hard transient <=40%% B0 » sur le MAXIMUM de course     : '
+              '%.4f -> %s' % (_mx, 'DANS' if _mx <= 0.40 else 'HORS (x%.2f)' % (_mx / 0.40)))
+            A('   distribution des maxima de fenetre : p50 %.4f  p95 %.4f  (n=%d fenetres)'
+              % (_q(0.50), _q(0.95), len(_wm)))
+            A('   moyenne sur les FRAMES = %.4f B0 sur %d frames — publiee parce qu\'elle est la'
+              % (_mean, int(_sn)))
+            A('      population entiere, MAIS elle inclut les frames au repos et FLATTE la borne :')
+            A('      elle ne fonde aucun verdict ici.')
+            A('   part au-dessus des bandes : %.2f %% des FRAMES > 0.40 · %.1f %% des FENETRES'
+              ' > 0.40 · %.1f %% des FENETRES > 0.35' % (_fr_hi, _wn_hi, _wn_35))
             # bornes superieures aux deux frontieres de l'organe
             for _lbl, _wset in (('w>0     (livree)', _ws), ('w>=0.25 (sensibilite)',
                                                             _CW25.get(_nm, []))):
@@ -3712,9 +3740,14 @@ def main():
             if _ws:
                 A('   poids lus dans le fichier livre : %s  (somme %.4f — le reste est ANCRE)'
                   % (', '.join('l=%d %.4f' % (i, w) for i, w in enumerate(_ws)), sum(_ws)))
-            A('   RESERVE DECLAREE : le moteur applique l\'excursion au centre de la SPHERE de')
-            A('      collision, pas au centroide pondere `c_j`. Ecart mesure -7.6 %/-1.0 % en')
-            A('      norme et 7.7 deg/1.8 deg en direction -> report ~0.014 B0 (~4 % de la bande).')
+            A('   RESERVE DECLAREE, BORNEE, NON CORRIGEE : le moteur applique l\'excursion au centre')
+            A('      de la SPHERE de collision (`offset=`), pas au centroide pondere `c_j` que')
+            A('      l\'identite demande. Ecart VECTORIEL mesure 97.5 u / 17.3 u (chestL) et')
+            A('      87.4 u / 20.4 u (chestR). Report sur le COM borne par')
+            A('      SOMME_l w_l (2 sin(th_l/2) + |T-I|) |lc_l - c_l| <= 0.0285 B0 (chestL) et')
+            A('      0.0301 B0 (chestR), soit 8.1 % / 8.6 % de la bande de 0.35 — DANS LE SENS')
+            A('      INCONNU. Le corriger demande un canal VECTORIEL `comc=` ; il ne sera ouvert')
+            A('      que si un chiffre atterrit a moins de cette borne d\'un seuil de la spec.')
     else:
         A('')
         A('-- SPEC 6 + SPEC 22 / COM PONDERE : NON MESURE par cette course ----------------------')

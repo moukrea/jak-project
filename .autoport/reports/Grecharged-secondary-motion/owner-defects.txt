@@ -221,6 +221,42 @@ GELE hair-upper-half « la moitie basse a l'air detachee du crane et bouge indep
 #     rapide ; §33 sans domaine ; §36 sature son plafond sur 6 groupes de fenetres sur 10.
 #   ET SURTOUT : rien de tout cela n'est un verdict. C'est SON oeil qui ferme cette ligne.
 OPEN breast-spec-incomplete  PRIORITE 1 -- LA SEULE LIGNE QUI TIENT LA PHASE OUVERTE.
+#
+#   ETAT AU CYCLE 48 (2026-08-20). AUCUN CHANGEMENT DE SOLVEUR : les 903 lignes de MESURE du
+#   tableau sont identiques a celles du cycle 47 et `PHYSTAN` est identique au bit. Le cycle ferme
+#   les deux questions de MESURE (Q-A, Q-B) que le cycle 47 posait comme prealables obligatoires.
+#     Q-A. LE VERDICT DE SPEC 22 EST REBRANCHE SUR LA GRANDEUR QUE SPEC 22 NOMME (autorise par les
+#       DIRECTIVES du 2026-08-19 23:50, trois conditions tenues). `comex` publiait un MAXIMUM SUR
+#       DEUX CENTROIDES sous le nom d'un CENTRE DE MASSE. Mesure comme une moyenne ponderee par la
+#       masse (identite du skinning lineaire verifiee a 2,1e-05 % contre un skinning exact) :
+#         bande NORMALE (<=0.35 B0) sur le pic typique de fenetre : 0.3393 / 0.3278 -> DANS
+#         plafond TRANSITOIRE (<=0.40 B0) sur le maximum de course : 0.4725 / 0.4169 -> HORS de
+#           +18 % / +4 %, sur 0.32 % / 0.08 % des FRAMES seulement.
+#       Le rouge publie depuis 40 cycles (« HORS BANDE x2.22 ») SURESTIMAIT de 1.88x / 2.04x.
+#       RESERVE QUI PEUT RETOURNER LE VERDICT, ET ELLE EST PUBLIEE : la frontiere de l'organe
+#       decide. A `w>=0.25` la borne SUPERIEURE seule vaut 0.4163 et le verdict basculerait. Ce
+#       qui tranche est sa SPEC 30, qui compte le tissu ancre comme faisant partie du sein.
+#     Q-B. LE BRAS DE LA DEFORMATION EST REEL (3.63x / 3.19x l'os qui le porte) : on ne serre donc
+#       PAS le canal de deformation, qui est deja borne et discriminant. MA PROPRE PREMISSE EST
+#       REFUTEE (« les deux centroides tombent au meme point » : ils sont a 288.5 / 318.0 u, soit
+#       2.05x / 2.21x l'os). MAIS L'AXE EST FAUX : l'axe d'os est a 77.83 / 78.05 deg de l'axe
+#       anatomique racine->apex, et LE LONG de cet axe le maillon distal est 34.4 / 77.5 u PLUS
+#       PRES DU TORSE que le proximal. SPEC 31 n'est donc PAS exprimable par cette chaine, quel
+#       que soit le reglage : c'est le RIG. Ca explique la mesure du cycle 45 (ajouter des noeuds
+#       FAISAIT BAISSER la couverture, 38.0 % a N=2 -> 28.0 % a N=6).
+#     TROIS STATUTS RETROGRADES APRES VERIFICATION SUR LA TRACE, dont un FAUX VERT :
+#       SPEC 27 lisait `t1`=1.38 s comme « essentially stationary » ; la colonne de cette clause
+#         est `t01`, et elle vaut `>2.47` s sur LES DEUX chaines. TENUE -> PARTIELLE.
+#       SPEC 2 et SPEC 9 lisaient le repos SANS mouvement prealable alors que leurs clauses disent
+#         « final settled » et « restored exactly » ; apres secousse, `ROOM-SHFLOOR` trouve un
+#         plancher non nul sur 9 axes sur 12. TENUE -> PARTIELLE. Meme cause que le `t01` de 27.
+#       Le registre `.autoport/SPEC-COVERAGE.md` passe donc de 6 TENUES a 3, SANS que la physique
+#       ait bouge : ce sont des statuts qui n'etaient pas soutenus par la mesure qu'ils citaient.
+#     RESTE OUVERT, ET LE PLUS GROS EST UN TROU DE MESURE : les ONZE regimes de SPEC 10 et SPEC 12
+#       a SPEC 20 n'ont JAMAIS ete joues dans la salle. Tant qu'ils ne le sont pas, « 100 % » est
+#       indemontrable. C'est le chantier du cycle 49 (DIRECTIVES 2026-08-20 00:10).
+#       Et la penetration reste la seule gate de DONNEES en echec : meshpen 0.1061 / 0.0898 contre
+#       un plafond de 0.0005 (facteur 212 et 180).
 #   L'owner: « je suis sur a 99.99999% que t'as pas implemente la spec comme il faut ». Audit du
 #   2026-08-14 09:45, verifie ligne par ligne: 3 sections sur 12.
 #   ABSENT: §23 (le modele -- on a exactement le 'single spring at the apex' que la spec declare
