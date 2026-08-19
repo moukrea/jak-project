@@ -1,0 +1,149 @@
+DIRECTIVES vb249967379
+
+PREDICTIONS DU CYCLE 36 ETAPE 2 — LA PRESSION DE CONTACT DEVIENT UNE INTENSITE
+Gravees AVANT la moindre ligne du mecanisme. Perimetre : Grecharged-secondary-motion, KEIRA /
+POITRINE SEULE (ordre owner 2026-08-14 07:30). Branche physics-keira-clean.
+
+================================================================================================
+CE QUE L'ETAPE 1 A ETABLI, ET CE QUE LA TABLE DE BRANCHES M'OBLIGE A FAIRE
+================================================================================================
+P1/P2/P3/P4 CONFIRMEES : H-REP. `cl = |*phys-cpu* tl|` est la somme d'un CHEMIN de corrections sur
+les 45 balayages de la frame — 150 a 254 poussees, petites (moyenne 133 u et 103 u), de MEME sens
+(psum/cl = 1.11 et 1.28), la derniere au 45e balayage sur 45.
+
+    la branche gravee disait : « la NATURE de l'entree est fausse : `cl` est un chemin de
+    correction, la pression de sa SPEC 23 (« local collision pressure ») est une INTENSITE.
+    L'etape 2 alimente le tenseur avec l'INTENSITE de la frame, et la NON-CONVERGENCE devient un
+    defaut publie a part, pas corrige dans la meme passe. »
+
+C'est exactement ce que fait cette etape, et rien d'autre.
+
+================================================================================================
+LE MECANISME, ET POURQUOI CE N'EST PAS UN SUPPRESSEUR
+================================================================================================
+Une seule grandeur change de source, a `jak-hd-physics.gc:3787` :
+
+    AVANT   pr0 = PHYS-PRS-K * (cl  / b0f)     cl  = |somme des 150-254 poussees|
+    APRES   pr0 = PHYS-PRS-K * (pmx / b0f)     pmx = la PLUS GRANDE poussee SEULE de la frame
+
+  - **`PHYS-PRS-MAX` ne bouge pas.** Aucun plafond n'est ajoute, abaisse ni releve. Ce qui change
+    est QUELLE GRANDEUR est lue, pas de combien on la borne — meme forme d'argument que le levier
+    de rotation du cycle 35, et pour la meme raison.
+  - **Sur une frame a UNE SEULE poussee, `pmx = cl` exactement** : le comportement est identique au
+    bit pres. Le mecanisme ne se distingue de l'ancien QUE la ou la boucle repete.
+  - **La DIRECTION reste celle de `*phys-cpu*`**, inchangee. Elle est bien conditionnee : psum/cl
+    de 1.11 et 1.28 dit que les poussees s'alignent, donc la somme vectorielle pointe deja dans la
+    direction de la poussee dominante. Seul le MODULE change de source.
+  - **La grandeur existe deja et elle est deja mesuree** : c'est l'emplacement +1 de `*phys-cpa*`,
+    ecrit a l'etape 1, publie sous le nom `pmax`. Aucune primitive neuve, aucun tableau neuf.
+  - **Sur une chaine dont le contact serait unique et profond, cette regle ne retire RIEN.** Elle
+    ne mord que sur la repetition — c'est-a-dire sur un artefact de boucle, pas sur de la physique.
+
+CE QUE CETTE ETAPE NE FAIT PAS, ET JE L'ECRIS AVANT : elle ne corrige PAS la non-convergence de la
+boucle de contraintes (`lsw = 45/45`). Ce defaut reste OUVERT et publie comme tel. Corriger la
+lecture d'une grandeur et corriger la boucle qui la produit sont deux chantiers ; les melanger
+rendrait l'attribution impossible.
+
+================================================================================================
+LES FAITS DE DEPART — MESURES DANS LA COURSE `keira-room-x86.C36E1-REF.log`
+================================================================================================
+  `prsr` max (entree AVANT plafond)         13.3807 (chestL) · 15.2761 (chestR)   = 53.52x / 61.10x
+  `prsm` colle a 0.2500 EXACTEMENT sur      140/186 fenetres (75.3 %) · 135/186 (72.6 %)
+  `prsm` max PAR PILOTAGE                   0.2500 sur LES SIX pilotages, sur LES DEUX chaines
+                                            -> etendue relative NULLE : le canal ne distingue
+                                               AUCUN stimulus. C'est la definition meme d'une
+                                               mesure non discriminante (contrat SPEC 7).
+  `psat / nfr` (part des frames ecretees)   37.0 % (chestL) · 28.7 % (chestR)   [cycle 35 etape 3]
+  `pmax` max sur toutes les fenetres        603.0 u (chestL) · 508.9 u (chestR)
+  moyenne |dp| (part du tenseur dans §22)   0.2614 B0   [cycle 35 etape 2, N1]
+
+DERIVATION GRAVEE DE LA NOUVELLE ENTREE :
+    pr0_new_max = PHYS-PRS-K * pmax_max / b0f
+    chestL : 0.45 * 603.0 / 602.0 = **0.4507**  soit **1.80x** le plafond
+    chestR : 0.45 * 508.9 / 602.0 = **0.3803**  soit **1.52x** le plafond
+RESERVE QUE JE POSE MOI-MEME : `pmax` est publie A L'ARGMAX DE `cl`, pas a l'argmax de `pmax`. La
+vraie borne peut donc etre PLUS HAUTE que 603/509 u, et ma derivation est un MINORANT, pas une
+prevision. C'est pourquoi le critere de R1 est large (<= 5.0) et l'estimation ponctuelle separee.
+
+A NOTER : 1.80x et 1.52x tombent exactement sur le regime du canal d'ETIREMENT (1.66x et 1.49x,
+cycle 35 etape 3), dont le rapport disait « un canal essentiellement LIBRE, ou le plafond joue son
+role de garde-fou, pas de baillon ». Si la mesure confirme, les deux entrees du tenseur seront pour
+la premiere fois dans le meme regime.
+
+================================================================================================
+LES PREDICTIONS, AVEC LEUR CRITERE CHIFFRE
+================================================================================================
+R0  LE CHANGEMENT EST CONFINE AU CANAL DE PRESSION.
+    CRITERE : `dlr` max (l'entree d'ETIREMENT) et `dsat`/`nfr` IDENTIQUES a 4 decimales sur les
+    deux chaines. Une derive ici voudrait dire que l'edition a fuit hors de son canal.
+    NOTE : je ne peux PAS predire 0 ligne differente au total — le tenseur change, donc la
+    physique change, donc la trace change. C'est le contraire de l'etape 1.
+
+R1  L'ENTREE TOMBE DE 53-61x A MOINS DE 5x.
+    CRITERE : `prsr` max <= 5.0 sur les deux chaines (soit <= 20x le plafond).
+    ESTIMATION PONCTUELLE GRAVEE : **0.4507 (1.80x) et 0.3803 (1.52x)**, minorant assume.
+
+R2  L'ECRETAGE S'EFFONDRE.
+    CRITERE : `psat / nfr` <= 10 % sur les deux chaines (depuis 37.0 % et 28.7 %).
+    ESTIMATION PONCTUELLE GRAVEE : **entre 2 % et 8 %**.
+
+R3  LE CANAL DEVIENT DISCRIMINANT — ET C'EST LA PREDICTION QUI COMPTE.
+    CRITERE, DEUX MOITIES, LES DEUX EXIGEES :
+      (a) au moins une fenetre publie `prsm` STRICTEMENT INFERIEUR a 0.2500 sur chaque chaine ;
+      (b) l'etendue relative de `prsm` max entre le plus fort et le plus faible des six pilotages
+          est >= 25 % sur au moins une chaine — le seuil que le contrat lui-meme fixe
+          (« moins de 25 % d'ecart relatif entre le plus fort et le plus faible stimulus = mesure
+          non discriminante, rejetee »).
+    AUJOURD'HUI (a) est faux sur 75 % des fenetres et (b) vaut EXACTEMENT 0 %.
+
+R4  LE TENSEUR PESE MOINS DANS SA SPEC 22.
+    CRITERE : moyenne |dp| en baisse de 20 % a 60 % (depuis 0.2614 B0).
+    Une baisse de MOINS de 20 % dirait que le tenseur ne tirait pas sa deformation de la pression ;
+    une baisse de PLUS de 60 % dirait que je viens d'eteindre le canal, ce que je ne veux pas.
+    **CETTE PREDICTION EST BILATERALE A DESSEIN : trop de baisse est un ECHEC, pas un succes.**
+    L'owner a explicitement refuse les « ballons durs » (21:20 le 2026-08-11) : la deformation doit
+    etre BORNEE et CORRELEE au stimulus, pas supprimee.
+
+R5  LE MOUVEMENT SUBTIL N'EST PAS MUSELE — le seul acquis que l'owner ait valide.
+    CRITERE : `tipvar` max sur `tilt` et `updown`, les deux chaines, dans +-15 %.
+    Reference C36E1 : chestL 0.1812 · chestR 0.1850 (tipvar max par chaine).
+
+R6  LES COUTS, DANS LES DEUX SENS (aucun critere : je m'engage a les publier)
+    `meshpen` max, `rootdev` max, pire saut par frame, `comex` max et moyen, franchissements de
+    cote, `ROOM-IDLE`, `PHYSIDLE dev`, et le compte des limiteurs qui ont tire.
+
+================================================================================================
+CE QUE JE NE PREDIS PAS
+================================================================================================
+  - Je ne predis PAS que `comex` rentre dans la bande de sa SPEC 22. Le tenseur pese 0.2614 B0 sur
+    un budget de 0.40 et la TRANSLATION en pese 0.4210 : meme un tenseur parfait ne suffit pas.
+    Si `comex` baisse, ce sera de l'ordre de la part du tenseur, pas de la totalite de l'ecart.
+  - Je ne predis PAS que `meshpen` baisse. L'entree de pression ne fait que LIRE la collision, elle
+    n'ecrit rien dedans. Si `meshpen` bouge, c'est un effet indirect que je devrai expliquer.
+  - Je ne predis PAS que la boucle converge. `lsw` doit rester a 45/45 : ce n'est pas traite ici.
+  - Je ne predis PAS de gain sur les deux volumes redondants. H-PING est REFUTEE ; leur redondance
+    reste un defaut mesure (75.6 % / 65.3 % de recouvrement) mais elle n'est PAS la cause de la
+    saturation de pression, et je retire cette attribution du plan.
+
+================================================================================================
+TABLE DE BRANCHES — CE QUE CHAQUE ISSUE M'OBLIGE A ECRIRE
+================================================================================================
+  R1 + R2 + R3 tenues, R4 dans la bande, R5 tenue
+      -> le canal de pression de sa SPEC 23 est REPARE : une intensite bornee par un garde-fou au
+         lieu d'un chemin de corrections ecrete en permanence. Je le publie comme tel et je passe
+         a la non-convergence.
+  R3 (b) REFUTEE alors que R1 et R2 tiennent
+      -> l'entree cesse de saturer mais la SORTIE reste plate : alors ce n'est pas le plafond qui
+         rendait le canal aveugle, c'est la grandeur elle-meme qui ne depend pas du stimulus. Je
+         devrai mesurer de quoi `pmax` depend, et NE PAS annoncer §23 comme reparee.
+  R4 en baisse de PLUS de 60 %
+      -> j'ai eteint le canal, pas repare. C'est un ECHEC et je le dis en tete du rapport, meme si
+         `comex` baisse — parce que l'owner juge la CHAIR, pas mon budget.
+  R5 REFUTEE
+      -> le mouvement subtil est touche. Le point est publie comme une REGRESSION avec sa mesure ;
+         la directive du 17/08 23:50 interdit de le retirer pour autant, mais elle n'interdit pas
+         de le DIRE, et c'est son oeil qui tranchera.
+  R1 REFUTEE (prsr > 5.0)
+      -> `pmax` est lui aussi enorme, donc une seule poussee suffit a exploser le plafond, et le
+         defaut n'est pas la repetition mais la PROFONDEUR. Je republierais alors H-DEEP comme
+         partiellement vraie, contre le verdict de l'etape 1.
