@@ -4968,7 +4968,13 @@ def main():
                              r'(?:rrm=[-\d.e+]+ rrr=([-\d.e+]+) sat=[-\d.e+]+'
                              r'|mlb=([-\d.e+]+) cdev=([-\d.e+]+))', txt, re.M):
             c, dr, l = int(m.group(2)), int(m.group(3)), int(m.group(4))
-            if dr >= len(DRIVE_NAMES):
+            # `d = PHYSROOM-DRIVES` (5) N'EST PAS UN PILOTAGE : c'est la LIGNE DE BASE de la salle
+            # — meme animation, meme duree de fenetre, AUCUN pilotage (phys-room.gc:912-917). Elle
+            # etait jetee ici comme dans `_radl`, et c'est ce filtre qui a fait conclure au cycle 33
+            # etape 1 « la sortie est plate sur une plage de stimulus de 39x » sans jamais voir ce
+            # que le canal vaut a stimulus NUL. Meme classe que les deux lecteurs a moitie aveugles
+            # de SPEC 24 : verifier ce qu'un consommateur FILTRE, pas ce que la trace contient.
+            if dr > len(DRIVE_NAMES):
                 continue
             if m.group(1) == 'L':
                 _pend[(c, dr, l)] = float(m.group(5))
@@ -5000,13 +5006,104 @@ def main():
                 _own += (' | CHAIR %3.0f%%' % (100.0 * abs(e['cdev']) / _tot)) if _tot > 1e-9 else ''
                 A('ROOM-RAD-SPLIT: chain=%-12s drive=%-10s l=%d  rrr=%.4f  mlb=%+.4f  cdev=%+.4f'
                   '  %s  I0 ecart=%.5f%s'
-                  % (names[c] if c < len(names) else 'c%d' % c, DRIVE_NAMES[dr], l,
+                  % (names[c] if c < len(names) else 'c%d' % c,
+                     DRIVE_NAMES[dr] if dr < len(DRIVE_NAMES) else 'BASE-0stim', l,
                      e['rrr'], e['mlb'], e['cdev'], _own, _err,
                      '  **I0 CASSEE**' if _err > 0.002 else ''))
+            # LE STIMULUS REELLEMENT RECU DANS CHAQUE FENETRE. `PHYSSTIM` ne publie que les
+            # pilotages COMMANDES (dr=0..4) et n'a rien pour la ligne de base — mais `PHYSACC`
+            # publie, LUI, ce que la chaine recoit vraiment, y compris dans la fenetre sans
+            # pilotage. Les deux ne sont pas la meme grandeur et les confondre ferait ecrire
+            # « stimulus nul » sur une fenetre qui en recoit 17.
+            _acc, _accn = {}, {}
+            for m in re.finditer(r'^PHYSACC c=(\d+) a=\d+ d=(\d+) acc=([-\d.e+]+)', txt, re.M):
+                k = (int(m.group(1)), int(m.group(2)))
+                _acc[k] = _acc.get(k, 0.0) + float(m.group(3))
+                _accn[k] = _accn.get(k, 0) + 1
+            _base = {k: v for k, v in _split.items() if k[1] == len(DRIVE_NAMES)}
+            if _base:
+                A('')
+                A('   LA LIGNE DE BASE (`BASE-0stim`) EST LA MEME FENETRE SANS AUCUN PILOTAGE.')
+                A('   Le pilotage COMMANDE y vaut zero (PHYSSTIM ne publie que dr=0..4), mais le')
+                A('   stimulus RECU n\'est PAS nul : `PHYSACC` le mesure, et c\'est ce nombre-la qui est')
+                A('   imprime ci-dessous. Confondre les deux ferait ecrire « stimulus nul » sur une')
+                A('   fenetre qui en recoit 17. C\'est la ligne a SOUSTRAIRE avant d\'attribuer quoi que')
+                A('   ce soit a un pilotage — exigence des DIRECTIVES du 2026-08-11 16:15.')
+                for k in sorted(_base):
+                    e = _base[k]
+                    _ak = (k[0], k[1])
+                    _av = (_acc[_ak] / _accn[_ak]) if _accn.get(_ak) else float('nan')
+                    A('ROOM-RAD-BASE: chain=%-12s l=%d  rrr=%.4f B0 SANS AUCUN PILOTAGE COMMANDE'
+                      '  = x%.2f le plafond dur de SPEC 22  (cdev %+.4f = %.0f %% du total ;'
+                      ' stimulus RECU %.2f, pas zero)'
+                      % (names[k[0]] if k[0] < len(names) else 'c%d' % k[0], k[2], e['rrr'],
+                         e['rrr'] / 0.40, e['cdev'],
+                         100.0 * abs(e['cdev']) / max(1e-9, abs(e['mlb']) + abs(e['cdev'])), _av))
+                A('ROOM-RAD-BASE-RESERVE: `rrr` est un MAXIMUM DE FENETRE, et la fenetre de ligne')
+                A('   de base suit immediatement `tilt` (60 deg) : le retour du sujet a l\'aplomb est')
+                A('   une DISCONTINUITE. `ROOM-SPEC37-KICK` ci-dessous mesure que les 31 fenetres de')
+                A('   ligne de base sur 31 en portent une. CES QUATRE NOMBRES NE DISENT DONC PAS CE')
+                A('   QUE LE CANAL VAUT AU REPOS — ils disent ce qu\'il vaut en recuperation d\'un')
+                A('   a-coup non pilote. Aucune conclusion sur un « offset au repos » ne s\'appuie')
+                A('   dessus, et l\'argument « une decroissance ne peut pas depasser son excitation »')
+                A('   ne s\'applique pas : ce n\'est pas la queue de `tilt`, c\'est un choc NEUF.')
             A('ROOM-RAD-SPLIT-I0: %d canal(aux) hors tolerance sur %d — %s'
               % (_bad, len(_split),
                  'l\'identite tient, la decomposition est lisible'
                  if _bad == 0 else 'INSTRUMENT FAUX, aucune conclusion ne se publie dessus'))
+
+        # ---- ROOM-SPEC37-KICK : SA SPEC 37 INTERDIT QU'UNE TRANSFORMATION ARTIFICIELLE PRODUISE
+        # UNE IMPULSION. « rebase on teleport / cutscene / discontinuity — artificial transforms
+        # must not generate physical breast impulses ». La salle repositionne le sujet a CHAQUE
+        # frontiere de fenetre (la fenetre de ligne de base suit un `tilt` a 60 deg) : c'est
+        # exactement la classe de discontinuite que sa 37 vise, et rien ne rebase.
+        # NATURE  deux grandeurs par fenetre : `perr` = |apex - cible de repos| / B0, MAXIMUM de la
+        #   fenetre (l'instrument existait avant ce cycle, PHYSRESTW) ; `jump` = pire ecart de la
+        #   pointe d'UNE frame a la suivante, en unites de jeu, sur la POSE ECRITE.
+        # REPERE  le monde, meme frame, meme attache. LIGNE DE BASE  une chaine qui suit exactement
+        #   l'animation lit jump=0.
+        # POURQUOI LES DEUX  `perr` seul ne separe pas « la cible a saute » de « la pose a saute ».
+        #   `jump` porte sur ce que le moteur ECRIT dans le squelette : c'est lui qui dit que
+        #   l'a-coup est REEL et pas un artefact de la reference.
+        _kick, _jmp = {}, {}
+        for m in re.finditer(r'^PHYSRESTW c=(\d+) a=\d+ d=(\d+) rgap=[-\d.e+]+'
+                             r' perr=([-\d.e+]+)', txt, re.M):
+            c, dr, pe = int(m.group(1)), int(m.group(2)), float(m.group(3))
+            e = _kick.setdefault((c, dr), dict(n=0, over5=0, over1=0, mx=0.0))
+            e['n'] += 1
+            e['mx'] = max(e['mx'], pe)
+            if pe > 5.0:
+                e['over5'] += 1
+            if pe > 1.0:
+                e['over1'] += 1
+        for m in re.finditer(r'^PHYSBASE c=(\d+) a=\d+ amp=[-\d.e+]+ jump=([-\d.e+]+)', txt, re.M):
+            c = int(m.group(1))
+            _jmp[c] = max(_jmp.get(c, 0.0), float(m.group(2)))
+        if _kick:
+            A('')
+            A('-- ROOM-SPEC37-KICK : UNE TRANSFORMATION ARTIFICIELLE PRODUIT-ELLE UNE IMPULSION ? --')
+            A('   Sa SPEC 37 : « artificial transforms must not generate physical breast impulses ».')
+            A('   `perr` = |apex - cible de repos| / B0, MAXIMUM de fenetre. La colonne qui compte est')
+            A('   le NOMBRE de fenetres au-dessus de 5 B0 : au-dela, ce n\'est plus une reponse.')
+            for (c, dr) in sorted(_kick):
+                e = _kick[(c, dr)]
+                A('ROOM-SPEC37-KICK: chain=%-12s win=%-11s fenetres=%d  max>5B0=%2d  max>1B0=%2d'
+                  '  perr_max=%.4f B0'
+                  % (names[c] if c < len(names) else 'c%d' % c,
+                     DRIVE_NAMES[dr] if dr < len(DRIVE_NAMES) else 'BASE-0stim',
+                     e['n'], e['over5'], e['over1'], e['mx']))
+            for c in sorted(_jmp):
+                A('ROOM-SPEC37-JUMP: chain=%-12s pire saut de la POSE ECRITE sur UNE frame, dans une'
+                  ' fenetre SANS AUCUN PILOTAGE = %.1f u (%.4f B0)'
+                  % (names[c] if c < len(names) else 'c%d' % c, _jmp[c], _jmp[c] / 602.0))
+            _b5 = sum(v['over5'] for k, v in _kick.items() if k[1] >= len(DRIVE_NAMES))
+            _bn = sum(v['n'] for k, v in _kick.items() if k[1] >= len(DRIVE_NAMES))
+            A('ROOM-SPEC37-VERDICT: %d fenetres de LIGNE DE BASE sur %d portent un `perr` > 5 B0.'
+              % (_b5, _bn))
+            A('   Une fenetre de ligne de base ne recoit AUCUN pilotage : ce qui l\'excite est la')
+            A('   frontiere de fenetre elle-meme. Les fenetres `leftright`, `accel` et `jerk` n\'en')
+            A('   portent aucune, donc ce n\'est pas un bruit de fond de la salle — c\'est la')
+            A('   discontinuite qui suit `tilt`. NON REFERME, et rien ici ne le corrige.')
         A('')
         for c in sorted({c for (c, _d) in _rad}):
             _nm = names[c] if c < len(names) else 'c%d' % c
