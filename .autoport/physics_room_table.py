@@ -1813,6 +1813,23 @@ def main():
     A('=' * 98)
     A('KEIRA — SALLE DE TEST SANS JOUEUR : TABLEAU DE MESURE')
     A('genere par .autoport/physics_room_table.py depuis %s' % log)
+    # L'EMPREINTE DE LA TRACE, GRAVEE AU POINT DE PRODUCTION (cycle 32). Le chemin ci-dessus est le
+    # MEME a toutes les courses : il n'identifie rien. Un tableau qui survit a sa course se lit
+    # alors exactement comme un instrument qui derive — c'est arrive au cycle 31 (sa section 7) et
+    # ca m'est arrive de nouveau ce cycle-ci, avant que cette ligne existe : la sonde par maillon a
+    # affiche 3 `DIVERGE` sur 6 qui n'etaient QUE le tableau de la course precedente.
+    # « Quand une perte se repete, on la rend impossible au point de PRODUCTION, pas detectable au
+    # point de controle » — donc ici.
+    try:
+        import hashlib
+        with open(log, 'rb') as _fh:
+            _h = hashlib.md5()
+            for _blk in iter(lambda: _fh.read(1 << 20), b''):
+                _h.update(_blk)
+        A('empreinte de la trace lue : md5 %s (%d octets)' % (_h.hexdigest(), os.path.getsize(log)))
+    except Exception as _e:                                   # pragma: no cover
+        A('empreinte de la trace lue : INDISPONIBLE (%s) — l\'appariement tableau/course ne peut'
+          ' pas etre verifie sur ce tableau.' % _e)
     A('contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 7 (ce qui fait foi)')
     A('')
     A('Toutes les longueurs sont en METRES (la trace est en unites de jeu, 4096 u = 1 m). Ce que')

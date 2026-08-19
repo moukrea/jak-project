@@ -281,7 +281,10 @@ def main():
     # canaux, alors ce n'est pas un estimateur neuf avec des biais neufs — c'est le MEME
     # estimateur, applique a la moitie de la donnee qui etait jetee. Sinon, c'est MOI qui derive,
     # et les lignes l=1 ne valent rien tant que l'ecart n'est pas explique.
-    tbl = os.path.join(os.path.dirname(path), 'keira-room-table.txt')
+    # argv[2] permet de designer un AUTRE tableau — c'est ce qui rend le controle positif de la
+    # garde d'appariement possible (pointer le tableau d'une autre course DOIT rendre REFUSE).
+    tbl = (sys.argv[2] if len(sys.argv) > 2
+           else os.path.join(os.path.dirname(path), 'keira-room-table.txt'))
     print()
     print("== VALIDATION CROISEE — MES LIGNES l=0 CONTRE `ROOM-RINGFIT` (qui ne lit QUE l=0)")
     # GARDE DE PROVENANCE — ET ELLE NE PEUT PAS ETRE UN HORODATAGE.
@@ -302,10 +305,29 @@ def main():
     _h = hashlib.md5(open(path, 'rb').read()).hexdigest() if os.path.exists(path) else 'n/a'
     print("   trace lue : %s" % path)
     print("   empreinte : md5 %s" % _h)
-    print("   APPARIEMENT NON VERIFIABLE : le tableau ne cite sa source que par CHEMIN (sa ligne 3),")
-    print("   et ce chemin est le meme a toutes les courses. Un `DIVERGE` ci-dessous veut donc dire")
-    print("   `l'instrument derive OU le tableau vient d'une autre course` — les deux se lisent")
-    print("   pareil, et c'est le defaut a corriger en amont, pas ici.")
+    # DEPUIS LE CYCLE 32 LE TABLEAU GRAVE L'EMPREINTE DE SA TRACE (physics_room_table.py:1829).
+    # L'appariement devient donc VERIFIABLE, et cette sonde le verifie au lieu de le declarer
+    # impossible. Sur un tableau plus ancien la ligne est absente : on retombe sur l'ancien
+    # avertissement, ecrit tel quel.
+    _tbl_md5 = None
+    if os.path.exists(tbl):
+        for _ln in open(tbl, errors='ignore'):
+            _m = re.match(r'^empreinte de la trace lue : md5 ([0-9a-f]{32})', _ln)
+            if _m:
+                _tbl_md5 = _m.group(1)
+                break
+    if _tbl_md5 is None:
+        print("   APPARIEMENT NON VERIFIABLE : ce tableau ne grave pas l'empreinte de sa trace (il est")
+        print("   anterieur au cycle 32) et ne cite sa source que par CHEMIN, identique a toutes les")
+        print("   courses. Un `DIVERGE` ci-dessous veut donc dire `l'instrument derive OU le tableau")
+        print("   vient d'une autre course` — les deux se lisent pareil.")
+    elif _tbl_md5 == _h:
+        print("   APPARIEMENT VERIFIE : le tableau declare la MEME trace (md5 %s)." % _tbl_md5)
+        print("   Un `DIVERGE` ci-dessous ne peut donc plus etre un defaut d'appariement.")
+    else:
+        print("   APPARIEMENT REFUSE : le tableau a ete genere depuis une AUTRE course")
+        print("   (tableau md5 %s, ma trace md5 %s)." % (_tbl_md5, _h))
+        print("   La comparaison ci-dessous ne vaut RIEN — regenere le tableau depuis cette trace.")
     if not os.path.exists(tbl):
         print("   tableau absent (%s) : validation non faite, et je le declare." % tbl)
     else:
