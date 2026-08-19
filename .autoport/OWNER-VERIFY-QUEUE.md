@@ -78,17 +78,29 @@ principales :
   mesh que je n'ai pas fait ce cycle.
 - **Sa SPEC 33 exige qu'ils s'entrechoquent** et le test du moteur ne peut pas le compter.
 
-## 6. LA SUITE
+## 6. LA SUITE — ET JE CORRIGE UNE CHOSE QUE JE T'AI DITE PLUS HAUT DANS LA JOURNEE
 
-**Ce n'est plus le squelette.** J'avais annonce ca plus haut dans la journee et je le corrige :
-le bras de levier de l'os est reel, mais il n'est pas le porteur principal. Le porteur est ce
-frein, et c'est **notre code**, pas une contrainte du modele.
+**Ce n'est plus le squelette.** J'avais annonce ca ce matin et je le corrige : le bras de levier de
+l'os est reel, mais il n'est pas le porteur principal. Le porteur est ce frein, et c'est **notre
+code**.
 
-Deux corrections evidentes sont **deja essayees et refutees par la mesure** (cycles 33 et 34) :
-serrer le frein aggrave, et re-regler la raideur ne fait rien parce que la piece est aveugle a la
-raideur par construction. Ce qui reste, et c'est ce que je vais chiffrer au prochain cycle, c'est
-la **forme** du frein — lui rendre sa PENTE, pas changer son plafond. Ta section 13 demande une
+**Et je t'avais donne une mauvaise raison.** Je t'ai ecrit que « le rig n'accepte que des ajouts en
+bout, donc on ne peut pas glisser une articulation au bon endroit ». **C'est faux** : on sait deja
+glisser un os le long de son parent, et **on l'a fait deux fois sur sa poitrine**. Le vrai obstacle
+est ailleurs et il est etroit — en dessous d'environ 5 % de raccourcissement, l'os change de
+methode de retargeting, ce qui est une decision a declarer explicitement, pas un detail.
+
+**Un fait que j'ai trouve en verifiant, et qui n'avait jamais ete dit :** la passe qui a pose
+l'ancrage de sa poitrine a **allonge cet os de 6,7 %** par rapport au rig d'origine (977 → 1042
+unites) et **divise par deux l'os du bout** (292 → 140). Ce n'est donc pas la geometrie de Naughty
+Dog qui donne ce levier defavorable : c'est la notre. Je ne le corrige pas maintenant — ce serait
+agir sur un terme qui n'est pas celui qui porte le defaut — mais c'est au dossier avec sa mesure.
+
+Deux corrections evidentes du frein sont **deja essayees et refutees par la mesure** (cycles 33 et
+34) : le serrer aggrave, et re-regler la raideur ne fait rien parce que la piece est aveugle a la
+raideur par construction. Ce qui reste, et que je vais chiffrer au prochain cycle, c'est la
+**forme** du frein — lui rendre sa PENTE, pas changer son plafond. Ta section 13 demande une
 reponse « continue et proportionnee » : c'est exactement la grandeur qui manque.
 
-Je n'y touche pas a l'aveugle : ce sera mesure d'abord, avec les criteres graves avant la course,
-comme aujourd'hui.
+Je n'y touche pas a l'aveugle : ce sera mesure d'abord, criteres graves avant la course, comme
+aujourd'hui.

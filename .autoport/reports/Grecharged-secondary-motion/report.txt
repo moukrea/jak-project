@@ -363,6 +363,57 @@ Ce qui reste ouvert est donc la FORME de la borne de publication elle-meme, pas 
 dynamique en amont. Et cela se dimensionne contre sa §13, qui exige une reponse continue et
 proportionnee — la grandeur a rendre au canal est sa PENTE, pas son plafond.
 
+3.6 CORRECTION D'UN ENONCE QUE J'AI PUBLIE CE CYCLE — L'OBSTACLE AU RIG N'EST PAS CELUI QUE J'AI DIT
+=====================================================================================================
+J'ai ecrit plus haut, et je l'ai ecrit aussi a l'owner : « le rig HD n'accepte que des ajouts en
+bout, donc on ne peut pas glisser une articulation au bon endroit ». **C'EST FAUX, et la preuve
+est dans le fichier livre.** Le verbe `reroot` (`.autoport/physics_inject_joints.py:389-502`)
+DEPLACE la position de bind d'un joint EXISTANT le long de l'os de son ancre, dans les deux sens,
+sans ajouter de joint ni changer un index ni changer un parent. **Il a deja ete exerce deux fois
+sur cette chaine**, et les quatre lignes sont dans `recharged_assets/keira-hd-inject-joints.txt:201-207`.
+
+**ET CE QU'IL A FAIT AU CYCLE 24 CHANGE LES CHIFFRES QUE J'AI UTILISES TOUT LE CYCLE**
+(`.autoport/reports/Grecharged-secondary-motion/c24-place-nodes.log`, lu, pas suppose) :
+
+    os                   pose D'AUTEUR      pose LIVREE       ecart
+    chest -> lBoob       0.2385 m = 977 u   0.2544 m = 1042 u   **+6.7 % — le levier a ete ALLONGE**
+    lBoob -> lBooc       0.0712 m = 292 u   0.0343 m =  140 u   **-52 % — le distal a ete DIVISE PAR 2**
+    (idem a droite : 977 -> 1039 u et 306 -> 144 u)
+
+Le bras de levier de 1040 u sur lequel repose toute l'arithmetique de corde de ce cycle **n'est
+donc pas celui de l'auteur** : c'est le notre, et il est 6,7 % plus long que le sien. Et le
+rapport `|lc|/|levier|` de 4.65 que le cycle 35 a du corriger n'etait pas une donnee du modele :
+avec l'os d'auteur il valait **651/292 = 2.23**. Le cycle 24 a double cet amplificateur en meme
+temps qu'il posait l'ancrage de la §30.
+
+**LE VRAI OBSTACLE A UN RACCOURCISSEMENT, ET IL EST ETROIT.** Ce n'est pas l'ajout seul : c'est le
+SELECTEUR DE MODE DE RETARGET (`scripts/shell/retarget_fill_table.py:214-224`, `thr = max(0.02,
+0.25*blen)`, mode 0 si `perr <= thr`). Balaye le long du rayon :
+
+    t=1.0667 (LIVRE)  perr 0.0591  thr 0.0678   mode 0
+    t=1.0000          perr 0.0587  thr 0.0636   mode 0    <- la pose d'auteur
+    t=0.9500          perr 0.0615  thr 0.0604   **mode 3**
+    t=0.9000          perr 0.0666  thr 0.0572   **mode 3**
+
+**Toute reduction de 5 % ou plus fait basculer `lBoob`/`rBoob` du mode 0 au mode 3.** La marge
+actuelle est de 0.0049 m, soit 7.7 %. C'est un mecanisme deja rencontre et deja documente
+(`.autoport/hd_splice_joint_tables.py:35-40`), et le splice EXIGE alors une declaration explicite
+`--expect-mode-change` — que le cycle 24 a bien passee. Donc : c'est franchissable, mais c'est une
+decision declaree, pas un glissement silencieux.
+
+**ET IL N'Y A AUCUN JOINT A REUTILISER ENTRE `chest` ET `lBoob`** : mesure sur
+`keira-hd-donor-injected.glb`, le seul joint a moins de 600 u du segment est `lBooc` lui-meme
+(140.42 u, `t=+1.13`, donc AU-DELA de `lBoob`). Le plus proche autre est `lTopStrap2` a 617 u.
+La contrainte « parent d'index inferieur » est par ailleurs un ASSERT d'outil amont
+(`goalc/build_actor/common/build_actor.cpp:89`) et une hypothese de la boucle de retarget a
+l'execution — **pas une contrainte du format**, qui stocke le parent comme POINTEUR
+(`goal_src/jak1/engine/anim/mspace-h.gc:19-23`).
+
+**CE QUE CETTE CORRECTION NE CHANGE PAS** : le porteur de l'excursion reste le canal radial et sa
+borne (§3.2/3.3). Le levier n'est pas le terme dominant — c'est justement pourquoi je ne propose
+PAS de le raccourcir maintenant : ce serait payer une bascule de mode de retarget declaree pour
+agir sur un terme qui n'est pas celui qui porte le defaut.
+
 ================================================================================================
 TABLEAU DE CONFORMITE — chaque section IMPLEMENTEE / MESUREE / ECART
 [T] mesure a l'execution ce cycle · [M] mesuree sur le mesh ou la donnee livree ce cycle
