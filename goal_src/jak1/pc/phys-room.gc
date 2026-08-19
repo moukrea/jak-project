@@ -1115,6 +1115,39 @@
     (format 0 "PHYSSHAPE6 c=~D a=~D d=~D psat=~f~%"
             c (-> self ai) (-> self drive)
             (phys-shape (-> self slot) c 23))
+    ;; ---- CYCLE 36 ETAPE 1 : LA NATURE DE L'ENTREE DE PRESSION -------------------------------
+    ;; L'etape 3 du cycle 35 a mesure `prsr` a 53.5x / 61.1x son plafond. En remontant a la source,
+    ;; `pr0 = PHYS-PRS-K * |*phys-cpu* tl| / b0f` (jak-hd-physics.gc:3787) et `*phys-cpu*` est un
+    ;; CUMUL : remis a zero une fois par frame (:3121), puis incremente a CHAQUE evenement de
+    ;; contact (:1810-1812) pendant les 45 balayages de la frame (15 appels a `phys-collide-chain`,
+    ;; `sweeps = 3` chacun). Inverse, la mesure du cycle 35 vaut |cpu| = 17 899 u (chestL) et
+    ;; 20 435 u (chestR), soit 4.4 et 5.0 METRES de poussee cumulee en UNE frame — pour une
+    ;; penetration mesuree de 390 u et 374 u. Le rapport vaut 45.9 et 54.7, et il y a 45 balayages.
+    ;; CES CINQ CHIFFRES SEPARENT TROIS HYPOTHESES QU'UN SEUL SCALAIRE CONFOND :
+    ;;   npf   NATURE un COMPTE d'evenements de poussee, sans unite.
+    ;;   pmax  NATURE une LONGUEUR (u de jeu, 4096 = 1 m) : le plus GRAND evenement SEUL.
+    ;;   psum  NATURE une LONGUEUR (u) : somme des MODULES — a distinguer de `cl`, qui est le
+    ;;         module de leur somme VECTORIELLE. `psum >> cl` = des poussees qui s'annulent, donc
+    ;;         deux volumes qui se disputent le lien ; `psum ~ cl` = la meme poussee repetee.
+    ;;   lsw   NATURE un ORDINAL de balayage, 1 a 45 : le DERNIER ou une poussee a encore tire.
+    ;;         Si la boucle convergeait, il serait petit ; a 45 elle ne converge pas.
+    ;;   dom   NATURE un COMPTE de frames ou une poussee a eu lieu sur le maillon pointe — LE
+    ;;         DOMAINE. Sans lui, un zero sur les quatre autres serait un zero de domaine vide.
+    ;; REPERE : le MONDE pour les longueurs (la poussee est ecrite en monde, :1810-1812).
+    ;; LES QUATRE PREMIERES SONT RELEVEES A L'ARGMAX DE `cl`, PAS EN MAXIMA INDEPENDANTS — c'est la
+    ;; lecon N3/N4 du cycle 35 : deux maxima de fenetre pris sur des grandeurs differentes ne se
+    ;; comparent pas, parce que l'argmax n'est pas la meme frame.
+    ;; LECTURE HORS DEFAUT : npf = pmax = psum = lsw = 0 quand rien ne touche.
+    ;; Deux lignes parce que `format` est cape a six parametres apres la chaine.
+    (format 0 "PHYSSHAPE7 c=~D a=~D d=~D npf=~f pmax=~f psum=~f~%"
+            c (-> self ai) (-> self drive)
+            (phys-shape (-> self slot) c 25)
+            (phys-shape (-> self slot) c 26)
+            (phys-shape (-> self slot) c 27))
+    (format 0 "PHYSSHAPE8 c=~D a=~D d=~D lsw=~f dom=~f~%"
+            c (-> self ai) (-> self drive)
+            (phys-shape (-> self slot) c 28)
+            (phys-shape (-> self slot) c 29))
     ;; §23/§22 — L'ELONGATION DU TISSU PORTEE PAR LE DEGRE DE LIBERTE RADIAL, sur cette fenetre.
     ;; Elle se lit CONTRE SA PROPRE BANDE, qui n'est pas celle de l'apex : « local tissue
     ;; elongation: common 5-15 %, large 15-21 %, exceptional 21-25 %, absolute clamp 25 % ».
@@ -1241,17 +1274,21 @@
   "LES QUATRE DEFAUTS DE LA 6e PASSE, CHAINE PAR CHAINE. Un total global ne dit pas si ce sont les
    meches fines qui jittent ou les sangles de cheville : ces compteurs-la sont par chaine.
      selfcol  corrections venues d'un volume porte par les PROPRES joints de la chaine — ZERO
-     retreat  reculs vers la pose du modele (le limiteur qui saute)
      flip     paires (lien, volume) ayant change d'etat de contrainte d'une frame a l'autre : la
               mesure du jitter lui-meme
      inv      inversions corrigees / invres inversions RESIDUELLES — ZERO
      elong    pire allongement RELATIF d'un lien (|l/l0 - 1|) — « les seins s'allongent »"
   (dotimes (c (-> self nchain))
     (when (> (phys-chain-links (-> self slot) c) 0)
-      (format 0 "PHYSDIAG tag=~S c=~D selfcol=~f retreat=~f flip=~f~%"
+      ;; CYCLE 36 : `retreat=` EST PARTI D'ICI, ET CE N'EST PAS UN DE-SCOPE. L'emplacement 1 de
+      ;; `*phys-dg*` n'a AUCUN ecrivain dans le moteur (`grep "PHYS-DG) 1)"` : vide) depuis le
+      ;; retrait de `phys-retreat-chain` le 2026-08-13, dont NOTE-93 est la pierre tombale. Ce
+      ;; champ publiait donc un zero qu'aucun chemin de code ne pouvait faire monter — un zero de
+      ;; domaine VIDE, pas une mesure. On ne l'arme pas (ce serait remettre la fonction que la
+      ;; pierre tombale interdit) : on cesse de le publier.
+      (format 0 "PHYSDIAG tag=~S c=~D selfcol=~f flip=~f~%"
               tag c
               (phys-diag (-> self slot) c 0)
-              (phys-diag (-> self slot) c 1)
               (phys-diag (-> self slot) c 2))
       (format 0 "PHYSDIAG2 tag=~S c=~D inv=~f invres=~f elong=~f rad=~f~%"
               tag c
@@ -1371,9 +1408,10 @@
       ;;            pas un cumul. REPERE : aucun, une longueur sur une longueur prises depuis la
       ;;            meme attache. LECTURE QUAND LE DEFAUT EST ABSENT : 0, et le repli n'a alors
       ;;            jamais tire sur cette chaine.
-      (format 0 "PHYSDIAG7 tag=~S c=~D retfblen=~f~%"
-              tag c
-              (phys-diag (-> self slot) c 16))
+      ;; CYCLE 36 : `PHYSDIAG7` EST RETIREE EN ENTIER. Elle ne portait que `retfblen`
+      ;; (emplacement 16 de `*phys-dg*`), qui n'a lui non plus AUCUN ecrivain depuis le retrait de
+      ;; `phys-retreat-chain`. Le raisonnement ci-dessus reste ecrit : il dit ce que cette grandeur
+      ;; MESURERAIT si le repli existait, et il faudra le relire si un jour il revient.
       ;;   comex    SPEC 22 — L'EXCURSION DU CENTRE DE CHAIR, EN B0. Sa §22 borne le COM (« normal
       ;;            <= 35 % B0, hard transient <= 40 % B0 ») ET l'apex (42 % / 50 %). Le moteur
       ;;            borne le JOINT avec la bande de l'APEX et le CANAL RADIAL avec la bande du COM :
@@ -2338,9 +2376,9 @@
                  (phys-chain-radial (-> self slot) c 1)
                  (phys-diag (-> self slot) c 3)
                  (phys-diag (-> self slot) c 2))
-         (format 0 "PHYSORICTL3 c=~D k=~D i=~D retreat=~f shape=~f~%"
+         ;; CYCLE 36 : `retreat=` retire ici aussi — meme emplacement 1 sans ecrivain.
+         (format 0 "PHYSORICTL3 c=~D k=~D i=~D shape=~f~%"
                  c ok oi
-                 (phys-diag (-> self slot) c 1)
                  (phys-diag (-> self slot) c 8))
          ;; ---- LES DEUX INGREDIENTS DU **COM EXACT**, SUR LES CINQ PASSES ---------------------
          ;; POURQUOI CET AJOUT, ET C'EST UN TROU D'INSTRUMENT, PAS UN MANQUE DE MESURE.
@@ -2535,12 +2573,21 @@
     ;; ---- ne bouge pas sous le defaut ne mesure rien, et le zero qu'il annonce ne vaut rien.
     ((= (-> self phase) PHYSROOM-PH-AUTHPC)
      (when (= (-> self pframe) 1)
-       (format 0 "PHYSLIM retreat_n=~f retreat_sum=~f raddrop_n=~f raddrop_sum=~f buried=~f~%"
-               (phys-limiter 0) (phys-limiter 1) (phys-limiter 2) (phys-limiter 3)
-               (phys-limiter 4))
-       ;; REPLIS DU RECUL : chacun laisse un residu d'allongement sur son lien. Publie a part parce
-       ;; que c'est le seul chemin qui reste vers un allongement non nul.
-       (format 0 "PHYSLIM2 retreat_fallback=~f~%" (phys-limiter 5))
+       ;; CYCLE 36 — QUATRE COMPTEURS DE LIMITEUR SANS AUCUN ECRIVAIN SONT PARTIS D'ICI.
+       ;; `*phys-retreat-n*`, `*phys-retreat-sum*`, `*phys-retfb-n*` et `*phys-sphere-n*` sont
+       ;; DEFINIS, PUBLIES et REMIS A ZERO — et rien, nulle part, ne les incremente (verifie par
+       ;; grep sur les quatre noms : une definition, une lecture, une remise a zero, zero
+       ;; ecriture). Ils datent de `phys-retreat-chain`, retiree le 2026-08-13.
+       ;; ET CE N'EST PAS UN DETAIL DE MENAGE : le rapport du cycle 35 a publie « limiteurs :
+       ;; recul 0 fois, plafond-taille 0 fois — aucun suppresseur n'a tire » comme un ACQUIS. La
+       ;; PREMIERE MOITIE de cette phrase (« recul 0 fois ») reposait sur `retreat_n`/`retreat_sum`,
+       ;; donc sur un zero de domaine VIDE : elle est retiree. La SECONDE (« plafond-taille 0 fois »)
+       ;; repose sur `raddrop_n`/`raddrop_sum`, qui ONT un ecrivain (:1263-1264) : elle tient, et je
+       ;; le dis aussi precisement que je retire l'autre. `buried` (:2194) a un ecrivain lui aussi.
+       (format 0 "PHYSLIM raddrop_n=~f raddrop_sum=~f buried=~f~%"
+               (phys-limiter 2) (phys-limiter 3) (phys-limiter 4))
+       ;; CYCLE 36 : `PHYSLIM2` retiree en entier — elle ne portait que `retreat_fallback`,
+       ;; c'est-a-dire `*phys-retfb-n*`, sans ecrivain.
        ;; CETTE LIGNE PUBLIAIT UN CHIFFRE QUI N'EXISTE PAS DANS LE MOTEUR. Elle lisait
        ;; `(phys-limiter 6)` et `(phys-limiter 7)` sous les noms `radial_n` / `radial_sum` ; il n'y a
        ;; AUCUN compteur radial dans jak-hd-physics.gc, ces deux index tombent donc dans la branche
@@ -2557,7 +2604,9 @@
        ;; l'un compte les sauvetages, l'autre les renoncements. NATURE : un compte d'evenements sur
        ;; la course. REPERE : sans objet (ce n'est pas une grandeur geometrique). LECTURE QUAND LE
        ;; DEFAUT EST ABSENT : zero des deux cotes — la pose du modele est admissible et l'arc suffit.
-       (format 0 "PHYSLIM3 sphere_n=~f~%" (phys-limiter 8))
+       ;; CYCLE 36 : `PHYSLIM3` retiree en entier — `sphere_n` est `*phys-sphere-n*`, sans
+       ;; ecrivain. La mise en garde ci-dessus reste ecrite : elle raconte comment DEUX etiquettes
+       ;; fausses ont deja vecu sur cette ligne, et c'est la troisieme fois qu'elle se vide.
        ;; SPEC 21/22 — CE QUE LA SATURATION D'EXCURSION A RETIRE. NATURE : `sat_n` est un compte
        ;; d'evenements sur la course, `sat_sum` une LONGUEUR cumulee en unites de jeu. REPERE : une
        ;; magnitude de deplacement, invariante par rotation. LECTURE QUAND LE DEFAUT EST ABSENT :

@@ -387,6 +387,11 @@
 (define *phys-dynn* (new 'global 'array 'float PHYS-SC))  ;; frames ou `dl` a mordu le plafond
 (define *phys-prsn* (new 'global 'array 'float PHYS-SC))  ;; frames ou `pr0` a mordu le sien
 (define *phys-dyna* (new 'global 'array 'float PHYS-SC))  ;; frames comptees, denominateur commun
+;; [NOTE-97] CYCLE 36 ETAPE 1 — LA NATURE DE L'ENTREE DE PRESSION DU TENSEUR. -> jak-hd-physics-NOTES.md
+(define *phys-cpa* (new 'global 'array 'float (* 4 PHYS-SCL)))  ;; par MAILLON : npf/pmax/psum/lastsw
+(define *phys-cpi* (new 'global 'array 'float (* 4 PHYS-SC)))   ;; les memes, releves a l'ARGMAX de `cl`
+(define *phys-cpd* (new 'global 'array 'float PHYS-SC))         ;; domaine : frames ou une poussee a tire
+(define *phys-swc* 0)                                           ;; ordinal d'appel de phys-collide-chain
 (define *phys-vp*   (new 'global 'inline-array 'vector PHYS-SC))  ;; vitesse de pointe, frame -1
 (define *phys-tw*   (new 'global 'array 'float PHYS-SC))   ;; §29 torsion : angle du TISSU (rad)
 (define *phys-twv*  (new 'global 'array 'float PHYS-SC))
@@ -524,8 +529,6 @@
 ;;   retreat  quand la projection ne trouve aucun point admissible, le lien recule vers sa pose de
 ;;            modele — la seule position admissible par construction ;
 ;;   raddrop  quand un lien SEUL (pas de parent simule) depasse le rayon que le mesh lui mesure.
-(define *phys-retreat-n*   0)
-(define *phys-retreat-sum* 0.0)
 (define *phys-raddrop-n*   0)
 (define *phys-raddrop-sum* 0.0)
 ;; paires (lien, volume) ou le lien est ENTIEREMENT dans le volume a sa pose de modele : pas de
@@ -563,16 +566,7 @@
 ;; l'os du porteur) faute de bind-pose lisible. Doit valoir ZERO : un secours silencieux est un
 ;; defaut qui attend, et c'est celui-la qui posait le pan du pantacourt dans le mollet.
 (define *phys-reseat-fb* 0)
-;; REPLIS DU RECUL : fois ou le point de depart de sa recherche, pris sur la sphere du MODELE,
-;; n'etait pas admissible et ou il a fallu repartir de la pose d'auteur exacte. Chacun laisse un
-;; residu d'allongement sur ce lien-la : le chiffre dit combien, au lieu de le laisser deviner.
-(define *phys-retfb-n* 0)
-;; ... et fois ou le BALAYAGE DE LA SPHERE a trouve une direction admissible que l'arc ne pouvait pas
-;; atteindre. Ce compteur et le precedent partagent le meme evenement declencheur (le point de
-;; depart du modele penetre) : leur somme est le nombre de fois ou l'arc etait aveugle, et le rapport
-;; dit combien de ces cas la sphere sauve. Un `retfb` non nul avec `sphere` nul dirait que le
-;; balayage ne trouve jamais rien, donc qu'il ne sert a rien.
-(define *phys-sphere-n* 0)
+;; [NOTE-97b] PIERRE TOMBALE — les deux compteurs de REPLI DU RECUL, retires au cycle 36. -> jak-hd-physics-NOTES.md
 ;; ------------------------------------------------------------------------------------------------
 ;; SPEC 21 / SPEC 22 — SATURATION DE L'EXCURSION. Combien de fois la saturation a mordu sur la
 ;; fenetre, et combien de mouvement elle a retire au total.
@@ -750,6 +744,8 @@
                     (set! (-> *phys-prsm* sc) 0.0)
                     (set! (-> *phys-prsr* sc) 0.0)
     (set! (-> *phys-dynr* sc) 0.0)
+    (set! (-> *phys-cpd* sc) 0.0)
+    (dotimes (k 4) (set! (-> *phys-cpi* (+ (* 4 sc) k)) 0.0))
     (set! (-> *phys-dynn* sc) 0.0)
     (set! (-> *phys-prsn* sc) 0.0)
     (set! (-> *phys-dyna* sc) 0.0)
@@ -1597,6 +1593,7 @@
 
 (defun phys-collide-chain ((skel skeleton) (sc int) (n int) (rlk int) (nbone int)
                            (nco int) (margin float) (sweeps int))
+  (set! *phys-swc* (+ 1 *phys-swc*))
   (let ((slot (/ sc PHYS-CHAINS))
         (pt   (new 'stack-no-clear 'vector))
         (rest (new 'stack-no-clear 'vector))
@@ -1733,16 +1730,7 @@
                        (skip (and (zero? *phys-prio-off*)
                                   (>= (-> *phys-lwin* scl) 0)
                                   (!= sco (-> *phys-lwin* scl)))))
-                  ;; ARME, le controle positif LEVE l'exclusion : le compteur `selfcol` doit alors
-                  ;; monter. Un zero que rien ne peut faire monter ne prouve rien — et c'est
-                  ;; exactement ce qui vient d'arriver. Depuis qu'un lien porte LE MEME volume que
-                  ;; celui que son joint declare, lever la seule exclusion ne suffit plus : le lien
-                  ;; est au centre de sa propre sphere, donc ENTIEREMENT dedans, donc `phys-vol-floor`
-                  ;; le declare libre et aucune poussee ne peut naitre. Mesure : le compteur arme est
-                  ;; tombe de 4457 a 0 sans qu'aucun defaut n'ait ete corrige. Le controle doit donc
-                  ;; injecter le DEFAUT lui-meme — une chaine repoussee hors de ses propres volumes —
-                  ;; et non seulement retirer sa protection : arme, le plancher des paires propres
-                  ;; passe a zero.
+                  ;; [NOTE-98] ARME, le controle positif LEVE l'exclusion : le compteur `selfcol` doit alor -> jak-hd-physics-NOTES.md
                   (let ((selfpair (and own (nonzero? *phys-self-inject*))))
                   (when selfpair (set! own #f))
                   (when (and (not own) (not skip) (>= cj 0) (< (+ cj 1) nbone))
@@ -1800,6 +1788,18 @@
                             (set! (-> *phys-cpu* scl x) (+ (-> *phys-cpu* scl x) (* (-> nrm x) push)))
                             (set! (-> *phys-cpu* scl y) (+ (-> *phys-cpu* scl y) (* (-> nrm y) push)))
                             (set! (-> *phys-cpu* scl z) (+ (-> *phys-cpu* scl z) (* (-> nrm z) push)))
+                            ;; [NOTE-97] L'INSTRUMENT DU CYCLE 36 : `cl` est le module de la somme
+                            ;; VECTORIELLE ci-dessus. On releve a cote le COMPTE des evenements, le
+                            ;; plus GRAND seul, la somme de leurs MODULES et l'ordinal du dernier
+                            ;; balayage — les quatre grandeurs qui separent une repetition d'un
+                            ;; ping-pong et d'un contact reellement profond. Aucune ne modifie rien.
+                            (let ((pb (* 4 scl)))
+                              (set! (-> *phys-cpa* pb) (+ 1.0 (-> *phys-cpa* pb)))
+                              (when (> push (-> *phys-cpa* (+ pb 1)))
+                                (set! (-> *phys-cpa* (+ pb 1)) push))
+                              (set! (-> *phys-cpa* (+ pb 2)) (+ push (-> *phys-cpa* (+ pb 2))))
+                              (set! (-> *phys-cpa* (+ pb 3))
+                                    (the float (+ (* 3 (- *phys-swc* 1)) (+ sub 1)))))
                             (set! (-> *phys-cpe* scl)
                                   (if (nonzero? (-> *phys-csim* sco)) PHYS-RST-BB PHYS-RST-CH))))
                         ;; [NOTE-29] ---------------------------------------------------------------- -> jak-hd-physics-NOTES.md
@@ -2369,7 +2369,6 @@
               (sv   (new 'stack-no-clear 'vector))
               (sep  (new 'stack-no-clear 'vector))
               (pt   (new 'stack-no-clear 'vector))
-              (tgt  (new 'stack-no-clear 'vector))
               (rest (new 'stack-no-clear 'vector))
               (nrm  (new 'stack-no-clear 'vector)))
           (dotimes (c nch)
@@ -2720,16 +2719,7 @@
                                        (set! tgz (+ az (-> uv z)))
                                        (set! hasf 1))))
                                  ;; [NOTE-73] SPEC 9 — LA CIBLE DE REPOS DU RESSORT EST-ELLE LA POSE D'AUTEUR ? -> jak-hd-physics-NOTES.md
-                                 ;; NATURE deux longueurs / B0, maximum et somme sur la fenetre.
-                                 ;; REPERE le monde, meme frame, meme attache, meme `bl`. ABSENT
-                                 ;; `rgap` = 0.0000 quand la cible EST la pose d'auteur. `perr`
-                                 ;; porte un retard d'UNE frame (`tg` precede l'integration).
-                                 ;; RESTREINT AU PREMIER MAILLON LIBRE, ET C'EST CE QUI REND LA
-                                 ;; GRANDEUR STATIQUE : la, l'attache est l'ANCRE (pose d'auteur),
-                                 ;; donc `tg` et `tw` sont sur la MEME sphere de rayon `bl` et leur
-                                 ;; ecart est purement angulaire. Au maillon suivant l'attache est
-                                 ;; la position SIMULEE du precedent, ce qui melangerait la
-                                 ;; dynamique a une mesure declaree sans dynamique.
+                                 ;; [NOTE-99] NATURE deux longueurs / B0, maximum et somme sur la fenetre. -> jak-hd-physics-NOTES.md
                                  (when (and (nonzero? hasf) (> warm 1) (= l rlk))
                                    (let* ((dgb (* sc PHYS-DG))
                                           (rgx (- tgx (-> tw x)))
@@ -3095,7 +3085,11 @@
                     (dotimes (l n)
                       (let ((scl (+ (* sc PHYS-LINKS) l)))
                         (set-vector! (-> *phys-cpu* scl) 0.0 0.0 0.0 0.0)
-                        (set! (-> *phys-cpe* scl) 0.0)))
+                        (set! (-> *phys-cpe* scl) 0.0)
+                        ;; [NOTE-97] les quatre grandeurs de l'instrument vivent EXACTEMENT le meme
+                        ;; cycle de vie que `*phys-cpu*` : une frame, pas un etat.
+                        (dotimes (k 4) (set! (-> *phys-cpa* (+ (* 4 scl) k)) 0.0))))
+                    (set! *phys-swc* 0)
                     (dotimes (it 8)
                       (phys-length-chain skel sc n rlk an nbone)
                       (phys-collide-chain skel sc n rlk nbone nco PHYS-COL-MARGIN 3))
@@ -3325,16 +3319,7 @@
                                      (u2 (+ (* ux ux) (+ (* uy uy) (* uz uz))))
                                      (dot (+ (* ux mx) (+ (* uy my) (* uz mz)))))
                                 (when (> m2 0.0001)
-                                  ;; LA DEFORMATION QUE LA CHAIR SUBIT, et ce n'est ni tipvar ni
-                                  ;; elong. Owner, 11e passe : « ca change de taille, plus petit,
-                                  ;; plus gros, plus long, plus court, ecrase ». Le skinning est
-                                  ;; LINEAIRE : deux sommets voisins dont les poids sur ce joint
-                                  ;; different de w se separent de w x |p - T|. Rapporte a la
-                                  ;; longueur de l'os — la distance sur laquelle les poids passent
-                                  ;; de 1 a 0 — ce quotient EST l'echelle de la deformation locale.
-                                  ;; `elong` ne peut pas la voir : elle mesure la longueur de l'OS,
-                                  ;; qui est justement invariante par construction, et `tipvar` est
-                                  ;; une variance, pas une forme.
+                                  ;; [NOTE-100] LA DEFORMATION QUE LA CHAIR SUBIT, et ce n'est ni tipvar ni elong. -> jak-hd-physics-NOTES.md
                                   (let* ((wx (- (-> *phys-px* scl)
                                                 (-> skel bones (+ kk 1) transform vector 3 x)))
                                          (wy (- (-> *phys-py* scl)
@@ -3788,7 +3773,18 @@
                                    (prs (fmin PHYS-PRS-MAX pr0))
                                    (pe  (- 1.0 prs))
                                    (pt2 (/ 1.0 (sqrtf (fmax 0.0001 pe)))))
-                              (when (> pr0 (-> *phys-prsr* sc)) (set! (-> *phys-prsr* sc) pr0))
+                              ;; [NOTE-97] RELEVE A L'ARGMAX DE `cl`, PAS EN MAXIMA INDEPENDANTS.
+                              ;; C'est la lecon N3/N4 du cycle 35 : deux maxima de fenetre pris sur
+                              ;; des grandeurs differentes ne se comparent pas, parce que l'argmax
+                              ;; n'est pas la meme frame. `tl` est deja un index PAR MAILLON.
+                              (when (> pr0 (-> *phys-prsr* sc))
+                                (set! (-> *phys-prsr* sc) pr0)
+                                (dotimes (k 4)
+                                  (set! (-> *phys-cpi* (+ (* 4 sc) k))
+                                        (-> *phys-cpa* (+ (* 4 tl) k)))))
+                              ;; LE DOMAINE : sans lui, un zero serait un zero de domaine vide.
+                              (when (> (-> *phys-cpa* (* 4 tl)) 0.0)
+                                (set! (-> *phys-cpd* sc) (+ 1.0 (-> *phys-cpd* sc))))
                               (when (> pr0 PHYS-PRS-MAX)
                                 (set! (-> *phys-prsn* sc) (+ 1.0 (-> *phys-prsn* sc))))
                               (when (> prs (-> *phys-prsm* sc)) (set! (-> *phys-prsm* sc) prs))
@@ -4087,6 +4083,8 @@
     (set! (-> *phys-dynm* sc) 0.0)
     (set! (-> *phys-prsm* sc) 0.0)
     (set! (-> *phys-prsr* sc) 0.0)
+    (set! (-> *phys-cpd* sc) 0.0)
+    (dotimes (k 4) (set! (-> *phys-cpi* (+ (* 4 sc) k)) 0.0))
     ;; §23 : maximum de FENETRE, donc remis a zero ici. `*phys-rr*` et `*phys-rq*` — l'etat — ne le
     ;; sont PAS, pour la meme raison que le mode secondaire et la torsion : chaque fenetre
     ;; relancerait sinon l'oscillateur radial depuis rien.
@@ -4434,12 +4432,8 @@
 ;;       2 = plafond de taille d'un lien seul : nombre de fois / total retire
 (defun phys-limiter ((which int))
   (case which
-    ((0) (the float *phys-retreat-n*))
-    ((1) *phys-retreat-sum*)
     ((2) (the float *phys-raddrop-n*))
     ((3) *phys-raddrop-sum*)
-    ((5) (the float *phys-retfb-n*))
-    ((8) (the float *phys-sphere-n*))
     ;; SPEC 21/22 : 6 = sous-pas integres avec le RESSORT QUI RAIDIT actif (pas un suppresseur, il
     ;; ne retire rien) ; 9 = fois ou le FILET positionnel a mordu, 10 = ce que LUI a retire (unites).
     ((6) (the float *phys-stif-n*))
@@ -4661,13 +4655,9 @@
     0.0))
 
 (defun phys-limiter-reset! ()
-  (set! *phys-retreat-n* 0)
-  (set! *phys-retreat-sum* 0.0)
   (set! *phys-raddrop-n* 0)
   (set! *phys-raddrop-sum* 0.0)
   (set! *phys-buried-n* 0)
-  (set! *phys-retfb-n* 0)
-  (set! *phys-sphere-n* 0)
   (set! *phys-sat-n* 0)
   (set! *phys-sat-sum* 0.0)
   (set! *phys-stif-n* 0)
@@ -4751,6 +4741,9 @@
         ((= which 22) (-> *phys-dynn* sc))
         ((= which 23) (-> *phys-prsn* sc))
         ((= which 24) (-> *phys-dyna* sc))
+        ;; [NOTE-97] 25-29 : LA NATURE DE L'ENTREE DE PRESSION (cycle 36 etape 1).
+        ((< which 29) (-> *phys-cpi* (+ (* 4 sc) (- which 25))))
+        ((= which 29) (-> *phys-cpd* sc))
         (else 0.0)))))
 
 (defun phys-rest ((which int))
