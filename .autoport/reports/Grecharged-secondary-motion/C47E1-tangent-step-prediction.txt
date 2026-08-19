@@ -1,0 +1,65 @@
+DIRECTIVES v3fee554599
+CYCLE 47 — LE PAS TANGENTIEL RENDAIT dd*s^2 LA OU LA GEOMETRIE EN DEMANDE dd
+ECRIT AVANT LA COURSE, AVANT LA CUISSON, AVANT TOUTE MESURE DE L'INTERVENTION.
+
+L'INTERVENTION, EN UNE PHRASE
+  Dans `phys-collide-chain` bloc (a1), la poussee de profondeur avancait de `dd * t` ou
+  `t = nrm - cn*u^` est la composante TANGENTE a la sphere de l'attache. Le gain de profondeur
+  d'un deplacement `v` valant `v . nrm`, cette poussee ne retirait que `dd * s^2` : elle se payait
+  son obliquite DEUX fois. Le pas devient `(dd/s^2) * t`, borne par le rayon courant du lien.
+  Aucune constante neuve. SPEC 33 nomme le mecanisme : « redirection of movement ».
+
+CE QUI L'OUVRE, ET C'EST UNE MESURE, PAS UN RAISONNEMENT
+  PHYSTAN n=899521 sumdepth=91843340 removed=34495968 -> rendement 37.56 %.
+  37.56 % n'est pas un defaut de convergence : c'est moyenne(s^2), le facteur manquant lui-meme.
+
+ETAT DE DEPART (course livree, table du 2026-08-19 22:20, trace md5 90779784e344058cd7ecfc9eca9aa7d4)
+  meshpen        chestL 0.1061   chestR 0.0898     (plafond epingle COLLIDE 0.0005)
+  skinpen        chestL 0.1416   chestR 0.1426
+  ROOM-SIDE      crossing=8 (chestR inside_frames=8)
+  ROOM-STRETCH   max=0.0003
+  tipvar worst   chestL 0.1720 (anim=assistant-village2-idle-to-a drive=accel), jump 0.0792
+  PHYSTAN        rendement 37.56 %
+  ROOM-POSCONTROL injections=360 armed=0.0849 disarmed=0.0651  (ratio 1.30, la gate en exige 3)
+
+PREDICTIONS — FALSIFIABLES, ET TROIS SONT CONTRE MOI
+
+Q1  PHYSTAN removed/sumdepth passe de 0.3756 a >= 0.90.
+    CONTRE MOI : si < 0.60, la troncature au rayon du lien mord bien plus que je ne le crois et
+    mon modele du defaut est faux.
+
+Q2  removed/oldremoved >= 2.0 (controle APPARIE intra-course : memes evenements, meme frame).
+    A 1.00 le bloc n'a rien change et TOUT le reste de ce rapport est nul et non avenu.
+
+Q3  meshpen BAISSE d'au moins 20 % sur les deux chaines (donc <= 0.0849 / <= 0.0718).
+    CONTRE MOI, ET C'EST LA PREDICTION LA PLUS EXPOSEE : le cycle 46 a mesure que c'est
+    l'EXCURSION du maillon distal qui coute la penetration, pas la direction ni la finition. Si
+    meshpen bouge de MOINS DE 5 % sur les deux chaines, alors le pas de contact ne porte PAS le
+    residu, le chantier est l'excursion, et je l'ecris comme un resultat negatif utile au lieu de
+    le presenter comme un progres.
+
+Q4  capgive (rayon relatif qu'il aurait fallu en plus quand la calotte est vide) est publie, et je
+    predis 0.05 <= capgive <= 0.25, donc DANS les bandes de SPEC 22.
+    CONTRE MOI : si capgive > 0.25, il DEPASSE le clamp absolu de SPEC 22 et la piste « la
+    longueur cede » est REFUTEE avant d'etre ecrite — un cycle economise. Si capgive < 0.05, ce
+    qui reste se ferme par une cession de longueur minuscule, et c'est le cycle suivant.
+
+Q5  ROOM-STRETCH reste <= 0.01. La projection de longueur n'est pas touchee et reste la derniere
+    operation du solveur.
+
+Q6  tipvar worst chestL reste dans +/-15 % de 0.1720.
+    CONTRE MOI, ET C'EST UN CRITERE DE RETRAIT : si tipvar tombe de plus de 25 %, le correctif
+    MUSELLE la physique pour faire baisser un chiffre. Il est alors RETIRE, quoi qu'il fasse a
+    meshpen. L'owner a valide les mouvements subtils de la poitrine ; on ne les paie pas.
+
+Q7  ROOM-SIDE crossing <= 8. Un pas mieux dirige ne doit pas creer de franchissement.
+    Au-dessus de 8 : regle 6, RETRAIT IMMEDIAT, pas d'adoucissement.
+
+Q8  jump (pire saut d'une frame) <= 0.10 sur la pire cellule (0.0792 aujourd'hui).
+    CONTRE MOI : un pas jusqu'a 8x plus long peut fabriquer un a-coup. Si jump monte de plus de
+    30 %, le pas est trop grand et sa borne doit descendre — je le dirai au lieu de le garder.
+
+CE QUE CE CYCLE NE PRETEND PAS FAIRE
+  Fermer COLLIDE. 0.1061 m contre un plafond de 0.0005 m, c'est 212x. Meme une baisse de 50 %
+  laisse la gate ROUGE, et le rapport doit continuer de porter sa ligne BREAST-PENETRATION.
+  Fermer la ligne OPEN de l'owner. Seul son oeil la ferme.
