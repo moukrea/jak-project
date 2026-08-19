@@ -10,6 +10,26 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
+## 2026-08-19 20:10 — LA SPEC EST LA SEULE REFERENCE. TOUT CE QUI PRECEDE NE COMPTE PLUS.
+
+Verbatim : « les biais qu'on a eu avant la spec ne comptent pas ! C'est la spec qui compte et puis
+c'est tout ! »
+
+**Sont annulés comme cibles**, tous antérieurs à `SPEC-breast-softbody.md` :
+  - les planchers `FLOOR` / `FLOOR-WEAK` calés sur des états d'avant le 13/08 ;
+  - les lignes de `keira-owner-tuning.txt` issues de son œil au coup par coup — indices
+    historiques, pas contraintes ;
+  - tout « état approuvé » invoqué avant la spec (il n'y en a jamais eu : cf. la correction du
+    13/08 21:50, « vraiment pas mal » ne voulait pas dire validé).
+
+**Règle unique :** une correction ne se refuse jamais parce qu'elle s'écarte d'un état d'avant la
+spec. La spec gagne. Et quand elle entre en conflit avec la géométrie livrée, **c'est la géométrie
+qui bouge** (décision du 20:00, facteur ×5,2 sur la couverture de chair).
+
+**Ce qui n'est PAS annulé :** ses verdicts POSTÉRIEURS à la spec. Seul son œil ferme une ligne,
+jamais un tableau vert.
+
+
 ## 2026-08-19 20:00 — L'OWNER TRANCHE : LA SPEC NE BOUGE PAS, C'EST LA GEOMETRIE QUI SUIT
 
 Verbatim : « faut régler tout ça, moi je veux une implem à 100 % de la spec que je t'ai donnée,
