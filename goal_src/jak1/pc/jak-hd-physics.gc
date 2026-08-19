@@ -374,6 +374,8 @@
 ;; [NOTE-82] LA DECOMPOSITION EXACTE DE `dr0`, RELEVEE A LA FRAME DE L'ARGMAX. -> jak-hd-physics-NOTES.md
 (define *phys-rrol* (new 'global 'array 'float PHYS-SCL))  ;; (A) (ml-bl)/B0 : l'OS hors de sa sphere
 (define *phys-rrcl* (new 'global 'array 'float PHYS-SCL))  ;; (B) dot(cp-px,m^)/B0 : la CHAIR au-dela
+(define *phys-rrtl* (new 'global 'array 'float PHYS-SCL))  ;; (C) dot(cp-tg,m^)/B0 : la CHAIR loin de SA cible
+(define *phys-cddl* (new 'global 'array 'float PHYS-SCL))  ;; |cp-tg|/B0 : la NORME du meme ecart ([NOTE-84])
 ;; Frames ou la borne §22 du COM a effectivement mordu. Un limiteur qui mord en PERMANENCE ne
 ;; borne plus, il remplace la mesure par sa propre valeur — c'est ce qui vient d'arriver au canal
 ;; de deformation (25.00 sur les dix fenetres). On le compte, exactement comme `*phys-twsat*`.
@@ -748,6 +750,8 @@
                       (set! (-> *phys-rrml* (+ (* sc PHYS-LINKS) ll)) 0.0)
                       (set! (-> *phys-rrrl* (+ (* sc PHYS-LINKS) ll)) 0.0)
                       (set! (-> *phys-rrsl* (+ (* sc PHYS-LINKS) ll)) 0.0)
+                      (set! (-> *phys-rrtl* (+ (* sc PHYS-LINKS) ll)) 0.0)
+                      (set! (-> *phys-cddl* (+ (* sc PHYS-LINKS) ll)) 0.0)
                       (set! (-> *phys-rok* (+ (* sc PHYS-LINKS) ll)) 0))
                     (set! (-> *phys-rrm* sc) 0.0)
                     (set-vector! (-> *phys-vp* sc) 0.0 0.0 0.0 0.0)
@@ -2874,17 +2878,7 @@
                                                       1.0)))
                                            (when (> mu 1.000001)
                                              (set! *phys-stif-n* (+ *phys-stif-n* 1)))
-                                           ;; SPEC 24 / SPEC 29 — LA FORCE EST PROJETEE SUR LE
-                                           ;; TRIEDRE ET CHAQUE AXE PORTE SA PROPRE RAIDEUR. C'est
-                                           ;; le SEUL mecanisme des deux sections : trois raideurs,
-                                           ;; donc trois frequences propres et trois mobilites, et
-                                           ;; rien d'autre n'a ete ajoute pour les tenir.
-                                           ;; `mu` (la saturation de SPEC 21) reste calculee sur la
-                                           ;; NORME de l'ecart, donc SPEC 21/22 gardent exactement
-                                           ;; la borne d'excursion qu'ils avaient : l'anisotropie
-                                           ;; redistribue la raideur, elle ne touche pas au mur.
-                                           ;; `axo = 0` -> les trois facteurs valent 1.0 et cette
-                                           ;; branche rend `k2s*mu*e`, BIT POUR BIT l'ancienne.
+                                           ;; [NOTE-86] SPEC 24/29 — LA FORCE EST PROJETEE SUR LE TRIEDRE, UNE RAIDEUR PAR AXE. -> jak-hd-physics-NOTES.md
                                            (if (nonzero? axo)
                                              (let* ((p0 (+ (* ex n0x) (+ (* ey n0y) (* ez n0z))))
                                                     (p1 (+ (* ex n1x) (+ (* ey n1y) (* ez n1z))))
@@ -3003,7 +2997,13 @@
                                                           (+ (* (- cpy (-> *phys-py* scl)) my)
                                                              (* (- cpz (-> *phys-pz* scl)) mz)))
                                                        ml)
-                                                    (fmax 1.0 b0e)))))
+                                                    (fmax 1.0 b0e)))
+                                           (let* ((ftx (- cpx tgx)) (fty (- cpy tgy)) (ftz (- cpz tgz))
+                                                  (fb  (fmax 1.0 b0e)))
+                                             (set! (-> *phys-rrtl* scl)
+                                                   (/ (/ (+ (* ftx mx) (+ (* fty my) (* ftz mz))) ml) fb))
+                                             (set! (-> *phys-cddl* scl)
+                                                   (/ (sqrtf (+ (* ftx ftx) (+ (* fty fty) (* ftz ftz)))) fb)))))
                                        (let ((ar (/ (fabs drr) (fmax 1.0 b0e))))
                                          (when (> ar (-> *phys-rrm* sc))
                                            (set! (-> *phys-rrm* sc) ar))
@@ -3947,25 +3947,7 @@
                               (set! (-> bm vector 3 y) (-> *phys-py* scl))
                               (set! (-> bm vector 3 z) (-> *phys-pz* scl))
                               (set! (-> bm vector 3 w) 1.0)
-                              ;; ---- SPEC 22 : L'EXCURSION DU **CENTRE DE CHAIR**, EN B0 ---------
-                              ;; Sa §22 borne DEUX grandeurs et les nomme : « Breast COM: normal
-                              ;; <= 35 % B0, hard transient <= 40 % B0 » et « Distal/apex
-                              ;; displacement: normal <= 42 %, exceptional <= 50 % ». Le moteur
-                              ;; borne aujourd'hui le JOINT (borne d'apex, :3115) et le CANAL
-                              ;; RADIAL (borne de COM, :2960) — deux grandeurs dont AUCUNE n'est
-                              ;; le centre de masse de la chair. Il n'existait donc, jusqu'ici,
-                              ;; aucune mesure de la grandeur que la borne de COM designe.
-                              ;; CE QUI EST PRIS ICI : le centre du volume que le generateur a
-                              ;; MESURE sur le mesh (« measured centroid of the geometry this
-                              ;; joint owns »), transporte par la matrice d'AUTEUR (`pre`, copiee
-                              ;; en tete de cette boucle) puis par la matrice ECRITE (`bm`, qui
-                              ;; porte deja la rotation ET la deformation de §8/§10-13). La
-                              ;; difference est donc le deplacement de la chair, deformation
-                              ;; COMPRISE — c'est la lecon du cycle 27 (un COM bati sur les seuls
-                              ;; joints est la moitie de la grandeur).
-                              ;; NATURE : une LONGUEUR rapportee a B0, maximum sur la fenetre.
-                              ;; REPERE : le monde, a la frame ecrite, contre la pose d'AUTEUR de
-                              ;; la meme frame. LIGNE DE BASE : 0.0000 a la pose d'auteur.
+                              ;; [NOTE-85] SPEC 22 — L'EXCURSION DU CENTRE DE CHAIR, EN B0, DEFORMATION COMPRISE. -> jak-hd-physics-NOTES.md
                               (let ((lcx (-> *phys-lcx* scl))
                                     (lcy (-> *phys-lcy* scl))
                                     (lcz (-> *phys-lcz* scl)))
@@ -4100,6 +4082,8 @@
       (set! (-> *phys-rrrl* (+ (* sc PHYS-LINKS) l)) 0.0)
       (set! (-> *phys-rrol* (+ (* sc PHYS-LINKS) l)) 0.0)
       (set! (-> *phys-rrcl* (+ (* sc PHYS-LINKS) l)) 0.0)
+      (set! (-> *phys-rrtl* (+ (* sc PHYS-LINKS) l)) 0.0)
+      (set! (-> *phys-cddl* (+ (* sc PHYS-LINKS) l)) 0.0)
       (set! (-> *phys-rrsl* (+ (* sc PHYS-LINKS) l)) 0.0))
     ;; SPEC 29/36 — les deux maximums de FENETRE. Ce sont des compteurs de mesure, pas des etats
     ;; du solveur : `*phys-sec*`, `*phys-tw*` et leurs vitesses ne sont PAS remis a zero ici, sans
@@ -4327,12 +4311,14 @@
   "SPEC 23 — l'elongation radiale du MAILLON `link`. which 0 = unites de jeu · 1 = rapportee a B0 ·
    2 = maximum de FENETRE apres la borne de §22 · 3 = le meme AVANT la borne · 4 = frames ou la
    borne a mordu SUR CE MAILLON · 5 = (ml-bl)/B0 et 6 = dot(cp-px,m^)/B0, les DEUX TERMES de `dr0`
-   releves A LA FRAME DE L'ARGMAX de 3, et dont la somme vaut 3 au signe pres (identite, [NOTE-82]).
+   releves a l'ARGMAX de 3, somme = 3 au signe pres ([NOTE-82]) · 7 = dot(cp-tg,m^)/B0 et
+   8 = |cp-tg|/B0, MEME frame : 6 se scinde en 7 + dot(tg-px,m^)/B0, et |7| <= 8 est un controle
+   d'integrite non tautologique ([NOTE-84]).
    Version RESOLUE PAR MAILLON de `phys-chain-radial`, qui ne rend que la RACINE. C'est aussi l'etat
    que le solveur lit. NATURE deformation signee · REPERE axe de l'os dans le triedre de l'ANCRE
    (SPEC 7) · LIGNE DE BASE 0.0 a la pose d'auteur (SPEC 9). [NOTE-79] -> jak-hd-physics-NOTES.md"
   (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS)
-          (< link 0) (>= link PHYS-LINKS) (< which 0) (> which 6))
+          (< link 0) (>= link PHYS-LINKS) (< which 0) (> which 8))
     0.0
     (let* ((sc  (+ (* slot PHYS-CHAINS) chain))
            (b0  (fmax 1.0 (-> *phys-b0* sc)))
@@ -4344,7 +4330,9 @@
             ((= which 3) (-> *phys-rrrl* scl))
             ((= which 4) (-> *phys-rrsl* scl))
             ((= which 5) (-> *phys-rrol* scl))
-            (else        (-> *phys-rrcl* scl))))))
+            ((= which 6) (-> *phys-rrcl* scl))
+            ((= which 7) (-> *phys-rrtl* scl))
+            (else        (-> *phys-cddl* scl))))))
 
 (defun phys-chain-axsep ((slot int) (chain int) (which int))
   "LES DEUX PROJECTIONS QUE LA DECISION DE NOMMAGE A COMPARE, et la norme du segment inter-seins.

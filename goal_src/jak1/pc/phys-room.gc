@@ -1116,7 +1116,29 @@
       (format 0 "PHYSRADLD c=~D d=~D l=~D mlb=~f cdev=~f~%"
               c (-> self drive) l
               (phys-chain-radial-link (-> self slot) c l 5)
-              (phys-chain-radial-link (-> self slot) c l 6)))))
+              (phys-chain-radial-link (-> self slot) c l 6)))
+    ;; LA SCISSION DE `cdev`, CYCLE 34 — `cdev` melange encore DEUX choses (identite [NOTE-84]) :
+    ;;     cdev = dot(cp - tg, m^)  +  dot(tg - px, m^)
+    ;;            \_____ ctg _____/     \_ par soustraction _/
+    ;;             (C) le point LIBRE     (D) la CONTRAINTE ecarte
+    ;;             n'a pas rejoint SA     l'OS de SA cible
+    ;;             cible
+    ;; NATURE : `ctg` est une LONGUEUR SIGNEE / B0 (§6), `cdd` la NORME du MEME ecart. Les deux
+    ;;   relevees A LA FRAME DE L'ARGMAX de `rrr` — les memes que `mlb`/`cdev` ci-dessus, jamais
+    ;;   des maximums independants (max(a+b) != max(a)+max(b)).
+    ;; REPERE : `ctg` sur l'axe de l'os `m^`, le MEME que `rrr`, `mlb` et `cdev`. `cdd` est une
+    ;;   norme, donc sans repere. Monde, meme frame, meme `b0e`.
+    ;; ABSENT : les deux valent 0.0000 EXACTEMENT a la premiere frame de la fenetre (amorcage
+    ;;   `cp := px` et `tg` construit sur la meme pose), et `cdd` = 0 si le point libre est SUR sa
+    ;;   cible. Un zero est donc un etat neutre, pas un trou de mesure.
+    ;; CONTROLE D'INTEGRITE, ET IL N'EST PAS TAUTOLOGIQUE : |ctg| <= cdd. Les deux membres sont
+    ;;   calcules par des chemins DIFFERENTS (produit scalaire contre racine de somme de carres).
+    ;; DEUX LIGNES et non une : `format` de GOAL est cape a huit parametres, destination comprise.
+    (dotimes (l (phys-chain-links (-> self slot) c))
+      (format 0 "PHYSRADLE c=~D d=~D l=~D ctg=~f cdd=~f~%"
+              c (-> self drive) l
+              (phys-chain-radial-link (-> self slot) c l 7)
+              (phys-chain-radial-link (-> self slot) c l 8)))))
   ;; SPEC 33/34 — LA RESTITUTION SUR CETTE FENETRE. Une ligne par fenetre, pas par chaine : les
   ;; compteurs sont globaux au solveur. `n` est le DOMAINE (contacts ou elle a mordu) ; sans lui,
   ;; `vin`/`vout` a zero ne distinguent pas « rien ne touche » de « rien ne s'applique ».
