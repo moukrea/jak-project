@@ -5052,6 +5052,113 @@ def main():
                  'l\'identite tient, la decomposition est lisible'
                  if _bad == 0 else 'INSTRUMENT FAUX, aucune conclusion ne se publie dessus'))
 
+        # ---- ROOM-RAD-FLESH : LA CHAIR EST-ELLE LOIN DE SA CIBLE, OU L'OS EST-IL LOIN DE LA
+        # SIENNE ? (cycle 34 etape 1) --------------------------------------------------------
+        # `cdev` melange encore DEUX choses, et c'est la meme faute d'agregat qu'au cycle 33
+        # etape 2, un cran plus bas. La decomposition est une IDENTITE, pas un modele :
+        #     cdev = dot(cp - tg, m^)  +  dot(tg - px, m^)
+        #            \_____ ctg _____/     \______ D _____/
+        #             (C) le point LIBRE    (D) la CONTRAINTE ecarte
+        #             n'a pas rejoint SA    l'OS de SA cible
+        #             cible                 (deduit par soustraction, aucun 3e canal)
+        # POURQUOI ELLE EXISTE : le point libre `cp` de sa SPEC 23 n'est projete par RIEN
+        # (`*phys-cpx*` n'est ecrit qu'a l'amorcage, au rebase de §37 et a la publication ; ni
+        # `phys-length-chain` ni `phys-collide-chain` ne le touchent). L'OS obeit a sa sphere de
+        # rayon `bl` et aux 54 volumes ; LA CHAIR n'obeit a rien. Si (C) domine, re-deriver la
+        # raideur radiale ne peut rien : l'oscillateur est contre un mur, pas mal regle.
+        # NATURE `ctg` LONGUEUR SIGNEE / B0, `cdd` la NORME du MEME ecart, les deux relevees A LA
+        #   FRAME DE L'ARGMAX de `rrr` (les memes que mlb/cdev) · REPERE `ctg` sur l'axe de l'os
+        #   `m^`, le meme que `rrr` ; `cdd` est une norme · ABSENT 0.0000 a la 1re frame.
+        # I0-FLESH — CONTROLE D'INTEGRITE NON TAUTOLOGIQUE : |ctg| <= cdd, les deux membres etant
+        #   calcules par des chemins DIFFERENTS (produit scalaire contre racine de somme de
+        #   carres). S'il casse, aucune conclusion ne se publie.
+        # I1-FLESH — LA BORNE GEOMETRIQUE : `tg = a + bl*u^` avec `u^` UNITAIRE, donc
+        #   |tg - a| = bl EXACTEMENT, et |px - a| = ml. Donc D = bl*cos(theta) - ml, d'ou
+        #   |D|/B0 <= 2*bl/B0 + rrol. Si la course la viole, la lecture de `tg` est fausse.
+        # L'APPARIEMENT EST LE MEME QUE CELUI DE `_split`, ET CE N'EST PAS UN DETAIL. Les trois
+        # lignes PHYSRADL / PHYSRADLD / PHYSRADLE sont emises DANS CET ORDRE, une fois par FENETRE
+        # (chaine x animation x pilotage), et `_split` retient la fenetre dont `rrr` est le plus
+        # GRAND. Garder ici la DERNIERE fenetre lue au lieu de la MEME ferait decomposer `cdev`
+        # d'une animation par un `ctg` d'une AUTRE : la premiere version de ce lecteur le faisait,
+        # et elle sortait 5 violations sur 24 de la borne geometrique — des violations qui
+        # n'existaient pas dans le moteur, seulement dans l'appariement. Meme classe que « deux
+        # lecteurs de la meme trace qui filtrent chacun la moitie opposee ».
+        _fl, _pndE = {}, {}
+        for m in re.finditer(r'^PHYSRAD(L|LD|LE) c=(\d+) d=(\d+) l=(\d+) '
+                             r'(?:rrm=[-\d.e+]+ rrr=([-\d.e+]+) sat=[-\d.e+]+'
+                             r'|mlb=[-\d.e+]+ cdev=[-\d.e+]+'
+                             r'|ctg=([-\d.e+]+) cdd=([-\d.e+]+))', txt, re.M):
+            c, dr, l = int(m.group(2)), int(m.group(3)), int(m.group(4))
+            if dr > len(DRIVE_NAMES):
+                continue
+            k = (c, dr, l)
+            if m.group(1) == 'L':
+                _pndE[k] = float(m.group(5))
+            elif m.group(1) == 'LE':
+                _r = _pndE.get(k)
+                if _r is None:
+                    continue
+                e = _fl.get(k)
+                if e is None or _r > e['rrr']:
+                    _fl[k] = dict(rrr=_r, ctg=float(m.group(6)), cdd=float(m.group(7)))
+        _bl = {}
+        for m in re.finditer(r'^PHYSBONE c=(\d+) l=(\d+) len=([-\d.]+)', txt, re.M):
+            _bl.setdefault(int(m.group(1)), {})[int(m.group(2))] = float(m.group(3))
+        _b0 = {}
+        for m in re.finditer(r'^\[HD-PHYS\] b0 c=(\d+) flesh=([-\d.e+]+)', txt, re.M):
+            _b0[int(m.group(1))] = float(m.group(2))
+        A('')
+        if not _fl:
+            A('ROOM-RAD-FLESH: ABSENT (aucune ligne PHYSRADLE dans la trace) — `cdev` n\'est PAS')
+            A('   attribue au point libre ou a la contrainte sur cette course.')
+        else:
+            A('-- ROOM-RAD-FLESH : LE POINT LIBRE EST-IL LOIN DE SA CIBLE, OU L\'OS DE LA SIENNE ? --')
+            A('   ctg = dot(cp-tg,m^)/B0, (C) le point LIBRE n\'a pas rejoint SA cible.')
+            A('   D   = cdev - ctg,        (D) la CONTRAINTE ecarte l\'OS de SA cible.')
+            A('   cdd = |cp-tg|/B0, la NORME du meme ecart. Bande de sa SPEC 22 sur le COM : 0.40.')
+            _i0 = _i1 = _i2 = _imm = 0
+            for (c, dr, l) in sorted(_fl):
+                e = _fl[(c, dr, l)]
+                sp = _split.get((c, dr, l))
+                # MEME FENETRE OU RIEN : si les deux lecteurs n'ont pas retenu le meme `rrr`, la
+                # soustraction `D = cdev - ctg` melangerait deux animations.
+                if sp is None or abs(sp['rrr'] - e['rrr']) > 1e-6:
+                    _imm += 1
+                    continue
+                _cdev = sp['cdev'] if sp else float('nan')
+                _rrol = sp['mlb'] if sp else float('nan')
+                _D = _cdev - e['ctg']
+                _ok0 = abs(e['ctg']) <= e['cdd'] + 0.002
+                if not _ok0:
+                    _i0 += 1
+                _bnd = float('nan')
+                if sp and _bl.get(c, {}).get(l) and _b0.get(c):
+                    _bnd = 2.0 * _bl[c][l] / _b0[c] + abs(_rrol)
+                    if abs(_D) > _bnd + 0.002:
+                        _i1 += 1
+                if e['cdd'] > 0.40:
+                    _i2 += 1
+                _tot = abs(e['ctg']) + abs(_D)
+                _own = (' LIBRE %3.0f%% | CONTRAINTE %3.0f%%'
+                        % (100.0 * abs(e['ctg']) / _tot, 100.0 * abs(_D) / _tot)) if _tot > 1e-9 else ''
+                A('ROOM-RAD-FLESH: chain=%-12s drive=%-10s l=%d  cdev=%+.4f  ctg=%+.4f  D=%+.4f'
+                  '  cdd=%.4f (x%.2f la bande)%s  borne|D|<=%.4f%s%s'
+                  % (names[c] if c < len(names) else 'c%d' % c,
+                     DRIVE_NAMES[dr] if dr < len(DRIVE_NAMES) else 'BASE-0stim', l,
+                     _cdev, e['ctg'], _D, e['cdd'], e['cdd'] / 0.40, _own, _bnd,
+                     '  **I0-FLESH CASSEE**' if not _ok0 else '',
+                     '  **I1-FLESH CASSEE**' if (_bnd == _bnd and abs(_D) > _bnd + 0.002) else ''))
+            A('ROOM-RAD-FLESH-IPAIR: %d canal(aux) sur %d ecartes parce que les deux lecteurs'
+              ' n\'ont PAS retenu la meme fenetre (0 attendu).' % (_imm, len(_fl)))
+            A('ROOM-RAD-FLESH-I0: %d canal(aux) sur %d violent |ctg| <= cdd — %s'
+              % (_i0, len(_fl),
+                 'l\'instrument est coherent avec lui-meme'
+                 if _i0 == 0 else 'INSTRUMENT FAUX, aucune conclusion ne se publie dessus'))
+            A('ROOM-RAD-FLESH-I1: %d canal(aux) sur %d violent la borne geometrique |D| <= 2bl/B0+|rrol|'
+              % (_i1, len(_fl)))
+            A('ROOM-RAD-FLESH-I2: %d canal(aux) sur %d ont `cdd` AU-DESSUS de la bande 0.40 B0 de'
+              ' sa SPEC 22 — le point libre hors de sa propre bande.' % (_i2, len(_fl)))
+
         # ---- ROOM-SPEC37-KICK : SA SPEC 37 INTERDIT QU'UNE TRANSFORMATION ARTIFICIELLE PRODUISE
         # UNE IMPULSION. « rebase on teleport / cutscene / discontinuity — artificial transforms
         # must not generate physical breast impulses ». La salle repositionne le sujet a CHAQUE

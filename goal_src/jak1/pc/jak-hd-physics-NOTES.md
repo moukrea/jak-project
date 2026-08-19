@@ -2956,3 +2956,88 @@ EN UN ESSAI :**
 
 Un limiteur sans compteur est interdit par le contrat ; celui-ci publie combien de fois il agit, a
 cote de la grandeur qui permet de juger s'il a eu raison d'agir.
+
+
+## NOTE-84 — LE POINT LIBRE DE SA §23 N'EST PROJETE PAR RIEN, ET C'EST CE QUE `rrtl`/`cddl` MESURENT
+
+Deux choses vivaient dans le meme commentaire inline et sont ici.
+
+**(a) La borne de §22 est appelee UNE SEULE FOIS, sur la valeur LIVREE, jamais sur l'ETAT.**
+`phys-softmin` n'est pas idempotent au-dessus de son genou (sa propre docstring l'ecrit) : la
+rappeler chaque frame sur `*phys-cp**` ferait fondre l'oscillateur frame apres frame. C'est
+exactement ce que fait deja la torsion (`twn` brut conserve dans l'etat, `rel` borne publie).
+
+**(b) `*phys-rr*` garde la valeur du MAILLON RACINE et rien d'autre** : `phys-chain-radial` la
+publie depuis le cycle 10, et laisser le distal l'ecraser changerait en silence ce que designe un
+nombre deja publie. Le distal vit dans `*phys-rrl*`. Les agregats (`rrr`, `rrm`, `*phys-rrsat*`)
+portent, eux, TOUTE la chaine : un maximum de §22 qui ignorerait un maillon ne bornerait pas le
+tissu.
+
+**(c) ET LE CANAL NEUF DU CYCLE 34.** Le cycle 33 etape 2 a etabli que l'elongation qui sature sa
+§22 est celle de la CHAIR (`cdev = dot(cp - px, m^)`, 94 % et 97 %) et non celle de l'os. Mais
+`cdev` melange encore DEUX choses, et c'est la meme faute d'agregat un cran plus bas :
+
+    cdev = dot(cp - tg, m^)  +  dot(tg - px, m^)
+           \______________/     \______________/
+            (C) le point libre    (D) la contrainte
+            n'a pas rejoint SA    ecarte l'OS de SA
+            cible                 cible
+
+`rrtl` = (C)/B0 (signee, sur `m^`) et `cddl` = |cp - tg|/B0 (la norme du meme ecart), toutes deux
+relevees A LA FRAME DE L'ARGMAX de `rrr` — jamais deux maximums independants, parce que
+`max(a+b) != max(a) + max(b)` et que deux agregats separes ne se recomposeraient pas. (D) se deduit
+par soustraction : aucun troisieme canal.
+
+**POURQUOI CETTE SEPARATION EST LA BONNE QUESTION.** Recensement du symbole sur le fichier entier :
+`*phys-cpx*` n'est ecrit qu'a l'amorcage (`cp := px`), au rebase de §37 et a la publication. Ni
+`phys-length-chain` ni `phys-collide-chain` ne le touchent. **L'OS obeit a sa sphere de rayon `bl`
+et aux 54 volumes ; LA CHAIR n'obeit a rien.**
+
+**LA BORNE ARITHMETIQUE QUI REND (D) REFUTABLE SUR PAPIER.** `tg` est construit comme `a + bl*u^`
+avec `u^` UNITAIRE, donc `|tg - a| = bl` EXACTEMENT — par construction, pas par reglage. Avec
+`|px - a| = ml` par definition :
+
+    (D) = bl*cos(theta) - ml     =>     |D| <= bl + ml     =>     |D|/B0 <= 2*bl/B0 + rrol
+
+Maillon distal : `bl` = 140 u, B0 = 602 u, donc |D| <= 0.47 B0 environ, quand `cdev` mesure
+-1.3354 et -1.4790 B0. (D) ne peut pas, a lui seul, produire le nombre.
+
+**CONTROLE D'INTEGRITE NON TAUTOLOGIQUE** : `|rrtl| <= cddl`. Les deux membres sont calcules par
+des chemins differents — un produit scalaire pour l'un, une racine de somme de carres pour l'autre.
+S'il casse, l'instrument est faux et aucune conclusion ne se publie.
+
+## NOTE-85  (moteur : la mesure de `comex`, SPEC 22 — prose deplacee telle quelle du moteur)
+
+---- SPEC 22 : L'EXCURSION DU **CENTRE DE CHAIR**, EN B0 ---------
+Sa §22 borne DEUX grandeurs et les nomme : « Breast COM: normal
+<= 35 % B0, hard transient <= 40 % B0 » et « Distal/apex
+displacement: normal <= 42 %, exceptional <= 50 % ». Le moteur
+borne aujourd'hui le JOINT (borne d'apex, :3115) et le CANAL
+RADIAL (borne de COM, :2960) — deux grandeurs dont AUCUNE n'est
+le centre de masse de la chair. Il n'existait donc, jusqu'ici,
+aucune mesure de la grandeur que la borne de COM designe.
+CE QUI EST PRIS ICI : le centre du volume que le generateur a
+MESURE sur le mesh (« measured centroid of the geometry this
+joint owns »), transporte par la matrice d'AUTEUR (`pre`, copiee
+en tete de cette boucle) puis par la matrice ECRITE (`bm`, qui
+porte deja la rotation ET la deformation de §8/§10-13). La
+difference est donc le deplacement de la chair, deformation
+COMPRISE — c'est la lecon du cycle 27 (un COM bati sur les seuls
+joints est la moitie de la grandeur).
+NATURE : une LONGUEUR rapportee a B0, maximum sur la fenetre.
+REPERE : le monde, a la frame ecrite, contre la pose d'AUTEUR de
+la meme frame. LIGNE DE BASE : 0.0000 a la pose d'auteur.
+
+## NOTE-86  (moteur : la projection de la force sur le triedre, SPEC 24/29 — prose deplacee telle quelle)
+
+SPEC 24 / SPEC 29 — LA FORCE EST PROJETEE SUR LE
+TRIEDRE ET CHAQUE AXE PORTE SA PROPRE RAIDEUR. C'est
+le SEUL mecanisme des deux sections : trois raideurs,
+donc trois frequences propres et trois mobilites, et
+rien d'autre n'a ete ajoute pour les tenir.
+`mu` (la saturation de SPEC 21) reste calculee sur la
+NORME de l'ecart, donc SPEC 21/22 gardent exactement
+la borne d'excursion qu'ils avaient : l'anisotropie
+redistribue la raideur, elle ne touche pas au mur.
+`axo = 0` -> les trois facteurs valent 1.0 et cette
+branche rend `k2s*mu*e`, BIT POUR BIT l'ancienne.
