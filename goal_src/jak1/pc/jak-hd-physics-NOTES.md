@@ -4119,3 +4119,62 @@ CE QU'IL EST, ET CE QU'IL N'EST PAS :
 CE QU'ELLE NE PRETEND PAS FAIRE : fermer `COLLIDE`. Meme ramenee a sa valeur d'avant le cycle 46,
 la penetration resterait a 98x le plafond de 0.0005 m. Et elle ne touche pas le canal RADIAL du
 distal, qui reste plat parce que le degre de liberte de sa §23 n'est arme que sur la racine.
+
+## [NOTE-125] LE PAS TANGENTIEL CORRIGE : ESSAYE, MESURE, RETIRE (cycle 47)
+
+Site : `phys-collide-chain`, bloc `(a1)`. Le pas LIVRE est celui de NOTE-61, inchange. Ce qui reste
+du cycle 47, ce sont **trois sondes inertes sur la trajectoire** — elles lisent et accumulent, elles
+n'ecrivent jamais `qx/qy/qz`.
+
+### LA GEOMETRIE, QUI EST JUSTE, ET QUI N'A PAS SUFFI
+
+`u^` = direction radiale attache -> joint. `nrm` = normale sortante du volume (unitaire).
+`cn = nrm . u^`, `t = nrm - cn*u^`, `|t| = s`, et `t . nrm = 1 - cn^2 = s^2`.
+
+Le pas livre avance de `dd * t`, donc ne retire que `dd * s^2` : il se paie son obliquite DEUX
+fois. Le deplacement qui retire exactement `dd` en restant tangent est `(dd/s^2) * t`. C'est la
+projection au premier ordre sur la **calotte** = (sphere de l'attache) INTER (complementaire du
+volume) — les deux contraintes sur la MEME variete, exactement ce que le commentaire 4 du
+validateur prescrit depuis le cycle 43.
+
+**Ce correctif a ete ecrit, cuit et couru.** Il fait ce qu'il promet : le rendement passe de
+**37.56 % a 73.57 %**, les contacts baissent de 11.5 % / 9.0 %, `ROOM-SIDE` tombe de 8 a 4, et
+`tipvar` ne bouge pas (0.1720 -> 0.1718). **Et `meshpen` MONTE : 0.1061 -> 0.1160 et
+0.0898 -> 0.1376 (+9.3 % / +53.2 %).** Le plafond epingle de `COLLIDE` dit « il ne peut que
+DESCENDRE » : le pas est donc RETIRE, sur mesure, comme la jambe 2 du cycle 46.
+
+### POURQUOI POUSSER MIEUX A EMPIRE LE RESIDU — LA MESURE LE DIT
+
+    capn/n        = 489705 / 730541  = 67.0 %   des poussees ont une CALOTTE VIDE
+    capdepth/sum  = 69122570 / 82114735 = 84.2 % de TOUTE la profondeur y vit
+    capgive (max) = 4.0447                       soit +404 % de rayon
+
+La calotte est vide quand `dd > en*(1-cn)` : **aucun deplacement a longueur constante ne sort le
+joint**, quelle que soit la direction. 84 % de la profondeur est dans ce regime. Un pas plus fort
+n'en sort donc pas le joint — il le fait **glisser le long de la surface jusque dans un volume
+voisin**, et c'est ce que `meshpen` a lu.
+
+### CE QUE CA REFUTE, ET C'EST UN CYCLE ECONOMISE
+
+`capgive = 4.04` veut dire qu'il faudrait **quintupler la longueur du maillon** pour que la
+contrainte de longueur et la contrainte de volume redeviennent compatibles. SPEC 22 pose
+« Absolute stretch clamp: 25% ». **4.04 depasse ce clamp d'un facteur 16.** Donc la piste « la
+longueur cede » (SPEC 33 « local compression ») — celle que le commentaire du validateur ET le
+registre designaient comme la suite — est **REFUTEE AVANT D'ETRE ECRITE**. Elle ne peut pas fermer
+`COLLIDE`, et aucune borne admissible par la spec ne le peut.
+
+### CE QUE LES SONDES DISENT, ET POURQUOI ELLES RESTENT
+
+  * `oldremoved` = ce que le pas CORRIGE retirerait, mesure SANS l'appliquer. Le jour ou la
+    geometrie change, on verra immediatement si la situation a bouge, sans re-ecrire le pas.
+  * `capn` / `capdepth` / `capgive` = la taille du regime ou aucune reponse de contact locale ne
+    peut rien. C'est la grandeur qui designe le vrai chantier.
+
+### LE CHANTIER QUE CETTE MESURE DESIGNE
+
+Le joint distal est plus PROFOND dans le volume que le maillon n'est LONG (`dd` moyen 112 u sur un
+os de chair de 140.4 u, et jusqu'a 5x). Aucune reponse de contact ne peut corriger ca : ce n'est pas
+la finition qui met le joint la, c'est **l'EXCURSION du maillon RACINE** (levier de 1040.5 u,
+enveloppe 391-704 u) qui l'y transporte. Le cycle 46 l'avait deja conclu par une autre voie
+(« ce n'est pas la DIRECTION du distal, c'est son EXCURSION ») ; le cycle 47 le mesure par la
+geometrie du contact lui-meme. Les deux voies convergent, et c'est le levier, pas le contact.

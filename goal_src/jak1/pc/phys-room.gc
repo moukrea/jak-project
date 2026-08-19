@@ -2816,8 +2816,24 @@
        ;; `sumdepth` = somme des profondeurs vues a l'entree (u de jeu), donc `sumdepth/n` est la
        ;; profondeur MOYENNE que les balayages laissaient derriere eux. A n=0 le bloc n'a jamais
        ;; ete atteint et tout `meshpen` publie a cote est a lire comme AVANT le correctif.
+       ;; [NOTE-125] `oldremoved` est le CONTROLE APPARIE : ce que l'ancien pas (`dd*s^2`) aurait
+       ;; retire sur EXACTEMENT les memes evenements, cumule dans la meme course. `removed/
+       ;; oldremoved` mesure donc le correctif sans dependre d'aucune autre course.
+       ;; `capn`/`capdepth` comptent les evenements ou la calotte est VIDE — aucun deplacement a
+       ;; longueur constante ne peut sortir le joint — et `capgive` est le rayon RELATIF qu'il
+       ;; aurait fallu en plus. C'est la mesure qui dit si la longueur doit ceder ensuite
+       ;; (SPEC 33 « local compression ») et de combien, a comparer aux bandes de SPEC 22.
+       ;; NATURE : `n`/`capn` des COMPTES, `sumdepth`/`removed`/`oldremoved`/`capdepth` des
+       ;; LONGUEURS CUMULEES (unites de jeu), `capgive` un RAPPORT sans dimension (max, pas moyenne).
+       ;; REPERE : monde, position ecrite ; le rayon est celui de la sphere de l'ATTACHE du lien.
+       ;; LECTURE HORS DEFAUT : `removed/sumdepth` -> 1 (le pas retire ce qu'il voit), `capn` -> 0.
+       ;; `PHYSTAN` garde EXACTEMENT ses trois champs : tout ce qui la lit deja continue de la lire
+       ;; sans changement. Les champs neufs vont sur une ligne A PART (`format` de GOAL est borne a
+       ;; 8 parametres, et une ligne separee est de toute facon plus sure pour les parseurs).
        (format 0 "PHYSTAN n=~D sumdepth=~f removed=~f~%"
                (phys-tan-count) (phys-tan-depth) (phys-tan-eff))
+       (format 0 "PHYSTAN2 oldremoved=~f capn=~D capdepth=~f capgive=~f~%"
+               (phys-tan-old) (phys-tan-cap) (phys-tan-capd) (phys-tan-capg))
        (format 0 "PHYSINV phase=run flips=~f degen=~f reseat=~f residual=~f~%"
                (phys-inversions 0) (phys-inversions 1) (phys-inversions 2) (phys-inversions 3))
        (phys-inversions-reset!)

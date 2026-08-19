@@ -513,6 +513,11 @@
 ;; grandeur de ce qui restait a corriger apres les balayages, que le compte seul ne dit pas.
 (define *phys-tan-d* 0.0)
 (define *phys-tan-e* 0.0)
+;; [NOTE-125] TROIS SONDES INERTES : ce que le pas CORRIGE retirerait (`o`), et la CALOTTE VIDE -> jak-hd-physics-NOTES.md
+(define *phys-tan-o* 0.0)
+(define *phys-tan-c* 0)
+(define *phys-tan-cs* 0.0)
+(define *phys-tan-cg* 0.0)
 ;; ... et combien de ces re-assises ont du retomber sur l'ancienne heuristique (rayon le long de
 ;; l'os du porteur) faute de bind-pose lisible. Doit valoir ZERO : un secours silencieux est un
 ;; defaut qui attend, et c'est celui-la qui posait le pan du pantacourt dans le mollet.
@@ -1856,7 +1861,10 @@
                                        (ux (* ex iv)) (uy (* ey iv)) (uz (* ez iv))
                                        (dd (- fq fe))
                                        (cn (+ (* (-> nrm x) ux)
-                                              (+ (* (-> nrm y) uy) (* (-> nrm z) uz)))))
+                                              (+ (* (-> nrm y) uy) (* (-> nrm z) uz))))
+                                       ;; [NOTE-125] LE PAS CORRIGE A ETE ESSAYE PUIS RETIRE SUR MESURE (cycle 47). -> jak-hd-physics-NOTES.md
+                                       (s2 (- 1.0 (* cn cn)))
+                                       (s  (sqrtf (if (> s2 0.0) s2 0.0))))
                                   (set! qx (+ qx (* dd (- (-> nrm x) (* cn ux)))))
                                   (set! qy (+ qy (* dd (- (-> nrm y) (* cn uy)))))
                                   (set! qz (+ qz (* dd (- (-> nrm z) (* cn uz)))))
@@ -1864,8 +1872,16 @@
                                   (set! *phys-tan-d* (+ *phys-tan-d* dd))
                                   ;; `dd * s^2` = ce que le pas retire REELLEMENT. Le rapport
                                   ;; `removed/sumdepth` EST le rendement geometrique moyen.
-                                  (set! *phys-tan-e*
-                                        (+ *phys-tan-e* (* dd (- 1.0 (* cn cn)))))))))
+                                  (set! *phys-tan-e* (+ *phys-tan-e* (* dd s2)))
+                                  ;; [NOTE-125] LES TROIS SONDES, INERTES SUR LA TRAJECTOIRE. -> jak-hd-physics-NOTES.md
+                                  (when (> s 0.0001)
+                                    (let ((stp (let ((v (/ dd s))) (if (> v en) en v))))
+                                      (set! *phys-tan-o* (+ *phys-tan-o* (* stp s)))))
+                                  (when (> dd (* en (- 1.0 cn)))
+                                    (set! *phys-tan-c* (+ *phys-tan-c* 1))
+                                    (set! *phys-tan-cs* (+ *phys-tan-cs* dd))
+                                    (let ((rg (- (+ cn (/ dd en)) 1.0)))
+                                      (when (> rg *phys-tan-cg*) (set! *phys-tan-cg* rg))))))))
                           ;; --- (a2) LE FRANCHISSEMENT D'AXE. Deux conditions, pas une : la pose
                           ;; --- d'AUTEUR doit etre dans le volume pour que « de quel cote » ait un
                           ;; --- sens pour elle, ET le maillon SIMULE doit y etre aussi.
@@ -4398,10 +4414,19 @@
 
 (defun phys-tan-eff () *phys-tan-e*)
 
+(defun phys-tan-old () *phys-tan-o*)
+(defun phys-tan-cap () *phys-tan-c*)
+(defun phys-tan-capd () *phys-tan-cs*)
+(defun phys-tan-capg () *phys-tan-cg*)
+
 (defun phys-tan-reset! ()
   (set! *phys-tan-n* 0)
   (set! *phys-tan-d* 0.0)
   (set! *phys-tan-e* 0.0)
+  (set! *phys-tan-o* 0.0)
+  (set! *phys-tan-c* 0)
+  (set! *phys-tan-cs* 0.0)
+  (set! *phys-tan-cg* 0.0)
   (none))
 
 (defun phys-inject-count-reset! ()
