@@ -2985,7 +2985,7 @@
                                                       bl)
                                                    0.0))
                                             ;; [NOTE-81] LA BORNE DE §22 SUR LE CANAL RADIAL. -> jak-hd-physics-NOTES.md
-                                            (rcap (if (zero? *phys-rr-off*) (* 0.40 b0e) (* 1000000.0 b0e)))
+                                            (rcap (if (zero? *phys-rr-off*) (fmin (* 0.40 b0e) (* PHYS-DYN-MAX bl)) (* 1000000.0 b0e)))
                                             ;; [NOTE-84] LA BORNE EST APPELEE SUR LA VALEUR LIVREE, JAMAIS SUR L'ETAT. -> jak-hd-physics-NOTES.md
                                             (drr (if (>= dr0 0.0)
                                                    (phys-softmin dr0 rcap)

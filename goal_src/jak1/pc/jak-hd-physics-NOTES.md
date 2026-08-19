@@ -2807,6 +2807,40 @@ il n'a pas a etre devine en comparant deux tableaux.
 
 ## NOTE-81 — LA BORNE DE §22 SUR LE CANAL RADIAL, ET « QUEL MAILLON SATURE ? »
 
+### CORRECTION DU 2026-08-19 (cycle 40) — CE N'ETAIT PAS LA BONNE LIGNE DE SPEC, NI LE BON METRE
+
+Tout ce qui suit cette section reste vrai de la borne TELLE QU'ELLE ETAIT. Elle a change, et voici
+la mesure qui l'a commandee.
+
+`dr0` est une ELONGATION DE TISSU. Sa §22 lui consacre sa propre ligne — « Local tissue elongation:
+common 5-15 %, large 15-21 %, exceptional 21-25 % ; Absolute stretch clamp: 25 % » — et cette ligne
+est SANS UNITE. Un rapport de deformation a pour denominateur la longueur de repos LOCALE. La borne
+prenait la ligne « Breast COM <= 40 % B0 », qui est un DEPLACEMENT, et le denominateur `b0e`, qui
+est l'organe entier. Deux erreurs sur la meme expression.
+
+Ce que le plafond de `0.40*b0e` = 240.8 u vaut EN DEFORMATION REELLE, longueurs lues dans la course
+(`PHYSBONE`) :
+
+    l=0  LEVIER chest->lBoob   1040.5 u   240.8/1040.5 =   23.1 %      (aucune chair dessus)
+    l=1  CHAIR  lBoob->lBooc    140.4 u   240.8/ 140.4 =  **171.5 %**  pour une clef de 25 %
+
+Et ce que le canal LIVRAIT, mesure sur les 744 fenetres de la course du cycle 38 :
+`rrm` moyen 179.7 u sur un segment de 140.4 u = **128.0 %** de deformation locale (121.2 % a
+droite), 92.5 % / 90.3 % des fenetres au-dessus du clamp de 25 %, maximum demande 294 % / 325 %.
+
+D'ou `rcap = fmin(0.40*b0e, PHYS-DYN-MAX*bl)`. Le `fmin` garantit que la borne ne devient jamais
+plus large qu'avant : sur le LEVIER `0.25*1040.5 = 260.1 u > 240.8`, donc le levier garde sa borne
+au bit pres ; sur la CHAIR `0.25*140.4 = 35.1 u`, et c'est la que la §22 etait violee x5.1.
+
+**CE QUE CETTE BORNE NE PEUT PAS FAIRE, ET IL FAUT LE LIRE ICI AVANT DE LA RE-REGLER.** Le segment
+de chair simule couvre `r` de 0.480 a 0.674 sur les 0..1 de sa §31, soit **19.4 % de l'organe**.
+Pour livrer l'elongation d'organe que sa §22 autorise (25 % de 734 u = 183.6 u) a une deformation
+locale <= 25 %, il faudrait un segment de 734 u. Il en fait 140. **Facteur manquant x5.23 / x5.32.**
+Aucune valeur de `rcap` ne tient les deux lignes a la fois : ce choix-ci tient la deformation locale
+(23-25 %) et fait tomber l'elongation d'organe a 4.7-4.8 %, sous le plancher 5 % de sa bande
+courante. C'est un defaut de GEOMETRIE, et le chantier suivant est le segment, pas la borne.
+
+
 **LA BORNE ELLE-MEME.** Sa §22 dit « Breast COM: normal <= 35 % B0, hard transient <= 40 % B0 »
 (§38 : `NormalMaxCOMDisplacement 0.35`, `HardMaxCOMDisplacement 0.40`). Le canal radial est borne
 par `phys-softmin` avec le cap TRANSITOIRE, exactement comme la borne d'apex de la torsion : le
