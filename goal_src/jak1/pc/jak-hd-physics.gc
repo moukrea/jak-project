@@ -1310,7 +1310,8 @@
                    (when (> ang (-> *phys-la1* scl)) (set! (-> *phys-la1* scl) ang)))))))))))
   (none))
 
-(defun phys-bend-chain ((skel skeleton) (sc int) (n int) (rlk int) (an int) (nbone int))
+(defun phys-bend-chain ((skel skeleton) (sc int) (n int) (rlk int) (an int) (nbone int) (hard? symbol))
+  ;; [NOTE-119] `hard?` = LA BORNE EST-ELLE DANS UNE BOUCLE ? SI OUI, ELLE DOIT ETRE IDEMPOTENTE. -> jak-hd-physics-NOTES.md
   ;; [NOTE-116] L'ANGLE DE SPEC 22, DERIVE ET NON CHOISI, QUAND LA DONNEE N'EN POSE PAS. -> jak-hd-physics-NOTES.md
   (let ((amax (if (and (= (-> *phys-fam* sc) 1) (<= (-> *phys-maxang* sc) 0.0))
                 (let* ((blr (-> *phys-blen* (+ (* sc PHYS-LINKS) rlk)))
@@ -1352,7 +1353,7 @@
                          ;; 360/65536 = 0.0054931641 les convertit en degres, et 182.04444
                          ;; revient aux unites que `sin`/`cos` attendent.
                          (adeg (* 0.0054931641 (atan pl cs)))
-                         (adg2 (phys-softmin adeg amax)))
+                         (adg2 (if hard? (fmin adeg amax) (phys-softmin adeg amax))))
                     (when (and (> pl 0.0001) (< adg2 (- adeg 0.01)))
                       (let* ((au (* 182.04444 adg2))
                              (cc (cos au))
@@ -3087,7 +3088,7 @@
                       (phys-length-chain skel sc n rlk an nbone)
                       (phys-collide-chain skel sc n rlk nbone nco PHYS-COL-MARGIN 3))
                     ;; [NOTE-44] L'ATTENUATION D'ANGLE DES CHEVEUX, UNE SEULE FOIS. Elle reste : c'est le -> jak-hd-physics-NOTES.md
-                    (phys-bend-chain skel sc n rlk an nbone)
+                    (phys-bend-chain skel sc n rlk an nbone #f)
                     ;; ETAGE 1 : apres la boucle de contraintes ET l'attenuation d'angle, avant la
                     ;; finition. L'ecart entre l'etage 0 et celui-ci est ce que longueur, collision
                     ;; et attenuation retirent.
@@ -3097,11 +3098,11 @@
                     (dotimes (it 3)
                       (phys-length-chain skel sc n rlk an nbone)
                       (phys-collide-chain skel sc n rlk nbone nco PHYS-COL-MARGIN 3)
-                      (phys-bend-chain skel sc n rlk an nbone))
+                      (phys-bend-chain skel sc n rlk an nbone #t))
                     ;; [NOTE-45] ------------------------------------------------------------------------ -> jak-hd-physics-NOTES.md
                     (dotimes (it 4)
                       (phys-collide-chain skel sc n rlk nbone nco PHYS-COL-MARGIN 3)
-                      (phys-bend-chain skel sc n rlk an nbone))
+                      (phys-bend-chain skel sc n rlk an nbone #t))
                     ;; [NOTE-63] SPEC 33/34 — LA RESTITUTION, UNE FOIS PAR FRAME, SUR LA VITESSE SEULE. -> jak-hd-physics-NOTES.md
                     (when (zero? *phys-rst-off*)
                       (dotimes (l n)

@@ -3822,3 +3822,38 @@ PORTEE. Le bloc reste gate par `(< adg2 (- adeg 0.01))` : sur les frames ou l'an
 borne, bend n'ecrit rien et ne touche donc a aucune longueur. Ce n'est pas une contrainte de
 longueur permanente qui doublerait `phys-length-chain` ; c'est la meme rotation, posee sur le bon
 rayon.
+
+## [NOTE-119] `hard?` — UNE BORNE QUI VIT DANS UNE BOUCLE DOIT ETRE IDEMPOTENTE
+
+`phys-softmin` (:963) porte dans SON PROPRE DOCSTRING : « NON IDEMPOTENT AU-DESSUS DU GENOU
+[...] NE JAMAIS L'APPELER DANS UNE BOUCLE DE CONTRAINTES ». Le registre porte la meme lecon,
+payee le 2026-08-12 : un min DOUX dans la boucle avait coute ~50 % du mouvement de pointe sur
+onze chaines. **[NOTE-117] a fait exactement cela**, en portant `phys-softmin` de 1 a 8
+applications par frame.
+
+PREUVE ARITHMETIQUE, SANS COURSE. Point fixe approche de f^8, amax = 16.633 / 16.657, genou
+kn = 0.84*amax = 13.972 / 13.992 :
+
+    depart  18 deg -> apres 8 applications  14.279 / 14.299
+    depart  40 deg ->                       14.300 / 14.321
+    depart 120 deg ->                       14.303 / 14.324
+                          MESURE SUR LA COURSE :  **14.26 sur LES DEUX CHAINES**
+
+Le plafond devient INDEPENDANT DE L'ENTREE a 0.03 deg pres sur un rapport d'entree de 1 a 6.7 —
+la definition d'une mesure non discriminante (ecart entre pilotages tombe a 2.9 %). Signature qui
+confirme : le pilotage BASE (13.85 / 13.43) est SOUS le genou, donc identite, donc **le seul
+intouche** — et c'est exactement le seul qui n'a pas bouge.
+
+LE CORRECTIF. Un parametre `hard?` :
+  * appel HORS boucle (:3091) : `#f` -> `phys-softmin`. La FORME douce de l'approche est
+    conservee, UNE fois par frame, exactement comme avant [NOTE-117].
+  * appels DANS les deux blocs de queue (:3101, :3105) : `#t` -> `(fmin adeg amax)`. Idempotent
+    (`min(min(x,c),c) = min(x,c)`), donc appelable 7 fois sans rien eroder : il ne fait que
+    REFUSER DE DEPASSER `amax`, il ne tire jamais en dessous.
+Aucune constante neuve ; `amax` est le meme, derive des memes deux nombres.
+
+LA REGLE GENERALE, ET ELLE VAUT AU-DELA D'ICI : avant de mettre une contrainte dans une
+relaxation, verifier qu'elle est IDEMPOTENTE. Une saturation lisse ne l'est jamais au-dessus de
+son genou ; repetee, elle converge vers son genou et efface l'entree. Le test qui la debusque est
+gratuit : comparer le plafond obtenu depuis deux entrees tres differentes — s'il est le meme,
+c'est un point fixe, pas une borne.

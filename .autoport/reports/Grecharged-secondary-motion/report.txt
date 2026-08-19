@@ -6,6 +6,61 @@ DU MAILLON DISTAL TOMBE DE 111.56 A 16.56 DEG — ET LA PENETRATION BAISSE DE MO
 PREDIT QU'ELLE MONTERAIT. C'ETAIT LE REPLI QUI PRODUISAIT LA PENETRATION, PAS LA BORNE QUI
 L'EMPECHAIT. MON MODELE ETAIT FAUX ET C'EST LE RESULTAT LE PLUS UTILE DU CYCLE.
 ================================================================================================
+================================================================================================
+JAMBE 3 — CORRECTION DE CE RAPPORT PAR LUI-MEME. L'AGGRAVATION DE L'ECRETAGE DE LA RACINE QUE
+J'AI PUBLIEE CI-DESSOUS COMME « MECANISME RESTANT » ETAIT **MON PROPRE FAIT** : j'avais mis une
+SATURATION NON IDEMPOTENTE DANS UNE BOUCLE, ce que le docstring de la fonction et mon registre
+interdisent en toutes lettres. Mesure, cause arithmetique, correctif et prix : ci-dessous.
+================================================================================================
+`phys-softmin` (:963) dit dans SON PROPRE DOCSTRING : « NON IDEMPOTENT AU-DESSUS DU GENOU [...]
+NE JAMAIS L'APPELER DANS UNE BOUCLE DE CONTRAINTES ». La jambe 1 l'a porte de 1 a 8 applications
+par frame. Le registre porte la meme lecon, payee le 2026-08-12 (~50 % du mouvement de pointe sur
+onze chaines).
+
+LA PREUVE EST ARITHMETIQUE ET N'A COUTE AUCUNE COURSE — point fixe approche de f^8 :
+    depart  18 deg -> 14.279 (chestL) / 14.299 (chestR)      genou kn = 0.84*amax = 13.972 / 13.992
+    depart  40 deg -> 14.300 / 14.321
+    depart 120 deg -> 14.303 / 14.324
+                       MESURE SUR LA COURSE : **14.26 sur LES DEUX CHAINES**
+Le plafond etait devenu INDEPENDANT DE L'ENTREE a 0.03 deg pres sur un rapport d'entree de 1 a 6.7.
+Signature qui confirme : le pilotage BASE (13.85 / 13.43) est SOUS le genou, donc identite, donc
+**le seul intouche** — et c'est exactement le seul qui n'avait pas bouge.
+
+CORRECTIF : un parametre `hard?`. Hors boucle (:3091) `#f` -> `phys-softmin`, la forme douce est
+conservee UNE fois par frame comme avant. Dans les deux blocs de queue (:3101, :3105) `#t` ->
+`(fmin adeg amax)`, idempotent, donc appelable 7 fois sans rien eroder. Aucune constante neuve.
+
+RESULTAT, ET IL CORRIGE DEUX CHIFFRES QUE J'AVAIS PUBLIES :
+  * ecart entre pilotages du maillon RACINE : chestL 2.9 % -> **9.6 %**, soit exactement sa valeur
+    d'avant mon intervention. chestR 11.8 % -> 19.4 % (contre 25.7 % avant) : le reste de l'ecart
+    n'est PAS de l'erosion, c'est la borne dure qui mord vraiment a `amax` la ou le min doux
+    laissait passer 18.07 deg.
+  * **LE PRIX DU BORNAGE QUE J'AI PUBLIE ETAIT FAUX.** J'ai ecrit « tipvar -4.1 % / -2.2 %, c'est
+    le prix chiffre de ce cycle ». L'essentiel etait de l'EROSION, pas le prix de la borne. Une
+    fois l'erosion retiree : `tipvar` **0.1690 / 0.1734** contre 0.1703 / 0.1738 au cycle 42, soit
+    **-0.8 % / -0.2 %**. Borner le repli du distal est quasiment GRATUIT en mouvement.
+
+LES 7 PREDICTIONS DE LA JAMBE 3 (`C43E5-idempotent-prediction.txt`, md5
+**9423e1f422b9865fc92e468b9813a964**, commit **3a3aad8eb2**) : **6 TENUES, 1 REFUTEE.**
+  R1 racine revenue au niveau du cycle 42 a 0.3 deg pres   15.13 / 15.32 / 15.07     TENUE
+  R2 ecart racine chestL > 8 %                             **9.6 %**                 TENUE
+  R3 repli distal <= 20 deg                                16.65 / 16.68             TENUE
+  R4 `tipvar` dans [0.168, 0.185]                          0.1690 / 0.1734           TENUE
+  R5 `ROOM-STRETCH` <= 0.010                               0.0038                    TENUE
+  R6 [CONTRE MOI] `meshpen` remonte de 0 a 25 %            +1.1 % / **-4.6 %**    **REFUTEE**
+  R7 l'ecretage racine N'EST PAS ferme (< 25 %)            9.6 % / 19.4 %            TENUE
+
+**R6 EST LA TROISIEME FOIS DE CE CYCLE QUE JE PREDIS UN COUT DE PENETRATION QUI NE VIENT PAS**, et
+je l'avais ecrit d'avance : « si elle ne vient pas non plus cette fois, c'est le modele qu'il faut
+changer, pas le chiffre ». Donc je le change : **sur cet organe, borner l'angle ne coute PAS de
+penetration** — trois interventions successives le montrent (-58 %, 0 %, +1.1 % / -4.6 %). Ma
+regle implicite « toute contrainte ajoutee se paie en penetration » est retiree.
+
+**ET UN FAIT NEUF QUE JE SIGNALE CONTRE L'INTERVENTION** : le maillon DISTAL vit desormais colle a
+sa borne sur les SIX pilotages (16.6407 a 16.6548 sur chestL, plage totale **0.014 deg**). Le repli
+est tenu, mais le distal est maintenant NON DISCRIMINANT — la meme signature de limiteur sature que
+je reproche a la racine, deplacee d'un maillon. C'est nomme ici et non traite.
+
   ETAPE 1  LE FAIT QUI OUVRE LE CYCLE. Le cycle 42 avait pose l'attenuation d'angle
            `phys-bend-chain` APRES les 8 balayages de contrainte, et elle TENAIT : a l'etage 1 le
            repli du distal passait de 145.67 a 16.57 deg. Puis le repli FINAL restait a 111.56.
@@ -99,6 +154,7 @@ Les trois courses portent EXACTEMENT le meme nombre de lignes par type (PHYSGRAD
 PHYSCOMWL 744, PHYSCOMW 372, PHYSROW 310, 31/31 animations, `PHYSFAIL` 0, 2 chaines) : la
 comparaison est licite, ce n'est pas une course qui aurait perdu des mesures.
 
+  [TABLEAU DES JAMBES 1-2 ; LES CHIFFRES DEFINITIFS DU CYCLE SONT CEUX DE LA JAMBE 3 CI-DESSUS]
   grandeur                     C42E4 BENDARM   C43E2 INTERLEAVE   C43E4 RESTLEN   net
   repli FINAL distal, max         111.56/94.02      16.56/16.58     16.56/16.56   /6.7 et /5.7
   ajout de queue, mediane          +27.22/+26.46    -0.12/-0.05     -0.12/-0.06   annule
@@ -119,9 +175,10 @@ CE QUI CHANGE POUR LA SUITE — ET CE QUE CE CYCLE **NE** FERME PAS
 ================================================================================================
 1. **LE REPLI DU MAILLON DISTAL EST FERME COMME MECANISME.** Il etait la deuxieme des deux causes
    nommees au cycle 42. Il ne reviendra pas par la boucle de queue : `0/186` fenetres.
-2. **L'ECRETAGE DE LA RACINE RESTE ENTIER, ET IL S'EST AGGRAVE.** L'ecart entre le pilotage le plus
-   fort et le plus faible tombe a **2.9 %** (chestL) et **11.5 %** (chestR) : les deux chaines sont
-   maintenant NON DISCRIMINANTES sur le pic du maillon racine, contre une seule avant. Le maillon 0
+2. **L'ECRETAGE DE LA RACINE RESTE ENTIER.** [CORRIGE PAR LA JAMBE 3 — l'aggravation annoncee ici
+   etait mon propre fait et elle est reparee : ecart **9.6 %** (chestL) et **19.4 %** (chestR),
+   contre 9.6 % / 25.7 % avant ce cycle.] Les deux chaines restent NON DISCRIMINANTES sur le pic du
+   maillon racine, sous le seuil de 25 %. Le maillon 0
    vit contre sa butee de SPEC 22 **sur l'animation seule**. C'est le mecanisme restant, il est
    nomme depuis le cycle 42, et ce cycle ne l'a pas touche — je ne le revendique pas.
 3. **LA CAUSE PROFONDE N'EST PAS TRAITEE, ET JE L'AVAIS ECRIT D'AVANCE.** La boucle de collision ne
@@ -192,15 +249,18 @@ Aucune section « non applicable » (interdit depuis le 14/08 11:50).
   SPEC 21 tanh        TENUE, ET C'EST TOUJOURS LE PROBLEME [T] la saturation mord sur l'ANIMATION
                                  SEULE (maillon 0 a 13.85 deg sans pilotage, genou 13.29 deg).
                                  **CHIFFRE NEUF** : elle travaille **14.1 % de MOINS** qu'au cycle
-                                 42 (`sat_sum` 2 504 166 -> 2 151 722) — borner le repli a retire
-                                 du travail au limiteur au lieu de lui en ajouter.
-  SPEC 22 « LOCAL TISSUE ELONGATION » TENUE [T] `ROOM-STRETCH` **0.0020** pour un plafond de 3 %,
+                                 42 (`sat_sum` 2 504 166 -> 2 225 135, **-11.1 %**) — borner le
+                                 repli a RETIRE du travail au limiteur au lieu de lui en ajouter.
+  SPEC 22 « LOCAL TISSUE ELONGATION » TENUE [T] `ROOM-STRETCH` **0.0038** pour un plafond de 3 %,
                                  0 couple (chaine, pilotage) au-dessus. Passe par 0.0594 au milieu
                                  du cycle : regression introduite ET corrigee ici (etape 6).
   SPEC 22 « BREAST COM »  PARTIELLE [T] COM de population (borne superieure rigoureuse), frontiere
-                                 w>0 : **0.3432 / 0.3356** pour un plafond dur de 0.400, 16 % /
-                                 10 % de fenetres hors bande. Meilleur qu'au cycle 41 (0.3557 /
-                                 0.3434, 16 % / 11 %). **LE VERDICT DEPEND TOUJOURS DE LA
+                                 w>0 : **0.3545 / 0.3460** pour un plafond dur de 0.400, 19 % /
+                                 15 % de fenetres hors bande — soit le niveau du cycle 42 (0.3551 /
+                                 0.3471). **LE GAIN QUE J'AVAIS LU AUX JAMBES 1-2 (0.3432 / 0.3356)
+                                 ETAIT DE L'EROSION LUI AUSSI** et il disparait avec elle : borner
+                                 le repli du distal ne deplace PAS le COM, ce qui CONFIRME la
+                                 conclusion L3-P3 du cycle 42. **LE VERDICT DEPEND TOUJOURS DE LA
                                  FRONTIERE DU NUAGE** (w>0.25 restait DEHORS au cycle 41, non
                                  re-mesure ici) : elle n'est PAS declaree tenue.
   SPEC 23 multi-DOF   PARTIELLE  [T] degre de liberte arme sur les deux maillons. [R] artefact de
@@ -227,8 +287,8 @@ Aucune section « non applicable » (interdit depuis le 14/08 11:50).
   SPEC 31 gradient    PARTIELLE  [R] segment de chair simule `r` de 0.480 a 0.674. RESERVE : pas de
                                  derivation d'un plafond d'angle PAR maillon, la borne est commune.
   SPEC 32 independance PARTIELLE [R] changer la masse d'un sein deplace l'autre de 32 a 321 %.
-  SPEC 33 restit. 0.06 PARTIELLE [T] GATE `COLLIDE` ROUGE : penetration **0.0436 / 0.0413 m** pour
-                                 un plafond de 0.0005 — **-54 % vs cycle 41 (0.0952 / 0.0891)**,
+  SPEC 33 restit. 0.06 PARTIELLE [T] GATE `COLLIDE` ROUGE : penetration **0.0441 / 0.0394 m** pour
+                                 un plafond de 0.0005 — **-54 % / -56 % vs cycle 41 (0.0952/0.0891)**,
                                  premier mouvement materiel de ce chiffre. [R] Defaut de modele du
                                  cycle 38 inchange : un test point-contre-volume ne peut pas
                                  exprimer l'entrechoc.
@@ -240,13 +300,14 @@ Aucune section « non applicable » (interdit depuis le 14/08 11:50).
   SPEC 5 (SPEC-keira-physique) — PRIORITE D'ANIMATION
                       TENUE      [T] `chains=2 respected=2`, controle positif 0/0.
 
-BREAST-PENETRATION : **0.0436 m (chestL) et 0.0413 m (chestR)**, plafond 0.0005 m — NON TENU,
-    GATE `COLLIDE` TOUJOURS ROUGE, mais **-54 %** contre le cycle 41.
+BREAST-PENETRATION : **0.0441 m (chestL) et 0.0394 m (chestR)**, plafond 0.0005 m — NON TENU,
+    GATE `COLLIDE` TOUJOURS ROUGE, mais **-54 % / -56 %** contre le cycle 41 (0.0952 / 0.0891).
 SIDE-CROSSING : **0 franchissement** (`SIDE-CONTROL` vert, controle present). Les 7 de `chestR` du
     cycle 41 ne sont plus la ; je ne les revendique pas comme corriges deliberement — ils sont une
     consequence du bornage du repli, et c'est la mesure qui le dit, pas moi.
-MOUVEMENT : `tipvar` **0.1633 / 0.1700**, contre 0.1703 / 0.1738 au cycle 42 : **-4.1 % / -2.2 %**.
-    C'est le prix chiffre de ce cycle, et il est publie ici, pas cache.
+MOUVEMENT : `tipvar` **0.1690 / 0.1734**, contre 0.1703 / 0.1738 au cycle 42 : **-0.8 % / -0.2 %**.
+    [CORRIGE PAR LA JAMBE 3. J'avais publie -4.1 % / -2.2 % : l'essentiel etait de l'EROSION due a
+    ma saturation non idempotente, pas le prix de la borne. Borner le repli est quasiment gratuit.]
 
 ================================================================================================
 CE QUE L'OWNER DOIT REGARDER SUR CE BUILD
@@ -259,8 +320,9 @@ CE QUE L'OWNER DOIT REGARDER SUR CE BUILD
   2. **ELLE DEVRAIT MOINS TRAVERSER SON PROPRE TORSE.** La penetration mesuree est divisee par
      plus de deux (0.095 -> 0.044 m). Ce n'est PAS zero et la gate reste rouge — donc il en reste,
      et c'est le chantier suivant.
-  3. **ELLE BOUGE 4 % DE MOINS**, et c'est assume : c'est le prix du bornage. Si ce prix se voit et
-     vous derange, dites-le — il se rediscute, la mesure est publiee.
+  3. **ELLE BOUGE PRESQUE AUTANT QU'AVANT** : -0.8 % et -0.2 % de mouvement de pointe. J'avais
+     d'abord annonce -4 % ; c'etait une erosion que j'avais introduite moi-meme et qui est
+     corrigee. Le bornage de la pointe est donc quasiment gratuit en mouvement.
   4. **CE QUI N'A PAS BOUGE ET QUE JE NE PRETENDS PAS AVOIR CORRIGE** : la reponse du GROS os reste
      ECRETEE. Elle rend presque le meme pic qu'on la secoue doucement ou violemment (ecart 2.9 %).
      C'est probablement ce qui reste de « ca suit aucune logique » : ce n'est pas l'amplitude qui
