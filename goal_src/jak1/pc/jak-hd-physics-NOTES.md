@@ -3563,3 +3563,67 @@ Les DEUX maxima sont desormais accumules **uniquement quand le mur est ARME** (`
 *phys-col-off*)`), ce qui est le seul regime ou la question « ce que l'auteur accorde contre ce que
 le lien prend » a un sens. Le drapeau de domaine suit la meme condition, donc une paire qui n'existe
 que dans la jambe desarmee se lit `ok=0` et non « profondeur nulle ».
+
+## NOTE-112  (moteur, aux alentours de la ligne 3956, et `phys-comexw-reset!` — CYCLE 41)
+
+**UN CENTRE DE MASSE EST UNE MOYENNE PONDEREE PAR LA MASSE. `comex` EST UN MAXIMUM SUR DEUX
+ECHANTILLONS. CE NE SONT PAS LA MEME GRANDEUR, ET C'EST LA SECONDE QUI EST PUBLIEE DEPUIS 40
+CYCLES SOUS LE NOM QUE SA SPEC DONNE A LA PREMIERE.**
+
+Sa SPEC 6 : « `P0` neutral breast center-of-mass POSITION ». Sa SPEC 22 : « Breast COM : normal
+<= 35 % B0, hard transient <= 40 % B0 ». Sa SPEC 23 : « `x` = relative breast COM displacement ».
+Les trois designent UN point par sein — la moyenne des positions de la chair, ponderee par sa
+masse.
+
+Ce que l'emplacement 23 contient : pour chaque maillon `l`, le moteur calcule l'excursion du
+point `joint_l + lc_l` ou `lc_l` est le centre du VOLUME DE COLLISION porte par ce joint
+(`jak-hd-physics.gc:936-939`, lu dans `physics_chains.txt`), puis garde le PLUS GRAND des deux
+(l'emplacement est indexe par CHAINE, pas par maillon). Trois ecarts avec la grandeur nommee :
+
+  1. **UN MAXIMUM N'EST PAS UNE MOYENNE.** Il repond « quel est le point le plus loin » et jamais
+     « ou est le centre ».
+  2. **LES DEUX ECHANTILLONS NE PESENT PAS PAREIL.** Mesure sur le mesh livre
+     (`out/jak1/fr3/skin/keira-hd-lod0.glb`), nuage = sommets portant un poids non nul sur au
+     moins un os de chaine, poids normalises a 4.5e-08 pres :
+
+         chestL n=94   chest 45.57 %   lBooc 35.24 %   lBoob 18.91 %   Lshoulder 0.28 %
+         chestR n=90   chest 45.33 %   rBooc 31.94 %   rBoob 22.00 %   Rshoulder 0.73 %
+
+     Le maillon 0 possede 18.9 % / 22.0 % de la masse — et c'est lui qui porte le maximum publie
+     dans 82.3 % / 93.0 % des fenetres, parce que son bras de chair pend au bout du levier le
+     plus long (1040 u + 651 u contre 140 u + 515 u).
+  3. **45.6 % / 45.3 % DE LA CHAIR EST ANCREE ET SON EXCURSION EST NULLE PAR CONSTRUCTION.**
+     `chest` et `?shoulder` ne sont pas simules : leur matrice ecrite EST leur matrice d'auteur,
+     donc `p_sim - p_auteur` y vaut exactement zero. Cette moitie de la masse ne peut par
+     definition pas entrer dans un maximum, alors qu'elle entre dans une moyenne — et elle la
+     divise presque par deux.
+
+**CE QUE LES EMPLACEMENTS 35-42 AJOUTENT, ET CE QU'ILS N'AJOUTENT PAS.**
+  * `35+l` = le meme `ee` que 23, mais PAR MAILLON, avant l'ecrasement. C'est la seule chose qui
+    manquait pour recomposer une moyenne : le lecteur applique les poids MESURES ci-dessus.
+  * `39+l` = |p_sim - p_auteur| du JOINT seul, rapporte a B0, releve A LA FRAME QUI MAXIMISE
+    `35+l` — jamais son propre maximum, sinon les deux viendraient de deux frames differentes
+    (piege `RAD-FLESH-IPAIR`, cycle 34). C'est la part de l'excursion qui NE DEPEND PAS de `lc` :
+    elle borne par en dessous ce que la mesure vaudrait si le centre de chair etait pose sur le
+    joint, et elle repond donc a « le depassement est-il un artefact du placement du centroide ? »
+  * Ils n'ajoutent AUCUN mecanisme : rien dans le solveur ne les relit. Le controle d'inertie est
+    que toutes les autres lignes publiees soient identiques au bit pres a la course precedente.
+
+**POURQUOI LA PONDERATION N'EST PAS FAITE DANS LE MOTEUR.** Les poids de peau ne sont pas une
+donnee que le moteur lit ; les cabler en dur serait la rustine que la regle 4 interdit, et un
+chiffre unique calcule ici serait invivrifiable. Publier les deux `ee` bruts laisse la
+ponderation au lecteur, avec des poids mesures sur le mesh LIVRE et cites.
+
+**RESERVE, ET ELLE EST DANS LE RAPPORT AUSSI.** Recomposer |somme ponderee de VECTEURS| a partir
+de NORMES donne une BORNE SUPERIEURE (inegalite triangulaire), pas la valeur. Elle n'est serree
+que si les deux excursions sont presque colineaires — ce que la part `jt` permet de verifier au
+lieu de le supposer. Et `lc` est le centroide de la geometrie possedee AU SENS DE LA CHAINE
+(somme de chaine > 0.5, partage par argmax) ; le centroide pondere par le poids du joint est plus
+COURT de 7.6 % (lBoob) et 1.0 % (lBooc), donc la borne publiee est conservatrice des deux cotes.
+
+**REMISE A ZERO.** Les vingt emplacements 23-42 ont tous la portee d'une FENETRE (chaine,
+animation, pilotage) et la meme valeur de repos : `phys-comexw-reset!` les balaye d'un seul
+`dotimes`. Les enumerer un par un etait le vrai risque — un emplacement neuf ouvert ailleurs
+pouvait etre oublie ici, et il aurait alors publie a chaque fenetre le maximum de la COURSE sans
+que rien ne le dise. Les emplacements 19 a 22 gardent la portee de la COURSE et ne sont pas
+touches.

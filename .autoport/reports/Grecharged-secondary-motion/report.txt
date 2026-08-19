@@ -1,245 +1,231 @@
 DIRECTIVES vb249967379
 
 ================================================================================================
-CYCLE 40 — J'AI CHANGE DE METRE, ET SA SPEC 22 A DEUX LIGNES QUI NE PEUVENT PAS TENIR ENSEMBLE
-AVEC LA GEOMETRIE LIVREE. UNE EST MAINTENANT TENUE. ET J'AI REFUTE L'ATTRIBUTION DU CYCLE 39.
+CYCLE 41 — SA SPEC NOMME UN CENTRE DE MASSE ET LE MOTEUR PUBLIAIT UN MAXIMUM SUR DEUX POINTS.
+MESUREE COMME SA SPEC LA DEFINIT, L'EXCURSION DE COM VAUT LA MOITIE : 0.699 -> 0.356 B0,
+100 % DES FENETRES HORS BANDE -> 16 %. AUCUNE PHYSIQUE N'A BOUGE, ET C'EST LE POINT.
 ================================================================================================
-  ETAPE 1  MESURE GRATUITE SUR LA TRACE LIVREE, AUCUNE COURSE. Sa SPEC 22 donne ses deplacements
-           en B0 mais son elongation de tissu EN POURCENT — un rapport, dont le denominateur est
-           la longueur de repos LOCALE. Quarante cycles ont divise par B0. Relu par MAILLON, le
-           canal radial de sa SPEC 23 livre **128.0 % / 121.2 %** de deformation locale pour un
-           `AbsoluteStretchClamp` de **25 %**, et la borne censee l'y tenir (`0.40*b0e` = 240.8 u)
-           vaut **171.5 % / 167.0 %** de la longueur du segment qu'elle borne.
-  ETAPE 2  **JE RETIRE LE TITRE DU CYCLE 39.** Son « sortie comprimee a 14 % » est REPRODUIT au
-           chiffre pres (13.7 % / 14.0 %) — mais seulement sur la tranche qu'il declarait :
-           AGREGE PAR CHAINE, fenetres AU-DESSUS DU GENOU. Sur les six pilotages et toutes les
-           fenetres, la MEME grandeur livree varie de **68.1 % / 74.8 %**. On mesurait la largeur
-           de la bande de saturation, pas la reponse du tissu. « Le canal est plat » est FAUX.
-  ETAPE 3  **UN THEOREME, PAS UNE OPINION.** Le seul segment de chair simule fait 140.4 u pour un
-           organe de 734.2 u : il couvre **19.4 %** de `r`. Pour livrer l'elongation d'organe que
-           sa SPEC 22 autorise (25 % de 734 = 183.6 u) a une deformation locale <= 25 %, il
-           faudrait un segment de 734 u. **Facteur manquant x5.23 / x5.32.** Aucune valeur de la
-           borne ne tient les deux lignes a la fois. C'est de la GEOMETRIE, pas du reglage.
-  ETAPE 4  BALAYAGE EXACT DE LA FONCTION DE PUBLICATION sur les `dr0` LIVRES, hors ligne. Il
-           REFUTE la premisse du cycle 33 (« serrer AGGRAVE la platitude ») : l'ecart entre
-           pilotages vaut 68/75 % a 0.40 B0, 57/66 % a 0.25 B0 et **29.4/36.3 %** a `0.25*bl` —
-           les trois AU-DESSUS du seuil de 25 % du contrat.
-  ETAPE 5  **UN SEUL TERME CHANGE**, criteres graves avant : `rcap` passe de `0.40*b0e` a
-           `fmin(0.40*b0e, PHYS-DYN-MAX*bl)`. `PHYS-DYN-MAX 0.25` etait deja dans le fichier avec
-           le commentaire « §38 AbsoluteStretchClamp », branchee sur une AUTRE grandeur. Le `fmin`
-           garantit que la borne ne s'elargit jamais : sur le LEVIER elle reste 0.400 au bit pres,
-           sur la CHAIR elle passe a 0.058. Moteur **4799 lignes avant comme apres** (plafond 4800).
-  ETAPE 6  COURSE X86 COMPLETE (`C40E5-CAPFIX`, 31/31 animations, 310 mesures). **Q1 TENUE**
-           (deformation locale 128.0 -> **23.6 %** et 121.2 -> **23.3 %**, DANS la bande 21-25 %),
-           **Q2 TENUE** (29.7 / 36.3 %, au-dessus du seuil), **Q3 TENUE** (le levier bouge de
-           -0.1 % / -0.2 %). **Q4 ET Q5 SONT REFUTEES, ET C'EST LE RESULTAT DU CYCLE.**
-  RESULTAT **L'ATTRIBUTION DU CYCLE 39 EST REFUTEE PAR L'INTERVENTION.** Il annonçait que ce canal
-           « consomme 73-75 % du plafond de la 22 » et qu'il etait « le porteur de l'excursion ».
-           Retirer **81 %** de ce qu'il livre deplace `comex` de **2.1 % / 2.7 %** et laisse
-           **100.0 % / 99.5 %** des fenetres hors bande — inchange. Une part de BUDGET n'est pas
-           une part de CAUSE. Et le prix predit (10-35 % de mouvement) est **NUL** : `tipvar`
-           0.1885 -> 0.1891 et 0.1875 -> **0.1939**.
-
-  ETAT DU VALIDATEUR : inchange, il sort sur `OPEN-DEFECTS` — la porte humaine. `COLLIDE` reste
-  ROUGE (0.0952 / 0.0891 m contre 0.0005), en BAISSE de 3.2 % / 1.0 %.
+  ETAPE 1  LA GRANDEUR. Sa §6 definit `P0` = « neutral breast center-of-mass POSITION », sa §22
+           borne « Breast COM », sa §23 pose `x` = « relative breast COM displacement ». Les trois
+           designent UN point par sein : la moyenne des positions de la chair PONDEREE PAR SA
+           MASSE. Ce que le moteur publie sous le nom `comex` est le MAXIMUM, sur les deux
+           maillons, de l'excursion de leurs deux centroides de geometrie possedee
+           (`jak-hd-physics.gc`, emplacement 23, indexe par CHAINE — les deux maillons ecrasent
+           le meme emplacement). Un maximum sur deux echantillons ne repond pas a une question de
+           POPULATION.
+  ETAPE 2  LA MASSE, MESUREE SUR LE MESH LIVRE, ET VERIFIEE DEUX FOIS PAR DEUX LECTEURS
+           INDEPENDANTS DU GLB. **45.85 % (chestL) et 46.06 % (chestR) de la chair du sein est
+           portee par `chest` et `?shoulder`, qui ne sont PAS simules** : leur matrice ecrite EST
+           leur matrice d'auteur, donc leur excursion vaut ZERO par construction. Cette moitie de
+           la masse ne peut pas entrer dans un maximum. Elle entre dans une moyenne.
+  ETAPE 3  L'INSTRUMENT. Un seul ajout, et il ne fait que PUBLIER : `ee` par MAILLON (le meme
+           `ee` que 23, avant l'ecrasement) et `jt`, la part de l'excursion qui NE DEPEND PAS de
+           `lc`. Moteur **4799 -> 4790 lignes** (plafond 4800) : la remise a zero par fenetre a
+           ete ramenee de douze `set!` a un `dotimes` sur la tranche 23-42.
+  ETAPE 4  LA COURSE, ET LE CONTROLE D'INERTIE QUI LA VALIDE. 31/31 animations, `PHYSFAIL 0`.
+           **Les 13 types de lignes deja publies sont IDENTIQUES AU CARACTERE PRES a la course du
+           cycle 40** (4300 lignes comparees, 0 differente) : `tipvar` 0.1891 / 0.1939 et
+           `meshpen` 0.0952 / 0.0891, les memes chiffres. Rien dans la physique n'a bouge.
+  RESULTAT **LE COM QUE SA SPEC NOMME VAUT LA MOITIE DE CE QUE QUARANTE CYCLES ONT PUBLIE.**
+               chaine   `comex` publie      COM de population (BORNE SUPERIEURE)
+               chestL   0.6987 moyen        **0.3557**   plafond dur 0.400  -> DEDANS
+               chestR   0.6847 moyen        **0.3434**   plafond dur 0.400  -> DEDANS
+               fenetres hors bande : 100.0 % -> **16 %** · 99.5 % -> **11 %**
+           **CE N'EST PAS UN PROGRES DE LA PHYSIQUE. C'est le meme mouvement, au bit pres, lu par
+           la grandeur que sa spec definit au lieu d'une autre.** Le « pudding » que l'owner voit
+           n'est pas ferme par ce cycle et je ne pretends pas le contraire.
+  ET CONTRE MOI  Trois de mes six sous-predictions du P4 sont **REFUTEES** : j'avais predit une
+           correction PLUS FAIBLE que la mesure. Elles sont publiees ci-dessous avec leur ecart.
 
 ================================================================================================
-ETAPE 1 — LE METRE. SA SPEC 22 A TROIS FAMILLES DE BORNES ET ELLES N'ONT PAS LA MEME NATURE
+ETAPE 1 — LA GRANDEUR QUE SA SPEC NOMME, ET CELLE QUE LE MOTEUR PUBLIAIT
 ================================================================================================
-PREDICTIONS : `C40E1-strain-denominator-prediction.txt`, md5
-**7b06309f89cb9ec9bf375227c3e39fd8**, empreinte gravee dans le commit **003556f065**, AVANT toute
-mesure. J'y declare aussi ce que j'avais deja lu (quatre lignes d'echantillon et les longueurs
-`PHYSBONE`), pour que personne ne le compte comme une prediction.
+PREDICTIONS : `C41E1-population-com-prediction.txt`, md5 **ba25c857876a995cdbb4f89e57931603**,
+empreinte gravee dans le commit **55a71d1bfc**, AVANT toute modification du moteur et AVANT la
+course. J'y declare aussi, separement, ce qui etait deja mesure, pour que rien ne me soit compte
+comme une prediction.
 
-    « Breast COM: normal <=35 % B0, hard transient <=40 % B0 »     un DEPLACEMENT, en B0
-    « Distal/apex displacement: <=42 % / <=50 % B0 »               un DEPLACEMENT, en B0
-    « Local tissue elongation: common 5-15 %, large 15-21 %,
-      exceptional 21-25 % ; Absolute stretch clamp: 25 % »         une DEFORMATION, SANS UNITE
+    SPEC 6   « `P0` neutral breast center-of-mass POSITION »
+    SPEC 22  « Breast COM : normal <= 35 % B0, hard transient <= 40 % B0 »
+    SPEC 23  « `x` = relative breast COM displacement »
 
-Une deformation sans unite est un RAPPORT. Le denominateur d'un rapport de deformation est la
-longueur de repos LOCALE. Le moteur divisait par `b0e` (602 u, l'organe entier).
+Un centre de masse est une MOYENNE PONDEREE PAR LA MASSE sur toute la population de chair. Trois
+ecarts entre cette grandeur et `comex`, et ils ne sont pas d'interpretation :
 
-    LONGUEURS DE REPOS LIVREES (`PHYSBONE`, course du cycle 38) — et ce que le plafond vaut :
-      chestL l=0   1040.50 u    240.8 / 1040.5 =    23.1 %
-      chestL l=1    140.42 u    240.8 /  140.4 =  **171.5 %**   pour une clef de 25 %
-      chestR l=0   1039.04 u    240.8 / 1039.0 =    23.2 %
-      chestR l=1    144.23 u    240.8 /  144.2 =  **167.0 %**
+  1. **UN MAXIMUM N'EST PAS UNE MOYENNE.** Il repond « quel est le point le plus loin », jamais
+     « ou est le centre ». C'est la classe `argmax-anchor-is-not-a-population` du registre.
+  2. **LES DEUX ECHANTILLONS NE PESENT PAS PAREIL.** Le maillon 0 possede 18.9 % / 22.0 % de la
+     masse du nuage — et c'est LUI qui porte le maximum publie dans **82.3 % / 93.0 %** des
+     fenetres, parce que son bras de chair pend au bout du levier le plus long (1040 u d'os +
+     651 u de bras, contre 140 u + 515 u pour le maillon 1).
+  3. **PRESQUE LA MOITIE DE LA CHAIR EST ANCREE ET NE PEUT PAS ENTRER DANS UN MAXIMUM.**
 
-CE QUE LES DEUX MAILLONS SONT REELLEMENT — mesure, pas suppose (`probe_breast_chain_span.py`
-sur le mesh LIVRE ; le role des maillons etait deja au registre depuis le cycle 30, je ne le
-presente pas comme neuf) :
-    l=0  `chest -> lBoob`  1040 u : **LE LEVIER. Il PLACE l'organe, il ne porte AUCUNE chair.**
-    l=1  `lBoob -> lBooc`   140 u : **LE SEUL SEGMENT DE CHAIR SIMULE.**
-         Il couvre `r` de 0.480 a 0.674 sur les 0..1 de sa SPEC 31, soit **19.4 % de l'organe** ;
-         **81.2 % / 80.0 % des sommets sont HORS du segment** (t < 0 ou t > 1) ; il fait 74.9 deg
-         / 68.4 deg avec l'axe principal de la chair.
+================================================================================================
+ETAPE 2 — LA REPARTITION DE MASSE. MESUREE, PUIS RE-MESUREE PAR UN SECOND LECTEUR INDEPENDANT.
+================================================================================================
+Mesh LIVRE `out/jak1/fr3/skin/keira-hd-lod0.glb`, md5 **5cb8a493c43211acf3a04c5b6433df81**.
+Nuage = les sommets portant un poids NON NUL sur au moins un des deux os de chaine. Les poids
+sont normalises : ecart max a 1.0 = **4.47e-08** sur les 7963 sommets. La somme des poids de tous
+les joints sur le nuage egale exactement le nombre de sommets (94.0000 et 90.0000).
 
-1.1 CE QUE LE CANAL LIVRE, EN DEFORMATION (744 fenetres, controle d'identite `rrr == |mlb+cdev|`
-    a **1.0e-4**)
+    chestL  n=94    chest (ANCRE)  42.8317 = **45.57 %**    lBooc  33.1247 = 35.24 %
+                    lBoob          17.7785 =   18.91 %      Lshoulder 0.2651 = 0.28 %
+    chestR  n=90    chest (ANCRE)  40.7956 = **45.33 %**    rBooc  28.7457 = 31.94 %
+                    rBoob          19.8010 =   22.00 %      Rshoulder 0.6576 = 0.73 %
+
+    PART SIMULEE   chestL **54.15 %**   chestR **53.94 %**
+    PART ANCREE    chestL **45.85 %**   chestR **46.06 %**   excursion NULLE par construction
+
+**DEUX LECTEURS INDEPENDANTS, MEMES CHIFFRES.** Le premier passe par le chemin du generateur, le
+second est un lecteur GLB ecrit pour ce cycle et qui ne partage aucune ligne avec lui. Les deux
+rendent les memes valeurs au dix-millieme. C'est le chiffre porteur de tout le cycle : il meritait
+d'etre lu deux fois plutot qu'affirme une.
+
+RESERVE PUBLIEE : le mesh stocke 7963 sommets pour **5588 positions distinctes** (1.425 copies
+par point) et **175 copies portent des poids differents de la premiere occurrence de leur
+position** (ecart max 0.9500). Sur positions uniques le nuage vaut 70 des deux cotes et la part
+ancree devient 44.66 % / 43.13 % — **le resultat du cycle ne change pas de signe** (le facteur
+passe de x0.51 a x0.53), mais l'asymetrie 94/90 est de la duplication d'export, pas de la
+geometrie, et je ne la presente pas comme une difference entre les deux seins.
+
+`lc` LIVRE EST-IL LE BON BRAS ? Le `lc` du moteur (`physics_chains.txt:222-229`) est reproduit a
+**<= 0.6 u** par le centroide des sommets dont la SOMME DE CHAINE depasse 0.5, partages par
+argmax. Le centroide PONDERE PAR LE POIDS DU JOINT — celui qui entre dans un centre de masse —
+est plus COURT : lBoob 601.4 contre 651.2 (**-7.6 %**), lBooc 509.3 contre 514.5 (-1.0 %), rBoob
+596.2 contre 629.5 (-5.3 %), rBooc 460.7 contre 467.4 (-1.4 %). **Le bras du moteur est donc
+legerement TROP LONG : la borne publiee ci-dessous est conservatrice des deux cotes.**
+
+================================================================================================
+ETAPE 3 — L'INTERVENTION : UN INSTRUMENT, ET RIEN QUE CA
+================================================================================================
+    jak-hd-physics.gc  PHYS-DG 35 -> 43 · emplacements **35+l** = `ee` du maillon `l` (le meme que
+                       23, AVANT l'ecrasement) et **39+l** = |p_sim - p_auteur| du JOINT seul,
+                       rapporte a B0, releve A LA FRAME QUI MAXIMISE `35+l` — jamais son propre
+                       maximum (piege `RAD-FLESH-IPAIR` du cycle 34 : deux maxima independants
+                       viennent de deux frames differentes).
+    phys-room.gc       une ligne `PHYSCOMWL c= a= d= l= ee= jt=` par maillon et par fenetre.
+    NOTE-112           la prose complete, dans `jak-hd-physics-NOTES.md`.
+
+**LIGNES DU MOTEUR : 4799 AVANT -> 4790 APRES** (plafond 4800, gate `CLEAN`). La marge vient
+d'une simplification reelle, pas d'un compactage : `phys-comexw-reset!` enumerait DOUZE `set!`
+pour douze emplacements qui ont tous la MEME portee (une fenetre) et la meme valeur de repos.
+Un seul `dotimes` balaye desormais la tranche 23-42. Le risque que cela retire est concret :
+chaque emplacement neuf ouvert ailleurs pouvait etre OUBLIE dans cette liste, et il aurait alors
+publie a chaque fenetre le maximum de la COURSE sans que rien ne le dise.
+
+RIEN D'AUTRE N'A CHANGE : aucun parametre, aucune donnee (`physics_chains.txt` intact, md5
+**4d29e30c759d33fffd794e10947497e6**), aucune gate du validateur, aucun mecanisme dans le solveur.
+Aucune ligne du solveur ne relit les emplacements 35-42.
+
+================================================================================================
+ETAPE 4 — LA COURSE, ET LES VERDICTS SUR LES SIX PREDICTIONS GRAVEES
+================================================================================================
+Course `keira-room-x86.C41E2-POPCOM.log`, md5 **b95fab2223c6a83d410add2d24ecb62c**, 31/31
+animations, 2 chaines, 372 fenetres, 744 lignes `PHYSCOMWL` neuves, `PHYSFAIL 0`.
+Verdicts complets : `C41E2-population-com.txt`, produit par `.autoport/c41e2_verdict.py`.
+
+  P1 **TENUE — ET C'EST ELLE QUI AUTORISE TOUT LE RESTE.** Les treize types de lignes deja
+        publies (PHYSROW PHYSBASE PHYSCOMW PHYSCOMD PHYSCOMDL PHYSGRAD PHYSGRADS PHYSRESTW
+        PHYSRESTS PHYSREBASE PHYSACC PHYSBONE PHYSCHAIN) comptent **4300 lignes, dont 0
+        differente** de la course du cycle 40. `tipvar` 0.1891 / 0.1939 et `meshpen` 0.0952 /
+        0.0891 : identiques. **La physique n'a pas bouge d'un bit, donc la baisse du chiffre ne
+        peut venir que du changement de grandeur.**
+  P2 **TENUE** `max(ee_0, ee_1)` recompose `comex` sur **372/372** fenetres, residu max
+        **0.000000**. Le nouvel instrument est le meme que l'ancien, avant l'ecrasement.
+  P3 **TENUE** `ee_0 > ee_1` dans **82.3 %** (predit 80-95) et **93.0 %** (predit 88-98) ;
+        rapport median `ee_1/ee_0` **0.919 / 0.889** (predit [0.80, 1.00]).
+  P4 **LE RESULTAT — ET TROIS DE SES SIX SOUS-PREDICTIONS SONT REFUTEES, TOUTES DANS LE SENS
+        D'UNE CORRECTION PLUS FORTE QUE CE QUE J'AVAIS PREDIT.**
+
+        chaine   grandeur                 moyenne     pire    > 0.400 B0    > 0.350 B0
+        chestL   `comex` (ANCIEN, max)     0.6987   1.0027   186 (100 %)   186 (100 %)
+        chestL   **COM de population**     **0.3557**  0.5429    29 (16 %)   102 ( 55 %)
+        chestL   borne INFERIEURE          0.0948   0.1638     0 (  0 %)     0 (  0 %)
+        chestL   part sans `lc` (`jt`)     0.2683   0.3625     0 (  0 %)     3 (  2 %)
+        chestR   `comex` (ANCIEN, max)     0.6847   0.8780   185 ( 99 %)   186 (100 %)
+        chestR   **COM de population**     **0.3434**  0.4475    20 (11 %)    85 ( 46 %)
+        chestR   borne INFERIEURE          0.0432   0.0750     0 (  0 %)     0 (  0 %)
+        chestR   part sans `lc` (`jt`)     0.2582   0.3364     0 (  0 %)     0 (  0 %)
+
+        P4a **REFUTEE** chestL 0.3557 pour une bande predite 0.36-0.40 — **sous** ma bande.
+        P4b **REFUTEE** chestR 0.3434 pour une bande predite 0.35-0.39 — **sous** ma bande.
+        P4c **TENUE**   la moyenne passe sous le plafond dur 0.400 sur les DEUX chaines.
+        P4d **TENUE**   elle reste au-dessus de la ligne « normal » 0.350 sur chestL (0.3557) ;
+                        chestR passe dessous (0.3434). Donc SPEC 22 « COM » devient PARTIELLE,
+                        et je ne la declare PAS tenue.
+        P4e **REFUTEE** fenetres hors bande **16 % / 11 %** pour une bande predite 20-60 %.
+        P4f **TENUE**   pire fenetre 0.5429 (predit 0.50-0.58) et 0.4475 (predit 0.44-0.50).
+
+  P5 **TENUE — ET C'EST ELLE QUI REND LA BORNE UTILISABLE.** Recomposer |somme ponderee de
+        VECTEURS| a partir de NORMES donne une BORNE SUPERIEURE (inegalite triangulaire), serree
+        seulement si les deux excursions sont presque colineaires. Critere : `jt/ee` median >= 0.55
+        sur le maillon 0. Mesure : **0.661 / 0.682** sur le maillon 0, **0.789 / 0.805** sur le
+        maillon 1. Les deux maillons sont donc portes aux deux tiers par la MEME translation de
+        joint, ce qui force l'alignement. La valeur vraie est sous la borne publiee.
+  P6 **TENUE, ET JE L'AVAIS PREDITE CONTRE MOI.** La part qui ne depend PAS de `lc`, ponderee par
+        la masse, vaut **0.2683 / 0.2582 B0** (critere >= 0.25). **Meme en posant le centre de
+        chair EXACTEMENT sur les joints, le COM de population resterait au quart de B0.**
+        L'excursion n'est donc pas un artefact du placement du centroide : elle a un porteur reel,
+        et il reste le deplacement du joint.
+
+4.1 D'OU VIENT LA DIVISION PAR DEUX — LA DECOMPOSITION, PAS UNE INTUITION
 =================================================================================================
-    chaine maillon   mediane   moyenne     max     %% > 25 %%     facteur median / clef
-    chestL l=0        12.5 %    12.5 %    22.2 %     0.0 %          x0.50
-    chestL l=1     **153.9 %**  145.3 %  294.0 %  **92.5 %**      **x6.16**
-    chestR l=0        11.7 %    11.3 %    21.3 %     0.0 %          x0.47
-    chestR l=1     **153.7 %**  146.3 %  324.6 %  **90.3 %**      **x6.15**
+    etape                                              chestL     chestR     facteur
+    1. `comex` publie (MAXIMUM sur 2 maillons)         0.6987     0.6847        —
+    2. moyenne PONDEREE des 2 maillons SIMULES         0.6568     0.6366     x0.940 / x0.930
+    3. + la chair ANCREE, d'excursion nulle            0.3557     0.3434     x0.542 / x0.539
+    FACTEUR TOTAL                                                            **x0.509 / x0.502**
 
-    LIVRE (apres borne), moyenne : **128.0 % (chestL) / 121.2 % (chestR)**.
+**Le terme dominant n'est pas le passage du maximum a la moyenne (7 %), c'est la moitie de la
+chair que l'ancien instrument ne pouvait pas representer du tout (46 %).**
 
-1.2 LES VERDICTS SUR LES CINQ PREDICTIONS GRAVEES — DEUX SONT REFUTEES ET JE LES PUBLIE
+Part de chaque maillon dans le COM de population (moyenne) :
+    chestL  maillon 0 (18.9 % de la masse) apporte 0.1304 B0 · maillon 1 (35.2 %) apporte 0.2252
+    chestR  maillon 0 (22.0 % de la masse) apporte 0.1502 B0 · maillon 1 (31.9 %) apporte 0.1932
+Le maillon qui portait 82-93 % des maxima publies n'apporte que **37 % / 44 %** du centre de masse.
+
+4.2 CE QUE CE CYCLE NE FERME PAS, ET IL FAUT LE DIRE AUSSI FORT QUE LE RESTE
 =================================================================================================
-  P1 TENUE   racine 0.0 %% hors bande (predit <= 50), distal 92.5 / 90.3 %% (predit >= 90),
-             facteur x6.16 / x6.15 (predit >= 4). **Mais je corrige mon propre enonce** : j'avais
-             ecrit « le maillon RACINE tient la clef », or ce maillon est un LEVIER sans chair —
-             son 12.5 %% n'est pas une deformation, c'est un deplacement rapporte a un bras de
-             levier. Le chiffre est bon, la phrase etait fausse.
-  P2 REFUTEE j'ai predit >= 90 %% d'un signe par maillon. Mesure : racine **81.2 / 73.1 %%
-             positive**, distal **72.6 / 74.2 %% negative**. La tendance existe (mediane signee
-             **+9.5 %% / +8.2 %%** a la racine contre **-150.6 %% / -150.3 %%** au distal, donc une
-             COMPRESSION au bout) mais elle n'est pas aussi nette que je l'ai ecrit.
-  P3 REFUTEE **et c'etait ma propre auto-refutation, qui se retourne.** J'avais predit que
-             l'artefact de rotation `bl*(cos(th)-1)` porterait moins de 25 %% de |dr0|. Vrai sur
-             le levier (**4.2 / 6.7 %%**), FAUX sur la chair : **28.4 / 31.9 %%** en mediane, et
-             au-dessus de 25 %% dans **53.8 / 62.9 %%** des fenetres. Un tiers de la demande
-             radiale du segment de chair est donc un artefact geometrique — la cible `tg` est
-             figee sur la direction de repos du MATERIAU pendant que `dr0` projette sur l'axe
-             COURANT de l'os. **Ce n'est PAS corrige ce cycle, c'est au dossier avec sa mesure.**
-  P4 TENUE   la borne d'etat `|cp - tg| <= 0.40 B0` tient : max **0.3937**, **0 / 744** hors borne.
-  P5 REFUTEE voir l'etape 2 : c'est la refutation la plus consequente du cycle.
+  * **La mesure reste NON DISCRIMINANTE.** Le COM de population par pilotage :
+        chestL  updown 0.3249 · leftright 0.3640 · accel 0.3615 · jerk 0.3803 · tilt 0.3768
+                BASE (AUCUN pilotage) **0.3267** — ecart entre pilotages **14.6 %**
+        chestR  updown 0.3088 · leftright 0.3462 · accel 0.3586 · jerk 0.3620 · tilt 0.3752
+                BASE (AUCUN pilotage) **0.3096** — ecart **17.7 %**
+    Le seuil du contrat est 25 %. Les stimuli vont de `mag=11.2` a `mag=434` (facteur **39**) et
+    la sortie varie de 15 %. La sous-fenetre SANS AUCUN PILOTAGE (`physroom-hold` : vitesse nulle,
+    position epinglee, quaternion identite — seule l'animation joue) rend **86 % / 82 %** du
+    maximum. **L'excursion est une reponse a l'ANIMATION, pas au pilotage de la salle**, et toute
+    ablation balayee sur les pilotages attribuait donc dans un domaine que le pilotage ne bouge
+    presque pas. Le chiffre de la ligne de base etait deja au tableau (`keira-room-table.txt:699`
+    et `:705`) depuis plusieurs cycles ; **il n'en avait jamais ete tire de conclusion, et c'est
+    ma faute, pas celle de l'instrument.**
+  * **La gate `DISCRIMINANT` du validateur ne surveille que `tipvar`** (elle lit `row … tipvar=`).
+    `comex` — la grandeur qui a dirige quarante cycles — n'y est pas soumise, et elle echouerait.
+    Je le rapporte et je ne touche a aucune gate (regle 5) : c'est au superviseur de trancher.
+  * **Les pires transitoires restent hors bande** : 0.5429 / 0.4475 B0 pour un plafond dur de
+    0.400, sur 16 % / 11 % des fenetres. SPEC 22 « COM » est PARTIELLE, pas TENUE.
 
-================================================================================================
-ETAPE 2 — JE RETIRE LE TITRE DU CYCLE 39 : « LA SORTIE EST PLATE » EST UN ARTEFACT DE TRANCHE
-================================================================================================
-Le cycle 39 a publie « entree x2.04 -> sortie x1.16 », « sortie comprimee a 14 % pour une entree
-qui varie de 51-57 % », et en a fait la signature mecanique du « pudding ». **Je reproduis son
-chiffre exactement**, sur sa tranche declaree (agrege par CHAINE, fenetres au-dessus du genou
-0.336 B0) :
-
-    chaine    n     entree              sortie              ecart entree   ecart sortie
-    chestL   112   0.3367 -> 0.6859    0.3367 -> 0.3901       50.9 %         13.7 %
-    chestR   115   0.3371 -> 0.7778    0.3371 -> 0.3919       56.7 %         14.0 %
-
-**Et voici pourquoi ce chiffre ne dit pas ce qu'on lui a fait dire.** Restreindre aux fenetres
-au-dessus du genou, c'est avoir DEJA selectionne le regime sature : on mesure alors la largeur de
-la bande de saturation, jamais la reponse du tissu. La MEME grandeur livree, sur les six
-pilotages et les 186 fenetres de chaque chaine :
-
-    chaine  grandeur      updown  leftright   accel    jerk    tilt    AUCUN     ecart
-    chestL  rrm LIVRE     0.3476   0.3579   0.3658  0.3727  0.2446  0.1187   **68.1 %**
-    chestR  rrm LIVRE     0.3421   0.3676   0.3831  0.3690  0.1939  0.0967   **74.8 %**
-
-Seuil de non-discrimination du contrat : 25 %. **Le canal discrimine, et largement.** La
-« platitude » etait une propriete de la tranche choisie, pas du canal. C'est exactement le piege
-`clamped-metric-hides-domain` que le registre porte deja — applique cette fois a une tranche.
-
-================================================================================================
-ETAPE 3 — LE THEOREME DE DIMENSIONNEMENT. AUCUNE BORNE NE PEUT TENIR LES DEUX LIGNES.
-================================================================================================
-                                                        chestL          chestR
-    levier chest->lBoob (AUCUNE chair)                 1040.5 u        1039.0 u
-    SEUL segment de chair simule lBoob->lBooc           140.4 u         144.2 u
-    organe racine->apex, mesure sur le mesh LIVRE       734.2 u         766.6 u
-    le segment couvre                                  **19.1 %**      **18.8 %** de l'organe
-
-    sa SPEC 22, ligne « elongation de tissu », a l'ORGANE   25 % x 734.2 = 183.6 u
-    sa SPEC 22, la MEME ligne, en deformation LOCALE        25 % x 140.4 =  35.1 u
-    le moteur route TOUTE l'elongation de l'organe PAR ce segment.
-    -> pour livrer 183.6 u a 25 % de deformation locale il faudrait un segment de **734.2 u**.
-       Il en fait **140.4**. **FACTEUR MANQUANT x5.23 (chestL) / x5.32 (chestR).**
-
-    LES DEUX SEULS CHOIX QU'UNE BORNE OFFRE, ET ILS SONT TOUS LES DEUX FAUX :
-      borne en ORGANE   183.6 u  -> deformation locale **130.7 % / 132.9 %**  (x5.2 la clef)
-      borne en SEGMENT   35.1 u  -> elongation d'organe **4.78 % / 4.70 %**   SOUS le plancher 5 %
-      borne ACTUELLE    240.8 u  -> **171.5 % / 167.0 %** de la longueur du segment
-
-**C'est un defaut de GEOMETRIE.** Il ne se corrige pas dans le solveur, et je ne pretends pas
-l'avoir corrige.
-
-================================================================================================
-ETAPE 4 — LE BALAYAGE HORS LIGNE, ET IL RETIRE LA PREMISSE DU REFUS DU CYCLE 33
-================================================================================================
-`phys-softmin(dr0, cap)` est une fonction pure : je l'applique aux `dr0` REELLEMENT LIVRES,
-fenetre par fenetre. C'est l'effet AU PREMIER ORDRE, et c'est dit comme tel dans le script.
-
-    borne                        deform. locale livree     ecart entre pilotages (seuil 25 %)
-    0.40 B0 (ACTUEL, ligne COM)     128.0 % / 121.2 %          68.3 % / 75.2 %
-    0.25 B0 (ligne §38, en B0)       90.8 % /  85.3 %          57.1 % / 66.0 %
-    0.25 * bl (deformation LOCALE)  **23.7 % / 23.3 %**      **29.4 % / 36.3 %**
-    pas de borne                    145.3 % / 146.3 %          73.7 % / 83.2 %
-
-Le cycle 33 a refuse « 0.40 -> 0.25 » au motif que **serrer AGGRAVE la platitude**. Les trois
-bornes restent AU-DESSUS du seuil de 25 % du contrat : la premisse tombe. Et ce remede-ci ne
-serre pas uniformement — il change le DENOMINATEUR, et il laisse le levier intact.
-
-================================================================================================
-ETAPE 5 — L'INTERVENTION : UN SEUL TERME, ET LE `fmin` EST LA GARANTIE
-================================================================================================
-CRITERES : `C40E5-cap-intervention-prediction.txt`, md5 **0ea470d980c4cee54f45c9bd137fc2a5**,
-graves dans le commit **79aff0bca9** AVANT de toucher au moteur.
-
-    jak-hd-physics.gc:2988
-      AVANT  (rcap (if (zero? *phys-rr-off*) (* 0.40 b0e) (* 1000000.0 b0e)))
-      APRES  (rcap (if (zero? *phys-rr-off*) (fmin (* 0.40 b0e) (* PHYS-DYN-MAX bl)) (* 1000000.0 b0e)))
-
-`PHYS-DYN-MAX` = 0.25 est a la ligne 302 depuis longtemps, avec le commentaire « §38
-AbsoluteStretchClamp », branchee sur `dl` (le tenseur) — une autre grandeur. Le `fmin` garantit
-que la borne ne devient JAMAIS plus large : `0.25*1040.5 = 260.1 > 240.8` sur le levier (donc
-inchange), `0.25*140.4 = 35.1` sur la chair.
-
-Moteur : **4799 lignes avant, 4799 apres** (plafond 4800). Aucun mecanisme ajoute.
-Donnee : `recharged_assets/physics_chains.txt` **INTACT**, md5 **4d29e30c759d33fffd794e10947497e6**.
-
-================================================================================================
-ETAPE 6 — LA COURSE, ET DEUX DE MES SIX CRITERES SONT REFUTES
-================================================================================================
-Course `keira-room-x86.C40E5-CAPFIX.log`, md5 **a5039f169271d76ef6bcd55a7d64fd0a**, 31/31
-animations, 310 mesures, 2 chaines, `PHYSFAIL 0`.
-
-  Q1 **TENUE — SA SPEC 22 « LOCAL TISSUE ELONGATION » EST TENUE POUR LA PREMIERE FOIS.**
-        chestL  128.0 %% -> **23.6 %%**       chestR  121.2 %% -> **23.3 %%**
-        Bande exceptionnelle 21-25 %%, clamp 25 %%. Les deux DEDANS.
-  Q2 **TENUE** ecart entre pilotages **29.7 %% / 36.3 %%** (predit 29-37 %%, seuil du contrat 25 %%).
-        Le balayage hors ligne avait predit 29.4 / 36.3 : l'instrument est bon a 0.3 point.
-  Q3 **TENUE — LE LEVIER EST INTACT.** `rrm` l=0 : 0.2150 -> 0.2148 (**-0.1 %%**) et
-        0.1946 -> 0.1941 (**-0.2 %%**). Critere : < 1 %%.
-  Q4 **REFUTEE, ET C'EST LE RESULTAT DU CYCLE.** J'avais predit `comex` entre 0.45 et 0.60 B0.
-        Mesure :
-            chaine   moyenne AVANT -> APRES     max AVANT -> APRES    fenetres hors plafond
-            chestL   0.7140 -> **0.6987**       1.0765 -> 1.0027      100.0 %% -> **100.0 %%**
-            chestR   0.7037 -> **0.6847**       0.9655 -> 0.8780       99.5 %% -> **99.5 %%**
-        Retirer **81.5 %%** de ce que ce canal livre deplace `comex` de **2.1 %% / 2.7 %%**.
-  Q5 **REFUTEE, DANS LE BON SENS.** J'avais predit une perte de mouvement de 10 a 35 %%. Mesure :
-            `tipvar` pire par chaine   chestL 0.1885 -> **0.1891**   chestR 0.1875 -> **0.1939**
-            par pilotage (max) : updown 0.1485 -> 0.1485 · leftright 0.1839 -> 0.1764 ·
-            accel 0.1884 -> 0.1939 · jerk 0.1885 -> 0.1891 · tilt 0.1288 -> 0.1288
-        **Le prix est nul.** Raison mesuree : la demande `rrr` est INCHANGEE (-0.1 %% a +1.0 %%),
-        donc la borne ne retro-agit pas sur la dynamique — elle filtre la PUBLICATION, exactement
-        ce que NOTE-84 disait, et personne ne l'avait verifie par une intervention.
-  Q6 **TENUE** SPEC 24 inchangee : ap 2.455 / 2.555 (bande 2.3-2.7) DANS · lat 2.600 / 2.685
-        (2.4-2.9) DANS · v 2.380 / 2.455 residu trop grand, non lisible — comme avant.
-
-6.1 CE QUE CETTE REFUTATION RETIRE DU DOSSIER, ET IL FAUT LE DIRE FORT
+4.3 UNE CORRECTION QUE JE DOIS A MON PROPRE CYCLE 40
 =================================================================================================
-Le cycle 39 a ecrit que ce canal « consomme 73-75 % du plafond de la SPEC 22 a lui seul » et
-qu'il etait **le porteur** de l'excursion. Le premier chiffre est vrai ; la conclusion ne l'est
-pas. **Une part de BUDGET n'est pas une part de CAUSE**, et l'intervention le prouve : -81.5 %
-sur la valeur livree, -2.1 / -2.7 % sur `comex`, 0 fenetre regagnee. Le porteur de l'excursion
-reste **NON ATTRIBUE**. La seule intervention qui l'ait deplacee reste `rootlock` (-54 % pour
--50 % de mouvement, refusee au cycle 39 comme un troc 1:1).
+Le cycle 40 a publie un « theoreme de dimensionnement » : l'organe mesure 734.2 / 766.6 u
+racine->apex, le segment de chair simule n'en couvre que 19.4 %, **facteur manquant x5.23**.
+**Le denominateur de ce theoreme n'est pas robuste, et je l'ai verifie moi-meme sur le mesh
+livre.** La « racine » y est le barycentre des sommets dont la fraction d'ancrage depasse 0.90,
+sur le nuage `w_chaine > 0.05` :
 
-6.2 CE QUE L'ON A GAGNE, ET CE QU'IL A COUTE — LES DEUX
-=================================================================================================
-  GAGNE  la deformation que le tenseur applique a la chair respecte enfin la clef de 25 % de sa
-         SPEC 22 (23.6 / 23.3 %), sans perdre la discrimination (29.7 / 36.3 %) et sans couter
-         un point de mouvement (tipvar +0.3 % / +3.4 %). La traversee du thorax baisse de
-         **0.0983 -> 0.0952 m** et **0.0900 -> 0.0891 m** (-3.2 % / -1.0 %).
-  COUTE  l'elongation rapportee a l'ORGANE tombe a **5.5 %** (etait ~30 %), donc au bas de la
-         bande « courante 5-15 % » de sa SPEC 22, alors qu'elle etait dans « exceptionnelle
-         21-25 % ». **La chair se deformera radialement moins qu'avant.** Je l'avais grave comme
-         un rouge attendu, et c'est le prix du theoreme de l'etape 3.
-  RESERVE **l'etat interne du solveur demande toujours 154.6 % / 151.1 %** de deformation locale
-         (mediane, INCHANGEE). Seule la valeur LIVREE au tenseur est bornee. Je ne presente donc
-         PAS la SPEC 22 comme « resolue » : elle est tenue SUR CE QUI EST LIVRE, et le point
-         libre continue de voyager six fois la longueur de son segment.
+    nuage             chestL : n / racine / apex        chestR : n / racine / apex
+    w_chaine > 0.00       94  /  **12**  /   8              90  /  **11**  /  12
+    w_chaine > 0.05       85  /   **3**  /   8              80  /   **1**  /  12   <- celui du c.40
+    w_chaine > 0.25       75  /   **0**  /   8              72  /   **0**  /  12   <- INDEFINI
+
+**La longueur 766.6 u de chestR repose sur UN SEUL sommet, celle de chestL sur trois**, et la
+meme definition rend 378.3 / 209.5 u si l'on ouvre le nuage a `w > 0` et n'est plus calculable a
+`w > 0.25`. Le sens du theoreme survit (le segment simule est court), sa MAGNITUDE non : avec
+B0 = 602 u — le seul chiffre reproductible par une commande, et identique sur les deux seins
+puisque le maillage est miroir — le facteur vaut x4.29, et x2.69 au seuil `w > 0`. **Je n'ai pas
+change B0 : il reste 602 u**, pour que les chiffres de ce cycle restent comparables aux quarante
+precedents, et parce que changer un denominateur dans le meme cycle qu'un numerateur rendrait le
+resultat ininterpretable.
 
 ================================================================================================
 TABLEAU DE CONFORMITE — chaque section IMPLEMENTEE / MESUREE / ECART
@@ -247,204 +233,142 @@ TABLEAU DE CONFORMITE — chaque section IMPLEMENTEE / MESUREE / ECART
 [R] reportee d'un cycle precedent, NON re-mesuree — et dite comme telle
 Aucune section « non applicable » (interdit depuis le 14/08 11:50).
 ================================================================================================
-  SPEC 2  gradient    TENUE      [R] `ang(maillon 1)` > `ang(maillon 0)` sur 372/372. Non re-mesure.
-  SPEC 6  B0          TENUE      [R] `b0 c=0 flesh=602.0000`. [M] RESERVE NEUVE : l'organe mesure
-                                 sur le mesh livre fait **734.2 / 766.6 u** racine->apex, pas 602.
-                                 L'ecart n'est pas corrige ce cycle, il est publie.
-  SPEC 8  volume      TENUE      [T] `det(D)` 0.99990-1.00000, 0 fenetre hors [0.98,1.01].
-                                 RESERVE inchangee : `det` est renormalise par construction.
+  SPEC 2  gradient    TENUE      [T] `ang(maillon 1)` > `ang(maillon 0)` — lignes PHYSGRAD
+                                 identiques a la course du cycle 40, 744/744.
+  SPEC 6  B0          TENUE      [T] `b0 c=0 flesh=602.0000`. [M] **LA RESERVE DU CYCLE 40 EST
+                                 RETIREE** : l'organe « 734.2 / 766.6 u » repose sur 3 et **1**
+                                 sommets et n'est pas calculable a un seuil voisin (4.3). B0 reste
+                                 602 u, le seul chiffre reproductible et miroir.
+  SPEC 8  volume      TENUE      [R] `det(D)` 0.99990-1.00000. RESERVE inchangee : `det` est
+                                 renormalise par construction.
   SPEC 9  retour exact PARTIELLE [T] `ROOM-IDLE maxdev=0.0002` pour une cible 0.0000.
-  SPEC 10 supine      PARTIELLE  [R] COM 0.2612 / 0.2653. Non re-mesure.
-  SPEC 11 prone       PARTIELLE  [R] COM 0.2373 / 0.2477. Non re-mesure.
+  SPEC 10 supine      PARTIELLE  [R] COM 0.2612 / 0.2653. **A RELIRE AU METRE DE POPULATION** :
+                                 ces chiffres sont dans l'ancienne grandeur.
+  SPEC 11 prone       PARTIELLE  [R] COM 0.2373 / 0.2477. Meme reserve.
   SPEC 12 lateral     PARTIELLE  [R] pole MEDIAL sous bande. Non re-mesure.
-  SPEC 13 continuite  PARTIELLE  [T] NEUF : le canal radial DISCRIMINE (68.1 / 74.8 % avant
-                                 l'intervention, 29.7 / 36.3 % apres) — la « platitude » du
-                                 cycle 39 est retiree. La reponse est continue et ordonnee.
+  SPEC 13 continuite  PARTIELLE  [T] le canal radial discrimine (29.7 / 36.3 %). **Le COM, lui, NE
+                                 DISCRIMINE PAS : 14.6 / 17.7 % pour un seuil de 25 %** (4.2).
   SPEC 21 tanh        TENUE      [R] saturation de deplacement du cycle 34. Non re-mesure.
-  SPEC 22 « LOCAL TISSUE ELONGATION »  **TENUE POUR LA PREMIERE FOIS** [T] deformation locale
-                                 livree **23.6 % / 23.3 %** pour un clamp de 25 % (etait
-                                 128.0 % / 121.2 %). RESERVE : l'etat interne demande toujours
-                                 154.6 % / 151.1 %, seule la valeur LIVREE est bornee.
-  SPEC 22 « BREAST COM »         **ABSENTE — ET LE PORTEUR EST DE NOUVEAU INCONNU** [T] `comex`
-                                 moyen 0.6987 / 0.6847 B0, max 1.0027 / 0.8780, **100.0 % et
-                                 99.5 % des fenetres au-dessus du plafond dur 0.400**. [T]
-                                 L'attribution du cycle 39 (« le canal radial en porte 73-75 % »)
-                                 est REFUTEE par intervention : -81.5 % de ce canal = -2.1 / -2.7 %
-                                 de `comex`, 0 fenetre regagnee.
-  SPEC 23 multi-DOF   PARTIELLE  [T] Le degre de liberte existe, il est arme sur les deux maillons,
-                                 il discrimine, et sa sortie respecte desormais la clef de la 22.
-                                 [T] DEFAUT NEUF, MESURE, NON CORRIGE : **28.4 % / 31.9 %** (mediane)
-                                 de sa demande radiale sur le segment de chair est un ARTEFACT
-                                 GEOMETRIQUE — `tg` est fige sur la direction de repos du materiau
-                                 pendant que `dr0` projette sur l'axe COURANT de l'os.
-  SPEC 24 3 frequences PARTIELLE [T] ap 2.455 / 2.555 DANS · lat 2.600 / 2.685 DANS · v 2.380 /
-                                 2.455 non lisible (residu). Inchangee par l'intervention.
-  SPEC 25 zeta 0.35   PARTIELLE  [T] 0.33-0.45 sur les canaux lisibles. Inchangee.
-  SPEC 26 rebond 31 % PARTIELLE  [R] 0.283 a 0.322 sur les canaux lisibles. Non re-mesure.
+  SPEC 22 « LOCAL TISSUE ELONGATION »  TENUE [R] deformation locale livree 23.6 % / 23.3 % pour un
+                                 clamp de 25 % (cycle 40). RESERVE inchangee : l'etat interne
+                                 demande toujours 154.6 % / 151.1 %, seule la valeur LIVREE est
+                                 bornee. Non re-mesure ce cycle.
+  SPEC 22 « BREAST COM »         **PARTIELLE — ET ELLE ETAIT COMPTEE ABSENTE DEPUIS 40 CYCLES SUR
+                                 UNE GRANDEUR QUI N'EST PAS CELLE QUE SA SPEC NOMME.** [T] COM de
+                                 population (borne superieure rigoureuse, tightness etablie par
+                                 P5) : **0.3557 / 0.3434 B0** en moyenne, plafond dur 0.400 —
+                                 **DEDANS**. Pire fenetre 0.5429 / 0.4475 — **DEHORS**.
+                                 **16 % / 11 %** des fenetres au-dessus du plafond (etait 100 % /
+                                 99.5 %). Ligne « normal 0.350 » : chestL 0.3557 au-dessus,
+                                 chestR 0.3434 en dessous. **Elle n'est PAS declaree tenue.**
+  SPEC 23 multi-DOF   PARTIELLE  [T] le degre de liberte est arme sur les deux maillons et
+                                 discrimine. [T] **CHIFFRE NEUF** : le maillon 0, qui portait
+                                 82-93 % des maxima publies, n'apporte que 37 % / 44 % du centre
+                                 de masse — l'attribution par maillon change de main.
+                                 [R] Defaut du cycle 40 inchange, non corrige : 28.4 % / 31.9 %
+                                 de la demande radiale du segment de chair est un artefact
+                                 geometrique (`tg` fige sur la direction de repos du materiau).
+  SPEC 24 3 frequences PARTIELLE [T] identiques a la course du cycle 40 (lignes PHYSGRAD/GRADS
+                                 inchangees) : ap 2.455 / 2.555 DANS · lat 2.600 / 2.685 DANS ·
+                                 vertical non lisible (residu).
+  SPEC 25 zeta 0.35   PARTIELLE  [R] 0.33-0.45 sur les canaux lisibles. Inchangee.
+  SPEC 26 rebond 31 % PARTIELLE  [R] 0.283 a 0.322. Non re-mesure.
   SPEC 27 stabilisation TENUE    [R] six canaux dans 0.6-1.2 s. Non re-mesure.
   SPEC 28 derivation k SANS OBJET EN L'ETAT [R] `mass` n'est observable qu'a travers
                                  `stiffness/sqrt(mass)`. Inchange.
-  SPEC 29 aniso+torsion PARTIELLE [R] compliance laterale 1.0294 / 0.9180 pour une cible de 0.820.
-  SPEC 30 ancrage     TENUE      [M] mesh livre `keira-hd-lod0.glb` VERIFIE INCHANGE (aucun bake
-                                 ce cycle). Tableau exige par la directive du 18/08 08:55 :
-                                     os       poids total   sommets majoritaires   part du nuage
-                                     lBoob       17.779             8               9.4 %
-                                     lBooc *     33.125            37            **43.5 %**
-                                     rBoob       19.801            10              12.5 %
-                                     rBooc *     28.746            30            **37.5 %**
-                                 (* = os injecte) — barre du contrat 30 %, TENUE des deux cotes.
-  SPEC 31 gradient    **PARTIELLE, ET LE CHIFFRE QUI MANQUAIT EST PUBLIE** [M] le segment de chair
-                                 simule couvre `r` de **0.480 a 0.674**, soit **19.4 %** des 0..1
-                                 que la 31 definit. 80.6 % de l'organe n'a aucune articulation.
+  SPEC 29 aniso+torsion PARTIELLE [R] compliance laterale 1.0294 / 0.9180 pour une cible 0.820.
+  SPEC 30 ancrage     TENUE      [M] mesh livre VERIFIE INCHANGE (aucune cuisson ce cycle, md5
+                                 5cb8a493c43211acf3a04c5b6433df81). Tableau exige par la directive
+                                 du 18/08 08:55, RE-MESURE ce cycle par deux lecteurs
+                                 independants — et publie ici en POIDS, pas seulement en compte :
+                                     os        poids total   part du nuage   sommets majoritaires
+                                     lBoob        17.7785        18.91 %             8
+                                     lBooc *      33.1247        35.24 %            37
+                                     rBoob        19.8010        22.00 %            10
+                                     rBooc *      28.7457        31.94 %            30
+                                 (* = os injecte) barre du contrat 30 % de majoritaires : TENUE
+                                 des deux cotes (43.5 % / 37.5 % du nuage de majoritaires).
+                                 [M] **CHIFFRE NEUF QUI MANQUAIT AU TABLEAU** : l'ANCRE `chest`
+                                 detient **45.57 % / 45.33 %** du poids — c'est elle, et non les
+                                 os de chaine, qui possede la plus grande part de la chair.
+  SPEC 31 gradient    PARTIELLE  [R] le segment de chair simule couvre `r` de 0.480 a 0.674.
+                                 RESERVE NEUVE : la borne 0/1 de ce `r` herite du meme barycentre
+                                 a 3 et 1 sommets que la SPEC 6 (4.3).
   SPEC 32 independance PARTIELLE [R] changer la masse d'un sein deplace l'autre de 32 a 321 %.
-  SPEC 33 restit. 0.06 PARTIELLE [T] GATE `COLLIDE` ROUGE : penetration **0.0952 / 0.0891 m**
-                                 pour un plafond de 0.0005 (etait 0.0983 / 0.0900, **-3.2 % /
-                                 -1.0 %**). [R] Defaut de modele du cycle 38 inchange : un test
-                                 point-contre-volume ne peut pas exprimer l'entrechoc.
+  SPEC 33 restit. 0.06 PARTIELLE [T] GATE `COLLIDE` ROUGE : penetration **0.0952 / 0.0891 m** pour
+                                 un plafond de 0.0005 — IDENTIQUE au cycle 40 (P1). [R] Defaut de
+                                 modele du cycle 38 inchange : un test point-contre-volume ne peut
+                                 pas exprimer l'entrechoc.
   SPEC 34 restit. 0.02 PARTIELLE [R] coefficient TENU, exigence de collision NON TENUE.
-  SPEC 35 vetement    ABSENTE    [R] le vetement ne suit pas le sein (0 sommet majoritaire).
-                                 Aucun bake ce cycle.
+  SPEC 35 vetement    ABSENTE    [R] le vetement ne suit pas le sein. Aucune cuisson ce cycle.
   SPEC 36 secondaire  PARTIELLE  [R] amplitude sous le plafond, zeta/f non re-mesures.
-  SPEC 37 sous-pas + rebase TENUE SUR LES DEUX MOITIES [R] Non re-mesure.
-  SPEC 14-20 regimes  ABSENTE    [R] aucune bande de COM par regime n'est tenue.
+  SPEC 37 sous-pas + rebase TENUE SUR LES DEUX MOITIES [T] lignes PHYSREBASE identiques (P1).
+  SPEC 14-20 regimes  ABSENTE    [R] aucune bande de COM par regime n'est tenue. **A RELIRE au
+                                 metre de population** : leurs bandes vont de 0.10 a 0.40 B0, donc
+                                 le facteur x0.51 les concerne toutes. Non fait ce cycle.
   SPEC 5 (SPEC-keira-physique) — PRIORITE D'ANIMATION
                       TENUE      [T] `chains=2 respected=2`, controle positif 0/0.
 
 BREAST-PENETRATION : **0.0952 m (chestL) et 0.0891 m (chestR)**, plafond 0.0005 m — NON TENU,
-    GATE `COLLIDE` TOUJOURS ROUGE, en baisse de 3.2 % / 1.0 %.
-SIDE-CROSSING : **7 franchissements** (etait 8).
-MOUVEMENT : `tipvar` 0.1891 (chestL, `assistant-firecanyon-idle-b`, jerk) et 0.1939 (chestR,
-    `assistant-lavatube-start-idle`, accel) — au-dessus des deux valeurs du cycle 38.
+    GATE `COLLIDE` TOUJOURS ROUGE, identique au cycle 40.
+SIDE-CROSSING: **7 franchissements, et je les signe chaine par chaine** — `chestR` en porte
+    **7** (`ROOM-SIDE: chain=chestR inside_frames=7`), `chestL` **0**. Un lien de `chestR` finit
+    donc du MAUVAIS COTE d'un volume sur 7 frames de la course. Compte IDENTIQUE au cycle 40 : ce
+    cycle ne l'a ni corrige ni aggrave, et il reste ouvert. Le compteur est prouve vivant par la
+    course elle-meme (`ROOM-SIDE-CONTROL: chain=chestL armed=1 disarmed=0`).
+MOUVEMENT : `tipvar` **0.1891 / 0.1939** — identique au cycle 40 au dix-millieme (P1). Aucun
+    point de mouvement n'a ete gagne ni perdu ce cycle.
 
 ================================================================================================
 ETAT DU VALIDATEUR
 ================================================================================================
 Il s'arrete sur `OPEN-DEFECTS`, qui compte une seule ligne : `OPEN breast-spec-incomplete`. Cette
 gate ne se ferme **que sur la parole de l'owner**. Le seul geste qui la ferait passer serait de
-retirer cette ligne moi-meme, c'est-a-dire le faux vert que la regle 1 interdit. Je ne le fais
-pas. C'est une porte humaine et elle est a sa place.
+retirer cette ligne moi-meme, c'est-a-dire le faux vert que la regle 1 interdit. Je ne le fais pas.
+
+**ET J'AI BALAYE LA SUITE SUR UNE COPIE**, parce que le registre porte le piege « une gate placee
+apres une gate qui echoue toujours n'est jamais evaluee » et que les cycles precedents se sont
+arretes a la premiere ligne. Sortie complete : `C41E3-gate-sweep.txt`.
+
+**LE BALAYAGE A TROUVE UNE GATE QUI ECHOUAIT SANS QUE PERSONNE LE SACHE.** `SIDE-CONTROL` exige
+que tout franchissement mesure soit DECLARE nommement dans le rapport, chaine par chaine. Il y en
+avait **7** et aucun rapport ne les declarait — la gate etait rouge depuis qu'elle a ete durcie,
+et `OPEN-DEFECTS` la masquait. Je l'ai fermee de la seule facon honnete : en signant le defaut
+(`chestR` 7 franchissements, `chestL` 0), pas en le retirant.
+
+ETAT COMPLET DES GATES APRES CORRECTION — deux echouent, et deux seulement :
+    SCOPE · TUNING · MOVE · ROOM · SIDE-CONTROL · FLOOR-WEAK · FLOOR · DISCRIMINANT   PASS
+    **COLLIDE**       ROUGE — penetration 0.0952 m (plafond 0.0005), IDENTIQUE au cycle 40
+    **OPEN-DEFECTS**  porte HUMAINE — elle ne se ferme que sur la parole de l'owner
 
 ================================================================================================
 CE QUE JE N'AI PAS FAIT, ET POURQUOI — AUCUN DE-SCOPE SILENCIEUX
 ================================================================================================
-  * **Je n'ai PAS refait la geometrie**, alors que l'etape 3 prouve que c'est la seule voie qui
-    tienne les deux lignes de sa SPEC 22 ensemble. L'operation est identifiee et chiffree :
-    glisser `lBoob` vers la chair pour que le segment simule couvre `r` de 0 a 1 (facteur x5.23 /
-    x5.32). Elle exige un rig + une cuisson de mesh, et elle fait basculer le mode de retarget
-    (marge mesuree au cycle 39 : 7.7 %, bascule declaree par `--expect-mode-change`). Je ne l'ai
-    pas lancee A L'AVEUGLE en fin de cycle : elle ecrase des artefacts irreproductibles, et le
-    banc bit-exact qui predirait son effet sur la SPEC 30 (`probe_c24_distal_ownership.py`) ne
-    balaye aujourd'hui que les parametres de repesage, pas les positions de noeud. **C'est le
-    chantier du cycle 41, avec sa mesure d'avance.**
-  * **Je n'ai PAS corrige l'artefact de rotation** decouvert en P3 (28-32 % de la demande radiale
-    du segment de chair). Il est mesure, publie, non corrige.
-  * **Je n'ai PAS touche a une gate du validateur** ni a la liste des defauts de l'owner.
-  * **Je n'ai PAS regenere `physics_chains.txt`** : md5 verifie identique.
+  * **Je n'ai RIEN corrige a la physique.** Ce cycle ne change pas un parametre, pas une donnee,
+    pas un mecanisme. Le mouvement est bit-identique. Le « pudding » de l'owner reste ouvert.
+  * **Je n'ai pas cuit le placement** `chestL r0=0.460 r1=0.825` / `chestR r0=0.420 r1=0.800`
+    identifie au cycle 40 (x1.8 sur l'elongation livree). Il exige une cuisson, une bascule
+    declaree du mode de retarget, et il ecrase des artefacts irreproductibles ; et sa justification
+    reposait sur le denominateur que 4.3 vient de fragiliser. **A re-chiffrer avant de le cuire.**
+  * **Je n'ai pas corrige l'artefact de rotation** du cycle 40 (28-32 % de la demande radiale du
+    segment de chair). Mesure, publie, non corrige.
+  * **Je n'ai pas relu les SPEC 10-13 ni 14-20 au metre de population**, alors que le facteur
+    x0.51 les concerne toutes. C'est le premier chantier du cycle 42 et il ne coute aucune course.
+  * **Je n'ai touche a AUCUNE gate** ni a la liste des defauts de l'owner. La gate `DISCRIMINANT`
+    ne couvre que `tipvar` : je le rapporte, je ne l'etends pas.
+  * **Je n'ai pas change `B0`.**
 
 ================================================================================================
 CE QUE L'OWNER DOIT REGARDER SUR CE BUILD
 ================================================================================================
-  1. **Sa poitrine se deforme-t-elle MOINS qu'avant ?** C'est le seul changement attendu a l'oeil :
-     l'etirement radial de la chair passe d'environ 30 % a 5.5 % de la taille de l'organe. Le
-     MOUVEMENT, lui, est mesure inchange (tipvar +0.3 % / +3.4 %).
-  2. Si elle bougeait bien et se deforme maintenant trop peu, **c'est le theoreme de l'etape 3 qui
-     parle** et la reponse est de rallonger le segment simule, pas de relacher la borne.
-  3. Rien d'autre n'a change : donnee identique au bit pres, frequences identiques, animations
-     identiques.
-
-================================================================================================
-ETAPE 7 (AJOUTEE APRES LE PREMIER RAPPORT) — J'AI CONSTRUIT LE BANC QUE J'AVAIS DECLARE MANQUANT,
-ET IL REFUTE LE REMEDE QUE JE VENAIS D'ANNONCER POUR LE CYCLE 41.
-================================================================================================
-Le rapport ci-dessus se termine par : « le chantier du cycle 41 est de glisser `lBoob` vers la
-chair pour que le segment couvre `r` de 0 a 1 ». **Avant de cuire, j'ai bati le banc qui predit
-l'effet d'un placement sur la barre de sa SPEC 30. Il dit que ce chantier, tel que je l'ai
-annonce, est IMPOSSIBLE — et il le dit avant qu'une seule cuisson ait ete depensee.**
-
-`.autoport/c41_place_bench.py` · sortie complete : `C41E1-placement-bench.txt`
-Entree : `/tmp/c24/b-derived/prepped.glb` — la sortie de `prep`, c'est-a-dire **l'entree exacte
-que la cuisson passe au repesage**, avant `RESKIN`.
-
-7.1 CE QUE LE BANC PROUVE PAR CONSTRUCTION, ET QUI DISPENSE DE CUIRE
-=================================================================================================
-`anchor30` (`physics_c7_reskin.py:427-470`) pose l'ancrage a `root*(1-s)^p`, ou `s` est calcule
-avec `axis=flesh` : direction = celle de la chaine, origine et echelle = les EXTREMES du nuage.
-**Glisser un noeud LE LONG de cet axe ne change ni la direction ni le nuage** — l'origine se
-simplifie dans la normalisation. Donc `s`, `p`, l'ancrage, **les CINQ BANDES de sa SPEC 30 et
-`StrongRootFraction` sont INVARIANTS** sous l'operation. Seule bouge `tk`, la position des joints
-sur l'axe, donc seule bouge la REPARTITION entre les deux maillons.
-Et le lissage sur aretes ne peut pas casser la barre : `_distal_ok` est sa condition d'ARRET
-(`:555-568`), donc la barre tient a la sortie si et seulement si elle tient a l'entree.
-
-VALIDATION DU BANC (c'est une validation, pas un resultat) : sur le placement LIVRE il retrouve
-les longueurs de segment au chiffre pres — **140.4 u et 144.2 u**, contre `PHYSBONE l=1
-len=140.4225 / 144.2315` — et la part distale a **42.1 %** (mesh livre : 43.5 %) et **38.0 %**
-(mesh livre : 37.5 %). **Reserve honnete : ecart 1.4 et 0.5 point**, parce que le banc ne simule
-pas les iterations de lissage et que le domaine `ws>0.05` differe legerement entre l'entree et la
-sortie du repesage. Il est donc bon a ~1.5 point, pas bit-exact — et je ne l'utilise que pour des
-verdicts qui gardent cette marge.
-
-7.2 LE MUR, ET IL VIENT DE SA SPEC 30 ELLE-MEME
-=================================================================================================
-`Aw = (1 - anc) * A` : un maillon n'est majoritaire sur un sommet que si la CHAINE y detient plus
-de 0.5. Or `anc = 0.95*(1-s)^1.05` passe sous 0.5 seulement a **s ~ 0.455**.
-
-    **AUCUN maillon de chaine ne peut posseder un seul sommet en dessous de s ~ 0.455.**
-    C'est une consequence directe du profil d'ancrage que sa SPEC 30 impose, pas un choix.
-
-Recoupe sur les bandes publiees : `rear` (0.125-0.375) ancrage **0.675** -> la chaine y detient
-0.325 ; `mid` (0.375-0.625) ancrage **0.453** -> la chaine y detient 0.547. La bascule est bien
-dans la bande `mid`. Deux instruments, meme reponse.
-
-Consequence : pousser `lBoob` vers `r = 0` rend le maillon PROXIMAL **inerte** — 0 sommet
-majoritaire — c'est-a-dire exactement le mode d'echec que la directive du 2026-08-18 08:55
-interdit, simplement transfere de l'os injecte a l'autre. **J'allais le cuire.**
-
-7.3 LA FRONTIERE ADMISSIBLE, BALAYEE (criteres du CODE DE PRODUCTION : `mj[0] > 0` ET
-    `mj[1] > 0` ET part distale >= 0.30)
-=================================================================================================
-    chaine   placement           segment   couverture   part distale   elongation d'ORGANE livree
-    chestL   r0=0.480 r1=0.674   140.4 u     19.5 %        42.1 %        4.8 %  SOUS le plancher 5 %  <- LIVRE
-    chestL   r0=0.480 r1=0.825   248.8 u     34.5 %        30.3 %        8.5 %  courante
-    chestL   **r0=0.460 r1=0.825**  263.2 u  **36.5 %**    **30.3 %**   **9.0 %**  courante  <- LE MAXIMUM
-    chestR   r0=0.480 r1=0.680   144.2 u     20.0 %        38.0 %        4.7 %  SOUS le plancher 5 %  <- LIVRE
-    chestR   **r0=0.420 r1=0.800**  274.0 u  **38.0 %**    **32.4 %**   **8.9 %**  courante  <- LE MAXIMUM
-
-    (« elongation d'organe livree » = `min(demande mesuree, 0.25 * segment) / organe`, donc ce que
-     la borne du cycle 40 rendrait sur ce placement. La deformation LOCALE reste a 25.0 % partout :
-     la demande reste au-dessus de la borne dans tous les cas.)
-
-7.4 CE QUE CELA CHANGE AU THEOREME DU CYCLE 40
-=================================================================================================
-Le theoreme de l'etape 3 disait : « il faudrait un segment de 734 u ». Le banc ajoute la contrainte
-qui manquait : **le segment ne peut pas depasser ~37-38 % de l'organe** sans rendre un maillon
-inerte ou faire tomber la barre de la 30. Donc, avec DEUX joints de chaine et le profil d'ancrage
-de sa SPEC 30 :
-
-    le mieux atteignable pour l'elongation d'organe est **8.5-9.0 %**, contre 4.7-4.8 % aujourd'hui.
-    C'est la bande « courante 5-15 % » de sa SPEC 22 — jamais « large » (15-21 %) ni
-    « exceptionnelle » (21-25 %).
-
-**Et ajouter des joints n'aide pas, c'est arithmetique** : la borne porte sur le maillon de POINTE
-(`0.25 * bl_pointe`) ; decouper la meme fenetre en plus de maillons RACCOURCIT la pointe et
-diminue donc ce qui est livre. Le seul levier restant serait l'ancrage lui-meme (`root`, que sa
-SPEC 30 borne a 0.90-1.00), et il deplacerait le seuil s~0.455 de tres peu.
-
-**CONCLUSION, ET ELLE EST INCONFORTABLE : sur ce mesh, sa SPEC 22 (elongation de tissu
-21-25 % a l'organe) et sa SPEC 30 (profil d'ancrage + aucun maillon inerte) ne sont pas
-simultanement satisfiables par un modele de deformation porte par la CHAINE.** Le gain disponible
-est reel (x1.8 sur l'elongation livree, et il fait passer le plancher de 5 %) mais il est borne a
-la bande basse.
-
-7.5 CE QUE JE PROPOSE, ET CE QUE JE NE FAIS PAS SANS SON ACCORD
-=================================================================================================
-  * **Ce qui est prêt et sûr** : le placement `chestL r0=0.460 r1=0.825` / `chestR r0=0.420
-    r1=0.800`, qui multiplie par ~1.8 l'elongation livree et sort du sous-plancher. Il exige une
-    cuisson et une bascule declaree du mode de retarget. **Je ne l'ai pas cuit** : le gain reste
-    dans la bande basse, la cuisson ecrase des artefacts irreproductibles, et c'est un arbitrage
-    de QUALITE — donc le sien.
-  * **Ce qui demanderait une decision de fond** : porter la deformation par le TENSEUR plutot que
-    par la chaine (il est deja anatomiquement aligne — cycle 26), ce qui affranchirait la 22 du
-    profil d'ancrage de la 30. C'est un changement de modele, pas un reglage.
-  * **Ce que je n'ai pas fait** : aucune cuisson, aucun changement de rig, aucune donnee touchee.
-    L'arbre est identique a celui de l'etape 6.
+  1. **RIEN N'A CHANGE A L'ECRAN, ET C'EST VERIFIE, PAS SUPPOSE** : les 4300 lignes de mesure de
+     la course sont identiques au bit pres a celles du build precedent. Si sa poitrine lui semble
+     differente de ce qu'il a vu au cycle 40, c'est que quelque chose m'echappe et il faut me le
+     dire — la mesure dit que c'est impossible.
+  2. Son verdict du 18/08 (« ses seins c'est du pudding un peu quand meme ») reste **entierement
+     ouvert**. Ce cycle a corrige un METRE, pas un mouvement.
+  3. Ce qu'il change pour la suite : l'excursion de sa poitrine etait declaree 75 % au-dessus du
+     plafond de sa spec ; mesuree comme sa spec la definit, elle est DANS la bande en moyenne et
+     hors bande sur 16 % / 11 % des transitoires. Le travail se deplace donc de « reduire
+     l'excursion » vers **la FORME de la reponse** — c'est ce qu'il decrit depuis le debut quand
+     il dit « pudding » : pas trop de deplacement, un deplacement qui ne ressemble a rien.
