@@ -224,19 +224,21 @@ vaut entre la moitie et les deux tiers de ce qui a dirige quarante cycles.
 
 4.2 CE QUE CE CYCLE NE FERME PAS, ET IL FAUT LE DIRE AUSSI FORT QUE LE RESTE
 =================================================================================================
-  * **La mesure reste NON DISCRIMINANTE.** Le COM de population par pilotage :
+  * **La mesure reste NON DISCRIMINANTE — MAIS J'AI CORRIGE CE QUE J'EN CONCLUAIS (etape 5).**
+    Le COM de population par pilotage :
         chestL  updown 0.3249 · leftright 0.3640 · accel 0.3615 · jerk 0.3803 · tilt 0.3768
                 BASE (AUCUN pilotage) **0.3267** — ecart entre pilotages **14.6 %**
         chestR  updown 0.3088 · leftright 0.3462 · accel 0.3586 · jerk 0.3620 · tilt 0.3752
                 BASE (AUCUN pilotage) **0.3096** — ecart **17.7 %**
-    Le seuil du contrat est 25 %. Les stimuli vont de `mag=11.2` a `mag=434` (facteur **39**) et
-    la sortie varie de 15 %. La sous-fenetre SANS AUCUN PILOTAGE (`physroom-hold` : vitesse nulle,
-    position epinglee, quaternion identite — seule l'animation joue) rend **86 % / 82 %** du
-    maximum. **L'excursion est une reponse a l'ANIMATION, pas au pilotage de la salle**, et toute
-    ablation balayee sur les pilotages attribuait donc dans un domaine que le pilotage ne bouge
-    presque pas. Le chiffre de la ligne de base etait deja au tableau (`keira-room-table.txt:699`
-    et `:705`) depuis plusieurs cycles ; **il n'en avait jamais ete tire de conclusion, et c'est
-    ma faute, pas celle de l'instrument.**
+    Le seuil du contrat est 25 %. La sous-fenetre SANS AUCUN PILOTAGE (`physroom-hold` : vitesse
+    nulle, position epinglee, quaternion identite — seule l'animation joue) rend **86 % / 82 %**
+    du maximum. Le chiffre de la ligne de base etait deja au tableau (`keira-room-table.txt:699`
+    et `:705`) depuis plusieurs cycles ; il n'en avait jamais ete tire de conclusion.
+    **CE QUE J'EN AI CONCLU D'ABORD ETAIT TROP FORT, ET L'ETAPE 5 LE CORRIGE** : j'ai ecrit
+    « l'excursion est une reponse a l'ANIMATION, pas au pilotage ». C'est vrai du MAXIMUM et faux
+    de la MOYENNE, qui repond **x3.8**. Le pilotage ne fait pas aller plus loin, il fait passer
+    plus de temps a la butee. Ce qui SURVIT : toute ablation balayee sur les pilotages et jugee
+    sur un MAXIMUM attribue dans un domaine que le pilotage ne bouge presque pas.
   * **La gate `DISCRIMINANT` du validateur ne surveille que `tipvar`** (elle lit `row … tipvar=`).
     `comex` — la grandeur qui a dirige quarante cycles — n'y est pas soumise, et elle echouerait.
     Je le rapporte et je ne touche a aucune gate (regle 5) : c'est au superviseur de trancher.
@@ -266,6 +268,67 @@ precedents, et parce que changer un denominateur dans le meme cycle qu'un numera
 resultat ininterpretable.
 
 ================================================================================================
+ETAPE 5 — LE PLAFOND EST NOMME, ET IL EST ATTEINT SANS AUCUN PILOTAGE. C'EST LA LECTURE
+MECANIQUE DE « PUDDING », ET ELLE NE COUTE AUCUNE COURSE.
+================================================================================================
+Sortie complete : `C41E5-saturation-ceiling.txt`. Tout est lu sur la trace livree et sur le code.
+
+5.1 LE STIMULUS ARRIVE-T-IL ? OUI — et cela refute l'explication facile de mon propre chiffre.
+J'ai publie « 39x de stimulus pour 15 % de sortie ». On pouvait repondre « ton 39x est noye par
+l'animation et n'atteint jamais l'organe ». `PHYSACC acc=` publie le stimulus REELLEMENT RECU :
+**17.15 sans pilotage -> 334.21 sur `jerk`, soit x19.5 delivre, 94.8 % d'ecart entre pilotages.**
+Le pilotage passe. L'explication est refutee par la mesure.
+
+5.2 CE QUE J'AVAIS MAL DIT — ET C'EST LE MEME PIEGE DE STATISTIQUE, LE MEME JOUR.
+Angle propre du maillon 0 (`PHYSGRAD ang`, degres) contre le stimulus recu :
+
+    pilotage      recu     ang MOYEN     ang MAX
+    BASE(aucun)   17.15     4.0503       13.8486
+    updown        23.69    12.1939       15.9271
+    leftright     56.07    15.2084       16.0623
+    accel         92.61    14.9938     **16.7347**
+    jerk         334.21    14.0462       16.5489
+    ecart du MAXIMUM  **17.2 %** (« sature »)  ·  ecart de la MOYENNE  **73.4 %** (« discrimine »)
+
+**La meme trace dit les deux et ce n'est pas une contradiction** : le maximum est colle a un
+plafond, la moyenne repond **x3.8**. Le pilotage ne fait pas aller PLUS LOIN, il fait passer PLUS
+DE TEMPS a la butee. `comex` etant un MAXIMUM, il ne pouvait voir que la premiere moitie — le
+meme piege de statistique que l'etape 1 vient de retirer, et je l'ai refait dans le meme cycle.
+
+5.3 LE PLAFOND, VERIFIE DEUX FOIS : PAR L'ARITHMETIQUE ET PAR LE CODE.
+Le maillon 0 tourne autour de son ancre a longueur invariante (`bl` = 1040.5 u), donc son ecart a
+la cible vaut `2*bl*sin(theta/2)`. Les deux bornes d'apex de sa SPEC 22 sur CE levier :
+
+    « normal <= 42 % B0 »        0.42 x 602 = 252.8 u  ->  **13.29 deg**
+    « exceptional <= 50 % B0 »   0.50 x 602 = 301.0 u  ->  **16.63 deg**
+    MESURE : maximum du maillon 0 de **13.85 deg** (aucun pilotage) a **16.73 deg** (accel)
+
+Les deux bornes de sa spec encadrent exactement la plage mesuree, et le haut tombe sur la borne
+dure a **0.6 %** pres. Le code le confirme : `jak-hd-physics.gc:2762-2763` et `:3057-3058` posent
+`kn = 0.42*b0` et `cp = 0.08*b0`, donc un plafond dur a **0.50 B0**, applique a `*phys-px*` —
+le JOINT du maillon.
+
+5.4 LE RESULTAT.
+**L'ORGANE ATTEINT LE GENOU DE SA PROPRE SPEC SUR L'ANIMATION D'AUTEUR SEULE** : 13.85 deg sans
+aucun pilotage contre un genou a 13.29 deg. Il vit DEJA dans la zone de saturation quand rien ne
+le pousse — a partir de la, un stimulus 19.5 fois plus fort ne peut plus produire qu'un pic 1.2
+fois plus grand, parce que le pic n'est plus une reponse mais la valeur de la borne.
+
+C'est mot pour mot ce que l'owner decrit depuis le 2026-08-13 : « un pudding sur lequel on tape
+tres fort AU MOINDRE MOUVEMENT ». Un petit mouvement donne deja la reponse maximale, parce que la
+reponse maximale est une CONSTANTE. Et cela retourne la question de travail : ce n'est pas
+« l'excursion est trop grande » (elle est a cheval sur le plafond), c'est **« le limiteur, et non
+le ressort, donne sa forme au mouvement »** — tant que l'organe vit contre sa butee, ni §24
+(raideur), ni §25 (amortissement), ni §26 (rebond) ne sont lisibles sur le pic.
+
+5.5 CE QUE CELA N'ETABLIT PAS, ET QUE JE NE CONCLURAI PAS SANS L'AVOIR MESURE.
+**POURQUOI** l'animation seule suffit a atteindre le genou reste OUVERT. Deux candidats non
+departages : le gain de pilotage `couple=1.85` applique a l'acceleration de la pose animee, ou une
+raideur trop faible pour la masse (§24/§28). Les departager demande une ABLATION, donc une course :
+c'est le cycle 42, avec sa prediction gravee d'avance. Et **si** baisser le plafond ou monter la
+raideur ameliore ce qu'il voit est un arbitrage de QUALITE, donc le sien, pas le mien.
+
+================================================================================================
 TABLEAU DE CONFORMITE — chaque section IMPLEMENTEE / MESUREE / ECART
 [T] mesure a l'execution ce cycle · [M] mesuree sur le mesh ou la donnee livree ce cycle
 [R] reportee d'un cycle precedent, NON re-mesuree — et dite comme telle
@@ -286,7 +349,12 @@ Aucune section « non applicable » (interdit depuis le 14/08 11:50).
   SPEC 12 lateral     PARTIELLE  [R] pole MEDIAL sous bande. Non re-mesure.
   SPEC 13 continuite  PARTIELLE  [T] le canal radial discrimine (29.7 / 36.3 %). **Le COM, lui, NE
                                  DISCRIMINE PAS : 14.6 / 17.7 % pour un seuil de 25 %** (4.2).
-  SPEC 21 tanh        TENUE      [R] saturation de deplacement du cycle 34. Non re-mesure.
+  SPEC 21 tanh        TENUE, ET C'EST LE PROBLEME [T] la saturation de deplacement est bien en
+                                 place (`kn = 0.42*b0`, `cp = 0.08*b0`, plafond dur 0.50 B0,
+                                 :2762-2763 et :3057-3058) — mais elle MORD SUR L'ANIMATION SEULE :
+                                 le maillon 0 atteint **13.85 deg sans aucun pilotage** pour un
+                                 genou a **13.29 deg**. La borne est respectee ; c'est elle, et non
+                                 le ressort, qui donne sa forme au pic (etape 5).
   SPEC 22 « LOCAL TISSUE ELONGATION »  TENUE [R] deformation locale livree 23.6 % / 23.3 % pour un
                                  clamp de 25 % (cycle 40). RESERVE inchangee : l'etat interne
                                  demande toujours 154.6 % / 151.1 %, seule la valeur LIVREE est
@@ -411,7 +479,12 @@ CE QUE L'OWNER DOIT REGARDER SUR CE BUILD
      dire — la mesure dit que c'est impossible.
   2. Son verdict du 18/08 (« ses seins c'est du pudding un peu quand meme ») reste **entierement
      ouvert**. Ce cycle a corrige un METRE, pas un mouvement.
-  3. Ce qu'il change pour la suite : l'excursion de sa poitrine etait declaree **75 % au-dessus**
+  3. **Ce que la mesure dit de son « pudding », et c'est neuf** : sa poitrine atteint le plafond de
+     sa PROPRE spec sur l'animation d'auteur seule, sans qu'on la pousse. A partir de la, un
+     stimulus **19.5 fois plus fort** ne produit qu'un pic **1.2 fois** plus grand. C'est
+     exactement « on tape tres fort au moindre mouvement » : la reponse maximale est une
+     constante. Ce n'est pas un exces d'amplitude, c'est l'absence de proportion.
+  4. Ce qu'il change pour la suite : l'excursion de sa poitrine etait declaree **75 % au-dessus**
      du plafond de sa spec ; mesuree comme sa spec la definit, elle est **a cheval sur le plafond**
      (0.343 a 0.429 B0 pour un plafond de 0.400, selon la frontiere du nuage). Le travail se
      deplace donc de « reduire l'excursion » vers **la FORME de la reponse** — c'est ce qu'il
