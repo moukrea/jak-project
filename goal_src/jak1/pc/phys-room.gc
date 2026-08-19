@@ -237,7 +237,7 @@
 (defconstant PHYSROOM-PH-CONEON 21)
 ;; CYCLE 37 ETAPE 2 — L'ABLATION DES SPHERES PROXIMALES, deux jambes a exposition egale.
 (defconstant PHYSROOM-PH-PROXOFF 29)   ;; spheres proximales EN PLACE  — la reference livree
-(defconstant PHYSROOM-PH-PROXON 31)    ;; spheres proximales RETIREES  — le travail doit BAISSER
+(defconstant PHYSROOM-PH-PROXON 30)    ;; spheres proximales RETIREES  — le travail doit BAISSER
 ;; SPEC 24/25/26/27 — les trois impulsions ISOLEES, une par axe, chacune suivie de son ring-down
 ;; libre. Numeros pris dans les trous laisses libres sous PHYSROOM-PH-REPORT (18, 19, 22) : toute
 ;; phase de TRAVAIL doit rester INFERIEURE a 30, cf. la note de PHYSROOM-PH-REPORT.
@@ -261,8 +261,26 @@
 ;; pour savoir si la course est encore en cours (le balayage d'acteurs etrangers en depend), donc
 ;; toute phase de TRAVAIL doit avoir un numero INFERIEUR. Les ajouter au-dessus de 22 sans deplacer
 ;; REPORT les aurait rendues silencieusement inertes de ce point de vue.
-(defconstant PHYSROOM-PH-REPORT 30)
-(defconstant PHYSROOM-PH-DONE 31)
+;;
+;; 2026-08-19, CYCLE 38 — CETTE REGLE A ETE ENFREINTE PAR LA LIGNE QUI LA SUIT DE 25 LIGNES, ET
+;; PENDANT DEUX CYCLES. `PHYSROOM-PH-PROXON` a ete pose a 31, c'est-a-dire (a) AU-DESSUS de REPORT
+;; et (b) sur le MEME numero que DONE. Trois consequences, toutes verifiees dans le code :
+;;   1. `physroom-tick:1530` arme le balayage d'acteurs etrangers par `(< phase REPORT)`. A 31 il
+;;      est DESARME. La jambe ARMEE de l'ablation du cycle 37 tournait donc SANS ce balayage
+;;      pendant que la jambe DESARMEE (phase 29) l'avait : « deux jambes a exposition egale »
+;;      etait FAUX EN DROIT. Sur la course C37E2 l'effet mesure est nul (`PHYSNOPLAY viol=0
+;;      actors=0 killed=0`) — la mesure n'est pas corrompue, l'affirmation l'etait.
+;;   2. Il n'existe AUCUNE branche pour DONE : le `cond` teste PROXON (:2935) AVANT REPORT (:2993)
+;;      et se termine par `(else (physroom-hold))`. Une fois REPORT execute et `phase` mis a DONE,
+;;      le tick suivant retombait donc DANS LA JAMBE ARMEE au lieu de tenir la pose.
+;;   3. Le chemin d'ECHEC `PHYSFAIL reason=skeleton-not-posed-bones-at-origin` (:1703) met lui
+;;      aussi `phase` a DONE : une course en echec ENTRAIT dans la jambe armee au lieu de s'arreter.
+;; REPORT et DONE montent donc a 40/41 et PROXON redescend a 30. Le seul numero libre sous 30
+;; n'existait pas — 0 a 29 sont tous pris — et c'est exactement ce qui avait pousse a prendre 31.
+;; Deplacer REPORT est la reponse que ce commentaire prescrivait deja en 2026-08-12 ; elle n'a pas
+;; ete appliquee la deuxieme fois.
+(defconstant PHYSROOM-PH-REPORT 40)
+(defconstant PHYSROOM-PH-DONE 41)
 
 (deftype phys-subject (process-drawable)
   ((phase   int32)
@@ -3172,6 +3190,19 @@
 ;; spawner le sujet.
 ;; ------------------------------------------------------------------------------------------------
 (defun phys-room-start ()
+  ;; NATURE / REPERE : un CONTROLE D'INVARIANT sur les numeros de phase, pas une mesure physique.
+  ;; Il n'a ni repere spatial ni ligne de base — il rend 1 ou 0, et 0 invalide la course entiere.
+  ;; POURQUOI IL EXISTE : `PHYSROOM-PH-PROXON` a vecu deux cycles a 31, c'est-a-dire au-dessus de
+  ;; REPORT et sur le meme numero que DONE (cf. la note au-dessus de PHYSROOM-PH-REPORT). Le
+  ;; balayage d'acteurs etrangers etait donc DESARME sur une jambe d'ablation et arme sur l'autre,
+  ;; et rien dans aucune trace ne le disait. Cette ligne le dit, a chaque course, avant tout le
+  ;; reste. Ce n'est pas une prevention structurelle — le seul vrai remede serait de numeroter les
+  ;; phases par construction — mais c'est la fin du silence, et elle coute une ligne.
+  (format 0 "PHYSROOM-PHASEGUARD maxwork=~D report=~D done=~D ok=~D~%"
+          PHYSROOM-PH-PROXON PHYSROOM-PH-REPORT PHYSROOM-PH-DONE
+          (if (and (< PHYSROOM-PH-PROXON PHYSROOM-PH-REPORT)
+                   (< PHYSROOM-PH-REPORT PHYSROOM-PH-DONE))
+              1 0))
   (format 0 "PHYSROOM-START target-before=~A~%" *target*)
   (stop 'debug)                     ;; logic-target.gc:1268 — kill-by-name 'target + *target* = #f
   (set! *spawn-actors* #f)          ;; entity.gc:1029 — plus aucune entite ne nait

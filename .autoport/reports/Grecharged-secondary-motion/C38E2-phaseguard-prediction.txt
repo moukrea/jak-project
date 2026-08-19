@@ -1,0 +1,75 @@
+================================================================================================
+CYCLE 38, ETAPE 2 — PREDICTIONS GRAVEES AVANT LA COMPILATION
+LA REPARATION DE LA COLLISION DE NUMEROS DE PHASE (PROXON = DONE = 31)
+================================================================================================
+DIRECTIVES vb249967379
+Phase Grecharged-secondary-motion, branche physics-keira-clean, KEIRA / POITRINE SEULE.
+
+------------------------------------------------------------------------------------------------
+LE DEFAUT, VERIFIE DANS HEAD AVANT TOUTE EDITION
+------------------------------------------------------------------------------------------------
+`phys-room.gc:240` posait `PHYSROOM-PH-PROXON = 31`. `phys-room.gc:265` posait
+`PHYSROOM-PH-DONE = 31`. Meme numero, deux phases. Et 31 > `PHYSROOM-PH-REPORT = 30`, alors que le
+commentaire du fichier lui-meme, 25 lignes plus bas, ecrit : « toute phase de TRAVAIL doit avoir un
+numero INFERIEUR ».
+
+TROIS CONSEQUENCES, chacune lue dans le code, aucune deduite d'un commentaire :
+  1. `physroom-tick:1530` arme le balayage d'acteurs etrangers par `(< phase PHYSROOM-PH-REPORT)`.
+     A 31 il est DESARME. La jambe ARMEE de l'ablation du cycle 37 tournait donc sans ce balayage
+     pendant que la jambe DESARMEE (phase 29) l'avait. L'affirmation « deux jambes a exposition
+     egale » du cycle 37 etait FAUSSE EN DROIT.
+  2. Le `cond` teste PROXON (:2935) AVANT REPORT (:2993) et finit par `(else (physroom-hold))`.
+     Aucune branche ne porte DONE. Une fois REPORT execute et `phase` mis a DONE, le tick suivant
+     retombait DANS LA JAMBE ARMEE au lieu de tenir la pose.
+  3. Le chemin d'ECHEC `PHYSFAIL reason=skeleton-not-posed-bones-at-origin` (:1703) met lui aussi
+     `phase` a DONE : une course EN ECHEC entrait dans la jambe armee au lieu de s'arreter.
+
+CE QUI A ETE FAIT : `PROXON` 31 -> 30, `REPORT` 30 -> 40, `DONE` 31 -> 41. Verifie ensuite par
+enumeration des 33 constantes : **0 doublon, 0 phase de travail >= REPORT, et 9 numeros libres**
+(31 a 39) — l'absence de numero libre sous 30 est precisement ce qui avait pousse a prendre 31.
+Plus une ligne `PHYSROOM-PHASEGUARD maxwork= report= done= ok=` emise AVANT `PHYSROOM-START`.
+
+------------------------------------------------------------------------------------------------
+LES PREDICTIONS
+------------------------------------------------------------------------------------------------
+H0 — `PHYSROOM-PHASEGUARD ... ok=1` apparait dans la course, AVANT la premiere ligne
+     `PHYSROOM-START`. Si `ok=0`, la course entiere est invalidee et rien d'autre n'est publie.
+
+H1 — La course va au bout : `PHYSEND` present, `ROOM-ANIMS` a 31/31, aucun `PHYSFAIL`.
+
+H2 — **CRITERE PRINCIPAL : LA PHYSIQUE NE CHANGE PAS.** Comparaison contre
+     `keira-room-x86.C37E2-REF.log`, **en MULTI-ENSEMBLE de lignes** (meme lignes, memes
+     multiplicites), jamais par position — et la ligne `PHYSROOM-PHASEGUARD` est exclue des deux
+     cotes. Critere grave : **0 ligne `PHYS` en trop, 0 en moins.**
+     DERIVATION : le seul changement de COMPORTEMENT est que le balayage d'acteurs etrangers est
+     desormais ARME pendant la jambe PROXON. La course de reference publie
+     `PHYSNOPLAY viol=0 actors=0 killed=0` : il n'y avait rien a balayer, donc rien a changer.
+     POURQUOI EN MULTI-ENSEMBLE ET PAS PAR POSITION : une comparaison POSITIONNELLE a produit
+     QUATRE faux diagnostics dans cette session (P0 au cycle 36, S1/S2 puis T0 au cycle 37). Elle
+     compte un decalage comme une regression. Le multi-ensemble est insensible a l'ordre et rend
+     exactement la question posee : « une ligne a-t-elle change de contenu ? »
+
+H3 — `PHYSNOPLAY viol=0 actors=0 killed=0`, identique a la reference.
+
+H4 — `PHYSPROX tag=prox-armed` apparait **exactement une fois** (comme dans la reference). La
+     re-entree dans la jambe armee apres REPORT n'est plus possible, et `DONE` tombe desormais
+     dans `(else (physroom-hold))`.
+
+------------------------------------------------------------------------------------------------
+LA TABLE DE BRANCHES
+------------------------------------------------------------------------------------------------
+  H0 ok=0            -> course invalidee, aucun autre verdict, la reparation est fausse.
+  H1 REFUTEE         -> la reparation casse la machine a etats : elle est ANNULEE, pas rafistolee.
+  H2 REFUTEE         -> le changement de numero a change la PHYSIQUE. Je ne publie AUCUN acquis de
+                        ce cycle avant d'avoir attribue la difference ligne par ligne, et je le dis
+                        comme un cout, pas comme un detail.
+  H2 CONFIRMEE       -> la reparation est INERTE sur la mesure et le defaut est ferme. Elle ne
+                        « ameliore » rien et je ne pretendrai pas le contraire : elle rend vrai un
+                        enonce qui etait faux (deux jambes a exposition egale) et supprime deux
+                        chemins ou la salle repartait dans une jambe de mesure.
+  H4 REFUTEE (>1)    -> la re-entree existe encore, par un chemin que je n'ai pas vu : a chercher
+                        avant toute autre chose.
+
+CE QUE CETTE ETAPE NE FAIT PAS : elle ne renumerote PAS les 33 phases par construction (le seul
+vrai remede structurel), elle ne touche AUCUNE gate (regle 5), aucune donnee, aucun rayon, et
+`jak-hd-physics.gc` reste a 4788 lignes — la marge de la gate CLEAN est intacte.
