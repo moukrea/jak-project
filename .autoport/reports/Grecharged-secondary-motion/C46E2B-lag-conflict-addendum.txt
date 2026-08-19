@@ -1,0 +1,49 @@
+C46E2B — ADDENDUM A C46E2, ECRIT AVANT SON RESULTAT
+DIRECTIVES v3fee554599
+(C46E2 : md5 37b7de938ae2f3cab6e0ec0d7f7963f1, commit 1d641de14a)
+
+JE CORRIGE MA PROPRE PREMISSE PENDANT QUE LA COURSE TOURNE, PLUTOT QU'APRES AVOIR VU LE CHIFFRE.
+
+CE QUE J'AI ECRIT DANS C46E2 : « un maillon non-racine ne peut pas rebrousser la deviation de son
+parent — `d_l . e_{l-1} >= 0` », presente comme la lecture de sa §31.
+
+CE QUE JE N'AVAIS PAS VERIFIE : CE QUE CETTE INEGALITE INTERDIT EN PLUS DU REPLI.
+Si le distal suit son parent RIGIDEMENT, alors `p_l = pose_l + (p_{l-1} - pose_{l-1})` et donc
+`d_l = 0` exactement. S'il RETARDE — c'est-a-dire s'il reste plus pres de sa pose d'auteur pendant
+que son parent part — alors `p_l ~ pose_l`, donc
+
+    d_l  =  p_l - (p_{l-1} + m)  ~  - e_{l-1}        et      d_l . e_{l-1}  ~  - |e_{l-1}|^2  < 0
+
+**LE RETARD EST EXACTEMENT LA CONFIGURATION QUE MA CONTRAINTE INTERDIT.** Ce n'est pas un cas
+limite : c'est la signature meme de l'inertie.
+
+ET SA SPEC LE DEMANDE, EN TOUTES LETTRES, DANS DEUX SECTIONS :
+  §19 : "During a rapid forward bend: the torso rotates first; **breast mass lags behind**; gravity
+        subsequently pulls the breasts toward the new hanging equilibrium; the breasts may
+        overshoot; damping returns them toward equilibrium."
+  §23 : "The solver should then derive local deformation from COM displacement, **angular lag**,
+        root constraints, volume conservation, and local collision pressure."
+Et l'owner lui-meme, dans `SPEC-keira-physique` 1 bis : « **ils ont une masse** -> l'inertie retarde
+la reponse sur un depart brusque : ils restent en arriere puis rattrapent ».
+
+DONC : §31 (« largest displacement in distal tissue ») decrit une FORME D'EQUILIBRE, et §19/§23
+decrivent un TRANSITOIRE. Ma contrainte les confond en appliquant la forme d'equilibre A CHAQUE
+FRAME. C'est le meme echange de denominateur que la ×5,2 du cycle 40, sur un autre couple de
+sections : j'ai pris une exigence de REGIME PERMANENT pour une exigence INSTANTANEE.
+
+CE QUE J'EN FAIS, ET JE NE RETIRE PAS LA COURSE :
+  * La course tourne, elle rendra un chiffre, et ce chiffre est utile QUELLE QUE SOIT sa valeur :
+    il mesure ce que coute l'interdiction du retard. C'est une mesure d'ablation a l'envers.
+  * J'AJOUTE UNE PREDICTION, ET ELLE EST CONTRE L'INTERVENTION :
+    Q10 [CONTRE MOI, ECRITE AVANT LE RESULTAT] `ROOM-RINGDOWN lag01` — le retard racine->pointe —
+        s'effondre vers 0 sur au moins une chaine (il vaut 2 et -4 apres la jambe 1, et valait 0
+        avant elle). Si c'est le cas, la contrainte est **RETIREE**, quel que soit ce qu'elle fait
+        a `meshpen` : acheter de la penetration avec l'impression de masse est exactement le
+        marche que l'owner refuse depuis le 13/08 (« pas d'impression de masse » est SA plainte).
+  * SI Q10 est REFUTEE (le retard survit) ET Q2/Q4 tiennent, la contrainte reste — mais elle devra
+    alors etre RE-DERIVEE comme une contrainte de REGIME et non de frame, et je l'ecrirai.
+
+LA FORME CORRECTE, SI CETTE JAMBE TOMBE, EST DEJA IDENTIFIEE : la monotonie de §31 doit porter sur
+une MOYENNE DE FENETRE (la forme d'equilibre), pas sur l'instant — c'est-a-dire sur la meme echelle
+de temps que `PHYSGRAD amp`, qui est deja une enveloppe de fenetre. Une contrainte de frame ne peut
+pas exprimer une exigence de regime sans supprimer le transitoire qui la precede.
