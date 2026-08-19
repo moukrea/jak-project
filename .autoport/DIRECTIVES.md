@@ -10,6 +10,37 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
+## 2026-08-19 20:00 — L'OWNER TRANCHE : LA SPEC NE BOUGE PAS, C'EST LA GEOMETRIE QUI SUIT
+
+Verbatim : « faut régler tout ça, moi je veux une implem à 100 % de la spec que je t'ai donnée,
+c'est pour des seins réalistes et ça ne sera réaliste que quand t'auras couvert à 100 %. En l'état
+c'est mieux qu'avant quoi qu'il arrive, mais c'est toujours pas ça of course. »
+
+**LA CONTRADICTION DE §22 EST TRANCHEE, ET PAS DANS LE SENS DU MOINDRE EFFORT.** Je lui avais
+présenté deux issues : ajouter des articulations, ou faire bouger une de ses deux lignes. **Il refuse
+la seconde.** Sa spec est la définition du réalisme qu'il vise ; l'amputer, c'est renoncer au but.
+
+**CE QUE ÇA IMPOSE, CHIFFRE :**
+  - Le segment de chair simulé couvre **3,4 cm sur 17,9 cm** d'organe, soit **19 %**. Les 81 %
+    restants n'ont aucune articulation : ils suivent, ils ne participent pas.
+  - Pour tenir §22 (25 % d'élongation d'organe A 25 % de déformation locale) il faut que la chair
+    simulée couvre **la totalité** de la course racine→apex. **Facteur ×5,2.**
+  - Concrètement : la chaîne passe de 2 articulations à ~5-6, chacune repesée (règle du serial 7 :
+    une injection n'existe que si ≥ 30 % des sommets ont le nouvel os pour joint MAJORITAIRE).
+
+**LE RIG SE MODIFIE — il l'a déjà autorisé le 2026-08-17 (« même si ça implique de modifier le
+rig »), et il le confirme ici. Aucune section ne se déclare tenue en rabotant sa cible.**
+
+**ET UN RAPPEL QUE JE ME FAIS A MOI-MEME.** Je lui ai annoncé « un organe de 73 cm » : j'avais
+divisé les unités moteur par 10 au lieu de **4096 (4096 u = 1 m)**. Il a vu l'absurdité tout de
+suite. Toute longueur publiée porte désormais sa valeur brute ET sa conversion explicite — un
+chiffre invraisemblable détruit la confiance dans tous les autres, y compris les justes.
+
+**CE QUI RESTE VRAI ET ACQUIS** (il le dit : « c'est mieux qu'avant quoi qu'il arrive ») :
+élongation locale 23,6 % / 23,3 % sous son plafond de 25 %, débordement au repos de 0,4647 à
+0,2888 B0, limiteur d'angle rentré dans la boucle et rendu idempotent.
+
+
 ## 2026-08-18 08:55 — INJECTER UN OS SANS LE REPESER NE COMPTE PAS. TROISIEME FOIS.
 
 L'owner teste le build `9e1f3f67` et dit « ses seins c'est du pudding un peu quand meme ». **Il a
@@ -624,7 +655,7 @@ jamais un nombre choisi. Les grosses mèches portent encore `stiffness=1.80 damp
 
 ## PÉRIMÈTRE ACTIF (2026-08-11)
 
-SCOPE-SERIAL: 7
+SCOPE-SERIAL: 8
 <!-- Bump ce numéro UNIQUEMENT pour un vrai changement de périmètre : il invalide
      immédiatement la tentative en cours (gate SYNC). Corriger une coquille ou
      reformuler ne doit jamais coûter une tentative. -->

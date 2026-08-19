@@ -363,3 +363,13 @@ simplement plus alimenté, et ma troncature l'avait laissé seul visible. Deuxi�
 qu'une sortie coupée fabrique une conclusion (cf. [[truncated-series]] sur une décroissance).
 Verrou : avant d'alerter sur une absence dans une liste, l'afficher ENTIÈRE (ou trier explicitement
 sur le critère qui décide) — jamais un `head`/`tail` suivi d'un verdict.
+
+GUARD engine-units-are-not-mm .autoport/DIRECTIVES.md 4096 u = 1 m
+**Publier une longueur sans convertir les unités moteur.** Le 2026-08-19 j'ai annoncé à l'owner
+« un segment de 14 cm dans un organe de 73 cm » : j'avais divisé les unités de jeu par 10 au lieu de
+**4096** (4096 u = 1 m). Les vraies valeurs sont **3,4 cm dans 17,9 cm**. Il a vu l'absurdité
+immédiatement — « des seins de 73 cm ? what the fuck » — et il a eu raison de douter du reste.
+Le ratio (19 %) était juste, mais un chiffre invraisemblable détruit la confiance dans tous les
+autres, y compris les corrects. Déjà consigné en mémoire projet, et j'y suis retombé.
+Verrou : toute longueur publiée porte **la valeur brute ET sa conversion** (`734 u = 17,9 cm`), et
+tout chiffre destiné à l'owner passe le test de vraisemblance anatomique avant d'être écrit.
