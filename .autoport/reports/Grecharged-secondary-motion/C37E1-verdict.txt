@@ -1,0 +1,77 @@
+================================================================================================
+VERDICT C37E1 — LA BOUCLE DE CONTRAINTES CONVERGE-T-ELLE ?
+================================================================================================
+trace : .autoport/reports/Grecharged-secondary-motion/keira-room-x86.C37E1-REF.log
+fenetres : PHYSSHAPE7 372 · PHYSSHAPE8 372 · PHYSSHAPE9 372
+structure de la frame : 45 balayages ; groupe de COLLISION SEULE = balayages 34 a 45 (12/45 = 0.267)
+
+-- LA FENETRE DE CHAQUE CHAINE OU `prsr` EST MAXIMAL (l'argmax de `cl`) --------------------
+   chaine   a   d     npf    psum(u)    pmax(u)  lsw   slast(u)  nlast    p1(u)   moy(u)  moy_last(u)
+   chestL   13  1       15     3751.2      645.6    6        0.0      0     31.5    250.1         nan
+   chestR   10  1       17     3754.5      628.7    9        0.0      0     13.6    220.9         nan
+
+-- LES TROIS LECTURES, COTE A COTE. C'EST L'AGREGAT QUI TRANCHE ----------------------------
+   (1) AGREGAT sur les 186 fenetres de chaque chaine — la POPULATION.
+   (2) AGREGAT restreint aux fenetres ou le groupe de collision seule A TOURNE (lsw >= 34).
+   (3) la fenetre la PLUS PROFONDE de chaque chaine (max de psum) — un echantillon, cite pour
+       montrer que l'agregat n'est pas porte par une queue.
+   (4) l'ARGMAX DE `prsr`, que mes criteres designaient litteralement, et qui depuis l'etape 2
+       du cycle 36 pointe une frame de contact FAIBLE (voir le tableau plus haut).
+   chestL   (1) slast/psum 0.2127   nlast/npf 0.2334   sur 186 fenetres
+   chestL   (2) slast/psum 0.2461   moy_groupe/moy_frame 0.9357   sur 95 fenetres
+   chestL   (3) a=30 d=3  npf 142  psum 18488.9  lsw 45  slast 5337.8  nlast 40  slast/psum 0.2887  rapport 1.0249
+   chestL   (4) slast/psum 0.0000   (npf 15, lsw 6 — frame de contact faible)
+   chestR   (1) slast/psum 0.2165   nlast/npf 0.2271   sur 186 fenetres
+   chestR   (2) slast/psum 0.2576   moy_groupe/moy_frame 0.9723   sur 77 fenetres
+   chestR   (3) a=27 d=2  npf 179  psum 30170.6  lsw 45  slast 8544.3  nlast 48  slast/psum 0.2832  rapport 1.0561
+   chestR   (4) slast/psum 0.0000   (npf 17, lsw 9 — frame de contact faible)
+   chestL   distribution de lsw : 186 fenetres, lsw>=34 sur 95 (51.1 %), lsw==45 sur 93, lsw==0 sur 30
+   chestR   distribution de lsw : 186 fenetres, lsw>=34 sur 77 (41.4 %), lsw==45 sur 77, lsw==0 sur 28
+
+S1   LE GROUPE DE COLLISION SEULE FAIT ENCORE UN TRAVAIL REEL
+     CRITERE : slast/psum >= 0.15. REFUTATION DURE : < 0.05. GRAVE : 0.15 a 0.35 (12/45 = 0.267).
+     EVALUE SUR L'AGREGAT DE LA POPULATION, pas sur l'argmax — voir la correction de methode.
+     chestL   agregat total **0.2127** · restreint aux fenetres qui ont tourne **0.2461** · argmax 0.0000
+     chestR   agregat total **0.2165** · restreint aux fenetres qui ont tourne **0.2576** · argmax 0.0000
+     valeur gravee (0.15..0.35) tenue sur l'agregat : chestL oui, chestR oui
+     A L'ARGMAX SEUL le critere serait REFUTE DUREMENT (0.0000) : cette lecture-la porte sur
+     une frame ou seuls 6 et 9 balayages ont pousse, donc ou le groupe 34-45 n'a jamais tourne.
+     -> CONFIRMEE
+
+S2   LES POUSSEES NE DECROISSENT PAS
+     CRITERE : (moy du groupe)/(moy de la frame) >= 0.5. Sous 0.1 = convergence. GRAVE : 0.6 a 1.3.
+     EVALUE sur les fenetres ou le groupe A TOURNE — ailleurs le rapport est 0/0, pas 0.
+     chestL   moy du GROUPE 86.3 u / moy de la FRAME 92.3 u = **0.9357**  (sur 95 fenetres)
+     chestR   moy du GROUPE 99.6 u / moy de la FRAME 102.4 u = **0.9723**  (sur 77 fenetres)
+     valeur gravee (0.6..1.3) tenue : chestL oui, chestR oui
+     Sur la fenetre la plus PROFONDE le rapport vaut 1.0249 et 1.0561 : le groupe de collision
+     seule pousse AUSSI FORT, voire un peu plus fort, que la moyenne de toute la frame.
+     -> CONFIRMEE
+
+S3   UNE PROJECTION SEULE NE RESOUT PAS LA PENETRATION
+     CRITERE : p1 < meshpen (en unites). GRAVE : p1 entre 50 et 450 u.
+     chestL   p1 =     31.5 u a l'argmax ·    149.5 u sur la fenetre la plus profonde · residu apres les 45 balayages    402.6 u
+     chestR   p1 =     13.6 u a l'argmax ·    126.2 u sur la fenetre la plus profonde · residu apres les 45 balayages    368.6 u
+     valeur gravee (50..450 u) : tenue sur la fenetre profonde (149.5 et 126.2), MANQUEE a
+     l'argmax (31.5 et 13.6) — l'argmax est une frame de contact faible.
+     -> CONFIRMEE
+
+S4   LE DOMAINE (aucun critere — engagement de publication)
+     chestL   nlast cumule sur les fenetres = 2625         fenetres avec nlast > 0 : 95/186
+     chestL   nlast a l'argmax = 0        denominateur commun `nfr` par fenetre = 16857
+     chestR   nlast cumule sur les fenetres = 2049         fenetres avec nlast > 0 : 77/186
+     chestR   nlast a l'argmax = 0        denominateur commun `nfr` par fenetre = 16857
+
+S0   L'INSTRUMENT EST-IL INERTE ?
+     35003 lignes `PHYS` hors le marqueur neuf (avant : 35003), 0 differente(s)
+     -> CONFIRMEE
+
+PHYSEND : oui
+
+-- LA TABLE DE BRANCHES GRAVEE, APPLIQUEE ---------------------------------------------------
+   S1 + S2 + S3 tenues -> LA BOUCLE NE CONVERGE PAS, au sens de l'AMPLITUDE et non du seul
+   compteur. Douze balayages de collision PURE continuent d'extraire le lien et il reste
+   0.098 / 0.090 m dans le mesh a la fin. Le chantier est la CONSISTANCE DE L'ENSEMBLE DE
+   VOLUMES, pas le nombre d'iterations — et augmenter les iterations est PROUVE inutile
+   AVANT de l'essayer, ce qui economise le cycle qui l'aurait teste.
+================================================================================================

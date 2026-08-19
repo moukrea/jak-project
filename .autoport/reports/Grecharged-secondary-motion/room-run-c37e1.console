@@ -1,0 +1,65 @@
+staged: 236656 out/jak1/obj/assistant-ag.go 16608 out/jak1/obj/keira-hd-ag.go 
+archive: course precedente -> .autoport/reports/Grecharged-secondary-motion/keira-room-x86.20260819-094403.log
+purge: .autoport/reports/Grecharged-secondary-motion/keira-room-x86.20260819-063612.log
+gk pid=2520326  log=.autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
+PHYSEND vu apres 627s
+---- marqueurs ----
+PHYSROOM-START   2
+PHYSFAIL         0
+0
+PHYSSUBJECT      1
+PHYSANIM         202
+PHYSCHAIN        2
+PHYSROW          310
+PHYSIDLE         4
+PHYSAUTH         6
+PHYSNOPLAY       1
+PHYSCOUNTS       1
+PHYSPC           1
+PHYSEND          1
+PHYS-ROOM        2
+HD-PHYS          12
+HD-COMP          3
+hd-phys          8
+---- premieres lignes utiles ----
+[04:43:621] [debug] [link and exec] jak-hd-physics     0 213593 heap-use 31356384  3150020: 0x1f27300
+[04:43:621] [debug] link finish: jak-hd-physics
+[04:43:659] [info] [hd-phys] toggle push: false lvl 1 -> true lvl 2
+[04:43:659] [info] [hd-phys] PARAMSRC=package path=/home/emeric/code/jak-project/recharged_assets/physics_chains.txt
+[04:43:660] [info] [hd-phys] section [eyescale] is not ours (skipped)
+[04:43:661] [info] [hd-phys] MESHSRC=package path=/home/emeric/code/jak-project/recharged_assets/physics_mesh.txt links-with-samples=4 dropped=0
+[04:43:661] [info] [hd-phys] BSURFSRC=package bsets=92 dropped=0
+[04:43:661] [info] [hd-phys] params loaded: 1 models, 2 chains
+[HD-COMP] asset missing (jak-hd art-group not loadable) — HD unavailable
+[HD-COMP] asset missing (dax-hd art-group not loadable) — HD unavailable
+[04:57:286] [info] [PHYS-ROOM] armed *listener-function* = #x38738a4 spec '1' delay 600
+PHYSROOM-START target-before=#<target target suspended :state target-title :flags  :stack 352/1024 :heap 34832/49152 @ #x1be2b4>
+PHYSAG name=assistant source=resident
+PHYSREST chan=91 restok=42
+PHYSSUBJECT ag=assistant elems=17 bones=97 joints=96 mgeo=assistant-lod0
+PHYSANIM a=0 ag=assistant name=assistant-idle-leaning-right joints=96
+PHYSANIM a=1 ag=assistant name=assistant-idle-transition-right-to-left joints=96
+PHYSANIM a=2 ag=assistant name=assistant-idle-leaning-left joints=96
+PHYSANIM a=3 ag=assistant name=assistant-idle-transition-left-to-right joints=96
+PHYSANIM a=4 ag=assistant name=assistant-idle-wiping-brow joints=96
+PHYSANIM a=5 ag=assistant name=assistant-idle-transition-to-welding joints=96
+PHYSANIM a=6 ag=assistant name=assistant-idle-welding joints=96
+PHYSAG name=assistant-village2 source=loado
+PHYSANIM a=7 ag=assistant-village2 name=assistant-village2-idle-a joints=96
+PHYSANIM a=8 ag=assistant-village2 name=assistant-village2-idle-to-b joints=96
+PHYSANIM a=9 ag=assistant-village2 name=assistant-village2-idle-b joints=96
+PHYSANIM a=10 ag=assistant-village2 name=assistant-village2-idle-to-a joints=96
+PHYSANIM a=11 ag=assistant-village2 name=assistant-village2-idle-after joints=96
+PHYSANIM a=12 ag=assistant-village2 name=assistant-village2-idle-hut-breath joints=96
+PHYSANIM a=13 ag=assistant-village2 name=assistant-village2-idle-hut-look-right joints=96
+PHYSANIM a=14 ag=assistant-village2 name=assistant-village2-idle-hut-start-welding joints=96
+PHYSANIM a=15 ag=assistant-village2 name=assistant-village2-idle-hut-welding joints=96
+PHYSANIM a=16 ag=assistant-village2 name=assistant-village2-idle-hut-stop-welding joints=96
+PHYSAG name=assistant-village3 source=loado
+PHYSANIM a=17 ag=assistant-village3 name=assistant-village3-idle joints=96
+PHYSAG name=assistant-firecanyon source=loado
+PHYSANIM a=18 ag=assistant-firecanyon name=assistant-firecanyon-idle-twist joints=94
+PHYSANIMRIG ag=assistant-firecanyon name=assistant-firecanyon-idle-twist joints=94 porteur=96
+PHYSANIM a=19 ag=assistant-firecanyon name=assistant-firecanyon-idle-down joints=94
+PHYSANIMRIG ag=assistant-firecanyon name=assistant-firecanyon-idle-down joints=94 porteur=96
+OK

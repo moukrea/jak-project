@@ -1147,7 +1147,29 @@
     (format 0 "PHYSSHAPE8 c=~D a=~D d=~D lsw=~f dom=~f~%"
             c (-> self ai) (-> self drive)
             (phys-shape (-> self slot) c 28)
-            (phys-shape (-> self slot) c 29))
+            (phys-shape (-> self slot) c 32))
+    ;; ---- CYCLE 37 ETAPE 1 : LA BOUCLE DE CONTRAINTES CONVERGE-T-ELLE ? ----------------------
+    ;; `lsw = 45/45`, mesure au cycle 36, compte le dernier balayage ou une poussee est NON NULLE.
+    ;; Il ne dit RIEN de son AMPLITUDE — une boucle qui converge proprement peut rendre 45/45 avec
+    ;; une derniere poussee de 0.01 u. J'en avais quand meme conclu « la boucle ne converge pas » en
+    ;; tete du rapport du cycle 36 : c'est un compteur d'evenements lu comme une amplitude, et ces
+    ;; trois grandeurs-ci tranchent.
+    ;;   slast  NATURE une LONGUEUR (u de jeu, 4096 = 1 m) : somme des MODULES des poussees du
+    ;;          GROUPE DE COLLISION SEULE (balayages 34 a 45, appels 12 a 15 — ce groupe n'a AUCUNE
+    ;;          contrainte de longueur pour ramener le lien en arriere). `slast/psum` proche de zero
+    ;;          = la boucle converge ; comparable a 12/45 = 0.267 = elle ne converge pas.
+    ;;   nlast  NATURE un COMPTE d'evenements dans ce meme groupe. C'est le DOMAINE de `slast` :
+    ;;          sans lui, `slast = 0` ne se distingue pas d'un groupe qui n'a pas tourne.
+    ;;   p1     NATURE une LONGUEUR (u) : le module de la PREMIERE poussee de la frame. Elle dit ce
+    ;;          qu'UNE projection accomplit, a comparer a la penetration RESIDUELLE apres les 45.
+    ;; REPERE : le MONDE (la poussee est ecrite en monde, jak-hd-physics.gc:1810-1812).
+    ;; RELEVEES A L'ARGMAX DE `cl`, comme les quatre precedentes — pas en maxima independants.
+    ;; LECTURE HORS DEFAUT : les trois a zero quand rien ne touche.
+    (format 0 "PHYSSHAPE9 c=~D a=~D d=~D slast=~f nlast=~f p1=~f~%"
+            c (-> self ai) (-> self drive)
+            (phys-shape (-> self slot) c 29)
+            (phys-shape (-> self slot) c 30)
+            (phys-shape (-> self slot) c 31))
     ;; §23/§22 — L'ELONGATION DU TISSU PORTEE PAR LE DEGRE DE LIBERTE RADIAL, sur cette fenetre.
     ;; Elle se lit CONTRE SA PROPRE BANDE, qui n'est pas celle de l'apex : « local tissue
     ;; elongation: common 5-15 %, large 15-21 %, exceptional 21-25 %, absolute clamp 25 % ».

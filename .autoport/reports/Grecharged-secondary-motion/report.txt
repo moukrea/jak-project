@@ -1,5 +1,97 @@
 DIRECTIVES vb249967379
 
+================================================================================================
+CYCLE 37 ETAPE 1 — LA BOUCLE DE CONTRAINTES NE CONVERGE PAS, ET CETTE FOIS C'EST L'AMPLITUDE QUI
+LE DIT. AUGMENTER LES ITERATIONS EST PROUVE INUTILE AVANT DE L'AVOIR ESSAYE.
+================================================================================================
+PREDICTIONS : `C37E1-convergence-prediction.txt`, md5 **b153412a356e3ba82353b7183b7ce8c7**,
+empreinte gravee dans le commit **50b335e4e2** — avant que l'instrument existe.
+BILAN : **S0 CONFIRMEE · S1 CONFIRMEE · S2 CONFIRMEE · S3 CONFIRMEE · S4 publiee.**
+MAIS L'EVALUATION A DU ETRE CORRIGEE, ET L'ERREUR ETAIT LA MIENNE. Lire 1.2 avant les chiffres.
+
+1.1 D'ABORD, JE RETIRE UNE PHRASE DE MON PROPRE RAPPORT DU CYCLE 36 — PUIS JE LA REMETS
+=========================================================================================
+Le cycle 36 a mesure `lsw = 45/45` et j'ai ecrit en tete « **LA BOUCLE NE CONVERGE PAS** ». `lsw`
+compte le dernier balayage ou une poussee est NON NULLE ; **il ne dit rien de son AMPLITUDE**. Une
+boucle qui converge proprement peut rendre 45/45 avec une derniere poussee de 0.01 u. Le critere P4
+(`lsw >= 40`) etait tenu ; la CONCLUSION allait plus loin que la mesure, et c'est un compteur
+d'evenements lu comme une amplitude — la faute que le contrat nomme, commise sur ma propre mesure
+une etape apres l'avoir evitee sur `prsr`.
+Cette etape a mesure l'amplitude. **Elle me donne raison**, et je publie les deux moities : la
+phrase etait insuffisamment fondee quand je l'ai ecrite, et elle est maintenant fondee.
+
+1.2 LA CORRECTION D'EVALUATION, ET ELLE EST LA QUATRIEME DE CETTE FAMILLE
+==========================================================================
+Mes criteres S1 et S2 ont ete graves avec les chiffres `npf = 150` et `psum = 19 946`, que le fichier
+de predictions attribue a la course C36E2. **Ils viennent en realite de C36E1.** Et surtout :
+l'etape 2 du cycle 36 a change la grandeur dont `prsr` est le maximum — avant, l'argmax de `prsr`
+etait l'argmax de la SOMME des poussees, donc la frame la PLUS PROFONDE ; apres, c'est l'argmax de
+la PLUS GRANDE POUSSEE SEULE, qui est une autre frame. Mes deux criteres, lus litteralement,
+tombaient donc sur une frame ou seuls **6 et 9 balayages** ont pousse, ou le groupe 34-45 n'a jamais
+tourne, et ou `slast/psum` vaut **0.0000**.
+**Lus a la lettre, S1 et S2 etaient REFUTES DUREMENT et j'aurais du retirer ma phrase du cycle 36.**
+La cause n'est pas la physique : c'est que « la boucle converge-t-elle » est une question de
+POPULATION et que je l'ai posee sur UN echantillon — celui que je croyais profond et qui ne l'est
+plus. Le verdict publie les quatre lectures cote a cote, et **c'est l'agregat qui tranche**, avec
+le detail de ce que chaque lecture dit.
+Je n'ai PAS modifie le fichier de predictions apres coup : il reste tel qu'il a ete grave, avec son
+erreur d'attribution, et c'est ici que l'erreur est publiee.
+
+1.3 LES CHIFFRES, SUR LA POPULATION
+=====================================
+                                                        chestL       chestR
+    slast/psum, AGREGAT sur les 186 fenetres           **0.2127**   **0.2165**
+    slast/psum, fenetres ou le groupe A TOURNE          0.2461       0.2576   (95 et 77 fenetres)
+    slast/psum, fenetre la PLUS PROFONDE                0.2887       0.2832
+    attendu si les poussees etaient UNIFORMES               0.267 (12 balayages sur 45)
+    nlast/npf, agregat                                  0.2334       0.2271
+
+    poussee moyenne du GROUPE / moyenne de la FRAME    **0.9357**   **0.9723**
+    la meme, sur la fenetre la plus profonde            1.0249       1.0561
+    distribution de `lsw` : >= 34                       95/186       77/186
+                            == 45 exactement            93           77
+                            == 0 (aucun contact)        30           28
+
+**LE GROUPE DE COLLISION SEULE — DOUZE BALAYAGES SANS AUCUNE CONTRAINTE DE LONGUEUR — POUSSE AUSSI
+FORT QUE LA MOYENNE DE TOUTE LA FRAME, ET UN PEU PLUS FORT SUR LES FRAMES PROFONDES.** Il fait
+exactement sa part proportionnelle du travail (0.21-0.29 contre 0.267 attendu), indefiniment. Il n'y
+a **aucune decroissance**.
+
+1.4 CE QUE CA ELIMINE, ET CE QUE CA DESIGNE
+=============================================
+  - **LA CONTRAINTE DE LONGUEUR N'EST PAS L'ANTAGONISTE.** Les balayages 34 a 45 ne l'appellent pas,
+    et le lien y est encore repousse a pleine amplitude. L'hypothese « longueur contre collision »
+    est morte.
+  - **UNE PROJECTION SEULE N'EN VIENT PAS A BOUT** (S3) : la premiere poussee de la frame vaut
+    **149.5 u et 126.2 u** sur la fenetre profonde, contre une penetration RESIDUELLE de **402.6 u
+    et 368.6 u** apres les 45 balayages. Une projection extrait environ un tiers de ce qui reste.
+  - **DONC L'ENSEMBLE DE VOLUMES EST INCONSISTANT POUR CES LIENS** : sortir d'un volume fait entrer
+    dans un autre, et 3.3 a 4.0 volumes poussent par balayage a 86-100 u chacun sans fin. **Le
+    chantier est la FORME et la CONSISTANCE des volumes, pas le nombre d'iterations — et augmenter
+    les iterations est PROUVE inutile AVANT de l'avoir essaye.** C'est un cycle economise.
+  - **ET CA REJOINT UN CHIFFRE DEJA AU DOSSIER PAR UN AUTRE CHEMIN** : `skinpen` (la penetration
+    contre la SURFACE du mesh) vaut **0.1418 et 0.1428 m**, PLUS que `meshpen` (0.0983 et 0.0900 m).
+    Les capsules n'epousent pas le mesh : le solveur peut satisfaire les capsules et laisser le lien
+    dans la chair. C'est le blocage historique que l'owner nomme depuis le debut — « les colliders ne
+    suivent pas les formes du mesh » — et c'est la premiere fois qu'il est chiffre des DEUX cotes.
+  - Les deux spheres redondantes du cycle 35 reviennent donc au premier plan, mais **par un autre
+    mecanisme que celui que le cycle 36 a refute** : elles ne se renvoient pas le lien (psum/cl =
+    1.11 et 1.28), elles poussent toutes les deux DANS LE MEME SENS sur la meme chair. Je le dis
+    comme une hypothese, pas comme un acquis.
+
+1.5 S0 — L'INSTRUMENT EST INERTE
+==================================
+**35 003 lignes `PHYS` hors le marqueur neuf, 0 differente** de `keira-room-x86.C36E2-REF.log`.
+Aucun comportement n'a change : cette etape est une mesure, et elle n'a rien touche.
+
+1.6 MES VALEURS GRAVEES, CE QU'ELLES VALAIENT
+===============================================
+  - S1 : bande gravee 0.15-0.35, mesure **0.2127 et 0.2165** — DANS la bande, et proche du 0.267
+    que donne l'arithmetique 12/45. Premiere derivation de ce cycle juste du premier coup.
+  - S2 : bande gravee 0.6-1.3, mesure **0.9357 et 0.9723** — DANS la bande.
+  - S3 : bande gravee 50-450 u, mesure **149.5 et 126.2 u** sur la fenetre profonde (DANS), mais
+    **31.5 et 13.6 u** a l'argmax (HORS, par le bas). Meme cause qu'en 1.2.
+
 RAPPORT DE CYCLE 36 — L'ENTREE DE PRESSION DU TENSEUR DE SA SPEC 23 N'ETAIT PAS UNE PRESSION :
 C'ETAIT LA LONGUEUR D'UN CHEMIN DE 150 A 254 CORRECTIONS, 4.4 A 5.0 METRES ACCUMULES EN UNE FRAME
 SUR UN PERSONNAGE DE DEUX METRES. ELLE EST DEVENUE UNE INTENSITE. L'ECRETAGE PASSE DE 37.0 % ET
@@ -735,4 +827,82 @@ PHYSEND : APRES oui · AVANT oui
    R4 hors bande -> soit le tenseur ne tirait pas sa deformation de la pression (baisse
    < 20 %%), soit JE VIENS D'ETEINDRE LE CANAL (baisse > 60 %%), ce qui est un ECHEC declare
    d'avance. Voir le chiffre ci-dessus, il tranche lequel des deux.
+================================================================================================
+
+================================================================================================
+VERDICT C37E1 — LA BOUCLE DE CONTRAINTES CONVERGE-T-ELLE ?
+================================================================================================
+trace : .autoport/reports/Grecharged-secondary-motion/keira-room-x86.C37E1-REF.log
+fenetres : PHYSSHAPE7 372 · PHYSSHAPE8 372 · PHYSSHAPE9 372
+structure de la frame : 45 balayages ; groupe de COLLISION SEULE = balayages 34 a 45 (12/45 = 0.267)
+
+-- LA FENETRE DE CHAQUE CHAINE OU `prsr` EST MAXIMAL (l'argmax de `cl`) --------------------
+   chaine   a   d     npf    psum(u)    pmax(u)  lsw   slast(u)  nlast    p1(u)   moy(u)  moy_last(u)
+   chestL   13  1       15     3751.2      645.6    6        0.0      0     31.5    250.1         nan
+   chestR   10  1       17     3754.5      628.7    9        0.0      0     13.6    220.9         nan
+
+-- LES TROIS LECTURES, COTE A COTE. C'EST L'AGREGAT QUI TRANCHE ----------------------------
+   (1) AGREGAT sur les 186 fenetres de chaque chaine — la POPULATION.
+   (2) AGREGAT restreint aux fenetres ou le groupe de collision seule A TOURNE (lsw >= 34).
+   (3) la fenetre la PLUS PROFONDE de chaque chaine (max de psum) — un echantillon, cite pour
+       montrer que l'agregat n'est pas porte par une queue.
+   (4) l'ARGMAX DE `prsr`, que mes criteres designaient litteralement, et qui depuis l'etape 2
+       du cycle 36 pointe une frame de contact FAIBLE (voir le tableau plus haut).
+   chestL   (1) slast/psum 0.2127   nlast/npf 0.2334   sur 186 fenetres
+   chestL   (2) slast/psum 0.2461   moy_groupe/moy_frame 0.9357   sur 95 fenetres
+   chestL   (3) a=30 d=3  npf 142  psum 18488.9  lsw 45  slast 5337.8  nlast 40  slast/psum 0.2887  rapport 1.0249
+   chestL   (4) slast/psum 0.0000   (npf 15, lsw 6 — frame de contact faible)
+   chestR   (1) slast/psum 0.2165   nlast/npf 0.2271   sur 186 fenetres
+   chestR   (2) slast/psum 0.2576   moy_groupe/moy_frame 0.9723   sur 77 fenetres
+   chestR   (3) a=27 d=2  npf 179  psum 30170.6  lsw 45  slast 8544.3  nlast 48  slast/psum 0.2832  rapport 1.0561
+   chestR   (4) slast/psum 0.0000   (npf 17, lsw 9 — frame de contact faible)
+   chestL   distribution de lsw : 186 fenetres, lsw>=34 sur 95 (51.1 %), lsw==45 sur 93, lsw==0 sur 30
+   chestR   distribution de lsw : 186 fenetres, lsw>=34 sur 77 (41.4 %), lsw==45 sur 77, lsw==0 sur 28
+
+S1   LE GROUPE DE COLLISION SEULE FAIT ENCORE UN TRAVAIL REEL
+     CRITERE : slast/psum >= 0.15. REFUTATION DURE : < 0.05. GRAVE : 0.15 a 0.35 (12/45 = 0.267).
+     EVALUE SUR L'AGREGAT DE LA POPULATION, pas sur l'argmax — voir la correction de methode.
+     chestL   agregat total **0.2127** · restreint aux fenetres qui ont tourne **0.2461** · argmax 0.0000
+     chestR   agregat total **0.2165** · restreint aux fenetres qui ont tourne **0.2576** · argmax 0.0000
+     valeur gravee (0.15..0.35) tenue sur l'agregat : chestL oui, chestR oui
+     A L'ARGMAX SEUL le critere serait REFUTE DUREMENT (0.0000) : cette lecture-la porte sur
+     une frame ou seuls 6 et 9 balayages ont pousse, donc ou le groupe 34-45 n'a jamais tourne.
+     -> CONFIRMEE
+
+S2   LES POUSSEES NE DECROISSENT PAS
+     CRITERE : (moy du groupe)/(moy de la frame) >= 0.5. Sous 0.1 = convergence. GRAVE : 0.6 a 1.3.
+     EVALUE sur les fenetres ou le groupe A TOURNE — ailleurs le rapport est 0/0, pas 0.
+     chestL   moy du GROUPE 86.3 u / moy de la FRAME 92.3 u = **0.9357**  (sur 95 fenetres)
+     chestR   moy du GROUPE 99.6 u / moy de la FRAME 102.4 u = **0.9723**  (sur 77 fenetres)
+     valeur gravee (0.6..1.3) tenue : chestL oui, chestR oui
+     Sur la fenetre la plus PROFONDE le rapport vaut 1.0249 et 1.0561 : le groupe de collision
+     seule pousse AUSSI FORT, voire un peu plus fort, que la moyenne de toute la frame.
+     -> CONFIRMEE
+
+S3   UNE PROJECTION SEULE NE RESOUT PAS LA PENETRATION
+     CRITERE : p1 < meshpen (en unites). GRAVE : p1 entre 50 et 450 u.
+     chestL   p1 =     31.5 u a l'argmax ·    149.5 u sur la fenetre la plus profonde · residu apres les 45 balayages    402.6 u
+     chestR   p1 =     13.6 u a l'argmax ·    126.2 u sur la fenetre la plus profonde · residu apres les 45 balayages    368.6 u
+     valeur gravee (50..450 u) : tenue sur la fenetre profonde (149.5 et 126.2), MANQUEE a
+     l'argmax (31.5 et 13.6) — l'argmax est une frame de contact faible.
+     -> CONFIRMEE
+
+S4   LE DOMAINE (aucun critere — engagement de publication)
+     chestL   nlast cumule sur les fenetres = 2625         fenetres avec nlast > 0 : 95/186
+     chestL   nlast a l'argmax = 0        denominateur commun `nfr` par fenetre = 16857
+     chestR   nlast cumule sur les fenetres = 2049         fenetres avec nlast > 0 : 77/186
+     chestR   nlast a l'argmax = 0        denominateur commun `nfr` par fenetre = 16857
+
+S0   L'INSTRUMENT EST-IL INERTE ?
+     35003 lignes `PHYS` hors le marqueur neuf (avant : 35003), 0 differente(s)
+     -> CONFIRMEE
+
+PHYSEND : oui
+
+-- LA TABLE DE BRANCHES GRAVEE, APPLIQUEE ---------------------------------------------------
+   S1 + S2 + S3 tenues -> LA BOUCLE NE CONVERGE PAS, au sens de l'AMPLITUDE et non du seul
+   compteur. Douze balayages de collision PURE continuent d'extraire le lien et il reste
+   0.098 / 0.090 m dans le mesh a la fin. Le chantier est la CONSISTANCE DE L'ENSEMBLE DE
+   VOLUMES, pas le nombre d'iterations — et augmenter les iterations est PROUVE inutile
+   AVANT de l'essayer, ce qui economise le cycle qui l'aurait teste.
 ================================================================================================

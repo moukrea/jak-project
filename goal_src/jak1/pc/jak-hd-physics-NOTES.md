@@ -3357,3 +3357,63 @@ ecart est purement angulaire. Au maillon suivant l'attache est
 la position SIMULEE du precedent, ce qui melangerait la
 dynamique a une mesure declaree sans dynamique.
 ```
+
+## NOTE-101b  (moteur, aux alentours de la ligne 570 — CYCLE 37 ETAPE 1)
+
+```
+------------------------------------------------------------------------------------------------
+SPEC 21 / SPEC 22 — SATURATION DE L'EXCURSION. Combien de fois la saturation a mordu sur la
+fenetre, et combien de mouvement elle a retire au total.
+  NATURE : `n` est un COMPTE d'evenements ; `sum` est une LONGUEUR cumulee, en unites de jeu.
+  REPERE : une magnitude de deplacement, donc invariante par rotation — la meme en monde et dans
+           le repere du torse que la SPEC 7 de l'owner nomme.
+  LECTURE QUAND LE DEFAUT EST ABSENT : `n` = 0 exactement. La saturation ne mord que si
+           l'excursion depasse le plafond de l'owner ; une course qui reste dans son enveloppe
+           n'incremente rien, et c'est ainsi qu'on distingue « borne » de « brime ».
+SPEC 7 du contrat exige de chiffrer ce qu'un suppresseur retire : c'est `sum`, et il est publie.
+```
+
+## NOTE-102  (moteur, aux alentours de la ligne 1386 — CYCLE 37 ETAPE 1)
+
+```
+------------------------------------------------------------------------------------------------
+OU EST LE CENTRE D'UN VOLUME. Une sphere n'est pas forcement centree sur son joint : la 6e passe
+de l'owner dit « une sphere au joint ne peut pas epouser un sein ». Son centre est le CENTROIDE
+MESURE de la geometrie que ce joint porte, ecrit dans les donnees en espace bind du joint, et
+ramene ici dans le monde par la matrice de l'os — donc il suit l'animation comme le joint. Un
+offset absent vaut (0,0,0) et le centre redevient le joint, au bit pres.
+------------------------------------------------------------------------------------------------
+LE DECALAGE MONDE entre le joint d'un lien et le CENTRE du volume qu'il porte. Nul quand ce joint
+ne declare aucune sphere ajustee — le comportement est alors exactement celui d'avant, au bit
+pres. Ne tourne que la rotation de l'os : c'est un vecteur, pas un point.
+```
+
+## NOTE-103  (moteur, aux alentours de la ligne 1545 — CYCLE 37 ETAPE 1)
+
+```
+------------------------------------------------------------------------------------------------
+UNE CHAINE SE COGNE-T-ELLE DANS SON PROPRE VOLUME ? Owner, 4e et 6e passes : « les pointes et
+racines sont ancrees avec l'entre-deux qui bouge enormement », « les meches fines jittent like
+crazy des que la tete bouge ». Les colliders `Lbanga`, `Lmidhaira`, `lBoob`... sont les
+JOINTS-RACINES des chaines elles-memes, et les capsules `Lbangb->Lbanga` sont des MAILLONS de la
+meche : sans exclusion, une meche est poussee hors de sa propre sphere de racine et de ses
+propres maillons, en permanence.
+L'exclusion est STRUCTURELLE (chaine <-> elle-meme), pas un `colskip` : elle ne lit aucune
+donnee, elle compare des index de joints deja resolus.
+------------------------------------------------------------------------------------------------
+```
+
+## NOTE-104  (moteur, aux alentours de la ligne 4650 — CYCLE 37 ETAPE 1)
+
+```
+SPEC 33 — LE DOMAINE DE LA PAIRE (chaine, volume), pas son compte de contacts.
+  `which` = 0 -> `cdm`, la profondeur d'approche MAXIMALE atteinte sur toute la course.
+             1 -> `cfl`, le plancher que la paire tolere (sa profondeur a la pose d'auteur).
+             2 -> 1.0 si la paire a ete echantillonnee au moins une fois, 0.0 sinon. C'est le
+                  discriminant qui empeche de lire un tableau jamais ecrit comme un « 0 mesure » :
+                  une paire jamais testee et une paire testee qui ne se touche pas rendraient
+                  toutes deux 0.0 sans lui.
+NATURE : une longueur, unites de jeu (4096 u = 1 m). REPERE : monde. `cdm` NEGATIF = les deux
+surfaces ne se sont jamais rejointes, et sa valeur absolue EST l'ecart minimal atteint.
+Accumulees sur TOUTE la course : volontairement hors de `phys-diag-reset!`, qui est par fenetre.
+```
