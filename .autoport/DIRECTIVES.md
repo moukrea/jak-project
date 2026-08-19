@@ -10,6 +10,29 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
+## 2026-08-20 00:25 — RIEN N'EST VALIDE. UN RETOUR N'EST PAS UNE VALIDATION.
+
+Verbatim, spontane, avant meme que je puisse me tromper dessus : « juste pour préciser **je n'ai
+rien validé** de ce qui a été fait donc **rien de verrouillé par moi-même**, j'ai juste dit que
+c'était cohérent par rapport à ce que tu m'as demandé de vérifier. Après bah let's go, assure-toi
+d'implémenter la spec à 100 %, **pas de raccourcis** ! »
+
+**LA DISTINCTION, ET ELLE EST DEFINITIVE.** « Conforme a ce que tu m'as dit de regarder » repond a
+MA question. « C'est bon » ferme une ligne. Seule la seconde verrouille, et lui seul la prononce.
+Il n'y en a eu AUCUNE sur la poitrine, sur aucune section, jamais.
+
+**CE QUE CA INTERDIT, CONCRETEMENT :**
+  - aucun etat teste ne devient une reference, un plancher, ni une ligne de base — c'est la faute
+    des gates FLOOR, supprimees le 2026-08-19 pour cette raison exacte ;
+  - `TENUE` dans `SPEC-COVERAGE.md` veut dire « ma mesure est dans la bande », jamais « approuve » ;
+  - `OPEN breast-spec-incomplete` reste ouverte : son « ça a l'air d'être effectif » ne la touche pas ;
+  - je ne cite jamais un de ses retours comme caution d'un choix technique.
+
+**ET LE MANDAT, REAFFIRME :** 100 % de la spec, **pas de raccourcis**. Une section ne se declare
+pas tenue en rabotant sa cible, en changeant son denominateur, ni en la mesurant sur un domaine
+vide. Les 15 `NON ETABLI` du registre se gagnent en JOUANT les regimes, pas en les reclassant.
+
+
 ## 2026-08-20 00:10 — REGISTRE DE COUVERTURE OBLIGATOIRE : `.autoport/SPEC-COVERAGE.md`
 
 L'owner, apres avoir constate que le correctif marche : « ça a l'air d'être effectif, mais j'ai pas

@@ -16,6 +16,17 @@ par section, ce qui était tenu et ce qui ne l'était pas. Le voici.
 
 ---
 
+## AUCUNE LIGNE DE CE TABLEAU N'EST VALIDEE PAR L'OWNER
+
+Le 2026-08-20 il le precise de lui-meme, avant meme que je puisse me tromper : « je n'ai rien validé
+de ce qui a été fait donc rien de verrouillé par moi-même, j'ai juste dit que c'était cohérent par
+rapport à ce que tu m'as demandé de vérifier ».
+
+Donc : **`TENUE` ici veut dire « ma mesure est dans la bande de la spec », JAMAIS « l'owner a
+approuve ».** Les deux sont independants, et le second n'existe pas encore — pas une seule fois, sur
+aucune section. Aucun etat teste ne devient une reference ni un plancher. Sa consigne du meme
+message : « implémenter la spec à 100 %, pas de raccourcis ».
+
 ## Périmètre
 
 Seules `chestL` et `chestR` sont simulées (ordre de l'owner du 2026-08-14 07:30). Les sections qui
