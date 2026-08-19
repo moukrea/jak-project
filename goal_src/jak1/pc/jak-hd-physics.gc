@@ -3769,7 +3769,20 @@
                                    (cy (-> *phys-cpu* tl y))
                                    (cz (-> *phys-cpu* tl z))
                                    (cl (sqrtf (+ (* cx cx) (+ (* cy cy) (* cz cz)))))
-                                   (pr0 (* PHYS-PRS-K (/ cl b0f)))
+                                   ;; [NOTE-101] CYCLE 36 ETAPE 2 — L'INTENSITE, PAS LE CHEMIN.
+                                   ;; Sa §23 demande « local collision PRESSURE » : une INTENSITE.
+                                   ;; `cl` n'en est pas une — l'etape 1 l'a mesure : c'est la somme
+                                   ;; de 150 a 254 poussees petites et de meme sens accumulees sur
+                                   ;; les 45 balayages de la frame (psum/cl = 1.11 et 1.28), soit
+                                   ;; 4.4 et 5.0 METRES de chemin de correction en une frame. La
+                                   ;; PLUS GRANDE POUSSEE SEULE, elle, est une intensite : 404.7 et
+                                   ;; 262.4 u, de l'ordre de la penetration mesuree (390 / 374 u).
+                                   ;; LA DIRECTION RESTE CELLE DE `*phys-cpu*` (bien conditionnee,
+                                   ;; les poussees s'alignent) : seul le MODULE change de source.
+                                   ;; CE N'EST PAS UN SUPPRESSEUR : `PHYS-PRS-MAX` ne bouge pas, et
+                                   ;; sur une frame a UNE poussee `pmx` = `cl` au bit pres.
+                                   (pmx (-> *phys-cpa* (+ (* 4 tl) 1)))
+                                   (pr0 (* PHYS-PRS-K (/ pmx b0f)))
                                    (prs (fmin PHYS-PRS-MAX pr0))
                                    (pe  (- 1.0 prs))
                                    (pt2 (/ 1.0 (sqrtf (fmax 0.0001 pe)))))
