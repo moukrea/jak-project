@@ -21,6 +21,14 @@ ET LE PRIX DE LA SEULE MANOEUVRE DISPONIBLE EST MESURE — IL EST DE 1 POUR 1.
            TOTAL de la SPEC 22**, la ou sa SPEC 38 lui assigne 0.25 (`PHYS-DYN-MAX`, presente dans
            le fichier et branchee sur une AUTRE grandeur). Il consomme donc **73-75 % du plafond a
            lui seul**, et le softmin de publication comprime sa sortie dans une bande de 14 %.
+  ETAPE 4  **J'AI REPARE UN INSTRUMENT AVANT DE M'EN SERVIR, ET IL DISCULPE LE LIMITEUR QUE
+           J'ALLAIS ACCUSER.** `dlr`, `dsat`, `nfr` et `psat` etaient des cumuls de COURSE publies
+           sous la cle par FENETRE (remis a zero seulement dans `jak-hd-physics-init`) : `dlr`
+           rendait la MEME valeur partout, ecart **0.7 %**. Repare (4 `set!`, moteur a **4799**
+           lignes), l'ecart passe a **61.5 % / 67.1 %** : l'entree du tenseur SUIT le stimulus,
+           sa sortie aussi, et l'ecretage DUR de sa §38 ne mord que sur **0.09 a 6.36 %** des
+           frames. Le canal d'etirement est SAIN. Physique inchangee : `comex` identique dans
+           **372 fenetres sur 372**.
   RESULTAT L'echange de l'epinglage est de **1 pour 1** : -54 % d'excursion contre -50 % de
            mouvement. Ce n'est pas un correctif, c'est un troc. Et le vrai porteur de l'excursion
            n'est ni le tenseur (plan du cycle) ni le bras de levier (mon etape 1) : c'est une
@@ -29,8 +37,10 @@ ET LE PRIX DE LA SEULE MANOEUVRE DISPONIBLE EST MESURE — IL EST DE 1 POUR 1.
   ETAT DU VALIDATEUR : inchange, il sort a 1 sur `OPEN-DEFECTS` — la porte humaine, que mon
   action ne peut pas fermer. `COLLIDE` reste ROUGE.
 
-  CE CYCLE N'AJOUTE **AUCUNE LIGNE** AU MOTEUR : `jak-hd-physics.gc` reste a **4792** lignes pour
-  un plafond de 4800. `phys-room.gc` passe de 3235 a 3252 lignes — **17 lignes de COMMENTAIRE**,
+  CE CYCLE AJOUTE **7 LIGNES** AU MOTEUR : `jak-hd-physics.gc` passe de 4792 a **4799** pour un
+  plafond de 4800, et ces 7 lignes REPARENT LA PORTEE de quatre compteurs de mesure (etape 4) —
+  elles n'ajoutent aucun mecanisme et la physique est prouvee inchangee (`comex` identique sur
+  372/372). `phys-room.gc` passe de 3235 a 3252 lignes — **17 lignes de COMMENTAIRE**,
   qui declarent le REPERE et la NATURE de `PHYSGRAD` (un WARN du preflight, et il a failli me
   faire lire ma propre mesure de travers). Le jeu livre est **identique au bit pres** a celui du
   cycle 38 : `physics_chains.txt` est restaure a son md5 d'origine
@@ -413,6 +423,76 @@ l'execution — **pas une contrainte du format**, qui stocke le parent comme POI
 borne (§3.2/3.3). Le levier n'est pas le terme dominant — c'est justement pourquoi je ne propose
 PAS de le raccourcir maintenant : ce serait payer une bascule de mode de retarget declaree pour
 agir sur un terme qui n'est pas celui qui porte le defaut.
+
+================================================================================================
+ETAPE 4 — J'AI REPARE UN INSTRUMENT AVANT DE M'EN SERVIR, ET IL DISCULPE LE LIMITEUR QUE
+J'ALLAIS ACCUSER.
+================================================================================================
+L'etape 3 designait « la FORME de la borne » comme le prochain chantier. En allant la dimensionner
+j'ai trouve un SECOND limiteur sur le meme chemin, et il est DUR :
+
+    jak-hd-physics.gc:3732   `(sdy (fmin PHYS-DYN-MAX dl))`     PHYS-DYN-MAX = 0.25
+
+Un `fmin` est exactement l'ECRETAGE BRUTAL que sa §37 interdit (« une saturation douce, jamais un
+ecretage brutal »). J'allais donc l'accuser. **La mesure dit le contraire, et elle n'a ete lisible
+qu'apres avoir repare l'instrument.**
+
+4.1 LE DEFAUT D'INSTRUMENT, VERIFIE LIGNE PAR LIGNE
+====================================================
+`PHYSSHAPE5` publie `dlr` (l'entree AVANT le `fmin`), `dsat` (frames ecretees) et `nfr` (leur
+denominateur), sous la cle par FENETRE `(c, a, d)`, et son propre commentaire les declare
+« maximum de fenetre » et « cumules sur la fenetre ». **Ils ne l'etaient pas.** `*phys-dynr*`
+(slot 21), `*phys-dynn*` (22), `*phys-dyna*` (24) et `*phys-prsn*` (23) n'etaient remis a zero que
+dans `jak-hd-physics-init` (:721-726) — donc UNE FOIS PAR COURSE. Leur voisin publie juste a cote,
+`dynm` (`PHYSSHAPE3`), est lui remis a zero par `phys-stats-reset!` (:4076), la fenetre.
+
+**LA SIGNATURE ETAIT DANS LES CHIFFRES ET JE L'AI VUE AVANT DE CONCLURE** : `dlr` rendait
+**0.4061 exactement** sur quatre pilotages et 0.4089 sur les deux autres — un ecart de **0.7 %**
+sur une plage de stimulus de 24x. Une grandeur qui ne bouge pas d'une fenetre a l'autre ne mesure
+pas la fenetre : elle rend le maximum de la course. C'est le defaut repare dans `PHYSPAIR` au
+cycle 38, sur une autre ligne.
+
+CORRECTIF : quatre `set!` ajoutes a `phys-stats-reset!` (moteur :4080-4082 et :4085). Le moteur
+passe de 4792 a **4799** lignes, sous le plafond de 4800.
+
+4.2 LA PREUVE QUE LA PHYSIQUE N'A PAS BOUGE — MESUREE, PAS AFFIRMEE
+====================================================================
+  * les quatre variables n'ont **aucun lecteur dans le solveur** : elles sont ecrites en :3736,
+    :3737, :3739, :3782 et lues UNIQUEMENT par `phys-shape` (:4749, :4750, :4752, :4758), qui est
+    l'accesseur de mesure ;
+  * et surtout, empiriquement : **`comex` est identique dans 372 fenetres sur 372** entre la course
+    d'avant et celle d'apres (ecart nul au flottant pres). Les deux courses : `PHYSCOUNTS anims=31
+    enum=31 chains=2 drives=5 ags=6`, **0 `PHYSFAIL`**.
+
+4.3 CE QUE L'INSTRUMENT REPARE DIT — ET IL DISCULPE L'ECRETAGE DUR
+====================================================================
+                              dlr AVANT-fix   dlr APRES-fix   dynm (sortie)   frames ecretees
+    chestL  updown  (18)         0.4061          0.2651          0.2422           3.76 %
+            leftright(52)        0.4061          0.2489          0.2383           2.06 %
+            accel(2-96)          0.4061          0.2781          0.2444           5.02 %
+            jerk   (434)         0.4061          0.2610          0.2360           3.58 %
+            tilt  (11.2)         0.4089          0.1633          0.1599           0.36 %
+            AUCUN    (0)         0.4089          0.1071          0.1068           0.09 %
+    ecart relatif sur les 6 pilotages :  **0.7 % -> 61.5 %**        56.3 %
+    (chestR : **1.1 % -> 67.1 %**, sortie 62.8 %, ecretage 0.00 a 6.36 %)
+
+**L'ENTREE DU TENSEUR SUIT LE STIMULUS (61.5 % / 67.1 %), SA SORTIE AUSSI (56.3 % / 62.8 %), ET
+L'ECRETAGE DUR NE MORD QUE SUR 0.09 A 6.36 % DES FRAMES.** Le canal d'ETIREMENT DYNAMIQUE de sa
+§38 est donc SAIN : il n'est ni sature, ni aplati, et ce n'est pas lui qui produit le « pudding ».
+**Je n'accuse pas le `fmin`.** Il reste une forme que sa §37 n'aime pas, et je le laisse au dossier
+comme tel — mais aucune mesure ne le rend responsable, et j'aurais publie l'inverse une heure plus
+tot sur un instrument casse.
+
+4.4 CE QUE CA NARROWIT, ET C'EST LE GAIN REEL DU PAS
+======================================================
+Il y avait DEUX limiteurs en serie sur ce chemin et je les suspectais tous les deux. Il en reste
+**UN SEUL** : la borne douce du canal RADIAL, `phys-softmin(dr0, 0.40*b0e)` (:2988), celle qui est
+posee au budget TOTAL de la §22 (§3.3) et qui comprime 60-62 % des fenetres dans une bande de
+14 %. Le canal d'etirement du tenseur, lui, est disculpe par la mesure.
+**RESERVE, ET ELLE COMPTE** : `dl` melange deux termes (`PHYS-DYN-K * o/b0f` — le decalage du
+joint, non borne — et `rdr * u` — le radial, lui borne). Que `dl` discrimine n'implique donc PAS
+que la part RADIALE discrimine ; elle peut etre portee par le terme de decalage. Separer les deux
+est la mesure suivante, et je ne conclus pas a sa place.
 
 ================================================================================================
 TABLEAU DE CONFORMITE — chaque section IMPLEMENTEE / MESUREE / ECART

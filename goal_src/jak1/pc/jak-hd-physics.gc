@@ -4074,8 +4074,15 @@
     (set! (-> *phys-secm* sc) 0.0)
     (set! (-> *phys-secr* sc) 0.0)
     (set! (-> *phys-dynm* sc) 0.0)
+    ;; [NOTE-110] MEME PORTEE QUE `dynm`, ET ILS NE L'AVAIENT PAS : `dynr`/`dynn`/`dyna`/`prsn`
+    ;; (21/22/24/23) n'etaient remis a zero que dans `jak-hd-physics-init` — cumuls de COURSE
+    ;; publies sous la cle par FENETRE. `dlr` rendait la meme valeur partout (0.4061, ecart 0.7 %).
+    (set! (-> *phys-dynr* sc) 0.0)
+    (set! (-> *phys-dynn* sc) 0.0)
+    (set! (-> *phys-dyna* sc) 0.0)
     (set! (-> *phys-prsm* sc) 0.0)
     (set! (-> *phys-prsr* sc) 0.0)
+    (set! (-> *phys-prsn* sc) 0.0)
     (set! (-> *phys-cpd* sc) 0.0)
     (dotimes (k 7) (set! (-> *phys-cpi* (+ (* 7 sc) k)) 0.0))
     ;; §23 : maximum de FENETRE, donc remis a zero ici. `*phys-rr*` et `*phys-rq*` — l'etat — ne le
