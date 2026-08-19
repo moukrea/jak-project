@@ -2696,6 +2696,30 @@
                  (let ((n (phys-chain-vol (-> self slot) c l ci)))
                    (when (> n 0)
                      (format 0 "PHYSCVOL c=~D l=~D ci=~D n=~D~%" c l ci n))))))))
+       ;; QUI REFERME L'ECART — LE MAILLON QUI VA CHERCHER LE VOLUME, OU LE VOLUME QUI VIENT.
+       ;; Le moteur evalue TROIS profondeurs par (maillon, volume) a `jak-hd-physics.gc:1711-1719`
+       ;; et n'en publie AUCUNE : `floors` (maillon au REPOS contre volume au REPOS, l'ecart
+       ;; d'auteur), `floorc` (maillon au REPOS contre volume COURANT, donc ce que le VOLUME
+       ;; apporte en venant) et `dep` (les deux courants). `feff` derive de leur maximum et le
+       ;; maximum de `dep` est range a cote ; l'accesseur `phys-chain-vol-dom` existe depuis le
+       ;; cycle 34 et n'avait AUCUN APPELANT, donc la grandeur qui tranche etait calculee et jetee
+       ;; a chaque frame. La decomposition est exacte et sans modele, c'est l'arithmetique de la
+       ;; poussee elle-meme (`push = (dep - feff) + margin`) :
+       ;;     feff       > 0  ==>  le VOLUME est venu au maillon, l'animation d'auteur y suffit
+       ;;     cdm - feff > 0  ==>  le MAILLON est alle plus loin que ce que l'auteur lui accorde
+       ;;   NATURE  : deux PROFONDEURS SIGNEES en unites de jeu — la MEME grandeur qui declenche la
+       ;;             poussee, lue au meme endroit. Ni un compte, ni une variance.
+       ;;   REPERE  : celui du solveur (`phys-collide-depth`), positif DEDANS. Aucune conversion.
+       ;;   ABSENT  : `ok=0` signifie que cette paire n'a JAMAIS ete evaluee — c'est un domaine
+       ;;             vide, et il ne se lit pas comme un zero mesure. Il est imprime pour ca.
+       (dotimes (c (-> self nchain))
+         (dotimes (ci (phys-slot-colliders (-> self slot)))
+           (let ((ok (phys-chain-vol-dom (-> self slot) c ci 2)))
+             (when (> ok 0.0)
+               (format 0 "PHYSCVDOM c=~D ci=~D cdm=~f feff=~f ok=~f~%" c ci
+                       (phys-chain-vol-dom (-> self slot) c ci 0)
+                       (phys-chain-vol-dom (-> self slot) c ci 1)
+                       ok)))))
        ;; QUELS VOLUMES SE DISPUTENT QUEL LIEN — l'attribution que `PHYSCVOL` ne peut pas donner,
        ;; parce qu'il ne se remplit que pendant la fenetre de controle positif (mesure du
        ;; 2026-08-13 : `meshpen_max=0.0000` sur toutes les phases de mesure). Celui-ci vient de la
