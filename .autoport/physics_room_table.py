@@ -3781,6 +3781,283 @@ def main():
     else:
         A('-- SPEC 22 / comex : NON MESURE par cette course (aucune ligne PHYSDIAG8) ------------')
     A('')
+    A('')
+    # ---- SPEC 14 A 20 : LES REGIMES DE MOUVEMENT, JOUES DANS LA SALLE --------------------------
+    # POURQUOI CE BLOC EXISTE (DIRECTIVES 2026-08-20 00:10). Onze sections de sa spec decrivent le
+    # comportement au saut, en vol, a l'atterrissage, au demarrage, au freinage et en rotation, et
+    # AUCUNE n'avait jamais ete JOUEE dans la salle : le registre les porte en `NON ETABLI`. Un
+    # `NON ETABLI` ne se gagne pas en reclassant, il se gagne en jouant le regime. La salle emet
+    # quatre lignes par fenetre de regime ; ce bloc les lit et rend un verdict contre le TEXTE
+    # CITE de la section — jamais contre un resume de memoire (DIRECTIVES 2026-08-19 20:50).
+    #
+    # `PHYSREGD` sort UNE fois par regime (le stimulus COMMANDE, il ne depend pas de la chaine).
+    # `PHYSREG` / `PHYSREG2` / `PHYSREG3` sortent une fois par (chaine, regime) : `format` de GOAL
+    # est limite a huit parametres, d'ou la coupure en trois. Une fenetre a qui il manque l'une des
+    # trois est ECARTEE, jamais completee par un zero — c'est le motif deja paye sur
+    # `PHYSCOMX`/`PHYSCOMX2` (voir la jointure du bloc COM ci-dessus).
+    _RGT = [
+        (0,  'base',          None,  'temoin',   None,
+         "AUCUN pilotage : le temoin. Tout ce qui sort d'ici est produit par l'animation tenue,"
+         " pas par un regime."),
+        (1,  'jumpA-push',    '14',  'jump',     (0.15, 0.25),
+         "detente ordinaire h=0.25 m ; SPEC 14 « COM lag: ordinary 15-25% B0 »"),
+        (2,  'jumpA-fly',     '15',  'fly',      None,
+         "vol balistique ordinaire ; SPEC 15 ne borne aucun chiffre : elle exige un CHANGEMENT"
+         " DE SIGNE"),
+        (3,  'jumpA-land',    '16',  'land',     (0.25, 0.35),
+         "reception souple ; SPEC 16 « Strong landing COM: 25-35% B0 »"),
+        (4,  'jumpB-push',    '14',  'jump',     (0.25, 0.32),
+         "detente forte h=0.45 m ; SPEC 14 « strong 25-32% B0 »"),
+        (5,  'jumpB-fly',     '15',  'fly',      None,
+         "vol balistique fort"),
+        (6,  'jumpB-land',    '16',  'land',     (0.35, 0.40),
+         "reception DURE ; SPEC 16 « Very hard landing COM: 35-40% B0 »"),
+        (7,  'runA-accel',    '17',  'run',      (0.10, 0.18),
+         "demarrage ; SPEC 17 « COM lag: moderate 10-18% B0 »"),
+        (8,  'runA-brake',    '17',  'run',      (0.18, 0.27),
+         "arret net ; SPEC 17 « strong 18-27% B0 »"),
+        (9,  'yawA',          '18',  'yaw',      (0.10, 0.17),
+         "demi-tour modere ; SPEC 18 « COM displacement: moderate 10-17% B0 »"),
+        (10, 'yawB',          '18',  'yaw',      (0.17, 0.24),
+         "demi-tour rapide ; SPEC 18 « strong 17-24% B0 »"),
+        (11, 'pitchA-bend',   '19',  'pitch',    None,
+         "buste en avant ; SPEC 19 ne borne QUE l'apex (30-40% B0), pas le COM"),
+        (12, 'pitchA-return', '19',  'pitch',    None,
+         "retour a la verticale ; SPEC 19 « the authored standing geometry is crossed »"),
+        (13, 'rollA',         '20',  'roll',     (0.15, 0.22),
+         "inclinaison laterale ; SPEC 20 « Typical strong roll: COM 15-22% B0 »"),
+        (14, 'rollB',         '20',  'roll',     (0.15, 0.22),
+         "bascule cote oppose ; meme bande, cote oppose"),
+    ]
+    # Vitesse angulaire de POINTE COMMANDEE de chaque regime de rotation, en rad/frame. Elle sert
+    # UNIQUEMENT a former `r_eff = amax / omega` : un bras de levier, pour VERIFIER que le sujet a
+    # bien tourne de ce qui lui a ete commande. Ce n'est pas une mesure de physique.
+    _RGOM = {9: 0.10281, 10: 0.19580, 11: 0.07996, 12: 0.07996, 13: 0.04569, 14: 0.09137}
+    # Bras de levier COMMANDE : distance de la racine de chaine a l'axe de rotation du regime, en
+    # unites de jeu. Verifie sur out/jak1/fr3/skin/keira-hd-lod0.glb : lBoob/rBoob a 548.078 /
+    # 548.081 u de l'axe VERTICAL (lacet), 1925.209 / 1925.210 u de l'axe X passant par les
+    # hanches (tangage), 1922.159 / 1922.160 u de l'axe Z passant par les hanches (roulis).
+    _RGLV = {9: 548.1, 10: 548.1, 11: 1925.2, 12: 1925.2, 13: 1922.1, 14: 1922.1}
+    _rgd, _rga, _rgb, _rgc = {}, {}, {}, {}
+    for _m in re.finditer(r'^PHYSREGD r=(\d+) kind=(\d+) drv=(\d+) acmd=([-\d.e+]+)'
+                          r' alp=([-\d.e+]+)', txt, re.M):
+        _rgd[int(_m.group(1))] = (int(_m.group(2)), int(_m.group(3)),
+                                  float(_m.group(4)), float(_m.group(5)))
+    for _m in re.finditer(r'^PHYSREG c=(\d+) r=(\d+) com=([-\d.e+]+) cx=([-\d.e+]+)'
+                          r' cy=([-\d.e+]+) cz=([-\d.e+]+)', txt, re.M):
+        _rga[(int(_m.group(1)), int(_m.group(2)))] = (float(_m.group(3)), float(_m.group(4)),
+                                                      float(_m.group(5)), float(_m.group(6)))
+    for _m in re.finditer(r'^PHYSREG2 c=(\d+) r=(\d+) csum=([-\d.e+]+) cn=([-\d.e+]+)'
+                          r' amax=([-\d.e+]+) cmx2=([-\d.e+]+)', txt, re.M):
+        _rgb[(int(_m.group(1)), int(_m.group(2)))] = (float(_m.group(3)), float(_m.group(4)),
+                                                      float(_m.group(5)), float(_m.group(6)))
+    for _m in re.finditer(r'^PHYSREG3 c=(\d+) r=(\d+) ee0=([-\d.e+]+) ee1=([-\d.e+]+)'
+                          r' jt0=([-\d.e+]+) jt1=([-\d.e+]+)', txt, re.M):
+        _rgc[(int(_m.group(1)), int(_m.group(2)))] = (float(_m.group(3)), float(_m.group(4)),
+                                                      float(_m.group(5)), float(_m.group(6)))
+    _rgseen = set(_rga) | set(_rgb) | set(_rgc)
+    # JOINTURE STRICTE : les trois lignes, et `cn` > 0. Une fenetre a `cn = 0` n'a AUCUNE frame :
+    # sa moyenne n'existe pas et on ne la remplace pas par un zero.
+    _rgk = sorted(k for k in (set(_rga) & set(_rgb) & set(_rgc)) if _rgb[k][1] > 0)
+    _rgdrop = sorted(_rgseen - set(_rgk))
+    _rgnm = lambda _c: names[_c] if _c < len(names) else 'c%d' % _c
+    _rgtab = {_r[0]: _r for _r in _RGT}
+
+    def _rgvd(_v, _band):
+        if _band is None:
+            return 'PAS DE BANDE'
+        _lo, _hi = _band
+        if _v < _lo:
+            return 'SOUS (x%.2f)' % ((_v / _lo) if _lo else 0.0)
+        if _v > _hi:
+            return 'AU-DESSUS (x%.2f)' % ((_v / _hi) if _hi else 0.0)
+        return 'DANS'
+
+    if not _rgseen:
+        A('-- SPEC 14 a 20 / REGIMES DE MOUVEMENT ------------------------------------------------')
+        A('ROOM-REGIME: ABSENT (aucune ligne PHYSREG) — SPEC 14 a 20 restent NON MESUREES.')
+        A('   La salle de cette course ne joue pas les regimes (trace anterieure au cycle 49).')
+        A('   Rien n\'est publie a zero : une section non jouee est NON MESUREE, pas conforme.')
+    else:
+        A('-- SPEC 14 a 20 : LES REGIMES DE MOUVEMENT — SAUT, VOL, RECEPTION, COURSE, ROTATION ---')
+        A('   LES TROIS QUESTIONS DE SPEC-keira-physique 7, pour CHAQUE grandeur publiee ici :')
+        A('   `com`      NATURE : une LONGUEUR rapportee a B0 (602 u, §6) — le MAXIMUM sur la')
+        A('              fenetre du COM PONDERE PAR LA MASSE, la grandeur que §14/§16/§17/§18/§20')
+        A('              bornent. REPERE : le monde, frame ecrite, contre la pose d\'auteur de la')
+        A('              MEME frame. LECTURE QUAND LE DEFAUT EST ABSENT : 0.0000 a la pose')
+        A('              d\'auteur.')
+        A('   `cx/cy/cz` NATURE : le VECTEUR du meme COM, /B0, releve A L\'ARGMAX de `com` — une')
+        A('              SEULE frame, les trois composantes ensemble, jamais trois maxima')
+        A('              independants. REPERE : les axes MONDE. Le sujet est a quaternion')
+        A('              identite sur TOUS les regimes de translation (r=0..8) : pour ceux-la')
+        A('              `cy` EST la verticale, +Y = haut, et `cz` l\'avant. Sur les regimes de')
+        A('              rotation (r=9..14) le sujet est incline et les composantes monde')
+        A('              MELANGENT les axes du sujet : elles sont publiees, PAS interpretees.')
+        A('              ABSENT : (0,0,0).')
+        A('   `moy`      NATURE : `csum`/`cn`, moyenne du COM sur les FRAMES de la fenetre, /B0.')
+        A('              REPERE : idem `com`. `cn` = 0 -> la fenetre est ECARTEE, jamais completee')
+        A('              par un zero. ABSENT : 0.0000.')
+        A('   `amax`     NATURE : une VITESSE — le MAXIMUM sur la fenetre du deplacement de')
+        A('              l\'ANCRE d\'une frame a la suivante, en unites de jeu par frame (4096 u =')
+        A('              1 m). REPERE : le monde. Elle ne mesure pas la poitrine : elle VERIFIE')
+        A('              que le stimulus commande a bien ete subi, au lieu de le croire.')
+        A('              ABSENT (sujet immobile) : 0.0000.')
+        A('   `cmx2`     NATURE : l\'ancienne grandeur `comex`, un MAXIMUM SUR DEUX CENTROIDES —')
+        A('              PAS un centre de masse (NOTE-112). Publiee pour la continuite de lecture')
+        A('              des 40 cycles qui la citent. ELLE NE PORTE AUCUN VERDICT ICI.')
+        A('   `ee0/ee1`  NATURE : excursion du CENTROIDE du maillon 0 / 1, /B0, maximum de')
+        A('              fenetre. `jt0/jt1` : deplacement du JOINT du maillon 0 / 1, /B0. Meme')
+        A('              repere que `com`. ABSENT : 0.0000. Elles disent OU vit l\'excursion ; un')
+        A('              `com` sans elles ne designe aucune piece.')
+        A('   `acmd`     acceleration lineaire de POINTE COMMANDEE, u/frame^2 (0 en rotation).')
+        A('   `alp`      acceleration angulaire de POINTE COMMANDEE, rad/frame^2 x 10000 dans la')
+        A('              trace (entier mis a l\'echelle pour tenir dans un `~f` lisible) ; ce bloc')
+        A('              la publie DEJA DIVISEE par 10000. 0 en translation.')
+        A('   %d fenetres (chaine, regime) jointes sur la cle (c, r) ; %d ECARTEE(S) faute d\'une'
+          % (len(_rgk), len(_rgdrop)))
+        A('   des trois lignes ou pour `cn` = 0%s.'
+          % ('' if not _rgdrop else ' : ' + ', '.join('(c=%d,r=%d)' % k for k in _rgdrop[:12])
+             + (' ...' if len(_rgdrop) > 12 else '')))
+        A('')
+        # ---- (2) LE STIMULUS COMMANDE CONFRONTE AU STIMULUS MESURE ---------------------------
+        A('   -- ROOM-REGIME-STIM : LE STIMULUS COMMANDE CONFRONTE AU STIMULUS MESURE ----------')
+        A('      `amax` est la seule colonne MESUREE de ce tableau ; `acmd` et `alp` sont ce que')
+        A('      la salle a DEMANDE. Un regime dont `amax` reste au niveau du temoin n\'a pas ete')
+        A('      joue, quelle que soit la valeur commandee — et son verdict plus bas ne vaudrait')
+        A('      rien. `r_eff = amax / omega` est un BRAS DE LEVIER en unites de jeu : c\'est une')
+        A('      VERIFICATION DU STIMULUS, PAS UNE MESURE DE PHYSIQUE. On le compare au bras')
+        A('      COMMANDE, mesure sur le mesh livre.')
+        for _r, _nm2, _sec, _kind, _band, _cite in _RGT:
+            _dd = _rgd.get(_r)
+            _am = [_rgb[k][2] for k in _rgk if k[1] == _r]
+            _amx = max(_am) if _am else None
+            A('ROOM-REGIME-STIM: r=%2d %-13s %-6s acmd=%s alp=%s amax=%s'
+              % (_r, _nm2, ('§' + _sec) if _sec else '(none)',
+                 ('%9.4f' % _dd[2]) if _dd else '      n/a',
+                 ('%9.6f' % (_dd[3] / 10000.0)) if _dd else '      n/a',
+                 ('%9.4f u/f' % _amx) if _amx is not None else '      n/a'))
+            if _r in _RGOM and _amx is not None:
+                _re = _amx / _RGOM[_r]
+                A('   r_eff = amax/omega = %8.1f u  contre le bras COMMANDE %.1f u  ecart %+.1f %%'
+                  % (_re, _RGLV[_r], 100.0 * (_re - _RGLV[_r]) / _RGLV[_r]))
+            elif _dd is None:
+                A('   PHYSREGD absent pour ce regime : le stimulus COMMANDE n\'est pas declare par')
+                A('   la trace. Rien n\'est suppose a sa place.')
+        A('')
+        # ---- (3) LE TABLEAU PAR (CHAINE, REGIME) --------------------------------------------
+        A('   -- ROOM-REGIME : LE COM DE CHAQUE FENETRE, CONTRE LA BANDE DE SA SECTION ---------')
+        A('      La bande est celle que la table cite mot pour mot ci-dessous. Quand la section')
+        A('      ne borne pas le COM, la colonne dit PAS DE BANDE — jamais un verdict invente.')
+        A('      Le facteur entre parentheses est le rapport a la BORNE FRANCHIE (bas ou haut).')
+        for _c in sorted({k[0] for k in _rgk}):
+            for _r, _nm2, _sec, _kind, _band, _cite in _RGT:
+                _k = (_c, _r)
+                if _k not in _rga or _k not in _rgb or _k not in _rgc:
+                    continue
+                _com, _cxv, _cyv, _czv = _rga[_k]
+                _cs, _cn, _amx, _cm2 = _rgb[_k]
+                _e0, _e1, _j0, _j1 = _rgc[_k]
+                A('ROOM-REGIME: %-8s r=%2d %-13s %-4s com=%.4f moy=%.4f %-13s %s'
+                  % (_rgnm(_c), _r, _nm2, ('§' + _sec) if _sec else '  - ', _com,
+                     _cs / _cn if _cn else 0.0,
+                     ('[%.2f-%.2f]' % _band) if _band else '[pas de bande]',
+                     _rgvd(_com, _band)))
+                A('   ee0=%.4f ee1=%.4f jt0=%.4f jt1=%.4f cmx2=%.4f  cx/cy/cz=%+.4f/%+.4f/%+.4f'
+                  '  n=%d f' % (_e0, _e1, _j0, _j1, _cm2, _cxv, _cyv, _czv, int(_cn)))
+        A('')
+        # ---- (4) LE MEME TABLEAU, TEMOIN SOUSTRAIT ------------------------------------------
+        A('   -- ROOM-REGIME-NET : LE MEME COM, TEMOIN r=0 SOUSTRAIT ---------------------------')
+        A('      `net = max(0, com_r - com_0)` de la MEME chaine. Le temoin ne joue AUCUN regime :')
+        A('      ce qu\'il produit vient de l\'animation tenue. Le soustraire isole ce que le')
+        A('      REGIME a ajoute. Le temoin n\'est pas soustrait de lui-meme : il est publie comme')
+        A('      reference et n\'a pas de ligne NET. Cette soustraction n\'est PAS le verdict de la')
+        A('      spec — sa bande porte sur le COM total, ligne ROOM-REGIME ci-dessus ; NET dit')
+        A('      seulement ce qui est IMPUTABLE au regime.')
+        for _c in sorted({k[0] for k in _rgk}):
+            _b0r = _rga.get((_c, 0))
+            if _b0r is None:
+                A('ROOM-REGIME-NET: %-8s TEMOIN r=0 ABSENT de cette course : aucune soustraction'
+                  ' n\'est faite.' % _rgnm(_c))
+                continue
+            A('ROOM-REGIME-NET: %-8s temoin r=0 com=%.4f B0 (reference, non soustraite d\'elle-meme)'
+              % (_rgnm(_c), _b0r[0]))
+            for _r, _nm2, _sec, _kind, _band, _cite in _RGT:
+                if _r == 0 or (_c, _r) not in _rgk:
+                    continue
+                _com = _rga[(_c, _r)][0]
+                _net = max(0.0, _com - _b0r[0])
+                A('ROOM-REGIME-NET: %-8s r=%2d %-13s net=%.4f (com %.4f - r0 %.4f) -> %s'
+                  % (_rgnm(_c), _r, _nm2, _net, _com, _b0r[0], _rgvd(_net, _band)))
+        A('')
+        # ---- (5) SPEC 15 : LE CHANGEMENT DE SIGNE -------------------------------------------
+        A('   -- ROOM-REGIME-SIGN : SPEC 15, LE CHANGEMENT DE SIGNE ----------------------------')
+        A('      §15 ne borne AUCUN chiffre : elle exige que le sein RETARDE VERS LE BAS pendant')
+        A('      la poussee, puis TRAVERSE LE NEUTRE pendant le vol. C\'est donc un SIGNE qui est')
+        A('      mesure, pas une amplitude. Convention : `cy` est la composante VERTICALE MONDE du')
+        A('      COM, SIGNEE, relevee a l\'argmax de `com`. Le sujet est a QUATERNION IDENTITE sur')
+        A('      ces six fenetres (r=1..6, tous des regimes de translation) : +Y monde EST la')
+        A('      verticale, et le signe se lit sans avoir a redresser un triedre.')
+        A('      CRITERE : `cy` < 0 en poussee (1, 4) ET `cy` > 0 en vol (2, 5).')
+        for _c in sorted({k[0] for k in _rgk}):
+            for _lab, _rp, _rf, _rl in (('sautA', 1, 2, 3), ('sautB', 4, 5, 6)):
+                _kp, _kf = (_c, _rp), (_c, _rf)
+                if _kp not in _rga or _kf not in _rga:
+                    A('ROOM-REGIME-SIGN: %-8s %s FENETRE MANQUANTE (r=%d %s, r=%d %s) : le signe'
+                      ' n\'est pas mesure' % (_rgnm(_c), _lab, _rp,
+                                              'presente' if _kp in _rga else 'ABSENTE', _rf,
+                                              'presente' if _kf in _rga else 'ABSENTE'))
+                    continue
+                _cyp, _cyf = _rga[_kp][2], _rga[_kf][2]
+                _ok = (_cyp < 0.0) and (_cyf > 0.0)
+                A('ROOM-REGIME-SIGN: %-8s %s cy_pouss=%+.4f cy_vol=%+.4f -> CHANGEMENT DE SIGNE :'
+                  ' %s' % (_rgnm(_c), _lab, _cyp, _cyf, 'oui' if _ok else 'non'))
+                if not _ok:
+                    A('   ROUGE §15 : le critere demande cy<0 en poussee ET cy>0 en vol ; mesure'
+                      ' %+.4f puis %+.4f.' % (_cyp, _cyf))
+                _kl = (_c, _rl)
+                if _kl in _rga:
+                    A('   cy_reception (r=%d) = %+.4f — publiee pour lecture, §15 ne la borne pas.'
+                      % (_rl, _rga[_kl][2]))
+        A('')
+        # ---- (6) SPEC 18 / SPEC 20 : GAUCHE CONTRE DROITE ------------------------------------
+        A('   -- ROOM-REGIME-MIRROR : SPEC 18 et SPEC 20, GAUCHE CONTRE DROITE -----------------')
+        A('      §18 exige que les deux seins DIFFERENT en rotation, et elle en donne la cause :')
+        A('      « because their offsets from the torso rotational axis differ ». SUR LE RIG')
+        A('      LIVRE, CETTE CAUSE N\'EXISTE PAS. Mesure sur out/jak1/fr3/skin/keira-hd-lod0.glb :')
+        A('      la racine de chaine est a 548.078 u (lBoob) et 548.081 u (rBoob) de l\'axe')
+        A('      VERTICAL de lacet — 0.0029 u d\'ecart, soit 5.2e-4 %. Idem en tangage (1925.209 /')
+        A('      1925.210 u de l\'axe X par les hanches) et en roulis (1922.159 / 1922.160 u de')
+        A('      l\'axe Z par les hanches). Les deux seins sont donc a distance EGALE de l\'axe.')
+        A('      CONSEQUENCE, ET ELLE EST DURE : tout ecart mesure ci-dessous vient des')
+        A('      PARAMETRES (raideur, amortissement, rayons, poids), pas de la geometrie. La')
+        A('      dissymetrie que §18 decrit par sa cause geometrique ne peut pas etre obtenue')
+        A('      dans ce rig sans deplacer une racine — ce qui serait un changement de RIG.')
+        _cl = [_c for _c in {k[0] for k in _rgk} if _rgnm(_c) == 'chestL']
+        _cr = [_c for _c in {k[0] for k in _rgk} if _rgnm(_c) == 'chestR']
+        if not _cl or not _cr:
+            A('ROOM-REGIME-MIRROR: PAIRE chestL/chestR INTROUVABLE dans cette course'
+              ' (chaines vues : %s) — aucun ecart n\'est publie.'
+              % ', '.join(sorted(_rgnm(_c) for _c in {k[0] for k in _rgk})))
+        else:
+            for _r in (9, 10, 13, 14):
+                _kl2, _kr2 = (_cl[0], _r), (_cr[0], _r)
+                if _kl2 not in _rga or _kr2 not in _rga:
+                    A('ROOM-REGIME-MIRROR: r=%2d %-13s FENETRE MANQUANTE sur au moins une chaine :'
+                      ' aucun ecart' % (_r, _rgtab[_r][1]))
+                    continue
+                _vl, _vr = _rga[_kl2][0], _rga[_kr2][0]
+                _mn = 0.5 * (_vl + _vr)
+                A('ROOM-REGIME-MIRROR: r=%2d %-13s com(chestL)=%.4f com(chestR)=%.4f  ecart %s'
+                  % (_r, _rgtab[_r][1], _vl, _vr,
+                     ('%.2f %%' % (100.0 * abs(_vl - _vr) / _mn)) if _mn > 0 else
+                     'INDEFINI (les deux valent 0)'))
+        A('')
+        # ---- LA TABLE DES REGIMES, CITEE ------------------------------------------------------
+        A('   -- LA TABLE DES REGIMES ET LE TEXTE QU\'ELLE CITE --------------------------------')
+        for _r, _nm2, _sec, _kind, _band, _cite in _RGT:
+            A('   r=%2d %-13s %-5s %-13s %s'
+              % (_r, _nm2, ('§' + _sec) if _sec else '  -  ',
+                 ('[%.2f-%.2f]' % _band) if _band else '[pas de bande]', _cite))
     if not _axres:
         A('-- SPEC 33 / ABLATION DE LA CONTRAINTE DE LONGUEUR : NON MESUREE par cette course -----')
         A('   Aucune ligne PHYSAXRES dans la trace (moteur ou salle anterieurs au cycle 29).')

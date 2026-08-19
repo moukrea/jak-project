@@ -279,6 +279,98 @@
 ;; n'existait pas — 0 a 29 sont tous pris — et c'est exactement ce qui avait pousse a prendre 31.
 ;; Deplacer REPORT est la reponse que ce commentaire prescrivait deja en 2026-08-12 ; elle n'a pas
 ;; ete appliquee la deuxieme fois.
+;; ------------------------------------------------------------------------------------------------
+;; SPEC 14 A 20 — LES SEPT REGIMES DYNAMIQUES, JOUES POUR LA PREMIERE FOIS (cycle 49).
+;;
+;; POURQUOI CETTE PHASE EXISTE. Le registre de couverture range §14 a §20 en `NON ETABLI` avec le
+;; meme motif, et c'est le plus gros trou du dossier : « regime jamais joue dans la salle ». Les
+;; cinq pilotages de PH-MEAS (`updown`, `leftright`, `accel`, `jerk`, `tilt`) sont des stimuli
+;; D'INSTRUMENT — aucun n'est un saut, un atterrissage, un freinage ni une rotation de torse. Or
+;; ces sept sections sont les SEULES de sa spec qui relient un GESTE NOMME a une bande chiffree de
+;; COM, et le COM pondere par la masse — la grandeur qu'elles nomment — n'existe que depuis le
+;; cycle 48. L'instrument etait pret, le STIMULUS manquait. C'est lui que cette phase apporte.
+;;
+;; LES STIMULI SONT DERIVES DE LA BIOMECANIQUE, JAMAIS CHOISIS POUR TOMBER DANS UNE BANDE.
+;; Unites : 4096 u = 1 m, 60 Hz, donc 1 g = 9.81 * 4096 / 3600 = 11.162 u/frame^2 — le meme
+;; nombre que le `gy = -11.16` du moteur, ce qui est le controle d'unites de ce bloc.
+;; Chaque regime porte le geste humain dont il vient et l'acceleration de pointe qui en decoule.
+;; Aucune n'a ete ajustee apres coup : `never-fit-a-parameter-to-the-instrument`, et un stimulus
+;; regle pour rendre une bande ne mesurerait que lui-meme.
+;;
+;;   r  fenetre         geste humain                          pointe (u/frame^2)   = g
+;;   0  base            AUCUN pilotage — LE TEMOIN                    0.00        0.00
+;;   1  jumpA-push      detente ordinaire, h = 0.25 m                13.19        1.18
+;;   2  jumpA-fly       vol balistique : l'ancre tombe a -g          11.16        1.00
+;;   3  jumpA-land      reception souple, 0.23 s                     16.85        1.51
+;;   4  jumpB-push      detente forte, h = 0.45 m                    21.24        1.90
+;;   5  jumpB-fly       vol balistique fort                          11.16        1.00
+;;   6  jumpB-land      reception DURE, 0.15 s                       34.74        3.11
+;;   7  runA-accel      demarrage, 0 -> 4.5 m/s en 0.6 s              8.53        0.76
+;;   8  runA-brake      arret net, 4.5 -> 0 en 0.3 s                 17.06        1.53
+;;   9  yawA            demi-tour modere, 90 deg en 0.40 s      tan 7.38 / cen 5.79
+;;  10  yawB            demi-tour rapide, 150 deg en 0.35 s     tan 16.06 / cen 21.01
+;;  11  pitchA-bend     buste en avant, 70 deg en 0.40 s        tan 20.15 / cen 12.31
+;;  12  pitchA-return   retour a la verticale, 0.40 s           tan 20.15 / cen 12.31
+;;  13  rollA           inclinaison laterale, 35 deg en 0.35 s  tan 13.14 / cen  4.01
+;;  14  rollB           bascule +35 -> -35 deg, 0.35 s          tan 26.27 / cen 16.05
+;;
+;; L'EVENTAIL VA DE 4 A 35 u/frame^2 ET IL TRAVERSE LE COUDE DE SATURATION QUE LA SALLE A ELLE-MEME
+;; MESURE (18 a 42, voir la table de `physroom-drive`). Ce n'est pas un hasard : une reponse plate
+;; sur sept regimes serait indistinguable d'une saturation si tous tapaient du meme cote du coude.
+;;
+;; UN SAUT EST UN SEUL MOUVEMENT, ET C'EST POURQUOI §14, §15 ET §16 SONT TROIS FENETRES CONSECUTIVES
+;; D'UNE MEME TRAJECTOIRE, sans retour au repos entre elles. Sa §15 l'exige mot pour mot : « This
+;; phase reversal should occur naturally through INTEGRATION rather than through a scripted bounce
+;; animation ». Trois stimuli independants auraient scripte precisement ce qu'elle interdit.
+;; CE QUE CA COUTE, ET JE LE DECLARE : la fenetre de vol herite du ring-down de la poussee, et
+;; celle d'atterrissage du ring-down du vol. C'est la physique du geste, pas un defaut de montage —
+;; mais ca veut dire qu'aucune des trois n'est un mode propre isole, et elles ne doivent pas etre
+;; lues comme tel. Les modes propres se lisent dans PH-AXV/AXB/AXL, qui existent pour ca.
+;;
+;; LE VOL EST LE SEUL REGIME QUI TESTE LE MODELE PLUTOT QUE SES VALEURS. Pendant le vol l'ancre
+;; accelere a -g ; la particule, elle, vit en position MONDE et la famille A ne recoit PAS la
+;; gravite absolue (seulement `g_local - g_ref`, nul tant que l'orientation ne bouge pas). Elle
+;; reste donc en arriere de son ancre qui tombe, ce qui EST l'apesanteur relative : sa §3 predit
+;; `a_drive = -a_torso = +g` vers le HAUT. Un moteur pilote par la VITESSE du personnage — ce que
+;; sa §15 interdit nommement (« shall not use character speed alone ») — rendrait au contraire
+;; ZERO a l'apex, ou la vitesse est nulle. Les deux hypotheses predisent des choses opposees au
+;; MEME endroit : c'est la seule fenetre de cette phase qui puisse REFUTER le modele.
+;;
+;; LE PIVOT DES ROTATIONS EST LA HANCHE, ET IL EST MESURE. Un torse ne pivote pas autour des pieds.
+;; `PHYSROOM-HIPY` est la hauteur du joint `hips` relevee sur le mesh LIVRE
+;; `out/jak1/fr3/skin/keira-hd-lod0.glb` (md5 5cb8a493c43211acf3a04c5b6433df81) : 6094.4 u, soit
+;; 1.488 m — et la racine du sein y est a 7978.6 u, donc 1884.2 u = 46.0 cm au-dessus de la
+;; hanche. Une personne a environ 45 cm entre l'articulation de la hanche et la hauteur du sein :
+;; c'est le controle de vraisemblance de ce nombre, et il passe. Pivoter autour de la racine de
+;; l'acteur (aux pieds) aurait donne un bras 3.2x trop grand — un stimulus invente.
+;; LE BRAS N'EST PAS AFFIRME, IL EST VERIFIE A L'EXECUTION : `amax` (le deplacement d'ancre d'une
+;; frame a la suivante, deja mesure par le moteur) divise par l'`omega` commandee rend le bras
+;; REEL, que le tableau publie a cote du bras commande. Un ecart designerait le repere, pas la
+;; physique.
+;;
+;; POURQUOI 31 : toute phase de TRAVAIL doit avoir un numero INFERIEUR a PHYSROOM-PH-REPORT, parce
+;; que `physroom-tick` arme le balayage d'acteurs etrangers par `(< phase PHYSROOM-PH-REPORT)`.
+;; La note de PHYSROOM-PH-REPORT dit « INFERIEURE a 30 » : c'etait vrai quand REPORT valait 22 et
+;; ca ne l'est plus depuis qu'il vaut 40. 0 a 30 sont tous pris, 31 a 39 sont libres, et c'est
+;; exactement le trou que le cycle 38 a rouvert en remontant REPORT. `PHYSROOM-PHASEGUARD` est mis
+;; a jour pour surveiller CETTE phase : un garde-fou qui ne surveille pas la derniere phase ajoutee
+;; ne garde rien.
+(defconstant PHYSROOM-PH-REG 31)
+(defconstant PHYSROOM-REGN 15)      ;; fenetres, temoin compris
+(defconstant PHYSROOM-RETF 60)      ;; frames de retour DOUX vers `home` au debut d'un `pre`
+(defconstant PHYSROOM-RETFF 60.0)   ;; la MEME duree en flottant, et DEUX constantes plutot qu'un
+                                    ;; `the` : `(the float <litteral entier>)` se replie en
+                                    ;; REINTERPRETATION de bits, pas en conversion — 60 y
+                                    ;; deviendrait 8.4e-44. Meme piege que PHYSROOM-IMPF/IMPFF.
+(defconstant PHYSROOM-HIPY 6094.4)  ;; joint `hips`, mesure sur le mesh livre (voir ci-dessus)
+(defconstant PHYSROOM-REGG 11.162)  ;; 1 g en u/frame^2 — le meme que le `gy` du moteur
+
+;; pre = frames de repos AVANT (0 = la fenetre enchaine sans rupture sur la precedente)
+;; drv = frames de pilotage · post = frames de tenue, MESUREES elles aussi (le pic peut tomber apres)
+(define *physroom-reg-pre*  (new 'static 'array int32 15  90 90  0  0 90  0  0 90  0 90 90 90  0 90  0))
+(define *physroom-reg-drv*  (new 'static 'array int32 15   0 18 27 14 15 36  9 36 18 24 21 24 24 21 21))
+(define *physroom-reg-post* (new 'static 'array int32 15  60  0  0 45  0  0 45  0 45 45 45 12 45 12 45))
+
 (defconstant PHYSROOM-PH-REPORT 40)
 (defconstant PHYSROOM-PH-DONE 41)
 
@@ -312,6 +404,11 @@
    (ori     int32)     ;; index dans la table d'orientations de SPEC 10-13
    (nchan   int32)     ;; canaux d'animation du PORTEUR (= (-> draw mgeo num-joints))
    (nperm   int32)     ;; positions de canal deplacees par la permutation de l'animation courante
+   (reg     int32)     ;; index dans la table des regimes de SPEC 14-20
+   (rety    float)     ;; etat de fin de la fenetre precedente, pour le retour DOUX vers `home` :
+   (retz    float)     ;;   sans lui, revenir a `home` d'un coup serait une impulsion artificielle
+   (retang  float)     ;;   que sa §37 devrait absorber — un stimulus qu'on n'a pas commande
+   (retax   int32)
    (vel     vector :inline)
    (home    vector :inline))
   (:states phys-subject-run))
@@ -1610,6 +1707,247 @@
   (format 0 "PHYSUNITS atan45=~f sinq=~f bad=~f~%"
           (atan 1.0 1.0) (sin 8192.0) (* 57.2957795 (atan 1.0 1.0)))
   (format 0 "PHYSEND~%")
+  (none))
+
+;; ------------------------------------------------------------------------------------------------
+;; SPEC 14 A 20 — LES PROFILS DE MOUVEMENT DES SEPT REGIMES.
+;;
+;; RIEN N'EST INTEGRE ICI, ET C'EST UNE CORRECTION DEJA PAYEE. La salle a mesure le 2026-08-11
+;; qu'un pilotage integre derive jusqu'au garde-fou des +/- 3 m, lequel remet la vitesse a zero
+;; D'UN COUP — un a-coup de plusieurs centaines d'unites au milieu de la fenetre de mesure. Les
+;; profils ci-dessous sont POSES analytiquement : leur acceleration est exactement celle que le
+;; bloc de constantes annonce, et le stimulus publie est celui que la chaine recoit vraiment.
+;; ------------------------------------------------------------------------------------------------
+
+(defun physroom-jump-y ((v0 float) (tp float) (tf float) (tl float) (vl float) (t float))
+  "Hauteur du sujet le long d'un saut COMPLET — detente, vol balistique, reception — avec `t` en
+   frames depuis le debut de la detente. `v0` vitesse de decollage (u/frame), `tp`/`tf`/`tl` les
+   trois durees, `vl` le MODULE de la vitesse d'impact.
+
+   NATURE : une longueur, unites de jeu, relative au point de depart. REPERE : monde, axe Y.
+   LECTURE A t=0 : 0.0000 exactement.
+
+   LA CONTINUITE C1 N'EST PAS UN DETAIL D'ESTHETIQUE. Une discontinuite de VITESSE serait un
+   a-coup qu'on n'a pas commande et qui entrerait dans la mesure sous le nom du regime ; une
+   discontinuite de POSITION declencherait le rebasement de discontinuite de sa §37 (« artificial
+   transforms must not generate physical breast impulses »), qui AVALERAIT le regime entier et
+   rendrait un zero qu'on lirait comme « pas de reponse ». Les deux raccords sont donc exacts :
+   la detente arrive a `v0` avec une acceleration nulle, le vol repart de `v0`, la reception part
+   de `-vl` et arrive a zero."
+  (let ((yp (* 0.5 (* v0 tp))))
+    (cond
+      ;; DETENTE — demi-sinus d'acceleration : a(t) = A.sin(pi.t/tp), A = v0.pi/(2.tp).
+      ;; L'integrale de a sur [0,tp] vaut exactement v0, donc le decollage se fait a la vitesse
+      ;; annoncee et pas a une vitesse qui depend du pas d'integration.
+      ((< t tp)
+       (* 0.5 (* v0 (- t (* (/ tp 3.14159265) (sin (* 32768.0 (/ t tp))))))))
+      ;; VOL — balistique pur. C'est le seul regime ou la salle n'invente aucune force : elle
+      ;; laisse tomber l'ancre a -g, et tout ce que la chaine fait est sa propre affaire.
+      ((< t (+ tp tf))
+       (let ((tau (- t tp)))
+         (+ yp (- (* v0 tau) (* 0.5 (* PHYSROOM-REGG (* tau tau)))))))
+      ;; RECEPTION — demi-sinus de deceleration, symetrique de la detente.
+      (else
+       (let* ((yf (+ yp (- (* v0 tf) (* 0.5 (* PHYSROOM-REGG (* tf tf))))))
+              (sg (fmin tl (- t (+ tp tf)))))
+         (+ yf (+ (- 0.0 (* vl sg))
+                  (* 0.5 (* vl (- sg (* (/ tl 3.14159265) (sin (* 32768.0 (/ sg tl))))))))))))))
+
+(defun physroom-run-z ((t float))
+  "Avancee du sujet le long d'un demarrage suivi d'un arret net, `t` en frames depuis le depart.
+   0 -> 4.5 m/s en 0.6 s (8.53 u/frame^2), puis 4.5 -> 0 en 0.3 s (17.06 u/frame^2). Ce sont deux
+   ECHELONS d'acceleration et c'est voulu : sa §17 s'appelle « Horizontal Acceleration and
+   BRAKING », et un freinage humain EST un echelon (le pied se pose). La position et la vitesse
+   restent continues, donc le rebasement de §37 ne peut pas se declencher.
+   NATURE : une longueur, unites de jeu. REPERE : monde, axe Z (+Z = l'avant). A t=0 : 0.0000."
+  (let* ((a1 8.53) (t1 36.0) (a2 17.06))
+    (if (< t t1)
+      (* 0.5 (* a1 (* t t)))
+      (let ((v1 (* a1 t1))
+            (z1 (* 0.5 (* a1 (* t1 t1))))
+            (tau (fmin 18.0 (- t t1))))
+        (+ z1 (- (* v1 tau) (* 0.5 (* a2 (* tau tau)))))))))
+
+(defun physroom-reg-ang ((r int) (f int) (dr int))
+  "Angle commande, EN DEGRES, pour la fenetre de rotation `r` a la frame `f` de son pilotage de
+   `dr` frames. Profil demi-cosinus : vitesse angulaire NULLE aux deux bouts, acceleration
+   angulaire maximale au milieu. Un echelon d'angle serait une acceleration angulaire infinie,
+   c'est-a-dire le contraire d'un stimulus dont on connait la magnitude.
+   NATURE : un angle en degres. REPERE : l'axe donne par `physroom-reg-axis`. A f=0 : la valeur
+   de DEPART du regime, qui n'est pas toujours zero (r=12 part de 70 deg, r=14 de +35)."
+  (let* ((u (fmin 1.0 (/ (the float f) (the float dr))))
+         (s (* 0.5 (- 1.0 (cos (* 32768.0 u))))))
+    (case r
+      ((9)  (* 90.0 s))
+      ((10) (* 150.0 s))
+      ((11) (* 70.0 s))
+      ((12) (* 70.0 (- 1.0 s)))
+      ((13) (* 35.0 s))
+      ((14) (- 35.0 (* 70.0 s)))
+      (else 0.0))))
+
+(defun physroom-reg-axis ((r int))
+  "0 = tangage (X, l'avant/arriere de sa §19) · 1 = lacet (Y, sa §18) · 2 = roulis (Z, sa §20)."
+  (cond ((or (= r 9) (= r 10)) 1)
+        ((or (= r 11) (= r 12)) 0)
+        (else 2)))
+
+(defun physroom-reg-kind ((r int))
+  "0 temoin · 1 detente · 2 vol · 3 reception · 4 course · 5 lacet · 6 tangage · 7 roulis"
+  (cond ((zero? r) 0)
+        ((or (= r 1) (= r 4)) 1)
+        ((or (= r 2) (= r 5)) 2)
+        ((or (= r 3) (= r 6)) 3)
+        ((or (= r 7) (= r 8)) 4)
+        ((or (= r 9) (= r 10)) 5)
+        ((or (= r 11) (= r 12)) 6)
+        (else 7)))
+
+(defun physroom-reg-acmd ((r int))
+  "Acceleration LINEAIRE de pointe COMMANDEE, u/frame^2 (11.162 = 1 g). Zero sur les regimes de
+   rotation : leur stimulus est angulaire et sort dans `alp`. Publiee pour que le lecteur puisse
+   confronter la reponse a son ENTREE — sans elle, un gain n'a pas de denominateur."
+  (case r
+    ((1) 13.19) ((2) 11.16) ((3) 16.85)
+    ((4) 21.24) ((5) 11.16) ((6) 34.74)
+    ((7) 8.53)  ((8) 17.06)
+    (else 0.0)))
+
+(defun physroom-reg-alp ((r int))
+  "Acceleration ANGULAIRE de pointe COMMANDEE, rad/frame^2 MULTIPLIEE PAR 10000. Le facteur n'est
+   pas un ornement : `alpha` vaut 0.0068 a 0.0293 rad/frame^2, et l'impression flottante de GOAL
+   n'en montrerait pas assez de chiffres pour distinguer deux regimes voisins. Le lecteur divise
+   par 10000 — et le tableau le dit a l'endroit ou il l'affiche."
+  (case r
+    ((9) 134.57) ((10) 292.96) ((11) 104.66) ((12) 104.66) ((13) 68.35) ((14) 136.70)
+    (else 0.0)))
+
+(defbehavior physroom-reg-pose phys-subject ((ax int) (deg float))
+  "Oriente le sujet de `deg` degres autour de l'axe `ax`, EN PIVOTANT AUTOUR DE LA HANCHE.
+
+   POURQUOI LA COMPENSATION EXISTE. `(-> self root trans)` est la racine de l'ACTEUR, qui est au
+   sol. Tourner le quaternion sans rien d'autre ferait pivoter le buste autour des PIEDS : le
+   bras de levier du sein passerait de 1.9 kilo-unites (hanche -> sein, 46 cm) a 8.0 (sol ->
+   sein, 1.95 m), soit un stimulus 4.2x trop grand portant le nom d'un geste humain qu'il ne
+   decrit plus. On impose donc `trans = home + p - R.p` avec `p = (0, PHYSROOM-HIPY, 0)` : le
+   point `p` reste alors FIXE dans le monde, ce qui est la definition meme d'un pivot.
+
+   LE LACET N'A PAS BESOIN DE COMPENSATION et ce n'est pas une omission : tout point de l'axe Y
+   est invariant par une rotation autour de Y, donc `R.p = p` et la correction est nulle. Un
+   `set!` de plus y ecrirait la meme valeur.
+
+   NATURE : une pose (position + orientation). REPERE : monde. A `deg` = 0 : `home` et l'identite,
+   au bit pres — c'est ce qui rend le retour doux exact a son point d'arrivee."
+  (let ((c (cos (degrees deg)))
+        (sn (sin (degrees deg)))
+        (h PHYSROOM-HIPY))
+    (cond
+      ((zero? ax)
+       (quaternion-axis-angle! (-> self root quat) 1.0 0.0 0.0 (degrees deg))
+       (set! (-> self root trans y) (+ (-> self home y) (* h (- 1.0 c))))
+       (set! (-> self root trans z) (- (-> self home z) (* h sn))))
+      ((= ax 1)
+       (quaternion-axis-angle! (-> self root quat) 0.0 1.0 0.0 (degrees deg)))
+      (else
+       (quaternion-axis-angle! (-> self root quat) 0.0 0.0 1.0 (degrees deg))
+       (set! (-> self root trans x) (+ (-> self home x) (* h sn)))
+       (set! (-> self root trans y) (+ (-> self home y) (* h (- 1.0 c)))))))
+  (none))
+
+(defbehavior physroom-reg-drive phys-subject ((r int) (f int))
+  "Pose la position et l'orientation du sujet pour la fenetre `r`. `f` est la frame comptee DEPUIS
+   LE DEBUT DU PILOTAGE : `f < 0` veut dire qu'on est encore dans le repos qui precede.
+
+   LE REPOS N'EST PAS UNE TENUE A `home`, C'EST UN RETOUR DOUX PUIS UNE TENUE. Un regime finit
+   ailleurs qu'il n'a commence (le saut fort atterrit 693 u plus haut, la course s'arrete 2.02 m
+   plus loin, le roulis finit a -35 deg). Y ramener le sujet D'UN COUP serait une impulsion
+   artificielle de plusieurs milliers d'unites — precisement ce que sa §37 interdit de generer —
+   et elle sonnerait dans la fenetre suivante sous le nom du regime suivant. Le retour se fait
+   donc en demi-cosinus sur PHYSROOM-RETF frames (vitesse nulle aux deux bouts), et il reste
+   ensuite `pre - RETF` frames de tenue pure : 30 frames au minimum, soit 2.5 constantes de temps
+   du mode principal, PLUS les 60 du retour lui-meme."
+  (set-vector! (-> self vel) 0.0 0.0 0.0 1.0)
+  (vector-copy! (-> self root trans) (-> self home))
+  (quaternion-identity! (-> self root quat))
+  (cond
+    ((< f 0)
+     (let* ((k (+ f (-> *physroom-reg-pre* r)))
+            (u (fmin 1.0 (/ (the float k) PHYSROOM-RETFF)))
+            (b (* 0.5 (+ 1.0 (cos (* 32768.0 u))))))
+       (cond
+         ((!= (-> self retang) 0.0)
+          (physroom-reg-pose (-> self retax) (* b (-> self retang))))
+         (else
+          (set! (-> self root trans y) (+ (-> self home y) (* b (-> self rety))))
+          (set! (-> self root trans z) (+ (-> self home z) (* b (-> self retz))))))))
+    (else
+     (let ((ft (the float f)) (yy 0.0) (zz 0.0) (aa 0.0) (xa 0))
+       (case r
+         ;; SAUT ORDINAIRE — h = 0.25 m. v0 = 151.2 u/frame ; vitesse d'impact 150.17 (le vol est
+         ;; tronque a 27 frames pour 27.09 exactes, l'ecart est porte par la reception).
+         ((1) (set! yy (physroom-jump-y 151.2 18.0 27.0 14.0 150.17 (fmin 18.0 ft))))
+         ((2) (set! yy (physroom-jump-y 151.2 18.0 27.0 14.0 150.17 (+ 18.0 (fmin 27.0 ft)))))
+         ((3) (set! yy (physroom-jump-y 151.2 18.0 27.0 14.0 150.17 (+ 45.0 (fmin 14.0 ft)))))
+         ;; SAUT FORT — h = 0.45 m. v0 = 202.8 ; vitesse d'impact 199.03 ; reception en 9 frames.
+         ((4) (set! yy (physroom-jump-y 202.8 15.0 36.0 9.0 199.03 (fmin 15.0 ft))))
+         ((5) (set! yy (physroom-jump-y 202.8 15.0 36.0 9.0 199.03 (+ 15.0 (fmin 36.0 ft)))))
+         ((6) (set! yy (physroom-jump-y 202.8 15.0 36.0 9.0 199.03 (+ 51.0 (fmin 9.0 ft)))))
+         ;; COURSE — le demarrage et le freinage sont UNE trajectoire, pas deux stimuli.
+         ((7) (set! zz (physroom-run-z (fmin 36.0 ft))))
+         ((8) (set! zz (physroom-run-z (+ 36.0 (fmin 18.0 ft)))))
+         ((0) (set! yy 0.0))
+         (else
+          (set! xa (physroom-reg-axis r))
+          (set! aa (physroom-reg-ang r f (-> *physroom-reg-drv* r)))))
+       ;; L'ETAT DE FIN EST MEMORISE A CHAQUE FRAME : a la derniere du pilotage il porte donc
+       ;; exactement le point d'arrivee, qui est ce dont le retour doux a besoin.
+       (set! (-> self rety) yy)
+       (set! (-> self retz) zz)
+       (set! (-> self retang) aa)
+       (set! (-> self retax) xa)
+       (cond
+         ((>= r 9) (physroom-reg-pose xa aa))
+         (else
+          (set! (-> self root trans y) (+ (-> self home y) yy))
+          (set! (-> self root trans z) (+ (-> self home z) zz)))))))
+  (none))
+
+(defbehavior physroom-emit-regime phys-subject ((r int))
+  "Publie la fenetre de regime `r` : UNE ligne de stimulus, puis TROIS par chaine.
+
+   POURQUOI LE STIMULUS SORT AUSSI. Une reponse sans son entree n'est pas une mesure, c'est un
+   nombre. `acmd`/`alp` sont ce que la salle a COMMANDE ; `amax` — le deplacement de l'ancre
+   d'une frame a la suivante, que le moteur mesure deja pour sa §37 — est ce que l'ancre a
+   REELLEMENT fait. Les confronter est le seul moyen de savoir que le regime a eu lieu, et sur
+   les rotations `amax / omega` rend le BRAS DE LEVIER reel, a comparer a celui qu'on a suppose
+   depuis le mesh. Un commentaire n'est pas une preuve : ces deux nombres le sont.
+
+   TROIS LIGNES ET PAS UNE, ET C'EST UNE CONTRAINTE : `format` de GOAL est cape a huit
+   parametres, destination et chaine de format comprises. Le lecteur les rapproche par la cle
+   (c, r), comme il le fait deja pour PHYSCOMX/PHYSCOMX2 et PHYSRESTW/PHYSRESTS."
+  (format 0 "PHYSREGD r=~D kind=~D drv=~D acmd=~f alp=~f~%"
+          r (physroom-reg-kind r) (-> *physroom-reg-drv* r)
+          (physroom-reg-acmd r) (physroom-reg-alp r))
+  (dotimes (c (-> self nchain))
+    (when (> (phys-chain-links (-> self slot) c) 0)
+      (format 0 "PHYSREG c=~D r=~D com=~f cx=~f cy=~f cz=~f~%"
+              c r
+              (phys-diag (-> self slot) c 43)
+              (phys-diag (-> self slot) c 47)
+              (phys-diag (-> self slot) c 48)
+              (phys-diag (-> self slot) c 49))
+      (format 0 "PHYSREG2 c=~D r=~D csum=~f cn=~f amax=~f cmx2=~f~%"
+              c r
+              (phys-diag (-> self slot) c 44)
+              (phys-diag (-> self slot) c 45)
+              (phys-diag (-> self slot) c 30)
+              (phys-diag (-> self slot) c 23))
+      (format 0 "PHYSREG3 c=~D r=~D ee0=~f ee1=~f jt0=~f jt1=~f~%"
+              c r
+              (phys-diag (-> self slot) c 35)
+              (phys-diag (-> self slot) c 36)
+              (phys-diag (-> self slot) c 39)
+              (phys-diag (-> self slot) c 40))))
   (none))
 
 ;; ------------------------------------------------------------------------------------------------
@@ -3092,8 +3430,50 @@
                (phys-rest 0) (phys-rest 4) (phys-rest 1) (phys-rest 2) (phys-rest 3))
        (phys-rest-k-set! 1.0)
        (phys-stats-reset!)
-       (set! (-> self phase) PHYSROOM-PH-REPORT)
+       (phys-diag-reset!)
+       (set! (-> self reg) 0)
+       (set! (-> self phase) PHYSROOM-PH-REG)
        (set! (-> self pframe) 0)))
+
+    ;; ---- 9 ter. SPEC 14 A 20 — LES SEPT REGIMES DYNAMIQUES, ET LEUR TEMOIN -------------------
+    ;; Quinze fenetres, chacune : `pre` frames de repos (retour doux + tenue), `drv` frames de
+    ;; pilotage, `post` frames de tenue MESUREES elles aussi — le pic d'une reponse sous-amortie
+    ;; tombe apres la fin du stimulus, pas pendant.
+    ;;
+    ;; LA FENETRE DE MESURE S'OUVRE EXACTEMENT AU DEBUT DU PILOTAGE. Sans ce reset, le maximum
+    ;; publie serait celui du regime PRECEDENT et de son retour vers `home`. C'est le meme geste,
+    ;; au meme endroit du meme motif, que PH-ORI a `PHYSROOM-ORIS` et PH-TILT a `PHYSROOM-IDLES` —
+    ;; et c'est ce qui rend les quinze fenetres comparables entre elles.
+    ;;
+    ;; `pre = 0` VEUT DIRE QUE LA FENETRE ENCHAINE SANS RUPTURE. Les trois fenetres d'un saut sont
+    ;; alors les trois phases d'UN SEUL mouvement, ce que sa §15 exige (« naturally through
+    ;; integration rather than through a scripted bounce animation ») ; le reset separe les
+    ;; MESURES sans separer le MOUVEMENT.
+    ;;
+    ;; L'ANIMATION N'AVANCE PAS PENDANT CETTE PHASE, comme dans PH-ORI et les phases d'impulsion :
+    ;; la pose d'auteur est TENUE. Une animation qui jouerait ajouterait sa propre acceleration au
+    ;; joint de poitrine, et la reponse ne serait plus attribuable au regime. Ce que l'animation
+    ;; tenue produit malgre tout est mesure par la fenetre r=0, qui ne recoit AUCUN pilotage :
+    ;; c'est la ligne de base a soustraire, et sans elle aucun des quatorze autres chiffres n'a
+    ;; d'echelle.
+    ((= (-> self phase) PHYSROOM-PH-REG)
+     (let* ((r    (-> self reg))
+            (pre  (-> *physroom-reg-pre* r))
+            (drv  (-> *physroom-reg-drv* r))
+            (post (-> *physroom-reg-post* r)))
+       (physroom-reg-drive r (- (-> self pframe) (+ pre 1)))
+       (when (= (-> self pframe) pre)
+         (phys-comexw-reset!)
+         (phys-stats-reset!))
+       (when (>= (-> self pframe) (+ pre (+ drv post)))
+         (physroom-emit-regime r)
+         (set! (-> self pframe) 0)
+         (+! (-> self reg) 1)
+         (when (>= (-> self reg) PHYSROOM-REGN)
+           (physroom-hold)
+           (phys-stats-reset!)
+           (phys-diag-reset!)
+           (set! (-> self phase) PHYSROOM-PH-REPORT)))))
 
     ;; ---- 10. RAPPORT --------------------------------------------------------------------------
     ((= (-> self phase) PHYSROOM-PH-REPORT)
@@ -3172,6 +3552,11 @@
   (set! (-> self lvl) 0)
   (set! (-> self nchan) 0)
   (set! (-> self nperm) 0)
+  (set! (-> self reg) 0)
+  (set! (-> self rety) 0.0)
+  (set! (-> self retz) 0.0)
+  (set! (-> self retang) 0.0)
+  (set! (-> self retax) 0)
   (set! (-> self fnum) 0.0)
   (set! (-> self adir) 1.0)
   (set! (-> self aspeed) 1.0)
@@ -3286,9 +3671,13 @@
   ;; et rien dans aucune trace ne le disait. Cette ligne le dit, a chaque course, avant tout le
   ;; reste. Ce n'est pas une prevention structurelle — le seul vrai remede serait de numeroter les
   ;; phases par construction — mais c'est la fin du silence, et elle coute une ligne.
+  ;; CYCLE 49 : `maxwork` designait PROXON (30) alors que la derniere phase de travail est
+  ;; desormais PH-REG (31). Un garde-fou qui ne surveille pas la phase qu'on vient d'ajouter ne
+  ;; garde rien — c'est exactement le silence que ce garde-fou a ete ecrit pour finir.
   (format 0 "PHYSROOM-PHASEGUARD maxwork=~D report=~D done=~D ok=~D~%"
-          PHYSROOM-PH-PROXON PHYSROOM-PH-REPORT PHYSROOM-PH-DONE
+          PHYSROOM-PH-REG PHYSROOM-PH-REPORT PHYSROOM-PH-DONE
           (if (and (< PHYSROOM-PH-PROXON PHYSROOM-PH-REPORT)
+                   (< PHYSROOM-PH-REG PHYSROOM-PH-REPORT)
                    (< PHYSROOM-PH-REPORT PHYSROOM-PH-DONE))
               1 0))
   (format 0 "PHYSROOM-START target-before=~A~%" *target*)

@@ -4355,3 +4355,48 @@ zero exige un controle positif ».
 
 **LECTURE QUAND LE DEFAUT EST ABSENT : 0.0000** — a la pose d'auteur, `M^sim == M^auth` sur tous les
 maillons, donc chaque `e_l` est nul et la somme ponderee aussi.
+
+## NOTE-136  (moteur, dans le bloc du COM pondere, aux alentours de la ligne 3975) — LE VECTEUR DU COM
+
+```
+---------------------------------------------------------------------------
+POURQUOI UNE NORME NE SUFFIT PAS, ET CE QUE CA A BLOQUE.
+
+L'emplacement 43 porte |d_COM| / B0 : une LONGUEUR. Elle repond aux sections
+qui bornent une amplitude (SPEC 22, SPEC 14, SPEC 16, SPEC 17, SPEC 18,
+SPEC 20) et elle est AVEUGLE a tout ce qui parle d'une DIRECTION. Or cinq
+sections de sa spec en parlent, et l'une d'elles ne parle QUE de ca :
+
+  SPEC 14 « upward torso acceleration -> breast downward lag »
+  SPEC 15 « jump apex -> breast may CROSS NEUTRAL position »
+  SPEC 17 « Braking produces the corresponding OPPOSITE response »
+  SPEC 19 « the authored standing geometry IS CROSSED »
+  SPEC 10 « COM toward thorax »
+
+Une norme est positive par construction : un sein qui traverse le neutre et
+un sein qui ne le traverse pas rendent la MEME norme. Mesurer SPEC 15 sur 43
+seule aurait ete la mesure non discriminante que le contrat interdit — meme
+famille que « une variance pour un affaissement sous gravite ».
+
+CE QUI EST STOCKE : les trois composantes de (cwx, cwy, cwz) / B0, latchees
+DANS LE MEME `when` que le maximum de 43, donc a l'ARGMAX de la norme et sur
+UNE SEULE frame. Trois maxima independants auraient recompose un vecteur qui
+n'existe dans aucune frame — c'est le piege `RAD-FLESH-IPAIR` du cycle 34.
+
+REPERE : MONDE, et c'est un choix, pas une facilite. Le triedre de SPEC 7
+(`phys-tri-world`) vit en espace ANCRE ; `*phys-axw*` vit en monde mais son
+SIGNE n'a jamais ete mesure (NOTE-51). Croiser un vecteur monde avec le
+premier serait le melange de reperes que NOTE-51 documente ; se fier au signe
+du second serait `axis-sign-outlives-role-naming`. En monde, le signe est
+decide par une chose qu'on sait : pendant les regimes de translation de la
+salle (SPEC 14 a 17) le sujet est a QUATERNION IDENTITE, donc +Y monde EST la
+verticale du personnage. Le lecteur qui interprete `cy` sur une fenetre OU LE
+SUJET EST INCLINE lit un melange d'axes, et le tableau le dit au lieu de le
+cacher.
+
+PORTEE : la FENETRE. Les trois emplacements sont dans la tranche contigue
+23-49 que `phys-comexw-reset!` efface en entier — la docstring de cette
+fonction dit pourquoi enumerer les emplacements un par un etait le vrai
+risque, et le `dotimes` a ete elargi de 24 a 27 dans le meme geste.
+---------------------------------------------------------------------------
+```
