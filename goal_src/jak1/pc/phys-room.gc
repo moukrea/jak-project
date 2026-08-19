@@ -1084,6 +1084,32 @@
               c (-> self ai) (-> self drive) l
               (phys-link-amp (-> self slot) c l)
               (phys-link-ang (-> self slot) c l))
+      ;; ---- SPEC 6 + SPEC 22 : LE CENTRE DE MASSE EST UNE MOYENNE PONDEREE, PAS UN MAXIMUM ----
+      ;; Sa §6 definit `P0` = « neutral breast center-of-mass POSITION » et sa §22 borne « Breast
+      ;; COM ». Un centre de masse est la moyenne des positions PONDEREE PAR LA MASSE sur toute la
+      ;; population de chair. `comex` (PHYSCOMW ci-dessus) publie autre chose : le MAXIMUM sur les
+      ;; deux maillons de l'excursion de leurs deux centroides de geometrie possedee
+      ;; (jak-hd-physics.gc:3963-3964, emplacement 23 indexe par CHAINE — les deux maillons
+      ;; ecrasent le meme emplacement). Un maximum sur deux echantillons ne repond pas a une
+      ;; question de POPULATION : le maillon 0 ne possede que 18.9 % / 22.0 % de la masse du nuage
+      ;; et 45.6 % / 45.3 % de cette masse est portee par `chest`, qui N'EST PAS SIMULE — donc dont
+      ;; l'excursion vaut ZERO par construction, puisque sa matrice ecrite EST sa matrice d'auteur.
+      ;;   ee  NATURE : une LONGUEUR rapportee a B0, MAXIMUM de la fenetre, POUR CE MAILLON SEUL —
+      ;;       la meme grandeur que `comex`, avant que le maximum sur les maillons ne l'ecrase.
+      ;;   jt  NATURE : une LONGUEUR rapportee a B0, relevee A LA FRAME QUI MAXIMISE `ee` de CE
+      ;;       maillon (jamais son propre maximum : deux maxima independants viendraient de deux
+      ;;       frames differentes — piege `RAD-FLESH-IPAIR` du cycle 34). C'est |p_sim - p_auteur|
+      ;;       du JOINT seul, donc la part de l'excursion qui NE DEPEND PAS de `lc` : elle dit ce
+      ;;       que vaudrait la mesure si le centre de chair etait pose exactement sur le joint.
+      ;; REPERE : le monde, meme frame, contre la pose d'auteur de la MEME frame — celui de `comex`.
+      ;; LECTURE QUAND LE DEFAUT EST ABSENT : `ee` = `jt` = 0.0000 a la pose d'auteur.
+      ;; POURQUOI LA PONDERATION N'EST PAS FAITE ICI : les poids de peau ne sont pas une donnee que
+      ;; le moteur lit — les publier bruts laisse la ponderation au lecteur, avec ses poids MESURES
+      ;; sur le mesh livre et cites. Un chiffre unique cache ici serait invivrifiable.
+      (format 0 "PHYSCOMWL c=~D a=~D d=~D l=~D ee=~f jt=~f~%"
+              c (-> self ai) (-> self drive) l
+              (phys-diag (-> self slot) c (+ 35 l))
+              (phys-diag (-> self slot) c (+ 39 l)))
       ;; LIGNE SEPAREE, et ce n'est pas un choix de style : `format` de GOAL n'accepte pas plus de
       ;; huit parametres, destination et chaine comprises.
       (format 0 "PHYSGRADS c=~D a=~D d=~D l=~D a0=~f a1=~f~%"
