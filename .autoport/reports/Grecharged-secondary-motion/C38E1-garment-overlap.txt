@@ -1,0 +1,44 @@
+C38E1 mesh=out/jak1/fr3/skin/keira-hd-lod0.glb
+C38E1 md5=5cb8a493c43211acf3a04c5b6433df81
+C38E1 domaine verts_stockes=222964 verts_uniques=5588 joints=106 seed=20260819 nsamp=400000
+C38E1-PLACE name=lBoob       cx=0.1503 cy=1.9032 cz=0.2377 r_m=0.0830 r_u=340.0 bindscale=1.0000 nin=36
+C38E1-PLACE name=lBooc       cx=0.1504 cy=1.9575 cz=0.2167 r_m=0.1052 r_u=431.0 bindscale=1.0000 nin=71
+C38E1-PLACE name=rBoob       cx=-0.1441 cy=1.9062 cz=0.2352 r_m=0.0842 r_u=345.0 bindscale=1.0000 nin=38
+C38E1-PLACE name=rBooc       cx=-0.1483 cy=1.9628 cz=0.2061 r_m=0.1013 r_u=415.0 bindscale=1.0000 nin=67
+C38E1-PLACE name=lTopStrap2  cx=0.1919 cy=1.9162 cz=0.1065 r_m=0.0383 r_u=157.0 bindscale=0.1033 nin=11
+C38E1-PLACE name=rTopStrap2  cx=-0.1919 cy=1.9162 cz=0.1066 r_m=0.0383 r_u=157.0 bindscale=0.1033 nin=11
+C38E1-PLACE name=lBotStrap   cx=0.1762 cy=1.8001 cz=0.1252 r_m=0.0225 r_u=92.0 bindscale=1.0000 nin=3
+C38E1-PLACE name=lBotStrap2  cx=0.1579 cy=1.7133 cz=0.1510 r_m=0.0227 r_u=93.0 bindscale=0.1033 nin=2
+C38E1-PLACE name=rBotStrap   cx=-0.1744 cy=1.7957 cz=0.1266 r_m=0.0227 r_u=93.0 bindscale=1.0000 nin=3
+C38E1-PLACE name=rBotStrap2  cx=-0.1575 cy=1.7140 cz=0.1508 r_m=0.0234 r_u=96.0 bindscale=0.1033 nin=2
+C38E1-PLACE name=main        cx=-0.0042 cy=1.6459 cz=0.0383 r_m=0.1340 r_u=549.0 bindscale=1.0000 nin=33
+C38E1-DIST g=lTopStrap2  b=lBoob  d_u=   566.2 rg_u= 157.0 rb_u= 340.0 centre_dedans=non intersecte=non
+C38E1-DIST g=lTopStrap2  b=lBooc  d_u=   511.1 rg_u= 157.0 rb_u= 431.0 centre_dedans=non intersecte=OUI
+C38E1-DIST g=rTopStrap2  b=rBoob  d_u=   563.4 rg_u= 157.0 rb_u= 345.0 centre_dedans=non intersecte=non
+C38E1-DIST g=rTopStrap2  b=rBooc  d_u=   484.2 rg_u= 157.0 rb_u= 415.0 centre_dedans=non intersecte=OUI
+C38E1-DIST g=lBotStrap   b=lBoob  d_u=   634.0 rg_u=  92.0 rb_u= 340.0 centre_dedans=non intersecte=non
+C38E1-DIST g=lBotStrap   b=lBooc  d_u=   753.1 rg_u=  92.0 rb_u= 431.0 centre_dedans=non intersecte=non
+C38E1-DIST g=lBotStrap2  b=lBoob  d_u=   855.7 rg_u=  93.0 rb_u= 340.0 centre_dedans=non intersecte=non
+C38E1-DIST g=lBotStrap2  b=lBooc  d_u=  1036.3 rg_u=  93.0 rb_u= 431.0 centre_dedans=non intersecte=non
+C38E1-DIST g=rBotStrap   b=rBoob  d_u=   646.6 rg_u=  93.0 rb_u= 345.0 centre_dedans=non intersecte=non
+C38E1-DIST g=rBotStrap   b=rBooc  d_u=   765.4 rg_u=  93.0 rb_u= 415.0 centre_dedans=non intersecte=non
+C38E1-DIST g=rBotStrap2  b=rBoob  d_u=   861.6 rg_u=  96.0 rb_u= 345.0 centre_dedans=non intersecte=non
+C38E1-DIST g=rBotStrap2  b=rBooc  d_u=  1044.7 rg_u=  96.0 rb_u= 415.0 centre_dedans=non intersecte=non
+C38E1-DIST g=main        b=lBoob  d_u=  1475.9 rg_u= 549.0 rb_u= 340.0 centre_dedans=non intersecte=non
+C38E1-DIST g=main        b=lBooc  d_u=  1601.1 rg_u= 549.0 rb_u= 431.0 centre_dedans=non intersecte=non
+C38E1-COUV G3 vol=lTopStrap2  ref=lBoob+lBooc    nin=  11 deja=   0 couv=  0.00% LISIBLE
+C38E1-COUV G3 vol=rTopStrap2  ref=rBoob+rBooc    nin=  11 deja=   2 couv= 18.18% LISIBLE
+C38E1-COUV G5 vol=lBotStrap   ref=lBoob+lBooc    nin=   3 deja=   0 couv=  0.00% NON-LISIBLE(<10)
+C38E1-COUV G5 vol=rBotStrap   ref=rBoob+rBooc    nin=   3 deja=   0 couv=  0.00% NON-LISIBLE(<10)
+C38E1-COUV G5 vol=lBotStrap2  ref=lBoob+lBooc    nin=   2 deja=   0 couv=  0.00% NON-LISIBLE(<10)
+C38E1-COUV G5 vol=rBotStrap2  ref=rBoob+rBooc    nin=   2 deja=   0 couv=  0.00% NON-LISIBLE(<10)
+C38E1-COUV W1 vol=lBoob       ref=lBooc          nin=  36 deja=  30 couv= 83.33% LISIBLE
+C38E1-COUV W1 vol=rBoob       ref=rBooc          nin=  38 deja=  29 couv= 76.32% LISIBLE
+C38E1-COUV W2 vol=main        ref=lBoob+lBooc    nin=  33 deja=   0 couv=  0.00% LISIBLE
+C38E1-VOLFRAC G2 vol=lTopStrap2  ref=lBoob+lBooc    volfrac= 11.99%
+C38E1-VOLFRAC G2 vol=rTopStrap2  ref=rBoob+rBooc    volfrac= 15.05%
+C38E1-VOLFRAC G2 vol=lBotStrap2  ref=lBoob+lBooc    volfrac=  0.00%
+C38E1-VOLFRAC G2 vol=rBotStrap2  ref=rBoob+rBooc    volfrac=  0.00%
+C38E1-VOLFRAC G2 vol=main        ref=lBoob+lBooc    volfrac=  0.00%
+C38E1-OWN G4 vol=lTopStrap2  nin=11 maj_sein=0 (0.0%) poids_sein=6.1% dominants=lTopStrap2:8, chest:2
+C38E1-OWN G4 vol=rTopStrap2  nin=11 maj_sein=0 (0.0%) poids_sein=6.3% dominants=rTopStrap2:8, chest:2

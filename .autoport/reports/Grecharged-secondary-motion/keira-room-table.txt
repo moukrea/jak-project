@@ -1,7 +1,7 @@
 ==================================================================================================
 KEIRA — SALLE DE TEST SANS JOUEUR : TABLEAU DE MESURE
-genere par .autoport/physics_room_table.py depuis .autoport/reports/Grecharged-secondary-motion/keira-room-x86.C36E2-REF.log
-empreinte de la trace lue : md5 abe83bbf2749a2f27952062f9676680e (3074042 octets)
+genere par .autoport/physics_room_table.py depuis .autoport/reports/Grecharged-secondary-motion/keira-room-x86.C38E2-RUN.log
+empreinte de la trace lue : md5 2a0230493ec2f38f16de6d6c54c17485 (3269832 octets)
 contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 7 (ce qui fait foi)
 
 Toutes les longueurs sont en METRES (la trace est en unites de jeu, 4096 u = 1 m). Ce que
@@ -2196,6 +2196,6 @@ ROOM-RAD-DISCRIM: chain=chestR       hi=0.3919 lo=0.3656 spread=6.7% verdict=PLA
 ROOM-REST: course entiere  contacts=5702  sorties_relues=5707  vin=25697049.1205  vout=555477.8544  esum=124.8259
 ROOM-TWSAT: 0 frame(s) ou la saturation douce de la torsion (SPEC 29, bornee par l'enveloppe d'apex de SPEC 38) a mordu sur une fenetre.
 ROOM-REST-MIX: coefficient moyen applique = 0.0219  (0.02 = tout buste, SPEC 34 ; 0.06 = tout sein<->sein, SPEC 33)
-ROOM-REST-LEG: spec  contacts=70    relues=70    vin=270013.8437 vout=6494.6450 e_moy=0.0229
-ROOM-REST-LEG: x15   contacts=74    relues=74    vin=268209.9375 vout=97768.2500 e_moy=0.3486
-ROOM-REST-CONTROL: vout/vin  spec=0.0241  x15=0.3645  rapport=15.15x  LE CONTROLE A TIRE
+ROOM-REST-LEG: spec  contacts=74    relues=75    vin=278563.7812 vout=6436.9135 e_moy=0.0227
+ROOM-REST-LEG: x15   contacts=81    relues=81    vin=293095.1562 vout=107027.2734 e_moy=0.3296
+ROOM-REST-CONTROL: vout/vin  spec=0.0231  x15=0.3652  rapport=15.80x  LE CONTROLE A TIRE

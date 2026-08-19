@@ -1,0 +1,21 @@
+C38E3 mesh=out/jak1/fr3/skin/keira-hd-lod0.glb md5=5cb8a493c43211acf3a04c5b6433df81
+C38E3 domaine volumes=56 joints_rig=106
+C38E3-X2 GRAVE-REFUTE pire_ecart=71.2851u (critere faux sur un CONE, exact sur une capsule)
+C38E3-X2a capsule_ra_egal_rb ecart=0.000000u ok=1
+C38E3-X2b accord_SDF_canonique pire_ecart=0.000000u points=84000 ok=1
+C38E3-DEGEN capsules_degenerees=2/30  caps:hips->main(ra=810 rb=549 L=174 -> sphere r=810), caps:head->neck(ra=924 rb=249 L=551 -> sphere r=924)
+C38E3-NEST U1 joint=lBoob       nvol=2  caps:Lshoulder->chest:320u, caps:neck->chest:32u
+C38E3-NEST U1 joint=lBooc       nvol=1  caps:Lshoulder->chest:265u
+C38E3-NEST U1 joint=rBoob       nvol=2  caps:Rshoulder->chest:296u, caps:neck->chest:32u
+C38E3-NEST U1 joint=rBooc       nvol=1  caps:Rshoulder->chest:235u
+C38E3-NEST X1/U5 joint=Lelbow      nvol=2  caps:Lelbow->Lshoulder:265u, caps:Lhand->Lelbow:242u
+C38E3-NEST X1/U5 joint=Lankle      nvol=1  caps:Lankle->Lknee:411u
+C38E3-NEST X1/U5 joint=Lhand       nvol=1  caps:Lhand->Lelbow:229u
+C38E3-U5 median_sein=1.5  Lelbow=2  Lankle=1  Lhand=1
+C38E3-U2 joint=lBoob   plus_profonde_buste=caps:Lshoulder->chest 320u
+C38E3-U2 joint=lBooc   plus_profonde_buste=caps:Lshoulder->chest 265u
+C38E3-U2 joint=rBoob   plus_profonde_buste=caps:Rshoulder->chest 296u
+C38E3-U2 joint=rBooc   plus_profonde_buste=caps:Rshoulder->chest 235u
+C38E3-U3 vol=caps:Rshoulder->chest    lBoob:-136u  lBooc:-254u
+C38E3-U3 vol=caps:Lshoulder->chest    rBoob:-129u  rBooc:-246u
+C38E3-U4 vol=caps:neck->chest         lBoob:+32u  lBooc:-51u  rBoob:+32u  rBooc:-53u

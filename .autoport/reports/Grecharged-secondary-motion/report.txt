@@ -1,26 +1,599 @@
 DIRECTIVES vb249967379
 
 ================================================================================================
-CE DOCUMENT COUVRE TROIS ETAPES, DU PLUS RECENT AU PLUS ANCIEN
+CE DOCUMENT COUVRE CINQ ETAPES, DU PLUS RECENT AU PLUS ANCIEN
 ================================================================================================
-  CYCLE 37 ETAPE 2   l'ablation des spheres proximales : mon controle positif a ECHOUE, et c'est
-                     le resultat — la paire sein-contre-sein ne porte que 3 a 6 % du travail de
-                     contact, donc la non-convergence vient du BUSTE et du DEBARDEUR.
-  CYCLE 37 ETAPE 1   la boucle de contraintes NE CONVERGE PAS, mesure a l'AMPLITUDE cette fois :
-                     les 12 derniers balayages n'ont aucune contrainte de longueur et poussent a
-                     94-97 % de la moyenne. Augmenter les iterations est PROUVE inutile.
-  CYCLE 36           l'entree de PRESSION du tenseur (SPEC 23) n'etait pas une pression mais la
-                     longueur d'un chemin de 150 a 254 corrections (4.4 a 5.0 m par frame) ;
-                     elle est devenue une intensite, l'ecretage tombe de 37.0 % et 28.7 % des
-                     frames a 3.8 % et 1.8 %, et le canal discrimine pour la premiere fois.
-                     Plus : SIX compteurs publies sans aucun ecrivain, retires, dont deux qui
-                     portaient un acquis du cycle 35. Et SPEC 24 re-mesuree.
+  CYCLE 38 ETAPE 3   MES CINQ PREDICTIONS SONT REFUTEES, ET C'EST LE RESULTAT DU CYCLE : au repos
+                     sa poitrine n'est enfouie que dans 1 a 2 volumes — MOINS qu'un coude temoin —
+                     et l'epaule opposee ne la contient PAS. Donc les 3.2 a 4.0 volumes qui
+                     poussent par balayage sont un fait de MOUVEMENT, pas de forme. Et le degagement
+                     mesure repond enfin a sa SPEC 35, ouverte depuis quatre cycles : les six
+                     volumes de son debardeur sont a 0.451 B0 ou plus, les quatre du bas a plus de
+                     1.0 B0, quand sa SPEC 22 plafonne le deplacement a 0.40 B0 (COM) et 0.50
+                     (apex). **A la spec, ils seraient INATTEIGNABLES.** Il ne faut RIEN retirer.
+  CYCLE 38 ETAPE 2   DEUX PHASES DE SALLE PORTAIENT LE MEME NUMERO 31, dont une AU-DESSUS de
+                     REPORT : la jambe ARMEE de l'ablation du cycle 37 tournait sans le balayage
+                     d'acteurs etrangers que la jambe DESARMEE avait. Repare.
+  CYCLE 38 ETAPE 1   L'ablation du vetement que je m'appretais a construire est ANNULEE avant
+                     d'avoir ete construite : la sphere du debardeur ne couvre 0.00 % (gauche) et
+                     18.18 % (droite) de la chair que les spheres du sein couvrent — ce sont deux
+                     volumes DIFFERENTS, et la retirer ferait traverser (regle 6).
+  CYCLE 37           l'ablation des spheres proximales (controle positif ECHOUE) et la
+                     non-convergence de la boucle mesuree a l'amplitude.
+  CYCLE 36           l'entree de PRESSION du tenseur etait une LONGUEUR DE CHEMIN.
 
   ETAT DU VALIDATEUR, EN UNE LIGNE : il sort a 1 sur `OPEN-DEFECTS`, la seule gate que mon action
-  ne peut pas fermer — sa liste ne se vide QUE sur la parole de l'owner. Le detail est en bas.
-  Ce qui est de mon ressort : `COLLIDE` reste ROUGE (penetration 0.098 m contre 0.0005), et les
-  deux etapes du cycle 37 viennent de mesurer POURQUOI et ou il ne faut PAS chercher.
+  ne peut pas fermer — sa liste ne se vide QUE sur la parole de l'owner. `COLLIDE` reste ROUGE.
+  Le detail, et le balayage complet sur COPIE, sont en bas.
 
+  CE CYCLE N'A RIEN AJOUTE AU MOTEUR : `jak-hd-physics.gc` est a **4788 lignes**, exactement comme
+  avant, pour un plafond de 4800. Tout le travail est de la MESURE et une REPARATION de 3 lignes
+  dans la salle.
+
+
+================================================================================================
+CYCLE 38 ETAPE 3 — J'AI PREDIT QUE SA POITRINE VIVAIT DANS UN EMPILEMENT DE VOLUMES. LES CINQ
+PREDICTIONS SONT REFUTEES. ET LA MESURE QUI LES REFUTE REPOND A SA SPEC 35, OUVERTE DEPUIS QUATRE
+CYCLES : IL NE FAUT RIEN RETIRER DU TOUT.
+================================================================================================
+PREDICTIONS : `C38E3-nested-volumes-prediction.txt`, md5 **84b484921423c56736e716b22575dafe**,
+empreinte gravee dans le commit **1674ac8ffa** — avant la premiere ligne de l'instrument.
+BILAN : **U1 REFUTEE · U2 REFUTEE · U3 REFUTEE · U4 REFUTEE · U5 REFUTEE · X1 TENU ·
+X2 REFUTE COMME GRAVE, ET REMPLACE PAR UN TEMOIN PLUS FORT QUI PASSE.**
+Cinq sur cinq contre moi. C'est le cycle le plus utile de la serie.
+
+3.1 D'OU VENAIT L'HYPOTHESE — ET ELLE EST NEE D'UNE VERIFICATION, PAS D'UNE INTUITION
+=======================================================================================
+Je recomptais `PHYSCVOL`/`PHYSCFVOL` de la course de reference pour VERIFIER un chiffre rapporte
+(les 40.0 % / 28.9 % attribues au vetement). Le total reproduit (38.3 % / 27.9 % sur la course du
+19/08), mais le CLASSEMENT n'etait pas celui que le dossier portait :
+
+    chestL   lTopStrap2 20.0 %  ·  neck 17.3 %  ·  **Rshoulder 16.7 %**  ·  Lshoulder 15.0 %
+    chestR   neck 23.3 %  ·  **Lshoulder 21.0 %**  ·  rTopStrap2 18.8 %  ·  Rshoulder 17.3 %
+
+L'EPAULE OPPOSEE est dans les quatre premiers constricteurs de CHAQUE sein, et le cou est premier
+ou deuxieme des deux. Buste + cou pesent 49 % et 62 % — plus que le vetement. Un volume ne pousse
+que ce qu'il CONTIENT : d'ou l'hypothese que sa poitrine vit a l'intersection de plusieurs troncs
+de cone larges et mal places, ce qui expliquerait d'un coup la non-convergence du cycle 37.
+
+3.2 L'INSTRUMENT, ET LE TEMOIN QUI A FAILLI TOUT ANNULER
+==========================================================
+La profondeur est la transcription EXACTE de `phys-collide-depth` (`jak-hd-physics.gc:1068-1145`) :
+distance signee au TRONC DE CONE **minimisee sur [0,1]**, pas « projeter puis interpoler le rayon »
+— le moteur a corrige cette faute-la au cycle 22 et la reintroduire aurait mesure un autre solide.
+
+**MON TEMOIN X2 ETAIT MATHEMATIQUEMENT FAUX, ET C'EST LA SIXIEME FOIS DE CETTE SESSION QU'UN DE MES
+CRITERES EST MAL POSE.** J'avais grave : « un point a rayon+100 u sur la perpendiculaire a l'axe en
+A rend -100 u ». C'est vrai d'une CAPSULE (ra = rb) et FAUX de tout TRONC DE CONE, ou la surface est
+inclinee — et les 30 capsules livrees sont TOUTES coniques, ce que le moteur ecrit lui-meme. Mesure
+du critere tel que grave : **jusqu'a 71.29 u d'ecart**. Il ne mesurait pas ma transcription, il
+mesurait mon erreur de geometrie.
+Je l'ai remplace par un temoin PLUS FORT, en deux volets, et je publie les deux :
+
+    X2a  cas ra = rb, ou le critere grave EST exact           ecart **0.000000 u**  TENU
+    X2b  accord avec la SDF canonique du round cone, ecrite
+         independamment, 3000 points par paire de rayons      ecart **0.000000 u** sur 84 000
+                                                              points / 28 capsules  TENU
+    X1   temoin par le bas : `Lankle` dans <= 2 volumes       mesure **1**          TENU
+
+X2b a d'abord echoue a 1225 u, et le diagnostic est un fait a publier : **2 des 30 capsules livrees
+n'en sont pas.** `hips->main` (810/549, L=174 u) et `head->neck` (924/249, L=551 u) ont L² <= dr²,
+c'est-a-dire qu'une sphere contient l'autre : le solide EST la grosse sphere, il n'existe aucun
+tronc de cone. Le moteur prend deliberement cette branche ; la SDF canonique n'y est pas definie.
+Le desaccord etait une difference de DEFINITION, pas une erreur — les deux capsules sont exclues de
+X2b et comptees a part.
+
+3.3 LES CINQ REFUTATIONS
+==========================
+    joint      volumes le contenant AU REPOS (profondeur > 0)
+    lBoob      **2**   Lshoulder->chest 320 u · neck->chest 32 u
+    lBooc      **1**   Lshoulder->chest 265 u
+    rBoob      **2**   Rshoulder->chest 296 u · neck->chest 32 u
+    rBooc      **1**   Rshoulder->chest 235 u
+    Lelbow      2      (temoin)          Lankle 1       Lhand 1
+
+  **U1 REFUTEE** — bande gravee 3 a 6 volumes ; mesure **2, 1, 2, 1**.
+  **U2 REFUTEE** — bande gravee 400 a 1200 u ; mesure **320, 265, 296, 235 u**, sous la bande.
+  **U3 REFUTEE, ET NETTEMENT** — `Rshoulder->chest` rend lBoob **-136 u** et lBooc **-254 u** :
+        DEHORS. Mirroir identique. L'epaule opposee ne contient PAS le sein au repos.
+  **U4 REFUTEE** — `neck->chest` contient lBoob (+32 u) et rBoob (+32 u) mais PAS lBooc (-51 u) ni
+        rBooc (-53 u). Le critere disait « les quatre ». Deux sur quatre : refute.
+  **U5 REFUTEE, ET DANS L'AUTRE SENS** — mediane des seins **1.5** contre **2** pour le coude
+        temoin. Sa poitrine est MOINS enfouie qu'un coude. Il n'y a aucune anomalie d'empilement.
+
+3.4 CE QUE CETTE REFUTATION ETABLIT, ET C'EST PLUS QUE CE QUE L'HYPOTHESE AURAIT DONNE
+========================================================================================
+**LES 3.2 A 4.0 VOLUMES QUI POUSSENT PAR BALAYAGE SONT UN FAIT DE MOUVEMENT, PAS DE FORME.** Au
+repos il y en a 1 ou 2. Le lien entre donc, pendant l'animation, dans des volumes dont il est
+franchement degage a la pose d'auteur. La table de branches gravee l'avait prevu pour ce cas et je
+m'y tiens : la question est DYNAMIQUE, et cette etape statique ne peut pas y repondre seule.
+**LE CHANTIER N'EST DONC PAS LA FORME DES VOLUMES DU BUSTE.** Le cycle 37 les designait ; la mesure
+les disculpe au repos. C'est le troisieme suspect ecarte en deux cycles, et chacun l'a ete avant
+qu'un cycle de correction soit depense dessus.
+
+3.5 ET VOICI LA REPONSE A SA SPEC 35, QU'IL ME DEMANDE DEPUIS QUATRE CYCLES
+=============================================================================
+Sa SPEC 35 exige `Support ~ 0, Compression ~ 0` pour son debardeur, et la mesure dit qu'il produit
+38.3 % / 27.9 % des corrections de contact. J'ai pose quatre fois la question « faut-il le
+retirer ». **La bonne reponse est NON, et elle se lit dans le degagement au repos, en B0 :**
+
+    volume                    lBoob    lBooc    rBoob    rBooc      MINIMUM
+    sphere lTopStrap2        +0.451   +0.470   +1.689   +1.810      +0.451
+    sphere rTopStrap2        +1.689   +1.807   +0.451   +0.472      +0.451
+    sphere lBotStrap         +1.018   +1.169   +1.944   +2.128      +1.018
+    sphere lBotStrap2        +1.543   +1.722   +2.211   +2.420      +1.543
+    sphere rBotStrap         +1.948   +2.129   +1.039   +1.196      +1.039
+    sphere rBotStrap2        +2.200   +2.404   +1.533   +1.716      +1.533
+
+    SA SPEC 22 (section Keira) : COM normal <= 0.35 B0, transitoire dur <= **0.40 B0**
+                                 apex normal <= 0.42 B0, exceptionnel <= **0.50 B0**
+    EXCURSION MESUREE (cycle 36) : **1.0765 / 0.9655 B0**, soit **x2.69 et x2.41** le plafond COM.
+
+**UN DEPLACEMENT BORNE PAR 0.50 B0 NE PEUT ATTEINDRE AUCUN POINT A PLUS DE 0.50 B0, QUELLE QUE SOIT
+SA DIRECTION.** C'est une borne, pas une hypothese de direction. Donc :
+  - **les QUATRE spheres du bas de son debardeur sont a 1.018 B0 ou plus — plus du DOUBLE du
+    plafond le plus genereux de sa spec. A la spec, elles sont INATTEIGNABLES, demonstration
+    faite.** Elles portent pourtant **18.3 %** des corrections de chestL et **9.1 %** de chestR.
+  - **les deux spheres de bretelle sont a 0.451-0.472 B0** : au-dessus du plafond COM (0.40), juste
+    sous le plafond apex exceptionnel (0.50). A la spec elles seraient FROLEES au pire, pas
+    percutees 5 040 fois par course.
+
+**DONC LE COUPLAGE VETEMENT QUE SA SPEC 35 VEUT A ZERO EST, EN ENTIER, UNE CONSEQUENCE D'UNE
+EXCURSION QUI TOURNE A 2.4-2.7 FOIS SON PLAFOND.** Ramener l'excursion dans sa bande met la SPEC 35
+en conformite TOUTE SEULE — sans retirer un volume, sans toucher un rayon, sans enfreindre la
+regle 6. La question que je lui posais depuis quatre cycles n'avait pas a lui etre posee : elle
+avait une reponse mesurable, et c'est celle-la.
+
+**ET CA REORDONNE LE CHANTIER.** La cause candidate n°1 de `COLLIDE` n'est plus la forme des
+volumes : c'est l'EXCURSION. Ce qui rejoint exactement le R4 du cycle 36 — le porteur du tenseur
+est l'ETIREMENT du tissu, pas la pression — et c'etait le point 3 du plan du cycle 37. Il devient
+le point 1 du cycle 39.
+CE QUE CA N'AUTORISE PAS, ET JE L'AVAIS GRAVE : conclure que ramener l'excursion fermera `COLLIDE`.
+Le cou et l'epaule opposee restent atteignables A LA SPEC (32 u dedans, et 0.227/0.214 B0 de
+degagement) : une part du contact est LEGITIME et le restera.
+
+
+================================================================================================
+CYCLE 38 ETAPE 2 — DEUX PHASES DE SALLE PORTAIENT LE MEME NUMERO 31, DONT UNE AU-DESSUS DE
+REPORT. LA JAMBE ARMEE DE L'ABLATION DU CYCLE 37 TOURNAIT SANS LE BALAYAGE D'ACTEURS QUE LA
+JAMBE DESARMEE AVAIT.
+================================================================================================
+PREDICTIONS : `C38E2-phaseguard-prediction.txt`, md5 **a55480d08a30824ec82f32098fbe374b**,
+empreinte gravee dans le commit **8c0f8a4e8b** — avant la compilation.
+BILAN : **H0 CONFIRMEE · H1 CONFIRMEE · H2 CONFIRMEE · H3 CONFIRMEE · H4 CONFIRMEE.** Cinq sur cinq.
+
+2.1 LE DEFAUT, LU DANS HEAD, ARBRE PROPRE
+===========================================
+`phys-room.gc:240` : `PHYSROOM-PH-PROXON 31`. `phys-room.gc:265` : `PHYSROOM-PH-DONE 31`. Meme
+numero, deux phases. Et 31 > `PHYSROOM-PH-REPORT 30`, alors que le commentaire du fichier lui-meme,
+25 lignes plus bas, ecrit : « toute phase de TRAVAIL doit avoir un numero INFERIEUR ». **La regle
+etait ecrite, elle etait juste, et la ligne qui la viole a ete posee deux cycles apres elle.**
+La cause est banale et elle compte : **les numeros 0 a 29 etaient TOUS pris**, donc 31 a ete
+attrape faute de place.
+
+TROIS CONSEQUENCES, chacune lue dans le code, aucune deduite d'un commentaire :
+  1. `physroom-tick:1530` arme le balayage d'acteurs etrangers par `(< phase PHYSROOM-PH-REPORT)`.
+     A 31 il est DESARME. **La jambe ARMEE de l'ablation du cycle 37 tournait sans ce balayage
+     pendant que la jambe DESARMEE (phase 29) l'avait.** Le commentaire `:2903` annonce « deux
+     jambes a exposition egale » : c'etait FAUX EN DROIT.
+  2. Aucune branche ne porte DONE, et le `cond` teste PROXON (:2935) AVANT REPORT (:2993). Une fois
+     REPORT execute et `phase` mis a DONE, le tick suivant **retombait dans la jambe armee** au
+     lieu de tomber dans `(else (physroom-hold))`.
+  3. Le chemin d'ECHEC `PHYSFAIL reason=skeleton-not-posed-bones-at-origin` (:1703) met lui aussi
+     `phase` a DONE : **une course EN ECHEC entrait dans la jambe armee au lieu de s'arreter.**
+
+2.2 CE QUE CA CORROMPT — ET CE QUE CA NE CORROMPT PAS. LA DISTINCTION EST LE POINT.
+====================================================================================
+La course du cycle 37 publie `PHYSNOPLAY viol=0 actors=0 killed=0` : **il n'y avait rien a
+balayer**, des deux cotes. **La MESURE du cycle 37 n'est donc pas corrompue** — et je le dis aussi
+fort que le reste, parce que la tentation serait de retirer un resultat qui tient. **C'est mon
+AFFIRMATION qui etait fausse**, pas le chiffre : je ne pouvais pas ecrire « deux jambes a exposition
+egale » puisque les deux jambes n'avaient pas le meme regime de salle. La conclusion de l'ablation
+(la paire sein-contre-sein ne porte que 3 a 6 % du travail) reste valide.
+
+2.3 LA REPARATION, ET SA PREUVE
+=================================
+`PROXON` 31 -> 30, `REPORT` 30 -> 40, `DONE` 31 -> 41. Verifie par enumeration des 33 constantes :
+**0 doublon, 0 phase de travail >= REPORT, et 9 numeros libres (31 a 39)** — la reparation retire
+donc aussi la CAUSE (l'absence de place). `jak-hd-physics.gc` n'a pas ete touche : **4788 lignes**,
+inchange.
+
+Compilation `(mi)` : **551 cibles en 13.7 s**, exit 0, un seul avertissement
+(`Constant PC_KERNEL_VERSION has been redefined`) deja present dans les journaux des cycles
+precedents — pas nouveau. Course de salle x86 complete, `PHYSEND` vu apres 720 s, meme budget que
+la course de reference.
+
+    H0  `PHYSROOM-PHASEGUARD maxwork=30 report=40 done=41 ok=1` a la ligne 3116, et la premiere
+        ligne `PHYSROOM-START` a la 3117 : il precede bien tout le reste.        CONFIRMEE
+    H1  `PHYSEND` present (ligne 43677) · `PHYSANIMS accepted=31 enumerated=31 ags=6` et
+        `PHYSCOUNTS anims=31 enum=31 chains=2 drives=5 ags=6` · **0 `PHYSFAIL`**   CONFIRMEE
+    H2  **35 593 lignes `PHYS` des deux cotes, 0 en trop, 0 en moins** — et mieux que le critere
+        grave : elles sont identiques **EN POSITION AUSSI**, meme md5
+        (`9d6df4bfe3af28cc12b71652aae095e5`). Le tableau des multiplicites par marqueur ne differe
+        que d'une ligne : le marqueur neuf, a 1.                                  CONFIRMEE
+    H3  `PHYSNOPLAY viol=0 actors=0 killed=0`, identique.                         CONFIRMEE
+    H4  `prox-armed` **1 fois**, `prox-disarmed` **1 fois**, et les six lignes `PHYSPROX`/
+        `PHYSPROXC` sont **identiques au chiffre pres** a celles de la reference.  CONFIRMEE
+
+**LA REPARATION EST DONC INERTE SUR LA MESURE, ET JE NE PRETENDS PAS QU'ELLE AMELIORE QUOI QUE CE
+SOIT.** Elle rend vrai un enonce qui etait faux, et elle supprime deux chemins par lesquels la salle
+repartait dans une jambe de mesure — dont un chemin d'ECHEC.
+
+2.4 CE QUE J'AI POSE, ET CE QUE CE N'EST PAS
+==============================================
+Une ligne `PHYSROOM-PHASEGUARD maxwork= report= done= ok=` emise avant tout le reste, a chaque
+course. **Ce n'est PAS une prevention structurelle et je ne la presente pas comme telle** : le seul
+vrai remede serait de numeroter les phases par construction, ce que je n'ai pas fait. C'est de la
+DETECTION — mais elle parle a chaque course, la ou le defaut a vecu deux cycles en silence.
+Un cout honnete, releve par le testeur : la nouvelle chaine de format agrandit l'objet, donc les
+adresses `[link and exec] heap-use` des lignes NON-`PHYS` se decalent de 224 octets. Aucun effet sur
+la mesure ; signale parce que quelqu'un qui compare les journaux entiers le verrait.
+
+2.5 UNE ERREUR DE MA CONSIGNE, RAPPORTEE PAR LE TESTEUR ET QUE JE PUBLIE
+=========================================================================
+J'ai demande de verifier une ligne `ROOM-ANIMS`. **Elle n'existe dans aucun build** — ni dans la
+course, ni dans la reference (0 des deux cotes). Les compteurs reels sont `PHYSANIMS` et
+`PHYSCOUNTS`, et ils disent 31/31. Le testeur ne l'a pas fabriquee pour remplir la case et l'a
+signalee : c'est le bon comportement, et l'erreur est la mienne — le nom vient du prompt de phase,
+pas du code.
+
+
+================================================================================================
+CYCLE 38 ETAPE 1 — L'ABLATION DU VETEMENT EST ANNULEE AVANT D'AVOIR ETE CONSTRUITE : LES DEUX
+VOLUMES NE DECRIVENT PAS LA MEME CHAIR, ET LA RETIRER FERAIT TRAVERSER.
+================================================================================================
+PREDICTIONS : `C38E1-garment-volume-prediction.txt`, md5 initial
+**3799027b934ea6c921076b9d0fa25233** (commit **1fe42e2e1c**), md5 apres correction de provenance
+**e88583545950d296d714a723e087596d** (commit **8838116149**) — les deux avant l'instrument.
+BILAN : **G1 REFUTEE · G2 REFUTEE · G3 REFUTEE · G4 CONFIRMEE · G5 CONFIRMEE · W1 REFUTE COMME
+GRAVE (instrument valide autrement) · W2 TENU.**
+
+1.1 CE QUE J'ALLAIS FAIRE, ET POURQUOI JE NE L'AI PAS FAIT
+============================================================
+Le cycle 37 ayant disculpe la paire sein-contre-sein, le suspect suivant etait le vetement, et le
+geste prevu etait une ablation sur le modele de `*phys-prox-off*`. **Une sonde geometrique de trois
+minutes l'a annulee.** La question prealable — « ce que ce volume protege est-il deja protege par
+le sein lui-meme ? » — se repond sans aucune course :
+
+    volume         sommets dedans   deja couverts par le sein   couverture
+    lTopStrap2           11                    0                 **0.00 %**
+    rTopStrap2           11                    2                 **18.18 %**
+    (bande gravee pour G3 : >= 80 %)
+
+**REFUTE, et de tres loin.** Le volume du debardeur et ceux du sein decrivent des chairs
+DIFFERENTES. Le retirer laisserait sans protection une geometrie que rien d'autre ne couvre :
+**c'est la regle 6, et elle interdit le geste.** L'ablation est donc annulee — et le mecanisme qui
+l'aurait portee l'aurait ete aussi, pour une raison independante (§1.4).
+G1 refutee de son cote : le centre de la sphere est a 511 u du centre de lBooc (rayon 431), donc
+DEHORS — mais les deux spheres s'INTERSECTENT bien (511 < 157+431). **Ma glose de G1 (« le volume
+n'est meme pas dans le sein ») ne suit donc PAS de son propre critere**, et l'attribution de 38 %
+n'est pas suspecte : je l'ai recomptee moi-meme et elle reproduit. Je publie la correction de ma
+lecture plutot que la branche qu'elle aurait declenchee.
+G2 refutee : 11.99 % et 15.05 % du VOLUME contenus, contre une bande gravee de 70 a 100 %.
+
+1.2 MON TEMOIN W1 A ECHOUE — ET LE DIAGNOSTIC EST UNE CINQUIEME ERREUR DE LA MEME FAMILLE
+============================================================================================
+W1 verifiait que mon instrument reproduit un acquis du cycle 35 (« la sphere proximale ne couvre
+AUCUN sommet que la distale ne couvre deja »). Barre gravee : >= 90 %. Mesure : **83.33 % et
+76.32 %. REFUTE.** Ma table de branches disait alors : instrument disqualifie, rien de publie.
+
+**L'INSTRUMENT N'EST PAS EN CAUSE, MON CRITERE L'EST**, et la mesure le montre sur trois domaines :
+
+    domaine                                     lBoob dans lBooc      rBoob dans rBooc
+    A  tout le mesh  (ce que j'ai GRAVE)             83.33 %              76.32 %
+    B  la chaine, critere « somme chaine > 0.5 »   **100.00 %**         **100.00 %**
+    C  sommets dont le joint proximal est majoritaire **100.00 %**      **100.00 %**
+
+**Sur le domaine que l'acquis cite utilisait, l'instrument le reproduit EXACTEMENT.** J'avais
+silencieusement change le domaine en gravant le critere. C'est la CINQUIEME fois de cette session
+qu'un de mes criteres compare une mesure a une reference sur un domaine que la reference n'a jamais
+utilise (P0 au cycle 36, S1/S2 puis T0 au cycle 37, W1 ici, X2 a l'etape 3).
+Je publie donc W1 REFUTE tel que grave, et je ne m'en sers pas pour jeter l'instrument : il est
+valide par une mesure PLUS stricte (100.00 % exact) et par W2 qui tire correctement par le bas
+(`main`, la sphere du bassin : **0.00 %**, barre <= 10 %). Les six vertex de difference du domaine A
+ne sont pas de la chair de chaine — la sphere de lBoob deborde sur autre chose, ce qui est un fait
+mineur mais reel.
+
+1.3 G4 CONFIRMEE — LA SPEC 35 EST ABSENTE DE SES DEUX COTES, ET C'EST MESURE
+==============================================================================
+Sa SPEC 35 a deux moities : le vetement ne doit pas SOUTENIR, et il doit SUIVRE le sein
+« essentially one-to-one ». Parmi les 11 sommets dans la sphere `lTopStrap2` :
+
+    joint majoritaire dominant : lTopStrap2 : 8   ·   chest : 2
+    part de POIDS detenue par les joints de SEIN : **6.1 %** (gauche) et **6.3 %** (droite)
+    sommets dont le majoritaire est un joint de sein : **0 sur 11**
+
+**Le debardeur au-dessus de son sein est pese sur la bretelle et sur le buste, pas sur le sein.**
+Il ne peut donc pas le suivre — et comme l'ordre du 14/08 a gele toute physique hors poitrine, il
+ne le peut par AUCUN autre chemin. La moitie « follows one-to-one » de sa SPEC 35 est ABSENTE, et
+son remede est un REPESAGE (un bake), pas un reglage. Nomme, chiffre, **non entrepris ce cycle** —
+aucun bake n'a ete lance, md5 du mesh inchange.
+G5 confirmee : `lBotStrap` et `rBotStrap` n'intersectent aucune sphere de sein (634 a 765 u pour
+des sommes de rayons de 432 a 523).
+
+1.4 ET UNE SECONDE RAISON, INDEPENDANTE, D'AVOIR ANNULE
+=========================================================
+Meme si la geometrie l'avait permis, le mecanisme n'aurait pas ete propre. A l'execution le moteur
+ne dispose d'AUCUN champ de nom ni de groupe pour un volume : le `[topstrapL]` que le generateur
+ecrit meurt dans un commentaire que le parseur coupe. Le seul predicat structurel qui isole
+exactement les six volumes du vetement a besoin d'une clause numerique `||offset|| / rayon >= 3.30`
+dont la marge est de **8.3 %** (le plus bas admis vaut 3.301, le plus haut exclu 3.047) : un
+re-fit du mesh ou une retouche de rayon la fait basculer en silence. C'est
+`never-fit-a-parameter-to-the-instrument`, et je ne l'aurais pas livre.
+Et le budget l'interdisait de toute facon : le geste equivalent du cycle 37 a coute ~28 lignes de
+moteur, pour **12 lignes de marge** sous la gate `CLEAN`.
+
+
+================================================================================================
+UN CINQUIEME FAIT, TOMBE DE LA MEME MESURE : SA SPEC 33 NE PEUT PAS SE DECLENCHER DANS SA BANDE
+================================================================================================
+Sa SPEC-keira-physique §1bis exige, dans ses mots, que ses seins « s'entrechoquent sur les
+mouvements brusques », et la mesure associee est « nombre de contacts chestL<->chestR > 0 sur
+jerk ». Le degagement mesure dit ceci :
+
+    ce qui doit se toucher (les SURFACES)          lBooc <-> rBooc   ecart **+0.628 B0**
+                                                   -> 0.314 B0 d'approche chacun suffit :
+                                                      **c'est DANS sa bande de 0.40 B0**
+    ce que le SOLVEUR teste (un POINT contre une    point lBooc -> sphere rBooc
+    SPHERE)                                         **+1.180 B0 a parcourir**
+                                                   -> **x2.95 le plafond COM, x2.36 le plafond apex**
+
+**LE CONTACT PHYSIQUE EST ATTEIGNABLE DANS SA BANDE ; LE CONTACT QUE LE SOLVEUR SAIT COMPTER NE
+L'EST PAS.** Un test point-contre-volume ne peut pas exprimer un contact surface-contre-surface
+entre deux volumes : il faut que le POINT d'un sein entre dans le VOLUME de l'autre, ce qui demande
+de traverser presque tout le sein oppose. Les 1.8 % / 1.9 % de corrections attribuees a la paire
+sein-contre-sein n'existent donc que parce que l'excursion tourne a 1.08 B0.
+C'est un defaut de MODELE, pas de reglage, et il est nomme ici pour la premiere fois. Il n'est PAS
+corrige ce cycle.
+
+
+================================================================================================
+CE QUE LA MESURE DIT DE L'EXCURSION, ET C'EST LE CHIFFRE QUI ORDONNE LE CYCLE 39
+================================================================================================
+En croisant la part de travail de contact de CHAQUE volume avec son degagement au repos, contre le
+plafond le plus GENEREUX de sa SPEC 22 (0.50 B0, apex exceptionnel) :
+
+    chaine    volumes INATTEIGNABLES a la spec    volumes MARGINAUX (0.40-0.50)    somme
+    chestL              **31.0 %**                        20.0 %                 **51.0 %**
+    chestR              **19.5 %**                        18.8 %                 **38.4 %**
+
+**UN TIERS A LA MOITIE DU TRAVAIL DE CONTACT DE SA POITRINE EST PRODUIT PAR DES VOLUMES QU'ELLE NE
+POURRAIT PAS ATTEINDRE SI SA SPEC 22 ETAIT TENUE.** Ce n'est pas une estimation : c'est une borne —
+un deplacement borne par 0.50 B0 n'atteint aucun point a plus de 0.50 B0, quelle que soit sa
+direction.
+Ce qui reste legitime est nomme aussi, et ne disparaitra pas : `neck->chest` contient deja les deux
+maillons proximaux AU REPOS (-32 u), et les capsules d'epaule du MEME cote les contiennent
+profondement (-320 u / -296 u). Ces contacts-la sont dans la geometrie d'auteur.
+
+
+================================================================================================
+TABLEAU DE CONFORMITE — chaque section IMPLEMENTEE / MESUREE / ECART
+[T] mesure a l'execution ce cycle · [M] mesuree sur le mesh ou la donnee livree ce cycle
+[R] reportee d'un cycle precedent, NON re-mesuree — et dite comme telle
+Aucune section « non applicable » (interdit depuis le 14/08 11:50).
+================================================================================================
+  SPEC 6  B0          TENUE      [R] `b0 c=0 flesh=602.0000`. Non re-mesure.
+  SPEC 8  volume      PARTIELLE  [R] det(D) renormalise PAR CONSTRUCTION. Inchange.
+  SPEC 9  retour exact PARTIELLE [R] `PHYSIDLE dev` 0.9581 / 0.4803 pour une cible de 0.0000.
+  SPEC 10 supine      PARTIELLE  [R] COM 0.2612 / 0.2653. Non re-mesure.
+  SPEC 11 prone       PARTIELLE  [R] COM 0.2373 / 0.2477. Non re-mesure.
+  SPEC 12 lateral     PARTIELLE  [R] pole MEDIAL sous bande. Non re-mesure.
+  SPEC 13 continuite  PARTIELLE  [R] chestL LINEAIRE, chestR NON LINEAIRE. Inchange.
+  SPEC 21 tanh        TENUE      [R] saturation de deplacement du cycle 34. Non re-mesure.
+  SPEC 22/38 apex+COM **PARTIELLE, ET ELLE DEVIENT LA CAUSE RACINE** [R] `comex` max 1.0765 /
+                                 0.9655 B0 contre 0.40 dur (COM) et 0.50 (apex exceptionnel), soit
+                                 **x2.69 et x2.41**. [M] NEUF CE CYCLE : c'est ce depassement qui
+                                 met sa poitrine en contact avec **31.0 % / 19.5 %** de volumes
+                                 qu'elle n'atteindrait pas a la spec, plus 20.0 % / 18.8 % de
+                                 marginaux. La section passe de « hors bande » a **premiere cause
+                                 mesuree de la gate `COLLIDE` et de la non-conformite de la 35**.
+  SPEC 23 multi-DOF   PARTIELLE  [R] cinquieme terme repare au cycle 36. Sortie toujours plate sur
+                                 chestL. Non re-mesure.
+  SPEC 24 3 frequences PARTIELLE [R] 5 canaux sur 6 dans leur bande. Non re-mesure.
+  SPEC 25 zeta 0.35   PARTIELLE  [R] 4 canaux dans 0.32-0.42, chestL v NON LISIBLE. Non re-mesure.
+  SPEC 26 rebond 31 % PARTIELLE  [R] 0.283 a 0.322 sur les canaux lisibles. Non re-mesure.
+  SPEC 27 stabilisation TENUE    [R] six canaux dans 0.6-1.2 s. Non re-mesure.
+  SPEC 28 derivation k SANS OBJET EN L'ETAT [R] `mass` n'est observable qu'a travers
+                                 `stiffness/sqrt(mass)`. Inchange.
+  SPEC 29 aniso+torsion PARTIELLE [R] compliance laterale 1.0294 / 0.9180 pour une cible de 0.820.
+  SPEC 30 ancrage     TENUE      [M] mesh livre `keira-hd-lod0.glb`, md5
+                                 **5cb8a493c43211acf3a04c5b6433df81**, VERIFIE INCHANGE ce cycle
+                                 (aucun bake). lBooc 43.5 %, rBooc 37.5 % pour une barre de 30 %.
+  SPEC 31 gradient    PARTIELLE  [R] le gradient vit dans la PEAU seule. Inchange.
+  SPEC 32 independance PARTIELLE [R] changer la masse d'un sein deplace l'autre de 32 a 321 %.
+  SPEC 33 restit. 0.06 **PARTIELLE, ET UN DEFAUT DE MODELE EST NOMME** [T] GATE `COLLIDE` ROUGE,
+                                 penetration 0.0983 / 0.0900 m RE-MESUREE ce cycle, inchangee.
+                                 [M] NEUF : le contact sein-contre-sein qu'exige sa §1bis est
+                                 ATTEIGNABLE physiquement dans sa bande (surfaces a **0.628 B0**,
+                                 donc 0.314 B0 d'approche chacun) mais **INATTEIGNABLE par le test
+                                 du solveur**, qui demande qu'un POINT entre dans le VOLUME oppose :
+                                 **1.180 B0**, soit x2.36 le plafond apex. Un test point-contre-
+                                 volume ne peut pas exprimer un contact surface-contre-surface.
+  SPEC 34 restit. 0.02 PARTIELLE [R] coefficient TENU, exigence de collision NON TENUE.
+  SPEC 35 vetement    **ABSENTE DES DEUX COTES, ET LE REMEDE EST ENFIN NOMME** [M] moitie
+                                 « support ~ 0 » : le vetement produit **38.3 % / 27.9 %** des
+                                 corrections. [M] moitie « follows one-to-one » : sur les 11
+                                 sommets de la sphere du debardeur, **0** a un joint de sein pour
+                                 majoritaire et les joints de sein n'y detiennent que **6.1 % /
+                                 6.3 %** du poids — il ne suit pas, et il ne le peut par aucun
+                                 chemin depuis le gel du 14/08. [M] **MAIS LE RETRAIT EST INTERDIT
+                                 ET C'EST MESURE** : sa chair n'est couverte par les spheres du
+                                 sein qu'a **0.00 % / 18.18 %**, donc le retirer ferait traverser
+                                 (regle 6). [M] **ET LE COUPLAGE EST UNE CONSEQUENCE DE LA 22** :
+                                 les six volumes sont a **>= 0.451 B0**, les quatre du bas a
+                                 **>= 1.018 B0**, contre des plafonds de 0.40 et 0.50. **A la spec,
+                                 ils sont inatteignables.** Remede : tenir la 22, pas retirer un
+                                 volume. La question posee quatre fois a l'owner est retiree.
+  SPEC 36 secondaire  PARTIELLE  [R] amplitude sous le plafond, zeta/f non re-mesures.
+  SPEC 37 sous-pas + rebase TENUE SUR LES DEUX MOITIES [R] Non re-mesure.
+  SPEC 14-20 regimes  ABSENTE    [R] aucune bande de COM par regime n'est tenue.
+  SPEC 5 (SPEC-keira-physique) — PRIORITE D'ANIMATION
+                      TENUE      [R] `chains=2 respected=2`. Non re-mesure.
+
+BREAST-PENETRATION: **0.0983 m (chestL) et 0.0900 m (chestR)**, plafond epingle 0.0005 m —
+    **NON TENU, GATE `COLLIDE` TOUJOURS ROUGE.** RE-MESUREES ce cycle : le tableau est regenere
+    depuis la course C38E2 de ce cycle (`empreinte de la trace lue : md5
+    2a0230493ec2f38f16de6d6c54c17485`), pas reporte. Elles sont identiques au cycle 37, ce qui est
+    attendu puisque les lignes `PHYS` de la course sont identiques au bit pres.
+SIDE-CROSSING: **8 franchissements** (`ROOM-SIDE: chains=1/2 crossing=8`), RE-MESURE ce cycle sur
+    la meme course, compteur prouve vivant par `ROOM-SIDE-CONTROL: chain=chestL armed=1 disarmed=0`.
+
+
+================================================================================================
+ETAT DU VALIDATEUR — REEL, PUIS BALAYAGE COMPLET SUR COPIE
+================================================================================================
+Le validateur REEL sort a **1** et s'arrete a sa troisieme gate, `OPEN-DEFECTS`, qui ne se ferme
+que sur la parole de l'owner (`breast-spec-incomplete`). **LA PHASE NE PEUT PAS PASSER LE
+VALIDATEUR PAR MON ACTION**, et son propre commentaire le dit : « la liste se vide UNIQUEMENT sur
+la parole de l'owner : c'est son oeil qui ferme un defaut, jamais un chiffre vert ».
+
+Balayage sur COPIE (`/tmp/c38-validator-sweep.sh`), **avec les SEULS arrets prematures du SHELL
+desarmes — aucun seuil, aucun critere, aucune gate touches (regle 5)**. Exactement 8 substitutions,
+toutes de la forme `exit 1` -> rien : l'original est intact, md5
+**deafa82ce5165d6ef9181a5fc23f1590**, et `git status .autoport/validators/` est vide.
+
+    REPORT-PRESENT PASS
+    SYNC           PASS   `vb249967379` accepte
+    OPEN-DEFECTS   **FAIL**  1 defaut rapporte par l'owner : `breast-spec-incomplete`
+    CLEAN          PASS   moteur **4788 lignes** pour un plafond de 4800 (12 de marge), 1 modele
+    SCOPE          PASS   2 chaines declarees = 2 resolues ; joints lBoob lBooc rBoob rBooc, et
+                          aucun joint de cheveu, sangle, languette, oreille ou lunettes n'est ecrit
+    TUNING         PASS   tous les reglages de l'owner sont dans le fichier livre
+    ROOM           PASS   (ses criteres passent : aucun de ses `die()` ne tire ; seule sa ligne de
+                          resume est en aval du blocage ci-dessous)
+    MOVE           PASS   organes geles par son ordre du 14/08
+    ROOT           PASS   (son `die()` ne tire pas)
+    COLLIDE geles  PASS   cheveux/meches, lunettes, oreilles : plus aucune chaine declaree
+    COLLIDE sein   **FAIL**  penetration **0.0983** (plafond epingle 0.0005) — declaree, INCHANGEE
+    COLLIDE reste  **NON EVALUEE**  \
+    IDLE           **NON EVALUEE**   > le `die()` ci-dessus est un `sys.exit(1)` a l'interieur du
+    ANIM           **NON EVALUEE**   > bloc `PYROOM` : tout ce qui le suit dans CE bloc est perdu
+    SUPPRESS       **NON EVALUEE**  /
+    SIDE-CONTROL   PASS   8 franchissements mesures ET declares, compteur prouve vivant
+                          (`ROOM-SIDE-CONTROL: chain=chestL armed=1 disarmed=0`)
+    FLOOR-WEAK     PASS   2 chaines gardent leur reponse aux petits mouvements
+    FLOOR          PASS   chestL 0.1885, chestR 0.1875 (SUSPENDUE, arbitrage owner 14/08 01:00)
+    DISCRIMINANT   PASS   chaque chaine distingue les 5 pilotages
+
+**QUATRE GATES N'ONT AUCUN VERDICT, ET JE LE REDIS AU LIEU DE LE CONTOURNER.** `COLLIDE reste`,
+`IDLE`, `ANIM` et `SUPPRESS` vivent dans le meme bloc Python que la gate qui echoue, dont chaque
+controle appelle `die()` -> `sys.exit(1)`. Le rendre non fatal demanderait de toucher au FLOT DE
+CONTROLE du bloc, et le code en aval suppose le controle passe (`m.group(1)` sur des `re.search`
+non gardes) : un « continue » y FABRIQUERAIT des verdicts. C'est le piege « une gate placee derriere
+une gate qui echoue toujours n'est jamais evaluee », il est signale pour la deuxieme fois, et il
+n'est pas contournable sans toucher a un critere. Il reste publie comme un TROU D'INSTRUMENT, pas
+comme un PASS.
+
+**LIVRAISON AU FIL DE L'EAU — ELLE A EU LIEU, ET LE CYCLE 37 SE TROMPAIT EN DISANT LE CONTRAIRE.**
+Son rapport listait « JE N'AI PAS LIVRE D'APK » comme une lacune. Le constructeur automatique publie
+en continu une paire coherente APK + pack : `.autoport/logs/auto_push_builds.txt` porte
+**24 publications sur les dernieres 24 heures**, toutes les ~27 minutes, la derniere
+`10:27:45 PUSHED apk=79f3e4f0 zip=7c0e5a46 (559M)`. Les deux demons sont vivants (pid 61883 et
+61941). La consigne permanente de l'owner est donc tenue par la chaine, meme quand un cycle ne
+declenche pas de build lui-meme.
+
+
+================================================================================================
+CE QUE JE N'AI PAS FAIT, ET POURQUOI — AUCUN DE-SCOPE SILENCIEUX (regle 3)
+================================================================================================
+  1. **JE N'AI PAS FERME `COLLIDE`.** Elle est rouge, a la meme valeur qu'au cycle 37, et ce cycle
+     n'a pas touche une ligne du moteur qui puisse la faire bouger.
+  2. **JE N'AI PAS RAMENE L'EXCURSION DANS SA BANDE.** Ce cycle vient d'etablir que c'est LA cause
+     racine ; il ne l'a pas corrigee. C'est le point 1 du cycle 39, et je ne pretends pas l'avoir
+     entame.
+  3. **JE N'AI PAS CONSTRUIT L'ABLATION DU VETEMENT** que le plan du cycle 37 rendait probable.
+     Elle est ANNULEE, pour deux raisons independantes et mesurees (regle 6 ; et un predicat dont
+     la marge est de 8.3 %). C'est le troisieme cycle economise en deux jours — mais economiser un
+     cycle n'est pas fermer une gate, et je ne compte pas ca comme un acquis.
+  4. **JE N'AI FAIT AUCUN BAKE DE MESH.** Le repesage du debardeur sur les os de sein, qui est le
+     remede nomme de la moitie « follows one-to-one » de sa SPEC 35, est identifie et NON entrepris.
+     md5 du mesh verifie inchange en entree et en sortie.
+  5. **JE N'AI PAS RE-MESURE** SPEC 6, 8, 9, 10, 11, 12, 13, 21, 23, 24, 25, 26, 27, 28, 29, 31,
+     32, 36, 37, ni SPEC 5 : toutes marquees [R], reportees, et dites comme telles. En particulier
+     `BREAST-PENETRATION` et `SIDE-CROSSING` sont des valeurs REPORTEES, pas relues.
+  6. **JE N'AI PAS CORRIGE LE DEFAUT DE MODELE DE LA SPEC 33** (un test point-contre-volume ne peut
+     pas exprimer un contact surface-contre-surface). Il est nomme pour la premiere fois, chiffre,
+     et laisse ouvert.
+  7. **JE N'AI PAS RENUMEROTE LES 33 PHASES PAR CONSTRUCTION.** C'est le seul vrai remede
+     structurel a la collision de l'etape 2 ; j'ai pose la reparation et un temoin qui parle a
+     chaque course, ce qui est de la DETECTION, pas de la PREVENTION. Je le dis au lieu de le
+     presenter comme resolu.
+  8. **JE N'AI TOUCHE AUCUNE GATE** (regle 5), aucune donnee, aucun rayon, aucune surcharge de
+     l'owner.
+  9. **JE N'AI PAS EXPLIQUE L'ASYMETRIE GAUCHE/DROITE** (point 2 du plan du cycle 37). Ce cycle
+     l'aggrave meme d'un cran de plus : chestL porte 31.0 % de contact inatteignable contre 19.5 %
+     pour chestR, et je n'ai pas d'explication.
+
+
+================================================================================================
+CE QUE L'OWNER DOIT SAVOIR DE CE CYCLE
+================================================================================================
+**J'AI EU TORT CINQ FOIS DE SUITE, ET C'EST CE QUI A FAIT AVANCER LE DOSSIER.** J'etais convaincu
+que sa poitrine etait coincee dans un empilement de volumes mal fichus, et qu'il faudrait soit les
+retirer soit les redimensionner. La mesure dit l'inverse sur toute la ligne : **au repos sa
+poitrine est moins enfouie qu'un coude**, l'epaule opposee ne la touche pas, et les volumes de son
+debardeur sont franchement a l'ecart.
+
+**ALORS POURQUOI SON DEBARDEUR ECRASE-T-IL SA POITRINE 9 640 FOIS PAR COURSE ?** Parce qu'elle
+bouge deux fois et demie plus loin que sa propre specification ne l'autorise. Les volumes sont a
+leur place ; c'est la poitrine qui va les chercher.
+
+**CE QUE CA CHANGE, ET C'EST LA BONNE NOUVELLE DU CYCLE.** Je lui ai demande QUATRE FOIS s'il
+fallait retirer les volumes de son debardeur, parce que sa spec les veut sans effet. **La question
+tombe : il ne faut rien retirer.** Si l'excursion revient dans sa bande, son debardeur cesse tout
+seul de toucher sa poitrine — c'est une consequence geometrique, pas un espoir. Et retirer ces
+volumes aurait ete une faute : sa poitrine serait passee au travers de son debardeur.
+
+**CE QU'IL FAUT REGARDER DANS LE BUILD, ET CE QU'IL FAUT ME DIRE :**
+  1. **Rien n'a change dans le jeu ce cycle.** Le moteur est identique au bit pres ; la seule
+     modification vit dans la salle de test. S'il voit une difference par rapport au build
+     precedent, c'est une information importante et inattendue — qu'il me le dise.
+  2. **Est-ce que sa poitrine part encore trop loin ?** C'est la grandeur que le cycle 39 va
+     attaquer, et c'est celle qu'il decrit depuis le debut par « des ballons d'eau qui font
+     n'importe quoi sur les mouvements brusques ». Les mouvements SUBTILS, qu'il juge bons, ne sont
+     pas concernes : le probleme est l'amplitude des gros.
+  3. **Est-ce que son debardeur ecrase visiblement sa poitrine** sur les mouvements brusques ?
+     C'est ce que 9 640 corrections par course devraient produire, et je n'ai aucun moyen de savoir
+     si ca se voit.
+
+**CE QUI RESTE ROUGE, ET NE SE CACHE PAS :**
+  - la poitrine traverse toujours son thorax : **0.0983 m contre un plafond de 0.0005** (valeur du
+    cycle 37, non re-mesuree ce cycle) ;
+  - l'excursion reste a **2.4 et 2.7 fois** sa limite, et c'est maintenant prouve etre la cause
+    d'un tiers a la moitie du travail de contact ;
+  - sa SPEC 35 est ABSENTE des deux cotes, et l'une des deux moities (« le vetement suit le sein »)
+    demande un repesage du mesh qui n'est pas fait ;
+  - sa SPEC 33 exige que ses seins s'entrechoquent, et le test du solveur ne peut PAS le compter
+    dans la bande de sa spec ;
+  - la boucle de collision ne converge toujours pas.
+
+
+================================================================================================
+LE PLAN DU CYCLE 39, DANS L'ORDRE QUE LA MESURE IMPOSE
+================================================================================================
+  1. **L'EXCURSION (SPEC 22/38) — elle passe premiere, et ce n'est plus un choix.** Ce cycle a
+     mesure qu'elle produit 31.0 % / 19.5 % du travail de contact contre des volumes autrement
+     hors de portee, plus 20.0 % / 18.8 % de marginaux. Le cycle 36 a deja etabli (R4) que le
+     porteur du tenseur est l'ETIREMENT du tissu, pas la pression, et qu'il tourne a 1.66x / 1.49x
+     son plafond sur 4 % des frames. Premiere etape : mesurer DE QUOI depend cet etirement, avant
+     d'y toucher.
+  2. **LE DEFAUT DE MODELE DE LA SPEC 33** — point-contre-volume ne peut pas exprimer
+     surface-contre-surface. Sa §1bis exige l'entrechoc ; il n'est comptable qu'a 1.180 B0.
+  3. **L'ASYMETRIE GAUCHE/DROITE**, qui gagne un fait de plus ce cycle et n'a toujours aucune
+     explication.
+  4. **PUIS SPEC 29-torsion (0.72), SPEC 12 lateral, SPEC 36 chestR** — son ordre du 17/08 23:50,
+     inchange.
+  5. **LE REPESAGE DU DEBARDEUR** sur les os de sein (moitie « follows one-to-one » de sa SPEC 35),
+     qui est un bake et se planifie comme tel.
+
+
+################################################################################################
+CI-DESSOUS, LES RAPPORTS DES CYCLES 37 ET 36, CONSERVES TELS QU'ILS ONT ETE PUBLIES.
+Ils gardent leur propre tableau de conformite, leur propre etat de validateur et leur propre
+liste « ce que je n'ai pas fait » : ce sont les leurs, pas ceux du cycle 38, et on ne les
+reecrit pas apres coup. Le seul enonce du cycle 37 que le cycle 38 RETIRE est nomme en 2.2
+ci-dessus (« deux jambes a exposition egale »), et sa mesure, elle, tient.
+################################################################################################
 ================================================================================================
 CYCLE 37 ETAPE 2 — L'ABLATION DES SPHERES PROXIMALES : MON CONTROLE POSITIF A ECHOUE, ET C'EST
 LE RESULTAT. LA PAIRE SEIN-CONTRE-SEIN N'EST PAS LE MOTEUR DE LA NON-CONVERGENCE.
