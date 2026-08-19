@@ -1,0 +1,32 @@
+================================================================================================
+VERDICT C35E3 — LES DEUX ENTREES DU TENSEUR, AVANT LEUR PLAFOND
+================================================================================================
+fenetres : PHYSSHAPE5 372 · PHYSSHAPE6 372 · PHYSSHAPE4 372
+plafonds livres : PHYS-DYN-MAX = 0.25 (:311)   PHYS-PRS-MAX = 0.25 (:314)
+
+Q0  L'INSTRUMENT EST-IL INERTE ?
+    33531 lignes `PHYS` hors marqueurs neufs, 0 differente(s) -> CONFIRMEE
+
+Q1  L'AMPLITUDE DU DEPASSEMENT (critere : dlr max dans [0.25, 1.00] sur les deux chaines)
+    chaine     dlr max   /plafond  |  prsr max   /plafond
+    chestL      0.4141     1.66x  |   13.3807    53.52x
+    chestR      0.3722     1.49x  |   15.2761    61.10x
+    -> CONFIRMEE
+    (arithmetique gravee avant la mesure : dl de l'ordre de 0.39, soit ~1.5x — pas 60x)
+
+Q2/Q3  LA FREQUENCE DU DEPASSEMENT — c'est elle qui separe un CANAL MORT d'un PIC RARE
+    chaine     frames    dl>plafond          pr0>plafond
+    chestL      1586952      68530 (  4.3 %)     587599 ( 37.0 %)
+    chestR      1586952      61735 (  3.9 %)     455850 ( 28.7 %)
+    Q2 (la pression sature sur STRICTEMENT plus de frames que l'etirement) -> CONFIRMEE
+    Q3 (la pression sature sur >= 50 % des frames)                        -> **REFUTEE**
+
+Q4  `prsr` max reste sous 20 (prediction FAIBLE, relecture de la meme course)
+    prsr max toutes chaines = 15.2761 -> CONFIRMEE
+
+CE QUE CA TRANCHE, SELON LA TABLE ECRITE AVANT LA MESURE
+    Q2 tenue, Q3 cassee : la pression sature PLUS SOUVENT mais reste MINORITAIRE.
+    -> ce n'est donc PAS un canal mort : c'est un PIC RARE et TRES VIOLENT (61x en
+       amplitude sur quelques pour cent des frames). Les DEUX canaux sont a traiter et
+       je ne designe pas un coupable unique — c'est la branche gravee pour ce cas.
+================================================================================================

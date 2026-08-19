@@ -244,6 +244,62 @@ sous son niveau d'avant ce cycle-la.** Je n'avais pas predit ce gain ; il n'etai
 
 
 ================================================================================================
+ETAPE 3 — LES DEUX ENTREES DU TENSEUR, MESUREES AVANT LEUR PLAFOND
+================================================================================================
+PREDICTIONS : `C35E3-tensor-prediction.txt`, md5 **bc44d0e77d1d9c27b528f3ae5e29d483**, empreinte
+gravee dans le commit **a4712a83b9** — avant que l'instrument existe.
+BILAN : **Q0 CONFIRMEE · Q1 CONFIRMEE · Q2 CONFIRMEE · Q3 REFUTEE · Q4 CONFIRMEE.**
+
+3.1 POURQUOI CETTE ETAPE
+==========================
+M3 a etabli que le tenseur est le porteur RESTANT de sa §22 (0.2614 B0, 36 % de ce qui reste). Or
+ses deux SORTIES sont collees a leur plafond dans toutes les courses : `dynm` = `PHYS-DYN-MAX` =
+0.2500 et `prsm` = `PHYS-PRS-MAX` = 0.2500, **exactement**. Une sortie collee a son plafond ne dit
+pas de combien l'ENTREE le depasse. C'est le mode d'echec du cycle 34, ou la saturation de sa §21
+ecrite comme multiplicateur de FORCE gelait le rappel a 46.3 u/frame quel que soit l'ecart.
+
+3.2 LE RESULTAT — ET LES DEUX ENTREES NE SE RESSEMBLENT PAS DU TOUT
+=====================================================================
+    chaine     dlr max (ETIREMENT)  /plafond  |  prsr max (PRESSION)  /plafond
+    chestL          0.4141            1.66x   |       13.3807          **53.52x**
+    chestR          0.3722            1.49x   |       15.2761          **61.10x**
+
+    chaine     frames comptees   dl > plafond        pr0 > plafond
+    chestL         1 586 952      68 530 ( 4.3 %)    **587 599 (37.0 %)**
+    chestR         1 586 952      61 735 ( 3.9 %)    **455 850 (28.7 %)**
+
+**Q1 CONFIRMEE**, et mon arithmetique gravee AVANT la mesure disait « dl de l'ordre de 0.39, soit
+~1.5x, PAS 60x » : mesure **1.66x et 1.49x**. C'est la premiere fois de ce cycle qu'une derivation
+posee d'avance tombe juste du premier coup.
+**Q2 CONFIRMEE** : la pression ecrete sur 8.6x et 7.4x plus de frames que l'etirement.
+**Q3 REFUTEE** : 37.0 % et 28.7 %, pas les >= 50 % que j'avais predits.
+**Q0 CONFIRMEE** : 33 531 lignes `PHYS` hors marqueurs neufs, **0 differente**. Instrument inerte.
+
+3.3 CE QUE CA TRANCHE — ET JE CORRIGE MA PROPRE BRANCHE ECRITE D'AVANCE
+========================================================================
+Ma table de branches disait, pour « Q2 tenue, Q3 cassee » : « c'est un PIC RARE ». **Ce mot est
+faux et je ne m'y tiens pas** : 37 % des frames n'est pas rare. La lecture exacte est celle-ci —
+
+  - la PRESSION DE CONTACT est **ecretee sur plus d'un tiers des frames, a une amplitude
+    50 a 61 fois son plafond**. Sur ces frames-la, le tenseur ne recoit AUCUNE information sur la
+    force reelle du contact : toutes les valeurs entre 0.25 et 15.28 lui arrivent comme 0.25 ;
+  - l'ETIREMENT, lui, depasse de 49 a 66 % sur 4 % des frames. C'est un canal essentiellement
+    LIBRE, et le plafond de §38 y joue son role de garde-fou, pas de baillon.
+
+**Les deux ne se traitent donc pas de la meme facon**, et je ne designe pas un coupable unique —
+c'est ce que la branche gravee imposait, et c'est la seule partie que la mesure valide.
+
+**ET LA CAUSE CANDIDATE DE L'ENTREE A 61x EST DEJA MESUREE, DANS CE MEME RAPPORT** : les deux
+volumes de chair d'un sein decrivent le MEME morceau de chair (recouvrement 75.6 % / 65.3 %, la
+sphere proximale ne couvrant pas un seul sommet que la distale ne couvre deja). Le contact est donc
+applique DEUX FOIS sur la meme chair a chaque frame. Non demontre — c'est une hypothese, elle sera
+gravee avant d'etre testee au cycle 36.
+
+**A NOTER, ET CE N'EST PAS RIEN** : `prsr` max passe de **24.7164 avant le correctif de levier a
+15.2761 apres**, soit **-38 %**. Le levier n'etait pas cense agir la ; il a fait baisser l'entree
+de contact d'un tiers. Constat, pas explication.
+
+================================================================================================
 DEUX DEFAUTS NEUFS, TROUVES EN VERIFIANT, NON CORRIGES CE CYCLE
 ================================================================================================
 **(a) DEUX COMPTEURS PUBLIES N'ONT AUCUN ECRIVAIN — DEUX FAUX ZEROS PERMANENTS.**
@@ -327,6 +383,9 @@ Aucune section « non applicable » (interdit depuis le 14/08 11:50).
   SPEC 31 gradient    PARTIELLE  [R] le gradient ne peut PAS etre porte par le tenseur (matrice
                                  unique par chaine) : il vit dans la PEAU seule.
   SPEC 32 independance PARTIELLE [R] Changer la masse d'UN sein deplace l'AUTRE de 32 a 321 %.
+  SPEC 12 lateral (bis) [M] `PHYS-PRS-MAX` = 0.25 est la borne haute de la bande de cette section,
+                                 et l'entree qu'elle ecrete vaut 53-61x sa valeur sur 28-37 % des
+                                 frames — la bande est donc TENUE par ecretage, pas par la physique.
   SPEC 33 restit. 0.06 **PARTIELLE, ET EN BAISSE POUR LA PREMIERE FOIS** [T] GATE `COLLIDE`
                                  ROUGE, penetration 0.0952 / 0.0913 m contre 0.0005, mais
                                  **-15.5 % / -18.8 %**. Le +18 % du cycle 34 est rendu et depasse.
@@ -469,10 +528,12 @@ subtil, ceux qu'il a valides, ne bougent pas : entre -3,8 % et +4,0 %.
 ================================================================================================
 LE PLAN DU CYCLE 36, DANS L'ORDRE DE SON ORDRE DE TRAVAIL
 ================================================================================================
-  1. **LE TENSEUR, MAINTENANT QU'IL EST LE PORTEUR RESTANT** (M3, 0.2614 B0 de moyenne, 36 % de
-     ce qui reste). Ses DEUX entrees sont en butee exacte (`dynm` = `PHYS-DYN-MAX` = 0.25 et
-     `prsm` = `PHYS-PRS-MAX` = 0.25) dans les deux courses : commencer par mesurer ce que valent
-     `dl` et `pr0` AVANT le `fmin`, parce qu'une entree saturee ne repond a rien.
+  1. **LA PRESSION DE CONTACT — MESUREE A L'ETAPE 3 DE CE CYCLE, ET C'EST ELLE LE CANAL ECRETE.**
+     Entree a **53-61x** son plafond, ecretee sur **37.0 % / 28.7 %** des frames : sur plus d'un
+     tiers du temps le tenseur recoit 0.25 quelle que soit la force reelle du contact. L'etirement,
+     lui, est essentiellement libre (1.5-1.7x, 4 % des frames) et son plafond joue son role.
+     Hypothese de cause a graver avant de la tester : les deux volumes redondants du point 2
+     appliquent le contact DEUX FOIS sur la meme chair.
   2. **LES DEUX VOLUMES REDONDANTS** (75.6 % / 65.3 % de recouvrement, union = distale seule).
      Candidat direct pour `meshpen` ET pour la saturation de contact du point 1. Deux voies, et
      sa directive du 17/08 autorise explicitement la seconde : repeser pour separer les
@@ -486,8 +547,8 @@ LE PLAN DU CYCLE 36, DANS L'ORDRE DE SON ORDRE DE TRAVAIL
 ================================================================================================
 ANNEXE — LES VERDICTS BRUTS, TELS QUE LES INSTRUMENTS LES ECRIVENT
 ================================================================================================
-Fichiers : `C35E1-verdict.txt` (etape 1, 7 predictions) et `C35E2-verdict.txt` (etape 2, 7
-predictions). Traces : `keira-room-x86.C35E1-REF2.log` (avant) et `keira-room-x86.C35E2-REF.log`
+Fichiers : `C35E1-verdict.txt` (etape 1, 7 predictions), `C35E2-verdict.txt` (etape 2, 7
+predictions) et `C35E3-verdict.txt` (etape 3, 5 predictions). Traces : `keira-room-x86.C35E1-REF2.log` (avant) et `keira-room-x86.C35E2-REF.log`
 (apres), 372 fenetres chacune. Tableaux : `keira-room-table.C35E1.txt` et `keira-room-table.txt`.
 ================================================================================================
 VERDICT C35E2 — LE LEVIER DE ROTATION EST CELUI DE L'ANCRE
@@ -620,4 +681,36 @@ M6  L'INSTRUMENT EST-IL INERTE ?
     32787 lignes `PHYS` hors PHYSCOMD/PHYSCOMDL, 0 differente(s) de la reference
     -> CONFIRMEE
 
+================================================================================================
+================================================================================================
+VERDICT C35E3 — LES DEUX ENTREES DU TENSEUR, AVANT LEUR PLAFOND
+================================================================================================
+fenetres : PHYSSHAPE5 372 · PHYSSHAPE6 372 · PHYSSHAPE4 372
+plafonds livres : PHYS-DYN-MAX = 0.25 (:311)   PHYS-PRS-MAX = 0.25 (:314)
+
+Q0  L'INSTRUMENT EST-IL INERTE ?
+    33531 lignes `PHYS` hors marqueurs neufs, 0 differente(s) -> CONFIRMEE
+
+Q1  L'AMPLITUDE DU DEPASSEMENT (critere : dlr max dans [0.25, 1.00] sur les deux chaines)
+    chaine     dlr max   /plafond  |  prsr max   /plafond
+    chestL      0.4141     1.66x  |   13.3807    53.52x
+    chestR      0.3722     1.49x  |   15.2761    61.10x
+    -> CONFIRMEE
+    (arithmetique gravee avant la mesure : dl de l'ordre de 0.39, soit ~1.5x — pas 60x)
+
+Q2/Q3  LA FREQUENCE DU DEPASSEMENT — c'est elle qui separe un CANAL MORT d'un PIC RARE
+    chaine     frames    dl>plafond          pr0>plafond
+    chestL      1586952      68530 (  4.3 %)     587599 ( 37.0 %)
+    chestR      1586952      61735 (  3.9 %)     455850 ( 28.7 %)
+    Q2 (la pression sature sur STRICTEMENT plus de frames que l'etirement) -> CONFIRMEE
+    Q3 (la pression sature sur >= 50 % des frames)                        -> **REFUTEE**
+
+Q4  `prsr` max reste sous 20 (prediction FAIBLE, relecture de la meme course)
+    prsr max toutes chaines = 15.2761 -> CONFIRMEE
+
+CE QUE CA TRANCHE, SELON LA TABLE ECRITE AVANT LA MESURE
+    Q2 tenue, Q3 cassee : la pression sature PLUS SOUVENT mais reste MINORITAIRE.
+    -> ce n'est donc PAS un canal mort : c'est un PIC RARE et TRES VIOLENT (61x en
+       amplitude sur quelques pour cent des frames). Les DEUX canaux sont a traiter et
+       je ne designe pas un coupable unique — c'est la branche gravee pour ce cas.
 ================================================================================================
