@@ -214,3 +214,79 @@ reste vrai et qu'il a lui-meme valide — les mouvements SUBTILS de la poitrine 
 mesure comme tel (`tipvar` 0.1720 / 0.1738, identique). Ce qu'il verra encore, et que je ne
 cherche pas a habiller : la poitrine entre toujours dans les volumes du torse au-dela de sa pose
 d'auteur, et c'est le defaut que ce cycle a echoue a fermer par deux voies.
+
+--- 12. ADDENDUM MESURE APRES LE RETRAIT — LE TABLEAU PUBLIE UN §22 FAUX, ET IL EST FAUX EN
+---     ROUGE. C'EST L'IMAGE EN MIROIR D'UN FAUX VERT, ET CA ENVOIE LE CYCLE SUIVANT SUR UNE
+---     VIOLATION DEUX FOIS TROP GROSSE. ------------------------------------------------------
+En cherchant le chantier suivant j'ai relu la ligne §22 du tableau :
+
+    ROOM-COMEX: chain=chestL  comex=0.8865 B0  (0.35 / 0.40)  HORS BANDE, x2.22 le plafond dur
+    ROOM-COMEX: chain=chestR  comex=0.8506 B0  (0.35 / 0.40)  HORS BANDE, x2.13 le plafond dur
+
+**CE N'EST PAS LA GRANDEUR QUE SA §22 NOMME**, et le moteur le documente lui-meme depuis le cycle
+41 (NOTE-112, mot pour mot) : « UN CENTRE DE MASSE EST UNE MOYENNE PONDEREE PAR LA MASSE. `comex`
+EST UN MAXIMUM SUR DEUX ECHANTILLONS. CE NE SONT PAS LA MEME GRANDEUR, ET C'EST LA SECONDE QUI EST
+PUBLIEE DEPUIS 40 CYCLES SOUS LE NOM QUE SA SPEC DONNE A LA PREMIERE. »
+La note a ete ecrite, les donnees par maillon ont ete ajoutees POUR permettre la recomposition
+(emplacements 35-42, publies en `PHYSCOMWL`) — mais **la ligne de VERDICT du tableau, elle, n'a
+jamais ete rebranchee dessus.** Le correctif s'est arrete a mi-chemin.
+
+RECOMPOSITION, avec les poids MESURES sur le mesh LIVRE que NOTE-112 cite :
+    chestL : chest 45.57 % · lBooc 35.24 % · lBoob 18.91 % · Lshoulder 0.28 %
+    chestR : chest 45.33 % · rBooc 31.94 % · rBoob 22.00 % · Rshoulder 0.73 %
+`chest` et `?shoulder` NE SONT PAS SIMULES : leur excursion est nulle AU BIT PRES par
+construction. **45.9 % / 46.1 % de la chair a donc une excursion exactement nulle** — cette moitie
+ne peut pas entrer dans un MAXIMUM, mais elle entre dans une MOYENNE, et elle la divise par deux.
+
+    COM pondere (BORNE SUPERIEURE)   max        p95       moyenne    fenetres > 0.40
+    chestL                           0.4736     0.4231    0.3446     30/186 = 16.1 %
+    chestR                           0.4264     0.4028    0.3330     12/186 =  6.5 %
+    publie sous le nom de sa §22     0.8865 / 0.8506
+
+CE QUE CA CHANGE, ET C'EST SUBSTANTIEL :
+  * Le chiffre publie **surestime le §22 de l'owner par 1.87x et 1.99x**.
+  * §22 est bien DEPASSEE, mais de **+18 % et +7 %** sur une BORNE SUPERIEURE, pas de x2.22.
+  * **La MOYENNE (0.3446 / 0.3330) est DANS sa bande normale de 0.35 B0.** Seules 16.1 % et 6.5 %
+    des fenetres passent le plafond dur. Une borne posee a 0.40 ECRETERAIT donc une queue, elle ne
+    MUSELLERAIT pas la reponse — exactement la question que le tableau dit vouloir instruire.
+  * Et comme c'est une borne SUPERIEURE (inegalite triangulaire sur des NORMES, reserve que
+    NOTE-112 pose elle-meme), la valeur vraie est <= celle-ci : le depassement reel peut etre plus
+    petit encore, voire nul.
+
+**JE NE CORRIGE PAS LE TABLEAU, ET C'EST DELIBERE.** Changer un instrument pour que son chiffre
+arrange est la faute que ce dossier a payee ; et meme si `physics_room_table.py` n'est pas une
+gate (aucune gate ne lit `comex` — la liste est SYNC, OPEN-DEFECTS, CLEAN, SCOPE, TUNING, ROOM,
+COLLIDE, IDLE, ANIM, DISCRIMINANT), le rebrancher en fin de cycle, seul, sans course de controle,
+serait exactement le geste que je viens de reprocher au correctif a mi-chemin. Je le REMONTE au
+superviseur avec le calcul complet ci-dessus, qui est reproductible depuis `PHYSCOMWL` de la trace
+livree, et c'est lui qui tranche.
+
+--- 13. LE CHANTIER SUIVANT, ET LES DEUX QUESTIONS A REGLER AVANT D'Y TOUCHER -----------------
+Trois routes INDEPENDANTES designent la meme piece — la TRANSLATION DU JOINT portee par le levier
+de 1040.5 u, et non le contact ni la longueur :
+  1. cycle 46 : « ce n'est pas la DIRECTION du distal, c'est son EXCURSION » ;
+  2. cycle 47 : le joint est plus PROFOND dans le volume (112.4 u) que le maillon n'est LONG
+     (140.4 u) — la finition ne l'y met pas, le levier l'y transporte ;
+  3. l'identite d'attribution de §22, deja au tableau et jamais lue contre cette question :
+     `|tp|` (le joint a BOUGE) vaut **0.4133 B0 de MOYENNE** quand le budget §22 du TOTAL est
+     0.40 ; `|rp|` (rotation x bras) ne vaut que 0.0433 ; et le maillon 0 porte le maximum dans
+     **72 %** des 372 fenetres.
+
+AVANT toute intervention, DEUX questions doivent etre reglees, sinon le cycle suivant se batira
+sur du sable — c'est la lecon de la ×5.2 et c'est celle du present cycle :
+  Q-A  Laquelle des deux grandeurs est le COM de sa §22 ? La section 12 donne le calcul ; il faut
+       le poser DANS l'instrument, avec son controle, avant de borner quoi que ce soit. Borner un
+       COM contre un chiffre 2x trop grand produirait un suppresseur calibre sur du vent.
+  Q-B  Le bras de levier de la DEFORMATION vaut **3.66x / 3.24x l'os qui le porte** (514.5 u et
+       467.5 u pour des os de 140.4 u et 144.2 u — verifie sur la trace, pas repris du tableau).
+       Le canal de deformation est BORNE (`ROOM-SHAPE-DYNSAT` 0.1887-0.2286 pour un plafond de
+       0.2500, et il DISCRIMINE) ; c'est son BRAS qui n'est borne par rien. Un canal borne sur un
+       bras 3.7x trop long redonne une excursion non bornee : il faut savoir si `lc` est le bon
+       point d'application avant de serrer le canal, sans quoi on serrera la seule piece qui,
+       elle, marche.
+
+CE QUE JE NE FAIS PAS CE CYCLE, ET JE LE DIS AU LIEU DE LE REDUIRE EN SILENCE : je n'ouvre pas une
+quatrieme intervention de solveur dans la meme session. Les trois de la journee (cycle 46 jambe 1,
+cycle 46 jambe 2, cycle 47) ont ete refutees ou retirees sur mesure, et la quatrieme se batirait
+sur `comex`, dont je viens de montrer qu'il vaut deux fois trop. Le cycle suivant commence par
+Q-A et Q-B, qui sont des MESURES, pas des paris.
