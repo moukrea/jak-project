@@ -373,3 +373,16 @@ Le ratio (19 %) était juste, mais un chiffre invraisemblable détruit la confia
 autres, y compris les corrects. Déjà consigné en mémoire projet, et j'y suis retombé.
 Verrou : toute longueur publiée porte **la valeur brute ET sa conversion** (`734 u = 17,9 cm`), et
 tout chiffre destiné à l'owner passe le test de vraisemblance anatomique avant d'être écrit.
+
+GUARD trigger-nobody-calls .autoport/auto_push_builds.sh owner_testable
+**Un declencheur differentiel que personne n'appelle impute son delta au mauvais build.**
+`owner_testable.py` compare le build publie a un JALON qu'il n'avance qu'en tournant. Il n'etait
+cable nulle part — ni demon, ni orchestrateur : il ne tournait qu'a la main. Le 2026-08-19 son
+jalon datait de la veille, et il a donc annonce « A TESTER » sur le build de 20:00 en lui
+attribuant une hausse de rayon et de couverture faite le 08-18 a 14:23. La physique livree etait
+**identique** a celle du build que l'owner avait deja. Envoyer un humain tester deux fois la meme
+chose est exactement le bruit que ce script existe pour supprimer.
+Verrou : il est appele a CHAQUE publication reussie depuis le demon de push, donc le jalon avance
+build par build. Regle generale : un outil qui compare a un etat precedent doit tourner sur CHAQUE
+evenement, sinon il ne mesure pas un delta mais un cumul, et il l'attribue au dernier venu.
+Voisin de `stale-artifacts` et de `floor-ratchet-mirror`.

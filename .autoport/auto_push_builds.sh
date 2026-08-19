@@ -65,6 +65,13 @@ while true; do
        --repo moukrea/jak-builds --clobber >>"$LOG" 2>&1; then
     LAST="$h"; LASTZIP="$zh"
     echo "$(date +%H:%M:%S) PUSHED apk=${h:0:8} zip=${zh:0:8} ($(numfmt --to=iec "$s2" 2>/dev/null || echo "$s2"))" >> "$LOG"
+    # 2026-08-19 : le declencheur owner_testable.py n'etait appele PAR PERSONNE. Il compare le build
+    # courant a un JALON qu'il n'avance qu'en tournant ; ne tournant qu'a la main, le jalon datait de
+    # la veille et il a attribue au build de 20:00 un changement de rayon fait le 08-18 a 14:23. Un
+    # « a tester » sur un build dont la physique est IDENTIQUE a celui qu'il a deja, c'est exactement
+    # le bruit que ce script existe pour eviter. Il tourne desormais a CHAQUE publication, donc le
+    # jalon avance build par build et un delta ne peut plus etre impute au mauvais.
+    python3 .autoport/owner_testable.py >> "$LOG" 2>&1 || true
   else
     echo "$(date +%H:%M:%S) upload FAILED ${h:0:8}" >> "$LOG"
   fi
