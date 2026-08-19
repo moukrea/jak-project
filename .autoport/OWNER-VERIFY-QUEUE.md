@@ -35,12 +35,9 @@ fois trop court. Soit on viole ta limite locale d'un facteur 5 (c'etait l'etat d
 etire trop peu (c'est l'etat de ce build). **Il n'y a pas de troisieme valeur.** Le facteur qui
 manque est **x5,2**.
 
-La reparation est connue et chiffree : **glisser l'articulation racine vers l'interieur de sa
-chair**, pour que le segment simule couvre sa poitrine du debut a la fin. Ca touche son squelette
-et ca demande une recuisson du maillage. Tu m'as autorise a modifier le rig ; **je ne l'ai pas
-lance en fin de cycle a l'aveugle**, parce que cette operation ecrase des fichiers qui ne se
-reconstruisent qu'en recuisant, et je veux d'abord pouvoir predire son effet sur l'ancrage de ta
-section 30 (celui que tu m'as fait reprendre trois fois). C'est le chantier du prochain cycle.
+J'ai ecrit d'abord que la reparation serait de **glisser l'articulation racine vers l'interieur
+de sa chair**. **J'ai construit l'outil qui verifie ca avant de cuire, et il dit que je me
+trompais** — je te le raconte au point 3c.
 
 ## 3. JE ME CORRIGE SUR DEUX CHOSES QUE JE T'AI DITES HIER
 
@@ -56,6 +53,13 @@ limite avant, 100 % apres). Prendre une grosse part du budget ne veut pas dire e
 **Je ne sais donc toujours pas ce qui porte ce depassement**, et je le dis plutot que de te
 resservir une explication.
 
+**(c) « Il suffira de glisser l'articulation vers l'interieur de sa chair. » — DIT IL Y A UNE
+HEURE, ET DEJA FAUX.** Avant de lancer cette operation j'ai bati l'outil qui en predit le
+resultat sans rien cuire. Il m'apprend que **ta section 30 l'interdit** : le profil d'ancrage que
+tu as ecrit donne au thorax plus de la moitie de la chair sur toute la moitie arriere du sein.
+Une articulation posee la-dedans ne pilote **aucun** sommet — c'est exactement le defaut « l'os
+est pose mais il ne bouge rien » que tu m'as fait reprendre trois fois. **J'allais le cuire.**
+
 ## 4. CE QUI RESTE ROUGE, ET NE SE CACHE PAS
 
 * **Sa poitrine traverse toujours son thorax** : 0,095 m et 0,089 m contre un plafond de 0,0005.
@@ -65,6 +69,20 @@ resservir une explication.
 * **Sa SPEC 33 (qu'ils s'entrechoquent) reste hors de portee du test** actuel.
 * **Un defaut neuf, mesure, non corrige** : environ un tiers de l'etirement demande a sa chair
   est un artefact de calcul (une cible figee comparee a un axe qui tourne), pas de la physique.
+
+## 4bis. CE QUI EST PRET, ET C'EST UN CHOIX QUI T'APPARTIENT
+
+L'outil a quand meme trouve le meilleur placement possible. Il fait passer la deformation livree
+de **4,8 %** a **9,0 %** de la taille de l'organe — soit **presque le double**, et ca la sort du
+sous-plancher pour la mettre dans la bande « courante » de ta spec.
+
+Mais il ne peut pas aller plus haut : ta section 22 voudrait 21-25 %, et ta section 30 plafonne le
+segment pilotable a ~37 % de l'organe. **Les deux sections ne sont pas satisfiables ensemble tant
+que la deformation passe par la chaine d'os.** Aller plus loin voudrait dire changer de modele
+(faire porter la deformation par le calcul de forme, qui est deja bien oriente, au lieu des os).
+
+> **Veux-tu que je cuise ce placement (x1,8 sur la deformation) ?** C'est un arbitrage de qualite,
+> donc le tien. Un mot et je le construis.
 
 ## 5. CE QUE JE TE DEMANDE DE REGARDER
 
