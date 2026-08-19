@@ -10,6 +10,32 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
+## 2026-08-20 00:10 — REGISTRE DE COUVERTURE OBLIGATOIRE : `.autoport/SPEC-COVERAGE.md`
+
+L'owner, apres avoir constate que le correctif marche : « ça a l'air d'être effectif, mais j'ai pas
+l'impression que la spec est 100 % implémentée ». Il a raison, et le pire est que **je ne pouvais
+pas lui repondre** : aucun document ne disait, section par section, ce qui etait tenu. Sept cycles
+de rapports narratifs et zero etat consolide.
+
+`.autoport/SPEC-COVERAGE.md` est cree et devient un ARTEFACT OBLIGATOIRE de chaque cycle :
+  - une ligne par section de 1 a 38, aucune omise ;
+  - un statut ne s'ecrit que s'il s'appuie sur une MESURE NOMMEE — sinon `NON ETABLI` ;
+  - `TENUE` exige la bande respectee sur LES DEUX seins ; une seule chaine = `PARTIELLE` ;
+  - `TENUE PAR CONSTRUCTION` se declare quand la section ne peut pas etre violee dans ce moteur,
+    et n'est JAMAIS comptee comme une victoire (cf. §5, masse-jauge) ;
+  - un statut qui regresse se reecrit : c'est un ETAT, pas un historique.
+
+**PREMIER ETAT, ET IL EST SEVERE : 6 tenues sur 38.** Le plus gros trou n'est pas un defaut de
+physique, c'est un trou de MESURE — **onze sections (§10, §12 a §20) decrivent le comportement au
+saut, a l'atterrissage, au freinage, en rotation, allongee, et AUCUNE n'a jamais ete jouee dans la
+salle de test.** Tant qu'elles ne le sont pas, « 100 % » est indemontrable quelle que soit la
+qualite du solveur, et tout chiffre que je donnerais a l'owner serait une opinion.
+
+**CHANTIER QUI EN DECOULE, ET IL PASSE DEVANT LE RESTE.** La salle doit jouer ces onze regimes.
+C'est du gain de COUVERTURE, pas du reglage : chaque regime joue transforme un `NON ETABLI` en un
+verdict, dans un sens ou dans l'autre. Prefer ca a un cycle de plus sur une section deja mesuree.
+
+
 ## 2026-08-19 23:50 — ARBITRAGE : LE VERDICT DE §22 SE REBRANCHE SUR LA MOYENNE PONDEREE. AUTORISE.
 
 Le cycle 47 remonte, avec le calcul reproductible, que `ROOM-COMEX` publie « 0,8865 / 0,8506 B0,

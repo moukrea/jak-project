@@ -441,3 +441,14 @@ inexistant et masque le vrai defaut, qui est petit. Pire, la note « c'est docum
 Verrou : un correctif d'instrument n'est clos que quand la ligne publiee a change de valeur ET de
 nom. Et une population se publie avec ses trois grandeurs (borne superieure, moyenne, part
 au-dessus du plafond), jamais avec son seul maximum.
+
+GUARD no-consolidated-coverage-state .autoport/SPEC-COVERAGE.md
+**Sept cycles de rapports narratifs, et aucun etat consolide.** Quand l'owner a demande « la spec
+est-elle a 100 % ? », je ne pouvais repondre qu'a l'impression : chaque cycle publiait son recit,
+aucun document ne disait section par section ce qui etait tenu. Le premier registre ecrit a donne
+**6 tenues sur 38**, et surtout a revele que **onze sections n'avaient jamais ete JOUEES** — un
+trou de mesure invisible dans un flux de rapports, parce qu'un rapport parle de ce qu'il a fait,
+jamais de ce qu'il n'a pas fait.
+Verrou : `.autoport/SPEC-COVERAGE.md` est un artefact obligatoire de chaque cycle, une ligne par
+section, `NON ETABLI` par defaut. Regle generale : un travail mesure a l'aune d'un document exige
+un TABLEAU de couverture de ce document, tenu a jour, ou l'avancement n'est qu'une opinion.
