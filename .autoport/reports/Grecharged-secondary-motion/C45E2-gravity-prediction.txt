@@ -1,0 +1,30 @@
+C45E2 — PREDICTION GRAVEE AVANT LA COURSE : gravity 0.65 -> 1.00 (directive owner 2026-08-19 20:25)
+DIRECTIVES v3fee554599
+
+ORDRE : « `gy = -11.16` vaut EXACTEMENT 9,81 m/s^2 en unites moteur. Un `gsc` de 0,65 fait vivre
+l'organe a 0,65 g, alors que §3 pose "the authored upright 1 g equilibrium". Cible : gravity=1.00. »
+
+D'OU VENAIT 0.65 : PAS de la spec, et PAS de la gate TUNING non plus — les lignes `gravity=0.65`
+du registre sont TOUTES COMMENTEES (:148-179). Le generateur, lui, emet `A_GRAVITY = 0.45`
+(`physics_keira_gen2.py:270`). Le 0.65 livre est un RESIDU : `apply_owner_tuning.py` applique et
+ne REVIENT jamais en arriere, donc la valeur ecrite un jour survit au commentaire de sa ligne.
+C'est le piege deja au registre. Je pose donc une ligne ACTIVE a 1.00 (une seule par (cible,
+parametre)) pour que la valeur soit portee par le contrat et survive a une regeneration.
+
+PREDICTIONS, dans l'ordre de ce que je crois le plus au moins sur :
+  G1  L'AFFAISSEMENT MONTE. `ROOM-GRAVSAG` / la reponse au pilotage `tilt` augmentent nettement
+      (>= +30 %), parce que c'est le seul canal ou `gsc` entre sans passer par la borne.
+  G2  LE MAILLON DE CHAIR NE BOUGE PAS. Son angle livre reste colle a 16.65 / 16.67 deg avec un
+      ecart entre pilotages < 1 %. Raison : il est SATURE sur la borne a tous les stimuli (mesure
+      de ce cycle), donc +54 % d'entree ne peut pas en sortir. Si G2 tombe, ma lecture de la
+      saturation est fausse et je le dirai.
+  G3  CONTRE MOI, ET C'EST L'AVERTISSEMENT DE LA DIRECTIVE : l'elongation locale radiale sort de
+      la bande de §22. Je predis qu'elle N'EN SORT PAS, precisement PARCE QUE la borne sature
+      deja — la marge de 6 % annoncee ne sera pas consommee. Si elle sort, la directive a raison
+      et moi tort, et le couplage devient le sujet.
+  G4  `meshpen` ne s'ameliore pas (reste ~0.044 / 0.039 m). La gravite n'est pas ce qui produit
+      la penetration.
+  G5  `ROOM-IDLE maxdev` reste <= 0.0002. §2/§9 exigent le retour EXACT a la pose d'auteur, et
+      `g_ref` est soustrait (:2470-2475) : monter `gsc` ne doit PAS creer d'affaissement statique
+      debout. Si `ROOM-IDLE` monte, c'est que `g_ref` ne fait pas son travail et c'est un defaut
+      NEUF que la gravite aurait revele.

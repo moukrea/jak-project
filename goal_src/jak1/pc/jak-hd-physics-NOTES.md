@@ -3857,3 +3857,56 @@ relaxation, verifier qu'elle est IDEMPOTENTE. Une saturation lisse ne l'est jama
 son genou ; repetee, elle converge vers son genou et efface l'entree. Le test qui la debusque est
 gratuit : comparer le plafond obtenu depuis deux entrees tres differentes — s'il est le meme,
 c'est un point fixe, pas une borne.
+
+
+## NOTE-000 — LA FORME DU MOTEUR, ET POURQUOI ELLE FAIT TOMBER SIX SECTIONS D'UN COUP
+
+Externalise depuis l'en-tete de `jak-hd-physics.gc` le 2026-08-19 (cycle 45). Rien n'est retire :
+le texte est integral ci-dessous, et le fichier source en garde le pointeur. Motif : le moteur
+etait a 4804 lignes contre le plafond de 4800 de la gate CLEAN, et ce plafond vise l'empilement
+de SUPPRESSEURS. Rendre de la marge en deplacant de la PROSE (zero changement de comportement,
+GAME.CGO bit-identique) est la seule facon d'y revenir sans toucher a la gate, que la regle 5
+me gele explicitement.
+
+```
+jak-hd-physics.gc — PHYSIQUE SECONDAIRE DE KEIRA (depart propre 2026-08-11).
+
+L'ancien moteur (6000 lignes) est parke sur `physics-attic-2026-08-11`. Il n'est PAS une base de
+travail : la cause MESUREE de son echec est l'empilement de suppresseurs (1940 -> 6000 lignes,
+clamps 9 -> 84, detection d'anim 45 -> 172) jusqu'a ce que 42 % des mesures soient a zero.
+Celui-ci implemente `.autoport/prompts/SPEC-keira-physique.md`, section par section, et RIEN
+d'autre. Aucun gel de calme, aucun sommeil, aucune hysteresis, aucun clamp de vitesse, aucun
+masque ni filtre de volume : ce qui limite une chaine est soit la LONGUEUR D'UN OS, soit un
+COLLIDER, soit la POSE DU MODELE. Ce sont les trois seuls limiteurs de la SPEC.
+
+LA FORME DU MOTEUR — et c'est elle qui fait tomber trois exigences d'un coup.
+Le simule n'est pas la position du joint : c'est son ECART a la pose d'auteur, exprime dans le
+repere de l'os porteur (l'ancre). La position ecrite vaut
+
+    p_l  =  T_l  +  R_ancre . o_l                (T = pose retargetee, o = ecart simule)
+
+d'ou, sans un seul cas particulier :
+  SPEC 2  la racine ne bouge pas   -> o = 0 sur les liens `rootlock` : ils ne sont ni integres
+                                      ni ecrits, la pose du retarget reste, au bit pres.
+  SPEC 4  le repos = le modele     -> famille A (gravite nulle) : o -> 0, donc p -> T. Ce n'est
+                                      pas un reglage, c'est le point fixe de l'integrateur.
+                                      Famille B (gravite) : o s'arrete sur un ecart statique,
+                                      ca pend et ca reste pendu.
+  SPEC 5  l'animation d'auteur     -> le deplacement d'auteur (T) traverse avec un coefficient
+                                      de 1 : la physique AJOUTE o, elle ne remplace rien et ne
+                                      peut donc pas retarder l'animation. Un ressort ecrit en
+                                      repere monde, lui, la retarde — c'est ce que mesure la
+                                      colonne `authored` de la salle, et c'est ce qui separe
+                                      les deux formes.
+  SPEC 1  ce qui a de la physique  -> les chaines viennent du fichier de donnees, genere depuis
+                                      le rig. Le moteur ne connait aucun nom de joint en dur.
+  SPEC 3  collisions propres       -> projection hors des volumes ajustes sur le mesh, avec le
+                                      PLANCHER DE POSE MODELE : un lien deja dans un volume au
+                                      repos (une racine de cheveu sous le cuir chevelu) a le
+                                      droit d'y etre, il n'a pas le droit d'aller PLUS PROFOND.
+                                      C'est ce qui remplace le `colskip` retire.
+  SPEC 7  ce qui fait foi          -> la position ECRITE du joint, mesuree ici meme.
+
+REGLE 0 (owner) : un commentaire n'est pas une preuve. Tout ce que ce fichier PRETEND faire est
+mesure par la salle de test (phys-room.gc) et publie dans keira-room-table.txt.
+```

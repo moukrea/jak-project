@@ -1314,3 +1314,13 @@ chain chestR stiffness=2.9081 damping=0.1753
 ## =============================================================================================
 chain chestL b0=602
 chain chestR b0=602
+
+# 2026-08-19 20:25 — GRAVITE A 1 g, PAR DIRECTIVE, ET CE N'EST PAS UN REGLAGE D'OEIL.
+# `gy = -11.16 u/frame^2` EST 9,81 m/s^2 (9,81 x 4096 / 3600). Un `gsc` de 0,65 faisait vivre la
+# poitrine a 0,65 g contre le « authored upright 1 g equilibrium » de sa §3. Le 0,65 n'etait porte
+# ni par la spec ni par une ligne active de ce fichier (elles sont toutes commentees, :148-179) :
+# c'etait un RESIDU d'`apply_owner_tuning.py`, qui applique et ne revient jamais en arriere. La
+# ligne ci-dessous est ACTIVE pour que la valeur soit portee par le CONTRAT et survive a une
+# regeneration — une par (cible, parametre), jamais deux.
+chain chestL gravity=1.00
+chain chestR gravity=1.00

@@ -99,11 +99,11 @@ level 2 substeps=4 iters=20 collide=2 classmask=7 fixedhz=240
 # ---- Keira, and only Keira: 2 chains, 56 volumes.
 [model keira-hd]
 # chestL [A] lBoob verts=54 wsum=17.67 r=723 | lBooc verts=47 wsum=33.02 r=587
-chain chestL class=primary stiffness=2.7696 damping=0.1686 gravity=0.65 radius=655 mass=1.45 hang=0.00 family=A couple=1.85 radii=723,587 b0=602
+chain chestL class=primary stiffness=2.7696 damping=0.1686 gravity=1.00 radius=655 mass=1.45 hang=0.00 family=A couple=1.85 radii=723,587 b0=602
 j lBoob
 j lBooc
 # chestR [A] rBoob verts=55 wsum=19.75 r=725 | rBooc verts=41 wsum=28.57 r=533
-chain chestR class=primary stiffness=2.9081 damping=0.1753 gravity=0.65 radius=629 mass=1.4800 hang=0.00 family=A couple=1.85 radii=725,533 b0=602
+chain chestR class=primary stiffness=2.9081 damping=0.1753 gravity=1.00 radius=629 mass=1.4800 hang=0.00 family=A couple=1.85 radii=725,533 b0=602
 j rBoob
 j rBooc
 

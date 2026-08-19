@@ -1,0 +1,85 @@
+C45E1 — PREDICTIONS GRAVEES AVANT LA MOINDRE COURSE (cycle 45)
+DIRECTIVES v3fee554599
+phase Grecharged-secondary-motion · branche physics-keira-clean · KEIRA / POITRINE SEULE
+
+================================================================================================
+PARTIE 0 — CE QUE JE PUBLIE COMME LECTURE DE DOCUMENT, PAS COMME PREDICTION
+================================================================================================
+Ce n'est pas un pari : c'est une citation, verifiable a la ligne, de SPEC-breast-softbody.md.
+Je la grave ICI parce qu'elle CONTREDIT la directive du 2026-08-19 20:00, et que le contrat
+m'impose de signaler un conflit plutot que de suivre en silence.
+
+  Sa 22 (lignes 300-306) contient UNE SEULE ligne d'elongation, et elle dit LOCAL :
+      "Local tissue elongation: common 5-15%, large 15-21%, exceptional 21-25%"
+      "Absolute stretch clamp:  25%"
+  Il n'existe NULLE PART dans la moitie Keira une ligne "elongation d'ORGANE 21-25 %".
+  La directive du 08-19 lit la 22 comme "25 % d'elongation d'organe A 25 % de deformation
+  locale" — deux lignes — et en tire le facteur x5.2. La seconde ligne n'existe pas.
+
+  Et la 22 dit, en GRAS, l'inverse de la premisse du x5.2 :
+      "Large apex displacement shall not imply equally large tissue extension. Translation,
+       rotation and redistribution shall account for most of the excursion."
+  Deux autres sections le repetent en gras :
+      14 : "The majority of visible movement must come from global mass lag and rotation, not
+            from stretching the tissue by the complete displacement magnitude."
+      19 : "30-40% B0 apex displacement without requiring comparable local stretch."
+      16 : "\"25%\" is a deformation ceiling, not a normal target."
+
+  Donc : l'elongation LOCALE livree (23.6 / 23.3 %, DIRECTIVES "CE QUI RESTE VRAI ET ACQUIS")
+  est DANS la bande "exceptional 21-25 %" et SOUS le clamp absolu de 25 %. La ligne
+  d'elongation de sa 22 est TENUE. Le x5.2 vise une grandeur que sa spec ne nomme pas.
+
+================================================================================================
+PARTIE 1 — LE BANC DE PLACEMENT (deja couru, sans cuisson, c45_place_bench.py)
+================================================================================================
+Meme si la premisse ci-dessus etait juste, l'operation ordonnee ne la sert pas. Mesure sur
+/tmp/c24/b-derived/prepped.glb (l'entree exacte que la cuisson donne au reskin) :
+
+  chestL : nuage 76 sommets · mur d'ancrage anc<0.5 a s=0.455 · 48/76 sommets peuvent etre
+           majoritaires · barre du serial 7 = 23 sommets => AU PLUS 2 os la tiennent ensemble
+  chestR : nuage 71 sommets · mur a s=0.428 · 45/71 · barre 22 => AU PLUS 2 os
+
+  couverture maximale admissible, par nombre de noeuds (critere "aucun maillon inerte") :
+     N=2  38.0 %   N=3  31.0 %   N=4  29.0 %   N=5  28.0 %   N=6  28.0 %
+  AJOUTER DES NOEUDS FAIT BAISSER LA COUVERTURE. "~5-6 articulations" est donc contre-productif
+  meme dans la monnaie de la directive, et la barre des 30 % par os injecte n'est tenable
+  qu'a 2 os. Aucune cuisson n'a ete depensee pour l'apprendre.
+
+================================================================================================
+PARTIE 2 — LES PREDICTIONS, ELLES SE VERIFIENT PAR LES COURSES QUI SUIVENT
+================================================================================================
+Le defaut vivant, mesure au cycle 41 et non explique : le maillon 0 atteint 13.85 deg SUR
+L'ANIMATION SEULE contre un genou de 13.29 deg (0.42 B0) et un plafond dur de 16.63 deg
+(0.50 B0). L'organe est DEJA a sa butee au repos anime : le pic est la valeur de la borne, pas
+une reponse. Question restee ouverte : POURQUOI. Deux candidats non separes — le gain de
+pilotage `couple=1.85` applique a l'acceleration de la pose ANIMEE, ou une raideur trop faible.
+
+RUN A — reference, donnees livrees telles quelles. (Necessaire aussi parce que le log courant
+        est TRONQUE : 0 occurrence de PHYSEND, il ne vient pas d'une course finie.)
+
+RUN B — ABLATION DU GAIN DE PILOTAGE : couple 1.85 -> 1.00 sur chestL et chestR, DONNEE SEULE,
+        aucune recompilation. 1.00 est la valeur que le generateur lui-meme declare etre "la
+        physique exacte, et tout le reste une exageration inventee".
+  B1  la demande libre sur ANIMATION SEULE passe SOUS le plafond de 0.50 B0.
+      Arithmetique : elle vaut 1.41 x 0.50 B0 a couple=1.85 ; a 1.00, 1.41*(1/1.85)=0.76,
+      soit 0.38 B0. PREDIT : la borne CESSE de mordre sur l'animation seule.
+  B2  l'ecart relatif du MAX d'angle du maillon 0 entre pilotages passe de 17.2 % a >= 40 %.
+  B3  CONTRE MOI : le mouvement de pointe (`tipvar` max) de chestL BAISSE de 25 a 45 %.
+      C'est le prix, et c'est exactement ce que l'owner a rejete le 2026-08-11 quand j'ai
+      baisse le couplage. Si B3 se realise, la reponse N'EST PAS de rebaisser le couplage.
+  B4  FLOOR et FLOOR-WEAK signalent chestL/chestR (suspendues pour ces deux chaines, donc
+      imprimees et non bloquantes). Je m'engage a les publier meme suspendues.
+
+RUN C — ABLATION DE LA BORNE : `*phys-bend-off*` = 1 (interrupteur pose au cycle 44, defaut 0,
+        inerte en livraison). MESURE SEULE, JAMAIS LIVREE.
+  C1  le MAX d'angle du maillon 0 depasse 16.63 deg (la valeur de la borne) : >= 20 deg.
+  C2  l'ecart relatif du MAX entre pilotages depasse 40 % — la sortie redevient proportionnelle.
+  C3  `meshpen` REMONTE au-dessus du plafond epingle 0.0005 m. Fonde sur le cycle 43, qui a
+      mesure que borner l'angle FAISAIT BAISSER la penetration de 58 % : c'est le repli qui
+      produisait la penetration. Retirer la borne doit donc la faire remonter.
+  C4  CONTRE MOI : `comex` (excursion du COM) monte de MOINS de 15 %. Le cycle 40 a prouve par
+      intervention que -81 % sur le canal radial distal ne coutait que -2 % sur `comex` : si la
+      borne etait ce qui plafonne le COM, C4 est faux et je l'ecris avant de le savoir.
+
+REGLE QUE JE M'IMPOSE : aucune de ces trois courses ne devient une livraison sans etre publiee
+avec son chiffre, y compris quand elle me donne tort.

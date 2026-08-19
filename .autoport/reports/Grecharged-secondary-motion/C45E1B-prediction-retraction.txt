@@ -1,0 +1,38 @@
+C45E1B — JE RETIRE MA PROPRE JAMBE B **AVANT** DE LA COURIR
+DIRECTIVES v3fee554599
+addendum a C45E1-prediction.txt (md5 7275420810d1538e12003b498493bad0, inchange : une prediction
+gravee ne se reecrit pas, elle se corrige par un addendum date).
+
+CE QUE J'AVAIS GRAVE. RUN B = ablation du gain de pilotage `couple` 1.85 -> 1.00, avec quatre
+predictions B1-B4, dont B1 « la borne cesse de mordre sur l'animation seule » appuyee sur
+l'arithmetique 1.41 x (1/1.85) = 0.76 < 1.
+
+POURQUOI ELLE EST NULLE, ET LA PREUVE EST DOUBLE.
+
+  1. RECENSEMENT DE SYMBOLE, EXHAUSTIF, sur goal_src/jak1/pc/jak-hd-physics.gc :
+         *phys-couple*  :135 declaration · :789 lecture de la donnee · :2527 (cpl (-> ... sc))
+         `cpl`          :2527  ET NULLE PART AILLEURS  (grep -n "cpl" -> UNE seule ligne)
+     Le parametre est lu depuis la donnee, range dans une variable locale, et jamais consomme.
+
+  2. ET LA REGLE 0 DIT QU'UN SOURCE N'EST PAS UNE PREUVE DE COMPORTEMENT — donc l'ablation a
+     DEJA ete faite, au cycle 42, donnee seule, course complete :
+         lignes PHYS* comparees : 36 341     lignes DIFFERENTES : 0
+
+  CAUSE : ce n'est pas un oubli, c'est une consequence de sa propre spec. Le 2026-08-13 le terme
+  moteur `fl = -couple * acc` (derivee seconde de la pose d'auteur) a ete remplace par le
+  `a_drive = (g_local - g_ref) - a_torso + a_angular` de sa 3, qui n'a AUCUN coefficient de
+  couplage. Le parametre a survecu a son modele. `g_ref` est bien implemente (:2503-2508).
+
+CONSEQUENCES QUE J'ASSUME :
+  * B1-B4 sont RETIREES, non testees, et ne comptent ni pour moi ni contre moi.
+  * Le candidat (a) de la question ouverte du cycle 41 — « le gain de pilotage couple=1.85
+    explique-t-il que l'animation seule sature ? » — est REFUTE sans course. Il ne restera plus
+    qu'un candidat apres RUN C : la 24/28 (raideur/masse), et la 24 mesure DEJA dans sa bande
+    (2.30 Hz effectifs), ce qui rend la question plus dure, pas plus facile.
+  * 12 minutes de course economisees, et surtout un resultat nul qui aurait ete lu comme
+    « l'ablation ne change rien, donc le pilotage n'est pas en cause » — une conclusion FAUSSE
+    tiree d'un interrupteur debranche. C'est le piege `declared-but-never-selected`, ici sur un
+    parametre que l'owner regle LUI-MEME depuis le 11/08 (1.00 -> 1.45 -> 1.20 -> 1.55 -> 1.85).
+
+CE QUI RESTE AU PROGRAMME : RUN A (reference, en cours) et RUN C (ablation de la BORNE,
+`*phys-bend-off*` = 1), predictions C1-C4 inchangees.
