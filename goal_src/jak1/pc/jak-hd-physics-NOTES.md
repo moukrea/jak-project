@@ -3910,3 +3910,60 @@ d'ou, sans un seul cas particulier :
 REGLE 0 (owner) : un commentaire n'est pas une preuve. Tout ce que ce fichier PRETEND faire est
 mesure par la salle de test (phys-room.gc) et publie dans keira-room-table.txt.
 ```
+
+## [NOTE-120] SA §22 BORNE L'APEX, SA §21 SATURE LA COMBINAISON — LE MOTEUR BORNAIT LE MAILLON
+
+Cycle 46. Ce que la borne rendait avant, mesure sur la course livree du cycle 45 (`ROOM-GRADIENT`,
+angle du maillon de CHAIR, cinq pilotages dont le stimulus varie de x38.9) :
+
+    chestL link1  16.6427  16.6450  16.6465  16.6483  16.6509     ecart total 0.049 %
+    chestR link1  16.6705  16.6716  16.6744  16.6746  16.6786     ecart total 0.049 %
+    sa propre demande, au meme instant : 37.51 -> 156.06 deg, soit x4.16
+
+**Une constante a quatre decimales n'est pas une reponse, c'est la valeur d'une borne.** C'est la
+lecture mecanique de « ca suit aucune logique » et de « un pudding sur lequel on tape au moindre
+mouvement » : la sortie ne depend plus de l'entree.
+
+CAUSE. `amax = 2*asin(0.50*B0 / (2*bl_RACINE))` etait derive de l'os de la RACINE (1040.5 u, le
+levier, qui ne porte aucune chair) puis applique a TOUS les maillons. Sur l'os de chair (140.4 u)
+le meme ANGLE ne vaut plus que `2*140.4*sin(amax/2)` = 40.6 u de deplacement, soit 0.0675 B0 —
+**7.4 fois plus serre** que le 0.50 B0 que sa §22 accorde. Le facteur `rl` de NOTE-114 (borne
+positionnelle) fait exactement la meme chose dans l'autre monnaie.
+
+TROIS LIGNES DE SA SPEC DISENT L'AUTRE FORME :
+  * §21 « `D_combined = D_max * tanh( |D_linear + D_angular| / D_max )` » — la saturation porte sur
+    la COMBINAISON, donc UN facteur pour la somme, pas un ecretage par terme.
+  * §22 « Distal/apex displacement: normal <=42% B0, exceptional <=50% B0 » — la grandeur bornee
+    est celle de l'APEX, c'est-a-dire de la POINTE de la chaine, pas de chaque maillon pris a part.
+  * §31 « little deformation at the root; progressively increasing mobility; largest displacement
+    in distal tissue » — la mobilite CROIT vers la pointe. Un budget proportionnel a la longueur de
+    l'os la fait DECROITRE, et NOTE-114 publie elle-meme cette reserve sans la lever.
+
+CORRECTIF. `phys-apex-scale` rend UN facteur `asc = ds/dd`, ou `dd` est la deviation ABSOLUE de la
+pointe a sa pose d'auteur et `ds` le meme nombre sature au plafond `0.50*B0`. Chaque maillon voit
+son DEPLACEMENT multiplie par ce facteur commun ; comme un maillon qui pivote de `a` autour de son
+attache se deplace de `2*ml*sin(a/2)`, cela s'ecrit exactement `sin(a'/2) = asc*sin(a/2)`.
+La rotation reste a longueur du MODELE (idiome NOTE-118, `ml` et jamais `dl`), donc rien ne
+s'allonge, et la pointe herite du facteur au lieu d'un plafond.
+
+**POURQUOI CA PEUT DISCRIMINER LA OU UN ECRETAGE NE LE PEUT PAS.** Un `fmin` rend la BORNE des que
+la demande la depasse : au-dela, la sortie ne depend plus de l'entree. Un facteur commun rend
+`asc * demande` : la sortie reste proportionnelle a la demande, et la REPARTITION entre les
+maillons — qui, elle, varie avec le stimulus — survit a la saturation. C'est precisement ce que
+« saturer la COMBINAISON » veut dire.
+
+IDEMPOTENCE (NOTE-119, et la regle a ete violee deux fois). Le facteur est calcule UNE fois par
+appel, avant la boucle sur les maillons. Sous le plafond il vaut EXACTEMENT 1.0, donc l'appel est
+l'identite au bit pres — c'est la partie prouvee. Au-dessus, le mode DUR (`fmin`) vise le plafond
+lui-meme, donc un second appel repart d'une pointe deja au plafond et ne retire plus rien au
+premier ordre ; ce qui n'est PAS prouve, c'est l'absence d'erosion au SECOND ordre, due au
+couplage sequentiel entre les deux maillons (le distal est mesure depuis un parent deja deplace).
+Le test est publie et il est gratuit : si la sortie du distal reste plate a mieux que 5 % entre
+les pilotages, c'est un POINT FIXE et pas une borne, et le correctif est retire.
+
+PORTEE. Les chaines qui posent `maxangle=` dans la donnee (les meches, gelees depuis le
+2026-08-14) sont INCHANGEES : elles gardent `fmin`/`phys-softmin` sur leur angle. Seule la
+famille A sans cle passe au facteur d'apex. Et cela retire de la poitrine le mecanisme que
+l'owner en avait explicitement exclu le 2026-08-11 22:35 (« l'attenuation pour eviter la geometrie
+extreme c'est juste sur les meches, pas le reste, encore moins les seins ») : la borne d'angle
+par maillon disparait de chestL/chestR, le budget de deplacement de sa §22 reste.

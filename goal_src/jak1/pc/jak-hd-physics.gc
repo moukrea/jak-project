@@ -1284,17 +1284,30 @@
                    (when (> ang (-> *phys-la1* scl)) (set! (-> *phys-la1* scl) ang)))))))))))
   (none))
 
+(defun phys-apex-scale ((skel skeleton) (sc int) (n int) (nbone int) (hard? symbol))
+  "Facteur COMMUN qui met la POINTE dans le budget d'apex de sa SPEC 22 (SPEC 21 : la saturation
+   porte sur la COMBINAISON). NATURE un rapport sans dimension ; REPERE la deviation ABSOLUE de la
+   pointe a sa pose d'auteur, repere monde (SPEC 2/9) ; ABSENT vaut EXACTEMENT 1.0 dans le budget,
+   donc identite au bit pres et idempotence du mode dur. [NOTE-120] -> jak-hd-physics-NOTES.md"
+  (let* ((tl (+ (* sc PHYS-LINKS) (- n 1)))
+         (kt (if (> n 0) (-> *phys-joint* tl) -1)))
+    (if (or (< kt 0) (>= (+ kt 1) nbone))
+      1.0
+      (let* ((ex (- (-> *phys-px* tl) (-> skel bones (+ kt 1) transform vector 3 x)))
+             (ey (- (-> *phys-py* tl) (-> skel bones (+ kt 1) transform vector 3 y)))
+             (ez (- (-> *phys-pz* tl) (-> skel bones (+ kt 1) transform vector 3 z)))
+             (dd (sqrtf (+ (* ex ex) (+ (* ey ey) (* ez ez)))))
+             (cap (* 0.50 (if (> (-> *phys-b0* sc) 0.0) (-> *phys-b0* sc) (-> *phys-blen* tl))))
+             (ds (if hard? (fmin dd cap) (phys-softmin dd cap))))
+        (if (or (<= cap 0.0) (< dd 0.0001) (>= ds dd)) 1.0 (/ ds dd))))))
+
 (defun phys-bend-chain ((skel skeleton) (sc int) (n int) (rlk int) (an int) (nbone int) (hard? symbol))
   ;; [NOTE-119] `hard?` = LA BORNE EST-ELLE DANS UNE BOUCLE ? SI OUI, ELLE DOIT ETRE IDEMPOTENTE. -> jak-hd-physics-NOTES.md
-  ;; [NOTE-116] L'ANGLE DE SPEC 22, DERIVE ET NON CHOISI, QUAND LA DONNEE N'EN POSE PAS. -> jak-hd-physics-NOTES.md
-  (let ((amax (if (and (= (-> *phys-fam* sc) 1) (<= (-> *phys-maxang* sc) 0.0))
-                (let* ((blr (-> *phys-blen* (+ (* sc PHYS-LINKS) rlk)))
-                       (xr  (if (> blr 0.01) (/ (* 0.50 (-> *phys-b0* sc)) (* 2.0 blr)) 2.0)))
-                  (if (and (> xr 0.0) (< xr 0.999))
-                    (* 2.0 (* 0.0054931641 (atan xr (sqrtf (- 1.0 (* xr xr))))))
-                    0.0))
-                (-> *phys-maxang* sc))))
-    (when (and (> amax 0.0) (zero? *phys-bend-off*))
+  ;; [NOTE-116] [NOTE-120] SA 22 BORNE L'APEX ET SA 21 SATURE LA COMBINAISON, PAS LE MAILLON. -> jak-hd-physics-NOTES.md
+  (let* ((amax (-> *phys-maxang* sc))
+         (apx? (and (= (-> *phys-fam* sc) 1) (<= amax 0.0)))
+         (asc  (if apx? (phys-apex-scale skel sc n nbone hard?) 1.0)))
+    (when (and (zero? *phys-bend-off*) (if apx? (< asc 1.0) (> amax 0.0)))
       (dotimes (l n)
         (when (>= l rlk)
           (let* ((scl (+ (* sc PHYS-LINKS) l))
@@ -1327,7 +1340,15 @@
                          ;; 360/65536 = 0.0054931641 les convertit en degres, et 182.04444
                          ;; revient aux unites que `sin`/`cos` attendent.
                          (adeg (* 0.0054931641 (atan pl cs)))
-                         (adg2 (if hard? (fmin adeg amax) (phys-softmin adeg amax))))
+                         ;; SPEC 21 : un SEUL facteur, applique au deplacement de CHAQUE maillon.
+                         ;; Le deplacement d'un maillon qui pivote de `a` autour de son attache
+                         ;; vaut `2*ml*sin(a/2)` : le multiplier par `asc` revient donc a poser
+                         ;; `sin(a'/2) = asc*sin(a/2)`, et la pointe herite EXACTEMENT du facteur.
+                         (sh (if apx? (* asc (sin (* 91.02222 adeg))) 0.0))
+                         (adg2 (cond
+                                 ((not apx?) (if hard? (fmin adeg amax) (phys-softmin adeg amax)))
+                                 ((>= sh 0.9999) adeg)
+                                 (else (* 2.0 (* 0.0054931641 (atan sh (sqrtf (- 1.0 (* sh sh))))))))))
                     (when (and (> pl 0.0001) (< adg2 (- adeg 0.01)))
                       (let* ((au (* 182.04444 adg2))
                              (cc (cos au))
