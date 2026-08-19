@@ -486,11 +486,12 @@ comme un PASS.
 
 **LIVRAISON AU FIL DE L'EAU — ELLE A EU LIEU, ET LE CYCLE 37 SE TROMPAIT EN DISANT LE CONTRAIRE.**
 Son rapport listait « JE N'AI PAS LIVRE D'APK » comme une lacune. Le constructeur automatique publie
-en continu une paire coherente APK + pack : `.autoport/logs/auto_push_builds.txt` porte
-**24 publications sur les dernieres 24 heures**, toutes les ~27 minutes, la derniere
-`10:27:45 PUSHED apk=79f3e4f0 zip=7c0e5a46 (559M)`. Les deux demons sont vivants (pid 61883 et
-61941). La consigne permanente de l'owner est donc tenue par la chaine, meme quand un cycle ne
-declenche pas de build lui-meme.
+en continu une paire coherente APK + pack. `.autoport/logs/auto_push_builds.txt` porte **268 lignes
+`PUSHED`** au total ; ses **24 dernieres couvrent 18:51 a 10:54**, soit une publication toutes les
+**~27 minutes**, la derniere `10:54:57 PUSHED apk=db32427e zip=f4b307d1 (559M)`. Les deux demons
+sont vivants (pid 61883 et 61941). La consigne permanente de l'owner est donc tenue par la chaine,
+meme quand un cycle ne declenche aucun build lui-meme — ce qui est le cas de celui-ci, dont le
+palier est GOAL seul et dont la seule modification vit dans la salle de test.
 
 
 ================================================================================================
