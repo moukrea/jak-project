@@ -3299,3 +3299,61 @@ DEUX FOIS sur la meme chair a chaque frame.
 L'INSTRUMENT EST INERTE : il n'ecrit que ses propres compteurs et ne lit aucun etat du solveur.
 Q0 des predictions le verifie ligne pour ligne contre la course C35E2.
 ```
+
+## NOTE-100  (moteur, aux alentours de la ligne 3347 — CYCLE 36 ETAPE 1)
+
+```
+LA DEFORMATION QUE LA CHAIR SUBIT, et ce n'est ni tipvar ni
+elong. Owner, 11e passe : « ca change de taille, plus petit,
+plus gros, plus long, plus court, ecrase ». Le skinning est
+LINEAIRE : deux sommets voisins dont les poids sur ce joint
+different de w se separent de w x |p - T|. Rapporte a la
+longueur de l'os — la distance sur laquelle les poids passent
+de 1 a 0 — ce quotient EST l'echelle de la deformation locale.
+`elong` ne peut pas la voir : elle mesure la longueur de l'OS,
+qui est justement invariante par construction, et `tipvar` est
+une variance, pas une forme.
+```
+
+## NOTE-97b  (moteur, aux alentours de la ligne 569 — CYCLE 36 ETAPE 1)
+
+```
+REPLIS DU RECUL : fois ou le point de depart de sa recherche, pris sur la sphere du MODELE,
+n'etait pas admissible et ou il a fallu repartir de la pose d'auteur exacte. Chacun laisse un
+residu d'allongement sur ce lien-la : le chiffre dit combien, au lieu de le laisser deviner.
+... et fois ou le BALAYAGE DE LA SPHERE a trouve une direction admissible que l'arc ne pouvait pas
+atteindre. Ce compteur et le precedent partagent le meme evenement declencheur (le point de
+depart du modele penetre) : leur somme est le nombre de fois ou l'arc etait aveugle, et le rapport
+dit combien de ces cas la sphere sauve. Un `retfb` non nul avec `sphere` nul dirait que le
+balayage ne trouve jamais rien, donc qu'il ne sert a rien.
+```
+
+## NOTE-98  (moteur, aux alentours de la ligne 1740 — CYCLE 36 ETAPE 1)
+
+```
+ARME, le controle positif LEVE l'exclusion : le compteur `selfcol` doit alors
+monter. Un zero que rien ne peut faire monter ne prouve rien — et c'est
+exactement ce qui vient d'arriver. Depuis qu'un lien porte LE MEME volume que
+celui que son joint declare, lever la seule exclusion ne suffit plus : le lien
+est au centre de sa propre sphere, donc ENTIEREMENT dedans, donc `phys-vol-floor`
+le declare libre et aucune poussee ne peut naitre. Mesure : le compteur arme est
+tombe de 4457 a 0 sans qu'aucun defaut n'ait ete corrige. Le controle doit donc
+injecter le DEFAUT lui-meme — une chaine repoussee hors de ses propres volumes —
+et non seulement retirer sa protection : arme, le plancher des paires propres
+passe a zero.
+```
+
+## NOTE-99  (moteur, aux alentours de la ligne 2738 — CYCLE 36 ETAPE 1)
+
+```
+NATURE deux longueurs / B0, maximum et somme sur la fenetre.
+REPERE le monde, meme frame, meme attache, meme `bl`. ABSENT
+`rgap` = 0.0000 quand la cible EST la pose d'auteur. `perr`
+porte un retard d'UNE frame (`tg` precede l'integration).
+RESTREINT AU PREMIER MAILLON LIBRE, ET C'EST CE QUI REND LA
+GRANDEUR STATIQUE : la, l'attache est l'ANCRE (pose d'auteur),
+donc `tg` et `tw` sont sur la MEME sphere de rayon `bl` et leur
+ecart est purement angulaire. Au maillon suivant l'attache est
+la position SIMULEE du precedent, ce qui melangerait la
+dynamique a une mesure declaree sans dynamique.
+```

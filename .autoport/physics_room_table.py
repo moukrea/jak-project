@@ -1716,13 +1716,19 @@ def main():
     apc_ok = sum(o for _, o in apc.values())
 
     # ce que les limiteurs ont retire
-    lim = re.search(r'^PHYSLIM retreat_n=([-\d.e+]+) retreat_sum=([-\d.e+]+)'
-                    r' raddrop_n=([-\d.e+]+) raddrop_sum=([-\d.e+]+) buried=([-\d.e+]+)', txt, re.M)
+    # CYCLE 36 : `retreat_n` / `retreat_sum` ONT DISPARU DE CETTE LIGNE, ET C'EST UNE CORRECTION.
+    # `*phys-retreat-n*` et `*phys-retreat-sum*` etaient DEFINIS, PUBLIES et REMIS A ZERO dans le
+    # moteur sans qu'AUCUNE ligne ne les incremente (verifie par grep : une definition, une lecture,
+    # une remise a zero, zero ecriture) depuis le retrait de `phys-retreat-chain` le 2026-08-13.
+    # Le tableau en tirait « recul vers la pose du modele : 0 fois (jamais declenche) », et le
+    # rapport du cycle 35 en a fait un ACQUIS (« aucun suppresseur n'a tire »). C'etait un zero de
+    # domaine VIDE. `raddrop_*` et `buried`, eux, ont un ecrivain : ils restent.
+    lim = re.search(r'^PHYSLIM raddrop_n=([-\d.e+]+) raddrop_sum=([-\d.e+]+)'
+                    r' buried=([-\d.e+]+)', txt, re.M)
     if not lim:
         die('aucune ligne PHYSLIM : un limiteur qui ne chiffre pas ce qu\'il retire est interdit')
-    retr_n, retr_s = int(float(lim.group(1))), float(lim.group(2)) / UNITS
-    radr_n, radr_s = int(float(lim.group(3))), float(lim.group(4)) / UNITS
-    buried_n = int(float(lim.group(5)))
+    radr_n, radr_s = int(float(lim.group(1))), float(lim.group(2)) / UNITS
+    buried_n = int(float(lim.group(3)))
 
     # BALAYAGE DE SPHERE DU RECUL. NATURE : un compte d'evenements sur la course. LECTURE QUAND LE
     # DEFAUT EST ABSENT : 0 — la pose du modele est admissible, l'arc suffit, rien a balayer.
@@ -2256,10 +2262,9 @@ def main():
         A('     %-12s frames pilotees=0' % names[c])
     A('')
     A('-- CE QUE LES LIMITEURS ONT RETIRE (SPEC 7 : un suppresseur se chiffre) --------------------')
-    A('   recul vers la pose du modele : %d fois, %s m au total%s'
-      % (retr_n, fnum(retr_s),
-         ' (jamais declenche)' if retr_n == 0 else ' soit %s m par declenchement'
-         % fnum(retr_s / retr_n)))
+    A('   recul vers la pose du modele : PLUS AUCUN COMPTEUR (cycle 36). Les deux qui existaient')
+    A('   n\'avaient aucun ecrivain depuis le retrait de `phys-retreat-chain` le 2026-08-13 : leur')
+    A('   zero ne disait pas que le recul ne tirait pas, il disait qu\'il n\'existait plus.')
     A('   plafond de taille d\'un lien libre : %d fois, %s m au total%s'
       % (radr_n, fnum(radr_s),
          ' (jamais declenche)' if radr_n == 0 else ' soit %s m par declenchement'
@@ -2281,7 +2286,8 @@ def main():
     A('     deux rendaient `*phys-buried-n*`. Course du 2026-08-12 : buried=987636 et radial_n =')
     A('     radial_sum = 987636, ratio 1.0000, un compteur divise par lui-meme. La grandeur qu\'elle')
     A('     nommait n\'a jamais ete mesuree ; ce qui la remplace (ROOM-RETREAT-SPHERE) l\'est.')
-    A('ROOM-RETREAT-ANCHOR: fallback=%s' % ('non publie par la course' if retfb_n < 0 else retfb_n))
+    A('ROOM-RETREAT-ANCHOR: fallback=%s' % ('non publie par la course (compteur retire au cycle 36,'
+      ' il n\'avait aucun ecrivain)' if retfb_n < 0 else retfb_n))
     A('   fois ou le recul n\'a trouve AUCUN point admissible sur son chemin — pas meme la pose du')
     A('   modele — et s\'est pose sur le MOINS MAUVAIS. NATURE : un compte. LECTURE QUAND LE DEFAUT')
     A('   EST ABSENT : 0. Ce n\'est pas un limiteur de plus : c\'est l\'aveu que l\'invariant « la pose')
@@ -2291,8 +2297,8 @@ def main():
     A('   le meme obstacle. C\'est par la que `rmidhair` sortait a 0.0017 m de penetration — la')
     A('   SEULE ligne positive sur 3410. Le compteur etait emis par la salle et n\'etait lu par')
     A('   personne ; il l\'est desormais.')
-    A('ROOM-RETREAT-SPHERE: rescued=%s' % ('non publie par la course' if sphere_n < 0
-                                           else sphere_n))
+    A('ROOM-RETREAT-SPHERE: rescued=%s' % ('non publie par la course (compteur retire au cycle 36,'
+      ' il n\'avait aucun ecrivain)' if sphere_n < 0 else sphere_n))
     A('   fois ou le recul, son point de depart du modele etant inadmissible, a trouve une direction')
     A('   ADMISSIBLE ailleurs sur la MEME sphere — celle que l\'arc [pose du modele -> position')
     A('   courante] ne pouvait pas atteindre. NATURE : un compte d\'evenements. LECTURE QUAND LE')
@@ -5504,8 +5510,8 @@ def main():
     print('  idle maxdev = %s (plafond IDLE : 1.0)' % fnum(imax))
     print('  authored: %d chaines pilotees, %d respectees (controle positif: %d/%d)'
           % (len(a_driven), len(a_ok), int(apc_ok), int(apc_hit)))
-    print('  limiteurs: recul %d fois (%s m), plafond-taille %d fois (%s m)'
-          % (retr_n, fnum(retr_s), radr_n, fnum(radr_s)))
+    print('  limiteurs: plafond-taille %d fois (%s m) — le compteur de RECUL est retire au cycle'
+          ' 36, il n\'avait aucun ecrivain' % (radr_n, fnum(radr_s)))
     for c in sorted(chains):
         print('    %-12s tipvar=%-9s rootdev=%-9s meshpen=%-9s' %
               (names[c], fnum(worst[c]['amp']['v']), fnum(worst[c]['root']['v']),

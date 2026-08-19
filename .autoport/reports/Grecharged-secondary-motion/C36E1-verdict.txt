@@ -1,0 +1,62 @@
+================================================================================================
+VERDICT C36E1 — LA NATURE DE L'ENTREE DE PRESSION DU TENSEUR (SPEC 23)
+================================================================================================
+trace : .autoport/reports/Grecharged-secondary-motion/keira-room-x86.C36E1-REF.log
+fenetres : PHYSSHAPE7 372 · PHYSSHAPE8 372 · PHYSSHAPE4 372 · PHYSSHAPE5 372
+constantes livrees : PHYS-PRS-K = 0.45 · PHYS-PRS-MAX = 0.25 · b0f = 602.0 u · balayages/frame = 45
+
+-- LA FENETRE DE CHAQUE CHAINE OU `prsr` EST MAXIMAL (donc l'argmax de `cl`) ----------------
+   `cl` est RECALCULE depuis `prsr` par l'identite du moteur : cl = prsr * b0f / PHYS-PRS-K.
+   chaine   a   d      prsr    x plafond        cl (u)      cl (m)     npf     pmax(u)    psum(u)  lsw    dom
+   chestL   1   2     13.3807     53.52x      17900.4     4.370     150       404.7    19946.4    45     27
+   chestR   27  1     15.2761     61.10x      20436.0     4.989     254       262.4    26156.5    45     19
+
+P1   LA NATURE DE `cl` EST UNE SOMME, PAS UNE PROFONDEUR
+     CRITERE GRAVE : npf >= 20 sur LES DEUX chaines. VALEUR GRAVEE : entre 30 et 90.
+     chestL   npf = 150       (cl/meshpen du cycle 35 = 45.9, balayages = 45)
+     chestR   npf = 254       (cl/meshpen du cycle 35 = 54.6, balayages = 45)
+     valeur gravee tenue (30..90) : chestL NON, chestR NON
+     -> CONFIRMEE
+
+P2   UN EVENEMENT SEUL EST DE L'ORDRE DE LA PENETRATION, PAS DE `cl`
+     CRITERE GRAVE : pmax <= 0.25 * cl sur les deux chaines. VALEUR GRAVEE : 200..900 u.
+     chestL   pmax = 404.7     u   0.25*cl = 4475.1    u   pmax/cl = 0.0226   (meshpen c35 = 389.9 u)
+     chestR   pmax = 262.4     u   0.25*cl = 5109.0    u   pmax/cl = 0.0128   (meshpen c35 = 374.0 u)
+     valeur gravee tenue (200..900 u) : chestL oui, chestR oui
+     -> CONFIRMEE
+
+P3   LES POUSSEES VONT DANS LE MEME SENS — REPETITION, PAS PING-PONG
+     CRITERE GRAVE : psum / cl <= 2.0 sur les deux chaines. Donnee a 60/40 dans le contrat.
+     psum est la somme des MODULES, cl le module de la somme VECTORIELLE : leur rapport EST
+     la mesure de l'annulation entre poussees. > 3 = ping-pong entre volumes.
+     chestL   psum = 19946.4     u   cl = 17900.4     u   psum/cl = 1.1143
+     chestR   psum = 26156.5     u   cl = 20436.0     u   psum/cl = 1.2799
+     -> CONFIRMEE
+
+P4   LA BOUCLE DE CONTRAINTES NE CONVERGE PAS
+     CRITERE GRAVE : lsw >= 40 sur les deux chaines (sur 45 balayages).
+     chestL   lsw = 45    / 45
+     chestR   lsw = 45    / 45
+     -> CONFIRMEE
+
+P5   LE DOMAINE (aucun critere — engagement de publication)
+     chestL   frames avec une poussee sur le maillon pointe, cumulees sur toutes les fenetres : 3114        
+     chestL   max de `nfr` (denominateur commun publie) sur une fenetre : 16857
+     chestR   frames avec une poussee sur le maillon pointe, cumulees sur toutes les fenetres : 2728        
+     chestR   max de `nfr` (denominateur commun publie) sur une fenetre : 16857
+
+-- LES TROIS HYPOTHESES GRAVEES, ARBITREES PAR LES CRITERES CI-DESSUS ------------------------
+   H-REP  : npf grand, psum ~ cl -> la MEME poussee est repetee a chaque balayage. `cl` est
+            une LONGUEUR DE CHEMIN de corrections, pas une profondeur : la NATURE de
+            l'entree est fausse (table de branches, cas 1).
+
+P0   L'INSTRUMENT EST-IL INERTE ?
+     34136 lignes `PHYS` hors marqueurs neufs et hors les 6 lignes dont un champ sans ecrivain
+     est retire, 0 differente(s) de la reference
+     PHYSDIAG      prive du champ retire : 14 ligne(s) contre 14, 0 differente(s)
+     PHYSORICTL3   prive du champ retire : 108 ligne(s) contre 108, 0 differente(s)
+     PHYSLIM       prive du champ retire : 1 ligne(s) contre 1, 0 differente(s)
+     -> CONFIRMEE
+
+PHYSEND : oui
+================================================================================================
