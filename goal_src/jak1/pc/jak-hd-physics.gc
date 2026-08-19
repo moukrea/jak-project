@@ -2981,23 +2981,11 @@
                                                    0.0))
                                             ;; [NOTE-81] LA BORNE DE §22 SUR LE CANAL RADIAL. -> jak-hd-physics-NOTES.md
                                             (rcap (if (zero? *phys-rr-off*) (* 0.40 b0e) (* 1000000.0 b0e)))
-                                            ;; APPELEE UNE SEULE FOIS, ET SUR LA VALEUR LIVREE, JAMAIS
-                                            ;; SUR L'ETAT : `phys-softmin` n'est pas idempotent
-                                            ;; au-dessus de son genou (sa propre docstring l'ecrit),
-                                            ;; donc la rappeler chaque frame sur `*phys-cp**` ferait
-                                            ;; fondre l'oscillateur frame apres frame. C'est
-                                            ;; exactement ce que fait deja la torsion (:3786-3794 :
-                                            ;; `twn` brut conserve dans l'etat, `rel` borne publie).
+                                            ;; [NOTE-84] LA BORNE EST APPELEE SUR LA VALEUR LIVREE, JAMAIS SUR L'ETAT. -> jak-hd-physics-NOTES.md
                                             (drr (if (>= dr0 0.0)
                                                    (phys-softmin dr0 rcap)
                                                    (- 0.0 (phys-softmin (- 0.0 dr0) rcap)))))
-                                       ;; `*phys-rr*` GARDE LA VALEUR DU MAILLON RACINE ET RIEN
-                                       ;; D'AUTRE : `phys-chain-radial` la publie depuis le cycle 10,
-                                       ;; et laisser le distal l'ecraser changerait en silence ce que
-                                       ;; designe un nombre deja publie. Le distal vit dans
-                                       ;; `*phys-rrl*`. Les trois agregats qui suivent (`rrr`, `rrm`,
-                                       ;; `*phys-rrsat*`) portent, eux, TOUTE la chaine : un maximum
-                                       ;; de §22 qui ignorerait un maillon ne bornerait pas le tissu.
+                                       ;; [NOTE-84] `*phys-rr*` GARDE LA RACINE ; LES AGREGATS PORTENT TOUTE LA CHAINE. -> jak-hd-physics-NOTES.md
                                        (when (= l rlk)
                                          (set! (-> *phys-rr* sc) drr))
                                        (set! (-> *phys-rrl* scl) drr)
