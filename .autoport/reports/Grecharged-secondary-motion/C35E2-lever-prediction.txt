@@ -1,0 +1,107 @@
+DIRECTIVES vb249967379
+PHASE  Grecharged-secondary-motion — branche physics-keira-clean — KEIRA / POITRINE SEULE
+CYCLE  35, ETAPE 2 — PREDICTIONS GRAVEES AVANT LA MOINDRE LIGNE DU MECANISME
+
+OBJET : LE LEVIER DE ROTATION DU MAILLON DEVIENT CELUI DE SON ANCRE, PARCE QUE L'ETAPE 1 A PROUVE
+QUE C'EST LA ROTATION QUI PORTE 67 % DE `comex` — ET QUE SON LEVIER EST 4.6x TROP COURT.
+
+================================================================================================
+1. CE QUE L'ETAPE 1 A ETABLI, ET QUI COMMANDE CELLE-CI
+================================================================================================
+Identite fermee (M0, residu max 0.00017 B0 sur 372 fenetres). Moyennes en B0, budget §22 = 0.40 :
+
+    |tp| 0.2328   |rp| 0.7714   |dp| 0.1761        [B] ROTATION domine 340 fenetres sur 372
+    l=0 porte 329 des 372 maxima (88.4 %)
+
+L'ARITHMETIQUE DE LA CAUSE (verifiee sur les longueurs livrees, pas supposee) :
+  - le maillon 0 tire sa rotation ecrite de la direction `lBoob -> lBooc`, un os de **140.42 u** ;
+  - sa chair est a **651.18 u** de lui, et a **89.665 deg** de cet os (donc la composante
+    perpendiculaire est PLEINE) ;
+  - amplification = 651.18 / 140.42 = **4.637**.
+  - le maillon 1 : chair a 514.54 u, meme os de 140.42 -> **3.664**.
+Un tremblement de 100 u (2.4 cm) du joint distal produit donc 464 u = 0.77 B0 de deplacement du
+centre de chair — presque DEUX FOIS le budget entier de sa §22. C'est exactement `|rp|` mesure.
+
+L'os de 140 u est celui qui a ete INJECTE pour sa §23. Avant lui, le maillon 0 prenait sa
+direction de l'ancre (`chest -> lBoob`, 1042 u) : l'amplification valait 0.625. **Sa §23 a rendu
+sa §22 7.4x plus dure**, et rien ne pouvait le voir avant que `comex` soit resolu par terme.
+
+================================================================================================
+2. LE MECANISME, ET POURQUOI CE N'EST PAS UN SUPPRESSEUR DE PLUS
+================================================================================================
+La rotation ecrite d'un maillon est aujourd'hui celle de SON OS LOCAL (`jak-hd-physics.gc`, le
+`cond` de `have`, branche enfant pour l=0, branche parent pour le dernier). Elle devient celle de
+**la position du maillon autour de l'ANCRE DE CHAINE** — la meme paire (pose d'auteur, position
+simulee), lue sur un levier de 1042 u (l=0) et 1182 u (l=1) au lieu de 140 u.
+
+  - **RIEN N'EST BORNE, RIEN N'EST RETIRE.** Aucun clamp, aucun seuil, aucune hysteresis. On change
+    QUEL VECTEUR definit l'orientation, pas l'amplitude de quoi que ce soit. Le mecanisme peut
+    AUGMENTER le mouvement sur une chaine dont la chair est proche de son os — il se trouve que
+    celles-ci ne le sont pas.
+  - **LA MACHINERIE EXISTE DEJA** : c'est la branche `else` du `cond`, qui lit l'ancre quand `l=0`.
+    Aucune primitive neuve.
+  - **C'EST PLUS FIDELE A SA §30** (« root attachment ») : l'organe pivote a son attache au thorax,
+    pas autour d'un os de 3 cm interne a la chair.
+  - **LE CONTROLE EST LA COURSE PRECEDENTE**, et il est exact : M6 vient de prouver la salle
+    reproductible a 32787 lignes `PHYS`, 0 differente. Je n'ajoute donc PAS d'interrupteur
+    d'ablation — il ferait double emploi avec un temoin deja parfait, et il couterait des lignes
+    sous un plafond a 12 de marge. Je le dis ici plutot que de le passer sous silence.
+
+================================================================================================
+3. LES PREDICTIONS. DATEES D'AVANT LE CODE, ELLES NE SERONT PAS REECRITES.
+================================================================================================
+
+N0  L'IDENTITE TIENT TOUJOURS
+    |tp + rp + dp - comex*b0c| <= 0.001 B0 sur les 372 fenetres. Le mecanisme ne touche pas
+    l'instrument ; si l'identite s'ouvre, c'est le mecanisme qui a casse quelque chose d'autre.
+
+N1  LE TERME DE ROTATION S'EFFONDRE — C'EST LA PREDICTION QUI COMMANDE
+    moyenne |rp| passe de **0.7714 B0** a **<= 0.25 B0** (soit -68 % au moins).
+    DEUX DERIVATIONS, ET JE PUBLIE LES DEUX PARCE QU'ELLES NE DONNENT PAS LE MEME CHIFFRE :
+      (i) par le rapport d'amplification : 0.7714 x (0.625/4.637) = **0.104 B0**
+      (ii) par le deplacement mesure du joint : theta = |tp|/1042 = 140/1042 = 0.1344 rad,
+           |rp| = 0.1344 x 651 = 87.5 u = **0.145 B0**
+    Le critere retenu est le plus LACHE des deux, elargi : 0.25 B0. Si la mesure tombe entre 0.10
+    et 0.15, les deux derivations sont bonnes ; si elle tombe a 0.20-0.25, seule l'ordre de
+    grandeur l'est, et je le dirai.
+
+N2  `comex` BAISSE FRANCHEMENT
+    moyenne de `comex` sur les 372 fenetres : **-40 % au moins** par rapport a cette course.
+    Le pire canal (chestR/tilt, 1.9097 B0) baisse d'au moins 35 %.
+    JE NE PREDIS PAS QU'IL RENTRE DANS LA BANDE. Somme des trois termes apres correctif, estimee :
+    0.233 + 0.145 + 0.176 = **0.554 B0** contre un plafond de 0.40 — encore DEHORS de 39 %.
+    Annoncer la section tenue serait un faux vert et je ne le ferai pas.
+
+N3  LE TENSEUR NE BOUGE PAS BEAUCOUP
+    moyenne |dp| reste dans **+-25 %** de 0.1761 B0. Il est bati sur `ox/oy/oz` et `rrl`, qui ne
+    dependent pas de `rot` ; seule la direction de projection `e^` change.
+
+N4  LE MAILLON QUI PORTE LE MAXIMUM PEUT CHANGER, ET C'EST ATTENDU
+    l=0 amortit 7.4x, l=1 seulement 8.4x — mais l=1 partait de plus bas. Je predis que l=1
+    devient majoritaire (> 50 % des 372 fenetres), parce que l=0 est celui qu'on corrige le plus.
+    Prediction faible, publiee pour ce qu'elle vaut.
+
+N5  LE MOUVEMENT SUBTIL N'EST PAS MUSELE — LE PLANCHER DE L'OWNER
+    `tipvar_max` sur `tilt` et `updown` (les deux pilotages doux, ceux qu'il juge corrects depuis
+    le 2026-08-11) : ecart <= 15 % par rapport a cette course. `ROOM-IDLE maxdev` <= 0.001.
+    SI N5 CASSE, JE NE RETIRE PAS LE MECANISME (sa directive du 17/08 abolit la regle de retrait) :
+    je publie la perte en tete de rapport, chiffree, et c'est lui qui tranche de ses yeux.
+
+N6  LES COUTS, PUBLIES DANS LES DEUX SENS, SANS CRITERE — je m'engage a les publier, pas a ce
+    qu'ils soient bons : `meshpen`, `skinpen`, franchissements de cote, `stretch`, `PHYSIDLE dev`,
+    et les frequences de §24 si la course les rend.
+
+================================================================================================
+4. CE QUE CHAQUE ISSUE COMMANDE POUR LA SUITE — ECRIT AVANT DE CONNAITRE LE RESULTAT
+================================================================================================
+  N1 TENUE, N2 TENUE       -> la cause est confirmee par intervention. Le reste de l'ecart a 0.40
+                              se partage entre [A] 0.233 et [C] 0.176 : le chantier suivant est le
+                              TENSEUR (mon point 1 de plan, que M3 vient de valider comme porteur).
+  N1 TENUE, N2 CASSEE      -> la rotation baisse mais autre chose remonte. Publier la nouvelle
+                              repartition avant toute autre intervention.
+  N1 CASSEE                -> mon arithmetique du levier est fausse. Publier l'ecart entre les deux
+                              derivations et la mesure, et NE PAS empiler un second mecanisme.
+  N0 CASSEE                -> le mecanisme a casse l'instrument. Rien n'est publie comme attribution.
+
+RAPPEL : aucune de ces branches n'est « le mecanisme est retire ». Sa directive du 2026-08-17
+23:50 : « Un plancher qui casse n'est plus un motif de retrait : c'est la LISTE DE TRAVAIL. »
