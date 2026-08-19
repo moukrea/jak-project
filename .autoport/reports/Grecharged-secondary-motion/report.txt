@@ -8,9 +8,10 @@ CE DOCUMENT COUVRE CINQ ETAPES, DU PLUS RECENT AU PLUS ANCIEN
                      et l'epaule opposee ne la contient PAS. Donc les 3.2 a 4.0 volumes qui
                      poussent par balayage sont un fait de MOUVEMENT, pas de forme. Et le degagement
                      mesure repond enfin a sa SPEC 35, ouverte depuis quatre cycles : les six
-                     volumes de son debardeur sont a 0.451 B0 ou plus, les quatre du bas a plus de
-                     1.0 B0, quand sa SPEC 22 plafonne le deplacement a 0.40 B0 (COM) et 0.50
-                     (apex). **A la spec, ils seraient INATTEIGNABLES.** Il ne faut RIEN retirer.
+                     volumes de son debardeur sont a 0.451 B0 ou plus du point de maillon, les
+                     quatre du bas a plus de 1.0 B0 : un contact exige que cet ecart se REFERME
+                     d'autant. Il ne faut RIEN retirer. (Et je m'y corrige en 3.6 : j'avais compare
+                     ce degagement a `comex`, qui est un centroide de CHAIR et pas le point teste.)
   CYCLE 38 ETAPE 2   DEUX PHASES DE SALLE PORTAIENT LE MEME NUMERO 31, dont une AU-DESSUS de
                      REPORT : la jambe ARMEE de l'ablation du cycle 37 tournait sans le balayage
                      d'acteurs etrangers que la jambe DESARMEE avait. Repare.
@@ -143,6 +144,35 @@ EXCURSION QUI TOURNE A 2.4-2.7 FOIS SON PLAFOND.** Ramener l'excursion dans sa b
 en conformite TOUTE SEULE — sans retirer un volume, sans toucher un rayon, sans enfreindre la
 regle 6. La question que je lui posais depuis quatre cycles n'avait pas a lui etre posee : elle
 avait une reponse mesurable, et c'est celle-la.
+
+3.6 CORRECTION QUE JE M'APPORTE AVANT QUE QUICONQUE LA TROUVE : J'AI COMPARE DEUX GRANDEURS
+DIFFERENTES, ET LA CONCLUSION DE 3.5 DOIT ETRE AFFAIBLIE
+==============================================================================================
+En relisant mon propre dossier apres avoir ecrit 3.5, deux defauts de la comparaison :
+
+  1. **`comex` N'EST PAS LE DEPLACEMENT DU POINT QUE LE SOLVEUR TESTE.** Le dossier du cycle 29 le
+     definit sans ambiguite : `comex` est le deplacement du CENTROIDE DE CHAIR, porte par la
+     matrice d'os ECRITE **rotation + tenseur de deformation compris**. Le test de collision, lui,
+     porte sur le POINT DU MAILLON (`pt` dans `phys-collide-depth`). Comparer un degagement
+     point-a-volume a une excursion de centroide de chair est exactement l'erreur de NATURE et de
+     REPERE que ce dossier nomme depuis le 11 aout. **Elle est mienne, et elle est ici.**
+  2. **LE DEGAGEMENT PEUT SE REFERMER DES DEUX COTES.** Les volumes du vetement sont portes par des
+     joints qui BOUGENT (`lTopStrap2` pend a l'epaule). Un contact ne prouve donc pas que le sein
+     a parcouru 0.451 B0 : il prouve que **l'ECART s'est referme** de 0.451 B0, ce qui peut venir
+     du sein, du vetement, ou des deux.
+
+CE QUI SURVIT INTACT, ET C'EST L'ESSENTIEL :
+  - **le degagement lui-meme** : il est mesure sur la BONNE grandeur (point de maillon contre
+    volume, les deux a la pose de bind), et il vaut >= 0.451 B0 pour les six volumes du vetement,
+    >= 1.018 B0 pour les quatre du bas ;
+  - **« il ne faut RIEN retirer »** : cette conclusion vient de G3 (couverture 0.00 % / 18.18 %),
+    de la geometrie statique pure, et rien ici ne la touche ;
+  - **l'enonce borne** : pour qu'un contact ait lieu, l'ecart DOIT se refermer d'au moins 0.451 B0,
+    et d'au moins 1.018 B0 pour les sangles basses. Cela reste vrai quel que soit le cote qui bouge.
+
+CE QUI TOMBE : l'affirmation que le couplage vetement est « EN ENTIER une consequence d'une
+excursion a 2.4-2.7x son plafond ». **Je la retire.** Elle exigeait que la fermeture vienne du SEIN,
+et je ne l'ai pas montre. C'est desormais la question, et elle est decidable — voir l'etape 4.
 
 **ET CA REORDONNE LE CHANTIER.** La cause candidate n°1 de `COLLIDE` n'est plus la forme des
 volumes : c'est l'EXCURSION. Ce qui rejoint exactement le R4 du cycle 36 — le porteur du tenseur
@@ -419,11 +449,14 @@ Aucune section « non applicable » (interdit depuis le 14/08 11:50).
                                  chemin depuis le gel du 14/08. [M] **MAIS LE RETRAIT EST INTERDIT
                                  ET C'EST MESURE** : sa chair n'est couverte par les spheres du
                                  sein qu'a **0.00 % / 18.18 %**, donc le retirer ferait traverser
-                                 (regle 6). [M] **ET LE COUPLAGE EST UNE CONSEQUENCE DE LA 22** :
-                                 les six volumes sont a **>= 0.451 B0**, les quatre du bas a
-                                 **>= 1.018 B0**, contre des plafonds de 0.40 et 0.50. **A la spec,
-                                 ils sont inatteignables.** Remede : tenir la 22, pas retirer un
-                                 volume. La question posee quatre fois a l'owner est retiree.
+                                 (regle 6). [M] **ET L'ECART A REFERMER EST CHIFFRE** :
+                                 les six volumes sont a **>= 0.451 B0** du point de maillon, les
+                                 quatre du bas a **>= 1.018 B0**, contre des plafonds de 0.40 (COM)
+                                 et 0.50 (apex). Un contact exige donc que cet ecart se referme
+                                 d'autant. **DE QUEL COTE il se referme n'est PAS etabli** (§3.6) :
+                                 c'est l'objet de l'etape 4. Ce qui est acquis : le remede n'est PAS
+                                 un retrait de volume, et la question posee quatre fois a l'owner
+                                 tombe pour cette raison-la, qui est purement geometrique.
   SPEC 36 secondaire  PARTIELLE  [R] amplitude sous le plafond, zeta/f non re-mesures.
   SPEC 37 sous-pas + rebase TENUE SUR LES DEUX MOITIES [R] Non re-mesure.
   SPEC 14-20 regimes  ABSENTE    [R] aucune bande de COM par regime n'est tenue.

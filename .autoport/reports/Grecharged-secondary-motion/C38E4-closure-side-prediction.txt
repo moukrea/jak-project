@@ -1,0 +1,102 @@
+================================================================================================
+CYCLE 38, ETAPE 4 — PREDICTIONS GRAVEES AVANT L'INSTRUMENT
+QUI REFERME L'ECART : LE SEIN QUI VA CHERCHER LE VOLUME, OU LE VOLUME QUI VIENT AU SEIN ?
+================================================================================================
+DIRECTIVES vb249967379
+Phase Grecharged-secondary-motion, branche physics-keira-clean, KEIRA / POITRINE SEULE.
+
+------------------------------------------------------------------------------------------------
+LA QUESTION, ET POURQUOI ELLE EST LA BONNE
+------------------------------------------------------------------------------------------------
+L'etape 3 a mesure que les six volumes du vetement sont a **>= 0.451 B0** du point de maillon a la
+pose d'auteur (>= 1.018 B0 pour les quatre du bas), et qu'ils produisent pourtant **38.3 % / 27.9 %**
+des corrections de contact. J'en avais conclu que le sein allait les chercher parce que son
+excursion est hors bande. **Le §3.6 retire cette conclusion** : je l'avais appuyee sur `comex`, qui
+est le deplacement du CENTROIDE DE CHAIR (tenseur compris), alors que le solveur teste le POINT du
+maillon — et surtout, un ecart peut se refermer **des deux cotes**, les volumes du vetement etant
+portes par des joints qui bougent.
+
+**LE MOTEUR CALCULE DEJA LA REPONSE, TOUS LES FRAMES, ET NE LA PUBLIE PAS.** Dans
+`jak-hd-physics.gc:1711-1719` il evalue TROIS profondeurs par (maillon, volume) :
+
+    floors = profondeur du maillon AU REPOS contre le volume AU REPOS      <- l'ecart d'auteur
+    floorc = profondeur du maillon AU REPOS contre le volume COURANT       <- ce que le VOLUME apporte
+    dep    = profondeur du maillon COURANT contre le volume COURANT        <- le total
+
+et il range `feff` (derive de `floor0 = max(floors, floorc)`) dans `*phys-cfl*` et le maximum de
+`dep` dans `*phys-cdm*` (`:1727-1734`). L'accesseur `phys-chain-vol-dom` existe (`:4652`) et
+**n'a AUCUN appelant** — verifie par grep sur tout `goal_src/jak1/pc/`. La grandeur qui tranche est
+donc calculee et jetee a chaque frame depuis qu'elle existe.
+
+La decomposition est exacte et sans modele :
+    `feff`         > 0  ==>  le VOLUME est venu au maillon (l'animation d'auteur seule suffit)
+    `cdm - feff`   > 0  ==>  le MAILLON est alle plus loin que ce que l'auteur lui accordait
+et c'est exactement `push = (dep - feff) + margin`, le terme qui pousse.
+
+------------------------------------------------------------------------------------------------
+L'INSTRUMENT — NATURE, REPERE, LIGNE DE BASE (SPEC §7)
+------------------------------------------------------------------------------------------------
+NATURE  : deux PROFONDEURS SIGNEES en unites de jeu, par (chaine, volume). Ni une variance, ni un
+          compte : la MEME grandeur que celle qui declenche la poussee, lue au meme endroit.
+REPERE  : celui du solveur — `phys-collide-depth`, distance signee au volume, positive DEDANS.
+          Aucune conversion, aucun repere intermediaire.
+DOMAINE : `*phys-cdmok*` est publie a cote de chaque valeur ; une paire (chaine, volume) qui n'a
+          jamais ete evaluee rend 0 et sera declaree SANS DOMAINE, pas « a zero ».
+BASE    : `feff` EST la ligne de base — c'est la profondeur que l'auteur accorde. La question est
+          precisement de savoir ce que le maillon ajoute par-dessus.
+COUT    : lecture seule. AUCUNE ligne ajoutee a `jak-hd-physics.gc` (4788, plafond 4800) ; seul
+          `phys-room.gc`, qui n'a pas de plafond, recoit l'appel de l'accesseur existant.
+
+------------------------------------------------------------------------------------------------
+LES PREDICTIONS
+------------------------------------------------------------------------------------------------
+K0 — L'INSTRUMENT EST INERTE SUR LA PHYSIQUE. Critere : hors la ligne neuve `PHYSCVDOM`, les
+     lignes `PHYS` de la course sont identiques a celles de `keira-room-x86.C38E2-RUN.log`
+     **en multi-ensemble** (0 en trop, 0 en moins). Jamais une comparaison positionnelle : elle a
+     produit quatre faux diagnostics dans cette session.
+
+K1 — LE DOMAINE N'EST PAS VIDE. Critere : pour chestL comme pour chestR, au moins **10** volumes
+     ont `cdmok = 1`. Si le domaine est vide ou minuscule, aucun verdict n'est publie sur K2-K4.
+
+K2 — **LA PREDICTION PRINCIPALE, ET JE LA DONNE A 60/40 CONTRE MOI-MEME.** Pour `lTopStrap2` sur
+     chestL, je predis que **le VOLUME apporte l'essentiel** : `feff > 0` et
+     **feff >= 0.5 x cdm**, c'est-a-dire que plus de la moitie de la profondeur atteinte est deja
+     accordee par la pose d'auteur.
+     DERIVATION : le degagement d'auteur est de 0.451 B0 = 271 u ; pour que le SEIN referme cela
+     seul, il devrait parcourir plus que le plafond apex de sa SPEC 22 (0.50 B0) sur 5 040
+     occurrences, ce qui est beaucoup demander a un organe dont le mouvement de pointe mesure
+     `tipvar = 0.1885`. Une bretelle pendue a l'epaule, elle, suit un bras qui bouge de plusieurs
+     B0 dans presque toutes les animations.
+     SI K2 EST CONFIRMEE, MA LECTURE DE L'ETAPE 3 EST RENVERSEE : le couplage du debardeur ne
+     serait PAS un symptome de l'excursion, il serait un defaut de PLACEMENT ANIME du volume — et
+     le chantier « excursion » perdrait son argument principal, celui-la meme que j'ai ecrit ce
+     matin. Je le grave pour ne pas pouvoir m'y derober.
+
+K3 — LES SANGLES BASSES SONT UN CAS PLUS FRANC ENCORE. Critere : pour `lBotStrap` (degagement
+     1.018 B0 = 613 u), `feff > 300 u`. Une sangle de hanche a 613 u du sein ne peut pas etre
+     atteinte par le sein ; si elle pousse 2 411 fois, c'est qu'elle vient.
+
+K4 — LE BUSTE EST L'INVERSE. Critere : pour `caps:Lshoulder->chest` sur chestL (le maillon est
+     DEJA dedans de 320 u au repos), `cdm - feff > 0` sur au moins une des deux chaines — le
+     maillon y va donc bien plus loin que l'auteur ne l'accorde. C'est le contre-exemple qui
+     empeche de conclure « tout vient des volumes ».
+
+------------------------------------------------------------------------------------------------
+LA TABLE DE BRANCHES
+------------------------------------------------------------------------------------------------
+  K0 REFUTEE   -> l'instrument n'est pas passif : AUCUN verdict, on retire l'instrument.
+  K1 REFUTEE   -> domaine trop petit : aucun verdict sur K2-K4, et je publie le domaine.
+  K2 CONFIRMEE -> **JE RETIRE LE CHANTIER « EXCURSION » DE LA PREMIERE PLACE DU CYCLE 39** et je
+                  le dis en clair : le couplage du vetement est un defaut de placement anime du
+                  volume, pas un symptome de l'amplitude. Le point 1 du cycle 39 devient le
+                  placement des volumes portes par des joints mobiles.
+  K2 REFUTEE   -> le sein referme bien l'ecart lui-meme, et l'enonce de 3.5 que j'ai retire en 3.6
+                  se retrouve fonde — mais sur la BONNE grandeur cette fois. Je ne le reecris pas
+                  comme s'il n'avait jamais ete faux : je publie qu'il etait mal appuye et qu'il
+                  est maintenant appuye.
+  K3 et K4 se lisent independamment de K2 et n'autorisent aucune generalisation a eux seuls : ils
+  decrivent DEUX volumes nommes, pas une population.
+
+CE QUE CETTE ETAPE NE FAIT PAS : elle ne corrige rien, ne touche aucune donnee, aucun rayon, aucune
+gate, et n'ajoute aucune ligne a `jak-hd-physics.gc`. Elle lit une grandeur que le moteur calcule
+deja et jette depuis qu'elle existe.
