@@ -1093,6 +1093,28 @@
             c (-> self ai) (-> self drive)
             (phys-shape (-> self slot) c 19)
             (phys-shape (-> self slot) c 20))
+    ;; ---- SPEC 23 : LES DEUX ENTREES DU TENSEUR, AVANT LEUR PLAFOND (cycle 35 etape 3) --------
+    ;; M3 du cycle 35 a etabli que le tenseur est le porteur RESTANT de sa §22 (0.2614 B0 de
+    ;; moyenne). Or ses deux SORTIES sont collees a leur plafond (`dynm` = `PHYS-DYN-MAX` = 0.2500
+    ;; et `prsm` = `PHYS-PRS-MAX` = 0.2500, exactement, dans toutes les courses mesurees). Une
+    ;; sortie collee a son plafond ne dit pas de combien l'ENTREE le depasse — et une entree
+    ;; saturee ne repond a aucun stimulus, quoi qu'on lui donne. C'est le mode d'echec du cycle 34
+    ;; (une saturation ecrite comme multiplicateur de force gelait le rappel a 46.3 u/frame).
+    ;; `dlr` = l'entree d'ETIREMENT avant son `fmin` ; `prsr` (ci-dessus) est deja son equivalent
+    ;; pour la PRESSION. `dsat`/`psat` comptent les frames ou chacune a mordu, `nfr` est leur
+    ;; denominateur COMMUN — sans lui ce sont des comptes, pas des parts, et deux comptes de
+    ;; portees differentes ne se comparent pas.
+    ;; NATURE : `dlr` sans dimension (fraction d'etirement), maximum de fenetre ; `dsat`/`psat`/`nfr`
+    ;; des COMPTES de frames cumules sur la fenetre. REPERE : le triedre de sa §7, comme le reste
+    ;; de `phys-shape`. LECTURE HORS DEFAUT : dlr = 0.0000 et dsat = psat = 0 au repos d'auteur.
+    (format 0 "PHYSSHAPE5 c=~D a=~D d=~D dlr=~f dsat=~f nfr=~f~%"
+            c (-> self ai) (-> self drive)
+            (phys-shape (-> self slot) c 21)
+            (phys-shape (-> self slot) c 22)
+            (phys-shape (-> self slot) c 24))
+    (format 0 "PHYSSHAPE6 c=~D a=~D d=~D psat=~f~%"
+            c (-> self ai) (-> self drive)
+            (phys-shape (-> self slot) c 23))
     ;; §23/§22 — L'ELONGATION DU TISSU PORTEE PAR LE DEGRE DE LIBERTE RADIAL, sur cette fenetre.
     ;; Elle se lit CONTRE SA PROPRE BANDE, qui n'est pas celle de l'apex : « local tissue
     ;; elongation: common 5-15 %, large 15-21 %, exceptional 21-25 %, absolute clamp 25 % ».

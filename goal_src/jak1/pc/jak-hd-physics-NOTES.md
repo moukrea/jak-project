@@ -3256,3 +3256,46 @@ maillon en avait un, et celle du parent sinon. Les deux donnaient le meme os de 
 chaine : `pt` etait litteralement identique dans les deux branches (`p_sim(1) - p_sim(0)`), seul
 `rest` differait de reference. La simplification retire 23 lignes et ne perd aucun cas.
 ```
+
+## NOTE-96  (moteur, aux alentours des lignes 385, 3752, 3782 et 4715 — CYCLE 35 ETAPE 3)
+
+```
+LES DEUX ENTREES DU TENSEUR, MESUREES AVANT LEUR PLAFOND.
+
+POURQUOI. M3 du cycle 35 a etabli que le tenseur est le porteur RESTANT de sa §22 : 0.2614 B0 de
+moyenne pour un budget de 0.40, soit 36 % de ce qui reste apres le correctif de levier. Or ses deux
+SORTIES sont collees a leur plafond dans TOUTES les courses mesurees :
+    dynm = PHYS-DYN-MAX = 0.2500 exactement      prsm = PHYS-PRS-MAX = 0.2500 exactement
+Une sortie collee a son plafond ne dit pas de combien l'entree le depasse — et une entree saturee
+ne repond a aucun stimulus. C'est exactement le mode d'echec du cycle 34, ou la saturation de §21
+ecrite comme MULTIPLICATEUR DE FORCE gelait le rappel a 46.3 u/frame quel que soit l'ecart.
+
+L'ENTREE DE PRESSION ETAIT DEJA TRACEE (`*phys-prsr*`, publiee en `PHYSSHAPE4 prsr=`) et elle est
+enorme : 24.7164 avant le correctif de levier, 15.2761 apres — soit **99x puis 61x son plafond**.
+L'ENTREE D'ETIREMENT n'avait AUCUN traceur avant plafond. C'est le trou que cette note comble.
+
+CE QUI EST AJOUTE, ET POURQUOI QUATRE GRANDEURS ET PAS UNE :
+    *phys-dynr*  `dl` AVANT `fmin PHYS-DYN-MAX`, maximum de fenetre — l'AMPLITUDE du depassement
+    *phys-dynn*  frames ou `dl > PHYS-DYN-MAX` — la FREQUENCE du depassement
+    *phys-prsn*  le meme compte pour `pr0 > PHYS-PRS-MAX`
+    *phys-dyna*  le nombre de frames comptees, DENOMINATEUR COMMUN aux deux
+Une amplitude sans frequence ne distingue pas un canal mort d'un pic rare, et deux comptes sans
+denominateur commun ne se comparent pas : c'est la lecon `zero-from-empty-domain` appliquee a
+l'envers — ici c'est le domaine qui manquerait pour interpreter un compte non nul.
+
+L'ARITHMETIQUE POSEE AVANT LA MESURE (predictions C35E3, md5 bc44d0e77d1d9c27b528f3ae5e29d483) :
+    dx = PHYS-DYN-K * (ox / b0f) + rdr * ux, avec PHYS-DYN-K = 0.43 et rdr <= 0.172 (rrl deja
+    borne a 0.40 b0e). Pour `ox` ~ 300 u et b0f = 602 : dl ~ 0.39 pour un plafond de 0.25, soit
+    ~1.5x — PAS 60x. Les deux entrees ne saturent donc PAS au meme ordre, et c'est ce que la
+    mesure doit trancher : si la pression sature 61x pendant que l'etirement sature 1.5x, le terme
+    de §23 qui n'a plus aucune dynamique est la PRESSION DE CONTACT, et le correctif ne se pose
+    pas au meme endroit.
+
+CANDIDAT DE CAUSE POUR L'ENTREE DE PRESSION, DEJA MESURE (cycle 35) : les deux volumes de chair
+d'un meme sein decrivent LE MEME morceau de chair (recouvrement 75.6 % / 65.3 %, et la sphere
+proximale ne couvre pas un seul sommet que la distale ne couvre deja). Le contact est donc applique
+DEUX FOIS sur la meme chair a chaque frame.
+
+L'INSTRUMENT EST INERTE : il n'ecrit que ses propres compteurs et ne lit aucun etat du solveur.
+Q0 des predictions le verifie ligne pour ligne contre la course C35E2.
+```

@@ -382,6 +382,11 @@
 (define *phys-rrsat* 0)
 (define *phys-prsm* (new 'global 'array 'float PHYS-SC))  ;; §23 aplatissement de contact, max fenetre
 (define *phys-prsr* (new 'global 'array 'float PHYS-SC))  ;; le meme AVANT plafond (anti-saturation)
+;; [NOTE-96] LES DEUX ENTREES DU TENSEUR, MESUREES AVANT LEUR PLAFOND. -> jak-hd-physics-NOTES.md
+(define *phys-dynr* (new 'global 'array 'float PHYS-SC))  ;; `dl` AVANT `fmin PHYS-DYN-MAX`
+(define *phys-dynn* (new 'global 'array 'float PHYS-SC))  ;; frames ou `dl` a mordu le plafond
+(define *phys-prsn* (new 'global 'array 'float PHYS-SC))  ;; frames ou `pr0` a mordu le sien
+(define *phys-dyna* (new 'global 'array 'float PHYS-SC))  ;; frames comptees, denominateur commun
 (define *phys-vp*   (new 'global 'inline-array 'vector PHYS-SC))  ;; vitesse de pointe, frame -1
 (define *phys-tw*   (new 'global 'array 'float PHYS-SC))   ;; §29 torsion : angle du TISSU (rad)
 (define *phys-twv*  (new 'global 'array 'float PHYS-SC))
@@ -744,6 +749,10 @@
                     (set! (-> *phys-dynm* sc) 0.0)
                     (set! (-> *phys-prsm* sc) 0.0)
                     (set! (-> *phys-prsr* sc) 0.0)
+    (set! (-> *phys-dynr* sc) 0.0)
+    (set! (-> *phys-dynn* sc) 0.0)
+    (set! (-> *phys-prsn* sc) 0.0)
+    (set! (-> *phys-dyna* sc) 0.0)
                     ;; SPEC 37 « rebase on teleportation / level transition » : le degre de liberte
                     ;; radial est un ETAT, il repart donc de zero comme la torsion et le mode
                     ;; secondaire. Un tissu qui garderait son elongation a travers un respawn
@@ -3749,6 +3758,10 @@
                                  (ee  (+ 1.0 sdy))
                                  (tt  (/ 1.0 (sqrtf ee))))
                             (when (> sdy (-> *phys-dynm* sc)) (set! (-> *phys-dynm* sc) sdy))
+                            (when (> dl (-> *phys-dynr* sc)) (set! (-> *phys-dynr* sc) dl))
+                            (set! (-> *phys-dyna* sc) (+ 1.0 (-> *phys-dyna* sc)))
+                            (when (> dl PHYS-DYN-MAX)
+                              (set! (-> *phys-dynn* sc) (+ 1.0 (-> *phys-dynn* sc))))
                             (cond
                               ((and (> dl 0.000001) (> sdy 0.000001))
                                (let ((ux (/ dx dl)) (uy (/ dy dl)) (uz (/ dz dl)))
@@ -3776,6 +3789,8 @@
                                    (pe  (- 1.0 prs))
                                    (pt2 (/ 1.0 (sqrtf (fmax 0.0001 pe)))))
                               (when (> pr0 (-> *phys-prsr* sc)) (set! (-> *phys-prsr* sc) pr0))
+                              (when (> pr0 PHYS-PRS-MAX)
+                                (set! (-> *phys-prsn* sc) (+ 1.0 (-> *phys-prsn* sc))))
                               (when (> prs (-> *phys-prsm* sc)) (set! (-> *phys-prsm* sc) prs))
                               (when (> prs 0.000001)
                                 ;; la normale est celle de la poussee, exprimee en MONDE ; le tenseur
@@ -4704,7 +4719,10 @@
    12 = le maximum de fenetre du mode secondaire AVANT le plafond de §38 (c'est lui qui dit si le
    `0.0700` publie est une saturation ou une valeur) ; 13 = le maximum de fenetre de l'etirement
    dynamique de §22/38 ; 18 = le nombre de frames ou la saturation douce de la torsion a mordu ;
-   19 = l'aplatissement de PRESSION DE CONTACT de §23 (max de fenetre), 20 = le meme AVANT plafond.
+   19 = l'aplatissement de PRESSION DE CONTACT de §23 (max de fenetre), 20 = le meme AVANT plafond ;
+   21 = `dl`, l'entree d'ETIREMENT, AVANT son `fmin` (max de fenetre) ; 22 = le NOMBRE de frames
+   ou elle a mordu son plafond ; 23 = le meme compte pour la PRESSION ; 24 = le nombre de frames
+   comptees, denominateur COMMUN aux deux — sans lui, 22 et 23 ne sont pas des parts.
    REPERE : le triedre de sa SPEC 7 (+X lateral, +Y haut, +Z avant), releve a la pose debout
    d'auteur. LECTURE HORS DEFAUT : 1.000 / 1.000 / 1.000 / 1.000 / 0 / 0 / 0 / 0 debout et immobile.
    CE QUE CE N'EST PAS : la deformation VUE sur le mesh. Un sommet partage avec le buste ne recoit
@@ -4728,6 +4746,11 @@
         ((= which 18) (the float *phys-twsat*))
         ((= which 19) (-> *phys-prsm* sc))
         ((= which 20) (-> *phys-prsr* sc))
+        ;; [NOTE-96] 21/22/23/24 : LES DEUX ENTREES DU TENSEUR AVANT LEUR PLAFOND. -> jak-hd-physics-NOTES.md
+        ((= which 21) (-> *phys-dynr* sc))
+        ((= which 22) (-> *phys-dynn* sc))
+        ((= which 23) (-> *phys-prsn* sc))
+        ((= which 24) (-> *phys-dyna* sc))
         (else 0.0)))))
 
 (defun phys-rest ((which int))
