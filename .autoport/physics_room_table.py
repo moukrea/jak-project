@@ -3486,6 +3486,120 @@ def main():
         A('   haut ; tilt -> §19 (tangage) et §20 (roulis). Les bandes de COM correspondantes :')
         A('   §14 0.15-0.32 · §16 0.25-0.40 · §17 0.10-0.30 · §18 0.10-0.28 · §20 0.15-0.22.')
         A('   La comparaison au plafond 0.40 ci-dessus, elle, ne depend d\'aucun mapping.')
+    # ---- SPEC 22 : L'ATTRIBUTION DE `comex` A SES TROIS TERMES (cycle 35 etape 1) -------------
+    # `comex` est le plus gros depassement ouvert de toute la spec. Le cycle 34 a prouve PAR
+    # INTERVENTION que borner le point libre ne le baisse pas (K5). Cette section dit QUEL terme
+    # le porte, par une IDENTITE — pas par un modele :
+    #     e = (p_sim - p_auth) + R_auth.(rot - I).lc + R_auth.rot.(T - I).lc
+    # publiee en PROJECTIONS SIGNEES sur `e^`, donc tp + rp + dp = comex * b0c EXACTEMENT.
+    # La premiere chose imprimee est donc le RESIDU de cette identite : si elle ne se referme pas,
+    # l'instrument est faux et RIEN de ce qui suit ne vaut. C'est M0 des predictions.
+    _b0c = 602.0
+    _mb0 = re.search(r'^\[HD-PHYS\] b0 c=\d+ flesh=([-\d.e+]+)', txt, re.M)
+    if _mb0:
+        _b0c = float(_mb0.group(1)) or 602.0
+    _comd, _comdl = {}, {}
+    for _m in re.finditer(r'^PHYSCOMD c=(\d+) a=(\d+) d=(\d+) '
+                          r'tp=([-\d.e+]+) rp=([-\d.e+]+) dp=([-\d.e+]+)', txt, re.M):
+        _comd[(int(_m.group(1)), int(_m.group(2)), int(_m.group(3)))] = (
+            float(_m.group(4)), float(_m.group(5)), float(_m.group(6)))
+    for _m in re.finditer(r'^PHYSCOMDL c=(\d+) a=(\d+) d=(\d+) lk=([-\d.e+]+)', txt, re.M):
+        _comdl[(int(_m.group(1)), int(_m.group(2)), int(_m.group(3)))] = float(_m.group(4))
+    A('')
+    if not _comd:
+        A('-- SPEC 22 / ATTRIBUTION de `comex` : NON MESUREE par cette course -------------------')
+        A('   Aucune ligne PHYSCOMD dans la trace (moteur ou salle anterieurs au cycle 35).')
+    else:
+        A('-- SPEC 22 : QUEL TERME PORTE `comex` — ATTRIBUTION PAR UNE IDENTITE ------------------')
+        A('   e = (p_sim - p_auth) + R_auth.(rot - I).lc + R_auth.rot.(T - I).lc')
+        A('        \\___ tp ___/      \\______ rp ______/    \\_______ dp _______/')
+        A('   [A] le joint a BOUGE · [B] le maillon a TOURNE x son bras · [C] le TENSEUR x son bras')
+        A('   NATURE : trois longueurs SIGNEES (unites de jeu, 4096 = 1 m), projetees sur la')
+        A('   direction de l\'excursion, relevees au MEME echantillon — l\'argmax de `comex` de la')
+        A('   fenetre. REPERE : monde, meme frame, contre la pose d\'auteur de cette frame.')
+        A('   ABSENT : tp = rp = dp = 0.0000 a la pose d\'auteur.')
+        A('   Bras de levier livres : maillon 0 = 1.0817 / 1.0457 B0 (os de 1.728 / 1.726 B0) ;')
+        A('   maillon 1 = 0.8547 / 0.7765 B0 (os de 0.233 / 0.240 B0, soit 3.7x son propre os).')
+        # --- M0 : L'IDENTITE SE REFERME-T-ELLE ? Rien d'autre ne vaut si la reponse est non. ---
+        _res, _pairs = [], []
+        for _k, (_tp, _rp, _dp) in sorted(_comd.items()):
+            _cx = None
+            for _a, _v in _comw.get((_k[0], _k[2]), []):
+                if _a == _k[1]:
+                    _cx = _v
+                    break
+            if _cx is None:
+                continue
+            _pairs.append((_k, _tp, _rp, _dp, _cx, _comdl.get(_k)))
+            _res.append(abs(_tp + _rp + _dp - _cx * _b0c) / _b0c)
+        if not _pairs:
+            A('   AUCUNE fenetre appariee entre PHYSCOMD et PHYSCOMW : attribution IMPOSSIBLE.')
+        else:
+            _rmax = max(_res)
+            A('   M0 IDENTITE : residu max |tp+rp+dp - comex*b0c| = %.6f B0 sur %d fenetres'
+              % (_rmax, len(_pairs)))
+            A('      -> %s (tolerance 0.001 B0). b0c = %.1f u, lu dans la trace.'
+              % ('TENUE' if _rmax <= 0.001 else '**CASSEE — L\'INSTRUMENT EST FAUX, '
+                 'RIEN DE CE QUI SUIT NE VAUT**', _b0c))
+            # --- LE CLASSEMENT, PAR (chaine, pilotage), SUR LA PIRE FENETRE ---------------
+            _dn2 = {0: 'updown', 1: 'leftright', 2: 'accel', 3: 'jerk', 4: 'tilt'}
+            A('   PIRE FENETRE DE CHAQUE (chaine, pilotage) — les trois termes du MEME echantillon')
+            A('   chaine        pilotage      comex      tp        rp        dp     maillon  domine')
+            _win, _shares = {}, {}
+            for _c in sorted(chains):
+                for _d in sorted(set(k[2] for k in _comd if k[0] == _c)):
+                    _cand = [p for p in _pairs if p[0][0] == _c and p[0][2] == _d]
+                    if not _cand:
+                        continue
+                    _b = max(_cand, key=lambda p: p[4])
+                    (_k, _tp, _rp, _dp, _cx, _lk) = _b
+                    _tot = _cx * _b0c
+                    _mx = max((abs(_tp), 'A'), (abs(_rp), 'B'), (abs(_dp), 'C'))[1]
+                    _win[(_c, _d)] = _b
+                    _shares[(_c, _d)] = (_tp / _tot) if _tot else 0.0
+                    A('   %-13s %-11s %8.4f %9.1f %9.1f %9.1f %7s   %s'
+                      % (names[_c] if _c < len(names) else _c,
+                         _dn2.get(_d, 'BASE(sans pilotage)' if _d >= 5 else 'd%d' % _d),
+                         _cx, _tp, _rp, _dp,
+                         ('l=%d' % int(round(_lk))) if _lk is not None else 'n/a',
+                         {'A': '[A] TRANSLATION', 'B': '[B] ROTATION',
+                          'C': '[C] DEFORMATION'}[_mx]))
+            _cnt = {}
+            for (_c, _d), _b in _win.items():
+                _mx = max((abs(_b[1]), 'A'), (abs(_b[2]), 'B'), (abs(_b[3]), 'C'))[1]
+                _cnt[_mx] = _cnt.get(_mx, 0) + 1
+            A('   M1 CLASSEMENT : [A] domine %d fois · [B] %d fois · [C] %d fois, sur %d canaux'
+              % (_cnt.get('A', 0), _cnt.get('B', 0), _cnt.get('C', 0), len(_win)))
+            # --- M3 : LA PART DU TENSEUR, SUR TOUS LES ECHANTILLONS ----------------------
+            _adp = [abs(p[3]) / _b0c for p in _pairs]
+            _arp = [abs(p[2]) / _b0c for p in _pairs]
+            _atp = [abs(p[1]) / _b0c for p in _pairs]
+            A('   MOYENNE des |termes| sur les %d fenetres, en B0 (budget total de sa §22 = 0.40) :'
+              % len(_pairs))
+            A('      |tp| %.4f   |rp| %.4f   |dp| %.4f' %
+              (sum(_atp) / len(_atp), sum(_arp) / len(_arp), sum(_adp) / len(_adp)))
+            A('      maxima : |tp| %.4f   |rp| %.4f   |dp| %.4f'
+              % (max(_atp), max(_arp), max(_adp)))
+            A('   M3 TENSEUR : moyenne |dp| = %.4f B0 -> %s (critere <= 0.10 B0)'
+              % (sum(_adp) / len(_adp),
+                 'TENUE : le tenseur porte moins du quart du budget'
+                 if sum(_adp) / len(_adp) <= 0.10 else
+                 'CASSEE : le tenseur est un porteur reel'))
+            A('   M5 BORNE PAPIER : max |dp| = %.4f B0 contre 1.22 B0 derive AVANT la mesure -> %s'
+              % (max(_adp), 'TENUE' if max(_adp) <= 1.22 else
+                 '**CASSEE — ma lecture du tenseur est fausse**'))
+            # --- QUEL MAILLON, SUR TOUTES LES FENETRES ------------------------------------
+            _lkc = {}
+            for p in _pairs:
+                if p[5] is not None:
+                    _lkc[int(round(p[5]))] = _lkc.get(int(round(p[5])), 0) + 1
+            if _lkc:
+                A('   QUEL MAILLON porte le maximum, sur les %d fenetres : %s'
+                  % (len(_pairs), ' · '.join('l=%d : %d (%.0f %%)'
+                                             % (k, v, 100.0 * v / len(_pairs))
+                                             for k, v in sorted(_lkc.items()))))
+                A('      Les deux maillons ecrivent le MEME emplacement : sans cette colonne')
+                A('      l\'attribution ne designerait aucune piece.')
     A('')
     if _comex.get('run'):
         A('-- SPEC 22 : L\'EXCURSION DU CENTRE DE CHAIR (comex), CONTRE SA PROPRE BANDE ----------')

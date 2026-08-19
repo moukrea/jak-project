@@ -634,8 +634,10 @@
 ;; un cout qu'on decouvre chez lui.
 (define *phys-skin-meas* 0)
 
-(defconstant PHYS-DG 31)
+(defconstant PHYS-DG 35)           ;; 31/32/33/34 = [NOTE-92] l'attribution de `comex`, et SON MAILLON
 (define *phys-dg* (new 'global 'array 'float (* PHYS-SC PHYS-DG)))
+;; [NOTE-92] LE CENTRE DE CHAIR APRES ROTATION ET AVANT DEFORMATION. -> jak-hd-physics-NOTES.md
+(define *phys-c1* (new 'global 'array 'float 3))
 ;; etat de contrainte de la frame precedente, par (lien, volume), pour compter les bascules.
 ;; 1 bit par volume, un mot par lien : PHYS-COLS <= 96 tient sur trois mots de 32 bits.
 (defconstant PHYS-FLIPW 3)
@@ -3094,17 +3096,7 @@
                     ;; finition. L'ecart entre l'etage 0 et celui-ci est ce que longueur, collision
                     ;; et attenuation retirent.
                     (phys-cap-ang! skel sc n rlk an nbone 1)
-                    ;; ------------------------------------------------------------------------
-                    ;; PIERRE TOMBALE — `phys-retreat-chain`, RETIREE le 2026-08-13, A NE PAS
-                    ;; REMETTRE. Elle cherchait par dichotomie un point admissible SUR LE SEGMENT
-                    ;; QUI VA VERS LA POSE DU MODELE : un aimant vers le dessin de l'animateur,
-                    ;; d'autant plus fort que le contact etait profond, donc un etat qui depend de
-                    ;; l'HISTORIQUE du contact — la definition meme de l'hysteresis que l'owner
-                    ;; signale sur TOUS les cheveux (21:30). Meme piece, meme role, meme aveu dans
-                    ;; l'attic : `d436c4488a`, « the clamp was writing the ANIMATOR's pose onto
-                    ;; every chain that penetrated ». La regle 6 est desormais tenue par la
-                    ;; COLLISION, qui a le dernier mot ci-dessous et ne cite jamais la pose animee.
-                    ;; ------------------------------------------------------------------------
+                    ;; [NOTE-93] PIERRE TOMBALE — `phys-retreat-chain`, A NE PAS REMETTRE. -> jak-hd-physics-NOTES.md
                     (dotimes (it 3)
                       (phys-length-chain skel sc n rlk an nbone)
                       (phys-collide-chain skel sc n rlk nbone nco PHYS-COL-MARGIN 3))
@@ -3464,16 +3456,7 @@
                             (set! (-> *phys-st* (+ stb 13)) (+ oy (-> *phys-st* (+ stb 13))))
                             (set! (-> *phys-st* (+ stb 14)) (+ oz (-> *phys-st* (+ stb 14))))
                             (set! (-> *phys-st* (+ stb 15)) (+ 1.0 (-> *phys-st* (+ stb 15))))
-                            ;; L'IDENTITE DU CANAL D'AUTEUR, EN REPERE MONDE. `sv` recoit le
-                            ;; deplacement ecrit-moins-auteur, `uv` l'ecart simule remis dans le
-                            ;; monde ; leur difference doit etre nulle. Mesure EN MONDE et non en
-                            ;; repere d'ancre parce que le sujet vit a ~1e5 unites de l'origine :
-                            ;; la transformation de point y soustrait deux grandeurs de 1e6 pour en
-                            ;; rendre une de 1e2, et la seule annulation catastrophique du flottant
-                            ;; 32 bits y vaut 0.06 unite — au-dessus de la tolerance, donc un
-                            ;; compteur qui echouait sur 40 % des frames sans qu'aucun defaut
-                            ;; n'existe (mesure du 2026-08-11). En monde, les deux membres valent
-                            ;; ~1e2 et le bruit tombe a 1e-5.
+                            ;; [NOTE-94] L'IDENTITE DU CANAL D'AUTEUR, EN REPERE MONDE. -> jak-hd-physics-NOTES.md
                             (set-vector! sv
                               (- (-> *phys-px* sclt) (-> skel bones (+ kt 1) transform vector 3 x))
                               (- (-> *phys-py* sclt) (-> skel bones (+ kt 1) transform vector 3 y))
@@ -3915,30 +3898,12 @@
                                               (let ((ad (* 0.0054931641 (atan sn cs))))
                                                 (when (> ad (-> *phys-dg* (+ (* sc PHYS-DG) 10)))
                                                   (set! (-> *phys-dg* (+ (* sc PHYS-DG) 10)) ad))))
-                                            ;; PREUVE D'EXECUTION du maillon rootlock : l'angle
-                                            ;; reellement ecrit dans SA 3x3. Il valait 0.0000
-                                            ;; structurellement avant ce cycle (le bloc entier etait
-                                            ;; saute par `(>= l rlk)`), donc toute valeur non nulle
-                                            ;; ici prouve que le chemin neuf tourne — et le remettre
-                                            ;; a `(>= l rlk)` le ramene a zero : c'est l'A/B.
-                                            ;; `rlk0` : ce diagnostic porte sur le maillon que les
-                                            ;; DONNEES declarent epingle. Sur une racine graduee il
-                                            ;; continue donc de publier l'angle ecrit dans sa 3x3,
-                                            ;; au lieu de disparaitre parce que `rlk` est tombe a 0.
+                                            ;; [NOTE-88] PREUVE D'EXECUTION DU MAILLON ROOTLOCK. -> jak-hd-physics-NOTES.md
                                             (when (< l rlk0)
                                               (let ((ad (* 0.0054931641 (atan sn cs))))
                                                 (when (> ad (-> *phys-dg* (+ (* sc PHYS-DG) 14)))
                                                   (set! (-> *phys-dg* (+ (* sc PHYS-DG) 14)) ad))))
-                                            ;; L'ANGLE DU MAILLON 0, SUR TOUTE CHAINE — parce que le
-                                            ;; zero de `rootrot` juste au-dessus est VIDE DE DOMAINE
-                                            ;; des que `rlk0` vaut 0 (les deux chaines de poitrine).
-                                            ;; NATURE : un ANGLE en degres (une orientation ecrite),
-                                            ;; maximum sur la fenetre. REPERE : direction d'os du
-                                            ;; joint, pose du modele -> position simulee de son
-                                            ;; enfant, prise depuis SON ANCRE — son mouvement PROPRE.
-                                            ;; LECTURE QUAND LE MAILLON NE TOURNE PAS : 0.0000, et
-                                            ;; cette fois le domaine n'est PAS vide (`l = 0` existe
-                                            ;; sur toute chaine), donc le zero est une MESURE.
+                                            ;; [NOTE-89] L'ANGLE DU MAILLON 0, SUR TOUTE CHAINE. -> jak-hd-physics-NOTES.md
                                             (when (= l 0)
                                               (let ((ad (* 0.0054931641 (atan sn cs))))
                                                 (when (> ad (-> *phys-dg* (+ (* sc PHYS-DG) 13)))
@@ -3956,6 +3921,10 @@
                               ;; torsion, puis est pose a la position simulee. La ligne 3 est mise a
                               ;; zero avant, sinon la deformation s'appliquerait aussi a une
                               ;; translation qu'on va de toute facon remplacer.
+                              ;; [NOTE-92] `c1` = R_auteur . rot . lc, LE TERME CHARNIERE DE L'IDENTITE. -> jak-hd-physics-NOTES.md
+                              (set! (-> *phys-c1* 0) (+ (* (-> *phys-lcx* scl) (-> bm vector 0 x)) (+ (* (-> *phys-lcy* scl) (-> bm vector 1 x)) (* (-> *phys-lcz* scl) (-> bm vector 2 x)))))
+                              (set! (-> *phys-c1* 1) (+ (* (-> *phys-lcx* scl) (-> bm vector 0 y)) (+ (* (-> *phys-lcy* scl) (-> bm vector 1 y)) (* (-> *phys-lcz* scl) (-> bm vector 2 y)))))
+                              (set! (-> *phys-c1* 2) (+ (* (-> *phys-lcx* scl) (-> bm vector 0 z)) (+ (* (-> *phys-lcy* scl) (-> bm vector 1 z)) (* (-> *phys-lcz* scl) (-> bm vector 2 z)))))
                               (when (nonzero? (-> *phys-dfon* sc))
                                 (set! (-> bm vector 3 x) 0.0)
                                 (set! (-> bm vector 3 y) 0.0)
@@ -4003,24 +3972,37 @@
                                                 (fmax 1.0 b0c))))
                                     (when (> ee (-> *phys-dg* (+ (* sc PHYS-DG) 19)))
                                       (set! (-> *phys-dg* (+ (* sc PHYS-DG) 19)) ee))
-                                    ;; 23 = LE MEME MAXIMUM, MAIS PAR FENETRE DE PUBLICATION
-                                    ;; (chaine, animation, pilotage). Un emplacement SEPARE, et
-                                    ;; c'est necessaire : remettre 19 a zero a chaque fenetre
-                                    ;; changerait le maximum de course deja publie. Ses §14 a §20
-                                    ;; donnent une bande de COM par REGIME (saut, atterrissage,
-                                    ;; freinage, lacet, tangage, roulis) ; un maximum global ne
-                                    ;; peut se comparer a aucune d'elles.
+                                    ;; [NOTE-90] 23 = LE MEME MAXIMUM QUE 19, MAIS PAR FENETRE DE PUBLICATION. -> jak-hd-physics-NOTES.md
                                     (when (> ee (-> *phys-dg* (+ (* sc PHYS-DG) 23)))
-                                      (set! (-> *phys-dg* (+ (* sc PHYS-DG) 23)) ee))
-                                    ;; UN MAXIMUM NE DIT PAS SI UNE BORNE CLIPERAIT UN EXTREME OU
-                                    ;; MUSELLERAIT LA REPONSE. Trois cumuls le disent, et c'est la
-                                    ;; SEULE grandeur qui separe un correctif d'un suppresseur :
-                                    ;;   20 = somme des echantillons, 21 = leur nombre,
-                                    ;;   22 = combien depassent le plafond DUR de sa §22 (0.40 B0).
-                                    ;; NATURE : deux COMPTES et une SOMME, cumules sur la fenetre —
-                                    ;; ils croissent avec sa duree et ne se comparent qu'entre
-                                    ;; chaines d'une MEME course. `20/21` rend la moyenne, `22/21`
-                                    ;; la part de frames que la borne mordrait.
+                                      (set! (-> *phys-dg* (+ (* sc PHYS-DG) 23)) ee)
+                                      ;; [NOTE-92] L'ATTRIBUTION DE `comex` A SES TROIS TERMES. -> jak-hd-physics-NOTES.md
+                                      (let* ((el (fmax 0.0001 (sqrtf (+ (* ex ex) (+ (* ey ey) (* ez ez))))))
+                                             (ux (/ ex el)) (uy (/ ey el)) (uz (/ ez el))
+                                             (a0x (+ (* lcx (-> pre vector 0 x)) (+ (* lcy (-> pre vector 1 x)) (* lcz (-> pre vector 2 x)))))
+                                             (a0y (+ (* lcx (-> pre vector 0 y)) (+ (* lcy (-> pre vector 1 y)) (* lcz (-> pre vector 2 y)))))
+                                             (a0z (+ (* lcx (-> pre vector 0 z)) (+ (* lcy (-> pre vector 1 z)) (* lcz (-> pre vector 2 z)))))
+                                             (c2x (+ (* lcx (-> bm vector 0 x)) (+ (* lcy (-> bm vector 1 x)) (* lcz (-> bm vector 2 x)))))
+                                             (c2y (+ (* lcx (-> bm vector 0 y)) (+ (* lcy (-> bm vector 1 y)) (* lcz (-> bm vector 2 y)))))
+                                             (c2z (+ (* lcx (-> bm vector 0 z)) (+ (* lcy (-> bm vector 1 z)) (* lcz (-> bm vector 2 z))))))
+                                        (set! (-> *phys-dg* (+ (* sc PHYS-DG) 31))
+                                              (+ (* (- (-> bm vector 3 x) (-> pre vector 3 x)) ux)
+                                                 (+ (* (- (-> bm vector 3 y) (-> pre vector 3 y)) uy)
+                                                    (* (- (-> bm vector 3 z) (-> pre vector 3 z)) uz))))
+                                        (set! (-> *phys-dg* (+ (* sc PHYS-DG) 32))
+                                              (+ (* (- (-> *phys-c1* 0) a0x) ux)
+                                                 (+ (* (- (-> *phys-c1* 1) a0y) uy)
+                                                    (* (- (-> *phys-c1* 2) a0z) uz))))
+                                        (set! (-> *phys-dg* (+ (* sc PHYS-DG) 33))
+                                              (+ (* (- c2x (-> *phys-c1* 0)) ux)
+                                                 (+ (* (- c2y (-> *phys-c1* 1)) uy)
+                                                    (* (- c2z (-> *phys-c1* 2)) uz))))
+                                        ;; QUEL MAILLON porte ce maximum. Les deux ecrivent le MEME
+                                        ;; emplacement 23, et leurs bras de levier n'ont rien de
+                                        ;; comparable (1.08 B0 contre 0.86 B0 pour des os de 1.73 et
+                                        ;; 0.23 B0) : sans cette colonne l'attribution ne designe
+                                        ;; aucune piece, et le correctif de l'etape 2 non plus.
+                                        (set! (-> *phys-dg* (+ (* sc PHYS-DG) 34)) (the float l))))
+                                    ;; [NOTE-91] UN MAXIMUM NE DIT PAS SI UNE BORNE CLIPERAIT UN EXTREME. -> jak-hd-physics-NOTES.md
                                     (set! (-> *phys-dg* (+ (* sc PHYS-DG) 20))
                                           (+ ee (-> *phys-dg* (+ (* sc PHYS-DG) 20))))
                                     (set! (-> *phys-dg* (+ (* sc PHYS-DG) 21))
@@ -4519,7 +4501,14 @@
     ;; pilotage) : un compte de rebases valable pour la course entiere ne dirait pas QUELLE fenetre
     ;; porte la discontinuite, et c'est precisement la question.
     (set! (-> *phys-dg* (+ (* i PHYS-DG) 29)) 0.0)
-    (set! (-> *phys-dg* (+ (* i PHYS-DG) 30)) 0.0))
+    (set! (-> *phys-dg* (+ (* i PHYS-DG) 30)) 0.0)
+    ;; 31/32/33 = l'attribution de `comex`, RELEVEE A L'ARGMAX DE 23. Meme portee que 23, donc
+    ;; meme remise a zero : les garder plus longtemps ferait publier trois termes releves dans une
+    ;; fenetre et un maximum releve dans une autre — exactement le defaut `RAD-FLESH-IPAIR`.
+    (set! (-> *phys-dg* (+ (* i PHYS-DG) 31)) 0.0)
+    (set! (-> *phys-dg* (+ (* i PHYS-DG) 32)) 0.0)
+    (set! (-> *phys-dg* (+ (* i PHYS-DG) 33)) 0.0)
+    (set! (-> *phys-dg* (+ (* i PHYS-DG) 34)) 0.0))
   (none))
 
 (defun phys-diag-reset! ()

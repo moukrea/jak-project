@@ -3080,3 +3080,130 @@ genou, strictement croissante.
 mouvement sans mesure. Celui-ci ne peut pas en retirer sous le genou (identite), et au-dessus il
 applique la borne que l'owner a lui-meme chiffree dans sa §22. Le controle negatif exact est la
 course precedente : la salle est reproductible octet pour octet.
+
+## NOTE-88  (moteur, aux alentours de la ligne 3918)
+
+```
+PREUVE D'EXECUTION du maillon rootlock : l'angle reellement ecrit dans SA 3x3. Il valait 0.0000
+structurellement avant ce cycle (le bloc entier etait saute par `(>= l rlk)`), donc toute valeur
+non nulle ici prouve que le chemin neuf tourne — et le remettre a `(>= l rlk)` le ramene a zero :
+c'est l'A/B.
+
+`rlk0` : ce diagnostic porte sur le maillon que les DONNEES declarent epingle. Sur une racine
+graduee il continue donc de publier l'angle ecrit dans sa 3x3, au lieu de disparaitre parce que
+`rlk` est tombe a 0.
+```
+
+## NOTE-89  (moteur, aux alentours de la ligne 3932)
+
+```
+L'ANGLE DU MAILLON 0, SUR TOUTE CHAINE — parce que le zero de `rootrot` juste au-dessus est VIDE
+DE DOMAINE des que `rlk0` vaut 0 (les deux chaines de poitrine).
+
+NATURE : un ANGLE en degres (une orientation ecrite), maximum sur la fenetre.
+REPERE : direction d'os du joint, pose du modele -> position simulee de son enfant, prise depuis
+SON ANCRE — son mouvement PROPRE.
+LECTURE QUAND LE MAILLON NE TOURNE PAS : 0.0000, et cette fois le domaine n'est PAS vide (`l = 0`
+existe sur toute chaine), donc le zero est une MESURE.
+```
+
+## NOTE-90  (moteur, aux alentours de la ligne 4006)
+
+```
+23 = LE MEME MAXIMUM QUE 19, MAIS PAR FENETRE DE PUBLICATION (chaine, animation, pilotage). Un
+emplacement SEPARE, et c'est necessaire : remettre 19 a zero a chaque fenetre changerait le
+maximum de course deja publie. Ses §14 a §20 donnent une bande de COM par REGIME (saut,
+atterrissage, freinage, lacet, tangage, roulis) ; un maximum global ne peut se comparer a aucune
+d'elles.
+```
+
+## NOTE-91  (moteur, aux alentours de la ligne 4015)
+
+```
+UN MAXIMUM NE DIT PAS SI UNE BORNE CLIPERAIT UN EXTREME OU MUSELLERAIT LA REPONSE. Trois cumuls
+le disent, et c'est la SEULE grandeur qui separe un correctif d'un suppresseur :
+   20 = somme des echantillons, 21 = leur nombre,
+   22 = combien depassent le plafond DUR de sa §22 (0.40 B0).
+NATURE : deux COMPTES et une SOMME, cumules sur la fenetre — ils croissent avec sa duree et ne se
+comparent qu'entre chaines d'une MEME course. `20/21` rend la moyenne, `22/21` la part de frames
+que la borne mordrait.
+```
+
+## NOTE-93  (moteur, aux alentours de la ligne 3099)
+
+```
+PIERRE TOMBALE — `phys-retreat-chain`, RETIREE le 2026-08-13, A NE PAS REMETTRE.
+
+Elle cherchait par dichotomie un point admissible SUR LE SEGMENT QUI VA VERS LA POSE DU MODELE :
+un aimant vers le dessin de l'animateur, d'autant plus fort que le contact etait profond, donc un
+etat qui depend de l'HISTORIQUE du contact — la definition meme de l'hysteresis que l'owner
+signale sur TOUS les cheveux (2026-08-13 21:30).
+
+Meme piece, meme role, meme aveu dans l'attic : `d436c4488a`, « the clamp was writing the
+ANIMATOR's pose onto every chain that penetrated ».
+
+La regle 6 est desormais tenue par la COLLISION, qui a le dernier mot et ne cite jamais la pose
+animee.
+```
+
+## NOTE-94  (moteur, aux alentours de la ligne 3469)
+
+```
+L'IDENTITE DU CANAL D'AUTEUR, EN REPERE MONDE. `sv` recoit le deplacement ecrit-moins-auteur, `uv`
+l'ecart simule remis dans le monde ; leur difference doit etre nulle.
+
+POURQUOI EN MONDE ET NON EN REPERE D'ANCRE : le sujet vit a ~1e5 unites de l'origine. La
+transformation de point y soustrait deux grandeurs de 1e6 pour en rendre une de 1e2, et la seule
+annulation catastrophique du flottant 32 bits y vaut 0.06 unite — au-dessus de la tolerance, donc
+un compteur qui echouait sur 40 % des frames sans qu'aucun defaut n'existe (mesure du
+2026-08-11). En monde, les deux membres valent ~1e2 et le bruit tombe a 1e-5.
+```
+
+## NOTE-92  (moteur, lignes 637-640, ~3966 et ~4009 — CYCLE 35 ETAPE 1)
+
+```
+L'ATTRIBUTION DE `comex` A SES TROIS TERMES, PAR UNE IDENTITE.
+
+Le cycle 34 laisse `comex` a 1.8529 / 1.9097 B0 pour un plafond dur de 0.40 (§22) — le plus gros
+depassement ouvert — et il a PROUVE PAR INTERVENTION que borner le point libre `cp` ne le baisse
+pas (K5 : +6.4 % / -2.2 %). Il fallait donc savoir QUEL terme le porte avant de dimensionner quoi
+que ce soit. Attribuer avant de corriger, comme aux cycles 33 et 34.
+
+`comex` est ecrit  e = [p_sim + D.lc] - [p_auth + R_auth.lc],  ou D = R_auth . rot . T.
+En inserant `R_auth . rot . lc`, qui s'annule :
+
+    e =   (p_sim - p_auth)                 [A] TRANSLATION : le joint a bouge
+        + R_auth . (rot - I) . lc          [B] ROTATION    : ce maillon a tourne, x son bras `lc`
+        + R_auth . rot . (T - I) . lc      [C] DEFORMATION : le tenseur, x son bras `lc`
+
+C'est une IDENTITE : la somme des trois EST `e`, exactement, quelles que soient les valeurs. Ce
+n'est pas un modele et il n'y a rien a y croire.
+
+CE QUI EST PUBLIE : les trois PROJECTIONS SIGNEES sur `e^`, de sorte que
+    tp + rp + dp = |e|   EXACTEMENT.
+Des NORMES ne se recomposent pas — deux termes peuvent s'annuler et trois normes ne le diraient
+pas. Des projections signees, si, et leur somme est verifiable par le lecteur.
+
+NATURE  trois LONGUEURS SIGNEES en unites de jeu, relevees a l'ARGMAX de `comex` DE LA FENETRE.
+REPERE  le monde, meme frame, contre la pose d'auteur de cette frame — le meme que `comex`.
+ABSENT  tp = rp = dp = 0.0000 a la pose d'auteur.
+
+POURQUOI LE RELEVE EST DANS LE MEME `when` QUE L'EMPLACEMENT 23, ET PAS AILLEURS : trois maxima
+independants decriraient trois frames differentes, et leur somme ne vaudrait plus `comex`. C'est
+exactement le defaut `ROOM-RAD-FLESH-IPAIR` du cycle 34, ou deux lecteurs de la MEME trace
+retenaient deux fenetres differentes et sortaient cinq violations qui n'existaient que dans
+l'appariement. Un seul `when`, un seul echantillon, trois termes.
+
+POURQUOI `*phys-c1*` EST UN GLOBAL ET NON UNE LIAISON : le terme charniere `R_auth . rot . lc` se
+lit entre la pose de `rot` et la post-multiplication par `T`, deux blocs `when` distincts. Ecriture
+et lecture ont lieu dans la MEME iteration de la MEME boucle, a une dizaine de lignes d'intervalle
+— un global de trois flottants est la forme la moins couteuse qui traverse les deux blocs. Il n'a
+aucune duree de vie au-dela de l'iteration et rien d'autre ne le lit.
+
+GEOMETRIE LIVREE QUI REND CETTE ATTRIBUTION NECESSAIRE (course du cycle 34) :
+    maillon 0 : os de 1040.50 u = 1.728 B0, centre de chair a 651.18 u = 1.081 B0
+    maillon 1 : os de  140.42 u = 0.233 B0, centre de chair a 514.54 u = 0.855 B0
+Le maillon 1 porte donc son centre de chair a 3.7x la longueur de son propre os, et le maillon 0
+balaie ce centre depuis un bras de 1.73 B0 — pour un budget total de 0.40 B0. Aucune des trois
+contributions n'est negligeable a priori, et c'est pourquoi on les mesure au lieu de les supposer.
+```

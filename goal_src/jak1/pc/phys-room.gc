@@ -945,6 +945,40 @@
     (format 0 "PHYSCOMW c=~D a=~D d=~D comex=~f~%"
             c (-> self ai) (-> self drive)
             (phys-diag (-> self slot) c 23))
+    ;; ---- SPEC 22 : L'ATTRIBUTION DE `comex` A SES TROIS TERMES (cycle 35 etape 1) ----------
+    ;; `comex` est le plus gros depassement ouvert de toute la spec (1.85 / 1.91 B0 contre un
+    ;; plafond dur de 0.40). Le cycle 34 a prouve PAR INTERVENTION que borner le point libre ne le
+    ;; baisse pas — il fallait donc savoir QUEL terme le porte avant de dimensionner un correctif.
+    ;;   e = (p_sim - p_auth) + R_auth.(rot - I).lc + R_auth.rot.(T - I).lc
+    ;;        \___ tp ___/      \______ rp ______/    \_______ dp _______/
+    ;;   [A] le joint a bouge · [B] le maillon a tourne x son bras · [C] le tenseur x son bras
+    ;; C'est une IDENTITE, pas un modele : la somme des trois EST `e`, quelles que soient les
+    ;; valeurs. Ce qui est publie sont les PROJECTIONS SIGNEES sur `e^`, donc
+    ;;   tp + rp + dp = comex * b0c   EXACTEMENT — et le lecteur le verifie (M0 des predictions).
+    ;; Des normes ne se recomposeraient pas : deux termes peuvent s'annuler et trois normes ne le
+    ;; diraient pas.
+    ;; NATURE : trois LONGUEURS SIGNEES en unites de jeu (4096 = 1 m), relevees a l'ARGMAX de
+    ;;   `comex` DE CETTE FENETRE — un seul echantillon pour les trois, jamais trois maxima
+    ;;   independants (piege `RAD-FLESH-IPAIR` du cycle 34 : deux lecteurs de la meme trace
+    ;;   retenaient deux fenetres differentes et sortaient cinq violations d'appariement).
+    ;; REPERE : le monde, meme frame, contre la pose d'auteur de cette frame — celui de `comex`.
+    ;; LECTURE QUAND LE DEFAUT EST ABSENT : tp = rp = dp = 0.0000 a la pose d'auteur.
+    ;; `lk` = QUEL MAILLON porte ce maximum. Les deux ecrivent le MEME emplacement 23 et leurs bras
+    ;; de levier n'ont rien de comparable : maillon 0 = os de 1.73 B0, chair a 1.08 B0 ; maillon 1 =
+    ;; os de 0.23 B0, chair a 0.86 B0, soit 3.7x son propre os. Sans cette colonne l'attribution ne
+    ;; designe aucune piece — et le correctif de l'etape 2 non plus.
+    ;; DEUX LIGNES, ET C'EST UNE CONTRAINTE DE `format`, PAS UN CHOIX : toutes les autres lignes de
+    ;; ce fichier tiennent en SIX valeurs, aucune n'en porte sept. Plutot que de parier sur une
+    ;; septieme et risquer une troncature SILENCIEUSE, `lk` sort sur sa propre ligne, meme cle
+    ;; (c, a, d) — le lecteur les rapproche par cette cle, comme il le fait deja pour PHYSRESTW/S.
+    (format 0 "PHYSCOMD c=~D a=~D d=~D tp=~f rp=~f dp=~f~%"
+            c (-> self ai) (-> self drive)
+            (phys-diag (-> self slot) c 31)
+            (phys-diag (-> self slot) c 32)
+            (phys-diag (-> self slot) c 33))
+    (format 0 "PHYSCOMDL c=~D a=~D d=~D lk=~f~%"
+            c (-> self ai) (-> self drive)
+            (phys-diag (-> self slot) c 34))
     ;; SPEC 9 — LA DECOMPOSITION DE `comex` EN CE QUI EST STATIQUE ET CE QUI EST DYNAMIQUE.
     ;; `comex` se mesure contre la POSE D'AUTEUR ; le ressort, lui, vise `attache +
     ;; R_ancre . u_capture . bl` (jak-hd-physics.gc:2686). Si ces deux poses different, `comex`
