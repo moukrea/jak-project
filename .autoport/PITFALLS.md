@@ -452,3 +452,14 @@ jamais de ce qu'il n'a pas fait.
 Verrou : `.autoport/SPEC-COVERAGE.md` est un artefact obligatoire de chaque cycle, une ligne par
 section, `NON ETABLI` par defaut. Regle generale : un travail mesure a l'aune d'un document exige
 un TABLEAU de couverture de ce document, tenu a jour, ou l'avancement n'est qu'une opinion.
+
+GUARD code-hash-cannot-see-intent .autoport/owner_testable.py code_changed
+**Une empreinte de fichier ne distingue pas un correctif de COMPORTEMENT d'un ajout de SONDE.**
+Le 2026-08-19 j'ai fait entrer le hash du solveur dans le declencheur, parce qu'un correctif de
+code ne touche aucun reglage et le laissait muet. Des le lendemain 00:33 il a crie « A TESTER »
+pour un commit qui n'ajoutait que des compteurs de mesure — le pas tangentiel du cycle 47 etait
+bien retire, seules ses sondes restaient. Alerter l'owner a chaque commit d'instrumentation, c'est
+le dresser a ignorer l'alerte : exactement ce que le script existe pour empecher.
+Verrou : le changement de code sort sur une ligne `VERIF` destinee au superviseur, qui lit le diff
+et decide ; il ne declenche JAMAIS a lui seul un « A TESTER ». Regle generale : un signal qui ne
+peut pas porter le jugement qu'on lui demande doit remonter a qui peut le porter, pas trancher.

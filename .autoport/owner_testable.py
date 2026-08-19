@@ -163,20 +163,29 @@ def main():
                 touched.setdefault(key, {'human': human, 'why': []})
                 touched[key]['why'].append(f'{name} géométrie entraînée {o:.0%}→{v:.0%}')
 
-    # le CODE du solveur a change : on ne sait pas dire QUOI a bouge, mais on sait que ca a bouge,
-    # et se taire serait pire que de le signaler sans detail.
-    if now.get('solver') and prev.get('solver') and now['solver'] != prev['solver']:
-        touched.setdefault('flesh-jelly', {'human': 'la poitrine', 'why': []})
-        touched['flesh-jelly']['why'].append('le code du solveur a change')
+    # LE CODE DU SOLVEUR A CHANGE -- mais l'empreinte ne sait pas distinguer un correctif de
+    # COMPORTEMENT d'un ajout de SONDE. Le 2026-08-20 a 00:33 elle a crie « A TESTER » pour un
+    # commit qui n'ajoutait que des compteurs de mesure : rien de perceptible. Alerter l'owner
+    # a chaque commit d'instrumentation, c'est le dresser a ignorer l'alerte -- exactement ce que
+    # ce script existe pour eviter. Le changement de code sort donc sur une ligne VERIF, destinee
+    # au superviseur qui lit le diff, et ne declenche JAMAIS a lui seul un « A TESTER ».
+    code_changed = bool(now.get('solver') and prev.get('solver')
+                        and now['solver'] != prev['solver'])
 
     json.dump(now, open(STAMP, 'w', encoding='utf-8'))
 
     if not touched:
+        if code_changed:
+            print("VERIF %s (%s) — le code du solveur a change sans qu'aucun reglage ne bouge."
+                  " Lire le diff : si c'est du COMPORTEMENT, l'annoncer a la main ; si ce sont des"
+                  " SONDES, se taire." % (apk, when))
         return 0                      # build publié, mais rien de perceptible : on se tait
 
     zones = sorted({d['human'] for d in touched.values()})
     why = '; '.join(sorted({w for d in touched.values() for w in d['why']})[:4])
     print(f"A TESTER {apk} ({when}) — à regarder : {', '.join(zones)}. Ce qui a bougé : {why}")
+    if code_changed:
+        print("  (le code du solveur a aussi change : lire le diff avant de decrire l'effet)")
     return 0
 
 
