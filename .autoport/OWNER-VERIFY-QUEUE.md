@@ -11,14 +11,20 @@ Tout le cycle est de la **mesure**, et elle debouche sur **un choix qui t'appart
 ## 1. CE QUE J'AI TROUVE, EN UNE PHRASE
 
 Sa poitrine part **2,4 a 2,7 fois plus loin** que ta propre spec ne l'autorise, et je sais enfin
-**quelle piece** le fait : ce n'est pas la deformation de la chair, c'est **l'os du haut de la
-chaine qui bascule**. Il porte **62 %** du depassement.
+quelle piece le fait. **Ce n'est pas la deformation de la chair, et ce n'est pas non plus le
+squelette** — j'ai cru les deux successivement aujourd'hui, et j'ai eu tort les deux fois.
 
-Pourquoi cet os precisement : il mesure **1040 unites** alors que le sein entier en mesure **602**.
-C'est un bras de levier **1,7 fois plus long que l'organe**. Du coup un retard parfaitement normal
-— **onze degres** — suffit a manger **84 a 88 %** de tout le budget que ta spec accorde. Il n'y a
-rien d'anormal dans le mouvement : c'est la **geometrie du squelette** qui transforme un petit
-retard en gros deplacement.
+C'est **un frein mal regle, dans le code**. Ta spec accorde a toute la poitrine un budget de
+deplacement. Une seule des pieces qui deplacent la chair a recu, comme limite, **ce budget entier**
+— au lieu de la limite que ta spec lui donne a elle, qui est bien plus petite. Une piece qui a le
+droit de consommer tout le budget le consomme : elle en prend **73 a 75 %** a elle seule, et il ne
+reste rien pour les autres.
+
+Et il y a un effet de bord qui explique ce que tu decris depuis le debut. Ce frein **ecrase les
+differences** : quand le mouvement d'entree varie de 51 %, ce qui en sort ne varie que de **14 %**.
+Autrement dit sa poitrine repond **presque pareil** a une secousse violente et a un mouvement
+doux — c'est mecaniquement la definition de ce que tu appelles « du pudding ». Le mouvement, lui,
+repond bien (il varie de 73 a 79 % selon le stimulus) ; c'est le frein qui aplatit tout derriere.
 
 ## 2. LA QUESTION, ET C'EST TOI QUI DOIS TRANCHER
 
@@ -72,11 +78,17 @@ principales :
   mesh que je n'ai pas fait ce cycle.
 - **Sa SPEC 33 exige qu'ils s'entrechoquent** et le test du moteur ne peut pas le compter.
 
-## 6. LA SUITE, ET ELLE A BESOIN DE TON FEU VERT SUR LE PRINCIPE
+## 6. LA SUITE
 
-Le reglage est ferme (ta spec fixe la frequence, donc borne la raideur). Le soudage est ferme (1
-pour 1). **Il reste le squelette** : raccourcir ce bras de levier baisse le depassement **sans
-retirer un degre de liberte** — c'est la seule voie qui ne soit pas un troc. Tu m'as autorise a
-toucher au rig le 17/08. **L'obstacle est reel et je ne le cache pas** : le rig HD n'accepte que
-des ajouts en bout, donc on ne peut pas simplement glisser une articulation au bon endroit.
-Etablir ce qui est faisable est le travail du prochain cycle.
+**Ce n'est plus le squelette.** J'avais annonce ca plus haut dans la journee et je le corrige :
+le bras de levier de l'os est reel, mais il n'est pas le porteur principal. Le porteur est ce
+frein, et c'est **notre code**, pas une contrainte du modele.
+
+Deux corrections evidentes sont **deja essayees et refutees par la mesure** (cycles 33 et 34) :
+serrer le frein aggrave, et re-regler la raideur ne fait rien parce que la piece est aveugle a la
+raideur par construction. Ce qui reste, et c'est ce que je vais chiffrer au prochain cycle, c'est
+la **forme** du frein — lui rendre sa PENTE, pas changer son plafond. Ta section 13 demande une
+reponse « continue et proportionnee » : c'est exactement la grandeur qui manque.
+
+Je n'y touche pas a l'aveugle : ce sera mesure d'abord, avec les criteres graves avant la course,
+comme aujourd'hui.

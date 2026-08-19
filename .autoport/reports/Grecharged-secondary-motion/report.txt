@@ -14,8 +14,17 @@ ET LE PRIX DE LA SEULE MANOEUVRE DISPONIBLE EST MESURE — IL EST DE 1 POUR 1.
            hors bande : 100 % -> **0.0 %** a gauche, 99.5 % -> **2.7 %** a droite) et **coute
            50 % du mouvement, UNIFORMEMENT sur les six pilotages** — y compris les deux que
            l'owner protege. **RETIREE**, par le critere que j'avais grave avant de mesurer.
-  RESULTAT L'echange est de **1 pour 1** : -54 % d'excursion contre -50 % de mouvement. Ce n'est
-           pas un correctif, c'est un troc. Et il designe le seul levier qui n'en soit pas un.
+  ETAPE 3  **JE RETIRE UNE RECONSTRUCTION DE MON ETAPE 1**, refutee par un test de borne : `tp`
+           n'est PAS la corde de rotation du maillon racine — il DEPASSE ce qu'une rotation peut
+           produire dans 91 et 82 fenetres sur 186, jusqu'a **x112**. Ce qui le porte est le canal
+           RADIAL de sa SPEC 23 (une TRANSLATION), et ce canal est borne a `0.40*B0` — **le budget
+           TOTAL de la SPEC 22**, la ou sa SPEC 38 lui assigne 0.25 (`PHYS-DYN-MAX`, presente dans
+           le fichier et branchee sur une AUTRE grandeur). Il consomme donc **73-75 % du plafond a
+           lui seul**, et le softmin de publication comprime sa sortie dans une bande de 14 %.
+  RESULTAT L'echange de l'epinglage est de **1 pour 1** : -54 % d'excursion contre -50 % de
+           mouvement. Ce n'est pas un correctif, c'est un troc. Et le vrai porteur de l'excursion
+           n'est ni le tenseur (plan du cycle) ni le bras de levier (mon etape 1) : c'est une
+           borne de PUBLICATION posee a la valeur du budget qu'elle est censee proteger.
 
   ETAT DU VALIDATEUR : inchange, il sort a 1 sur `OPEN-DEFECTS` — la porte humaine, que mon
   action ne peut pas fermer. `COLLIDE` reste ROUGE.
@@ -65,7 +74,13 @@ statistique pour une borne.
     tenseur `dp`                                               0.239 B0   0.235 B0
                                                                                     0.400 B0
 
-**LE MAILLON RACINE, A LUI SEUL, EN CONSOMME 84 % ET 88 %.** Et le retard angulaire qui
+**[RETIRE EN 3.1 — CE TABLEAU EST FAUX DEUX FOIS.** Les cordes sont des COMPOSANTES de `tp`, pas
+des termes a cote de lui, et `tp` n'est pas produit par la rotation : un test de borne le montre
+au-dessus du possible dans 91 et 82 fenetres sur 186. Le tableau est conserve tel qu'il a ete
+ecrit, avec sa refutation en face, parce qu'on ne reecrit pas un rapport apres coup. Ce qui
+survit : la decomposition exacte 62/32/6, et l'etape 2 entiere.]
+
+**LE MAILLON RACINE, A LUI SEUL, EN CONSOMMERAIT 84 % ET 88 %.** Et le retard angulaire qui
 saturerait tout le plafond a lui seul vaut **13.29 deg** : il est mesure a 11.16 / 11.75 deg de
 moyenne et a **16.71 / 19.22 deg au maximum**, donc le maximum le depasse deja.
 
@@ -255,6 +270,100 @@ est desormais mesure sur le moteur courant, pas repris d'un cycle vieux de neuf 
     vetement suit le sein ») reste ABSENTE pour cette raison.
 
 ================================================================================================
+ETAPE 3 — JE RETIRE MA PROPRE RECONSTRUCTION DE L'ETAPE 1. `tp` N'EST PAS UNE ROTATION, ET CE
+QUI LE PORTE EST BORNE PAR UNE CONSTANTE QUI APPARTIENT A UNE AUTRE SECTION.
+================================================================================================
+Aucune course pour cette etape : tout est relu dans la trace LIVREE et dans le moteur.
+
+3.1 CE QUE JE RETIRE, ET POURQUOI
+===================================
+L'etape 1 a reconstruit `tp` comme la corde de rotation du maillon racine
+(`2*L*sin(ang/2)`, rapport median 1.026 / 0.977) et en a tire : « le maillon 0 SEUL consomme
+84 % et 88 % du plafond ». **LA RECONSTRUCTION EST FAUSSE, ET UN TEST DE BORNE LE PROUVE SANS
+MODELE.** `ang` etant un MAXIMUM DE FENETRE, il borne la deviation a CHAQUE frame de la fenetre,
+donc aussi a l'argmax ou `tp` est releve. La corde maximale possible vaut donc
+`2*BL*sin(ang_max/2)`, et :
+
+    |tp| DEPASSE cette borne dans **91 fenetres sur 186** (chestL) et **82 sur 186** (chestR).
+    PIRE CAS : |tp| = 292.6 u contre une borne de 2.6 u — **x111.97**.
+    Et les violations sont concentrees la ou la chaine ne tourne presque pas :
+      `tilt`  rapport median x2.31 / x2.09      ligne de base  x4.38 / x5.83
+
+**Un deplacement plus grand que ce que la rotation permet n'est pas produit par la rotation.**
+La coincidence de mediane de l'etape 1 etait une coincidence d'echelle, et l'addendum A1 avait
+signale le decalage de frame sans que j'en tire la consequence. Deux enonces tombent avec elle :
+  * « `tp` est la corde du maillon 0 » — **RETIRE** ;
+  * le tableau de budget qui additionnait `corde(0) + corde(1) + dp` — **RETIRE, et il etait faux
+    deux fois** : les cordes sont des COMPOSANTES de `tp`, pas des termes a cote de lui (la seule
+    decomposition exacte est `tp + rp + dp`), et `tp` n'est pas epuise par la rotation.
+**CE QUI SURVIT INTACT** : la decomposition exacte (62 % / 32 % / 6 %, identite a 0.1024 u sur
+372/372), et **toute l'etape 2**, qui est une mesure directe et ne depend d'aucune reconstruction.
+
+3.2 CE QUI PORTE VRAIMENT `tp` : LE CANAL RADIAL DE SA SPEC 23 — UNE TRANSLATION
+=================================================================================
+Sa SPEC 23 a ajoute un troisieme degre de liberte : une ELONGATION LE LONG DE L'OS. C'est une
+translation, donc precisement ce qu'aucune rotation ne peut produire. En ajoutant ce terme a la
+borne, les violations tombent de **91 -> 41** et **82 -> 43**, et le rapport median passe a
+**0.55 / 0.53**, largement a l'interieur. Le canal radial est donc le contenu dominant de `tp`.
+(Le residu des fenetres calmes reste INEXPLIQUE, et je le laisse ouvert plutot que de l'habiller.)
+
+3.3 ET SA BORNE EST LE BUDGET D'UNE AUTRE SECTION — VERIFIE DANS LE CODE
+=========================================================================
+`jak-hd-physics.gc:2988` : `rcap = 0.40 * b0e`, appliquee par `phys-softmin` (:963-973, identite
+sous le genou `0.84*cap`, asymptote exacte a `cap`). **0.40 B0 est le plafond de COM de sa SPEC
+22 — le budget TOTAL de l'excursion — applique comme borne a UN canal.** La constante que sa
+SPEC 38 assigne a cette grandeur existe pourtant dans le meme fichier : `PHYS-DYN-MAX 0.25`
+(:302, commentaire « §38 AbsoluteStretchClamp »), et ses deux seuls consommateurs (:3732, :3738)
+portent sur `dl`, l'etirement du TENSEUR — une autre grandeur.
+
+    genou du softmin = 0.84 * 0.40 = **0.3360 B0**
+                                          chestL              chestR
+    demande AVANT la borne (`rrr`)  moyenne 0.3416   max 0.6859   moyenne 0.3523  max 0.7778
+    delivre APRES la borne (`rrm`)  moyenne 0.3012   max 0.3901   moyenne 0.2921  max 0.3919
+    fenetres AU-DESSUS du genou     112/186 (60.2 %)              115/186 (61.8 %)
+    sur celles-la : entree x2.04, sortie x1.16                    entree x2.31, sortie x1.16
+    part du plafond de la SPEC 22 consommee par CE SEUL canal  **75 %**            **73 %**
+
+**UNE BORNE POSEE A LA VALEUR DU BUDGET TOTAL GARANTIT QU'UN SEUL CANAL LE CONSOMME PRESQUE
+ENTIEREMENT.** C'est ce qui est mesure, et c'est arithmetique, pas accidentel.
+
+3.4 ET CA EXPLIQUE LA PLATITUDE QUE J'ALLAIS PUBLIER COMME UNE DECOUVERTE
+==========================================================================
+J'ai applique a `comex` le test de discrimination que son contrat impose (§7 : « moins de 25 %
+d'ecart entre le plus fort et le plus faible stimulus = mesure NON DISCRIMINANTE, rejetee ») :
+
+    ecart relatif sur les 6 pilotages (stimulus de 0 a 434 u/frame2)
+      `comex`      **17.7 % / 17.9 %**   NON DISCRIMINANTE
+      `tp`          **6.4 % / 11.6 %**   NON DISCRIMINANTE
+      `ang(l0)`      73.3 % / 73.5 %     discriminante
+      `ang(l1)`      57.8 % / 69.4 %     discriminante
+      `amp(l1)`      75.3 % / 78.6 %     discriminante
+
+Le mouvement REPOND au stimulus (73-79 %) ; l'excursion publiee ne le voit pas (6-18 %).
+**MAIS CE N'EST PAS UNE DECOUVERTE, ET LE REGISTRE L'AVAIT DEJA CORRIGEE AU CYCLE 34** : la
+platitude est celle du SOFTMIN DE PUBLICATION, dont la bande de compression mesuree est de
+**13.7 % / 14.0 %** — les 17.7 % de `comex` en sont l'ombre. « Ne jamais generaliser une lecture
+de platitude sur une colonne BORNEE. » Je l'ai verifie avant de publier, et je le publie comme
+une CONFIRMATION, pas comme une trouvaille.
+**CE QUI EST NEUF, EN REVANCHE** : le cycle 34 avait etabli que le softmin de publication pinçait
+`rrm` et privait le tenseur de sa dynamique, et l'avait designe « le prochain chantier ». Il est
+maintenant CHIFFRE sur la section qui compte : **il porte 62 % de l'excursion de sa SPEC 22 et
+consomme 73-75 % de son budget a lui tout seul.**
+
+3.5 LES DEUX REMEDES EVIDENTS SONT DEJA REFUTES — PAR MESURE, PAS PAR AVIS
+===========================================================================
+Je les nomme pour qu'ils ne reviennent pas une quatrieme fois :
+  * **SERRER LA BORNE** (0.40 -> 0.25 de sa §38) : REFUTE au cycle 33. Le distal demande 1.42 et
+    recoit deja 0.40 ; serrer aggrave exactement ce que la manoeuvre vise.
+  * **RE-DERIVER LA RAIDEUR RADIALE DU DISTAL** : REFUTE au cycle 34, et pour une raison plus dure
+    que « l'oscillateur va trop loin » : le seul consommateur du solveur lit `*phys-rrl*`, qui
+    porte la valeur DEJA passee au softmin. Toute raideur qui laisse `dr0` au-dessus de 0.40 B0
+    rend le MEME `drr`. **Le canal est aveugle a la raideur par construction.**
+Ce qui reste ouvert est donc la FORME de la borne de publication elle-meme, pas sa valeur ni la
+dynamique en amont. Et cela se dimensionne contre sa §13, qui exige une reponse continue et
+proportionnee — la grandeur a rendre au canal est sa PENTE, pas son plafond.
+
+================================================================================================
 TABLEAU DE CONFORMITE — chaque section IMPLEMENTEE / MESUREE / ECART
 [T] mesure a l'execution ce cycle · [M] mesuree sur le mesh ou la donnee livree ce cycle
 [R] reportee d'un cycle precedent, NON re-mesuree — et dite comme telle
@@ -279,7 +388,8 @@ Aucune section « non applicable » (interdit depuis le 14/08 11:50).
   SPEC 12 lateral     PARTIELLE  [R] pole MEDIAL sous bande. Non re-mesure.
   SPEC 13 continuite  PARTIELLE  [R] chestL LINEAIRE, chestR NON LINEAIRE. Inchange.
   SPEC 21 tanh        TENUE      [R] saturation de deplacement du cycle 34. Non re-mesure.
-  SPEC 22/38 apex+COM **PARTIELLE — ET LE PORTEUR EST ENFIN NOMME, PUIS LE PRIX MESURE** [T]
+  SPEC 22/38 apex+COM **PARTIELLE — LE PORTEUR EST NOMME EN 3.2/3.3 (le canal radial et SA BORNE),
+                                 et le prix de l'epinglage est mesure** [T]
                                  `comex` moyen 0.7140 / 0.7037 B0, max 1.0765 / 0.9655, **100.0 %
                                  et 99.5 % des fenetres au-dessus du plafond dur 0.400**. [T] Il
                                  est porte a **62 %** par le DEPLACEMENT DU JOINT, 32 % par le
@@ -288,8 +398,17 @@ Aucune section « non applicable » (interdit depuis le 14/08 11:50).
                                  os fait 1040.50 u contre 602 pour l'organe. [T] L'epingler rend la
                                  bande (**0.0 % / 2.7 %** hors plafond) et coute **50 % du
                                  mouvement sur les six pilotages** : troc 1:1, RETIRE.
-  SPEC 23 multi-DOF   PARTIELLE  [R] cinquieme terme repare au cycle 36. Sortie toujours plate sur
-                                 chestL. Non re-mesure. [T] CORRECTION D'UN ENONCE DU REGISTRE :
+  SPEC 23 multi-DOF   **PARTIELLE, ET SON CANAL RADIAL DEVIENT LA CAUSE RACINE DE LA 22** [T] Le
+                                 degre de liberte radial est une TRANSLATION le long de l'os : il
+                                 explique le deplacement de joint que la rotation ne peut pas
+                                 produire (violations de borne 91->41 et 82->43). [T] Il est borne
+                                 a `0.40*b0e` (:2988), c'est-a-dire au budget TOTAL de la SPEC 22,
+                                 alors que `PHYS-DYN-MAX 0.25` (:302, « §38 AbsoluteStretchClamp »)
+                                 existe et n'est branchee que sur `dl` (:3732, :3738), une autre
+                                 grandeur. Consequence mesuree : **75 % / 73 % du plafond de la 22
+                                 consommes par ce seul canal**, 60-62 % des fenetres au-dessus du
+                                 genou du softmin, sortie comprimee a 14 % pour une entree qui
+                                 varie de 51-57 %. [R] Cinquieme terme repare au cycle 36. [T] CORRECTION D'UN ENONCE DU REGISTRE :
                                  le degre de liberte radial n'est PLUS arme sur `(= l rlk)` mais
                                  sur **`(>= l rlk)`** (moteur :2844) depuis le cycle 32 — donc le
                                  distal n'en est plus prive.
