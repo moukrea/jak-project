@@ -3041,3 +3041,42 @@ la borne d'excursion qu'ils avaient : l'anisotropie
 redistribue la raideur, elle ne touche pas au mur.
 `axo = 0` -> les trois facteurs valent 1.0 et cette
 branche rend `k2s*mu*e`, BIT POUR BIT l'ancienne.
+
+## NOTE-87 — SA §21 BORNE LE DEPLACEMENT, ET LE MOTEUR EN AVAIT FAIT UN MULTIPLICATEUR DE FORCE
+
+**LE FAIT ARITHMETIQUE, ET IL NE DEPEND D'AUCUNE MESURE.** La saturation de §21 sur le point libre
+s'ecrivait `xr = min(0.99, (cdd - ckn)/ccp)` puis `|f| = k2s * (ckn + ccp * xr/(1-xr))`. Le
+`min 0.99` GELE le numerateur des que `cdd >= ckn + 0.99*ccp = 240.5 u`, c'est-a-dire **exactement
+a la bande de 0.40 B0 de sa §22**. Au-dela :
+
+    |f| = k2s * (ckn + 99*ccp) = 0.0036256 * 3190.6 = 11.57 u/sous-pas = 46.3 u/frame, CONSTANT
+
+L'ecart mesure au cycle 34 etape 1 vaut 1015 a 1118 u. Le mur tirait donc a 4.4 % de l'erreur par
+frame, et il aurait tire la MEME chose si l'erreur avait valu 10 000 u. **Une force constante ne
+borne pas un deplacement.** Le garde-fou `cmu <= 1/k2s` n'intervenait jamais : il ne mord que sous
+`cdd < 11.6 u`.
+
+Et le `min 0.99` n'etait pas un mauvais choix de constante : la forme `x/(1-x)` n'est DEFINIE que
+pour `x < 1` et change de signe au-dela. Le geler etait la seule facon de s'en servir.
+
+**CE QUE SA SPEC ECRIT, ET QUI EST DEJA AU DEPOT.** §21 : `D = D_max * tanh(|D|/D_max)` — une
+saturation du DEPLACEMENT, douce, jamais un ecretage. `phys-softmin(v, cap)` a exactement cette
+forme : identite stricte sous son genou `0.84*cap`, asymptote exacte a `cap`, pente continue au
+genou, strictement croissante.
+
+    e = cp - tg ;  cp <- tg + e * softmin(|e|, ckn+ccp)/|e|
+
+  - **Sous 0.336 B0 c'est l'IDENTITE.** Rien n'est retire au mouvement subtil. Ce n'est pas une
+    intention : c'est la docstring de `phys-softmin`, et K3 des predictions le mesure sur les deux
+    canaux qui y sont deja.
+  - **Aucune vitesse creee.** `cq` est ecrit `cp - fns*cv` APRES la correction, donc `cp - cq` est
+    inchange. C'est l'invariant du rebase de §37 ([NOTE-83]), verifiable arithmetiquement.
+  - **Une fois par frame**, a la publication de l'etat, jamais dans une boucle de contraintes :
+    `phys-softmin` n'est pas idempotent au-dessus de son genou et sa docstring l'interdit.
+  - **Il se chiffre** (`phys-limiter` 11/12, emis en `PHYSLIMW`) et **il est desarmable** par
+    `*phys-rr-off*`, l'interrupteur d'ablation qui existait deja.
+
+**POURQUOI CE N'EST PAS « UN SUPPRESSEUR DE PLUS ».** Le contrat en interdit un qui retire du
+mouvement sans mesure. Celui-ci ne peut pas en retirer sous le genou (identite), et au-dessus il
+applique la borne que l'owner a lui-meme chiffree dans sa §22. Le controle negatif exact est la
+course precedente : la salle est reproductible octet pour octet.

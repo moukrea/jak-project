@@ -589,6 +589,8 @@
 ;; CE N'EST PAS UN SUPPRESSEUR ET IL N'A PAS DE `sum` : une force ne retire pas d'energie, elle la
 ;; rend. Ce qui en retire, c'est le plafond POSITIONNEL, et lui garde ses deux compteurs ci-dessus.
 (define *phys-stif-n* 0)
+(define *phys-cwn* 0)        ;; §21/§22 fois ou le MUR du point libre a mordu
+(define *phys-cwsum* 0.0)    ;; §7 ce qu'il a retire, unites de jeu (un suppresseur se chiffre)
 ;; [NOTE-18] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
 (define *phys-cvh* (new 'global 'array 'int32 (* PHYS-SCL PHYS-COLS)))
 ;; LE SEAU DU CONFLIT, PAR CHAINE — combien de fois le volume `ci` s'est DISPUTE un lien de la
@@ -2956,6 +2958,24 @@
                                            (set! cpz (+ cpz cvz))))))
                                    ;; [NOTE-62] L'ELONGATION RADIALE : LA COMPOSANTE DU POINT LIBRE LE LONG DE -> jak-hd-physics-NOTES.md
                                    (when (nonzero? rlo)
+                                     ;; [NOTE-87] SPEC 21 BORNE LE DEPLACEMENT, PAS LA FORCE. -> jak-hd-physics-NOTES.md
+                                     ;; IDENTITE STRICTE sous 0.84*(ckn+ccp) = 0.336 B0 : rien n'est
+                                     ;; retire au mouvement subtil. `cq` etant ecrit `cp - fns*cv`
+                                     ;; APRES, `cp - cq` est inchange -> AUCUNE vitesse creee.
+                                     (let* ((wex (- cpx tgx))
+                                            (wey (- cpy tgy))
+                                            (wez (- cpz tgz))
+                                            (wed (sqrtf (+ (* wex wex) (+ (* wey wey) (* wez wez)))))
+                                            (wsm (if (zero? *phys-rr-off*)
+                                                   (phys-softmin wed (+ ckn ccp))
+                                                   wed)))
+                                       (when (and (> wed 0.0001) (< wsm (- wed 0.000001)))
+                                         (let ((ws (/ wsm wed)))
+                                           (set! cpx (+ tgx (* wex ws)))
+                                           (set! cpy (+ tgy (* wey ws)))
+                                           (set! cpz (+ tgz (* wez ws))))
+                                         (set! *phys-cwn* (+ *phys-cwn* 1))
+                                         (set! *phys-cwsum* (+ *phys-cwsum* (- wed wsm)))))
                                      (set! (-> *phys-cpx* scl) cpx)
                                      (set! (-> *phys-cpy* scl) cpy)
                                      (set! (-> *phys-cpz* scl) cpz)
@@ -4434,6 +4454,8 @@
   (none))
 
 ;; CE QUE LES LIMITEURS ONT RETIRE, en unites de jeu (SPEC 7 : un suppresseur se chiffre).
+;; 11/12 = le MUR du point libre de §21/§22 (identite stricte sous 0.336 B0, donc un zero ici veut
+;; dire que le tissu n'est jamais sorti de sa bande, pas que le mecanisme est absent).
 ;; which 0 = recul vers la pose du modele : nombre de fois / total retire
 ;;       2 = plafond de taille d'un lien seul : nombre de fois / total retire
 (defun phys-limiter ((which int))
@@ -4449,6 +4471,9 @@
     ((6) (the float *phys-stif-n*))
     ((9) (the float *phys-sat-n*))
     ((10) *phys-sat-sum*)
+    ;; 11/12 = LE MUR DU POINT LIBRE de §21/§22 : fois ou il a mordu, et ce qu'il a retire.
+    ((11) (the float *phys-cwn*))
+    ((12) *phys-cwsum*)
     (else (the float *phys-buried-n*))))
 
 ;; INVERSIONS (SPEC 5 / verdict owner) : which 0 = bascules corrigees, 1 = cas degeneres rattrapes.
@@ -4665,6 +4690,8 @@
   (set! *phys-sat-n* 0)
   (set! *phys-sat-sum* 0.0)
   (set! *phys-stif-n* 0)
+  (set! *phys-cwn* 0)
+  (set! *phys-cwsum* 0.0)
   (dotimes (i (* PHYS-SCL PHYS-COLS)) (set! (-> *phys-cvh* i) 0))
   (dotimes (i (* PHYS-SC PHYS-COLS)) (set! (-> *phys-cfh* i) 0))
   (none))

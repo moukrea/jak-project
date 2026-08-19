@@ -2514,6 +2514,16 @@
        ;; filet ne sert plus. `sat_n` qui reste haut = le ressort est mal pose.
        (format 0 "PHYSLIM4 sat_n=~f sat_sum=~f stif_n=~f~%"
                (phys-limiter 9) (phys-limiter 10) (phys-limiter 6))
+       ;; LE MUR DU POINT LIBRE de §21/§22 (cycle 34 etape 2). MEME NATURE que `sat_n`/`sat_sum` :
+       ;; un COMPTE d'evenements et une LONGUEUR cumulee en unites de jeu, sur toute la course.
+       ;; REPERE : une magnitude de deplacement, invariante par rotation. LECTURE QUAND LE DEFAUT
+       ;; EST ABSENT : `wall_n=0` — le tissu n'est jamais sorti de sa bande de 0.40 B0, et ce n'est
+       ;; PAS « le mecanisme est absent » : il est identite stricte sous 0.336 B0 par construction
+       ;; de `phys-softmin`. Sa §7 exige ce chiffrage de tout suppresseur, sans quoi « borne » et
+       ;; « brime » sont indiscernables — et ici la distinction se lit sur `ROOM-RAD-FLESH`, qui
+       ;; publie ce que chaque canal vaut AVANT (course precedente) et APRES.
+       (format 0 "PHYSLIMW wall_n=~f wall_sum=~f~%"
+               (phys-limiter 11) (phys-limiter 12))
        ;; QUEL VOLUME CONTRAINT QUEL MAILLON, sur toute la course. Une ligne par triplet non nul :
        ;; c'est la question que trois cycles ont posee sans instrument (« lbang est en contact
        ;; 17893 frames sur 17893 avec un AUTRE volume, non identifie »), et depuis le 2026-08-14
