@@ -1,0 +1,120 @@
+================================================================================================
+CYCLE 38, ETAPE 3 — PREDICTIONS GRAVEES AVANT L'INSTRUMENT
+DANS COMBIEN DE VOLUMES SA POITRINE EST-ELLE DEJA ENFOUIE, A LA POSE D'AUTEUR ?
+================================================================================================
+DIRECTIVES vb249967379
+Phase Grecharged-secondary-motion, branche physics-keira-clean, KEIRA / POITRINE SEULE.
+Ecrit AVANT la premiere ligne de l'instrument.
+
+------------------------------------------------------------------------------------------------
+POURQUOI CETTE QUESTION, ET POURQUOI MAINTENANT
+------------------------------------------------------------------------------------------------
+L'etape 1 a REFUTE que le volume du debardeur soit un doublon du sein (couverture 0.00 % et
+18.18 %). En recomptant moi-meme `PHYSCVOL`/`PHYSCFVOL` de la course de reference pour verifier
+l'attribution, le classement des volumes qui poussent la poitrine s'est revele n'etre PAS celui
+que le dossier portait :
+
+    chestL   lTopStrap2 20.0 %  ·  neck 17.3 %  ·  **Rshoulder 16.7 %**  ·  Lshoulder 15.0 %
+    chestR   neck 23.3 %  ·  **Lshoulder 21.0 %**  ·  rTopStrap2 18.8 %  ·  Rshoulder 17.3 %
+
+**L'EPAULE OPPOSEE EST DANS LES QUATRE PREMIERS CONSTRICTEURS DE CHAQUE SEIN**, et le cou est
+premier ou deuxieme sur les deux. Le buste et le cou pesent 49 % (chestL) et 62 % (chestR) — plus
+que le vetement. Un volume ne peut pousser que ce qu'il CONTIENT : la question devient donc
+geometrique et statique, et elle se pose a la pose d'auteur.
+
+CE QUE LE MOTEUR FAIT VRAIMENT, lu dans le code et pas suppose (`jak-hd-physics.gc:1710-1730`) :
+la poussee ne se declenche pas sur la profondeur brute mais sur `dep > feff`, ou `feff` derive de
+`floor0` — la profondeur du lien A SA POSE D'AUTEUR. **La profondeur d'auteur est donc deja
+retranchee** ; ce n'est pas elle qui pousse. Mais elle decide de la FORME du probleme : un lien
+enfoui profondement dans plusieurs troncs de cone larges et non alignes recoit, a chaque frame,
+autant de directions de sortie qu'il y a de volumes, chacune avec son propre plancher. Sortir de
+l'un enfonce dans l'autre — c'est exactement la non-convergence mesuree au cycle 37 (3.16 a 3.98
+volumes poussant par balayage, sans decroissance, 45 balayages sur 45).
+
+------------------------------------------------------------------------------------------------
+L'INSTRUMENT — NATURE, REPERE, LIGNE DE BASE (SPEC §7)
+------------------------------------------------------------------------------------------------
+NATURE  : un COMPTE de volumes contenants et une PROFONDEUR SIGNEE, statiques. Aucune frame,
+          aucun pilotage, aucune simulation.
+REPERE  : monde-bind du mesh livre `out/jak1/fr3/skin/keira-hd-lod0.glb`
+          (md5 5cb8a493c43211acf3a04c5b6433df81), volumes replaces par la formule verifiee a
+          l'etape 1 (offset en repere bind du joint, echelle normalisee, 4096 u/m).
+FORMULE : la MEME que le solveur, transcrite depuis `phys-collide-depth`
+          (`jak-hd-physics.gc:1068-1145`) — distance signee au TRONC DE CONE, minimisee sur [0,1] :
+              t* = ( x + dr*y / sqrt(L^2 - dr^2) ) / L, borne a [0,1]
+          avec les deux branches degenerees du moteur (segment nul ; L^2 <= dr^2 => une sphere
+          contient l'autre, le solide EST la grosse). Projeter puis interpoler le rayon serait un
+          AUTRE solide — le moteur a corrige cette faute au cycle 22 et je ne la reintroduis pas.
+DOMAINE : les 4 joints de chaine (lBoob, lBooc, rBoob, rBooc) contre les 56 volumes livres.
+          Compte publie avec chaque taux.
+BASE    : deux temoins, X1 par le bas et X2 sur la formule elle-meme.
+
+------------------------------------------------------------------------------------------------
+LES PREDICTIONS
+------------------------------------------------------------------------------------------------
+U0 — L'INSTRUMENT EST INERTE : aucun fichier de `goal_src/`, `recharged_assets/` ni
+     `.autoport/validators/` modifie par cette etape, md5 du mesh inchange.
+
+U1 — CHAQUE JOINT DE SEIN EST DEJA A L'INTERIEUR DE PLUSIEURS VOLUMES A LA POSE D'AUTEUR.
+     Critere grave : pour chacun des 4 joints, le nombre de volumes livres dont la profondeur
+     signee est > 0 est **entre 3 et 6**.
+     DERIVATION : le cycle 37 a mesure 3.16 a 3.98 volumes poussant par balayage. Si ce nombre
+     n'est pas un artefact du mouvement, il doit deja se voir au repos.
+
+U2 — L'ENFOUISSEMENT EST PROFOND, PAS TANGENT.
+     Critere grave : la plus grande profondeur d'auteur d'un joint de sein dans une capsule de
+     BUSTE est **entre 400 et 1200 u** (pour memoire, b0 = 602 u).
+     DERIVATION : `capsule Lshoulder chest radius=612 radius2=721` porte 721 u au bout chest, et
+     lBoob n'est qu'a 254 u (0.0621 m) du joint chest.
+
+U3 — L'EPAULE OPPOSEE CONTIENT LE SEIN. Critere grave : la capsule `Rshoulder->chest` contient
+     `lBoob` ET `lBooc` (profondeur > 0), et `Lshoulder->chest` contient `rBoob` ET `rBooc`.
+     DERIVATION : `Rshoulder` produit 16.7 % des corrections de chestL ; un volume ne pousse que
+     ce qu'il contient. CONFIANCE : haute.
+     CE QUE CA VOUDRAIT DIRE : une capsule d'epaule qui traverse la ligne mediane decrit un solide
+     que le personnage n'a pas — et le generateur le dit deja de son cote
+     (`# capsule Lshoulder->chest ... Lshoulder SPAN-EMPTY (aucun sommet ne se projette dans le
+     segment) | chest 691v dans le segment, couverture p95=1270 contre 721 livre (x0.57)`).
+
+U4 — LE COU AUSSI. Critere grave : `neck->chest` contient les 4 joints de sein.
+     DERIVATION : `neck` est premier ou deuxieme constricteur des DEUX chaines (17.3 % / 23.3 %).
+
+U5 — C'EST UNE ANOMALIE DE LA POITRINE, PAS L'ETAT NORMAL DE TOUT LE SQUELETTE.
+     Critere grave : le nombre median de volumes contenants, sur les 4 joints de sein, est
+     **STRICTEMENT SUPERIEUR** a celui d'un joint temoin de membre (`Lelbow`).
+
+X1 — TEMOIN PAR LE BAS : `Lankle` est contenu dans **au plus 2** volumes. Si ce compte explose,
+     mon test de confinement est trop laxiste et AUCUN verdict U1-U5 n'est publie.
+
+X2 — TEMOIN SUR LA FORMULE ELLE-MEME : pour chaque capsule livree, un point pose EXACTEMENT sur
+     le centre de son extremite A rend une profondeur egale a `radius` a 0.5 u pres, et un point
+     pose a `radius + 100 u` sur la perpendiculaire a l'axe en A rend une profondeur de -100 u a
+     0.5 u pres. Si ce temoin echoue, la transcription du solveur est fausse et **rien** n'est
+     publie.
+
+------------------------------------------------------------------------------------------------
+LA TABLE DE BRANCHES
+------------------------------------------------------------------------------------------------
+  X2 ECHOUE            -> transcription fausse. AUCUN verdict, sur rien. On s'arrete.
+  X1 ECHOUE            -> test de confinement trop laxiste. AUCUN verdict U1-U5.
+  U1 CONFIRMEE + U3 CONFIRMEE
+       -> la poitrine vit a l'INTERSECTION de plusieurs troncs de cone larges et non alignes, dont
+          celui de l'epaule OPPOSEE. C'est un defaut de FORME des volumes du buste, il est
+          STATIQUE, et il est la cause candidate n°1 de la non-convergence du cycle 37.
+          CE QUE CA N'AUTORISE PAS : conclure que redimensionner les capsules fermera `COLLIDE`.
+          C'est l'erreur exacte que l'etape 2 du cycle 37 a evitee sur les proximales, et la
+          mesure de l'etape 1 vient de me rappeler pourquoi. Le pas suivant serait un CONTROLE,
+          pas une edition.
+  U3 REFUTEE (l'epaule opposee ne contient pas le sein)
+       -> alors les 16.7 % / 21.0 % viennent du MOUVEMENT et pas du repos, et la question change
+          de nature : elle devient dynamique et cette etape ne peut pas y repondre. Je le dis
+          au lieu de forcer une lecture statique.
+  U1 REFUTEE (1 ou 2 volumes seulement)
+       -> l'enfouissement multiple est un fait de MOUVEMENT, pas de pose. Meme consequence.
+  U5 REFUTEE (le coude est aussi enfoui)
+       -> alors l'enfouissement multiple est l'etat NORMAL de ce jeu de volumes et n'explique rien
+          de particulier a la poitrine. Ce serait un resultat negatif franc, et il tuerait
+          l'hypothese — je le publierais comme tel.
+
+CE QUE CETTE ETAPE NE FAIT PAS : elle ne modifie AUCUN rayon, AUCUNE donnee, AUCUNE gate, et ne
+lance AUCUNE course. Elle ne repare rien. Elle etablit une FORME, et rien de plus.
