@@ -3967,3 +3967,80 @@ famille A sans cle passe au facteur d'apex. Et cela retire de la poitrine le mec
 l'owner en avait explicitement exclu le 2026-08-11 22:35 (« l'attenuation pour eviter la geometrie
 extreme c'est juste sur les meches, pas le reste, encore moins les seins ») : la borne d'angle
 par maillon disparait de chestL/chestR, le budget de deplacement de sa §22 reste.
+
+## [NOTE-122] DOCSTRING DE `phys-length-chain`, DEPLACEE DU SOURCE (cycle 46)
+
+Texte integral, retire du source pour rendre de la marge sous le plafond de lignes de la
+gate `CLEAN`. Pas une ligne de code n'a change avec ce deplacement.
+
+LA CONTRAINTE DE LONGUEUR, DURE, ET LA MEME POUR LES DEUX FORMES DE LIEN.
+
+   Owner, 5e passe : « les changements brusques de direction causent un truc chelou au niveau des
+   seins, ils s'allongent, c'est un peu debile » — « une chaine a un seul os doit TOURNER AUTOUR DE
+   SON ANCRE A LONGUEUR INVARIANTE, jamais se translater ni s'allonger ». Ce que faisait l'ancienne
+   version pour un lien SEUL : elle bornait |p - pose_du_lien| par le rayon du lien. C'est un
+   plafond de POSITION, pas une longueur — sous forte acceleration le lien s'ecartait de son ancre
+   et la distance ancre->lien changeait, donc il S'ALLONGEAIT. Desormais un lien seul est traite
+   exactement comme un lien de chaine, son attache etant l'ANCRE au lieu du lien precedent :
+   projection sur la sphere de rayon `want`, ou `want` est la longueur que LE MODELE donne a cet os,
+   relue chaque frame. Une egalite, pas un plafond : ca tourne, ca ne s'etire pas.
+
+   Owner, 2e/3e/4e passes (trois fois) : « j'ai encore vu un de ses seins retourne vers l'interieur,
+   la meme animation relancee et c'etait nickel ». Le ressort est symetrique autour de l'attache,
+   donc le cote oppose est un equilibre STABLE mais FAUX. Le test de cote est donc ici, contre la
+   DIRECTION DU MODELE — et plus contre l'axe d'un volume, ou il ne voulait rien dire (un volume est
+   une coquille symetrique, son axe ne designe aucun « bon cote »).
+
+   `*phys-len-off*` DESARME toute cette contrainte : voir la note de ce drapeau. Controle du
+   cycle 8, actif sur les seules fenetres AXZ, 0 en livraison.
+
+## [NOTE-121] SPEC 31 : LA POINTE PROLONGE LA DEVIATION DE SON PARENT, ELLE NE LA REBROUSSE PAS
+
+Cycle 46, jambe 2. La jambe 1 a remplace l'ecretage par maillon par un FACTEUR COMMUN derive du
+budget d'APEX (NOTE-120) : la sortie du distal cesse d'etre une constante (0.05 % -> 22.40 % et
+40.24 % d'ecart). **Prix mesure : `meshpen` +116 % / +186 %, et `ROOM-SIDE` 0 -> 8 frames.**
+
+CE QUE LA MESURE DIT DE LA CAUSE, et ce n'est pas une amplitude (`PHYSGRAD amp`, enveloppe de
+l'ecart a la pose d'auteur, repere ancre, unites de jeu) :
+
+    chestL  l=0 391.87-651.18   l=1 423.62-704.56   pointe/racine 1.08
+    chestR  l=0 409.75-704.26   l=1 420.36-711.98   pointe/racine 1.01
+
+Le distal pivote de 79 a 102 deg — soit `2*140.4*sin(50 deg)` = **215 u** de deplacement de joint —
+et n'ajoute que ~50 u a une enveloppe de 650-700 u. **Il tourne CONTRE la deviation de son parent
+au lieu de la prolonger.** Sa §31 exige l'inverse en toutes lettres : « little deformation at the
+root; progressively increasing mobility; **largest displacement in distal tissue** ».
+
+**POURQUOI LA BORNE D'APEX NE PEUT PAS L'ATTRAPER, ET C'EST GENERAL.** Elle borne
+`|e_racine + d_distal| <= 0.50 B0` : la NORME D'UNE SOMME, donc une grandeur AVEUGLE A LA
+DIRECTION. Un repli ou `d_distal` annule `e_racine` tient dans le budget tout en mettant la pointe
+dans le tronc. **Quand un limiteur porte sur la norme d'une somme, demander quelle configuration
+rend la somme petite avec des termes grands ; si cette configuration est physiquement fausse, la
+norme est le mauvais invariant et il faut une contrainte de FORME a cote, pas un plafond plus bas.**
+
+LA CONTRAINTE, ET SON ECRITURE EXACTE. Un maillon qui pivote de `a` autour de son attache, dans le
+plan `(m^, q^)`, se deplace de `d = ml*((cos a - 1) m^ + sin a q^)`. En notant `e^` la direction de
+la deviation du PARENT, `A = m^.e^` et `B = q^.e^` :
+
+    d . e^  =  ml * 2 sin(a/2) * [ B cos(a/2) - A sin(a/2) ]
+
+Sur `a` dans (0, pi) le premier facteur est positif, donc `d.e^ >= 0` equivaut a
+`tan(a/2) <= B/A` quand `A > 0`. Le plafond est donc **`amn = 2*atan(B/A)`**, et `0` quand `B <= 0`
+(aucune rotation dans ce plan ne prolonge le parent).
+
+CE QU'IL EST, ET CE QU'IL N'EST PAS :
+  * **AUCUNE CONSTANTE NEUVE.** `A` et `B` sont deux produits scalaires de la frame courante.
+  * **CE N'EST PAS UN PLAFOND FIXE** — `e^` varie avec le stimulus, donc `amn` aussi. C'est
+    exactement ce qui le distingue du 16.63 deg qu'on vient de retirer, et ce qui l'empeche de
+    reproduire la sortie constante.
+  * **IDEMPOTENT, ET PAR CONSTRUCTION** (NOTE-119, regle violee deux fois) : la rotation reste dans
+    le plan `(m^, q^)`, donc `A` et `B` sont inchanges apres application. Un second appel recalcule
+    le MEME `amn` et `fmin` est alors l'identite. Point fixe exact, pas une erosion.
+  * **LA RACINE N'EST PAS TOUCHEE** : son attache est l'ancre, qui n'est pas simulee, donc
+    `e_{l-1} = 0` et la garde `(> l 0)` la laisse passer inchangee au bit pres.
+  * **LES MECHES NE SONT PAS TOUCHEES** : la garde `apx?` ne selectionne que la famille A sans cle
+    `maxangle=` dans la donnee.
+
+CE QU'ELLE NE PRETEND PAS FAIRE : fermer `COLLIDE`. Meme ramenee a sa valeur d'avant le cycle 46,
+la penetration resterait a 98x le plafond de 0.0005 m. Et elle ne touche pas le canal RADIAL du
+distal, qui reste plat parce que le degre de liberte de sa §23 n'est arme que sur la racine.

@@ -1138,26 +1138,10 @@
 
 ;; [NOTE-22] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
 (defun phys-length-chain ((skel skeleton) (sc int) (n int) (rlk int) (an int) (nbone int))
-  "LA CONTRAINTE DE LONGUEUR, DURE, ET LA MEME POUR LES DEUX FORMES DE LIEN.
-
-   Owner, 5e passe : « les changements brusques de direction causent un truc chelou au niveau des
-   seins, ils s'allongent, c'est un peu debile » — « une chaine a un seul os doit TOURNER AUTOUR DE
-   SON ANCRE A LONGUEUR INVARIANTE, jamais se translater ni s'allonger ». Ce que faisait l'ancienne
-   version pour un lien SEUL : elle bornait |p - pose_du_lien| par le rayon du lien. C'est un
-   plafond de POSITION, pas une longueur — sous forte acceleration le lien s'ecartait de son ancre
-   et la distance ancre->lien changeait, donc il S'ALLONGEAIT. Desormais un lien seul est traite
-   exactement comme un lien de chaine, son attache etant l'ANCRE au lieu du lien precedent :
-   projection sur la sphere de rayon `want`, ou `want` est la longueur que LE MODELE donne a cet os,
-   relue chaque frame. Une egalite, pas un plafond : ca tourne, ca ne s'etire pas.
-
-   Owner, 2e/3e/4e passes (trois fois) : « j'ai encore vu un de ses seins retourne vers l'interieur,
-   la meme animation relancee et c'etait nickel ». Le ressort est symetrique autour de l'attache,
-   donc le cote oppose est un equilibre STABLE mais FAUX. Le test de cote est donc ici, contre la
-   DIRECTION DU MODELE — et plus contre l'axe d'un volume, ou il ne voulait rien dire (un volume est
-   une coquille symetrique, son axe ne designe aucun « bon cote »).
-
-   `*phys-len-off*` DESARME toute cette contrainte : voir la note de ce drapeau. Controle du
-   cycle 8, actif sur les seules fenetres AXZ, 0 en livraison."
+  "LA CONTRAINTE DE LONGUEUR, DURE, ET LA MEME POUR LES DEUX FORMES DE LIEN : projection sur la
+   sphere de rayon `want` = la longueur que LE MODELE donne a cet os. Une egalite, pas un plafond :
+   ca tourne, ca ne s'etire pas. `*phys-len-off*` la DESARME (controle, 0 en livraison).
+   [NOTE-122] -> jak-hd-physics-NOTES.md"
   (dotimes (l n)
     (when (and (>= l rlk) (zero? *phys-len-off*))
       (let* ((scl (+ (* sc PHYS-LINKS) l))
@@ -1285,10 +1269,9 @@
   (none))
 
 (defun phys-apex-scale ((skel skeleton) (sc int) (n int) (nbone int) (hard? symbol))
-  "Facteur COMMUN qui met la POINTE dans le budget d'apex de sa SPEC 22 (SPEC 21 : la saturation
-   porte sur la COMBINAISON). NATURE un rapport sans dimension ; REPERE la deviation ABSOLUE de la
-   pointe a sa pose d'auteur, repere monde (SPEC 2/9) ; ABSENT vaut EXACTEMENT 1.0 dans le budget,
-   donc identite au bit pres et idempotence du mode dur. [NOTE-120] -> jak-hd-physics-NOTES.md"
+  "Facteur COMMUN qui met la POINTE dans le budget d'apex de SPEC 22 (SPEC 21 sature la COMBINAISON).
+   NATURE rapport sans dimension ; REPERE deviation ABSOLUE de la pointe a sa pose d'auteur, monde
+   (SPEC 2/9) ; ABSENT = 1.0 exact dans le budget. [NOTE-120] -> jak-hd-physics-NOTES.md"
   (let* ((tl (+ (* sc PHYS-LINKS) (- n 1)))
          (kt (if (> n 0) (-> *phys-joint* tl) -1)))
     (if (or (< kt 0) (>= (+ kt 1) nbone))
@@ -1340,15 +1323,24 @@
                          ;; 360/65536 = 0.0054931641 les convertit en degres, et 182.04444
                          ;; revient aux unites que `sin`/`cos` attendent.
                          (adeg (* 0.0054931641 (atan pl cs)))
-                         ;; SPEC 21 : un SEUL facteur, applique au deplacement de CHAQUE maillon.
-                         ;; Le deplacement d'un maillon qui pivote de `a` autour de son attache
-                         ;; vaut `2*ml*sin(a/2)` : le multiplier par `asc` revient donc a poser
-                         ;; `sin(a'/2) = asc*sin(a/2)`, et la pointe herite EXACTEMENT du facteur.
+                         ;; SPEC 21 : `2*ml*sin(a/2)` x `asc` s'ecrit `sin(a'/2) = asc*sin(a/2)`.
                          (sh (if apx? (* asc (sin (* 91.02222 adeg))) 0.0))
-                         (adg2 (cond
+                         (adg1 (cond
                                  ((not apx?) (if hard? (fmin adeg amax) (phys-softmin adeg amax)))
                                  ((>= sh 0.9999) adeg)
-                                 (else (* 2.0 (* 0.0054931641 (atan sh (sqrtf (- 1.0 (* sh sh))))))))))
+                                 (else (* 2.0 (* 0.0054931641 (atan sh (sqrtf (- 1.0 (* sh sh)))))))))
+                         ;; [NOTE-121] SPEC 31 : LA POINTE PROLONGE SON PARENT, ELLE NE LE REBROUSSE PAS. -> jak-hd-physics-NOTES.md
+                         (ex (if (> l 0) (- bx (-> skel bones (+ kp 1) transform vector 3 x)) 0.0))
+                         (ey (if (> l 0) (- by (-> skel bones (+ kp 1) transform vector 3 y)) 0.0))
+                         (ez (if (> l 0) (- bz (-> skel bones (+ kp 1) transform vector 3 z)) 0.0))
+                         (el (sqrtf (+ (* ex ex) (+ (* ey ey) (* ez ez)))))
+                         (ma (if (> el 0.01) (/ (+ (* ux ex) (+ (* uy ey) (* uz ez))) el) 0.0))
+                         (mb (if (and (> el 0.01) (> pl 0.0001))
+                               (/ (+ (* px ex) (+ (* py ey) (* pz ez))) (* el pl)) 0.0))
+                         (adg2 (if (and apx? (> l 0) (> el 0.01) (> pl 0.0001) (> ma 0.0001))
+                                 (fmin adg1 (if (<= mb 0.0) 0.0
+                                              (* 2.0 (* 0.0054931641 (atan mb ma)))))
+                                 adg1)))
                     (when (and (> pl 0.0001) (< adg2 (- adeg 0.01)))
                       (let* ((au (* 182.04444 adg2))
                              (cc (cos au))
