@@ -3994,6 +3994,81 @@ LA CONTRAINTE DE LONGUEUR, DURE, ET LA MEME POUR LES DEUX FORMES DE LIEN.
    `*phys-len-off*` DESARME toute cette contrainte : voir la note de ce drapeau. Controle du
    cycle 8, actif sur les seules fenetres AXZ, 0 en livraison.
 
+## [NOTE-121] PIERRE TOMBALE — LA MONOTONIE DE SPEC 31, POSEE, MESUREE, RETIREE
+
+**A NE PAS REMETTRE SANS LIRE CE QUI SUIT.** Cycle 46, jambe 2. Elle a tourne une course complete
+(31/31 animations) et elle est retiree parce qu'elle a **rate son propre but**, pas parce qu'elle
+etait difficile.
+
+CE QU'ELLE FAISAIT. Un maillon non-racine ne pouvait plus rebrousser la deviation de son parent :
+`d_l . e_{l-1} >= 0`. Sur l'angle, avec `A = m^.e^` et `B = q^.e^` :
+`d . e^ = ml*2 sin(a/2)*[B cos(a/2) - A sin(a/2)]`, donc plafond `amn = 2*atan(B/A)` quand `A > 0`.
+Idempotent par construction (la rotation reste dans le plan `(m^, q^)`, donc `A` et `B` sont
+inchanges), aucune constante neuve, racine et meches intouchees.
+
+L'HYPOTHESE QU'ELLE TESTAIT, ET QUI EST MAINTENANT REFUTEE : « le distal tourne CONTRE son parent
+(enveloppe pointe/racine 1.01-1.08 la ou sa §31 veut la plus grande excursion au distal), donc
+c'est le REPLI qui met la pointe dans le tronc, donc l'interdire fera redescendre `meshpen` ».
+
+    grandeur                        jambe 1        jambe 2        predit
+    enveloppe pointe/racine         1.082 / 1.011  1.085 / 1.065  > 1.30        REFUTE
+    `meshpen` chestL                0.1061         **0.1195**     < 0.1061      REFUTE (+12.6 %)
+    `meshpen` chestR                0.0898         **0.0953**     < 0.0898      REFUTE (+6.1 %)
+    `ROOM-SIDE` franchissements     8              6              0             REFUTE
+    §27 `t1` chestR                 1.38 s         **1.75 s**     <= 1.7 s      REFUTE (hors bande)
+    ecart du distal (l'acquis)      22.4 / 40.2 %  34.5 / 36.9 %  >= 20 %       tenue
+    `tipvar`                        0.172 / 0.174  0.180 / 0.181  >= 0.160      tenue
+
+**LA LECON, ET ELLE VAUT POUR LE PROCHAIN QUI Y PENSERA : sur cet organe, LA DIRECTION DU MAILLON
+DISTAL N'EST PAS CE QUI COUTE LA PENETRATION.** Interdire le repli n'a quasiment pas bouge
+l'enveloppe (1.082 -> 1.085) et a fait MONTER `meshpen`. Ce qui coute, c'est l'EXCURSION du maillon
+libere, pas son signe. Toute future tentative de payer `meshpen` avec une contrainte de FORME doit
+d'abord expliquer ce resultat-la.
+
+DEUXIEME LECON, ECRITE AVANT LE RESULTAT (addendum `C46E2B`) : cette contrainte interdit aussi le
+**RETARD**. Si le distal retarde, `p_l ~ pose_l` donc `d_l ~ -e_{l-1}` et le produit scalaire est
+negatif — c'est la signature meme de l'inertie, et sa §19 la demande en toutes lettres (« breast
+mass lags behind »), sa §23 la nomme (« angular lag »), et l'owner aussi (« ils restent en arriere
+puis rattrapent »). **§31 decrit une FORME D'EQUILIBRE, §19/§23 un TRANSITOIRE ; les appliquer a la
+meme echelle de temps confond les deux.** Mesure : `lag01` chestL 2 -> 0 (effondre) et chestR
+-4 -> +7 (ameliore) — l'instrument ne tranche pas, mais la confusion d'echelles, elle, est reelle.
+Si la monotonie revient un jour, elle doit porter sur une MOYENNE DE FENETRE, jamais sur la frame.
+
+TROISIEME LECON, ET C'EST UN PIEGE DE CABLAGE : la premiere pose de cette contrainte etait NICHEE
+sous `(< asc 1.0)`, le gate de la borne d'apex. Une course complete l'a rendue **INERTE** —
+`PHYSGRAD` identique AU BIT PRES sur 744 lignes. Deux contraintes independantes ne se nichent pas
+l'une dans l'autre. Le tell qui l'a trouvee est gratuit : comparer la trace, pas le raisonnement.
+
+RETRAIT PROUVE PAR EMPREINTE, PAS AFFIRME : apres retrait, `GAME.CGO` recompile porte le md5
+**34efc3f2fcf11704aad6a34642f5d5ea**, celui de la course de la jambe 1. L'etat livre EST l'etat
+mesure.
+
+## [NOTE-122] DOCSTRING DE `phys-length-chain`, DEPLACEE DU SOURCE (cycle 46)
+
+Texte integral, retire du source pour rendre de la marge sous le plafond de lignes de la
+gate `CLEAN`. Pas une ligne de code n'a change avec ce deplacement.
+
+LA CONTRAINTE DE LONGUEUR, DURE, ET LA MEME POUR LES DEUX FORMES DE LIEN.
+
+   Owner, 5e passe : « les changements brusques de direction causent un truc chelou au niveau des
+   seins, ils s'allongent, c'est un peu debile » — « une chaine a un seul os doit TOURNER AUTOUR DE
+   SON ANCRE A LONGUEUR INVARIANTE, jamais se translater ni s'allonger ». Ce que faisait l'ancienne
+   version pour un lien SEUL : elle bornait |p - pose_du_lien| par le rayon du lien. C'est un
+   plafond de POSITION, pas une longueur — sous forte acceleration le lien s'ecartait de son ancre
+   et la distance ancre->lien changeait, donc il S'ALLONGEAIT. Desormais un lien seul est traite
+   exactement comme un lien de chaine, son attache etant l'ANCRE au lieu du lien precedent :
+   projection sur la sphere de rayon `want`, ou `want` est la longueur que LE MODELE donne a cet os,
+   relue chaque frame. Une egalite, pas un plafond : ca tourne, ca ne s'etire pas.
+
+   Owner, 2e/3e/4e passes (trois fois) : « j'ai encore vu un de ses seins retourne vers l'interieur,
+   la meme animation relancee et c'etait nickel ». Le ressort est symetrique autour de l'attache,
+   donc le cote oppose est un equilibre STABLE mais FAUX. Le test de cote est donc ici, contre la
+   DIRECTION DU MODELE — et plus contre l'axe d'un volume, ou il ne voulait rien dire (un volume est
+   une coquille symetrique, son axe ne designe aucun « bon cote »).
+
+   `*phys-len-off*` DESARME toute cette contrainte : voir la note de ce drapeau. Controle du
+   cycle 8, actif sur les seules fenetres AXZ, 0 en livraison.
+
 ## [NOTE-121] SPEC 31 : LA POINTE PROLONGE LA DEVIATION DE SON PARENT, ELLE NE LA REBROUSSE PAS
 
 Cycle 46, jambe 2. La jambe 1 a remplace l'ecretage par maillon par un FACTEUR COMMUN derive du

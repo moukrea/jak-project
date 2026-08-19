@@ -130,6 +130,57 @@ la difference est INVARIANTE. Redimensionner ce volume ne peut donc PAS faire ba
 Une course de 13 minutes et une cuisson evitees en dix lignes de lecture. La mesure reste vraie et
 reste publiee — elle ne repond simplement pas a la question que je lui posais.
 
+--- 6 bis. JAMBE 2 : J'AI POSE LA CONTRAINTE DU §7, ELLE A RATE SON BUT, ELLE EST RETIREE ---------
+Le §7 ci-dessous designait la monotonie de sa §31 comme le correctif de la penetration. **JE L'AI
+POSEE, MESUREE SUR UNE COURSE COMPLETE, ET ELLE EST REFUTEE PAR SON PROPRE RESULTAT.** Predictions
+gravees d'avance (`C46E2`, md5 37b7de938ae2f3cab6e0ec0d7f7963f1, commit 1d641de14a) plus un
+addendum ecrit PENDANT la course, AVANT son resultat (`C46E2B`, md5 e6cc389d066bdf6ffcaa88958374fefd).
+
+    grandeur                       jambe 1        jambe 2        predit          verdict
+    enveloppe pointe/racine        1.082 / 1.011  1.085 / 1.065  > 1.30          Q1 REFUTEE
+    `meshpen` chestL               0.1061         **0.1195**     < 0.1061        Q2 REFUTEE (+12.6 %)
+    `meshpen` chestR               0.0898         **0.0953**     < 0.0898        Q2 REFUTEE (+6.1 %)
+    `meshpen` <= avant-cycle-46    —              —              <=0.0491/0.0314 Q3 REFUTEE
+    `ROOM-SIDE`                    8              6              0               Q4 REFUTEE
+    ecart du distal (l'acquis)     22.4 / 40.2 %  34.5 / 36.9 %  >= 20 %         Q5 tenue
+    `tipvar`                       0.172 / 0.174  0.180 / 0.181  >= 0.160        Q6 tenue
+    §27 `t1` chestR                1.38 s         **1.75 s**     <= 1.7 s        Q7 REFUTEE
+    `ROOM-STRETCH` / `ROOM-IDLE`   0.0003/0.0002  0.0002/0.0001  <=0.010/0.0005  Q8 tenue
+    `lag01` chestL / chestR        2 / -4         0 / +7         s'effondre ?    Q10 A MOITIE
+  SCORE : **3 tenues, 5 refutees, 1 a moitie.** L'intervention rate son but et coute une section.
+
+**CE QUE CE RESULTAT NEGATIF ETABLIT, ET C'EST LE PLUS UTILE DE LA JAMBE : SUR CET ORGANE, LA
+DIRECTION DU MAILLON DISTAL N'EST PAS CE QUI COUTE LA PENETRATION.** Interdire le repli n'a
+quasiment pas bouge l'enveloppe (1.082 -> 1.085) et a fait MONTER `meshpen`. **Le §7 ci-dessous est
+donc REFUTE par l'intervention qu'il proposait** : ce qui coute, c'est l'EXCURSION du maillon
+libere, pas son SIGNE. Je laisse le §7 tel qu'il a ete ecrit, avec ce dementi au-dessus, parce
+qu'effacer une hypothese refutee empeche le prochain cycle de savoir qu'elle a deja ete payee.
+
+ET DEUX PIEGES, DONT UN QUE J'AI PAYE EN UNE COURSE ENTIERE :
+  * **PREMIERE POSE INERTE.** La contrainte etait NICHEE sous `(< asc 1.0)`, le gate de la borne
+    d'apex, donc desarmee des que la pointe tenait dans son budget. Course complete, `PHYSGRAD`
+    **identique AU BIT PRES sur 744 lignes**. Deux contraintes independantes ne se nichent pas
+    l'une dans l'autre — et le tell est gratuit : on compare la TRACE, pas le raisonnement.
+  * **ELLE INTERDIT AUSSI LE RETARD, et je l'ai ecrit AVANT le resultat** (`C46E2B`) : si le distal
+    retarde, `p_l ~ pose_l` donc `d_l ~ -e_{l-1}`, produit scalaire negatif. C'est la signature de
+    l'INERTIE, que sa §19 demande en toutes lettres (« breast mass lags behind »), que sa §23 nomme
+    (« angular lag ») et que l'owner nomme aussi (« ils restent en arriere puis rattrapent »).
+    **Sa §31 decrit une FORME D'EQUILIBRE, ses §19/§23 un TRANSITOIRE** ; les appliquer a la meme
+    echelle de temps confond les deux — meme faute de denominateur que la ×5,2 du cycle 40.
+
+**ET UNE CORRECTION A MA JAMBE 1, QUE CETTE JAMBE A REVELEE.** Si le corps de `phys-bend-chain` ne
+tourne que quand `asc < 1.0`, et si y ajouter une contrainte ne change RIEN sur 744 lignes, alors
+sur les frames qui fixent les maxima **le gate etait ferme : la borne d'apex ne mordait pas**.
+La jambe 1 est donc une **ablation faiblement contrainte** de la borne par maillon, et non une
+borne d'apex bien calibree — ce que la comparaison des chiffres disait deja (jambe 1 chestL
+79-102 deg contre l'ablation du cycle 45 a 75-116). **C'est pour ca que `meshpen` est monte au
+niveau de l'ablation.** Le gain de discrimination est reel et mesure ; le mecanisme n'est pas celui
+que j'avais decrit, et je le corrige ici plutot que de laisser passer la description flatteuse.
+
+RETRAIT PROUVE PAR EMPREINTE, PAS AFFIRME : apres retrait, `GAME.CGO` recompile porte le md5
+**34efc3f2fcf11704aad6a34642f5d5ea** — celui de la course de la jambe 1. **L'ETAT LIVRE EST
+EXACTEMENT L'ETAT MESURE**, et aucune quatrieme course n'a ete depensee pour le redire.
+
 --- 7. LE CHANTIER SUIVANT, DESIGNE PAR LA MESURE ET PAS PAR UNE INTUITION ----------------------
 **LE DISTAL TOURNE SANS AVANCER, ET C'EST UNE VIOLATION DE SA §31.**
 `PHYSGRAD amp` (enveloppe de l'ecart a la pose d'auteur, repere ANCRE, unites de jeu) :

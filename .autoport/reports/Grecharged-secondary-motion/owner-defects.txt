@@ -631,4 +631,13 @@ OPEN breast-spec-incomplete  PRIORITE 1 -- LA SEULE LIGNE QUI TIENT LA PHASE OUV
 #     TOUJOURS OUVERT, MEME SIGNATURE, AUTRE MECANISME : le canal RADIAL du distal reste PLAT
 #       (`rrm` 0.0580-0.0581 B0 pour une demande de 0.4249 a 0.6138) — le degre de liberte radial
 #       de sa §23 n'est arme que sur le maillon racine.
+#     JAMBE 2 DU MEME CYCLE, POSEE ET RETIREE SUR MESURE : la monotonie de sa §31 (interdire au
+#       distal de rebrousser la deviation de son parent) devait faire redescendre `meshpen`. Course
+#       complete : enveloppe pointe/racine 1.082 -> 1.085 (predit > 1.30), `meshpen` 0.1061 ->
+#       0.1195 et 0.0898 -> 0.0953 (PIRE), `ROOM-SIDE` 8 -> 6 (predit 0), §27 chestR 1.38 -> 1.75 s
+#       (hors bande). 3 predictions tenues sur 9. **RETIREE**, et `GAME.CGO` recompile porte le md5
+#       de la jambe 1 : le retrait est prouve par empreinte. RESULTAT NEGATIF UTILE : sur cet
+#       organe la DIRECTION du maillon distal n'est pas ce qui coute la penetration — c'est son
+#       EXCURSION. Et la contrainte interdisait aussi le RETARD (l'inertie que sa §19 demande),
+#       ce que j'ai ecrit AVANT son resultat.
 #   CETTE LIGNE NE SE RETIRE QUE SUR LE MOT DE L'OWNER, jamais sur un tableau vert.

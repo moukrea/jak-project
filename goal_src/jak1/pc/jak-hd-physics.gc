@@ -1290,12 +1290,7 @@
   (let* ((amax (-> *phys-maxang* sc))
          (apx? (and (= (-> *phys-fam* sc) 1) (<= amax 0.0)))
          (asc  (if apx? (phys-apex-scale skel sc n nbone hard?) 1.0)))
-    ;; La borne d'apex (`asc`) et la monotonie de SPEC 31 sont DEUX contraintes independantes :
-    ;; nicher la seconde sous `(< asc 1.0)` la desarmait des que la pointe tenait dans son budget,
-    ;; et la trace le prouvait — `PHYSGRAD` identique au bit pres sur 744 lignes. Mesure, pas
-    ;; raisonnement. Quand aucune des deux ne mord, `adg2 = adeg` et le `when` interieur ne fait
-    ;; rien : l'identite reste exacte.
-    (when (and (zero? *phys-bend-off*) (or apx? (> amax 0.0)))
+    (when (and (zero? *phys-bend-off*) (if apx? (< asc 1.0) (> amax 0.0)))
       (dotimes (l n)
         (when (>= l rlk)
           (let* ((scl (+ (* sc PHYS-LINKS) l))
@@ -1330,22 +1325,11 @@
                          (adeg (* 0.0054931641 (atan pl cs)))
                          ;; SPEC 21 : `2*ml*sin(a/2)` x `asc` s'ecrit `sin(a'/2) = asc*sin(a/2)`.
                          (sh (if apx? (* asc (sin (* 91.02222 adeg))) 0.0))
-                         (adg1 (cond
+                         ;; [NOTE-121] PIERRE TOMBALE — LA MONOTONIE DE SPEC 31, POSEE ET RETIREE SUR MESURE. -> jak-hd-physics-NOTES.md
+                         (adg2 (cond
                                  ((not apx?) (if hard? (fmin adeg amax) (phys-softmin adeg amax)))
                                  ((>= sh 0.9999) adeg)
-                                 (else (* 2.0 (* 0.0054931641 (atan sh (sqrtf (- 1.0 (* sh sh)))))))))
-                         ;; [NOTE-121] SPEC 31 : LA POINTE PROLONGE SON PARENT, ELLE NE LE REBROUSSE PAS. -> jak-hd-physics-NOTES.md
-                         (ex (if (> l 0) (- bx (-> skel bones (+ kp 1) transform vector 3 x)) 0.0))
-                         (ey (if (> l 0) (- by (-> skel bones (+ kp 1) transform vector 3 y)) 0.0))
-                         (ez (if (> l 0) (- bz (-> skel bones (+ kp 1) transform vector 3 z)) 0.0))
-                         (el (sqrtf (+ (* ex ex) (+ (* ey ey) (* ez ez)))))
-                         (ma (if (> el 0.01) (/ (+ (* ux ex) (+ (* uy ey) (* uz ez))) el) 0.0))
-                         (mb (if (and (> el 0.01) (> pl 0.0001))
-                               (/ (+ (* px ex) (+ (* py ey) (* pz ez))) (* el pl)) 0.0))
-                         (adg2 (if (and apx? (> l 0) (> el 0.01) (> pl 0.0001) (> ma 0.0001))
-                                 (fmin adg1 (if (<= mb 0.0) 0.0
-                                              (* 2.0 (* 0.0054931641 (atan mb ma)))))
-                                 adg1)))
+                                 (else (* 2.0 (* 0.0054931641 (atan sh (sqrtf (- 1.0 (* sh sh))))))))))
                     (when (and (> pl 0.0001) (< adg2 (- adeg 0.01)))
                       (let* ((au (* 182.04444 adg2))
                              (cc (cos au))
