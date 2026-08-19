@@ -409,6 +409,12 @@ CE QUE JE N'AI PAS FAIT, ET POURQUOI — AUCUN DE-SCOPE SILENCIEUX (regle 3)
   7. **JE N'AI PAS TOUCHE A UNE SEULE GATE** (regle 5), y compris celle dont je viens de montrer
      que son critere se degrade quand le defaut baisse.
   8. **JE N'AI PAS REFAIT DE BAKE DE MESH** : md5 identique, SPEC 30 reportee.
+  9. **J'AI LAISSE UNE VARIABLE ORPHELINE**, et je prefere le dire que le corriger en douce :
+     la simplification du `cond` a rendu `tgt` (`jak-hd-physics.gc:2363`, un vecteur de pile)
+     inutilise — plus aucun lecteur, plus aucun ecrivain. La retirer est une ligne et c'est
+     provablement inerte, mais il faudrait RECOMPILER : le CGO livre cesserait alors d'etre
+     celui sur lequel les deux courses ont ete mesurees, et une paire depareillee vaut moins
+     qu'une ligne morte. Elle part au cycle 36, avec la course qui va avec.
 
 
 ================================================================================================
