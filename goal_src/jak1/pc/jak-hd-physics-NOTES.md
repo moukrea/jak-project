@@ -3761,3 +3761,38 @@ derive son angle. Et c'est un mecanisme que l'owner avait exclu de la poitrine l
 22:35, au motif ecrit qu'« une chaine a un seul maillon n'a aucun angle inter-maillon » — motif
 mort le 2026-08-18 avec l'injection du second os. Sa consigne est citee, sa premisse est datee,
 et l'arbitrage lui revient.
+
+## [NOTE-117] L'ATTENUATION D'ANGLE ENTRE DANS LA RELAXATION DE QUEUE
+
+Mesure du cycle 43 (course `keira-room-x86.C42E4-BENDARM.log`, appariee PAR FENETRE, donc sans
+comparer des maxima issus de fenetres differentes) :
+
+    pire fenetre chestL l=1 (anim 14, accel) : a0=121.16 -> a1=16.54 -> FINAL 111.56   (+95.03 deg)
+    pire fenetre chestR l=1 (anim  6, accel) : a0=115.96 -> a1=16.57 -> FINAL  94.02   (+77.45 deg)
+    mediane de l'ajout de queue : +27.22 deg (chestL l=1) · +26.46 deg (chestR l=1)
+
+`phys-bend-chain` etait un COUP UNIQUE pose HORS de la boucle de relaxation, alors que longueur et
+collision sont DEDANS. Dans un Gauss-Seidel, une contrainte hors boucle est une contrainte que les
+suivantes reecrivent : les 7 balayages de queue RESTAURENT le repli que l'attenuation vient de
+retirer. Le controle le prouve — sur la course d'AVANT l'attenuation, le meme ajout de queue a une
+mediane de **0.00 deg**. La queue ne « finit » pas : elle ne bouge ce maillon que quand quelqu'un
+d'autre l'a bouge d'abord.
+
+POURQUOI CE MAILLON-LA, ET PAS LA RACINE. Converti en deplacement (d = 2*bl*sin(theta/2)), l'ajout
+de queue vaut jusqu'a **1.37 fois la LONGUEUR de l'os qu'il corrige** (191.8 u sur 140.4 u), alors
+que la MEME machinerie ne deplace pas la racine (mediane 0.00 u sur 1040.5 u). La difference n'est
+pas dans les volumes — le cycle 38 a mesure qu'AU REPOS ces joints sont dans 1-2 volumes, MOINS
+qu'un coude temoin. Elle est dans le BRAS : un meme push rend **7.4 fois plus d'angle** sur l'os
+distal (32 u -> 1.76 deg sur la racine, 13.09 deg sur le distal).
+
+CE QUE CE CHANGEMENT EST, ET CE QU'IL N'EST PAS. Aucune constante neuve, aucun nombre ajuste,
+aucune donnee modifiee : le meme `amax` derive des memes deux nombres, appele dans chaque iteration
+de queue au lieu d'une fois avant elles. **Ce n'est pas un suppresseur ajoute** — c'est une
+contrainte deja ecrite, remise dans le solveur ou vivent les autres. Le cout en mouvement est
+publie au rapport, il n'est pas cache.
+
+CE QU'IL NE CORRIGE PAS, ecrit d'avance : la boucle de collision ne converge pas sur un ensemble de
+volumes incoherent (cycle 37 : les 12 derniers balayages ne portent aucune contrainte de longueur
+et poussent encore a 94-97 % de la moyenne de frame ; `skinpen` 0.142 m > `meshpen` 0.098 m, donc
+les capsules n'enveloppent pas le mesh). Interleaver est un ARBITRAGE entre deux contraintes qui se
+contredisent, pas une reconciliation. Le chantier suivant est l'ensemble de volumes.
