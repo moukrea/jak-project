@@ -1,0 +1,164 @@
+================================================================================================
+CYCLE 38, ETAPE 1 — PREDICTIONS GRAVEES AVANT QUE L'INSTRUMENT EXISTE
+LES VOLUMES DU VETEMENT DECRIVENT-ILS UNE CHAIR QUE LES SPHERES DU SEIN DECRIVENT DEJA ?
+================================================================================================
+DIRECTIVES vb249967379
+Phase Grecharged-secondary-motion, branche physics-keira-clean, KEIRA / POITRINE SEULE.
+Ecrit AVANT toute ligne de l'instrument, AVANT toute mesure, AVANT de connaitre la convention
+d'espace des `offset=` (le releve de cette convention est en cours et c'est un PREREQUIS de
+l'arithmetique, pas un resultat).
+
+------------------------------------------------------------------------------------------------
+D'OU VIENT LA QUESTION
+------------------------------------------------------------------------------------------------
+Le cycle 37 etape 2 a REFUTE que la paire sein-contre-sein porte la non-convergence (+1.9 % et
+-3.4 % de `npush` en retirant les deux spheres proximales). Il reste donc le BUSTE et le
+VETEMENT. Le comptage du cycle 29 (`PHYSCVOL`/`PHYSCOL` de la course livree) attribue au vetement
+**40.0 % des corrections de chestL et 28.9 % de celles de chestR**, dont `sphere:lTopStrap2` seule
+**5 083 corrections = 20.7 %**, PREMIER volume de la liste — pendant que sa SPEC 35 ecrit
+« Support contribution ~ 0, Compression ~ 0 » et « the garment follows the underlying breast
+surface essentially one-to-one ».
+
+La question posee ici n'est PAS « faut-il retirer le vetement » — c'est la question prealable, et
+elle est purement geometrique : **ce que ces volumes protegent est-il deja protege par les spheres
+du sein lui-meme ?** Si oui, les retirer ne peut faire traverser RIEN (la regle 6 est sauve) et ils
+sont un doublon d'obstacle. Si non, les retirer ferait traverser, et la reponse a la SPEC 35 est un
+redimensionnement, pas un retrait.
+
+C'est exactement le test que le cycle 35 a applique aux spheres proximales du sein ; je l'applique
+ici a travers les PARTIES.
+
+------------------------------------------------------------------------------------------------
+L'INSTRUMENT, DECRIT AVANT D'ETRE ECRIT — NATURE, REPERE, LIGNE DE BASE (SPEC §7)
+------------------------------------------------------------------------------------------------
+NATURE   : une FRACTION DE RECOUVREMENT (sans dimension) et un COMPTE DE SOMMETS. Ce n'est ni une
+           amplitude, ni une variance, ni un deplacement soutenu : c'est une question de FORME
+           statique, posee sur la pose de BIND, sans aucune simulation.
+REPERE   : l'espace MONDE de la pose de BIND du mesh livre
+           `out/jak1/fr3/skin/keira-hd-donor-injected.glb` (md5 f538a7babb256fbc9b30293e691f35ce),
+           dans lequel TOUS les volumes sont replaces par la meme formule. Aucune frame, aucun
+           pilotage, aucune animation n'entre dans cette etape.
+DOMAINE  : la TOTALITE des sommets du mesh livre. Le compte exact du domaine est publie ; aucun
+           taux n'est publie sans son denominateur (piege « zero d'un domaine vide »).
+BASE     : deux controles encadrent chaque chiffre, l'un par le haut, l'autre par le bas — voir
+           W1 et W2. Sans eux une fraction de recouvrement n'a pas d'echelle.
+
+DEFINITIONS, pour qu'aucun chiffre ne soit ambigu :
+  U(cote)      = l'UNION des deux spheres de chair du sein de ce cote
+                 (lBoob r=340 et lBooc r=431 a gauche ; rBoob r=345 et rBooc r=415 a droite),
+                 replacees par la meme formule que tous les autres volumes.
+  inside(S)    = l'ensemble des sommets du mesh livre dont la position de bind est dans la
+                 sphere S.
+  COUV(S,cote) = |inside(S) inter inside(U(cote))| / |inside(S)|, publie AVEC |inside(S)|.
+                 C'est « la part de la chair de S que le sein protege deja ».
+  VOLFRAC(S)   = part du VOLUME de S contenue dans U(cote), estimee par echantillonnage
+                 deterministe a graine publiee. Secondaire ; c'est COUV qui tranche.
+
+------------------------------------------------------------------------------------------------
+LES PREDICTIONS
+------------------------------------------------------------------------------------------------
+G0 — L'INSTRUMENT EST INERTE. Cette etape ne touche ni le moteur, ni la salle, ni une donnee
+     livree. Critere : `git status` ne montre AUCUNE modification sous `goal_src/`,
+     `recharged_assets/` ni `.autoport/validators/`, et le md5 du mesh est inchange apres coup.
+
+G1 — LE VOLUME DU DEBARDEUR EST PLANTE DANS LE SEIN.
+     Critere : le CENTRE de la sphere `lTopStrap2` est a l'interieur de U(gauche), c'est-a-dire
+     min(d(c_G, c_lBoob) - 340 , d(c_G, c_lBooc) - 431) < 0. Idem `rTopStrap2` a droite.
+     DERIVATION : un volume qui produit 5 083 corrections sur une chaine dont les deux maillons
+     vivent dans ces spheres doit les intersecter presque toujours ; deux spheres s'intersectent
+     des que d < r1+r2 = 588, et 5 083 tirs demandent bien plus pres que la limite.
+     CONFIANCE : haute.
+
+G2 — LE VOLUME DU DEBARDEUR EST LARGEMENT CONTENU DANS CELUI DU SEIN.
+     Critere grave : VOLFRAC(lTopStrap2) ET VOLFRAC(rTopStrap2) dans la bande **70 a 100 %**.
+     DERIVATION : r=157 contre r=431 pour lBooc ; si le centre est bien a l'interieur (G1), la
+     containment est presque totale. Bande large parce que je ne connais pas encore la distance.
+
+G3 — LE CRITERE QUI TRANCHE : LA CHAIR EST DEJA COUVERTE.
+     Critere grave : COUV(lTopStrap2, gauche) >= **80 %** et COUV(rTopStrap2, droite) >= **80 %**,
+     avec |inside(S)| >= 10 sommets de part et d'autre (sinon le taux est declare NON LISIBLE et
+     aucun verdict n'en est tire — un pourcentage sur trois sommets n'est pas une mesure).
+
+G4 — LE DEBARDEUR NE SUIT PAS LE SEIN, ET C'EST LA MOITIE ABSENTE DE LA SPEC 35.
+     Critere grave : parmi les sommets de inside(lTopStrap2), la part dont le joint MAJORITAIRE
+     (w > 0.5) est un joint de sein (`lBoob` ou `lBooc`) est **INFERIEURE A 20 %**, et le joint
+     majoritaire dominant de cet ensemble est `chest` ou un joint `lTopStrap*`.
+     CE QUE CA VOUDRAIT DIRE : sa SPEC 35 exige que le vetement suive la surface du sein
+     « essentially one-to-one ». S'il est pese sur le buste, il ne peut PAS suivre — et comme
+     l'ordre du 14/08 a gele toute physique hors poitrine, il ne le peut par aucun autre chemin.
+     La section 35 serait alors ABSENTE des DEUX cotes : le vetement pousse le sein (support != 0)
+     ET ne le suit pas (lag != 0).
+     CONFIANCE : moyenne. C'est la prediction la plus informative et celle que j'ai le plus de
+     chances de rater ; si elle est REFUTEE (le debardeur est deja pese sur le sein), la SPEC 35
+     est a moitie tenue et le volume est un pur doublon — meilleure nouvelle, pas pire.
+
+G5 — LA SANGLE BASSE DE HANCHE N'EST PAS DANS L'AFFAIRE.
+     Critere grave : `lBotStrap` (|offset| ~1509 u) et `rBotStrap` (~1489 u) N'INTERSECTENT
+     AUCUNE des spheres du sein du meme cote : d(c_G, c_B) > r_G + r_B pour les deux.
+     COROLLAIRE GRAVE : la part du vetement qui n'est pas le topstrap (40.0 % - 20.7 % = 19.3 %
+     sur chestL) vient donc de `lBotStrap2` (|offset| ~357 u), pas de `lBotStrap`.
+
+W1 — CONTROLE PAR LE HAUT, SUR MON PROPRE INSTRUMENT (il doit rendre un chiffre TRES eleve).
+     Le cycle 35 a etabli que la sphere PROXIMALE d'un sein ne couvre AUCUN sommet que la DISTALE
+     ne couvre deja. Critere grave : COUV(lBoob, {lBooc seule}) >= **90 %**.
+     SI CE CHIFFRE EST BAS, L'INSTRUMENT EST FAUX et je ne publie aucun des autres — je publie
+     que l'instrument ne reproduit pas un acquis connu.
+
+W2 — CONTROLE PAR LE BAS (il doit rendre un chiffre TRES faible).
+     Critere grave : COUV(main, gauche) <= **10 %**. `collider main` est la sphere du bassin
+     (r=549) : un volume de corps franchement ailleurs. Sans ce point bas, un fort recouvrement du
+     debardeur n'a pas d'echelle.
+
+------------------------------------------------------------------------------------------------
+LA TABLE DE BRANCHES — CE QUE CHAQUE ISSUE AUTORISE, ET CE QU'ELLE INTERDIT
+------------------------------------------------------------------------------------------------
+Elle est ecrite MAINTENANT pour que le resultat ne puisse pas choisir sa propre lecture.
+
+  W1 BAS ou W2 HAUT
+      -> L'INSTRUMENT EST DISQUALIFIE. Aucun verdict sur G1..G5 n'est publie. Je publie
+         l'echec de l'instrument et je m'arrete la. Rien d'autre.
+
+  G1 REFUTEE (le volume n'est meme pas dans le sein)
+      -> Alors l'attribution de 40.0 % / 28.9 % du cycle 29 est SUSPECTE et doit etre
+         re-mesuree avant tout autre travail sur le vetement. Je ne publie AUCUN verdict sur
+         G2/G3/G4, et l'etape 2 (l'ablation) est ANNULEE : on ne fait pas d'ablation d'un
+         volume dont on ne sait plus s'il touche l'organe.
+
+  G3 CONFIRMEE  (>= 80 % de la chair du volume est deja couverte par le sein)
+      -> Le volume du debardeur est un DOUBLON D'OBSTACLE dans une region que le sein protege
+         deja. Le retirer ne peut pas faire traverser une geometrie que rien ne protegerait :
+         la regle 6 tient. L'etape 2 (ablation, interrupteur a ZERO en livraison) est justifiee
+         et devient la mesure de ce que ce doublon coute a la convergence.
+         ATTENTION, LIMITE EXPLICITE : ceci ne PROUVE PAS que le retirer fermera `COLLIDE`.
+         C'est precisement l'erreur que l'etape 2 du cycle 37 a evitee sur les proximales.
+
+  G3 REFUTEE  (< 80 %, le volume couvre de la chair que le sein ne couvre pas)
+      -> LE RETRAIT EST INTERDIT : il ferait traverser. La reponse a la SPEC 35 est alors un
+         REDIMENSIONNEMENT ou un CHANGEMENT DE FORME du volume, pas son retrait — et je le dis
+         comme tel. L'etape 2 reste utile mais change de statut : elle mesure le COUT d'un
+         volume qu'il faut garder, pas un candidat de correctif.
+
+  G3 NON LISIBLE (moins de 10 sommets dans le volume)
+      -> Aucun verdict. Je publie le compte et je dis que la question se pose autrement (par le
+         VOLUME et non par les sommets), sans transformer VOLFRAC en substitut apres coup.
+
+  G4 CONFIRMEE  -> la SPEC 35 est ABSENTE des deux cotes (elle pousse ET elle ne suit pas). Le
+                   chantier « faire suivre le vetement » est un REPESAGE, donc un bake de mesh :
+                   il est nomme, chiffre, et NON entrepris ce cycle. Aucun bake ce cycle.
+  G4 REFUTEE    -> la moitie « follows one-to-one » de la SPEC 35 est deja portee par la peau.
+                   Alors le volume est un pur doublon et le chantier se reduit a son retrait.
+
+  G5 REFUTEE    -> la sangle de hanche touche le sein, ce qui serait une anomalie de placement en
+                   soi (1.5 m d'offset) : elle deviendrait un defaut a part entiere, publie comme
+                   tel, et NON traite ce cycle.
+
+------------------------------------------------------------------------------------------------
+CE QUE CETTE ETAPE NE FAIT PAS, ET C'EST DELIBERE
+------------------------------------------------------------------------------------------------
+  - elle ne retire aucun volume, ne modifie aucun rayon, ne touche AUCUNE surcharge de l'owner ;
+  - elle ne fait AUCUN bake de mesh (md5 verifie inchange en sortie) ;
+  - elle ne touche AUCUNE gate (regle 5) ;
+  - elle ne repond pas a « faut-il retirer le debardeur » : elle etablit seulement si ce retrait
+    est GEOMETRIQUEMENT ADMISSIBLE au regard de la regle 6. Le reste est l'etape 2, et la
+    decision finale reste une question a l'owner — posee pour la cinquieme fois, mais cette fois
+    avec la reponse geometrique deja dans la main.
