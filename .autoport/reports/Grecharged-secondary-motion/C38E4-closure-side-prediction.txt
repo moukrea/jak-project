@@ -100,3 +100,30 @@ LA TABLE DE BRANCHES
 CE QUE CETTE ETAPE NE FAIT PAS : elle ne corrige rien, ne touche aucune donnee, aucun rayon, aucune
 gate, et n'ajoute aucune ligne a `jak-hd-physics.gc`. Elle lit une grandeur que le moteur calcule
 deja et jette depuis qu'elle existe.
+
+================================================================================================
+ADDENDUM GRAVE AVANT LA MESURE DEFINITIVE — MON INSTRUMENT COMPARAIT UN MAXIMUM A UN ECHANTILLON
+================================================================================================
+Une premiere course a tourne avec l'instrument tel que decrit ci-dessus (archivee :
+`keira-room-x86.C38E4a-LASTVAL.log`). Elle a valide K0 (35 594 lignes `PHYS` des deux cotes hors le
+marqueur neuf, 0 en trop, 0 en moins) et K1 (54 volumes a `ok=1` par chaine). **Puis j'ai trouve le
+defaut de mon propre instrument, avant d'en publier le moindre verdict.**
+
+`*phys-cfl*` etait ecrit par une AFFECTATION pendant que `*phys-cdm*`, range trois lignes plus bas
+et sous le meme drapeau de domaine, etait accumule en MAXIMUM. `PHYSCVDOM` publiait donc, cote a
+cote, **un maximum de course et UN echantillon** — le dernier frame evalue pour cette paire. Un
+`feff = 0` ne disait pas « la pose d'auteur n'a JAMAIS mis ce lien dans ce volume », il disait
+« elle ne l'y mettait pas a la derniere frame ». C'est le piege du registre « un rapport de deux
+statistiques », commis cette fois non pas dans une prediction mais **dans l'instrument lui-meme**.
+
+CORRIGE : les deux sont desormais des MAXIMA sous le meme drapeau (`jak-hd-physics.gc`, NOTE-110).
+`feff` devient « la plus grande profondeur que la pose d'AUTEUR ait jamais rendue admissible » et
+`cdm` « la plus grande profondeur que le lien SIMULE ait jamais atteinte ». Leur difference est
+alors la question posee. Le moteur passe de 4788 a **4792 lignes** (plafond 4800, 8 de marge).
+
+**AUCUN CRITERE N'EST TOUCHE** : K0 a K4 gardent mot pour mot leurs seuils et leur table de
+branches. Ils sont evalues sur la course corrigee, et la course `LASTVAL` est conservee pour que la
+difference entre les deux lectures soit verifiable.
+K0 gagne une clause, parce que le changement touche le moteur et plus seulement la salle : les
+lignes `PHYS` hors `PHYSCVDOM` doivent rester identiques **a celles de la course LASTVAL**, en
+multi-ensemble. Si elles bougent, le changement n'etait pas instrumental et rien n'est publie.

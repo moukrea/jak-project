@@ -3490,3 +3490,26 @@ NOMBRE D'ALTERNANCES (longueur <-> franchissement) A LA FINITION DE CHAQUE LIEN.
 est geometrique). En dessous de 2 il n'y a pas d'alternance du tout, donc pas de resolution
 simultanee -- et c'est l'etat mesure qui plafonnait `ROOM-SIDE crossing` a 11282.
 ```
+
+
+## NOTE-110  (moteur, aux alentours de la ligne 1727 — CYCLE 38 ETAPE 4)
+
+`*phys-cfl*` etait ecrit par une AFFECTATION (`set!`) pendant que `*phys-cdm*`, range trois lignes
+plus bas et sous le meme drapeau de domaine, etait accumule en MAXIMUM. Les deux etaient publies
+cote a cote par `PHYSCVDOM` et lus l'un contre l'autre.
+
+**C'est une comparaison entre un maximum de course et UN echantillon** — le dernier frame evalue
+pour cette paire (chaine, volume). L'ecart `cdm - feff` ne repondait donc a aucune question de
+population : il melangeait deux statistiques de natures differentes, exactement le piege que le
+registre nomme (« un max divise par une autre statistique »). Un `feff = 0` ne disait pas « la pose
+d'auteur n'a JAMAIS mis ce lien dans ce volume », il disait « elle ne l'y mettait pas a la derniere
+frame ».
+
+**LES DEUX SONT MAINTENANT DES MAXIMA, sous le MEME drapeau `*phys-cdmok*`**, donc commensurables :
+`feff` devient « la plus grande profondeur que la pose d'AUTEUR ait jamais rendue admissible pour
+cette paire », et `cdm` « la plus grande profondeur que le lien SIMULE ait jamais atteinte ». Leur
+difference est alors la question posee : ce que le maillon ajoute par-dessus ce que l'auteur accorde.
+
+Rien d'autre ne lit `*phys-cfl*` : le calcul de la poussee utilise la variable LOCALE `feff`, pas le
+tableau. Le changement est donc purement instrumental, et sa preuve est que les lignes `PHYS` de la
+course, hors `PHYSCVDOM`, doivent rester identiques.

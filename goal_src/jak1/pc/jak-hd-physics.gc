@@ -1723,15 +1723,19 @@
                         ;; trois appels du `let*`, donc la variable porte bien celle de `dep`.
                         ;; Le drapeau evite un sentinelle flottant (piege deja paye) : premier
                         ;; echantillon = affectation, les suivants = maximum.
+                        ;; [NOTE-110] CYCLE 38 — `feff` ETAIT UNE DERNIERE VALEUR, `cdm` UN MAXIMUM -> jak-hd-physics-NOTES.md
                         (when (= sub 0)
                           (let ((h (+ (* sc PHYS-COLS) ci)))
-                            (set! (-> *phys-cfl* h) feff)
                             (cond
                               ((zero? (-> *phys-cdmok* h))
+                               (set! (-> *phys-cfl* h) feff)
                                (set! (-> *phys-cdm* h) *phys-depsigned*)
                                (set! (-> *phys-cdmok* h) 1))
-                              ((> *phys-depsigned* (-> *phys-cdm* h))
-                               (set! (-> *phys-cdm* h) *phys-depsigned*)))))
+                              (else
+                               (when (> feff (-> *phys-cfl* h))
+                                 (set! (-> *phys-cfl* h) feff))
+                               (when (> *phys-depsigned* (-> *phys-cdm* h))
+                                 (set! (-> *phys-cdm* h) *phys-depsigned*))))))
                         (when (> dep feff)
                           (let ((push (+ (- dep feff) margin)))
                             ;; une correction issue d'un volume PROPRE a la chaine : elle ne peut
