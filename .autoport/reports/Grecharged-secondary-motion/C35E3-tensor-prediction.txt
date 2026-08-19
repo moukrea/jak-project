@@ -1,0 +1,78 @@
+DIRECTIVES vb249967379
+PHASE  Grecharged-secondary-motion — branche physics-keira-clean — KEIRA / POITRINE SEULE
+CYCLE  35, ETAPE 3 — PREDICTIONS GRAVEES AVANT L'INSTRUMENT
+
+OBJET : LES DEUX ENTREES DU TENSEUR, MESUREES AVANT LEUR PLAFOND. M3 A PROUVE QUE LE TENSEUR EST
+LE PORTEUR RESTANT DE SA SPEC 22 (0.2614 B0 de moyenne, 36 % de ce qui reste) — ET SES DEUX
+SORTIES SONT EXACTEMENT A LEUR PLAFOND. UNE ENTREE SATUREE NE REPOND A RIEN.
+
+================================================================================================
+1. CE QUI EST DEJA MESURE, ET QUI COMMANDE CETTE ETAPE
+================================================================================================
+Le tenseur est bati sur deux grandeurs, chacune ecretee par un `fmin` :
+
+    sdy = fmin(PHYS-DYN-MAX, dl)     PHYS-DYN-MAX = 0.25  (:311, §38 AbsoluteStretchClamp)
+    prs = fmin(PHYS-PRS-MAX, pr0)    PHYS-PRS-MAX = 0.25  (:314, §12 borne haute de sa bande)
+
+Sorties relevees dans LES DEUX courses du cycle 35 : `dynm = 0.2500` et `prsm = 0.2500`, **exactement
+leur plafond**. Une sortie collee a son plafond ne dit pas de combien l'entree le depasse.
+
+L'entree de PRESSION, elle, EST deja tracee (`*phys-prsr*`, publie en `PHYSSHAPE4 prsr=`) :
+
+    course C35E1 (avant le levier)   prsr max = **24.7164**   soit **99x** son plafond
+    course C35E2 (apres le levier)   prsr max = **15.2761**   soit **61x** son plafond
+
+L'entree d'ETIREMENT n'a AUCUN traceur avant plafond. C'est le trou que cette etape comble.
+
+================================================================================================
+2. L'ARITHMETIQUE, POSEE AVANT LA MESURE
+================================================================================================
+    dx = PHYS-DYN-K * (ox / b0f) + rdr * ux      PHYS-DYN-K = 0.43 (:310)
+    rdr = PHYS-DYN-K * (rrl / b0f)               rrl est deja borne a 0.40 * b0e -> rdr <= 0.172
+    dl = |d|
+Avec `ox` de l'ordre de 300 u et b0f = 602 : `0.43 * 0.498 = 0.214`, plus `rdr <= 0.172`, donc
+`dl` de l'ordre de **0.39** pour un plafond de 0.25 — c'est-a-dire **1.5x**, pas 60x.
+
+**LES DEUX ENTREES NE SONT DONC PAS SATUREES AU MEME ORDRE**, et c'est ce que la mesure doit
+trancher. Si la pression sature 60x pendant que l'etirement sature 1.5x, alors le terme de §23 qui
+n'a plus aucune dynamique est la PRESSION DE CONTACT, pas l'etirement — et le correctif ne se pose
+pas au meme endroit.
+
+================================================================================================
+3. LES PREDICTIONS
+================================================================================================
+Q0  L'INSTRUMENT EST INERTE
+    toutes les lignes `PHYS` autres que les marqueurs neufs sont IDENTIQUES, ligne pour ligne, a
+    la course C35E2. Aucun parametre de simulation n'est touche.
+
+Q1  L'ETIREMENT DEPASSE SON PLAFOND, MAIS DE PEU
+    `dlr` (max de `dl` AVANT le `fmin`) est dans **[0.25, 1.00]** sur les deux chaines.
+    Un depassement au-dela de 1.00 casserait mon arithmetique du §2 et je le publierais comme tel.
+
+Q2  LA PRESSION SATURE SUR STRICTEMENT PLUS DE FRAMES QUE L'ETIREMENT
+    part de frames ou `pr0 > PHYS-PRS-MAX` **>** part de frames ou `dl > PHYS-DYN-MAX`.
+    RAISON : 61x contre ~1.5x de depassement en amplitude.
+
+Q3  LA PRESSION SATURE SUR LA MAJORITE DES FRAMES
+    part de frames ou `pr0 > PHYS-PRS-MAX` **>= 50 %**.
+    SI Q3 CASSE, le terme de pression est un PIC rare et non un canal mort, et le diagnostic
+    « le tenseur ne peut pas repondre » ne tient que pour l'etirement. Je le dirais.
+
+Q4  LE LEVIER DU CYCLE 35 A DEJA FAIT BAISSER L'ENTREE DE PRESSION
+    `prsr` max reste sous 20 (il valait 24.72 avant le levier, 15.28 apres). Prediction FAIBLE,
+    publiee pour ce qu'elle vaut : c'est une relecture de la meme course, pas une course neuve.
+
+================================================================================================
+4. CE QUE CHAQUE ISSUE COMMANDE
+================================================================================================
+  Q2 + Q3 TENUES   -> le canal mort de §23 est la PRESSION DE CONTACT. Le chantier suivant est son
+                      plafond, ET la cause de son entree a 61x : les deux volumes qui decrivent la
+                      MEME chair (recouvrement 75.6 % / 65.3 %) appliquent le contact deux fois.
+  Q2 TENUE, Q3 CASSEE -> la pression sature plus souvent mais reste minoritaire : les deux canaux
+                      sont a traiter, et je ne designe pas un coupable unique.
+  Q2 CASSEE        -> c'est l'ETIREMENT qui sature le plus souvent malgre une amplitude 40x plus
+                      faible. Mon arithmetique du §2 serait alors incomplete et je le dirais.
+  Q0 CASSEE        -> l'instrument n'est pas inerte ; rien n'est publie comme mesure.
+
+Aucune de ces branches n'est « le mecanisme est retire » : la directive de l'owner du 2026-08-17
+23:50 abolit la regle de retrait sur ce chantier.
