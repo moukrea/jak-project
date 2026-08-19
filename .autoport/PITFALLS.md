@@ -463,3 +463,12 @@ le dresser a ignorer l'alerte : exactement ce que le script existe pour empecher
 Verrou : le changement de code sort sur une ligne `VERIF` destinee au superviseur, qui lit le diff
 et decide ; il ne declenche JAMAIS a lui seul un « A TESTER ». Regle generale : un signal qui ne
 peut pas porter le jugement qu'on lui demande doit remonter a qui peut le porter, pas trancher.
+
+GUARD rest-state-proven-without-excitation .autoport/SPEC-COVERAGE.md §2 §9
+**Un retour au neutre mesure SANS sollicitation prealable ne prouve rien.** §2 et §9 etaient
+publiees TENUES sur un ecart au modele de 0,0002 — mesure sur un repos que rien n'avait derange.
+Or ces sections exigent que le systeme REVIENNE exactement a la pose d'auteur ; un systeme qui n'a
+jamais quitte cette pose ne demontre pas qu'il sait y revenir. Le zero venait de l'absence
+d'excitation, pas de la qualite du rappel.
+Verrou : toute section de RETOUR A UN ETAT se mesure APRES une excitation representative, jamais
+au repos initial. Voisin de `positive-control-must-inject-data` et de `zero-from-empty-domain`.
