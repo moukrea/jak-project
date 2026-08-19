@@ -10,6 +10,36 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
+## 2026-08-19 20:25 — « LE RESTE ON L'IGNORE » : APPLIQUE, ET CA A TROUVE UN VRAI DEFAUT
+
+Verbatim : « le reste on l'ignore, seule la spec compte pour les seins de Keira. »
+
+J'ai passe en revue TOUT ce qui contraint encore la poitrine sans venir de la spec. Deux valeurs
+de son oeil du 2026-08-11 etaient non seulement presentes mais **rendues obligatoires** par la
+gate TUNING, sous une phrase fausse (« la spec ne les re-derive pas ») :
+
+**1. `gravity=0.65` — VRAI DEFAUT, A CORRIGER.**
+    `gy = -11.16` vaut EXACTEMENT 9,81 m/s^2 en unites moteur (9,81 x 4096 u/m / 3600 f^2/s^2).
+    Un `gsc` de 0,65 fait donc vivre l'organe a **0,65 g**, alors que §3 pose « the authored
+    upright 1 g equilibrium ». Cible : `gravity=1.00` sur chestL et chestR.
+    ATTENTION AU COUPLAGE : +54 % de gravite va repousser l'elongation de §22 (aujourd'hui a
+    23,6 % / 23,3 % pour un plafond de 25 %, soit 6 % de marge). **Ce n'est PAS une raison de
+    garder 0,65.** C'est la meme tache que la ×5,2 : la marge se gagne en allongeant la chaine de
+    chair, pas en rabotant la gravite. Les deux se mesurent ENSEMBLE.
+
+**2. `mass=1.45` — JAUGE, PAS UNE CIBLE. Ne pas y toucher pour « tenir §5 ».**
+    Le solveur ne lit la masse QUE dans `w = 2*pi*stiffness / sqrt(mass)` (`:2523`, `:3703`).
+    Elle n'entre ni dans la force de gravite (portee par `gsc`, independante) ni dans les
+    collisions. Passer de 1,45 a la valeur nominale 0,50 kg de §5 ne ferait que reechelonner la
+    raideur a frequence constante : **zero effet observable**. §5 est tenue par construction et
+    doit etre DECLAREE comme telle dans le rapport — la compter comme une section gagnee serait
+    un faux vert. Ce qui survit du bloc : l'ecart gauche/droite de 2 a 4 % exige par §32.
+
+**REGLE GENERALE QUI EN SORT.** Avant de traiter une ligne de la spec comme une cible, verifier
+**ou le parametre entre dans le solveur**. S'il n'apparait que dans un rapport avec un autre,
+c'est une jauge : le declarer conforme ne prouve rien, et le changer non plus.
+
+
 ## 2026-08-19 20:10 — LA SPEC EST LA SEULE REFERENCE. TOUT CE QUI PRECEDE NE COMPTE PLUS.
 
 Verbatim : « les biais qu'on a eu avant la spec ne comptent pas ! C'est la spec qui compte et puis
