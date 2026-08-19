@@ -400,3 +400,15 @@ most of the excursion »). Annonce a l'owner comme un fait, et le chantier qui e
 Verrou : avant de deduire quoi que ce soit d'une ligne de la spec, la RELIRE et **citer son texte
 exact dans le meme paragraphe**. Une ligne resumee de memoire n'est pas une ligne de la spec.
 Voisin de `invented-owner-approval` : la meme faute, appliquee au texte au lieu de la parole.
+
+GUARD gate-must-quote-the-spec .autoport/validators/phase-Grecharged-secondary-motion.sh SPEC-breast-softbody
+**Sept gates citaient les sections d'un document qui n'existe pas.** MOVE « SPEC §1 », ROOT
+« SPEC §2 », COLLIDE « SPEC §3 », IDLE « SPEC §4 », ANIM « SPEC §5 », ROOM « SPEC §6 », SUPPRESS
+« SPEC §7 » renvoyaient a `SPEC-keira-physique.md` — absent du disque ET de tout l'historique git.
+C'etait MON resume numerote de ses retours epars d'avant le 2026-08-13. Et chacun de ces numeros
+designe une AUTRE section dans la vraie spec : la §3 reelle est « Gravity Calibration », pas une
+liste de collisions. Une gate portant un faux numero de section se lit comme une exigence de
+l'owner et devient increvable.
+Verrou : une gate cite le TITRE et le TEXTE EXACT de la section qu'elle transcrit, ou elle est
+supprimee. Quand la spec donne un mot et pas un nombre (« before visible interpenetration »), le
+nombre est declare comme MON operationnalisation, avec sa conversion.

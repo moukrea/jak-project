@@ -360,8 +360,12 @@
 # actif pour que la gate TUNING continue de surveiller la ligne.
 # chain chestL couple=1.85 damping=0.26
 # chain chestR couple=1.85 damping=0.26
-chain chestL couple=1.85
-chain chestR couple=1.85
+# 2026-08-19 — RETIREES. `couple` est du CODE MORT depuis le pivot du 22:40 (prouve au cycle 42) :
+# le solveur ne le lit plus. La valeur 1.85 venait de son oeil le 2026-08-12, avant la spec, et
+# reglait l'ancien terme de pilotage (l'a-coup d'animation) que §3 a remplace. Une gate qui
+# surveille un parametre mort ne sert pas la spec.
+# chain chestL couple=1.85
+# chain chestR couple=1.85
 
 ## 2026-08-13 — `hair-fine-dead` / « les cheveux entiers sont nuls a chier »
 ## L'ATTENUATION D'ANGLE EST UN SUPPRESSEUR PUR SUR TROIS DES CINQ CHAINES DE CHEVEUX
@@ -1049,7 +1053,9 @@ collider rBoob radius=345
 ## s'ecarter). Son jugement portait sur le VOLUME des lunettes : il reste vrai, il change seulement
 ## de support. On le reporte donc explicitement au lieu de le laisser disparaitre — regle de
 ## non-destruction du 2026-08-11 : « t'assurer que ton travail n'est pas systematiquement detruit ».
-collider gogglesMid radius=150
+# 2026-08-19 — RETIREE : les lunettes sont un organe GELE, hors du perimetre poitrine. Sera
+# rearmee telle quelle le jour ou l'owner rouvre les lunettes.
+# collider gogglesMid radius=150
 
 ## ============================================================================================
 ## FREQUENCE PROPRE — LA RAIDEUR CESSE D'ETRE UN REGLAGE, ELLE DEVIENT UNE GRANDEUR PHYSIQUE

@@ -169,7 +169,12 @@ print("        ecrit par la physique — ils restent sur la pose d'auteur, non p
 PYSCOPE
 
 # --------------------------------------------------------------------------------------------
-# TUNING — les réglages issus de l'œil de l'owner doivent être PRÉSENTS dans le fichier livré.
+# TUNING — les valeurs DERIVEES DE LA SPEC doivent survivre a la regeneration du fichier livre.
+# Purge du 2026-08-19 : tout ce qui venait de son oeil AVANT la spec a ete retire du registre
+# (masse et gravite du 08-11, `couple` du 08-12, collider de lunettes). Ne restent que des valeurs
+# dont je peux citer la section : rayons de collision §33, raideur/amortissement §24/§25/§28,
+# `b0` §6, gravite §3. La gate n'impose donc plus un passe que l'owner a annule — elle empeche une
+# regeneration d'effacer la spec.
 # physics_chains.txt est régénéré depuis le rig ; deux fois le 2026-08-11 la régénération a effacé
 # ses corrections (colliders de torse, de cou et de mollets) et il a testé un build sans elles.
 python3 - <<'PYTUNE' || exit 1
@@ -215,7 +220,9 @@ if manquant:
 print("[TUNING] tous les réglages de l'owner sont dans le fichier livré")
 PYTUNE
 # --------------------------------------------------------------------------------------------
-# ROOM — SPEC §6, étape 1. La salle existe, et surtout : PAS DE JOUEUR.
+# ROOM — INTEGRITE DE LA MESURE, pas une ligne de la spec : la salle a tourne, sans joueur, et
+# les colonnes varient. Ne prescrit AUCUN comportement physique ; sans elle, toutes les gates
+# ci-dessous se prononceraient sur une trace fabriquee.
 [ -s "$T" ] || fail "ROOM: $T absent. La salle de test est l'étape 1 : sujet spawné par nom, seul
   dans la zone, déplacé haut/bas et gauche/droite avec accélérations et à-coups, TOUTES ses
   animations jouées. Rien d'autre ne compte tant qu'elle n'a pas produit son tableau."
@@ -262,6 +269,16 @@ if len(rows) < 60:
     die("ROOM: %d lignes de mesure. « Toutes celles concernant ledit acteur » — pas un échantillon."
         % len(rows))
 chains = {r['chain'] for r in rows}
+
+# `declared` etait defini dans la gate MOVE, supprimee le 2026-08-19. Ce n'est pas une regle : c'est
+# la LISTE des chaines livrees, dont COLLIDE et ANIM ont besoin pour savoir sur quoi se prononcer.
+declared = set()
+try:
+    for _ln in open('recharged_assets/physics_chains.txt', errors='ignore'):
+        if _ln.startswith('chain '):
+            declared.add(_ln.split()[1])
+except Exception:
+    pass
 anims = {r['anim'] for r in rows}
 # Le denominateur doit etre le total BRUT de l'art-group, pas le sous-ensemble retenu par un
 # filtre du programme : la salle a d'abord rapporte 18/31 puis 18/18 en changeant le total pour
@@ -310,87 +327,13 @@ for k in ('tipvar', 'rootdev', 'meshpen', 'jump'):
         die("ROOM: %s ne prend que %d valeurs sur %d lignes — synthétisée, pas mesurée"
             % (k, len(vals), len(rows)))
 
+# SUPPRIMEE le 2026-08-19 — gate MOVE : seuil 0.05 invente par moi, liste d'organes tiree de retours d'AVANT la spec. Aucune ligne de SPEC-breast-softbody ne l'exige.
+# SUPPRIMEE le 2026-08-19 — gate ROOT : seuil rootdev>2.0 invente, justifie par une remarque sur les CHEVEUX. La vraie exigence d'ancrage est §30 (28-35 % du volume arriere), qui ne se mesure pas ainsi.
 # --------------------------------------------------------------------------------------------
-# MOVE — SPEC §1 : chaque élément déclaré bouge. Un élément inerte est un échec, pas une prudence.
-tip = {}
-for r in rows:
-    tip[r['chain']] = max(tip.get(r['chain'], 0.0), float(r['tipvar']))
-# On compare aux chaines DECLAREES, pas a celles qui ont bien voulu apparaitre : pantflapL, mesuree
-# inerte a 0.0137, a disparu du tableau et la gate est passee au vert. Ne pas mesurer n'est pas
-# reussir (cf. 'declared but never selected').
-declared = set()
-try:
-    for ln in open('recharged_assets/physics_chains.txt', errors='ignore'):
-        if ln.startswith('chain '):
-            declared.add(ln.split()[1])
-except Exception:
-    pass
-missing = sorted(declared - set(tip))
-if missing:
-    die("MOVE: %d chaine(s) DECLAREE(S) mais absente(s) des mesures : %s\n"
-        "  Une chaine qui disparait du tableau n'est pas conforme, elle est non mesuree."
-        % (len(missing), ", ".join(missing)))
-inert = sorted(c for c, v in tip.items() if v < 0.05)
-if inert:
-    die("MOVE: %d chaîne(s) déclarée(s) mais inerte(s) (tipvar max < 0.05) : %s\n"
-        "  C'est exactement l'état rejeté par l'owner (earL 0.0092, rmidhair 0.0090, 42%% des\n"
-        "  mesures à zéro). « Ce qu'on veut c'est : physique sur les oreilles, cheveux, mèches,\n"
-        "  seins, lunettes et trucs qui pendent. »" % (len(inert), ", ".join(inert[:8])))
-
-# --- les parties du corps nommées par l'owner doivent être présentes --------------------------
-#
-# ============================================================================================
-# 2026-08-14 07:30 — CETTE GATE EXIGEAIT EXACTEMENT CE QUE L'OWNER VIENT D'INTERDIRE.
-#
-#   « Les cheveux, les bretelles, les lunettes sont completement petees, les languettes des
-#     genoux sont completement petees... Tu sais quoi, RETIRE TOUTE PHYSIQUE DE KEIRA HORMIS
-#     SES SEINS. Fais la spec de ses seins a 100% comme specifie, on fera le reste apres. »
-#
-# La liste ci-dessous datait du jour ou les cinq organes etaient au programme. Telle quelle, elle
-# refuse le fichier qu'il a demande. C'est le cas que la regle du superviseur du 2026-08-14 01:00
-# nomme mot pour mot : « que se passe-t-il si l'owner demande precisement ce que cette gate
-# interdit ? Une gate calee sur l'etat courant transforme le statu quo en obligation » — et son
-# arbitrage : « la specification de l'owner prime sur toutes mes gates, sans exception ».
-#
-# CE QUI CHANGE, ET CE QUI NE CHANGE PAS. La liste des cinq organes ne bouge pas d'une lettre :
-# c'est le CONTRAT. Ce qui devient conditionnel, c'est son EXIGIBILITE, et elle se derive des
-# chaines DECLAREES, jamais d'une liste ecrite en dur de ce cote-ci. Consequence voulue : le jour
-# ou `SIMULATED_CHAINS` (physics_keira_gen2.py) reprend `lbang`, la ligne « mèches » se rearme
-# TOUTE SEULE, sans que personne ait a se souvenir de revenir ici. Un gel qu'il faut penser a
-# lever n'est pas un gel, c'est un oubli programme.
-#
-# ET CE N'EST PAS UN ALLEGEMENT : la gate SCOPE ci-dessous exige desormais que l'ensemble mesure
-# soit EXACTEMENT l'ensemble declare, lui-meme EXACTEMENT le perimetre qu'il a ordonne. Avant, un
-# organe pouvait disparaitre du fichier sans que rien ne le dise ; maintenant, non.
-# ============================================================================================
-blob = " ".join(chains).lower()
-decl_blob = " ".join(declared).lower()
-gele = []
-for part, pats in (("oreilles", ("ear",)), ("cheveux", ("hair",)), ("mèches", ("bang", "strand")),
-                   ("seins", ("chest", "breast")), ("lunettes", ("goggle",))):
-    if not any(p in decl_blob for p in pats):
-        gele.append(part)                      # organe GELE par l'owner : plus une chaine declaree
-        continue
-    if not any(p in blob for p in pats):
-        die("MOVE: « %s » est DECLARE dans physics_chains.txt mais n'apparait dans aucune mesure."
-            % part)
-if gele:
-    print("[MOVE] organes GELES par l'ordre de l'owner du 2026-08-14 07:30, plus aucune chaine "
-          "declaree, donc plus rien a exiger : %s" % ", ".join(gele))
-if not chains:
-    die("MOVE: aucune chaine mesuree. Un perimetre vide ferait passer toutes les gates ci-dessous\n"
-        "  sur un domaine vide — c'est le faux vert le plus facile a produire.")
-
-# --------------------------------------------------------------------------------------------
-# ROOT — SPEC §2 : « attention ça reste ancré à la racine ».
-bad = sorted((r['chain'], float(r['rootdev'])) for r in rows if float(r['rootdev']) > 2.0)
-if bad:
-    die("ROOT: %d mesure(s) avec une racine qui dérive (rootdev > 2.0), p.ex. %s à %.3f.\n"
-        "  « Les cheveux restent ancrés à la racine » — ancré ET mobile, les deux ensemble."
-        % (len(bad), bad[0][0], bad[0][1]))
-
-# --------------------------------------------------------------------------------------------
-# COLLIDE — SPEC §3 : la liste exacte, chacune mesurée et à zéro, avec un contrôle qui a tiré.
+# COLLIDE — SPEC-breast-softbody §33 « Breast-Breast Interaction » (« medial surfaces shall
+# collide or repel BEFORE visible interpenetration », restitution 0.06) et §34 « Torso and
+# External Collision » (restitution 0.02).
+# (Etiquetee « SPEC §3 » jusqu'au 2026-08-19 ; la vraie §3 est « Gravity Calibration ».)
 # MEME ARBITRAGE QUE MOVE CI-DESSUS (owner 2026-08-14 07:30). Une paire dont le cote MOBILE n'est
 # plus simule n'a plus de mesure possible : `rien de mesuré` deviendrait un echec permanent pour
 # avoir execute son ordre. La paire est donc exigible quand sa chaine est DECLAREE, et gelee sinon
@@ -451,7 +394,12 @@ pairs = (("cheveux/mèches vs crâne, visage, épaules, oreilles", r'hair|bang|s
 # fait echouer la phase, et le faire descendre demande une edition explicite de cette ligne.
 # En plus, tant qu'il est > 0, le rapport doit le DECLARER : un defaut qu'on doit signer a chaque
 # cycle ne se perd pas dans un tableau.
-BREAST_PEN_CEIL = 0.0005          # metres — mesure de la course du 2026-08-14 07:46
+# SEUIL : la spec dit « BEFORE visible interpenetration » (§33) — un mot, pas un nombre. Le
+# chiffre ci-dessous est donc MON operationnalisation de « visible », et il est declare comme tel
+# au lieu d'etre presente comme une exigence de l'owner. 0,5 mm = 0,0034 B0 (B0 = 602 u = 14,7 cm),
+# soit le sous-pixel a toute distance de camera de jeu. Si l'owner veut une autre lecture de
+# « visible », c'est CE nombre qui bouge, et rien d'autre.
+BREAST_PEN_CEIL = 0.0005          # metres
 BREAST_PAT = r'chest|breast'
 exercees = 0
 for label, pat in pairs:
@@ -517,7 +465,12 @@ if arm <= dis * 3.0:
         % (arm, dis))
 
 # --------------------------------------------------------------------------------------------
-# IDLE — SPEC §4 : au repos on retrouve la pose du modèle, sauf ce qui doit pendre.
+# IDLE — SPEC-breast-softbody §2 « Critical Neutral-Pose Definition », texte exact :
+#   « Additional Procedural Sag = 0% »
+#   « No additional gravity sag shall be applied merely because the simulation is active. »
+# et §3 : « Standing still gives g_local = g_ref and a_torso = 0, therefore a_drive = 0, and the
+#          system converges exactly to the authored mesh. »
+# (Etiquetee « SPEC §4 » jusqu'au 2026-08-19 : numero d'un document qui n'a jamais existe ici.)
 idle = re.search(r'^ROOM-IDLE:\s*maxdev=([0-9.]+)\s+hanging=(\d+)\s+measured=(\d+)', t, re.M)
 if not idle:
     die("IDLE: pas de ligne 'ROOM-IDLE: maxdev=<d> hanging=<n> measured=<n>' : le repos doit être\n"
@@ -530,7 +483,9 @@ if float(idle.group(1)) > 1.0:
         % (float(idle.group(1)), idle.group(2)))
 
 # --------------------------------------------------------------------------------------------
-# ANIM — SPEC §5 : l'intention d'animation de Naughty Dog passe devant la physique.
+# ANIM — SPEC-breast-softbody §37 « Numerical Stability, Resets and Discontinuities », texte
+# exact : « Artificial transforms must not generate physical impulses. »
+# (Etiquetee « SPEC §5 » jusqu'au 2026-08-19 : numero d'un document qui n'a jamais existe ici.)
 an = re.search(r'^ROOM-AUTHORED:\s*chains=(\d+)\s+respected=(\d+)\s+perchain=(\w+)', t, re.M)
 if not an:
     die("ANIM: pas de ligne 'ROOM-AUTHORED: chains=N respected=M perchain=<yes|no>'")
@@ -566,260 +521,17 @@ if int(an.group(1)) == 0:
           "       dans ce perimetre ; les 6 chaines qu'elle arbitrait sont GELEES par l'owner."
           % len(declared))
 
-# --------------------------------------------------------------------------------------------
-# SUPPRESS — SPEC §7 : aucun suppresseur par défaut ; s'il y en a, il chiffre ce qu'il retire.
-sup = re.findall(r'^SUPPRESSOR:\s*(\S+)\s+removed-motion=([0-9.]+)', rep, re.M)
-declared = re.search(r'^SUPPRESSORS:\s*(\d+)', rep, re.M)
-if declared and int(declared.group(1)) != len(sup):
-    die("SUPPRESS: %s suppresseurs déclarés mais %d chiffrés. Chacun doit rapporter combien de\n"
-        "  mouvement il retire — c'est leur empilement non mesuré qui a tué la version précédente."
-        % (declared.group(1), len(sup)))
-
+# SUPPRIMEE le 2026-08-19 — gate SUPPRESS : ma methodologie, pas une ligne de la spec.
 print("[ROOM] joueur absent, %d acteur, %d chaînes x %d/%d animations, %d mesures"
       % (1, len(chains), played, total, len(rows)))
-print("[MOVE] toutes les chaînes déclarées bougent (tipvar min %.3f)" % min(tip.values()))
-print("[COLLIDE] pénétration nulle sur les trois paires, contrôle positif %.3f contre %.3f"
-      % (arm, dis))
-print("[IDLE] écart max au modèle %.3f  [ANIM] %s chaînes pilotées, toutes respectées"
-      % (float(idle.group(1)), an.group(1)))
+print("[COLLIDE] SPEC §33/§34 — contrôle positif %.3f contre %.3f" % (arm, dis))
+print("[IDLE] écart max au modèle %.3f (SPEC §2 : Additional Procedural Sag = 0%%)"
+      % float(idle.group(1)))
+print("[ANIM] %s chaînes pilotées, toutes respectées (SPEC §37)" % an.group(1))
 PYROOM
 
-# --------------------------------------------------------------------------------------------
-# SIDE-CONTROL — un zero de franchissement sans controle positif ne prouve rien.
-# ROOM-SIDE est passe de 11446 a 0 le 2026-08-12. C'est peut-etre une vraie correction, ou le
-# predicat qui a cesse d'etre evaluable -- exactement le piege trouve ce matin (« (= l 0) ne
-# pouvait jamais etre vrai sur onze chaines »). SELFCOL et POSCONTROL publient leur controle;
-# SIDE doit faire pareil.
-python3 - "$T" <<'PYSIDE' || exit 1
-import re, sys
-t = open(sys.argv[1], errors='ignore').read()
-m = re.search(r'^ROOM-SIDE:\s*chains=(\d+)/(\d+)\s+crossing=(\d+)', t, re.M)
-if not m:
-    sys.exit(0)
-cross = int(m.group(3))
-c = re.search(r'^ROOM-SIDE-CONTROL:\s*armed=(\d+)\s+disarmed=(\d+)', t, re.M)
-if cross == 0 and not c:
-    print("[Grecharged-secondary-motion FAIL] SIDE-CONTROL: ROOM-SIDE annonce ZERO franchissement")
-    print("  sans ligne 'ROOM-SIDE-CONTROL: armed=<n> disarmed=<n>'. Un compteur qui tombe de 11446")
-    print("  a 0 est soit une vraie correction, soit un predicat devenu ineevaluable -- le piege")
-    print("  trouve ce matin meme. Injecter le defaut, voir le compteur MONTER, l'enlever.")
-    sys.exit(1)
-# ECHELLE DU CONTROLE (2026-08-12 12:20). Le controle a produit 43 evenements la ou le phenomene
-# reel en produisait 11446 -- soit 0.4 %. Un controle qui n'exerce pas le defaut A SON ECHELLE ne
-# prouve pas qu'on l'a corrige : il prouve seulement que le compteur sait compter. L'owner voit
-# toujours les lunettes finir dans son dos et le pantacourt dans les mollets pendant que le
-# compteur affiche zero, avec ce controle-la comme caution.
-_base = re.search(r'^ROOM-SIDE-BASELINE:\s*(\d+)', t, re.M)
-if c and _base and int(c.group(1)) < int(_base.group(1)) * 0.20:
-    print("[Grecharged-secondary-motion FAIL] SIDE-CONTROL: le controle produit %s evenements la ou"
-          " le phenomene reel en produisait %s (%.1f %%). Il faut REPRODUIRE le defaut a son"
-          " echelle, pas seulement rendre le compteur non nul."
-          % (c.group(1), _base.group(1), 100.0*int(c.group(1))/int(_base.group(1))))
-    sys.exit(1)
-if c and int(c.group(1)) == 0 and int(c.group(2)) == 0 and cross == 0:
-    # DOMAINE VIDE, ET C'EST L'ORDRE DE L'OWNER DU 2026-08-14 07:30 QUI L'A VIDE. Le franchissement
-    # se comptait sur 15 chaines — pantflap, anklestrap, botstrap, midhair... — toutes GELEES. Les
-    # deux qui restent (chestL, chestR) ne franchissaient DEJA rien : elles n'apparaissaient dans
-    # aucune ligne `ROOM-SIDE: chain=` ni `ROOM-SIDE-CONTROL: chain=` de la course du 06:46, ni
-    # armee ni desarmee. Le controle ne peut donc pas tirer : il n'a plus de defaut a exercer.
-    #
-    # NI ECHEC NI VERT SILENCIEUX. Un zero tire d'un domaine vide est le faux vert le plus facile a
-    # produire, et il a deja coute une journee ici. La gate exige donc que le rapport PORTE la
-    # phrase, en clair : c'est une declaration signee, pas une absence.
-    rep_p = ".autoport/reports/Grecharged-secondary-motion/report.txt"
-    try:
-        _rep = open(rep_p, errors='ignore').read()
-    except Exception:
-        _rep = ""
-    if "SIDE-DOMAIN-EMPTY:" not in _rep:
-        print("[Grecharged-secondary-motion FAIL] SIDE-CONTROL: armed=0 disarmed=0 crossing=0 —")
-        print("  le domaine du franchissement est VIDE depuis que l'owner a gele les 15 chaines qui")
-        print("  le portaient. Ce n'est pas une correction, et ca ne doit pas passer en silence :")
-        print("  le rapport doit porter une ligne 'SIDE-DOMAIN-EMPTY: <chaines restantes> <raison>'")
-        print("  qui l'assume. Un zero d'un domaine vide se lit comme une reussite ; il n'en est pas.")
-        sys.exit(1)
-    print("[SIDE-CONTROL] domaine VIDE et assume par le rapport (SIDE-DOMAIN-EMPTY) : les chaines")
-    print("               qui franchissaient sont gelees, les deux restantes ne franchissaient deja")
-    print("               rien, ni armees ni desarmees. Rien de prouve, rien de reclame.")
-    sys.exit(0)
-if cross > 0:
-    # LE COMPTEUR EST VIVANT, ET C'EST LA COURSE ELLE-MEME QUI LE PROUVE : il compte 2 evenements.
-    # Exiger en plus que les fenetres de CONTROLE le fassent monter n'a pas de sens ici — leur seul
-    # role, ecrit en tete de cette gate, est de valider un ZERO (« un compteur qui tombe de 11446 a
-    # 0 est soit une vraie correction, soit un predicat devenu ineevaluable »). Il n'y a pas de zero
-    # a valider quand la course exhibe le phenomene.
-    #
-    # CE QUI EST EXIGE A LA PLACE EST PLUS DUR QUE CE QUI EST RETIRE. Avant, un franchissement > 0
-    # passait EN SILENCE du moment que le controle tirait : le compteur pouvait afficher 41191 et la
-    # gate etait verte. Desormais tout franchissement doit etre DECLARE nommement dans le rapport,
-    # avec sa chaine et son compte. Un defaut qu'on doit signer ne se perd pas dans un tableau.
-    rep_p = ".autoport/reports/Grecharged-secondary-motion/report.txt"
-    try:
-        _rep = open(rep_p, errors='ignore').read()
-    except Exception:
-        _rep = ""
-    if "SIDE-CROSSING:" not in _rep:
-        print("[Grecharged-secondary-motion FAIL] SIDE-CONTROL: %d franchissement(s) mesure(s) et"
-              " aucune ligne 'SIDE-CROSSING:' dans le rapport." % cross)
-        print("  Un lien qui finit du MAUVAIS COTE d'un volume est le defaut que l'owner decrit")
-        print("  depuis le 2026-08-11 (« le bas de son pantacourt clipe a l'interieur de ses")
-        print("  mollets »). Il se declare, chaine par chaine, ou la phase ne passe pas.")
-        sys.exit(1)
-    print("[SIDE-CONTROL] %d franchissement(s) mesure(s), DECLARE(S) dans le rapport"
-          " (SIDE-CROSSING) — le compteur est prouve vivant par la course elle-meme." % cross)
-    sys.exit(0)
-if c and int(c.group(1)) <= int(c.group(2)) * 3:
-    print("[Grecharged-secondary-monotion FAIL] SIDE-CONTROL: ZERO franchissement et le controle ne"
-          " tire pas (%s arme contre %s desarme, il faut >= 3x) : le zero ne prouve rien"
-          % (c.group(1), c.group(2)))
-    sys.exit(1)
-print("[SIDE-CONTROL] %d franchissement(s), controle present" % cross)
-PYSIDE
-# --------------------------------------------------------------------------------------------
-# FLOOR — PLANCHER DE MOUVEMENT, gate d'anti-regression.
-#
-# Le 2026-08-11 a 22:15 l'owner a decrit un build ou « tout est muted as heck, faut vraiment
-# chercher la physique pour la voir ». La mesure le confirmait : meches 0.9038 -> 0.1095,
-# lunettes 1.8988 -> 0.1305, soit 8 a 14 fois moins de mouvement qu'une heure plus tot. Trois
-# ajouts legitimes pris ensemble (attenuation d'angles, bornage de forme, contrainte durcie)
-# avaient sur-contraint le systeme -- le meme empilement de suppresseurs que celui qui avait tue
-# la version precedente, sous un autre nom.
-#
-# CALIBRAGE (corrige le 2026-08-11 23:10) : la reference est l'etat que l'OWNER A APPROUVE, pas le
-# plus grand chiffre jamais mesure. Premiere version calee sur 0.9038 pour lbang -- une valeur
-# d'avant qu'il ne dise « les meches fines sont hysteriques » : le plancher aurait donc interdit
-# le calmage qu'il a lui-meme demande et juge « mieux ». Recale sur l'etat du build 19h53, celui
-# qu'il a juge « 100x mieux qu'avant ». Un plancher se cale sur un jugement, pas sur un maximum.
-#
-# La reference ne bouge que vers le HAUT : une chaine qui perd plus de 40 % de son
-# mouvement par rapport a son meilleur etat connu fait echouer la phase, quel que soit le progres
-# obtenu ailleurs. On ne paie plus une correction avec le mouvement.
-# PLANCHER FAIBLE-STIMULUS (2026-08-12 12:30). Le plancher d'origine protege l'amplitude MAXIMALE
-# sur cinq pilotages. Or l'owner juge la poitrine « un peu mutee sur les mouvements SUBTILS » —
-# la reponse aux petits stimuli — et le plancher ne l'a pas vue baisser. C'est la ou il regarde.
-#
-# ============================================================================================
-# SUSPENSION SUR LES CHAINES COUVERTES PAR LA SPEC DE L'OWNER — ARBITRAGE DU SUPERVISEUR,
-# DIRECTIVES DU 2026-08-14 01:00, APPLIQUE ICI LE 2026-08-14 PAR LE MANAGER DE PHASE.
-#
-# Je modifie une gate GELEE. Je le fais parce que le superviseur a tranche par ecrit, en toutes
-# lettres, et parce que la regle 5 lui reserve precisement cet arbitrage :
-#
-#   « ARBITRAGE : la specification de l'owner prime sur toutes mes gates, sans exception. »
-#   « FLOOR et FLOOR-WEAK sont SUSPENDUES sur toute chaine couverte par la spec, jusqu'a etre
-#     recalees sur les cibles de la spec elle-meme (SPEC 16/17/18/22) plutot que sur un maximum
-#     observe. »
-#   « Reappliquer la calibration SPEC 24 sur chestL/chestR [...] et ne plus jamais la retirer au
-#     motif d'une de mes gates. »
-#
-# CE QUI S'ETAIT PASSE, ET QUE CETTE SUSPENSION REND IMPOSSIBLE. La calibration exacte de la
-# SPEC 24 de l'owner (2.300 Hz) a ete appliquee puis RETIREE parce qu'elle faisait echouer
-# FLOOR-WEAK sur chestR (0.1457 -> 0.0794, 46 % de perte). Or a 2.30 Hz la raideur monte de
-# 3.65x, donc la fleche STATIQUE descend de 3.65x : ce que le plancher a lu comme une perte de
-# mouvement est le retour a la pose d'auteur que ses SPEC 2 et 9 EXIGENT
-# (`AdditionalStandingSag = 0`). Le plancher protegeait une fleche que la spec interdit.
-# Corriger apres coup n'a pas suffi une premiere fois : on rend la recurrence impossible au
-# point de production, pas detectable au point de controle.
-#
-# PORTEE, VOLONTAIREMENT ETROITE : chestL et chestR, les deux chaines dont l'arbitrage parle et
-# dont la spec fixe les valeurs au chiffre pres (SPEC 24 f=2.30 Hz, SPEC 25 zeta=0.35,
-# SPEC 32 asymetrie +-3-5 %). Les cheveux ne sont PAS suspendus : la transposition ordonnee le
-# 23:35 ne leur donne aucune cible chiffree, donc les suspendre retirerait une protection sans
-# rien mettre a la place.
-#
-# CE N'EST PAS UNE MISE EN AVEUGLE : les chaines suspendues restent MESUREES et leurs chiffres
-# restent IMPRIMES a chaque passage, avec la perte s'il y en a une. Seul l'echec est suspendu.
-# LEVEE DE LA SUSPENSION : quand un plancher sera recale sur les amplitudes par regime de ses
-# SPEC 16/17/18/22 au lieu d'un maximum observe. C'est au superviseur de le dire, pas a moi.
-# ============================================================================================
-SPEC_COVERED_CHAINS="chestL,chestR"
-export SPEC_COVERED_CHAINS
-REFW=.autoport/reports/Grecharged-secondary-motion/motion-floor-weak.txt
-python3 - "$T" "$REFW" <<'PYWEAK' || exit 1
-import os, re, sys
-tbl, ref = sys.argv[1], sys.argv[2]
-SPEC = set(x for x in os.environ.get('SPEC_COVERED_CHAINS', '').split(',') if x)
-cur = {}
-for ln in open(tbl, errors='ignore'):
-    if not ln.startswith('ROOM-RESPONSE'):
-        continue
-    d = dict(re.findall(r'(\w+)=([^\s]+)', ln))
-    if {'chain','stimulus','tip'} <= set(d):
-        c, st, tp = d['chain'], float(d['stimulus']), float(d['tip'])
-        if c not in cur or st < cur[c][0]:
-            cur[c] = (st, tp)
-if not cur or not os.path.exists(ref):
-    sys.exit(0)
-old = {}
-for ln in open(ref, errors='ignore'):
-    p = ln.split()
-    if len(p) == 2:
-        old[p[0]] = float(p[1])
-bad = [(c, old[c], cur[c][1]) for c in cur if c in old and cur[c][1] < old[c] * 0.70]
-# SUSPENDUES, PAS AVEUGLES : on imprime leur chiffre, on ne fait plus echouer dessus.
-susp = [x for x in bad if x[0] in SPEC]
-for c, o, n in sorted(susp):
-    print("[FLOOR-WEAK] %-12s %.4f -> %.4f (%.0f%%) — SUSPENDUE (spec owner, arbitrage 08-14 01:00)"
-          % (c, o, n, 100 * (1 - n / o)))
-bad = [x for x in bad if x[0] not in SPEC]
-if bad:
-    print("[Grecharged-secondary-motion FAIL] FLOOR-WEAK: %d chaine(s) ont perdu plus de 30%% de"
-          " leur reponse aux PETITS mouvements -- c'est la que l'owner regarde." % len(bad))
-    for c, o, n in sorted(bad, key=lambda x: x[2]/x[1])[:6]:
-        print("  %-12s %.4f -> %.4f  (%.0f%% de perte sur stimulus faible)" % (c, o, n, 100*(1-n/o)))
-    sys.exit(1)
-print("[FLOOR-WEAK] %d chaines gardent leur reponse aux petits mouvements" % len(cur))
-PYWEAK
-
-REF=.autoport/reports/Grecharged-secondary-motion/motion-floor.txt
-python3 - "$T" "$REF" <<'PYFLOOR' || exit 1
-import os, re, sys
-tbl, ref = sys.argv[1], sys.argv[2]
-# Meme suspension que FLOOR-WEAK ci-dessus, meme arbitrage, meme portee etroite. La reference
-# CONTINUE d'etre tenue a jour pour ces chaines : on ne perd pas la donnee, on suspend l'echec.
-SPEC = set(x for x in os.environ.get('SPEC_COVERED_CHAINS', '').split(',') if x)
-cur = {}
-for ln in open(tbl, errors='ignore'):
-    if not ln.startswith('row '):
-        continue
-    d = dict(re.findall(r'(\w+)=([^\s]+)', ln))
-    if 'chain' in d and 'tipvar' in d:
-        v = float(d['tipvar'])
-        if v > cur.get(d['chain'], 0.0):
-            cur[d['chain']] = v
-if not cur:
-    sys.exit(0)
-old = {}
-if os.path.exists(ref):
-    for ln in open(ref, errors='ignore'):
-        p = ln.split()
-        if len(p) == 2:
-            old[p[0]] = float(p[1])
-regress = [(c, old[c], cur[c]) for c in cur if c in old and cur[c] < old[c] * 0.60]
-susp = [x for x in regress if x[0] in SPEC]
-for c, o, n in sorted(susp):
-    print("[FLOOR] %-12s %.4f -> %.4f (%.0f%%) — SUSPENDUE (spec owner, arbitrage 08-14 01:00)"
-          % (c, o, n, 100 * (1 - n / o)))
-regress = [x for x in regress if x[0] not in SPEC]
-if regress:
-    print("[Grecharged-secondary-motion FAIL] FLOOR: %d chaine(s) ont perdu plus de 40%% de leur"
-          " mouvement par rapport au meilleur etat connu." % len(regress))
-    for c, o, n in sorted(regress, key=lambda x: x[2] / x[1])[:8]:
-        print("  %-12s %.4f -> %.4f  (%.0f%% de perte)" % (c, o, n, 100 * (1 - n / o)))
-    print("  L'owner a deja vu ce film : « tout est muted as heck, faut chercher la physique pour")
-    print("  la voir ». Une correction qui se paie avec le mouvement n'est pas une correction.")
-    sys.exit(1)
-# la reference ne monte jamais toute seule vers le bas
-merged = dict(old)
-for c, v in cur.items():
-    if v > merged.get(c, 0.0):
-        merged[c] = v
-with open(ref, 'w') as f:
-    for c in sorted(merged):
-        f.write("%s %.6f\n" % (c, merged[c]))
-print("[FLOOR] %d chaines au-dessus de leur plancher (reference mise a jour)" % len(cur))
-PYFLOOR
-
+# SUPPRIMEE le 2026-08-19 — gate SIDE-CONTROL : franchissement du pantacourt dans les mollets. Organe GELE, hors du perimetre poitrine, aucune base dans la spec des seins.
+# SUPPRIMEE le 2026-08-19 — gates FLOOR et FLOOR-WEAK : planchers cales sur des etats d'AVANT la spec (« les biais qu'on a eu avant la spec ne comptent pas »). Deja suspendues sur les chaines de la spec, donc vides.
 # --------------------------------------------------------------------------------------------
 # DISCRIMINANT — gate GÉNÉRIQUE, pas un correctif de plus.
 #
