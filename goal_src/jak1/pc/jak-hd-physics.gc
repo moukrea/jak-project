@@ -245,8 +245,7 @@
 (define *phys-csby* (new 'global 'array 'float PHYS-SCO))
 (define *phys-csbz* (new 'global 'array 'float PHYS-SCO))
 (define *phys-csok* (new 'global 'array 'int32 PHYS-SCO))   ;; 1 = un instantane existe
-;; [NOTE-05] COUPLAGE DE JACOBI — **ARME depuis le 2026-08-18**, apres DEUX refus mesures dont
-;; l'objection (allongement d'os) est desormais fermee par NOTE-61. -> jak-hd-physics-NOTES.md
+;; [NOTE-05] COUPLAGE DE JACOBI — ARME depuis le 2026-08-18, apres DEUX refus mesures. -> jak-hd-physics-NOTES.md
 (define *phys-jacobi-off* 0)
 
 ;; [NOTE-06] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
@@ -352,13 +351,8 @@
 ;; caler sur SA bande (2-5 % normal, 5-7 % impulsion forte) sans le regler sur l'instrument.
 (define *phys-secr* (new 'global 'array 'float PHYS-SC))
 (define *phys-dynm* (new 'global 'array 'float PHYS-SC))   ;; son maximum sur la fenetre
-;; [NOTE-57] SPEC 23 — LE TROISIEME DEGRE DE LIBERTE, CELUI QUE LA CONTRAINTE DE LONGUEUR
-;; CONFISQUAIT : pourquoi le point LIBRE s'integre sans jamais etre projete, pourquoi sa borne
-;; est celle du COM (35 % / 40 % B0) et non celle de l'apex, et quel residu de §23 subsiste.
-;; Texte integral -> jak-hd-physics-NOTES.md
-;; [NOTE-80] PAR MAILLON DEPUIS LE CYCLE 32. Ces six tableaux etaient dimensionnes PAR CHAINE, donc
-;; le point libre de §23 n'existait que sur le maillon `rlk` : le DISTAL, qui pilote 43.5 % et
-;; 37.5 % de la chair, n'avait aucun troisieme degre de liberte. -> jak-hd-physics-NOTES.md
+;; [NOTE-57] SPEC 23 — LE TROISIEME DEGRE DE LIBERTE QUE LA CONTRAINTE DE LONGUEUR CONFISQUAIT. -> jak-hd-physics-NOTES.md
+;; [NOTE-80] PAR MAILLON DEPUIS LE CYCLE 32 : avant, le point libre de §23 n'existait que sur `rlk`. -> jak-hd-physics-NOTES.md
 (define *phys-cpx*  (new 'global 'array 'float PHYS-SCL))  ;; §23 le point LIBRE, monde, PAR MAILLON
 (define *phys-cpy*  (new 'global 'array 'float PHYS-SCL))
 (define *phys-cpz*  (new 'global 'array 'float PHYS-SCL))
@@ -373,9 +367,7 @@
 (define *phys-rrl*  (new 'global 'array 'float PHYS-SCL))  ;; §23 elongation radiale PAR MAILLON
 (define *phys-rrm*  (new 'global 'array 'float PHYS-SC))   ;; |elongation|/B0 max fenetre, TOUS maillons
 (define *phys-rrr*  (new 'global 'array 'float PHYS-SC))   ;; le meme AVANT la borne §22 (anti-saturation)
-;; [NOTE-81] LES MEMES TROIS, RESOLUS PAR MAILLON — MESURE SEULE, aucun terme du solveur ne les lit.
-;; Sans eux, `rrr` a 1.42 B0 pour un plafond de 0.40 ne dit pas QUEL maillon sature, et les deux
-;; remedes candidats de §22 sont indiscernables. -> jak-hd-physics-NOTES.md
+;; [NOTE-81] LES MEMES TROIS, RESOLUS PAR MAILLON — MESURE SEULE, le solveur ne les lit pas. -> jak-hd-physics-NOTES.md
 (define *phys-rrml* (new 'global 'array 'float PHYS-SCL))  ;; max fenetre APRES la borne, par maillon
 (define *phys-rrrl* (new 'global 'array 'float PHYS-SCL))  ;; le meme AVANT la borne, par maillon
 (define *phys-rrsl* (new 'global 'array 'float PHYS-SCL))  ;; frames ou la borne a mordu, par maillon
@@ -393,6 +385,8 @@
 (define *phys-twv*  (new 'global 'array 'float PHYS-SC))
 (define *phys-twa*  (new 'global 'array 'float PHYS-SC))   ;; roulis absolu cumule de l'ANCRE
 (define *phys-a0m*  (new 'global 'inline-array 'matrix PHYS-SC))  ;; la matrice de l'ancre, frame -1
+;; [NOTE-83] SPEC 37 — LA MOITIE TRANSLATION DU REBASE. -> jak-hd-physics-NOTES.md
+(define *phys-anp*  (new 'global 'inline-array 'vector PHYS-SC))  ;; la POSITION de l'ancre, frame -1
 (define *phys-twok* (new 'global 'array 'int32 PHYS-SC))
 (define *phys-twm*  (new 'global 'array 'float PHYS-SC))   ;; |torsion| max sur la fenetre (mesure)
 (define *phys-twr*  (new 'global 'array 'float PHYS-SC))   ;; torsion RELATIVE ecrite dans la 3x3
@@ -636,7 +630,7 @@
 ;; un cout qu'on decouvre chez lui.
 (define *phys-skin-meas* 0)
 
-(defconstant PHYS-DG 29)
+(defconstant PHYS-DG 31)
 (define *phys-dg* (new 'global 'array 'float (* PHYS-SC PHYS-DG)))
 ;; etat de contrainte de la frame precedente, par (lien, volume), pour compter les bascules.
 ;; 1 bit par volume, un mot par lien : PHYS-COLS <= 96 tient sur trois mots de 32 bits.
@@ -649,8 +643,7 @@
 ;; ARME, LA CONTRAINTE DE COTE EST LEVEE et son compteur doit MONTER. Un compteur tombe a zero
 ;; est soit une correction, soit un predicat devenu inevaluable — le piege de `(= l 0)`.
 (define *phys-side-off* 0)
-;; [NOTE-54] CONTROLE DE LA CONTRAINTE DE LONGUEUR — 1 = elle est DESARMEE, sur la fenetre de
-;; mesure seule. RESTE A 0 EN LIVRAISON. -> jak-hd-physics-NOTES.md
+;; [NOTE-54] CONTROLE DE LA CONTRAINTE DE LONGUEUR — 1 = DESARMEE. RESTE A 0 EN LIVRAISON. -> jak-hd-physics-NOTES.md
 (define *phys-len-off* 0)
 ;; [NOTE-53] CONTROLE k=4 — 1 = LE MUR DE COLLISION EST DESARME (`feff` -> PHYS-VOL-FREE), sur la
 ;; fenetre d'orientation seule. C'est le suspect que le cycle 13 a dimensionne sans le desarmer.
@@ -991,10 +984,7 @@
              (x  (/ (- v kn) cp)))
         (+ kn (* cp (/ x (+ 1.0 x))))))))
 
-;; [NOTE-50] ---- UN TAUX D'AMORTISSEMENT N'EST PAS UN FACTEUR DE RETENTION --------------------
-;; `1 - taux` est le premier terme de `e^-taux`. L'ecart est MESURE, pas theorique : il livrait
-;; zeta 0.379 au mode principal (SPEC 25 en demande 0.350, la salle a lu 0.38) et 0.838 a 7.01 Hz
-;; au mode secondaire (SPEC 36 en demande 0.650 a 5.20). -> jak-hd-physics-NOTES.md
+;; [NOTE-50] UN TAUX D'AMORTISSEMENT N'EST PAS UN FACTEUR DE RETENTION. -> jak-hd-physics-NOTES.md
 (defun phys-decay ((x float))
   "e^-x pour x >= 0 : le facteur de RETENTION qu'un taux `x` produit sur UN pas. Pade(3,3),
    erreur relative < 1e-6 sur [0, 0.8] — la plage reellement utilisee ici est [0.021, 0.708].
@@ -2514,6 +2504,22 @@
                          (gsc  (-> *phys-grav* sc))
                          (cpl  (-> *phys-couple* sc)))
                     (set! (-> *phys-warm* sc) (min 3 (+ warm 1)))
+                    ;; [NOTE-83] SPEC 37 — LE REBASE DE TRANSLATION, ET LA MESURE QUI JUGE SON SEUIL. -> jak-hd-physics-NOTES.md
+                    (let ((rbd (if (> warm 1) (vector-vector-distance anc (-> *phys-anp* sc)) 0.0))
+                          (dgr (* sc PHYS-DG)))
+                      (when (> rbd (-> *phys-dg* (+ dgr 30))) (set! (-> *phys-dg* (+ dgr 30)) rbd))
+                      (when (> rbd (* 7.00 (fmax 1.0 (-> *phys-b0* sc))))
+                        (set! (-> *phys-dg* (+ dgr 29)) (+ 1.0 (-> *phys-dg* (+ dgr 29))))
+                        (let ((dx (- (-> anc x) (-> *phys-anp* sc x)))
+                              (dy (- (-> anc y) (-> *phys-anp* sc y)))
+                              (dz (- (-> anc z) (-> *phys-anp* sc z))))
+                          (dotimes (l n)
+                            (let ((s2 (+ (* sc PHYS-LINKS) l)))
+                              (+! (-> *phys-px* s2) dx) (+! (-> *phys-py* s2) dy) (+! (-> *phys-pz* s2) dz)
+                              (+! (-> *phys-qx* s2) dx) (+! (-> *phys-qy* s2) dy) (+! (-> *phys-qz* s2) dz)
+                              (+! (-> *phys-cpx* s2) dx) (+! (-> *phys-cpy* s2) dy) (+! (-> *phys-cpz* s2) dz)
+                              (+! (-> *phys-cqx* s2) dx) (+! (-> *phys-cqy* s2) dy) (+! (-> *phys-cqz* s2) dz)))))
+                      (vector-copy! (-> *phys-anp* sc) anc))
                     ;; LE STIMULUS GRAVITAIRE LUI-MEME, avant toute reponse. Sans ce nombre, un
                     ;; affaissement nul est indiscernable entre « la gravite n'arrive pas jusqu'a
                     ;; cette chaine » et « la chaine n'y repond pas », et c'est cette ambiguite qui
@@ -2973,8 +2979,7 @@
                                                          ml)
                                                       bl)
                                                    0.0))
-                                            ;; [NOTE-81] LA BORNE DE §22 SUR LE CANAL RADIAL, ET SON
-                                            ;; CONTROLE k=5. -> jak-hd-physics-NOTES.md
+                                            ;; [NOTE-81] LA BORNE DE §22 SUR LE CANAL RADIAL. -> jak-hd-physics-NOTES.md
                                             (rcap (if (zero? *phys-rr-off*) (* 0.40 b0e) (* 1000000.0 b0e)))
                                             ;; APPELEE UNE SEULE FOIS, ET SUR LA VALEUR LIVREE, JAMAIS
                                             ;; SUR L'ETAT : `phys-softmin` n'est pas idempotent
@@ -3576,12 +3581,7 @@
                                  (wfw (fmax 0.0 gzc))
                                  (wlt (fabs gxc))
                                  (wsm (fmax 0.0001 (+ wdn (+ wup (+ wbk (+ wfw wlt))))))
-                                 ;; [NOTE-52] SPEC 10 ET SPEC 11 ETAIENT INTERVERTIES — les colonnes `wbk` et `wfw` recevaient
-                                 ;; le triplet l'une de l'autre. Aucune constante n'est modifiee : les memes cinq triplets,
-                                 ;; affectes a l'autre signe de `gzc`. Trois preuves (anatomie du rig livre, mecanique du
-                                 ;; pole bloque, incoherence interne) -> jak-hd-physics-NOTES.md
-                                 ;;   gzc < 0  gravite vers l'AVANT   -> face contre terre -> §11 prone
-                                 ;;   gzc > 0  gravite vers l'ARRIERE -> sur le dos        -> §10 supine
+                                 ;; [NOTE-52] SPEC 10 ET SPEC 11 ETAIENT INTERVERTIES (`wbk`/`wfw`, signe de `gzc`). -> jak-hd-physics-NOTES.md
                                  (sx0 (/ (+ (* wdn 1.000) (+ (* wup 0.900)
                                             (+ (* wbk 0.900) (+ (* wfw 1.230) (* wlt 0.800))))) wsm))
                                  (sy0 (/ (+ (* wdn 1.000) (+ (* wup 1.230)
@@ -4513,7 +4513,12 @@
     (set! (-> *phys-dg* (+ (* i PHYS-DG) 25)) 0.0)
     (set! (-> *phys-dg* (+ (* i PHYS-DG) 26)) 0.0)
     (set! (-> *phys-dg* (+ (* i PHYS-DG) 27)) 0.0)
-    (set! (-> *phys-dg* (+ (* i PHYS-DG) 28)) 0.0))
+    (set! (-> *phys-dg* (+ (* i PHYS-DG) 28)) 0.0)
+    ;; 29/30 = SPEC 37 : frames rebasees, et |delta ancre| max. MEME PORTEE (chaine, animation,
+    ;; pilotage) : un compte de rebases valable pour la course entiere ne dirait pas QUELLE fenetre
+    ;; porte la discontinuite, et c'est precisement la question.
+    (set! (-> *phys-dg* (+ (* i PHYS-DG) 29)) 0.0)
+    (set! (-> *phys-dg* (+ (* i PHYS-DG) 30)) 0.0))
   (none))
 
 (defun phys-diag-reset! ()
@@ -4641,8 +4646,6 @@
     0.0))
 
 ;; [NOTE-51] LE TRIEDRE DE SPEC 7 ET POURQUOI IL LUI FALLAIT UN ACCESSEUR -> jak-hd-physics-NOTES.md
-;; REPERE : espace ANCRE (le meme que `gla`), PAS le monde de `phys-axis-world`. LIGNE DE BASE :
-;; `fok=0` -> trois zeros, le triedre n'est pas releve et rien ne doit etre conclu.
 (defun phys-tri-world ((slot int) (chain int) (axis int) (comp int))
   (if (and (>= slot 0) (< slot PHYS-SLOTS) (>= chain 0) (< chain PHYS-CHAINS)
            (>= axis 0) (< axis 3) (>= comp 0) (< comp 3))

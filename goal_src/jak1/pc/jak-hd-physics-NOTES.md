@@ -2127,6 +2127,8 @@ les chiffres du cycle 8 restent lisibles et que la comparaison ait un avant.
 
 ## NOTE-59  (moteur, aux alentours de la ligne 2863)
 
+> **PERIMEE DEPUIS LE CYCLE 32 (2026-08-19), ET ELLE AFFIRME L'INVERSE DU CODE.** Cette section conclut que la garde « RESTE SUR `rlk` ». Le cycle 32 l'a changee en `(>= l rlk)` : le point libre de §23 existe desormais sur TOUS les maillons, et le distal est passe de 0 valeur non nulle sur 150 a 150 sur 150, sur six canaux. L'etat courant est decrit par **NOTE-80**, qui fait foi. Ce qui suit est conserve comme trace de la decision d'alors, pas comme description du moteur.
+
 ```
 ---- SPEC 23 : LE TROISIEME DEGRE DE LIBERTE ----------
 Voir la note de `*phys-cpx*`. Le point LIBRE part de
@@ -2723,6 +2725,8 @@ cycles.
 
 ## NOTE-79 — LE CANAL RADIAL DE SA §23 ETAIT CALCULE PAR MAILLON ET RANGE PAR CHAINE
 
+> **CORRIGEE : SA PHRASE SUR `*phys-rr*` EST PERIMEE DEPUIS LE CYCLE 32.** Elle ecrit que `*phys-rr*` « reste le seul que le solveur lise ». C'est faux depuis que le tenseur de deformation lit `*phys-rrl*` a `:3749` sur l'index de POINTE (`tl`). `*phys-rr*` ne garde plus que la valeur du maillon RACINE, et **NOTE-80** fait foi sur ce point.
+
 **Le defaut, et il est d'indexation, pas de physique.** Le calcul d'elongation radiale tourne DANS
 la boucle par maillon du solveur — `(dotimes (l n)` ouvre a `:2550` et lie `scl` a `:2551`, et le
 bloc l'utilise (`(set! (-> *phys-qx* scl) ...)`) — mais il ecrivait son resultat dans `*phys-rr*`,
@@ -2872,3 +2876,83 @@ pour que `mlb + cdev = rrr` (au signe pres) soit un controle d'integrite qui pas
 de calcul distincts et pas une tautologie.
 
 Mesure seule : `*phys-rrol*` et `*phys-rrcl*` ne sont lus par aucun terme du solveur.
+
+## NOTE-83 — SPEC 37 : LA MOITIE TRANSLATION DU REBASE, ET LA MESURE QUI JUGE SON SEUIL
+
+Sa §37 : *« rebase on teleport / cutscene / discontinuity — artificial transforms must not generate
+physical breast impulses. »*
+
+**LA MOITIE ROTATION EXISTAIT DEPUIS LONGTEMPS, LA MOITIE TRANSLATION ETAIT ABSENTE.** Le moteur
+protege le roulis accumule de l'ancre (`*phys-twa*`, la torsion de §29) contre une ROTATION brusque
+(`:3701-3707`, « au-dela d'un demi-radian en une frame ce n'est plus une rotation du buste, c'est un
+teleport ou une coupe »). Rien ne protegeait l'etat de POSITION — `*phys-px/py/pz*`,
+`*phys-qx/qy/qz*` — ni celui du point libre de §23 contre une TRANSLATION brusque.
+
+**MESURE QUI L'A ETABLI (cycle 33 etape 2), et elle sort d'un controle de fiabilite, pas d'une
+recherche :** `perr` (|apex − cible de repos| / B0) par fenetre, dans la salle —
+
+| fenetre | fenetres | max > 5 B0 | perr max |
+|---|---|---|---|
+| updown | 62 | 14 | 63.97 B0 |
+| leftright | 62 | **0** | 0.94 B0 |
+| accel | 62 | **0** | 1.12 B0 |
+| jerk | 62 | **0** | 1.27 B0 |
+| tilt | 62 | 2 | 5.08 B0 |
+| SANS PILOTAGE | 62 | **62** | 53.54 B0 |
+
+Et l'a-coup est reel dans la POSE ECRITE, pas seulement dans la reference : `PHYSBASE jump` vaut
+**175.7 u (0.2918 B0)** et **188.7 u (0.3135 B0)** dans des fenetres ou la salle ne commande rien.
+
+**LA FORME DU REBASE, ET C'EST POURQUOI C'EST LA BONNE.** On applique le MEME delta d'ancre a `p`,
+`q`, `cp` et `cq` :
+
+    p += d ; q += d   ->   (p - q) INCHANGE        -> aucune vitesse creee
+    et p - anc INCHANGE                            -> aucune erreur de ressort creee
+
+Une transformation artificielle ne produit donc, **par construction**, aucune impulsion. Ce n'est
+pas un amortisseur, pas un clamp, pas un gel : rien n'est retire au mouvement, l'etat est simplement
+transporte. C'est la difference entre un rebase et un suppresseur, et elle se verifie par le fait
+que `p - q` est litteralement le meme nombre avant et apres.
+
+**LE SEUIL : MON PREMIER CHOIX ETAIT FAUX, ET LA MESURE L'A DIT EN UNE COURSE.**
+
+J'avais retenu `0.50 × b0e` (301 u), l'enveloppe DURE d'apex de sa §38, en ecrivant d'avance que le
+risque etait qu'il morde un mouvement legitime. **Il l'a mordu :** 2308 frames rebasees sur les
+fenetres `leftright`/`accel`/`jerk`, c'est-a-dire sur des pilotages COMMANDES — 20 % des frames de
+`tilt`. A ce seuil le rebase est un SUPPRESSEUR, et le contrat l'interdit.
+
+**LA DISTRIBUTION MESUREE DONNE LE BON SEUIL, ET ELLE MONTRE UN INTERVALLE VIDE :**
+
+    |delta ancre| max par fenetre, unites de jeu
+      leftright       354.4        \
+      accel           519.7         |  PILOTAGES COMMANDES (legitimes)
+      jerk            582.3         |  plus grand : 582.3
+      tilt           2872.5        /   (min sur les 31 fenetres : 2747.0)
+      ----------------------------------- INTERVALLE VIDE, facteur 2.27x
+      ligne de base  6513.0 (min)  \  FRONTIERES DE FENETRE (artificielles)
+      updown        37811.6         /  jusqu'a 37 811 u
+
+Seuil retenu : **`7.00 × b0e` = 4214 u**, place DANS l'intervalle vide, a **1.47x** au-dessus du
+plus grand deplacement legitime et **1.55x** au-dessous du plus petit deplacement artificiel.
+
+**LA PROVENANCE DE `7.00` EST UNE MESURE, PAS SA SPEC, ET IL FAUT LE DIRE AINSI.** Aucune ligne de
+`SPEC-breast-softbody.md` ne donne ce nombre : il vient de l'intervalle vide ci-dessus, releve sur
+une course. Il se re-derive de la meme facon si la salle change de pilotages. Ce qui est GENERAL et
+qui ne depend pas de la course, c'est la METHODE : mesurer la distribution des deux populations,
+verifier qu'un intervalle vide les separe, et poser le seuil dedans avec ses deux marges publiees.
+Un seuil pose sans cette distribution — comme celui de `0.5 rad` du rebase de ROTATION a `:3701`,
+qui n'a jamais ete confronte a une mesure — est un nombre choisi, et il peut mordre sans qu'on le
+sache.
+
+**LE COMPTEUR ET LA DISTRIBUTION PARTENT DANS LA MEME COURSE, ET C'EST CE QUI A PERMIS DE TRANCHER
+EN UN ESSAI :**
+
+* `PHYSREBASE fired` = COMPTE de frames rebasees dans CETTE fenetre. Doit valoir **exactement 0** sur
+  `leftright`, `accel` et `jerk`. Non nul = le seuil est mauvais, et il se re-derive sur la mesure.
+* `PHYSREBASE amax` = MAXIMUM du deplacement d'ancre d'une frame a la suivante, unites de jeu. Il
+  donne la DISTRIBUTION, donc il dit si un intervalle VIDE separe les translations legitimes des
+  discontinuites — ou si les deux se recouvrent, auquel cas aucun seuil sur cette grandeur ne peut
+  les separer et il faut le dire au lieu d'en choisir un.
+
+Un limiteur sans compteur est interdit par le contrat ; celui-ci publie combien de fois il agit, a
+cote de la grandeur qui permet de juger s'il a eu raison d'agir.

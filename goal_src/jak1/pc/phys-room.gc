@@ -964,6 +964,26 @@
             (phys-diag (-> self slot) c 25)
             (phys-diag (-> self slot) c 28)
             (phys-diag (-> self slot) c 27))
+    ;; ---- SPEC 37, LA MOITIE TRANSLATION DU REBASE (cycle 33 etape 3) ------------------------
+    ;; Sa 37 : « rebase on teleport / cutscene / discontinuity — artificial transforms must not
+    ;; generate physical breast impulses ». La moitie ROTATION existe depuis longtemps
+    ;; (`jak-hd-physics.gc:3701-3707`, roulis de l'ancre, seuil de 0.5 rad) ; la moitie TRANSLATION
+    ;; a ete mesuree ABSENTE au cycle 33 etape 2 : 62 fenetres SANS PILOTAGE sur 62 portaient un
+    ;; ecart apex/cible > 5 B0 et la pose ECRITE sautait de 0.29-0.31 B0 en une frame.
+    ;; NATURE   `fired` = un COMPTE de frames ou le rebase a agi dans CETTE fenetre (pas un taux,
+    ;;   pas une amplitude) · `amax` = le MAXIMUM du deplacement de l'ancre d'une frame a la
+    ;;   suivante, en unites de jeu.
+    ;; REPERE   le monde, entre deux frames consecutives, sur la position de l'ANCRE elle-meme.
+    ;; ABSENT   `amax` = 0.0000 sur la premiere frame d'une chaine (aucune frame precedente) et
+    ;;   pendant l'idle a pose figee ; `fired` = 0 quand aucune discontinuite n'est franchie.
+    ;; POURQUOI `amax` EXISTE A COTE DE `fired` : un compteur seul ne dit pas si le seuil est bon.
+    ;;   `amax` donne la DISTRIBUTION, donc si un seuil peut separer une translation legitime d'une
+    ;;   discontinuite — ou si les deux se recouvrent, auquel cas aucun seuil sur cette grandeur ne
+    ;;   le peut et il faut le dire.
+    (format 0 "PHYSREBASE c=~D a=~D d=~D fired=~f amax=~f~%"
+            c (-> self ai) (-> self drive)
+            (phys-diag (-> self slot) c 29)
+            (phys-diag (-> self slot) c 30))
     ;; LE STIMULUS REELLEMENT RECU, pour CHAQUE fenetre y compris la ligne de base. Compare a
     ;; l'amplitude commandee (PHYSSTIM), il dit si le pilotage a domine ou s'il a ete noye.
     (format 0 "PHYSACC c=~D a=~D d=~D acc=~f wraps=~D~%"

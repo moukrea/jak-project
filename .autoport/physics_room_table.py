@@ -5100,6 +5100,63 @@ def main():
             _bn = sum(v['n'] for k, v in _kick.items() if k[1] >= len(DRIVE_NAMES))
             A('ROOM-SPEC37-VERDICT: %d fenetres de LIGNE DE BASE sur %d portent un `perr` > 5 B0.'
               % (_b5, _bn))
+            # ---- LE MECANISME, ET LES DEUX GRANDEURS QUI JUGENT SON SEUIL (cycle 33 etape 3) ----
+            # `fired` = COMPTE de frames rebasees dans la fenetre. `amax` = MAXIMUM du deplacement
+            # de l'ancre d'une frame a la suivante, unites de jeu. Le seuil vaut 0.50 x b0e = 301 u
+            # (l'enveloppe dure d'apex de SPEC 38). `fired` doit valoir EXACTEMENT 0 sur leftright,
+            # accel et jerk : non nul = le rebase tire sur un mouvement legitime, donc c'est un
+            # SUPPRESSEUR et le seuil est mauvais. `amax` dit si un intervalle VIDE separe les deux
+            # populations — sans lui, un compteur a zero ne prouve pas que le seuil est bien place,
+            # seulement qu'il n'a pas tire.
+            _rb = {}
+            for m in re.finditer(r'^PHYSREBASE c=(\d+) a=\d+ d=(\d+) fired=([-\d.e+]+)'
+                                 r' amax=([-\d.e+]+)', txt, re.M):
+                c, dr = int(m.group(1)), int(m.group(2))
+                e = _rb.setdefault((c, dr), dict(n=0, fired=0.0, wfired=0, amax=0.0, amin=None))
+                f, a = float(m.group(3)), float(m.group(4))
+                e['n'] += 1
+                e['fired'] += f
+                if f > 0:
+                    e['wfired'] += 1
+                e['amax'] = max(e['amax'], a)
+                e['amin'] = a if e['amin'] is None else min(e['amin'], a)
+            if not _rb:
+                A('')
+                A('ROOM-SPEC37-REBASE: ABSENT (aucune ligne PHYSREBASE) — le mecanisme n\'est pas')
+                A('   dans cette course, et son effet n\'est PAS substitue par un autre chiffre.')
+            else:
+                A('')
+                A('-- ROOM-SPEC37-REBASE : LE MECANISME A-T-IL TIRE, ET AU BON ENDROIT ? ----------')
+                A('   seuil = 0.50 x b0e = 301 u/frame (enveloppe dure d\'apex de SPEC 38).')
+                A('   `fired` doit valoir 0 sur leftright/accel/jerk : sinon le rebase mord un')
+                A('   mouvement LEGITIME, c\'est un suppresseur, et le seuil est a re-deriver.')
+                for (c, dr) in sorted(_rb):
+                    e = _rb[(c, dr)]
+                    A('ROOM-SPEC37-REBASE: chain=%-12s win=%-11s fenetres=%d  fenetres_ou_il_tire=%2d'
+                      '  frames_rebasees=%4d  amax=%9.1f u  amin=%8.1f u'
+                      % (names[c] if c < len(names) else 'c%d' % c,
+                         DRIVE_NAMES[dr] if dr < len(DRIVE_NAMES) else 'BASE-0stim',
+                         e['n'], e['wfired'], int(e['fired']), e['amax'], e['amin'] or 0.0))
+                _clean = [k for k in _rb if k[1] in (1, 2, 3)]
+                _dirty = [k for k in _rb if k[1] not in (1, 2, 3)]
+                _cf = sum(_rb[k]['fired'] for k in _clean)
+                _ca = max((_rb[k]['amax'] for k in _clean), default=0.0)
+                _da = min((_rb[k]['amax'] for k in _dirty), default=0.0)
+                A('ROOM-SPEC37-REBASE-J2: %d frame(s) rebasee(s) sur les fenetres PROPRES'
+                  ' (leftright, accel, jerk) — %s'
+                  % (int(_cf),
+                     'le seuil ne mord AUCUN mouvement legitime' if _cf == 0
+                     else 'SEUIL MAUVAIS : le rebase agit sur un pilotage commande, c\'est un'
+                          ' suppresseur et il doit etre re-derive'))
+                A('ROOM-SPEC37-REBASE-J9: |delta ancre| max des fenetres PROPRES = %.1f u ;'
+                  ' min des fenetres exposees = %.1f u — %s'
+                  % (_ca, _da,
+                     ('intervalle VIDE, un seuil peut separer les deux populations (le seuil retenu,'
+                      ' 301 u, y est %s)' % ('DEDANS' if _ca < 301.0 < _da else 'HORS'))
+                     if _ca < _da else
+                     'LES DEUX POPULATIONS SE RECOUVRENT : aucun seuil sur cette grandeur ne peut'
+                     ' les separer, et il faut le dire au lieu d\'en choisir un'))
+
             A('   Une fenetre de ligne de base ne recoit AUCUN pilotage : ce qui l\'excite est la')
             A('   frontiere de fenetre elle-meme. Les fenetres `leftright`, `accel` et `jerk` n\'en')
             A('   portent aucune, donc ce n\'est pas un bruit de fond de la salle — c\'est la')
