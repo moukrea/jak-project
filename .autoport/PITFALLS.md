@@ -387,7 +387,7 @@ build par build. Regle generale : un outil qui compare a un etat precedent doit 
 evenement, sinon il ne mesure pas un delta mais un cumul, et il l'attribue au dernier venu.
 Voisin de `stale-artifacts` et de `floor-ratchet-mirror`.
 
-GUARD spec-line-quoted-from-memory SPEC-breast-softbody.md §22 "Local tissue elongation"
+GUARD spec-line-quoted-from-memory SPEC-breast-softbody.md Local tissue elongation: common 5–15%, large 15–21%, exceptional 21–25%
 **J'ai bati un theoreme sur une ligne de spec qui n'existe pas.** Le cycle 40 a publie qu'il
 fallait ×5,23 de chair simulee pour tenir « 25 % d'elongation d'ORGANE a 25 % de deformation
 locale ». La spec ne demande nulle part 25 % d'elongation d'organe : §22 dit « **Local** tissue
