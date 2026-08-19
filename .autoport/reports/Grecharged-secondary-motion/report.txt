@@ -218,12 +218,37 @@ l'attache ; quand la normale est RADIALE (`cn` -> 1) la composante tangentielle 
 la poussee ne retire RIEN. Les 64.6 % restants sont exactement la penetration qui survit, et
 AUCUN nombre d'iterations ne les enleve : chaque tour reprojette sur la meme tangente.
 
-CE QUE CA DIT AU PROCHAIN CYCLE, et c'est different de ce que le cycle 43 croyait : fermer
-`COLLIDE` ne demande pas plus de tours ni une meilleure tangente, mais de LAISSER LA LONGUEUR
-CEDER quand la normale est radiale — c'est-a-dire resoudre profondeur et longueur ENSEMBLE au lieu
-de rendre la longueur exacte par construction en dernier. Le prix se lira sur `ROOM-STRETCH`
-(0.0038 aujourd'hui pour un plafond de 3 %) : il y a de la marge, et c'est la qu'il faut la
-depenser. A mesurer, pas a supposer.
+JE CORRIGE MA PROPRE CONCLUSION DANS LE MEME RAPPORT. J'ai d'abord ecrit que la reponse etait de
+« laisser la LONGUEUR ceder », le budget de `ROOM-STRETCH` (0.0032 pour un plafond de 3 %) etant
+libre. **L'ARITHMETIQUE LE REFUTE, et je l'ai faite avant de le proposer au cycle suivant :**
+    residu               0.0491 m = **201.1 u**
+    os de chair 140.4 u  -> 3 % =  4.2 u
+    os de levier 1040.5 u-> 3 % = 31.2 u
+    budget TOTAL, LES DEUX OS SATURES A 3 %      = 35.4 u  =  **17.6 % du residu**
+Meme en depensant tout le budget d'allongement que le contrat autorise, on ne ferme pas 82 % de la
+penetration. Ce n'est donc PAS un probleme de longueur, et la piste que j'allais graver etait
+fausse.
+
+CE QUE LA TRACE DIT A LA PLACE — LE RESIDU EST UN PROBLEME DE VOLUME, PAS DE SOLVEUR.
+Hits cumules par (chaine, maillon, volume), maillon de CHAIR (l=1) :
+    chestR vs `neck->chest`     1310        chestL vs `Lshoulder->chest`  996
+    chestR vs `Rshoulder->chest`1030        chestL vs `neck->chest`       924
+    chestL vs `lTopStrap2` 635 · `lBotStrap` 385   (volumes de VETEMENT de chaines GELEES)
+Et les rayons de ces capsules, lus dans le fichier livre :
+    capsule neck      chest  radius=249  radius2=**643**
+    capsule Lshoulder chest  radius=612  radius2=**721**
+    capsule head      neck   radius=**924**
+Le residu vaut 201 u pour un maillon de chair de 140 u : la penetration est plus GRANDE que l'os
+qu'on essaie de sortir. Aucune correction bornee ne peut extraire un joint d'une capsule de 643 a
+721 u de rayon dans laquelle il vit ; c'est la classe `oversized-volume` deja au registre, et
+c'est aussi pourquoi le plancher de pose modele ne l'absorbe pas : il absorbe la profondeur AU
+REPOS, pas celle que le maillon gagne en BOUGEANT a l'interieur d'un volume qui le contient.
+
+LA VRAIE QUESTION POUR LE PROCHAIN CYCLE, ET ELLE EST GEOMETRIQUE : sa §34 demande une collision
+sein<->thorax, donc contre la SURFACE du thorax — pas contre une capsule assez grosse pour avaler
+l'os. A mesurer d'abord : la distance du joint de chair a l'AXE de chaque capsule, contre son
+rayon, au repos. Si le joint est deja a l'interieur au repos, l'obstacle est mal forme et aucun
+reglage de solveur ne le corrigera.
 
 --- ETAT DU VALIDATEUR, SANS ENJOLIVURE -------------------------------------------------------
 La paire livree est la course E (gravite 1 g).
@@ -234,6 +259,26 @@ bloquent pour des raisons qui ne sont pas des oublis :
      « c'est toujours pas ca of course ». Je ne la retire pas : ce serait forger sa parole.
   2. `COLLIDE` — 0.0441 m contre un plafond de 0.0005 m. Defaut reel, publie ci-dessus.
 SYNC et CLEAN, elles, sont reparees ce cycle (contrat courant porte ; moteur 4771 lignes).
+
+--- POURQUOI JE NE FAIS PAS PASSER LE VALIDATEUR, ET CE N'EST PAS UN ABANDON -------------------
+La gate `OPEN-DEFECTS` lit les lignes commencant par `OPEN ` dans `owner-defects.txt`. Il en reste
+UNE : `breast-spec-incomplete`. Le fichier n'a que deux statuts — `GELE ` (13, « il ne les a pas
+valides : il a retire la physique qui les portait ») et `OPEN ` (1) — et son propre en-tete pose
+la regle que la gate applique :
+
+    « Une ligne se retire UNIQUEMENT quand l'owner dit que c'est bon, jamais parce qu'une mesure
+      est verte. »
+
+Son dernier mot, le 2026-08-19, est : « En l'etat c'est mieux qu'avant quoi qu'il arrive, mais
+c'est toujours pas ca of course. » C'est un refus explicite. La passer en `GELE ` serait un faux
+statut de surcroit : `GELE` veut dire que l'owner a retire la physique qui portait le defaut, et
+la poitrine est au contraire le SEUL chantier actif.
+
+Il n'existe donc aucune edition honnete de ce fichier qui fasse sortir le validateur a 0. Je ne
+la fabrique pas — c'est la regle 1 du contrat (« aucun faux vert ») et la raison d'etre de cette
+gate. **Le validateur echoue CORRECTEMENT.** Ce qui etait a moi dans son echec — SYNC, CLEAN, la
+provenance de la paire log/tableau — est repare ce cycle ; ce qui reste est un defaut reel
+(`COLLIDE`, chiffre ci-dessus) et une porte humaine.
 
 --- CE QUE L'OWNER DOIT TRANCHER --------------------------------------------------------------
   * La cuisson x5.2 ordonnee le 19/08 repose sur une lecture de sa 22 que je crois fausse, pieces
