@@ -1,0 +1,22 @@
+[Grecharged-secondary-motion FAIL] OPEN-DEFECTS: 1 defaut(s) rapporte(s) par l'owner
+  sont encore ouverts. La phase ne peut pas se declarer terminee :
+  - breast-spec-incomplete  PRIORITE 1 -- LA SEULE LIGNE QUI TIENT LA PHASE OUVERTE.
+  Une ligne ne se retire que quand l'owner dit que c'est bon.
+[SCOPE] 2 chaines declarees = 2 resolues par le moteur = ['chestL', 'chestR'] ; joints ecrits : lBoob, lBooc, rBoob, rBooc
+[SCOPE] aucun joint de cheveu, de sangle, de languette, d'oreille ou de lunettes n'est
+        ecrit par la physique — ils restent sur la pose d'auteur, non pas attenues : absents.
+[TUNING] tous les réglages de l'owner sont dans le fichier livré
+[MOVE] organes GELES par l'ordre de l'owner du 2026-08-14 07:30, plus aucune chaine declaree, donc plus rien a exiger : oreilles, cheveux, mèches, lunettes
+[COLLIDE] « cheveux/mèches vs crâne, visage, épaules, oreilles » : GELE par l'owner (plus aucune chaine declaree)
+[COLLIDE] « lunettes vs corps et seins » : GELE par l'owner (plus aucune chaine declaree)
+[COLLIDE] « oreilles vs mèches » : GELE par l'owner (plus aucune chaine declaree)
+[Grecharged-secondary-motion FAIL] COLLIDE: « seins vs thorax et sein opposé (SPEC-breast 33/34) » traverse encore, pénétration max 0.0983 (plafond 0.0005).
+  « Collisions propres » — et une résolution pire que le clip est pire que rien.
+[SWEEP] bloc PYROOM : FAIL (sortie non nulle)
+[SIDE-CONTROL] 8 franchissement(s) mesure(s), DECLARE(S) dans le rapport (SIDE-CROSSING) — le compteur est prouve vivant par la course elle-meme.
+[FLOOR-WEAK] 2 chaines gardent leur reponse aux petits mouvements
+[FLOOR] chestL       0.3866 -> 0.1885 (51%) — SUSPENDUE (spec owner, arbitrage 08-14 01:00)
+[FLOOR] chestR       0.3789 -> 0.1875 (51%) — SUSPENDUE (spec owner, arbitrage 08-14 01:00)
+[FLOOR] 2 chaines au-dessus de leur plancher (reference mise a jour)
+[DISCRIMINANT] chaque chaîne distingue les 5 pilotages
+[SWEEP] fin du script atteinte — CE N'EST PAS UN PASS (SWEEP_RC=1)

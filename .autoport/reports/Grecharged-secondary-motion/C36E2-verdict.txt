@@ -1,0 +1,75 @@
+================================================================================================
+VERDICT C36E2 — LA PRESSION DE CONTACT DEVIENT UNE INTENSITE (SPEC 23)
+================================================================================================
+APRES : .autoport/reports/Grecharged-secondary-motion/keira-room-x86.C36E2-REF.log   (372 fenetres PHYSSHAPE4)
+AVANT : .autoport/reports/Grecharged-secondary-motion/keira-room-x86.C36E1-REF.log   (372 fenetres PHYSSHAPE4)
+
+R0   LE CHANGEMENT EST CONFINE AU CANAL DE PRESSION
+     CRITERE : `dlr` max et `nfr` max identiques a 4 decimales sur les deux chaines.
+     chestL   dlr max 0.4141 -> 0.4136   |   nfr max 16857 -> 16857
+     chestR   dlr max 0.3722 -> 0.3920   |   nfr max 16857 -> 16857
+     -> **REFUTEE**
+
+R1   L'ENTREE TOMBE DE 53-61x A MOINS DE 5x
+     CRITERE : `prsr` max <= 5.0 sur les deux chaines. ESTIMATION GRAVEE : 0.4507 / 0.3803.
+     chestL   prsr max   13.3807 (53.52x) ->    0.4825 (1.93x)   estimation gravee 0.4507  ecart +7.1 %
+     chestR   prsr max   15.2761 (61.10x) ->    0.4699 (1.88x)   estimation gravee 0.3803  ecart +23.6 %
+     -> CONFIRMEE
+
+R2   L'ECRETAGE S'EFFONDRE
+     CRITERE : psat/nfr <= 10 %% sur les deux chaines. ESTIMATION GRAVEE : 2 %% a 8 %%.
+     psat et nfr sont cumules sur TOUTES les fenetres — meme denominateur des deux cotes.
+     chestL   AVANT  psat=587599       nfr=1586952        37.03 %
+     chestL   APRES  psat=59457        nfr=1586952         3.75 %
+     chestL   reference gravee du cycle 35 etape 3 : 37.0 %
+     chestR   AVANT  psat=455850       nfr=1586952        28.72 %
+     chestR   APRES  psat=28399        nfr=1586952         1.79 %
+     chestR   reference gravee du cycle 35 etape 3 : 28.7 %
+     -> CONFIRMEE
+
+R3   LE CANAL DEVIENT DISCRIMINANT
+     CRITERE (a) au moins une fenetre avec prsm < 0.2500 STRICTEMENT, sur chaque chaine ;
+     CRITERE (b) etendue relative de `prsm` max entre les six pilotages >= 25 %% sur au
+                 moins une chaine (seuil du contrat SPEC 7). Aujourd'hui elle vaut 0 %%.
+     chestL   AVANT  prsm < 0.2500 sur  46/186 fenetres   par pilotage : updown=0.2500 leftright=0.2500 accel=0.2500 jerk=0.2500 tilt=0.2500 BASE-0stim=0.2500   etendue   0.0 %
+     chestL   APRES  prsm < 0.2500 sur 128/186 fenetres   par pilotage : updown=0.2500 leftright=0.2500 accel=0.2500 jerk=0.2500 tilt=0.2500 BASE-0stim=0.2500   etendue   0.0 %
+     chestR   AVANT  prsm < 0.2500 sur  51/186 fenetres   par pilotage : updown=0.2500 leftright=0.2500 accel=0.2500 jerk=0.2500 tilt=0.2500 BASE-0stim=0.2500   etendue   0.0 %
+     chestR   APRES  prsm < 0.2500 sur 137/186 fenetres   par pilotage : updown=0.2500 leftright=0.2500 accel=0.2500 jerk=0.2500 tilt=0.1720 BASE-0stim=0.1843   etendue  31.2 %
+     (a) tenue   (b) tenue  (etendue max mesuree 31.2 %)
+     -> CONFIRMEE
+
+R4   LE TENSEUR PESE MOINS DANS SA SPEC 22 — MAIS PAS TROP
+     CRITERE BILATERAL : moyenne |dp| en baisse de 20 %% a 60 %%. Plus de 60 %% = ECHEC
+     (canal eteint, « ballons durs » que l'owner a refuses le 2026-08-11 21:20).
+     AVANT  moyennes en B0 sur 372 fenetres :  |tp| 0.4210   |rp| 0.0598   |dp| 0.2614
+     APRES  moyennes en B0 sur 372 fenetres :  |tp| 0.4314   |rp| 0.0580   |dp| 0.2374
+     |dp| 0.2614 -> 0.2374 B0 = -9.2 %   (reference gravee du cycle 35 : 0.2614 B0)
+     -> **REFUTEE**
+
+R5   LE MOUVEMENT SUBTIL N'EST PAS MUSELE
+     CRITERE : `tipvar` max sur `tilt` (d=4) et `updown` (d=0), les deux chaines, +-15 %%.
+     chestL   updown     tipvar max 0.1485 -> 0.1485  (+0.0 %)
+     chestL   tilt       tipvar max 0.1288 -> 0.1288  (+0.0 %)
+     chestR   updown     tipvar max 0.1325 -> 0.1325  (+0.0 %)
+     chestR   tilt       tipvar max 0.0908 -> 0.1038  (+14.3 %)
+     -> CONFIRMEE
+
+R6   LES COUTS, DANS LES DEUX SENS (aucun critere : engagement de publication)
+     meshpen      max (u)   390.0262 ->   402.5464   (+3.2 %)   = 0.0952 m -> 0.0983 m
+     rootdev      max (u)   340.6023 ->   346.8105   (+1.8 %)   = 0.0832 m -> 0.0847 m
+     pire saut    max (u)   373.9359 ->   337.1663   (-9.8 %)   = 0.0913 m -> 0.0823 m
+     tipvar       max (u)   757.7029 ->   771.9459   (+1.9 %)   = 0.1850 m -> 0.1885 m
+     chestL   comex max 1.0138 -> 1.0765 B0 (+6.2 %)   moyenne 0.7309 -> 0.7140 B0 (-2.3 %)
+     chestR   comex max 0.9223 -> 0.9655 B0 (+4.7 %)   moyenne 0.7181 -> 0.7037 B0 (-2.0 %)
+     chestL   lsw max 45 -> 45  (la NON-CONVERGENCE n'est PAS traitee ici, et ne doit pas bouger)
+     chestR   lsw max 45 -> 45  (la NON-CONVERGENCE n'est PAS traitee ici, et ne doit pas bouger)
+     PHYSIDLE  AVANT : PHYSIDLE c=0 dev=0.6390 hang=0.0000 amp=0.0000 fam=1 | PHYSIDLE c=1 dev=0.6404 hang=0.0000 amp=0.0000 fam=1
+     PHYSIDLE  APRES : PHYSIDLE c=0 dev=0.9581 hang=0.0000 amp=0.0000 fam=1 | PHYSIDLE c=1 dev=0.4803 hang=0.0000 amp=0.0000 fam=1
+
+PHYSEND : APRES oui · AVANT oui
+
+-- LA TABLE DE BRANCHES GRAVEE, APPLIQUEE ---------------------------------------------------
+   R4 hors bande -> soit le tenseur ne tirait pas sa deformation de la pression (baisse
+   < 20 %%), soit JE VIENS D'ETEINDRE LE CANAL (baisse > 60 %%), ce qui est un ECHEC declare
+   d'avance. Voir le chiffre ci-dessus, il tranche lequel des deux.
+================================================================================================

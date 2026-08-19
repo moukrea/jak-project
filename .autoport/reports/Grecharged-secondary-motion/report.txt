@@ -1,340 +1,344 @@
 DIRECTIVES vb249967379
 
-RAPPORT DE CYCLE 35 — L'EXCURSION DE SA SPEC 22 EST ATTRIBUEE A SON TERME EXACT PAR UNE IDENTITE,
-ET LA CAUSE EST GEOMETRIQUE : LA CHAIR ETAIT PIVOTEE PAR UN OS DE 140 u SITUE 4.65 FOIS PLUS PRES
-D'ELLE QUE SON PROPRE CENTRE. L'OS EN QUESTION EST CELUI QUI A ETE INJECTE POUR SA SPEC 23 : SA
-STRUCTURE A RENDU SA BORNE 7.4 FOIS PLUS DURE. LE LEVIER EST CORRIGE, `comex` EST DIVISE PAR DEUX,
-LA PENETRATION BAISSE DE 15 %, LE MOUVEMENT SUBTIL NE BOUGE PAS — ET SIX DE MES ONZE PREDICTIONS
-SONT REFUTEES.
+RAPPORT DE CYCLE 36 — L'ENTREE DE PRESSION DU TENSEUR DE SA SPEC 23 N'ETAIT PAS UNE PRESSION :
+C'ETAIT LA LONGUEUR D'UN CHEMIN DE 150 A 254 CORRECTIONS, 4.4 A 5.0 METRES ACCUMULES EN UNE FRAME
+SUR UN PERSONNAGE DE DEUX METRES. ELLE EST DEVENUE UNE INTENSITE. L'ECRETAGE PASSE DE 37.0 % ET
+28.7 % DES FRAMES A 3.8 % ET 1.8 %, ET LE CANAL DISTINGUE UN STIMULUS D'UN AUTRE POUR LA PREMIERE
+FOIS. ET SIX COMPTEURS PUBLIES N'AVAIENT AUCUN ECRIVAIN — DONT DEUX QUI PORTAIENT UN ACQUIS DU
+CYCLE 35.
 Phase Grecharged-secondary-motion, branche physics-keira-clean, KEIRA / POITRINE SEULE
 (ordre owner 2026-08-14 07:30).
 
-PALIER DE LIVRAISON : GOAL SEUL. Deux `(mi)` (551 cibles, 26.3 s puis 46.7 s) et DEUX courses de
-salle x86 completes (372 fenetres chacune, 31/31 animations). Aucun rebuild NDK, aucun gradle,
-aucune recompilation C++ : tout le changement vit dans `jak-hd-physics.gc` et `phys-room.gc`.
+PALIER DE LIVRAISON : GOAL SEUL. Quatre `(mi)` (551 cibles, 19.5 s a 16.6 s) et DEUX courses de
+salle x86 completes (372 fenetres chacune, 31/31 animations, PHYSEND atteint). Aucun rebuild NDK,
+aucun gradle, aucune recompilation C++ : tout le changement vit dans `jak-hd-physics.gc`,
+`phys-room.gc` et `physics_room_table.py`.
 
-CE QUI CHANGE POUR L'OWNER, EN UNE PHRASE. Le centre de chair de sa poitrine s'ecartait de la pose
-d'auteur de 1.85 a 1.91 fois le rayon de l'organe ; il ne s'en ecarte plus que de 0.92 a 1.01. En
-MOYENNE, l'ecart est desormais de 0.31 — c'est-a-dire **DANS la bande normale de sa propre
-specification (0.35)**, pour la premiere fois. Le maximum, lui, reste dehors, et je le dis en tete.
+CE QUI CHANGE POUR L'OWNER, EN UNE PHRASE. La chair de sa poitrine etait ecrasee par une « pression
+de contact » qui, plus d'un tiers du temps, arrivait au tissu comme une valeur CONSTANTE quelle que
+soit la force reelle du contact. Elle recoit maintenant la vraie intensite du contact, et elle
+repond enfin differemment selon le mouvement.
 
 EN UN COUP D'OEIL
 ==================
-    CAUSE     **LA ROTATION PORTAIT 67 % DE `comex`, ET SON LEVIER ETAIT 4.65x TROP COURT.** La
-              rotation ecrite du maillon 0 venait de l'os `lBoob -> lBooc` (140.42 u) ; sa chair
-              est a 651.18 u de lui et a 89.7 deg de cet os. Un tremblement de 2.4 cm du joint
-              distal produisait 0.77 B0 d'excursion — presque DEUX FOIS le budget entier de sa §22.
-    CAUSE     **ET C'EST L'OS INJECTE POUR SA SPEC 23 QUI PORTE CE LEVIER.** Avant lui, le maillon
-              0 prenait sa direction de l'ancre (`chest -> lBoob`, 1042 u) et l'amplification
-              valait 0.625 au lieu de 4.637. **Sa §23 a rendu sa §22 7.4x plus dure**, et rien ne
-              pouvait le voir tant que `comex` n'avait ni resolution par terme ni par maillon.
-    ACQUIS    **`comex` EST DIVISE PAR DEUX** : 1.8529 -> 1.0138 B0 (chestL, -45.3 %) et
-              1.9097 -> 0.9223 (chestR, -51.7 %). La MOYENNE sur les 33 480 echantillons passe de
-              0.4660 / 0.4417 a **0.3079 / 0.3048 B0 — dans sa bande normale de 0.35**. La part
-              des echantillons au-dessus de son plafond dur tombe de 52.0 % / 47.9 % a 28.1 % / 27.9 %.
-    ACQUIS    **LE COUT DU CYCLE 34 EST RENDU, ET AU-DELA** : `meshpen` 0.1126 -> **0.0952 m**
-              (-15.5 %, et -18.8 % sur chestR). Le cycle precedent l'avait fait monter de 18 % ;
-              il est maintenant sous son niveau d'avant. Franchissements de cote 7 -> **6**.
-    ACQUIS    **LE MOUVEMENT SUBTIL NE BOUGE PAS** — c'est le seul acquis que l'owner ait valide.
-              `tipvar` sur `tilt` +4.0 % / -3.6 %, sur `updown` -0.2 % / -3.8 %. `ROOM-IDLE` 0.0002
-              inchange. `PHYSIDLE dev` chestR -17.8 %, **VERS** la pose d'auteur qu'exige sa §9.
-    REFUTE    **M1 ET M2 : J'AVAIS PARIE SUR LA TRANSLATION, C'ETAIT LA ROTATION.** [A] dominait
-              0 canal sur 12 ; j'avais predit au moins 10. Publie tel quel.
-    REFUTE    **M3 : LE TENSEUR EST UN PORTEUR REEL** (0.1761 B0 de moyenne pour un critere de
-              0.10, soit 44 % du budget). Mon point 1 de plan n'etait donc pas mal classe — il
-              etait DEUXIEME, derriere un terme que je n'avais pas vu.
-    REFUTE    **N2 A LA MOYENNE : -38.0 % pour un critere de -40 %.** Manque de 2 points. Le pire
-              canal, lui, tient largement (-45.3 % / -51.7 % pour un critere de -35 %).
-    REFUTE    **N3 ET N4**, et les deux sont des artefacts d'ARGMAX que je demontre plus bas avec
-              deux mesures independantes — pas des effets du mecanisme.
-    NEUF      **DEUX COMPTEURS PUBLIES N'ONT AUCUN ECRIVAIN** : `retreat` et `retfblen` valent
-              0.0000 depuis toujours parce que RIEN dans le moteur ne peut les incrementer.
-    NEUF      **LES DEUX VOLUMES DE CHAIR D'UN SEIN DECRIVENT LE MEME MORCEAU DE CHAIR.** La
-              sphere proximale ne couvre pas UN SEUL sommet que la distale ne couvre deja.
+    CAUSE     **`cl` N'ETAIT PAS UNE PROFONDEUR, C'ETAIT UN CHEMIN.** L'entree de pression du
+              tenseur lisait `|*phys-cpu*|`, la somme des poussees de contact de la frame. Mesure :
+              **150 (chestL) et 254 (chestR) poussees par frame**, petites (moyenne 133 u et 103 u),
+              de MEME sens (psum/cl = 1.11 et 1.28), pour un total de **17 900 et 20 436 u — 4.4 et
+              5.0 METRES**. La penetration reelle vaut 390 et 374 u. Le rapport (45.9 et 54.7) tombe
+              sur le nombre de balayages de contrainte de la frame : **45**.
+    CAUSE     **ET LA BOUCLE NE CONVERGE PAS** : `lsw = 45/45` sur les deux chaines. Les douze
+              derniers balayages sont des COLLISIONS SEULES, sans contrainte de longueur — et une
+              poussee tire encore au tout dernier. Defaut NEUF, mesure, **non corrige ce cycle** et
+              publie comme ouvert : corriger la lecture d'une grandeur et corriger la boucle qui la
+              produit sont deux chantiers, les melanger rend l'attribution impossible.
+    ACQUIS    **L'ECRETAGE S'EFFONDRE** : la part des frames ou l'entree mord son plafond passe de
+              **37.03 % a 3.75 %** (chestL) et de **28.72 % a 1.79 %** (chestR), sur le meme
+              denominateur de 1 586 952 frames-echantillons. L'entree elle-meme tombe de **53.52x
+              et 61.10x son plafond a 1.93x et 1.88x**.
+    ACQUIS    **LE CANAL DEVIENT DISCRIMINANT, POUR LA PREMIERE FOIS.** La sortie `prsm` etait
+              collee a 0.2500 EXACTEMENT sur les SIX pilotages et les DEUX chaines — etendue
+              relative **0.0 %**, c'est-a-dire une mesure qui ne distingue aucun stimulus. Sur
+              chestR elle vaut maintenant **31.2 %** (tilt 0.1720, BASE 0.1843 contre 0.2500
+              ailleurs), au-dessus du seuil de 25 % que le contrat lui-meme fixe. **Sur chestL elle
+              vaut toujours 0.0 %**, et je le dis aussi fort que l'autre moitie.
+    ACQUIS    **SIX CHAMPS PUBLIES N'AVAIENT AUCUN ECRIVAIN** (le cycle 35 en avait trouve deux, et
+              j'ai d'abord cru qu'il y en avait neuf : ma premiere recherche etait trop etroite, la
+              seconde trop large, et c'est la troisieme qui est juste). Tous descendent de
+              `phys-retreat-chain`, retiree le 2026-08-13. **Ils sont retires.**
+    ACQUIS    **SPEC 24 EST RE-MESUREE**, ce que le cycle 35 avait declare comme une lacune : cinq
+              canaux sur six DANS leur bande apres le correctif, contre six sur six avant — un
+              canal (§24-lat sur chestL) a perdu sa lisibilite et c'est un cout, publie plus bas.
+    REFUTE    **R4 : LE TENSEUR NE TIRAIT PAS SA DEFORMATION DE LA PRESSION.** Sa part dans la
+              §22 baisse de **9.2 %** pour un critere de 20 a 60 %. Donc la pression n'etait pas le
+              porteur du tenseur : c'est l'ETIREMENT qui l'est. Ma hierarchie etait fausse.
+    REFUTE    **R0 : MA PREDICTION DE CONFINEMENT ETAIT MAL POSEE, ET C'EST MA FAUTE.** J'ai exige
+              qu'une grandeur EN AVAL soit identique alors que je changeais la dynamique. C'est
+              exactement le piege N3/N4 du cycle 35, que j'avais moi-meme ecrit.
+    COUT      **`meshpen` remonte de 3.2 %** (0.0952 -> 0.0983 m), les franchissements de cote de
+              **6 a 8**, le maximum de `comex` de **6.2 % et 4.7 %** — mais sa MOYENNE par
+              echantillon BAISSE (0.3079 -> 0.2896 et 0.3048 -> 0.2888 B0) et la part au-dessus du
+              plafond dur tombe de 28.1 % a 23.8 % et de 27.9 % a 23.2 %.
+    COUT      **L'ECART A LA POSE D'AUTEUR DE SA SPEC 9 MONTE DE 50 % SUR chestL** (`PHYSIDLE dev`
+              0.6390 -> 0.9581, cible 0.0000) pendant qu'il baisse de 25 % sur chestR
+              (0.6404 -> 0.4803). C'est le cout le plus lourd du cycle et il est asymetrique.
+    NEUF      **LE MOUVEMENT N'EST PAS MUSELE, IL MONTE** : `tipvar` par chaine 0.1812 -> 0.1885
+              (chestL, +4.0 %) et 0.1850 -> 0.1875 (chestR, +1.4 %). Le plancher de la gate MOVE
+              monte de 0.1812 a 0.1875.
 
-BREAST-PENETRATION: **0.0952 m (chestL) et 0.0913 m (chestR)**, plafond epingle 0.0005 m —
-    **NON TENU, GATE `COLLIDE` TOUJOURS ROUGE**, mais en BAISSE de 15.5 % / 18.8 %.
+BREAST-PENETRATION: **0.0983 m (chestL) et 0.0900 m (chestR)**, plafond epingle 0.0005 m —
+    **NON TENU, GATE `COLLIDE` TOUJOURS ROUGE**, et EN HAUSSE de 3.3 % sur chestL (en baisse de
+    1.4 % sur chestR). Le cycle 35 l'avait fait baisser de 15.5 % ; un tiers de ce gain est rendu.
 
-SIDE-CROSSING: **6 franchissements** contre 7 au cycle 34 et 9 au cycle 33. Le compteur est prouve
-    vivant par `SIDE-CONTROL`, que la course publie.
-
-
-================================================================================================
-ETAPE 1 — L'ATTRIBUTION, PAR UNE IDENTITE ET NON PAR UN MODELE
-================================================================================================
-PREDICTIONS : `C35E1-comex-prediction.txt`, md5 **f44539551a1aa7482a33d05075a7d214**, empreinte
-gravee dans le commit **f9b7f8c5d1** — avant que l'instrument existe.
-BILAN : **M0 CONFIRMEE · M1 REFUTEE · M2 REFUTEE · M3 REFUTEE · M4 CONFIRMEE · M5 CONFIRMEE ·
-M6 CONFIRMEE.** Trois refutations sur sept, dont celle que j'avais designee comme commandante.
-
-1.1 L'IDENTITE
-================
-`comex` est ecrit `e = [p_sim + D.lc] - [p_auth + R_auth.lc]` avec `D = R_auth . rot . T`. En
-inserant `R_auth . rot . lc`, qui s'annule :
-
-    e =   (p_sim - p_auth)                 [A] TRANSLATION : le joint a bouge
-        + R_auth . (rot - I) . lc          [B] ROTATION    : ce maillon a tourne, x son bras `lc`
-        + R_auth . rot . (T - I) . lc      [C] DEFORMATION : le tenseur, x son bras `lc`
-
-La somme des trois EST `e`, quelles que soient les valeurs. Ce qui est publie sont les PROJECTIONS
-SIGNEES sur `e^` : `tp + rp + dp = comex * b0c` exactement. Des NORMES ne se recomposeraient pas —
-deux termes peuvent s'annuler et trois normes ne le diraient pas.
-
-**M0 : residu max 0.00017209 B0 sur 372 fenetres** (tolerance 0.001), moyen 0.00005543. L'identite
-se referme au bruit du flottant 32 bits. C'est ce qui autorise a appeler la suite une attribution.
-
-1.2 LE RESULTAT, ET IL RENVERSE MON PARI
-==========================================
-Moyennes sur les 372 fenetres, en B0, contre un budget total de 0.40 :
-
-    |tp| 0.2328      |rp| 0.7714      |dp| 0.1761
-    [A] domine 31 fenetres (8.3 %) · [B] **340 (91.4 %)** · [C] 1 (0.3 %)
-    sur les 12 pires fenetres (une par chaine x pilotage) : [B] les 12, [A] zero.
-
-**M1 exigeait que [A] domine au moins 10 canaux sur 12 : il en domine ZERO. REFUTEE.**
-**M2 exigeait `tp >= 60 %` sur les deux canaux qui portaient les maxima : 36.6 % et 6.2 %. REFUTEE.**
-
-1.3 L'ARITHMETIQUE DE LA CAUSE, SUR LES LONGUEURS LIVREES
-===========================================================
-La colonne neuve `lk` dit quelle piece : **le maillon 0 porte 329 des 372 maxima (88.4 %)**. Avant
-elle, les deux maillons ecrivaient le MEME emplacement et rien ne pouvait les separer.
-
-    maillon 0 : os de 140.42 u (lBoob -> lBooc)   chair a 651.18 u, a **89.665 deg** de cet os
-    maillon 1 : os de 140.42 u                    chair a 514.54 u, a **83.861 deg**
-    amplification = |chair| / |os| = **4.637** et **3.664**
-
-La chair etant quasi PERPENDICULAIRE a l'os, sa composante sensible est PLEINE. Verification sur
-la mesure : |rp| moyen 0.7714 B0 = 464 u correspond a un ecart distal de 100 u — **2.4 cm**. Un
-tremblement de 2.4 cm produisait presque deux fois le budget entier de sa §22.
-
-**ET L'OS DE 140 u EST CELUI QUI A ETE INJECTE POUR SA §23.** Avant lui, le maillon 0 prenait sa
-direction de l'ancre (`chest -> lBoob`, 1042.08 u) : l'amplification valait 0.625. La structure
-qu'exige sa §23 a donc rendu sa §22 **7.4x plus dure** — et c'est passe inapercu pendant dix-neuf
-cycles parce que `comex` etait un scalaire sans terme et sans maillon.
-
-1.4 M3 REFUTEE — ET ELLE ARBITRAIT MON PROPRE PLAN, DANS LES DEUX SENS
-=======================================================================
-J'avais ecrit : « SI M3 TIENT, mon point 1 de plan (rendre sa dynamique au tenseur) est MAL CLASSE
-et je le retrograde. » **M3 casse** : moyenne |dp| = 0.1761 B0 pour un critere de 0.10 — le tenseur
-porte **44 % du budget de 0.40 a lui seul**. Le point 1 n'etait donc pas mal classe ; il etait
-DEUXIEME, derriere un terme que je n'avais pas vu. Je publie les deux moities de ce constat : ma
-prediction etait fausse ET ma hierarchie de plan l'etait aussi, dans l'autre sens.
-
-1.5 M4, M5, M6
-================
-  M4 CONFIRMEE  la ligne de base porte le MEME mecanisme que le pilotage : part de `tp` BASE contre
-                `jerk`, ecart 0.094 (chestL) et 0.039 (chestR) pour un critere de 0.15. Autrement
-                dit **l'animation seule suffit a produire le defaut** ; le pilotage de la salle ne
-                fait que l'accentuer.
-  M5 CONFIRMEE  max |dp| = 0.5306 B0 contre la borne papier de 1.22 derivee AVANT la mesure a
-                partir de `PHYS-DYN-MAX 0.25` et `PHYS-PRS-MAX 0.25`. Ma lecture du tenseur tient.
-  M6 CONFIRMEE  **32 787 lignes `PHYS` hors marqueur neuf, 0 differente** de la course de
-                reference. L'instrument de l'etape 1 est inerte, et la salle reste reproductible.
+SIDE-CROSSING: **8 franchissements** contre 6 au cycle 35. En HAUSSE. Le compteur est prouve vivant
+    par `SIDE-CONTROL` (arme 1 / desarme 0 sur chestL), que la course publie.
 
 
 ================================================================================================
-ETAPE 2 — LE LEVIER DE ROTATION DEVIENT CELUI DE L'ANCRE
+ETAPE 1 — LA NATURE DE L'ENTREE, TRANCHEE ENTRE TROIS HYPOTHESES EXCLUSIVES
 ================================================================================================
-PREDICTIONS : `C35E2-lever-prediction.txt`, md5 **c89c99a3deb72039d4a6a459ee1f50b4**, empreinte
-gravee dans le commit **3a68b86f12** — avant la moindre ligne du mecanisme.
-BILAN : **N0 CONFIRMEE · N1 CONFIRMEE · N2 PARTAGEE · N3 REFUTEE · N4 REFUTEE · N5 CONFIRMEE ·
-N6 publiee.**
+PREDICTIONS : `C36E1-pressure-nature-prediction.txt`, md5 **e1113259ddc2a314a78e6b774d9d6590**,
+empreinte gravee dans le commit **585f19b1f2** — avant que l'instrument existe.
+BILAN : **P0 CONFIRMEE · P1 CONFIRMEE · P2 CONFIRMEE · P3 CONFIRMEE · P4 CONFIRMEE · P5 publiee.**
+Cinq sur cinq. C'est la premiere fois de ce chantier, et deux des VALEURS gravees etaient fausses
+quand meme — je les publie plus bas, parce qu'un critere tenu ne rachete pas une derivation ratee.
+
+1.1 POURQUOI J'AI CHANGE D'HYPOTHESE EN ROUTE, ET JE LE DIS
+============================================================
+Le rapport du cycle 35 designait comme cause candidate les deux volumes de chair redondants
+(recouvrement 75.6 % / 65.3 %) et s'engageait a la graver avant de la tester. En ouvrant le code
+pour la graver, j'ai trouve une hypothese concurrente ARITHMETIQUE. J'ai donc grave LES DEUX, avec
+le critere qui les separe, au lieu de tester celle que j'avais annoncee. C'est ce qui a permis de la
+REFUTER au lieu de la confirmer par construction.
+
+    H-REP   la meme poussee reappliquee a chaque balayage (nature de la grandeur fausse)
+    H-PING  deux volumes qui se renvoient le lien (l'hypothese du cycle 35)
+    H-DEEP  un contact reellement profond (alors le tenseur n'est pas en cause du tout)
+
+1.2 L'INSTRUMENT, ET IL EST RELEVE A L'ARGMAX
+===============================================
+Quatre grandeurs cumulees PAR MAILLON pendant la frame, au meme cycle de vie que `*phys-cpu*`
+(remises a zero au meme endroit, `:3121`), et **relevees a l'ARGMAX DE `cl`** — pas en maxima
+independants. C'est la lecon N3/N4 du cycle 35 : deux maxima de fenetre pris sur des grandeurs
+differentes ne se comparent pas, parce que l'argmax n'est pas la meme frame. Cette fois elle est
+appliquee AVANT, pas constatee apres.
+
+1.3 LE RESULTAT
+=================
+    chaine   prsr      x plafond    cl (u)     cl (m)    npf    pmax(u)   psum(u)   lsw    psum/cl
+    chestL  13.3807     53.52x     17 900.4    4.370     150     404.7    19 946.4  45/45   1.114
+    chestR  15.2761     61.10x     20 436.0    4.989     254     262.4    26 156.5  45/45   1.280
+
+  **P1** npf >= 20 exige : mesure 150 et 254. CONFIRMEE.
+  **P2** pmax <= 0.25*cl exige : mesure 0.0226 et 0.0128 de `cl`. CONFIRMEE, et `pmax` (404.7 et
+        262.4 u) est bien de l'ordre de la penetration mesuree (389.9 et 374.0 u), pas de `cl`.
+  **P3** psum/cl <= 2.0 exige : mesure **1.114 et 1.280**. CONFIRMEE — donc les poussees NE
+        S'ANNULENT PAS, elles s'additionnent. **H-PING est REFUTEE**, et avec elle l'attribution
+        que le cycle 35 avait annoncee. Je l'avais donnee a 60/40 ; c'etait le bon cote.
+  **P4** lsw >= 40 exige : mesure **45 sur 45**, les deux chaines. CONFIRMEE.
+  **P0** 34 136 lignes `PHYS` hors marqueurs neufs et hors les six lignes dont un champ part,
+        **0 differente**. Et separement : `PHYSDIAG` (14 lignes), `PHYSORICTL3` (108) et `PHYSLIM`
+        (1), PRIVEES du champ retire, sont elles aussi **0 differente**. L'instrument est inerte, et
+        le retrait de la variable orpheline `tgt` est PROUVE inerte par la meme mesure.
+  **P5** domaine : 3 114 (chestL) et 2 728 (chestR) frames avec une poussee sur le maillon pointe,
+        cumulees sur les fenetres, pour un denominateur commun publie de 16 857 par fenetre.
+
+1.4 MES DEUX VALEURS GRAVEES FAUSSES
+======================================
+  - **npf predit entre 30 et 90 : mesure 150 et 254.** Bas d'un facteur **1.7 a 2.8**. Ma
+    derivation supposait UNE poussee par balayage ; il y en a **3.3 et 5.6**, parce que l'arbitrage
+    de volume est desarme (`*phys-prio-off*` = 1) et que tous les volumes en violation poussent l'un
+    apres l'autre. J'avais lu cette ligne du code et je n'en ai pas tire la consequence.
+  - **`pmax` predit entre 200 et 900 u : mesure 404.7 et 262.4.** Dans la bande, du premier coup.
+
+1.5 UNE FAUSSE ALERTE QUE JE PUBLIE PARCE QU'ELLE ETAIT LA MIENNE
+===================================================================
+P0 a d'abord rendu **33 966 lignes differentes sur 34 136**, ce qui ressemblait a un changement de
+physique massif. **C'etait moi** : j'avais choisi comme reference `keira-room-x86.C35E2-REF.log`,
+qui est ANTERIEURE aux marqueurs `PHYSSHAPE5`/`PHYSSHAPE6` ajoutes a l'etape 3 du cycle 35. La
+comparaison ligne a ligne se decalait de deux lignes et tout differait a partir de la. Contre la
+bonne reference (`C35E3-REF.log`, l'etat livre du cycle 35), le compte est **0**. Une comparaison
+positionnelle contre une trace qui n'a pas les memes marqueurs ne mesure pas la physique, elle
+mesure un decalage — et elle en donne l'apparence la plus alarmante possible.
+
+1.6 SIX COMPTEURS PUBLIES SANS AUCUN ECRIVAIN — ET MON PROPRE COMPTE A ETE FAUX DEUX FOIS
+==========================================================================================
+Le cycle 35 en avait trouve deux (`*phys-dg*` emplacements 1 et 16). En verifiant :
+  - ma **premiere** recherche n'a vu que la forme `(+ (* sc PHYS-DG) N)` et a conclu que **neuf**
+    emplacements etaient morts (1, 16, 24 a 30). J'etais a deux doigts d'annoncer que `PHYSREBASE`
+    et la decomposition de sa SPEC 9 etaient des faux zeros — donc que la moitie TRANSLATION du
+    rebase de sa §37, declaree TENUE au cycle 35, ne l'etait pas ;
+  - la **seconde** recherche, elargie, a trouve les ecrivains de 24 a 30 : ils passent par des
+    variables locales (`dgb`, `dgr`) que mon motif ne couvrait pas. **`PHYSREBASE` et la §9 sont
+    bien alimentees, et le cycle 35 avait raison sur ce point.**
+  - la **troisieme** a porte sur les compteurs de LIMITEUR, que le cycle 35 n'avait pas examines :
+    quatre de plus sont morts.
+
+Total exact, chacun verifie par grep sur son nom (une definition, une lecture, une remise a zero,
+**zero ecriture**) :
+
+    champ publie                   source                        marqueur
+    retreat                        *phys-dg* emplacement 1       PHYSDIAG
+    retreat                        *phys-dg* emplacement 1       PHYSORICTL3
+    retfblen                       *phys-dg* emplacement 16      PHYSDIAG7   (ligne entiere)
+    retreat_n / retreat_sum        *phys-retreat-n* / -sum*      PHYSLIM
+    retreat_fallback               *phys-retfb-n*                PHYSLIM2    (ligne entiere)
+    sphere_n                       *phys-sphere-n*               PHYSLIM3    (ligne entiere)
+
+**ET CE N'EST PAS DU MENAGE : DEUX D'ENTRE EUX PORTAIENT UN ACQUIS DU CYCLE 35.** Son rapport
+publie « limiteurs : recul 0 fois, plafond-taille 0 fois — **aucun suppresseur n'a tire** ». La
+PREMIERE moitie de cette phrase reposait sur `retreat_n`/`retreat_sum`, c'est-a-dire sur un zero
+qu'aucun chemin de code ne pouvait faire monter : **elle est retiree**. La SECONDE
+(`plafond-taille`, alias `raddrop`) repose sur des compteurs qui ONT un ecrivain (:1263-1264) :
+**elle tient**, et je la distingue de l'autre au lieu de tout jeter.
+Ils ne sont pas ARMES mais RETIRES : les armer voudrait dire remettre `phys-retreat-chain`, dont
+NOTE-93 est la pierre tombale explicite (« A NE PAS REMETTRE »).
+
+
+================================================================================================
+ETAPE 2 — LA PRESSION DE CONTACT DEVIENT UNE INTENSITE
+================================================================================================
+PREDICTIONS : `C36E2-intensity-prediction.txt`, md5 **e71a32e37e4b7eb6a922c0d5e72dc622**, empreinte
+gravee dans le commit **2e7ea82c50** — avant la moindre ligne du mecanisme.
+BILAN : **R0 REFUTEE · R1 CONFIRMEE · R2 CONFIRMEE · R3 CONFIRMEE · R4 REFUTEE · R5 CONFIRMEE ·
+R6 publiee.**
 
 2.1 LE MECANISME, ET POURQUOI CE N'EST PAS UN SUPPRESSEUR
 ===========================================================
-`rest` et `pt` sont desormais lus depuis l'ANCRE DE CHAINE : la rotation ecrite d'un maillon est
-celle de SA POSITION AUTOUR DE SON ANCRE, pose d'auteur contre position simulee. Leviers 1042 u
-(maillon 0) et 1182 u (maillon 1) au lieu de 140 ; amplifications **0.625 et 0.435 — sous 1**,
-donc la chair se deplace MOINS que le joint, seule situation physiquement saine.
+Une seule grandeur change de source, a `jak-hd-physics.gc:3785` :
 
-  - **Aucun clamp, aucun seuil, aucune hysteresis, aucune borne.** On change QUEL VECTEUR definit
-    l'orientation, jamais l'amplitude de quoi que ce soit. Sur une chaine dont la chair serait
-    PROCHE de son os, la meme regle AUGMENTERAIT le mouvement.
-  - **La machinerie existait deja** : c'est la branche `else` du `cond`, qui lisait l'ancre pour
-    `l=0`. Aucune primitive neuve. 35 lignes deviennent 12.
-  - **La branche supprimee ne perd aucun cas** : l'ancien `cond` visait l'enfant simule quand il y
-    en avait un, le parent sinon, et les deux rendaient le MEME os de 140 u ici — `pt` etait
-    litteralement identique dans les deux branches.
-  - **Le controle est la course precedente, et il est exact** : M6 vient de prouver la salle
-    reproductible a 32 787 lignes `PHYS`, 0 differente. Je n'ai donc PAS ajoute d'interrupteur
-    d'ablation, et c'etait ecrit dans le contrat de predictions avant la mesure.
+    AVANT   pr0 = PHYS-PRS-K * (cl  / b0f)     cl  = |somme des 150-254 poussees de la frame|
+    APRES   pr0 = PHYS-PRS-K * (pmx / b0f)     pmx = la PLUS GRANDE poussee SEULE de la frame
 
-2.2 N1 CONFIRMEE — ET MES DEUX DERIVATIONS ETAIENT TOUTES LES DEUX TROP HAUTES
-===============================================================================
-    moyennes en B0        AVANT      APRES      ecart
-    |tp|                 0.2328     0.4210     +80.9 %
-    |rp|                 0.7714     **0.0598**  **-92.2 %**
-    |dp|                 0.1761     0.2614     +48.4 %
+  - **`PHYS-PRS-MAX` ne bouge pas d'un chiffre.** Aucun plafond ajoute, abaisse ni releve. Ce qui
+    change est QUELLE GRANDEUR est lue — meme forme d'argument que le levier de rotation du cycle 35.
+  - **Sur une frame a UNE SEULE poussee, `pmx` = `cl` au bit pres.** Le mecanisme ne se distingue de
+    l'ancien QUE la ou la boucle repete, c'est-a-dire sur un artefact de solveur.
+  - **La DIRECTION reste celle de `*phys-cpu*`**, inchangee, et elle est bien conditionnee : psum/cl
+    de 1.11 et 1.28 prouve que les poussees s'alignent.
+  - **La grandeur existe deja** : c'est `pmax`, ecrit et publie a l'etape 1. Aucun tableau neuf,
+    aucune primitive neuve, **une ligne de code**.
+  - Sa SPEC 23 demande « local collision PRESSURE ». Une pression est une intensite. Une somme de
+    corrections sur 45 balayages n'en est pas une, et 4.4 metres en une frame le montre sans mesure.
 
-Le critere etait 0.25 B0 : mesure **0.0598**. Mes deux derivations gravees donnaient 0.104 et
-0.145 — **elles sont toutes les deux au-dessus de la mesure, d'un facteur 1.7 a 2.4**. L'ordre de
-grandeur etait bon, le chiffre non, et je le dis plutot que de me contenter du vert.
+2.2 R1 ET R2 — L'ENTREE ET SON ECRETAGE
+=========================================
+    chaine    prsr max AVANT      prsr max APRES     estimation gravee    ecart a ma derivation
+    chestL   13.3807 (53.52x)     0.4825 (1.93x)          0.4507                 +7.1 %
+    chestR   15.2761 (61.10x)     0.4699 (1.88x)          0.3803                +23.6 %
 
-Le classement s'inverse completement : **[A] 348 fenetres (93.5 %) · [B] 1 (0.3 %) · [C] 23 (6.2 %)**.
+    chaine    psat / nfr AVANT              psat / nfr APRES            reference cycle 35
+    chestL   587 599 / 1 586 952 = 37.03 %  59 457 / 1 586 952 = 3.75 %      37.0 %
+    chestR   455 850 / 1 586 952 = 28.72 %  28 399 / 1 586 952 = 1.79 %      28.7 %
 
-2.3 N3 ET N4 REFUTEES — ET CE SONT DES ARTEFACTS D'ARGMAX, DEMONTRES, PAS EXCUSES
-==================================================================================
-`|tp|` monte de 80.9 % et `|dp|` de 48.4 %. **Ce n'est ni plus de translation ni plus de
-deformation** : les trois termes sont releves a l'ARGMAX de `comex` de la fenetre, et le maximum a
-change de frame une fois les pics de rotation disparus. **Deux mesures INDEPENDANTES le prouvent** :
+R1 CONFIRMEE (critere <= 5.0). Ma reserve gravee etait juste : « `pmax` est publie A L'ARGMAX DE
+`cl`, pas a l'argmax de `pmax`, donc ma derivation est un MINORANT ». Elle l'etait, de 7 % et 24 %.
+R2 CONFIRMEE (critere <= 10 %). Mon estimation gravee (2 % a 8 %) contient chestL a 3.75 % et
+**manque chestR a 1.79 %** — la baisse est plus forte que prevue, et je le dis plutot que de
+me contenter du vert.
+**1.93x et 1.88x, c'est exactement le regime du canal d'ETIREMENT** (1.66x et 1.49x au cycle 35),
+dont le rapport disait « un canal essentiellement LIBRE, ou le plafond joue son role de garde-fou,
+pas de baillon ». Les deux entrees du tenseur sont pour la premiere fois dans le meme regime.
 
-    le tenseur lui-meme     `dynm=0.2500` et `prsm=0.2500` dans LES DEUX courses — identiques,
-                            et tous deux exactement a leur plafond (`PHYS-DYN-MAX`, `PHYS-PRS-MAX`)
-    la translation du joint `PHYSGRAD amp max` **785.92 -> 757.70 u, soit -3.6 %** : le joint bouge
-                            MOINS, pas plus. `rootdev` -2.7 % le confirme.
-
-C'est exactement la lecon que je m'etais ecrite au cycle 34 sur K3 : **une prediction posee sur un
-MAXIMUM DE FENETRE ne peut etre tenue par aucun mecanisme qui change la trajectoire**, puisqu'il
-change quelle frame est l'argmax. Je l'avais ecrite apres coup ; cette fois elle etait ecrite
-AVANT, et je l'ai quand meme posee sur N3 et N4. C'est ma faute de prediction, pas un effet mesure.
-
-N4 (« l=1 devient majoritaire ») etait donnee comme prediction FAIBLE : **l=0 garde 341 fenetres
-sur 372 (91.7 %)**. REFUTEE.
-
-2.4 N2 PARTAGEE — LA MOYENNE MANQUE DE 2 POINTS, LE PIRE CANAL TIENT LARGEMENT
-===============================================================================
-    moyenne de `comex` sur les 372 fenetres : 1.1693 -> 0.7245 B0, **-38.0 %** pour un critere
-    de -40 %. **REFUTEE de 2 points**, publiee comme telle.
-    pire fenetre par canal, critere -35 % : les 12 canaux passent, de -39.5 % a -52.6 %.
-
-    chaine    pilotage      AVANT     APRES     ecart
-    chestL    tilt         1.8529    1.0138    -45.3 %
-    chestR    tilt         1.9097    0.9223    -51.7 %
-    chestR    accel        1.7900    0.8479    -52.6 %
-    chestL    accel        1.7159    0.8377    -51.2 %
-    chestL    BASE-0stim   1.7486    0.9083    -48.1 %
-    chestR    BASE-0stim   1.5553    0.8282    -46.7 %
-    ... les 12 canaux sont dans `C35E2-verdict.txt`
-
-**ET LA DISTRIBUTION, QUI EST LA GRANDEUR QUI DIT SI ON A CLIPE UN EXTREME OU DEPLACE LA REPONSE :**
-
-    chaine    moyenne sur 33 480 echantillons      part au-dessus de 0.40 B0
-    chestL    0.4660 -> **0.3079 B0**  (-33.9 %)   52.0 % -> **28.1 %**
-    chestR    0.4417 -> **0.3048 B0**  (-31.0 %)   47.9 % -> **27.9 %**
-
-**La MOYENNE entre pour la premiere fois dans sa bande normale de 0.35 B0.** Le maximum reste
-dehors (x2.53 et x2.31 le plafond dur). **JE N'ANNONCE DONC PAS LA SECTION TENUE**, et c'etait
-ecrit dans les predictions : « je ne predis pas qu'il rentre dans la bande ». Mon estimation
-gravee de la somme des trois termes apres correctif valait 0.554 B0 ; la mesure donne 0.7245 —
-**j'etais optimiste de 31 %**.
-
-2.5 N5 CONFIRMEE — LE SEUL ACQUIS QUE L'OWNER AIT VALIDE N'EST PAS TOUCHE
-==========================================================================
-    chestL tilt     tipvar_max 0.1641 -> 0.1708   +4.0 %
-    chestL updown   tipvar_max 0.1769 -> 0.1764   -0.2 %
-    chestR tilt     tipvar_max 0.1919 -> 0.1850   -3.6 %
-    chestR updown   tipvar_max 0.1799 -> 0.1731   -3.8 %
-    ROOM-IDLE maxdev 0.0002 -> 0.0002             INCHANGE
-Critere +-15 % : tenu sur les quatre. `tilt` est le pilotage qu'il regarde quand elle se penche
-pour souder.
-
-2.6 N6 — LES COUTS, ET CE CYCLE-CI ILS SONT DES GAINS
-=======================================================
-    meshpen max        0.1126 -> **0.0952 m**   **-15.5 %**  (chestR 0.1125 -> 0.0913, -18.8 %)
-    franchissements    7 -> **6**
-    rootdev max        0.0855 -> 0.0832 m       -2.7 %
-    pire saut / frame  0.0925 -> 0.0913 m       -1.3 %
-    tipvar max         0.1919 -> 0.1850         -3.6 %
-    tipvar min (gate MOVE, plancher 0.05)  0.1805 -> 0.1812   +0.4 %
-    PHYSIDLE dev chestL 0.6390 -> 0.6390        inchange
-    PHYSIDLE dev chestR 0.7787 -> **0.6404**    **-17.8 %, VERS la pose d'auteur (cible §9 = 0)**
-    limiteurs : recul 0 fois, plafond-taille 0 fois — aucun suppresseur n'a tire.
-**Le +18 % de `meshpen` que le cycle 34 avait declare comme son cout est rendu, et le chiffre passe
-sous son niveau d'avant ce cycle-la.** Je n'avais pas predit ce gain ; il n'etait pas vise.
-
-
-================================================================================================
-ETAPE 3 — LES DEUX ENTREES DU TENSEUR, MESUREES AVANT LEUR PLAFOND
-================================================================================================
-PREDICTIONS : `C35E3-tensor-prediction.txt`, md5 **bc44d0e77d1d9c27b528f3ae5e29d483**, empreinte
-gravee dans le commit **a4712a83b9** — avant que l'instrument existe.
-BILAN : **Q0 CONFIRMEE · Q1 CONFIRMEE · Q2 CONFIRMEE · Q3 REFUTEE · Q4 CONFIRMEE.**
-
-3.1 POURQUOI CETTE ETAPE
-==========================
-M3 a etabli que le tenseur est le porteur RESTANT de sa §22 (0.2614 B0, 36 % de ce qui reste). Or
-ses deux SORTIES sont collees a leur plafond dans toutes les courses : `dynm` = `PHYS-DYN-MAX` =
-0.2500 et `prsm` = `PHYS-PRS-MAX` = 0.2500, **exactement**. Une sortie collee a son plafond ne dit
-pas de combien l'ENTREE le depasse. C'est le mode d'echec du cycle 34, ou la saturation de sa §21
-ecrite comme multiplicateur de FORCE gelait le rappel a 46.3 u/frame quel que soit l'ecart.
-
-3.2 LE RESULTAT — ET LES DEUX ENTREES NE SE RESSEMBLENT PAS DU TOUT
+2.3 R3 — LE CANAL DEVIENT DISCRIMINANT, ET SEULEMENT SUR UNE CHAINE
 =====================================================================
-    chaine     dlr max (ETIREMENT)  /plafond  |  prsr max (PRESSION)  /plafond
-    chestL          0.4141            1.66x   |       13.3807          **53.52x**
-    chestR          0.3722            1.49x   |       15.2761          **61.10x**
+    chaine   fenetres avec prsm < 0.2500      etendue de `prsm` entre les six pilotages
+    chestL       46/186  ->  128/186                  0.0 %  ->   **0.0 %**
+    chestR       51/186  ->  137/186                  0.0 %  ->  **31.2 %**
 
-    chaine     frames comptees   dl > plafond        pr0 > plafond
-    chestL         1 586 952      68 530 ( 4.3 %)    **587 599 (37.0 %)**
-    chestR         1 586 952      61 735 ( 3.9 %)    **455 850 (28.7 %)**
+Le detail de chestR : `tilt` 0.1720 et `BASE-0stim` 0.1843 contre 0.2500 sur les quatre autres.
+C'est la premiere fois que la sortie de ce canal repond differemment a deux stimuli differents.
+**Le critere grave etait « au moins une chaine >= 25 % », il est tenu — mais chestL reste
+IDENTIQUEMENT PLAT, et une moitie de mesure n'est pas une mesure.** chestL est la chaine dont
+`meshpen` monte et dont l'ecart de §9 monte : les trois faits vont probablement ensemble, et c'est
+le premier fil du cycle 37.
 
-**Q1 CONFIRMEE**, et mon arithmetique gravee AVANT la mesure disait « dl de l'ordre de 0.39, soit
-~1.5x, PAS 60x » : mesure **1.66x et 1.49x**. C'est la premiere fois de ce cycle qu'une derivation
-posee d'avance tombe juste du premier coup.
-**Q2 CONFIRMEE** : la pression ecrete sur 8.6x et 7.4x plus de frames que l'etirement.
-**Q3 REFUTEE** : 37.0 % et 28.7 %, pas les >= 50 % que j'avais predits.
-**Q0 CONFIRMEE** : 33 531 lignes `PHYS` hors marqueurs neufs, **0 differente**. Instrument inerte.
+2.4 R4 REFUTEE — ET ELLE CORRIGE MA HIERARCHIE, PAS SEULEMENT MA PREDICTION
+=============================================================================
+    moyennes en B0 sur 372 fenetres    AVANT     APRES     ecart
+    |tp|  TRANSLATION                 0.4210    0.4314    +2.5 %
+    |rp|  ROTATION                    0.0598    0.0580    -3.0 %
+    |dp|  DEFORMATION (le tenseur)    0.2614    0.2374    **-9.2 %**
 
-3.3 CE QUE CA TRANCHE — ET JE CORRIGE MA PROPRE BRANCHE ECRITE D'AVANCE
-========================================================================
-Ma table de branches disait, pour « Q2 tenue, Q3 cassee » : « c'est un PIC RARE ». **Ce mot est
-faux et je ne m'y tiens pas** : 37 % des frames n'est pas rare. La lecture exacte est celle-ci —
+Critere grave : baisse entre 20 % et 60 %, **bilaterale a dessein** (plus de 60 % aurait ete un
+ECHEC — le canal eteint, les « ballons durs » que l'owner a refuses le 2026-08-11 a 21:20).
+Mesure : **-9.2 %. REFUTEE par le bas.**
 
-  - la PRESSION DE CONTACT est **ecretee sur plus d'un tiers des frames, a une amplitude
-    50 a 61 fois son plafond**. Sur ces frames-la, le tenseur ne recoit AUCUNE information sur la
-    force reelle du contact : toutes les valeurs entre 0.25 et 15.28 lui arrivent comme 0.25 ;
-  - l'ETIREMENT, lui, depasse de 49 a 66 % sur 4 % des frames. C'est un canal essentiellement
-    LIBRE, et le plafond de §38 y joue son role de garde-fou, pas de baillon.
+**CE QUE CA VEUT DIRE, ET C'EST PLUS INTERESSANT QUE MA PREDICTION.** Le tenseur ne tirait PAS sa
+deformation de la pression : il la tire de l'ETIREMENT (`dfb`). La pression (`dfc`) etait saturee en
+permanence et ne pesait qu'environ un dixieme de sa contribution. Donc :
+  - reparer ce canal est un gain de COHERENCE et de REPONSE, pas un gain d'amplitude sur sa §22 ;
+  - le porteur restant du tenseur est l'ETIREMENT, et c'est lui qu'il faudra instrumenter ensuite ;
+  - **ma hierarchie du plan du cycle 35 mettait la pression en premier a cause de son 61x. Un
+    facteur 61 sur une entree qui pese un dixieme de son terme ne fait pas d'elle le porteur.**
+    L'amplitude d'un depassement ne dit rien du poids du canal — c'est une lecon neuve et elle est
+    du meme genre que « une magnitude n'est pas du mouvement ».
 
-**Les deux ne se traitent donc pas de la meme facon**, et je ne designe pas un coupable unique —
-c'est ce que la branche gravee imposait, et c'est la seule partie que la mesure valide.
+2.5 R0 REFUTEE — MA PREDICTION ETAIT MAL POSEE, ET J'AVAIS ECRIT LA REGLE MOI-MEME
+===================================================================================
+    chaine   dlr max (entree d'ETIREMENT)    nfr max
+    chestL      0.4141 -> 0.4136 (-0.1 %)    16 857 -> 16 857
+    chestR      0.3722 -> 0.3920 (+5.3 %)    16 857 -> 16 857
 
-**ET LA CAUSE CANDIDATE DE L'ENTREE A 61x EST DEJA MESUREE, DANS CE MEME RAPPORT** : les deux
-volumes de chair d'un sein decrivent le MEME morceau de chair (recouvrement 75.6 % / 65.3 %, la
-sphere proximale ne couvrant pas un seul sommet que la distale ne couvre deja). Le contact est donc
-applique DEUX FOIS sur la meme chair a chaque frame. Non demontre — c'est une hypothese, elle sera
-gravee avant d'etre testee au cycle 36.
+J'avais exige `dlr` IDENTIQUE a 4 decimales pour prouver que l'edition ne fuyait pas hors de son
+canal. **C'est impossible par construction** : le tenseur change, donc la trajectoire change, donc
+l'etirement — qui se calcule SUR la position — change aussi. C'est exactement le piege N3/N4 du
+cycle 35 (« une prediction d'invariance sur une grandeur que le mecanisme perturbe necessairement »),
+que j'ai ecrit dans les DIRECTIVES et repose ici trois etapes plus tard.
+**Le bon test de confinement etait sur le CODE, pas sur une grandeur en aval** : une seule
+expression change (`cl` -> `pmx` dans l'argument de `pr0`), et `cl` reste le porteur de la
+DIRECTION. C'est verifiable par diff, et c'est verifie.
+A noter au passage, et ca compte : `dlr` de chestR **MONTE** de 5.3 %. Une fuite qui supprimerait du
+mouvement ferait le contraire.
 
-**A NOTER, ET CE N'EST PAS RIEN** : `prsr` max passe de **24.7164 avant le correctif de levier a
-15.2761 apres**, soit **-38 %**. Le levier n'etait pas cense agir la ; il a fait baisser l'entree
-de contact d'un tiers. Constat, pas explication.
+2.6 R5 — LE MOUVEMENT SUBTIL, LE SEUL ACQUIS QUE L'OWNER AIT VALIDE
+=====================================================================
+    chaine   pilotage     tipvar max          ecart      critere
+    chestL   updown       0.1485 -> 0.1485    +0.0 %     +-15 %
+    chestL   tilt         0.1288 -> 0.1288    +0.0 %     +-15 %
+    chestR   updown       0.1325 -> 0.1325    +0.0 %     +-15 %
+    chestR   tilt         0.0908 -> 0.1038   **+14.3 %** +-15 %
+CONFIRMEE, mais chestR sur `tilt` frole le bord. La hausse va dans le sens du mouvement, pas du
+muselage — et `tilt` est le pilotage qu'il regarde quand elle se penche pour souder.
+AVERTISSEMENT DE LECTURE : ces quatre chiffres sont des maxima PAR (chaine, pilotage) ; les
+0.1641 / 0.1769 / 0.1919 / 0.1799 du rapport du cycle 35 sont des maxima PAR CHAINE sur toutes les
+animations. **Ce ne sont pas les memes series et il ne faut pas les comparer.** Les maxima par
+chaine, eux, sont dans le tableau : 0.1812 -> 0.1885 et 0.1850 -> 0.1875.
+
+2.7 R6 — LES COUTS, DANS LES DEUX SENS
+========================================
+    grandeur                       AVANT      APRES      ecart
+    meshpen max (m)               0.0952     0.0983     **+3.2 %**   dont chestL +3.3 %, chestR -1.4 %
+    rootdev max (m)               0.0832     0.0847       +1.8 %
+    pire saut par frame (m)       0.0913     0.0823       -9.8 %
+    tipvar max (m)                0.1850     0.1885       +1.9 %
+    tipvar min par chaine (MOVE)  0.1812     0.1875       +3.5 %   (plancher de la gate : 0.05)
+    franchissements de cote         6          8        **+2**
+    ROOM-IDLE maxdev              0.0002     0.0002      INCHANGE  (plafond 1.0)
+    PHYSIDLE dev chestL           0.6390     0.9581    **+50.0 %**  [cible §9 = 0.0000]
+    PHYSIDLE dev chestR           0.6404     0.4803      -25.0 %    [cible §9 = 0.0000]
+    comex max chestL (B0)         1.0138     1.0765       +6.2 %    x2.53 -> **x2.69** le plafond dur
+    comex max chestR (B0)         0.9223     0.9655       +4.7 %    x2.31 -> **x2.41**
+    comex moyenne/echantillon L   0.3079     0.2896       -5.9 %    bande normale 0.35 : DEDANS
+    comex moyenne/echantillon R   0.3048     0.2888       -5.3 %    bande normale 0.35 : DEDANS
+    part des echantillons > 0.40  28.1/27.9  23.8/23.2  **-4.3 et -4.7 points**
+    lsw max                        45/45      45/45      INCHANGE  (la non-convergence n'est pas traitee)
+    limiteurs                     recul : plus aucun compteur (retire) · plafond-taille : 0 fois
+
+**LE MAXIMUM DE `comex` MONTE PENDANT QUE SA DISTRIBUTION BAISSE**, et je ne choisis pas le chiffre
+qui m'arrange : le pic monte de 6.2 % et 4.7 %, la moyenne par echantillon baisse de 5.9 % et 5.3 %,
+et la part au-dessus du plafond dur perd 4.3 et 4.7 points. C'est la signature d'une distribution
+qui se deplace vers le bas avec une frame extreme qui change de place — le meme effet d'argmax que
+le cycle 35 avait demontre sur N3/N4. Je le dis comme une hausse du maximum, pas comme un gain.
+
+**ET LE COUT LE PLUS LOURD EST L'ASYMETRIE DE SA SPEC 9** : l'ecart a la pose d'auteur monte de
+50 % sur chestL et baisse de 25 % sur chestR. Sa §9 exige le retour EXACT (0.0000). Deux chaines
+quasi identiques qui partent en sens opposes sous le meme changement, c'est un fait a expliquer, pas
+un bruit — et c'est le second fil du cycle 37, avec le fait que chestL est aussi la chaine dont le
+canal de pression reste PLAT.
+
 
 ================================================================================================
-DEUX DEFAUTS NEUFS, TROUVES EN VERIFIANT, NON CORRIGES CE CYCLE
+SPEC 24 — RE-MESUREE, CE QUE LE CYCLE 35 AVAIT DECLARE COMME UNE LACUNE
 ================================================================================================
-**(a) DEUX COMPTEURS PUBLIES N'ONT AUCUN ECRIVAIN — DEUX FAUX ZEROS PERMANENTS.**
-Les emplacements 1 (`retreat`) et 16 (`retfblen`) de `*phys-dg*` sont LUS trois fois par la salle
-(`phys-room.gc:1232`, `:1354`, `:2321`) et publies a chaque course — `PHYSDIAG ... retreat=0.0000`,
-`PHYSDIAG7 ... retfblen=0.0000`. **Aucune ligne du moteur ne les ecrit** (`grep "PHYS-DG) 1)"` et
-`"PHYS-DG) 16)"` : vide). Ils correspondent a `phys-retreat-chain`, retiree le 2026-08-13. Un zero
-qu'aucun chemin de code ne peut faire monter n'est pas une mesure : c'est la classe
-« zero d'un domaine vide », et il est publie comme un resultat depuis six jours. **Non corrige ce
-cycle DELIBEREMENT** : retirer ces deux lignes changerait la trace et aurait pollue l'A/B des deux
-courses. C'est en tete du cycle 36.
+Le cycle 35 ecrivait : « le levier a change la rotation ecrite, donc les frequences de §24 MERITENT
+une re-mesure — elle n'a pas eu lieu et c'est une lacune, pas un acquis. » Elle a eu lieu.
 
-**(b) LES DEUX VOLUMES DE CHAIR D'UN SEIN DECRIVENT LE MEME MORCEAU DE CHAIR.**
-Mesure sur le mesh livre (`keira-hd-lod0.glb`, md5 `5cb8a493c43211acf3a04c5b6433df81`) et le rig
-injecte, ramenes dans le meme repere :
+    axe          lecteur              chestL AVANT      chestL APRES      chestR AVANT     chestR APRES
+    §24-v 2.30   ROOM-AXFIT-RAD       2.320 DANS        2.320 DANS        2.410 DANS       2.410 DANS
+    §24-ap 2.50  ROOM-RINGFIT repos   2.455 DANS        2.455 DANS        2.545 DANS       2.540 DANS
+    §24-lat 2.65 ROOM-RINGFIT repos   2.600 DANS        **3.020 NON LISIBLE**  2.675 DANS  2.645 DANS
 
-    paire            d (u)    r1+r2    recouvrement   part du volume de la PETITE dans la GRANDE
-    lBoob / lBooc   238.42     771       +532.58                  **75.6 %**
-    rBoob / rBooc   261.28     760       +498.72                  **65.3 %**
+  - **§24-v est INCHANGEE au millieme** sur les deux chaines (residus 0.007 et 0.014) : le canal
+    radial, qui est le lecteur legitime de la verticale (84.5 % de l'energie de l'os tombe sur
+    l'axe vertical du triedre, justification dans le tableau lui-meme), ne bouge pas.
+  - **§24-ap est inchangee** a 0.005 Hz pres.
+  - **§24-lat de chestL a PERDU SA LISIBILITE** : residu 0.151 contre 0.048 avant, et l'ajusteur
+    rend 3.020 Hz avec un intervalle [2.910..3.135]. **Je ne l'annonce donc PAS hors bande — je
+    l'annonce NON LISIBLE**, ce qui est un cout different et honnete : l'instrument ne tranche plus.
+  - Bilan : **5 canaux sur 6 DANS leur bande, 1 non lisible**, contre 6 sur 6 avant le correctif.
 
-**Chaque centre est A L'INTERIEUR de la sphere de l'autre.** Et la preuve dure n'est pas un volume,
-c'est un ENSEMBLE : sur les 55 sommets de `chestL`, 51 sont dans la sphere distale, 51 dans
-l'UNION — **la sphere proximale ne couvre pas UN SEUL sommet que la distale ne couvre deja**. Elle
-est purement redondante, et 63-69 % de l'organe est compte deux fois par le solveur de contact.
-Ce n'est pas un offset faux (les offsets livres sont a 0.6 u du centroide mesure, soit 0.001 B0) :
-c'est que les deux offsets sont colineaires ENTRE EUX a 6.3 deg / 7.2 deg, avec des modules de 651
-et 515 u sur un os de 140 u. C'est la signature `oversized-volume-flattens-response`, et c'est un
-candidat direct pour `meshpen` et pour la saturation du tenseur.
-A noter au passage : les rayons proximaux livres (340 / 345) sont une SURCHARGE de l'owner
-(`keira-owner-tuning.txt:1020-1021`), pas une mesure — le generateur demanderait 408 et 520.
-
-**(c) LE TENSEUR TOURNE EN BUTEE, DANS LES DEUX COURSES.** `dynm=0.2500` = `PHYS-DYN-MAX` et
-`prsm=0.2500` = `PHYS-PRS-MAX`, exactement, avant comme apres. Ses deux entrees sont saturees en
-permanence : il ne peut pas repondre au stimulus, quoi qu'on lui donne. Ca confirme K4 du cycle 34
-et ca nomme le chantier du cycle 36 avec son chiffre.
+Ces chiffres sont [T] — lus dans le tableau de la course de ce cycle, pas reportes.
 
 
 ================================================================================================
@@ -347,32 +351,57 @@ Aucune section « non applicable » (interdit depuis le 14/08 11:50).
   SPEC 6  B0          TENUE      [T] `b0 c=0 flesh=602.0000`, lu dans la trace des deux courses.
   SPEC 8  volume      PARTIELLE  [R] det(D) renormalise PAR CONSTRUCTION : le 1.0000 postule la
                                  conservation au lieu de la mesurer. Inchange.
-  SPEC 9  retour exact TENUE     [T] `ROOM-IDLE maxdev = 0.0002` (plafond 1.0), INCHANGE. [M]
-                                 `PHYSIDLE dev` chestL 0.6390 identique, chestR 0.7787 -> 0.6404,
-                                 soit **-17.8 % VERS** la pose d'auteur que cette section exige.
+  SPEC 9  retour exact **PARTIELLE, ET ELLE RECULE SUR UNE CHAINE** [T] `ROOM-IDLE maxdev = 0.0002`
+                                 (plafond 1.0) INCHANGE. [M] MAIS `PHYSIDLE dev` chestL
+                                 **0.6390 -> 0.9581 (+50.0 %)** pour une cible de 0.0000, pendant
+                                 que chestR va **0.6404 -> 0.4803 (-25.0 %)**. Le cycle 35 avait
+                                 declare cette section TENUE sur la seule foi de `ROOM-IDLE` ;
+                                 **je la retrograde a PARTIELLE**, parce que la grandeur que sa §9
+                                 specifie (le retour EXACT) est `PHYSIDLE dev`, pas le plafond de
+                                 la gate — et elle vaut 0.96 et 0.48 pour une cible de zero.
   SPEC 10 supine      PARTIELLE  [R] COM 0.2612 / 0.2653. Non re-mesure.
   SPEC 11 prone       PARTIELLE  [R] COM 0.2373 / 0.2477. Non re-mesure.
-  SPEC 12 lateral     PARTIELLE  [R] pole MEDIAL sous bande. Inchange.
+  SPEC 12 lateral     PARTIELLE  [R] pole MEDIAL sous bande. **ET LA REMARQUE DU CYCLE 35 TOMBE** :
+                                 il ecrivait « la bande est TENUE par ecretage, pas par la
+                                 physique », parce que `PHYS-PRS-MAX` (= 0.25, borne haute de cette
+                                 section) ecretait 28-37 % des frames. [M] Elle n'en ecrete plus que
+                                 **3.75 % et 1.79 %** : l'objection est levee, la bande n'est plus
+                                 tenue par un plafond.
   SPEC 13 continuite  PARTIELLE  [R] chestL LINEAIRE, chestR NON LINEAIRE. Inchange.
-  SPEC 21 tanh        TENUE      [R] la saturation de DEPLACEMENT posee au cycle 34 tient ; aucun
-                                 limiteur n'a tire ce cycle (recul 0, plafond-taille 0).
-  SPEC 22/38 apex+COM **PARTIELLE, ET ELLE PROGRESSE FRANCHEMENT POUR LA DEUXIEME FOIS**
-                                 [T] `comex` 1.8529/1.9097 -> **1.0138/0.9223 B0** contre 0.40 dur,
-                                 soit x2.53 et x2.31 — **TOUJOURS HORS BANDE**.
-                                 [T] MAIS la MOYENNE passe de 0.4660/0.4417 a **0.3079/0.3048**,
-                                 c'est-a-dire **DANS sa bande normale de 0.35**, et la part
-                                 au-dessus du plafond dur tombe de ~50 % a ~28 %.
-                                 [M] ET LE TERME EST NOMME : la ROTATION portait 67 %, elle en
-                                 porte 5 %. Ce qui reste est [A] 0.4210 et [C] 0.2614 B0.
-  SPEC 23 multi-DOF   PARTIELLE  [M] Le troisieme degre de liberte existe sur les deux maillons.
-                                 **ET CE CYCLE MESURE UN COUT DE CETTE SECTION QUI N'AVAIT JAMAIS
-                                 ETE VU** : l'os injecte pour elle portait un levier de rotation
-                                 7.4x trop court, ce qui rendait sa §22 d'autant plus dure.
-                                 Deux termes de son equation restent sans support : `F_collision`
-                                 ne passe pas par la masse, et le tenseur est UNIQUE par chaine.
-  SPEC 24 3 frequences PARTIELLE [R] 10 canaux DANS · 2 NON LISIBLES. Non re-mesure ce cycle.
-  SPEC 25 zeta 0.35   PARTIELLE  [R] 0.34-0.41 radial, 0.18-0.21 ap/lat distal (SOUS la bande).
-  SPEC 26 rebond 31 % PARTIELLE  [R] 0.281-0.324 pour une cible de 0.31. Non re-mesure.
+  SPEC 21 tanh        TENUE      [T] la saturation de DEPLACEMENT du cycle 34 tient ; aucun
+                                 limiteur n'a tire (plafond-taille 0 fois — compteur A ECRIVAIN).
+                                 **ET L'AUTRE MOITIE DE CETTE LIGNE EST RETIREE** : « recul 0 fois »
+                                 reposait sur un compteur sans ecrivain (§1.6).
+  SPEC 22/38 apex+COM PARTIELLE  [T] `comex` max **1.0765 / 0.9655 B0** contre 0.40 dur, soit
+                                 **x2.69 et x2.41 — TOUJOURS HORS BANDE, et le MAXIMUM MONTE**
+                                 (+6.2 % / +4.7 %). [T] MAIS la moyenne par echantillon va
+                                 **0.3079 -> 0.2896** et **0.3048 -> 0.2888 B0** (dans sa bande
+                                 normale de 0.35) et la part au-dessus du plafond dur passe de
+                                 28.1/27.9 % a **23.8/23.2 %**. [M] Et la part du tenseur dans
+                                 l'ecart baisse de 9.2 % seulement : ce n'est pas lui le porteur.
+  SPEC 23 multi-DOF   **PARTIELLE, ET SON CINQUIEME TERME EST REPARE** [M] La « local collision
+                                 pressure » de sa liste recevait une LONGUEUR DE CHEMIN (4.4 et
+                                 5.0 m par frame) au lieu d'une intensite, et se faisait ecreter sur
+                                 37.0 % / 28.7 % des frames. Elle recoit maintenant l'intensite du
+                                 contact (1.93x / 1.88x son plafond, ecretage 3.75 % / 1.79 %) et sa
+                                 sortie cesse d'etre plate sur chestR (etendue 0 % -> 31.2 %).
+                                 **RESTE ABSENT** : `F_collision` ne passe pas par la masse, le
+                                 tenseur est UNIQUE par chaine, et **la sortie reste plate sur
+                                 chestL (0.0 %)**.
+  SPEC 24 3 frequences **PARTIELLE, RE-MESUREE CE CYCLE** [T] **5 canaux sur 6 DANS leur bande, 1
+                                 NON LISIBLE** : §24-v 2.320 / 2.410 (inchangees au millieme),
+                                 §24-ap 2.455 / 2.540, §24-lat 2.645 sur chestR — et §24-lat de
+                                 chestL a perdu sa lisibilite (residu 0.048 -> 0.151). C'etait
+                                 marque [R] et signale comme une lacune au cycle 35.
+  SPEC 25 zeta 0.35   PARTIELLE  [T] fenetre de REPOS, bande 0.32-0.42 : chestL ap **0.34 DANS**,
+                                 chestL lat 0.42 au BORD, chestR ap **0.35 DANS**, chestR lat
+                                 **0.34 DANS**, chestR v **0.37 DANS**. chestL v rend 0.47 mais son
+                                 residu est 0.093 : **je ne le cite PAS comme un hors-bande, je le
+                                 cite comme NON LISIBLE** — l'ajusteur ne tranche pas, et un chiffre
+                                 issu d'un ajustement qui ne converge pas n'est pas une mesure.
+  SPEC 26 rebond 31 % PARTIELLE  [T] fenetre de REPOS, cible 0.30-0.31 : 0.315 · 0.296 · 0.305 ·
+                                 0.322 sur les quatre canaux lisibles, 0.283 sur chestR v. Le 0.439
+                                 de chestL v releve du meme ajustement non lisible que ci-dessus.
   SPEC 27 stabilisation TENUE    [R] six canaux sur six dans 0.6-1.2 s. Non re-mesure.
   SPEC 28 derivation k SANS OBJET EN L'ETAT [R] `mass` n'est observable qu'a travers
                                  `stiffness/sqrt(mass)`. Inchange.
@@ -383,334 +412,327 @@ Aucune section « non applicable » (interdit depuis le 14/08 11:50).
   SPEC 31 gradient    PARTIELLE  [R] le gradient ne peut PAS etre porte par le tenseur (matrice
                                  unique par chaine) : il vit dans la PEAU seule.
   SPEC 32 independance PARTIELLE [R] Changer la masse d'UN sein deplace l'AUTRE de 32 a 321 %.
-  SPEC 12 lateral (bis) [M] `PHYS-PRS-MAX` = 0.25 est la borne haute de la bande de cette section,
-                                 et l'entree qu'elle ecrete vaut 53-61x sa valeur sur 28-37 % des
-                                 frames — la bande est donc TENUE par ecretage, pas par la physique.
-  SPEC 33 restit. 0.06 **PARTIELLE, ET EN BAISSE POUR LA PREMIERE FOIS** [T] GATE `COLLIDE`
-                                 ROUGE, penetration 0.0952 / 0.0913 m contre 0.0005, mais
-                                 **-15.5 % / -18.8 %**. Le +18 % du cycle 34 est rendu et depasse.
-                                 [S] ET LA CAUSE EST DESIGNEE : les deux volumes d'un sein
-                                 decrivent la meme chair (75.6 % / 65.3 % de recouvrement).
+  SPEC 33 restit. 0.06 **PARTIELLE, ET ELLE REMONTE** [T] GATE `COLLIDE` ROUGE, penetration
+                                 **0.0983 / 0.0900 m** contre 0.0005, soit **+3.3 % sur chestL** et
+                                 -1.4 % sur chestR. Un tiers du gain de 15.5 % du cycle 35 est rendu.
+                                 [S] ET LA CAUSE QUE LE CYCLE 35 LUI DESIGNAIT EST REFUTEE COMME
+                                 MECANISME DE SATURATION : les deux volumes redondants existent
+                                 bien (75.6 % / 65.3 %) mais psum/cl = 1.11 et 1.28 prouve qu'ils ne
+                                 se renvoient PAS le lien. Ils restent un defaut de forme ; ils ne
+                                 sont plus l'explication de la pression a 61x.
   SPEC 34 restit. 0.02 PARTIELLE [R] coefficient TENU, exigence de collision NON TENUE.
   SPEC 35 vetement    ABSENTE    [R] les volumes du debardeur produisent 40.0 % / 28.9 % des
                                  corrections. Question a l'owner, toujours ouverte.
   SPEC 36 secondaire  PARTIELLE  [R] amplitude sous le plafond, zeta/f du mode non re-mesures.
-  SPEC 37 sous-pas + rebase TENUE SUR LES DEUX MOITIES [R] `ns=2/4` (120-240 Hz) ; le rebase de
-                                 TRANSLATION du cycle 33 tient. Non re-mesure ce cycle.
-  SPEC 14-20 regimes  ABSENTE    [R] aucune bande de COM par regime n'est tenue — mais la moyenne
-                                 par regime passe sous 0.35 B0, ce qui est neuf.
+  SPEC 37 sous-pas + rebase TENUE SUR LES DEUX MOITIES [T] `ns` publie ; le rebase de TRANSLATION du
+                                 cycle 33 tient. **ET J'AI FAILLI ANNONCER LE CONTRAIRE** : ma
+                                 premiere recherche d'ecrivains croyait `PHYSREBASE` mort. Il ne
+                                 l'est pas — ses ecrivains passent par une variable locale (§1.6).
+  SPEC 14-20 regimes  ABSENTE    [T] aucune bande de COM par regime n'est tenue : 100 % des fenetres
+                                 au-dessus de 0.40 B0 sur les six pilotages. La MOYENNE par
+                                 echantillon, elle, est sous 0.35 et elle baisse encore.
   SPEC 5 (SPEC-keira-physique) — PRIORITE D'ANIMATION
                       TENUE      [T] `chains=2 respected=2`, controle positif 0/0.
 
 
 ================================================================================================
-ETAT DU VALIDATEUR — BALAYAGE COMPLET SUR COPIE
+ETAT DU VALIDATEUR — REEL, PUIS BALAYAGE COMPLET SUR COPIE
 ================================================================================================
-Le validateur reel s'arrete a `OPEN-DEFECTS`, qui ne se ferme que sur la parole de l'owner. Balayage
-sur COPIE, sorties anticipees du SHELL desarmees :
+Le validateur reel sort a **1** et s'arrete a sa TROISIEME gate, `OPEN-DEFECTS`, qui ne se ferme que
+sur la parole de l'owner. Balayage sur COPIE (`/tmp/c36-validator-sweep.sh`, original intact,
+md5 deafa82ce5165d6ef9181a5fc23f1590, `git status .autoport/validators/` vide), **avec les seuls
+arrets prematures du SHELL desarmes — aucun seuil, aucun critere, aucune gate touches (regle 5)** :
 
-    SCOPE          PASS   2 chaines declarees = 2 resolues ; joints lBoob lBooc rBoob rBooc, et
-                          aucun joint de cheveu, sangle, languette, oreille ou lunettes
+    REPORT-PRESENT PASS
+    SYNC           PASS   `vb249967379` accepte
+    OPEN-DEFECTS   **FAIL**  1 defaut rapporte par l'owner : `breast-spec-incomplete`
+    CLEAN          PASS   **4794 lignes** pour un plafond de 4800 (6 de marge), 1 modele
+    SCOPE          PASS   2 chaines declarees = 2 resolues ; joints lBoob lBooc rBoob rBooc
     TUNING         PASS   tous les reglages de l'owner sont dans le fichier livre
-    MOVE           PASS   organes geles par son ordre du 14/08 ; tipvar min 0.1812 (plancher 0.05)
-    ROOM           PASS   joueur absent, 1 acteur, 2 chaines x 31/31 animations, 310 mesures
+    ROOM           PASS
+    MOVE           PASS   organes geles par son ordre du 14/08
+    ROOT           PASS   rootdev max 0.0847 (plafond 2.0)
     COLLIDE geles  PASS   (cheveux, lunettes, oreilles : plus aucune chaine declaree)
-    COLLIDE (a)    **FAIL**  penetration 0.0952 (plafond epingle 0.0005) — declaree, mais EN BAISSE
-                             de 15.5 %
-    COLLIDE (b)    **FAIL**  `ROOM-POSCONTROL` arme 0.1042 contre desarme 0.0695 = **1.50x** pour
-                             un critere de 3x. Elle reste derriere la sortie anticipee PYTHON de
-                             (a), donc invisible au validateur reel — je la lis dans le tableau.
-                             **ET ELLE S'EST ELOIGNEE DU CRITERE EN MEME TEMPS QUE LE DEFAUT
-                             BAISSAIT** : 1.70x -> 1.50x, parce que le mecanisme fait baisser
-                             `arme` pendant que `desarme` (une ligne de base fixe) ne bouge pas.
-                             Un critere en RAPPORT dont le denominateur est un residu se DEGRADE
-                             quand on corrige le defaut. Je ne touche pas a la gate (regle 5) ;
-                             je publie son arithmetique, comme au cycle 34.
-    IDLE           PASS   ecart max au modele 0.0002
-    ANIM           PASS   2 chaines pilotees, toutes respectees
-    SIDE-CONTROL   PASS   6 franchissements declares, compteur prouve vivant
+    COLLIDE sein   **FAIL**  penetration 0.0983 (plafond epingle 0.0005) — declaree, EN HAUSSE
+    COLLIDE reste  **NON EVALUEE**  \
+    IDLE           **NON EVALUEE**   > bloquees par la sortie PYTHON interne de la gate ci-dessus
+    ANIM           **NON EVALUEE**   /
+    SUPPRESS       **NON EVALUEE**  /
+    SIDE-CONTROL   PASS   8 franchissements mesures et DECLARES, compteur prouve vivant
     FLOOR-WEAK     PASS   2 chaines gardent leur reponse aux petits mouvements
-    FLOOR          PASS   2 chaines au-dessus de leur plancher
+    FLOOR          PASS   chestL 0.1885, chestR 0.1875 (SUSPENDUE, arbitrage owner 14/08 01:00)
     DISCRIMINANT   PASS   chaque chaine distingue les 5 pilotages
-    CLEAN          PASS   **4765 lignes** pour un plafond de 4800 (35 de marge)
-    OPEN-DEFECTS   **FAIL**  `breast-spec-incomplete` — la seule gate que je ne peux pas viser.
 
-**LA PHASE NE PEUT PAS PASSER LE VALIDATEUR PAR MON ACTION**, et ce n'est pas un blocage technique :
-le commentaire de la gate dit lui-meme « la liste se vide UNIQUEMENT sur la parole de l'owner :
-c'est son oeil qui ferme un defaut, jamais un chiffre vert ». La fermer moi-meme serait le faux
-vert que le contrat interdit.
+**QUATRE GATES ET DEMIE N'ONT AUCUN VERDICT DANS CE BALAYAGE, ET JE LE DIS AU LIEU DE LE CONTOURNER.**
+Les gates ROOM a SUPPRESS vivent dans UN SEUL bloc Python (`PYROOM`, :223-585) dont chaque controle
+appelle `die()` -> `sys.exit(1)`. Le `die` qui tire est celui de la ligne 468 (paire poitrine). Le
+rendre non fatal demanderait de modifier le FLOT DE CONTROLE du bloc, et le code en aval suppose le
+controle passe (`m.group(1)` sur des `re.search` non gardes) : un « continue » y FABRIQUERAIT des
+verdicts. C'est exactement le piege « une gate placee derriere une gate qui echoue toujours n'est
+jamais evaluee », et il n'est pas contournable sans toucher a un critere. Il est donc publie comme
+un trou d'instrument, pas comme un PASS.
 
-PLACE SOUS LE PLAFOND CLEAN : le moteur etait a 4799 sur 4800. Sept blocs de RAISONNEMENT sont
-sortis vers `jak-hd-physics-NOTES.md` par le mecanisme qui existait deja (NOTE-88 a NOTE-95), et la
-simplification du `cond` a rendu 23 lignes de plus. **Aucune ligne de code, de contrainte ou de
-mesure n'a ete retiree.** Le plafond vise l'empilement de SUPPRESSEURS ; il n'en perd aucun, et le
-moteur en compte toujours zero qui ait tire ce cycle.
+**LA PHASE NE PEUT PAS PASSER LE VALIDATEUR PAR MON ACTION** : le commentaire de `OPEN-DEFECTS` le
+dit lui-meme — « la liste se vide UNIQUEMENT sur la parole de l'owner : c'est son oeil qui ferme un
+defaut, jamais un chiffre vert ». La fermer moi-meme serait le faux vert que le contrat interdit.
+
+PLACE SOUS LE PLAFOND CLEAN, ET LE COMPTE EXACT : le moteur etait a **4788** lignes avant ce cycle.
+L'instrument de l'etape 1 en a pris **+39**, le mecanisme de l'etape 2 **+13** (dont 12 de
+raisonnement), le retrait des quatre globales sans ecrivain et de `tgt` en a rendu **-12**, et quatre
+blocs de RAISONNEMENT sont sortis vers `jak-hd-physics-NOTES.md` (NOTE-97b a NOTE-100, 38 lignes
+remplacees par 4 renvois, **-34**). Solde : 4788 - 12 - 34 + 39 + 13 = **4794 pour un plafond de
+4800, 6 de marge.** Aucune ligne de code, de contrainte ni de mesure retiree — au contraire, six
+mesures MORTES sont parties, et le moteur ne porte toujours aucun suppresseur qui ait tire.
 
 
 ================================================================================================
 CE QUE JE N'AI PAS FAIT, ET POURQUOI — AUCUN DE-SCOPE SILENCIEUX (regle 3)
 ================================================================================================
-  1. **JE N'AI PAS FERME `COLLIDE`.** Ses deux conditions restent rouges. La premiere baisse de
-     15.5 %, la seconde s'eloigne de son critere pour une raison arithmetique que je publie.
-  2. **JE N'AI PAS FAIT RENTRER `comex` DANS LA BANDE.** x2.53 et x2.31 le plafond dur. La moyenne
-     y entre, le maximum non, et je ne compte pas la section comme tenue.
-  3. **JE N'AI PAS CORRIGE LES DEUX COMPTEURS SANS ECRIVAIN** (`retreat`, `retfblen`) : les retirer
-     aurait change la trace au milieu d'un A/B a deux courses. En tete du cycle 36.
-  4. **JE N'AI PAS TOUCHE AUX DEUX VOLUMES REDONDANTS** : c'est un chantier d'ASSET (repesage ou
-     changement de primitive), il demande ses propres predictions, et il ne se decide pas dans la
-     foulee d'une mesure faite le meme jour.
-  5. **JE N'AI PAS TOUCHE AU TENSEUR** alors que M3 le designe comme deuxieme porteur (0.2614 B0).
-     Ses deux entrees sont en butee (`dynm` et `prsm` a 0.2500 exactement) : c'est le cycle 36.
-  6. **JE N'AI PAS RE-MESURE** SPEC 24, 25, 26, 27, 29, 30, 32, 36, 37 : elles sont marquees [R]
-     dans le tableau, reportees et dites comme telles. Le levier a change la rotation ecrite, donc
-     les frequences de §24 MERITENT une re-mesure — elle n'a pas eu lieu et c'est une lacune, pas
-     un acquis.
-  7. **JE N'AI PAS TOUCHE A UNE SEULE GATE** (regle 5), y compris celle dont je viens de montrer
-     que son critere se degrade quand le defaut baisse.
+  1. **JE N'AI PAS CORRIGE LA NON-CONVERGENCE DE LA BOUCLE DE CONTRAINTES.** `lsw = 45/45` avant
+     comme apres, et c'etait ecrit dans les predictions de l'etape 2. Mesurer une grandeur et
+     reparer la boucle qui la produit sont deux chantiers ; les melanger aurait rendu impossible
+     l'attribution de ce que chacun fait. **C'est le point 1 du cycle 37.**
+  2. **JE N'AI PAS FERME `COLLIDE`.** Elle est rouge et elle a EMPIRE de 3.3 % sur chestL.
+  3. **JE N'AI PAS FAIT RENTRER `comex` DANS LA BANDE**, et son maximum a monte de 6.2 % / 4.7 %.
+  4. **JE N'AI PAS TOUCHE AUX DEUX VOLUMES REDONDANTS.** L'etape 1 a REFUTE qu'ils causent la
+     saturation de pression (psum/cl = 1.11 et 1.28) ; ils restent un defaut de FORME mesure
+     (75.6 % / 65.3 % de recouvrement, union = sphere distale seule) et non corrige. Je retire du
+     plan l'attribution que le cycle 35 leur donnait, sans retirer le defaut.
+  5. **JE N'AI PAS EXPLIQUE L'ASYMETRIE DE SA SPEC 9** (chestL +50 %, chestR -25 %) ni le fait que
+     chestL est aussi la chaine dont le canal de pression reste PLAT et dont `meshpen` monte. Trois
+     faits sur la meme chaine, aucune explication : c'est le point 2 du cycle 37.
+  6. **JE N'AI PAS EXPLIQUE LA PERTE DE LISIBILITE DE §24-lat SUR chestL** (residu 0.048 -> 0.151).
+  7. **JE N'AI PAS RE-MESURE** SPEC 10, 11, 13, 27, 29, 30, 32, 36 : marquees [R], reportees, et
+     dites comme telles.
   8. **JE N'AI PAS REFAIT DE BAKE DE MESH** : md5 identique, SPEC 30 reportee.
-  9. **J'AI LAISSE UNE VARIABLE ORPHELINE**, et je prefere le dire que le corriger en douce :
-     la simplification du `cond` a rendu `tgt` (`jak-hd-physics.gc:2363`, un vecteur de pile)
-     inutilise — plus aucun lecteur, plus aucun ecrivain. La retirer est une ligne et c'est
-     provablement inerte, mais il faudrait RECOMPILER : le CGO livre cesserait alors d'etre
-     celui sur lequel les deux courses ont ete mesurees, et une paire depareillee vaut moins
-     qu'une ligne morte. Elle part au cycle 36, avec la course qui va avec.
+  9. **JE N'AI PAS TOUCHE A UNE SEULE GATE** (regle 5), y compris celle dont le balayage montre
+     qu'elle en masque quatre autres.
+ 10. **JE N'AI PAS LIVRE D'APK.** Le palier de ce cycle est GOAL seul et les deux courses sont x86.
+     Aucune confirmation sur le Redmi `eae4df44` : c'est une lacune de ce cycle, pas un acquis.
 
 
 ================================================================================================
 CE QUE L'OWNER DOIT SAVOIR DE CE CYCLE
 ================================================================================================
-**CE QUI A CHANGE, ET POURQUOI CA N'AVAIT JAMAIS ETE VU.** Le centre de chair de sa poitrine
-partait jusqu'a 4.7 fois plus loin que ce que sa propre specification autorise. La cause est
-geometrique et elle se demontre sans mesure : la chair de chaque sein etait **pivotee par un petit
-os de 3 centimetres**, alors qu'elle se trouve a **16 centimetres** de lui, et perpendiculairement.
-Tout tremblement de ce petit os etait donc multiplie par presque cinq avant d'atteindre la chair —
-un tremblement de 2,4 cm suffisait a produire deux fois le deplacement maximal autorise.
+**CE QUI ETAIT CASSE, EN UNE IMAGE.** Quand la chair de sa poitrine touche son buste, le solveur la
+repousse — et il le fait, pour bien faire, **quarante-cinq fois de suite dans la meme image**, par
+petits coups. Le morceau de code qui devait ecraser la chair en fonction de la FORCE du contact ne
+recevait pas cette force : il recevait **la somme de tous ces petits coups mis bout a bout**, soit
+jusqu'a **cinq metres de deplacement cumule en un seul soixantieme de seconde** sur un personnage
+qui mesure deux metres. Ce nombre etant absurdement grand, il tapait son plafond **plus d'un tiers
+du temps** — et pendant ce tiers-la, la chair s'ecrasait **toujours de la meme quantite**, que le
+contact soit leger ou brutal. C'est litteralement « ca change de taille sans que ce soit correle a
+quoi que ce soit », ce qu'il decrivait le 11 aout.
 
-**ET LE PETIT OS EN QUESTION EST CELUI QU'ON A AJOUTE POUR SA SPEC 23** (le deuxieme os, celui qui
-devait donner de la deformation a la poitrine au lieu d'une piece rigide). Avant lui, la chair
-etait orientee par l'os long qui part du thorax, sept fois plus long, donc sept fois plus doux.
-**En obeissant a une section de sa spec, on avait rendu une autre section sept fois plus dure.**
-Personne ne pouvait le voir parce que la mesure ne disait qu'un seul nombre, sans dire d'ou il
-venait ni quelle piece le produisait. C'est ce que ce cycle a construit d'abord.
+**CE QUI EST CORRIGE.** La chair recoit maintenant **la force du plus fort contact de l'image**, ce
+qui est une vraie intensite. Elle ne tape plus son plafond que **4 % et 2 % du temps** au lieu de
+37 % et 29 %, et — pour la premiere fois — **elle ne reagit plus pareil selon le mouvement** : sur
+son sein droit, l'ecrasement quand elle se penche est nettement plus faible que sur une secousse.
+Sur le gauche, il reste identique partout, et ca reste a corriger.
 
-**LE CORRECTIF N'ENLEVE RIEN.** Ce n'est pas un frein, pas une limite, pas un amortissement : on a
-seulement change QUEL OS oriente la chair — le long au lieu du court. Sur une piece dont la chair
-colle a son os, la meme regle donnerait PLUS de mouvement, pas moins. Et les chiffres du mouvement
-subtil, ceux qu'il a valides, ne bougent pas : entre -3,8 % et +4,0 %.
+**CE QUE CA NE CORRIGE PAS, ET IL FAUT LE DIRE.** J'esperais que ce canal portait une bonne part de
+l'exageration de mouvement. **Il n'en portait qu'un dixieme** : la mesure le dit et ma prevision
+etait fausse. L'essentiel vient d'ailleurs (de l'ETIREMENT du tissu et du deplacement du joint), et
+c'est la que le prochain travail doit aller.
 
 **CE QU'IL FAUT REGARDER, ET CE QU'IL FAUT ME DIRE :**
-  1. **Sa poitrine sur les mouvements BRUSQUES** (changements de direction secs, `accel`, `jerk`).
-     C'est la que le changement est le plus fort : la chair partait 4.7x trop loin, elle part
-     maintenant 2.3 a 2.5x trop loin. Est-ce que ca ressemble moins a une piece qui part en
-     vrille ?
-  2. **Sa poitrine sur les mouvements SUBTILS**, qu'il a deja juges corrects. Les chiffres disent
-     qu'ils n'ont pas bouge ; **c'est son oeil qui tranche**. Si quelque chose s'est calme la,
-     c'est un echec et je veux le savoir.
-  3. **Quand elle se penche pour souder** (`tilt`). C'est le canal ou la baisse est la plus forte
-     (-45 % et -52 %) et c'est celui qu'il regarde.
-  4. **Est-ce que sa poitrine traverse moins son buste ?** La penetration mesuree baisse de 15 a
-     19 %, ce n'etait pas vise. C'est visible ou pas ?
-  5. **Une question ouverte, la meme depuis trois cycles** : son debardeur est le premier
+  1. **Est-ce que sa poitrine « change de taille » moins souvent, ou moins bizarrement ?** C'est LE
+     point de ce cycle. L'ecrasement de la chair etait constant plus d'un tiers du temps ; il suit
+     maintenant la force du contact. Est-ce que l'effet « gelee » a diminue ?
+  2. **Est-ce qu'elle est devenue plus RAIDE ?** C'est le risque exact de ce changement, et il a
+     ete refuse d'avance (« c'est pas des ballons durs non plus »). Les chiffres disent que non — le
+     mouvement mesure MONTE de 1 a 4 % — mais c'est son oeil qui tranche, pas mon tableau.
+  3. **Quand elle se penche pour souder** (`tilt`). C'est le pilotage ou le canal repond le plus
+     differemment maintenant, et c'est celui qu'il regarde.
+  4. **Est-ce que sa poitrine traverse PLUS son buste ?** La penetration remonte de 3 % sur le sein
+     gauche (elle baisse de 1 % sur le droit) et les franchissements passent de 6 a 8. C'est le cout
+     assume de ce cycle. Visible ou pas ?
+  5. **Est-ce que ses deux seins se ressemblent moins qu'avant ?** Plusieurs mesures divergent entre
+     gauche et droite ce cycle, et je n'ai pas d'explication. Si l'un des deux a l'air different de
+     l'autre, c'est une information que je n'ai pas autrement.
+  6. **Une question ouverte, la meme depuis quatre cycles** : son debardeur est le premier
      constricteur de sa poitrine (40 % des corrections viennent de ses volumes) alors que sa
      SPEC 35 veut ce couplage a zero. Veut-il que je le retire, ou est-ce voulu ?
 
 **CE QUI RESTE ROUGE, ET NE SE CACHE PAS :**
-  - le maximum d'excursion reste a 2.5 et 2.3 fois sa limite. La moyenne y entre, le pic non ;
-  - la poitrine traverse toujours son thorax (0.095 m contre un plafond de 0.0005), meme si le
-    chiffre baisse pour la premiere fois depuis trois cycles ;
-  - les deux volumes de chair d'un meme sein decrivent **le meme morceau de chair** : celui du haut
-    ne couvre pas un seul point que celui du bas ne couvre deja. Le solveur compte donc deux fois
-    les deux tiers de l'organe. Mesure ce cycle, non corrige ;
-  - la deformation du tissu tourne **en butee de ses deux plafonds en permanence** : elle ne peut
-    pas repondre au stimulus, quoi qu'on lui donne. C'est le chantier suivant, et il est chiffre.
+  - la poitrine traverse toujours son thorax (0.098 m contre un plafond de 0.0005) et **le chiffre
+    remonte** apres avoir baisse au cycle 35 ;
+  - le maximum d'excursion reste a 2.7 et 2.4 fois sa limite, et **il a monte** — meme si la
+    distribution, elle, s'est deplacee vers le bas ;
+  - le retour a la pose d'auteur de sa §9 **s'eloigne de 50 % sur le sein gauche** ;
+  - la boucle de collision **ne converge pas** : elle pousse encore au 45e balayage sur 45. Defaut
+    mesure ce cycle, non corrige, chantier suivant ;
+  - le canal repare reste **PLAT sur le sein gauche** : la moitie du gain seulement.
 
 
 ================================================================================================
-LE PLAN DU CYCLE 36, DANS L'ORDRE DE SON ORDRE DE TRAVAIL
+LE PLAN DU CYCLE 37, DANS L'ORDRE DE SON ORDRE DE TRAVAIL
 ================================================================================================
-  1. **LA PRESSION DE CONTACT — MESUREE A L'ETAPE 3 DE CE CYCLE, ET C'EST ELLE LE CANAL ECRETE.**
-     Entree a **53-61x** son plafond, ecretee sur **37.0 % / 28.7 %** des frames : sur plus d'un
-     tiers du temps le tenseur recoit 0.25 quelle que soit la force reelle du contact. L'etirement,
-     lui, est essentiellement libre (1.5-1.7x, 4 % des frames) et son plafond joue son role.
-     Hypothese de cause a graver avant de la tester : les deux volumes redondants du point 2
-     appliquent le contact DEUX FOIS sur la meme chair.
-  2. **LES DEUX VOLUMES REDONDANTS** (75.6 % / 65.3 % de recouvrement, union = distale seule).
-     Candidat direct pour `meshpen` ET pour la saturation de contact du point 1. Deux voies, et
-     sa directive du 17/08 autorise explicitement la seconde : repeser pour separer les
-     centroides, ou changer de primitive (une capsule par maillon).
-  3. **LES DEUX COMPTEURS SANS ECRIVAIN** (`retreat`, `retfblen`) : les retirer ou les armer, mais
-     ne plus publier un zero qu'aucun chemin de code ne peut faire monter.
-  4. **RE-MESURER SPEC 24** : le levier de rotation a change, donc les frequences par axe doivent
-     etre relues avant d'etre citees.
-  5. **PUIS SPEC 29-torsion, SPEC 12 lateral, SPEC 36 chestR, SPEC 33** — son ordre, inchange.
+  1. **LA NON-CONVERGENCE DE LA BOUCLE DE CONTRAINTES** — mesuree ce cycle, `lsw = 45/45`. Les
+     douze derniers balayages sont des COLLISIONS SEULES et une poussee tire encore au dernier :
+     le lien n'est donc jamais admissible pour l'ensemble des volumes. C'est le meme fait que
+     `meshpen` = 0.098 m apres 45 balayages, vu de l'autre bout. **C'est la cause commune candidate
+     de la gate `COLLIDE` et du bruit d'entree du tenseur, et elle n'a jamais ete instrumentee.**
+  2. **L'ASYMETRIE GAUCHE/DROITE** — trois faits sur chestL et pas sur chestR : canal de pression
+     PLAT (0 % contre 31.2 %), `meshpen` en hausse (+3.3 % contre -1.4 %), ecart de §9 en hausse
+     (+50 % contre -25 %). Une chaine miroir qui se comporte differemment sous le meme changement
+     designe une asymetrie de DONNEES (volumes, poids de peau, offsets), et sa §32 n'autorise que
+     +-2 a 5 %.
+  3. **L'ETIREMENT DU TISSU** — R4 vient d'etablir que c'est LUI le porteur du tenseur, pas la
+     pression. Il tourne a 1.66x / 1.49x son plafond sur 4 % des frames ; il faut mesurer de quoi il
+     depend avant de le toucher.
+  4. **PUIS SPEC 29-torsion (0.72), SPEC 12 lateral, SPEC 36 chestR, SPEC 33** — son ordre du
+     17/08 23:50, inchange.
+  5. **ET UNE LIVRAISON APK**, qui manque a ce cycle : le palier etait GOAL seul, aucune course
+     device.
+
 
 ================================================================================================
 ANNEXE — LES VERDICTS BRUTS, TELS QUE LES INSTRUMENTS LES ECRIVENT
 ================================================================================================
-Fichiers : `C35E1-verdict.txt` (etape 1, 7 predictions), `C35E2-verdict.txt` (etape 2, 7
-predictions) et `C35E3-verdict.txt` (etape 3, 5 predictions). Traces : `keira-room-x86.C35E1-REF2.log` (avant) et `keira-room-x86.C35E2-REF.log`
-(apres), 372 fenetres chacune. Tableaux : `keira-room-table.C35E1.txt` et `keira-room-table.txt`.
-================================================================================================
-VERDICT C35E2 — LE LEVIER DE ROTATION EST CELUI DE L'ANCRE
-================================================================================================
-APRES : .autoport/reports/Grecharged-secondary-motion/keira-room-x86.C35E2-REF.log   (372 fenetres)
-AVANT : .autoport/reports/Grecharged-secondary-motion/keira-room-x86.C35E1-REF2.log   (372 fenetres)
-
-N0  L'IDENTITE TIENT TOUJOURS
-    residu max = 0.00016993 B0 sur 372 fenetres (tolerance 0.001) -> CONFIRMEE
-
-N1  LE TERME DE ROTATION S'EFFONDRE (critere : moyenne |rp| <= 0.25 B0)
-    moyennes en B0, sur toutes les fenetres :
-              AVANT     APRES     ecart
-    |tp|     0.2328    0.4210     +80.9 %
-    |rp|     0.7714    0.0598     -92.2 %
-    |dp|     0.1761    0.2614     +48.4 %
-    -> CONFIRMEE (mesure 0.0598 B0 ; derivations gravees : 0.104 et 0.145 B0)
-
-N2  `comex` BAISSE FRANCHEMENT (critere : moyenne -40 %%, pire canal -35 %%)
-    moyenne de `comex` sur les fenetres : AVANT 1.1693 B0 -> APRES 0.7245 B0  (-38.0 %)
-    pire fenetre par canal :
-    chaine    pilotage      AVANT     APRES     ecart   |  tp        rp        dp     maillon
-    chestL    updown        1.5370    0.8270    -46.2 %  |    237.2      31.0     229.6     l=0
-    chestL    leftright     1.6389    0.9173    -44.0 %  |    238.0      63.2     251.1     l=0
-    chestL    accel         1.7159    0.8377    -51.2 %  |    215.7      52.1     236.6     l=0
-    chestL    jerk          1.5281    0.9241    -39.5 %  |    293.3      -7.2     270.3     l=0
-    chestL    tilt          1.8529    1.0138    -45.3 %  |    300.1     -10.7     321.0     l=0
-    chestL    BASE-0stim    1.7486    0.9083    -48.1 %  |    267.8      32.2     246.8     l=0
-    chestR    updown        1.6086    0.9213    -42.7 %  |    263.6      31.1     259.9     l=0
-    chestR    leftright     1.5290    0.8623    -43.6 %  |    275.9     -17.5     260.7     l=0
-    chestR    accel         1.7900    0.8479    -52.6 %  |    249.1      43.0     218.4     l=0
-    chestR    jerk          1.5727    0.8632    -45.1 %  |    274.2       9.5     236.0     l=0
-    chestR    tilt          1.9097    0.9223    -51.7 %  |    256.3      42.2     256.8     l=0
-    chestR    BASE-0stim    1.5553    0.8282    -46.7 %  |    264.6      27.7     206.3     l=0
-    -> moyenne **REFUTEE** · pire canal `tilt` CONFIRMEE
-
-N3  LE TENSEUR NE BOUGE PAS BEAUCOUP (critere : |dp| dans +-25 %%)
-    |dp| 0.1761 -> 0.2614 B0 (+48.4 %) -> **REFUTEE**
-
-N4  QUEL MAILLON PORTE LE MAXIMUM (prediction faible : l=1 devient majoritaire)
-    l=0 : 341 (91.7 %) · l=1 : 31 (8.3 %)
-    -> **REFUTEE**
-
-    LE CLASSEMENT DES TERMES APRES CORRECTIF, sur les 372 fenetres :
-    [A] TRANSLATION 348 (93.5 %) · [B] ROTATION 1 (0.3 %) · [C] DEFORMATION 23 (6.2 %)
-
-N5  LE MOUVEMENT SUBTIL N'EST PAS MUSELE (critere : tipvar tilt/updown dans +-15 %%)
-    chestL    tilt       tipvar_max 0.1641 -> 0.1708  (+4.0 %)
-    chestL    updown     tipvar_max 0.1769 -> 0.1764  (-0.2 %)
-    chestR    tilt       tipvar_max 0.1919 -> 0.1850  (-3.6 %)
-    chestR    updown     tipvar_max 0.1799 -> 0.1731  (-3.8 %)
-    -> CONFIRMEE
-
-N6  LES COUTS, DANS LES DEUX SENS (aucun critere : je m'engage a les publier)
-    meshpen    max (m)  0.1126 -> 0.0952  (-15.5 %)
-    rootdev    max (m)  0.0855 -> 0.0832  (-2.7 %)
-    pire saut  max (m)  0.0925 -> 0.0913  (-1.3 %)
-    tipvar     max (m)  0.1919 -> 0.1850  (-3.6 %)
-    chestL    meshpen  max (m)  0.1126 -> 0.0952  (-15.5 %)
-    chestL    tipvar   max (m)  0.1805 -> 0.1812  (+0.3 %)
-    chestR    meshpen  max (m)  0.1125 -> 0.0913  (-18.8 %)
-    chestR    tipvar   max (m)  0.1919 -> 0.1850  (-3.6 %)
-    PHYSIDLE dev c=0  0.6390 -> 0.6390  (+0.0 %)  [cible §9 = 0.0000]
-    PHYSIDLE dev c=1  0.7787 -> 0.6404  (-17.8 %)  [cible §9 = 0.0000]
-    course terminee (PHYSEND) : AVANT True · APRES True
-================================================================================================
+Fichiers : `C36E1-verdict.txt` (etape 1, 5 predictions) et `C36E2-verdict.txt` (etape 2, 6
+predictions). Predictions : `C36E1-pressure-nature-prediction.txt` (md5
+e1113259ddc2a314a78e6b774d9d6590, commit 585f19b1f2) et `C36E2-intensity-prediction.txt` (md5
+e71a32e37e4b7eb6a922c0d5e72dc622, commit 2e7ea82c50). Traces : `keira-room-x86.C36E1-REF.log`
+(avant) et `keira-room-x86.C36E2-REF.log` (apres), 372 fenetres chacune, PHYSEND atteint des deux
+cotes. Tableaux : `keira-room-table.C36E1.txt` et `keira-room-table.C36E2.txt`. Validateur :
+`C36-validator.txt` (reel, exit 1) et `C36-validator-sweep.txt` (balayage sur copie).
 
 ================================================================================================
-VERDICT C35E1 — L'ATTRIBUTION DE `comex` (SPEC 22) A SES TROIS TERMES
+VERDICT C36E1 — LA NATURE DE L'ENTREE DE PRESSION DU TENSEUR (SPEC 23)
 ================================================================================================
-fenetres appariees PHYSCOMD/PHYSCOMW : 372   b0c = 602.0 u (lu dans la trace)
+trace : .autoport/reports/Grecharged-secondary-motion/keira-room-x86.C36E1-REF.log
+fenetres : PHYSSHAPE7 372 · PHYSSHAPE8 372 · PHYSSHAPE4 372 · PHYSSHAPE5 372
+constantes livrees : PHYS-PRS-K = 0.45 · PHYS-PRS-MAX = 0.25 · b0f = 602.0 u · balayages/frame = 45
 
-M0  IDENTITE — tp + rp + dp = comex * b0c
-    residu max = 0.00017209 B0 sur 372 fenetres  (tolerance 0.001 B0)
-    residu moyen = 0.00005543 B0
-    -> CONFIRMEE
+-- LA FENETRE DE CHAQUE CHAINE OU `prsr` EST MAXIMAL (donc l'argmax de `cl`) ----------------
+   `cl` est RECALCULE depuis `prsr` par l'identite du moteur : cl = prsr * b0f / PHYS-PRS-K.
+   chaine   a   d      prsr    x plafond        cl (u)      cl (m)     npf     pmax(u)    psum(u)  lsw    dom
+   chestL   1   2     13.3807     53.52x      17900.4     4.370     150       404.7    19946.4    45     27
+   chestR   27  1     15.2761     61.10x      20436.0     4.989     254       262.4    26156.5    45     19
 
-M1  LE CLASSEMENT — PIRE FENETRE DE CHAQUE (chaine, pilotage), les trois termes du MEME echantillon
-    chaine    pilotage      comex(B0)      tp(u)      rp(u)      dp(u)  maillon  domine
-    chestL    updown          1.5370      331.4      407.4      186.5      l=1  [B] ROTATION
-    chestL    leftright       1.6389      383.0      422.2      181.5      l=1  [B] ROTATION
-    chestL    accel           1.7159      157.9      833.5       41.6      l=0  [B] ROTATION
-    chestL    jerk            1.5281      -38.6      742.9      215.7      l=0  [B] ROTATION
-    chestL    tilt            1.8529      408.1      510.7      196.7      l=1  [B] ROTATION
-    chestL    BASE-0stim      1.7486      407.7      462.0      182.9      l=1  [B] ROTATION
-    chestR    updown          1.6086       41.7      787.9      138.9      l=0  [B] ROTATION
-    chestR    leftright       1.5290      107.9      729.5       83.0      l=0  [B] ROTATION
-    chestR    accel           1.7900       26.3      873.8      177.6      l=0  [B] ROTATION
-    chestR    jerk            1.5727      137.2      684.2      125.4      l=0  [B] ROTATION
-    chestR    tilt            1.9097       71.5      907.8      170.4      l=0  [B] ROTATION
-    chestR    BASE-0stim      1.5553      141.4      662.8      132.1      l=0  [B] ROTATION
-    -> [A] domine 0 fois · [B] 12 fois · [C] 0 fois, sur 12 canaux
-    CRITERE GRAVE : « [A] est le plus grand sur au moins 10 des 12 » -> **REFUTEE** ([A] ne domine que 0 fois)
+P1   LA NATURE DE `cl` EST UNE SOMME, PAS UNE PROFONDEUR
+     CRITERE GRAVE : npf >= 20 sur LES DEUX chaines. VALEUR GRAVEE : entre 30 et 90.
+     chestL   npf = 150       (cl/meshpen du cycle 35 = 45.9, balayages = 45)
+     chestR   npf = 254       (cl/meshpen du cycle 35 = 54.6, balayages = 45)
+     valeur gravee tenue (30..90) : chestL NON, chestR NON
+     -> CONFIRMEE
 
-    LE MEME CLASSEMENT SUR LES 372 FENETRES, pas seulement sur les pires :
-    [A] 31 (8.3 %) · [B] 340 (91.4 %) · [C] 1 (0.3 %)
+P2   UN EVENEMENT SEUL EST DE L'ORDRE DE LA PENETRATION, PAS DE `cl`
+     CRITERE GRAVE : pmax <= 0.25 * cl sur les deux chaines. VALEUR GRAVEE : 200..900 u.
+     chestL   pmax = 404.7     u   0.25*cl = 4475.1    u   pmax/cl = 0.0226   (meshpen c35 = 389.9 u)
+     chestR   pmax = 262.4     u   0.25*cl = 5109.0    u   pmax/cl = 0.0128   (meshpen c35 = 374.0 u)
+     valeur gravee tenue (200..900 u) : chestL oui, chestR oui
+     -> CONFIRMEE
 
-M2  LA PART DE [A] SUR LES DEUX CANAUX QUI PORTAIENT LES MAXIMA PUBLIES (tilt)
-    chestL    tilt : comex 1.8529 B0 = 1115.4 u · tp = 408.1 u soit 36.6 % (critere >= 60 %)
-    chestR    tilt : comex 1.9097 B0 = 1149.6 u · tp = 71.5 u soit 6.2 % (critere >= 60 %)
-    -> **REFUTEE**
+P3   LES POUSSEES VONT DANS LE MEME SENS — REPETITION, PAS PING-PONG
+     CRITERE GRAVE : psum / cl <= 2.0 sur les deux chaines. Donnee a 60/40 dans le contrat.
+     psum est la somme des MODULES, cl le module de la somme VECTORIELLE : leur rapport EST
+     la mesure de l'annulation entre poussees. > 3 = ping-pong entre volumes.
+     chestL   psum = 19946.4     u   cl = 17900.4     u   psum/cl = 1.1143
+     chestR   psum = 26156.5     u   cl = 20436.0     u   psum/cl = 1.2799
+     -> CONFIRMEE
 
-M3  LE TENSEUR — moyenne de |dp| sur les 372 fenetres (budget total de sa §22 = 0.40 B0)
-    moyennes en B0 :  |tp| 0.2328   |rp| 0.7714   |dp| 0.1761
-    maxima   en B0 :  |tp| 0.6950   |rp| 1.5079   |dp| 0.5306
-    -> **REFUTEE** — le tenseur est un porteur reel (critere : moyenne |dp| <= 0.10 B0)
+P4   LA BOUCLE DE CONTRAINTES NE CONVERGE PAS
+     CRITERE GRAVE : lsw >= 40 sur les deux chaines (sur 45 balayages).
+     chestL   lsw = 45    / 45
+     chestR   lsw = 45    / 45
+     -> CONFIRMEE
 
-M5  BORNE SUR PAPIER DU TERME DE DEFORMATION (derivee AVANT la mesure : 1.22 B0)
-    max |dp| = 0.5306 B0  -> CONFIRMEE
+P5   LE DOMAINE (aucun critere — engagement de publication)
+     chestL   frames avec une poussee sur le maillon pointe, cumulees sur toutes les fenetres : 3114        
+     chestL   max de `nfr` (denominateur commun publie) sur une fenetre : 16857
+     chestR   frames avec une poussee sur le maillon pointe, cumulees sur toutes les fenetres : 2728        
+     chestR   max de `nfr` (denominateur commun publie) sur une fenetre : 16857
 
-M4  LA LIGNE DE BASE PORTE-T-ELLE LE MEME MECANISME QUE LE PILOTAGE ?
-    part de chaque terme, moyennee sur les fenetres, BASE (sans pilotage) contre `jerk`
-    chestL    BASE  tp 0.249  rp 0.601  dp 0.150   |   jerk  tp 0.155  rp 0.687  dp 0.158
-              ecart de la part de tp = 0.094  (critere <= 0.15)
-    chestR    BASE  tp 0.200  rp 0.682  dp 0.118   |   jerk  tp 0.161  rp 0.691  dp 0.148
-              ecart de la part de tp = 0.039  (critere <= 0.15)
-    -> CONFIRMEE
+-- LES TROIS HYPOTHESES GRAVEES, ARBITREES PAR LES CRITERES CI-DESSUS ------------------------
+   H-REP  : npf grand, psum ~ cl -> la MEME poussee est repetee a chaque balayage. `cl` est
+            une LONGUEUR DE CHEMIN de corrections, pas une profondeur : la NATURE de
+            l'entree est fausse (table de branches, cas 1).
 
-QUEL MAILLON PORTE LE MAXIMUM (colonne neuve `lk`, sur 372 fenetres)
-    l=0 : 329 fenetres (88.4 %)
-    l=1 : 43 fenetres (11.6 %)
-    Les deux maillons ecrivaient le MEME emplacement : sans cette colonne, l'attribution
-    ne designait aucune piece. Bras : l=0 -> 1.0817/1.0457 B0 · l=1 -> 0.8547/0.7765 B0.
+P0   L'INSTRUMENT EST-IL INERTE ?
+     34136 lignes `PHYS` hors marqueurs neufs et hors les 6 lignes dont un champ sans ecrivain
+     est retire, 0 differente(s) de la reference
+     PHYSDIAG      prive du champ retire : 14 ligne(s) contre 14, 0 differente(s)
+     PHYSORICTL3   prive du champ retire : 108 ligne(s) contre 108, 0 differente(s)
+     PHYSLIM       prive du champ retire : 1 ligne(s) contre 1, 0 differente(s)
+     -> CONFIRMEE
 
-    ET LE CLASSEMENT DES TERMES, RESOLU PAR MAILLON :
-    l=0  [A] 28 · [B] 300 · [C] 1   moyennes B0 : |tp| 0.2046  |rp| 0.7842  |dp| 0.1757
-    l=1  [A] 3 · [B] 40 · [C] 0   moyennes B0 : |tp| 0.4483  |rp| 0.6735  |dp| 0.1799
-
-M6  L'INSTRUMENT EST-IL INERTE ?
-    32787 lignes `PHYS` hors PHYSCOMD/PHYSCOMDL, 0 differente(s) de la reference
-    -> CONFIRMEE
+PHYSEND : oui
+================================================================================================
 
 ================================================================================================
+VERDICT C36E2 — LA PRESSION DE CONTACT DEVIENT UNE INTENSITE (SPEC 23)
 ================================================================================================
-VERDICT C35E3 — LES DEUX ENTREES DU TENSEUR, AVANT LEUR PLAFOND
-================================================================================================
-fenetres : PHYSSHAPE5 372 · PHYSSHAPE6 372 · PHYSSHAPE4 372
-plafonds livres : PHYS-DYN-MAX = 0.25 (:311)   PHYS-PRS-MAX = 0.25 (:314)
+APRES : .autoport/reports/Grecharged-secondary-motion/keira-room-x86.C36E2-REF.log   (372 fenetres PHYSSHAPE4)
+AVANT : .autoport/reports/Grecharged-secondary-motion/keira-room-x86.C36E1-REF.log   (372 fenetres PHYSSHAPE4)
 
-Q0  L'INSTRUMENT EST-IL INERTE ?
-    33531 lignes `PHYS` hors marqueurs neufs, 0 differente(s) -> CONFIRMEE
+R0   LE CHANGEMENT EST CONFINE AU CANAL DE PRESSION
+     CRITERE : `dlr` max et `nfr` max identiques a 4 decimales sur les deux chaines.
+     chestL   dlr max 0.4141 -> 0.4136   |   nfr max 16857 -> 16857
+     chestR   dlr max 0.3722 -> 0.3920   |   nfr max 16857 -> 16857
+     -> **REFUTEE**
 
-Q1  L'AMPLITUDE DU DEPASSEMENT (critere : dlr max dans [0.25, 1.00] sur les deux chaines)
-    chaine     dlr max   /plafond  |  prsr max   /plafond
-    chestL      0.4141     1.66x  |   13.3807    53.52x
-    chestR      0.3722     1.49x  |   15.2761    61.10x
-    -> CONFIRMEE
-    (arithmetique gravee avant la mesure : dl de l'ordre de 0.39, soit ~1.5x — pas 60x)
+R1   L'ENTREE TOMBE DE 53-61x A MOINS DE 5x
+     CRITERE : `prsr` max <= 5.0 sur les deux chaines. ESTIMATION GRAVEE : 0.4507 / 0.3803.
+     chestL   prsr max   13.3807 (53.52x) ->    0.4825 (1.93x)   estimation gravee 0.4507  ecart +7.1 %
+     chestR   prsr max   15.2761 (61.10x) ->    0.4699 (1.88x)   estimation gravee 0.3803  ecart +23.6 %
+     -> CONFIRMEE
 
-Q2/Q3  LA FREQUENCE DU DEPASSEMENT — c'est elle qui separe un CANAL MORT d'un PIC RARE
-    chaine     frames    dl>plafond          pr0>plafond
-    chestL      1586952      68530 (  4.3 %)     587599 ( 37.0 %)
-    chestR      1586952      61735 (  3.9 %)     455850 ( 28.7 %)
-    Q2 (la pression sature sur STRICTEMENT plus de frames que l'etirement) -> CONFIRMEE
-    Q3 (la pression sature sur >= 50 % des frames)                        -> **REFUTEE**
+R2   L'ECRETAGE S'EFFONDRE
+     CRITERE : psat/nfr <= 10 %% sur les deux chaines. ESTIMATION GRAVEE : 2 %% a 8 %%.
+     psat et nfr sont cumules sur TOUTES les fenetres — meme denominateur des deux cotes.
+     chestL   AVANT  psat=587599       nfr=1586952        37.03 %
+     chestL   APRES  psat=59457        nfr=1586952         3.75 %
+     chestL   reference gravee du cycle 35 etape 3 : 37.0 %
+     chestR   AVANT  psat=455850       nfr=1586952        28.72 %
+     chestR   APRES  psat=28399        nfr=1586952         1.79 %
+     chestR   reference gravee du cycle 35 etape 3 : 28.7 %
+     -> CONFIRMEE
 
-Q4  `prsr` max reste sous 20 (prediction FAIBLE, relecture de la meme course)
-    prsr max toutes chaines = 15.2761 -> CONFIRMEE
+R3   LE CANAL DEVIENT DISCRIMINANT
+     CRITERE (a) au moins une fenetre avec prsm < 0.2500 STRICTEMENT, sur chaque chaine ;
+     CRITERE (b) etendue relative de `prsm` max entre les six pilotages >= 25 %% sur au
+                 moins une chaine (seuil du contrat SPEC 7). Aujourd'hui elle vaut 0 %%.
+     chestL   AVANT  prsm < 0.2500 sur  46/186 fenetres   par pilotage : updown=0.2500 leftright=0.2500 accel=0.2500 jerk=0.2500 tilt=0.2500 BASE-0stim=0.2500   etendue   0.0 %
+     chestL   APRES  prsm < 0.2500 sur 128/186 fenetres   par pilotage : updown=0.2500 leftright=0.2500 accel=0.2500 jerk=0.2500 tilt=0.2500 BASE-0stim=0.2500   etendue   0.0 %
+     chestR   AVANT  prsm < 0.2500 sur  51/186 fenetres   par pilotage : updown=0.2500 leftright=0.2500 accel=0.2500 jerk=0.2500 tilt=0.2500 BASE-0stim=0.2500   etendue   0.0 %
+     chestR   APRES  prsm < 0.2500 sur 137/186 fenetres   par pilotage : updown=0.2500 leftright=0.2500 accel=0.2500 jerk=0.2500 tilt=0.1720 BASE-0stim=0.1843   etendue  31.2 %
+     (a) tenue   (b) tenue  (etendue max mesuree 31.2 %)
+     -> CONFIRMEE
 
-CE QUE CA TRANCHE, SELON LA TABLE ECRITE AVANT LA MESURE
-    Q2 tenue, Q3 cassee : la pression sature PLUS SOUVENT mais reste MINORITAIRE.
-    -> ce n'est donc PAS un canal mort : c'est un PIC RARE et TRES VIOLENT (61x en
-       amplitude sur quelques pour cent des frames). Les DEUX canaux sont a traiter et
-       je ne designe pas un coupable unique — c'est la branche gravee pour ce cas.
+R4   LE TENSEUR PESE MOINS DANS SA SPEC 22 — MAIS PAS TROP
+     CRITERE BILATERAL : moyenne |dp| en baisse de 20 %% a 60 %%. Plus de 60 %% = ECHEC
+     (canal eteint, « ballons durs » que l'owner a refuses le 2026-08-11 21:20).
+     AVANT  moyennes en B0 sur 372 fenetres :  |tp| 0.4210   |rp| 0.0598   |dp| 0.2614
+     APRES  moyennes en B0 sur 372 fenetres :  |tp| 0.4314   |rp| 0.0580   |dp| 0.2374
+     |dp| 0.2614 -> 0.2374 B0 = -9.2 %   (reference gravee du cycle 35 : 0.2614 B0)
+     -> **REFUTEE**
+
+R5   LE MOUVEMENT SUBTIL N'EST PAS MUSELE
+     CRITERE : `tipvar` max sur `tilt` (d=4) et `updown` (d=0), les deux chaines, +-15 %%.
+     chestL   updown     tipvar max 0.1485 -> 0.1485  (+0.0 %)
+     chestL   tilt       tipvar max 0.1288 -> 0.1288  (+0.0 %)
+     chestR   updown     tipvar max 0.1325 -> 0.1325  (+0.0 %)
+     chestR   tilt       tipvar max 0.0908 -> 0.1038  (+14.3 %)
+     -> CONFIRMEE
+
+R6   LES COUTS, DANS LES DEUX SENS (aucun critere : engagement de publication)
+     meshpen      max (u)   390.0262 ->   402.5464   (+3.2 %)   = 0.0952 m -> 0.0983 m
+     rootdev      max (u)   340.6023 ->   346.8105   (+1.8 %)   = 0.0832 m -> 0.0847 m
+     pire saut    max (u)   373.9359 ->   337.1663   (-9.8 %)   = 0.0913 m -> 0.0823 m
+     tipvar       max (u)   757.7029 ->   771.9459   (+1.9 %)   = 0.1850 m -> 0.1885 m
+     chestL   comex max 1.0138 -> 1.0765 B0 (+6.2 %)   moyenne 0.7309 -> 0.7140 B0 (-2.3 %)
+     chestR   comex max 0.9223 -> 0.9655 B0 (+4.7 %)   moyenne 0.7181 -> 0.7037 B0 (-2.0 %)
+     chestL   lsw max 45 -> 45  (la NON-CONVERGENCE n'est PAS traitee ici, et ne doit pas bouger)
+     chestR   lsw max 45 -> 45  (la NON-CONVERGENCE n'est PAS traitee ici, et ne doit pas bouger)
+     PHYSIDLE  AVANT : PHYSIDLE c=0 dev=0.6390 hang=0.0000 amp=0.0000 fam=1 | PHYSIDLE c=1 dev=0.6404 hang=0.0000 amp=0.0000 fam=1
+     PHYSIDLE  APRES : PHYSIDLE c=0 dev=0.9581 hang=0.0000 amp=0.0000 fam=1 | PHYSIDLE c=1 dev=0.4803 hang=0.0000 amp=0.0000 fam=1
+
+PHYSEND : APRES oui · AVANT oui
+
+-- LA TABLE DE BRANCHES GRAVEE, APPLIQUEE ---------------------------------------------------
+   R4 hors bande -> soit le tenseur ne tirait pas sa deformation de la pression (baisse
+   < 20 %%), soit JE VIENS D'ETEINDRE LE CANAL (baisse > 60 %%), ce qui est un ECHEC declare
+   d'avance. Voir le chiffre ci-dessus, il tranche lequel des deux.
 ================================================================================================

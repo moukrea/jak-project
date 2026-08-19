@@ -1,0 +1,4 @@
+[Grecharged-secondary-motion FAIL] OPEN-DEFECTS: 1 defaut(s) rapporte(s) par l'owner
+  sont encore ouverts. La phase ne peut pas se declarer terminee :
+  - breast-spec-incomplete  PRIORITE 1 -- LA SEULE LIGNE QUI TIENT LA PHASE OUVERTE.
+  Une ligne ne se retire que quand l'owner dit que c'est bon.

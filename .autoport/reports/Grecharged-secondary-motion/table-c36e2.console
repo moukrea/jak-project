@@ -1,0 +1,9 @@
+ecrit .autoport/reports/Grecharged-secondary-motion/keira-room-table.txt : 2201 lignes, 310 mesures, 2 chaines, 31/31 animations
+  tipvar min par chaine = 0.1875 (plancher de la gate MOVE : 0.05)
+  rootdev max = 0.0847 (plafond ROOT : 2.0)
+  meshpen max = 0.0983 (COLLIDE exige <= 0 sur cheveux/meches, lunettes, oreilles ; 310 valeurs distinctes)
+  idle maxdev = 0.0002 (plafond IDLE : 1.0)
+  authored: 2 chaines pilotees, 2 respectees (controle positif: 0/0)
+  limiteurs: plafond-taille 0 fois (0.0000 m) — le compteur de RECUL est retire au cycle 36, il n'avait aucun ecrivain
+    chestL       tipvar=0.1885    rootdev=0.0738    meshpen=0.0983   
+    chestR       tipvar=0.1875    rootdev=0.0847    meshpen=0.0900   
