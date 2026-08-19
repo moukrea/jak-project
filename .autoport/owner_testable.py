@@ -79,6 +79,26 @@ def shipped_coverage():
     return cov
 
 
+def solver_fingerprint():
+    """Empreinte du CODE du solveur, pas seulement de ses reglages.
+
+    2026-08-19 : le build de 21:46 a change le comportement de fond en comble -- la reponse cessait
+    d'etre identique quel que soit le mouvement -- et ce declencheur est reste MUET, parce qu'il ne
+    regardait que les parametres livres et la couverture de peau. Un correctif dans le solveur ne
+    touche aucun des deux. Un declencheur aveugle au code est aveugle a la moitie de ce que
+    l'owner peut voir.
+    """
+    import hashlib
+    h = hashlib.sha256()
+    for rel in ('goal_src/jak1/pc/jak-hd-physics.gc',):
+        try:
+            with open(os.path.join(ROOT, rel), 'rb') as f:
+                h.update(f.read())
+        except OSError:
+            return None
+    return h.hexdigest()[:12]
+
+
 def build_tag():
     if not os.path.exists(PUSHLOG):
         return None, None
@@ -106,7 +126,8 @@ def main():
     if not apk:
         return 0
 
-    now = {'apk': apk, 'params': chain_params(), 'cov': shipped_coverage()}
+    now = {'apk': apk, 'params': chain_params(), 'cov': shipped_coverage(),
+           'solver': solver_fingerprint()}
     prev = {}
     if os.path.exists(STAMP):
         try:
@@ -141,6 +162,12 @@ def main():
             if key != 'hair-pudding':           # la couverture ne dit rien du ballottement
                 touched.setdefault(key, {'human': human, 'why': []})
                 touched[key]['why'].append(f'{name} géométrie entraînée {o:.0%}→{v:.0%}')
+
+    # le CODE du solveur a change : on ne sait pas dire QUOI a bouge, mais on sait que ca a bouge,
+    # et se taire serait pire que de le signaler sans detail.
+    if now.get('solver') and prev.get('solver') and now['solver'] != prev['solver']:
+        touched.setdefault('flesh-jelly', {'human': 'la poitrine', 'why': []})
+        touched['flesh-jelly']['why'].append('le code du solveur a change')
 
     json.dump(now, open(STAMP, 'w', encoding='utf-8'))
 

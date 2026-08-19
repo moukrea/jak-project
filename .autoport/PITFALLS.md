@@ -412,3 +412,19 @@ l'owner et devient increvable.
 Verrou : une gate cite le TITRE et le TEXTE EXACT de la section qu'elle transcrit, ou elle est
 supprimee. Quand la spec donne un mot et pas un nombre (« before visible interpenetration »), le
 nombre est declare comme MON operationnalisation, avec sa conversion.
+
+GUARD find-newermt-bare-time .autoport
+**`find -newermt '21:06'` ne veut pas dire « aujourd'hui a 21h06 ».** Le 2026-08-19 cette forme a
+renvoye ZERO fichier alors que l'APK avait un mtime de 21:46:30 — j'ai failli publier une fausse
+alerte « le correctif n'est pas dans le build ». Toujours l'horodatage complet :
+`-newermt '2026-08-19 21:06:00'`. Et l'erreur symetrique est bien pire : une verification de
+fraicheur qui ne trouve rien se lit comme « rien n'a change », donc comme un feu vert.
+Verrou : tout controle de fraicheur se valide sur un fichier DONT ON CONNAIT le mtime avant de
+conclure quoi que ce soit.
+
+GUARD trigger-blind-to-code .autoport/owner_testable.py solver_fingerprint
+**Un declencheur qui ne surveille que les REGLAGES est aveugle aux correctifs de CODE.**
+`owner_testable.py` comparait les parametres livres et la couverture de peau. Le build de 21:46 a
+supprime l'ecretage qui figeait la reponse — le changement de comportement le plus important de la
+journee — et le declencheur est reste muet, faute de parametre modifie. Corrige : l'empreinte du
+source du solveur entre dans le jalon, et sa variation declenche a elle seule.
