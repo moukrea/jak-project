@@ -1,0 +1,65 @@
+================================================================================================
+VERDICT C35E2 — LE LEVIER DE ROTATION EST CELUI DE L'ANCRE
+================================================================================================
+APRES : .autoport/reports/Grecharged-secondary-motion/keira-room-x86.C35E2-REF.log   (372 fenetres)
+AVANT : .autoport/reports/Grecharged-secondary-motion/keira-room-x86.C35E1-REF2.log   (372 fenetres)
+
+N0  L'IDENTITE TIENT TOUJOURS
+    residu max = 0.00016993 B0 sur 372 fenetres (tolerance 0.001) -> CONFIRMEE
+
+N1  LE TERME DE ROTATION S'EFFONDRE (critere : moyenne |rp| <= 0.25 B0)
+    moyennes en B0, sur toutes les fenetres :
+              AVANT     APRES     ecart
+    |tp|     0.2328    0.4210     +80.9 %
+    |rp|     0.7714    0.0598     -92.2 %
+    |dp|     0.1761    0.2614     +48.4 %
+    -> CONFIRMEE (mesure 0.0598 B0 ; derivations gravees : 0.104 et 0.145 B0)
+
+N2  `comex` BAISSE FRANCHEMENT (critere : moyenne -40 %%, pire canal -35 %%)
+    moyenne de `comex` sur les fenetres : AVANT 1.1693 B0 -> APRES 0.7245 B0  (-38.0 %)
+    pire fenetre par canal :
+    chaine    pilotage      AVANT     APRES     ecart   |  tp        rp        dp     maillon
+    chestL    updown        1.5370    0.8270    -46.2 %  |    237.2      31.0     229.6     l=0
+    chestL    leftright     1.6389    0.9173    -44.0 %  |    238.0      63.2     251.1     l=0
+    chestL    accel         1.7159    0.8377    -51.2 %  |    215.7      52.1     236.6     l=0
+    chestL    jerk          1.5281    0.9241    -39.5 %  |    293.3      -7.2     270.3     l=0
+    chestL    tilt          1.8529    1.0138    -45.3 %  |    300.1     -10.7     321.0     l=0
+    chestL    BASE-0stim    1.7486    0.9083    -48.1 %  |    267.8      32.2     246.8     l=0
+    chestR    updown        1.6086    0.9213    -42.7 %  |    263.6      31.1     259.9     l=0
+    chestR    leftright     1.5290    0.8623    -43.6 %  |    275.9     -17.5     260.7     l=0
+    chestR    accel         1.7900    0.8479    -52.6 %  |    249.1      43.0     218.4     l=0
+    chestR    jerk          1.5727    0.8632    -45.1 %  |    274.2       9.5     236.0     l=0
+    chestR    tilt          1.9097    0.9223    -51.7 %  |    256.3      42.2     256.8     l=0
+    chestR    BASE-0stim    1.5553    0.8282    -46.7 %  |    264.6      27.7     206.3     l=0
+    -> moyenne **REFUTEE** · pire canal `tilt` CONFIRMEE
+
+N3  LE TENSEUR NE BOUGE PAS BEAUCOUP (critere : |dp| dans +-25 %%)
+    |dp| 0.1761 -> 0.2614 B0 (+48.4 %) -> **REFUTEE**
+
+N4  QUEL MAILLON PORTE LE MAXIMUM (prediction faible : l=1 devient majoritaire)
+    l=0 : 341 (91.7 %) · l=1 : 31 (8.3 %)
+    -> **REFUTEE**
+
+    LE CLASSEMENT DES TERMES APRES CORRECTIF, sur les 372 fenetres :
+    [A] TRANSLATION 348 (93.5 %) · [B] ROTATION 1 (0.3 %) · [C] DEFORMATION 23 (6.2 %)
+
+N5  LE MOUVEMENT SUBTIL N'EST PAS MUSELE (critere : tipvar tilt/updown dans +-15 %%)
+    chestL    tilt       tipvar_max 0.1641 -> 0.1708  (+4.0 %)
+    chestL    updown     tipvar_max 0.1769 -> 0.1764  (-0.2 %)
+    chestR    tilt       tipvar_max 0.1919 -> 0.1850  (-3.6 %)
+    chestR    updown     tipvar_max 0.1799 -> 0.1731  (-3.8 %)
+    -> CONFIRMEE
+
+N6  LES COUTS, DANS LES DEUX SENS (aucun critere : je m'engage a les publier)
+    meshpen    max (m)  0.1126 -> 0.0952  (-15.5 %)
+    rootdev    max (m)  0.0855 -> 0.0832  (-2.7 %)
+    pire saut  max (m)  0.0925 -> 0.0913  (-1.3 %)
+    tipvar     max (m)  0.1919 -> 0.1850  (-3.6 %)
+    chestL    meshpen  max (m)  0.1126 -> 0.0952  (-15.5 %)
+    chestL    tipvar   max (m)  0.1805 -> 0.1812  (+0.3 %)
+    chestR    meshpen  max (m)  0.1125 -> 0.0913  (-18.8 %)
+    chestR    tipvar   max (m)  0.1919 -> 0.1850  (-3.6 %)
+    PHYSIDLE dev c=0  0.6390 -> 0.6390  (+0.0 %)  [cible §9 = 0.0000]
+    PHYSIDLE dev c=1  0.7787 -> 0.6404  (-17.8 %)  [cible §9 = 0.0000]
+    course terminee (PHYSEND) : AVANT True · APRES True
+================================================================================================
