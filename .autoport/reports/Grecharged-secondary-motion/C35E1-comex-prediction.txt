@@ -1,0 +1,121 @@
+DIRECTIVES vb249967379
+PHASE  Grecharged-secondary-motion — branche physics-keira-clean — KEIRA / POITRINE SEULE
+CYCLE  35, ETAPE 1 — PREDICTIONS GRAVEES AVANT QUE L'INSTRUMENT EXISTE
+
+OBJET : ATTRIBUER `comex` (SPEC 22) A SES TROIS TERMES EXACTS, PAR UNE IDENTITE.
+
+================================================================================================
+1. POURQUOI CETTE ETAPE, ET POURQUOI ELLE PASSE AVANT LE PLAN QUE J'AVAIS ECRIT
+================================================================================================
+Le cycle 34 a laisse `comex` a 1.8529 B0 (chestL) et 1.9097 B0 (chestR) pour un plafond dur de
+0.40 B0 — x4.63 et x4.77, le plus gros depassement ouvert de toute la spec. Il a aussi PROUVE PAR
+INTERVENTION que borner le point libre `cp` ne le fait pas baisser (K5 : +6.4 % / -2.2 %).
+
+Mon plan du cycle 35 mettait en 1 « rendre sa dynamique au tenseur » et en 3 « le bras de levier ».
+CET ORDRE EST UNE SUPPOSITION, PAS UNE MESURE. La decomposition ci-dessous les DEPARTAGE, parce
+que le tenseur est exactement l'un des trois termes. Elle passe donc devant les deux.
+
+================================================================================================
+2. L'IDENTITE — ELLE EST ALGEBRIQUE, PAS UN MODELE
+================================================================================================
+`comex` est ecrit (jak-hd-physics.gc:3971-4002) comme
+
+    e = [ p_sim + D . lc ] - [ p_auth + R_auth . lc ]        comex = |e| / b0c
+
+ou `lc` est le centre de la sphere de chair du maillon dans le repere du joint, `p` la translation
+de la matrice ecrite, `R_auth` la 3x3 d'auteur (`pre`), et `D = R_auth . rot . T` la 3x3 ecrite —
+`rot` etant la rotation posee vers 3946 et `T = *phys-dfm*` la deformation post-multipliee en 3964.
+
+En inserant `R_auth . rot . lc`, qui s'annule :
+
+    e =   (p_sim - p_auth)                 [A]  TRANSLATION : le joint a bouge
+        + R_auth . (rot - I) . lc          [B]  ROTATION    : ce maillon a tourne, x son bras `lc`
+        + R_auth . rot . (T - I) . lc      [C]  DEFORMATION : le tenseur, x son bras `lc`
+
+C'est une IDENTITE : la somme des trois EST `e`, exactement, quelles que soient les valeurs.
+
+PUBLICATION : les trois PROJECTIONS SIGNEES sur le vecteur unitaire de `e`,
+    tp = <A, e^>   rp = <B, e^>   dp = <C, e^>       avec   tp + rp + dp = |e|   EXACTEMENT.
+Des NORMES ne se recomposent pas (deux termes peuvent s'annuler) ; des projections signees, si.
+NATURE : trois LONGUEURS SIGNEES (unites de jeu), relevees a l'argmax de `comex` DE LA FENETRE —
+le meme echantillon pour les trois, jamais trois maxima independants (piege `RAD-FLESH-IPAIR` du
+cycle 34, ou deux lecteurs de la meme trace retenaient deux fenetres differentes).
+REPERE : le monde, meme frame, contre la pose d'auteur de cette frame — le meme que `comex`.
+LECTURE QUAND LE DEFAUT EST ABSENT : tp = rp = dp = 0.0000 a la pose d'auteur.
+
+================================================================================================
+3. LA GEOMETRIE LIVREE, RELEVEE AVANT D'ECRIRE LES PREDICTIONS (course du cycle 34)
+================================================================================================
+    PHYSBONE c=0 l=0 len=1040.50  = 1.728 B0      [HD-PHYS] vol c=0 l=0 off=651.18 = 1.081 B0
+    PHYSBONE c=0 l=1 len= 140.42  = 0.233 B0      [HD-PHYS] vol c=0 l=1 off=514.54 = 0.855 B0
+    PHYSBONE c=1 l=0 len=1039.04  = 1.726 B0      [HD-PHYS] vol c=1 l=0 off=629.49 = 1.045 B0
+    PHYSBONE c=1 l=1 len= 144.23  = 0.240 B0      [HD-PHYS] vol c=1 l=1 off=467.42 = 0.777 B0
+    b0e = 602.0 (flesh, [HD-PHYS] b0 c=0 flesh=602.0000 anc=3)
+
+DEUX FAITS QUI COMMANDENT LES PREDICTIONS :
+  - le maillon 0 est un os de **1.73 B0** ancre a la colonne ; sa rotation propre balaie son
+    extremite — qui EST le joint du maillon 1 — de 1.73 B0 x theta ;
+  - le maillon 1 est un os de **0.23 B0** dont le centre de chair est a **0.86 B0**, soit
+    **3.7x sa propre longueur**. Son bras de levier n'est pas son os.
+
+================================================================================================
+4. LES PREDICTIONS. ELLES SONT DATEES D'AVANT L'INSTRUMENT ET NE SERONT PAS REECRITES.
+================================================================================================
+
+M0  IDENTITE DE L'INSTRUMENT (sanite, pas physique)
+    |tp + rp + dp - comex*b0c| <= 0.001 B0 sur les 24 canaux publies.
+    Une rupture ici accuse MON instrument, jamais le moteur, et l'etape s'arrete.
+
+M1  LE CLASSEMENT — C'EST LA PREDICTION QUI COMMANDE
+    [A] TRANSLATION est le plus grand des trois en valeur absolue sur **au moins 10 des 12**
+    pires fenetres (2 chaines x 6 pilotages, ligne de base comprise).
+    RAISON : seul [A] a un domaine qui atteint 1.85 B0 sans hypothese exotique — le maillon 0
+    se deplace sur une sphere de rayon 1.73 B0 autour de son ancre.
+
+M2  LA PART, SUR LES DEUX CANAUX QUI PORTENT LES MAXIMA PUBLIES
+    chestL/tilt (comex 1.8529) et chestR/tilt (1.9097) : tp >= 0.60 * comex*b0c.
+
+M3  LE TENSEUR — C'EST ELLE QUI ARBITRE MON PROPRE PLAN
+    moyenne de |dp| sur TOUS les echantillons publies <= 0.10 B0.
+    SI M3 TIENT : le tenseur porte moins du quart du budget de 0.40 B0, et le point 1 de mon plan
+    de cycle 35 (« rendre sa dynamique au consommateur ») est **MAL CLASSE** — je le dirai comme
+    tel et je le retrograde.
+    SI M3 CASSE : le tenseur est un porteur reel, le point 1 tient, et c'est lui qu'on traite.
+
+M4  LA LIGNE DE BASE PORTE LE MEME MECANISME
+    part tp/(comex*b0c) en fenetre BASE (sans pilotage) contre la meme part en `jerk` :
+    ecart <= 0.15 en part absolue, sur les deux chaines.
+    RAISON : `comex` vaut deja 1.05 B0 de moyenne SANS pilotage contre 1.27 sous `jerk`.
+
+M5  BORNE SUR PAPIER DU TERME DE DEFORMATION (calculee AVANT la mesure)
+    |dp| <= 1.22 B0 sur CHAQUE echantillon.
+    DERIVATION : T = R_torsion . S_pression . S_etirement.
+      etirement : valeurs propres dans [1/sqrt(1.25), 1.25] car sdy <= PHYS-DYN-MAX = 0.25 (:311)
+      pression  : valeurs propres dans [0.75, 1/sqrt(0.75)] car prs <= PHYS-PRS-MAX = 0.25 (:314)
+      -> S dans [0.671, 1.444], donc |S - I| <= 0.444
+      torsion   : |theta| <= tcap = 0.50*b0f/rw ; rw = 431 (c=0 l=1) -> 0.698 rad, |R-I| <= 2 sin(theta/2) = 0.684
+      |T - I| <= 0.444 + 0.684 = 1.128 ; x max|lc| = 1.081 B0 -> **1.22 B0**
+    Un depassement accuse MA lecture de la construction du tenseur, et je le publierai comme tel.
+    NOTE HONNETE : cette borne est LARGE. Elle n'exclut PAS que [C] domine — c'est M3 qui risque
+    quelque chose, pas M5. M5 est un garde-fou de modele, et je le declare comme tel.
+
+M6  L'INSTRUMENT EST INERTE
+    toutes les lignes `PHYS` autres que le marqueur neuf `PHYSCOMD` sont IDENTIQUES, ligne pour
+    ligne, a la course de reference. Aucun parametre de simulation n'est touche a cette etape.
+
+================================================================================================
+5. CE QUE CHAQUE ISSUE COMMANDE POUR L'ETAPE 2 — ECRIT AVANT DE CONNAITRE LE RESULTAT
+================================================================================================
+  M1 + M2 TENUES              -> l'etape 2 traite **[A], le bras de levier** : c'est la rotation
+                                 accumulee de l'os de 1.73 B0 qu'il faut borner, et sa borne se
+                                 derive de 0.40 B0 / 1.73 B0 = 0.231 rad = 13.2 deg de retard.
+  M1 TENUE, M2 CASSEE         -> [A] domine mais pas assez pour fermer seul : l'etape 2 borne [A]
+                                 ET publie ce qui reste, sans annoncer la section tenue.
+  M1 CASSEE au profit de [B]  -> c'est la rotation PROPRE de chaque maillon x un bras de 0.86-1.08
+                                 B0. L'etape 2 traite l'angle, pas la position.
+  M1 CASSEE au profit de [C]  -> M3 casse aussi ; le point 1 de mon plan est CONFIRME et l'etape 2
+                                 est celle que j'avais planifiee.
+  M0 CASSEE                   -> rien n'est publie comme attribution. L'instrument est refait.
+
+Aucune de ces branches n'est « le mecanisme est retire » : la directive de l'owner du 2026-08-17
+23:50 abolit la regle de retrait sur ce chantier. On avance a travers les rouges.
