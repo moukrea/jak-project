@@ -1058,6 +1058,23 @@
     ;;         maillon, nul pour un maillon qui suit rigidement son parent.
     ;; C'est `ang` que SPEC 2 exige croissante ; `amp` reste publiee pour que l'ecart entre les deux
     ;; soit lisible au lieu d'etre affirme.
+    ;; NATURE / REPERE / LECTURE-HORS-DEFAUT — ecrits ici au cycle 39 parce que le preflight les
+    ;; signalait absents et que leur absence a failli me faire lire cette ligne de travers.
+    ;;   amp  NATURE : une ETENDUE, pas une valeur instantanee — la DIAGONALE DE LA BOITE
+    ;;        ENGLOBANTE de l'ecart a la pose d'auteur, ACCUMULEE sur toute la fenetre
+    ;;        (`phys-link-amp`, jak-hd-physics.gc:4143-4155, sur `*phys-ox/oy/oz*` :3219-3224).
+    ;;        REPERE : LOCAL A L'ANCRE (`chest`), pas le monde — `*phys-o**` est tourne par `w2l`
+    ;;        a jak-hd-physics.gc:3170-3177. UNITES : unites de jeu (4096 = 1 m).
+    ;;   ang  NATURE : un MAXIMUM de fenetre (`phys-link-ang` :4163-4168 sur `*phys-la*` :3345-3346),
+    ;;        en degres. REPERE : RELATIF A L'ATTACHE — le parent SIMULE si `l > 0`, l'ancre sinon
+    ;;        (:3296-3304) — donc une deviation propre, NON ADDITIVE le long de la chaine.
+    ;;   LECTURE QUAND LE DEFAUT EST ABSENT : les deux valent 0.0000 a la pose d'auteur, et `ang`
+    ;;        vaut 0.0000 IDENTIQUEMENT sur un maillon epingle par `rootlock` (il n'est ni integre
+    ;;        ni ecrit) — c'est ce qui en fait le controle positif d'une ablation de racine.
+    ;;   PIEGE, PAYE AU CYCLE 39 : `ang` est un maximum de FENETRE alors que `tp/rp/dp` de
+    ;;        `PHYSCOMD` sont releves a l'ARGMAX de `comex`. Reconstruire une corde
+    ;;        `2*L*sin(ang/2)` et la comparer a `tp` rapproche donc DEUX FRAMES DIFFERENTES :
+    ;;        c'est une verification d'ordre de grandeur, jamais une identite.
     (dotimes (l (phys-chain-links (-> self slot) c))
       ;; `a0`/`a1` : le MEME angle releve aux etages du solveur (apres integration seule, puis
       ;; apres contraintes + attenuation). `ang` reste la valeur ECRITE. C'est la comparaison des

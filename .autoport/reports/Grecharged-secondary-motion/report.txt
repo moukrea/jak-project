@@ -1,6 +1,371 @@
 DIRECTIVES vb249967379
 
 ================================================================================================
+CYCLE 39 — L'EXCURSION DE SA SPEC 22 : LE PORTEUR N'EST PAS CELUI QUE LE PLAN ANNONCAIT,
+ET LE PRIX DE LA SEULE MANOEUVRE DISPONIBLE EST MESURE — IL EST DE 1 POUR 1.
+================================================================================================
+  ETAPE 1  MESURE GRATUITE SUR LA TRACE DEJA LIVREE, AUCUNE COURSE. `comex` est porte a **62 %**
+           par `tp` (« le joint a bouge ») et a 32 % par le tenseur, 6 % par la rotation. **Le
+           plan ecrit du cycle 39 visait le tenseur** : il visait le deuxieme terme. Et le budget
+           de sa SPEC 22 est deja consomme a **84 % / 88 %** par le SEUL maillon racine, avec un
+           retard angulaire parfaitement ordinaire de 11 degres — parce que son os fait 1040 u
+           la ou l'organe en fait 602.
+  ETAPE 2  ABLATION `rootlock=1`, DONNEE SEULE, AUCUN BUILD. **Elle rend sa SPEC 22** (fenetres
+           hors bande : 100 % -> **0.0 %** a gauche, 99.5 % -> **2.7 %** a droite) et **coute
+           50 % du mouvement, UNIFORMEMENT sur les six pilotages** — y compris les deux que
+           l'owner protege. **RETIREE**, par le critere que j'avais grave avant de mesurer.
+  RESULTAT L'echange est de **1 pour 1** : -54 % d'excursion contre -50 % de mouvement. Ce n'est
+           pas un correctif, c'est un troc. Et il designe le seul levier qui n'en soit pas un.
+
+  ETAT DU VALIDATEUR : inchange, il sort a 1 sur `OPEN-DEFECTS` — la porte humaine, que mon
+  action ne peut pas fermer. `COLLIDE` reste ROUGE.
+
+  CE CYCLE N'AJOUTE **AUCUNE LIGNE** AU MOTEUR : `jak-hd-physics.gc` reste a **4792** lignes pour
+  un plafond de 4800. `phys-room.gc` passe de 3235 a 3252 lignes — **17 lignes de COMMENTAIRE**,
+  qui declarent le REPERE et la NATURE de `PHYSGRAD` (un WARN du preflight, et il a failli me
+  faire lire ma propre mesure de travers). Le jeu livre est **identique au bit pres** a celui du
+  cycle 38 : `physics_chains.txt` est restaure a son md5 d'origine
+  **4d29e30c759d33fffd794e10947497e6**, verifie.
+
+================================================================================================
+ETAPE 1 — CE QUE LA TRACE DEJA LIVREE DISAIT, ET QUE PERSONNE N'AVAIT LU
+================================================================================================
+PREDICTIONS : `C39E1-rootlock-prediction.txt`, md5 **ae8e8d1d237502b652df044ce245572d**,
+empreinte gravee dans le commit **a4ae31b8f7** — AVANT la moindre mesure de l'ablation.
+Aucune course n'a ete lancee pour cette etape : tout y est lu dans
+`keira-room-x86.C38E4-FINAL.log` (md5 1b05a8158b8594588e1172570fc27d7b), la course LIVREE du
+cycle 38. 372 fenetres, 186 par chaine.
+
+1.1 QUI PORTE `comex` — ET LE PLAN DU CYCLE VISAIT LE MAUVAIS TERME
+=====================================================================
+L'identite du cycle 35 (`tp + rp + dp = comex * B0`) est verifiee sur la trace livree : pire
+ecart **0.1024 u**, **0 violation** au-dela de 0.5 u sur 372/372 fenetres. Ce n'est donc pas un
+modele, c'est une decomposition exacte.
+
+    terme                                 chestL     chestR    dominant dans
+    tp  « le joint a bouge »              62.3 %     62.0 %    175/186 · 174/186
+    dp  tenseur de deformation x son bras 32.5 %     32.3 %     11/186 ·  12/186
+    rp  rotation du maillon x son bras     5.2 %      5.8 %      0/186 ·   0/186
+
+Le plan du cycle 39, ecrit au cycle 38, disait : « le porteur du tenseur est l'ETIREMENT du
+tissu... Premiere etape : mesurer DE QUOI depend cet etirement, avant d'y toucher. » **C'est le
+deuxieme terme.** Le premier — le simple deplacement du joint — en porte le double, et il n'etait
+pas au programme. Le correctif de levier du cycle 35 a bien fait son travail : `rp` est tombe de
+0.7714 B0 a 0.05-0.06 B0 et ne domine plus **aucune** des 372 fenetres.
+
+1.2 LE BUDGET DE SA SPEC 22 EST CONSOMME PAR LA GEOMETRIE, PAS PAR UN REGLAGE
+==============================================================================
+Calcul sans modele : la corde d'un maillon vaut `2*L*sin(ang/2)`, `L` lu sur le rig, `ang` lu
+dans la trace. Les trois termes et le plafond sont tous des MAXIMUMS DE FENETRE — c'est la bonne
+statistique pour une borne.
+
+    terme                                                     chestL     chestR   plafond COM
+    corde du maillon 0  (os 1040.50 u = 1.73 B0, lag 11.2 deg) 0.336 B0   0.353 B0
+    corde du maillon 1  (os  140.42 u = 0.23 B0, lag  67 deg)  0.250 B0   0.233 B0
+    tenseur `dp`                                               0.239 B0   0.235 B0
+                                                                                    0.400 B0
+
+**LE MAILLON RACINE, A LUI SEUL, EN CONSOMME 84 % ET 88 %.** Et le retard angulaire qui
+saturerait tout le plafond a lui seul vaut **13.29 deg** : il est mesure a 11.16 / 11.75 deg de
+moyenne et a **16.71 / 19.22 deg au maximum**, donc le maximum le depasse deja.
+
+C'est la phrase que je n'avais jamais ecrite : **sa SPEC 22 borne une excursion en B0 = 602 u (la
+CHAIR), alors que la premiere articulation libre pivote sur un bras de 1040 u.** Un retard
+d'inertie parfaitement banal — onze degres — devient donc un depassement, par pure geometrie.
+
+1.3 ET LE REFUS D'EPINGLER REPOSAIT SUR UN CHIFFRE QUE LA DONNEE LIVREE DEMENT
+===============================================================================
+`recharged_assets/physics_chains.txt:26-27` justifie l'absence de `rootlock` sur la poitrine
+ainsi : « omitted on chestL/chestR ... where **75% of the chain mass sits on the root link** —
+pinning it would freeze three quarters of the organ ». **Le meme fichier, 75 lignes plus bas,
+publie les poids du mesh LIVRE :**
+
+    chestL   lBoob wsum=17.67   lBooc wsum=33.02   ->  racine = **34.9 %**, pas 75 %
+    chestR   rBoob wsum=19.75   rBooc wsum=28.57   ->  racine = **40.9 %**, pas 75 %
+
+Le repesage `anchor30` du cycle 24 a bascule la propriete vers le distal ; le commentaire qui
+motive le refus est reste tel quel. **Un refus documente peut etre perime quand le mecanisme
+qu'il incrimine a change** — et ici trois choses ont change depuis : ce repesage, le correctif de
+levier du cycle 35, et le RETRAIT du gradient de raideur (NOTE-74), qui a fait passer le maillon
+distal de 1.5712 Hz a 2.3000 Hz. C'est ce qui justifiait de remesurer, et non de repeter le refus.
+
+1.4 DEUX ACQUIS QUE PERSONNE N'AVAIT PUBLIES, LUS SUR LA MEME TRACE
+====================================================================
+**(a) LE GRADIENT DE SA SPEC 2 EST MONOTONE, SUR 372 FENETRES SUR 372.** `ang(maillon 1)` est
+superieur a `ang(maillon 0)` dans **186/186 fenetres de chaque chaine**, rapport median 5.69 et
+5.30. C'est le defaut que l'owner a signale trois fois sur les cheveux (« le milieu bouge
+beaucoup plus que les pointes ») et il n'existe pas sur la poitrine. Mesure RELATIVE AU PARENT,
+comme le contrat l'exige depuis le 11/08 18:00.
+
+**(b) SA SPEC 8 (conservation de volume 98-101 %) EST TENUE, ET LA DEFORMATION EST REELLE.**
+`det(D)` vaut 0.9998 / 0.9999 de moyenne, minimum 0.9997, maximum 1.0000, et **0.0 % des
+fenetres sortent de [0.98, 1.01]**. La deformation n'est pas cosmetique : les echelles
+principales vont de 0.7989 a 1.2176, soit +-20 %. **RESERVE HONNETE, ET ELLE COMPTE** : `det` est
+RENORMALISE par construction dans le moteur. Le chiffre prouve que la contrainte est appliquee,
+il ne prouve pas qu'une physique conserve le volume toute seule.
+
+================================================================================================
+ETAPE 2 — L'ABLATION DE LA RACINE. QUATRE PREDICTIONS SUR SIX SONT REFUTEES, ET C'EST LE RESULTAT.
+================================================================================================
+UNE SEULE MODIFICATION, DANS LA DONNEE LUE A L'EXECUTION : `rootlock=1` ajoute aux deux lignes
+`chain chestL` / `chain chestR`. **Aucun octet du moteur, aucun build, aucune cuisson.** Course
+`keira-room-x86.C39E1-ROOTLOCK.log` (md5 459c3c55abba0c39fd0f0e949d9b3f76, 3 254 596 octets)
+contre la course livree du cycle 38. Effet couple nomme d'avance dans les predictions : `rootlock`
+porte DEUX roles (moteur :2374-2384) — il epingle le maillon 0 ET il deplace le debut du degre de
+liberte radial de sa SPEC 23, arme sur `(>= l rlk)` (:2844).
+
+BILAN : **P0 CONFIRMEE · P1 CONFIRMEE · P2 REFUTEE · P3 REFUTEE · P4 REFUTEE · P5 CONFIRMEE ·
+P6 CONFIRMEE.**
+
+2.1 P0 ET P1 — L'INSTRUMENT, ET LE CONTROLE POSITIF
+=====================================================
+Les deux courses : `PHYSCOUNTS anims=31 enum=31 chains=2 drives=5 ags=6`, **0 `PHYSFAIL`**,
+`PHYSNOPLAY viol=0 actors=0 killed=0`, identite `tp+rp+dp = comex*B0` tenue a 0.1024 u (reference)
+et 0.1000 u (ablation), **0 violation sur 372/372 des deux cotes**.
+
+**LE CONTROLE POSITIF A TIRE, ET IL EST NET** : `ang` du maillon 0 passe de 11.1555 / 11.7481 deg
+de moyenne a **0.0000 exactement**, sur **186 fenetres sur 186 de chaque chaine** — zero fenetre
+non nulle. Un maillon epingle n'est ni integre ni ecrit ; c'est ce que le compteur montre.
+
+2.2 P2 REFUTEE — L'ABLATION REND SA SPEC 22, CE QUE J'AVAIS PREDIT IMPOSSIBLE
+==============================================================================
+J'avais grave : moyenne de `comex` dans [0.35, 0.52] B0, **et explicitement que la bande de sa
+SPEC 22 NE SERAIT PAS TENUE apres coup**. Les deux sont faux.
+
+    chestL   moyenne 0.7140 -> **0.3283** (-54.0 %)   max 1.0765 -> **0.4000**
+             fenetres au-dessus du plafond dur 0.400 :  **100.0 %  ->  0.0 %**
+    chestR   moyenne 0.7037 -> **0.3205** (-54.4 %)   max 0.9655 -> **0.4262**
+             fenetres au-dessus du plafond dur 0.400 :   **99.5 %  ->  2.7 %**
+
+Les moyennes tombent SOUS mon intervalle : j'avais sous-estime l'effet. La section la plus
+depassee de toute la spec — ouverte depuis le 14/08, mesuree a x2.4 et x2.7 — est rendue par une
+ligne de donnee.
+
+2.3 ET VOICI POURQUOI MON ARITHMETIQUE LE DECLARAIT IMPOSSIBLE : LES TERMES NE SONT PAS INDEPENDANTS
+=====================================================================================================
+Avant la course j'avais calcule une borne : le tenseur (0.239 / 0.235 B0) plus la corde du
+maillon 1 (0.250 / 0.233) font **0.490 et 0.468 B0**, donc **x1.22 et x1.17 au-dessus du plafond
+— maillon 0 suppose PARFAITEMENT EPINGLE**. La borne disait : meme un epinglage parfait ne suffit
+pas. **Elle est fausse, et la mesure dit exactement pourquoi :**
+
+    terme       chestL  reference -> ablation        chestR  reference -> ablation
+    tp           262.2 u  ->  138.2 u   (-47 %)       257.1 u  ->  166.9 u   (-35 %)
+    rp            23.5 u  ->  -14.0 u                  25.0 u  ->  -10.4 u
+    dp  tenseur  **144.1 u  ->   73.5 u   (-49 %)**   **141.6 u  ->   36.5 u   (-74 %)**
+    somme        429.9 u  ->  197.7 u                 423.7 u  ->  193.0 u
+
+**LE TENSEUR S'EFFONDRE AVEC LA RACINE : -49 % ET -74 %.** Sa contribution a l'excursion n'etait
+donc PAS un canal independant — elle etait, pour moitie a trois quarts, **entrainee par le
+mouvement du maillon racine**. J'avais additionne trois termes comme s'ils l'etaient ; ils ne le
+sont pas, et je l'avais ecrit comme reserve dans les predictions sans en tirer la consequence.
+
+**CE QUE CA CHANGE POUR LA SUITE, ET C'EST LE FAIT LE PLUS UTILE DU CYCLE :** le maillon racine
+n'est pas le levier sur 84 % d'un budget fige, il est le levier sur **environ 54 % de l'excursion
+totale** — sa propre corde PLUS la part du tenseur qu'il entraine. Tout ce qui reduit son
+excursion rend donc bien plus que sa corde.
+
+2.4 P3 REFUTEE — ET C'EST ELLE QUI DECIDE. LE PRIX EST DE 50 %, UNIFORME, Y COMPRIS SUR CE QUE
+L'OWNER PROTEGE.
+=================================================================================================
+Ma premise etait que le prix mesure au cycle 30 (-40 a -59 %) avait BAISSE, parce que le maillon
+distal tourne desormais a 2.3000 Hz au lieu de 1.5712 Hz et pourrait porter lui-meme ce que la
+racine ne fournit plus. J'avais grave : **perte inferieure a 30 %, et si elle atteint 40 % la
+premise tombe et l'ablation est retiree.**
+
+    `tipvar` (l'amplitude du tableau)  chestL 0.1885 -> **0.0862**  (**-54.3 %**)
+                                       chestR 0.1875 -> **0.0908**  (**-51.6 %**)
+
+Et le detail par pilotage, qui est la vraie reponse — `amp` du maillon distal :
+
+    pilotage                                chestL              chestR
+    updown     (18 u/frame2)             483.6 -> 235.5  -51 %   458.8 -> 264.3  -42 %
+    leftright  (52)                      556.0 -> 264.6  -52 %   562.2 -> 300.9  -47 %
+    accel      (2 -> 96)                 640.5 -> 267.0  -58 %   662.3 -> 308.3  -53 %
+    jerk       (434)                     562.9 -> 241.8  -57 %   570.1 -> 274.0  -52 %
+    **tilt     (11.2) — elle se penche** 167.8 ->  78.7  **-53 %** 141.8 ->  69.6  **-51 %**
+    **AUCUN pilotage — ligne de base**   158.0 ->  86.8  **-45 %** 161.3 ->  81.3  **-50 %**
+
+**LA PERTE EST UNIFORME SUR LES SIX PILOTAGES.** Elle ne se concentre pas sur les mouvements
+brusques dont l'owner se plaint : elle frappe aussi fort `tilt` — le pilotage ou il regarde quand
+elle se penche pour souder — et la ligne de base sans aucun pilotage. C'est exactement l'acquis
+qu'il protege depuis le 11/08 (« les seins sur mouvements subtils : toujours OK ») et qu'il m'a
+deja vu casser une fois en payant un defaut avec la qualite qu'il venait d'apprecier.
+
+**DONC L'ABLATION EST RETIREE**, par le critere que j'avais grave avant de mesurer et non par un
+jugement d'apres coup. La donnee livree est restauree, md5 verifie.
+
+2.5 P4 REFUTEE — LE DISTAL NE PREND PAS LE RELAIS, ET C'EST CA QUI TUE MA PREMISE
+==================================================================================
+Je predisais que `ang` du maillon 1 MONTERAIT (le distal absorbant ce que la racine ne fournit
+plus), contre le cycle 30 qui avait mesure l'inverse a 1.5712 Hz.
+
+    chestL  ang(l1)  moyenne 66.94 -> **62.31 deg**  (-6.9 %)   max 149.77 -> 92.68
+    chestR  ang(l1)  moyenne 61.53 -> **60.26 deg**  (-2.1 %)   max 132.03 -> 91.95
+
+Il DESCEND. **Le passage du distal de 1.5712 a 2.3000 Hz n'a donc rien change a sa capacite a
+reprendre le mouvement de la racine** — ma seule raison de croire le prix perime tombe, et le
+refus du cycle 30 est RETABLI, sur une mesure neuve et sur le moteur courant.
+
+2.6 P5 CONFIRMEE — LA PENETRATION BAISSE, MAIS LA GATE RESTE ROUGE
+===================================================================
+    `meshpen`  chestL 0.0983 -> **0.0865 m** (-12.0 %)   chestR 0.0900 -> **0.0544 m** (-39.6 %)
+    plafond epingle : 0.0005 m — **toujours x173 et x109. `COLLIDE` reste ROUGE.**
+`ROOM-SIDE` inchange : 8 franchissements des deux cotes. `rootdev` tombe a 9.8e-06 / 1.0e-05,
+ce qui est attendu et sans interet : un maillon epingle ne derive pas.
+
+2.7 P6 CONFIRMEE — LE GRADIENT RESTE MONOTONE
+==============================================
+0 fenetre sur 186 ou `ang(l1) <= ang(l0)`, dans les DEUX courses, sur les DEUX chaines.
+
+================================================================================================
+CE QUE LE CYCLE ETABLIT, ET CE QU'IL DESIGNE
+================================================================================================
+**L'ECHANGE EST DE 1 POUR 1.** Epingler la racine rend **-54 %** d'excursion pour **-50 %** de
+mouvement. Ce n'est pas un correctif : c'est un troc, au taux le plus defavorable possible. Et il
+est desormais mesure sur le moteur courant, pas repris d'un cycle vieux de neuf cycles.
+
+**LES TROIS VOIES SUR LA CORDE DU MAILLON RACINE, ET DEUX SONT FERMEES :**
+  1. **LE REGLAGE** — ferme par sa SPEC 24. La corde vaut `2*L*sin(ang/2)` ; reduire `ang` veut
+     dire monter la raideur, et la frequence propre est bornee par la bande [2.10, 2.50] Hz que
+     sa SPEC 24 fixe. NOTE-74 a deja tranche ce conflit une fois, en RETIRANT le gradient de
+     raideur precisement parce qu'il sortait le distal de sa bande.
+  2. **L'EPINGLAGE** — ferme par ce cycle, au taux de 1 pour 1, sur l'acquis de l'owner.
+  3. **LE RIG** — la seule qui reste, et la seule qui ne soit pas un troc : raccourcir `L`
+     baisse la corde **a retard angulaire inchange**, donc sans retirer un degre de liberte.
+     Et que `L` soit une propriete du RIG est demontre, pas suppose : `phys-length-chain`
+     (moteur :1166) relit `want = |pose_auteur(joint) - pose_auteur(ancre)|` DANS LE SQUELETTE A
+     CHAQUE FRAME (:1196-1204) ; aucun scalaire de `physics_chains.txt` ne le multiplie, et
+     `*phys-blen*` — la seule longueur que la donnee pourrait porter — n'est JAMAIS lue par la
+     contrainte (ses quatre lecteurs :2670, :3055, :3507, :3951 sont des mesures ou un repli).
+     L'owner a explicitement autorise le rig le 17/08 (« meme si ca implique de modifier le rig »).
+     **L'OBSTACLE CONNU EST NOMME ET IL N'EST PAS RESOLU** : le rig HD est en AJOUT SEUL — un
+     joint neuf ne peut jamais devenir le parent d'un joint existant, donc on ne peut pas
+     simplement inserer une articulation entre `chest` et `lBoob`. Etablir ce qui est faisable
+     est le travail du cycle 40, et je ne le presente pas comme acquis.
+
+**CE QUE JE N'AI PAS FAIT, ET JE LE DIS PLUTOT QUE DE LE TAIRE :**
+  - je n'ai pas mesure ce que couterait un epinglage PARTIEL (une racine freinee sans etre
+    soudee). Le moteur ne sait pas le faire : `rootlock` est binaire, et `rootgrad`
+    (`PHYS-P-GRADIENT`, moteur :143/:788/:803/:2383) n'a qu'UN effet — forcer `rlk` a 0, donc
+    DES-epingler. C'est un parametre declare qui ne gradue rien. Savoir si le troc 1:1 est
+    lineaire ou s'il existe un regime favorable en dessous demanderait ce mecanisme ;
+  - je n'ai touche AUCUNE gate, aucun seuil du validateur (regle 5) ;
+  - je n'ai pas re-mesure les sections marquees [R] au tableau ci-dessous ;
+  - je n'ai pas fait de bake de mesh : les poids de peau sont inchanges, et sa SPEC 35 (« le
+    vetement suit le sein ») reste ABSENTE pour cette raison.
+
+================================================================================================
+TABLEAU DE CONFORMITE — chaque section IMPLEMENTEE / MESUREE / ECART
+[T] mesure a l'execution ce cycle · [M] mesuree sur le mesh ou la donnee livree ce cycle
+[R] reportee d'un cycle precedent, NON re-mesuree — et dite comme telle
+Aucune section « non applicable » (interdit depuis le 14/08 11:50).
+================================================================================================
+  SPEC 2  gradient    **TENUE, ET PUBLIEE POUR LA PREMIERE FOIS** [T] `ang(maillon 1)` superieur
+                                 a `ang(maillon 0)` sur **372 fenetres sur 372**, rapport median
+                                 5.69 / 5.30, mesure RELATIVE AU PARENT. Le defaut que l'owner
+                                 signale sur les cheveux n'existe pas sur la poitrine.
+  SPEC 6  B0          TENUE      [R] `b0 c=0 flesh=602.0000`. Non re-mesure.
+  SPEC 8  volume      **TENUE, AVEC SA RESERVE** [T] `det(D)` 0.9998 / 0.9999, min 0.9997, max
+                                 1.0000, **0.0 %** des 372 fenetres hors [0.98, 1.01] ; echelles
+                                 principales 0.7989 a 1.2176 (+-20 %), donc la deformation est
+                                 reelle. RESERVE : `det` est RENORMALISE par construction — le
+                                 chiffre prouve que la contrainte est appliquee, pas qu'une
+                                 physique conserve le volume d'elle-meme.
+  SPEC 9  retour exact PARTIELLE [R] `PHYSIDLE dev` 0.9581 / 0.4803 pour une cible de 0.0000.
+                                 [T] `rgap` 0.0145 / 0.0147 B0 : la cible de repos du ressort EST
+                                 la pose d'auteur, donc l'excursion n'est PAS un decalage statique.
+  SPEC 10 supine      PARTIELLE  [R] COM 0.2612 / 0.2653. Non re-mesure.
+  SPEC 11 prone       PARTIELLE  [R] COM 0.2373 / 0.2477. Non re-mesure.
+  SPEC 12 lateral     PARTIELLE  [R] pole MEDIAL sous bande. Non re-mesure.
+  SPEC 13 continuite  PARTIELLE  [R] chestL LINEAIRE, chestR NON LINEAIRE. Inchange.
+  SPEC 21 tanh        TENUE      [R] saturation de deplacement du cycle 34. Non re-mesure.
+  SPEC 22/38 apex+COM **PARTIELLE — ET LE PORTEUR EST ENFIN NOMME, PUIS LE PRIX MESURE** [T]
+                                 `comex` moyen 0.7140 / 0.7037 B0, max 1.0765 / 0.9655, **100.0 %
+                                 et 99.5 % des fenetres au-dessus du plafond dur 0.400**. [T] Il
+                                 est porte a **62 %** par le DEPLACEMENT DU JOINT, 32 % par le
+                                 tenseur, 6 % par la rotation. [T] Le maillon racine seul consomme
+                                 **84 % / 88 %** du plafond avec 11 deg de retard, parce que son
+                                 os fait 1040.50 u contre 602 pour l'organe. [T] L'epingler rend la
+                                 bande (**0.0 % / 2.7 %** hors plafond) et coute **50 % du
+                                 mouvement sur les six pilotages** : troc 1:1, RETIRE.
+  SPEC 23 multi-DOF   PARTIELLE  [R] cinquieme terme repare au cycle 36. Sortie toujours plate sur
+                                 chestL. Non re-mesure. [T] CORRECTION D'UN ENONCE DU REGISTRE :
+                                 le degre de liberte radial n'est PLUS arme sur `(= l rlk)` mais
+                                 sur **`(>= l rlk)`** (moteur :2844) depuis le cycle 32 — donc le
+                                 distal n'en est plus prive.
+  SPEC 24 3 frequences PARTIELLE [R] 5 canaux sur 6 dans leur bande. Non re-mesure. [T] ELLE FERME
+                                 LA VOIE DU REGLAGE sur SPEC 22 : la bande [2.10, 2.50] Hz borne
+                                 la raideur, donc borne la reduction du retard angulaire.
+  SPEC 25 zeta 0.35   PARTIELLE  [R] 4 canaux dans 0.32-0.42, chestL v NON LISIBLE. Non re-mesure.
+  SPEC 26 rebond 31 % PARTIELLE  [R] 0.283 a 0.322 sur les canaux lisibles. Non re-mesure.
+  SPEC 27 stabilisation TENUE    [R] six canaux dans 0.6-1.2 s. Non re-mesure.
+  SPEC 28 derivation k SANS OBJET EN L'ETAT [R] `mass` n'est observable qu'a travers
+                                 `stiffness/sqrt(mass)`. Inchange.
+  SPEC 29 aniso+torsion PARTIELLE [R] compliance laterale 1.0294 / 0.9180 pour une cible de 0.820.
+  SPEC 30 ancrage     TENUE      [M] mesh livre `keira-hd-lod0.glb`, md5
+                                 5cb8a493c43211acf3a04c5b6433df81, VERIFIE INCHANGE (aucun bake).
+                                 lBooc 43.5 %, rBooc 37.5 % pour une barre de 30 %. [M] NEUF : la
+                                 repartition du poids par maillon est **34.9 % / 65.1 %** (chestL)
+                                 et **40.9 % / 59.1 %** (chestR) — le distal est majoritaire, et
+                                 c'est ce qui perime le « 75 % sur la racine » du fichier livre.
+  SPEC 31 gradient    PARTIELLE  [R] le gradient vit dans la PEAU seule. Inchange.
+  SPEC 32 independance PARTIELLE [R] changer la masse d'un sein deplace l'autre de 32 a 321 %.
+  SPEC 33 restit. 0.06 PARTIELLE [T] GATE `COLLIDE` ROUGE : penetration **0.0983 / 0.0900 m**
+                                 pour un plafond epingle de 0.0005, RE-MESUREE ce cycle sur la
+                                 course livree. [T] NEUF : l'epinglage de la racine la fait
+                                 tomber a 0.0865 / 0.0544 m (-12.0 % / -39.6 %) — donc une part
+                                 de la traversee est bien portee par l'excursion, mais meme a ce
+                                 prix la gate resterait ROUGE (x173 et x109). [R] Le defaut de
+                                 modele du cycle 38 tient : un test point-contre-volume ne peut
+                                 pas exprimer l'entrechoc surface-contre-surface qu'exige sa §1bis.
+  SPEC 34 restit. 0.02 PARTIELLE [R] coefficient TENU, exigence de collision NON TENUE.
+  SPEC 35 vetement    ABSENTE DES DEUX COTES [R] Le vetement produit 38.3 % / 27.9 % des
+                                 corrections et ne suit pas le sein (0 sommet majoritaire).
+                                 Inchangee : aucun bake ce cycle. [T] Ce que le cycle 38 avait
+                                 designe — l'excursion comme cause — est CONFIRME par
+                                 l'intervention : elle baisse de 54 % quand on epingle la racine.
+  SPEC 36 secondaire  PARTIELLE  [R] amplitude sous le plafond, zeta/f non re-mesures.
+  SPEC 37 sous-pas + rebase TENUE SUR LES DEUX MOITIES [R] Non re-mesure.
+  SPEC 14-20 regimes  ABSENTE    [R] aucune bande de COM par regime n'est tenue.
+  SPEC 5 (SPEC-keira-physique) — PRIORITE D'ANIMATION
+                      TENUE      [R] `chains=2 respected=2`. Non re-mesure.
+
+BREAST-PENETRATION: **0.0983 m (chestL) et 0.0900 m (chestR)**, plafond epingle 0.0005 m —
+    **NON TENU, GATE `COLLIDE` TOUJOURS ROUGE.** Tableau regenere depuis la course LIVREE
+    (`empreinte de la trace lue : md5 1b05a8158b8594588e1172570fc27d7b`).
+SIDE-CROSSING: **8 franchissements**, inchange, dans les deux courses.
+
+================================================================================================
+ETAT DU VALIDATEUR
+================================================================================================
+Il sort a **1** et s'arrete sur `OPEN-DEFECTS`, qui compte une seule ligne :
+`OPEN breast-spec-incomplete`. Cette gate ne se ferme **que sur la parole de l'owner** — le
+validateur l'ecrit lui-meme a cote du compteur, et le fichier de defauts le redit trois fois.
+**Le seul geste qui la ferait sortir a 0 serait de retirer cette ligne moi-meme**, c'est-a-dire
+le faux vert que la regle 1 interdit. Je ne le fais pas, et je ne le presente pas comme un
+blocage technique : c'est une porte humaine, et elle est a sa place. L'etat est identique a
+celui du debut du cycle — rien de ce que j'ai fait ne pouvait le changer.
+
+INTEGRITE DE LA LIVRAISON, VERIFIEE ET NON SUPPOSEE :
+  * `recharged_assets/physics_chains.txt` restaure, md5 **4d29e30c759d33fffd794e10947497e6**,
+    identique a l'octet pres a l'etat d'avant l'ablation ; `git status` propre sur ce fichier.
+  * `keira-room-x86.log` et `keira-room-table.txt` regeneres depuis la course LIVREE. **Un
+    incident evite et il vaut d'etre ecrit** : le tableau etait reste celui de l'ABLATION (il le
+    disait dans son propre en-tete de provenance). La gate `FLOOR` du validateur lit ce tableau
+    ET REECRIT la reference de mouvement : elle aurait grave les valeurs divisees par deux comme
+    nouveau plancher, definitivement. `motion-floor.txt` et `motion-floor-weak.txt` sont verifies
+    INCHANGES (chestL 0.386600 / 0.095500, chestR 0.378900 / 0.145700).
+  * moteur inchange : `jak-hd-physics.gc` **4792** lignes (plafond 4800). `phys-room.gc` 3235 ->
+    **3252**, dix-sept lignes de COMMENTAIRE seulement, compile verifie (551 cibles, 21.8 s).
+
+################################################################################################
+CI-DESSOUS, LES RAPPORTS DES CYCLES 38, 37 ET 36, CONSERVES TELS QU'ILS ONT ETE PUBLIES.
+Ils gardent leur propre tableau de conformite et leur propre etat de validateur : ce sont les
+leurs, pas ceux du cycle 39, et on ne les reecrit pas apres coup. Le seul enonce du cycle 38 que
+le cycle 39 RETIRE est son PLAN (« le porteur est l'etirement du tissu ») — refute en 1.1.
+################################################################################################
+
+================================================================================================
 CE DOCUMENT COUVRE SIX ETAPES, DU PLUS RECENT AU PLUS ANCIEN
 ================================================================================================
   CYCLE 38 ETAPE 4   C'EST LE SEIN QUI VA CHERCHER LE VOLUME, ET C'EST MESURE SUR LA GRANDEUR DU

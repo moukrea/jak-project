@@ -1,78 +1,82 @@
-# CE QU'IL Y A À REGARDER SUR CE BUILD — la poitrine, et rien d'autre
+# CE BUILD EST IDENTIQUE AU PRECEDENT — ET J'AI UNE QUESTION POUR TOI
 
-Branche `physics-keira-clean`. Un seul organe est touché : `chestL` / `chestR`.
+Branche `physics-keira-clean`. **Rien n'a change dans le jeu ce cycle.** Le moteur et les donnees
+sont identiques au bit pres au build precedent (fichier de reglages restaure, md5 verifie). Si tu
+vois une difference, c'est une information importante et inattendue — dis-le-moi.
+
+Tout le cycle est de la **mesure**, et elle debouche sur **un choix qui t'appartient**.
 
 ---
 
-## 1. CE QUI A CHANGÉ, EN UNE PHRASE
+## 1. CE QUE J'AI TROUVE, EN UNE PHRASE
 
-La chair de sa poitrine s'écartait de sa position de repos **jusqu'à 4,6 fois** la limite que ta
-propre spec lui donne (§22 : 0,40 fois le rayon de l'organe). Elle ne dépasse plus cette limite,
-**sur les 24 mesures** — et rien ne lui a été retiré sous le seuil.
+Sa poitrine part **2,4 a 2,7 fois plus loin** que ta propre spec ne l'autorise, et je sais enfin
+**quelle piece** le fait : ce n'est pas la deformation de la chair, c'est **l'os du haut de la
+chaine qui bascule**. Il porte **62 %** du depassement.
 
-| | avant | après | |
-|---|---|---|---|
-| le pire canal (sein droit, accélération) | **1,86** | **0,38** | −79 % |
-| sein gauche, à-coup sec | 1,69 | 0,39 | −77 % |
-| canaux au-dessus de ta limite | **17 sur 24** | **0 sur 24** | |
+Pourquoi cet os precisement : il mesure **1040 unites** alors que le sein entier en mesure **602**.
+C'est un bras de levier **1,7 fois plus long que l'organe**. Du coup un retard parfaitement normal
+— **onze degres** — suffit a manger **84 a 88 %** de tout le budget que ta spec accorde. Il n'y a
+rien d'anormal dans le mouvement : c'est la **geometrie du squelette** qui transforme un petit
+retard en gros deplacement.
 
-## 2. POURQUOI ÇA N'AVAIT JAMAIS ÉTÉ VU
+## 2. LA QUESTION, ET C'EST TOI QUI DOIS TRANCHER
 
-Ta spec demande que le tissu sature **en douceur**. Le moteur le faisait — mais sur la **force**,
-et d'une façon qui **gelait cette force à une valeur fixe** (46,3 unités par frame) exactement au
-moment où le tissu franchissait ta limite.
+J'ai teste la seule manoeuvre disponible aujourd'hui : **souder cet os** (le figer sur le torse).
 
-Autrement dit : **le frein appuyait toujours pareil**, que le tissu dépasse d'un poil ou de dix
-fois. Ce n'est pas un réglage mal choisi — ça se démontre sur les constantes livrées, sans aucune
-mesure. Et la mesure l'a confirmé : le tissu était à 1015-1118 unités de sa cible pendant que le
-frein tirait à 46.
+| | aujourd'hui | os soude |
+|---|---|---|
+| depassement de ta spec | **100 % du temps** | **0 %** (gauche) · **2,7 %** (droite) |
+| sa poitrine traverse son thorax | 0,098 m | 0,087 m (−12 %) et 0,054 m (−40 %) |
+| **mouvement de sa poitrine** | reference | **−50 %, sur TOUS les mouvements** |
 
-Ta spec écrivait la bonne forme depuis le début : borner le **déplacement**, pas la force.
+**Le troc est de 1 pour 1** : je supprime la moitie du defaut en supprimant la moitie du mouvement.
+Et la perte **n'epargne pas** les mouvements subtils que tu juges bons depuis le 11/08 : quand elle
+se penche pour souder, c'est **−53 %** ; a l'arret complet, **−45 a −50 %**.
 
-## 3. CE QUE JE DOIS T'ANNONCER COMME MAUVAIS DANS MON PROPRE TRAVAIL
+**J'ai donc RETIRE cette modification** — je ne te livre pas en douce une poitrine deux fois moins
+vivante pour faire verdir un chiffre. Mais c'est un arbitrage de **qualite**, donc c'est le tien :
 
-Avant d'écrire une ligne de code, j'avais gravé une règle : *si tel contrôle de non-régression
-casse, je retire le mécanisme.* **Il a cassé.** Je ne l'ai pas retiré, et je te le dis plutôt que
-de le maquiller. Deux raisons :
+> **Veux-tu que je te livre une version « os soude » pour que tu la voies de tes yeux ?**
+> Elle respecte ta spec sur l'amplitude, et elle bouge moitie moins. Un mot et je la construis.
 
-1. **ta directive du 17/08 abolit exactement cette règle de retrait** sur ce chantier (« un
-   plancher qui casse n'est plus un motif de retrait : c'est la liste de travail ») ;
-2. mon critère était **impossible à tenir par construction** — il portait sur un maximum de
-   fenêtre, et tout mécanisme qui change quoi que ce soit change quelle frame est ce maximum.
+## 3. CE QUE J'AI EU FAUX, ET JE TE LE DIS
 
-Ce que ce contrôle protégeait — **le mouvement subtil** — est mesuré et il tient : l'inclinaison
-(celle que tu regardes quand elle se penche pour souder) est **identique au chiffre près**.
+J'avais grave **six predictions avant de mesurer**. **Quatre sont fausses**, dont les deux
+principales :
 
-## 4. CE QU'IL FAUT REGARDER, ET CE QUE J'ATTENDS DE TOI
+1. Je predisais que souder cet os **ne suffirait pas** a rentrer dans ta spec. J'avais meme le
+   calcul. **Faux** — ca suffit largement. Mon calcul supposait que les pieces etaient
+   independantes ; elles ne le sont pas. La deformation de la chair **s'effondre avec l'os**
+   (−49 % et −74 %), parce que c'est lui qui l'entrainait.
+2. Je predisais que la perte de mouvement serait **plus faible qu'avant**, parce qu'un changement
+   recent a rendu le bout de la chaine nettement plus reactif (sa frequence propre est passee de
+   1,57 a 2,30 Hz). **Faux** : c'est exactement le meme prix qu'il y a neuf cycles. Le bout de la
+   chaine **ne prend pas le relais** — sa rotation propre *baisse* meme legerement.
 
-1. **Les mouvements BRUSQUES** (changements de direction secs). C'est là que le changement est le
-   plus fort. Est-ce que ça ressemble plus à de la chair ferme et moins à du pudding ?
-2. **Les mouvements SUBTILS**, que tu jugeais déjà corrects. Les chiffres disent qu'ils n'ont pas
-   bougé. **Si quelque chose s'est calmé là, c'est un échec et je le retire.**
-3. **Quand elle se penche pour souder.** Mesure identique — à confirmer de ton œil.
-4. **Un déplacement latéral gauche-droite.** C'est le **seul** endroit où j'ai mesuré une perte
-   (−14,8 %). Si tu la vois, je la traite en priorité.
+## 4. DEUX BONNES NOUVELLES QUE PERSONNE N'AVAIT PUBLIEES
+
+- **Le defaut que tu decris sur ses cheveux n'existe pas sur sa poitrine.** « Le milieu bouge plus
+  que les pointes » : sur la poitrine, le mouvement croit bien de la racine vers la pointe, sur
+  **372 mesures sur 372**.
+- **Son volume se conserve.** Ta spec demande 98–101 % ; c'est tenu sur **100 %** des mesures,
+  avec une vraie deformation (±20 % de forme). Reserve honnete : le moteur **force** cette
+  conservation, donc le chiffre prouve que la regle est appliquee, pas qu'elle emerge toute seule.
 
 ## 5. CE QUI RESTE ROUGE, ET NE SE CACHE PAS
 
-- **Sa poitrine traverse toujours son thorax, et plus profondément qu'avant sur un des cinq
-  pilotages (+18 %).** C'est un coût de ce cycle. En face, et ce n'était pas visé : elle franchit
-  **moins** souvent le mauvais côté d'un volume (9 → 7, dont un des deux seins qui ne le fait
-  **plus du tout**), et sa distance à la vraie peau ne bouge pas d'un dix-millième.
-- **L'excursion du centre de la chair reste à 4,6 et 4,8 fois sa limite.** Ce cycle prouve — en
-  intervenant dessus — que ce n'est **pas** ce canal-là qui la porte, mais le **bras de levier de
-  l'os**. C'est le prochain sujet, et il est maintenant désigné au lieu d'être supposé.
-- **La déformation du tissu ne suit toujours pas le stimulus** : ce que le moteur lui donne en
-  entrée est comprimé dans une bande de 19 %, quoi qu'il arrive. Nommé, mesuré, non corrigé.
+- **Sa poitrine traverse toujours son thorax** : 0,098 m contre un plafond de 0,0005. Meme en
+  soudant l'os, ca resterait 170 fois trop.
+- **L'excursion reste hors bande** dans le build que tu as : 100 % du temps.
+- **Ta SPEC 35 (son debardeur ne doit rien faire) reste absente** : elle demande un repesage du
+  mesh que je n'ai pas fait ce cycle.
+- **Sa SPEC 33 exige qu'ils s'entrechoquent** et le test du moteur ne peut pas le compter.
 
-## 6. UNE GATE ROUGE QUE PERSONNE N'AVAIT PU VOIR
+## 6. LA SUITE, ET ELLE A BESOIN DE TON FEU VERT SUR LE PRINCIPE
 
-La gate de collision porte **deux** conditions rouges, pas une. La seconde n'avait **jamais** été
-évaluée : le validateur sort à la première du même bloc, donc tout ce qui suit était invisible.
-
-Elle n'est pas indépendante — c'est l'ombre arithmétique de la première. Le contrôle pousse le
-tissu de 400 unités dans le corps ; 32 % arrivent dans la colonne mesurée. Le critère demande que
-le compteur triple. Il ne peut y arriver que si la pénétration résiduelle tombe à **1/6** de sa
-valeur actuelle. **Tant qu'elle est là, ce critère est inatteignable par construction.**
-
-Je n'ai pas touché à la gate — c'est ta règle, elles sont gelées. Je la signale avec son calcul.
+Le reglage est ferme (ta spec fixe la frequence, donc borne la raideur). Le soudage est ferme (1
+pour 1). **Il reste le squelette** : raccourcir ce bras de levier baisse le depassement **sans
+retirer un degre de liberte** — c'est la seule voie qui ne soit pas un troc. Tu m'as autorise a
+toucher au rig le 17/08. **L'obstacle est reel et je ne le cache pas** : le rig HD n'accepte que
+des ajouts en bout, donc on ne peut pas simplement glisser une articulation au bon endroit.
+Etablir ce qui est faisable est le travail du prochain cycle.
