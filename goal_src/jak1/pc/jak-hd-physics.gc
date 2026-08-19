@@ -379,6 +379,9 @@
 (define *phys-rrml* (new 'global 'array 'float PHYS-SCL))  ;; max fenetre APRES la borne, par maillon
 (define *phys-rrrl* (new 'global 'array 'float PHYS-SCL))  ;; le meme AVANT la borne, par maillon
 (define *phys-rrsl* (new 'global 'array 'float PHYS-SCL))  ;; frames ou la borne a mordu, par maillon
+;; [NOTE-82] LA DECOMPOSITION EXACTE DE `dr0`, RELEVEE A LA FRAME DE L'ARGMAX. -> jak-hd-physics-NOTES.md
+(define *phys-rrol* (new 'global 'array 'float PHYS-SCL))  ;; (A) (ml-bl)/B0 : l'OS hors de sa sphere
+(define *phys-rrcl* (new 'global 'array 'float PHYS-SCL))  ;; (B) dot(cp-px,m^)/B0 : la CHAIR au-dela
 ;; Frames ou la borne §22 du COM a effectivement mordu. Un limiteur qui mord en PERMANENCE ne
 ;; borne plus, il remplace la mesure par sa propre valeur — c'est ce qui vient d'arriver au canal
 ;; de deformation (25.00 sur les dix fenetres). On le compte, exactement comme `*phys-twsat*`.
@@ -2658,15 +2661,6 @@
                                       ;; sur lui), `b0e` est la CHAIR. Voir PHYS-P-B0.
                                       (b0e (if (> (-> *phys-b0* sc) 0.0) (-> *phys-b0* sc) bl))
                                       ;; [NOTE-74] SPEC 24 CONTRE SPEC 31 : LE GRADIENT NE VIT PLUS DANS LA FREQUENCE. -> jak-hd-physics-NOTES.md
-                                      ;; Ici `w_l = w * sqrt(k2l/k2)` : graduer la raideur EST
-                                      ;; graduer la frequence propre. La graduation precedente
-                                      ;; (`k2 (1-r^2)/gmean`, §31) laissait le maillon distal de la
-                                      ;; poitrine a 1.5712 / 1.6330 Hz pour un plancher de 2.10 Hz
-                                      ;; (§24) — sur l'os qui pilote 43.5 % / 37.5 % de la chair.
-                                      ;; Le gradient racine->pointe de §31 est deja porte, et
-                                      ;; MESURE, par la PEAU (profil d'ancrage de §30, exposant
-                                      ;; 1.63) : le porter une seconde fois dans la frequence le
-                                      ;; comptait deux fois et sortait §24 de sa bande.
                                       (k2l k2)
                                       ;; LA CIBLE du ressort de materiau, pas sa force : elle ne
                                       ;; depend pas de `p`, donc elle se calcule UNE FOIS PAR FRAME
@@ -3009,7 +3003,14 @@
                                          (when (> a0 (-> *phys-rrr* sc))
                                            (set! (-> *phys-rrr* sc) a0))
                                          (when (> a0 (-> *phys-rrrl* scl))
-                                           (set! (-> *phys-rrrl* scl) a0)))
+                                           (set! (-> *phys-rrrl* scl) a0)
+                                           (set! (-> *phys-rrol* scl) (/ (- ml bl) (fmax 1.0 b0e)))
+                                           (set! (-> *phys-rrcl* scl)
+                                                 (/ (/ (+ (* (- cpx (-> *phys-px* scl)) mx)
+                                                          (+ (* (- cpy (-> *phys-py* scl)) my)
+                                                             (* (- cpz (-> *phys-pz* scl)) mz)))
+                                                       ml)
+                                                    (fmax 1.0 b0e)))))
                                        (let ((ar (/ (fabs drr) (fmax 1.0 b0e))))
                                          (when (> ar (-> *phys-rrm* sc))
                                            (set! (-> *phys-rrm* sc) ar))
@@ -4109,6 +4110,8 @@
       ;; leurs equivalents par chaine juste en dessous : meme portee, meme remise a zero.
       (set! (-> *phys-rrml* (+ (* sc PHYS-LINKS) l)) 0.0)
       (set! (-> *phys-rrrl* (+ (* sc PHYS-LINKS) l)) 0.0)
+      (set! (-> *phys-rrol* (+ (* sc PHYS-LINKS) l)) 0.0)
+      (set! (-> *phys-rrcl* (+ (* sc PHYS-LINKS) l)) 0.0)
       (set! (-> *phys-rrsl* (+ (* sc PHYS-LINKS) l)) 0.0))
     ;; SPEC 29/36 — les deux maximums de FENETRE. Ce sont des compteurs de mesure, pas des etats
     ;; du solveur : `*phys-sec*`, `*phys-tw*` et leurs vitesses ne sont PAS remis a zero ici, sans
@@ -4335,13 +4338,13 @@
 (defun phys-chain-radial-link ((slot int) (chain int) (link int) (which int))
   "SPEC 23 — l'elongation radiale du MAILLON `link`. which 0 = unites de jeu · 1 = rapportee a B0 ·
    2 = maximum de FENETRE apres la borne de §22 · 3 = le meme AVANT la borne · 4 = frames ou la
-   borne a mordu SUR CE MAILLON. Les trois derniers repondent a « quel maillon sature ? », que les
-   agregats par chaine ne peuvent pas rendre.
+   borne a mordu SUR CE MAILLON · 5 = (ml-bl)/B0 et 6 = dot(cp-px,m^)/B0, les DEUX TERMES de `dr0`
+   releves A LA FRAME DE L'ARGMAX de 3, et dont la somme vaut 3 au signe pres (identite, [NOTE-82]).
    Version RESOLUE PAR MAILLON de `phys-chain-radial`, qui ne rend que la RACINE. C'est aussi l'etat
    que le solveur lit. NATURE deformation signee · REPERE axe de l'os dans le triedre de l'ANCRE
    (SPEC 7) · LIGNE DE BASE 0.0 a la pose d'auteur (SPEC 9). [NOTE-79] -> jak-hd-physics-NOTES.md"
   (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS)
-          (< link 0) (>= link PHYS-LINKS) (< which 0) (> which 4))
+          (< link 0) (>= link PHYS-LINKS) (< which 0) (> which 6))
     0.0
     (let* ((sc  (+ (* slot PHYS-CHAINS) chain))
            (b0  (fmax 1.0 (-> *phys-b0* sc)))
@@ -4351,7 +4354,9 @@
             ((= which 1) (/ v b0))
             ((= which 2) (-> *phys-rrml* scl))
             ((= which 3) (-> *phys-rrrl* scl))
-            (else        (-> *phys-rrsl* scl))))))
+            ((= which 4) (-> *phys-rrsl* scl))
+            ((= which 5) (-> *phys-rrol* scl))
+            (else        (-> *phys-rrcl* scl))))))
 
 (defun phys-chain-axsep ((slot int) (chain int) (which int))
   "LES DEUX PROJECTIONS QUE LA DECISION DE NOMMAGE A COMPARE, et la norme du segment inter-seins.

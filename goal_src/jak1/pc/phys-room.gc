@@ -1080,7 +1080,23 @@
               c (-> self drive) l
               (phys-chain-radial-link (-> self slot) c l 2)
               (phys-chain-radial-link (-> self slot) c l 3)
-              (phys-chain-radial-link (-> self slot) c l 4)))))
+              (phys-chain-radial-link (-> self slot) c l 4)))
+    ;; ---- LA DECOMPOSITION EXACTE DE `rrr`, PAR MAILLON (cycle 33 etape 2) -------------------
+    ;; NATURE : deux LONGUEURS SIGNEES rapportees a B0 (§6), relevees A LA FRAME DE L'ARGMAX de
+    ;;   `rrr` — pas deux maximums independants : le maximum d'une somme n'est pas la somme des
+    ;;   maximums, et deux agregats separes ne se recomposeraient pas.
+    ;; REPERE : l'axe de l'os du maillon (m^), le MEME que `rrr`. Aucun changement de repere.
+    ;; ABSENT : `mlb` = 0.0000 exactement si la contrainte de longueur etait deja tenue a la
+    ;;   mesure ; `cdev` = 0.0000 exactement a la premiere frame (amorcage cp := px, §9).
+    ;; POURQUOI ELLE EXISTE : `dr0 = dot(cp-a,m^) - bl` melange DEUX choses que le cycle 33
+    ;;   etape 1 n'a pas separees — l'os qui n'est pas encore sur sa sphere (`phys-length-chain`
+    ;;   tourne APRES cette mesure) et la chair qui depasse la pointe. `mlb + cdev = rrr` au
+    ;;   signe pres est une IDENTITE : si la course ne la verifie pas, l'instrument est faux.
+    (dotimes (l (phys-chain-links (-> self slot) c))
+      (format 0 "PHYSRADLD c=~D d=~D l=~D mlb=~f cdev=~f~%"
+              c (-> self drive) l
+              (phys-chain-radial-link (-> self slot) c l 5)
+              (phys-chain-radial-link (-> self slot) c l 6)))))
   ;; SPEC 33/34 — LA RESTITUTION SUR CETTE FENETRE. Une ligne par fenetre, pas par chaine : les
   ;; compteurs sont globaux au solveur. `n` est le DOMAINE (contacts ou elle a mordu) ; sans lui,
   ;; `vin`/`vout` a zero ne distinguent pas « rien ne touche » de « rien ne s'applique ».

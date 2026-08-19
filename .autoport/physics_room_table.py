@@ -4943,6 +4943,70 @@ def main():
                 A('ROOM-RAD-LINK-WORST: chain=%-12s maillon=%d  rrr=%.4f B0 (pilotage %s)  = x%.2f'
                   ' le plafond dur de SPEC 22'
                   % (names[c] if c < len(names) else 'c%d' % c, _w[0], _w[1], _w[2], _w[1] / 0.40))
+
+        # ---- ROOM-RAD-SPLIT : DE QUI EST L'ELONGATION — DE L'OS OU DE LA CHAIR ? (cycle 33 e2) --
+        # `dr0 = dot(cp-a,m^) - bl` melange DEUX choses que l'etape 1 n'a pas separees, et la
+        # decomposition est une IDENTITE, pas un modele :
+        #     dr0 = (ml - bl)  +  dot(cp - px, m^)
+        #           \_______/     \______________/
+        #            (A) l'OS       (B) la CHAIR
+        #           pas encore     au-dela de la
+        #           projete        pointe de l'os
+        # (A) peut etre non nul parce que `phys-length-chain` (jak-hd-physics.gc:3075) tourne APRES
+        # la boucle des maillons ou `dr0` est calcule (:2977) : la contrainte de longueur de la
+        # frame courante n'a pas encore agi quand la mesure est prise. Si (A) domine, le tenseur de
+        # deformation recoit une elongation que le solveur ANNULE trois lignes plus loin.
+        # NATURE deux LONGUEURS SIGNEES / B0 relevees A LA FRAME DE L'ARGMAX de `rrr` (pas deux
+        #   maximums independants : max(a+b) != max(a)+max(b)) · REPERE l'axe de l'os du maillon,
+        #   le meme que `rrr` · ABSENT mlb=0 si la longueur etait deja tenue, cdev=0 a la 1re frame.
+        # I0 — CONTROLE D'INTEGRITE : |mlb+cdev| doit valoir `rrr`. Les deux membres sont calcules
+        #   par des chemins DIFFERENTS (produit scalaire propre pour cdev, pas une soustraction),
+        #   donc l'egalite est une verification et pas une tautologie. Si elle casse, on ne publie
+        #   AUCUNE conclusion : l'instrument est faux.
+        _split, _pend = {}, {}
+        for m in re.finditer(r'^PHYSRAD(L|LD) c=(\d+) d=(\d+) l=(\d+) '
+                             r'(?:rrm=[-\d.e+]+ rrr=([-\d.e+]+) sat=[-\d.e+]+'
+                             r'|mlb=([-\d.e+]+) cdev=([-\d.e+]+))', txt, re.M):
+            c, dr, l = int(m.group(2)), int(m.group(3)), int(m.group(4))
+            if dr >= len(DRIVE_NAMES):
+                continue
+            if m.group(1) == 'L':
+                _pend[(c, dr, l)] = float(m.group(5))
+            else:
+                _r = _pend.get((c, dr, l))
+                if _r is None:
+                    continue
+                e = _split.get((c, dr, l))
+                if e is None or _r > e['rrr']:
+                    _split[(c, dr, l)] = dict(rrr=_r, mlb=float(m.group(6)),
+                                              cdev=float(m.group(7)))
+        A('')
+        if not _split:
+            A('ROOM-RAD-SPLIT: ABSENT (aucune ligne PHYSRADLD appariee dans la trace) — l\'elongation')
+            A('   de SPEC 22 n\'est PAS attribuee a l\'os ou a la chair sur cette course.')
+        else:
+            A('-- ROOM-RAD-SPLIT : L\'ELONGATION DE SPEC 22 EST-ELLE CELLE DE L\'OS OU DE LA CHAIR ? --')
+            A('   mlb = (ml-bl)/B0, l\'OS hors de sa sphere de repos AVANT `phys-length-chain`.')
+            A('   cdev = dot(cp-px,m^)/B0, la CHAIR au-dela de la pointe de l\'os. Somme = rrr (identite).')
+            _bad = 0
+            for (c, dr, l) in sorted(_split):
+                e = _split[(c, dr, l)]
+                _sum = e['mlb'] + e['cdev']
+                _err = abs(abs(_sum) - e['rrr'])
+                if _err > 0.002:
+                    _bad += 1
+                _tot = abs(e['mlb']) + abs(e['cdev'])
+                _own = ('OS   %3.0f%%' % (100.0 * abs(e['mlb']) / _tot)) if _tot > 1e-9 else 'n/a     '
+                _own += (' | CHAIR %3.0f%%' % (100.0 * abs(e['cdev']) / _tot)) if _tot > 1e-9 else ''
+                A('ROOM-RAD-SPLIT: chain=%-12s drive=%-10s l=%d  rrr=%.4f  mlb=%+.4f  cdev=%+.4f'
+                  '  %s  I0 ecart=%.5f%s'
+                  % (names[c] if c < len(names) else 'c%d' % c, DRIVE_NAMES[dr], l,
+                     e['rrr'], e['mlb'], e['cdev'], _own, _err,
+                     '  **I0 CASSEE**' if _err > 0.002 else ''))
+            A('ROOM-RAD-SPLIT-I0: %d canal(aux) hors tolerance sur %d — %s'
+              % (_bad, len(_split),
+                 'l\'identite tient, la decomposition est lisible'
+                 if _bad == 0 else 'INSTRUMENT FAUX, aucune conclusion ne se publie dessus'))
         A('')
         for c in sorted({c for (c, _d) in _rad}):
             _nm = names[c] if c < len(names) else 'c%d' % c

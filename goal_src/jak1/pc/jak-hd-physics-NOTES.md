@@ -2837,3 +2837,38 @@ maximums de fenetre et le meme compte de saturation, resolus par maillon, **et l
 d'autre qu'un `format`**. C'est le patron de NOTE-79, pour la meme raison : un agregat par chaine
 qui cache une verite par maillon n'est pas une mesure, c'est une moyenne qui a l'air d'une mesure.
 Ils sont publies par `PHYSRADL` (`phys-room.gc`) et lus par `ROOM-RAD-LINK`.
+
+## NOTE-82 — LA DECOMPOSITION EXACTE DE `dr0` : L'OS OU LA CHAIR ?
+
+Le cycle 33 etape 1 a etabli QUI sature — le maillon DISTAL, a x3.55 / x3.57 le plafond de §22 —
+et il a REFUTE le remede « une borne par maillon ». Il n'a pas explique POURQUOI cet oscillateur
+court 3.5x trop loin, et il a nomme un candidat sans le mesurer (« ce qui differe est leur
+ATTACHE »).
+
+`dr0`, la grandeur pre-borne que publie `rrr`, vaut :
+
+    dr0 = dot(cp - a, m^) - bl        m = px(scl) - a ,  m^ = m/ml ,  ml = |m|
+
+Comme `dot(m, m^) = ml` par construction, la decomposition suivante est une **identite**, pas un
+modele :
+
+    dr0 = ( ml - bl )  +  dot(cp - px, m^)
+          \________/     \______________/
+           (A) l'OS        (B) la CHAIR
+          n'est pas sur    au-dela de la
+          sa sphere        pointe de l'os
+
+**(A) peut etre non nul, et ce n'est pas une supposition :** `phys-length-chain` est appelee a
+`:3075` et `:3095`, c'est-a-dire APRES la fermeture de la boucle des maillons ou `dr0` est calcule.
+Au moment de la mesure, la contrainte de longueur de la frame COURANTE n'a pas encore tourne. `ml`
+peut donc differer de `bl`, et cette difference entre dans `dr0`, dans la borne de §22 qui le suit,
+**et dans `*phys-rrl*` — l'etat que le tenseur de deformation LIT**. Si (A) domine, le tissu recoit
+une elongation que le solveur ANNULE trois lignes plus loin.
+
+Les deux termes sont releves **a la frame de l'argmax de `rrr`**, jamais comme deux maximums
+independants : le maximum d'une somme n'est pas la somme des maximums, et deux agregats separes ne
+se recomposeraient pas. `(B)` est calcule par son PROPRE produit scalaire et non par soustraction,
+pour que `mlb + cdev = rrr` (au signe pres) soit un controle d'integrite qui passe par deux chemins
+de calcul distincts et pas une tautologie.
+
+Mesure seule : `*phys-rrol*` et `*phys-rrcl*` ne sont lus par aucun terme du solveur.
