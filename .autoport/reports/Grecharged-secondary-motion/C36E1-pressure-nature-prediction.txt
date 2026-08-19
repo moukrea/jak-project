@@ -1,0 +1,163 @@
+DIRECTIVES vb249967379
+
+PREDICTIONS DU CYCLE 36 ETAPE 1 — LA NATURE DE L'ENTREE DE PRESSION DU TENSEUR
+Gravees AVANT que l'instrument existe. Perimetre : Grecharged-secondary-motion, KEIRA / POITRINE
+SEULE (ordre owner 2026-08-14 07:30). Branche physics-keira-clean.
+
+================================================================================================
+POURQUOI CETTE ETAPE
+================================================================================================
+L'etape 3 du cycle 35 a mesure que l'entree de PRESSION du tenseur de deformation tourne a
+**53.52x / 61.10x son plafond**, ecretee sur **37.0 % / 28.7 %** des frames. Le rapport du cycle 35
+a designe comme cause CANDIDATE les deux volumes de chair redondants (recouvrement 75.6 % / 65.3 %),
+et l'a explicitement notee « non demontre — c'est une hypothese, elle sera gravee avant d'etre
+testee au cycle 36 ». C'est ce fichier.
+
+MAIS EN OUVRANT LE CODE POUR LA GRAVER, J'AI TROUVE UNE HYPOTHESE CONCURRENTE PLUS SIMPLE, ET
+ELLE EST ARITHMETIQUE. Je grave donc les DEUX, avec le critere qui les separe, plutot que de
+tester celle que j'avais annoncee.
+
+================================================================================================
+LES FAITS DE DEPART — TOUS LUS DANS LE CODE LIVRE OU DANS LA TRACE, AUCUN SUPPOSE
+================================================================================================
+  PHYS-PRS-K   = 0.45                          jak-hd-physics.gc:313
+  PHYS-PRS-MAX = 0.25                          jak-hd-physics.gc:314
+  b0f          = 602.0 u                       lu dans la trace : `b0 c=0 flesh=602.0000`
+  pr0 = PHYS-PRS-K * (cl / b0f)                jak-hd-physics.gc:3787
+  cl  = |*phys-cpu* tl|                        jak-hd-physics.gc:3783-3786 (le maillon POINTE `tl`)
+  1 m = 4096 u
+
+  `*phys-cpu*` est remis a zero UNE FOIS PAR FRAME (:3097) puis CUMULE une poussee par evenement
+  de contact (:1800-1802). Entre la remise a zero et la lecture du tenseur, `phys-collide-chain`
+  est appelee **15 fois** (:3101-3103 huit fois, :3109-3111 trois fois, :3114 quatre fois) et
+  chaque appel porte `sweeps = 3` (:1599, boucle `(dotimes (sub sweeps)` :1724).
+  **DONC 45 BALAYAGES PAR FRAME.** Verifie : la remise a zero (:3097, colonne 24) est HORS de la
+  boucle de sous-pas `(dotimes (ss ns)` (:2878, colonne 35).
+  `*phys-prio-off*` = 1 : l'arbitrage de volume est DESARME, donc TOUS les volumes en violation
+  poussent, l'un apres l'autre, a chaque balayage.
+  Les volumes de la chaine elle-meme sont exclus (`own`), sauf sous controle positif.
+
+ARITHMETIQUE INVERSE DE LA MESURE DU CYCLE 35 :
+  cl_max = prsr_max * b0f / PHYS-PRS-K
+  chestL : 13.3807 * 602 / 0.45 = **17 899.3 u**  = 4.37 m
+  chestR : 15.2761 * 602 / 0.45 = **20 435.3 u**  = 4.99 m
+
+  meshpen max (cycle 35) : 0.0952 m = **389.9 u** (chestL) · 0.0913 m = **373.9 u** (chestR)
+
+  RAPPORT cl_max / meshpen_max : **45.9** (chestL) · **54.7** (chestR)
+  NOMBRE DE BALAYAGES PAR FRAME : **45**
+
+**UNE POUSSEE CUMULEE DE 5 METRES EN UNE FRAME SUR UN PERSONNAGE DE 2 METRES N'EST PAS UNE
+PRESSION.** Et le rapport tombe sur le nombre de balayages. C'est ce que cette etape va trancher.
+
+================================================================================================
+LES TROIS HYPOTHESES, ET ELLES SONT MUTUELLEMENT EXCLUSIVES
+================================================================================================
+  H-REP  REPETITION. La meme poussee d'environ `meshpen` est reappliquee a chaque balayage parce
+         que la boucle ne converge pas. `cl` n'est alors pas une profondeur : c'est la LONGUEUR DE
+         CHEMIN des corrections de la frame. La nature de la grandeur est fausse.
+         Signature : npf ~ 45, pmax ~ meshpen, psum ~ cl, derniere poussee au dernier balayage.
+
+  H-PING PING-PONG. Deux volumes se renvoient le lien : les poussees sont grandes mais de sens
+         OPPOSES, donc leur somme VECTORIELLE est petite devant leur somme SCALAIRE.
+         Signature : psum / cl > 3. C'est l'hypothese des deux volumes redondants du cycle 35.
+
+  H-DEEP CONTACT REELLEMENT PROFOND. Peu d'evenements, chacun enorme.
+         Signature : npf <= 6 et pmax ~ cl. Alors `pr0` a 61x est une VRAIE mesure, le tenseur
+         n'est pas en cause, et le chantier est la collision elle-meme.
+
+================================================================================================
+L'INSTRUMENT QUE JE VAIS ECRIRE (et il est PASSIF)
+================================================================================================
+Quatre grandeurs, cumulees PAR MAILLON pendant la frame, remises a zero au meme endroit que
+`*phys-cpu*`, et RELEVEES A L'ARGMAX DE `cl` SUR LA FENETRE — pas en maxima independants.
+C'est la lecon N3/N4 du cycle 35 : des maxima de fenetre pris sur des grandeurs differentes ne se
+comparent pas, parce que l'argmax n'est pas la meme frame.
+
+  npf     NATURE : un COMPTE d'evenements de poussee, sans unite. Sur le maillon POINTE `tl`,
+          dans la frame ou `cl` est maximal.
+  pmax    NATURE : une LONGUEUR (u de jeu, 4096 = 1 m). Le plus grand evenement SEUL de la frame.
+  psum    NATURE : une LONGUEUR (u). Somme des MODULES des poussees — a distinguer de `cl`, qui
+          est le module de leur somme VECTORIELLE.
+  lastsw  NATURE : un ORDINAL de balayage, 1 a 45. Le dernier balayage ou une poussee a tire.
+  REPERE  le MONDE pour les longueurs (la poussee est ecrite en monde, :1800-1802).
+  LECTURE HORS DEFAUT : npf = 0, pmax = 0, psum = 0, lastsw = 0 quand rien ne touche. Le domaine
+          (nombre de frames avec npf > 0) est publie A COTE, sinon un zero serait un zero de
+          domaine vide.
+
+================================================================================================
+LES PREDICTIONS, AVEC LEUR CRITERE CHIFFRE
+================================================================================================
+P0  L'INSTRUMENT EST INERTE.
+    Lignes `PHYS` hors marqueurs neufs ET hors `PHYSDIAG`/`PHYSDIAG7` : **0 differente** de
+    `keira-room-x86.C35E2-REF.log`. Les deux lignes exclues le sont parce que cette meme etape
+    RETIRE deux champs qui n'ont aucun ecrivain (`retreat`, `retfblen`, defaut (a) du cycle 35) ;
+    je m'engage a prouver separement que ces deux lignes, PRIVEES du champ retire, sont elles
+    aussi identiques a 0 ligne pres. CRITERE : les deux comptes a 0.
+
+P1  LA NATURE DE `cl` EST UNE SOMME, PAS UNE PROFONDEUR.        [H-REP ou H-PING contre H-DEEP]
+    CRITERE : `npf >= 20` sur LES DEUX chaines.
+    VALEUR GRAVEE : je predis npf entre **30 et 90**. Derivation : cl/meshpen = 45.9 et 54.7,
+    et il y a exactement 45 balayages par frame ; plusieurs volumes peuvent pousser par balayage,
+    d'ou la borne haute a 90.
+
+P2  UN EVENEMENT SEUL EST DE L'ORDRE DE LA PENETRATION, PAS DE `cl`.
+    CRITERE : `pmax <= 0.25 * cl` sur les deux chaines.
+    VALEUR GRAVEE : je predis `pmax` entre **200 et 900 u**, c'est-a-dire de l'ordre de `meshpen`
+    (390 / 374 u) et NON de l'ordre de `cl` (17 899 / 20 435 u).
+
+P3  LES POUSSEES VONT DANS LE MEME SENS — REPETITION, PAS PING-PONG.        [H-REP contre H-PING]
+    CRITERE : `psum / cl <= 2.0` sur les deux chaines.
+    **C'EST LA PREDICTION DONT JE SUIS LE MOINS SUR : je la donne a 60/40.** Si elle casse
+    (psum/cl > 3), ce sont les volumes qui se disputent le lien et l'hypothese que le cycle 35
+    avait annoncee est la bonne — je le dirai comme une victoire de SA prediction, pas de la mienne.
+
+P4  LA BOUCLE NE CONVERGE PAS.
+    CRITERE : `lastsw >= 40` sur les deux chaines (sur 45).
+    Si elle convergeait, la derniere poussee tirerait tot et `cl` vaudrait 2 a 3 fois `meshpen`,
+    pas 46 a 55 fois.
+
+P5  LE DOMAINE (aucun critere, je m'engage a le publier)
+    Nombre de frames ou `npf > 0` sur le maillon pointe, contre le denominateur commun `nfr`
+    deja publie (1 586 952 frames-echantillons au cycle 35). Un zero sans son domaine ne vaut rien.
+
+================================================================================================
+CE QUE JE NE PREDIS PAS — ET C'EST DELIBERE
+================================================================================================
+  - Je ne predis PAS que corriger la nature de l'entree fera rentrer `comex` dans la bande de sa
+    SPEC 22. Le tenseur pese 0.2614 B0 sur un budget de 0.40 et la TRANSLATION en pese 0.4210 :
+    meme un tenseur parfait ne suffit pas.
+  - Je ne predis PAS que `meshpen` baissera. L'entree de pression n'ecrit RIEN dans la collision ;
+    elle ne fait que la LIRE. Si `meshpen` bouge, ce sera un effet indirect que je devrai expliquer.
+  - Je ne predis PAS laquelle des deux remedes (la nature de la metrique, ou les volumes) porte le
+    plus. C'est precisement ce que P3 tranche.
+
+================================================================================================
+TABLE DE BRANCHES — CE QUE CHAQUE ISSUE M'OBLIGE A FAIRE A L'ETAPE 2
+================================================================================================
+  P1 tenue + P3 tenue + P4 tenue
+      -> H-REP. La nature de l'entree est fausse : `cl` est un chemin de correction, la pression
+         de sa SPEC 23 (« local collision pressure ») est une INTENSITE. L'etape 2 alimente le
+         tenseur avec l'INTENSITE de la frame, et la NON-CONVERGENCE devient un defaut publie a
+         part, pas corrige dans la meme passe.
+  P1 tenue + P3 REFUTEE (psum/cl > 3)
+      -> H-PING. Les volumes redondants sont le premier chantier ; le point 2 du plan du cycle 35
+         passe devant le point 1, et je le dis comme une correction de MON classement.
+  P1 REFUTEE (npf <= 6)
+      -> H-DEEP. `pr0` a 61x est une vraie mesure. J'ABANDONNE le remede de nature, je le publie
+         comme abandonne, et le chantier redevient la collision.
+  P4 REFUTEE (lastsw < 40) alors que P1 tient
+      -> la boucle converge et le rapport 46-55 doit s'expliquer autrement. Je republie
+         l'arithmetique en disant qu'elle est incomplete, au lieu de la contourner.
+
+================================================================================================
+CE QUE CETTE ETAPE CORRIGE AUSSI, ET QUI N'EST PAS UNE MESURE
+================================================================================================
+Defaut (a) du cycle 35 : `retreat` (emplacement 1 de `*phys-dg*`) et `retfblen` (emplacement 16)
+sont LUS et PUBLIES par la salle (`phys-room.gc:1232`, `:1354`, `:2321`) alors qu'AUCUNE ligne du
+moteur ne les ecrit. Ils correspondent a `phys-retreat-chain`, retiree le 2026-08-13 (NOTE-93 est
+sa pierre tombale : « A NE PAS REMETTRE »). Un zero qu'aucun chemin de code ne peut faire monter
+n'est pas une mesure : c'est la classe « zero d'un domaine vide », publiee comme un resultat
+depuis six jours. **Ils sont RETIRES de la publication, pas armes** — armer voudrait dire
+remettre la fonction que la pierre tombale interdit.
+Et la variable orpheline `tgt` (:2363), declaree sans lecteur depuis le cycle 35, part avec.
