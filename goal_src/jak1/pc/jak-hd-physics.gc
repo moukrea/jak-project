@@ -1290,7 +1290,12 @@
   (let* ((amax (-> *phys-maxang* sc))
          (apx? (and (= (-> *phys-fam* sc) 1) (<= amax 0.0)))
          (asc  (if apx? (phys-apex-scale skel sc n nbone hard?) 1.0)))
-    (when (and (zero? *phys-bend-off*) (if apx? (< asc 1.0) (> amax 0.0)))
+    ;; La borne d'apex (`asc`) et la monotonie de SPEC 31 sont DEUX contraintes independantes :
+    ;; nicher la seconde sous `(< asc 1.0)` la desarmait des que la pointe tenait dans son budget,
+    ;; et la trace le prouvait — `PHYSGRAD` identique au bit pres sur 744 lignes. Mesure, pas
+    ;; raisonnement. Quand aucune des deux ne mord, `adg2 = adeg` et le `when` interieur ne fait
+    ;; rien : l'identite reste exacte.
+    (when (and (zero? *phys-bend-off*) (or apx? (> amax 0.0)))
       (dotimes (l n)
         (when (>= l rlk)
           (let* ((scl (+ (* sc PHYS-LINKS) l))
