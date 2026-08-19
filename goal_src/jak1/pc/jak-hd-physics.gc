@@ -373,6 +373,12 @@
 (define *phys-rrl*  (new 'global 'array 'float PHYS-SCL))  ;; §23 elongation radiale PAR MAILLON
 (define *phys-rrm*  (new 'global 'array 'float PHYS-SC))   ;; |elongation|/B0 max fenetre, TOUS maillons
 (define *phys-rrr*  (new 'global 'array 'float PHYS-SC))   ;; le meme AVANT la borne §22 (anti-saturation)
+;; [NOTE-81] LES MEMES TROIS, RESOLUS PAR MAILLON — MESURE SEULE, aucun terme du solveur ne les lit.
+;; Sans eux, `rrr` a 1.42 B0 pour un plafond de 0.40 ne dit pas QUEL maillon sature, et les deux
+;; remedes candidats de §22 sont indiscernables. -> jak-hd-physics-NOTES.md
+(define *phys-rrml* (new 'global 'array 'float PHYS-SCL))  ;; max fenetre APRES la borne, par maillon
+(define *phys-rrrl* (new 'global 'array 'float PHYS-SCL))  ;; le meme AVANT la borne, par maillon
+(define *phys-rrsl* (new 'global 'array 'float PHYS-SCL))  ;; frames ou la borne a mordu, par maillon
 ;; Frames ou la borne §22 du COM a effectivement mordu. Un limiteur qui mord en PERMANENCE ne
 ;; borne plus, il remplace la mesure par sa propre valeur — c'est ce qui vient d'arriver au canal
 ;; de deformation (25.00 sur les dix fenetres). On le compte, exactement comme `*phys-twsat*`.
@@ -743,6 +749,9 @@
                     (set! (-> *phys-rr* sc) 0.0)
                     (dotimes (ll PHYS-LINKS)
                       (set! (-> *phys-rrl* (+ (* sc PHYS-LINKS) ll)) 0.0)
+                      (set! (-> *phys-rrml* (+ (* sc PHYS-LINKS) ll)) 0.0)
+                      (set! (-> *phys-rrrl* (+ (* sc PHYS-LINKS) ll)) 0.0)
+                      (set! (-> *phys-rrsl* (+ (* sc PHYS-LINKS) ll)) 0.0)
                       (set! (-> *phys-rok* (+ (* sc PHYS-LINKS) ll)) 0))
                     (set! (-> *phys-rrm* sc) 0.0)
                     (set-vector! (-> *phys-vp* sc) 0.0 0.0 0.0 0.0)
@@ -2970,21 +2979,8 @@
                                                          ml)
                                                       bl)
                                                    0.0))
-                                            ;; §22 « Breast COM: normal <= 35 % B0, hard transient
-                                            ;; <= 40 % B0 » (§38 `NormalMaxCOMDisplacement 0.35`,
-                                            ;; `HardMaxCOMDisplacement 0.40`). MEME CONSTRUCTION que
-                                            ;; la borne d'apex de la torsion (:3785) : `phys-softmin`
-                                            ;; avec le cap TRANSITOIRE, dont le genou (0.84 x cap =
-                                            ;; 0.336 B0) tombe sur la borne NORMALE a 4 % pres — le
-                                            ;; rapport que sa spec donne deja a l'apex vaut
-                                            ;; 0.42/0.50 = 0.84 EXACTEMENT. Aucun chiffre choisi ici,
-                                            ;; et l'ecart de 4 % est ecrit plutot que rattrape en
-                                            ;; deplacant le genou : on ne regle pas l'instrument.
-                                            ;; CONTROLE k=5 : desarme, `rcap` part a l'infini et
-                                            ;; `phys-softmin` redevient l'identite (sa branche
-                                            ;; `(<= v kn)`), donc le canal radial passe ENTIER. Vaut
-                                            ;; 0 partout ailleurs : le comportement livre est
-                                            ;; inchange au bit pres hors de la passe de mesure.
+                                            ;; [NOTE-81] LA BORNE DE §22 SUR LE CANAL RADIAL, ET SON
+                                            ;; CONTROLE k=5. -> jak-hd-physics-NOTES.md
                                             (rcap (if (zero? *phys-rr-off*) (* 0.40 b0e) (* 1000000.0 b0e)))
                                             ;; APPELEE UNE SEULE FOIS, ET SUR LA VALEUR LIVREE, JAMAIS
                                             ;; SUR L'ETAT : `phys-softmin` n'est pas idempotent
@@ -3007,13 +3003,18 @@
                                          (set! (-> *phys-rr* sc) drr))
                                        (set! (-> *phys-rrl* scl) drr)
                                        (when (> (fabs (- dr0 drr)) 0.000001)
-                                         (set! *phys-rrsat* (+ *phys-rrsat* 1)))
+                                         (set! *phys-rrsat* (+ *phys-rrsat* 1))
+                                         (set! (-> *phys-rrsl* scl) (+ 1.0 (-> *phys-rrsl* scl))))
                                        (let ((a0 (/ (fabs dr0) (fmax 1.0 b0e))))
                                          (when (> a0 (-> *phys-rrr* sc))
-                                           (set! (-> *phys-rrr* sc) a0)))
+                                           (set! (-> *phys-rrr* sc) a0))
+                                         (when (> a0 (-> *phys-rrrl* scl))
+                                           (set! (-> *phys-rrrl* scl) a0)))
                                        (let ((ar (/ (fabs drr) (fmax 1.0 b0e))))
                                          (when (> ar (-> *phys-rrm* sc))
-                                           (set! (-> *phys-rrm* sc) ar)))))
+                                           (set! (-> *phys-rrm* sc) ar))
+                                         (when (> ar (-> *phys-rrml* scl))
+                                           (set! (-> *phys-rrml* scl) ar)))))
                                    (set! (-> *phys-qx* scl) (- (-> *phys-px* scl) (* fns vx)))
                                    (set! (-> *phys-qy* scl) (- (-> *phys-py* scl) (* fns vy)))
                                    (set! (-> *phys-qz* scl) (- (-> *phys-pz* scl) (* fns vz)))))))))))
@@ -4103,7 +4104,12 @@
       ;; maillon qui suit rigidement son parent doit pouvoir lire exactement zero.
       (set! (-> *phys-la* (+ (* sc PHYS-LINKS) l)) 0.0)
       (set! (-> *phys-la0* (+ (* sc PHYS-LINKS) l)) 0.0)
-      (set! (-> *phys-la1* (+ (* sc PHYS-LINKS) l)) 0.0))
+      (set! (-> *phys-la1* (+ (* sc PHYS-LINKS) l)) 0.0)
+      ;; [NOTE-81] les trois miroirs par maillon sont des maximums et un compte DE FENETRE, comme
+      ;; leurs equivalents par chaine juste en dessous : meme portee, meme remise a zero.
+      (set! (-> *phys-rrml* (+ (* sc PHYS-LINKS) l)) 0.0)
+      (set! (-> *phys-rrrl* (+ (* sc PHYS-LINKS) l)) 0.0)
+      (set! (-> *phys-rrsl* (+ (* sc PHYS-LINKS) l)) 0.0))
     ;; SPEC 29/36 — les deux maximums de FENETRE. Ce sont des compteurs de mesure, pas des etats
     ;; du solveur : `*phys-sec*`, `*phys-tw*` et leurs vitesses ne sont PAS remis a zero ici, sans
     ;; quoi chaque fenetre relancerait le mode secondaire et la torsion depuis rien.
@@ -4327,17 +4333,25 @@
             (else        (the float *phys-rrsat*))))))
 
 (defun phys-chain-radial-link ((slot int) (chain int) (link int) (which int))
-  "SPEC 23 — l'elongation radiale du MAILLON `link` (which 0 = unites de jeu, 1 = rapportee a B0).
+  "SPEC 23 — l'elongation radiale du MAILLON `link`. which 0 = unites de jeu · 1 = rapportee a B0 ·
+   2 = maximum de FENETRE apres la borne de §22 · 3 = le meme AVANT la borne · 4 = frames ou la
+   borne a mordu SUR CE MAILLON. Les trois derniers repondent a « quel maillon sature ? », que les
+   agregats par chaine ne peuvent pas rendre.
    Version RESOLUE PAR MAILLON de `phys-chain-radial`, qui ne rend que la RACINE. C'est aussi l'etat
    que le solveur lit. NATURE deformation signee · REPERE axe de l'os dans le triedre de l'ANCRE
    (SPEC 7) · LIGNE DE BASE 0.0 a la pose d'auteur (SPEC 9). [NOTE-79] -> jak-hd-physics-NOTES.md"
   (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS)
-          (< link 0) (>= link PHYS-LINKS) (< which 0) (> which 1))
+          (< link 0) (>= link PHYS-LINKS) (< which 0) (> which 4))
     0.0
-    (let* ((sc (+ (* slot PHYS-CHAINS) chain))
-           (b0 (fmax 1.0 (-> *phys-b0* sc)))
-           (v  (-> *phys-rrl* (+ (* sc PHYS-LINKS) link))))
-      (if (= which 0) v (/ v b0)))))
+    (let* ((sc  (+ (* slot PHYS-CHAINS) chain))
+           (b0  (fmax 1.0 (-> *phys-b0* sc)))
+           (scl (+ (* sc PHYS-LINKS) link))
+           (v   (-> *phys-rrl* scl)))
+      (cond ((= which 0) v)
+            ((= which 1) (/ v b0))
+            ((= which 2) (-> *phys-rrml* scl))
+            ((= which 3) (-> *phys-rrrl* scl))
+            (else        (-> *phys-rrsl* scl))))))
 
 (defun phys-chain-axsep ((slot int) (chain int) (which int))
   "LES DEUX PROJECTIONS QUE LA DECISION DE NOMMAGE A COMPARE, et la norme du segment inter-seins.

@@ -2800,3 +2800,40 @@ de fenetre, `*phys-rrsat*` frames ou la borne de §22 a mordu) couvrent desormai
 un maximum de §22 qui ignorerait un maillon ne bornerait pas le tissu, il bornerait un tiers de lui.
 Ce changement de PORTEE est ecrit dans la docstring de l'accesseur et dans le rapport du cycle 32 ;
 il n'a pas a etre devine en comparant deux tableaux.
+
+## NOTE-81 — LA BORNE DE §22 SUR LE CANAL RADIAL, ET « QUEL MAILLON SATURE ? »
+
+**LA BORNE ELLE-MEME.** Sa §22 dit « Breast COM: normal <= 35 % B0, hard transient <= 40 % B0 »
+(§38 : `NormalMaxCOMDisplacement 0.35`, `HardMaxCOMDisplacement 0.40`). Le canal radial est borne
+par `phys-softmin` avec le cap TRANSITOIRE, exactement comme la borne d'apex de la torsion : le
+genou de `phys-softmin` vaut 0.84 x cap = 0.336 B0, ce qui tombe sur la borne NORMALE a 4 % pres —
+et 0.84 n'est pas un chiffre choisi, c'est le rapport que sa spec donne deja a l'apex
+(0.42 / 0.50 = 0.84 EXACTEMENT). L'ecart de 4 % est ECRIT plutot que rattrape en deplacant le
+genou : on ne regle pas l'instrument pour qu'il tombe juste.
+
+`phys-softmin` est appelee UNE SEULE FOIS et sur la valeur PUBLIEE, jamais sur l'etat : elle n'est
+pas idempotente au-dessus de son genou (sa propre docstring l'ecrit), donc la rappeler chaque frame
+sur `*phys-cp**` ferait fondre l'oscillateur frame apres frame. C'est exactement ce que fait deja
+la torsion : `twn` brut conserve dans l'etat, `rel` borne publie.
+
+**LE CONTROLE k=5** (`*phys-rr-off*`) desarme la borne : `rcap` part a l'infini et `phys-softmin`
+redevient l'identite (sa branche `(<= v kn)`), donc le canal radial passe ENTIER. Il vaut 0 partout
+ailleurs, donc le comportement livre est inchange au bit pres hors de la passe de mesure.
+
+**ET LE PROBLEME QUE LE CYCLE 32 A OUVERT.** Une fois le degre de liberte arme sur les DEUX maillons,
+l'elongation que le solveur voudrait produire AVANT la borne atteint **1.42 B0 pour un plafond de
+0.40** sur `accel` (0.43 quand le distal etait desarme), et le nombre de frames bornees passe de 5 a
+23. Un canal colle a sa borne ne repond plus au stimulus : c'est la signature de saturation du
+registre, et c'est une des formes du « pudding » que l'owner decrit.
+
+Deux remedes sont candidats et ils ne se choisissent pas a l'intuition :
+  (a) la borne de 0.40 B0 est celle du COM de la chair ENTIERE ; l'appliquer identiquement a chaque
+      maillon la compte deux fois, et il faudrait une borne PAR MAILLON ;
+  (b) la raideur radiale du distal est a re-deriver pour que l'excursion libre retombe sous la bande.
+Au niveau de la CHAINE les deux predisent la meme chose. Au niveau du MAILLON, non.
+
+**D'OU LES TROIS MIROIRS PAR MAILLON** `*phys-rrml*` / `*phys-rrrl*` / `*phys-rrsl*` : les memes
+maximums de fenetre et le meme compte de saturation, resolus par maillon, **et lus par personne
+d'autre qu'un `format`**. C'est le patron de NOTE-79, pour la meme raison : un agregat par chaine
+qui cache une verite par maillon n'est pas une mesure, c'est une moyenne qui a l'air d'une mesure.
+Ils sont publies par `PHYSRADL` (`phys-room.gc`) et lus par `ROOM-RAD-LINK`.
