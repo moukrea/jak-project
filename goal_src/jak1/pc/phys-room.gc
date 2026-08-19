@@ -235,6 +235,9 @@
 ;; c'est la lecon du controle de cote qui rendait 0 contre 0 sur une fenetre trop etroite.
 (defconstant PHYSROOM-PH-CONEOFF 20)
 (defconstant PHYSROOM-PH-CONEON 21)
+;; CYCLE 37 ETAPE 2 — L'ABLATION DES SPHERES PROXIMALES, deux jambes a exposition egale.
+(defconstant PHYSROOM-PH-PROXOFF 29)   ;; spheres proximales EN PLACE  — la reference livree
+(defconstant PHYSROOM-PH-PROXON 31)    ;; spheres proximales RETIREES  — le travail doit BAISSER
 ;; SPEC 24/25/26/27 — les trois impulsions ISOLEES, une par axe, chacune suivie de son ring-down
 ;; libre. Numeros pris dans les trous laisses libres sous PHYSROOM-PH-REPORT (18, 19, 22) : toute
 ;; phase de TRAVAIL doit rester INFERIEURE a 30, cf. la note de PHYSROOM-PH-REPORT.
@@ -284,6 +287,8 @@
    (arm     float)     ;; controle positif : penetration max, defaut ARME
    (condis  float)     ;; predicat conique CORRIGE   : penetration max residuelle
    (conarm  float)     ;; predicat conique D'AVANT   : la meme, elle doit MONTER
+   (proxdis float)     ;; spheres proximales EN PLACE : penetration max residuelle
+   (proxarm float)     ;; spheres proximales RETIREES : la meme, elle NE DOIT PAS se degrader
    (injn    int32)     ;; poussees reellement injectees
    (lvl     int32)     ;; niveau d'excitation courant de la courbe de reponse
    (ori     int32)     ;; index dans la table d'orientations de SPEC 10-13
@@ -2875,6 +2880,79 @@
           (format 0 "PHYSCONE tag=cone-armed maxpen=~f~%" (-> self conarm))
           (physroom-emit-diag "cone-armed")
           (phys-cone-off-set! 0)
+          (phys-diag-reset!)
+          (phys-stats-reset!)
+          (set! (-> self ai) 0)
+          (physroom-set-anim 0)
+          (set! (-> self phase) PHYSROOM-PH-PROXOFF)))))
+
+    ;; ---- 9quinquies. CYCLE 37 ETAPE 2 — LES SPHERES PROXIMALES SONT-ELLES DU TRAVAIL REDONDANT ?
+    ;; Le cycle 35 a mesure, sur le mesh LIVRE, que les deux spheres de chair d'un sein decrivent LA
+    ;; MEME chair : recouvrement 75.6 % / 65.3 %, chaque centre a l'INTERIEUR de la sphere de
+    ;; l'autre, et sur les 55 sommets de `chestL` la PROXIMALE ne couvre pas UN SEUL sommet que la
+    ;; DISTALE ne couvre deja. Le cycle 37 etape 1 a mesure que la boucle de contraintes NE CONVERGE
+    ;; PAS : 3.16 a 3.98 volumes poussent par balayage, a 86-100 u chacun, sans decroissance sur les
+    ;; 45 balayages. DEUX de ces volumes sont les deux spheres du sein OPPOSE.
+    ;; DEUX JAMBES A EXPOSITION EGALE, meme pilotage, meme duree, memes animations :
+    ;;   DESARMEE = ce qu'on livre (`*phys-prox-off*` = 0, et il y reste apres la mesure) ;
+    ;;   ARMEE    = les spheres proximales cessent d'etre des obstacles.
+    ;; CE QUI EST PUBLIE, ET POURQUOI CES TROIS GRANDEURS :
+    ;;   maxpen  la penetration residuelle — elle NE DOIT PAS se degrader si la sphere est redondante ;
+    ;;   npush   le NOMBRE de poussees cumule sur la jambe — c'est le CONTROLE POSITIF de l'ablation
+    ;;           elle-meme : s'il ne baisse pas, l'interrupteur n'a rien desarme et les deux jambes
+    ;;           mesurent la meme chose. Un zero sans ce compte serait un zero de domaine vide ;
+    ;;   psum    la somme des MODULES (u), et `slast` la meme restreinte aux balayages 34-45 :
+    ;;           le travail du groupe de COLLISION SEULE, celui qui prouve la non-convergence.
+    ;; NATURE : `maxpen`/`psum`/`slast` des LONGUEURS (unites de jeu, 4096 = 1 m), `npush` un COMPTE.
+    ;; REPERE : le monde. AGREGES sur la jambe, jamais des maxima de fenetre — la convergence est une
+    ;; question de POPULATION, et l'etape 1 a paye pour l'apprendre.
+    ((= (-> self phase) PHYSROOM-PH-PROXOFF)
+     (physroom-drive 3 (-> self pframe))
+     (physroom-advance-anim 1.0)
+     (when (>= (-> self pframe) PHYSROOM-PCW)
+       (set! (-> self pframe) 0)
+       (+! (-> self ai) 1)
+       (cond
+         ((< (-> self ai) (-> self nanim))
+          (physroom-set-anim (-> self ai)))
+         (else
+          (set! (-> self proxdis) (physroom-max-pen))
+          (format 0 "PHYSPROX tag=prox-disarmed maxpen=~f~%" (-> self proxdis))
+          (dotimes (c (-> self nchain))
+            (format 0 "PHYSPROXC tag=prox-disarmed c=~D npush=~f psum=~f slast=~f~%"
+                    c
+                    (phys-cpc (-> self slot) c 0)
+                    (phys-cpc (-> self slot) c 1)
+                    (phys-cpc (-> self slot) c 2)))
+          (physroom-emit-diag "prox-disarmed")
+          (phys-diag-reset!)
+          (phys-stats-reset!)
+          (phys-prox-off-set! 1)
+          (set! (-> self ai) 0)
+          (physroom-set-anim 0)
+          (set! (-> self phase) PHYSROOM-PH-PROXON)))))
+
+    ((= (-> self phase) PHYSROOM-PH-PROXON)
+     (physroom-drive 3 (-> self pframe))
+     (physroom-advance-anim 1.0)
+     (when (>= (-> self pframe) PHYSROOM-PCW)
+       (set! (-> self pframe) 0)
+       (+! (-> self ai) 1)
+       (cond
+         ((< (-> self ai) (-> self nanim))
+          (physroom-set-anim (-> self ai)))
+         (else
+          (set! (-> self proxarm) (physroom-max-pen))
+          (format 0 "PHYSPROX tag=prox-armed maxpen=~f~%" (-> self proxarm))
+          (dotimes (c (-> self nchain))
+            (format 0 "PHYSPROXC tag=prox-armed c=~D npush=~f psum=~f slast=~f~%"
+                    c
+                    (phys-cpc (-> self slot) c 0)
+                    (phys-cpc (-> self slot) c 1)
+                    (phys-cpc (-> self slot) c 2)))
+          (physroom-emit-diag "prox-armed")
+          ;; L'INTERRUPTEUR REVIENT A ZERO : ce qu'on livre n'a pas change.
+          (phys-prox-off-set! 0)
           (phys-diag-reset!)
           (phys-stats-reset!)
           (set! (-> self phase) PHYSROOM-PH-RESTA)

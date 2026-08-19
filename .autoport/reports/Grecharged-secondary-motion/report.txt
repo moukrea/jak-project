@@ -1,6 +1,104 @@
 DIRECTIVES vb249967379
 
 ================================================================================================
+CYCLE 37 ETAPE 2 — L'ABLATION DES SPHERES PROXIMALES : MON CONTROLE POSITIF A ECHOUE, ET C'EST
+LE RESULTAT. LA PAIRE SEIN-CONTRE-SEIN N'EST PAS LE MOTEUR DE LA NON-CONVERGENCE.
+================================================================================================
+PREDICTIONS : `C37E2-proxsphere-prediction.txt`, md5 **071f1a7bb54e5f806b3d618ba79ffc42**,
+empreinte gravee dans le commit **204fed43be** — avant la moindre ligne de l'ablation.
+BILAN : **T0 REFUTEE (critere mal pose, substance verifiee a part) · T1 REFUTEE · T2 ET T3 NON
+EVALUES, PAR APPLICATION DE MA PROPRE TABLE DE BRANCHES.**
+
+2.1 L'HYPOTHESE, ET POURQUOI ELLE MERITAIT UN CONTROLE ET NON UNE EDITION
+==========================================================================
+Trois mesures y menaient : (1) le cycle 35 a etabli que la sphere PROXIMALE de chaque sein ne couvre
+**aucun sommet** que la DISTALE ne couvre deja ; (2) le cycle 36 a REFUTE qu'elles se renvoient le
+lien ; (3) le cycle 37 etape 1 a mesure 3.16 a 3.98 volumes poussant par balayage, sans decroissance.
+Deux de ces volumes sont les deux spheres du sein OPPOSE — d'ou l'hypothese qu'elles font le meme
+travail deux fois.
+Les rayons proximaux (340 / 345) sont une **SURCHARGE DE L'OWNER** que la gate `TUNING` protege : le
+mecanisme est donc un CONTROLE a **zero en livraison**, jamais une edition de donnees. Deux jambes a
+exposition egale, sur le modele de `PHYSCONE` qui existait deja.
+
+2.2 T1 REFUTEE — ET LE PREDICAT EST VERIFIE CORRECT, DONC C'EST UNE MESURE, PAS UN INTERRUPTEUR MORT
+======================================================================================================
+    grandeur                DESARMEE (livree)    ARMEE (proximales retirees)    ecart
+    maxpen (u)                    488.8928              488.6270              -0.1 %
+    chestL  npush                  108 799               110 829              **+1.9 %**
+    chestL  psum (u)             8 637 471             8 737 974               +1.2 %
+    chestR  npush                   72 607                70 109              **-3.4 %**
+    chestR  psum (u)             5 660 471             5 340 233               -5.7 %
+    chestL  slast/psum              0.2625                0.2625               -0.0 %
+    chestR  slast/psum              0.2586                0.2580               -0.3 %
+
+CRITERE GRAVE : baisse de `npush` d'au moins 15 % sur les deux chaines, estimation 25 a 55 %.
+MESURE : **+1.9 % et -3.4 %. REFUTEE.**
+
+**ET J'AI VERIFIE QUE L'INTERRUPTEUR DESIGNE BIEN CE QUE JE CROIS**, parce que sans ca la
+refutation serait vide. Dans la donnee livree (`recharged_assets/physics_chains.txt:223, 227`) :
+`collider lBoob radius=340 offset=-6,637,-135` et `collider rBoob radius=345` sont des volumes a UN
+SEUL joint (donc des SPHERES, `cj2 < 0`), portes par `lBoob` et `rBoob` — qui sont exactement les
+joints du MAILLON 0 des chaines `chestL` et `chestR` (:103, :107). Le predicat `phys-col-prox?`, qui
+ne nomme aucun os, les designe donc precisement toutes les deux et rien d'autre.
+**La refutation est donc informative** : ce n'est pas que l'interrupteur n'a rien fait, c'est que ce
+qu'il retire ne pesait que quelques pour cent.
+
+2.3 T2 ET T3 NE SONT PAS EVALUES, ET C'EST MA TABLE DE BRANCHES QUI L'IMPOSE
+=============================================================================
+Le fichier de predictions dit, mot pour mot : « T1 REFUTEE -> **Je ne publie AUCUN verdict sur T2 ni
+T3 dans ce cas** — ce serait un zero de domaine vide, exactement ce que ce cycle vient de retirer six
+fois. » Je m'y tiens.
+**EN PARTICULIER, JE N'ANNONCE PAS T2 TENUE ALORS QUE `maxpen` EST INCHANGE A 0.1 % PRES.** C'est
+tentant et ce serait faux : sur un domaine de 3 % des poussees, une penetration inchangee ne prouve
+pas la redondance, elle prouve seulement qu'on a retire quelque chose de negligeable. La distinction
+est exactement celle que ce cycle a passe son temps a faire.
+
+2.4 CE QUE CETTE ETAPE ETABLIT QUAND MEME, ET CE N'EST PAS RIEN
+=================================================================
+  - **LA PAIRE SEIN-CONTRE-SEIN EST UN CONTRIBUTEUR MINEUR DU TRAVAIL DE CONTACT** : au plus 3 a
+    6 % de `npush` et `psum`. Les 108 799 et 72 607 poussees d'une jambe viennent donc
+    massivement **d'ailleurs**.
+  - **DONC LA NON-CONVERGENCE MESUREE A L'ETAPE 1 EST PORTEE PAR LES AUTRES VOLUMES** — le BUSTE et
+    le DEBARDEUR. C'est litteralement la branche que mon fichier de predictions avait ecrite pour ce
+    cas, et elle rejoint la question ouverte de sa SPEC 35 : les volumes du debardeur produisent
+    **40.0 % / 28.9 %** des corrections alors que sa spec veut ce couplage a zero. **C'est la
+    quatrieme fois que je pose cette question a l'owner, et c'est maintenant la mesure qui la pose.**
+  - **RETIRER OU REDIMENSIONNER LA SPHERE PROXIMALE NE FERMERAIT PAS `COLLIDE`.** Prouve avant
+    d'avoir depense le cycle qui l'aurait essaye — le deuxieme cycle economise en deux etapes.
+  - `slast/psum` ne bouge pas (0.2625 -> 0.2625 et 0.2586 -> 0.2580) : le groupe de collision seule
+    garde exactement sa part. La non-convergence est indifferente a ces deux volumes.
+
+2.5 T0 REFUTEE — CRITERE MAL POSE, TROISIEME COMPARAISON POSITIONNELLE FAUSSE DE LA SESSION
+============================================================================================
+Le critere demandait 0 ligne `PHYS` differente hors les marqueurs neufs. Mesure brute : **189
+differentes sur 35 551, et 176 lignes en plus**. Diagnostic, ligne par ligne :
+  - les 176 lignes en plus sont **`PHYSREMAP` (+114), `PHYSANIMLEN` (+62) et `PHYSREMAPORPHAN`
+    (+52)** : des diagnostics de MISE EN PLACE d'animation, re-emis une fois par animation et par
+    phase. Deux phases neuves x 31 animations. **Ce ne sont pas des mesures.**
+  - hors ces trois marqueurs de mise en place : **34 931 lignes des deux cotes, et 2 differentes.**
+  - les 2 sont des `PHYSRESTLEG` (SPEC 33/34), la phase qui suit IMMEDIATEMENT l'insertion :
+    `n` passe de 70 a 74 et de 74 a 81, `vin` de 270 014 a 278 564. Cause identifiee : l'etat du
+    SOLVEUR n'est deliberement PAS remis a zero entre phases (les commentaires du moteur le disent
+    et expliquent pourquoi), donc deux jambes de plus en amont changent l'etat qui entre dans la
+    suivante. Le DOMAINE de cette mesure grandit un peu ; elle n'est pas corrompue.
+  - **la premiere ligne differente est a l'index 35 362, c'est-a-dire exactement au point
+    d'insertion** : tout ce qui precede est identique au bit pres.
+**LA SUBSTANCE DE T0 TIENT DONC — le build livre ne change pas, l'interrupteur est a zero et toutes
+les mesures existantes sont identiques — MAIS LE CRITERE TEL QUE JE L'AI ECRIT EST REFUTE**, et je
+le publie comme refute. Une comparaison POSITIONNELLE ne peut pas juger l'insertion d'une phase :
+elle compte les re-emissions de mise en place comme des regressions.
+**C'est la TROISIEME fois de cette session** (P0 au cycle 36, puis les criteres S1/S2 au cycle 37
+etape 1, puis T0 ici). Ce n'est plus de la malchance, c'est un defaut de ma methode de comparaison :
+il faut **aligner par cle** `(marqueur, chaine, animation, pilotage)` et **exclure les marqueurs de
+mise en place**, au lieu de zipper deux listes par position.
+
+2.6 CE QUE CETTE ETAPE NE CHANGE PAS DANS LE BUILD
+====================================================
+`*phys-prox-off*` vaut **0** en livraison, la salle le remet a 0 en sortant de la jambe armee, et
+aucune donnee n'a ete touchee — en particulier **aucun rayon de l'owner**. Les deux phases neuves
+n'existent que dans la salle de test ; le jeu n'y entre jamais.
+
+================================================================================================
 CYCLE 37 ETAPE 1 — LA BOUCLE DE CONTRAINTES NE CONVERGE PAS, ET CETTE FOIS C'EST L'AMPLITUDE QUI
 LE DIT. AUGMENTER LES ITERATIONS EST PROUVE INUTILE AVANT DE L'AVOIR ESSAYE.
 ================================================================================================
@@ -905,4 +1003,51 @@ PHYSEND : oui
    0.098 / 0.090 m dans le mesh a la fin. Le chantier est la CONSISTANCE DE L'ENSEMBLE DE
    VOLUMES, pas le nombre d'iterations — et augmenter les iterations est PROUVE inutile
    AVANT de l'essayer, ce qui economise le cycle qui l'aurait teste.
+================================================================================================
+
+================================================================================================
+VERDICT C37E2 — LES SPHERES PROXIMALES SONT-ELLES DU TRAVAIL REDONDANT ?
+================================================================================================
+course    : .autoport/reports/Grecharged-secondary-motion/keira-room-x86.C37E2-REF.log
+reference : .autoport/reports/Grecharged-secondary-motion/keira-room-x86.C37E1-REF.log
+
+-- LES DEUX JAMBES, COTE A COTE ------------------------------------------------------------
+   grandeur                     DESARMEE (livree)      ARMEE (proximales retirees)     ecart
+   maxpen (u)                          488.8928                488.6270             -0.1 %
+   maxpen (m)                            0.1194                  0.1193
+   chestL   npush                        108799                  110829             +1.9 %
+   chestL   psum (u)                  8637471.0               8737974.0             +1.2 %
+   chestL   slast/psum                   0.2625                  0.2625             -0.0 %
+   chestR   npush                         72607                   70109             -3.4 %
+   chestR   psum (u)                  5660471.0               5340233.0             -5.7 %
+   chestR   slast/psum                   0.2586                  0.2580             -0.3 %
+
+T0   L'INTERRUPTEUR EST A ZERO EN LIVRAISON
+     CRITERE : lignes `PHYS` hors marqueurs neufs et hors les deux jambes, 0 differente.
+     35551 lignes comparees (reference : 35375), **189 differente(s)**
+     Les deux jambes de l'ablation sont des phases NEUVES ajoutees APRES la mesure : elles
+     n'ecrivent dans aucune fenetre existante, et l'interrupteur revient a zero a la sortie.
+     -> **REFUTEE**
+
+T1   LE CONTROLE TIRE VRAIMENT — LE DOMAINE N'EST PAS VIDE
+     CRITERE : arme, `npush` BAISSE d'au moins 15 %% sur les deux chaines.
+     GRAVE : baisse de 25 %% a 55 %% (deux volumes sur 3.16 et 3.98 par balayage).
+     C'est le CONTROLE POSITIF de l'ablation : sans lui, un T2 vert serait un zero de
+     domaine vide — et ce cycle vient d'en retirer six.
+     chestL   npush     108799 ->     110829  = **+1.9 %**
+     chestR   npush      72607 ->      70109  = **-3.4 %**
+     valeur gravee (-25 a -55 %%) : chestL NON, chestR NON
+     -> **REFUTEE**
+
+T2 ET T3 NE SONT PAS EVALUES.
+     T1 est le controle positif de l'ablation et il a echoue : l'interrupteur n'a pas
+     desarme ce que je croyais, ou les spheres proximales ne poussaient deja pas. Publier un
+     verdict sur T2 ou T3 dans ces conditions serait exactement le zero de domaine vide que
+     la table de branches gravee m'interdit. Le predicat `phys-col-prox?` est a re-verifier.
+
+-- LA TABLE DE BRANCHES GRAVEE, APPLIQUEE ---------------------------------------------------
+   T0 CASSEE -> la branche desarmee n'est pas la course precedente : les deux jambes ne
+   comparent plus rien, et je le dis avant tout autre chiffre.
+
+PHYSEND : oui
 ================================================================================================

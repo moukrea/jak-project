@@ -1,0 +1,46 @@
+================================================================================================
+VERDICT C37E2 — LES SPHERES PROXIMALES SONT-ELLES DU TRAVAIL REDONDANT ?
+================================================================================================
+course    : .autoport/reports/Grecharged-secondary-motion/keira-room-x86.C37E2-REF.log
+reference : .autoport/reports/Grecharged-secondary-motion/keira-room-x86.C37E1-REF.log
+
+-- LES DEUX JAMBES, COTE A COTE ------------------------------------------------------------
+   grandeur                     DESARMEE (livree)      ARMEE (proximales retirees)     ecart
+   maxpen (u)                          488.8928                488.6270             -0.1 %
+   maxpen (m)                            0.1194                  0.1193
+   chestL   npush                        108799                  110829             +1.9 %
+   chestL   psum (u)                  8637471.0               8737974.0             +1.2 %
+   chestL   slast/psum                   0.2625                  0.2625             -0.0 %
+   chestR   npush                         72607                   70109             -3.4 %
+   chestR   psum (u)                  5660471.0               5340233.0             -5.7 %
+   chestR   slast/psum                   0.2586                  0.2580             -0.3 %
+
+T0   L'INTERRUPTEUR EST A ZERO EN LIVRAISON
+     CRITERE : lignes `PHYS` hors marqueurs neufs et hors les deux jambes, 0 differente.
+     35551 lignes comparees (reference : 35375), **189 differente(s)**
+     Les deux jambes de l'ablation sont des phases NEUVES ajoutees APRES la mesure : elles
+     n'ecrivent dans aucune fenetre existante, et l'interrupteur revient a zero a la sortie.
+     -> **REFUTEE**
+
+T1   LE CONTROLE TIRE VRAIMENT — LE DOMAINE N'EST PAS VIDE
+     CRITERE : arme, `npush` BAISSE d'au moins 15 %% sur les deux chaines.
+     GRAVE : baisse de 25 %% a 55 %% (deux volumes sur 3.16 et 3.98 par balayage).
+     C'est le CONTROLE POSITIF de l'ablation : sans lui, un T2 vert serait un zero de
+     domaine vide — et ce cycle vient d'en retirer six.
+     chestL   npush     108799 ->     110829  = **+1.9 %**
+     chestR   npush      72607 ->      70109  = **-3.4 %**
+     valeur gravee (-25 a -55 %%) : chestL NON, chestR NON
+     -> **REFUTEE**
+
+T2 ET T3 NE SONT PAS EVALUES.
+     T1 est le controle positif de l'ablation et il a echoue : l'interrupteur n'a pas
+     desarme ce que je croyais, ou les spheres proximales ne poussaient deja pas. Publier un
+     verdict sur T2 ou T3 dans ces conditions serait exactement le zero de domaine vide que
+     la table de branches gravee m'interdit. Le predicat `phys-col-prox?` est a re-verifier.
+
+-- LA TABLE DE BRANCHES GRAVEE, APPLIQUEE ---------------------------------------------------
+   T0 CASSEE -> la branche desarmee n'est pas la course precedente : les deux jambes ne
+   comparent plus rien, et je le dis avant tout autre chiffre.
+
+PHYSEND : oui
+================================================================================================

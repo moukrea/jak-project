@@ -3417,3 +3417,76 @@ NATURE : une longueur, unites de jeu (4096 u = 1 m). REPERE : monde. `cdm` NEGAT
 surfaces ne se sont jamais rejointes, et sa valeur absolue EST l'ecart minimal atteint.
 Accumulees sur TOUTE la course : volontairement hors de `phys-diag-reset!`, qui est par fenetre.
 ```
+
+## NOTE-106  (moteur, aux alentours de la ligne 3760 — CYCLE 37 ETAPE 2)
+
+```
+Sa §23 demande « local collision PRESSURE » : une INTENSITE.
+`cl` n'en est pas une — l'etape 1 l'a mesure : c'est la somme
+de 150 a 254 poussees petites et de meme sens accumulees sur
+les 45 balayages de la frame (psum/cl = 1.11 et 1.28), soit
+4.4 et 5.0 METRES de chemin de correction en une frame. La
+PLUS GRANDE POUSSEE SEULE, elle, est une intensite : 404.7 et
+262.4 u, de l'ordre de la penetration mesuree (390 / 374 u).
+LA DIRECTION RESTE CELLE DE `*phys-cpu*` (bien conditionnee,
+les poussees s'alignent) : seul le MODULE change de source.
+CE N'EST PAS UN SUPPRESSEUR : `PHYS-PRS-MAX` ne bouge pas, et
+sur une frame a UNE poussee `pmx` = `cl` au bit pres.
+```
+
+## NOTE-107  (moteur, aux alentours de la ligne 448 — CYCLE 37 ETAPE 2)
+
+```
+SPEC 5 — L'ANIMATION D'AUTEUR. Detection PAR CHAINE, dans le repere de l'ancre (rotation
+comprise) : c'est la seule facon de distinguer « l'animateur a bouge CET os » de « l'os porteur a
+tourne et a emmene la chaine avec lui ». Le second n'est pas une intention d'auteur sur la
+chaine, et le confondre avec la premiere est exactement le piege qui a fige l'ancien moteur.
+  u = pointe d'AUTEUR en repere ancre, s = pointe ECRITE en repere ancre (s = u + o).
+  frame PILOTEE PAR L'ANIM  : |delta u| > PHYS-AUTH-EPS
+  TRANSMISSION de la chaine : somme(delta s . delta u) / somme(delta u . delta u)
+Un ressort en repere monde retarde l'auteur et transmet ~0.5 ; la forme additive transmet 1.0.
+Ces compteurs survivent aux fenetres : c'est le bilan de la course.
+```
+
+## NOTE-108  (moteur, aux alentours de la ligne 82 — CYCLE 37 ETAPE 2)
+
+```
+SPEC 6 — `B0`, LA LONGUEUR CARACTERISTIQUE RACINE->APEX DE LA CHAIR, EN UNITES, MESUREE SUR LE
+MAILLAGE. Ce n'est PAS la longueur d'os, et la confusion coutait une gate muette : sa §6 dit
+« B0 neutral characteristic root-to-apex length […] shall derive normalized dimensions directly
+from the character mesh », reference humaine 115-125 mm. Sur Keira l'os `chest->lBoob` fait
+977 u (238 mm) — la distance du thorax a un joint qui est DERRIERE la chair — la ou la chair
+elle-meme court sur 602 u (147 mm). Une borne exprimee « en B0 » contre l'os est donc 1.62x trop
+large, et le plafond d'apex de sa §22 ne pouvait pas mordre : l'excursion mesuree « 0.479 B0 »
+vaut 0.778 B0 contre sa reference.
+0 = NON DECLARE : on retombe alors exactement sur la longueur d'os, donc une chaine qui ne porte
+pas la cle ne bouge pas d'un bit.
+```
+
+## NOTE-110  (moteur, aux alentours de la ligne 1667 — CYCLE 37 ETAPE 2)
+
+```
+[DECISION 1, critere revise 2026-08-18] Le decideur est LE PLUS PROFOND
+VIOLEUR (res = dep - feff) ; la cle structurelle ne departage plus qu'un
+res strictement egal. ATTENTION, ET C'EST MESURE : ce choix est INERTE
+dans l'etat livre — `*phys-prio-off*` vaut 1 (NOTE-07 : l'arbitrage a
+ete ARME une fois, il faisait passer `meshpen` positif sur 13 chaines)
+et ses deux consommateurs exigent `(zero? *phys-prio-off*)`. Tableau
+BIT-IDENTIQUE avant/apres (course du 18/08 09:31). Il ne corrige donc
+PAS le `meshpen` de la structure a 2 maillons : cette attribution-la,
+ecrite ici le 18/08 au matin, etait fausse et elle est retiree.
+```
+
+## NOTE-111  (moteur, aux alentours de la ligne 476 — CYCLE 37 ETAPE 2)
+
+```
+MARGE DE SORTIE de la projection de collision, en unites de jeu (0.5 u = 0.12 mm). Ce n'est pas
+un suppresseur de mouvement : c'est la tolerance qui rend la sortie STRICTEMENT geometrique
+plutot que « a l'arrondi pres ». Sans elle, resoudre a l'egalite laisse un residu de signe
+aleatoire de l'ordre de 1e-3 u, et « penetration nulle » devient « penetration nulle une fois
+sur deux ». Elle retire 0.12 mm d'amplitude a la chaine, chiffre dans le rapport.
+NOMBRE D'ALTERNANCES (longueur <-> franchissement) A LA FINITION DE CHAQUE LIEN.
+4 : au-dela, la course ne bouge plus (les deux contraintes sont des projections, la convergence
+est geometrique). En dessous de 2 il n'y a pas d'alternance du tout, donc pas de resolution
+simultanee -- et c'est l'etat mesure qui plafonnait `ROOM-SIDE crossing` a 11282.
+```

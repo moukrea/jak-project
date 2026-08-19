@@ -79,16 +79,7 @@
 (defconstant PHYS-P-HANG   20)
 (defconstant PHYS-P-FAMILY 22)
 (defconstant PHYS-P-COUPLE 27)
-;; SPEC 6 — `B0`, LA LONGUEUR CARACTERISTIQUE RACINE->APEX DE LA CHAIR, EN UNITES, MESUREE SUR LE
-;; MAILLAGE. Ce n'est PAS la longueur d'os, et la confusion coutait une gate muette : sa §6 dit
-;; « B0 neutral characteristic root-to-apex length […] shall derive normalized dimensions directly
-;; from the character mesh », reference humaine 115-125 mm. Sur Keira l'os `chest->lBoob` fait
-;; 977 u (238 mm) — la distance du thorax a un joint qui est DERRIERE la chair — la ou la chair
-;; elle-meme court sur 602 u (147 mm). Une borne exprimee « en B0 » contre l'os est donc 1.62x trop
-;; large, et le plafond d'apex de sa §22 ne pouvait pas mordre : l'excursion mesuree « 0.479 B0 »
-;; vaut 0.778 B0 contre sa reference.
-;; 0 = NON DECLARE : on retombe alors exactement sur la longueur d'os, donc une chaine qui ne porte
-;; pas la cle ne bouge pas d'un bit.
+;; [NOTE-108] SPEC 6 — `B0`, LA LONGUEUR CARACTERISTIQUE RACINE->APEX DE LA CHAIR, EN UNIT -> jak-hd-physics-NOTES.md
 (defconstant PHYS-P-B0     29)
 ;; L'ANGLE QUE LA PEAU PEUT ENCAISSER, EN DEGRES — CHEVEUX SEULEMENT, 0 = pas de limite.
 ;; Owner 2026-08-11 21:15 : « certains maillons meriteraient un traitement pour eviter de creer des
@@ -392,6 +383,14 @@
 ;; [NOTE-105] CYCLE 37 ETAPE 1 — 4=slast 5=nlast 6=p1, LE GROUPE DE COLLISION SEULE. -> jak-hd-physics-NOTES.md
 (define *phys-cpi* (new 'global 'array 'float (* 7 PHYS-SC)))   ;; les memes, releves a l'ARGMAX de `cl`
 (define *phys-cpd* (new 'global 'array 'float PHYS-SC))         ;; domaine : frames ou une poussee a tire
+;; [NOTE-109] CYCLE 37 ETAPE 2 — LE CUMUL PAR BRANCHE, ET L'ABLATION DE LA SPHERE PROXIMALE.
+;; `*phys-cpc*` cumule sur TOUTES les frames depuis la derniere remise a zero de diagnostic :
+;; 0 = nombre de poussees, 1 = somme de leurs modules (u), 2 = la meme sur les balayages 34-45.
+;; C'est un AGREGAT, pas un maximum de fenetre : la question « la boucle converge-t-elle » est une
+;; question de POPULATION, et le cycle 37 etape 1 a paye pour l'apprendre.
+(define *phys-cpc* (new 'global 'array 'float (* 3 PHYS-SC)))
+;; 1 = les SPHERES PROXIMALES cessent d'etre des obstacles. 0 EN LIVRAISON.
+(define *phys-prox-off* 0)
 (define *phys-swc* 0)                                           ;; ordinal d'appel de phys-collide-chain
 (define *phys-vp*   (new 'global 'inline-array 'vector PHYS-SC))  ;; vitesse de pointe, frame -1
 (define *phys-tw*   (new 'global 'array 'float PHYS-SC))   ;; §29 torsion : angle du TISSU (rad)
@@ -445,15 +444,7 @@
 (define *phys-tz*  (new 'global 'array 'float PHYS-SC))
 (define *phys-thas* (new 'global 'array 'int32 PHYS-SC))
 
-;; SPEC 5 — L'ANIMATION D'AUTEUR. Detection PAR CHAINE, dans le repere de l'ancre (rotation
-;; comprise) : c'est la seule facon de distinguer « l'animateur a bouge CET os » de « l'os porteur a
-;; tourne et a emmene la chaine avec lui ». Le second n'est pas une intention d'auteur sur la
-;; chaine, et le confondre avec la premiere est exactement le piege qui a fige l'ancien moteur.
-;;   u = pointe d'AUTEUR en repere ancre, s = pointe ECRITE en repere ancre (s = u + o).
-;;   frame PILOTEE PAR L'ANIM  : |delta u| > PHYS-AUTH-EPS
-;;   TRANSMISSION de la chaine : somme(delta s . delta u) / somme(delta u . delta u)
-;; Un ressort en repere monde retarde l'auteur et transmet ~0.5 ; la forme additive transmet 1.0.
-;; Ces compteurs survivent aux fenetres : c'est le bilan de la course.
+;; [NOTE-107] SPEC 5 — L'ANIMATION D'AUTEUR. Detection PAR CHAINE, dans le repere de l'anc -> jak-hd-physics-NOTES.md
 (define *phys-rtx*  (new 'global 'array 'float PHYS-SC))
 (define *phys-rty*  (new 'global 'array 'float PHYS-SC))
 (define *phys-rtz*  (new 'global 'array 'float PHYS-SC))
@@ -482,15 +473,7 @@
 ;; du plus petit deplacement d'auteur detectable (1 u) : la fenetre est large des deux cotes.
 (defconstant PHYS-AUTH-TOL 0.05)
 
-;; MARGE DE SORTIE de la projection de collision, en unites de jeu (0.5 u = 0.12 mm). Ce n'est pas
-;; un suppresseur de mouvement : c'est la tolerance qui rend la sortie STRICTEMENT geometrique
-;; plutot que « a l'arrondi pres ». Sans elle, resoudre a l'egalite laisse un residu de signe
-;; aleatoire de l'ordre de 1e-3 u, et « penetration nulle » devient « penetration nulle une fois
-;; sur deux ». Elle retire 0.12 mm d'amplitude a la chaine, chiffre dans le rapport.
-;; NOMBRE D'ALTERNANCES (longueur <-> franchissement) A LA FINITION DE CHAQUE LIEN.
-;; 4 : au-dela, la course ne bouge plus (les deux contraintes sont des projections, la convergence
-;; est geometrique). En dessous de 2 il n'y a pas d'alternance du tout, donc pas de resolution
-;; simultanee -- et c'est l'etat mesure qui plafonnait `ROOM-SIDE crossing` a 11282.
+;; [NOTE-111] MARGE DE SORTIE de la projection de collision, en unites de jeu (0.5 u = 0.1 -> jak-hd-physics-NOTES.md
 (defconstant PHYS-FIN-ITERS 4)
 
 (defconstant PHYS-COL-MARGIN 0.5)
@@ -1526,6 +1509,20 @@
   (+ (* 1000000 (-> *phys-csim* sco)) (+ (* 1000 (-> *phys-cdep* sco)) cj)))
 
 ;; [NOTE-103] ---------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
+(defun phys-col-prox? ((slot int) (cj int) (cj2 int))
+  "UN VOLUME EST UNE SPHERE PROXIMALE si son joint porteur est le joint du MAILLON 0 d'une chaine
+   declaree ET qu'il n'a pas de second joint (donc une sphere, pas une capsule). Predicat DERIVE :
+   aucun nom d'os n'y figure, donc il suit un renommage ou une reinjection.
+   POURQUOI IL EXISTE : le cycle 35 a mesure que les deux spheres de chair d'un sein decrivent LA
+   MEME chair — sur les 55 sommets de `chestL`, la proximale ne couvre pas UN SEUL sommet que la
+   distale ne couvre deja. Cet interrupteur demande ce que ca coute a l'execution."
+  (let ((p #f))
+    (when (< cj2 0)
+      (dotimes (c PHYS-CHAINS)
+        (let ((k0 (-> *phys-joint* (* (+ (* slot PHYS-CHAINS) c) PHYS-LINKS))))
+          (when (and (>= k0 0) (= cj k0)) (set! p #t)))))
+    p))
+
 (defun phys-col-own? ((sc int) (n int) (cj int) (cj2 int))
   (let ((own #f))
     (dotimes (l2 n)
@@ -1659,15 +1656,7 @@
                           ;; que l'accesseur `phys-chain-conf`. `*phys-cvh*` est, LUI, PAR MAILLON.
                           (let ((h (+ (* sc PHYS-COLS) ci)))
                             (set! (-> *phys-cfh* h) (+ 1 (-> *phys-cfh* h))))
-                          ;; [DECISION 1, critere revise 2026-08-18] Le decideur est LE PLUS PROFOND
-                          ;; VIOLEUR (res = dep - feff) ; la cle structurelle ne departage plus qu'un
-                          ;; res strictement egal. ATTENTION, ET C'EST MESURE : ce choix est INERTE
-                          ;; dans l'etat livre — `*phys-prio-off*` vaut 1 (NOTE-07 : l'arbitrage a
-                          ;; ete ARME une fois, il faisait passer `meshpen` positif sur 13 chaines)
-                          ;; et ses deux consommateurs exigent `(zero? *phys-prio-off*)`. Tableau
-                          ;; BIT-IDENTIQUE avant/apres (course du 18/08 09:31). Il ne corrige donc
-                          ;; PAS le `meshpen` de la structure a 2 maillons : cette attribution-la,
-                          ;; ecrite ici le 18/08 au matin, etait fausse et elle est retiree.
+                          ;; [NOTE-110] [DECISION 1, critere revise 2026-08-18] Le decideur est LE PLUS PROFOND -> jak-hd-physics-NOTES.md
                           (let ((key (phys-col-key sco cj))
                                 (rv  (- dep feff)))
                             (when (or (> rv bres)
@@ -1707,6 +1696,9 @@
                   ;; [NOTE-98] ARME, le controle positif LEVE l'exclusion : le compteur `selfcol` doit alor -> jak-hd-physics-NOTES.md
                   (let ((selfpair (and own (nonzero? *phys-self-inject*))))
                   (when selfpair (set! own #f))
+                  ;; [NOTE-109] L'ABLATION DU CYCLE 37 ETAPE 2, a zero en livraison.
+                  (when (and (nonzero? *phys-prox-off*) (phys-col-prox? slot cj cj2))
+                    (set! skip #t))
                   (when (and (not own) (not skip) (>= cj 0) (< (+ cj 1) nbone))
                     (phys-col-now! skel sco cj cj2 nbone ca cb)
                     ;; `floor0` contre le volume A SA POSE D'AUTEUR, `dep` contre sa position
@@ -1786,7 +1778,14 @@
                                 (set! (-> *phys-cpa* (+ pb 4)) (+ push (-> *phys-cpa* (+ pb 4))))
                                 (set! (-> *phys-cpa* (+ pb 5)) (+ 1.0 (-> *phys-cpa* (+ pb 5)))))
                               (when (= (-> *phys-cpa* pb) 1.0)
-                                (set! (-> *phys-cpa* (+ pb 6)) push)))
+                                (set! (-> *phys-cpa* (+ pb 6)) push))
+                              ;; [NOTE-109] LE CUMUL PAR BRANCHE — un AGREGAT, pas un maximum.
+                              (let ((qb (* 3 sc)))
+                                (set! (-> *phys-cpc* qb) (+ 1.0 (-> *phys-cpc* qb)))
+                                (set! (-> *phys-cpc* (+ qb 1)) (+ push (-> *phys-cpc* (+ qb 1))))
+                                (when (>= swo 34)
+                                  (set! (-> *phys-cpc* (+ qb 2))
+                                        (+ push (-> *phys-cpc* (+ qb 2)))))))
                             (set! (-> *phys-cpe* scl)
                                   (if (nonzero? (-> *phys-csim* sco)) PHYS-RST-BB PHYS-RST-CH))))
                         ;; [NOTE-29] ---------------------------------------------------------------- -> jak-hd-physics-NOTES.md
@@ -3757,17 +3756,7 @@
                                    (cz (-> *phys-cpu* tl z))
                                    (cl (sqrtf (+ (* cx cx) (+ (* cy cy) (* cz cz)))))
                                    ;; [NOTE-101] CYCLE 36 ETAPE 2 — L'INTENSITE, PAS LE CHEMIN.
-                                   ;; Sa §23 demande « local collision PRESSURE » : une INTENSITE.
-                                   ;; `cl` n'en est pas une — l'etape 1 l'a mesure : c'est la somme
-                                   ;; de 150 a 254 poussees petites et de meme sens accumulees sur
-                                   ;; les 45 balayages de la frame (psum/cl = 1.11 et 1.28), soit
-                                   ;; 4.4 et 5.0 METRES de chemin de correction en une frame. La
-                                   ;; PLUS GRANDE POUSSEE SEULE, elle, est une intensite : 404.7 et
-                                   ;; 262.4 u, de l'ordre de la penetration mesuree (390 / 374 u).
-                                   ;; LA DIRECTION RESTE CELLE DE `*phys-cpu*` (bien conditionnee,
-                                   ;; les poussees s'alignent) : seul le MODULE change de source.
-                                   ;; CE N'EST PAS UN SUPPRESSEUR : `PHYS-PRS-MAX` ne bouge pas, et
-                                   ;; sur une frame a UNE poussee `pmx` = `cl` au bit pres.
+                                   ;; [NOTE-106] Sa §23 demande « local collision PRESSURE » : une INTENSITE. -> jak-hd-physics-NOTES.md
                                    (pmx (-> *phys-cpa* (+ (* 7 tl) 1)))
                                    (pr0 (* PHYS-PRS-K (/ pmx b0f)))
                                    (prs (fmin PHYS-PRS-MAX pr0))
@@ -4502,11 +4491,36 @@
   ;; l'etat de contrainte de la frame precedente est oublie aussi : sinon la premiere frame de la
   ;; fenetre suivante compterait une bascule qui n'a pas eu lieu dans cette fenetre.
   (dotimes (i PHYS-SCL) (set! (-> *phys-flhas* i) 0))
+  ;; [NOTE-109] le cumul par branche vit le meme cycle que le reste du diagnostic : c'est ce qui
+  ;; rend les deux jambes d'un controle comparables sans qu'aucune ne herite de l'autre.
+  (dotimes (i (* 3 PHYS-SC)) (set! (-> *phys-cpc* i) 0.0))
   (none))
 
 ;; CONTROLE POSITIF DE L'AUTO-COLLISION : 1 = l'exclusion chaine <-> ses propres volumes est LEVEE.
 ;; Le compteur `selfcol` doit alors monter. Un zero structurel que rien ne peut faire monter ne
 ;; prouve rien — c'est la regle « tout zero exige un controle positif qui a tire ».
+(defun phys-cpc ((slot int) (chain int) (which int))
+  "LE CUMUL DE POUSSEES DE CONTACT DEPUIS LA DERNIERE REMISE A ZERO DE DIAGNOSTIC.
+   0 = NOMBRE de poussees (un compte, sans unite) ; 1 = somme de leurs MODULES (unites de jeu,
+   4096 = 1 m) ; 2 = la meme somme restreinte aux balayages 34 a 45, c'est-a-dire au groupe de
+   COLLISION SEULE (sans contrainte de longueur pour ramener le lien en arriere).
+   NATURE : un compte et deux longueurs, AGREGES sur toutes les frames de la jambe — pas des maxima
+   de fenetre. REPERE : le monde. LECTURE QUAND RIEN NE TOUCHE : les trois a zero, et le 0 sert de
+   DOMAINE aux deux autres."
+  (let ((sc (+ (* slot PHYS-CHAINS) chain)))
+    (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS)
+            (< which 0) (>= which 3))
+      0.0
+      (-> *phys-cpc* (+ (* 3 sc) which)))))
+
+(defun phys-prox-off-set! ((v int))
+  "ABLATION DE MESURE, 0 EN LIVRAISON : 1 retire les SPHERES PROXIMALES de la liste des obstacles.
+   Le cycle 35 a mesure qu'elles ne couvrent aucun sommet que la sphere distale ne couvre deja ;
+   cet interrupteur repond a la question a l'execution, sans toucher aux rayons — qui sont une
+   SURCHARGE DE L'OWNER que la gate TUNING protege."
+  (set! *phys-prox-off* v)
+  (none))
+
 (defun phys-self-inject-set! ((v int))
   (set! *phys-self-inject* v)
   (none))
