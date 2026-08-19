@@ -1,0 +1,66 @@
+================================================================================================
+VERDICT C35E1 — L'ATTRIBUTION DE `comex` (SPEC 22) A SES TROIS TERMES
+================================================================================================
+fenetres appariees PHYSCOMD/PHYSCOMW : 372   b0c = 602.0 u (lu dans la trace)
+
+M0  IDENTITE — tp + rp + dp = comex * b0c
+    residu max = 0.00017209 B0 sur 372 fenetres  (tolerance 0.001 B0)
+    residu moyen = 0.00005543 B0
+    -> CONFIRMEE
+
+M1  LE CLASSEMENT — PIRE FENETRE DE CHAQUE (chaine, pilotage), les trois termes du MEME echantillon
+    chaine    pilotage      comex(B0)      tp(u)      rp(u)      dp(u)  maillon  domine
+    chestL    updown          1.5370      331.4      407.4      186.5      l=1  [B] ROTATION
+    chestL    leftright       1.6389      383.0      422.2      181.5      l=1  [B] ROTATION
+    chestL    accel           1.7159      157.9      833.5       41.6      l=0  [B] ROTATION
+    chestL    jerk            1.5281      -38.6      742.9      215.7      l=0  [B] ROTATION
+    chestL    tilt            1.8529      408.1      510.7      196.7      l=1  [B] ROTATION
+    chestL    BASE-0stim      1.7486      407.7      462.0      182.9      l=1  [B] ROTATION
+    chestR    updown          1.6086       41.7      787.9      138.9      l=0  [B] ROTATION
+    chestR    leftright       1.5290      107.9      729.5       83.0      l=0  [B] ROTATION
+    chestR    accel           1.7900       26.3      873.8      177.6      l=0  [B] ROTATION
+    chestR    jerk            1.5727      137.2      684.2      125.4      l=0  [B] ROTATION
+    chestR    tilt            1.9097       71.5      907.8      170.4      l=0  [B] ROTATION
+    chestR    BASE-0stim      1.5553      141.4      662.8      132.1      l=0  [B] ROTATION
+    -> [A] domine 0 fois · [B] 12 fois · [C] 0 fois, sur 12 canaux
+    CRITERE GRAVE : « [A] est le plus grand sur au moins 10 des 12 » -> **REFUTEE** ([A] ne domine que 0 fois)
+
+    LE MEME CLASSEMENT SUR LES 372 FENETRES, pas seulement sur les pires :
+    [A] 31 (8.3 %) · [B] 340 (91.4 %) · [C] 1 (0.3 %)
+
+M2  LA PART DE [A] SUR LES DEUX CANAUX QUI PORTAIENT LES MAXIMA PUBLIES (tilt)
+    chestL    tilt : comex 1.8529 B0 = 1115.4 u · tp = 408.1 u soit 36.6 % (critere >= 60 %)
+    chestR    tilt : comex 1.9097 B0 = 1149.6 u · tp = 71.5 u soit 6.2 % (critere >= 60 %)
+    -> **REFUTEE**
+
+M3  LE TENSEUR — moyenne de |dp| sur les 372 fenetres (budget total de sa §22 = 0.40 B0)
+    moyennes en B0 :  |tp| 0.2328   |rp| 0.7714   |dp| 0.1761
+    maxima   en B0 :  |tp| 0.6950   |rp| 1.5079   |dp| 0.5306
+    -> **REFUTEE** — le tenseur est un porteur reel (critere : moyenne |dp| <= 0.10 B0)
+
+M5  BORNE SUR PAPIER DU TERME DE DEFORMATION (derivee AVANT la mesure : 1.22 B0)
+    max |dp| = 0.5306 B0  -> CONFIRMEE
+
+M4  LA LIGNE DE BASE PORTE-T-ELLE LE MEME MECANISME QUE LE PILOTAGE ?
+    part de chaque terme, moyennee sur les fenetres, BASE (sans pilotage) contre `jerk`
+    chestL    BASE  tp 0.249  rp 0.601  dp 0.150   |   jerk  tp 0.155  rp 0.687  dp 0.158
+              ecart de la part de tp = 0.094  (critere <= 0.15)
+    chestR    BASE  tp 0.200  rp 0.682  dp 0.118   |   jerk  tp 0.161  rp 0.691  dp 0.148
+              ecart de la part de tp = 0.039  (critere <= 0.15)
+    -> CONFIRMEE
+
+QUEL MAILLON PORTE LE MAXIMUM (colonne neuve `lk`, sur 372 fenetres)
+    l=0 : 329 fenetres (88.4 %)
+    l=1 : 43 fenetres (11.6 %)
+    Les deux maillons ecrivaient le MEME emplacement : sans cette colonne, l'attribution
+    ne designait aucune piece. Bras : l=0 -> 1.0817/1.0457 B0 · l=1 -> 0.8547/0.7765 B0.
+
+    ET LE CLASSEMENT DES TERMES, RESOLU PAR MAILLON :
+    l=0  [A] 28 · [B] 300 · [C] 1   moyennes B0 : |tp| 0.2046  |rp| 0.7842  |dp| 0.1757
+    l=1  [A] 3 · [B] 40 · [C] 0   moyennes B0 : |tp| 0.4483  |rp| 0.6735  |dp| 0.1799
+
+M6  L'INSTRUMENT EST-IL INERTE ?
+    32787 lignes `PHYS` hors PHYSCOMD/PHYSCOMDL, 0 differente(s) de la reference
+    -> CONFIRMEE
+
+================================================================================================
