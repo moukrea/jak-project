@@ -3796,3 +3796,29 @@ volumes incoherent (cycle 37 : les 12 derniers balayages ne portent aucune contr
 et poussent encore a 94-97 % de la moyenne de frame ; `skinpen` 0.142 m > `meshpen` 0.098 m, donc
 les capsules n'enveloppent pas le mesh). Interleaver est un ARBITRAGE entre deux contraintes qui se
 contredisent, pas une reconciliation. Le chantier suivant est l'ensemble de volumes.
+
+## [NOTE-118] `phys-bend-chain` REPOSE LE JOINT A LA LONGUEUR DU MODELE, PAS A LA COURANTE
+
+Regression MESUREE et introduite par [NOTE-117] dans la meme heure : `ROOM-STRETCH` max
+**0.0002/0.0003 -> 0.0594** (chestR, leftright, `assistant-lavatube-start-idle-b`), soit 1 couple
+(chaine, pilotage) au-dessus du plafond de 3 % que NOTE-45 publie. Sa regle est « un os ne
+s'allonge pas ».
+
+LA CAUSE, LUE DANS LE SOURCE. `phys-length-chain` projette sur la sphere de rayon `want` = |m|, le
+vecteur entre les positions ANIMEES du parent et du joint — la longueur que LE MODELE donne a cet os
+cette frame-ci. `phys-bend-chain` calcule EXACTEMENT le meme `m` (meme source, meme frame) et en
+tire `ml`, puis reposait le joint a `dl`, la distance COURANTE a l'attache. Bend traite l=0 puis
+l=1 : quand il deplace l=0, l'attache de l=1 bouge, donc le `dl` de l=1 mesure une autre longueur —
+et bend la GRAVAIT au lieu de la corriger. Appele une fois apres une passe de longueur c'etait sans
+effet ; appele 7 fois de plus, dont une en fin de frame sans passe de longueur derriere (NOTE-45 :
+le dernier bloc est de la collision SEULE, deliberement), l'ecart se compose.
+
+LE CORRECTIF EST DE TROIS JETONS : `dl` -> `ml` dans les trois ecritures de position. Aucune
+constante neuve ; `ml` est deja calcule dans le meme `let*`, depuis la meme source que `want`. Bend
+devient ce que l'owner a ecrit mot pour mot pour la famille A — « tourner autour de son ancre A
+LONGUEUR INVARIANTE » — au lieu d'une rotation qui conserve l'erreur de longueur qu'elle trouve.
+
+PORTEE. Le bloc reste gate par `(< adg2 (- adeg 0.01))` : sur les frames ou l'angle est DANS sa
+borne, bend n'ecrit rien et ne touche donc a aucune longueur. Ce n'est pas une contrainte de
+longueur permanente qui doublerait `phys-length-chain` ; c'est la meme rotation, posee sur le bon
+rayon.

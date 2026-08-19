@@ -1360,9 +1360,10 @@
                              (qx (/ px pl)) (qy (/ py pl)) (qz (/ pz pl)))
                         (set! (-> *phys-dg* (+ (* sc PHYS-DG) 7))
                               (+ (- adeg adg2) (-> *phys-dg* (+ (* sc PHYS-DG) 7))))
-                        (set! (-> *phys-px* scl) (+ bx (* dl (+ (* cc ux) (* ss qx)))))
-                        (set! (-> *phys-py* scl) (+ by (* dl (+ (* cc uy) (* ss qy)))))
-                        (set! (-> *phys-pz* scl) (+ bz (* dl (+ (* cc uz) (* ss qz))))))))))))))))
+                        ;; [NOTE-118] LONGUEUR INVARIANTE : `ml` (le modele), jamais `dl` (le courant). -> jak-hd-physics-NOTES.md
+                        (set! (-> *phys-px* scl) (+ bx (* ml (+ (* cc ux) (* ss qx)))))
+                        (set! (-> *phys-py* scl) (+ by (* ml (+ (* cc uy) (* ss qy)))))
+                        (set! (-> *phys-pz* scl) (+ bz (* ml (+ (* cc uz) (* ss qz))))))))))))))))
   (none))
 
 ;; [NOTE-102] ---------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
