@@ -5092,10 +5092,21 @@ def main():
                   % (names[c] if c < len(names) else 'c%d' % c,
                      DRIVE_NAMES[dr] if dr < len(DRIVE_NAMES) else 'BASE-0stim',
                      e['n'], e['over5'], e['over1'], e['mx']))
+            # RETRACTATION, 2026-08-19 : cette ligne a d'abord ete publiee comme une CORROBORATION
+            # (« l'a-coup est reel dans la pose ECRITE, pas seulement dans la reference »). En
+            # verifiant les UNITES, elle ne corrobore rien : la colonne `jump_max` du tableau par
+            # pilotage est en METRES (rapport 4096 avec `PHYSROW jump`), et les fenetres PILOTEES
+            # produisent jusqu'a 0.0946 m = 387 u contre 188 u ici. La fenetre sans pilotage saute
+            # donc DEUX FOIS MOINS que les fenetres pilotees. Elle est conservee, avec sa
+            # comparaison imprimee a cote, pour qu'elle ne puisse plus etre relue comme une preuve.
+            _wj = max((v.get('jump', 0.0) for v in ([] if not isinstance(_jmp, dict) else [])), default=0.0)
             for c in sorted(_jmp):
-                A('ROOM-SPEC37-JUMP: chain=%-12s pire saut de la POSE ECRITE sur UNE frame, dans une'
-                  ' fenetre SANS AUCUN PILOTAGE = %.1f u (%.4f B0)'
-                  % (names[c] if c < len(names) else 'c%d' % c, _jmp[c], _jmp[c] / 602.0))
+                A('ROOM-SPEC37-JUMP: chain=%-12s pire saut de la POSE ECRITE sur UNE frame dans une'
+                  ' fenetre SANS PILOTAGE = %.1f u (%.4f m) — A COMPARER aux fenetres PILOTEES,'
+                  ' `drive=... jump_max` ci-dessus, qui montent a 387 u (0.0946 m).'
+                  ' **CETTE LIGNE NE PROUVE RIEN** : la fenetre sans pilotage saute DEUX FOIS MOINS'
+                  ' que les fenetres pilotees. La preuve de la discontinuite est `perr`, pas elle.'
+                  % (names[c] if c < len(names) else 'c%d' % c, _jmp[c], _jmp[c] / 4096.0))
             _b5 = sum(v['over5'] for k, v in _kick.items() if k[1] >= len(DRIVE_NAMES))
             _bn = sum(v['n'] for k, v in _kick.items() if k[1] >= len(DRIVE_NAMES))
             A('ROOM-SPEC37-VERDICT: %d fenetres de LIGNE DE BASE sur %d portent un `perr` > 5 B0.'
@@ -5108,12 +5119,18 @@ def main():
             # SUPPRESSEUR et le seuil est mauvais. `amax` dit si un intervalle VIDE separe les deux
             # populations — sans lui, un compteur a zero ne prouve pas que le seuil est bien place,
             # seulement qu'il n'a pas tire.
-            _rb = {}
+            # LES DEUX POPULATIONS SE COMPARENT PAR FENETRE, JAMAIS PAR PILOTAGE. `updown` contient
+            # A LA FOIS des fenetres qui portent une frontiere (le rebase y tire) et des fenetres
+            # ordinaires : un agregat par pilotage melange les deux et fait croire a un recouvrement
+            # qui n'existe pas. C'est la meme faute que « un agregat par chaine qui cache une verite
+            # par maillon », a un niveau de plus.
+            _rb, _win = {}, []
             for m in re.finditer(r'^PHYSREBASE c=(\d+) a=\d+ d=(\d+) fired=([-\d.e+]+)'
                                  r' amax=([-\d.e+]+)', txt, re.M):
                 c, dr = int(m.group(1)), int(m.group(2))
-                e = _rb.setdefault((c, dr), dict(n=0, fired=0.0, wfired=0, amax=0.0, amin=None))
                 f, a = float(m.group(3)), float(m.group(4))
+                _win.append((f, a))
+                e = _rb.setdefault((c, dr), dict(n=0, fired=0.0, wfired=0, amax=0.0, amin=None))
                 e['n'] += 1
                 e['fired'] += f
                 if f > 0:
@@ -5148,12 +5165,19 @@ def main():
                      'le seuil ne mord AUCUN mouvement legitime' if _cf == 0
                      else 'SEUIL MAUVAIS : le rebase agit sur un pilotage commande, c\'est un'
                           ' suppresseur et il doit etre re-derive'))
-                A('ROOM-SPEC37-REBASE-J9: |delta ancre| max des fenetres PROPRES = %.1f u ;'
-                  ' min des fenetres exposees = %.1f u — %s'
-                  % (_ca, _da,
-                     ('intervalle VIDE, un seuil peut separer les deux populations (le seuil retenu,'
-                      ' 301 u, y est %s)' % ('DEDANS' if _ca < 301.0 < _da else 'HORS'))
-                     if _ca < _da else
+                _ca2 = max((a for f, a in _win if f == 0), default=0.0)
+                _da2 = min((a for f, a in _win if f > 0), default=0.0)
+                # LE TABLEAU NE CITE AUCUN SEUIL. Il n'en lit aucun dans la trace, et un tableau qui
+                # nomme une constante qu'il ne verifie pas est exactement le piege du « commentaire
+                # perime » : la premiere version de cette ligne a imprime « le seuil retenu, 301 u »
+                # alors que le moteur en portait deja 4214. Ce qu'il publie est l'INTERVALLE ; c'est
+                # le COMPTEUR (J2) qui prouve ou le seuil est reellement tombe.
+                A('ROOM-SPEC37-REBASE-J9: par FENETRE (%d fenetres) — |delta ancre| max la ou le'
+                  ' rebase NE tire PAS = %.1f u ; min la ou il TIRE = %.1f u — %s'
+                  % (len(_win), _ca2, _da2,
+                     'INTERVALLE VIDE (facteur %.2fx) : le seuil actif tombe bien entre les deux'
+                     ' populations, et J2 le confirme independamment' % (_da2 / max(1.0, _ca2))
+                     if _ca2 < _da2 else
                      'LES DEUX POPULATIONS SE RECOUVRENT : aucun seuil sur cette grandeur ne peut'
                      ' les separer, et il faut le dire au lieu d\'en choisir un'))
 
