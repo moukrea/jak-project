@@ -356,17 +356,22 @@
 ;; CONFISQUAIT : pourquoi le point LIBRE s'integre sans jamais etre projete, pourquoi sa borne
 ;; est celle du COM (35 % / 40 % B0) et non celle de l'apex, et quel residu de §23 subsiste.
 ;; Texte integral -> jak-hd-physics-NOTES.md
-(define *phys-cpx*  (new 'global 'array 'float PHYS-SC))   ;; §23 le point LIBRE, monde
-(define *phys-cpy*  (new 'global 'array 'float PHYS-SC))
-(define *phys-cpz*  (new 'global 'array 'float PHYS-SC))
-(define *phys-cqx*  (new 'global 'array 'float PHYS-SC))   ;; le meme, frame -1 (verlet)
-(define *phys-cqy*  (new 'global 'array 'float PHYS-SC))
-(define *phys-cqz*  (new 'global 'array 'float PHYS-SC))
-(define *phys-rok*  (new 'global 'array 'int32 PHYS-SC))   ;; 1 = le point libre est amorce
+;; [NOTE-80] PAR MAILLON DEPUIS LE CYCLE 32. Ces six tableaux etaient dimensionnes PAR CHAINE, donc
+;; le point libre de §23 n'existait que sur le maillon `rlk` : le DISTAL, qui pilote 43.5 % et
+;; 37.5 % de la chair, n'avait aucun troisieme degre de liberte. -> jak-hd-physics-NOTES.md
+(define *phys-cpx*  (new 'global 'array 'float PHYS-SCL))  ;; §23 le point LIBRE, monde, PAR MAILLON
+(define *phys-cpy*  (new 'global 'array 'float PHYS-SCL))
+(define *phys-cpz*  (new 'global 'array 'float PHYS-SCL))
+(define *phys-cqx*  (new 'global 'array 'float PHYS-SCL))  ;; le meme, frame -1 (verlet)
+(define *phys-cqy*  (new 'global 'array 'float PHYS-SCL))
+(define *phys-cqz*  (new 'global 'array 'float PHYS-SCL))
+(define *phys-rok*  (new 'global 'array 'int32 PHYS-SCL))  ;; 1 = le point libre est amorce
 (define *phys-rr*   (new 'global 'array 'float PHYS-SC))   ;; §23 elongation radiale, unites de jeu
-;; [NOTE-79] MIROIR PAR MAILLON de `*phys-rr*`, MESURE SEULE (aucun terme du solveur ne le lit). -> jak-hd-physics-NOTES.md
-(define *phys-rrl*  (new 'global 'array 'float PHYS-SCL))  ;; §23 la meme, PAR MAILLON, mesure seule
-(define *phys-rrm*  (new 'global 'array 'float PHYS-SC))   ;; |elongation|/B0 max sur la fenetre
+;; [NOTE-79] L'ELONGATION RADIALE PAR MAILLON. Depuis le cycle 32 ce n'est plus un miroir de mesure :
+;; c'est la valeur que LIT le solveur (terme `rdr` du tenseur de §38, plus bas). `*phys-rr*` ne
+;; garde que celle du maillon RACINE. -> jak-hd-physics-NOTES.md
+(define *phys-rrl*  (new 'global 'array 'float PHYS-SCL))  ;; §23 elongation radiale PAR MAILLON
+(define *phys-rrm*  (new 'global 'array 'float PHYS-SC))   ;; |elongation|/B0 max fenetre, TOUS maillons
 (define *phys-rrr*  (new 'global 'array 'float PHYS-SC))   ;; le meme AVANT la borne §22 (anti-saturation)
 ;; Frames ou la borne §22 du COM a effectivement mordu. Un limiteur qui mord en PERMANENCE ne
 ;; borne plus, il remplace la mesure par sa propre valeur — c'est ce qui vient d'arriver au canal
@@ -737,9 +742,9 @@
                     ;; violerait §9 des la premiere frame.
                     (set! (-> *phys-rr* sc) 0.0)
                     (dotimes (ll PHYS-LINKS)
-                      (set! (-> *phys-rrl* (+ (* sc PHYS-LINKS) ll)) 0.0))
+                      (set! (-> *phys-rrl* (+ (* sc PHYS-LINKS) ll)) 0.0)
+                      (set! (-> *phys-rok* (+ (* sc PHYS-LINKS) ll)) 0))
                     (set! (-> *phys-rrm* sc) 0.0)
-                    (set! (-> *phys-rok* sc) 0)
                     (set-vector! (-> *phys-vp* sc) 0.0 0.0 0.0 0.0)
                     (dotimes (ii 3)
                       (set! (-> *phys-dfs* (+ (* sc 3) ii)) 1.0))
@@ -2726,20 +2731,20 @@
                                            (+ rg (-> *phys-dg* (+ dgb 25))))
                                      (set! (-> *phys-dg* (+ dgb 27))
                                            (+ 1.0 (-> *phys-dg* (+ dgb 27))))))
-                                 ;; SPEC 23 — AMORCAGE DU POINT LIBRE, une seule fois par chaine.
+                                 ;; SPEC 23 — AMORCAGE DU POINT LIBRE, une seule fois par MAILLON.
                                  ;; Il part exactement de l'etat de l'apex : meme position, meme
                                  ;; vitesse verlet. Donc a la premiere frame l'elongation radiale
                                  ;; qu'il produit vaut ZERO, et §9 (« retour EXACT a la pose
                                  ;; d'auteur ») est preservee par construction et non par reglage.
-                                 (when (and (nonzero? (-> *phys-axan* sc)) (= l rlk)
-                                            (zero? (-> *phys-rok* sc)))
-                                   (set! (-> *phys-cpx* sc) (-> *phys-px* scl))
-                                   (set! (-> *phys-cpy* sc) (-> *phys-py* scl))
-                                   (set! (-> *phys-cpz* sc) (-> *phys-pz* scl))
-                                   (set! (-> *phys-cqx* sc) (-> *phys-qx* scl))
-                                   (set! (-> *phys-cqy* sc) (-> *phys-qy* scl))
-                                   (set! (-> *phys-cqz* sc) (-> *phys-qz* scl))
-                                   (set! (-> *phys-rok* sc) 1))
+                                 (when (and (nonzero? (-> *phys-axan* sc)) (>= l rlk)
+                                            (zero? (-> *phys-rok* scl)))
+                                   (set! (-> *phys-cpx* scl) (-> *phys-px* scl))
+                                   (set! (-> *phys-cpy* scl) (-> *phys-py* scl))
+                                   (set! (-> *phys-cpz* scl) (-> *phys-pz* scl))
+                                   (set! (-> *phys-cqx* scl) (-> *phys-qx* scl))
+                                   (set! (-> *phys-cqy* scl) (-> *phys-qy* scl))
+                                   (set! (-> *phys-cqz* scl) (-> *phys-qz* scl))
+                                   (set! (-> *phys-rok* scl) 1))
                                  ;; [NOTE-40] ---- INTEGRATION EN POSITION MONDE. Trois termes, et c'est TOUT : -> jak-hd-physics-NOTES.md
                                  ;; `rate` = le TAUX (2 zeta omega dt), `kd` la RETENTION qu'il
                                  ;; produit sur une frame. Voir NOTE-50 : c'est `e^-rate`, pas
@@ -2826,7 +2831,11 @@
                                         (vy  (/ (- (-> *phys-py* scl) (-> *phys-qy* scl)) fns))
                                         (vz  (/ (- (-> *phys-pz* scl) (-> *phys-qz* scl)) fns))
                                         ;; [NOTE-59] ---- SPEC 23 : LE TROISIEME DEGRE DE LIBERTE ---------- -> jak-hd-physics-NOTES.md
-                                        (rlo (if (and (nonzero? axo) (= l rlk) (nonzero? hasf)) 1 0))
+                                        ;; `(>= l rlk)` DEPUIS LE CYCLE 32, et c'etait `(= l rlk)` :
+                                        ;; sa §23 donne un troisieme degre de liberte au TISSU, pas
+                                        ;; au premier maillon. Le distal en etait prive, et sa serie
+                                        ;; radiale etait identiquement nulle (0 sur 150, 6 canaux).
+                                        (rlo (if (and (nonzero? axo) (>= l rlk) (nonzero? hasf)) 1 0))
                                         ;; §22 SUR LE COM, ET C'EST UNE AUTRE BANDE QUE CELLE DE
                                         ;; L'APEX : « Breast COM: normal <= 35 % B0, hard transient
                                         ;; <= 40 % B0 » contre « distal/apex: 42 % / 50 % ». Meme
@@ -2834,12 +2843,12 @@
                                         ;; spec en donne deux.
                                         (ckn (* 0.35 b0e))
                                         (ccp (* 0.05 b0e))
-                                        (cpx (-> *phys-cpx* sc))
-                                        (cpy (-> *phys-cpy* sc))
-                                        (cpz (-> *phys-cpz* sc))
-                                        (cvx (/ (- cpx (-> *phys-cqx* sc)) fns))
-                                        (cvy (/ (- cpy (-> *phys-cqy* sc)) fns))
-                                        (cvz (/ (- cpz (-> *phys-cqz* sc)) fns)))
+                                        (cpx (-> *phys-cpx* scl))
+                                        (cpy (-> *phys-cpy* scl))
+                                        (cpz (-> *phys-cpz* scl))
+                                        (cvx (/ (- cpx (-> *phys-cqx* scl)) fns))
+                                        (cvy (/ (- cpy (-> *phys-cqy* scl)) fns))
+                                        (cvz (/ (- cpz (-> *phys-cqz* scl)) fns)))
                                    (dotimes (ss ns)
                                      (let ((fx 0.0) (fy 0.0) (fz 0.0))
                                        (when (nonzero? hasf)
@@ -2944,12 +2953,12 @@
                                            (set! cpz (+ cpz cvz))))))
                                    ;; [NOTE-62] L'ELONGATION RADIALE : LA COMPOSANTE DU POINT LIBRE LE LONG DE -> jak-hd-physics-NOTES.md
                                    (when (nonzero? rlo)
-                                     (set! (-> *phys-cpx* sc) cpx)
-                                     (set! (-> *phys-cpy* sc) cpy)
-                                     (set! (-> *phys-cpz* sc) cpz)
-                                     (set! (-> *phys-cqx* sc) (- cpx (* fns cvx)))
-                                     (set! (-> *phys-cqy* sc) (- cpy (* fns cvy)))
-                                     (set! (-> *phys-cqz* sc) (- cpz (* fns cvz)))
+                                     (set! (-> *phys-cpx* scl) cpx)
+                                     (set! (-> *phys-cpy* scl) cpy)
+                                     (set! (-> *phys-cpz* scl) cpz)
+                                     (set! (-> *phys-cqx* scl) (- cpx (* fns cvx)))
+                                     (set! (-> *phys-cqy* scl) (- cpy (* fns cvy)))
+                                     (set! (-> *phys-cqz* scl) (- cpz (* fns cvz)))
                                      (let* ((mx  (- (-> *phys-px* scl) ax))
                                             (my  (- (-> *phys-py* scl) ay))
                                             (mz  (- (-> *phys-pz* scl) az))
@@ -2987,8 +2996,15 @@
                                             (drr (if (>= dr0 0.0)
                                                    (phys-softmin dr0 rcap)
                                                    (- 0.0 (phys-softmin (- 0.0 dr0) rcap)))))
-                                       (set! (-> *phys-rr* sc) drr)
-                                       ;; [NOTE-79] le meme `drr`, range PAR MAILLON.
+                                       ;; `*phys-rr*` GARDE LA VALEUR DU MAILLON RACINE ET RIEN
+                                       ;; D'AUTRE : `phys-chain-radial` la publie depuis le cycle 10,
+                                       ;; et laisser le distal l'ecraser changerait en silence ce que
+                                       ;; designe un nombre deja publie. Le distal vit dans
+                                       ;; `*phys-rrl*`. Les trois agregats qui suivent (`rrr`, `rrm`,
+                                       ;; `*phys-rrsat*`) portent, eux, TOUTE la chaine : un maximum
+                                       ;; de §22 qui ignorerait un maillon ne bornerait pas le tissu.
+                                       (when (= l rlk)
+                                         (set! (-> *phys-rr* sc) drr))
                                        (set! (-> *phys-rrl* scl) drr)
                                        (when (> (fabs (- dr0 drr)) 0.000001)
                                          (set! *phys-rrsat* (+ *phys-rrsat* 1)))
@@ -3725,7 +3741,10 @@
                                                  (set! (-> *phys-twm* sc) (fabs rel))))))))))))))
                           ;; [NOTE-60] (f) LA MATRICE, BATIE UNE FOIS PAR CHAINE ET PAR FRAME. -> jak-hd-physics-NOTES.md
                           (let* ((gb  (* sc 3))
-                                 (rdr (* PHYS-DYN-K (/ (-> *phys-rr* sc) b0f)))
+                                 ;; PAR MAILLON depuis le cycle 32 : `*phys-rr*` (par chaine) donnait
+                                 ;; au distal l'elongation de la RACINE. C'est le seul terme du
+                                 ;; solveur qui lit le degre de liberte de §23.
+                                 (rdr (* PHYS-DYN-K (/ (-> *phys-rrl* tl) b0f)))
                                  (dx  (+ (* PHYS-DYN-K (/ (-> *phys-ox* tl) b0f))
                                          (* rdr (-> *phys-ux* tl))))
                                  (dy  (+ (* PHYS-DYN-K (/ (-> *phys-oy* tl) b0f))
@@ -4281,10 +4300,11 @@
 
 (defun phys-chain-radial ((slot int) (chain int) (which int))
   "SPEC 23 — LE TROISIEME DEGRE DE LIBERTE, LU A L'EXECUTION. Voir la note de `*phys-rr*`.
-   which 0 = elongation radiale du tissu en unites de jeu (signee) ;
+   which 0 = elongation radiale du MAILLON RACINE en unites de jeu (signee) — le distal se lit par
+             `phys-chain-radial-link` ;
          1 = la meme, rapportee a B0 (SPEC 6) — c'est la grandeur que borne sa SPEC 22
              (« local tissue elongation: common 5-15 %, large 15-21 %, exceptional 21-25 % ») ;
-         2 = son maximum absolu sur la fenetre de mesure courante ;
+         2 = son maximum absolu sur la fenetre, SUR TOUS LES MAILLONS ARMES (cycle 32) ;
          3 = LE MEME MAXIMUM, MAIS AVANT LA BORNE §22 — sans lui, un canal colle a sa borne est
              indiscernable d'un canal qui l'effleure, et c'est exactement la confusion qui a laisse
              passer un plafond de deformation atteint sur les dix fenetres ;
@@ -4308,8 +4328,8 @@
 
 (defun phys-chain-radial-link ((slot int) (chain int) (link int) (which int))
   "SPEC 23 — l'elongation radiale du MAILLON `link` (which 0 = unites de jeu, 1 = rapportee a B0).
-   Version RESOLUE PAR MAILLON de `phys-chain-radial`, qui lit un tableau par CHAINE et ne rend donc
-   que le dernier maillon. NATURE deformation signee · REPERE axe de l'os dans le triedre de l'ANCRE
+   Version RESOLUE PAR MAILLON de `phys-chain-radial`, qui ne rend que la RACINE. C'est aussi l'etat
+   que le solveur lit. NATURE deformation signee · REPERE axe de l'os dans le triedre de l'ANCRE
    (SPEC 7) · LIGNE DE BASE 0.0 a la pose d'auteur (SPEC 9). [NOTE-79] -> jak-hd-physics-NOTES.md"
   (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS)
           (< link 0) (>= link PHYS-LINKS) (< which 0) (> which 1))

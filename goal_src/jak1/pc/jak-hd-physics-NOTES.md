@@ -2757,3 +2757,46 @@ plante pas, ne previent pas, et rend une serie parfaitement plausible : celle du
 Le controle qui l'attrape tient en une ligne et il est desormais dans la sonde : **deux series qui
 portent des index differents doivent DIFFERER**. Si `max|l0 - l1| = 0` sur toute une course, le
 champ d'index est decoratif.
+
+## NOTE-80 — LE TROISIEME DEGRE DE LIBERTE DE SA §23 N'EXISTAIT QUE SUR UN MAILLON
+
+Sa §23 dit qu'« un seul ressort a l'apex est INSUFFISANT » : le tissu a besoin d'un degre de liberte
+RADIAL, celui que la contrainte de longueur confisque a une chaine d'os. Le moteur le porte par un
+POINT LIBRE — une particule qui s'integre avec la meme cible, la meme raideur anisotrope, la meme
+trainee et le meme pilotage que l'apex, mais que rien ne projette. Sa composante le long de l'os,
+moins la longueur d'os, EST l'elongation radiale (`*phys-rr*`), et c'est le seul canal par lequel
+l'axe VERTICAL de sa §24 peut se mesurer : l'os de poitrine est vertical a 84.5 %, donc la
+composante verticale de la deviation POSITIONNELLE est nulle par construction.
+
+**CE QUI N'ALLAIT PAS.** Les six tableaux d'etat de ce point libre (`*phys-cp{x,y,z}*`,
+`*phys-cq{x,y,z}*`) et son drapeau d'amorcage `*phys-rok*` etaient dimensionnes `PHYS-SC` — PAR
+CHAINE. Le bloc d'integration etait donc garde par `(= l rlk)` : un seul point libre par chaine,
+celui du maillon racine. Depuis l'injection du second os (cycle 30), le maillon DISTAL pilote 43.5 %
+(`lBooc`) et 37.5 % (`rBooc`) des sommets de la chair — et il n'avait aucun troisieme degre de
+liberte. Mesure du cycle 31 : sa serie radiale etait identiquement nulle, 0 valeur non nulle sur
+150 echantillons, sur les SIX canaux (2 chaines x 3 axes).
+
+Ce n'etait donc pas un emetteur qui manquait, c'etait le MECANISME. Un emetteur ne peut pas publier
+une grandeur que le solveur ne calcule pas — et c'est pour ca que les 4 canaux verticaux de sa §24
+etaient classes NON MESURABLES au tableau de conformite du cycle 31.
+
+**LE CORRECTIF.** Les sept tableaux passent en `PHYS-SCL`, la garde devient `(>= l rlk)`, et
+l'amorcage se fait UNE FOIS PAR MAILLON sur l'etat de SON apex — ce qui preserve §9 par
+construction : a la premiere frame l'elongation vaut exactement 0 sur chaque maillon, pas seulement
+sur la racine.
+
+**ET LE CONSOMMATEUR SUIT, SINON LE DEGRE DE LIBERTE SERAIT DECORATIF.** Le seul terme du solveur
+qui lit ce canal est `rdr`, dans le tenseur d'etirement dynamique de sa §38. Il lisait `*phys-rr*`
+(par chaine) pour TOUS les maillons : le distal se deformait donc avec l'elongation de la racine.
+Il lit maintenant `*phys-rrl*` (par maillon). C'est ce qui fait de ce changement une modification de
+PHYSIQUE et pas d'instrument, et c'est ce qui evite le piege `declared-but-never-selected` du
+registre : un mecanisme arme dont aucun consommateur ne lit la sortie n'est pas arme.
+
+**CE QUI RESTE PAR CHAINE, DELIBEREMENT.** `*phys-rr*` garde la valeur du maillon RACINE et rien
+d'autre : `phys-chain-radial` la publie depuis le cycle 10, et laisser le distal l'ecraser aurait
+change en silence ce que designe un nombre deja publie — exactement le defaut que NOTE-79 vient de
+corriger, retourne. En revanche les trois AGREGATS (`*phys-rrr*` avant borne, `*phys-rrm*` maximum
+de fenetre, `*phys-rrsat*` frames ou la borne de §22 a mordu) couvrent desormais TOUTE la chaine :
+un maximum de §22 qui ignorerait un maillon ne bornerait pas le tissu, il bornerait un tiers de lui.
+Ce changement de PORTEE est ecrit dans la docstring de l'accesseur et dans le rapport du cycle 32 ;
+il n'a pas a etre devine en comparant deux tableaux.

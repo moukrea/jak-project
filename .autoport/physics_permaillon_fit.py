@@ -386,6 +386,66 @@ def main():
         print("      (`jak-hd-physics.gc:2829`, `(= l rlk)`). Un emetteur ne peut pas publier une")
         print("      grandeur que le solveur ne calcule pas.")
 
+    # --- LE FIT DU CANAL RADIAL, PAR MAILLON — SPEC 24 VERTICALE ------------------------------
+    # Il ne s'ecrit QUE si le controle ci-dessus a montre les deux maillons VIVANTS. Ajuster une
+    # serie identiquement nulle rend un residu et une frequence parfaitement formates : c'est ainsi
+    # qu'un maillon mort se publie comme une conformite.
+    # BANDE : celle de l'axe VERTICAL [2.10, 2.50] quelle que soit la fenetre d'excitation, comme
+    # `ROOM-AXFIT-RAD` (physics_room_table.py:4493-4520) — le canal radial EST le mode vertical
+    # (l'os de poitrine est vertical a 84.5 %), la fenetre ne fait que l'exciter.
+    print()
+    print("== FIT DU CANAL RADIAL PAR MAILLON — LE VERDICT VERTICAL DE SPEC 24")
+    print("   ESTIMATEUR : le meme `grid_fit` que les deux blocs ci-dessus (meme skip=%d, meme"
+          % SKIP)
+    print("   grille, meme intervalle a %.2fx le residu minimum). BANDE : [%.2f, %.2f] (verticale),"
+          % (CI_FACTOR, BAND['v'][0], BAND['v'][1]))
+    print("   cible %.2f. `ax` designe la FENETRE d'excitation, pas une projection : cette serie"
+          % NOMINAL['v'])
+    print("   n'a qu'une composante, l'elongation radiale du tissu.")
+    _AXW = {0: 'v', 1: 'ap', 2: 'lat'}
+    print("   %-8s %-4s %-6s %5s %7s %7s %6s %7s   %s"
+          % ('chaine', 'l', 'fenetre', 'n', 'f(Hz)', 'df(Hz)', 'zeta', 'residu', 'verdict SPEC 24-v'))
+    radrows = []
+    for c in sorted({k[0] for k in rad}):
+        for ax in sorted({k[2] for k in rad if k[0] == c}):
+            for l in sorted({k[1] for k in rad if k[0] == c and k[2] == ax}):
+                sr = rad.get((c, l, ax))
+                nzs = 0 if not sr else sum(1 for x in sr if x != 0.0)
+                if not sr or len(sr) <= SKIP + 20 or nzs == 0:
+                    print("   %-8s %-4d %-6s %5s   -- %s"
+                          % (CHAIN_NAME.get(c, c), l, _AXW.get(ax, ax),
+                             0 if not sr else len(sr),
+                             'serie absente ou trop courte' if not sr or len(sr) <= SKIP + 20
+                             else 'serie IDENTIQUEMENT NULLE : le degre de liberte n\'est pas arme '
+                                  'sur ce maillon, aucun fit ne se publie'))
+                    continue
+                x = sr[SKIP:]
+                g = grid_fit(x)
+                if g is None:
+                    print("   %-8s %-4d %-6s %5d   -- serie plate, aucun mode"
+                          % (CHAIN_NAME.get(c, c), l, _AXW.get(ax, ax), len(x)))
+                    continue
+                fn, zeta, res, flo, fhi = g
+                df = 0.5 * (fhi - flo)
+                v = verdict(fn, res, df, 'v', zeta)
+                print("   %-8s %-4d %-6s %5d %7.3f %7.3f %6.2f %7.3f   %s"
+                      % (CHAIN_NAME.get(c, c), l, _AXW.get(ax, ax), len(x), fn, df, zeta, res, v))
+                radrows.append(dict(c=c, l=l, ax=_AXW.get(ax, ax), fn=fn, df=df, zeta=zeta,
+                                    res=res, v=v))
+    # LE DELTA RACINE/DISTAL, EXPLICITEMENT — c'est la prediction I3 du cycle 32, et elle ne doit
+    # pas se lire en soustrayant deux lignes a la main.
+    _d = {(r['c'], r['ax'], r['l']): r for r in radrows}
+    if _d:
+        print("   -- ecart racine/distal (prediction I3 du cycle 32 : <= 0.20 Hz) --")
+        for c in sorted({k[0] for k in _d}):
+            for axn in ('v', 'ap', 'lat'):
+                a, b = _d.get((c, axn, 0)), _d.get((c, axn, 1))
+                if not a or not b:
+                    continue
+                print("   %-8s fenetre=%-4s  l0=%.3f  l1=%.3f  |ecart|=%.3f Hz  %s"
+                      % (CHAIN_NAME.get(c, c), axn, a['fn'], b['fn'], abs(a['fn'] - b['fn']),
+                         'DANS I3' if abs(a['fn'] - b['fn']) <= 0.20 else 'HORS I3'))
+
     # --- LA CONFRONTATION DES DEUX FENETRES : c'est elle qui mesure le biais de stimulus --------
     print()
     print("== BIAIS DE STIMULUS — LES DEUX FENETRES SUR LES MEMES CANAUX")

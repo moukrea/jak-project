@@ -103,7 +103,10 @@ OG_PHYS_ROOM=1 OG_PHYS_ROOM_DELAY="${OG_PHYS_ROOM_DELAY:-600}" \
 GKPID=$!
 echo "gk pid=$GKPID  log=$LOG"
 
-DEADLINE="${ROOM_TIMEOUT:-420}"
+# 2026-08-19 (cycle 31, section 7 bis) : le plafond etait a 420 s alors que la course atteint
+# `PHYSEND` a 758 s. Deux courses d'ablation ont ete TRONQUEES sans que rien ne le dise, et
+# j'ai attribue le FAIL a un comportement normal sur un `grep` faux. 1500 s laisse la marge.
+DEADLINE="${ROOM_TIMEOUT:-1500}"
 ok=0
 for i in $(seq 1 "$DEADLINE"); do
   if ! kill -0 "$GKPID" 2>/dev/null; then
