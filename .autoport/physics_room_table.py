@@ -4901,6 +4901,49 @@ def main():
               % (names[c] if c < len(names) else 'c%d' % c, DRIVE_NAMES[dr], e['rrm'],
                  _comband(e['rrm']), _RAD_K * e['rrm'], _radband(_RAD_K * e['rrm']),
                  e['n'], _sx, _mk))
+        # ---- ROOM-RAD-LINK : LES MEMES TROIS GRANDEURS, RESOLUES PAR MAILLON (cycle 33) -------
+        # `rrr` ci-dessus est un maximum SUR LA CHAINE. Il vaut 1.42 B0 pour un plafond de 0.40 sans
+        # dire QUEL maillon sature, et les deux remedes candidats de SPEC 22 (borne par maillon, ou
+        # raideur radiale du distal) sont indiscernables tant qu'on l'ignore. Meme classe de defaut
+        # que `PHYSRINGCX` au cycle 31 : un agregat par chaine qui cache une verite par maillon.
+        # NATURE deux maximums de FENETRE d'une deformation / B0 + un COMPTE de frames · REPERE axe
+        # de l'os du MAILLON dans le triedre de l'ANCRE · ABSENT 0.0 sur les trois quand le maillon
+        # n'a pas de degre de liberte radial arme (l'etat du distal avant le cycle 32).
+        _radl = {}
+        for m in re.finditer(r'^PHYSRADL c=(\d+) d=(\d+) l=(\d+) rrm=([-\d.e+]+)'
+                             r' rrr=([-\d.e+]+) sat=([-\d.e+]+)', txt, re.M):
+            c, dr, l = int(m.group(1)), int(m.group(2)), int(m.group(3))
+            if dr >= len(DRIVE_NAMES):
+                continue
+            e = _radl.setdefault((c, dr, l), dict(rrm=0.0, rrr=0.0, sat=0.0))
+            e['rrm'] = max(e['rrm'], float(m.group(4)))
+            e['rrr'] = max(e['rrr'], float(m.group(5)))
+            e['sat'] = max(e['sat'], float(m.group(6)))
+        A('')
+        if not _radl:
+            A('ROOM-RAD-LINK: ABSENT (aucune ligne PHYSRADL dans la trace) — la saturation de SPEC 22')
+            A('   n\'est PAS attribuable a un maillon sur cette course, et rien n\'est substitue.')
+        else:
+            A('-- ROOM-RAD-LINK : SPEC 22 PAR MAILLON — QUEL MAILLON SATURE ? -------------------')
+            A('   `rrr` est l\'elongation AVANT la borne, `rrm` APRES, `sat` les frames ou elle a mordu.')
+            A('   Plafond dur de SPEC 22 : 0.40 B0. `rrr` >> `rrm` = le maillon est REMPLACE par sa borne.')
+            for (c, dr, l) in sorted(_radl):
+                e = _radl[(c, dr, l)]
+                _ex = e['rrr'] - e['rrm']
+                A('ROOM-RAD-LINK: chain=%-12s drive=%-10s l=%d  rrm=%.4f  rrr=%.4f  %s  sat=%d fr'
+                  % (names[c] if c < len(names) else 'c%d' % c, DRIVE_NAMES[dr], l,
+                     e['rrm'], e['rrr'],
+                     ('BORNEE (exces %.4f B0, x%.2f le plafond)' % (_ex, e['rrr'] / 0.40))
+                     if _ex > 0.0001 else 'libre                              ',
+                     int(e['sat'])))
+            # LE MAILLON RESPONSABLE, NOMME PLUTOT QUE DEDUIT PAR LE LECTEUR.
+            for c in sorted({k[0] for k in _radl}):
+                _w = max(((k[2], v['rrr'], DRIVE_NAMES[k[1]])
+                          for k, v in _radl.items() if k[0] == c), key=lambda t: t[1])
+                A('ROOM-RAD-LINK-WORST: chain=%-12s maillon=%d  rrr=%.4f B0 (pilotage %s)  = x%.2f'
+                  ' le plafond dur de SPEC 22'
+                  % (names[c] if c < len(names) else 'c%d' % c, _w[0], _w[1], _w[2], _w[1] / 0.40))
+        A('')
         for c in sorted({c for (c, _d) in _rad}):
             _nm = names[c] if c < len(names) else 'c%d' % c
             _per = {DRIVE_NAMES[d]: _rad[(c, d)]['rrm']
