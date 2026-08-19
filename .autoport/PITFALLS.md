@@ -386,3 +386,17 @@ Verrou : il est appele a CHAQUE publication reussie depuis le demon de push, don
 build par build. Regle generale : un outil qui compare a un etat precedent doit tourner sur CHAQUE
 evenement, sinon il ne mesure pas un delta mais un cumul, et il l'attribue au dernier venu.
 Voisin de `stale-artifacts` et de `floor-ratchet-mirror`.
+
+GUARD spec-line-quoted-from-memory SPEC-breast-softbody.md §22 "Local tissue elongation"
+**J'ai bati un theoreme sur une ligne de spec qui n'existe pas.** Le cycle 40 a publie qu'il
+fallait ×5,23 de chair simulee pour tenir « 25 % d'elongation d'ORGANE a 25 % de deformation
+locale ». La spec ne demande nulle part 25 % d'elongation d'organe : §22 dit « **Local** tissue
+elongation » sur ses deux lignes, et l'exigence organe est §11 (HangingLengthScale = 1.23), portee
+par le tenseur. J'avais multiplie un plafond LOCAL par la longueur de l'ORGANE — echange de
+denominateur — et le theoreme reclamait de l'etirement la ou la MEME section interdit en gras que
+l'excursion vienne de l'etirement (« Translation, rotation and redistribution shall account for
+most of the excursion »). Annonce a l'owner comme un fait, et le chantier qui en decoulait
+(allonger la chaine) etait nuisible : ajouter des noeuds FAIT BAISSER la couverture (38 % -> 28 %).
+Verrou : avant de deduire quoi que ce soit d'une ligne de la spec, la RELIRE et **citer son texte
+exact dans le meme paragraphe**. Une ligne resumee de memoire n'est pas une ligne de la spec.
+Voisin de `invented-owner-approval` : la meme faute, appliquee au texte au lieu de la parole.

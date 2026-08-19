@@ -10,6 +10,48 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
+## 2026-08-19 20:50 — JE RETIRE LA ×5,2. J'AI CITE UNE LIGNE QUE LA SPEC NE CONTIENT PAS.
+
+Le cycle 45 refute mon theoreme du cycle 40, et le texte lui donne raison. Verifie mot pour mot :
+
+  §22 : « **Local** tissue elongation: common 5-15%, large 15-21%, exceptional 21-25% »
+        « Absolute stretch clamp: 25% »
+
+Les deux lignes sont LOCALES. **Il n'existe aucune ligne « elongation d'ORGANE 21-25 % ».**
+L'exigence au niveau de l'organe est §11 (« Root-to-apex length: +18 to +26%,
+HangingLengthScale = 1.23 »), portee par le tenseur de deformation, fermee au cycle 27.
+
+Mon theoreme multipliait un plafond LOCAL par la longueur de l'ORGANE : **echange de
+denominateur**. Et il exigeait exactement ce que la meme section interdit en gras :
+
+  « **Large apex displacement shall not imply equally large tissue extension.** Translation,
+    rotation and redistribution shall account for most of the excursion. »
+
+Donc j'ai reclame de l'etirement la ou la spec reclame de la translation et de la rotation.
+
+**CONSEQUENCES, TOUTES A MA CHARGE :**
+  - La ×5,2 est RETIREE. Le chantier « allonger la chaine de chair a 5-6 articulations » est
+    ANNULE — et il etait nuisible : le banc du cycle 45 mesure que l'ajout de noeuds FAIT BAISSER
+    la couverture (N=2 : 38,0 % -> N=6 : 28,0 %), et la barre des 30 % ne tient qu'a deux os.
+  - SCOPE-SERIAL 8 reste valide sur son autre moitie : le rig peut etre modifie si la spec
+    l'exige. Ce qui tombe, c'est la RAISON que j'avais donnee de le modifier.
+  - J'ai annonce la ×5,2 a l'owner comme un fait etabli (« la spec ne bouge pas, c'est la
+    geometrie qui suit »). Je le lui corrige directement, pas en note de bas de page.
+
+**LE VRAI DEFAUT, LUI, EST MESURE (cycle 45, par intervention, stimulus identique) :**
+le maillon de chair rend 16,647 / 16,647 / 16,655 / 16,651 / 16,641 / 16,642 deg sur six
+pilotages qui varient de ×38,9 — une CONSTANTE a quatre decimales, quand sa propre demande varie
+de ×4,16. Cause : le plafond d'angle est derive de l'os de la RACINE (1040,5 u, le levier) et
+applique a TOUS les maillons ; sur l'os de chair (140,4 u) il serre 7,4× plus. §21 prescrit la
+saturation sur la COMBINAISON, le moteur sature maillon par maillon.
+**C'est ca, « ca suit aucune logique » et « c'est du pudding » : une sortie constante.**
+Non corrige : l'ablation double la penetration (+156 % / +127 %), la borne porte la collision.
+C'est le chantier, a la place de la ×5,2.
+
+**REGLE.** Avant de deduire un theoreme d'une ligne de la spec, la RELIRE et citer son texte
+exact dans le meme paragraphe. Une ligne resumee de memoire n'est pas une ligne de la spec.
+
+
 ## 2026-08-19 20:25 — « LE RESTE ON L'IGNORE » : APPLIQUE, ET CA A TROUVE UN VRAI DEFAUT
 
 Verbatim : « le reste on l'ignore, seule la spec compte pour les seins de Keira. »
