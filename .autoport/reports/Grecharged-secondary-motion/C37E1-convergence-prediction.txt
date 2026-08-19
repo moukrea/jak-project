@@ -1,0 +1,128 @@
+DIRECTIVES vb249967379
+
+PREDICTIONS DU CYCLE 37 ETAPE 1 — LA BOUCLE DE CONTRAINTES CONVERGE-T-ELLE, OUI OU NON ?
+Gravees AVANT que l'instrument existe. Perimetre : Grecharged-secondary-motion, KEIRA / POITRINE
+SEULE (ordre owner 2026-08-14 07:30). Branche physics-keira-clean.
+
+================================================================================================
+D'ABORD, JE CORRIGE UNE SUR-INTERPRETATION DE MON PROPRE RAPPORT DU CYCLE 36
+================================================================================================
+L'etape 1 du cycle 36 a mesure `lsw = 45/45` : une poussee de contact tire encore au 45e et dernier
+balayage de la frame. J'en ai conclu, en tete du rapport, « **LA BOUCLE NE CONVERGE PAS** ».
+
+**CE CRITERE EST TENU MAIS CETTE CONCLUSION VA PLUS LOIN QUE LA MESURE.** `lsw` compte le dernier
+balayage ou une poussee est NON NULLE ; il ne dit RIEN de son AMPLITUDE. Une boucle qui converge
+proprement peut parfaitement rendre `lsw = 45` avec une derniere poussee de 0.01 u — un residu de
+flottant, pas un desaccord. Le critere P4 disait `lsw >= 40` et il est tenu ; l'interpretation
+« la boucle ne converge pas » demande une grandeur que je n'ai pas mesuree.
+C'est exactement la faute que le contrat nomme : **un compteur d'evenements ne mesure pas une
+amplitude.** Je l'ai commise sur ma propre mesure, une etape apres l'avoir evitee sur `prsr`.
+Cette etape mesure l'amplitude, et si elle me contredit je le publierai en tete.
+
+================================================================================================
+LA STRUCTURE DE LA FRAME, LUE DANS LE CODE
+================================================================================================
+Entre la remise a zero de `*phys-cpu*` (:3121) et la lecture du tenseur, par chaine et par frame :
+
+    appels  1 a  8   `phys-length-chain` PUIS `phys-collide-chain`   -> balayages  1 a 24
+    appels  9 a 11   `phys-length-chain` PUIS `phys-collide-chain`   -> balayages 25 a 33
+    appels 12 a 15   `phys-collide-chain` SEULE, sans contrainte     -> balayages **34 a 45**
+    (entre les groupes 1 et 2 : `phys-bend-chain` puis `phys-cap-ang!`)
+
+**LE TROISIEME GROUPE EST LE TEST.** Douze balayages de COLLISION SEULE, sans aucune contrainte de
+longueur pour tirer le lien en arriere. Si le lien y est encore repousse de facon significative,
+alors ce n'est pas la longueur qui l'y ramene : **c'est l'ensemble des volumes lui-meme qui est
+inconsistant** — sortir d'un volume fait entrer dans un autre — et aucun nombre de balayages ne le
+resoudra. Si au contraire les poussees s'y eteignent, la boucle converge et mon `lsw = 45` n'etait
+qu'un residu.
+
+Ce qui rend la question urgente, et c'est deja mesure : la penetration RESIDUELLE apres les 45
+balayages vaut **0.0983 m (chestL) et 0.0900 m (chestR)** contre le mesh, soit 402.5 u et 368.6 u.
+Et `skinpen` — la penetration mesuree contre la SURFACE du mesh — vaut **0.1418 et 0.1428 m**, soit
+plus que `meshpen`. Le solveur pousse 150 a 254 fois par frame et le lien reste dedans.
+
+================================================================================================
+LES FAITS DE DEPART — MESURES DANS `keira-room-x86.C36E2-REF.log` ET SON TABLEAU
+================================================================================================
+    a l'argmax de `cl`          chestL          chestR
+    npf   (poussees/frame)        150             254
+    psum  (somme des modules)  19 946.4 u      26 156.5 u
+    pmax  (plus grande seule)     404.7 u         262.4 u
+    poussee MOYENNE (psum/npf)    133.0 u         103.0 u
+    lsw                            45/45           45/45
+    meshpen residuel (u)          402.5           368.6
+    skinpen residuel (m)          0.1418          0.1428
+
+================================================================================================
+L'INSTRUMENT QUE JE VAIS ECRIRE (et il est PASSIF)
+================================================================================================
+Trois grandeurs de plus dans `*phys-cpa*` (qui passe de 4 a 7 emplacements par maillon), meme cycle
+de vie que `*phys-cpu*`, **relevees a l'ARGMAX DE `cl`** comme les quatre precedentes :
+
+  slast  NATURE une LONGUEUR (u de jeu, 4096 = 1 m) : somme des MODULES des poussees survenues
+         dans le GROUPE DE COLLISION SEULE (balayages 34 a 45).
+  nlast  NATURE un COMPTE d'evenements dans ce meme groupe. Son role est le DOMAINE : sans lui,
+         `slast = 0` ne distingue pas « le groupe ne pousse plus » de « le groupe n'a pas tourne ».
+  p1     NATURE une LONGUEUR (u) : le module de la PREMIERE poussee de la frame (plus petit
+         ordinal de balayage). Elle dit ce qu'une projection SEULE accomplit.
+  REPERE le MONDE (la poussee est ecrite en monde, :1810-1812).
+  LECTURE HORS DEFAUT : les trois a zero quand rien ne touche.
+
+================================================================================================
+LES PREDICTIONS, AVEC LEUR CRITERE CHIFFRE
+================================================================================================
+S0  L'INSTRUMENT EST INERTE.
+    CRITERE : lignes `PHYS` hors marqueurs neufs, **0 differente** de `keira-room-x86.C36E2-REF.log`.
+
+S1  LE GROUPE DE COLLISION SEULE FAIT ENCORE UN TRAVAIL REEL.
+    CRITERE : `slast / psum >= 0.15` sur LES DEUX chaines.
+    **ET LE CRITERE DE REFUTATION EST EXPLICITE** : si `slast / psum < 0.05`, la boucle converge
+    pour l'essentiel, **ma phrase du cycle 36 est fausse et je la retire en tete du rapport**.
+    ESTIMATION GRAVEE : 12 balayages sur 45 = 26.7 % ; a poussees uniformes on aurait 0.267.
+    Je predis **entre 0.15 et 0.35**.
+
+S2  LES POUSSEES NE DECROISSENT PAS — LA DERNIERE VAUT AUTANT QUE LA MOYENNE.
+    CRITERE : `(slast/nlast) / (psum/npf) >= 0.5` sur les deux chaines.
+    Sous 0.1, les poussees s'eteignent et la boucle converge.
+    ESTIMATION GRAVEE : **entre 0.6 et 1.3**.
+
+S3  UNE PROJECTION SEULE NE RESOUT PAS LA PENETRATION.
+    CRITERE : `p1 < meshpen` en unites, sur les deux chaines (402.5 u et 368.6 u).
+    ESTIMATION GRAVEE : `p1` **entre 50 et 450 u**.
+    Si `p1 >= meshpen`, alors la premiere poussee suffisait DEJA a sortir le lien, et le residu est
+    donc RECREE apres la collision — par la contrainte de longueur, par l'attenuation d'angle, ou
+    par la reecriture de position. Il faudrait alors nommer l'antagoniste, pas la boucle.
+
+S4  LE DOMAINE (aucun critere : engagement de publication)
+    `nlast` et le nombre de frames ou `nlast > 0`, contre le denominateur commun `nfr`.
+
+================================================================================================
+CE QUE JE NE PREDIS PAS
+================================================================================================
+  - Je ne predis RIEN sur `meshpen`, `comex` ni le tenseur : cette etape est une MESURE, elle ne
+    change aucun comportement. Un seul chiffre different de la course de reference serait un echec
+    de S0, pas un resultat.
+  - Je ne predis PAS que le remede sera dans la boucle. Si S1 et S2 tiennent, l'explication la plus
+    probable est que l'ENSEMBLE DE VOLUMES est inconsistant (sortir de l'un fait entrer dans un
+    autre) et le chantier devient la FORME des volumes — ce qui rejoint les deux spheres redondantes
+    du cycle 35 par un autre chemin que celui que l'etape 1 du cycle 36 a refute.
+
+================================================================================================
+TABLE DE BRANCHES — CE QUE CHAQUE ISSUE M'OBLIGE A ECRIRE
+================================================================================================
+  S1 + S2 tenues, S3 tenue
+      -> la boucle ne converge PAS, au sens de l'amplitude et non du seul compteur. Douze balayages
+         de collision pure continuent d'extraire le lien et il reste 0.098 m dans le mesh a la fin.
+         Le chantier est la CONSISTANCE DE L'ENSEMBLE DE VOLUMES, pas le nombre d'iterations —
+         augmenter les iterations serait alors prouve inutile AVANT de l'essayer.
+  S1 REFUTEE (slast/psum < 0.05)
+      -> la boucle converge. **Je retire de mon rapport du cycle 36 la phrase « la boucle ne
+         converge pas »**, je publie la retractation en tete, et la question devient : pourquoi 24
+         a 33 balayages EARLY poussent-ils 133 u chacun sans resoudre ?
+  S3 REFUTEE (p1 >= meshpen)
+      -> une seule projection suffisait : le residu est RECREE en aval de la collision. L'antagoniste
+         est alors `phys-length-chain`, `phys-bend-chain`, `phys-cap-ang!` ou la reecriture de
+         `*phys-p*`, et il faut l'isoler avant de toucher a quoi que ce soit.
+  S0 REFUTEE
+      -> l'instrument n'est pas passif : tout le reste de cette etape est sans valeur et je le dis
+         avant d'en publier un seul chiffre.
