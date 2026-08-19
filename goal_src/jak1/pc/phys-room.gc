@@ -987,10 +987,14 @@
     ;; REPERE : le monde, frame ecrite, contre la pose d'auteur de la MEME frame, deformation
     ;; comprise — celui de `comex`, pour que les deux soient comparables ligne a ligne.
     ;; LECTURE A LA POSE D'AUTEUR : 0.0000. Chaine sans `comw=` : AUCUNE ligne, jamais un zero.
-    (format 0 "PHYSCOMX c=~D a=~D d=~D com=~f coms=~f comn=~f comhi=~f~%"
+    ;; DEUX LIGNES, et ce n'est pas un choix de style : `format` de GOAL n'accepte pas plus de
+    ;; huit parametres, destination et chaine comprises (meme contrainte que PHYSGRAD/PHYSGRADS).
+    (format 0 "PHYSCOMX c=~D a=~D d=~D com=~f coms=~f~%"
             c (-> self ai) (-> self drive)
             (phys-diag (-> self slot) c 43)
-            (phys-diag (-> self slot) c 44)
+            (phys-diag (-> self slot) c 44))
+    (format 0 "PHYSCOMX2 c=~D a=~D d=~D comn=~f comhi=~f~%"
+            c (-> self ai) (-> self drive)
             (phys-diag (-> self slot) c 45)
             (phys-diag (-> self slot) c 46))
     ;; ---- SPEC 22 : L'ATTRIBUTION DE `comex` A SES TROIS TERMES (cycle 35 etape 1) ----------
