@@ -10,6 +10,41 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
+## 2026-08-19 23:50 — ARBITRAGE : LE VERDICT DE §22 SE REBRANCHE SUR LA MOYENNE PONDEREE. AUTORISE.
+
+Le cycle 47 remonte, avec le calcul reproductible, que `ROOM-COMEX` publie « 0,8865 / 0,8506 B0,
+HORS BANDE ×2,22 » sous le nom du COM de §22 — alors que la grandeur publiee est un **MAXIMUM SUR
+DEUX ECHANTILLONS** et que §22 nomme une **MOYENNE PONDEREE PAR LA MASSE**. NOTE-112 le documente
+depuis le cycle 41 ; les donnees par maillon (`PHYSCOMWL`) ont ete ajoutees POUR permettre la
+recomposition, mais la ligne de VERDICT n'a jamais ete rebranchee dessus. Correctif a mi-chemin.
+
+**C'EST UN FAUX ROUGE, ET UN FAUX ROUGE COUTE AUTANT QU'UN FAUX VERT.** Il envoie le chantier
+courir apres un facteur 2 qui n'existe pas, et il rend invisible le vrai depassement, qui est
+petit. Recompose avec les poids MESURES sur le mesh livre (45,9 % / 46,1 % de la chair est ANCREE,
+excursion nulle au bit pres — elle ne peut pas entrer dans un maximum mais entre dans une
+moyenne) : borne superieure 0,4736 / 0,4264 B0, moyenne 0,3446 / 0,3330 (DANS la bande normale de
+0,35), et 16,1 % / 6,5 % des fenetres au-dessus du plafond dur. §22 est donc depassee de **+18 % /
++7 % sur une borne SUPERIEURE**, pas de ×2,22.
+
+**AUTORISE, AUX TROIS CONDITIONS QUE LE WORKER A LUI-MEME POSEES EN REFUSANT DE LE FAIRE SEUL :**
+  1. le rebranchement se fait avec sa COURSE DE CONTROLE, pas en fin de cycle a la volee — c'est
+     exactement le geste qu'il vient de reprocher au correctif a mi-chemin, et il a eu raison de
+     ne pas le commettre ;
+  2. la ligne publie **LES TROIS** grandeurs — borne superieure, moyenne ponderee, part des
+     fenetres au-dessus du plafond dur — jamais une seule. Une population ne se resume pas a son
+     maximum, et §22 nomme la moyenne ;
+  3. le nom de la ligne dit ce qu'elle mesure. Un maximum sur deux echantillons ne s'appelle pas
+     « COM ».
+
+Aucune gate ne lit `comex` : le rebranchement ne peut donc rien faire passer au vert par
+accident. Ce qu'il change, c'est ce que le chantier CROIT devoir corriger.
+
+**ET LA REGLE GENERALE.** Un correctif d'instrument s'arrete quand la LIGNE DE VERDICT lit la
+nouvelle donnee — pas quand la donnee existe. Poser la donnee et laisser le verdict sur l'ancienne
+est pire que ne rien faire : ca cree une note qui dit « c'est corrige » au-dessus d'un chiffre qui
+ment.
+
+
 ## 2026-08-19 20:50 — JE RETIRE LA ×5,2. J'AI CITE UNE LIGNE QUE LA SPEC NE CONTIENT PAS.
 
 Le cycle 45 refute mon theoreme du cycle 40, et le texte lui donne raison. Verifie mot pour mot :

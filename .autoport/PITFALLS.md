@@ -428,3 +428,16 @@ GUARD trigger-blind-to-code .autoport/owner_testable.py solver_fingerprint
 supprime l'ecretage qui figeait la reponse — le changement de comportement le plus important de la
 journee — et le declencheur est reste muet, faute de parametre modifie. Corrige : l'empreinte du
 source du solveur entre dans le jalon, et sa variation declenche a elle seule.
+
+GUARD instrument-fix-stops-at-the-verdict-line .autoport/reports ROOM-COMEX NOTE-112
+**Un correctif d'instrument s'arrete quand la LIGNE DE VERDICT lit la nouvelle donnee, pas quand
+la donnee existe.** Au cycle 41, `comex` a ete documente comme un MAXIMUM sur deux echantillons la
+ou §22 nomme une MOYENNE PONDEREE, et les donnees par maillon ont ete ajoutees pour permettre la
+recomposition. La ligne de verdict, elle, n'a jamais ete rebranchee : six cycles durant, le
+tableau a publie « HORS BANDE ×2,22 » pour un depassement reel de +18 % / +7 %. C'est un FAUX
+ROUGE, et il coute autant qu'un faux vert : il envoie le chantier courir apres un facteur 2
+inexistant et masque le vrai defaut, qui est petit. Pire, la note « c'est documente » se lit comme
+« c'est corrige » au-dessus d'un chiffre qui ment.
+Verrou : un correctif d'instrument n'est clos que quand la ligne publiee a change de valeur ET de
+nom. Et une population se publie avec ses trois grandeurs (borne superieure, moyenne, part
+au-dessus du plafond), jamais avec son seul maximum.
