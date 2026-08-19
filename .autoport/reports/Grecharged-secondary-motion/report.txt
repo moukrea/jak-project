@@ -1,8 +1,16 @@
 DIRECTIVES vb249967379
 
 ================================================================================================
-CE DOCUMENT COUVRE CINQ ETAPES, DU PLUS RECENT AU PLUS ANCIEN
+CE DOCUMENT COUVRE SIX ETAPES, DU PLUS RECENT AU PLUS ANCIEN
 ================================================================================================
+  CYCLE 38 ETAPE 4   C'EST LE SEIN QUI VA CHERCHER LE VOLUME, ET C'EST MESURE SUR LA GRANDEUR DU
+                     SOLVEUR : le vetement n'apporte **0.0 %** (gauche) et **5.1 %** (droite) de la
+                     profondeur atteinte. L'approche propre du maillon vaut **1.257 et 1.218 B0**
+                     contre un plafond de 0.50 — **x2.51 et x2.44**. Ma prediction disait
+                     l'inverse et je l'avais gravee 60/40 contre moi. Chemin faisant : DEUX defauts
+                     dans un instrument PREEXISTANT (`PHYSPAIR` melangeait un maximum et une
+                     derniere valeur, et son `dm` accumulait pendant la jambe ou le mur de
+                     collision est DESARME), plus une affirmation fausse de ma part.
   CYCLE 38 ETAPE 3   MES CINQ PREDICTIONS SONT REFUTEES, ET C'EST LE RESULTAT DU CYCLE : au repos
                      sa poitrine n'est enfouie que dans 1 a 2 volumes — MOINS qu'un coude temoin —
                      et l'epaule opposee ne la contient PAS. Donc les 3.2 a 4.0 volumes qui
@@ -27,9 +35,119 @@ CE DOCUMENT COUVRE CINQ ETAPES, DU PLUS RECENT AU PLUS ANCIEN
   ne peut pas fermer — sa liste ne se vide QUE sur la parole de l'owner. `COLLIDE` reste ROUGE.
   Le detail, et le balayage complet sur COPIE, sont en bas.
 
-  CE CYCLE N'A RIEN AJOUTE AU MOTEUR : `jak-hd-physics.gc` est a **4788 lignes**, exactement comme
-  avant, pour un plafond de 4800. Tout le travail est de la MESURE et une REPARATION de 3 lignes
-  dans la salle.
+  CE CYCLE AJOUTE **4 LIGNES** AU MOTEUR : `jak-hd-physics.gc` passe de 4788 a **4792** pour un
+  plafond de 4800, et ces 4 lignes REPARENT un instrument preexistant (etape 4) au lieu d'ajouter
+  un mecanisme. `phys-room.gc` revient a ses **3235 lignes** — le marqueur que j'y avais ajoute
+  etait un doublon et il est retire. Tout le reste du cycle est de la MESURE.
+
+
+================================================================================================
+CYCLE 38 ETAPE 4 — QUI REFERME L'ECART ? LE SEIN. ET EN LE MESURANT J'AI TROUVE DEUX DEFAUTS DANS
+UN INSTRUMENT QUI EXISTAIT DEJA, PLUS UNE AFFIRMATION FAUSSE DE MA PART.
+================================================================================================
+PREDICTIONS : `C38E4-closure-side-prediction.txt`, md5 initial
+**12bae84fd3af9bda20e2399faa4653f8** (commit **da8c87e6c6**), md5 apres addendum d'instrument
+**3439e7a642f18d575dc59142ab36cb58** (commit **c7668f2668**) — les deux avant la mesure.
+BILAN : **K0 REFUTEE COMME GRAVEE (diagnostic complet ci-dessous) · K1 CONFIRMEE · K2 REFUTEE ·
+K3 REFUTEE · K4 CONFIRMEE.**
+
+4.1 LA REPONSE, ET ELLE EST NETTE
+===================================
+Le §3.6 avait retire ma conclusion du matin parce qu'un ecart peut se refermer des DEUX cotes. La
+grandeur qui tranche est celle du solveur lui-meme : `fl` = la profondeur que la pose d'AUTEUR rend
+admissible, `dm` = la profondeur maximale que le lien SIMULE a atteinte.
+
+    chaine  volume         dm (u)     fl (u)   fl/dm    lecture
+    chestL  lTopStrap2      485.9        0.0   **0.000**  le MAILLON, seul
+    chestR  rTopStrap2      486.4       24.9   **0.051**  le MAILLON, a 95 %
+    chestL  lBotStrap       168.2        0.0   **0.000**  le MAILLON, seul
+    chestR  rBotStrap       281.9        0.0   **0.000**  le MAILLON, seul
+    chestL  Lshoulder      1022.5      431.8     0.422    mixte  (contre-exemple K4)
+    chestR  Rshoulder       969.6      432.3     0.446    mixte  (contre-exemple K4)
+
+**K2 EST REFUTEE, ET JE L'AVAIS GRAVEE A 60/40 CONTRE MOI-MEME** : je predisais que le VOLUME
+apporterait au moins la moitie (`fl >= 0.5 dm`), ce qui aurait renverse ma lecture de l'etape 3.
+Mesure : **0.000 et 0.051**. Le vetement n'apporte rien. **K3 REFUTEE** de meme (je predisais
+`fl > 300 u` pour la sangle de hanche : mesure **0.0**). **K4 CONFIRMEE** : sur les capsules
+d'epaule, `dm - fl` vaut 590.7 et 537.3 — le maillon y va bien plus loin que l'auteur ne l'accorde,
+et c'est le contre-exemple qui empeche de conclure « tout vient des volumes ».
+
+**DONC C'EST LE SEIN QUI VA CHERCHER LE VOLUME.** Et l'amplitude se chiffre maintenant sur la BONNE
+grandeur, dans le repere du solveur, sans passer par `comex` :
+
+    degagement au repos      + profondeur atteinte  - part du volume  =  approche PROPRE du maillon
+    chestL  271.2 u          + 485.9 u              - 0.0             =  **757.1 u = 1.257 B0**
+    chestR  271.5 u          + 486.4 u              - 24.9            =  **733.0 u = 1.218 B0**
+    plafond apex de sa SPEC 22 (exceptionnel) : **0.50 B0**  ->  **x2.51 et x2.44**
+
+**L'ENONCE QUE J'AVAIS RETIRE EN 3.6 EST DONC RETABLI — MAIS SUR LA BONNE GRANDEUR, ET JE NE LE
+REECRIS PAS COMME S'IL N'AVAIT JAMAIS ETE FAUX.** Ce matin il etait appuye sur `comex`, un centroide
+de chair, et il ne tenait pas. Il tient maintenant, appuye sur la profondeur que le solveur lui-meme
+evalue. Le couplage du vetement que sa SPEC 35 veut a zero est bien une consequence de l'excursion.
+
+4.2 K0 REFUTEE COMME GRAVEE — ET LES SEULES LIGNES QUI BOUGENT SONT CELLES QU'IL FALLAIT
+==========================================================================================
+Critere grave : 0 ligne `PHYS` en trop, 0 en moins, hors le marqueur neuf. **REFUTE**, et voici le
+diagnostic complet, sur la course LIVREE (`C38E4-FINAL`) contre la course de reference de l'etape
+(`C38E4a-LASTVAL`) :
+
+    lignes `PHYS`   35 702 (reference)  ->  **35 594** (livree)
+    en moins : **122**  =  108 `PHYSCVDOM`  +  14 `PHYSPAIR`
+    en trop  : **14**   =  14 `PHYSPAIR`
+    AUCUN AUTRE MARQUEUR NE DIFFERE.
+
+Les 108 `PHYSCVDOM` disparaissent parce que ce marqueur etait un doublon et qu'il est retire
+(§4.3c). Les 28 `PHYSPAIR` sont les 14 anciennes valeurs remplacees par les 14 nouvelles :
+`PHYSPAIR` publie `dm` et `fl`, c'est-a-dire EXACTEMENT les deux grandeurs que le changement vise.
+La physique est donc inchangee et la correction n'est visible que la ou elle doit l'etre. **Mais le
+critere tel que je l'ai ecrit est refute**, et je le publie comme tel plutot que de le relire a mon
+avantage.
+Course livree par ailleurs saine : `PHYSCOUNTS anims=31 enum=31`, **0 `PHYSFAIL`**,
+`PHYSNOPLAY viol=0 actors=0 killed=0`, `PHYSROOM-PHASEGUARD ... ok=1`, et **0 sentinelle 1e9** sur
+les 108 paires.
+
+4.3 CE QUE J'AI TROUVE EN CHEMIN, ET C'EST PLUS IMPORTANT QUE CE QUE JE CHERCHAIS
+==================================================================================
+**(a) `PHYSPAIR` PUBLIAIT DEUX STATISTIQUES DE NATURES DIFFERENTES.** `*phys-cdm*` etait un MAXIMUM
+de course ; `*phys-cfl*` etait une simple AFFECTATION, donc la DERNIERE valeur ecrite. Le
+commentaire de `PHYSPAIR` decrit pourtant `fl` comme « le plancher que la paire tolere (sa
+profondeur A LA POSE D'AUTEUR) » — un enonce de POPULATION, servi par un echantillon unique. Un
+`fl = 0` ne disait pas « l'auteur n'a JAMAIS mis ce lien dans ce volume », il disait « pas a la
+derniere frame ». Les deux sont desormais des maxima sous le meme drapeau de domaine.
+
+**(b) `dm` ETAIT CONTAMINE PAR LA JAMBE OU LE MUR DE COLLISION EST DELIBEREMENT DESARME** (le
+controle k=4, `*phys-col-off*`), c'est-a-dire precisement la jambe ou le lien va plus profond que
+partout ailleurs, par construction. La preuve tient en une ligne : pour `main` sur chestL, `dm`
+passe de **+143.2 u (dedans) a -81.7 u (dehors)** une fois cette jambe exclue. **Ce volume n'a
+jamais touche la poitrine autrement qu'avec le mur eteint** — et l'ancienne lecture le comptait
+comme un contact. Les deux maxima ne s'accumulent plus que mur ARME.
+Et le detour a coute une course : passer `fl` en maximum a d'abord fait remonter **`PHYS-VOL-FREE`
+= 1e9** sur les 108 paires, le sentinelle que rend `phys-vol-floor` quand ce meme controle est
+arme. Un maximum avale un sentinelle sans rien signaler — le piege du registre, paye une fois de
+plus, et corrige par la meme garde.
+
+**(c) ET J'AI AFFIRME QUELQUE CHOSE DE FAUX.** Mon fichier de predictions dit, en toutes lettres,
+que l'accesseur `phys-chain-vol-dom` « n'a AUCUN APPELANT — verifie par grep sur tout
+`goal_src/jak1/pc/` ». **C'est faux.** `PHYSPAIR` l'appelle depuis `phys-room.gc:2755`. Ma
+recherche portait sur les noms des TABLEAUX (`*phys-cfl*`, `*phys-cdm*`) dans la salle, pas sur le
+nom de l'ACCESSEUR — la meme erreur de recherche trop etroite que le cycle 36 avait deja consignee.
+Consequence directe : le marqueur `PHYSCVDOM` que j'avais ajoute etait un **DOUBLON EXACT** de
+`PHYSPAIR` (108 paires communes, **0 discordante**). **Il est retire**, et `phys-room.gc` revient a
+ses 3235 lignes. Ce qui reste du cycle, c'est la reparation de l'instrument PREEXISTANT.
+
+4.4 TROIS FAITS DE PLUS, LUS SUR LA TABLE CORRIGEE
+====================================================
+  - **LES LUNETTES : C'EST LA POITRINE QUI ENTRE DEDANS.** `gogglesMid` sur chestL rend
+    `dm = 468.6 u` pour `fl = 0.0` — le lien du sein penetre le volume des lunettes de 468 u
+    **par son seul deplacement**, l'auteur n'y accordant rien. L'owner signale « les lunettes
+    clipent sur ses seins » depuis le 11 aout ; c'est la premiere fois que le sens du mouvement est
+    mesure, et il va du sein vers les lunettes.
+  - **LE VOLUME DE LA TETE AUSSI** : `head` sur chestL, `dm = 546.4 u`, `fl = 0.0`.
+  - **ET SA SPEC 33 SE NUANCE** : pour chestR contre `lBooc`, `fl = 664.4 > dm = 551.5`
+    (rapport 1.205). Le contact sein-contre-sein que le solveur compte est donc **majoritairement
+    APPORTE PAR LA POSE D'AUTEUR**, pas produit par la simulation. Ca ne contredit pas le §33 de
+    l'etape 3 (le test point-contre-volume reste incapable d'exprimer un contact de surfaces), ca le
+    precise : le peu qui est compte ne vient pas de la physique.
 
 
 ================================================================================================
@@ -172,7 +290,10 @@ CE QUI SURVIT INTACT, ET C'EST L'ESSENTIEL :
 
 CE QUI TOMBE : l'affirmation que le couplage vetement est « EN ENTIER une consequence d'une
 excursion a 2.4-2.7x son plafond ». **Je la retire.** Elle exigeait que la fermeture vienne du SEIN,
-et je ne l'ai pas montre. C'est desormais la question, et elle est decidable — voir l'etape 4.
+et je ne l'ai pas montre.
+**ET L'ETAPE 4 L'A MESURE : elle vient bien du SEIN** (le vetement n'apporte 0.0 % et 5.1 % de la
+profondeur atteinte). L'enonce est donc RETABLI, mais sur la grandeur du solveur et non sur `comex`.
+Il etait mal appuye quand je l'ai ecrit ; il est appuye maintenant. Les deux moities se publient.
 
 **ET CA REORDONNE LE CHANTIER.** La cause candidate n°1 de `COLLIDE` n'est plus la forme des
 volumes : c'est l'EXCURSION. Ce qui rejoint exactement le R4 du cycle 36 — le porteur du tenseur
@@ -488,7 +609,7 @@ toutes de la forme `exit 1` -> rien : l'original est intact, md5
     REPORT-PRESENT PASS
     SYNC           PASS   `vb249967379` accepte
     OPEN-DEFECTS   **FAIL**  1 defaut rapporte par l'owner : `breast-spec-incomplete`
-    CLEAN          PASS   moteur **4788 lignes** pour un plafond de 4800 (12 de marge), 1 modele
+    CLEAN          PASS   moteur **4792 lignes** pour un plafond de 4800 (8 de marge), 1 modele
     SCOPE          PASS   2 chaines declarees = 2 resolues ; joints lBoob lBooc rBoob rBooc, et
                           aucun joint de cheveu, sangle, languette, oreille ou lunettes n'est ecrit
     TUNING         PASS   tous les reglages de l'owner sont dans le fichier livre
@@ -533,8 +654,11 @@ CE QUE JE N'AI PAS FAIT, ET POURQUOI — AUCUN DE-SCOPE SILENCIEUX (regle 3)
   1. **JE N'AI PAS FERME `COLLIDE`.** Elle est rouge, a la meme valeur qu'au cycle 37, et ce cycle
      n'a pas touche une ligne du moteur qui puisse la faire bouger.
   2. **JE N'AI PAS RAMENE L'EXCURSION DANS SA BANDE.** Ce cycle vient d'etablir que c'est LA cause
-     racine ; il ne l'a pas corrigee. C'est le point 1 du cycle 39, et je ne pretends pas l'avoir
-     entame.
+     racine — d'abord mal, puis correctement (§3.6 puis etape 4) ; il ne l'a pas corrigee. C'est le
+     point 1 du cycle 39, et je ne pretends pas l'avoir entame.
+ 2bis. **JE N'AI PAS TRAITE LES DEUX FAITS NEUFS DE L'ETAPE 4** : le lien du sein entre de 468 u
+     dans le volume des LUNETTES et de 546 u dans celui de la TETE, par son seul deplacement, et
+     l'auteur n'y accorde rien. Mesures publiees, non corrigees.
   3. **JE N'AI PAS CONSTRUIT L'ABLATION DU VETEMENT** que le plan du cycle 37 rendait probable.
      Elle est ANNULEE, pour deux raisons independantes et mesurees (regle 6 ; et un predicat dont
      la marge est de 8.3 %). C'est le troisieme cycle economise en deux jours — mais economiser un
@@ -605,12 +729,14 @@ volumes aurait ete une faute : sa poitrine serait passee au travers de son debar
 ================================================================================================
 LE PLAN DU CYCLE 39, DANS L'ORDRE QUE LA MESURE IMPOSE
 ================================================================================================
-  1. **L'EXCURSION (SPEC 22/38) — elle passe premiere, et ce n'est plus un choix.** Ce cycle a
-     mesure qu'elle produit 31.0 % / 19.5 % du travail de contact contre des volumes autrement
-     hors de portee, plus 20.0 % / 18.8 % de marginaux. Le cycle 36 a deja etabli (R4) que le
-     porteur du tenseur est l'ETIREMENT du tissu, pas la pression, et qu'il tourne a 1.66x / 1.49x
-     son plafond sur 4 % des frames. Premiere etape : mesurer DE QUOI depend cet etirement, avant
-     d'y toucher.
+  1. **L'EXCURSION (SPEC 22/38) — elle passe premiere, et ce n'est plus un choix.** L'etape 4 l'a
+     mesuree sur la grandeur du solveur : l'approche PROPRE du maillon vaut **1.257 et 1.218 B0**
+     contre un plafond apex de 0.50 — **x2.51 et x2.44** — et le vetement n'apporte rien
+     (0.0 % / 5.1 %). Ce cycle a par ailleurs mesure qu'elle produit 31.0 % / 19.5 % du travail de
+     contact contre des volumes autrement hors de portee, plus 20.0 % / 18.8 % de marginaux. Le
+     cycle 36 a deja etabli (R4) que le porteur du tenseur est l'ETIREMENT du tissu, pas la
+     pression, et qu'il tourne a 1.66x / 1.49x son plafond sur 4 % des frames. Premiere etape :
+     mesurer DE QUOI depend cet etirement, avant d'y toucher.
   2. **LE DEFAUT DE MODELE DE LA SPEC 33** — point-contre-volume ne peut pas exprimer
      surface-contre-surface. Sa §1bis exige l'entrechoc ; il n'est comptable qu'a 1.180 B0.
   3. **L'ASYMETRIE GAUCHE/DROITE**, qui gagne un fait de plus ce cycle et n'a toujours aucune
@@ -1311,7 +1437,11 @@ CE QUE JE N'AI PAS FAIT, ET POURQUOI — AUCUN DE-SCOPE SILENCIEUX (regle 3)
      reparer la boucle qui la produit sont deux chantiers ; les melanger aurait rendu impossible
      l'attribution de ce que chacun fait. **C'est le point 1 du cycle 37.**
   2. **JE N'AI PAS FERME `COLLIDE`.** Elle est rouge et elle a EMPIRE de 3.3 % sur chestL.
-  3. **JE N'AI PAS FAIT RENTRER `comex` DANS LA BANDE**, et son maximum a monte de 6.2 % / 4.7 %.
+  3. **JE N'AI PAS RENDU `PHYSPAIR` ROBUSTE AU-DELA DE CE CYCLE.** Ses deux defauts sont corriges
+     (deux maxima, mur arme uniquement) mais rien n'empeche structurellement qu'une prochaine
+     grandeur soit publiee a cote d'une autre de nature differente : c'est de la reparation, pas de
+     la prevention.
+  4. **JE N'AI PAS FAIT RENTRER `comex` DANS LA BANDE**, et son maximum a monte de 6.2 % / 4.7 %.
   4. **JE N'AI PAS TOUCHE AUX DEUX VOLUMES REDONDANTS.** L'etape 1 a REFUTE qu'ils causent la
      saturation de pression (psum/cl = 1.11 et 1.28) ; ils restent un defaut de FORME mesure
      (75.6 % / 65.3 % de recouvrement, union = sphere distale seule) et non corrige. Je retire du

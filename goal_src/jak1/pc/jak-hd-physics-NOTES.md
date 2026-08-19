@@ -3513,3 +3513,19 @@ difference est alors la question posee : ce que le maillon ajoute par-dessus ce 
 Rien d'autre ne lit `*phys-cfl*` : le calcul de la poussee utilise la variable LOCALE `feff`, pas le
 tableau. Le changement est donc purement instrumental, et sa preuve est que les lignes `PHYS` de la
 course, hors `PHYSCVDOM`, doivent rester identiques.
+
+**DEUXIEME CORRECTION, LE MEME CYCLE, ET ELLE TOUCHE AUSSI L'INSTRUMENT D'ORIGINE.** Passer `feff`
+en maximum a fait remonter **`PHYS-VOL-FREE` = 1e9** sur les 108 paires : c'est le sentinelle que
+`phys-vol-floor` rend quand le controle k=4 DESARME le mur de collision (`*phys-col-off*`). Un
+maximum avale un sentinelle et ne le signale pas — le piege du registre, paye une fois de plus.
+
+Et la consequence porte plus loin que ma ligne : **`*phys-cdm*` etait deja un maximum depuis le
+cycle 34, et il accumulait lui aussi pendant la jambe ou le mur est desarme** — c'est-a-dire la
+jambe ou le lien va precisement plus profond que partout ailleurs, par construction. La grandeur
+« la plus grande profondeur atteinte » melangeait donc deux regimes dont l'un existe pour mesurer
+autre chose.
+
+Les DEUX maxima sont desormais accumules **uniquement quand le mur est ARME** (`(zero?
+*phys-col-off*)`), ce qui est le seul regime ou la question « ce que l'auteur accorde contre ce que
+le lien prend » a un sens. Le drapeau de domaine suit la meme condition, donc une paire qui n'existe
+que dans la jambe desarmee se lit `ok=0` et non « profondeur nulle ».

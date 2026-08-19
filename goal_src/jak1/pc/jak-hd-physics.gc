@@ -1724,7 +1724,7 @@
                         ;; Le drapeau evite un sentinelle flottant (piege deja paye) : premier
                         ;; echantillon = affectation, les suivants = maximum.
                         ;; [NOTE-110] CYCLE 38 — `feff` ETAIT UNE DERNIERE VALEUR, `cdm` UN MAXIMUM -> jak-hd-physics-NOTES.md
-                        (when (= sub 0)
+                        (when (and (= sub 0) (zero? *phys-col-off*))
                           (let ((h (+ (* sc PHYS-COLS) ci)))
                             (cond
                               ((zero? (-> *phys-cdmok* h))
