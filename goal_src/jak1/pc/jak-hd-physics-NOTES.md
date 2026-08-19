@@ -3207,3 +3207,52 @@ Le maillon 1 porte donc son centre de chair a 3.7x la longueur de son propre os,
 balaie ce centre depuis un bras de 1.73 B0 — pour un budget total de 0.40 B0. Aucune des trois
 contributions n'est negligeable a priori, et c'est pourquoi on les mesure au lieu de les supposer.
 ```
+
+## NOTE-95  (moteur, aux alentours de la ligne 3848 — CYCLE 35 ETAPE 2)
+
+```
+LE LEVIER DE ROTATION D'UN MAILLON EST CELUI DE SON ANCRE, PAS CELUI DE SON OS LOCAL.
+
+CE QUE L'ETAPE 1 A MESURE. `comex` (§22) se decompose exactement en trois termes, et la ROTATION
+en porte 67 % : moyennes sur 372 fenetres, en B0, pour un budget de 0.40 —
+    |tp| 0.2328 (le joint a bouge) · |rp| 0.7714 (le maillon a tourne) · |dp| 0.1761 (le tenseur)
+[B] domine 340 fenetres sur 372, et le maillon 0 porte 329 des 372 maxima.
+
+L'ARITHMETIQUE DE LA CAUSE, SUR LES LONGUEURS LIVREES :
+  - la rotation ecrite du maillon 0 venait de la direction `lBoob -> lBooc`, un os de 140.42 u ;
+  - sa chair est a 651.18 u de lui, et a 89.665 deg de cet os — composante perpendiculaire PLEINE ;
+  - amplification 651.18 / 140.42 = 4.637. Pour le maillon 1 : 514.54 / 140.42 = 3.664.
+Un tremblement de 100 u (2.4 cm) du joint distal produisait donc 464 u = 0.77 B0 d'excursion du
+centre de chair, presque DEUX FOIS le budget entier de sa §22. C'est exactement le `|rp|` mesure.
+
+ET CET OS DE 140 u EST CELUI QUI A ETE INJECTE POUR SA §23. Avant lui, le maillon 0 prenait sa
+direction de l'ancre (`chest -> lBoob`, 1042 u) et l'amplification valait 0.625. **La structure
+qu'exige sa §23 a rendu sa §22 7.4x plus dure** — invisible jusqu'ici parce que `comex` n'avait ni
+resolution par terme ni resolution par maillon.
+
+CE QUE FAIT LE MECANISME. `rest` et `pt` sont desormais lus depuis l'ANCRE DE CHAINE : la
+rotation ecrite est celle de la POSITION DU MAILLON AUTOUR DE SON ANCRE, pose d'auteur contre
+position simulee. Leviers : 1042 u (maillon 0) et 1182 u (maillon 1), contre 140 u avant.
+Amplifications : 0.625 et 0.435 — sous 1, donc la chair se deplace MOINS que le joint, ce qui est
+la seule situation physiquement saine.
+
+CE QUE LE MECANISME N'EST PAS. Aucun clamp, aucun seuil, aucune hysteresis, aucune borne : on
+change QUEL VECTEUR definit l'orientation, jamais l'amplitude de quoi que ce soit. Sur une chaine
+dont la chair serait PROCHE de son os, cette meme regle AUGMENTERAIT le mouvement.
+
+CE QU'IL FAUT SAVOIR AVANT DE REARMER UNE AUTRE CHAINE. Cette regle vaut pour TOUT le write-back,
+pas seulement la poitrine — il n'y a pas de drapeau de derogation (regle 4 du contrat). Elle est
+juste tant que la chair d'un maillon est LOIN de son os. Pour une meche de cheveux, dont la
+geometrie epouse son propre segment, le levier d'ancre serait le mauvais choix et il faudra y
+revenir. Le perimetre actuel ne simule que `chestL` et `chestR` (ordre owner du 2026-08-14 07:30),
+donc aucune chaine vivante n'est dans ce cas — mais ce n'est pas une raison de le taire.
+
+LE CONTROLE EST LA COURSE PRECEDENTE, ET IL EST EXACT : M6 du cycle 35 etape 1 prouve la salle
+reproductible a 32787 lignes `PHYS`, 0 differente. Aucun interrupteur d'ablation n'est ajoute : il
+ferait double emploi avec un temoin parfait et couterait des lignes sous la gate CLEAN.
+
+LA BRANCHE SUPPRIMEE. Le `cond` d'avant choisissait la direction vers l'ENFANT simule quand le
+maillon en avait un, et celle du parent sinon. Les deux donnaient le meme os de 140 u sur cette
+chaine : `pt` etait litteralement identique dans les deux branches (`p_sim(1) - p_sim(0)`), seul
+`rest` differait de reference. La simplification retire 23 lignes et ne perd aucun cas.
+```
