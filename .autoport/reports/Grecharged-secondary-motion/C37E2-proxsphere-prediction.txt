@@ -1,0 +1,115 @@
+DIRECTIVES vb249967379
+
+PREDICTIONS DU CYCLE 37 ETAPE 2 — LA SPHERE PROXIMALE DE CHAQUE SEIN EST-ELLE DU TRAVAIL INUTILE ?
+Gravees AVANT la moindre ligne de l'ablation. Perimetre : Grecharged-secondary-motion, KEIRA /
+POITRINE SEULE (ordre owner 2026-08-14 07:30). Branche physics-keira-clean.
+
+================================================================================================
+CE QUI MENE ICI, ET C'EST UNE CHAINE DE TROIS MESURES
+================================================================================================
+  1. CYCLE 35 : les deux volumes de chair d'un sein decrivent LA MEME chair — recouvrement 75.6 % /
+     65.3 %, chaque centre a l'INTERIEUR de la sphere de l'autre, et la preuve dure n'est pas un
+     volume mais un ENSEMBLE : sur les 55 sommets de `chestL`, 51 sont dans la sphere DISTALE, 51
+     dans l'UNION. **La sphere proximale ne couvre pas UN SEUL sommet que la distale ne couvre deja.**
+  2. CYCLE 36 ETAPE 1 : le mecanisme « les deux volumes se renvoient le lien » est **REFUTE** —
+     `psum/cl` vaut 1.11 et 1.28, donc les poussees s'ADDITIONNENT au lieu de s'annuler.
+  3. CYCLE 37 ETAPE 1 : la boucle de contraintes **ne converge pas** — les 12 balayages de collision
+     SEULE poussent a 94-97 % de la moyenne de la frame, sans decroissance, et 3.3 a 4.0 volumes
+     poussent par balayage a 86-100 u chacun. L'ensemble de VOLUMES est inconsistant.
+
+**LES TROIS ENSEMBLE DONNENT UNE HYPOTHESE PRECISE, ET ELLE N'A JAMAIS ETE TESTEE :** deux des
+volumes qui poussent chaque balayage sont les deux spheres de chair du sein OPPOSE, et elles
+decrivent le meme morceau de chair. Elles feraient donc le meme travail deux fois. C'est la
+signature `oversized-volume-flattens-response`, atteinte par un troisieme chemin.
+
+================================================================================================
+POURQUOI UNE ABLATION ET NON UNE MODIFICATION DE DONNEES
+================================================================================================
+Les rayons proximaux livres (340 / 345) sont une **SURCHARGE DE L'OWNER**
+(`keira-owner-tuning.txt:1020-1021`) et la gate `TUNING` verifie que TOUS ses reglages sont dans le
+fichier livre. **Je n'y touche pas.** Le mecanisme est donc un CONTROLE — un interrupteur de mesure,
+a **zero en livraison**, exactement comme les cinq qui existent deja (`phys-len-off-set!`,
+`phys-side-off-set!`, `phys-cone-off-set!`, `phys-col-off-set!`, `phys-rr-off-set!`).
+Cette etape ne change donc **RIEN** au build livre : elle repond a une question.
+
+Le predicat, et il est DERIVE, pas nomme : une sphere proximale est un volume dont le joint porteur
+est **le joint du maillon 0 d'une chaine declaree** (`(-> *phys-joint* (* sc PHYS-LINKS))`) et qui
+n'a **pas de second joint** (`cj2 < 0`, donc une sphere et non une capsule). Aucun nom d'os n'est
+ecrit dans le code : si l'owner renomme ou reinjecte, le predicat suit.
+DEUX BRANCHES A EXPOSITION EGALE, meme secousse, meme duree, memes animations, sur le modele de
+`PHYSCONE` : DESARMEE = ce qu'on livre ; ARMEE = les spheres proximales cessent d'etre des obstacles.
+
+================================================================================================
+LES FAITS DE DEPART — COURSE `keira-room-x86.C37E1-REF.log` ET SON TABLEAU
+================================================================================================
+    penetration residuelle `meshpen`      0.0983 m (chestL) · 0.0900 m (chestR)
+    penetration de SURFACE `skinpen`      0.1418 m · 0.1428 m
+    poussees par frame, fenetre profonde  142 (chestL) · 179 (chestR)
+    poussees par balayage                 142/45 = 3.16 · 179/45 = 3.98
+    slast/psum, agregat                   0.2127 · 0.2165
+    volumes declares                      52, dont 4 de chair de poitrine (lBoob lBooc rBoob rBooc)
+
+================================================================================================
+LES PREDICTIONS, AVEC LEUR CRITERE CHIFFRE
+================================================================================================
+T0  L'INTERRUPTEUR EST A ZERO EN LIVRAISON — LA BRANCHE DESARMEE EST LA COURSE PRECEDENTE.
+    CRITERE : lignes `PHYS` de la branche DESARMEE, hors les marqueurs neufs et hors les lignes de
+    la branche ARMEE, **0 differente** de `keira-room-x86.C37E1-REF.log`.
+    **SI T0 CASSE, TOUT LE RESTE DE CETTE ETAPE EST SANS VALEUR** et je le dis avant tout chiffre :
+    un controle qui change la branche desarmee ne compare plus rien.
+
+T1  LE CONTROLE TIRE VRAIMENT — LE DOMAINE N'EST PAS VIDE.
+    CRITERE : arme, le nombre de poussees par frame BAISSE d'au moins 15 % sur les deux chaines.
+    C'est le controle POSITIF de l'ablation elle-meme : si le compte ne bouge pas, l'interrupteur
+    n'a rien desarme et les deux branches mesurent la meme chose. **Un zero sans ca ne vaut rien.**
+    ESTIMATION GRAVEE : deux volumes sur 3.16 et 3.98 par balayage, donc je predis une baisse de
+    **25 % a 55 %** du compte de poussees.
+
+T2  LA SPHERE PROXIMALE EST DU TRAVAIL REDONDANT — LA PENETRATION NE SE DEGRADE PAS.
+    CRITERE : arme, `meshpen` max **<= 1.10x** sa valeur desarmee sur les deux chaines.
+    C'EST LA PREDICTION QUI COMPTE. Si la sphere proximale ne couvre aucun sommet que la distale ne
+    couvre deja — ce que le cycle 35 a mesure sur le mesh — alors la retirer comme obstacle ne peut
+    pas laisser passer de chair, et `meshpen` doit rester au meme niveau tout en divisant le travail.
+    ESTIMATION GRAVEE : entre **0.95x et 1.05x**, c'est-a-dire indistinguable.
+
+T3  ET LA BOUCLE SE RAPPROCHE DE LA CONVERGENCE.
+    CRITERE : arme, `slast/psum` agrege **baisse d'au moins 20 %** relatifs sur les deux chaines
+    (depuis 0.2127 et 0.2165).
+    C'est le lien avec l'etape 1 : si deux volumes redondants entretenaient la non-convergence, les
+    retirer doit faire decroitre le travail du groupe de collision seule.
+    **JE DONNE CELLE-CI A 50/50** : la non-convergence peut tres bien venir des volumes du BUSTE ou
+    du debardeur, qui restent en place.
+
+T4  LES COUTS, DANS LES DEUX SENS (aucun critere : je m'engage a les publier)
+    `rootdev`, pire saut par frame, `tipvar` sur `tilt` et `updown`, franchissements de cote,
+    `comex` max et moyen, `ROOM-IDLE`, `PHYSIDLE dev`, et `prsr`/`psat` (le canal repare au cycle 36).
+
+================================================================================================
+CE QUE JE NE PREDIS PAS
+================================================================================================
+  - Je ne predis PAS que ce cycle fera baisser `meshpen`. L'ablation RETIRE un obstacle : au mieux
+    elle ne degrade rien, elle ne peut pas mecaniquement mieux repousser la chair.
+  - Je ne predis PAS de changer le build livre. L'interrupteur reste a zero ; si le resultat justifie
+    de retirer la sphere proximale pour de bon, c'est une decision d'ASSET, elle touche une surcharge
+    de l'owner, et elle se prendra avec ses propres predictions — pas dans la foulee de la mesure.
+  - Je ne predis RIEN sur sa SPEC 22 : le tenseur n'est pas dans ce chemin.
+
+================================================================================================
+TABLE DE BRANCHES — CE QUE CHAQUE ISSUE M'OBLIGE A ECRIRE
+================================================================================================
+  T1 + T2 tenues
+      -> la sphere proximale est **du travail redondant prouve a l'execution**, en plus de l'etre
+         geometriquement sur le mesh. Le chantier suivant est de la retirer ou de la redimensionner
+         POUR DE BON, et c'est une question a poser a l'owner puisque son rayon est SA surcharge.
+  T2 REFUTEE (meshpen > 1.10x)
+      -> elle N'EST PAS redondante comme obstacle, malgre le recouvrement de sommets. Alors la
+         mesure d'ensemble du cycle 35 (« l'union = la distale seule ») ne suffit pas a decider d'un
+         volume de collision, et je publie cette limite de mon propre instrument.
+  T1 REFUTEE (le compte ne baisse pas de 15 %)
+      -> l'interrupteur n'a rien desarme : soit mon predicat ne designe pas les bonnes spheres, soit
+         elles ne poussaient deja pas. **Je ne publie AUCUN verdict sur T2 ni T3 dans ce cas** — ce
+         serait un zero de domaine vide, exactement ce que ce cycle vient de retirer six fois.
+  T3 REFUTEE alors que T1 et T2 tiennent
+      -> la non-convergence ne vient PAS des volumes redondants de la poitrine. Les suspects
+         restants sont les volumes du BUSTE et ceux du debardeur (40.0 % / 28.9 % des corrections,
+         SPEC 35), et la question redevient une question a l'owner.
