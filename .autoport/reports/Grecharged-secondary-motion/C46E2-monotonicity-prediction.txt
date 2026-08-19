@@ -1,0 +1,67 @@
+C46E2 — PREDICTIONS GRAVEES AVANT LA JAMBE 2 (cycle 46, monotonie de SPEC 31)
+DIRECTIVES v3fee554599
+
+CE QUE LA JAMBE 1 A LAISSE OUVERT, ET C'EST MOI QUI L'AI CREE :
+  `meshpen`   0.0491 -> 0.1061 m (chestL, +116 %)   ·   0.0314 -> 0.0898 m (chestR, +186 %)
+  `ROOM-SIDE` 0 -> 8 frames de franchissement (chestR)
+  attribution : `ROOM-CONTACT-LINK` link0 43->42, link1 3905->9691 — tout vient du maillon libere.
+
+LA MESURE QUI DESIGNE LA CAUSE (`PHYSGRAD amp`, enveloppe de l'ecart a la pose d'auteur, repere
+ancre, unites de jeu) :
+  chestL  l=0 391.87-651.18   l=1 423.62-704.56   rapport pointe/racine 1.08
+  chestR  l=0 409.75-704.26   l=1 420.36-711.98   rapport pointe/racine 1.01
+Le distal pivote de 79 a 102 deg — ce qui deplace son joint de 2*140.4*sin(50 deg) = 215 u — et
+n'ajoute que ~50 u a une enveloppe de 650-700 u. **IL TOURNE CONTRE la deviation de son parent au
+lieu de la prolonger.**
+
+LA LIGNE DE SA SPEC, CITEE MOT POUR MOT (§31) :
+  "With r = 0 at chest attachment and r = 1 at distal/apex region, a useful deformation weighting
+   is w(r) = r^1.6...2.0 — little deformation at the root; progressively increasing mobility;
+   largest displacement in distal tissue."
+
+POURQUOI LA BORNE D'APEX NE PEUT PAS L'ATTRAPER : elle borne `|e_racine + d_distal| <= 0.50 B0`,
+c'est-a-dire la NORME D'UNE SOMME — aveugle a la DIRECTION. Un repli ou `d_distal` annule
+`e_racine` tient dans le budget tout en mettant la pointe dans le tronc. Ce n'est donc pas une
+AMPLITUDE de plus qu'il faut, c'est une contrainte de FORME.
+
+INTERVENTION : dans `phys-bend-chain`, le maillon non-racine ne peut pas rebrousser la deviation
+de son parent — `d_l . e_{l-1} >= 0`. Ecrit sur l'angle, avec `A = m^.e^` et `B = q^.e^` :
+    d . e^  proportionnel a  2 sin(a/2) * [ B cos(a/2) - A sin(a/2) ]
+donc la condition est `tan(a/2) <= B/A` quand `A > 0`, soit un plafond `amn = 2*atan(B/A)`.
+IDEMPOTENT : la rotation reste dans le plan (m^, q^), donc A et B sont inchanges apres application
+et le plafond est un POINT FIXE EXACT, pas une erosion. AUCUNE CONSTANTE NEUVE : `amn` est calcule
+a partir de la geometrie de la frame, il n'y a rien a regler.
+CE N'EST PAS UN PLAFOND FIXE : `e_{l-1}` varie avec le stimulus, donc `amn` aussi. C'est
+precisement ce qui le distingue du 16.63 deg qu'on vient de retirer.
+
+--- LES PREDICTIONS ------------------------------------------------------------------------------
+
+Q1  Le rapport `amp(l=1)/amp(l=0)` passe au-dessus de **1.30** sur au moins une chaine
+    (aujourd'hui 1.08 / 1.01 ; avant la jambe 1, 1.05 / 1.03).
+
+Q2  `meshpen` REDESCEND sous sa valeur de la jambe 1 sur les DEUX chaines (< 0.1061 / < 0.0898).
+
+Q3  [LE VRAI CRITERE, ET IL EST DUR] `meshpen` revient sous la valeur d'AVANT le cycle 46
+    (<= 0.0491 chestL et <= 0.0314 chestR). C'est ce que le cycle 45 exigeait, et je le garde.
+
+Q4  `ROOM-SIDE` revient a **0** franchissement.
+
+Q5  L'ACQUIS DE LA JAMBE 1 SURVIT : l'ecart de `ROOM-GRADIENT link1` reste >= 20 % sur au moins
+    une chaine. Si la monotonie re-aplatit la sortie, elle est RETIREE — on ne rachete pas la
+    penetration avec la constante qu'on vient de tuer.
+
+Q6  [CONTRE MOI] `tipvar_max` reste >= 0.160 (aujourd'hui 0.1738). Une contrainte de forme peut
+    couter du mouvement ; si elle en coute plus que ca, le prix est trop cher et je le dis.
+
+Q7  [CONTRE MOI] §27 ne regresse pas : `ROOM-SETTLE t1` reste <= 1.7 s sur les deux chaines
+    (aujourd'hui 1.42 / 1.38, apres avoir ete >2.47 sur chestR avant la jambe 1).
+
+Q8  `ROOM-STRETCH` <= 0.010 et `ROOM-IDLE maxdev` <= 0.0005. La rotation reste a longueur du
+    MODELE, et au repos la deviation du parent est nulle donc le plafond ne s'arme pas.
+
+Q9  Ce qui ne doit pas bouger : ROOM-NOPLAYER absent, ROOM-ACTORS 1, ROOM-ANIMS 31/31 skipped=0.
+
+--- CE QUE CETTE JAMBE NE PRETEND PAS FAIRE -----------------------------------------------------
+Elle ne ferme pas `COLLIDE` : meme a Q3 tenue, le residu resterait a 98x le plafond de 0.0005 m.
+Elle ne touche pas le canal RADIAL du distal, qui reste plat (`rrm` 0.0580-0.0581 B0 pour une
+demande de 0.4249 a 0.6138) parce que le degre de liberte de sa §23 n'est arme que sur la racine.
