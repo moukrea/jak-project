@@ -2,8 +2,9 @@ DIRECTIVES vb249967379
 
 ================================================================================================
 CYCLE 41 — SA SPEC NOMME UN CENTRE DE MASSE ET LE MOTEUR PUBLIAIT UN MAXIMUM SUR DEUX POINTS.
-MESUREE COMME SA SPEC LA DEFINIT, L'EXCURSION DE COM VAUT LA MOITIE : 0.699 -> 0.356 B0,
-100 % DES FENETRES HORS BANDE -> 16 %. AUCUNE PHYSIQUE N'A BOUGE, ET C'EST LE POINT.
+MESUREE COMME SA SPEC LA DEFINIT, L'EXCURSION DE COM VAUT LA MOITIE AUX DEUX TIERS DE CE QUI ETAIT
+PUBLIE — MAIS LA FRONTIERE DU NUAGE DECIDE SI ELLE PASSE LE PLAFOND, ET JE RETIRE L'ANNONCE QUE
+J'AVAIS ECRITE AVANT DE L'AVOIR TESTEE. AUCUNE PHYSIQUE N'A BOUGE, ET C'EST LE POINT.
 ================================================================================================
   ETAPE 1  LA GRANDEUR. Sa §6 definit `P0` = « neutral breast center-of-mass POSITION », sa §22
            borne « Breast COM », sa §23 pose `x` = « relative breast COM displacement ». Les trois
@@ -26,14 +27,24 @@ MESUREE COMME SA SPEC LA DEFINIT, L'EXCURSION DE COM VAUT LA MOITIE : 0.699 -> 0
            **Les 13 types de lignes deja publies sont IDENTIQUES AU CARACTERE PRES a la course du
            cycle 40** (4300 lignes comparees, 0 differente) : `tipvar` 0.1891 / 0.1939 et
            `meshpen` 0.0952 / 0.0891, les memes chiffres. Rien dans la physique n'a bouge.
-  RESULTAT **LE COM QUE SA SPEC NOMME VAUT LA MOITIE DE CE QUE QUARANTE CYCLES ONT PUBLIE.**
-               chaine   `comex` publie      COM de population (BORNE SUPERIEURE)
-               chestL   0.6987 moyen        **0.3557**   plafond dur 0.400  -> DEDANS
-               chestR   0.6847 moyen        **0.3434**   plafond dur 0.400  -> DEDANS
-               fenetres hors bande : 100.0 % -> **16 %** · 99.5 % -> **11 %**
-           **CE N'EST PAS UN PROGRES DE LA PHYSIQUE. C'est le meme mouvement, au bit pres, lu par
-           la grandeur que sa spec definit au lieu d'une autre.** Le « pudding » que l'owner voit
-           n'est pas ferme par ce cycle et je ne pretends pas le contraire.
+  ETAPE 5  **JE RETIRE UNE PARTIE DE MON PROPRE TITRE, ET C'EST MON REGISTRE QUI M'A ARRETE.**
+           Il porte la regle « publier les TROIS frontieres du nuage, jamais une, plusieurs
+           verdicts sont DECIDES par la frontiere ». J'en avais publie une. Les trois :
+               frontiere      chestL moyen / hors bande      chestR moyen / hors bande
+               w > 0.00        0.3557  16 %   DEDANS          0.3434  11 %   DEDANS
+               w > 0.05        0.3916  40 %   dedans          0.3845  40 %   dedans
+               w > 0.25       **0.4294 75 %   DEHORS**       **0.4136 62 %   DEHORS**
+  RESULTAT **LE COM QUE SA SPEC NOMME VAUT ENTRE LA MOITIE ET LES DEUX TIERS DE CE QUE QUARANTE
+           CYCLES ONT PUBLIE — et CA, aucune frontiere ne le conteste** (facteur x0.509 a x0.615
+           sur chestL, x0.502 a x0.604 sur chestR).
+           **CE QUE JE RETIRE : « la moyenne passe sous le plafond dur ».** Elle y passe sur deux
+           frontieres sur trois. L'enonce qui survit est plus faible et c'est celui-la que je
+           publie : le COM vaut **0.343 a 0.429 B0 contre un plafond de 0.400** — la question de
+           savoir si sa SPEC 22 est tenue est desormais DANS l'incertitude de mesure du plafond,
+           au lieu d'etre 75 % au-dessus. **SPEC 22 « COM » reste PARTIELLE.**
+           **ET CE N'EST PAS UN PROGRES DE LA PHYSIQUE. C'est le meme mouvement, au bit pres, lu
+           par la grandeur que sa spec definit au lieu d'une autre.** Le « pudding » que l'owner
+           voit n'est pas ferme par ce cycle et je ne pretends pas le contraire.
   ET CONTRE MOI  Trois de mes six sous-predictions du P4 sont **REFUTEES** : j'avais predit une
            correction PLUS FAIBLE que la mesure. Elles sont publiees ci-dessous avec leur ecart.
 
@@ -184,6 +195,33 @@ Part de chaque maillon dans le COM de population (moyenne) :
     chestR  maillon 0 (22.0 % de la masse) apporte 0.1502 B0 · maillon 1 (31.9 %) apporte 0.1932
 Le maillon qui portait 82-93 % des maxima publies n'apporte que **37 % / 44 %** du centre de masse.
 
+4.1 bis LA FRONTIERE DU NUAGE DECIDE LE VERDICT — ET J'AI FAILLI PUBLIER UNE SEULE FRONTIERE
+=================================================================================================
+Sortie complete : `C41E4-frontier-sensitivity.txt`. Mon propre registre porte la regle, ecrite au
+cycle 27 : « publier les TROIS frontieres du nuage (w>0, >=0.05, >=0.25), plusieurs verdicts sont
+DECIDES par la frontiere, donc n'en choisir aucune en silence ». J'avais redige le resultat sur la
+seule frontiere `w>0`, celle que la prediction gravee declarait.
+
+    chaine  frontiere    n   part SIMULEE   COMpop moyen   pire    fenetres > 0.400
+    chestL  w>0.00      94     54.15 %       0.3557      0.5429     29 ( 16 %)   DEDANS
+    chestL  w>0.05      85     59.63 %       0.3916      0.5978     74 ( 40 %)   dedans
+    chestL  w>0.25      75     65.48 %     **0.4294**    0.6564    139 ( 75 %)   **DEHORS**
+    chestR  w>0.00      90     53.94 %       0.3434      0.4475     20 ( 11 %)   DEDANS
+    chestR  w>0.05      80     60.39 %       0.3845      0.5011     75 ( 40 %)   dedans
+    chestR  w>0.25      72     65.10 %     **0.4136**    0.5392    115 ( 62 %)   **DEHORS**
+
+**AUCUNE FRONTIERE N'EST PRIVILEGIEE, ET C'EST LE FOND DU PROBLEME.** Un sommet a `w_chaine = 0.03`
+est de la chair de sein ancree a 97 % : l'exclure retire de la masse qui ne bouge pas et qui est
+pourtant bien du sein ; l'inclure risque d'aspirer des sommets de torse qui n'en sont pas. **Le
+nuage est un ENSEMBLE D'INFLUENCE, pas une region anatomique — et un centre de masse demande une
+region.** Trancher exige une separation GEOMETRIQUE torse/sein, publiee avec son controle ; elle
+n'existe pas, je ne l'invente pas en fin de cycle, et tant qu'elle n'existe pas tout chiffre de COM
+sort avec ses trois frontieres.
+
+CE QUI SURVIT A LA SENSIBILITE : le facteur contre le `comex` publie va de **x0.509 a x0.615**
+(chestL) et de **x0.502 a x0.604** (chestR). A toutes les frontieres, la grandeur que sa spec nomme
+vaut entre la moitie et les deux tiers de ce qui a dirige quarante cycles.
+
 4.2 CE QUE CE CYCLE NE FERME PAS, ET IL FAUT LE DIRE AUSSI FORT QUE LE RESTE
 =================================================================================================
   * **La mesure reste NON DISCRIMINANTE.** Le COM de population par pilotage :
@@ -256,11 +294,14 @@ Aucune section « non applicable » (interdit depuis le 14/08 11:50).
   SPEC 22 « BREAST COM »         **PARTIELLE — ET ELLE ETAIT COMPTEE ABSENTE DEPUIS 40 CYCLES SUR
                                  UNE GRANDEUR QUI N'EST PAS CELLE QUE SA SPEC NOMME.** [T] COM de
                                  population (borne superieure rigoureuse, tightness etablie par
-                                 P5) : **0.3557 / 0.3434 B0** en moyenne, plafond dur 0.400 —
-                                 **DEDANS**. Pire fenetre 0.5429 / 0.4475 — **DEHORS**.
-                                 **16 % / 11 %** des fenetres au-dessus du plafond (etait 100 % /
-                                 99.5 %). Ligne « normal 0.350 » : chestL 0.3557 au-dessus,
-                                 chestR 0.3434 en dessous. **Elle n'est PAS declaree tenue.**
+                                 P5), aux TROIS frontieres du nuage :
+                                     w>0.00  **0.3557 / 0.3434**  16 % / 11 % hors bande  DEDANS
+                                     w>0.05    0.3916 / 0.3845    40 % / 40 %             dedans
+                                     w>0.25  **0.4294 / 0.4136**  75 % / 62 %             DEHORS
+                                 Plafond dur 0.400. **LA FRONTIERE DECIDE LE VERDICT, donc il n'y
+                                 a pas de verdict** : le COM vaut 0.343 a 0.429 B0 contre 0.400.
+                                 Ce qui ne depend PAS de la frontiere : le facteur contre le
+                                 chiffre publie, **x0.50 a x0.62**. Elle n'est PAS declaree tenue.
   SPEC 23 multi-DOF   PARTIELLE  [T] le degre de liberte est arme sur les deux maillons et
                                  discrimine. [T] **CHIFFRE NEUF** : le maillon 0, qui portait
                                  82-93 % des maxima publies, n'apporte que 37 % / 44 % du centre
@@ -353,7 +394,10 @@ CE QUE JE N'AI PAS FAIT, ET POURQUOI — AUCUN DE-SCOPE SILENCIEUX
   * **Je n'ai pas corrige l'artefact de rotation** du cycle 40 (28-32 % de la demande radiale du
     segment de chair). Mesure, publie, non corrige.
   * **Je n'ai pas relu les SPEC 10-13 ni 14-20 au metre de population**, alors que le facteur
-    x0.51 les concerne toutes. C'est le premier chantier du cycle 42 et il ne coute aucune course.
+    x0.50-0.62 les concerne toutes. Premier chantier du cycle 42, et il ne coute aucune course.
+  * **Je n'ai pas construit la separation GEOMETRIQUE torse/sein** qui seule trancherait entre les
+    trois frontieres (4.1 bis). Je ne l'ai pas improvisee en fin de cycle : une region inventee
+    sans controle vaudrait exactement ce que valait le maximum qu'on vient de retirer.
   * **Je n'ai touche a AUCUNE gate** ni a la liste des defauts de l'owner. La gate `DISCRIMINANT`
     ne couvre que `tipvar` : je le rapporte, je ne l'etends pas.
   * **Je n'ai pas change `B0`.**
@@ -367,8 +411,11 @@ CE QUE L'OWNER DOIT REGARDER SUR CE BUILD
      dire — la mesure dit que c'est impossible.
   2. Son verdict du 18/08 (« ses seins c'est du pudding un peu quand meme ») reste **entierement
      ouvert**. Ce cycle a corrige un METRE, pas un mouvement.
-  3. Ce qu'il change pour la suite : l'excursion de sa poitrine etait declaree 75 % au-dessus du
-     plafond de sa spec ; mesuree comme sa spec la definit, elle est DANS la bande en moyenne et
-     hors bande sur 16 % / 11 % des transitoires. Le travail se deplace donc de « reduire
-     l'excursion » vers **la FORME de la reponse** — c'est ce qu'il decrit depuis le debut quand
-     il dit « pudding » : pas trop de deplacement, un deplacement qui ne ressemble a rien.
+  3. Ce qu'il change pour la suite : l'excursion de sa poitrine etait declaree **75 % au-dessus**
+     du plafond de sa spec ; mesuree comme sa spec la definit, elle est **a cheval sur le plafond**
+     (0.343 a 0.429 B0 pour un plafond de 0.400, selon la frontiere du nuage). Le travail se
+     deplace donc de « reduire l'excursion » vers **la FORME de la reponse** — c'est ce qu'il
+     decrit depuis le debut quand il dit « pudding » : pas forcement trop de deplacement, un
+     deplacement qui ne ressemble a rien. Et la mesure appuie ce deplacement de priorite : un
+     stimulus **39 fois** plus fort ne change la reponse que de 15 %, et la sous-fenetre SANS
+     AUCUN pilotage en produit deja 86 %.
