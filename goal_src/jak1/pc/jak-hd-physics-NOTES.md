@@ -3627,3 +3627,137 @@ animation, pilotage) et la meme valeur de repos : `phys-comexw-reset!` les balay
 pouvait etre oublie ici, et il aurait alors publie a chaque fenetre le maximum de la COURSE sans
 que rien ne le dise. Les emplacements 19 a 22 gardent la portee de la COURSE et ne sont pas
 touches.
+
+## NOTE-113
+
+**SPEC 22 EST UNE BORNE DE REPLI, PAS UNE LAISSE VERS LA POSE D'AUTEUR.**
+
+La borne de SPEC 22 etait comparee a `dd = |p_simule - p_auteur|`, la distance du joint a SA
+position d'auteur dans le MONDE. Sur le maillon RACINE c'est la bonne grandeur : son attache est
+l'ancre, l'ancre n'est pas simulee, donc sa position d'auteur et sa position simulee coincident et
+`dd` EST le repli du maillon autour de son attache.
+
+Sur un maillon NON-RACINE, non. Son attache est le maillon precedent, qui est SIMULE et qui a sa
+propre deviation. `dd` y additionne donc deux choses de natures differentes : le repli propre du
+maillon (ce que SPEC 22 borne) et le deplacement que son parent lui fait SUBIR (dont il n'est pas
+responsable et qui, lui, est deja borne sur le parent). Serrer `dd` sur un maillon distal ne
+borne pas son repli : cela le tire vers sa pose d'auteur en LUTTANT contre la contrainte de
+longueur — c'est-a-dire que cela l'epingle a l'animation, exactement le mode d'echec que la
+directive du 2026-08-18 interdit sur un os injecte.
+
+La cible est donc decalee de la deviation du parent : `t' = t_auteur + (p_parent - t_parent)`.
+Sur le maillon racine le terme ajoute vaut ZERO par construction (`kp = -1`), donc `t' = t` et le
+maillon racine est INCHANGE AU BIT PRES — c'est la preuve de non-regression, elle est structurelle
+et pas experimentale. Sur un maillon distal, `dd` devient le repli seul.
+
+## NOTE-114
+
+**LA MEME LONGUEUR ABSOLUE SUR DEUX OS DE 1040.5 ET 140.4 u : TENDUE SUR L'UN, INATTEIGNABLE SUR
+L'AUTRE.**
+
+`kn = 0.42 B0` et `cp = 0.08 B0` sont des LONGUEURS ABSOLUES (252.84 u et 48.16 u pour B0 = 602).
+Elles etaient appliquees telles quelles a tous les maillons. Or un maillon qui pivote de `theta`
+autour de son attache deplace son joint de `2*bl*sin(theta/2)` : la meme longueur absolue est donc
+un ANGLE PERMIS qui depend de la longueur de l'os. Mesure sur la trace (`PHYSBONE`) :
+
+    chestL  l=0 bl=1040.5006  ->  plafond 301.0 u = 16.6331 deg   MESURE max 16.73 deg  (+0.58 %)
+    chestR  l=0 bl=1039.0379  ->  plafond 301.0 u = 16.6567 deg   MESURE max 19.35 deg  (+16.2 %)
+    chestL  l=1 bl= 140.4225  ->  2*bl = 280.845 u < 301.0 u  ->  AUCUN pivot n'atteint la borne
+    chestR  l=1 bl= 144.2315  ->  2*bl = 288.463 u < 301.0 u  ->  IDEM
+
+Sur le distal la borne est donc GEOMETRIQUEMENT INATTEIGNABLE : pas meme un repli de 180 degres ne
+la declenche. Et c'est ce que la trace montre — `PHYSGRAD ang` du maillon distal atteint
+**145.67 deg** (chestL, `updown`) et **143.92 deg** (chestR), mediane 72 a 88 deg sous pilotage,
+et deja 26.10 / 20.29 deg de mediane sur l'ANIMATION SEULE. La contrainte de longueur, elle, tient
+(`PHYSSTR el` = 0.0001 a 0.0002) : c'est donc une ROTATION RIGIDE de l'os, pas un effondrement de
+la mesure. Cet os porte 35.24 % / 31.94 % du poids de la chair du sein et est MAJORITAIRE sur
+43.5 % / 37.5 % du nuage (cycle 41) : son repli est de la chair retournee.
+
+Le correctif rend la borne commensurable a l'os qui la subit :
+
+    rl = fmin(1.0, blen(maillon) / blen(maillon racine))
+    kn = 0.42 * B0 * rl        cp = 0.08 * B0 * rl
+
+`rl` vaut EXACTEMENT 1.0 sur le maillon racine (le rapport d'une grandeur a elle-meme), donc la
+racine est inchangee au bit pres, comme en NOTE-113. Le `fmin 1.0` garantit que l'intervention est
+MONOTONE : elle ne peut que SERRER, jamais desserrer, donc elle ne peut ajouter de mouvement nulle
+part. Le plafond devient le meme ANGLE sur tous les maillons — l'angle que SPEC 22 permet deja sur
+le levier de la racine — sans qu'aucune constante neuve soit introduite ni aucun nombre ajuste.
+
+**RESERVE PUBLIEE.** SPEC 31 demande une mobilite CROISSANTE vers la pointe. Un plafond d'angle
+commun est un PLAFOND, pas une cible, et le mouvement ABSOLU du distal reste superieur puisqu'il
+herite du proximal ; mais une borne GRADUEE derivee de SPEC 31 reste a etablir, et elle n'est pas
+inventee ici. Non touche non plus : la saturation de SPEC 21 a l'interieur du sous-pas
+(`kn`/`cpp` sur `b0e`, meme fichier), qui porte sur une AUTRE grandeur (la distance a la cible du
+ressort de materiau, pas a la pose d'auteur) et qui n'a pas de mesure l'incriminant.
+
+## NOTE-115
+
+**PORTEE DE SPEC 21/22, RELEVEE SUR LA COURSE ET PAS SUR UN NOM** (prose deplacee du source le
+2026-08-19, cycle 42, pour rendre de la marge sous le plafond de lignes de la gate `CLEAN` ; pas
+une ligne de code n'a change avec elle).
+
+`PHYSCHAIN` publie `fam=` et `links=` pour les 22 chaines, et le couple (famille A) ne selectionne
+que `c=7 lBoob` et `c=8 rBoob`. Sens mecanique d'origine : une chaine a UN maillon n'a aucune
+articulation interne, donc toute son excursion EST la rotation d'un bloc autour de son ancre — la
+grandeur meme que SPEC 22 borne. Les 13 chaines de famille B (lunettes, sangles, languettes) sont
+hors perimetre par construction, donc `goggles-tunnel` et `knee-tabs`, que l'owner a FERMES, ne
+peuvent pas etre payes ici.
+
+**ET CE « UN MAILLON » N'EST PLUS VRAI DEPUIS LE 2026-08-18** : sa SPEC 23/30 a impose le second
+os, la chaine porte `links=2`, et l'excursion n'est plus la rotation d'un bloc — elle a une
+articulation interne, qui s'est reveleee non bornee (voir NOTE-114). La phrase est conservee ici
+telle qu'elle a ete ecrite, avec sa date de peremption, parce que c'est elle qui a justifie
+plusieurs choix encore en place.
+
+**[NOTE-56]** `(= n 1)` RETIRE le 2026-08-17 : c'etait la garde qui aurait DESARME SPEC 21 et
+SPEC 22 a l'injection du second os. Famille A ne selectionne que `chestL`/`chestR` (les seules
+chaines simulees, ordre du 2026-08-14 07:30), donc le `n` etait un doublon de selecteur — et un
+zero produit par un bloc qui ne s'execute plus n'est pas un zero gagne.
+
+**[NOTE-38]** `gmean` et sa normalisation RETIREES le 2026-08-19 : voir NOTE-74.
+
+## NOTE-116
+
+**L'ANGLE DE SPEC 22, DERIVE ET NON CHOISI, QUAND LA DONNEE N'EN POSE PAS.**
+
+`phys-bend-chain` est la borne de repli A LONGUEUR CONSTANTE : elle fait TOURNER le maillon autour
+de son attache, `dl` inchange, avec `phys-softmin` (identite stricte sous 0.84*cap, asymptote
+exacte a `cap`). Elle etait pilotee UNIQUEMENT par la cle de donnee `maxangle=`, et le generateur
+`physics_keira_gen2.py` interdit activement cette cle hors des meches (auto-controle 6b, :2218) :
+la poitrine ne pouvait donc pas l'armer par la donnee, quoi qu'on ecrive dans le fichier.
+
+Quand la donnee ne pose rien (`maxangle <= 0`) et que la chaine est de famille A, l'angle est
+maintenant DERIVE des deux memes nombres que la borne positionnelle de SPEC 22 :
+
+    amax = 2*asin( 0.50*B0 / (2*blen(maillon racine)) )
+         = 16.633 deg (chestL, B0=602, blr=1040.50)   16.657 deg (chestR, blr=1039.04)
+
+C'est l'angle que le plafond dur de SPEC 22 permet DEJA sur le levier de la racine — donc aucune
+constante neuve, aucun nombre ajuste, et sur le maillon racine la borne coincide avec celle qui y
+regnait deja. Le genou de `phys-softmin` vaut 0.84*cap, c'est-a-dire EXACTEMENT le rapport
+0.42/0.50 de SPEC 22 : les deux saturations ont la meme forme par construction.
+
+**POURQUOI ICI ET PAS DANS LA BORNE POSITIONNELLE (NOTE-114).** Les trois etages du meme maillon,
+mesures apres NOTE-113/114 (chestL l=1, `PHYSGRADS`/`PHYSGRAD`) :
+
+    apres integration seule (cap-ang etage 0, :3032)             134.31 deg
+    apres la borne positionnelle de SPEC 22 (:3040)              <= 16.63 deg par construction
+    apres les 8 balayages longueur+collision (etage 1, :3091)  ** 164.13 deg **
+    final                                                        116.09 deg
+
+Le repli n'est pas produit par l'integration : il est produit par les BALAYAGES DE CONTRAINTE, qui
+emmenent le maillon de 16.6 a 164 deg — plus haut que ce que l'integration seule donnait. Une
+borne POSITIONNELLE placee avant eux ne peut donc rien tenir. `phys-bend-chain` est appelee :3087,
+APRES ces 8 balayages, et c'est la seule position ou une borne de repli puisse mordre.
+
+**CE QUE CELA NE TIENT PAS ENCORE.** Sept balayages tournent APRES `phys-bend-chain` (:3093 trois
+longueur+collision, :3096 quatre collision seule). Ce qu'ils rendent au repli se lit dans l'ecart
+entre `PHYSGRADS a1` et `PHYSGRAD ang` finaux, et il est publie a chaque cycle.
+
+**PORTEE.** Le comportement des chaines qui posent `maxangle=` dans la donnee (les meches, gelees
+depuis le 2026-08-14) est INCHANGE : la donnee reste prioritaire. Seule la famille A sans cle
+derive son angle. Et c'est un mecanisme que l'owner avait exclu de la poitrine le 2026-08-11
+22:35, au motif ecrit qu'« une chaine a un seul maillon n'a aucun angle inter-maillon » — motif
+mort le 2026-08-18 avec l'injection du second os. Sa consigne est citee, sa premisse est datee,
+et l'arbitrage lui revient.

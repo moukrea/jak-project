@@ -1311,7 +1311,14 @@
   (none))
 
 (defun phys-bend-chain ((skel skeleton) (sc int) (n int) (rlk int) (an int) (nbone int))
-  (let ((amax (-> *phys-maxang* sc)))
+  ;; [NOTE-116] L'ANGLE DE SPEC 22, DERIVE ET NON CHOISI, QUAND LA DONNEE N'EN POSE PAS. -> jak-hd-physics-NOTES.md
+  (let ((amax (if (and (= (-> *phys-fam* sc) 1) (<= (-> *phys-maxang* sc) 0.0))
+                (let* ((blr (-> *phys-blen* (+ (* sc PHYS-LINKS) rlk)))
+                       (xr  (if (> blr 0.01) (/ (* 0.50 (-> *phys-b0* sc)) (* 2.0 blr)) 2.0)))
+                  (if (and (> xr 0.0) (< xr 0.999))
+                    (* 2.0 (* 0.0054931641 (atan xr (sqrtf (- 1.0 (* xr xr))))))
+                    0.0))
+                (-> *phys-maxang* sc))))
     (when (> amax 0.0)
       (dotimes (l n)
         (when (>= l rlk)
@@ -2564,21 +2571,7 @@
                                   (the-as vector (-> skel bones (+ kp 1) transform vector 3)))))))
                     ;; [NOTE-37] ---- 1. UNE PARTICULE PAR MAILLON, INTEGREE EN POSITION MONDE. ------------- -> jak-hd-physics-NOTES.md
                     (let* ((ela (if (= (-> *phys-fam* sc) 1) 1 0))
-                           ;; PORTEE DE SPEC 21/22, RELEVEE SUR LA COURSE ET PAS SUR UN NOM :
-                           ;; `PHYSCHAIN` publie `fam=` et `links=` pour les 22 chaines, et le couple
-                           ;; (famille A, UN maillon) ne selectionne que `c=7 lBoob` et `c=8 rBoob`.
-                           ;; Sens mecanique : une chaine a un maillon n'a aucune articulation
-                           ;; interne, donc toute son excursion EST la rotation d'un bloc autour de
-                           ;; son ancre — la grandeur meme que SPEC 22 borne. Les 13 chaines de
-                           ;; famille B (lunettes, sangles, languettes) sont hors perimetre par
-                           ;; construction, donc `goggles-tunnel` et `knee-tabs`, que l'owner a
-                           ;; FERMES, ne peuvent pas etre payes ici.
-                           ;; [NOTE-56] `(= n 1)` RETIRE le 2026-08-17 : c'etait la garde qui aurait -> jak-hd-physics-NOTES.md
-                           ;; DESARME SPEC 21 et SPEC 22 a l'injection du second os. Famille A ne
-                           ;; selectionne que chestL/chestR (les seules chaines simulees, ordre du
-                           ;; 2026-08-14 07:30), donc le `n` etait un doublon de selecteur — et un
-                           ;; zero produit par un bloc qui ne s'execute plus n'est pas un zero gagne.
-                           ;; [NOTE-38] `gmean` et sa normalisation RETIREES le 2026-08-19 : voir NOTE-74. -> jak-hd-physics-NOTES.md
+                           ;; [NOTE-115] PORTEE DE SPEC 21/22, RELEVEE SUR LA COURSE ET PAS SUR UN NOM. -> jak-hd-physics-NOTES.md
                            (sat (if (nonzero? ela) 1 0)))
                       (dotimes (l n)
                         (let* ((scl (+ (* sc PHYS-LINKS) l))
@@ -3042,9 +3035,15 @@
                           (let* ((scl (+ (* sc PHYS-LINKS) l))
                                  (k   (-> *phys-joint* scl)))
                             (when (and (>= k 0) (< (+ k 1) nbone))
-                              (let* ((tx (-> skel bones (+ k 1) transform vector 3 x))
-                                     (ty (-> skel bones (+ k 1) transform vector 3 y))
-                                     (tz (-> skel bones (+ k 1) transform vector 3 z))
+                              (let* ((kp  (if (> l rlk) (-> *phys-joint* (- scl 1)) -1))
+                                     (kpo (and (>= kp 0) (< (+ kp 1) nbone)))
+                                     ;; [NOTE-113] SPEC 22 EST UNE BORNE DE REPLI, PAS UNE LAISSE VERS LA POSE D'AUTEUR. -> jak-hd-physics-NOTES.md
+                                     (tx (+ (-> skel bones (+ k 1) transform vector 3 x)
+                                            (if kpo (- (-> *phys-px* (- scl 1)) (-> skel bones (+ kp 1) transform vector 3 x)) 0.0)))
+                                     (ty (+ (-> skel bones (+ k 1) transform vector 3 y)
+                                            (if kpo (- (-> *phys-py* (- scl 1)) (-> skel bones (+ kp 1) transform vector 3 y)) 0.0)))
+                                     (tz (+ (-> skel bones (+ k 1) transform vector 3 z)
+                                            (if kpo (- (-> *phys-pz* (- scl 1)) (-> skel bones (+ kp 1) transform vector 3 z)) 0.0)))
                                      (dx (- (-> *phys-px* scl) tx))
                                      (dy (- (-> *phys-py* scl) ty))
                                      (dz (- (-> *phys-pz* scl) tz))
@@ -3054,8 +3053,11 @@
                                      (b0f (if (> (-> *phys-b0* sc) 0.0) (-> *phys-b0* sc)
                                             (-> *phys-blen* scl)))
                                      ;; [NOTE-66] [NOTE-C28] CE `b0f` N'EST PAS LE RAYON DU MAILLON, ET C'EST -> jak-hd-physics-NOTES.md
-                                     (kn (* 0.42 b0f))
-                                     (cp (* 0.08 b0f)))
+                                     ;; [NOTE-114] LA MEME LONGUEUR ABSOLUE SUR DEUX OS DE 1040.5 ET 140.4 u -> jak-hd-physics-NOTES.md
+                                     (rlb (-> *phys-blen* (+ (* sc PHYS-LINKS) rlk)))
+                                     (rl  (if (> rlb 0.01) (fmin 1.0 (/ (-> *phys-blen* scl) rlb)) 1.0))
+                                     (kn (* (* 0.42 b0f) rl))
+                                     (cp (* (* 0.08 b0f) rl)))
                                 (when (and (> dd kn) (> cp 0.0001))
                                   (let* ((xr (/ (- dd kn) cp))
                                          (th (if (>= xr 3.0)
