@@ -1,6 +1,27 @@
 DIRECTIVES vb249967379
 
 ================================================================================================
+CE DOCUMENT COUVRE TROIS ETAPES, DU PLUS RECENT AU PLUS ANCIEN
+================================================================================================
+  CYCLE 37 ETAPE 2   l'ablation des spheres proximales : mon controle positif a ECHOUE, et c'est
+                     le resultat — la paire sein-contre-sein ne porte que 3 a 6 % du travail de
+                     contact, donc la non-convergence vient du BUSTE et du DEBARDEUR.
+  CYCLE 37 ETAPE 1   la boucle de contraintes NE CONVERGE PAS, mesure a l'AMPLITUDE cette fois :
+                     les 12 derniers balayages n'ont aucune contrainte de longueur et poussent a
+                     94-97 % de la moyenne. Augmenter les iterations est PROUVE inutile.
+  CYCLE 36           l'entree de PRESSION du tenseur (SPEC 23) n'etait pas une pression mais la
+                     longueur d'un chemin de 150 a 254 corrections (4.4 a 5.0 m par frame) ;
+                     elle est devenue une intensite, l'ecretage tombe de 37.0 % et 28.7 % des
+                     frames a 3.8 % et 1.8 %, et le canal discrimine pour la premiere fois.
+                     Plus : SIX compteurs publies sans aucun ecrivain, retires, dont deux qui
+                     portaient un acquis du cycle 35. Et SPEC 24 re-mesuree.
+
+  ETAT DU VALIDATEUR, EN UNE LIGNE : il sort a 1 sur `OPEN-DEFECTS`, la seule gate que mon action
+  ne peut pas fermer — sa liste ne se vide QUE sur la parole de l'owner. Le detail est en bas.
+  Ce qui est de mon ressort : `COLLIDE` reste ROUGE (penetration 0.098 m contre 0.0005), et les
+  deux etapes du cycle 37 viennent de mesurer POURQUOI et ou il ne faut PAS chercher.
+
+================================================================================================
 CYCLE 37 ETAPE 2 — L'ABLATION DES SPHERES PROXIMALES : MON CONTROLE POSITIF A ECHOUE, ET C'EST
 LE RESULTAT. LA PAIRE SEIN-CONTRE-SEIN N'EST PAS LE MOTEUR DE LA NON-CONVERGENCE.
 ================================================================================================
