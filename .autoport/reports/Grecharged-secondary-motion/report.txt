@@ -598,8 +598,22 @@ ETAT DU VALIDATEUR — REEL, PUIS BALAYAGE COMPLET SUR COPIE
 ================================================================================================
 Le validateur REEL sort a **1** et s'arrete a sa troisieme gate, `OPEN-DEFECTS`, qui ne se ferme
 que sur la parole de l'owner (`breast-spec-incomplete`). **LA PHASE NE PEUT PAS PASSER LE
-VALIDATEUR PAR MON ACTION**, et son propre commentaire le dit : « la liste se vide UNIQUEMENT sur
-la parole de l'owner : c'est son oeil qui ferme un defaut, jamais un chiffre vert ».
+VALIDATEUR PAR MON ACTION**, et le diagnostic est exhaustif, lu dans les fichiers et non suppose :
+  1. la gate qui echoue est `OPEN-DEFECTS` (validateur :33-52) ;
+  2. elle compte les lignes commencant par `OPEN ` dans
+     `.autoport/reports/Grecharged-secondary-motion/owner-defects.txt` (:42) ;
+  3. il y en a **exactement une** : `OPEN breast-spec-incomplete` ;
+  4. le validateur ecrit lui-meme, a cote du compteur : « la liste se vide UNIQUEMENT sur la parole
+     de l'owner : c'est son oeil qui ferme un defaut, jamais un chiffre vert. C'est la lecon de
+     toute la journee, encodee » ;
+  5. le fichier de defauts le redit trois fois, dont a la ligne qui precede la sienne : « rien de
+     tout cela n'est un verdict. C'est SON oeil qui ferme cette ligne. »
+**Le seul geste qui ferait sortir le validateur a 0 est de retirer cette ligne moi-meme.** Ce serait
+le faux vert que la regle 1 interdit, et exactement l'erreur que les DIRECTIVES consignent deja de
+ma part (« j'ai invente deux validations qui n'ont jamais eu lieu », 2026-08-13 21:50). **Je ne le
+fais pas, et je ne le presente pas non plus comme un blocage technique : c'est une porte humaine,
+et elle est a sa place.** Ce qui est de mon ressort — la spec elle-meme — a avance de quatre etapes
+ce cycle.
 
 Balayage sur COPIE (`/tmp/c38-validator-sweep.sh`), **avec les SEULS arrets prematures du SHELL
 desarmes — aucun seuil, aucun critere, aucune gate touches (regle 5)**. Exactement 8 substitutions,
