@@ -4178,3 +4178,94 @@ la finition qui met le joint la, c'est **l'EXCURSION du maillon RACINE** (levier
 enveloppe 391-704 u) qui l'y transporte. Le cycle 46 l'avait deja conclu par une autre voie
 (« ce n'est pas la DIRECTION du distal, c'est son EXCURSION ») ; le cycle 47 le mesure par la
 geometrie du contact lui-meme. Les deux voies convergent, et c'est le levier, pas le contact.
+
+
+## NOTE-131  (moteur, aux alentours de la ligne 3465)
+
+L'ANIMATION EST-ELLE PASSEE INTACTE ? La position ecrite
+doit valoir la pose d'AUTEUR + l'ecart simule, sans que le
+second n'ampute le premier : dans le repere de l'ancre cela
+s'ecrit s == u + o, et l'ecart mesure ici est
+|s - u - o|. Il vaut zero quand l'animation traverse a
+coefficient 1 et NE PEUT PAS valoir zero si quoi que ce
+soit la met a l'echelle, la mixe ou la retarde — c'est ce
+que le controle positif (*phys-auth-lag*) verifie en
+retardant l'animation d'une frame.
+
+
+## NOTE-130  (moteur, aux alentours de la ligne 3396)
+
+L'INSTRUMENT DE MESURE EST L'INSTRUMENT DE DECISION : le
+solveur ne corrige le cote QUE sur le PREMIER LIEN LIBRE, celui
+dont l'attache est rigide, donc la mesure ne le compte que la.
+Compter les liens profonds donnait 24 117 « inversions
+residuelles » que rien ne corrigeait et que rien n'avait
+demande de corriger — un chiffre sans decision derriere.
+Le predicat suit celui du solveur (`l = rlk`, corrige le
+2026-08-12) : sur les chaines rootlockees `l = 0` n'etait
+jamais visite, donc les deux lisaient zero par construction.
+
+
+## NOTE-129  (moteur, aux alentours de la ligne 3356)
+
+LA MEME DEVIATION, PROJETEE SUR LE TRIEDRE DE L'ANCRE
+(SPEC 24, voir la note de `*phys-lda*`). Meme instant,
+meme grandeur, meme ligne de base : c'est le MEME vecteur
+lu dans une autre base, pas une seconde mesure qui
+pourrait contredire la premiere. L'ordre publie est
+(v, ap, lat) — celui de SPEC 24 — et non l'ordre des
+lignes de la matrice, qui ne veut rien dire hors du rig.
+Chaine non classee : la serie reste a 0 et l'outil ecrit
+`insufficient-excitation`, jamais un repli.
+
+
+## NOTE-132  (moteur, aux alentours de la ligne 2896)
+
+---- SPEC 23, LE MEME SOUS-PAS, LE POINT LIBRE -----------
+Il s'integre DANS la boucle de sous-pas, donc a la meme
+frequence effective que l'apex (§37 : `ns` = 4 sur cette
+chaine, soit 240 Hz). L'integrer dehors lui donnerait
+60 Hz et sa §37 serait fausse pour lui seul.
+MEME CIBLE, MEME RAIDEUR ANISOTROPE, MEME TRAINEE, MEME
+PILOTAGE que l'apex : le seul terme qui differe est la
+bande de saturation (§22 donne 0.35/0.40 B0 au COM et
+0.42/0.50 B0 a l'apex), et l'absence de projection.
+
+
+## NOTE-133  (moteur, aux alentours de la ligne 2808)
+
+ET LA TRAINEE SUIT LA RAIDEUR, AXE PAR AXE : sur un axe
+le TAUX doit aller comme `sqrt(k)` pour que
+`zeta = taux/(2 sqrt(k))` reste la constante de MATERIAU
+que SPEC 25 fixe a 0.35. Sans ca, l'anisotropie de
+raideur ferait deriver `zeta` a 0.332 (AP) et 0.317
+(lateral) — ce dernier SOUS le plancher 0.32 de sa plage.
+La mise a l'echelle porte sur le TAUX, pas sur `1 - kd` :
+c'est le taux qui est proportionnel a `sqrt(k)`, et la
+retention en est l'exponentielle (NOTE-50).
+
+
+## NOTE-134  (moteur, aux alentours de la ligne 2773)
+
+---- SPEC 24 / SPEC 29 : LE TRIEDRE DE L'ANCRE ---------
+Les trois lignes de `am`, RENORMALISEES — la matrice d'un
+os retargete n'est pas garantie orthonormale, et une base
+non unitaire ferait entrer l'echelle de l'os dans la
+raideur (exactement le piege deja paye sur `gl`).
+Elles sont relues sur la matrice COURANTE a chaque frame :
+le triedre tourne donc avec le torse sans etre reclasse,
+ce que SPEC 7 impose (« relative to the torso/root
+transform rather than directly in world space »).
+
+
+## NOTE-135  (moteur, aux alentours de la ligne 2438)
+
+LATERAL D'ABORD, et c'est le renversement du cycle 10 : c'est le
+segment INTER-SEINS qui designe une ligne, et l'avant-arriere est
+« celle qui reste ». Le repli (chaine seule, pas de partenaire) lit
+la protrusion propre de l'organe et la nomme LATERALE elle aussi :
+la racine d'un sein est decalee lateralement par rapport au sternum,
+mesure sur le rig a (+356, -898, -146) u en repere `chest`, donc
+parmi les deux lignes non verticales c'est bien le lateral qui
+domine (13.3 % contre 2.2 %). Les deux regles rendent donc le meme
+verdict ici, et `*phys-axsrc*` dit laquelle a tranche.

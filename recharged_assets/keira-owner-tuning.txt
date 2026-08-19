@@ -1330,3 +1330,47 @@ chain chestR b0=602
 # regeneration — une par (cible, parametre), jamais deux.
 chain chestL gravity=1.00
 chain chestR gravity=1.00
+
+# =============================================================================================
+# 2026-08-20 cycle 48 — `comw=` : LA PART DE MASSE DE PEAU DE CHAQUE MAILLON. DONNEE MESUREE,
+# PAS UN REGLAGE. Elle est ici pour la MEME raison que `b0=` juste au-dessus : elle se mesure sur
+# le maillage LIVRE, qui n'existe qu'apres le bake, donc le generateur ne peut pas l'emettre.
+#
+# CE QU'ELLE SERT. Sa §6 definit `P0` = « neutral breast center-of-mass position » et sa §22 borne
+# « Breast COM: normal <= 35% B0, hard transient <= 40% B0 » (cite mot pour mot). UN CENTRE DE
+# MASSE EST UNE MOYENNE PONDEREE PAR LA MASSE. Le moteur publiait sous ce nom un MAXIMUM SUR LES
+# DEUX MAILLONS (NOTE-112, cycle 41) ; l'arbitrage des DIRECTIVES du 2026-08-19 23:50 autorise le
+# rebranchement du verdict sur la moyenne ponderee. Ces deux nombres sont les poids de cette
+# moyenne, et rien d'autre ne les lit : `comw=` n'entre dans AUCUNE force, AUCUNE contrainte,
+# AUCUNE collision — c'est un parametre d'INSTRUMENT.
+#
+# SOUS SKINNING LINEAIRE L'IDENTITE EST EXACTE, et elle est VERIFIEE, pas supposee :
+#   d_COM = (1/N) * SOMME_j W_j * (M_j^sim - M_j^auth) * c_j        comw[l] = W_l / N
+# Controle numerique de la sonde : pose simulee arbitraire, COM du nuage par skinning lineaire
+# exact contre la formule -> ecart 2.1e-05 % (chestL) et 1.1e-05 % (chestR), pour un eps float32
+# de 1.2e-05 %. Somme des poids par sommet = 1.0 a 4.47e-08 pres sur les 7963 sommets.
+#
+# LA CHAIR ANCREE N'EST PAS DANS CETTE LISTE, ET C'EST LE POINT. `chest` (45.57 % / 45.33 %) et
+# `?shoulder` (0.28 % / 0.73 %) ne sont pas simules : leur excursion est nulle AU BIT PRES, donc
+# ils n'entrent pas dans un MAXIMUM mais ils entrent dans une MOYENNE, et ils la divisent presque
+# par deux. Les poids ci-dessous somment volontairement a 0.5415 / 0.5394, pas a 1.
+#
+# FRONTIERE DE L'ORGANE = `w > 0`, ET LE CHOIX EST DECLARE PARCE QU'IL DEPLACE LE CHIFFRE. Un
+# centre de masse integre TOUTE la masse ; un seuil en jetterait. Sensibilite mesuree : a
+# `w >= 0.25` la part ancree tombe de 45.85/46.06 % a 34.52/34.90 % (11 points) et les poids
+# deviendraient 0.2146,0.4402 / 0.2542,0.3968 — donc un COM PLUS GRAND. Le seuil retenu est celui
+# qui FLATTE le moins la borne : il n'est pas choisi pour arranger le verdict, et le tableau
+# publie la borne superieure AUX DEUX frontieres pour que la sensibilite reste visible.
+#
+# RESERVE DECLAREE, MESUREE, NON CORRIGEE CE CYCLE : le moteur applique l'excursion au centre de
+# la SPHERE DE COLLISION (`offset=`), pas au centroide pondere `c_j`. Ecart mesure : norme -7.64 %
+# / -1.02 % (chestL), -5.29 % / -1.44 % (chestR) ; angle 7.68 deg / 1.84 deg (chestL). Report sur
+# le COM : ~0.014 B0, soit ~4 % de la bande de 0.35. Corriger cela demanderait un canal VECTORIEL
+# `comc=` ; il ne sera ouvert que si un chiffre atterrit pres d'un seuil.
+#
+# REPRODUCTION, une commande :
+#   python3 .autoport/probe_c48_com_identity.py
+#   -> mesh out/jak1/fr3/skin/keira-hd-lod0.glb md5 5cb8a493c43211acf3a04c5b6433df81
+# =============================================================================================
+chain chestL comw=0.1891,0.3524
+chain chestR comw=0.2200,0.3194

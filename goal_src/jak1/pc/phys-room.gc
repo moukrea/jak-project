@@ -968,6 +968,31 @@
     (format 0 "PHYSCOMW c=~D a=~D d=~D comex=~f~%"
             c (-> self ai) (-> self drive)
             (phys-diag (-> self slot) c 23))
+    ;; ---- SPEC 6 + SPEC 22 : LE COM PONDERE PAR LA MASSE — LA GRANDEUR QUE SA BORNE NOMME ----
+    ;; Sa §6 definit `P0` = « neutral breast center-of-mass position » et sa §22 borne « Breast
+    ;; COM: normal <= 35% B0, hard transient <= 40% B0 » (cite mot pour mot du fichier de spec).
+    ;; UN CENTRE DE MASSE EST UNE MOYENNE PONDEREE PAR LA MASSE. `comex` ci-dessus est un MAXIMUM
+    ;; SUR LES DEUX MAILLONS — ce n'est pas la meme grandeur, et c'est la seconde qui etait
+    ;; publiee sous le nom que la spec donne a la premiere (NOTE-112, cycle 41).
+    ;; Ici : la somme des excursions de centroide de chaque maillon PONDEREES PAR SA MASSE DE PEAU
+    ;; (`comw=`, mesuree sur le mesh LIVRE), formee VECTORIELLEMENT et DANS LA MEME FRAME. C'est
+    ;; une identite exacte du skinning lineaire, pas une recomposition majorante : la moitie
+    ;; ANCREE de la chair (`chest`, `?shoulder` — 45.9 % / 46.1 %) y entre avec une excursion
+    ;; nulle, ce qu'un maximum ne peut pas representer.
+    ;;   com  NATURE : une LONGUEUR rapportee a B0, MAXIMUM de la fenetre.
+    ;;   coms/comn : somme et compte sur les FRAMES de la fenetre -> la MOYENNE, qui est ce que
+    ;;        §22 borne ; un maximum seul ne dit pas si une borne cliperait une queue ou
+    ;;        muselerait la reponse.
+    ;;   comhi : combien de FRAMES au-dessus du plafond dur de 0.40 B0.
+    ;; REPERE : le monde, frame ecrite, contre la pose d'auteur de la MEME frame, deformation
+    ;; comprise — celui de `comex`, pour que les deux soient comparables ligne a ligne.
+    ;; LECTURE A LA POSE D'AUTEUR : 0.0000. Chaine sans `comw=` : AUCUNE ligne, jamais un zero.
+    (format 0 "PHYSCOMX c=~D a=~D d=~D com=~f coms=~f comn=~f comhi=~f~%"
+            c (-> self ai) (-> self drive)
+            (phys-diag (-> self slot) c 43)
+            (phys-diag (-> self slot) c 44)
+            (phys-diag (-> self slot) c 45)
+            (phys-diag (-> self slot) c 46))
     ;; ---- SPEC 22 : L'ATTRIBUTION DE `comex` A SES TROIS TERMES (cycle 35 etape 1) ----------
     ;; `comex` est le plus gros depassement ouvert de toute la spec (1.85 / 1.91 B0 contre un
     ;; plafond dur de 0.40). Le cycle 34 a prouve PAR INTERVENTION que borner le point libre ne le

@@ -3607,18 +3607,134 @@ def main():
                 A('      Les deux maillons ecrivent le MEME emplacement : sans cette colonne')
                 A('      l\'attribution ne designerait aucune piece.')
     A('')
+    # ---- SPEC 6 + SPEC 22 : LE COM PONDERE PAR LA MASSE ----------------------------------------
+    # POURQUOI CE BLOC EXISTE, ET POURQUOI IL REMPLACE LE VERDICT DE `comex`.
+    # Sa §6 : « `P0` neutral breast center-of-mass position ». Sa §22 : « Breast COM: normal <= 35%
+    # B0, hard transient <= 40% B0 ». Les deux lignes sont citees MOT POUR MOT de
+    # SPEC-breast-softbody.md. UN CENTRE DE MASSE EST UNE MOYENNE PONDEREE PAR LA MASSE.
+    # `comex` publiait un MAXIMUM SUR DEUX CENTROIDES DE MAILLON sous ce nom (NOTE-112, cycle 41) :
+    # ce n'est pas la meme grandeur, et le chiffre publie SURESTIMAIT. Le faux ROUGE coute autant
+    # qu'un faux vert — il envoie le chantier courir apres un facteur qui n'existe pas.
+    # ARBITRAGE DIRECTIVES 2026-08-19 23:50 : rebranchement AUTORISE, a trois conditions —
+    #   (1) avec sa course de controle (elle est au rapport du cycle, pas ici) ;
+    #   (2) la ligne publie LES TROIS grandeurs : borne superieure, moyenne ponderee, part au-dessus
+    #       du plafond dur. Une population ne se resume pas a son maximum ;
+    #   (3) le nom de la ligne dit ce qu'elle mesure — d'ou `ROOM-COMEX-MAX2` pour l'ancienne.
+    #
+    # NATURE : une LONGUEUR rapportee a B0 (602 u, §6). REPERE : le monde, frame ecrite, contre la
+    # pose d'auteur de la MEME frame, deformation comprise — celui de `comex`, pour que les deux
+    # soient comparables ligne a ligne. LECTURE QUAND LE DEFAUT EST ABSENT : 0.0000 a la pose
+    # d'auteur.
+    #
+    # `com` VIENT DU MOTEUR ET IL EST EXACT : la somme VECTORIELLE des excursions de centroide par
+    # maillon, ponderees par `comw=`, formee DANS LA MEME FRAME. La borne superieure ci-dessous est
+    # recomposee des NORMES par maillon (`PHYSCOMWL`), donc elle majore deux fois — inegalite
+    # triangulaire ET maxima de deux frames differentes. Les deux sont publiees : si l'exact
+    # depasse la borne, l'un des deux instruments est faux et il faut le savoir.
+    _comx, _cwl = {}, {}
+    for _m in re.finditer(r'^PHYSCOMX c=(\d+) a=(\d+) d=(\d+) com=([-\d.e+]+) coms=([-\d.e+]+)'
+                          r' comn=([-\d.e+]+) comhi=([-\d.e+]+)', txt, re.M):
+        _comx[(int(_m.group(1)), int(_m.group(2)), int(_m.group(3)))] = (
+            float(_m.group(4)), float(_m.group(5)), float(_m.group(6)), float(_m.group(7)))
+    for _m in re.finditer(r'^PHYSCOMWL c=(\d+) a=(\d+) d=(\d+) l=(\d+) ee=([-\d.e+]+)', txt, re.M):
+        _cwl[(int(_m.group(1)), int(_m.group(2)), int(_m.group(3)), int(_m.group(4)))] = \
+            float(_m.group(5))
+    # Les poids sont lus dans le FICHIER LIVRE, jamais ecrits ici : c'est la meme donnee que le
+    # moteur a consommee, donc la borne et l'exact parlent des memes poids.
+    _cw = {}
+    try:
+        for _ln in open('recharged_assets/physics_chains.txt', errors='ignore'):
+            _mm = re.match(r'^chain (\S+).*\bcomw=([-0-9.,]+)', _ln)
+            if _mm:
+                _cw[_mm.group(1)] = [float(x) for x in _mm.group(2).split(',') if x]
+    except Exception:
+        pass
+    # Frontiere alternative de l'organe, pour que la SENSIBILITE reste visible et ne soit pas un
+    # choix cache : a `w >= 0.25` la part ancree tombe de 45.85/46.06 % a 34.52/34.90 %, donc les
+    # maillons pesent PLUS et le COM monte. Mesure par .autoport/probe_c48_com_identity.py sur
+    # out/jak1/fr3/skin/keira-hd-lod0.glb, md5 5cb8a493c43211acf3a04c5b6433df81.
+    _CW25 = {'chestL': [0.2146, 0.4402], 'chestR': [0.2542, 0.3968]}
+    if _comx:
+        A('')
+        A('-- SPEC 6 + SPEC 22 : LE COM PONDERE PAR LA MASSE — LA GRANDEUR QUE SA BORNE NOMME ----')
+        A('   §6 : « `P0` neutral breast center-of-mass position »')
+        A('   §22 : « Breast COM: normal <= 35% B0, hard transient <= 40% B0 »')
+        A('   Un centre de masse est une MOYENNE PONDEREE PAR LA MASSE. La chair ANCREE (`chest`,')
+        A('   `?shoulder`) n\'est pas simulee : son excursion est nulle AU BIT PRES, elle ne peut')
+        A('   pas entrer dans un maximum mais elle entre dans une moyenne — et elle la divise')
+        A('   presque par deux. `com` est forme VECTORIELLEMENT et DANS LA MEME FRAME par le')
+        A('   moteur : ce n\'est pas une recomposition majorante.')
+        A('   NATURE : longueur rapportee a B0 (602 u). REPERE : monde, frame ecrite, contre la')
+        A('   pose d\'auteur de la MEME frame, deformation comprise. A LA POSE D\'AUTEUR : 0.0000.')
+        for _c in sorted({k[0] for k in _comx}):
+            _nm = names[_c] if _c < len(names) else str(_c)
+            _ws = _cw.get(_nm, [])
+            _win = [v for k, v in _comx.items() if k[0] == _c]
+            if not _win:
+                continue
+            _mx = max(w[0] for w in _win)
+            _ssum = sum(w[1] for w in _win)
+            _sn = sum(w[2] for w in _win)
+            _shi = sum(w[3] for w in _win)
+            _mean = (_ssum / _sn) if _sn > 0 else 0.0
+            _fr_hi = (100.0 * _shi / _sn) if _sn > 0 else 0.0
+            _wn_hi = 100.0 * sum(1 for w in _win if w[0] > 0.40) / len(_win)
+            _st = ('DANS la bande normale (<= 0.35)' if _mx <= 0.35 else
+                   ('DANS le transitoire dur (<= 0.40)' if _mx <= 0.40 else
+                    'max HORS BANDE, x%.2f le plafond dur' % (_mx / 0.40)))
+            A('ROOM-COM: chain=%-12s max=%.4f  moyenne=%.4f B0  (0.35 / 0.40)  %s'
+              % (_nm, _mx, _mean, _st))
+            A('   population : %.1f %% des FRAMES et %.1f %% des FENETRES au-dessus de 0.40 B0'
+              ' (n=%d frames, %d fenetres)' % (_fr_hi, _wn_hi, int(_sn), len(_win)))
+            _mst = ('DANS la bande normale' if _mean <= 0.35 else
+                    ('DANS le transitoire dur' if _mean <= 0.40 else 'HORS BANDE'))
+            A('   VERDICT §22 sur la MOYENNE (la grandeur que la section borne) : %.4f B0 -> %s'
+              % (_mean, _mst))
+            # bornes superieures aux deux frontieres de l'organe
+            for _lbl, _wset in (('w>0     (livree)', _ws), ('w>=0.25 (sensibilite)',
+                                                            _CW25.get(_nm, []))):
+                if not _wset:
+                    continue
+                _ub = []
+                for (_cc, _a, _d) in {k[:3] for k in _cwl if k[0] == _c}:
+                    _tot, _ok = 0.0, True
+                    for _l, _wv in enumerate(_wset):
+                        _e = _cwl.get((_cc, _a, _d, _l))
+                        if _e is None:
+                            _ok = False
+                            break
+                        _tot += _wv * _e
+                    if _ok:
+                        _ub.append(_tot)
+                if _ub:
+                    A('   borne SUP recomposee des normes par maillon, %-21s : max %.4f  moy %.4f'
+                      % (_lbl, max(_ub), sum(_ub) / len(_ub)))
+            if _ws:
+                A('   poids lus dans le fichier livre : %s  (somme %.4f — le reste est ANCRE)'
+                  % (', '.join('l=%d %.4f' % (i, w) for i, w in enumerate(_ws)), sum(_ws)))
+            A('   RESERVE DECLAREE : le moteur applique l\'excursion au centre de la SPHERE de')
+            A('      collision, pas au centroide pondere `c_j`. Ecart mesure -7.6 %/-1.0 % en')
+            A('      norme et 7.7 deg/1.8 deg en direction -> report ~0.014 B0 (~4 % de la bande).')
+    else:
+        A('')
+        A('-- SPEC 6 + SPEC 22 / COM PONDERE : NON MESURE par cette course ----------------------')
+        A('   Aucune ligne PHYSCOMX (moteur anterieur au cycle 48, ou `comw=` absent du fichier')
+        A('   livre). Le COM n\'est PAS publie a zero dans ce cas : un poids manquant ne doit')
+        A('   jamais se lire comme un centre de masse immobile.')
+
     if _comex.get('run'):
-        A('-- SPEC 22 : L\'EXCURSION DU CENTRE DE CHAIR (comex), CONTRE SA PROPRE BANDE ----------')
-        A('   Sa §22 : COM normal <= 0.35 B0, transitoire dur <= 0.40 B0. Maximum sur la fenetre')
-        A('   de course, deformation comprise. C\'est la grandeur que sa borne de COM NOMME — et')
-        A('   ce que le moteur borne aujourd\'hui est le JOINT (bande d\'apex) et le canal radial.')
+        A('-- `comex` : LE MAXIMUM SUR LES DEUX CENTROIDES DE MAILLON — CE N\'EST PAS LE COM ------')
+        A('   CETTE LIGNE NE PORTE PLUS DE VERDICT §22, ET SON NOM A CHANGE POUR LE DIRE.')
+        A('   §6 definit `P0` = « neutral breast center-of-mass position » et §22 borne « Breast')
+        A('   COM » : un centre de masse est une MOYENNE PONDEREE PAR LA MASSE. `comex` est un')
+        A('   MAXIMUM SUR DEUX ECHANTILLONS (NOTE-112, cycle 41) — pas la meme grandeur. Le')
+        A('   verdict §22 est publie par ROOM-COM ci-dessus, sur la moyenne ponderee.')
+        A('   Conserve ici parce que 40 cycles de rapports le citent et que l\'attribution en')
+        A('   trois termes (tp/rp/dp) est latchee sur SON argmax, donc s\'y rapporte.')
         for _c in sorted(_comex['run']):
             _v = _comex['run'][_c]
-            _st = ('DANS la bande normale' if _v <= 0.35 else
-                   ('DANS le transitoire dur' if _v <= 0.40 else
-                    'HORS BANDE, x%.2f le plafond dur' % (_v / 0.40)))
-            A('ROOM-COMEX: chain=%-12s comex=%.4f B0   (0.35 / 0.40)   %s'
-              % (names[_c] if _c < len(names) else _c, _v, _st))
+            A('ROOM-COMEX-MAX2: chain=%-12s max2=%.4f B0   [MAX SUR 2 CENTROIDES, PAS LE COM]'
+              % (names[_c] if _c < len(names) else _c, _v))
             _d = _comdist.get('run', {}).get(_c)
             if _d is not None:
                 A('   distribution : moyenne %.4f B0 · %.1f %% des echantillons au-dessus de 0.40'

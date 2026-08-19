@@ -1064,6 +1064,16 @@ struct PhysChain {
                                        0.f};
   std::vector<std::string> joints;   // ordered root -> tip
   std::vector<float> link_radius;    // radii= : per-LINK collision radius, mesh-derived
+  // comw= : per-LINK share of the organ's skin mass, mesh-derived, ONE PER LINK root -> tip.
+  // SPEC 6 defines `P0` as the breast CENTER-OF-MASS position and SPEC 22 bounds "Breast COM";
+  // a centre of mass is a MASS-WEIGHTED MEAN, so the reader of a per-link excursion needs the
+  // per-link mass to form it. Under linear blend skinning the identity is exact:
+  //   d_COM = (1/N) * SUM_j W_j * (M_j^sim - M_j^auth) * c_j,   comw[l] = W_l / N.
+  // The anchored flesh (chest, shoulder) is NOT listed: it is not simulated, its excursion is
+  // zero by construction, and it is accounted for by the weights summing to LESS than 1.
+  // 0/absent = UNDECLARED, and the engine then publishes no COM at all rather than a wrong one,
+  // so adding this key moves no chain that does not carry it.
+  std::vector<float> link_comw;
   std::vector<std::string> xchains;  // xchain= : chains this chain must be collided against
   // (C14) per-link EXTREMAL skinned-vertex offsets, bone-local bind space, game units, <=5 per
   // link. This is the geometry the mesh-surface penetration audit samples: the owner's eyes live
@@ -1517,6 +1527,22 @@ static int pc_physics_parse_file() {
             }
             p = comma + 1;
           }
+        } else if (k == "comw") {
+          // Same shape as radii= : comma-separated, ONE PER LINK, root -> tip. Measured on the
+          // SHIPPED mesh (.autoport/probe_c48_com_identity.py), never hand-tuned.
+          ch.link_comw.clear();
+          size_t p = 0;
+          while (p <= v.size()) {
+            size_t comma = v.find(',', p);
+            std::string one = (comma == std::string::npos) ? v.substr(p) : v.substr(p, comma - p);
+            if (!one.empty()) {
+              ch.link_comw.push_back(phys_to_float(one));
+            }
+            if (comma == std::string::npos) {
+              break;
+            }
+            p = comma + 1;
+          }
         } else if (k == "xchain") {
           // Comma-separated chain NAMES of this same model. Two chains have never been able to see
           // each other — which is why Jak's back buckle swings through his own strap — and naming
@@ -1847,6 +1873,21 @@ s64 pc_physics_chain_link_radius_mi(u32 ag_name, s64 chain, s64 link) {
     return 0;
   }
   return phys_mi(radii[link]);
+}
+
+// per-LINK share of the organ's skin mass in milli; 0 when this chain declares no comw= (GOAL then
+// publishes no COM excursion at all — a missing weight can never read as a COM of zero).
+s64 pc_physics_chain_link_comw_mi(u32 ag_name, s64 chain, s64 link) {
+  pc_physics_ensure_loaded();
+  const auto* model = pc_physics_find_model(ag_name);
+  if (!model || chain < 0 || chain >= (s64)model->chains.size()) {
+    return 0;
+  }
+  const auto& comw = model->chains[chain].link_comw;
+  if (link < 0 || link >= (s64)comw.size()) {
+    return 0;
+  }
+  return phys_mi(comw[link]);
 }
 
 // (C14) how many mesh samples this link carries (0..5). 0 = the mesh never reaches beyond the
@@ -4081,6 +4122,8 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-physics-chain-param-mi", (void*)pc_physics_chain_param_mi);
   make_function_symbol_from_c("pc-physics-chain-link-radius-mi",
                               (void*)pc_physics_chain_link_radius_mi);
+  make_function_symbol_from_c("pc-physics-chain-link-comw-mi",
+                              (void*)pc_physics_chain_link_comw_mi);
   // (C14) mesh-surface audit inputs: per-link extremal skinned-vertex offsets
   make_function_symbol_from_c("pc-physics-chain-msample-count",
                               (void*)pc_physics_chain_msample_count);
