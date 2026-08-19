@@ -604,4 +604,31 @@ OPEN breast-spec-incomplete  PRIORITE 1 -- LA SEULE LIGNE QUI TIENT LA PHASE OUV
 #       frontiere indifferente** (chestL i=2 0.0807, chestR i=4 0.0283 contre 0.15-0.24), et les
 #       poles opposes tiennent. Le defaut est DIRECTIONNEL et en MIROIR — pas un manque d'amplitude.
 #       C'est le prochain chantier de physique. `COLLIDE` reste a 0.1114 m (physique inchangee).
+#
+#   ETAT AU CYCLE 46 (2026-08-19). LE DEFAUT QUE LA DIRECTIVE DU 20:50 A NOMME EST CORRIGE, ET
+#   IL A UN PRIX QUE JE PUBLIE AU MEME ENDROIT QUE LE GAIN.
+#     CE QUI EST FAIT : le maillon de chair rendait 16.6427 a 16.6509 deg sur cinq pilotages dont
+#       le stimulus varie de x38.9 — une CONSTANTE, c'est-a-dire la valeur d'une borne et pas une
+#       reponse. Il rend maintenant 79.41-102.34 (chestL, ecart 22.40 %) et 58.46-97.82 (chestR,
+#       ecart 40.24 %). Cause retiree : `phys-bend-chain` ECRETAIT chaque maillon a un angle derive
+#       de l'os de la RACINE (7.4x trop serre sur l'os de chair) ; sa §21 sature la COMBINAISON et
+#       sa §22 borne l'APEX. Un facteur commun remplace l'ecretage — aucune constante neuve.
+#     ENTRAINE PAR LE MEME CORRECTIF, ET PERSONNE NE L'AVAIT PREDIT : ses §25/§26/§27 etaient
+#       ajustees sur un signal SATURE (`ROOM-RINGDOWN peak` valait 16.63 / 16.66, soit la valeur de
+#       la borne au centieme). peak -> 43.07 / 58.00, et **§27 passe de PARTIELLE a TENUE sur les
+#       deux chaines** (chestR « essentially stationary » : >2.47 s -> 1.38 s, bande 1.3-1.7).
+#       `comex` -9.2 % / -11.0 %, `ROOM-STRETCH` 0.0032 -> 0.0003, `tipvar` -0.3 %.
+#     LE PRIX, SIGNE : `meshpen` 0.0491 -> 0.1061 m et 0.0314 -> 0.0898 m (+116 % / +186 %), et
+#       `ROOM-SIDE` passe de 0 a **8 frames de franchissement** sur chestR. L'attribution est nette
+#       (`ROOM-CONTACT-LINK` : link0 43->42, link1 3905->9691) : tout vient du maillon libere.
+#       `skinpen`, qui mesure contre le MESH DESSINE, ne bouge pas (+0.3 % / +0.1 %).
+#     LE CHANTIER SUIVANT EST DESIGNE PAR LA MESURE : le distal TOURNE SANS AVANCER — son
+#       enveloppe d'ecart vaut 1.01 a 1.08 fois celle de la racine alors que sa §31 exige « largest
+#       displacement in distal tissue ». La borne d'apex est AVEUGLE A LA DIRECTION : un repli qui
+#       annule la deviation du parent tient dans le budget tout en mettant la pointe dans le tronc.
+#       Contrainte manquante = la MONOTONIE de §31, non posee ce cycle (une seconde borne non
+#       mesuree dans le meme cycle est du re-empilement).
+#     TOUJOURS OUVERT, MEME SIGNATURE, AUTRE MECANISME : le canal RADIAL du distal reste PLAT
+#       (`rrm` 0.0580-0.0581 B0 pour une demande de 0.4249 a 0.6138) — le degre de liberte radial
+#       de sa §23 n'est arme que sur le maillon racine.
 #   CETTE LIGNE NE SE RETIRE QUE SUR LE MOT DE L'OWNER, jamais sur un tableau vert.

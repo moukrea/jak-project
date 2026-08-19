@@ -1,6 +1,214 @@
 DIRECTIVES v3fee554599
 
 ================================================================================================
+CYCLE 46 — LA CONSTANTE EST MORTE. LE MAILLON DE CHAIR RENDAIT **16.6427 A 16.6509 DEGRES** SUR
+CINQ PILOTAGES ; IL REND MAINTENANT **58.46 A 102.34**, AVEC 22.40 % ET 40.24 % D'ECART. C'EST LE
+CHANTIER QUE LA DIRECTIVE DU 19/08 20:50 A NOMME, ET IL EST FAIT.
+LE PRIX EST REEL ET JE LE SIGNE : `meshpen` +116 % / +186 %, ET HUIT FRAMES DE FRANCHISSEMENT
+LA OU IL Y EN AVAIT ZERO. LES DEUX SONT PUBLIES EN TETE, PAS EN NOTE.
+================================================================================================
+
+--- 1. CE QUI A ETE CHANGE, ET LES TROIS LIGNES DE SA SPEC QUI LE DEMANDENT --------------------
+`phys-bend-chain` derivait UN angle `amax = 2*asin(0.50*B0 / (2*bl_RACINE))` de l'os de la RACINE
+(1040.5 u, le levier, qui ne porte aucune chair) et ECRETAIT chaque maillon avec. Sur l'os de
+chair (140.4 u) le meme ANGLE ne vaut plus que 40.6 u de deplacement, soit 0.0675 B0 — **7.4 fois
+plus serre** que ce que sa §22 accorde.
+
+  §21, cite a la ligne : "D_combined = D_max * tanh( |D_linear + D_angular| / D_max )"
+       -> la saturation porte sur la COMBINAISON. UN facteur pour la somme, pas un ecretage terme
+          a terme.
+  §22, cite a la ligne : "Distal/apex displacement: normal <=42% B0, exceptional <=50% B0"
+       -> la grandeur bornee est celle de l'APEX, c'est-a-dire la POINTE de la chaine.
+  §31, cite a la ligne : "little deformation at the root; progressively increasing mobility;
+       largest displacement in distal tissue"
+       -> la mobilite CROIT vers la pointe. Un budget proportionnel a la longueur de l'os la fait
+          DECROITRE — et NOTE-114, qui l'avait introduit, publiait deja cette reserve sans la lever.
+
+CORRECTIF (`phys-apex-scale`, 16 lignes) : un SEUL facteur `asc = ds/dd`, ou `dd` est la deviation
+ABSOLUE de la pointe a sa pose d'auteur et `ds` le meme nombre sature a `0.50*B0`. Le deplacement
+de chaque maillon est multiplie par ce facteur commun ; comme un maillon qui pivote de `a` autour
+de son attache se deplace de `2*ml*sin(a/2)`, cela s'ecrit exactement `sin(a'/2) = asc*sin(a/2)`.
+**AUCUNE CONSTANTE NEUVE** : le plafond reste `0.50*B0` et le genou de `phys-softmin` vaut
+0.84*cap, c'est-a-dire exactement le rapport 0.42/0.50 de sa §22 (deja constate en NOTE-116).
+La rotation reste a longueur du MODELE (idiome NOTE-118) : rien ne s'allonge.
+
+POURQUOI UN FACTEUR DISCRIMINE LA OU UN ECRETAGE NE LE PEUT PAS, et c'est tout le cycle :
+un `fmin` rend LA BORNE des que la demande la depasse — au-dela, la sortie ne depend plus de
+l'entree, par construction. Un facteur commun rend `asc * demande` : la sortie reste
+proportionnelle a la demande, et la REPARTITION entre les maillons, qui varie avec le stimulus,
+survit a la saturation. C'est ce que « saturer la COMBINAISON » veut dire.
+
+Ce correctif retire aussi de la poitrine le mecanisme que l'owner en avait explicitement exclu le
+2026-08-11 22:35 (« l'attenuation pour eviter la geometrie extreme c'est juste sur les meches, pas
+le reste, encore moins les seins »). Les meches, qui posent `maxangle=` dans la donnee, gardent
+`fmin`/`phys-softmin` : leur comportement est INCHANGE.
+
+--- 2. LA MESURE. Course complete, 31/31 animations, joueur absent, 310 mesures ----------------
+    ROOM-GRADIENT, angle du maillon de CHAIR (l=1), degres, cinq pilotages
+      chestL  AVANT  16.6427 .. 16.6509    ecart  0.05 %
+      chestL  APRES  79.4147 .. 102.3387   ecart 22.40 %
+      chestR  AVANT  16.6705 .. 16.6786    ecart  0.05 %
+      chestR  APRES  58.4628 ..  97.8228   ecart 40.24 %
+    ROOM-GRADIENT, LEVIER (l=0) — il ne devait PAS perdre sa discrimination, et il ne l'a pas perdue
+      chestL  30.05 % -> 28.95 %      chestR  27.27 % -> 21.76 %
+
+--- 3. MES HUIT PREDICTIONS, GRAVEES ET COMMITEES AVANT LE MOTEUR -------------------------------
+`C46E1-apex-bound-prediction.txt`, md5 **4139727304b8abfbdb251ed5f38446aa**, commit **eed33ebb05**.
+SCORE : **5 TENUES, 1 REFUTEE, 1 A MOITIE ET CONTRE MOI, 1 TENUE PAR CONSTRUCTION.**
+
+  P1  ecart du distal >= 30 % sur au moins une chaine   chestR 40.24 %                    TENUE
+  P2  [critere du cycle 45] `meshpen` <= sa valeur d'aujourd'hui                       **REFUTEE**
+      chestL 0.0491 -> 0.1061 (+116 %) · chestR 0.0314 -> 0.0898 (+186 %)
+  P2b [ce que je croyais, contre P2] hausse comprise entre +5 % et +100 %       **A MOITIE, ET
+      CONTRE MOI** : la direction est juste, la BORNE est fausse. chestR monte de +186 %,
+      c'est-a-dire PLUS que l'ablation complete du cycle 45 (+126.9 %). Je ne l'arrondis pas :
+      j'avais ecrit « moins que l'ablation » et c'est faux sur cette chaine.
+  P3  `ROOM-STRETCH` <= 0.010                          0.0032 -> **0.0003** (10x mieux)      TENUE
+  P4  `ROOM-IDLE maxdev` <= 0.0005                     0.0002 -> 0.0002 (inchange)           TENUE
+  P5  `tipvar_max` >= 0.160                            0.1744 -> 0.1738 (-0.3 %)             TENUE
+  P6  [CONTRE MOI] le levier garde >= 20 % d'ecart     28.95 % / 21.76 %                     TENUE
+  P7  c'est une BORNE, pas un point fixe               22.40 % / 40.24 % d'ecart             TENUE
+  P8  perimetre intouche  ROOM-NOPLAYER absent · ROOM-ACTORS 1 · ROOM-ANIMS 31/31 skipped=0  TENUE
+
+--- 4. LE PRIX, SIGNE, ET SON ATTRIBUTION EST NETTE ---------------------------------------------
+**`meshpen` 0.0491 -> 0.1061 m (chestL) et 0.0314 -> 0.0898 m (chestR).** La gate `COLLIDE` passe
+de 98x a **212x** son plafond epingle de 0.0005 m. Elle etait ROUGE, elle est PLUS ROUGE.
+
+L'ATTRIBUTION NE LAISSE AUCUN DOUTE — `ROOM-CONTACT-LINK`, contacts par maillon :
+      chestL  link0  43 -> 42        link1  3905 -> **9691**
+      chestR  link0 134 -> 140       link1  3441 -> **9082**
+Le levier ne bouge pas d'un contact. **La totalite du surcout vient du maillon de chair libere.**
+C'est le prix de ce cycle, il est mesure, et il n'est pas cache derriere un progres.
+
+**ET UN DEFAUT NEUF QUE J'INTRODUIS : `ROOM-SIDE` passe de 0 a 8 frames de franchissement**
+(`chestR inside_frames=8`, chestL reste a 0). La regle 6 de l'owner ne se negocie pas
+(« rien ne traverse le mesh de son personnage, quelle qu'en soit la raison »). Huit frames sur une
+course de plusieurs milliers, mais huit n'est pas zero et je l'ecris en tete.
+
+CE QUI N'A **PAS** BOUGE, ET C'EST LA GRANDEUR QUI PARLE DE LA PEAU :
+      `ROOM-SKINPEN skinpen`  0.1412 -> 0.1416 m (+0.3 %)   ·   0.1425 -> 0.1426 m (+0.1 %)
+`skinpen` mesure la position ecrite contre le MESH DESSINE ; `meshpen` mesure contre les VOLUMES,
+qui pour cet os-la sont INTERIEURS (le validateur l'ecrit lui-meme : « l'os de poitrine est
+interieur, `ROOM-SKINPEN` le donne a 0.1537 / 0.1593 m sous la peau AU REPOS, par construction
+anatomique »). Les deux sont publies ; je ne me sers pas du second pour excuser le premier.
+
+--- 5. CE QUE PERSONNE N'AVAIT PREDIT, ET C'EST LE RESULTAT LE PLUS UTILE DU CYCLE --------------
+**SES §25/§26/§27 ETAIENT MESUREES SUR UN SIGNAL SATURE.** `ROOM-RINGDOWN peak` — l'amplitude
+d'ou part la decroissance — valait **16.63 et 16.66**, c'est-a-dire LA VALEUR DE LA BORNE au
+centieme pres. Tout le ring-down etait ajuste sur la sortie d'un limiteur.
+      peak    16.63 -> **43.07** (chestL)      16.66 -> **58.00** (chestR)
+      osc      1.5  -> 3.0                      1.5  -> 1.5
+      decay    65   -> 58 frames                71   -> 54 frames
+      lag01     0   -> **2**                     0   -> -4     (un retard racine->pointe apparait)
+Et sa §27 (« mostly settled ~1.0-1.5 s; essentially stationary ~1.3-1.7 s ») :
+      chestL  t5 1.27 -> 1.17   t1 1.48 -> 1.42          DANS ses deux bandes
+      chestR  t5 1.25 -> 0.98   t1 **>2.47 -> 1.38**     la ligne « essentially stationary » etait
+                                                        HORS D'ATTEINTE et elle est DANS.
+**§27 passe de PARTIELLE a TENUE sur les deux chaines**, sans qu'un seul parametre de raideur, de
+masse ou d'amortissement ait ete touche.
+
+AUTRES DEPLACEMENTS, DANS LE BON SENS ET NON PREDITS :
+      `comex`   0.9766 -> 0.8865 B0 (-9.2 %)   ·   0.9561 -> 0.8506 B0 (-11.0 %)  — toujours HORS
+                de sa bande (0.35 / 0.40) mais le chiffre bouge enfin dans le bon sens.
+      `sag`     0.0370 -> 0.0375   ·   0.0400 -> 0.0408   (+1.4 % / +2.0 %)
+      §24 : 4 canaux sur 6 DANS leur bande, **inchange**. Une perte a signaler quand meme : le
+      canal VERTICAL de chestL passe de « tangentiel » a « residu trop grand, non lisible »
+      (zeta 0.54, residu 0.184) — un axe de moins a lire, sur une section qui ne regresse pas.
+
+--- 6. JE REFUTE MA PROPRE JAMBE 2 AVANT DE LA CUIRE, ET LE REGISTRE ME L'A EPARGNEE -------------
+J'ai mesure hors moteur (`probe_rest_containment.py`, aucune course, aucune cuisson) que le joint
+de chair vit DEJA DANS un volume etranger dans la POSE D'AUTEUR :
+      lBooc vs `Lshoulder->chest`  **-239.8 u** (-0.059 m)      lBoob vs le meme  -94.7 u
+      rBooc vs `Rshoulder->chest`  **-236.6 u** (-0.058 m)      rBoob vs le meme  -97.9 u
+      un seul volume etranger mord par cote ; tout le reste est DEHORS au repos.
+J'allais en faire la jambe 2 (« l'obstacle est mal forme, on le re-derive au point de production »).
+**Le registre me refute, et c'est arithmetique, pas une opinion** (`admissible-depth-is-not-
+penetration`, paye au cycle 24) : `meshpen` n'est pas une profondeur, c'est le RESIDU
+`dep - floor0 - 0.30*B0`, ou `floor0` est la profondeur de la POSE D'AUTEUR contre le MEME volume
+la MEME frame. Retirer `d` a chaque rayon d'un tronc de cone decale `dep` ET `floor0` de `d` :
+la difference est INVARIANTE. Redimensionner ce volume ne peut donc PAS faire baisser `meshpen`.
+Une course de 13 minutes et une cuisson evitees en dix lignes de lecture. La mesure reste vraie et
+reste publiee — elle ne repond simplement pas a la question que je lui posais.
+
+--- 7. LE CHANTIER SUIVANT, DESIGNE PAR LA MESURE ET PAS PAR UNE INTUITION ----------------------
+**LE DISTAL TOURNE SANS AVANCER, ET C'EST UNE VIOLATION DE SA §31.**
+`PHYSGRAD amp` (enveloppe de l'ecart a la pose d'auteur, repere ANCRE, unites de jeu) :
+      chestL  l=0  391.87-651.18   l=1  423.62-704.56    rapport pointe/racine **1.08**
+      chestR  l=0  409.75-704.26   l=1  420.36-711.98    rapport pointe/racine **1.01**
+      (avant ce cycle : 1.05 et 1.03 — donc ce n'est PAS moi qui l'ai cree, et je ne l'ai pas
+       corrige non plus)
+Le maillon distal pivote desormais de 79 a 102 degres, ce qui deplace son joint de
+`2*140.4*sin(50 deg)` = **215 u** — et il n'ajoute que ~50 u a une enveloppe de 650-700 u.
+**Il tourne CONTRE la deviation de son parent au lieu de la prolonger.** Sa §31 exige l'inverse en
+toutes lettres : « largest displacement in distal tissue ».
+
+ET C'EST EXACTEMENT CE QUI COUTE LA PENETRATION. La borne d'apex de sa §22 est AVEUGLE A LA
+DIRECTION : un repli, ou la deviation du distal annule celle de la racine, tient dans le budget
+`|e_racine + d_distal| <= 0.50 B0` tout en mettant la pointe dans le tronc. La contrainte qui
+manque n'est donc pas une AMPLITUDE de plus — c'est la MONOTONIE de sa §31 : `|e_l|` ne doit pas
+decroitre le long de la chaine.
+
+**JE NE LA POSE PAS CE SOIR, ET C'EST DELIBERE.** Poser une seconde borne non mesuree dans le meme
+cycle est le re-empilement que le contrat interdit, et le cycle 45 avait ecrit la meme phrase pour
+la meme raison. Critere ecrit d'avance pour le cycle 47 : le rapport `amp(l=1)/amp(l=0)` doit
+passer au-dessus de **1.30**, `meshpen` doit REVENIR sous 0.0491 / 0.0314 m, `ROOM-SIDE` doit
+revenir a 0, et l'ecart du distal (P1) doit RESTER au-dessus de 20 %.
+
+--- 8. ET LE DEUXIEME EXEMPLAIRE DU MEME DEFAUT, TOUJOURS OUVERT ---------------------------------
+Le canal ANGULAIRE discrimine maintenant. Le canal RADIAL, lui, ne bouge toujours pas :
+      `ROOM-RAD-LINK` l=1 `rrm` = **0.0580 / 0.0581 / 0.0581 / 0.0581 / 0.0580** B0
+      pour une demande `rrr` qui va de 0.4249 a 0.6138 B0
+C'est la MEME signature, sur un autre mecanisme : le degre de liberte radial de sa §23 n'est arme
+que sur `l == rlk` (jak-hd-physics.gc, condition `l == rlk`), donc le distal n'en a pas. Nomme,
+non traite, et il ne l'etait pas davantage avant ce cycle.
+
+--- 9. LE VALIDATEUR, SANS ENJOLIVURE ------------------------------------------------------------
+`bash .autoport/validators/phase-Grecharged-secondary-motion.sh` **NE PASSE PAS**, et je dis
+exactement pourquoi, dans l'ordre ou les gates s'executent :
+
+  1. `OPEN-DEFECTS` — 1 defaut ouvert, `breast-spec-incomplete`. **PORTE HUMAINE.** La gate pose
+     elle-meme sa regle : « une ligne se retire UNIQUEMENT quand l'owner dit que c'est bon, jamais
+     parce qu'une mesure est verte ». Son dernier mot (19/08) est « c'est toujours pas ca of
+     course ». Je ne la retire pas et je ne la passe pas en `GELE` : ce serait forger sa parole,
+     et c'est la faute que cette gate existe pour empecher.
+  2. `COLLIDE` — 0.1061 m contre 0.0005. **Defaut reel, aggrave par MOI ce cycle, chiffre au §4.**
+
+DIAGNOSTIC (jamais une preuve de passage) — le validateur relance avec le SEUL bloc humain retire,
+puis avec les deux sous-gates de `COLLIDE` neutralisees, pour voir ce qui vit derriere elles :
+      SYNC · CLEAN · SCOPE · TUNING · ROOM · IDLE · ANIM · DISCRIMINANT   **tous verts**
+      `[DISCRIMINANT] chaque chaîne distingue les 5 pilotages`
+      `[IDLE] écart max au modèle 0.000`      `[ANIM] 2 chaînes pilotées, toutes respectées`
+C'est la seule facon de voir une regression que j'aurais introduite : `OPEN-DEFECTS` sortant en
+deuxieme, AUCUNE gate de donnee n'est jamais evaluee dans une tentative sans owner.
+UNE SEULE sous-gate se degrade en plus de `COLLIDE` : le controle positif de penetration passe de
+0.0491/0.0211 (rapport 2.33) a 0.0849/0.0651 (rapport **1.30**), quand il en faut 3. Il echouait
+DEJA avant ce cycle ; il echoue plus franchement, parce que la ligne de base a monte. Signale.
+
+--- 10. CE QUE L'OWNER DOIT REGARDER, ET DANS QUEL ORDRE ------------------------------------------
+  * **Est-ce que ca « suit une logique » maintenant ?** C'est la seule question de ce cycle. Le
+    maillon de chair repondait 16.65 degres a TOUT ; il repond desormais entre 58 et 102 selon la
+    force du mouvement. Sur les mouvements SUBTILS il doit bouger PEU, sur les BRUSQUES beaucoup —
+    c'est ca qui a change, et c'est ca qu'il faut juger.
+  * **Est-ce que ca traverse plus qu'avant ?** Je l'ai mesure a la hausse (§4) et je prefere qu'il
+    le voie que de le lui cacher. Si oui, la monotonie de §31 (§7) est le correctif et il est ecrit.
+  * Ce qui NE doit PAS avoir bouge : la poitrine sur les mouvements subtils, qu'il juge « OK »
+    depuis le 12/08 (`tipvar` -0.3 %, `ROOM-IDLE` inchange au dix-millieme).
+
+--- 11. TENUE DE L'ARBRE -------------------------------------------------------------------------
+  * BLOCKER preflight permanent leve : le verrou `spec-line-quoted-from-memory` cherchait le
+    marqueur `§22 "Local tissue elongation"`, qui n'est PAS une sous-chaine de la spec (celle-ci
+    ecrit `## 22. Dynamic Soft Limits` puis `Local tissue elongation: ...`). Le marqueur n'avait
+    donc jamais pu correspondre : un verrou pose avec une DESCRIPTION en guise de motif ne garde
+    rien et se paie en BLOCKER a chaque tentative. Re-ancre sur le texte exact de la spec.
+  * Gate `CLEAN` : le moteur passe de 4771 a **4792 lignes** pour un plafond de 4800. La prose de
+    `phys-apex-scale` est allee dans NOTE-120 plutot que dans le source, comme au cycle 45.
+  * Un commit `[keira-physique]` du superviseur (`a8ac067584`, audit des gates) est arrive PENDANT
+    ce cycle, a 21:22. Le diagnostic a ete **relance contre le validateur d'apres** : meme
+    resultat. Version du contrat recalculee apres son commit : toujours `v3fee554599`.
+
+DIRECTIVES v3fee554599
+
+================================================================================================
 CYCLE 45 — L'OPERATION ORDONNEE LE 19/08 VISE UNE LIGNE QUE SA SPEC NE CONTIENT PAS, ET LE BANC
 MONTRE QU'ELLE SE RETOURNE CONTRE ELLE-MEME. PENDANT CE TEMPS LE VRAI DEFAUT EST MESURE PAR
 INTERVENTION : LE MAILLON DE CHAIR REND **16.647 / 16.647 / 16.655 / 16.651 / 16.641 / 16.642**
