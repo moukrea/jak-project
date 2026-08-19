@@ -636,7 +636,7 @@
 ;; fait de la borne, et a quel prix la borne l'achete ». La demande a l'etage 0 discrimine de
 ;; 34.7 a 79.4 % sur six pilotages ; la livraison de 0.03 a 19.4 %. Desarmer la borne est le seul
 ;; controle qui attribue cet ecart, et il n'est JAMAIS livre a 1.
-(define *phys-bend-off* 1)   ;; TEMPORAIRE cycle 44 jambe 1 — ABLATION, remis a 0 avant livraison
+(define *phys-bend-off* 0)
 
 ;; `*phys-njoint*` retiree : ecrite chaque step, RELUE PAR PERSONNE. Classe de `*phys-lmean*`.
 
