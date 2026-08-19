@@ -2718,3 +2718,42 @@ rend la meme valeur sur ce maillon-la.
 `nfr` et `gmean` n'avaient plus d'autre lecteur et sont retires avec la graduation — une liaison
 morte et son commentaire perime sont exactement la classe de defaut que ce dossier paie depuis des
 cycles.
+
+---
+
+## NOTE-79 — LE CANAL RADIAL DE SA §23 ETAIT CALCULE PAR MAILLON ET RANGE PAR CHAINE
+
+**Le defaut, et il est d'indexation, pas de physique.** Le calcul d'elongation radiale tourne DANS
+la boucle par maillon du solveur — `(dotimes (l n)` ouvre a `:2550` et lie `scl` a `:2551`, et le
+bloc l'utilise (`(set! (-> *phys-qx* scl) ...)`) — mais il ecrivait son resultat dans `*phys-rr*`,
+un tableau dimensionne `PHYS-SC`, **c'est-a-dire par CHAINE**. Chaque tour de boucle ecrasait donc
+le precedent : le tableau ne gardait que le DERNIER maillon execute.
+
+**Ce que ca produisait dans la trace, et pourquoi personne ne le voyait.** `phys-room.gc` imprime
+`PHYSRINGCX` DANS une boucle par maillon et met un `l=` sur chaque ligne. Les deux lignes portaient
+donc des `l=` differents et la MEME valeur. Mesure du cycle 31, sur les 6 combinaisons
+(chaine x axe), 150 frames chacune : **`max|l0 - l1| = 0`, exactement**. Un `l=` decoratif est pire
+qu'un champ absent — il donne l'apparence d'une mesure resolue par maillon sans en etre une, et
+c'est la classe de defaut que ce dossier paie depuis des cycles.
+
+**Pourquoi ca comptait precisement ICI.** Le tableau de salle designe lui-meme `PHYSRINGCX` comme la
+SEULE source valide du verdict §24 vertical (`physics_room_table.py:4026-4039`) : les deux autres
+tags, `PHYSRINGA` et `PHYSRINGBX`, lisent la position du JOINT, qui vit sur une sphere, donc leur
+composante radiale est nulle par construction. Or sa §24 appelle le mode vertical « intentionally
+the SLOWEST » et il est a 84.5 % radial. **L'axe que sa spec distingue le plus explicitement n'avait
+donc aucune resolution par maillon** — et le maillon distal pilote 43.5 % / 37.5 % de la chair.
+
+**Le correctif, et ce qu'il ne touche PAS.** On ajoute `*phys-rrl*` (`PHYS-SCL`), ecrit avec le meme
+`drr` a cote de `*phys-rr*`, et un accesseur `phys-chain-radial-link`. `*phys-rr*` **garde
+exactement la meme valeur et reste le seul que le solveur lise** (`:3728`, le terme `rdr` de la
+deformation dynamique) : le comportement livre est inchange au bit pres, et c'est verifiable —
+aucune donnee livree n'a bouge, et les grandeurs de la course doivent se reproduire.
+C'est un ajout d'INSTRUMENT. Un instrument ne peut pas deplacer un joint, et celui-ci ne le peut
+structurellement pas : rien ne le lit sauf l'emetteur de trace.
+
+**La regle generale a en retirer.** Quand un calcul vit dans une boucle par maillon, verifier que sa
+DESTINATION est dimensionnee par maillon. L'inverse — calcul par maillon, rangement par chaine — ne
+plante pas, ne previent pas, et rend une serie parfaitement plausible : celle du dernier tour.
+Le controle qui l'attrape tient en une ligne et il est desormais dans la sonde : **deux series qui
+portent des index differents doivent DIFFERER**. Si `max|l0 - l1| = 0` sur toute une course, le
+champ d'index est decoratif.

@@ -356,18 +356,35 @@ def main():
             n = min(len(a), len(b))
             dmax = max(abs(x - y) for x, y in zip(a[:n], b[:n]))
             same = dmax == 0.0
-            deg += 1 if same else 0
+            # DEUX FACONS DE N'AVOIR AUCUNE INFORMATION PAR MAILLON, ET IL FAUT LES DEUX CONTROLES.
+            # (a) les deux series sont IDENTIQUES -> l'index est decoratif.
+            # (b) une des deux est IDENTIQUEMENT NULLE -> elles « different » bien, mais le maillon
+            #     mort n'a rien a mesurer. Un controle qui ne teste que (a) passe au VERT sur (b),
+            #     et c'est exactement ce qui vient d'arriver a cette sonde : apres le correctif
+            #     d'instrument du cycle 31 elle imprimait « differentes » sur six canaux dont le
+            #     maillon distal etait a zero sur 150 echantillons.
+            nz0 = sum(1 for x in a[:n] if x != 0.0)
+            nz1 = sum(1 for x in b[:n] if x != 0.0)
+            dead = (nz0 == 0) or (nz1 == 0)
+            deg += 1 if (same or dead) else 0
             ok += 1
-            print("   %-8s ax=%d  n=%3d   max|l0-l1| = %.6g   %s"
-                  % (CHAIN_NAME.get(c, c), ax, n, dmax,
-                     'IDENTIQUES -> AUCUNE information par maillon' if same else 'differentes'))
+            if same:
+                verd = 'IDENTIQUES -> AUCUNE information par maillon'
+            elif dead:
+                verd = ('MAILLON MORT : l=%d identiquement nul sur %d echantillons -> le canal '
+                        'n\'existe pas sur ce maillon' % (0 if nz0 == 0 else 1, n))
+            else:
+                verd = 'differentes ET les deux vivantes'
+            print("   %-8s ax=%d  n=%3d   max|l0-l1| = %-10.6g  non-nuls l0=%3d l1=%3d   %s"
+                  % (CHAIN_NAME.get(c, c), ax, n, dmax, nz0, nz1, verd))
     if ok and deg == ok:
-        print("   -> LES %d COMBINAISONS SONT BIT-A-BIT IDENTIQUES ENTRE LES DEUX MAILLONS." % ok)
-        print("      `PHYSRINGCX` est une grandeur PAR CHAINE emise une fois par maillon. Le canal")
-        print("      que le tableau designe comme seule source valide du verdict SPEC 24-v n'a donc")
-        print("      AUCUNE resolution par maillon, et ce cycle NE PUBLIE PAS de verdict vertical")
-        print("      par maillon. Ce n'est pas un fit qui echoue : c'est un emetteur qui n'emet pas")
-        print("      la grandeur. La corriger demande de toucher le moteur (donc un build).")
+        print("   -> AUCUNE des %d combinaisons ne porte d'information exploitable par maillon." % ok)
+        print("      Le canal que le tableau designe comme SEULE source valide du verdict SPEC 24-v")
+        print("      ne permet donc PAS de verdict vertical par maillon, et cette sonde n'en publie")
+        print("      pas. Si le motif est `MAILLON MORT`, ce n'est meme pas un emetteur qui manque :")
+        print("      c'est le DEGRE DE LIBERTE qui n'est arme que sur un maillon")
+        print("      (`jak-hd-physics.gc:2829`, `(= l rlk)`). Un emetteur ne peut pas publier une")
+        print("      grandeur que le solveur ne calcule pas.")
 
     # --- LA CONFRONTATION DES DEUX FENETRES : c'est elle qui mesure le biais de stimulus --------
     print()

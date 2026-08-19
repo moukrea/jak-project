@@ -10,50 +10,50 @@ bandes SPEC 24 : v [2.10,2.50] · ap [2.30,2.70] · lat [2.40,2.90]   (nominal v
    et le centre de ses trois bandes. Un biais vers 2.5 Hz est possible ici, et c'est
    la raison d'etre du bloc suivant.
    chaine   l    axe      n   f(Hz)  df(Hz)   zeta  residu    f_zc   verdict SPEC 24              arith. F
-   chestL   0    v      137   2.475   0.072   0.48   0.081     n/a   NON LISIBLE (residu)         2.3000
-   chestL   0    ap     137   2.440   0.005   0.35   0.009     n/a   DANS                         2.4244
-   chestL   0    lat    137   2.935   0.172   0.41   0.240     n/a   NON LISIBLE (residu)         2.5400
-   chestL   1    v      137   1.375   0.217   0.70   0.402     n/a   NON CONVERGE (zeta au bord)  2.3000
-   chestL   1    ap     137   1.750   0.232   0.66   0.454     n/a   NON LISIBLE (residu)         2.4244
-   chestL   1    lat    137   1.725   0.107   0.41   0.298     n/a   NON LISIBLE (residu)         2.5400
-   chestR   0    v      137   2.630   0.015   0.36   0.024     n/a   HORS (>)                     2.3904
-   chestR   0    ap     137   2.535   0.002   0.35   0.008     n/a   DANS                         2.5197
-   chestR   0    lat    137   2.645   0.017   0.34   0.038   2.769   DANS                         2.6398
-   chestR   1    v      137   1.200   0.190   0.70   0.504     n/a   NON CONVERGE (zeta au bord)  2.3904
-   chestR   1    ap     137   2.105   0.062   0.26   0.143     n/a   NON LISIBLE (residu)         2.5197
-   chestR   1    lat    137   2.800   0.047   0.23   0.084   2.485   NON LISIBLE (residu)         2.6398
+   chestL   0    v      137   2.380   0.102   0.45   0.102     n/a   NON LISIBLE (residu)         2.3000
+   chestL   0    ap     137   2.455   0.002   0.34   0.010     n/a   DANS                         2.4244
+   chestL   0    lat    137   2.600   0.017   0.36   0.048   2.517   DANS                         2.5400
+   chestL   1    v      137   2.565   0.380   0.70   0.259     n/a   NON CONVERGE (zeta au bord)  2.3000
+   chestL   1    ap     137   1.770   0.455   0.39   0.582   2.308   NON LISIBLE (residu)         2.4244
+   chestL   1    lat    137   2.350   0.060   0.47   0.108     n/a   NON LISIBLE (residu)         2.5400
+   chestR   0    v      137   2.625   0.015   0.37   0.021     n/a   HORS (>)                     2.3904
+   chestR   0    ap     137   2.540   0.010   0.34   0.018     n/a   DANS                         2.5197
+   chestR   0    lat    137   2.625   0.015   0.34   0.026     n/a   DANS                         2.6398
+   chestR   1    v      137   2.055   0.195   0.28   0.471     n/a   NON LISIBLE (residu)         2.3904
+   chestR   1    ap     137   1.955   0.095   0.26   0.231   2.103   NON LISIBLE (residu)         2.5197
+   chestR   1    lat    137   2.605   0.017   0.21   0.062   2.533   DANS                         2.6398
 
 == FENETRE D'IMPULSION (PHYSRINGAX/AX2) — demi-cosinus 10 frames, LARGE BANDE
    phys-room.gc:593-597, le protocole que SPEC 27 decrit (« one strong isolated impulse »).
    Aucun fitteur du depot ne lisait ces tags. Un axe a la fois : seule la serie dont
    l'axe MESURE est l'axe EXCITE est retenue, les autres sont de la diaphonie.
    chaine   l    axe      n   f(Hz)  df(Hz)   zeta  residu    f_zc   verdict SPEC 24              arith. F
-   chestL   0    v      138   2.550   0.055   0.35   0.100     n/a   NON LISIBLE (residu)         2.3000
-   chestL   0    ap     138   2.465   0.005   0.35   0.017     n/a   DANS                         2.4244
-   chestL   0    lat    138   2.560   0.025   0.37   0.051     n/a   DANS                         2.5400
-   chestL   1    v      138   2.550   0.042   0.30   0.078     n/a   HORS (>)                     2.3000
-   chestL   1    ap     138   2.390   0.030   0.19   0.083   2.187   NON LISIBLE (residu)         2.4244
-   chestL   1    lat    138   2.455   0.092   0.18   0.219   2.299   NON LISIBLE (residu)         2.5400
-   chestR   0    v      138   2.705   0.055   0.35   0.102     n/a   NON LISIBLE (residu)         2.3904
-   chestR   0    ap     138   2.570   0.002   0.34   0.014   2.518   DANS                         2.5197
-   chestR   0    lat    138   2.625   0.042   0.36   0.073     n/a   DANS                         2.6398
-   chestR   1    v      138   2.645   0.042   0.28   0.076     n/a   HORS (>)                     2.3904
-   chestR   1    ap     138   2.485   0.027   0.19   0.074   2.310   DANS                         2.5197
-   chestR   1    lat    138   2.520   0.032   0.20   0.098   2.444   NON LISIBLE (residu)         2.6398
+   chestL   0    v      138   2.575   0.025   0.36   0.046     n/a   HORS (>)                     2.3000
+   chestL   0    ap     138   2.420   0.012   0.36   0.031   2.286   DANS                         2.4244
+   chestL   0    lat    138   2.565   0.010   0.35   0.022     n/a   DANS                         2.5400
+   chestL   1    v      138   2.570   0.047   0.31   0.080     n/a   NON LISIBLE (residu)         2.3000
+   chestL   1    ap     138   2.390   0.030   0.20   0.080   2.203   DANS                         2.4244
+   chestL   1    lat    138   2.460   0.090   0.18   0.227   2.438   NON LISIBLE (residu)         2.5400
+   chestR   0    v      138   2.655   0.017   0.35   0.041   2.462   HORS (>)                     2.3904
+   chestR   0    ap     138   2.530   0.017   0.35   0.043   2.361   DANS                         2.5197
+   chestR   0    lat    138   2.615   0.012   0.33   0.034   2.687   DANS                         2.6398
+   chestR   1    v      138   2.655   0.047   0.29   0.084     n/a   NON LISIBLE (residu)         2.3904
+   chestR   1    ap     138   2.485   0.032   0.20   0.078   2.271   DANS                         2.5197
+   chestR   1    lat    138   2.550   0.022   0.21   0.056   2.444   DANS                         2.6398
 
 == VALIDATION CROISEE — MES LIGNES l=0 CONTRE `ROOM-RINGFIT` (qui ne lit QUE l=0)
    trace lue : .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
-   empreinte : md5 460a613d5fae05793a31f2f8f7a25a49
+   empreinte : md5 d787da1c52e38a22c80bd7ecd72a1533
    APPARIEMENT NON VERIFIABLE : le tableau ne cite sa source que par CHEMIN (sa ligne 3),
    et ce chemin est le meme a toutes les courses. Un `DIVERGE` ci-dessous veut donc dire
    `l'instrument derive OU le tableau vient d'une autre course` — les deux se lisent
    pareil, et c'est le defaut a corriger en amont, pas ici.
-   chestL   ap     ROOM-RINGFIT   2.440   moi   2.440   ecart -0.0000   IDENTIQUE
-   chestL   lat    ROOM-RINGFIT   2.935   moi   2.935   ecart -0.0000   IDENTIQUE
-   chestL   v      ROOM-RINGFIT   2.475   moi   2.475   ecart -0.0000   IDENTIQUE
-   chestR   ap     ROOM-RINGFIT   2.535   moi   2.535   ecart -0.0000   IDENTIQUE
-   chestR   lat    ROOM-RINGFIT   2.645   moi   2.645   ecart -0.0000   IDENTIQUE
-   chestR   v      ROOM-RINGFIT   2.630   moi   2.630   ecart -0.0000   IDENTIQUE
+   chestL   ap     ROOM-RINGFIT   2.455   moi   2.455   ecart -0.0000   IDENTIQUE
+   chestL   lat    ROOM-RINGFIT   2.600   moi   2.600   ecart -0.0000   IDENTIQUE
+   chestL   v      ROOM-RINGFIT   2.380   moi   2.380   ecart -0.0000   IDENTIQUE
+   chestR   ap     ROOM-RINGFIT   2.540   moi   2.540   ecart -0.0000   IDENTIQUE
+   chestR   lat    ROOM-RINGFIT   2.625   moi   2.625   ecart -0.0000   IDENTIQUE
+   chestR   v      ROOM-RINGFIT   2.625   moi   2.625   ecart -0.0000   IDENTIQUE
    -> 6 canaux sur 6 reproduits au chiffre pres.
       L'estimateur est donc le meme ; la seule chose que ce cycle ajoute est
       la MOITIE DE LA DONNEE QUE LES DEUX LECTEURS EXISTANTS JETAIENT.
@@ -62,34 +62,35 @@ bandes SPEC 24 : v [2.10,2.50] · ap [2.30,2.70] · lat [2.40,2.90]   (nominal v
    CONTROLE PREALABLE, ET IL EST ELIMINATOIRE : la serie du maillon 0 et celle du
    maillon 1 sont-elles DIFFERENTES ? Une trace qui imprime `l=` sur une grandeur qui
    ne depend pas de `l` donne l'apparence d'une mesure par maillon sans en etre une.
-   chestL   ax=0  n=150   max|l0-l1| = 0   IDENTIQUES -> AUCUNE information par maillon
-   chestL   ax=1  n=150   max|l0-l1| = 0   IDENTIQUES -> AUCUNE information par maillon
-   chestL   ax=2  n=150   max|l0-l1| = 0   IDENTIQUES -> AUCUNE information par maillon
-   chestR   ax=0  n=150   max|l0-l1| = 0   IDENTIQUES -> AUCUNE information par maillon
-   chestR   ax=1  n=150   max|l0-l1| = 0   IDENTIQUES -> AUCUNE information par maillon
-   chestR   ax=2  n=150   max|l0-l1| = 0   IDENTIQUES -> AUCUNE information par maillon
-   -> LES 6 COMBINAISONS SONT BIT-A-BIT IDENTIQUES ENTRE LES DEUX MAILLONS.
-      `PHYSRINGCX` est une grandeur PAR CHAINE emise une fois par maillon. Le canal
-      que le tableau designe comme seule source valide du verdict SPEC 24-v n'a donc
-      AUCUNE resolution par maillon, et ce cycle NE PUBLIE PAS de verdict vertical
-      par maillon. Ce n'est pas un fit qui echoue : c'est un emetteur qui n'emet pas
-      la grandeur. La corriger demande de toucher le moteur (donc un build).
+   chestL   ax=0  n=150   max|l0-l1| = 0.240732    non-nuls l0=150 l1=  0   MAILLON MORT : l=1 identiquement nul sur 150 echantillons -> le canal n'existe pas sur ce maillon
+   chestL   ax=1  n=150   max|l0-l1| = 0.363445    non-nuls l0=150 l1=  0   MAILLON MORT : l=1 identiquement nul sur 150 echantillons -> le canal n'existe pas sur ce maillon
+   chestL   ax=2  n=150   max|l0-l1| = 0.0413227   non-nuls l0=150 l1=  0   MAILLON MORT : l=1 identiquement nul sur 150 echantillons -> le canal n'existe pas sur ce maillon
+   chestR   ax=0  n=150   max|l0-l1| = 0.260885    non-nuls l0=150 l1=  0   MAILLON MORT : l=1 identiquement nul sur 150 echantillons -> le canal n'existe pas sur ce maillon
+   chestR   ax=1  n=150   max|l0-l1| = 0.360964    non-nuls l0=150 l1=  0   MAILLON MORT : l=1 identiquement nul sur 150 echantillons -> le canal n'existe pas sur ce maillon
+   chestR   ax=2  n=150   max|l0-l1| = 0.0974697   non-nuls l0=150 l1=  0   MAILLON MORT : l=1 identiquement nul sur 150 echantillons -> le canal n'existe pas sur ce maillon
+   -> AUCUNE des 6 combinaisons ne porte d'information exploitable par maillon.
+      Le canal que le tableau designe comme SEULE source valide du verdict SPEC 24-v
+      ne permet donc PAS de verdict vertical par maillon, et cette sonde n'en publie
+      pas. Si le motif est `MAILLON MORT`, ce n'est meme pas un emetteur qui manque :
+      c'est le DEGRE DE LIBERTE qui n'est arme que sur un maillon
+      (`jak-hd-physics.gc:2829`, `(= l rlk)`). Un emetteur ne peut pas publier une
+      grandeur que le solveur ne calcule pas.
 
 == BIAIS DE STIMULUS — LES DEUX FENETRES SUR LES MEMES CANAUX
    Si le lacher a 2.500 Hz tire la mesure vers lui, l'ecart `lacher - impulsion` est
    SYSTEMATIQUEMENT dirige vers 2.500 Hz. ABSENT : un ecart de signe aleatoire.
    chaine   l    axe     lacher impulsion     ecart  vers 2.500 ?
-   chestL   0    ap       2.440     2.465    -0.025  non
-   chestL   0    lat      2.935     2.560    +0.375  non
-   chestL   0    v        2.475     2.550    -0.075  oui
-   chestL   1    ap       1.750     2.390    -0.640  non
-   chestL   1    lat      1.725     2.455    -0.730  non
-   chestL   1    v        1.375     2.550    -1.175  non
-   chestR   0    ap       2.535     2.570    -0.035  oui
-   chestR   0    lat      2.645     2.625    +0.020  non
-   chestR   0    v        2.630     2.705    -0.075  oui
-   chestR   1    ap       2.105     2.485    -0.380  non
-   chestR   1    lat      2.800     2.520    +0.280  non
-   chestR   1    v        1.200     2.645    -1.445  non
+   chestL   0    ap       2.455     2.420    +0.035  oui
+   chestL   0    lat      2.600     2.565    +0.035  non
+   chestL   0    v        2.380     2.575    -0.195  non
+   chestL   1    ap       1.770     2.390    -0.620  non
+   chestL   1    lat      2.350     2.460    -0.110  non
+   chestL   1    v        2.565     2.570    -0.005  oui
+   chestR   0    ap       2.540     2.530    +0.010  non
+   chestR   0    lat      2.625     2.615    +0.010  non
+   chestR   0    v        2.625     2.655    -0.030  oui
+   chestR   1    ap       1.955     2.485    -0.530  non
+   chestR   1    lat      2.605     2.550    +0.055  non
+   chestR   1    v        2.055     2.655    -0.600  non
    -> le lacher est plus proche de 2.500 Hz que l'impulsion sur 3 canaux sur 12.
       Un biais de stimulus predit ~12/12 ; l'absence de biais en predit ~6/12.
