@@ -3926,7 +3926,10 @@ def main():
         A('      joue, quelle que soit la valeur commandee — et son verdict plus bas ne vaudrait')
         A('      rien. `r_eff = amax / omega` est un BRAS DE LEVIER en unites de jeu : c\'est une')
         A('      VERIFICATION DU STIMULUS, PAS UNE MESURE DE PHYSIQUE. On le compare au bras')
-        A('      COMMANDE, mesure sur le mesh livre.')
+        A('      COMMANDE, mesure sur le mesh livre. `amax` est ici le MAXIMUM sur les')
+        A('      chaines JOINTES du regime : les deux ancres sont a distance EGALE de chaque')
+        A('      axe (voir ROOM-REGIME-MIRROR), donc leurs `amax` doivent coincider — un')
+        A('      ecart entre elles serait un defaut d\'instrument, pas une physique.')
         for _r, _nm2, _sec, _kind, _band, _cite in _RGT:
             _dd = _rgd.get(_r)
             _am = [_rgb[k][2] for k in _rgk if k[1] == _r]
@@ -3974,10 +3977,12 @@ def main():
         A('      spec — sa bande porte sur le COM total, ligne ROOM-REGIME ci-dessus ; NET dit')
         A('      seulement ce qui est IMPUTABLE au regime.')
         for _c in sorted({k[0] for k in _rgk}):
-            _b0r = _rga.get((_c, 0))
+            # le temoin est pris dans la JOINTURE : une fenetre ECARTEE ne peut pas servir de
+            # reference a une soustraction.
+            _b0r = _rga.get((_c, 0)) if (_c, 0) in _rgk else None
             if _b0r is None:
-                A('ROOM-REGIME-NET: %-8s TEMOIN r=0 ABSENT de cette course : aucune soustraction'
-                  ' n\'est faite.' % _rgnm(_c))
+                A('ROOM-REGIME-NET: %-8s TEMOIN r=0 ABSENT ou ECARTE sur cette course : aucune'
+                  ' soustraction n\'est faite.' % _rgnm(_c))
                 continue
             A('ROOM-REGIME-NET: %-8s temoin r=0 com=%.4f B0 (reference, non soustraite d\'elle-meme)'
               % (_rgnm(_c), _b0r[0]))
@@ -4001,11 +4006,11 @@ def main():
         for _c in sorted({k[0] for k in _rgk}):
             for _lab, _rp, _rf, _rl in (('sautA', 1, 2, 3), ('sautB', 4, 5, 6)):
                 _kp, _kf = (_c, _rp), (_c, _rf)
-                if _kp not in _rga or _kf not in _rga:
-                    A('ROOM-REGIME-SIGN: %-8s %s FENETRE MANQUANTE (r=%d %s, r=%d %s) : le signe'
-                      ' n\'est pas mesure' % (_rgnm(_c), _lab, _rp,
-                                              'presente' if _kp in _rga else 'ABSENTE', _rf,
-                                              'presente' if _kf in _rga else 'ABSENTE'))
+                if _kp not in _rgk or _kf not in _rgk:
+                    A('ROOM-REGIME-SIGN: %-8s %s FENETRE MANQUANTE OU ECARTEE (r=%d %s, r=%d %s)'
+                      ' : le signe n\'est pas mesure'
+                      % (_rgnm(_c), _lab, _rp, 'jointe' if _kp in _rgk else 'ABSENTE',
+                         _rf, 'jointe' if _kf in _rgk else 'ABSENTE'))
                     continue
                 _cyp, _cyf = _rga[_kp][2], _rga[_kf][2]
                 _ok = (_cyp < 0.0) and (_cyf > 0.0)
@@ -4015,7 +4020,7 @@ def main():
                     A('   ROUGE §15 : le critere demande cy<0 en poussee ET cy>0 en vol ; mesure'
                       ' %+.4f puis %+.4f.' % (_cyp, _cyf))
                 _kl = (_c, _rl)
-                if _kl in _rga:
+                if _kl in _rgk:
                     A('   cy_reception (r=%d) = %+.4f — publiee pour lecture, §15 ne la borne pas.'
                       % (_rl, _rga[_kl][2]))
         A('')
@@ -4041,9 +4046,9 @@ def main():
         else:
             for _r in (9, 10, 13, 14):
                 _kl2, _kr2 = (_cl[0], _r), (_cr[0], _r)
-                if _kl2 not in _rga or _kr2 not in _rga:
-                    A('ROOM-REGIME-MIRROR: r=%2d %-13s FENETRE MANQUANTE sur au moins une chaine :'
-                      ' aucun ecart' % (_r, _rgtab[_r][1]))
+                if _kl2 not in _rgk or _kr2 not in _rgk:
+                    A('ROOM-REGIME-MIRROR: r=%2d %-13s FENETRE MANQUANTE OU ECARTEE sur au moins'
+                      ' une chaine : aucun ecart' % (_r, _rgtab[_r][1]))
                     continue
                 _vl, _vr = _rga[_kl2][0], _rga[_kr2][0]
                 _mn = 0.5 * (_vl + _vr)
@@ -4055,9 +4060,19 @@ def main():
         # ---- LA TABLE DES REGIMES, CITEE ------------------------------------------------------
         A('   -- LA TABLE DES REGIMES ET LE TEXTE QU\'ELLE CITE --------------------------------')
         for _r, _nm2, _sec, _kind, _band, _cite in _RGT:
-            A('   r=%2d %-13s %-5s %-13s %s'
-              % (_r, _nm2, ('§' + _sec) if _sec else '  -  ',
-                 ('[%.2f-%.2f]' % _band) if _band else '[pas de bande]', _cite))
+            _pre = ('   r=%2d %-13s %-5s %-14s '
+                    % (_r, _nm2, ('§' + _sec) if _sec else '  -  ',
+                       ('[%.2f-%.2f]' % _band) if _band else '[pas de bande]'))
+            _wrap, _cur = [], _pre
+            for _w in _cite.split(' '):
+                if len(_cur) + 1 + len(_w) > 98 and _cur.strip():
+                    _wrap.append(_cur)
+                    _cur = ' ' * len(_pre) + _w
+                else:
+                    _cur = (_cur + _w) if _cur.endswith(' ') else (_cur + ' ' + _w)
+            _wrap.append(_cur)
+            for _ln2 in _wrap:
+                A(_ln2)
     if not _axres:
         A('-- SPEC 33 / ABLATION DE LA CONTRAINTE DE LONGUEUR : NON MESUREE par cette course -----')
         A('   Aucune ligne PHYSAXRES dans la trace (moteur ou salle anterieurs au cycle 29).')

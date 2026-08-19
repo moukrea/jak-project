@@ -363,6 +363,11 @@
                                     ;; REINTERPRETATION de bits, pas en conversion — 60 y
                                     ;; deviendrait 8.4e-44. Meme piege que PHYSROOM-IMPF/IMPFF.
 (defconstant PHYSROOM-HIPY 6094.4)  ;; joint `hips`, mesure sur le mesh livre (voir ci-dessus)
+;; L'OFFSET ANATOMIQUE DE L'ANCRE A SON PIVOT, `chest` - `hips`, mesure sur le MEME mesh livre :
+;; (0.0, 7020.8 - 6094.4, 239.8 - 0.0) = (0.0, 926.4, 239.8). C'est le bras de levier que doit
+;; avoir l'ancre pendant une rotation de torse, et donc la cible du controle `r_eff = amax/omega`.
+(defconstant PHYSROOM-CANY 926.4)
+(defconstant PHYSROOM-CANZ 239.8)
 (defconstant PHYSROOM-REGG 11.162)  ;; 1 g en u/frame^2 — le meme que le `gy` du moteur
 
 ;; pre = frames de repos AVANT (0 = la fenetre enchaine sans rupture sur la precedente)
@@ -409,6 +414,9 @@
    (retz    float)     ;;   sans lui, revenir a `home` d'un coup serait une impulsion artificielle
    (retang  float)     ;;   que sa §37 devrait absorber — un stimulus qu'on n'a pas commande
    (retax   int32)
+   (cex     float)     ;; offset MESURE de l'ancre a la racine de l'acteur, releve a l'execution :
+   (cey     float)     ;;   la course C49E1 a mesure que la rotation de `root quat` ne pivote PAS
+   (cez     float)     ;;   autour de `root trans`, et de combien. Voir `physroom-reg-pose`.
    (vel     vector :inline)
    (home    vector :inline))
   (:states phys-subject-run))
@@ -1823,35 +1831,50 @@
     (else 0.0)))
 
 (defbehavior physroom-reg-pose phys-subject ((ax int) (deg float))
-  "Oriente le sujet de `deg` degres autour de l'axe `ax`, EN PIVOTANT AUTOUR DE LA HANCHE.
+  "Oriente le sujet de `deg` degres autour de l'axe `ax`, EN FAISANT DECRIRE A L'ANCRE L'ARC QUE
+   DECRIRAIT UN VRAI TORSE — pas l'arc que la geometrie du moteur lui impose par defaut.
 
-   POURQUOI LA COMPENSATION EXISTE. `(-> self root trans)` est la racine de l'ACTEUR, qui est au
-   sol. Tourner le quaternion sans rien d'autre ferait pivoter le buste autour des PIEDS : le
-   bras de levier du sein passerait de 1.9 kilo-unites (hanche -> sein, 46 cm) a 8.0 (sol ->
-   sein, 1.95 m), soit un stimulus 4.2x trop grand portant le nom d'un geste humain qu'il ne
-   decrit plus. On impose donc `trans = home + p - R.p` avec `p = (0, PHYSROOM-HIPY, 0)` : le
-   point `p` reste alors FIXE dans le monde, ce qui est la definition meme d'un pivot.
+   LE DEFAUT QUE CE BLOC CORRIGE EST MESURE, PAS SUPPOSE. La course C49E1 publiait, pour chaque
+   regime de rotation, `r_eff = amax / omega` : le bras de levier REEL de l'ancre. Predit (le
+   `chest` autour de la hanche) : 239.8 u en lacet, 956.9 en tangage, 926.4 en roulis. MESURE :
+   13748, 12085, 6675. La rotation de `root quat` ne pivote donc PAS autour de `root trans`, et
+   l'ancre etait lancee sur un arc de 3.3 m — un stimulus 7 a 57 fois trop fort portant le nom
+   d'un geste humain qu'il ne decrivait plus. Recomposees, les trois mesures donnent
+   |Y_ancre - hanche| = 894 u la ou le mesh livre dit 926.4 (3.5 % d'ecart, dont ~2 frames de
+   retard d'echantillonnage) : LA VERTICALE ETAIT JUSTE, seul l'horizontal etait deporte.
 
-   LE LACET N'A PAS BESOIN DE COMPENSATION et ce n'est pas une omission : tout point de l'axe Y
-   est invariant par une rotation autour de Y, donc `R.p = p` et la correction est nulle. Un
-   `set!` de plus y ecrirait la meme valeur.
+   LA CORRECTION NE SUPPOSE PLUS RIEN, ELLE MESURE. `(cex, cey, cez)` est l'offset de l'ancre a
+   `home`, releve A L'EXECUTION sur la premiere frame de la fenetre, alors que le sujet est
+   encore droit et immobile. On pivote alors autour de `p = c_mesure - c_anatomique`, ce qui
+   donne, apres simplification :
 
-   NATURE : une pose (position + orientation). REPERE : monde. A `deg` = 0 : `home` et l'identite,
-   au bit pres — c'est ce qui rend le retour doux exact a son point d'arrivee."
-  (let ((c (cos (degrees deg)))
-        (sn (sin (degrees deg)))
-        (h PHYSROOM-HIPY))
+       ancre(theta) = home + (c_mesure - c_anat) + R . c_anat
+
+   c'est-a-dire un point FIXE plus un arc de rayon |c_anat| — exactement le bras d'un torse, quel
+   que soit le deport que le moteur ajoute. Le controle est le meme `r_eff` qui a leve le defaut :
+   il doit maintenant retomber sur 239.8 / 956.9 / 926.4. S'il n'y retombe pas, la correction est
+   fausse et le tableau le dira au lieu de l'affirmer.
+
+   NATURE : une pose (position + orientation). REPERE : monde. A `deg` = 0 : `home` et l'identite
+   au bit pres, quel que soit `(cex, cey, cez)` — `p - R.p` s'annule."
+  (let* ((c  (cos (degrees deg)))
+         (sn (sin (degrees deg)))
+         (px (- (-> self cex) 0.0))
+         (py (- (-> self cey) PHYSROOM-CANY))
+         (pz (- (-> self cez) PHYSROOM-CANZ)))
     (cond
       ((zero? ax)
        (quaternion-axis-angle! (-> self root quat) 1.0 0.0 0.0 (degrees deg))
-       (set! (-> self root trans y) (+ (-> self home y) (* h (- 1.0 c))))
-       (set! (-> self root trans z) (- (-> self home z) (* h sn))))
+       (set! (-> self root trans y) (+ (-> self home y) (+ (* py (- 1.0 c)) (* pz sn))))
+       (set! (-> self root trans z) (+ (-> self home z) (- (* pz (- 1.0 c)) (* py sn)))))
       ((= ax 1)
-       (quaternion-axis-angle! (-> self root quat) 0.0 1.0 0.0 (degrees deg)))
+       (quaternion-axis-angle! (-> self root quat) 0.0 1.0 0.0 (degrees deg))
+       (set! (-> self root trans x) (+ (-> self home x) (- (* px (- 1.0 c)) (* pz sn))))
+       (set! (-> self root trans z) (+ (-> self home z) (+ (* pz (- 1.0 c)) (* px sn)))))
       (else
        (quaternion-axis-angle! (-> self root quat) 0.0 0.0 1.0 (degrees deg))
-       (set! (-> self root trans x) (+ (-> self home x) (* h sn)))
-       (set! (-> self root trans y) (+ (-> self home y) (* h (- 1.0 c)))))))
+       (set! (-> self root trans x) (+ (-> self home x) (+ (* px (- 1.0 c)) (* py sn))))
+       (set! (-> self root trans y) (+ (-> self home y) (- (* py (- 1.0 c)) (* px sn)))))))
   (none))
 
 (defbehavior physroom-reg-drive phys-subject ((r int) (f int))
@@ -1897,6 +1920,32 @@
          ((8) (set! zz (physroom-run-z (+ 36.0 (fmin 18.0 ft)))))
          ((0) (set! yy 0.0))
          (else
+          ;; L'OFFSET SE RELEVE A LA PREMIERE FRAME, LE SUJET ENCORE DROIT ET IMMOBILE : c'est la
+          ;; seule frame ou `ancre - home` vaut l'offset et rien d'autre. Une fenetre CHAINEE
+          ;; (`pre` = 0) HERITE de la valeur, et c'est voulu — le corps y est deja tourne, la
+          ;; relever la donnerait un offset contamine par la rotation en cours.
+          (when (and (zero? f) (> (-> *physroom-reg-pre* r) 0))
+            (let ((ax0 (phys-diag (-> self slot) 0 50))
+                  (ay0 (phys-diag (-> self slot) 0 51))
+                  (az0 (phys-diag (-> self slot) 0 52)))
+              ;; SENTINELLE : un triplet EXACTEMENT nul veut dire que le canal n'a rien ecrit, pas
+              ;; que l'ancre est a l'origine du monde. Sans ce test on prendrait `-home` pour un
+              ;; offset et on lancerait le sujet sur un arc de plusieurs dizaines de metres. Le
+              ;; repli est le pivot ANATOMIQUE seul, et la ligne publiee dit lequel des deux a
+              ;; servi — jamais un silence.
+              (cond
+                ((and (= ax0 0.0) (= ay0 0.0) (= az0 0.0))
+                 (set! (-> self cex) 0.0)
+                 (set! (-> self cey) (+ PHYSROOM-CANY (- PHYSROOM-HIPY 0.0)))
+                 (set! (-> self cez) PHYSROOM-CANZ)
+                 (format 0 "PHYSREGL r=~D cex=~f cey=~f cez=~f src=0~%"
+                         r (-> self cex) (-> self cey) (-> self cez)))
+                (else
+                 (set! (-> self cex) (- ax0 (-> self home x)))
+                 (set! (-> self cey) (- ay0 (-> self home y)))
+                 (set! (-> self cez) (- az0 (-> self home z)))
+                 (format 0 "PHYSREGL r=~D cex=~f cey=~f cez=~f src=1~%"
+                         r (-> self cex) (-> self cey) (-> self cez))))))
           (set! xa (physroom-reg-axis r))
           (set! aa (physroom-reg-ang r f (-> *physroom-reg-drv* r)))))
        ;; L'ETAT DE FIN EST MEMORISE A CHAQUE FRAME : a la derniere du pilotage il porte donc
@@ -3462,7 +3511,15 @@
             (drv  (-> *physroom-reg-drv* r))
             (post (-> *physroom-reg-post* r)))
        (physroom-reg-drive r (- (-> self pframe) (+ pre 1)))
-       (when (= (-> self pframe) pre)
+       ;; `(max 1 pre)` ET PAS `pre` — C'EST UN DEFAUT MESURE, PAS UNE PRECAUTION.
+       ;; `pframe` est remis a 0 a la fin d'une fenetre puis INCREMENTE en tete du tick suivant :
+       ;; il ne vaut donc JAMAIS 0 a l'interieur de la phase. Ecrit `(= pframe pre)`, le reset ne
+       ;; se declenchait pas du tout sur les six fenetres CHAINEES (`pre` = 0), qui heritaient
+       ;; donc du maximum de la precedente. La course C49E1 le montre sans ambiguite sur une
+       ;; colonne independante : `cn` (le nombre de frames agregees) valait 18 pour r=1, puis 45
+       ;; pour r=2 et 104 pour r=3 — le cumul exact des fenetres precedentes, au lieu de 27 et 14.
+       ;; Six des quinze fenetres publiaient le chiffre d'une autre.
+       (when (= (-> self pframe) (max 1 pre))
          (phys-comexw-reset!)
          (phys-stats-reset!))
        (when (>= (-> self pframe) (+ pre (+ drv post)))
@@ -3557,6 +3614,9 @@
   (set! (-> self retz) 0.0)
   (set! (-> self retang) 0.0)
   (set! (-> self retax) 0)
+  (set! (-> self cex) 0.0)
+  (set! (-> self cey) 0.0)
+  (set! (-> self cez) 0.0)
   (set! (-> self fnum) 0.0)
   (set! (-> self adir) 1.0)
   (set! (-> self aspeed) 1.0)
