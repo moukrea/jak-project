@@ -1852,11 +1852,54 @@
       ;; [NOTE-158] LA COUVERTURE DE LA PEAU, PUBLIEE. Une troncature silencieuse est un de-scope :
       ;; tant que ce couple n'etait pas dans le tableau, `sets=64/92` vivait dans une ligne de log
       ;; que personne ne rapprochait de `skinpen`.
-      (format 0 "PHYSBSURF sets=~D declared=~D max=~D~%"
-              (phys-bsurf-sets (-> self slot)) (phys-bsurf-declared (-> self slot)) PHYS-BSURF-MAX)
+      ;; `chain=` EST NEUF ET IL FAUT LE LIRE AVEC `sets=`. Depuis le cycle 62 la famille `bs`
+      ;; porte DEUX populations : les os de CORPS, comptes par `sets=`, et les os de CHAINE,
+      ;; comptes par `chain=`. `declared=` compte les deux. Sans ce troisieme champ, la garde de
+      ;; couverture lit `sets < declared` et conclut « 4 ensembles JETES par le plafond » alors
+      ;; qu'ils sont RANGES AILLEURS EXPRES — c'est une garde dont la premisse a change, et une
+      ;; garde qui garde la mauvaise premisse produit un faux rouge.
+      (format 0 "PHYSBSURF sets=~D declared=~D max=~D chain=~D~%"
+              (phys-bsurf-sets (-> self slot)) (phys-bsurf-declared (-> self slot)) PHYS-BSURF-MAX
+              (phys-bsurf-chain-sets (-> self slot)))
       (format 0 "PHYSSKIN2 tag=~S c=~D skinrest=~f skinout=~D skinmiss=~f~%"
               tag c (phys-skinrest-worst (-> self slot) c) (phys-skinout-count)
               (phys-skinmiss-count (-> self slot) c))
+      ;;   SPEC 33 — LA SURFACE MEDIALE DE L'AUTRE SEIN, ET SON DOMAINE.
+      ;;   Sa 33 dit « medial surfaces shall collide or repel BEFORE visible interpenetration ».
+      ;;   Jusqu'au cycle 62 le sein oppose etait exclu de TOUTE surface que le moteur lit
+      ;;   (`physics_c14_meshsamples.py` excluait les os de chaine de `bs`), donc le DOMAINE de la
+      ;;   section etait VIDE PAR CONSTRUCTION et aucune valeur ne pouvait rien en dire — ni un
+      ;;   rouge, ni un vert. Les quatre colonnes ci-dessous sont le MEME calcul, les MEMES sommets
+      ;;   et la MEME frame que `skinpen`/`skinrest` juste au-dessus : seule la SURFACE change.
+      ;;   medgap  NATURE : distance SIGNEE minimale du sommet de peau a la surface de l'AUTRE
+      ;;           sein, unites de jeu, positive = separees. REPERE : le monde, frame mesuree, les
+      ;;           DEUX seins a leur position RESOLUE. LECTURE HORS DEFAUT : > 0.
+      ;;   medgapa la MEME grandeur au point d'AUTEUR, les deux seins a leur pose d'auteur : c'est
+      ;;           l'ecart que l'AUTEUR a dessine, donc la ligne de base « physique desarmee ».
+      ;;   medpen / medrest : la pire PENETRATION (max de -sd) sur chaque colonne.
+      ;;   medn    LE DOMAINE. `medn=0` veut dire « aucune lecture valide » et se lit comme tel,
+      ;;           JAMAIS comme « aucune penetration » : c'est exactement la confusion que la
+      ;;           section a subie pendant 62 cycles.
+      ;;   far     LES LECTURES HORS DU SUPPORT DU NUAGE, comptees et publiees au lieu d'etre
+      ;;           jetees en silence. `|sd| <= |p - q|` : une profondeur de 2618 u EXIGE que le
+      ;;           plus proche echantillon soit a 64 cm, donc ce n'est pas une penetration, c'est
+      ;;           un plan prolonge loin de la ou il a ete echantillonne. Ces lectures-la ne
+      ;;           peuvent pas ecrire `pen`.
+      ;;   space   L'ESPACEMENT MOYEN du nuage de l'autre sein, mesure sur la donnee LIVREE. Le
+      ;;           rayon de support vaut 2 x cette valeur : aucune longueur n'est choisie a la
+      ;;           main, et le rapport publie `far/n` dit combien la borne a exclu.
+      (format 0 "PHYSMED tag=~S c=~D gap=~f gapa=~f pen=~f~%"
+              tag c (phys-medial (-> self slot) c 0) (phys-medial (-> self slot) c 1)
+              (phys-medial (-> self slot) c 2))
+      (format 0 "PHYSMED2 tag=~S c=~D rest=~f n=~f far=~f space=~f~%"
+              tag c (phys-medial (-> self slot) c 3) (phys-medial (-> self slot) c 4)
+              (phys-medial (-> self slot) c 5) (phys-medial (-> self slot) c 6))
+      ;;   inj / gapi : LE CONTROLE POSITIF DE SPEC 33, APPAIRE. Le meme point, dans la MEME frame,
+      ;;   deplace de `inj` unites EXACTEMENT vers le plus proche echantillon de la surface opposee.
+      ;;   La reponse attendue est une PREDICTION — `approche - inj` — et non un ratio a une ligne
+      ;;   de base qui bouge (arbitrage du 2026-08-20 13:20). L'exces comme le defaut sont un echec.
+      (format 0 "PHYSMED3 tag=~S c=~D inj=~f gapi=~f~%"
+              tag c (phys-med-inject-get) (phys-medial (-> self slot) c 7))
       ;;   rootrot  l'angle, EN DEGRES, reellement ecrit dans la 3x3 du maillon `rootlock` — le
       ;;            PREMIER SEGMENT de la meche, celui qui part du cuir chevelu. Il valait 0.0000
       ;;            structurellement jusqu'a ce cycle : la boucle d'ecriture du moteur sautait tout
