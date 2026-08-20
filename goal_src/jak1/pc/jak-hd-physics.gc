@@ -3075,10 +3075,9 @@
                       (phys-collide-chain skel sc n rlk nbone nco PHYS-COL-MARGIN 3)
                       (phys-bend-chain skel sc n rlk an nbone #t))
                     ;; [NOTE-45] ------------------------------------------------------------------------ -> jak-hd-physics-NOTES.md
-                    ;; [NOTE-153] LA COLLISION EST LA DERNIERE OPERATION DE LA FRAME. -> jak-hd-physics-NOTES.md
                     (dotimes (it 4)
-                      (phys-bend-chain skel sc n rlk an nbone #t)
-                      (phys-collide-chain skel sc n rlk nbone nco PHYS-COL-MARGIN 3))
+                      (phys-collide-chain skel sc n rlk nbone nco PHYS-COL-MARGIN 3)
+                      (phys-bend-chain skel sc n rlk an nbone #t))
                     ;; [NOTE-63] SPEC 33/34 — LA RESTITUTION, UNE FOIS PAR FRAME, SUR LA VITESSE SEULE. -> jak-hd-physics-NOTES.md
                     (when (zero? *phys-rst-off*)
                       (dotimes (l n)
