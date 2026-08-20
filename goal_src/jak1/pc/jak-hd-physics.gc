@@ -100,6 +100,9 @@
 ;; [NOTE-02] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
 (define *phys-lcr* (new 'global 'array 'float PHYS-SCL))  ;; rayon du volume porte par le lien
 (define *phys-lcx* (new 'global 'array 'float PHYS-SCL))  ;; son centre, en espace bind du joint
+;; [NOTE-330] CONTROLE POSITIF : l'offset GELE, pour que l'injection deplace le POINT MESURE. -> jak-hd-physics-NOTES.md
+(define *phys-pcof* (new 'global 'inline-array 'vector PHYS-SCL))
+(define *phys-off-hold* 0)
 ;; [NOTE-126] SPEC 6 / SPEC 22 : LE COM EST UNE MOYENNE PONDEREE PAR LA MASSE. -> jak-hd-physics-NOTES.md
 (define *phys-comw* (new 'global 'array 'float PHYS-SCL))  ;; `comw=` : W_l / N, mesure sur le mesh
 (define *phys-lcy* (new 'global 'array 'float PHYS-SCL))
@@ -1298,6 +1301,7 @@
               (set! (-> out x) (- (-> out x) (* d hx)))
               (set! (-> out y) (- (-> out y) (* d hy)))
               (set! (-> out z) (- (-> out z) (* d hz)))))))))
+  (when (nonzero? *phys-off-hold*) (vector-copy! out (-> *phys-pcof* scl)))
   (none))
 
 (defun phys-col-centre ((skel skeleton) (sco int) (cj int) (out vector))
@@ -2238,6 +2242,7 @@
                 (set-vector! bv 0.0 0.0 0.0 1.0)))
             (set-vector! pt (-> *phys-px* scl) (-> *phys-py* scl) (-> *phys-pz* scl) 1.0)
             (phys-link-off-sim! skel scl kk kp nbone bv pt offs)
+            (vector-copy! (-> *phys-pcof* scl) offs)
             (set! (-> pt x) (+ (-> pt x) (-> offs x)))
             (set! (-> pt y) (+ (-> pt y) (-> offs y)))
             (set! (-> pt z) (+ (-> pt z) (-> offs z)))
@@ -2257,12 +2262,14 @@
                 (set! (-> *phys-px* scl) (- (-> *phys-px* scl) (* amt (-> bn x))))
                 (set! (-> *phys-py* scl) (- (-> *phys-py* scl) (* amt (-> bn y))))
                 (set! (-> *phys-pz* scl) (- (-> *phys-pz* scl) (* amt (-> bn z))))))))))
+    (set! *phys-off-hold* 1)
     (dotimes (l n)
       (when (>= l rlk)
         (let ((scl (+ (* sc PHYS-LINKS) l)))
           (set-vector! pt (-> *phys-px* scl) (-> *phys-py* scl) (-> *phys-pz* scl) 1.0)
           (let ((r (phys-link-pen skel sc n nbone nco l pt 0)))
             (when (> r worst) (set! worst r))))))
+    (set! *phys-off-hold* 0)
     (dotimes (l n)
       (let ((scl (+ (* sc PHYS-LINKS) l)))
         (set! (-> *phys-px* scl) (-> *phys-sx* scl))

@@ -1,7 +1,7 @@
 ==================================================================================================
 KEIRA — SALLE DE TEST SANS JOUEUR : TABLEAU DE MESURE
 genere par .autoport/physics_room_table.py depuis .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
-empreinte de la trace lue : md5 0bf01fb4ca3e42927e313c0d2212f56c (3995457 octets)
+empreinte de la trace lue : md5 e134a47c13638e820de2630fe1f106ff (3995400 octets)
 contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 7 (ce qui fait foi)
 
 Toutes les longueurs sont en METRES (la trace est en unites de jeu, 4096 u = 1 m). Ce que
@@ -210,9 +210,9 @@ ROOM-INVERSIONS: residual=0 corrected=0 degenerate=0 control_residual=178 reseat
    fait passer le residu de 0 a 178.
    `reseated` = liens dont la pose du modele etait hors de portee de leur porteur et que le
    moteur a replaces sur lui (une chaine se REPARE, elle ne se retire pas).
-ROOM-POSCONTROL: injections=327 armed=0.1709 disarmed=0.0845
+ROOM-POSCONTROL: injections=327 armed=0.1521 disarmed=0.0845
 ROOM-POSCONTROL-INJECT: 0.097656   (= 400.0 u ; MEME UNITE que armed/disarmed, des METRES)
-   restitution : 0.0864 m mesures pour 0.0977 m injectes = 88.4 %  (bande exigee 75-125 %)
+   restitution : 0.0675 m mesures pour 0.0977 m injectes = 69.2 %  (bande exigee 75-125 %)
    NATURE : une difference de deux PROFONDEURS residuelles prises sur LA MEME frame, la
    position etant restauree au bit entre les deux. Ce n'est plus un rapport a une ligne
    de base qui bouge : c'est une prediction quantitative, et elle echoue dans les DEUX
@@ -220,7 +220,7 @@ ROOM-POSCONTROL-INJECT: 0.097656   (= 400.0 u ; MEME UNITE que armed/disarmed, d
    le defaut injecte pousse chaque lien libre de 400 u (~10 cm) vers l'interieur du corps
    APRES resolution ; le compteur de penetration doit MONTER. 327 poussees reelles.
    residus SIGNES bruts des deux branches (negatif = marge restante avant de traverser) :
-   arme 0.1709 m, desarme 0.0845 m.
+   arme 0.1521 m, desarme 0.0845 m.
 ROOM-IDLE: maxdev=0.0002 hanging=0 measured=2
    SPEC 4 : au repos, ce qui n'est pas cense pendre retrouve la pose du modele. Les 0
    chaines a hang>0 (ce qui pend) sont comptees a part : 

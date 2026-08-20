@@ -51,3 +51,31 @@ P7  LE COUT, ANNONCE. Le sein qui recoit le pole d'aplatissement change : le ten
     BOUGER. Je predis un ECHANGE approximatif entre les deux chaines (modulo la pose
     asymetrique) et un maximum sur la paire proche de l'actuel. Un maximum qui EXPLOSE serait
     un defaut, pas un echange.
+
+================================================================================================
+CYCLE 63b — PREDICTIONS POSEES AVANT LA SECONDE COURSE (correctif du controle positif)
+base = keira-room-table.PRE-c63b.txt (la course 63a, md5 e134a47c...)
+================================================================================================
+DIAGNOSTIC (etabli, pas suppose) : `phys-link-pen` ne sonde pas le joint `p` mais
+`q = p + R(u).off` avec `u = normalise(p - b)` et `|off| = 467 a 651 u` (les offsets des
+colliders lBoob/lBooc/rBoob/rBooc, lus dans physics_chains.txt). L'injection deplace `p` de
+`-A.n` ; `u` change, donc `R(u)` change, donc le POINT MESURE ne se deplace PAS de A.
+DEUX CAUSES QUE J'AVAIS AVANCEES ET QUE JE RETIRE : (i) la saturation — le gain vaut A tant que
+A <= d = |q - axe|, et avec des rayons de MAILLON de 587-725 u, d ~ 700 u pour A = 400 u, donc
+ca ne sature pas ; (ii) les deux maxima non apparies — pour le critere ecrit (« la mesure
+publiee doit monter de X »), la difference de deux maxima est la bonne formulation.
+
+CORRECTIF : pendant la SEULE relecture ARMEE, l'offset est gele a sa valeur du balayage (donc a
+la position NON injectee). Le point mesure translate alors de -A.n exactement.
+
+P8  RESTITUTION -> ~100 %, ET PAS « >= 75 % ». C'est une prediction de VALEUR, pas de bande :
+    armed  0.1521 -> **0.1822 m** (= disarmed + 0.097656)
+    disarmed 0.0845 -> **0.0845 m INCHANGE AU BIT** (la jambe desarmee ne voit jamais le gel)
+    restitution 69.2 % -> ~100 %.  Un atterrissage ENTRE les deux refute l'explication et je
+    le dirai ; un depassement de 125 % l'echoue aussi.
+
+P9  TOUT LE RESTE DU TABLEAU EST INCHANGE AU BIT. L'interrupteur est pose et retire A
+    L'INTERIEUR de la sonde, qui restaure `*phys-px/py/pz*` derriere elle ; aucune autre lecture
+    ne peut le voir. Donc : tipvar 0.1721/0.1873, meshpen 0.0956/0.1288, skinpen 0.0701/0.0868,
+    apex 0.9714/0.9427, SPEC7 0.251 deg, SPEC12-COTE 4/4, IDLE, SIDE, INVERSIONS — identiques.
+    Si UNE de ces lignes bouge, le gel fuit hors de sa fenetre et le correctif est mauvais.

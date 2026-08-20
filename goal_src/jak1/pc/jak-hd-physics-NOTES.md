@@ -7240,3 +7240,51 @@ OU LE MIROIR N'EST PAS DEFINI : sans chaine partenaire, `sep = 0`, le produit
 scalaire vaut 0, aucune chaine n'est retournee et le comportement d'avant est
 reproduit a l'identique. `PHYSAXNAME src=` publie ce cas.
 ```
+
+## [NOTE-330] CONTROLE POSITIF : l'offset GELE, pour que l'injection deplace le POINT MESURE.
+
+```
+---------------------------------------------------------------------------
+LE DEFAUT, MESURE AU CYCLE 63 : `ROOM-POSCONTROL` ne restituait que 69,2 % de
+son injection (86,9 % au cycle 62), pour une bande exigee de 75-125 %.
+
+CE QUI N'ETAIT PAS LA CAUSE, ET IL FAUT LE DIRE PARCE QUE JE L'AI CRU :
+  - PAS la saturation de l'injection. Le gain d'un deplacement de A le long de
+    la normale vaut A tant que A <= d, ou d = |point - axe du volume|. Comme
+    `want = rr + rlink` et que les rayons de MAILLON valent 587 a 725 u, d est
+    de l'ordre de 700 u pour A = 400 u : ca ne sature pas.
+  - PAS le fait que `armed` et `disarmed` soient deux maxima courants. Pour le
+    critere tel qu'il est ecrit (« la mesure PUBLIEE doit monter de X »), la
+    difference de deux maxima est la bonne formulation.
+
+LA CAUSE : L'INJECTION DEPLACE LE JOINT, LA MESURE LIT UN AUTRE POINT.
+`phys-link-pen` ne sonde pas le joint `p` mais
+
+    q = p + R(u) . off,   u = normalise(p - b),   |off| = 467 a 651 u
+
+ou `R(u)` est la rotation qui amene la direction de BIND sur la direction
+COURANTE (`phys-link-off-sim!`, deux reflexions). Injecter `p' = p - A.n`
+change `u`, donc change `R(u)`, donc
+
+    q' - q = -A.n + (R(u') - R(u)) . off
+
+et sa norme n'est PAS A. Avec un bras de ~1000 u, A = 400 u fait tourner `u`
+d'environ 22 deg, ce qui balaie l'offset de ~250 u ; projete sur `n`, ca mange
+la difference. Ordre de grandeur du deficit mesure : 0,0977 - 0,0675 =
+0,0302 m = 124 u. C'est la meme famille que `apex-bound-reads-a-joint-not-the-
+apex` : on agit sur un joint et on lit une grandeur qui vit ailleurs.
+
+LE CORRECTIF : pendant la SEULE relecture ARMEE, l'offset est GELE a la valeur
+qu'il avait au balayage, c'est-a-dire A LA POSITION NON INJECTEE. Le point
+mesure translate alors de -A.n EXACTEMENT, et la profondeur monte de A.
+
+CE N'EST PAS UN AJUSTEMENT POUR PASSER LA BANDE, ET LA PREDICTION LE PROUVE :
+elle n'est pas « >= 75 % », elle est « 100 % ». `armed` doit passer de 0,1521 a
+0,0845 + 0,0977 = 0,1822 m, `disarmed` doit rester au bit, et tout le reste du
+tableau doit etre INCHANGE (l'interrupteur est pose et retire a l'interieur de
+la sonde). Un resultat qui atterrirait entre les deux refuterait l'explication.
+
+LA ROTATION DE L'OFFSET N'EST PAS LE DEFAUT QU'ON INJECTE : elle decrit comment
+le volume suit l'os. Le defaut injecte est « A de penetration en plus », et il
+se pose sur le point qui porte la penetration.
+```
