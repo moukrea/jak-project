@@ -5441,15 +5441,19 @@ carried by the solved link transform every frame and tested against the body vol
 SURFACE » (docstring de `physics_c14_meshsamples.py`). C'est EXACTEMENT la grandeur que sa 33
 demande : la peau du sein, portee par la matrice resolue, testee contre le corps.
 
-MESURE, ET C'EST UN TROU COMPLET : le C++ n'expose que quatre accesseurs, tous `bsurf`
-(`kmachine.cpp:2212-2242`, enregistres a `:4213-4216`). **Il n'existe AUCUN accesseur `ms`**, ni
-dans le C++ ni dans le GOAL. Les enregistrements `ms` sont produits, ecrits dans
-`recharged_assets/physics_mesh.txt`, livres — et JAMAIS LUS. Un jeu de donnees sans lecteur est le
-meme mode d'echec que `declared-but-never-selected`, a l'echelle d'un fichier.
+CORRECTION — J'AI PUBLIE UNE AFFIRMATION FAUSSE ET JE LA RETIRE. J'avais ecrit qu'il n'existait
+« AUCUN accesseur `ms`, ni dans le C++ ni dans le GOAL ». **La moitie C++ est fausse**, et l'erreur
+est bete : j'ai cherche la chaine `msurf` alors que les accesseurs s'appellent `msample`.
 
-LE CHANTIER, CHIFFRE ET BORNE : exposer `pc-physics-num-msurf` / `-msurf-count` / `-msurf-mi` a
-cote des quatre `bsurf` (C++, donc reconstruction de `gk`), les charger comme les `bs` le sont deja
-(:759-804), puis porter `skinpen` sur CES points au lieu du JOINT. Le joint est interieur par
+CE QUI EST VRAI, VERIFIE : le C++ EXPOSE deja `pc-physics-chain-msample-count` et
+`pc-physics-chain-msample-mi` (`kmachine.cpp:1966-1993`, enregistres a `:4200-4202`), et il PARSE
+les enregistrements `ms` (`:1725-1749`) dans `PhysChain::mesh_samples`. Le trou est UNIQUEMENT du
+cote GOAL : `grep msample goal_src/` ne rend RIEN. La donnee est produite, parsee, exposee — et
+aucun appelant ne la lit.
+
+CE QUE CA CHANGE POUR LE CHANTIER, ET C'EST BEAUCOUP : il ne demande AUCUNE reconstruction de `gk`.
+C'est un changement GOAL seul — charger les `msample` comme les `bs` le sont deja (:759-804), puis
+porter `skinpen` sur CES points au lieu du JOINT. Le joint est interieur par
 construction et ne peut pas repondre a une question de SURFACE ; ces points-la sont la surface.
 La ligne de base au repos se calcule alors de la meme facon, sur la pose d'auteur, et la
 comparaison redevient homogene.

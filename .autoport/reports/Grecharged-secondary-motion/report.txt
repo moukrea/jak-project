@@ -330,15 +330,18 @@ generateur produit des enregistrements `ms <chaine> <maillon> <n> (x y z)*n`, «
 skinned vertices that stick out FURTHEST from the link [...] tested against the body volumes AT THE
 SURFACE » (sa propre docstring). C'est mot pour mot la grandeur que sa 33 demande.
 
-ET PERSONNE NE LES LIT. Le C++ n'expose que QUATRE accesseurs, tous `bsurf`
-(`kmachine.cpp:2212-2242`, enregistres a `:4213-4216`) : **il n'existe aucun accesseur `ms`**. Ces
-enregistrements sont produits, ecrits dans `recharged_assets/physics_mesh.txt`, livres — et jamais
-lus. Un jeu de donnees sans lecteur, c'est `declared-but-never-selected` a l'echelle d'un fichier.
+ET LE GOAL NE LES LIT PAS. **CORRECTION D'UNE AFFIRMATION QUE J'AI PUBLIEE ET QUI ETAIT FAUSSE** :
+j'avais ecrit qu'il n'existait aucun accesseur `ms` « ni dans le C++ ni dans le GOAL ». La moitie
+C++ est FAUSSE — j'ai cherche la chaine `msurf` alors qu'ils s'appellent `msample`. Le C++ parse
+les `ms` (`kmachine.cpp:1725-1749`) et EXPOSE `pc-physics-chain-msample-count` /
+`-msample-mi` (`:1966-1993`, enregistres a `:4200-4202`). Le trou est UNIQUEMENT cote GOAL :
+`grep msample goal_src/` ne rend rien.
 
-LE CHANTIER EST DONC BORNE ET CHIFFRABLE, et il ne demande PAS de toucher a `bs` (donc §18 n'est pas
-menacee) : exposer `pc-physics-num-msurf` / `-msurf-count` / `-msurf-mi` a cote des quatre `bsurf`
-— c'est du C++, donc une reconstruction de `gk` — les charger comme les `bs` le sont deja
-(jak-hd-physics.gc:759-804), puis porter `skinpen` sur CES points au lieu du JOINT. Le joint est
+CE QUE MA CORRECTION CHANGE, ET C'EST BEAUCOUP : le chantier ne demande AUCUNE reconstruction de
+`gk`. C'est un changement GOAL seul — charger les `msample` comme les `bs` le sont deja
+(jak-hd-physics.gc:759-804), puis porter `skinpen` sur CES points au lieu du JOINT. Et la donnee
+existe pour les deux seins : `ms chestL 0 2`, `ms chestL 1 2`, `ms chestR 0 2`, `ms chestR 1 2` —
+deux sommets EXTREMAUX par maillon, c'est-a-dire exactement ceux qui traversent en premier. Le joint est
 interieur par construction et ne peut pas repondre a une question de SURFACE ; ces points-la SONT
 la surface. Je ne l'ouvre pas en fin de cycle — c'est le premier chantier du suivant, et il est
 nomme, localise et chiffre.
