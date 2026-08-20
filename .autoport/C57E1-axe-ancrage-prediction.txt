@@ -1,0 +1,103 @@
+C57E1 — L'AXE SUR LEQUEL LE REPESAGE INSTALLE LE PROFIL DE LA SPEC 30
+GRAVE AVANT TOUTE CUISSON ET AVANT TOUTE COURSE.
+Phase Grecharged-secondary-motion · branche physics-keira-clean · Keira, chestL/chestR seules.
+DIRECTIVES v3fee554599
+
+====================================================================================
+LA QUESTION
+====================================================================================
+Le registre porte depuis le cycle 51 un plafond d'apex de x1.76 / x1.68 declare
+« hors d'atteinte de TOUTE physique », et ce plafond BORNE les verdicts de six
+sections (14, 16, 17, 18, 22, 30). Est-il une fatalite du MAILLAGE, ou la
+consequence d'un choix de REPERE dans notre propre operateur de repesage ?
+
+====================================================================================
+CE QUI EST DEJA MESURE (premisse, PAS une prediction — etabli avant d'ecrire ce fichier)
+====================================================================================
+M1. L'operateur `anchor30 axis=flesh` (.autoport/physics_c7_reskin.py:436-444) calcule
+    son abscisse par `ax = pts[-1] - pts[0]`, c'est-a-dire l'axe d'OS de la chaine.
+    Son commentaire affirme « Direction = celle de la chaine (l'axe de l'organe) ».
+M2. Cet axe est a 77.82 deg (chestL) / 78.15 deg (chestR) de l'axe que la SPEC 31
+    DEFINIT mot pour mot : « r = 0 at chest attachment and r = 1 at distal/apex
+    region ». Correlation des deux abscisses : -0.116 / -0.292 (population de la
+    regle), -0.220 / -0.454 (organe entier). NEGATIVE, pas seulement faible.
+M3. Le MEME champ de poids, lu sur les deux abscisses, rend :
+      sur l'axe d'OS (ce que l'operateur installe) : 5/5 bandes DANS
+      sur l'axe ANATOMIQUE (ce que la 31 demande) : 1/5 DANS
+        Deep root 0.158/0.182 (bande 0.90-1.00, SOUS)  Apex 0.367/0.405 (bande 0.00-0.10)
+M4. L'operateur est l'AUTEUR des 43 % : le profil impose `0.95*(1-s)^p`, p=1.285 sur
+    l'axe d'os, PREDIT 0.4314 d'ancrage sur le decile apex anatomique de chestL
+    contre 0.4324 MESURE. Ecart 0.001. (verification independante, cycle 57)
+M5. Plafond d'apex reproduit a l'identique par trois constructions independantes :
+    0.5676 / 0.5936 (physics_c14_meshsamples apex_region), 0.5978 / 0.5719
+    (probe_c57_anchor_axis, population organe), 0.5370 / 0.5231 (population regle).
+
+====================================================================================
+LES DEUX THESES EN PRESENCE — ELLES SE CONTREDISENT, LA MESURE TRANCHE
+====================================================================================
+THESE A (la mienne). La SPEC 30 et la SPEC 31 sont ecrites sur le TISSU, jamais sur
+  notre rig : « rear breast VOLUME », « chest attachment », « distal/apex region ».
+  Aucune ligne des deux sections ne mentionne un os ni un joint. Le `r` est donc
+  l'axe ANATOMIQUE. L'operateur installe un profil correct sur un axe faux ; corriger
+  l'axe leve le plafond.
+
+THESE B (celle du releve de faisabilite du cycle 57, et je la grave telle quelle).
+  Les sommets de l'apex ANATOMIQUE se projettent a s = 0.31..0.57 sur l'abscisse de
+  l'operateur, donc dans les bandes `mid` (0.25-0.55) et `rear` (0.55-0.85) de la 30.
+  La 30 ELLE-MEME plancherise alors leur ancrage a 0.3045 / 0.2833, et le gain
+  disponible n'est que de x1.23 / x1.21 — pas x1.70. Le plafond serait donc reel.
+
+  POURQUOI JE PENCHE POUR A, ET POURQUOI CE N'EST PAS SUFFISANT : la these B assigne
+  chaque sommet a une bande de la 30 EN UTILISANT l'abscisse d'os, c'est-a-dire le
+  repere meme qui est en cause. Mais je peux me tromper, et P4 est ecrite pour que la
+  mesure me refute sans que j'aie mon mot a dire.
+
+====================================================================================
+LES PREDICTIONS. UNE SEULE SUFFIT A ME REFUTER.
+====================================================================================
+P1  Le changement est CONFINE a l'asset. `recharged_assets/physics_chains.txt` doit
+    rester IDENTIQUE AU BIT (md5 inchange) : le moteur GOAL n'est pas touche.
+    -> Si son md5 bouge, le changement a fuit hors de son perimetre : je l'annonce.
+
+P2  Apres cuisson avec l'axe anatomique, le profil d'ancrage LU SUR L'AXE ANATOMIQUE
+    tient >= 4 bandes sur 5 DANS, sur LES DEUX seins.
+    Valeurs predites hors lissage : chestL Deep 0.914 Rear 0.750 Mid 0.514 Dist 0.276
+    Apex 0.087 ; chestR 0.906 / 0.735 / 0.517 / 0.275 / 0.082.
+
+P3  *** CONTRE MOI *** `StrongRootFraction` SORT de la bande 0.28-0.35 de la 30 :
+    je predis ~0.224 (chestL) et ~0.275 (chestR), donc SOUS.
+    CONSEQUENCE QUE J'ACCEPTE D'AVANCE : la 30 N'EST PAS TENUE au sortir de ce cycle.
+    Elle troque la clause d'apex contre la clause de fraction, et le registre l'ecrit
+    comme tel. Si SRF tombe DANS la bande, mon modele de derivation de `p` est faux
+    et je le dis.
+
+P4  *** LA PREDICTION QUI TRANCHE A CONTRE B *** Le plafond d'apex — statistique
+    `apex_region` de physics_c14_meshsamples.py, la MEME qui a publie 0.5676/0.5936 —
+    monte AU-DESSUS de 0.80 sur les deux seins (valeur predite ~0.91).
+    -> S'il se stabilise vers 0.70 (gain x1.21-1.23), LA THESE B EST LA BONNE, le
+       plafond est reel, et je RETIRE la these A en TETE de rapport, pas en note.
+
+P5  *** CONTRE MOI *** En salle, le deplacement d'apex des regimes de la 14, 16 et 17
+    doit monter d'un facteur COMPARABLE au gain de plafond (x1.7 +/- 0.3).
+    -> S'il monte de moins de x1.2 alors que le plafond a bien monte de x1.7,
+       l'attribution du cycle 51 (« l'ancrage seul explique le manque ») est FAUSSE
+       pour ces sections, c'est le SOLVEUR qui porte le reste, et je l'ecris.
+
+P6  *** COUT, PUBLIE QUOI QU'IL ARRIVE *** `meshpen` MONTE (plus de chair mobile pres
+    de la surface). Je ne revendique aucun credit s'il BAISSE : je le declarerais
+    inexplique. Le chiffre est publie dans les deux sens.
+
+P7  La 31 N'EST PAS REPAREE PAR CE CYCLE et je le dis d'avance : le maillon distal est
+    majoritaire sur ZERO sommet de l'apex anatomique, et il est 34.4 u / 77.5 u PLUS
+    PRES du torse que le proximal le long de l'axe racine->apex. Corriger l'axe
+    d'ANCRAGE ne deplace aucun joint. La clause de gradient de la 31 reste NON TENUE.
+
+====================================================================================
+CE QUE CE CYCLE NE PROUVE PAS, ET JE L'ECRIS AVANT
+====================================================================================
+- Aucune ligne de ce fichier n'est une validation de l'owner. Il n'a rien valide.
+- Le verdict de la 30 dependra du REPERE choisi, et le repere est un ARGUMENT DE
+  TEXTE (les mots de sa spec), pas une mesure. Je publie les DEUX lectures cote a
+  cote dans le rapport, comme le fait deja probe_c57_anchor_axis.py.
+- Les durees de regime employees en salle restent les MIENNES (cycle 49) : tout
+  verdict de la 14/16/17 en depend et sa ligne le dit.
