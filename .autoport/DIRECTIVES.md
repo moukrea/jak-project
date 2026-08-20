@@ -10,6 +10,39 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
+## 2026-08-20 10:55 — ARBITRAGE COLLIDE : LA GRANDEUR EST FAUSSE AVANT LE SEUIL, ET LE PIEGE A RETOMBE
+
+Le cycle 58 remonte deux choses, et les deux sont a moi.
+
+**1. `meshpen` N'EST PAS UNE PROFONDEUR, C'EST UN DEPLACEMENT.** Etabli, pas suppose : `res =
+dep - feff`, ou `dep` et `feff` sont LA MEME fonction evaluee en deux points contre LE MEME volume
+a LA MEME frame, et cette fonction est 1-lipschitzienne (mesure 0,999932 sur plus de 200 000
+couples et les 56 volumes livres, controle negatif a 1,6928 avec le predicat d'avant le cycle 22).
+Donc `res <= |q - rest|` et **tous les rayons s'annulent** : redimensionner un volume est INERTE
+par identite. Ca explique pourquoi le cycle 57 a vu `meshpen` MONTER en resynchronisant les
+spheres, et ca clot six jours de chasse au mauvais gibier.
+
+**CONSEQUENCE POUR LA GATE, ET C'EST MON ARBITRAGE :** un seuil exprime en METRES DE PROFONDEUR
+n'a pas de sens pour un DEPLACEMENT. Je ne retouche pas le nombre — ce serait deplacer un chiffre
+sous une grandeur fausse. La gate doit lire `skinpen`, la penetration contre la surface DESSINEE,
+**des que sa ligne de base au repos existe** (physique desarmee, fenetre de repos), qui manque
+toujours. Tant qu'elle manque, le rouge de COLLIDE n'est verifiable dans aucun sens et se declare
+comme tel a l'owner — c'est deja fait.
+Note au passage : le plafond de 0,0005 m vaut 2,048 u, soit **0,18 degre** de rotation du maillon
+via l'offset de 651,18 u. Aucune lecture de « visible » ne justifie 0,18 degre. Le nombre etait un
+cliquet, pas une operationnalisation.
+
+**2. `ROOM-POSCONTROL` ECHOUE (×1,42 rendu contre ×3,00 exige) ET N'A JAMAIS ETE AFFICHEE.** Elle
+est vingt lignes apres le `die` de `meshpen`. **Deuxieme occurrence en deux jours** de
+`gate-behind-an-always-failing-gate` — j'avais deplace OPEN-DEFECTS en fin de fichier hier, mais un
+`die` INTERNE cache tout ce qui le suit dans son propre bloc. Deplacer des blocs ne suffisait pas.
+
+**CORRECTIF MECANIQUE APPLIQUE :** les verdicts de MESURE passent par `fail()`, qui ENREGISTRE et
+CONTINUE ; `verdict()` sort en echec a la toute fin du bloc. `die()` reste reserve a ce qui casse
+la LECTURE (fichier absent, colonne manquante) — la, continuer produirait du bruit. Aucun verdict
+de mesure ne peut plus en masquer un autre, et le rapport les liste tous.
+
+
 ## 2026-08-20 07:20 — LE PLAFOND D'APEX ETAIT NOTRE AXE, PAS SON MAILLAGE. JE CORRIGE L'OWNER.
 
 J'ai remonte a l'owner le 2026-08-20 a 03:47 que « 41 a 43 % de la chair du bout du sein est

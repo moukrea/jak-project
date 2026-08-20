@@ -213,6 +213,27 @@ rep = open(sys.argv[2], errors='ignore').read()
 def die(m):
     print("[Grecharged-secondary-motion FAIL] " + m); sys.exit(1)
 
+# 2026-08-20 — `die` SORT, donc tout ce qui SUIT n'est jamais evalue. C'est le piege
+# `gate-behind-an-always-failing-gate`, tombe DEUX FOIS EN DEUX JOURS : d'abord COLLIDE derriere
+# OPEN-DEFECTS, puis ROOM-POSCONTROL vingt lignes apres le `die` de meshpen — elle echoue
+# (x1.42 rendu contre x3.00 exige) et n'a JAMAIS ete affichee. Deplacer les blocs ne suffit pas :
+# tant qu'un verdict SORT, il en cache d'autres.
+#
+# `fail` ENREGISTRE et CONTINUE. Il est reserve aux verdicts de MESURE, qui n'invalident pas les
+# controles suivants. `die` reste pour ce qui casse la lecture (fichier absent, colonne manquante,
+# trace illisible) : la, continuer produirait du bruit et non de l'information.
+FAILURES = []
+def fail(m):
+    FAILURES.append(m)
+    print("[Grecharged-secondary-motion FAIL] " + m)
+
+def verdict():
+    """A appeler en toute fin de bloc : sort en echec si un seul verdict a echoue."""
+    if FAILURES:
+        print("[Grecharged-secondary-motion] %d verdict(s) de mesure en echec — tous ci-dessus,"
+              " aucun masque par un autre." % len(FAILURES))
+        sys.exit(1)
+
 # --- PAS DE JOUEUR. Prouvé par la course, pas affirmé dans un commentaire. ---------------------
 m = re.search(r'^ROOM-NOPLAYER:\s*(\w+)', t, re.M)
 if not m:
@@ -392,9 +413,9 @@ for label, pat in pairs:
     worst = max(float(r['meshpen']) for r in rs)
     ceil = BREAST_PEN_CEIL if pat == BREAST_PAT else 0.0
     if worst > ceil:
-        die("COLLIDE: « %s » traverse encore, pénétration max %.4f (plafond %.4f).\n"
-            "  « Collisions propres » — et une résolution pire que le clip est pire que rien."
-            % (label, worst, ceil))
+        fail("COLLIDE: « %s » traverse encore, pénétration max %.4f (plafond %.4f).\n"
+             "  « Collisions propres » — et une résolution pire que le clip est pire que rien."
+             % (label, worst, ceil))
     if pat == BREAST_PAT and worst > 0.0:
         try:
             _rp = open(".autoport/reports/Grecharged-secondary-motion/report.txt",
@@ -402,10 +423,10 @@ for label, pat in pairs:
         except Exception:
             _rp = ""
         if "BREAST-PENETRATION:" not in _rp:
-            die("COLLIDE: la poitrine garde %.4f m de pénétration résiduelle et le rapport ne porte\n"
-                "  aucune ligne 'BREAST-PENETRATION:'. Sous le plafond épinglé n'est pas « réglé » :\n"
-                "  tant que ce n'est pas zéro, ça se déclare, avec le chiffre, à chaque cycle."
-                % worst)
+            fail("COLLIDE: la poitrine garde %.4f m de pénétration résiduelle et le rapport ne porte\n"
+                 "  aucune ligne 'BREAST-PENETRATION:'. Sous le plafond épinglé n'est pas « réglé » :\n"
+                 "  tant que ce n'est pas zéro, ça se déclare, avec le chiffre, à chaque cycle."
+                 % worst)
         print("[COLLIDE] poitrine : %.4f m de résidu (plafond épinglé %.4f), DÉCLARÉ dans le rapport"
               % (worst, ceil))
 if exercees == 0:
@@ -507,6 +528,8 @@ print("[COLLIDE] SPEC §33/§34 — contrôle positif %.3f contre %.3f" % (arm, 
 print("[IDLE] écart max au modèle %.3f (SPEC §2 : Additional Procedural Sag = 0%%)"
       % float(idle.group(1)))
 print("[ANIM] %s chaînes pilotées, toutes respectées (SPEC §37)" % an.group(1))
+
+verdict()   # tous les verdicts de mesure ont ete evalues ; on sort maintenant.
 PYROOM
 
 # SUPPRIMEE le 2026-08-19 — gate SIDE-CONTROL : franchissement du pantacourt dans les mollets. Organe GELE, hors du perimetre poitrine, aucune base dans la spec des seins.

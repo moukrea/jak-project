@@ -536,3 +536,24 @@ comme une fatalite du maillage.
 Verrou : un axe de mesure qui n'est pas celui que la spec DEFINIT est un axe faux, meme s'il est
 geometriquement raisonnable. Avant de declarer une limite structurelle, prouver que l'axe de
 lecture est celui que le texte nomme — et publier la correlation entre les deux.
+
+GUARD verdict-must-accumulate-not-exit .autoport/validators/phase-Grecharged-secondary-motion.sh fail() verdict()
+**Deplacer les blocs ne suffit pas : un `die` INTERNE cache tout ce qui le suit dans son propre
+bloc.** Le 2026-08-19 j'ai deplace OPEN-DEFECTS en fin de fichier parce qu'elle masquait COLLIDE.
+Le lendemain, `ROOM-POSCONTROL` echouait (×1,42 rendu contre ×3,00 exige) et n'avait JAMAIS ete
+affichee : elle est vingt lignes apres le `die` de `meshpen`. Deuxieme occurrence en deux jours.
+Verrou : les verdicts de MESURE passent par `fail()` — enregistre et continue — et `verdict()`
+sort en echec a la fin du bloc. `die()` est reserve a ce qui casse la LECTURE (fichier absent,
+colonne manquante), ou continuer produirait du bruit et non de l'information. Regle generale : un
+dispositif qui doit TOUT crier ne peut pas s'arreter au premier cri.
+
+GUARD threshold-under-a-wrong-quantity .autoport/validators/phase-Grecharged-secondary-motion.sh BREAST_PEN_CEIL
+**`meshpen` est un DEPLACEMENT, pas une profondeur — donc un seuil en metres de profondeur n'a
+aucun sens dessus.** Etabli au cycle 58 : `res = dep - feff` ou les deux termes sont la MEME
+fonction 1-lipschitzienne evaluee en deux points contre le MEME volume a la MEME frame, donc
+`res <= |q - rest|` et tous les rayons s'annulent — redimensionner un volume est inerte PAR
+IDENTITE. Six jours de chasse sur ce levier, dont une tentative qui a vu la valeur MONTER.
+Accessoirement le plafond de 0,0005 m vaut 0,18 degre de rotation du maillon : aucune lecture de
+« visible » ne justifie ca, c'etait un cliquet.
+Verrou : avant de discuter d'un SEUIL, etablir la NATURE de la grandeur qu'il borne. Un nombre
+ajuste sous une grandeur fausse est un faux precis.
