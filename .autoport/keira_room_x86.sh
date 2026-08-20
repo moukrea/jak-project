@@ -128,4 +128,37 @@ done
 echo "---- premieres lignes utiles ----"
 grep -aE '^PHYS|PHYS-ROOM|\[HD-PHYS\]|\[HD-COMP\]|hd-phys' "$LOG" | head -40
 [ "$ok" = 1 ] || { echo "FAIL: PHYSEND jamais atteint"; exit 1; }
+
+# --- 4. LE TABLEAU EST DERIVE ICI, PAR LE PRODUCTEUR, ET PAS AILLEURS -------------------------
+# DEFAUT MESURE AU CYCLE 56, ET IL AVAIT DEUX CYCLES. `keira-room-table.txt` portait l'empreinte
+# `md5 b068dfb3...` — le log du CYCLE 53 — alors que les cycles 54 ET 55 avaient tous les deux
+# livre depuis. Le fichier que le validateur lit pour ses gates ROOM / COLLIDE / IDLE / ANIM /
+# DISCRIMINANT decrivait donc une course qui n'etait pas celle qu'on venait de livrer. Personne ne
+# l'a vu parce que ces gates sont derriere OPEN-DEFECTS, qui echoue toujours en premier : une gate
+# placee apres une gate qui echoue toujours n'est jamais evaluee.
+# Regenere sur la course reellement livree par le cycle 55, le tableau CHANGE de verdict sur
+# `ROOM-SIGN-RANK` (P6 TENUE -> P6 REFUTEE). Ce n'est donc pas une coquette de fraicheur.
+# CAUSE STRUCTURELLE : ce script — le seul chemin par lequel une course x86 nait — n'appelait pas
+# l'analyseur. Seuls deux scripts annexes le faisaient, donc il fallait PENSER a le lancer. Un
+# derive qu'il faut penser a produire n'est pas produit. « Quand une perte se repete, on la rend
+# IMPOSSIBLE au point de production, pas detectable au point de controle » — donc ici.
+TBL="$OUT/keira-room-table.txt"
+echo "---- tableau ----"
+if python3 .autoport/physics_room_table.py "$LOG" "$TBL"; then
+  # L'EMPREINTE EST RELUE DANS LE FICHIER ECRIT, PAS SUPPOSEE : c'est elle qui prouve que le
+  # tableau parle de CETTE course. Un chemin n'est pas un horodatage, et un mtime n'est pas une
+  # provenance — c'est le md5 de la trace, ecrit par l'analyseur lui-meme, qui fait foi.
+  _want=$(md5sum "$LOG" | cut -d' ' -f1)
+  if grep -qF "$_want" "$TBL"; then
+    echo "table: $TBL <- $LOG (md5 $_want, verifie DANS le fichier ecrit)"
+  else
+    echo "FAIL: $TBL ne porte pas l'empreinte de la course qu'on vient de faire ($_want)."
+    echo "      C'est exactement le defaut du cycle 56 : un tableau qui decrit une AUTRE course."
+    exit 6
+  fi
+else
+  echo "FAIL: l'analyseur a refuse d'ecrire le tableau. La course existe, son derive non :"
+  echo "      ne pas lire l'ancien tableau comme s'il decrivait celle-ci."
+  exit 6
+fi
 echo "OK"

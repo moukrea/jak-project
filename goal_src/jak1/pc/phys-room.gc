@@ -450,6 +450,69 @@
 (define *physroom-reg-drv*  (new 'static 'array int32 15   0 18 27 14 15 36  9 36 18 24 21 24 24 21 21))
 (define *physroom-reg-post* (new 'static 'array int32 15  60  0  0 45  0  0 45  0 45 45 45 12 45 12 45))
 
+;; ------------------------------------------------------------------------------------------------
+;; SPEC 12 ET SPEC 18 — LES MEMES STIMULI, JOUES DANS DEUX POSES, DANS LA MEME COURSE (cycle 56).
+;;
+;; POURQUOI CETTE PHASE EXISTE. Le superviseur a grave le 2026-08-20 05:20 que la pose que la salle
+;; TIENT est a 43.4 deg du miroir parfait alors que le rig est symetrique a 0.005 deg, et il a nomme
+;; quatre sections a remesurer : §32, §18, §12, et l'attribution du cycle 52. Le cycle 55 a traite la
+;; derniere en epinglant la pose de PH-SGN, et l'ecart gauche/droite qu'il y mesurait est tombe de
+;; x3.41 a x1.06. Restent §18 et §12, dont les ecarts gauche/droite publies (x2.5 sur l'apex du lacet
+;; fort, x5.4 sur le lacet modere) ont ete releves dans la pose asymetrique et sont donc, aujourd'hui,
+;; NON LISIBLES — ni tenus, ni refutes.
+;;
+;; CE QUI REND CETTE PHASE DIFFERENTE DE CE QUE LE CYCLE 55 PROPOSAIT. Son rapport proposait
+;; d'epingler la pose de TOUTES les phases et de rejouer. Ce serait deplacer d'un coup les verdicts
+;; des sept regimes de §14-§20 (dont §19, l'une des trois seules TENUES du registre) sans aucun
+;; controle apparie : on ne saurait pas si un chiffre a bouge a cause de la pose ou a cause de
+;; l'histoire de chaine qui la precede. Ici les deux poses sont jouees DANS LA MEME COURSE, a la
+;; MEME place, sur le MEME stimulus, et l'ordre des deux jambes est EQUILIBRE (voir `p` ci-dessous) :
+;; la seule variable entre elles est le nom de l'animation epinglee. En contrepartie, la trace
+;; existante n'est pas touchee — PH-SYM est APPENDUE apres PH-SGN, et `physroom-report` ne publie
+;; que des compteurs statiques, donc aucune ligne existante ne peut changer de valeur.
+;;
+;; LES QUATRE MESURES, ET POURQUOI CELLES-LA.
+;;   m=0  lacet 90 deg  (r=9)   §18 « moderate »
+;;   m=1  lacet 150 deg (r=10)  §18 « strong » — la seule bande d'APEX que §18 donne (20-30 % B0)
+;;   m=2  gravite laterale +90  (ax=0)  §12, pole ou UN sein est du cote gravite
+;;   m=3  gravite laterale -90  (ax=0)  §12, pole ou c'est L'AUTRE
+;; Les deux poles lateraux sont `oi=2` et `oi=4` de la table de PH-ORI. L'ETIQUETTE D'AXE EST CELLE
+;; DE LA MESURE, PAS CELLE DU COMMENTAIRE : le commentaire de `physroom-orient` ecrit « axis 0 =
+;; tangage », et la trace dit le contraire (`ROOM-ORI: chestL 2 0 90.0 -0.9979 ...` — la gravite y est
+;; quasi pure sur l'axe LATERAL du triedre de sa §7). C'est la trace qui fait foi, et `PHYSSYM5`
+;; republie `gx/gy/gz` par cellule pour que personne n'ait a le croire sur parole.
+;;
+;; POURQUOI LES DEUX POLES LATERAUX SONT LE BON TEST DE §12, ET PAS UN SEUL. §12 dit « The breasts
+;; shall not behave identically. The gravity-side breast experiences stronger thoracic compression,
+;; while the opposite breast migrates across the chest. » Les deux poles ECHANGENT lequel des deux
+;; seins est du cote gravite. Sur un rig symetrique et dans une pose symetrique, la reponse de
+;; chestL au pole +90 doit donc egaler celle de chestR au pole -90 : c'est une INVARIANCE MIROIR,
+;; verifiable sans choisir aucun seuil, et c'est exactement ce que la pose heritee detruisait.
+;;
+;; CE QUE CETTE PHASE NE FAIT PAS, ET JE LE DIS PLUTOT QUE DE LE TAIRE : elle ne rejoue PAS la
+;; mesure de COUPLAGE de §32 (« bouger un sein deplace l'autre de 32 a 321 % »). Ce chiffre vient
+;; d'un diff HORS-LIGNE de deux courses (reference et masse x4 sur une seule chaine, cycle 32) ;
+;; aucun script du depot ne le calcule, et il demande deux courses, pas une pose. Il reste ouvert.
+(defconstant PHYSROOM-PH-SYM 33)
+(defconstant PHYSROOM-SYMN  8)      ;; 4 mesures x 2 poses
+(defconstant PHYSROOM-SYME 90)      ;; RAMPE D'ENTREE, meme raison qu'a PHYSROOM-SGNE : la premiere
+                                    ;; fenetre d'une phase neuve recoit sinon le retour a `home` de
+                                    ;; la phase precedente comme un stimulus (x74 mesure au cycle 52).
+(defconstant PHYSROOM-SYMS 60)      ;; etablissement APRES la pose, avant l'ouverture de la fenetre.
+                                    ;; 60 frames = 5.05 constantes de temps du mode principal
+                                    ;; (1/(zeta.omega) = 0.198 s), residu 0.6 % — meme calcul et meme
+                                    ;; valeur que PHYSROOM-ORIS, pour que les deux soient comparables.
+(defconstant PHYSROOM-SYMT 60)      ;; queue de CALME qui ferme la cellule : ce que l'instrument lit
+                                    ;; stimulus ABSENT. Sans elle aucun ecart n'a d'echelle, et un
+                                    ;; rapport gauche/droite ne peut pas etre declare NON RESOLU.
+;; r = index de regime pour le lacet, -1 = orientation tenue · ax/dg = l'orientation quand r vaut -1
+;; dw = frames de pilotage + tenue. Pour le lacet c'est EXACTEMENT `drv + post` de la table des
+;; regimes (24+45 et 21+45), pour que la fenetre soit celle de §18 et pas une fenetre a moi.
+(define *physroom-sym-r*  (new 'static 'array int32 4    9  10  -1  -1))
+(define *physroom-sym-ax* (new 'static 'array int32 4    0   0   0   0))
+(define *physroom-sym-dg* (new 'static 'array float 4  0.0 0.0 90.0 -90.0))
+(define *physroom-sym-dw* (new 'static 'array int32 4   69  66  90   90))
+
 (defconstant PHYSROOM-PH-REPORT 40)
 (defconstant PHYSROOM-PH-DONE 41)
 
@@ -489,6 +552,7 @@
    (retang  float)     ;;   que sa §37 devrait absorber — un stimulus qu'on n'a pas commande
    (retax   int32)
    (sgi     int32)     ;; index de fenetre du balayage PAR SENS (SPEC 21/33/34, cycle 52)
+   (symi    int32)     ;; index de cellule du balayage A DEUX POSES (SPEC 12/18, cycle 56)
    (cex     float)     ;; offset MESURE de l'ancre a la racine de l'acteur, releve a l'execution :
    (cey     float)     ;;   la course C49E1 a mesure que la rotation de `root quat` ne pivote PAS
    (cez     float)     ;;   autour de `root trans`, et de combien. Voir `physroom-reg-pose`.
@@ -506,6 +570,25 @@
 ;; -1 = introuvable, et la phase le DIT au lieu d'epingler une pose au hasard.
 (define *physroom-symai* -1)
 (defconstant PHYSROOM-SYMNAME "assistant-village2-idle-hut-breath")
+;; LA POSE ASYMETRIQUE, EPINGLEE ELLE AUSSI ET PAR SON NOM (cycle 56).
+;;
+;; POURQUOI UNE DEUXIEME EPINGLE, ET POURQUOI CE N'EST PAS UN LUXE. Le cycle 55 a compare une
+;; pose epinglee symetrique a une pose HERITEE, mesuree dans une AUTRE course. Comparer deux
+;; courses laisse toujours ouverte la question « qu'est-ce qui a bouge d'autre ». `PH-SYM` joue
+;; donc les DEUX poses DANS LA MEME COURSE, sur le MEME stimulus, a la MEME place : la seule
+;; variable qui reste entre les deux jambes est le nom de l'animation epinglee.
+;;
+;; CE QUE CETTE POSE EST, ET CE QU'ELLE N'EST PAS. `assistant-firecanyon-idle-down` est
+;; l'animation que le cycle 53 a identifiee comme celle que la salle laisse en place. Au point de
+;; protocole (PHYSROOM-MEASAT avances) le cycle 54 l'a mesuree a 124.1 deg du miroir parfait,
+;; rang 29 sur 31. CE N'EST PAS la meme frame que celle que la salle fige ensuite, que le cycle 53
+;; a mesuree a 43.4 deg : le cycle 54 a etabli que l'asymetrie est une propriete de la FRAME et
+;; pas de l'animation. La jambe asymetrique de PH-SYM n'est donc PAS une reproduction de la pose
+;; dans laquelle §18 et §12 ont ete publiees — c'est une pose asymetrique CONTROLEE, epinglee par
+;; le meme protocole que la symetrique. Ses chiffres ne se comparent pas aux chiffres publies de
+;; §18 ; ils se comparent a l'autre jambe, et c'est tout ce que la question demande.
+(define *physroom-asymai* -1)
+(defconstant PHYSROOM-ASYMNAME "assistant-firecanyon-idle-down")
 (define *physroom-proc*    (the-as (pointer phys-subject) #f))
 
 ;; ------------------------------------------------------------------------------------------------
@@ -3843,6 +3926,166 @@
            (physroom-hold)
            (phys-stats-reset!)
            (phys-diag-reset!)
+           (set! (-> self symi) -1)   ;; -1 = la rampe d'ENTREE, voir PHYSROOM-SYME
+           (set! (-> self phase) PHYSROOM-PH-SYM))))))
+
+    ;; ---- 9 quinquies. LES MEMES STIMULI DANS DEUX POSES (cycle 56) -----------------------------
+    ;; Voir le pave des constantes PHYSROOM-SYM*. Cette phase est APPENDUE apres PH-SGN et avant
+    ;; REPORT : elle est donc en aval de tout ce que la trace publie deja, et `physroom-report` ne
+    ;; publie que des compteurs statiques (magnitudes de pilotage, comptes, unites d'`atan`). Aucune
+    ;; ligne existante ne peut changer de valeur a cause d'elle. Les SEULES lignes ajoutees sous un
+    ;; tag DEJA EXISTANT sont les `PHYSANIMLEN` qu'emet `physroom-set-anim` a chaque epingle — une
+    ;; par cellule, donc huit. Je l'ecris ICI, avant la course, parce que le cycle 55 l'a decouvert
+    ;; APRES et a du le rattraper dans son rapport.
+    ((= (-> self phase) PHYSROOM-PH-SYM)
+     ;; ---- LA RAMPE D'ENTREE ------------------------------------------------------------------
+     ;; PH-SGN sort en `physroom-hold` apres 60 frames de calme, donc la chaine devrait deja etre
+     ;; au repos. « Devrait » n'est pas une mesure : la rampe est la quand meme, et `PHYSSYM2`
+     ;; publie le stimulus recu par chaque cellule pour que la premiere se prouve comme les autres.
+     (when (< (-> self symi) 0)
+       (physroom-hold)
+       (when (>= (-> self pframe) PHYSROOM-SYME)
+         (set! (-> self symi) 0)
+         (set! (-> self pframe) 0)
+         (phys-comexw-reset!)
+         (phys-stats-reset!)))
+     (when (>= (-> self symi) 0)
+     (let* ((i   (-> self symi))
+            (m   (/ i 2))
+            (q   (mod i 2))
+            ;; L'ORDRE DES DEUX JAMBES EST EQUILIBRE : la jambe symetrique est jouee en 1re
+            ;; position pour m pair et en 2e pour m impair. Sans ca, « symetrique » et « premiere
+            ;; de la paire » seraient la meme chose et le RANG porterait l'ecart au lieu de la
+            ;; pose — c'est le defaut que le cycle 52 n'avait pas su trancher sur PH-SGN et que la
+            ;; double passe a ordre inverse a du corriger apres coup.
+            (p   (mod (+ q m) 2))
+            ;; p = 0 -> la pose SYMETRIQUE · p = 1 -> l'ASYMETRIQUE. Les deux par leur NOM.
+            (ai  (if (zero? p) *physroom-symai* *physroom-asymai*))
+            (r   (-> *physroom-sym-r* m))
+            (dw  (-> *physroom-sym-dw* m))
+            ;; les trois bornes de la cellule, comptees sur `pframe`
+            (t0  (+ 1 PHYSROOM-MEASAT))          ;; fin de l'avance d'animation
+            (t1  (+ t0 PHYSROOM-SYMS))           ;; fin de l'etablissement = ouverture de fenetre
+            (t2  (+ t1 dw))                      ;; fin du pilotage + tenue = lecture
+            (t3  (+ t2 PHYSROOM-SYMT)))          ;; fin de la queue de calme = ligne de base
+       ;; ---- 1. L'EPINGLE DE POSE, PAR SON NOM ET JAMAIS PAR UN INDEX ------------------------
+       (when (= (-> self pframe) 1)
+         (physroom-hold)
+         (cond
+           ((>= ai 0)
+            (physroom-set-anim ai)
+            (format 0 "PHYSSYMPOSE i=~D p=~D m=~D ai=~D~%" i p m ai))
+           (else
+            (format 0 "PHYSSYMPOSE i=~D p=~D m=~D ai=-1~%" i p m))))
+       ;; ---- 2. L'AVANCE JUSQU'AU POINT DE PROTOCOLE -----------------------------------------
+       ;; EXACTEMENT PHYSROOM-MEASAT avances, le meme nombre que l'echantillonnage des 31 poses du
+       ;; cycle 54 et que l'epingle du cycle 55 : c'est ce qui rend les trois comparables.
+       (when (and (>= ai 0) (> (-> self pframe) 1) (<= (-> self pframe) t0))
+         (physroom-advance-anim 1.0))
+       (when (and (> (-> self pframe) 1) (<= (-> self pframe) t1))
+         (physroom-hold))
+       ;; ---- 3. LA POSE EST REVALIDEE A L'EXECUTION, ON NE FAIT PAS CONFIANCE AU CHOIX --------
+       ;; Meme geste que `PHYSSGNB` au cycle 55 : la direction monde de chaque os est publiee a la
+       ;; premiere frame d'etablissement, sujet droit et immobile. C'est de la que l'ecart au
+       ;; miroir parfait se recalcule, cellule par cellule — une epingle qui n'aurait pas pris se
+       ;; verrait ici, et pas dans une supposition.
+       (when (= (-> self pframe) (+ t0 1))
+         (let ((hd (if (-> self child) (the-as jak-hd (-> self child 0)) (the-as jak-hd #f))))
+           (when hd
+             (dotimes (c (-> self nchain))
+              (when (> (phys-chain-links (-> self slot) c) 0)
+               (dotimes (l (phys-chain-links (-> self slot) c))
+                 (format 0 "PHYSSYMB i=~D c=~D l=~D ux=~,,6f uy=~,,6f uz=~,,6f~%"
+                         i c l
+                         (phys-chain-bone hd (-> self slot) c l 0)
+                         (phys-chain-bone hd (-> self slot) c l 1)
+                         (phys-chain-bone hd (-> self slot) c l 2))))))))
+       ;; ---- 4. LA FENETRE S'OUVRE A LA FIN DE L'ETABLISSEMENT --------------------------------
+       ;; L'OFFSET DE LEVIER EST RELEVE ICI ET PAS AILLEURS. `physroom-reg-drive` ne le releve qu'a
+       ;; `f = 0` ET quand `pre > 0` ; on l'appelle a partir de `f = 1`, donc il ne le releverait
+       ;; jamais et garderait celui de PH-REG — releve dans une AUTRE pose. Or c'est justement la
+       ;; pose qui est la variable de ce cycle : un levier herite rendrait les deux jambes
+       ;; identiques par construction sur la moitie du mecanisme. Meme sentinelle qu'a `:2088` — un
+       ;; triplet exactement nul veut dire que le canal n'a rien ecrit, pas que l'ancre est a
+       ;; l'origine du monde, et le repli est le pivot anatomique seul.
+       (when (= (-> self pframe) t1)
+         (let ((ax0 (phys-diag (-> self slot) 0 50))
+               (ay0 (phys-diag (-> self slot) 0 51))
+               (az0 (phys-diag (-> self slot) 0 52)))
+           (cond
+             ((and (= ax0 0.0) (= ay0 0.0) (= az0 0.0))
+              (set! (-> self cex) 0.0)
+              (set! (-> self cey) (+ PHYSROOM-CANY (- PHYSROOM-HIPY 0.0)))
+              (set! (-> self cez) PHYSROOM-CANZ)
+              (format 0 "PHYSSYML i=~D cex=~f cey=~f cez=~f src=0~%"
+                      i (-> self cex) (-> self cey) (-> self cez)))
+             (else
+              (set! (-> self cex) (- ax0 (-> self home x)))
+              (set! (-> self cey) (- ay0 (-> self home y)))
+              (set! (-> self cez) (- az0 (-> self home z)))
+              (format 0 "PHYSSYML i=~D cex=~f cey=~f cez=~f src=1~%"
+                      i (-> self cex) (-> self cey) (-> self cez)))))
+         (phys-comexw-reset!)
+         (phys-stats-reset!)
+         (phys-diag-reset!))
+       ;; ---- 5. LE PILOTAGE -------------------------------------------------------------------
+       ;; Le lacet passe par `physroom-reg-drive`, DONC par le meme profil demi-cosinus, le meme
+       ;; bras de levier et la meme fenetre `drv + post` que §18 mesure dans PH-REG. La gravite
+       ;; laterale passe par `physroom-orient`, donc par le meme geste que PH-ORI. Dans les deux cas
+       ;; l'instrument est celui de la section, pas un instrument a moi.
+       (when (and (> (-> self pframe) t1) (<= (-> self pframe) t2))
+         (cond
+           ((>= r 0) (physroom-reg-drive r (- (-> self pframe) t1)))
+           (else     (physroom-orient (-> *physroom-sym-ax* m) (-> *physroom-sym-dg* m)))))
+       ;; ---- 6. LA LECTURE --------------------------------------------------------------------
+       (when (= (-> self pframe) t2)
+         (dotimes (c (-> self nchain))
+          (when (> (phys-chain-links (-> self slot) c) 0)
+           (format 0 "PHYSSYM i=~D p=~D m=~D c=~D apex=~,,7f com=~,,7f~%"
+                   i p m c
+                   (phys-diag (-> self slot) c 53)
+                   (phys-diag (-> self slot) c 43))
+           (format 0 "PHYSSYM2 i=~D c=~D ax=~,,7f ay=~,,7f az=~,,7f stim=~,,7f~%"
+                   i c
+                   (phys-diag (-> self slot) c 54)
+                   (phys-diag (-> self slot) c 55)
+                   (phys-diag (-> self slot) c 56)
+                   (phys-tip-stim (-> self slot) c))
+           ;; LA FORME, parce que §12 ne borne pas un apex mais un APLATISSEMENT (-15 a -25 %).
+           (format 0 "PHYSSYM4 i=~D c=~D sx=~,,7f sy=~,,7f sz=~,,7f det=~,,7f~%"
+                   i c
+                   (phys-shape (-> self slot) c 0)
+                   (phys-shape (-> self slot) c 1)
+                   (phys-shape (-> self slot) c 2)
+                   (phys-shape (-> self slot) c 3))
+           ;; L'ENTREE A COTE DE LA SORTIE : la direction de la gravite LUE PAR LE SOLVEUR dans le
+           ;; triedre de sa §7. C'est elle qui dit lequel des deux seins est du cote gravite, et
+           ;; c'est une MESURE — l'etiquette d'axe du commentaire de `physroom-orient` est fausse.
+           (format 0 "PHYSSYM5 i=~D c=~D gx=~,,7f gy=~,,7f gz=~,,7f~%"
+                   i c
+                   (phys-shape (-> self slot) c 9)
+                   (phys-shape (-> self slot) c 10)
+                   (phys-shape (-> self slot) c 11)))))
+       ;; ---- 7. LA QUEUE DE CALME, ET LA LIGNE DE BASE QU'ELLE DONNE --------------------------
+       (when (= (-> self pframe) (+ t2 1))
+         (physroom-hold)
+         (phys-comexw-reset!)
+         (phys-stats-reset!))
+       (when (> (-> self pframe) (+ t2 1))
+         (physroom-hold))
+       (when (>= (-> self pframe) t3)
+         (dotimes (c (-> self nchain))
+          (when (> (phys-chain-links (-> self slot) c) 0)
+           (format 0 "PHYSSYM3 i=~D c=~D bapex=~,,7f bcom=~,,7f~%"
+                   i c
+                   (phys-diag (-> self slot) c 53)
+                   (phys-diag (-> self slot) c 43))))
+         (set! (-> self pframe) 0)
+         (+! (-> self symi) 1)
+         (when (>= (-> self symi) PHYSROOM-SYMN)
+           (physroom-hold)
+           (phys-stats-reset!)
+           (phys-diag-reset!)
            (set! (-> self phase) PHYSROOM-PH-REPORT))))))
 
     ;; ---- 10. RAPPORT --------------------------------------------------------------------------
@@ -4000,6 +4243,8 @@
                                   (-> self nanim) (-> ag name) (-> e name) nj)
                           (when (string= (-> e name) PHYSROOM-SYMNAME)
                             (set! *physroom-symai* (-> self nanim)))
+                          (when (string= (-> e name) PHYSROOM-ASYMNAME)
+                            (set! *physroom-asymai* (-> self nanim)))
                           (when (!= nj njoint)
                             (format 0 "PHYSANIMRIG ag=~S name=~S joints=~D porteur=~D~%"
                                     (-> ag name) (-> e name) nj njoint))
@@ -4053,11 +4298,17 @@
   ;; Le cycle 49 avait deja paye ce silence une fois — le garde-fou surveillait PROXON (30) quand
   ;; la derniere phase etait PH-REG (31). Un garde-fou qui ne surveille pas la phase qu'on vient
   ;; d'ajouter ne garde rien. PH-REG reste teste, il n'est pas retire de la conjonction.
+  ;; CYCLE 56 : `maxwork` designe desormais PH-SYM (33). C'est la TROISIEME fois que cette ligne se
+  ;; met a jour, et les deux premieres etaient des rattrapages APRES coup — le garde-fou surveillait
+  ;; PROXON quand la derniere phase etait PH-REG, puis PH-REG quand c'etait PH-SGN. Un garde-fou qui
+  ;; ne surveille pas la phase qu'on vient d'ajouter ne garde rien. Les anciennes restent dans la
+  ;; conjonction : on n'en retire jamais une, on en ajoute.
   (format 0 "PHYSROOM-PHASEGUARD maxwork=~D report=~D done=~D ok=~D~%"
-          PHYSROOM-PH-SGN PHYSROOM-PH-REPORT PHYSROOM-PH-DONE
+          PHYSROOM-PH-SYM PHYSROOM-PH-REPORT PHYSROOM-PH-DONE
           (if (and (< PHYSROOM-PH-PROXON PHYSROOM-PH-REPORT)
                    (< PHYSROOM-PH-REG PHYSROOM-PH-REPORT)
                    (< PHYSROOM-PH-SGN PHYSROOM-PH-REPORT)
+                   (< PHYSROOM-PH-SYM PHYSROOM-PH-REPORT)
                    (< PHYSROOM-PH-REPORT PHYSROOM-PH-DONE))
               1 0))
   (format 0 "PHYSROOM-START target-before=~A~%" *target*)

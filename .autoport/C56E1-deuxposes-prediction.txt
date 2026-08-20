@@ -1,0 +1,179 @@
+================================================================================================
+C56E1 — PREDICTIONS GRAVEES AVANT LA COURSE
+CYCLE 56 — LES MEMES STIMULI DANS DEUX POSES, DANS LA MEME COURSE (SPEC 18 ET SPEC 12)
+DIRECTIVES v3fee554599
+================================================================================================
+
+Phase Grecharged-secondary-motion · branche physics-keira-clean · Keira seule, chestL / chestR.
+Ce fichier est ecrit et COMMITE avant que la course ne soit lancee. Son md5 est dans le message
+de commit. Les six predictions sont adjugees telles quelles ; aucun seuil n'est choisi apres.
+
+------------------------------------------------------------------------------------------------
+0. CE QUI EST DEJA ETABLI AVANT LA COURSE, ET QUE LA COURSE NE PEUT NI CONFIRMER NI INFIRMER
+------------------------------------------------------------------------------------------------
+Ce ne sont pas des predictions. Ce sont deux faits mesures avant de toucher au moteur, ecrits ici
+pour que personne ne croie qu'ils sortent du resultat.
+
+(a) LE TABLEAU DE LA SALLE ETAIT PERIME DE DEUX COURSES. `keira-room-table.txt` porte l'empreinte
+    `md5 b068dfb359cdb690c8926c6638aca5ba (3721486 octets)`, qui est le log du CYCLE 53. Les
+    cycles 54 et 55 ont tous les deux livre sans regenerer le tableau. Le fichier que le
+    validateur lit pour ses gates ROOM / COLLIDE / IDLE / ANIM / DISCRIMINANT decrivait donc une
+    course qui n'est pas celle qui a ete livree. Cause structurelle : `keira_room_x86.sh` ne
+    regenere pas le tableau — aucun chemin de production ne le fait, seuls deux scripts annexes
+    l'appellent. Correctif de ce cycle : la regeneration passe DANS le producteur.
+
+(b) REGENERE SUR LA COURSE REELLEMENT LIVREE PAR LE CYCLE 55, LE TABLEAU CHANGE DE VERDICT SUR
+    UNE LIGNE, ET C'EST CONTRE MOI. `ROOM-SIGN-RANK` passe de « ecart max 2.58 %, P6 TENUE » a
+    « ecart max 5.10 %, **P6 REFUTEE** » (critere de l'analyseur : <= 5 %). Le plancher de
+    repetabilite `ROOM-SIGN-REPEAT` passe de 0.462 % a **2.882 %**, et `A_mag` de chestR sur
+    l'axe vertical tombe de « 51x le plancher » a « **1x le plancher** ».
+    CE QUE CA VEUT DIRE POUR MA PROPRE PUBLICATION DU CYCLE 55 : le x1.06 / x1.17 que j'ai publie
+    comme l'ecart gauche/droite residuel en pose symetrique est du meme ordre que la dispersion de
+    l'instrument. Il n'est pas « petit », il est **SOUS LA RESOLUTION**, et c'est ainsi qu'il
+    aurait du etre ecrit. La conclusion du cycle 55 (l'ecart tombe de x3.41 a l'irresolvable) n'en
+    est pas affaiblie ; sa REDACTION l'etait. C'est corrige au registre dans ce cycle.
+    Ce que ca ne veut PAS dire : que le cycle 52 est innocente. Le rang deplace la lecture DANS LA
+    POSE SYMETRIQUE, ou l'apex vertical est petit ; le critere relatif de P6 est mal pose a cette
+    amplitude, et je l'ecris au lieu de me servir du chiffre dans le sens qui m'arrange.
+
+------------------------------------------------------------------------------------------------
+1. CE QUE LA COURSE AJOUTE
+------------------------------------------------------------------------------------------------
+Une phase NEUVE, `PHYSROOM-PH-SYM` (33), APPENDUE apres `PH-SGN` (32) et avant `REPORT` (40).
+Huit cellules = quatre mesures x deux poses, les deux poses EPINGLEES PAR LEUR NOM :
+
+    p=0  `assistant-village2-idle-hut-breath`  — la seule des 31 a moins de 10 deg du miroir
+                                                 parfait sur LES DEUX maillons (cycle 54)
+    p=1  `assistant-firecanyon-idle-down`      — mesuree a 124.1 deg au meme point de protocole,
+                                                 rang 29 sur 31 (cycle 54)
+
+    m=0  lacet  90 deg (regime r=9)   SPEC 18 « moderate »
+    m=1  lacet 150 deg (regime r=10)  SPEC 18 « strong » — la seule bande d'APEX que §18 donne
+    m=2  gravite laterale +90 (ax=0)  SPEC 12, un sein du cote gravite
+    m=3  gravite laterale -90 (ax=0)  SPEC 12, c'est l'AUTRE sein
+
+L'ordre des deux jambes est EQUILIBRE : la jambe symetrique est jouee en 1re position pour m pair
+et en 2e pour m impair. Sans ca « symetrique » et « premiere de la paire » seraient la meme chose.
+
+CE QUE CE CYCLE NE FAIT PAS, ET JE L'ECRIS AVANT : il ne rejoue pas la mesure de COUPLAGE de §32
+(« bouger un sein deplace l'autre de 32 a 321 % »). Verifie dans l'arbre : ce chiffre vient d'un
+diff HORS-LIGNE de deux courses (reference contre masse x4 sur une seule chaine, cycle 32,
+commit 261fa72729) ; aucun script du depot ne le calcule et il demande DEUX courses, pas une pose.
+Il reste ouvert, non touche, et le registre continuera de le porter comme tel.
+
+------------------------------------------------------------------------------------------------
+2. LES DEFINITIONS, FIXEES ICI ET PAS APRES
+------------------------------------------------------------------------------------------------
+`lat`      = direction MONDE de l'axe lateral du solveur, lue sur `PHYSAXW ax=2`.
+`mir(u)`   = reflexion de `u` dans le plan de normale `lat`.
+`dev(i,l)` = ang(mir(u_chestL_l), u_chestR_l), sur `PHYSSYMB` — MEME definition qu'aux cycles
+             53, 54 et 55, pour que les quatre chiffres soient comparables.
+`apex(i,c)`= `PHYSSYM ... apex=` — maximum de fenetre, en B0, monde contre pose d'auteur.
+`base(i,c)`= `PHYSSYM3 ... bapex=` — la MEME grandeur sur la queue de calme, stimulus ABSENT.
+`R(i)`     = max(apex(i,0), apex(i,1)) / min(apex(i,0), apex(i,1)) — toujours >= 1, sans direction.
+`res(m)`   = max des `base(i,c)` sur les deux cellules et les deux chaines de la mesure `m`.
+             Un ecart est declare NON RESOLU si |apex(i,0) - apex(i,1)| <= res(m).
+
+------------------------------------------------------------------------------------------------
+P1 — LES DEUX EPINGLES PRENNENT. (Si elle tombe, rien d'autre n'est lisible.)
+------------------------------------------------------------------------------------------------
+Sur les quatre cellules p=0 : `dev` <= 12 deg sur le maillon de racine.
+Sur les quatre cellules p=1 : `dev` >= 60 deg sur le maillon de racine.
+Seuils tires du recensement du cycle 54 : la symetrique y vaut 4.0 / 5.4 deg, l'asymetrique
+124.1 deg, et la pose que la salle tient 43.4 deg. 12 laisse un facteur 2 sur 5.4 ; 60 se place
+entre 43.4 et 124.1.
+SI P1 TOMBE : les epingles n'ont pas fait ce pour quoi elles ont ete choisies. Je l'ecris en tete
+du rapport et je n'adjuge AUCUNE des cinq autres.
+
+------------------------------------------------------------------------------------------------
+P2 — LE CONTROLE, DECLARE AVANT ET PAS APRES.
+------------------------------------------------------------------------------------------------
+Contre `keira-room-x86.C55-REF.log`, sur toute ligne ne commencant NI par `PHYSSYM` NI par
+`PHYSANIMLEN` : **zero ligne change de valeur, zero ligne disparait**.
+Les seules lignes ajoutees sous un tag DEJA EXISTANT sont des `PHYSANIMLEN`, et il y en a
+**exactement 8** — une par epingle de cellule, quatre pour chaque nom d'animation. Le cycle 55 a
+decouvert cette ligne APRES sa course et a du le rattraper dans son rapport ; ici elle est
+annoncee avant, avec son compte.
+SI UNE AUTRE LIGNE EXISTANTE BOUGE : `PH-SYM` n'est pas la phase appendue que je decris, et tous
+les chiffres ci-dessous sont suspects. Je le dis avant de les lire.
+
+------------------------------------------------------------------------------------------------
+P3 — LA PREDICTION PRINCIPALE, ET ELLE EST CONTRE MOI. (SPEC 18)
+------------------------------------------------------------------------------------------------
+Le registre publie, pour §18, un ecart gauche/droite d'apex de **x2.5** sur le lacet fort
+(0.1104 contre 0.2791) et de **x5.4** sur le lacet modere (0.0515 contre 0.2756) — releves dans la
+pose asymetrique. Et la cause que §18 leur donne (« Left and right trajectories shall differ
+because their offsets from the torso rotational axis differ ») **N'EXISTE PAS DANS CE RIG** : les
+deux racines sont a 548.1 u de l'axe de lacet a 5.2e-4 % pres. §18 predit donc, ICI, la
+quasi-egalite.
+
+    jambe asymetrique (p=1) :  R >= 2.0  sur AU MOINS UNE des deux mesures m=0, m=1
+    jambe symetrique  (p=0) :  R <= 1.5  sur LES DEUX mesures m=0 et m=1
+
+DEUX FACONS QUE CA A DE SE RETOURNER CONTRE MOI, ET LES DEUX SONT ECRITES AVANT :
+ (a) si la jambe SYMETRIQUE reste a R >= 2.0, **la pose n'explique pas l'asymetrie de §18**. Le
+     x2.5 appartient alors au solveur ou au rig, la phrase du cycle 55 (« toutes les phases qui
+     mesurent du gauche/droite doivent etre epinglees ») est une generalisation abusive de ma
+     part, et je l'ecris EN TETE du rapport, pas en note.
+ (b) si la jambe ASYMETRIQUE ne produit PAS R >= 2.0, le montage apparie n'a **aucun contraste**
+     et ce cycle ne dit rien de §18. Je le rapporte tel quel au lieu de lire la jambe symetrique
+     toute seule — une jambe sans son temoin n'est pas une mesure.
+
+------------------------------------------------------------------------------------------------
+P4 — LE TEMOIN NEGATIF, DANS LA MEME COURSE. §12 DOIT SURVIVRE.
+------------------------------------------------------------------------------------------------
+L'aplatissement du cote gravite de §12 est arme par `sign(gxc . sja)`, et `sja` est un invariant
+de RIG (+754.9434 / -754.9434, rapport |sja|/|sjb| = 84000:1), pas une grandeur de pose. Il doit
+donc SURVIVRE a l'epingle.
+
+    jambe symetrique (p=0) : l'ecart `sx` entre les deux chaines est >= 10 % a CHACUN des deux
+    poles lateraux, ET il S'INVERSE entre m=2 et m=3 (la chaine qui s'aplatit a +90 est l'autre
+    a -90).
+
+SI §12 S'EFFONDRE AUSSI EN POSE SYMETRIQUE : alors la pose explique TOUT, y compris le mecanisme
+que j'ai attribue au correctif de code du cycle 50 — et une explication qui explique tout est la
+signature d'une explication qui n'explique rien. Je devrais alors rouvrir l'attribution du cycle
+50, et je l'ecris ici plutot qu'apres.
+
+------------------------------------------------------------------------------------------------
+P5 — L'INVARIANCE MIROIR : CE QUI DISTINGUE UNE VRAIE EXPLICATION D'UN DEPLACEMENT DE CHIFFRES.
+------------------------------------------------------------------------------------------------
+Les deux poles lateraux ECHANGENT lequel des deux seins est du cote gravite. Sur un rig symetrique
+a 0.005 deg et dans une pose epinglee symetrique, la reponse doit donc se croiser exactement :
+
+    apex(m=2, chestL) == apex(m=3, chestR)     et     apex(m=2, chestR) == apex(m=3, chestL)
+
+    jambe symetrique  (p=0) : les DEUX ecarts croises relatifs <= 0.25
+    jambe asymetrique (p=1) : AU MOINS UN des deux >= 0.50
+
+C'est P5 du cycle 55 transposee : il ne suffit pas que les chiffres bougent, il faut qu'ils
+bougent pour la raison geometrique invoquee. Un ecart d'apex qui tomberait sans que l'invariance
+miroir s'etablisse voudrait dire que j'ai deplace des chiffres, pas explique quoi que ce soit.
+
+------------------------------------------------------------------------------------------------
+P6 — LA RESOLUTION, DECLAREE AVANT PARCE QU'ELLE BORNE TOUS LES RAPPORTS CI-DESSUS.
+------------------------------------------------------------------------------------------------
+Voir le point 0(b) : sur la course que le cycle 55 a livree, le plancher de repetabilite de
+l'instrument vaut 2.882 % et la dispersion de rang monte a 5.10 %. Un rapport de x1.06 est donc
+DANS le bruit de son propre instrument.
+
+    AU MOINS UN des rapports de P3 / P5 tombe sous `res(m)` et est rapporte **NON RESOLU**,
+    jamais cite comme un nombre.
+
+SI TOUS LES RAPPORTS SONT RESOLUS : la queue de calme ne fait pas son travail (elle est trop
+courte, ou elle mesure autre chose que le plancher), et je le dis au lieu de me feliciter d'avoir
+des chiffres partout.
+
+================================================================================================
+CE QUE CE CYCLE NE PRETEND PAS FAIRE
+================================================================================================
+* Il ne rejoue PAS les sept regimes de §14-§20 dans la pose epinglee, et ne deplace donc AUCUN de
+  leurs verdicts — §19 comprise, qui est l'une des trois seules TENUES du registre. Le cycle 55
+  proposait de tout re-epingler d'un coup ; ce serait deplacer sept verdicts a la fois sans
+  controle apparie, et on ne saurait pas si un chiffre a bouge a cause de la pose ou de l'histoire
+  de chaine qui la precede. Les cellules de PH-SYM sont le meme stimulus a la meme place dans la
+  meme course : c'est le montage qui repond a la question, et c'est celui-la que je fais.
+* Il ne touche a AUCUNE gate du validateur (regle 5).
+* Il ne ferme AUCUNE section. Seul l'owner ferme une ligne, et il n'en a ferme aucune.
+* Rien de visible pour l'owner n'est attendu de ce cycle : aucune valeur livree ne change.
+================================================================================================
