@@ -4495,6 +4495,29 @@ def main():
               % (names[c] if c < len(names) else c, v,
                  ('%s m' % fnum(_mp['v'])) if _mp else 'NON-MESURE',
                  ('%.4f' % _rest[c]) if c in _rest else 'NON MESURE'))
+        # ============================================================================================
+        # [NOTE-156] LA LIGNE DE BASE QUE LA GATE LIT VIENT DE LA FENETRE DE REPOS, PAS DU POINT
+        # D'AUTEUR. C'est ce que l'arbitrage du 2026-08-20 13:20 demande mot pour mot (« physique
+        # DESARMEE »), et c'est la seule version dont le predicat est IDENTIQUE a celui de la
+        # course : meme fonction, meme point (`*phys-px*`), meme garde `sd < 0`.
+        #
+        # POURQUOI LE POINT D'AUTEUR NE PEUT PAS LA PORTER, ET C'EST MESURE : `skinout` compte les
+        # lectures qui placent ce point DEHORS, ce qui est anatomiquement impossible pour un os
+        # interieur. Il vaut 41842 sur la course. La valeur reste publiee comme DIAGNOSTIC sous
+        # `ROOM-SKINPEN-REST-AUTEUR`, jamais sous le nom que la gate lit.
+        _restw = skinpen.get('rest', {})
+        if _restw:
+            A('ROOM-SKINPEN-REST: MIN-DES-DEUX %.4f' % min(v for v, _t in _restw.values()))
+            A('   Fenetre de REPOS (`physroom-hold` : position, orientation et animation figees).')
+            A('   « Physique desarmee » est ici une MESURE et pas une promesse : `ROOM-IDLE maxdev`')
+            A('   publie sur CETTE fenetre l\'ecart residuel du joint a sa pose d\'auteur, et le')
+            A('   validateur le plafonne lui-meme a 1.0. Meme fonction, meme point et meme garde')
+            A('   que le `skinpen` de la course : les deux colonnes sont comparables terme a terme.')
+            for c in sorted(_restw):
+                A('ROOM-SKINPEN-REST-DETAIL: %s %.4f'
+                  % (names[c] if c < len(names) else c, _restw[c][0]))
+        else:
+            A('ROOM-SKINPEN-REST-ABSENTE: la fenetre de repos n\'a pas emis `PHYSSKIN tag=rest`.')
         if _rest:
             if _out > 0:
                 # ON NE PUBLIE PAS `ROOM-SKINPEN-REST:` DANS CE CAS, ET C'EST DELIBERE. Le
@@ -4502,7 +4525,7 @@ def main():
                 # qui se trompe de cote n'est pas un plancher : la gate doit rester NON ETABLI,
                 # exactement comme l'arbitrage le prescrit (« NON ETABLI FAIT ECHOUER »). La valeur
                 # est publiee sous un autre nom pour etre lisible sans etre lue par la gate.
-                A('ROOM-SKINPEN-REST-NON-ETABLIE: %.4f' % min(_rest.values()))
+                A('ROOM-SKINPEN-REST-AUTEUR: %.4f  (DIAGNOSTIC — NE VAUT PAS PLANCHER)' % min(_rest.values()))
                 A('   %d lecture(s) placent le point d\'AUTEUR **DEHORS**, ce qui est'
                   ' anatomiquement' % _out)
                 A('   impossible : l\'os de poitrine est interieur par construction du rig. La SDF')
@@ -4512,12 +4535,12 @@ def main():
                 A('   gate lit : elle restera NON ETABLI, ce qui la fait ECHOUER, et c\'est la')
                 A('   lecture correcte. Je ne fais pas verdir une gate sur un instrument faux.')
             else:
-                A('ROOM-SKINPEN-REST: MIN-DES-DEUX %.4f' % min(_rest.values()))
+                A('ROOM-SKINPEN-REST-AUTEUR: %.4f  (diagnostic ; skinout = 0)' % min(_rest.values()))
                 A('   0 lecture du point d\'AUTEUR hors de la peau sur %d echantillons : la SDF ne'
                   % _tot)
                 A('   s\'est trompee de cote sur aucune frame, donc ce plancher est lisible.')
             for c in sorted(_rest):
-                A('ROOM-SKINPEN-REST-DETAIL: %s %.4f' % (names[c] if c < len(names) else c, _rest[c]))
+                A('ROOM-SKINPEN-REST-AUTEUR-DETAIL: %s %.4f' % (names[c] if c < len(names) else c, _rest[c]))
         A('ROOM-SKINPEN-TESTS: %d echantillons de surface compares sur la fenetre' % _tot)
         # ============================================================================================
         # [NOTE-150] ROOM-SKINADD — LA PROFONDEUR **AJOUTEE** SOUS LA PEAU PAR LA PHYSIQUE.

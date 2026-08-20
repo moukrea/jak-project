@@ -5254,3 +5254,39 @@ la collision devant. Le prix se lit sur `ROOM-APEX` et sur `bendcut`, il est pub
 ;; generateur (2*atan(min(L_entrant,L_sortant)/rayon), l'angle ou les deux tubes de peau se
 ;; croisent) et recalculee par son controle 6b : le moteur ne connait toujours aucun nom de joint.
 ```
+
+## [NOTE-156] LA LIGNE DE BASE AU REPOS DE SPEC 33/34 — MESUREE SUR LE CHEMIN DE LA COURSE
+
+L'arbitrage du 2026-08-20 13:20 exige `ROOM-SKINPEN-REST`, « la ligne de base au repos, physique
+DESARMEE », et fait ECHOUER la gate tant qu'elle manque (« NON ETABLI n'est pas c'est bon »).
+
+PREMIERE TENTATIVE, ET ELLE EST REFUTEE PAR SA PROPRE MESURE. J'avais construit la ligne de base a
+partir du POINT D'AUTEUR evalue a la meme frame (`sd(A)`), en faisant valoir que la pose d'auteur
+EST la pose sans physique. L'argument reste juste ; l'INSTRUMENT ne l'est pas. `skinout` compte
+41842 lectures qui placent ce point DEHORS, ce qui est anatomiquement impossible pour un os que le
+rig place a l'interieur, et la preuve tient sans aucun taux : sur la frame du maximum,
+`skinadd = sd(A) - sd(S) = 1052.01 u` et `-sd(S) <= skinpen max = 556.15 u`, donc `sd(A) >= 495.87 u`
+DEHORS, alors que la meme passe le mesure a 411.38 u SOUS la peau. Erreur de signe de 0.221 m.
+Cause : `phys-surf-sd` est une SDF de NUAGE DE POINTS filtree par une phase large
+(`|p - os| < bsr + 512`), donc PAS lipschitzienne au franchissement d'un ensemble d'os — voir
+[NOTE-150]. La valeur reste publiee comme DIAGNOSTIC (`ROOM-SKINPEN-REST-AUTEUR`), jamais comme
+plancher.
+
+CE QUI LA PORTE MAINTENANT : la FENETRE DE REPOS elle-meme (`PHYSROOM-PH-IDLE`), avec
+`PHYSSKIN tag=rest`. Elle a l'avantage decisif d'utiliser le MEME chemin que la course — meme
+fonction, meme point (`*phys-px*`, la position simulee), meme garde `sd < 0` — donc les deux
+colonnes sont comparables terme a terme, sans changement de grandeur en chemin. Le point d'auteur
+n'entre plus du tout dans le verdict.
+
+« PHYSIQUE DESARMEE » EST ICI UNE MESURE ET PAS UNE PROMESSE. La fenetre est `physroom-hold`
+(position, orientation et animation figees) et `PHYSIDLE dev`, publie sur CETTE MEME fenetre, donne
+l'ecart residuel du joint a sa pose d'auteur, chaine par chaine — 0.47 / 1.02 u sur la course de
+reference. Le validateur plafonne lui-meme cette grandeur a 1.0 (gate IDLE). Le desarmement est
+donc chiffre a cote de la ligne de base qu'il justifie, au lieu d'etre affirme.
+
+CE QUE CETTE LIGNE ETABLIT, ET CE QU'ELLE N'ETABLIT PAS — a lire avant d'en tirer un vert. Elle
+compare la profondeur d'un point INTERIEUR (le joint) sous la surface dessinee, en mouvement contre
+au repos. Elle repond donc a « la physique enfonce-t-elle le joint plus profond que la pose de
+repos ? ». Elle ne repond PAS a « une surface en traverse-t-elle une autre » : cela demanderait de
+porter la mesure sur les SOMMETS de peau, pas sur le joint. Le jour ou §33/§34 se declarent TENUES,
+c'est cette reserve-la qu'il faudra lever.

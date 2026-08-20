@@ -2675,7 +2675,13 @@
                    (phys-link-ang-stage (-> self slot) c l 1)))))
        (phys-ang-reset!))
      ;; frame-num CONSTANTE : la pose d'auteur est immobile, c'est ca « la pose du modele ».
-     (when (= (-> self pframe) PHYSROOM-IDLES) (phys-stats-reset!))
+     ;; [NOTE-156] LA LIGNE DE BASE AU REPOS DE SPEC 33/34, PHYSIQUE DESARMEE. -> jak-hd-physics-NOTES.md
+     ;; Le maximum de peau repart de zero ICI pour que le tag `rest` emis en fin de fenetre ne porte
+     ;; QUE cette fenetre — sans cette remise a zero il porterait tout ce qui precede, et un cliquet
+     ;; est precisement le defaut corrige ailleurs dans ce meme cycle.
+     (when (= (-> self pframe) PHYSROOM-IDLES)
+       (phys-stats-reset!)
+       (phys-skinpen-reset!))
      (when (>= (-> self pframe) (+ PHYSROOM-IDLES PHYSROOM-IDLEM))
        (dotimes (c (-> self nchain))
         (when (> (phys-chain-links (-> self slot) c) 0)
@@ -2685,6 +2691,14 @@
                  (phys-chain-hang (-> self slot) c)
                  (phys-tip-amp (-> self slot) c)
                  (phys-chain-family (-> self slot) c))))
+       ;; [NOTE-156] `PHYSSKIN tag=rest` — LA LIGNE DE BASE QUE SPEC 33/34 EXIGE.
+       ;; MEME code, MEME point (`*phys-px*`), MEME predicat que le `skinpen` de la course : c'est
+       ;; la SEULE facon de comparer les deux sans changer de grandeur en chemin.
+       ;; « PHYSIQUE DESARMEE » EST ICI UNE MESURE, PAS UNE PROMESSE : la fenetre est `physroom-hold`
+       ;; (position figee, orientation figee, animation figee) et `PHYSIDLE dev` ci-dessus PUBLIE
+       ;; l'ecart residuel du joint a sa pose d'auteur sur cette meme fenetre. C'est le desarmement
+       ;; lui-meme qui est chiffre, chaine par chaine, a cote de la ligne de base qu'il justifie.
+       (physroom-emit-diag "rest")
        ;; ---- SPEC 9 : POURQUOI L'ETAT DEBOUT N'EST PAS NEUTRE. `PHYSIDLE dev` dit QUE l'ecart
        ;; ---- existe (23.86 / 19.40 u la ou sa SPEC 9 exige 0.0000) ; il ne dit pas D'OU il vient,
        ;; ---- et deux mecanismes le produiraient a l'identique : un terme moteur non nul au repos,
