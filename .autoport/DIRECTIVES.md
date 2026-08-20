@@ -10,6 +10,36 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
+## 2026-08-20 07:20 — LE PLAFOND D'APEX ETAIT NOTRE AXE, PAS SON MAILLAGE. JE CORRIGE L'OWNER.
+
+J'ai remonte a l'owner le 2026-08-20 a 03:47 que « 41 a 43 % de la chair du bout du sein est
+soudee a l'os du torse » et que l'apex etait donc « plafonne a un peu plus de la moitie de ce que
+la spec demande, quelle que soit la physique ». **C'est faux, et la cause est chez nous.**
+
+L'operateur d'ancrage calculait son abscisse sur `pts[-1] - pts[0]`, l'axe d'OS de la chaine — a
+**77,82 / 78,15 deg** de l'axe que §31 definit mot pour mot (« r = 0 at chest attachment and r = 1
+at distal/apex region »), avec une correlation **negative**. Le meme champ de poids rendait 5
+bandes sur 5 DANS lu sur l'axe d'os, et 1 sur 5 lu sur l'axe de la spec.
+
+Axe corrige : plafond d'apex **0,5676/0,5936 -> 0,9402/0,9549** (×1,66/×1,61), ancrage d'apex
+0,4324 -> 0,0598 et 0,4064 -> 0,0451, **DANS** la bande « Apex: minimal direct anchoring » de §30,
+dont les cinq bandes passent de 1/5 a 5/5 des deux cotes. Controle a repere GELE fourni, donc le
+gain n'est pas un artefact de deplacement d'axe. **Six sections dont les verdicts etaient bornes
+par ce faux plafond (§14, §16, §17, §18, §22, §30) sont a relire.**
+
+**CE QUE JE N'ACCEPTE PAS EN SILENCE — un cout declare reste un cout.** Le maillon distal `rBooc`
+tombe a **22,5 %** des sommets de la chaine, sous la barre des 30 % du contrat du 2026-08-18, et
+l'apex de `chestR` est pilote a 0,9549/0,0000, donc **par le maillon proximal seul**. Un maillon
+qui ne possede pas 30 % de la chair est le defaut que cette barre existe pour interdire. A
+resoudre au cycle suivant : soit un repesage qui le ramene au-dessus, soit une justification
+mesuree de pourquoi la barre ne s'applique pas ici. Pas de troisieme option, et surtout pas
+l'oubli.
+
+**REGLE.** Un axe de mesure qui n'est pas celui que la spec DEFINIT est un axe faux, meme s'il est
+geometriquement raisonnable. Avant de declarer une limite « hors d'atteinte de toute physique »,
+verifier que l'axe sur lequel on la lit est celui que le texte nomme.
+
+
 ## 2026-08-20 05:20 — LA POSE DE LA SALLE N'EST PAS SYMETRIQUE : QUATRE SECTIONS A REMESURER
 
 Le cycle 53 mesure, avec un emetteur neuf sur sujet droit et immobile, que **le rig est

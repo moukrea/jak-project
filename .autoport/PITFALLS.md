@@ -524,3 +524,15 @@ sens : on ne peut pas dire si la physique enfonce quoi que ce soit.
 Verrou : une gate dont le commentaire explique pourquoi sa grandeur est inadaptee doit changer de
 grandeur, pas de commentaire. Et un seuil justifie par une ligne de base doit ECHOUER si cette
 ligne de base est absente de la course.
+
+GUARD measurement-axis-is-not-the-spec-axis .autoport/reports anchor30 §31
+**Un plafond declare « hors d'atteinte de TOUTE physique » n'etait qu'un axe faux dans notre propre
+operateur.** L'ancrage calculait son abscisse sur l'axe d'OS de la chaine, a **78 deg** de l'axe
+que §31 definit mot pour mot (« r = 0 at chest attachment, r = 1 at distal/apex region »), avec une
+correlation NEGATIVE. Le meme champ de poids rendait 5 bandes sur 5 DANS sur l'axe d'os et 1 sur 5
+sur celui de la spec. Corrige, le plafond passe de 0,57 a 0,94 et l'ancrage d'apex entre dans la
+bande. Six sections avaient leur verdict borne par ce faux plafond, et je l'avais remonte a l'owner
+comme une fatalite du maillage.
+Verrou : un axe de mesure qui n'est pas celui que la spec DEFINIT est un axe faux, meme s'il est
+geometriquement raisonnable. Avant de declarer une limite structurelle, prouver que l'axe de
+lecture est celui que le texte nomme — et publier la correlation entre les deux.
