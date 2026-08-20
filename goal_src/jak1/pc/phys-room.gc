@@ -1843,6 +1843,17 @@
       ;;            chaines d'une MEME course. REPERE : ecart a la pose ANIMEE du lien, le meme
       ;;            que celui que le mur plafonne. LECTURE QUAND LE DEFAUT EST ABSENT : 0, et le
       ;;            mur n'a alors jamais mordu.
+      ;; `offdrift` — CYCLE 59. De combien le DECALAGE DU VOLUME (`offs`) a tourne entre l'ENTREE
+      ;; et la SORTIE de `phys-collide-chain`, en unites de jeu, maximum de fenetre. Le solveur
+      ;; calcule `offs` UNE FOIS sur la direction d'entree du lien et pousse `joint + offs` pendant
+      ;; 3 balayages et 4 tours de finition sans jamais le recalculer ; `phys-link-pen`, lui, le
+      ;; recalcule sur la position de SORTIE. Cette colonne dit si les deux parlent du meme point.
+      ;;   NATURE  : une LONGUEUR (4096 u = 1 m), maximum de fenetre. Ni un angle ni un compte.
+      ;;   REPERE  : monde, a la frame resolue — celui de `offs`.
+      ;;   ABSENT  : 0.0000, la direction du lien n'a pas bouge pendant la resolution.
+      ;;   CONTROLE: `*phys-col-off*` desarme le mur, donc plus aucune poussee, donc `offdrift`
+      ;;             doit tomber au bruit de la seule contrainte de longueur.
+      (format 0 "PHYSDIAG6 tag=~S c=~D offdrift=~f~%" tag c (phys-diag (-> self slot) c 16))
       (format 0 "PHYSDIAG6 tag=~S c=~D rootrot=~f raddropm=~f~%"
               tag c
               (phys-diag (-> self slot) c 14)
@@ -3431,7 +3442,7 @@
                    (when (> n 0)
                      (format 0 "PHYSCVOL c=~D l=~D ci=~D n=~D max=~f~%" c l ci n
                              (phys-chain-volmax (-> self slot) c l ci)))))))))
-       ;; `max=` — CYCLE 59, ET C'EST LA COLONNE QUI MANQUAIT DEPUIS 44 CYCLES.
+       ;; `max=` — CYCLE 59 [NOTE-146]. LA COLONNE QUI MANQUAIT DEPUIS 44 CYCLES.
        ;;   NATURE  : une LONGUEUR en unites de jeu (4096 u = 1 m), MAXIMUM DE COURSE du residu
        ;;             signe `res = dep - feff` pour CE couple (maillon, volume). Meme grandeur et
        ;;             memes unites que la colonne `meshpen` du tableau, qui n'en publie que le

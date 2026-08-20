@@ -548,7 +548,7 @@
 ;; [NOTE-18] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
 (define *phys-cvh* (new 'global 'array 'int32 (* PHYS-SCL PHYS-COLS)))
 (define *phys-cvm* (new 'global 'array 'float (* PHYS-SCL PHYS-COLS)))
-(define *phys-cfh* (new 'global 'array 'int32 (* PHYS-SC PHYS-COLS)))  ;; [NOTE-126] -> jak-hd-physics-NOTES.md
+(define *phys-cfh* (new 'global 'array 'int32 (* PHYS-SC PHYS-COLS)))  ;; [NOTE-146] -> jak-hd-physics-NOTES.md
 
 ;; [NOTE-64] LE DOMAINE D'UNE PAIRE, ET PAS SEULEMENT SES CONTACTS — SPEC 33. -> jak-hd-physics-NOTES.md
 (define *phys-depsigned* 0.0)
@@ -1590,13 +1590,7 @@
                (rl  (-> *phys-lcr* scl))
                (kp  (if (> l 0) (-> *phys-joint* (- scl 1)) (-> *phys-anchor* sc))))
           (when (and (>= kk 0) (< (+ kk 1) nbone))
-            ;; on raisonne sur le CENTRE du volume porte par le lien, pas sur son joint : c'est le
-            ;; volume que le generateur a mesure sur le mesh, le meme que ce lien presente aux
-            ;; autres chaines. Le decalage est rigide, donc la poussee se reporte telle quelle sur
-            ;; le joint a la sortie.
-            ;; DEUX decalages, pas un : la pose du MODELE porte son volume par la matrice ANIMEE,
-            ;; la position SIMULEE le porte par l'orientation SIMULEE du lien. Les confondre posait
-            ;; le volume la ou le lien n'est pas des que le decalage n'etait plus nul.
+            ;; [NOTE-147] LE CENTRE DU VOLUME, ET CE QUE « RIGIDE » VEUT DIRE ICI -> jak-hd-physics-NOTES.md
             (phys-link-off! skel scl kk off)
             (if (> l 0)
               (set-vector! bv (-> *phys-px* (- scl 1)) (-> *phys-py* (- scl 1))
@@ -1717,13 +1711,7 @@
                              (feff   (if selfpair 0.0 (phys-vol-floor floor0 (phys-vol-yield sc cj cj2))))
                              (dep    (phys-collide-depth pt rl ca cb (-> *phys-cr* sco)
                                                          (-> *phys-cr2* sco) cap? nrm)))
-                        ;; SPEC 33 — LE DOMAINE DE LA PAIRE. Un echantillon par (lien, volume) et
-                        ;; par frame, pris a l'ENTREE (`sub` = 0, avant toute poussee de ce
-                        ;; balayage). `*phys-depsigned*` porte la profondeur NON bornee que
-                        ;; `phys-collide-depth` vient de calculer pour `pt` — c'est le dernier des
-                        ;; trois appels du `let*`, donc la variable porte bien celle de `dep`.
-                        ;; Le drapeau evite un sentinelle flottant (piege deja paye) : premier
-                        ;; echantillon = affectation, les suivants = maximum.
+                        ;; [NOTE-128] SPEC 33 — LE DOMAINE DE LA PAIRE -> jak-hd-physics-NOTES.md
                         ;; [NOTE-110] CYCLE 38 — `feff` ETAIT UNE DERNIERE VALEUR, `cdm` UN MAXIMUM -> jak-hd-physics-NOTES.md
                         (when (and (= sub 0) (zero? *phys-col-off*))
                           (let ((h (+ (* sc PHYS-COLS) ci)))
@@ -1800,13 +1788,7 @@
                                 (set! (-> pt x) (- (-> pt x) (* cc (-> ua x))))
                                 (set! (-> pt y) (- (-> pt y) (* cc (-> ua y))))
                                 (set! (-> pt z) (- (-> pt z) (* cc (-> ua z))))))))))))))
-              ;; LA LONGUEUR, A CHAQUE BALAYAGE — le correctif du residu de penetration. Appliquee
-              ;; seulement APRES les `sweeps`, elle defaisait la part RADIALE de chaque poussee de
-              ;; profondeur sans jamais la retester contre le volume, et monter le nombre de tours
-              ;; n'y pouvait rien — chaque tour finissait pareil. Alternee DANS la boucle, c'est une
-              ;; projection alternee sur deux ensembles (sphere de l'attache, complementaire du
-              ;; volume) qui converge vers leur intersection des qu'elle est non vide. `pt` est ici
-              ;; le CENTRE DU VOLUME : on repasse en coordonnees de joint pour la reprojection.
+              ;; [NOTE-149] LA LONGUEUR, A CHAQUE BALAYAGE -> jak-hd-physics-NOTES.md
               (set! (-> pt x) (- (-> pt x) (-> offs x)))
               (set! (-> pt y) (- (-> pt y) (-> offs y)))
               (set! (-> pt z) (- (-> pt z) (-> offs z)))
@@ -1901,6 +1883,12 @@
               ;; --- (b) LA LONGUEUR, et c'est la DERNIERE operation de la boucle, donc du
               ;; --- solveur : `ROOM-STRETCH` reste exact par construction.
               (phys-len-project! skel scl l kk kp nbone pt))
+            (phys-link-off-sim! skel scl kk kp nbone bv pt ra)   ;; [NOTE-147] MESURE SEULE
+            (let* ((ox (- (-> ra x) (-> offs x))) (oy (- (-> ra y) (-> offs y)))
+                   (oz (- (-> ra z) (-> offs z)))
+                   (mo (sqrtf (+ (* ox ox) (+ (* oy oy) (* oz oz))))))
+              (when (> mo (-> *phys-dg* (+ (* sc PHYS-DG) 16)))
+                (set! (-> *phys-dg* (+ (* sc PHYS-DG) 16)) mo)))
             (set! (-> *phys-px* scl) (-> pt x))
             (set! (-> *phys-py* scl) (-> pt y))
             (set! (-> *phys-pz* scl) (-> pt z)))))))

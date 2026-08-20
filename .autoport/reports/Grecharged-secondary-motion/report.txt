@@ -1,7 +1,8 @@
 RAPPORT DE CYCLE 59 — Grecharged-secondary-motion
 DIRECTIVES v3fee554599
 Branche physics-keira-clean · perimetre : chestL / chestR SEULES (owner 2026-08-14 07:20)
-Course x86 du 2026-08-20, trace md5 5e3089c800b8bfa78d9a3bbd5c086740, 310 mesures, 31/31 animations.
+Course x86 du 2026-08-20, trace md5 3a478f91532734a78bb88e89343c8509, 310 mesures, 31/31 animations.
+Six courses ce cycle : 1 instrument, 1 ablation refutee, 1 mesure, 1 correctif refute, 2 controles de retrait.
 
 BREAST-PENETRATION: chestL meshpen=0.1115 m  skinpen=0.1358 m   |   chestR meshpen=0.1019 m  skinpen=0.1203 m
   Plafond epingle du validateur : 0.0005 m. DEPASSE d'un facteur 223 / 204. NON REGLE.
@@ -65,6 +66,70 @@ c'est-a-dire une grandeur de MOUVEMENT.**
 Cela explique aussi, apres coup, le resultat du cycle 57 : redimensionner `lBooc`/`rBooc` a fait
 MONTER `meshpen` non pas a cause des rayons — T2 dit qu'ils ne peuvent rien faire — mais parce que
 l'operation deplacait aussi les CENTRES, la seule chose que T3 montre capable d'agir.
+
+================================================================================================
+2 BIS. LE RESULTAT DU CYCLE : LE SOLVEUR POUSSE UN POINT SITUE A 0,25 m DE CELUI OU LE VOLUME
+       FINIT, ET SA BOUCLE EST SUR-RELAXEE D'UN FACTEUR 4,2 A 4,7 SUR LE MAILLON DISTAL.
+================================================================================================
+Trouve en LISANT `phys-collide-chain`, pas en supposant. Le solveur raisonne sur le CENTRE du
+volume `q = joint + offs`. `offs` est calcule UNE SEULE FOIS, sur la position d'ENTREE du lien
+(:1600), puis `q` est pousse pendant 3 balayages et 4 tours de finition **sans que `offs` soit
+jamais recalcule**. `phys-link-pen` — l'instrument, et aussi ce que le skinning voit — le recalcule
+sur la position de SORTIE. Le moteur enonce l'hypothese en toutes lettres et rien ne la mesurait :
+« Le decalage est rigide, donc la poussee se reporte telle quelle sur le joint a la sortie. »
+
+Le decalage EST rigide DANS LE REPERE DU LIEN. Il ne l'est PAS par rapport au JOINT :
+`phys-link-off-sim!` le porte par la rotation d'arc minimal qui envoie la direction du MODELE sur
+celle du lien SIMULE. Bouger le joint tangentiellement TOURNE le lien, donc tourne le decalage.
+
+MESURE (`PHYSDIAG6 offdrift=`, ajoutee ce cycle, course bit-identique partout ailleurs) :
+
+      offdrift = max |offs(sortie) - offs(entree)|   chestL 1026.8782 u = 0.2507 m
+                                                     chestR  929.5491 u = 0.2270 m
+                                                     soit 2.25x et 2.23x le residu lui-meme
+
+Predictions gravees avant (C59E3, md5 5e1e163eb8886242eb58e1e829ea2288) : R1 (>= 200 u) TENUE d'un
+facteur 5, R2 (>= 0.50 x worstres, ecrite CONTRE MOI) TENUE, R3 (bit-identite) TENUE.
+
+ET LA CONSEQUENCE NUMERIQUE. Bouger le joint de `e` tangentiellement deplace le centre de
+`e (1 + |offs|/want)` : la rotation du lien emmene le decalage avec elle.
+
+      chaine  maillon  |offs|    want    gain = 1 + |offs|/want
+      chestL  l=0       651.2   1040.5   1.626
+      chestL  l=1       514.6    140.4   4.665
+      chestR  l=0       629.5   1039.0   1.606
+      chestR  l=1       467.4    144.2   4.241
+
+Le solveur calcule la correction AU CENTRE et la reporte TELLE QUELLE sur le joint : **le pas vaut
+4,2 a 4,7 fois ce qu'il devrait sur le maillon distal.** Au-dela de 2, une projection alternee ne
+converge pas. Cela rend compte, sans hypothese ajoutee, de trois observations que le dossier avait
+classees separement : (a) porter les balayages a 36 ne changeait rien — une iteration divergente ne
+s'ameliore pas avec les tours ; (b) le pas « corrige » du cycle 47, qui multipliait par `1/s^2`, a
+fait MONTER `meshpen` — il augmentait encore la relaxation ; (c) le residu vit sur le maillon
+distal, et le rapport mesure `l0/l1` = 0.173 / 0.284 est celui des gains (0.171 / 0.187 predits).
+
+LE CORRECTIF A ETE ECRIT, MESURE ET RETIRE (C59E4, md5 f36f85ecd28467cbde9ac4b66bc14234) :
+diviser la poussee par le gain (un JACOBIEN, pas un amortissement) et recalculer `offs` a chaque
+iteration.
+      tipvar   0.1756 / 0.1775 -> 0.1705 / 0.1732     -2.9 % / -2.4 %   AUCUN MUSELAGE (S2 TENUE)
+      meshpen  0.1115 / 0.1019 -> 0.1115 / 0.0853     inchange / -16.3 %
+      worstres 456.79 / 417.43 -> **502.73** / 383.31  **+10.1 %** / -8.2 %
+      apex     0.9249 / 0.9592 -> 0.9199 / 0.8965 B0   ROOM-IDLE et ROOM-STRETCH intacts
+S1 (« -50 % ») REFUTEE, S4 (« offdrift < 300 ») REFUTEE, S2/S3/S5/S6 TENUES.
+**RETRAIT**, et pas seulement pour S1 : `worstres` de chestL — le maximum de COURSE — MONTE de
+10,1 % pendant que la colonne que la gate lit (un maximum de FENETRE) ne bouge pas. Publier
+« meshpen inchange, chestR -16 % » aurait ete exactement le piege de statistique que le cycle 58 a
+evite. Trois cycles (46, 47, 57) ont retire une tentative au seul motif « meshpen monte » ; je ne
+m'accorde pas l'exception. Retrait VERIFIE : 310 lignes `row` identiques, 39 lignes `PHYSCVOL`
+identiques, `worstres` 456.7879 / 417.4324 et `offdrift` 1026.8782 / 929.5491 reproduits.
+
+CE QUE LE RETRAIT ETABLIT, ET C'EST LE CHIFFRE QUI FERME LA PISTE : corriger la TAILLE du pas ne
+suffit pas, **parce que l'erreur de profondeur a resoudre (~500 u) reste plus grande que l'os qui
+doit la resoudre (140.4 / 144.2 u).** C'est le « domaine admissible vide » du cycle 58, vu cette
+fois par son mecanisme et non par une ablation. Le levier reste la GEOMETRIE.
+
+CE QUI SURVIT DU CYCLE, ET C'EST UNE LECTURE : `PHYSCVOL max=` et `PHYSDIAG6 offdrift=`.
+Les deux sont bit-identiques sur tout le reste, prouve deux fois.
 
 ================================================================================================
 3. UN DEFAUT NEUF, ET C'EST LE SEUL DONT LE DOMAINE ADMISSIBLE EST PROUVE NON VIDE.
@@ -219,13 +284,18 @@ deux ete calibres AVANT cette bascule.
 ================================================================================================
 7. CE QUI N'A PAS ETE FAIT, ET POURQUOI (regle 3 : aucun de-scope silencieux)
 ================================================================================================
-- `meshpen` n'a pas baisse. Une tentative a ete faite, mesuree et RETIREE (section 6, ablation du
-  plancher de chair) ; elle faisait MONTER le residu de 0.6 % / 4.0 % et cassait sa 2 d'un facteur
-  167, donc elle part par ses propres conditions gravees. Aucune autre n'a ete ouverte : les
-  sections 1 et 2 ferment les cinq familles precedentes, la section 3 en ouvre une seule dont la
-  cible est prouvee atteignable, et l'ouvrir a la volee en fin de cycle serait exactement le
-  correctif a mi-chemin que le cycle 47 s'est reproche.
+- `meshpen` n'a pas baisse. DEUX tentatives ont ete faites, gravees avant, mesurees et RETIREES :
+  l'ablation du plancher de chair (section 6 — elle faisait MONTER le residu de 0.6 % / 4.0 % et
+  cassait sa 2 d'un facteur 167) et la correction de Jacobien du pas de collision (section 2 bis —
+  elle ne muselait PAS, mais elle faisait monter le maximum de COURSE de chestL de 10.1 %). Les
+  deux retraits sont VERIFIES au bit par une course de controle chacun.
   Le plafond epingle ne peut que DESCENDRE : il est au meme point qu'avant le cycle, pas au-dessus.
+- LE CHANTIER SUIVANT EST CHIFFRE, ET IL N'EST PAS UN CHANTIER DE SOLVEUR. Section 2 bis : l'erreur
+  de profondeur a resoudre vaut ~500 u quand l'os qui doit la resoudre en fait 140.4 / 144.2. Aucun
+  reglage du pas, de l'ordre, du nombre de tours ni des rayons ne franchit cet ecart — les sections
+  1, 2 et 2 bis le montrent chacune par une voie independante. Ce qui reste : la GEOMETRIE (bras du
+  volume rapporte a l'os, longueur de la chaine de chair), et la part d'apex du maillon distal
+  (section 5, `ax <chain> 1` = 0.0818 / 0.0000, cible >= 0.30).
 - `ROOM-POSCONTROL` reste rouge (x1.416). Elle est desormais AFFICHEE — le correctif de mecanique
   du superviseur a pris. Diagnostiquee en section 6 ; aucune action de ma part n'est legitime.
 - OPEN-DEFECTS : `owner-defects.txt:223` porte encore `OPEN breast-spec-incomplete`. Cette ligne ne

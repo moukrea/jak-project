@@ -1,0 +1,87 @@
+C59E4 — PREDICTIONS GRAVEES AVANT LA COURSE (cycle 59, quatrieme experience)
+DIRECTIVES v3fee554599   —   perimetre : chestL / chestR seules
+
+CE QUE LA MESURE C59E3 A ETABLI (course md5 e5dfb6ffb50a03731c3f409074f0a9c5, bit-identique
+partout ailleurs) :  offdrift = 1026.8782 u (chestL) et 929.5491 u (chestR).
+Le decalage du volume que le SOLVEUR utilise et celui qui S'APPLIQUE REELLEMENT a la sortie
+different de **jusqu'a 1027 u = 0.25 m**, soit **2.25 fois le residu lui-meme** (worstres 456.79).
+R1 et R2 gravees avant : TENUES toutes les deux, R2 etait contre moi.
+
+LE MECANISME, ET IL EST DE PREMIER ORDRE. `phys-collide-chain` raisonne sur le CENTRE du volume
+`q = joint + offs`, applique la correction de profondeur A `q`, puis reporte le deplacement TEL
+QUEL sur le joint. Or `offs` est porte par la rotation d'arc minimal qui envoie la direction du
+MODELE sur celle du lien SIMULE : bouger le joint de `e` TANGENTIELLEMENT tourne le lien de
+`e/want`, ce qui emmene le decalage avec lui. **Le centre parcourt donc `e (1 + |offs|/want)`,
+pas `e`.**
+
+      chaine  maillon  |offs|    want    gain = 1 + |offs|/want
+      chestL  l=0       651.2   1040.5   1.626
+      chestL  l=1       514.6    140.4   4.665
+      chestR  l=0       629.5   1039.0   1.606
+      chestR  l=1       467.4    144.2   4.241
+
+La boucle de collision est une projection alternee (sphere de l'attache / complementaire du
+volume) dont le pas est donc SUR-RELAXE d'un facteur 4.2 a 4.7 sur le maillon distal et 1.6 sur le
+proximal. Au-dela de 2 une projection alternee ne converge plus.
+
+CORRECTIF (trois lignes de mecanisme, aucune constante nouvelle, aucun seuil) :
+  1. la poussee de balayage est divisee par `1 + |offs| / |joint - attache|` — le pas devient
+     celui du JOINT quand la demande est celle du CENTRE. C'est un JACOBIEN, pas un amortissement ;
+  2. le pas tangentiel de finition, idem ;
+  3. `offs` est RECALCULE apres chaque reprojection de longueur et en tete de chaque tour de
+     finition, pour que le point pousse reste celui ou le volume est vraiment.
+
+S1  `meshpen` BAISSE d'au moins 50 % (0.1115 / 0.1019 -> <= 0.056 / <= 0.051).
+
+S2  **LA CONDITION QUI RETIRE LE CORRECTIF, ET ELLE PASSE AVANT S1.** `tipvar` reste dans +/- 10 %
+    de 0.1756 / 0.1775. Le correctif ne touche NI la dynamique NI l'ensemble admissible : il ne
+    change que la TAILLE DU PAS d'une projection. S'il muselle — si `tipvar` perd plus de 10 % —
+    il PART, quel que soit le gain sur `meshpen`. Le mouvement subtil approuve par l'owner ne se
+    paie pas pour un vert de gate.
+
+S3  `ROOM-STRETCH` inchange : la reprojection de longueur reste la DERNIERE operation du solveur.
+
+S4  `offdrift` s'effondre sous 300 u : `offs` est desormais recalcule 7 fois par lien et par pas.
+
+S5  CONTRE MOI : `meshpen` n'atteint PAS le plafond de 0.0005 m. Je predis qu'il restera
+    >= 0.005 m, soit x10 le plafond. S'il passe dessous, COLLIDE se ferme et j'aurai eu tort
+    d'annoncer la gate inatteignable — je le publierai comme tel, dans ce sens-la.
+
+S6  `ROOM-IDLE` reste <= 0.001 (il vaut 0.0002). Un correctif de collision qui decale la pose de
+    repos serait un redresseur, exactement ce que l'ablation C59E2 a fait payer x167.
+
+================================================================================================
+RESULTATS — course md5 3cd3d09e2e1886eaeb2a6b6f6f9abfaa. 4 TENUES, 2 REFUTEES. LE CORRECTIF PART.
+================================================================================================
+                          AVANT                APRES
+  meshpen chestL          0.1115 m             0.1115 m        inchange
+  meshpen chestR          0.1019 m             0.0853 m        **-16.3 %**
+  worstres chestL         456.7879 (ci=39)     **502.7286** (ci=39)   **+10.1 %**
+  worstres chestR         417.4324 (ci=2)      383.3124 (ci=37)       -8.2 %
+  tipvar  chestL/chestR   0.1756 / 0.1775      0.1705 / 0.1732   -2.9 % / -2.4 %
+  ROOM-APEX chestL/chestR 0.9249 / 0.9592 B0   0.9199 / 0.8965   -0.5 % / -6.5 %
+  ROOM-STRETCH            0.0003               0.0004
+  ROOM-IDLE maxdev        0.0002               0.0002
+  offdrift chestL/chestR  1026.88 / 929.55     851.22 / 336.48   -17 % / -64 %
+
+S1  meshpen -50 %            **REFUTEE** : chestL inchange, chestR -16.3 %.
+S2  tipvar dans +/- 10 %     TENUE (-2.9 % / -2.4 %) — le correctif ne MUSELLE PAS.
+S3  ROOM-STRETCH inchange    TENUE (0.0003 -> 0.0004, la reprojection reste la derniere operation).
+S4  offdrift < 300 u         **REFUTEE** : 851.22 / 336.48.
+S5  meshpen n'atteint pas 0.0005   TENUE, elle etait contre moi : 0.1115.
+S6  ROOM-IDLE <= 0.001       TENUE : 0.0002. Aucun redresseur introduit.
+
+**RETRAIT, ET LA RAISON N'EST PAS S1 SEULE.** `worstres` de chestL — le maximum de COURSE, celui
+que `PHYSDIAG6` publie — MONTE de 10.1 %. La colonne `meshpen` que la gate lit est un maximum de
+FENETRE et elle, elle ne bouge pas : garder le correctif en publiant « meshpen inchange, chestR
+-16 % » serait exactement le piege de statistique que le cycle 58 a evite (la grandeur de la gate
+baissait pendant que celle de la course montait). Trois cycles (46, 47, 57) ont retire une
+tentative au seul motif « meshpen monte » ; je ne m'accorde pas l'exception.
+
+CE QUI SURVIT, ET C'EST LE RESULTAT DU CYCLE : le MECANISME est etabli et il est de premier ordre.
+`offdrift` = 1026.88 / 929.55 u sur le moteur LIVRE : le solveur resout la profondeur en un point
+distant de 0.25 m de celui ou le volume finit, et sa boucle est sur-relaxee d'un facteur
+1 + |offs|/want = 4.24 a 4.67 sur le maillon distal. La colonne `offdrift` RESTE (c'est une
+lecture, bit-identique). Le correctif de Jacobien, lui, part : il corrige la TAILLE du pas mais
+l'erreur de profondeur a resoudre (~500 u) reste plus grande que l'os qui doit la resoudre
+(140.4 / 144.2 u), ce qui est le « domaine admissible vide » du cycle 58 vu par son mecanisme.

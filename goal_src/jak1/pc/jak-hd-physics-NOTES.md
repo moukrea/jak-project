@@ -4679,7 +4679,7 @@ ici — c est la convention du fichier depuis 174 pointeurs.
 ;; Les deux sont publiees cote a cote : leur ecart EST la mesure de l'erreur de l'ancienne.
 ```
 
-## [NOTE-126]
+## [NOTE-146]
 
 `*phys-cfh*` — LE SEAU DU CONFLIT, PAR CHAINE : combien de fois le volume `ci`
 s'est DISPUTE un lien de la chaine avec au moins un autre volume, dans la meme
@@ -4719,3 +4719,89 @@ LECTURE QUAND LE DEFAUT EST ABSENT : aucune ligne pour ce couple — le volume
 n'a jamais rien demande a ce maillon. CONTROLE : `*phys-col-off*` desarme le mur
 par `phys-vol-floor` et doit faire tomber TOUTE la colonne (`feff` devient
 `PHYS-VOL-FREE`, donc `res` devient tres negatif et le seau ne se remplit plus).
+
+## [NOTE-147]
+
+Texte d'origine, conserve, il dit ce que le solveur FAIT :
+
+```
+;; on raisonne sur le CENTRE du volume porte par le lien, pas sur son joint : c'est le
+;; volume que le generateur a mesure sur le mesh, le meme que ce lien presente aux
+;; autres chaines. Le decalage est rigide, donc la poussee se reporte telle quelle sur
+;; le joint a la sortie.
+;; DEUX decalages, pas un : la pose du MODELE porte son volume par la matrice ANIMEE,
+;; la position SIMULEE le porte par l'orientation SIMULEE du lien. Les confondre posait
+;; le volume la ou le lien n'est pas des que le decalage n'etait plus nul.
+```
+
+**CE QUE « RIGIDE » VEUT DIRE, ET CE QU'IL NE VEUT PAS DIRE (cycle 59).** Le decalage est rigide
+DANS LE REPERE DU LIEN. Il ne l'est PAS par rapport au JOINT : `phys-link-off-sim!` porte `off` par
+la rotation d'arc minimal qui envoie la direction du MODELE sur la direction SIMULEE du lien.
+Deplacer le joint TANGENTIELLEMENT tourne le lien, donc tourne le decalage. Deux consequences, et
+elles sont mesurables :
+
+1. **LE SOLVEUR ET L'INSTRUMENT NE POUSSENT PAS LE MEME POINT.** `phys-collide-chain` calcule `offs`
+   UNE FOIS sur la position d'ENTREE du lien, puis pousse `joint + offs` pendant 3 balayages et 4
+   tours de finition sans jamais le recalculer. `phys-link-pen` le recalcule sur la position de
+   SORTIE. L'ecart vaut `|offs| x angle parcouru`. Mesure par `PHYSDIAG6 offdrift=`.
+
+2. **LA BOUCLE DE COLLISION EST SUR-RELAXEE D'UN FACTEUR `1 + |offs| / want`.** Bouger le joint de
+   `e` tangentiellement fait bouger le CENTRE de `e (1 + |offs|/want)` : la rotation du lien
+   (`e/want`) emmene le decalage avec elle. Le solveur applique la correction de profondeur AU
+   CENTRE puis la reporte TELLE QUELLE sur le joint, donc le centre se deplace de `1 + |offs|/want`
+   fois ce qui etait demande.
+
+        chaine   maillon   |offs|    want     gain = 1 + |offs|/want
+        chestL   l=0       651.2    1040.5    1.626
+        chestL   l=1       514.6     140.4    4.665
+        chestR   l=0       629.5    1039.0    1.606
+        chestR   l=1       467.4     144.2    4.241
+
+   Une projection alternee dont le pas depasse 2 ne converge pas. Le maillon distal est a 4.2-4.7,
+   le proximal a 1.6 — et c'est EXACTEMENT la repartition mesuree du residu au cycle 59
+   (`l0/l1 = 0.173 / 0.284`, quand le rapport des gains predit 0.171 / 0.187).
+
+   Ca rend compte, sans hypothese supplementaire, de trois observations que le dossier avait
+   chacune classee comme un mystere separe : (a) monter le nombre de balayages a 36 ne change rien
+   (une iteration divergente ne s'ameliore pas avec les tours) ; (b) le pas « corrige » du cycle 47,
+   qui multipliait la poussee par `1/s^2` pour ameliorer le rendement, a fait MONTER `meshpen` (il
+   augmentait encore la relaxation) ; (c) le residu vit sur le maillon distal.
+
+**CE QUI RESTE A PROUVER, ET LA COURSE QUI LE TRANCHE** : rien de ce paragraphe n'est une mesure
+tant que `offdrift` n'a pas ete lu. Predictions gravees avant, dans
+`.autoport/reports/Grecharged-secondary-motion/C59E3-offdrift-predictions.txt`.
+
+## [NOTE-128]
+
+Texte deplace du moteur (plafond de lignes de la gate CLEAN, 4800, que le contrat GELE) :
+
+```
+;; SPEC 33 — LE DOMAINE DE LA PAIRE. Un echantillon par (lien, volume) et
+;; par frame, pris a l'ENTREE (`sub` = 0, avant toute poussee de ce
+;; balayage). `*phys-depsigned*` porte la profondeur NON bornee que
+;; `phys-collide-depth` vient de calculer pour `pt` — c'est le dernier des
+;; trois appels du `let*`, donc la variable porte bien celle de `dep`.
+;; Le drapeau evite un sentinelle flottant (piege deja paye) : premier
+;; echantillon = affectation, les suivants = maximum.
+```
+
+## [NOTE-149]
+
+Texte deplace du moteur, meme raison :
+
+```
+;; LA LONGUEUR, A CHAQUE BALAYAGE — le correctif du residu de penetration. Appliquee
+;; seulement APRES les `sweeps`, elle defaisait la part RADIALE de chaque poussee de
+;; profondeur sans jamais la retester contre le volume, et monter le nombre de tours
+;; n'y pouvait rien — chaque tour finissait pareil. Alternee DANS la boucle, c'est une
+;; projection alternee sur deux ensembles (sphere de l'attache, complementaire du
+;; volume) qui converge vers leur intersection des qu'elle est non vide. `pt` est ici
+;; le CENTRE DU VOLUME : on repasse en coordonnees de joint pour la reprojection.
+```
+
+**PRECISION DU CYCLE 59, ET ELLE CHANGE LA CONCLUSION DE CE PARAGRAPHE.** « Une projection
+alternee converge vers l'intersection des qu'elle est non vide » n'est vrai QUE si le pas est bien
+dimensionne. Il ne l'etait pas : la correction est calculee sur le CENTRE du volume et reportee
+telle quelle sur le JOINT, alors que le centre parcourt `1 + |offs|/want` fois ce que le joint
+parcourt (voir [NOTE-147]) — 4.2 a 4.7 sur le maillon distal. Une projection alternee dont le pas
+depasse 2 ne converge pas, et c'est pour ca que porter les balayages a 36 n'avait rien change.

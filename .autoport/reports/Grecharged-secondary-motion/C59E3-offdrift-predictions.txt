@@ -1,0 +1,47 @@
+C59E3 — PREDICTIONS GRAVEES AVANT LA COURSE (cycle 59, troisieme experience)
+DIRECTIVES v3fee554599   —   perimetre : chestL / chestR seules
+
+CE QUI EST LU DANS LE CODE (regle 0 : c'est une LECTURE de source, donc une HYPOTHESE, et c'est
+exactement pour ca que cette course existe). `phys-collide-chain` (:1595-1906) calcule le decalage
+du volume UNE SEULE FOIS, a l'ENTREE du lien :
+
+    (set-vector! pv  *phys-px*[scl] ...)                  ; position d'ENTREE du joint
+    (phys-link-off-sim! skel scl kk kp nbone bv pv offs)  ; offs derive de la direction d'ENTREE
+
+puis pousse `pt = joint + offs` pendant 3 balayages et 4 tours de finition, sans jamais recalculer
+`offs`. Le commentaire du moteur enonce l'hypothese en toutes lettres : « Le decalage est rigide,
+donc la poussee se reporte telle quelle sur le joint a la sortie. »
+
+**LE DECALAGE EST RIGIDE DANS LE REPERE DU LIEN, PAS PAR RAPPORT AU JOINT.** `phys-link-off-sim!`
+porte `off` par la rotation d'arc minimal qui envoie la direction du MODELE sur la direction
+SIMULEE du lien. Deplacer le joint tangentiellement TOURNE le lien, donc TOURNE le decalage. Le
+solveur resout donc la profondeur en un point qui n'est pas celui ou le volume finit — et
+`phys-link-pen`, lui, recalcule `offs` sur la position de SORTIE. Les deux ne parlent pas du meme
+point, et l'ecart vaut |offs| x (angle parcouru pendant la resolution).
+
+L'ORDRE DE GRANDEUR ATTENDU, ET IL EST DEJA COMPATIBLE AVEC UNE MESURE EN MAIN. Bras du volume
+rapporte a l'os : chestL l=0 651.2/1040.5 = 0.626, l=1 514.6/140.4 = 3.665 ; chestR l=0
+629.5/1039.0 = 0.606, l=1 467.4/144.2 = 3.241. Le rapport des deux amplifications predit un
+rapport de residus l0/l1 de 0.171 (chestL) et 0.187 (chestR). **MESURE au C59E1, sans que ce
+modele existe : 0.173 et 0.284.** Coincidence a 1 % a gauche ; a droite l'ecart est reel et je ne
+l'explique pas.
+
+INSTRUMENT : `offdrift` = max de course de |offs(sortie) - offs(entree)| par chaine, publie sur
+`PHYSDIAG6`. AUCUNE modification de comportement — le decalage de sortie est calcule APRES la
+derniere ecriture et n'est utilise que pour un maximum.
+  NATURE : une LONGUEUR en unites de jeu (4096 u = 1 m), maximum de fenetre.
+  REPERE : monde, a la frame resolue, comme `offs` lui-meme.
+  ABSENT : 0.0000 — la direction du lien n'a pas bouge pendant la resolution.
+
+R1  `offdrift` >= 200 u sur au moins une chaine. **REFUTEE si < 20 u** : alors le decalage est
+    effectivement quasi rigide sur la trajectoire livree, l'hypothese meurt, et je l'ecris.
+
+R2  CONTRE MOI, ET C'EST LA CONDITION QUI COMPTE. `offdrift` >= 0.50 x `worstres` de la meme
+    chaine (soit >= 228 u a gauche, >= 209 u a droite). Si `offdrift` est petit pendant que
+    `worstres` vaut 456, alors le point que le solveur pousse est PRESQUE celui que l'instrument
+    lit, et le residu a une autre cause : le chantier change et je ne le maquille pas.
+
+R3  BIT-IDENTITE DU RESTE. `offdrift` est une lecture ajoutee APRES la derniere ecriture du
+    solveur. meshpen 0.1115 / 0.1019, tipvar 0.1756 / 0.1775, worstres 456.7879 / 417.4324, les
+    310 lignes `row` et les 39 lignes `PHYSCVOL` doivent etre IDENTIQUES. Si l'une bouge, la
+    « lecture » a change la physique et elle PART.
