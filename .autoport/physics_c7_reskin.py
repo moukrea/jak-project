@@ -644,19 +644,34 @@ def _anchor30(r, J, W, idx, P, bind_pos, ed=None):
     ancd = np.zeros(len(vi))
     for c in range(J.shape[1]):
         ancd += np.where(np.isin(J[vi, c], grp), 0.0, W[vi, c])
-    bands = []
-    for lo, hi, lbl in ((0.000, 0.125, 'root'), (0.125, 0.375, 'rear'),
-                        (0.375, 0.625, 'mid'), (0.625, 0.875, 'dist'), (0.875, 1.001, 'apex')):
-        m = (s >= lo) & (s < hi)
-        bands.append(f"{lbl}={ancd[m].mean():.2f}" if m.any() else f"{lbl}=n/a")
+    # LA LIGNE DE VERDICT LIT LE REPERE DE L'ANCRAGE, ET C'EST UN CORRECTIF DE MOI SUR MOI
+    # (cycle 57). La gate de lissage a ete migree sur `sa` sans que cette ligne le soit : le
+    # premier bake `axis=anat` a donc imprime « root=0.31 ... apex=0.70 » — 1 bande sur 5 — au
+    # moment MEME ou la gate acceptait les cinq sur `sa`. Un lecteur du seul journal aurait conclu
+    # que le profil etait INVERSE, c'est-a-dire l'exact contraire de la mesure. C'est le
+    # `correctif a mi-chemin` que le contrat interdit nommement : « poser la donnee et laisser le
+    # verdict sur l'ancienne est pire que ne rien faire ». Les DEUX reperes sont imprimes, pour
+    # qu'on ne puisse plus les confondre en lisant le journal.
+    def _bands_on(absc):
+        out = []
+        for lo, hi, lbl in ((0.000, 0.125, 'root'), (0.125, 0.375, 'rear'),
+                            (0.375, 0.625, 'mid'), (0.625, 0.875, 'dist'), (0.875, 1.001, 'apex')):
+            m = (absc >= lo) & (absc < hi)
+            out.append(f"{lbl}={ancd[m].mean():.2f}" if m.any() else f"{lbl}=n/a")
+        return out
+    bands = _bands_on(sa)
+    bands_chain = _bands_on(s)
     tmaj = sum(maj) if sum(maj) else 1
     rep = [f"  {r['target']:<10} anchor30 verts={len(vi)} axis={r.get('axis', 'chain')}"
            f" p={p:.3f} (bandes 30 admettent"
            f" {plo:.3f}..{phi:.3f}) grad={r['grad']:.2f} lissage={smooth_iters} iter (arret: {stop_why})"
            f" masse deplacee={moved:.1f}",
-           f"             ancrage mesure APRES: " + " ".join(bands)
+           f"             ancrage mesure APRES [repere de l'ANCRAGE, celui de la 30/31]: "
+           + " ".join(bands)
            + f"   StrongRootFraction={float((ancd >= r['strong']).mean()):.3f}"
              f" (cible {r['frac']:.2f})",
+           f"             le MEME ancrage lu sur l'abscisse de CHAINE (repere de la PARTITION,"
+           f" pas celui de la 30): " + " ".join(bands_chain),
            f"             sommets MAJORITAIRES (w>0.5): "
            + " ".join(f"{joints[k]}={maj[k]}" for k in range(len(joints)))
            + f"   part du maillon distal = {100.0 * maj[-1] / max(1, len(vi)):.1f}% des sommets"
