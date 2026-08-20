@@ -185,12 +185,50 @@ def main():
         # Depuis le cycle 24 la regle `anchor30` travaille dans CE repere (`axis=flesh`) : lire
         # son resultat dans l'autre compare deux abscisses differentes, exactement le piege de
         # repere qui avait rendu le gradient monde/parent illisible le 2026-08-11.
+        # ------------------------------------------------------------------------------------
+        # CORRECTION DU 2026-08-20 (CYCLE 57) — CE BLOC S'ANNONCAIT COMME L'ABSCISSE DE LA 31 ET
+        # NE L'ETAIT PAS, ET C'EST MOI QUI L'AVAIS ECRIT. Il ne corrigeait que l'ORIGINE et
+        # l'ECHELLE (le clampage) ; la DIRECTION restait `pts[-1] - pts[0]`, l'axe d'OS de la
+        # chaine. Or cet axe est a 77.82 deg (chestL) / 78.15 deg (chestR) de l'axe racine->apex,
+        # et les deux abscisses sont correlees NEGATIVEMENT (-0.116 / -0.292). Le bloc publiait
+        # donc « 5 bandes sur 5 DANS » sous le nom de la 31, alors que la 31 lue dans SON repere
+        # en donnait 1 sur 5. C'est un FAUX VERT, de la famille `metric-nature-and-frame`, et il a
+        # servi a deriver les constantes de l'operateur de repesage pendant tout ce temps.
+        # LES DEUX SONT MAINTENANT PUBLIEES COTE A COTE, aucune n'est retiree : `axe d'OS` est ce
+        # que l'operateur historique installait, `axe ANATOMIQUE` est ce que la 31 demande.
         pts = np.asarray([P[g] for g in d['grp']], dtype=float)
+        Vv = np.asarray(V[d['vi']], dtype=float)
+        for _lbl, _ax in (("AXE D'OS de la chaine (ce que `axis=flesh` installait)",
+                           pts[-1] - pts[0]),
+                          ("AXE ANATOMIQUE racine->apex (ce que la 31 DEFINIT)",
+                           Vv.mean(axis=0) - pts[0])):
+            _axn = _ax / np.linalg.norm(_ax)
+            _q = (Vv - pts[0]) @ _axn
+            _s = (_q - _q.min()) / (_q.max() - _q.min())
+            _anc = 1.0 - d['ws']
+            _cols, _nin = [], 0
+            for _lo, _hi, _blo, _bhi, _bl in ((0.000, 0.125, 0.90, 1.00, 'Deep'),
+                                              (0.125, 0.375, 0.55, 0.85, 'Rear'),
+                                              (0.375, 0.625, 0.25, 0.55, 'Mid '),
+                                              (0.625, 0.875, 0.05, 0.30, 'Dist'),
+                                              (0.875, 1.001, 0.00, 0.10, 'Apex')):
+                _m = (_s >= _lo) & (_s < _hi)
+                if not _m.any():
+                    _cols.append('%s n=0' % _bl)
+                    continue
+                _a = float(_anc[_m].mean())
+                _v = 'DANS' if _blo <= _a <= _bhi else ('AU-DESSUS' if _a > _bhi else 'SOUS')
+                _nin += (_v == 'DANS')
+                _cols.append('%s=%.3f %s' % (_bl, _a, _v))
+            print('  [30 sur %s]' % _lbl)
+            print('      %s   -> %d/5 DANS' % (' | '.join(_cols), _nin))
+
         axv = pts[-1] - pts[0]
         axv = axv / np.linalg.norm(axv)
         q = (np.asarray(V[d['vi']], dtype=float) - pts[0]) @ axv
         sf = (q - q.min()) / (q.max() - q.min())
-        print("  --- LE MEME MESH, ABSCISSE DE LA 31 (r=0 attache thoracique, r=1 apex) ---")
+        print("  --- LE MEME MESH, ABSCISSE SUR L'AXE D'OS, CLAMPAGE RETIRE"
+              " (ce bloc s'annoncait a tort comme celui de la 31 — cycle 57) ---")
         print("  r : p25=%.3f p50=%.3f p75=%.3f p90=%.3f p95=%.3f"
               % tuple(np.percentile(sf, qq) for qq in (25, 50, 75, 90, 95)))
         nb_in = 0
