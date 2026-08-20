@@ -7139,3 +7139,104 @@ les SOMMETS DE PEAU et sur la SURFACE, c'est-a-dire sur ce dont sa 33 et sa
 rien ne la defait — c'est l'invariant que le dossier prescrit depuis le
 cycle 43 et que l'ordre `collide` puis `bend` ne tenait plus.
 ```
+
+## [NOTE-325] la troncature de la peau, mesuree : `sets=64/92` et 12 echantillons par ensemble.
+
+(bloc deplace du moteur le 2026-08-20, cycle 63 — plafond de lignes CLEAN)
+
+```
+;; Mesure, trace du 2026-08-20 : « bsurf ag=keira-hd sets=64/92 » — 28 ensembles de surface sur 92
+;; JETES par ce plafond, et chaque ensemble retenu tronque a ses 12 PREMIERS echantillons. La SDF
+;; voyait donc au plus 768 points pour tout le personnage. C'est pour ca qu'un os INTERIEUR pouvait
+;; se lire DEHORS (`chestL skinpen=0.0000` au repos avec `skinmiss=0`, contre 417.23 u sur chestR).
+```
+
+## [NOTE-326] `*phys-bssl*` : l'ORIGINE a laquelle chaque ensemble de surface est porte.
+
+(bloc deplace du moteur le 2026-08-20, cycle 63 — plafond de lignes CLEAN)
+
+```
+;; PAR ENSEMBLE : le `scl` du maillon qui le porte, -1 pour un os de CORPS. Il decide de l'ORIGINE
+;; a laquelle les echantillons sont portes — un os de corps suit l'animation, un maillon de chaine
+;; suit la position RESOLUE. Sans lui, le sein oppose serait teste a sa pose d'auteur pendant que
+;; le sein testeur est a sa pose simulee : deux instants dans une meme distance.
+```
+
+## [NOTE-327] `*phys-sd-d1*` : la distance au plus proche echantillon dit MESURE ou EXTRAPOLATION.
+
+(bloc deplace du moteur le 2026-08-20, cycle 63 — plafond de lignes CLEAN)
+
+```
+;; LA DISTANCE AU PLUS PROCHE ECHANTILLON de la derniere requete, et c'est elle qui dit si la
+;; reponse est une MESURE ou une EXTRAPOLATION. `|sd| <= |p - q|` par Cauchy-Schwarz : une lecture
+;; de 2618 u EXIGE que le plus proche echantillon soit a 64 cm, ce qui n'est pas une penetration,
+;; c'est un plan prolonge a l'infini loin de la ou il a ete echantillonne. Sentinelle 1000000.0.
+```
+
+## [NOTE-328] `*phys-sd-auth*` : pourquoi la colonne d'auteur a besoin de son propre interrupteur.
+
+(bloc deplace du moteur le 2026-08-20, cycle 63 — plafond de lignes CLEAN)
+
+```
+;; 1 = les ensembles de CHAINE sont portes par la pose d'AUTEUR (la translation de l'os), 0 = par
+;; la position RESOLUE. Sans cet interrupteur la colonne d'auteur comparerait un point d'auteur a
+;; une surface SIMULEE : deux instants dans une meme distance, et le pair ne mesurerait plus la
+;; physique. C'est le defaut exact que le cycle 61 a paye sur `skinrest`.
+```
+
+## [NOTE-329] `*phys-skinpen*` : la pire ENTREE sous la peau, sa NATURE et son REPERE.
+
+(bloc deplace du moteur le 2026-08-20, cycle 63 — plafond de lignes CLEAN)
+
+```
+;; La pire ENTREE sous la peau, par chaine, sur la fenetre de mesure.
+;; NATURE : une profondeur signee, en unites de jeu, positive quand le lien est SOUS la surface.
+;; REPERE : le monde, a la frame ecrite — la meme position que celle dont `meshpen` est tire, pour
+;;          que les deux colonnes soient comparables terme a terme.
+;; LECTURE QUAND LE DEFAUT EST ABSENT : 0. Un lien qui reste dehors n'ecrit jamais rien ici.
+```
+
+## [NOTE-324] SPEC 7 — LE MIROIR DU LATERAL SORTANT, ET IL EST PAR CHAINE.
+
+```
+---------------------------------------------------------------------------
+CE QUE SA SPEC 7 EXIGE, MOT POUR MOT (l.126-133) :
+
+  « +X = character's outward lateral direction / +Y = upward along torso /
+    +Z = forward from chest.  For the left and right breasts, outward `+X`
+    should be MIRRORED so that the equations remain symmetrical. »
+
+CE QUI ETAIT ECRIT : `fx = cross(fy, fz)`, dont LES DEUX ENTREES sont
+identiques pour les deux chaines (meme ancre `chest`). Le lateral ne POUVAIT
+donc pas differer : le miroir n'etait pas « pas encore fait », il etait
+impossible dans cette construction. Mesure du cycle 62, emise pour la
+premiere fois : `a0 = (-0.98297 -0.18374 +0.00000)` SUR LES DEUX CHAINES,
+`angle(a0[chestL], -a0[chestR]) = 179.749 deg` la ou la clause exige 0.
+
+CE QUI NOMME LE COTE, ET IL EXISTAIT DEJA : `sep`, le segment qui va du sein
+OPPOSE a celui-ci, deja calcule pour nommer la ligne laterale. Il pointe vers
+l'exterieur par ANATOMIE, pas par convention de rig. Il n'etait garde que par
+ses PROJECTIONS (`*phys-axsep*`) ; il est desormais garde en VECTEUR
+(`*phys-sepv*`), et le miroir se lit sur lui :
+
+    si dot(fx, sep) < 0   ->   fx := -fx
+
+Le triedre d'une chaine sur deux devient GAUCHER, et c'est la consequence
+geometrique exacte du miroir d'un seul axe sur trois — pas un repere casse.
+`det` doit donc sortir OPPOSE sur les deux chaines, et `ROOM-SPEC7-SENS` le
+lit.
+
+CE QUE CA CORRIGE EN AVAL, ET CE N'EST PAS UN EFFET DE BORD : SPEC 12.
+Le cycle 50 avait donne un cote a §12 en composant `gxc` avec `signe(sja)`,
+faute d'un lateral par chaine. Mais `fx` pointe le long de -e_ja (composante
+mesuree -0.98297), donc `gxc * signe(sja) = -(g . sortant)` : le poids
+d'aplatissement tombait sur le sein OPPOSE a la gravite, quand §12 ecrit
+« The GRAVITY-SIDE breast experiences stronger thoracic compression ». Le
+signe avait ete SUPPOSE, jamais mesure — piege `axis-sign-outlives-role-
+renaming` du registre. Le miroir rend `gxc = g . sortant` par construction :
+`wlt = max(0, gxc)` tombe alors du bon cote, et le signe rapporte disparait.
+
+OU LE MIROIR N'EST PAS DEFINI : sans chaine partenaire, `sep = 0`, le produit
+scalaire vaut 0, aucune chaine n'est retournee et le comportement d'avant est
+reproduit a l'identique. `PHYSAXNAME src=` publie ce cas.
+```

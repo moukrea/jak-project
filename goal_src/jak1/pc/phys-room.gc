@@ -4256,7 +4256,27 @@
                    i c
                    (phys-shape (-> self slot) c 9)
                    (phys-shape (-> self slot) c 10)
-                   (phys-shape (-> self slot) c 11)))))
+                   (phys-shape (-> self slot) c 11))
+           ;; LE COTE GRAVITE, LU SUR L'ANATOMIE ET PAS SUR LE TRIEDRE — ET C'EST TOUTE LA
+           ;; DIFFERENCE. `gso` est le cosinus entre la gravite locale et le segment qui va du sein
+           ;; OPPOSE a celui-ci : > 0 = la gravite pointe VERS ce sein, donc c'est lui le
+           ;; « gravity-side breast » de sa §12. Il ne passe NI par `fx` NI par le melange de
+           ;; poles ; il ne peut donc pas republier leur verdict. `PHYSSYM5 gx`, lui, EST le canal
+           ;; d'aplatissement depuis le miroir de §7 : le lire comme un cote serait une tautologie.
+           ;; NATURE : un cosinus, sans unite. REPERE : la base de l'ANCRE, comme `PHYSTRI`.
+           ;; LECTURE QUAND LE DEFAUT EST ABSENT : le sein de plus petit `sx` est celui dont `gso`
+           ;; est le PLUS GRAND. Le test DISCRIMINE — il ne peut pas rendre vrai par construction,
+           ;; et avant le cycle 63 il rendait FAUX sur les deux poles lateraux.
+           (let ((sl (phys-chain-axsep (-> self slot) c 2)))
+             (format 0 "PHYSSYM6 i=~D c=~D gso=~,,7f sepn=~,,7f~%"
+                     i c
+                     (if (> sl 0.0001)
+                       (/ (+ (* (phys-shape (-> self slot) c 15) (phys-chain-axsep (-> self slot) c 3))
+                             (+ (* (phys-shape (-> self slot) c 16) (phys-chain-axsep (-> self slot) c 4))
+                                (* (phys-shape (-> self slot) c 17) (phys-chain-axsep (-> self slot) c 5))))
+                          sl)
+                       0.0)
+                     sl)))))
        ;; ---- 7. LA QUEUE DE CALME, ET LA LIGNE DE BASE QU'ELLE DONNE --------------------------
        (when (= (-> self pframe) (+ t2 1))
          (physroom-hold)

@@ -218,6 +218,7 @@
 ;; [NOTE-74] ============================================================================== -> jak-hd-physics-NOTES.md
 (define *phys-axsep* (new 'global 'array 'float (* PHYS-SC 3)))  ;; sep. inter-chaine, repere ancre
 (define *phys-axsrc* (new 'global 'array 'int32 PHYS-SC))  ;; 0 = pas de partenaire, 1 = separation
+(define *phys-sepv* (new 'global 'inline-array 'vector PHYS-SC))  ;; la MEME separation, en VECTEUR
 ;; [NOTE-75] ============================================================================== -> jak-hd-physics-NOTES.md
 (defconstant PHYS-MOB-TOR 0.72)    ;; §29 TorsionalCompliance
 (defconstant PHYS-SEC-F   5.2)     ;; §36 frequence du mode secondaire (Hz)
@@ -430,10 +431,7 @@
 
 ;; [NOTE-19] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
 ;; [NOTE-158] LA PEAU ETAIT TRONQUEE EN SILENCE, ET C'EST LA CAUSE DE TOUT CE FIL. -> jak-hd-physics-NOTES.md
-;; Mesure, trace du 2026-08-20 : « bsurf ag=keira-hd sets=64/92 » — 28 ensembles de surface sur 92
-;; JETES par ce plafond, et chaque ensemble retenu tronque a ses 12 PREMIERS echantillons. La SDF
-;; voyait donc au plus 768 points pour tout le personnage. C'est pour ca qu'un os INTERIEUR pouvait
-;; se lire DEHORS (`chestL skinpen=0.0000` au repos avec `skinmiss=0`, contre 417.23 u sur chestR).
+;; [NOTE-325] la troncature de la peau, mesuree : `sets=64/92` et 12 echantillons par ensemble. -> jak-hd-physics-NOTES.md
 ;; [NOTE-292] 96 -> 112 : les os de CHAINE entrent desormais dans la meme famille `bs`, donc le
 ;; nombre d'ensembles DECLARES passe de 92 a 96 et touchait EXACTEMENT le plafond. Un plafond
 ;; atteint est une troncature qui attend son tour.
@@ -452,24 +450,15 @@
 ;; [NOTE-322] deux populations dans le meme tableau -> jak-hd-physics-NOTES.md
 (define *phys-bslo* (new 'global 'array 'int32 PHYS-SC))   ;; 1er ensemble de surface de la chaine
 (define *phys-bscn* (new 'global 'array 'int32 PHYS-SC))   ;; combien elle en porte
-;; PAR ENSEMBLE : le `scl` du maillon qui le porte, -1 pour un os de CORPS. Il decide de l'ORIGINE
-;; a laquelle les echantillons sont portes — un os de corps suit l'animation, un maillon de chaine
-;; suit la position RESOLUE. Sans lui, le sein oppose serait teste a sa pose d'auteur pendant que
-;; le sein testeur est a sa pose simulee : deux instants dans une meme distance.
+;; [NOTE-326] `*phys-bssl*` : l'ORIGINE a laquelle chaque ensemble de surface est porte. -> jak-hd-physics-NOTES.md
 (define *phys-bssl* (new 'global 'array 'int32 PHYS-SB))
 ;; FENETRE DE LECTURE de `phys-surf-sd`. lo=0 / hi=-1 rend EXACTEMENT la population de corps :
 ;; les valeurs par defaut reproduisent le comportement d'avant ce cycle par construction.
 (define *phys-sd-lo* 0)
 (define *phys-sd-hi* -1)
-;; LA DISTANCE AU PLUS PROCHE ECHANTILLON de la derniere requete, et c'est elle qui dit si la
-;; reponse est une MESURE ou une EXTRAPOLATION. `|sd| <= |p - q|` par Cauchy-Schwarz : une lecture
-;; de 2618 u EXIGE que le plus proche echantillon soit a 64 cm, ce qui n'est pas une penetration,
-;; c'est un plan prolonge a l'infini loin de la ou il a ete echantillonne. Sentinelle 1000000.0.
+;; [NOTE-327] `*phys-sd-d1*` : la distance au plus proche echantillon dit MESURE ou EXTRAPOLATION. -> jak-hd-physics-NOTES.md
 (define *phys-sd-d1* 1000000.0)
-;; 1 = les ensembles de CHAINE sont portes par la pose d'AUTEUR (la translation de l'os), 0 = par
-;; la position RESOLUE. Sans cet interrupteur la colonne d'auteur comparerait un point d'auteur a
-;; une surface SIMULEE : deux instants dans une meme distance, et le pair ne mesurerait plus la
-;; physique. C'est le defaut exact que le cycle 61 a paye sur `skinrest`.
+;; [NOTE-328] `*phys-sd-auth*` : pourquoi la colonne d'auteur a besoin de son propre interrupteur. -> jak-hd-physics-NOTES.md
 (define *phys-sd-auth* 0)
 ;; LA POSITION MONDE du plus proche echantillon de la derniere requete. Elle sert au CONTROLE
 ;; POSITIF de SPEC 33 : on deplace le point sonde EXACTEMENT vers lui d'une longueur connue, donc
@@ -496,11 +485,7 @@
 
 (defun phys-bsurf-declared ((slot int))
   (if (and (>= slot 0) (< slot PHYS-SLOTS)) (-> *phys-slot-nbsurf-decl* slot) 0))
-;; La pire ENTREE sous la peau, par chaine, sur la fenetre de mesure.
-;; NATURE : une profondeur signee, en unites de jeu, positive quand le lien est SOUS la surface.
-;; REPERE : le monde, a la frame ecrite — la meme position que celle dont `meshpen` est tire, pour
-;;          que les deux colonnes soient comparables terme a terme.
-;; LECTURE QUAND LE DEFAUT EST ABSENT : 0. Un lien qui reste dehors n'ecrit jamais rien ici.
+;; [NOTE-329] `*phys-skinpen*` : la pire ENTREE sous la peau, sa NATURE et son REPERE. -> jak-hd-physics-NOTES.md
 (define *phys-skinpen* (new 'global 'array 'float PHYS-SC))
 ;; [NOTE-150] LA PROFONDEUR **AJOUTEE** SOUS LA PEAU — la seule que la physique ait ecrite. -> jak-hd-physics-NOTES.md
 (define *phys-skinadd* (new 'global 'array 'float PHYS-SC))   ;; max du TAG
@@ -632,6 +617,7 @@
                     (dotimes (ii 3)
                       (set! (-> *phys-axs* (+ (* sc 3) ii)) 1.0)
                       (set! (-> *phys-axsep* (+ (* sc 3) ii)) 0.0))
+                    (set-vector! (-> *phys-sepv* sc) 0.0 0.0 0.0 0.0)
                     ;; [NOTE-278] SPEC 37 — « rebase on teleportation / level transition ». Un slot reutilise -> jak-hd-physics-NOTES.md
                     (set! (-> *phys-fok* sc) 0)
                     (set! (-> *phys-dfon* sc) 0)
@@ -2589,6 +2575,7 @@
                           (set! (-> *phys-axsep* (+ (* sc 3) 0)) (-> sep data ja))
                           (set! (-> *phys-axsep* (+ (* sc 3) 1)) (-> sep data jb))
                           (set! (-> *phys-axsep* (+ (* sc 3) 2)) (vector-length sep))
+                          (vector-copy! (-> *phys-sepv* sc) sep)
                           (set! (-> *phys-axv* sc) iv)
                           (set! (-> *phys-axa* sc) ia)
                           (set! (-> *phys-axl* sc) il)
@@ -3552,6 +3539,9 @@
                                 (when (> zl 0.05)
                                   (set-vector! (-> *phys-fz* sc) (/ zx zl) (/ zy zl) (/ zz zl) 0.0)
                                   (vector-cross! (-> *phys-fx* sc) (-> *phys-fy* sc) (-> *phys-fz* sc))
+                                  ;; [NOTE-324] SPEC 7 — LE MIROIR DU LATERAL SORTANT, ET IL EST PAR CHAINE. -> jak-hd-physics-NOTES.md
+                                  (when (< (vector-dot (-> *phys-fx* sc) (-> *phys-sepv* sc)) 0.0)
+                                    (vector-negate! (-> *phys-fx* sc) (-> *phys-fx* sc)))
                                   (set! (-> *phys-fx* sc w) 0.0)
                                   (set! (-> *phys-fok* sc) 1))))))
                         (when (nonzero? (-> *phys-fok* sc))
@@ -3571,10 +3561,9 @@
                                  (wup (fmax 0.0 gyc))
                                  (wbk (fmax 0.0 (- 0.0 gzc)))
                                  (wfw (fmax 0.0 gzc))
-                                 ;; [NOTE-138] SPEC 12 — LE COTE, ET POURQUOI RETIRER LE `fabs` NE SUFFISAIT PAS. -> jak-hd-physics-NOTES.md
-                                 (gxs (* gxc (if (>= (-> *phys-axsep* (* sc 3)) 0.0) 1.0 -1.0)))
-                                 (wlt (fmax 0.0 gxs))
-                                 (wne (fmax 0.0 (- 0.0 gxs)))
+                                 ;; [NOTE-138] SPEC 12 — LE COTE EST DESORMAIS PORTE PAR LE TRIEDRE LUI-MEME. -> jak-hd-physics-NOTES.md
+                                 (wlt (fmax 0.0 gxc))
+                                 (wne (fmax 0.0 (- 0.0 gxc)))
                                  (wsm (fmax 0.0001 (+ wdn (+ wup (+ wbk (+ wfw (+ wlt wne)))))))
                                  ;; [NOTE-52] SPEC 10 ET SPEC 11 ETAIENT INTERVERTIES (`wbk`/`wfw`, signe de `gzc`). -> jak-hd-physics-NOTES.md
                                  (sx0 (/ (+ (* wdn 1.000) (+ (* wup 0.900)
@@ -4324,13 +4313,15 @@
 
 (defun phys-chain-axsep ((slot int) (chain int) (which int))
   "LES DEUX PROJECTIONS QUE LA DECISION DE NOMMAGE A COMPARE, et la norme du segment inter-seins.
-   which 0 = projection sur la premiere ligne candidate, 1 = sur la seconde, 2 = |separation|.
+   which 0/1 = les deux projections candidates, 2 = |separation|, 3/4/5 = le VECTEUR lui-meme.
    REPERE : le triedre de l'ANCRE (SPEC 7). NATURE : une longueur signee, en unites de jeu.
    LIGNE DE BASE : 0 quand il n'y a pas de chaine partenaire — et `phys-chain-axis … 5` le dit."
   (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS)
-          (< which 0) (> which 2))
+          (< which 0) (> which 5))
     0.0
-    (-> *phys-axsep* (+ (* (+ (* slot PHYS-CHAINS) chain) 3) which))))
+    (if (< which 3)
+      (-> *phys-axsep* (+ (* (+ (* slot PHYS-CHAINS) chain) 3) which))
+      (-> *phys-sepv* (+ (* slot PHYS-CHAINS) chain) data (- which 3)))))
 
 (defun phys-chain-axis-stiff ((slot int) (chain int) (which int))
   "LE FACTEUR DE RAIDEUR EFFECTIVEMENT APPLIQUE sur l'axe `which` (0 = vertical, 1 = avant-arriere,

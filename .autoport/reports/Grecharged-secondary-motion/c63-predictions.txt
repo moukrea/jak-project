@@ -1,0 +1,53 @@
+CYCLE 63 — PREDICTIONS POSEES AVANT LA COURSE
+DIRECTIVES v3fee554599
+horodatage : ecrites avant le lancement de keira_room_x86.sh, base = keira-room-table.PRE-c63.txt
+
+CE QUI CHANGE DANS LE MOTEUR (3 sites, +7 lignes nettes, 4789/4800) :
+  (1) `*phys-sepv*` garde en VECTEUR la separation inter-seins dont seules les PROJECTIONS
+      etaient gardees (`*phys-axsep*`). Aucun calcul neuf : `sep` existe depuis le cycle 10.
+  (2) SPEC 7 : apres `fx = cross(fy, fz)`, si `dot(fx, sep) < 0` alors `fx := -fx`. Le lateral
+      devient SORTANT PAR CHAINE, ce que la section exige mot pour mot.
+  (3) SPEC 12 : `gxs = gxc * signe(sja)` disparait. `wlt = max(0, gxc)` suffit, parce que `gxc`
+      est desormais la gravite vue DU COTE SORTANT de cette chaine-ci.
+
+P1  §7 MIROIR. `ROOM-SPEC7-MIROIR` : 179.749 deg  ->  <= 0.3 deg (MIROIR TENU).
+    `ROOM-SPEC7-SENS` : det(chestL) et det(chestR) OPPOSES (env. -1.000 et +1.000), la
+    consequence geometrique du miroir d'UN axe sur trois. Le test discrimine : un +X non
+    mirore rend 180 deg, il ne peut pas rendre 0 par construction.
+
+P2  QUELLE CHAINE BASCULE, ET C'EST CALCULABLE A L'AVANCE. `dot(fx, sep)` vaut
+    -0.98297*(+754.9434) + (-0.18374)*(-0.0090) = -742.09 sur chestL et +742.09 sur chestR.
+    Donc EXACTEMENT chestL bascule :
+      PHYSTRI c=0 a=0 : (-0.98297 -0.18374 +0.00000)  ->  (+0.98297 +0.18374 +0.00000)
+      PHYSTRI c=1 a=0 : INCHANGE AU BIT
+      PHYSTRI a=1 et a=2 : INCHANGES AU BIT sur les deux chaines
+    Un basculement des DEUX, ou d'aucune, refute la lecture du signe.
+
+P3  §12 LE COTE. `ROOM-SPEC12-COTE` (instrument neuf, `PHYSSYM6 gso`) : 0/4 aujourd'hui
+    (COTE INVERSE : les quatre cellules laterales aplatissent le sein OPPOSE a la gravite)
+    ->  4/4 (COTE TENU). C'est la clause « The GRAVITY-SIDE breast experiences stronger
+    thoracic compression » (l.189-190), et elle est violee depuis le cycle 50.
+
+P4  ECHANGE, PAS CREATION. Pole lateral +90, pose SYM : sx chestL=1.04062 chestR=0.87467
+    ->  chestL~0.875  chestR~1.041, et l'ECART EN POURCENT RESTE +17.3 % / +17.5 %.
+    Pole -90, pose SYM : 0.82152 / 0.97887  ->  ~0.979 / ~0.822, ecart +17.5 % conserve.
+    SI LA MAGNITUDE DE L'ECART CHANGE, autre chose a bouge et je dois le trouver avant de
+    publier quoi que ce soit. L'echange n'est pas exact au bit : les fenetres s'enchainent
+    sans retour complet au repos, donc l'etat propage (mesure du cycle 50).
+
+P5  INERTIE HORS DU DOMAINE DE §12. La ou la gravite est axiale — repos, poles vertical et
+    avant-arriere — `gxc ~ 0`, donc `wlt = wne = 0` et le melange est INCHANGE :
+    `ROOM-IDLE` reste a 0.000, et les cellules NON laterales de `sx` ne bougent pas.
+    C'est le controle negatif INTERNE : un changement qui mordrait la ou §12 ne parle pas
+    serait un effet de bord, pas le correctif.
+
+P6  LE TENSEUR NE VOIT PAS LE SIGNE. `dfa` n'emploie `fx` que par le produit exterieur
+    `fx_i * fx_j` (:3799 avant edition), invariant sous `fx -> -fx`. Donc AUCUN ecart n'est
+    attribuable au miroir en tant que tel : tout ce qui bouge passe par `gxc`, c'est-a-dire
+    par le seul melange de poles de §10-13. C'est ce qui rend l'attribution non ambigue.
+
+P7  LE COUT, ANNONCE. Le sein qui recoit le pole d'aplatissement change : le tenseur de peau
+    de chaque chaine change donc, et `skinpen` / `meshpen` / les colonnes de `row` vont
+    BOUGER. Je predis un ECHANGE approximatif entre les deux chaines (modulo la pose
+    asymetrique) et un maximum sur la paire proche de l'actuel. Un maximum qui EXPLOSE serait
+    un defaut, pas un echange.

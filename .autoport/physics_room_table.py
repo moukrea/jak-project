@@ -4860,7 +4860,16 @@ def main():
         #                     DISCRIMINE, il ne peut pas rendre 0 par construction)
         #   sens du triedre: les deux chaines doivent avoir des determinants OPPOSES, ce qui est
         #                    la consequence geometrique du miroir d'un seul axe sur trois.
-        # NATURE : des cosinus directeurs, sans unite. REPERE : le monde.
+        # NATURE : des cosinus directeurs, sans unite.
+        # REPERE : LA BASE DE L'ANCRE, ET C'EST UNE CORRECTION DU CYCLE 63 — ces lignes portaient
+        #   « REPERE : le monde », et la trace le refute toute seule : `a1` est le +Y « upward along
+        #   torso » de sa §7, et il vaut (+0.18290 -0.97844 +0.09585). Un « haut » dont la
+        #   composante y MONDE vaut -0.98 sur un sujet debout est impossible ; ces cosinus sont donc
+        #   dans la base de l'ANCRE, ou le solveur les construit (`gref` est `g` monde passe par
+        #   `w2l = inverse(am)`, et `fz` part du vecteur canonique `e[axa]` de cette meme base).
+        #   Le verdict de miroir ci-dessous n'en depend pas — les deux chaines partagent l'ancre
+        #   `chest`, donc la comparaison se fait dans une base COMMUNE dans les deux lectures —
+        #   mais une etiquette de repere fausse est exactement ce que ce fichier interdit ailleurs.
         # ==========================================================================================
         def _dot(u, v):
             return sum(a * b for a, b in zip(u, v))
@@ -4911,7 +4920,10 @@ def main():
             A('   shall occur relative to the torso/root transform rather than directly in world')
             A('   space ») porte sur le LIEU du calcul, pas sur une grandeur — ces trois lignes ne')
             A('   la testent pas et ne peuvent donc pas la declarer tenue.')
-            A('   NATURE : cosinus directeurs, sans unite. REPERE : le monde. LECTURES HORS DEFAUT :')
+            A('   NATURE : cosinus directeurs, sans unite. REPERE : la base de l\'ANCRE (corrige au')
+            A('   cycle 63 : ces lignes portaient "le monde", et `a1` = (+0.18290 -0.97844 +0.09585)')
+            A('   le refute — un "haut du torse" a y=-0.98 en monde sur un sujet debout est')
+            A('   impossible). LECTURES HORS DEFAUT :')
             A('   orthonormalite -> 0, angle du miroir -> 0 deg, determinants -> opposes. Le test du')
             A('   miroir DISCRIMINE : un +X non mirore rendrait 180 deg, pas 0.')
 
@@ -7213,6 +7225,12 @@ def main():
     for _m in re.finditer(r'^PHYSSYM5 i=(\d+) c=(\d+) gx=([-\d.e+]+) gy=([-\d.e+]+)'
                           r' gz=([-\d.e+]+)', txt, re.M):
         _symg[(int(_m.group(1)), int(_m.group(2)))] = tuple(float(_m.group(k)) for k in (3, 4, 5))
+    # `gso` = cos(gravite locale, segment sein-oppose -> ce sein). Il ne passe ni par `fx` ni par
+    # le melange de poles : c'est le SEUL des deux qui puisse arbitrer le cote sans tautologie.
+    _symgso = {}
+    for _m in re.finditer(r'^PHYSSYM6 i=(\d+) c=(\d+) gso=([-\d.e+]+) sepn=([-\d.e+]+)',
+                          txt, re.M):
+        _symgso[(int(_m.group(1)), int(_m.group(2)))] = (float(_m.group(3)), float(_m.group(4)))
 
     A('')
     A('   -- ROOM-SYM : SPEC 12 ET SPEC 18 DANS DEUX POSES, MEME COURSE (cycle 56) ---------')
@@ -7271,6 +7289,57 @@ def main():
                   % (_mm, _MN[_mm], ('SYM', 'ASYM')[_p], _s0, _s1,
                      100.0 * abs(_s0 - _s1) / _mn if _mn > 0 else float('nan'),
                      _g[0], _g[1], _g[2]))
+        # ------------------------------------------------------------------------------------
+        # LE COTE DE §12, ARBITRE PAR UNE GRANDEUR QUI N'EST PAS CELLE QU'ON JUGE.
+        # §12 (l.189-190) : « The GRAVITY-SIDE breast experiences stronger thoracic compression,
+        # while the opposite breast migrates across the chest. » La clause nomme donc un COTE, et
+        # jusqu'au cycle 63 rien dans la trace ne disait lequel des deux seins etait de ce cote :
+        # `PHYSSYM5 gx` etait le MEME nombre sur les deux chaines (meme ancre, meme triedre).
+        # `gso` le dit, et il est independant du canal juge : c'est le cosinus entre la gravite
+        # locale et le segment qui va du sein OPPOSE a celui-ci — de l'anatomie, pas du solveur.
+        #   NATURE : un cosinus, sans unite.  REPERE : la base de l'ANCRE.
+        #   LECTURE QUAND LE DEFAUT EST ABSENT : argmin(sx) == argmax(gso).
+        #   LE TEST DISCRIMINE : il a DEUX issues possibles a chaque pole et il ne peut pas rendre
+        #   vrai par construction — avant le cycle 63 il rendait FAUX sur les deux poles lateraux.
+        if not _symgso:
+            A('')
+            A('      ROOM-SPEC12-COTE: `PHYSSYM6` absent de la trace — le COTE de §12 n\'est pas')
+            A('      arbitre. `sx` dit qu\'UN sein s\'aplatit, pas que c\'est le BON.')
+        else:
+            A('')
+            A('      SPEC 12 — LEQUEL DES DEUX S\'APLATIT, ET EST-CE LE BON ? `gso` = cos(gravite,')
+            A('      segment sein-oppose -> ce sein) : > 0 = la gravite pointe VERS ce sein, donc')
+            A('      c\'est lui le « gravity-side breast ». Il ne passe ni par `fx` ni par le')
+            A('      melange de poles — il ne peut pas republier le verdict qu\'il arbitre.')
+            _cote_tot, _cote_ok = 0, 0
+            for _mm in (2, 3):
+                for _p in (0, 1):
+                    _i = _cellw.get((_p, _mm))
+                    if _i is None:
+                        continue
+                    if any((_i, c) not in _symsx or (_i, c) not in _symgso for c in (0, 1)):
+                        continue
+                    _sx = {c: _symsx[(_i, c)] for c in (0, 1)}
+                    _go = {c: _symgso[(_i, c)][0] for c in (0, 1)}
+                    _flat = min(_sx, key=lambda c: _sx[c])
+                    _grav = max(_go, key=lambda c: _go[c])
+                    _amb = abs(_go[0] - _go[1]) < 0.05 or abs(_sx[0] - _sx[1]) < 0.005
+                    _cote_tot += 1
+                    _cote_ok += 1 if (_flat == _grav and not _amb) else 0
+                    A('      m=%d %-22s %-5s  gso L=%+.4f R=%+.4f -> cote gravite=%-7s'
+                      '  sx L=%.5f R=%.5f -> aplati=%-7s  %s'
+                      % (_mm, _MN[_mm], ('SYM', 'ASYM')[_p], _go[0], _go[1],
+                         names[_grav] if _grav < len(names) else _grav,
+                         _sx[0], _sx[1], names[_flat] if _flat < len(names) else _flat,
+                         'NON RESOLU' if _amb else
+                         ('CONFORME' if _flat == _grav else
+                          'INVERSE — l\'aplatissement tombe sur le sein OPPOSE a la gravite')))
+            A('      ROOM-SPEC12-COTE: %d/%d cellules laterales ou le sein aplati EST celui du cote'
+              ' gravite  ->  %s'
+              % (_cote_ok, _cote_tot,
+                 'n/a (aucune cellule lisible)' if _cote_tot == 0 else
+                 'COTE TENU' if _cote_ok == _cote_tot else
+                 'COTE INVERSE' if _cote_ok == 0 else 'COTE PARTIEL'))
         A('      L\'ETIQUETTE D\'AXE EST CELLE DE LA MESURE : le commentaire de `physroom-orient`')
         A('      ecrit "axis 0 = tangage", la trace dit que la gravite y est quasi pure sur l\'axe')
         A('      LATERAL du triedre de sa §7. `g lue` ci-dessus est publiee pour qu\'on n\'ait pas')
