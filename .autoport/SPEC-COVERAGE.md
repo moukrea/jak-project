@@ -93,6 +93,58 @@ pour la première fois). Les `NON ÉTABLI` tombent de 7 à 5. **Le solveur n'a p
 cycle : 37 995 lignes de mesure identiques, une seule ligne différente, et c'est le garde-fou de
 numéro de phase.**
 
+## Cycle 60 — LA PISTE `skinpen` DES DIRECTIVES EST CONSTRUITE, TESTEE, ET REFUTEE PAR SON PROPRE CONTROLE
+
+**Ce que l'arbitrage du 2026-08-20 10:55 demandait**, et c'etait le seul chantier qu'il ouvrait :
+la gate COLLIDE doit lire « la penetration contre la surface DESSINEE, **des que sa ligne de base
+au repos existe** (physique desarmee, fenetre de repos), qui manque toujours ».
+
+**La ligne de base existe maintenant, et elle est plus forte que celle qui etait demandee.** Une
+fenetre de repos separee aurait compare le maximum d'une fenetre au maximum d'une AUTRE
+(`ratio-of-two-statistics`). Celle-ci est prise **a la meme frame, sur la meme surface, pour le
+meme lien** : `skinadd = max(0, sd(point d'AUTEUR) - sd(point SIMULE))` — la construction de `feff`
+portee du volume au mesh dessine. L'offset anatomique (l'os de poitrine est interieur de 0,13 a
+0,16 m par construction du rig) se retranche **exactement**.
+
+**ET LA REPONSE EST NON, PAR DEUX MESURES INDEPENDANTES.**
+
+1. **Le controle positif ne tire pas.** L'injection de 400 u (`*phys-inject*`, deja en place)
+   enfonce le point SIMULE et laisse le point d'AUTEUR ou il est — c'est le defaut meme que la
+   colonne pretend voir. Mesure : `skinadd` **x1,12 / x0,84** et `skinpen` brut **x1,44 / x1,06**,
+   contre le **x3,00** que la gate POSCONTROL exige. Sur `chestR`, la branche ARMEE rend MOINS que
+   la desarmee. La condition etait gravee avant la course (C60E1, Q1) : l'instrument est declare
+   **NON PROBANT**, il ne porte aucun verdict, et **je ne demande pas le rebranchement de la gate**.
+
+2. **Il depasse sa propre borne.** `skinadd` est une difference de la MEME fonction en deux points :
+   si `phys-surf-sd` etait une vraie distance signee, elle serait 1-lipschitzienne et
+   `skinadd <= |A - S|` serait une **identite**. Mesure : `skinadd` = **1052,0 / 938,9 u** la ou la
+   plus grande deviation de joint jamais mesuree au dossier vaut **301 u** (`|tp|` = 0,5008 B0) et
+   la deviation a 60 deg d'inclinaison vaut 153,7 / 185,4 u (`PHYSTILT dev`). Cause nommee :
+   `phys-surf-sd` est une SDF de **nuage de points** avec un filtre de phase large
+   (`|p - os| < bsr + 512`), donc **elle n'est pas lipschitzienne au franchissement d'un ensemble
+   d'os** : deux points distants de 0,2 m peuvent etre notes contre des ensembles differents.
+
+**CE QUE CA CHANGE POUR §33 ET §34.** Rien de leur statut — elles restent **NON TENUE** et
+**PARTIELLE** sur la meme penetration, declaree a chaque cycle. Ce qui change est la LISTE DE
+TRAVAIL : la piste « rebrancher la gate sur la peau » etait la seule ouverte par les DIRECTIVES, et
+elle est fermee par mesure au lieu de rester ouverte un quatrieme cycle.
+
+**DEFAUT D'INSTRUMENT TROUVE ET CORRIGE EN CHEMIN — LE CLIQUET DE `*phys-skinpen*`.** Il n'etait
+remis a zero **qu'une fois** (phys-room.gc:2456) : les huit tags emis apres `run` publiaient tous le
+meme maximum courant — **644,2134 et 638,9550 a l'identique** sur self-disarmed, self-armed,
+side-disarmed, side-armed, cone-disarmed, cone-armed, prox-disarmed, prox-armed. Huit fenetres, deux
+nombres. Corrige (remise a zero par tag) : les huit rendent desormais des valeurs distinctes.
+**PORTEE HONNETE : aucun verdict ne lisait ces huit tags** (`sp_run` ne lit que `run`), donc corriger
+ne change AUCUNE conclusion existante. C'etait un instrument faux qui publiait dans le vide, pas un
+faux vert — et je ne le presente pas autrement.
+
+**CE QUE LA GATE QUI ECHOUE TOUJOURS CACHAIT, TROISIEME OCCURRENCE — ET CETTE FOIS C'EST UNE BONNE
+NOUVELLE.** `ROOM-POSCONTROL` sort par `die`, donc IDLE, ANIM et DISCRIMINANT n'ont jamais ete
+evaluees. Evaluees a la main sur la trace livree : **IDLE maxdev 0,0002** (plafond 1,0),
+**ANIM 2 chaines pilotees / 2 respectees, perchain=yes**, **DISCRIMINANT 41 % / 43 % d'ecart**
+(plancher 25 %). Les trois passent. **Les seules gates rouges du validateur sont les deux verdicts
+de COLLIDE et OPEN-DEFECTS.**
+
 ## Cycle 56 — LE MONTAGE APPARIÉ N'A PAS DE CONTRASTE. §18 RESTE NON LISIBLE. §12 SURVIT.
 
 Une phase neuve (`PHYSROOM-PH-SYM`, 33) joue les mêmes stimuli dans **deux poses épinglées par

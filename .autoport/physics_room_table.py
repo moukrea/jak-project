@@ -1683,6 +1683,11 @@ def main():
         # confond jamais avec « mesure a zero », et aucune ligne ne se publie sur un None.
         skinadd.setdefault(m.group(1), {})[int(m.group(2))] = (
             (float(m.group(4)) / UNITS) if m.group(4) is not None else None)
+    # [NOTE-154] la LIGNE DE BASE au repos, et le compte de lectures anatomiquement impossibles.
+    skinrest, skinout = {}, {}
+    for m in re.finditer(r'^PHYSSKIN2 tag=(\S+) c=(\d+) skinrest=([-\d.e+]+) skinout=(\d+)', txt, re.M):
+        skinrest.setdefault(m.group(1), {})[int(m.group(2))] = float(m.group(3)) / UNITS
+        skinout[m.group(1)] = int(m.group(4))
     for m in re.finditer(r'^PHYSSHELL tag=(\S+) corrections=([-\d.e+]+)'
                          r'(?: inward=([-\d.e+]+))?', txt, re.M):
         shellfire[m.group(1)] = (
@@ -1715,7 +1720,8 @@ def main():
     RESEAT_FB = (float(_rs.group(1)), float(_rs.group(2))) if _rs else None
 
     # ---- le controle positif -------------------------------------------------------------------
-    pc = re.search(r'^PHYSPC injections=(\d+) armed=([-\d.e+]+) disarmed=([-\d.e+]+)', txt, re.M)
+    pc = re.search(r'^PHYSPC injections=(\d+) armed=([-\d.e+]+) disarmed=([-\d.e+]+)'
+                   r'(?: inject=([-\d.e+]+))?', txt, re.M)
     if not pc:
         die('aucune ligne PHYSPC : le controle positif n\'a pas tourne')
     inj = int(pc.group(1))
@@ -1726,6 +1732,11 @@ def main():
     # pas ». Les deux valeurs signees brutes sont ecrites juste en dessous, rien n'est cache.
     armed = max(0.0, armed_raw)
     disarmed = max(0.0, disarmed_raw)
+    # MEME UNITE que `armed`/`disarmed` ci-dessus (des METRES) : le critere de l'arbitrage du
+    # 2026-08-20 13:20 compare `armed - disarmed` A CE NOMBRE, donc les trois doivent etre
+    # homogenes. La valeur brute en unites de jeu est ecrite en clair sur la ligne publiee.
+    inject_u = float(pc.group(4)) if pc.group(4) is not None else None
+    inject_m = (inject_u / UNITS) if inject_u is not None else None
 
     # ---- l'intention d'animation ---------------------------------------------------------------
     auth = {}
@@ -2251,6 +2262,23 @@ def main():
     A('   `reseated` = liens dont la pose du modele etait hors de portee de leur porteur et que le')
     A('   moteur a replaces sur lui (une chaine se REPARE, elle ne se retire pas).')
     A('ROOM-POSCONTROL: injections=%d armed=%s disarmed=%s' % (inj, fnum(armed), fnum(disarmed)))
+    # [NOTE-155] LE CRITERE PREDICTIF DE L'ARBITRAGE DU 2026-08-20 13:20 : « injecter X doit faire
+    # monter la mesure de X », tolerance 25 %, l'exces comme le defaut etant un echec. `armed` et
+    # `disarmed` ci-dessus sont en METRES ; ce nombre l'est donc AUSSI, sinon la comparaison serait
+    # entre deux unites. La valeur brute en unites de jeu est ecrite en clair a cote.
+    if inject_m is not None:
+        got = armed - disarmed
+        A('ROOM-POSCONTROL-INJECT: %.6f   (= %.1f u ; MEME UNITE que armed/disarmed, des METRES)'
+          % (inject_m, inject_u))
+        A('   restitution : %s m mesures pour %s m injectes = %.1f %%  (bande exigee 75-125 %%)'
+          % (fnum(got), fnum(inject_m), 100.0 * got / inject_m if inject_m else 0.0))
+        A('   NATURE : une difference de deux PROFONDEURS residuelles prises sur LA MEME frame, la')
+        A('   position etant restauree au bit entre les deux. Ce n\'est plus un rapport a une ligne')
+        A('   de base qui bouge : c\'est une prediction quantitative, et elle echoue dans les DEUX')
+        A('   sens. LECTURE HORS DEFAUT : 100 %%.')
+    else:
+        A('ROOM-POSCONTROL-INJECT: ABSENT — trace anterieure au cycle 60, critere predictif')
+        A('   indisponible ; le validateur retombe alors sur l\'ancien ratio.')
     A('   le defaut injecte pousse chaque lien libre de 400 u (~10 cm) vers l\'interieur du corps')
     A('   APRES resolution ; le compteur de penetration doit MONTER. %d poussees reelles.' % inj)
     A('   residus SIGNES bruts des deux branches (negatif = marge restante avant de traverser) :')
@@ -4449,11 +4477,47 @@ def main():
         # doit pas etre arrondie en « 0.0000 ».
         # Et une chaine SANS ligne PHYSROW n'a pas de penetration mesuree : elle ecrit
         # `NON-MESURE`, en mots, jamais un zero qu'on ne pourrait pas distinguer d'une mesure.
+        # ============================================================================================
+        # FORMAT : `ROOM-SKINPEN: <chaine> <metres>`, et la ligne riche part sous
+        # `ROOM-SKINPEN-DETAIL:`. C'est la forme que l'arbitrage du 2026-08-20 13:20 lit, et la
+        # separer evite qu'une colonne ajoutee plus tard decale ce que la gate croit lire.
+        #
+        # ET LA LIGNE DE BASE VA AVEC, PARCE QUE SANS ELLE CE CHIFFRE NE VEUT RIEN DIRE : l'os de
+        # poitrine est INTERIEUR par construction du rig. `ROOM-SKINPEN-REST` porte le MINIMUM des
+        # deux chaines — le validateur applique la premiere valeur trouvee aux DEUX, donc publier le
+        # minimum est la lecture STRICTE ; le detail par chaine suit juste en dessous.
+        _rest = skinrest.get('run', {})
+        _out = skinout.get('run', 0)
         for v, c in sorted(((v, c) for c, (v, _t) in sp_run.items()), reverse=True):
             _mp = (worst.get(c) or {}).get('pen')
-            A('ROOM-SKINPEN: chain=%-12s skinpen=%.4f m   meshpen=%s'
+            A('ROOM-SKINPEN: %s %.4f' % (names[c] if c < len(names) else c, v))
+            A('ROOM-SKINPEN-DETAIL: chain=%-12s skinpen=%.4f m   meshpen=%s   repos=%s m'
               % (names[c] if c < len(names) else c, v,
-                 ('%s m' % fnum(_mp['v'])) if _mp else 'NON-MESURE'))
+                 ('%s m' % fnum(_mp['v'])) if _mp else 'NON-MESURE',
+                 ('%.4f' % _rest[c]) if c in _rest else 'NON MESURE'))
+        if _rest:
+            if _out > 0:
+                # ON NE PUBLIE PAS `ROOM-SKINPEN-REST:` DANS CE CAS, ET C'EST DELIBERE. Le
+                # validateur lirait ce nombre et pourrait VERDIR dessus. Un plancher tire d'une SDF
+                # qui se trompe de cote n'est pas un plancher : la gate doit rester NON ETABLI,
+                # exactement comme l'arbitrage le prescrit (« NON ETABLI FAIT ECHOUER »). La valeur
+                # est publiee sous un autre nom pour etre lisible sans etre lue par la gate.
+                A('ROOM-SKINPEN-REST-NON-ETABLIE: %.4f' % min(_rest.values()))
+                A('   %d lecture(s) placent le point d\'AUTEUR **DEHORS**, ce qui est'
+                  ' anatomiquement' % _out)
+                A('   impossible : l\'os de poitrine est interieur par construction du rig. La SDF')
+                A('   de `phys-surf-sd` est un NUAGE DE POINTS filtre par une phase large')
+                A('   (`|p - os| < bsr + 512`) : elle n\'est pas lipschitzienne au franchissement')
+                A('   d\'un ensemble d\'os. Ce plancher est publie MAIS PAS sous le nom que la')
+                A('   gate lit : elle restera NON ETABLI, ce qui la fait ECHOUER, et c\'est la')
+                A('   lecture correcte. Je ne fais pas verdir une gate sur un instrument faux.')
+            else:
+                A('ROOM-SKINPEN-REST: MIN-DES-DEUX %.4f' % min(_rest.values()))
+                A('   0 lecture du point d\'AUTEUR hors de la peau sur %d echantillons : la SDF ne'
+                  % _tot)
+                A('   s\'est trompee de cote sur aucune frame, donc ce plancher est lisible.')
+            for c in sorted(_rest):
+                A('ROOM-SKINPEN-REST-DETAIL: %s %.4f' % (names[c] if c < len(names) else c, _rest[c]))
         A('ROOM-SKINPEN-TESTS: %d echantillons de surface compares sur la fenetre' % _tot)
         # ============================================================================================
         # [NOTE-150] ROOM-SKINADD — LA PROFONDEUR **AJOUTEE** SOUS LA PEAU PAR LA PHYSIQUE.
