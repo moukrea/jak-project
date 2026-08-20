@@ -2514,6 +2514,8 @@ ROOM-ORICOM-MASS: chestL       CONTROLE pointe : sum ldb (PHYSORICOML, cumul) co
 ROOM-ORICOM-MASS: chestL       §10 supine  i=8  |d_COM|=0.1662/0.1831/0.2020 B0  (apex 0.2291, facteur 0.725)
                               CELLULE SUSPENDUE : les deux accumulateurs de la pointe different de 29.53 % EN VECTEUR (13.35 % en norme seule) — le montage
                               est en cause, pas la physique. Le chiffre ci-dessus est publie comme diagnostic et NE PORTE AUCUN VERDICT.
+                              ATTRIBUTION PAR ABLATION : k0 reference 29.53 % · k2 cote leve 29.53 % · k3 rayon interpole 35.53 % · k4 MUR DE COLLISION desarme 0.22 % · k5 borne §22 radiale levee 29.53 %
+                              -> k4 MUR DE COLLISION desarme RAMENE l'ecart a 0.22 % (99 % de l'ecart retire) : mecanisme DESIGNE, mesure et non suppose.
 ROOM-ORICOM-MASS: chestL       §11 prone   i=6  |d_COM|=0.1158/0.1275/0.1405 B0  (apex 0.2377, facteur 0.487)
                               squelettique seul SOUS — borne INFERIEURE, la part tensorielle manque  ·  cible 0.24 (bande 0.20-0.30)  ·  rr(joint, pour memoire, NON compose) 0.3219  ·  controle de pointe 0.06 %
 ROOM-ORICOM-MASS: chestL       §12 lateral i=2  |d_COM|=0.1274/0.1403/0.1546 B0  (apex 0.2587, facteur 0.492)
@@ -2535,6 +2537,8 @@ ROOM-ORICOM-MASS: chestR       §11 prone   i=6  |d_COM|=0.1312/0.1468/0.1681 B0
 ROOM-ORICOM-MASS: chestR       §12 lateral i=2  |d_COM|=0.1588/0.1778/0.2049 B0  (apex 0.2719, facteur 0.584)
                               CELLULE SUSPENDUE : les deux accumulateurs de la pointe different de 25.83 % EN VECTEUR (0.57 % en norme seule) — le montage
                               est en cause, pas la physique. Le chiffre ci-dessus est publie comme diagnostic et NE PORTE AUCUN VERDICT.
+                              ATTRIBUTION PAR ABLATION : k0 reference 25.83 % · k2 cote leve 25.83 % · k3 rayon interpole 5.00 % · k4 MUR DE COLLISION desarme 11.92 % · k5 borne §22 radiale levee 25.83 %
+                              -> la meilleure passe (k3 rayon interpole) laisse 5.00 % et n'en retire que 81 % : mecanisme DOMINANT, pas unique.
 ROOM-ORICOM-MASS: chestR       §12 lateral i=4  |d_COM|=0.0520/0.0582/0.0665 B0  (apex 0.1212, facteur 0.429)
                               squelettique seul SOUS — borne INFERIEURE, la part tensorielle manque  ·  cible 0.19 (bande 0.15-0.24)  ·  rr(joint, pour memoire, NON compose) 0.3479  ·  controle de pointe 0.26 %
    (frontieres w>0 / w>=0.05 / w>=0.25 — les trois colonnes de |d_COM| ci-dessus ; N=90, part de l'organe portee par la chaine 0.5452, le reste est ancre au buste)

@@ -794,6 +794,57 @@ def _oricom_block(A, txt, names, ori):
 _COM_MASS_JSON = 'reports/Grecharged-secondary-motion/breast-com-mass.json'
 
 
+_ABL_LBL = {0: 'k0 reference', 1: 'k1 longueur levee', 2: 'k2 cote leve',
+            3: 'k3 rayon interpole', 4: 'k4 MUR DE COLLISION desarme',
+            5: 'k5 borne §22 radiale levee'}
+
+
+def _tipctl_ablation(txt, c, i):
+    """L'ECART DE POINTE RECALCULE SUR LES SIX PASSES D'ABLATION, pour ATTRIBUER le desaccord.
+
+    Meme algebre que le controle principal, sur les canaux de controle : `PHYSORICTL` (l'apex,
+    par passe) et `PHYSCTLML` (les maillons, par passe). `kl` y encode la paire (passe, maillon)
+    sous la forme `10*k + l` — decode ici et nulle part ailleurs.
+
+    LECTURE HORS DEFAUT : sur une cellule saine les six passes rendent le meme petit nombre. Une
+    passe qui fait TOMBER l'ecart designe le mecanisme qu'elle desarme ; `k1` (contrainte de
+    longueur levee) est ATTENDUE grande partout — elle change la trajectoire, pas l'instrument —
+    et c'est pourquoi la designation ne la retient jamais comme candidate.
+    """
+    T, L = {}, {}
+    for m in re.finditer(r'^PHYSORICTL c=(\d+) k=(\d+) i=(\d+) tx=([-\d.e+]+)'
+                         r' ty=([-\d.e+]+) tz=([-\d.e+]+)', txt, re.M):
+        T[(int(m.group(1)), int(m.group(2)), int(m.group(3)))] = (
+            float(m.group(4)), float(m.group(5)), float(m.group(6)))
+    for m in re.finditer(r'^PHYSCTLML c=(\d+) kl=(\d+) i=(\d+) dv=([-\d.e+]+)'
+                         r' dap=([-\d.e+]+) dlat=([-\d.e+]+)', txt, re.M):
+        kl = int(m.group(2))
+        L[(int(m.group(1)), kl // 10, int(m.group(3)), kl % 10)] = (
+            float(m.group(4)), float(m.group(5)), float(m.group(6)))
+    out = []
+    for k in sorted(_ABL_LBL):
+        l0, l1, t = L.get((c, k, i, 0)), L.get((c, k, i, 1)), T.get((c, k, i))
+        if l0 is None or l1 is None or t is None:
+            continue
+        s = [l0[j] + l1[j] for j in range(3)]
+        tr = (t[1], t[2], t[0])          # triedre §7 -> base de l'ANCRE, comme le controle
+        na = math.sqrt(sum(x * x for x in s))
+        nt = math.sqrt(sum(x * x for x in tr))
+        if max(na, nt) <= 1e-6:
+            continue
+        d = math.sqrt(sum((s[j] - tr[j]) ** 2 for j in range(3)))
+        out.append((_ABL_LBL[k], d / max(na, nt) * 100.0))
+    # `k1` est ecartee des CANDIDATES (jamais de l'affichage : elle reste dans `out`, et
+    # l'appelant ne cherche le minimum que sur `out[1:]`, d'ou son retrait ici).
+    # Lever la contrainte de longueur deplace la chaine entiere : un grand ecart y est attendu
+    # et ne designe rien. `out[0]` est la reference k0 et reste en tete.
+    if not out:
+        return []
+    ref = out[0]
+    cand = [o for o in out[1:] if not o[0].startswith('k1')]
+    return [ref] + cand
+
+
 def _oricom_mass_block(A, txt, names, com, com2, role, axis, b0):
     """SES TROIS CIBLES D'ORIENTATION SONT DES COM ; L'INSTRUMENT PUBLIAIT UN APEX.
 
@@ -1051,6 +1102,30 @@ def _oricom_mass_block(A, txt, names, com, com2, role, axis, b0):
                   % (_cr[0] * 100.0, _cr[1] * 100.0))
                 A('                              est en cause, pas la physique. Le chiffre'
                   ' ci-dessus est publie comme diagnostic et NE PORTE AUCUN VERDICT.')
+                # ATTRIBUTION PAR ABLATION, pas par raisonnement : le meme ecart recalcule sur
+                # les six passes du balayage de controle. La passe qui le fait TOMBER designe le
+                # mecanisme ; si aucune ne le fait, elles sont toutes exonerees et c'est un
+                # resultat, pas un echec.
+                _ab = _tipctl_ablation(txt, c, i)
+                if _ab:
+                    A('                              ATTRIBUTION PAR ABLATION : %s'
+                      % ' · '.join('%s %.2f %%' % (lbl, v) for lbl, v in _ab))
+                    _best = min(_ab[1:], key=lambda x: x[1]) if len(_ab) > 1 else None
+                    # DEUX CONDITIONS POUR DESIGNER, ET ELLES SONT DECLAREES : la passe doit
+                    # (a) ramener la cellule SOUS le seuil de suspension (5 %, le meme qu'ailleurs)
+                    # et (b) retirer au moins 90 % de l'ecart. La seconde evite de designer un
+                    # mecanisme sur un fil du rasoir : `chestR i=2` tombe a 5.00 %, pile sur le
+                    # seuil, en n'en retirant que 81 % — c'est un DOMINANT, pas une explication.
+                    _cut = _ab[0][1]
+                    _rm = (1.0 - _best[1] / _cut) if (_best and _cut > 1e-9) else 0.0
+                    if _best is not None and _best[1] < 5.0 and _rm >= 0.90:
+                        A('                              -> %s RAMENE l\'ecart a %.2f %% (%.0f %%'
+                          ' de l\'ecart retire) : mecanisme DESIGNE, mesure et non suppose.'
+                          % (_best[0], _best[1], _rm * 100.0))
+                    elif _best is not None:
+                        A('                              -> la meilleure passe (%s) laisse %.2f %%'
+                          ' et n\'en retire que %.0f %% : mecanisme DOMINANT, pas unique.'
+                          % (_best[0], _best[1], _rm * 100.0))
                 continue
             A('                              squelettique seul %s  ·  cible %.2f (bande %.2f-%.2f)'
               '  ·  rr(joint, pour memoire, NON compose) %.4f  ·  controle de pointe %.2f %%'

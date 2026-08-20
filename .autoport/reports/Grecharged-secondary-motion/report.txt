@@ -1,4 +1,4 @@
-RAPPORT DE CYCLE 64 + 64b — Grecharged-secondary-motion
+RAPPORT DE CYCLE 64 + 64b + 64c — Grecharged-secondary-motion
 DIRECTIVES v3fee554599
 Branche physics-keira-clean · perimetre : chestL / chestR SEULES (owner 2026-08-14 07:30)
 
@@ -417,4 +417,63 @@ ET LE CANAL DE MIGRATION SORTANTE N'EST TOUJOURS PAS CONSTRUIT — pour la meme 
 elle est renforcee : le montage a maintenant DEUX cellules fautives connues au lieu d'une, et leur
 cause n'est pas comprise. On ne bati pas un verdict neuf sur un montage dont on vient de decouvrir
 qu'il mentait aussi la ou il disait « accord ».
+
+================================================================================================
+12. CYCLE 64c — LA CAUSE EST ETABLIE PAR ABLATION : C'EST LA COLLISION
+================================================================================================
+Le 64b laissait la cause « NON ETABLIE, deux suspects elimines ». Elle est etablie, et par le
+moyen que ce dossier prefere a tout raisonnement : DESARMER un mecanisme et regarder le chiffre.
+
+La salle rejoue deja le balayage d'orientation SIX FOIS, chaque fois avec un mecanisme desarme.
+L'ecart de pointe recalcule sur chacune de ces passes :
+
+  cellule            k0 ref   k2 cote   k3 rayon   k4 COLLISION   k5 borne radiale §22
+  chestL i=8 supine  29,53 %  29,53 %   35,53 %    ****0,22 %****  29,53 %
+  chestR i=2 lateral 25,83 %  25,83 %    5,00 %      11,92 %       25,83 %
+  chestL i=6 prone    0,06 %   0,07 %    0,07 %       0,11 %        0,07 %   (cellule SAINE)
+
+DESARMER LE MUR DE COLLISION RETIRE 99 % DE L'ECART SUR chestL i=8. Et la designation est PROPRE :
+`k2` (contrainte de cote) et `k5` (borne §22 du canal radial) laissent le chiffre IDENTIQUE AU
+CENTIEME (29,53 %), donc elles sont exonerees, ce n'est pas « une passe parmi d'autres qui bouge ».
+Sur `chestR i=2` les deux sondes de collision reduisent aussi — `k3` retire 81 %, `k4` 54 % — sans
+supprimer : le tableau ecrit donc **DOMINANT, pas unique**, et pas « designe ».
+
+CRITERE DE DESIGNATION, DECLARE PLUTOT QUE CACHE : il faut (a) repasser SOUS le seuil de suspension
+de 5 % — le meme qu'ailleurs, aucun seuil neuf — ET (b) retirer au moins 90 % de l'ecart. Sans (b),
+`chestR i=2` aurait ete « designe » en tombant a 5,00 %, PILE sur le seuil, en n'en retirant que
+81 % : un fil du rasoir presente comme une explication.
+
+ET C'EST COHERENT AVEC L'ANATOMIE, ce qui est le meilleur controle qu'on puisse avoir : les deux
+cellules fautives sont les poses de CONTACT (supine = pressee sur le dos ; pole lateral = un sein
+comprime contre le thorax) et les cellules saines sont celles ou le sein PEND LIBRE (prone). Un
+desaccord d'instrument qui n'apparait que la ou la collision agit, et qui disparait quand on la
+desarme, n'a pas besoin d'un autre argument.
+
+MECANISME, ET IL EST DEJA AU DOSSIER : le cycle 63b a etabli que la collision n'agit pas sur le
+joint `p` mais sur `q = p + R(u).offset`. Son effet sur l'APEX et son effet sur la CHAINE DE JOINTS
+ne s'attribuent donc pas de la meme facon, et l'identite `t = l0 + l1` — vraie a 1,1 % partout
+ailleurs — n'a aucune raison de tenir la ou elle mord. MEME FAMILLE que le defaut du 63b, trouvee
+a l'autre bout de l'instrument.
+
+ET JE CORRIGE UN ARGUMENT QUE J'AI PUBLIE IL Y A UNE HEURE. En section 11 j'ai ecarte le suspect
+« fenetre non stabilisee » sur `PHYSORITR`. Or `PHYSORITR` ne mesure que le transitoire RADIAL :
+une oscillation tangentielle ne s'y verrait pas, donc mon argument etait INCOMPLET et je l'ai
+presente comme concluant. Ce qui refute vraiment ce suspect est ailleurs, et c'est plus fort :
+l'ecart se reproduit **AU CENTIEME sur trois passes independantes** (k0/k2/k5 : 29,53 / 29,53 /
+29,53). Un transitoire ne se reproduit pas a quatre decimales. La conclusion tient, la preuve que
+j'en avais donnee ne suffisait pas.
+
+L'ATTRIBUTION EST DANS LE TABLEAU, PAS SEULEMENT ICI. C'est la lecon meme de ce cycle : un fait qui
+ne vit que dans un rapport se perd. Le tableau recalcule ces six colonnes a chaque course et ecrit
+lui-meme quel mecanisme est designe — sur une cellule saine il n'en designe aucun, et c'est le bon
+comportement, pas un trou.
+
+NON-REGRESSION DU 64c : 4 lignes changent, 4 sur 4 dans le bloc d'attribution. Aucun fichier de
+`goal_src/`, aucune donnee livree, aucune course de salle : meme trace, meme md5.
+
+CE QUE CA OUVRE, ET QUI N'EST PAS FAIT ICI : si la collision deplace l'apex sans que la chaine de
+joints l'enregistre de la meme facon, alors `d_COM` — bati sur les joints — MANQUE cette part sur
+les poses de contact, en plus de la part tensorielle deja declaree. Les deux cellules suspendues ne
+sont donc pas seulement « non lisibles » : elles sont non lisibles DANS LE SENS QUI SOUS-ESTIME.
+C'est a mesurer avant de construire le canal de migration sortante, pas apres.
 
