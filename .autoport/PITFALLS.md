@@ -576,15 +576,3 @@ etaient EXACTEMENT celles ou `tipvar < 0,02 m`, pour une course allant a 0,176 m
 passait donc qu'en muselant la chaine, c'est-a-dire en produisant la plainte n°1 de l'owner.
 Verrou : confronter tout plafond a ce que la spec AUTORISE dans la meme unite avant de le publier,
 et verifier quelle population le tient — si c'est la population immobile, la gate est fausse.
-
-GUARD verified-build-overwritten-by-the-stream .autoport/certify_owner_build.sh
-**J'ai envoye l'owner tester un build qui n'existait deja plus.** Le 2026-08-20 a 18:50 je lui ai
-donne le build de 18:48, verifie ligne a ligne. A 21:00 il demande « j'ai quoi a tester
-concretement ? » : `app-jak1-HD-recharged.apk` porte un nom UNIQUE, et les publications suivantes —
-dont un point de sauvegarde pris au MILIEU d'une edition — l'avaient ecrase localement ET sur la
-release. Le flux continu, qui existe pour qu'il ait toujours quelque chose, avait detruit la seule
-chose qu'il devait tester.
-Verrou : un build certifie est copie sous `app-jak1-HD-OWNER-TEST.apk` par
-`certify_owner_build.sh`, un nom que le demon ne touche jamais, avec son md5 et la raison de la
-certification. Regle generale : ce qu'on demande a quelqu'un d'examiner ne doit pas vivre sous un
-nom que le pipeline reecrit.
