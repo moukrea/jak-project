@@ -476,8 +476,8 @@
 ;; la reponse attendue est une PREDICTION (`approche - injection`), pas un ratio a une ligne de
 ;; base qui bouge — arbitrage du 2026-08-20 13:20.
 (define *phys-sdq* (new 'global 'vector))
-;; [NOTE-321] l'injection du controle positif de SPEC 33 -> jak-hd-physics-NOTES.md
-(define *phys-med-inj* 200.0)
+;; [NOTE-321] SPEC 33, controle positif : une FRACTION SANS DIMENSION (0 < f < 1), plus une longueu -> jak-hd-physics-NOTES.md
+(define *phys-med-inj* 0.5)
 ;; PAR CHAINE : l'espacement MOYEN entre echantillons voisins de sa surface, mesure sur la donnee
 ;; livree et jamais choisi a la main. Il donne le RAYON DE SUPPORT du nuage : au-dela, la surface
 ;; n'est tout simplement pas echantillonnee et une distance signee n'y a pas de sens.
@@ -2045,9 +2045,9 @@
   (none))
 
 (defun phys-med-inject-set! ((v float))
-  "L'INJECTION DU CONTROLE POSITIF DE SPEC 33, en unites de jeu. Le point sonde est deplace
-   EXACTEMENT vers le plus proche echantillon de la surface opposee, donc la reponse attendue est
-   `approche - v` : une PREDICTION quantitative, pas un ratio."
+  "L'INJECTION DU CONTROLE POSITIF DE SPEC 33, en FRACTION SANS DIMENSION de l'approche (0 < v < 1).
+   Reponse attendue `gapi = (1 - v) x gap` : une PREDICTION quantitative, evaluable sur TOUTE
+   fenetre. Voir [NOTE-321]."
   (set! *phys-med-inj* v)
   (none))
 
@@ -2365,15 +2365,16 @@
                               (+! (-> *phys-medfar* sc) 1.0)
                               (when (and (< md 0.0) (> (- 0.0 md) (-> *phys-medpen* sc)))
                                 (set! (-> *phys-medpen* sc) (- 0.0 md)))))
-                          ;; CONTROLE POSITIF APPAIRE : le MEME point, deplace de `inj` vers le
-                          ;; MEME echantillon, dans la MEME frame. Prediction exacte tant que
-                          ;; `inj < d1` : l'approche doit tomber a `d1 - inj`.
-                          (when (and (> *phys-med-inj* 0.0) (< d1 900000.0))
+                          ;; [NOTE-321] CONTROLE POSITIF APPAIRE : le MEME point, dans la MEME fram -> jak-hd-physics-NOTES.md
+                          ;; `f < 1` => le point injecte ne traverse JAMAIS la surface, donc la
+                          ;; prediction `d1 -> (1 - f) x d1` est bien posee sur TOUTE fenetre.
+                          (when (and (> *phys-med-inj* 0.0) (< *phys-med-inj* 1.0)
+                                     (< d1 900000.0))
                             (vector-! ai *phys-sdq* ap)
                             (set! (-> ai w) 0.0)
                             (let ((il (vector-length ai)))
                               (when (> il 0.0001)
-                                (vector-float*! ai ai (/ *phys-med-inj* il))
+                                (vector-float*! ai ai *phys-med-inj*)
                                 (set-vector! ap (+ sx (-> ai x)) (+ sy (-> ai y))
                                                 (+ sz (-> ai z)) 1.0)
                                 (phys-surf-sd skel (/ sc PHYS-CHAINS) ap nbone)

@@ -6664,3 +6664,478 @@ La gate lit le PIRE des deux planchers et passe donc ; le registre de couverture
 PARTIELLE ». L'ecart de chestL (0.0079 m) est sous le plancher d'erreur miroir de l'instrument
 (0.0176 m), ce qui n'en fait pas un zero — seulement une grandeur que cet instrument ne separe pas
 de son propre bruit gauche/droite.
+
+## NOTE-291  (moteur, dans `phys-skin-chain`, aux alentours de la ligne 1946)
+
+```
+[NOTE-242] LE PLAFOND DE DEPLACEMENT, ET C'EST LUI QUI EMPECHE
+L'EMBALLEMENT. Sans lui la correction n'a aucun terme qui la
+rattache a la pose d'auteur : une poussee deplace le joint, ce
+deplacement change la lecture, qui redemande une poussee — mesure
+sans lui, `PHYSIDLE c=0 dev=374 amp=544` DANS LA FENETRE DE REPOS.
+La physique ne peut se voir demander que de defaire SA PROPRE part
+RENTRANTE : `-dot(dj, n)`, ou `dj` est l'ecart du joint a sa pose
+d'auteur. A la pose d'auteur `dj` = 0, donc le plafond est 0 et la
+contrainte est INERTE — ce n'est pas un reglage, c'est l'algebre.
+Et il est auto-limitant : pousser vers l'exterieur rend `dot(dj,n)`
+positif, donc le plafond retombe a zero de lui-meme.
+`dj` EST PRIS A L'ENTREE DE LA FRAME (`ox/oy/oz`), PAS APRES LES
+PASSES DEJA APPLIQUEES. Mesure : avec le `dj` courant, chaque
+poussee rend `dot(dj,n)` moins negatif, donc le plafond se referme
+sur la contrainte avant qu'elle ait fini de defaire sa propre part
+rentrante — chestL restait a +41.7 u au-dessus de son propre
+plancher. Le deplacement RENTRANT de la frame est une quantite de
+la frame : il se lit une fois, a l'entree.
+```
+
+## NOTE-296  (docstring de `phys-shape`, deplacee le 2026-08-20 pour tenir le plafond CLEAN ; aucune ligne de CODE touchee)
+
+```
+SPEC 8/10-13/29/36 — L'ETAT DE FORME ET DE TORSION, LU SUR LE MECANISME ARME.
+   NATURE : `which` 0/1/2 = les trois ECHELLES appliquees (lateral, vertical, projection), sans
+   dimension, rapport a la forme d'auteur ; 3 = leur determinant (le volume de sa §8) ; 4 = la
+   modulation courante du mode secondaire de §36 (fraction d'epaisseur) ; 5 = son maximum sur la
+   FENETRE ; 6 = la torsion RELATIVE ecrite dans la 3x3 (radians) ; 7 = son maximum sur la fenetre ;
+   8 = 1.0 si le canal est ARME sur cette chaine, 0.0 sinon ; 9/10/11 = la direction de la GRAVITE
+   vue par le solveur dans ce meme triedre (l'ENTREE de §10-13, unitaire, (0,-1,0) debout) ;
+   12 = le maximum de fenetre du mode secondaire AVANT le plafond de §38 (c'est lui qui dit si le
+   `0.0700` publie est une saturation ou une valeur) ; 13 = le maximum de fenetre de l'etirement
+   dynamique de §22/38 ; 18 = le nombre de frames ou la saturation douce de la torsion a mordu ;
+   19 = l'aplatissement de PRESSION DE CONTACT de §23 (max de fenetre), 20 = le meme AVANT plafond ;
+   21 = `dl`, l'entree d'ETIREMENT, AVANT son `fmin` (max de fenetre) ; 22 = le NOMBRE de frames
+   ou elle a mordu son plafond ; 23 = le meme compte pour la PRESSION ; 24 = le nombre de frames
+   comptees, denominateur COMMUN aux deux — sans lui, 22 et 23 ne sont pas des parts.
+   REPERE : le triedre de sa SPEC 7 (+X lateral, +Y haut, +Z avant), releve a la pose debout
+   d'auteur. LECTURE HORS DEFAUT : 1.000 / 1.000 / 1.000 / 1.000 / 0 / 0 / 0 / 0 debout et immobile.
+   CE QUE CE N'EST PAS : la deformation VUE sur le mesh. Un sommet partage avec le buste ne recoit
+   qu'une part de cette echelle (champ de poids gradue en r^1.63, §31) ; ce nombre est ce que le
+   solveur COMMANDE a la racine, et le rapport doit le dire a chaque fois qu'il le cite.
+```
+
+## NOTE-297  (docstring de `phys-chain-radial`, deplacee le 2026-08-20 pour tenir le plafond CLEAN ; aucune ligne de CODE touchee)
+
+```
+SPEC 23 — LE TROISIEME DEGRE DE LIBERTE, LU A L'EXECUTION. Voir la note de `*phys-rr*`.
+   which 0 = elongation radiale du MAILLON RACINE en unites de jeu (signee) — le distal se lit par
+             `phys-chain-radial-link` ;
+         1 = la meme, rapportee a B0 (SPEC 6) — c'est la grandeur que borne sa SPEC 22
+             (« local tissue elongation: common 5-15 %, large 15-21 %, exceptional 21-25 % ») ;
+         2 = son maximum absolu sur la fenetre, SUR TOUS LES MAILLONS ARMES (cycle 32) ;
+         3 = LE MEME MAXIMUM, MAIS AVANT LA BORNE §22 — sans lui, un canal colle a sa borne est
+             indiscernable d'un canal qui l'effleure, et c'est exactement la confusion qui a laisse
+             passer un plafond de deformation atteint sur les dix fenetres ;
+         4 = le nombre de frames ou la borne §22 a mordu (compteur global, rendu en float).
+   NATURE : une DEFORMATION signee (sans unite pour 1 et 2), pas une amplitude agregee : c'est une
+   serie temporelle, et c'est ce qui permet d'en ajuster la frequence propre.
+   REPERE : l'axe de l'OS, dans le triedre de l'ANCRE (SPEC 7) — le degre de liberte que la
+   projection de longueur confisquait, a 84.5 % l'axe VERTICAL de sa SPEC 24.
+   LIGNE DE BASE : 0.0 exactement a la pose debout d'auteur (SPEC 9) — un tissu au repos ne
+   s'allonge pas, donc un zero ici n'est pas un trou de mesure, c'est l'etat neutre.
+```
+
+## NOTE-298  (docstring de `phys-skin-chain`, deplacee le 2026-08-20 pour tenir le plafond CLEAN ; aucune ligne de CODE touchee)
+
+```
+SPEC 33/34 — LA PEAU N'ENTRE PAS DANS LE CORPS, ET C'EST LA DERNIERE CONTRAINTE DE POSITION DE
+   LA FRAME. Le solveur contraignait le JOINT contre des CAPSULES ; sa 33 et sa 34 parlent de
+   SURFACES. On lit donc, pour chaque sommet extremal de peau du maillon (les `ms`, EXACTEMENT la
+   donnee que l'instrument lit), la distance signee a la surface du CORPS avec la MEME fonction que
+   l'instrument : on contraint ce qu'on mesure, sinon la borne ne se transporte pas.
+   LA LECTURE D'AUTEUR EST UNE VRAIE REQUETE, PAS UNE LINEARISATION — c'est la correction du
+   premier essai de ce cycle, et elle est mesuree, pas supposee : `sa = sd - dot(dj, nrm)` suppose
+   que les deux points tombent dans la MEME cellule du nuage, ce qui est faux des qu'on change de
+   plus proche echantillon. L'instrument, lui, interroge les deux points. La borne
+   `skinpen <= skinrest` ne vaut donc que si la contrainte interroge les deux aussi.
+   ELLE EST GRATUITE PAR FRAME : le point d'auteur ne depend pas de la position simulee, donc il se
+   lit UNE FOIS et sert aux quatre passes.
+   LA CORRECTION EST `v = min(0, sa) - sd`, appliquee si elle est positive : jamais plus loin que la
+   surface, jamais au-dela de la profondeur que l'auteur avait deja. A la pose d'auteur les deux
+   lectures coincident, donc `v <= 0` : la contrainte est INERTE au repos, et SPEC 2/9 comme la gate
+   IDLE ne peuvent pas la voir bouger.
+   ELLE S'APPLIQUE PAR ROTATION AUTOUR DE L'ATTACHE, ET C'EST LA SECONDE CORRECTION DU CYCLE : une
+   poussee tangentielle suivie d'une reprojection de longueur laisse la reprojection defaire une
+   part de la correction et rend la borne inexacte. `b + |u| * normalize(u^ + k t^)` EST une
+   rotation : la longueur est invariante AU BIT, aucune reprojection n'est necessaire, donc plus
+   rien ne s'execute apres la contrainte et la borne tient a l'instant ou l'instrument mesure.
+   CE QU'ELLE NE PEUT PAS FAIRE, ET JE LE DECLARE AU LIEU DE LE TAIRE : si la normale est presque
+   RADIALE (`sp2 <= 0.05`), aucune rotation ne sort le sommet — il faudrait changer la longueur de
+   l'os, ce que sa 22 interdit. Ces cas-la sont laisses tels quels.
+   NATURE : une profondeur, unites de jeu. REPERE : le monde, frame courante. LECTURE HORS DEFAUT :
+   `*phys-skc-n*` = 0, aucune correction appliquee.
+```
+
+## NOTE-299  (docstring de `phys-surf-sd`, deplacee le 2026-08-20 pour tenir le plafond CLEAN ; aucune ligne de CODE touchee)
+
+```
+(SPEC 18) DISTANCE SIGNEE du point `p` a la VRAIE SURFACE SKINNEE. Positive = dehors.
+   NATURE : une distance, unites de jeu. REPERE : le monde, frame courante. LECTURE HORS DEFAUT :
+   positive. La sentinelle 1000000.0 = « aucun echantillon a portee », ce qui n'est PAS zero.
+
+   [NOTE-242] L'ESTIMATEUR A CHANGE PARCE QUE L'ANCIEN N'AVAIT PAS CONVERGE, ET C'EST MESURE.
+   Il signait la distance par la normale du SEUL plus proche echantillon. Deux faits l'ont tue :
+   `|sd| <= |p - q|` par Cauchy-Schwarz, donc une profondeur de 501 u EXIGE que le plus proche
+   echantillon soit a plus de 12 cm — un TROU du nuage, pas une penetration ; et en triplant
+   l'echantillonnage (1071 -> 2966) a solveur IDENTIQUE AU BIT, la lecture bougeait de 30 %. Un
+   estimateur qui bouge de 30 % quand on raffine son maillage mesure l'echantillonnage, pas la
+   surface — un point plus PROCHE dont la normale est plus OBLIQUE rendait une lecture plus
+   PROFONDE, et un seul mauvais echantillon decidait de tout.
+
+   CE QUI LE REMPLACE : la moyenne des distances aux plans des `PHYS-SD-K` plus proches
+   echantillons, ponderee par un noyau qui S'ANNULE au K-ieme. Deux proprietes, et ce sont elles
+   qu'on achete :
+     - CONTINUITE : l'echantillon qui entre ou sort du K-voisinage porte un poids NUL, donc la
+       valeur ne saute pas quand le voisinage change. C'est ce qui manquait — [NOTE-241] mesure une
+       chaine qui OSCILLE a 242 u au repos parce qu'une contrainte lisait un champ qui sautait ;
+     - ROBUSTESSE : un plan oblique isole est noye par ses sept voisins au lieu de decider seul.
+   Le rayon du noyau est la distance au K-ieme voisin, donc il S'ADAPTE a la densite locale : il n'y
+   a aucune longueur choisie a la main dans cette fonction.
+   `*phys-sdn*` rend la normale PONDEREE des memes K plans, renormalisee : la direction sort avec la
+   distance et de la MEME population, sinon la contrainte pousserait le long d'un plan qui n'est pas
+   celui qui a decide de la profondeur.
+```
+
+## NOTE-300  (docstring de `phys-collide-depth`, deplacee le 2026-08-20 pour tenir le plafond CLEAN ; aucune ligne de CODE touchee)
+
+```
+DISTANCE AU SOLIDE QUE LA LIGNE DE DONNEES DESIGNE — l'enveloppe convexe des deux spheres.
+
+   CE QUI ETAIT FAUX, ET C'EST MESURE (rapport du cycle 22, section 9, probe
+   `.autoport/probe_mesh_vs_capsule_fidelity.py` : `sd_round_cone` contre `sd_engine`) : le code
+   projetait le point sur le segment, bornait le parametre, PUIS interpolait le rayon a ce
+   parametre-la. C'est evaluer f(t) = |p - C(t)| - r(t) au parametre de PROJECTION au lieu de la
+   MINIMISER sur [0,1]. Pour une capsule a rayons egaux les deux coincident ; les 24 capsules
+   livrees sont TOUTES coniques (`physics_chains.txt` lignes 171-240), donc l'ecart existait sur
+   chacune : 186 sommets sur 7963 changeaient de cote, ecart max 0.0974 m — neuf centimetres sur
+   des pieces ou l'owner voit des clips, et plus que le rayon propre des lunettes (48 mm).
+
+   LE PARAMETRE EXACT. Avec x la coordonnee axiale de p, y sa distance a l'axe, L la longueur de
+   l'axe et dr = rb - ra, f est CONVEXE en t (racine d'un quadratique moins une affine), donc son
+   minimum sur [0,1] est son minimum libre borne. f'(t) = 0 donne
+       t* = ( x + dr*y / sqrt(L^2 - dr^2) ) / L
+   et dr = 0 le ramene a x/L, c'est-a-dire exactement l'ancien code : la correction ne touche que
+   les capsules coniques. Quand L^2 <= dr^2 une sphere contient l'autre et le solide EST la plus
+   grosse — le cas ou l'ancien predicat se trompait le plus, puisqu'il faisait descendre le rayon
+   jusqu'au petit bout d'un cone qui n'existe pas.
+
+   LA NORMALE EST CORRIGEE PAR LA MEME OPERATION, et ce n'est pas un bonus : au parametre optimal,
+   la direction de C(t*) vers p EST le gradient de la distance signee, donc la vraie normale
+   sortante du tronc de cone. A un parametre quelconque elle ne l'est pas.
+
+   CE QUE CETTE CORRECTION NE FAIT PAS : deplacer la ligne de base. La franchise accordee a chaque
+   paire (`floors`/`floorc`, lignes 1855-1858, 1943-1946, 2052) est calculee par CETTE fonction sur
+   la pose du modele : elle se corrige donc du meme coup. Ce qui change est la FORME de la surface,
+   pas de combien on a le droit d'y entrer.
+```
+
+## NOTE-301  (docstring de `phys-vol-floor`, deplacee le 2026-08-20 pour tenir le plafond CLEAN ; aucune ligne de CODE touchee)
+
+```
+Profondeur maximale que cette paire (lien, volume) tolere : sa profondeur d'auteur PLUS ce que la
+   chair cede avant de toucher l'os. La bande n'est pas choisie, c'est le seul chiffre de sa spec qui
+   dise jusqu'ou la chair s'ecrase contre le thorax : SPEC 10 `SupineProjectionScale = 0.70` donne
+   `0.30 * B0`, pas un point de plus. La PROFONDEUR DE COM qui en resulte n'est PAS posee : elle sort
+   de l'equilibre des forces (dans la bande seule la raideur SPEC 24/29 resiste) et se lit ENSUITE
+   contre la ligne de SPEC 10 qui la chiffre, 0.23 B0.
+   POURQUOI ELLE NE POUVAIT PAS RESTER A `floor0` : mur UNILATERAL pose EXACTEMENT au point de repos,
+   donc il repoussait le premier micron vers le thorax et laissait l'autre sens libre. Cycle 14,
+   stimulus IDENTIQUE : pole libre 0.13997 B0 contre pole bloque 0.02511 B0. REDRESSEE. NOTE-55.
+   `b0` = 0 rend la forme d'avant, sans complaisance : c'est ce que recoit toute paire que
+   `phys-vol-yield` n'a pas reconnue comme du buste. LA POSE DU MODELE RESTE ADMISSIBLE a fortiori :
+   `feff >= floor0`, test STRICT. `*phys-col-off*` DESARME le mur entierement (controle k=4) et passe
+   par ICI pour couvrir les TROIS sites de `feff` d'un seul point. Voir [NOTE-53].
+```
+
+## NOTE-302  (docstring de `phys-rest`, deplacee le 2026-08-20 pour tenir le plafond CLEAN ; aucune ligne de CODE touchee)
+
+```
+SPEC 33/34 — LA RESTITUTION DE CONTACT, SUR LA FENETRE.
+   0 = nombre de contacts ou elle a ete appliquee (un entier rendu en float) ; 1 = somme des
+   vitesses normales ENTRANTES (u/frame, positives) ; 2 = somme des vitesses normales SORTANTES
+   RELUES A LA FRAME SUIVANTE (donc mesurees, pas deduites de `e`) ; 3 = somme des coefficients
+   appliques, qui lit le melange 0.06 (sein<->sein, §33) / 0.02 (buste, §34) ; 4 = nombre de
+   sorties effectivement relues.
+   NATURE : des vitesses en unites de jeu par frame. REPERE : le MONDE, projete sur la normale de
+   contact. LECTURE HORS DEFAUT : tout a zero quand rien ne touche — et un zero ici ne vaut que
+   s'il est accompagne du domaine (nombre de contacts), sans quoi c'est un zero de domaine vide.
+```
+
+## NOTE-303  (docstring de `phys-comexw-reset!`, deplacee le 2026-08-20 pour tenir le plafond CLEAN ; aucune ligne de CODE touchee)
+
+```
+REMET A ZERO LA TRANCHE 23-42 — TOUT CE QUI A LA PORTEE D'UNE FENETRE (chaine, animation,
+   pilotage) — sur toutes les chaines. Les emplacements 19 (maximum de COURSE) et 20/21/22 (la
+   distribution cumulee) ne sont PAS touches : ils portent des grandeurs de portee differente,
+   deja publiees, et les confondre rendrait le maximum de course egal a celui de la derniere
+   fenetre. La tranche : 23 `comex` max · 24-28 `rgap`/`perr` · 29/30 SPEC 37 · 31-34 l'attribution
+   de `comex` et son maillon · 35-42 [NOTE-112] le COM par MAILLON · 43-46 le COM PONDERE ·
+   47-49 [NOTE-136] son VECTEUR. La tranche est CONTIGUE et le `dotimes` la couvre EN ENTIER.
+   ENUMERER CES VINGT EMPLACEMENTS UN PAR UN etait le vrai risque : ils ont tous la meme portee et
+   la meme valeur de repos, et chaque emplacement neuf ouvert ailleurs pouvait etre OUBLIE ici —
+   auquel cas il aurait publie a chaque fenetre le maximum de la COURSE, sans que rien le dise.
+```
+
+## NOTE-304  (docstring de `phys-chain-radial-link`, deplacee le 2026-08-20 pour tenir le plafond CLEAN ; aucune ligne de CODE touchee)
+
+```
+SPEC 23 — l'elongation radiale du MAILLON `link`. which 0 = unites de jeu · 1 = rapportee a B0 ·
+   2 = maximum de FENETRE apres la borne de §22 · 3 = le meme AVANT la borne · 4 = frames ou la
+   borne a mordu SUR CE MAILLON · 5 = (ml-bl)/B0 et 6 = dot(cp-px,m^)/B0, les DEUX TERMES de `dr0`
+   releves a l'ARGMAX de 3, somme = 3 au signe pres ([NOTE-82]) · 7 = dot(cp-tg,m^)/B0 et
+   8 = |cp-tg|/B0, MEME frame : 6 se scinde en 7 + dot(tg-px,m^)/B0, et |7| <= 8 est un controle
+   d'integrite non tautologique ([NOTE-84]).
+   Version RESOLUE PAR MAILLON de `phys-chain-radial`, qui ne rend que la RACINE. C'est aussi l'etat
+   que le solveur lit. NATURE deformation signee · REPERE axe de l'os dans le triedre de l'ANCRE
+   (SPEC 7) · LIGNE DE BASE 0.0 a la pose d'auteur (SPEC 9). [NOTE-79] -> jak-hd-physics-NOTES.md
+```
+
+## NOTE-305  (docstring de `phys-link-rest-dir`, deplacee le 2026-08-20 pour tenir le plafond CLEAN ; aucune ligne de CODE touchee)
+
+```
+L'AXE D'OS AU REPOS, PAR MAILLON, TEL QUE LE SOLVEUR L'A RELEVE — `*phys-ux*/uy/uz`, releve une
+   fois a la meme frame que `g_ref`. Il existait dans le moteur et n'etait publie nulle part, si
+   bien que le tableau l'AJUSTAIT par ACP sur la dispersion de neuf deplacements : ajustement
+   declare « NON PLAN — le reste du bloc est invalide » sur les deux chaines, et pourtant consomme
+   par SPEC 10/11/12 et par l'anisotropie de SPEC 29. NATURE : un vecteur UNITAIRE, sans dimension.
+   REPERE : la base de l'ANCRE, ordre (x, y, z) de ses lignes. LECTURE HORS DEFAUT : rend 0.0 tant
+   que la direction de repos n'est pas relevee (`*phys-ucap*` = 0), ce qui se distingue d'un axe
+   nul.
+```
+
+## NOTE-306  (docstring de `phys-dfm-anc`, deplacee le 2026-08-20 pour tenir le plafond CLEAN ; aucune ligne de CODE touchee)
+
+```
+SPEC 8/10-13/23/38 — L'ELEMENT (i,j) DE LA DEFORMATION EN ESPACE ANCRE, telle que le solveur
+   l'applique : `dfa` (equilibre d'orientation) x `dfb` (etirement dynamique) x `dfc` (pression de
+   contact). NATURE : une matrice sans dimension, rapport a la forme d'auteur ; l'identite quand
+   rien ne deforme. REPERE : la base de l'ANCRE, la meme que `phys-link-dev-anc-abs` — donc un
+   deplacement de peau se compose directement avec un ecart de joint, ce qui etait impossible tant
+   que seule la version conjuguee en monde existait. LECTURE HORS DEFAUT : diag(1,1,1).
+   CE QUE CE N'EST PAS : la deformation VUE sur le mesh. C'est ce que le solveur COMMANDE ; la peau
+   n'en recoit qu'une part graduee en r^1.63 (SPEC 31).
+```
+
+## NOTE-307  (docstring de `phys-link-pen`, deplacee le 2026-08-20 pour tenir le plafond CLEAN ; aucune ligne de CODE touchee)
+
+```
+LA PENETRATION DU LIEN `l` SI SON JOINT ETAIT EN `pt`.
+   NATURE : une profondeur, en metres. REPERE : monde. LECTURE HORS DEFAUT : PHYS-NOCONTACT.
+
+   `prio` = 1 quand l'appel SERT LE SOLVEUR (le recul) : la DECISION 1 s'applique, seul le volume
+   decideur du lien compte pour la PROFONDEUR. `prio` = 0 quand l'appel MESURE : tous les volumes
+   comptent, sinon le chiffre deviendrait aveugle a ce que la decision laisse passer.
+
+   LE FRANCHISSEMENT D'AXE N'EST JAMAIS SOUMIS A LA PRIORITE, ET CE N'EST PAS UNE EXCEPTION DE
+   CONFORT : deux volumes ne peuvent pas se contredire dessus. La pose du modele est du BON cote de
+   CHAQUE axe par construction, donc reculer vers elle les satisfait tous a la fois — il n'y a
+   aucun conflit a arbitrer. Le soumettre a la priorite rouvrirait `goggles-tunnel` (les lunettes
+   qui traversent le buste pour se poser dans le dos), que ce veto est precisement ce qui ferme.
+```
+
+## NOTE-308  (ENTREE ANNULEE — capture erronee du 2026-08-20)
+
+```
+Cette entree avait ete produite par un deplacement de docstring qui a mordu sur le CODE de
+`phys-link-pen` (le `let` des vecteurs de pile). Le code a ete REMIS dans le moteur le jour
+meme et le compilateur l'atteste ; la docstring de `phys-link-pen`, elle, vit en [NOTE-307].
+L'entree est gardee VIDE au lieu d'etre supprimee : un numero qui disparait laisserait croire
+qu'un renvoi du moteur pointe vers rien.
+```
+
+## NOTE-309  (docstring de `phys-col-key`, deplacee le 2026-08-20 pour tenir le plafond CLEAN ; aucune ligne de CODE touchee)
+
+```
+LA CLE DE PRIORITE D'UN VOLUME — depuis le 2026-08-18, DEPARTAGE SEULEMENT (le decideur est le
+   plus profond violeur, voir le site de selection) : corps avant chaine, puis parent dans le rig.
+
+   LA REGLE ECRITE N'EST PAS TOTALISANTE, ET C'EST MESURE : trois volumes de corps sont a egalite
+   de profondeur minimale 1 (`hips->main`, `chest->main`, la sphere `main`). Sans departage le
+   decideur dependrait de l'ordre de parcours, c'est-a-dire du fichier — la meme faute que celle
+   qu'on corrige. Le departage est l'index rig du joint porteur : les 33 `cj` sont deux a deux
+   distincts (verifie sur le rig), donc la cle est TOTALE et deux frames identiques designent
+   toujours le meme decideur.
+```
+
+## NOTE-310  (docstring de `phys-cpc`, deplacee le 2026-08-20 pour tenir le plafond CLEAN ; aucune ligne de CODE touchee)
+
+```
+LE CUMUL DE POUSSEES DE CONTACT DEPUIS LA DERNIERE REMISE A ZERO DE DIAGNOSTIC.
+   0 = NOMBRE de poussees (un compte, sans unite) ; 1 = somme de leurs MODULES (unites de jeu,
+   4096 = 1 m) ; 2 = la meme somme restreinte aux balayages 34 a 45, c'est-a-dire au groupe de
+   COLLISION SEULE (sans contrainte de longueur pour ramener le lien en arriere).
+   NATURE : un compte et deux longueurs, AGREGES sur toutes les frames de la jambe — pas des maxima
+   de fenetre. REPERE : le monde. LECTURE QUAND RIEN NE TOUCHE : les trois a zero, et le 0 sert de
+   DOMAINE aux deux autres.
+```
+
+## NOTE-311  (docstring de `phys-link-dev-anc-abs`, deplacee le 2026-08-20 pour tenir le plafond CLEAN ; aucune ligne de CODE touchee)
+
+```
+LA MEME DEVIATION QUE `phys-link-dev-anc`, MAIS NON NORMALISEE (voir la note de `*phys-ldb*`).
+   `phys-link-dev-anc` projette une difference de vecteurs UNITAIRES : sa composante radiale est
+   nulle par construction, et la PCA des fenetres d'impulsion du cycle 8 le montre (serie plane a
+   1 %, direction nulle a 92 % verticale). Celle-ci porte les TROIS degres de liberte, en unites de
+   jeu. Meme triedre d'ancre, meme ordre (v, ap, lat), meme instant, meme garde de classification —
+   l'ecart entre les deux series EST la mesure de l'aveuglement, pas une seconde opinion.
+```
+
+## NOTE-312  (docstring de `phys-pose-repair`, deplacee le 2026-08-20 pour tenir le plafond CLEAN ; aucune ligne de CODE touchee)
+
+```
+RE-ASSEOIR un lien que le retarget a envoye ailleurs, au lieu de le simuler autour d'une position
+   fausse ET au lieu de le supprimer des donnees. Owner/superviseur du 2026-08-11 : une chaine se
+   REPARE, elle ne se retire pas. La position de secours est derivee du rig et de rien d'autre : le
+   porteur, prolonge le long de SON os (de son parent vers lui), a la distance que le mesh mesure
+   pour ce lien (son rayon ajuste). Elle est ecrite dans le squelette AVANT la physique, donc la
+   geometrie du lien suit, et la reparation est comptee et publiee. C'est un defaut de MODELE
+   corrige au dernier moment possible, pas une physique inventee.
+```
+
+## NOTE-313  (docstring de `phys-pen-chain`, deplacee le 2026-08-20 pour tenir le plafond CLEAN ; aucune ligne de CODE touchee)
+
+```
+L'INSTRUMENT MESURE TOUJOURS CONTRE LE SOLIDE QUE LA DONNEE DESIGNE, quel que soit le predicat
+   que le SOLVEUR utilise. Sans ca le controle de `*phys-cone-off*` serait casse dans le sens que
+   les DIRECTIVES sanctionnent : arme, le solveur cesserait de pousser ET la mesure cesserait de
+   regarder, donc le compteur TOMBERAIT sous le defaut au lieu de MONTER. Ici il monte, parce que
+   le solveur laisse le lien dans un solide que la mesure, elle, continue de voir en entier.
+   `prio` = 0 n'a que CE seul appelant (le solveur passe 1) : la restauration est donc totale.
+```
+
+## NOTE-314  (docstring de `phys-inject-probe!`, deplacee le 2026-08-20 pour tenir le plafond CLEAN ; aucune ligne de CODE touchee)
+
+```
+[NOTE-155] CONTROLE POSITIF DE `meshpen`, EN PAIRE ET SUR LA MEME FRAME.
+   On injecte LE DEFAUT QUE LE COMPTEUR MESURE — `*phys-inject*` unites de PROFONDEUR, le long de
+   la normale RENTRANTE du volume ou le lien est deja le plus enfonce — puis on remesure avec le
+   MEME predicat (`phys-link-pen`, `prio` = 0) et on RESTAURE la position au bit.
+   NATURE : deux profondeurs residuelles, en unites de jeu. REPERE : le monde, MEME frame.
+   LECTURE HORS DEFAUT : les deux maxima sont egaux, donc la hausse est 0.
+```
+
+## NOTE-315  (docstring de `phys-len-project!`, deplacee le 2026-08-20 pour tenir le plafond CLEAN ; aucune ligne de CODE touchee)
+
+```
+RAMENE LE LIEN SUR LA SPHERE DE SON ATTACHE — ROTATION, PAS TRANSLATION. `want` est la longueur
+   que le MODELE donne a cet os ; un os que le modele ne donne pas (`want` ~ 0) n'a pas de sphere et
+   garde son comportement en translation. `pt` est en coordonnees de JOINT, pas en centre de volume.
+   DEUX APPELANTS depuis ce cycle : c'est le correctif du residu, voir la note au balayage.
+
+   `*phys-len-off*` DESARME la projection : voir la note de ce drapeau. C'est le controle de
+   l'hypothese du cycle 8, actif sur les seules fenetres AXZ, et 0 en livraison.
+```
+
+## NOTE-316  (docstring de `phys-col-prox?`, deplacee le 2026-08-20 pour tenir le plafond CLEAN ; aucune ligne de CODE touchee)
+
+```
+UN VOLUME EST UNE SPHERE PROXIMALE si son joint porteur est le joint du MAILLON 0 d'une chaine
+   declaree ET qu'il n'a pas de second joint (donc une sphere, pas une capsule). Predicat DERIVE :
+   aucun nom d'os n'y figure, donc il suit un renommage ou une reinjection.
+   POURQUOI IL EXISTE : le cycle 35 a mesure que les deux spheres de chair d'un sein decrivent LA
+   MEME chair — sur les 55 sommets de `chestL`, la proximale ne couvre pas UN SEUL sommet que la
+   distale ne couvre deja. Cet interrupteur demande ce que ca coute a l'execution.
+```
+
+## NOTE-317  (docstring de `phys-col-now!`, deplacee le 2026-08-20 pour tenir le plafond CLEAN ; aucune ligne de CODE touchee)
+
+```
+LES DEUX EXTREMITES DU VOLUME TELLES QUE TOUTES LES CHAINES DOIVENT LES VOIR CETTE FRAME.
+   NATURE : une position monde, en unites de jeu. REPERE : monde.
+   CE QU'ELLE REND QUAND LE DEFAUT EST ABSENT : le squelette courant, au bit pres — c'est le cas
+   des 24 volumes qu'aucune chaine ne simule, et du premier pas de chaque acteur.
+
+   Un volume porte par un joint SIMULE est lu dans l'instantane de FIN DE FRAME PRECEDENTE. Sinon
+   la reponse d'une chaine depend de son rang dans le fichier : voir la note de `*phys-csim*`.
+```
+
+## NOTE-318  (SPEC 33 — LA SURFACE MEDIALE DE L'AUTRE SEIN, et pourquoi son domaine etait vide)
+
+```
+[NOTE-295] SPEC 33 — LA SURFACE MEDIALE DE L'AUTRE SEIN. Sa 33 dit « medial surfaces shall
+collide or repel BEFORE visible interpenetration » ; jusqu'a ce cycle le sein oppose etait exclu
+de TOUTE surface que le moteur lit, donc le DOMAINE de la section etait vide par construction et
+aucune valeur ne pouvait rien en dire, ni rouge ni vert.
+NATURE : `medgap` est une distance SIGNEE minimale (positive = les deux surfaces sont separees),
+  `medpen` la pire penetration (positive quand une surface est DEDANS l'autre), `medn` le nombre
+  de lectures valides — c'est LUI qui dit si le domaine est vide, et un domaine vide se declare
+  au lieu d'etre lu comme « zero penetration ».
+REPERE : le monde, a la frame mesuree. Les colonnes `a` sont le MEME calcul au point d'AUTEUR :
+  meme frame, memes sommets, meme fonction — c'est la ligne de base « physique desarmee ».
+```
+
+## NOTE-319  (les deux populations de la famille `bs`, et pourquoi la passe 0 est bit-identique)
+
+```
+[NOTE-294] PASSE 0 = LES OS DE CORPS, PASSES 1..nc = LES OS DE CHAQUE CHAINE.
+L'acceptation est la MEME expression pour les deux — `cch = pass - 1`, avec
+`cch = -1` pour un os qui n'appartient a aucune chaine. La passe 0 range donc
+exactement la population d'avant ce cycle, dans le MEME ordre, aux MEMES
+indices : `phys-surf-sd`, qui lit [0, *phys-slot-nbsurf*), ne peut pas voir la
+difference, et SPEC 34 ne bouge pas d'un bit. Les surfaces de chaine sont
+rangees APRES, contigues par chaine, et une requete doit NOMMER sa chaine pour
+les atteindre.
+```
+
+## NOTE-320  (l'espacement du nuage, mesure sur la donnee livree)
+
+```
+L'ESPACEMENT DU NUAGE, MESURE SUR LA DONNEE LIVREE. Pour chaque echantillon
+d'un ensemble de chaine, la distance a son plus proche voisin DU MEME
+ensemble ; on garde la moyenne, et par chaine le maximum sur ses ensembles.
+C'est le rayon au-dela duquel la surface n'est pas echantillonnee : aucune
+longueur n'est choisie a la main, elle sort du fichier.
+```
+
+## NOTE-321  (l'injection du controle positif de SPEC 33)
+
+```
+L'INJECTION du controle positif de SPEC 33. ARMEE EN PERMANENCE : elle n'ecrit QUE
+l'accumulateur `*phys-medgapi*` et jamais un etat de solveur, donc elle ne peut pas contaminer
+la trajectoire mesuree — c'est la condition que le registre pose a tout controle positif.
+CONTROLE DE CETTE PROPRIETE, cycle 62 : apres le passage en fraction, la seule ligne du tableau
+qui bouge est `ROOM-SKINPEN-TESTS` (154 428 542 -> 154 428 116, soit 0,0003 %), le compteur de
+travail de l'INSTRUMENT ; `skinpen`, `tipvar`, `rootdev`, `meshpen`, `ROOM-IDLE` et `ROOM-SIDE`
+sont identiques. L'ecart de 426 comparaisons EST la preuve que l'injection a bien change de
+point de depart : un no-op aurait rendu le compteur identique lui aussi.
+
+CYCLE 62 — C'EST UNE FRACTION SANS DIMENSION, PLUS UNE LONGUEUR EN UNITES DE JEU.
+Elle valait 200 u (0,0488 m) FIXES, et la prediction `approche - injection` n'a de sens que tant
+que `injection < approche`. Sur la fenetre de COURSE l'approche vaut 47 et 50 u : le point
+injecte TRAVERSAIT la surface et le controle sortait NON EVALUABLE — c'est-a-dire exactement sur
+la fenetre qui PORTE le verdict. Il ne tirait que sur la fenetre de repos, ou le domaine est
+VIDE. LE CONTROLE TIRAIT DONC LA OU IL N'Y A RIEN A MESURER, ET MANQUAIT LA OU ON MESURE.
+
+Une FRACTION rend la prediction bien posee PARTOUT : le point sonde avance de `f x d1` vers le
+plus proche echantillon, donc il ne peut jamais traverser la surface tant que `f < 1`, et
+l'approche apres injection vaut `(1 - f) x d1`. Comme le minimum sur la fenetre commute avec la
+multiplication par une constante positive, la prediction sur les grandeurs PUBLIEES est exacte :
+
+    gapi = (1 - f) x gap,  soit une BAISSE de `f x gap`.
+
+Aucune longueur n'est choisie a la main, et la prediction reste QUANTITATIVE (arbitrage du
+2026-08-20 13:20 : une prediction, jamais un ratio a une ligne de base qui bouge). MESURE a
+f = 0,50 : les QUATRE cellules (2 chaines x 2 fenetres) tirent a 0,0-0,1 % d'ecart, sur des
+baisses predites de 0,0057 a 0,0705 m — un facteur 12,4. L'instrument SUIT SON ENTREE sur plus
+d'un ordre de grandeur au lieu de republier une constante, ce qui est precisement ce qu'un
+controle doit demontrer.
+```
+
+## NOTE-322  (deux populations dans le meme tableau)
+
+```
+[NOTE-293] DEUX POPULATIONS DANS LE MEME TABLEAU, ET C'EST CE QUI DONNE UN DOMAINE A SPEC 33.
+Les ensembles de CORPS occupent [0, *phys-slot-nbsurf*) — c'est ce que `phys-surf-sd` lit par
+defaut, donc SPEC 34 ne bouge pas d'un bit. Les ensembles portes par un os de CHAINE sont
+RANGES APRES, par chaine et contigus, et ne sont lus que par une requete qui NOMME sa chaine.
+Un sein n'est donc jamais un obstacle pour lui-meme, et il en devient un pour l'autre.
+```
+
+## NOTE-323  (SPEC 33/34 — la peau ferme la frame)
+
+```
+[NOTE-241] SPEC 33/34 — LA PEAU FERME LA FRAME. Toutes les contraintes qui
+precedent raisonnent sur le JOINT et sur des CAPSULES ; celle-ci raisonne sur
+les SOMMETS DE PEAU et sur la SURFACE, c'est-a-dire sur ce dont sa 33 et sa
+34 parlent, et sur ce que l'instrument mesure. Elle est la DERNIERE, donc
+rien ne la defait — c'est l'invariant que le dossier prescrit depuis le
+cycle 43 et que l'ordre `collide` puis `bend` ne tenait plus.
+```

@@ -1894,11 +1894,16 @@
       (format 0 "PHYSMED2 tag=~S c=~D rest=~f n=~f far=~f space=~f~%"
               tag c (phys-medial (-> self slot) c 3) (phys-medial (-> self slot) c 4)
               (phys-medial (-> self slot) c 5) (phys-medial (-> self slot) c 6))
-      ;;   inj / gapi : LE CONTROLE POSITIF DE SPEC 33, APPAIRE. Le meme point, dans la MEME frame,
-      ;;   deplace de `inj` unites EXACTEMENT vers le plus proche echantillon de la surface opposee.
-      ;;   La reponse attendue est une PREDICTION — `approche - inj` — et non un ratio a une ligne
-      ;;   de base qui bouge (arbitrage du 2026-08-20 13:20). L'exces comme le defaut sont un echec.
-      (format 0 "PHYSMED3 tag=~S c=~D inj=~f gapi=~f~%"
+      ;;   frac / gapi : LE CONTROLE POSITIF DE SPEC 33, APPAIRE. Le meme point, dans la MEME
+      ;;   frame, avance d'une FRACTION `frac` de son approche vers le plus proche echantillon de
+      ;;   la surface opposee. La reponse attendue est une PREDICTION — `gapi = (1 - frac) x gap`,
+      ;;   soit une BAISSE de `frac x gap` — et non un ratio a une ligne de base qui bouge
+      ;;   (arbitrage du 2026-08-20 13:20). L'exces comme le defaut sont un echec.
+      ;;   LE CHAMP A CHANGE DE NOM AU CYCLE 62, ET C'EST DELIBERE : il portait `inj=` en UNITES DE
+      ;;   JEU, il porte maintenant une FRACTION SANS DIMENSION. Republier une grandeur de nature
+      ;;   differente sous le MEME nom est la faute de l'echange de denominateur — un lecteur
+      ;;   perime doit ECHOUER a lire, pas lire 0.5 comme 0.5 unite.
+      (format 0 "PHYSMED3 tag=~S c=~D frac=~f gapi=~f~%"
               tag c (phys-med-inject-get) (phys-medial (-> self slot) c 7))
       ;;   rootrot  l'angle, EN DEGRES, reellement ecrit dans la 3x3 du maillon `rootlock` — le
       ;;            PREMIER SEGMENT de la meche, celui qui part du cuir chevelu. Il valait 0.0000

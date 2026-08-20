@@ -1,7 +1,7 @@
 ==================================================================================================
 KEIRA — SALLE DE TEST SANS JOUEUR : TABLEAU DE MESURE
 genere par .autoport/physics_room_table.py depuis .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
-empreinte de la trace lue : md5 32a946dea766d18ad8d1a596198e77a2 (3989996 octets)
+empreinte de la trace lue : md5 1996f06f547defa6ac49aad15bb38e74 (3995899 octets)
 contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 7 (ce qui fait foi)
 
 Toutes les longueurs sont en METRES (la trace est en unites de jeu, 4096 u = 1 m). Ce que
@@ -1309,7 +1309,7 @@ ROOM-SKINPEN: chestR 0.0868
 ROOM-SKINPEN-DETAIL: chain=chestR       skinpen=0.0868 m   meshpen=0.1424 m   repos=0.0883 m
 ROOM-SKINPEN: chestL 0.0692
 ROOM-SKINPEN-DETAIL: chain=chestL       skinpen=0.0692 m   meshpen=0.1123 m   repos=0.0612 m
-ROOM-SKINPEN-COVERAGE: ensembles=92/92  echantillons<=48
+ROOM-SKINPEN-COVERAGE: ensembles=96/96  echantillons<=48  (dont 4 de CHAINE, lus seulement par la chaine ADVERSE — SPEC 33)
 ROOM-SKINPEN-CAL: dans la fenetre de repos, lecture SIMULEE contre lecture
    d'AUTEUR — elles doivent coincider, c'est ce qui prouve que la colonne
    d'auteur EST la colonne « physique desarmee ». Seuil : 5 pour cent.
@@ -1341,7 +1341,42 @@ ROOM-SKINPEN-SKINOUT: 105441 lecture(s) placent le point d'AUTEUR DEHORS.
    JOINT, interieur par construction du rig. Depuis [NOTE-161] elle porte sur un
    SOMMET EXTREMAL DE PEAU, pour lequel etre DEHORS est la DEFINITION meme d'un
    point de surface. C'est un DOMAINE, pas une alarme.
-ROOM-SKINPEN-TESTS: 130728546 echantillons de surface compares sur la fenetre
+ROOM-SKINPEN-TESTS: 154428116 echantillons de surface compares sur la fenetre
+ROOM-MEDIAL: chestL   tag=run   n=66960  approche-simulee=0.0115  approche-auteur=0.1317 m
+ROOM-MEDIAL-SUPPORT: chestL   tag=run   espacement-du-nuage=0.0118 m  rayon-de-support=0.0236 m  hors-support=66893/66960 (99.9 %)
+ROOM-MEDIAL-CONTROL: chestL   tag=run   fraction=0.50  baisse-predite=0.0057 m  baisse-rendue=0.0057 m  ecart=0.1 % -> LE CONTROLE A TIRE
+ROOM-MEDIAL-PEN: chestL   tag=run   penetration-simulee=0.0238  penetration-auteur=0.0000  physique=+0.0238 m  domaine=67/66960 -> DEPASSEE
+   BASE D'AUTEUR ENTRAINEE, NON MESUREE : l'approche d'auteur (0.1317 m) ne descend jamais sous le rayon de support (0.0236 m), donc AUCUNE lecture d'auteur n'est en portee. Sa penetration nulle est ENTRAINEE par cette distance — a 0.1317 m les deux surfaces ne peuvent pas se traverser — et non lue sur une lecture en portee.
+ROOM-MEDIAL: chestR   tag=run   n=66960  approche-simulee=0.0121  approche-auteur=0.0165 m
+ROOM-MEDIAL-SUPPORT: chestR   tag=run   espacement-du-nuage=0.0212 m  rayon-de-support=0.0424 m  hors-support=66954/66960 (100.0 %)
+ROOM-MEDIAL-CONTROL: chestR   tag=run   fraction=0.50  baisse-predite=0.0060 m  baisse-rendue=0.0060 m  ecart=0.1 % -> LE CONTROLE A TIRE
+ROOM-MEDIAL-PEN: chestR   tag=run   penetration-simulee=0.0106  penetration-auteur=0.0000  physique=+0.0106 m  domaine=6/66960 -> DEPASSEE
+   BASE D'AUTEUR MESUREE EN PORTEE : l'approche d'auteur descend a 0.0165 m, sous le rayon de support (0.0424 m) — sa penetration nulle est une lecture, pas une deduction.
+   DOMAINE MINCE : 6 lecture(s) seulement tombent dans le rayon de support. Un verdict pose dessus est ETROIT et se lit comme tel — ce n'est pas « rien ne se touche », c'est « ca se touche rarement ».
+ROOM-MEDIAL: chestL   tag=rest  n=480  approche-simulee=0.1326  approche-auteur=0.1327 m
+ROOM-MEDIAL-SUPPORT: chestL   tag=rest  espacement-du-nuage=0.0118 m  rayon-de-support=0.0236 m  hors-support=480/480 (100.0 %)
+ROOM-MEDIAL-CONTROL: chestL   tag=rest  fraction=0.50  baisse-predite=0.0663 m  baisse-rendue=0.0663 m  ecart=0.0 % -> LE CONTROLE A TIRE
+ROOM-MEDIAL-PEN: chestL   tag=rest  DOMAINE VIDE — 0/480 lecture(s) dans le rayon de support : SPEC 33 n'est PAS testee sur cette fenetre.
+   Ce n'est pas « rien ne penetre », c'est « les deux surfaces ne se sont jamais approchees a portee de l'estimateur ». Separation minimale mesuree : 0.1326 m simulee, 0.1327 m auteur, pour un rayon de support de 0.0236 m.
+ROOM-MEDIAL: chestR   tag=rest  n=480  approche-simulee=0.1410  approche-auteur=0.1411 m
+ROOM-MEDIAL-SUPPORT: chestR   tag=rest  espacement-du-nuage=0.0212 m  rayon-de-support=0.0424 m  hors-support=480/480 (100.0 %)
+ROOM-MEDIAL-CONTROL: chestR   tag=rest  fraction=0.50  baisse-predite=0.0705 m  baisse-rendue=0.0705 m  ecart=0.0 % -> LE CONTROLE A TIRE
+ROOM-MEDIAL-PEN: chestR   tag=rest  DOMAINE VIDE — 0/480 lecture(s) dans le rayon de support : SPEC 33 n'est PAS testee sur cette fenetre.
+   Ce n'est pas « rien ne penetre », c'est « les deux surfaces ne se sont jamais approchees a portee de l'estimateur ». Separation minimale mesuree : 0.1410 m simulee, 0.1411 m auteur, pour un rayon de support de 0.0424 m.
+   NATURE : une distance signee minimale (m) entre le sommet de peau d'une chaine
+   et la SURFACE de l'autre sein ; positive = separees. REPERE : le monde, frame
+   mesuree, LES DEUX seins portes a leur position RESOLUE (colonne simulee) ou a
+   leur pose d'AUTEUR (colonne auteur). LECTURE HORS DEFAUT : la penetration
+   simulee reste sous la penetration d'auteur — la physique n'ajoute rien.
+   LE RAYON DE SUPPORT N'EST PAS UN REGLAGE : il vaut deux fois l'espacement du
+   nuage livre, mesure au chargement et publie ci-dessus. Il existe parce que
+   `|sd| <= |p - q|` : une lecture de 0.64 m EXIGE que le plus proche echantillon
+   de la surface opposee soit a 0.64 m, ce qui n'est pas une penetration mais un
+   plan prolonge loin de la ou il a ete echantillonne. Les lectures exclues sont
+   COMPTEES, jamais jetees en silence.
+   CE QUE CETTE LIGNE NE DIT PAS : la restitution 0.06 de la section. Elle exige
+   un CONTACT resolu, et rien ne resout encore ce contact — la mesure precede la
+   contrainte, elle ne la remplace pas.
 ROOM-SKINPEN-CONTROL: chestL   armee=0.0683  desarmee=0.0711  tenu=+0.0028 m -> LE CONTROLE A TIRE
 ROOM-SKINPEN-CONTROL: chestR   armee=0.0647  desarmee=0.0975  tenu=+0.0327 m -> LE CONTROLE A TIRE
    NATURE : une profondeur (m), max de fenetre. REPERE : le monde. La jambe ARMEE

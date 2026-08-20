@@ -1696,7 +1696,12 @@ def main():
     skinrest, skinout = {}, {}
     # [NOTE-158] LA COUVERTURE DE LA PEAU. Une troncature silencieuse est un de-scope : ce couple
     # doit vivre DANS le tableau, a cote de `skinpen`, et pas dans une ligne de log.
-    _bs = re.search(r'^PHYSBSURF sets=(\d+) declared=(\d+) max=(\d+)', txt, re.M)
+    # `chain=` (cycle 62) : les ensembles portes par un os de CHAINE. Ils sont DECLARES et
+    # CHARGES, simplement ranges dans une autre population — les compter comme « jetes » serait un
+    # faux rouge. Absent des traces anterieures, donc 0 par defaut et la garde retrouve son sens
+    # d'origine sur elles.
+    _bs = re.search(r'^PHYSBSURF sets=(\d+) declared=(\d+) max=(\d+)(?: chain=(\d+))?', txt, re.M)
+    _bschain = int(_bs.group(4)) if (_bs and _bs.group(4) is not None) else 0
     skinmiss = {}
     for m in re.finditer(r'^PHYSSKIN2 tag=(\S+) c=(\d+) skinrest=([-\d.e+]+) skinout=(\d+)'
                          r'(?: skinmiss=([-\d.e+]+))?', txt, re.M):
@@ -1704,6 +1709,30 @@ def main():
         skinout[m.group(1)] = int(m.group(4))
         skinmiss.setdefault(m.group(1), {})[int(m.group(2))] = (
             float(m.group(5)) if m.group(5) is not None else None)
+    # SPEC 33 — LA SURFACE MEDIALE DE L'AUTRE SEIN. Colonnes en UNITES DE JEU dans la trace, en
+    # metres apres division ici. `medn` est le DOMAINE : il decide si les trois autres colonnes
+    # veulent dire quelque chose. Sentinelle 1000000.0 sur gap/gapa = « aucune lecture ».
+    med, med2 = {}, {}
+    for m in re.finditer(r'^PHYSMED tag=(\S+) c=(\d+) gap=([-\d.e+]+) gapa=([-\d.e+]+)'
+                         r' pen=([-\d.e+]+)', txt, re.M):
+        med.setdefault(m.group(1), {})[int(m.group(2))] = (
+            float(m.group(3)), float(m.group(4)), float(m.group(5)))
+    for m in re.finditer(r'^PHYSMED2 tag=(\S+) c=(\d+) rest=([-\d.e+]+) n=([-\d.e+]+)'
+                         r'(?: far=([-\d.e+]+) space=([-\d.e+]+))?', txt, re.M):
+        med2.setdefault(m.group(1), {})[int(m.group(2))] = (
+            float(m.group(3)), float(m.group(4)),
+            float(m.group(5)) if m.group(5) is not None else None,
+            float(m.group(6)) if m.group(6) is not None else None)
+    # LE CONTROLE POSITIF DE SPEC 33. `frac=` est une FRACTION SANS DIMENSION depuis le cycle 62 ;
+    # le champ s'appelait `inj=` et portait des UNITES DE JEU. Le nom a change EXPRES : lire une
+    # fraction sous le nom d'une longueur serait un echange de denominateur silencieux. Une trace
+    # d'avant le cycle 62 ne matche donc PAS, `med3` reste vide, et le bloc de publication le dit
+    # au lieu d'inventer un controle.
+    med3 = {}
+    for m in re.finditer(r'^PHYSMED3 tag=(\S+) c=(\d+) frac=([-\d.e+]+) gapi=([-\d.e+]+)',
+                         txt, re.M):
+        med3.setdefault(m.group(1), {})[int(m.group(2))] = (float(m.group(3)), float(m.group(4)))
+    med3_legacy = bool(re.search(r'^PHYSMED3 tag=\S+ c=\d+ inj=', txt, re.M)) and not med3
     for m in re.finditer(r'^PHYSSHELL tag=(\S+) corrections=([-\d.e+]+)'
                          r'(?: inward=([-\d.e+]+))?', txt, re.M):
         shellfire[m.group(1)] = (
@@ -4523,7 +4552,9 @@ def main():
         # `ROOM-SKINPEN-REST-AUTEUR`, jamais sous le nom que la gate lit.
         if _bs:
             _cs, _cd, _cm = int(_bs.group(1)), int(_bs.group(2)), int(_bs.group(3))
-            A('ROOM-SKINPEN-COVERAGE: ensembles=%d/%d  echantillons<=%d' % (_cs, _cd, _cm))
+            _cs += _bschain
+            A('ROOM-SKINPEN-COVERAGE: ensembles=%d/%d  echantillons<=%d  (dont %d de CHAINE,'
+              ' lus seulement par la chaine ADVERSE — SPEC 33)' % (_cs, _cd, _cm, _bschain))
             if _cs < _cd:
                 A('   %d ENSEMBLE(S) DE SURFACE SUR %d SONT JETES par le plafond. La SDF ne voit'
                   % (_cd - _cs, _cd))
@@ -4564,7 +4595,7 @@ def main():
         _missr = skinmiss.get('run', {})
         _restw = dict(_rest)
         # GARDE 1 (premisse intacte) : si la peau lue n'est pas celle du personnage, aucun plancher.
-        if _bs and int(_bs.group(1)) < int(_bs.group(2)):
+        if _bs and int(_bs.group(1)) + _bschain < int(_bs.group(2)):
             _restw = {}
             A('ROOM-SKINPEN-REST-TRONQUEE: %d ensemble(s) de surface sur %d sont jetes — la SDF ne'
               % (int(_bs.group(2)) - int(_bs.group(1)), int(_bs.group(2))))
@@ -4654,6 +4685,155 @@ def main():
             A('   SOMMET EXTREMAL DE PEAU, pour lequel etre DEHORS est la DEFINITION meme d\'un')
             A('   point de surface. C\'est un DOMAINE, pas une alarme.')
         A('ROOM-SKINPEN-TESTS: %d echantillons de surface compares sur la fenetre' % _tot)
+        # ==========================================================================================
+        # SPEC 33 — L'INTERACTION SEIN <-> SEIN. LA SECTION AVAIT UN DOMAINE VIDE PAR CONSTRUCTION.
+        # Texte exact (l.400-403) : « Medial surfaces shall collide or repel BEFORE visible
+        # interpenetration. The interaction shall support contact, local compression, tangential
+        # sliding, redirection of movement. Recommended restitution 0.00-0.15, nominal 0.06. »
+        # Jusqu'au cycle 62, `physics_c14_meshsamples.py` excluait TOUT os de chaine de la famille
+        # `bs` — correct pour SOI (un sein n'est pas un obstacle pour lui-meme) mais applique aussi
+        # a l'AUTRE sein, donc la surface mediale opposee n'existait dans aucun jeu que le moteur
+        # lit. Aucune valeur ne pouvait rien dire de cette section, ni rouge ni verte.
+        # CE QUI EST PUBLIE, ET DANS QUEL ORDRE DE LECTURE :
+        #   1. `medn` — LE DOMAINE. A zero, tout le reste est tu : « je n'ai pas regarde » ne se
+        #      publie jamais comme « rien ne se touche ». C'est la faute exacte que cette section a
+        #      subie pendant 62 cycles, et la publier a l'envers serait un faux vert de plus.
+        #   2. `gapa` — L'ECART D'AUTEUR, la ligne de base « physique desarmee » : les deux seins a
+        #      la pose dessinee, MEME frame, MEMES sommets, MEME fonction que la colonne simulee.
+        #   3. `gap` / `pen` — la colonne SIMULEE, et le verdict est la COMPARAISON des deux, jamais
+        #      la valeur brute : la question de la section est « la PHYSIQUE fait-elle traverser »,
+        #      pas « les surfaces d'auteur se touchent-elles ».
+        _mrun, _m2run = med.get('run', {}), med2.get('run', {})
+        _mhold, _m2hold = med.get('rest', {}), med2.get('rest', {})
+        if not _mrun and not _mhold:
+            A('ROOM-MEDIAL-ABSENTE: la course n\'a pas emis `PHYSMED`. SPEC 33 reste NON ETABLI —')
+            A('   ce n\'est pas « aucune interpenetration », c\'est « aucune mesure ».')
+        else:
+            for _tag, _m, _m2 in (('run', _mrun, _m2run), ('rest', _mhold, _m2hold)):
+                if not _m:
+                    continue
+                for c in sorted(_m):
+                    _gap, _gapa, _pen = _m[c]
+                    _rest, _n, _far, _sp = _m2.get(c, (0.0, 0.0, None, None))
+                    _nm = names[c] if c < len(names) else c
+                    if _n <= 0:
+                        A('ROOM-MEDIAL-DOMAINE-VIDE: %-8s tag=%s  n=0 lecture valide.' % (_nm, _tag))
+                        A('   La surface de l\'autre sein n\'a jamais ete a portee de l\'estimateur.')
+                        A('   SPEC 33 reste NON ETABLI sur cette chaine : un domaine vide ne rend')
+                        A('   pas un vert, il rend une mesure manquante — et la mesure manquante')
+                        A('   EST le blocage (arbitrage du 2026-08-20 13:20).')
+                        continue
+                    A('ROOM-MEDIAL: %-8s tag=%-5s n=%d  approche-simulee=%.4f'
+                      '  approche-auteur=%.4f m'
+                      % (_nm, _tag, int(_n), _gap / UNITS, _gapa / UNITS))
+                    if _sp is not None:
+                        A('ROOM-MEDIAL-SUPPORT: %-8s tag=%-5s espacement-du-nuage=%.4f m'
+                          '  rayon-de-support=%.4f m  hors-support=%d/%d (%.1f %%)'
+                          % (_nm, _tag, _sp / UNITS, 2.0 * _sp / UNITS, int(_far or 0), int(_n),
+                             100.0 * (_far or 0) / max(_n, 1.0)))
+                    # LE CONTROLE POSITIF, EN PREDICTION ET PAS EN RATIO. Arbitrage du 2026-08-20
+                    # 13:20 : « injecter X doit faire monter la mesure de X, tolerance 25 %,
+                    # l'exces comme le defaut etant un echec ». Ici l'injection RAPPROCHE le point
+                    # sonde de la surface adverse de X, donc l'approche doit BAISSER de X.
+                    _i = med3.get(_tag, {}).get(c)
+                    if med3_legacy:
+                        A('ROOM-MEDIAL-CONTROL: %-8s tag=%-5s ABSENT — la trace porte l\'ancien'
+                          ' champ `inj=`, une LONGUEUR. Le controle du cycle 62 est une FRACTION'
+                          ' et ne se lit pas sous ce nom : rejouer la salle.' % (_nm, _tag))
+                    elif _i and 0.0 < _i[0] < 1.0 and _i[1] < 900000.0:
+                        _frac, _gi = _i
+                        # PREDICTION EXACTE, ET EVALUABLE PARTOUT. Le point sonde avance d'une
+                        # FRACTION `frac` de son approche vers le plus proche echantillon : avec
+                        # `frac < 1` il ne traverse JAMAIS la surface, donc l'approche tombe a
+                        # `(1 - frac) x d1` quelle que soit sa valeur. Le minimum sur la fenetre
+                        # commute avec la multiplication par une constante positive, donc la
+                        # prediction porte telle quelle sur les grandeurs PUBLIEES.
+                        # AVANT LE CYCLE 62 l'injection valait 200 u FIXES : sur la fenetre de
+                        # COURSE, ou l'approche vaut 47 et 50 u, le point injecte traversait la
+                        # surface et le controle etait NON EVALUABLE — c'est-a-dire precisement
+                        # sur la fenetre qui PORTE le verdict. Il ne tirait qu'au repos, ou le
+                        # domaine est vide. Le controle tirait la ou il n'y a rien a mesurer.
+                        _pred = _frac * _gap
+                        _rep = _gap - _gi
+                        if _pred <= 0.0:
+                            A('ROOM-MEDIAL-CONTROL: %-8s tag=%-5s NON EVALUABLE — approche nulle,'
+                              ' la fraction n\'a rien a reduire.' % (_nm, _tag))
+                        else:
+                            _err = abs(_rep - _pred) / _pred
+                            A('ROOM-MEDIAL-CONTROL: %-8s tag=%-5s fraction=%.2f'
+                              '  baisse-predite=%.4f m  baisse-rendue=%.4f m  ecart=%.1f %% -> %s'
+                              % (_nm, _tag, _frac, _pred / UNITS, _rep / UNITS, 100.0 * _err,
+                                 'LE CONTROLE A TIRE' if _err <= 0.25 else
+                                 'LE CONTROLE ECHOUE — la mesure ne repond pas a ce qu\'on lui'
+                                 ' met'))
+                    _dom = int(_n) - int(_far or 0)
+                    if _far is not None and _dom <= 0:
+                        # LE DOMAINE EN PORTEE EST VIDE : AUCUN VERDICT NE PEUT SORTIR D'ICI.
+                        # `pen` ne peut etre ecrit QUE par une lecture dans le rayon de support
+                        # (`d1 <= sup`). Quand il n'y en a aucune, `pen = 0` veut dire « je n'ai
+                        # pas regarde », PAS « rien ne penetre » — et le publier `TENUE` est le
+                        # faux vert le plus facile a produire, celui que cette section a subi
+                        # pendant 62 cycles. La garde de vacuite portait sur `n` (TOUTES les
+                        # lectures) au lieu de porter sur le domaine EN PORTEE : au repos les 480
+                        # lectures sont hors support, donc `n = 480 > 0` la laissait passer et la
+                        # ligne sortait `domaine=0/480 -> TENUE`.
+                        A('ROOM-MEDIAL-PEN: %-8s tag=%-5s DOMAINE VIDE — 0/%d lecture(s) dans le'
+                          ' rayon de support : SPEC 33 n\'est PAS testee sur cette fenetre.'
+                          % (_nm, _tag, int(_n)))
+                        A('   Ce n\'est pas « rien ne penetre », c\'est « les deux surfaces ne se'
+                          ' sont jamais approchees a portee de l\'estimateur ». Separation'
+                          ' minimale mesuree : %.4f m simulee, %.4f m auteur, pour un rayon de'
+                          ' support de %.4f m.'
+                          % (_gap / UNITS, _gapa / UNITS,
+                             (2.0 * _sp / UNITS) if _sp is not None else float('nan')))
+                    else:
+                        A('ROOM-MEDIAL-PEN: %-8s tag=%-5s penetration-simulee=%.4f'
+                          '  penetration-auteur=%.4f  physique=%+.4f m  domaine=%d/%d -> %s'
+                          % (_nm, _tag, _pen / UNITS, _rest / UNITS, (_pen - _rest) / UNITS,
+                             _dom, int(_n),
+                             'TENUE' if _pen <= _rest else 'DEPASSEE'))
+                        # DE QUELLE NATURE EST LE ZERO DE LA COLONNE D'AUTEUR ? La meme garde de
+                        # vacuite vaut des DEUX cotes. `medrest` ne s'ecrit que sur une lecture
+                        # d'auteur EN PORTEE (`a1 < sup`) : quand l'approche d'auteur ne descend
+                        # jamais sous le rayon de support, son zero n'est PAS une mesure « rien ne
+                        # penetre », c'est « jamais regarde de pres ». Ca reste un fondement
+                        # valable pour le verdict — une surface qui ne s'approche jamais a moins de
+                        # X ne peut pas penetrer — mais c'est l'APPROCHE qui le porte, pas la
+                        # colonne de penetration, et les deux preuves ne se confondent pas.
+                        if _sp is not None and _rest <= 0.0:
+                            _supu = 2.0 * _sp
+                            if _gapa > _supu:
+                                A('   BASE D\'AUTEUR ENTRAINEE, NON MESUREE : l\'approche d\'auteur'
+                                  ' (%.4f m) ne descend jamais sous le rayon de support (%.4f m),'
+                                  ' donc AUCUNE lecture d\'auteur n\'est en portee. Sa penetration'
+                                  ' nulle est ENTRAINEE par cette distance — a %.4f m les deux'
+                                  ' surfaces ne peuvent pas se traverser — et non lue sur une'
+                                  ' lecture en portee.' % (_gapa / UNITS, _supu / UNITS,
+                                                           _gapa / UNITS))
+                            else:
+                                A('   BASE D\'AUTEUR MESUREE EN PORTEE : l\'approche d\'auteur'
+                                  ' descend a %.4f m, sous le rayon de support (%.4f m) — sa'
+                                  ' penetration nulle est une lecture, pas une deduction.'
+                                  % (_gapa / UNITS, _supu / UNITS))
+                        if _far is not None and _dom < 30:
+                            A('   DOMAINE MINCE : %d lecture(s) seulement tombent dans le rayon de'
+                              ' support. Un verdict pose dessus est ETROIT et se lit comme tel —'
+                              ' ce n\'est pas « rien ne se touche », c\'est « ca se touche'
+                              ' rarement ».' % _dom)
+            A('   NATURE : une distance signee minimale (m) entre le sommet de peau d\'une chaine')
+            A('   et la SURFACE de l\'autre sein ; positive = separees. REPERE : le monde, frame')
+            A('   mesuree, LES DEUX seins portes a leur position RESOLUE (colonne simulee) ou a')
+            A('   leur pose d\'AUTEUR (colonne auteur). LECTURE HORS DEFAUT : la penetration')
+            A('   simulee reste sous la penetration d\'auteur — la physique n\'ajoute rien.')
+            A('   LE RAYON DE SUPPORT N\'EST PAS UN REGLAGE : il vaut deux fois l\'espacement du')
+            A('   nuage livre, mesure au chargement et publie ci-dessus. Il existe parce que')
+            A('   `|sd| <= |p - q|` : une lecture de 0.64 m EXIGE que le plus proche echantillon')
+            A('   de la surface opposee soit a 0.64 m, ce qui n\'est pas une penetration mais un')
+            A('   plan prolonge loin de la ou il a ete echantillonne. Les lectures exclues sont')
+            A('   COMPTEES, jamais jetees en silence.')
+            A('   CE QUE CETTE LIGNE NE DIT PAS : la restitution 0.06 de la section. Elle exige')
+            A('   un CONTACT resolu, et rien ne resout encore ce contact — la mesure precede la')
+            A('   contrainte, elle ne la remplace pas.')
         # ==========================================================================================
         # [NOTE-241] LE CONTROLE POSITIF DE LA CONTRAINTE DE PEAU, ET SON COUT.
         # Deux balayages des 31 animations, memes fenetres, meme pilotage, le SEUL ecart etant
