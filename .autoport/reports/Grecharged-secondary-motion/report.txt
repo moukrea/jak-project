@@ -1,428 +1,307 @@
-RAPPORT DE CYCLE 60 — Grecharged-secondary-motion
+RAPPORT DE CYCLE 61 — Grecharged-secondary-motion
 DIRECTIVES v3fee554599
 Branche physics-keira-clean · perimetre : chestL / chestR SEULES (owner 2026-08-14 07:30)
 
 ================================================================================================
-0. LE PERIMETRE A CHANGE PENDANT LA TENTATIVE, ET JE LE SIGNALE AU LIEU DE LE SUBIR
+0. EN UNE PHRASE
 ================================================================================================
-`.autoport/DIRECTIVES.md` ET le validateur ont ete REECRITS par le superviseur a 13:19, pendant que
-ma premiere course tournait. Mon prompt porte la version d'avant. Verifie : la version acceptee est
-toujours `v3fee554599` et `SCOPE-SERIAL` vaut toujours 8, donc la tentative n'est pas invalidee —
-c'est le CHANTIER qui change, et je l'ai repris sur le nouveau.
+La gate COLLIDE echouait DEJA avec la physique entierement desarmee — c'est arithmetique et c'est
+dans la trace livree — parce que MON tableau lui donnait un plancher tire d'une AUTRE population que
+la mesure. Je corrige l'instrument (le plancher passe sur la meme fenetre), et je ferme le defaut
+reel que cet instrument revele : sa 33 et sa 34 parlent de SURFACES et le solveur ne contraignait
+que des JOINTS contre des CAPSULES. `phys-skin-chain` contraint desormais la PEAU contre la SURFACE,
+avec la MEME fonction que l'instrument.
 
-CE QUI CHANGE, EN DEUX POINTS :
-  (a) **`meshpen` NE PORTE PLUS AUCUN VERDICT.** §33/§34 se jugent sur `skinpen` contre sa LIGNE DE
-      BASE AU REPOS, et « NON ETABLI FAIT ECHOUER ».
-  (b) **le controle positif passe d'un RATIO a une PREDICTION** : injecter X doit faire monter la
-      mesure de X, a 25 % pres, l'exces comme le defaut etant un echec.
+================================================================================================
+1. LE CONTROLE NEGATIF TIRE, ET IL TIRE CONTRE MOI
+================================================================================================
+`ROOM-SKINPEN` (la course) portait le maximum de 16 740 frames et 31 animations, ~36 000 000
+d'evaluations. `ROOM-SKINPEN-REST` (le plancher que la gate lit) portait le maximum de la fenetre
+`physroom-hold` : 120 frames, ~250 000 evaluations. Deux populations, un rapport — c'est
+`ratio-of-two-statistics`, et ce dossier l'a deja paye.
 
-CE QUE J'AI ARRETE EN CONSEQUENCE, AVANT QUE CA TOURNE. J'avais prepare, grave et arme une jambe 2
-qui mettait la collision en DERNIERE operation de la frame — un invariant que le dossier prescrit a
-trois endroits et que le code ne tenait plus depuis le cycle 43. Elle visait `meshpen`. `meshpen` ne
-decide plus rien depuis 13:20, et le correctif aurait deplace le solveur pendant que je construis
-des instruments. **Arretee par PID exact, retiree avant sa course** ; sa note ([NOTE-153]) reste au
-dossier pour le cycle qui voudra la reprendre. Aucune course n'a ete gaspillee dessus.
+LA PREUVE N'EST PAS UN RAISONNEMENT, ELLE EST DANS LA TRACE DU CYCLE 60. `PHYSSKIN2 tag=run
+skinrest` est la lecture du point que L'AUTEUR a dessine — la pose sans physique, par definition —
+sur exactement la meme fenetre, les memes frames, les memes maillons, les memes echantillons et la
+meme fonction que `skinpen` :
+
+    fenetre de REPOS (120 frames)      chestL 143.64 u = 0.0351 m    chestR 203.97 u = 0.0498 m
+    point d'AUTEUR sur la COURSE       chestL 268.90 u = 0.0656 m    chestR 458.05 u = 0.1118 m
+    point SIMULE   sur la COURSE       chestL 430.72 u = 0.1052 m    chestR 572.43 u = 0.1398 m
+
+Physique ENTIEREMENT desarmee, la gate aurait donc lu 0.0656 et 0.1118 contre un plancher de
+0.0351 : ELLE ECHOUAIT DEJA. Une gate qu'aucune physique ne peut passer ne mesure pas la physique.
+La gate n'a pas bouge d'une ligne — c'est ce tableau-ci qui lui donnait la mauvaise colonne, et
+c'est a moi.
+
+CE QUI EST PUBLIE MAINTENANT, ET SA GARDE. Le plancher est la colonne d'AUTEUR de la MEME fenetre.
+La valeur unique est la PIRE des deux chaines et pas la meilleure : la gate applique la premiere
+valeur trouvee aux DEUX chaines, or chaque chaine est legitimement bornee par SON propre plancher ;
+exiger de chestR qu'elle passe sous celui de chestL, c'est exiger qu'elle passe sous la pose que
+l'auteur lui a donnee. Le verdict PAR CHAINE contre SON propre plancher est publie juste a cote
+(`ROOM-SKINPEN-VERDICT`), donc aucune chaine ne se cache derriere l'agregat.
+
+ET UNE GARDE NEUVE DECIDE SI CETTE COLONNE EST LISIBLE, au lieu de le promettre : dans la fenetre de
+repos, ou la physique est mesurablement au repos, la lecture SIMULEE et la lecture d'AUTEUR doivent
+COINCIDER. Mesure : 0.09 % sur chestL, 0.18 % sur chestR, seuil 5 %. C'est ce qui prouve que la
+colonne d'auteur EST la colonne « physique desarmee ».
+
+UNE GARDE EST RETIREE AVEC SA PREMISSE, ET LA CORRECTION EST A MOI. Le tableau refusait le plancher
+d'auteur parce que `skinout` = 44 688 lectures le placent DEHORS, « anatomiquement impossible ».
+Cette legende datait de l'epoque ou la grandeur portait sur le JOINT, interieur par construction du
+rig. Depuis [NOTE-161] elle porte sur un SOMMET EXTREMAL DE PEAU, pour lequel etre DEHORS est la
+DEFINITION meme d'un point de surface. C'etait un faux rouge. Les deux autres gardes restent,
+premisses intactes : `sets < declared` et `skinmiss > 0`.
+
+================================================================================================
+2. LE DEFAUT REEL : LA SPEC PARLE DE SURFACES, LE SOLVEUR NE CONTRAIGNAIT QUE DES JOINTS
+================================================================================================
+§33 dit « medial surfaces shall collide or repel BEFORE visible interpenetration ». §34 dit la meme
+chose du buste. Le solveur, lui, poussait le JOINT hors de CAPSULES — qui ne couvrent que 29.7 % de
+la geometrie pilotee. Le joint pouvait donc etre parfaitement hors de tous les volumes pendant que
+la PEAU du sein entrait dans le corps, et c'est exactement ce que la colonne mesurait.
+
+`phys-skin-chain` contraint la grandeur que la spec nomme, avec la MEME fonction que l'instrument :
+
+    pour chaque sommet extremal de peau du maillon (les `ms`, la donnee que l'instrument lit deja)
+        sa = phys-surf-sd(point d'AUTEUR)        <- vraie requete, UNE FOIS par frame
+        sd = phys-surf-sd(point SIMULE)          <- requete a chaque passe
+        v  = min(0, sa) - sd                     <- corrige si v > 0
+
+Les deux termes disent chacun un refus : JAMAIS plus loin que la surface, JAMAIS au-dela de la
+profondeur que l'auteur avait deja. Trois consequences qui sont des GARANTIES, pas des intentions :
+
+  1. a la pose d'auteur les deux lectures coincident, donc v <= 0 : la contrainte est INERTE au
+     repos. SPEC 2/9 et la gate IDLE ne peuvent pas la voir bouger, et ce n'est pas un reglage,
+     c'est l'algebre ;
+  2. elle ne peut JAMAIS tirer un sein plus DEHORS que la ou l'auteur l'a mis ;
+  3. elle borne la mesure qu'elle vise : `skinpen <= skinrest` sur la fenetre.
+
+================================================================================================
+3. MON PREMIER ESSAI EST REFUTE PAR SA PROPRE COURSE, ET JE LE PUBLIE AU LIEU DE LE TAIRE
+================================================================================================
+La premiere version faisait DEUX economies, et les deux etaient fausses. Course faite, mesuree,
+retiree — la trace partielle est gardee.
+
+  (a) ELLE LINEARISAIT LA LECTURE D'AUTEUR. Le sommet de peau etant un decalage rigide du joint,
+      j'ai ecrit `sa = sd - dot(dj, nrm)` pour eviter une seconde requete. C'est vrai SI les deux
+      points tombent dans la meme cellule du nuage de points — et faux des qu'on change de plus
+      proche echantillon, ce qui est precisement le regime non lipschitzien deja au registre.
+      L'instrument, lui, interroge les DEUX points. Une contrainte qui n'interroge pas la meme
+      chose que la mesure ne transporte pas sa borne.
+  (b) ELLE POUSSAIT TANGENTIELLEMENT PUIS REPROJETAIT LA LONGUEUR. La reprojection defait une part
+      de la correction, donc la borne n'etait exacte a aucun instant, et surtout pas au moment ou
+      l'instrument mesure.
+
+CE QUE LA COURSE A RENDU, ET C'EST CONTRE MOI :
+      chestL  skinpen 430.72 -> 395.73 u   (-8.1 %, dans le bon sens)
+      chestR  skinpen 572.43 -> 618.34 u   (+8.0 %, DANS LE MAUVAIS SENS)
+      corrections 107 867, cumul 1 265 722 u, pire correction 224.28 u
+      pire saut d'une frame : k=102 124.24 -> 219.84 u, k=103 198.37 -> 278.35 u
+Une chaine sur deux EMPIREE et le saut par frame en hausse : c'est la signature d'une correction
+pilotee par une normale qui saute. Retiree.
+
+LA VERSION QUI LA REMPLACE CORRIGE LES DEUX POINTS :
+  (a) `sa` est une VRAIE requete. Elle est gratuite par frame : le point d'auteur ne depend pas de
+      la position simulee, donc il se lit une fois et sert aux six passes.
+  (b) LA CORRECTION S'APPLIQUE PAR ROTATION AUTOUR DE L'ATTACHE.
+      `b + |u| * normalize(u^ + k t^)` EST une rotation : la longueur est invariante AU BIT, aucune
+      reprojection n'est necessaire, donc PLUS RIEN NE S'EXECUTE APRES la contrainte et la borne
+      tient a l'instant exact ou l'instrument mesure. C'est aussi, gratuitement, l'invariant « la
+      collision est la derniere operation de la frame » que le dossier prescrit a trois endroits.
+  (c) LA CONTRAINTE SE JUGE ELLE-MEME. Une 7e passe MESURE sans corriger : `reste` est la pire
+      violation qui SURVIT aux six passes. Si elle n'est pas ~0, la borne ne se transporte pas et
+      ce chiffre le dit AVANT la gate.
+
+CE QU'ELLE NE PEUT PAS FAIRE, ET JE LE DECLARE : si la normale de surface est presque RADIALE
+(`sp <= 0.05`), aucune rotation ne sort le sommet — il faudrait allonger l'os, ce que §22 interdit.
+Ces cas-la sont laisses tels quels et comptent dans `reste`.
+
+================================================================================================
+4. LE FAIT LE PLUS IMPORTANT DU CYCLE, ET IL SE DEMONTRE SANS COURSE
+================================================================================================
+`phys-surf-sd` rend `sd = dot(p - q, n)` ou `q` est le plus proche echantillon de la surface du
+corps et `n` sa normale UNITAIRE. Donc, par Cauchy-Schwarz et sans aucune hypothese :
+
+                                  |sd|  <=  |p - q|
+
+Autrement dit **une profondeur lue de X unites EXIGE que le plus proche echantillon de toute la
+surface du corps soit a AU MOINS X unites**. Appliquons-le aux deux colonnes que la gate compare :
+
+    skinpen  chestR  501.68 u  ->  le plus proche echantillon du corps est a >= 12.2 cm
+    skinrest chestR  458.05 u  ->  idem pour le point d'AUTEUR, >= 11.2 cm
+    skinpen  chestL  394.68 u  ->  >= 9.6 cm
+    skinrest chestL  268.90 u  ->  >= 6.6 cm
+
+Un point qui PENETRE une surface est, par definition, PROCHE de la surface qu'il vient de
+traverser. Un point a 12 cm du moindre echantillon de peau n'est pas dans le corps : il est dans un
+TROU du nuage.
+
+ET LE TROU EST MESURE, PAS SUPPOSE. `recharged_assets/physics_mesh.txt` livre 1 071 echantillons en
+92 ensembles pour TOUT le personnage, et **84 de ces 92 ensembles sont exactement au plafond
+`BSURF_MAX = 12`** de `.autoport/physics_c14_meshsamples.py:61` — la densite n'est donc pas fixee
+par la geometrie, elle est fixee par un plafond. En particulier :
+
+    bs chest    12 echantillons pour une envergure de 2660 u = 65 cm
+    bs hips     12 echantillons pour 2372 u = 58 cm
+    espacement plus-proche-voisin INTRA-ensemble : mediane 91.7 u = 2.2 cm, maximum 1117 u = 27 cm
+
+Le buste — l'obstacle meme dont §34 parle — est represente par DOUZE points sur 65 cm. Et les
+quatre os de chaine (`lBoob`, `lBooc`, `rBoob`, `rBooc`) sont EXCLUS de la surface-obstacle par
+construction (`physics_c14_meshsamples.py:563`), ce qui est correct — un sein n'est pas un obstacle
+pour lui-meme — mais laisse un trou de la taille d'un sein a l'endroit exact ou on mesure.
+
+**CONSEQUENCE, ET ELLE PORTE DANS LES DEUX SENS.** Le maximum de `skinpen` ET le maximum de
+`skinrest` sont des lectures de ce trou. Le rouge que j'ai publie au cycle 60 — « la physique
+enfonce la peau des seins de 7 a 9 cm » — n'est PAS soutenu par cet instrument, et le vert ne le
+serait pas davantage. Je retire l'affirmation au lieu de la defendre.
+
+**ET §33 EST PIRE QUE NON MESUREE, ELLE EST NON MESURABLE PAR CETTE COLONNE.** §33 parle du contact
+sein <-> sein. Le sein oppose est un os de chaine, donc ABSENT de `bs`. Aucune valeur de `skinpen`
+ne peut donc dire quoi que ce soit de §33 : son domaine est vide par construction du fichier.
+
+================================================================================================
+5. LE TEST DE CONVERGENCE, ET IL ECHOUE — C'EST LA PREUVE LA PLUS DURE DU CYCLE
+================================================================================================
+Un estimateur qui mesure une grandeur GEOMETRIQUE doit CONVERGER quand on raffine son maillage.
+J'ai donc joue la MEME course, avec le MEME solveur (contrainte desarmee, `PHYSSKINC n=0`, et la
+pose de repos rendue AU BIT : `PHYSIDLE dev=0.4721 / 1.0232`, identique au cycle 60), en changeant
+UNE SEULE chose : la densite du nuage de surface.
+
+    nuage de surface        chestL skinpen / plancher     chestR skinpen / plancher
+    1 071 ech. (12/os)        430.72 u / 268.90 u           572.43 u / 458.05 u
+    2 966 ech. (48/os)        424.46 u / 349.72 u           472.66 u / 400.98 u
+    variation                  -1.5 %  /  +30.1 %            -17.4 % /  -12.5 %
+
+**LE PLANCHER DE chestL MONTE DE 30 % QUAND ON TRIPLE L'ECHANTILLONNAGE, ET LES QUATRE COLONNES
+BOUGENT DANS DES SENS INCOHERENTS.** Ce n'est pas du bruit : c'est un estimateur qui n'a pas
+converge. `phys-surf-sd` signe la distance par la normale du SEUL plus proche echantillon ; ajouter
+des points change lequel gagne, et un point plus PROCHE dont la normale est plus OBLIQUE rend une
+lecture plus PROFONDE. La valeur n'est donc pas une propriete de la surface, c'est une propriete de
+l'echantillonnage.
+
+**CE QUE J'EN CONCLUS, ET CE QUE JE REFUSE D'EN CONCLURE.** Je ne peux pas dire « la physique
+enfonce la peau de X cm » — je l'ai dit au cycle 60 et je le RETIRE. Je ne peux pas dire non plus
+« elle ne l'enfonce pas ». §33/§34 restent **NON ETABLI**, donc la gate reste ROUGE, et c'est la
+lecture correcte : la mesure manquante EST le blocage.
+
+CE QUI EST QUAND MEME ACQUIS, ET C'EST REEL : en raffinant l'instrument, l'ecart impute a la
+physique tombe de +0.0395 / +0.0279 m a +0.0182 / +0.0175 m — il est DIVISE PAR DEUX sur les deux
+chaines par un changement qui ne touche PAS le solveur. La plus grande part de ce que le cycle 60
+imputait a la physique etait donc de l'instrument.
+
+================================================================================================
+5 bis. LE CHANTIER SUIVANT EST NOMME, BORNE, ET SON CRITERE D'ACCEPTATION EXISTE DEJA
+================================================================================================
+  1. **UN ESTIMATEUR CONVERGENT.** Signer par le seul plus proche echantillon est ce qui casse. Un
+     estimateur robuste (mediane ou moyenne ponderee des distances aux plans des k plus proches)
+     supprime le point unique de defaillance. **ET SON CRITERE D'ACCEPTATION EST DEJA CONSTRUIT** :
+     rejouer la course a 12 et a 48 echantillons par os et exiger que les quatre colonnes bougent
+     de moins de quelques pour cent. Le test existe, il vient de tourner, et il refuse l'estimateur
+     actuel.
+  2. **§33 A UN DOMAINE VIDE ET IL FAUT LE REMPLIR.** Le sein oppose doit entrer dans la surface
+     testee par la chaine adverse — exclu de sa PROPRE chaine, present pour l'autre. Aujourd'hui
+     `physics_c14_meshsamples.py:563` l'exclut des deux, donc aucune valeur de `skinpen` ne peut
+     rien dire du contact sein <-> sein.
+  3. **LA CONTRAINTE EST ECRITE ET ATTEND.** `phys-skin-chain` existe, elle est mesuree, elle a sa
+     jambe d'ablation et son controle qui tire. Elle se rearme le jour ou le champ qu'elle lit
+     cesse d'etre discontinu — pas avant.
+
+================================================================================================
+6. CE QUE JE LIVRE, FICHIER PAR FICHIER
+================================================================================================
+`goal_src/jak1/pc/jak-hd-physics.gc`   4 774 lignes (plafond 4 800)
+   - `phys-surf-sd` publie desormais la NORMALE du meilleur echantillon (`*phys-sdn*`) et cesse de
+     compter les requetes de DECISION dans `*phys-skintest*` (`*phys-sd-quiet*`) : le `tests=` que
+     le tableau publie comme provenance reste un compte de MESURE.
+   - `phys-skin-chain` : la contrainte de peau, **`*phys-skin-off*` vaut 1 EN LIVRAISON**.
+   - `phys-skin-off-set!`, `phys-skc` : l'interrupteur et les quatre compteurs de cout.
+   - AUCUNE autre ligne de solveur n'est touchee. Le solveur LIVRE est celui du cycle 60.
+   - 116 + 46 lignes de commentaires deplacees vers `jak-hd-physics-NOTES.md` sous la convention de
+     renvoi existante, AUCUNE ligne de code modifiee (diff des lignes non-commentaires : vide).
+     C'est la seule facon prevue de payer le plafond, et elle est declaree.
+
+`goal_src/jak1/pc/phys-room.gc`        4 518 lignes
+   - deux phases APPENDUES apres PH-SYM (34 SKINARM, 35 SKINDIS) : la jambe d'ablation de la
+     contrainte, 31 animations par branche. Appendues, donc aucune ligne existante ne change de
+     valeur a cause d'elles — c'est l'argument que PH-SGN et PH-SYM ont chacun ecrit avant moi.
+   - `PHYSSKINC tag= n= sum= worst= reste=` : le cout de la contrainte et sa violation residuelle.
+   - la legende de `skinout` est CORRIGEE : elle datait du temps ou la grandeur portait sur le
+     JOINT et declarait « anatomiquement impossible » ce qui est la definition d'un point de
+     surface depuis [NOTE-161].
+
+`.autoport/physics_room_table.py`
+   - `ROOM-SKINPEN-REST` change de source (voir section 1), `ROOM-SKINPEN-CAL` (la garde de
+     calibration), `ROOM-SKINPEN-VERDICT` (le verdict PAR CHAINE), `ROOM-SKINPEN-HOLD` (l'ancien
+     plancher, garde comme diagnostic), `ROOM-SKINPEN-CONTROL`, `ROOM-SKINPEN-COUT`.
+   - la mention du critere « arme >= 3x desarme » de `ROOM-SKINADD-CONTROL` est corrigee : ce ratio
+     est PERIME depuis l'arbitrage du 13:20. Le verdict de la ligne ne change pas (400 u injectes
+     ne rendent pas 400 u), sa RAISON si.
+
+`.autoport/physics_c14_meshsamples.py` + `recharged_assets/physics_mesh.txt`
+   - `BSURF_MAX` 12 -> 48, regeneration en `--bsurf-only`. Hors les lignes `bs`, le fichier est
+     IDENTIQUE AU BIT (diff verifie, y compris la ligne de provenance `# skin`, que le mode
+     `--bsurf-only` effacait et que j'ai remise).
+   - 1 071 -> 2 966 echantillons, espacement median 91.7 -> 48.8 u (2.24 -> 1.19 cm),
+     `bs chest` 12 -> 48. Le moteur livre porte deja `PHYS-BSURF-MAX 48`, donc AUCUNE
+     reconstruction de `gk` : c'est un changement de DONNEES.
+
+================================================================================================
+7. CE QUE LA COURSE LIVREE REND, ET CE QU'ELLE NE REND PAS
+================================================================================================
+Course finale : solveur du cycle 60 (contrainte DESARMEE), nuage de surface a 2 966 echantillons.
+
+  LA POSE DE REPOS EST RENDUE AU BIT      `PHYSIDLE c=0 dev=0.4721 amp=0.0000`
+                                          `PHYSIDLE c=1 dev=1.0232 amp=0.0000`
+                                          — les memes chiffres qu'au cycle 60. Aucune regression.
+  LE MOUVEMENT AUSSI                      `tipvar` chestL 0.1756  chestR 0.1775 — identiques.
+  `meshpen` AUSSI                         0.1115 / 0.1019 — identiques.
+  ROOM-IDLE                               maxdev 0.0002 (SPEC 2 : Additional Procedural Sag = 0 %)
+
+  LA GATE §33/§34 LIT MAINTENANT LA BONNE POPULATION, ET ELLE ECHOUE :
+      ROOM-SKINPEN-REST: PIRE-DES-DEUX 0.0979   (plancher d'AUTEUR, meme fenetre)
+      chestL  course 0.1036  plancher propre 0.0854  physique +0.0182 m  DEPASSEE
+      chestR  course 0.1154  plancher propre 0.0979  physique +0.0175 m  DEPASSEE
+      ROOM-SKINPEN-FLOOR 0.0118 m — l'ecart entre les deux chaines MIROIR, c'est-a-dire l'erreur
+      propre de l'instrument. Les deux depassements valent 1.5x ce plancher.
+
+**JE NE PRESENTE PAS CES DEUX LIGNES COMME UN DEFAUT DE PHYSIQUE.** Le meme instrument, raffine,
+a deplace ces memes colonnes de 30 % sans qu'un bit du solveur bouge (section 5). Un depassement de
+1.5x l'erreur propre de l'instrument, sur un estimateur qui n'a pas converge, ne soutient aucun
+verdict. §33/§34 = **NON ETABLI**, et NON ETABLI fait echouer la gate : c'est la lecture correcte.
+
+================================================================================================
+8. LA JAMBE D'ABLATION EST INERTE DANS CETTE COURSE, ET C'EST MON PROPRE COMPTEUR QUI L'A VU
+================================================================================================
+`PHYSSKINC tag=skin-armed n=0` : la jambe « armee » n'a applique AUCUNE correction. Cause : je
+l'armais par `(when (zero? (-> self pframe)) ...)`, or `pframe` est incremente EN TETE du tick et ne
+vaut donc JAMAIS 0 dans le corps d'une phase. C'est `phase-window-reset-never-fires` au registre, et
+je viens de le repayer.
+
+CE QUE CA IMPLIQUE, ET JE LE DIS AU LIEU DE LE LAISSER PASSER : dans CETTE course les deux jambes
+sont DESARMEES, donc l'ecart `armee`/`desarmee` ne mesure que la variation d'une fenetre a l'autre.
+Le tableau annoncait « LE CONTROLE A TIRE » sur cet ecart — deux lignes du meme tableau se
+contredisaient, et c'est `PHYSSKINC` qui avait raison. **CORRIGE AUX DEUX BOUTS** : l'armement passe
+par la TRANSITION de phase (plus par `pframe`), et la ligne `ROOM-SKINPEN-CONTROL` refuse desormais
+d'annoncer un controle quand la jambe armee compte 0 correction. **NON REEXERCE dans cette course**,
+et je ne le presente donc pas comme prouve.
+
+LE CONTROLE, LUI, A BIEN TIRE — mais dans la course PRECEDENTE de ce cycle (contrainte armee par
+defaut), et c'est de la que vient la preuve de la section 3 :
+      armee 0.0902 / 0.1139     desarmee 0.1013 / 0.1251     tenu +0.0111 / +0.0112 m
+      `PHYSSKINC skin-armed n=12805`, `skin-disarmed n=0` — l'interrupteur fait ce qu'il dit.
+
+================================================================================================
+9. CE QUI RESTE ROUGE, ET LA PORTE HUMAINE
+================================================================================================
+Le validateur passe SCOPE, CLEAN, TUNING, ROOM, IDLE, ANIM, DISCRIMINANT et le controle positif de
+COLLIDE. Il echoue sur :
+  - **COLLIDE §33/§34** : les deux lignes ci-dessus. NON ETABLI, publie comme tel.
+  - **OPEN-DEFECTS** : `OPEN breast-spec-incomplete`. **Cette ligne ne se retire que sur la parole
+    de l'owner** — jamais sur un chiffre vert, jamais par moi. La phase reste donc ouverte par
+    construction, et c'est voulu.
 
 BREAST-PENETRATION: chestL meshpen=0.1115 m   |   chestR meshpen=0.1019 m
-  DECLAREE A CHAQUE CYCLE, ET LE VALIDATEUR L'EXIGE TOUJOURS — mais depuis l'arbitrage du 13:20
-  cette grandeur EST UN DIAGNOSTIC ET PLUS UN VERDICT : c'est un DEPLACEMENT, invariant au rayon,
-  pas une profondeur. Elle est donc publiee ici sans que j'en tire quoi que ce soit, ni dans un
-  sens ni dans l'autre. INCHANGEE PAR CE CYCLE, et c'etait une condition gravee (P3) : le seul
-  changement de moteur qui touche la course est une SONDE qui restaure la position au bit.
-
-================================================================================================
-1. LES TROIS LIGNES QUE LA NOUVELLE GATE EXIGE, ET QUE LA SALLE NE PRODUISAIT PAS
-================================================================================================
-  1. `ROOM-SKINPEN: <chaine> <m>`        — l'ancienne ligne existait mais dans un format que le
-                                           nouveau lecteur ne matche pas (`chain=...` / `skinpen=...`).
-  2. `ROOM-SKINPEN-REST: <chaine> <m>`   — la ligne de base au repos, physique DESARMEE. ABSENTE.
-  3. `ROOM-POSCONTROL-INJECT: <X>`       — sans elle, le critere predictif n'a pas de X.
-
-Les trois sont produites. Le detail est en section 8.
-
-================================================================================================
-2. LA LIGNE DE BASE AU REPOS — ET POURQUOI ELLE EST PRISE A LA MEME FRAME
-================================================================================================
-L'arbitrage demande « une fenetre de repos, physique desarmee ». Je l'ai construite AUTREMENT, et
-plus strictement : `ROOM-SKINPEN-REST` est la profondeur sous la peau du point que **l'auteur** a
-dessine — « physique desarmee » au sens exact du terme, puisque la pose d'auteur EST la pose sans
-physique — prise **a la meme frame, sur la meme surface, pour le meme lien** que `skinpen`.
-
-POURQUOI PAS UNE FENETRE SEPAREE : elle aurait compare le maximum d'une fenetre au maximum d'une
-AUTRE, ce que le registre appelle `ratio-of-two-statistics` et ce que ce dossier a deja paye. A la
-meme frame, l'offset anatomique — l'os de poitrine est interieur de 0,13 a 0,16 m par construction
-du rig — se retranche EXACTEMENT au lieu d'etre estime ailleurs. C'est la construction de `feff`
-pour les volumes, portee au mesh DESSINE.
-
-================================================================================================
-3. ET LE CONTROLE QUI DECIDE SI CETTE LIGNE EST LISIBLE — IL EST CONTRE MOI, ET C'EST LE POINT
-================================================================================================
-Une ligne de base tiree d'une SDF qui se trompe de cote n'est pas une ligne de base. `skinout`
-compte donc les lectures qui placent le point d'AUTEUR **DEHORS**, ce qui est anatomiquement
-impossible pour un os de poitrine.
-
-LE SOUPCON VIENT D'UNE MESURE, PAS D'UNE INTUITION. La premiere course rend `skinadd` (la profondeur
-AJOUTEE par la physique) a **1052,0 / 938,9 u**, alors que :
-    la plus grande deviation de JOINT jamais mesuree au dossier   301 u   (`|tp|` = 0,5008 B0)
-    la deviation du joint incline a 60 degres                     153,7 / 185,4 u
-    la deviation du joint au repos                                  0,47 /   1,02 u
-Or `skinadd = sd(A) - sd(S)` est une difference de la MEME fonction en deux points : si
-`phys-surf-sd` etait une vraie distance signee elle serait 1-lipschitzienne et `skinadd <= |A - S|`
-serait une IDENTITE. Elle est violee d'un facteur 3,5. CAUSE NOMMEE, lue dans le source :
-`phys-surf-sd` est une SDF de NUAGE DE POINTS filtree par une phase large (`|p - os| < bsr + 512`),
-donc elle n'est pas lipschitzienne au franchissement d'un ensemble d'os.
-
-**CE QUE LE TABLEAU FAIT DE CE COMPTE, ET C'EST GRAVE AVANT LA COURSE : si `skinout > 0`, il NE
-PUBLIE PAS `ROOM-SKINPEN-REST` sous le nom que la gate lit.** La gate reste NON ETABLI, donc elle
-ECHOUE — exactement ce que l'arbitrage prescrit. Je ne fais pas verdir une gate sur un instrument
-dont je viens de mesurer qu'il se trompe de cote, meme quand le nombre m'arrangerait.
-
-================================================================================================
-4. LE CONTROLE POSITIF — DEUX DEFAUTS MESURES, ET LES DEUX SONT DE MOI
-================================================================================================
-**(a) IL CONTAMINAIT L'ETAT.** L'injection etait posee EN PLACE dans `*phys-px*` — qui est la
-position PORTEE d'une frame a l'autre (Verlet, `p += v`), pas une variable de frame. Les deux
-branches ne comparaient donc pas deux mesures mais deux TRAJECTOIRES, et sur deux fenetres
-d'animation DIFFERENTES de surcroit. La sonde est desormais APPARIEE : meme frame, mesure sans puis
-avec, position RESTAUREE AU BIT entre les deux.
-
-**(b) ELLE N'INJECTAIT PAS LE DEFAUT MESURE.** Elle poussait vers l'ANCRE — une direction qui n'a
-aucune raison d'etre celle du gradient de profondeur. Mesure : **110,85 u rendus pour 400 u
-injectes, soit 27,7 %**. Injecter un DEPLACEMENT et exiger qu'un compteur de PROFONDEUR le restitue
-teste la geometrie, pas le compteur. Elle pousse desormais le long de la normale RENTRANTE du volume
-ou le lien est deja le plus enfonce : c'est la definition meme de « profondeur inadmissible ».
-
-CE QUI EST CONTRE MOI ET QUE J'AI GRAVE AVANT LA COURSE : (b) rapproche l'injection de l'instrument,
-et un controle trop proche de son instrument devient tautologique. Ma defense est arithmetique et
-pas rhetorique — c'est l'AMPLITUDE qui falsifie : un compteur sature, ecrete ou mal echelonne ne
-rendra pas 400 u meme pousse droit dans l'axe, et la bande a DEUX bords. Si la restitution sort a
-100 %, je dirai aussi que ce resultat ne prouve QUE l'echelle du compteur, pas qu'il regarde la
-bonne chose.
-
-================================================================================================
-5. UN CLIQUET D'INSTRUMENT TROUVE EN CHEMIN ET CORRIGE
-================================================================================================
-`*phys-skinpen*` n'etait remis a zero QU'UNE FOIS (phys-room.gc:2456). Les huit tags emis apres
-`run` publiaient donc tous LE MEME maximum courant, lu sans rien executer sur la course du 13:04 :
-
-    self-disarmed · self-armed · side-disarmed · side-armed · cone-* · prox-*
-    TOUS : 644.2134 / 638.9550
-
-Huit fenetres, deux nombres. C'est `ratchet-running-max` du registre. Corrige (remise a zero par
-tag) : les huit rendent desormais des valeurs distinctes — self-disarmed 558.61/424.88, self-armed
-384.69/401.52, side-disarmed 501.18/479.17, side-armed 527.40/477.21.
-
-PORTEE HONNETE, ET JE NE LA GONFLE PAS : AUCUN verdict du tableau ne lisait ces huit tags (`sp_run`
-ne lit que `run`, qui est le PREMIER emis et donc intact — reproduit a l'identique, 556.1469 /
-492.6942). Corriger ne change AUCUNE conclusion existante. C'etait un instrument faux qui publiait
-dans le vide, pas un faux vert.
-
-================================================================================================
-6. CE QUE LA GATE QUI ECHOUE TOUJOURS CACHAIT — 3e OCCURRENCE, ET C'EST UNE BONNE NOUVELLE
-================================================================================================
-`ROOM-POSCONTROL` sort par `die`, donc IDLE, ANIM et DISCRIMINANT n'ont JAMAIS ete evaluees depuis
-que COLLIDE echoue. Evaluees a la main sur la trace livree :
-
-    IDLE           maxdev 0.0002        plafond 1.0        PASSE
-    ANIM           2 pilotees / 2 respectees, perchain=yes  PASSE
-    DISCRIMINANT   ecart 41 % / 43 %    plancher 25 %      PASSE
-
-LES SEULES GATES ROUGES SONT LES DEUX VERDICTS DE COLLIDE ET `OPEN-DEFECTS`. Ce n'etait pas connu
-avant ce cycle, parce que rien ne les avait jamais atteintes.
-
-Le correctif mecanique des DIRECTIVES (`fail()` enregistre et continue, `die()` reserve a ce qui
-casse la LECTURE) est bien applique au bloc ROOM ; il reste des `die()` dans le bloc COLLIDE qui
-sont des verdicts de MESURE et non des defauts de lecture — dont celui de POSCONTROL, lignes
-468-478 du validateur reecrit. Je ne touche pas au validateur (regle 5) ; je le signale.
-
-================================================================================================
-7. LA PREMIERE COURSE : LE SOLVEUR N'A PAS BOUGE D'UN BIT, ET C'EST UN DIFF, PAS UNE AFFIRMATION
-================================================================================================
-Course de la jambe 1 (instrument seul) contre la course de reference du 13:04 :
-
-    38 854 lignes de mesure (`^PHYS*`, hors les deux familles declarees d'avance)
-    ZERO differente
-    `PHYSPC injections=360 armed=377.6415 disarmed=266.7958` reproduit au chiffre
-
-C'etait la condition Q3, gravee avant la course. Elle est tenue au standard le plus dur disponible.
-
-================================================================================================
-8. CE QUE JE LIVRE, FICHIER PAR FICHIER
-================================================================================================
-MOTEUR (`goal_src/jak1/pc/jak-hd-physics.gc`) :
-  * `skinadd` / `skinrest` / `skinout` — la profondeur AJOUTEE par la physique, la LIGNE DE BASE au
-    repos, et le compte de lectures anatomiquement impossibles ([NOTE-150], [NOTE-154]). Lectures
-    seules : un second appel a `phys-surf-sd` sur le point d'auteur du meme joint.
-  * `phys-inject-probe!` ([NOTE-155]) — le controle positif APPARIE : injection le long de la
-    normale rentrante du volume le plus profond, remesure avec le MEME predicat, restauration de la
-    position AU BIT. L'ancienne injection EN PLACE est retiree.
-  * `*phys-buried-tally*` etendu aux emplacements 17/18 de `*phys-dg*` : ce sont des diagnostics PAR
-    FRAME comme `buried` et `*phys-cvh*`, et la seconde passe de la sonde les polluerait. Aucun
-    changement de comportement : `phys-pen-chain` est l'unique appelant a `prio` = 0.
-  * `PHYS-ST` 20 -> 21, emplacement 20 = la profondeur ajoutee, maximum de FENETRE.
-  4784 lignes (plafond CLEAN 4800). VINGT-NEUF blocs de commentaire PUREMENT EXPLICATIFS sont
-  deplaces dans `jak-hd-physics-NOTES.md` pour tenir sous le plafond. **Aucune ligne de code
-  flottant n'a ete refactoree pour gagner de la place** — un plafond de lignes se paie en
-  commentaires deplaces, jamais en code deplace.
-
-SALLE (`goal_src/jak1/pc/phys-room.gc`) :
-  * `PHYSSKIN` porte `skinadd=`, `PHYSSKIN2` porte `skinrest=` et `skinout=` ;
-  * `PHYSROW2 k=<meme cle> skinadd=` par fenetre — la gate se prononce par (chaine, animation,
-    pilotage), donc la colonne a le meme domaine ;
-  * `PHYSPC` porte `inject=`, et l'amplitude vit dans une CONSTANTE (`PHYSROOM-INJECT`) publiee
-    telle quelle : elle ne peut pas etre ajustee apres coup sans que la comparaison le dise ;
-  * `physroom-emit-diag` remet `*phys-skinpen*` a zero apres publication (le cliquet, section 5) ;
-  * `arm` / `dis` viennent desormais de la PAIRE, prise sur les MEMES frames.
-
-TABLEAU (`.autoport/physics_room_table.py`) :
-  * `ROOM-SKINPEN: <chaine> <m>` au format que la gate lit, la ligne riche passant sous
-    `ROOM-SKINPEN-DETAIL:` pour qu'une colonne ajoutee plus tard ne decale pas ce qu'elle croit lire ;
-  * `ROOM-SKINPEN-REST:` — **et son refus de publication quand `skinout > 0`** (section 3) ;
-  * `ROOM-POSCONTROL-INJECT:` en METRES, la MEME unite que `armed`/`disarmed`, avec la valeur brute
-    en unites de jeu ecrite en clair sur la ligne ;
-  * une trace anterieure reste lisible : `n/a`, `NON MESUREE`, `ABSENT` — jamais un `0.0000` invente.
-
-VALIDATEUR : NON TOUCHE (regle 5). Aucune gate ajoutee, modifiee ni assouplie — y compris celles
-que le superviseur vient de reecrire.
-DONNEES DE CHAINES : NON TOUCHEES. Aucun parametre de `physics_chains.txt` n'a bouge.
-
-================================================================================================
-9. INCIDENT D'INFRASTRUCTURE, RAPPORTE PARCE QU'IL PEUT SE REPRODUIRE
-================================================================================================
-La premiere relance de la course a echoue sur `out/jak1/obj/assistant-ag.go absent`. Cause : le
-demon `auto_build_apk.sh` tourne depuis 2 jours et repeuple `out/jak1/obj/` — il a efface l'asset
-entre le `(mi)` et le demarrage de `gk`. C'est exactement le risque que `.deploy-in-progress`
-existe pour couvrir, mais le script de salle ne pose ce verrou que PENDANT sa course : entre la
-compilation et son demarrage, la fenetre est ouverte.
-CE QUE J'AI FAIT : pose le verrou moi-meme, avec PID et horodatage comme la convention du
-2026-08-14 07:10 l'exige, AVANT de relancer. Aucune donnee n'est perdue — la course fautive n'avait
-produit aucune ligne.
-CE QUE JE N'AI PAS FAIT : toucher au demon ou au script de salle. C'est un durcissement a faire au
-POINT DE PRODUCTION (poser le verrou des la compilation), pas une rustine dans mon cycle.
-
-================================================================================================
-10. LES DEUX RESULTATS DE LA COURSE
-================================================================================================
-
---- P1 : LE CONTROLE POSITIF RESTITUE-T-IL CE QU'ON LUI INJECTE ? -------------------------------
-    injections            321
-    amplitude injectee    400.00 u   (0.097656 m)
-    desarme (meme frame)  303.84 u   (0.074181 m)
-    arme    (meme frame)  623.77 u   (0.152288 m)
-    HAUSSE MESUREE        319.93 u   soit 80.0 % de l'injection   (bande exigee 75-125 %)
-    VERDICT P1 : TENUE
-    Reference d'avant correction, meme injection : 110.85 u, soit 27.7 %.
-
---- P2 : LA LIGNE DE BASE AU REPOS EST-ELLE LISIBLE ? -------------------------------------------
-    chaine 0   skinpen(simule) 556.15 u   skinrest(auteur) 411.38 u   skinadd 1052.01 u
-    chaine 1   skinpen(simule) 492.69 u   skinrest(auteur) 425.59 u   skinadd 938.92 u
-    skinout (point d'AUTEUR lu DEHORS, anatomiquement impossible) : 41842
-    VERDICT P2 : TENUE, ET CONTRE MON PROPRE INSTRUMENT (skinout > 0)
-
-    ET LA PREUVE NE DEPEND D'AUCUN TAUX — elle est arithmetique, sur la frame du maximum :
-        skinadd = sd(auteur) - sd(simule) = 1052.01 u
-        -sd(simule) <= skinpen max        = 556.15 u
-        donc  sd(auteur) >= 1052.01 - 556.15 = 495.87 u
-    Le point d'AUTEUR est donc lu **495.87 u DEHORS** (0.121 m) alors qu'il est mesure a
-    411.38 u SOUS la peau au repos (`skinrest`). Erreur de signe de 0.221 m sur un os que le rig
-    place a l'interieur par construction.
-
-    JE NE PUBLIE PAS DE TAUX : le denominateur exact (frames x maillons reellement evalues)
-    n'est pas publie par la salle — `ns` ne compte que les frames RETENUES par fenetre, pas
-    les 54 frames d'entree ni les phases hors mesure. Un pourcentage tire d'un denominateur
-    que je devine serait exactement le genre de chiffre que ce dossier interdit.
-    Ligne publiee : ROOM-SKINPEN-REST-NON-ETABLIE: 0.1004
-
---- P3 : LE SOLVEUR A-T-IL BOUGE ? REFUTEE COMME ELLE ETAIT ECRITE, ET JE NE LA REINTERPRETE PAS ---
-    J'avais predit ZERO ligne differente hors `PHYSPC`. Mesure : **207 lignes differentes** sur la
-    course entiere. P3 est donc REFUTEE, et l'erreur est dans MA prediction, pas dans la sonde.
-
-    CE QUE JE N'AVAIS PAS PREVU, ET C'EST EXACTEMENT CE QUE JE VENAIS DE CORRIGER : l'ancienne
-    injection CONTAMINAIT la trajectoire pendant la fenetre armee. La retirer CHANGE donc cette
-    fenetre — et tout compteur CUMULE sur la course qui la traverse change avec elle. Les 207
-    lignes sont toutes de cette famille : PHYSCFVOL (54), PHYSCVOL (49), PHYSPAIR (30), PHYSDIAG*
-    (64), PHYSLIM* et PHYSTAN2. Aucune n'est une mesure de la poitrine hors controle.
-
-    L'INVARIANT QUI COMPTE, LUI, EST TENU — ET IL EST PLUS DUR QUE CE QUE J'AVAIS ECRIT :
-        14 444 lignes de trace AVANT les fenetres de controle : ZERO differente
-        les 310 lignes `PHYSROW` (meshpen, tipvar, rootdev, jump)  : ZERO differente
-        `PHYSDIAG6 worstres` 456.7879 / worstci 39, `offdrift` 1026.8782 : identiques
-    La sonde ne touche donc pas la physique ; elle ne modifie que la fenetre qu'elle mesure, et
-    seulement parce qu'elle a CESSE de la perturber.
-
---- P4 : LE VALIDATEUR NE PEUT PAS SORTIR A 0 CE CYCLE -------------------------------------------
-    TENUE, et gravee avant de lancer : `OPEN breast-spec-incomplete` ne se retire que sur la parole
-    de l'owner.
-
-
-================================================================================================
-13. JAMBES 3 A 5 — LA LIGNE DE BASE DE LA GATE N'EST PAS CALCULABLE, ET LA CAUSE EST DANS LA DONNEE
-================================================================================================
-La gate reecrite a 13:20 exige `ROOM-SKINPEN-REST` — « la ligne de base au repos, physique
-DESARMEE » — et fait ECHOUER tant qu'elle manque. Je l'ai poursuivie sur trois courses. Voici la
-chaine complete, chaque maillon mesure, chacun refutant le precedent.
-
-  JAMBE 3 — je construis la fenetre de REPOS (`physroom-hold`), sur le MEME chemin que la course
-  (meme fonction, meme point `*phys-px*`, meme garde `sd < 0`). Desarmement CHIFFRE et pas promis :
-  `PHYSIDLE dev` = 0.4721 / 1.0232 u sur cette meme fenetre, quand le validateur plafonne cette
-  grandeur a 1.0.
-      RESULTAT : `chestL skinpen = 0.0000`, `chestR = 417.2304 u`.
-      Un zero sur un os que le rig place a 0.10 m SOUS la peau n'est pas « il est dehors ».
-
-  JAMBE 4 — hypothese : la phase large de `phys-surf-sd` ecarte l'ensemble d'os le plus proche sur
-  une marge INVENTEE (`|p - os| < bsr + 512.0`). Correctif : branch-and-bound EXACT, on n'ecarte un
-  ensemble que s'il ne PEUT PAS contenir un echantillon plus proche que le meilleur deja trouve —
-  la constante disparait au lieu d'etre ajustee. Et `skinmiss` compte, par chaine, les evaluations
-  sans echantillon a portee, pour que le zero cesse d'etre ambigu.
-      RESULTAT : `skinmiss = 0` sur les deux chaines, et `chestL` lit TOUJOURS 0.0000.
-      **HYPOTHESE REFUTEE.** Le branch-and-bound RESTE — il supprime une marge inventee et ne peut
-      pas se tromper — mais il n'etait pas la cause.
-
-  JAMBE 5 — hypothese : la peau est TRONQUEE. Mesure dans la trace : `bsurf sets=64/92`, donc
-  **28 ensembles de surface sur 92 etaient JETES** par `PHYS-BSURF-SETS`. Correctif : 64 -> 96, et
-  `PHYSBSURF sets/declared/max` publie pour qu'une troncature ne puisse plus se taire.
-      RESULTAT : `sets=92/92`, et les valeurs sont IDENTIQUES — `chestL` 0.0000, `chestR` 417.2304.
-      **HYPOTHESE REFUTEE AUSSI.** Le relevement des ensembles reste (28 etaient bien perdus), mais
-      il ne touche pas la poitrine.
-      ET JE LE DIS POUR QUE PERSONNE NE LE PRENNE POUR UN CORRECTIF : `PHYS-BSURF-MAX` passe de 12 a
-      48 est **INERTE** — le fichier livre declare 12 echantillons par ensemble, pas davantage. Il
-      ne sert qu'a empecher une troncature si le generateur en produit un jour plus. Le seul
-      correctif REEL de cette jambe est `PHYS-BSURF-SETS` 64 -> 96.
-
-------------------------------------------------------------------------------------------------
-LA CAUSE, ENFIN, ET ELLE SE LIT DANS LE FICHIER LIVRE SANS RIEN EXECUTER
-------------------------------------------------------------------------------------------------
-    grep "^bs " recharged_assets/physics_mesh.txt | awk '{print $3}' | sort -n | uniq -c
-      -> 84 ensembles a 12 echantillons, le reste a moins
-    les 92 noms contiennent lTopStrap2, rTopStrap2, gogglesMid, chaque doigt, chaque meche
-      -> et **NI lBoob, NI rBoob, NI lBooc, NI rBooc**
-
-ET CE N'EST PAS UN OUBLI, C'EST LE MODELE DE DONNEES. `physics_c14_meshsamples.py:563` :
-
-    for j, name in enumerate(geo['names']):
-        if name in chain_joint_names:
-            continue                      # les maillons de chaine ont des `ms`, pas des `bs`
-
-Un os qui est un MAILLON DE CHAINE est exclu de la surface-obstacle par construction. Les seins
-sont les seules chaines simulees : **leur propre peau ne peut donc JAMAIS apparaitre dans la
-surface que `phys-surf-sd` lit.** Le point de peau le plus proche d'un joint de poitrine est l'un
-des **12** echantillons de `chest`, repartis sur tout le buste. Que `chestR` lise « dedans » et
-`chestL` « dehors » est un accident de lequel de ces 12 points est le plus proche.
-
-------------------------------------------------------------------------------------------------
-CE QUE J'EN FAIS, ET CE QUE JE REFUSE DE FAIRE
-------------------------------------------------------------------------------------------------
-La lecture de `chestL` se contredit ELLE-MEME entre deux fenetres : 0.0000 m au repos (dehors) et
-0.1358 m en course (dedans), soit un ecart de 0.136 m que le deplacement du joint ne peut pas
-produire — il est borne a 301 u = 0.073 m (`|tp|` = 0.5008 B0, la plus grande deviation de joint
-jamais mesuree au dossier). Une distance signee est 1-lipschitzienne ; celle-ci ne l'est pas.
-
-LE TABLEAU REFUSE DONC DE PUBLIER `ROOM-SKINPEN-REST`, et la gate reste NON ETABLI, donc ROUGE.
-C'est la lecture correcte et je ne la contourne pas. **Je ne publie pas un plancher dont je viens
-de mesurer qu'il est faux, ni pour faire passer la gate, ni pour la faire echouer proprement : un
-faux rouge coute autant qu'un faux vert.** Trois garde-fous le tiennent, chacun avec sa mesure :
-`skinmiss > 0` (trou), `sets < declared` (peau tronquee), et l'incoherence repos/course ci-dessus.
-
-CE QUI DEBLOQUERAIT §33/§34 — ET J'AI TROUVE QUE LA DONNEE EXISTE DEJA ([NOTE-160]).
-Exclure les maillons de chaine de `bs` est CORRECT : un sein n'est pas un obstacle pour lui-meme.
-Ce qui manque n'est donc pas `bs`, c'est son pendant — et il est ECRIT depuis le cycle 14. Le
-generateur produit des enregistrements `ms <chaine> <maillon> <n> (x y z)*n`, « the handful of
-skinned vertices that stick out FURTHEST from the link [...] tested against the body volumes AT THE
-SURFACE » (sa propre docstring). C'est mot pour mot la grandeur que sa 33 demande.
-
-ET LE GOAL NE LES LIT PAS. **CORRECTION D'UNE AFFIRMATION QUE J'AI PUBLIEE ET QUI ETAIT FAUSSE** :
-j'avais ecrit qu'il n'existait aucun accesseur `ms` « ni dans le C++ ni dans le GOAL ». La moitie
-C++ est FAUSSE — j'ai cherche la chaine `msurf` alors qu'ils s'appellent `msample`. Le C++ parse
-les `ms` (`kmachine.cpp:1725-1749`) et EXPOSE `pc-physics-chain-msample-count` /
-`-msample-mi` (`:1966-1993`, enregistres a `:4200-4202`). Le trou est UNIQUEMENT cote GOAL :
-`grep msample goal_src/` ne rend rien.
-
-CE QUE MA CORRECTION CHANGE, ET C'EST BEAUCOUP : le chantier ne demande AUCUNE reconstruction de
-`gk`. C'est un changement GOAL seul — charger les `msample` comme les `bs` le sont deja
-(jak-hd-physics.gc:759-804), puis porter `skinpen` sur CES points au lieu du JOINT. Et la donnee
-existe pour les deux seins : `ms chestL 0 2`, `ms chestL 1 2`, `ms chestR 0 2`, `ms chestR 1 2` —
-deux sommets EXTREMAUX par maillon, c'est-a-dire exactement ceux qui traversent en premier. Le joint est
-interieur par construction et ne peut pas repondre a une question de SURFACE ; ces points-la SONT
-la surface. Je ne l'ouvre pas en fin de cycle — c'est le premier chantier du suivant, et il est
-nomme, localise et chiffre.
-
-================================================================================================
-14. LA JAMBE 6 REND §33/§34 MESURABLE — LA GATE JUGE, ET SA REPONSE EST UN DEFAUT REEL
-================================================================================================
-Le GOAL charge desormais les `msample` (le trou etait la, pas dans le C++ : voir la correction en
-section 13) et `skinpen` porte sur la PEAU de la chaine, plus sur son JOINT.
-
-    chaine    repos (physique desarmee)   course     ajoute par la PHYSIQUE
-    chestL          0.0351 m              0.1052 m         +0.0701 m
-    chestR          0.0498 m              0.1398 m         +0.0900 m
-
-L'INSTRUMENT EST DESORMAIS COHERENT AVEC LUI-MEME, ET C'EST CE QUI CHANGE TOUT. Dans la fenetre de
-repos, la lecture SIMULEE et la lecture d'AUTEUR coincident a **0.13 u sur chestL et 0.37 u sur
-chestR**, pour des profondeurs de 144 et 204 u. La contradiction qui rendait la version « joint »
-sans valeur — `chestL` lu DEHORS au repos et 556 u DEDANS en course — a disparu. `skinmiss = 0`,
-`sets = 92/92`.
-
-VERDICT DE LA GATE, ET IL EST ROUGE : la physique enfonce la peau des seins de **7 a 9 cm** sous la
-surface du corps au-dela de la pose d'auteur. C'est exactement ce que sa §33 interdit (« medial
-surfaces shall collide or repel BEFORE visible interpenetration »), et c'est la premiere fois que
-le dossier peut le dire avec une grandeur qui porte le bon nom.
-
-PRECISION SUR LE CHIFFRE DE `chestR` QUE LA GATE AFFICHE : elle lit `MIN-DES-DEUX` (0.0351) pour
-les DEUX chaines, donc elle annonce +0.1047 m pour `chestR` la ou son propre plancher (0.0498)
-donne **+0.0900 m**. C'est ma construction, delibere et strict ; le detail par chaine est publie
-juste a cote (`ROOM-SKINPEN-REST-DETAIL`) pour que le vrai chiffre soit lisible.
-
-CE QUE CE ROUGE N'EST PAS : un `NON ETABLI`. La gate ne dit plus « je ne peux pas juger », elle
-juge. Les deux lignes en echec sont les deux chaines d'UN SEUL fait, pas deux defauts.
-
-================================================================================================
-11. ETAT DU VALIDATEUR, SANS ENROBAGE
-================================================================================================
-`bash .autoport/validators/phase-Grecharged-secondary-motion.sh` NE SORT PAS A 0. Sortie reelle :
-
-  [SCOPE]      2 chaines declarees = 2 resolues ; aucun joint gele n'est ecrit   PASSE
-  [TUNING]     tous les reglages de l'owner sont dans le fichier livre           PASSE
-  [ROOM]       joueur absent, 1 acteur, 2 chaines x 31/31 animations, 310 mesures PASSE
-  [COLLIDE]    controle positif 0.152 contre 0.074, restitution 80.0 %           PASSE
-  [IDLE]       ecart max au modele 0.000                                         PASSE
-  [ANIM]       2 chaines pilotees, toutes respectees                             PASSE
-  [COLLIDE]    SPEC 33/34 : **NON ETABLI**                                       ECHOUE
-  OPEN-DEFECTS `OPEN breast-spec-incomplete`                                     OUVERTE
-
-**IL RESTE UN SEUL VERDICT DE MESURE EN ECHEC, CONTRE DEUX EN ENTRANT DANS LE CYCLE**, et c'est
-celui que j'ai CHOISI de laisser rouge : le tableau a la valeur du plancher (0.1004 / 0.1039 m) et
-il REFUSE de la publier sous le nom que la gate lit, parce que son controle d'integrite dit que la
-SDF se trompe de cote. Publier l'aurait fait passer — `skinpen` 0.1358 contre un plancher de
-0.1004 aurait d'ailleurs echoue quand meme, mais pour une raison que je ne peux pas soutenir.
-
-`ROOM-POSCONTROL` ETAIT ROUGE DEPUIS LE CYCLE 15 ET NE L'EST PLUS : 80.0 % de restitution contre
-27.7 % avant, dans la bande 75-125 % que l'arbitrage de 13:20 pose. Ce n'est pas un seuil deplace,
-c'est un instrument repare — le seuil, lui, est plus dur qu'avant.
-
-`OPEN-DEFECTS` ne se retire QUE sur la parole de l'owner (DIRECTIVES 2026-08-20 00:25, « son "ça a
-l'air d'être effectif" ne la touche pas »). Aucun travail de ma part ne peut faire sortir ce
-validateur a 0 tant qu'elle est la ; je l'ai grave en P4 AVANT de lancer.
-
-Elle ne se retire QUE sur la parole de l'owner — les DIRECTIVES du 2026-08-20 00:25 le disent mot
-pour mot (« son "ça a l'air d'être effectif" ne la touche pas »). Aucun travail de ma part ne peut
-faire sortir ce validateur a 0 tant qu'elle est la. Je l'ai grave en P4 AVANT de lancer, pour ne pas
-le presenter comme une surprise de fin de rapport.
-
-================================================================================================
-12. CE QUE JE REMONTE AU SUPERVISEUR
-================================================================================================
-UNE SEULE CHOSE, ET CE N'EST PLUS UNE DEMANDE DE SEUIL — les trois cycles precedents en demandaient
-une, l'arbitrage du 13:20 l'a tranchee, et je n'y reviens pas.
-
-`phys-surf-sd` N'EST PAS UNE DISTANCE. C'est une SDF de nuage de points filtree par une phase large
-(`|p - os| < bsr + 512`), donc non lipschitzienne au franchissement d'un ensemble d'os. Toute la
-famille de mesures que le nouvel arbitrage fait porter a §33/§34 en depend. La reparer est du
-travail d'instrument, chiffrable, et je peux la prendre au cycle suivant :
-  - soit le filtre de phase large devient COMMUN aux deux points evalues (le meme ensemble d'os pour
-    `sd(A)` et `sd(S)`), ce qui restaure la 1-lipschitzianite de la DIFFERENCE sans toucher au
-    filtre lui-meme ;
-  - soit le rayon de la phase large est derive de l'ecart entre echantillons au lieu d'un `+512.0`
-    ecrit en dur, et la constante disparait.
-La premiere est petite et suffit pour `skinadd` / `skinrest`. Je ne l'ai pas faite ce cycle : elle
-change une mesure pendant que j'en construis trois autres, et le dossier a paye plusieurs fois
-d'avoir melange deux changements dans une meme course.
+  INCHANGEE AU BIT par ce cycle — le solveur livre est celui du cycle 60. Declaree a chaque cycle
+  comme le validateur l'exige, et rappelee comme DIAGNOSTIC et non comme verdict depuis l'arbitrage
+  du 2026-08-20 13:20 : c'est un DEPLACEMENT invariant au rayon, pas une profondeur.

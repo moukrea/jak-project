@@ -541,7 +541,8 @@
       "f20fee36d9ac",
       "7c0b1f264ecd",
       "7c0b1f264ecd",
-      "19adfbef9bb9"
+      "19adfbef9bb9",
+      "cb08f37dc53e"
     ]
   },
   "stuck_reasons": {
@@ -984,7 +985,7 @@
     "Grecharged-title-logo-fullres": 1786153395.9536324,
     "Grecharged-materials-modern-parity": 1786167637.0459936
   },
-  "last_update": "2026-08-20T14:09:57.020837+00:00",
+  "last_update": "2026-08-20T14:09:57.150816+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

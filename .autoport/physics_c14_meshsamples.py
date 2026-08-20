@@ -58,7 +58,7 @@ APEX_FRAC = 0.10              # (C51) la part DISTALE du nuage de chair qui defi
                               # visible sans relancer quoi que ce soit (meme discipline que la
                               # frontiere w>0 / w>=0.25 du bloc COM).
 APEX_SENS = (0.05, 0.25)      # variantes publiees dans l'audit, jamais livrees
-BSURF_MAX = 12                # surface samples per body bone (farthest-point sampled)
+BSURF_MAX = 48                # surface samples per body bone (farthest-point sampled)
 BSURF_MIN_SPREAD = 1.0        # samples collapsing inside this span are one point, not a surface
 # STRAY-VERTEX CAP, RELATIVE TO THE BONE'S OWN SPAN.  A `bs` sample is an offset from the bone
 # ORIGIN, and a bone's flesh runs the bone's own LENGTH, so a flat absolute bound is a hole

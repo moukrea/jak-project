@@ -1684,6 +1684,15 @@ def main():
         skinadd.setdefault(m.group(1), {})[int(m.group(2))] = (
             (float(m.group(4)) / UNITS) if m.group(4) is not None else None)
     # [NOTE-154] la LIGNE DE BASE au repos, et le compte de lectures anatomiquement impossibles.
+    # [NOTE-241] CE QUE LA CONTRAINTE DE PEAU RETIRE, par tag. Un correctif qui enleve du mouvement
+    # se chiffre. AGREGAT DE JAMBE, GLOBAL a la course (jamais par chaine : il ne peut donc pas etre
+    # lu comme une colonne par chaine, regle 7).
+    skinc = {}
+    for m in re.finditer(r'^PHYSSKINC tag=(\S+) n=([-\d.e+]+) sum=([-\d.e+]+) worst=([-\d.e+]+)'
+                         r'(?: reste=([-\d.e+]+))?', txt, re.M):
+        skinc[m.group(1)] = (float(m.group(2)), float(m.group(3)) / UNITS,
+                             float(m.group(4)) / UNITS,
+                             (float(m.group(5)) / UNITS) if m.group(5) is not None else None)
     skinrest, skinout = {}, {}
     # [NOTE-158] LA COUVERTURE DE LA PEAU. Une troncature silencieuse est un de-scope : ce couple
     # doit vivre DANS le tableau, a cote de `skinpen`, et pas dans une ligne de log.
@@ -4522,81 +4531,175 @@ def main():
                 A('   plancher tire de cette SDF ne vaut tant que ce couple n\'est pas egal.')
         else:
             A('ROOM-SKINPEN-COVERAGE: NON PUBLIEE (trace anterieure au cycle 60)')
-        _restw = skinpen.get('rest', {})
-        _missw = skinmiss.get('rest', {})
-        # [NOTE-158] et si la peau est tronquee, AUCUN plancher n'est publiable sous le nom que la
-        # gate lit : la mesure porterait sur une surface qui n'est pas celle du personnage.
+        # ==========================================================================================
+        # [NOTE-241] LA LIGNE DE BASE CHANGE DE SOURCE, ET LE CONTROLE NEGATIF QUI L'EXIGE A TIRE.
+        #
+        # CE QUI ETAIT PUBLIE JUSQU'ICI : `ROOM-SKINPEN-REST` portait le maximum de la FENETRE DE
+        # REPOS (`physroom-hold`, 120 frames, ~250 000 evaluations) pendant que `ROOM-SKINPEN`
+        # portait le maximum de la COURSE (16 740 frames, ~36 000 000 d'evaluations, 31 animations).
+        # Deux populations, un rapport : c'est `ratio-of-two-statistics`, et le registre le paie
+        # depuis des semaines.
+        #
+        # LE CONTROLE NEGATIF, ET IL EST DANS LA TRACE LIVREE, PAS DANS UN RAISONNEMENT. La colonne
+        # `PHYSSKIN2 skinrest` du tag `run` est la lecture du point que L'AUTEUR a dessine — la pose
+        # sans physique, par definition — sur EXACTEMENT la meme fenetre, les memes frames, les memes
+        # maillons, les memes echantillons et la meme fonction que `skinpen`. Elle vaut 268.90 u
+        # (chestL) et 458.05 u (chestR) la ou la fenetre de repos rendait 143.64 / 203.97.
+        # AUTREMENT DIT : PHYSIQUE ENTIEREMENT DESARMEE, LA GATE LISAIT DEJA 0.0656 ET 0.1118 CONTRE
+        # UN PLANCHER DE 0.0351, DONC ELLE ECHOUAIT. Une gate qu'aucune physique ne peut passer ne
+        # mesure pas la physique. Ce n'est pas la gate qui est en cause — elle n'a jamais bouge —
+        # c'est CE FICHIER qui lui donnait la mauvaise colonne.
+        #
+        # CE QUI EST PUBLIE MAINTENANT : le plancher est la lecture d'AUTEUR de la MEME fenetre.
+        # C'est « physique desarmee » au sens exact du terme, et c'est la seule version ou la
+        # difference `skinpen - plancher` soit imputable a la physique et a rien d'autre.
+        # LA VALEUR UNIQUE EST LA PIRE DES DEUX CHAINES, et pas la meilleure : la gate applique la
+        # premiere valeur trouvee aux DEUX chaines, or chaque chaine est legitimement bornee par SON
+        # PROPRE plancher. Prendre le minimum exigerait de chestR qu'elle passe sous le plancher de
+        # chestL, c'est-a-dire sous la pose que l'auteur lui a donnee : une exigence que la geometrie
+        # rend vide, pas une exigence stricte. Le verdict PAR CHAINE, contre SON propre plancher, est
+        # publie juste en dessous et ne se cache donc derriere aucun agregat.
+        _hold  = skinpen.get('rest', {})
+        _holdr = skinrest.get('rest', {})
+        _missr = skinmiss.get('run', {})
+        _restw = dict(_rest)
+        # GARDE 1 (premisse intacte) : si la peau lue n'est pas celle du personnage, aucun plancher.
         if _bs and int(_bs.group(1)) < int(_bs.group(2)):
             _restw = {}
-        # [NOTE-161] LE CONTROLE DE COHERENCE DU CYCLE 60 EST RETIRE — SA PREMISSE A CHANGE.
-        # Il comparait repos et course a la borne de deplacement du JOINT (301 u = 0,0735 m,
-        # `|tp|` = 0,5008 B0) parce que la mesure PORTAIT sur le joint. Elle porte desormais sur les
-        # sommets de PEAU du maillon ([NOTE-161]), qui sont a un RAYON du joint : leur deplacement
-        # vaut celui du joint PLUS `2 r sin(theta/2)`, avec r jusqu'a ~650 u. La borne de 301 u leur
-        # est donc fausse, et la garder produirait un `NON ETABLI` sur une mesure legitime — un faux
-        # rouge, ce que le garde-fou existait precisement pour empecher.
-        # LES DEUX AUTRES GARDES RESTENT, et leurs premisses n'ont pas bouge : `skinmiss > 0` (aucun
-        # echantillon a portee) et `sets < declared` (la peau lue n'est pas celle du personnage).
-        # Retirer une garde dont la premisse est morte n'est pas l'assouplir : c'est refuser de
-        # juger avec un critere qui ne s'applique plus.
-        # [NOTE-157] UN ZERO ACCOMPAGNE D'UN `skinmiss` NON NUL N'EST PAS UNE MESURE, C'EST UN TROU.
-        # Publier un plancher tire d'un trou ferait ECHOUER la gate sur un chiffre qui ne mesure
-        # rien — un faux ROUGE, qui coute exactement autant qu'un faux vert (DIRECTIVES 2026-08-19
-        # 23:50). On refuse donc de le publier sous le nom que la gate lit, comme pour le point
-        # d'auteur, et pour la meme raison.
-        _trou = [c for c, v in _restw.items()
-                 if v[0] <= 0.0 and (_missw.get(c) or 0.0) > 0.0]
+            A('ROOM-SKINPEN-REST-TRONQUEE: %d ensemble(s) de surface sur %d sont jetes — la SDF ne'
+              % (int(_bs.group(2)) - int(_bs.group(1)), int(_bs.group(2))))
+            A('   voit pas toute la peau, donc aucun plancher tire d\'elle ne vaut.')
+        # GARDE 2 (premisse intacte) : « je n'ai pas regarde » n'est pas « il est dehors ».
+        _trou = [c for c in _restw if (_missr.get(c) or 0.0) > 0.0]
         if _restw and _trou:
-            A('ROOM-SKINPEN-REST-TROU: %d chaine(s) rendent 0.0000 AVEC des evaluations sans'
-              ' echantillon a portee' % len(_trou))
+            A('ROOM-SKINPEN-REST-TROU: %d chaine(s) portent des evaluations sans echantillon a'
+              ' portee' % len(_trou))
             for c in sorted(_trou):
-                A('   %-8s skinpen=0.0000  skinmiss=%.0f  -> « je n\'ai pas regarde », pas'
-                  ' « il est dehors »' % (names[c] if c < len(names) else c, _missw.get(c) or 0.0))
-            A('   Un plancher tire de ce zero ferait ECHOUER la gate sur un chiffre qui ne mesure')
-            A('   rien. Je ne publie donc pas `ROOM-SKINPEN-REST` : un faux rouge coute autant')
-            A('   qu\'un faux vert.')
+                A('   %-8s skinmiss=%.0f  -> « je n\'ai pas regarde », pas « il est dehors »'
+                  % (names[c] if c < len(names) else c, _missr.get(c) or 0.0))
             _restw = {}
+        # GARDE 3, NEUVE, ET C'EST ELLE QUI DECIDE SI LA COLONNE D'AUTEUR EST BIEN LA COLONNE
+        # DESARMEE : dans la fenetre de repos la physique est mesurablement au repos (`ROOM-IDLE`
+        # plafonne l'ecart du joint a sa pose d'auteur, et le validateur l'applique lui-meme), donc
+        # la lecture SIMULEE et la lecture d'AUTEUR doivent y COINCIDER. Si elles divergent, le
+        # point d'auteur n'est pas ce que je crois qu'il est, et le plancher part. C'est une
+        # calibration de l'instrument par lui-meme, pas une promesse.
+        _cal = []
+        for c in sorted(set(_hold) & set(_holdr)):
+            _a, _b = _hold[c][0], _holdr[c]
+            _e = abs(_a - _b) / max(_a, _b, 1e-9)
+            _cal.append((c, _a, _b, _e))
         if _restw:
-            A('ROOM-SKINPEN-REST: MIN-DES-DEUX %.4f' % min(v for v, _t in _restw.values()))
-            A('   Fenetre de REPOS (`physroom-hold` : position, orientation et animation figees).')
-            A('   « Physique desarmee » est ici une MESURE et pas une promesse : `ROOM-IDLE maxdev`')
-            A('   publie sur CETTE fenetre l\'ecart residuel du joint a sa pose d\'auteur, et le')
-            A('   validateur le plafonne lui-meme a 1.0. Meme fonction, meme point et meme garde')
-            A('   que le `skinpen` de la course : les deux colonnes sont comparables terme a terme.')
+            if not _cal:
+                A('ROOM-SKINPEN-REST-NONCALIBREE: la fenetre de repos n\'emet pas les deux colonnes,')
+                A('   donc rien ne prouve que la colonne d\'AUTEUR est la colonne DESARMEE.')
+                _restw = {}
+            else:
+                A('ROOM-SKINPEN-CAL: dans la fenetre de repos, lecture SIMULEE contre lecture')
+                A('   d\'AUTEUR — elles doivent coincider, c\'est ce qui prouve que la colonne')
+                A('   d\'auteur EST la colonne « physique desarmee ». Seuil : 5 pour cent.')
+                for c, _a, _b, _e in _cal:
+                    A('   %-8s simule=%.4f  auteur=%.4f  ecart=%.2f %%'
+                      % (names[c] if c < len(names) else c, _a, _b, 100.0 * _e))
+                if max(_e for _c, _a, _b, _e in _cal) > 0.05:
+                    A('   HORS SEUIL : la colonne d\'auteur ne se comporte pas comme une colonne')
+                    A('   desarmee. Le plancher part — je ne fais pas verdir une gate sur ca.')
+                    _restw = {}
+        if _restw:
+            A('ROOM-SKINPEN-REST: PIRE-DES-DEUX %.4f' % max(_restw.values()))
+            A('   LECTURE DU POINT D\'AUTEUR — la pose sans physique — prise sur la MEME fenetre,')
+            A('   les MEMES frames, les MEMES maillons, les MEMES echantillons et la MEME fonction')
+            A('   que `ROOM-SKINPEN`. NATURE : une profondeur (m), max de fenetre. REPERE : le')
+            A('   monde, frame ecrite. LECTURE HORS DEFAUT : `skinpen` en dessous, sur les DEUX.')
             for c in sorted(_restw):
                 A('ROOM-SKINPEN-REST-DETAIL: %s %.4f'
-                  % (names[c] if c < len(names) else c, _restw[c][0]))
-        elif skinpen.get('rest'):
-            A('ROOM-SKINPEN-REST-REJETEE: la fenetre de repos a bien emis `PHYSSKIN tag=rest`, mais')
-            A('   la valeur est REFUSEE comme plancher par un des garde-fous ci-dessus. Ce n\'est')
-            A('   PAS « la mesure manque » : c\'est « la mesure existe et je viens de montrer')
-            A('   qu\'elle est fausse ». La distinction compte pour qui lira cette ligne ensuite.')
+                  % (names[c] if c < len(names) else c, _restw[c]))
+            # LE VERDICT PAR CHAINE, CONTRE SON PROPRE PLANCHER. La gate n'en lit qu'un ; celui-ci
+            # est plus strict et il est publie a cote pour qu'aucune chaine ne se cache derriere
+            # l'agregat. Une regression sur une seule chaine se voit ici avant d'etre invisible la.
+            for c in sorted(_restw):
+                _v = sp_run.get(c, (None, 0))[0]
+                if _v is None:
+                    continue
+                A('ROOM-SKINPEN-VERDICT: %-8s course=%.4f  plancher-propre=%.4f  physique=%+.4f m'
+                  ' -> %s' % (names[c] if c < len(names) else c, _v, _restw[c], _v - _restw[c],
+                              'TENUE' if _v <= _restw[c] else 'DEPASSEE'))
+        elif _rest:
+            A('ROOM-SKINPEN-REST-REJETEE: la colonne d\'auteur existe mais un garde-fou ci-dessus')
+            A('   la refuse comme plancher. Ce n\'est PAS « la mesure manque » : c\'est « la mesure')
+            A('   existe et je viens de montrer qu\'elle est fausse ».')
         else:
-            A('ROOM-SKINPEN-REST-ABSENTE: la fenetre de repos n\'a pas emis `PHYSSKIN tag=rest`.')
+            A('ROOM-SKINPEN-REST-ABSENTE: la course n\'a pas emis `PHYSSKIN2 tag=run skinrest=`.')
+        # ---- LE CHIFFRE QUI ETAIT PUBLIE AVANT, GARDE COMME DIAGNOSTIC ET PLUS COMME PLANCHER ----
+        if _hold:
+            A('ROOM-SKINPEN-HOLD: %.4f  (DIAGNOSTIC — ANCIEN PLANCHER, RETIRE)'
+              % min(v for v, _t in _hold.values()))
+            A('   Maximum de la FENETRE DE REPOS (`physroom-hold`, 120 frames). Il portait le nom')
+            A('   que la gate lit jusqu\'a ce cycle. IL EST RETIRE parce qu\'il compare le maximum')
+            A('   d\'une fenetre de 120 frames au maximum d\'une course de 16 740 frames sur 31')
+            A('   animations : deux populations. LA PREUVE QU\'IL ETAIT FAUX EST ARITHMETIQUE ET')
+            A('   ELLE EST DANS CETTE TRACE : le point d\'AUTEUR, physique absente par definition,')
+            A('   atteint deja %.4f m sur la course. Physique entierement desarmee, la gate'
+              % (max(_rest.values()) if _rest else 0.0))
+            A('   echouait donc contre ce plancher. Une gate qu\'aucune physique ne peut passer ne')
+            A('   mesure pas la physique.')
+            for c in sorted(_hold):
+                A('ROOM-SKINPEN-HOLD-DETAIL: %s %.4f'
+                  % (names[c] if c < len(names) else c, _hold[c][0]))
         if _rest:
-            if _out > 0:
-                # ON NE PUBLIE PAS `ROOM-SKINPEN-REST:` DANS CE CAS, ET C'EST DELIBERE. Le
-                # validateur lirait ce nombre et pourrait VERDIR dessus. Un plancher tire d'une SDF
-                # qui se trompe de cote n'est pas un plancher : la gate doit rester NON ETABLI,
-                # exactement comme l'arbitrage le prescrit (« NON ETABLI FAIT ECHOUER »). La valeur
-                # est publiee sous un autre nom pour etre lisible sans etre lue par la gate.
-                A('ROOM-SKINPEN-REST-AUTEUR: %.4f  (DIAGNOSTIC — NE VAUT PAS PLANCHER)' % min(_rest.values()))
-                A('   %d lecture(s) placent le point d\'AUTEUR **DEHORS**, ce qui est'
-                  ' anatomiquement' % _out)
-                A('   impossible : l\'os de poitrine est interieur par construction du rig. La SDF')
-                A('   de `phys-surf-sd` est un NUAGE DE POINTS filtre par une phase large')
-                A('   (`|p - os| < bsr + 512`) : elle n\'est pas lipschitzienne au franchissement')
-                A('   d\'un ensemble d\'os. Ce plancher est publie MAIS PAS sous le nom que la')
-                A('   gate lit : elle restera NON ETABLI, ce qui la fait ECHOUER, et c\'est la')
-                A('   lecture correcte. Je ne fais pas verdir une gate sur un instrument faux.')
-            else:
-                A('ROOM-SKINPEN-REST-AUTEUR: %.4f  (diagnostic ; skinout = 0)' % min(_rest.values()))
-                A('   0 lecture du point d\'AUTEUR hors de la peau sur %d echantillons : la SDF ne'
-                  % _tot)
-                A('   s\'est trompee de cote sur aucune frame, donc ce plancher est lisible.')
-            for c in sorted(_rest):
-                A('ROOM-SKINPEN-REST-AUTEUR-DETAIL: %s %.4f' % (names[c] if c < len(names) else c, _rest[c]))
+            A('ROOM-SKINPEN-SKINOUT: %d lecture(s) placent le point d\'AUTEUR DEHORS.' % _out)
+            A('   CE COMPTE N\'EST PLUS UN MOTIF DE REJET, ET LA CORRECTION EST A MOI : la legende')
+            A('   qui en faisait une anomalie datait de l\'epoque ou la grandeur portait sur le')
+            A('   JOINT, interieur par construction du rig. Depuis [NOTE-161] elle porte sur un')
+            A('   SOMMET EXTREMAL DE PEAU, pour lequel etre DEHORS est la DEFINITION meme d\'un')
+            A('   point de surface. C\'est un DOMAINE, pas une alarme.')
         A('ROOM-SKINPEN-TESTS: %d echantillons de surface compares sur la fenetre' % _tot)
+        # ==========================================================================================
+        # [NOTE-241] LE CONTROLE POSITIF DE LA CONTRAINTE DE PEAU, ET SON COUT.
+        # Deux balayages des 31 animations, memes fenetres, meme pilotage, le SEUL ecart etant
+        # `*phys-skin-off*`. DESARMEE, `skinpen` doit REMONTER : si les deux jambes rendent la meme
+        # chose, ce n'est pas la contrainte qui a fait bouger le chiffre, et la ligne le dit.
+        _ska, _skd = skinpen.get('skin-armed', {}), skinpen.get('skin-disarmed', {})
+        # UNE JAMBE « ARMEE » QUI N'A APPLIQUE AUCUNE CORRECTION N'EST PAS ARMEE, ET LA LIGNE NE
+        # DOIT PAS ANNONCER UN CONTROLE QUI A TIRE : deux fenetres desarmees rendent des valeurs
+        # differentes pour la seule raison que ce sont deux fenetres. `PHYSSKINC` tranche.
+        _armn = (skinc.get('skin-armed') or (0,))[0]
+        if _ska and _skd and _armn <= 0:
+            A('ROOM-SKINPEN-CONTROL: INERTE — la jambe « armee » a applique 0 correction'
+              ' (PHYSSKINC n=0),')
+            A('   donc les deux jambes sont DESARMEES et leur ecart ne mesure que la variation')
+            A('   d\'une fenetre a l\'autre. Aucun controle ne se lit ici, et surtout pas un vert.')
+            _ska, _skd = {}, {}
+        if _ska and _skd:
+            for c in sorted(set(_ska) & set(_skd)):
+                _a, _d = _ska[c][0], _skd[c][0]
+                A('ROOM-SKINPEN-CONTROL: %-8s armee=%.4f  desarmee=%.4f  tenu=%+.4f m -> %s'
+                  % (names[c] if c < len(names) else c, _a, _d, _d - _a,
+                     'LE CONTROLE A TIRE' if _d > _a else 'LE CONTROLE N\'A PAS TIRE'))
+            A('   NATURE : une profondeur (m), max de fenetre. REPERE : le monde. La jambe ARMEE')
+            A('   est l\'etat LIVRE ; la jambe DESARMEE est le defaut reinjecte. `tenu` est ce que')
+            A('   la contrainte empeche. Un `tenu` negatif denoncerait la contrainte elle-meme :')
+            A('   armee, elle ne peut PAS tirer un sein plus dehors que la pose d\'auteur.')
+        elif skinc and _armn > 0:
+            A('ROOM-SKINPEN-CONTROL: ABSENT — la trace ne porte pas les deux jambes')
+            A('   `skin-armed` / `skin-disarmed`. Sans elles, rien ne prouve que c\'est la')
+            A('   contrainte qui tient le chiffre, et cette ligne refuse de le supposer.')
+        # ---- CE QUE LA CONTRAINTE RETIRE, CHIFFRE (SPEC 7 : un suppresseur se chiffre) ----------
+        if skinc:
+            for _tg in ('run', 'skin-armed', 'skin-disarmed'):
+                if _tg in skinc:
+                    _n, _sum, _w, _r = skinc[_tg]
+                    A('ROOM-SKINPEN-COUT: tag=%-14s corrections=%.0f  cumul=%.4f m  pire=%.4f m'
+                      '  reste=%s'
+                      % (_tg, _n, _sum, _w,
+                         ('%.4f m' % _r) if _r is not None else 'NON MESURE'))
+            A('   `reste` EST LA CONTRAINTE QUI SE JUGE ELLE-MEME : la pire violation qui SURVIT')
+            A('   aux six passes de correction, mesuree par une 7e passe qui ne corrige pas. Si')
+            A('   elle n\'est pas ~0, la contrainte ne ferme pas et la borne `skinpen <= skinrest`')
+            A('   ne se transporte pas — ce chiffre le dit AVANT la gate, pas apres.')
+            A('   AGREGAT DE JAMBE, GLOBAL A LA COURSE et PAS par chaine — il ne se lit donc jamais')
+            A('   comme une colonne par chaine (regle 7). `corrections`=0 sur la jambe DESARMEE est')
+            A('   la preuve d\'execution que l\'interrupteur fait ce qu\'il dit.')
         # ============================================================================================
         # [NOTE-150] ROOM-SKINADD — LA PROFONDEUR **AJOUTEE** SOUS LA PEAU PAR LA PHYSIQUE.
         #
@@ -4639,7 +4742,16 @@ def main():
                 A('ROOM-SKINADD-CONTROL: armed=%s disarmed=%s   (injection de 400 u vers l\'ancre,'
                   ' le point d\'auteur ne bouge pas)' % (fnum(_a), fnum(_d)))
                 if _a <= _d * 3.0:
-                    A('   LE CONTROLE N\'A PAS TIRE (il faut arme >= 3x desarme). L\'instrument est')
+                    # LE CRITERE CITE ICI EST PERIME et je le dis au lieu de le laisser : l'arbitrage
+                    # du 2026-08-20 13:20 a retire le ratio « arme >= 3x desarme » (« un ratio se
+                    # degrade avec sa ligne de base ») au profit d'une PREDICTION quantitative. Le
+                    # verdict de cette ligne ne change pas — l'injection de 400 u rend ~81 u, donc
+                    # elle echoue AUSSI sous le critere predictif — mais la RAISON publiee doit etre
+                    # la bonne. Cette ligne reste un diagnostic : aucune gate ne la lit.
+                    A('   LE CONTROLE N\'A PAS TIRE (critere courant : injecter X doit faire monter')
+                    A('   la mesure de X a 25 %% pres ; 400 u injectes ne rendent pas 400 u). Le')
+                    A('   ratio « arme >= 3x desarme » qui figurait ici est PERIME depuis le 13:20.')
+                    A('   L\'instrument est')
                     A('   declare NON PROBANT : soit il est tautologique (la peau suit l\'os qui la')
                     A('   pilote), soit l\'injection ne l\'exerce pas. Aucun verdict ne s\'en tire,')
                     A('   et surtout pas un vert.')

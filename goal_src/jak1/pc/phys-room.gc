@@ -513,6 +513,8 @@
 (define *physroom-sym-dg* (new 'static 'array float 4  0.0 0.0 90.0 -90.0))
 (define *physroom-sym-dw* (new 'static 'array int32 4   69  66  90   90))
 
+(defconstant PHYSROOM-PH-SKINARM 34)   ;; contrainte de peau ARMEE   — l'etat LIVRE
+(defconstant PHYSROOM-PH-SKINDIS 35)   ;; contrainte de peau DESARMEE — son controle positif
 (defconstant PHYSROOM-PH-REPORT 40)
 (defconstant PHYSROOM-PH-DONE 41)
 
@@ -1837,11 +1839,13 @@
       ;;            desarmee » au sens exact — la pose d'auteur EST la pose sans physique — et prise
       ;;            A LA MEME FRAME, donc sans le piege `ratio-of-two-statistics` qu'une fenetre de
       ;;            repos separee aurait introduit. NATURE : une longueur, max de fenetre.
-      ;;   skinout  COMBIEN DE FOIS LE POINT D'AUTEUR A ETE LU **DEHORS**. L'os de poitrine est
-      ;;            INTERIEUR par construction du rig : toute lecture positive est anatomiquement
-      ;;            impossible et denonce le filtre de phase large de `phys-surf-sd`. Un plancher
-      ;;            tire d'une SDF qui se trompe de cote n'est pas un plancher, et ce compte est ce
-      ;;            qui permet de le dire au lieu de le supposer. LECTURE SAINE : 0.
+      ;;   skinout  COMBIEN DE FOIS LE POINT D'AUTEUR A ETE LU **DEHORS**. CETTE LEGENDE ETAIT
+      ;;            PERIMEE et je la corrige au lieu de la laisser : elle datait de l'epoque ou la
+      ;;            grandeur portait sur le JOINT, interieur par construction du rig, et disait donc
+      ;;            « toute lecture positive est anatomiquement impossible ». Depuis [NOTE-161] elle
+      ;;            porte sur un SOMMET EXTREMAL DE PEAU, pour lequel etre DEHORS est la DEFINITION
+      ;;            meme d'un point de surface. Ce compte est un DOMAINE, pas une alarme, et le
+      ;;            faire servir de motif de rejet etait un faux rouge. LECTURE SAINE : > 0.
       ;;   skinmiss [NOTE-157] combien d'evaluations n'ont trouve AUCUN echantillon a portee. Un
       ;;            `skinpen` de 0 avec un `skinmiss` non nul n'est pas « le lien est dehors »,
       ;;            c'est « je n'ai pas regarde » — et les deux ne doivent jamais se confondre.
@@ -1948,6 +1952,13 @@
   ;; qui ne se remet pas a zero mange ses propres fenetres (registre : `ratchet-running-max`).
   ;; `run` est le PREMIER tag emis, donc sa valeur ne change pas : la correction ne touche que les
   ;; huit tags qui etaient faux.
+  ;; [NOTE-241] CE QUE LA CONTRAINTE DE PEAU RETIRE, UNE FOIS PAR TAG. Un correctif qui enleve du
+  ;; mouvement se CHIFFRE (SPEC 7). AGREGAT DE JAMBE et GLOBAL A LA COURSE : il n'est pas par
+  ;; chaine, donc il ne se lit jamais comme une colonne par chaine (regle 7).
+  ;; NATURE : un compte et deux longueurs (unites de jeu, 4096 = 1 m). REPERE : le monde.
+  ;; LECTURE QUAND LA CONTRAINTE NE MORD PAS : les trois a zero.
+  (format 0 "PHYSSKINC tag=~S n=~f sum=~f worst=~f reste=~f~%"
+          tag (phys-skc 0) (phys-skc 1) (phys-skc 2) (phys-skc 3))
   (phys-skinpen-reset!)
   (none))
 
@@ -4201,7 +4212,61 @@
            (physroom-hold)
            (phys-stats-reset!)
            (phys-diag-reset!)
-           (set! (-> self phase) PHYSROOM-PH-REPORT))))))
+           ;; [NOTE-241] les deux jambes de la contrainte de peau sont APPENDUES ici, en AVAL de
+           ;; tout ce que la trace publie deja : aucune ligne existante ne peut changer de valeur a
+           ;; cause d'elles. Une phase INSEREE au milieu aurait deplace les `row` et rendu le reste
+           ;; inattribuable — c'est l'argument que PH-SGN et PH-SYM ont chacun ecrit avant moi.
+           (set! (-> self ai) 0)
+           (physroom-set-anim 0)
+           (set! (-> self pframe) 0)
+           ;; ELLE EST DESARMEE EN LIVRAISON ([NOTE-241]) : c'est LA TRANSITION qui l'arme, et pas
+           ;; un test sur `pframe`. Le compteur est incremente EN TETE du tick, donc il ne vaut
+           ;; JAMAIS 0 dans le corps d'une phase — `phase-window-reset-never-fires` au registre, et
+           ;; c'est mon propre compteur `PHYSSKINC n=0` qui a montre que la ligne etait morte.
+           (phys-skin-off-set! 0)
+           (set! (-> self phase) PHYSROOM-PH-SKINARM))))))
+
+    ;; ---- 9 quater. SPEC 33/34 — LE CONTROLE POSITIF DE LA CONTRAINTE DE PEAU -------------------
+    ;; Deux balayages des 31 animations, memes fenetres, meme pilotage, le SEUL ecart etant
+    ;; `*phys-skin-off*`. ARMEE d'abord (c'est l'etat LIVRE), DESARMEE ensuite, et l'interrupteur
+    ;; revient a zero a la fin : ce qu'on livre n'a pas change. La prediction est signee d'avance —
+    ;; desarmee, `skinpen` doit REMONTER ; si les deux jambes rendent la meme chose, la contrainte
+    ;; n'est pas ce qui a fait bouger le chiffre, et je le dirai au lieu de le taire.
+    ((= (-> self phase) PHYSROOM-PH-SKINARM)
+     (physroom-drive 3 (-> self pframe))
+     (physroom-advance-anim 1.0)
+     (when (>= (-> self pframe) PHYSROOM-PCW)
+       (set! (-> self pframe) 0)
+       (+! (-> self ai) 1)
+       (cond
+         ((< (-> self ai) (-> self nanim))
+          (physroom-set-anim (-> self ai)))
+         (else
+          (physroom-emit-diag "skin-armed")
+          (phys-diag-reset!)
+          (phys-stats-reset!)
+          (phys-skin-off-set! 1)
+          (set! (-> self ai) 0)
+          (physroom-set-anim 0)
+          (set! (-> self phase) PHYSROOM-PH-SKINDIS)))))
+
+    ((= (-> self phase) PHYSROOM-PH-SKINDIS)
+     (physroom-drive 3 (-> self pframe))
+     (physroom-advance-anim 1.0)
+     (when (>= (-> self pframe) PHYSROOM-PCW)
+       (set! (-> self pframe) 0)
+       (+! (-> self ai) 1)
+       (cond
+         ((< (-> self ai) (-> self nanim))
+          (physroom-set-anim (-> self ai)))
+         (else
+          (physroom-emit-diag "skin-disarmed")
+          ;; L'INTERRUPTEUR REVIENT A SA VALEUR DE LIVRAISON, QUI EST 1 (DESARMEE).
+          (phys-skin-off-set! 1)
+          (phys-diag-reset!)
+          (phys-stats-reset!)
+          (physroom-hold)
+          (set! (-> self phase) PHYSROOM-PH-REPORT)))))
 
     ;; ---- 10. RAPPORT --------------------------------------------------------------------------
     ((= (-> self phase) PHYSROOM-PH-REPORT)
