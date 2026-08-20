@@ -4375,7 +4375,10 @@
 ;; la longueur que LE MODELE donne a l'os d'un lien (son attache est l'ancre pour le lien 0). C'est
 ;; le plafond geometrique de l'amplitude de ce lien : la salle le publie pour que personne n'ait a
 ;; deviner si une chaine « ne bouge pas assez » ou « ne peut pas bouger plus ».
-(defun phys-chain-bone ((obj jak-hd) (slot int) (chain int) (link int))
+(defun phys-chain-bone ((obj jak-hd) (slot int) (chain int) (link int) (comp int))
+  ;; `comp` < 0 : LA LONGUEUR, exactement ce que cette fonction rendait. 0/1/2 : la COMPOSANTE
+  ;; x/y/z de sa DIRECTION UNITAIRE, repere MONDE. Cycle 53 : la contrainte de longueur retire la
+  ;; composante ALIGNEE avec l'os, donc l'angle os/pilotage decide de ce qu'elle confisque.
   (let ((r 0.0))
     (when (and (>= slot 0) (< slot PHYS-SLOTS) (>= chain 0) (< chain PHYS-CHAINS)
                (>= link 0) (< link PHYS-LINKS)
@@ -4388,9 +4391,14 @@
              (kp  (if (> link 0) (-> *phys-joint* (- scl 1)) (-> *phys-anchor* sc))))
         (when (and (< link (-> *phys-nlink* sc)) (>= kk 0) (>= kp 0)
                    (< (+ kk 1) nbone) (< (+ kp 1) nbone))
-          (set! r (vector-vector-distance
-                    (the-as vector (-> skel bones (+ kk 1) transform vector 3))
-                    (the-as vector (-> skel bones (+ kp 1) transform vector 3)))))))
+          (let* ((pk (the-as vector (-> skel bones (+ kk 1) transform vector 3)))
+                 (pp (the-as vector (-> skel bones (+ kp 1) transform vector 3)))
+                 (d  (vector-vector-distance pk pp)))
+            (set! r (cond ((< comp 0) d)
+                          ((< d 0.0001) 0.0)
+                          ((zero? comp) (/ (- (-> pk x) (-> pp x)) d))
+                          ((= comp 1)   (/ (- (-> pk y) (-> pp y)) d))
+                          (else         (/ (- (-> pk z) (-> pp z)) d))))))))
     r))
 
 (defun phys-inject-set! ((v float))

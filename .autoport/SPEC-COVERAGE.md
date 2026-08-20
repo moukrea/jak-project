@@ -43,7 +43,7 @@ parlent d'autre chose que de la poitrine sont hors périmètre, pas « tenues »
 | 5  | Volume 450–600 mL, densité 0,95, masse 0,50 kg | TENUE PAR CONSTRUCTION | La masse n'entre que dans `f = raideur/√masse` : jauge non observable. **Déclaré, pas gagné.** |
 | 6  | `L0` `W0` `H0` `B0` `P0` ; `B0` ≈ 115–125 mm ; « derive normalized dimensions directly from the character mesh » (l.122-123) | PARTIELLE | `b0=602 u` = 14,7 cm livre, **confirme independamment au cycle 48** : l'etendue du nuage de chair sur l'axe anatomique vaut 597,9 / 598,3 u = 0,99 B0 (`probe_c48_com_identity.py`). **`P0` est desormais mesure** (centroide pondere par maillon, en espace bind). `L0`/`W0`/`H0` toujours non mesures, et `B0` reste +17,6 % au-dessus de la bande de controle 115-125 mm |
 | 7  | Repère local | NON ÉTABLI | Aucune mesure du repère lui-même |
-| 8  | Volume 98–101 % (96–102 % en transitoire) | NON ÉTABLI | Canal de déformation présent depuis le cycle ~30, jamais mesuré contre cette bande |
+| 8  | « Normal movement: 98–101 % of neutral volume » ; « Conceptually `Sx·Sy·Sz ≈ 1`, **but the whole breast shall not be represented by one affine scale transformation** » (l.136-146) | **NON TENUE** | **SORT DE `NON ÉTABLI` AU CYCLE 53, ET C'EST UNE RÉTROGRADATION : la clause STRUCTURELLE est mesurée et elle est violée par le mécanisme même qui « conserve » le volume.** (a) La clause NUMÉRIQUE est **TAUTOLOGIQUE** : `jak-hd-physics.gc:3516-3519` calcule `det = sx0·sy0·sz0` puis `cvn = 1/det^(1/3)` par itération de Newton, et `:3558-3560` multiplie LES TROIS échelles par `cvn`. Le déterminant est donc forcé à 1 **par construction** — mesuré sur la course : **390 lectures, toutes dans [0,999900 ; 1,000000]**, une étendue de 1e-4. Publier « 98-101 % tenue » là-dessus serait le quatrième faux vert du dossier (§11, cycle 49) sous un autre costume : l'instrument republierait sa cible. (b) La clause STRUCTURELLE est **VIOLÉE** : `*phys-dfm*` est `(new 'global 'inline-array 'matrix PHYS-SC)` — **UNE matrice par chaîne**, donc le sein EST représenté par une seule transformation affine, exactement ce que la ligne interdit en gras. Et le volume est conservé PAR le rééchelonnement global que la même ligne prohibe. Ce que la section demande à la place (« root tissue moves little; intermediate tissue redistributes; distal tissue deforms most ») est la même exigence que §31, elle-même `NON TENUE` pour une cause de RIG (axe d'os à 78° de l'axe anatomique) |
 | 9  | Etat debout neutre = 1,00 sur tous les axes ; « Once settled, however, the original authored standing shape shall be **restored exactly**. » (l.160-161) | PARTIELLE | **RETROGRADEE cycle 48, meme cause que §2.** L'erreur statique est bien a 0,0001 — mais la clause « restored **exactly** » porte sur l'etat APRES mouvement, et `ROOM-SHFLOOR` y lit un plancher non nul sur 9 axes sur 12. Le `t01` de §27 est CENSURE par ce plancher meme, ce qui relie les deux lignes |
 | 10 | « Forward projection −25 to −35%, `SupineProjectionScale = 0.70` » ; largeur ×1,23 ; hauteur ×1,09 ; « COM toward thorax: 18–28% B0 » ; « Outward COM migration per breast: 4–10% W0 » (l.165-169) | NON ÉTABLI | **RAISON CORRIGÉE cycle 49 — l'ancienne était fausse, et ce qui la remplace est pire.** Le régime EST joué (`PHYSROOM-PH-ORI`, 9 orientations dont ±90° en tangage ET en roulis, 18 lignes `ROOM-ORI` mesurées). Mais les trois échelles que §10 borne **ne sont pas une mesure** : `jak-hd-physics.gc:3511-3517` mélange barycentriquement CINQ triplets ÉCRITS EN DUR, dont `1.230/1.090/0.700` qui EST §10. Comparer `ROOM-ORI` à sa bande, c'est comparer une constante à elle-même — reconstruit à la main depuis `gx/gy/gz`, l'écart au publié est de **1e-4**. L'attribution du rôle « supine » (`physics_room_table.py:508-534`) est un argmin-L1 contre ces mêmes constantes : **elle ne peut pas échouer**. La clause COM est **INDÉTERMINÉE** — borne inférieure squelettique 0,1317/0,1243 (SOUS), borne supérieure d'apex 0,3633/0,3291 (AU-DESSUS), la bande 0,18-0,28 est entre les deux. `W0` n'a **aucun** instrument (0 occurrence dans le tableau) : la clause en % W0 n'a pas de dénominateur |
 | 11 | « Static COM displacement: 20–28% B0, nominal 24% B0 » ; « Root-to-apex length: +18 to +26%, `HangingLengthScale = 1.23` » ; transitoire ~+30% ; largeur ×0,90 ; épaisseur ×0,91 (l.178-182) | PARTIELLE | **RÉTROGRADÉE cycle 49 — FAUX VERT.** Le TENUE reposait sur `HangingLengthScale = 1.23` « portée par le tenseur ». Or `1.230 / 0.900 / 0.910` sont **écrits en dur** (`jak-hd-physics.gc:3513-3517`) comme le pôle « back » du mélange : le moteur COMMANDE la constante de la spec et `ROOM-ORI` la republie. Le tableau le disait lui-même en tête (« CE QUE CE N'EST PAS : la déformation VUE sur le mesh. C'est ce que le solveur COMMANDE ») — **c'est le registre qui a sur-lu le tableau.** La seule clause chiffrable indépendante, le COM 20-28 % B0, est **INDÉTERMINÉE** : borne inférieure 0,1290/0,1551 (SOUS), borne supérieure 0,4268/0,4106 (AU-DESSUS). Ce qui reste une vraie mesure est le transitoire — rapport 1,082/1,105 contre 1,057 exigé, et un RAPPORT est immunisé contre un facteur commun |
@@ -81,10 +81,10 @@ parlent d'autre chose que de la poitrine sont hors périmètre, pas « tenues »
 - **TENUE PAR CONSTRUCTION**, déclarée sans être comptée comme une victoire : **4** (§1, §4, §5, §28)
 - **PARTIELLE** : **19** (§2, §6, §9, §11, §12, §15, §20, §21, §22, §23, §24, §25, §26, §27, §29,
   §32, §34, §36, §38)
-- **NON TENUE**, mesurée et rouge : **7** (§14, §16, §17, §18, §30, §31, §33)
-- **NON ÉTABLI** : **5** (§7, §8, §10, §13, §35)
+- **NON TENUE**, mesurée et rouge : **8** (§8, §14, §16, §17, §18, §30, §31, §33)
+- **NON ÉTABLI** : **4** (§7, §10, §13, §35)
 
-Total 3 + 4 + 19 + 7 + 5 = 38 sections, aucune omise.
+Total 3 + 4 + 19 + 8 + 4 = 38 sections, aucune omise.
 
 **DEUX MOUVEMENTS CE CYCLE, ET AUCUN N'EST UN GAIN DE PHYSIQUE — ce sont deux trous d'INSTRUMENT
 et de DOSSIER qui se ferment.** §26 `NON ÉTABLI` -> `PARTIELLE` (sa mesure existait, son motif de
@@ -92,6 +92,40 @@ classement était périmé) et §38 `NON ÉTABLI` -> `PARTIELLE` (74 paramètres
 pour la première fois). Les `NON ÉTABLI` tombent de 7 à 5. **Le solveur n'a pas bougé d'un bit ce
 cycle : 37 995 lignes de mesure identiques, une seule ligne différente, et c'est le garde-fou de
 numéro de phase.**
+
+## Cycle 53 — LE MÉCANISME EST QUANTIFIÉ, ET LA POSE TENUE PAR LA SALLE N'EST PAS SYMÉTRIQUE
+
+**LE MÉCANISME.** `phys-length-chain` est une projection d'ÉGALITÉ sur la sphère : elle retire la
+composante ALIGNÉE avec l'os, donc la part qui survit vaut `sin(theta)`. Mesuré (nouvel émetteur
+`PHYSSGNB`, relevé sujet droit et immobile) : l'os de racine de chestL est à **2,03°** de l'axe
+vertical poussé et à **88,10° / 89,30°** des deux autres.
+
+                              prédit par 1/sin      MESURÉ
+    chestL VERTICAL               ×28,22            ×3,79 / ×4,99
+    chestR VERTICAL               ×1,50             ×1,58 / ×1,30
+    chestL avant-arrière          ×1,00             ×0,99 / ×1,00
+    chestL latéral                ×1,00             ×1,04 / ×0,92
+
+Sur chestR et sur **les deux témoins négatifs**, le modèle tombe juste à 8 % près : l'attribution
+du cycle 52 devient un mécanisme qui PRÉDIT. Sur chestL il **sur-prédit d'un facteur ~6**, et ce
+n'est pas expliqué (le canal radial de §23 en rend ×1,59, pas le reste).
+
+**ET CE QUI CONTREDIT LE CYCLE 52.** Le rig est bilatéralement symétrique à **0,005°** en pose de
+bind (mesuré sur le mesh livré). **La pose que la salle TIENT ne l'est pas : 43,4° d'écart au
+miroir parfait.** C'est un repos de Fire Canyon (`assistant-firecanyon-idle-down`) laissé par la
+phase d'animation, et toutes les phases suivantes le tiennent. L'écart gauche/droite ×3,41 publié
+au cycle 52 est donc, pour une part non chiffrée, un artefact de LA POSE — pas du personnage.
+**Cela vaut aussi pour §32, §18 et §12, toutes mesurées dans cette pose.** Rien n'est invalidé ;
+rien ne peut plus être lu comme une propriété du personnage avant une course en pose symétrique.
+
+**CONTRÔLE : ZÉRO ligne différente** sur 37 995 lignes de mesure, `PHYSBONE` compris — le seul
+changement de moteur est un paramètre ajouté à un accesseur, appelé avec `comp = -1` par son
+unique appelant existant. Moteur à 4800 lignes exactement, le plafond.
+
+**LES DEUX DÉFAUTS D'INSTRUMENT DU CYCLE 52 SONT CORRIGÉS ET VÉRIFIÉS.** Rampe d'entrée : `stim`
+de la première fenêtre passe de 1255,82 (×74) à **17,00**, la médiane exacte. Double passe à ordre
+inversé : le RANG déplace la lecture de **2,58 % au pire, 0,16 % en médiane** — les asymétries de
+sens de 11 à 30 % du cycle 52 ne sont donc pas des artefacts de rang, et sa section 5 tient.
 
 ## Cycle 52 — LA RÉPONSE PAR SENS : LA CONTRAINTE DE LONGUEUR EST NOMMÉE, LE MUR EST EXONÉRÉ
 

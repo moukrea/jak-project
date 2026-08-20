@@ -4887,9 +4887,25 @@ def main():
             A('      (stim > 100 u/frame^2 contre ~17 partout ailleurs — transition de phase)')
         A('')
         # ---- (b) LE TABLEAU, UNE LIGNE PAR (ablation, axe, chaine, sens) -------------------
-        _cellw = {}
-        for _i, (_k, _a, _s) in _sgA.items():
-            _cellw[(_k, _a, _s)] = _i
+        # DEUX PASSES DEPUIS LE CYCLE 53 : chaque (ablation, axe, sens) est joue DEUX FOIS, une
+        # fois en 1re position de sa cellule et une fois en 2e. `_cellw` garde la PREMIERE fenetre
+        # (pour nommer et pour ecarter i=0) et `_sgVm` rend la MOYENNE des passes — sans quoi le
+        # tableau publierait silencieusement la seule DERNIERE passe, ce qui serait exactement le
+        # defaut de rang que la seconde passe est la pour supprimer.
+        _cellw, _allw = {}, {}
+        for _i, (_k, _a, _s) in sorted(_sgA.items()):
+            _allw.setdefault((_k, _a, _s), []).append(_i)
+            if (_k, _a, _s) not in _cellw:
+                _cellw[(_k, _a, _s)] = _i
+
+        def _sgVm(_c, _i):
+            """apex de la cellule a laquelle appartient la fenetre `_i`, MOYENNE sur les passes
+            valides (une fenetre ecartee pour stimulus aberrant ne rentre pas dans la moyenne)."""
+            if _i is None or _i not in _sgA:
+                return None
+            _v = [_sgV[(_c, _j)] for _j in _allw[_sgA[_i]]
+                  if (_c, _j) in _sgV and _j not in _bad]
+            return (sum(_v) / len(_v)) if _v else None
         _rep = []
         for _a in (0, 1, 2):
             for _s in (1, -1):
@@ -4899,8 +4915,8 @@ def main():
                 for _c in sorted(chains):
                     if (_c, _i0) not in _sgV or (_c, _i2) not in _sgV:
                         continue
-                    _v0, _v2 = _sgV[(_c, _i0)], _sgV[(_c, _i2)]
-                    if max(_v0, _v2) > 0:
+                    _v0, _v2 = _sgVm(_c, _i0), _sgVm(_c, _i2)
+                    if _v0 is not None and _v2 is not None and max(_v0, _v2) > 0:
                         _rep.append(abs(_v0 - _v2) / max(_v0, _v2))
         _FL = max(_rep) if _rep else None
         if _FL is not None:
@@ -4920,19 +4936,19 @@ def main():
             for _a in (0, 1, 2):
                 for _s in (1, -1):
                     _i0 = _cellw.get((0, _a, _s))
-                    if _i0 is None or (_c, _i0) not in _sgV:
+                    if _i0 is None or _sgVm(_c, _i0) is None:
                         continue
                     if _i0 in _bad:
                         A('      %-8s %-5s %+d    ECARTEE (fenetre i=%d, stimulus aberrant)'
                           % (names[_c] if _c < len(names) else _c, _AXSN[_a], _s, _i0))
                         continue
-                    _v0 = _sgV[(_c, _i0)]
+                    _v0 = _sgVm(_c, _i0)
                     _cols = []
                     for _k in (1, 2, 3, 4, 5):
                         _ik = _cellw.get((_k, _a, _s))
-                        _cols.append('%.2fx' % (_sgV[(_c, _ik)] / _v0)
-                                     if _ik is not None and (_c, _ik) in _sgV and _v0 > 0
-                                     else 'n/a')
+                        _vk = _sgVm(_c, _ik)
+                        _cols.append('%.2fx' % (_vk / _v0)
+                                     if _vk is not None and _v0 and _v0 > 0 else 'n/a')
                     A('      %-8s %-5s %+d   %8.4f | %s'
                       % (names[_c] if _c < len(names) else _c, _AXSN[_a], _s, _v0,
                          ' '.join('%-8s' % _x for _x in _cols)))
@@ -4967,8 +4983,9 @@ def main():
                     _i0, _i4 = _cellw.get((0, _a, _s)), _cellw.get((4, _a, _s))
                     if _i0 is None or _i4 is None or _i0 in _bad or _i4 in _bad:
                         continue
-                    if (_c, _i0) in _sgV and _sgV[(_c, _i0)] > 0:
-                        _p4.append(abs(_sgV[(_c, _i4)] / _sgV[(_c, _i0)] - 1.0))
+                    _v0, _v4 = _sgVm(_c, _i0), _sgVm(_c, _i4)
+                    if _v0 and _v0 > 0 and _v4 is not None:
+                        _p4.append(abs(_v4 / _v0 - 1.0))
         if _p4 and _FL is not None:
             A('   ROOM-SIGN-P4: desarmer le MUR DE COLLISION (k=4) deplace la reponse de %.1f %%'
               ' au plus, %.1f %% en mediane, sur %d cellules propres.'
@@ -4992,7 +5009,9 @@ def main():
                     continue
                 _ip, _im = _cellw[(_k, _a, 1)], _cellw[(_k, _a, -1)]
                 for _c in sorted(chains):
-                    _vp, _vm = _sgV[(_c, _ip)], _sgV[(_c, _im)]
+                    _vp, _vm = _sgVm(_c, _ip), _sgVm(_c, _im)
+                    if _vp is None or _vm is None:
+                        continue
                     _am = abs(_vp - _vm) / max(_vp, _vm) if max(_vp, _vm) > 0 else None
                     _ad = None
                     _rp, _rm = _sgW.get((_c, _ip)), _sgW.get((_c, _im))
@@ -5014,34 +5033,139 @@ def main():
             A('      tenue ni refutee. Ce que les axes PROPRES etablissent est publie ci-dessus.')
         A('')
         # ---- (d) SENS ou RANG ? le test que l'ordre equilibre rend possible ----------------
-        A('   ROOM-SIGN-RANK: l\'ecart entre les deux sens vient-il du SENS ou du RANG ?')
-        A('      Mon equilibrage porte sur la GRILLE (k+a), pas sur la cellule : dans une')
-        A('      cellule, `+` et `-` restent la 1re et la 2e fenetre. Le test qui separe les')
-        A('      deux : un effet de RANG pousserait LES DEUX chaines dans le MEME sens entre la')
-        A('      1re et la 2e fenetre. Une dependance au SENS n\'a aucune raison de le faire.')
-        _same = _opp = 0
-        for (_k, _a) in _clean:
-            _i1 = min(_cellw[(_k, _a, 1)], _cellw[(_k, _a, -1)])
-            _i2 = max(_cellw[(_k, _a, 1)], _cellw[(_k, _a, -1)])
-            _ds = []
+        # ---- (d) SENS ou RANG ? — LA QUESTION EST DECIDEE PAR LA SECONDE PASSE (cycle 53) --
+        # Le cycle 52 equilibrait l'ordre sur la GRILLE (k+a) mais pas DANS la cellule : `+` et `-`
+        # y restaient la 1re et la 2e fenetre, et son test indirect rendait 10 contre 7 — pas un
+        # pur effet de rang, pas net non plus. Le balayage est desormais joue DEUX FOIS, l'ordre
+        # des sens inverse a la seconde passe : une meme cellule (k, axe, sens) est donc jouee une
+        # fois en 1re position et une fois en 2e. L'ecart entre ses deux lectures EST l'effet du
+        # RANG, mesure et non plus estime.
+        _pass = {}
+        for _i, (_k, _a, _s) in _sgA.items():
             for _c in sorted(chains):
-                if (_c, _i1) in _sgV and _sgV[(_c, _i1)] > 0:
-                    _ds.append((_sgV[(_c, _i2)] - _sgV[(_c, _i1)]) / _sgV[(_c, _i1)])
-            if len(_ds) == 2:
-                if _ds[0] * _ds[1] > 0:
-                    _same += 1
-                else:
-                    _opp += 1
-            A('      k=%d %-5s   %s'
-              % (_k, _AXSN[_a],
-                 '  '.join('%s %+6.1f %%' % (names[_c] if _c < len(names) else _c, 100.0 * _d)
-                           for _c, _d in zip(sorted(chains), _ds))))
-        A('      -> %d cellules MEME sens, %d cellules sens OPPOSE. Un effet de RANG pur donnerait'
-          % (_same, _opp))
-        A('      %d/%d dans le meme sens. Ce n\'est donc pas un pur effet de rang — mais la'
-          % (_same + _opp, _same + _opp))
-        A('      separation n\'est pas nette non plus, et je ne la presente pas comme telle.')
+                if (_c, _i) in _sgV:
+                    _pass.setdefault((_k, _a, _s, _c), []).append((_i, _sgV[(_c, _i)]))
+        _dp = []
+        for _key, _v in sorted(_pass.items()):
+            if len(_v) != 2:
+                continue
+            _v0, _v1 = _v[0][1], _v[1][1]
+            if max(_v0, _v1) > 0:
+                _dp.append((abs(_v0 - _v1) / max(_v0, _v1), _key, _v[0][0], _v[1][0], _v0, _v1))
+        if _dp:
+            _dp.sort(reverse=True)
+            _mx = _dp[0][0]
+            _md = sorted(x[0] for x in _dp)[len(_dp) // 2]
+            A('   ROOM-SIGN-RANK: LE MEME (ablation, axe, sens) JOUE AUX DEUX RANGS.')
+            A('      %d cellules appariees. Ecart max %.2f %%, mediane %.2f %%.'
+              % (len(_dp), 100.0 * _mx, 100.0 * _md))
+            for _d, _key, _ia, _ib, _va, _vb in _dp[:4]:
+                A('      pire : k=%d %-9s s=%+d %-12s  i=%2d %.4f   i=%2d %.4f   %.2f %%'
+                  % (_key[0], _AXSN.get(_key[1], _key[1]), _key[2],
+                     names[_key[3]] if _key[3] < len(names) else _key[3],
+                     _ia, _va, _ib, _vb, 100.0 * _d))
+            A('      -> P6 %s (critere : <= 5 %%).'
+              % ('TENUE — le RANG ne porte pas l\'ecart entre les deux sens, qui est donc bien '
+                 'une dependance au SENS' if _mx <= 0.05 else
+                 'REFUTEE — le rang deplace la lecture d\'autant que le sens ; l\'asymetrie de '
+                 'sens publiee au cycle 52 est CONTAMINEE et sa section 5 doit etre reecrite'))
         A('')
+        # ---- (e) LA GEOMETRIE : L'ANGLE OS / AXE DE PILOTAGE (cycle 53) ---------------------
+        # POURQUOI CETTE LIGNE EXISTE. `phys-length-chain` est une projection d'EGALITE sur la
+        # sphere de rayon `want` : elle retire EXACTEMENT la composante du deplacement ALIGNEE
+        # avec l'os et laisse passer la transverse. La part qui survit vaut donc `sin(theta)`,
+        # `theta` etant l'angle entre l'os et l'axe pousse. Le cycle 52 a mesure que desarmer
+        # cette contrainte multiplie la reponse VERTICALE de chestL par 5.01 et celle de chestR
+        # par 1.30 seulement, et a ELIMINE la longueur d'os comme cause (1040.50/140.42 contre
+        # 1039.03/144.23). L'orientation est ce qui restait, et rien ne la publiait.
+        # NATURE : un ANGLE (degres) entre deux directions unitaires. REPERE : le MONDE, sur la
+        #   derniere frame de la rampe d'entree — sujet droit, immobile, pose, aucun pilotage.
+        # CE QUI DISCRIMINE : `sin(theta)` doit CLASSER les confiscations mesurees en (b). Si un
+        #   os presque perpendiculaire au pilotage etait quand meme confisque, la projection
+        #   n'expliquerait rien.
+        _bone = {}
+        for _m in re.finditer(r'^PHYSSGNB c=(\d+) l=(\d+) ux=([-\d.e+]+) uy=([-\d.e+]+)'
+                              r' uz=([-\d.e+]+)', txt, re.M):
+            _bone[(int(_m.group(1)), int(_m.group(2)))] = (
+                float(_m.group(3)), float(_m.group(4)), float(_m.group(5)))
+        if not _bone:
+            A('   ROOM-SIGN-BONE: ABSENT — aucune ligne PHYSSGNB. L\'orientation de l\'os n\'est')
+            A('      pas mesuree, donc la cause de l\'ecart x5.01 / x1.30 reste NON ETABLIE.')
+        elif not _axdir52:
+            A('   ROOM-SIGN-BONE: les directions d\'os sont la, les axes de pilotage non.')
+        else:
+            A('   ROOM-SIGN-BONE: angle entre l\'OS et l\'AXE POUSSE, et la part TRANSVERSE qui')
+            A('      survit a la projection de longueur (sin theta).')
+            A('      %-12s %-4s | %-32s | %s'
+              % ('chaine', 'os', 'direction monde de l\'os', 'vertical      avant-arr     lateral'))
+            for _c in sorted(chains):
+                for _l in (0, 1):
+                    _u = _bone.get((_c, _l))
+                    if _u is None:
+                        continue
+                    _n = sum(x * x for x in _u) ** 0.5
+                    if _n < 1e-6:
+                        A('      %-12s l=%d | NORME NULLE — l\'os n\'a pas ete lu'
+                          % (names[_c] if _c < len(names) else _c, _l))
+                        continue
+                    _cells2 = []
+                    for _a in (0, 1, 2):
+                        _d = _axdir52.get(_a)
+                        if _d is None:
+                            _cells2.append('n/a')
+                            continue
+                        _cs = abs(sum(x * y for x, y in zip(_u, _d)) / _n)
+                        _cs = max(0.0, min(1.0, _cs))
+                        _th = math.degrees(math.acos(_cs))
+                        _cells2.append('%5.1f deg sin=%.3f' % (_th, math.sin(math.radians(_th))))
+                    A('      %-12s l=%d | (%+.4f, %+.4f, %+.4f)  norme %.4f | %s'
+                      % (names[_c] if _c < len(names) else _c, _l, _u[0], _u[1], _u[2], _n,
+                         '  '.join(_cells2)))
+            # LE TEST, ET IL EST ECRIT AVANT LA COURSE (C53E1, P3 et P4).
+            _cl = [_c for _c in sorted(chains)
+                   if _c < len(names) and names[_c] == 'chestL']
+            _cr = [_c for _c in sorted(chains)
+                   if _c < len(names) and names[_c] == 'chestR']
+            if _cl and _cr and (_cl[0], 0) in _bone and (_cr[0], 0) in _bone:
+                def _cos(_c, _a):
+                    _u = _bone[(_c, 0)]
+                    _n = sum(x * x for x in _u) ** 0.5
+                    _d = _axdir52[_a]
+                    return abs(sum(x * y for x, y in zip(_u, _d)) / _n) if _n > 1e-6 else 0.0
+                _lv, _la, _ll = _cos(_cl[0], 0), _cos(_cl[0], 1), _cos(_cl[0], 2)
+                _rv = _cos(_cr[0], 0)
+                A('')
+                A('   ROOM-SIGN-P3: sur chestL, |cos| vertical=%.4f  avant-arr=%.4f  lateral=%.4f'
+                  % (_lv, _la, _ll))
+                A('      -> %s'
+                  % ('P3 TENUE : le vertical EST l\'axe le plus aligne avec l\'os, donc celui que'
+                     ' la contrainte de longueur confisque le plus.'
+                     if (_lv > _la and _lv > _ll) else
+                     'P3 REFUTEE, ET CONTRE MOI : le vertical n\'est PAS l\'axe le plus aligne.'
+                     ' La projection n\'explique pas pourquoi c\'est lui qui est confisque, et'
+                     ' l\'hypothese tombe sur sa premiere consequence.'))
+                _sl = math.sin(math.acos(max(0.0, min(1.0, _lv))))
+                _sr = math.sin(math.acos(max(0.0, min(1.0, _rv))))
+                _rat = (_sr / _sl) if _sl > 1e-9 else float('inf')
+                A('   ROOM-SIGN-P4: |cos| vertical — chestL=%.4f  chestR=%.4f ; parts transverses'
+                  ' sin=%.4f et %.4f, rapport %s'
+                  % (_lv, _rv, _sl, _sr,
+                     ('%.2f' % _rat) if _rat != float('inf') else 'INDEFINI'))
+                A('      mesure a expliquer : confiscation x5.01 (chestL) contre x1.30 (chestR).')
+                if _lv > _rv and _rat >= 1.5:
+                    A('      -> P4 TENUE : l\'os de chestL est plus aligne avec le pilotage'
+                      ' vertical, et le rapport des parts transverses va dans le bon sens.')
+                elif _lv > _rv:
+                    A('      -> P4 A MOITIE : le classement est bon (chestL plus aligne) mais le'
+                      ' rapport %.2f est SOUS le 1.5 que j\'avais pose. L\'orientation contribue'
+                      ' sans suffire.' % _rat)
+                else:
+                    A('      -> P4 REFUTEE, ET CONTRE MOI : l\'os de chestL n\'est PAS plus aligne'
+                      ' que celui de chestR. La longueur etant deja eliminee, l\'orientation ne'
+                      ' rend pas compte de l\'ecart gauche/droite non plus — il ne reste que la'
+                      ' repartition de peau, que ce cycle ne mesure pas.')
+        A('')
+
 
     # ============================================================================================
     # SPEC 8 / 10-13 / 29-torsion / 33-34 / 36 — LE CANAL DE DEFORMATION, LA TORSION, LA RESTITUTION

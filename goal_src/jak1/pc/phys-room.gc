@@ -409,7 +409,22 @@
 ;;   terme unilateral et la piste du cycle 51 tombe — ce qui est aussi un resultat, et il est
 ;;   ecrit comme tel dans la prediction P3.
 (defconstant PHYSROOM-PH-SGN 32)
-(defconstant PHYSROOM-SGNN  36)     ;; 6 ablations x 3 axes x 2 sens
+(defconstant PHYSROOM-SGNN  72)     ;; 6 ablations x 3 axes x 2 sens, LE TOUT JOUE DEUX FOIS avec
+                                    ;; l'ordre des sens INVERSE a la seconde passe. Le cycle 52
+                                    ;; equilibrait l'ordre sur la GRILLE (k+a) mais pas DANS la
+                                    ;; cellule : `+` et `-` y restaient la 1re et la 2e fenetre, et
+                                    ;; son test rang-contre-sens rendait 10 contre 7 — pas un pur
+                                    ;; effet de rang, pas net non plus. Jouer les deux ordres rend
+                                    ;; la question decidable au lieu de la laisser en suspens.
+(defconstant PHYSROOM-SGNE  90)     ;; RAMPE D'ENTREE : frames de calme AVANT la premiere fenetre.
+                                    ;; Le cycle 52 a mesure que la 1re fenetre recevait un stimulus
+                                    ;; de 1255.82 u/frame^2 contre ~17.00 sur les 35 autres — x74.
+                                    ;; Cause : `PH-SGN` succede a `PH-REG`, dont la derniere fenetre
+                                    ;; ne finit pas a `home`, et le `physroom-hold` de sortie y
+                                    ;; ramene le sujet D'UN COUP. `physroom-reg-drive` evite ca par
+                                    ;; une rampe ENTRE ses fenetres ; il en faut une A L'ENTREE de
+                                    ;; toute phase neuve. Sans elle l'axe VERTICAL etait perdu pour
+                                    ;; la comparaison de sens, et c'est l'axe de la reception (§16).
 (defconstant PHYSROOM-SGNI  10)     ;; fin de l'impulsion
 (defconstant PHYSROOM-SGNIF 10.0)   ;; la MEME duree en flottant — `(the float <litteral>)` est une
                                     ;; REINTERPRETATION de bits en GOAL, jamais une conversion.
@@ -2283,7 +2298,7 @@
                      (phys-axis-world (-> self slot) c 0 2))
              (dotimes (l (phys-chain-links (-> self slot) c))
                (format 0 "PHYSBONE c=~D l=~D len=~f~%"
-                       c l (phys-chain-bone hd (-> self slot) c l))
+                       c l (phys-chain-bone hd (-> self slot) c l -1))
                ;; QUELS JOINTS CETTE CHAINE ECRIT REELLEMENT. Verdict owner du 2026-08-11 : « un
                ;; polygone de la semelle de la chaussure gauche se fait la malle » et « les
                ;; languettes des bandes de genoux ne bougent pas du tout » — les deux se decident
@@ -3676,7 +3691,7 @@
            (physroom-hold)
            (phys-stats-reset!)
            (phys-diag-reset!)
-           (set! (-> self sgi) 0)
+           (set! (-> self sgi) -1)   ;; -1 = la rampe d'ENTREE, voir PHYSROOM-SGNE
            (set! (-> self phase) PHYSROOM-PH-SGN)))))
 
     ;; ---- 9 quater. LA REPONSE PAR SENS DE STIMULUS (cycle 52) ---------------------------------
@@ -3687,14 +3702,40 @@
     ;; fenetres se contaminent, donc une phase INSEREE au milieu aurait deplace 257 lignes de `row`
     ;; et rendu tout le reste inattribuable.
     ((= (-> self phase) PHYSROOM-PH-SGN)
+     ;; ---- LA RAMPE D'ENTREE, ET L'ETAT DU SQUELETTE QU'ELLE PERMET DE RELEVER ----------------
+     ;; Tant que `sgi` vaut -1 on TIENT `home` : c'est la rampe d'entree (voir PHYSROOM-SGNE). A
+     ;; sa derniere frame le sujet est droit, immobile et pose — la seule frame ou la direction de
+     ;; l'os se lit sans qu'un pilotage la contamine. `PHYSSGNB` la publie la, et nulle part
+     ;; ailleurs : c'est la grandeur qui decide de ce que la contrainte de longueur confisque.
+     (when (< (-> self sgi) 0)
+       (physroom-hold)
+       (when (>= (-> self pframe) PHYSROOM-SGNE)
+         (let ((hd (if (-> self child) (the-as jak-hd (-> self child 0)) (the-as jak-hd #f))))
+           (when hd
+             (dotimes (c (-> self nchain))
+              (when (> (phys-chain-links (-> self slot) c) 0)
+               (dotimes (l (phys-chain-links (-> self slot) c))
+                 (format 0 "PHYSSGNB c=~D l=~D ux=~,,6f uy=~,,6f uz=~,,6f~%"
+                         c l
+                         (phys-chain-bone hd (-> self slot) c l 0)
+                         (phys-chain-bone hd (-> self slot) c l 1)
+                         (phys-chain-bone hd (-> self slot) c l 2)))))))
+         (set! (-> self sgi) 0)
+         (set! (-> self pframe) 0)
+         (phys-comexw-reset!)
+         (phys-stats-reset!)))
+     (when (>= (-> self sgi) 0)
      (let* ((i  (-> self sgi))
-            (w  (mod i 2))                    ;; 0 = premiere fenetre de la cellule, 1 = seconde
-            (a  (mod (/ i 2) 3))              ;; 0 = vertical · 1 = avant-arriere · 2 = lateral
-            (k  (/ i 6))                      ;; l'ablation, meme numerotation que PH-ORI
-            ;; L'ORDRE EST EQUILIBRE PAR LA PARITE DE (k + a) : la moitie des cellules joue `+`
-            ;; en premier, l'autre `-`. Sans ca, l'effet du SENS serait confondu avec celui du
-            ;; RANG dans la cellule — le defaut que le cycle 50 a mesure sur `row`.
-            (si (if (zero? (mod (+ k a) 2))
+            (p  (/ i 36))                     ;; 0 = premiere passe, 1 = passe a ordre INVERSE
+            (j  (mod i 36))
+            (w  (mod j 2))                    ;; 0 = premiere fenetre de la cellule, 1 = seconde
+            (a  (mod (/ j 2) 3))              ;; 0 = vertical · 1 = avant-arriere · 2 = lateral
+            (k  (/ j 6))                      ;; l'ablation, meme numerotation que PH-ORI
+            ;; L'ORDRE EST EQUILIBRE DEUX FOIS : par la parite de (k + a) DANS une passe, et par
+            ;; la PASSE elle-meme, qui inverse tout. Une meme cellule (k, axe, sens) est donc
+            ;; jouee une fois en 1re position et une fois en 2e — c'est ce qui separe l'effet du
+            ;; SENS de celui du RANG, que le cycle 52 n'avait pas su trancher.
+            (si (if (= (mod (+ (+ k a) p) 2) 0)
                   (if (zero? w) 1 -1)
                   (if (zero? w) -1 1)))
             ;; `(the float <int>)` REINTERPRETE les bits en GOAL : on ne convertit pas, on choisit.
@@ -3754,7 +3795,7 @@
            (physroom-hold)
            (phys-stats-reset!)
            (phys-diag-reset!)
-           (set! (-> self phase) PHYSROOM-PH-REPORT)))))
+           (set! (-> self phase) PHYSROOM-PH-REPORT))))))
 
     ;; ---- 10. RAPPORT --------------------------------------------------------------------------
     ((= (-> self phase) PHYSROOM-PH-REPORT)
