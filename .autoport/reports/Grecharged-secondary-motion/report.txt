@@ -1,4 +1,4 @@
-RAPPORT DE CYCLE 64 — Grecharged-secondary-motion
+RAPPORT DE CYCLE 64 + 64b — Grecharged-secondary-motion
 DIRECTIVES v3fee554599
 Branche physics-keira-clean · perimetre : chestL / chestR SEULES (owner 2026-08-14 07:30)
 
@@ -147,15 +147,21 @@ est a 43,4 deg du miroir parfait. La regle du 2026-08-20 05:20 interdit de decla
 defaut du personnage tant qu'elle n'est pas relevee dans une pose dont la symetrie est prouvee
 AVANT la course. Je la publie, je ne l'attribue pas.
 
+CORRECTION DU CYCLE 64b : la moitie « s'accordent a 5,1 % » EST RETIREE. Elle reposait sur la
+cellule `chestR i=2`, que le controle corrige SUSPEND (25,83 % en vecteur). Il ne reste donc
+qu'UNE paire miroir comparable — et c'est celle qui DISAGREE d'un facteur 2,41, portee par deux
+cellules propres (controle 0,09 % et 0,26 %). La reserve de pose ci-dessus reste entiere.
+
 ET LE BLOC SE SUSPEND LUI-MEME SUR chestL, CE QUE JE NE MASQUE PAS. Son controle interne compare
-deux accumulateurs independants (`|sum ldb|` de `PHYSORICOML` contre `|t|` de `PHYSORICOM`) :
+deux accumulateurs independants (`sum ldb` de `PHYSORICOML` contre `t` de `PHYSORICOM`) :
 
-    chestL   pire ecart relatif 13,3535 % (i=8)   DESACCORD > 5 % : le montage est en cause
-    chestR   pire ecart relatif  0,5691 % (i=2)   accord
+    chestL   pire ecart 13,3535 % (i=8)   DESACCORD > 5 % : le montage est en cause
+    chestR   pire ecart  0,5691 % (i=2)   accord          <-- FAUX, RETIRE EN SECTION 11
 
-La pire cellule de chestL est i=8 — EXACTEMENT la fenetre supine de §10. Donc la seule chaine qui
-placait §10 dans sa bande est celle dont le montage se contredit, precisement la ou il le fait. Je
-n'ecris pas §10 tenue sur chestL, et je n'ecris pas non plus §10 violee sur chestR.
+La pire cellule de chestL est i=8 — EXACTEMENT la fenetre supine de §10. Je n'ecris pas §10 tenue
+sur chestL, et je n'ecris pas non plus §10 violee sur chestR.
+**ET LA LIGNE « chestR : accord » CI-DESSUS EST FAUSSE. Je la laisse VISIBLE, barree, parce que la
+section 11 la refute et qu'effacer une affirmation retiree rendrait la correction invisible.**
 
 ================================================================================================
 4. §6 — `W0` EXISTE, `L0` ET `H0` NE MESURENT RIEN, ET LA CONFIRMATION DE `B0` EST RETIREE
@@ -355,3 +361,60 @@ la chair du sein, et c'est une question d'anatomie, pas de code.
 
 OPEN-DEFECTS : `breast-spec-incomplete` reste ouverte. Elle ne se retire que sur sa parole ; il n'a
 valide aucune section, et l'editer fabriquerait un verdict de sa part.
+
+================================================================================================
+11. CYCLE 64b — LE CONTROLE DU BLOC ETAIT LUI-MEME UN SCALAIRE A LA PLACE D'UN VECTEUR
+================================================================================================
+Le cycle 64 nommait pour la suite : « comprendre le desaccord de chestL, PUIS projeter ». Fait, et
+la premiere chose trouvee est que MA LECTURE DU CONTROLE ETAIT FAUSSE dans un sens que je n'avais
+pas envisage — le controle ne se trompait pas de valeur, il regardait la mauvaise GRANDEUR.
+
+CE QU'IL COMPARAIT : deux NORMES, `|sum ldb|` contre `|t|`. En reordonnant `t` (triedre de §7 :
+lateral, haut, avant) en (ty, tz, tx) pour l'aligner sur la base de l'ANCRE (vertical, avant-
+arriere, lateral), les deux accumulateurs coincident COMPOSANTE PAR COMPOSANTE :
+
+    14 cellules chargees sur 16 : angle < 0,6 deg, ecart vectoriel < 1,1 %
+    chestL i=8 : norme 13,35 %  angle 16,27 deg  vecteur 29,53 %   -> etait VU
+    chestR i=2 : norme  0,57 %  angle 14,88 deg  vecteur 25,83 %   -> PASSAIT
+
+`chestR` etait donc declaree « accord » sur une COINCIDENCE DE NORMES, alors que ses deux
+instruments divergent de pres de 15 degres. **C'est la faute exacte des cycles 62b et 63 —
+`sja` tenait lieu du vecteur pour §7, le joint tenait lieu de la surface pour §33 — commise cette
+fois par le CONTROLE lui-meme.** Troisieme occurrence en trois cycles, et la seule que j'aie
+introduite en la lisant plutot qu'en l'heritant.
+
+LE CORRECTIF N'INTRODUIT AUCUN SEUIL. On compare les VECTEURS, `|a-b|/max(|a|,|b|)`, avec le MEME
+5 % qu'avant. Le critere est strictement plus fort (`||a|-|b|| <= |a-b|`) et la separation n'est pas
+un fil du rasoir : pire cellule qui passe 1,08 %, pire cellule prise 25,83 %, facteur 24. Et il est
+desormais PAR CELLULE et non par chaine — suspendre une chaine entiere pour une orientation fautive
+jetait des lectures propres.
+
+CE QUE LA CORRECTION CHANGE AUX VERDICTS :
+  - §10 supine : `chestL i=8` reste suspendue ; `chestR i=8` est PROPRE a 0,09 %, donc sa lecture
+    0,1572 tient et l'encadrement de la section 3 est soutenu par un montage verifie.
+  - §11 prone : les DEUX cellules sont propres (0,06 % et 0,22 %). Le manque de 0,07 a 0,09 B0
+    repose sur un montage verifie.
+  - §12 : `chestR i=2` (0,1778) devient SUSPENDUE — c'etait l'une des deux seules lectures « DANS
+    la bande » du cycle, et l'une des deux moities de ma comparaison miroir. Retiree.
+  - Les six autres cellules, jetees hier avec la chaine chestL, sont RECUPEREES.
+
+LA CAUSE DU DESACCORD N'EST PAS ETABLIE, ET DEUX SUSPECTS SONT ELIMINES PAR LA MESURE :
+  (i)  la composante RADIALE — l'ajouter en quadrature ne deplace aucun chiffre (`rr` vaut 0,21
+       contre 138) ; REFUTE ;
+  (ii) une fenetre non stabilisee — les deux cellules fautives portent les PLUS PETITS transitoires
+       d'etablissement de toutes (`PHYSORITR`, rangs 7/8 et 8/8) : ce sont les fenetres les plus
+       CALMES, pas les plus agitees ; REFUTE.
+SIGNATURE MESUREE, publiee parce qu'elle est le point de depart du prochain cycle : en ajustant
+`t = l0 + k.l1` par moindres carres, `k = 0,99 a 1,02` avec un residu < 1,1 % sur les 14 cellules
+saines — les deux instruments sont LA MEME grandeur — contre `k = 2,156` (residu 13,2 %) sur
+chestL i=8 et `k = 0,655` (residu 3,5 %) sur chestR i=2. L'identite ne casse donc PAS comme un
+simple re-echelonnement du maillon distal, et je n'ai pas de mecanisme a proposer.
+
+NON-REGRESSION DU 64b : 34 lignes changent, 34 sur 34 dans `ROOM-ORICOM-MASS`. Aucun fichier de
+`goal_src/`, aucune donnee livree. Toujours aucune course de salle : meme trace, meme md5.
+
+ET LE CANAL DE MIGRATION SORTANTE N'EST TOUJOURS PAS CONSTRUIT — pour la meme raison qu'hier, et
+elle est renforcee : le montage a maintenant DEUX cellules fautives connues au lieu d'une, et leur
+cause n'est pas comprise. On ne bati pas un verdict neuf sur un montage dont on vient de decouvrir
+qu'il mentait aussi la ou il disait « accord ».
+

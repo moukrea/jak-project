@@ -957,9 +957,27 @@ def _oricom_mass_block(A, txt, names, com, com2, role, axis, b0):
         # par le bruit. La ligne de base se juge donc en ABSOLU (c'est la grandeur que §9 nomme)
         # et l'accord des deux instruments sur les orientations QUI PORTENT UN SIGNAL se juge en
         # relatif. Ce n'est pas un seuil choisi : c'est le partage des roles deja ecrit au-dessus.
+        # LE CONTROLE COMPARAIT DEUX NORMES, ET UNE NORME EST AVEUGLE A LA DIRECTION (cycle 64b).
+        # Mesure qui l'a etabli : en reordonnant `t` (triedre §7 : lateral, haut, avant) en
+        # (ty, tz, tx) pour l'aligner sur la base de l'ANCRE (vertical, avant-arriere, lateral),
+        # les deux instruments coincident COMPOSANTE PAR COMPOSANTE a moins de 0.6 degre sur 14
+        # cellules chargees sur 16. Les deux qui echouent le font a ~15 degres — et l'ancien
+        # critere n'en voyait qu'UNE :
+        #     chestL i=8   norme 13.35 %   angle 16.27 deg   -> SUSPENDU (vu)
+        #     chestR i=2   norme  0.57 %   angle 14.88 deg   -> PASSAIT  (invisible)
+        # `chestR` etait donc declaree « accord » sur une COINCIDENCE de normes. C'est la faute
+        # exacte des cycles 62b et 63 (`scalar-signature-hides-an-unmirrored-vector`), commise
+        # cette fois par le CONTROLE lui-meme.
+        # LE CORRECTIF N'INTRODUIT AUCUN SEUIL NEUF : on compare les VECTEURS,
+        # `|a - b| / max(|a|,|b|)`, avec le MEME 5 % qu'avant. Le critere est strictement plus
+        # fort (||a|-|b|| <= |a-b|) et la separation est franche, pas un fil du rasoir : pire
+        # cellule qui passe 1.08 %, pire cellule prise 25.83 % — un facteur 24.
+        # ET IL EST PAR CELLULE, PLUS PAR CHAINE : suspendre une chaine entiere pour une
+        # orientation fautive jetait des lectures propres (le supine de chestR est a 0.09 %).
         ictl = [i for (cc, i, l) in comL if cc == c and l == nl - 1 and (cc, i) in com]
         worst, worst_i, nbase = 0.0, None, 0
         base_a = base_t = float('nan')
+        cellrel = {}
         for i in sorted(set(ictl)):
             da = dcum(c, i, nl - 1)
             if da is None:
@@ -972,17 +990,24 @@ def _oricom_mass_block(A, txt, names, com, com2, role, axis, b0):
                 continue
             if max(na, nt) > 1e-6:
                 nbase += 1
-                rel = abs(na - nt) / max(na, nt)
+                # `t` vit dans le triedre de §7 (lateral, haut, avant), `da` dans la base de
+                # l'ANCRE (vertical, avant-arriere, lateral) : (tx,ty,tz) -> (ty,tz,tx).
+                tr = (t[1], t[2], t[0])
+                rel = math.sqrt(sum((da[k] - tr[k]) ** 2 for k in range(3))) / max(na, nt)
+                cellrel[i] = (rel, abs(na - nt) / max(na, nt))
                 if rel > worst:
                     worst, worst_i = rel, i
-        A('ROOM-ORICOM-MASS: %-12s CONTROLE pointe : |sum ldb| (PHYSORICOML, cumul) contre |t|'
+        A('ROOM-ORICOM-MASS: %-12s CONTROLE pointe : sum ldb (PHYSORICOML, cumul) contre t'
           % nm)
-        A('   (PHYSORICOM), pire ecart relatif %.4f%s sur %d orientations chargees — deux'
+        A('   (PHYSORICOM), compares EN VECTEUR |a-b|/max(|a|,|b|) et non en norme (cycle 64b :')
+        A('   une norme est aveugle a la direction et laissait passer 15 deg de desaccord).')
+        A('   Pire ecart VECTORIEL %.4f%s sur %d orientations chargees ; le meme en NORME vaut'
           % (worst * 100.0, (' %% (i=%d)' % worst_i) if worst_i is not None else ' %', nbase))
-        A('   accumulateurs independants, deux triedres, un seul nombre. %s'
-          % ('accord' if worst < 0.05 else
-             'DESACCORD > 5 % : le montage est en cause, pas la physique — '
-             'les lignes ci-dessous sont suspendues a ce constat'))
+        A('   %s. %s'
+          % (('%.4f %%' % (cellrel[worst_i][1] * 100.0)) if worst_i in cellrel else 'n/a',
+             'accord sur toutes les cellules' if worst < 0.05 else
+             'DESACCORD > 5 % : les cellules fautives sont marquees SUSPENDUE une par une '
+             'ci-dessous — une orientation fautive ne jette plus les lectures propres'))
         A('   LIGNE DE BASE i=0 (debout d\'auteur, §9 exige 0.0000), en ABSOLU parce qu\'un rapport'
           ' entre deux quasi-zeros')
         A('   ne mesure rien : |sum ldb| = %.5f B0  ·  |t| = %.5f B0.' % (base_a, base_t))
@@ -1019,11 +1044,20 @@ def _oricom_mass_block(A, txt, names, com, com2, role, axis, b0):
             A('ROOM-ORICOM-MASS: %-12s %s i=%d  |d_COM|=%s B0  (apex %.4f, facteur %s)'
               % (nm, lab, i, '/'.join('%.4f' % v for (_c, v) in cols), napex,
                  ('%.3f' % (base / napex)) if napex == napex and napex > 1e-9 else 'n/a'))
+            _cr = cellrel.get(i)
+            if _cr is not None and _cr[0] > 0.05:
+                A('                              CELLULE SUSPENDUE : les deux accumulateurs de la'
+                  ' pointe different de %.2f %% EN VECTEUR (%.2f %% en norme seule) — le montage'
+                  % (_cr[0] * 100.0, _cr[1] * 100.0))
+                A('                              est en cause, pas la physique. Le chiffre'
+                  ' ci-dessus est publie comme diagnostic et NE PORTE AUCUN VERDICT.')
+                continue
             A('                              squelettique seul %s  ·  cible %.2f (bande %.2f-%.2f)'
-              '  ·  rr(joint, pour memoire, NON compose) %.4f'
+              '  ·  rr(joint, pour memoire, NON compose) %.4f  ·  controle de pointe %.2f %%'
               % ('DANS' if band[0] <= base <= band[1] else
                  ('SOUS — borne INFERIEURE, la part tensorielle manque' if base < band[0]
-                  else 'AU-DESSUS'), nom, band[0], band[1], rr))
+                  else 'AU-DESSUS'), nom, band[0], band[1], rr,
+                 (_cr[0] * 100.0) if _cr is not None else float('nan')))
         d0 = rec['defs'][0]
         A('   (frontieres w>0 / w>=0.05 / w>=0.25 — les trois colonnes de |d_COM| ci-dessus ;'
           ' N=%d, part de l\'organe portee par la chaine %.4f, le reste est ancre au buste)'
