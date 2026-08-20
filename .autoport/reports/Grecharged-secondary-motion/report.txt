@@ -496,3 +496,46 @@ Le plafond de x1.76 / x1.68 utilise en section 4 reste juste : il est calcule su
 que le canal d'apex transporte reellement, pas sur celle de §30.
 **Sans cette verification j'aurais publie un rapprochement faux entre deux mesures qui portent le
 meme mot et pas la meme chose.**
+
+--- 12. J'AI TESTE MA PROPRE EXPLICATION DE SPEC 16 ET ELLE EST REFUTEE ------------------------
+Le canal d'apex isole un residu de x1.9 a x2.4 sur la reception que l'ancrage n'explique pas
+(section 4). J'avais une explication toute prete, et elle vient du cycle 49 : l'axe d'os est a
+95.4 / 97.9 % vertical et la contrainte de longueur est DURE, donc un stimulus VERTICAL (une
+reception) serait CONFISQUE le long de l'os, la ou un stimulus horizontal ou rotationnel passe.
+
+**PREDICTION : la part VERTICALE de la reponse d'apex serait FAIBLE sous stimulus vertical.**
+Mesure, sur la trace deja en main (`PHYSREG4`, |ay| / |apex|) :
+
+    stimulus VERTICAL   (detente, reception)   part verticale moyenne de la reponse : 37.7 %
+    stimulus HORIZONTAL (course, freinage)                                            33.7 %
+    stimulus ROTATION   (lacet, tangage, roulis)                                      67.4 %
+
+**REFUTEE.** Ce n'est pas le stimulus vertical qui rend une reponse peu verticale : c'est la
+ROTATION qui en rend une TRES verticale (tangage 92.8 a 99.4 %). Les trois familles ne se
+classent pas comme ma these le voulait, et une part de 37.7 % n'est pas la confiscation quasi
+totale que le cycle 49 avait lue (12.2 % sur chestL).
+
+**ET CE QUE LA MESURE MET A LA PLACE EST PLUS INTERESSANT QUE MA THESE.** Le detail par ligne
+montre une transmission qui depend du SENS du stimulus ET de la CHAINE :
+
+    chestL   detente (impulsion vers le HAUT)   part verticale   5.1 %  et  2.1 %
+    chestL   reception (vers le BAS)                             66.5 % et 65.2 %
+    chestR   detente                                             47.6 % et 45.4 %
+    chestR   reception                                           24.4 % et 45.3 %
+
+Sur le MEME axe, chestL convertit une impulsion vers le bas en 65 % de mouvement vertical et une
+impulsion vers le haut en 2 a 5 % — un facteur 13 a 31 selon le SENS SEUL. Et les deux chaines ne
+font pas la meme chose : sur la detente, 2-5 % contre 45-48 %, soit x10 a x20 d'ecart
+gauche/droite, quand sa §32 prescrit 2-5 % d'ecart de PARAMETRES.
+
+**CE QUE JE N'AFFIRME PAS** : la cause. Un comportement qui depend du SENS de la sollicitation
+est la signature d'une contrainte UNILATERALE (une poussee de collision qui ne pousse que vers
+l'exterieur, une borne qui ne mord qu'en compression), mais je ne l'ai pas mesuree et je ne la
+nomme donc pas. C'est le chantier suivant, et il est mieux pose qu'avant ce cycle : la grandeur a
+instrumenter est la reponse PAR SENS de stimulus, pas par amplitude ni par duree.
+
+**REGLE QUE JE ME REDONNE** : le residu de la section 4 restait attribuable a « le solveur » sans
+plus de precision. J'ai voulu le nommer tout de suite avec une these deja disponible, et la these
+etait fausse. Une explication qui se presente sans qu'on l'ait cherchee merite d'etre testee
+AVANT d'etre ecrite dans un rapport — ici elle l'a ete, et ca a coute une requete sur des donnees
+deja en main.
