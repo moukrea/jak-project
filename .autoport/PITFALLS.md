@@ -501,3 +501,26 @@ personnage. Ca vaut aussi pour §32, §18 et §12, toutes mesurees dedans.
 Verrou : toute mesure d'ASYMETRIE gauche/droite se releve dans une pose dont la symetrie est
 prouvee AVANT la course, et le rapport publie l'ecart au miroir. Une pose heritee n'est pas une
 pose choisie. Voisin de `stimulus-must-be-representative` et de `un-posed-frames-bones-at-origin`.
+
+GUARD blocking-gate-must-run-last .autoport/validators/phase-Grecharged-secondary-motion.sh OPEN-DEFECTS
+**`gate-behind-an-always-failing-gate` a REMORDU, et cette fois la note ne suffisait plus.**
+`OPEN-DEFECTS` echoue TOUJOURS par construction (seul l'owner retire une ligne) et elle etait en
+2e position : tout ce qui suivait n'a jamais ete evalue. Consequence mesuree au cycle 56 : le
+plafond de `COLLIDE` est un CLIQUET epingle a 0,0005 m avec la regle « toute augmentation fait
+echouer la phase » ; la valeur vaut 0,1115 m depuis le cycle 48, soit **×223**, et le dispositif
+cense le crier n'a jamais crie faute d'etre atteint.
+Verrou MECANIQUE, pas documentaire : la gate qui BLOQUE la phase passe APRES toutes celles qui
+MESURENT. Les mesures se prononcent a chaque course, le blocage se prononce en dernier. Une regle
+qui depend de la vigilance a deja echoue deux fois ici.
+
+GUARD gate-measures-the-wrong-quantity .autoport/validators/phase-Grecharged-secondary-motion.sh COLLIDE
+**La gate COLLIDE compare `meshpen` alors que son propre commentaire explique pourquoi c'est la
+mauvaise grandeur.** Son point 1 ecrit que `meshpen` mesure contre les VOLUMES DECLARES et pas
+contre le mesh, et que l'os de poitrine etant INTERIEUR un residu de volume sur cet os n'est pas
+une traversee de peau. La grandeur qui repond a la regle de l'owner est `skinpen`. Pire : la gate
+justifie son seuil en citant « 0,1537/0,1593 m sous la peau AU REPOS » — un chiffre publie NULLE
+PART, et la trace ne contient aucun tag de repos. Le rouge etait donc invérifiable dans les deux
+sens : on ne peut pas dire si la physique enfonce quoi que ce soit.
+Verrou : une gate dont le commentaire explique pourquoi sa grandeur est inadaptee doit changer de
+grandeur, pas de commentaire. Et un seuil justifie par une ligne de base doit ECHOUER si cette
+ligne de base est absente de la course.

@@ -30,27 +30,6 @@ _ok=0; for v in $DVOK; do grep -qF "DIRECTIVES $v" "$R" && _ok=1; done
   sur l'ancien périmètre."
 
 # --------------------------------------------------------------------------------------------
-# OPEN-DEFECTS — la phase ne se declare pas terminee tant que l'owner voit des defauts.
-#
-# Le 2026-08-11 la phase a passe le validateur QUATRE fois et s'est declaree terminee, pendant
-# que cinq des six points de son plan de reprise etaient ouverts. L'orchestrateur est parti sur
-# un autre sujet a chaque fois, et il a fallu que le superviseur le ramene a la main. Un
-# validateur qui ignore les defauts rapportes mesure autre chose que le travail.
-#
-# La liste se vide UNIQUEMENT sur la parole de l'owner : c'est son oeil qui ferme un defaut,
-# jamais un chiffre vert. C'est la lecon de toute la journee, encodee.
-DEF=.autoport/reports/Grecharged-secondary-motion/owner-defects.txt
-if [ -f "$DEF" ]; then
-  _open=$(grep -c "^OPEN " "$DEF" || true)
-  if [ "${_open:-0}" -gt 0 ]; then
-    echo "[Grecharged-secondary-motion FAIL] OPEN-DEFECTS: $_open defaut(s) rapporte(s) par l'owner"
-    echo "  sont encore ouverts. La phase ne peut pas se declarer terminee :"
-    grep "^OPEN " "$DEF" | sed 's/^OPEN /  - /' | cut -c1-108
-    echo "  Une ligne ne se retire que quand l'owner dit que c'est bon."
-    exit 1
-  fi
-fi
-# --------------------------------------------------------------------------------------------
 # CLEAN — le départ propre ne se referme pas. Le cast reste hors-jeu tant que Keira n'est pas
 # validée, et l'ancien moteur parké ne revient pas par la fenêtre.
 _mdl=$(grep -c "^\[model " recharged_assets/physics_chains.txt 2>/dev/null || echo 0)
@@ -601,3 +580,37 @@ print("[DISCRIMINANT] chaque chaîne distingue les %d pilotages" % len(drives))
 PYDISC
 
 echo "[Grecharged-secondary-motion PASS]"
+
+# --------------------------------------------------------------------------------------------
+# OPEN-DEFECTS — DEPLACEE EN DERNIER LE 2026-08-20, ET C'EST UN CORRECTIF DE MECANIQUE.
+#
+# Elle etait en 2e position et elle ECHOUE TOUJOURS par construction (l'owner seul retire une
+# ligne). Tout ce qui suivait n'etait donc JAMAIS EVALUE. Consequence mesuree au cycle 56 : le
+# plafond de COLLIDE est un cliquet epingle a 0,0005 m avec la regle « toute augmentation fait
+# echouer la phase » ; la valeur vaut aujourd'hui 0,1115 m, soit x223, depuis le cycle 48 — et le
+# dispositif cense le crier n'a jamais crie, faute d'etre atteint.
+#
+# Le piege est deja au registre sous `gate-behind-an-always-failing-gate` et il a remordu. Le
+# verrou n'est plus une note : la gate qui BLOQUE la phase passe APRES toutes les gates qui
+# MESURENT. Les mesures se prononcent a chaque course ; le blocage se prononce en dernier.
+# (Bloc deplace VERBATIM, aucune ligne de sa logique modifiee.)
+# OPEN-DEFECTS — la phase ne se declare pas terminee tant que l'owner voit des defauts.
+#
+# Le 2026-08-11 la phase a passe le validateur QUATRE fois et s'est declaree terminee, pendant
+# que cinq des six points de son plan de reprise etaient ouverts. L'orchestrateur est parti sur
+# un autre sujet a chaque fois, et il a fallu que le superviseur le ramene a la main. Un
+# validateur qui ignore les defauts rapportes mesure autre chose que le travail.
+#
+# La liste se vide UNIQUEMENT sur la parole de l'owner : c'est son oeil qui ferme un defaut,
+# jamais un chiffre vert. C'est la lecon de toute la journee, encodee.
+DEF=.autoport/reports/Grecharged-secondary-motion/owner-defects.txt
+if [ -f "$DEF" ]; then
+  _open=$(grep -c "^OPEN " "$DEF" || true)
+  if [ "${_open:-0}" -gt 0 ]; then
+    echo "[Grecharged-secondary-motion FAIL] OPEN-DEFECTS: $_open defaut(s) rapporte(s) par l'owner"
+    echo "  sont encore ouverts. La phase ne peut pas se declarer terminee :"
+    grep "^OPEN " "$DEF" | sed 's/^OPEN /  - /' | cut -c1-108
+    echo "  Une ligne ne se retire que quand l'owner dit que c'est bon."
+    exit 1
+  fi
+fi
