@@ -4,6 +4,35 @@ Branche physics-keira-clean · perimetre : chestL / chestR SEULES (owner 2026-08
 Course x86 du 2026-08-20, trace md5 3a478f91532734a78bb88e89343c8509, 310 mesures, 31/31 animations.
 Six courses ce cycle : 1 instrument, 1 ablation refutee, 1 mesure, 1 correctif refute, 2 controles de retrait.
 
+================================================================================================
+DECISION DEMANDEE AU SUPERVISEUR — UNE SEULE, ET ELLE EST CHIFFREE (3e remontee : c58, c59, c59bis)
+================================================================================================
+Les DEUX verdicts de COLLIDE sont aujourd'hui hors d'atteinte, et pour la MEME raison unique : leur
+seuil a ete calibre quand `meshpen` valait ~2 u ; il vaut ~450 u depuis le cycle 15.
+
+  a) `meshpen <= 0.0005 m` — le plafond vaut 0.0034 B0 quand sa 22 autorise l'apex a se deplacer de
+     0.42 a 0.50 B0 : facteur 123 a 147. MESURE, sans extrapolation, sur les 310 cellules livrees :
+     les 37 cellules qui tiennent le plafond sont EXACTEMENT celles dont `tipvar < 0.02 m` ; la
+     course va a 0.176 m. Le plafond n'est tenu que dans un regime d'amplitude 9 fois plus petit
+     que celui que la salle exerce. Le validateur ecrit lui-meme que 0.0005 est SON
+     operationnalisation du mot « visible » de sa 33, et que « si l'owner veut une autre lecture,
+     c'est CE nombre qui bouge, et rien d'autre ».
+  b) `arme >= 3.00 x desarme` — avec un desarme de 266.6 u et une injection de 400 u, atteindre
+     x3.00 demanderait une hausse de +533 u, soit 1.33 fois l'injection elle-meme. Le seuil a ete
+     ecrit quand le desarme valait ~0.5 u, ou la meme injection rendait un rapport de plusieurs
+     centaines.
+
+CE QUE JE NE FAIS PAS, ET POURQUOI : je ne touche a aucune gate (regle 5, verrou dur) ; je
+n'agrandis pas l'injection pour franchir x3.00 (`never-fit-a-parameter-to-the-instrument`) ; et je
+ne muselle pas la chaine pour faire tomber `meshpen` — c'est la plainte n°1 de l'owner depuis le
+2026-08-11, et le cycle a la preuve qu'un correctif qui n'apporte rien peut quand meme ne PAS
+museler (C59E4 : tipvar -2.9 %), donc le muselage ne serait pas un effet de bord mais un choix.
+
+TROIS MESURES INDEPENDANTES DISENT QUE LE CHANTIER N'EST PAS DANS LE SOLVEUR : l'identite exacte de
+redimensionnement (section 2), le plateau sur 8-10 volumes (section 1), et le facteur de relaxation
+1 + |offs|/want (section 2 bis). Elles convergent sur la GEOMETRIE, et la section 5 en donne la
+premiere cible chiffree : `ax <chain> 1` de 0.0818 / 0.0000 vers >= 0.30.
+
 BREAST-PENETRATION: chestL meshpen=0.1115 m  skinpen=0.1358 m   |   chestR meshpen=0.1019 m  skinpen=0.1203 m
   Plafond epingle du validateur : 0.0005 m. DEPASSE d'un facteur 223 / 204. NON REGLE.
   INCHANGE PAR LE CYCLE 59, ET C'ETAIT UNE CONDITION GRAVEE (P5) : le seul changement de moteur de
