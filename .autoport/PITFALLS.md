@@ -576,3 +576,16 @@ etaient EXACTEMENT celles ou `tipvar < 0,02 m`, pour une course allant a 0,176 m
 passait donc qu'en muselant la chaine, c'est-a-dire en produisant la plainte n°1 de l'owner.
 Verrou : confronter tout plafond a ce que la spec AUTORISE dans la meme unite avant de le publier,
 et verifier quelle population le tient — si c'est la population immobile, la gate est fausse.
+
+GUARD asymmetry-line-must-carry-its-pose .autoport/reports PHYSSGNB
+**`measured-in-an-unrepresentative-pose` a recidive sur d'AUTRES sections, parce que le correctif
+etait PAR PHASE.** Le cycle 55 avait epingle une pose symetrique dans une phase ; le cycle 65
+retrouve les sept regimes de §14-§20 joues a **43,8 deg du miroir**, avec cinq lignes publiant un
+ecart gauche/droite dessus (jusqu'a ×5,79). Epingler une pose quelque part laisse toutes les autres
+phases sur la pose heritee, et rien ne le signale.
+Verrou : toute ligne qui publie une comparaison GAUCHE/DROITE porte, SUR LA MEME LIGNE, l'ecart au
+miroir de la pose ou elle a ete relevee ; au-dela d'un seuil declare elle ecrit `POSE NON
+SYMETRIQUE` et la section reste `NON ETABLI`. Le rig est symetrique a 0,005 deg en bind : tout
+ecart mesure ailleurs est un artefact jusqu'a preuve du contraire.
+Regle generale : un correctif se pose au PRODUCTEUR de la grandeur, jamais sur le site qui l'a
+revele. Un correctif par site est une note deguisee en verrou.

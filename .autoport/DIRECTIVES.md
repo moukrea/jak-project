@@ -10,6 +10,30 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
+## 2026-08-21 01:20 — TOUTE LIGNE D'ASYMETRIE PUBLIE L'ECART AU MIROIR DE SA PROPRE POSE, OU SE TAIT
+
+Le cycle 65 retrouve le defaut du cycle 53, **sur d'autres sections** : les sept regimes de §14 a
+§20 sont joues a **43,8 deg du miroir**, et cinq lignes publient un ecart gauche/droite dessus
+(§14 ×1,88, §16 ×2,31, §17 ×1,10, §18 ×5,79, §20 ×1,52). Une seule declarait que sa pose pouvait
+les porter.
+
+**LE CORRECTIF DU CYCLE 55 ETAIT PAR PHASE, DONC IL NE POUVAIT PAS TENIR.** Epingler une pose
+symetrique dans UNE phase laisse toutes les autres sur la pose heritee, et rien ne le dit. Le
+registre porte deja `measured-in-an-unrepresentative-pose` ; la note n'a pas suffi, comme elle
+n'avait pas suffi pour `gate-behind-an-always-failing-gate`.
+
+**VERROU MECANIQUE, ET IL EST LE MEME PARTOUT :** toute ligne qui publie une comparaison
+GAUCHE/DROITE publie, **sur la meme ligne**, l'ecart au miroir de la pose ou elle a ete relevee.
+Au-dela d'un seuil declare, elle n'ecrit pas un chiffre : elle ecrit `POSE NON SYMETRIQUE`, et la
+section reste `NON ETABLI`. Le rig de Keira est symetrique a **0,005 deg** en pose de bind — donc
+tout ecart gauche/droite mesure ailleurs est, jusqu'a preuve du contraire, un artefact de la pose
+et non une propriete du personnage.
+
+**REGLE GENERALE, TROISIEME APPLICATION AUJOURD'HUI :** quand un defaut se corrige a un endroit et
+peut se reproduire ailleurs, le correctif se pose au PRODUCTEUR de la grandeur, jamais sur le site
+qui l'a revele. Un correctif par site est une note deguisee en verrou.
+
+
 ## 2026-08-20 23:30 — J'ARRETE DE LUI DEMANDER DE TESTER JUSQU'A CE QUE LA COUVERTURE LE PERMETTE
 
 Verbatim, apres avoir teste le build de la contrainte de peau : « Difficile de dire si c'est bien
