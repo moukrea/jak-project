@@ -1376,5 +1376,44 @@ chain chestR gravity=1.00
 #   python3 .autoport/probe_c48_com_identity.py
 #   -> mesh out/jak1/fr3/skin/keira-hd-lod0.glb md5 5cb8a493c43211acf3a04c5b6433df81
 # =============================================================================================
-chain chestL comw=0.1891,0.3524
-chain chestR comw=0.2200,0.3194
+# ---------------------------------------------------------------------------------------------
+# 2026-08-20 cycle 57 — REMESURE OBLIGATOIRE : LE MESH A CHANGE SOUS CES DEUX LIGNES.
+#
+# Le bloc ci-dessus grave sa propre provenance (« mesh out/jak1/fr3/skin/keira-hd-lod0.glb md5
+# 5cb8a493c43211acf3a04c5b6433df81 ») et c'est ce qui a permis de voir que ces valeurs etaient
+# PERIMEES : la cuisson du cycle 57 a produit md5 ec0658bf2f5a59fe88f3b23caff0f55d. L'operateur
+# de repesage installe desormais le profil d'ancrage de la §30 le long de l'axe ANATOMIQUE
+# racine->apex au lieu de l'axe d'OS de la chaine (ils sont a 77.8 / 78.1 deg), donc la part de
+# masse de peau de chaque maillon a bouge — et elle a INVERSE son ordre.
+#
+# CONTROLE QUI AUTORISE A ECRIRE LES NOUVEAUX CHIFFRES : la meme mesure, rejouee sur le mesh
+# d'AVANT (la sauvegarde), reproduit EXACTEMENT les quatre valeurs publiees ci-dessus, aux deux
+# frontieres — 0.1891,0.3524 / 0.2200,0.3194 a `w > 0` et 0.2146,0.4402 / 0.2542,0.3968 a
+# `w >= 0.25`. C'est donc bien la MEME statistique, et seul le mesh a change.
+#
+#   frontiere    chaine    comw AVANT        comw APRES        part ancree AVANT -> APRES
+#   w > 0        chestL    0.1891,0.3524     0.3266,0.2449     0.4585 -> 0.4286
+#   w > 0        chestR    0.2200,0.3194     0.3581,0.1871     0.4606 -> 0.4548
+#   w >= 0.25    chestL    0.2146,0.4402     0.3988,0.2953     0.3452 -> 0.3059
+#   w >= 0.25    chestR    0.2542,0.3968     0.4707,0.2305     0.3490 -> 0.2989
+#
+# CE QUE CA VEUT DIRE, ET JE NE LE PRESENTE PAS COMME UN GAIN : le maillon PROXIMAL porte
+# desormais la plus grosse part de la masse de peau, la ou le distal la portait. C'est la
+# consequence directe et PREDITE (P7 du cycle 57) du fait que l'axe d'os est a 78 deg de l'axe
+# anatomique : liberer l'apex ANATOMIQUE envoie son poids au maillon dont l'abscisse de CHAINE
+# est basse, c'est-a-dire le proximal. Le maillon distal ne porte plus rien de l'apex.
+#
+# LA FRONTIERE RETENUE RESTE `w > 0`, pour la raison deja ecrite plus haut : un centre de masse
+# integre TOUTE la masse. Les deux frontieres sont publiees pour que la sensibilite reste visible.
+#
+# `comw=` N'ENTRE TOUJOURS DANS AUCUNE FORCE ET AUCUNE CONTRAINTE — verifie au source ce cycle :
+# son unique lecteur est l'accumulateur de diagnostic `cwx/cwy/cwz` a jak-hd-physics.gc:3910.
+# Une valeur perimee ici ne deforme donc que MES instruments (les clauses de COM des §10, §11,
+# §12 et §22), jamais ce que l'owner voit a l'ecran.
+#
+# REPRODUCTION, une commande :
+#   python3 .autoport/probe_c48_com_identity.py
+#   -> mesh out/jak1/fr3/skin/keira-hd-lod0.glb md5 ec0658bf2f5a59fe88f3b23caff0f55d
+# ---------------------------------------------------------------------------------------------
+chain chestL comw=0.3266,0.2449
+chain chestR comw=0.3581,0.1871
