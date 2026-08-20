@@ -1,0 +1,43 @@
+C57E2 — LES VOLUMES DE COLLISION DES MAILLONS DE POITRINE SONT PERIMES SOUS LE MESH RECUIT
+GRAVE AVANT L'APPLICATION ET AVANT LA COURSE.
+Phase Grecharged-secondary-motion · branche physics-keira-clean · DIRECTIVES v3fee554599
+
+LE FAIT (mesure, pas hypothese). Les spheres de collision des maillons sont DERIVEES de la
+geometrie que chaque joint POSSEDE (`blob_centre_radius`, centroide des sommets majoritaires,
+rayon au p95). Le repesage du cycle 57 a change cette possession : lBooc passe de 43 a 29 sommets
+majoritaires, rBooc de 36 a 19. Les lignes livrees decrivent donc un ensemble de sommets qui
+n'existe plus — leur propre commentaire dit « 43v » et « 36v ».
+
+Recalcul par LA FONCTION DU PRODUCTEUR sur le mesh recuit :
+
+    joint    livre                        derive du mesh recuit          COVER p95 dehors
+    lBoob    r=340 off=(-6,637,-135)      r=377 off=(104,621,-241)       8.3 % -> 2.9 %
+    lBooc    r=431 off=(2,512,-51)        r=323 off=(35,601,-76)         7.0 % -> 6.9 %
+    rBoob    r=345 off=(-14,-617,124)     r=382 off=(-105,-622,232)      0.0 % -> 2.8 %
+    rBooc    r=415 off=(5,-466,36)        r=283 off=(-35,-599,76)        5.6 % -> 5.3 %
+
+Les rayons de lBoob/rBoob sont EPINGLES par l'owner a 340/345 (ledger, 2026-08-14) : ils ne
+bougent PAS. Seuls les OFFSETS des quatre, et les RAYONS des deux distaux, sont resynchronises.
+La couverture est EGALE OU MEILLEURE partout : ce n'est pas un retrecissement de confort.
+
+POURQUOI CE SENS-LA. Le ledger lui-meme (2026-08-14) a mesure l'inverse : AGRANDIR ces volumes a
+449/455 a DOUBLE `meshpen`, et sa conclusion est ecrite — « plus un lien touche de volumes a la
+fois, plus le residu grandit », parce que la priorite de volume laisse gagner UN volume par lien
+et par frame et ignore les autres (139 955 paires ignorees sur la course courante). Des spheres
+PLUS PETITES touchent MOINS de volumes simultanement. Le meme mecanisme predit donc une BAISSE.
+
+LES PREDICTIONS.
+
+Q1  `ROOM-VOLPRIO pairs_ignored` BAISSE (moins de contacts simultanes). Il vaut 139955 aujourd'hui.
+Q2  `meshpen` BAISSE. Il vaut 0.1115 (chestL) / 0.1019 (chestR).
+    -> S'il MONTE, la lecture « volumes plus petits = residu plus petit » est FAUSSE malgre le
+       raisonnement du ledger, et je le dis au lieu de le reformuler.
+Q3  *** CONTRE MOI, ET C'EST LE POINT *** `meshpen` N'ATTEINDRA PAS le plafond de 0.0005.
+    Je predis qu'il reste TRES au-dessus et que la gate COLLIDE ECHOUE ENCORE. Je le grave pour
+    qu'une amelioration partielle ne soit pas presentee comme une reparation.
+Q4  Les totaux `ROOM-CONTACT-VOL` baissent sur les DEUX chaines (10097 / 9234 aujourd'hui).
+Q5  Aucune perte de couverture : c'est deja mesure ci-dessus, et ca ne depend pas de la course.
+
+CE QUE CE CHANGEMENT N'EST PAS : un reglage. Aucun des huit nombres n'est choisi ; les huit
+sortent de `blob_centre_radius` appelee sur le mesh livre. Les deux rayons epingles par l'owner
+sont conserves tels quels.
