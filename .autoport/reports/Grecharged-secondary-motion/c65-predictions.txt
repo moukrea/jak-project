@@ -1,0 +1,53 @@
+PREDICTIONS DU CYCLE 65 — ECRITES AVANT LA COMPILATION ET AVANT LA COURSE
+DIRECTIVES v3fee554599
+
+DEFAUT VISE. `ROOM-SYM` (cycle 56) doit dire si l'asymetrie gauche/droite de §12 et §18 est une
+propriete du personnage ou de la POSE. Il rend `NON RESOLU` sur 8 cellules sur 8. Cause etablie
+sur la trace du cycle 63b et dans le code, sans rien relancer : la « queue de CALME » qui lui sert
+de plancher de resolution s'ouvre sur `physroom-hold`, donc sur `quaternion-identity!`, donc sur
+un retour de 90 ou 150 deg EN UNE FRAME. Le plancher mesure cette impulsion.
+
+CORRECTIF. PH-SYM recoit le retour doux que PH-REG applique depuis le cycle 49 (demi-cosinus,
+PHYSROOM-RETF frames, vitesse nulle aux deux bouts), retrace par l'operateur de pilotage de sa
+PROPRE cellule ; la fenetre de ligne de base s'ouvre APRES le retour. Aucune constante neuve.
+Second changement, PUREMENT de publication : `PHYSREGB` publie la pose que PH-REG tient.
+
+------------------------------------------------------------------------------------------------
+P1 — LE PLANCHER TOMBE. `bapex` vaut aujourd'hui 0.5191 a 0.9286 B0 (mediane 0.6244). Apres le
+     retour doux, la MEDIANE des 16 lectures `bapex` baisse d'au moins 40 %, soit <= 0.375.
+     CONTRE MOI : si elle ne baisse pas d'au moins 40 %, le saut n'etait pas la cause dominante,
+     mon diagnostic est faux et je le publie comme tel. Une baisse comprise entre 0 et 40 % se
+     declare « cause partielle, non dominante » et ne se presente PAS comme une correction.
+
+P2 — AU MOINS UNE CELLULE CESSE D'ETRE `NON RESOLU`. Aujourd'hui 0 sur 8. C'est l'objet meme du
+     cycle : si le compte reste 0 sur 8, le correctif n'a rien achete pour §12/§18 et la ligne du
+     registre doit le dire au lieu de porter le correctif au credit du cycle.
+
+P3 — CONTROLE DE NON-REGRESSION LE PLUS SERRE QUE CETTE COURSE PERMETTE, ET C'EST UNE PAIRE.
+     La cellule i=0 est pilotee et LUE (`PHYSSYM i=0`, emise a `t2`) entierement AVANT la
+     premiere frame que ce cycle modifie (`t2+1`). Donc :
+        (a) `PHYSSYM i=0 c=0 apex=0.3670832` et `c=1 apex=0.2226639` doivent etre IDENTIQUES AU
+            BIT, chiffre pour chiffre ;
+        (b) `PHYSSYM3 i=0` (emise a `t3`, apres la fenetre modifiee) DOIT bouger.
+     Une ligne qui ne doit pas bouger et la ligne suivante qui doit bouger : si (a) bouge, le
+     changement fuit en amont ; si (b) ne bouge pas, il est inerte. Les deux sont des echecs.
+
+P4 — TOUT CE QUI EST EN AMONT DE PH-SYM EST IDENTIQUE AU BIT. Les phases d'indice < 33 —
+     les 31 animations, IDLE, TILT, SHAKE, les ablations, PH-ORI (§10-§13), PH-REG (§14 a §20),
+     PH-SGN — ne peuvent pas voir un changement qui vit dans PH-SYM. Verifiable ligne a ligne sur
+     le diff des deux tableaux. `PHYSREGB` est la SEULE ligne neuve autorisee en amont, et elle
+     n'ecrit rien : elle lit.
+
+P5 — L'AVAL PEUT BOUGER, ET DANS UN SENS QUE JE NOMME D'AVANCE. PH-SKINARM (34) et PH-SKINDIS
+     (35) suivent PH-SYM. Elles y entrent desormais apres un retour doux au lieu d'un saut, donc
+     depuis un etat PLUS CALME : je predis `ROOM-SKINPEN` egal ou EN BAISSE sur les deux chaines
+     (0.0692 / 0.0868 aujourd'hui). Une HAUSSE refuterait le raisonnement « plus calme » et
+     devrait etre publiee comme telle. La gate COLLIDE lit ces jambes : si elle casse, c'est un
+     resultat du cycle, pas un detail d'intendance.
+
+P6 — LA POSE DE PH-REG N'EST PAS SYMETRIQUE. `PHYSREGB` existe pour la mesurer, et je m'engage
+     sur un ordre de grandeur AVANT de la lire : l'ecart au miroir sera > 20 deg (le cycle 54 a
+     mesure 29 des 31 poses de Keira au-dessus de 10 deg, et PH-REG herite de la queue de la
+     DERNIERE animation de la liste, choisie par personne). CONTRE MOI : si elle sort sous 10 deg,
+     la pose heritee se trouve etre acceptable, cinq lignes du registre n'ont pas besoin de la
+     reserve que je m'apprete a leur ecrire, et je le dirai.

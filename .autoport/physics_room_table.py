@@ -4334,6 +4334,72 @@ def main():
                       % (_rl, _rga[_kl][2]))
         A('')
         # ---- (6) SPEC 18 / SPEC 20 : GAUCHE CONTRE DROITE ------------------------------------
+        # ---- ROOM-REGPOSE : LA POSE DANS LAQUELLE §14 A §20 SONT MESUREES (cycle 65) ---------
+        #
+        # POURQUOI CE BLOC EXISTE. Cinq lignes du registre (§14, §16, §17, §18, §20) publient un
+        # ecart gauche/droite tire des fenetres de PH-REG, et §18 en publie de tres gros (x2.80 et
+        # x5.79). La regle du 2026-08-20 05:20 est explicite : « toute mesure d'ASYMETRIE se
+        # releve dans une pose dont la symetrie est PROUVEE avant la course, et le rapport publie
+        # l'ecart au miroir. Une pose heritee n'est pas une pose choisie. » PH-SGN (cycle 55) et
+        # PH-SYM (cycle 56) EPINGLENT leur pose par son nom et la revalident a l'execution.
+        # PH-REG ne fait ni l'un ni l'autre : il TIENT ce que la phase precedente lui laisse.
+        # Jusqu'ici l'ecart au miroir de cette pose-la n'etait ni epingle NI MESURE.
+        #
+        # NATURE : un ANGLE en degres. REPERE : monde ; la direction d'os de chestL est
+        #   REFLECHIE dans le plan de normale `lat` (l'axe lateral du solveur, PHYSAXW ax=2) puis
+        #   comparee a celle de chestR. MEME formule que `dev` de ROOM-SYM, pour que les deux
+        #   soient comparables — un instrument neuf rendrait les deux nombres incomparables.
+        # LECTURE QUAND LE DEFAUT EST ABSENT : 0 deg. Le cycle 53 a mesure le rig a 0.005 deg du
+        #   miroir en pose de BIND, donc tout ce qui depasse est porte par la POSE et par elle
+        #   seule.
+        _regb = {}
+        for _m in re.finditer(r'^PHYSREGB c=(\d+) l=(\d+) ux=([-\d.e+]+) uy=([-\d.e+]+)'
+                              r' uz=([-\d.e+]+)', txt, re.M):
+            _regb[(int(_m.group(1)), int(_m.group(2)))] = \
+                tuple(float(_m.group(k)) for k in (3, 4, 5))
+        _rlat = None
+        for _m in re.finditer(r'^PHYSAXW ax=2 ux=([-\d.e+]+) uy=([-\d.e+]+) uz=([-\d.e+]+)',
+                              txt, re.M):
+            _rlat = tuple(float(_m.group(k)) for k in (1, 2, 3))
+        A('   -- ROOM-REGPOSE : L\'ECART AU MIROIR DE LA POSE OU §14 A §20 SONT MESUREES --------')
+        if not _regb:
+            A('ROOM-REGPOSE: NON PUBLIE par cette course — `PHYSREGB` absent de la trace. Tant')
+            A('   qu\'il l\'est, les ecarts gauche/droite de §14, §16, §17, §18 et §20 sont lus')
+            A('   dans une pose dont la symetrie n\'est ni epinglee ni mesuree.')
+        elif _rlat is None:
+            A('ROOM-REGPOSE: `PHYSAXW ax=2` absent — pas de plan de reflexion, aucun angle publie.')
+        else:
+            _nl = max((k[1] for k in _regb), default=-1)
+            for _l in range(_nl + 1):
+                if (0, _l) not in _regb or (1, _l) not in _regb:
+                    A('ROOM-REGPOSE: l=%d — une des deux chaines manque, aucun angle' % _l)
+                    continue
+                _u, _v = _regb[(0, _l)], _regb[(1, _l)]
+                _dd = sum(_u[k] * _rlat[k] for k in range(3))
+                _mu = [_u[k] - 2 * _dd * _rlat[k] for k in range(3)]
+                _nu = math.sqrt(sum(x * x for x in _mu)) * math.sqrt(sum(x * x for x in _v))
+                _cs = (sum(_mu[k] * _v[k] for k in range(3)) / _nu) if _nu > 0 else 0.0
+                _dg = math.degrees(math.acos(max(-1.0, min(1.0, _cs))))
+                A('ROOM-REGPOSE: l=%d ecart au miroir = %.1f deg   (bind = 0.005 deg, cycle 53 ;'
+                  ' pose epinglee de PH-SYM = 6.4 a 6.8 deg)' % (_l, _dg))
+            _worst = 0.0
+            for _l in range(_nl + 1):
+                if (0, _l) in _regb and (1, _l) in _regb:
+                    _u, _v = _regb[(0, _l)], _regb[(1, _l)]
+                    _dd = sum(_u[k] * _rlat[k] for k in range(3))
+                    _mu = [_u[k] - 2 * _dd * _rlat[k] for k in range(3)]
+                    _nu = math.sqrt(sum(x * x for x in _mu)) * math.sqrt(sum(x * x for x in _v))
+                    _cs = (sum(_mu[k] * _v[k] for k in range(3)) / _nu) if _nu > 0 else 0.0
+                    _worst = max(_worst, math.degrees(math.acos(max(-1.0, min(1.0, _cs)))))
+            A('ROOM-REGPOSE-VERDICT: pire ecart %.1f deg -> %s'
+              % (_worst,
+                 'POSE HERITEE NON SYMETRIQUE : tout ecart gauche/droite publie par §14, §16,'
+                 ' §17, §18 et §20 la porte, et aucune de ces lignes ne peut attribuer son'
+                 ' asymetrie au PERSONNAGE tant qu\'elle n\'est pas rejouee dans une pose'
+                 ' epinglee.' if _worst > 10.0 else
+                 'pose heritee acceptable au seuil de 10 deg du cycle 54 : les ecarts'
+                 ' gauche/droite de §14 a §20 ne sont PAS portes par la pose.'))
+        A('')
         A('   -- ROOM-REGIME-MIRROR : SPEC 18 et SPEC 20, GAUCHE CONTRE DROITE -----------------')
         A('      §18 exige que les deux seins DIFFERENT en rotation, et elle en donne la cause :')
         A('      « because their offsets from the torso rotational axis differ ». SUR LE RIG')
@@ -7363,8 +7429,14 @@ def main():
                   if (p, _mm) in _cellw and (_cellw[(p, _mm)], c) in _symbase]
             _res[_mm] = max(_v) if _v else None
         A('')
-        A('      %-3s %-5s %-26s %-9s %-9s %-9s %-8s %-9s'
-          % ('i', 'pose', 'mesure', 'dev(deg)', 'apexL', 'apexR', 'R', 'res'))
+        _symv = []
+        A('      `res` = plancher de la PAIRE (construction du cycle 56, conservee pour memoire).')
+        A('      `resc` = plancher de la CELLULE, sa propre queue de calme — c\'est LUI qui juge,')
+        A('      parce qu\'un plancher pris a travers la POSE est pris a travers la variable meme')
+        A('      que ce bloc teste. Les deux sont publies : rien n\'est remplace en silence.')
+        A('')
+        A('      %-3s %-5s %-26s %-9s %-9s %-9s %-8s %-9s %-9s'
+          % ('i', 'pose', 'mesure', 'dev(deg)', 'apexL', 'apexR', 'R', 'res', 'resc'))
         for _i in sorted(_sympose):
             _p, _mm, _ai = _sympose[_i]
             _d = ''
@@ -7378,12 +7450,60 @@ def main():
             _aL = _symap.get((_i, 0), (float('nan'),))[0]
             _aR = _symap.get((_i, 1), (float('nan'),))[0]
             _r = (max(_aL, _aR) / min(_aL, _aR)) if (_aL > 0 and _aR > 0) else float('nan')
-            _un = ' NON RESOLU' if (_res.get(_mm) is not None
-                                    and abs(_aL - _aR) <= _res[_mm]) else ''
-            A('      %-3d %-5s %-26s %-9s %-9.5f %-9.5f %-8.3f %-9s%s'
+            # ---- LE PLANCHER SE PREND SUR LA CELLULE, PAS SUR LA PAIRE (cycle 65) --------
+            # `res` (colonne de gauche, conservee et publiee) est le MAX des quatre lectures de
+            # queue de la MESURE, donc des DEUX poses. Or la pose EST la variable de ce bloc :
+            # « la POSE est la seule variable entre les deux jambes ». Un plancher pris a travers
+            # la variable qu'on teste fait fixer par la jambe la plus bruyante le seuil de la
+            # plus propre — la cellule i=7 se voyait imposer 0.76172 par le residu de i=6, quand
+            # sa propre queue vaut 0.38481.
+            # `resc` est le plancher de la CELLULE : sa propre queue de calme, la seule fenetre
+            # qui ait vu le meme stimulus, la meme pose et le meme historique.
+            # JE DIS QUAND J'AI CHANGE CETTE CONSTRUCTION : APRES avoir lu la course. La raison,
+            # elle, ne depend pas de la course — un plancher tire de la variable experimentale
+            # n'est un plancher pour aucune des deux jambes. LES DEUX COLONNES SONT PUBLIEES pour
+            # que ce que le changement achete soit visible et jugeable, et non pour remplacer un
+            # nombre par un plus flatteur. Le CRITERE, lui, n'a pas bouge d'un chiffre.
+            _rc = max(_symbase.get((_i, 0), 0.0), _symbase.get((_i, 1), 0.0)) \
+                if ((_i, 0) in _symbase or (_i, 1) in _symbase) else None
+            # ---- LA GARDE DE VACUITE PORTE SUR LE PLANCHER, PAS SEULEMENT SUR L'ECART ----
+            # Un plancher de resolution n'est un plancher que s'il est PETIT DEVANT le signal
+            # qu'il est cense border. Jusqu'au cycle 65 il ne l'etait pas : la queue dite « de
+            # calme » s'ouvrait sur un retour de 90 ou 150 deg en UNE frame, si bien que `res`
+            # valait 0.5191 a 0.9286 B0 contre des `apex` PILOTES de 0.2227 a 0.7764 — et les
+            # HUIT cellules sortaient « NON RESOLU », ce qui se lisait comme un resultat sur le
+            # personnage alors que c'etait une propriete du montage.
+            # Le verdict est donc a TROIS etats et jamais deux : si la queue porte autant
+            # d'excursion que le pilotage, la cellule ne dit pas « l'ecart est trop petit pour
+            # etre vu », elle dit « ma ligne de base n'en est pas une ». C'est la meme garde que
+            # celle posee sur §33 au cycle 62, appliquee cette fois au plancher.
+            _un = ''
+            if _rc is None:
+                _un = ' PLANCHER ABSENT'
+            elif _rc >= min(_aL, _aR):
+                _un = ' PLANCHER NON CALME'
+            elif abs(_aL - _aR) <= _rc:
+                _un = ' NON RESOLU'
+            else:
+                _un = ' RESOLU'
+            A('      %-3d %-5s %-26s %-9s %-9.5f %-9.5f %-8.3f %-9s %-9s%s'
               % (_i, ('SYM', 'ASYM')[_p], _MN.get(_mm, '?'), _d, _aL, _aR, _r,
-                 ('%.5f' % _res[_mm]) if _res.get(_mm) is not None else 'n/a', _un))
+                 ('%.5f' % _res[_mm]) if _res.get(_mm) is not None else 'n/a',
+                 ('%.5f' % _rc) if _rc is not None else 'n/a', _un))
+            _symv.append(_un.strip())
         A('')
+        _nbad = sum(1 for _v in _symv if _v in ('PLANCHER NON CALME', 'PLANCHER ABSENT'))
+        _nres = sum(1 for _v in _symv if _v == 'RESOLU')
+        A('      ROOM-SYM-PLANCHER: %d cellule(s) sur %d dont la ligne de base porte AUTANT'
+          ' d\'excursion' % (_nbad, len(_symv)))
+        A('         que le pilotage : sur celles-la l\'instrument ne borne rien et ne peut ni'
+          ' tenir ni refuter.')
+        A('      ROOM-SYM-RESOLU: %d cellule(s) sur %d ou l\'ecart gauche/droite DEPASSE sa ligne'
+          ' de base.' % (_nres, len(_symv)))
+        if _nbad:
+            A('         TANT QUE `ROOM-SYM-PLANCHER` N\'EST PAS 0, LA QUESTION QUE CE BLOC POSE —')
+            A('         « l\'asymetrie de §12/§18 est-elle du personnage ou de la POSE ? » — RESTE')
+            A('         SANS REPONSE, et aucune ligne du registre ne doit s\'appuyer dessus.')
         A('      SPEC 12 — l\'aplatissement par pole, et la gravite que le SOLVEUR lit :')
         for _mm in (2, 3):
             for _p in (0, 1):

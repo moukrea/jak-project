@@ -3986,6 +3986,32 @@
        ;; pour r=2 et 104 pour r=3 — le cumul exact des fenetres precedentes, au lieu de 27 et 14.
        ;; Six des quinze fenetres publiaient le chiffre d'une autre.
        (when (= (-> self pframe) (max 1 pre))
+         ;; ---- LA POSE DANS LAQUELLE §14 A §20 SONT MESUREES, PUBLIEE (cycle 65) -------------
+         ;; PH-SGN (cycle 55) et PH-SYM (cycle 56) EPINGLENT leur pose par son nom et la
+         ;; REVALIDENT a l'execution (`PHYSSGNB`, `PHYSSYMB`). PH-REG ne fait ni l'un ni l'autre :
+         ;; il TIENT la pose que la phase precedente lui laisse — la queue de la derniere
+         ;; animation de la liste — et l'animation n'avance plus ensuite. Les sept regimes de
+         ;; §14 a §20 sont donc joues dans une pose HERITEE dont l'ecart au miroir n'a jamais ete
+         ;; releve, alors que cinq de ces sections publient des ecarts gauche/droite (jusqu'a
+         ;; x5.79 sur §18) et que la regle du 2026-08-20 05:20 exige que toute mesure d'asymetrie
+         ;; se releve dans une pose dont la symetrie est PROUVEE avant la course.
+         ;;
+         ;; CE BLOC NE CHANGE RIEN AU COMPORTEMENT : il PUBLIE, au meme point de protocole que
+         ;; `PHYSSGNB` (fenetre temoin r=0, sujet droit, immobile, a `home` — `physroom-reg-drive`
+         ;; y rend `home` + identite au bit), la direction monde de chaque os. Le tableau en tire
+         ;; l'ecart au miroir avec la MEME formule que pour `PHYSSYMB`. On ne suppose plus que la
+         ;; pose est acceptable ni qu'elle ne l'est pas : on la mesure.
+         (when (zero? r)
+           (let ((hd (if (-> self child) (the-as jak-hd (-> self child 0)) (the-as jak-hd #f))))
+             (when hd
+               (dotimes (c (-> self nchain))
+                (when (> (phys-chain-links (-> self slot) c) 0)
+                 (dotimes (l (phys-chain-links (-> self slot) c))
+                   (format 0 "PHYSREGB c=~D l=~D ux=~,,6f uy=~,,6f uz=~,,6f~%"
+                           c l
+                           (phys-chain-bone hd (-> self slot) c l 0)
+                           (phys-chain-bone hd (-> self slot) c l 1)
+                           (phys-chain-bone hd (-> self slot) c l 2))))))))
          (phys-comexw-reset!)
          (phys-stats-reset!))
        (when (>= (-> self pframe) (+ pre (+ drv post)))
@@ -4158,7 +4184,11 @@
             (t0  (+ 1 PHYSROOM-MEASAT))          ;; fin de l'avance d'animation
             (t1  (+ t0 PHYSROOM-SYMS))           ;; fin de l'etablissement = ouverture de fenetre
             (t2  (+ t1 dw))                      ;; fin du pilotage + tenue = lecture
-            (t3  (+ t2 PHYSROOM-SYMT)))          ;; fin de la queue de calme = ligne de base
+            ;; LE RETOUR DOUX (cycle 65). Voir le pave de la section 7 : sans lui la « queue de
+            ;; calme » commencait par un saut de 90 ou 150 deg en UNE frame, et la ligne de base
+            ;; qu'elle donne mesurait cette impulsion-la.
+            (tr  (+ t2 PHYSROOM-RETF))           ;; fin du retour doux vers `home`
+            (t3  (+ tr PHYSROOM-SYMT)))          ;; fin de la queue de calme = ligne de base
        ;; ---- 1. L'EPINGLE DE POSE, PAR SON NOM ET JAMAIS PAR UN INDEX ------------------------
        (when (= (-> self pframe) 1)
          (physroom-hold)
@@ -4277,12 +4307,54 @@
                           sl)
                        0.0)
                      sl)))))
-       ;; ---- 7. LA QUEUE DE CALME, ET LA LIGNE DE BASE QU'ELLE DONNE --------------------------
-       (when (= (-> self pframe) (+ t2 1))
+       ;; ---- 7. LE RETOUR DOUX, PUIS LA QUEUE DE CALME QUI DONNE LA LIGNE DE BASE -------------
+       ;;
+       ;; CE BLOC CORRIGE UN DEFAUT MESURE, PAS UNE INELEGANCE (cycle 65). Jusqu'ici la queue
+       ;; s'ouvrait sur `physroom-hold` a `t2+1`, et `physroom-hold` fait `quaternion-identity!` :
+       ;; le sujet passait donc de son orientation pilotee — 90 deg en lacet, 150 en lacet fort,
+       ;; +/-90 en lateral — a la verticale EN UNE FRAME. La table appelait ensuite cette fenetre
+       ;; « ce que l'instrument lit stimulus ABSENT » et s'en servait de plancher de resolution.
+       ;;
+       ;; LA REGLE ETAIT DEJA ECRITE, DANS `physroom-reg-drive` : « Y ramener le sujet D'UN COUP
+       ;; serait une impulsion artificielle de plusieurs milliers d'unites — precisement ce que sa
+       ;; §37 interdit de generer ». PH-REG l'applique depuis le cycle 49 ; PH-SYM, ecrit sept
+       ;; cycles plus tard, ne l'appliquait pas.
+       ;;
+       ;; LA MESURE QUI L'ETABLIT est sur la trace du cycle 63b, sans rien relancer : `bapex` (la
+       ;; « queue de calme ») vaut 0.5191 a 0.9286 B0 contre un `apex` PILOTE de 0.2227 a 0.7764.
+       ;; Sur la cellule i=0 la queue lit x1.60 (chestL) et x2.39 (chestR) la reponse pilotee. Le
+       ;; ring-down n'explique pas ca : les 45 frames de `post` sont DANS la fenetre de pilotage
+       ;; par construction (`dw` = drv + post), donc le pic sous-amorti est deja dans `apex`.
+       ;;
+       ;; CONSEQUENCE, ET C'EST ELLE QUI COUTE : le critere `|apexL - apexR| <= res` comparait un
+       ;; ecart de 0.03 a 0.22 B0 a un plancher de 0.61 a 0.93 B0. LES HUIT CELLULES SUR HUIT
+       ;; sortaient « NON RESOLU ». L'instrument bati au cycle 56 pour dire si l'asymetrie
+       ;; gauche/droite de §12 et §18 est une propriete du personnage ou de la POSE ne pouvait
+       ;; rien dire, et le disait sous une forme qui ressemblait a un resultat.
+       ;;
+       ;; LE RETOUR RETRACE LE CHEMIN DE SA PROPRE CELLULE, jamais un chemin generique : la cellule
+       ;; de lacet redescend par `physroom-reg-pose` (donc par l'arc de torse mesure), la cellule
+       ;; laterale par `physroom-orient`. Meme demi-cosinus, meme duree et memes constantes que
+       ;; `physroom-reg-drive` — aucune constante neuve. A `u = 1` le facteur vaut 0 et les deux
+       ;; operateurs rendent `home` + identite au bit, donc le `physroom-hold` qui suit est un
+       ;; no-op et le raccord est continu en position ET en vitesse.
+       (when (and (> (-> self pframe) t2) (<= (-> self pframe) tr))
+         (let* ((u (fmin 1.0 (/ (the float (- (-> self pframe) t2)) PHYSROOM-RETFF)))
+                (b (* 0.5 (+ 1.0 (cos (* 32768.0 u))))))
+           (cond
+             ((>= r 0)
+              (physroom-reg-pose (physroom-reg-axis r)
+                                 (* b (physroom-reg-ang r (-> *physroom-reg-drv* r)
+                                                          (-> *physroom-reg-drv* r)))))
+             (else
+              (physroom-orient (-> *physroom-sym-ax* m) (* b (-> *physroom-sym-dg* m)))))))
+       ;; LA FENETRE DE LIGNE DE BASE S'OUVRE APRES LE RETOUR, ET C'EST TOUT L'INTERET : ce qu'elle
+       ;; lit est alors le residu d'une chaine qu'on a laissee revenir, pas la reponse a un saut.
+       (when (= (-> self pframe) (+ tr 1))
          (physroom-hold)
          (phys-comexw-reset!)
          (phys-stats-reset!))
-       (when (> (-> self pframe) (+ t2 1))
+       (when (> (-> self pframe) (+ tr 1))
          (physroom-hold))
        (when (>= (-> self pframe) t3)
          (dotimes (c (-> self nchain))
