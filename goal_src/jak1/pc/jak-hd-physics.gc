@@ -11,11 +11,7 @@
 
 (#when FLAG_PHYSICS
 
-;; ------------------------------------------------------------------------------------------------
-;; PONT C++ — le magasin de parametres vit dans game/kernel/jak1/kmachine.cpp (parse de
-;; recharged_assets/physics_chains.txt). Aucune valeur flottante ne traverse la frontiere : tout
-;; arrive en MILLI-unites (kmachine.cpp:884-887, phys_mi:1721).
-;; ------------------------------------------------------------------------------------------------
+;; [NOTE-212] -------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
 (define-extern pc-physics-enabled              (function int))
 (define-extern pc-physics-num-chains           (function string int))
 (define-extern pc-physics-joint-role           (function string string int))
@@ -35,6 +31,10 @@
 (define-extern pc-physics-bsurf-is-joint       (function string int string int))
 (define-extern pc-physics-bsurf-count          (function string int int))
 (define-extern pc-physics-bsurf-mi             (function string int int int int))
+;; [NOTE-161] LA PEAU DE LA CHAINE ELLE-MEME — le pendant de `bs`, expose depuis toujours et
+;; JAMAIS APPELE. `link_si` empaquete (maillon << 3) | echantillon, comme kmachine.cpp le documente.
+(define-extern pc-physics-chain-msample-count   (function string int int int))
+(define-extern pc-physics-chain-msample-mi      (function string int int int int))
 
 ;; parametres de chaine (ids: kmachine.cpp:998-1038)
 (defconstant PHYS-P-STIFF   0)
@@ -57,11 +57,7 @@
 (defconstant PHYS-C-RADIUS 0)
 (defconstant PHYS-C-SHAPE  3)
 (defconstant PHYS-C-RADIUS2 4)
-;; 6e passe de l'owner : « lBoob et rBoob sont des spheres NUES posees sur le joint-racine, alors
-;; que tout le reste du corps est en capsules derivees. Une sphere au joint ne peut pas epouser un
-;; sein. » Le centre de la sphere est desormais le CENTROIDE MESURE de la geometrie du joint, dans
-;; l'espace bind de ce joint ; le moteur le transforme par la matrice de l'os, donc il suit
-;; l'animation. Absent des donnees = 0,0,0 = le centre reste le joint (comportement d'avant).
+;; [NOTE-211] 6e passe de l'owner : « lBoob et rBoob sont des spheres NUES posees sur le joint-racin -> jak-hd-physics-NOTES.md
 (defconstant PHYS-C-OFFX   7)
 (defconstant PHYS-C-OFFY   8)
 (defconstant PHYS-C-OFFZ   9)
@@ -99,21 +95,13 @@
 (define *phys-couple* (new 'global 'array 'float PHYS-SC))
 (define *phys-fam*    (new 'global 'array 'int32 PHYS-SC))   ;; 1 = A, 2 = B
 (define *phys-rootlk* (new 'global 'array 'int32 PHYS-SC))
-;; LIBERTE GRADUEE DE LA RACINE, 0 = aucune (le maillon 0 reste epingle, comportement d'avant ce
-;; cycle au bit pres). Une valeur g dans ]0,1] rend le maillon 0 SIMULE, mais avec sa raideur
-;; angulaire multipliee par 1/g^2 : sa deviation d'equilibre est donc de l'ordre de g fois celle
-;; d'une racine libre. g=1 = racine entierement libre, et c'est l'etat que l'owner a DEJA rejete
-;; (« cheveux decolles du crane »). Ce parametre n'existe pas pour etre mis a 1.
+;; [NOTE-210] LIBERTE GRADUEE DE LA RACINE, 0 = aucune (le maillon 0 reste epingle, comportement d'a -> jak-hd-physics-NOTES.md
 (define *phys-rootgr* (new 'global 'array 'float PHYS-SC))
 (define *phys-b0*     (new 'global 'array 'float PHYS-SC))   ;; SPEC 6, unites, 0 = non declare
 (define *phys-maxang* (new 'global 'array 'float PHYS-SC))   ;; degres, 0 = aucune limite d'angle
 ;; [NOTE-184] PIERRE TOMBALE DU FOURREAU — retire le 2026-08-14. Le pan de pantacourt (`pantflapL/R`)  -> jak-hd-physics-NOTES.md
 (define *phys-rad*    (new 'global 'array 'float PHYS-SCL))  ;; demi-epaisseur par lien
-;; LA LONGUEUR D'OS DE CHAQUE MAILLON, relevee sur la pose ANIMEE a chaque frame.
-;; (Sa moyenne `*phys-lmean*` a ete retiree le 2026-08-14 : elle ne servait qu'au ressort angulaire
-;; `k2a`, qui n'existe plus depuis la bascule du 2026-08-13 22:40 — le symbole etait ecrit et lu
-;; par personne dans tout `goal_src/`, verifie par recensement, et sa narration decrivait un
-;; mecanisme absent.)
+;; [NOTE-209] LA LONGUEUR D'OS DE CHAQUE MAILLON, relevee sur la pose ANIMEE a chaque frame. -> jak-hd-physics-NOTES.md
 (define *phys-blen*  (new 'global 'array 'float PHYS-SCL))   ;; longueur d'os du maillon
 ;; [NOTE-02] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
 (define *phys-lcr* (new 'global 'array 'float PHYS-SCL))  ;; rayon du volume porte par le lien
@@ -134,11 +122,7 @@
   (set! (-> *phys-c2* 2) (- (+ (-> bm vector 3 z) (+ (* ox (-> bm vector 0 z)) (+ (* oy (-> bm vector 1 z)) (* oz (-> bm vector 2 z))))) (+ (-> pre vector 3 z) (+ (* ox (-> pre vector 0 z)) (+ (* oy (-> pre vector 1 z)) (* oz (-> pre vector 2 z)))))))
   (none))
 
-;; L'ECART A LA POSE D'AUTEUR, DANS LE REPERE DE L'ANCRE. Ce fut l'etat INTEGRE du solveur, et
-;; c'est le modele que l'owner a rejete le 2026-08-13 a 22:40 (« on integre un ECART, pas un
-;; cheveu »). Il n'est plus integre : il est DERIVE de la position monde a la section 4, et il ne
-;; sert plus qu'a la mesure — toute l'instrumentation de la salle est definie sur lui, et le
-;; contrat interdit de changer l'instrument en meme temps que ce qu'il mesure.
+;; [NOTE-208] L'ECART A LA POSE D'AUTEUR, DANS LE REPERE DE L'ANCRE. Ce fut l'etat INTEGRE du solveu -> jak-hd-physics-NOTES.md
 (define *phys-ox*  (new 'global 'array 'float PHYS-SCL))
 (define *phys-oy*  (new 'global 'array 'float PHYS-SCL))
 (define *phys-oz*  (new 'global 'array 'float PHYS-SCL))
@@ -273,22 +257,14 @@
 ;; peut pas etre rattachee a l'orientation qui l'a produite — et c'est l'orientation VUE, jamais
 ;; celle que la salle croit avoir commandee.
 (define *phys-gc*   (new 'global 'array 'float (* PHYS-SC 3)))
-;; LA MEME GRAVITE, MAIS SUR LES TROIS LIGNES DE LA MATRICE DE L'ANCRE — donc sur les axes que la
-;; classification de §29 a nommes `rv`/`rap`/`rlat`. Elle repond a une question que rien ne pouvait
-;; trancher jusqu'ici : la ligne appelee AP est-elle vraiment l'avant-arriere ? Sous un TANGAGE
-;; c'est l'avant-arriere qui doit s'allumer, sous un ROULIS le lateral. Si c'est l'inverse, les
-;; deux compliances de §29 (0.90 et 0.82) sont posees sur les mauvais axes.
+;; [NOTE-207] LA MEME GRAVITE, MAIS SUR LES TROIS LIGNES DE LA MATRICE DE L'ANCRE — donc sur les axe -> jak-hd-physics-NOTES.md
 (define *phys-gr*   (new 'global 'array 'float (* PHYS-SC 3)))
 (define *phys-dfon* (new 'global 'array 'int32 PHYS-SC))   ;; 1 = canal de deformation arme
 (define *phys-dfdet* (new 'global 'array 'float PHYS-SC))  ;; §8 : det de l'echelle appliquee
 (define *phys-sec*  (new 'global 'array 'float PHYS-SC))   ;; §36 modulation d'epaisseur (fraction)
 (define *phys-secv* (new 'global 'array 'float PHYS-SC))
 (define *phys-secm* (new 'global 'array 'float PHYS-SC))   ;; son maximum sur la fenetre (mesure)
-;; LE MEME MAXIMUM, MAIS AVANT LE PLAFOND DE SA §38. Sans lui, un mode secondaire sature se lit
-;; `0.0700` a chaque fenetre et devient indiscernable d'un mode correctement excite qui frole le
-;; plafond — c'est la signature du limiteur sature, deja payee une fois sur ce dossier. C'est ce
-;; nombre-la qui dit de combien le gain d'excitation est a cote, et c'est la seule facon de le
-;; caler sur SA bande (2-5 % normal, 5-7 % impulsion forte) sans le regler sur l'instrument.
+;; [NOTE-206] LE MEME MAXIMUM, MAIS AVANT LE PLAFOND DE SA §38. Sans lui, un mode secondaire sature  -> jak-hd-physics-NOTES.md
 (define *phys-secr* (new 'global 'array 'float PHYS-SC))
 (define *phys-dynm* (new 'global 'array 'float PHYS-SC))   ;; son maximum sur la fenetre
 ;; [NOTE-57] SPEC 23 — LE TROISIEME DEGRE DE LIBERTE QUE LA CONTRAINTE DE LONGUEUR CONFISQUAIT. -> jak-hd-physics-NOTES.md
@@ -438,18 +414,10 @@
 ;; rien : c'est ce compteur, pas la valeur armee, qui dit que le defaut a ete pose.
 (define *phys-injn* 0)
 
-;; RETARD D'UNE FRAME injecte pour le CONTROLE POSITIF du canal d'auteur. 0 = desarme. Arme, la
-;; position ecrite est batie sur la pose d'auteur de la frame PRECEDENTE au lieu de celle-ci : c'est
-;; exactement le defaut que la SPEC 5 interdit (la physique retarde l'animation). Le compteur
-;; d'identite doit alors s'effondrer. Sans ce controle, « l'animation passe intacte » serait une
-;; affirmation invérifiable sur notre propre construction.
+;; [NOTE-205] RETARD D'UNE FRAME injecte pour le CONTROLE POSITIF du canal d'auteur. 0 = desarme. Ar -> jak-hd-physics-NOTES.md
 (define *phys-auth-lag* 0)
 
-;; ce que les limiteurs RETIRENT de mouvement, mesure et non estime (SPEC 7 : un suppresseur se
-;; chiffre). Deux limiteurs peuvent reculer un lien :
-;;   retreat  quand la projection ne trouve aucun point admissible, le lien recule vers sa pose de
-;;            modele — la seule position admissible par construction ;
-;;   raddrop  quand un lien SEUL (pas de parent simule) depasse le rayon que le mesh lui mesure.
+;; [NOTE-204] ce que les limiteurs RETIRENT de mouvement, mesure et non estime (SPEC 7 : un suppress -> jak-hd-physics-NOTES.md
 (define *phys-raddrop-n*   0)
 (define *phys-raddrop-sum* 0.0)
 ;; paires (lien, volume) ou le lien est ENTIEREMENT dans le volume a sa pose de modele : pas de
@@ -457,11 +425,7 @@
 (define *phys-buried-n*    0)
 ;; [NOTE-182] ... et le MEME compte, mais PAR CHAINE et UNE SEULE FOIS PAR FRAME. Le compteur global c -> jak-hd-physics-NOTES.md
 (define *phys-buried-tally* 0)
-;; INVERSIONS. Owner 2026-08-11 : « j'ai encore vu un de ses seins retourne vers l'interieur ».
-;; Cause : le ressort est symetrique autour de l'ancre, donc le cote oppose est un equilibre STABLE
-;; mais FAUX, et la contrainte de longueur se taisait dans le cas degenere (distance sous 1e-4), ce
-;; qui laissait la porte ouverte. Comptees ici, remises a zero par la salle, et un controle positif
-;; les provoque expres pour prouver que le compteur voit quelque chose.
+;; [NOTE-203] INVERSIONS. Owner 2026-08-11 : « j'ai encore vu un de ses seins retourne vers l'interi -> jak-hd-physics-NOTES.md
 (define *phys-invn*    0)      ;; corrections appliquees (le solveur a remis un lien de son cote)
 (define *phys-invres*  0)      ;; INVERSIONS RESIDUELLES apres tout le solveur : doit valoir ZERO
 (define *phys-invfix*  0)
@@ -546,6 +510,13 @@
 ;; n'etait a portee ». Ce compte les separe, PAR CHAINE. Sans lui, un plancher de repos a 0.0000
 ;; se lit comme une mesure alors que c'est un trou.
 (define *phys-skinmiss* (new 'global 'array 'float PHYS-SC))
+;; [NOTE-161] LES SOMMETS DE PEAU DE CHAQUE MAILLON, espace bind local a l'os, unites de jeu.
+;; C'est la SURFACE de l'organe simule — celle que `bs` ne peut pas contenir, puisqu'il exclut par
+;; construction tout os qui est un maillon de chaine. 8 au plus : le C++ empaquete l'indice
+;; d'echantillon sur 3 bits.
+(defconstant PHYS-MS-MAX 8)
+(define *phys-msn* (new 'global 'array 'int32 PHYS-SCL))
+(define *phys-msp* (new 'global 'inline-array 'vector (* PHYS-SCL PHYS-MS-MAX)))
 ;; [NOTE-155] LE CONTROLE POSITIF DE `meshpen`, EN PAIRE ET SUR LA MEME FRAME. -> jak-hd-physics-NOTES.md
 (define *phys-pcb* (new 'global 'array 'float PHYS-SC))       ;; sans injection
 (define *phys-pci* (new 'global 'array 'float PHYS-SC))       ;; avec injection
@@ -753,6 +724,19 @@
                         (dotimes (l PHYS-LINKS)
                           (let ((r (phys-mi->f (pc-physics-chain-link-radius-mi agname c l))))
                             (set! (-> *phys-rad* (+ (* sc PHYS-LINKS) l)) (if (< r 0.01) base r)))))
+                      ;; [NOTE-161] LES SOMMETS DE PEAU DU MAILLON. Meme cycle de vie que les
+                      ;; rayons ci-dessus, meme fichier, meme convention milli. Zero echantillon =
+                      ;; la mesure de surface compte ce maillon HORS de son domaine, jamais comme
+                      ;; un maillon propre.
+                      (dotimes (l PHYS-LINKS)
+                        (let* ((scl (+ (* sc PHYS-LINKS) l))
+                               (nk (pc-physics-chain-msample-count agname c l)))
+                          (set! (-> *phys-msn* scl) (min nk PHYS-MS-MAX))
+                          (dotimes (q (-> *phys-msn* scl))
+                            (set-vector! (-> *phys-msp* (+ (* scl PHYS-MS-MAX) q))
+                              (phys-mi->f (pc-physics-chain-msample-mi agname c (+ (* l 8) q) 0))
+                              (phys-mi->f (pc-physics-chain-msample-mi agname c (+ (* l 8) q) 1))
+                              (phys-mi->f (pc-physics-chain-msample-mi agname c (+ (* l 8) q) 2)) 0.0))))
                       ;; [NOTE-126] la part de masse de peau de CHAQUE maillon. 0 = non declaree,
                       ;; et le COM pondere n'est alors pas publie du tout, jamais publie a zero.
                       (dotimes (l PHYS-LINKS)
@@ -2241,34 +2225,44 @@
           (set! (-> pt w) 1.0)
           (let ((r (phys-link-pen skel sc n nbone nco l pt 0)))
             (when (> r worst) (set! worst r)))
-          ;; SPEC 18, MESURE SEULE — le meme point, mesure contre la PEAU au lieu des volumes.
-          ;; Aucune correction n'en decoule : cette passe ne deplace rien, donc cette ligne ne peut
-          ;; pas retirer de mouvement. Elle donne l'echelle qui manquait a `meshpen`.
-          (when (nonzero? *phys-skin-meas*)
-            (let ((sd (phys-surf-sd skel (/ sc PHYS-CHAINS) pt nbone))
-                  (kk (-> *phys-joint* scl)))
-              (when (> sd 900000.0)
-                (set! (-> *phys-skinmiss* sc) (+ 1.0 (-> *phys-skinmiss* sc))))
-              (when (and (< sd 0.0) (> sd -100000.0))
-                (when (> (- 0.0 sd) (-> *phys-skinpen* sc))
-                  (set! (-> *phys-skinpen* sc) (- 0.0 sd))))
-              ;; [NOTE-150] LA MEME DISTANCE, AU POINT QUE L'AUTEUR A DESSINE. -> jak-hd-physics-NOTES.md
-              (when (and (> sd -100000.0) (< sd 900000.0) (>= kk 0) (< (+ kk 1) nbone))
-                (vector-copy! ap (the-as vector (-> skel bones (+ kk 1) transform vector 3)))
-                (let ((sa (phys-surf-sd skel (/ sc PHYS-CHAINS) ap nbone)))
-                  (when (and (> sa -100000.0) (< sa 900000.0))
-                    (let ((add (- sa sd)))
-                      (when (> add (-> *phys-saf* sc)) (set! (-> *phys-saf* sc) add)))
-                    ;; [NOTE-154] la LIGNE DE BASE : profondeur du point d'AUTEUR sous la MEME peau.
-                    (when (> (- 0.0 sa) (-> *phys-skinrest* sc))
-                      (set! (-> *phys-skinrest* sc) (- 0.0 sa)))
-                    ;; CONTROLE D'INTEGRITE. L'os de poitrine est INTERIEUR par construction du rig :
-                    ;; une lecture positive sur le point d'AUTEUR est impossible anatomiquement et
-                    ;; denonce le filtre de phase large de `phys-surf-sd`. On la COMPTE au lieu de la
-                    ;; lisser — sans ce compte, un plancher faux passerait pour une mesure.
-                    (when (> sa 0.0) (set! *phys-skinout* (+ *phys-skinout* 1))))))
-              (when (> (-> *phys-saf* sc) (-> *phys-skinadd* sc))
-                (set! (-> *phys-skinadd* sc) (-> *phys-saf* sc))))))))
+          ;; [NOTE-161] SPEC 33/34 — LA MESURE PORTE SUR LA PEAU DE LA CHAINE, PLUS SUR SON JOINT.
+          ;; [NOTE-202] Le joint est INTERIEUR par construction du rig : il ne peut pas repondre a une questio -> jak-hd-physics-NOTES.md
+          (when (and (nonzero? *phys-skin-meas*) (> (-> *phys-msn* scl) 0))
+            (let ((kk (-> *phys-joint* scl)))
+              (when (and (>= kk 0) (< (+ kk 1) nbone))
+                (dotimes (q (-> *phys-msn* scl))
+                  (vector-rotate*! ap (-> *phys-msp* (+ (* scl PHYS-MS-MAX) q))
+                                   (the-as matrix (-> skel bones (+ kk 1) transform)))
+                  (set! (-> ap w) 0.0)
+                  (let ((sx (+ (-> pt x) (-> ap x)))
+                        (sy (+ (-> pt y) (-> ap y)))
+                        (sz (+ (-> pt z) (-> ap z)))
+                        (bx (+ (-> skel bones (+ kk 1) transform vector 3 x) (-> ap x)))
+                        (by (+ (-> skel bones (+ kk 1) transform vector 3 y) (-> ap y)))
+                        (bz (+ (-> skel bones (+ kk 1) transform vector 3 z) (-> ap z))))
+                    (set-vector! ap sx sy sz 1.0)
+                    (let ((sd (phys-surf-sd skel (/ sc PHYS-CHAINS) ap nbone)))
+                      (when (> sd 900000.0)
+                        (set! (-> *phys-skinmiss* sc) (+ 1.0 (-> *phys-skinmiss* sc))))
+                      (when (and (< sd 0.0) (> sd -100000.0)
+                                 (> (- 0.0 sd) (-> *phys-skinpen* sc)))
+                        (set! (-> *phys-skinpen* sc) (- 0.0 sd)))
+                      (when (and (> sd -100000.0) (< sd 900000.0))
+                        (set-vector! ap bx by bz 1.0)
+                        (let ((sa (phys-surf-sd skel (/ sc PHYS-CHAINS) ap nbone)))
+                          (when (and (> sa -100000.0) (< sa 900000.0))
+                            (let ((add (- sa sd)))
+                              (when (> add (-> *phys-saf* sc)) (set! (-> *phys-saf* sc) add)))
+                            (when (> (- 0.0 sa) (-> *phys-skinrest* sc))
+                              (set! (-> *phys-skinrest* sc) (- 0.0 sa)))
+                            ;; [NOTE-161] CONTROLE D'INTEGRITE, REDEFINI AVEC LA GRANDEUR. Un sommet
+                            ;; de peau EXTREMAL est DEHORS a la pose d'auteur — c'est la definition
+                            ;; d'un sommet de surface. Ce compte n'est donc plus une anomalie ici,
+                            ;; il devient le DOMAINE : il dit combien d'echantillons se comportent
+                            ;; comme de la surface. Il est publie tel quel, sans en tirer de verdict.
+                            (when (> sa 0.0) (set! *phys-skinout* (+ *phys-skinout* 1))))))))
+                  (when (> (-> *phys-saf* sc) (-> *phys-skinadd* sc))
+                    (set! (-> *phys-skinadd* sc) (-> *phys-saf* sc))))))))))
     (set! *phys-buried-tally* 0)
     (set! *phys-cone-off* coneprev)
     ;; la sentinelle est RENDUE TELLE QUELLE : « aucun contact » n'est pas « penetration nulle »,
@@ -3327,12 +3321,7 @@
                                         (let ((dvx (- (* ux iu) (* mx im)))
                                               (dvy (- (* uy iu) (* my im)))
                                               (dvz (- (* uz iu) (* mz im)))
-                                              ;; LA MEME DIFFERENCE, SANS NORMALISER (voir la note
-                                              ;; de `*phys-ldb*`). `u` et `m` partent de LA MEME
-                                              ;; ATTACHE, donc `u - m` EST le deplacement du
-                                              ;; maillon par rapport a sa pose d'auteur — les trois
-                                              ;; degres de liberte, dont le RADIAL que la version
-                                              ;; normalisee annule par construction.
+                                              ;; [NOTE-201] LA MEME DIFFERENCE, SANS NORMALISER (voir la note -> jak-hd-physics-NOTES.md
                                               (bvx (- ux mx))
                                               (bvy (- uy my))
                                               (bvz (- uz mz)))
@@ -3382,12 +3371,7 @@
                             (when (> oy (-> *phys-st* (+ stb 9)))  (set! (-> *phys-st* (+ stb 9)) oy))
                             (when (< oz (-> *phys-st* (+ stb 10))) (set! (-> *phys-st* (+ stb 10)) oz))
                             (when (> oz (-> *phys-st* (+ stb 11))) (set! (-> *phys-st* (+ stb 11)) oz))
-                            ;; POSITION MOYENNE de la pointe dans le repere de l'ancre. La boite
-                            ;; ci-dessus ne retient que la VARIANCE : sous une inclinaison TENUE la
-                            ;; chaine se pose sur un nouvel equilibre et ne bouge plus, donc la
-                            ;; boite y mesure zero et l'a toujours mesure (PHYSTILT amp=0.0000 sur
-                            ;; 19 chaines sur 22). La gravite ne se lit que dans le DEPLACEMENT
-                            ;; SOUTENU, c'est-a-dire ici.
+                            ;; [NOTE-200] POSITION MOYENNE de la pointe dans le repere de l'ancre. La boite -> jak-hd-physics-NOTES.md
                             (set! (-> *phys-st* (+ stb 12)) (+ ox (-> *phys-st* (+ stb 12))))
                             (set! (-> *phys-st* (+ stb 13)) (+ oy (-> *phys-st* (+ stb 13))))
                             (set! (-> *phys-st* (+ stb 14)) (+ oz (-> *phys-st* (+ stb 14))))

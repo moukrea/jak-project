@@ -5457,3 +5457,198 @@ porter `skinpen` sur CES points au lieu du JOINT. Le joint est interieur par
 construction et ne peut pas repondre a une question de SURFACE ; ces points-la sont la surface.
 La ligne de base au repos se calcule alors de la meme facon, sur la pose d'auteur, et la
 comparaison redevient homogene.
+
+## [NOTE-200] POSITION MOYENNE de la pointe dans le repere de l'ancre. La boite
+
+(bloc deplace du moteur le 2026-08-20, cycle 60)
+
+```
+                            ;; POSITION MOYENNE de la pointe dans le repere de l'ancre. La boite
+                            ;; ci-dessus ne retient que la VARIANCE : sous une inclinaison TENUE la
+                            ;; chaine se pose sur un nouvel equilibre et ne bouge plus, donc la
+                            ;; boite y mesure zero et l'a toujours mesure (PHYSTILT amp=0.0000 sur
+                            ;; 19 chaines sur 22). La gravite ne se lit que dans le DEPLACEMENT
+                            ;; SOUTENU, c'est-a-dire ici.
+```
+
+## [NOTE-201] LA MEME DIFFERENCE, SANS NORMALISER (voir la note
+
+(bloc deplace du moteur le 2026-08-20, cycle 60)
+
+```
+                                              ;; LA MEME DIFFERENCE, SANS NORMALISER (voir la note
+                                              ;; de `*phys-ldb*`). `u` et `m` partent de LA MEME
+                                              ;; ATTACHE, donc `u - m` EST le deplacement du
+                                              ;; maillon par rapport a sa pose d'auteur — les trois
+                                              ;; degres de liberte, dont le RADIAL que la version
+                                              ;; normalisee annule par construction.
+```
+
+## [NOTE-202] Le joint est INTERIEUR par construction du rig : il ne peut pas repondre a une questio
+
+(bloc deplace du moteur le 2026-08-20, cycle 60)
+
+```
+          ;; Le joint est INTERIEUR par construction du rig : il ne peut pas repondre a une question
+          ;; de SURFACE, et le cycle 60 l'a paye — `chestL` s'y lisait DEHORS au repos (0.0000) et
+          ;; DEDANS en course (556 u), une contradiction que son deplacement ne peut pas produire.
+          ;; On teste desormais les sommets EXTREMAUX du maillon (`ms`), portes par la matrice de
+          ;; l'os, contre la surface du CORPS (`bs`) — qui exclut a raison les os de chaine, donc
+          ;; aucun sein ne se mesure contre lui-meme. C'est la grandeur que sa 33 nomme.
+          ;; LA ROTATION EST LA MEME DES DEUX COTES (matrice de l'os d'auteur) : elle disparait donc
+          ;; de la difference course-repos, qui ne garde que le deplacement du maillon.
+```
+
+## [NOTE-203] INVERSIONS. Owner 2026-08-11 : « j'ai encore vu un de ses seins retourne vers l'interi
+
+(bloc deplace du moteur le 2026-08-20, cycle 60)
+
+```
+;; INVERSIONS. Owner 2026-08-11 : « j'ai encore vu un de ses seins retourne vers l'interieur ».
+;; Cause : le ressort est symetrique autour de l'ancre, donc le cote oppose est un equilibre STABLE
+;; mais FAUX, et la contrainte de longueur se taisait dans le cas degenere (distance sous 1e-4), ce
+;; qui laissait la porte ouverte. Comptees ici, remises a zero par la salle, et un controle positif
+;; les provoque expres pour prouver que le compteur voit quelque chose.
+```
+
+## [NOTE-204] ce que les limiteurs RETIRENT de mouvement, mesure et non estime (SPEC 7 : un suppress
+
+(bloc deplace du moteur le 2026-08-20, cycle 60)
+
+```
+;; ce que les limiteurs RETIRENT de mouvement, mesure et non estime (SPEC 7 : un suppresseur se
+;; chiffre). Deux limiteurs peuvent reculer un lien :
+;;   retreat  quand la projection ne trouve aucun point admissible, le lien recule vers sa pose de
+;;            modele — la seule position admissible par construction ;
+;;   raddrop  quand un lien SEUL (pas de parent simule) depasse le rayon que le mesh lui mesure.
+```
+
+## [NOTE-205] RETARD D'UNE FRAME injecte pour le CONTROLE POSITIF du canal d'auteur. 0 = desarme. Ar
+
+(bloc deplace du moteur le 2026-08-20, cycle 60)
+
+```
+;; RETARD D'UNE FRAME injecte pour le CONTROLE POSITIF du canal d'auteur. 0 = desarme. Arme, la
+;; position ecrite est batie sur la pose d'auteur de la frame PRECEDENTE au lieu de celle-ci : c'est
+;; exactement le defaut que la SPEC 5 interdit (la physique retarde l'animation). Le compteur
+;; d'identite doit alors s'effondrer. Sans ce controle, « l'animation passe intacte » serait une
+;; affirmation invérifiable sur notre propre construction.
+```
+
+## [NOTE-206] LE MEME MAXIMUM, MAIS AVANT LE PLAFOND DE SA §38. Sans lui, un mode secondaire sature 
+
+(bloc deplace du moteur le 2026-08-20, cycle 60)
+
+```
+;; LE MEME MAXIMUM, MAIS AVANT LE PLAFOND DE SA §38. Sans lui, un mode secondaire sature se lit
+;; `0.0700` a chaque fenetre et devient indiscernable d'un mode correctement excite qui frole le
+;; plafond — c'est la signature du limiteur sature, deja payee une fois sur ce dossier. C'est ce
+;; nombre-la qui dit de combien le gain d'excitation est a cote, et c'est la seule facon de le
+;; caler sur SA bande (2-5 % normal, 5-7 % impulsion forte) sans le regler sur l'instrument.
+```
+
+## [NOTE-207] LA MEME GRAVITE, MAIS SUR LES TROIS LIGNES DE LA MATRICE DE L'ANCRE — donc sur les axe
+
+(bloc deplace du moteur le 2026-08-20, cycle 60)
+
+```
+;; LA MEME GRAVITE, MAIS SUR LES TROIS LIGNES DE LA MATRICE DE L'ANCRE — donc sur les axes que la
+;; classification de §29 a nommes `rv`/`rap`/`rlat`. Elle repond a une question que rien ne pouvait
+;; trancher jusqu'ici : la ligne appelee AP est-elle vraiment l'avant-arriere ? Sous un TANGAGE
+;; c'est l'avant-arriere qui doit s'allumer, sous un ROULIS le lateral. Si c'est l'inverse, les
+;; deux compliances de §29 (0.90 et 0.82) sont posees sur les mauvais axes.
+```
+
+## [NOTE-208] L'ECART A LA POSE D'AUTEUR, DANS LE REPERE DE L'ANCRE. Ce fut l'etat INTEGRE du solveu
+
+(bloc deplace du moteur le 2026-08-20, cycle 60)
+
+```
+;; L'ECART A LA POSE D'AUTEUR, DANS LE REPERE DE L'ANCRE. Ce fut l'etat INTEGRE du solveur, et
+;; c'est le modele que l'owner a rejete le 2026-08-13 a 22:40 (« on integre un ECART, pas un
+;; cheveu »). Il n'est plus integre : il est DERIVE de la position monde a la section 4, et il ne
+;; sert plus qu'a la mesure — toute l'instrumentation de la salle est definie sur lui, et le
+;; contrat interdit de changer l'instrument en meme temps que ce qu'il mesure.
+```
+
+## [NOTE-209] LA LONGUEUR D'OS DE CHAQUE MAILLON, relevee sur la pose ANIMEE a chaque frame.
+
+(bloc deplace du moteur le 2026-08-20, cycle 60)
+
+```
+;; LA LONGUEUR D'OS DE CHAQUE MAILLON, relevee sur la pose ANIMEE a chaque frame.
+;; (Sa moyenne `*phys-lmean*` a ete retiree le 2026-08-14 : elle ne servait qu'au ressort angulaire
+;; `k2a`, qui n'existe plus depuis la bascule du 2026-08-13 22:40 — le symbole etait ecrit et lu
+;; par personne dans tout `goal_src/`, verifie par recensement, et sa narration decrivait un
+;; mecanisme absent.)
+```
+
+## [NOTE-210] LIBERTE GRADUEE DE LA RACINE, 0 = aucune (le maillon 0 reste epingle, comportement d'a
+
+(bloc deplace du moteur le 2026-08-20, cycle 60)
+
+```
+;; LIBERTE GRADUEE DE LA RACINE, 0 = aucune (le maillon 0 reste epingle, comportement d'avant ce
+;; cycle au bit pres). Une valeur g dans ]0,1] rend le maillon 0 SIMULE, mais avec sa raideur
+;; angulaire multipliee par 1/g^2 : sa deviation d'equilibre est donc de l'ordre de g fois celle
+;; d'une racine libre. g=1 = racine entierement libre, et c'est l'etat que l'owner a DEJA rejete
+;; (« cheveux decolles du crane »). Ce parametre n'existe pas pour etre mis a 1.
+```
+
+## [NOTE-211] 6e passe de l'owner : « lBoob et rBoob sont des spheres NUES posees sur le joint-racin
+
+(bloc deplace du moteur le 2026-08-20, cycle 60)
+
+```
+;; 6e passe de l'owner : « lBoob et rBoob sont des spheres NUES posees sur le joint-racine, alors
+;; que tout le reste du corps est en capsules derivees. Une sphere au joint ne peut pas epouser un
+;; sein. » Le centre de la sphere est desormais le CENTROIDE MESURE de la geometrie du joint, dans
+;; l'espace bind de ce joint ; le moteur le transforme par la matrice de l'os, donc il suit
+;; l'animation. Absent des donnees = 0,0,0 = le centre reste le joint (comportement d'avant).
+```
+
+## [NOTE-212] --------------------------------------------------------------------------------------
+
+(bloc deplace du moteur le 2026-08-20, cycle 60)
+
+```
+;; ------------------------------------------------------------------------------------------------
+;; PONT C++ — le magasin de parametres vit dans game/kernel/jak1/kmachine.cpp (parse de
+;; recharged_assets/physics_chains.txt). Aucune valeur flottante ne traverse la frontiere : tout
+;; arrive en MILLI-unites (kmachine.cpp:884-887, phys_mi:1721).
+;; ------------------------------------------------------------------------------------------------
+```
+
+## [NOTE-161] SPEC 33/34 SE MESURE SUR LA PEAU DE LA CHAINE, PAS SUR SON JOINT
+
+CE QUI PRECEDE, ET QUI EST ETABLI : [NOTE-159] montre que la peau des seins ne peut PAS entrer
+dans `bs` — `model_bsurf` exclut tout os qui est un maillon de chaine, et c'est CORRECT : un sein
+n'est pas un obstacle pour lui-meme. `skinpen` retombait donc sur le JOINT, interieur par
+construction, et rendait des verdicts qui se contredisent : `chestL` lu DEHORS au repos (0.0000)
+et 556 u DEDANS en course, un ecart de 0.136 m que son deplacement (borne 301 u) ne peut pas
+produire.
+
+CE QUE J'AI PUBLIE ET QUI ETAIT FAUX, RETIRE EN [NOTE-160] : « aucun accesseur `ms`, ni C++ ni
+GOAL ». La moitie C++ est fausse — les accesseurs s'appellent `msample`, pas `msurf`, et ils
+existent (`kmachine.cpp:1966-1993`, enregistres a `:4200-4202`). Le trou etait cote GOAL SEUL.
+
+CE QUE CETTE NOTE FAIT : le GOAL charge enfin les `msample` (les sommets EXTREMAUX de peau de
+chaque maillon, espace bind local, deja parses par le C++ depuis le cycle 14) et `skinpen` porte
+sur EUX. Donnee livree : `ms chestL 0 2`, `ms chestL 1 2`, `ms chestR 0 2`, `ms chestR 1 2` — deux
+sommets par maillon, ceux qui sortent le plus loin, c'est-a-dire ceux qui traversent EN PREMIER.
+La question devient celle que sa 33 pose : la peau du sein entre-t-elle dans le corps ?
+
+DEUX CHOSES QUE JE DECLARE AU LIEU DE LES TAIRE :
+  1. la ROTATION appliquee a l'offset est celle de l'os d'AUTEUR, des DEUX cotes (point simule et
+     point d'auteur). Elle est donc IDENTIQUE dans les deux termes et disparait de leur difference,
+     qui ne garde que le deplacement du maillon. Ce n'est pas la rotation ECRITE ; l'approximation
+     est bornee et elle est la meme au repos et en course ;
+  2. `skinout` CHANGE DE SENS avec la grandeur. Sur le joint, une lecture « dehors » etait une
+     anomalie. Sur un sommet EXTREMAL de peau, etre dehors est la DEFINITION d'un point de surface :
+     ce compte devient un DOMAINE, pas une alarme. Il reste publie, et aucun verdict ne s'en tire.
+
+ET UNE GARDE EST RETIREE AVEC SA PREMISSE. Le controle de coherence du cycle 60 comparait repos et
+course a la borne de deplacement du JOINT (301 u). Les sommets de peau sont a un RAYON du joint :
+leur deplacement vaut celui du joint plus `2 r sin(theta/2)`, r allant jusqu'a ~650 u. Appliquer
+301 u produirait un `NON ETABLI` sur une mesure legitime — un faux rouge. Les deux autres gardes
+restent, premisses intactes : `skinmiss > 0` et `sets < declared`.

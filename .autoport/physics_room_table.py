@@ -4528,32 +4528,17 @@ def main():
         # gate lit : la mesure porterait sur une surface qui n'est pas celle du personnage.
         if _bs and int(_bs.group(1)) < int(_bs.group(2)):
             _restw = {}
-        # [NOTE-159] CONTROLE DE COHERENCE INTERNE, ET IL SUFFIT A REFUSER LE PLANCHER.
-        # `phys-surf-sd` est 1-lipschitzienne SI c'est une distance : entre la fenetre de repos et
-        # la course, la lecture ne peut pas varier de plus que le joint ne se DEPLACE. Le
-        # deplacement de joint le plus grand jamais mesure au dossier vaut 301 u (`|tp|` = 0,5008
-        # B0). Une chaine qui lit 0.0000 au repos (donc DEHORS) et plusieurs centaines d'unites
-        # DEDANS pendant la course s'est donc contredite elle-meme : ce n'est pas de la geometrie,
-        # c'est l'instrument. On refuse alors de publier le plancher — un faux ROUGE coute autant
-        # qu'un faux vert (DIRECTIVES 2026-08-19 23:50).
-        _MAXDEV_U = 301.0 / UNITS
-        _incoh = []
-        for c, (rv, _t) in list(_restw.items()):
-            _rv_run = sp_run.get(c, (None, 0))[0]
-            if _rv_run is not None and abs(_rv_run - rv) > _MAXDEV_U:
-                _incoh.append((c, rv, _rv_run))
-        if _incoh:
-            A('ROOM-SKINPEN-INCOHERENT: %d chaine(s) lisent au repos et en course des valeurs que'
-              % len(_incoh))
-            A('   le DEPLACEMENT du joint ne peut pas expliquer (borne 301 u = %.4f m, `|tp|` =' % _MAXDEV_U)
-            A('   0,5008 B0, la plus grande deviation de joint jamais mesuree au dossier) :')
-            for c, rv, rr in _incoh:
-                A('   %-8s repos %.4f m   course %.4f m   ecart %.4f m'
-                  % (names[c] if c < len(names) else c, rv, rr, abs(rr - rv)))
-            A('   `phys-surf-sd` s\'est donc contredite elle-meme entre deux fenetres. AUCUN')
-            A('   plancher n\'est publie sous le nom que la gate lit : je ne fais pas echouer une')
-            A('   gate sur un chiffre dont je viens de mesurer qu\'il est faux.')
-            _restw = {}
+        # [NOTE-161] LE CONTROLE DE COHERENCE DU CYCLE 60 EST RETIRE — SA PREMISSE A CHANGE.
+        # Il comparait repos et course a la borne de deplacement du JOINT (301 u = 0,0735 m,
+        # `|tp|` = 0,5008 B0) parce que la mesure PORTAIT sur le joint. Elle porte desormais sur les
+        # sommets de PEAU du maillon ([NOTE-161]), qui sont a un RAYON du joint : leur deplacement
+        # vaut celui du joint PLUS `2 r sin(theta/2)`, avec r jusqu'a ~650 u. La borne de 301 u leur
+        # est donc fausse, et la garder produirait un `NON ETABLI` sur une mesure legitime — un faux
+        # rouge, ce que le garde-fou existait precisement pour empecher.
+        # LES DEUX AUTRES GARDES RESTENT, et leurs premisses n'ont pas bouge : `skinmiss > 0` (aucun
+        # echantillon a portee) et `sets < declared` (la peau lue n'est pas celle du personnage).
+        # Retirer une garde dont la premisse est morte n'est pas l'assouplir : c'est refuser de
+        # juger avec un critere qui ne s'applique plus.
         # [NOTE-157] UN ZERO ACCOMPAGNE D'UN `skinmiss` NON NUL N'EST PAS UNE MESURE, C'EST UN TROU.
         # Publier un plancher tire d'un trou ferait ECHOUER la gate sur un chiffre qui ne mesure
         # rien — un faux ROUGE, qui coute exactement autant qu'un faux vert (DIRECTIVES 2026-08-19
