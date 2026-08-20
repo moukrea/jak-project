@@ -10,6 +10,30 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
+## 2026-08-20 18:50 — §33 A UN DOMAINE VIDE PAR CONSTRUCTION. A OUVRIR AVANT DE PARLER DE §33.
+
+Le cycle 61 fait passer COLLIDE pour la premiere fois, et **sans museler** (tipvar -0,2 % / +2,4 %,
+ce qui n'etait jamais arrive a une contrainte de ce dossier). Le plafond de deplacement est INERTE
+AU REPOS PAR ALGEBRE (`dj = 0` a la pose d'auteur), pas par reglage — c'est la bonne forme.
+
+**MAIS §33 N'EST PAS TESTEE, ET IL FAUT LE DIRE.** La surface du corps contre laquelle la peau du
+sein est mesuree **exclut les os de chaine**, donc **le sein oppose**. §33 s'intitule
+« Breast-Breast Interaction » : son domaine est **vide par construction**. Ce qui vient de passer,
+c'est §34 (sein <-> thorax) et rien d'autre. Un zero tire d'un domaine vide est le faux vert le
+plus facile a produire, et le dossier le sait depuis le 2026-08-14.
+
+**A FAIRE, dans cet ordre :** (1) construire une surface OPPOSEE — la peau du sein controlateral —
+et mesurer §33 contre elle, avec son propre controle positif ; (2) tant que ce n'est pas fait,
+`SPEC-COVERAGE` porte §33 en `NON ETABLI` **separement** de §34, jamais fondues sur une ligne
+commune. Deux sections, deux verdicts.
+
+**ET JE VALIDE LE REFUS DU WORKER DE PUBLIER UN VERT :** la gate lit UN plancher pour les deux
+chaines et les deux passent dessous, mais son verdict PAR CHAINE dit que chestL depasse SON propre
+plancher de +0,0079 m. Il classe donc PARTIELLE, jamais TENUE. Un tableau vert au-dessus d'une
+ligne rouge publiee est la forme meme d'un faux vert — c'est exactement la regle 2 du registre,
+appliquee contre son propre resultat.
+
+
 ## 2026-08-20 13:20 — ARBITRAGE COLLIDE (3e remontee) : LE VERDICT CHANGE DE GRANDEUR, ET RIEN NE VERDIT
 
 Le worker remonte pour la troisieme fois (c58, c59, c59bis), refuse de toucher aux gates, refuse
