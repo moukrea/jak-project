@@ -1832,6 +1832,18 @@
       (format 0 "PHYSSKIN tag=~S c=~D skinpen=~f skinadd=~f tests=~D~%"
               tag c (phys-skinpen-worst (-> self slot) c)
               (phys-skinadd-worst (-> self slot) c) (phys-skintest-count))
+      ;;   skinrest [NOTE-154] LA LIGNE DE BASE AU REPOS que l'arbitrage du 2026-08-20 13:20 exige :
+      ;;            la profondeur sous la MEME peau du point que L'AUTEUR a dessine. « Physique
+      ;;            desarmee » au sens exact — la pose d'auteur EST la pose sans physique — et prise
+      ;;            A LA MEME FRAME, donc sans le piege `ratio-of-two-statistics` qu'une fenetre de
+      ;;            repos separee aurait introduit. NATURE : une longueur, max de fenetre.
+      ;;   skinout  COMBIEN DE FOIS LE POINT D'AUTEUR A ETE LU **DEHORS**. L'os de poitrine est
+      ;;            INTERIEUR par construction du rig : toute lecture positive est anatomiquement
+      ;;            impossible et denonce le filtre de phase large de `phys-surf-sd`. Un plancher
+      ;;            tire d'une SDF qui se trompe de cote n'est pas un plancher, et ce compte est ce
+      ;;            qui permet de le dire au lieu de le supposer. LECTURE SAINE : 0.
+      (format 0 "PHYSSKIN2 tag=~S c=~D skinrest=~f skinout=~D~%"
+              tag c (phys-skinrest-worst (-> self slot) c) (phys-skinout-count))
       ;;   rootrot  l'angle, EN DEGRES, reellement ecrit dans la 3x3 du maillon `rootlock` — le
       ;;            PREMIER SEGMENT de la meche, celui qui part du cuir chevelu. Il valait 0.0000
       ;;            structurellement jusqu'a ce cycle : la boucle d'ecriture du moteur sautait tout
@@ -1951,6 +1963,11 @@
 ;;           frame a l'autre, (-240,0,190) -> (0,300,0), soit 434 u/frame^2.
 ;;   tilt    pose TENUE : plus aucune acceleration de repere. Le stimulus est la gravite elle-meme
 ;;           vue depuis l'ancre, 2 |g| sin(30 deg) = 11.16 u/frame^2 a 60 degres.
+;; L'AMPLITUDE DU DEFAUT INJECTE PAR LE CONTROLE POSITIF, en unites de jeu. Elle est ECRITE ICI et
+;; publiee telle quelle : le critere de l'arbitrage du 13:20 compare la hausse mesuree A CE NOMBRE,
+;; donc le nombre ne peut pas etre ajuste apres coup sans que la comparaison le dise.
+(defconstant PHYSROOM-INJECT 400.0)
+
 (defun physroom-stim-mag ((mode int))
   (case mode
     ((0) 18.0)
@@ -1968,8 +1985,11 @@
           (-> self nanim) (-> self nenum) (-> self nchain) PHYSROOM-DRIVES (-> self nag))
   (format 0 "PHYSKEY maxanim=~D drives=~D slot=~D hdpid=~D win=~D~%"
           PHYSROOM-MAXANIM PHYSROOM-DRIVES (-> self slot) (-> self hdpid) PHYSROOM-WIN)
-  (format 0 "PHYSPC injections=~D armed=~f disarmed=~f~%"
-          (-> self injn) (-> self arm) (-> self dis))
+  ;; `inject` = l'amplitude REELLEMENT posee, en unites de jeu. L'arbitrage du 2026-08-20 13:20
+  ;; remplace le ratio par une PREDICTION : injecter X doit faire monter la mesure de X a 25 % pres.
+  ;; Sans cette valeur publiee, le critere n'a pas de X et retombe sur l'ancien ratio.
+  (format 0 "PHYSPC injections=~D armed=~f disarmed=~f inject=~f~%"
+          (-> self injn) (-> self arm) (-> self dis) PHYSROOM-INJECT)
   ;; L'UNITE DE `atan`, MESUREE A L'EXECUTION ET PAS DEDUITE D'UNE LECTURE DE SOURCE (regle 0).
   ;; L'ecriture d'orientation du moteur passait `(* 57.2957795 (atan sin cos))` a
   ;; `matrix-axis-angle!` — une conversion radians->degres. Si `atan` rend des UNITES DE ROTATION,
@@ -3362,7 +3382,11 @@
      (physroom-drive 3 (-> self pframe))
      (physroom-advance-anim 1.0)
      (when (>= (-> self pframe) PHYSROOM-PCW)
-       (set! (-> self dis) (physroom-max-pen))
+       ;; [NOTE-155] `dis` NE VIENT PLUS DE CETTE FENETRE. L'injection etait posee EN PLACE dans
+       ;; l'etat porte d'une frame a l'autre, donc les deux branches comparaient deux TRAJECTOIRES
+       ;; et non deux mesures : c'est ce qui rendait 110.85 u pour 400 u injectes. La sonde
+       ;; appariee mesure les deux valeurs sur LA MEME frame, dans la fenetre ARMEE ; cette
+       ;; fenetre-ci ne sert plus qu'a publier la peau desarmee.
        ;; [NOTE-150] la BRANCHE DESARMEE du controle, cote PEAU. `physroom-emit-diag` publie
        ;; `PHYSSKIN skinadd=` puis remet le maximum a zero, donc la branche ARMEE qui suit mesure
        ;; SA fenetre et rien d'autre. Les colonnes PHYSDIAG* de ces deux tags sont, elles, des
@@ -3375,14 +3399,23 @@
        (phys-stats-reset!)
        ;; on POSE le defaut : chaque lien libre est pousse de 400 unites (~10 cm) vers l'interieur
        ;; du corps APRES resolution. Si le compteur de penetration ne monte pas, il ne mesure rien.
-       (phys-inject-set! 400.0)))
+       (phys-inject-set! PHYSROOM-INJECT)))
 
     ;; ---- 6. CONTROLE POSITIF, branche ARMEE --------------------------------------------------
     ((= (-> self phase) PHYSROOM-PH-PCON)
      (physroom-drive 3 (-> self pframe))
      (physroom-advance-anim 1.0)
      (when (>= (-> self pframe) PHYSROOM-PCW)
-       (set! (-> self arm) (physroom-max-pen))
+       ;; [NOTE-155] LES DEUX MAXIMA DE LA PAIRE, pris sur les MEMES frames de CETTE fenetre.
+       (let ((b PHYS-NOCONTACT) (a PHYS-NOCONTACT))
+         (dotimes (c (-> self nchain))
+           (when (> (phys-chain-links (-> self slot) c) 0)
+             (let ((bb (phys-pc-base (-> self slot) c))
+                   (aa (phys-pc-inj  (-> self slot) c)))
+               (when (> bb b) (set! b bb))
+               (when (> aa a) (set! a aa)))))
+         (set! (-> self dis) b)
+         (set! (-> self arm) a))
        (physroom-emit-diag "pcon")                  ;; [NOTE-150] la branche ARMEE, cote PEAU
        (set! (-> self injn) (phys-inject-count))
        (phys-inject-set! 0.0)
