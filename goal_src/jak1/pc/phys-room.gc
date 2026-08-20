@@ -1845,6 +1845,11 @@
       ;;   skinmiss [NOTE-157] combien d'evaluations n'ont trouve AUCUN echantillon a portee. Un
       ;;            `skinpen` de 0 avec un `skinmiss` non nul n'est pas « le lien est dehors »,
       ;;            c'est « je n'ai pas regarde » — et les deux ne doivent jamais se confondre.
+      ;; [NOTE-158] LA COUVERTURE DE LA PEAU, PUBLIEE. Une troncature silencieuse est un de-scope :
+      ;; tant que ce couple n'etait pas dans le tableau, `sets=64/92` vivait dans une ligne de log
+      ;; que personne ne rapprochait de `skinpen`.
+      (format 0 "PHYSBSURF sets=~D declared=~D max=~D~%"
+              (phys-bsurf-sets (-> self slot)) (phys-bsurf-declared (-> self slot)) PHYS-BSURF-MAX)
       (format 0 "PHYSSKIN2 tag=~S c=~D skinrest=~f skinout=~D skinmiss=~f~%"
               tag c (phys-skinrest-worst (-> self slot) c) (phys-skinout-count)
               (phys-skinmiss-count (-> self slot) c))

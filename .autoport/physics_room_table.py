@@ -1685,6 +1685,9 @@ def main():
             (float(m.group(4)) / UNITS) if m.group(4) is not None else None)
     # [NOTE-154] la LIGNE DE BASE au repos, et le compte de lectures anatomiquement impossibles.
     skinrest, skinout = {}, {}
+    # [NOTE-158] LA COUVERTURE DE LA PEAU. Une troncature silencieuse est un de-scope : ce couple
+    # doit vivre DANS le tableau, a cote de `skinpen`, et pas dans une ligne de log.
+    _bs = re.search(r'^PHYSBSURF sets=(\d+) declared=(\d+) max=(\d+)', txt, re.M)
     skinmiss = {}
     for m in re.finditer(r'^PHYSSKIN2 tag=(\S+) c=(\d+) skinrest=([-\d.e+]+) skinout=(\d+)'
                          r'(?: skinmiss=([-\d.e+]+))?', txt, re.M):
@@ -4509,8 +4512,22 @@ def main():
         # lectures qui placent ce point DEHORS, ce qui est anatomiquement impossible pour un os
         # interieur. Il vaut 41842 sur la course. La valeur reste publiee comme DIAGNOSTIC sous
         # `ROOM-SKINPEN-REST-AUTEUR`, jamais sous le nom que la gate lit.
+        if _bs:
+            _cs, _cd, _cm = int(_bs.group(1)), int(_bs.group(2)), int(_bs.group(3))
+            A('ROOM-SKINPEN-COVERAGE: ensembles=%d/%d  echantillons<=%d' % (_cs, _cd, _cm))
+            if _cs < _cd:
+                A('   %d ENSEMBLE(S) DE SURFACE SUR %d SONT JETES par le plafond. La SDF ne voit'
+                  % (_cd - _cs, _cd))
+                A('   donc PAS toute la peau, et un os INTERIEUR peut s\'y lire DEHORS. Aucun')
+                A('   plancher tire de cette SDF ne vaut tant que ce couple n\'est pas egal.')
+        else:
+            A('ROOM-SKINPEN-COVERAGE: NON PUBLIEE (trace anterieure au cycle 60)')
         _restw = skinpen.get('rest', {})
         _missw = skinmiss.get('rest', {})
+        # [NOTE-158] et si la peau est tronquee, AUCUN plancher n'est publiable sous le nom que la
+        # gate lit : la mesure porterait sur une surface qui n'est pas celle du personnage.
+        if _bs and int(_bs.group(1)) < int(_bs.group(2)):
+            _restw = {}
         # [NOTE-157] UN ZERO ACCOMPAGNE D'UN `skinmiss` NON NUL N'EST PAS UNE MESURE, C'EST UN TROU.
         # Publier un plancher tire d'un trou ferait ECHOUER la gate sur un chiffre qui ne mesure
         # rien — un faux ROUGE, qui coute exactement autant qu'un faux vert (DIRECTIVES 2026-08-19

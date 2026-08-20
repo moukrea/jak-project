@@ -507,8 +507,13 @@
 (define *phys-cdmok* (new 'global 'array 'int32 (* PHYS-SC PHYS-COLS)))
 
 ;; [NOTE-19] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
-(defconstant PHYS-BSURF-SETS 64)
-(defconstant PHYS-BSURF-MAX  12)
+;; [NOTE-158] LA PEAU ETAIT TRONQUEE EN SILENCE, ET C'EST LA CAUSE DE TOUT CE FIL. -> jak-hd-physics-NOTES.md
+;; Mesure, trace du 2026-08-20 : « bsurf ag=keira-hd sets=64/92 » — 28 ensembles de surface sur 92
+;; JETES par ce plafond, et chaque ensemble retenu tronque a ses 12 PREMIERS echantillons. La SDF
+;; voyait donc au plus 768 points pour tout le personnage. C'est pour ca qu'un os INTERIEUR pouvait
+;; se lire DEHORS (`chestL skinpen=0.0000` au repos avec `skinmiss=0`, contre 417.23 u sur chestR).
+(defconstant PHYS-BSURF-SETS 96)
+(defconstant PHYS-BSURF-MAX  48)
 (defconstant PHYS-SB  (* PHYS-SLOTS PHYS-BSURF-SETS))
 (define *phys-bsk*  (new 'global 'array 'int32 PHYS-SB))   ;; index de joint de l'ensemble
 (define *phys-bsn*  (new 'global 'array 'int32 PHYS-SB))   ;; echantillons retenus
@@ -516,6 +521,15 @@
 (define *phys-bsp*  (new 'global 'inline-array 'vector (* PHYS-SB PHYS-BSURF-MAX)))
 (define *phys-bsnm* (new 'global 'inline-array 'vector (* PHYS-SB PHYS-BSURF-MAX)))
 (define *phys-slot-nbsurf* (new 'global 'array 'int32 PHYS-SLOTS))
+;; [NOTE-158] combien d'ensembles le PACKAGE declare, face a combien on en CHARGE. Sans ce second
+;; nombre, `sets=64/92` reste dans une ligne de log et la troncature redevient silencieuse.
+(define *phys-slot-nbsurf-decl* (new 'global 'array 'int32 PHYS-SLOTS))
+
+(defun phys-bsurf-sets ((slot int))
+  (if (and (>= slot 0) (< slot PHYS-SLOTS)) (-> *phys-slot-nbsurf* slot) 0))
+
+(defun phys-bsurf-declared ((slot int))
+  (if (and (>= slot 0) (< slot PHYS-SLOTS)) (-> *phys-slot-nbsurf-decl* slot) 0))
 ;; La pire ENTREE sous la peau, par chaine, sur la fenetre de mesure.
 ;; NATURE : une profondeur signee, en unites de jeu, positive quand le lien est SOUS la surface.
 ;; REPERE : le monde, a la frame ecrite — la meme position que celle dont `meshpen` est tire, pour
@@ -797,6 +811,7 @@
                                (set! (-> *phys-bsr* (+ sb nb)) br)
                                (+! nb 1)))))))
                     (set! (-> *phys-slot-nbsurf* slot) nb)
+                    (set! (-> *phys-slot-nbsurf-decl* slot) nbs)
                     ;; PREUVE D'EXECUTION (regle 0) : sans cette ligne, un fichier absent, un
                     ;; parseur muet ou un rig sans ces os rendraient la mesure identiquement nulle
                     ;; et indistinguable d'une peau que rien ne traverse.

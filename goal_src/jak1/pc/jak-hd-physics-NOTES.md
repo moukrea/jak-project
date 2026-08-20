@@ -5359,3 +5359,36 @@ c'est cette reserve-la qu'il faudra lever.
             ;; `chestR` rendait 417.23 u DEDANS. Un os que le rig place a 0.10 m sous la peau ne
             ;; peut pas etre hors de portee de la peau : c'etait la marge qui coupait.
 ```
+
+## [NOTE-158] LA PEAU ETAIT TRONQUEE EN SILENCE — LA CAUSE COMMUNE DE TOUT LE FIL DU CYCLE 60
+
+MESURE, lue dans la trace livree et pas deduite :
+
+    [hd-phys] BSURFSRC=package bsets=92 dropped=0
+    [HD-PHYS] bsurf ag=keira-hd sets=64/92 lies=64 non-lies=0
+
+`PHYS-BSURF-SETS` valait 64 : **28 ensembles de surface sur 92 etaient JETES**. Et chaque ensemble
+retenu etait tronque a `PHYS-BSURF-MAX` = **12 echantillons**, un PREFIXE arbitraire. `phys-surf-sd`
+voyait donc au plus **768 points** pour tout le personnage.
+
+CE QUE CA EXPLIQUE, ET C'EST TOUT LE FIL :
+  * `chestL skinpen = 0.0000` dans la fenetre de REPOS avec `skinmiss = 0` — donc des echantillons
+    etaient bien a portee, et la SDF a quand meme rendu « dehors » pour un os que le rig place a
+    0.10 m SOUS la peau — pendant que `chestR` rendait 417.23 u DEDANS ;
+  * `skinout` = 41842 sur le point d'AUTEUR ;
+  * `skinadd` = 1052 u la ou `|A - S|` ne depasse jamais 301 u, c'est-a-dire la violation de la
+    borne 1-lipschitzienne relevee en [NOTE-150]. Une SDF batie sur 768 points epars n'est
+    lipschitzienne nulle part.
+
+DEUX HYPOTHESES REFUTEES AVANT CELLE-CI, ET JE LES LAISSE ECRITES :
+  1. « le point d'AUTEUR est le mauvais point de reference » ([NOTE-154]) — non : le point SIMULE
+     souffre du meme defaut, mesure dans la fenetre de repos ;
+  2. « la phase large ecarte l'ensemble le plus proche » ([NOTE-157]) — non : `skinmiss` = 0 apres
+     le passage en branch-and-bound exact, et `chestL` lisait toujours 0.0000. Le branch-and-bound
+     RESTE (il supprime une marge inventee et ne peut pas se tromper), mais il n'etait pas la cause.
+
+CORRECTIF : `PHYS-BSURF-SETS` 64 -> 96 (couvre les 92 declares) et `PHYS-BSURF-MAX` 12 -> 48.
+ET SURTOUT, LA TRONCATURE NE PEUT PLUS SE TAIRE : `PHYSBSURF sets=/declared=/max=` est emis par la
+salle et publie par le tableau en `ROOM-SKINPEN-COVERAGE`. Tant que `sets < declared`, le tableau
+REFUSE de publier `ROOM-SKINPEN-REST` sous le nom que la gate lit — un plancher tire d'une surface
+qui n'est pas celle du personnage ne vaut rien, dans un sens comme dans l'autre.
