@@ -2118,6 +2118,11 @@
   (let ((slot (/ sc PHYS-CHAINS))
         (amt  *phys-inject*)
         (worst PHYS-NOCONTACT)
+        ;; `phys-link-pen` incremente `*phys-buried-n*` SANS passer par `*phys-buried-tally*` : la
+        ;; seconde passe de mesure de cette sonde le doublerait sur la fenetre armee, et `PHYSLIM
+        ;; buried=` est publie APRES elle. On le rend a sa valeur d'entree — une sonde qui laisse
+        ;; une trace dans un compteur n'est pas une sonde.
+        (bur0 *phys-buried-n*)
         (pt   (new 'stack-no-clear 'vector))
         (off  (new 'stack-no-clear 'vector))
         (offs (new 'stack-no-clear 'vector))
@@ -2177,6 +2182,7 @@
         (set! (-> *phys-px* scl) (-> *phys-sx* scl))
         (set! (-> *phys-py* scl) (-> *phys-sy* scl))
         (set! (-> *phys-pz* scl) (-> *phys-sz* scl))))
+    (set! *phys-buried-n* bur0)
     (when (and (> base PHYS-NOCONTACT-LIMIT) (> base (-> *phys-pcb* sc)))
       (set! (-> *phys-pcb* sc) base))
     (when (and (> worst PHYS-NOCONTACT-LIMIT) (> worst (-> *phys-pci* sc)))

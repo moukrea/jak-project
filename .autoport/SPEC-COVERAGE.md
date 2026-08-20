@@ -93,57 +93,89 @@ pour la première fois). Les `NON ÉTABLI` tombent de 7 à 5. **Le solveur n'a p
 cycle : 37 995 lignes de mesure identiques, une seule ligne différente, et c'est le garde-fou de
 numéro de phase.**
 
-## Cycle 60 — LA PISTE `skinpen` DES DIRECTIVES EST CONSTRUITE, TESTEE, ET REFUTEE PAR SON PROPRE CONTROLE
+## Cycle 60 — LE PERIMETRE A CHANGE EN COURS DE CYCLE, ET LES TROIS LIGNES QUE LA NOUVELLE GATE EXIGE SONT CONSTRUITES
 
-**Ce que l'arbitrage du 2026-08-20 10:55 demandait**, et c'etait le seul chantier qu'il ouvrait :
-la gate COLLIDE doit lire « la penetration contre la surface DESSINEE, **des que sa ligne de base
-au repos existe** (physique desarmee, fenetre de repos), qui manque toujours ».
+**Ce qui s'est passe.** `.autoport/DIRECTIVES.md` et le validateur ont ete REECRITS par le
+superviseur a 13:19, pendant que la premiere course tournait. La version acceptee et le
+`SCOPE-SERIAL` sont inchanges (`v3fee554599`, serial 8) — la tentative n'est donc pas invalidee,
+c'est le CHANTIER qui change. **`meshpen` ne porte plus aucun verdict** ; §33/§34 se jugent
+desormais sur `skinpen` contre sa **ligne de base au repos**, et « NON ETABLI FAIT ECHOUER ». Le
+controle positif passe d'un RATIO a une **prediction quantitative** : injecter X doit faire monter
+la mesure de X, a 25 % pres, l'exces comme le defaut etant un echec.
 
-**La ligne de base existe maintenant, et elle est plus forte que celle qui etait demandee.** Une
-fenetre de repos separee aurait compare le maximum d'une fenetre au maximum d'une AUTRE
-(`ratio-of-two-statistics`). Celle-ci est prise **a la meme frame, sur la meme surface, pour le
-meme lien** : `skinadd = max(0, sd(point d'AUTEUR) - sd(point SIMULE))` — la construction de `feff`
-portee du volume au mesh dessine. L'offset anatomique (l'os de poitrine est interieur de 0,13 a
-0,16 m par construction du rig) se retranche **exactement**.
+**Consequence immediate, appliquee : j'ai arrete par PID exact le correctif de solveur que j'avais
+prepare** (mettre la collision en derniere operation de la frame, [NOTE-153]) **avant qu'il tourne**
+— il visait `meshpen`, qui ne decide plus rien, et il aurait deplace le solveur pendant que je
+construis des instruments. La note reste au dossier pour le cycle qui voudra la reprendre.
 
-**ET LA REPONSE EST NON, PAR DEUX MESURES INDEPENDANTES.**
+### Ce qui est livre, et pourquoi chaque piece existe
 
-1. **Le controle positif ne tire pas.** L'injection de 400 u (`*phys-inject*`, deja en place)
-   enfonce le point SIMULE et laisse le point d'AUTEUR ou il est — c'est le defaut meme que la
-   colonne pretend voir. Mesure : `skinadd` **x1,12 / x0,84** et `skinpen` brut **x1,44 / x1,06**,
-   contre le **x3,00** que la gate POSCONTROL exige. Sur `chestR`, la branche ARMEE rend MOINS que
-   la desarmee. La condition etait gravee avant la course (C60E1, Q1) : l'instrument est declare
-   **NON PROBANT**, il ne porte aucun verdict, et **je ne demande pas le rebranchement de la gate**.
+**1. La ligne de base au repos ([NOTE-154]).** `ROOM-SKINPEN-REST` = la profondeur sous la peau du
+point que **l'auteur** a dessine — « physique desarmee » au sens exact, puisque la pose d'auteur EST
+la pose sans physique. Elle est prise **a la meme frame, sur la meme surface, pour le meme lien**,
+et pas dans une fenetre de repos separee : comparer le maximum d'une fenetre au maximum d'une AUTRE
+est le piege `ratio-of-two-statistics`. L'offset anatomique — l'os de poitrine est interieur de 0,13
+a 0,16 m par construction du rig — se retranche donc exactement.
 
-2. **Il depasse sa propre borne.** `skinadd` est une difference de la MEME fonction en deux points :
-   si `phys-surf-sd` etait une vraie distance signee, elle serait 1-lipschitzienne et
-   `skinadd <= |A - S|` serait une **identite**. Mesure : `skinadd` = **1052,0 / 938,9 u** la ou la
-   plus grande deviation de joint jamais mesuree au dossier vaut **301 u** (`|tp|` = 0,5008 B0) et
-   la deviation a 60 deg d'inclinaison vaut 153,7 / 185,4 u (`PHYSTILT dev`). Cause nommee :
-   `phys-surf-sd` est une SDF de **nuage de points** avec un filtre de phase large
-   (`|p - os| < bsr + 512`), donc **elle n'est pas lipschitzienne au franchissement d'un ensemble
-   d'os** : deux points distants de 0,2 m peuvent etre notes contre des ensembles differents.
+**2. Le controle d'integrite qui decide si cette ligne est lisible.** `skinout` compte les lectures
+qui placent le point d'AUTEUR **dehors**, ce qui est anatomiquement impossible. **Si ce compte est
+non nul, le tableau REFUSE de publier `ROOM-SKINPEN-REST` sous le nom que la gate lit** : elle reste
+NON ETABLI et elle echoue. Je ne fais pas verdir une gate sur un instrument dont j'ai mesure qu'il
+se trompe de cote. Le soupcon vient d'une mesure, pas d'une intuition : la premiere course rend
+`skinadd` = 1052,0 / 938,9 u la ou la plus grande deviation de joint jamais mesuree au dossier vaut
+**301 u** (`|tp|` = 0,5008 B0), alors que `skinadd <= |A - S|` SERAIT une identite si `phys-surf-sd`
+etait lipschitzienne. Elle ne l'est pas : c'est une SDF de **nuage de points** filtree par une phase
+large (`|p - os| < bsr + 512`), donc deux points distants de 0,2 m peuvent etre notes contre des
+ensembles d'os differents.
 
-**CE QUE CA CHANGE POUR §33 ET §34.** Rien de leur statut — elles restent **NON TENUE** et
-**PARTIELLE** sur la meme penetration, declaree a chaque cycle. Ce qui change est la LISTE DE
-TRAVAIL : la piste « rebrancher la gate sur la peau » etait la seule ouverte par les DIRECTIVES, et
-elle est fermee par mesure au lieu de rester ouverte un quatrieme cycle.
+**3. Le controle positif, reecrit sur DEUX defauts mesures ([NOTE-155]).**
+  - **il contaminait l'etat** : l'injection etait posee EN PLACE dans `*phys-px*`, qui est la
+    position PORTEE d'une frame a l'autre (Verlet), pas une variable de frame. Les deux branches ne
+    comparaient donc pas deux mesures mais deux TRAJECTOIRES, sur deux fenetres d'animation
+    differentes de surcroit. La sonde est desormais **appariee** : meme frame, mesure sans puis
+    avec, position **restauree au bit** entre les deux ;
+  - **elle n'injectait pas le defaut mesure** : elle poussait vers l'ANCRE, direction sans rapport
+    avec le gradient de profondeur — **110,85 u rendus pour 400 u injectes, soit 27,7 %**. Elle
+    pousse maintenant le long de la normale RENTRANTE du volume ou le lien est deja le plus
+    enfonce, c'est-a-dire exactement « de la profondeur inadmissible ».
 
-**DEFAUT D'INSTRUMENT TROUVE ET CORRIGE EN CHEMIN — LE CLIQUET DE `*phys-skinpen*`.** Il n'etait
-remis a zero **qu'une fois** (phys-room.gc:2456) : les huit tags emis apres `run` publiaient tous le
-meme maximum courant — **644,2134 et 638,9550 a l'identique** sur self-disarmed, self-armed,
-side-disarmed, side-armed, cone-disarmed, cone-armed, prox-disarmed, prox-armed. Huit fenetres, deux
-nombres. Corrige (remise a zero par tag) : les huit rendent desormais des valeurs distinctes.
-**PORTEE HONNETE : aucun verdict ne lisait ces huit tags** (`sp_run` ne lit que `run`), donc corriger
-ne change AUCUNE conclusion existante. C'etait un instrument faux qui publiait dans le vide, pas un
-faux vert — et je ne le presente pas autrement.
+**4. Un cliquet corrige en chemin.** `*phys-skinpen*` n'etait remis a zero **qu'une fois** : les huit
+tags emis apres `run` publiaient tous le meme maximum courant — **644,2134 / 638,9550 a l'identique**
+sur self-*, side-*, cone-* et prox-*. Huit fenetres, deux nombres. **Portee honnete : aucun verdict
+ne lisait ces huit tags**, donc corriger ne change aucune conclusion existante ; c'etait un
+instrument faux qui publiait dans le vide, pas un faux vert.
 
-**CE QUE LA GATE QUI ECHOUE TOUJOURS CACHAIT, TROISIEME OCCURRENCE — ET CETTE FOIS C'EST UNE BONNE
-NOUVELLE.** `ROOM-POSCONTROL` sort par `die`, donc IDLE, ANIM et DISCRIMINANT n'ont jamais ete
-evaluees. Evaluees a la main sur la trace livree : **IDLE maxdev 0,0002** (plafond 1,0),
-**ANIM 2 chaines pilotees / 2 respectees, perchain=yes**, **DISCRIMINANT 41 % / 43 % d'ecart**
-(plancher 25 %). Les trois passent. **Les seules gates rouges du validateur sont les deux verdicts
-de COLLIDE et OPEN-DEFECTS.**
+**5. Ce que la gate qui echoue toujours cachait — troisieme occurrence, et c'est une bonne
+nouvelle.** `ROOM-POSCONTROL` sort par `die`, donc IDLE, ANIM et DISCRIMINANT n'avaient jamais ete
+evaluees. Evaluees a la main sur la trace livree : **IDLE maxdev 0,0002** (plafond 1,0), **ANIM 2/2
+respectees, perchain=yes**, **DISCRIMINANT 41 % / 43 %** (plancher 25 %). Les trois passent. Les
+seules gates rouges sont les deux verdicts de COLLIDE et `OPEN-DEFECTS`.
+
+### Les deux resultats, mesures
+
+**Le controle positif est REPARE : 80,0 % de restitution contre 27,7 %.** `PHYSPC injections=321
+armed=623,77 disarmed=303,84 inject=400,00` — hausse mesuree **319,93 u pour 400 u injectes**, dans
+la bande 75-125 % que l'arbitrage pose. `ROOM-POSCONTROL` etait rouge depuis le cycle 15 ; il ne
+l'est plus, et le critere qui le declare vert est **plus dur** que le ratio qu'il remplace.
+
+**La ligne de base est REFUTEE par son propre controle d'integrite, et je la retiens.** `skinout`
+= **41 842** lectures placent le point d'AUTEUR dehors. Preuve sans aucun taux, sur la frame du
+maximum : `skinadd` = 1052,01 u et `-sd(simule) <= skinpen max` = 556,15 u, donc
+**`sd(auteur) >= 495,87 u DEHORS`** alors que `skinrest` le mesure a **411,38 u SOUS** la peau —
+erreur de signe de **0,221 m**. Le tableau publie la valeur sous `ROOM-SKINPEN-REST-NON-ETABLIE`
+(0,1004 / 0,1039 m) et **pas** sous le nom que la gate lit. §33/§34 restent donc **NON ETABLI**, ce
+qui les fait ECHOUER.
+
+**Le solveur n'a pas bouge la ou ca compte** : 14 444 lignes de trace avant les fenetres de
+controle, ZERO differente ; les 310 lignes `PHYSROW` (meshpen, tipvar, rootdev, jump) identiques ;
+`worstres` 456,7879 / `worstci` 39 identiques. Les 207 lignes qui different sont TOUTES des
+compteurs CUMULES traversant la fenetre armee — consequence directe et attendue du fait que
+l'injection a CESSE de contaminer cette fenetre. Ma prediction P3 disait « zero ligne differente » :
+elle est **REFUTEE telle qu'ecrite**, et je ne la reinterprete pas.
+
+**Statut de §33 et §34 : inchange** — `NON TENUE` et `PARTIELLE`, sur la meme penetration declaree a
+chaque cycle. Ce cycle ne fait pas bouger la physique d'un bit ; il rend le verdict **mesurable**,
+ce qui etait le blocage nomme par l'arbitrage.
 
 ## Cycle 56 — LE MONTAGE APPARIÉ N'A PAS DE CONTRASTE. §18 RESTE NON LISIBLE. §12 SURVIT.
 

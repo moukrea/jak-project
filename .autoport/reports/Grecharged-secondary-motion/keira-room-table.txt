@@ -1,7 +1,7 @@
 ==================================================================================================
 KEIRA — SALLE DE TEST SANS JOUEUR : TABLEAU DE MESURE
 genere par .autoport/physics_room_table.py depuis .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
-empreinte de la trace lue : md5 f1a3e84892cbce6a51fa567c456e7cd4 (3812085 octets)
+empreinte de la trace lue : md5 98191ee29a3e5977675cc43239c74456 (3813083 octets)
 contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 7 (ce qui fait foi)
 
 Toutes les longueurs sont en METRES (la trace est en unites de jeu, 4096 u = 1 m). Ce que
@@ -69,10 +69,10 @@ ROOM-CONTACT-VOL: 2 chaine(s) contraintes par au moins un volume
    ROOM-CONTACT-LINK ventile le MEME total par MAILLON. NATURE : un compte de triplets
    (frame, maillon, volume) a res > 0. REPERE : celui du volume teste. ABSENT : aucune
    ligne pour ce maillon — aucun volume ne l'a jamais contraint.
-ROOM-CONTACT-VOL: chain=chestL       total=10097    sphere:lTopStrap2 2089 · neck->chest 1780 · Lshoulder->chest 1723 · Rshoulder->chest 1669 · sphere:lBotStrap 798 · sphere:lBotStrap2 793
-ROOM-CONTACT-LINK: chain=chestL       link0=42       link1=10055    total=10097
-ROOM-CONTACT-VOL: chain=chestR       total=9234     neck->chest 1773 · Rshoulder->chest 1712 · Lshoulder->chest 1563 · sphere:rTopStrap2 1415 · sphere:rBotStrap 1058 · chest->main 751
-ROOM-CONTACT-LINK: chain=chestR       link0=150      link1=9084     total=9234
+ROOM-CONTACT-VOL: chain=chestL       total=9592     sphere:lTopStrap2 1980 · neck->chest 1704 · Lshoulder->chest 1654 · Rshoulder->chest 1591 · sphere:lBotStrap 798 · sphere:lBotStrap2 726
+ROOM-CONTACT-LINK: chain=chestL       link0=1        link1=9591     total=9592
+ROOM-CONTACT-VOL: chain=chestR       total=8684     neck->chest 1691 · Rshoulder->chest 1625 · Lshoulder->chest 1484 · sphere:rTopStrap2 1312 · sphere:rBotStrap 1048 · chest->main 699
+ROOM-CONTACT-LINK: chain=chestR       link0=89       link1=8595     total=8684
 
 ROOM-PAIRDOM: SPEC 33 — de combien chaque paire a-t-elle MANQUE le contact ?
    `dm` negatif = jamais de recouvrement, et |dm| est l'ecart minimal ATTEINT entre les
@@ -80,7 +80,7 @@ ROOM-PAIRDOM: SPEC 33 — de combien chaque paire a-t-elle MANQUE le contact ?
    eu contact ; negative, c'est ce qu'il aurait fallu gagner EN PLUS pour en avoir un.
 ROOM-PAIRDOM: chain=chestL       vol=Lshoulder->chest   dm=   1023.86  fl=  431.84  marge=   +592.02  (CONTACT)
 ROOM-PAIRDOM: chain=chestL       vol=Rshoulder->chest   dm=    852.54  fl=  180.60  marge=   +671.94  (CONTACT)
-ROOM-PAIRDOM: chain=chestL       vol=neck->chest        dm=    820.10  fl=  180.60  marge=   +639.50  (CONTACT)
+ROOM-PAIRDOM: chain=chestL       vol=neck->chest        dm=    812.62  fl=  180.60  marge=   +632.02  (CONTACT)
 ROOM-PAIRDOM: chain=chestL       vol=Relbow->Rshoulder  dm=    703.09  fl=    0.00  marge=   +703.09  (CONTACT)
 ROOM-PAIRDOM: chain=chestL       vol=Lelbow->Lshoulder  dm=    649.11  fl=  297.32  marge=   +351.78  (CONTACT)
 ROOM-PAIRDOM: chain=chestL       vol=chest->main        dm=    577.64  fl=  180.60  marge=   +397.04  (CONTACT)
@@ -88,8 +88,8 @@ ROOM-PAIRDOM: chain=chestL       vol=sphere:rBoob       dm=    561.27  fl=  276.
 ROOM-PAIRDOM: chain=chestL       vol=sphere:lTopStrap2  dm=    493.14  fl=    0.00  marge=   +493.14  (CONTACT)
 ROOM-PAIRDOM: chain=chestL       vol=head->neck         dm=    425.15  fl=    0.00  marge=   +425.15  (CONTACT)
 ROOM-PAIRDOM: chain=chestL       vol=Lhand->Lelbow      dm=    420.64  fl=  308.68  marge=   +111.95  (CONTACT)
-ROOM-PAIRDOM: chain=chestL       vol=sphere:gogglesMid  dm=    331.12  fl=    0.00  marge=   +331.12  (CONTACT)
 ROOM-PAIRDOM: chain=chestL       vol=sphere:rBooc       dm=    323.63  fl=  338.44  marge=    -14.81  (jamais atteint : 0.0036 m manquants)
+ROOM-PAIRDOM: chain=chestL       vol=sphere:gogglesMid  dm=    217.64  fl=    0.00  marge=   +217.64  (CONTACT)
 ROOM-PAIRDOM: chain=chestL       vol=Rhand->Relbow      dm=    209.66  fl=    0.00  marge=   +209.66  (CONTACT)
 ROOM-PAIRDOM: chain=chestL       vol=sphere:lBotStrap   dm=    175.71  fl=    0.00  marge=   +175.71  (CONTACT)
 ROOM-PAIRDOM: chain=chestL       vol=sphere:rTopStrap2  dm=     46.05  fl=    0.00  marge=    +46.05  (CONTACT)
@@ -132,17 +132,17 @@ ROOM-PAIRDOM: chain=chestL       vol=sphere:Lanklestrap dm=  -3953.64  fl=    0.
 ROOM-PAIRDOM: chain=chestL       vol=sphere:Ranklestrap dm=  -4225.70  fl=    0.00  marge=  -4225.70  (jamais atteint : 1.0317 m manquants)
 ROOM-PAIRDOM: chain=chestL       vol=sphere:RtoeStrap   dm=  -4761.56  fl=    0.00  marge=  -4761.56  (jamais atteint : 1.1625 m manquants)
 ROOM-PAIRDOM: chain=chestL       vol=sphere:LtoeStrap   dm=  -4819.60  fl=    0.00  marge=  -4819.60  (jamais atteint : 1.1767 m manquants)
-ROOM-PAIRDOM: chain=chestR       vol=Lshoulder->chest   dm=   1003.79  fl=  180.60  marge=   +823.19  (CONTACT)
 ROOM-PAIRDOM: chain=chestR       vol=Rshoulder->chest   dm=    949.74  fl=  432.26  marge=   +517.48  (CONTACT)
-ROOM-PAIRDOM: chain=chestR       vol=neck->chest        dm=    824.99  fl=  185.22  marge=   +639.77  (CONTACT)
+ROOM-PAIRDOM: chain=chestR       vol=Lshoulder->chest   dm=    921.25  fl=  180.60  marge=   +740.65  (CONTACT)
+ROOM-PAIRDOM: chain=chestR       vol=neck->chest        dm=    777.77  fl=  185.22  marge=   +592.55  (CONTACT)
 ROOM-PAIRDOM: chain=chestR       vol=Relbow->Rshoulder  dm=    631.92  fl=  376.12  marge=   +255.80  (CONTACT)
 ROOM-PAIRDOM: chain=chestR       vol=sphere:lBooc       dm=    615.87  fl=  677.46  marge=    -61.59  (jamais atteint : 0.0150 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=sphere:lBoob       dm=    572.19  fl=  495.50  marge=    +76.69  (CONTACT)
 ROOM-PAIRDOM: chain=chestR       vol=chest->main        dm=    523.83  fl=  180.60  marge=   +343.23  (CONTACT)
 ROOM-PAIRDOM: chain=chestR       vol=sphere:rTopStrap2  dm=    486.48  fl=   24.92  marge=   +461.56  (CONTACT)
-ROOM-PAIRDOM: chain=chestR       vol=sphere:gogglesMid  dm=    450.91  fl=    0.00  marge=   +450.91  (CONTACT)
 ROOM-PAIRDOM: chain=chestR       vol=Rhand->Relbow      dm=    450.45  fl=  383.47  marge=    +66.98  (CONTACT)
 ROOM-PAIRDOM: chain=chestR       vol=head->neck         dm=    441.07  fl=    0.00  marge=   +441.07  (CONTACT)
+ROOM-PAIRDOM: chain=chestR       vol=sphere:gogglesMid  dm=    374.70  fl=    0.00  marge=   +374.70  (CONTACT)
 ROOM-PAIRDOM: chain=chestR       vol=sphere:rBotStrap   dm=    221.27  fl=    0.00  marge=   +221.27  (CONTACT)
 ROOM-PAIRDOM: chain=chestR       vol=sphere:rBotStrap2  dm=    203.80  fl=    0.00  marge=   +203.80  (CONTACT)
 ROOM-PAIRDOM: chain=chestR       vol=Lelbow->Lshoulder  dm=    191.17  fl=    0.00  marge=   +191.17  (CONTACT)
@@ -155,32 +155,32 @@ ROOM-PAIRDOM: chain=chestR       vol=sphere:lBotStrap2  dm=   -118.10  fl=    0.
 ROOM-PAIRDOM: chain=chestR       vol=Rmidhaird->Rmidhairc dm=   -220.68  fl=    0.00  marge=   -220.68  (jamais atteint : 0.0539 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=Rthigh->hips       dm=   -239.34  fl=    0.00  marge=   -239.34  (jamais atteint : 0.0584 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=Lthigh->hips       dm=   -242.34  fl=    0.00  marge=   -242.34  (jamais atteint : 0.0592 m manquants)
-ROOM-PAIRDOM: chain=chestR       vol=Lmidhaird->Lmidhairc dm=   -384.99  fl=    0.00  marge=   -384.99  (jamais atteint : 0.0940 m manquants)
-ROOM-PAIRDOM: chain=chestR       vol=Lbangd->Lbangc     dm=   -386.39  fl=    0.00  marge=   -386.39  (jamais atteint : 0.0943 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=Lmidhaird->Lmidhairc dm=   -470.14  fl=    0.00  marge=   -470.14  (jamais atteint : 0.1148 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=Rbangd->Rbangc     dm=   -474.88  fl=    0.00  marge=   -474.88  (jamais atteint : 0.1159 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=Rmidhairc->Rmidhairb dm=   -477.75  fl=    0.00  marge=   -477.75  (jamais atteint : 0.1166 m manquants)
-ROOM-PAIRDOM: chain=chestR       vol=Lmidhairc->Lmidhairb dm=   -584.10  fl=    0.00  marge=   -584.10  (jamais atteint : 0.1426 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=Lbangd->Lbangc     dm=   -483.56  fl=    0.00  marge=   -483.56  (jamais atteint : 0.1181 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=Lmidhairc->Lmidhairb dm=   -696.58  fl=    0.00  marge=   -696.58  (jamais atteint : 0.1701 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=Rknee->Rthigh      dm=   -741.42  fl=    0.00  marge=   -741.42  (jamais atteint : 0.1810 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=rEarb->rEara       dm=   -854.00  fl=    0.00  marge=   -854.00  (jamais atteint : 0.2085 m manquants)
-ROOM-PAIRDOM: chain=chestR       vol=lEarb->lEara       dm=   -860.05  fl=    0.00  marge=   -860.05  (jamais atteint : 0.2100 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=lEarb->lEara       dm=   -953.18  fl=    0.00  marge=   -953.18  (jamais atteint : 0.2327 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=sphere:rEara       dm=   -986.08  fl=    0.00  marge=   -986.08  (jamais atteint : 0.2407 m manquants)
-ROOM-PAIRDOM: chain=chestR       vol=Lbangc->Lbangb     dm=  -1012.97  fl=    0.00  marge=  -1012.97  (jamais atteint : 0.2473 m manquants)
-ROOM-PAIRDOM: chain=chestR       vol=Lmidhairb->Lmidhaira dm=  -1029.45  fl=    0.00  marge=  -1029.45  (jamais atteint : 0.2513 m manquants)
-ROOM-PAIRDOM: chain=chestR       vol=sphere:lEara       dm=  -1074.05  fl=    0.00  marge=  -1074.05  (jamais atteint : 0.2622 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=Lbangc->Lbangb     dm=  -1101.10  fl=    0.00  marge=  -1101.10  (jamais atteint : 0.2688 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=Rbangc->Rbangb     dm=  -1102.85  fl=    0.00  marge=  -1102.85  (jamais atteint : 0.2693 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=Rmidhairb->Rmidhaira dm=  -1103.72  fl=    0.00  marge=  -1103.72  (jamais atteint : 0.2695 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=Lmidhairb->Lmidhaira dm=  -1134.53  fl=    0.00  marge=  -1134.53  (jamais atteint : 0.2770 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=sphere:lEara       dm=  -1174.90  fl=    0.00  marge=  -1174.90  (jamais atteint : 0.2868 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=Lknee->Lthigh      dm=  -1193.42  fl=    0.00  marge=  -1193.42  (jamais atteint : 0.2914 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=Rankle->Rknee      dm=  -1484.76  fl=    0.00  marge=  -1484.76  (jamais atteint : 0.3625 m manquants)
-ROOM-PAIRDOM: chain=chestR       vol=sphere:Lmidhaira   dm=  -1498.85  fl=    0.00  marge=  -1498.85  (jamais atteint : 0.3659 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=sphere:lEarb       dm=  -1519.08  fl=    0.00  marge=  -1519.08  (jamais atteint : 0.3709 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=sphere:Lmidhaira   dm=  -1591.80  fl=    0.00  marge=  -1591.80  (jamais atteint : 0.3886 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=sphere:Rmidhaira   dm=  -1594.46  fl=    0.00  marge=  -1594.46  (jamais atteint : 0.3893 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=sphere:rEarb       dm=  -1707.28  fl=    0.00  marge=  -1707.28  (jamais atteint : 0.4168 m manquants)
-ROOM-PAIRDOM: chain=chestR       vol=Lbangb->Lbanga     dm=  -1725.46  fl=    0.00  marge=  -1725.46  (jamais atteint : 0.4213 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=Rbangb->Rbanga     dm=  -1748.83  fl=    0.00  marge=  -1748.83  (jamais atteint : 0.4270 m manquants)
-ROOM-PAIRDOM: chain=chestR       vol=sphere:Lbanga      dm=  -1824.12  fl=    0.00  marge=  -1824.12  (jamais atteint : 0.4453 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=Lbangb->Lbanga     dm=  -1758.28  fl=    0.00  marge=  -1758.28  (jamais atteint : 0.4293 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=sphere:rKneeFlap   dm=  -1855.23  fl=    0.00  marge=  -1855.23  (jamais atteint : 0.4529 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=Lankle->Lknee      dm=  -1868.57  fl=    0.00  marge=  -1868.57  (jamais atteint : 0.4562 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=sphere:Rbanga      dm=  -1892.40  fl=    0.00  marge=  -1892.40  (jamais atteint : 0.4620 m manquants)
+ROOM-PAIRDOM: chain=chestR       vol=sphere:Lbanga      dm=  -1901.70  fl=    0.00  marge=  -1901.70  (jamais atteint : 0.4643 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=sphere:lKneeFlap   dm=  -2094.34  fl=    0.00  marge=  -2094.34  (jamais atteint : 0.5113 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=sphere:Ranklestrap dm=  -3821.21  fl=    0.00  marge=  -3821.21  (jamais atteint : 0.9329 m manquants)
 ROOM-PAIRDOM: chain=chestR       vol=sphere:Lanklestrap dm=  -4183.21  fl=    0.00  marge=  -4183.21  (jamais atteint : 1.0213 m manquants)
@@ -210,11 +210,17 @@ ROOM-INVERSIONS: residual=0 corrected=0 degenerate=0 control_residual=178 reseat
    fait passer le residu de 0 a 178.
    `reseated` = liens dont la pose du modele etait hors de portee de leur porteur et que le
    moteur a replaces sur lui (une chaine se REPARE, elle ne se retire pas).
-ROOM-POSCONTROL: injections=360 armed=0.0922 disarmed=0.0651
+ROOM-POSCONTROL: injections=321 armed=0.1523 disarmed=0.0742
+ROOM-POSCONTROL-INJECT: 0.097656   (= 400.0 u ; MEME UNITE que armed/disarmed, des METRES)
+   restitution : 0.0781 m mesures pour 0.0977 m injectes = 80.0 %  (bande exigee 75-125 %)
+   NATURE : une difference de deux PROFONDEURS residuelles prises sur LA MEME frame, la
+   position etant restauree au bit entre les deux. Ce n'est plus un rapport a une ligne
+   de base qui bouge : c'est une prediction quantitative, et elle echoue dans les DEUX
+   sens. LECTURE HORS DEFAUT : 100 %%.
    le defaut injecte pousse chaque lien libre de 400 u (~10 cm) vers l'interieur du corps
-   APRES resolution ; le compteur de penetration doit MONTER. 360 poussees reelles.
+   APRES resolution ; le compteur de penetration doit MONTER. 321 poussees reelles.
    residus SIGNES bruts des deux branches (negatif = marge restante avant de traverser) :
-   arme 0.0922 m, desarme 0.0651 m.
+   arme 0.1523 m, desarme 0.0742 m.
 ROOM-IDLE: maxdev=0.0002 hanging=0 measured=2
    SPEC 4 : au repos, ce qui n'est pas cense pendre retrouve la pose du modele. Les 0
    chaines a hang>0 (ce qui pend) sont comptees a part : 
@@ -639,9 +645,9 @@ worst chain=chestR       tipvar=0.1775    anim=assistant-lavatube-start-idle    
    en viennent : ZERO exige, et la branche ARMEE leve l'exclusion pour prouver que le
    compteur voit quelque chose.
 ROOM-SELFCOL: run=0 disarmed=0 armed=0
-ROOM-SIDE-CONTROL: armed=3 disarmed=1
+ROOM-SIDE-CONTROL: armed=3 disarmed=2
 ROOM-SIDE-CONTROL: chain=chestR       armed=2 disarmed=1
-ROOM-SIDE-CONTROL: chain=chestL       armed=1 disarmed=0
+ROOM-SIDE-CONTROL: chain=chestL       armed=1 disarmed=1
 ROOM-SIDE: chains=1/2 crossing=5
 ROOM-SIDE: chain=chestR       inside_frames=5
    ATTENTION : le controle positif n'a PAS fait monter le compteur — il ne mesure rien,
@@ -1288,12 +1294,24 @@ ROOM-SPEC15-CROSS: VERDICT §15 sur les fenetres de VOL (r=2, r=5) : 3 des 4 fen
    non nulle, jusqu'a 0.7578 m. La phrase decrivait un faux zero, pas une mesure.
    NATURE : profondeur en metres, positive = SOUS la peau. REPERE : le monde, frame
    ecrite. LECTURE HORS DEFAUT : 0. tests=0 veut dire « pas regarde », jamais « rien ».
-ROOM-SKINPEN: chain=chestL       skinpen=0.1358 m   meshpen=0.1115 m
-ROOM-SKINPEN: chain=chestR       skinpen=0.1203 m   meshpen=0.1019 m
+ROOM-SKINPEN: chestL 0.1358
+ROOM-SKINPEN-DETAIL: chain=chestL       skinpen=0.1358 m   meshpen=0.1115 m   repos=0.1004 m
+ROOM-SKINPEN: chestR 0.1203
+ROOM-SKINPEN-DETAIL: chain=chestR       skinpen=0.1203 m   meshpen=0.1019 m   repos=0.1039 m
+ROOM-SKINPEN-REST-NON-ETABLIE: 0.1004
+   41842 lecture(s) placent le point d'AUTEUR **DEHORS**, ce qui est anatomiquement
+   impossible : l'os de poitrine est interieur par construction du rig. La SDF
+   de `phys-surf-sd` est un NUAGE DE POINTS filtre par une phase large
+   (`|p - os| < bsr + 512`) : elle n'est pas lipschitzienne au franchissement
+   d'un ensemble d'os. Ce plancher est publie MAIS PAS sous le nom que la
+   gate lit : elle restera NON ETABLI, ce qui la fait ECHOUER, et c'est la
+   lecture correcte. Je ne fais pas verdir une gate sur un instrument faux.
+ROOM-SKINPEN-REST-DETAIL: chestL 0.1004
+ROOM-SKINPEN-REST-DETAIL: chestR 0.1039
 ROOM-SKINPEN-TESTS: 20147660 echantillons de surface compares sur la fenetre
 ROOM-SKINADD: chain=chestL       course=0.2568     pire fenetre=0.2568   
 ROOM-SKINADD: chain=chestR       course=0.2292     pire fenetre=0.2245   
-ROOM-SKINADD-CONTROL: armed=0.2032 disarmed=0.1945   (injection de 400 u vers l'ancre, le point d'auteur ne bouge pas)
+ROOM-SKINADD-CONTROL: armed=0.1901 disarmed=0.1945   (injection de 400 u vers l'ancre, le point d'auteur ne bouge pas)
    LE CONTROLE N'A PAS TIRE (il faut arme >= 3x desarme). L'instrument est
    declare NON PROBANT : soit il est tautologique (la peau suit l'os qui la
    pilote), soit l'injection ne l'exerce pas. Aucun verdict ne s'en tire,
