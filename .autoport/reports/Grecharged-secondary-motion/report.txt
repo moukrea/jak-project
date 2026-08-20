@@ -1,4 +1,51 @@
 RAPPORT DE CYCLE 58 — Grecharged-secondary-motion
+================================================================================================
+11. LE RESIDU EST IDENTIFIE : C'EST LA PART DE PROFONDEUR INATTEIGNABLE A LONGUEUR CONSTANTE.
+     TROIS MESURES INDEPENDANTES CONCORDENT, ET DEUX ETAIENT DEJA DANS LA TRACE LIVREE.
+================================================================================================
+Trouve APRES le retrait, en relisant la trace de controle : la salle exerce DEJA une ablation de la
+contrainte de longueur (`phys-len-off-set!`, axe `nolen` des fenetres `PHYSAXRES`), et personne ne
+l'avait rapprochee de COLLIDE.
+
+  chaine  fenetre   longueur ARMEE          longueur DESARMEE
+  chestL  ax=1      res = 30.1052 (ci=44)   res =  0.0000        -100 %
+  chestL  ax=2      res = 70.4242 (ci=2)    res =  0.8487        -98.8 %
+  chestL  ax=0      res =  0.0000           res =  0.4425        (part d'un zero, non lisible)
+  chestR  ax=0,1,2  res =  0.0000           res =  0.0000        DOMAINE VIDE — ces zeros ne
+                                                                 mesurent RIEN et je ne les compte pas.
+
+**Sur les deux seules fenetres au domaine non vide, desarmer la contrainte de longueur retire 100 %
+et 98,8 % du residu.** C'est une ABLATION, pas une correlation : le meme solveur, la meme course, un
+seul terme retire.
+
+CE QUE CA FERME, EN LE CROISANT AVEC LE CYCLE 47 :
+  1. (ci-dessus) sans la contrainte de longueur, le residu disparait.
+  2. (cycle 47) AVEC elle, 84,2 % de la profondeur vit dans un regime ou AUCUN deplacement a
+     longueur constante ne sort du volume — `capn/n` = 67,0 % de poussees a calotte VIDE.
+  3. (cycle 47) laisser la longueur CEDER assez demanderait `capgive = 4,04`, soit +404 % du rayon,
+     contre le « Absolute stretch clamp: 25% » de sa §22 : **inadmissible d'un facteur 16.**
+Les trois se recoupent au lieu de se contredire : (1) et (2) sont la meme chose vue des deux cotes,
+et (3) chiffre le prix qu'il faudrait payer.
+
+**DONC : `meshpen` EST LA PART DE LA PROFONDEUR DE COLLISION QUE LA §22 ELLE-MEME INTERDIT DE
+RETIRER.** Le solveur n'a pas un defaut de convergence, d'ordre, de priorite ou de reponse — il a un
+domaine admissible vide sur ces liens, a cette geometrie. Cela explique d'un coup pourquoi CINQ
+familles de correctifs ont echoue en mesure : redimensionnement (inerte par identite, section 2),
+poussee tangentielle / calotte (cycle 47, meshpen MONTE), priorite de volume (retiree, fait
+traverser), cession de longueur (refutee avant d'etre ecrite), et lecture du point d'apex (ce cycle,
+section 8).
+
+**LE LEVIER N'EST DONC PAS LE SOLVEUR, C'EST LA GEOMETRIE**, et c'est la premiere fois que le dossier
+peut le dire avec une ablation au lieu d'une intuition : il faut que la pose d'auteur et l'excursion
+que la spec autorise cessent d'etre en conflit sur le meme volume — placement/rayon des volumes de
+poitrine (perimes depuis le cycle 57, section 6b), ou longueur de la chaine de chair. Ce n'est pas un
+cycle de solveur, et je ne l'ouvre pas a la volee en fin de cycle : ce serait exactement le correctif
+a mi-chemin que le cycle 47 s'est reproche.
+
+RESERVE HONNETE : ces deux fenetres portent des residus de 30 et 70 u, la ou la course en porte 457.
+L'ablation etablit le MECANISME sur son domaine ; elle ne prouve pas que 100 % des 457 u de la course
+ont la meme cause. Le dire autrement serait extrapoler d'un domaine etroit vers le domaine entier.
+
 DIRECTIVES v3fee554599
 
 BREAST-PENETRATION: chestL meshpen=0.1115 m  skinpen=0.1358 m   |   chestR meshpen=0.1019 m  skinpen=0.1203 m
@@ -302,5 +349,52 @@ CE QUE JE REMONTE, SANS TOUCHER A LA GATE (regle 5) :
       premier. Une ligne qui publierait les deux cote a cote fermerait ce trou.
 NON MESURE : l'effet sur l'appareil (Redmi / Honor). Ce cycle est x86 seul — il n'y a rien a
   livrer, l'etat du moteur est bit-identique a celui d'avant la tentative.
+
+================================================================================================
+11. LE RESIDU EST IDENTIFIE : C'EST LA PART DE PROFONDEUR INATTEIGNABLE A LONGUEUR CONSTANTE.
+     TROIS MESURES INDEPENDANTES CONCORDENT, ET DEUX ETAIENT DEJA DANS LA TRACE LIVREE.
+================================================================================================
+Trouve APRES le retrait, en relisant la trace de controle : la salle exerce DEJA une ablation de la
+contrainte de longueur (`phys-len-off-set!`, axe `nolen` des fenetres `PHYSAXRES`), et personne ne
+l'avait rapprochee de COLLIDE.
+
+  chaine  fenetre   longueur ARMEE          longueur DESARMEE
+  chestL  ax=1      res = 30.1052 (ci=44)   res =  0.0000        -100 %
+  chestL  ax=2      res = 70.4242 (ci=2)    res =  0.8487        -98.8 %
+  chestL  ax=0      res =  0.0000           res =  0.4425        (part d'un zero, non lisible)
+  chestR  ax=0,1,2  res =  0.0000           res =  0.0000        DOMAINE VIDE — ces zeros ne
+                                                                 mesurent RIEN et je ne les compte pas.
+
+**Sur les deux seules fenetres au domaine non vide, desarmer la contrainte de longueur retire 100 %
+et 98,8 % du residu.** C'est une ABLATION, pas une correlation : le meme solveur, la meme course, un
+seul terme retire.
+
+CE QUE CA FERME, EN LE CROISANT AVEC LE CYCLE 47 :
+  1. (ci-dessus) sans la contrainte de longueur, le residu disparait.
+  2. (cycle 47) AVEC elle, 84,2 % de la profondeur vit dans un regime ou AUCUN deplacement a
+     longueur constante ne sort du volume — `capn/n` = 67,0 % de poussees a calotte VIDE.
+  3. (cycle 47) laisser la longueur CEDER assez demanderait `capgive = 4,04`, soit +404 % du rayon,
+     contre le « Absolute stretch clamp: 25% » de sa §22 : **inadmissible d'un facteur 16.**
+Les trois se recoupent au lieu de se contredire : (1) et (2) sont la meme chose vue des deux cotes,
+et (3) chiffre le prix qu'il faudrait payer.
+
+**DONC : `meshpen` EST LA PART DE LA PROFONDEUR DE COLLISION QUE LA §22 ELLE-MEME INTERDIT DE
+RETIRER.** Le solveur n'a pas un defaut de convergence, d'ordre, de priorite ou de reponse — il a un
+domaine admissible vide sur ces liens, a cette geometrie. Cela explique d'un coup pourquoi CINQ
+familles de correctifs ont echoue en mesure : redimensionnement (inerte par identite, section 2),
+poussee tangentielle / calotte (cycle 47, meshpen MONTE), priorite de volume (retiree, fait
+traverser), cession de longueur (refutee avant d'etre ecrite), et lecture du point d'apex (ce cycle,
+section 8).
+
+**LE LEVIER N'EST DONC PAS LE SOLVEUR, C'EST LA GEOMETRIE**, et c'est la premiere fois que le dossier
+peut le dire avec une ablation au lieu d'une intuition : il faut que la pose d'auteur et l'excursion
+que la spec autorise cessent d'etre en conflit sur le meme volume — placement/rayon des volumes de
+poitrine (perimes depuis le cycle 57, section 6b), ou longueur de la chaine de chair. Ce n'est pas un
+cycle de solveur, et je ne l'ouvre pas a la volee en fin de cycle : ce serait exactement le correctif
+a mi-chemin que le cycle 47 s'est reproche.
+
+RESERVE HONNETE : ces deux fenetres portent des residus de 30 et 70 u, la ou la course en porte 457.
+L'ablation etablit le MECANISME sur son domaine ; elle ne prouve pas que 100 % des 457 u de la course
+ont la meme cause. Le dire autrement serait extrapoler d'un domaine etroit vers le domaine entier.
 
 DIRECTIVES v3fee554599
