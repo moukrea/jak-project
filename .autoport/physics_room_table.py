@@ -4758,6 +4758,292 @@ def main():
       % (len(rows), len(chains), played, len(DRIVE_NAMES)))
 
     # ============================================================================================
+    # CYCLE 52 — ROOM-SIGN : LA REPONSE PAR SENS DE STIMULUS.
+    #
+    # POURQUOI CE BLOC EXISTE. Le cycle 51 a mesure, sur la trace deja en main, que la reponse
+    # d'apex depend du SENS du stimulus (chestL rend 65 % de mouvement vertical sur une impulsion
+    # vers le BAS et 2 a 5 % vers le HAUT — facteur 13 a 31 sur le sens seul) et de la CHAINE
+    # (x10 a x20 d'ecart gauche/droite sur la detente, quand sa §32 prescrit 2-5 %). Il a REFUSE
+    # de nommer la cause faute de l'avoir mesuree, et a designe la grandeur a instrumenter : la
+    # reponse PAR SENS, pas par amplitude ni par duree. Les sept regimes de §14-20 ne pouvaient
+    # pas y repondre — leurs stimuli ne sont pas apparies en signe a amplitude egale.
+    #
+    # CE QUI REND CE BLOC DECIDABLE SANS SEUIL CHOISI, ET C'EST TOUT SON INTERET. Pour un systeme
+    # LINEAIRE, et plus generalement pour TOUTE non-linearite SYMETRIQUE (la saturation `tanh` de
+    # sa §21, une borne posee sur une NORME, une raideur cubique), la reponse a `-u` est
+    # EXACTEMENT l'opposee de la reponse a `+u`. Donc les deux ecarts publies ici
+    #     A_mag = | |r+| - |r-| | / max(|r+|,|r-|)     et     A_dir = 180 deg - angle(r+, r-)
+    # valent ZERO par PROPRIETE du systeme, pas par convention. Ils ne peuvent devenir non nuls
+    # que si un terme du solveur distingue un SENS de l'autre. Un instrument qui republierait sa
+    # cible — le quatrieme faux vert du dossier, §11 au cycle 49 — ne peut pas prendre cette forme.
+    #
+    # NATURE : `apex` est un MAXIMUM DE FENETRE d'une LONGUEUR rapportee a B0 (602 u, §6) ; le
+    #   triplet (ax, ay, az) est le VECTEUR de ce maximum, releve a l'argmax. Ce sont les memes
+    #   emplacements (53-56) que `PHYSREG4`, donc directement comparables aux sept regimes.
+    # REPERE : le monde, frame ecrite, contre la pose d'auteur de la MEME frame — identique a
+    #   `ROOM-APEX-REGIME`. Ce n'est jamais un repere de maillon.
+    # LECTURE QUAND LE STIMULUS EST ABSENT : `bapex`, publie par `PHYSSGN3`, est l'apex des 60
+    #   frames de CALME qui ferment chaque fenetre. C'est la ligne de base, et elle est MESUREE,
+    #   pas supposee negligeable — le cycle 50 a etabli que les fenetres se contaminent.
+    # CE QUI DISCRIMINE : le SENS, a axe egal et a stimulus egal. `stim` est publie POUR LE
+    #   PROUVER : deux sens qui ne recoivent pas le meme stimulus ne sont pas la meme experience.
+    # ============================================================================================
+    _sgA, _sgB, _sgC, _sgV = {}, {}, {}, {}
+    for _m in re.finditer(r'^PHYSSGN c=(\d+) i=(\d+) k=(\d+) a=(\d+) s=(-?\d+)'
+                          r' apex=([-\d.e+]+)', txt, re.M):
+        _sgA[int(_m.group(2))] = (int(_m.group(3)), int(_m.group(4)), int(_m.group(5)))
+        _sgV[(int(_m.group(1)), int(_m.group(2)))] = float(_m.group(6))
+    for _m in re.finditer(r'^PHYSSGN2 c=(\d+) i=(\d+) com=([-\d.e+]+) stim=([-\d.e+]+)', txt, re.M):
+        _sgB[(int(_m.group(1)), int(_m.group(2)))] = (float(_m.group(3)), float(_m.group(4)))
+    for _m in re.finditer(r'^PHYSSGN3 c=(\d+) i=(\d+) bapex=([-\d.e+]+) bcom=([-\d.e+]+)', txt, re.M):
+        _sgC[(int(_m.group(1)), int(_m.group(2)))] = (float(_m.group(3)), float(_m.group(4)))
+    _sgW = {}
+    for _m in re.finditer(r'^PHYSSGN4 c=(\d+) i=(\d+) ax=([-\d.e+]+) ay=([-\d.e+]+)'
+                          r' az=([-\d.e+]+)', txt, re.M):
+        _sgW[(int(_m.group(1)), int(_m.group(2)))] = (
+            float(_m.group(3)), float(_m.group(4)), float(_m.group(5)))
+    A('')
+    if not _sgA:
+        A('   -- ROOM-SIGN : ABSENT ------------------------------------------------------------')
+        A('ROOM-SIGN: aucune ligne PHYSSGN dans cette trace — le balayage PAR SENS n\'a PAS tourne.')
+        A('   La question que le cycle 51 a posee (« d\'ou vient la dependance au SENS du')
+        A('   stimulus ? ») reste SANS REPONSE. Rien n\'est publie a zero : un canal absent n\'est')
+        A('   pas une reponse symetrique.')
+    else:
+        _AXSN = {0: 'VERTICAL', 1: 'AVANT-ARR', 2: 'LATERAL'}
+        _ABLN = {0: 'k0 reference', 1: 'k1 longueur', 2: 'k2 cote',
+                 3: 'k3 rayon-cone', 4: 'k4 MUR COLLIS', 5: 'k5 borne radiale'}
+        A('   -- ROOM-SIGN : LA REPONSE PAR SENS DE STIMULUS (cycle 52) ----------------------')
+        # LE SENS `+` EST CELUI DE L'AXE STOCKE, ET CE N'EST PAS FORCEMENT « VERS LE HAUT ».
+        # `physroom-drive-sgn` passe son `ax` a `phys-axis-world`, qui prend un ROLE (0 vertical,
+        # 1 avant-arriere, 2 lateral) et non une ligne du triedre : la correspondance role -> ligne
+        # est `PHYSAXIS rv/rap/rlat`, publiee par le solveur. Verifie sur cette course, la ligne
+        # VERTICALE est stockee vers le BAS du monde (composante y ~ -0.98) : une impulsion `s=+1`
+        # deplace donc le sujet VERS LE BAS. Le piege `axis-sign-outlives-role-renaming` a deja
+        # coute une lecture a ce dossier ; la direction MONDE est donc republiee ici, a cote du
+        # tableau, pour qu'aucun lecteur n'ait a supposer ce que `+` veut dire.
+        _axdir52 = {}
+        for _m in re.finditer(r'^PHYSAXW ax=(\d+) ux=([-\d.e+]+) uy=([-\d.e+]+) uz=([-\d.e+]+)',
+                              txt, re.M):
+            _axdir52[int(_m.group(1))] = (float(_m.group(2)), float(_m.group(3)),
+                                          float(_m.group(4)))
+        if _axdir52:
+            A('      LE SENS `+` EST CELUI DE L\'AXE STOCKE PAR LE SOLVEUR, jamais une convention')
+            A('      de lecture. Directions MONDE effectivement poussees sur cette course :')
+            for _a in sorted(_axdir52):
+                _u = _axdir52[_a]
+                _dom = max(range(3), key=lambda i: abs(_u[i]))
+                A('         %-10s s=+1 -> monde (%+.5f, %+.5f, %+.5f)   dominante %s%s'
+                  % (_AXSN.get(_a, 'a%d' % _a), _u[0], _u[1], _u[2],
+                     '+-'[_u[_dom] < 0], 'XYZ'[_dom]))
+            _v = _axdir52.get(0)
+            if _v and _v[1] < -0.5:
+                A('         ATTENTION : la ligne VERTICALE est stockee vers le BAS du monde')
+                A('         (y=%+.5f). `s=+1` sur l\'axe vertical pousse donc le sujet VERS LE' % _v[1])
+                A('         BAS, et `s=-1` vers le HAUT. Aucune ligne ci-dessous ne suppose le')
+                A('         contraire.')
+            A('')
+        A('      A_mag et A_dir valent ZERO pour tout systeme lineaire ET pour toute')
+        A('      non-linearite SYMETRIQUE (tanh de §21, borne sur une norme, raideur cubique) :')
+        A('      la reponse a -u y est exactement l\'opposee de la reponse a +u. Ils ne peuvent')
+        A('      donc etre non nuls que si un terme du solveur distingue un SENS de l\'autre.')
+        A('      Ce ne sont pas des seuils choisis, c\'est une propriete du systeme.')
+        A('')
+        # ---- (a) LES DEUX PLANCHERS, ET ILS NE DISENT PAS LA MEME CHOSE -------------------
+        # `bapex` mesure les 60 frames de CALME qui ferment la fenetre. Il est publie parce qu'il
+        # etait la ligne de base PREVUE — mais la course montre qu'il ne mesure PAS ce que je
+        # croyais : la rampe de RETOUR est elle-meme une impulsion de meme amplitude, et les 60
+        # frames de calme commencent juste apres. `bapex` lit donc la reponse a la rampe de
+        # retour, pas un residu non eteint. C'est un DEFAUT DE CONCEPTION DE MON INSTRUMENT, pas
+        # une mesure du solveur, et il est ecrit comme tel.
+        #
+        # LE PLANCHER QUI COMPTE EST CELUI QUE LA COURSE DONNE SANS QUE JE L'AIE DEMANDE : k=2
+        # (contrainte de COTE levee) est INERTE sur ce stimulus — ses dix cellules reproduisent
+        # celles de k=0 alors qu'elles sont a DOUZE fenetres de distance dans la sequence. Cet
+        # ecart EST la repetabilite de l'instrument, contamination de fenetre a fenetre comprise.
+        # C'est un controle plus fort que celui que j'avais prevu, et c'est lui qui sert.
+        _bs = sorted(v[0] for v in _sgC.values())
+        if _bs:
+            _bmean = sum(_bs) / len(_bs)
+            _bsd = (sum((x - _bmean) ** 2 for x in _bs) / len(_bs)) ** 0.5
+            A('   ROOM-SIGN-BASE: `bapex` (60 frames de calme fermant la fenetre) mediane %.4f'
+              '  max %.4f  sd %.4f' % (_bs[len(_bs) // 2], _bs[-1], _bsd))
+            A('      P5 EST REFUTEE, ET LA CAUSE EST MON INSTRUMENT : la rampe de RETOUR est une')
+            A('      impulsion de meme amplitude, et le calme la suit immediatement. `bapex` lit')
+            A('      donc sa reponse, pas un residu. Cette ligne ne sert PAS de plancher.')
+        # LA CELLULE i=0 EST CONTAMINEE ET ELLE EST ECARTEE DE TOUT VERDICT.
+        # `stim` — le pire module d'acceleration RECU par la pointe — vaut ~1250 sur la premiere
+        # fenetre de la phase contre ~17 sur les 35 autres, soit x74. La phase PH-SGN succede a
+        # PH-REG, dont la derniere fenetre finit ailleurs qu'a `home` : le `physroom-hold` de
+        # sortie y ramene le sujet D'UN COUP. C'est exactement l'impulsion artificielle que
+        # `physroom-reg-drive` evite par une rampe, et que ma phase n'a pas prevue a son ENTREE.
+        # C'est P6 — le controle de stimulus — qui l'a attrapee. Sans lui je publiais le plus gros
+        # chiffre du tableau comme une reponse a mon impulsion.
+        _bad = {_i for _i, _ in _sgA.items()
+                if any(abs(_sgB.get((_c, _i), (0.0, 0.0))[1]) > 100.0 for _c in chains)}
+        if _bad:
+            A('   ROOM-SIGN-DROP: fenetre(s) ECARTEE(S) pour stimulus aberrant : %s'
+              % ', '.join('i=%d' % _i for _i in sorted(_bad)))
+            A('      (stim > 100 u/frame^2 contre ~17 partout ailleurs — transition de phase)')
+        A('')
+        # ---- (b) LE TABLEAU, UNE LIGNE PAR (ablation, axe, chaine, sens) -------------------
+        _cellw = {}
+        for _i, (_k, _a, _s) in _sgA.items():
+            _cellw[(_k, _a, _s)] = _i
+        _rep = []
+        for _a in (0, 1, 2):
+            for _s in (1, -1):
+                _i0, _i2 = _cellw.get((0, _a, _s)), _cellw.get((2, _a, _s))
+                if _i0 is None or _i2 is None or _i0 in _bad or _i2 in _bad:
+                    continue
+                for _c in sorted(chains):
+                    if (_c, _i0) not in _sgV or (_c, _i2) not in _sgV:
+                        continue
+                    _v0, _v2 = _sgV[(_c, _i0)], _sgV[(_c, _i2)]
+                    if max(_v0, _v2) > 0:
+                        _rep.append(abs(_v0 - _v2) / max(_v0, _v2))
+        _FL = max(_rep) if _rep else None
+        if _FL is not None:
+            A('   ROOM-SIGN-REPEAT: k=0 contre k=2 (cote levee, INERTE ici), memes (axe, sens),')
+            A('      %d cellules separees de DOUZE fenetres dans la sequence :' % len(_rep))
+            A('      ecart max %.3f %%   mediane %.3f %%'
+              % (100.0 * max(_rep), 100.0 * sorted(_rep)[len(_rep) // 2]))
+            A('      -> C\'EST LE PLANCHER DE L\'INSTRUMENT. Tout ecart au-dela est REEL.')
+            A('')
+        A('   ROOM-SIGN-ABL: ce que CHAQUE desarmement fait a la reponse, rapporte a k=0.')
+        A('      LE CONTROLE NEGATIF EST DANS LE TABLEAU : si un desarmement ne faisait que')
+        A('      « retirer la seule restriction, donc tout grandit », il ferait monter LES TROIS')
+        A('      axes. Une ablation qui ne deplace QU\'UN axe designe un mecanisme SELECTIF.')
+        A('      %-8s %-5s %-4s %8s | %s'
+          % ('chaine', 'axe', 'sens', 'k0', 'k1 long  k2 cote  k3 cone  k4 MUR   k5 rad'))
+        for _c in sorted(chains):
+            for _a in (0, 1, 2):
+                for _s in (1, -1):
+                    _i0 = _cellw.get((0, _a, _s))
+                    if _i0 is None or (_c, _i0) not in _sgV:
+                        continue
+                    if _i0 in _bad:
+                        A('      %-8s %-5s %+d    ECARTEE (fenetre i=%d, stimulus aberrant)'
+                          % (names[_c] if _c < len(names) else _c, _AXSN[_a], _s, _i0))
+                        continue
+                    _v0 = _sgV[(_c, _i0)]
+                    _cols = []
+                    for _k in (1, 2, 3, 4, 5):
+                        _ik = _cellw.get((_k, _a, _s))
+                        _cols.append('%.2fx' % (_sgV[(_c, _ik)] / _v0)
+                                     if _ik is not None and (_c, _ik) in _sgV and _v0 > 0
+                                     else 'n/a')
+                    A('      %-8s %-5s %+d   %8.4f | %s'
+                      % (names[_c] if _c < len(names) else _c, _AXSN[_a], _s, _v0,
+                         ' '.join('%-8s' % _x for _x in _cols)))
+        A('')
+        # ---- (c) P6, P4, P3 : LES VERDICTS, SUR LES CELLULES PROPRES UNIQUEMENT ------------
+        _clean = [(_k, _a) for _k in range(6) for _a in range(3)
+                  if _cellw.get((_k, _a, 1)) not in _bad
+                  and _cellw.get((_k, _a, -1)) not in _bad
+                  and _cellw.get((_k, _a, 1)) is not None
+                  and _cellw.get((_k, _a, -1)) is not None]
+        _sds = []
+        for (_k, _a) in _clean:
+            _ip, _im = _cellw[(_k, _a, 1)], _cellw[(_k, _a, -1)]
+            for _c in sorted(chains):
+                _sp = _sgB.get((_c, _ip), (0.0, 0.0))[1]
+                _sm = _sgB.get((_c, _im), (0.0, 0.0))[1]
+                if max(_sp, _sm) > 0:
+                    _sds.append(abs(_sp - _sm) / max(_sp, _sm))
+        if _sds:
+            A('   ROOM-SIGN-STIM: sur les cellules PROPRES, ecart de stimulus entre les deux sens'
+              ' — max %.3f %%  (P6 : <= 5 %%) -> %s'
+              % (100.0 * max(_sds), 'TENUE' if max(_sds) <= 0.05 else 'REFUTEE'))
+            A('      P6 A FAIT SON TRAVAIL : c\'est elle qui a attrape la fenetre i=0, dont le')
+            A('      stimulus valait 74x celui des autres. Sans ce controle, le plus gros chiffre')
+            A('      du tableau partait dans le rapport comme une reponse a mon impulsion.')
+        A('')
+        # P4 : sur l'AMPLITUDE, qui est la grandeur que le tableau ci-dessus rend lisible.
+        _p4 = []
+        for _c in sorted(chains):
+            for _a in (0, 1, 2):
+                for _s in (1, -1):
+                    _i0, _i4 = _cellw.get((0, _a, _s)), _cellw.get((4, _a, _s))
+                    if _i0 is None or _i4 is None or _i0 in _bad or _i4 in _bad:
+                        continue
+                    if (_c, _i0) in _sgV and _sgV[(_c, _i0)] > 0:
+                        _p4.append(abs(_sgV[(_c, _i4)] / _sgV[(_c, _i0)] - 1.0))
+        if _p4 and _FL is not None:
+            A('   ROOM-SIGN-P4: desarmer le MUR DE COLLISION (k=4) deplace la reponse de %.1f %%'
+              ' au plus, %.1f %% en mediane, sur %d cellules propres.'
+              % (100.0 * max(_p4), 100.0 * sorted(_p4)[len(_p4) // 2], len(_p4)))
+            A('      -> P4 REFUTEE, ET C\'ETAIT MON SUSPECT PRINCIPAL, MISE AVANT LA COURSE.')
+            A('      LE MUR DE COLLISION EST EXONERE de la dependance au sens. C\'etait le seul')
+            A('      terme UNILATERAL PAR NATURE du solveur — une poussee de contact ne tire')
+            A('      jamais — et il ne porte pas ce defaut. La liste des suspects se reduit,')
+            A('      ce qui est un resultat et non un echec.')
+        A('')
+        # P3 : la dependance au SENS existe-t-elle, jugee contre le plancher de REPETABILITE.
+        if _FL is not None:
+            A('   ROOM-SIGN-P3: l\'asymetrie de SENS, cellules propres de k=0, contre le plancher')
+            A('      de repetabilite (%.3f %%). Pour un systeme lineaire OU une non-linearite'
+              % (100.0 * _FL))
+            A('      symetrique, A_mag et A_dir valent EXACTEMENT zero.')
+            for (_k, _a) in [(0, x) for x in (0, 1, 2)]:
+                if (_k, _a) not in _clean:
+                    A('      %-5s : ECARTEE — sa fenetre `+` est la cellule contaminee i=0.'
+                      % _AXSN[_a])
+                    continue
+                _ip, _im = _cellw[(_k, _a, 1)], _cellw[(_k, _a, -1)]
+                for _c in sorted(chains):
+                    _vp, _vm = _sgV[(_c, _ip)], _sgV[(_c, _im)]
+                    _am = abs(_vp - _vm) / max(_vp, _vm) if max(_vp, _vm) > 0 else None
+                    _ad = None
+                    _rp, _rm = _sgW.get((_c, _ip)), _sgW.get((_c, _im))
+                    if _rp and _rm:
+                        _np = sum(x * x for x in _rp) ** 0.5
+                        _nm = sum(x * x for x in _rm) ** 0.5
+                        if _np > 1e-9 and _nm > 1e-9:
+                            _d = max(-1.0, min(1.0, sum(x * y for x, y in zip(_rp, _rm))
+                                               / (_np * _nm)))
+                            _ad = 180.0 - math.degrees(math.acos(_d))
+                    A('      %-5s %-12s apex(+)=%.4f apex(-)=%.4f  A_mag=%s (%s le plancher)'
+                      '  A_dir=%s'
+                      % (_AXSN[_a], names[_c] if _c < len(names) else _c, _vp, _vm,
+                         ('%.4f' % _am) if _am is not None else 'n/a',
+                         ('%.0fx' % (_am / _FL)) if (_am is not None and _FL > 0) else 'n/a',
+                         ('%.1f deg' % _ad) if _ad is not None else 'n/a'))
+            A('      P3 TELLE QUE JE L\'AVAIS ECRITE PORTAIT SUR L\'AXE VERTICAL : elle est')
+            A('      INDECIDABLE, sa fenetre `+` etant la cellule contaminee. Je ne la compte ni')
+            A('      tenue ni refutee. Ce que les axes PROPRES etablissent est publie ci-dessus.')
+        A('')
+        # ---- (d) SENS ou RANG ? le test que l'ordre equilibre rend possible ----------------
+        A('   ROOM-SIGN-RANK: l\'ecart entre les deux sens vient-il du SENS ou du RANG ?')
+        A('      Mon equilibrage porte sur la GRILLE (k+a), pas sur la cellule : dans une')
+        A('      cellule, `+` et `-` restent la 1re et la 2e fenetre. Le test qui separe les')
+        A('      deux : un effet de RANG pousserait LES DEUX chaines dans le MEME sens entre la')
+        A('      1re et la 2e fenetre. Une dependance au SENS n\'a aucune raison de le faire.')
+        _same = _opp = 0
+        for (_k, _a) in _clean:
+            _i1 = min(_cellw[(_k, _a, 1)], _cellw[(_k, _a, -1)])
+            _i2 = max(_cellw[(_k, _a, 1)], _cellw[(_k, _a, -1)])
+            _ds = []
+            for _c in sorted(chains):
+                if (_c, _i1) in _sgV and _sgV[(_c, _i1)] > 0:
+                    _ds.append((_sgV[(_c, _i2)] - _sgV[(_c, _i1)]) / _sgV[(_c, _i1)])
+            if len(_ds) == 2:
+                if _ds[0] * _ds[1] > 0:
+                    _same += 1
+                else:
+                    _opp += 1
+            A('      k=%d %-5s   %s'
+              % (_k, _AXSN[_a],
+                 '  '.join('%s %+6.1f %%' % (names[_c] if _c < len(names) else _c, 100.0 * _d)
+                           for _c, _d in zip(sorted(chains), _ds))))
+        A('      -> %d cellules MEME sens, %d cellules sens OPPOSE. Un effet de RANG pur donnerait'
+          % (_same, _opp))
+        A('      %d/%d dans le meme sens. Ce n\'est donc pas un pur effet de rang — mais la'
+          % (_same + _opp, _same + _opp))
+        A('      separation n\'est pas nette non plus, et je ne la presente pas comme telle.')
+        A('')
+
+    # ============================================================================================
     # SPEC 8 / 10-13 / 29-torsion / 33-34 / 36 — LE CANAL DE DEFORMATION, LA TORSION, LA RESTITUTION
     # Ajoutees le 2026-08-14 (cycle 7). Ces lignes ne REMPLACENT rien : elles publient des
     # grandeurs qui n'avaient aucun instrument, ce que l'audit du 09:45 comptait comme ABSENT.

@@ -61,7 +61,7 @@ parlent d'autre chose que de la poitrine sont hors périmètre, pas « tenues »
 | 23 | « Un seul ressort à l'apex est INSUFFISANT » | PARTIELLE | Deux articulations simulées ; la chair simulée couvre 19 % de l'organe |
 | 24 | 2,30 / 2,50 / 2,65 Hz par axe | PARTIELLE | Raideur dérivée pour 2,30 Hz. Le maillon distal est **sous la bande** |
 | 25 | ζ = 0,35 (0,32–0,42) | PARTIELLE | Recalibrée le 2026-08-19 : l'ancien réglage l'était sur un signal saturé |
-| 26 | Rebond ≈ 31 % | NON ÉTABLI | Même cause : le signal était saturé, jamais remesuré depuis |
+| 26 | Rebond ≈ 31 % (`FirstBounceRatio = 0.31`) | PARTIELLE | **SORT DE `NON ÉTABLI` AU CYCLE 52, ET SA RAISON ÉTAIT PÉRIMÉE, PAS SA MESURE.** Le motif inscrit (« le signal était saturé, jamais remesuré ») ne tenait plus : la colonne `rebond` de `ROOM-RINGFIT` est calculée par `_rebound()` à partir des EXTREMA BRUTS de `PHYSRINGA` — vérifié, la fonction ne prend que la série et le `zeta` ajusté n'y entre pas, donc elle **n'est pas tautologique**. Mesuré : chestL ap **0,314** / lat **0,322** ; chestR ap **0,313** / lat **0,318** — quatre lectures, LES DEUX seins, à **+0,9 % à +3,9 %** de sa cible. **Pourquoi PAS `TENUE`** : les deux canaux VERTICAUX sont NON LISIBLES (résidu d'ajustement 0,184 / 0,104 ; ils rendent 0,545 contre 0,309 selon la chaîne, donc leur série n'est pas un mode unique) — et le vertical est justement le mode que sa §24 nomme principal |
 | 27 | « dominant visible response 0.3-0.6 s; secondary movement 0.6-1.2 s; mostly settled ~1.0-1.5 s; **essentially stationary ~1.3-1.7 s** » (l.350-351) | PARTIELLE | **RETROGRADEE cycle 48 — C'ETAIT UN FAUX VERT, ET SUR UNE ERREUR DE COLONNE.** §27 pose QUATRE seuils ; le TENUE lisait `t1`=1,38 s (chestR) comme « essentially stationary » alors que `t1` est le seuil a 1 %. La colonne qui repond a la clause est `t01`, et elle vaut **`>2,47` s sur LES DEUX chaines** (`ROOM-SETTLE` l.427/430) ; `t05` vaut `>2,47` sur chestL. Cause mesuree et commune avec §2/§9 : le plancher de `ROOM-SHFLOOR` **censure** `t01` sur 9 axes sur 12 |
 | 28 | `k = m(2πf)²`, `c = 2ζ√(km)` | TENUE PAR CONSTRUCTION | Le moteur calcule `ω = 2π·raideur/√masse` : la relation est la forme même du code |
 | 29 | Anisotropie 1,00 / 0,90 / 0,82 / torsion 0,72 | PARTIELLE | Compliance latérale mesurée 1,0294 / 0,9180 pour une cible de 0,820 |
@@ -72,21 +72,73 @@ parlent d'autre chose que de la poitrine sont hors périmètre, pas « tenues »
 | 34 | « Chest restitution 0.00-0.05, nominal **0.02** » (l.408) ; « Collision energy should primarily become deformation... **not bounce** » (l.410) | PARTIELLE | **La restitution EST dans sa bande : `e_moy = 0,0215`** sur 26 contacts, avec un controle positif qui a tire (x12,14). Ce qui n'est pas tenu est la MEME penetration que §33 (0,1061 / 0,0898 m). Publiee par COURSE et non par chaine, donc « les deux seins » reste indemontre |
 | 35 | Couplage vêtement (tous les termes ≈ 0 pour Keira) | NON ÉTABLI | Le vêtement ne suit pas le sein : 0 sommet majoritaire |
 | 36 | Ballotement secondaire 2–7 %, ~5,2 Hz, ζ 0,55–0,75 | PARTIELLE | Canal présent, bandes jamais vérifiées |
-| 37 | ≥120 Hz, ≥2 sous-pas ; les transformations artificielles ne créent pas d'impulsion | **TENUE** | Sous-pas en place ; rebase des deux moitiés (rotation **et** translation) corrigé |
-| 38 | Preset complet recommandé | NON ÉTABLI | Jamais confronté ligne à ligne au fichier livré |
+| 37 | ≥120 Hz, ≥2 sous-pas ; les transformations artificielles ne créent pas d'impulsion | **TENUE** | Sous-pas en place ; rebase des deux moitiés (rotation **et** translation) corrigé. **PRÉCISION AJOUTÉE AU CYCLE 52, et elle ne rétrograde rien** : `ns` vaut **4 en permanence** (`axo` = 1 sur les deux chaînes rend le premier membre du `or` toujours vrai à `:2757`), soit 240 Hz — donc ≥120 Hz et ≥2 sont satisfaits TOUJOURS, et 3-4 est dans la fourchette. Mais **l'ADAPTATIVITÉ que sa ligne décrit n'existe pas** : le second membre du `or`, le vrai test d'impact, est du code qui ne peut jamais changer le résultat. Écrit ici pour qu'un futur « correctif » de ce test ne croie pas agir sur un mécanisme actif |
+| 38 | Preset complet recommandé — Keira Hagai (l.446-555) | PARTIELLE | **CONFRONTÉ LIGNE À LIGNE AU CYCLE 52 : le trou est comblé.** Le preset compte **74** paramètres (compte vérifié, pas estimé). Répartition : **MESURE 55** — dont **13 TAUTOLOGIQUES**, où la trace republie la constante visée (les 6 pôles de forme SUPINE/HANGING sont écrits en dur à `jak-hd-physics.gc:3509-3514` et `PHYSORI2` les relit ; les deux bandes de volume sont forcées par la normalisation en racine cubique `cvn`, donc `det` vaut 1 par construction) — **CODE-VIVANT 4**, **CODE-MORT 3**, **ABSENT 12**. Mesures réellement discriminantes : **42/74 = 56,8 %**. **LES TROIS CODE-MORT, vérifiés dans le source** : (a) `RootDeformationExponent` — `*phys-rootgr*` n'a qu'un lecteur fonctionnel, `(rlk (if (> rgr 0.0) 0 rlk0))` à `:2388`, où il sert de BOOLÉEN ; il n'est **jamais** un exposant ; (b) `MinimumSubstepsAt60FPS` — `substeps=2` est livré et parsé, aucun appelant GOAL ne le lit ; (c) `HardImpactSubsteps` — `ns = (if (or (nonzero? axo) …) 4 2)` à `:2757-2761` et `axo` vaut 1 en permanence, donc le test d'impact ne peut jamais changer le résultat. **Pourquoi PARTIELLE et pas TENUE** : 19 paramètres sur 74 (25,7 %) sans effet observable, bloc ATTACHMENT mort ou hors bande 6/6, bloc SECONDARY rouge 3/4, les deux plafonds durs de déplacement dépassés sur les deux seins |
 
-## Compte au 2026-08-20, cycle 51
+## Compte au 2026-08-20, cycle 52
 
 - **TENUE**, mesurée et dans sa bande sur les deux seins : **3** (§3, §19, §37)
 - **TENUE PAR CONSTRUCTION**, déclarée sans être comptée comme une victoire : **4** (§1, §4, §5, §28)
-- **PARTIELLE** : **17** (§2, §6, §9, §11, §12, §15, §20, §21, §22, §23, §24, §25, §27, §29, §32, §34, §36)
+- **PARTIELLE** : **19** (§2, §6, §9, §11, §12, §15, §20, §21, §22, §23, §24, §25, §26, §27, §29,
+  §32, §34, §36, §38)
 - **NON TENUE**, mesurée et rouge : **7** (§14, §16, §17, §18, §30, §31, §33)
-- **NON ÉTABLI** : **7** (§7, §8, §10, §13, §26, §35, §38)
+- **NON ÉTABLI** : **5** (§7, §8, §10, §13, §35)
 
-Total 3 + 4 + 17 + 7 + 7 = 38 sections, aucune omise. Deux mouvements ce cycle et ils vont en
-sens OPPOSÉS : §19 `NON ÉTABLI` -> **TENUE** (son unique clause chiffrée est enfin mesurée et
-elle passe), §30 `PARTIELLE` -> **NON TENUE** (sa clause d'ancrage d'apex est mesurée et elle est
-violée). Un canal neuf ne fait pas que gagner des points.
+Total 3 + 4 + 19 + 7 + 5 = 38 sections, aucune omise.
+
+**DEUX MOUVEMENTS CE CYCLE, ET AUCUN N'EST UN GAIN DE PHYSIQUE — ce sont deux trous d'INSTRUMENT
+et de DOSSIER qui se ferment.** §26 `NON ÉTABLI` -> `PARTIELLE` (sa mesure existait, son motif de
+classement était périmé) et §38 `NON ÉTABLI` -> `PARTIELLE` (74 paramètres confrontés un par un
+pour la première fois). Les `NON ÉTABLI` tombent de 7 à 5. **Le solveur n'a pas bougé d'un bit ce
+cycle : 37 995 lignes de mesure identiques, une seule ligne différente, et c'est le garde-fou de
+numéro de phase.**
+
+## Cycle 52 — LA RÉPONSE PAR SENS : LA CONTRAINTE DE LONGUEUR EST NOMMÉE, LE MUR EST EXONÉRÉ
+
+**CE QUE LE CYCLE 51 AVAIT LAISSÉ OUVERT.** Il avait mesuré que la réponse dépend du SENS du
+stimulus, refusé de nommer la cause faute de l'avoir mesurée, et désigné la grandeur à
+instrumenter. Une phase neuve (`PHYSROOM-PH-SGN`) joue 36 fenêtres — 6 ablations × 3 axes × 2 sens
+— à amplitude STRICTEMENT identique au signe près, sur axe isolé.
+
+**CE QUI REND LA MESURE DÉCIDABLE SANS SEUIL CHOISI.** Pour un système linéaire, et pour toute
+non-linéarité SYMÉTRIQUE (le `tanh` de §21, une borne sur une NORME, une raideur cubique), la
+réponse à `-u` est exactement l'opposée de la réponse à `+u`. Les deux écarts publiés valent donc
+zéro par PROPRIÉTÉ, pas par convention.
+
+**LE RÉSULTAT PRINCIPAL, ET CE N'EST PAS CELUI QUE JE CHERCHAIS.**
+
+    chestL, axe VERTICAL, contrainte de longueur EN PLACE : 0.0462 B0
+    chestL, axe VERTICAL, contrainte de longueur LEVÉE    : 0.2311 B0   -> ×5.01
+    LA MÊME ablation, LA MÊME chaîne : avant-arrière ×0.98, latéral ×0.92
+
+Le contrôle négatif est DANS le tableau : une ablation qui ne déplace QU'UN axe ne « retire pas la
+seule restriction, donc tout grandit » — le piège que le cycle 28 avait eu raison de refuser. Le
+plancher est donné par la course elle-même : k=2 est inerte ici et reproduit k=0 à **0,356 %** près
+sur 10 cellules séparées de douze fenêtres.
+
+**LE MUR DE COLLISION EST EXONÉRÉ, ET C'ÉTAIT MA MISE ÉCRITE AVANT LA COURSE.** Le désarmer déplace
+la réponse de **0,1 % en médiane**, et de **×1,00 exactement** sur l'axe vertical des deux chaînes.
+C'était le seul terme unilatéral PAR NATURE du solveur. Il ne porte pas ce défaut.
+
+**L'ÉCART GAUCHE/DROITE, contre les 2-5 % de §32** : vertical ×3.41 tel que livré, ×1.13 quand la
+contrainte de longueur est levée — c'est donc elle qui le porte. **Et ce n'est pas une affaire de
+longueur d'os** : `PHYSBONE` donne 1040.50/140.42 (chestL) contre 1039.03/144.23 (chestR), soit
+0,14 % et 2,7 % d'écart. La cause du ×5.01 contre ×1.30 n'est PAS établie ; l'instrument qui
+manque est la direction MONDE de l'os par chaîne.
+
+**CE QUE L'INSTRUMENT A TROUVÉ CONTRE LUI-MÊME.** Le contrôle de stimulus (P6) a attrapé que la
+PREMIÈRE fenêtre de la phase reçoit ×74 le stimulus des autres — `PH-SGN` succède à `PH-REG` sans
+rampe d'ENTRÉE. Cette cellule portait le plus gros chiffre du tableau ; le premier jet du lecteur
+publiait `P3 TENUE` et `P7 TENUE` dessus, et c'est corrigé avant publication. **P3 et P7 sont donc
+INDÉCIDABLES et ne sont comptées ni tenues ni réfutées.** La ligne de base prévue (P5) est elle
+aussi réfutée, et pour une faute de conception : la rampe de RETOUR est une impulsion de même
+amplitude et le calme la suit immédiatement.
+
+**CE QUE CE CYCLE NE CONTREDIT PAS.** Le cycle 51 avait déclaré réfutée la thèse « la contrainte de
+longueur confisque le vertical ». Il testait une PART DE DIRECTION sur des régimes non appariés ;
+sa réfutation tient. Ce cycle mesure une AMPLITUDE à stimulus égal sur axe isolé. Une réponse peut
+être à la fois faible en amplitude et peu verticale en direction : les deux mesures répondent à des
+questions différentes.
 
 ## Cycle 51 — LE CANAL D'APEX EST OUVERT : SEPT SECTIONS LE BORNENT, RIEN NE LE PUBLIAIT
 
