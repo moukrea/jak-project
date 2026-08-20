@@ -1042,6 +1042,76 @@
 collider lBoob radius=340
 collider rBoob radius=345
 
+## ---------------------------------------------------------------------------------------------
+## 2026-08-20 cycle 57 — RESYNCHRONISATION DES QUATRE VOLUMES SUR LE MESH RECUIT.
+##
+## Une sphere de maillon est DERIVEE de la geometrie que le joint POSSEDE (`blob_centre_radius` :
+## centroide des sommets majoritaires, rayon au p95). Le repesage de ce cycle a change cette
+## possession — lBooc passe de 43 a 29 sommets majoritaires, rBooc de 36 a 19 — donc les lignes
+## livrees decrivaient un ensemble de sommets QUI N'EXISTE PLUS. Leur propre commentaire le dit :
+## « 43v », « 36v ». C'est la meme classe de peremption que `comw=` plus haut, et la meme que le
+## producteur a rendue impossible pour `physics_mesh.txt` en 2026-08-18.
+##
+## LES HUIT NOMBRES SORTENT DE LA FONCTION DU PRODUCTEUR, aucun n'est choisi :
+##     joint   livre                      derive du mesh recuit      COVER p95 dehors
+##     lBoob   r=340 off=(-6,637,-135)    r=377 off=(104,621,-241)   8.3 % -> 2.9 %
+##     lBooc   r=431 off=(2,512,-51)      r=323 off=(35,601,-76)     7.0 % -> 6.9 %
+##     rBoob   r=345 off=(-14,-617,124)   r=382 off=(-105,-622,232)  0.0 % -> 2.8 %
+##     rBooc   r=415 off=(5,-466,36)      r=283 off=(-35,-599,76)    5.6 % -> 5.3 %
+##
+## LES DEUX RAYONS EPINGLES PAR L'OWNER (340 / 345, sa 4e passe du 2026-08-11 sur les lunettes)
+## NE BOUGENT PAS — seuls leurs OFFSETS sont resynchronises. Les rayons derives seraient 377/382,
+## et je ne les applique pas : un reglage ferme par son oeil ne se rouvre pas par une derivation.
+##
+## LA COUVERTURE EST EGALE OU MEILLEURE SUR LES QUATRE : ce n'est pas un retrecissement de
+## confort pour passer une gate, c'est la geometrie qui a bouge.
+##
+## SENS ATTENDU, ET IL VIENT DE LA MESURE DU 2026-08-14 CI-DESSUS : agrandir ces volumes a 449/455
+## avait DOUBLE `meshpen`, et la conclusion ecrite alors est que le residu grandit avec le nombre
+## de volumes qu'un lien touche EN MEME TEMPS, la priorite n'en laissant gagner qu'UN par lien et
+## par frame (139 955 paires ignorees sur la course). Des spheres plus petites en touchent moins.
+## Prediction gravee AVANT application : `.autoport/C57E2-colliders-prediction.txt`
+## md5 c1f560a3a214375fde15908e52bd0851 — dont Q3, CONTRE MOI : `meshpen` n'atteindra PAS 0.0005
+## et la gate COLLIDE echouera encore.
+## ---------------------------------------------------------------------------------------------
+## =============================================================================================
+## RETIRE LE 2026-08-20, MEME CYCLE, PAR SA PROPRE CONDITION — Q2 EST REFUTEE.
+##
+## Q2 disait : « `meshpen` BAISSE ». MESURE apres la course : il MONTE.
+##     meshpen   chestL 0.1115 -> 0.1170 (+4.9 %)     chestR 0.1019 -> 0.1637 (+61 %)
+##
+## ET POURTANT LES DEUX AUTRES PREDICTIONS SONT LARGEMENT TENUES, ce qui rend la refutation
+## interessante au lieu de la rendre banale :
+##     Q1  paires ignorees   139 955 -> 56 801   (-59 %)
+##     Q4  contacts          10 097 -> 6 074 (-40 %)   ·   9 234 -> 3 492 (-62 %)
+##
+## DONC L'HYPOTHESE DU 2026-08-14 EST REFUTEE, ET C'ETAIT LA MIENNE AUSSI : « plus un lien touche
+## de volumes a la fois, plus le residu grandit » ne tient pas. Les contacts simultanes ont chute
+## de 40 a 62 %, les paires ignorees de 59 %, et le residu a AUGMENTE. La contention entre volumes
+## n'est donc PAS ce qui porte le residu de `meshpen`. C'est un suspect de moins, nomme depuis six
+## jours, et c'est le seul acquis de cette tentative.
+##
+## POURQUOI JE RETIRE AU LIEU DE PLAIDER. `skinpen` — la penetration vue contre la surface DESSINEE,
+## celle qui est la plus proche de ce que l'owner voit — est restee plate (0.1358 -> 0.1355 et
+## 0.1203 -> 0.1195), et j'aurais pu argumenter que `meshpen` monte parce que son PLANCHER de pose
+## modele se deplace avec la sphere. **Je ne le fais pas** : le ledger a ecrit le 2026-08-14, sur ce
+## meme parametre, « une condition ecrite AVANT la course ne se renegocie pas APRES », et la regle 6
+## de l'owner ne se negocie pas non plus. Q2 a ete gravee avant, elle est fausse, le changement part.
+##
+## RE-POSTAGE EXPLICITE DES VALEURS PRECEDENTES : `apply_owner_tuning.py` APPLIQUE, il ne revient
+## jamais en arriere — commenter les quatre lignes aurait LAISSE les nouvelles valeurs dans le
+## fichier livre en croyant les avoir annulees. C'est le piege que ce ledger documente deja.
+##
+## CE QUI RESTE VRAI ET NON CORRIGE, ET JE LE DECLARE AU LIEU DE LE TAIRE : les quatre volumes
+## livres restent DERIVES D'UNE POSSESSION DE SOMMETS QUI N'EXISTE PLUS (leur commentaire dit
+## « 43v » / « 36v » ; le mesh recuit en donne 29 et 19). C'est une peremption REELLE, mesuree,
+## et elle attend un correctif qui ne fasse pas monter `meshpen`.
+## =============================================================================================
+collider lBoob radius=340 offset=-6,637,-135
+collider rBoob radius=345 offset=-14,-617,124
+collider lBooc radius=431 offset=2,512,-51
+collider rBooc radius=415 offset=5,-466,36
+
 ## 2026-08-14 — REPORT D'UN REGLAGE DE L'OWNER QUE LE GEL AURAIT PERDU EN SILENCE
 ## Sa 4e passe du 2026-08-11 : « les lunettes clipent encore un peu avec les seins […] ce sont les
 ## LUNETTES qui manquent de volume propre. Leur second maillon etait a 79, tres fin. » Le reglage
