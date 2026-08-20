@@ -3755,6 +3755,56 @@ def main():
         A('   livre). Le COM n\'est PAS publie a zero dans ce cas : un poids manquant ne doit')
         A('   jamais se lire comme un centre de masse immobile.')
 
+    # ---- (C51) SPEC 22 : LE PLAFOND GLOBAL D'APEX ---------------------------------------------
+    # §22 l.301 : « Distal/apex displacement: normal <=42% B0, exceptional <=50% B0 ». DEUX
+    # bandes, et elles ne se lisent PAS sur la meme statistique — meme discipline que le bloc COM
+    # juste au-dessus, pour la meme raison : « normal » est un niveau de reponse COURANT, donc le
+    # pic TYPIQUE d'une fenetre ; « exceptional » est un extreme, donc le MAXIMUM de course.
+    # Publier un seul chiffre contre les deux bandes est le defaut que le COM a deja corrige.
+    _apx = {}
+    for _m in re.finditer(r'^PHYSAPEX c=(\d+) a=(\d+) d=(\d+) apex=([-\d.e+]+)', txt, re.M):
+        _apx[(int(_m.group(1)), int(_m.group(2)), int(_m.group(3)))] = float(_m.group(4))
+    if _apx:
+        A('')
+        A('-- SPEC 22 : LE PLAFOND D\'APEX — LA GRANDEUR QUE SIX AUTRES SECTIONS BORNENT AUSSI --')
+        A('   §22 : « Distal/apex displacement: normal <=42%% B0, exceptional <=50%% B0 »')
+        A('   NATURE : longueur / B0 (602 u) — le centroide de masse du DECILE DISTAL du nuage de')
+        A('   chair, PAS le COM (qui moyenne tout le nuage, ancrage compris). REPERE : monde,')
+        A('   frame ecrite, contre la pose d\'auteur de la MEME frame, deformation comprise.')
+        A('   A LA POSE D\'AUTEUR : 0.0000. Chaine sans enregistrement `ax` : AUCUNE ligne.')
+        for _c in sorted({k[0] for k in _apx}):
+            _nm3 = names[_c] if _c < len(names) else str(_c)
+            _wm3 = sorted(v for k, v in _apx.items() if k[0] == _c)
+            if not _wm3:
+                continue
+            _pk3 = sum(_wm3) / len(_wm3)
+            _mx3 = _wm3[-1]
+            _q3 = lambda t: _wm3[min(len(_wm3) - 1, int(t * len(_wm3)))]
+            A('ROOM-APEX: chain=%-12s pic_typique=%.4f  max=%.4f B0   (normal 0.42 / exceptionnel'
+              ' 0.50)' % (_nm3, _pk3, _mx3))
+            A('   VERDICT §22 « normal <=42%% B0 »      sur le pic TYPIQUE de fenetre : %.4f -> %s'
+              % (_pk3, 'DANS' if _pk3 <= 0.42 else 'HORS (x%.2f)' % (_pk3 / 0.42)))
+            A('   VERDICT §22 « exceptional <=50%% B0 » sur le MAXIMUM de course     : %.4f -> %s'
+              % (_mx3, 'DANS' if _mx3 <= 0.50 else 'HORS (x%.2f)' % (_mx3 / 0.50)))
+            A('   distribution des maxima de fenetre : p50 %.4f  p95 %.4f  (n=%d fenetres)'
+              % (_q3(0.50), _q3(0.95), len(_wm3)))
+            A('   part des FENETRES au-dessus des bandes : %.1f %% > 0.42 · %.1f %% > 0.50'
+              % (100.0 * sum(1 for x in _wm3 if x > 0.42) / len(_wm3),
+                 100.0 * sum(1 for x in _wm3 if x > 0.50) / len(_wm3)))
+        A('   CE QUE CE VERDICT NE DIT PAS, ET IL FAUT LE DIRE : 41 a 43 %% de la masse de la')
+        A('      region distale est portee par `chest`, qui n\'est pas simule. L\'apex publie ici')
+        A('      est donc DEJA reduit d\'un facteur 0.5676 / 0.5936 par le mesh. Un DEPASSEMENT')
+        A('      est donc un depassement A ANCRAGE REDUIT — il serait PIRE si sa §30 (« Apex —')
+        A('      minimal direct anchoring ») etait respectee. Un MANQUE, lui, peut venir de cet')
+        A('      ancrage plutot que du solveur, et la ligne ROOM-APEX-REGIME le chiffre par')
+        A('      fenetre au lieu de le supposer.')
+    else:
+        A('')
+        A('-- SPEC 22 / PLAFOND D\'APEX : NON MESURE par cette course ---------------------------')
+        A('   Aucune ligne PHYSAPEX (moteur anterieur au cycle 51, ou enregistrements `ax`')
+        A('   absents de recharged_assets/physics_mesh.txt). L\'apex n\'est PAS publie a zero :')
+        A('   un canal absent ne doit jamais se lire comme un apex immobile.')
+
     if _comex.get('run'):
         A('-- `comex` : LE MAXIMUM SUR LES DEUX CENTROIDES DE MAILLON — CE N\'EST PAS LE COM ------')
         A('   CETTE LIGNE NE PORTE PLUS DE VERDICT §22, ET SON NOM A CHANGE POUR LE DIRE.')
@@ -4065,6 +4115,135 @@ def main():
                   % (_r, _rgtab[_r][1], _vl, _vr,
                      ('%.2f %%' % (100.0 * abs(_vl - _vr) / _mn)) if _mn > 0 else
                      'INDEFINI (les deux valent 0)'))
+        A('')
+        # ---- (7) CYCLE 51 : L'APEX, PAR REGIME ------------------------------------------------
+        # POURQUOI CE BLOC EXISTE. §14, §16, §17, §18, §19 et §20 bornent TOUTES un « apex
+        # displacement » en % B0, et §19 ne borne QUE ca : jusqu'au cycle 51 aucun canal de la
+        # salle ne publiait un apex, donc six sections etaient injugeables quel que soit le
+        # solveur. Le canal vient de `PHYSREG4` (emplacements 53-56 du moteur).
+        #
+        # NATURE : une LONGUEUR rapportee a B0 (602 u, §6) — le MAXIMUM sur la fenetre de
+        #   l'excursion du CENTROIDE DE MASSE DU DECILE DISTAL du nuage de chair. CE N'EST PAS
+        #   LE COM : le COM moyenne TOUT le nuage, dont 46 % est ancre ; l'apex ne regarde que la
+        #   region que §31 appelle « r = 1 at distal/apex region ». Les deux repondent a des
+        #   lignes DIFFERENTES de la spec et ne sont pas interchangeables.
+        # REPERE : le monde, frame ecrite, contre la pose d'auteur de la MEME frame, deformation
+        #   comprise — le meme que `com`, pour que le rapport des deux ait un sens.
+        # LECTURE QUAND LE DEFAUT EST ABSENT : 0.0000 a la pose d'auteur.
+        #
+        # LES BANDES SONT CITEES, PAS RESUMEES, et DEUX REGIMES N'EN ONT PAS : §17 ne borne
+        # l'apex que pour « strong » (donc le freinage r=8, rien pour le demarrage r=7) et §18
+        # que pour « strong » (r=10, rien pour r=9). Ces deux fenetres sortent « SA SPEC NE BORNE
+        # PAS L'APEX DE CE REGIME » — on n'invente pas une bande pour completer un tableau.
+        _RGAPX = {
+            1:  ((0.20, 0.30), '§14 « Apex displacement: ordinary 20-30% B0 »'),
+            4:  ((0.30, 0.38), '§14 « strong 30-38% B0 »'),
+            3:  ((0.30, 0.42), '§16 « Strong landing apex: 30-42% B0 »'),
+            6:  ((0.42, 0.50), '§16 « Very hard / exceptional: 42-50% B0 »'),
+            7:  (None,         '§17 ne borne l\'apex que pour « strong » : PAS de bande ici'),
+            8:  ((0.25, 0.35), '§17 « Apex displacement: strong 25-35% B0 »'),
+            9:  (None,         '§18 ne borne l\'apex que pour « strong » : PAS de bande ici'),
+            10: ((0.20, 0.30), '§18 « Apex displacement: strong 20-30% B0 »'),
+            11: ((0.30, 0.40), '§19 « 30-40% B0 apex displacement » — SA SEULE CLAUSE CHIFFREE'),
+            12: ((0.30, 0.40), '§19 idem, au retour a la verticale'),
+            13: ((0.20, 0.30), '§20 « apex 20-30% B0 »'),
+            14: ((0.20, 0.30), '§20 idem, cote oppose'),
+        }
+        _rge, _rgf = {}, {}
+        for _m in re.finditer(r'^PHYSREG4 c=(\d+) r=(\d+) apex=([-\d.e+]+) ax=([-\d.e+]+)'
+                              r' ay=([-\d.e+]+) az=([-\d.e+]+)', txt, re.M):
+            _rge[(int(_m.group(1)), int(_m.group(2)))] = (
+                float(_m.group(3)), float(_m.group(4)), float(_m.group(5)), float(_m.group(6)))
+        for _m in re.finditer(r'^PHYSREG5 c=(\d+) r=(\d+) cydn=([-\d.e+]+) cyup=([-\d.e+]+)',
+                              txt, re.M):
+            _rgf[(int(_m.group(1)), int(_m.group(2)))] = (float(_m.group(3)), float(_m.group(4)))
+        if not _rge:
+            A('   -- ROOM-APEX-REGIME : ABSENT ----------------------------------------------')
+            A('ROOM-APEX-REGIME: aucune ligne PHYSREG4 dans cette trace — le canal d\'apex n\'a')
+            A('   PAS tourne. §14, §16, §17, §18, §19 et §20 restent NON MESUREES sur leur clause')
+            A('   d\'apex. Rien n\'est publie a zero : un canal absent n\'est pas un apex immobile.')
+        else:
+            A('   -- ROOM-APEX-REGIME : SPEC 14/16/17/18/19/20, LA CLAUSE D\'APEX ---------------')
+            A('      LE PLAFOND QUE LE MESH IMPOSE, ET IL N\'EST PAS UN REGLAGE. La region distale')
+            A('      porte 43.24 %% (chestL) / 40.64 %% (chestR) de sa masse de peau sur `chest`,')
+            A('      qui N\'EST PAS SIMULE : sa matrice ecrite EST sa matrice d\'auteur, son')
+            A('      excursion est nulle au bit pres. L\'apex ne peut donc valoir que 0.5676 /')
+            A('      0.5936 de ce que ses maillons simules produisent — soit un facteur x1.76 /')
+            A('      x1.68 hors d\'atteinte de TOUTE valeur de raideur, d\'amortissement ou de')
+            A('      gravite. Sa §30 ecrit « Apex — minimal direct anchoring » : le mesh livre dit')
+            A('      le contraire. Une bande manquee de MOINS que ce facteur peut s\'expliquer par')
+            A('      l\'ancrage seul ; manquee de PLUS, non — et c\'est cette frontiere qui rend')
+            A('      chaque ligne ci-dessous lisible.')
+            for _r in sorted({k[1] for k in _rge}):
+                _bd, _cite2 = _RGAPX.get(_r, (None, 'aucune clause d\'apex pour ce regime'))
+                for _c in sorted({k[0] for k in _rge if k[1] == _r}):
+                    _v = _rge[(_c, _r)][0]
+                    if _bd is None:
+                        A('ROOM-APEX-REGIME: %-8s r=%2d %-13s apex=%.4f B0   %s'
+                          % (_rgnm(_c), _r, _rgtab[_r][1], _v, _cite2))
+                    else:
+                        _vd = _rgvd(_v, _bd)
+                        _nd = ''
+                        if _vd.startswith('SOUS'):
+                            _fac = (_bd[0] / _v) if _v > 0 else 0.0
+                            _cap = 1.0 / (0.5676 if _rgnm(_c) == 'chestL' else 0.5936)
+                            _nd = ('   ancrage seul %s (manque x%.2f, plafond x%.2f)'
+                                   % ('SUFFIT' if _fac <= _cap else 'NE SUFFIT PAS', _fac, _cap))
+                        A('ROOM-APEX-REGIME: %-8s r=%2d %-13s apex=%.4f B0  [%.2f-%.2f] -> %s%s'
+                          % (_rgnm(_c), _r, _rgtab[_r][1], _v, _bd[0], _bd[1], _vd, _nd))
+                A('   %s' % _cite2)
+            # ---- LE RAPPORT APEX/COM : LE CONTROLE DE L'INSTRUMENT LUI-MEME -------------------
+            A('')
+            A('   -- ROOM-APEX-RATIO : LE CONTROLE DE L\'INSTRUMENT, PAS UNE EXIGENCE DE LA SPEC -')
+            A('      LES BANDES DE SA PROPRE SPEC IMPLIQUENT UN RAPPORT apex/COM. §14 30/25,')
+            A('      §16 30/25, §17 25/18, §18 20/17, §20 20/15 : entre x1.19 et x1.35. Ce n\'est')
+            A('      PAS une clause a tenir — c\'est de quoi savoir si ce que je publie sous le nom')
+            A('      d\'apex EST un apex. Un rapport hors de [1.0, 2.0] voudrait dire que le canal')
+            A('      mesure autre chose, et aucun verdict de la section ci-dessus ne tiendrait.')
+            _rat = []
+            for _k in sorted(set(_rge) & set(_rga)):
+                _a, _cm = _rge[_k][0], _rga[_k][0]
+                if _cm > 1e-6:
+                    _rat.append(_a / _cm)
+                    A('ROOM-APEX-RATIO: %-8s r=%2d %-13s apex=%.4f com=%.4f  rapport x%.3f'
+                      % (_rgnm(_k[0]), _k[1], _rgtab[_k[1]][1], _a, _cm, _a / _cm))
+            if _rat:
+                _rat.sort()
+                A('ROOM-APEX-RATIO: n=%d  min x%.3f  mediane x%.3f  max x%.3f  —  bande implicite'
+                  ' de sa spec x1.19 a x1.35'
+                  % (len(_rat), _rat[0], _rat[len(_rat) // 2], _rat[-1]))
+            # ---- SPEC 15 : LA TRAVERSEE DU NEUTRE --------------------------------------------
+            A('')
+            A('   -- ROOM-SPEC15-CROSS : « jump apex -> breast may CROSS neutral position » -----')
+            A('      §15 l.230. Le registre portait la clause NON DEMONTREE, et la raison etait')
+            A('      un defaut d\'INSTRUMENT, pas un defaut du moteur : le vecteur du COM n\'etait')
+            A('      releve qu\'a l\'ARGMAX de sa norme, c\'est-a-dire UNE frame, ce qui ne peut ni')
+            A('      etablir ni exclure une traversee. `cydn`/`cyup` sont les DEUX extremes de la')
+            A('      composante VERTICALE du COM sur la fenetre, publies tous deux EN POSITIF')
+            A('      (`cydn` = le plus bas atteint, change de signe). NATURE : deux longueurs /B0,')
+            A('      maxima de fenetre. REPERE : monde, contre la pose d\'auteur. LECTURE HORS')
+            A('      DEFAUT : 0.0000. LA TRAVERSEE EXIGE LES DEUX STRICTEMENT POSITIFS — un seul')
+            A('      a zero veut dire que l\'organe est reste du meme cote du neutre.')
+            A('      POURQUOI DEUX MAXIMA ET NON UN MIN ET UN MAX : le reset de fenetre met les')
+            A('      emplacements a 0.0, et un MINIMUM ainsi initialise ne peut pas remonter')
+            A('      au-dessus de 0 — il lirait 0 sur une fenetre entierement positive et')
+            A('      annoncerait une traversee qui n\'a pas eu lieu. Un faux vert, sur la seule')
+            A('      clause que §15 rende verifiable.')
+            for _r in sorted({k[1] for k in _rgf}):
+                for _c in sorted({k[0] for k in _rgf if k[1] == _r}):
+                    _dn, _up = _rgf[(_c, _r)]
+                    _cr2 = (_dn > 1e-4) and (_up > 1e-4)
+                    A('ROOM-SPEC15-CROSS: %-8s r=%2d %-13s cydn=%.4f cyup=%.4f -> %s'
+                      % (_rgnm(_c), _r, _rgtab[_r][1], _dn, _up,
+                         'TRAVERSEE' if _cr2 else 'PAS DE TRAVERSEE (un seul cote)'))
+            _fly = [(_c, _r) for (_c, _r) in _rgf if _r in (2, 5)]
+            if _fly:
+                _nx = sum(1 for k in _fly if _rgf[k][0] > 1e-4 and _rgf[k][1] > 1e-4)
+                A('ROOM-SPEC15-CROSS: VERDICT §15 sur les fenetres de VOL (r=2, r=5) : %d des %d'
+                  ' fenetres traversent le neutre -> %s'
+                  % (_nx, len(_fly), 'CLAUSE TENUE' if _nx > 0 else 'CLAUSE NON TENUE'))
+            else:
+                A('ROOM-SPEC15-CROSS: aucune fenetre de VOL dans cette trace — §15 non jugeable.')
         A('')
         # ---- LA TABLE DES REGIMES, CITEE ------------------------------------------------------
         A('   -- LA TABLE DES REGIMES ET LE TEXTE QU\'ELLE CITE --------------------------------')

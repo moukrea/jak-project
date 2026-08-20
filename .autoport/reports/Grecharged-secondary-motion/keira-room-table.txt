@@ -1,7 +1,7 @@
 ==================================================================================================
 KEIRA — SALLE DE TEST SANS JOUEUR : TABLEAU DE MESURE
 genere par .autoport/physics_room_table.py depuis .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
-empreinte de la trace lue : md5 3070ed3ded916f6ddc2976feac1cae6f (3383265 octets)
+empreinte de la trace lue : md5 d239c3774eadb71c2b9899b1573895d6 (3425878 octets)
 contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 7 (ce qui fait foi)
 
 Toutes les longueurs sont en METRES (la trace est en unites de jeu, 4096 u = 1 m). Ce que
@@ -825,6 +825,30 @@ ROOM-COM: chain=chestR       pic_typique=0.3261  max=0.4086 B0   (normal 0.35 / 
       0.0301 B0 (chestR), soit 8.1 % / 8.6 % de la bande de 0.35 — DANS LE SENS
       INCONNU. Le corriger demande un canal VECTORIEL `comc=` ; il ne sera ouvert
       que si un chiffre atterrit a moins de cette borne d'un seuil de la spec.
+
+-- SPEC 22 : LE PLAFOND D'APEX — LA GRANDEUR QUE SIX AUTRES SECTIONS BORNENT AUSSI --
+   §22 : « Distal/apex displacement: normal <=42%% B0, exceptional <=50%% B0 »
+   NATURE : longueur / B0 (602 u) — le centroide de masse du DECILE DISTAL du nuage de
+   chair, PAS le COM (qui moyenne tout le nuage, ancrage compris). REPERE : monde,
+   frame ecrite, contre la pose d'auteur de la MEME frame, deformation comprise.
+   A LA POSE D'AUTEUR : 0.0000. Chaine sans enregistrement `ax` : AUCUNE ligne.
+ROOM-APEX: chain=chestL       pic_typique=0.3984  max=0.5431 B0   (normal 0.42 / exceptionnel 0.50)
+   VERDICT §22 « normal <=42% B0 »      sur le pic TYPIQUE de fenetre : 0.3984 -> DANS
+   VERDICT §22 « exceptional <=50% B0 » sur le MAXIMUM de course     : 0.5431 -> HORS (x1.09)
+   distribution des maxima de fenetre : p50 0.3924  p95 0.4969  (n=186 fenetres)
+   part des FENETRES au-dessus des bandes : 27.4 % > 0.42 · 3.8 % > 0.50
+ROOM-APEX: chain=chestR       pic_typique=0.4134  max=0.5553 B0   (normal 0.42 / exceptionnel 0.50)
+   VERDICT §22 « normal <=42% B0 »      sur le pic TYPIQUE de fenetre : 0.4134 -> DANS
+   VERDICT §22 « exceptional <=50% B0 » sur le MAXIMUM de course     : 0.5553 -> HORS (x1.11)
+   distribution des maxima de fenetre : p50 0.4092  p95 0.5090  (n=186 fenetres)
+   part des FENETRES au-dessus des bandes : 40.9 % > 0.42 · 7.5 % > 0.50
+   CE QUE CE VERDICT NE DIT PAS, ET IL FAUT LE DIRE : 41 a 43 %% de la masse de la
+      region distale est portee par `chest`, qui n'est pas simule. L'apex publie ici
+      est donc DEJA reduit d'un facteur 0.5676 / 0.5936 par le mesh. Un DEPASSEMENT
+      est donc un depassement A ANCRAGE REDUIT — il serait PIRE si sa §30 (« Apex —
+      minimal direct anchoring ») etait respectee. Un MANQUE, lui, peut venir de cet
+      ancrage plutot que du solveur, et la ligne ROOM-APEX-REGIME le chiffre par
+      fenetre au lieu de le supposer.
 -- `comex` : LE MAXIMUM SUR LES DEUX CENTROIDES DE MAILLON — CE N'EST PAS LE COM ------
    CETTE LIGNE NE PORTE PLUS DE VERDICT §22, ET SON NOM A CHANGE POUR LE DIRE.
    §6 definit `P0` = « neutral breast center-of-mass position » et §22 borne « Breast
@@ -1051,6 +1075,148 @@ ROOM-REGIME-MIRROR: r= 9 yawA          com(chestL)=0.0511 com(chestR)=0.2017  ec
 ROOM-REGIME-MIRROR: r=10 yawB          com(chestL)=0.1019 com(chestR)=0.2042  ecart 66.84 %
 ROOM-REGIME-MIRROR: r=13 rollA         com(chestL)=0.2132 com(chestR)=0.2549  ecart 17.82 %
 ROOM-REGIME-MIRROR: r=14 rollB         com(chestL)=0.2407 com(chestR)=0.2543  ecart 5.49 %
+
+   -- ROOM-APEX-REGIME : SPEC 14/16/17/18/19/20, LA CLAUSE D'APEX ---------------
+      LE PLAFOND QUE LE MESH IMPOSE, ET IL N'EST PAS UN REGLAGE. La region distale
+      porte 43.24 %% (chestL) / 40.64 %% (chestR) de sa masse de peau sur `chest`,
+      qui N'EST PAS SIMULE : sa matrice ecrite EST sa matrice d'auteur, son
+      excursion est nulle au bit pres. L'apex ne peut donc valoir que 0.5676 /
+      0.5936 de ce que ses maillons simules produisent — soit un facteur x1.76 /
+      x1.68 hors d'atteinte de TOUTE valeur de raideur, d'amortissement ou de
+      gravite. Sa §30 ecrit « Apex — minimal direct anchoring » : le mesh livre dit
+      le contraire. Une bande manquee de MOINS que ce facteur peut s'expliquer par
+      l'ancrage seul ; manquee de PLUS, non — et c'est cette frontiere qui rend
+      chaque ligne ci-dessous lisible.
+ROOM-APEX-REGIME: chestL   r= 0 base          apex=0.0241 B0   aucune clause d'apex pour ce regime
+ROOM-APEX-REGIME: chestR   r= 0 base          apex=0.0232 B0   aucune clause d'apex pour ce regime
+   aucune clause d'apex pour ce regime
+ROOM-APEX-REGIME: chestL   r= 1 jumpA-push    apex=0.1492 B0  [0.20-0.30] -> SOUS (x0.75)   ancrage seul SUFFIT (manque x1.34, plafond x1.76)
+ROOM-APEX-REGIME: chestR   r= 1 jumpA-push    apex=0.2806 B0  [0.20-0.30] -> DANS
+   §14 « Apex displacement: ordinary 20-30% B0 »
+ROOM-APEX-REGIME: chestL   r= 2 jumpA-fly     apex=0.2033 B0   aucune clause d'apex pour ce regime
+ROOM-APEX-REGIME: chestR   r= 2 jumpA-fly     apex=0.1529 B0   aucune clause d'apex pour ce regime
+   aucune clause d'apex pour ce regime
+ROOM-APEX-REGIME: chestL   r= 3 jumpA-land    apex=0.0881 B0  [0.30-0.42] -> SOUS (x0.29)   ancrage seul NE SUFFIT PAS (manque x3.41, plafond x1.76)
+ROOM-APEX-REGIME: chestR   r= 3 jumpA-land    apex=0.1733 B0  [0.30-0.42] -> SOUS (x0.58)   ancrage seul NE SUFFIT PAS (manque x1.73, plafond x1.68)
+   §16 « Strong landing apex: 30-42% B0 »
+ROOM-APEX-REGIME: chestL   r= 4 jumpB-push    apex=0.1723 B0  [0.30-0.38] -> SOUS (x0.57)   ancrage seul SUFFIT (manque x1.74, plafond x1.76)
+ROOM-APEX-REGIME: chestR   r= 4 jumpB-push    apex=0.2392 B0  [0.30-0.38] -> SOUS (x0.80)   ancrage seul SUFFIT (manque x1.25, plafond x1.68)
+   §14 « strong 30-38% B0 »
+ROOM-APEX-REGIME: chestL   r= 5 jumpB-fly     apex=0.1946 B0   aucune clause d'apex pour ce regime
+ROOM-APEX-REGIME: chestR   r= 5 jumpB-fly     apex=0.1886 B0   aucune clause d'apex pour ce regime
+   aucune clause d'apex pour ce regime
+ROOM-APEX-REGIME: chestL   r= 6 jumpB-land    apex=0.0996 B0  [0.42-0.50] -> SOUS (x0.24)   ancrage seul NE SUFFIT PAS (manque x4.22, plafond x1.76)
+ROOM-APEX-REGIME: chestR   r= 6 jumpB-land    apex=0.1994 B0  [0.42-0.50] -> SOUS (x0.47)   ancrage seul NE SUFFIT PAS (manque x2.11, plafond x1.68)
+   §16 « Very hard / exceptional: 42-50% B0 »
+ROOM-APEX-REGIME: chestL   r= 7 runA-accel    apex=0.3377 B0   §17 ne borne l'apex que pour « strong » : PAS de bande ici
+ROOM-APEX-REGIME: chestR   r= 7 runA-accel    apex=0.3150 B0   §17 ne borne l'apex que pour « strong » : PAS de bande ici
+   §17 ne borne l'apex que pour « strong » : PAS de bande ici
+ROOM-APEX-REGIME: chestL   r= 8 runA-brake    apex=0.1494 B0  [0.25-0.35] -> SOUS (x0.60)   ancrage seul SUFFIT (manque x1.67, plafond x1.76)
+ROOM-APEX-REGIME: chestR   r= 8 runA-brake    apex=0.1611 B0  [0.25-0.35] -> SOUS (x0.64)   ancrage seul SUFFIT (manque x1.55, plafond x1.68)
+   §17 « Apex displacement: strong 25-35% B0 »
+ROOM-APEX-REGIME: chestL   r= 9 yawA          apex=0.0515 B0   §18 ne borne l'apex que pour « strong » : PAS de bande ici
+ROOM-APEX-REGIME: chestR   r= 9 yawA          apex=0.2756 B0   §18 ne borne l'apex que pour « strong » : PAS de bande ici
+   §18 ne borne l'apex que pour « strong » : PAS de bande ici
+ROOM-APEX-REGIME: chestL   r=10 yawB          apex=0.1104 B0  [0.20-0.30] -> SOUS (x0.55)   ancrage seul NE SUFFIT PAS (manque x1.81, plafond x1.76)
+ROOM-APEX-REGIME: chestR   r=10 yawB          apex=0.2791 B0  [0.20-0.30] -> DANS
+   §18 « Apex displacement: strong 20-30% B0 »
+ROOM-APEX-REGIME: chestL   r=11 pitchA-bend   apex=0.3417 B0  [0.30-0.40] -> DANS
+ROOM-APEX-REGIME: chestR   r=11 pitchA-bend   apex=0.3536 B0  [0.30-0.40] -> DANS
+   §19 « 30-40% B0 apex displacement » — SA SEULE CLAUSE CHIFFREE
+ROOM-APEX-REGIME: chestL   r=12 pitchA-return apex=0.3256 B0  [0.30-0.40] -> DANS
+ROOM-APEX-REGIME: chestR   r=12 pitchA-return apex=0.3251 B0  [0.30-0.40] -> DANS
+   §19 idem, au retour a la verticale
+ROOM-APEX-REGIME: chestL   r=13 rollA         apex=0.2204 B0  [0.20-0.30] -> DANS
+ROOM-APEX-REGIME: chestR   r=13 rollA         apex=0.3150 B0  [0.20-0.30] -> AU-DESSUS (x1.05)
+   §20 « apex 20-30% B0 »
+ROOM-APEX-REGIME: chestL   r=14 rollB         apex=0.2868 B0  [0.20-0.30] -> DANS
+ROOM-APEX-REGIME: chestR   r=14 rollB         apex=0.3425 B0  [0.20-0.30] -> AU-DESSUS (x1.14)
+   §20 idem, cote oppose
+
+   -- ROOM-APEX-RATIO : LE CONTROLE DE L'INSTRUMENT, PAS UNE EXIGENCE DE LA SPEC -
+      LES BANDES DE SA PROPRE SPEC IMPLIQUENT UN RAPPORT apex/COM. §14 30/25,
+      §16 30/25, §17 25/18, §18 20/17, §20 20/15 : entre x1.19 et x1.35. Ce n'est
+      PAS une clause a tenir — c'est de quoi savoir si ce que je publie sous le nom
+      d'apex EST un apex. Un rapport hors de [1.0, 2.0] voudrait dire que le canal
+      mesure autre chose, et aucun verdict de la section ci-dessus ne tiendrait.
+ROOM-APEX-RATIO: chestL   r= 0 base          apex=0.0241 com=0.0268  rapport x0.899
+ROOM-APEX-RATIO: chestL   r= 1 jumpA-push    apex=0.1492 com=0.1385  rapport x1.077
+ROOM-APEX-RATIO: chestL   r= 2 jumpA-fly     apex=0.2033 com=0.1839  rapport x1.105
+ROOM-APEX-RATIO: chestL   r= 3 jumpA-land    apex=0.0881 com=0.0836  rapport x1.054
+ROOM-APEX-RATIO: chestL   r= 4 jumpB-push    apex=0.1723 com=0.1526  rapport x1.129
+ROOM-APEX-RATIO: chestL   r= 5 jumpB-fly     apex=0.1946 com=0.1760  rapport x1.106
+ROOM-APEX-RATIO: chestL   r= 6 jumpB-land    apex=0.0996 com=0.0964  rapport x1.033
+ROOM-APEX-RATIO: chestL   r= 7 runA-accel    apex=0.3377 com=0.2923  rapport x1.155
+ROOM-APEX-RATIO: chestL   r= 8 runA-brake    apex=0.1494 com=0.1475  rapport x1.013
+ROOM-APEX-RATIO: chestL   r= 9 yawA          apex=0.0515 com=0.0511  rapport x1.008
+ROOM-APEX-RATIO: chestL   r=10 yawB          apex=0.1104 com=0.1019  rapport x1.083
+ROOM-APEX-RATIO: chestL   r=11 pitchA-bend   apex=0.3417 com=0.2888  rapport x1.183
+ROOM-APEX-RATIO: chestL   r=12 pitchA-return apex=0.3256 com=0.2493  rapport x1.306
+ROOM-APEX-RATIO: chestL   r=13 rollA         apex=0.2204 com=0.2132  rapport x1.034
+ROOM-APEX-RATIO: chestL   r=14 rollB         apex=0.2868 com=0.2407  rapport x1.192
+ROOM-APEX-RATIO: chestR   r= 0 base          apex=0.0232 com=0.0225  rapport x1.031
+ROOM-APEX-RATIO: chestR   r= 1 jumpA-push    apex=0.2806 com=0.2410  rapport x1.164
+ROOM-APEX-RATIO: chestR   r= 2 jumpA-fly     apex=0.1529 com=0.1350  rapport x1.133
+ROOM-APEX-RATIO: chestR   r= 3 jumpA-land    apex=0.1733 com=0.1411  rapport x1.228
+ROOM-APEX-RATIO: chestR   r= 4 jumpB-push    apex=0.2392 com=0.2086  rapport x1.147
+ROOM-APEX-RATIO: chestR   r= 5 jumpB-fly     apex=0.1886 com=0.1635  rapport x1.154
+ROOM-APEX-RATIO: chestR   r= 6 jumpB-land    apex=0.1994 com=0.1744  rapport x1.143
+ROOM-APEX-RATIO: chestR   r= 7 runA-accel    apex=0.3150 com=0.2604  rapport x1.210
+ROOM-APEX-RATIO: chestR   r= 8 runA-brake    apex=0.1611 com=0.1382  rapport x1.166
+ROOM-APEX-RATIO: chestR   r= 9 yawA          apex=0.2756 com=0.2017  rapport x1.366
+ROOM-APEX-RATIO: chestR   r=10 yawB          apex=0.2791 com=0.2042  rapport x1.367
+ROOM-APEX-RATIO: chestR   r=11 pitchA-bend   apex=0.3536 com=0.2557  rapport x1.383
+ROOM-APEX-RATIO: chestR   r=12 pitchA-return apex=0.3251 com=0.2329  rapport x1.396
+ROOM-APEX-RATIO: chestR   r=13 rollA         apex=0.3150 com=0.2549  rapport x1.236
+ROOM-APEX-RATIO: chestR   r=14 rollB         apex=0.3425 com=0.2543  rapport x1.347
+ROOM-APEX-RATIO: n=30  min x0.899  mediane x1.154  max x1.396  —  bande implicite de sa spec x1.19 a x1.35
+
+   -- ROOM-SPEC15-CROSS : « jump apex -> breast may CROSS neutral position » -----
+      §15 l.230. Le registre portait la clause NON DEMONTREE, et la raison etait
+      un defaut d'INSTRUMENT, pas un defaut du moteur : le vecteur du COM n'etait
+      releve qu'a l'ARGMAX de sa norme, c'est-a-dire UNE frame, ce qui ne peut ni
+      etablir ni exclure une traversee. `cydn`/`cyup` sont les DEUX extremes de la
+      composante VERTICALE du COM sur la fenetre, publies tous deux EN POSITIF
+      (`cydn` = le plus bas atteint, change de signe). NATURE : deux longueurs /B0,
+      maxima de fenetre. REPERE : monde, contre la pose d'auteur. LECTURE HORS
+      DEFAUT : 0.0000. LA TRAVERSEE EXIGE LES DEUX STRICTEMENT POSITIFS — un seul
+      a zero veut dire que l'organe est reste du meme cote du neutre.
+      POURQUOI DEUX MAXIMA ET NON UN MIN ET UN MAX : le reset de fenetre met les
+      emplacements a 0.0, et un MINIMUM ainsi initialise ne peut pas remonter
+      au-dessus de 0 — il lirait 0 sur une fenetre entierement positive et
+      annoncerait une traversee qui n'a pas eu lieu. Un faux vert, sur la seule
+      clause que §15 rende verifiable.
+ROOM-SPEC15-CROSS: chestL   r= 0 base          cydn=0.0098 cyup=0.0000 -> PAS DE TRAVERSEE (un seul cote)
+ROOM-SPEC15-CROSS: chestR   r= 0 base          cydn=0.0054 cyup=0.0000 -> PAS DE TRAVERSEE (un seul cote)
+ROOM-SPEC15-CROSS: chestL   r= 1 jumpA-push    cydn=0.0169 cyup=0.0029 -> TRAVERSEE
+ROOM-SPEC15-CROSS: chestR   r= 1 jumpA-push    cydn=0.1264 cyup=0.0000 -> PAS DE TRAVERSEE (un seul cote)
+ROOM-SPEC15-CROSS: chestL   r= 2 jumpA-fly     cydn=0.0472 cyup=0.0000 -> PAS DE TRAVERSEE (un seul cote)
+ROOM-SPEC15-CROSS: chestR   r= 2 jumpA-fly     cydn=0.0597 cyup=0.0268 -> TRAVERSEE
+ROOM-SPEC15-CROSS: chestL   r= 3 jumpA-land    cydn=0.0437 cyup=0.0034 -> TRAVERSEE
+ROOM-SPEC15-CROSS: chestR   r= 3 jumpA-land    cydn=0.0624 cyup=0.0354 -> TRAVERSEE
+ROOM-SPEC15-CROSS: chestL   r= 4 jumpB-push    cydn=0.0186 cyup=0.0028 -> TRAVERSEE
+ROOM-SPEC15-CROSS: chestR   r= 4 jumpB-push    cydn=0.1071 cyup=0.0000 -> PAS DE TRAVERSEE (un seul cote)
+ROOM-SPEC15-CROSS: chestL   r= 5 jumpB-fly     cydn=0.0485 cyup=0.0138 -> TRAVERSEE
+ROOM-SPEC15-CROSS: chestR   r= 5 jumpB-fly     cydn=0.0836 cyup=0.0324 -> TRAVERSEE
+ROOM-SPEC15-CROSS: chestL   r= 6 jumpB-land    cydn=0.0493 cyup=0.0038 -> TRAVERSEE
+ROOM-SPEC15-CROSS: chestR   r= 6 jumpB-land    cydn=0.0881 cyup=0.0128 -> TRAVERSEE
+ROOM-SPEC15-CROSS: chestL   r= 7 runA-accel    cydn=0.0096 cyup=0.0193 -> TRAVERSEE
+ROOM-SPEC15-CROSS: chestR   r= 7 runA-accel    cydn=0.0117 cyup=0.0648 -> TRAVERSEE
+ROOM-SPEC15-CROSS: chestL   r= 8 runA-brake    cydn=0.0614 cyup=0.0187 -> TRAVERSEE
+ROOM-SPEC15-CROSS: chestR   r= 8 runA-brake    cydn=0.0512 cyup=0.0462 -> TRAVERSEE
+ROOM-SPEC15-CROSS: chestL   r= 9 yawA          cydn=0.0199 cyup=0.0028 -> TRAVERSEE
+ROOM-SPEC15-CROSS: chestR   r= 9 yawA          cydn=0.0714 cyup=0.0220 -> TRAVERSEE
+ROOM-SPEC15-CROSS: chestL   r=10 yawB          cydn=0.0274 cyup=0.0151 -> TRAVERSEE
+ROOM-SPEC15-CROSS: chestR   r=10 yawB          cydn=0.0893 cyup=0.0324 -> TRAVERSEE
+ROOM-SPEC15-CROSS: chestL   r=11 pitchA-bend   cydn=0.2549 cyup=0.0794 -> TRAVERSEE
+ROOM-SPEC15-CROSS: chestR   r=11 pitchA-bend   cydn=0.2367 cyup=0.1093 -> TRAVERSEE
+ROOM-SPEC15-CROSS: chestL   r=12 pitchA-return cydn=0.2485 cyup=0.0250 -> TRAVERSEE
+ROOM-SPEC15-CROSS: chestR   r=12 pitchA-return cydn=0.1996 cyup=0.0496 -> TRAVERSEE
+ROOM-SPEC15-CROSS: chestL   r=13 rollA         cydn=0.1421 cyup=0.0370 -> TRAVERSEE
+ROOM-SPEC15-CROSS: chestR   r=13 rollA         cydn=0.1550 cyup=0.0000 -> PAS DE TRAVERSEE (un seul cote)
+ROOM-SPEC15-CROSS: chestL   r=14 rollB         cydn=0.1514 cyup=0.0000 -> PAS DE TRAVERSEE (un seul cote)
+ROOM-SPEC15-CROSS: chestR   r=14 rollB         cydn=0.1865 cyup=0.0186 -> TRAVERSEE
+ROOM-SPEC15-CROSS: VERDICT §15 sur les fenetres de VOL (r=2, r=5) : 3 des 4 fenetres traversent le neutre -> CLAUSE TENUE
 
    -- LA TABLE DES REGIMES ET LE TEXTE QU'ELLE CITE --------------------------------
    r= 0 base            -   [pas de bande] AUCUN pilotage : le temoin. Tout ce qui sort d'ici est

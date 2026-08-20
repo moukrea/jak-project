@@ -321,3 +321,159 @@ bon »), la regle 5 du contrat gele les gates (« verrou dur »), et les DIRECTI
 effectif" ne la touche pas ».
 **Je ne fais ni l'une ni l'autre.** Ce sont les deux fautes cardinales du dossier, et un
 validateur qu'on fait passer en effacant son entree ne mesure plus rien.
+
+================================================================================================
+CYCLE 51 (meme tentative) — LE CANAL D'APEX EST OUVERT. SEPT SECTIONS DE SA SPEC BORNENT UN
+DEPLACEMENT D'APEX EN % B0 ET AUCUN INSTRUMENT NE LE PUBLIAIT ; SPEC 19 N'A MEME QUE CETTE
+CLAUSE. LE SOLVEUR N'A PAS BOUGE D'UN BIT : 37 191 LIGNES DE MESURE IDENTIQUES, MEME MD5.
+================================================================================================
+
+DIRECTIVES v3fee554599
+
+--- 1. LE CONTROLE, ET IL PASSE AVANT TOUT CHIFFRE --------------------------------------------
+Le cycle 50 a touche le SOLVEUR et a donc DEPENSE son controle de bit-identite. Le cycle 51 est
+de l'INSTRUMENT seul, et le controle est repris et TOTAL :
+
+    lignes de mesure (`^PHYS*`) hors lignes neuves : 37 191 contre 37 191
+    LIGNES DIFFERENTES : 0        md5 identique : 3d30d48e0015a00275ea84ef5a724398
+
+Aucune ligne existante ne bouge. Les seules lignes neuves sont PHYSAPEX (372), PHYSAPEX2 (372),
+PHYSREG4 (30), PHYSREG5 (30) et le compteur `apex-links=` du chargeur.
+
+ET J'AI PAYE CE CONTROLE, EN CLAIR. Le plafond de lignes du moteur (gate CLEAN, 4800) laissait
+4 lignes de marge pour un canal qui en demande 53. Refactoriser le bloc `lc` de l'ecriture pour
+qu'il appelle la nouvelle fonction d'excursion aurait economise 21 lignes d'un coup — et aurait
+mis en jeu l'identite au bit de `comex`, `ee`, `jt` et du COM, contre rien. **Je ne l'ai pas
+fait.** Les lignes ont ete trouvees en deplacant 6 blocs de commentaire vers
+`jak-hd-physics-NOTES.md`, VERBATIM, avec un pointeur d'une ligne a leur place — la convention du
+fichier depuis 174 pointeurs. Moteur : 4796 -> 4792 lignes. Composition, ce que la gate demande
+de regarder : clamps 3, hysteresis 1 (l'ancien moteur de 6000 lignes en portait 84 et 9).
+LA GATE N'A PAS ETE TOUCHEE, et je signale qu'elle a coute ce detour : ce qui grossit ici est de
+la MESURE, exactement le motif des trois relevements precedents. C'est au superviseur de trancher,
+pas a moi (regle 5).
+
+--- 2. CE QUE LE CANAL MESURE, ET POURQUOI CE N'EST PAS LE COM --------------------------------
+§22 ecrit « Distal/apex displacement » et §31 « r = 1 at distal/apex REGION » : la spec nomme une
+REGION. La region est le DECILE DISTAL du nuage de chair sur l'axe anatomique racine->apex,
+fraction FIXEE A 0.10 AVANT la course (les variantes 0.05 et 0.25 sont mesurees et publiees dans
+`mesh_extents_c14.txt`, pour que la sensibilite de la frontiere ne soit pas un choix cache).
+
+L'algebre est EXACTE sous skinning lineaire, pas une approximation :
+    d_apex = SOMME_l w_l * (M_l^sim - M_l^auth) * p_l
+C'est la meme identite que `comw=` (verifiee a 2e-05 % au cycle 48), appliquee a une
+SOUS-POPULATION. La donnee est livree en enregistrements `ax` de `recharged_assets/physics_mesh.txt`
+— PAS dans `physics_chains.txt`, qui porte les reglages de l'owner et qu'une regeneration a deja
+efface deux fois. Le fichier reste identique au bit sur ses 96 autres lignes, verifie.
+
+--- 3. LE FAIT STRUCTUREL, ETABLI AVANT LA COURSE ET INDEPENDANT DE TOUT SOLVEUR --------------
+Composition de la masse de peau de la region distale, sur le mesh LIVRE :
+
+    chestL   chest 43.24 %  ANCRE     lBoob 40.95 %     lBooc 15.80 %    somme simulee 0.5676
+    chestR   chest 40.64 %  ANCRE     rBoob 45.27 %     rBooc 14.09 %    somme simulee 0.5936
+
+**41 A 43 % DE L'APEX EST SOUDE AU TORSE.** `chest` n'est pas simule : sa matrice ecrite EST sa
+matrice d'auteur, son excursion est nulle au bit pres. L'apex ne peut donc valoir que 0.57 / 0.59
+de ce que ses maillons produisent — un plafond de x1.76 / x1.68 hors d'atteinte de TOUTE valeur
+de raideur, d'amortissement ou de gravite. Sa §30 ecrit « Apex — minimal direct anchoring ».
+§30 passe de PARTIELLE a NON TENUE sur cette clause, que rien ne mesurait.
+
+--- 4. CE QUE CE PLAFOND PERMET, ET C'EST LE RESULTAT LE PLUS UTILE DU CYCLE ------------------
+Il SEPARE, section par section, le defaut de MAILLAGE du defaut de DYNAMIQUE :
+
+    section  regime            apex mesure         manque    plafond ancrage   l'ancrage...
+    §14      detente ord.      0.1492 / 0.2806     x1.34     x1.76 / x1.68     SUFFIT / DANS
+    §14      detente forte     0.1723 / 0.2392     x1.74/1.25 x1.76 / x1.68    SUFFIT
+    §16      reception souple  0.0881 / 0.1733     x3.41/1.73 x1.76 / x1.68    **NE SUFFIT PAS**
+    §16      reception DURE    0.0996 / 0.1994     x4.22/2.11 x1.76 / x1.68    **NE SUFFIT PAS**
+    §17      freinage          0.1494 / 0.1611     x1.67/1.55 x1.76 / x1.68    SUFFIT
+    §18      lacet fort        0.1104 / 0.2791     x1.81     x1.76             NE SUFFIT PAS (de peu) / DANS
+    §19      tangage           0.3417 / 0.3536     —         —                 **DANS LA BANDE**
+    §19      retour            0.3256 / 0.3251     —         —                 **DANS LA BANDE**
+    §20      roulis            0.2204 / 0.3150     —         —                 DANS / AU-DESSUS x1.05
+    §20      bascule           0.2868 / 0.3425     —         —                 DANS / AU-DESSUS x1.14
+
+Sur §14 et §17, la repesee seule pourrait fermer l'ecart. **Sur §16 elle ne le peut pas** : il
+reste un facteur 1.9 a 2.4 que seul le solveur porte. C'est le premier chiffre du dossier qui
+dise ou la repesee s'arrete et ou la dynamique commence — jusqu'ici les deux etaient confondues.
+
+--- 5. LES TROIS SECTIONS QUI CHANGENT DE STATUT ---------------------------------------------
+* **§19 : `NON ETABLI` -> TENUE.** Premier verdict en 51 cycles, et il fallait ce canal : §19 ne
+  borne QUE l'apex. Les quatre lectures dans [0.30 ; 0.40] sur LES DEUX seins, plus la traversee
+  du neutre qu'elle exige, plus « without requiring comparable local stretch » (elongation locale
+  0.124-0.229 pour un apex de 0.33 B0).
+  **LA DUREE EST DE MOI ET LE VERDICT EN DEPEND : 0.40 s pour un buste en avant a 70 degres.**
+  Sa spec n'ecrit aucune duree, et le cycle 49 a prouve que la duree porte le verdict. Un autre
+  choix de duree deplacerait ce vert. Ce n'est PAS une validation de l'owner.
+* **§30 : PARTIELLE -> NON TENUE** (section 3 ci-dessus).
+* **§15 : la clause de traversee du neutre est DEMONTREE**, 3 des 4 fenetres de vol. Elle etait
+  NON DEMONTREE par defaut d'INSTRUMENT et non de moteur — le vecteur du COM n'etait releve qu'a
+  l'argmax de sa norme, UNE frame, qui ne peut ni l'etablir ni l'exclure. Les deux extremes sont
+  publies EN POSITIF : un minimum initialise a 0 par le reset de fenetre ne peut pas remonter et
+  aurait lu 0 sur une fenetre entierement d'un cote, annoncant une traversee qui n'a pas eu lieu.
+
+--- 6. §22 : LE PLAFOND GLOBAL EST DEPASSE PENDANT QUE SIX BANDES DE REGIME TIENNENT ----------
+    « normal <=42 % B0 »      pic typique de fenetre : 0.3984 / 0.4134   -> DANS
+    « exceptional <=50 % B0 » maximum de course      : 0.5431 / 0.5553   -> HORS de +9 % / +11 %
+                                                       sur 3.8 % / 7.5 % des fenetres
+Ce qui sature n'est donc AUCUN geste de sa spec, mais les balayages longs `jerk`/`accel` de la
+salle. C'est la lecon du cycle 49 — « la reponse est gouvernee par la DUREE du geste, pas par son
+amplitude » — confirmee sur une grandeur INDEPENDANTE de celle qui l'avait etablie.
+Et le depassement est A ANCRAGE REDUIT : il serait PIRE si sa §30 etait respectee.
+
+--- 7. LE CONTROLE DE L'INSTRUMENT LUI-MEME, PARCE QU'UN CANAL NEUF NE SE CROIT PAS -----------
+Le quatrieme faux vert du dossier (§11, cycle 49) etait un instrument qui REPUBLIAIT la constante
+que la section visait. Ce canal-la se controle contre une source qu'il ne touche pas : **les
+bandes de sa propre spec impliquent un rapport apex/COM** (§14 30/25, §16 30/25, §17 25/18,
+§18 20/17, §20 20/15), soit x1.19 a x1.35.
+
+    mesure sur les 30 fenetres de regime : mediane x1.154, etendue x0.899 a x1.396
+
+L'unique lecture sous 1.0 est la fenetre TEMOIN (r=0), ou les deux grandeurs valent 0.02 et ou un
+rapport ne veut rien dire. Deux sources independantes — la geometrie du mesh livre passee dans le
+solveur d'un cote, la table de bandes ecrite par l'owner de l'autre — s'accordent. **Je note tout
+de meme que la mediane mesuree (1.154) est SOUS sa bande implicite (1.19-1.35)** : ca ne fausse
+aucun verdict, mais ca ne se cache pas.
+
+--- 8. LES SEPT PREDICTIONS, ET POURQUOI 7/7 N'EST PAS UN BON SCORE --------------------------
+`C51E1-apex-prediction.txt`, md5 f026c60c4190e1e59531d7cde2a7c91b, commit 6e8fd37330.
+
+  P1  canal alimente (apex-links=4)                      TENUE  372 lignes, 0 nulle
+  P2  rapport apex/COM median dans [1.15, 1.60]          TENUE  1.154 — **AU BORD EXACT**
+  P3  contre moi : §16 SOUS bande sur les deux, >= x1.6  TENUE  x1.73 a x4.22
+  P4  contre moi : §19 DANS la bande sur >= une chaine   TENUE  les DEUX, les deux fenetres
+  P5  trace identique au bit hors lignes neuves          TENUE  0 ligne differente, md5 egal
+  P6  contre moi : plafond d'apex de §22 depasse         TENUE  +9 % / +11 % (magnitude predite
+                                                                0.61/0.54, mesuree 0.543/0.555)
+  P7  traversee du neutre presente en vol                TENUE  3 fenetres sur 4
+
+**ET JE NE PRESENTE PAS CA COMME SEPT REUSSITES.** P3, P4 et P6 sont des CONSEQUENCES
+ALGEBRIQUES de P2 (le rapport) appliquee aux COM deja mesures au cycle 49 : ce ne sont pas sept
+tests independants, c'en sont environ trois (P1 l'execution, P5 le controle, P2 le rapport) et
+quatre corollaires. P2 elle-meme tient AU BORD de la fourchette que j'avais donnee, et la
+magnitude de P6 est fausse de 12 % sur chestL. Un cycle qui ne refute rien n'a rien appris de
+neuf sur MES hypotheses — il a appris sur le MOTEUR, ce qui est different et ce que je revendique.
+
+--- 9. CE QUE CE CYCLE NE PRETEND PAS ---------------------------------------------------------
+* L'elongation directionnelle de §14, §16, §17, §18 et §20 reste NON MESUREE : aucun canal ne la
+  publie par regime. Ces sections ne peuvent donc pas passer TENUE meme si leur apex passait.
+* §17 et §18 ne donnent PAS de bande d'apex pour leur regime MODERE. Les lignes le disent
+  (« SA SPEC NE BORNE PAS L'APEX DE CE REGIME ») au lieu d'inventer une bande pour remplir un
+  tableau. Et le demarrage — sans bande — rend la PLUS FORTE reponse d'apex des sept regimes
+  (0.3377 / 0.3150), ce qui est exactement le point de la duree.
+* L'ecart gauche/droite sur l'apex atteint x5.4 (lacet modere : 0.0515 contre 0.2756) quand sa
+  §32 prescrit 2-5 %. Le fait est publie ; sa cause n'est pas etablie, et la cause que §18 lui
+  donne (« offsets from the torso rotational axis differ ») N'EXISTE PAS dans ce rig — les deux
+  racines sont a 548.1 u de l'axe de lacet a 5.2e-4 % pres.
+* La fraction de 0.10 qui definit la region distale est un CHOIX. Il est fixe avant la course et
+  ses variantes sont publiees, mais c'est un choix, et un lecteur peut le refuser sans relancer.
+
+--- 10. CE QUE L'OWNER DOIT TESTER, S'IL PREND UN BUILD ---------------------------------------
+**Rien de neuf a regarder, et je ne lui en fabriquerai pas.** Le comportement livre est identique
+au bit a celui du cycle 50 — c'est ce que la section 1 prouve sur 37 191 lignes. Aucun APK n'est
+publie : un build neuf ne lui donnerait rien de plus a voir.
+Ce que ce cycle apporte est une reponse a sa question du 2026-08-20 (« j'ai pas l'impression que
+la spec est 100 % implementee ») : six sections qu'on ne savait pas juger hier sont jugees, une
+passe, une autre est retrogradee, et pour la premiere fois on sait sur §16 quelle part du defaut
+tient au maillage et quelle part tient au solveur.
+Ce qu'il verra toujours, et que je n'habille pas : la poitrine entre dans les volumes du torse
+au-dela de sa pose d'auteur (`meshpen` 0.1115 / 0.1019 m contre un plafond de 0.0005).
