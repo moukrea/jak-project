@@ -307,8 +307,49 @@ transfer lBoob from=chest cap=0.95 shape=1.30
 # derivees vivent dans `recharged_assets/keira-hd-inject-joints.txt` (bloc du cycle 24).
 # `axis=chain` reste le defaut du parseur et le comportement historique est bit-pour-bit conserve
 # pour toute regle qui ne demande pas `flesh` (verifie : md5 du mesh livre inchange).
-anchor30 chestL  chain=lBoob,lBooc from=chest gate=0.05 root=0.95 strong=0.55 frac=0.30 grad=2.00 axis=flesh
-anchor30 chestR  chain=rBoob,rBooc from=chest gate=0.05 root=0.95 strong=0.55 frac=0.30 grad=2.00 axis=flesh
+#
+# ---------------------------------------------------------------------------------------------
+# 2026-08-20, CYCLE 57 — `axis=flesh` CORRIGEAIT LE CLAMPAGE ET GARDAIT LA MAUVAISE DIRECTION.
+#
+# Le bloc ci-dessus est juste sur son propre terrain : `flesh` a bien supprime l'ecrasement d'un
+# quart du nuage sur les bornes. Mais il n'a change QUE l'origine et l'echelle de l'abscisse — la
+# DIRECTION est restee `pts[-1] - pts[0]`, l'axe d'OS de la chaine. Or, mesure sur le mesh LIVRE :
+#
+#     angle(axe d'os de la chaine , axe racine->apex)   77.82 deg (chestL)   78.15 deg (chestR)
+#     correlation des deux abscisses                    -0.116 / -0.292   (NEGATIVE)
+#
+# Sa 31 definit `r` mot pour mot : « r = 0 at chest attachment and r = 1 at distal/apex region ».
+# Ni la 30 ni la 31 ne mentionnent un os ou un joint : elles sont ecrites sur le TISSU (« rear
+# breast VOLUME »). L'abscisse de l'operateur n'etait donc pas celle de la spec.
+#
+# CE QUE CA PRODUISAIT, sur LE MEME champ de poids, selon l'axe ou on le lit :
+#     lu sur l'axe d'OS (celui de l'operateur)  : 5 bandes sur 5 DANS
+#     lu sur l'axe ANATOMIQUE (celui de la 30)  : 1 sur 5 — Deep root 0.158/0.182 pour une bande
+#                                                 0.90-1.00, et Apex 0.367/0.405 pour 0.00-0.10
+# Le profil etait juste, installe a 78 deg de la direction ou il devait descendre.
+#
+# ET L'OPERATEUR EST L'AUTEUR PROUVE DU DEFAUT, pas un suspect : son profil impose
+# `0.95*(1-s)^p` avec p=1.285 PREDIT 0.4314 d'ancrage sur le decile apex anatomique de chestL
+# contre 0.4324 MESURE — 0.001 d'ecart. C'est ce meme 43 % que le registre publiait depuis le
+# cycle 51 comme un plafond d'apex de x1.76 « hors d'atteinte de toute physique ».
+#
+# `axis=anat` ne change QUE la direction de l'abscisse d'ANCRAGE. Ce qui NE bouge PAS :
+#   - la PARTITION entre maillons (quel joint porte quelle chair) reste sur l'axe de la CHAINE.
+#     C'est une question de RIG, pas d'anatomie, et la geometrie l'impose : le maillon distal est
+#     34.4 u (chestL) / 77.5 u (chestR) PLUS PRES du torse que le proximal le long de l'axe
+#     racine->apex, donc une partition sur cet axe rendrait le maillon distal inerte ;
+#   - `root`, `strong`, `frac`, `grad`, la derivation de `p` et le lissage sur arêtes ;
+#   - `axis=chain` et `axis=flesh`, conserves tels quels pour toute autre regle.
+# Le centroide qui donne la direction est NON PONDERE : pondere par les poids de chaine, l'axe
+# dependrait des poids que la regle reecrit et la cuisson cesserait d'etre idempotente.
+#
+# CE QUE CE CORRECTIF NE REPARE PAS, ET C'EST ECRIT AVANT LA CUISSON : `StrongRootFraction` sort
+# par le BAS de la bande 0.28-0.35 de la 30 (predit 0.224 / 0.275). La 30 troque donc sa clause
+# d'apex contre sa clause de fraction et n'est PAS tenue au sortir de ce cycle. Et la clause de
+# GRADIENT de la 31 reste NON TENUE : corriger un axe d'ancrage ne deplace aucun joint.
+# ---------------------------------------------------------------------------------------------
+anchor30 chestL  chain=lBoob,lBooc from=chest gate=0.05 root=0.95 strong=0.55 frac=0.30 grad=2.00 axis=anat
+anchor30 chestR  chain=rBoob,rBooc from=chest gate=0.05 root=0.95 strong=0.55 frac=0.30 grad=2.00 axis=anat
 
 [model keira3-hd]
 # The J3 look carries the same rig and the SAME defect (rBoob 86 verts, peak 0.408, 0 dominant).

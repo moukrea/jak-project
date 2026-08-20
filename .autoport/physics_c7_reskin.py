@@ -425,7 +425,7 @@ def _anchor30(r, J, W, idx, P, bind_pos, ed=None):
     tk = cum / total
 
     V = P[vi]
-    if r.get('axis') == 'flesh':
+    if r.get('axis') in ('flesh', 'anat'):
         # 31 A LA LETTRE : « r = 0 at chest attachment and r = 1 at distal/apex region ». Les deux
         # bouts sont ceux de la CHAIR, pas ceux du rig. Direction = celle de la chaine (l'axe de
         # l'organe, deja derive du rig, non choisi) ; origine et echelle = les EXTREMES du nuage que
@@ -456,12 +456,42 @@ def _anchor30(r, J, W, idx, P, bind_pos, ed=None):
             best_d[m] = d[m]
             s[m] = (cum[k] + t[m] * seglen[k]) / total
 
+    # ------------------------------------------------------------------------------------------
+    # DEUX ABSCISSES, ET C'EST LE CORRECTIF DU CYCLE 57. `s` sert a la PARTITION entre maillons
+    # (quel joint porte la chair) : elle doit rester l'abscisse de la CHAINE, parce que c'est une
+    # question de rig — quel joint est le plus proche de quelle chair. `sa` sert a l'ANCRAGE de la
+    # 30 (quelle fraction reste sur le thorax) : c'est une question d'ANATOMIE, et sa 31 la definit
+    # mot pour mot — « r = 0 at chest attachment and r = 1 at distal/apex region ».
+    # POURQUOI ELLES NE PEUVENT PAS ETRE LA MEME. Mesure du cycle 57 sur le mesh LIVRE : l'axe d'os
+    # de la chaine est a 77.82 deg (chestL) / 78.15 deg (chestR) de l'axe racine->apex, et les deux
+    # abscisses sont correlees NEGATIVEMENT (-0.116 / -0.292). Le meme champ de poids rend alors
+    # 5 bandes sur 5 DANS quand on le lit sur l'axe d'os, et 1 sur 5 quand on le lit sur celui que
+    # la 30 decrit — l'operateur installait un profil juste sur un axe faux. Preuve que c'est bien
+    # lui l'auteur du defaut : son profil impose predit 0.4314 d'ancrage sur le decile apex
+    # anatomique de chestL contre 0.4324 MESURE, soit 0.001 d'ecart.
+    # LE CENTROIDE EST NON PONDERE, ET C'EST VOULU : pondere par les poids de chaine, l'axe
+    # dependrait des poids que cette regle est en train de REECRIRE, donc la cuisson ne serait plus
+    # idempotente. Non pondere, il ne depend que de la geometrie et du nuage. Ecart mesure entre
+    # les deux definitions : 8.63 deg / 8.86 deg, contre les 77.8 deg que le correctif retire.
+    sa = s
+    if r.get('axis') == 'anat':
+        axa = V.mean(axis=0) - pts[0]
+        aan = float(np.linalg.norm(axa))
+        if aan <= 1e-9:
+            return [f"  !! {r['target']}: centroide confondu avec la racine — regle REFUSEE"]
+        axa = axa / aan
+        qa = (V - pts[0]) @ axa
+        qalo, qahi = float(qa.min()), float(qa.max())
+        if qahi - qalo <= 1e-9:
+            return [f"  !! {r['target']}: chair plate sur l'axe anatomique — regle REFUSEE"]
+        sa = (qa - qalo) / (qahi - qalo)
+
     plo, phi = _spec30_p_range(r['root'])
     cand = np.linspace(plo, phi, 2001)
-    fr = np.array([float((r['root'] * np.power(1.0 - s, pc) >= r['strong']).mean())
+    fr = np.array([float((r['root'] * np.power(1.0 - sa, pc) >= r['strong']).mean())
                    for pc in cand])
     p = float(cand[int(np.argmin(np.abs(fr - r['frac'])))])
-    anc = r['root'] * np.power(np.clip(1.0 - s, 0.0, 1.0), p)
+    anc = r['root'] * np.power(np.clip(1.0 - sa, 0.0, 1.0), p)
     tgt = 1.0 - anc
 
     # 31 : partition de l'unite lineaire par morceaux dans `u = r^grad`. Deux maillons -> (1-u, u).
@@ -539,8 +569,8 @@ def _anchor30(r, J, W, idx, P, bind_pos, ed=None):
             for lo, hi, blo, bhi in ((0.000, 0.125, 0.90, 1.00), (0.125, 0.375, 0.55, 0.85),
                                      (0.375, 0.625, 0.25, 0.55), (0.625, 0.875, 0.05, 0.30),
                                      (0.875, 1.001, 0.00, 0.10)):
-                m = (s >= lo) & (s < hi)
-                if m.any() and not (blo <= float(a[m].mean()) <= bhi):
+                m = (sa >= lo) & (sa < hi)      # repere de l'ANCRAGE (cycle 57), pas celui
+                if m.any() and not (blo <= float(a[m].mean()) <= bhi):   # de la partition
                     return False
             return True
 
