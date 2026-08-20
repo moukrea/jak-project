@@ -3512,15 +3512,18 @@
                                  (wup (fmax 0.0 gyc))
                                  (wbk (fmax 0.0 (- 0.0 gzc)))
                                  (wfw (fmax 0.0 gzc))
-                                 (wlt (fabs gxc))
-                                 (wsm (fmax 0.0001 (+ wdn (+ wup (+ wbk (+ wfw wlt))))))
+                                 ;; [NOTE-138] SPEC 12 — LE COTE, ET POURQUOI RETIRER LE `fabs` NE SUFFISAIT PAS. -> jak-hd-physics-NOTES.md
+                                 (gxs (* gxc (if (>= (-> *phys-axsep* (* sc 3)) 0.0) 1.0 -1.0)))
+                                 (wlt (fmax 0.0 gxs))
+                                 (wne (fmax 0.0 (- 0.0 gxs)))
+                                 (wsm (fmax 0.0001 (+ wdn (+ wup (+ wbk (+ wfw (+ wlt wne)))))))
                                  ;; [NOTE-52] SPEC 10 ET SPEC 11 ETAIENT INTERVERTIES (`wbk`/`wfw`, signe de `gzc`). -> jak-hd-physics-NOTES.md
                                  (sx0 (/ (+ (* wdn 1.000) (+ (* wup 0.900)
-                                            (+ (* wbk 0.900) (+ (* wfw 1.230) (* wlt 0.800))))) wsm))
+                                            (+ (* wbk 0.900) (+ (* wfw 1.230) (+ (* wlt 0.800) (* wne 1.000)))))) wsm))
                                  (sy0 (/ (+ (* wdn 1.000) (+ (* wup 1.230)
-                                            (+ (* wbk 0.910) (+ (* wfw 1.090) (* wlt 1.118))))) wsm))
+                                            (+ (* wbk 0.910) (+ (* wfw 1.090) (+ (* wlt 1.118) (* wne 1.000)))))) wsm))
                                  (sz0 (/ (+ (* wdn 1.000) (+ (* wup 0.910)
-                                            (+ (* wbk 1.230) (+ (* wfw 0.700) (* wlt 1.118))))) wsm))
+                                            (+ (* wbk 1.230) (+ (* wfw 0.700) (+ (* wlt 1.118) (* wne 1.000)))))) wsm))
                                  ;; (c) SPEC 8 — `Sx.Sy.Sz = 1`. Les triplets de sa spec sont des
                                  ;; BOITES ENGLOBANTES et elle le dit (« the volume constraint
                                  ;; applies to the actual deformable volume, NOT merely to the

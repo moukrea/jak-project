@@ -4400,3 +4400,60 @@ fonction dit pourquoi enumerer les emplacements un par un etait le vrai
 risque, et le `dotimes` a ete elargi de 24 a 27 dans le meme geste.
 ---------------------------------------------------------------------------
 ```
+
+## NOTE-138  (moteur, dans le melange de forme de SPEC 10-13, aux alentours de la ligne 3511) — SPEC 12, LE COTE
+
+```
+---------------------------------------------------------------------------
+CE QUE SA SPEC 12 EXIGE, MOT POUR MOT (l.189-190) :
+
+  « The breasts shall NOT behave identically. The gravity-side breast
+    experiences stronger thoracic compression, while the opposite breast
+    migrates across the chest. »
+
+CE QUI ETAIT ECRIT : `(wlt (fabs gxc))`. La valeur absolue rendait le meme
+poids lateral aux deux SIGNES de gravite laterale, donc le meme triplet aux
+deux poses. Mesure : `sx` = 0.8240 / 0.8212 aux deux poles, 0.34 % d'ecart.
+
+ET RETIRER LE `fabs` N'AURAIT PAS SUFFI — c'est le fait qui a coute la
+verification, et il est publie dans la trace. `PHYSAXW` et `PHYSTRI` sont
+IDENTIQUES sur les deux chaines : elles partagent l'ancre `chest`, donc elles
+partagent son triedre, donc `gxc` est LE MEME NOMBRE pour chestL et chestR.
+Un poids signe aurait distingue « couchee sur le cote gauche » de « couchee
+sur le cote droit » et aurait continue a donner LE MEME TRIPLET AUX DEUX
+SEINS. Or la clause porte sur les deux SEINS, pas sur les deux poses.
+
+CE QUI DISCRIMINE LES DEUX CHAINES EXISTE DEJA, MESURE ET PUBLIE :
+`*phys-axsep*` slot 0 (`PHYSAXNAME sja`) vaut +754.9434 sur chestL et
+-754.9434 sur chestR — meme module, signe oppose. C'est la separation de la
+chaine le long de la ligne laterale : c'est le COTE.
+
+    gxs = gxc * signe(sja)     la gravite VUE DU COTE DE CETTE CHAINE
+    wlt = max(0,  gxs)         cote gravite  -> 0.800 / 1.118 / 1.118
+    wne = max(0, -gxs)         cote oppose   -> 1.000 / 1.000 / 1.000
+
+POURQUOI `wne` EXISTE, ET CE N'EST PAS UN ORNEMENT. Sans lui, le sein oppose
+perdrait TOUT poids a gravite purement laterale : `wsm` tomberait sur son
+plancher de 0.0001 et les trois echelles partiraient a zero. La partition
+reste unitaire et le sein oppose cesse simplement de s'aplatir.
+
+AUCUN CHIFFRE N'EST INVENTE, ET C'EST DELIBERE. 0.800/1.118/1.118 est le
+triplet lateral deja livre ; 1.000/1.000/1.000 est le pole debout deja livre.
+Le correctif ne fait que choisir LEQUEL des deux recoit le poids. Sa §12 ne
+donne d'ECHELLE qu'au cote gravite (« Gravity-side lateral flattening: -15 to
+-25%, nominal -20% ») ; pour le sein oppose elle donne une MIGRATION (« medial
+migration: 10-18% W0 »), c'est-a-dire une translation, que la dynamique
+produit deja par `gl`. Inventer un triplet pour le cote oppose aurait ete la
+faute de la x5.2 : deduire un chiffre d'une ligne que la spec ne contient pas.
+
+CE QUE CE CORRECTIF NE FAIT PAS : il ne rend pas §12 TENUE. Sa clause chiffree
+« Global lateral COM response: 15-24% B0 » reste encadree par deux bornes qui
+ne se rejoignent pas, et « medial migration 10-18% W0 » reste sans instrument
+parce que `W0` n'est mesure nulle part.
+
+CONTROLE : debout, `gl = 0` donc `gxc = 0` EXACTEMENT (le garde
+`(> gnn 0.0001)` met `ivg` a zero), donc `wlt = wne = 0` et le melange est
+identique a `fabs(0)`. Les fenetres de regime a quaternion identite doivent
+donc rester IDENTIQUES AU BIT — c'est la prediction P1 de C50E1.
+---------------------------------------------------------------------------
+```
