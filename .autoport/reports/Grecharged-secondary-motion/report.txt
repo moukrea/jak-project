@@ -477,3 +477,22 @@ passe, une autre est retrogradee, et pour la premiere fois on sait sur §16 quel
 tient au maillage et quelle part tient au solveur.
 Ce qu'il verra toujours, et que je n'habille pas : la poitrine entre dans les volumes du torse
 au-dela de sa pose d'auteur (`meshpen` 0.1115 / 0.1019 m contre un plafond de 0.0005).
+
+--- 11. UNE PRECISION QUE JE ME SUIS IMPOSEE APRES COUP, ET ELLE BORNE LA SECTION 3 -----------
+J'ai ecrit « 41 a 43 % de l'apex est soude au torse » et rapproche ca de la §30. **Verifie avant
+de le laisser passer : les deux « distal » du dossier ne sont PAS la meme population.**
+
+    angle entre l'axe d'os de la chaine et l'axe anatomique racine->apex : 77.8 / 78.1 degres
+
+    decile distal sur l'axe ANATOMIQUE (mon apex, celui de §6 et §22) : ancrage 0.4324 / 0.4064
+    decile distal sur l'axe D'OS      (le `r` de §30 et §31)          : ancrage 0.3157 / 0.6505
+
+Les deux axes sont a 78 degres l'un de l'autre — c'est le fait deja au registre en §31 — donc
+« distal le long de l'os » et « distal anatomiquement » sont presque orthogonaux. Mon chiffre
+repond a §6 et §22 (« root-to-apex », « distal/apex displacement »), qui est bien la grandeur que
+le canal mesure. La clause de §30 est redigee en `r`, donc sur l'AUTRE axe, et elle y rend 0.32 /
+0.65 — un ecart gauche/droite de x2.1 sur le SKINNING lui-meme, qui n'est explique nulle part.
+Le plafond de x1.76 / x1.68 utilise en section 4 reste juste : il est calcule sur la population
+que le canal d'apex transporte reellement, pas sur celle de §30.
+**Sans cette verification j'aurais publie un rapprochement faux entre deux mesures qui portent le
+meme mot et pas la meme chose.**
