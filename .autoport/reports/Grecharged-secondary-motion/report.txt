@@ -323,11 +323,25 @@ de mesurer qu'il est faux, ni pour faire passer la gate, ni pour la faire echoue
 faux rouge coute autant qu'un faux vert.** Trois garde-fous le tiennent, chacun avec sa mesure :
 `skinmiss > 0` (trou), `sets < declared` (peau tronquee), et l'incoherence repos/course ci-dessus.
 
-CE QUI DEBLOQUERAIT §33/§34, ET C'EST UNE DECISION QUI VOUS APPARTIENT : il faut que la surface
-que le moteur lit CONTIENNE la peau des seins. Cela veut dire changer ce que `bs` represente — ou
-porter la mesure sur les `ms`, les sommets extremes de la chaine, qui existent deja. Les deux
-touchent un jeu de donnees que d'autres mesures lisent (§18 en particulier), et je ne le change pas
-de ma propre initiative en fin de cycle. C'est le chantier suivant, et il est nomme.
+CE QUI DEBLOQUERAIT §33/§34 — ET J'AI TROUVE QUE LA DONNEE EXISTE DEJA ([NOTE-160]).
+Exclure les maillons de chaine de `bs` est CORRECT : un sein n'est pas un obstacle pour lui-meme.
+Ce qui manque n'est donc pas `bs`, c'est son pendant — et il est ECRIT depuis le cycle 14. Le
+generateur produit des enregistrements `ms <chaine> <maillon> <n> (x y z)*n`, « the handful of
+skinned vertices that stick out FURTHEST from the link [...] tested against the body volumes AT THE
+SURFACE » (sa propre docstring). C'est mot pour mot la grandeur que sa 33 demande.
+
+ET PERSONNE NE LES LIT. Le C++ n'expose que QUATRE accesseurs, tous `bsurf`
+(`kmachine.cpp:2212-2242`, enregistres a `:4213-4216`) : **il n'existe aucun accesseur `ms`**. Ces
+enregistrements sont produits, ecrits dans `recharged_assets/physics_mesh.txt`, livres — et jamais
+lus. Un jeu de donnees sans lecteur, c'est `declared-but-never-selected` a l'echelle d'un fichier.
+
+LE CHANTIER EST DONC BORNE ET CHIFFRABLE, et il ne demande PAS de toucher a `bs` (donc §18 n'est pas
+menacee) : exposer `pc-physics-num-msurf` / `-msurf-count` / `-msurf-mi` a cote des quatre `bsurf`
+— c'est du C++, donc une reconstruction de `gk` — les charger comme les `bs` le sont deja
+(jak-hd-physics.gc:759-804), puis porter `skinpen` sur CES points au lieu du JOINT. Le joint est
+interieur par construction et ne peut pas repondre a une question de SURFACE ; ces points-la SONT
+la surface. Je ne l'ouvre pas en fin de cycle — c'est le premier chantier du suivant, et il est
+nomme, localise et chiffre.
 
 ================================================================================================
 11. ETAT DU VALIDATEUR, SANS ENROBAGE

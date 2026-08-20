@@ -5427,3 +5427,29 @@ CE QUI DEBLOQUERAIT LA SECTION, ET C'EST UNE TACHE D'ASSET, PAS DE SOLVEUR : reg
 (b) une densite qui permette a une SDF de nuage de points de decider un cote — 12 points pour un
 buste entier n'y suffisent pas. Tant que ce fichier n'a pas de peau de poitrine, aucun reglage du
 moteur ne rendra `skinpen` lisible sur cet organe.
+
+## [NOTE-160] LE JEU DE DONNEES QUI REPONDRAIT A SPEC 33/34 EXISTE — ET PERSONNE NE LE LIT
+
+[NOTE-159] etablit que la peau des seins ne peut PAS apparaitre dans `bs` : `model_bsurf` exclut
+tout os qui est un maillon de chaine, et c'est CORRECT pour un jeu d'OBSTACLES — un sein n'est pas
+un obstacle pour lui-meme.
+
+CE QUI MANQUE N'EST DONC PAS `bs`, C'EST SON PENDANT. Le generateur ecrit, depuis le cycle 14, des
+enregistrements `ms <chaine> <maillon> <n> (x y z)*n` — « the handful of skinned vertices that
+stick out FURTHEST from the link, expressed in the bone's own bind-local frame so they can be
+carried by the solved link transform every frame and tested against the body volumes AT THE
+SURFACE » (docstring de `physics_c14_meshsamples.py`). C'est EXACTEMENT la grandeur que sa 33
+demande : la peau du sein, portee par la matrice resolue, testee contre le corps.
+
+MESURE, ET C'EST UN TROU COMPLET : le C++ n'expose que quatre accesseurs, tous `bsurf`
+(`kmachine.cpp:2212-2242`, enregistres a `:4213-4216`). **Il n'existe AUCUN accesseur `ms`**, ni
+dans le C++ ni dans le GOAL. Les enregistrements `ms` sont produits, ecrits dans
+`recharged_assets/physics_mesh.txt`, livres — et JAMAIS LUS. Un jeu de donnees sans lecteur est le
+meme mode d'echec que `declared-but-never-selected`, a l'echelle d'un fichier.
+
+LE CHANTIER, CHIFFRE ET BORNE : exposer `pc-physics-num-msurf` / `-msurf-count` / `-msurf-mi` a
+cote des quatre `bsurf` (C++, donc reconstruction de `gk`), les charger comme les `bs` le sont deja
+(:759-804), puis porter `skinpen` sur CES points au lieu du JOINT. Le joint est interieur par
+construction et ne peut pas repondre a une question de SURFACE ; ces points-la sont la surface.
+La ligne de base au repos se calcule alors de la meme facon, sur la pose d'auteur, et la
+comparaison redevient homogene.
