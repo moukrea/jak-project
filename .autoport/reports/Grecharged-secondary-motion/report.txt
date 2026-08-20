@@ -1,541 +1,113 @@
+RAPPORT — CYCLE 55 — L'ECART GAUCHE/DROITE ETAIT UN ARTEFACT DE POSE. x3.41 -> x1.06.
+ET LE MECANISME PREDIT MAINTENANT DANS DEUX POSES TRES DIFFERENTES.
 DIRECTIVES v3fee554599
-
-================================================================================================
-CYCLE 49 — LES SEPT REGIMES DYNAMIQUES DE SA SPEC §14 A §20, JAMAIS JOUES, SONT JOUES.
-SEPT SECTIONS SORTENT DE `NON ETABLI` ; SIX EN SORTENT ROUGES, ET LES SIX DISENT LA MEME CHOSE :
-LA REPONSE EST GOUVERNEE PAR LA **DUREE** DU GESTE, PAS PAR SON AMPLITUDE. LE STIMULUS LE PLUS
-FAIBLE DES SEPT (0,76 g, SOUTENU) DEPASSE SA BANDE DE x1,62 ; LE PLUS FORT (3,11 g, 9 FRAMES)
-RESTE SOUS LA SIENNE D'UN FACTEUR 3,63.
-LE CONTROLE EST TOTAL : **37 082 LIGNES DE MESURE IDENTIQUES**, UNE SEULE DIFFERENCE ET C'EST LA
-LIGNE DE GARDE QUE J'AI CHANGEE EXPRES. LE SOLVEUR N'A PAS BOUGE D'UN BIT.
-ET LE REGISTRE PASSE DE 3 TENUES A 2 : §11 ETAIT UN FAUX VERT — LE QUATRIEME DU DOSSIER — SUR UN
-INSTRUMENT QUI REPUBLIE LA CONSTANTE QUE LA SPEC VISE.
-================================================================================================
-
---- 0. LA PHASE NE PEUT PAS PASSER LE VALIDATEUR, ET CE N'EST PAS UN ECHEC DE LA TENTATIVE ------
-`bash .autoport/validators/phase-Grecharged-secondary-motion.sh` sort en echec sur `OPEN-DEFECTS`,
-qui compte les lignes `^OPEN ` de `owner-defects.txt`. Il en reste UNE : `breast-spec-incomplete`.
-La gate ecrit elle-meme sa regle : « La liste se vide UNIQUEMENT sur la parole de l'owner ».
-C'est une PORTE HUMAINE. Les deux seules facons de la faire sortir a 0 sont d'effacer une ligne
-`OPEN` ou de toucher une gate (regle 5, verrou dur) : je ne fais ni l'une ni l'autre, et je le dis
-en tete plutot que de laisser croire que la tentative a echoue sur sa technique.
-Les gates de DONNEES sont inchangees depuis le cycle 48 — SYNC, CLEAN, SCOPE, TUNING passent ;
-COLLIDE echoue toujours sur la penetration (`meshpen` 0,1061 / 0,0898 m contre 0,0005), et ce
-cycle ne pouvait pas la changer puisqu'il ne touche pas au solveur.
-
---- 1. LE CONTROLE, D'ABORD, PARCE QUE C'EST LUI QUI AUTORISE A LIRE LE RESTE ------------------
-Le moteur gagne SIX ecritures de diagnostic (47-49 le vecteur du COM, 50-52 la position monde de
-l'ancre) et sa tranche de remise a zero s'elargit de 24 a 27 emplacements. Aucune force ne lit ces
-six nombres. Prouve par la TRACE, sur les DEUX courses de ce cycle :
-
-    lignes `PHYS*` de la course (hors les tags neufs) :  c48 = 37 082   c49 = 37 082
-    DIFFERENCES : 1  -> `PHYSROOM-PHASEGUARD maxwork=30` devient `maxwork=31`
-
-C'est la ligne de garde de phase, et je l'ai changee expres (section 4). Tout le reste est
-identique au bit, y compris `PHYSTAN2 oldremoved=58298490.0000 capn=673689 capdepth=82434135.0000
-capgive=4.2394`. Au niveau du tableau : **877 lignes de mesure, 0 difference.**
-`tipvar` 0,1720 / 0,1738 et `meshpen` 0,1061 / 0,0898 sont inchanges : l'acquis que l'owner
-protege — les mouvements SUBTILS de la poitrine — n'a pas ete touche.
-**M0 est la prediction qui pouvait tuer le cycle. Elle tient, et elle tient sur 37 082 lignes.**
-
---- 2. LES DIX PREDICTIONS, GRAVEES AVANT LA CUISSON ET AVANT LA COURSE ------------------------
-`C49E1-regimes-prediction.txt`, md5 **0c21d490d649b8eab4e69ce1d1dda4be**, commit e016197f6d.
-Sept etaient ecrites contre moi. **Quatre sont REFUTEES, et ce sont les quatre qui apprennent.**
-
-  M0  solveur identique au bit          37 082 lignes, 1 diff voulue    TENUE — LE CONTROLE
-  M1  les 15 fenetres existent          15 PHYSREGD, 30x3 lignes        TENUE
-  M2  temoin <= 0,05 B0                 0,0268 / 0,0222                 TENUE
-  M3  amax a +/- 3 % du profil          -0,3 % sur les vols, -13 % ailleurs   **REFUTEE**
-  M4  bras de levier a +/- 25 %         x57 / x12,6 / x7,2              **REFUTEE** — voir 4
-  M5  §15 : le signe s'inverse           il ne s'inverse pas             **REFUTEE** — voir 6
-  M6  le vol n'est pas muet             0,56 a 1,32 x la detente        TENUE — voir 6
-  M7  ordre = ordre des accelerations   ORDRE COMPLETEMENT INVERSE      **REFUTEE** — voir 5
-  M8  la reception dure depasse 0,40    0,0964 / 0,1746, SOUS           **REFUTEE**, et j'avais
-                                                                       predit le mauvais SENS
-  M9  ecart gauche/droite < 20 %        x3,9 et x2,0                    **REFUTEE**
-
-M3 : les fenetres de VOL retombent a -0,3 % du profil analytique, les autres a -10/-13 % — parce
-que leur pic de vitesse est SUR la borne de fenetre et que la mesure s'arrete une a deux frames
-avant. C'est un decalage de fenetre, pas un profil faux, et je le declare au lieu de le lisser.
-M8 : je predisais un DEPASSEMENT et la mesure donne l'inverse — la reception dure est 2 a 3,6 fois
-TROP FAIBLE. Predire le mauvais sens d'un echec est utile ; le decouvrir apres coup ne l'est pas.
-
---- 3. LE DEFAUT DE MON PROPRE INSTRUMENT, LEVE PAR UNE COLONNE INDEPENDANTE -------------------
-La premiere course (C49E1) publiait des fenetres CHAINEES identiques a leur voisine. Cause :
-`pframe` est incremente EN TETE du tick et remis a 0 a la fin d'une fenetre — il ne vaut donc
-JAMAIS 0 dans la phase. Ecrit `(= pframe pre)`, mon reset de fenetre **ne se declenchait pas du
-tout** sur les six fenetres a `pre = 0`, qui heritaient du maximum de la precedente.
-**Ce n'est pas la valeur du maximum qui l'a trahi — un maximum herite est plausible. C'est le
-DOMAINE** : `cn`, le nombre de frames agregees, valait 18 / 45 / 104 la ou les fenetres duraient
-18 / 27 / 14 — le cumul exact. Apres correction (`(max 1 pre)`) : 18 / 26 / 58, soit les durees a
-une frame pres. Publier le domaine a cote de toute statistique de fenetre est ce qui a leve ca en
-une lecture, et c'est la seule raison pour laquelle je ne l'ai pas publie comme un resultat.
-
---- 4. M4 EST REFUTEE, ET C'EST LE MEILLEUR RENDEMENT DU CYCLE ---------------------------------
-J'avais ecrit que le bras de levier de l'ancre devait retomber sur celui du rig. Mesure C49E1 :
-
-    axe        bras PREDIT (mesh livre)   bras MESURE (amax/omega)
-    lacet  Y          239,8 u                  13 748 u        x57,3
-    tangage X         956,9 u                  12 085 u        x12,6
-    roulis Z          926,4 u                   6 675 u         x7,2
-
-**La rotation de `root quat` ne pivote PAS autour de `root trans`.** Les trois regimes de rotation
-tapaient 7 a 57 fois trop fort en portant le nom d'un geste humain qu'ils ne decrivaient plus.
-Recompose des trois mesures : |Y_ancre - hanche| = **894 u** contre 926,4 au mesh — la VERTICALE
-etait juste, seul l'horizontal etait deporte.
-Aucune phase anterieure ne pouvait le voir : `PH-TILT` et `PH-ORI` sont QUASI-STATIQUES et ne
-mesurent que la direction de la gravite, qui depend de la rotation et pas du pivot.
-
-**LE CORRECTIF NE SUPPOSE PLUS RIEN, IL MESURE.** Le moteur publie desormais la position monde de
-l'ancre ; la salle releve `ancre - home` a la PREMIERE frame de la fenetre (sujet droit, immobile)
-et pivote autour de `p = c_mesure - c_anatomique`, ce qui met l'ancre sur un arc de rayon
-|c_anat| quel que soit le deport. Offset mesure a l'execution : `cex=-6630,69 cey=6992,31
-cez=12083,88` — a comparer a ma reconstruction a l'aveugle depuis les trois `r_eff` de C49E1
-(6615 / 6988 / 12052) : **0,3 % d'ecart sur les trois composantes.** Et `cey` = 6992,3 contre
-7020,8 pour le joint `chest` du mesh : 0,4 %.
-
-**LE CONTROLE EST LE MEME INSTRUMENT QUI A LEVE LE DEFAUT**, et il ferme la boucle :
-
-    r= 9 lacet    r_eff =  238,9 u  contre 239,8   -0,4 %
-    r=10 lacet    r_eff =  239,4 u  contre 239,8   -0,2 %
-    r=11 tangage  r_eff =  964,8 u  contre 956,9   +0,8 %
-    r=12 tangage  r_eff =  955,0 u  contre 956,9   -0,2 %
-    r=13 roulis   r_eff =  930,2 u  contre 926,4   +0,4 %
-    r=14 roulis   r_eff =  921,1 u  contre 926,4   -0,6 %
-
-De x7-57 a x1,00. **Un stimulus n'est pas un commentaire : celui-la est mesure.**
-
---- 5. LE RESULTAT, ET C'EST UN SEUL FAIT, PAS SEPT --------------------------------------------
-    r  fenetre          §    chestL              chestR              bande
-    1  jumpA-push      14   0,1389 SOUS x1,08   0,2404 DANS         0,15-0,25
-    3  jumpA-land      16   0,0836 SOUS x2,99   0,1426 SOUS x1,75   0,25-0,35
-    4  jumpB-push      14   0,1526 SOUS x1,64   0,2087 SOUS x1,20   0,25-0,32
-    6  jumpB-land      16   0,0964 SOUS x3,63   0,1746 SOUS x2,00   0,35-0,40
-    7  runA-accel      17   0,2923 AU-DESSUS x1,62   0,2610 x1,45   0,10-0,18
-    8  runA-brake      17   0,1475 SOUS x1,22   0,1387 SOUS x1,30   0,18-0,27
-    9  yawA            18   0,0511 SOUS x1,96   0,2016 AU-DESSUS x1,19  0,10-0,17
-   10  yawB            18   0,1019 SOUS x1,67   0,2040 DANS         0,17-0,24
-   13  rollA           20   0,1917 DANS         0,2549 AU-DESSUS x1,16  0,15-0,22
-   14  rollB           20   0,2407 x1,09        0,2543 x1,16        0,15-0,22
-
-**M7 EST REFUTEE ET L'ORDRE EST EXACTEMENT INVERSE.** Accelerations commandees : 8,53 · 17,06 ·
-21,24 · 34,74 u/frame^2. Reponses (chestL) : 0,2923 · 0,1475 · 0,1526 · 0,0964. Le stimulus le
-plus FAIBLE rend la plus GRANDE reponse, le plus FORT la plus PETITE.
-La variable cachee est la DUREE. Le demarrage de course est soutenu **36 frames**, soit 1,4
-periode propre (26,1 frames a 2,30 Hz) : la reponse a le temps de s'etablir. La reception dure est
-un choc de **9 frames**, un tiers de periode : le systeme n'a pas le temps de repondre.
-**Le solveur sur-repond au soutenu et sous-repond a l'impulsif.**
-CE QUE CA IMPOSE, ET C'EST UNE LIMITE DE MA MESURE AUTANT QUE DU SOLVEUR : aucune bande de §14 a
-§20 ne se juge sans la DUREE du geste, et **sa spec n'en donne aucune**. Mes durees viennent de la
-biomecanique (detente 0,25-0,30 s, reception 0,15-0,23 s, demarrage 0,6 s) et elles PORTENT le
-verdict. Je le declare au lieu de presenter les dix lignes ci-dessus comme des faits absolus.
-
---- 6. SPEC 15 : UNE MOITIE TENUE ET DISCRIMINANTE, L'AUTRE HORS D'ATTEINTE DE MON INSTRUMENT --
-Sa §15 interdit nommement un modele pilote par la vitesse (« shall not use character speed
-alone »). Le vol balistique est la seule fenetre du cycle qui puisse REFUTER le modele : a l'apex
-la vitesse du torse est nulle et l'acceleration vaut -g, donc les deux hypotheses predisent des
-choses OPPOSEES au meme endroit. Mesure : le vol rend **0,56 a 1,32 fois** la reponse de la
-detente sur les quatre fenetres — jamais un silence. **La clause est tenue, et elle est
-discriminante.** (M6)
-
-L'autre clause — « jump apex -> breast may CROSS NEUTRAL position » — est **NON DEMONTREE, et mon
-instrument ne peut pas la demontrer.** Le vecteur du COM est releve a l'ARGMAX de sa norme, une
-seule frame par fenetre ; sa composante verticale y reste negative, ce qui n'etablit ni la
-presence ni l'absence d'une traversee ailleurs dans la fenetre. Il faut le MAX **et** le MIN de la
-composante verticale signee : deux emplacements de diagnostic, un cycle. Je ne transforme pas une
-mesure muette en un rouge.
-
---- 7. UNE PISTE QUE LA MESURE DESIGNE, ET L'ABLATION QUI LA TESTERAIT EXISTE DEJA -------------
-Une poussee PUREMENT VERTICALE (detente, r=1 et r=4) produit une reponse dont la part verticale ne
-vaut que **12,2 % sur chestL** (`cy` = -0,0170 sur `com` = 0,1389) — le reste part en lateral et en
-avant-arriere. Sur chestR elle vaut 52,5 %.
-Le tableau mesure par ailleurs que l'axe d'os est a **95,4 % / 97,9 % vertical** et la contrainte
-de longueur est DURE : elle confisque la composante du pilotage le long de l'os. C'est le
-mecanisme le plus simple qui explique a la fois §14 et §16.
-**Je ne le publie pas comme une conclusion : la salle porte deja l'ablation qui le testerait**
-(`phys-len-off-set!`, la passe k=1 de PH-ORI). C'est un controle positif a tirer, pas un
-raisonnement a croire.
-
---- 8. LE QUATRIEME FAUX VERT DU DOSSIER, ET IL COUTE UNE TENUE -------------------------------
-`ROOM-ORI sx/sy/sz` etait compare aux bandes de §10 / §11 / §12 et tombait dedans a chaque fois.
-La raison n'est pas que le solveur les tient : `jak-hd-physics.gc:3511-3517` melange
-barycentriquement CINQ triplets **ecrits en dur**, qui SONT les constantes de ces sections. J'ai
-reconstruit deux poles a la main depuis `gx/gy/gz` : ecart au publie **1e-4**. La gate compare
-donc une constante a elle-meme. Et l'attribution du role (« quelle orientation est supine ? »)
-est un argmin-L1 contre **ces memes constantes** (`physics_room_table.py:508-534`) : un critere
-qui ne peut pas echouer, et aveugle a une inversion supine/prone.
-**§11 passe de TENUE a PARTIELLE.** Sa seule clause chiffrable independante — « Static COM
-displacement 20-28% B0 » — est INDETERMINEE : borne inferieure squelettique 0,1290 / 0,1551
-(SOUS), borne superieure d'apex 0,4268 / 0,4106 (AU-DESSUS), la bande est entre les deux.
-Ce qui reste une vraie mesure est le transitoire, 1,082 / 1,105 contre 1,057 exige — un RAPPORT,
-immunise contre un facteur commun.
-**Le tableau, lui, etait honnete** : il ecrit en tete « CE QUE CE N'EST PAS : la deformation VUE
-sur le mesh. C'est ce que le solveur COMMANDE. » C'est le REGISTRE qui l'avait sur-lu.
-
-**§12 passe de `NON ETABLI` a `NON TENUE`, et c'est une refutation au CODE.** Sa clause
-structurante — « The breasts shall **not** behave identically » (l.189) — est rendue impossible
-par `(wlt (fabs gxc))`, `jak-hd-physics.gc:3508` : la valeur absolue donne le MEME triplet aux
-deux signes de gravite laterale ET aux deux seins. Mesure : `sx` = 0,8240 / 0,8212, **0,34 %
-d'ecart** la ou la spec EXIGE une difference. Correctif : retirer le `fabs`, UNE ligne.
-**Non fait ce cycle, et je dis pourquoi** : toucher au solveur aurait detruit le controle de la
-section 1, qui est ce qui rend les sept regimes lisibles. C'est le chantier du cycle 50.
-
---- 9. LE REGISTRE : 15 `NON ETABLI` -> 8 ----------------------------------------------------
-    TENUE                     2  (§3, §37)                 <- etait 3, §11 retrogradee
-    TENUE PAR CONSTRUCTION    4  (§1, §4, §5, §28)
-    PARTIELLE                17
-    NON TENUE                 7  (§12, §14, §16, §17, §18, §31, §33)
-    NON ETABLI                8  (§7, §8, §10, §13, §19, §26, §35, §38)
-**Sept sections sortent de `NON ETABLI`. Six en sortent rouges.** C'est le gain de COUVERTURE que
-les DIRECTIVES du 00:10 demandaient, et il va dans le sens qu'elles annoncaient : « chaque regime
-joue transforme un NON ETABLI en un verdict, dans un sens ou dans l'autre ».
-
---- 10. CE QUE JE N'AI PAS FAIT, ET POURQUOI (aucun de-scope silencieux) -----------------------
-* **AUCUN APEX N'EST MESURE.** §14, §16, §17, §18, §19 et §20 bornent toutes un « apex
-  displacement » en % B0 et **aucun canal de la salle ne publie un apex**. §19 n'a QUE ca : son
-  COM est desormais mesure (0,226 a 0,289 B0) et ne repond a aucune de ses clauses. `ee0/ee1`
-  (centroide par maillon) et `jt0/jt1` (joint par maillon) sont publies parce qu'ils ENCADRENT
-  l'apex, pas parce qu'ils le sont. **C'est le plus gros trou d'instrument restant.**
-* **Les elongations de §14/§16/§17/§18/§20 ne sont pas mesurees non plus** — meme raison.
-* **Je n'ai pas corrige le `fabs` de §12** (section 8) ni touche a une seule ligne du solveur.
-* **Je n'ai pas ouvert §10/§13** : le regime EST joue, mais leur instrument de forme est
-  tautologique et le remplacer demande de mesurer la deformation SUR LE MESH, pas de la lire
-  depuis le solveur. C'est un chantier a part, et il est ecrit tel quel au registre.
-* **Aucun APK n'est publie.** Le comportement livre est identique au bit — c'est ce que la section
-  1 prouve sur 37 082 lignes. Un build neuf ne donnerait a l'owner rien de neuf a regarder.
-* **Une question d'instrument du cycle 48 est fermee** : `ROOM-RAD elong` et `ROOM-SHAPE dyn` ne
-  mesurent PAS la meme grandeur, et leur ecart est structurel, pas un desaccord. `dyn`
-  (`jak-hd-physics.gc:3675-3686`) ajoute le deplacement `ox/oy/oz` au terme radial, ne lit que le
-  maillon POINTE, et est ECRETE a 0,25 ; `elong` (0,43 x `rrm`) est le radial seul, sur le max de
-  TOUS les maillons, non ecrete. `dyn >= 0,43 |rr_pointe|` par construction. Lequel repond a §22
-  depend du denominateur de la deformation, qui reste a trancher.
-
---- 11. CE QUE L'OWNER DOIT TESTER, S'IL PREND UN BUILD ---------------------------------------
-Rien de neuf a regarder : le comportement livre est identique au bit a celui des cycles 47 et 48.
-Ce qu'il verra encore, et que je n'habille pas : la poitrine entre toujours dans les volumes du
-torse au-dela de sa pose d'auteur (`meshpen` 0,1061 / 0,0898 m contre un plafond de 0,0005).
-Ce que ce cycle apporte n'est pas visible a l'ecran : c'est la reponse a sa question du 2026-08-20
-(« j'ai pas l'impression que la spec est 100 % implementee »). Elle est desormais chiffree section
-par section, et sur les sept sections qu'on ne savait pas juger hier, six sont rouges.
-
-================================================================================================
-CYCLE 50 (meme tentative) — SPEC 12 EST CORRIGEE AU POINT OU ELLE ETAIT MECANIQUEMENT IMPOSSIBLE.
-L'ECART GAUCHE/DROITE PASSE DE 0,34 % A 19 % ET IL S'INVERSE ENTRE LES DEUX POLES : EXACTEMENT UN
-SEIN S'APLATIT, ET C'EST CELUI DU COTE GRAVITE. C'EST LE POINT QUE L'ORDRE DE TRAVAIL DE L'OWNER
-DU 2026-08-17 23:50 NOMME (« puis §12 lateral »).
-================================================================================================
-
---- A. LE FAIT QUI A COUTE LA VERIFICATION, ET QUI A CHANGE LE CORRECTIF ----------------------
-Le cycle 49 avait designe `(wlt (fabs gxc))` (`jak-hd-physics.gc:3508`) comme la cause. **Retirer
-le `fabs` n'aurait PAS suffi, et c'est la trace qui le dit** : `PHYSAXW` et `PHYSTRI` sont
-IDENTIQUES sur les deux chaines — elles partagent l'ancre `chest`, donc son triedre, donc `gxc`
-est LE MEME NOMBRE pour chestL et chestR. Un poids signe aurait distingue « couchee sur le cote
-gauche » de « couchee sur le cote droit » en continuant a donner LE MEME TRIPLET AUX DEUX SEINS.
-Or la clause porte sur les deux SEINS, pas sur les deux poses.
-
-Ce qui discrimine les chaines existe deja, mesure et publie : `PHYSAXNAME sja` = **+754,9434** sur
-chestL et **-754,9434** sur chestR. Et ce n'est pas un nombre choisi : le moteur nomme sa ligne
-laterale PAR LA DIRECTION OU LES DEUX SEINS SONT SEPARES (`|sja|/|sjb|` = 754,94 / 0,009, soit
-84 000:1). C'est un invariant anatomique, et c'est le meilleur du dossier.
-
---- B. LE CORRECTIF N'INVENTE AUCUN CHIFFRE ---------------------------------------------------
-    gxs = gxc * signe(sja)     la gravite VUE DU COTE DE CETTE CHAINE
-    wlt = max(0,  gxs)         cote gravite  -> triplet 0.800/1.118/1.118  (deja livre)
-    wne = max(0, -gxs)         cote oppose   -> triplet 1.000/1.000/1.000  (deja livre)
-Sa §12 ne donne d'ECHELLE qu'au cote gravite (« Gravity-side lateral flattening: -15 to -25% »)
-et donne au cote oppose une MIGRATION (« medial migration: 10-18% W0 »), c'est-a-dire une
-translation, que la dynamique produit deja par `gl`. Inventer un triplet pour le cote oppose
-aurait ete la faute de la x5,2 : deduire un chiffre d'une ligne que la spec ne contient pas.
-`wne` n'est pas un ornement : sans lui, le sein oppose perdrait tout poids a gravite purement
-laterale, `wsm` tomberait sur son plancher de 0,0001 et les trois echelles partiraient a zero.
-
---- C. LE RESULTAT, ET LES CINQ PREDICTIONS --------------------------------------------------
-`C50E1-lateral-prediction.txt`, md5 **6ec4361b2d49679811c52dd18f5f28e2**, commit 14731a7d59.
-
-  P1  regimes a quaternion identite identiques au bit    **REFUTEE** — voir E
-  P2  ecart gauche/droite > 10 %, et il s'inverse        18,98 % / 19,14 %   TENUE
-  P3  la pose debout ne bouge pas                        i=0 : 1,000 / 1,000  TENUE
-  P4  `meshpen` bouge de moins de 20 %                   +5,1 % / +13,5 %     TENUE
-  P5  §12 ne deviendra pas TENUE pour autant             elle passe a PARTIELLE  TENUE
-
-    pole        chestL  sx          chestR  sx         ecart G/D
-    i=2 (avant)   0,8240              0,8212             0,34 %
-    i=2 (apres)   1,0136 NEUTRE       0,8212 COMPRIME   **18,98 %**
-    i=4 (avant)   0,8031              0,8054             0,29 %
-    i=4 (apres)   0,8030 COMPRIME     0,9931 NEUTRE     **19,14 %**
-
-L'assignation S'INVERSE entre les deux poles : le sein comprime a l'un est le sein neutre a
-l'autre. C'est exactement ce que sa §12 decrit, et c'etait impossible hier.
-
---- D. CE QUE LE CORRECTIF NE FAIT PAS, ET IL FAUT LE DIRE ------------------------------------
-* **La clause chiffree de §12 est INCHANGEE.** `ROOM-ORICOM-MASS` rend les memes 0,1283 / 0,1639 /
-  0,1796 / 0,0567 B0 qu'au cycle 49, au chiffre pres. La raison est structurelle : le triplet de
-  forme pilote le TENSEUR DE DEFORMATION, qui etire la peau autour de l'os **sans deplacer un
-  seul joint**. Le COM squelettique ne peut donc pas bouger. §12 passe de NON TENUE a PARTIELLE,
-  pas a TENUE, et c'est ce que P5 annoncait.
-* **`W0` n'existe toujours nulle part** : « medial migration 10-18% W0 » reste sans denominateur.
-* **UNE QUESTION OUVERTE QUI BORNE CE RESULTAT, ET JE NE LA TRANCHE PAS.** La salle etiquette
-  l'orientation i=2 comme un TANGAGE de +90 degres (`*physroom-ori-ax*` = 0 -> rotation autour de
-  X monde), et le solveur y lit `gx` = -0,9979, c'est-a-dire une gravite presque entierement sur
-  la ligne qu'il appelle LATERALE. Une pose anatomiquement VENTRALE charge donc le canal lateral.
-  Ou l'etiquette de la salle est fausse, ou le nommage des lignes du solveur l'est. Le mecanisme
-  d'asymetrie existe et il est mesure a 19 % ; **quelle pose physique le declenche n'est pas
-  etabli**, et ca borne ce que ce correctif prouve. C'est un chantier a part, et il demande un
-  invariant anatomique EXTERNE — pas un raisonnement de plus sur les memes nombres.
-
---- E. P1 EST REFUTEE, ET L'ERREUR EST DE MOI ------------------------------------------------
-J'avais predit les neuf fenetres de regime a quaternion identite IDENTIQUES AU BIT, en raisonnant
-sur l'application instantanee : debout `gl = 0`, donc `gxc = 0` exactement, donc `wlt = wne = 0`
-et le melange est identique a `fabs(0)`. Le raisonnement est juste **sur la fonction** et faux
-**sur l'historique** : la phase de regime s'execute APRES le balayage d'orientation, que le
-correctif modifie legitimement, et les 90 frames de repos n'effacent pas l'etat au bit.
-Residu mesure : chestL inchangee a quatre decimales sur 8 fenetres sur 9, chestR de 0,05 % a
-1,35 %. **Une prediction de bit-identite doit porter sur l'etat, pas sur la formule.**
-
---- F. LE COUT, PUBLIE PLUTOT QUE REVENDIQUE -------------------------------------------------
-Le cycle 49 prouvait au bit que rien n'avait bouge. Ce contrôle est **depense** : ici le solveur
-change, donc l'avant/apres se publie.
-    `row` de la salle : **257 lignes sur 310 bougent.** Ecart median sur `tipvar` **0,88 %**,
-    p95 13,0 %, max 94,4 % (une fenetre). Par pilotage : `updown` 0,08 %, `leftright` 0,86 %,
-    `tilt` 1,21 %, `accel` 1,83 %, `jerk` 3,51 %.
-    `tipvar`  0,1720 / 0,1738  ->  0,1756 / 0,1775   (+2,1 %)
-    `meshpen` 0,1061 / 0,0898  ->  0,1115 / 0,1019   (+5,1 % / +13,5 %)
-**La penetration MONTE. C'est un cout, pas un detail**, et la gate COLLIDE reste rouge (0,1115
-contre un plafond de 0,0005). Le mouvement subtil que l'owner protege monte de 2,1 % — dans le
-sens qu'il demandait, mais je ne le compte pas comme un gain : il n'a rien valide.
-
---- G. UN PIEGE OU JE SUIS TOMBE, ET QUI EST DANS LE REGISTRE DEPUIS DES SEMAINES -------------
-Ma premiere lecture de l'avant/apres a conclu « 0 difference sur 960 lignes ». **C'etait le
-tableau du cycle 49 compare a lui-meme** : la generation du tableau tournait encore et le fichier
-sur disque portait encore l'empreinte de la course precedente. Le tableau PUBLIE le md5 de la
-trace qu'il a lue (`empreinte de la trace lue : md5 ...`) ; c'est ce champ, compare au md5 du log
-sur disque, qui a leve l'erreur. `validator-reads-stale-artifacts`, et je l'ai reproduit.
-
---- H. LA PORTE HUMAINE, ET POURQUOI LE VALIDATEUR NE PEUT PAS SORTIR A 0 ---------------------
-`OPEN-DEFECTS` lit `.autoport/reports/Grecharged-secondary-motion/owner-defects.txt` et compte les
-lignes `^OPEN `. Il en reste UNE, ligne 223 : `breast-spec-incomplete`.
-Les DEUX seules facons de faire sortir cette gate a 0 sont d'effacer cette ligne ou de modifier la
-gate. La gate ecrit elle-meme sa regle (« Une ligne ne se retire que quand l'owner dit que c'est
-bon »), la regle 5 du contrat gele les gates (« verrou dur »), et les DIRECTIVES du 2026-08-20
-00:25 le disent nommement : « `OPEN breast-spec-incomplete` reste ouverte : son "ça a l'air d'être
-effectif" ne la touche pas ».
-**Je ne fais ni l'une ni l'autre.** Ce sont les deux fautes cardinales du dossier, et un
-validateur qu'on fait passer en effacant son entree ne mesure plus rien.
-
-================================================================================================
-CYCLE 51 (meme tentative) — LE CANAL D'APEX EST OUVERT. SEPT SECTIONS DE SA SPEC BORNENT UN
-DEPLACEMENT D'APEX EN % B0 ET AUCUN INSTRUMENT NE LE PUBLIAIT ; SPEC 19 N'A MEME QUE CETTE
-CLAUSE. LE SOLVEUR N'A PAS BOUGE D'UN BIT : 37 191 LIGNES DE MESURE IDENTIQUES, MEME MD5.
-================================================================================================
-
-DIRECTIVES v3fee554599
-
---- 1. LE CONTROLE, ET IL PASSE AVANT TOUT CHIFFRE --------------------------------------------
-Le cycle 50 a touche le SOLVEUR et a donc DEPENSE son controle de bit-identite. Le cycle 51 est
-de l'INSTRUMENT seul, et le controle est repris et TOTAL :
-
-    lignes de mesure (`^PHYS*`) hors lignes neuves : 37 191 contre 37 191
-    LIGNES DIFFERENTES : 0        md5 identique : 3d30d48e0015a00275ea84ef5a724398
-
-Aucune ligne existante ne bouge. Les seules lignes neuves sont PHYSAPEX (372), PHYSAPEX2 (372),
-PHYSREG4 (30), PHYSREG5 (30) et le compteur `apex-links=` du chargeur.
-
-ET J'AI PAYE CE CONTROLE, EN CLAIR. Le plafond de lignes du moteur (gate CLEAN, 4800) laissait
-4 lignes de marge pour un canal qui en demande 53. Refactoriser le bloc `lc` de l'ecriture pour
-qu'il appelle la nouvelle fonction d'excursion aurait economise 21 lignes d'un coup — et aurait
-mis en jeu l'identite au bit de `comex`, `ee`, `jt` et du COM, contre rien. **Je ne l'ai pas
-fait.** Les lignes ont ete trouvees en deplacant 6 blocs de commentaire vers
-`jak-hd-physics-NOTES.md`, VERBATIM, avec un pointeur d'une ligne a leur place — la convention du
-fichier depuis 174 pointeurs. Moteur : 4796 -> 4792 lignes. Composition, ce que la gate demande
-de regarder : clamps 3, hysteresis 1 (l'ancien moteur de 6000 lignes en portait 84 et 9).
-LA GATE N'A PAS ETE TOUCHEE, et je signale qu'elle a coute ce detour : ce qui grossit ici est de
-la MESURE, exactement le motif des trois relevements precedents. C'est au superviseur de trancher,
-pas a moi (regle 5).
-
---- 2. CE QUE LE CANAL MESURE, ET POURQUOI CE N'EST PAS LE COM --------------------------------
-§22 ecrit « Distal/apex displacement » et §31 « r = 1 at distal/apex REGION » : la spec nomme une
-REGION. La region est le DECILE DISTAL du nuage de chair sur l'axe anatomique racine->apex,
-fraction FIXEE A 0.10 AVANT la course (les variantes 0.05 et 0.25 sont mesurees et publiees dans
-`mesh_extents_c14.txt`, pour que la sensibilite de la frontiere ne soit pas un choix cache).
-
-L'algebre est EXACTE sous skinning lineaire, pas une approximation :
-    d_apex = SOMME_l w_l * (M_l^sim - M_l^auth) * p_l
-C'est la meme identite que `comw=` (verifiee a 2e-05 % au cycle 48), appliquee a une
-SOUS-POPULATION. La donnee est livree en enregistrements `ax` de `recharged_assets/physics_mesh.txt`
-— PAS dans `physics_chains.txt`, qui porte les reglages de l'owner et qu'une regeneration a deja
-efface deux fois. Le fichier reste identique au bit sur ses 96 autres lignes, verifie.
-
---- 3. LE FAIT STRUCTUREL, ETABLI AVANT LA COURSE ET INDEPENDANT DE TOUT SOLVEUR --------------
-Composition de la masse de peau de la region distale, sur le mesh LIVRE :
-
-    chestL   chest 43.24 %  ANCRE     lBoob 40.95 %     lBooc 15.80 %    somme simulee 0.5676
-    chestR   chest 40.64 %  ANCRE     rBoob 45.27 %     rBooc 14.09 %    somme simulee 0.5936
-
-**41 A 43 % DE L'APEX EST SOUDE AU TORSE.** `chest` n'est pas simule : sa matrice ecrite EST sa
-matrice d'auteur, son excursion est nulle au bit pres. L'apex ne peut donc valoir que 0.57 / 0.59
-de ce que ses maillons produisent — un plafond de x1.76 / x1.68 hors d'atteinte de TOUTE valeur
-de raideur, d'amortissement ou de gravite. Sa §30 ecrit « Apex — minimal direct anchoring ».
-§30 passe de PARTIELLE a NON TENUE sur cette clause, que rien ne mesurait.
-
---- 4. CE QUE CE PLAFOND PERMET, ET C'EST LE RESULTAT LE PLUS UTILE DU CYCLE ------------------
-Il SEPARE, section par section, le defaut de MAILLAGE du defaut de DYNAMIQUE :
-
-    section  regime            apex mesure         manque    plafond ancrage   l'ancrage...
-    §14      detente ord.      0.1492 / 0.2806     x1.34     x1.76 / x1.68     SUFFIT / DANS
-    §14      detente forte     0.1723 / 0.2392     x1.74/1.25 x1.76 / x1.68    SUFFIT
-    §16      reception souple  0.0881 / 0.1733     x3.41/1.73 x1.76 / x1.68    **NE SUFFIT PAS**
-    §16      reception DURE    0.0996 / 0.1994     x4.22/2.11 x1.76 / x1.68    **NE SUFFIT PAS**
-    §17      freinage          0.1494 / 0.1611     x1.67/1.55 x1.76 / x1.68    SUFFIT
-    §18      lacet fort        0.1104 / 0.2791     x1.81     x1.76             NE SUFFIT PAS (de peu) / DANS
-    §19      tangage           0.3417 / 0.3536     —         —                 **DANS LA BANDE**
-    §19      retour            0.3256 / 0.3251     —         —                 **DANS LA BANDE**
-    §20      roulis            0.2204 / 0.3150     —         —                 DANS / AU-DESSUS x1.05
-    §20      bascule           0.2868 / 0.3425     —         —                 DANS / AU-DESSUS x1.14
-
-Sur §14 et §17, la repesee seule pourrait fermer l'ecart. **Sur §16 elle ne le peut pas** : il
-reste un facteur 1.9 a 2.4 que seul le solveur porte. C'est le premier chiffre du dossier qui
-dise ou la repesee s'arrete et ou la dynamique commence — jusqu'ici les deux etaient confondues.
-
---- 5. LES TROIS SECTIONS QUI CHANGENT DE STATUT ---------------------------------------------
-* **§19 : `NON ETABLI` -> TENUE.** Premier verdict en 51 cycles, et il fallait ce canal : §19 ne
-  borne QUE l'apex. Les quatre lectures dans [0.30 ; 0.40] sur LES DEUX seins, plus la traversee
-  du neutre qu'elle exige, plus « without requiring comparable local stretch » (elongation locale
-  0.124-0.229 pour un apex de 0.33 B0).
-  **LA DUREE EST DE MOI ET LE VERDICT EN DEPEND : 0.40 s pour un buste en avant a 70 degres.**
-  Sa spec n'ecrit aucune duree, et le cycle 49 a prouve que la duree porte le verdict. Un autre
-  choix de duree deplacerait ce vert. Ce n'est PAS une validation de l'owner.
-* **§30 : PARTIELLE -> NON TENUE** (section 3 ci-dessus).
-* **§15 : la clause de traversee du neutre est DEMONTREE**, 3 des 4 fenetres de vol. Elle etait
-  NON DEMONTREE par defaut d'INSTRUMENT et non de moteur — le vecteur du COM n'etait releve qu'a
-  l'argmax de sa norme, UNE frame, qui ne peut ni l'etablir ni l'exclure. Les deux extremes sont
-  publies EN POSITIF : un minimum initialise a 0 par le reset de fenetre ne peut pas remonter et
-  aurait lu 0 sur une fenetre entierement d'un cote, annoncant une traversee qui n'a pas eu lieu.
-
---- 6. §22 : LE PLAFOND GLOBAL EST DEPASSE PENDANT QUE SIX BANDES DE REGIME TIENNENT ----------
-    « normal <=42 % B0 »      pic typique de fenetre : 0.3984 / 0.4134   -> DANS
-    « exceptional <=50 % B0 » maximum de course      : 0.5431 / 0.5553   -> HORS de +9 % / +11 %
-                                                       sur 3.8 % / 7.5 % des fenetres
-Ce qui sature n'est donc AUCUN geste de sa spec, mais les balayages longs `jerk`/`accel` de la
-salle. C'est la lecon du cycle 49 — « la reponse est gouvernee par la DUREE du geste, pas par son
-amplitude » — confirmee sur une grandeur INDEPENDANTE de celle qui l'avait etablie.
-Et le depassement est A ANCRAGE REDUIT : il serait PIRE si sa §30 etait respectee.
-
---- 7. LE CONTROLE DE L'INSTRUMENT LUI-MEME, PARCE QU'UN CANAL NEUF NE SE CROIT PAS -----------
-Le quatrieme faux vert du dossier (§11, cycle 49) etait un instrument qui REPUBLIAIT la constante
-que la section visait. Ce canal-la se controle contre une source qu'il ne touche pas : **les
-bandes de sa propre spec impliquent un rapport apex/COM** (§14 30/25, §16 30/25, §17 25/18,
-§18 20/17, §20 20/15), soit x1.19 a x1.35.
-
-    mesure sur les 30 fenetres de regime : mediane x1.154, etendue x0.899 a x1.396
-
-L'unique lecture sous 1.0 est la fenetre TEMOIN (r=0), ou les deux grandeurs valent 0.02 et ou un
-rapport ne veut rien dire. Deux sources independantes — la geometrie du mesh livre passee dans le
-solveur d'un cote, la table de bandes ecrite par l'owner de l'autre — s'accordent. **Je note tout
-de meme que la mediane mesuree (1.154) est SOUS sa bande implicite (1.19-1.35)** : ca ne fausse
-aucun verdict, mais ca ne se cache pas.
-
---- 8. LES SEPT PREDICTIONS, ET POURQUOI 7/7 N'EST PAS UN BON SCORE --------------------------
-`C51E1-apex-prediction.txt`, md5 f026c60c4190e1e59531d7cde2a7c91b, commit 6e8fd37330.
-
-  P1  canal alimente (apex-links=4)                      TENUE  372 lignes, 0 nulle
-  P2  rapport apex/COM median dans [1.15, 1.60]          TENUE  1.154 — **AU BORD EXACT**
-  P3  contre moi : §16 SOUS bande sur les deux, >= x1.6  TENUE  x1.73 a x4.22
-  P4  contre moi : §19 DANS la bande sur >= une chaine   TENUE  les DEUX, les deux fenetres
-  P5  trace identique au bit hors lignes neuves          TENUE  0 ligne differente, md5 egal
-  P6  contre moi : plafond d'apex de §22 depasse         TENUE  +9 % / +11 % (magnitude predite
-                                                                0.61/0.54, mesuree 0.543/0.555)
-  P7  traversee du neutre presente en vol                TENUE  3 fenetres sur 4
-
-**ET JE NE PRESENTE PAS CA COMME SEPT REUSSITES.** P3, P4 et P6 sont des CONSEQUENCES
-ALGEBRIQUES de P2 (le rapport) appliquee aux COM deja mesures au cycle 49 : ce ne sont pas sept
-tests independants, c'en sont environ trois (P1 l'execution, P5 le controle, P2 le rapport) et
-quatre corollaires. P2 elle-meme tient AU BORD de la fourchette que j'avais donnee, et la
-magnitude de P6 est fausse de 12 % sur chestL. Un cycle qui ne refute rien n'a rien appris de
-neuf sur MES hypotheses — il a appris sur le MOTEUR, ce qui est different et ce que je revendique.
-
---- 9. CE QUE CE CYCLE NE PRETEND PAS ---------------------------------------------------------
-* L'elongation directionnelle de §14, §16, §17, §18 et §20 reste NON MESUREE : aucun canal ne la
-  publie par regime. Ces sections ne peuvent donc pas passer TENUE meme si leur apex passait.
-* §17 et §18 ne donnent PAS de bande d'apex pour leur regime MODERE. Les lignes le disent
-  (« SA SPEC NE BORNE PAS L'APEX DE CE REGIME ») au lieu d'inventer une bande pour remplir un
-  tableau. Et le demarrage — sans bande — rend la PLUS FORTE reponse d'apex des sept regimes
-  (0.3377 / 0.3150), ce qui est exactement le point de la duree.
-* L'ecart gauche/droite sur l'apex atteint x5.4 (lacet modere : 0.0515 contre 0.2756) quand sa
-  §32 prescrit 2-5 %. Le fait est publie ; sa cause n'est pas etablie, et la cause que §18 lui
-  donne (« offsets from the torso rotational axis differ ») N'EXISTE PAS dans ce rig — les deux
-  racines sont a 548.1 u de l'axe de lacet a 5.2e-4 % pres.
-* La fraction de 0.10 qui definit la region distale est un CHOIX. Il est fixe avant la course et
-  ses variantes sont publiees, mais c'est un choix, et un lecteur peut le refuser sans relancer.
-
---- 10. CE QUE L'OWNER DOIT TESTER, S'IL PREND UN BUILD ---------------------------------------
-**Rien de neuf a regarder, et je ne lui en fabriquerai pas.** Le comportement livre est identique
-au bit a celui du cycle 50 — c'est ce que la section 1 prouve sur 37 191 lignes. Aucun APK n'est
-publie : un build neuf ne lui donnerait rien de plus a voir.
-Ce que ce cycle apporte est une reponse a sa question du 2026-08-20 (« j'ai pas l'impression que
-la spec est 100 % implementee ») : six sections qu'on ne savait pas juger hier sont jugees, une
-passe, une autre est retrogradee, et pour la premiere fois on sait sur §16 quelle part du defaut
-tient au maillage et quelle part tient au solveur.
-Ce qu'il verra toujours, et que je n'habille pas : la poitrine entre dans les volumes du torse
-au-dela de sa pose d'auteur (`meshpen` 0.1115 / 0.1019 m contre un plafond de 0.0005).
-
---- 11. UNE PRECISION QUE JE ME SUIS IMPOSEE APRES COUP, ET ELLE BORNE LA SECTION 3 -----------
-J'ai ecrit « 41 a 43 % de l'apex est soude au torse » et rapproche ca de la §30. **Verifie avant
-de le laisser passer : les deux « distal » du dossier ne sont PAS la meme population.**
-
-    angle entre l'axe d'os de la chaine et l'axe anatomique racine->apex : 77.8 / 78.1 degres
-
-    decile distal sur l'axe ANATOMIQUE (mon apex, celui de §6 et §22) : ancrage 0.4324 / 0.4064
-    decile distal sur l'axe D'OS      (le `r` de §30 et §31)          : ancrage 0.3157 / 0.6505
-
-Les deux axes sont a 78 degres l'un de l'autre — c'est le fait deja au registre en §31 — donc
-« distal le long de l'os » et « distal anatomiquement » sont presque orthogonaux. Mon chiffre
-repond a §6 et §22 (« root-to-apex », « distal/apex displacement »), qui est bien la grandeur que
-le canal mesure. La clause de §30 est redigee en `r`, donc sur l'AUTRE axe, et elle y rend 0.32 /
-0.65 — un ecart gauche/droite de x2.1 sur le SKINNING lui-meme, qui n'est explique nulle part.
-Le plafond de x1.76 / x1.68 utilise en section 4 reste juste : il est calcule sur la population
-que le canal d'apex transporte reellement, pas sur celle de §30.
-**Sans cette verification j'aurais publie un rapprochement faux entre deux mesures qui portent le
-meme mot et pas la meme chose.**
-
---- 12. J'AI TESTE MA PROPRE EXPLICATION DE SPEC 16 ET ELLE EST REFUTEE ------------------------
-Le canal d'apex isole un residu de x1.9 a x2.4 sur la reception que l'ancrage n'explique pas
-(section 4). J'avais une explication toute prete, et elle vient du cycle 49 : l'axe d'os est a
-95.4 / 97.9 % vertical et la contrainte de longueur est DURE, donc un stimulus VERTICAL (une
-reception) serait CONFISQUE le long de l'os, la ou un stimulus horizontal ou rotationnel passe.
-
-**PREDICTION : la part VERTICALE de la reponse d'apex serait FAIBLE sous stimulus vertical.**
-Mesure, sur la trace deja en main (`PHYSREG4`, |ay| / |apex|) :
-
-    stimulus VERTICAL   (detente, reception)   part verticale moyenne de la reponse : 37.7 %
-    stimulus HORIZONTAL (course, freinage)                                            33.7 %
-    stimulus ROTATION   (lacet, tangage, roulis)                                      67.4 %
-
-**REFUTEE.** Ce n'est pas le stimulus vertical qui rend une reponse peu verticale : c'est la
-ROTATION qui en rend une TRES verticale (tangage 92.8 a 99.4 %). Les trois familles ne se
-classent pas comme ma these le voulait, et une part de 37.7 % n'est pas la confiscation quasi
-totale que le cycle 49 avait lue (12.2 % sur chestL).
-
-**ET CE QUE LA MESURE MET A LA PLACE EST PLUS INTERESSANT QUE MA THESE.** Le detail par ligne
-montre une transmission qui depend du SENS du stimulus ET de la CHAINE :
-
-    chestL   detente (impulsion vers le HAUT)   part verticale   5.1 %  et  2.1 %
-    chestL   reception (vers le BAS)                             66.5 % et 65.2 %
-    chestR   detente                                             47.6 % et 45.4 %
-    chestR   reception                                           24.4 % et 45.3 %
-
-Sur le MEME axe, chestL convertit une impulsion vers le bas en 65 % de mouvement vertical et une
-impulsion vers le haut en 2 a 5 % — un facteur 13 a 31 selon le SENS SEUL. Et les deux chaines ne
-font pas la meme chose : sur la detente, 2-5 % contre 45-48 %, soit x10 a x20 d'ecart
-gauche/droite, quand sa §32 prescrit 2-5 % d'ecart de PARAMETRES.
-
-**CE QUE JE N'AFFIRME PAS** : la cause. Un comportement qui depend du SENS de la sollicitation
-est la signature d'une contrainte UNILATERALE (une poussee de collision qui ne pousse que vers
-l'exterieur, une borne qui ne mord qu'en compression), mais je ne l'ai pas mesuree et je ne la
-nomme donc pas. C'est le chantier suivant, et il est mieux pose qu'avant ce cycle : la grandeur a
-instrumenter est la reponse PAR SENS de stimulus, pas par amplitude ni par duree.
-
-**REGLE QUE JE ME REDONNE** : le residu de la section 4 restait attribuable a « le solveur » sans
-plus de precision. J'ai voulu le nommer tout de suite avec une these deja disponible, et la these
-etait fausse. Une explication qui se presente sans qu'on l'ait cherchee merite d'etre testee
-AVANT d'etre ecrite dans un rapport — ici elle l'a ete, et ca a coute une requete sur des donnees
-deja en main.
+Phase Grecharged-secondary-motion · branche physics-keira-clean · Keira seule, chestL/chestR
+Predictions gravees AVANT la course : C55E1-sympose-prediction.txt, commit b33d81faf8.
+Cinq predictions, la principale CONTRE MOI. Les cinq sont adjugees.
+
+===============================================================================================
+1. LE RESULTAT, ET IL TRANCHE UNE QUESTION OUVERTE DEPUIS DES CYCLES
+===============================================================================================
+La pose des fenetres de PH-SGN est EPINGLEE a `assistant-village2-idle-hut-breath`, retrouvee PAR
+SON NOM (`PHYSSGNPOSE ai=12 src=name`) et REVALIDEE a l'execution — on ne fait pas confiance au
+choix, on le mesure :
+
+    ecart au miroir parfait de la pose TENUE :  racine **6.7 deg**   distal **7.2 deg**
+    (la pose des cycles 52-54 valait 43.4 deg ; le rig en bind vaut 0.005 deg)
+
+**P1 TENUE : l'epingle a pris.** Et alors :
+
+    ECART GAUCHE/DROITE SUR L'AXE VERTICAL, k=0
+        s=+1 :  chestL 0.0754   chestR 0.0799   ->  **x1.06**
+        s=-1 :  chestL 0.0913   chestR 0.0782   ->  **x1.17**
+
+    il valait **x3.41** dans la pose asymetrique (cycle 52)
+
+**P3 TENUE : LA POSE PORTAIT L'ECART.** Le x3.41 que j'ai publie au cycle 52 comme un depassement
+de sa §32 (qui prescrit 2-5 %) n'etait pas une propriete du personnage ni du solveur : c'etait la
+pose que la salle laissait en place. Dans une pose symetrique, les deux seins repondent a 6 et
+17 % l'un de l'autre.
+
+===============================================================================================
+2. ET LA RAISON EST GEOMETRIQUE, PAS UNE COINCIDENCE (P5, TENUE SUR LES DEUX SENS)
+===============================================================================================
+C'est P5 qui distingue une vraie explication d'un simple deplacement des chiffres : si la pose
+portait l'ecart, ce n'est pas seulement l'APEX qui doit s'egaliser, c'est la CONFISCATION — et
+pour la raison mesuree, a savoir que les deux os font desormais le meme angle avec le pilotage.
+
+    angles os / axe vertical dans la pose epinglee :  chestL **22.3 deg**   chestR **21.8 deg**
+    (dans la pose asymetrique : chestL 2.03 deg, chestR 41.77 deg)
+
+    confiscation (k=1 / k=0), axe vertical      MESUREE        PREDITE par 1/sin
+        chestL s=+1                              x2.14              x2.64
+        chestL s=-1                              x2.25              x2.64
+        chestR s=+1                              x2.05              x2.70
+        chestR s=-1                              x2.73              x2.70
+
+        ecart entre les deux chaines : **0.039** (s=+1) et **0.176** (s=-1), critere <= 0.30
+
+**P5 TENUE sur les deux sens.** Les deux chaines sont desormais confisquees pareil, parce que
+leurs os font le meme angle avec le pilotage. C'est la meme grandeur qui explique l'ecart AVANT et
+son absence APRES.
+
+**P4 TENUE — LE MECANISME PREDIT DANS DEUX POSES TRES DIFFERENTES.** Les temoins negatifs le
+disent aussi bien que l'axe vise :
+
+    temoins (axes non alignes)   MESURE          PREDIT
+        chestL ap                x1.10 / x0.97   x1.01
+        chestL lat               x1.19 / x1.07   x1.07
+        chestR ap                x1.02 / x0.95   x1.00
+        chestR lat               x1.15 / x1.15   x1.08
+
+**ET CA EXPLIQUE LE RESIDU QUE LE CYCLE 53 LAISSAIT OUVERT.** J'y notais que le modele
+sur-predisait d'un facteur ~6 sur chestL (x28.22 predit contre x3.79-x4.99 mesure) et je ne savais
+pas pourquoi. La reponse est dans la comparaison des deux poses : a **2.03 deg** `sin(theta)`
+vaut 0.035 et `1/sin` explose — le modele est au bord de sa singularite, ou tout autre terme du
+solveur domine. A **22 deg**, loin de la singularite, il tombe juste a 20 % pres sur les quatre
+lectures. **Le modele n'etait pas faux, il etait evalue la ou il ne vaut rien**, et je ne pouvais
+pas le savoir avec une seule pose.
+
+===============================================================================================
+3. LE CONTROLE (P2)
+===============================================================================================
+    lignes de mesure hors `PHYSSGN*`/`PHYSREMAP*` : ref 37 718, cette course 37 719
+    lignes CHANGEES : **0**
+    ligne AJOUTEE : 1 — `PHYSANIMLEN a=12 n=16.0000 speed=0.1250`
+
+Aucune mesure existante n'a change de valeur. La ligne ajoutee est emise par `physroom-set-anim`,
+donc par l'epingle elle-meme. **Ma liste d'exclusions etait courte d'un tag** : j'avais nomme
+`PHYSREMAP*` et pas `PHYSANIMLEN`. Je le dis plutot que d'elargir le filtre apres coup.
+
+===============================================================================================
+4. CE QUE CE CYCLE CHANGE AU DOSSIER, ET CE QU'IL NE CHANGE PAS
+===============================================================================================
+**CE QU'IL TRANCHE, ET RIEN DE PLUS :** l'ecart gauche/droite sur l'APEX VERTICAL sous impulsion
+isolee. Il valait x3.41, il vaut x1.06-x1.17. **Ma propre publication du cycle 52 sur ce point est
+donc corrigee, et elle l'est par une mesure, pas par un argument.**
+
+**CE QU'IL NE TRANCHE PAS, ET JE NE L'ETENDS PAS :**
+* La §32 du registre porte une AUTRE mesure — « bouger un sein deplace l'autre de 32 a 321 % » —
+  qui est un COUPLAGE, pas cet ecart. Elle n'est pas touchee.
+* Les sept regimes de §14-20, le balayage d'orientation de §10-13 et les lignes §18 et §12
+  tournent dans des phases qui tiennent TOUJOURS la pose asymetrique. **Ils restent NON LISIBLES
+  pour tout ce qui est gauche/droite** — ni tenus, ni refutes.
+* Rien de visible pour l'owner : aucune mesure existante n'a bouge.
+
+**LE FAIT NOUVEAU QUI EN DECOULE ET QUI EST GROS :** si epingler la pose d'UNE phase fait tomber
+un ecart de x3.41 a x1.06, alors toutes les phases qui mesurent du gauche/droite doivent etre
+epinglees de la meme facon. Le dossier a passe plusieurs cycles a chercher dans le solveur et dans
+le rig la cause d'asymetries qui, au moins sur cet axe, venaient de la pose tenue.
+
+===============================================================================================
+5. LE CHANTIER SUIVANT
+===============================================================================================
+1. **Epingler la pose symetrique pour TOUTES les phases de mesure**, pas seulement PH-SGN, et
+   rejouer. Ce cycle-la depensera le controle d'identite au bit sur toute la trace — c'est
+   inevitable et c'est justifie : il rendra lisibles §12, §18, §32 et le balayage d'orientation.
+   La prediction a graver alors, et elle est contre moi : si les ecarts gauche/droite de §18
+   (x2.5 sur l'apex) et de §12 SURVIVENT a l'epingle, la pose n'explique que l'axe vertical et le
+   reste est bien dans le moteur.
+2. Verifier que la pose epinglee reste symetrique sur la duree des phases (elle est validee a
+   l'entree ; une phase longue pourrait la voir deriver si l'animation avance).
+3. Le canal radial de §23 : la contrainte confisque, il est cense rendre. Combien rend-il, et
+   pourquoi sa borne `rcap` est-elle atteinte ?

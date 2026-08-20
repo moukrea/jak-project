@@ -1,7 +1,7 @@
 ==================================================================================================
 KEIRA — SALLE DE TEST SANS JOUEUR : TABLEAU DE MESURE
 genere par .autoport/physics_room_table.py depuis .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
-empreinte de la trace lue : md5 d239c3774eadb71c2b9899b1573895d6 (3425878 octets)
+empreinte de la trace lue : md5 b068dfb359cdb690c8926c6638aca5ba (3721486 octets)
 contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 7 (ce qui fait foi)
 
 Toutes les longueurs sont en METRES (la trace est en unites de jeu, 4096 u = 1 m). Ce que
@@ -1787,6 +1787,99 @@ row chain=chestR       anim=assistant-lavatube-end-idle            drive=jerk   
 row chain=chestR       anim=assistant-lavatube-end-idle            drive=tilt      tipvar=0.0074    rootdev=0.0364    meshpen=-0.0046   jump=0.0018    ns=35
 
 310 lignes de mesure, 2 chaines x 31 animations x 5 pilotages.
+
+   -- ROOM-SIGN : LA REPONSE PAR SENS DE STIMULUS (cycle 52) ----------------------
+      LE SENS `+` EST CELUI DE L'AXE STOCKE PAR LE SOLVEUR, jamais une convention
+      de lecture. Directions MONDE effectivement poussees sur cette course :
+         VERTICAL   s=+1 -> monde (+0.08216, -0.97844, +0.18948)   dominante -Y
+         AVANT-ARR  s=+1 -> monde (+0.99331, +0.09586, +0.06432)   dominante +X
+         LATERAL    s=+1 -> monde (-0.08110, +0.18292, +0.97977)   dominante +Z
+         ATTENTION : la ligne VERTICALE est stockee vers le BAS du monde
+         (y=-0.97844). `s=+1` sur l'axe vertical pousse donc le sujet VERS LE
+         BAS, et `s=-1` vers le HAUT. Aucune ligne ci-dessous ne suppose le
+         contraire.
+
+      A_mag et A_dir valent ZERO pour tout systeme lineaire ET pour toute
+      non-linearite SYMETRIQUE (tanh de §21, borne sur une norme, raideur cubique) :
+      la reponse a -u y est exactement l'opposee de la reponse a +u. Ils ne peuvent
+      donc etre non nuls que si un terme du solveur distingue un SENS de l'autre.
+      Ce ne sont pas des seuils choisis, c'est une propriete du systeme.
+
+   ROOM-SIGN-BASE: `bapex` (60 frames de calme fermant la fenetre) mediane 0.1221  max 0.1971  sd 0.0403
+      P5 EST REFUTEE, ET LA CAUSE EST MON INSTRUMENT : la rampe de RETOUR est une
+      impulsion de meme amplitude, et le calme la suit immediatement. `bapex` lit
+      donc sa reponse, pas un residu. Cette ligne ne sert PAS de plancher.
+
+   ROOM-SIGN-REPEAT: k=0 contre k=2 (cote levee, INERTE ici), memes (axe, sens),
+      12 cellules separees de DOUZE fenetres dans la sequence :
+      ecart max 0.462 %   mediane 0.036 %
+      -> C'EST LE PLANCHER DE L'INSTRUMENT. Tout ecart au-dela est REEL.
+
+   ROOM-SIGN-ABL: ce que CHAQUE desarmement fait a la reponse, rapporte a k=0.
+      LE CONTROLE NEGATIF EST DANS LE TABLEAU : si un desarmement ne faisait que
+      « retirer la seule restriction, donc tout grandit », il ferait monter LES TROIS
+      axes. Une ablation qui ne deplace QU'UN axe designe un mecanisme SELECTIF.
+      chaine   axe   sens       k0 | k1 long  k2 cote  k3 cone  k4 MUR   k5 rad
+      chestL   VERTICAL +1     0.0453 | 3.79x    1.00x    1.00x    1.00x    1.89x   
+      chestL   VERTICAL -1     0.0463 | 4.99x    1.00x    1.00x    1.00x    1.58x   
+      chestL   AVANT-ARR +1     0.2064 | 0.99x    1.00x    1.00x    1.00x    1.00x   
+      chestL   AVANT-ARR -1     0.1608 | 1.00x    1.00x    1.00x    1.17x    1.00x   
+      chestL   LATERAL +1     0.2786 | 1.04x    1.00x    1.00x    1.00x    1.00x   
+      chestL   LATERAL -1     0.2474 | 0.92x    1.00x    1.05x    0.80x    1.10x   
+      chestR   VERTICAL +1     0.1209 | 1.58x    1.00x    0.98x    0.98x    1.23x   
+      chestR   VERTICAL -1     0.1583 | 1.30x    1.00x    1.00x    1.00x    0.98x   
+      chestR   AVANT-ARR +1     0.1324 | 1.69x    1.00x    1.04x    1.04x    1.21x   
+      chestR   AVANT-ARR -1     0.1917 | 1.40x    1.00x    1.00x    1.00x    0.99x   
+      chestR   LATERAL +1     0.2528 | 0.96x    1.00x    1.00x    1.00x    1.00x   
+      chestR   LATERAL -1     0.2005 | 0.89x    1.00x    1.06x    0.95x    1.07x   
+
+   ROOM-SIGN-STIM: sur les cellules PROPRES, ecart de stimulus entre les deux sens — max 0.000 %  (P6 : <= 5 %) -> TENUE
+      P6 A FAIT SON TRAVAIL : c'est elle qui a attrape la fenetre i=0, dont le
+      stimulus valait 74x celui des autres. Sans ce controle, le plus gros chiffre
+      du tableau partait dans le rapport comme une reponse a mon impulsion.
+
+   ROOM-SIGN-P4: desarmer le MUR DE COLLISION (k=4) deplace la reponse de 20.2 % au plus, 0.5 % en mediane, sur 12 cellules propres.
+      -> P4 REFUTEE, ET C'ETAIT MON SUSPECT PRINCIPAL, MISE AVANT LA COURSE.
+      LE MUR DE COLLISION EST EXONERE de la dependance au sens. C'etait le seul
+      terme UNILATERAL PAR NATURE du solveur — une poussee de contact ne tire
+      jamais — et il ne porte pas ce defaut. La liste des suspects se reduit,
+      ce qui est un resultat et non un echec.
+
+   ROOM-SIGN-P3: l'asymetrie de SENS, cellules propres de k=0, contre le plancher
+      de repetabilite (0.462 %). Pour un systeme lineaire OU une non-linearite
+      symetrique, A_mag et A_dir valent EXACTEMENT zero.
+      VERTICAL chestL       apex(+)=0.0453 apex(-)=0.0463  A_mag=0.0215 (5x le plancher)  A_dir=177.3 deg
+      VERTICAL chestR       apex(+)=0.1209 apex(-)=0.1583  A_mag=0.2365 (51x le plancher)  A_dir=59.3 deg
+      AVANT-ARR chestL       apex(+)=0.2064 apex(-)=0.1608  A_mag=0.2212 (48x le plancher)  A_dir=49.0 deg
+      AVANT-ARR chestR       apex(+)=0.1324 apex(-)=0.1917  A_mag=0.3093 (67x le plancher)  A_dir=37.2 deg
+      LATERAL chestL       apex(+)=0.2786 apex(-)=0.2474  A_mag=0.1117 (24x le plancher)  A_dir=27.3 deg
+      LATERAL chestR       apex(+)=0.2528 apex(-)=0.2005  A_mag=0.2069 (45x le plancher)  A_dir=30.0 deg
+      P3 TELLE QUE JE L'AVAIS ECRITE PORTAIT SUR L'AXE VERTICAL : elle est
+      INDECIDABLE, sa fenetre `+` etant la cellule contaminee. Je ne la compte ni
+      tenue ni refutee. Ce que les axes PROPRES etablissent est publie ci-dessus.
+
+   ROOM-SIGN-RANK: LE MEME (ablation, axe, sens) JOUE AUX DEUX RANGS.
+      72 cellules appariees. Ecart max 2.58 %, mediane 0.16 %.
+      pire : k=3 LATERAL   s=-1 chestR        i=22 0.2156   i=59 0.2101   2.58 %
+      pire : k=2 LATERAL   s=-1 chestR        i=17 0.2031   i=52 0.1979   2.56 %
+      pire : k=0 LATERAL   s=-1 chestR        i= 5 0.2031   i=40 0.1979   2.56 %
+      pire : k=0 AVANT-ARR s=+1 chestR        i= 3 0.1341   i=38 0.1308   2.44 %
+      -> P6 TENUE — le RANG ne porte pas l'ecart entre les deux sens, qui est donc bien une dependance au SENS (critere : <= 5 %).
+
+   ROOM-SIGN-BONE: angle entre l'OS et l'AXE POUSSE, et la part TRANSVERSE qui
+      survit a la projection de longueur (sin theta).
+      chaine       os   | direction monde de l'os          | vertical      avant-arr     lateral
+      chestL       l=0 | (-0.1141, +0.9724, -0.2035)  norme 1.0000 |   2.0 deg sin=0.035   88.1 deg sin=0.999   89.3 deg sin=1.000
+      chestL       l=1 | (-0.1393, +0.9835, -0.1157)  norme 1.0000 |   5.4 deg sin=0.093   87.0 deg sin=0.999   85.5 deg sin=0.997
+      chestR       l=0 | (+0.5600, +0.8247, +0.0795)  norme 1.0000 |  41.8 deg sin=0.666   50.2 deg sin=0.768   79.4 deg sin=0.983
+      chestR       l=1 | (+0.5442, +0.8224, +0.1659)  norme 1.0000 |  43.2 deg sin=0.685   50.9 deg sin=0.777   74.4 deg sin=0.963
+
+   ROOM-SIGN-P3: sur chestL, |cos| vertical=0.9994  avant-arr=0.0332  lateral=0.0123
+      -> P3 TENUE : le vertical EST l'axe le plus aligne avec l'os, donc celui que la contrainte de longueur confisque le plus.
+   ROOM-SIGN-P4: |cos| vertical — chestL=0.9994  chestR=0.7458 ; parts transverses sin=0.0354 et 0.6661, rapport 18.80
+      mesure a expliquer : confiscation x5.01 (chestL) contre x1.30 (chestR).
+      -> P4 TENUE : l'os de chestL est plus aligne avec le pilotage vertical, et le rapport des parts transverses va dans le bon sens.
+
 
 -- ROOM-RINGFIT : SPEC 24/25/26, AJUSTEES SUR TOUTE LA SERIE ------------------------------
    SPEC 24 : Vertical 2.30 Hz (2.1-2.5) / Front-Back 2.50 Hz (2.3-2.7) / Lateral 2.65 Hz
