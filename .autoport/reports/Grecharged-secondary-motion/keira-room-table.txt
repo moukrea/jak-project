@@ -1,7 +1,7 @@
 ==================================================================================================
 KEIRA — SALLE DE TEST SANS JOUEUR : TABLEAU DE MESURE
 genere par .autoport/physics_room_table.py depuis .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
-empreinte de la trace lue : md5 b9540c370687ba3e27ebdf5c7d612cd0 (3335870 octets)
+empreinte de la trace lue : md5 d724544d40f9acde66109fc6549f98d3 (3382839 octets)
 contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 7 (ce qui fait foi)
 
 Toutes les longueurs sont en METRES (la trace est en unites de jeu, 4096 u = 1 m). Ce que
@@ -841,6 +841,242 @@ ROOM-COMEX-MAX2: chain=chestR       max2=0.8506 B0   [MAX SUR 2 CENTROIDES, PAS 
    CLIPERAIT un extreme ou MUSELLERAIT la reponse. Sans elles, un maximum hors
    bande ne permet pas de dimensionner un correctif sans risquer un suppresseur.
 
+
+-- SPEC 14 a 20 : LES REGIMES DE MOUVEMENT — SAUT, VOL, RECEPTION, COURSE, ROTATION ---
+   LES TROIS QUESTIONS DE SPEC-keira-physique 7, pour CHAQUE grandeur publiee ici :
+   `com`      NATURE : une LONGUEUR rapportee a B0 (602 u, §6) — le MAXIMUM sur la
+              fenetre du COM PONDERE PAR LA MASSE, la grandeur que §14/§16/§17/§18/§20
+              bornent. REPERE : le monde, frame ecrite, contre la pose d'auteur de la
+              MEME frame. LECTURE QUAND LE DEFAUT EST ABSENT : 0.0000 a la pose
+              d'auteur.
+   `cx/cy/cz` NATURE : le VECTEUR du meme COM, /B0, releve A L'ARGMAX de `com` — une
+              SEULE frame, les trois composantes ensemble, jamais trois maxima
+              independants. REPERE : les axes MONDE. Le sujet est a quaternion
+              identite sur TOUS les regimes de translation (r=0..8) : pour ceux-la
+              `cy` EST la verticale, +Y = haut, et `cz` l'avant. Sur les regimes de
+              rotation (r=9..14) le sujet est incline et les composantes monde
+              MELANGENT les axes du sujet : elles sont publiees, PAS interpretees.
+              ABSENT : (0,0,0).
+   `moy`      NATURE : `csum`/`cn`, moyenne du COM sur les FRAMES de la fenetre, /B0.
+              REPERE : idem `com`. `cn` = 0 -> la fenetre est ECARTEE, jamais completee
+              par un zero. ABSENT : 0.0000.
+   `amax`     NATURE : une VITESSE — le MAXIMUM sur la fenetre du deplacement de
+              l'ANCRE d'une frame a la suivante, en unites de jeu par frame (4096 u =
+              1 m). REPERE : le monde. Elle ne mesure pas la poitrine : elle VERIFIE
+              que le stimulus commande a bien ete subi, au lieu de le croire.
+              ABSENT (sujet immobile) : 0.0000.
+   `cmx2`     NATURE : l'ancienne grandeur `comex`, un MAXIMUM SUR DEUX CENTROIDES —
+              PAS un centre de masse (NOTE-112). Publiee pour la continuite de lecture
+              des 40 cycles qui la citent. ELLE NE PORTE AUCUN VERDICT ICI.
+   `ee0/ee1`  NATURE : excursion du CENTROIDE du maillon 0 / 1, /B0, maximum de
+              fenetre. `jt0/jt1` : deplacement du JOINT du maillon 0 / 1, /B0. Meme
+              repere que `com`. ABSENT : 0.0000. Elles disent OU vit l'excursion ; un
+              `com` sans elles ne designe aucune piece.
+   `acmd`     acceleration lineaire de POINTE COMMANDEE, u/frame^2 (0 en rotation).
+   `alp`      acceleration angulaire de POINTE COMMANDEE, rad/frame^2 x 10000 dans la
+              trace (entier mis a l'echelle pour tenir dans un `~f` lisible) ; ce bloc
+              la publie DEJA DIVISEE par 10000. 0 en translation.
+   30 fenetres (chaine, regime) jointes sur la cle (c, r) ; 0 ECARTEE(S) faute d'une
+   des trois lignes ou pour `cn` = 0.
+
+   -- ROOM-REGIME-STIM : LE STIMULUS COMMANDE CONFRONTE AU STIMULUS MESURE ----------
+      `amax` est la seule colonne MESUREE de ce tableau ; `acmd` et `alp` sont ce que
+      la salle a DEMANDE. Un regime dont `amax` reste au niveau du temoin n'a pas ete
+      joue, quelle que soit la valeur commandee — et son verdict plus bas ne vaudrait
+      rien. `r_eff = amax / omega` est un BRAS DE LEVIER en unites de jeu : c'est une
+      VERIFICATION DU STIMULUS, PAS UNE MESURE DE PHYSIQUE. On le compare au bras
+      COMMANDE, mesure sur le mesh livre. `amax` est ici le MAXIMUM sur les
+      chaines JOINTES du regime : les deux ancres sont a distance EGALE de chaque
+      axe (voir ROOM-REGIME-MIRROR), donc leurs `amax` doivent coincider — un
+      ecart entre elles serait un defaut d'instrument, pas une physique.
+ROOM-REGIME-STIM: r= 0 base          (none) acmd=   0.0000 alp= 0.000000 amax=   0.0000 u/f
+ROOM-REGIME-STIM: r= 1 jumpA-push    §14    acmd=  13.1899 alp= 0.000000 amax= 137.4375 u/f
+ROOM-REGIME-STIM: r= 2 jumpA-fly     §15    acmd=  11.1599 alp= 0.000000 amax= 150.7968 u/f
+ROOM-REGIME-STIM: r= 3 jumpA-land    §16    acmd=  16.8500 alp= 0.000000 amax= 149.5312 u/f
+ROOM-REGIME-STIM: r= 4 jumpB-push    §14    acmd=  21.2399 alp= 0.000000 amax= 176.6406 u/f
+ROOM-REGIME-STIM: r= 5 jumpB-fly     §15    acmd=  11.1599 alp= 0.000000 amax= 202.0468 u/f
+ROOM-REGIME-STIM: r= 6 jumpB-land    §16    acmd=  34.7400 alp= 0.000000 amax= 197.0000 u/f
+ROOM-REGIME-STIM: r= 7 runA-accel    §17    acmd=   8.5299 alp= 0.000000 amax= 277.1875 u/f
+ROOM-REGIME-STIM: r= 8 runA-brake    §17    acmd=  17.0599 alp= 0.000000 amax= 302.8125 u/f
+ROOM-REGIME-STIM: r= 9 yawA          §18    acmd=   0.0000 alp= 0.013457 amax=  24.5612 u/f
+   r_eff = amax/omega =    238.9 u  contre le bras ANATOMIQUE de l'ancre 239.8 u  ecart -0.4 %
+ROOM-REGIME-STIM: r=10 yawB          §18    acmd=   0.0000 alp= 0.029296 amax=  46.8752 u/f
+   r_eff = amax/omega =    239.4 u  contre le bras ANATOMIQUE de l'ancre 239.8 u  ecart -0.2 %
+ROOM-REGIME-STIM: r=11 pitchA-bend   §19    acmd=   0.0000 alp= 0.010466 amax=  77.1418 u/f
+   r_eff = amax/omega =    964.8 u  contre le bras ANATOMIQUE de l'ancre 956.9 u  ecart +0.8 %
+ROOM-REGIME-STIM: r=12 pitchA-return §19    acmd=   0.0000 alp= 0.010466 amax=  76.3589 u/f
+   r_eff = amax/omega =    955.0 u  contre le bras ANATOMIQUE de l'ancre 956.9 u  ecart -0.2 %
+ROOM-REGIME-STIM: r=13 rollA         §20    acmd=   0.0000 alp= 0.006835 amax=  42.4997 u/f
+   r_eff = amax/omega =    930.2 u  contre le bras ANATOMIQUE de l'ancre 926.4 u  ecart +0.4 %
+ROOM-REGIME-STIM: r=14 rollB         §20    acmd=   0.0000 alp= 0.013670 amax=  84.1575 u/f
+   r_eff = amax/omega =    921.1 u  contre le bras ANATOMIQUE de l'ancre 926.4 u  ecart -0.6 %
+
+   -- ROOM-REGIME : LE COM DE CHAQUE FENETRE, CONTRE LA BANDE DE SA SECTION ---------
+      La bande est celle que la table cite mot pour mot ci-dessous. Quand la section
+      ne borne pas le COM, la colonne dit PAS DE BANDE — jamais un verdict invente.
+      Le facteur entre parentheses est le rapport a la BORNE FRANCHIE (bas ou haut).
+ROOM-REGIME: chestL   r= 0 base            -  com=0.0268 moy=0.0268 [pas de bande] PAS DE BANDE
+   ee0=0.0302 ee1=0.0604 jt0=0.0298 jt1=0.0592 cmx2=0.0604  cx/cy/cz=-0.0052/-0.0097/+0.0244  n=60 f
+ROOM-REGIME: chestL   r= 1 jumpA-push    §14  com=0.1389 moy=0.0477 [0.15-0.25]   SOUS (x0.93)
+   ee0=0.2417 ee1=0.2666 jt0=0.1828 jt1=0.2336 cmx2=0.2666  cx/cy/cz=-0.1114/-0.0170/-0.0812  n=18 f
+ROOM-REGIME: chestL   r= 2 jumpA-fly     §15  com=0.1839 moy=0.0937 [pas de bande] PAS DE BANDE
+   ee0=0.3266 ee1=0.3474 jt0=0.2269 jt1=0.2977 cmx2=0.3474  cx/cy/cz=-0.1050/-0.0215/-0.1494  n=26 f
+ROOM-REGIME: chestL   r= 3 jumpA-land    §16  com=0.0836 moy=0.0398 [0.25-0.35]   SOUS (x0.33)
+   ee0=0.1378 ee1=0.1672 jt0=0.1322 jt1=0.1784 cmx2=0.1672  cx/cy/cz=+0.0137/-0.0433/+0.0702  n=58 f
+ROOM-REGIME: chestL   r= 4 jumpB-push    §14  com=0.1526 moy=0.0497 [0.25-0.32]   SOUS (x0.61)
+   ee0=0.2941 ee1=0.2812 jt0=0.2429 jt1=0.2507 cmx2=0.2941  cx/cy/cz=-0.1241/-0.0186/-0.0868  n=15 f
+ROOM-REGIME: chestL   r= 5 jumpB-fly     §15  com=0.1760 moy=0.0669 [pas de bande] PAS DE BANDE
+   ee0=0.3156 ee1=0.3311 jt0=0.2269 jt1=0.2839 cmx2=0.3311  cx/cy/cz=-0.1163/-0.0190/-0.1306  n=35 f
+ROOM-REGIME: chestL   r= 6 jumpB-land    §16  com=0.0964 moy=0.0458 [0.35-0.40]   SOUS (x0.28)
+   ee0=0.1553 ee1=0.1938 jt0=0.1595 jt1=0.2121 cmx2=0.1938  cx/cy/cz=+0.0173/-0.0493/+0.0810  n=53 f
+ROOM-REGIME: chestL   r= 7 runA-accel    §17  com=0.2923 moy=0.1300 [0.10-0.18]   AU-DESSUS (x1.62)
+   ee0=0.5447 ee1=0.5389 jt0=0.3663 jt1=0.4332 cmx2=0.5447  cx/cy/cz=-0.0023/+0.0085/-0.2921  n=36 f
+ROOM-REGIME: chestL   r= 8 runA-brake    §17  com=0.1475 moy=0.0579 [0.18-0.27]   SOUS (x0.82)
+   ee0=0.2375 ee1=0.2932 jt0=0.2885 jt1=0.3549 cmx2=0.2932  cx/cy/cz=+0.0020/-0.0611/+0.1342  n=62 f
+ROOM-REGIME: chestL   r= 9 yawA          §18  com=0.0511 moy=0.0308 [0.10-0.17]   SOUS (x0.51)
+   ee0=0.0855 ee1=0.1122 jt0=0.0580 jt1=0.1237 cmx2=0.1122  cx/cy/cz=+0.0462/-0.0168/+0.0138  n=69 f
+ROOM-REGIME: chestL   r=10 yawB          §18  com=0.1019 moy=0.0473 [0.17-0.24]   SOUS (x0.60)
+   ee0=0.1660 ee1=0.2014 jt0=0.1056 jt1=0.1623 cmx2=0.2014  cx/cy/cz=-0.0913/+0.0114/+0.0437  n=66 f
+ROOM-REGIME: chestL   r=11 pitchA-bend   §19  com=0.2888 moy=0.1326 [pas de bande] PAS DE BANDE
+   ee0=0.5958 ee1=0.5346 jt0=0.3949 jt1=0.4479 cmx2=0.5958  cx/cy/cz=-0.0143/+0.0566/-0.2828  n=36 f
+ROOM-REGIME: chestL   r=12 pitchA-return §19  com=0.2493 moy=0.0979 [pas de bande] PAS DE BANDE
+   ee0=0.5703 ee1=0.4199 jt0=0.3883 jt1=0.3282 cmx2=0.5703  cx/cy/cz=-0.0040/-0.2485/-0.0186  n=68 f
+ROOM-REGIME: chestL   r=13 rollA         §20  com=0.1917 moy=0.1076 [0.15-0.22]   DANS
+   ee0=0.3561 ee1=0.3730 jt0=0.3952 jt1=0.3962 cmx2=0.3730  cx/cy/cz=-0.1072/-0.1328/+0.0871  n=33 f
+ROOM-REGIME: chestL   r=14 rollB         §20  com=0.2407 moy=0.1237 [0.15-0.22]   AU-DESSUS (x1.09)
+   ee0=0.5176 ee1=0.4198 jt0=0.4858 jt1=0.4345 cmx2=0.5176  cx/cy/cz=+0.1806/-0.1514/+0.0488  n=65 f
+ROOM-REGIME: chestR   r= 0 base            -  com=0.0222 moy=0.0223 [pas de bande] PAS DE BANDE
+   ee0=0.0310 ee1=0.0491 jt0=0.0242 jt1=0.0452 cmx2=0.0491  cx/cy/cz=-0.0124/-0.0054/+0.0176  n=60 f
+ROOM-REGIME: chestR   r= 1 jumpA-push    §14  com=0.2404 moy=0.0909 [0.15-0.25]   DANS
+   ee0=0.4386 ee1=0.4520 jt0=0.3563 jt1=0.4278 cmx2=0.4520  cx/cy/cz=+0.1892/-0.1262/+0.0780  n=18 f
+ROOM-REGIME: chestR   r= 2 jumpA-fly     §15  com=0.1345 moy=0.0895 [pas de bande] PAS DE BANDE
+   ee0=0.2417 ee1=0.2653 jt0=0.2456 jt1=0.2271 cmx2=0.2653  cx/cy/cz=+0.1199/-0.0523/+0.0312  n=26 f
+ROOM-REGIME: chestR   r= 3 jumpA-land    §16  com=0.1426 moy=0.0552 [0.25-0.35]   SOUS (x0.57)
+   ee0=0.2992 ee1=0.2647 jt0=0.2868 jt1=0.3101 cmx2=0.2992  cx/cy/cz=-0.1413/+0.0158/+0.0111  n=58 f
+ROOM-REGIME: chestR   r= 4 jumpB-push    §14  com=0.2087 moy=0.0783 [0.25-0.32]   SOUS (x0.83)
+   ee0=0.3743 ee1=0.3972 jt0=0.3165 jt1=0.3802 cmx2=0.3972  cx/cy/cz=+0.1569/-0.1073/+0.0861  n=15 f
+ROOM-REGIME: chestR   r= 5 jumpB-fly     §15  com=0.1633 moy=0.1081 [pas de bande] PAS DE BANDE
+   ee0=0.2901 ee1=0.3137 jt0=0.2810 jt1=0.2909 cmx2=0.3137  cx/cy/cz=+0.1285/-0.0835/+0.0562  n=35 f
+ROOM-REGIME: chestR   r= 6 jumpB-land    §16  com=0.1746 moy=0.0542 [0.35-0.40]   SOUS (x0.50)
+   ee0=0.3091 ee1=0.3349 jt0=0.2496 jt1=0.3156 cmx2=0.3349  cx/cy/cz=+0.1341/-0.0885/+0.0684  n=53 f
+ROOM-REGIME: chestR   r= 7 runA-accel    §17  com=0.2610 moy=0.1008 [0.10-0.18]   AU-DESSUS (x1.45)
+   ee0=0.4786 ee1=0.4895 jt0=0.3746 jt1=0.4483 cmx2=0.4895  cx/cy/cz=+0.0038/+0.0648/-0.2528  n=36 f
+ROOM-REGIME: chestR   r= 8 runA-brake    §17  com=0.1387 moy=0.0508 [0.18-0.27]   SOUS (x0.77)
+   ee0=0.2400 ee1=0.2706 jt0=0.2028 jt1=0.2588 cmx2=0.2706  cx/cy/cz=-0.0179/+0.0369/-0.1325  n=62 f
+ROOM-REGIME: chestR   r= 9 yawA          §18  com=0.2016 moy=0.0735 [0.10-0.17]   AU-DESSUS (x1.19)
+   ee0=0.4716 ee1=0.3143 jt0=0.3835 jt1=0.2643 cmx2=0.4716  cx/cy/cz=-0.0714/-0.0716/+0.1743  n=69 f
+ROOM-REGIME: chestR   r=10 yawB          §18  com=0.2040 moy=0.0809 [0.17-0.24]   DANS
+   ee0=0.4775 ee1=0.4117 jt0=0.3850 jt1=0.4658 cmx2=0.4775  cx/cy/cz=-0.0925/-0.0708/+0.1675  n=66 f
+ROOM-REGIME: chestR   r=11 pitchA-bend   §19  com=0.2477 moy=0.1400 [pas de bande] PAS DE BANDE
+   ee0=0.5756 ee1=0.4552 jt0=0.4294 jt1=0.4443 cmx2=0.5756  cx/cy/cz=-0.0949/-0.2266/-0.0317  n=36 f
+ROOM-REGIME: chestR   r=12 pitchA-return §19  com=0.2259 moy=0.0859 [pas de bande] PAS DE BANDE
+   ee0=0.5292 ee1=0.3729 jt0=0.3954 jt1=0.3569 cmx2=0.5292  cx/cy/cz=-0.1205/-0.1911/-0.0022  n=68 f
+ROOM-REGIME: chestR   r=13 rollA         §20  com=0.2549 moy=0.1134 [0.15-0.22]   AU-DESSUS (x1.16)
+   ee0=0.5230 ee1=0.4751 jt0=0.3459 jt1=0.4242 cmx2=0.5230  cx/cy/cz=+0.2444/-0.0608/+0.0391  n=33 f
+ROOM-REGIME: chestR   r=14 rollB         §20  com=0.2543 moy=0.0817 [0.15-0.22]   AU-DESSUS (x1.16)
+   ee0=0.5667 ee1=0.4179 jt0=0.3846 jt1=0.3595 cmx2=0.5667  cx/cy/cz=-0.2155/-0.1349/+0.0026  n=65 f
+
+   -- ROOM-REGIME-NET : LE MEME COM, TEMOIN r=0 SOUSTRAIT ---------------------------
+      `net = max(0, com_r - com_0)` de la MEME chaine. Le temoin ne joue AUCUN regime :
+      ce qu'il produit vient de l'animation tenue. Le soustraire isole ce que le
+      REGIME a ajoute. Le temoin n'est pas soustrait de lui-meme : il est publie comme
+      reference et n'a pas de ligne NET. Cette soustraction n'est PAS le verdict de la
+      spec — sa bande porte sur le COM total, ligne ROOM-REGIME ci-dessus ; NET dit
+      seulement ce qui est IMPUTABLE au regime.
+ROOM-REGIME-NET: chestL   temoin r=0 com=0.0268 B0 (reference, non soustraite d'elle-meme)
+ROOM-REGIME-NET: chestL   r= 1 jumpA-push    net=0.1121 (com 0.1389 - r0 0.0268) -> SOUS (x0.75)
+ROOM-REGIME-NET: chestL   r= 2 jumpA-fly     net=0.1571 (com 0.1839 - r0 0.0268) -> PAS DE BANDE
+ROOM-REGIME-NET: chestL   r= 3 jumpA-land    net=0.0568 (com 0.0836 - r0 0.0268) -> SOUS (x0.23)
+ROOM-REGIME-NET: chestL   r= 4 jumpB-push    net=0.1258 (com 0.1526 - r0 0.0268) -> SOUS (x0.50)
+ROOM-REGIME-NET: chestL   r= 5 jumpB-fly     net=0.1492 (com 0.1760 - r0 0.0268) -> PAS DE BANDE
+ROOM-REGIME-NET: chestL   r= 6 jumpB-land    net=0.0696 (com 0.0964 - r0 0.0268) -> SOUS (x0.20)
+ROOM-REGIME-NET: chestL   r= 7 runA-accel    net=0.2655 (com 0.2923 - r0 0.0268) -> AU-DESSUS (x1.48)
+ROOM-REGIME-NET: chestL   r= 8 runA-brake    net=0.1207 (com 0.1475 - r0 0.0268) -> SOUS (x0.67)
+ROOM-REGIME-NET: chestL   r= 9 yawA          net=0.0243 (com 0.0511 - r0 0.0268) -> SOUS (x0.24)
+ROOM-REGIME-NET: chestL   r=10 yawB          net=0.0751 (com 0.1019 - r0 0.0268) -> SOUS (x0.44)
+ROOM-REGIME-NET: chestL   r=11 pitchA-bend   net=0.2620 (com 0.2888 - r0 0.0268) -> PAS DE BANDE
+ROOM-REGIME-NET: chestL   r=12 pitchA-return net=0.2225 (com 0.2493 - r0 0.0268) -> PAS DE BANDE
+ROOM-REGIME-NET: chestL   r=13 rollA         net=0.1649 (com 0.1917 - r0 0.0268) -> DANS
+ROOM-REGIME-NET: chestL   r=14 rollB         net=0.2139 (com 0.2407 - r0 0.0268) -> DANS
+ROOM-REGIME-NET: chestR   temoin r=0 com=0.0222 B0 (reference, non soustraite d'elle-meme)
+ROOM-REGIME-NET: chestR   r= 1 jumpA-push    net=0.2182 (com 0.2404 - r0 0.0222) -> DANS
+ROOM-REGIME-NET: chestR   r= 2 jumpA-fly     net=0.1123 (com 0.1345 - r0 0.0222) -> PAS DE BANDE
+ROOM-REGIME-NET: chestR   r= 3 jumpA-land    net=0.1204 (com 0.1426 - r0 0.0222) -> SOUS (x0.48)
+ROOM-REGIME-NET: chestR   r= 4 jumpB-push    net=0.1865 (com 0.2087 - r0 0.0222) -> SOUS (x0.75)
+ROOM-REGIME-NET: chestR   r= 5 jumpB-fly     net=0.1411 (com 0.1633 - r0 0.0222) -> PAS DE BANDE
+ROOM-REGIME-NET: chestR   r= 6 jumpB-land    net=0.1524 (com 0.1746 - r0 0.0222) -> SOUS (x0.44)
+ROOM-REGIME-NET: chestR   r= 7 runA-accel    net=0.2388 (com 0.2610 - r0 0.0222) -> AU-DESSUS (x1.33)
+ROOM-REGIME-NET: chestR   r= 8 runA-brake    net=0.1165 (com 0.1387 - r0 0.0222) -> SOUS (x0.65)
+ROOM-REGIME-NET: chestR   r= 9 yawA          net=0.1794 (com 0.2016 - r0 0.0222) -> AU-DESSUS (x1.06)
+ROOM-REGIME-NET: chestR   r=10 yawB          net=0.1818 (com 0.2040 - r0 0.0222) -> DANS
+ROOM-REGIME-NET: chestR   r=11 pitchA-bend   net=0.2255 (com 0.2477 - r0 0.0222) -> PAS DE BANDE
+ROOM-REGIME-NET: chestR   r=12 pitchA-return net=0.2037 (com 0.2259 - r0 0.0222) -> PAS DE BANDE
+ROOM-REGIME-NET: chestR   r=13 rollA         net=0.2327 (com 0.2549 - r0 0.0222) -> AU-DESSUS (x1.06)
+ROOM-REGIME-NET: chestR   r=14 rollB         net=0.2321 (com 0.2543 - r0 0.0222) -> AU-DESSUS (x1.06)
+
+   -- ROOM-REGIME-SIGN : SPEC 15, LE CHANGEMENT DE SIGNE ----------------------------
+      §15 ne borne AUCUN chiffre : elle exige que le sein RETARDE VERS LE BAS pendant
+      la poussee, puis TRAVERSE LE NEUTRE pendant le vol. C'est donc un SIGNE qui est
+      mesure, pas une amplitude. Convention : `cy` est la composante VERTICALE MONDE du
+      COM, SIGNEE, relevee a l'argmax de `com`. Le sujet est a QUATERNION IDENTITE sur
+      ces six fenetres (r=1..6, tous des regimes de translation) : +Y monde EST la
+      verticale, et le signe se lit sans avoir a redresser un triedre.
+      CRITERE : `cy` < 0 en poussee (1, 4) ET `cy` > 0 en vol (2, 5).
+ROOM-REGIME-SIGN: chestL   sautA cy_pouss=-0.0170 cy_vol=-0.0215 -> CHANGEMENT DE SIGNE : non
+   ROUGE §15 : le critere demande cy<0 en poussee ET cy>0 en vol ; mesure -0.0170 puis -0.0215.
+   cy_reception (r=3) = -0.0433 — publiee pour lecture, §15 ne la borne pas.
+ROOM-REGIME-SIGN: chestL   sautB cy_pouss=-0.0186 cy_vol=-0.0190 -> CHANGEMENT DE SIGNE : non
+   ROUGE §15 : le critere demande cy<0 en poussee ET cy>0 en vol ; mesure -0.0186 puis -0.0190.
+   cy_reception (r=6) = -0.0493 — publiee pour lecture, §15 ne la borne pas.
+ROOM-REGIME-SIGN: chestR   sautA cy_pouss=-0.1262 cy_vol=-0.0523 -> CHANGEMENT DE SIGNE : non
+   ROUGE §15 : le critere demande cy<0 en poussee ET cy>0 en vol ; mesure -0.1262 puis -0.0523.
+   cy_reception (r=3) = +0.0158 — publiee pour lecture, §15 ne la borne pas.
+ROOM-REGIME-SIGN: chestR   sautB cy_pouss=-0.1073 cy_vol=-0.0835 -> CHANGEMENT DE SIGNE : non
+   ROUGE §15 : le critere demande cy<0 en poussee ET cy>0 en vol ; mesure -0.1073 puis -0.0835.
+   cy_reception (r=6) = -0.0885 — publiee pour lecture, §15 ne la borne pas.
+
+   -- ROOM-REGIME-MIRROR : SPEC 18 et SPEC 20, GAUCHE CONTRE DROITE -----------------
+      §18 exige que les deux seins DIFFERENT en rotation, et elle en donne la cause :
+      « because their offsets from the torso rotational axis differ ». SUR LE RIG
+      LIVRE, CETTE CAUSE N'EXISTE PAS. Mesure sur out/jak1/fr3/skin/keira-hd-lod0.glb :
+      la racine de chaine est a 548.078 u (lBoob) et 548.081 u (rBoob) de l'axe
+      VERTICAL de lacet — 0.0029 u d'ecart, soit 5.2e-4 %. Idem en tangage (1925.209 /
+      1925.210 u de l'axe X par les hanches) et en roulis (1922.159 / 1922.160 u de
+      l'axe Z par les hanches). Les deux seins sont donc a distance EGALE de l'axe.
+      CONSEQUENCE, ET ELLE EST DURE : tout ecart mesure ci-dessous vient des
+      PARAMETRES (raideur, amortissement, rayons, poids), pas de la geometrie. La
+      dissymetrie que §18 decrit par sa cause geometrique ne peut pas etre obtenue
+      dans ce rig sans deplacer une racine — ce qui serait un changement de RIG.
+ROOM-REGIME-MIRROR: r= 9 yawA          com(chestL)=0.0511 com(chestR)=0.2016  ecart 119.11 %
+ROOM-REGIME-MIRROR: r=10 yawB          com(chestL)=0.1019 com(chestR)=0.2040  ecart 66.75 %
+ROOM-REGIME-MIRROR: r=13 rollA         com(chestL)=0.1917 com(chestR)=0.2549  ecart 28.30 %
+ROOM-REGIME-MIRROR: r=14 rollB         com(chestL)=0.2407 com(chestR)=0.2543  ecart 5.49 %
+
+   -- LA TABLE DES REGIMES ET LE TEXTE QU'ELLE CITE --------------------------------
+   r= 0 base            -   [pas de bande] AUCUN pilotage : le temoin. Tout ce qui sort d'ici est
+                                           produit par l'animation tenue, pas par un regime.
+   r= 1 jumpA-push    §14   [0.15-0.25]    detente ordinaire h=0.25 m ; SPEC 14 « COM lag:
+                                           ordinary 15-25% B0 »
+   r= 2 jumpA-fly     §15   [pas de bande] vol balistique ordinaire ; SPEC 15 ne borne aucun
+                                           chiffre : elle exige un CHANGEMENT DE SIGNE
+   r= 3 jumpA-land    §16   [0.25-0.35]    reception souple ; SPEC 16 « Strong landing COM: 25-35%
+                                           B0 »
+   r= 4 jumpB-push    §14   [0.25-0.32]    detente forte h=0.45 m ; SPEC 14 « strong 25-32% B0 »
+   r= 5 jumpB-fly     §15   [pas de bande] vol balistique fort
+   r= 6 jumpB-land    §16   [0.35-0.40]    reception DURE ; SPEC 16 « Very hard landing COM:
+                                           35-40% B0 »
+   r= 7 runA-accel    §17   [0.10-0.18]    demarrage ; SPEC 17 « COM lag: moderate 10-18% B0 »
+   r= 8 runA-brake    §17   [0.18-0.27]    arret net ; SPEC 17 « strong 18-27% B0 »
+   r= 9 yawA          §18   [0.10-0.17]    demi-tour modere ; SPEC 18 « COM displacement: moderate
+                                           10-17% B0 »
+   r=10 yawB          §18   [0.17-0.24]    demi-tour rapide ; SPEC 18 « strong 17-24% B0 »
+   r=11 pitchA-bend   §19   [pas de bande] buste en avant ; SPEC 19 ne borne QUE l'apex (30-40%
+                                           B0), pas le COM
+   r=12 pitchA-return §19   [pas de bande] retour a la verticale ; SPEC 19 « the authored standing
+                                           geometry is crossed »
+   r=13 rollA         §20   [0.15-0.22]    inclinaison laterale ; SPEC 20 « Typical strong roll:
+                                           COM 15-22% B0 »
+   r=14 rollB         §20   [0.15-0.22]    bascule cote oppose ; meme bande, cote oppose
 -- SPEC 33 : LE RESIDU D'INTERPENETRATION, CONTRAINTE DE LONGUEUR EN PLACE PUIS LEVEE --
    Meme impulsion, meme fenetre, meme emetteur ; seul `nolen` change. `res` en unites
    de jeu (4096 = 1 m), maximum de fenetre, APRES le solveur, au-dela du plancher de

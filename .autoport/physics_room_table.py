@@ -3837,7 +3837,16 @@ def main():
     # unites de jeu. Verifie sur out/jak1/fr3/skin/keira-hd-lod0.glb : lBoob/rBoob a 548.078 /
     # 548.081 u de l'axe VERTICAL (lacet), 1925.209 / 1925.210 u de l'axe X passant par les
     # hanches (tangage), 1922.159 / 1922.160 u de l'axe Z passant par les hanches (roulis).
-    _RGLV = {9: 548.1, 10: 548.1, 11: 1925.2, 12: 1925.2, 13: 1922.1, 14: 1922.1}
+    # CORRIGE CYCLE 49 APRES LA COURSE E1 : `amax` mesure le deplacement de L'ANCRE, pas du sein.
+    # La cible de `r_eff` est donc le bras de l'ANCRE (`chest`, a (0, 7020.8, 239.8) sur le mesh
+    # livre) autour du pivot de hanche (0, 6094.4, 0), c'est-a-dire |c_anat| = (0, 926.4, 239.8)
+    # projete perpendiculairement a chaque axe :
+    #     lacet  Y : |(0, 239.8)|      =  239.8 u
+    #     tangage X: |(926.4, 239.8)|  =  956.9 u
+    #     roulis Z : |(0, 926.4)|      =  926.4 u
+    # Comparer a 548.1 / 1925.2 / 1922.1 (le bras du SEIN) melangeait deux points differents et
+    # affichait un ecart de -50 a -56 % la ou la correction de pivot est en fait exacte a 1 %.
+    _RGLV = {9: 239.8, 10: 239.8, 11: 956.9, 12: 956.9, 13: 926.4, 14: 926.4}
     _rgd, _rga, _rgb, _rgc = {}, {}, {}, {}
     for _m in re.finditer(r'^PHYSREGD r=(\d+) kind=(\d+) drv=(\d+) acmd=([-\d.e+]+)'
                           r' alp=([-\d.e+]+)', txt, re.M):
@@ -3941,7 +3950,7 @@ def main():
                  ('%9.4f u/f' % _amx) if _amx is not None else '      n/a'))
             if _r in _RGOM and _amx is not None:
                 _re = _amx / _RGOM[_r]
-                A('   r_eff = amax/omega = %8.1f u  contre le bras COMMANDE %.1f u  ecart %+.1f %%'
+                A('   r_eff = amax/omega = %8.1f u  contre le bras ANATOMIQUE de l\'ancre %.1f u  ecart %+.1f %%'
                   % (_re, _RGLV[_r], 100.0 * (_re - _RGLV[_r]) / _RGLV[_r]))
             elif _dd is None:
                 A('   PHYSREGD absent pour ce regime : le stimulus COMMANDE n\'est pas declare par')
