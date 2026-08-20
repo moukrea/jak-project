@@ -10,6 +10,35 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
+## 2026-08-20 23:30 — J'ARRETE DE LUI DEMANDER DE TESTER JUSQU'A CE QUE LA COUVERTURE LE PERMETTE
+
+Verbatim, apres avoir teste le build de la contrainte de peau : « Difficile de dire si c'est bien
+ou pas, mieux qu'avant ou pas, etc... Je saurais pas dire, faudrait que la spec soit bien plus
+implementee pour avoir une vraie idee. »
+
+**CE N'EST PAS UN VERDICT NEGATIF, C'EST UNE MESURE DE COUVERTURE.** A 2 sections tenues sur 38,
+aucun changement d'UNE section ne produit un ecart qu'un oeil peut trancher. Lui demander d'arbitrer
+a ce niveau, c'est lui faire depenser du temps sur une question que l'etat du dossier rend
+indecidable — et user le seul instrument qui compte vraiment, son jugement.
+
+**REGLE, JUSQU'A NOUVEL ORDRE :**
+  - **je ne sollicite plus de test pour un changement d'une seule section.** La rubrique « A tester »
+    reste VIDE tant que le lot ne change pas le comportement d'ENSEMBLE ;
+  - la livraison continue ne s'arrete pas — il peut toujours prendre un build quand il veut, sa
+    consigne du 2026-08-06 tient ;
+  - **le seuil de re-sollicitation est nomme, pas au feeling** : les sections qui gouvernent ce
+    qu'un oeil voit doivent etre tenues ensemble — les regimes dynamiques §14 a §20, les
+    frequences et l'amortissement §24 a §27, et les equilibres §9 a §13. Tant que ce bloc n'est pas
+    tenu, un test lui coute plus qu'il ne rapporte ;
+  - exception : une REGRESSION visible, ou un defaut qu'il a lui-meme decrit et qu'on croit ferme.
+    La, on demande, parce que c'est SON defaut et lui seul le ferme.
+
+**ET CA CHANGE LA PRIORITE DU CHANTIER.** Un cycle qui ferme une section deja mesuree vaut moins
+qu'un cycle qui en fait passer une du rouge au vert dans ce bloc-la. C'est la meme regle que le
+2026-08-20 00:10 (preferer la COUVERTURE), resserree sur le sous-ensemble qui decide de ce qu'il
+percoit.
+
+
 ## 2026-08-20 18:50 — §33 A UN DOMAINE VIDE PAR CONSTRUCTION. A OUVRIR AVANT DE PARLER DE §33.
 
 Le cycle 61 fait passer COLLIDE pour la premiere fois, et **sans museler** (tipvar -0,2 % / +2,4 %,
