@@ -56,6 +56,39 @@ DEFAULT_LOG = os.path.join(REPDIR, 'keira-room-x86.log')
 OUT = os.path.join(REPDIR, 'keira-room-table.txt')
 
 
+# ---------------------------------------------------------------------------------------------
+# LA PART DE L'APEX QUE LES MAILLONS SIMULES PORTENT — LUE DANS LE FICHIER LIVRE, PLUS JAMAIS
+# ECRITE EN DUR.
+# Defaut mesure au cycle 58 : ce script portait `0.5676 / 0.5936` et « plafond x1.76 » en constantes,
+# heritees du cycle 51. Le cycle 57 a corrige l'axe de l'operateur d'ancrage et les enregistrements
+# `ax` LIVRES somment aujourd'hui a 0.9402 / 0.9549 — la course a bien tourne dessus. Les lignes qui
+# citaient 0.5676 mentaient donc d'un facteur 1.66, et elles servaient a decider si un manque de
+# bande « s'explique par l'ancrage seul ». Un plafond perime qui arbitre des verdicts est la meme
+# faute que l'axe faux du 2026-08-20 07:20 : on ne la laisse pas dans le producteur.
+# SOURCE : `recharged_assets/physics_mesh.txt`, enregistrements `ax <chaine> <maillon> <w> x y z`.
+# C'est le FICHIER QUE LE MOTEUR CHARGE (jak-hd-physics.gc:803, via pc-physics-chain-link-apex-mi),
+# pas une valeur de confort — le tableau lit deja `comw=` du fichier livre de la meme facon.
+# NATURE : une fraction sans dimension, la somme des poids `ax` d'une chaine. REPERE : sans objet.
+# LECTURE QUAND LE DEFAUT EST ABSENT : 1.0000 — toute la masse distale est portee par des maillons
+# simules, donc l'apex publie n'est reduit par aucun ancrage.
+def _apex_anchor_share():
+    out = {}
+    try:
+        for ln in open('recharged_assets/physics_mesh.txt', encoding='utf-8', errors='ignore'):
+            f = ln.split()
+            if len(f) >= 4 and f[0] == 'ax':
+                out[f[1]] = out.get(f[1], 0.0) + float(f[3])
+    except Exception:
+        return {}
+    return out
+
+_APXSH = _apex_anchor_share()
+
+def _apxsh(name):
+    """La part portee par les maillons simules, ou None si le fichier livre ne la donne pas."""
+    v = _APXSH.get(name)
+    return v if (v is not None and v > 0.0) else None
+
 def die(msg):
     print('[physics_room_table FAIL] ' + msg)
     sys.exit(1)
@@ -3791,12 +3824,24 @@ def main():
             A('   part des FENETRES au-dessus des bandes : %.1f %% > 0.42 · %.1f %% > 0.50'
               % (100.0 * sum(1 for x in _wm3 if x > 0.42) / len(_wm3),
                  100.0 * sum(1 for x in _wm3 if x > 0.50) / len(_wm3)))
-        A('   CE QUE CE VERDICT NE DIT PAS, ET IL FAUT LE DIRE : 41 a 43 %% de la masse de la')
-        A('      region distale est portee par `chest`, qui n\'est pas simule. L\'apex publie ici')
-        A('      est donc DEJA reduit d\'un facteur 0.5676 / 0.5936 par le mesh. Un DEPASSEMENT')
-        A('      est donc un depassement A ANCRAGE REDUIT — il serait PIRE si sa §30 (« Apex —')
-        A('      minimal direct anchoring ») etait respectee. Un MANQUE, lui, peut venir de cet')
-        A('      ancrage plutot que du solveur, et la ligne ROOM-APEX-REGIME le chiffre par')
+        _shL, _shR = _apxsh('chestL'), _apxsh('chestR')
+        if _shL is None or _shR is None:
+            A('   PART DE L\'APEX PORTEE PAR LES MAILLONS SIMULES : NON ETABLIE — aucun')
+            A('      enregistrement `ax` lisible dans recharged_assets/physics_mesh.txt. Ce')
+            A('      verdict est donc rendu SANS savoir de combien le mesh reduit l\'apex.')
+        elif _shL >= 0.999 and _shR >= 0.999:
+            A('   PART DE L\'APEX PORTEE PAR LES MAILLONS SIMULES : %.4f / %.4f (fichier livre).'
+              % (_shL, _shR))
+            A('      L\'apex publie n\'est reduit par AUCUN ancrage : le depassement est entier.')
+        else:
+            A('   CE QUE CE VERDICT NE DIT PAS, ET IL FAUT LE DIRE : %.1f %% / %.1f %% de la masse'
+              % (100.0 * (1.0 - _shL), 100.0 * (1.0 - _shR)))
+            A('      de la region distale est portee par des os NON SIMULES. L\'apex publie ici')
+            A('      est donc DEJA reduit d\'un facteur %.4f / %.4f par le mesh. Un DEPASSEMENT'
+              % (_shL, _shR))
+            A('      est donc un depassement A ANCRAGE REDUIT — il serait PIRE si sa §30 (« Apex —')
+            A('      minimal direct anchoring ») etait respectee. Un MANQUE, lui, peut venir de cet')
+            A('      ancrage plutot que du solveur, et la ligne ROOM-APEX-REGIME le chiffre par')
         A('      fenetre au lieu de le supposer.')
     else:
         A('')
@@ -4164,16 +4209,25 @@ def main():
             A('   d\'apex. Rien n\'est publie a zero : un canal absent n\'est pas un apex immobile.')
         else:
             A('   -- ROOM-APEX-REGIME : SPEC 14/16/17/18/19/20, LA CLAUSE D\'APEX ---------------')
-            A('      LE PLAFOND QUE LE MESH IMPOSE, ET IL N\'EST PAS UN REGLAGE. La region distale')
-            A('      porte 43.24 %% (chestL) / 40.64 %% (chestR) de sa masse de peau sur `chest`,')
-            A('      qui N\'EST PAS SIMULE : sa matrice ecrite EST sa matrice d\'auteur, son')
-            A('      excursion est nulle au bit pres. L\'apex ne peut donc valoir que 0.5676 /')
-            A('      0.5936 de ce que ses maillons simules produisent — soit un facteur x1.76 /')
-            A('      x1.68 hors d\'atteinte de TOUTE valeur de raideur, d\'amortissement ou de')
-            A('      gravite. Sa §30 ecrit « Apex — minimal direct anchoring » : le mesh livre dit')
-            A('      le contraire. Une bande manquee de MOINS que ce facteur peut s\'expliquer par')
-            A('      l\'ancrage seul ; manquee de PLUS, non — et c\'est cette frontiere qui rend')
-            A('      chaque ligne ci-dessous lisible.')
+            _shL, _shR = _apxsh('chestL'), _apxsh('chestR')
+            A('      LE PLAFOND QUE LE MESH IMPOSE, ET IL EST LU DANS LE FICHIER LIVRE — plus')
+            A('      jamais ecrit en dur. La part de la masse distale portee par des maillons')
+            A('      SIMULES est la somme des poids `ax` de recharged_assets/physics_mesh.txt,')
+            A('      le fichier meme que le moteur charge (jak-hd-physics.gc:803). Le reste est')
+            A('      porte par des os NON SIMULES, dont la matrice ecrite EST la matrice')
+            A('      d\'auteur et dont l\'excursion est nulle au bit pres.')
+            if _shL is None or _shR is None:
+                A('      PART NON ETABLIE : aucun enregistrement `ax` lisible. Les mentions')
+                A('      « ancrage seul » ci-dessous sont donc OMISES plutot que devinees.')
+            else:
+                A('      part simulee : %.4f (chestL) / %.4f (chestR) -> plafond d\'ancrage x%.2f'
+                  % (_shL, _shR, 1.0 / _shL))
+                A('      / x%.2f. Une bande manquee de MOINS que ce facteur peut s\'expliquer par'
+                  % (1.0 / _shR))
+                A('      l\'ancrage seul ; manquee de PLUS, non — et c\'est cette frontiere qui')
+                A('      rend chaque ligne ci-dessous lisible. Sa §30 ecrit « Apex — minimal')
+                A('      direct anchoring » : a %.2f / %.2f le mesh livre s\'en approche enfin.'
+                  % (_shL, _shR))
             for _r in sorted({k[1] for k in _rge}):
                 _bd, _cite2 = _RGAPX.get(_r, (None, 'aucune clause d\'apex pour ce regime'))
                 for _c in sorted({k[0] for k in _rge if k[1] == _r}):
@@ -4184,9 +4238,10 @@ def main():
                     else:
                         _vd = _rgvd(_v, _bd)
                         _nd = ''
-                        if _vd.startswith('SOUS'):
+                        _sh = _apxsh(_rgnm(_c))
+                        if _vd.startswith('SOUS') and _sh is not None:
                             _fac = (_bd[0] / _v) if _v > 0 else 0.0
-                            _cap = 1.0 / (0.5676 if _rgnm(_c) == 'chestL' else 0.5936)
+                            _cap = 1.0 / _sh
                             _nd = ('   ancrage seul %s (manque x%.2f, plafond x%.2f)'
                                    % ('SUFFIT' if _fac <= _cap else 'NE SUFFIT PAS', _fac, _cap))
                         A('ROOM-APEX-REGIME: %-8s r=%2d %-13s apex=%.4f B0  [%.2f-%.2f] -> %s%s'
