@@ -4457,3 +4457,224 @@ identique a `fabs(0)`. Les fenetres de regime a quaternion identite doivent
 donc rester IDENTIQUES AU BIT — c'est la prediction P1 de C50E1.
 ---------------------------------------------------------------------------
 ```
+
+---------------------------------------------------------------------------
+## NOTE-139  (moteur : declarations ~line 133, `phys-pt-exc!`, le remplissage de l'init, le bloc
+## d'ecriture ~line 3890 et la publication ~line 4000) — L'APEX, ET LES DEUX EXTREMES DE SPEC 15
+
+**LE TROU QUE CE CANAL COMBLE.** Sept sections de `SPEC-breast-softbody.md` bornent un
+deplacement d'APEX en % B0 — §14 (« Apex displacement: ordinary 20-30% B0, strong 30-38% B0 »),
+§16 (« Strong landing apex: 30-42% B0 » / « Very hard / exceptional: 42-50% B0 »), §17
+(« Apex displacement: strong 25-35% B0, upper transient ~40% B0 »), §18 (« Apex displacement:
+strong 20-30% B0, exceptional ~35% B0 »), §19 (« 30-40% B0 apex displacement without requiring
+comparable local stretch »), §20 (« apex 20-30% B0 ») et §22 (« Distal/apex displacement: normal
+<=42% B0, exceptional <=50% B0 ») — et **aucun canal de la salle ne publiait un apex**. §19 n'a
+meme que cette clause : son COM etait mesure et ne repondait a aucune de ses lignes. Six sections
+ne pouvaient pas etre fermees, dans un sens ou dans l'autre, tant que ce canal n'existait pas.
+
+**CE QUE L'APEX EST ICI, ET CE N'EST PAS UN SOMMET.** §22 ecrit « **Distal/apex** displacement »
+et §31 « r = 1 at distal/apex **region** » : la spec nomme une REGION. La region retenue est le
+**decile distal** du nuage de chair le long de l'axe anatomique racine->apex (`APEX_FRAC = 0.10`
+dans `.autoport/physics_c14_meshsamples.py`). Un sommet unique serait un extremum de maillage,
+sensible au bruit de triangulation ; un decile est une statistique. **La fraction est FIXEE AVANT
+toute course** et ne se choisit pas au vu du verdict — les variantes 0.05 et 0.25 sont mesurees et
+publiees dans `mesh_extents_c14.txt` A COTE, meme discipline que la frontiere `w>0` / `w>=0.25` du
+bloc COM.
+
+**L'ALGEBRE EST EXACTE, PAS UNE APPROXIMATION.** Sous skinning lineaire un sommet vaut
+`SOMME_j w_ij M_j v_i`, donc le centroide de masse de la region se deplace de
+
+    d_apex = SOMME_l w_l * (M_l^sim - M_l^auth) * p_l
+
+    w_l = (SOMME_{i dans R} w_il) / |R|        p_l = (SOMME_{i dans R} w_il v_i) / SOMME w_il
+
+`v_i` etant le sommet en espace bind du maillon l. C'est la MEME identite que `comw=` (NOTE-126),
+appliquee a une SOUS-POPULATION au lieu du nuage entier. Les joints non simules ont
+`M^sim == M^auth` et contribuent EXACTEMENT zero : ils disparaissent de la somme, et c'est
+pourquoi les poids livres somment a MOINS de 1.
+
+**LE CHIFFRE QUI BORNE TOUT LE RESTE, ET IL N'EST PAS UN REGLAGE.** Mesure sur le mesh LIVRE
+(`out/jak1/fr3/skin/keira-hd-lod0.glb`, md5 `5cb8a493c43211acf3a04c5b6433df81`), la composition de
+la masse de peau de la region distale :
+
+    chestL   chest 43.24 %  ANCRE      lBoob 40.95 %      lBooc 15.80 %     -> somme simulee 0.5676
+    chestR   chest 40.64 %  ANCRE      rBoob 45.27 %      rBooc 14.09 %     -> somme simulee 0.5936
+
+**41 a 43 % de l'apex est soude au torse**, sur `chest`, qui n'est pas simule et dont la matrice
+ecrite EST sa matrice d'auteur. Le deplacement d'apex que le moteur peut produire est donc
+PLAFONNE a 0.5676 / 0.5936 de ce que ses maillons simules produisent, **quelle que soit la
+physique**. Sa §30 ecrit « Apex — minimal direct anchoring » : c'est le contraire de ce que le
+mesh livre porte, et c'est le meme profil d'ancrage en U deja au dossier. Aucun reglage de
+raideur, d'amortissement ou de gravite ne peut lever ce plafond ; seule une repesee le peut.
+
+**LA GEOMETRIE, ET UNE DIVERGENCE QUE JE NE TRANCHE PAS.** L'axe employe est celui de
+`probe_c48_com_identity.py:337-344` — du joint racine vers le centroide de l'organe pondere par
+le poids de chaine — parce que c'est LUI qui produit le `b0=602` livre (etendue mesuree du nuage
+sur cet axe : 597.9 / 598.3 u = 0.99 B0). **Une autre definition existe dans le depot et ne
+s'accorde pas** : `probe_breast_chain_span.py` rend 734.2 / 766.6 u pour la meme grandeur. Le
+choix est declare ici ; le trancher demande un invariant anatomique, pas un raisonnement de plus
+sur les memes nombres.
+
+L'echelle de bind des quatre joints de poitrine vaut **1.000000 exactement sur les trois valeurs
+singulieres** (MESURE, pas suppose) : les deux conventions de `to_bone_local` du depot — celle de
+`physics_c14_meshsamples.py:130` qui garde l'echelle et celle de `probe_c48:62` qui la retire —
+coincident donc ici, et le choix de l'une ou l'autre ne peut pas biaiser le resultat.
+
+**NATURE / REPERE / LECTURE HORS DEFAUT.**
+  `phys-pt-exc!` : NATURE trois longueurs SIGNEES en unites de jeu · REPERE MONDE, meme frame,
+  pose ECRITE `bm` (deformation comprise, c'est le meme `bm` que l'ecriture livre au squelette,
+  donc le meme point que l'owner voit) CONTRE la pose d'auteur `pre` · A LA POSE D'AUTEUR 0.0.
+  C'est la MEME formule que le bloc `lc` de l'ecriture ; elle est ecrite une fois et le bloc `lc`
+  n'a PAS ete refactorise pour l'appeler, exprès : ce cycle depense son controle de bit-identite
+  sur la trace entiere, et deplacer une expression flottante qui alimente `comex`, `ee`, `jt` et
+  le COM pour economiser des lignes aurait mis ce controle en jeu contre rien.
+
+  emplacements 53-56 : 53 = |d_apex| / B0, MAXIMUM DE FENETRE ; 54/55/56 = les trois composantes
+  SIGNEES du meme vecteur, relevees A L'ARGMAX de 53, donc les trois ensemble et sur UNE frame —
+  jamais trois maxima separes (piege `RAD-FLESH-IPAIR`, cycle 34).
+
+  La garde de publication est `awn > 0` et NON `awn = n`, contrairement au COM : un maillon sans
+  part de la region distale (`ax` a w=0) n'a rien a apporter et ne doit pas supprimer la mesure,
+  la ou un `comw` manquant fausserait une MOYENNE.
+
+**LES DEUX EXTREMES VERTICAUX (emplacements 57/58) — SPEC 15.** Sa §15 : « jump apex -> breast may
+**cross neutral position** ». Le registre portait la clause NON DEMONTREE avec la raison exacte :
+le vecteur du COM est releve a l'ARGMAX de sa norme, c'est-a-dire UNE frame, ce qui n'etablit ni
+la presence ni l'absence d'une traversee. Il faut les deux extremes de la composante verticale
+SIGNEE sur la fenetre.
+
+**ET CE SONT DEUX MAXIMA, JAMAIS UN MIN ET UN MAX.** Le reset de fenetre met les emplacements a
+0.0. Un MINIMUM initialise a 0.0 ne peut pas remonter au-dessus de 0 : sur une fenetre
+entierement positive il LIRAIT 0 et annoncerait un passage par le neutre qui n'a pas eu lieu —
+un faux vert sur la seule clause que §15 rend verifiable. D'ou : 57 = max(-cy)/B0 (le plus BAS
+atteint, en positif), 58 = max(+cy)/B0 (le plus HAUT). La traversee exige les DEUX strictement
+positifs, et « jamais vu » se lit 0.0000 sur l'un des deux.
+
+**LA DONNEE.** `ax <chaine> <maillon> <w> <x> <y> <z>` dans `recharged_assets/physics_mesh.txt`,
+emise par `.autoport/physics_c14_meshsamples.py` — le meme producteur, le meme fichier et le meme
+mesh que les enregistrements `ms` de SPEC 18. Elle ne passe PAS par `physics_chains.txt` : ce
+fichier porte les reglages de l'owner, une regeneration les a deja effaces deux fois, et une
+mesure derivee n'a rien a y faire. Le C++ la parse a cote du bloc `ms` et publie
+`apex-links=` / `apex-dropped=` dans sa ligne `[hd-phys] MESHSRC=` : sans ce compteur, un `ax`
+ignore serait invisible et le canal serait INERTE en se lisant comme un apex nul.
+---------------------------------------------------------------------------
+
+---------------------------------------------------------------------------
+## NOTE-140  (moteur, aux alentours de la ligne 3543) — SPEC 8 — LE DETERMINANT DES TROIS ECHELLES
+
+Texte DEPLACE VERBATIM depuis `jak-hd-physics.gc` au cycle 51, sans une virgule
+changee. Le moteur porte un pointeur a sa place. La raison est le plafond de
+lignes de la gate CLEAN (4800), que le contrat GELE et que je ne touche pas : le
+canal APEX est de la MESURE, pas un suppresseur, et cette prose vit aussi bien
+ici — c est la convention du fichier depuis 174 pointeurs.
+
+```
+                                 ;; (c) SPEC 8 — `Sx.Sy.Sz = 1`. Les triplets de sa spec sont des
+                                 ;; BOITES ENGLOBANTES et elle le dit (« the volume constraint
+                                 ;; applies to the actual deformable volume, NOT merely to the
+                                 ;; bounding-box dimensions quoted below ») : celui de §10 vaut
+                                 ;; 0.938. On garde donc ses RAPPORTS de forme et on ramene le
+                                 ;; determinant a 1 — les trois valeurs restent dans ses bandes
+                                 ;; (supine 0.715 / 1.256 / 1.113 contre -25..-35 %, +18..+28 %,
+                                 ;; +5..+12 %). Racine cubique par deux pas de Newton, l'entree
+                                 ;; etant toujours proche de 1.
+```
+
+---------------------------------------------------------------------------
+## NOTE-141  (moteur, aux alentours de la ligne 2643) — LA PART DE LA GRAVITE QUE LA GEOMETRIE AUTORISE
+
+Texte DEPLACE VERBATIM depuis `jak-hd-physics.gc` au cycle 51, sans une virgule
+changee. Le moteur porte un pointeur a sa place. La raison est le plafond de
+lignes de la gate CLEAN (4800), que le contrat GELE et que je ne touche pas : le
+canal APEX est de la MESURE, pas un suppresseur, et cette prose vit aussi bien
+ici — c est la convention du fichier depuis 174 pointeurs.
+
+```
+                               ;; ET LA PART DE CETTE GRAVITE QUE LA GEOMETRIE AUTORISE. La
+                               ;; contrainte de longueur n'admet qu'une ROTATION autour de
+                               ;; l'attache : la composante de la gravite dirigee dans l'axe de l'os
+                               ;; ne peut produire aucun deplacement. Une chaine dont la gravite est
+                               ;; presque radiale ne s'affaissera JAMAIS, quel que soit le reglage —
+                               ;; c'est une propriete du rig, pas un bug, et sans ce nombre publie
+                               ;; les deux sont indiscernables. (Instrument inchange : il se lit sur
+                               ;; `gl`, le meme vecteur qu'avant.)
+```
+
+---------------------------------------------------------------------------
+## NOTE-142  (moteur, aux alentours de la ligne 1844) — UNE SEULE PASSE SUR LES VOLUMES, DEUX CORRECTIONS
+
+Texte DEPLACE VERBATIM depuis `jak-hd-physics.gc` au cycle 51, sans une virgule
+changee. Le moteur porte un pointeur a sa place. La raison est le plafond de
+lignes de la gate CLEAN (4800), que le contrat GELE et que je ne touche pas : le
+canal APEX est de la MESURE, pas un suppresseur, et cette prose vit aussi bien
+ici — c est la convention du fichier depuis 174 pointeurs.
+
+```
+              ;; --- (a) UNE SEULE PASSE SUR LES VOLUMES, DEUX CORRECTIONS.
+              ;; La mise en place d'un volume (`phys-col-now!`, `phys-col-rest!`, les trois
+              ;; profondeurs) coute le meme prix pour le franchissement de cote et pour la
+              ;; profondeur : la faire DEUX fois doublait le cout de la boucle de finition et la
+              ;; course de la salle ne tenait plus dans son delai. Une passe, deux consommateurs.
+              ;; Le test de cote garde son propre interrupteur (`*phys-side-off*`) et son propre
+              ;; predicat d'exclusion (`phys-col-own?` NON leve par `self-inject`), exactement
+              ;; comme avant : c'est un partage de calcul, pas une fusion de semantiques.
+```
+
+---------------------------------------------------------------------------
+## NOTE-143  (moteur, aux alentours de la ligne 1764) — SPEC 33/34 — ON NE FAIT QUE CUMULER ICI
+
+Texte DEPLACE VERBATIM depuis `jak-hd-physics.gc` au cycle 51, sans une virgule
+changee. Le moteur porte un pointeur a sa place. La raison est le plafond de
+lignes de la gate CLEAN (4800), que le contrat GELE et que je ne touche pas : le
+canal APEX est de la MESURE, pas un suppresseur, et cette prose vit aussi bien
+ici — c est la convention du fichier depuis 174 pointeurs.
+
+```
+                            ;; SPEC 33/34 — ON NE FAIT QUE CUMULER ICI. La poussee est appliquee a
+                            ;; la POSITION comme avant (rien de change pour la regle 6 : le lien
+                            ;; sort du volume) ; ce qui manquait est son effet sur la VITESSE, et il
+                            ;; ne peut pas etre traite dans cette fonction, appelee 15 fois par
+                            ;; frame. `e` est celui du volume qui pousse : 0.06 si ce volume est
+                            ;; porte par un joint SIMULE (l'autre sein, sa §33), 0.02 sinon (buste
+                            ;; et externe, sa §34). Le dernier qui pousse decide, comme pour
+                            ;; l'arbitrage de volume.
+```
+
+---------------------------------------------------------------------------
+## NOTE-144  (moteur, aux alentours de la ligne 544) — SPEC 21 SOUS SA FORME DE FORCE — COMBIEN DE SOUS-PAS
+
+Texte DEPLACE VERBATIM depuis `jak-hd-physics.gc` au cycle 51, sans une virgule
+changee. Le moteur porte un pointeur a sa place. La raison est le plafond de
+lignes de la gate CLEAN (4800), que le contrat GELE et que je ne touche pas : le
+canal APEX est de la MESURE, pas un suppresseur, et cette prose vit aussi bien
+ici — c est la convention du fichier depuis 174 pointeurs.
+
+```
+;; SPEC 21 SOUS SA FORME DE FORCE (le RESSORT QUI RAIDIT, 2026-08-14). Combien de SOUS-PAS ont ete
+;; integres au-dela du genou de SPEC 22, donc avec un facteur de raideur > 1.
+;;   NATURE : un COMPTE d'evenements (sous-pas), pas une longueur.
+;;   REPERE : sans objet — c'est un compte.
+;;   LECTURE QUAND LE DEFAUT EST ABSENT : 0 exactement. Sous 0.42 B0 le facteur vaut 1.0 et la garde
+;;            `(> dd kn)` ne s'ouvre pas : le regime subtil que l'owner a valide n'incremente rien.
+;; CE N'EST PAS UN SUPPRESSEUR ET IL N'A PAS DE `sum` : une force ne retire pas d'energie, elle la
+;; rend. Ce qui en retire, c'est le plafond POSITIONNEL, et lui garde ses deux compteurs ci-dessus.
+```
+
+---------------------------------------------------------------------------
+## NOTE-145  (moteur, aux alentours de la ligne 4201) — LE MOUVEMENT PROPRE D UN MAILLON, EN DEGRES
+
+Texte DEPLACE VERBATIM depuis `jak-hd-physics.gc` au cycle 51, sans une virgule
+changee. Le moteur porte un pointeur a sa place. La raison est le plafond de
+lignes de la gate CLEAN (4800), que le contrat GELE et que je ne touche pas : le
+canal APEX est de la MESURE, pas un suppresseur, et cette prose vit aussi bien
+ici — c est la convention du fichier depuis 174 pointeurs.
+
+```
+;; LE MOUVEMENT PROPRE D'UN MAILLON, en DEGRES : sa deviation angulaire par rapport a SON ATTACHE.
+;; 10e passe de l'owner : « le milieu est plus hysterique (bouge beaucoup plus) que les pointes,
+;; c'est pas cense ! » — pendant que `phys-link-amp` publiait une suite croissante. Les deux ne
+;; mesurent pas la meme chose : `phys-link-amp` est un ecart a la pose d'auteur, donc il CUMULE le
+;; long de la chaine et une pointe soudee a son parent y affiche le chiffre de son parent. Celle-ci
+;; est relative au parent par construction et vaut zero pour un maillon qui ne bouge pas tout seul.
+;; Les deux sont publiees cote a cote : leur ecart EST la mesure de l'erreur de l'ancienne.
+```

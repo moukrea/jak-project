@@ -138,10 +138,7 @@
 (define *phys-c2* (new 'global 'array 'float 3))          ;; sortie de `phys-pt-exc!`, jamais lue ailleurs
 
 (defun phys-pt-exc! ((bm matrix) (pre matrix) (ox float) (oy float) (oz float))
-  "[NOTE-139] L'EXCURSION D'UN POINT DE CHAIR d'offset (ox,oy,oz) en espace os. -> jak-hd-physics-NOTES.md
-   NATURE trois longueurs SIGNEES en unites de jeu · REPERE MONDE, meme frame, pose ECRITE `bm`
-   (deformation comprise) CONTRE la pose d'auteur `pre` · A LA POSE D'AUTEUR 0.0 sur les trois.
-   Sortie dans *phys-c2*. C'est la MEME formule que le bloc `lc` de l'ecriture, ecrite une fois."
+  "[NOTE-139] L'EXCURSION D'UN POINT DE CHAIR d'offset (ox,oy,oz) en espace os -> *phys-c2*. -> jak-hd-physics-NOTES.md"
   (set! (-> *phys-c2* 0) (- (+ (-> bm vector 3 x) (+ (* ox (-> bm vector 0 x)) (+ (* oy (-> bm vector 1 x)) (* oz (-> bm vector 2 x))))) (+ (-> pre vector 3 x) (+ (* ox (-> pre vector 0 x)) (+ (* oy (-> pre vector 1 x)) (* oz (-> pre vector 2 x)))))))
   (set! (-> *phys-c2* 1) (- (+ (-> bm vector 3 y) (+ (* ox (-> bm vector 0 y)) (+ (* oy (-> bm vector 1 y)) (* oz (-> bm vector 2 y))))) (+ (-> pre vector 3 y) (+ (* ox (-> pre vector 0 y)) (+ (* oy (-> pre vector 1 y)) (* oz (-> pre vector 2 y)))))))
   (set! (-> *phys-c2* 2) (- (+ (-> bm vector 3 z) (+ (* ox (-> bm vector 0 z)) (+ (* oy (-> bm vector 1 z)) (* oz (-> bm vector 2 z))))) (+ (-> pre vector 3 z) (+ (* ox (-> pre vector 0 z)) (+ (* oy (-> pre vector 1 z)) (* oz (-> pre vector 2 z)))))))
@@ -544,14 +541,7 @@
 ;; [NOTE-101b] ---------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
 (define *phys-sat-n* 0)
 (define *phys-sat-sum* 0.0)
-;; SPEC 21 SOUS SA FORME DE FORCE (le RESSORT QUI RAIDIT, 2026-08-14). Combien de SOUS-PAS ont ete
-;; integres au-dela du genou de SPEC 22, donc avec un facteur de raideur > 1.
-;;   NATURE : un COMPTE d'evenements (sous-pas), pas une longueur.
-;;   REPERE : sans objet — c'est un compte.
-;;   LECTURE QUAND LE DEFAUT EST ABSENT : 0 exactement. Sous 0.42 B0 le facteur vaut 1.0 et la garde
-;;            `(> dd kn)` ne s'ouvre pas : le regime subtil que l'owner a valide n'incremente rien.
-;; CE N'EST PAS UN SUPPRESSEUR ET IL N'A PAS DE `sum` : une force ne retire pas d'energie, elle la
-;; rend. Ce qui en retire, c'est le plafond POSITIONNEL, et lui garde ses deux compteurs ci-dessus.
+;; [NOTE-144] SPEC 21 SOUS SA FORME DE FORCE — COMBIEN DE SOUS-PAS -> jak-hd-physics-NOTES.md
 (define *phys-stif-n* 0)
 (define *phys-cwn* 0)        ;; §21/§22 fois ou le MUR du point libre a mordu
 (define *phys-cwsum* 0.0)    ;; §7 ce qu'il a retire, unites de jeu (un suppresseur se chiffre)
@@ -598,7 +588,7 @@
 ;; un cout qu'on decouvre chez lui.
 (define *phys-skin-meas* 0)
 
-(defconstant PHYS-DG 53)           ;; 31-34 = [NOTE-92] l'attribution de `comex` · 35-42 = [NOTE-112] le COM PAR MAILLON · 43-46 = [NOTE-126] le COM PONDERE · 47-49 = [NOTE-136] son VECTEUR · 50-52 = [NOTE-137] la POSITION MONDE de l'ancre
+(defconstant PHYS-DG 59)           ;; 31-34 = [NOTE-92] l'attribution de `comex` · 35-42 = [NOTE-112] le COM PAR MAILLON · 43-46 = [NOTE-126] le COM PONDERE · 47-49 = [NOTE-136] son VECTEUR · 50-52 = [NOTE-137] la POSITION MONDE de l'ancre · 53-56 = [NOTE-139] l'APEX et son vecteur · 57/58 = [NOTE-139] les deux extremes verticaux du COM (SPEC 15)
 (define *phys-dg* (new 'global 'array 'float (* PHYS-SC PHYS-DG)))
 ;; [NOTE-92] LE CENTRE DE CHAIR APRES ROTATION ET AVANT DEFORMATION. -> jak-hd-physics-NOTES.md
 (define *phys-c1* (new 'global 'array 'float 3))
@@ -810,8 +800,6 @@
                       (dotimes (l PHYS-LINKS)
                         (set! (-> *phys-comw* (+ (* sc PHYS-LINKS) l))
                               (phys-mi->f (pc-physics-chain-link-comw-mi agname c l)))
-                        ;; [NOTE-139] `ax` de physics_mesh.txt. 0 = non declare, et l'apex n'est
-                        ;; alors pas publie du tout — jamais publie a zero.
                         (set! (-> *phys-apw* (+ (* sc PHYS-LINKS) l)) (phys-mi->f (pc-physics-chain-link-apex-mi agname c l 0)))
                         (set! (-> *phys-apx* (+ (* sc PHYS-LINKS) l)) (phys-mi->f (pc-physics-chain-link-apex-mi agname c l 1)))
                         (set! (-> *phys-apy* (+ (* sc PHYS-LINKS) l)) (phys-mi->f (pc-physics-chain-link-apex-mi agname c l 2)))
@@ -1766,14 +1754,7 @@
                             (set! (-> pt x) (+ (-> pt x) (* (-> nrm x) push)))
                             (set! (-> pt y) (+ (-> pt y) (* (-> nrm y) push)))
                             (set! (-> pt z) (+ (-> pt z) (* (-> nrm z) push)))
-                            ;; SPEC 33/34 — ON NE FAIT QUE CUMULER ICI. La poussee est appliquee a
-                            ;; la POSITION comme avant (rien de change pour la regle 6 : le lien
-                            ;; sort du volume) ; ce qui manquait est son effet sur la VITESSE, et il
-                            ;; ne peut pas etre traite dans cette fonction, appelee 15 fois par
-                            ;; frame. `e` est celui du volume qui pousse : 0.06 si ce volume est
-                            ;; porte par un joint SIMULE (l'autre sein, sa §33), 0.02 sinon (buste
-                            ;; et externe, sa §34). Le dernier qui pousse decide, comme pour
-                            ;; l'arbitrage de volume.
+                            ;; [NOTE-143] SPEC 33/34 — ON NE FAIT QUE CUMULER ICI -> jak-hd-physics-NOTES.md
                             (set! (-> *phys-cpu* scl x) (+ (-> *phys-cpu* scl x) (* (-> nrm x) push)))
                             (set! (-> *phys-cpu* scl y) (+ (-> *phys-cpu* scl y) (* (-> nrm y) push)))
                             (set! (-> *phys-cpu* scl z) (+ (-> *phys-cpu* scl z) (* (-> nrm z) push)))
@@ -1846,14 +1827,7 @@
             (set! (-> pt z) (- (-> pt z) (-> offs z)))
             ;; [NOTE-30] ------------------------------------------------------------------------------ -> jak-hd-physics-NOTES.md
             (dotimes (fin PHYS-FIN-ITERS)
-              ;; --- (a) UNE SEULE PASSE SUR LES VOLUMES, DEUX CORRECTIONS.
-              ;; La mise en place d'un volume (`phys-col-now!`, `phys-col-rest!`, les trois
-              ;; profondeurs) coute le meme prix pour le franchissement de cote et pour la
-              ;; profondeur : la faire DEUX fois doublait le cout de la boucle de finition et la
-              ;; course de la salle ne tenait plus dans son delai. Une passe, deux consommateurs.
-              ;; Le test de cote garde son propre interrupteur (`*phys-side-off*`) et son propre
-              ;; predicat d'exclusion (`phys-col-own?` NON leve par `self-inject`), exactement
-              ;; comme avant : c'est un partage de calcul, pas une fusion de semantiques.
+              ;; [NOTE-142] UNE SEULE PASSE SUR LES VOLUMES, DEUX CORRECTIONS -> jak-hd-physics-NOTES.md
               (let ((qx (+ (-> pt x) (-> offs x)))
                     (qy (+ (-> pt y) (-> offs y)))
                     (qz (+ (-> pt z) (-> offs z))))
@@ -2645,14 +2619,7 @@
                                (set! (-> *phys-oy* scl) 0.0)
                                (set! (-> *phys-oz* scl) 0.0))
                               (else
-                               ;; ET LA PART DE CETTE GRAVITE QUE LA GEOMETRIE AUTORISE. La
-                               ;; contrainte de longueur n'admet qu'une ROTATION autour de
-                               ;; l'attache : la composante de la gravite dirigee dans l'axe de l'os
-                               ;; ne peut produire aucun deplacement. Une chaine dont la gravite est
-                               ;; presque radiale ne s'affaissera JAMAIS, quel que soit le reglage —
-                               ;; c'est une propriete du rig, pas un bug, et sans ce nombre publie
-                               ;; les deux sont indiscernables. (Instrument inchange : il se lit sur
-                               ;; `gl`, le meme vecteur qu'avant.)
+                               ;; [NOTE-141] LA PART DE LA GRAVITE QUE LA GEOMETRIE AUTORISE -> jak-hd-physics-NOTES.md
                                (when (= l (- n 1))
                                  (let* ((stb (* sc PHYS-ST))
                                         (kpg (if (> l 0) (-> *phys-joint* (- scl 1)) an)))
@@ -3545,15 +3512,7 @@
                                             (+ (* wbk 0.910) (+ (* wfw 1.090) (+ (* wlt 1.118) (* wne 1.000)))))) wsm))
                                  (sz0 (/ (+ (* wdn 1.000) (+ (* wup 0.910)
                                             (+ (* wbk 1.230) (+ (* wfw 0.700) (+ (* wlt 1.118) (* wne 1.000)))))) wsm))
-                                 ;; (c) SPEC 8 — `Sx.Sy.Sz = 1`. Les triplets de sa spec sont des
-                                 ;; BOITES ENGLOBANTES et elle le dit (« the volume constraint
-                                 ;; applies to the actual deformable volume, NOT merely to the
-                                 ;; bounding-box dimensions quoted below ») : celui de §10 vaut
-                                 ;; 0.938. On garde donc ses RAPPORTS de forme et on ramene le
-                                 ;; determinant a 1 — les trois valeurs restent dans ses bandes
-                                 ;; (supine 0.715 / 1.256 / 1.113 contre -25..-35 %, +18..+28 %,
-                                 ;; +5..+12 %). Racine cubique par deux pas de Newton, l'entree
-                                 ;; etant toujours proche de 1.
+                                 ;; [NOTE-140] SPEC 8 — LE DETERMINANT DES TROIS ECHELLES -> jak-hd-physics-NOTES.md
                                  (det (* sx0 (* sy0 sz0)))
                                  (y1  (- 1.0 (/ (- 1.0 det) 3.0)))
                                  (y2  (- y1 (/ (- (* y1 (* y1 y1)) det) (fmax 0.0001 (* 3.0 (* y1 y1))))))
@@ -3901,6 +3860,14 @@
                               (set! (-> bm vector 3 y) (-> *phys-py* scl))
                               (set! (-> bm vector 3 z) (-> *phys-pz* scl))
                               (set! (-> bm vector 3 w) 1.0)
+                              ;; [NOTE-139] L'APEX — accumule sur le MEME `bm` que l'ecriture livre. -> jak-hd-physics-NOTES.md
+                              (let ((aw (-> *phys-apw* scl)))
+                                (when (> aw 0.0)
+                                  (phys-pt-exc! bm pre (-> *phys-apx* scl) (-> *phys-apy* scl) (-> *phys-apz* scl))
+                                  (set! awx (+ awx (* aw (-> *phys-c2* 0))))
+                                  (set! awy (+ awy (* aw (-> *phys-c2* 1))))
+                                  (set! awz (+ awz (* aw (-> *phys-c2* 2))))
+                                  (set! awn (+ awn 1))))
                               ;; [NOTE-85] SPEC 22 — L'EXCURSION DU CENTRE DE CHAIR, EN B0, DEFORMATION COMPRISE. -> jak-hd-physics-NOTES.md
                               (let ((lcx (-> *phys-lcx* scl))
                                     (lcy (-> *phys-lcy* scl))
@@ -4016,9 +3983,21 @@
                               (+ cw (-> *phys-dg* (+ (* sc PHYS-DG) 44))))
                         (set! (-> *phys-dg* (+ (* sc PHYS-DG) 45))
                               (+ 1.0 (-> *phys-dg* (+ (* sc PHYS-DG) 45))))
+                        ;; [NOTE-139] SPEC 15 — DEUX MAXIMA (57 = le plus bas, en positif ; 58 = le plus haut), jamais un min. -> jak-hd-physics-NOTES.md
+                        (set! (-> *phys-dg* (+ (* sc PHYS-DG) 57)) (fmax (-> *phys-dg* (+ (* sc PHYS-DG) 57)) (/ (- 0.0 cwy) (fmax 1.0 b0w))))
+                        (set! (-> *phys-dg* (+ (* sc PHYS-DG) 58)) (fmax (-> *phys-dg* (+ (* sc PHYS-DG) 58)) (/ cwy (fmax 1.0 b0w))))
                         (when (> cw 0.40)
                           (set! (-> *phys-dg* (+ (* sc PHYS-DG) 46))
-                                (+ 1.0 (-> *phys-dg* (+ (* sc PHYS-DG) 46))))))))
+                                (+ 1.0 (-> *phys-dg* (+ (* sc PHYS-DG) 46)))))))
+                    ;; [NOTE-139] L'APEX, PUBLIE. Garde `awn > 0` et NON `awn = n`. -> jak-hd-physics-NOTES.md
+                    (when (> awn 0)
+                      (let* ((b0a (if (> (-> *phys-b0* sc) 0.0) (-> *phys-b0* sc) (-> *phys-blen* (* sc PHYS-LINKS))))
+                             (ap (/ (sqrtf (+ (* awx awx) (+ (* awy awy) (* awz awz)))) (fmax 1.0 b0a))))
+                        (when (> ap (-> *phys-dg* (+ (* sc PHYS-DG) 53)))
+                          (set! (-> *phys-dg* (+ (* sc PHYS-DG) 53)) ap)
+                          (set! (-> *phys-dg* (+ (* sc PHYS-DG) 54)) (/ awx (fmax 1.0 b0a)))
+                          (set! (-> *phys-dg* (+ (* sc PHYS-DG) 55)) (/ awy (fmax 1.0 b0a)))
+                          (set! (-> *phys-dg* (+ (* sc PHYS-DG) 56)) (/ awz (fmax 1.0 b0a)))))))
                     ))))))
           ;; ---- propagation aux descendants non simules (verres de lunettes, etc.) ----
           (dotimes (k njoint)
@@ -4183,13 +4162,7 @@
         0.0
         (sqrtf (+ (* dx dx) (+ (* dy dy) (* dz dz))))))))
 
-;; LE MOUVEMENT PROPRE D'UN MAILLON, en DEGRES : sa deviation angulaire par rapport a SON ATTACHE.
-;; 10e passe de l'owner : « le milieu est plus hysterique (bouge beaucoup plus) que les pointes,
-;; c'est pas cense ! » — pendant que `phys-link-amp` publiait une suite croissante. Les deux ne
-;; mesurent pas la meme chose : `phys-link-amp` est un ecart a la pose d'auteur, donc il CUMULE le
-;; long de la chaine et une pointe soudee a son parent y affiche le chiffre de son parent. Celle-ci
-;; est relative au parent par construction et vaut zero pour un maillon qui ne bouge pas tout seul.
-;; Les deux sont publiees cote a cote : leur ecart EST la mesure de l'erreur de l'ancienne.
+;; [NOTE-145] LE MOUVEMENT PROPRE D UN MAILLON, EN DEGRES -> jak-hd-physics-NOTES.md
 (defun phys-link-ang ((slot int) (chain int) (link int))
   (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS)
           (< link 0) (>= link PHYS-LINKS)
@@ -4512,7 +4485,9 @@
    la meme valeur de repos, et chaque emplacement neuf ouvert ailleurs pouvait etre OUBLIE ici —
    auquel cas il aurait publie a chaque fenetre le maximum de la COURSE, sans que rien le dise."
   (dotimes (i PHYS-SC)
-    (dotimes (q 27) (set! (-> *phys-dg* (+ (* i PHYS-DG) (+ 23 q))) 0.0)))
+    (dotimes (q 27) (set! (-> *phys-dg* (+ (* i PHYS-DG) (+ 23 q))) 0.0))
+    ;; 53-58 [NOTE-139] l'APEX + les extremes de SPEC 15. Tranche SEPAREE : 50-52 sont un ETAT qui doit survivre.
+    (dotimes (q 6) (set! (-> *phys-dg* (+ (* i PHYS-DG) (+ 53 q))) 0.0)))
   (none))
 
 (defun phys-diag-reset! ()

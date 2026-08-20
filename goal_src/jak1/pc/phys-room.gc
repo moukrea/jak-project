@@ -1102,6 +1102,34 @@
             c (-> self ai) (-> self drive)
             (phys-diag (-> self slot) c 45)
             (phys-diag (-> self slot) c 46))
+    ;; ---- SPEC 14/16/17/18/19/20/22 : L'APEX. SIX SECTIONS LE BORNENT, RIEN NE LE PUBLIAIT ----
+    ;; [NOTE-139] du moteur. Ce que ces deux lignes portent, et ce qu'elles NE portent PAS :
+    ;;   apex : NATURE une LONGUEUR rapportee a B0 (602 u, sa §6), MAXIMUM DE LA FENETRE. Ce
+    ;;        n'est PAS le COM : le COM est la moyenne ponderee de TOUT le nuage de chair, dont
+    ;;        46 % est ancre ; l'apex est le centroide du DECILE DISTAL seul. Les deux repondent
+    ;;        a des lignes differentes de la spec et ne sont pas interchangeables.
+    ;;   ax/ay/az : les trois composantes SIGNEES du meme vecteur, relevees A L'ARGMAX de `apex`,
+    ;;        donc sur UNE frame et toutes les trois ensemble — jamais trois maxima separes.
+    ;;   cydn/cyup : SPEC 15, les DEUX extremes de la composante verticale du COM sur la fenetre,
+    ;;        publies TOUS DEUX EN POSITIF (`cydn` = le plus bas atteint, change de signe). La
+    ;;        traversee du neutre qu'exige §15 se lit `cydn > 0 ET cyup > 0` ; un seul des deux a
+    ;;        zero veut dire que l'organe n'a jamais change de cote pendant la fenetre.
+    ;; REPERE : le monde, frame ecrite, contre la pose d'auteur de la MEME frame, deformation
+    ;; comprise — le meme que `comex` et `com`, pour que les trois se comparent ligne a ligne.
+    ;; LECTURE QUAND LE DEFAUT EST ABSENT : 0.0000 partout a la pose d'auteur. Une chaine sans
+    ;; enregistrement `ax` n'emet AUCUNE de ces deux lignes — jamais un apex publie a zero.
+    ;; DEUX LIGNES parce que `format` de GOAL est cape a huit parametres, destination et chaine
+    ;; de format comprises : six valeurs par ligne au maximum.
+    (format 0 "PHYSAPEX c=~D a=~D d=~D apex=~f ax=~f ay=~f~%"
+            c (-> self ai) (-> self drive)
+            (phys-diag (-> self slot) c 53)
+            (phys-diag (-> self slot) c 54)
+            (phys-diag (-> self slot) c 55))
+    (format 0 "PHYSAPEX2 c=~D a=~D d=~D az=~f cydn=~f cyup=~f~%"
+            c (-> self ai) (-> self drive)
+            (phys-diag (-> self slot) c 56)
+            (phys-diag (-> self slot) c 57)
+            (phys-diag (-> self slot) c 58))
     ;; ---- SPEC 22 : L'ATTRIBUTION DE `comex` A SES TROIS TERMES (cycle 35 etape 1) ----------
     ;; `comex` est le plus gros depassement ouvert de toute la spec (1.85 / 1.91 B0 contre un
     ;; plafond dur de 0.40). Le cycle 34 a prouve PAR INTERVENTION que borner le point libre ne le
@@ -1996,7 +2024,23 @@
               (phys-diag (-> self slot) c 35)
               (phys-diag (-> self slot) c 36)
               (phys-diag (-> self slot) c 39)
-              (phys-diag (-> self slot) c 40))))
+              (phys-diag (-> self slot) c 40))
+      ;; QUATRIEME LIGNE (cycle 51) — L'APEX DE CETTE FENETRE DE REGIME. C'est la seule grandeur
+      ;; que §14, §16, §17, §18, §19 et §20 bornent toutes, et §19 ne borne QUE celle-la : sans
+      ;; elle six sections restent injugeables quel que soit le solveur. `apex`/`ax`/`ay`/`az` =
+      ;; emplacements 53-56, memes NATURE et REPERE que PHYSAPEX ci-dessus (maximum de fenetre,
+      ;; vecteur releve a l'argmax). `cydn`/`cyup` sortent sur PHYSREG5 : la traversee du neutre
+      ;; de §15 se juge sur les fenetres de VOL (r=2, r=5), pas sur une moyenne de course.
+      (format 0 "PHYSREG4 c=~D r=~D apex=~f ax=~f ay=~f az=~f~%"
+              c r
+              (phys-diag (-> self slot) c 53)
+              (phys-diag (-> self slot) c 54)
+              (phys-diag (-> self slot) c 55)
+              (phys-diag (-> self slot) c 56))
+      (format 0 "PHYSREG5 c=~D r=~D cydn=~f cyup=~f~%"
+              c r
+              (phys-diag (-> self slot) c 57)
+              (phys-diag (-> self slot) c 58))))
   (none))
 
 ;; ------------------------------------------------------------------------------------------------

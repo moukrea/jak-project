@@ -4,12 +4,21 @@
 # bs <bone> <n> (x y z nx ny nz)*n          BODY bone: surface samples + outward unit normals
 # bs samples are written in farthest-point order: the first k of a bone's n samples are a valid
 # (and near-optimal) k-point subset, so a runtime may take a prefix without losing coverage.
+# ax <chain> <link> <w> <x> <y> <z>         chain LINK: the APEX region representative — its share
+#   of the region's skin mass carried by THIS link, and the mass-weighted centroid of the region
+#   expressed in THIS link's bone-local bind space. Same algebra as comw= : under linear blend
+#   skinning the apex displacement is EXACTLY  SUM_l w_l * (M_l^sim - M_l^auth) * p_l, and the weights
+#   sum to LESS than 1 because the anchored share (chest) is not simulated and does not move.
 # skin  keira-hd : out/jak1/fr3/skin/keira-hd-lod0.glb
 model keira-hd
 ms chestL 0 2 230.3 697.7 -177.8 -58.0 717.4 -172.1
 ms chestL 1 2 55.4 696.4 -194.4 -65.4 662.3 -180.3
+ax chestL 0 0.4095 51.5 714.0 -142.4
+ax chestL 1 0.1580 113.3 678.6 -170.8
 ms chestR 0 2 58.0 -717.4 172.1 -230.3 -697.7 177.8
 ms chestR 1 2 64.3 -661.6 183.8 -56.5 -695.7 198.0
+ax chestR 0 0.4527 -50.0 -716.3 137.2
+ax chestR 1 0.1409 -95.5 -680.5 186.8
 bs main 6 91.8 -590.8 677.9 0.7532 -0.0710 0.6539 -91.8 -578.3 627.8 -0.7438 0.1046 -0.6601 0.0 -582.5 623.7 0.0092 0.1313 -0.9913 0.0 -595.0 677.9 0.0176 -0.1304 0.9913 91.8 -578.3 627.8 0.2709 0.1306 -0.9537 -91.8 -590.8 677.9 -0.2896 -0.1193 0.9497
 bs chest 12 -0.0 357.5 -540.4 -0.0220 0.0297 -0.9993 -0.0 -2162.6 310.7 -0.0894 -0.3124 0.9458 -116.8 -635.5 702.9 -0.2384 0.1624 0.9575 776.1 -1211.3 -265.1 0.6227 -0.1620 -0.7655 -776.1 -1211.3 -265.1 -0.5806 -0.1883 -0.7921 696.8 -147.4 181.4 0.5902 0.7768 0.2197 -742.7 -159.9 -27.2 -0.6060 0.7953 0.0166 -0.0 -694.0 -699.0 0.0333 0.2229 -0.9743 -763.5 -1661.9 636.2 -0.7082 0.1631 0.6869 763.5 -1661.9 636.2 -0.3481 -0.9374 -0.0137 -83.4 282.4 298.2 0.0607 -0.2697 0.9610 -0.0 -1428.3 -285.9 -0.0405 -0.3679 -0.9290
 bs neck 12 -0.0 -452.4 289.9 0.0485 -0.9969 0.0613 -0.0 -81.1 -323.5 0.0000 -0.7237 -0.6901 338.0 -264.7 -14.7 0.5560 -0.7301 -0.3973 -338.0 -264.7 -14.7 -0.5560 -0.7301 -0.3973 -187.8 -160.3 -139.9 -0.9006 0.0945 -0.4242 187.8 -160.3 -139.9 0.9211 0.1035 -0.3753 100.1 -356.5 143.8 -0.0135 -0.8340 -0.5515 -100.1 -356.5 143.8 0.0295 -0.8413 -0.5397 292.1 -360.6 139.7 0.4384 -0.8645 -0.2460 -292.1 -360.6 139.7 -0.4743 -0.8653 -0.1621 242.0 -419.0 -56.4 0.9400 0.2869 -0.1847 -242.0 -419.0 -56.4 -0.9883 0.1515 -0.0162

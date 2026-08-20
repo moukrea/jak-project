@@ -1074,6 +1074,18 @@ struct PhysChain {
   // 0/absent = UNDECLARED, and the engine then publishes no COM at all rather than a wrong one,
   // so adding this key moves no chain that does not carry it.
   std::vector<float> link_comw;
+  // (C51) ax= : the APEX region representative, per LINK — `w` is the share of the distal
+  // region's skin mass this link carries, `p` the mass-weighted centroid of that region in THIS
+  // link's bone-local bind space (game units). Comes from recharged_assets/physics_mesh.txt
+  // (.autoport/physics_c14_meshsamples.py), derived data, never hand-tuned. Same algebra as
+  // link_comw, applied to a SUB-POPULATION instead of the whole cloud:
+  //   d_apex = SUM_l w_l * (M_l^sim - M_l^auth) * p_l
+  // exact under linear blend skinning. The ANCHORED share (chest carries 41-43% of this region)
+  // is not simulated, does not move, and is accounted for by the weights summing to LESS than 1
+  // — which is also why an apex ceiling can be out of reach with no tuning able to change it.
+  // Empty = no ax= record; GOAL then publishes no apex at all rather than an apex of zero.
+  std::vector<float> link_apexw;                 // outer index = link
+  std::vector<std::array<float, 3>> link_apexp;  // outer index = link
   std::vector<std::string> xchains;  // xchain= : chains this chain must be collided against
   // (C14) per-link EXTREMAL skinned-vertex offsets, bone-local bind space, game units, <=5 per
   // link. This is the geometry the mesh-surface penetration audit samples: the owner's eyes live
@@ -1686,6 +1698,7 @@ static int pc_physics_parse_file() {
       }
       std::vector<std::string> cur_names;
       int n_ms = 0, n_ms_dropped = 0;
+      int n_ax = 0, n_ax_dropped = 0;
       int n_bs = 0, n_bs_dropped = 0;
       size_t mpos = 0;
       while (mpos <= mtext.size()) {
@@ -1746,6 +1759,39 @@ static int pc_physics_parse_file() {
           }
           continue;
         }
+        // (C51) ax <chainName> <linkIdx> <w> <x> <y> <z> — the APEX region representative for
+        // this link. One record per link; a link with no record keeps w = 0 and contributes
+        // nothing, which is the same "missing weight never reads as zero motion" rule comw= uses.
+        if (toks[0] == "ax" && toks.size() >= 7) {
+          const std::string& cname = toks[1];
+          int link = atoi(toks[2].c_str());
+          for (const auto& mn : cur_names) {
+            auto mit = s_phys_models.find(mn);
+            if (mit == s_phys_models.end()) {
+              continue;
+            }
+            for (auto& ch : mit->second.chains) {
+              if (ch.name != cname) {
+                continue;
+              }
+              if (link < 0 || link >= (int)ch.joints.size()) {
+                n_ax_dropped++;
+                break;
+              }
+              if (ch.link_apexw.size() < ch.joints.size()) {
+                ch.link_apexw.resize(ch.joints.size(), 0.f);
+                ch.link_apexp.resize(ch.joints.size(), {0.f, 0.f, 0.f});
+              }
+              ch.link_apexw[link] = (float)atof(toks[3].c_str());
+              ch.link_apexp[link] = {(float)atof(toks[4].c_str()),
+                                     (float)atof(toks[5].c_str()),
+                                     (float)atof(toks[6].c_str())};
+              n_ax++;
+              break;
+            }
+          }
+          continue;
+        }
         // (SPEC 18) bs <boneName> <n> x y z nx ny nz [* n] — per BODY bone, the skinned SURFACE
         // the chains are collided against, bone-local bind space, game units. Sits inside the same
         // `model` sections as the ms lines above, after them, and lands on every name that section
@@ -1786,8 +1832,9 @@ static int pc_physics_parse_file() {
           continue;
         }
       }
-      lg::info("[hd-phys] MESHSRC={} path={} links-with-samples={} dropped={}", mesh_src,
-               mesh_path.string(), n_ms, n_ms_dropped);
+      lg::info("[hd-phys] MESHSRC={} path={} links-with-samples={} dropped={}"
+               " apex-links={} apex-dropped={}",
+               mesh_src, mesh_path.string(), n_ms, n_ms_dropped, n_ax, n_ax_dropped);
       // Separate line, once per parse, and INFO even at zero: a pack predating the `bs` records
       // is a legacy pack, not an error, and it must not warn-spam. sets=0 is the honest report
       // that the body surface was never delivered — the GOAL side counts that as "not measured".
@@ -1888,6 +1935,29 @@ s64 pc_physics_chain_link_comw_mi(u32 ag_name, s64 chain, s64 link) {
     return 0;
   }
   return phys_mi(comw[link]);
+}
+
+// (C51) the APEX region representative for one link, in milli. `axis` selects: 0 = w, the share
+// of the distal region's skin mass this link carries; 1/2/3 = x/y/z of that region's centroid in
+// this link's bone-local bind space, game units. 0 when this chain declares no ax= record — GOAL
+// then publishes no apex at all, exactly as comw= does for the COM.
+s64 pc_physics_chain_link_apex_mi(u32 ag_name, s64 chain, s64 link, s64 axis) {
+  pc_physics_ensure_loaded();
+  const auto* model = pc_physics_find_model(ag_name);
+  if (!model || chain < 0 || chain >= (s64)model->chains.size()) {
+    return 0;
+  }
+  const auto& aw = model->chains[chain].link_apexw;
+  if (link < 0 || link >= (s64)aw.size()) {
+    return 0;
+  }
+  if (axis == 0) {
+    return phys_mi(aw[link]);
+  }
+  if (axis < 1 || axis > 3) {
+    return 0;
+  }
+  return phys_mi(model->chains[chain].link_apexp[link][axis - 1]);
 }
 
 // (C14) how many mesh samples this link carries (0..5). 0 = the mesh never reaches beyond the
@@ -4124,6 +4194,8 @@ void InitMachine_PCPort() {
                               (void*)pc_physics_chain_link_radius_mi);
   make_function_symbol_from_c("pc-physics-chain-link-comw-mi",
                               (void*)pc_physics_chain_link_comw_mi);
+  make_function_symbol_from_c("pc-physics-chain-link-apex-mi",
+                              (void*)pc_physics_chain_link_apex_mi);
   // (C14) mesh-surface audit inputs: per-link extremal skinned-vertex offsets
   make_function_symbol_from_c("pc-physics-chain-msample-count",
                               (void*)pc_physics_chain_msample_count);

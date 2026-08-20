@@ -47,6 +47,17 @@ UNITS = c6.UNITS
 MIN_CLOUD = c6.MIN_CLOUD      # a bone owning fewer dominant vertices carries no surface
 PRUNE_MARGIN = 8.0            # a sample within (link radius + this) adds nothing beyond
                               # the existing center+radius test — dropped, and counted.
+APEX_FRAC = 0.10              # (C51) la part DISTALE du nuage de chair qui definit l'apex.
+                              # SPEC 22 borne un « Distal/apex displacement » et SPEC 31 pose
+                              # « r = 1 at distal/apex REGION » : la spec nomme une REGION, pas un
+                              # sommet. Un sommet unique est un extremum de maillage, sensible au
+                              # bruit de triangulation ; un decile est une statistique. La valeur
+                              # est FIXEE A 0.10 AVANT toute course et ne se choisit pas au vu du
+                              # verdict — les variantes 0.05 et 0.25 sont mesurees et publiees dans
+                              # l'audit A COTE, pour que la sensibilite de la frontiere soit
+                              # visible sans relancer quoi que ce soit (meme discipline que la
+                              # frontiere w>0 / w>=0.25 du bloc COM).
+APEX_SENS = (0.05, 0.25)      # variantes publiees dans l'audit, jamais livrees
 BSURF_MAX = 12                # surface samples per body bone (farthest-point sampled)
 BSURF_MIN_SPREAD = 1.0        # samples collapsing inside this span are one point, not a surface
 # STRAY-VERTEX CAP, RELATIVE TO THE BONE'S OWN SPAN.  A `bs` sample is an offset from the bone
@@ -80,6 +91,15 @@ HEADER = [
     '# bs samples are written in farthest-point order: the first k of a bone\'s n samples are a '
     'valid',
     '# (and near-optimal) k-point subset, so a runtime may take a prefix without losing coverage.',
+    '# ax <chain> <link> <w> <x> <y> <z>         chain LINK: the APEX region representative — its '
+    'share',
+    '#   of the region\'s skin mass carried by THIS link, and the mass-weighted centroid of the '
+    'region',
+    '#   expressed in THIS link\'s bone-local bind space. Same algebra as comw= : under linear '
+    'blend',
+    '#   skinning the apex displacement is EXACTLY  SUM_l w_l * (M_l^sim - M_l^auth) * p_l, and the'
+    ' weights',
+    '#   sum to LESS than 1 because the anchored share (chest) is not simulated and does not move.',
 ]
 
 
@@ -250,6 +270,96 @@ def process_link(geo, jidx, li, chain_idx, rad):
             uniq.append(s)
     return dict(samples=uniq[:5], perp_max=float(np.max(d_perp)),
                 axial_over=float(np.max(over)), nverts=int(len(cloud)))
+
+
+# ----------------------------------------------------------------------------------------------
+# (C51 / SPEC §14 §16 §17 §18 §19 §20 §22) L'APEX — la region DISTALE de la chair, et le seul
+# point de la spec dont six sections bornent le deplacement sans qu'aucun instrument le publie.
+# ----------------------------------------------------------------------------------------------
+def dense_weights(geo, njoints):
+    """poids de peau par (sommet, joint), denses. Les tableaux livres par le rip sont a 4
+    influences ; plusieurs colonnes peuvent nommer LE MEME joint, d'ou l'accumulation."""
+    J, W = geo['J'], geo['W']
+    WJ = np.zeros((len(geo['V']), njoints))
+    for c in range(J.shape[1]):
+        np.add.at(WJ, (np.arange(len(geo['V'])), J[:, c]), W[:, c])
+    return WJ
+
+
+def apex_region(geo, WJ, chain_idx, frac):
+    """-> dict pour UNE chaine : la region distale du nuage de chair et son representant.
+
+    NATURE : un POIDS sans dimension et une POSITION en unites de jeu, par maillon.
+    REPERE : espace bind de CHAQUE maillon (la meme convention que `ms` et que `offset=` — sur
+      les joints de poitrine du rig livre l'echelle de bind vaut 1.000000 exactement sur les
+      trois valeurs singulieres, MESURE, donc les deux conventions de `to_bone_local` du depot
+      coincident et le choix ne peut pas biaiser le resultat).
+    LECTURE QUAND LE DEFAUT EST ABSENT : le moteur rend une excursion de 0.0000 a la pose
+      d'auteur, quelles que soient ces valeurs — elles decrivent une GEOMETRIE, pas un mouvement.
+
+    L'AXE. La spec (§6) definit `B0` comme la longueur caracteristique RACINE->APEX de la chair.
+    L'axe employe ici est celui de probe_c48_com_identity.py:337-344 — du joint racine vers le
+    centroide de l'organe pondere par le poids de chaine — et il est repris tel quel PARCE QUE
+    c'est lui qui produit le 602 u livre en `b0=` (etendue mesuree 597.9 / 598.3 u = 0.99 B0).
+    UNE AUTRE DEFINITION EXISTE DANS LE DEPOT et elle ne s'accorde pas : probe_breast_chain_span
+    rend 734.2 / 766.6 u pour la meme grandeur. Ce script emploie la premiere, le dit ici, et ne
+    tranche pas la divergence — la trancher demande un invariant anatomique, pas un choix.
+
+    L'ALGEBRE EST EXACTE, pas une approximation. Sous skinning lineaire, la position d'un sommet
+    est SOMME_j w_ij M_j v_i, donc le deplacement du centroide de masse de la region vaut
+        d = SOMME_j (W_j / n) * (M_j^sim - M_j^auth) * p_j     avec p_j = (SOMME_i w_ij v_i) / W_j
+    ou v_i est le sommet en espace bind de j. C'est la meme identite que `comw=`, appliquee a une
+    SOUS-POPULATION au lieu du nuage entier. Les maillons non simules (`chest`) ont M^sim = M^auth
+    et disparaissent de la somme : leur part est donc RETRANCHEE, et c'est pour cela que les poids
+    rendus somment a MOINS de 1."""
+    cidx = [j for j in chain_idx if j is not None]
+    if len(cidx) < 1:
+        return None
+    wchain = WJ[:, cidx].sum(axis=1)
+    m = wchain > 0.0
+    n = int(m.sum())
+    if n < 10:
+        return None
+    root = geo['P'][cidx[0]]
+    Vm = geo['V'][m]
+    corg = (wchain[m][:, None] * Vm).sum(axis=0) / wchain[m].sum()
+    axa = corg - root
+    na = np.linalg.norm(axa)
+    if na < 1e-6:
+        return None
+    axa = axa / na
+    prj = (Vm - root) @ axa
+    thr = float(np.quantile(prj, 1.0 - frac))
+    R = prj >= thr
+    nr = int(R.sum())
+    if nr < 1:
+        return None
+    WJr = WJ[m][R]
+    links = []
+    for ji in chain_idx:
+        if ji is None:
+            links.append((0.0, np.zeros(3)))
+            continue
+        w = WJr[:, ji]
+        Wj = float(w.sum())
+        if Wj <= 0.0:
+            links.append((0.0, np.zeros(3)))
+            continue
+        loc = to_bone_local(geo['ibms'][ji], Vm[R])
+        links.append((Wj / nr, (w[:, None] * loc).sum(axis=0) / Wj))
+    # la composition de l'ancrage, par joint : c'est la grandeur que SPEC 30 nomme
+    # (« Apex — minimal direct anchoring ») et la seule qui dise POURQUOI un plafond d'apex peut
+    # etre hors d'atteinte sans qu'aucun reglage n'y puisse rien.
+    anch = []
+    for ji in np.argsort(-WJr.sum(axis=0))[:8]:
+        s = float(WJr[:, ji].sum())
+        if s <= 1e-6:
+            break
+        anch.append((geo['names'][ji], s / nr, ji in cidx))
+    return dict(links=links, n=n, nr=nr, thr=thr, axis=axa,
+                span=float(prj.max() - prj.min()), tmax=float(prj.max()),
+                tcen=float(prj[R].mean()), anchors=anch,
+                wsum=float(sum(w for w, _ in links)))
 
 
 # ----------------------------------------------------------------------------------------------
@@ -647,6 +757,9 @@ def main():
     failed_models = []       # (model, reason)
     empty_links = []         # (model, chain, link, joint name)
     total_ms = 0
+    total_ax = 0             # (C51) `ax` records written
+    apex_rep = []            # (model, chain, apex dict, {frac -> apex dict}) for the audit
+    apex_skipped = []        # (model, chain, why)
     models_processed = 0     # alias names of sections whose geometry loaded
     per_chain_samples = {}   # (model, chain) -> total samples
     per_chain_extents = {}   # (model, chain) -> list of (rad, perp_max, axial_over)
@@ -672,6 +785,7 @@ def main():
         models_processed += len(sec.names)
         src_note.append('# skin  %s : %s' % (model, geo.get('src', '?')))
         nmap = {n: i for i, n in enumerate(geo['names'])}
+        WJ_model = dense_weights(geo, len(geo['names']))     # (C51) poids denses, une fois
         mesh_out.append('model ' + ' '.join(sec.names))
         for ch in (() if bsurf_only else sec.chains):     # --bsurf-only never touches `ms`
             idx = [nmap.get(jn) for _, jn in ch.joints]
@@ -701,6 +815,24 @@ def main():
                     mesh_out.append('ms %s %d %d %s' % (
                         ch.name, li, len(r['samples']),
                         ' '.join('%.1f %.1f %.1f' % s for s in r['samples'])))
+            # ---- (C51) l'APEX de cette chaine ----------------------------------------------
+            # Emis APRES les `ms` de la chaine, dans la meme section `model`, sur le meme moule
+            # de cle (nom de chaine + index de maillon) : le parseur C++ les lit dans n'importe
+            # quel ordre, mais un fichier qui se relit se range.
+            _ap = apex_region(geo, WJ_model, idx, APEX_FRAC)
+            if _ap is None:
+                apex_skipped.append((model, ch.name, 'nuage de chair trop petit ou axe degenere'))
+            else:
+                for li, (w, p) in enumerate(_ap['links']):
+                    mesh_out.append('ax %s %d %.4f %.1f %.1f %.1f'
+                                    % (ch.name, li, w, p[0], p[1], p[2]))
+                    total_ax += 1
+                _sens = {}
+                for f in APEX_SENS:
+                    s = apex_region(geo, WJ_model, idx, f)
+                    if s is not None:
+                        _sens[f] = s
+                apex_rep.append((model, ch.name, _ap, _sens))
             ext = per_chain_extents[key]
             if ext:
                 rep.append('SUMMARY %s %s linkrad_min=%.0f linkrad_max=%.0f '
@@ -755,6 +887,46 @@ def main():
         f.write('\nLINKS WITH EMPTY CLOUD (%d):\n' % len(empty_links))
         for m, cn, li, jn in empty_links:
             f.write('  %s %s link %d joint %s\n' % (m, cn, li, jn))
+        # ---- (C51) L'AUDIT DE L'APEX -------------------------------------------------------
+        f.write('\n\nAPEX AUDIT (cycle 51) — la region DISTALE de la chair, celle dont SPEC 14,\n'
+                '16, 17, 18, 19, 20 et 22 bornent le deplacement en %% B0 et qu\'aucun instrument\n'
+                'ne publiait. Frontiere LIVREE : le decile distal (APEX_FRAC = %.2f), fixee avant\n'
+                'toute course. Les variantes %s sont mesurees ici et NON livrees : elles disent\n'
+                'de combien la frontiere deplace le resultat, sans qu\'il faille relancer.\n'
+                'unites de jeu (4096 = 1 m) ; B0 = la longueur racine->apex de la chair.\n\n'
+                'ax lines emitted: %d\n\n' % (APEX_FRAC, list(APEX_SENS), total_ax))
+        for m, cn, ap, sens in apex_rep:
+            f.write('%s %s\n' % (m, cn))
+            f.write('  nuage de chair (w_chaine>0) n=%d ; region distale nR=%d (seuil t=%.1f u)\n'
+                    % (ap['n'], ap['nr'], ap['thr']))
+            f.write('  axe anatomique racine->apex = (%.4f, %.4f, %.4f) ; etendue du nuage sur\n'
+                    '    cet axe = %.1f u ; apex le plus lointain a t=%.1f u du joint racine ;\n'
+                    '    centroide de la region a t=%.1f u\n'
+                    % (ap['axis'][0], ap['axis'][1], ap['axis'][2], ap['span'],
+                       ap['tmax'], ap['tcen']))
+            for li, (w, p) in enumerate(ap['links']):
+                f.write('  link %d : w=%.4f  p_bind=(%.1f, %.1f, %.1f)  |p|=%.1f u\n'
+                        % (li, w, p[0], p[1], p[2], float(np.linalg.norm(p))))
+            f.write('  SOMME des poids simules = %.4f  -> part ANCREE de l\'apex = %.4f\n'
+                    % (ap['wsum'], 1.0 - ap['wsum']))
+            f.write('  composition de la masse de peau de la region :\n')
+            for nm, sh, sim in ap['anchors']:
+                f.write('    %-12s %6.2f %%   %s\n'
+                        % (nm, 100.0 * sh, 'SIMULE' if sim else 'ANCRE (non simule)'))
+            f.write('  CE QUE CETTE DERNIERE COLONNE IMPOSE, ET CE N\'EST PAS UN REGLAGE : la\n'
+                    '    part ANCREE ne se deplace pas, au bit pres, puisque sa matrice ecrite EST\n'
+                    '    sa matrice d\'auteur. Le deplacement d\'apex que le moteur peut produire\n'
+                    '    est donc PLAFONNE a %.4f de ce que ses maillons simules produisent, quelle\n'
+                    '    que soit la physique. SPEC 30 ecrit « Apex — minimal direct anchoring ».\n'
+                    % ap['wsum'])
+            for fr in sorted(sens):
+                s = sens[fr]
+                f.write('  sensibilite frontiere %.2f : nR=%d  poids=(%s)  somme=%.4f\n'
+                        % (fr, s['nr'], ', '.join('%.4f' % w for w, _ in s['links']), s['wsum']))
+        if apex_skipped:
+            f.write('\nCHAINES SANS APEX (%d) :\n' % len(apex_skipped))
+            for m, cn, why in apex_skipped:
+                f.write('  %s %s — %s\n' % (m, cn, why))
         f.write('\n\nBODY SURFACE AUDIT (SPEC §18) — per model: the non-chain bones that got\n'
                 '`bs` records (surface samples + outward normals, bone-local bind space).\n'
                 'A sample is an OFFSET FROM ITS OWN BONE, so |p| is a distance from that bone,\n'
