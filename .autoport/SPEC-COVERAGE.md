@@ -173,6 +173,40 @@ compteurs CUMULES traversant la fenetre armee — consequence directe et attendu
 l'injection a CESSE de contaminer cette fenetre. Ma prediction P3 disait « zero ligne differente » :
 elle est **REFUTEE telle qu'ecrite**, et je ne la reinterprete pas.
 
+### Et la suite du cycle : la ligne de base que la gate exige n'est PAS CALCULABLE sur cette donnee
+
+Trois courses de plus, trois hypotheses posees et **les trois refutees par la mesure suivante** :
+  1. « le point d'AUTEUR est le mauvais point de reference » — non : construite sur la fenetre de
+     REPOS (`physroom-hold`, desarmement CHIFFRE par `PHYSIDLE dev` = 0,4721 / 1,0232 u), la mesure
+     rend `chestL skinpen = 0,0000` et `chestR = 417,23 u`. Le point SIMULE a le meme defaut ;
+  2. « la phase large ecarte l'ensemble le plus proche » — non : passee en branch-and-bound EXACT
+     (la marge inventee de 512,0 disparait), `skinmiss = 0` sur les deux chaines et `chestL` lit
+     toujours 0,0000 ;
+  3. « la peau est tronquee » — la trace disait `sets=64/92`, donc **28 ensembles de surface sur 92
+     etaient jetes** ; releve a 96, `sets=92/92`… et les valeurs sont **identiques**.
+
+**LA CAUSE EST DANS LE MODELE DE DONNEES, ET ELLE EST DELIBEREE.**
+`physics_c14_meshsamples.py:563` exclut de la surface-obstacle tout os qui est un MAILLON DE
+CHAINE (« ceux-la ont des `ms`, pas des `bs` »). Les seins sont les seules chaines simulees :
+**leur propre peau ne peut donc jamais apparaitre dans la surface que `phys-surf-sd` lit.** Le
+fichier livre le confirme — 84 des 92 ensembles portent **12** echantillons, et aucun ne s'appelle
+`lBoob`, `rBoob`, `lBooc` ni `rBooc`. Le point de peau le plus proche d'un joint de poitrine est
+l'un des 12 echantillons de `chest`, repartis sur tout le buste ; que `chestR` lise « dedans » et
+`chestL` « dehors » est un accident de lequel de ces 12 points est le plus proche.
+
+**CONSEQUENCE, ET C'EST UNE DECISION DE SUPERVISEUR.** La lecture de `chestL` se contredit
+elle-meme entre deux fenetres — 0,0000 m au repos, 0,1358 m en course, soit 0,136 m d'ecart que le
+deplacement du joint (borne a 301 u = 0,073 m) ne peut pas produire. Le tableau REFUSE donc de
+publier `ROOM-SKINPEN-REST`, et §33/§34 restent **NON ETABLI**, donc rouges. Je ne publie pas un
+plancher dont je viens de mesurer qu'il est faux — ni pour faire passer la gate, ni pour la faire
+echouer proprement. Trois garde-fous le tiennent, chacun avec sa mesure : `skinmiss > 0`,
+`sets < declared`, et l'incoherence repos/course.
+
+**CE QUI DEBLOQUERAIT LA SECTION** : que la surface lue par le moteur CONTIENNE la peau des seins —
+soit en changeant ce que `bs` represente, soit en portant la mesure sur les `ms`, qui existent
+deja. Les deux touchent un jeu de donnees que d'autres sections lisent (§18 en particulier), donc
+je ne le change pas de ma propre initiative en fin de cycle.
+
 **Statut de §33 et §34 : inchange** — `NON TENUE` et `PARTIELLE`, sur la meme penetration declaree a
 chaque cycle. Ce cycle ne fait pas bouger la physique d'un bit ; il rend le verdict **mesurable**,
 ce qui etait le blocage nomme par l'arbitrage.

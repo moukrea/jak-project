@@ -1,7 +1,7 @@
 ==================================================================================================
 KEIRA — SALLE DE TEST SANS JOUEUR : TABLEAU DE MESURE
 genere par .autoport/physics_room_table.py depuis .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
-empreinte de la trace lue : md5 98191ee29a3e5977675cc43239c74456 (3813083 octets)
+empreinte de la trace lue : md5 61cdace376e4e220778e56fb945ebbf0 (3816043 octets)
 contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 7 (ce qui fait foi)
 
 Toutes les longueurs sont en METRES (la trace est en unites de jeu, 4096 u = 1 m). Ce que
@@ -1298,19 +1298,31 @@ ROOM-SKINPEN: chestL 0.1358
 ROOM-SKINPEN-DETAIL: chain=chestL       skinpen=0.1358 m   meshpen=0.1115 m   repos=0.1004 m
 ROOM-SKINPEN: chestR 0.1203
 ROOM-SKINPEN-DETAIL: chain=chestR       skinpen=0.1203 m   meshpen=0.1019 m   repos=0.1039 m
-ROOM-SKINPEN-REST-NON-ETABLIE: 0.1004
-   41842 lecture(s) placent le point d'AUTEUR **DEHORS**, ce qui est anatomiquement
+ROOM-SKINPEN-COVERAGE: ensembles=92/92  echantillons<=48
+ROOM-SKINPEN-INCOHERENT: 1 chaine(s) lisent au repos et en course des valeurs que
+   le DEPLACEMENT du joint ne peut pas expliquer (borne 301 u = 0.0735 m, `|tp|` =
+   0,5008 B0, la plus grande deviation de joint jamais mesuree au dossier) :
+   chestL   repos 0.0000 m   course 0.1358 m   ecart 0.1358 m
+   `phys-surf-sd` s'est donc contredite elle-meme entre deux fenetres. AUCUN
+   plancher n'est publie sous le nom que la gate lit : je ne fais pas echouer une
+   gate sur un chiffre dont je viens de mesurer qu'il est faux.
+ROOM-SKINPEN-REST-REJETEE: la fenetre de repos a bien emis `PHYSSKIN tag=rest`, mais
+   la valeur est REFUSEE comme plancher par un des garde-fous ci-dessus. Ce n'est
+   PAS « la mesure manque » : c'est « la mesure existe et je viens de montrer
+   qu'elle est fausse ». La distinction compte pour qui lira cette ligne ensuite.
+ROOM-SKINPEN-REST-AUTEUR: 0.1004  (DIAGNOSTIC — NE VAUT PAS PLANCHER)
+   42857 lecture(s) placent le point d'AUTEUR **DEHORS**, ce qui est anatomiquement
    impossible : l'os de poitrine est interieur par construction du rig. La SDF
    de `phys-surf-sd` est un NUAGE DE POINTS filtre par une phase large
    (`|p - os| < bsr + 512`) : elle n'est pas lipschitzienne au franchissement
    d'un ensemble d'os. Ce plancher est publie MAIS PAS sous le nom que la
    gate lit : elle restera NON ETABLI, ce qui la fait ECHOUER, et c'est la
    lecture correcte. Je ne fais pas verdir une gate sur un instrument faux.
-ROOM-SKINPEN-REST-DETAIL: chestL 0.1004
-ROOM-SKINPEN-REST-DETAIL: chestR 0.1039
-ROOM-SKINPEN-TESTS: 20147660 echantillons de surface compares sur la fenetre
+ROOM-SKINPEN-REST-AUTEUR-DETAIL: chestL 0.1004
+ROOM-SKINPEN-REST-AUTEUR-DETAIL: chestR 0.1039
+ROOM-SKINPEN-TESTS: 21049954 echantillons de surface compares sur la fenetre
 ROOM-SKINADD: chain=chestL       course=0.2568     pire fenetre=0.2568   
-ROOM-SKINADD: chain=chestR       course=0.2292     pire fenetre=0.2245   
+ROOM-SKINADD: chain=chestR       course=0.2274     pire fenetre=0.2245   
 ROOM-SKINADD-CONTROL: armed=0.1901 disarmed=0.1945   (injection de 400 u vers l'ancre, le point d'auteur ne bouge pas)
    LE CONTROLE N'A PAS TIRE (il faut arme >= 3x desarme). L'instrument est
    declare NON PROBANT : soit il est tautologique (la peau suit l'os qui la
@@ -1556,10 +1568,10 @@ row chain=chestL       anim=assistant-village2-idle-to-a           drive=leftrig
 row chain=chestL       anim=assistant-village2-idle-to-a           drive=accel     tipvar=0.1604    rootdev=0.0664    meshpen=0.0518    jump=0.0471    skinadd=0.1805    ns=35
 row chain=chestL       anim=assistant-village2-idle-to-a           drive=jerk      tipvar=0.1443    rootdev=0.0622    meshpen=0.0697    jump=0.0656    skinadd=0.1802    ns=35
 row chain=chestL       anim=assistant-village2-idle-to-a           drive=tilt      tipvar=0.0770    rootdev=0.0545    meshpen=0.0772    jump=0.0433    skinadd=0.1838    ns=35
-row chain=chestL       anim=assistant-village2-idle-after          drive=updown    tipvar=0.1227    rootdev=0.0589    meshpen=-0.0008   jump=0.0195    skinadd=0.0072    ns=35
-row chain=chestL       anim=assistant-village2-idle-after          drive=leftright tipvar=0.1164    rootdev=0.0640    meshpen=0.0130    jump=0.0265    skinadd=0.1333    ns=35
+row chain=chestL       anim=assistant-village2-idle-after          drive=updown    tipvar=0.1227    rootdev=0.0589    meshpen=-0.0008   jump=0.0195    skinadd=0.0337    ns=35
+row chain=chestL       anim=assistant-village2-idle-after          drive=leftright tipvar=0.1164    rootdev=0.0640    meshpen=0.0130    jump=0.0265    skinadd=0.1598    ns=35
 row chain=chestL       anim=assistant-village2-idle-after          drive=accel     tipvar=0.1373    rootdev=0.0736    meshpen=0.0127    jump=0.0486    skinadd=0.1768    ns=35
-row chain=chestL       anim=assistant-village2-idle-after          drive=jerk      tipvar=0.1160    rootdev=0.0573    meshpen=0.0408    jump=0.0538    skinadd=0.1812    ns=35
+row chain=chestL       anim=assistant-village2-idle-after          drive=jerk      tipvar=0.1160    rootdev=0.0573    meshpen=0.0408    jump=0.0538    skinadd=0.2146    ns=35
 row chain=chestL       anim=assistant-village2-idle-after          drive=tilt      tipvar=0.0082    rootdev=0.0262    meshpen=-0.0496   jump=0.0012    skinadd=0.1784    ns=35
 row chain=chestL       anim=assistant-village2-idle-hut-breath     drive=updown    tipvar=0.0810    rootdev=0.0337    meshpen=-0.0220   jump=0.0090    skinadd=0.1821    ns=35
 row chain=chestL       anim=assistant-village2-idle-hut-breath     drive=leftright tipvar=0.1102    rootdev=0.0591    meshpen=0.0287    jump=0.0270    skinadd=0.0337    ns=35
@@ -1591,12 +1603,12 @@ row chain=chestL       anim=assistant-village3-idle                drive=leftrig
 row chain=chestL       anim=assistant-village3-idle                drive=accel     tipvar=0.1532    rootdev=0.0655    meshpen=0.0545    jump=0.0463    skinadd=0.1691    ns=35
 row chain=chestL       anim=assistant-village3-idle                drive=jerk      tipvar=0.1011    rootdev=0.0542    meshpen=0.0394    jump=0.0450    skinadd=0.1827    ns=35
 row chain=chestL       anim=assistant-village3-idle                drive=tilt      tipvar=0.0070    rootdev=0.0275    meshpen=-0.0606   jump=0.0020    skinadd=0.0408    ns=35
-row chain=chestL       anim=assistant-firecanyon-idle-twist        drive=updown    tipvar=0.1207    rootdev=0.0584    meshpen=0.0240    jump=0.0228    skinadd=0.1845    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-twist        drive=updown    tipvar=0.1207    rootdev=0.0584    meshpen=0.0240    jump=0.0228    skinadd=0.0334    ns=35
 row chain=chestL       anim=assistant-firecanyon-idle-twist        drive=leftright tipvar=0.1424    rootdev=0.0646    meshpen=-0.0089   jump=0.0289    skinadd=0.1849    ns=35
 row chain=chestL       anim=assistant-firecanyon-idle-twist        drive=accel     tipvar=0.1424    rootdev=0.0568    meshpen=0.0467    jump=0.0387    skinadd=0.1865    ns=35
 row chain=chestL       anim=assistant-firecanyon-idle-twist        drive=jerk      tipvar=0.1251    rootdev=0.0560    meshpen=0.0414    jump=0.0551    skinadd=0.1843    ns=35
 row chain=chestL       anim=assistant-firecanyon-idle-twist        drive=tilt      tipvar=0.0131    rootdev=0.0328    meshpen=-0.0386   jump=0.0023    skinadd=0.0306    ns=35
-row chain=chestL       anim=assistant-firecanyon-idle-down         drive=updown    tipvar=0.1274    rootdev=0.0578    meshpen=0.0198    jump=0.0334    skinadd=0.0695    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-down         drive=updown    tipvar=0.1274    rootdev=0.0578    meshpen=0.0198    jump=0.0334    skinadd=0.0419    ns=35
 row chain=chestL       anim=assistant-firecanyon-idle-down         drive=leftright tipvar=0.1492    rootdev=0.0706    meshpen=-0.0064   jump=0.0363    skinadd=0.1801    ns=35
 row chain=chestL       anim=assistant-firecanyon-idle-down         drive=accel     tipvar=0.1502    rootdev=0.0630    meshpen=0.0387    jump=0.0392    skinadd=0.1859    ns=35
 row chain=chestL       anim=assistant-firecanyon-idle-down         drive=jerk      tipvar=0.1456    rootdev=0.0616    meshpen=0.0486    jump=0.0607    skinadd=0.1820    ns=35
@@ -1614,7 +1626,7 @@ row chain=chestL       anim=assistant-firecanyon-idle-up           drive=tilt   
 row chain=chestL       anim=assistant-firecanyon-idle-fiddle       drive=updown    tipvar=0.1218    rootdev=0.0587    meshpen=0.0233    jump=0.0240    skinadd=0.1858    ns=35
 row chain=chestL       anim=assistant-firecanyon-idle-fiddle       drive=leftright tipvar=0.1536    rootdev=0.0648    meshpen=-0.0092   jump=0.0343    skinadd=0.1805    ns=35
 row chain=chestL       anim=assistant-firecanyon-idle-fiddle       drive=accel     tipvar=0.1508    rootdev=0.0651    meshpen=0.0618    jump=0.0363    skinadd=0.1871    ns=35
-row chain=chestL       anim=assistant-firecanyon-idle-fiddle       drive=jerk      tipvar=0.1360    rootdev=0.0621    meshpen=0.0523    jump=0.0567    skinadd=0.1799    ns=35
+row chain=chestL       anim=assistant-firecanyon-idle-fiddle       drive=jerk      tipvar=0.1360    rootdev=0.0621    meshpen=0.0523    jump=0.0567    skinadd=0.1792    ns=35
 row chain=chestL       anim=assistant-firecanyon-idle-fiddle       drive=tilt      tipvar=0.0138    rootdev=0.0340    meshpen=-0.0381   jump=0.0030    skinadd=0.0319    ns=35
 row chain=chestL       anim=assistant-firecanyon-idle-a            drive=updown    tipvar=0.0733    rootdev=0.0276    meshpen=-0.0242   jump=0.0085    skinadd=0.1789    ns=35
 row chain=chestL       anim=assistant-firecanyon-idle-a            drive=leftright tipvar=0.1321    rootdev=0.0660    meshpen=0.0186    jump=0.0409    skinadd=0.1439    ns=35
@@ -1683,7 +1695,7 @@ row chain=chestR       anim=assistant-idle-wiping-brow             drive=jerk   
 row chain=chestR       anim=assistant-idle-wiping-brow             drive=tilt      tipvar=0.0371    rootdev=0.0494    meshpen=0.0488    jump=0.0259    skinadd=0.0000    ns=35
 row chain=chestR       anim=assistant-idle-transition-to-welding   drive=updown    tipvar=0.1249    rootdev=0.0583    meshpen=0.0545    jump=0.0197    skinadd=0.0241    ns=35
 row chain=chestR       anim=assistant-idle-transition-to-welding   drive=leftright tipvar=0.1221    rootdev=0.0570    meshpen=0.0536    jump=0.0292    skinadd=0.1916    ns=35
-row chain=chestR       anim=assistant-idle-transition-to-welding   drive=accel     tipvar=0.1541    rootdev=0.0581    meshpen=0.0530    jump=0.0401    skinadd=0.0367    ns=35
+row chain=chestR       anim=assistant-idle-transition-to-welding   drive=accel     tipvar=0.1541    rootdev=0.0581    meshpen=0.0530    jump=0.0401    skinadd=0.0375    ns=35
 row chain=chestR       anim=assistant-idle-transition-to-welding   drive=jerk      tipvar=0.1431    rootdev=0.0705    meshpen=0.0687    jump=0.0654    skinadd=0.1945    ns=35
 row chain=chestR       anim=assistant-idle-transition-to-welding   drive=tilt      tipvar=0.0163    rootdev=0.0450    meshpen=-0.0210   jump=0.0022    skinadd=0.2050    ns=35
 row chain=chestR       anim=assistant-idle-welding                 drive=updown    tipvar=0.1258    rootdev=0.0580    meshpen=-0.0011   jump=0.0144    skinadd=0.0089    ns=35
@@ -1714,8 +1726,8 @@ row chain=chestR       anim=assistant-village2-idle-to-a           drive=tilt   
 row chain=chestR       anim=assistant-village2-idle-after          drive=updown    tipvar=0.1188    rootdev=0.0587    meshpen=0.0702    jump=0.0231    skinadd=0.1348    ns=35
 row chain=chestR       anim=assistant-village2-idle-after          drive=leftright tipvar=0.1078    rootdev=0.0590    meshpen=0.0231    jump=0.0302    skinadd=0.0365    ns=35
 row chain=chestR       anim=assistant-village2-idle-after          drive=accel     tipvar=0.1490    rootdev=0.0587    meshpen=0.0307    jump=0.0415    skinadd=0.1471    ns=35
-row chain=chestR       anim=assistant-village2-idle-after          drive=jerk      tipvar=0.1321    rootdev=0.0723    meshpen=0.0856    jump=0.0568    skinadd=0.0318    ns=35
-row chain=chestR       anim=assistant-village2-idle-after          drive=tilt      tipvar=0.0070    rootdev=0.0440    meshpen=-0.0276   jump=0.0012    skinadd=0.0350    ns=35
+row chain=chestR       anim=assistant-village2-idle-after          drive=jerk      tipvar=0.1321    rootdev=0.0723    meshpen=0.0856    jump=0.0568    skinadd=0.0022    ns=35
+row chain=chestR       anim=assistant-village2-idle-after          drive=tilt      tipvar=0.0070    rootdev=0.0440    meshpen=-0.0276   jump=0.0012    skinadd=0.0103    ns=35
 row chain=chestR       anim=assistant-village2-idle-hut-breath     drive=updown    tipvar=0.1067    rootdev=0.0547    meshpen=-0.0186   jump=0.0161    skinadd=0.1968    ns=35
 row chain=chestR       anim=assistant-village2-idle-hut-breath     drive=leftright tipvar=0.1185    rootdev=0.0620    meshpen=0.0170    jump=0.0294    skinadd=0.0655    ns=35
 row chain=chestR       anim=assistant-village2-idle-hut-breath     drive=accel     tipvar=0.1560    rootdev=0.0691    meshpen=0.0365    jump=0.0303    skinadd=0.0014    ns=35
@@ -1746,27 +1758,27 @@ row chain=chestR       anim=assistant-village3-idle                drive=leftrig
 row chain=chestR       anim=assistant-village3-idle                drive=accel     tipvar=0.1312    rootdev=0.0693    meshpen=0.0469    jump=0.0474    skinadd=0.0357    ns=35
 row chain=chestR       anim=assistant-village3-idle                drive=jerk      tipvar=0.1046    rootdev=0.0643    meshpen=0.0704    jump=0.0380    skinadd=0.0067    ns=35
 row chain=chestR       anim=assistant-village3-idle                drive=tilt      tipvar=0.0136    rootdev=0.0349    meshpen=-0.0005   jump=0.0020    skinadd=0.0000    ns=35
-row chain=chestR       anim=assistant-firecanyon-idle-twist        drive=updown    tipvar=0.1165    rootdev=0.0587    meshpen=0.0732    jump=0.0286    skinadd=0.0133    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-twist        drive=updown    tipvar=0.1165    rootdev=0.0587    meshpen=0.0732    jump=0.0286    skinadd=0.0082    ns=35
 row chain=chestR       anim=assistant-firecanyon-idle-twist        drive=leftright tipvar=0.1390    rootdev=0.0591    meshpen=-0.0232   jump=0.0334    skinadd=0.0037    ns=35
 row chain=chestR       anim=assistant-firecanyon-idle-twist        drive=accel     tipvar=0.1421    rootdev=0.0716    meshpen=0.0522    jump=0.0520    skinadd=0.0324    ns=35
 row chain=chestR       anim=assistant-firecanyon-idle-twist        drive=jerk      tipvar=0.1623    rootdev=0.0595    meshpen=0.0558    jump=0.0646    skinadd=0.0260    ns=35
 row chain=chestR       anim=assistant-firecanyon-idle-twist        drive=tilt      tipvar=0.0094    rootdev=0.0158    meshpen=-0.0425   jump=0.0018    skinadd=0.0000    ns=35
-row chain=chestR       anim=assistant-firecanyon-idle-down         drive=updown    tipvar=0.1267    rootdev=0.0591    meshpen=0.0722    jump=0.0264    skinadd=0.0079    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-down         drive=updown    tipvar=0.1267    rootdev=0.0591    meshpen=0.0722    jump=0.0264    skinadd=0.0000    ns=35
 row chain=chestR       anim=assistant-firecanyon-idle-down         drive=leftright tipvar=0.1321    rootdev=0.0647    meshpen=0.0284    jump=0.0293    skinadd=0.0100    ns=35
 row chain=chestR       anim=assistant-firecanyon-idle-down         drive=accel     tipvar=0.1650    rootdev=0.0703    meshpen=0.0463    jump=0.0515    skinadd=0.0306    ns=35
-row chain=chestR       anim=assistant-firecanyon-idle-down         drive=jerk      tipvar=0.1552    rootdev=0.0612    meshpen=0.0609    jump=0.0665    skinadd=0.0075    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-down         drive=jerk      tipvar=0.1552    rootdev=0.0612    meshpen=0.0609    jump=0.0665    skinadd=0.0044    ns=35
 row chain=chestR       anim=assistant-firecanyon-idle-down         drive=tilt      tipvar=0.0663    rootdev=0.0304    meshpen=-0.0241   jump=0.0098    skinadd=0.0015    ns=35
-row chain=chestR       anim=assistant-firecanyon-idle-examine      drive=updown    tipvar=0.1251    rootdev=0.0585    meshpen=0.0713    jump=0.0289    skinadd=0.0091    ns=35
-row chain=chestR       anim=assistant-firecanyon-idle-examine      drive=leftright tipvar=0.1463    rootdev=0.0690    meshpen=-0.0237   jump=0.0398    skinadd=0.0066    ns=35
-row chain=chestR       anim=assistant-firecanyon-idle-examine      drive=accel     tipvar=0.1403    rootdev=0.0693    meshpen=0.0435    jump=0.0580    skinadd=0.0279    ns=35
-row chain=chestR       anim=assistant-firecanyon-idle-examine      drive=jerk      tipvar=0.1526    rootdev=0.0581    meshpen=0.0704    jump=0.0588    skinadd=0.0092    ns=35
-row chain=chestR       anim=assistant-firecanyon-idle-examine      drive=tilt      tipvar=0.0088    rootdev=0.0147    meshpen=-0.0417   jump=0.0017    skinadd=0.0000    ns=35
-row chain=chestR       anim=assistant-firecanyon-idle-up           drive=updown    tipvar=0.1331    rootdev=0.0585    meshpen=0.0722    jump=0.0295    skinadd=0.0075    ns=35
-row chain=chestR       anim=assistant-firecanyon-idle-up           drive=leftright tipvar=0.1540    rootdev=0.0676    meshpen=0.0387    jump=0.0486    skinadd=0.0264    ns=35
-row chain=chestR       anim=assistant-firecanyon-idle-up           drive=accel     tipvar=0.1559    rootdev=0.0734    meshpen=0.0275    jump=0.0678    skinadd=0.0102    ns=35
-row chain=chestR       anim=assistant-firecanyon-idle-up           drive=jerk      tipvar=0.1656    rootdev=0.0584    meshpen=0.0699    jump=0.0585    skinadd=0.0066    ns=35
-row chain=chestR       anim=assistant-firecanyon-idle-up           drive=tilt      tipvar=0.0555    rootdev=0.0258    meshpen=-0.0283   jump=0.0077    skinadd=0.0023    ns=35
-row chain=chestR       anim=assistant-firecanyon-idle-fiddle       drive=updown    tipvar=0.1138    rootdev=0.0587    meshpen=0.0750    jump=0.0258    skinadd=0.0094    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-examine      drive=updown    tipvar=0.1251    rootdev=0.0585    meshpen=0.0713    jump=0.0289    skinadd=0.2122    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-examine      drive=leftright tipvar=0.1463    rootdev=0.0690    meshpen=-0.0237   jump=0.0398    skinadd=0.2171    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-examine      drive=accel     tipvar=0.1403    rootdev=0.0693    meshpen=0.0435    jump=0.0580    skinadd=0.2149    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-examine      drive=jerk      tipvar=0.1526    rootdev=0.0581    meshpen=0.0704    jump=0.0588    skinadd=0.2143    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-examine      drive=tilt      tipvar=0.0088    rootdev=0.0147    meshpen=-0.0417   jump=0.0017    skinadd=0.0408    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-up           drive=updown    tipvar=0.1331    rootdev=0.0585    meshpen=0.0722    jump=0.0295    skinadd=0.0019    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-up           drive=leftright tipvar=0.1540    rootdev=0.0676    meshpen=0.0387    jump=0.0486    skinadd=0.2184    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-up           drive=accel     tipvar=0.1559    rootdev=0.0734    meshpen=0.0275    jump=0.0678    skinadd=0.2173    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-up           drive=jerk      tipvar=0.1656    rootdev=0.0584    meshpen=0.0699    jump=0.0585    skinadd=0.2171    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-up           drive=tilt      tipvar=0.0555    rootdev=0.0258    meshpen=-0.0283   jump=0.0077    skinadd=0.0061    ns=35
+row chain=chestR       anim=assistant-firecanyon-idle-fiddle       drive=updown    tipvar=0.1138    rootdev=0.0587    meshpen=0.0750    jump=0.0258    skinadd=0.0064    ns=35
 row chain=chestR       anim=assistant-firecanyon-idle-fiddle       drive=leftright tipvar=0.1530    rootdev=0.0666    meshpen=0.0198    jump=0.0444    skinadd=0.0099    ns=35
 row chain=chestR       anim=assistant-firecanyon-idle-fiddle       drive=accel     tipvar=0.1461    rootdev=0.0688    meshpen=0.0281    jump=0.0549    skinadd=0.0258    ns=35
 row chain=chestR       anim=assistant-firecanyon-idle-fiddle       drive=jerk      tipvar=0.1644    rootdev=0.0703    meshpen=0.0661    jump=0.0526    skinadd=0.0166    ns=35

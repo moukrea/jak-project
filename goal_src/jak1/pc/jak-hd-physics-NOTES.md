@@ -5392,3 +5392,38 @@ ET SURTOUT, LA TRONCATURE NE PEUT PLUS SE TAIRE : `PHYSBSURF sets=/declared=/max
 salle et publie par le tableau en `ROOM-SKINPEN-COVERAGE`. Tant que `sets < declared`, le tableau
 REFUSE de publier `ROOM-SKINPEN-REST` sous le nom que la gate lit — un plancher tire d'une surface
 qui n'est pas celle du personnage ne vaut rien, dans un sens comme dans l'autre.
+
+## [NOTE-159] LA VRAIE CAUSE EST DANS LA DONNEE : 12 ECHANTILLONS PAR OS, ET AUCUN POUR LES SEINS
+
+Apres avoir refute TROIS causes (le point d'auteur [NOTE-154], la phase large [NOTE-157], la
+troncature des plafonds [NOTE-158]), la mesure suivante ferme la question, et elle se lit dans le
+fichier LIVRE sans rien executer :
+
+    grep "^bs " recharged_assets/physics_mesh.txt | awk '{print $3}' | sort -n | uniq -c
+        84 ensembles a 12 echantillons · 3 a 10 · 2 a 6 · 1 a 11 · 1 a 8 · 1 a 2
+
+    les 92 noms d'ensembles contiennent lTopStrap2, rTopStrap2, gogglesMid, chaque doigt, chaque
+    meche — et **PAS lBoob, PAS rBoob, PAS lBooc, PAS rBooc**.
+
+DONC : le SEUL organe que cette phase simule n'a AUCUN echantillon de surface a lui. Le point de
+peau le plus proche d'un joint de poitrine est l'un des **12** echantillons de `chest`, repartis
+sur tout le buste. `phys-surf-sd` decide « dedans / dehors » sur la normale de CE point-la.
+
+C'EST POURQUOI RELEVER LES PLAFONDS N'A RIEN CHANGE : `PHYS-BSURF-MAX` valait 12 et la donnee en
+declare 12. Le passage a 48 est INERTE tant que le generateur n'en produit pas davantage. Le
+passage de `PHYS-BSURF-SETS` de 64 a 96 reste, lui, un vrai correctif — 28 ensembles declares
+etaient JETES (`sets=64/92` -> `sets=92/92`) — mais il ne touche pas la poitrine, qui n'a pas
+d'ensemble a jeter.
+
+CONSEQUENCE POUR SPEC 33/34, ET ELLE N'EST PAS NEGOCIABLE : le verdict que l'arbitrage du
+2026-08-20 13:20 fait porter a `skinpen` repose sur une SDF qui n'a pas de peau la ou elle mesure.
+Elle rend `chestL skinpen = 0.0000` au repos (« dehors ») et 556.15 u en course (« dedans »), soit
+un ecart de 0.136 m que le deplacement du joint (borne 301 u = 0.073 m) ne peut pas produire : elle
+se contredit ELLE-MEME entre deux fenetres. Le tableau refuse donc de publier le plancher, et la
+gate reste NON ETABLI — c'est la lecture correcte, pas un contournement.
+
+CE QUI DEBLOQUERAIT LA SECTION, ET C'EST UNE TACHE D'ASSET, PAS DE SOLVEUR : regenerer
+`physics_mesh.txt` avec (a) un ensemble de surface pour chacun des quatre joints de poitrine, et
+(b) une densite qui permette a une SDF de nuage de points de decider un cote — 12 points pour un
+buste entier n'y suffisent pas. Tant que ce fichier n'a pas de peau de poitrine, aucun reglage du
+moteur ne rendra `skinpen` lisible sur cet organe.

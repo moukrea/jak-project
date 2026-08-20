@@ -256,6 +256,80 @@ POINT DE PRODUCTION (poser le verrou des la compilation), pas une rustine dans m
 
 
 ================================================================================================
+13. JAMBES 3 A 5 — LA LIGNE DE BASE DE LA GATE N'EST PAS CALCULABLE, ET LA CAUSE EST DANS LA DONNEE
+================================================================================================
+La gate reecrite a 13:20 exige `ROOM-SKINPEN-REST` — « la ligne de base au repos, physique
+DESARMEE » — et fait ECHOUER tant qu'elle manque. Je l'ai poursuivie sur trois courses. Voici la
+chaine complete, chaque maillon mesure, chacun refutant le precedent.
+
+  JAMBE 3 — je construis la fenetre de REPOS (`physroom-hold`), sur le MEME chemin que la course
+  (meme fonction, meme point `*phys-px*`, meme garde `sd < 0`). Desarmement CHIFFRE et pas promis :
+  `PHYSIDLE dev` = 0.4721 / 1.0232 u sur cette meme fenetre, quand le validateur plafonne cette
+  grandeur a 1.0.
+      RESULTAT : `chestL skinpen = 0.0000`, `chestR = 417.2304 u`.
+      Un zero sur un os que le rig place a 0.10 m SOUS la peau n'est pas « il est dehors ».
+
+  JAMBE 4 — hypothese : la phase large de `phys-surf-sd` ecarte l'ensemble d'os le plus proche sur
+  une marge INVENTEE (`|p - os| < bsr + 512.0`). Correctif : branch-and-bound EXACT, on n'ecarte un
+  ensemble que s'il ne PEUT PAS contenir un echantillon plus proche que le meilleur deja trouve —
+  la constante disparait au lieu d'etre ajustee. Et `skinmiss` compte, par chaine, les evaluations
+  sans echantillon a portee, pour que le zero cesse d'etre ambigu.
+      RESULTAT : `skinmiss = 0` sur les deux chaines, et `chestL` lit TOUJOURS 0.0000.
+      **HYPOTHESE REFUTEE.** Le branch-and-bound RESTE — il supprime une marge inventee et ne peut
+      pas se tromper — mais il n'etait pas la cause.
+
+  JAMBE 5 — hypothese : la peau est TRONQUEE. Mesure dans la trace : `bsurf sets=64/92`, donc
+  **28 ensembles de surface sur 92 etaient JETES** par `PHYS-BSURF-SETS`. Correctif : 64 -> 96, et
+  `PHYSBSURF sets/declared/max` publie pour qu'une troncature ne puisse plus se taire.
+      RESULTAT : `sets=92/92`, et les valeurs sont IDENTIQUES — `chestL` 0.0000, `chestR` 417.2304.
+      **HYPOTHESE REFUTEE AUSSI.** Le relevement des ensembles reste (28 etaient bien perdus), mais
+      il ne touche pas la poitrine.
+      ET JE LE DIS POUR QUE PERSONNE NE LE PRENNE POUR UN CORRECTIF : `PHYS-BSURF-MAX` passe de 12 a
+      48 est **INERTE** — le fichier livre declare 12 echantillons par ensemble, pas davantage. Il
+      ne sert qu'a empecher une troncature si le generateur en produit un jour plus. Le seul
+      correctif REEL de cette jambe est `PHYS-BSURF-SETS` 64 -> 96.
+
+------------------------------------------------------------------------------------------------
+LA CAUSE, ENFIN, ET ELLE SE LIT DANS LE FICHIER LIVRE SANS RIEN EXECUTER
+------------------------------------------------------------------------------------------------
+    grep "^bs " recharged_assets/physics_mesh.txt | awk '{print $3}' | sort -n | uniq -c
+      -> 84 ensembles a 12 echantillons, le reste a moins
+    les 92 noms contiennent lTopStrap2, rTopStrap2, gogglesMid, chaque doigt, chaque meche
+      -> et **NI lBoob, NI rBoob, NI lBooc, NI rBooc**
+
+ET CE N'EST PAS UN OUBLI, C'EST LE MODELE DE DONNEES. `physics_c14_meshsamples.py:563` :
+
+    for j, name in enumerate(geo['names']):
+        if name in chain_joint_names:
+            continue                      # les maillons de chaine ont des `ms`, pas des `bs`
+
+Un os qui est un MAILLON DE CHAINE est exclu de la surface-obstacle par construction. Les seins
+sont les seules chaines simulees : **leur propre peau ne peut donc JAMAIS apparaitre dans la
+surface que `phys-surf-sd` lit.** Le point de peau le plus proche d'un joint de poitrine est l'un
+des **12** echantillons de `chest`, repartis sur tout le buste. Que `chestR` lise « dedans » et
+`chestL` « dehors » est un accident de lequel de ces 12 points est le plus proche.
+
+------------------------------------------------------------------------------------------------
+CE QUE J'EN FAIS, ET CE QUE JE REFUSE DE FAIRE
+------------------------------------------------------------------------------------------------
+La lecture de `chestL` se contredit ELLE-MEME entre deux fenetres : 0.0000 m au repos (dehors) et
+0.1358 m en course (dedans), soit un ecart de 0.136 m que le deplacement du joint ne peut pas
+produire — il est borne a 301 u = 0.073 m (`|tp|` = 0.5008 B0, la plus grande deviation de joint
+jamais mesuree au dossier). Une distance signee est 1-lipschitzienne ; celle-ci ne l'est pas.
+
+LE TABLEAU REFUSE DONC DE PUBLIER `ROOM-SKINPEN-REST`, et la gate reste NON ETABLI, donc ROUGE.
+C'est la lecture correcte et je ne la contourne pas. **Je ne publie pas un plancher dont je viens
+de mesurer qu'il est faux, ni pour faire passer la gate, ni pour la faire echouer proprement : un
+faux rouge coute autant qu'un faux vert.** Trois garde-fous le tiennent, chacun avec sa mesure :
+`skinmiss > 0` (trou), `sets < declared` (peau tronquee), et l'incoherence repos/course ci-dessus.
+
+CE QUI DEBLOQUERAIT §33/§34, ET C'EST UNE DECISION QUI VOUS APPARTIENT : il faut que la surface
+que le moteur lit CONTIENNE la peau des seins. Cela veut dire changer ce que `bs` represente — ou
+porter la mesure sur les `ms`, les sommets extremes de la chaine, qui existent deja. Les deux
+touchent un jeu de donnees que d'autres mesures lisent (§18 en particulier), et je ne le change pas
+de ma propre initiative en fin de cycle. C'est le chantier suivant, et il est nomme.
+
+================================================================================================
 11. ETAT DU VALIDATEUR, SANS ENROBAGE
 ================================================================================================
 `bash .autoport/validators/phase-Grecharged-secondary-motion.sh` NE SORT PAS A 0. Sortie reelle :
