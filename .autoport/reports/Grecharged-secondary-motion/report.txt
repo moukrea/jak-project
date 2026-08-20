@@ -217,3 +217,107 @@ torse au-dela de sa pose d'auteur (`meshpen` 0,1061 / 0,0898 m contre un plafond
 Ce que ce cycle apporte n'est pas visible a l'ecran : c'est la reponse a sa question du 2026-08-20
 (« j'ai pas l'impression que la spec est 100 % implementee »). Elle est desormais chiffree section
 par section, et sur les sept sections qu'on ne savait pas juger hier, six sont rouges.
+
+================================================================================================
+CYCLE 50 (meme tentative) — SPEC 12 EST CORRIGEE AU POINT OU ELLE ETAIT MECANIQUEMENT IMPOSSIBLE.
+L'ECART GAUCHE/DROITE PASSE DE 0,34 % A 19 % ET IL S'INVERSE ENTRE LES DEUX POLES : EXACTEMENT UN
+SEIN S'APLATIT, ET C'EST CELUI DU COTE GRAVITE. C'EST LE POINT QUE L'ORDRE DE TRAVAIL DE L'OWNER
+DU 2026-08-17 23:50 NOMME (« puis §12 lateral »).
+================================================================================================
+
+--- A. LE FAIT QUI A COUTE LA VERIFICATION, ET QUI A CHANGE LE CORRECTIF ----------------------
+Le cycle 49 avait designe `(wlt (fabs gxc))` (`jak-hd-physics.gc:3508`) comme la cause. **Retirer
+le `fabs` n'aurait PAS suffi, et c'est la trace qui le dit** : `PHYSAXW` et `PHYSTRI` sont
+IDENTIQUES sur les deux chaines — elles partagent l'ancre `chest`, donc son triedre, donc `gxc`
+est LE MEME NOMBRE pour chestL et chestR. Un poids signe aurait distingue « couchee sur le cote
+gauche » de « couchee sur le cote droit » en continuant a donner LE MEME TRIPLET AUX DEUX SEINS.
+Or la clause porte sur les deux SEINS, pas sur les deux poses.
+
+Ce qui discrimine les chaines existe deja, mesure et publie : `PHYSAXNAME sja` = **+754,9434** sur
+chestL et **-754,9434** sur chestR. Et ce n'est pas un nombre choisi : le moteur nomme sa ligne
+laterale PAR LA DIRECTION OU LES DEUX SEINS SONT SEPARES (`|sja|/|sjb|` = 754,94 / 0,009, soit
+84 000:1). C'est un invariant anatomique, et c'est le meilleur du dossier.
+
+--- B. LE CORRECTIF N'INVENTE AUCUN CHIFFRE ---------------------------------------------------
+    gxs = gxc * signe(sja)     la gravite VUE DU COTE DE CETTE CHAINE
+    wlt = max(0,  gxs)         cote gravite  -> triplet 0.800/1.118/1.118  (deja livre)
+    wne = max(0, -gxs)         cote oppose   -> triplet 1.000/1.000/1.000  (deja livre)
+Sa §12 ne donne d'ECHELLE qu'au cote gravite (« Gravity-side lateral flattening: -15 to -25% »)
+et donne au cote oppose une MIGRATION (« medial migration: 10-18% W0 »), c'est-a-dire une
+translation, que la dynamique produit deja par `gl`. Inventer un triplet pour le cote oppose
+aurait ete la faute de la x5,2 : deduire un chiffre d'une ligne que la spec ne contient pas.
+`wne` n'est pas un ornement : sans lui, le sein oppose perdrait tout poids a gravite purement
+laterale, `wsm` tomberait sur son plancher de 0,0001 et les trois echelles partiraient a zero.
+
+--- C. LE RESULTAT, ET LES CINQ PREDICTIONS --------------------------------------------------
+`C50E1-lateral-prediction.txt`, md5 **6ec4361b2d49679811c52dd18f5f28e2**, commit 14731a7d59.
+
+  P1  regimes a quaternion identite identiques au bit    **REFUTEE** — voir E
+  P2  ecart gauche/droite > 10 %, et il s'inverse        18,98 % / 19,14 %   TENUE
+  P3  la pose debout ne bouge pas                        i=0 : 1,000 / 1,000  TENUE
+  P4  `meshpen` bouge de moins de 20 %                   +5,1 % / +13,5 %     TENUE
+  P5  §12 ne deviendra pas TENUE pour autant             elle passe a PARTIELLE  TENUE
+
+    pole        chestL  sx          chestR  sx         ecart G/D
+    i=2 (avant)   0,8240              0,8212             0,34 %
+    i=2 (apres)   1,0136 NEUTRE       0,8212 COMPRIME   **18,98 %**
+    i=4 (avant)   0,8031              0,8054             0,29 %
+    i=4 (apres)   0,8030 COMPRIME     0,9931 NEUTRE     **19,14 %**
+
+L'assignation S'INVERSE entre les deux poles : le sein comprime a l'un est le sein neutre a
+l'autre. C'est exactement ce que sa §12 decrit, et c'etait impossible hier.
+
+--- D. CE QUE LE CORRECTIF NE FAIT PAS, ET IL FAUT LE DIRE ------------------------------------
+* **La clause chiffree de §12 est INCHANGEE.** `ROOM-ORICOM-MASS` rend les memes 0,1283 / 0,1639 /
+  0,1796 / 0,0567 B0 qu'au cycle 49, au chiffre pres. La raison est structurelle : le triplet de
+  forme pilote le TENSEUR DE DEFORMATION, qui etire la peau autour de l'os **sans deplacer un
+  seul joint**. Le COM squelettique ne peut donc pas bouger. §12 passe de NON TENUE a PARTIELLE,
+  pas a TENUE, et c'est ce que P5 annoncait.
+* **`W0` n'existe toujours nulle part** : « medial migration 10-18% W0 » reste sans denominateur.
+* **UNE QUESTION OUVERTE QUI BORNE CE RESULTAT, ET JE NE LA TRANCHE PAS.** La salle etiquette
+  l'orientation i=2 comme un TANGAGE de +90 degres (`*physroom-ori-ax*` = 0 -> rotation autour de
+  X monde), et le solveur y lit `gx` = -0,9979, c'est-a-dire une gravite presque entierement sur
+  la ligne qu'il appelle LATERALE. Une pose anatomiquement VENTRALE charge donc le canal lateral.
+  Ou l'etiquette de la salle est fausse, ou le nommage des lignes du solveur l'est. Le mecanisme
+  d'asymetrie existe et il est mesure a 19 % ; **quelle pose physique le declenche n'est pas
+  etabli**, et ca borne ce que ce correctif prouve. C'est un chantier a part, et il demande un
+  invariant anatomique EXTERNE — pas un raisonnement de plus sur les memes nombres.
+
+--- E. P1 EST REFUTEE, ET L'ERREUR EST DE MOI ------------------------------------------------
+J'avais predit les neuf fenetres de regime a quaternion identite IDENTIQUES AU BIT, en raisonnant
+sur l'application instantanee : debout `gl = 0`, donc `gxc = 0` exactement, donc `wlt = wne = 0`
+et le melange est identique a `fabs(0)`. Le raisonnement est juste **sur la fonction** et faux
+**sur l'historique** : la phase de regime s'execute APRES le balayage d'orientation, que le
+correctif modifie legitimement, et les 90 frames de repos n'effacent pas l'etat au bit.
+Residu mesure : chestL inchangee a quatre decimales sur 8 fenetres sur 9, chestR de 0,05 % a
+1,35 %. **Une prediction de bit-identite doit porter sur l'etat, pas sur la formule.**
+
+--- F. LE COUT, PUBLIE PLUTOT QUE REVENDIQUE -------------------------------------------------
+Le cycle 49 prouvait au bit que rien n'avait bouge. Ce contrôle est **depense** : ici le solveur
+change, donc l'avant/apres se publie.
+    `row` de la salle : **257 lignes sur 310 bougent.** Ecart median sur `tipvar` **0,88 %**,
+    p95 13,0 %, max 94,4 % (une fenetre). Par pilotage : `updown` 0,08 %, `leftright` 0,86 %,
+    `tilt` 1,21 %, `accel` 1,83 %, `jerk` 3,51 %.
+    `tipvar`  0,1720 / 0,1738  ->  0,1756 / 0,1775   (+2,1 %)
+    `meshpen` 0,1061 / 0,0898  ->  0,1115 / 0,1019   (+5,1 % / +13,5 %)
+**La penetration MONTE. C'est un cout, pas un detail**, et la gate COLLIDE reste rouge (0,1115
+contre un plafond de 0,0005). Le mouvement subtil que l'owner protege monte de 2,1 % — dans le
+sens qu'il demandait, mais je ne le compte pas comme un gain : il n'a rien valide.
+
+--- G. UN PIEGE OU JE SUIS TOMBE, ET QUI EST DANS LE REGISTRE DEPUIS DES SEMAINES -------------
+Ma premiere lecture de l'avant/apres a conclu « 0 difference sur 960 lignes ». **C'etait le
+tableau du cycle 49 compare a lui-meme** : la generation du tableau tournait encore et le fichier
+sur disque portait encore l'empreinte de la course precedente. Le tableau PUBLIE le md5 de la
+trace qu'il a lue (`empreinte de la trace lue : md5 ...`) ; c'est ce champ, compare au md5 du log
+sur disque, qui a leve l'erreur. `validator-reads-stale-artifacts`, et je l'ai reproduit.
+
+--- H. LA PORTE HUMAINE, ET POURQUOI LE VALIDATEUR NE PEUT PAS SORTIR A 0 ---------------------
+`OPEN-DEFECTS` lit `.autoport/reports/Grecharged-secondary-motion/owner-defects.txt` et compte les
+lignes `^OPEN `. Il en reste UNE, ligne 223 : `breast-spec-incomplete`.
+Les DEUX seules facons de faire sortir cette gate a 0 sont d'effacer cette ligne ou de modifier la
+gate. La gate ecrit elle-meme sa regle (« Une ligne ne se retire que quand l'owner dit que c'est
+bon »), la regle 5 du contrat gele les gates (« verrou dur »), et les DIRECTIVES du 2026-08-20
+00:25 le disent nommement : « `OPEN breast-spec-incomplete` reste ouverte : son "ça a l'air d'être
+effectif" ne la touche pas ».
+**Je ne fais ni l'une ni l'autre.** Ce sont les deux fautes cardinales du dossier, et un
+validateur qu'on fait passer en effacant son entree ne mesure plus rien.
