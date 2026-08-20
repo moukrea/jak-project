@@ -357,6 +357,65 @@
 ;; ne garde rien.
 (defconstant PHYSROOM-PH-REG 31)
 (defconstant PHYSROOM-REGN 15)      ;; fenetres, temoin compris
+
+;; ------------------------------------------------------------------------------------------------
+;; LE BALAYAGE PAR SENS DE STIMULUS — LA GRANDEUR QUE LE CYCLE 51 A DESIGNEE SANS LA MESURER.
+;;
+;; CE QU'IL MESURE, ET POURQUOI IL EST DECIDABLE SANS SEUIL CHOISI. Pour un systeme LINEAIRE, et
+;; plus generalement pour TOUTE non-linearite symetrique (la saturation `tanh` de sa SPEC 21, une
+;; borne posee sur une NORME, une raideur cubique), la reponse a une impulsion `-u` est EXACTEMENT
+;; l'opposee de la reponse a `+u`. Les deux ecarts publies ici,
+;;     A_mag = | |r+| - |r-| | / max(|r+|,|r-|)      et      A_dir = 180 deg - angle(r+, r-)
+;; valent donc ZERO par PROPRIETE du systeme, pas par convention. Ils ne peuvent devenir non nuls
+;; que si un terme du solveur distingue un SENS de l'autre. C'est ce qui separe cet instrument du
+;; quatrieme faux vert du dossier (SPEC 11, cycle 49), qui republiait la constante qu'il visait.
+;;
+;; CE QUI L'A RENDU NECESSAIRE. Le cycle 51 a mesure que la reponse d'apex depend du SENS du
+;; stimulus (chestL : 65 % de mouvement vertical vers le BAS, 2 a 5 % vers le HAUT — facteur 13 a
+;; 31) et de la CHAINE (x10 a x20 d'ecart gauche/droite sur la detente, quand sa SPEC 32 prescrit
+;; 2-5 %). Il a refuse de nommer la cause faute de l'avoir mesuree. Les sept regimes de SPEC 14-20
+;; ne pouvaient pas y repondre : leurs stimuli ne sont PAS apparies en signe a amplitude egale.
+;;
+;; LA FENETRE EST AUTONOME : elle part de `home` et y revient. 10 frames d'impulsion en
+;; demi-cosinus (vitesse nulle aux deux bouts, donc rien qui declenche le rebasement de sa SPEC 37),
+;; 50 de tenue MESUREE — le pic d'une reponse sous-amortie tombe apres la fin du stimulus —, 10 de
+;; retour doux, puis 60 de calme. 60 frames valent 5.05 constantes de temps du mode principal
+;; (`omega` = 14.4515 rad/s, `zeta` = 0.35), soit un residu de 0.6 % : c'est la MEME arithmetique
+;; que PH-ORI, et le calme qui ferme chaque fenetre est PUBLIE (`PHYSSGN3`) au lieu d'etre suppose.
+;;
+;; L'ORDRE DES DEUX SENS EST EQUILIBRE SUR LA GRILLE. Le cycle 50 a mesure que les fenetres se
+;; contaminent (257 lignes de `row` sur 310 bougent quand une fenetre amont change). Une cellule
+;; qui jouerait toujours `+` en premier confondrait donc l'effet du SENS avec celui du RANG : la
+;; parite de (k + a) decide lequel passe en premier, si bien que la moitie des cellules joue `+`
+;; d'abord et l'autre `-`.
+;;
+;; LES SIX ABLATIONS SONT CELLES QUI EXISTENT DEJA, et la liste est celle de PH-ORI :
+;;   k=0 reference · k=1 longueur levee · k=2 cote levee · k=3 rayon interpole
+;;   k=4 MUR DE COLLISION desarme · k=5 borne SPEC 22 du canal radial levee
+;; Deux suspects sont deja morts A LA LECTURE DU CODE, avant cette course : `rcap`
+;; (jak-hd-physics.gc:2946-2950) applique `phys-softmin` a la valeur ABSOLUE et restitue le signe,
+;; et `phys-length-chain` (:1162) est une projection d'EGALITE sur la sphere. Les deux mordent dans
+;; les deux sens. Le mur de collision est le seul terme UNILATERAL PAR NATURE — une poussee de
+;; contact ne tire jamais — et c'est lui que la prediction P4 mise.
+;;
+;; NATURE : un MAXIMUM DE FENETRE du deplacement d'apex, en % de `B0`, et son VECTEUR releve a
+;;   l'argmax. Exactement les memes emplacements (53-56) que `PHYSREG4`, donc directement
+;;   comparable aux sept regimes. Ce n'est ni une variance ni une moyenne.
+;; REPERE : le triedre de l'ANCRE (SPEC 7), le meme que `PHYSREG4` et `PHYSRINGA`. Jamais le monde.
+;; LIGNE DE BASE : `PHYSSGN3` publie l'apex des 60 frames de CALME qui ferment la fenetre — ce que
+;;   l'instrument lit quand le stimulus est ABSENT. Sans lui, aucune asymetrie n'a d'echelle.
+;; CE QUI DISCRIMINE : le SENS, a stimulus egal (`stim` est publie pour le prouver, pas pour le
+;;   supposer) et a axe egal. Si les deux sens rendaient la meme reponse opposee, il n'y a pas de
+;;   terme unilateral et la piste du cycle 51 tombe — ce qui est aussi un resultat, et il est
+;;   ecrit comme tel dans la prediction P3.
+(defconstant PHYSROOM-PH-SGN 32)
+(defconstant PHYSROOM-SGNN  36)     ;; 6 ablations x 3 axes x 2 sens
+(defconstant PHYSROOM-SGNI  10)     ;; fin de l'impulsion
+(defconstant PHYSROOM-SGNIF 10.0)   ;; la MEME duree en flottant — `(the float <litteral>)` est une
+                                    ;; REINTERPRETATION de bits en GOAL, jamais une conversion.
+(defconstant PHYSROOM-SGNM  60)     ;; fin de la fenetre de mesure (impulsion comprise)
+(defconstant PHYSROOM-SGNR  70)     ;; fin du retour doux vers `home`
+(defconstant PHYSROOM-SGNW 130)     ;; fenetre totale : 10 + 50 + 10 + 60
 (defconstant PHYSROOM-RETF 60)      ;; frames de retour DOUX vers `home` au debut d'un `pre`
 (defconstant PHYSROOM-RETFF 60.0)   ;; la MEME duree en flottant, et DEUX constantes plutot qu'un
                                     ;; `the` : `(the float <litteral entier>)` se replie en
@@ -414,6 +473,7 @@
    (retz    float)     ;;   sans lui, revenir a `home` d'un coup serait une impulsion artificielle
    (retang  float)     ;;   que sa §37 devrait absorber — un stimulus qu'on n'a pas commande
    (retax   int32)
+   (sgi     int32)     ;; index de fenetre du balayage PAR SENS (SPEC 21/33/34, cycle 52)
    (cex     float)     ;; offset MESURE de l'ancre a la racine de l'acteur, releve a l'execution :
    (cey     float)     ;;   la course C49E1 a mesure que la rotation de `root quat` ne pivote PAS
    (cez     float)     ;;   autour de `root trans`, et de combien. Voir `physroom-reg-pose`.
@@ -754,6 +814,48 @@
     (set! (-> self root trans x) (+ (-> self home x) (* d ux)))
     (set! (-> self root trans y) (+ (-> self home y) (* d uy)))
     (set! (-> self root trans z) (+ (-> self home z) (* d uz))))
+  (none))
+
+;; LA MEME IMPULSION, MAIS SIGNEE ET REFERMEE SUR ELLE-MEME (cycle 52).
+;; `physroom-drive-imp` pousse toujours dans le sens POSITIF de l'axe du solveur et TIENT le sujet
+;; au bout de son pas : c'est ce qu'il faut pour lire un ring-down, et c'est exactement ce qui rend
+;; ses trois fenetres incapables de repondre a la question du cycle 51. Celle-ci ajoute les deux
+;; choses qui manquent, et rien d'autre :
+;;   * le SENS (`sg` vaut +1.0 ou -1.0), a amplitude STRICTEMENT identique — c'est la condition
+;;     pour que l'ecart mesure soit imputable au sens et a rien d'autre ;
+;;   * le RETOUR a `home`, en demi-cosinus lui aussi, pour que la fenetre suivante reparte du meme
+;;     etat. Sans lui, la fenetre `-` heriterait de la pose ou la fenetre `+` s'est arretee, et
+;;     l'asymetrie mesuree serait celle du RANG, pas celle du SENS.
+;; Le retour est une impulsion de sens oppose : il est donc suivi de 60 frames de calme (5.05
+;; constantes de temps, residu 0.6 %) AVANT la fenetre suivante, et ce qu'il en reste est PUBLIE
+;; par `PHYSSGN3` au lieu d'etre suppose negligeable.
+(defbehavior physroom-drive-sgn phys-subject ((f int) (ax int) (sg float))
+  (set-vector! (-> self vel) 0.0 0.0 0.0 1.0)
+  (vector-copy! (-> self root trans) (-> self home))
+  (quaternion-identity! (-> self root quat))
+  (let* ((d  (cond
+               ;; montee 0 -> A
+               ((<= f PHYSROOM-SGNI)
+                (* PHYSROOM-IMPA
+                   (* 0.5 (- 1.0 (cos (* 32768.0 (/ (the float f) PHYSROOM-SGNIF)))))))
+               ;; tenue a A : la fenetre de mesure
+               ((<= f PHYSROOM-SGNM) PHYSROOM-IMPA)
+               ;; descente A -> 0
+               ((<= f PHYSROOM-SGNR)
+                (* PHYSROOM-IMPA
+                   (* 0.5 (+ 1.0 (cos (* 32768.0 (/ (the float (- f PHYSROOM-SGNM))
+                                                    PHYSROOM-SGNIF)))))))
+               ;; calme, pile sur `home`
+               (else 0.0)))
+         (dd (* d sg))
+         ;; MEME source d'axe que `physroom-drive-imp` : on demande au solveur la direction MONDE
+         ;; de SON axe et on pousse dessus. Pousser en axes monde ferait lire une projection.
+         (ux (phys-axis-world (-> self slot) 0 ax 0))
+         (uy (phys-axis-world (-> self slot) 0 ax 1))
+         (uz (phys-axis-world (-> self slot) 0 ax 2)))
+    (set! (-> self root trans x) (+ (-> self home x) (* dd ux)))
+    (set! (-> self root trans y) (+ (-> self home y) (* dd uy)))
+    (set! (-> self root trans z) (+ (-> self home z) (* dd uz))))
   (none))
 
 ;; les six niveaux d'excitation, en unites de jeu par frame^2 (4096 u = 1 m, 60 Hz). Echelle
@@ -3574,6 +3676,84 @@
            (physroom-hold)
            (phys-stats-reset!)
            (phys-diag-reset!)
+           (set! (-> self sgi) 0)
+           (set! (-> self phase) PHYSROOM-PH-SGN)))))
+
+    ;; ---- 9 quater. LA REPONSE PAR SENS DE STIMULUS (cycle 52) ---------------------------------
+    ;; Voir la note des constantes PHYSROOM-SGN*. Cette phase est la DERNIERE phase de travail :
+    ;; elle est placee en AVAL de tout ce que la trace publie deja, si bien qu'aucune ligne
+    ;; existante ne peut changer de valeur a cause d'elle. C'est ce que la prediction P2 mise, et
+    ;; c'est le seul controle qui autorise a lire les chiffres neufs : le cycle 50 a mesure que les
+    ;; fenetres se contaminent, donc une phase INSEREE au milieu aurait deplace 257 lignes de `row`
+    ;; et rendu tout le reste inattribuable.
+    ((= (-> self phase) PHYSROOM-PH-SGN)
+     (let* ((i  (-> self sgi))
+            (w  (mod i 2))                    ;; 0 = premiere fenetre de la cellule, 1 = seconde
+            (a  (mod (/ i 2) 3))              ;; 0 = vertical · 1 = avant-arriere · 2 = lateral
+            (k  (/ i 6))                      ;; l'ablation, meme numerotation que PH-ORI
+            ;; L'ORDRE EST EQUILIBRE PAR LA PARITE DE (k + a) : la moitie des cellules joue `+`
+            ;; en premier, l'autre `-`. Sans ca, l'effet du SENS serait confondu avec celui du
+            ;; RANG dans la cellule — le defaut que le cycle 50 a mesure sur `row`.
+            (si (if (zero? (mod (+ k a) 2))
+                  (if (zero? w) 1 -1)
+                  (if (zero? w) -1 1)))
+            ;; `(the float <int>)` REINTERPRETE les bits en GOAL : on ne convertit pas, on choisit.
+            (sg (if (= si 1) 1.0 -1.0)))
+       (physroom-drive-sgn (-> self pframe) a sg)
+       ;; L'ABLATION EST ARMEE A LA PREMIERE FRAME DE LA FENETRE ET JAMAIS AILLEURS — meme geste,
+       ;; meme endroit que PH-ORI. `pframe` est remis a 0 en fin de fenetre puis INCREMENTE en tete
+       ;; du tick suivant : il ne vaut donc jamais 0 dans la phase, et un reset ecrit `(= pframe 0)`
+       ;; ne se declencherait jamais. C'est le defaut que le cycle 49 a paye sur six fenetres.
+       (when (= (-> self pframe) 1)
+         (phys-len-off-set!  (if (= k 1) 1 0))
+         (phys-side-off-set! (if (= k 2) 1 0))
+         (phys-cone-off-set! (if (= k 3) 1 0))
+         (phys-col-off-set!  (if (= k 4) 1 0))
+         (phys-rr-off-set!   (if (= k 5) 1 0))
+         ;; la fenetre de mesure s'ouvre EXACTEMENT au debut de l'impulsion
+         (phys-comexw-reset!)
+         (phys-stats-reset!))
+       ;; ---- LA REPONSE, a la fin de la tenue et avant le retour ------------------------------
+       (when (= (-> self pframe) PHYSROOM-SGNM)
+         (dotimes (c (-> self nchain))
+          (when (> (phys-chain-links (-> self slot) c) 0)
+           (format 0 "PHYSSGN c=~D i=~D k=~D a=~D s=~D apex=~,,7f~%"
+                   c i k a si (phys-diag (-> self slot) c 53))
+           ;; le COM a cote de l'apex — les deux grandeurs que sa spec borne — et le STIMULUS
+           ;; REELLEMENT RECU par la pointe. Une reponse sans son entree n'est pas une mesure :
+           ;; c'est `stim` qui prouve que les deux sens sont la MEME experience (prediction P6).
+           (format 0 "PHYSSGN2 c=~D i=~D com=~,,7f stim=~,,7f~%"
+                   c i (phys-diag (-> self slot) c 43) (phys-tip-stim (-> self slot) c))
+           ;; LE VECTEUR de l'apex, releve a l'argmax : c'est lui qui porte `A_dir`. Une asymetrie
+           ;; de DIRECTION est invisible a une amplitude, et c'est precisement la forme sous
+           ;; laquelle le cycle 51 a vu le defaut (la PART verticale de la reponse, pas sa taille).
+           (format 0 "PHYSSGN4 c=~D i=~D ax=~,,7f ay=~,,7f az=~,,7f~%"
+                   c i
+                   (phys-diag (-> self slot) c 54)
+                   (phys-diag (-> self slot) c 55)
+                   (phys-diag (-> self slot) c 56)))))
+       ;; ---- LE CALME QUI FERME LA FENETRE : ce que l'instrument lit stimulus ABSENT ------------
+       (when (= (-> self pframe) (+ PHYSROOM-SGNR 1))
+         (phys-comexw-reset!)
+         (phys-stats-reset!))
+       (when (>= (-> self pframe) PHYSROOM-SGNW)
+         (dotimes (c (-> self nchain))
+          (when (> (phys-chain-links (-> self slot) c) 0)
+           (format 0 "PHYSSGN3 c=~D i=~D bapex=~,,7f bcom=~,,7f~%"
+                   c i (phys-diag (-> self slot) c 53) (phys-diag (-> self slot) c 43))))
+         (set! (-> self pframe) 0)
+         (+! (-> self sgi) 1)
+         (when (>= (-> self sgi) PHYSROOM-SGNN)
+           ;; ON DESARME TOUT AVANT DE SORTIR. Une ablation laissee armee contaminerait la suite de
+           ;; la course — c'est la faute que `phys-len-off-set!` a deja value une fois.
+           (phys-len-off-set! 0)
+           (phys-side-off-set! 0)
+           (phys-cone-off-set! 0)
+           (phys-col-off-set! 0)
+           (phys-rr-off-set! 0)
+           (physroom-hold)
+           (phys-stats-reset!)
+           (phys-diag-reset!)
            (set! (-> self phase) PHYSROOM-PH-REPORT)))))
 
     ;; ---- 10. RAPPORT --------------------------------------------------------------------------
@@ -3778,10 +3958,15 @@
   ;; CYCLE 49 : `maxwork` designait PROXON (30) alors que la derniere phase de travail est
   ;; desormais PH-REG (31). Un garde-fou qui ne surveille pas la phase qu'on vient d'ajouter ne
   ;; garde rien — c'est exactement le silence que ce garde-fou a ete ecrit pour finir.
+  ;; CYCLE 52 : `maxwork` designe desormais PH-SGN (32), la nouvelle derniere phase de TRAVAIL.
+  ;; Le cycle 49 avait deja paye ce silence une fois — le garde-fou surveillait PROXON (30) quand
+  ;; la derniere phase etait PH-REG (31). Un garde-fou qui ne surveille pas la phase qu'on vient
+  ;; d'ajouter ne garde rien. PH-REG reste teste, il n'est pas retire de la conjonction.
   (format 0 "PHYSROOM-PHASEGUARD maxwork=~D report=~D done=~D ok=~D~%"
-          PHYSROOM-PH-REG PHYSROOM-PH-REPORT PHYSROOM-PH-DONE
+          PHYSROOM-PH-SGN PHYSROOM-PH-REPORT PHYSROOM-PH-DONE
           (if (and (< PHYSROOM-PH-PROXON PHYSROOM-PH-REPORT)
                    (< PHYSROOM-PH-REG PHYSROOM-PH-REPORT)
+                   (< PHYSROOM-PH-SGN PHYSROOM-PH-REPORT)
                    (< PHYSROOM-PH-REPORT PHYSROOM-PH-DONE))
               1 0))
   (format 0 "PHYSROOM-START target-before=~A~%" *target*)
