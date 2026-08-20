@@ -490,3 +490,14 @@ durees employees sont les NOTRES.
 Verrou : toute section dont le verdict depend d'une hypothese que nous avons posee le declare sur
 sa propre ligne, avec l'hypothese et sa source. Un rouge cause par mon postulat ne se presente
 jamais comme « sa spec est violee ».
+
+GUARD measured-in-an-unrepresentative-pose goal_src/jak1/pc/phys-room.gc PHYSSGNB
+**La salle de test tenait une pose a 43,4 deg du miroir parfait, et quatre sections y ont ete
+mesurees.** Le rig de Keira est bilateralement symetrique a **0,005 deg** en pose de bind (mesure
+sur le mesh livre), mais la pose que la salle TIENT est un repos de Fire Canyon laisse par la phase
+d'animation, repris par toutes les phases suivantes. L'ecart gauche/droite de x3,41 publie au cycle
+52 — et remonte a l'owner — est donc pour une part NON CHIFFREE un artefact de la POSE, pas du
+personnage. Ca vaut aussi pour §32, §18 et §12, toutes mesurees dedans.
+Verrou : toute mesure d'ASYMETRIE gauche/droite se releve dans une pose dont la symetrie est
+prouvee AVANT la course, et le rapport publie l'ecart au miroir. Une pose heritee n'est pas une
+pose choisie. Voisin de `stimulus-must-be-representative` et de `un-posed-frames-bones-at-origin`.

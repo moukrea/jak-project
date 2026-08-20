@@ -10,6 +10,31 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
+## 2026-08-20 05:20 — LA POSE DE LA SALLE N'EST PAS SYMETRIQUE : QUATRE SECTIONS A REMESURER
+
+Le cycle 53 mesure, avec un emetteur neuf sur sujet droit et immobile, que **le rig est
+bilateralement symetrique a 0,005 deg en pose de bind** (sur le mesh LIVRE) alors que **la pose que
+la salle TIENT est a 43,4 deg du miroir parfait** — un repos de Fire Canyon laisse par la phase
+d'animation, que toutes les phases suivantes reprennent sans le savoir.
+
+**CONSEQUENCE, ET ELLE M'OBLIGE A CORRIGER L'OWNER.** J'ai remonte au cycle 52 un ecart
+gauche/droite de ×3,41, et au cycle 51 un ×10 a ×20 sur la detente, comme des defauts du
+personnage. Ils sont **pour une part non chiffree des artefacts de la POSE**. Sont concernees :
+§32 (independance gauche/droite), §18 (lacet), §12 (gravite laterale), et l'attribution du cycle 52.
+
+**CE QUI RESTE VALIDE :** le mecanisme de la contrainte de longueur (projection d'egalite sur la
+sphere, part survivante en sin(theta)) est confirme sur chestR et **sur les deux temoins negatifs**
+a 8 % pres — un modele qui PREDIT au lieu de constater. Il sur-predit d'un facteur ~6 sur chestL,
+et le worker declare ne pas l'expliquer plutot que d'inventer une cause : c'est la bonne conduite.
+
+**REGLE :** toute mesure d'ASYMETRIE se releve dans une pose dont la symetrie est **prouvee avant
+la course**, et le rapport publie l'ecart au miroir. Une pose heritee n'est pas une pose choisie.
+
+**AUSSI :** §8 sort de `NON ETABLI` en `NON TENUE`. Le determinant est force a 1 et la deformation
+est UNE matrice par chaine — exactement la transformation affine unique que la section interdit en
+gras. Ce n'est pas un reglage a corriger, c'est un canal qui manque.
+
+
 ## 2026-08-20 02:50 — LES SIX ROUGES DES REGIMES DEPENDENT D'UNE DUREE QUE LA SPEC NE DONNE PAS
 
 Le cycle 49 a JOUE les sept regimes de §14 a §20, jamais executes en 49 cycles. Sept sections
