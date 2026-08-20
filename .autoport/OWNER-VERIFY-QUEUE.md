@@ -1,3 +1,32 @@
+> # DEUX CORRECTIONS AVANT TOUT LE RESTE — CE DOCUMENT PORTAIT DEUX CHIFFRES FAUX DE MOI
+>
+> Ce document date du 2026-08-19 14:45. Deux choses que je t'y ai ecrites ont ete reconnues
+> fausses le soir meme, et **je ne les avais pas corrigees ICI** — donc tu as pu les relire
+> depuis. Je les corrige en tete, pas en note de bas de page.
+>
+> **1. « un segment de 14 cm dans un organe de 73 cm » est FAUX d'un facteur 4.** J'avais divise
+> les unites du moteur par 10 au lieu de **4096** (4096 unites = 1 metre). Les vraies longueurs
+> sont **3,4 cm de chair simulee dans un organe de 17,9 cm**. Le RAPPORT que j'en tirais — 19 %
+> de l'organe est simule, 81 % suivent sans participer — **est juste et ne bouge pas** ; ce sont
+> les deux longueurs affichees qui etaient absurdes. Tu l'as vu tout de suite, et tu avais raison.
+>
+> **2. « ta section 22 voudrait 21-25 % » AU NIVEAU DE L'ORGANE : cette ligne n'existe pas dans
+> ta spec.** Verifie mot pour mot : sa §22 ecrit « **Local** tissue elongation: common 5-15%,
+> large 15-21%, exceptional 21-25% » et « Absolute stretch clamp: 25% ». Les deux sont **LOCALES**.
+> J'avais multiplie un plafond LOCAL par la longueur de l'ORGANE, ce qui est un changement de
+> denominateur, et j'en avais deduit qu'il fallait multiplier par 5,2 la chair simulee. **Cette
+> conclusion est retiree.** Pire, elle allait contre ta propre spec, qui dit en gras a la meme
+> section : « Large apex displacement shall **not** imply equally large tissue extension. »
+>
+> **Ce qui reste vrai dans ce document** : le correctif d'etirement du 19/08 (de ~30 % a 5,5 %),
+> le fait que 19 % seulement de l'organe est simule, et le point 3b (« prendre une grosse part du
+> budget ne veut pas dire etre la cause »).
+>
+> **Et ce que les cycles 49 a 56 ont change pour TOI : rien.** Ils ont tous porte sur la MESURE —
+> jouer des regimes jamais joues, corriger des instruments, epingler des poses. **Aucune valeur
+> livree n'a bouge depuis ce document.** Il n'y a donc rien de neuf a regarder de ton cote, et je
+> prefere te le dire que te faire chercher une difference qui n'existe pas.
+
 # CE BUILD CHANGE UNE CHOSE, ET UNE SEULE — DIS-MOI SI TU LA VOIS
 
 Branche `physics-keira-clean`. **Sa poitrine devrait se DEFORMER moins qu'avant. Elle devrait
@@ -76,10 +105,14 @@ L'outil a quand meme trouve le meilleur placement possible. Il fait passer la de
 de **4,8 %** a **9,0 %** de la taille de l'organe — soit **presque le double**, et ca la sort du
 sous-plancher pour la mettre dans la bande « courante » de ta spec.
 
-Mais il ne peut pas aller plus haut : ta section 22 voudrait 21-25 %, et ta section 30 plafonne le
-segment pilotable a ~37 % de l'organe. **Les deux sections ne sont pas satisfiables ensemble tant
-que la deformation passe par la chaine d'os.** Aller plus loin voudrait dire changer de modele
-(faire porter la deformation par le calcul de forme, qui est deja bien oriente, au lieu des os).
+~~Mais il ne peut pas aller plus haut : ta section 22 voudrait 21-25 %, et ta section 30 plafonne
+le segment pilotable a ~37 % de l'organe. Les deux sections ne sont pas satisfiables ensemble.~~
+
+**CE PARAGRAPHE EST RETIRE — voir la correction 2 en tete.** Il opposait deux de tes sections l'une
+a l'autre sur la foi d'une ligne que ta §22 **ne contient pas** : ses deux lignes d'elongation sont
+**LOCALES** (« **Local** tissue elongation… », « Absolute stretch clamp: 25% »), pas au niveau de
+l'organe. Il n'y a donc **aucune contradiction** entre ta §22 et ta §30, et la question ci-dessous
+reposait sur une contradiction que j'avais fabriquee.
 
 > **Veux-tu que je cuise ce placement (x1,8 sur la deformation) ?** C'est un arbitrage de qualite,
 > donc le tien. Un mot et je le construis.

@@ -1,113 +1,266 @@
-RAPPORT — CYCLE 55 — L'ECART GAUCHE/DROITE ETAIT UN ARTEFACT DE POSE. x3.41 -> x1.06.
-ET LE MECANISME PREDIT MAINTENANT DANS DEUX POSES TRES DIFFERENTES.
+RAPPORT — CYCLE 56 — LE MONTAGE APPARIE N'A PAS DE CONTRASTE : CE CYCLE NE DIT RIEN DE SPEC 18,
+ET C'EST LA BRANCHE (b) DE MA PROPRE PREDICTION. MAIS SPEC 12 SURVIT A L'EPINGLE ET SON MECANISME
+EST DE RIG, PAS DE POSE. TROIS DEFAUTS DE CONCEPTION DE MA PHASE, TROUVES PAR MES INSTRUMENTS.
 DIRECTIVES v3fee554599
 Phase Grecharged-secondary-motion · branche physics-keira-clean · Keira seule, chestL/chestR
-Predictions gravees AVANT la course : C55E1-sympose-prediction.txt, commit b33d81faf8.
-Cinq predictions, la principale CONTRE MOI. Les cinq sont adjugees.
+Predictions gravees AVANT la course : C56E1-deuxposes-prediction.txt
+md5 8128d2000ec3484fb03bcac2cb29096a, commit 72701d62f9. Adjudicateur commite AVANT les donnees
+(49e35370ff). Les six predictions sont adjugees, deux TENUES, deux REFUTEES, une SANS OBJET,
+une VIDE.
 
 ===============================================================================================
-1. LE RESULTAT, ET IL TRANCHE UNE QUESTION OUVERTE DEPUIS DES CYCLES
+0. LA PHASE NE PEUT PAS PASSER LE VALIDATEUR, ET CE N'EST PAS UN ECHEC DE LA TENTATIVE
 ===============================================================================================
-La pose des fenetres de PH-SGN est EPINGLEE a `assistant-village2-idle-hut-breath`, retrouvee PAR
-SON NOM (`PHYSSGNPOSE ai=12 src=name`) et REVALIDEE a l'execution — on ne fait pas confiance au
-choix, on le mesure :
+`bash .autoport/validators/phase-Grecharged-secondary-motion.sh` echoue sur `OPEN-DEFECTS`, qui
+compte les lignes `^OPEN ` de `owner-defects.txt`. Il en reste UNE : `breast-spec-incomplete`. La
+gate ecrit elle-meme sa regle — « La liste se vide UNIQUEMENT sur la parole de l'owner ». C'est
+une PORTE HUMAINE. Les deux seules facons de la faire sortir a 0 sont d'effacer une ligne `OPEN`
+ou de toucher une gate (regle 5, verrou dur) : la premiere serait forger un verdict de l'owner, la
+seconde est interdite. Je ne fais ni l'une ni l'autre.
 
-    ecart au miroir parfait de la pose TENUE :  racine **6.7 deg**   distal **7.2 deg**
-    (la pose des cycles 52-54 valait 43.4 deg ; le rig en bind vaut 0.005 deg)
+CE QUE J'AI FAIT A LA PLACE, ET C'EST NEUF : une SONDE EN LECTURE SEULE (copie /tmp, le validateur
+reel n'est pas touche) qui neutralise la porte humaine pour voir CE QUE DISENT les gates qu'elle
+masque. Personne ne le savait, parce qu'une gate placee derriere une gate qui echoue toujours
+n'est jamais evaluee.
 
-**P1 TENUE : l'epingle a pris.** Et alors :
+    SYNC · CLEAN · SCOPE · TUNING · MOVE · ROOM · IDLE · ANIM · DISCRIMINANT   ->  TOUTES VERTES
+    COLLIDE  ->  ROUGE, et c'est la SEULE : « seins vs thorax et sein oppose (SPEC-breast 33/34) »
+                 traverse encore, penetration max **0.1115 m** contre un plafond de **0.0005**
 
-    ECART GAUCHE/DROITE SUR L'AXE VERTICAL, k=0
-        s=+1 :  chestL 0.0754   chestR 0.0799   ->  **x1.06**
-        s=-1 :  chestL 0.0913   chestR 0.0782   ->  **x1.17**
-
-    il valait **x3.41** dans la pose asymetrique (cycle 52)
-
-**P3 TENUE : LA POSE PORTAIT L'ECART.** Le x3.41 que j'ai publie au cycle 52 comme un depassement
-de sa §32 (qui prescrit 2-5 %) n'etait pas une propriete du personnage ni du solveur : c'etait la
-pose que la salle laissait en place. Dans une pose symetrique, les deux seins repondent a 6 et
-17 % l'un de l'autre.
-
-===============================================================================================
-2. ET LA RAISON EST GEOMETRIQUE, PAS UNE COINCIDENCE (P5, TENUE SUR LES DEUX SENS)
-===============================================================================================
-C'est P5 qui distingue une vraie explication d'un simple deplacement des chiffres : si la pose
-portait l'ecart, ce n'est pas seulement l'APEX qui doit s'egaliser, c'est la CONFISCATION — et
-pour la raison mesuree, a savoir que les deux os font desormais le meme angle avec le pilotage.
-
-    angles os / axe vertical dans la pose epinglee :  chestL **22.3 deg**   chestR **21.8 deg**
-    (dans la pose asymetrique : chestL 2.03 deg, chestR 41.77 deg)
-
-    confiscation (k=1 / k=0), axe vertical      MESUREE        PREDITE par 1/sin
-        chestL s=+1                              x2.14              x2.64
-        chestL s=-1                              x2.25              x2.64
-        chestR s=+1                              x2.05              x2.70
-        chestR s=-1                              x2.73              x2.70
-
-        ecart entre les deux chaines : **0.039** (s=+1) et **0.176** (s=-1), critere <= 0.30
-
-**P5 TENUE sur les deux sens.** Les deux chaines sont desormais confisquees pareil, parce que
-leurs os font le meme angle avec le pilotage. C'est la meme grandeur qui explique l'ecart AVANT et
-son absence APRES.
-
-**P4 TENUE — LE MECANISME PREDIT DANS DEUX POSES TRES DIFFERENTES.** Les temoins negatifs le
-disent aussi bien que l'axe vise :
-
-    temoins (axes non alignes)   MESURE          PREDIT
-        chestL ap                x1.10 / x0.97   x1.01
-        chestL lat               x1.19 / x1.07   x1.07
-        chestR ap                x1.02 / x0.95   x1.00
-        chestR lat               x1.15 / x1.15   x1.08
-
-**ET CA EXPLIQUE LE RESIDU QUE LE CYCLE 53 LAISSAIT OUVERT.** J'y notais que le modele
-sur-predisait d'un facteur ~6 sur chestL (x28.22 predit contre x3.79-x4.99 mesure) et je ne savais
-pas pourquoi. La reponse est dans la comparaison des deux poses : a **2.03 deg** `sin(theta)`
-vaut 0.035 et `1/sin` explose — le modele est au bord de sa singularite, ou tout autre terme du
-solveur domine. A **22 deg**, loin de la singularite, il tombe juste a 20 % pres sur les quatre
-lectures. **Le modele n'etait pas faux, il etait evalue la ou il ne vaut rien**, et je ne pouvais
-pas le savoir avec une seule pose.
+Et il y avait un SECOND masquage sous le premier : `COLLIDE` echoue avant `ROOM`, `IDLE`, `ANIM` et
+`DISCRIMINANT`, qui n'avaient donc **jamais ete evaluees** de toute la phase. Rendue non fatale, la
+sonde va jusqu'au bout et affiche `PASS`. Autrement dit : **hors la porte de l'owner, il reste UN
+seul defaut technique dans tout le validateur, et c'est la penetration de la poitrine.** C'est
+aussi la regle 6 de l'owner (« Rien ne traverse le mesh de son personnage ») et les §33/§34 du
+registre. Le prochain chantier n'a plus a etre devine.
 
 ===============================================================================================
-3. LE CONTROLE (P2)
+1. CE QUE LA COURSE DEVAIT TRANCHER, ET POURQUOI ELLE NE LE TRANCHE PAS
 ===============================================================================================
-    lignes de mesure hors `PHYSSGN*`/`PHYSREMAP*` : ref 37 718, cette course 37 719
-    lignes CHANGEES : **0**
-    ligne AJOUTEE : 1 — `PHYSANIMLEN a=12 n=16.0000 speed=0.1250`
+Le superviseur a grave le 2026-08-20 05:20 que la pose TENUE par la salle est a 43.4 deg du miroir
+alors que le rig est symetrique a 0.005 deg, et a nomme quatre sections a remesurer : §32, §18,
+§12 et l'attribution du cycle 52. Le cycle 55 a traite la derniere. Ce cycle attaque §18 et §12
+par un montage APPARIE : les MEMES stimuli, dans DEUX poses epinglees par leur NOM, DANS LA MEME
+COURSE, a la MEME place, avec l'ordre des deux jambes EQUILIBRE.
 
-Aucune mesure existante n'a change de valeur. La ligne ajoutee est emise par `physroom-set-anim`,
-donc par l'epingle elle-meme. **Ma liste d'exclusions etait courte d'un tag** : j'avais nomme
-`PHYSREMAP*` et pas `PHYSANIMLEN`. Je le dis plutot que d'elargir le filtre apres coup.
+**P1 TENUE — LES DEUX EPINGLES ONT PRIS, ET ELLES SONT REPRODUCTIBLES.**
+
+    jambe SYM  (assistant-village2-idle-hut-breath) :  racine 6.7 / 6.8 deg   distal 5.9 a 9.7
+    jambe ASYM (assistant-firecanyon-idle-down)     :  racine 123.4 deg       distal 104.7 a 105.2
+
+Les quatre cellules de chaque jambe rendent le meme ecart au miroir a 0.1 deg pres. La pose est
+donc bien la variable que je voulais fixer, et elle est REVALIDEE A L'EXECUTION dans chaque
+cellule — jamais supposee depuis le nom.
+
+**P3 SANS OBJET — ET C'EST LA BRANCHE (b), ECRITE AVANT LA COURSE.**
+
+    ecart gauche/droite d'apex (R = max/min, sans direction)
+        m=0  lacet 90 deg    SYM  R = 1.969      ASYM  R = 1.027
+        m=1  lacet 150 deg   SYM  R = 1.393      ASYM  R = 1.019
+
+La jambe ASYMETRIQUE ne produit AUCUN contraste (il fallait R >= 2.0). **Le montage apparie n'a
+donc rien a separer, et ce cycle NE DIT RIEN de §18.** Je ne lis pas la jambe symetrique toute
+seule : une jambe sans son temoin n'est pas une mesure. C'est exactement le cas (b) que j'avais
+ecrit avant de lancer, et il tombe.
+
+**ET IL FAUT DIRE CE QUI VA CONTRE MOI, PAS SEULEMENT CE QUI EST NEUTRE.** La pose a 123 deg du
+miroir rend un ecart gauche/droite de **1.02**, la pose a 6.7 deg rend **1.39 a 1.97**. C'est
+l'ORDRE INVERSE de ce que l'hypothese « la pose porte l'ecart » predit. Ce n'est PAS une refutation
+— les trois raisons ci-dessous l'expliquent sans elle — mais ce n'est en aucun cas une
+confirmation partielle, et je ne la presenterai pas comme telle.
 
 ===============================================================================================
-4. CE QUE CE CYCLE CHANGE AU DOSSIER, ET CE QU'IL NE CHANGE PAS
+2. POURQUOI LE MONTAGE N'A PAS MARCHE — TROIS RAISONS, TOUTES MESUREES PAR MES PROPRES EMETTEURS
 ===============================================================================================
-**CE QU'IL TRANCHE, ET RIEN DE PLUS :** l'ecart gauche/droite sur l'APEX VERTICAL sous impulsion
-isolee. Il valait x3.41, il vaut x1.06-x1.17. **Ma propre publication du cycle 52 sur ce point est
-donc corrigee, et elle l'est par une mesure, pas par un argument.**
+**(a) LES DEUX JAMBES N'ONT PAS RECU LE MEME STIMULUS, ET L'ECART EST DE x2.5.** C'etait LA
+premisse du montage, et elle est fausse :
 
-**CE QU'IL NE TRANCHE PAS, ET JE NE L'ETENDS PAS :**
-* La §32 du registre porte une AUTRE mesure — « bouger un sein deplace l'autre de 32 a 321 % » —
-  qui est un COUPLAGE, pas cet ecart. Elle n'est pas touchee.
-* Les sept regimes de §14-20, le balayage d'orientation de §10-13 et les lignes §18 et §12
-  tournent dans des phases qui tiennent TOUJOURS la pose asymetrique. **Ils restent NON LISIBLES
-  pour tout ce qui est gauche/droite** — ni tenus, ni refutes.
-* Rien de visible pour l'owner : aucune mesure existante n'a bouge.
+    stimulus recu par la pointe (`PHYSSYM2 stim=`)
+        m=0   SYM  8.20 / 6.80       ASYM  17.27 / 18.85     -> x2.3
+        m=1   SYM  20.94 / 18.15     ASYM  49.01 / 53.40     -> x2.6
 
-**LE FAIT NOUVEAU QUI EN DECOULE ET QUI EST GROS :** si epingler la pose d'UNE phase fait tomber
-un ecart de x3.41 a x1.06, alors toutes les phases qui mesurent du gauche/droite doivent etre
-epinglees de la meme facon. Le dossier a passe plusieurs cycles a chercher dans le solveur et dans
-le rig la cause d'asymetries qui, au moins sur cet axe, venaient de la pose tenue.
+CAUSE TROUVEE, ET ELLE EST DANS LA POSE ELLE-MEME : le bras de levier de rotation, releve a
+l'execution dans chaque cellule (`PHYSSYML`), differe d'un facteur **59** entre les deux poses.
+
+    SYM  : cex = -13895.56  (3.39 m)        ASYM : cex = -234.38  (0.06 m)
+
+Pour un LACET, ce levier EST le stimulus (`physroom-reg-pose` fait decrire a l'ancre l'arc du
+levier). Epingler une autre animation ne change donc pas seulement la SYMETRIE de la pose : ca
+deplace le squelette entier dans l'espace de l'acteur, et ca change l'entree. **Je n'avais pas
+prevu ca, et c'est mon emetteur `stim` — pose la precisement pour qu'une reponse ne soit jamais
+publiee sans son entree — qui l'a rendu visible.**
+
+**(b) LA JAMBE LA PLUS EXCITEE TRAVAILLE LA OU LE PLAFOND MORD.** Les apex de la jambe ASYM valent
+0.370 a 0.420 B0, contre un plafond de §22 a 0.42 (normal) / 0.50 (exceptionnel) ; ceux de la
+jambe SYM valent 0.110 a 0.342. Une reponse proche de son plafond aplatit TOUT rapport vers 1 —
+c'est deja au dossier (`per-link saturation flattens output`, `clipped input needs amplitude and
+frequency`). Le R = 1.02 de la jambe ASYM est donc compatible avec « les deux chaines sont
+saturees », pas seulement avec « les deux chaines sont symetriques ».
+
+**(c) RIEN N'EST RESOLU.** Voir P6 : le plancher vaut 0.348 a 0.646 B0 pour des apex de 0.110 a
+0.437. Les huit rapports de P3 et P5 sont declares NON RESOLU par l'adjudicateur.
 
 ===============================================================================================
-5. LE CHANTIER SUIVANT
+3. CE QUI EST ETABLI, ET C'EST LE TEMOIN NEGATIF QUI LE PORTE — P4 TENUE
 ===============================================================================================
-1. **Epingler la pose symetrique pour TOUTES les phases de mesure**, pas seulement PH-SGN, et
-   rejouer. Ce cycle-la depensera le controle d'identite au bit sur toute la trace — c'est
-   inevitable et c'est justifie : il rendra lisibles §12, §18, §32 et le balayage d'orientation.
-   La prediction a graver alors, et elle est contre moi : si les ecarts gauche/droite de §18
-   (x2.5 sur l'apex) et de §12 SURVIVENT a l'epingle, la pose n'explique que l'axe vertical et le
-   reste est bien dans le moteur.
-2. Verifier que la pose epinglee reste symetrique sur la duree des phases (elle est validee a
-   l'entree ; une phase longue pourrait la voir deriver si l'animation avance).
-3. Le canal radial de §23 : la contrainte confisque, il est cense rendre. Combien rend-il, et
-   pourquoi sa borne `rcap` est-elle atteinte ?
+Le seul resultat solide du cycle est celui que j'avais pose pour me contredire si la pose
+expliquait tout. **§12 SURVIT A L'EPINGLE.**
+
+    aplatissement `sx` par pole, jambe SYMETRIQUE (pose a 6.7 deg du miroir)
+        pole +90 :  chestL 1.04062   chestR 0.87673    ecart **+17.10 %**   (L > R)
+        pole -90 :  chestL 0.82151   chestR 0.97887    ecart **+17.48 %**   (L < R)
+
+L'ecart depasse les 10 % exiges AUX DEUX POLES **et il s'inverse** : le sein qui s'aplatit a +90
+est l'autre a -90. Et la gravite que LE SOLVEUR LIT s'inverse EXACTEMENT :
+
+    pole +90 : g = (-0.9713, +0.0310, +0.2357)      pole -90 : g = (+0.9713, -0.0310, -0.2357)
+
+**Donc l'asymetrie gauche/droite de §12 n'est PAS un artefact de pose : elle est armee par
+`sign(sja)`, un invariant de RIG (rapport 84000:1). L'attribution du correctif du cycle 50 TIENT.**
+C'est la prediction qui devait me faire rouvrir le cycle 50 si elle tombait ; elle ne tombe pas.
+
+**ET ELLE FERME UNE QUESTION QUE LE REGISTRE LAISSAIT OUVERTE, PAR UNE MESURE.** La ligne §12 du
+registre disait : « quelle pose physique charge la ligne laterale du solveur est une question
+OUVERTE ». Reponse : `physroom-orient` sur l'axe 0 a ±90 deg met la gravite a |gx| = **0.9713**
+dans le triedre de sa §7. **Le commentaire du code (`physroom-orient` : « axis 0 = tangage ») est
+FAUX**, et le `lat = (2, 4)` code en dur de l'analyseur est juste — desormais pour une raison
+mesuree, et non par chance.
+
+CONTRE-EPREUVE DANS LA MEME COURSE : dans la jambe ASYM le meme ecart ne vaut que 7.76 % / 7.36 %,
+et |gx| n'y vaut que 0.5814. Moins de gravite laterale, moins d'aplatissement differentiel : le
+mecanisme SUIT SON ENTREE. C'est ce qui distingue un mecanisme d'une coincidence.
+
+**P5 REFUTEE** — l'invariance miroir ne s'etablit pas comme predit. La moitie SYM passe bien
+(ecarts croises 0.125 et 0.235, sous 0.25), mais la moitie ASYM passe AUSSI et mieux (0.102 et
+0.055) la ou j'attendais >= 0.50. Pas de contraste, meme cause qu'en P3, et les quatre valeurs
+sont de toute facon NON RESOLUES.
+
+===============================================================================================
+4. TROIS DEFAUTS DE CONCEPTION DE MA PROPRE PHASE — ET AUCUN N'A ETE TROUVE PAR CHANCE
+===============================================================================================
+**(1) LE PLANCHER MESURE UN RETOUR DE MANIVELLE, PAS LE BRUIT DE L'INSTRUMENT. P6 EST VIDE.**
+La queue de calme s'ouvre par un `physroom-hold`, qui ramene le sujet d'une rotation de 90-150 deg
+a l'identite EN UNE FRAME. Mesure : `res` = 0.348 / 0.376 / 0.646 / 0.540 B0 pour des apex pilotes
+de 0.110 a 0.437 — **le plancher est plus grand que le signal**. Les huit rapports sont donc
+« NON RESOLU » par construction, et P6 aurait ete gagnee sans rien prouver. **Elle est declaree
+VIDE et NON COMPTEE.** Ce test de vacuite etait dans l'adjudicateur AVANT que la course ait produit
+une seule ligne (commit 49e35370ff) : je ne l'ai pas ajoute en voyant le resultat.
+CORRECTIF DU PROCHAIN CYCLE : retour DOUX en demi-cosinus (`PHYSROOM-RETF`), exactement ce que
+`physroom-reg-drive` fait deja entre ses fenetres et que je n'ai pas repris.
+
+**(2) LES CELLULES DE §12 MESURENT LE TRANSITOIRE, PAS L'EQUILIBRE.** J'ouvre la fenetre a la fin
+de l'etablissement PUIS j'applique l'orientation en ECHELON et je mesure sur les 90 frames
+suivantes. `PH-ORI`, lui, remet la fenetre a zero a `PHYSROOM-ORIS` (60) et ne mesure que les 30
+dernieres, donc un EQUILIBRE. Mon `apex` de m=2/3 n'est donc pas la meme grandeur que celle de
+§10-§13, et il ne doit pas etre compare a leurs bandes. `sx`, lu instantanement en fin de fenetre,
+est apres etablissement et n'est PAS touche — c'est pourquoi P4 reste lisible. Je le dis au lieu de
+laisser deux grandeurs porter le meme nom.
+
+**(3) LE LEVIER SUIT LA POSE, ET J'AI TRAITE LES DEUX COMME INDEPENDANTS.** Voir §2(a) : x59 sur
+`cex`. Une epingle de pose n'est pas seulement une epingle de SYMETRIE. Pour que le montage apparie
+tienne, il faudra soit egaliser le stimulus mesure entre les jambes, soit rapporter la reponse a
+son entree au lieu de la lire brute.
+
+===============================================================================================
+5. P2 REFUTEE, ET LE TEST FAUTIF EST LE MIEN — DEUX FOIS
+===============================================================================================
+**FAUTE 1.** J'ai ecrit le critere comme « toute ligne ne commencant NI par `PHYSSYM` NI par
+`PHYSANIMLEN` ». Ca inclut les lignes de log HORODATEES du moteur, qui ne peuvent JAMAIS coincider
+entre deux courses. D'ou 42 161 « lignes changees » qui ne veulent rien dire.
+
+**FAUTE 2, ET C'EST LA MEME QUE CELLE QUE LE CYCLE 55 A CONFESSEE.** J'ai annonce « les seules
+lignes ajoutees sous un tag existant sont des `PHYSANIMLEN`, exactement 8 ». **Faux.**
+`physroom-set-anim` appelle `physroom-build-perm!`, qui emet AUSSI `PHYSREMAP` et
+`PHYSREMAPORPHAN`. Les 8 epingles ajoutent donc **24 lignes sous TROIS tags existants**, pas 8 sous
+un seul. Le cycle 55 ecrivait « ma liste d'exclusions etait courte d'un tag » ; **j'en avais deux
+de moins, en ayant lu son rapport.**
+
+**CE QUE DIT LA SUBSTANCE, ET JE LE PUBLIE COMME UN CONTROLE SEPARE, PAS COMME UN SAUVETAGE DE P2.**
+Rejoue avec la definition du cycle 55 (lignes de MESURE `^PHYS` seulement), comparaison par
+MULTI-ENSEMBLE pour ne pas confondre un decalage avec un changement :
+
+    UNIQUEMENT dans la reference : 1 ligne   PHYSROOM-PHASEGUARD maxwork=32 ...
+    UNIQUEMENT dans cette course : 25 lignes  = le meme PHASEGUARD a maxwork=33 (change EXPRES)
+                                              + 8 PHYSANIMLEN + 8 PHYSREMAP + 8 PHYSREMAPORPHAN
+    lignes de MESURE dont la VALEUR a change : **0**
+
+Donc la phase est bien APPENDUE et n'a rien derange — mais la prediction censee le prouver etait
+mal ecrite, et **elle reste ROUGE**. Elargir un filtre apres coup pour sauver une prediction est
+exactement ce que le cycle 55 a refuse de faire ; je publie les deux et je ne repeins pas la
+premiere.
+
+===============================================================================================
+6. TROIS DEFAUTS DE DOSSIER, TROUVES AVANT LA COURSE ET CORRIGES
+===============================================================================================
+**(a) LE TABLEAU DE LA SALLE ETAIT PERIME DE DEUX COURSES.** `keira-room-table.txt` portait
+l'empreinte `md5 b068dfb3...` — le log du CYCLE 53 — alors que les cycles 54 ET 55 avaient livre
+depuis. Le fichier que le validateur lit pour ROOM / COLLIDE / IDLE / ANIM / DISCRIMINANT decrivait
+une course qui n'etait pas celle qui avait ete livree. Invisible parce que ces gates sont derriere
+`OPEN-DEFECTS`.
+CAUSE STRUCTURELLE : `keira_room_x86.sh` — le seul chemin par lequel une course x86 nait —
+n'appelait pas l'analyseur. Un derive qu'il faut PENSER a produire n'est pas produit.
+CORRECTIF AU POINT DE PRODUCTION : le script derive maintenant le tableau lui-meme ET verifie
+l'empreinte DANS le fichier ecrit. Verifie sur cette course : `md5 595b7c1d... verifie DANS le
+fichier ecrit`.
+
+**(b) REGENERE SUR LA COURSE QUE LE CYCLE 55 A REELLEMENT LIVREE, LE TABLEAU CHANGE DE VERDICT.**
+`ROOM-SIGN-RANK` passe de « ecart max 2.58 %, P6 TENUE » a « ecart max **5.10 %**, P6 REFUTEE » —
+au-dessus du critere de 5 % que l'analyseur porte lui-meme. Le plancher `ROOM-SIGN-REPEAT` passe
+de 0.462 % a **2.882 %**, et `A_mag` de chestR sur l'axe vertical tombe de « 51x le plancher » a
+« **1x** le plancher ».
+CONSEQUENCE SUR MA PROPRE PUBLICATION DU CYCLE 55 : le **x1.06 / x1.17** que j'ai publie comme
+l'ecart residuel en pose symetrique n'est pas « petit », il est **SOUS LA RESOLUTION** de son
+instrument. **La conclusion du cycle 55 n'en est pas affaiblie, elle en est renforcee** — l'ecart
+ne tombe pas a 6 %, il tombe a l'irresolvable. C'est sa REDACTION qui etait fautive. Corrigee au
+registre.
+
+**(c) J'AI JUGE §18 CONTRE UNE BANDE QUI N'EXISTE PAS.** Le registre ecrivait « ×2,5 ... quand sa
+§32 prescrit 2–5 % ». Relu MOT POUR MOT, §32 dit : « Subtle **parameter** variation is recommended:
+mass ±2–4%, stiffness ±3–5%, damping ±3–5%. Symmetrical movement remains **approximately**
+symmetrical, but not mathematically identical. » Les ±2-5 % portent sur les **PARAMETRES** ; la
+clause de REPONSE n'a **aucun chiffre**, et elle est **conditionnelle** (« symmetrical MOVEMENT »),
+donc indefinie dans une pose a 43 deg du miroir. Meme faute que la x5.2 retiree le 19/08 : une
+ligne citee de memoire, un denominateur echange.
+CE QUI SURVIT, ET C'EST PLUS SOLIDE : la cause que §18 s'invoque a elle-meme (« because their
+offsets from the torso rotational axis differ ») **n'existe pas dans ce rig** — les deux racines
+sont a 548.1 u de l'axe de lacet a 5.2e-4 % pres. §18 predit donc ICI la quasi-egalite, et c'est
+contre sa propre phrase qu'un ecart doit etre juge.
+
+**(d) LE DOCUMENT DESTINE A L'OWNER PORTAIT ENCORE DEUX CHIFFRES QUE J'AVAIS RETIRES.**
+`OWNER-VERIFY-QUEUE.md` datait du 19/08 14:45 et contenait toujours (i) « un segment de 14 cm dans
+un organe de 73 cm » — l'erreur d'unites d'un facteur 4 (÷10 au lieu de ÷4096 ; les vraies valeurs
+sont **3,4 cm dans 17,9 cm**), et (ii) « ta section 22 voudrait 21-25 % » au niveau de l'ORGANE —
+une ligne que sa spec **ne contient pas**, ses deux lignes d'elongation etant LOCALES. Le
+superviseur avait ecrit le 19/08 a 20:00 « Je le lui corrige directement, pas en note de bas de
+page » ; **ca n'avait jamais ete fait DANS le fichier qu'il lit.** Corrige en tete et dans le corps,
+avec la mention que les cycles 49 a 56 n'ont rien change de visible pour lui.
+
+===============================================================================================
+7. CE QUE JE N'AI PAS FAIT, ET JE LE DIS
+===============================================================================================
+* **Le COUPLAGE de §32 (« 32 a 321 % ») n'est PAS rejoue.** Verifie dans l'arbre : le chiffre vient
+  d'un diff HORS-LIGNE de deux courses (reference contre masse x4 sur une seule chaine, cycle 32,
+  commit 261fa72729). **Aucun script du depot ne le calcule**, et il exige DEUX courses, pas une
+  pose. Il reste ouvert et le registre continue de le porter comme tel.
+* **Les sept regimes de §14-§20 ne sont PAS re-epingles**, donc aucun de leurs verdicts ne bouge —
+  §19 comprise, l'une des trois seules TENUES. Le cycle 55 proposait de tout re-epingler d'un coup ;
+  ce serait deplacer sept verdicts a la fois sans controle apparie.
+* **§18 reste NON LISIBLE pour tout ce qui est gauche/droite.** Ni tenue, ni refutee. Ce cycle a
+  essaye et a echoue a produire le contraste ; il ne conclut pas a la place.
+* **Aucune gate n'est touchee** (regle 5). Les sondes sont des copies /tmp, en lecture seule, et
+  ne rendent aucun verdict.
+* **Rien de visible pour l'owner.** Aucune valeur livree n'a change : le moteur `jak-hd-physics.gc`
+  n'est pas touche (4800 lignes, inchangees), seul `phys-room.gc` (la salle de test) grandit.
+
+===============================================================================================
+8. LE CHANTIER SUIVANT, ET IL EST DESORMAIS DESIGNE PAR LA MESURE
+===============================================================================================
+1. **LA PENETRATION DE LA POITRINE (§33/§34) — c'est le SEUL rouge technique du validateur.**
+   0.1115 m contre un plafond de 0.0005. C'est aussi la regle 6 de l'owner. Tout le reste du
+   validateur est vert, y compris quatre gates qui n'avaient jamais ete evaluees.
+2. Reparer les trois defauts de PH-SYM (retour doux, fenetre de mesure de §12 apres etablissement,
+   stimulus egalise entre jambes) AVANT de rejouer §18 — sinon le montage redonnera un non-resultat.
+3. §18 reste a trancher. La prediction a graver alors se deduit de ce cycle : si le stimulus est
+   egalise ET que la jambe asymetrique reste a R ~ 1.0, alors la pose n'explique rien du lacet et
+   l'ecart x2.5 du registre vient d'ailleurs — probablement de la fenetre de PH-REG elle-meme.
+===============================================================================================

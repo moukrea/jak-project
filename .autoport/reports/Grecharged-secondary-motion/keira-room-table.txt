@@ -1,7 +1,7 @@
 ==================================================================================================
 KEIRA — SALLE DE TEST SANS JOUEUR : TABLEAU DE MESURE
 genere par .autoport/physics_room_table.py depuis .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
-empreinte de la trace lue : md5 b068dfb359cdb690c8926c6638aca5ba (3721486 octets)
+empreinte de la trace lue : md5 595b7c1dde5966ddc98a395090605907 (3799488 octets)
 contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 7 (ce qui fait foi)
 
 Toutes les longueurs sont en METRES (la trace est en unites de jeu, 4096 u = 1 m). Ce que
@@ -1805,14 +1805,14 @@ row chain=chestR       anim=assistant-lavatube-end-idle            drive=tilt   
       donc etre non nuls que si un terme du solveur distingue un SENS de l'autre.
       Ce ne sont pas des seuils choisis, c'est une propriete du systeme.
 
-   ROOM-SIGN-BASE: `bapex` (60 frames de calme fermant la fenetre) mediane 0.1221  max 0.1971  sd 0.0403
+   ROOM-SIGN-BASE: `bapex` (60 frames de calme fermant la fenetre) mediane 0.1292  max 0.2101  sd 0.0428
       P5 EST REFUTEE, ET LA CAUSE EST MON INSTRUMENT : la rampe de RETOUR est une
       impulsion de meme amplitude, et le calme la suit immediatement. `bapex` lit
       donc sa reponse, pas un residu. Cette ligne ne sert PAS de plancher.
 
    ROOM-SIGN-REPEAT: k=0 contre k=2 (cote levee, INERTE ici), memes (axe, sens),
       12 cellules separees de DOUZE fenetres dans la sequence :
-      ecart max 0.462 %   mediane 0.036 %
+      ecart max 2.882 %   mediane 0.044 %
       -> C'EST LE PLANCHER DE L'INSTRUMENT. Tout ecart au-dela est REEL.
 
    ROOM-SIGN-ABL: ce que CHAQUE desarmement fait a la reponse, rapporte a k=0.
@@ -1820,25 +1820,25 @@ row chain=chestR       anim=assistant-lavatube-end-idle            drive=tilt   
       « retirer la seule restriction, donc tout grandit », il ferait monter LES TROIS
       axes. Une ablation qui ne deplace QU'UN axe designe un mecanisme SELECTIF.
       chaine   axe   sens       k0 | k1 long  k2 cote  k3 cone  k4 MUR   k5 rad
-      chestL   VERTICAL +1     0.0453 | 3.79x    1.00x    1.00x    1.00x    1.89x   
-      chestL   VERTICAL -1     0.0463 | 4.99x    1.00x    1.00x    1.00x    1.58x   
-      chestL   AVANT-ARR +1     0.2064 | 0.99x    1.00x    1.00x    1.00x    1.00x   
-      chestL   AVANT-ARR -1     0.1608 | 1.00x    1.00x    1.00x    1.17x    1.00x   
-      chestL   LATERAL +1     0.2786 | 1.04x    1.00x    1.00x    1.00x    1.00x   
-      chestL   LATERAL -1     0.2474 | 0.92x    1.00x    1.05x    0.80x    1.10x   
-      chestR   VERTICAL +1     0.1209 | 1.58x    1.00x    0.98x    0.98x    1.23x   
-      chestR   VERTICAL -1     0.1583 | 1.30x    1.00x    1.00x    1.00x    0.98x   
-      chestR   AVANT-ARR +1     0.1324 | 1.69x    1.00x    1.04x    1.04x    1.21x   
-      chestR   AVANT-ARR -1     0.1917 | 1.40x    1.00x    1.00x    1.00x    0.99x   
-      chestR   LATERAL +1     0.2528 | 0.96x    1.00x    1.00x    1.00x    1.00x   
-      chestR   LATERAL -1     0.2005 | 0.89x    1.00x    1.06x    0.95x    1.07x   
+      chestL   VERTICAL +1     0.0754 | 2.14x    1.00x    1.00x    1.00x    1.59x   
+      chestL   VERTICAL -1     0.0913 | 2.25x    1.02x    1.02x    1.02x    1.04x   
+      chestL   AVANT-ARR +1     0.2790 | 1.10x    1.00x    1.00x    1.00x    1.02x   
+      chestL   AVANT-ARR -1     0.2237 | 0.97x    1.00x    1.10x    0.82x    1.17x   
+      chestL   LATERAL +1     0.1597 | 1.19x    1.00x    1.00x    1.10x    1.01x   
+      chestL   LATERAL -1     0.1924 | 1.07x    1.00x    1.00x    1.00x    0.99x   
+      chestR   VERTICAL +1     0.0799 | 2.05x    1.00x    1.00x    1.00x    1.57x   
+      chestR   VERTICAL -1     0.0782 | 2.73x    0.97x    0.97x    0.97x    1.08x   
+      chestR   AVANT-ARR +1     0.2734 | 1.02x    1.00x    1.00x    1.00x    1.00x   
+      chestR   AVANT-ARR -1     0.2031 | 0.95x    1.00x    1.09x    0.93x    1.20x   
+      chestR   LATERAL +1     0.2100 | 1.15x    1.00x    1.00x    1.00x    1.00x   
+      chestR   LATERAL -1     0.1753 | 1.15x    1.00x    0.98x    0.98x    1.01x   
 
    ROOM-SIGN-STIM: sur les cellules PROPRES, ecart de stimulus entre les deux sens — max 0.000 %  (P6 : <= 5 %) -> TENUE
       P6 A FAIT SON TRAVAIL : c'est elle qui a attrape la fenetre i=0, dont le
       stimulus valait 74x celui des autres. Sans ce controle, le plus gros chiffre
       du tableau partait dans le rapport comme une reponse a mon impulsion.
 
-   ROOM-SIGN-P4: desarmer le MUR DE COLLISION (k=4) deplace la reponse de 20.2 % au plus, 0.5 % en mediane, sur 12 cellules propres.
+   ROOM-SIGN-P4: desarmer le MUR DE COLLISION (k=4) deplace la reponse de 17.6 % au plus, 1.7 % en mediane, sur 12 cellules propres.
       -> P4 REFUTEE, ET C'ETAIT MON SUSPECT PRINCIPAL, MISE AVANT LA COURSE.
       LE MUR DE COLLISION EST EXONERE de la dependance au sens. C'etait le seul
       terme UNILATERAL PAR NATURE du solveur — une poussee de contact ne tire
@@ -1846,39 +1846,40 @@ row chain=chestR       anim=assistant-lavatube-end-idle            drive=tilt   
       ce qui est un resultat et non un echec.
 
    ROOM-SIGN-P3: l'asymetrie de SENS, cellules propres de k=0, contre le plancher
-      de repetabilite (0.462 %). Pour un systeme lineaire OU une non-linearite
+      de repetabilite (2.882 %). Pour un systeme lineaire OU une non-linearite
       symetrique, A_mag et A_dir valent EXACTEMENT zero.
-      VERTICAL chestL       apex(+)=0.0453 apex(-)=0.0463  A_mag=0.0215 (5x le plancher)  A_dir=177.3 deg
-      VERTICAL chestR       apex(+)=0.1209 apex(-)=0.1583  A_mag=0.2365 (51x le plancher)  A_dir=59.3 deg
-      AVANT-ARR chestL       apex(+)=0.2064 apex(-)=0.1608  A_mag=0.2212 (48x le plancher)  A_dir=49.0 deg
-      AVANT-ARR chestR       apex(+)=0.1324 apex(-)=0.1917  A_mag=0.3093 (67x le plancher)  A_dir=37.2 deg
-      LATERAL chestL       apex(+)=0.2786 apex(-)=0.2474  A_mag=0.1117 (24x le plancher)  A_dir=27.3 deg
-      LATERAL chestR       apex(+)=0.2528 apex(-)=0.2005  A_mag=0.2069 (45x le plancher)  A_dir=30.0 deg
+      VERTICAL chestL       apex(+)=0.0754 apex(-)=0.0913  A_mag=0.1737 (6x le plancher)  A_dir=76.3 deg
+      VERTICAL chestR       apex(+)=0.0799 apex(-)=0.0782  A_mag=0.0205 (1x le plancher)  A_dir=77.5 deg
+      AVANT-ARR chestL       apex(+)=0.2790 apex(-)=0.2237  A_mag=0.1984 (7x le plancher)  A_dir=19.7 deg
+      AVANT-ARR chestR       apex(+)=0.2734 apex(-)=0.2031  A_mag=0.2573 (9x le plancher)  A_dir=27.7 deg
+      LATERAL chestL       apex(+)=0.1597 apex(-)=0.1924  A_mag=0.1700 (6x le plancher)  A_dir=45.7 deg
+      LATERAL chestR       apex(+)=0.2100 apex(-)=0.1753  A_mag=0.1651 (6x le plancher)  A_dir=38.6 deg
       P3 TELLE QUE JE L'AVAIS ECRITE PORTAIT SUR L'AXE VERTICAL : elle est
       INDECIDABLE, sa fenetre `+` etant la cellule contaminee. Je ne la compte ni
       tenue ni refutee. Ce que les axes PROPRES etablissent est publie ci-dessus.
 
    ROOM-SIGN-RANK: LE MEME (ablation, axe, sens) JOUE AUX DEUX RANGS.
-      72 cellules appariees. Ecart max 2.58 %, mediane 0.16 %.
-      pire : k=3 LATERAL   s=-1 chestR        i=22 0.2156   i=59 0.2101   2.58 %
-      pire : k=2 LATERAL   s=-1 chestR        i=17 0.2031   i=52 0.1979   2.56 %
-      pire : k=0 LATERAL   s=-1 chestR        i= 5 0.2031   i=40 0.1979   2.56 %
-      pire : k=0 AVANT-ARR s=+1 chestR        i= 3 0.1341   i=38 0.1308   2.44 %
-      -> P6 TENUE — le RANG ne porte pas l'ecart entre les deux sens, qui est donc bien une dependance au SENS (critere : <= 5 %).
+      72 cellules appariees. Ecart max 5.10 %, mediane 0.32 %.
+      pire : k=0 VERTICAL  s=-1 chestR        i= 1 0.0762   i=36 0.0803   5.10 %
+      pire : k=4 VERTICAL  s=-1 chestL        i=25 0.0915   i=60 0.0942   2.88 %
+      pire : k=3 VERTICAL  s=-1 chestL        i=18 0.0942   i=55 0.0915   2.88 %
+      pire : k=2 VERTICAL  s=-1 chestL        i=13 0.0915   i=48 0.0941   2.80 %
+      -> P6 REFUTEE — le rang deplace la lecture d'autant que le sens ; l'asymetrie de sens publiee au cycle 52 est CONTAMINEE et sa section 5 doit etre reecrite (critere : <= 5 %).
 
    ROOM-SIGN-BONE: angle entre l'OS et l'AXE POUSSE, et la part TRANSVERSE qui
       survit a la projection de longueur (sin theta).
       chaine       os   | direction monde de l'os          | vertical      avant-arr     lateral
-      chestL       l=0 | (-0.1141, +0.9724, -0.2035)  norme 1.0000 |   2.0 deg sin=0.035   88.1 deg sin=0.999   89.3 deg sin=1.000
-      chestL       l=1 | (-0.1393, +0.9835, -0.1157)  norme 1.0000 |   5.4 deg sin=0.093   87.0 deg sin=0.999   85.5 deg sin=0.997
-      chestR       l=0 | (+0.5600, +0.8247, +0.0795)  norme 1.0000 |  41.8 deg sin=0.666   50.2 deg sin=0.768   79.4 deg sin=0.983
-      chestR       l=1 | (+0.5442, +0.8224, +0.1659)  norme 1.0000 |  43.2 deg sin=0.685   50.9 deg sin=0.777   74.4 deg sin=0.963
+      chestL       l=0 | (-0.2077, +0.9623, +0.1758)  norme 1.0000 |  22.3 deg sin=0.379   84.1 deg sin=0.995   68.6 deg sin=0.931
+      chestL       l=1 | (-0.1384, +0.9668, +0.2150)  norme 1.0000 |  23.6 deg sin=0.400   88.2 deg sin=1.000   66.5 deg sin=0.917
+      chestR       l=0 | (-0.0324, +0.8421, -0.5383)  norme 1.0000 |  21.8 deg sin=0.371   89.2 deg sin=1.000   68.2 deg sin=0.929
+      chestR       l=1 | (+0.0355, +0.8564, -0.5152)  norme 1.0000 |  21.2 deg sin=0.361   85.2 deg sin=0.996   69.5 deg sin=0.936
 
-   ROOM-SIGN-P3: sur chestL, |cos| vertical=0.9994  avant-arr=0.0332  lateral=0.0123
+   ROOM-SIGN-P3: sur chestL, |cos| vertical=0.9253  avant-arr=0.1028  lateral=0.3651
       -> P3 TENUE : le vertical EST l'axe le plus aligne avec l'os, donc celui que la contrainte de longueur confisque le plus.
-   ROOM-SIGN-P4: |cos| vertical — chestL=0.9994  chestR=0.7458 ; parts transverses sin=0.0354 et 0.6661, rapport 18.80
-      mesure a expliquer : confiscation x5.01 (chestL) contre x1.30 (chestR).
-      -> P4 TENUE : l'os de chestL est plus aligne avec le pilotage vertical, et le rapport des parts transverses va dans le bon sens.
+   ROOM-SIGN-P4: |cos| vertical — chestL=0.9253  chestR=0.9286 ; parts transverses sin=0.3793 et 0.3710, rapport 0.98
+      confiscation MESUREE sur cette course (k=1 / k=0, axe vertical) : chestL s=+1 x2.14  ·  chestL s=-1 x2.25  ·  chestR s=+1 x2.05  ·  chestR s=-1 x2.73
+      predite par 1/sin : chestL x2.64  chestR x2.70
+      -> P4 REFUTEE, ET CONTRE MOI : l'os de chestL n'est PAS plus aligne que celui de chestR. La longueur etant deja eliminee, l'orientation ne rend pas compte de l'ecart gauche/droite non plus — il ne reste que la repartition de peau, que ce cycle ne mesure pas.
 
 
 -- ROOM-RINGFIT : SPEC 24/25/26, AJUSTEES SUR TOUTE LA SERIE ------------------------------
@@ -2768,3 +2769,31 @@ ROOM-REST-MIX: coefficient moyen applique = 0.0223  (0.02 = tout buste, SPEC 34 
 ROOM-REST-LEG: spec  contacts=31    relues=31    vin=44177.2656 vout=898.6561  e_moy=0.0213
 ROOM-REST-LEG: x15   contacts=23    relues=23    vin=65130.3554 vout=19539.1640 e_moy=0.3000
 ROOM-REST-CONTROL: vout/vin  spec=0.0203  x15=0.3000  rapport=14.75x  LE CONTROLE A TIRE
+
+   -- ROOM-SYM : SPEC 12 ET SPEC 18 DANS DEUX POSES, MEME COURSE (cycle 56) ---------
+   ROOM-SYM: la POSE est la seule variable entre les deux jambes. `dev` = ecart au
+      miroir parfait de la pose EPINGLEE, RECALCULE A L'EXECUTION (on ne fait pas
+      confiance au choix d'animation, on le mesure). `res` = plancher de resolution,
+      pris sur la queue de CALME : un ecart sous `res` est NON RESOLU, pas "petit".
+
+      i   pose  mesure                     dev(deg)  apexL     apexR     R        res      
+      0   SYM   lacet 90  (SPEC18 modere)  6.7       0.21743   0.11042   1.969    0.34837   NON RESOLU
+      1   ASYM  lacet 90  (SPEC18 modere)  123.4     0.36959   0.37948   1.027    0.34837   NON RESOLU
+      2   ASYM  lacet 150 (SPEC18 fort)    123.4     0.42021   0.41247   1.019    0.37588   NON RESOLU
+      3   SYM   lacet 150 (SPEC18 fort)    6.8       0.34166   0.24524   1.393    0.37588   NON RESOLU
+      4   SYM   lateral +90 (SPEC12)       6.7       0.34519   0.38977   1.129    0.64649   NON RESOLU
+      5   ASYM  lateral +90 (SPEC12)       123.4     0.39453   0.43720   1.108    0.64649   NON RESOLU
+      6   ASYM  lateral -90 (SPEC12)       123.4     0.41378   0.43709   1.056    0.53979   NON RESOLU
+      7   SYM   lateral -90 (SPEC12)       6.8       0.30780   0.39122   1.271    0.53979   NON RESOLU
+
+      SPEC 12 — l'aplatissement par pole, et la gravite que le SOLVEUR lit :
+      m=2 lateral +90 (SPEC12)   SYM   sx chestL=1.04062 chestR=0.87673  ecart=+17.10 %   g lue (-0.9713, 0.0310, 0.2357)
+      m=2 lateral +90 (SPEC12)   ASYM  sx chestL=0.85922 chestR=0.92858  ecart= +7.76 %   g lue (0.5814, 0.7364, -0.3459)
+      m=3 lateral -90 (SPEC12)   SYM   sx chestL=0.82151 chestR=0.97887  ecart=+17.48 %   g lue (0.9713, -0.0310, -0.2357)
+      m=3 lateral -90 (SPEC12)   ASYM  sx chestL=1.04751 chestR=0.97317  ecart= +7.36 %   g lue (-0.5814, -0.7364, 0.3459)
+      L'ETIQUETTE D'AXE EST CELLE DE LA MESURE : le commentaire de `physroom-orient`
+      ecrit "axis 0 = tangage", la trace dit que la gravite y est quasi pure sur l'axe
+      LATERAL du triedre de sa §7. `g lue` ci-dessus est publiee pour qu'on n'ait pas
+      a croire l'un ou l'autre sur parole.
+      L'adjudication des six predictions de C56E1 est dans .autoport/c56_verdict.py —
+      ce tableau publie la MESURE, le verdict est ailleurs et il cite ses seuils.
