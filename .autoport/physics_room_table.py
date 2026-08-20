@@ -6548,6 +6548,102 @@ def main():
             A('ROOM-REST-CONTROL: domaine vide sur au moins une jambe (spec n=%d, x15 n=%d) :'
               ' le controle est NON CONCLUANT.' % (int(a['n']), int(b['n'])))
 
+    # -- ROOM-SYM : SPEC 12 ET SPEC 18, LES MEMES STIMULI DANS DEUX POSES (cycle 56) ------------
+    #
+    # NATURE : `apex` est un MAXIMUM DE FENETRE, en fraction de B0 ; `base` est la MEME grandeur
+    #   sur la queue de calme qui ferme la cellule, donc stimulus ABSENT ; `sx` est une ECHELLE
+    #   (sans unite, 1.000 = pas de deformation) ; `dev` est un ANGLE en degres.
+    # REPERE : `apex` et `base` en repere MONDE contre la pose d'auteur ; `sx` dans le triedre
+    #   local de sa §7 ; `dev` est un angle entre deux directions d'os unitaires en repere monde,
+    #   l'une reflechie dans le plan de normale `lat` (l'axe lateral du solveur, PHYSAXW ax=2).
+    # LIGNE DE BASE : `base`, publiee A COTE de chaque `apex`. Sans elle un ecart gauche/droite
+    #   n'a pas d'echelle et on ne peut pas dire s'il est petit ou simplement SOUS LA RESOLUTION —
+    #   c'est exactement la faute de redaction du cycle 55, corrigee ici.
+    # CE QUI DISCRIMINE : la POSE, et elle seule. Les deux jambes jouent le MEME stimulus a la
+    #   MEME place dans la MEME course, avec l'ordre des jambes equilibre ; la seule variable
+    #   entre elles est le nom de l'animation epinglee.
+    _sympose, _symb, _symap, _symbase, _symsx, _symg = {}, {}, {}, {}, {}, {}
+    for _m in re.finditer(r'^PHYSSYMPOSE i=(\d+) p=(\d+) m=(\d+) ai=(-?\d+)', txt, re.M):
+        _sympose[int(_m.group(1))] = (int(_m.group(2)), int(_m.group(3)), int(_m.group(4)))
+    for _m in re.finditer(r'^PHYSSYMB i=(\d+) c=(\d+) l=(\d+) ux=([-\d.e+]+) uy=([-\d.e+]+)'
+                          r' uz=([-\d.e+]+)', txt, re.M):
+        _symb[(int(_m.group(1)), int(_m.group(2)), int(_m.group(3)))] = \
+            tuple(float(_m.group(k)) for k in (4, 5, 6))
+    for _m in re.finditer(r'^PHYSSYM i=(\d+) p=(\d+) m=(\d+) c=(\d+) apex=([-\d.e+]+)'
+                          r' com=([-\d.e+]+)', txt, re.M):
+        _symap[(int(_m.group(1)), int(_m.group(4)))] = (float(_m.group(5)), float(_m.group(6)))
+    for _m in re.finditer(r'^PHYSSYM3 i=(\d+) c=(\d+) bapex=([-\d.e+]+)', txt, re.M):
+        _symbase[(int(_m.group(1)), int(_m.group(2)))] = float(_m.group(3))
+    for _m in re.finditer(r'^PHYSSYM4 i=(\d+) c=(\d+) sx=([-\d.e+]+)', txt, re.M):
+        _symsx[(int(_m.group(1)), int(_m.group(2)))] = float(_m.group(3))
+    for _m in re.finditer(r'^PHYSSYM5 i=(\d+) c=(\d+) gx=([-\d.e+]+) gy=([-\d.e+]+)'
+                          r' gz=([-\d.e+]+)', txt, re.M):
+        _symg[(int(_m.group(1)), int(_m.group(2)))] = tuple(float(_m.group(k)) for k in (3, 4, 5))
+
+    A('')
+    A('   -- ROOM-SYM : SPEC 12 ET SPEC 18 DANS DEUX POSES, MEME COURSE (cycle 56) ---------')
+    if not _sympose:
+        A('   ROOM-SYM: non publie par la course (phase PH-SYM absente de la trace).')
+    else:
+        _MN = {0: 'lacet 90  (SPEC18 modere)', 1: 'lacet 150 (SPEC18 fort)',
+               2: 'lateral +90 (SPEC12)', 3: 'lateral -90 (SPEC12)'}
+        A('   ROOM-SYM: la POSE est la seule variable entre les deux jambes. `dev` = ecart au')
+        A('      miroir parfait de la pose EPINGLEE, RECALCULE A L\'EXECUTION (on ne fait pas')
+        A('      confiance au choix d\'animation, on le mesure). `res` = plancher de resolution,')
+        A('      pris sur la queue de CALME : un ecart sous `res` est NON RESOLU, pas "petit".')
+        _lat = None
+        for _m in re.finditer(r'^PHYSAXW ax=2 ux=([-\d.e+]+) uy=([-\d.e+]+) uz=([-\d.e+]+)',
+                              txt, re.M):
+            _lat = tuple(float(_m.group(k)) for k in (1, 2, 3))
+        _cellw = {(p, mm): i for i, (p, mm, _) in _sympose.items()}
+        _res = {}
+        for _mm in range(4):
+            _v = [_symbase[(_cellw[(p, _mm)], c)] for p in (0, 1) for c in (0, 1)
+                  if (p, _mm) in _cellw and (_cellw[(p, _mm)], c) in _symbase]
+            _res[_mm] = max(_v) if _v else None
+        A('')
+        A('      %-3s %-5s %-26s %-9s %-9s %-9s %-8s %-9s'
+          % ('i', 'pose', 'mesure', 'dev(deg)', 'apexL', 'apexR', 'R', 'res'))
+        for _i in sorted(_sympose):
+            _p, _mm, _ai = _sympose[_i]
+            _d = ''
+            if _lat and (_i, 0, 0) in _symb and (_i, 1, 0) in _symb:
+                _u, _v = _symb[(_i, 0, 0)], _symb[(_i, 1, 0)]
+                _dd = sum(_u[k] * _lat[k] for k in range(3))
+                _mu = [_u[k] - 2 * _dd * _lat[k] for k in range(3)]
+                _nu = math.sqrt(sum(x * x for x in _mu)) * math.sqrt(sum(x * x for x in _v))
+                _cs = sum(_mu[k] * _v[k] for k in range(3)) / _nu if _nu > 0 else 0.0
+                _d = '%.1f' % math.degrees(math.acos(max(-1.0, min(1.0, _cs))))
+            _aL = _symap.get((_i, 0), (float('nan'),))[0]
+            _aR = _symap.get((_i, 1), (float('nan'),))[0]
+            _r = (max(_aL, _aR) / min(_aL, _aR)) if (_aL > 0 and _aR > 0) else float('nan')
+            _un = ' NON RESOLU' if (_res.get(_mm) is not None
+                                    and abs(_aL - _aR) <= _res[_mm]) else ''
+            A('      %-3d %-5s %-26s %-9s %-9.5f %-9.5f %-8.3f %-9s%s'
+              % (_i, ('SYM', 'ASYM')[_p], _MN.get(_mm, '?'), _d, _aL, _aR, _r,
+                 ('%.5f' % _res[_mm]) if _res.get(_mm) is not None else 'n/a', _un))
+        A('')
+        A('      SPEC 12 — l\'aplatissement par pole, et la gravite que le SOLVEUR lit :')
+        for _mm in (2, 3):
+            for _p in (0, 1):
+                _i = _cellw.get((_p, _mm))
+                if _i is None or (_i, 0) not in _symsx or (_i, 1) not in _symsx:
+                    continue
+                _s0, _s1 = _symsx[(_i, 0)], _symsx[(_i, 1)]
+                _mn = 0.5 * (abs(_s0) + abs(_s1))
+                _g = _symg.get((_i, 0), (float('nan'),) * 3)
+                A('      m=%d %-22s %-5s sx chestL=%.5f chestR=%.5f  ecart=%+6.2f %%'
+                  '   g lue (%.4f, %.4f, %.4f)'
+                  % (_mm, _MN[_mm], ('SYM', 'ASYM')[_p], _s0, _s1,
+                     100.0 * abs(_s0 - _s1) / _mn if _mn > 0 else float('nan'),
+                     _g[0], _g[1], _g[2]))
+        A('      L\'ETIQUETTE D\'AXE EST CELLE DE LA MESURE : le commentaire de `physroom-orient`')
+        A('      ecrit "axis 0 = tangage", la trace dit que la gravite y est quasi pure sur l\'axe')
+        A('      LATERAL du triedre de sa §7. `g lue` ci-dessus est publiee pour qu\'on n\'ait pas')
+        A('      a croire l\'un ou l\'autre sur parole.')
+        A('      L\'adjudication des six predictions de C56E1 est dans .autoport/c56_verdict.py —')
+        A('      ce tableau publie la MESURE, le verdict est ailleurs et il cite ses seuils.')
+
     os.makedirs(REPDIR, exist_ok=True)
     open(OUT, 'w').write('\n'.join(L) + '\n')
     print('ecrit %s : %d lignes, %d mesures, %d chaines, %d/%d animations'
