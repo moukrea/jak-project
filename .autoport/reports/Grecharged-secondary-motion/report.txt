@@ -347,6 +347,35 @@ la surface. Je ne l'ouvre pas en fin de cycle — c'est le premier chantier du s
 nomme, localise et chiffre.
 
 ================================================================================================
+14. LA JAMBE 6 REND §33/§34 MESURABLE — LA GATE JUGE, ET SA REPONSE EST UN DEFAUT REEL
+================================================================================================
+Le GOAL charge desormais les `msample` (le trou etait la, pas dans le C++ : voir la correction en
+section 13) et `skinpen` porte sur la PEAU de la chaine, plus sur son JOINT.
+
+    chaine    repos (physique desarmee)   course     ajoute par la PHYSIQUE
+    chestL          0.0351 m              0.1052 m         +0.0701 m
+    chestR          0.0498 m              0.1398 m         +0.0900 m
+
+L'INSTRUMENT EST DESORMAIS COHERENT AVEC LUI-MEME, ET C'EST CE QUI CHANGE TOUT. Dans la fenetre de
+repos, la lecture SIMULEE et la lecture d'AUTEUR coincident a **0.13 u sur chestL et 0.37 u sur
+chestR**, pour des profondeurs de 144 et 204 u. La contradiction qui rendait la version « joint »
+sans valeur — `chestL` lu DEHORS au repos et 556 u DEDANS en course — a disparu. `skinmiss = 0`,
+`sets = 92/92`.
+
+VERDICT DE LA GATE, ET IL EST ROUGE : la physique enfonce la peau des seins de **7 a 9 cm** sous la
+surface du corps au-dela de la pose d'auteur. C'est exactement ce que sa §33 interdit (« medial
+surfaces shall collide or repel BEFORE visible interpenetration »), et c'est la premiere fois que
+le dossier peut le dire avec une grandeur qui porte le bon nom.
+
+PRECISION SUR LE CHIFFRE DE `chestR` QUE LA GATE AFFICHE : elle lit `MIN-DES-DEUX` (0.0351) pour
+les DEUX chaines, donc elle annonce +0.1047 m pour `chestR` la ou son propre plancher (0.0498)
+donne **+0.0900 m**. C'est ma construction, delibere et strict ; le detail par chaine est publie
+juste a cote (`ROOM-SKINPEN-REST-DETAIL`) pour que le vrai chiffre soit lisible.
+
+CE QUE CE ROUGE N'EST PAS : un `NON ETABLI`. La gate ne dit plus « je ne peux pas juger », elle
+juge. Les deux lignes en echec sont les deux chaines d'UN SEUL fait, pas deux defauts.
+
+================================================================================================
 11. ETAT DU VALIDATEUR, SANS ENROBAGE
 ================================================================================================
 `bash .autoport/validators/phase-Grecharged-secondary-motion.sh` NE SORT PAS A 0. Sortie reelle :

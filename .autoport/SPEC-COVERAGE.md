@@ -207,6 +207,26 @@ soit en changeant ce que `bs` represente, soit en portant la mesure sur les `ms`
 deja. Les deux touchent un jeu de donnees que d'autres sections lisent (§18 en particulier), donc
 je ne le change pas de ma propre initiative en fin de cycle.
 
+### JAMBE 6 — §33/§34 DEVIENT MESURABLE, ET LA MESURE EST ROUGE
+
+Le trou etait **cote GOAL seul** (correction : le C++ expose `msample` depuis le cycle 14, je
+l'avais nie a tort en cherchant `msurf`). Le GOAL les charge, et `skinpen` porte desormais sur la
+PEAU de la chaine — ses sommets extremaux — au lieu du JOINT, qui est interieur par construction et
+ne peut pas repondre a une question de surface.
+
+    chaine    repos (physique desarmee)   course     ajoute par la PHYSIQUE
+    chestL          0,0351 m              0,1052 m         **+0,0701 m**
+    chestR          0,0498 m              0,1398 m         **+0,0900 m**
+
+**L'instrument est coherent avec lui-meme** : au repos, lecture SIMULEE et lecture d'AUTEUR
+coincident a **0,13 u / 0,37 u** pour des profondeurs de 144 et 204 u. La contradiction de la
+version « joint » (chestL DEHORS au repos, 556 u DEDANS en course) a disparu. `skinmiss = 0`,
+`sets = 92/92`.
+
+**§33 reste NON TENUE, mais pour la premiere fois avec la bonne grandeur** : la physique enfonce la
+peau des seins de **7 a 9 cm** sous la surface du corps au-dela de la pose d'auteur, ce que sa §33
+interdit mot pour mot. Ce n'est plus un `NON ETABLI` — la gate juge.
+
 **Statut de §33 et §34 : inchange** — `NON TENUE` et `PARTIELLE`, sur la meme penetration declaree a
 chaque cycle. Ce cycle ne fait pas bouger la physique d'un bit ; il rend le verdict **mesurable**,
 ce qui etait le blocage nomme par l'arbitrage.
