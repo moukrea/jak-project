@@ -557,3 +557,22 @@ Accessoirement le plafond de 0,0005 m vaut 0,18 degre de rotation du maillon : a
 « visible » ne justifie ca, c'etait un cliquet.
 Verrou : avant de discuter d'un SEUIL, etablir la NATURE de la grandeur qu'il borne. Un nombre
 ajuste sous une grandeur fausse est un faux precis.
+
+GUARD ratio-control-degrades-with-its-baseline .autoport/validators/phase-Grecharged-secondary-motion.sh ROOM-POSCONTROL
+**Un controle exprime en RATIO devient impossible quand sa ligne de base grandit.** « arme >= 3x
+desarme » a ete ecrit quand le desarme valait ~0,5 u ; a 266,6 u, atteindre x3 exigerait +533 u
+pour une injection de 400 u. Le seuil ne mesurait plus la reponse du compteur, il mesurait la
+taille de l'injection — et le franchir aurait demande d'AGRANDIR l'injection, c'est-a-dire
+d'ajuster l'instrument pour qu'il se valide lui-meme.
+Verrou : un controle s'exprime en PREDICTION quantitative — injecter X doit faire monter la mesure
+de X, a tolerance declaree, l'exces comme le defaut etant un echec. Plus exigeant qu'un ratio, et
+insensible a la ligne de base.
+
+GUARD gate-passes-only-in-immobility .autoport/validators/phase-Grecharged-secondary-motion.sh BREAST_PEN_CEIL
+**Une gate qui ne passe qu'en immobilite exige l'inverse de la spec qu'elle pretend servir.**
+Le plafond de COLLIDE valait 0,0034 B0 quand §22 AUTORISE l'apex a se deplacer de 0,42 a 0,50 B0 —
+facteur 123 a 147. Mesure decisive, sans extrapolation : les 37 cellules qui tenaient ce plafond
+etaient EXACTEMENT celles ou `tipvar < 0,02 m`, pour une course allant a 0,176 m. La gate ne
+passait donc qu'en muselant la chaine, c'est-a-dire en produisant la plainte n°1 de l'owner.
+Verrou : confronter tout plafond a ce que la spec AUTORISE dans la meme unite avant de le publier,
+et verifier quelle population le tient — si c'est la population immobile, la gate est fausse.

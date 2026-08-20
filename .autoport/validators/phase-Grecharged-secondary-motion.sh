@@ -412,7 +412,44 @@ for label, pat in pairs:
     exercees += 1
     worst = max(float(r['meshpen']) for r in rs)
     ceil = BREAST_PEN_CEIL if pat == BREAST_PAT else 0.0
-    if worst > ceil:
+    if pat == BREAST_PAT:
+        # ARBITRAGE DU SUPERVISEUR, 2026-08-20 13:20 — 3e remontee du worker (c58, c59, c59bis).
+        #
+        # `meshpen` NE PORTE PLUS LE VERDICT. Deux faits etablis, pas supposes :
+        #   1. c'est un DEPLACEMENT, pas une profondeur (identite exacte du cycle 59 : `res` est
+        #      invariant au rayon a 0,0000000000 u pres sur 229 560 couples). Un seuil en metres
+        #      de PROFONDEUR n'a aucun sens dessus.
+        #   2. le plafond de 0,0005 m vaut 0,0034 B0 quand §22 AUTORISE l'apex a se deplacer de
+        #      0,42 a 0,50 B0 — facteur 123 a 147. Mesure : les 37 cellules qui tiennent ce
+        #      plafond sont EXACTEMENT celles ou `tipvar < 0,02 m`. La gate ne passait donc qu'en
+        #      IMMOBILITE, et museler la chaine est la plainte n°1 de l'owner depuis le
+        #      2026-08-11. Une gate a moi qui exige l'inverse de sa spec perd, toujours.
+        #
+        # CE N'EST PAS UN ASSOUPLISSEMENT. §33/§34 parlent de SURFACES qui se traversent : la
+        # grandeur est `skinpen`, contre le mesh DESSINE. Elle n'est lisible qu'avec sa ligne de
+        # base AU REPOS, physique desarmee — l'os de poitrine etant INTERIEUR par construction,
+        # un chiffre brut ne dit pas si la PHYSIQUE enfonce quoi que ce soit. Cette ligne de base
+        # n'existe pas. Donc : NON ETABLI, et **NON ETABLI FAIT ECHOUER** — « on ne peut pas
+        # juger » n'est pas « c'est bon », et la mesure manquante devient le blocage.
+        base = re.search(r'^ROOM-SKINPEN-REST:\s*(\S+)\s+([0-9.]+)', t, re.M)
+        skin = {}
+        for mm in re.finditer(r'^ROOM-SKINPEN:\s*(\S+)\s+([0-9.]+)', t, re.M):
+            skin[mm.group(1)] = float(mm.group(2))
+        if not base:
+            fail("COLLIDE §33/§34 : NON ETABLI. La ligne de base au repos manque\n"
+                 "  ('ROOM-SKINPEN-REST: <chaine> <m>', physique DESARMEE). Sans elle on ne peut\n"
+                 "  pas dire si la physique enfonce quoi que ce soit : l'os de poitrine est\n"
+                 "  INTERIEUR par construction. Diagnostic du jour, publie sans valoir verdict :\n"
+                 "  meshpen max %.4f m (DEPLACEMENT, invariant au rayon), skinpen %s.\n"
+                 "  « On ne peut pas juger » n'est pas « c'est bon » : produire cette ligne est LE\n"
+                 "  blocage de §33/§34." % (worst, skin if skin else "non emis"))
+        else:
+            for ch, v in sorted(skin.items()):
+                b = float(base.group(2))
+                if v > b:
+                    fail("COLLIDE §33/§34 : %s enfonce %.4f m sous la peau contre %.4f m au repos,\n"
+                         "  soit +%.4f m imputables a la PHYSIQUE." % (ch, v, b, v - b))
+    elif worst > ceil:
         fail("COLLIDE: « %s » traverse encore, pénétration max %.4f (plafond %.4f).\n"
              "  « Collisions propres » — et une résolution pire que le clip est pire que rien."
              % (label, worst, ceil))
@@ -458,9 +495,31 @@ if not pc:
 inj, arm, dis = int(pc.group(1)), float(pc.group(2)), float(pc.group(3))
 if inj <= 0:
     die("COLLIDE: le contrôle n'a rien injecté")
-if arm <= dis * 3.0:
-    die("COLLIDE: le défaut injecté n'a PAS fait monter le compteur (%.4f armé contre %.4f désarmé,\n"
-        "  il faut armé >= 3x désarmé). Le contrôle précédent donnait 0.4986 contre 306.70 : il\n"
+# ARBITRAGE DU SUPERVISEUR, 2026-08-20 13:20. Le ratio « arme >= 3x desarme » a ete ecrit quand
+# le desarme valait ~0,5 u ; il vaut 266,6 u aujourd'hui, donc atteindre x3 exigerait une hausse de
+# +533 u pour une injection de 400 u — 1,33 fois l'injection elle-meme. Un ratio se degrade avec sa
+# ligne de base : ce n'est plus un controle, c'est une haie arbitraire, et la franchir demanderait
+# d'AGRANDIR l'injection, c'est-a-dire d'ajuster l'instrument pour qu'il se valide lui-meme.
+#
+# REMPLACE PAR UNE PREDICTION QUANTITATIVE, ET C'EST PLUS EXIGEANT : injecter X doit faire monter
+# la mesure de X. Un compteur qui repond a 1,42x sa ligne de base peut etre un artefact ; un
+# compteur qui rend 400 u pour 400 u injectes ne peut pas l'etre. Tolerance 25 %, et le defaut de
+# reponse comme l'exces sont l'un et l'autre un echec.
+inj_u = None
+mi = re.search(r'^ROOM-POSCONTROL-INJECT:\s*([0-9.]+)', t, re.M)
+if mi:
+    inj_u = float(mi.group(1))
+if inj_u:
+    got = arm - dis
+    if not (0.75 * inj_u <= got <= 1.25 * inj_u):
+        fail("COLLIDE: le controle positif ne rend pas ce qu'on lui injecte : %.2f u injectes,\n"
+             "  %.2f u de hausse mesuree (%.2f arme - %.2f desarme), hors de la bande +/-25 %%.\n"
+             "  Un compteur qui ne restitue pas l'amplitude injectee ne prouve pas qu'il mesure\n"
+             "  la bonne chose." % (inj_u, got, arm, dis))
+elif arm <= dis * 3.0:
+    fail("COLLIDE: le défaut injecté n'a PAS fait monter le compteur (%.4f armé contre %.4f désarmé,\n"
+        "  il faut armé >= 3x désarmé, faute de ligne 'ROOM-POSCONTROL-INJECT: <u>' qui\n"
+        "  permettrait le critere predictif). Le contrôle précédent donnait 0.4986 contre 306.70 : il\n"
         "  faisait baisser le chiffre qu'il devait faire monter, donc il ne prouvait rien."
         % (arm, dis))
 

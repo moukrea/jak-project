@@ -10,6 +10,44 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
+## 2026-08-20 13:20 — ARBITRAGE COLLIDE (3e remontee) : LE VERDICT CHANGE DE GRANDEUR, ET RIEN NE VERDIT
+
+Le worker remonte pour la troisieme fois (c58, c59, c59bis), refuse de toucher aux gates, refuse
+d'agrandir l'injection pour franchir le seuil, refuse de museler la chaine. Il a raison sur les
+trois. Je tranche.
+
+**(a) `meshpen` NE PORTE PLUS LE VERDICT.** Deux faits etablis :
+  - c'est un **DEPLACEMENT**, pas une profondeur — identite exacte du cycle 59, `res` invariant au
+    rayon a 0,0000000000 u pres sur 229 560 couples, controle negatif qui tire. Un seuil en metres
+    de PROFONDEUR n'a aucun sens dessus ;
+  - le plafond de 0,0005 m vaut **0,0034 B0** quand §22 AUTORISE l'apex a se deplacer de 0,42 a
+    0,50 B0 : facteur 123 a 147. Et la mesure le confirme sans extrapolation — les 37 cellules qui
+    tiennent ce plafond sont **exactement** celles ou `tipvar < 0,02 m`. **La gate ne passait qu'en
+    immobilite**, c'est-a-dire en exigeant l'inverse de la spec et l'inverse de ce que l'owner
+    demande depuis le 2026-08-11.
+
+**CE N'EST PAS UN ASSOUPLISSEMENT, ET LA CONSTRUCTION L'EMPECHE.** §33/§34 parlent de SURFACES qui
+se traversent : la grandeur est `skinpen`, contre le mesh DESSINE, et elle n'est lisible qu'avec sa
+**ligne de base au repos, physique desarmee** — l'os de poitrine etant interieur par construction,
+un chiffre brut ne dit pas si la PHYSIQUE enfonce quoi que ce soit. Cette ligne n'existe pas. Donc
+le verdict est **NON ETABLI, et NON ETABLI FAIT ECHOUER LA GATE.** « On ne peut pas juger » n'est
+pas « c'est bon » : la mesure manquante DEVIENT le blocage. `meshpen` reste publie comme
+diagnostic, jamais comme verdict.
+
+**(b) LE CONTROLE POSITIF PASSE D'UN RATIO A UNE PREDICTION.** « arme >= 3× desarme » a ete ecrit
+quand le desarme valait ~0,5 u ; il vaut 266,6 u, donc x3 exigerait +533 u pour une injection de
+400 u — 1,33 fois l'injection elle-meme. Un ratio se degrade avec sa ligne de base : ce n'est plus
+un controle, c'est une haie, et la franchir demanderait d'agrandir l'injection, c'est-a-dire
+d'ajuster l'instrument pour qu'il se valide lui-meme (`never-fit-a-parameter-to-the-instrument`).
+Remplace par : **injecter X doit faire monter la mesure de X**, tolerance 25 %, l'exces comme le
+defaut etant un echec. C'est PLUS exigeant qu'un ratio — un compteur qui rend 400 u pour 400 u
+injectes ne peut pas etre un artefact.
+
+**REGLE.** Un critere de controle s'exprime en PREDICTION quantitative, jamais en ratio a une ligne
+de base qui bouge. Et une gate a moi qui exige l'inverse de sa spec perd, toujours — c'est
+l'arbitrage du 2026-08-14, applique une fois de plus.
+
+
 ## 2026-08-20 10:55 — ARBITRAGE COLLIDE : LA GRANDEUR EST FAUSSE AVANT LE SEUIL, ET LE PIEGE A RETOMBE
 
 Le cycle 58 remonte deux choses, et les deux sont a moi.
