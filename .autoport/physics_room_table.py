@@ -1685,9 +1685,13 @@ def main():
             (float(m.group(4)) / UNITS) if m.group(4) is not None else None)
     # [NOTE-154] la LIGNE DE BASE au repos, et le compte de lectures anatomiquement impossibles.
     skinrest, skinout = {}, {}
-    for m in re.finditer(r'^PHYSSKIN2 tag=(\S+) c=(\d+) skinrest=([-\d.e+]+) skinout=(\d+)', txt, re.M):
+    skinmiss = {}
+    for m in re.finditer(r'^PHYSSKIN2 tag=(\S+) c=(\d+) skinrest=([-\d.e+]+) skinout=(\d+)'
+                         r'(?: skinmiss=([-\d.e+]+))?', txt, re.M):
         skinrest.setdefault(m.group(1), {})[int(m.group(2))] = float(m.group(3)) / UNITS
         skinout[m.group(1)] = int(m.group(4))
+        skinmiss.setdefault(m.group(1), {})[int(m.group(2))] = (
+            float(m.group(5)) if m.group(5) is not None else None)
     for m in re.finditer(r'^PHYSSHELL tag=(\S+) corrections=([-\d.e+]+)'
                          r'(?: inward=([-\d.e+]+))?', txt, re.M):
         shellfire[m.group(1)] = (
@@ -4506,6 +4510,24 @@ def main():
         # interieur. Il vaut 41842 sur la course. La valeur reste publiee comme DIAGNOSTIC sous
         # `ROOM-SKINPEN-REST-AUTEUR`, jamais sous le nom que la gate lit.
         _restw = skinpen.get('rest', {})
+        _missw = skinmiss.get('rest', {})
+        # [NOTE-157] UN ZERO ACCOMPAGNE D'UN `skinmiss` NON NUL N'EST PAS UNE MESURE, C'EST UN TROU.
+        # Publier un plancher tire d'un trou ferait ECHOUER la gate sur un chiffre qui ne mesure
+        # rien — un faux ROUGE, qui coute exactement autant qu'un faux vert (DIRECTIVES 2026-08-19
+        # 23:50). On refuse donc de le publier sous le nom que la gate lit, comme pour le point
+        # d'auteur, et pour la meme raison.
+        _trou = [c for c, v in _restw.items()
+                 if v[0] <= 0.0 and (_missw.get(c) or 0.0) > 0.0]
+        if _restw and _trou:
+            A('ROOM-SKINPEN-REST-TROU: %d chaine(s) rendent 0.0000 AVEC des evaluations sans'
+              ' echantillon a portee' % len(_trou))
+            for c in sorted(_trou):
+                A('   %-8s skinpen=0.0000  skinmiss=%.0f  -> « je n\'ai pas regarde », pas'
+                  ' « il est dehors »' % (names[c] if c < len(names) else c, _missw.get(c) or 0.0))
+            A('   Un plancher tire de ce zero ferait ECHOUER la gate sur un chiffre qui ne mesure')
+            A('   rien. Je ne publie donc pas `ROOM-SKINPEN-REST` : un faux rouge coute autant')
+            A('   qu\'un faux vert.')
+            _restw = {}
         if _restw:
             A('ROOM-SKINPEN-REST: MIN-DES-DEUX %.4f' % min(v for v, _t in _restw.values()))
             A('   Fenetre de REPOS (`physroom-hold` : position, orientation et animation figees).')

@@ -528,6 +528,10 @@
 ;; [NOTE-154] LA LIGNE DE BASE AU REPOS, ET SON CONTROLE D'INTEGRITE. -> jak-hd-physics-NOTES.md
 (define *phys-skinrest* (new 'global 'array 'float PHYS-SC))  ;; max de -sd(point d'AUTEUR)
 (define *phys-skinout*  0)                                    ;; frames x liens ou sd(auteur) > 0
+;; [NOTE-157] `skinpen = 0` veut dire DEUX choses — « le lien est dehors » et « aucun echantillon
+;; n'etait a portee ». Ce compte les separe, PAR CHAINE. Sans lui, un plancher de repos a 0.0000
+;; se lit comme une mesure alors que c'est un trou.
+(define *phys-skinmiss* (new 'global 'array 'float PHYS-SC))
 ;; [NOTE-155] LE CONTROLE POSITIF DE `meshpen`, EN PAIRE ET SUR LA MEME FRAME. -> jak-hd-physics-NOTES.md
 (define *phys-pcb* (new 'global 'array 'float PHYS-SC))       ;; sans injection
 (define *phys-pci* (new 'global 'array 'float PHYS-SC))       ;; avec injection
@@ -1911,8 +1915,9 @@
           (let ((bm (the-as matrix (-> skel bones (+ k 1) transform))))
             (vector-! dv p (the-as vector (-> bm vector 3)))
             (set! (-> dv w) 0.0)
-            ;; phase large : cet os est-il seulement dans les parages ?
-            (when (< (vector-length dv) (+ (-> *phys-bsr* (+ sb s)) 512.0))
+            ;; [NOTE-157] PHASE LARGE EXACTE : on n'ecarte un ensemble QUE s'il ne PEUT PAS
+            ;; [NOTE-194] contenir un echantillon plus proche que le meilleur deja trouve. `bestd2` part de -> jak-hd-physics-NOTES.md
+            (when (< (- (vector-length dv) (-> *phys-bsr* (+ sb s))) (sqrtf bestd2))
               (dotimes (q (-> *phys-bsn* (+ sb s)))
                 (let ((qi (+ (* (+ sb s) PHYS-BSURF-MAX) q)))
                   (vector-rotate*! qw (-> *phys-bsp* qi) bm)
@@ -1946,7 +1951,8 @@
   (dotimes (i PHYS-SC)
     (set! (-> *phys-skinpen* i) 0.0)
     (set! (-> *phys-skinadd* i) 0.0)
-    (set! (-> *phys-skinrest* i) 0.0))
+    (set! (-> *phys-skinrest* i) 0.0)
+    (set! (-> *phys-skinmiss* i) 0.0))
   (none))
 
 (defun phys-skinrest-worst ((slot int) (chain int))
@@ -1958,6 +1964,13 @@
     0.0))
 
 (defun phys-skinout-count () *phys-skinout*)
+
+(defun phys-skinmiss-count ((slot int) (chain int))
+  "[NOTE-157] Combien d'evaluations n'ont trouve AUCUN echantillon a portee. Un `skinpen` de 0
+   accompagne d'un compte non nul n'est pas une mesure, c'est un trou — et se lit comme tel."
+  (if (and (>= slot 0) (< slot PHYS-SLOTS) (>= chain 0) (< chain PHYS-CHAINS))
+    (-> *phys-skinmiss* (+ (* slot PHYS-CHAINS) chain))
+    0.0))
 
 (defun phys-skinadd-worst ((slot int) (chain int))
   "La pire profondeur AJOUTEE sous la peau par la physique sur la fenetre, en unites de jeu :
@@ -2219,6 +2232,8 @@
           (when (nonzero? *phys-skin-meas*)
             (let ((sd (phys-surf-sd skel (/ sc PHYS-CHAINS) pt nbone))
                   (kk (-> *phys-joint* scl)))
+              (when (> sd 900000.0)
+                (set! (-> *phys-skinmiss* sc) (+ 1.0 (-> *phys-skinmiss* sc))))
               (when (and (< sd 0.0) (> sd -100000.0))
                 (when (> (- 0.0 sd) (-> *phys-skinpen* sc))
                   (set! (-> *phys-skinpen* sc) (- 0.0 sd))))
@@ -3125,12 +3140,7 @@
                             (set! (-> *phys-oy* scl) (-> ov y))
                             (set! (-> *phys-oz* scl) (-> ov z))))))
 
-                    ;; ---- 4bis. CONTROLE POSITIF DU CANAL D'AUTEUR. Arme, la position ecrite est
-                    ;; ---- batie sur la pose d'auteur de la frame PRECEDENTE : l'animation est
-                    ;; ---- retardee d'une frame, ce que la SPEC 5 interdit. Applique APRES le
-                    ;; ---- report dans l'ecart, sinon l'ecart absorberait le defaut et le compteur
-                    ;; ---- d'identite ne verrait rien — c'est le piege qui rendrait le controle
-                    ;; ---- muet.
+                    ;; [NOTE-193] ---- 4bis. CONTROLE POSITIF DU CANAL D'AUTEUR. Arme, la position ecrite est -> jak-hd-physics-NOTES.md
                     (when (nonzero? *phys-auth-lag*)
                       (dotimes (l n)
                         (when (>= l rlk)
@@ -3149,12 +3159,7 @@
                                     (+ (-> *phys-pz* scl)
                                        (- (-> *phys-t2z* scl) (-> skel bones (+ k 1) transform vector 3 z)))))))))
 
-                    ;; ------------------------------------------------------------------------
-                    ;; 5. MESURE (SPEC 7). ELLE SE FAIT ICI, AVANT L'ECRITURE, et c'est structurel :
-                    ;; une fois le squelette ecrit, `skel bones` porte la pose SIMULEE et la pose
-                    ;; d'auteur a disparu. Ce qui est compare : *phys-p** = la pose COMMITEE (elle
-                    ;; sera ecrite telle quelle au bloc suivant), `skel bones` = le RETARGET.
-                    ;; ------------------------------------------------------------------------
+                    ;; [NOTE-192] ------------------------------------------------------------------------ -> jak-hd-physics-NOTES.md
                     (let ((stb (* sc PHYS-ST)))
                       ;; --- LE GRADIENT : la boite englobante de l'ecart POUR CHAQUE MAILLON.
                       ;; Un maillon rootlock a un ecart identiquement nul et mesure donc zero, ce
@@ -3239,12 +3244,7 @@
                               (when (> res rd) (set! rd res)))))
                         (when (> rd (-> *phys-st* (+ stb 3)))
                           (set! (-> *phys-st* (+ stb 3)) rd)))
-                      ;; --- ALLONGEMENT RELATIF et INVERSION RESIDUELLE, sur la position ECRITE et
-                      ;; --- APRES tout le solveur. Ce sont les deux nombres que la 5e et la 2e/3e/4e
-                      ;; --- passe de l'owner exigent : « ils s'allongent, c'est un peu debile » et
-                      ;; --- « un de ses seins retourne vers l'interieur ». Meme attache, meme
-                      ;; --- direction de modele que la contrainte : l'instrument de mesure est
-                      ;; --- l'instrument de decision.
+                      ;; [NOTE-191] --- ALLONGEMENT RELATIF et INVERSION RESIDUELLE, sur la position ECRITE et -> jak-hd-physics-NOTES.md
                       (dotimes (l n)
                         (when (>= l rlk)
                           (let* ((scl (+ (* sc PHYS-LINKS) l))
@@ -3286,12 +3286,7 @@
                                     ;; le compteur par course ne peut pas la verifier.
                                     (when (> el (-> *phys-st* (+ stb 17)))
                                       (set! (-> *phys-st* (+ stb 17)) el)))
-                                  ;; LE MOUVEMENT PROPRE DU MAILLON : l'angle entre sa direction
-                                  ;; courante et la direction que le MODELE donne au meme os, tous
-                                  ;; deux mesures depuis LA MEME ATTACHE. Un maillon qui suit
-                                  ;; rigidement son parent vaut zero ici quelle que soit l'agitation
-                                  ;; du parent — c'est ce que la boite englobante ne pouvait pas
-                                  ;; voir, et c'est la suite que SPEC 2 exige croissante.
+                                  ;; [NOTE-190] LE MOUVEMENT PROPRE DU MAILLON : l'angle entre sa direction -> jak-hd-physics-NOTES.md
                                   (when (> u2 0.0001)
                                     (let* ((cx (- (* uy mz) (* uz my)))
                                            (cy (- (* uz mx) (* ux mz)))

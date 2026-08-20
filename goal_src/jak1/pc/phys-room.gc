@@ -1842,8 +1842,12 @@
       ;;            impossible et denonce le filtre de phase large de `phys-surf-sd`. Un plancher
       ;;            tire d'une SDF qui se trompe de cote n'est pas un plancher, et ce compte est ce
       ;;            qui permet de le dire au lieu de le supposer. LECTURE SAINE : 0.
-      (format 0 "PHYSSKIN2 tag=~S c=~D skinrest=~f skinout=~D~%"
-              tag c (phys-skinrest-worst (-> self slot) c) (phys-skinout-count))
+      ;;   skinmiss [NOTE-157] combien d'evaluations n'ont trouve AUCUN echantillon a portee. Un
+      ;;            `skinpen` de 0 avec un `skinmiss` non nul n'est pas « le lien est dehors »,
+      ;;            c'est « je n'ai pas regarde » — et les deux ne doivent jamais se confondre.
+      (format 0 "PHYSSKIN2 tag=~S c=~D skinrest=~f skinout=~D skinmiss=~f~%"
+              tag c (phys-skinrest-worst (-> self slot) c) (phys-skinout-count)
+              (phys-skinmiss-count (-> self slot) c))
       ;;   rootrot  l'angle, EN DEGRES, reellement ecrit dans la 3x3 du maillon `rootlock` — le
       ;;            PREMIER SEGMENT de la meche, celui qui part du cuir chevelu. Il valait 0.0000
       ;;            structurellement jusqu'a ce cycle : la boucle d'ecriture du moteur sautait tout

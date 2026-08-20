@@ -5290,3 +5290,72 @@ au repos. Elle repond donc a « la physique enfonce-t-elle le joint plus profond
 repos ? ». Elle ne repond PAS a « une surface en traverse-t-elle une autre » : cela demanderait de
 porter la mesure sur les SOMMETS de peau, pas sur le joint. Le jour ou §33/§34 se declarent TENUES,
 c'est cette reserve-la qu'il faudra lever.
+
+## [NOTE-190] LE MOUVEMENT PROPRE DU MAILLON : l'angle entre sa direction
+
+(bloc deplace du moteur le 2026-08-20, cycle 60)
+
+```
+                                  ;; LE MOUVEMENT PROPRE DU MAILLON : l'angle entre sa direction
+                                  ;; courante et la direction que le MODELE donne au meme os, tous
+                                  ;; deux mesures depuis LA MEME ATTACHE. Un maillon qui suit
+                                  ;; rigidement son parent vaut zero ici quelle que soit l'agitation
+                                  ;; du parent — c'est ce que la boite englobante ne pouvait pas
+                                  ;; voir, et c'est la suite que SPEC 2 exige croissante.
+```
+
+## [NOTE-191] --- ALLONGEMENT RELATIF et INVERSION RESIDUELLE, sur la position ECRITE et
+
+(bloc deplace du moteur le 2026-08-20, cycle 60)
+
+```
+                      ;; --- ALLONGEMENT RELATIF et INVERSION RESIDUELLE, sur la position ECRITE et
+                      ;; --- APRES tout le solveur. Ce sont les deux nombres que la 5e et la 2e/3e/4e
+                      ;; --- passe de l'owner exigent : « ils s'allongent, c'est un peu debile » et
+                      ;; --- « un de ses seins retourne vers l'interieur ». Meme attache, meme
+                      ;; --- direction de modele que la contrainte : l'instrument de mesure est
+                      ;; --- l'instrument de decision.
+```
+
+## [NOTE-192] ------------------------------------------------------------------------
+
+(bloc deplace du moteur le 2026-08-20, cycle 60)
+
+```
+                    ;; ------------------------------------------------------------------------
+                    ;; 5. MESURE (SPEC 7). ELLE SE FAIT ICI, AVANT L'ECRITURE, et c'est structurel :
+                    ;; une fois le squelette ecrit, `skel bones` porte la pose SIMULEE et la pose
+                    ;; d'auteur a disparu. Ce qui est compare : *phys-p** = la pose COMMITEE (elle
+                    ;; sera ecrite telle quelle au bloc suivant), `skel bones` = le RETARGET.
+                    ;; ------------------------------------------------------------------------
+```
+
+## [NOTE-193] ---- 4bis. CONTROLE POSITIF DU CANAL D'AUTEUR. Arme, la position ecrite est
+
+(bloc deplace du moteur le 2026-08-20, cycle 60)
+
+```
+                    ;; ---- 4bis. CONTROLE POSITIF DU CANAL D'AUTEUR. Arme, la position ecrite est
+                    ;; ---- batie sur la pose d'auteur de la frame PRECEDENTE : l'animation est
+                    ;; ---- retardee d'une frame, ce que la SPEC 5 interdit. Applique APRES le
+                    ;; ---- report dans l'ecart, sinon l'ecart absorberait le defaut et le compteur
+                    ;; ---- d'identite ne verrait rien — c'est le piege qui rendrait le controle
+                    ;; ---- muet.
+```
+
+## [NOTE-194] contenir un echantillon plus proche que le meilleur deja trouve. `bestd2` part de
+
+(bloc deplace du moteur le 2026-08-20, cycle 60)
+
+```
+            ;; contenir un echantillon plus proche que le meilleur deja trouve. `bestd2` part de
+            ;; 1e12, donc les premiers ensembles ne sont jamais ecartes, et le test se resserre a
+            ;; mesure qu'un candidat apparait : c'est un branch-and-bound, il ne change RIEN au
+            ;; resultat sauf qu'il cesse de pouvoir se tromper.
+            ;; CE QU'IL REMPLACE, ET POURQUOI : `(< |dv| (+ bsr 512.0))` ecartait un ensemble sur
+            ;; une MARGE INVENTEE. Mesure du cycle 60, fenetre de repos, physique desarmee
+            ;; (`PHYSIDLE dev` 0.47 / 1.02 u) : `chestL` rendait `skinpen = 0.0000` — pas
+            ;; « dehors », mais la SENTINELLE « aucun echantillon a portee » — pendant que
+            ;; `chestR` rendait 417.23 u DEDANS. Un os que le rig place a 0.10 m sous la peau ne
+            ;; peut pas etre hors de portee de la peau : c'etait la marge qui coupait.
+```
