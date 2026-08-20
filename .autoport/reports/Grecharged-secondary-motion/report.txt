@@ -247,9 +247,14 @@ imputait a la physique etait donc de l'instrument.
      reconstruction de `gk` : c'est un changement de DONNEES.
 
 ================================================================================================
-7. CE QUE LA COURSE LIVREE REND, ET CE QU'ELLE NE REND PAS
+7. PREMIER TEMPS — LA COURSE A CONTRAINTE DESARMEE (ETAT INTERMEDIAIRE, PAS L'ETAT LIVRE)
 ================================================================================================
-Course finale : solveur du cycle 60 (contrainte DESARMEE), nuage de surface a 2 966 echantillons.
+ATTENTION EN LISANT CETTE SECTION : elle decrit l'etat INTERMEDIAIRE du cycle, ou la contrainte
+etait desarmee. **L'ETAT LIVRE EST CELUI DES SECTIONS 10 A 13**, ou l'estimateur est refait et la
+contrainte armee. Les chiffres ci-dessous sont conserves parce que c'est SUR EUX que le test de
+convergence de la section 5 a ete fait, pas parce qu'ils decrivent le build.
+
+Course intermediaire : solveur du cycle 60 (contrainte DESARMEE), nuage a 2 966 echantillons.
 
   LA POSE DE REPOS EST RENDUE AU BIT      `PHYSIDLE c=0 dev=0.4721 amp=0.0000`
                                           `PHYSIDLE c=1 dev=1.0232 amp=0.0000`
@@ -265,13 +270,14 @@ Course finale : solveur du cycle 60 (contrainte DESARMEE), nuage de surface a 2 
       ROOM-SKINPEN-FLOOR 0.0118 m — l'ecart entre les deux chaines MIROIR, c'est-a-dire l'erreur
       propre de l'instrument. Les deux depassements valent 1.5x ce plancher.
 
+(Ces deux lignes sont celles de l'etat INTERMEDIAIRE ; l'etat livre les remplace en section 11.)
 **JE NE PRESENTE PAS CES DEUX LIGNES COMME UN DEFAUT DE PHYSIQUE.** Le meme instrument, raffine,
 a deplace ces memes colonnes de 30 % sans qu'un bit du solveur bouge (section 5). Un depassement de
 1.5x l'erreur propre de l'instrument, sur un estimateur qui n'a pas converge, ne soutient aucun
 verdict. §33/§34 = **NON ETABLI**, et NON ETABLI fait echouer la gate : c'est la lecture correcte.
 
 ================================================================================================
-8. LA JAMBE D'ABLATION EST INERTE DANS CETTE COURSE, ET C'EST MON PROPRE COMPTEUR QUI L'A VU
+8. LA JAMBE D'ABLATION ETAIT INERTE, ET C'EST MON PROPRE COMPTEUR QUI L'A VU (CORRIGE, PUIS EXERCE)
 ================================================================================================
 `PHYSSKINC tag=skin-armed n=0` : la jambe « armee » n'a applique AUCUNE correction. Cause : je
 l'armais par `(when (zero? (-> self pframe)) ...)`, or `pframe` est incremente EN TETE du tick et ne
@@ -283,25 +289,111 @@ sont DESARMEES, donc l'ecart `armee`/`desarmee` ne mesure que la variation d'une
 Le tableau annoncait « LE CONTROLE A TIRE » sur cet ecart — deux lignes du meme tableau se
 contredisaient, et c'est `PHYSSKINC` qui avait raison. **CORRIGE AUX DEUX BOUTS** : l'armement passe
 par la TRANSITION de phase (plus par `pframe`), et la ligne `ROOM-SKINPEN-CONTROL` refuse desormais
-d'annoncer un controle quand la jambe armee compte 0 correction. **NON REEXERCE dans cette course**,
-et je ne le presente donc pas comme prouve.
+d'annoncer un controle quand la jambe armee compte 0 correction. **ET LA COURSE LIVREE L'EXERCE** : `PHYSSKINC
+tag=skin-armed n=3265` contre `skin-disarmed n=0`, avec armee 0.0683 / 0.0647 contre desarmee
+0.0711 / 0.0975. Le controle tire, et l'interrupteur fait ce qu'il dit.
 
 LE CONTROLE, LUI, A BIEN TIRE — mais dans la course PRECEDENTE de ce cycle (contrainte armee par
 defaut), et c'est de la que vient la preuve de la section 3 :
       armee 0.0902 / 0.1139     desarmee 0.1013 / 0.1251     tenu +0.0111 / +0.0112 m
       `PHYSSKINC skin-armed n=12805`, `skin-disarmed n=0` — l'interrupteur fait ce qu'il dit.
 
-================================================================================================
-9. CE QUI RESTE ROUGE, ET LA PORTE HUMAINE
-================================================================================================
-Le validateur passe SCOPE, CLEAN, TUNING, ROOM, IDLE, ANIM, DISCRIMINANT et le controle positif de
-COLLIDE. Il echoue sur :
-  - **COLLIDE §33/§34** : les deux lignes ci-dessus. NON ETABLI, publie comme tel.
-  - **OPEN-DEFECTS** : `OPEN breast-spec-incomplete`. **Cette ligne ne se retire que sur la parole
-    de l'owner** — jamais sur un chiffre vert, jamais par moi. La phase reste donc ouverte par
-    construction, et c'est voulu.
 
-BREAST-PENETRATION: chestL meshpen=0.1115 m   |   chestR meshpen=0.1019 m
-  INCHANGEE AU BIT par ce cycle — le solveur livre est celui du cycle 60. Declaree a chaque cycle
-  comme le validateur l'exige, et rappelee comme DIAGNOSTIC et non comme verdict depuis l'arbitrage
-  du 2026-08-20 13:20 : c'est un DEPLACEMENT invariant au rayon, pas une profondeur.
+================================================================================================
+10. SECOND TEMPS DU CYCLE — L'ESTIMATEUR EST REFAIT, ET LA CONTRAINTE PEUT ENFIN S'ARMER
+================================================================================================
+La section 5 se terminait sur « le chantier suivant est un estimateur convergent ». Le hook de
+phase a demande de continuer : je l'ai fait, dans le meme cycle.
+
+**CE QUI CHANGE DANS `phys-surf-sd`.** Elle signait la distance par la normale du SEUL plus proche
+echantillon. Elle rend desormais la moyenne des distances aux plans des **8 plus proches**,
+ponderee par un noyau `w = (1 - d^2/h^2)^2` dont le rayon `h` EST la distance au 8e voisin. Trois
+proprietes, et ce sont elles qu'on achete :
+  - **CONTINUITE** : l'echantillon qui entre ou sort du voisinage porte un poids NUL, donc la valeur
+    ne saute plus quand le voisinage change. C'est exactement ce qui manquait.
+  - **ROBUSTESSE** : un plan oblique isole est noye par ses sept voisins au lieu de decider seul.
+  - **AUCUNE LONGUEUR CHOISIE A LA MAIN** : `h` s'adapte a la densite locale.
+La normale sort de la MEME population ponderee : sinon la contrainte pousserait le long d'un plan
+qui n'a pas decide de la profondeur.
+
+**LA MESURE QUI L'ATTESTE, ET ELLE EST DANS LA FENETRE DE REPOS :**
+    chestL   simule 0.0000   auteur 0.0000    — un sommet EXTREMAL de peau est DEHORS, c'est sa
+                                                definition, et l'ancien estimateur ne le voyait pas
+    chestR   simule 127.16   auteur 127.34    — **0.14 %** d'ecart, contre **38.51 %** avant.
+
+**PUIS LA CONTRAINTE S'ARME, EN DEUX TEMPS QUI SONT DEUX MESURES.**
+Armee telle quelle sur le champ continu, elle TIENT la borne sur la course (243.91 / 311.50 sous des
+planchers de 250.79 / 361.84) **et s'emballe au repos** : `PHYSIDLE c=0 dev=374 amp=544`. Elle
+n'avait aucun terme la rattachant a la pose d'auteur : une poussee deplace le joint, ce deplacement
+change la lecture, qui redemande une poussee.
+
+**LE PLAFOND DE DEPLACEMENT** ferme la boucle. La physique ne peut se voir demander que de defaire
+SA PROPRE part RENTRANTE — `-dot(dj, n)`, `dj` etant l'ecart du joint a sa pose d'auteur PRIS A
+L'ENTREE DE LA FRAME. A la pose d'auteur `dj` = 0, donc le plafond est 0 : **la contrainte est
+INERTE au repos par algebre, pas par reglage**. Et elle s'auto-limite : pousser dehors rend
+`dot(dj,n)` positif, donc le plafond retombe de lui-meme.
+`dj` A L'ENTREE et non au fil des passes — mesure : avec le `dj` courant, chaque poussee refermait
+le plafond avant que la contrainte ait fini (chestL +41.7 u de son propre plancher ; a l'entree,
++32.5 u). Le deplacement rentrant d'une frame est une quantite DE LA FRAME.
+
+**RESULTAT AU REPOS** : `PHYSIDLE dev` 0.5644 / 0.4881 avec **amp = 0.0000** — c'est-a-dire MIEUX
+que la course non contrainte (0.4721 / 1.0232). SPEC 2/9 tenue, et pas seulement « sous le seuil ».
+
+================================================================================================
+11. CE QUE JE NE PRESENTE PAS COMME UN VERT, ALORS QUE LA GATE PASSE
+================================================================================================
+La gate lit UN plancher pour les deux chaines : le PIRE des deux (0.0883 m). Les deux chaines
+passent dessous. **Mais mon propre verdict par chaine, publie a cote, dit autre chose :**
+
+    chestL  course 0.0692 m   son propre plancher 0.0612 m   +0.0079 m   DEPASSEE
+    chestR  course 0.0868 m   son propre plancher 0.0883 m   -0.0015 m   TENUE
+
+**La gate passe, la section NON.** `SPEC-COVERAGE.md` classe §33/§34 en **PARTIELLE**, jamais TENUE,
+parce que sa propre regle 2 l'exige : « TENUE veut dire dans sa bande sur LES DEUX seins ; une seule
+chaine conforme = PARTIELLE ». Je le dis ici parce qu'un tableau vert au-dessus d'une ligne rouge
+publiee est exactement la forme d'un faux vert, et la seule facon honnete de le tenir est de nommer
+les deux.
+L'ecart de chestL (0.0079 m) est SOUS le plancher d'erreur miroir de l'instrument (0.0176 m). Ca
+n'en fait pas un zero : ca veut dire que cet instrument ne le separe pas de son propre bruit
+gauche/droite. Et `reste` — la pire violation qui survit aux six passes — vaut encore 142.23 u : la
+contrainte ne ferme pas partout, et elle le dit elle-meme.
+
+================================================================================================
+12. ETAT DU VALIDATEUR, ET LA SEULE PORTE QUI RESTE
+================================================================================================
+    [SCOPE]        2 chaines declarees = 2 resolues = chestL, chestR
+    [TUNING]       tous les reglages de l'owner sont dans le fichier livre
+    [COLLIDE]      §33/§34 — les deux chaines sous le plancher d'AUTEUR de la meme fenetre
+    [COLLIDE]      controle positif 0.155 contre 0.071
+    [ROOM]         joueur absent, 1 acteur, 2 chaines x 31/31 animations, 310 mesures
+    [IDLE]         ecart max au modele 0.000
+    [ANIM]         2 chaines pilotees, toutes respectees
+    [DISCRIMINANT] chaque chaine distingue les 5 pilotages
+    [Grecharged-secondary-motion PASS]
+    [FAIL] OPEN-DEFECTS: `OPEN breast-spec-incomplete`
+
+**TOUTES LES GATES DE MESURE PASSENT.** La seule qui echoue est OPEN-DEFECTS, et son propre texte
+dit comment elle se retire : « Une ligne ne se retire que quand l'owner dit que c'est bon. » Je ne
+la touche pas. C'est une porte humaine, pas un defaut technique, et la phase reste ouverte par
+construction jusqu'a ce que l'owner ait regarde.
+
+================================================================================================
+13. CE QUE L'OWNER DOIT REGARDER SUR CE BUILD
+================================================================================================
+Le solveur a CHANGE cette fois (contrairement au premier temps du cycle) : la peau des seins est
+desormais empechee d'entrer dans le corps, et le pack HD porte une surface trois fois plus dense.
+Ce qui se voit, ou ne se voit pas :
+  1. **Au repos, rien ne doit avoir bouge.** `PHYSIDLE dev` 0.5644 / 0.4881 avec amplitude NULLE,
+     contre 0.4721 / 1.0232 sans la contrainte. Si quelque chose flotte ou tremble a l'arret,
+     c'est un defaut et il faut le dire.
+  2. **Le mouvement ne doit pas avoir baisse.** `tipvar` 0.1753 / 0.1818 contre 0.1756 / 0.1775 sans
+     la contrainte : -0.2 % et +2.4 %. **Elle ne muselle pas** — c'est la premiere fois qu'une
+     contrainte de ce dossier se paie a ce prix-la, et c'est verifiable a l'oeil.
+  3. **Les seins ne doivent plus rentrer dans le buste sur les mouvements brusques.** C'est ce que
+     la contrainte empeche, et c'est ce que sa 33 et sa 34 demandent.
+
+BREAST-PENETRATION: chestL meshpen=0.1123 m   |   chestR meshpen=0.1424 m
+  DECLAREE A CHAQUE CYCLE COMME LE VALIDATEUR L'EXIGE. **ELLE MONTE sur chestR (0.1019 -> 0.1424)
+  et je ne le cache pas** : `meshpen` est un DEPLACEMENT invariant au rayon (arbitrage du 13:20),
+  pas une profondeur, et la contrainte de peau DEPLACE le joint — le faire monter est donc attendu.
+  Elle est publiee comme diagnostic et ne porte aucun verdict, ni dans un sens ni dans l'autre.

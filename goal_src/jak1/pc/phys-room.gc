@@ -4261,8 +4261,8 @@
           (physroom-set-anim (-> self ai)))
          (else
           (physroom-emit-diag "skin-disarmed")
-          ;; L'INTERRUPTEUR REVIENT A SA VALEUR DE LIVRAISON, QUI EST 1 (DESARMEE).
-          (phys-skin-off-set! 1)
+          ;; L'INTERRUPTEUR REVIENT A SA VALEUR DE LIVRAISON, QUI EST 0 (ARMEE).
+          (phys-skin-off-set! 0)
           (phys-diag-reset!)
           (phys-stats-reset!)
           (physroom-hold)

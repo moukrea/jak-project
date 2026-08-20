@@ -6259,3 +6259,408 @@ desarmee, avec sa jambe d'ablation : elle se rearmera quand la surface pourra la
 existante ne peut changer de valeur a cause d'elles). Desarmee, `skinpen` doit REMONTER.
 `PHYSSKINC` publie le nombre de corrections, leur cumul et la pire : un correctif qui enleve du
 mouvement se chiffre.
+
+## [NOTE-290] la direction MONDE des trois lignes du triedre de l'ancre, normalisee : `sc*9 + ligne*3 + comp`
+
+(bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
+
+```
+;; la direction MONDE des trois lignes du triedre de l'ancre, normalisee : `sc*9 + ligne*3 + comp`.
+;; C'est ce qui permet a la salle d'EXCITER un axe du solveur au lieu d'un axe monde — voir la note
+;; du site d'ecriture, et la mesure qui l'a rendue necessaire.
+```
+
+## [NOTE-289] Frames ou la borne §22 du COM a effectivement mordu. Un limiteur qui mord en PERMANENCE ne
+
+(bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
+
+```
+;; Frames ou la borne §22 du COM a effectivement mordu. Un limiteur qui mord en PERMANENCE ne
+;; borne plus, il remplace la mesure par sa propre valeur — c'est ce qui vient d'arriver au canal
+;; de deformation (25.00 sur les dix fenetres). On le compte, exactement comme `*phys-twsat*`.
+```
+
+## [NOTE-288] SPEC 33/34 — la poussee de contact CUMULEE sur la frame et le coefficient du volume qui a
+
+(bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
+
+```
+;; SPEC 33/34 — la poussee de contact CUMULEE sur la frame et le coefficient du volume qui a
+;; decide. La restitution ne peut pas s'appliquer dans `phys-collide-chain` : elle y serait
+;; appliquee jusqu'a 15 fois par frame (8 + 3 + 4 balayages). Elle s'applique UNE fois, apres.
+```
+
+## [NOTE-287] somme, sur TOUTE la course, du deplacement MONDE de la pose d'auteur de la pointe. Une chaine d
+
+(bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
+
+```
+;; somme, sur TOUTE la course, du deplacement MONDE de la pose d'auteur de la pointe. Une chaine dont
+;; ce nombre est nul pendant que le personnage est secoue n'est pas attachee au personnage : c'est la
+;; seconde preuve, independante du rapport de distance, qu'un joint a ete envoye ailleurs.
+```
+
+## [NOTE-286] frames, sur toute la course, ou cette chaine avait au moins une paire (lien, volume) EN CONTACT
+
+(bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
+
+```
+;; frames, sur toute la course, ou cette chaine avait au moins une paire (lien, volume) EN CONTACT.
+;; Publie a cote de la penetration : un zero sur une chaine qui n'a jamais rien touche ne dit pas la
+;; meme chose qu'un zero sur une chaine qui a frotte le crane pendant 3000 frames.
+```
+
+## [NOTE-285] seuil de detection, en unites de jeu par frame (4096 u = 1 m). Un os que l'anim ne touche pas n
+
+(bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
+
+```
+;; seuil de detection, en unites de jeu par frame (4096 u = 1 m). Un os que l'anim ne touche pas ne
+;; bouge PAS dans ce repere : le seuil separe l'intention du bruit numerique de la cascade de
+;; matrices, il ne filtre aucun mouvement reel.
+```
+
+## [NOTE-284] SPEC 10 `SupineProjectionScale = 0.70` : la projection avant perd 30 % contre le thorax. BANDE 
+
+(bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
+
+```
+;; SPEC 10 `SupineProjectionScale = 0.70` : la projection avant perd 30 % contre le thorax. BANDE que
+;; la chair cede avant que le mur ne redevienne dur, en B0 (SPEC 6 : 602 u de CHAIR, pas l'os). Elle
+;; ne se regle pas, sa spec l'ecrit. Voir `phys-vol-floor` / `phys-vol-yield`.
+```
+
+## [NOTE-283] RE-ASSISES : liens dont la pose du modele est hors de portee de leur porteur et que le moteur
+
+(bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
+
+```
+;; RE-ASSISES : liens dont la pose du modele est hors de portee de leur porteur et que le moteur
+;; replace sur lui. Owner/superviseur 2026-08-11 : « pantflapL retablie — elle avait ete supprimee du
+;; fichier au lieu d'etre REPAREE ».
+```
+
+## [NOTE-282] COMBIEN DE FOIS LA PROFONDEUR A ETE POUSSEE TANGENTIELLEMENT DANS LA BOUCLE DE FINITION.
+
+(bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
+
+```
+;; COMBIEN DE FOIS LA PROFONDEUR A ETE POUSSEE TANGENTIELLEMENT DANS LA BOUCLE DE FINITION.
+;; Regle 0 : le correctif ci-dessous ne se prouve pas par son commentaire. Ce compteur dit qu'il a
+;; TIRE, et `PHYSTAN` le publie ; a zero, le bloc n'a jamais ete atteint et le tableau ment.
+```
+
+## [NOTE-281] ... et combien de ces re-assises ont du retomber sur l'ancienne heuristique (rayon le long de
+
+(bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
+
+```
+;; ... et combien de ces re-assises ont du retomber sur l'ancienne heuristique (rayon le long de
+;; l'os du porteur) faute de bind-pose lisible. Doit valoir ZERO : un secours silencieux est un
+;; defaut qui attend, et c'est celui-la qui posait le pan du pantacourt dans le mollet.
+```
+
+## [NOTE-280] [NOTE-157] `skinpen = 0` veut dire DEUX choses — « le lien est dehors » et « aucun echantillon
+
+(bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
+
+```
+;; [NOTE-157] `skinpen = 0` veut dire DEUX choses — « le lien est dehors » et « aucun echantillon
+;; n'etait a portee ». Ce compte les separe, PAR CHAINE. Sans lui, un plancher de repos a 0.0000
+;; se lit comme une mesure alors que c'est un trou.
+```
+
+## [NOTE-279] petits utilitaires
+
+(bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
+
+```
+;; ------------------------------------------------------------------------------------------------
+;; petits utilitaires
+;; ------------------------------------------------------------------------------------------------
+```
+
+## [NOTE-278] SPEC 37 — « rebase on teleportation / level transition ». Un slot reutilise
+
+(bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
+
+```
+                    ;; SPEC 37 — « rebase on teleportation / level transition ». Un slot reutilise
+                    ;; redemande TOUTES ses references : triedre, torsion, mode secondaire. Un etat
+                    ;; qui survit a un respawn est un etat qui vieillit, et sa spec l'interdit.
+```
+
+## [NOTE-277] la direction de repos du materiau se releve a la premiere frame utile, sur la
+
+(bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
+
+```
+                    ;; la direction de repos du materiau se releve a la premiere frame utile, sur la
+                    ;; pose retargetee : un slot reutilise doit la redemander, sinon la chaine
+                    ;; heriterait du repos d'un autre acteur.
+```
+
+## [NOTE-276] le rayon englobant vient des echantillons RETENUS, jamais du
+
+(bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
+
+```
+                               ;; le rayon englobant vient des echantillons RETENUS, jamais du
+                               ;; nombre declare : un prefixe ne peut alors que le RETRECIR, et
+                               ;; jamais revendiquer une portee qu'il n'a pas.
+```
+
+## [NOTE-275] PREUVE D'EXECUTION (regle 0) : sans cette ligne, un fichier absent, un
+
+(bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
+
+```
+                    ;; PREUVE D'EXECUTION (regle 0) : sans cette ligne, un fichier absent, un
+                    ;; parseur muet ou un rig sans ces os rendraient la mesure identiquement nulle
+                    ;; et indistinguable d'une peau que rien ne traverse.
+```
+
+## [NOTE-274] `w` porte la DISTANCE a l'axe. Elle est deja calculee ici ; la jeter obligeait
+
+(bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
+
+```
+         ;; `w` porte la DISTANCE a l'axe. Elle est deja calculee ici ; la jeter obligeait
+         ;; l'appelant a la recalculer ou a se rabattre sur une constante. C'est elle qui chiffre
+         ;; « de combien le lien est passe du mauvais cote », en metres, sans terme invente.
+```
+
+## [NOTE-273] CONTROLE POSITIF DU PREDICAT CONIQUE : 1 = on REMET le rayon interpole sur le parametre de
+
+(bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
+
+```
+;; CONTROLE POSITIF DU PREDICAT CONIQUE : 1 = on REMET le rayon interpole sur le parametre de
+;; projection, c'est-a-dire le predicat faux d'avant. Ce qu'il rend au systeme est la difference
+;; exacte entre le solide que la ligne de donnees DESIGNE et l'ensemble que le moteur TESTAIT.
+```
+
+## [NOTE-272] part radiale prise sur le VECTEUR perpendiculaire, pas par |p|^2 - x^2 : la
+
+(bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
+
+```
+              ;; part radiale prise sur le VECTEUR perpendiculaire, pas par |p|^2 - x^2 : la
+              ;; soustraction de deux grands nombres presque egaux perd ses chiffres quand le
+              ;; point est pres de l'axe, c'est-a-dire exactement le cas qui decide.
+```
+
+## [NOTE-271] CAS DEGENERE : le lien s'est confondu avec son attache, la direction n'existe
+
+(bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
+
+```
+               ;; CAS DEGENERE : le lien s'est confondu avec son attache, la direction n'existe
+               ;; plus. Se taire ici laissait le lien se restabiliser n'importe ou, y compris du
+               ;; mauvais cote — on REPART de la direction du modele.
+```
+
+## [NOTE-270] `atan` de GOAL rend des UNITES DE ROTATION (65536 = un tour) ;
+
+(bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
+
+```
+                         ;; `atan` de GOAL rend des UNITES DE ROTATION (65536 = un tour) ;
+                         ;; 360/65536 = 0.0054931641 les convertit en degres, et 182.04444
+                         ;; revient aux unites que `sin`/`cos` attendent.
+```
+
+## [NOTE-269] les deux azimuts du veto de cote : celui de la pose d'auteur et celui du lien simule.
+
+(bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
+
+```
+        ;; les deux azimuts du veto de cote : celui de la pose d'auteur et celui du lien simule.
+        ;; Memes noms et meme role que dans `phys-link-pen` (:2513-2514), pour que le predicat de
+        ;; DECISION se lise exactement comme le predicat de MESURE.
+```
+
+## [NOTE-268] ARMEE (prio-off = 0) elle DESIGNE et ses compteurs comptent ; en mesure seule
+
+(bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
+
+```
+            ;; ARMEE (prio-off = 0) elle DESIGNE et ses compteurs comptent ; en mesure seule
+            ;; (prio-meas = 1) elle ne fait que COMPTER, et `*phys-lwin*` est rendu a -1 juste
+            ;; apres, donc rien n'est ecarte. Voir *phys-prio-meas*.
+```
+
+## [NOTE-267] `sc` PORTE DEJA LE SLOT (`sc = slot*PHYS-CHAINS + c`, cf. :922) : le
+
+(bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
+
+```
+                          ;; `sc` PORTE DEJA LE SLOT (`sc = slot*PHYS-CHAINS + c`, cf. :922) : le
+                          ;; remultiplier ecrirait HORS du tableau des le slot 1. Meme indexation
+                          ;; que l'accesseur `phys-chain-conf`. `*phys-cvh*` est, LUI, PAR MAILLON.
+```
+
+## [NOTE-266] `floor0` contre le volume A SA POSE D'AUTEUR, `dep` contre sa position
+
+(bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
+
+```
+                    ;; `floor0` contre le volume A SA POSE D'AUTEUR, `dep` contre sa position
+                    ;; COURANTE : le plancher de pose modele est une propriete de la pose du
+                    ;; modele des DEUX cotes (cf. phys-snapshot-colliders!).
+```
+
+## [NOTE-265] --- (a2) LE FRANCHISSEMENT D'AXE. Deux conditions, pas une : la pose
+
+(bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
+
+```
+                          ;; --- (a2) LE FRANCHISSEMENT D'AXE. Deux conditions, pas une : la pose
+                          ;; --- d'AUTEUR doit etre dans le volume pour que « de quel cote » ait un
+                          ;; --- sens pour elle, ET le maillon SIMULE doit y etre aussi.
+```
+
+## [NOTE-264] LA 7e PASSE NE CORRIGE PAS, ELLE MESURE : `*phys-skc-r*` est la pire
+
+(bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
+
+```
+                    ;; LA 7e PASSE NE CORRIGE PAS, ELLE MESURE : `*phys-skc-r*` est la pire
+                    ;; violation qui SURVIT aux six passes. C'est la contrainte qui se juge
+                    ;; elle-meme — si elle ne ferme pas, ce chiffre le dit avant la gate.
+```
+
+## [NOTE-263] compte une fois par frame (le meme drapeau que `buried` : `phys-pen-chain`
+
+(bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
+
+```
+                  ;; compte une fois par frame (le meme drapeau que `buried` : `phys-pen-chain`
+                  ;; l'arme, le recul ne l'arme pas, donc les 3 reculs et leurs 13 pas de
+                  ;; dichotomie ne comptent pas).
+```
+
+## [NOTE-262] QUEL VOLUME CONTRAINT QUEL MAILLON. Compte les paires (lien, volume) en
+
+(bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
+
+```
+                ;; QUEL VOLUME CONTRAINT QUEL MAILLON. Compte les paires (lien, volume) en
+                ;; VIOLATION, pas en contact : `res > 0` veut dire que ce volume-ci demande une
+                ;; correction cette frame. Un contact a profondeur nulle n'est pas une contrainte,
+                ;; et le compter rendrait la colonne aveugle a la difference entre les deux.
+```
+
+## [NOTE-261] `phys-link-pen` incremente `*phys-buried-n*` SANS passer par `*phys-buried-tally*` : la
+
+(bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
+
+```
+        ;; `phys-link-pen` incremente `*phys-buried-n*` SANS passer par `*phys-buried-tally*` : la
+        ;; seconde passe de mesure de cette sonde le doublerait sur la fenetre armee, et `PHYSLIM
+        ;; buried=` est publie APRES elle. On le rend a sa valeur d'entree — une sonde qui laisse
+        ;; une trace dans un compteur n'est pas une sonde.
+```
+
+## [NOTE-260] la sentinelle est RENDUE TELLE QUELLE : « aucun contact » n'est pas « penetration nulle »,
+
+(bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
+
+```
+    ;; la sentinelle est RENDUE TELLE QUELLE : « aucun contact » n'est pas « penetration nulle »,
+    ;; et c'est l'appelant qui compte les deux separement. Confondre les deux, c'est annoncer un
+    ;; zero mesure la ou rien n'a ete mesure.
+```
+
+## [NOTE-259] 9.81 m/s^2 dans les unites de l'integrateur : 9.81 * 4096 u/m / 3600 frames^2/s^2
+
+(bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
+
+```
+             ;; 9.81 m/s^2 dans les unites de l'integrateur : 9.81 * 4096 u/m / 3600 frames^2/s^2
+             ;; = 11.16 u/frame^2. L'ancienne valeur (-160, ENCORE multipliee par dt^2) donnait
+             ;; 0.044 u/frame^2, 250 fois trop faible : la famille B ne pendait pas du tout. C'est
+             ;; une erreur d'unites, pas un reglage.
+```
+
+## [NOTE-258] LA POSE D'AUTEUR DES VOLUMES, AVANT QUE LA PREMIERE CHAINE N'ECRIVE. Les chaines sont
+
+(bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
+
+```
+        ;; LA POSE D'AUTEUR DES VOLUMES, AVANT QUE LA PREMIERE CHAINE N'ECRIVE. Les chaines sont
+        ;; resolues l'une apres l'autre et chacune ecrit son joint dans le squelette : passe ce
+        ;; point, `skel bones` ne porte plus la pose d'auteur pour les joints deja traites.
+```
+
+## [NOTE-257] LA POSE DU MODELE EST-ELLE PLAUSIBLE ? Une fois par chaine, a sa premiere frame, ou
+
+(bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
+
+```
+              ;; LA POSE DU MODELE EST-ELLE PLAUSIBLE ? Une fois par chaine, a sa premiere frame, ou
+              ;; le squelette porte enfin la pose retargetee. Une chaine ecartee passe a zero lien et
+              ;; tout ce qui suit la saute — y compris son bloc de mesure, sinon elle publierait des
+              ;; chiffres pris sur le joint d'a cote.
+```
+
+## [NOTE-242] L'ESTIMATEUR DE SURFACE DEVIENT CONTINU, ET C'EST CE QUI PERMET D'ARMER LA CONTRAINTE
+
+(cycle 61, second temps)
+
+### POURQUOI L'ANCIEN EST MORT
+
+`phys-surf-sd` signait la distance par la normale du SEUL plus proche echantillon. Deux mesures
+l'ont tue, et aucune n'est une opinion :
+
+  1. `sd = dot(p-q, n)` avec `|n| = 1` donc `|sd| <= |p-q|` : une profondeur lue de 501 u EXIGE que
+     le plus proche echantillon de toute la peau soit a plus de 12 cm. C'est un TROU du nuage.
+  2. TEST DE RAFFINEMENT : a solveur IDENTIQUE AU BIT, en portant le nuage de 1071 a 2966
+     echantillons, la lecture bougeait de **30 %**. Un point plus PROCHE dont la normale est plus
+     OBLIQUE rendait une lecture plus PROFONDE : un seul mauvais echantillon decidait de tout.
+
+### CE QUI LE REMPLACE
+
+Moyenne des distances aux plans des `PHYS-SD-K` = 8 plus proches echantillons, ponderee par un
+noyau `w = (1 - d^2/h^2)^2` dont le rayon `h` EST la distance au K-ieme voisin.
+
+  - **CONTINUITE** : l'echantillon qui entre ou sort du K-voisinage porte un poids NUL. La valeur ne
+    saute plus quand le voisinage change. C'est la propriete qui manquait.
+  - **ROBUSTESSE** : un plan oblique isole est noye par ses sept voisins.
+  - **AUCUNE LONGUEUR CHOISIE A LA MAIN** : `h` s'adapte a la densite locale.
+  - `*phys-sdn*` rend la normale PONDEREE des memes K plans : la direction et la profondeur sortent
+    de la MEME population, sinon la contrainte pousserait le long d'un plan qui n'a pas decide.
+
+MESURE QUI L'ATTESTE, dans la fenetre de repos : chestL lit **0.0000 des deux cotes** (simule et
+auteur) — un sommet EXTREMAL de peau est DEHORS, ce qui est sa definition — et chestR lit
+127.16 / 127.34, soit **0.14 %** d'ecart la ou l'ancien estimateur en donnait 38.51 %.
+
+### ET LA CONTRAINTE S'ARME, EN DEUX TEMPS QUI SONT DEUX MESURES
+
+Armee telle quelle sur le champ continu, elle tient la borne sur la course (`skinpen` 243.91/311.50
+sous des planchers de 250.79/361.84) **mais s'emballe au repos** : `PHYSIDLE c=0 dev=374 amp=544`.
+Elle n'avait aucun terme la rattachant a la pose d'auteur — une poussee deplace le joint, ce
+deplacement change la lecture, qui redemande une poussee.
+
+**LE PLAFOND DE DEPLACEMENT** ferme la boucle : la physique ne peut se voir demander que de defaire
+**SA PROPRE part RENTRANTE**, `-dot(dj, n)`, ou `dj` est l'ecart du joint a sa pose d'auteur PRIS A
+L'ENTREE DE LA FRAME. A la pose d'auteur `dj` = 0 donc le plafond est 0 : la contrainte est INERTE
+au repos par ALGEBRE, pas par reglage. Et elle est auto-limitante — pousser dehors rend `dot(dj,n)`
+positif, donc le plafond retombe.
+
+`dj` PRIS A L'ENTREE et non au fil des passes : avec le `dj` courant, chaque poussee refermait le
+plafond sur la contrainte avant qu'elle ait fini (chestL restait a +41.7 u de son propre plancher ;
+a l'entree, +32.5 u). Le deplacement rentrant d'une frame est une quantite DE LA FRAME.
+
+RESULTAT : `PHYSIDLE dev` 0.5644 / 0.4881 avec `amp = 0.0000` — mieux que la course non contrainte
+(0.4721 / 1.0232). SPEC 2/9 tenue.
+
+### CE QUI RESTE OUVERT, ET IL EST PUBLIE
+
+`reste` (la pire violation qui survit aux six passes, mesuree par une 7e qui ne corrige pas) vaut
+encore 142.23 u, et **chestL reste 32.5 u au-dessus de SON PROPRE plancher** (chestR est dessous).
+La gate lit le PIRE des deux planchers et passe donc ; le registre de couverture, lui, classe
+§33/§34 **PARTIELLE** et pas TENUE, parce que sa regle 2 l'exige : « une seule chaine conforme =
+PARTIELLE ». L'ecart de chestL (0.0079 m) est sous le plancher d'erreur miroir de l'instrument
+(0.0176 m), ce qui n'en fait pas un zero — seulement une grandeur que cet instrument ne separe pas
+de son propre bruit gauche/droite.
