@@ -472,3 +472,21 @@ jamais quitte cette pose ne demontre pas qu'il sait y revenir. Le zero venait de
 d'excitation, pas de la qualite du rappel.
 Verrou : toute section de RETOUR A UN ETAT se mesure APRES une excitation representative, jamais
 au repos initial. Voisin de `positive-control-must-inject-data` et de `zero-from-empty-domain`.
+
+GUARD instrument-republishes-its-target .autoport/SPEC-COVERAGE.md §11
+**Un instrument qui reaffiche la constante que la section vise ne mesure rien.** §11 a ete publiee
+`TENUE` pendant 22 cycles sur un instrument portant **cinq triplets ecrits en dur** — ceux-la
+memes que la section demande — avec un ecart de 1e-4. L'accord parfait etait le symptome, pas la
+preuve : une mesure reelle ne tombe jamais a 1e-4 de sa cible.
+Verrou : un ecart anormalement PETIT est un signal d'alarme, pas un succes. Toute grandeur qui
+colle a sa cible a mieux que la resolution de l'instrument doit etre tracee jusqu'a sa source avant
+d'etre publiee. Voisin de `zero-from-empty-domain` et de `clamped-metric-hides-domain`.
+
+GUARD verdict-depends-on-a-duration-we-chose .autoport/SPEC-COVERAGE.md §14-§20
+**Six sections sont rouges a cause d'une duree que la spec ne donne pas.** `SPEC-breast-softbody`
+fixe des bandes d'AMPLITUDE et aucune duree de geste ; or la reponse est gouvernee par la duree
+(le stimulus le plus faible depasse de ×1,62, le plus fort reste sous d'un facteur 3,63). Les
+durees employees sont les NOTRES.
+Verrou : toute section dont le verdict depend d'une hypothese que nous avons posee le declare sur
+sa propre ligne, avec l'hypothese et sa source. Un rouge cause par mon postulat ne se presente
+jamais comme « sa spec est violee ».

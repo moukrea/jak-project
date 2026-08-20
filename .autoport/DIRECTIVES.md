@@ -10,6 +10,39 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
+## 2026-08-20 02:50 — LES SIX ROUGES DES REGIMES DEPENDENT D'UNE DUREE QUE LA SPEC NE DONNE PAS
+
+Le cycle 49 a JOUE les sept regimes de §14 a §20, jamais executes en 49 cycles. Sept sections
+sortent de `NON ETABLI`, **six en sortent rouges**, et les six disent un seul fait : la reponse est
+gouvernee par la **DUREE** du geste, pas par son amplitude. Le stimulus le plus FAIBLE des sept
+(0,76 g tenu 36 frames) depasse sa bande de ×1,62 ; le plus FORT (3,11 g sur 9 frames) reste SOUS
+la sienne d'un facteur 3,63.
+
+**ET VOICI CE QUI M'APPARTIENT, PAS A LUI.** `SPEC-breast-softbody.md` donne des bandes
+d'amplitude (« COM 25-35 % B0 » pour un atterrissage fort) et **aucune duree de geste**. Or sans
+duree, « dans la bande » n'est pas defini : le meme solveur passe ou echoue selon la longueur du
+geste qu'on lui joue. Les durees utilisees sont **biomecaniques, choisies par le worker**, pas
+tirees de la spec.
+
+**REGLE, ET ELLE EST NON NEGOCIABLE APRES SON MESSAGE DU 2026-08-19 SUR MES POSTULATS :**
+  1. toute section dont le verdict depend d'une duree que nous avons choisie le **DIT sur sa
+     propre ligne** du registre, avec la duree employee. Un rouge dont la cause est mon
+     hypothese ne se presente jamais comme « sa spec est violee » ;
+  2. la duree est publiee en frames ET en secondes, avec sa source (litterature biomecanique,
+     animation du jeu, ou choix arbitraire assume) ;
+  3. remonte a l'owner comme une **question ouverte sur sa spec**, pas comme un defaut du moteur :
+     c'est lui qui dira si nos durees sont la bonne lecture. En attendant on avance sous
+     hypothese declaree — il a dit « let's go », pas « attends-moi ».
+
+**QUATRIEME FAUX VERT, ET LE PLUS GENANT : §11.** Elle etait `TENUE` sur un instrument qui
+**republie la constante que la section vise** — cinq triplets ecrits en dur, ecart 1e-4. Un
+instrument qui reaffiche sa cible ne mesure rien. Le compte tombe a **2 TENUES sur 38** (§3, §37).
+
+**§12 REFUTEE AU CODE** : un `fabs` rendait son asymetrie gauche/droite mecaniquement impossible.
+Corrige au cycle 50 par une separation signee ; livre dans le build de 02:21, **pas encore mesure**
+— donc pas annonce a l'owner comme testable.
+
+
 ## 2026-08-20 00:25 — RIEN N'EST VALIDE. UN RETOUR N'EST PAS UNE VALIDATION.
 
 Verbatim, spontane, avant meme que je puisse me tromper dessus : « juste pour préciser **je n'ai
