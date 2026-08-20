@@ -2371,6 +2371,29 @@
      ;; point de depart — et pour `tilt` elles contiennent en plus la rampe qui l'amene a 60 degres.
      ;; Meme regle pour les six sous-fenetres : les amplitudes restent comparables entre elles.
      (when (= (-> self pframe) PHYSROOM-MEASAT) (phys-stats-reset!))
+     ;; ---- LA DIRECTION DES OS DE POITRINE, UNE FOIS PAR ANIMATION (cycle 54) -----------------
+     ;; POURQUOI ICI. Le cycle 53 a mesure que le rig est bilateralement symetrique a 0.005 deg en
+     ;; pose de BIND, et que la pose TENUE par la salle pendant toutes ses phases de mesure est a
+     ;; 43.4 deg du miroir parfait — c'est la derniere animation jouee qui reste en place. Tout
+     ;; ecart gauche/droite du dossier (sa §32, sa §18, sa §12, et celui que j'ai publie au cycle
+     ;; 52) porte donc cette asymetrie. La question qui reste — accident de CETTE animation, ou
+     ;; regle sur les 31 ? — se lit sans aucun balayage neuf : cette phase les joue deja toutes.
+     ;; UNE SEULE SOUS-FENETRE (`drive` = 0, une translation, sujet a quaternion identite) pour que
+     ;; la direction relevee soit celle de l'ANIMATION et pas d'une inclinaison du sujet.
+     ;; NATURE : une direction UNITAIRE, sans dimension. REPERE : le MONDE. LIGNE DE BASE : en pose
+     ;; de bind les deux os sont miroirs a 0.005 deg — c'est ce que cette ligne doit retrouver si
+     ;; une animation tient une pose symetrique. LECTURE PURE : `phys-chain-bone` n'ecrit rien.
+     (when (and (zero? (-> self drive)) (= (-> self pframe) PHYSROOM-MEASAT))
+       (let ((hd (if (-> self child) (the-as jak-hd (-> self child 0)) (the-as jak-hd #f))))
+         (when hd
+           (dotimes (c (-> self nchain))
+            (when (> (phys-chain-links (-> self slot) c) 0)
+             (dotimes (l (phys-chain-links (-> self slot) c))
+               (format 0 "PHYSPOSEB a=~D c=~D l=~D ux=~,,6f uy=~,,6f uz=~,,6f~%"
+                       (-> self ai) c l
+                       (phys-chain-bone hd (-> self slot) c l 0)
+                       (phys-chain-bone hd (-> self slot) c l 1)
+                       (phys-chain-bone hd (-> self slot) c l 2))))))))
      (when (>= (-> self pframe) PHYSROOM-WIN)
        (physroom-emit-window)
        (set! (-> self pframe) 0)

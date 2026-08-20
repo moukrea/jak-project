@@ -93,6 +93,24 @@ pour la première fois). Les `NON ÉTABLI` tombent de 7 à 5. **Le solveur n'a p
 cycle : 37 995 lignes de mesure identiques, une seule ligne différente, et c'est le garde-fou de
 numéro de phase.**
 
+## Cycle 54 — UNE POSE SYMÉTRIQUE EXISTE, ET CELLE QU'ON TIENT EST LA 3e PIRE SUR 31
+
+Les 31 animations de Keira sont échantillonnées au **même point de protocole**, donc le classement
+est comparable. Écart au miroir parfait, os de racine : **min 4,0° · médiane 34,3° · max 125,5° ;
+5 poses sur 31 sont sous 10°**. La meilleure, `assistant-village2-idle-hut-breath`, est symétrique
+sur LES DEUX maillons (4,0 / 5,4°). **Celle que la salle laisse en place —
+`assistant-firecanyon-idle-down` — est à 124,1°, rang 29 sur 31.**
+
+**MAIS L'ASYMÉTRIE EST UNE PROPRIÉTÉ DE LA FRAME, PAS DE L'ANIMATION**, et ça va contre la
+facilité : la MÊME animation rend 124,1° à la frame échantillonnée ici et **43,4°** à la frame que
+la salle fige ensuite (cycle 53). « Choisir une meilleure animation » ne suffit donc pas — il faut
+ÉPINGLER une paire (animation, frame) et vérifier sa symétrie avec l'émetteur ajouté ici.
+
+**CE QUI RESTE NON LISIBLE, ET CE N'EST NI TENU NI RÉFUTÉ** : §32, §18, §12 et l'écart
+gauche/droite que j'ai publié au cycle 52 sont tous mesurés dans cette pose. Les rejouer dans une
+pose épinglée symétrique DÉPENSERA le contrôle d'identité au bit — c'est exactement ce pour quoi
+il faut le dépenser. **CONTRÔLE : zéro ligne différente** sur 38 575 (émetteur purement additif).
+
 ## Cycle 53 — LE MÉCANISME EST QUANTIFIÉ, ET LA POSE TENUE PAR LA SALLE N'EST PAS SYMÉTRIQUE
 
 **LE MÉCANISME.** `phys-length-chain` est une projection d'ÉGALITÉ sur la sphère : elle retire la

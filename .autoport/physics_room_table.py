@@ -5151,7 +5151,21 @@ def main():
                   ' sin=%.4f et %.4f, rapport %s'
                   % (_lv, _rv, _sl, _sr,
                      ('%.2f' % _rat) if _rat != float('inf') else 'INDEFINI'))
-                A('      mesure a expliquer : confiscation x5.01 (chestL) contre x1.30 (chestR).')
+                # LA CONFISCATION MESUREE SUR *CETTE* COURSE, jamais un nombre en dur. Une
+                # constante ecrite ici vieillirait en silence et se lirait plus tard comme une
+                # mesure vivante — c'est le mode d'echec que ce dossier a paye quatre fois.
+                _conf = []
+                for _cc, _nm in ((_cl[0], 'chestL'), (_cr[0], 'chestR')):
+                    for _s in (1, -1):
+                        _v0 = _sgVm(_cc, _cellw.get((0, 0, _s)))
+                        _v1 = _sgVm(_cc, _cellw.get((1, 0, _s)))
+                        if _v0 and _v0 > 0 and _v1 is not None:
+                            _conf.append('%s s=%+d x%.2f' % (_nm, _s, _v1 / _v0))
+                A('      confiscation MESUREE sur cette course (k=1 / k=0, axe vertical) : %s'
+                  % ('  ·  '.join(_conf) if _conf else 'INDISPONIBLE'))
+                A('      predite par 1/sin : chestL x%s  chestR x%s'
+                  % (('%.2f' % (1.0 / _sl)) if _sl > 1e-9 else 'inf',
+                     ('%.2f' % (1.0 / _sr)) if _sr > 1e-9 else 'inf'))
                 if _lv > _rv and _rat >= 1.5:
                     A('      -> P4 TENUE : l\'os de chestL est plus aligne avec le pilotage'
                       ' vertical, et le rapport des parts transverses va dans le bon sens.')
