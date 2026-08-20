@@ -22,6 +22,7 @@
 (define-extern pc-physics-chain-param-mi       (function string int int int))
 (define-extern pc-physics-chain-link-radius-mi (function string int int int))
 (define-extern pc-physics-chain-link-comw-mi (function string int int int))
+(define-extern pc-physics-chain-link-apex-mi (function string int int int int))
 (define-extern pc-physics-num-colliders        (function string int))
 (define-extern pc-physics-collider-param-mi    (function string int int int))
 (define-extern pc-physics-collider-is-joint    (function string int string int))
@@ -131,6 +132,20 @@
 (define *phys-comw* (new 'global 'array 'float PHYS-SCL))  ;; `comw=` : W_l / N, mesure sur le mesh
 (define *phys-lcy* (new 'global 'array 'float PHYS-SCL))
 (define *phys-lcz* (new 'global 'array 'float PHYS-SCL))
+;; [NOTE-139] SPEC 14/16/17/18/19/20/22 : L'APEX, SIX SECTIONS LE BORNENT ET RIEN NE LE PUBLIAIT. -> jak-hd-physics-NOTES.md
+(define *phys-apw* (new 'global 'array 'float PHYS-SCL))  ;; `ax` : part de la masse de la region distale portee par ce maillon
+(define *phys-apx* (new 'global 'array 'float PHYS-SCL)) (define *phys-apy* (new 'global 'array 'float PHYS-SCL)) (define *phys-apz* (new 'global 'array 'float PHYS-SCL))
+(define *phys-c2* (new 'global 'array 'float 3))          ;; sortie de `phys-pt-exc!`, jamais lue ailleurs
+
+(defun phys-pt-exc! ((bm matrix) (pre matrix) (ox float) (oy float) (oz float))
+  "[NOTE-139] L'EXCURSION D'UN POINT DE CHAIR d'offset (ox,oy,oz) en espace os. -> jak-hd-physics-NOTES.md
+   NATURE trois longueurs SIGNEES en unites de jeu · REPERE MONDE, meme frame, pose ECRITE `bm`
+   (deformation comprise) CONTRE la pose d'auteur `pre` · A LA POSE D'AUTEUR 0.0 sur les trois.
+   Sortie dans *phys-c2*. C'est la MEME formule que le bloc `lc` de l'ecriture, ecrite une fois."
+  (set! (-> *phys-c2* 0) (- (+ (-> bm vector 3 x) (+ (* ox (-> bm vector 0 x)) (+ (* oy (-> bm vector 1 x)) (* oz (-> bm vector 2 x))))) (+ (-> pre vector 3 x) (+ (* ox (-> pre vector 0 x)) (+ (* oy (-> pre vector 1 x)) (* oz (-> pre vector 2 x)))))))
+  (set! (-> *phys-c2* 1) (- (+ (-> bm vector 3 y) (+ (* ox (-> bm vector 0 y)) (+ (* oy (-> bm vector 1 y)) (* oz (-> bm vector 2 y))))) (+ (-> pre vector 3 y) (+ (* ox (-> pre vector 0 y)) (+ (* oy (-> pre vector 1 y)) (* oz (-> pre vector 2 y)))))))
+  (set! (-> *phys-c2* 2) (- (+ (-> bm vector 3 z) (+ (* ox (-> bm vector 0 z)) (+ (* oy (-> bm vector 1 z)) (* oz (-> bm vector 2 z))))) (+ (-> pre vector 3 z) (+ (* ox (-> pre vector 0 z)) (+ (* oy (-> pre vector 1 z)) (* oz (-> pre vector 2 z)))))))
+  (none))
 
 ;; L'ECART A LA POSE D'AUTEUR, DANS LE REPERE DE L'ANCRE. Ce fut l'etat INTEGRE du solveur, et
 ;; c'est le modele que l'owner a rejete le 2026-08-13 a 22:40 (« on integre un ECART, pas un
@@ -794,7 +809,13 @@
                       ;; et le COM pondere n'est alors pas publie du tout, jamais publie a zero.
                       (dotimes (l PHYS-LINKS)
                         (set! (-> *phys-comw* (+ (* sc PHYS-LINKS) l))
-                              (phys-mi->f (pc-physics-chain-link-comw-mi agname c l))))
+                              (phys-mi->f (pc-physics-chain-link-comw-mi agname c l)))
+                        ;; [NOTE-139] `ax` de physics_mesh.txt. 0 = non declare, et l'apex n'est
+                        ;; alors pas publie du tout — jamais publie a zero.
+                        (set! (-> *phys-apw* (+ (* sc PHYS-LINKS) l)) (phys-mi->f (pc-physics-chain-link-apex-mi agname c l 0)))
+                        (set! (-> *phys-apx* (+ (* sc PHYS-LINKS) l)) (phys-mi->f (pc-physics-chain-link-apex-mi agname c l 1)))
+                        (set! (-> *phys-apy* (+ (* sc PHYS-LINKS) l)) (phys-mi->f (pc-physics-chain-link-apex-mi agname c l 2)))
+                        (set! (-> *phys-apz* (+ (* sc PHYS-LINKS) l)) (phys-mi->f (pc-physics-chain-link-apex-mi agname c l 3))))
                       (when (> (-> *phys-nlink* sc) 0)
                         (+! armed 1)
                         (+! links (-> *phys-nlink* sc)))))
@@ -3802,7 +3823,7 @@
                                   (matrix-copy! (-> *phys-dfm* sc) tmp))))))))
                     ;; [NOTE-47] ---- 6. ECRITURE DANS LE SQUELETTE (SPEC 7 : c'est ca qui fait foi) ---- -> jak-hd-physics-NOTES.md
                     ;; [NOTE-127] LE COM DE SA §22 EST UNE MOYENNE PONDEREE, ACCUMULEE SUR LA FRAME. -> jak-hd-physics-NOTES.md
-                    (let ((cwx 0.0) (cwy 0.0) (cwz 0.0) (cwn 0))
+                    (let ((cwx 0.0) (cwy 0.0) (cwz 0.0) (cwn 0) (awx 0.0) (awy 0.0) (awz 0.0) (awn 0))
                     (dotimes (l n)
                       (when (>= l 0)
                         (let* ((scl (+ (* sc PHYS-LINKS) l))
