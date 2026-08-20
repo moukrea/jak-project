@@ -4,6 +4,13 @@ genere par .autoport/physics_room_table.py depuis .autoport/reports/Grecharged-s
 empreinte de la trace lue : md5 0bf01fb4ca3e42927e313c0d2212f56c (3995457 octets)
 contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 7 (ce qui fait foi)
 
+-- ROOM-INSTRUMENTS-MUETS : CE QUE CE TABLEAU NE MESURE PAS AUJOURD'HUI ------------
+   Un instrument SUSPENDU ou ABSENT ne rend pas un zero : il ne rend RIEN. Le confondre
+   avec un vert est le faux vert le moins cher a produire. Compte derive du corps du
+   tableau, jamais declare a la main.
+ROOM-INSTRUMENTS-MUETS: 0 — tous les blocs de ce tableau ont publie un chiffre.
+
+
 Toutes les longueurs sont en METRES (la trace est en unites de jeu, 4096 u = 1 m). Ce que
 mesure chaque colonne, et rien d'autre :
   tipvar  AMPLITUDE de mouvement de la POINTE due a la PHYSIQUE SEULE sur la fenetre : la
@@ -2486,10 +2493,45 @@ ROOM-ORICOM-SPEC: chestR       §11 transitoire  pic d'etablissement=0.31345  te
    NATURE : un DEPLACEMENT SOUTENU du centre de masse, en B0. REPERE : le triedre de
      l'ANCRE — la NORME, seule grandeur qui traverse les deux triedres orthonormes.
    LIGNE DE BASE : i=0 (debout d'auteur), ou §9 exige 0.0000 ; elle est publiee.
-ROOM-ORICOM-MASS: SUSPENDU — instantane PERIME : ecrit sur un mesh de mtime 1787054703 taille 1002412, le mesh livre porte mtime 1787201927 taille 1002412.
-   Les `d_j` sont mesures, les `W_j` ne decrivent pas le mesh que le jeu recoit. Relancer
-   `python3 .autoport/probe_breast_com_mass.py` PUIS regenerer ce tableau. Aucun chiffre
-   n'est publie ici : des poids perimes donneraient un COM faux avec une provenance juste.
+   SOURCE DES POIDS : out/jak1/fr3/skin/keira-hd-lod0.glb (mesh LIVRE, pas le rip du donneur), mtime 1787201927, taille 1002412 —
+     CONCORDANCE VERIFIEE avec le mesh sur disque (sinon ce bloc se suspend).
+   d_COM = (W_0.d_0 + W_1.d_1)/N — aucun coefficient choisi ; W_j et N mesures, d_j lus.
+   d_j EST UN CUMUL, PAS UN INCREMENT (corrige le 2026-08-18) : `PHYSORICOML` publie
+     `u - m` par maillon, donc un ecart A SON PROPRE PARENT ; l'ecart a la pose d'auteur du
+     j-eme joint est la somme telescopique `sum(ldb[0..j])`, l'ancre etant a zero. Sur une
+     chaine a UN maillon les deux coincident — le defaut n'etait visible que depuis §23.
+   PART MESUREE : la part SQUELETTIQUE (skinning lineaire). Le tenseur de deformation
+     (`*phys-dfm*`) etire la peau autour de l'os sans deplacer un joint : il n'est PAS ici.
+     `d_COM` est donc une BORNE INFERIEURE, et la colonne « compose avec rr » est retiree —
+     `rr` est la composante radiale du MEME `u - m`, deja comptee, et d'une autre echelle.
+ROOM-ORICOM-MASS: chestL       CONTROLE pointe : |sum ldb| (PHYSORICOML, cumul) contre |t|
+   (PHYSORICOM), pire ecart relatif 13.3535 % (i=8) sur 8 orientations chargees — deux
+   accumulateurs independants, deux triedres, un seul nombre. DESACCORD > 5 % : le montage est en cause, pas la physique — les lignes ci-dessous sont suspendues a ce constat
+   LIGNE DE BASE i=0 (debout d'auteur, §9 exige 0.0000), en ABSOLU parce qu'un rapport entre deux quasi-zeros
+   ne mesure rien : |sum ldb| = 0.00087 B0  ·  |t| = 0.00081 B0.
+ROOM-ORICOM-MASS: chestL       §10 supine  i=8  |d_COM|=0.1662/0.1831/0.2020 B0  (apex 0.2291, facteur 0.725)
+                              squelettique seul SOUS — borne INFERIEURE, la part tensorielle manque  ·  cible 0.23 (bande 0.18-0.28)  ·  rr(joint, pour memoire, NON compose) 0.2148
+ROOM-ORICOM-MASS: chestL       §11 prone   i=6  |d_COM|=0.1158/0.1275/0.1405 B0  (apex 0.2377, facteur 0.487)
+                              squelettique seul SOUS — borne INFERIEURE, la part tensorielle manque  ·  cible 0.24 (bande 0.20-0.30)  ·  rr(joint, pour memoire, NON compose) 0.3219
+ROOM-ORICOM-MASS: chestL       §12 lateral i=2  |d_COM|=0.1274/0.1403/0.1546 B0  (apex 0.2587, facteur 0.492)
+                              squelettique seul SOUS — borne INFERIEURE, la part tensorielle manque  ·  cible 0.19 (bande 0.15-0.24)  ·  rr(joint, pour memoire, NON compose) 0.3100
+ROOM-ORICOM-MASS: chestL       §12 lateral i=4  |d_COM|=0.1697/0.1869/0.2060 B0  (apex 0.3207, facteur 0.529)
+                              squelettique seul DANS  ·  cible 0.19 (bande 0.15-0.24)  ·  rr(joint, pour memoire, NON compose) 0.2434
+   (frontieres w>0 / w>=0.05 / w>=0.25 — les trois colonnes de |d_COM| ci-dessus ; N=94, part de l'organe portee par la chaine 0.5714, le reste est ancre au buste)
+ROOM-ORICOM-MASS: chestR       CONTROLE pointe : |sum ldb| (PHYSORICOML, cumul) contre |t|
+   (PHYSORICOM), pire ecart relatif 0.5691 % (i=2) sur 8 orientations chargees — deux
+   accumulateurs independants, deux triedres, un seul nombre. accord
+   LIGNE DE BASE i=0 (debout d'auteur, §9 exige 0.0000), en ABSOLU parce qu'un rapport entre deux quasi-zeros
+   ne mesure rien : |sum ldb| = 0.00087 B0  ·  |t| = 0.00074 B0.
+ROOM-ORICOM-MASS: chestR       §10 supine  i=8  |d_COM|=0.1402/0.1572/0.1816 B0  (apex 0.2046, facteur 0.686)
+                              squelettique seul SOUS — borne INFERIEURE, la part tensorielle manque  ·  cible 0.23 (bande 0.18-0.28)  ·  rr(joint, pour memoire, NON compose) 0.1992
+ROOM-ORICOM-MASS: chestR       §11 prone   i=6  |d_COM|=0.1312/0.1468/0.1681 B0  (apex 0.2837, facteur 0.463)
+                              squelettique seul SOUS — borne INFERIEURE, la part tensorielle manque  ·  cible 0.24 (bande 0.20-0.30)  ·  rr(joint, pour memoire, NON compose) 0.2837
+ROOM-ORICOM-MASS: chestR       §12 lateral i=2  |d_COM|=0.1588/0.1778/0.2049 B0  (apex 0.2719, facteur 0.584)
+                              squelettique seul DANS  ·  cible 0.19 (bande 0.15-0.24)  ·  rr(joint, pour memoire, NON compose) 0.1318
+ROOM-ORICOM-MASS: chestR       §12 lateral i=4  |d_COM|=0.0520/0.0582/0.0665 B0  (apex 0.1212, facteur 0.429)
+                              squelettique seul SOUS — borne INFERIEURE, la part tensorielle manque  ·  cible 0.19 (bande 0.15-0.24)  ·  rr(joint, pour memoire, NON compose) 0.3479
+   (frontieres w>0 / w>=0.05 / w>=0.25 — les trois colonnes de |d_COM| ci-dessus ; N=90, part de l'organe portee par la chaine 0.5452, le reste est ancre au buste)
 
 -- ROOM-ORICTL : LE REDRESSEMENT, ET SES TROIS SUSPECTS DESARMES TOUR A TOUR -------------
    NATURE : le meme deplacement soutenu que `ROOM-ORICOM`, mesure sur la meme fenetre par

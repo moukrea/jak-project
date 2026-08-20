@@ -7347,6 +7347,44 @@ def main():
         A('      L\'adjudication des six predictions de C56E1 est dans .autoport/c56_verdict.py —')
         A('      ce tableau publie la MESURE, le verdict est ailleurs et il cite ses seuils.')
 
+    # ---------------------------------------------------------------------------------------
+    # REGISTRE DES INSTRUMENTS MUETS — POSE AU CYCLE 64, ET IL EST AU POINT DE PRODUCTION.
+    #
+    # `ROOM-ORICOM-MASS` s'est SUSPENDU tout seul le 2026-08-20 06:58, quand le reskin du cycle 57
+    # a remplace le mesh sous son instantane de masse. Sa garde de concordance a fait exactement ce
+    # qu'il fallait : elle a refuse de publier un COM faux avec une provenance juste. Mais la ligne
+    # de suspension vivait a 2489 lignes du haut d'un tableau qui en fait 2900, et SEPT CYCLES ont
+    # tourne sans que personne la lise — §10, §11 et §12 sont restees lues sur un APEX, c'est-a-dire
+    # sur une BORNE SUPERIEURE, alors que l'instrument qui rend leur propre grandeur existait.
+    # Aucun rapport, aucune ligne du registre de couverture ne l'a mentionne.
+    #
+    # C'est la regle de l'owner du 2026-08-11 : « quand une perte se repete, on la rend IMPOSSIBLE
+    # au point de production, pas detectable au point de controle ». Un bloc suspendu ne se signale
+    # pas tout seul ; on le REMONTE donc en tete, ou il ne peut plus etre rate.
+    #
+    # CE N'EST PAS UNE GATE (elles sont gelees, DIRECTIVES regle 5) : ca ne fait rien echouer, ca
+    # PUBLIE. Le compte est derive du texte deja ecrit, aucun bloc n'a a se declarer lui-meme —
+    # donc un bloc futur qui se suspendra sera compte sans qu'on ait pense a l'inscrire ici.
+    _mute = [ln for ln in L
+             if re.match(r'^ROOM-[A-Z0-9-]+: (SUSPENDU|ABSENTE?)\b', ln)]
+    _reg = ['-- ROOM-INSTRUMENTS-MUETS : CE QUE CE TABLEAU NE MESURE PAS AUJOURD\'HUI ------------',
+            '   Un instrument SUSPENDU ou ABSENT ne rend pas un zero : il ne rend RIEN. Le confondre',
+            '   avec un vert est le faux vert le moins cher a produire. Compte derive du corps du',
+            '   tableau, jamais declare a la main.']
+    if _mute:
+        _reg.append('ROOM-INSTRUMENTS-MUETS: %d bloc(s) — les sections qu\'ils portent sont NON ETABLIES,'
+                    ' pas tenues :' % len(_mute))
+        for ln in _mute:
+            _reg.append('   %s' % ln[:150])
+    else:
+        _reg.append('ROOM-INSTRUMENTS-MUETS: 0 — tous les blocs de ce tableau ont publie un chiffre.')
+    _reg.append('')
+    try:
+        _at = next(i for i, ln in enumerate(L) if ln.startswith('contrat : ')) + 1
+        L[_at:_at] = [''] + _reg
+    except StopIteration:
+        L.extend([''] + _reg)
+
     os.makedirs(REPDIR, exist_ok=True)
     open(OUT, 'w').write('\n'.join(L) + '\n')
     print('ecrit %s : %d lignes, %d mesures, %d chaines, %d/%d animations'

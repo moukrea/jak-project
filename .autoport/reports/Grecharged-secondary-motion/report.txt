@@ -1,353 +1,357 @@
-RAPPORT DE CYCLE 63 — Grecharged-secondary-motion
+RAPPORT DE CYCLE 64 — Grecharged-secondary-motion
 DIRECTIVES v3fee554599
 Branche physics-keira-clean · perimetre : chestL / chestR SEULES (owner 2026-08-14 07:30)
 
 ================================================================================================
 0. EN UNE PHRASE
 ================================================================================================
-LE REPERE DE SA §7 N'AVAIT PAS DE MIROIR, ET C'EST CE TROU QUI FAISAIT TOMBER L'APLATISSEMENT DE
-SA §12 SUR LE MAUVAIS SEIN DEPUIS TREIZE CYCLES. Le cycle 62 avait mesure le defaut de §7 sans le
-corriger, en le declarant chantier suivant. Corrige : `angle(a0[chestL], -a0[chestR])` passe de
-179,749 deg a 0,251 deg, les determinants sortent OPPOSES, et EXACTEMENT UNE chaine bascule —
-laquelle etait calculable a l'avance et l'a ete. Et en tombant, le miroir a montre autre chose :
-`gxc x signe(sja)`, le correctif de cote du cycle 50, valait `-(g . sortant)` parce que `fx`
-pointe le long de **-e_ja** — donc le sein comprime etait le sein OPPOSE a la gravite, quand sa
-§12 ecrit « The GRAVITY-SIDE breast experiences stronger thoracic compression ». Mesure neuve et
-non tautologique (`PHYSSYM6 gso`, une grandeur d'ANATOMIE) : **0/4 cellules laterales conformes
-avant, 4/4 apres**. LES SEPT PREDICTIONS ONT ETE ECRITES AVANT LA COURSE ET LES SEPT TIENNENT.
+L'INSTRUMENT QUI LIT §10, §11 ET §12 SUR LEUR PROPRE GRANDEUR — UN CENTRE DE MASSE, PAS UN APEX —
+EXISTAIT, IL ETAIT SUSPENDU PAR SA PROPRE GARDE DEPUIS LE RESKIN DU CYCLE 57, ET AUCUN DES SEPT
+CYCLES SUIVANTS NE L'A DIT. La garde avait raison de refuser : les poids de peau avaient bouge de
++73 % sur `lBoob` et -31 % sur `lBooc`, et publier un COM avec des poids perimes aurait donne un
+chiffre faux sous une provenance juste. Mais la ligne de suspension vivait a 2489 lignes du haut
+d'un tableau qui en fait 2900, et personne ne l'a lue. Instantane regenere, bloc rouvert : §10,
+§11 et §12 sont lues sur un COM pour la premiere fois du dossier, et l'encadrement de §10 se
+resserre de x2,76 a x1,30.
+
+DEUXIEME TROU, DE LA MEME CAUSE ET QUE JE RETIRE CONTRE MOI-MEME : la confirmation independante de
+`B0` que J'AVAIS INSCRITE en §6 du registre — « l'etendue du nuage de chair sur l'axe anatomique
+vaut 597,9 / 598,3 u = 0,99 B0 » — est PERIMEE. Sur le mesh que le jeu recoit, la MEME construction
+rend 701,8 / 718,6 u = 1,166 / 1,194 B0. Elle decrivait un mesh d'avant le meme reskin du cycle 57.
+
+TROISIEME, ET C'EST UN FAUX MOTIF QUI TOMBE : §35 etait `NON ETABLI` sur la phrase « le vetement ne
+suit pas le sein : 0 sommet majoritaire ». Le nombre est reproductible, la phrase ne l'est pas — il
+compte les sommets d'une sphere de collision posee sur la BRETELLE D'EPAULE, a 104,6 mm du sein,
+qui ne l'a jamais touche. DOMAINE VIDE, la faute meme corrigee sur §33 au cycle 62. Mesure neuve :
+sur 28 primitives, UNE SEULE porte du poids de sein — le debardeur EST la surface du sein.
+
+AUCUN FICHIER DE `goal_src/` N'A CHANGE, aucune donnee livree n'a change. Le solveur et la salle
+sont bit-identiques, la trace lue est celle du cycle 63b (md5 0bf01fb4ca3e42927e313c0d2212f56c).
+Tout ce qui bouge ici est de l'INSTRUMENT et de la LECTURE.
 
 BREAST-PENETRATION: 0.1288 m (chestR) / 0.0956 m (chestL) — `meshpen`, DIAGNOSTIC et jamais un
-verdict depuis l'arbitrage du 2026-08-20 13:20 (c'est un DEPLACEMENT invariant au rayon, pas une
-profondeur). Declare, non regle. Il BAISSE ce cycle (0.1424 -> 0.1288 sur chestR, 0.1123 -> 0.0956
-sur chestL) et cette baisse n'est pas un objectif atteint : c'est un effet de bord du deplacement
-de la compression, publie comme tel.
-
-UN ROUGE NEUF EST APPARU EN CHEMIN, ET IL EST REPARE : le controle positif `ROOM-POSCONTROL` est
-tombe a 69,2 % de restitution (bande 75-125 %). Cause etablie en lisant le code : l'injection
-deplace le JOINT alors que la mesure sonde `q = joint + R(u).offset`, avec un offset de 467 a
-651 u — deplacer le joint fait TOURNER cet offset, donc le point mesure ne se deplace pas de ce
-qu'on injecte. Corrige en gelant l'offset pendant la seule relecture armee : **88,4 %**, la gate
-passe. **MA PREMIERE CAUSE PUBLIEE ETAIT FAUSSE** (« le plafond est le rayon du volume ») et je la
-retire en section 6 ; et ma prediction de valeur (~100 %) est **a moitie refutee** — 19,2 des 30,8
-points de deficit sont recuperes, 11,6 restent inexpliques. Section 6.
+verdict depuis l'arbitrage du 2026-08-20 13:20. Inchange au bit : aucun terme du solveur n'a bouge.
 
 ================================================================================================
 1. CE QUE LES DIRECTIVES DEMANDAIENT, ET CE QUE J'AI FAIT
 ================================================================================================
-La consigne du 2026-08-20 18:50 (§33 : surface opposee + controle positif propre, et §33 separee
-de §34 au registre) a ete traitee au cycle 62 ; verifiee a mon arrivee, elle tient — `ROOM-MEDIAL`
-porte bien une population par chaine, l'exclusion de soi est structurelle, et les deux sections
-portent deux verdicts distincts. Je ne l'ai pas refaite.
+La consigne permanente du 2026-08-20 00:10 est explicite : « Prefer [un gain de COUVERTURE] a un
+cycle de plus sur une section deja mesuree ». Trois sections etaient `NON ETABLI` (§10, §13, §35).
+J'ai commence par la, et non par le chantier que le cycle 63b nommait pour lui-meme.
 
-Le chantier NOMME par le cycle 62b pour ce cycle-ci etait : « mirorer `fx` par `sign(sja)` [...]
-changement de COMPORTEMENT qui exige sa propre course de controle ». C'est ce cycle. Et la
-premiere chose que la lecture a produite est que **`sign(sja)` n'etait pas le bon signe** — le
-cycle 62b l'avait ecrit de memoire, comme un raccourci pour « le miroir ». Le signe qui rend le
-lateral SORTANT est `signe(dot(fx, sep))`, et il vaut l'oppose : `fx` a pour composante -0,98297
-sur la ligne que `sja` mesure.
+Le chantier que 63b avait nomme (« mirorer `fx` » puis, apres correction, comprendre les 11,6
+points inexpliques du controle positif) reste OUVERT et n'est pas traite ici. Ce n'est pas un
+de-scope silencieux : c'est un arbitrage de priorite que la consigne ci-dessus impose, et il est
+ecrit ici plutot que tu.
 
-================================================================================================
-2. §7 — LE MIROIR, ET POURQUOI IL NE CALCULE RIEN DE NEUF
-================================================================================================
-CE QUE LA SECTION EXIGE, MOT POUR MOT (l.126-133) :
-  « +X = character's outward lateral direction / +Y = upward along torso / +Z = forward from
-    chest.  For the left and right breasts, outward `+X` should be MIRRORED so that the
-    equations remain symmetrical.  All dynamic calculations shall occur relative to the
-    torso/root transform rather than directly in world space. »
-
-CE QUI ETAIT ECRIT : `*phys-fx* = cross(fy, fz)`, dont LES DEUX ENTREES sont communes aux deux
-chaines (meme ancre `chest`). Le lateral ne POUVAIT pas differer : ce n'etait pas « pas encore
-fait », c'etait impossible dans cette construction — c'est la conclusion du cycle 62, et elle
-etait juste.
-
-CE QUI NOMME LE COTE EXISTAIT DEPUIS LE CYCLE 10. `sep` est le segment qui va du sein OPPOSE a
-celui-ci ; il pointe vers l'exterieur par ANATOMIE, sans supposer une orientation de modele, un
-nom d'os ni un ordre d'axes. Il n'etait garde que par ses PROJECTIONS (`*phys-axsep*`). Il l'est
-desormais aussi en VECTEUR (`*phys-sepv*`) — meme valeur, meme frame, meme ligne de calcul.
-
-LE CORRECTIF, EN ENTIER :
-    si dot(fx, sep) < 0   ->   fx := -fx
-
-MESURE (predictions P1 et P2, ecrites AVANT la course dans `c63-predictions.txt`) :
-
-    ROOM-SPEC7-MIROIR: angle(a0[chestL], -a0[chestR]) = 179.749 deg -> MIROIR ABSENT      (avant)
-    ROOM-SPEC7-MIROIR: angle(a0[chestL], -a0[chestR]) =   0.251 deg -> MIROIR TENU        (apres)
-    ROOM-SPEC7-SENS:   det(chestL)=-0.99998  det(chestR)=+0.99998 -> SENS OPPOSES
-    PHYSTRI c=0 a=0 : (-0.98297 -0.18374 +0.00000)  ->  (+0.98297 +0.18374 -0.00000)
-    PHYSTRI c=1 a=0 : INCHANGE AU BIT ; a=1 et a=2 INCHANGES AU BIT sur les deux chaines
-    orthonormalite 7.77e-06 sur les deux, inchangee
-
-LE TEST DISCRIMINE : un +X non mirore rend 180 deg, il ne peut pas rendre 0 par construction.
-LAQUELLE DES DEUX BASCULE ETAIT CALCULABLE : `dot(fx, sep)` = -0,98297 x (+754,9434) + (-0,18374)
-x (-0,0090) = **-742,09 sur chestL** et **+742,09 sur chestR**, donc chestL seule. Un basculement
-des deux, ou d'aucune, aurait refute la lecture du signe. Le triedre d'une chaine sur deux devient
-GAUCHER : c'est la consequence geometrique exacte du miroir d'UN axe sur trois, pas un repere
-casse — l'orthonormalite le confirme.
-
-§7 PASSE DE `NON TENUE` A `PARTIELLE`, PAS A `TENUE`, et la raison est ecrite sur sa ligne : la
-3e clause (« relative to the torso/root transform rather than world space ») porte sur le LIEU du
-calcul et **n'est toujours pas jugee**. Le test qui la trancherait est nomme : un ECHELON DE LACET
-STATIQUE — une rotation autour de l'axe de gravite laisse `g_local` invariant, donc un solveur qui
-calcule dans le repere du torse doit rendre une reponse etablie INCHANGEE, et un solveur qui
-calcule en monde ne le peut pas. La salle n'a pas cette jambe. Je ne l'invente pas le jour ou le
-miroir vient de tomber.
-
-CORRECTION D'ETIQUETTE, ET ELLE EST DE MOI. `PHYSTRI` etait publie « REPERE : le monde ». C'est
-FAUX, et la trace le refute toute seule : `a1` est le +Y « upward along torso » de sa §7 et vaut
-(+0,18290 **-0,97844** +0,09585). Un « haut du torse » dont la composante y MONDE vaut -0,98 sur
-un sujet DEBOUT est impossible. Ces cosinus sont dans la base de l'ANCRE — `gref` est la gravite
-monde passee par `w2l = inverse(am)`, et `fz` part du vecteur canonique de cette meme base. Le
-verdict de miroir n'en depend pas (les deux chaines partagent l'ancre, donc la comparaison se fait
-dans une base COMMUNE dans les deux lectures), mais une etiquette de repere fausse est exactement
-ce que ce dossier interdit ailleurs.
+CE QUE J'AI TROUVE EN CHERCHANT §10, ET QUE JE NE CHERCHAIS PAS. §10 etait `NON ETABLI` avec pour
+motif, entre autres, que sa clause de COM etait « INDETERMINEE » — encadree entre une borne
+inferieure squelettique et une borne superieure d'apex, la bande 0,18-0,28 tombant entre les deux.
+En allant voir POURQUOI la borne inferieure etait si basse, j'ai trouve que le bloc qui la produit
+ne tournait pas du tout.
 
 ================================================================================================
-3. §12 — LE COTE ETAIT INVERSE. JE RETIRE UNE PARTIE DE MA PUBLICATION DU CYCLE 50.
+2. LE DEFAUT : UN INSTRUMENT SUSPENDU PENDANT SEPT CYCLES, ET QUI NE SE SIGNALE PAS
 ================================================================================================
-CE QUE LA SECTION EXIGE, MOT POUR MOT (l.189-190) :
-  « The breasts shall not behave identically. The **GRAVITY-SIDE** breast experiences stronger
-    thoracic compression, while the opposite breast migrates across the chest. »
+Etat trouve, verbatim de la table du cycle 63b :
 
-CE QUE LE CYCLE 50 A FAIT, ET CE QU'IL A EU RAISON DE FAIRE : `(wlt (fabs gxc))` rendait le meme
-triplet aux deux seins, donc la clause etait mecaniquement impossible. Le correctif a fait porter
-le cote par `signe(sja)`, l'invariant de rig qui distingue les deux chaines. **L'asymetrie est
-reelle et elle tient toujours** : ecart d'aplatissement 16-19 %, il s'inverse entre les deux
-poles, il survit a une pose epinglee symetrique (verifie cycle 56, re-verifie ici).
+    ROOM-ORICOM-MASS: SUSPENDU — instantane PERIME : ecrit sur un mesh de mtime 1787054703
+    taille 1002412, le mesh livre porte mtime 1787201927 taille 1002412.
 
-CE QU'IL A MANQUE : le SIGNE avait ete suppose, jamais mesure. `fx` pointe le long de **-e_ja**
-(composante -0,98297, publiee par `PHYSTRI` depuis le cycle 62), donc
+Traduit : l'instantane de masse (`breast-com-mass.json`) datait du 2026-08-18 18:51 ; le mesh livre
+(`out/jak1/fr3/skin/keira-hd-lod0.glb`) porte le 2026-08-20 06:58, c'est-a-dire le reskin de l'axe
+anatomique du cycle 57. Entre les deux, les cycles 57, 58, 59, 59bis, 60, 61, 62, 62b, 63 et 63b.
 
-    gxc x signe(sja)  =  -(g . sortant)
+LA GARDE A EU RAISON, ET IL FAUT LE DIRE AVANT DE CRITIQUER QUOI QUE CE SOIT. Regeneration faite,
+l'ecart entre les poids perimes et les poids reels (frontiere w>=0,05) :
 
-et le poids d'aplatissement `wlt = max(0, gxs)` tombait sur le sein **OPPOSE** a la gravite.
-C'est le piege `axis-sign-outlives-role-renaming` du registre : le bon INDICE de ligne, un signe
-herite. Il a tenu treize cycles parce que rien ne publiait le COTE : `PHYSSYM5 gx` etait le MEME
-nombre sur les deux chaines, donc il ne pouvait pas dire lequel des deux etait du cote gravite.
+    chaine    joint     AVANT (18/08)   APRES (mesh livre)   ecart
+    chestL    lBoob        17,669            30,587          +73,1 %
+    chestL    lBooc        33,016            22,911          -30,6 %
+    chestR    rBoob        19,747            32,176          +62,9 %
+    chestR    rBooc        28,567            16,662          -41,7 %
 
-L'INSTRUMENT QUI TRANCHE, ET IL N'EST PAS TAUTOLOGIQUE. `PHYSSYM6 gso` publie le cosinus entre la
-gravite locale et le segment sein-oppose -> ce sein. Il ne passe NI par `fx` NI par le melange de
-poles : c'est de l'anatomie, pas du solveur, donc il ne peut pas republier le verdict qu'il
-arbitre. (`PHYSSYM5 gx`, lui, EST le canal d'aplatissement depuis le miroir : le lire comme un
-cote serait exactement le 4e faux vert du cycle 49 sous un autre costume.)
+Publier un COM avec ces poids-la aurait produit un chiffre faux sous une provenance juste — le
+piege exact que la garde a ete ecrite pour interdire, et elle l'a tenu.
 
-    ROOM-SPEC12-COTE (avant, reconstruit) : 0/4 cellules laterales  ->  COTE INVERSE
-    ROOM-SPEC12-COTE (apres, mesure)      : 4/4 cellules laterales  ->  COTE TENU
+CE QUI A ECHOUE N'EST DONC PAS LA GARDE, C'EST LA REMONTEE. Une suspension ne fait rien echouer,
+n'imprime rien en tete, et vit au milieu d'un tableau de 2900 lignes. §10, §11 et §12 sont restees
+lues sur un APEX — que le tableau declare lui-meme etre une BORNE SUPERIEURE et pas la grandeur
+visee — pendant que l'instrument qui rend leur propre grandeur etait a l'arret. Ni le rapport de
+cycle ni `SPEC-COVERAGE.md` ne portent une seule occurrence du mot : verifie par grep, zero.
 
-    m=2 lateral +90 SYM   gso L=+0.9563 R=-0.9563 -> gravite=chestL   sx L=0.87875 R=1.03774  CONFORME
-    m=2 lateral +90 ASYM  gso L=-0.4308 R=+0.4308 -> gravite=chestR   sx L=0.92857 R=0.85923  CONFORME
-    m=3 lateral -90 SYM   gso L=-0.9563 R=+0.9563 -> gravite=chestR   sx L=0.97819 R=0.82209  CONFORME
-    m=3 lateral -90 ASYM  gso L=+0.4308 R=-0.4308 -> gravite=chestL   sx L=0.97317 R=1.04750  CONFORME
+C'est la meme famille que `gate-behind-an-always-failing-gate` du registre, dans une variante que
+le dossier n'avait pas encore nommee : la gate ne se cache pas derriere une autre gate, elle se
+cache derriere sa propre POSITION dans un artefact trop long.
 
-LE CORRECTIF N'EST PAS DANS §12 : le miroir de §7 rend `gxc = g . sortant` par construction, donc
-`wlt = max(0, gxc)` suffit et **le signe rapporte disparait du code**. Une ligne en moins, et la
-clause devient une propriete du repere au lieu d'un rattrapage a un site.
+CORRECTIF, ET IL EST AU POINT DE PRODUCTION (regle de l'owner du 2026-08-11 : « quand une perte se
+repete, on la rend IMPOSSIBLE au point de production, pas detectable au point de controle »).
+`physics_room_table.py` derive desormais, du CORPS du tableau et jamais d'une declaration a la
+main, la liste des blocs muets, et la REMONTE en tete juste sous l'empreinte de la trace :
 
-C'EST UN ECHANGE, PAS UNE CREATION — prediction P4, posee avant la course :
-    pole +90 SYM  sx 1.04062 / 0.87467  ->  0.87875 / 1.03774     ecart +17.33 % -> +16.59 %
-    pole -90 SYM  sx 0.82152 / 0.97887  ->  0.97819 / 0.82209     ecart +17.48 % -> +17.34 %
-    pole +90 ASYM sx 0.85922 / 0.92858  ->  0.92857 / 0.85923     echange a 1e-5 pres
-    pole -90 ASYM sx 1.04750 / 0.97318  ->  0.97317 / 1.04750     echange a 1e-5 pres
-La MAGNITUDE de l'asymetrie est conservee. Si elle avait change, autre chose aurait bouge et je
-devais le trouver avant de publier : c'etait ecrit dans la prediction.
+    -- ROOM-INSTRUMENTS-MUETS : CE QUE CE TABLEAU NE MESURE PAS AUJOURD'HUI ------------
+    ROOM-INSTRUMENTS-MUETS: 0 — tous les blocs de ce tableau ont publie un chiffre.
 
-§12 NE CHANGE PAS DE STATUT, ET C'EST DELIBERE. Sa clause structurante passe de VIOLEE a TENUE ET
-MESUREE, mais (a) la clause COM 15-24 % B0 reste INDETERMINEE et (b) « medial migration 10-18 %
-W0 » reste sans instrument — `W0` n'est mesure nulle part dans ce dossier. Un correctif reel qui
-ne fait pas bouger un statut se dit quand meme.
+CE N'EST PAS UNE GATE — les gates sont gelees (DIRECTIVES regle 5) et je n'en ai touche aucune.
+Ca ne fait rien echouer : ca PUBLIE. Et comme le compte est derive du texte deja ecrit par chaque
+bloc, un bloc futur qui se suspendra sera compte sans que quiconque ait pense a l'inscrire.
 
-================================================================================================
-4. CE QUI A CHANGE DANS LE MOTEUR — TROIS SITES, +7 LIGNES NETTES
-================================================================================================
-  (1) `*phys-sepv*`  : la separation inter-seins gardee en VECTEUR (elle ne l'etait que par ses
-                       projections). Aucun calcul neuf, meme ligne de code, meme frame.
-  (2) SPEC 7         : `si dot(fx, sep) < 0 alors fx := -fx`, juste apres le produit vectoriel.
-  (3) SPEC 12        : `gxs = gxc x signe(sja)` RETIRE ; `wlt = max(0, gxc)` suffit.
-  (+) accesseur      : `phys-chain-axsep` rend aussi le vecteur (which 3/4/5), pour que la salle
-                       puisse composer `gso` sans que le moteur ait a le calculer.
-  (+) salle          : `PHYSSYM6 gso` par cellule d'orientation (phys-room.gc, hors plafond).
-  (+) analyseur      : `ROOM-SPEC12-COTE`, et la correction d'etiquette de repere de `PHYSTRI`.
+LE CONTROLE POSITIF A TIRE, et il est exige parce qu'un « 0 » sans controle est interdit. Le meme
+predicat, applique aux DEUX tableaux :
 
-PLAFOND CLEAN : 4798 -> **4796 lignes** (plafond 4800), apres le correctif du controle positif. Les 16 lignes qu'il a fallu liberer sont
-des COMMENTAIRES deplaces vers NOTE-325 a NOTE-329, jamais un mecanisme retire — regle du
-registre `never-spend-the-bit-identity-control-on-line-count`.
+    table du cycle 63b (defaut PRESENT)   -> le detecteur rend 1 bloc muet
+       -> ROOM-ORICOM-MASS: SUSPENDU — instantane PERIME : ...
+    table du cycle 64  (defaut CORRIGE)   -> le detecteur rend 0
 
-TIER DE BUILD : **GOAL SEUL** (551 cibles, 27,6 s). Aucune reconstruction de gk, aucun NDK,
-aucun gradle. La mesure est une course x86 de la salle (13 min), pas un cycle device.
+Le compteur MONTE quand le defaut est la et retombe quand il ne l'est plus, sur du texte reel et
+non fabrique. Ce n'est pas un zero de complaisance.
 
 ================================================================================================
-5. NON-REGRESSION, ET LE COUT EST DECLARE AVANT D'ETRE JUSTIFIE
+3. CE QUE L'INSTRUMENT ROUVERT DIT DE §10, §11 ET §12
 ================================================================================================
-CE QUI NE BOUGE PAS (controles negatifs INTERNES, predictions P5 et P6) :
-    ROOM-IDLE            0.0001 -> 0.0002   (plafond 1.0 ; le repos est intact)
-    ROOM-INVERSIONS      residual=0 corrected=0 control_residual=178   IDENTIQUE
-    ROOM-SIDE            chains=1/2 crossing=6 inside_frames=6         IDENTIQUE
-    ROOM-SIDE-CONTROL    armed=2 disarmed=2                            IDENTIQUE
-    31/31 animations, 310 mesures, 2 chaines, joueur absent, 1 acteur  IDENTIQUE
-P6 tient par algebre et la trace le confirme : le tenseur n'emploie `fx` que par le produit
-exterieur `fx_i x fx_j`, invariant sous `fx -> -fx`. **Aucun ecart n'est donc attribuable au
-miroir en tant que tel** : tout ce qui bouge passe par `gxc`, c'est-a-dire par le seul melange de
-poles de §10-13. C'est ce qui rend l'attribution non ambigue.
+`d_COM = (W_0.d_0 + W_1.d_1)/N`, en B0, publie sur les TROIS frontieres d'organe (w>0 / w>=0,05 /
+w>=0,25) parce qu'aucun bord net n'existe (sa §30 : « no hard attachment boundary »).
 
-CE QUI BOUGE, ET DANS QUEL SENS (prediction P7 : un ECHANGE entre les deux chaines) :
-                              chestL              chestR
-    tipvar          0.1753 -> 0.1721     0.1818 -> 0.1873
-    meshpen         0.1123 -> 0.0956     0.1424 -> 0.1288
-    skinpen         0.0692 -> 0.0701     0.0868 -> 0.0868  (inchangee au bit)
-    apex max B0     0.9050 -> 0.9714     0.9351 -> 0.9427
-    COM max B0      0.4660 -> 0.5103     0.4243 -> 0.4411
-    medial pen m   +0.0238 -> +0.0320   +0.0106 -> +0.0000
-    ROOM-STRETCH    max de course 3.6736 -> 2.7829
+  section / fenetre        chestL (3 frontieres)        chestR                    bande
+  §10 supine  i=8      0,1662 0,1831 0,2020         0,1402 0,1572 0,1816      0,18-0,28
+  §11 prone   i=6      0,1158 0,1275 0,1405         0,1312 0,1468 0,1681      0,20-0,30
+  §12 lateral i=2      0,1274 0,1403 0,1546         0,1588 0,1778 0,2049      0,15-0,24
+  §12 lateral i=4      0,1697 0,1869 0,2060         0,0520 0,0582 0,0665      0,15-0,24
 
-CE QUE J'EN DIS, SANS L'EMBELLIR : **chestL empire, chestR s'ameliore**, et c'est exactement ce
-que le correctif devait produire dans la pose que la salle tient. Mettre la compression du bon
-cote enfonce davantage le sein du cote gravite — c'est la clause elle-meme (« stronger thoracic
-compression »). La baisse de `meshpen` et de `ROOM-STRETCH` n'est donc PAS une victoire a porter
-au credit du cycle : c'est l'autre moitie du meme echange. 2 350 lignes du tableau sur 2 901
-bougent, ce qui est attendu (le canal de forme change sur les deux chaines) et coherent avec la
-mesure du cycle 50 (257 lignes de `row` sur 310 pour un changement du meme melange).
+  pour memoire, l'APEX que ces sections etaient lues avec jusqu'ici :
+  §10  0,2291 / 0,2046      §11  0,2377 / 0,2837      §12  0,2587-0,3207 / 0,1212-0,2719
 
-================================================================================================
-6. LE CONTROLE POSITIF EST TOMBE, ET IL EST REPARE — MAIS MA PREMIERE CAUSE ETAIT FAUSSE
-================================================================================================
-    course 63a : armed=0.1521  disarmed=0.0845  ->  0.0675 m pour 0.0977 m injectes = 69.2 %
-                 (bande exigee 75-125 %)  LA GATE ECHOUE
-    course 63b : armed=0.1709  disarmed=0.0845  ->  0.0864 m pour 0.0977 m injectes = 88.4 %
-                 LA GATE PASSE
-    pour memoire, avant ce cycle : 86.9 %
+TROIS CHOSES, ET AUCUNE N'EST UN VERDICT.
 
---- CE QUE J'AI ECRIT D'ABORD, ET QUI EST FAUX ------------------------------------------------
-J'ai publie que le plafond de restitution etait **le RAYON du volume sonde**, avec le calcul
-345/400 = 86,3 %. **C'est faux, et je le retire.** En lisant `phys-collide-depth` : la profondeur
-vaut `(rr + rlink) - d` ou `d = |q - axe|`, et pousser le point de A le long de la normale donne
-`d' = |d - A|`. Le gain vaut donc **A tant que A <= d**, et le plafond est `d`, pas le rayon. Or
-`rlink` vaut 587 a 725 u sur ces chaines, donc `d` est de l'ordre de 700 u pour A = 400 u : **ca
-ne sature pas.** La coincidence numerique (86,3 % contre 86,9 % mesures) m'avait convaincu ; elle
-ne prouvait rien. J'avais aussi avance que `armed` et `disarmed` etant deux maxima courants non
-apparies, c'etait peut-etre la cause : non plus — pour le critere tel qu'il est ecrit (« la mesure
-PUBLIEE doit monter de X »), la difference de deux maxima est la bonne formulation.
+(a) §10 SE RESSERRE MAIS RESTE INDETERMINEE, ET C'EST LE RESULTAT HONNETE. La grandeur mesuree est
+une borne INFERIEURE declaree : le tenseur de deformation (`*phys-dfm*`) etire la peau autour de
+l'os sans deplacer un joint, donc aucune somme de deplacements de joints ne peut le voir.
+L'encadrement passe de [0,1317 ; 0,3633] (x2,76, cycle 49) a [0,1572 ; 0,2046] sur chestR (x1,30).
+La bande commence a 0,18, c'est-a-dire A L'INTERIEUR de cet encadrement : le verdict ne peut etre
+prononce ni dans un sens ni dans l'autre. Lire « 0,1572 < 0,18 donc violee » serait un FAUX ROUGE —
+une borne inferieure sous une bande laisse la vraie valeur libre d'y etre.
 
---- LA CAUSE, ETABLIE EN LISANT LES DEUX FONCTIONS QUI COMPTENT --------------------------------
-`phys-link-pen` ne sonde PAS le joint `p`. Elle sonde
+(b) §11 EST DANS LA MEME FORME, ET LE MANQUE EST CHIFFRE. 0,1275 / 0,1468 contre une bande a 0,20 :
+il manque 0,07 a 0,09 B0 A LA PART SQUELETTIQUE SEULE. Ce qui est etabli n'est pas que §11 est
+violee, c'est que le squelette seul n'y suffit pas et que le terme manquant est nomme.
 
-    q = p + R(u) . off ,   u = normalise(p - b) ,   |off| = 467 a 651 u
+(c) L'INVARIANCE MIROIR DE §12 SE CASSE SUR UNE MOITIE, ET JE NE ME L'EXPLIQUE PAS. Les deux poles
+lateraux echangent lequel des deux seins est du cote gravite (lu sur `gx`, le lateral SORTANT
+mirore du cycle 63, et non sur une etiquette). Sur la condition « sein OPPOSE » les deux chaines
+s'accordent a 5,1 % (0,1869 contre 0,1778) ; sur la condition « sein DU COTE GRAVITE » elles
+different d'un facteur x2,41 (0,1403 contre 0,0582). Un rig symetrique a 0,005 deg en bind devrait
+rendre les deux paires egales.
+RESERVE OBLIGATOIRE, ET ELLE PEUT TOUT EXPLIQUER : le balayage d'orientation impose le quaternion
+de racine mais HERITE la pose d'animation, et le cycle 53 a mesure que la pose tenue par la salle
+est a 43,4 deg du miroir parfait. La regle du 2026-08-20 05:20 interdit de declarer une asymetrie
+defaut du personnage tant qu'elle n'est pas relevee dans une pose dont la symetrie est prouvee
+AVANT la course. Je la publie, je ne l'attribue pas.
 
-ou `R(u)` est la rotation qui amene la direction de BIND sur la direction COURANTE
-(`phys-link-off-sim!`, deux reflexions de Householder), et `off` est l'offset du collider du
-maillon — lu dans `physics_chains.txt` : lBoob (-6,637,-135) = 651,2 u · lBooc 514,5 u ·
-rBoob 629,4 u · rBooc 467,6 u.
+ET LE BLOC SE SUSPEND LUI-MEME SUR chestL, CE QUE JE NE MASQUE PAS. Son controle interne compare
+deux accumulateurs independants (`|sum ldb|` de `PHYSORICOML` contre `|t|` de `PHYSORICOM`) :
 
-**L'INJECTION DEPLACE `p`, LA MESURE LIT `q`.** Poser `p' = p - A.n` change `u`, donc change
-`R(u)`, donc
+    chestL   pire ecart relatif 13,3535 % (i=8)   DESACCORD > 5 % : le montage est en cause
+    chestR   pire ecart relatif  0,5691 % (i=2)   accord
 
-    q' - q  =  -A.n  +  (R(u') - R(u)) . off
-
-dont la norme n'est PAS A. Avec un bras d'environ 1000 u, A = 400 u fait tourner `u` d'a peu pres
-22 degres, ce qui balaie un offset de 651 u sur ~250 u ; projete sur `n`, ca mange la difference.
-C'est la meme famille que `apex-bound-reads-a-joint-not-the-apex` du registre : on AGIT sur un
-joint et on LIT une grandeur qui vit ailleurs.
-
---- LE CORRECTIF, ET IL N'EST PAS UN AJUSTEMENT DE SEUIL --------------------------------------
-Pendant la SEULE relecture ARMEE, l'offset est GELE a la valeur qu'il avait au balayage,
-c'est-a-dire A LA POSITION NON INJECTEE. Le point mesure translate alors de `-A.n` exactement.
-Je n'ai touche NI au validateur, NI a la bande de 75-125 %, NI a l'amplitude de l'injection :
-agrandir ou retrecir celle-ci pour franchir un seuil aurait ete
-`never-fit-a-parameter-to-the-instrument`. La rotation de l'offset decrit comment le volume suit
-l'os ; elle n'est pas le defaut qu'on injecte, et le defaut qu'on injecte doit se poser sur le
-point qui porte la penetration.
-
---- LE VERDICT DE MES PREDICTIONS, DONT UNE EST A MOITIE REFUTEE -------------------------------
-P9 — TENUE, ET EXACTEMENT. Sur les 2 901 lignes du tableau, **8 seulement changent** : les six
-lignes de `ROOM-POSCONTROL` et l'empreinte de la trace. `disarmed` reste **0.0845 au bit**, comme
-annonce (la jambe desarmee ne voit jamais le gel). L'interrupteur ne fuit pas hors de sa fenetre :
-tipvar, meshpen, skinpen, apex, SPEC7, SPEC12-COTE, IDLE, SIDE, INVERSIONS sont identiques.
-
-P8 — **A MOITIE REFUTEE, ET JE NE LA PRESENTE PAS AUTREMENT.** J'avais predit une valeur, pas une
-bande : `armed` a **0.1822 m**, soit une restitution de ~100 %. Mesure : **0.1709 m, 88.4 %**. Le
-correctif recupere **19,2 des 30,8 points** de deficit — la cause identifiee est donc bien la
-DOMINANTE, et sa direction et son ordre de grandeur sont confirmes. Mais **il reste 11,6 points
-inexpliques**, et une prediction de valeur qui rate de 0,0113 m (46 u) n'est pas « verifiee ».
-CE QUE JE N'AI PAS FAIT : chercher la cause de ce residu. Les suspects sont nommes et non
-departages — (i) `phys-link-pen` prend le maximum sur TOUS les volumes, et le volume qui domine
-apres injection peut ne pas etre celui dont la normale a servi ; (ii) sur certains maillons
-A > d et la ils saturent vraiment ; (iii) les deux maxima ne sont toujours pas apparies. Le
-controle TIRE maintenant a 88,4 %, ce qui suffit a soutenir §33/§34 ; le residu est une question
-d'instrument ouverte, pas un blocage, et il est ecrit ici pour ne pas etre perdu.
+La pire cellule de chestL est i=8 — EXACTEMENT la fenetre supine de §10. Donc la seule chaine qui
+placait §10 dans sa bande est celle dont le montage se contredit, precisement la ou il le fait. Je
+n'ecris pas §10 tenue sur chestL, et je n'ecris pas non plus §10 violee sur chestR.
 
 ================================================================================================
-7. CE QUE CE CYCLE NE PRETEND PAS
+4. §6 — `W0` EXISTE, `L0` ET `H0` NE MESURENT RIEN, ET LA CONFIRMATION DE `B0` EST RETIREE
 ================================================================================================
-- **Rien de tout ceci n'est valide par l'owner.** Il l'a precise de lui-meme le 2026-08-20 :
-  « je n'ai rien valide [...] rien de verrouille par moi-meme ». `PARTIELLE` veut dire « ma mesure
-  est dans la bande », jamais « approuve ».
-- **§33 n'est PAS montee a `PARTIELLE`** alors que la lettre de la regle 2 me l'autoriserait
-  (chestR passe a 0,0000 m). Je refuse l'upgrade : ce zero repose sur **6 lectures en portee sur
-  66 960**, un domaine trop mince pour distinguer « ne penetre plus » de « n'a pas regarde ». Et
-  chestL EMPIRE de +34 % dans le meme mouvement. Monter un statut sur un domaine qui se retrecit
-  est le faux vert que la garde de vacuite du cycle 62 vient d'interdire.
-- **La 3e clause de §7 n'est pas jugee**, et aucune des trois mesures du cycle ne la teste.
-- **Rien de ce cycle n'est visible autrement que par le comportement lateral** : les regimes
-  verticaux et avant-arriere sont inchanges par construction (`gxc ~ 0` -> `wlt = wne = 0`).
-- **Le solveur reste trop energetique** : §22 est toujours hors de ses deux plafonds durs (apex
-  max 0,9714 / 0,9427 B0 contre 0,50), et ce cycle ne s'y attaque pas.
-- **Le controle positif ne restitue que 88,4 %**, la ou le mecanisme corrige predit 100 %. Il tire
-  et il est dans sa bande, donc §33/§34 sont soutenues — mais 11,6 points restent inexpliques et
-  ce n'est PAS « resolu ». Trois suspects nommes en section 6, aucun departage.
+Sa §6 dit « the game implementation shall derive normalized dimensions directly from the character
+mesh ». `W0`, `L0`, `H0` n'existaient nulle part — verifie par grep sur `.autoport/*.py`,
+`recharged_assets/*.txt`, `goal_src/jak1/pc/*.gc` et le tableau : zero occurrence. Sans `W0`, les
+clauses en « % W0 » de §10 et §12 n'avaient meme pas de denominateur.
+
+Mesure sur le mesh LIVRE (pas le donor pre-reskin, qui rend 0 sommet majoritaire par construction —
+piege `reskin-measure-the-prepped-input`, deja paye sur cette phase), nuage de chair en pose de
+bind, dans le triedre du torse :
+
+    W0 (lateral)  776,1 u = 189,5 mm    bande 130-150 mm   x1,26 au-dessus
+    H0 (vertical) 901,2 u = 220,0 mm    bande 125-145 mm   x1,52 au-dessus
+    L0 (avant)    638,4 u = 155,9 mm    bande 110-125 mm   x1,25 au-dessus
+
+TEST DE RAFFINEMENT, et c'est lui qui decide ce qui est publiable (barre de 30 % du registre) :
+
+    W0   776,1 -> 776,1 entre les frontieres w>0 et w>=0,25    +0,0 %    MESURABLE
+    H0   901,2 -> 684,3                                        +31,7 %   NE MESURE RIEN
+    L0   638,4 -> 467,3                                        +36,6 %   NE MESURE RIEN
+
+Cause identifiee, pas supposee : les extremes de `H0` et `L0` sont des sommets de FRANGE a un poids
+de chaine de 0,04 a 0,07, qui disparaissent des qu'on monte le seuil ; ceux de `W0` portent un
+poids de sein reel (0,34 et 0,59). Je ne publie donc PAS `L0` et `H0` comme dimensions : un chiffre
+qui bouge d'un tiers selon un seuil n'est pas une mesure. Sur les deux seins les extremes de `W0`
+sont miroirs exacts l'un de l'autre, ce qui redit la symetrie bilaterale du rig en bind.
+
+`W0/B0` = 1,289, DANS la fourchette [1,04 ; 1,30] qu'impliquent les bandes de §6 : la FORME est
+coherente avec sa spec, c'est l'ECHELLE qui est haute.
+
+ET CE QUE JE RETIRE, QUI EST DE MOI. `SPEC-COVERAGE.md` §6 portait : « `b0=602 u` confirme
+independamment au cycle 48 : l'etendue du nuage de chair sur l'axe anatomique vaut 597,9 / 598,3 u
+= 0,99 B0 ». Sur le mesh livre aujourd'hui, la MEME construction, executee et non citee, rend
+701,8 / 718,6 u = 1,166 / 1,194 B0 : +17,4 % / +19,4 %. Le 597,9/598,3 decrit un mesh d'avant le
+reskin du cycle 57. `physics_c14_meshsamples.py:308` portait la meme valeur perimee ; corrigee.
+
+CE QUE CA VEUT DIRE, ET C'EST PLUS GENANT QUE LE CHIFFRE : `B0` a QUATRE valeurs candidates dans ce
+depot pour la meme grandeur — 602,2 u sur l'axe local +Y, 701,8 / 718,6 u sur l'axe anatomique de
+§31, 734,2 / 766,6 u sur le span de chaine — et le nombre livre est la plus petite des quatre. Sur
+les MEMES 94 sommets, deux axes distants de 10,4 deg donnent 602 et 702. `B0` est le denominateur
+de quinze sections.
+
+JE NE CHANGE PAS `b0=602`, ET LA RAISON EST UNE REGLE, PAS UNE PRUDENCE. Deplacer un denominateur
+que quinze sections partagent bougerait tous leurs verdicts DANS LA MEME COURSE, sans qu'aucun
+controle apparie ne dise ce qui a bouge a cause du denominateur et ce qui a bouge a cause de la
+physique. C'est exactement ce que l'arbitrage du 2026-08-19 23:50 exige d'eviter. C'est un defaut
+OUVERT, pas un correctif differe : le trancher demande un invariant anatomique, pas un choix.
 
 ================================================================================================
-8. ETAT DU REGISTRE — `.autoport/SPEC-COVERAGE.md`, recompte ligne par ligne
+5. §35 — LE MOTIF INSCRIT AU REGISTRE MESURAIT UNE BRETELLE D'EPAULE
 ================================================================================================
+§35 etait `NON ETABLI`, motif : « Le vetement ne suit pas le sein : 0 sommet majoritaire ».
+
+ORIGINE RETROUVEE : `c38_garment_overlap.py:167-183`, bloc G4. Il compte les sommets contenus dans
+la SPHERE DE COLLISION `lTopStrap2` — rayon 157 u = 38,3 mm, centree a 428 u = 104,6 mm de `lBoob`,
+sur le flanc (x=786, z=436) quand l'apex du sein est a z ~ 1114. Le rapport C38E1 l'ecrivait
+lui-meme : `intersecte=non`. Le NOMBRE est vrai et reproductible ; la PHRASE est une extrapolation
+depuis un volume qui n'a jamais touche le sein. DOMAINE VIDE — la faute exacte corrigee sur §33 au
+cycle 62, et le registre le sait depuis le 2026-08-14.
+
+MESURE NEUVE, faite et REVERIFIEE par moi sur le mesh livre. Sur les 28 primitives du maillage, une
+seule porte le moindre poids de sein :
+
+    prim 15   materiau 16   texture `keira-shirt`   389 sommets
+              63 sommets majoritaires chestL · 55 majoritaires chestR
+    les 27 autres : 0 sommet avec le moindre poids de sein
+
+LE DEBARDEUR EST LA SURFACE DU SEIN. Il n'y a pas de peau dessous : une seule coque, aucun sommet
+d'indice partage entre prim 15 et une autre primitive, et le maillage n'a qu'un couple
+`(JOINTS_0, WEIGHTS_0)` — un sommet ne peut pas porter deux pesees. Dans la region, la masse de
+peau va a `chest`, `lBoob` et `lBooc`, et les 13 os de vetement (`*Strap*`) y pesent 0,000000 ;
+`physics_chains.txt:89` gele par ailleurs `topstrapL/R` et `botstrapL/R`.
+
+Les quatre termes de la section — support, compression, amortissement, retard de tissu — sont donc
+nuls PAR IDENTITE DE SOMMETS, pas par reglage, et le « one-to-one » est exact au sens le plus fort
+qui soit : c'est le meme point. §35 : `NON ETABLI` -> `TENUE PAR CONSTRUCTION`.
+
+DEUX CHOSES QUE CETTE LIGNE NE PROUVE PAS, ecrites ici plutot que laissees a supposer :
+  - la preuve est en pose de BIND, aucune frame n'a ete jouee. Elle tomberait le jour ou un
+    solveur de tissu existerait ;
+  - `TENUE PAR CONSTRUCTION` ne se compte JAMAIS comme une section gagnee (regle du 2026-08-20
+    00:10). Le compte de sections tenues reste a 2.
+
+FAIT NON PREDIT, PUBLIE SANS CAUSE : dans la region du sein, chestL porte 21 positions dupliquees
+(coutures UV, distance nulle) dont les deux copies ont un poids de chaine DIFFERENT, ecart jusqu'a
+0,0443 ; chestR en porte 16, dont ZERO avec un ecart. Sur un rig symetrique a 0,005 deg, c'est une
+micro-fissure de peau qui n'existe que d'un cote. Je ne lui donne pas de cause.
+
+================================================================================================
+6. VERDICT DE MES PREDICTIONS — L'UNE EST A MOITIE REFUTEE
+================================================================================================
+Ecrites AVANT lecture de la table regeneree, dans `c64-predictions.txt`.
+
+P1  TENUE. `ROOM-ORICOM-MASS` cesse d'etre suspendu, concordance verifiee.
+
+P2  A MOITIE REFUTEE, ET L'ERREUR EST ARITHMETIQUE. J'avais predit le COM de §10 « SOUS 0,18 »,
+    ordre de grandeur ~0,13, en multipliant l'apex par la part de chaine (0,5714). Mesure : 0,1662
+    a 0,2020 sur chestL, facteur 0,725 et non 0,571 — deux des trois frontieres tombent DANS la
+    bande. Ma faute : `d_j` est un CUMUL telescopique, pas un ecart au parent, donc le maillon
+    distal entre avec un deplacement plus grand que celui que j'avais pris. La DIRECTION etait
+    juste (le COM est sous l'apex), la VALEUR ne l'etait pas, et une prediction de valeur qui rate
+    de 0,07 B0 n'est pas « verifiee ».
+
+P3  TENUE. §11 prone sous sa bande sur les deux chaines (0,1275 / 0,1468 contre 0,20-0,30).
+
+P4  TENUE, ET EXACTEMENT. Le seul intrant neuf etant l'instantane de masse, que SEUL ce bloc lit,
+    le diff des deux tables devait etre confine a ce bloc. Mesure, faite AVANT que j'ajoute le
+    registre des instruments muets : 43 lignes changent sur ~2900, 43 sur 43 dans
+    `ROOM-ORICOM-MASS` (4 retirees — la notice de suspension —, 39 ajoutees). Aucune autre ligne
+    du tableau ne bouge.
+    Le diff FINAL en compte 50, et les 7 de plus sont le registre que j'ai ajoute deliberement en
+    tete (section 2). Je publie les deux nombres plutot que le seul qui m'arrange : 43 mesure la
+    non-regression, 50 mesure ce que ce cycle a ecrit en tout.
+
+P5  TENUE. Aucune ligne de la table ne bouge du fait de §35 : sa mesure est hors trace, en pose de
+    bind, et je ne la fais pas passer pour une mesure d'execution.
+
+================================================================================================
+7. NON-REGRESSION, ET PORTEE DU CHANGEMENT
+================================================================================================
+AUCUN FICHIER DE `goal_src/` N'A CHANGE. Verifie par `git status` : les seuls fichiers touches sont
+`.autoport/physics_room_table.py` (le registre des instruments muets), `.autoport/SPEC-COVERAGE.md`,
+`.autoport/physics_c14_meshsamples.py` (un COMMENTAIRE perime corrige, aucune ligne de calcul), et
+les artefacts de rapport. `recharged_assets/` est intact : la donnee livree au jeu est celle du
+cycle 63b, au bit.
+
+CONSEQUENCE ASSUMEE : aucune course de salle neuve n'etait necessaire et je n'en ai pas lancee. La
+trace lue est celle du cycle 63b, et le tableau publie son empreinte (md5
+0bf01fb4ca3e42927e313c0d2212f56c, 3995457 octets) pour que personne n'ait a me croire. Relancer la
+salle aurait consomme dix minutes pour reprouver un determinisme etabli au cycle 32 (30 091 lignes,
+0 differente) sur un moteur qui n'a pas change d'une ligne.
+
+TIER DE BUILD : AUCUN. Ni GOAL, ni gk, ni APK — le cycle est entierement dans la couche de mesure
+hors-jeu. C'est le tier le moins cher qui prouve le changement, comme la consigne d'efficacite le
+demande.
+
+PLAFOND CLEAN : 4796/4800 lignes, inchange (le moteur n'a pas ete touche).
+
+================================================================================================
+8. REGISTRE DE COUVERTURE
+================================================================================================
+`.autoport/SPEC-COVERAGE.md` a jour. Compte derive du tableau, ligne par ligne :
+
     TENUE                    2   (§3, §37)
-    TENUE PAR CONSTRUCTION   4   (§1, §4, §5, §28)     — declaree, jamais comptee comme victoire
-    PARTIELLE               20   (§7 entre ce cycle)
-    NON TENUE                9   (§7 en sort)
-    NON ETABLI               3   (§10, §13, §35)
-                            --
-                            38   sections, aucune omise, chacune une fois
+    TENUE PAR CONSTRUCTION   5   (§1, §4, §5, §28, §35)
+    PARTIELLE               20
+    NON TENUE                9
+    NON ETABLI               2   (§10, §13)
+    total                   38
 
-UN SEUL MOUVEMENT CE CYCLE, ET C'EST LE PREMIER DEPUIS LE CYCLE 57 QUI VA VERS LE VERT. Les deux
-mouvements du cycle 62 allaient tous les deux vers le rouge, et pour une bonne raison (des trous
-de mesure qui se fermaient). Celui-ci est un correctif de COMPORTEMENT, mesure avant/apres, avec
-ses sept predictions ecrites d'avance.
+UN SEUL MOUVEMENT DE STATUT : §35 `NON ETABLI` -> `TENUE PAR CONSTRUCTION`, qui n'est pas une
+victoire. §10 RESTE `NON ETABLI` alors que le cycle vient de lui donner sa grandeur : la classer
+`PARTIELLE` parce qu'une mesure existe desormais reviendrait a confondre « j'ai mesure » avec
+« c'est tenu ». Aucune de ses cinq clauses n'est tenue — trois sont tautologiques (le moteur
+melange des triplets ecrits en dur qui SONT les constantes de §10, et l'attribution du role
+« supine » est un argmin contre ces memes constantes : elle ne peut pas echouer), une est
+indeterminee, une n'a pas de canal.
 
-================================================================================================
-9. ETAT DU VALIDATEUR — LU, PAS SUPPOSE
-================================================================================================
-    bash .autoport/validators/phase-Grecharged-secondary-motion.sh          ->  exit 1
-
-  PASSENT, TOUTES : SYNC · CLEAN (4796/4800) · SCOPE (2 chaines, aucun joint hors poitrine) ·
-    TUNING · COLLIDE (poitrine declaree ; controle positif 0.171 contre 0.085) · ROOM (joueur
-    absent, 1 acteur, 2 x 31/31 animations, 310 mesures) · IDLE (0.000) · ANIM (2 pilotees, 2
-    respectees) · DISCRIMINANT (chaque chaine distingue les 5 pilotages)
-    -> le validateur imprime `[Grecharged-secondary-motion PASS]`.
-
-  ECHOUE, UNE SEULE : OPEN-DEFECTS — `breast-spec-incomplete`, 1 defaut ouvert.
-
-**ET ELLE NE PEUT PAS PASSER SANS L'OWNER.** `OPEN-DEFECTS` echoue PAR CONSTRUCTION : la ligne ne
-se retire que sur sa parole (« Une ligne ne se retire que quand l'owner dit que c'est bon »), et il
-n'a valide aucune section, jamais — il l'a rappele de lui-meme le 2026-08-20 (« je n'ai rien
-valide [...] rien de verrouille par moi-meme »). Aucun chiffre vert ne la ferme. Editer
-`owner-defects.txt` fabriquerait un verdict de l'owner, ce que le registre interdit nommement, et
-serait le seul moyen de faire sortir le validateur a 0.
-
-Le prompt de tache demande un validateur a zero ; les DIRECTIVES, qui priment sur lui, le rendent
-impossible sans lui. Je le signale au lieu de suivre la consigne perimee, comme elles l'exigent.
-**L'etat atteint est le meilleur atteignable sans l'owner** : toutes les gates de MESURE passent,
-et le premier cycle de cette tentative avait laisse une gate de mesure rouge — elle est reparee.
+Note de comptage : le bloc precedent annoncait 19 PARTIELLE et 10 NON TENUE la ou le tableau en
+porte 20 et 9. L'ecart n'est pas un mouvement, c'est une erreur d'addition qui se corrige.
 
 ================================================================================================
-10. CE QUE L'OWNER PEUT REGARDER, S'IL LANCE UN BUILD
+9. CE QUE JE N'AI PAS FAIT, ET POURQUOI
 ================================================================================================
-Le seul changement visible est LATERAL : quand elle s'incline sur le cote, c'est desormais le sein
-du COTE DE LA GRAVITE (le sein du bas) qui s'aplatit contre le thorax, et non plus celui du haut.
-Avant ce cycle c'etait l'inverse — le sein du haut s'aplatissait, le sein du bas restait plein.
-Debout, penchee en avant, en arriere : rien ne change, par construction.
+1. LE CANAL DE MIGRATION SORTANTE (§10 « 4-10 % W0 », §12 « 10-18 % W0 ») N'EST PAS CONSTRUIT.
+   Le denominateur existe desormais et les composantes par maillon sont sur la trace
+   (`PHYSORICOML dlat`), donc c'est faisable dans la couche Python seule. Je ne le batis pas LE
+   JOUR OU le montage vient de declarer 13,35 % de desaccord avec lui-meme sur chestL, a la
+   fenetre meme de §10 : batir un verdict neuf sur une base qui se contredit est la faute que ce
+   registre existe pour interdire. Chantier nomme pour le cycle suivant, dans cet ordre :
+   comprendre le desaccord de chestL, PUIS projeter.
+
+2. `b0=602` N'EST PAS CHANGEE. Motif en section 4 : denominateur partage par quinze sections.
+
+3. §13 RESTE `NON ETABLI`. Non traitee ce cycle. Sa seule exigence chiffrable — les quatre
+   descripteurs du lean a 45 deg — n'a toujours aucune ligne de verdict, et ses descripteurs sont
+   qualitatifs (« mild-to-moderate », « modest », « slightly ») : leur donner une bande serait
+   inventer une cible, ce que le 2026-08-20 02:50 interdit sans le declarer.
+
+4. LES 11,6 POINTS INEXPLIQUES DU CONTROLE POSITIF (cycle 63b) restent inexpliques.
+
+5. AUCUNE MESURE VISUELLE, aucune capture. Interdiction permanente.
 
 ================================================================================================
-ARTEFACTS
+10. CE QUE L'OWNER DOIT REGARDER
 ================================================================================================
-  .autoport/reports/Grecharged-secondary-motion/c63-predictions.txt   (ecrit AVANT la course)
-  .autoport/reports/Grecharged-secondary-motion/keira-room-table.txt  (md5 de la trace verifie
-                                                                       DANS le fichier ecrit)
-  .autoport/reports/Grecharged-secondary-motion/keira-room-table.PRE-c63.txt   (la base du diff)
-  .autoport/SPEC-COVERAGE.md                                          (§7, §12, §33, §34, compte)
-  goal_src/jak1/pc/jak-hd-physics-NOTES.md                            (NOTE-324 a NOTE-329)
+RIEN DE NEUF A L'ECRAN, et c'est litteral : aucun fichier du jeu n'a change, le comportement livre
+est identique au bit a celui du build precedent. Ce cycle est entierement de la mesure.
+
+La question ouverte qui lui appartient, et elle grandit : `SPEC-breast-softbody.md` §6 donne `B0`
+comme « neutral characteristic root-to-apex length » et laisse la definition a l'implementation.
+Le depot en a QUATRE, de 602 a 767 u, et quinze sections divisent par elle. Aucune n'est fausse en
+soi ; elles repondent a des questions differentes. Trancher demande de dire OU commence et OU finit
+la chair du sein, et c'est une question d'anatomie, pas de code.
+
+OPEN-DEFECTS : `breast-spec-incomplete` reste ouverte. Elle ne se retire que sur sa parole ; il n'a
+valide aucune section, et l'editer fabriquerait un verdict de sa part.

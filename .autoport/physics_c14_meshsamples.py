@@ -305,10 +305,20 @@ def apex_region(geo, WJ, chain_idx, frac):
     L'AXE. La spec (§6) definit `B0` comme la longueur caracteristique RACINE->APEX de la chair.
     L'axe employe ici est celui de probe_c48_com_identity.py:337-344 — du joint racine vers le
     centroide de l'organe pondere par le poids de chaine — et il est repris tel quel PARCE QUE
-    c'est lui qui produit le 602 u livre en `b0=` (etendue mesuree 597.9 / 598.3 u = 0.99 B0).
+    c'est lui qui produit le 602 u livre en `b0=`.
+    ATTENTION — LA CONFIRMATION QUI ETAIT ECRITE ICI EST PERIMEE, ET C'EST MESURE AU CYCLE 64.
+    Cette ligne portait « etendue mesuree 597.9 / 598.3 u = 0.99 B0 », et `SPEC-COVERAGE.md` la
+    citait comme LA confirmation independante de `b0=602`. Sur le mesh que le jeu recoit depuis le
+    reskin du cycle 57 (2026-08-20 06:58), la MEME construction rend 701.8 / 718.6 u, soit
+    1.166 / 1.194 B0 : +17.4 % / +19.4 %. Le 597.9/598.3 decrivait un mesh anterieur. Une valeur
+    derivee ne se recopie pas d'un cycle a l'autre — elle se recalcule sur le mesh LIVRE.
     UNE AUTRE DEFINITION EXISTE DANS LE DEPOT et elle ne s'accorde pas : probe_breast_chain_span
-    rend 734.2 / 766.6 u pour la meme grandeur. Ce script emploie la premiere, le dit ici, et ne
-    tranche pas la divergence — la trancher demande un invariant anatomique, pas un choix.
+    rend 734.2 / 766.6 u pour la meme grandeur. Avec les deux ci-dessus, `B0` a donc QUATRE valeurs
+    candidates dans ce depot (602.2 sur l'axe local +Y, 701.8 / 718.6 sur l'axe anatomique, 734.2 /
+    766.6 sur le span de chaine) et le nombre livre est la plus petite des quatre. Ce script emploie
+    la premiere, le dit ici, et ne tranche pas la divergence — la trancher demande un invariant
+    anatomique, pas un choix, et `b0` etant le denominateur de quinze sections, la deplacer sans
+    course de controle apparie bougerait tous leurs verdicts d'un coup.
 
     L'ALGEBRE EST EXACTE, pas une approximation. Sous skinning lineaire, la position d'un sommet
     est SOMME_j w_ij M_j v_i, donc le deplacement du centroide de masse de la region vaut
