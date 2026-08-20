@@ -3429,7 +3429,23 @@
                (dotimes (l nl)
                  (let ((n (phys-chain-vol (-> self slot) c l ci)))
                    (when (> n 0)
-                     (format 0 "PHYSCVOL c=~D l=~D ci=~D n=~D~%" c l ci n))))))))
+                     (format 0 "PHYSCVOL c=~D l=~D ci=~D n=~D max=~f~%" c l ci n
+                             (phys-chain-volmax (-> self slot) c l ci)))))))))
+       ;; `max=` — CYCLE 59, ET C'EST LA COLONNE QUI MANQUAIT DEPUIS 44 CYCLES.
+       ;;   NATURE  : une LONGUEUR en unites de jeu (4096 u = 1 m), MAXIMUM DE COURSE du residu
+       ;;             signe `res = dep - feff` pour CE couple (maillon, volume). Meme grandeur et
+       ;;             memes unites que la colonne `meshpen` du tableau, qui n'en publie que le
+       ;;             maximum GLOBAL — d'ou l'impossibilite, jusqu'ici, de dire ce que vaudrait le
+       ;;             residu si on retirait le volume qui porte ce maximum.
+       ;;   REPERE  : celui du VOLUME TESTE, comme `res` : la profondeur y est evaluee.
+       ;;   ABSENT  : pas de ligne du tout (le couple n'a jamais eu `res > 0`), jamais un `max=0`.
+       ;;   CONTROLE: `*phys-col-off*` (controle k=4) passe `feff` a PHYS-VOL-FREE, donc `res` tres
+       ;;             negatif, donc AUCUNE ligne. Le compteur tombe avec le mur, il ne survit pas.
+       ;; POURQUOI CE N'EST PAS UN DOUBLON DE `PHYSDIAG6 worstres/worstci` : celui-la est un ARGMAX
+       ;; — il repond DANS une frame et ne dit rien d'une POPULATION. Le registre porte le piege
+       ;; sous `argmax-anchor-is-not-a-population`, et le dossier COLLIDE le paie : cinq familles de
+       ;; correctifs ont vise « le volume fautif » sans jamais savoir si le second etait a 5 % ou a
+       ;; 80 % du premier.
        ;; QUELS VOLUMES SE DISPUTENT QUEL LIEN — l'attribution que `PHYSCVOL` ne peut pas donner,
        ;; parce qu'il ne se remplit que pendant la fenetre de controle positif (mesure du
        ;; 2026-08-13 : `meshpen_max=0.0000` sur toutes les phases de mesure). Celui-ci vient de la

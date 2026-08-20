@@ -1,0 +1,71 @@
+C59E1 — PREDICTIONS GRAVEES AVANT LA COURSE (cycle 59)
+DIRECTIVES v3fee554599   —   perimetre : chestL / chestR seules
+
+INSTRUMENT AJOUTE : colonne `max=` sur `PHYSCVOL c= l= ci= n= max=` — le MAXIMUM de course du
+residu signe `res = dep - feff` par couple (MAILLON, VOLUME), en unites de jeu (4096 u = 1 m).
+Ce que le dossier avait : un COMPTE par couple (`PHYSCVOL n=`) et un ARGMAX de course
+(`PHYSDIAG6 worstres=456.7879 worstci=39`). Ce qu'il n'avait pas, et dont depend TOUT choix de
+correctif : la POPULATION des maxima. Un argmax repond DANS une frame, jamais sur une population.
+
+P1  PLATEAU (thèse). Sur au moins une chaine, >= 5 volumes DISTINCTS portent un `max` >= 50 % du
+    maximum global de cette chaine. Raison : `res` est une APPROCHE DE SURFACE du MEME point
+    mobile ; tout volume dont la normale sortante est a moins de 60 deg du deplacement enregistre
+    >= 50 % de ce meme deplacement. REFUTEE si un volume unique domine le second d'un facteur 2.
+
+P2  CONTRE MOI — COHERENCE DES DEUX INSTRUMENTS. L'argmax de la colonne `max=` sur l=1 doit etre
+    ci=39 pour chestL et ci=2 pour chestR, exactement ce que `PHYSDIAG6 worstci` publie deja.
+    S'ils divergent, l'un des deux instruments est faux et je dois dire lequel AVANT d'exploiter
+    le chiffre. (`PHYSDIAG6` prend son argmax sur TOUS les maillons, la colonne `max=` les separe :
+    la divergence est admissible seulement si le l=0 de la meme chaine porte le maximum.)
+
+P3  LE MAILLON DISTAL PORTE TOUT. l=1 porte le maximum sur les deux chaines, et le maximum de l=0
+    reste sous 25 % de celui de l=1. Raison : le parent du maillon 0 est l'ANCRE, qui n'est PAS
+    simulee — sa pose d'auteur est donc toujours dans le domaine admissible, ce que `PHYSCVOL`
+    corrobore deja par ses comptes (12 et 28 sur l=0 contre ~2000 sur l=1).
+
+P4  CONTRE MOI — LE SECOND N'EST PAS PETIT. Si on retirait le volume qui porte le maximum, le
+    second resterait >= 0.05 m, soit >= 100x le plafond de COLLIDE (0.0005 m). Si le second tombe
+    SOUS 0.0005 m, alors un correctif a un seul volume ferme COLLIDE et toute mon analyse du
+    mecanisme est fausse : je le publierai comme tel et je changerai de chantier.
+
+P5  BIT-IDENTITE DU RESTE. La colonne ajoutee est une LECTURE (un maximum d'une valeur deja
+    calculee), armee par le meme drapeau `*phys-buried-tally*` que le compte qui existait deja.
+    Elle ne peut donc rien deplacer. Grandeurs qui doivent etre IDENTIQUES a la course du
+    2026-08-20 10:15 :
+        meshpen  0.1115 / 0.1019       tipvar  0.1756 / 0.1775
+        worstres 456.7879 (ci=39)      417.4324 (ci=2)
+        PHYSCVOL c=0 l=1 ci=44 n=2061  c=0 l=1 ci=2 n=1780
+    Si l'une bouge, l'instrument a change la physique et il PART, quelles que soient les autres
+    predictions.
+
+================================================================================================
+RESULTATS — course du 2026-08-20, md5 5e3089c800b8bfa78d9a3bbd5c086740. 4 TENUES, 1 REFUTEE.
+================================================================================================
+P1  PLATEAU                        TENUE, et plus largement que predit.
+      chestL : 8 volumes DISTINCTS a >= 50 % du maximum de la chaine (predit >= 5)
+      chestR : 10 volumes DISTINCTS a >= 50 %
+      Et ils viennent de TROIS familles sans rapport : le sein OPPOSE (33), les capsules de
+      buste (34), et les SPHERES DE VETEMENT (lTopStrap2, lBotStrap, lBotStrap2, rBotStrap...).
+
+P2  COHERENCE DES DEUX INSTRUMENTS  TENUE (elle etait CONTRE MOI).
+      argmax de `max=` sur l=1 : ci=39 (chestL), ci=2 (chestR) — exactement `PHYSDIAG6 worstci`.
+      456.7879 u et 430.6371 u ; l'ecart de chestR (430.6371 contre 417.4324) vient de ce que
+      `PHYSDIAG6` prend son argmax sur une FENETRE et la colonne `max=` sur TOUTE la course.
+
+P3  LE MAILLON DISTAL PORTE TOUT    TENUE sur chestL, **REFUTEE sur chestR PAR MON PROPRE SEUIL.**
+      l=1 porte bien le maximum des deux cotes, mais le rapport l0/l1 vaut 0.173 (chestL) et
+      **0.284 (chestR)**, au-dessus des 25 % que j'avais graves. Je ne renegocie pas le seuil
+      apres coup : P3 est refutee a droite, et le maillon 0 y porte 122.27 u = 0.0299 m.
+
+P4  LE SECOND N'EST PAS PETIT       TENUE (elle etait CONTRE MOI).
+      Retirer le volume de l'argmax laisse : chestL ci=2 a 0.1064 m (95 % du max, x213 le
+      plafond) ; chestR ci=7 a 0.1008 m (96 % du max, x202 le plafond).
+      **Aucun correctif a un seul volume ne peut approcher le plafond de COLLIDE.**
+
+P5  BIT-IDENTITE DU RESTE           TENUE, verifiee sur quatre fronts :
+      - les 310 lignes `row` du tableau sont IDENTIQUES a celles d'avant (diff vide) ;
+      - `PHYSDIAG6 worstres` 456.7879 (ci=39) et 417.4324 (ci=2), inchanges ;
+      - les 39 comptes `PHYSCVOL n=` sont identiques ligne pour ligne (diff vide apres avoir
+        retire la colonne neuve) ;
+      - meshpen 0.1115 / 0.1019 et tipvar 0.1756 / 0.1775.
+      L'instrument n'a rien deplace : c'est une lecture, comme annonce.

@@ -547,14 +547,8 @@
 (define *phys-cwsum* 0.0)    ;; §7 ce qu'il a retire, unites de jeu (un suppresseur se chiffre)
 ;; [NOTE-18] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
 (define *phys-cvh* (new 'global 'array 'int32 (* PHYS-SCL PHYS-COLS)))
-;; LE SEAU DU CONFLIT, PAR CHAINE — combien de fois le volume `ci` s'est DISPUTE un lien de la
-;; chaine avec au moins un autre volume, dans la meme frame. Distinct de `*phys-cvh*`, qui compte la
-;; penetration RESIDUELLE apres solveur et n'est alimente que par la fenetre de controle positif
-;; (mesure du 2026-08-13 : `meshpen_max = 0.0000` sur toutes les phases de mesure, donc les 90 de
-;; `ROOM-CONTACT-VOL` sont les 90 frames de PCON). Celui-ci est alimente par la passe de SELECTION,
-;; donc par toute la course, et il repond a la question que `ROOM-VOLPRIO` pose sans y repondre :
-;; `chestR` conflicte 85895 fois contre 2264 a gauche — MAIS AVEC QUI ?
-(define *phys-cfh* (new 'global 'array 'int32 (* PHYS-SC PHYS-COLS)))
+(define *phys-cvm* (new 'global 'array 'float (* PHYS-SCL PHYS-COLS)))
+(define *phys-cfh* (new 'global 'array 'int32 (* PHYS-SC PHYS-COLS)))  ;; [NOTE-126] -> jak-hd-physics-NOTES.md
 
 ;; [NOTE-64] LE DOMAINE D'UNE PAIRE, ET PAS SEULEMENT SES CONTACTS — SPEC 33. -> jak-hd-physics-NOTES.md
 (define *phys-depsigned* 0.0)
@@ -2190,7 +2184,8 @@
                 ;; et le compter rendrait la colonne aveugle a la difference entre les deux.
                 (when (and (nonzero? *phys-buried-tally*) (> res 0.0))
                   (let ((h (+ (* (+ (* sc PHYS-LINKS) l) PHYS-COLS) ci)))
-                    (set! (-> *phys-cvh* h) (+ 1 (-> *phys-cvh* h)))))))))))
+                    (set! (-> *phys-cvh* h) (+ 1 (-> *phys-cvh* h)))
+                    (when (> res (-> *phys-cvm* h)) (set! (-> *phys-cvm* h) res))))))))))
     worst))
 
 (defun phys-pen-chain ((skel skeleton) (sc int) (n int) (rlk int) (nbone int) (nco int))
@@ -4621,6 +4616,11 @@
     (-> *phys-cvh* (+ (* (+ (* (+ (* slot PHYS-CHAINS) chain) PHYS-LINKS) link) PHYS-COLS) ci))
     0))
 
+(defun phys-chain-volmax ((slot int) (chain int) (link int) (ci int))
+  (if (and (>= slot 0) (< slot PHYS-SLOTS) (>= chain 0) (< chain PHYS-CHAINS)
+           (>= link 0) (< link PHYS-LINKS) (>= ci 0) (< ci PHYS-COLS))
+    (-> *phys-cvm* (+ (* (+ (* (+ (* slot PHYS-CHAINS) chain) PHYS-LINKS) link) PHYS-COLS) ci)) 0.0))
+
 ;; COMBIEN DE FOIS LE VOLUME `ci` S'EST DISPUTE UN LIEN DE `chain` AVEC UN AUTRE VOLUME.
 (defun phys-chain-conf ((slot int) (chain int) (ci int))
   (if (and (>= slot 0) (< slot PHYS-SLOTS) (>= chain 0) (< chain PHYS-CHAINS)
@@ -4680,7 +4680,7 @@
   (set! *phys-stif-n* 0)
   (set! *phys-cwn* 0)
   (set! *phys-cwsum* 0.0)
-  (dotimes (i (* PHYS-SCL PHYS-COLS)) (set! (-> *phys-cvh* i) 0))
+  (dotimes (i (* PHYS-SCL PHYS-COLS)) (set! (-> *phys-cvh* i) 0) (set! (-> *phys-cvm* i) 0.0))
   (dotimes (i (* PHYS-SC PHYS-COLS)) (set! (-> *phys-cfh* i) 0))
   (none))
 

@@ -4678,3 +4678,44 @@ ici — c est la convention du fichier depuis 174 pointeurs.
 ;; est relative au parent par construction et vaut zero pour un maillon qui ne bouge pas tout seul.
 ;; Les deux sont publiees cote a cote : leur ecart EST la mesure de l'erreur de l'ancienne.
 ```
+
+## [NOTE-126]
+
+`*phys-cfh*` — LE SEAU DU CONFLIT, PAR CHAINE : combien de fois le volume `ci`
+s'est DISPUTE un lien de la chaine avec au moins un autre volume, dans la meme
+frame. Alimente par la passe de SELECTION, donc par toute la course. Il repond a
+la question que `ROOM-VOLPRIO` pose sans y repondre : `chestR` conflicte 85895
+fois contre 2264 a gauche — MAIS AVEC QUI ?
+
+`*phys-cvh*` — le COMPTE de triplets (frame, MAILLON, volume) en violation
+(`res > 0`), alimente par `phys-pen-chain` (drapeau `*phys-buried-tally*`), donc
+une fois par frame et par chaine.
+
+**CORRECTION D'UNE PHRASE PERIMEE, cycle 59.** Le texte que le moteur portait
+ici disait que `*phys-cvh*` « n'est alimente que par la fenetre de controle
+positif (mesure du 2026-08-13 : `meshpen_max = 0.0000` sur toutes les phases de
+mesure) ». **C'est faux depuis le cycle 15** : `meshpen` est non nul sur 224 des
+310 cellules de la course livree, et `PHYSCVOL` publie des comptes de l'ordre de
+2000 par (maillon, volume) — c'est-a-dire toute la course, pas 90 frames de
+PCON. Une phrase juste en aout 13 et fausse en aout 20 est un commentaire qui
+tient lieu de preuve : elle est corrigee ici plutot que recopiee.
+
+`*phys-cvm*` — **NOUVEAU, cycle 59.** Le MAXIMUM de `res` par (maillon, volume)
+sur toute la course, dans les memes unites de jeu que `meshpen`, arme au meme
+endroit et par le meme drapeau que le compte.
+
+POURQUOI IL MANQUAIT, ET CE QU'IL FERME. `PHYSCVOL` donne un COMPTE et
+`PHYSDIAG6` un ARGMAX (`worstres=456.7879 worstci=39`). Ni l'un ni l'autre ne
+repond a la question de POPULATION dont depend tout choix de correctif : *si on
+retirait le volume qui porte le maximum, que vaudrait le suivant ?* Un argmax
+repond DANS une frame, jamais sur une population (registre
+`argmax-anchor-is-not-a-population`). Sans ce chiffre, « corriger le volume
+fautif » et « le residu est un plateau sur tous les volumes proches » sont
+indiscernables — et les deux appellent des chantiers opposes.
+
+NATURE : une LONGUEUR (unites de jeu, 4096 u = 1 m), maximum de course, par
+couple (maillon, volume). REPERE : celui du volume teste, comme `res`.
+LECTURE QUAND LE DEFAUT EST ABSENT : aucune ligne pour ce couple — le volume
+n'a jamais rien demande a ce maillon. CONTROLE : `*phys-col-off*` desarme le mur
+par `phys-vol-floor` et doit faire tomber TOUTE la colonne (`feff` devient
+`PHYS-VOL-FREE`, donc `res` devient tres negatif et le seau ne se remplit plus).

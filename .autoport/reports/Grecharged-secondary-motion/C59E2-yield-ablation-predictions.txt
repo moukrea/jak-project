@@ -1,0 +1,82 @@
+C59E2 — PREDICTIONS GRAVEES AVANT LA COURSE (cycle 59, deuxieme experience)
+DIRECTIVES v3fee554599   —   perimetre : chestL / chestR seules
+
+LA BISECTION, MESUREE SUR LES TABLEAUX ARCHIVES (aucune opinion) :
+  keira-room-table.PRE-C15.txt  2026-08-17 04:01   310 lignes,   0 cellule avec meshpen > 0
+  keira-room-table.C15.txt      2026-08-17 04:18   310 lignes, 286 cellules avec meshpen > 0
+Entre les deux, un seul changement de moteur touche `feff` : le commit 2782c6b6e1 (04:54),
+qui remplace `phys-vol-floor` = `floor0` par `floor0 + PHYS-FLESH-YIELD * b0` avec
+PHYS-FLESH-YIELD = 0.30 et `b0` non nul UNIQUEMENT sur les volumes qui portent l'ancre.
+
+CE QUI ME GENE DANS MA PROPRE LECTURE, ET JE L'ECRIS AVANT DE MESURER : le changement va dans le
+sens qui BAISSE `res`. `feff` devient strictement PLUS GRAND, et `res = dep - feff`, donc a
+POSITION EGALE le residu ne peut que diminuer. La hausse observee ne peut donc PAS venir de la
+formule ; elle ne peut venir que de la TRAJECTOIRE que le mur relache autorise. C'est une
+hypothese, pas un fait, et c'est CETTE course qui la tranche.
+
+ABLATION : `PHYS-FLESH-YIELD 0.30 -> 0.00`, un seul caractere, qui rend EXACTEMENT la forme
+d'avant le cycle 15 (`feff = floor0` sur tous les volumes). RETIREE apres mesure quel que soit le
+resultat : sa 10 (`SupineProjectionScale = 0.70`, soit 0.30 B0) est une LIGNE DE SPEC, pas un
+reglage, et la garder a zero serait violer sciemment une section pour verdir une gate.
+
+Q1  `meshpen` s'effondre d'au moins 90 % (0.1115 / 0.1019 -> <= 0.011 des deux cotes).
+    Raison : si le mur d'avant le cycle 15 EPINGLAIT la chaine sur la pose d'auteur, `res` ne
+    pouvait pas etre positif, et c'est ce que les 310 zeros de PRE-C15 disent.
+
+Q2  LA DECISIVE, ET ELLE EST CONTRE MOI. `tipvar` s'effondre EN MEME TEMPS, d'au moins 40 %
+    (0.1756 / 0.1775 -> <= 0.105). Si `tipvar` bouge de MOINS DE 10 % pendant que `meshpen`
+    s'effondre, ma lecture est FAUSSE : le mur ne muselait pas la chaine, la cession de chair
+    fabriquait de la penetration sans acheter de mouvement — et alors il existe un vrai correctif
+    (un mur qui protege sans figer), et c'est LUI le chantier, pas la geometrie.
+
+Q3  `ROOM-APEX` baisse avec, et sa 22 se rapproche de sa bande (0.9249 / 0.9592 B0 -> <= 0.60).
+    Meme mecanisme : si le mur epingle, il epingle l'apex aussi.
+
+Q4  CONTRE MOI AUSSI : `meshpen` n'atteint PAS le plafond de 0.0005 m meme ainsi. Je predis qu'il
+    restera >= 0.002 m. S'il tombe SOUS 0.0005, alors l'etat d'avant le cycle 15 tenait COLLIDE et
+    la question devient entierement « quel prix en mouvement », ce que Q2 chiffre.
+
+Q5  Le retrait sera VERIFIE par une course de controle qui reproduit meshpen 0.1115 / 0.1019 et
+    tipvar 0.1756 / 0.1775. Un retrait annonce et non verifie n'est pas un retrait.
+
+================================================================================================
+RESULTATS — course d'ablation, trace md5 7755f65fd3a955094186c130b46bbe72. MA THESE EST REFUTEE.
+================================================================================================
+                        ARME (0.30, livre)      DESARME (0.00, forme d'avant C15)
+  meshpen chestL          0.1115 m                0.1122 m      **+0.6 %**
+  meshpen chestR          0.1019 m                0.1060 m      **+4.0 %**
+  worstres / argmax       456.79 (ci=39)          459.58 (ci=7)     417.43 (ci=2) -> 434.06 (ci=2)
+  tipvar  chestL          0.1756 m                0.1428 m      -18.7 %
+  tipvar  chestR          0.1775 m                0.1565 m      -11.8 %
+  ROOM-APEX chestL        0.9249 B0               0.9254 B0      +0.1 %
+  ROOM-APEX chestR        0.9592 B0               0.8789 B0      -8.4 %
+  ROOM-IDLE maxdev        0.0002                  **0.0335**     x167 — la SPEC 2 s'effondre
+
+Q1  meshpen -90 %                        **REFUTEE** : il MONTE (+0.6 % / +4.0 %).
+Q2  tipvar -40 % en meme temps           **REFUTEE** : il baisse de 18.7 % / 11.8 % seulement.
+Q3  ROOM-APEX <= 0.60 B0                 **REFUTEE** : 0.9254 / 0.8789.
+Q4  meshpen n'atteint pas 0.0005         TENUE (elle etait contre moi) : 0.1122 / 0.1060.
+
+CE QUE CA ETABLIT, ET C'EST UTILE MEME EN ETANT CONTRE MOI :
+  **`PHYS-FLESH-YIELD` EST EXONERE.** Le commit 2782c6b6e1 n'est PAS la cause de la bascule du
+  cycle 15. Rendre EXACTEMENT la forme d'avant (`feff = floor0` partout) sur le moteur d'aujourd'hui
+  ne rend PAS le zero de `PRE-C15` : il rend 0.1122 / 0.1060, c'est-a-dire le meme residu, en PIRE.
+  Le zero de 2026-08-17 04:01 ne venait donc pas du plancher.
+  La fenetre de bisection reste juste (0/310 a 04:01, 286/310 a 04:18) ; le suspect nomme tombe, et
+  la cause est ailleurs dans les 44 cycles qui ont suivi. Je le laisse ECRIT comme non attribue
+  plutot que de garder une hypothese que ma propre course refute.
+
+  ET UN COUT QUE JE N'AVAIS PAS PREDIT : `ROOM-IDLE` passe de 0.0002 a **0.0335**, x167. Le mur
+  epingle a la pose d'auteur EMPECHE le retour exact a cette meme pose — sa 2 (« Additional
+  Procedural Sag = 0% ») casse. C'est le mecanisme `author-pinned-floor-is-a-rectifier` mesure une
+  deuxieme fois, et sous un angle neuf : le redresseur ne fige pas la chaine, il la DECALE.
+
+RETRAIT : `PHYS-FLESH-YIELD` remis a 0.30 (un caractere), comme grave AVANT la course. Q5 ci-dessous.
+
+Q5  RETRAIT VERIFIE                      **TENUE**, course de controle md5 bfc4a35b6e3eec373f2090b997165cbe :
+      - les 310 lignes `row` sont IDENTIQUES a celles d'avant l'ablation (diff vide) ;
+      - les 39 lignes `PHYSCVOL` (comptes ET colonne `max=`) sont IDENTIQUES (diff vide) ;
+      - `PHYSDIAG6 worstres` 456.7879 (ci=39) et 417.4324 (ci=2) ;
+      - meshpen 0.1115 / 0.1019, tipvar 0.1756 / 0.1775, ROOM-IDLE 0.0002.
+    Le moteur est EXACTEMENT au point ou il etait avant l'experience. Le seul changement qui
+    survit ce cycle est la colonne `max=` de `PHYSCVOL`, qui est une lecture et ne deplace rien.
