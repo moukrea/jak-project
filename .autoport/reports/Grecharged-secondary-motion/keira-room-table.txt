@@ -1,7 +1,7 @@
 ==================================================================================================
 KEIRA — SALLE DE TEST SANS JOUEUR : TABLEAU DE MESURE
 genere par .autoport/physics_room_table.py depuis .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
-empreinte de la trace lue : md5 13a4ae1e26a1465c5847021d377c5228 (3798381 octets)
+empreinte de la trace lue : md5 84ff0ca19972a54743cc21af9dc90c4e (3798381 octets)
 contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 7 (ce qui fait foi)
 
 Toutes les longueurs sont en METRES (la trace est en unites de jeu, 4096 u = 1 m). Ce que
@@ -842,9 +842,9 @@ ROOM-APEX: chain=chestR       pic_typique=0.7003  max=0.9592 B0   (normal 0.42 /
    VERDICT §22 « exceptional <=50% B0 » sur le MAXIMUM de course     : 0.9592 -> HORS (x1.92)
    distribution des maxima de fenetre : p50 0.6938  p95 0.8452  (n=186 fenetres)
    part des FENETRES au-dessus des bandes : 98.9 % > 0.42 · 97.3 % > 0.50
-   CE QUE CE VERDICT NE DIT PAS, ET IL FAUT LE DIRE : 41 a 43 %% de la masse de la
-      region distale est portee par `chest`, qui n'est pas simule. L'apex publie ici
-      est donc DEJA reduit d'un facteur 0.5676 / 0.5936 par le mesh. Un DEPASSEMENT
+   CE QUE CE VERDICT NE DIT PAS, ET IL FAUT LE DIRE : 6.0 % / 4.5 % de la masse
+      de la region distale est portee par des os NON SIMULES. L'apex publie ici
+      est donc DEJA reduit d'un facteur 0.9402 / 0.9549 par le mesh. Un DEPASSEMENT
       est donc un depassement A ANCRAGE REDUIT — il serait PIRE si sa §30 (« Apex —
       minimal direct anchoring ») etait respectee. Un MANQUE, lui, peut venir de cet
       ancrage plutot que du solveur, et la ligne ROOM-APEX-REGIME le chiffre par
@@ -1077,16 +1077,17 @@ ROOM-REGIME-MIRROR: r=13 rollA         com(chestL)=0.2201 com(chestR)=0.2573  ec
 ROOM-REGIME-MIRROR: r=14 rollB         com(chestL)=0.2685 com(chestR)=0.2778  ecart 3.40 %
 
    -- ROOM-APEX-REGIME : SPEC 14/16/17/18/19/20, LA CLAUSE D'APEX ---------------
-      LE PLAFOND QUE LE MESH IMPOSE, ET IL N'EST PAS UN REGLAGE. La region distale
-      porte 43.24 %% (chestL) / 40.64 %% (chestR) de sa masse de peau sur `chest`,
-      qui N'EST PAS SIMULE : sa matrice ecrite EST sa matrice d'auteur, son
-      excursion est nulle au bit pres. L'apex ne peut donc valoir que 0.5676 /
-      0.5936 de ce que ses maillons simules produisent — soit un facteur x1.76 /
-      x1.68 hors d'atteinte de TOUTE valeur de raideur, d'amortissement ou de
-      gravite. Sa §30 ecrit « Apex — minimal direct anchoring » : le mesh livre dit
-      le contraire. Une bande manquee de MOINS que ce facteur peut s'expliquer par
-      l'ancrage seul ; manquee de PLUS, non — et c'est cette frontiere qui rend
-      chaque ligne ci-dessous lisible.
+      LE PLAFOND QUE LE MESH IMPOSE, ET IL EST LU DANS LE FICHIER LIVRE — plus
+      jamais ecrit en dur. La part de la masse distale portee par des maillons
+      SIMULES est la somme des poids `ax` de recharged_assets/physics_mesh.txt,
+      le fichier meme que le moteur charge (jak-hd-physics.gc:803). Le reste est
+      porte par des os NON SIMULES, dont la matrice ecrite EST la matrice
+      d'auteur et dont l'excursion est nulle au bit pres.
+      part simulee : 0.9402 (chestL) / 0.9549 (chestR) -> plafond d'ancrage x1.06
+      / x1.05. Une bande manquee de MOINS que ce facteur peut s'expliquer par
+      l'ancrage seul ; manquee de PLUS, non — et c'est cette frontiere qui
+      rend chaque ligne ci-dessous lisible. Sa §30 ecrit « Apex — minimal
+      direct anchoring » : a 0.94 / 0.95 le mesh livre s'en approche enfin.
 ROOM-APEX-REGIME: chestL   r= 0 base          apex=0.0343 B0   aucune clause d'apex pour ce regime
 ROOM-APEX-REGIME: chestR   r= 0 base          apex=0.0330 B0   aucune clause d'apex pour ce regime
    aucune clause d'apex pour ce regime
@@ -1096,28 +1097,28 @@ ROOM-APEX-REGIME: chestR   r= 1 jumpA-push    apex=0.4683 B0  [0.20-0.30] -> AU-
 ROOM-APEX-REGIME: chestL   r= 2 jumpA-fly     apex=0.3420 B0   aucune clause d'apex pour ce regime
 ROOM-APEX-REGIME: chestR   r= 2 jumpA-fly     apex=0.2736 B0   aucune clause d'apex pour ce regime
    aucune clause d'apex pour ce regime
-ROOM-APEX-REGIME: chestL   r= 3 jumpA-land    apex=0.1398 B0  [0.30-0.42] -> SOUS (x0.47)   ancrage seul NE SUFFIT PAS (manque x2.15, plafond x1.76)
+ROOM-APEX-REGIME: chestL   r= 3 jumpA-land    apex=0.1398 B0  [0.30-0.42] -> SOUS (x0.47)   ancrage seul NE SUFFIT PAS (manque x2.15, plafond x1.06)
 ROOM-APEX-REGIME: chestR   r= 3 jumpA-land    apex=0.3228 B0  [0.30-0.42] -> DANS
    §16 « Strong landing apex: 30-42% B0 »
-ROOM-APEX-REGIME: chestL   r= 4 jumpB-push    apex=0.2987 B0  [0.30-0.38] -> SOUS (x1.00)   ancrage seul SUFFIT (manque x1.00, plafond x1.76)
+ROOM-APEX-REGIME: chestL   r= 4 jumpB-push    apex=0.2987 B0  [0.30-0.38] -> SOUS (x1.00)   ancrage seul SUFFIT (manque x1.00, plafond x1.06)
 ROOM-APEX-REGIME: chestR   r= 4 jumpB-push    apex=0.3964 B0  [0.30-0.38] -> AU-DESSUS (x1.04)
    §14 « strong 30-38% B0 »
 ROOM-APEX-REGIME: chestL   r= 5 jumpB-fly     apex=0.3279 B0   aucune clause d'apex pour ce regime
 ROOM-APEX-REGIME: chestR   r= 5 jumpB-fly     apex=0.3098 B0   aucune clause d'apex pour ce regime
    aucune clause d'apex pour ce regime
-ROOM-APEX-REGIME: chestL   r= 6 jumpB-land    apex=0.1574 B0  [0.42-0.50] -> SOUS (x0.37)   ancrage seul NE SUFFIT PAS (manque x2.67, plafond x1.76)
-ROOM-APEX-REGIME: chestR   r= 6 jumpB-land    apex=0.3270 B0  [0.42-0.50] -> SOUS (x0.78)   ancrage seul SUFFIT (manque x1.28, plafond x1.68)
+ROOM-APEX-REGIME: chestL   r= 6 jumpB-land    apex=0.1574 B0  [0.42-0.50] -> SOUS (x0.37)   ancrage seul NE SUFFIT PAS (manque x2.67, plafond x1.06)
+ROOM-APEX-REGIME: chestR   r= 6 jumpB-land    apex=0.3270 B0  [0.42-0.50] -> SOUS (x0.78)   ancrage seul NE SUFFIT PAS (manque x1.28, plafond x1.05)
    §16 « Very hard / exceptional: 42-50% B0 »
 ROOM-APEX-REGIME: chestL   r= 7 runA-accel    apex=0.5743 B0   §17 ne borne l'apex que pour « strong » : PAS de bande ici
 ROOM-APEX-REGIME: chestR   r= 7 runA-accel    apex=0.5336 B0   §17 ne borne l'apex que pour « strong » : PAS de bande ici
    §17 ne borne l'apex que pour « strong » : PAS de bande ici
-ROOM-APEX-REGIME: chestL   r= 8 runA-brake    apex=0.2445 B0  [0.25-0.35] -> SOUS (x0.98)   ancrage seul SUFFIT (manque x1.02, plafond x1.76)
+ROOM-APEX-REGIME: chestL   r= 8 runA-brake    apex=0.2445 B0  [0.25-0.35] -> SOUS (x0.98)   ancrage seul SUFFIT (manque x1.02, plafond x1.06)
 ROOM-APEX-REGIME: chestR   r= 8 runA-brake    apex=0.2698 B0  [0.25-0.35] -> DANS
    §17 « Apex displacement: strong 25-35% B0 »
 ROOM-APEX-REGIME: chestL   r= 9 yawA          apex=0.0857 B0   §18 ne borne l'apex que pour « strong » : PAS de bande ici
 ROOM-APEX-REGIME: chestR   r= 9 yawA          apex=0.4965 B0   §18 ne borne l'apex que pour « strong » : PAS de bande ici
    §18 ne borne l'apex que pour « strong » : PAS de bande ici
-ROOM-APEX-REGIME: chestL   r=10 yawB          apex=0.1794 B0  [0.20-0.30] -> SOUS (x0.90)   ancrage seul SUFFIT (manque x1.11, plafond x1.76)
+ROOM-APEX-REGIME: chestL   r=10 yawB          apex=0.1794 B0  [0.20-0.30] -> SOUS (x0.90)   ancrage seul NE SUFFIT PAS (manque x1.11, plafond x1.06)
 ROOM-APEX-REGIME: chestR   r=10 yawB          apex=0.5022 B0  [0.20-0.30] -> AU-DESSUS (x1.67)
    §18 « Apex displacement: strong 20-30% B0 »
 ROOM-APEX-REGIME: chestL   r=11 pitchA-bend   apex=0.5965 B0  [0.30-0.40] -> AU-DESSUS (x1.49)

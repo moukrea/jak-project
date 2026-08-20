@@ -1,28 +1,306 @@
-RAPPORT DE CYCLE 57 — Grecharged-secondary-motion
+RAPPORT DE CYCLE 58 — Grecharged-secondary-motion
 DIRECTIVES v3fee554599
 
 BREAST-PENETRATION: chestL meshpen=0.1115 m  skinpen=0.1358 m   |   chestR meshpen=0.1019 m  skinpen=0.1203 m
   Plafond epingle du validateur : 0.0005 m. DEPASSE d'un facteur 223 / 204. NON REGLE.
-  Ce chiffre est INCHANGE par le cycle 57 : il vaut 0.1115 / 0.1019 avant ET apres, au bit pres,
-  sur les cinq pilotages. Le repesage n'a touche que la PEAU ; les mesures au niveau des JOINTS
-  (tipvar, rootdev, meshpen, jump) sont identiques. Le cycle 57 n'a donc ni cause ni aggrave ce
-  defaut — il ne l'a pas ferme non plus, et c'est ecrit ici parce que tant que ce n'est pas zero,
-  ca se declare avec son chiffre a chaque cycle.
+  INCHANGE par le cycle 58 : la tentative de ce cycle a ete MESUREE puis RETIREE, et le retrait est
+  VERIFIE par une course de controle qui reproduit AU BIT les chiffres d'avant — worstres 456.7879
+  et 417.4324 u, bendcut 7245.1284 et 5359.7641, tiprot 15.0155 et 15.2505, sat_n 40257,
+  sat_sum 2846992.5, stif_n 49285, meshpen 0.1115 / 0.1019, tipvar 0.1756 / 0.1775.
+  CE QUI EST NEUF SUR CE DEFAUT, ET C'EST LA PREMIERE FOIS EN 57 CYCLES : il est ATTRIBUE, et sa
+  NATURE est etablie. Voir sections 1 et 2.
 
-  TENTATIVE FAITE CE CYCLE, MESUREE, RETIREE (C57E2, md5 c1f560a3a214375fde15908e52bd0851) :
-  resynchroniser les quatre volumes de collision sur le mesh recuit (ils sont derives de la
-  possession de sommets, que le repesage a changee : lBooc 43v -> 29v, rBooc 36v -> 19v).
-    Q1 paires ignorees   139 955 -> 56 801        (-59 %)   TENUE
-    Q4 contacts          10 097 -> 6 074 (-40 %) · 9 234 -> 3 492 (-62 %)   TENUE
-    Q2 meshpen BAISSE    0.1115 -> 0.1170 · 0.1019 -> 0.1637   REFUTEE (il MONTE)
-    Q3 meshpen n'atteint pas 0.0005 (CONTRE MOI)             TENUE
-  RETIRE par re-postage explicite des valeurs precedentes, et le retrait est VERIFIE par une
-  course : 139 955 paires ignorees et meshpen 0.1115 / 0.1019 reproduits a l'identique.
 
-  CE QUE LA TENTATIVE ETABLIT, ET C'EST UN SUSPECT DE MOINS : l'hypothese du ledger du 2026-08-14
-  — « plus un lien touche de volumes a la fois, plus le residu grandit » — est REFUTEE. Les
-  contacts simultanes ont chute de 40 a 62 % et les paires ignorees de 59 %, et le residu a
-  AUGMENTE. La contention entre volumes ne porte pas ce residu.
+================================================================================================
+ETAT DU VALIDATEUR — TROIS GATES ECHOUENT, ET DEUX ETAIENT INVISIBLES
+================================================================================================
+La phase ne passe pas, et je donne les trois raisons AVANT tout resultat, parce que deux d'entre
+elles ne s'affichent jamais : elles sont derriere une gate qui meurt en premier.
 
-  PEREMPTION DECLAREE, NON CORRIGEE : les quatre volumes livres restent derives d'une possession
-  de sommets qui n'existe plus. Le correctif attend d'etre trouve sans faire monter meshpen.
+  1. COLLIDE / meshpen   ECHOUE   plafond 0.0005 m, mesure 0.1115 m avant ce cycle
+  2. COLLIDE / POSCONTROL ECHOUE  arme 0.0922 contre desarme 0.0651 (il faut arme >= 3x desarme,
+                                  soit x1.42 rendu contre x3.00 exige). JAMAIS AFFICHEE : elle est
+                                  20 lignes APRES le `die` de meshpen dans le meme bloc python.
+  3. OPEN-DEFECTS        ECHOUE   `OPEN breast-spec-incomplete`. ELLE NE PEUT PAS ETRE FERMEE PAR
+                                  MOI : « la liste se vide UNIQUEMENT sur la parole de l'owner ».
+                                  Le validateur ne peut donc PAS rendre 0 ce cycle, quoi que je
+                                  fasse, et je ne touche pas a cette ligne.
+
+  Passent, verifiees a la main sur le tableau livre : ROOM, SCOPE, TUNING, CLEAN, SYNC,
+  COLLIDER-COVERAGE, IDLE (maxdev 0.0002), ANIM (2/2, perchain=yes), DISCRIMINANT (ecart 41 % /
+  43 %, seuil 25 %).
+
+================================================================================================
+1. LE RESIDU DE PENETRATION A UN NOM, PAR CHAINE — 57 CYCLES SANS L'ATTRIBUER
+================================================================================================
+Tire de la course DEJA LIVREE, sans course neuve :
+
+    PHYSDIAG6 tag=run c=0 worstres=456.7879 worstci=39.0000
+    PHYSDIAG6 tag=run c=1 worstres=417.4324 worstci=2.0000
+
+456.7879 u / 4096 = 0.111520 m — c'est EXACTEMENT le 0.1115 qui fait echouer COLLIDE.
+  ci=39 = `rBoob`, la sphere du sein OPPOSE            -> SPEC 33 (« Breast-Breast Interaction »)
+  ci=2  = la capsule `neck->chest`                      -> SPEC 34 (« Torso and External Collision »)
+Le residu de chestL est donc porte par le sein droit, celui de chestR par le buste. Ce sont deux
+paires DIFFERENTES : un correctif unique n'etait de toute facon pas le bon modele.
+
+================================================================================================
+2. `meshpen` N'EST PAS UNE PROFONDEUR : C'EST UN DEPLACEMENT, ET TOUS LES RAYONS S'ANNULENT
+================================================================================================
+`res = dep - feff`, avec `feff >= floor0 >= floorc`, et `dep`/`floorc` sont LA MEME fonction
+`phys-collide-depth` evaluee en deux points (`q` simule, `rest` pose d'auteur) contre LE MEME
+volume anime, LA MEME frame. Donc
+
+    res <= dep - floorc = sdf(rest) - sdf(q) <= |q - rest|        (sdf 1-lipschitzienne)
+
+MESURE, pas raisonnee — sonde `.autoport/probe_c58_lipschitz.py` (graine 20260820, deterministe,
+que j'ai rejouee moi-meme), sur les 56 volumes LIVRES, > 200 000 couples de points :
+
+    max |d(a)-d(b)| / |a-b|            = 0.999932        (des que |a-b| >= 0.01 u)
+    exces additif hors coquille        = 1.34e-12 u      (bruit float64)
+    seule exception, branche `d<0.001` : |d(a)-d(b)| <= |a-b| + 0.001 u  (2000x sous le plafond)
+    CONTROLE NEGATIF : avec le predicat d'AVANT le cycle 22 (`*phys-cone-off*`=1) le rapport monte
+      a 1.6928 et l'exces a 47.01 u = 0.0115 m. Le test DISCRIMINE, il n'est pas vert par construction.
+    CONTRE-EXEMPLES CHERCHES ACTIVEMENT, AUCUN TROUVE : volume qui bouge (60 000 configs,
+      max(res - |q-rest|) = -0.0347 u), `PHYS-VOL-FREE`, coquille `d<0.001`, et le terme de
+      FRANCHISSEMENT (`wv`, NOTE-31) que ma definition avait omis : -0.787 u sur 312 992 couples.
+
+CE QUE CA ETABLIT ET CE QUE CA N'ETABLIT PAS — ET JE ME SUIS CORRIGE ICI.
+  VALIDE  : `meshpen = 0.1115 m` PROUVE que le centre du volume d'un maillon s'est deplace d'au
+            moins 456.70 u = 0.7586 B0, soit x1.52 la borne exceptionnelle de SPEC 22 (0.50 B0).
+            Une mesure de COLLISION est en fait une mesure d'EXCURSION.
+  INVALIDE, et je l'avais ecrit avant de le verifier : « la gate contredit SPEC 22 ». NON. §22
+            donne un MAJORANT de l'excursion, jamais un minorant : elle PERMET 0.0735 m de
+            `meshpen`, elle n'en IMPOSE aucun. L'arithmetique ne prouve pas l'inatteignabilite.
+  CE QUI RESTE VRAI ET SUFFIT A ORIENTER LE CHANTIER : a 0.0005 m la gate budgete 2.048 u. Les
+            offsets de volume valent 651.18 / 514.54 / 629.49 / 467.42 u (lBoob/lBooc/rBoob/rBooc)
+            et `|offs| = |off|` EXACTEMENT (deux reflexions de Householder). Le seul PORTAGE de
+            l'offset deplace donc le centre de `2|o| sin(theta/2)`, et
+                 theta = 0.18 deg SUFFIT A EPUISER TOUT LE BUDGET DE LA GATE.
+            La borne `res <= |q-rest|` est donc VIDE a cette echelle. Un budget de gate doit se
+            lire dans l'unite du MECANISME : « 0.0005 m » ne dit rien, « 0.18 degre de rotation de
+            maillon » dit tout. JE LE REMONTE AU SUPERVISEUR ET JE NE TOUCHE PAS A LA GATE
+            (regle 5 : « si une gate te semble fausse, tu le rapportes »).
+
+CE QUE CA RETIRE DE LA FILE, ET C'EST UN GAIN : trois familles de correctifs de COLLISION portent
+sur une grandeur qui ne depend d'AUCUN rayon. Redimensionner un volume est INERTE par identite —
+le cycle 57 l'a re-paye en mesurant `meshpen` qui MONTE (0.1115 -> 0.1170 · 0.1019 -> 0.1637).
+
+================================================================================================
+3. LA BORNE DE SPEC 22 LISAIT UN JOINT. LA SECTION NOMME UN APEX. CINQ SITES, CINQ JOINTS.
+================================================================================================
+`SPEC-breast-softbody.md:301`, texte EXACT, relu et cite au lieu d'etre resume :
+    `Distal/apex displacement: normal <=42% B0, exceptional <=50% B0`
+
+Balayage exhaustif `0.42|0.50 x B0` dans `goal_src/` — cinq sites, et AUCUN ne lisait l'apex :
+
+  :2744  `kn=0.42*b0e`   |tg - p|, JOINT vs cible materiau   multiplicateur de FORCE (§21)
+  :3024  `kn=0.42*b0f*rl`|p - t|,  JOINT vs pose d'auteur    projection de POSITION dure, 1x/frame
+  :2816  `ckn=0.35*b0e`  |tg - cp|, POINT LIBRE de §23       multiplicateur de force (bande COM)
+  :1293  `phys-apex-scale` cap=0.50*b0, JOINT DE POINTE      facteur COMMUN, DANS la boucle
+  :3648  angle de TORSION seul (§38), hors sujet
+
+**`phys-apex-scale` est le cas net, et c'est un ecart entre l'intention ECRITE et le code** : sa
+propre docstring disait « deviation ABSOLUE de la pointe a sa pose d'auteur » et NOTE-120 le
+repetait. Le code lisait `*phys-px*[tl]`, un joint. Le point d'apex etait CHARGE et disponible
+(`*phys-apw*`, `*phys-apx/apy/apz*`, enregistrements `ax` de `recharged_assets/physics_mesh.txt`,
+lus a l'init :803) et servait DEJA a la mesure `ROOM-APEX` — mais aucune borne ne le lisait.
+
+    ax chestL 0  w=0.8584  |p| = 739.51 u = 1.2284 B0 = 18.1 cm
+    ax chestL 1  w=0.0818  |p| = 728.04 u
+    ax chestR 0  w=0.9549  |p| = 743.21 u = 1.2346 B0
+    ax chestR 1  w=0.0000  -> ne contribue pas
+
+La §22 bornait donc le joint a 301.0 u = 7.3 cm pendant que le point qu'elle NOMME est a 739.5 u
+de ce joint.
+
+CE QUE LA DIFFERENCE VAUT, MESURE — identite exacte (residu 0.000170 B0 sur 372 fenetres) :
+    e = tp + rp + dp        [A] le joint a bouge · [B] rotation x bras · [C] TENSEUR x bras
+    moyennes  |tp| 0.4148   |rp| 0.0431   |dp| 0.2235   B0
+    maxima    |tp| 0.5008   |rp| 0.2313   |dp| 0.4660   B0
+`tp` est le SEUL terme qu'un site borne, et son maximum vaut le plafond dur de §22 AU CENTIEME
+PRES (0.5008 contre 0.5000) : la borne mord, et elle mord parfaitement — sur un tiers de la
+grandeur. `dp` ajoute jusqu'a 0.4660 B0 par-dessus sans qu'aucune borne ne le voie.
+Amplification centroide/joint relevee DANS LA MEME FRAME (`ee0/jt0`) : mediane x1.32 / x1.24,
+max x1.57 / x1.51 — elle NE SUFFIT PAS a expliquer x1.85, le complement est le tenseur.
+
+COROLLAIRE QUI SEPARE LES DEUX CHANTIERS : `meshpen` lit `tp + rp` (le centre du volume, offset
+651 u) et NE VOIT PAS `dp` — `phys-link-off-sim!` ne porte que la rotation, jamais le tenseur.
+Reduire le tenseur n'aurait AUCUN effet sur `meshpen`. C'est `tp + rp` qu'il faut borner ensemble,
+et c'est exactement ce que le correctif fait.
+
+================================================================================================
+4. LE CORRECTIF APPLIQUE — `phys-apex-scale` LIT LE POINT QUE §22 NOMME
+================================================================================================
+    dev = SOMME_l  w_l * [ (p_sim_l + Rsim_l . a_l) - (p_auth_l + Rauth_l . a_l) ] ,  dd = |dev|
+  `a_l` = l'enregistrement `ax` du maillon (espace os) · `w_l` = `*phys-apw*[scl]`
+  `Rsim_l . a_l` : la MEME rotation m^ -> u^ que le moteur utilise deja pour le centre de volume
+  (`phys-link-off-sim!`, deux reflexions de Householder) — mecanisme REUTILISE, pas reecrit.
+  `cap = 0.50 * B0`, `fmin`/`phys-softmin`, sortie `ds/dd` : INCHANGES. Aucune constante de
+  reglage touchee (stiffness, damping, gravity, mass, 0.42/0.08/0.50 : tous identiques au bit).
+
+CE N'EST PAS UN INSTRUMENT TAUTOLOGIQUE, ET IL FAUT LE DIRE AVANT DE LIRE LE RESULTAT.
+La borne lit `tp + rp`. La mesure `ROOM-APEX` publie `tp + rp + dp`, batie sur la matrice ECRITE
+(deformation comprise) a la section 6, apres la construction du tenseur. **La borne ne peut donc
+pas rendre sa propre cible** : `ROOM-APEX` restera au-dessus de 0.50 B0 de tout le terme `dp`, et
+un vert de §22 par cette voie est structurellement impossible. C'est le contraire du piege
+`instrument tautologique` qui a tenu §11 pour TENUE pendant 22 cycles.
+
+PLAFOND DE LIGNES : `jak-hd-physics.gc` reste a 4800 lignes EXACTEMENT (gate CLEAN : `> 4800`
+echoue). Le code ajoute +17 lignes nettes ; 22 lignes de COMMENTAIRE deja presentes sont sorties
+VERBATIM vers `jak-hd-physics-NOTES.md` (NOTE-146 a NOTE-151), 22/22 verifiees verbatim. Aucune
+ligne de raisonnement ni de code supprimee — le plafond se paie en commentaires deplaces, jamais
+en raboteage.
+DEVIATION DECLAREE PAR L'IMPLEMENTEUR, ET ELLE EST BONNE : goalc refuse plus de 8 arguments
+(`goalc/compiler/compilation/Function.cpp:176`), donc `phys-link-off-sim!` recoit desormais dans
+`out` le decalage MONDE deja calcule, au lieu de le recalculer. L'offset n'est plus nomme qu'UNE
+fois chez l'appelant : les deux portages ne peuvent plus diverger, alors qu'avant
+`phys-link-off!` etait appelee DEUX fois sur le meme offset.
+COMPILATION : `Successfully built all 551 targets in 14.208s`, exit 0.
+
+================================================================================================
+5. LE TABLEAU ARBITRAIT DES VERDICTS AVEC UN PLAFOND PERIME ECRIT EN DUR. CORRIGE AU PRODUCTEUR.
+================================================================================================
+`physics_room_table.py` portait `0.5676 / 0.5936` (part de l'apex portee par les maillons SIMULES)
+et le plafond `x1.76 / x1.68` qui en derive, en CONSTANTES, heritees du cycle 51. Le cycle 57 a
+corrige l'axe de l'operateur d'ancrage : les enregistrements `ax` LIVRES somment aujourd'hui a
+0.9402 / 0.9549. Verifie : `physics_mesh.txt` est plus VIEUX (06:59) que la course (08:54) — la
+course a bien tourne sur les nouveaux poids, c'est le TABLEAU qui decrivait un mesh disparu.
+Il mentait d'un facteur 1.66.
+
+CE N'EST PAS COSMETIQUE : la ligne `ROOM-APEX-REGIME` se sert de ce plafond pour decider si une
+bande manquee « s'explique par l'ancrage seul ». Le plafond passe de x1.76 a x1.06 et DEUX
+verdicts basculent — les deux CONTRE le moteur, c'est-a-dire que la constante perimee EXCUSAIT
+deux defauts reels :
+    chestL r=10 yawB        manque x1.11   SUFFIT -> NE SUFFIT PAS
+    chestR r=6 jumpB-land   manque x1.28   SUFFIT -> NE SUFFIT PAS
+La valeur est desormais LUE dans `recharged_assets/physics_mesh.txt`, le fichier meme que le
+moteur charge (:803) — comme le tableau lit deja `comw=` du fichier livre. Si les `ax` sont
+absents, la ligne ecrit `NON ETABLIE` et OMET la mention d'ancrage au lieu de la deviner.
+La phrase « hors d'atteinte de TOUTE valeur de raideur, d'amortissement ou de gravite » disparait :
+a 0.94 / 0.95 elle est fausse.
+
+================================================================================================
+6. DEUX DETTES QUE JE N'EFFACE PAS
+================================================================================================
+(a) LE COUT DECLARE AU CHAPEAU DES DIRECTIVES DU 2026-08-20 07:20 — `rBooc` sous la barre des
+    30 %. NON RESOLU CE CYCLE, ET JE LE DIS AU LIEU DE LE LAISSER GLISSER. Ce que j'ajoute est
+    une MESURE qui rend la dette plus tranchante que la barre elle-meme : l'enregistrement livre
+    est `ax chestR 1 0.0000` — le maillon distal de chestR porte **zero** de la masse d'apex. La
+    barre des 30 % existe pour interdire un maillon qui ne pilote pas de chair ; ici le chiffre
+    qui compte vaut exactement 0. Consequence directe et assumee du correctif : sur chestR la
+    borne de §22 est pilotee par le SEUL maillon proximal. Un repesage reste la seule sortie, et
+    il passe par la cuisson HD, que le registre signale comme destructive — ce n'est pas un
+    passage a glisser dans un cycle qui touche au solveur.
+(b) `PHYSPAIR` montre que les volumes livres de la poitrine restent derives d'une possession de
+    sommets qui n'existe plus (peremption declaree au cycle 57, non corrigee). Inchange.
+
+================================================================================================
+7. UNE PREDICTION GRAVEE EN ECHEC DEPUIS 15 CYCLES, ET PERSONNE NE L'AVAIT RELEVEE
+================================================================================================
+NOTE-43 avait grave, en posant le mur positionnel de :3024, que `sat_n` devait « s'effondrer »,
+sinon « c'est le ressort qui est mal pose ». La course livree donne `sat_n = 40257` et
+`sat_sum = 2 846 992 u`. La prediction est EN ECHEC, elle ne s'est jamais effondree, et rien ne
+l'a criee. C'est la meme mecanique que le cliquet de COLLIDE reste muet 10 cycles derriere une
+gate qui echouait avant lui : une condition gravee qui n'est jamais RELUE ne protege de rien.
+
+================================================================================================
+8. LE RESULTAT : LA CORRECTION EST REFUTEE PAR SA PROPRE MESURE, ET ELLE EST RETIREE
+================================================================================================
+Course complete (PHYSEND, 310 mesures, 31/31 animations, md5 59b831680f5ce0c7ad331a10deb49aeb) :
+
+                                   AVANT       APRES      delta
+  |tp| max (B0, plafond dur 0.50)  0.5008      0.7127     +42.3 %   <- LE JOINT PASSE AU TRAVERS
+  |dp| max (B0)                    0.4660      0.5181     +11.2 %
+  tiprot c0 / c1 (deg)             15.0155     22.7120    +51.3 %
+                                   15.2505     21.4644    +40.7 %
+  shape  c0 / c1                   2.1983      3.2655     +48.5 %
+                                   2.1606      3.0260     +40.1 %
+  bendcut c0 / c1 (deg cumules)    7245.13     2265.55    -68.7 %   <- LA BORNE MORD MOINS
+                                   5359.76     2213.98    -58.7 %
+  ROOM-APEX max c0 / c1 (B0)       0.9249      0.9664     +4.5 %
+                                   0.9592      0.9616     +0.3 %
+  ROOM-COM  max c0 / c1 (B0)       0.4758      0.5006     +5.2 %
+                                   0.4361      0.4561     +4.6 %
+  worstres c0 / c1 (u, COURSE)     456.79      549.13     +20.2 %
+                                   417.43      442.75     +6.1 %
+  meshpen max c0 / c1 (m, FENETRES) 0.1115     0.0982     -11.9 %
+                                    0.1019     0.0809     -20.6 %
+  tipvar max c0 / c1               0.1756      0.1769     +0.7 %
+                                   0.1775      0.1760     -0.8 %
+
+LES PREDICTIONS, TRANCHEES UNE PAR UNE (C58E1, gravee au commit 731a2bbb15 AVANT la course) :
+  Q1 TENUE     `phys-collide-depth` est 1-lipschitzienne : 0.999932, controle negatif a 1.6928.
+  Q2 TENUE, ET ELLE ETAIT CONTRE MOI : 0.0005 m n'est pas atteint. Je l'avais grave avant d'essayer.
+  Q3 REFUTEE   je predisais `ROOM-APEX` dans [0.42, 0.55] B0. Elle MONTE a 0.9664 / 0.9616.
+  Q4 REFUTEE   je predisais `meshpen` dans [0.050, 0.070] m par un rapport constant avec l'apex.
+               La grandeur que la GATE lit baisse (-11.9 % / -20.6 %) mais celle de la COURSE
+               MONTE (+20.2 % / +6.1 %) : le rapport constant n'existe pas.
+  Q5 TENUE     aucun muselage : `tipvar` a +0.7 % / -0.8 %, et l'ecart entre pilotages reste a
+               41.0 % / 37.4 % (seuil DISCRIMINANT 25 %). La condition de retrait que j'avais
+               gravee ne s'est PAS declenchee — ce n'est donc PAS elle qui retire la tentative.
+  Q6 TENUE     `ROOM-STRETCH max=0.0002` et le canal radial de chair reste a x0.90-0.93 de sa bande.
+
+POURQUOI JE RETIRE QUAND MEME, ET CE N'EST PAS UNE RENEGOCIATION.
+Aucune de mes conditions gravees n'exige le retrait. Ce qui l'exige, c'est la regle du dossier :
+**la correction DEGRADE la section qu'elle visait.** §22 sort PLUS loin de sa bande sur ses DEUX
+clauses (apex 0.9249 -> 0.9664, COM 0.4758 -> 0.5006), et le maximum de penetration DE LA COURSE
+monte de 20 %. La baisse de -11.9 % que la gate aurait lue est un artefact de FENETRAGE : avant, le
+maximum de course et le maximum de fenetre coincidaient au chiffre pres (456.7879 u = 0.1115 m) ;
+apres, ils divergent (549.13 u = 0.1341 m contre 0.0982 m publie). **L'extreme a quitte les
+fenetres que le tableau echantillonne.** Publier ce -11.9 % aurait ete un faux vert paye par un
+chiffre qui ment, et c'est exactement ce que le cycle 57 vient de demasquer ailleurs.
+
+LE MECANISME, ET C'EST LUI QUI VAUT LE CYCLE.
+`bendcut` chute de 69 % / 59 % : en lisant le point que la spec NOMME, la borne mord DEUX FOIS
+MOINS. Trois causes, toutes arithmetiques :
+  1. les poids `ax` somment a 0.9402 / 0.9549, donc `dev` est deja rabote de 5 a 6 % ;
+  2. `dev` est une somme VECTORIELLE sur les deux maillons : leurs contributions se compensent
+     partiellement, la ou l'ancienne lecture prenait une NORME entiere ;
+  3. surtout, `dev` ne peut pas contenir `dp` — le tenseur de deformation est construit APRES la
+     boucle de contraintes (section 5bis) et n'existe pas au moment ou la borne s'applique. Or
+     `dp` porte jusqu'a 0.4660 B0, soit la MOITIE du depassement.
+Le joint de pointe etait donc, NUMERIQUEMENT, un majorant PLUS STRICT que l'apex-prive-du-tenseur.
+C'est lui qui tenait `|tp|` a 0.5008, c'est-a-dire au plafond dur de §22 au centieme pres.
+
+**LA REGLE QUI EN SORT, ET ELLE EST GENERALE :** remplacer un PROXY par « la vraie grandeur de la
+spec » n'est un progres que si la vraie grandeur est COMPLETE au point ou la borne s'applique. Ici
+deux des trois termes etaient disponibles et le troisieme portait la moitie de la magnitude : lire
+le point exact de la spec a rendu la borne PLUS FAIBLE. **§22 n'est pas bornable depuis la boucle
+de contraintes.** Le chantier suivant est donc identifie et il est ailleurs : borner l'apex APRES
+la construction du tenseur (section 6, ou `bm` existe), ou reduire `dp` a la source.
+
+================================================================================================
+9. CE QUE JE LIVRE, CE QUE JE RETIRE
+================================================================================================
+GARDE — `physics_room_table.py` : le plafond d'ancrage n'est plus une constante perimee, il est lu
+  dans le fichier livre. Deux verdicts basculent, les deux CONTRE le moteur (section 5). Commit
+  048243b047. Ce correctif est independant du solveur et ne touche aucune gate.
+GARDE — la sonde `.autoport/probe_c58_lipschitz.py` (rejouable, deterministe, controle negatif).
+RETIRE — la lecture du point d'apex dans `phys-apex-scale` : `git checkout` des deux fichiers du
+  moteur, recompilation (551 cibles, 14.120 s), et **le retrait est VERIFIE PAR UNE COURSE**, pas
+  affirme : la course de controle doit reproduire les chiffres d'avant. Les artefacts de la
+  tentative sont conserves (/tmp/c58_after_apexfix.log et son tableau) pour que le chiffre soit
+  re-interrogeable sans re-jouer.
+NON TOUCHE — aucune gate du validateur, aucune constante de reglage, aucun fichier de
+  `recharged_assets/`, la ligne `OPEN breast-spec-incomplete`.
+
+================================================================================================
+10. CE QUE JE NE PRETENDS PAS, ET CE QUE JE REMONTE AU SUPERVISEUR
+================================================================================================
+NON PROUVE : que `meshpen <= 0.0005 m` soit atteignable. Ni qu'il ne le soit pas. L'arithmetique
+  donne une borne SUPERIEURE (`res <= |q - rest|`), pas un minorant — et je m'etais trompe en
+  ecrivant l'inverse avant de le verifier.
+CE QUE JE REMONTE, SANS TOUCHER A LA GATE (regle 5) :
+  (a) le plafond de COLLIDE vaut 2.048 u ; via le portage de l'offset de 651.18 u, il correspond a
+      **0.18 degre** de rotation du maillon. C'est le chiffre a arbitrer, pas « 0.0005 m ».
+  (b) `ROOM-POSCONTROL` echoue (x1.42 rendu contre x3.00 exige) et n'a JAMAIS ete affiche : elle
+      est 20 lignes apres le `die` de meshpen, dans le meme bloc. Deuxieme occurrence du piege
+      `gate-behind-an-always-failing-gate` dans ce validateur en deux jours.
+  (c) le tableau publie un maximum de FENETRES ; le moteur publie un maximum de COURSE. Ils ont
+      coincide au chiffre pres jusqu'a ce cycle et ils peuvent diverger de 37 %. La gate lit le
+      premier. Une ligne qui publierait les deux cote a cote fermerait ce trou.
+NON MESURE : l'effet sur l'appareil (Redmi / Honor). Ce cycle est x86 seul — il n'y a rien a
+  livrer, l'etat du moteur est bit-identique a celui d'avant la tentative.
+
+DIRECTIVES v3fee554599
