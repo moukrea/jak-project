@@ -258,6 +258,42 @@ avec la mention que les cycles 49 a 56 n'ont rien change de visible pour lui.
 1. **LA PENETRATION DE LA POITRINE (§33/§34) — c'est le SEUL rouge technique du validateur.**
    0.1115 m contre un plafond de 0.0005. C'est aussi la regle 6 de l'owner. Tout le reste du
    validateur est vert, y compris quatre gates qui n'avaient jamais ete evaluees.
+
+   **ET J'AI LU LA GATE AVANT DE PROPOSER QUOI QUE CE SOIT — TROIS CHOSES EN SORTENT, ET LA
+   TROISIEME EST CELLE QUI COMPTE.** Je ne touche a rien (regle 5 : les gates sont gelees, c'est
+   le superviseur qui tranche). Je rapporte.
+
+   (a) **LE PLAFOND EST UN CLIQUET, ET LE CLIQUET N'A JAMAIS PROTEGE QUOI QUE CE SOIT.** La gate
+       ecrit elle-meme sa regle : « le plafond est EPINGLE A LA VALEUR MESUREE AUJOURD'HUI [...]
+       toute augmentation fait echouer la phase ». Les 0.0005 m sont donc le residu tel qu'il
+       etait quand la ligne a ete ecrite — « 1 cellule sur 310, 1.97 unite de jeu = 0.48 mm ».
+       Aujourd'hui la valeur vaut **0.1115 m, soit x223**. Le cliquet n'a pas ete desarme par une
+       edition : **il n'a jamais ete ATTEINT**, parce que `COLLIDE` est derriere `OPEN-DEFECTS`.
+       Une gate placee derriere une gate qui echoue toujours ne garde rien — ici ca a coute la
+       surveillance du seul defaut technique restant.
+       PRECISION QUI M'EMPECHE D'EN FAIRE UNE REGRESSION NEUVE : le registre porte §33 autour de
+       0.09-0.11 m depuis le cycle 48. Ce n'est donc pas une degradation de ce cycle ; c'est un
+       ecart ancien que le dispositif cense le crier n'a jamais crie.
+
+   (b) **`meshpen` ET `skinpen` NE REPONDENT PAS A LA MEME QUESTION, ET LA GATE LE DIT ELLE-MEME.**
+       Son point 1 : « `meshpen` MESURE CONTRE LES VOLUMES DECLARES, PAS CONTRE LE MESH [...]
+       L'OS DE POITRINE, LUI, EST INTERIEUR [...] Un residu de volume sur cet os-la n'est donc pas
+       une traversee de mesh. » Or c'est **`meshpen`** que la gate compare (`worst = max(meshpen)`),
+       pas `skinpen`. La grandeur qui repond a la regle 6 de l'owner (« rien ne traverse le mesh »)
+       est la seconde, et elle vaut aujourd'hui **0.1409 / 0.1426 m**.
+
+   (c) **ET LA LIGNE DE BASE DE CETTE SECONDE GRANDEUR N'EXISTE PAS. C'EST LE VRAI TROU.**
+       La gate justifie son seuil en citant un « 0.1537 / 0.1593 m SOUS la peau AU REPOS, par
+       construction anatomique ». **Ce chiffre n'est publie NULLE PART dans la course d'aujourd'hui** :
+       `ROOM-SKINPEN` ne sort qu'une valeur de fenetre agitee, et la trace ne contient **aucun**
+       tag de repos (`PHYSSKINPEN` : 0 occurrence). Je ne peux donc pas dire si les 0.1409 / 0.1426
+       d'aujourd'hui sont AU-DESSUS ou EN DESSOUS de ce que la pose d'auteur produit deja sans
+       aucune physique — c'est-a-dire que **je ne peux pas dire si la physique enfonce quoi que ce
+       soit.** C'est exactement la 3e question de sa §7 (« Que lit-elle quand le defaut est
+       ABSENT ? ») laissee sans reponse sur le dernier defaut du dossier.
+       **PREMIER GESTE DU CYCLE 57, ET IL EST PETIT** : emettre `skinpen` (et `meshpen`) sur une
+       fenetre de REPOS, physique desarmee, avant toute tentative de correctif. Sans cette ligne
+       de base, tout travail sur la collision se jugera contre un metre qu'on n'a pas.
 2. Reparer les trois defauts de PH-SYM (retour doux, fenetre de mesure de §12 apres etablissement,
    stimulus egalise entre jambes) AVANT de rejouer §18 — sinon le montage redonnera un non-resultat.
 3. §18 reste a trancher. La prediction a graver alors se deduit de ce cycle : si le stimulus est
