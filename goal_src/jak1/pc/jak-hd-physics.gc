@@ -232,7 +232,7 @@
 (define *phys-prio-meas* 0)
 
 ;; [NOTE-09] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
-(defconstant PHYS-ST 20)
+(defconstant PHYS-ST 21)   ;; 20 = [NOTE-150] la profondeur AJOUTEE sous la peau, par fenetre
 (define *phys-st*  (new 'global 'array 'float (* PHYS-SC PHYS-ST)))
 ;; [NOTE-10] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
 (defconstant PHYS-LB 6)
@@ -572,6 +572,9 @@
 ;;          que les deux colonnes soient comparables terme a terme.
 ;; LECTURE QUAND LE DEFAUT EST ABSENT : 0. Un lien qui reste dehors n'ecrit jamais rien ici.
 (define *phys-skinpen* (new 'global 'array 'float PHYS-SC))
+;; [NOTE-150] LA PROFONDEUR **AJOUTEE** SOUS LA PEAU — la seule que la physique ait ecrite. -> jak-hd-physics-NOTES.md
+(define *phys-skinadd* (new 'global 'array 'float PHYS-SC))   ;; max du TAG
+(define *phys-saf*     (new 'global 'array 'float PHYS-SC))   ;; max de la FRAME
 ;; combien d'echantillons ont ete VRAIMENT testes : un zero avec un compteur de tests a zero veut
 ;; dire « je n'ai pas regarde », pas « rien ne penetre ». Les deux se distinguent, toujours.
 (define *phys-skintest* 0)
@@ -1752,14 +1755,7 @@
                                 (set! (-> *phys-cpa* (+ pb 1)) push))
                               (set! (-> *phys-cpa* (+ pb 2)) (+ push (-> *phys-cpa* (+ pb 2))))
                               (set! (-> *phys-cpa* (+ pb 3)) (the float swo))
-                              ;; [NOTE-105] CYCLE 37 : le GROUPE DE COLLISION SEULE est celui des
-                              ;; appels 12 a 15, donc les balayages 34 a 45 — il n'a AUCUNE
-                              ;; contrainte de longueur pour ramener le lien en arriere. Si une
-                              ;; poussee y est encore d'amplitude comparable a la moyenne de la
-                              ;; frame, ce n'est pas la longueur qui recree la penetration : c'est
-                              ;; l'ensemble des VOLUMES qui est inconsistant. `nlast` est le
-                              ;; DOMAINE de `slast`, sans quoi un zero ne se distingue pas d'un
-                              ;; groupe qui n'a pas tourne. `p1` dit ce qu'UNE projection accomplit.
+                              ;; [NOTE-105] CYCLE 37 : LE GROUPE DE COLLISION SEULE (appels 12 a 15). -> jak-hd-physics-NOTES.md
                               (when (>= swo 34)
                                 (set! (-> *phys-cpa* (+ pb 4)) (+ push (-> *phys-cpa* (+ pb 4))))
                                 (set! (-> *phys-cpa* (+ pb 5)) (+ 1.0 (-> *phys-cpa* (+ pb 5)))))
@@ -2034,8 +2030,18 @@
 
 (defun phys-skinpen-reset! ()
   (set! *phys-skintest* 0)
-  (dotimes (i PHYS-SC) (set! (-> *phys-skinpen* i) 0.0))
+  (dotimes (i PHYS-SC)
+    (set! (-> *phys-skinpen* i) 0.0)
+    (set! (-> *phys-skinadd* i) 0.0))
   (none))
+
+(defun phys-skinadd-worst ((slot int) (chain int))
+  "La pire profondeur AJOUTEE sous la peau par la physique sur la fenetre, en unites de jeu :
+   `sd(point d'auteur) - sd(point simule)`, MEME frame, MEME surface, MEME chaine. LECTURE QUAND LE
+   DEFAUT EST ABSENT : 0. NATURE : une longueur. REPERE : le monde. Voir [NOTE-150]."
+  (if (and (>= slot 0) (< slot PHYS-SLOTS) (>= chain 0) (< chain PHYS-CHAINS))
+    (-> *phys-skinadd* (+ (* slot PHYS-CHAINS) chain))
+    0.0))
 
 (defun phys-skin-meas-set! ((v int))
   "Arme la mesure SPEC 18. La salle l'arme, le jeu ne l'arme jamais."
@@ -2185,8 +2191,10 @@
    `prio` = 0 n'a que CE seul appelant (le solveur passe 1) : la restauration est donc totale."
   (let ((worst PHYS-NOCONTACT)
         (coneprev *phys-cone-off*)
+        (ap (new 'stack-no-clear 'vector))
         (pt (new 'stack-no-clear 'vector)))
     (set! *phys-cone-off* 0)
+    (set! (-> *phys-saf* sc) 0.0)
     ;; SEULE passe de la frame ou l'enfouissement est compte par chaine (voir *phys-buried-tally*).
     (set! *phys-buried-tally* 1)
     (dotimes (l n)
@@ -2202,10 +2210,20 @@
           ;; Aucune correction n'en decoule : cette passe ne deplace rien, donc cette ligne ne peut
           ;; pas retirer de mouvement. Elle donne l'echelle qui manquait a `meshpen`.
           (when (nonzero? *phys-skin-meas*)
-            (let ((sd (phys-surf-sd skel (/ sc PHYS-CHAINS) pt nbone)))
+            (let ((sd (phys-surf-sd skel (/ sc PHYS-CHAINS) pt nbone))
+                  (kk (-> *phys-joint* scl)))
               (when (and (< sd 0.0) (> sd -100000.0))
                 (when (> (- 0.0 sd) (-> *phys-skinpen* sc))
-                  (set! (-> *phys-skinpen* sc) (- 0.0 sd)))))))))
+                  (set! (-> *phys-skinpen* sc) (- 0.0 sd))))
+              ;; [NOTE-150] LA MEME DISTANCE, AU POINT QUE L'AUTEUR A DESSINE. -> jak-hd-physics-NOTES.md
+              (when (and (> sd -100000.0) (< sd 900000.0) (>= kk 0) (< (+ kk 1) nbone))
+                (vector-copy! ap (the-as vector (-> skel bones (+ kk 1) transform vector 3)))
+                (let ((sa (phys-surf-sd skel (/ sc PHYS-CHAINS) ap nbone)))
+                  (when (and (> sa -100000.0) (< sa 900000.0))
+                    (let ((add (- sa sd)))
+                      (when (> add (-> *phys-saf* sc)) (set! (-> *phys-saf* sc) add))))))
+              (when (> (-> *phys-saf* sc) (-> *phys-skinadd* sc))
+                (set! (-> *phys-skinadd* sc) (-> *phys-saf* sc))))))))
     (set! *phys-buried-tally* 0)
     (set! *phys-cone-off* coneprev)
     ;; la sentinelle est RENDUE TELLE QUELLE : « aucun contact » n'est pas « penetration nulle »,
@@ -3200,6 +3218,9 @@
                           (set! (-> *phys-conf* sc) (+ 1.0 (-> *phys-conf* sc)))
                           (when (> pen (-> *phys-st* (+ stb 4)))
                             (set! (-> *phys-st* (+ stb 4)) pen))))
+                      ;; [NOTE-150] la profondeur AJOUTEE sous la peau, MAXIMUM DE LA FENETRE.
+                      (when (> (-> *phys-saf* sc) (-> *phys-st* (+ stb 20)))
+                        (set! (-> *phys-st* (+ stb 20)) (-> *phys-saf* sc)))
                       ;; --- ancrage de la racine (SPEC 2). Deux residus, on garde le pire :
                       ;;      a) de combien la RACINE ecrite s'ecarte de la racine du modele
                       ;;         (identiquement nul sur un lien rootlock : il n'est pas ecrit) ;
@@ -3821,13 +3842,7 @@
                                             (set! (-> bm vector 3 z) 0.0)
                                             (matrix*! tmp bm rot)
                                             (matrix-copy! bm tmp))))))))
-                              ;; translation : la position simulee, telle quelle
-                              ;; SPEC 8/10-13/29/36 — LA DEFORMATION ENTRE ICI, ET NULLE PART
-                              ;; AILLEURS. La 3x3 est post-multipliee : un sommet de peau va
-                              ;; d'abord la ou l'os d'auteur le mettait, puis subit l'echelle et la
-                              ;; torsion, puis est pose a la position simulee. La ligne 3 est mise a
-                              ;; zero avant, sinon la deformation s'appliquerait aussi a une
-                              ;; translation qu'on va de toute facon remplacer.
+                              ;; [NOTE-151] SPEC 8/10-13/29/36 — LA DEFORMATION ENTRE ICI, ET NULLE PART AILLEURS. -> jak-hd-physics-NOTES.md
                               ;; [NOTE-92] `c1` = R_auteur . rot . lc, LE TERME CHARNIERE DE L'IDENTITE. -> jak-hd-physics-NOTES.md
                               (set! (-> *phys-c1* 0) (+ (* (-> *phys-lcx* scl) (-> bm vector 0 x)) (+ (* (-> *phys-lcy* scl) (-> bm vector 1 x)) (* (-> *phys-lcz* scl) (-> bm vector 2 x)))))
                               (set! (-> *phys-c1* 1) (+ (* (-> *phys-lcx* scl) (-> bm vector 0 y)) (+ (* (-> *phys-lcy* scl) (-> bm vector 1 y)) (* (-> *phys-lcz* scl) (-> bm vector 2 y)))))
@@ -4021,8 +4036,10 @@
     (let ((stb (* sc PHYS-ST)))
       (dotimes (i 6) (set! (-> *phys-st* (+ stb i)) 0.0))
       ;; somme et compte de la position moyenne de la pointe (12..15), pire stimulus recu (16),
-      ;; pire allongement relatif (17), stimulus gravitaire (18) et sa part tangentielle (19).
-      (dotimes (i 8) (set! (-> *phys-st* (+ stb (+ 12 i))) 0.0))
+      ;; pire allongement relatif (17), stimulus gravitaire (18), sa part tangentielle (19) et la
+      ;; profondeur AJOUTEE sous la peau (20, [NOTE-150]) — ce dernier est un maximum d'une
+      ;; grandeur positive : 0 est sa lecture QUAND LE DEFAUT EST ABSENT, pas une sentinelle.
+      (dotimes (i 9) (set! (-> *phys-st* (+ stb (+ 12 i))) 0.0))
       ;; le residu signe de penetration est un maximum qui a le droit d'etre negatif
       (set! (-> *phys-st* (+ stb 4)) PHYS-NOCONTACT)
       ;; la boite englobante part vide : un min a 0 la forcerait a contenir l'origine et
@@ -4616,13 +4633,7 @@
     (-> *phys-cfh* (+ (* (+ (* slot PHYS-CHAINS) chain) PHYS-COLS) ci))
     0))
 
-;; LA DIRECTION MONDE DE L'AXE `axis` DU SOLVEUR : 0 = vertical, 1 = avant-arriere, 2 = lateral —
-;; les ROLES de SPEC 7, pas les lignes de la matrice. La traduction role -> ligne se fait ici, par
-;; `*phys-axv*` / `*phys-axa*` / `*phys-axl*`, exactement comme le solveur la fait pour la raideur.
-;; NATURE : composante d'un vecteur unitaire. REPERE : monde.
-;; REND 0.0 TANT QUE LA CHAINE N'EST PAS CLASSEE (`axok` = 0) — l'appelant doit le voir, sinon une
-;; impulsion nulle passerait pour une impulsion sans reponse. C'est pour ca que la salle publie la
-;; direction qu'elle a REELLEMENT utilisee au lieu de la supposer.
+;; [NOTE-152] LA DIRECTION MONDE DE L'AXE `axis` DU SOLVEUR (roles de SPEC 7). -> jak-hd-physics-NOTES.md
 (defun phys-axis-world ((slot int) (chain int) (axis int) (comp int))
   (if (and (>= slot 0) (< slot PHYS-SLOTS) (>= chain 0) (< chain PHYS-CHAINS)
            (>= axis 0) (< axis 3) (>= comp 0) (< comp 3))

@@ -1263,7 +1263,14 @@
                (phys-stat (-> self slot) c 3)
                (phys-pen-col (-> self slot) c)
                (phys-stat (-> self slot) c 2)
-               (phys-stat (-> self slot) c 0))))
+               (phys-stat (-> self slot) c 0))
+       ;; [NOTE-150] MEME CLE `k`, meme fenetre : la profondeur AJOUTEE sous la peau DESSINEE.
+       ;; Elle ne peut pas tenir sur la ligne ci-dessus (`format` est cape a 6 valeurs) et elle ne
+       ;; doit pas etre agregee autrement : la gate COLLIDE se prononce par (chaine, animation,
+       ;; pilotage), donc son domaine doit etre le meme.
+       (format 0 "PHYSROW2 k=~D skinadd=~f~%"
+               (+ (* (+ (* c PHYSROOM-MAXANIM) (-> self ai)) PHYSROOM-DRIVES) (-> self drive))
+               (phys-stat (-> self slot) c 20))))
     ;; ---- SPEC 14-20 : LA REPONSE DE COM PAR REGIME, ET C'EST LA SEULE FORME COMPARABLE ------
     ;; Ses §14 a §20 sont les SEULES lignes de sa spec qui relient un STIMULUS a une REPONSE
     ;; attendue, et chacune donne sa propre bande de COM : saut 15-32 % B0, atterrissage 25-40 %,
@@ -1816,8 +1823,15 @@
       ;;            monde, a la frame ecrite. LECTURE HORS DEFAUT : 0.
       ;;            `tests` = echantillons reellement compares. Un skinpen nul avec tests=0 veut
       ;;            dire « je n'ai pas regarde » et se lit comme tel, jamais comme « rien ne passe ».
-      (format 0 "PHYSSKIN tag=~S c=~D skinpen=~f tests=~D~%"
-              tag c (phys-skinpen-worst (-> self slot) c) (phys-skintest-count))
+      ;;   skinadd  [NOTE-150] la profondeur AJOUTEE sous cette meme peau par la PHYSIQUE :
+      ;;            `sd(point d'auteur) - sd(point simule)`, MEME frame, MEME surface, MEME lien.
+      ;;            `skinpen` mesure l'ANATOMIE (l'os de poitrine est interieur par construction) ;
+      ;;            celle-ci retranche cet offset EXACTEMENT au lieu de l'estimer sur une autre
+      ;;            fenetre. NATURE : une longueur, max de fenetre. REPERE : le monde, frame ecrite.
+      ;;            LECTURE HORS DEFAUT : 0.0000 — et la pose d'auteur la rend AU BIT.
+      (format 0 "PHYSSKIN tag=~S c=~D skinpen=~f skinadd=~f tests=~D~%"
+              tag c (phys-skinpen-worst (-> self slot) c)
+              (phys-skinadd-worst (-> self slot) c) (phys-skintest-count))
       ;;   rootrot  l'angle, EN DEGRES, reellement ecrit dans la 3x3 du maillon `rootlock` — le
       ;;            PREMIER SEGMENT de la meche, celui qui part du cuir chevelu. Il valait 0.0000
       ;;            structurellement jusqu'a ce cycle : la boucle d'ecriture du moteur sautait tout
@@ -1907,6 +1921,13 @@
               (phys-diag (-> self slot) c 20)
               (phys-diag (-> self slot) c 21)
               (phys-diag (-> self slot) c 22))))
+  ;; CLIQUET CORRIGE (cycle 60). `*phys-skinpen*` n'etait remis a zero QU'UNE FOIS (:2456) : les
+  ;; huit tags emis apres `run` republiaient donc tous le meme maximum courant — 644.2134/638.9550
+  ;; a l'identique sur la course du 13:04, huit fenetres qui affichaient la meme mesure. Un maximum
+  ;; qui ne se remet pas a zero mange ses propres fenetres (registre : `ratchet-running-max`).
+  ;; `run` est le PREMIER tag emis, donc sa valeur ne change pas : la correction ne touche que les
+  ;; huit tags qui etaient faux.
+  (phys-skinpen-reset!)
   (none))
 
 (defbehavior physroom-max-pen phys-subject ()
@@ -3330,7 +3351,11 @@
        (set! (-> self pframe) 0)
        (phys-inject-set! 0.0)
        (phys-inject-count-reset!)
-       (phys-stats-reset!)))
+       (phys-stats-reset!)
+       ;; [NOTE-150] la fenetre DESARMEE du controle positif doit partir d'un maximum de peau VIDE,
+       ;; sinon `skinadd` y arriverait deja charge par les fenetres precedentes et le controle
+       ;; comparerait deux cumuls au lieu de deux fenetres.
+       (phys-skinpen-reset!)))
 
     ;; ---- 5. CONTROLE POSITIF, branche DESARMEE : la penetration telle qu'elle est ------------
     ((= (-> self phase) PHYSROOM-PH-PCOFF)
@@ -3338,6 +3363,12 @@
      (physroom-advance-anim 1.0)
      (when (>= (-> self pframe) PHYSROOM-PCW)
        (set! (-> self dis) (physroom-max-pen))
+       ;; [NOTE-150] la BRANCHE DESARMEE du controle, cote PEAU. `physroom-emit-diag` publie
+       ;; `PHYSSKIN skinadd=` puis remet le maximum a zero, donc la branche ARMEE qui suit mesure
+       ;; SA fenetre et rien d'autre. Les colonnes PHYSDIAG* de ces deux tags sont, elles, des
+       ;; CUMULS depuis la derniere remise a zero du diagnostic : elles ne sont pas per-fenetre et
+       ;; aucun verdict ne s'en tire.
+       (physroom-emit-diag "pcoff")
        (set! (-> self phase) PHYSROOM-PH-PCON)
        (set! (-> self pframe) 0)
        (phys-inject-count-reset!)
@@ -3352,6 +3383,7 @@
      (physroom-advance-anim 1.0)
      (when (>= (-> self pframe) PHYSROOM-PCW)
        (set! (-> self arm) (physroom-max-pen))
+       (physroom-emit-diag "pcon")                  ;; [NOTE-150] la branche ARMEE, cote PEAU
        (set! (-> self injn) (phys-inject-count))
        (phys-inject-set! 0.0)
        (set! (-> self phase) PHYSROOM-PH-AUTHPC)

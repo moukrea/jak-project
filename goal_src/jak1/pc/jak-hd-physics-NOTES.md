@@ -4805,3 +4805,102 @@ dimensionne. Il ne l'etait pas : la correction est calculee sur le CENTRE du vol
 telle quelle sur le JOINT, alors que le centre parcourt `1 + |offs|/want` fois ce que le joint
 parcourt (voir [NOTE-147]) — 4.2 a 4.7 sur le maillon distal. Une projection alternee dont le pas
 depasse 2 ne converge pas, et c'est pour ca que porter les balayages a 36 n'avait rien change.
+
+## [NOTE-151] SPEC 8/10-13/29/36 — LA DEFORMATION ENTRE ICI, ET NULLE PART AILLEURS
+
+```
+                              ;; translation : la position simulee, telle quelle
+                              ;; SPEC 8/10-13/29/36 — LA DEFORMATION ENTRE ICI, ET NULLE PART
+                              ;; AILLEURS. La 3x3 est post-multipliee : un sommet de peau va
+                              ;; d'abord la ou l'os d'auteur le mettait, puis subit l'echelle et la
+                              ;; torsion, puis est pose a la position simulee. La ligne 3 est mise a
+                              ;; zero avant, sinon la deformation s'appliquerait aussi a une
+                              ;; translation qu'on va de toute facon remplacer.
+```
+
+## [NOTE-105 (texte complet, deplace ici le 2026-08-20)] CYCLE 37 : LE GROUPE DE COLLISION SEULE
+
+```
+                              ;; [NOTE-105] CYCLE 37 : le GROUPE DE COLLISION SEULE est celui des
+                              ;; appels 12 a 15, donc les balayages 34 a 45 — il n'a AUCUNE
+                              ;; contrainte de longueur pour ramener le lien en arriere. Si une
+                              ;; poussee y est encore d'amplitude comparable a la moyenne de la
+                              ;; frame, ce n'est pas la longueur qui recree la penetration : c'est
+                              ;; l'ensemble des VOLUMES qui est inconsistant. `nlast` est le
+                              ;; DOMAINE de `slast`, sans quoi un zero ne se distingue pas d'un
+                              ;; groupe qui n'a pas tourne. `p1` dit ce qu'UNE projection accomplit.
+```
+
+## [NOTE-152] LA DIRECTION MONDE DE L'AXE `axis` DU SOLVEUR
+
+```
+;; LA DIRECTION MONDE DE L'AXE `axis` DU SOLVEUR : 0 = vertical, 1 = avant-arriere, 2 = lateral —
+;; les ROLES de SPEC 7, pas les lignes de la matrice. La traduction role -> ligne se fait ici, par
+;; `*phys-axv*` / `*phys-axa*` / `*phys-axl*`, exactement comme le solveur la fait pour la raideur.
+;; NATURE : composante d'un vecteur unitaire. REPERE : monde.
+;; REND 0.0 TANT QUE LA CHAINE N'EST PAS CLASSEE (`axok` = 0) — l'appelant doit le voir, sinon une
+;; impulsion nulle passerait pour une impulsion sans reponse. C'est pour ca que la salle publie la
+;; direction qu'elle a REELLEMENT utilisee au lieu de la supposer.
+```
+
+## [NOTE-150] LA PROFONDEUR **AJOUTEE** SOUS LA PEAU — LA SEULE QUE LA PHYSIQUE AIT ECRITE
+
+Les DIRECTIVES du 2026-08-20 10:55 tranchent que `meshpen` N'EST PAS UNE PROFONDEUR mais un
+DEPLACEMENT (`res = dep - feff`, la meme fonction 1-lipschitzienne evaluee en deux points contre le
+MEME volume a la MEME frame), et que la gate COLLIDE doit lire « la penetration contre la surface
+DESSINEE, **des que sa ligne de base au repos existe** (physique desarmee, fenetre de repos), qui
+manque toujours ». Cette note construit cette ligne de base — et elle la construit PAR FRAME au
+lieu d'une fenetre de repos separee, ce qui est strictement plus fort.
+
+CE QUI EXISTAIT : `skinpen` = `-sd(point simule)`, la profondeur du JOINT sous la peau. L'os de
+poitrine est INTERIEUR par construction anatomique (0.13 a 0.16 m sous la peau), donc `skinpen`
+mesure l'anatomie et pas la physique. Son zero n'a jamais existe et son maximum ne se compare a
+rien : c'est une constante de rig bruitee par le mouvement.
+
+CE QUI EST AJOUTE : `skinadd = max(0, sd(point d'AUTEUR) - sd(point SIMULE))`, les deux distances
+prises A LA MEME FRAME, sur LA MEME surface, pour LE MEME lien. L'offset anatomique se retranche
+EXACTEMENT au lieu d'etre estime sur une autre fenetre — c'est la meme construction que `feff` pour
+les volumes (« la profondeur d'auteur est deja retranchee »), mais contre le mesh DESSINE.
+  NATURE  : une LONGUEUR (4096 u = 1 m), maximum de la fenetre, jamais un cumul.
+  REPERE  : le monde, a la frame ecrite — le meme point d'ou `meshpen` est tire.
+  ABSENT  : 0.0000. La pose d'auteur rend 0 AU BIT : les deux appels evaluent le meme point.
+  DOMAINE : `tests` (PHYSSKIN) distingue « rien ne penetre » de « je n'ai pas regarde ».
+
+CE QU'IL FAUT LUI OPPOSER AVANT DE LUI FAIRE PORTER UN VERDICT, ET C'EST ECRIT AVANT LA COURSE :
+`phys-surf-sd` monte la matrice VIVANTE de chaque os, donc la peau que la poitrine pilote SUIT la
+poitrine. Si l'echantillon le plus proche du joint appartient TOUJOURS a sa propre chair, la
+grandeur est TAUTOLOGIQUE et vaut 0 par construction — le faux vert le plus cher de ce dossier.
+LE CONTROLE POSITIF TRANCHE, il n'y a rien a supposer : l'injection de 400 u (`*phys-inject*`)
+enfonce le point SIMULE et laisse le point d'AUTEUR ou il est. Si `skinadd` ne monte pas sous
+l'injection, l'instrument est tautologique et il est retire ; s'il monte, il ne l'est pas.
+
+## [NOTE-153] LA COLLISION EST LA DERNIERE OPERATION DE LA FRAME — L'INVARIANT ETAIT ECRIT, LE CODE NE LE TENAIT PLUS
+
+CE QUE LE DOSSIER PRESCRIT, EN TOUTES LETTRES ET A DEUX ENDROITS :
+  * moteur, en-tete de l'etage 2 : « des balayages de collision SEULS pour finir — la collision est
+    la contrainte dure de la SPEC 3, c'est donc elle qui doit etre exacte a la fin » ;
+  * [NOTE-45] : « il FAUT une fermeture [...] la longueur a deja ete imposee onze fois et son
+    residu est publie » ; [NOTE-118] cite meme le bloc final comme etant « de la collision SEULE,
+    deliberement » ; la note de `phys-bend-chain` : « la finition qui suit (collision puis recul)
+    garde donc le dernier mot sur "rien ne traverse" ».
+
+CE QUE LE CODE FAISAIT DEPUIS LE CYCLE 43. [NOTE-117] a remis `phys-bend-chain` DANS la boucle de
+queue — pour une raison juste et mesuree (une contrainte hors boucle est reecrite par celles qui
+sont dedans, +95 deg apparie sur le maillon distal). Mais elle l'a placee APRES `phys-collide-chain`
+dans les deux boucles, donc la DERNIERE ecriture de position de la frame est devenue la borne
+d'angle. Depuis [NOTE-118] cette ecriture repose le joint a `ml`, la longueur du MODELE, dans une
+direction que la borne choisit — et elle n'est JAMAIS retestee contre les volumes.
+
+LE CHANGEMENT. Les deux appels sont echanges dans la boucle de queue : `bend` puis `collide`.
+  * l'intention de [NOTE-117] est intacte : la borne reste DANS la boucle, appelee 4 fois ;
+  * l'invariant de [NOTE-45] est restaure : la derniere ecriture de la frame est une poussee de
+    collision suivie de sa reprojection de longueur ([NOTE-149]), donc `ROOM-STRETCH` reste exact
+    par construction et `rien ne traverse` est evalue en dernier ;
+  * aucune constante neuve, aucun terme neuf, aucun suppresseur : deux lignes echangees ;
+  * `hard?` = #t rend la borne idempotente ([NOTE-119]), donc le double appel de `bend` au raccord
+    des deux boucles est un no-op et non une double attenuation.
+
+CE QUE CA COUTE, ET C'EST L'ARBITRAGE QUE [NOTE-45] A DEJA TRANCHE. La collision peut repousser le
+maillon AU-DELA de la borne d'apex de sa 22 : la borne cesse d'etre exacte a la fin de frame,
+c'est la collision qui l'est. « Une resolution pire que le clip est pire que rien » (regle 6) place
+la collision devant. Le prix se lit sur `ROOM-APEX` et sur `bendcut`, il est publie, pas suppose.

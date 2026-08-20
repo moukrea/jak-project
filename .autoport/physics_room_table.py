@@ -1489,6 +1489,14 @@ def main():
                          pen=float(m.group(4)) / UNITS,
                          jump=float(m.group(5)) / UNITS,
                          ns=float(m.group(6))))
+    # [NOTE-150] MEME CLE `k` que PHYSROW, meme fenetre. Une trace d'avant le cycle 60 n'en a
+    # aucune : `sa` reste None et la colonne se publie `n/a`, jamais `0.0000`.
+    _sa = {}
+    for m in re.finditer(r'^PHYSROW2 k=(\d+) skinadd=([-\d.e+]+)', txt, re.M):
+        _sa[int(m.group(1))] = float(m.group(2)) / UNITS
+    for r in rows:
+        k = (r['c'] * maxanim + r['ai']) * ndrive + r['dr']
+        r['sa'] = _sa.get(k)
     if not rows:
         die('aucune ligne PHYSROW dans la trace')
     played = len({r['ai'] for r in rows})
@@ -1666,9 +1674,15 @@ def main():
     # division. REPERE : le monde, a la frame ecrite — la meme position d'ou `meshpen` est tire.
     # LECTURE HORS DEFAUT : 0. `tests` distingue un zero MESURE d'un zero « je n'ai pas regarde ».
     skinpen = {}
-    for m in re.finditer(r'^PHYSSKIN tag=(\S+) c=(\d+) skinpen=([-\d.e+]+) tests=(\d+)', txt, re.M):
+    skinadd = {}
+    for m in re.finditer(r'^PHYSSKIN tag=(\S+) c=(\d+) skinpen=([-\d.e+]+)'
+                         r'(?: skinadd=([-\d.e+]+))? tests=(\d+)', txt, re.M):
         skinpen.setdefault(m.group(1), {})[int(m.group(2))] = (
-            float(m.group(3)) / UNITS, int(m.group(4)))
+            float(m.group(3)) / UNITS, int(m.group(5)))
+        # [NOTE-150] `None` quand la trace est anterieure au cycle 60 : « pas mesure » ne se
+        # confond jamais avec « mesure a zero », et aucune ligne ne se publie sur un None.
+        skinadd.setdefault(m.group(1), {})[int(m.group(2))] = (
+            (float(m.group(4)) / UNITS) if m.group(4) is not None else None)
     for m in re.finditer(r'^PHYSSHELL tag=(\S+) corrections=([-\d.e+]+)'
                          r'(?: inward=([-\d.e+]+))?', txt, re.M):
         shellfire[m.group(1)] = (
@@ -4441,6 +4455,56 @@ def main():
               % (names[c] if c < len(names) else c, v,
                  ('%s m' % fnum(_mp['v'])) if _mp else 'NON-MESURE'))
         A('ROOM-SKINPEN-TESTS: %d echantillons de surface compares sur la fenetre' % _tot)
+        # ============================================================================================
+        # [NOTE-150] ROOM-SKINADD — LA PROFONDEUR **AJOUTEE** SOUS LA PEAU PAR LA PHYSIQUE.
+        #
+        # POURQUOI ELLE EXISTE. Les DIRECTIVES du 2026-08-20 10:55 tranchent que `meshpen` n'est pas
+        # une profondeur mais un DEPLACEMENT, et que la gate COLLIDE doit lire « la penetration
+        # contre la surface DESSINEE, DES QUE SA LIGNE DE BASE AU REPOS EXISTE ». `skinpen` ne
+        # pouvait pas la porter : l'os de poitrine est INTERIEUR par construction anatomique, donc
+        # cette colonne mesure le rig, pas la physique — au REPOS elle vaut deja 0.13 a 0.16 m.
+        # Celle-ci retranche la ligne de base A LA MEME FRAME, sur la MEME surface, pour le MEME
+        # lien : `max(0, sd(point d'auteur) - sd(point simule))`. C'est la construction de `feff`,
+        # portee du volume au mesh DESSINE.
+        #   NATURE  : une LONGUEUR en metres, MAXIMUM de fenetre. Ni un cumul ni une variance.
+        #   REPERE  : le monde, a la frame ecrite — le meme point d'ou `meshpen` est tire.
+        #   ABSENT  : 0.0000, et la pose d'auteur la rend AU BIT (les deux appels evaluent le meme
+        #             point). Le domaine se lit sur `ROOM-SKINPEN-TESTS`, jamais suppose.
+        #
+        # CE QUI PEUT LA RENDRE FAUSSE, ECRIT AVANT DE LA LIRE. `phys-surf-sd` monte la matrice
+        # VIVANTE de chaque os : la peau que la poitrine pilote SUIT la poitrine. Si l'echantillon
+        # le plus proche appartient toujours a sa propre chair, la grandeur est TAUTOLOGIQUE et vaut
+        # 0 par construction. `ROOM-SKINADD-CONTROL` tranche, et rien d'autre : l'injection de 400 u
+        # enfonce le point SIMULE et laisse le point d'AUTEUR ou il est.
+        _sa_run = skinadd.get('run', {})
+        if any(v is not None for v in _sa_run.values()):
+            for c in sorted(_sa_run):
+                if _sa_run[c] is None:
+                    continue
+                _rows_c = [r['sa'] for r in rows if r['c'] == c and r.get('sa') is not None]
+                A('ROOM-SKINADD: chain=%-12s course=%-9s  pire fenetre=%-9s'
+                  % (names[c] if c < len(names) else c, fnum(_sa_run[c]),
+                     fnum(max(_rows_c)) if _rows_c else 'n/a'))
+            _on, _off = skinadd.get('pcon', {}), skinadd.get('pcoff', {})
+            _va = [v for v in _on.values() if v is not None]
+            _vd = [v for v in _off.values() if v is not None]
+            _a = max(_va) if _va else None
+            _d = max(_vd) if _vd else None
+            if _a is None or _d is None:
+                A('ROOM-SKINADD-CONTROL: ABSENT — sans lui cette colonne ne prouve rien, et son')
+                A('   zero serait indistinguable d\'un instrument tautologique. Aucun verdict.')
+            else:
+                A('ROOM-SKINADD-CONTROL: armed=%s disarmed=%s   (injection de 400 u vers l\'ancre,'
+                  ' le point d\'auteur ne bouge pas)' % (fnum(_a), fnum(_d)))
+                if _a <= _d * 3.0:
+                    A('   LE CONTROLE N\'A PAS TIRE (il faut arme >= 3x desarme). L\'instrument est')
+                    A('   declare NON PROBANT : soit il est tautologique (la peau suit l\'os qui la')
+                    A('   pilote), soit l\'injection ne l\'exerce pas. Aucun verdict ne s\'en tire,')
+                    A('   et surtout pas un vert.')
+                else:
+                    A('   Le controle a TIRE : la colonne n\'est pas tautologique, son zero mesure.')
+        else:
+            A('ROOM-SKINADD: NON MESUREE dans cette trace (anterieure au cycle 60).')
         # LE PLANCHER D'ERREUR DE L'INSTRUMENT, MESURE PAR SES PROPRES PAIRES MIROIR.
         #
         # Une paire L/R porte des parametres identiques sur une geometrie miroir : tout ecart entre
@@ -4805,9 +4869,10 @@ def main():
     A('-- LES MESURES, UNE LIGNE PAR (CHAINE x ANIMATION x PILOTAGE) ------------------------------')
     for r in sorted(rows, key=lambda r: (r['c'], r['ai'], r['dr'])):
         A('row chain=%-12s anim=%-38s drive=%-9s tipvar=%-9s rootdev=%-9s meshpen=%-9s jump=%-9s'
-          ' ns=%d'
+          ' skinadd=%-9s ns=%d'
           % (names[r['c']], anims[r['ai']]['name'], DRIVE_NAMES[r['dr']],
-             fnum(r['amp']), fnum(r['root']), fnum(r['pen']), fnum(r['jump']), int(r['ns'])))
+             fnum(r['amp']), fnum(r['root']), fnum(r['pen']), fnum(r['jump']),
+             ('n/a' if r.get('sa') is None else fnum(r['sa'])), int(r['ns'])))
     A('')
     A('%d lignes de mesure, %d chaines x %d animations x %d pilotages.'
       % (len(rows), len(chains), played, len(DRIVE_NAMES)))
