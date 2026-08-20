@@ -1733,6 +1733,15 @@ def main():
                          txt, re.M):
         med3.setdefault(m.group(1), {})[int(m.group(2))] = (float(m.group(3)), float(m.group(4)))
     med3_legacy = bool(re.search(r'^PHYSMED3 tag=\S+ c=\d+ inj=', txt, re.M)) and not med3
+    # (SPEC 7) LE TRIEDRE LOCAL, PAR CHAINE ET PAR AXE. `phys-tri-world` le calcule depuis le
+    # rig ; ce ne sont PAS des litteraux (verifie : `*phys-fx/fy/fz*`, et l'accesseur accepte
+    # l'indice 0 depuis toujours). L'axe 0 — le lateral SORTANT, celui dont §7 parle — n'etait
+    # simplement jamais emis avant le cycle 62.
+    tri = {}
+    for m in re.finditer(r'^PHYSTRI c=(\d+) a=(\d+) x=([-\d.e+]+) y=([-\d.e+]+) z=([-\d.e+]+)',
+                         txt, re.M):
+        tri.setdefault(int(m.group(1)), {})[int(m.group(2))] = (
+            float(m.group(3)), float(m.group(4)), float(m.group(5)))
     for m in re.finditer(r'^PHYSSHELL tag=(\S+) corrections=([-\d.e+]+)'
                          r'(?: inward=([-\d.e+]+))?', txt, re.M):
         shellfire[m.group(1)] = (
@@ -4835,6 +4844,77 @@ def main():
             A('   un CONTACT resolu, et rien ne resout encore ce contact — la mesure precede la')
             A('   contrainte, elle ne la remplace pas.')
         # ==========================================================================================
+        # ==========================================================================================
+        # SPEC 7 — LE REPERE LOCAL. Elle etait `NON ETABLI` avec pour motif « aucune mesure du
+        # repere lui-meme », et ce motif etait EXACT : deux des trois axes seulement etaient
+        # publies (a=1, a=2), et l'axe manquant — le lateral sortant — est PRECISEMENT celui sur
+        # lequel porte la seule clause chiffrable de la section :
+        #     « for the left and right breasts, outward +X should be MIRRORED so that the
+        #       equations remain symmetrical »
+        # C'est une clause sur un VECTEUR ; `PHYSAXNAME sja` n'en donnait que la signature
+        # SCALAIRE. Les trois axes etant maintenant emis, la section se lit en trois grandeurs qui
+        # ont toutes une LECTURE CONNUE QUAND LE DEFAUT EST ABSENT :
+        #   orthonormalite : ecart max a |a|=1 et aux produits scalaires nuls -> 0
+        #   miroir de +X   : angle entre a0(chestL) et -a0(chestR)            -> 0 deg
+        #                    (si +X n'etait PAS mirore, cet angle vaudrait 180 deg — le test
+        #                     DISCRIMINE, il ne peut pas rendre 0 par construction)
+        #   sens du triedre: les deux chaines doivent avoir des determinants OPPOSES, ce qui est
+        #                    la consequence geometrique du miroir d'un seul axe sur trois.
+        # NATURE : des cosinus directeurs, sans unite. REPERE : le monde.
+        # ==========================================================================================
+        def _dot(u, v):
+            return sum(a * b for a, b in zip(u, v))
+
+        def _det(a0, a1, a2):
+            return (a0[0] * (a1[1] * a2[2] - a1[2] * a2[1])
+                    - a0[1] * (a1[0] * a2[2] - a1[2] * a2[0])
+                    + a0[2] * (a1[0] * a2[1] - a1[1] * a2[0]))
+
+        _tri_ok = [c for c in sorted(tri) if len(tri[c]) == 3
+                   and any(abs(x) > 1e-9 for a in tri[c].values() for x in a)]
+        if len(_tri_ok) < 2:
+            A('ROOM-SPEC7-ABSENT: le triedre n\'est pas releve sur les deux chaines'
+              ' (axes publies: %s). SPEC 7 reste NON ETABLI — c\'est une mesure manquante,'
+              ' pas un repere conforme.'
+              % ({c: sorted(tri.get(c, {})) for c in sorted(tri)} or 'aucun'))
+        else:
+            for c in _tri_ok:
+                _a = tri[c]
+                _orth = max([abs(math.sqrt(_dot(_a[i], _a[i])) - 1.0) for i in (0, 1, 2)]
+                            + [abs(_dot(_a[i], _a[j])) for i, j in ((0, 1), (0, 2), (1, 2))])
+                A('ROOM-SPEC7-TRIEDRE: %-8s a0=(%+.5f %+.5f %+.5f)  a1=(%+.5f %+.5f %+.5f)'
+                  '  a2=(%+.5f %+.5f %+.5f)  orthonormalite=%.2e  det=%+.5f'
+                  % ((names[c] if c < len(names) else c,) + _a[0] + _a[1] + _a[2]
+                     + (_orth, _det(_a[0], _a[1], _a[2]))))
+            _cl, _cr = _tri_ok[0], _tri_ok[1]
+            _l, _r = tri[_cl], tri[_cr]
+            _cos = max(-1.0, min(1.0, -_dot(_l[0], _r[0])))
+            _ang = math.degrees(math.acos(_cos))
+            _dl, _dr = _det(_l[0], _l[1], _l[2]), _det(_r[0], _r[1], _r[2])
+            A('ROOM-SPEC7-MIROIR: angle(a0[%s], -a0[%s]) = %.3f deg  ->  %s'
+              % (names[_cl] if _cl < len(names) else _cl,
+                 names[_cr] if _cr < len(names) else _cr, _ang,
+                 'MIROIR TENU' if _ang <= 2.0 else
+                 'MIROIR ABSENT — +X pointe du MEME cote sur les deux seins'
+                 if _ang >= 178.0 else 'MIROIR PARTIEL'))
+            A('ROOM-SPEC7-SENS: det(%s)=%+.5f  det(%s)=%+.5f  ->  %s'
+              % (names[_cl] if _cl < len(names) else _cl, _dl,
+                 names[_cr] if _cr < len(names) else _cr, _dr,
+                 'SENS OPPOSES, consequence du miroir d\'un seul axe'
+                 if _dl * _dr < 0 else 'MEME SENS — incompatible avec un +X mirore'))
+            # LA CLAUSE 3 N'EST PAS JUGEE ICI, ET C'EST DELIBERE. « All dynamic calculations shall
+            # occur relative to the torso/root transform rather than directly in world space » est
+            # une clause sur le LIEU du calcul, pas sur une grandeur : aucune des trois mesures
+            # ci-dessus ne la teste, et la declarer tenue parce que les axes sont propres serait
+            # exactement le glissement que ce fichier interdit.
+            A('   CE QUI N\'EST PAS JUGE ICI : la 3e clause de §7 (« all dynamic calculations')
+            A('   shall occur relative to the torso/root transform rather than directly in world')
+            A('   space ») porte sur le LIEU du calcul, pas sur une grandeur — ces trois lignes ne')
+            A('   la testent pas et ne peuvent donc pas la declarer tenue.')
+            A('   NATURE : cosinus directeurs, sans unite. REPERE : le monde. LECTURES HORS DEFAUT :')
+            A('   orthonormalite -> 0, angle du miroir -> 0 deg, determinants -> opposes. Le test du')
+            A('   miroir DISCRIMINE : un +X non mirore rendrait 180 deg, pas 0.')
+
         # [NOTE-241] LE CONTROLE POSITIF DE LA CONTRAINTE DE PEAU, ET SON COUT.
         # Deux balayages des 31 animations, memes fenetres, meme pilotage, le SEUL ecart etant
         # `*phys-skin-off*`. DESARMEE, `skinpen` doit REMONTER : si les deux jambes rendent la meme

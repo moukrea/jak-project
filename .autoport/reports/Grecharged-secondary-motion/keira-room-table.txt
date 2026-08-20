@@ -1,7 +1,7 @@
 ==================================================================================================
 KEIRA — SALLE DE TEST SANS JOUEUR : TABLEAU DE MESURE
 genere par .autoport/physics_room_table.py depuis .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
-empreinte de la trace lue : md5 1996f06f547defa6ac49aad15bb38e74 (3995899 octets)
+empreinte de la trace lue : md5 8f8804b08aefe8c2318a16343405145a (3995994 octets)
 contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 7 (ce qui fait foi)
 
 Toutes les longueurs sont en METRES (la trace est en unites de jeu, 4096 u = 1 m). Ce que
@@ -1377,6 +1377,17 @@ ROOM-MEDIAL-PEN: chestR   tag=rest  DOMAINE VIDE — 0/480 lecture(s) dans le ra
    CE QUE CETTE LIGNE NE DIT PAS : la restitution 0.06 de la section. Elle exige
    un CONTACT resolu, et rien ne resout encore ce contact — la mesure precede la
    contrainte, elle ne la remplace pas.
+ROOM-SPEC7-TRIEDRE: chestL   a0=(-0.98297 -0.18374 +0.00000)  a1=(+0.18290 -0.97844 +0.09585)  a2=(-0.01761 +0.09422 +0.99539)  orthonormalite=7.77e-06  det=+0.99998
+ROOM-SPEC7-TRIEDRE: chestR   a0=(-0.98297 -0.18374 +0.00000)  a1=(+0.18290 -0.97844 +0.09585)  a2=(-0.01761 +0.09422 +0.99539)  orthonormalite=7.77e-06  det=+0.99998
+ROOM-SPEC7-MIROIR: angle(a0[chestL], -a0[chestR]) = 179.749 deg  ->  MIROIR ABSENT — +X pointe du MEME cote sur les deux seins
+ROOM-SPEC7-SENS: det(chestL)=+0.99998  det(chestR)=+0.99998  ->  MEME SENS — incompatible avec un +X mirore
+   CE QUI N'EST PAS JUGE ICI : la 3e clause de §7 (« all dynamic calculations
+   shall occur relative to the torso/root transform rather than directly in world
+   space ») porte sur le LIEU du calcul, pas sur une grandeur — ces trois lignes ne
+   la testent pas et ne peuvent donc pas la declarer tenue.
+   NATURE : cosinus directeurs, sans unite. REPERE : le monde. LECTURES HORS DEFAUT :
+   orthonormalite -> 0, angle du miroir -> 0 deg, determinants -> opposes. Le test du
+   miroir DISCRIMINE : un +X non mirore rendrait 180 deg, pas 0.
 ROOM-SKINPEN-CONTROL: chestL   armee=0.0683  desarmee=0.0711  tenu=+0.0028 m -> LE CONTROLE A TIRE
 ROOM-SKINPEN-CONTROL: chestR   armee=0.0647  desarmee=0.0975  tenu=+0.0327 m -> LE CONTROLE A TIRE
    NATURE : une profondeur (m), max de fenetre. REPERE : le monde. La jambe ARMEE

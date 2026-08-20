@@ -2469,6 +2469,23 @@
              ;; NATURE : cosinus directeurs, sans unite. REPERE : MONDE — les memes axes que
              ;; `PHYSAXW`, pour que `fz . ligne[rap]` se calcule sur la trace sans rien supposer.
              ;; LIGNE DE BASE : trois zeros = triedre non releve (`fok=0`), aucune conclusion.
+             ;; L'AXE 0 — LE LATERAL SORTANT, ET C'EST CELUI DONT SA §7 PARLE EXPLICITEMENT.
+             ;; Il etait le SEUL des trois a n'etre jamais publie comme VECTEUR : la ligne
+             ;; `PHYSAXNAME` n'en donnait que la signature SCALAIRE (`sja`, la separation des deux
+             ;; seins projetee dessus). Or §7 dit « for the left and right breasts, outward +X
+             ;; should be MIRRORED so that the equations remain symmetrical » : c'est une clause sur
+             ;; le VECTEUR, et sans lui §7 restait `NON ETABLI` faute de pouvoir la lire. Aucun
+             ;; calcul neuf — `phys-tri-world` accepte l'indice 0 depuis toujours (`*phys-fx*`), il
+             ;; n'etait simplement pas appele avec.
+             ;; NATURE : cosinus directeurs, sans unite. REPERE : MONDE, les memes axes que
+             ;; `PHYSAXW` et que les deux lignes `PHYSTRI` ci-dessous, donc les trois se composent
+             ;; sans rien supposer. LIGNE DE BASE : trois zeros = triedre non releve (`fok=0`),
+             ;; aucune conclusion — jamais lu comme « axe nul ».
+             (format 0 "PHYSTRI c=~D a=0 x=~,,5f y=~,,5f z=~,,5f~%"
+                     c
+                     (phys-tri-world (-> self slot) c 0 0)
+                     (phys-tri-world (-> self slot) c 0 1)
+                     (phys-tri-world (-> self slot) c 0 2))
              (format 0 "PHYSTRI c=~D a=2 x=~,,5f y=~,,5f z=~,,5f~%"
                      c
                      (phys-tri-world (-> self slot) c 2 0)
