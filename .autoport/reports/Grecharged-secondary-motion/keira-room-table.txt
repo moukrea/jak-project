@@ -1,4 +1,4 @@
-ecrit .autoport/reports/Grecharged-secondary-motion/keira-room-table.txt : 2969 lignes, 310 mesures, 2 chaines, 31/31 animations
+ecrit .autoport/reports/Grecharged-secondary-motion/keira-room-table.txt : 2997 lignes, 310 mesures, 2 chaines, 31/31 animations
   tipvar min par chaine = 0.1721 (plancher de la gate MOVE : 0.05)
   rootdev max = 0.0930 (plafond ROOT : 2.0)
   meshpen max = 0.1288 (COLLIDE exige <= 0 sur cheveux/meches, lunettes, oreilles ; 310 valeurs distinctes)
@@ -1201,6 +1201,34 @@ ROOM-APEX-RATIO: chestR   r=12 pitchA-return apex=0.4941 com=0.2445  rapport x2.
 ROOM-APEX-RATIO: chestR   r=13 rollA         apex=0.5468 com=0.2588  rapport x2.113
 ROOM-APEX-RATIO: chestR   r=14 rollB         apex=0.5112 com=0.2576  rapport x1.984
 ROOM-APEX-RATIO: n=30  min x1.459  mediane x1.880  max x2.236  —  bande implicite de sa spec x1.19 a x1.35
+
+
+   -- ROOM-REGS : §14 A §20 REJOUEES DANS LA POSE EPINGLEE (cycle 66) -----------
+ROOM-REGS-POSE: animation epinglee ai=12 (name) ; ecart au miroir REVALIDE a l'execution = 7.5 deg
+
+      r   regime        apexL^h   apexR^h   R^h      apexL^e   apexR^e   R^e     
+      ^h = pose HERITEE (PH-REG, 48.0 deg) · ^e = pose EPINGLEE (PH-REGS, 7.5 deg)
+      1   jumpA-push    0.2533    0.4676    1.846    0.3209    0.4452    1.387   
+      3   jumpA-land    0.1304    0.3215    2.465    0.1960    0.2622    1.338   
+      4   jumpB-push    0.3220    0.3964    1.231    0.3903    0.4698    1.204   
+      6   jumpB-land    0.1414    0.3367    2.381    0.1812    0.3213    1.773   
+      8   runA-brake    0.4310    0.2721    1.584    0.2543    0.2927    1.151   
+      9   yawA          0.0833    0.4648    5.580    0.3631    0.2420    1.500   
+      10  yawB          0.1679    0.5057    3.012    0.6224    0.4102    1.517   
+      11  pitchA-bend   0.6280    0.5823    1.078    0.5239    0.6111    1.166   
+      12  pitchA-return 0.6423    0.4941    1.300    0.3086    0.6970    2.259   
+      13  rollA         0.3738    0.5468    1.463    0.6491    0.6503    1.002   
+      14  rollB         0.3914    0.5112    1.306    0.6496    0.6787    1.045   
+
+ROOM-REGS-SENS: 5 fenetre(s) sur 11 ou la pose INVERSE lequel des deux seins bouge le plus.
+ROOM-REGS-SERRE: 9 fenetre(s) sur 11 ou l'ecart gauche/droite est PLUS PETIT dans la pose epinglee.
+ROOM-REGS-TEMOIN: r=0 (aucun pilotage) apex chestL=0.0331 chestR=0.0273 -> ligne de base SAINE (< 0.10 B0) : les quatorze autres fenetres se lisent au-dessus d'un plancher qui en est un.
+CE QUE CE BLOC N'ETABLIT PAS, et il faut le lire avec : les deux passes
+   partagent le solveur, les tables et l'operateur de pilotage, mais PAS leur
+   place dans la course — PH-REGS est APPENDUE, donc elle herite d'un autre
+   historique de chaine. La POSE est la seule variable DECLAREE, elle n'est pas
+   la seule qui bouge. Ce bloc autorise a REFUSER une attribution au personnage
+   quand le sens s'inverse ; il n'autorise pas a donner a §18 un chiffre neuf.
 
    -- ROOM-SPEC15-CROSS : « jump apex -> breast may CROSS neutral position » -----
       §15 l.230. Le registre portait la clause NON DEMONTREE, et la raison etait

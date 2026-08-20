@@ -4540,6 +4540,125 @@ def main():
                   % (len(_rat), _rat[0], _rat[len(_rat) // 2], _rat[-1]))
             # ---- SPEC 15 : LA TRAVERSEE DU NEUTRE --------------------------------------------
             A('')
+            # ---- ROOM-REGS : LES MEMES QUINZE FENETRES DANS LA POSE EPINGLEE (cycle 66) ----
+            #
+            # POURQUOI. Le cycle 65 a mesure que PH-REG joue §14 a §20 dans une pose HERITEE a
+            # 43.8 / 48.0 deg du miroir, et que sur les deux seules cellules resolues de
+            # `ROOM-SYM` le SENS de l'asymetrie gauche/droite s'inverse avec la pose. PH-REGS
+            # rejoue les MEMES fenetres dans la pose EPINGLEE, APPENDUE a la MEME course : memes
+            # tables, meme `physroom-reg-drive`, memes emplacements de lecture (53 = apex,
+            # 43 = COM). La seule variable declaree est le nom de l'animation.
+            #
+            # NATURE : `apex` est une LONGUEUR rapportee a B0, maximum de fenetre — la MEME
+            #   grandeur que `PHYSREG4`, au meme emplacement moteur. `R` est un rapport sans
+            #   unite entre les deux chaines. `dev` est un ANGLE en degres.
+            # REPERE : monde, frame ecrite, contre la pose d'auteur de la MEME frame. Identique a
+            #   celui de PH-REG, sinon les deux passes ne se compareraient pas.
+            # CE QUI DISCRIMINE : la POSE, et rien d'autre de declare. Ce que ce bloc ne peut PAS
+            #   exclure est ecrit sous le tableau, pas tu.
+            _rgs, _rgsb, _rgspose = {}, {}, None
+            for _m in re.finditer(r'^PHYSREGS c=(\d+) r=(\d+) apex=([-\d.e+]+) com=([-\d.e+]+)',
+                                  txt, re.M):
+                _rgs[(int(_m.group(1)), int(_m.group(2)))] = (float(_m.group(3)),
+                                                              float(_m.group(4)))
+            for _m in re.finditer(r'^PHYSREGSB c=(\d+) l=(\d+) ux=([-\d.e+]+) uy=([-\d.e+]+)'
+                                  r' uz=([-\d.e+]+)', txt, re.M):
+                _rgsb[(int(_m.group(1)), int(_m.group(2)))] = \
+                    tuple(float(_m.group(k)) for k in (3, 4, 5))
+            _m = re.search(r'^PHYSREGSPOSE ai=(-?\d+) src=(\S+)', txt, re.M)
+            if _m:
+                _rgspose = (int(_m.group(1)), _m.group(2))
+            A('')
+            A('   -- ROOM-REGS : §14 A §20 REJOUEES DANS LA POSE EPINGLEE (cycle 66) -----------')
+            if not _rgs:
+                A('ROOM-REGS: NON PUBLIE par cette course — aucune ligne `PHYSREGS`. Tant qu\'il')
+                A('   en est ainsi, les ecarts gauche/droite de §14, §16, §17, §18 et §20 ne sont')
+                A('   lus QUE dans la pose heritee, et `ROOM-REGPOSE` dit a combien elle est du')
+                A('   miroir.')
+            elif _rgspose is None or _rgspose[0] < 0:
+                A('ROOM-REGS: L\'EPINGLE DE POSE N\'A PAS PRIS (%s). Cette passe a donc rejoue une'
+                  % ('PHYSREGSPOSE absent' if _rgspose is None else _rgspose[1]))
+                A('   pose NON CHOISIE sous le nom de « pose epinglee » : AUCUN de ses chiffres')
+                A('   n\'est publie. Une passe qui ne sait pas dans quelle pose elle a tourne ne')
+                A('   mesure rien.')
+            else:
+                # LA POSE EST REVALIDEE AVANT TOUT CHIFFRE, ET C'EST LA CONDITION D'ENTREE. Une
+                # epingle qui a « pris » au sens de l'index peut retomber sur une frame
+                # asymetrique (cycle 54 : l'asymetrie est une propriete de la FRAME). On mesure.
+                _sdev = None
+                if _rlat is not None:
+                    _sd = []
+                    for _l in sorted({k[1] for k in _rgsb}):
+                        if (0, _l) in _rgsb and (1, _l) in _rgsb:
+                            _u, _v = _rgsb[(0, _l)], _rgsb[(1, _l)]
+                            _dd = sum(_u[k] * _rlat[k] for k in range(3))
+                            _mu = [_u[k] - 2 * _dd * _rlat[k] for k in range(3)]
+                            _nu = math.sqrt(sum(x * x for x in _mu)) * \
+                                math.sqrt(sum(x * x for x in _v))
+                            _cs = (sum(_mu[k] * _v[k] for k in range(3)) / _nu) if _nu > 0 else 0.0
+                            _sd.append(math.degrees(math.acos(max(-1.0, min(1.0, _cs)))))
+                    _sdev = max(_sd) if _sd else None
+                A('ROOM-REGS-POSE: animation epinglee ai=%d (%s) ; ecart au miroir REVALIDE a'
+                  ' l\'execution = %s' % (_rgspose[0], _rgspose[1],
+                                          ('%.1f deg' % _sdev) if _sdev is not None else 'NON LU'))
+                if _sdev is not None and _sdev > 10.0:
+                    A('   L\'EPINGLE A PRIS MAIS LA FRAME N\'EST PAS SYMETRIQUE (%.1f deg > 10, le'
+                      ' seuil du cycle 54).' % _sdev)
+                    A('   Les chiffres ci-dessous ne repondent donc PAS a la question posee : ils')
+                    A('   comparent deux poses asymetriques. Publies, jamais lus comme un verdict.')
+                _t0 = [_r for _r in (1, 3, 4, 6, 8, 9, 10, 11, 12, 13, 14)]
+                A('')
+                A('      %-3s %-13s %-9s %-9s %-8s %-9s %-9s %-8s'
+                  % ('r', 'regime', 'apexL^h', 'apexR^h', 'R^h', 'apexL^e', 'apexR^e', 'R^e'))
+                A('      ^h = pose HERITEE (PH-REG, %s) · ^e = pose EPINGLEE (PH-REGS, %s)'
+                  % (('%.1f deg' % _worst) if (_regb and _rlat) else 'non lu',
+                     ('%.1f deg' % _sdev) if _sdev is not None else '?'))
+                _flip, _tight, _ncmp = 0, 0, 0
+                for _r in _t0:
+                    _hl, _hr = _rge.get((0, _r)), _rge.get((1, _r))
+                    _el, _er = _rgs.get((0, _r)), _rgs.get((1, _r))
+                    if not (_hl and _hr and _el and _er):
+                        A('      %-3d %-13s FENETRE MANQUANTE sur au moins une passe'
+                          % (_r, _rgtab[_r][1] if _r in _rgtab else '?'))
+                        continue
+                    _a, _b2 = _hl[0], _hr[0]
+                    _c2, _d2 = _el[0], _er[0]
+                    _rh = (max(_a, _b2) / min(_a, _b2)) if min(_a, _b2) > 0 else float('nan')
+                    _re2 = (max(_c2, _d2) / min(_c2, _d2)) if min(_c2, _d2) > 0 else float('nan')
+                    A('      %-3d %-13s %-9.4f %-9.4f %-8.3f %-9.4f %-9.4f %-8.3f'
+                      % (_r, _rgtab[_r][1] if _r in _rgtab else '?', _a, _b2, _rh, _c2, _d2, _re2))
+                    if _rh == _rh and _re2 == _re2:
+                        _ncmp += 1
+                        if _re2 < _rh:
+                            _tight += 1
+                        # « le sens » = lequel des deux seins est le plus grand. Un booleen, pas
+                        # une amplitude : c'est la grandeur que le cycle 65 a vue s'inverser.
+                        if (_a > _b2) != (_c2 > _d2):
+                            _flip += 1
+                A('')
+                A('ROOM-REGS-SENS: %d fenetre(s) sur %d ou la pose INVERSE lequel des deux seins'
+                  ' bouge le plus.' % (_flip, _ncmp))
+                A('ROOM-REGS-SERRE: %d fenetre(s) sur %d ou l\'ecart gauche/droite est PLUS PETIT'
+                  ' dans la pose epinglee.' % (_tight, _ncmp))
+                _t1 = _rgs.get((0, 0)), _rgs.get((1, 0))
+                if _t1[0] and _t1[1]:
+                    _tm = max(_t1[0][0], _t1[1][0])
+                    A('ROOM-REGS-TEMOIN: r=0 (aucun pilotage) apex chestL=%.4f chestR=%.4f -> %s'
+                      % (_t1[0][0], _t1[1][0],
+                         'ligne de base SAINE (< 0.10 B0) : les quatorze autres fenetres se lisent'
+                         ' au-dessus d\'un plancher qui en est un.' if _tm < 0.10 else
+                         'PLANCHER NON CALME (%.4f >= 0.10 B0) — la pose epinglee n\'est pas au'
+                         ' repos, et aucune fenetre de cette passe ne se lit comme une reponse au'
+                         ' seul pilotage.' % _tm))
+                else:
+                    A('ROOM-REGS-TEMOIN: fenetre r=0 ABSENTE — la passe n\'a pas de ligne de base.')
+                A('CE QUE CE BLOC N\'ETABLIT PAS, et il faut le lire avec : les deux passes')
+                A('   partagent le solveur, les tables et l\'operateur de pilotage, mais PAS leur')
+                A('   place dans la course — PH-REGS est APPENDUE, donc elle herite d\'un autre')
+                A('   historique de chaine. La POSE est la seule variable DECLAREE, elle n\'est pas')
+                A('   la seule qui bouge. Ce bloc autorise a REFUSER une attribution au personnage')
+                A('   quand le sens s\'inverse ; il n\'autorise pas a donner a §18 un chiffre neuf.')
+            A('')
             A('   -- ROOM-SPEC15-CROSS : « jump apex -> breast may CROSS neutral position » -----')
             A('      §15 l.230. Le registre portait la clause NON DEMONTREE, et la raison etait')
             A('      un defaut d\'INSTRUMENT, pas un defaut du moteur : le vecteur du COM n\'etait')

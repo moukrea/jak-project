@@ -515,6 +515,30 @@
 
 (defconstant PHYSROOM-PH-SKINARM 34)   ;; contrainte de peau ARMEE   — l'etat LIVRE
 (defconstant PHYSROOM-PH-SKINDIS 35)   ;; contrainte de peau DESARMEE — son controle positif
+;; ---- PH-REGS (cycle 66) : LES QUINZE MEMES FENETRES, DANS LA POSE EPINGLEE ------------------
+;;
+;; POURQUOI UNE DEUXIEME PASSE PLUTOT QUE DE CHANGER LA POSE DE PH-REG. Le cycle 65 a mesure que
+;; PH-REG joue §14 a §20 dans une pose HERITEE a 43.8 / 48.0 deg du miroir, et que le SENS de
+;; l'asymetrie gauche/droite s'inverse avec la pose. Remplacer la pose de PH-REG aurait bouge les
+;; quinze fenetres d'un coup, sans qu'aucun controle apparie ne dise ce qui a bouge a cause de la
+;; POSE et ce qui a bouge a cause d'autre chose : c'est exactement le defaut que le cycle 56 a
+;; corrige en jouant les DEUX poses DANS LA MEME COURSE. On applique sa lecon ici.
+;;
+;; DONC : PH-REG reste EXACTEMENT ce qu'il etait — sa trace doit rester identique au bit — et
+;; PH-REGS rejoue les MEMES quinze fenetres, avec les MEMES tables `pre`/`drv`/`post`, le MEME
+;; `physroom-reg-drive` et la MEME fenetre de mesure, la seule variable declaree etant le nom de
+;; l'animation epinglee. La phase est APPENDUE en fin de course (apres PH-SKINDIS) : rien de ce
+;; qui precede ne peut la voir.
+;;
+;; SON NUMERO EST INFERIEUR A PHYSROOM-PH-REPORT, et ce n'est pas cosmetique : `physroom-tick`
+;; arme le balayage d'acteurs etrangers par `(< phase PHYSROOM-PH-REPORT)`. Une phase de TRAVAIL
+;; au-dessus de 40 cesserait d'etre surveillee.
+(defconstant PHYSROOM-PH-REGS 36)
+(defconstant PHYSROOM-REGSE 90)     ;; RAMPE D'ENTREE + avance de pose. Meme raison qu'a
+                                    ;; PHYSROOM-SGNE et PHYSROOM-SYME : la premiere fenetre d'une
+                                    ;; phase neuve recoit sinon le retour de la phase precedente
+                                    ;; comme un stimulus (x74 mesure au cycle 52). 90 > MEASAT+1,
+                                    ;; donc l'avance de pose tient dedans avec de la marge.
 (defconstant PHYSROOM-PH-REPORT 40)
 (defconstant PHYSROOM-PH-DONE 41)
 
@@ -4423,7 +4447,83 @@
           (phys-diag-reset!)
           (phys-stats-reset!)
           (physroom-hold)
-          (set! (-> self phase) PHYSROOM-PH-REPORT)))))
+          (set! (-> self reg) -1)   ;; -1 = la rampe d'entree, voir PHYSROOM-REGSE
+          (set! (-> self phase) PHYSROOM-PH-REGS)))))
+
+    ;; ---- 9 quinquies. SPEC 14 A 20 REJOUEES DANS LA POSE EPINGLEE (cycle 66) -----------------
+    ;; Voir le pave de PHYSROOM-PH-REGS. Tout ici est celui de PH-REG — meme tables, meme
+    ;; `physroom-reg-drive`, meme point d'ouverture de fenetre — SAUF la pose, qui est epinglee
+    ;; PAR SON NOM et REVALIDEE a l'execution par `PHYSREGSB`. On ne fait pas confiance a
+    ;; l'epingle, on la mesure : c'est le geste du cycle 55, repris tel quel.
+    ((= (-> self phase) PHYSROOM-PH-REGS)
+     (cond
+       ((< (-> self reg) 0)
+        (physroom-hold)
+        ;; L'ETAT DE RETOUR EST REMIS A ZERO : `physroom-reg-drive` s'en sert pour sa rampe `pre`,
+        ;; et il porte encore le point d'arrivee de la DERNIERE fenetre de PH-REG (le roulis finit
+        ;; a -35 deg). Sans ca la premiere rampe de PH-REGS redescendrait d'un angle herite d'une
+        ;; autre phase, dans une autre pose — un stimulus qu'on n'a pas commande.
+        (when (= (-> self pframe) 1)
+          (set! (-> self retang) 0.0)
+          (set! (-> self rety) 0.0)
+          (set! (-> self retz) 0.0)
+          (cond
+            ((>= *physroom-symai* 0)
+             (physroom-set-anim *physroom-symai*)
+             (format 0 "PHYSREGSPOSE ai=~D src=name~%" *physroom-symai*))
+            (else
+             ;; UNE EPINGLE QUI N'A PAS PRIS SE DIT. Sans cette ligne la phase rejouerait la pose
+             ;; heritee sous le nom de « pose epinglee » — le faux vert le plus facile a produire.
+             (format 0 "PHYSREGSPOSE ai=-1 src=INTROUVABLE~%"))))
+        (when (and (>= *physroom-symai* 0)
+                   (> (-> self pframe) 1) (<= (-> self pframe) (+ 1 PHYSROOM-MEASAT)))
+          (physroom-advance-anim 1.0))
+        (when (>= (-> self pframe) PHYSROOM-REGSE)
+          (set! (-> self reg) 0)
+          (set! (-> self pframe) 0)
+          (phys-comexw-reset!)
+          (phys-stats-reset!)))
+       (else
+        (let* ((r    (-> self reg))
+               (pre  (-> *physroom-reg-pre* r))
+               (drv  (-> *physroom-reg-drv* r))
+               (post (-> *physroom-reg-post* r)))
+          (physroom-reg-drive r (- (-> self pframe) (+ pre 1)))
+          (when (= (-> self pframe) (max 1 pre))
+            ;; LA POSE EST REVALIDEE ICI, au meme point de protocole que `PHYSREGB` dans PH-REG :
+            ;; fenetre temoin r=0, sujet droit, immobile, a `home`. Les deux nombres se comparent
+            ;; donc directement, et c'est tout l'objet de cette phase.
+            (when (zero? r)
+              (let ((hd (if (-> self child) (the-as jak-hd (-> self child 0)) (the-as jak-hd #f))))
+                (when hd
+                  (dotimes (c (-> self nchain))
+                   (when (> (phys-chain-links (-> self slot) c) 0)
+                    (dotimes (l (phys-chain-links (-> self slot) c))
+                      (format 0 "PHYSREGSB c=~D l=~D ux=~,,6f uy=~,,6f uz=~,,6f~%"
+                              c l
+                              (phys-chain-bone hd (-> self slot) c l 0)
+                              (phys-chain-bone hd (-> self slot) c l 1)
+                              (phys-chain-bone hd (-> self slot) c l 2))))))))
+            (phys-comexw-reset!)
+            (phys-stats-reset!))
+          (when (>= (-> self pframe) (+ pre (+ drv post)))
+            ;; LES DEUX GRANDEURS SUR LESQUELLES §14 A §20 SONT JUGEES, et pas une de plus :
+            ;; l'apex (emplacement 53) que six sections bornent, et le COM (43) que §14, §16, §17
+            ;; et §18 bornent. Memes emplacements que `PHYSREG4` et `PHYSREG`, donc meme nature,
+            ;; meme repere, meme B0 — un canal neuf rendrait les deux passes incomparables.
+            (dotimes (c (-> self nchain))
+              (when (> (phys-chain-links (-> self slot) c) 0)
+                (format 0 "PHYSREGS c=~D r=~D apex=~f com=~f~%"
+                        c r
+                        (phys-diag (-> self slot) c 53)
+                        (phys-diag (-> self slot) c 43))))
+            (set! (-> self pframe) 0)
+            (+! (-> self reg) 1)
+            (when (>= (-> self reg) PHYSROOM-REGN)
+              (physroom-hold)
+              (phys-stats-reset!)
+              (phys-diag-reset!)
+              (set! (-> self phase) PHYSROOM-PH-REPORT)))))))
 
     ;; ---- 10. RAPPORT --------------------------------------------------------------------------
     ((= (-> self phase) PHYSROOM-PH-REPORT)

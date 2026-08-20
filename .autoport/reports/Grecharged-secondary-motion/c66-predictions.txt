@@ -1,0 +1,47 @@
+PREDICTIONS DU CYCLE 66 — ECRITES AVANT LA COURSE
+DIRECTIVES v3fee554599
+
+CHANTIER. Le cycle 65 a mesure que PH-REG joue §14 a §20 dans une pose HERITEE a 43,8 / 48,0 deg
+du miroir, et que sur les deux seules cellules resolues de `ROOM-SYM` le SENS de l'asymetrie
+gauche/droite s'inverse avec la pose. PH-REGS rejoue les QUINZE MEMES fenetres dans la pose
+EPINGLEE, APPENDUE a la meme course : memes tables, meme `physroom-reg-drive`, meme fenetre, la
+seule variable declaree etant le nom de l'animation.
+
+------------------------------------------------------------------------------------------------
+Q1 — LA POSE EPINGLEE PREND. `PHYSREGSB` doit rendre un ecart au miroir < 10 deg (le seuil du
+     cycle 54), contre 43,8 / 48,0 pour `PHYSREGB` dans la MEME course. Si elle sort au-dessus de
+     10 deg, l'epingle n'a pas pris et AUCUN chiffre de cette phase n'est lisible — la phase le
+     dit elle-meme par `PHYSREGSPOSE`.
+
+Q2 — TOUT CE QUI PRECEDE EST IDENTIQUE AU BIT. PH-REGS est APPENDUE apres PH-SKINDIS : aucune
+     ligne `PHYSREG`, `PHYSREG2/3/4/5`, `PHYSREGD`, `PHYSREGB`, `PHYSSYM*`, `PHYSSGN*`, `PHYSORI*`,
+     `PHYSSKIN*`, `PHYSCOM*`, `row` ne doit changer. Les seules etiquettes neuves sont `PHYSREGS`,
+     `PHYSREGSB`, `PHYSREGSPOSE`. UNE SEULE ligne existante qui bouge refute l'appendage et le
+     changement part.
+
+Q3 — L'ECART GAUCHE/DROITE DE §18 SE RESSERRE, ET C'EST LA PREDICTION QUI PORTE LE CYCLE.
+     Dans la pose heritee : lacet modere R = 5,79, lacet fort R = 2,80, chestR le plus grand.
+     Dans la pose epinglee de `ROOM-SYM` (lacet 90 et 150, memes r=9 et r=10) : R = 1,649 et
+     1,432, chestL le plus grand.
+     JE PREDIS que `PHYSREGS` r=9 et r=10 rendront R < 2,0 sur les DEUX, c'est-a-dire un
+     resserrement, ET que chestL y sera le plus grand — le meme sens que `ROOM-SYM`.
+     CONTRE MOI, ET C'EST EXPLICITE : si R reste > 2,5 sur r=9, la pose n'explique PAS l'ecart de
+     §18 et l'attribution au personnage redevient recevable ; si le sens ne s'inverse pas, mes
+     deux cellules resolues du cycle 65 ne se generalisent pas aux fenetres de §14-§20 et je le
+     publierai comme tel. Une prediction qui ne peut pas rater ne vaut rien.
+
+Q4 — LES AMPLITUDES BOUGENT SUR LES SEPT REGIMES, PAS SEULEMENT LE LACET. La pose change l'angle
+     que chaque os fait avec le pilotage, donc ce que la contrainte de longueur confisque (cycle
+     53). Je predis qu'AU MOINS 8 des 14 fenetres non-temoins verront leur apex bouger de plus de
+     10 % sur au moins une chaine. Une passe qui rendrait les memes chiffres a 10 % pres partout
+     voudrait dire que la pose n'entre pas dans ces fenetres — et refuterait le motif meme de ce
+     cycle.
+
+Q5 — LE TEMOIN r=0 RESTE PETIT DANS LA POSE EPINGLEE. r=0 ne recoit aucun pilotage : son apex est
+     la ligne de base de toute la passe. Je predis < 0,10 B0 sur les deux chaines. S'il est gros,
+     la pose epinglee n'est pas au repos et les quatorze autres fenetres se lisent au-dessus d'un
+     plancher qui n'en est pas un — exactement le defaut corrige au cycle 65 sur `ROOM-SYM`, et
+     il faudrait le dire au lieu de publier les chiffres.
+
+Q6 — LE VALIDATEUR NE BOUGE PAS. Toutes les gates de mesure passent comme avant ; seule
+     OPEN-DEFECTS echoue, et elle ne se retire que sur la parole de l'owner.

@@ -1,254 +1,242 @@
-RAPPORT DE CYCLE 65 — Grecharged-secondary-motion
+RAPPORT DE CYCLE 65 + 66 — Grecharged-secondary-motion
 DIRECTIVES v3fee554599
 Branche physics-keira-clean · perimetre : chestL / chestR SEULES (owner 2026-08-14 07:30)
 
 ================================================================================================
 0. EN UNE PHRASE
 ================================================================================================
-LES SEPT REGIMES DYNAMIQUES DE §14 A §20 SONT JOUES DANS UNE POSE A 43,8 / 48,0 DEG DU MIROIR, ET
-PERSONNE NE L'AVAIT MESURE ; L'INSTRUMENT QUI EXISTE DEPUIS NEUF CYCLES POUR TRANCHER SI CETTE
-ASYMETRIE VIENT DU PERSONNAGE OU DE LA POSE NE POUVAIT RIEN TRANCHER, PARCE QUE SA « QUEUE DE
-CALME » COMMENCAIT PAR UN RETOUR DE 90 A 150 DEGRES EN UNE FRAME. Les deux sont corriges. Deux
-cellules se resolvent pour la premiere fois, et elles RETOURNENT LE SENS de l'asymetrie de §18 :
-en pose epinglee symetrique c'est chestL qui bouge le plus (x1,65 / x1,43), en pose heritee c'est
-chestR (x5,79 / x2,80).
+L'ECART GAUCHE/DROITE DE x5,58 QUE §18 PORTAIT DEPUIS NEUF CYCLES EST LA POSE, PAS LE PERSONNAGE :
+rejouee dans une pose dont la symetrie est prouvee AVANT la course, la meme fenetre rend x1,50 —
+et le sens s'inverse. Deux montages independants le disent. Sur les onze fenetres bornees de §14 a
+§20, neuf voient leur ecart gauche/droite se resserrer et cinq changent de sens.
 
-AUCUN STATUT DE SECTION NE BOUGE, et c'est voulu. Ce cycle ne rend aucune section tenue : il
-retire le droit d'attribuer au PERSONNAGE cinq ecarts gauche/droite qui lui etaient imputes.
-2 TENUE, 5 par construction, 20 PARTIELLE, 9 NON TENUE, 2 NON ETABLI — inchange.
+CYCLE 65 : le defaut est TROUVE et MESURE (la pose de PH-REG est a 43,8 / 48,0 deg du miroir, et
+l'instrument cense en juger — `ROOM-SYM` — mesurait son propre saut de 90 a 150 deg en une frame).
+CYCLE 66 : le defaut est CONTROLE (les quinze memes fenetres rejouees dans la pose epinglee, dans
+la MEME course, PH-REG intacte au bit).
 
-BREAST-PENETRATION: 0.1288 m — `meshpen`, DIAGNOSTIC et jamais un verdict depuis l'arbitrage du
-2026-08-20 13:20. Inchange : aucun terme du solveur n'a bouge.
+AUCUN STATUT DE SECTION NE BOUGE. 2 TENUE, 5 par construction, 20 PARTIELLE, 9 NON TENUE, 2 NON
+ETABLI. Ce que ces deux cycles produisent n'est pas une section gagnee, c'est le droit — ou le
+refus du droit — d'attribuer cinq ecarts au personnage.
 
-================================================================================================
-1. POURQUOI CE CHANTIER PLUTOT QU'UN AUTRE
-================================================================================================
-La consigne du 2026-08-20 23:30 nomme le bloc prioritaire sans ambiguite : « les sections qui
-gouvernent ce qu'un oeil voit doivent etre tenues ensemble — les regimes dynamiques §14 a §20, les
-frequences et l'amortissement §24 a §27, et les equilibres §9 a §13 ». Le chantier que le cycle
-64c nommait pour lui-meme (le canal de migration sortante, la part que `d_COM` manque sur les
-poses de contact) est HORS de ce bloc. Il reste ouvert et je le dis plutot que de le taire.
-
-Dans le bloc prioritaire, cinq lignes sur sept publient un ecart gauche/droite : §14 (x1,88),
-§16 (x2,31 et x2,08), §17 (x1,10), §18 (x5,79 et x2,80), §20 (x1,52 et x1,16). Une seule d'entre
-elles — §18 — declarait que la pose pouvait les porter. J'ai commence par verifier cette reserve,
-et j'ai trouve deux choses, pas une.
+BREAST-PENETRATION: 0.1288 m — `meshpen`, DIAGNOSTIC et jamais un verdict (arbitrage 2026-08-20
+13:20). Inchange : aucun terme du solveur n'a bouge dans aucun des deux cycles.
 
 ================================================================================================
-2. PREMIER DEFAUT — LA POSE DE PH-REG N'ETAIT NI EPINGLEE NI MESUREE
+1. VALIDATEUR — DIAGNOSTIC PRECIS DE L'ECHEC, ET POURQUOI JE NE LE CORRIGE PAS
 ================================================================================================
-PH-SGN (cycle 55) et PH-SYM (cycle 56) epinglent leur pose PAR SON NOM et la REVALIDENT a
-l'execution (`PHYSSGNB`, `PHYSSYMB`) — « on ne fait pas confiance au choix, on le mesure ».
-PH-REG, la phase qui joue §14 a §20, ne fait NI l'un NI l'autre : elle tient la pose que la phase
-precedente lui laisse, c'est-a-dire la queue de la derniere animation de la liste, et l'animation
-n'avance plus ensuite (`phys-room.gc`, bloc 9 ter : « L'ANIMATION N'AVANCE PAS PENDANT CETTE
-PHASE »). Aucun `physroom-set-anim`, aucun `*physroom-symai*`, aucun emit de direction d'os.
+`bash .autoport/validators/phase-Grecharged-secondary-motion.sh` sort 1. La cause est UNE et une
+seule, et elle est lue, pas devinee :
 
-`PHYSREGB` la publie desormais, au MEME point de protocole que `PHYSSGNB` (fenetre temoin r=0,
-sujet droit, immobile, a `home` — `physroom-reg-drive` y rend `home` + identite au bit), et le
-tableau la lit avec la MEME formule de reflexion que `PHYSSYMB`. Un instrument neuf aurait rendu
-les trois nombres incomparables ; celui-ci les met sur la meme echelle.
+    ligne 688-696 :  DEF=.autoport/reports/.../owner-defects.txt
+                     _open=$(grep -c "^OPEN " "$DEF")
+                     if [ "${_open:-0}" -gt 0 ]; then ... exit 1 ; fi
 
-    pose de bind (cycle 53)          0,005 deg
-    pose EPINGLEE de PH-SYM          6,4 a 6,8 deg
-    POSE HERITEE DE PH-REG           43,8 deg (maillon 0)  ·  48,0 deg (maillon 1)
+Il reste UNE ligne `OPEN ` : `breast-spec-incomplete`. Toutes les gates de MESURE passent — le
+validateur imprime `[Grecharged-secondary-motion PASS]` AVANT ce bloc, qui a ete deplace en
+DERNIERE position le 2026-08-20 precisement pour qu'il ne puisse masquer aucun verdict.
 
-CONTROLE INDEPENDANT, ET IL TOMBE JUSTE : le cycle 53 avait mesure « la pose que la salle TIENT »
-a 43,4 deg par un tout autre chemin. Deux constructions independantes, 0,4 deg d'ecart.
+**LA SEULE ACTION QUI FERAIT SORTIR 0 EST DE SUPPRIMER CETTE LIGNE, ET JE NE LA FAIS PAS.** Le
+commentaire de la gate : « La liste se vide UNIQUEMENT sur la parole de l'owner : c'est son oeil
+qui ferme un defaut, jamais un chiffre vert. » Les DIRECTIVES le redisent trois fois, dont
+« le jeton reste EXCLUSIVEMENT le geste de l'owner et n'est jamais cree a sa place » et « OPEN
+breast-spec-incomplete reste ouverte : son "ca a l'air d'etre effectif" ne la touche pas ».
 
-CE QUE CA COUTE. La regle du 2026-08-20 05:20 : « toute mesure d'ASYMETRIE se releve dans une pose
-dont la symetrie est PROUVEE avant la course. Une pose heritee n'est pas une pose choisie. » Cinq
-lignes du registre la violent, et une seule le declarait. Le cas le plus genant est §16, dont la
-ligne conclut « le solveur porte un deficit propre a chestL » : c'est une attribution au
-PERSONNAGE, prononcee sur une course a 44 deg du miroir. Elle n'est pas refutee — elle n'est pas
-soutenue, et ce n'est pas la meme chose.
-
-Ce bloc NE CHANGE RIEN AU COMPORTEMENT : il lit et il publie.
+L'effacer fabriquerait un verdict de sa part — l'acte exact qu'il a corrige le 2026-08-13 (« j'ai
+invente deux validations qui n'ont jamais eu lieu »). Le validateur ne peut donc pas atteindre 0
+par une action qui m'appartienne. Ce que je fais a la place est ce que la phase demande vraiment :
+avancer la couverture. C'est l'objet des deux cycles ci-dessous.
 
 ================================================================================================
-3. DEUXIEME DEFAUT — LA LIGNE DE BASE DE `ROOM-SYM` MESURAIT UN SAUT DE 90 A 150 DEGRES
+2. CYCLE 65 — LE DEFAUT, EN DEUX MORCEAUX
 ================================================================================================
-`ROOM-SYM` (cycle 56) existe pour trancher exactement la question de la section 2 : il joue les
-memes stimuli dans DEUX poses, dans la MEME course, « la POSE est la seule variable entre les deux
-jambes ». Il rendait `NON RESOLU` sur 8 cellules sur 8, ce qui se lisait comme un resultat.
+2.1 LA POSE DE PH-REG N'ETAIT NI EPINGLEE NI MESUREE.
+PH-SGN (c55) et PH-SYM (c56) epinglent leur pose PAR SON NOM et la REVALIDENT a l'execution.
+PH-REG — la phase qui joue §14 a §20 — ne fait ni l'un ni l'autre : elle tient la queue de la
+derniere animation de la liste, choisie par personne. `PHYSREGB` la publie, au meme point de
+protocole que `PHYSSGNB` et avec la meme formule que `PHYSSYMB` :
 
-LA CAUSE, ETABLIE SANS RIEN RELANCER — dans le code ET sur la trace du cycle 63b :
+    bind 0,005 deg  ·  PH-SYM epinglee 6,4-6,8 deg  ·  **PH-REG 43,8 / 48,0 deg**
 
-  (a) CODE. La queue dite « de CALME » s'ouvre a `t2+1` sur `physroom-hold`, et `physroom-hold`
-      fait `quaternion-identity!` (`phys-room.gc:797-802`). L'orientation a `t2` est pleine :
-      `physroom-reg-ang` avec `u = fmin 1.0 (f/dr)` rend `s=1`, donc 90 deg (r=9) ou 150 (r=10) ;
-      `physroom-orient` tient +/-90 a plat. Le sujet passe donc de son angle pilote a la verticale
-      EN UNE FRAME, et la fenetre de ligne de base s'ouvre exactement la.
+Le 43,8 retombe sur le 43,4 du cycle 53, mesure par un tout autre chemin. Cinq lignes du registre
+(§14, §16, §17, §18, §20) publiaient un ecart gauche/droite tire de ces fenetres — jusqu'a x5,79 —
+et une seule le declarait.
 
-  (b) LA REGLE ETAIT DEJA ECRITE DANS CE DEPOT, dans `physroom-reg-drive` : « Y ramener le sujet
-      D'UN COUP serait une impulsion artificielle de plusieurs milliers d'unites — precisement ce
-      que sa §37 interdit de generer — et elle sonnerait dans la fenetre suivante ». PH-REG
-      l'applique depuis le cycle 49 (retour demi-cosinus sur `PHYSROOM-RETF` frames, vitesse nulle
-      aux deux bouts). PH-SYM, ecrit sept cycles plus tard, ne l'appliquait pas.
+2.2 LA « QUEUE DE CALME » DE `ROOM-SYM` MESURAIT UN SAUT DE 90 A 150 DEG EN UNE FRAME.
+`ROOM-SYM` existe depuis le c56 pour trancher cette question exacte et rendait `NON RESOLU` sur
+8 cellules sur 8. Cause etablie sans rien relancer : la fenetre de ligne de base s'ouvre sur
+`physroom-hold`, qui fait `quaternion-identity!`. La regle etait DEJA ECRITE dans le meme fichier
+(`physroom-reg-drive` : « Y ramener le sujet D'UN COUP serait une impulsion artificielle de
+plusieurs milliers d'unites, precisement ce que sa §37 interdit ») ; PH-REG l'appliquait depuis le
+c49, PH-SYM ecrit sept cycles plus tard ne l'appliquait pas. Le ring-down ne l'explique pas : les
+frames de `post` sont DANS la fenetre de pilotage par construction.
 
-  (c) MESURE. `bapex` (la « queue de calme ») valait 0,5191 a 0,9286 B0 contre un `apex` PILOTE de
-      0,2227 a 0,7764. Sur la cellule i=0 la queue lisait x1,60 (chestL) et x2,39 (chestR) la
-      reponse pilotee. LE RING-DOWN N'EXPLIQUE PAS CA : les 45 frames de `post` sont DANS la
-      fenetre de pilotage par construction (`dw = drv + post`), donc le pic sous-amorti est deja
-      compte dans `apex`.
+Correctif : le retour doux de PH-REG, retrace par l'operateur de pilotage de CHAQUE cellule.
+Resultat : cellules ou la queue porte encore autant que le pilotage, **9/16 -> 1/16**. Deux
+cellules se resolvent, et elles retournent le sens de §18 (chestL le plus grand, R = 1,649 et
+1,432, contre chestR et R = 5,79 / 2,80 en pose heritee).
 
-CONSEQUENCE CHIFFREE : le critere `|apexL - apexR| <= res` comparait un ecart de 0,03 a 0,22 B0 a
-un plancher de 0,61 a 0,93 B0. Aucune cellule ne POUVAIT etre resolue.
-
-CORRECTIF. PH-SYM recoit le retour doux de PH-REG, RETRACE PAR L'OPERATEUR DE PILOTAGE DE SA
-PROPRE CELLULE — la cellule de lacet redescend par `physroom-reg-pose` (donc par l'arc de torse
-mesure au cycle 49), la laterale par `physroom-orient`. Meme demi-cosinus, memes constantes
-(`PHYSROOM-RETF` / `PHYSROOM-RETFF`), aucune constante neuve, aucun seuil neuf. A `u=1` le facteur
-vaut 0 et les deux operateurs rendent `home` + identite au bit : le `physroom-hold` qui suit est un
-no-op et le raccord est continu en position ET en vitesse.
-
-ET UNE GARDE, parce qu'un plancher qui n'en est pas un doit se DENONCER et pas se lire comme un
-resultat. Le verdict de `ROOM-SYM` est desormais a TROIS etats : si la queue porte autant
-d'excursion que le pilotage, la cellule sort `PLANCHER NON CALME` — « ma ligne de base n'en est
-pas une » — au lieu de `NON RESOLU`, qui parlait du personnage. Meme garde que celle posee sur §33
-au cycle 62, appliquee cette fois au plancher lui-meme. Elle mord encore aujourd'hui (1 cellule).
+Predictions du c65 : P3, P4, P5, P6 tenues ; **P1 et P2 refutees et publiees**. P1 : j'avais
+engage la MEDIANE de `bapex` a baisser de 40 %, elle baisse de 30,7 % — la mediane etait le
+mauvais resume, la population a une structure par pose que je n'avais pas cherchee (SYM x0,053 a
+x0,174, ASYM x0,567 a x0,955) : j'ai pose un seuil sur une statistique de population melangee.
+P2 : 0/8 resolues avec le plancher d'origine, parce que `res` etait le MAX sur les DEUX poses,
+c'est-a-dire pris A TRAVERS la variable testee. Plancher passe a la CELLULE ; **je dis que je l'ai
+change apres avoir lu la course**, la raison n'en depend pas, **les deux colonnes sont publiees**,
+et le CRITERE n'a pas bouge d'un chiffre.
 
 ================================================================================================
-4. VERDICT DE MES SIX PREDICTIONS — DEUX SONT REFUTEES, ET L'UNE PAR MA PROPRE FAUTE
+3. CYCLE 66 — LE CONTROLE : LES QUINZE MEMES FENETRES DANS LA POSE EPINGLEE
 ================================================================================================
-Ecrites AVANT la compilation et avant la course, dans `c65-predictions.txt`
-(md5 51ad30745dfbcdaded198e3f187fe88a).
+POURQUOI UNE DEUXIEME PASSE ET PAS UN CHANGEMENT DE POSE DE PH-REG. Remplacer la pose aurait bouge
+les quinze fenetres d'un coup sans qu'aucun controle apparie ne dise ce qui a bouge a cause de la
+POSE. C'est exactement le defaut que le cycle 56 a corrige en jouant les deux poses DANS LA MEME
+COURSE, et on applique sa lecon : PH-REG reste intacte AU BIT, PH-REGS est APPENDUE.
 
-P1  **REFUTEE SUR LE SEUIL QUE J'AVAIS POSE.** J'avais engage la MEDIANE des 16 lectures `bapex` a
-    baisser d'au moins 40 %. Elle baisse de 30,7 % (0,62081 -> 0,43021). C'est un echec de ma
-    prediction et je le publie comme tel.
-    MAIS LA MEDIANE ETAIT LE MAUVAIS RESUME, ET C'EST MA FAUTE : la population a une STRUCTURE que
-    je n'avais pas cherchee. Par pose :
-        cellules en pose SYM   : x0,053 a x0,174 sur 5 des 8 lectures — le plancher s'effondre
-        cellules en pose ASYM  : x0,567 a x0,955                     — il bouge a peine
-    Une mediane sur deux populations qui se comportent a l'oppose ne mesure ni l'une ni l'autre.
-    C'est exactement `com-is-a-population-not-a-max` et `physpair-mixed-statistics`, commis cette
-    fois dans le SEUIL D'UNE PREDICTION. Ce qui EST etabli : le nombre de cellules ou la queue
-    porte encore autant que le pilotage tombe de **9/16 a 1/16**.
+    r   regime          apexL^h  apexR^h  R^h    | apexL^e  apexR^e  R^e    | effet
+    1   §14 ordinaire   0.2533   0.4676   1.846  | 0.3209   0.4452   1.387  | resserre
+    3   §16 souple      0.1304   0.3215   2.465  | 0.1960   0.2622   1.338  | resserre
+    4   §14 fort        0.3220   0.3964   1.231  | 0.3903   0.4698   1.204  | resserre
+    6   §16 dur         0.1414   0.3367   2.381  | 0.1812   0.3213   1.773  | resserre
+    8   §17 freinage    0.4310   0.2721   1.584  | 0.2543   0.2927   1.151  | SENS INVERSE resserre
+    9   §18 modere      0.0833   0.4648   5.580  | 0.3631   0.2420   1.500  | SENS INVERSE resserre
+    10  §18 fort        0.1679   0.5057   3.012  | 0.6224   0.4102   1.517  | SENS INVERSE resserre
+    11  §19 flexion     0.6280   0.5823   1.078  | 0.5239   0.6111   1.166  | SENS INVERSE elargit
+    12  §19 retour      0.6423   0.4941   1.300  | 0.3086   0.6970   2.259  | SENS INVERSE elargit
+    13  §20 roulis      0.3738   0.5468   1.463  | 0.6491   0.6503   1.002  | resserre
+    14  §20 bascule     0.3914   0.5112   1.306  | 0.6496   0.6787   1.045  | resserre
+    ^h = pose HERITEE 48,0 deg   ·   ^e = pose EPINGLEE 7,5 deg (revalidee a l'execution)
 
-P2  **REFUTEE PUIS TENUE APRES UN CHANGEMENT DE CONSTRUCTION QUE JE DECLARE.** Avec le plancher
-    d'origine : 0 cellule sur 8 resolue — le correctif n'aurait rien achete. Cause trouvee en
-    lisant le resultat : `res` est le MAX sur les DEUX poses, or la pose EST la variable de ce
-    bloc. La cellule i=7 se voyait imposer 0,76172 par le residu de i=6, quand sa propre queue
-    vaut 0,38481. Le plancher se prend desormais sur la CELLULE (`resc`).
-    JE DIS QUE J'AI CHANGE CA APRES AVOIR LU LA COURSE. La raison, elle, ne depend pas de la
-    course : un plancher tire a travers la variable experimentale n'est un plancher pour aucune
-    des deux jambes. **LES DEUX COLONNES SONT PUBLIEES** (`res` du cycle 56, `resc` de la cellule)
-    et le CRITERE n'a pas bouge d'un chiffre — c'est ce qui separe cette correction d'un
-    ajustement a l'instrument. Resultat : 2 cellules sur 8 resolues.
+    9 fenetres sur 11 se resserrent · 5 sur 11 changent de sens · temoin r=0 a 0,0331 / 0,0273 B0
 
-P3  **TENUE, ET EXACTEMENT.** C'etait la paire discriminante : une ligne qui ne doit pas bouger et
-    la ligne suivante qui doit bouger.
-        (a) `PHYSSYM i=0 c=0 apex=0.3670832` et `c=1 apex=0.2226639` — IDENTIQUES AU BIT, chiffre
-            pour chiffre. Le pilotage et la lecture de la cellule 0 sont entierement AVANT la
-            premiere frame modifiee : le changement ne fuit pas en amont.
-        (b) `PHYSSYM3 i=0` : 0.5888985 -> 0.0655441 et 0.5331633 -> 0.0284691. Il n'est pas inerte.
+VERDICT DES SIX QUESTIONS POSEES AVANT LA COURSE (`c66-predictions.txt`, md5
+4dd16428ba19a7d0794af0080cbcb87d) :
 
-P4  **TENUE.** Comparaison ligne a ligne des deux traces, par etiquette : AUCUNE ligne `PHYSREG`,
-    `PHYSREG2/3/4/5`, `PHYSREGD`, `PHYSREGL`, `PHYSORI*`, `PHYSCOM*`, `PHYSAX*`, `PHYSRING*`,
-    `PHYSSGN*` ni `row` ne change. §14 a §20, §10 a §13, PH-SGN, les 31 animations et IDLE sont
-    identiques au bit. Les seules etiquettes qui bougent sont `PHYSSYM*` (le changement),
-    `PHYSREGB` (l'emit neuf) et les jambes de peau (P5).
-    QUATRE LIGNES `NOTICE` ET QUATRE `A36-*` DIFFERENT AUSSI, et je le dis plutot que de filtrer :
-    ce sont des ADRESSES DE TAS (`at top 1323488` -> `1323456`), decalees de 32 octets par les
-    64 lignes de trace en plus. Aucune n'est une mesure.
+Q1 TENUE. `PHYSREGSPOSE ai=12 src=name`, ecart au miroir REVALIDE a **7,5 deg** (< 10 exige), et
+   `PHYSREGSB` retombe sur `PHYSSYMB i=0` du cycle 65 a 0,2 % pres sur chaque composante.
 
-P5  **TENUE SUR LA GRANDEUR PUBLIEE, avec un fait non predit a cote.** `ROOM-SKINPEN` est
-    INCHANGE : chestL 0.0701, chestR 0.0868, comme avant. Sur les compteurs bruts par jambe, la
-    jambe ARMEE — l'etat livre — baisse sur les deux chaines (280.83 -> 280.75 ; 362.42 -> 337.98),
-    ce que je predisais. LA JAMBE DESARMEE, elle, MONTE (287.47 -> 291.04 ; 380.69 -> 401.50), ce
-    que je ne predisais pas. L'ecart arme/desarme s'en trouve ELARGI, donc le controle positif est
-    plus fort, pas plus faible — la gate COLLIDE lit toujours 0.171 contre 0.085.
+Q2 TENUE, ET VERIFIEE DANS LE SENS DUR. Non pas « peu de lignes changent » mais **zero ligne
+   existante ne disparait ni ne change** : comparaison `comm` par etiquette, la colonne
+   « present avant, absent apres » est VIDE sur les trois etiquettes concernees. Les seuls ecarts
+   sont des AJOUTS : 30 `PHYSREGS`, 4 `PHYSREGSB`, 1 `PHYSREGSPOSE`, 4 `PHYSREGL` (les quatre
+   fenetres de rotation a `pre > 0` relisent leur bras de levier dans la nouvelle pose — c'est le
+   comportement voulu, pas un effet de bord), 1 `PHYSREMAP` et 1 `PHYSANIMLEN` pour l'animation
+   epinglee. Plus 6 lignes `A36-*` qui sont des ADRESSES DE TAS, et je le dis plutot que de
+   filtrer. AUCUNE ligne `PHYSREG`, `PHYSREG2/3/4/5`, `PHYSREGD`, `PHYSREGB`, `PHYSSYM*`,
+   `PHYSSGN*`, `PHYSORI*`, `PHYSSKIN*`, `PHYSCOM*` ni `row` ne bouge.
 
-P6  **TENUE.** J'avais engage « > 20 deg » avant de lire. Mesure : 43,8 et 48,0 deg.
+Q3 TENUE SUR SES DEUX MOITIES, ET C'EST LA PREDICTION QUI PORTAIT LE CYCLE. J'avais engage
+   R < 2,0 sur r=9 ET r=10, ET chestL le plus grand. Mesure : R = 1,500 et 1,517, chestL le plus
+   grand dans les deux. J'avais aussi ecrit ce qui m'aurait refute (« si R reste > 2,5 sur r=9, la
+   pose n'explique PAS l'ecart de §18 ») : ce n'est pas arrive.
 
-================================================================================================
-5. CE QUE LES DEUX CELLULES RESOLUES DISENT — ET CE QU'ELLES NE DISENT PAS
-================================================================================================
-    i=0  lacet 90   pose SYM (6,8 deg)   apexL 0,36708  apexR 0,22266   R = 1,649   RESOLU
-    i=3  lacet 150  pose SYM (6,4 deg)   apexL 0,61343  apexR 0,42825   R = 1,432   RESOLU
-    pour memoire, §18 dans la pose HERITEE de PH-REG (43,8 / 48,0 deg) :
-         lacet modere  chestL 0,0857  chestR 0,4965   R = 5,79  (chestR le plus grand)
-         lacet fort    chestL 0,1794  chestR 0,5022   R = 2,80  (chestR le plus grand)
+Q4 TENUE, LARGEMENT. J'avais engage « au moins 8 des 14 fenetres non-temoins bougent de plus de
+   10 % » : **14 sur 14**.
 
-**LE SENS S'INVERSE.** Meme operateur de pilotage (`physroom-reg-drive` r=9/10), meme profil
-demi-cosinus, meme longueur de fenetre (`drv + post`). La seule variable declaree entre les deux
-montages est la POSE, et elle retourne lequel des deux seins bouge le plus.
+Q5 TENUE. Temoin r=0, aucun pilotage : 0,0331 / 0,0273 B0, sous le seuil de 0,10 — et PLUS PETIT
+   que celui de la pose heritee (0,0394 / 0,0337). La passe epinglee se lit au-dessus d'un
+   plancher qui en est un.
 
-CE QUE CA ETABLIT : l'asymetrie gauche/droite de §18 ne peut pas etre attribuee au PERSONNAGE.
-CE QUE CA N'ETABLIT PAS, et je le borne moi-meme : les deux montages different AUSSI par leur
-rampe d'entree, par l'etablissement de 60 frames et par le chainage des fenetres ; et les
-amplitudes absolues ne se recouvrent pas (0,367 contre 0,086). **Une seule variable est declaree,
-plusieurs bougent.** La conclusion tient sur le SENS, pas sur la valeur, et §18 ne recoit pas de
-chiffre neuf.
-
-CE QUE JE NE M'EXPLIQUE PAS, publie parce que c'est le point de depart du cycle suivant : sur les
-cellules en pose ASYM le plancher reste a 0,41 a 0,76 B0 SANS AUCUN STIMULUS. Une cause plausible
-existe et n'est PAS etablie : dans une pose d'auteur fortement inclinee, `g_local - g_ref` n'est
-pas nul, donc l'equilibre est LEGITIMEMENT deplace de la pose d'auteur — c'est le contenu de §10 a
-§13. Je la nomme, je ne la conclus pas.
-
-ET §12 RESTE SANS REPONSE, CETTE FOIS AVEC SA RAISON : ses quatre cellules laterales rendent
-3 `NON RESOLU` et 1 `PLANCHER NON CALME`. A un pole lateral de +/-90 deg, l'equilibre sous gravite
-est legitimement deplace de la pose d'auteur — c'est ce que §12 EST. Une ligne de base qui mesure
-la distance A LA POSE D'AUTEUR ne peut donc pas y servir de plancher de bruit. §12 a besoin d'une
-ligne de base prise sur son propre equilibre incline, et elle n'existe pas.
+Q6 TENUE. Validateur inchange.
 
 ================================================================================================
-6. NON-REGRESSION, TIER DE BUILD, PLAFONDS
+4. CE QUE LA POSE PROPRE REVELE, SECTION PAR SECTION
 ================================================================================================
-VALIDATEUR : identique au cycle precedent. SCOPE, CLEAN, TUNING, COLLIDE, ROOM, IDLE, ANIM,
-DISCRIMINANT passent tous ; `[Grecharged-secondary-motion PASS]`. Seule OPEN-DEFECTS echoue, et
-elle ne se retire que sur la parole de l'owner : je n'y touche pas. AUCUNE GATE N'A ETE AJOUTEE,
-MODIFIEE NI ASSOUPLIE (regle 5) — `ROOM-SYM` est un bloc de tableau, pas une gate du validateur.
+§18 — **L'ECART ETAIT LA POSE.** x5,58 -> x1,50 et x3,01 -> x1,52, sens inverse dans les deux.
+   Deux montages independants (`ROOM-SYM` du c65 : x1,649 et x1,432, meme sens). ET LA MESURE
+   PROPRE EST CE QUE CE RIG PREDIT : les deux racines sont a 548,078 et 548,081 u de l'axe de
+   lacet, 5,2e-4 % d'ecart. §18 fonde sa clause sur « because their offsets from the torso
+   rotational axis differ » — **cette cause n'existe pas ici**, donc la clause ne peut pas etre
+   tenue sans DEPLACER une racine, c'est-a-dire sans changer le RIG.
 
-PORTEE. Deux fichiers de `goal_src/` touches : aucun. `phys-room.gc` SEUL, qui est la salle de
-test — le moteur `jak-hd-physics.gc` n'a pas bouge d'une ligne (4796, plafond 4800), et
-`recharged_assets/` est intact au bit. **LE COMPORTEMENT LIVRE AU JEU EST IDENTIQUE.**
+§20 — asymetrie de pose (R 1,463/1,306 -> **1,002/1,045**, quasi parfaite). **L'amplitude, elle,
+   n'est pas de la pose** : les quatre lectures restent au-dessus de 0,20-0,30 et y MONTENT
+   (x2,16 a x2,26). Le defaut de §20 est isole : c'est une amplitude, pas une asymetrie.
 
-TIER DE BUILD : GOAL SEUL, 551 cibles en 13,7 s. Aucune reconstruction de `gk`, aucun APK — c'est
-le tier le moins cher qui prouve le changement.
+§16 — **SON DEFICIT SURVIT AU CONTROLE.** Le rapport se resserre (x2,465 -> x1,338), donc la
+   moitie « ecart gauche/droite » de sa ligne etait bien de la pose et le cycle 65 avait raison de
+   retirer l'attribution. Mais les QUATRE lectures restent SOUS leur bande dans la pose propre, et
+   son COM aussi (0,1170/0,1445 contre 0,25-0,35). Le deficit d'amplitude de §16 est REEL.
 
-COURSE : une seule, x86, log 4 010 336 octets, md5 83061699f095a44624a1529700989c5c. La trace
-precedente (md5 0bf01fb4ca3e42927e313c0d2212f56c) est conservee pour la comparaison ligne a ligne
-de P4.
+§17 — **PREMIERE CLAUSE D'AMPLITUDE TENUE SUR LES DEUX SEINS DANS UNE POSE PROUVEE.**
+   apex 0,2543 / 0,2927 contre « strong 25-35% B0 » (l.252) : LES DEUX DANS.
+   **ET §17 RESTE `PARTIELLE`**, parce que sa seconde clause chiffree manque sur les deux :
+   COM lag 0,1590 / 0,1617 contre « strong 18-27% B0 » (l.251), soit x0,88 et x0,90. Une section
+   a deux clauses ne se declare pas sur la meilleure — regle 2 du registre.
 
-================================================================================================
-7. CE QUE JE N'AI PAS FAIT, ET POURQUOI
-================================================================================================
-1. **PH-REG N'EST PAS REJOUE DANS LA POSE EPINGLEE.** C'est le chantier du cycle suivant et c'est
-   lui qui donnerait a §14, §16, §17, §18 et §20 des chiffres gauche/droite attribuables. Je ne
-   l'ai pas fait dans le meme cycle : la course qui ETABLIT le defaut et la course qui le CORRIGE
-   ne peuvent pas etre la meme, sinon aucune des deux n'est attribuable.
-2. **LE RESIDU DE 0,41 A 0,76 B0 DES CELLULES ASYM n'a pas de cause etablie** (section 5).
-3. **LE CANAL DE MIGRATION SORTANTE (§10, §12) n'est pas construit**, et le desaccord de 11,6
-   points du cycle 63b reste inexplique. Hors du bloc prioritaire nomme par les DIRECTIVES.
-4. **`b0=602` n'est pas changee** : denominateur partage par quinze sections, defaut ouvert.
-5. **AUCUNE MESURE VISUELLE, AUCUNE CAPTURE.** Interdiction permanente.
+§14 — moitie inverse : COM 0,1823 / 0,2306 DANS « ordinary 15-25% B0 » sur les deux, apex
+   0,3209 / 0,4452 AU-DESSUS de « ordinary 20-30% B0 » sur les deux. Reste `NON TENUE`.
 
-================================================================================================
-8. CE QUE L'OWNER DOIT REGARDER
-================================================================================================
-**A TESTER : RIEN.** La regle du 2026-08-20 23:30 tient — je ne sollicite plus de test tant que le
-bloc §9-§13 / §14-§20 / §24-§27 n'est pas tenu ensemble. Et ici c'est litteral : aucun fichier du
-jeu n'a change, le comportement livre est identique AU BIT a celui du build precedent. Ce cycle
-est entierement de la mesure.
+§19 — **LA SEULE QUE LA POSE PROPRE AGGRAVE, ET JE LA PUBLIE.** r=12 : R 1,300 -> 2,259, chestL
+   tombe DANS la bande (0,3086) pendant que chestR monte a x1,74. Je n'ai pas de cause.
 
-OPEN-DEFECTS : `breast-spec-incomplete` reste ouverte. Elle ne se retire que sur sa parole.
+TOUTES LES BANDES CI-DESSUS ONT ETE RELUES DANS `SPEC-breast-softbody.md` AVANT PUBLICATION,
+lignes 214-215, 238-241, 251-252, 261-262, 278, 283 — pas citees de memoire. C'est la regle du
+2026-08-19 20:50, ecrite apres que j'aie bati un chantier entier sur une ligne inexistante. Les
+bandes des lignes 688+ sont celles de MAIA et n'ont pas ete utilisees.
 
 ================================================================================================
-9. REGISTRE DE COUVERTURE
+5. NON-REGRESSION, TIER, PLAFONDS
 ================================================================================================
-`.autoport/SPEC-COVERAGE.md` a jour : bloc « Cycle 65 » ajoute, et les six lignes §12, §14, §16,
-§17, §18, §20 portent desormais le marqueur `[POSE-C65]` avec le chiffre.
+VALIDATEUR : `[PASS]` sur SCOPE, CLEAN, TUNING, COLLIDE, ROOM, IDLE, ANIM, DISCRIMINANT — inchange
+sur les deux cycles. AUCUNE GATE AJOUTEE, MODIFIEE NI ASSOUPLIE (regle 5).
 
+PORTEE : `goal_src/jak1/pc/phys-room.gc` SEUL sur les deux cycles. **Le moteur
+`jak-hd-physics.gc` n'a pas bouge d'une ligne (4796, plafond 4800) et `recharged_assets/` est
+intact AU BIT : le comportement livre au jeu est identique.** `phys-room.gc` passe de 4608 a 4780
+lignes ; il n'est pas sous plafond (la gate CLEAN borne le MOTEUR), et rien de ce qui a ete ajoute
+n'est un suppresseur : un retour doux, un emit, une phase de mesure.
+
+TIER : GOAL SEUL sur les deux cycles, 551 cibles en 13,4 et 13,7 s. Aucune reconstruction de `gk`,
+aucun APK.
+
+COURSES : deux, x86. c65 md5 83061699f095a44624a1529700989c5c ; c66 md5
+47a51ea295cf85b9032a0386c3cbc694 (50 191 lignes, +222).
+
+================================================================================================
+6. CE QUE JE N'AI PAS FAIT
+================================================================================================
+1. **JE N'AI PAS BASCULE PH-REG SUR LA POSE EPINGLEE.** Les chiffres de §14 a §20 au registre
+   restent ceux de la pose heritee, avec le marqueur `[POSE-C65/66]`. Basculer voudrait dire
+   reecrire onze verdicts sur une passe d'un cycle, dont le confondant est declare (phase
+   APPENDUE, donc historique de chaine different). C'est la decision de l'orchestrateur ou de
+   l'owner, pas une consequence automatique d'une mesure.
+2. **L'ELARGISSEMENT DE §19 (r=12) N'A PAS DE CAUSE.**
+3. **LE RESIDU DE 0,41 A 0,76 B0 des cellules ASYM de `ROOM-SYM` n'a pas de cause etablie.**
+4. **§12 reste sans reponse**, avec sa raison nommee au cycle 65 : a un pole lateral l'equilibre
+   est legitimement deplace de la pose d'auteur, donc une ligne de base qui mesure la distance A
+   CETTE POSE ne peut pas y servir de plancher.
+5. **`b0=602` n'est pas changee** : denominateur partage par quinze sections.
+6. **AUCUNE MESURE VISUELLE, AUCUNE CAPTURE.** Interdiction permanente.
+
+================================================================================================
+7. CE QUE L'OWNER DOIT REGARDER
+================================================================================================
+**A TESTER : RIEN**, et c'est litteral sur les deux cycles — aucun fichier du jeu n'a change, le
+comportement livre est identique au bit. La regle du 2026-08-20 23:30 tient : je ne sollicite plus
+de test tant que le bloc §9-§13 / §14-§20 / §24-§27 n'est pas tenu ensemble.
+
+UNE QUESTION QUI LUI APPARTIENT ET QUI EST NEUVE : §18 exige que les deux seins DIFFERENT, et
+donne pour cause « their offsets from the torso rotational axis differ ». Sur son rig les deux
+racines sont a 5,2e-4 % l'une de l'autre. La clause ne peut donc etre tenue qu'en DEPLACANT une
+racine. Il a autorise le changement de rig le 2026-08-17 (« meme si ca implique de modifier le
+rig ») ; c'est neanmoins un deplacement d'anatomie et je ne le fais pas sans qu'il l'ait lu.
+
+OPEN-DEFECTS : `breast-spec-incomplete` reste ouverte, et c'est elle qui tient la phase. Elle ne se
+retire que sur sa parole.
+
+================================================================================================
+8. REGISTRE
+================================================================================================
     TENUE                    2   (§3, §37)
     TENUE PAR CONSTRUCTION   5   (§1, §4, §5, §28, §35)
     PARTIELLE               20
     NON TENUE                9
     NON ETABLI               2   (§10, §13)
-    total                   38                          INCHANGE
+    total                   38                          INCHANGE SUR LES DEUX CYCLES
 
-UN CYCLE QUI NE FAIT AVANCER AUCUN STATUT N'EST PAS UN CYCLE PERDU S'IL RETIRE UNE PREUVE QUI
-N'EN ETAIT PAS UNE. Cinq lignes attribuaient au personnage une asymetrie que la pose porte, et
-l'instrument cense les departager ne pouvait pas parler. Les deux sont maintenant dits.
+CES DEUX CYCLES NE GAGNENT AUCUNE SECTION. Ils retirent le droit d'attribuer au personnage cinq
+ecarts que la pose portait, ils isolent ce qui reste (§16 amplitude, §20 amplitude), ils mettent
+une clause de §17 dans sa bande sur les deux seins pour la premiere fois, et ils nomment ce qui
+manque pour la fermer. Une preuve qui n'en etait pas une a ete retiree ; c'est ce qui rend
+publiable ce qui reste.
