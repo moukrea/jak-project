@@ -416,7 +416,7 @@
                                     ;; son test rang-contre-sens rendait 10 contre 7 — pas un pur
                                     ;; effet de rang, pas net non plus. Jouer les deux ordres rend
                                     ;; la question decidable au lieu de la laisser en suspens.
-(defconstant PHYSROOM-SGNE  90)     ;; RAMPE D'ENTREE : frames de calme AVANT la premiere fenetre.
+(defconstant PHYSROOM-SGNE 150)     ;; RAMPE D'ENTREE : frames de calme AVANT la premiere fenetre.
                                     ;; Le cycle 52 a mesure que la 1re fenetre recevait un stimulus
                                     ;; de 1255.82 u/frame^2 contre ~17.00 sur les 35 autres — x74.
                                     ;; Cause : `PH-SGN` succede a `PH-REG`, dont la derniere fenetre
@@ -498,6 +498,14 @@
 
 (define *physroom-anim-ag* (new 'static 'array art-group PHYSROOM-MAXANIM))
 (define *physroom-anim-ix* (new 'global 'array 'int32 PHYSROOM-MAXANIM))
+;; L'ANIMATION QUI TIENT UNE POSE BILATERALEMENT SYMETRIQUE, RETROUVEE PAR SON NOM (cycle 55).
+;; Le cycle 54 a mesure les 31 poses de Keira au meme point de protocole : `assistant-village2-
+;; idle-hut-breath` est la seule qui soit a moins de 10 deg du miroir parfait sur LES DEUX
+;; maillons (4.0 / 5.4 deg), quand celle que la salle laissait en place est a 124.1 deg, rang 29
+;; sur 31. PAR SON NOM et jamais par un index : une enumeration peut changer d'ordre, un nom non.
+;; -1 = introuvable, et la phase le DIT au lieu d'epingler une pose au hasard.
+(define *physroom-symai* -1)
+(defconstant PHYSROOM-SYMNAME "assistant-village2-idle-hut-breath")
 (define *physroom-proc*    (the-as (pointer phys-subject) #f))
 
 ;; ------------------------------------------------------------------------------------------------
@@ -3732,6 +3740,23 @@
      ;; ailleurs : c'est la grandeur qui decide de ce que la contrainte de longueur confisque.
      (when (< (-> self sgi) 0)
        (physroom-hold)
+       ;; ---- L'EPINGLE DE POSE (cycle 55) -----------------------------------------------------
+       ;; Le cycle 53 a mesure que la pose tenue est a 43.4 deg du miroir parfait quand le rig est
+       ;; symetrique a 0.005 deg, et le cycle 54 que celle-la est la 3e PIRE sur 31. Tout ecart
+       ;; gauche/droite lu ici portait donc la pose. On epingle celle que la mesure designe, et on
+       ;; l'avance du MEME nombre de frames que le protocole d'echantillonnage du cycle 54 pour
+       ;; retomber sur la pose qui y valait 4.0 / 5.4 deg. `PHYSSGNB` la REVALIDE ensuite a
+       ;; l'execution : on ne fait pas confiance au choix, on le mesure.
+       (when (= (-> self pframe) 1)
+         (cond
+           ((>= *physroom-symai* 0)
+            (physroom-set-anim *physroom-symai*)
+            (format 0 "PHYSSGNPOSE ai=~D src=name~%" *physroom-symai*))
+           (else
+            (format 0 "PHYSSGNPOSE ai=-1 src=INTROUVABLE~%"))))
+       (when (and (>= *physroom-symai* 0)
+                  (> (-> self pframe) 1) (<= (-> self pframe) (+ 1 PHYSROOM-MEASAT)))
+         (physroom-advance-anim 1.0))
        (when (>= (-> self pframe) PHYSROOM-SGNE)
          (let ((hd (if (-> self child) (the-as jak-hd (-> self child 0)) (the-as jak-hd #f))))
            (when hd
@@ -3973,6 +3998,8 @@
                           (set! (-> *physroom-anim-ix* (-> self nanim)) i)
                           (format 0 "PHYSANIM a=~D ag=~S name=~S joints=~D~%"
                                   (-> self nanim) (-> ag name) (-> e name) nj)
+                          (when (string= (-> e name) PHYSROOM-SYMNAME)
+                            (set! *physroom-symai* (-> self nanim)))
                           (when (!= nj njoint)
                             (format 0 "PHYSANIMRIG ag=~S name=~S joints=~D porteur=~D~%"
                                     (-> ag name) (-> e name) nj njoint))

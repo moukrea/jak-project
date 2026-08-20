@@ -67,7 +67,7 @@ parlent d'autre chose que de la poitrine sont hors périmètre, pas « tenues »
 | 29 | Anisotropie 1,00 / 0,90 / 0,82 / torsion 0,72 | PARTIELLE | Compliance latérale mesurée 1,0294 / 0,9180 pour une cible de 0,820 |
 | 30 | « **28-35% of the rear breast volume** should behave as strongly attached tissue, nominal **30%** » (l.375) ; « Apex — **minimal direct anchoring** » (l.382) ; « **There shall be no hard attachment boundary.** » (l.384) | **NON TENUE** | **RETROGRADEE cycle 51 : la clause de l'APEX est mesurée et elle est violée, sur une grandeur que rien ne mesurait.** Sur la région distale (décile de l'axe anatomique, mesh livré) la masse de peau se répartit : chestL `chest` **43,24 % ANCRE** · lBoob 40,95 % · lBooc 15,80 % ; chestR `chest` **40,64 % ANCRE** · rBoob 45,27 % · rBooc 14,09 %. Sa spec écrit « Apex — minimal direct anchoring » : **41 à 43 % de l'apex est soudé au torse**, ce qui est le contraire de minimal, et c'est la mesure qui le dit, pas une impression. CONSEQUENCE MECANIQUE, ET ELLE BORNE SIX AUTRES SECTIONS : l'apex ne peut valoir que 0,5676 / 0,5936 de ce que ses maillons simulés produisent — un plafond de ×1,76 / ×1,68 hors d'atteinte de TOUTE valeur de raideur, d'amortissement ou de gravité. Seule une repesée peut le lever. La clause des 28-35 % reste, elle, à 45,85 / 46,06 % à `w>0` (34,52 / 34,90 % à `w>=0,25` — la frontière décide). **PRECISION QUI BORNE CE VERDICT, ET ELLE COMPTE** : ces 41-43 % sont mesurés sur le décile distal de l'axe **ANATOMIQUE** racine->apex — celui où vivent `B0` (§6) et le « distal/apex displacement » de §22. Le `r` de §30/§31 est, lui, l'abscisse le long de la **CHAINE**, et les deux axes sont à **77,8° / 78,1°** l'un de l'autre (§31) : ce sont deux populations différentes, et elles ne rendent pas le même chiffre — sur l'axe d'os le décile distal est ancré à 31,6 % (chestL) et 65,1 % (chestR). Le verdict ci-dessus porte sur l'apex ANATOMIQUE ; la clause de §30 rédigée en `r` demande l'autre lecture, et l'écart gauche/droite y est de ×2,1 |
 | 31 | « little deformation at the root; progressively increasing mobility; **largest displacement in distal tissue** » ; `w(r) = r^1.6...2.0` (l.389-390) | **NON TENUE** | **CAUSE REMPLACEE AU CYCLE 48, ET ELLE EST STRUCTURELLE, PAS UN REGLAGE.** L'axe d'os `lBoob->lBooc` est a **77,83 deg / 78,05 deg** de l'axe anatomique racine->apex, et LE LONG de cet axe le maillon distal est **34,4 u / 77,5 u PLUS PRES du torse** que le proximal. Un gradient racine->pointe n'est donc pas exprimable par cette chaine, quel que soit le reglage. L'exposant 1,6-2,0 n'est ajuste nulle part (commentaire seul) |
-| 32 | Indépendance gauche/droite ; masse ±2–4 %, raideur ±3–5 % | PARTIELLE | Les écarts de paramètres sont dans les bandes, mais bouger un sein déplace l'autre de 32 à 321 % |
+| 32 | Indépendance gauche/droite ; masse ±2–4 %, raideur ±3–5 % | PARTIELLE | Les écarts de paramètres sont dans les bandes, mais bouger un sein déplace l'autre de 32 à 321 % (mesure de COUPLAGE, non touchée par le cycle 55). **CE QUE LE CYCLE 55 CORRIGE, ET C'EST MA PROPRE PUBLICATION** : l'écart gauche/droite de **×3,41** sur l'apex vertical publié au cycle 52 comme un dépassement de cette section était un **ARTEFACT DE POSE**. Épinglée à une pose bilatéralement symétrique (6,7° du miroir parfait au lieu de 43,4°), la même mesure rend **×1,06 / ×1,17**. La raison est géométrique et mesurée : les deux os y font le même angle avec le pilotage (22,3° / 21,8° au lieu de 2,03° / 41,77°), et l'écart de CONFISCATION tombe à 0,039 / 0,176. **Les autres écarts gauche/droite du dossier (§18 ×2,5 sur l'apex, §12) tournent dans des phases qui tiennent TOUJOURS la pose asymétrique : ils sont NON LISIBLES, ni tenus ni réfutés** |
 | 33 | « Medial surfaces shall collide or repel **before visible interpenetration** » (l.400) ; restitution 0,00-0,15, nominal 0,06 | **NON TENUE** | **CHIFFRE PERIME CORRIGE AU CYCLE 48** : le registre annoncait 0,049 m ; la course lit `meshpen` **0,1061 / 0,0898 m** et `skinpen` **0,1416 / 0,1426 m** contre un plafond de 0,0005 — soit **2x pire** que ce qui etait ecrit. Restitution mesuree 0,0225 (melange sein↔sein et sein↔thorax, jamais separee) |
 | 34 | « Chest restitution 0.00-0.05, nominal **0.02** » (l.408) ; « Collision energy should primarily become deformation... **not bounce** » (l.410) | PARTIELLE | **La restitution EST dans sa bande : `e_moy = 0,0215`** sur 26 contacts, avec un controle positif qui a tire (x12,14). Ce qui n'est pas tenu est la MEME penetration que §33 (0,1061 / 0,0898 m). Publiee par COURSE et non par chaine, donc « les deux seins » reste indemontre |
 | 35 | Couplage vêtement (tous les termes ≈ 0 pour Keira) | NON ÉTABLI | Le vêtement ne suit pas le sein : 0 sommet majoritaire |
@@ -92,6 +92,28 @@ classement était périmé) et §38 `NON ÉTABLI` -> `PARTIELLE` (74 paramètres
 pour la première fois). Les `NON ÉTABLI` tombent de 7 à 5. **Le solveur n'a pas bougé d'un bit ce
 cycle : 37 995 lignes de mesure identiques, une seule ligne différente, et c'est le garde-fou de
 numéro de phase.**
+
+## Cycle 55 — L'ÉCART GAUCHE/DROITE ÉTAIT UN ARTEFACT DE POSE : ×3,41 -> ×1,06
+
+La pose des fenêtres de PH-SGN est **épinglée** à `assistant-village2-idle-hut-breath`, retrouvée
+PAR SON NOM et **revalidée à l'exécution** : 6,7° du miroir parfait (contre 43,4° avant).
+
+    écart gauche/droite, apex vertical, k=0 :  ×1,06 (s=+1)  ×1,17 (s=−1)   — il valait ×3,41
+
+**Et la raison est géométrique, pas une coïncidence.** Les deux os font désormais le même angle
+avec le pilotage (**22,3° / 21,8°** au lieu de 2,03° / 41,77°), donc les deux chaînes sont
+confisquées pareil : écart de confiscation **0,039 / 0,176** (critère ≤ 0,30). Le mécanisme
+prédit dans les DEUX poses : mesuré ×2,05–2,73 contre ×2,64/×2,70 prédits, témoins négatifs
+×0,95–1,19 contre ×1,00–1,08 prédits.
+
+**ET ÇA EXPLIQUE LE RÉSIDU DU CYCLE 53** : la sur-prédiction d'un facteur ~6 sur chestL arrivait
+à **2,03°**, où `sin θ = 0,035` et `1/sin` explose — le modèle était évalué au bord de sa
+singularité. À 22°, il tombe juste à 20 % près. Il n'était pas faux, il était lu là où il ne vaut
+rien.
+
+**CONTRÔLE** : zéro ligne de mesure changée ; une ligne AJOUTÉE (`PHYSANIMLEN a=12`), émise par
+l'épingle elle-même — ma liste d'exclusions était courte d'un tag et je le dis plutôt que
+d'élargir le filtre après coup.
 
 ## Cycle 54 — UNE POSE SYMÉTRIQUE EXISTE, ET CELLE QU'ON TIENT EST LA 3e PIRE SUR 31
 
