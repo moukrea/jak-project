@@ -4736,7 +4736,9 @@
   "SPEC 8/10-13/29/36 — L'ETAT DE FORME ET DE TORSION, LU SUR LE MECANISME ARME.
    NATURE : `which` 0/1/2 = les trois ECHELLES appliquees, sans unite (1.0 = pose d'auteur) ; 3 =
    leur determinant ; 8 = l'interrupteur ; 9/10/11 la gravite unitaire ; 15/16/17 en repere ancre.
-   REPERE : le triedre de sa SPEC 7 (+X lateral, +Y haut, +Z avant). LECTURE HORS DEFAUT : 1/1/1.
+   REPERE : le triedre de sa SPEC 7 — mais +X est le lateral SORTANT et **+Z pointe vers
+   l'ARRIERE**, PAS vers l'avant comme sa §7 l.130 et cette ligne l'ecrivaient : `gz > 0` =
+   SUPINE. Mesure et consequences : [NOTE-408]. LECTURE HORS DEFAUT : 1/1/1.
    Justification complete : [NOTE-296] de jak-hd-physics-NOTES.md."
   (let ((sc (+ (* slot PHYS-CHAINS) chain)))
     (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS))

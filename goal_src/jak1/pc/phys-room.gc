@@ -977,7 +977,22 @@
 ;; morph targets ; the equilibrium state shall vary CONTINUOUSLY with the local gravity direction ».
 ;; Une salle qui ne penche qu'a 60 degres vers l'avant ne peut ni verifier §10 (sur le dos), ni §12
 ;; (sur le cote), ni la CONTINUITE entre les deux — c'est le trou d'instrument que ce cycle ferme.
-;; `axis` 0 = tangage (avant/arriere, atteint prone et supine), 1 = roulis (lateral).
+;; `axis` 0 ET 1 : CE COMMENTAIRE NE NOMME PLUS RIEN, ET VOICI POURQUOI IL A ETE RETIRE.
+;; Il disait « 0 = tangage (avant/arriere, atteint prone et supine), 1 = roulis (lateral) ».
+;; LES DEUX ETAIENT FAUX, et le cycle 67 en a conclu que §13 etait INJOUABLE faute d'un
+;; operateur inclinant le sujet autour de son axe LATERAL. Cet operateur est `axis 1`, et il
+;; tourne dans toutes les courses depuis que ce balayage existe. La trace le dit :
+;;   axis 0 -> rotation autour du MONDE X, a 6.6 deg de l'axe avant/arriere du sujet : c'est un
+;;             ROULIS. `PHYSORI4 r0` (gravite projetee sur le lateral sortant de l'ancre) y monte
+;;             a +0.9797 (i=2) et -0.9797 (i=4) : gravite LATERALE, le geste de sa §12.
+;;   axis 1 -> rotation autour du MONDE Z, a 11.5 deg de l'axe LATERAL du sujet : c'est un
+;;             TANGAGE. `PHYSORI4 r2` y monte a -0.9933 (i=6) et +0.9933 (i=8), et -0.7702 a
+;;             i=5 : penche AVANT de 45 deg, le geste que sa §13 chiffre.
+;; LE ROLE D'UNE CELLULE NE SE LIT PLUS ICI. Il se derive de `PHYSORI4` — la gravite mesuree par
+;; cellule dans la base de l'ancre — par le chemin unique `orole()` de `physics_room_table.py`.
+;; Deux cycles avaient deja constate que l'etiquette de `axis 0` etait fausse et l'avaient note
+;; A DEUX SITES D'APPEL (voir plus bas, PH-SYM) au lieu de la retirer d'ici : une note par site
+;; est un verrou deguise, elle n'a jamais atteint `axis 1`, et §13 l'a paye.
 (defbehavior physroom-orient phys-subject ((axis int) (deg float))
   (set-vector! (-> self vel) 0.0 0.0 0.0 1.0)
   (vector-copy! (-> self root trans) (-> self home))
@@ -996,7 +1011,12 @@
                                0.0 45.0 90.0 -45.0 -90.0 45.0 90.0 -45.0 -90.0))
 
 (defbehavior physroom-lean phys-subject ((deg float))
-  "immobile mais PENCHEE de `deg` degres vers l'avant. L'excitation d'acceleration retombe a zero,
+  "immobile mais INCLINEE de `deg` degres SUR LE COTE — le nom `lean` et la phrase « vers l'avant »
+   qui tenaient ici etaient faux : la rotation est autour du MONDE X, a 6.6 deg de l'axe
+   avant/arriere du sujet, donc un ROULIS. Mesure : l'ecart au miroir passe de 0.237 deg (pose
+   `idle`) a 143.213 deg (pose `tilt`), ce qu'une rotation autour du lateral ne peut pas faire
+   (elle commute avec la reflexion). Le penche AVANT que reclame la 6e passe de l'owner est joue
+   par `physroom-orient axis=1`, cellules i=5 et i=6 du balayage. L'excitation d'acceleration retombe a zero,
    donc ce qui reste dans l'ecart a la pose du modele n'est plus que la gravite. C'est la mesure
    que reclame la 6e passe de l'owner : « aucun mouvement quand elle se penche en avant pour
    souder, pas coherent du tout »."

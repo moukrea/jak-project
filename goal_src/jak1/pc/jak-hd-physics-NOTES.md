@@ -7288,3 +7288,40 @@ LA ROTATION DE L'OFFSET N'EST PAS LE DEFAUT QU'ON INJECTE : elle decrit comment
 le volume suit l'os. Le defaut injecte est « A de penetration en plus », et il
 se pose sur le point qui porte la penetration.
 ```
+
+
+## [NOTE-408] LE `+Z` DU TRIEDRE DE §7 POINTE VERS L'ARRIERE — MESURE, CYCLE 69
+
+`SPEC-breast-softbody.md` l.130 ecrit « `+Z = forward from chest` ». Le trièdre construit a
+`jak-hd-physics.gc:3532-3547` pose `fz = +e[ia]` orthogonalise contre `fy`, **avec le signe `+`
+ecrit en dur et aucune mesure**. Sur le rig livre, `ia = 2` (`PHYSAXIS rap=2`), et `+e2` pointe
+vers l'ARRIERE. Trois routes independantes, toutes sur des donnees publiees :
+
+1. **L'os de racine de chaque sein**, `PHYSURST` (base de l'ancre) : composante `fz` de
+   **-0.14776** (chestL) et **-0.14794** (chestR). Un sein FAIT SAILLIE ; il pointe donc a
+   l'oppose de `+fz`. Les deux chaines s'accordent a 0.12 %.
+2. **Trois marqueurs d'anatomie sur `keira-hd-donor-injected.glb`**, en espace `chest`, axe 2 :
+   frange (`Lbanga`/`Rbanga`) **-0.3135**, lunettes (`gogglesMid`) **-0.2189**, nuque
+   (`backHair1`/`backHair2`) **+0.0618 / +0.0990**. L'avant du crane est negatif, l'arriere positif.
+3. **La rotation commandee du balayage d'orientation** : la cellule `i=6` est `Rz(+90)` autour du
+   monde ; la gravite monde `(0,-1,0)` y devient `(-1,0,0)` en coordonnees du corps, et
+   `PHYSORI4 r2 = -0.9933`. Le triplet d'echelles de cette cellule est `0.8912 / 0.9199 / 1.2195`,
+   c'est-a-dire **§11 prone** (largeur -10 %, epaisseur -9 %, longueur +23 %). Une gravite
+   `r2 < 0` correspond donc au sein PENDANT, donc a une gravite vers l'AVANT.
+
+**LE CALCUL AVAL EST JUSTE, C'EST LA CONVENTION QUI S'ECARTE DE LA SPEC.** `:3569-3570` pose
+`wbk = max(0, -gzc)` et `wfw = max(0, gzc)`, et `:3576-3581` donne a `wbk` le triplet prone
+`0.900/0.910/1.230` et a `wfw` le triplet supine `1.230/1.090/0.700`. Les deux erreurs de sens
+— convention inversee et affectation inversee — se compensent exactement, ce qui rend le defaut
+INVISIBLE a toute mesure de sortie et visible seulement en lisant les deux ensemble.
+
+**CE QUE CA COUTE QUAND MEME :** tout consommateur NEUF qui lit `gz` en croyant la docstring ou
+la §7 inversera §10 et §11. C'est arrive : la docstring de `phys-shape` l'ecrivait, et
+**[NOTE-67] et [NOTE-68] sont PERIMEES** — elles concluent sur `axa = 0` alors que la course
+publie `rap = 2`, et NOTE-68 conclut « +ligne[axa] = l'avant », l'inverse de ce que le rig livre
+mesure. Ne pas les relire comme des references.
+
+**PORTEE DE LA CORRECTION DE CE CYCLE :** aucune ligne de calcul n'est touchee. Seules les
+docstrings fausses sont corrigees, et le NOMMAGE des cellules d'orientation passe desormais par
+un chemin unique cote tableau (`orole()`), qui derive le role de `PHYSORI4` au lieu de le lire
+dans une etiquette. Une etiquette ne se verifie pas ; une gravite mesuree si.

@@ -1,0 +1,107 @@
+QUESTIONS ECRITES AVANT LA COURSE — CYCLE 69
+DIRECTIVES v3fee554599
+Perimetre : Grecharged-secondary-motion, branche physics-keira-clean, chestL/chestR SEULES.
+
+================================================================================================
+AVERTISSEMENT DE NATURE — CE CYCLE EST UN CYCLE DE LECTURE, PAS DE PREDICTION
+================================================================================================
+La plus grande partie de ce que le cycle 69 etablit se lit dans une trace QUI EXISTE DEJA (la
+course du cycle 68, md5 relevable dans le tableau livre). Trois flux y sont emis a chaque course
+et n'ont AUCUN LECTEUR : `PHYSORI4`, `PHYSDFMA`, `PHYSORICTL3`. Le premier est la gravite mesuree
+PAR CELLULE dans la base de l'ancre — exactement la grandeur qui nomme le role de chaque cellule
+du balayage d'orientation.
+
+Je ne peux donc pas "predire" le verdict de §13 : la donnee est deja la, et pretendre le contraire
+serait fabriquer une pre-registration. Ce qui suit se separe en deux blocs, et je les separe
+explicitement pour qu'aucun lecteur ne prenne l'un pour l'autre :
+  - BLOC A : ce que je LIS dans la trace existante, ecrit ici avant de le publier, pour qu'on
+    puisse verifier que je n'ai pas ajuste apres coup ;
+  - BLOC B : les questions dont la reponse N'EXISTE PAS ENCORE — elles portent sur la course
+    NEUVE (reproductibilite des deux canaux nouvellement lus, non-regression apres correction des
+    docstrings). Celles-la sont de vraies predictions.
+
+================================================================================================
+BLOC A — CE QUE JE LIS DANS LA TRACE EXISTANTE (post-hoc, declare comme tel)
+================================================================================================
+A1. `+Z` du triedre de §7 pointe vers l'ARRIERE, alors que la §7 l.130 ecrit « +Z = forward from
+    chest ». Trois routes independantes : os de racine `PHYSURST fz` = -0.14776 / -0.14794 ; trois
+    marqueurs d'anatomie sur le glb livre (frange -0.3135, lunettes -0.2189, nuque +0.0618/+0.0990
+    sur l'axe 2 de `chest`) ; la rotation commandee de la cellule i=6 composee avec la gravite
+    monde. Les trois concordent.
+
+A2. Le balayage d'orientation joue DEUX plans, et les etiquettes du code les nommaient a l'ENVERS
+    sur LES DEUX axes : `axis 0` (monde X) est un ROULIS (gravite laterale, `PHYSORI4 r0` = +-0.9797
+    a i=2 / i=4), `axis 1` (monde Z) est un TANGAGE (`PHYSORI4 r2` = -0.9933 a i=6, +0.9933 a i=8).
+
+A3. CONSEQUENCE, ET C'EST LA CORRECTION QUE JE ME FAIS A MOI-MEME : la conclusion du cycle 67,
+    repetee au cycle 68 — « §13 est INJOUABLE avec les operateurs actuels, il manque un operateur
+    qui incline autour de l'axe LATERAL du sujet » — est FAUSSE. Cet operateur est `physroom-orient
+    axis=1`, il tient la pose quasi-statiquement, et la cellule i=5 (`PHYSORI4 r2 = -0.7702`) EST
+    le penche AVANT de 45 deg que §13 chiffre. Il tournait dans toutes les courses.
+
+A4. Les roles derives de la gravite MESUREE et ceux derives du triplet d'echelles compare aux
+    constantes de la spec CONCORDENT sur les quatre poles et les deux chaines : i=6 prone (§11),
+    i=8 supine (§10), i=2 / i=4 lateraux (§12). C'est la premiere confrontation NON TAUTOLOGIQUE
+    de ces roles — le triplet seul ne pouvait pas echouer, la gravite ne passe pas par les morphs.
+
+A5. §13, continuite : aux quatre cellules intermediaires (i=1, 3, 5, 7), les trois echelles se
+    placent STRICTEMENT entre celles de leurs deux poles voisins, sur les DEUX chaines — 24 tests
+    sur 24. Au penche avant de 45 deg (i=5) : largeur 0.9415 / 0.9479, hauteur 0.9563 / 0.9528,
+    longueur 1.1105 / 1.1071, contre 1.000 debout et 0.8912 / 0.9199 / 1.2195 en prone.
+
+A6. Ce que §13 N'A PAS : le descripteur « forward/DOWNWARD COM migration ». Le deplacement publie
+    a i=5 a une composante VERS LE HAUT (chestL ty = +26.59 u pour tz = -133.95 u). Je le publie
+    comme tel ; je n'ai pas de cause et je n'en invente pas.
+
+================================================================================================
+BLOC B — LES VRAIES QUESTIONS : LA COURSE NEUVE, DONT LA DONNEE N'EXISTE PAS ENCORE
+================================================================================================
+Q1. REPRODUCTIBILITE DU CANAL QUI PORTE TOUT. Sur la course neuve, `PHYSORI4` doit republier 18
+    lignes et `PHYSURST` 4 lignes, et les valeurs doivent etre IDENTIQUES A LA QUATRIEME DECIMALE
+    a celles de la course du cycle 68. Je m'engage sur : ecart max < 0.0002 sur les 54 composantes
+    de `PHYSORI4` et sur les 12 de `PHYSURST`.
+    CE QUI ME REFUTE : un ecart superieur. Alors le canal n'est pas reproductible et il ne peut
+    porter aucun verdict — §13 retournerait a NON ETABLI et je le dirais.
+
+Q2. NON-REGRESSION APRES CORRECTION DES DOCSTRINGS. Les modifications de ce cycle sont des
+    COMMENTAIRES (phys-room.gc, jak-hd-physics.gc) et rien d'autre. Je m'engage sur : la trace
+    neuve est IDENTIQUE AU BIT a celle du cycle 68 apres retrait des lignes d'horodatage.
+    CE QUI ME REFUTE : la moindre ligne differente. Alors une de mes editions a touche du calcul,
+    et je le publie au lieu de le lisser.
+
+Q3. LE PLAFOND DU MOTEUR. `jak-hd-physics.gc` doit rester sous 4800 lignes apres l'edition.
+    Engage : 4798.
+
+Q4. LE VERROU DE NOMMAGE MORD. Une fois `orole()` pose comme chemin unique, le tableau doit
+    CONTREDIRE au moins une etiquette existante. Je m'engage sur : au moins UNE ligne du tableau
+    change de libelle de role, et je la nomme d'avance — `ROOM-ORICTL-DIAG` (physics_room_table.py
+    :1400) ecrit « supine i=6 · prone i=8 », l'inverse du role mesure et l'inverse de ce que la
+    ligne `ROOM-ORICOM-ROLE` du MEME tableau publie deja.
+    CE QUI ME REFUTE : zero contradiction levee. Un verrou qui ne refuse jamais rien n'en est pas
+    un — c'est le critere du cycle 67 et je le reprends tel quel.
+
+Q5. LA GARDE DE VACUITE. `orole()` doit REFUSER de nommer une cellule dont la marge est faible.
+    Seuil declare AVANT lecture : une cellule n'est nommee que si la composante dominante de sa
+    gravite depasse 0.60 et depasse la deuxieme d'un facteur 1.5. Je m'engage sur : les 9 cellules
+    passent (i=0 etant nommee « debout » par |g_vertical| > 0.60), et AUCUNE n'est refusee.
+    CE QUI ME REFUTE : une cellule refusee. Alors le balayage a une cellule ambigue et les
+    sections qui la lisent doivent le declarer.
+
+Q6. §13 NE PEUT PAS DEVENIR `TENUE` CE CYCLE-CI, ET JE L'ECRIS AVANT DE MESURER. Deux de ses
+    quatre descripteurs (« redistribution toward the lower/distal pole », et la migration COM
+    « forward/downward ») ne sont pas jugeables avec les canaux disponibles : le premier demande
+    une repartition par maillon que `PHYSORICOML` donne mais dont la garde de concordance suspend
+    des cellules, le second echoue sur le signe vertical (A6). Le statut vise est donc
+    `PARTIELLE`, pas `TENUE`. Si je publie `TENUE`, c'est que j'ai rabote une cible.
+
+================================================================================================
+CE QUE CE CYCLE NE FAIT PAS, ECRIT AVANT DE COMMENCER
+================================================================================================
+N1. Il ne corrige PAS l'axe de §17. `physroom-run-z` accelere le long du monde Z, a 86.3 deg de
+    l'axe avant/arriere du sujet : la « course » de §17 est une embardee LATERALE. Mesure connue,
+    correction NON faite — elle demande un operateur de TRANSLATION en repere sujet et une phase
+    appendue, c'est un cycle a soi seul.
+N2. Il ne touche AUCUN terme du solveur. Aucune constante, aucun reglage, aucun parametre livre.
+N3. Il ne corrige pas la convention `+Z` de la §7 dans le CALCUL. Les deux erreurs de sens se
+    compensent exactement en aval ; y toucher sans passe appariee casserait §10 et §11 ensemble.
+N4. Aucune mesure visuelle, aucune capture. Interdiction permanente.

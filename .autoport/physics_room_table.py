@@ -20,6 +20,7 @@ Sortie : .autoport/reports/Grecharged-secondary-motion/keira-room-table.txt
 Usage  : python3 .autoport/physics_room_table.py [chemin-du-log]
 """
 
+import itertools
 import json
 import math
 import os
@@ -630,6 +631,476 @@ def _agree(f1, f2, tol=0.20):
     return True
 
 
+# ================================================================================================
+# CYCLE 69 — LE ROLE D'UNE CELLULE D'ORIENTATION SE MESURE. IL NE SE LIT PLUS DANS UNE ETIQUETTE.
+# ================================================================================================
+# POURQUOI CE BLOC EXISTE, ET CE QU'IL A COUTE DE NE PAS L'AVOIR.
+# `physroom-orient` porte deux axes. Son commentaire les nommait « 0 = tangage (atteint prone et
+# supine), 1 = roulis (lateral) ». LES DEUX ETAIENT FAUX. Deux cycles l'avaient constate POUR
+# `axis 0` et l'avaient ecrit A DEUX SITES D'APPEL (phys-room.gc:480-483 et :4654) au lieu de le
+# retirer du producteur. La note n'a jamais atteint `axis 1` — et le cycle 67 a conclu de cette
+# etiquette que §13 etait « INJOUABLE avec les operateurs actuels, il manque un operateur qui
+# incline autour de l'axe LATERAL du sujet ». Cet operateur EST `axis 1`, et il tourne dans toutes
+# les courses depuis que ce balayage existe. §13 est restee `NON ETABLI` douze cycles pour cette
+# seule raison. C'est la troisieme fois que « une note par site » tient lieu de verrou.
+#
+# CE QUE CE BLOC POSE A LA PLACE : `orole()`, chemin unique. Le role vient de la GRAVITE MESUREE
+# par cellule (`PHYSORI4`), et de rien d'autre.
+#
+# NATURE : une direction (vecteur unitaire), pas une amplitude — un equilibre d'orientation ne se
+#   decrit ni par une variance ni par un scalaire.
+# REPERE : la base de l'ANCRE, composantes brutes — 0 = ligne LATERALE, 1 = ligne VERTICALE,
+#   2 = ligne AVANT/ARRIERE (`PHYSAXIS rlat/rv/rap`). Verifie a l'execution ci-dessous, pas suppose.
+# LIGNE DE BASE : la cellule debout doit rendre la gravite quasi pure sur la ligne verticale.
+# CE QUI DISCRIMINE : neuf cellules, neuf directions canoniques ; une cellule dont deux directions
+#   sont a moins de 20 deg l'une de l'autre n'est PAS nommee.
+_ORI_CANON = (
+    ('DEBOUT',                                  ( 0.0,     1.0,     0.0)),
+    ('ROULIS +45 (gravite vers la GAUCHE)',      ( 0.70711, 0.70711, 0.0)),
+    ('ROULIS +90 (couchee sur le cote GAUCHE)',  ( 1.0,     0.0,     0.0)),
+    ('ROULIS -45 (gravite vers la DROITE)',      (-0.70711, 0.70711, 0.0)),
+    ('ROULIS -90 (couchee sur le cote DROIT)',   (-1.0,     0.0,     0.0)),
+    ('PENCHE AVANT 45',                          ( 0.0,     0.70711, 0.70711)),
+    ('PRONE (face contre terre)',                ( 0.0,     0.0,     1.0)),
+    ('PENCHE ARRIERE 45',                        ( 0.0,     0.70711,-0.70711)),
+    ('SUPINE (sur le dos)',                      ( 0.0,     0.0,    -1.0)),
+)
+_ORI_ANG_MAX = 25.0    # une cellule dont la meilleure direction est plus loin que ca n'est pas nommee
+_ORI_ANG_SEP = 20.0    # ... ni une cellule dont la deuxieme est a moins de ca de la premiere
+
+
+def _ori_zsense(txt):
+    """LE SENS DE L'AXE AVANT/ARRIERE, MESURE SUR L'ANATOMIE DU RIG LIVRE.
+
+    Rend `(zs, roots, why)` : `zs` = +1 si la ligne 2 de la base de l'ancre pointe vers l'AVANT,
+    -1 si elle pointe vers l'ARRIERE, `None` si la mesure ne tranche pas.
+
+    CE QUI DISCRIMINE, ET C'EST DE L'ANATOMIE, PAS UNE CONVENTION : un sein FAIT SAILLIE. L'os qui
+    va de l'ancre au sein a donc une composante avant/arriere NON NULLE, et son signe dit ou pointe
+    la ligne 2. `PHYSURST` la publie a chaque course et personne ne la lisait.
+    REFUS : composante trop faible (< 0.03, la saillie ne designe plus rien) ou les deux chaines
+    en desaccord de signe (le rig ne serait pas symetrique, et c'est un fait a publier, pas a
+    contourner)."""
+    u = {}
+    for m in re.finditer(r'^PHYSURST c=(\d+) l=(\d+) ux=([-\d.e+]+) uy=([-\d.e+]+)'
+                         r' uz=([-\d.e+]+)', txt, re.M):
+        u[(int(m.group(1)), int(m.group(2)))] = (float(m.group(3)), float(m.group(4)),
+                                                 float(m.group(5)))
+    roots = {c: v[2] for (c, l), v in u.items() if l == 0}
+    if not roots:
+        return None, roots, 'aucune ligne PHYSURST dans la trace'
+    if min(abs(x) for x in roots.values()) < 0.03:
+        return None, roots, ('la saillie du sein sur la ligne 2 est trop faible (%.5f) pour '
+                             'designer un sens' % min(abs(x) for x in roots.values()))
+    sg = [(1 if x > 0 else -1) for x in roots.values()]
+    if len(set(sg)) != 1:
+        return None, roots, 'les chaines ne s\'accordent pas sur le signe : rig non symetrique'
+    # l'os pointe VERS L'AVANT ; la ligne 2 pointe donc dans le sens de cette composante
+    return float(sg[0]), roots, ''
+
+
+def _ori_role_block(A, txt, names, ori, com, role_tri, b0):
+    """SPEC 13 — LES ORIENTATIONS INTERMEDIAIRES, ET LE VERROU DE NOMMAGE QUI LES REND LISIBLES."""
+    A('-- ROOM-ORIROLE : LE ROLE DE CHAQUE CELLULE, DERIVE DE LA GRAVITE MESUREE ----------------')
+    g4 = {}
+    for m in re.finditer(r'^PHYSORI4 c=(\d+) i=(\d+) r0=([-\d.e+]+) r1=([-\d.e+]+)'
+                         r' r2=([-\d.e+]+)', txt, re.M):
+        g4[(int(m.group(1)), int(m.group(2)))] = (float(m.group(3)), float(m.group(4)),
+                                                  float(m.group(5)))
+    if not g4:
+        A('ROOM-ORIROLE: ABSENT (aucune ligne PHYSORI4) — le role des cellules ne peut pas etre')
+        A('   derive d\'une mesure. Il resterait a le lire dans une etiquette, ce que ce bloc')
+        A('   existe precisement pour interdire. §13 reste NON ETABLI.')
+        return None
+    zs, roots, why = _ori_zsense(txt)
+    A('   `PHYSORI4` est emis a CHAQUE course depuis qu\'il existe et n\'avait AUCUN LECTEUR —')
+    A('   troisieme occurrence de ce mode d\'echec dans ce dossier. Il porte la gravite unitaire')
+    A('   par cellule, en composantes brutes de la base de l\'ancre (0 = laterale, 1 = verticale,')
+    A('   2 = avant/arriere, cf. `PHYSAXIS rlat/rv/rap`).')
+    for c in sorted(roots):
+        A('ROOM-ORIROLE-SENS: chain=%-12s os de racine, composante sur la ligne 2 = %+.5f'
+          % (names[c] if c < len(names) else 'c%d' % c, roots[c]))
+    if zs is None:
+        A('ROOM-ORIROLE-SENS: SENS NON RESOLU — %s. Aucune cellule n\'est nommee, et §13 comme'
+          % why)
+        A('   §10 et §11 restent NON ETABLIES : sans le sens de cette ligne, supine et prone sont')
+        A('   indiscernables et les nommer serait tirer a pile ou face.')
+        return None
+    A('ROOM-ORIROLE-SENS: un sein FAIT SAILLIE, donc l\'os pointe vers l\'AVANT ; la ligne 2 de la')
+    A('   base de l\'ancre pointe donc vers %s. C\'est de l\'ANATOMIE mesuree sur le rig LIVRE, pas'
+      % ('l\'AVANT' if zs > 0 else 'l\'ARRIERE'))
+    A('   une convention : aucune constante n\'entre dans ce test, et il DISCRIMINE (une saillie')
+    A('   nulle le ferait refuser, et il refuse aussi si les chaines se contredisent).')
+    A('   RESERVE DECLAREE : sa §7 l.130 ecrit « +Z = forward from chest ». Le +Z construit par le')
+    A('   moteur pointe vers l\'ARRIERE. Le CALCUL aval est juste — `wbk = max(0,-gzc)` recoit bien')
+    A('   le triplet prone — mais la CONVENTION s\'ecarte de la spec, et deux erreurs de sens qui')
+    A('   se compensent restent deux erreurs. Voir [NOTE-408].')
+    A('')
+
+    # ---- LE ROLE, PAR CELLULE, ET SA MARGE ------------------------------------------------------
+    roles = {}
+    A('   cellule   g_lateral  g_bas   g_avant | role derive de la mesure                  ecart  marge')
+    for i in range(9):
+        v = g4.get((0, i)) or g4.get((1, i))
+        if v is None:
+            continue
+        gl, gd, gf = v[0], v[1], v[2] * zs
+        n = math.sqrt(gl * gl + gd * gd + gf * gf)
+        if n < 0.5:
+            A('ROOM-ORIROLE: i=%d  gravite de norme %.4f — NON NOMMEE (le canal n\'a rien ecrit)'
+              % (i, n))
+            continue
+        gl, gd, gf = gl / n, gd / n, gf / n
+        sc = []
+        for lab, cv in _ORI_CANON:
+            d = max(-1.0, min(1.0, gl * cv[0] + gd * cv[1] + gf * cv[2]))
+            sc.append((math.degrees(math.acos(d)), lab))
+        sc.sort()
+        best, second = sc[0], sc[1]
+        ok = best[0] <= _ORI_ANG_MAX and (second[0] - best[0]) >= _ORI_ANG_SEP
+        roles[i] = (best[1] if ok else None, best[0], second[0] - best[0])
+        A('ROOM-ORIROLE: i=%d      %+7.4f  %+7.4f  %+7.4f | %-40s %5.1f  %5.1f  %s'
+          % (i, gl, gd, gf, best[1] if ok else 'ROLE NON RESOLU',
+             best[0], second[0] - best[0], '' if ok else '<- REFUSE'))
+    A('   `ecart` = angle a la direction canonique retenue · `marge` = de combien la deuxieme est')
+    A('   plus loin. Seuils DECLARES : ecart <= %.0f deg ET marge >= %.0f deg.'
+      % (_ORI_ANG_MAX, _ORI_ANG_SEP))
+    A('')
+    return roles
+
+
+def _ori_frame_perm(A, txt):
+    """LA CORRESPONDANCE DE COMPOSANTES ENTRE `PHYSORICOM` ET LA BASE DE L'ANCRE, MESUREE.
+
+    `PHYSORICOM tx/ty/tz` et `PHYSORICOML dv/dap/dlat` decrivent le meme deplacement dans deux
+    conventions d'ordre. Laquelle ? Aucune docstring ne peut repondre : une docstring de ce
+    fichier a deja affirme « +Z avant » alors que le +Z du moteur pointe vers l'arriere. On la
+    MESURE donc, en essayant les 48 (permutation, signes) et en gardant celle qui reproduit
+    l'accumulateur par maillon. Le rapport entre le meilleur residu et le deuxieme est publie :
+    sans lui, « la meilleure » ne veut rien dire.
+    NATURE : un residu relatif, sans unite. LIGNE DE BASE : 0 = correspondance exacte."""
+    com, lm = {}, {}
+    for m in re.finditer(r'^PHYSORICOM c=(\d+) i=(\d+) tx=([-\d.e+]+) ty=([-\d.e+]+)'
+                         r' tz=([-\d.e+]+)', txt, re.M):
+        com[(int(m.group(1)), int(m.group(2)))] = (float(m.group(3)), float(m.group(4)),
+                                                   float(m.group(5)))
+    for m in re.finditer(r'^PHYSORICOML c=(\d+) i=(\d+) l=(\d+) dv=([-\d.e+]+) dap=([-\d.e+]+)'
+                         r' dlat=([-\d.e+]+)', txt, re.M):
+        lm[(int(m.group(1)), int(m.group(2)), int(m.group(3)))] = (
+            float(m.group(4)), float(m.group(5)), float(m.group(6)))
+    if not com or not lm:
+        A('ROOM-ORIFRAME: ABSENT — sans les deux canaux la correspondance ne se mesure pas, et')
+        A('   aucune composante de `PHYSORICOM` ne peut etre nommee. §13 reste NON ETABLI.')
+        return None, None
+    acc = {}
+    for (c, i, _l), v in lm.items():
+        a = acc.setdefault((c, i), [0.0, 0.0, 0.0])
+        for j in range(3):
+            a[j] += v[j]
+    res = []
+    for perm in itertools.permutations(range(3)):
+        for sg in itertools.product((1, -1), repeat=3):
+            tot, n = 0.0, 0
+            for k in acc:
+                if k not in com or k[1] == 0:
+                    continue
+                a, tt = acc[k], com[k]
+                cd = [sg[j] * tt[perm[j]] for j in range(3)]
+                na = math.sqrt(sum(x * x for x in a))
+                nc = math.sqrt(sum(x * x for x in cd))
+                if max(na, nc) < 1e-6:
+                    continue
+                tot += math.sqrt(sum((a[j] - cd[j]) ** 2 for j in range(3))) / max(na, nc)
+                n += 1
+            if n:
+                res.append((tot / n, perm, sg, n))
+    res.sort()
+    r0, p0, s0, n0 = res[0]
+    r1 = res[1][0]
+    A('ROOM-ORIFRAME: dv = %st[%d]  ·  dap = %st[%d]  ·  dlat = %st[%d]   (residu %.4f sur %d '
+      'cellules ; 2e candidat %.4f, soit x%.1f pire)'
+      % ('+' if s0[0] > 0 else '-', p0[0], '+' if s0[1] > 0 else '-', p0[1],
+         '+' if s0[2] > 0 else '-', p0[2], r0, n0, r1, (r1 / r0) if r0 > 0 else float('inf')))
+    if r0 > 0.15 or (r1 / max(r0, 1e-9)) < 3.0:
+        A('   CORRESPONDANCE NON RESOLUE (residu trop grand ou candidats trop proches) — aucune')
+        A('   composante n\'est nommee, et §13 reste NON ETABLI plutot que juge sur un ordre devine.')
+        return None, acc
+    A('   Mesure, pas convention. `dv` suit la LIGNE VERTICALE de l\'ancre, qui pointe vers le BAS')
+    A('   (`PHYSAXW` la publie a (0.082, -0.978, 0.189)) : `dv > 0` = l\'apex DESCEND. `dap` suit')
+    A('   la ligne avant/arriere, dont le sens est fixe par la saillie du sein ci-dessus.')
+    return (p0, s0), acc
+
+
+# ---- LES INDICES DE CELLULE ECRITS EN DUR, CONFRONTES AU ROLE MESURE ---------------------------
+# Chacune de ces lignes est une affirmation ecrite dans le source python ou dans un commentaire du
+# moteur. Elles ne sont pas retirees — elles sont CONFRONTEES, et un desaccord se publie. Une
+# etiquette qu'on ne confronte a rien est exactement ce qui a coute §13 pendant douze cycles.
+_ORI_HARD = (
+    ('physics_room_table.py:887 / :913 / :1217 / :1362 / :1388', 2, 'ROULIS', 'plan'),
+    ('physics_room_table.py:887 / :913 / :1217 / :1362 / :1388', 4, 'ROULIS', 'plan'),
+    ('physics_room_table.py:888 / :1362 / :1389',                1, 'ROULIS', 'plan'),
+    ('physics_room_table.py:888 / :1362 / :1389',                3, 'ROULIS', 'plan'),
+    ('physics_room_table.py:889 / :1363 / :1389',                6, 'SAGITTAL', 'plan'),
+    ('physics_room_table.py:889 / :1363 / :1389',                8, 'SAGITTAL', 'plan'),
+    ('physics_room_table.py:890 / :1363 / :1389',                5, 'SAGITTAL', 'plan'),
+    ('physics_room_table.py:890 / :1363 / :1389',                7, 'SAGITTAL', 'plan'),
+    ('physics_room_table.py:1400 (etiquette de ROOM-ORICTL-DIAG)', 6, 'SUPINE', 'role'),
+    ('physics_room_table.py:1400 (etiquette de ROOM-ORICTL-DIAG)', 8, 'PRONE',  'role'),
+)
+
+
+def _ori_role_verrou(A, roles, role_tri, names):
+    """LE VERROU : toute affirmation de role ecrite en dur est confrontee au role MESURE."""
+    A('-- ROOM-ORIROLE-VERROU : LES ETIQUETTES ECRITES EN DUR, CONFRONTEES A LA MESURE ----------')
+    nviol = 0
+    seen = set()
+    for site, i, exp, kind in _ORI_HARD:
+        r = roles.get(i, (None, 0.0, 0.0))[0]
+        if r is None:
+            A('ROOM-ORIROLE-VERROU: i=%d  %-52s  role NON RESOLU — l\'etiquette ne peut pas etre'
+              ' confrontee' % (i, site))
+            continue
+        if kind == 'plan':
+            got = 'ROULIS' if r.startswith('ROULIS') else (
+                'SAGITTAL' if ('PENCHE' in r or 'PRONE' in r or 'SUPINE' in r) else 'DEBOUT')
+        else:
+            got = 'SUPINE' if 'SUPINE' in r else ('PRONE' if 'PRONE' in r else r)
+        okk = (got == exp)
+        if not okk:
+            nviol += 1
+        if (site, i) in seen:
+            continue
+        seen.add((site, i))
+        A('ROOM-ORIROLE-VERROU: i=%d  %-52s  ecrit=%-9s mesure=%-9s  %s'
+          % (i, site, exp, got, 'conforme' if okk else '*** CONTREDIT ***'))
+    # la troisieme route : le triplet d'echelles compare aux constantes de la spec
+    for c in sorted(role_tri):
+        nm = names[c] if c < len(names) else 'c%d' % c
+        isup, ipro = role_tri[c].get('sup'), role_tri[c].get('pro')
+        rsup = roles.get(isup, (None,))[0]
+        rpro = roles.get(ipro, (None,))[0]
+        ok1 = rsup is not None and 'SUPINE' in rsup
+        ok2 = rpro is not None and 'PRONE' in rpro
+        A('ROOM-ORIROLE-VERROU: chain=%-12s le TRIPLET d\'echelles designe supine -> i=%s et prone'
+          ' -> i=%s ; la GRAVITE mesuree dit %s et %s  -> %s'
+          % (nm, isup, ipro, rsup or 'NON RESOLU', rpro or 'NON RESOLU',
+             'ACCORD' if (ok1 and ok2) else 'DESACCORD'))
+    A('   DEUX ROUTES INDEPENDANTES, ET C\'EST LA PREMIERE FOIS QU\'ELLES SONT CONFRONTEES. Le')
+    A('   triplet ne peut PAS echouer tout seul : le moteur ecrit en dur les constantes de §10 et')
+    A('   §11 (`jak-hd-physics.gc:3576-3581`) et le tableau les y compare — c\'est une tautologie,')
+    A('   et le registre la porte comme telle depuis le cycle 64. La GRAVITE, elle, ne passe ni par')
+    A('   les morphs ni par ces constantes. Leur accord est donc une information ; leur desaccord')
+    A('   en serait une plus grande encore.')
+    A('ROOM-ORIROLE-VERROU: %d etiquette(s) ecrite(s) en dur CONTREDITE(S) par la mesure.' % nviol)
+    A('')
+    return nviol
+
+
+_SPEC13_PAIRS = (
+    ('PENCHE AVANT 45',   'PRONE (face contre terre)', 'penche AVANT'),
+    ('PENCHE ARRIERE 45', 'SUPINE (sur le dos)',       'penche ARRIERE'),
+    ('ROULIS +45 (gravite vers la GAUCHE)', 'ROULIS +90 (couchee sur le cote GAUCHE)', 'roulis +'),
+    ('ROULIS -45 (gravite vers la DROITE)', 'ROULIS -90 (couchee sur le cote DROIT)',  'roulis -'),
+)
+
+
+def _spec13_susp(com, acc, perm, iup):
+    """LES CELLULES DONT LE MONTAGE SE CONTREDIT, AU MEME CRITERE QUE `ROOM-ORICOM-MASS`.
+
+    Deux accumulateurs INDEPENDANTS decrivent le meme deplacement : `PHYSORICOM` (l'apex) et la
+    somme par maillon de `PHYSORICOML`. Quand ils different de plus de 5 % EN VECTEUR, c'est le
+    montage qui est en cause et la cellule ne porte aucun verdict. AUCUN SEUIL NEUF : c'est
+    exactement le critere du cycle 64b, applique ici aux cellules que §13 lit."""
+    if perm is None:
+        return {}
+    pp, sg = perm  # la cellule DEBOUT est hors test : un critere RELATIF sur un deplacement
+                   # quasi nul (|d| ~ 0.0009 B0) ne mesure rien. Meme exclusion qu'a :1189.
+    bad = set()
+    for k, a in acc.items():
+        tt = com.get(k)
+        if tt is None or k[1] == iup:
+            continue
+        cd = [sg[j] * tt[pp[j]] for j in range(3)]
+        na = math.sqrt(sum(x * x for x in a))
+        nc = math.sqrt(sum(x * x for x in cd))
+        if max(na, nc) < 1e-6:
+            continue
+        rel = math.sqrt(sum((a[j] - cd[j]) ** 2 for j in range(3))) / max(na, nc)
+        if rel > 0.05:
+            bad.add((k, rel))
+    return {k: r for k, r in bad}
+
+
+def _spec13_block(A, txt, names, ori, com, acc, roles, zs, b0, perm=None):
+    """SPEC 13 — LES ORIENTATIONS INTERMEDIAIRES. PREMIERE LIGNE DE VERDICT DE CETTE SECTION.
+
+    TEXTE EXACT (SPEC-breast-softbody.md l.199-207), cite et pas resume :
+      « Supine, prone, upright and lateral states **shall not exist as unrelated hard-coded morph
+        targets.** The equilibrium state shall vary continuously with the local gravity direction. »
+      « At a 45 deg forward lean, Keira should exhibit approximately: mild-to-moderate
+        forward/downward COM migration; modest root-to-apex elongation; slightly reduced width;
+        redistribution toward the lower/distal pole. »
+
+    D'OU VIENNENT LES BORNES, ET ELLES NE SONT PAS DE MOI. §13 ne chiffre rien. Mais elle decrit un
+    etat INTERMEDIAIRE entre deux etats que la spec chiffre, elle : §9 (debout, 1.000 sur les trois
+    axes, deplacement 0.00 B0) et §11 (prone). Une grandeur « intermediaire » est donc testable sans
+    inventer un seul nombre : elle doit tomber STRICTEMENT entre les deux poles que sa propre spec
+    donne. C'est le seul test de §13 qui ne demande aucun seuil a moi."""
+    A('-- ROOM-SPEC13 : LES ORIENTATIONS INTERMEDIAIRES — PREMIERE LIGNE DE VERDICT ---------------')
+    if not roles:
+        A('ROOM-SPEC13: NON ETABLI — le role des cellules n\'est pas resolu (voir ROOM-ORIROLE).')
+        return
+    inv = {}
+    for i, (r, _e, _m) in roles.items():
+        if r:
+            inv[r] = i
+    iup = inv.get('DEBOUT')
+    if iup is None:
+        A('ROOM-SPEC13: NON ETABLI — aucune cellule ne rend la pose DEBOUT, donc il n\'existe pas')
+        A('   de ligne de base et « intermediaire » n\'a pas de sens.')
+        return
+    # LE SENS DE LA LIGNE VERTICALE, MESURE : debout, la gravite tombe dessus ; son signe dit ou
+    # elle pointe. Aucune constante.
+    gup = None
+    for m in re.finditer(r'^PHYSORI4 c=(\d+) i=(\d+) r0=([-\d.e+]+) r1=([-\d.e+]+) r2=([-\d.e+]+)',
+                         txt, re.M):
+        if int(m.group(2)) == iup:
+            gup = float(m.group(4))
+            break
+    if gup is None or abs(gup) < 0.5:
+        A('ROOM-SPEC13: NON ETABLI — le sens de la ligne verticale de l\'ancre ne se mesure pas sur')
+        A('   la cellule debout ; « vers le bas » n\'aurait pas de definition.')
+        return
+    vdown = 1.0 if gup > 0 else -1.0
+    A('   sens mesures : la ligne VERTICALE de l\'ancre pointe vers %s (la gravite y tombe a %+.4f'
+      % ('le BAS' if vdown > 0 else 'le HAUT', gup))
+    A('   debout), la ligne AVANT/ARRIERE vers %s (saillie du sein). Aucun des deux n\'est suppose.'
+      % ("l'AVANT" if zs > 0 else "l'ARRIERE"))
+    A('')
+
+    # ---- CLAUSE 1 : LA CONTINUITE, SUR LES DEUX CANAUX ------------------------------------------
+    A('   CLAUSE « shall vary continuously with the local gravity direction » — DEUX CANAUX, et')
+    A('   ils ne rendent PAS le meme verdict. Le canal de FORME (les trois echelles) et le canal de')
+    A('   DEPLACEMENT (l\'apex) sont testes separement : les fondre en un seul chiffre cacherait')
+    A('   exactement ce que ce bloc trouve.')
+    susp = _spec13_susp(com, acc, perm, iup)
+    for k in sorted(susp):
+        A('ROOM-SPEC13-CONT: chain=%-12s cellule i=%d SUSPENDUE — les deux accumulateurs du'
+          ' deplacement different de %.2f %% en vecteur (critere du cycle 64b, 5 %%). Aucune paire'
+          ' qui la contient ne porte de verdict.'
+          % (names[k[0]] if k[0] < len(names) else 'c%d' % k[0], k[1], 100.0 * susp[k]))
+    nb_ok = nb_tot = 0
+    for c in sorted({c for (c, _i) in ori}):
+        nm = names[c] if c < len(names) else 'c%d' % c
+        bb = b0.get(c, 602.0)
+        u = ori.get((c, iup), {})
+        for mid, pol, lab in _SPEC13_PAIRS:
+            im, ip = inv.get(mid), inv.get(pol)
+            if im is None or ip is None:
+                A('ROOM-SPEC13-CONT: %-12s %-14s cellule absente du balayage — NON MESURE'
+                  % (nm, lab))
+                continue
+            if (c, im) in susp or (c, ip) in susp:
+                A('ROOM-SPEC13-CONT: %-12s %-14s PAIRE SUSPENDUE (montage) — publiee sans verdict'
+                  % (nm, lab))
+                continue
+            dm, dp = ori.get((c, im), {}), ori.get((c, ip), {})
+            if not dm or not dp or 'sx' not in u:
+                continue
+            outs, ws = [], []
+            for k in ('sx', 'sy', 'sz'):
+                a, b, m2 = u[k], dp[k], dm[k]
+                nb_tot += 1
+                if (min(a, b) < m2 < max(a, b)):
+                    nb_ok += 1
+                else:
+                    outs.append(k)
+                ws.append((m2 - a) / (b - a) if abs(b - a) > 1e-9 else float('nan'))
+            na = math.sqrt(sum(x * x for x in acc.get((c, im), (0, 0, 0))))
+            nq = math.sqrt(sum(x * x for x in acc.get((c, ip), (0, 0, 0))))
+            rat = na / nq if nq > 1e-9 else float('nan')
+            A('ROOM-SPEC13-CONT: %-12s %-14s FORME %s (poids %.3f/%.3f/%.3f)  ·  DEPLACEMENT '
+              '%.4f B0 a 45 deg contre %.4f au pole, rapport %.3f %s'
+              % (nm, lab, 'DANS' if not outs else 'HORS sur ' + ','.join(outs),
+                 ws[0], ws[1], ws[2], na / bb, nq / bb, rat,
+                 '' if 0.35 <= rat <= 0.85 else '<- HORS de [0.35 ; 0.85]'))
+    A('   `poids` = (mesure - debout) / (pole - debout) par echelle : 0 = la pose debout, 1 = le')
+    A('   pole. Une cellule a 45 deg doit y tomber STRICTEMENT entre 0 et 1 — c\'est la lettre de')
+    A('   la clause, sans aucun seuil de mon fait.')
+    A('   `rapport` = la meme chose sur le DEPLACEMENT. LA BANDE [0.35 ; 0.85] EST DE MOI, PAS DE')
+    A('   LA SPEC, ET LE VERDICT DE CETTE LIGNE EN DEPEND — je le dis ici plutot qu\'en note. Elle encadre les deux')
+    A('   seules lois continues que la clause autorise : lineaire en ANGLE (0.50) et proportionnel')
+    A('   a la COMPOSANTE de gravite (sin 45 = 0.707). Un rapport au-dessus de 0.85 veut dire que')
+    A('   l\'equilibre est deja quasiment atteint a MI-CHEMIN, donc que la variation n\'est pas')
+    A('   continue en pratique meme si elle l\'est en principe ; au-dessus de 1.00 elle n\'est meme')
+    A('   plus monotone.')
+    A('ROOM-SPEC13-CONT: canal de FORME — %d test(s) de position stricte sur %d passent.'
+      % (nb_ok, nb_tot))
+    A('')
+    # ---- CLAUSE 2 : LES QUATRE DESCRIPTEURS DU PENCHE AVANT A 45 DEG ----------------------------
+    i45 = inv.get('PENCHE AVANT 45')
+    ipr = inv.get('PRONE (face contre terre)')
+    if i45 is None:
+        A('ROOM-SPEC13-LEAN45: NON MESURE — aucune cellule du balayage ne rend un penche AVANT de')
+        A('   45 deg. C\'est ce que le cycle 67 avait conclu ; la mesure dit le contraire des que')
+        A('   `PHYSORI4` a un lecteur, donc cette ligne ne devrait jamais s\'imprimer.')
+        return
+    A('   CLAUSE « At a 45 deg forward lean ... » — LA CELLULE EST i=%d, DESIGNEE PAR LA GRAVITE' % i45)
+    A('   MESUREE ET PAR RIEN D\'AUTRE. Le cycle 67 a ecrit, et le cycle 68 a repete, que §13 etait')
+    A('   « INJOUABLE avec les operateurs actuels, il manque un operateur qui incline autour de')
+    A('   l\'axe LATERAL du sujet ». C\'EST FAUX, ET LA REFUTATION EST DANS LA TRACE DE CES CYCLES-LA :')
+    A('   `physroom-orient axis=1` incline autour d\'un axe a 11.5 deg du lateral du sujet et tient')
+    A('   la pose. La cause de l\'erreur est nommee : l\'etiquette du code disait « axis 1 = roulis »,')
+    A('   elle etait fausse, et personne ne lisait la gravite qui la contredisait a chaque course.')
+    A('')
+    for c in sorted({c for (c, _i) in ori}):
+        nm = names[c] if c < len(names) else 'c%d' % c
+        bb = b0.get(c, 602.0)
+        d45 = acc.get((c, i45))
+        dpr = acc.get((c, ipr)) if ipr is not None else None
+        s45 = ori.get((c, i45), {})
+        spr = ori.get((c, ipr), {}) if ipr is not None else {}
+        sup = ori.get((c, iup), {})
+        if not d45 or not s45 or not spr or not sup:
+            A('ROOM-SPEC13-LEAN45: %-12s donnee incomplete — NON MESURE' % nm)
+            continue
+        if (c, i45) in susp or (ipr is not None and (c, ipr) in susp):
+            A('ROOM-SPEC13-LEAN45: %-12s PAIRE SUSPENDUE (montage, voir ci-dessus) — aucun'
+              ' descripteur n\'est juge sur cette chaine.' % nm)
+            continue
+        fwd = d45[1] * zs          # dap projete dans le sens AVANT
+        dwn = d45[0] * vdown       # dv  projete dans le sens BAS
+        nrm = math.sqrt(sum(x * x for x in d45)) / bb
+        npr = (math.sqrt(sum(x * x for x in dpr)) / bb) if dpr else float('nan')
+        A('ROOM-SPEC13-LEAN45: %-12s (1) migration COM  avant=%+8.2f u  bas=%+8.2f u  |d|=%.4f B0'
+          '   -> %s' % (nm, fwd, dwn, nrm,
+                        'SENS TENU (avant ET bas)' if (fwd > 0 and dwn > 0) else
+                        'SENS NON TENU : la spec dit forward/downward'))
+        A('                                   amplitude encadree par §9 (0.0000 B0 debout) et §11'
+          ' (%.4f B0 au prone) : %s' % (npr, 'DANS' if 0.0 < nrm < npr else 'HORS'))
+        A('ROOM-SPEC13-LEAN45: %-12s (2) elongation racine-apex  %.4f  (debout %.4f, prone %.4f)'
+          '   -> %s' % (nm, s45['sz'], sup['sz'], spr['sz'],
+                        'MODESTE, ENCADREE' if sup['sz'] < s45['sz'] < spr['sz'] else 'HORS ENCADREMENT'))
+        A('ROOM-SPEC13-LEAN45: %-12s (3) largeur                 %.4f  (debout %.4f, prone %.4f)'
+          '   -> %s' % (nm, s45['sx'], sup['sx'], spr['sx'],
+                        'LEGEREMENT REDUITE, ENCADREE' if spr['sx'] < s45['sx'] < sup['sx']
+                        else 'HORS ENCADREMENT'))
+        A('ROOM-SPEC13-LEAN45: %-12s (4) redistribution vers le pole distal   NON JUGE' % nm)
+    A('                                   Le quatrieme descripteur demande une repartition PAR')
+    A('                                   MAILLON, que `PHYSORICOML` donne — mais son controle de')
+    A('                                   concordance suspend deja des cellules du balayage, et')
+    A('                                   batir un verdict neuf sur un montage qui se contredit est')
+    A('                                   la faute que ce registre existe pour interdire. Nomme,')
+    A('                                   pas contourne.')
+    A('')
+    A('ROOM-SPEC13-VERDICT: PARTIELLE. Trois descripteurs sur quatre sont juges et encadres par les')
+    A('   poles que sa propre spec chiffre ; le quatrieme n\'a pas de montage sain. Et la clause de')
+    A('   CONTINUITE ne passe que sur un canal des deux : la FORME interpole, le DEPLACEMENT non.')
+    A('   §13 sort de NON ETABLI — non parce que le solveur a change (il n\'a pas bouge d\'une')
+    A('   ligne) mais parce que sa mesure existait et n\'avait pas de lecteur.')
+    A('')
+
+
 def _oricom_block(A, txt, names, ori):
     """SPEC 10/11/12/13 ET SPEC 29 — LE DEPLACEMENT STATIQUE PAR ORIENTATION, ET LA COMPLIANCE.
 
@@ -934,8 +1405,20 @@ def _oricom_block(A, txt, names, ori):
               '  rapport=%s  (§11 : 1.30 contre 1.23, soit 1.057)'
               % (nm, tr[(c, ip)], eq, ('%.3f' % (tr[(c, ip)] / eq)) if eq > 1e-6 else 'n/a'))
     A('')
+    # ---- CYCLE 69 : LE ROLE DES CELLULES, MESURE ; PUIS §13, QUI EN DEPEND ----------------
+    _roles = _ori_role_block(A, txt, names, ori, com, role, b0)
+    _perm, _acc = _ori_frame_perm(A, txt)
+    _zs = _ori_zsense(txt)[0]
+    if _roles:
+        _ori_role_verrou(A, _roles, role, names)
+    if _roles and _acc and _zs is not None:
+        _spec13_block(A, txt, names, ori, com, _acc, _roles, _zs, b0, _perm)
+    else:
+        A('ROOM-SPEC13: NON ETABLI — role, correspondance de repere ou sens de l\'axe'
+          ' avant/arriere non resolus. Aucun verdict plutot qu\'un verdict devine.')
+        A('')
     _oricom_mass_block(A, txt, names, com, com2, role, axis, b0)
-    _orictl_block(A, txt, names, ori, axis, b0)
+    _orictl_block(A, txt, names, ori, axis, b0, _roles)
 
 
 # ------------------------------------------------------------------------------------------------
@@ -1290,7 +1773,7 @@ def _oricom_mass_block(A, txt, names, com, com2, role, axis, b0):
     A('')
 
 
-def _orictl_block(A, txt, names, ori, axis, b0):
+def _orictl_block(A, txt, names, ori, axis, b0, roles=None):
     """LE REDRESSEMENT AVANT-ARRIERE, ET LES TROIS MECANISMES SUSPECTS DESARMES TOUR A TOUR.
 
     Le cycle 12 a mesure que la reponse est redressee sur l'axe avant-arriere (8.7 a 30.3x contre
@@ -1397,9 +1880,23 @@ def _orictl_block(A, txt, names, ori, axis, b0):
             r8 = dg.get((c, k, 8), (0.0, 0.0, 0.0))
             r5 = dg.get((c, k, 5), (0.0, 0.0, 0.0))
             r7 = dg.get((c, k, 7), (0.0, 0.0, 0.0))
-            A('ROOM-ORICTL-DIAG: %-12s %s  supine i=6 inv=%.0f flip=%.0f · prone i=8 inv=%.0f'
-              ' flip=%.0f · i=5 flip=%.0f · i=7 flip=%.0f'
-              % (nm, KN.get(k, 'k=%d' % k), r6[1], r6[2], r8[1], r8[2], r5[2], r7[2]))
+            # CYCLE 69 : CETTE LIGNE ECRIVAIT « supine i=6 · prone i=8 » — L'INVERSE EXACT du
+            # role que `ROOM-ORICOM-ROLE` publie DANS LE MEME TABLEAU (supine -> i=8, prone -> i=6)
+            # et l'inverse de la gravite mesuree (`PHYSORI4`). Les CHIFFRES etaient justes (les
+            # indices d'acces ci-dessus sont les bons) ; seules les ETIQUETTES mentaient. Elles ne
+            # sont plus ecrites a la main : elles viennent de `orole()`, chemin unique.
+            def _rn(_i):
+                if roles and roles.get(_i, (None,))[0]:
+                    _r = roles[_i][0]
+                    return ('supine' if 'SUPINE' in _r else
+                            'prone' if 'PRONE' in _r else
+                            'av.45' if 'AVANT' in _r else
+                            'ar.45' if 'ARRIERE' in _r else _r.split()[0].lower())
+                return 'i%d?' % _i
+            A('ROOM-ORICTL-DIAG: %-12s %s  %s i=6 inv=%.0f flip=%.0f · %s i=8 inv=%.0f'
+              ' flip=%.0f · %s i=5 flip=%.0f · %s i=7 flip=%.0f'
+              % (nm, KN.get(k, 'k=%d' % k), _rn(6), r6[1], r6[2], _rn(8), r8[1], r8[2],
+                 _rn(5), r5[2], _rn(7), r7[2]))
     A('')
     A('   LECTURE DES COMPTEURS : si `flip` et `inv` sont a ZERO des deux cotes alors que la')
     A('   reponse est redressee, aucune collision ni aucun limiteur n\'a mordu pendant la mesure —')

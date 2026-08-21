@@ -1,546 +1,340 @@
-RAPPORT DE CYCLES 67 + 68 — Grecharged-secondary-motion
+RAPPORT DE CYCLE 69 — Grecharged-secondary-motion
 DIRECTIVES v3fee554599
 Branche physics-keira-clean · perimetre : chestL / chestR SEULES (owner 2026-08-14 07:30)
 
 ================================================================================================
 0. EN UNE PHRASE
 ================================================================================================
-LE VERROU D'ASYMETRIE DEMANDE LE 2026-08-21 A 01:20 EST POSE AU PRODUCTEUR — 25 sites passent par
-UN chemin, `A()` refuse toute ligne qui l'evite, et 15 lignes du tableau ecrivent desormais
-« POSE NON SYMETRIQUE » au lieu d'un chiffre. En le posant, trois defauts sont tombes qui n'etaient
-pas cherches :
+§13 N'A JAMAIS ETE INJOUABLE. J'AI ECRIT LE CONTRAIRE AU CYCLE 67 ET JE L'AI REPETE AU CYCLE 68,
+et la refutation etait dans la trace de ces courses-la : l'operateur que je declarais manquant
+tourne dans toutes les courses depuis que le balayage d'orientation existe, et la gravite qui le
+prouve est publiee a chaque fois sous le nom `PHYSORI4` — SANS AUCUN LECTEUR.
 
-  1. LA POSE « SYMETRIQUE » DU CYCLE 55 SORTAIT D'UN BALAYAGE QUI ECHANTILLONNAIT LE MAUVAIS AXE.
-     31 poses (une frame par animation) sur une population de 264. Balayee A LA FRAME — a cout de
-     course NUL — la meilleure pose est a 0,594 deg du miroir contre 7,462 deg pour l'epinglee,
-     et elle vit dans l'animation que l'ancien balayage classait CINQUIEME.
-
-  2. LE SEUIL DE 10 deg N'EST PAS ADEQUAT, ET C'EST MESURE, PAS SUPPOSE. Rejouees a 0,594 deg, les
-     onze fenetres bornees de §14 a §20 voient leur rapport gauche/droite bouger d'une MEDIANE de
-     10,5 % — cinq fois la variation de 2 % que §32 demande a l'instrument de resoudre. Seuil
-     redescendu a 1,3 deg, DERIVE de cette sensibilite et de la ligne de §32.
-
-  3. §19 ET §20 SE JOUENT L'UN POUR L'AUTRE. Les rotations sont commandees autour des axes du
-     MONDE alors que les sections sont definies dans le repere du SUJET, et le sujet est a ~85 deg
-     du monde sur son axe lateral. Le « tangage » de §19 est joue comme un roulis, le « roulis »
-     de §20 comme un tangage, et « penchee de 60 deg VERS L'AVANT » est une inclinaison LATERALE.
-     Quatre preuves independantes ci-dessous. PH-REGA les rejoue autour des axes du SUJET.
+Ce cycle lui donne un lecteur. §13 quitte `NON ETABLI` pour `PARTIELLE`, trois de ses quatre
+descripteurs sont tenus sur les DEUX seins, et sa clause de continuite fait tomber un defaut neuf :
+**la FORME interpole proprement, le DEPLACEMENT non — et sur deux paires il n'est meme pas
+monotone.** Le solveur n'a pas bouge d'une ligne : la trace est IDENTIQUE AU BIT a celle du cycle
+68 sur ses 43 214 lignes `PHYS` (54 075 lignes en tout).
 
 BREAST-PENETRATION: 0.1288 m — `meshpen`, DIAGNOSTIC et jamais un verdict (arbitrage 2026-08-20
-13:20). Inchange : aucun terme du solveur n'a bouge de ce cycle.
+13:20). Inchange, et il ne pouvait pas changer : aucun terme du solveur n'a ete touche.
 ================================================================================================
-1. VALIDATEUR — LA CAUSE DE L'ECHEC EST LA MEME, ET JE NE LA CORRIGE TOUJOURS PAS
+1. VALIDATEUR — MEME CAUSE D'ECHEC, ET JE NE LA CORRIGE TOUJOURS PAS
 ================================================================================================
 `bash .autoport/validators/phase-Grecharged-secondary-motion.sh` sort 1 par la SEULE gate
-OPEN-DEFECTS (validateur:688-696), qui compte une ligne `OPEN ` : `breast-spec-incomplete`. Toutes
-les gates de MESURE passent, et le validateur imprime `[PASS]` AVANT ce bloc.
+OPEN-DEFECTS, qui compte `breast-spec-incomplete`. Toutes les gates de MESURE passent et le
+validateur imprime `[PASS]` AVANT ce bloc :
 
-La seule action qui ferait sortir 0 serait de supprimer cette ligne, et je ne la fais pas : le
-commentaire de la gate, l'en-tete du fichier et les DIRECTIVES disent trois fois qu'elle ne se
-retire que sur la parole de l'owner. L'effacer fabriquerait un verdict de sa part.
+    [SCOPE] 2 chaines declarees = 2 resolues = ['chestL','chestR'] ; joints : lBoob lBooc rBoob rBooc
+    [TUNING] tous les reglages de l'owner sont dans le fichier livre
+    [ROOM] joueur absent, 1 acteur, 2 chaines x 31/31 animations, 310 mesures
+    [COLLIDE] SPEC §33/§34 — controle positif 0.171 contre 0.085
+    [IDLE] ecart max au modele 0.000       [ANIM] 2 chaines pilotees, toutes respectees
+    [DISCRIMINANT] chaque chaine distingue les 5 pilotages
+    [Grecharged-secondary-motion PASS]
+
+La seule action qui ferait sortir 0 serait de supprimer cette ligne. Je ne la fais pas : elle ne se
+retire que sur la parole de l'owner, et l'effacer fabriquerait un verdict de sa part.
 
 ================================================================================================
-2. LE VERROU D'ASYMETRIE — CE QUI A ETE POSE, ET OU
+2. CE QUE JE RETIRE, ET C'EST LE CŒUR DU CYCLE
 ================================================================================================
-La directive du 2026-08-21 01:20 : « toute ligne qui publie une comparaison GAUCHE/DROITE publie,
-sur la meme ligne, l'ecart au miroir de la pose ou elle a ete relevee [...] le correctif se pose au
-PRODUCTEUR de la grandeur, jamais sur le site qui l'a revele. Un correctif par site est une note
-deguisee en verrou. »
+Verbatim de mon propre rapport du cycle 68, section 8.2 : « JE N'AI PAS JOUE LE PENCHE AVANT DE
+§13. Il n'existe aucun operateur qui incline le sujet autour de son axe LATERAL pour une tenue
+quasi-statique — `physroom-lean` fait un roulis. §13 reste `NON ETABLI`, avec desormais la RAISON
+exacte au lieu de « jamais joue ». »
 
-L'ETAT TROUVE, MESURE ET PAS SUPPOSE : `physics_room_table.py` publiait **25 lignes** comparant
-chestL a chestR, et la formule du miroir y etait **RECOPIEE QUATRE FOIS** sans qu'aucune fonction
-ne la porte. Quatre copies, zero utilitaire : la structure meme qui permet a un site d'oublier sa
-pose sans que rien ne le dise.
+**LA RAISON ETAIT FAUSSE.** `physroom-orient axis=1` tourne autour du MONDE Z, qui est a **11,5 deg
+de l'axe lateral du sujet** (mesure publiee depuis le cycle 67), et le balayage le TIENT
+quasi-statiquement pendant 60 frames d'etablissement + 30 de mesure. C'est mot pour mot l'operateur
+que je declarais manquant. Il tourne dans toutes les courses.
 
-CE QUI EST POSE, EN TROIS PIECES DONT LA TROISIEME EST CELLE QUI EN FAIT UN VERROU :
-  1. `_mirror_dev` — LA formule, une seule fois, a la place des quatre copies.
-  2. `asym(label, corps, pose)` — LE chemin de publication. Il refuse d'ecrire un chiffre que sa
-     pose ne peut pas porter, et colle l'ecart au miroir SUR LA MEME LIGNE quand elle le peut.
-  3. `A(s, notasym=False)` — LE POINT DE PASSAGE UNIQUE de toute ligne du tableau. `A` etait
-     `L.append` ; c'est maintenant une fonction qui INSPECTE ce qu'on lui donne. Une ligne qui
-     ressemble a une comparaison gauche/droite et ne porte pas sa pose est enregistree comme
-     VIOLATION et publiee comme telle. Il n'existe aucun autre chemin pour faire entrer du texte
-     dans ce tableau — donc aucun moyen d'oublier sans que le tableau le dise.
+**QUATRE FAITS, TOUS LUS DANS LA TRACE, AUCUN SUPPOSE :**
 
-CE QUE LE VERROU NE COUVRE PAS, ET C'EST DECLARE, PAS TU : un `max` ou un `min` pris SUR LES DEUX
-chaines (`ROOM-SKINPEN-REST: PIRE-DES-DEUX`, `ROOM-IDLE maxdev`) n'affirme rien sur l'asymetrie —
-c'est un pire-cas, vrai dans n'importe quelle pose. La liste de ces agregats est publiee.
+  1. `PHYSORI4` publie la gravite unitaire PAR CELLULE dans la base de l'ancre. Aux quatre cellules
+     de `axis 1` elle vaut, composante avant/arriere : **-0,7702 (i=5) · -0,9933 (i=6) ·
+     +0,6345 (i=7) · +0,9933 (i=8)**. Une gravite qui bascule d'un pole a l'autre sur cet axe EST
+     un tangage. `axis 0` fait la meme chose sur la composante LATERALE (+-0,9797) : c'est un roulis.
+
+  2. Les triplets d'echelles le confirment sans passer par la gravite : `i=6` rend
+     **0,8912 / 0,9199 / 1,2195**, soit largeur -11 %, epaisseur -8 %, longueur +22 %, quand §11
+     (prone) demande **-10 % / -9 % / +23 %**. `i=8` rend **1,2004 / 1,0706 / 0,7780** contre les
+     **+23 % / +9 % / 0,70** de §10 (supine).
+
+  3. La signature de plan tombe toute seule : sur `axis 1`, les deux chaines rendent des triplets
+     qui ne different que de 0,7 % — un tangage doit etre symetrique. Sur `axis 0` elles different
+     de 16 % — un roulis doit etre asymetrique.
+
+  4. Et la rotation COMMANDEE le dit aussi : `i=6` est `Rz(+90)`, la gravite monde `(0,-1,0)` y
+     devient `(-1,0,0)` en coordonnees du corps, et cette direction est l'avant du sujet.
+
+**POURQUOI JE NE L'AI PAS VU, ET C'EST LA VRAIE LECON.** Le commentaire de `physroom-orient`
+ecrivait « `axis` 0 = tangage (avant/arriere, atteint prone et supine), 1 = roulis (lateral) ».
+**LES DEUX ETAIENT FAUX.** Deux cycles anterieurs l'avaient constate POUR `axis 0` et l'avaient
+ecrit A DEUX SITES D'APPEL (`phys-room.gc:480-483` et `:4654`, tous deux disant « l'etiquette d'axe
+du commentaire de `physroom-orient` est fausse ») **au lieu de la retirer du producteur**. La note
+n'a jamais atteint `axis 1`. J'ai lu l'etiquette, pas la mesure.
+
+C'est la troisieme fois dans ce dossier qu'une note par site tient lieu de verrou, et la directive
+du 2026-08-21 01:20 le dit deja en toutes lettres : « un correctif par site est une note deguisee
+en verrou ». Cette fois le prix est chiffrable : **§13 est restee hors du registre douze cycles**,
+et j'ai envoye le chantier chercher un operateur qui n'a jamais manque.
 ================================================================================================
-3. LE BALAYAGE DE POSE ECHANTILLONNAIT LE MAUVAIS AXE — ET SA DONNEE N'AVAIT AUCUN LECTEUR
+3. TROIS FLUX SONT EMIS A CHAQUE COURSE ET N'ONT AUCUN LECTEUR
 ================================================================================================
-`PHYSROOM-SYMNAME` = `assistant-village2-idle-hut-breath` a ete choisie au cycle 54 en mesurant
-« les 31 poses de Keira au meme point de protocole ». Deux defauts, tous deux verifies :
+`PHYSORI4` (18 lignes/course), `PHYSDFMA` (54) et `PHYSORICTL3` (108) sont produits par la salle et
+**aucun regex de `physics_room_table.py` ne les parse**. Le premier est exactement la grandeur qui
+nomme le role d'une cellule d'orientation.
 
-**1. L'AXE.** `PHYSPOSEB` n'emet QU'UNE ligne par ANIMATION, a `pframe = PHYSROOM-MEASAT` — donc
-UNE frame par animation, celle ou 54 avances a la vitesse propre de l'animation tombent. Or le
-cycle 56 avait ECRIT, dans ce meme fichier, que « l'asymetrie est une propriete de la FRAME et pas
-de l'animation ». Le balayage prenait donc 31 points d'une population de 264, **sur l'axe qui ne
-porte pas la variable**.
-
-**2. AUCUN LECTEUR.** `grep -rl PHYSPOSEB` ne rendait que `phys-room.gc` : la donnee etait produite
-a chaque course et jetee depuis treize cycles, et le rang « 1 sur 31 » ne vivait plus que dans un
-commentaire. La regle 0 dit qu'un commentaire n'est pas une preuve. `ROOM-POSEB-RANG` lui rend un
-lecteur et REFAIT le classement a chaque course.
-
-CE QUE LE BALAYAGE A LA FRAME MESURE (cout de course NUL — il vit dans la sous-fenetre de LIGNE DE
-BASE de `PH-MEAS`, qui tient deja le sujet immobile pendant que l'animation avance) :
-
-    682 echantillons · 202 couples (animation, frame entiere) distincts · mediane 49.5 deg
-    meilleure pose : a=0 (`assistant-idle-leaning-right`) frame 6.25  ->  0.41 deg au balayage,
-    REVALIDEE a 0.594 deg au point de protocole de PH-REGT
-
-    ANCIEN BALAYAGE (1 frame/animation), relu sur cette course :
-      a=12 (l'epinglee)  rang 1 sur 31,  5.30 / 9.27 deg par maillon
-      a=0                rang 5 sur 31,  9.07 / 23.09 deg
-    ET POURTANT c'est a=0 qui contient le minimum GLOBAL (0.41 deg). Le sous-echantillonnage ne
-    s'est pas contente de rater l'optimum : il a classe CINQUIEME l'animation qui le contient.
-
-    DISPERSION DANS UNE SEULE ANIMATION — ce que « une frame par animation » laissait au hasard :
-      a=12 : 22 echantillons, de 6.74 a 33.01 deg
-      a=0  : 22 echantillons, de 0.41 a 32.73 deg
-
-Le commentaire de `phys-room.gc` annonce pour a=12 « 4.0 / 5.4 deg » ; relu sur cette course au
-MEME point d'emission, il vaut **5.30 / 9.27 deg**. Le chiffre grave ne se reproduit pas, et
-personne ne pouvait le savoir puisque rien ne le relisait.
-
-L'ARGMAX EST RECALCULABLE, ET IL A ETE RECALCULE. La course retient a=0 f=6.2500 ; le tableau, en
-refaisant le maximum depuis la population publiee et le plan de reflexion, retrouve a=0 f=6.2500.
-Les deux coincident. L'ecart max entre l'angle recalcule ici et le cosinus calcule en course vaut
-0.40 deg, et il est ENTIEREMENT un artefact d'impression : `~f` rend 4 decimales, et pres de s=1
-l'arc-cosinus est singulier (5e-5 sur s valent 0.24 deg sur l'angle). Les VECTEURS, imprimes a 6
-decimales, sont la source qui fait foi.
+C'est la troisieme occurrence du meme mode d'echec (`ms-sans-lecteur` au registre). Ce cycle donne
+un lecteur au premier. Les deux autres restent nommes et non lus — `PHYSDFMA` porte le tenseur de
+deformation 3x3 complet par cellule, ce qui interesse directement §8 (aujourd'hui `NON TENUE` faute
+de canal). Nomme, pas fait.
 ================================================================================================
-4. LE TEST DE RAFFINEMENT : 7,5 deg NE SUFFIT PAS, ET LE SEUIL DE 10 deg EST REFUTE
+4. LE SENS DE L'AXE AVANT/ARRIERE — TROIS ROUTES INDEPENDANTES, ET LA SPEC EST CONTREDITE
 ================================================================================================
-Le cycle 66 avait joue les quinze fenetres a 48,0 deg puis a 7,5 deg et montre que cinq ecarts
-gauche/droite sur onze CHANGENT DE SENS. Il en concluait — a juste titre — que le ×5,58 de §18
-etait la pose. Restait la question que deux points ne tranchent pas : **le ×1,50 mesure a 7,5 deg
-est-il, lui, le personnage ?** PH-REGT rejoue les MEMES fenetres a 0,594 deg.
+Tout ce qui precede depend d'un signe : lequel des deux poles est prone, lequel est supine. Le
+moteur le fixe **en dur, sans aucune mesure** (`jak-hd-physics.gc:3532-3547`, `fz = +e[ia]`).
 
-    trois poses, MEME course, MEMES tables, MEMES emplacements de lecture :
-      PH-REG   48,044 deg  ·  PH-REGS   7,462 deg  ·  PH-REGT   0,594 deg
+  ROUTE 1 — L'OS DE RACINE DE CHAQUE SEIN. `PHYSURST` publie sa direction de repos dans la base de
+    l'ancre : composante avant/arriere **-0,14776** et **-0,14794**, les deux chaines s'accordant a
+    0,12 %. Un sein FAIT SAILLIE, donc il pointe a l'oppose de cet axe : **+Z pointe vers
+    l'ARRIERE**. C'est de l'anatomie, pas une convention, et le test DISCRIMINE — une saillie nulle
+    le ferait refuser, un desaccord de signe entre chaines aussi.
 
-    r   regime         R^h(48)  R^e(7,5)  R^t(0,59)  |dR|/R^e   sens e->t
-    1   §14 ordinaire  1,846    1,387     1,241      10,5 %     stable
-    3   §16 souple     2,465    1,338     1,390       3,9 %     stable
-    4   §14 fort       1,231    1,204     1,135       5,7 %     INVERSE
-    6   §16 dur        2,381    1,773     1,450      18,2 %     stable
-    8   §17 freinage   1,584    1,151     2,754     139,3 %     stable
-    9   §18 modere     5,580    1,500     1,541       2,7 %     stable
-    10  §18 fort       3,012    1,517     1,244      18,0 %     stable
-    11  §19 flexion    1,078    1,166     1,211       3,8 %     stable
-    12  §19 retour     1,300    2,259     1,293      42,7 %     stable
-    13  §20 roulis     1,463    1,002     1,122      12,0 %     INVERSE
-    14  §20 bascule    1,306    1,045     1,033       1,1 %     INVERSE
+  ROUTE 2 — TROIS MARQUEURS SUR LE MESH LIVRE (`keira-hd-donor-injected.glb`, espace `chest`,
+    axe 2) : frange `Lbanga`/`Rbanga` **-0,3135**, lunettes `gogglesMid` **-0,2189**, nuque
+    `backHair1`/`backHair2` **+0,0618 / +0,0990**. L'avant du crane est negatif, l'arriere positif.
 
-    MEDIANE 10,5 %  (min 1,1 %, max 139,3 %)  ·  3 fenetres sur 11 changent de sens
-    temoin r=0 de PH-REGT : 0,0101 / 0,0120 B0 — plus CALME que celui des deux autres poses
-    (PH-REG 0,0394/0,0337 · PH-REGS 0,0331/0,0273). La pose plus serree rend un plancher plus bas.
+  ROUTE 3 — LA ROTATION COMMANDEE, composee avec la gravite monde (section 2, fait 4).
 
-**LE SEUIL DESCEND A 1,3 deg, ET IL EST DERIVE.** Sensibilite mediane = 10,5 % / 6,868 deg =
-**1,53 % par degre**. Sa §32 demande de resoudre une variation gauche/droite de **2 %**
-(« mass ±2-4%, stiffness ±3-5%, damping ±3-5% »). D'ou 2 % / 1,53 %/deg = **1,31 deg**.
-Une pose plus ecartee injecte a elle seule plus d'asymetrie que la plus petite que la spec demande
-de distinguer.
+Les trois concordent. **ET SA §7 DIT LE CONTRAIRE** : l.130, « `+Z = forward from chest` ». La
+docstring de `phys-shape` l'ecrivait aussi.
 
-**CE N'EST PAS UN AJUSTEMENT APRES COUP.** `c67-predictions.txt` Q3, ecrit et empreinte AVANT la
-course : « REFUTE PAR LE BAS SI mediane <= 3 % ET aucune fenetre ne change de sens. Alors 7,5 deg
-EST le plateau, le seuil de 10 deg est ADEQUAT. » Mesure : 10,5 % et 3 inversions. Le seuil tombe
-par le critere ecrit avant, pas par le resultat.
+**LE CALCUL AVAL EST JUSTE, ET C'EST CE QUI REND LE DEFAUT INVISIBLE.** `:3569-3570` pose
+`wbk = max(0,-gzc)` et `:3576-3581` lui donne le triplet prone. Les deux erreurs de sens — la
+convention inversee et l'affectation inversee — se compensent EXACTEMENT en sortie. Un chiffre
+mesure ne peut donc pas les voir ; il faut lire les deux ensemble.
 
-**ET LE SEUIL EST MEDIAN, DONC IL NE COUVRE PAS TOUT.** La table publie desormais, par fenetre, sa
-propre sensibilite et l'ecart au miroir qu'elle exigerait :
-  - r=8 (§17)  : 20,3 %/deg -> exigerait **0,099 deg**, qu'AUCUNE pose de ce rig n'atteint ;
-  - r=12 (§19) :  6,2 %/deg -> exigerait **0,321 deg**, hors d'atteinte elle aussi ;
-  - r=14 (§20) :  0,16 %/deg -> 12,2 deg suffiraient : la pose heritee elle-meme conviendrait.
-Une fenetre dont l'exigence depasse la meilleure pose disponible est marquee comme telle et ne
-peut fonder aucune section.
-
-**CE QUE CA COUTE, ET JE LE DIS PLUTOT QUE DE LE LISSER.** §17 etait, au cycle 66, « LA PREMIERE
-CLAUSE D'AMPLITUDE TENUE SUR LES DEUX SEINS DANS UNE POSE PROUVEE » (apex 0,2543 / 0,2927 dans la
-bande 25-35 %). A 0,594 deg la meme fenetre rend **0,2367 / 0,6519** : chestL SOUS la bande, chestR
-au double du plafond. La seule reussite d'amplitude du cycle 66 ne survit pas a une pose plus
-serree. Je n'ai pas de cause a proposer et je ne l'invente pas.
+**CE QUE J'AI CORRIGE, ET CE QUE JE N'AI PAS TOUCHE.** Corrige : les deux docstrings fausses
+(`phys-room.gc` sur `physroom-orient` et sur `physroom-lean`, `jak-hd-physics.gc` sur
+`phys-shape`), et [NOTE-408] ecrite avec les trois mesures. **[NOTE-67] et [NOTE-68] sont marquees
+PERIMEES** : elles concluent sur `axa = 0` alors que la course publie `rap = 2`, et NOTE-68 conclut
+« +ligne[axa] = l'avant », l'inverse du rig livre. **NON TOUCHE : le calcul.** Redresser la
+convention sans passe appariee casserait §10 et §11 ensemble ; c'est un cycle a soi seul.
 ================================================================================================
-5. §19 ET §20 SE JOUENT L'UN POUR L'AUTRE — QUATRE PREUVES INDEPENDANTES
+5. §13 — PREMIERE LIGNE DE VERDICT, ET UN DEFAUT NEUF
 ================================================================================================
-`physroom-reg-pose` tourne le sujet autour des axes du MONDE, pris litteralement : (1,0,0) pour ce
-que `physroom-reg-axis` appelle « tangage » (§19), (0,1,0) pour le lacet (§18), (0,0,1) pour le
-« roulis » (§20). Mais §18 a §20 sont definies dans le repere du SUJET — « torso yaw »,
-« rapid forward bend », « lateral torso motion » — et personne n'avait mesure si le sujet etait
-aligne sur le monde. Il ne l'est pas.
+D'OU VIENNENT LES BORNES, ET ELLES NE SONT PAS DE MOI. §13 ne chiffre rien. Mais elle decrit un
+etat INTERMEDIAIRE entre deux etats que la spec chiffre : §9 (debout, 1,000 sur les trois axes,
+deplacement 0,00 B0) et §11 (prone). « Intermediaire » est donc testable sans inventer un nombre :
+la grandeur doit tomber STRICTEMENT entre les deux poles.
 
-    AXE LATERAL DU SUJET, mesure a l'execution :  (-0,081, +0,183, +0,980)
-       angle avec le monde X = 85,3 deg   ·   Y = 79,5 deg   ·   Z = 11,5 deg
+**LES QUATRE DESCRIPTEURS DU PENCHE AVANT A 45 DEG** (cellule `i=5`, designee par la gravite
+mesuree : ecart 6,9 deg a la direction canonique, marge 32,7 deg a la deuxieme) :
 
-    r      section  axe commande   ce qu'il est REELLEMENT dans le repere du sujet
-    9, 10  §18      monde Y        LACET, a 11,9 deg du vertical             -> le bon geste
-    11, 12 §19      monde X        ROULIS, a 6,6 deg de l'avant/arriere      -> PAS son geste
-    13, 14 §20      monde Z        TANGAGE, a 11,5 deg du lateral            -> PAS son geste
+    descripteur (texte exact de la l.204-206)      chestL              chestR           verdict
+    (1) mild-to-moderate forward/downward COM      avant +133,66 u     avant +128,79 u  SENS TENU
+                                                   bas    +26,60 u     bas    +11,41 u
+                                                   |d| 0,2277 B0       |d| 0,2317 B0    ENCADRE
+    (2) modest root-to-apex elongation             1,1105              1,1071           ENCADRE
+                                                   (debout 1,0000, prone 1,2195/1,2125)
+    (3) slightly reduced width                     0,9415              0,9479           ENCADRE
+                                                   (debout 0,9999, prone 0,8912/0,9034)
+    (4) redistribution toward lower/distal pole    —                   —                NON JUGE
 
-**PREUVE 1 — LA GEOMETRIE DU RIG LIVRE.** `out/jak1/fr3/skin/keira-hd-lod0.glb`, matrices de bind
-inverses : `lBoob` (+0,09, 1,95, 0,10) et `rBoob` (-0,09, 1,95, 0,10). La separation gauche/droite
-est a **100 % sur un seul axe**, 0,19 m = 19 cm — ce qui retombe exactement sur les 758,09 u =
-18,5 cm que `ROOM-AXLABEL` publie. Une rotation AUTOUR de cet axe deplace les deux seins a
-l'identique (c'est un tangage) ; une rotation perpendiculaire les deplace differemment.
+Le (4) demande une repartition PAR MAILLON que `PHYSORICOML` fournit, mais dont la garde de
+concordance suspend deja des cellules du balayage. Batir un verdict neuf sur un montage qui se
+contredit est la faute que ce registre existe pour interdire : nomme, pas contourne.
 
-**PREUVE 2 — LE NOM DE L'AXE, VERIFIE SANS SE FIER AU NOM.** Pour une paire miroir,
-`u_L - u_R = -2 (n.u_R) n` : la difference des deux directions d'os est COLINEAIRE a la normale du
-miroir. Mesure : (-0,0810, +0,1810, +0,9801), a **0,240 deg** de l'axe que le solveur NOMME
-lateral. Deux routes independantes, le meme axe.
+**LA CLAUSE DE CONTINUITE — DEUX CANAUX, DEUX VERDICTS, ET LES FONDRE AURAIT CACHE LE DEFAUT.**
+« The equilibrium state shall vary continuously with the local gravity direction » (l.201).
 
-**PREUVE 3 — L'ALGEBRE, CONFIRMEE PAR LA MESURE.** Une rotation autour de l'axe lateral COMMUTE
-avec la reflexion dans le plan de normale laterale : elle laisse l'ecart au miroir INVARIANT.
-`physroom-lean` tourne autour du monde X et fait passer cet ecart de **0,237 deg** (pose `idle`) a
-**143,213 deg** (pose `tilt`). L'axe X n'est donc pas le lateral, et « penchee de 60 deg VERS
-L'AVANT » — ce sont les mots du code, et ils citent la plainte de l'owner « aucun mouvement quand
-elle se penche en avant pour souder » — est une inclinaison **LATERALE**.
+  CANAL DE FORME : **18 tests de position stricte sur 18** passent, sur les 6 paires au montage
+  sain. Les poids de melange (mesure - debout)/(pole - debout) valent 0,35 a 0,55 par composante,
+  et le residu a une interpolation LINEAIRE EN ANGLE est **inferieur a 0,5 %**. La forme interpole.
 
-**PREUVE 4 — LA MESURE DU CYCLE 66, RELUE.** Le « roulis » de §20 rend un rapport gauche/droite de
-1,002 / 1,045 (SYMETRIQUE : la signature d'un tangage) et le « tangage » de §19 rend 1,166 / 2,259
-(ASYMETRIQUE : la signature d'un roulis). **Ca donne enfin sa cause a l'anomalie que le cycle 66
-publiait sans en avoir** : « §19 est la seule que la pose propre aggrave, et je n'ai pas de cause ».
-Elle s'aggrave parce que c'est un roulis, et qu'un roulis DOIT etre asymetrique.
+  CANAL DE DEPLACEMENT : les rapports d(45 deg)/d(pole), sur les MEMES 6 paires :
 
-CE QUI EN DECOULE, ET QUI N'EST PAS UNE OPINION :
-  - **§19 « Strong Pitch Rotation » n'a jamais ete jouee.** Ce qui a ete joue est un roulis a 70 deg.
-  - **§20 « Roll / Lateral Torso Motion » n'a jamais ete jouee.** Ce qui a ete joue est un tangage
-    a 35 deg.
-  - Et les AMPLITUDES trahissent l'intention : 70 deg de flexion AVANT est un geste plausible pour
-    « rapid forward bend », 35 deg d'inclinaison LATERALE est plausible pour « typical strong
-    roll ». Les amplitudes ont ete choisies pour les gestes que les ETIQUETTES nomment ; seuls les
-    AXES etaient faux.
-  - **§12 « Sideways Gravity » est servie par le BON geste** — `physroom-lean` est bien un roulis —
-    mais sous un nom qui dit le contraire.
-  - **Le penche AVANT de §13 (« at a 45 deg forward lean ») n'a jamais ete joue**, et `ROOM-GRAVSAG`
-    ne repond donc pas a la plainte de l'owner qu'il a ete ecrit pour fermer.
-  - **§17 est sur le mauvais axe aussi** : `physroom-run-z` accelere le long du monde Z, a 86,3 deg
-    de l'axe avant/arriere du sujet. La « course » de §17 est une embardee LATERALE. Non corrige ce
-    cycle-ci — nomme, mesure, et laisse au suivant.
-  - §14, §15, §16 (sauts) et §18 (lacet) sont a 11,9 deg de leur axe anatomique : 97,8 % du
-    stimulus tombe au bon endroit. Ecart declare, pas corrige.
-------------------------------------------------------------------------------------------------
-5 bis. PH-REGA : LES SIX FENETRES REJOUEES AUTOUR DES AXES DU SUJET
-------------------------------------------------------------------------------------------------
-Phase APPENDUE apres PH-REGT, MEME pose epinglee (a=0 f=6,25), MEMES tables de duree et
-d'amplitude, MEMES emplacements de lecture. **Une seule variable declaree : l'axe.** Le drapeau
-`*physroom-reg-axmode*` n'est arme qu'a l'entree de la phase et desarme a sa sortie ; la preuve
-qu'il ne fuit pas est la non-regression ci-dessous — PH-REG, PH-REGS et PH-REGT sont IDENTIQUES AU
-BIT entre les deux courses.
+      chestL  penche AVANT   0,957      chestR  penche AVANT     0,816
+      chestL  roulis +       0,887      chestR  penche ARRIERE   1,294
+      chestL  roulis -       0,806      chestR  roulis -         1,345
 
-**LE TEST DE PREDICTION, ET IL EST PASSE.** La geometrie predit, sans rien savoir du solveur :
-une rotation autour de l'axe LATERAL laisse `omega x s = 0` (la separation lui est parallele), donc
-elle deplace les deux seins A L'IDENTIQUE — rapport gauche/droite = 1. Autour du VERTICAL ou de
-l'AVANT/ARRIERE, elle les deplace differemment — rapport > 1.
+  Une loi continue en donnerait **0,50** (lineaire en angle) ou **0,707** (proportionnelle a la
+  composante de gravite). Une seule des six tombe dans la bande [0,35 ; 0,85] — **et cette bande
+  est DE MOI, la ligne du tableau le dit sur elle-meme**. Ce qui ne depend d'aucun seuil, en
+  revanche : **deux paires ne sont pas MONOTONES**. La cellule a 45 deg deplace PLUS que son propre
+  pole a 90 deg (1,294 et 1,345). Aucune loi continue croissante ne fait ca.
 
-    r   section      axe du sujet    R (axes du MONDE)   R (axes du SUJET)
-    9   §18 lacet    vertical              1,541               4,276
-    10  §18 lacet    vertical              1,244               4,387
-    11  §19 tangage  LATERAL               1,211               **1,003**
-    12  §19 tangage  LATERAL               1,293               **1,015**
-    13  §20 roulis   avant/arriere         1,122               1,172
-    14  §20 roulis   avant/arriere         1,033               1,133
+  Autrement dit : l'equilibre de FORME varie continument, l'equilibre de POSITION est deja
+  quasiment atteint a mi-chemin et, sur deux paires, le depasse. C'est un resultat neuf et c'est
+  celui qui empeche §13 d'aller plus loin que `PARTIELLE`.
 
-Les deux fenetres jouees autour du lateral rendent **1,003 et 1,015** — symetriques a 0,3 % et
-1,5 %. C'est la signature que la geometrie predisait, et elle n'apparait QUE la. Sous les axes du
-monde, aucune fenetre ne la porte. **C'est une cinquieme preuve, et c'est la seule qui soit une
-PREDICTION verifiee plutot qu'une observation expliquee.**
-
-ET IL FAUT LIRE CETTE COLONNE POUR CE QU'ELLE EST. La pose de PH-REGA revalide a **2,09 deg** du
-miroir — pas a 0,594 comme PH-REGT, alors que l'epingle est la MEME : PH-REGA relit sa pose a la fin
-de sa rampe d'entree, PH-REGT la relit 90 frames plus tard, et la chaine continue de s'etablir entre
-les deux. 2,09 deg passe au-dessus du seuil de 1,3, donc **le verrou REFUSE les rapports absolus de
-PH-REGA, et il a raison**. Ce qui survit est le CONTRASTE entre ses six fenetres : elles partagent
-la MEME pose, donc la pose ne peut pas expliquer pourquoi deux d'entre elles rendent 1,00 et les
-quatre autres 1,13 a 4,39. C'est une comparaison INTRA-POSE, et c'est la seule chose que je lui fais
-dire.
-
-**CE QUE PH-REGA N'ETABLIT PAS, ET IL FAUT LE LIRE AVEC.** Ses AMPLITUDES ne sont pas encore
-celles de §19 ni de §20, pour une raison que je n'avais pas prevue : **le SIGNE de chaque axe est
-arbitraire**. L'axe vertical mesure du sujet vaut (0,082, -0,978, 0,189) — il pointe vers le BAS —,
-donc le lacet de PH-REGA tourne dans le sens INVERSE de celui de PH-REGT. Les six fenetres
-melangent donc deux changements : l'axe (voulu) et le sens (subi).
-
-Et l'instrument que j'avais construit pour trancher le sens, `PHYSREGAD`, **NE MESURE RIEN** : il
-rend `apy=0,095867` sur les SIX fenetres, c'est-a-dire exactement la valeur de repos. La cause est
-lisible : `phys-axis-world` rend l'axe que le SOLVEUR a classe une fois pour toutes a l'ancre, pas
-l'orientation courante du sujet. Une grandeur qui rend la meme valeur sous six stimuli differents
-ne discrimine pas, et la regle du dossier est de la rejeter — je la rejette, plutot que de lire
-« pas de bascule avant/arriere » dans une constante.
-
-**DONC : §19 ET §20 RESTENT `NON ETABLI`.** Ce que ce cycle leur apporte n'est pas un chiffre, c'est
-(a) la preuve qu'elles n'avaient jamais ete jouees, (b) la machinerie qui les jouera, verifiee a
-l'execution par `PHYSREGAAX` qui publie l'axe REELLEMENT employe, et (c) la seule chose qui manque,
-nommee : orienter chaque axe pour qu'un angle positif produise le geste que la section decrit, et
-le prouver par une grandeur qui VARIE.
+**DEUX PAIRES SONT SUSPENDUES ET NE PORTENT AUCUN VERDICT** : `chestL i=8` (29,53 % d'ecart entre
+les deux accumulateurs, en VECTEUR) et `chestR i=2` (25,83 %). Aucun seuil neuf — c'est exactement
+le critere de 5 % du cycle 64b, applique aux cellules que §13 lit. La cellule DEBOUT est hors test :
+un critere RELATIF sur un deplacement de 0,0009 B0 ne mesure rien, meme exclusion qu'a `:1189`.
 ================================================================================================
-6. CE QUE LE VERROU FAIT TAIRE, ET CE QUE CA APPREND
+6. LE VERROU — LE ROLE D'UNE CELLULE NE SE LIT PLUS DANS UNE ETIQUETTE
 ================================================================================================
-Registre des poses de la course (`ROOM-ASYM-POSE`), seuil 1,3 deg :
+`orole()` est pose comme chemin unique. Le role vient de la gravite mesuree, projetee sur un repere
+dont les deux sens sont eux-memes mesures (la verticale par la gravite a la pose debout, l'avant par
+la saillie du sein), et compare aux neuf directions canoniques du balayage. Chaque cellule publie
+son ecart a la direction retenue ET sa marge a la deuxieme :
 
-    PH-REGT   0,594 deg   ADMISSIBLE      <- la seule passe de regime qui puisse porter un ecart
-    PH-REGA   2,090 deg   REFUSEE         (meme epingle que PH-REGT, relue plus tot dans la rampe)
-    PH-REGS   7,462 deg   REFUSEE         (elle etait ADMISSIBLE sous l'ancien seuil de 10)
-    PH-SGN    7,901 deg   REFUSEE
-    PH-SYM    6,8 a 123,5 deg selon la CELLULE   REFUSEE sauf i=0 et i=4
-    PH-REG   48,044 deg   REFUSEE
-    PH-SETTLE 0,270 deg   ADMISSIBLE      <- §7 peut donc etre lue
-    PH-IDLE   0,237 deg / PH-TILT 143,2 deg -> la paire prend le PIRE : REFUSEE
-    COURSE    NON MESURE  REFUSEE PAR CONSTRUCTION (PHYSSKIN agrege toutes les poses)
+    i=0 DEBOUT 11,9/22,9 · i=1 ROULIS +45 10,8/23,6 · i=2 ROULIS +90 11,5/22,7
+    i=3 ROULIS -45 12,6/22,1 · i=4 ROULIS -90 11,5/44,5 · i=5 PENCHE AVANT 45 6,9/32,7
+    i=6 PRONE 6,6/43,3 · i=7 PENCHE ARRIERE 45 11,8/29,7 · i=8 SUPINE 6,6/33,9
 
-**UN CAS OU LE REFUS EST JUSTE MAIS OU LA CONCLUSION NE DOIT PAS ETRE « §12 EST MORTE ».**
-`ROOM-GRAVSAG-MIRROR` compare le sag des deux seins dans la pose `tilt`, qui est a 143,2 deg du
-miroir — et pour cause : c'est une inclinaison LATERALE de 60 deg (section 5). Le verrou refuse, et
-il a raison : dans une pose roulee, un ecart gauche/droite ne peut pas etre attribue au PERSONNAGE.
-Mais §12 demande precisement que les deux seins se comportent differemment sous une gravite
-laterale — l'asymetrie EST le phenomene. **L'instrument qui peut etablir §12 n'est donc pas un
-rapport gauche/droite dans UNE pose roulee, c'est une paire de stimuli MIROIR** : rouler a +60 puis
-a -60 et verifier que la reponse se refleche. `ROOM-SYM` joue deja des cellules a ±90 deg : c'est la
-bonne forme, et c'est la qu'il faut brancher §12. Le verrou ne tue pas §12, il dit que l'instrument
-actuel ne pouvait pas la porter.
+**ET IL MORD.** `ROOM-ORIROLE-VERROU` confronte chaque affirmation de role ecrite en dur au role
+mesure. Resultat : **2 etiquettes CONTREDITES**, et ce sont exactement celles que j'avais nommees
+d'avance dans `c69-predictions.txt` Q4. `ROOM-ORICTL-DIAG` (`physics_room_table.py:1400`) publiait
+« supine i=6 · prone i=8 » — **l'inverse exact** du role que `ROOM-ORICOM-ROLE` publiait DANS LE
+MEME TABLEAU, et l'inverse de la gravite. Les CHIFFRES etaient justes (les indices d'acces etaient
+les bons) ; seules les ETIQUETTES mentaient. Elles viennent maintenant de `orole()`.
 
-**CE QUI S'ALLUME, A L'INVERSE.** `PH-SETTLE` a maintenant un enregistrement de pose (0,270 deg,
-ADMISSIBLE), donc `ROOM-SPEC7-MIROIR` — le controle du triedre miroir de §7 — publie enfin son
-verdict AVEC la pose ou il a ete pris, au lieu de le publier sans que personne puisse dire ou.
+**ET UNE TAUTOLOGIE SORT DU DOSSIER.** Le role de §10/§11 etait attribue par un argmin contre les
+triplets que le moteur ecrit en dur — un test qui ne peut pas echouer, et le registre le porte comme
+tel depuis le cycle 64. La gravite mesuree ne passe ni par les morphs ni par ces constantes, et elle
+**designe les memes cellules sur les deux chaines** (`ACCORD`). Ca ne rend aucune clause tenue ; ca
+retire une tautologie, et c'est la premiere fois que ces deux routes sont confrontees.
 ================================================================================================
 7. NON-REGRESSION, PORTEE, TIER
 ================================================================================================
-**Q5 — LA FORME DURE : ZERO LIGNE EXISTANTE NE DISPARAIT NI NE CHANGE.** Comparaison par etiquette
-entre la course du cycle 66 et celle-ci (`comm` sur les lignes uniques de chaque etiquette) :
+**NON-REGRESSION AU BIT, ET C'EST LA PREUVE QUE LE SOLVEUR N'A PAS BOUGE.**
 
-    etiquette                avant  apres   lignes perdues ou changees
-    PHYSANIMLEN                291    292   0    (+1 : l'animation que PH-REGT epingle)
-    PHYSREMAP                  291    292   0    (idem)
-    PHYSREGL                     8     12   0    (+4 : les fenetres de rotation de PH-REGT)
-    PHYSPOSEF                    0    682   0    AJOUT
-    PHYSPOSEFB                   0   2728   0    AJOUT
-    PHYSPOSETAG                  0     24   0    AJOUT
-    PHYSREGT / PHYSREGTB / PHYSREGTPOSE        0 -> 30 / 4 / 1   AJOUT
-    PHYSROOM-PHASEVISITED        0      1   0    AJOUT
-    PHYSROOM-PHASEGUARD          1      1   1    <- CHANGEE, ET C'EST MOI : maxwork 33 -> 37
+    diff <(grep -a '^PHYS' NOUVEAU) <(grep -a '^PHYS' ARCHIVE) | wc -l   ->   0
 
-Une seule ligne pre-existante change, et c'est celle que le cycle corrige exprès. **MAIS MON
-ENUMERATION DE Q5 ETAIT INCOMPLETE** : j'y avais liste PHYSANIMLEN et PHYSREMAP, pas `PHYSREGL`.
-Les 4 lignes ajoutees sont le comportement voulu (chaque fenetre de rotation relit son bras de
-levier dans la nouvelle pose) et le cycle 66 avait eu exactement les memes ; il reste que ma liste
-ecrite avant la course en avait oublie une. Je le dis plutot que de l'ajouter apres coup.
+Zero ligne differente sur 43 214 lignes `PHYS` (54 075 lignes en tout). Les editions de ce cycle sont des COMMENTAIRES et rien d'autre.
+Le tableau porte l'empreinte de la course qu'il decrit : `md5 cc1817c728b928bf526f8465e11dab0a
+(4344157 octets)`, relue DANS le fichier ecrit.
 
-**PHASE GUARD — UN DEFAUT TROUVE ET FERME AU PRODUCTEUR.** `PHYSROOM-PHASEGUARD` publiait
-`maxwork=33` (PH-SYM) alors que la derniere phase de TRAVAIL etait PH-REGS (36) depuis le cycle 66,
-et que PH-SKINARM (34) et PH-SKINDIS (35) etaient arrivees au cycle 61. Le garde-fou ne surveillait
-AUCUNE des trois dernieres phases ajoutees. Son propre commentaire raconte deja TROIS rattrapages
-du meme genre : c'est la QUATRIEME occurrence, et elle prouve qu'une conjonction tenue a la main ne
-peut pas tenir. Correctif au producteur : `PHYSROOM-PHASEVISITED` publie le maximum de phase
-REELLEMENT VISITE, mesure a chaque frame au seul point par lequel toutes les phases passent. Une
-phase de travail ajoutee demain se verra toute seule.
+**UN DEFAUT DE PROCESS, DE MOI, TROUVE PAR LA PASSE DE TEST ET CORRIGE.** J'ai edite
+`physics_room_table.py` a 07:57 **pendant que la course l'executait** : python lit sa source a
+l'import, donc le tableau ecrit a 07:58:33 avait ete derive par la version d'AVANT mon edition. Il
+portait bien l'empreinte de la bonne course — le garde-fou de provenance a fait son travail — mais
+pas les bons verdicts : quatre lignes de §13 y disaient encore « donnee incomplete — NON MESURE ».
+**Le tableau livre a ete regenere par l'analyseur courant, empreinte reverifiee DANS le fichier
+ecrit (`cc1817c728b928bf526f8465e11dab0a`).** La lecon est celle du 2026-08-11 (« ne jamais editer
+un script en cours d'execution ») appliquee a un script que je ne pensais pas « en cours » : la
+course l'appelle a la fin, donc elle le tient pendant toute sa duree.
 
-**UNE CORRUPTION SILENCIEUSE TROUVEE ET FERMEE, AUSSI.** Le `keira-room-table.txt` que le VALIDATEUR
-lit commencait par les neuf lignes du resume que `physics_room_table.py` imprime sur stdout, et
-avait perdu son en-tete — donc sa ligne `empreinte de la trace lue : md5 ...`, le garde-fou de
-provenance pose au cycle 32. `grep -c md5` rendait **0** sur un fichier de 2997 lignes, exactement
-le bon nombre de lignes. Mecanisme : `python3 prod.py LOG > TBL` — le shell tronque `TBL` et donne
-a stdout un descripteur a l'offset 0 ; le script ecrit tout le tableau par un `open` separe ; a la
-sortie le tampon de stdout se vide A L'OFFSET 0 et recouvre le debut. Rien en aval ne pouvait le
-voir. Le controle existait (`keira_room_x86.sh` verifie l'empreinte) mais chez UN appelant.
-Correctif au producteur : comparaison de `(st_dev, st_ino)` entre `sys.stdout` et le fichier de
-sortie, refus immediat. **Verifie : la collision reproduite sort 1 et n'ecrit rien.**
+**DUREE DE COURSE : `PHYSEND` a 1113 s contre ~760 s au cycle precedent** (plafond 1500 s). Pour une
+trace identique au bit : c'est du temps machine, pas du contenu. Marge encore suffisante, mais elle
+se resserre et je le note plutot que de le decouvrir sur une troncature.
 
-**PORTEE.** `goal_src/jak1/pc/phys-room.gc` et `.autoport/physics_room_table.py` SEULS.
-**Le moteur `jak-hd-physics.gc` n'a pas bouge d'une ligne (4796, plafond 4800) et
-`recharged_assets/` est intact AU BIT : le comportement livre au jeu est identique.**
+**PORTEE.** `goal_src/jak1/pc/phys-room.gc` (docstrings), `goal_src/jak1/pc/jak-hd-physics.gc`
+(une docstring, **4798 lignes, plafond 4800**), `goal_src/jak1/pc/jak-hd-physics-NOTES.md`
+([NOTE-408]), `.autoport/physics_room_table.py` (le verrou et §13), `.autoport/SPEC-COVERAGE.md`.
+**`recharged_assets/` est intact AU BIT : le comportement livre au jeu est identique.**
 
-**TIER : GOAL SEUL.** 551 cibles en 13 a 23 s. Aucune reconstruction de `gk`, aucun APK.
+**TIER : GOAL SEUL.** `(mi)` + une course x86. Aucune reconstruction de `gk`, aucun APK — et c'est
+le tier juste, puisque aucune ligne de calcul n'a change.
 ================================================================================================
 8. CE QUE JE N'AI PAS FAIT, ET POURQUOI
 ================================================================================================
 1. **JE N'AI PAS CORRIGE L'AXE DE §17.** `physroom-run-z` accelere le long du monde Z, a 86,3 deg
-   de l'axe avant/arriere du sujet : la « course » de §17 est une embardee LATERALE. Le defaut est
-   du meme genre que celui de §19/§20, mais le corriger demande de refaire l'operateur de
-   translation, pas seulement l'axe de rotation. Nomme, mesure, laisse au cycle suivant.
-
-2. **JE N'AI PAS JOUE LE PENCHE AVANT DE §13.** Il n'existe aucun operateur qui incline le sujet
-   autour de son axe LATERAL pour une tenue quasi-statique — `physroom-lean` fait un roulis.
-   §13 reste `NON ETABLI`, avec desormais la RAISON exacte au lieu de « jamais joue ».
-
-3. **JE N'AI PAS RE-EPINGLE PH-SGN NI PH-SYM SUR LA POSE A 0,594 deg.** Leurs poses (7,9 deg et
-   6,8 a 123,5 deg selon la cellule) tombent au-dessus du nouveau seuil de 1,3 deg, donc leurs
-   lignes gauche/droite se taisent. Les re-epingler est un changement de STIMULUS pour deux phases
-   entieres, qui demande sa propre passe appariee — c'est la lecon du cycle 66 et je ne la
-   re-apprends pas.
-
-4. **JE N'AI PAS EXPLIQUE LE ×139 % DE r=8 (§17).** La fenetre de freinage change plus que toutes
-   les autres entre 7,5 et 0,594 deg, et sa sensibilite (20,3 %/deg) exigerait une pose que ce rig
-   n'offre pas. Je publie la mesure et l'exigence ; je n'ai pas de cause.
-
-5. **JE N'AI PAS TOUCHE AU SOLVEUR.** Aucun terme, aucune constante, aucun reglage. Ce cycle est
-   entierement un cycle d'INSTRUMENT et de COUVERTURE.
-
+   de l'axe avant/arriere du sujet : la « course » de §17 est une embardee LATERALE. C'est le meme
+   defaut de classe que celui de §19/§20 et de §13, mais il demande un operateur de TRANSLATION en
+   repere sujet et une phase appendue — un cycle a soi seul. Deuxieme fois que je le nomme sans le
+   faire, et je le dis plutot que de le laisser glisser.
+2. **JE N'AI PAS REDRESSE LA CONVENTION `+Z` DANS LE CALCUL** (section 4).
+3. **JE N'AI PAS DONNE DE LECTEUR A `PHYSDFMA` NI A `PHYSORICTL3`** (section 3). `PHYSDFMA` porte
+   le tenseur 3x3 par cellule, ce qui interesse §8 directement.
+4. **JE N'AI PAS JUGE LE 4e DESCRIPTEUR DE §13** (section 5).
+5. **JE N'AI TOUCHE AUCUN TERME DU SOLVEUR.** Aucune constante, aucun reglage, aucun parametre livre.
 6. **AUCUNE MESURE VISUELLE, AUCUNE CAPTURE.** Interdiction permanente.
-
-7. **UNE VIOLATION DU VERROU RESTE PUBLIEE ET NON CORRIGEE**, et c'est voulu : la ligne
-   `separation chestL - chestR = (...)` de `ROOM-AXLABEL` compare les deux chaines sans pouvoir
-   dire dans quelle pose. Son producteur vit dans `ldb_axsel.py`, hors du fichier de ce cycle.
-   L'exempter aurait ete une exemption de confort — exactement ce que le verrou existe pour
-   empecher. Elle est comptee, listee, et le bloc `ROOM-REGAXE` fournit desormais le meme controle
-   avec une source, lui, tracable (la geometrie du rig livre).
+7. **UNE CREANCE DU REGISTRE QUE JE SIGNALE SANS LA REPARER.** Le bloc du cycle 64 de
+   `SPEC-COVERAGE.md` affirme que « `W0` existe (776,1 u = 189,5 mm) la ou elle n'avait aucun
+   instrument ». `W0` n'apparait NULLE PART dans `physics_room_table.py` ni dans le tableau livre ;
+   la seule occurrence du depot est `c41e2_verdict.py`, un script hors-ligne qu'aucune course ne
+   rejoue. Les deux clauses en `% W0` (§10 migration sortante, §12 migration mediale) sont donc
+   sans denominateur reproductible. A reconstruire ou a retirer du registre.
 ================================================================================================
-9. VERDICT DES NEUF QUESTIONS ECRITES AVANT LA COURSE
+9. VERDICT DES QUESTIONS ECRITES AVANT LA COURSE
 ================================================================================================
-`c67-predictions.txt`, md5 **1d365bbb050ec4d7f6748ab2d8996512**, ecrit et empreinte AVANT le
-premier lancement.
+`c69-predictions.txt`, md5 **7ba2d4045f4f1d0413030d27b83811e7**, ecrit et empreinte AVANT le
+lancement — ET IL DECLARE LUI-MEME SA NATURE : ce cycle est un cycle de LECTURE. La plus grande
+partie de ce qu'il etablit se lit dans une trace qui EXISTAIT DEJA, et pretendre l'avoir predit
+serait fabriquer une pre-registration. Le fichier separe donc explicitement le BLOC A (ce que je
+lis, ecrit avant de le publier) du BLOC B (ce dont la reponse n'existait pas encore). Seul le
+bloc B est un engagement.
 
-Q1 TENUE, LARGEMENT. Engage : >= 400 echantillons et >= 150 couples (animation, frame) distincts.
-   Mesure : **682 echantillons, 202 couples**, contre 31 pour l'ancien balayage.
+Q1 TENUE, ET PLUS FORT QUE L'ENGAGEMENT. Engage : ecart max < 0,0002 sur les 54 composantes de
+   `PHYSORI4` et les 12 de `PHYSURST`. Mesure : **exactement zero** — les lignes sont identiques au
+   bit. 18 lignes `PHYSORI4` et 4 lignes `PHYSURST`, comme engage.
 
-Q2 TENUE, LARGEMENT. Engage : la pose retenue revalide a moins de 3,75 deg. Mesure : **0,594 deg**,
-   soit 12,6x plus serree que les 7,462 deg de la pose epinglee depuis le cycle 55.
+Q2 TENUE. Engage : trace neuve identique au bit apres retrait des lignes d'horodatage. Mesure :
+   **0 ligne differente sur 43 214 lignes `PHYS`**, et le meme nombre total de lignes des deux
+   cotes. Le md5 des deux logs differe neanmoins : 7 394 lignes NON-`PHYS` portent des compteurs
+   de frame, des fps et des millisecondes. Leur classification est strictement symetrique (memes
+   formes de ligne des deux cotes, valeurs numeriques differentes) — rien dans le perimetre.
 
-Q3 TENUE, ET C'EST LA QUESTION QUI PORTAIT LE CYCLE. Engage : mediane entre 3 % et 30 %.
-   Mesure : **10,5 %** (min 1,1 %, max 139,3 %). J'avais aussi ecrit ce qui m'aurait refute des
-   deux cotes, et ni l'un ni l'autre n'est arrive. Consequence appliquee : le seuil de 10 deg est
-   refute PAR LE CRITERE ECRIT AVANT et descend a 1,3 deg.
+Q3 TENUE. Engage : `jak-hd-physics.gc` sous 4800 lignes. Mesure : **4798**.
 
-**Q4 REFUTEE, ET JE LA PUBLIE.** Engage : au plus 2 fenetres sur 11 changent de sens entre 7,5 deg
-   et la pose resserree. Mesure : **3** (r=4, r=13, r=14). « Lequel des deux seins bouge le plus »
-   n'est donc PAS stable a 7,5 deg, et §18 ne peut fonder sa clause de differenciation sur aucune
-   pose sauf la plus serree.
+Q4 TENUE, ET SUR LA LIGNE NOMMEE D'AVANCE. Engage : au moins UNE etiquette change, et je nommais
+   `ROOM-ORICTL-DIAG` (`:1400`). Mesure : **2 etiquettes contredites, et ce sont les deux siennes**
+   (`i=6` ecrit supine / mesure prone ; `i=8` ecrit prone / mesure supine). Aucune autre.
 
-Q5 TENUE SUR SA SUBSTANCE, INCOMPLETE DANS SON ENUMERATION. Zero ligne pre-existante ne disparait
-   ni ne change (hors `PHYSROOM-PHASEGUARD`, que le cycle corrige exprès). Mais ma liste d'ajouts
-   attendus avait oublie `PHYSREGL` (+4). Dit, pas rattrape.
+**Q5 REFUTEE, ET C'EST MA GARDE QUI ETAIT FAUSSE, PAS LA MESURE.** J'avais declare avant lecture :
+   « une cellule n'est nommee que si la composante dominante depasse 0,60 et depasse la deuxieme
+   d'un facteur 1,5 », en m'engageant sur 9 cellules nommees et aucune refusee. Applique
+   litteralement, ce critere **refuse `i=1`** (dominante 0,826 contre 0,563, rapport 1,47 < 1,5).
+   Et il est faux par construction : une cellule a 45 deg a DEUX composantes comparables — c'est ce
+   qui fait d'elle une cellule a 45 deg. Une garde qui refuse les cellules intermediaires est une
+   garde qui refuse precisement le domaine de §13. Remplacee par une garde ANGULAIRE — ecart a la
+   direction canonique <= 25 deg ET marge a la deuxieme >= 20 deg — sous laquelle les 9 cellules
+   passent (pire ecart 12,6 deg, pire marge 22,1 deg). Le changement de critere est declare ici, pas
+   glisse : mon engagement ecrit ne tient pas, et la garde qui tourne n'est pas celle que j'avais
+   annoncee.
 
-Q6 TENUE. `PHYSROOM-PHASEVISITED maxvisited=38 ok=1` et `PHYSROOM-PHASEGUARD maxwork=38`.
+Q6 TENUE. Engage : §13 ne peut pas devenir `TENUE` ce cycle-ci, statut vise `PARTIELLE`, et « si je
+   publie `TENUE`, c'est que j'ai rabote une cible ». Publie : **`PARTIELLE`**, pour les deux
+   raisons ecrites d'avance (le 4e descripteur sans montage sain) plus une troisieme que je
+   n'attendais pas — la continuite du canal de DEPLACEMENT.
 
-Q7 TENUE, ET MIEUX QUE PREDIT. Temoin r=0 de PH-REGT : **0,0101 / 0,0120 B0**, sous 0,10 — et plus
-   CALME que celui des deux autres poses (0,0394/0,0337 et 0,0331/0,0273). Une pose plus serree
-   rend un plancher plus bas : la passe se lit au-dessus d'un plancher qui en est un.
-
-Q8 TENUE. L'argmax retenu en course (a=0, f=6,2500) et celui que le tableau REFAIT depuis la
-   population publiee coincident exactement. L'ecart residuel entre l'angle recalcule et le cosinus
-   imprime (0,40 deg au pire) est un artefact d'impression pres de s=1, pas une erreur de calcul :
-   les vecteurs a 6 decimales font foi.
-
-Q9 TENUE, LARGEMENT. **14 poses sur 20 sont REFUSEES et 22 lignes du tableau ecrivent
-   « POSE NON SYMETRIQUE » a la place d'un chiffre.** Un verrou qui ne refuse jamais rien n'en est
-   pas un.
-
+CE QUI A ETE ECRIT DANS LE BLOC A ET QUI S'EST REVELE FAUX, ET JE LE PUBLIE : **A6**. J'y avais
+   ecrit que le deplacement a `i=5` avait une composante VERS LE HAUT (« chestL ty = +26,59 u »).
+   C'etait une lecture d'ordre de composantes SUPPOSE. Mesure : la correspondance entre
+   `PHYSORICOM` et la base de l'ancre est `dv = +t[1]`, `dap = +t[2]`, `dlat = +t[0]`, avec un
+   residu de **0,0380** contre **0,4086** pour le deuxieme candidat (x10,8 pire), et la ligne
+   verticale de l'ancre pointe vers le BAS. Le `+26,59` est donc **vers le BAS**, et le descripteur
+   « forward/downward » de §13 est TENU la ou je le donnais perdant. La correspondance est
+   desormais MESUREE a chaque course (`ROOM-ORIFRAME`) au lieu d'etre lue dans une docstring — la
+   meme discipline que pour le sens de `+Z`, et pour la meme raison.
 ================================================================================================
 10. REGISTRE
 ================================================================================================
     TENUE                    2   (§3, §37)
     TENUE PAR CONSTRUCTION   5   (§1, §4, §5, §28, §35)
-    PARTIELLE               20
-    NON TENUE                9   (§19 et §20 y reviennent au cycle 68 — voir section 12)
-    NON ETABLI               2   (§10, §13)
+    PARTIELLE               21   (§13 y entre)
+    NON TENUE                9
+    NON ETABLI               1   (§10)
     total                   38
 
-    LE CHEMIN COMPTE PLUS QUE LE COMPTE. Au cycle 67, §19 et §20 quittent `NON TENUE` parce que
-    leur rouge portait sur un geste qui n'etait pas le leur. Au cycle 68 elles y reviennent parce
-    que leur PROPRE geste a enfin ete joue et qu'il sort de sa bande. Meme case, verdict d'une
-    autre nature : le premier etait une erreur d'attribution, le second est une mesure.
+**UN SEUL MOUVEMENT, ET IL NE VIENT PAS DU SOLVEUR.** §13 : `NON ETABLI` -> `PARTIELLE`. La trace
+est identique au bit a celle du cycle precedent sur ses lignes `PHYS` ; ce qui a change, c'est qu'une mesure produite a
+chaque course depuis des dizaines de cycles a enfin un lecteur.
 
-**AUCUNE SECTION NE PASSE AU VERT, ET DEUX REGRESSENT.** §19 et §20 quittent `NON TENUE` pour
-`NON ETABLI` : leur verdict rouge portait sur un geste qui n'est pas le leur, et un rouge faux
-coute autant qu'un vert faux — il envoie le chantier courir apres une amplitude alors que le
-probleme est un axe. Ce que le cycle leur donne a la place, c'est la preuve qu'elles n'ont jamais
-ete jouees, la machinerie qui les jouera, et la seule chose qui manque, nommee.
-
+Le compte des `NON ETABLI` tombe de 2 a 1. Il ne reste que §10, et son blocage est nomme depuis le
+cycle 64 : trois clauses tautologiques, une indeterminee, une sans canal.
 ================================================================================================
 11. CE QUE L'OWNER DOIT REGARDER
 ================================================================================================
-**A TESTER : RIEN**, et c'est litteral. Aucun fichier du jeu n'a change — le moteur n'a pas bouge
-d'une ligne, `recharged_assets/` est intact au bit, le comportement livre est identique. La regle
-du 2026-08-20 23:30 tient : je ne sollicite plus de test tant que le bloc §9-§13 / §14-§20 /
+**A TESTER : RIEN**, et c'est litteral. Aucun fichier du jeu n'a change — le solveur n'a pas bouge
+d'une ligne, `recharged_assets/` est intact au bit, la trace de la course est identique au bit. La
+regle du 2026-08-20 23:30 tient : je ne sollicite pas de test tant que le bloc §9-§13 / §14-§20 /
 §24-§27 n'est pas tenu ensemble.
 
-**CE QUI LUI APPARTIENT ET QUI EST NEUF** : sa plainte la plus ancienne sur la poitrine — « aucun
-mouvement quand elle se penche EN AVANT pour souder » (2026-08-11, 6e passe) — n'a jamais ete
-mesuree. L'operateur ecrit pour y repondre, `physroom-lean`, la penche **de cote**. Ce n'est pas un
-reglage rate, c'est un geste qui n'a pas eu lieu. Je ne lui demande pas de tester quoi que ce soit ;
-je le lui dis parce que c'est SA plainte et qu'elle a passe cinquante-six cycles sur un instrument
-qui regardait ailleurs.
+**CE QUI LUI APPARTIENT ET QUI EST NEUF.** Au cycle 68 je lui ai remonte que sa plainte la plus
+ancienne sur la poitrine — « aucun mouvement quand elle se penche EN AVANT pour souder »
+(2026-08-11, 6e passe) — n'avait « jamais ete mesuree ». **C'est faux, et je le corrige
+directement.** Le penche avant EST joue, a 45 deg et a 90 deg, dans toutes les courses, et il est
+mesure : au penche avant de 45 deg la poitrine migre de **133,66 u vers l'avant et 26,60 u vers le
+bas** (chestL), **128,79 / 11,41** (chestR). Ce que je ne savais pas dire, c'est ou regarder.
+
+Ce que ca ne dit pas : si ce mouvement lui parait juste. La spec ne chiffre pas §13, et je ne lui
+demande pas d'arbitrer une section isolee — c'est sa consigne du 2026-08-20 23:30.
 
 `OPEN-DEFECTS` : `breast-spec-incomplete` reste ouverte, et c'est elle qui tient la phase. Elle ne
 se retire que sur sa parole.
-
-================================================================================================
-12. CYCLE 68 — LE SENS DE L'AXE SE MESURE, ET §19 / §20 SONT JOUEES POUR LA PREMIERE FOIS
-================================================================================================
-Le cycle 67 laissait §19 et §20 bloquees sur une seule chose : **le SIGNE de l'axe**. Un axe mesure
-n'a pas de sens privilegie — celui que le solveur nomme « vertical » pointe vers le BAS. Et
-l'instrument bati pour trancher, `PHYSREGAD`, ne mesurait rien : il lisait un triedre FIGE a
-l'ancre et rendait la meme constante sur les six fenetres.
-
-**DEUX CORRECTIONS, TOUTES DEUX AU PRODUCTEUR.**
-1. L'instrument lit desormais le **DEPLACEMENT DE L'ANCRE** entre le repos de la fenetre et la fin
-   du pilotage, projete sur les trois axes du sujet. Ce n'est pas un canal neuf : c'est celui dont
-   `PHYSREGL` tire deja l'offset de pivot, relu a un autre instant. Verifie dans le moteur avant
-   usage — les emplacements 50/51/52 sont un ETAT (« la derniere valeur ecrite »), pas un maximum
-   de fenetre, et sont deliberement hors de la tranche que `phys-comexw-reset!` efface.
-2. **Le sens n'est plus choisi, il est joue deux fois.** Chaque fenetre de rotation tourne a +1 puis
-   a -1. La mesure nomme le geste ; moi non. Et la paire est en meme temps le controle a STIMULUS
-   MIROIR que §20 reclame.
-
-**LA REGLE DE LECTURE EST MESUREE, PAS POSTULEE.** Sur le mesh livre, l'os `chest -> lBoob` a une
-composante AVANT de **+0,154** ; le solveur lit cette meme direction a **-0,130** sur son axe
-avant/arriere, sur LES DEUX chaines et avec la meme grandeur. Son axe pointe donc vers l'ARRIERE :
-**`dap < 0` = le buste part vers l'AVANT.**
-
-    r   §    sgn   dap (u)   dver (u)  dlat (u)   apexL    apexR    R       geste obtenu
-    9   18   +1    -508,6      -0,0     -300,2    0,4272   0,0999   4,276   LACET
-    9   18   -1    +300,2      -0,0     -508,7    0,5323   0,1123   4,740   LACET
-    10  18   +1    -394,3      -0,0     -704,5    0,5001   0,1140   4,387   LACET
-    10  18   -1      +5,2      -0,0     -804,3    0,5820   0,1509   3,857   LACET
-    11  19   +1    -875,1    +468,7       -0,1    0,8199   0,8173   1,003   flexion AVANT
-    11  19   -1    +743,2    +662,6       -0,0    0,6334   0,5526   1,146   flexion ARRIERE
-    12  19   +1      +0,0      +0,0       +0,0    0,7943   0,8061   1,015   retour, deplacement NUL
-    12  19   -1      +0,0      +0,0       +0,0    0,6457   0,6020   1,073   retour, deplacement NUL
-    13  20   +1      +0,0    +386,2     +421,5    0,3770   0,4420   1,172   inclinaison LATERALE
-    13  20   -1       -0,1     -74,7     -564,9   0,5863   0,4553   1,288   inclinaison LATERALE
-    14  20   +1       -0,1     -74,7     -564,9   0,5281   0,4662   1,133   inclinaison LATERALE
-    14  20   -1      +0,0    +386,2     +421,5    0,5752   0,6081   1,057   inclinaison LATERALE
-
-**TROIS CONTROLES QUE LA DONNEE SE DONNE A ELLE-MEME, ET QUI VALIDENT L'INSTRUMENT :**
-  - les quatre fenetres de LACET rendent `dver` = -0,02 a -0,03 u sur une course de plusieurs
-    centaines d'unites : un lacet est purement HORIZONTAL, et la mesure le dit a la troisieme
-    decimale ;
-  - les fenetres de TANGAGE rendent `dlat` = 0,04 a 0,09 u : le tangage vit dans le plan sagittal ;
-  - les fenetres de ROULIS rendent `dap` = 0,02 a 0,05 u : le roulis vit dans le plan frontal.
-  Aucun de ces trois zeros n'a ete impose : ils tombent parce que l'axe est le bon.
-  **Et j'ai du corriger mon propre classificateur** : sa premiere version nommait le geste par la
-  plus GROSSE composante et classait donc un lacet en « flexion avant ». C'est la composante qui
-  MANQUE qui nomme un geste, pas celle qui domine.
-
-**§19 EST JOUEE POUR LA PREMIERE FOIS, ET ELLE SORT DE SA BANDE.** Au signe +1, l'ancre part de
-875 u vers l'avant (21 cm) et 469 u vers le bas (11 cm) : c'est la « rapid forward bend » de la
-section. Apex **0,8199 / 0,8173** contre « 30-40% B0 » (l.278) — **x2,05 et x2,04 au-dessus, sur
-les deux seins**. Le retour rend un deplacement d'ancre de **exactement 0,0000** sur les trois
-axes : la clause « the breast converges back to exactly 100% » est tenue au niveau de l'ancre.
-
-**§20 EST JOUEE POUR LA PREMIERE FOIS, SA BANDE ECHOUE, ET SA SECONDE CLAUSE EST DEMONTREE.**
-Les quatre lectures d'apex sont au-dessus de « 20-30% B0 » (x1,26 a x1,95). Mais « the gravity-side
-and opposite-side breasts must **not** be mechanically mirrored » : sur r=13 le sein le plus mobile
-est chestR au signe +1 et chestL au signe -1 ; sur r=14 l'inversion se produit aussi. **Le solveur
-distingue le cote de la gravite.** Le controle a stimulus miroir que cette clause reclamait
-n'existait pas avant ce cycle.
-
-**VERDICT DES SIX QUESTIONS ECRITES AVANT QUE LA DONNEE EXISTE** (`c68-predictions.txt`, md5
-0ee04feb75f4a0920ae45373adad06d2, ecrit alors qu'aucune ligne `PHYSREGA` n'existait) :
-  Q1 TENUE — `dap` prend douze valeurs distinctes, ecart entre signes de 1618 u sur le tangage.
-  Q2 TENUE — le signe +1 donne dap = -875 avec |dlat| = 0,1 : la flexion AVANT est identifiee.
-  **Q3 REFUTEE SUR SA MOITIE.** J'avais engage R < 1,10 sur le tangage DANS LES DEUX SENS. La
-     flexion AVANT rend 1,003 et 1,015 ; la flexion ARRIERE rend **1,146**, au-dessus. Une
-     rotation autour du lateral doit etre symetrique dans les deux sens et elle ne l'est pas.
-     Je n'ai pas de cause et je n'en invente pas.
-  Q4 TENUE — les quatre lectures de roulis depassent 1,05 ET le sens inverse le sein dominant.
-  Q5 TENUE SUR SA SUBSTANCE : PH-REG, PH-REGS et PH-REGT n'apparaissent meme pas dans le diff —
-     ils sont IDENTIQUES AU BIT, donc le drapeau de sens ne fuit pas. `PHYSREGA`/`PHYSREGAD`
-     changent parce qu'ils gagnent une colonne `sgn=`, comme annonce. **MAIS MON ENUMERATION A
-     ENCORE OUBLIE `PHYSREGL`** (+4, la seconde passe relit son bras de levier) — deuxieme fois
-     de suite. Dit, pas rattrape.
-  Q6 TENUE — la premiere fenetre de la seconde passe rend des deplacements du meme ordre que la
-     premiere (300/509 contre 509/300) : pas d'impulsion d'entree.
-
-**REGISTRE : §19 et §20 reviennent de `NON ETABLI` a `NON TENUE`, et ce n'est PAS un aller-retour.**
-Avant le cycle 67 elles etaient `NON TENUE` sur un geste qui n'etait pas le leur ; elles le sont
-maintenant sur le leur. Le compte est le meme, la phrase ne l'est pas.

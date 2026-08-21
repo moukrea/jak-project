@@ -1,7 +1,7 @@
 ==================================================================================================
 KEIRA — SALLE DE TEST SANS JOUEUR : TABLEAU DE MESURE
 genere par .autoport/physics_room_table.py depuis .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
-empreinte de la trace lue : md5 cd8baef007fa22f83607c9f87f704148 (4344157 octets)
+empreinte de la trace lue : md5 cc1817c728b928bf526f8465e11dab0a (4344157 octets)
 contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 7 (ce qui fait foi)
 
 -- ROOM-INSTRUMENTS-MUETS : CE QUE CE TABLEAU NE MESURE PAS AUJOURD'HUI ------------
@@ -2633,6 +2633,121 @@ ROOM-ORICOM-SPEC: chestR       §12 lateral i=2  |d|=0.3121 B0   cible 0.19 (ban
 ROOM-ORICOM-SPEC: chestR       §12 lateral i=4  |d|=0.3855 B0   cible 0.19 (bande 0.15-0.24)  AU-DESSUS
 ROOM-ORICOM-SPEC: chestR       §11 transitoire  pic d'etablissement=0.31345  tenu=0.28375  rapport=1.105  (§11 : 1.30 contre 1.23, soit 1.057)
 
+-- ROOM-ORIROLE : LE ROLE DE CHAQUE CELLULE, DERIVE DE LA GRAVITE MESUREE ----------------
+   `PHYSORI4` est emis a CHAQUE course depuis qu'il existe et n'avait AUCUN LECTEUR —
+   troisieme occurrence de ce mode d'echec dans ce dossier. Il porte la gravite unitaire
+   par cellule, en composantes brutes de la base de l'ancre (0 = laterale, 1 = verticale,
+   2 = avant/arriere, cf. `PHYSAXIS rlat/rv/rap`).
+ROOM-ORIROLE-SENS: chain=chestL       os de racine, composante sur la ligne 2 = -0.14776
+ROOM-ORIROLE-SENS: chain=chestR       os de racine, composante sur la ligne 2 = -0.14794
+ROOM-ORIROLE-SENS: un sein FAIT SAILLIE, donc l'os pointe vers l'AVANT ; la ligne 2 de la
+   base de l'ancre pointe donc vers l'ARRIERE. C'est de l'ANATOMIE mesuree sur le rig LIVRE, pas
+   une convention : aucune constante n'entre dans ce test, et il DISCRIMINE (une saillie
+   nulle le ferait refuser, et il refuse aussi si les chaines se contredisent).
+   RESERVE DECLAREE : sa §7 l.130 ecrit « +Z = forward from chest ». Le +Z construit par le
+   moteur pointe vers l'ARRIERE. Le CALCUL aval est juste — `wbk = max(0,-gzc)` recoit bien
+   le triplet prone — mais la CONVENTION s'ecarte de la spec, et deux erreurs de sens qui
+   se compensent restent deux erreurs. Voir [NOTE-408].
+
+   cellule   g_lateral  g_bas   g_avant | role derive de la mesure                  ecart  marge
+ROOM-ORIROLE: i=0      -0.1829  +0.9784  +0.0959 | DEBOUT                                    11.9   22.9  
+ROOM-ORIROLE: i=1      +0.5634  +0.8259  +0.0224 | ROULIS +45 (gravite vers la GAUCHE)       10.8   23.6  
+ROOM-ORIROLE: i=2      +0.9798  +0.1894  -0.0642 | ROULIS +90 (couchee sur le cote GAUCHE)   11.5   22.7  
+ROOM-ORIROLE: i=3      -0.8222  +0.5578  +0.1133 | ROULIS -45 (gravite vers la DROITE)       12.6   22.1  
+ROOM-ORIROLE: i=4      -0.9798  -0.1894  +0.0642 | ROULIS -90 (couchee sur le cote DROIT)    11.5   44.5  
+ROOM-ORIROLE: i=5      -0.0720  +0.6337  +0.7703 | PENCHE AVANT 45                            6.9   32.7  
+ROOM-ORIROLE: i=6      +0.0810  -0.0822  +0.9933 | PRONE (face contre terre)                  6.6   43.3  
+ROOM-ORIROLE: i=7      -0.1866  +0.7500  -0.6345 | PENCHE ARRIERE 45                         11.8   29.7  
+ROOM-ORIROLE: i=8      -0.0810  +0.0822  -0.9933 | SUPINE (sur le dos)                        6.6   33.9  
+   `ecart` = angle a la direction canonique retenue · `marge` = de combien la deuxieme est
+   plus loin. Seuils DECLARES : ecart <= 25 deg ET marge >= 20 deg.
+
+ROOM-ORIFRAME: dv = +t[1]  ·  dap = +t[2]  ·  dlat = +t[0]   (residu 0.0380 sur 16 cellules ; 2e candidat 0.4086, soit x10.8 pire)
+   Mesure, pas convention. `dv` suit la LIGNE VERTICALE de l'ancre, qui pointe vers le BAS
+   (`PHYSAXW` la publie a (0.082, -0.978, 0.189)) : `dv > 0` = l'apex DESCEND. `dap` suit
+   la ligne avant/arriere, dont le sens est fixe par la saillie du sein ci-dessus.
+-- ROOM-ORIROLE-VERROU : LES ETIQUETTES ECRITES EN DUR, CONFRONTEES A LA MESURE ----------
+ROOM-ORIROLE-VERROU: i=2  physics_room_table.py:887 / :913 / :1217 / :1362 / :1388  ecrit=ROULIS    mesure=ROULIS     conforme
+ROOM-ORIROLE-VERROU: i=4  physics_room_table.py:887 / :913 / :1217 / :1362 / :1388  ecrit=ROULIS    mesure=ROULIS     conforme
+ROOM-ORIROLE-VERROU: i=1  physics_room_table.py:888 / :1362 / :1389             ecrit=ROULIS    mesure=ROULIS     conforme
+ROOM-ORIROLE-VERROU: i=3  physics_room_table.py:888 / :1362 / :1389             ecrit=ROULIS    mesure=ROULIS     conforme
+ROOM-ORIROLE-VERROU: i=6  physics_room_table.py:889 / :1363 / :1389             ecrit=SAGITTAL  mesure=SAGITTAL   conforme
+ROOM-ORIROLE-VERROU: i=8  physics_room_table.py:889 / :1363 / :1389             ecrit=SAGITTAL  mesure=SAGITTAL   conforme
+ROOM-ORIROLE-VERROU: i=5  physics_room_table.py:890 / :1363 / :1389             ecrit=SAGITTAL  mesure=SAGITTAL   conforme
+ROOM-ORIROLE-VERROU: i=7  physics_room_table.py:890 / :1363 / :1389             ecrit=SAGITTAL  mesure=SAGITTAL   conforme
+ROOM-ORIROLE-VERROU: i=6  physics_room_table.py:1400 (etiquette de ROOM-ORICTL-DIAG)  ecrit=SUPINE    mesure=PRONE      *** CONTREDIT ***
+ROOM-ORIROLE-VERROU: i=8  physics_room_table.py:1400 (etiquette de ROOM-ORICTL-DIAG)  ecrit=PRONE     mesure=SUPINE     *** CONTREDIT ***
+ROOM-ORIROLE-VERROU: chain=chestL       le TRIPLET d'echelles designe supine -> i=8 et prone -> i=6 ; la GRAVITE mesuree dit SUPINE (sur le dos) et PRONE (face contre terre)  -> ACCORD
+ROOM-ORIROLE-VERROU: chain=chestR       le TRIPLET d'echelles designe supine -> i=8 et prone -> i=6 ; la GRAVITE mesuree dit SUPINE (sur le dos) et PRONE (face contre terre)  -> ACCORD
+   DEUX ROUTES INDEPENDANTES, ET C'EST LA PREMIERE FOIS QU'ELLES SONT CONFRONTEES. Le
+   triplet ne peut PAS echouer tout seul : le moteur ecrit en dur les constantes de §10 et
+   §11 (`jak-hd-physics.gc:3576-3581`) et le tableau les y compare — c'est une tautologie,
+   et le registre la porte comme telle depuis le cycle 64. La GRAVITE, elle, ne passe ni par
+   les morphs ni par ces constantes. Leur accord est donc une information ; leur desaccord
+   en serait une plus grande encore.
+ROOM-ORIROLE-VERROU: 2 etiquette(s) ecrite(s) en dur CONTREDITE(S) par la mesure.
+
+-- ROOM-SPEC13 : LES ORIENTATIONS INTERMEDIAIRES — PREMIERE LIGNE DE VERDICT ---------------
+   sens mesures : la ligne VERTICALE de l'ancre pointe vers le BAS (la gravite y tombe a +0.9784
+   debout), la ligne AVANT/ARRIERE vers l'ARRIERE (saillie du sein). Aucun des deux n'est suppose.
+
+   CLAUSE « shall vary continuously with the local gravity direction » — DEUX CANAUX, et
+   ils ne rendent PAS le meme verdict. Le canal de FORME (les trois echelles) et le canal de
+   DEPLACEMENT (l'apex) sont testes separement : les fondre en un seul chiffre cacherait
+   exactement ce que ce bloc trouve.
+ROOM-SPEC13-CONT: chain=chestL       cellule i=8 SUSPENDUE — les deux accumulateurs du deplacement different de 29.53 % en vecteur (critere du cycle 64b, 5 %). Aucune paire qui la contient ne porte de verdict.
+ROOM-SPEC13-CONT: chain=chestR       cellule i=2 SUSPENDUE — les deux accumulateurs du deplacement different de 25.83 % en vecteur (critere du cycle 64b, 5 %). Aucune paire qui la contient ne porte de verdict.
+ROOM-SPEC13-CONT: chestL       penche AVANT   FORME DANS (poids 0.537/0.545/0.503)  ·  DEPLACEMENT 0.2277 B0 a 45 deg contre 0.2379 au pole, rapport 0.957 <- HORS de [0.35 ; 0.85]
+ROOM-SPEC13-CONT: chestL       penche ARRIERE PAIRE SUSPENDUE (montage) — publiee sans verdict
+ROOM-SPEC13-CONT: chestL       roulis +       FORME DANS (poids 0.528/0.494/0.489)  ·  DEPLACEMENT 0.2296 B0 a 45 deg contre 0.2588 au pole, rapport 0.887 <- HORS de [0.35 ; 0.85]
+ROOM-SPEC13-CONT: chestL       roulis -       FORME DANS (poids 0.361/0.352/0.354)  ·  DEPLACEMENT 0.2601 B0 a 45 deg contre 0.3228 au pole, rapport 0.806 
+ROOM-SPEC13-CONT: chestR       penche AVANT   FORME DANS (poids 0.539/0.541/0.504)  ·  DEPLACEMENT 0.2317 B0 a 45 deg contre 0.2839 au pole, rapport 0.816 
+ROOM-SPEC13-CONT: chestR       penche ARRIERE FORME DANS (poids 0.479/0.449/0.528)  ·  DEPLACEMENT 0.2649 B0 a 45 deg contre 0.2047 au pole, rapport 1.294 <- HORS de [0.35 ; 0.85]
+ROOM-SPEC13-CONT: chestR       roulis +       PAIRE SUSPENDUE (montage) — publiee sans verdict
+ROOM-SPEC13-CONT: chestR       roulis -       FORME DANS (poids 0.529/0.486/0.491)  ·  DEPLACEMENT 0.1632 B0 a 45 deg contre 0.1213 au pole, rapport 1.345 <- HORS de [0.35 ; 0.85]
+   `poids` = (mesure - debout) / (pole - debout) par echelle : 0 = la pose debout, 1 = le
+   pole. Une cellule a 45 deg doit y tomber STRICTEMENT entre 0 et 1 — c'est la lettre de
+   la clause, sans aucun seuil de mon fait.
+   `rapport` = la meme chose sur le DEPLACEMENT. LA BANDE [0.35 ; 0.85] EST DE MOI, PAS DE
+   LA SPEC, ET LE VERDICT DE CETTE LIGNE EN DEPEND — je le dis ici plutot qu'en note. Elle encadre les deux
+   seules lois continues que la clause autorise : lineaire en ANGLE (0.50) et proportionnel
+   a la COMPOSANTE de gravite (sin 45 = 0.707). Un rapport au-dessus de 0.85 veut dire que
+   l'equilibre est deja quasiment atteint a MI-CHEMIN, donc que la variation n'est pas
+   continue en pratique meme si elle l'est en principe ; au-dessus de 1.00 elle n'est meme
+   plus monotone.
+ROOM-SPEC13-CONT: canal de FORME — 18 test(s) de position stricte sur 18 passent.
+
+   CLAUSE « At a 45 deg forward lean ... » — LA CELLULE EST i=5, DESIGNEE PAR LA GRAVITE
+   MESUREE ET PAR RIEN D'AUTRE. Le cycle 67 a ecrit, et le cycle 68 a repete, que §13 etait
+   « INJOUABLE avec les operateurs actuels, il manque un operateur qui incline autour de
+   l'axe LATERAL du sujet ». C'EST FAUX, ET LA REFUTATION EST DANS LA TRACE DE CES CYCLES-LA :
+   `physroom-orient axis=1` incline autour d'un axe a 11.5 deg du lateral du sujet et tient
+   la pose. La cause de l'erreur est nommee : l'etiquette du code disait « axis 1 = roulis »,
+   elle etait fausse, et personne ne lisait la gravite qui la contredisait a chaque course.
+
+ROOM-SPEC13-LEAN45: chestL       (1) migration COM  avant= +133.66 u  bas=  +26.60 u  |d|=0.2277 B0   -> SENS TENU (avant ET bas)
+                                   amplitude encadree par §9 (0.0000 B0 debout) et §11 (0.2379 B0 au prone) : DANS
+ROOM-SPEC13-LEAN45: chestL       (2) elongation racine-apex  1.1105  (debout 1.0000, prone 1.2195)   -> MODESTE, ENCADREE
+ROOM-SPEC13-LEAN45: chestL       (3) largeur                 0.9415  (debout 0.9999, prone 0.8912)   -> LEGEREMENT REDUITE, ENCADREE
+ROOM-SPEC13-LEAN45: chestL       (4) redistribution vers le pole distal   NON JUGE
+ROOM-SPEC13-LEAN45: chestR       (1) migration COM  avant= +128.79 u  bas=  +11.41 u  |d|=0.2317 B0   -> SENS TENU (avant ET bas)
+                                   amplitude encadree par §9 (0.0000 B0 debout) et §11 (0.2839 B0 au prone) : DANS
+ROOM-SPEC13-LEAN45: chestR       (2) elongation racine-apex  1.1071  (debout 1.0000, prone 1.2125)   -> MODESTE, ENCADREE
+ROOM-SPEC13-LEAN45: chestR       (3) largeur                 0.9479  (debout 0.9999, prone 0.9034)   -> LEGEREMENT REDUITE, ENCADREE
+ROOM-SPEC13-LEAN45: chestR       (4) redistribution vers le pole distal   NON JUGE
+                                   Le quatrieme descripteur demande une repartition PAR
+                                   MAILLON, que `PHYSORICOML` donne — mais son controle de
+                                   concordance suspend deja des cellules du balayage, et
+                                   batir un verdict neuf sur un montage qui se contredit est
+                                   la faute que ce registre existe pour interdire. Nomme,
+                                   pas contourne.
+
+ROOM-SPEC13-VERDICT: PARTIELLE. Trois descripteurs sur quatre sont juges et encadres par les
+   poles que sa propre spec chiffre ; le quatrieme n'a pas de montage sain. Et la clause de
+   CONTINUITE ne passe que sur un canal des deux : la FORME interpole, le DEPLACEMENT non.
+   §13 sort de NON ETABLI — non parce que le solveur a change (il n'a pas bouge d'une
+   ligne) mais parce que sa mesure existait et n'avait pas de lecteur.
+
 -- ROOM-ORICOM-MASS : SPEC 10/11/12 LUES SUR UN CENTRE DE MASSE ---------------------------
    NATURE : un DEPLACEMENT SOUTENU du centre de masse, en B0. REPERE : le triedre de
      l'ANCRE — la NORME, seule grandeur qui traverse les deux triedres orthonormes.
@@ -2709,12 +2824,12 @@ ROOM-ORICTL: chestL       k=4 MUR COLLIS.     1.01    1.00 |   1.02    1.02 | SY
 ROOM-ORICTL-POLES: chestL       k=4 MUR COLLIS.   LAT90 0.42212/0.42618  LAT45 0.27110/0.27157  AP90 0.42595/0.43649  AP45 0.29010/0.28316
 ROOM-ORICTL: chestL       k=5   1.04    1.00 |   1.22    1.02 | SYMETRISE — CE MECANISME EST LA CAUSE
 ROOM-ORICTL-POLES: chestL       k=5 LAT90 0.43433/0.41792  LAT45 0.27126/0.27174  AP90 0.44036/0.35972  AP45 0.28979/0.28337
-ROOM-ORICTL-DIAG: chestL       k=0 reference      supine i=6 inv=0 flip=0 · prone i=8 inv=0 flip=15 · i=5 flip=0 · i=7 flip=0
-ROOM-ORICTL-DIAG: chestL       k=1 LONGUEUR off   supine i=6 inv=0 flip=17 · prone i=8 inv=0 flip=50 · i=5 flip=0 · i=7 flip=0
-ROOM-ORICTL-DIAG: chestL       k=2 COTE off       supine i=6 inv=0 flip=0 · prone i=8 inv=0 flip=15 · i=5 flip=0 · i=7 flip=0
-ROOM-ORICTL-DIAG: chestL       k=3 CAPSULE cone   supine i=6 inv=0 flip=0 · prone i=8 inv=0 flip=19 · i=5 flip=0 · i=7 flip=0
-ROOM-ORICTL-DIAG: chestL       k=4 MUR COLLIS.    supine i=6 inv=0 flip=0 · prone i=8 inv=0 flip=0 · i=5 flip=0 · i=7 flip=0
-ROOM-ORICTL-DIAG: chestL       k=5  supine i=6 inv=0 flip=0 · prone i=8 inv=0 flip=15 · i=5 flip=0 · i=7 flip=0
+ROOM-ORICTL-DIAG: chestL       k=0 reference      prone i=6 inv=0 flip=0 · supine i=8 inv=0 flip=15 · av.45 i=5 flip=0 · ar.45 i=7 flip=0
+ROOM-ORICTL-DIAG: chestL       k=1 LONGUEUR off   prone i=6 inv=0 flip=17 · supine i=8 inv=0 flip=50 · av.45 i=5 flip=0 · ar.45 i=7 flip=0
+ROOM-ORICTL-DIAG: chestL       k=2 COTE off       prone i=6 inv=0 flip=0 · supine i=8 inv=0 flip=15 · av.45 i=5 flip=0 · ar.45 i=7 flip=0
+ROOM-ORICTL-DIAG: chestL       k=3 CAPSULE cone   prone i=6 inv=0 flip=0 · supine i=8 inv=0 flip=19 · av.45 i=5 flip=0 · ar.45 i=7 flip=0
+ROOM-ORICTL-DIAG: chestL       k=4 MUR COLLIS.    prone i=6 inv=0 flip=0 · supine i=8 inv=0 flip=0 · av.45 i=5 flip=0 · ar.45 i=7 flip=0
+ROOM-ORICTL-DIAG: chestL       k=5  prone i=6 inv=0 flip=0 · supine i=8 inv=0 flip=15 · av.45 i=5 flip=0 · ar.45 i=7 flip=0
 ROOM-ORICTL: chestR       k=0 reference       1.24    1.07 |   1.25    1.02 | reference (redressement 1.3x contre 1.2x en lateral)
 ROOM-ORICTL-POLES: chestR       k=0 reference     LAT90 0.31210/0.38546  LAT45 0.25014/0.26870  AP90 0.40500/0.32330  AP45 0.27127/0.26688
 ROOM-ORICTL: chestR       k=1 LONGUEUR off    2.16    1.36 |   1.60    1.09 | SYMETRISE — CE MECANISME EST LA CAUSE
@@ -2727,12 +2842,12 @@ ROOM-ORICTL: chestR       k=4 MUR COLLIS.     1.09    1.03 |   1.00    1.01 | SY
 ROOM-ORICTL-POLES: chestR       k=4 MUR COLLIS.   LAT90 0.35505/0.38569  LAT45 0.26064/0.26875  AP90 0.40507/0.40651  AP45 0.27095/0.26799
 ROOM-ORICTL: chestR       k=5   1.28    1.08 |   1.25    1.01 | SYMETRISE — CE MECANISME EST LA CAUSE
 ROOM-ORICTL-POLES: chestR       k=5 LAT90 0.31503/0.40312  LAT45 0.24839/0.26916  AP90 0.41538/0.33191  AP45 0.27101/0.26702
-ROOM-ORICTL-DIAG: chestR       k=0 reference      supine i=6 inv=0 flip=0 · prone i=8 inv=0 flip=0 · i=5 flip=0 · i=7 flip=0
-ROOM-ORICTL-DIAG: chestR       k=1 LONGUEUR off   supine i=6 inv=0 flip=16 · prone i=8 inv=0 flip=24 · i=5 flip=0 · i=7 flip=0
-ROOM-ORICTL-DIAG: chestR       k=2 COTE off       supine i=6 inv=0 flip=0 · prone i=8 inv=0 flip=0 · i=5 flip=0 · i=7 flip=0
-ROOM-ORICTL-DIAG: chestR       k=3 CAPSULE cone   supine i=6 inv=0 flip=0 · prone i=8 inv=0 flip=0 · i=5 flip=0 · i=7 flip=0
-ROOM-ORICTL-DIAG: chestR       k=4 MUR COLLIS.    supine i=6 inv=0 flip=0 · prone i=8 inv=0 flip=0 · i=5 flip=0 · i=7 flip=0
-ROOM-ORICTL-DIAG: chestR       k=5  supine i=6 inv=0 flip=0 · prone i=8 inv=0 flip=0 · i=5 flip=0 · i=7 flip=0
+ROOM-ORICTL-DIAG: chestR       k=0 reference      prone i=6 inv=0 flip=0 · supine i=8 inv=0 flip=0 · av.45 i=5 flip=0 · ar.45 i=7 flip=0
+ROOM-ORICTL-DIAG: chestR       k=1 LONGUEUR off   prone i=6 inv=0 flip=16 · supine i=8 inv=0 flip=24 · av.45 i=5 flip=0 · ar.45 i=7 flip=0
+ROOM-ORICTL-DIAG: chestR       k=2 COTE off       prone i=6 inv=0 flip=0 · supine i=8 inv=0 flip=0 · av.45 i=5 flip=0 · ar.45 i=7 flip=0
+ROOM-ORICTL-DIAG: chestR       k=3 CAPSULE cone   prone i=6 inv=0 flip=0 · supine i=8 inv=0 flip=0 · av.45 i=5 flip=0 · ar.45 i=7 flip=0
+ROOM-ORICTL-DIAG: chestR       k=4 MUR COLLIS.    prone i=6 inv=0 flip=0 · supine i=8 inv=0 flip=0 · av.45 i=5 flip=0 · ar.45 i=7 flip=0
+ROOM-ORICTL-DIAG: chestR       k=5  prone i=6 inv=0 flip=0 · supine i=8 inv=0 flip=0 · av.45 i=5 flip=0 · ar.45 i=7 flip=0
 
    LECTURE DES COMPTEURS : si `flip` et `inv` sont a ZERO des deux cotes alors que la
    reponse est redressee, aucune collision ni aucun limiteur n'a mordu pendant la mesure —
