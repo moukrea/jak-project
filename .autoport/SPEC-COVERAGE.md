@@ -77,6 +77,104 @@ parlent d'autre chose que de la poitrine sont hors périmètre, pas « tenues »
 
 
 
+## Cycle 83 — §22 N'EST PAS VIOLEE PAR UNE REPONSE TROP FORTE : ELLE EST VIOLEE PAR UN POINT DE FONCTIONNEMENT. ANIMATION FIGEE 0,31 u, ANIMATION QUI AVANCE 38 A 84 u, ET x391 D'ENTREE N'Y CHANGE RIEN.
+
+**Section nommee** : **§22**. Tout ce qui suit est tire de la trace ARCHIVEE et des deux courses
+d'ablation du cycle 82. **Zero build, zero course neuve, zero ligne de moteur.**
+
+### 1. LA DECOMPOSITION EXACTE DE L'APEX (identite verifiee a 3e-16)
+
+Projections SIGNEES sur `e^`, donc elles somment a `|e|` exactement — des normes ne se
+recomposeraient pas. 186 fenetres par chaine.
+
+    chestL   apex med 0,6702  max 0,8929 B0    tp +51,2 %   rp +9,1 %    dp +40,6 %
+    chestR   apex med 0,6952  max 0,9405 B0    tp +52,0 %   rp +9,9 %    dp +37,2 %
+
+La TRANSLATION du joint est le premier terme, le TENSEUR le second, la rotation de visee le
+dernier. Le cycle 76 avait deja mesure que borner la translation ne rend que -0,2 % sur l'apex :
+les trois termes ne sont pas independants.
+
+### 2. L'ENTREE, AU BON BRAS DE LEVIER — ET C'EST CE QUI MANQUAIT AU CYCLE 80c
+
+Le cycle 80c decrivait le torse par la translation de son centre et concluait « jamais plus de
+1,06 g ». La poitrine est au bout d'un levier de 1042 u : une ROTATION du torse y produit une
+acceleration que la translation du centre ne voit pas. On transporte donc le point d'attache de
+BIND (constant dans le repere de `chest`, mesure sur les `inverseBindMatrices` du glb livre) par la
+4x4 ECRITE de `chest`, puis seconde difference finie. **Aucune physique n'entre dans cette
+grandeur** : `chest` n'est simule par rien, et le cycle 82 l'a verifie au chiffre pres (27 528
+flottants identiques entre course armee et courses ablatees).
+
+    ENTREE  |a| au point d'attache   min 0,020 g   med 0,729 g   max 7,654 g   -> etendue x391
+    SORTIE  apex (sous-fenetre SANS pilotage)  min 0,4428  med 0,6443  max 0,8752 B0  -> x1,98
+    CORRELATION   Pearson +0,059 / -0,044     Spearman +0,030 / +0,021
+    mediane des 15 entrees BASSES 0,6472 B0   ·   des 16 HAUTES 0,6129 B0
+
+**La moitie la plus sollicitee repond MOINS.** L'animation la plus immobile des 31 (a=28, 0,02 g)
+rend 0,644 / 0,619 B0 ; celle qui porte le maximum de la course sur chestL (a=23, **0,875 B0**)
+recoit 0,03 g. Le contrat pose le seuil a « moins de 25 % d'ecart entre le plus fort et le plus
+faible stimulus = mesure non discriminante » : ici l'entree varie de **x391** et la sortie de -5 %.
+
+**L'apex ne suit pas non plus le canal d'auteur** (Pearson +0,010 / -0,338, et le signe est le
+mauvais du cote droit) : ce n'est pas le millimetre d'intention d'auteur du cycle 82 qui le pilote.
+
+### 3. LA STRUCTURE NE CHANGE PAS NON PLUS — DONC CE N'EST PAS UNE REPONSE QUI SATURE EN AMPLITUDE
+
+Les huit entrees les plus basses contre les huit les plus hautes (x90 d'entree) :
+
+    chestL   0,048 g -> tp 51,5 %  rp 7,4 %  dp 40,4 %   apex 0,6458 B0
+             4,089 g -> tp 56,2 %  rp 2,1 %  dp 41,4 %   apex 0,6479 B0   (+0,3 %)
+    chestR   0,042 g -> tp 61,4 %  rp 6,1 %  dp 33,2 %   apex 0,6243 B0
+             4,323 g -> tp 58,1 %  rp 9,1 %  dp 34,5 %   apex 0,6334 B0   (+1,5 %)
+
+Ce n'est pas une reponse ecretee : une reponse ecretee changerait de COMPOSITION en montant. Ici
+la composition est la meme aux deux bouts. C'est un **point de fonctionnement**.
+
+### 4. LE FAIT QUI TRANCHE, SUR UNE SEULE GRANDEUR ET UN SEUL CHEMIN DE CODE
+
+`PHYSIDLE dev` publie l'ecart RESIDUEL du joint a sa pose d'auteur. Dans `PHYSROOM-PH-IDLE` la
+fenetre est `physroom-hold` avec **l'animation FIGEE** ; dans `PHYSROOM-PH-MEAS` a `d = 5` c'est le
+meme `physroom-hold`, **aucun pilotage**, mais `physroom-advance-anim` tourne.
+
+    animation FIGEE      PHYSIDLE dev = 0,3125 u (chestL) / 0,8202 u (chestR)  = 0,0005 / 0,0014 B0
+    animation QUI AVANCE |simule - auteur| mediane = 38 a 84 u                 = 0,064 / 0,139 B0
+
+**Facteur superieur a 100, sans un gramme de pilotage de part ni d'autre.** Le solveur EST au
+repos, au modele, quand l'animation ne bouge pas. L'ecart nait de l'AVANCE de l'animation — et une
+fois ne, il est indifferent a l'ampleur de cette avance (section 2).
+
+### 5. CE QUE CA CHANGE POUR LE CHANTIER, ET CE QUE JE NE CONCLUS PAS
+
+**CE QUI EST ETABLI** : aucun reglage de la REPONSE — raideur, amortissement, gain de couplage,
+plafond d'amplitude — ne peut corriger §22. Ces trois familles agissent sur un rapport
+entree/sortie, et il n'y a pas de rapport : la sortie est la meme a 0,02 g et a 7,65 g. Dix cycles
+de ce dossier ont vise ce rapport-la.
+
+**L'HYPOTHESE DE TETE, ET JE LA DONNE COMME TELLE** : une sortie constante en fonction de son
+entree est la signature d'un terme SATURE — c'est `saturation-as-force-multiplier-freezes` du
+registre, et §21 est `NON TENUE` pour exactement ce motif, avec **73 fenetres sur 132 mesurees
+GELEES** au cycle 71. **Ce n'est pas etabli ici** : le cycle 72 a desarme le mur de force
+(`*phys-fwall*`) et l'apex est MONTE (8/30 -> 16/30 cellules au-dessus du plafond exceptionnel),
+donc le mur BORNE le point de fonctionnement, il ne le PRODUIT pas. Le producteur est ailleurs.
+
+**LE DISCRIMINANT DU PROCHAIN CYCLE, PUBLIE D'AVANCE** : le producteur doit etre un terme qui
+(a) est nul quand la pose ne change pas, (b) ne croit pas avec l'ampleur du changement de pose.
+Ces deux proprietes ensemble excluent toute force proportionnelle a une vitesse, a une
+acceleration ou a un ecart de pose. Ce qui reste sont les termes qui se REEVALUENT a chaque
+changement de pose sans en lire l'ampleur : la capture du triedre, la recomposition du tenseur de
+deformation, et les boucles de contrainte qui se reprojettent. Le test qui les separe est une
+ablation par terme, avec la MEME mesure des deux cotes (`PHYSIDLE dev` figee contre
+`|simule - auteur|` avancante) — et un temoin d'inertie sur la jambe armee, comme au cycle 72.
+
+**POURQUOI AUCUNE SECTION NE PASSE CE CYCLE, ET JE REPONDS A MA PROPRE EXIGENCE DU CYCLE 82.**
+J'avais ecrit « le prochain cycle doit faire passer une section d'apex, ou dire pourquoi il ne
+peut pas ». La raison est ci-dessus : la cause est desormais localisee a une CLASSE de terme, pas
+a un terme. Toucher un terme sans savoir lequel serait du reglage — et un reglage ne peut rien sur
+une grandeur qui ne repond pas a son entree. **AUCUN statut ne change.** TENUE 1 · PAR
+CONSTRUCTION 5 · PARTIELLE 21 · NON TENUE 10 · NON ETABLI 1.
+
+---
+
+
 ## Cycle 82 — LA POSE D'AUTEUR *EST* LE MODELE LIVRE (0,6 A 1,3 mm). JE RETIRE L'INVERSION DU CYCLE 81b, ET LA REFERENCE DES SIX ROUGES D'APEX EST VERIFIEE PAR UN CHEMIN INDEPENDANT.
 
 **Section dont ce cycle debloque le verdict** (exigence DIRECTIVES 2026-08-21 18:25, nommee AVANT
