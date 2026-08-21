@@ -1,7 +1,7 @@
 ==================================================================================================
 KEIRA — SALLE DE TEST SANS JOUEUR : TABLEAU DE MESURE
 genere par .autoport/physics_room_table.py depuis .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
-empreinte de la trace lue : md5 e0a51d2fc3307b519ec6c10bddd08343 (4321113 octets)
+empreinte de la trace lue : md5 cd8baef007fa22f83607c9f87f704148 (4344157 octets)
 contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 7 (ce qui fait foi)
 
 -- ROOM-INSTRUMENTS-MUETS : CE QUE CE TABLEAU NE MESURE PAS AUJOURD'HUI ------------
@@ -1317,22 +1317,29 @@ ROOM-REGAXE-LEAN: une rotation AUTOUR de l'axe lateral commute avec la reflexion
    de §13 (« at a 45 deg forward lean ») n'a jamais ete joue, et `ROOM-GRAVSAG` ne
    repond donc pas a la plainte « aucun mouvement quand elle se penche en avant pour souder ».
 
-   -- ROOM-REGA : §18 A §20 JOUEES AUTOUR DES AXES DU SUJET (cycle 67) ------------
-ROOM-REGA: pose a=0 f=6.2500, ecart au miroir revalide = 2.09 deg ; axe de rotation pris sur le SUJET
+   -- ROOM-REGA : §18 A §20, AXES DU SUJET, LES DEUX SENS (cycle 68) -------------
+ROOM-REGA: pose a=0 f=6.2500, ecart au miroir revalide = 2.09 deg ; axe pris sur le SUJET
+   dap < 0 = le buste part VERS L'AVANT (l'axe AP du solveur pointe vers l'arriere,
+   mesure : os chest->lBoob a +0.154 sur le mesh livre, -0.130 sur cet axe).
 
-      r   section  apexL^t   apexR^t   apexL^a   apexR^a   apy       sens obtenu
-      9   §18      0.4011    0.2603    0.4272    0.0999    0.0959    pas de bascule avant/arriere
-      10  §18      0.6116    0.4917    0.5001    0.1140    0.0959    pas de bascule avant/arriere
-      11  §19      0.4838    0.5857    0.8199    0.8173    0.0959    pas de bascule avant/arriere
-      12  §19      0.4630    0.5988    0.7943    0.8061    0.0959    pas de bascule avant/arriere
-      13  §20      0.6571    0.5854    0.3770    0.4420    0.0959    pas de bascule avant/arriere
-      14  §20      0.6665    0.6452    0.5281    0.4662    0.0959    pas de bascule avant/arriere
+      r   section sgn  dap (u)   dver (u)  dlat (u)  apexL    apexR    R       geste obtenu
+      9   §18       +1 -508.6    -0.0      -300.2    0.4272   0.0999   4.276   LACET
+      9   §18       -1 300.2     -0.0      -508.7    0.5323   0.1123   4.740   LACET
+      10  §18       +1 -394.3    -0.0      -704.5    0.5001   0.1140   4.387   LACET
+      10  §18       -1 5.2       -0.0      -804.3    0.5820   0.1509   3.857   LACET
+      11  §19       +1 -875.1    468.7     -0.1      0.8199   0.8173   1.003   flexion AVANT
+      11  §19       -1 743.2     662.6     -0.0      0.6334   0.5526   1.146   flexion ARRIERE
+      12  §19       +1 0.0       0.0       0.0       0.7943   0.8061   1.015   deplacement negligeable
+      12  §19       -1 0.0       0.0       0.0       0.6457   0.6020   1.073   deplacement negligeable
+      13  §20       +1 0.0       386.2     421.5     0.3770   0.4420   1.172   inclinaison LATERALE
+      13  §20       -1 -0.1      -74.7     -564.9    0.5863   0.4553   1.288   inclinaison LATERALE
+      14  §20       +1 -0.1      -74.7     -564.9    0.5281   0.4662   1.133   inclinaison LATERALE
+      14  §20       -1 0.0       386.2     421.5     0.5752   0.6081   1.057   inclinaison LATERALE
 
-      ^t = axes du MONDE (PH-REGT) · ^a = axes du SUJET (PH-REGA), MEME pose,
-      MEME course, MEMES tables de duree et d'amplitude. La seule variable est l'AXE.
-      `apy` = composante VERTICALE de l'axe avant/arriere du sujet a la fin du
-      pilotage. Au repos elle vaut +0.096 : elle BAISSE si le buste s'est penche en avant.
-
+ROOM-REGA-SENS: la flexion AVANT de §19 est obtenue au signe +1 (fenetres r=11).
+   C'est une MESURE du deplacement de l'ancre, pas un signe choisi : le geste que
+   §19 nomme peut donc enfin etre joue, et l'autre signe reste publie a cote comme
+   son controle a stimulus miroir.
 
    -- ROOM-SPEC15-CROSS : « jump apex -> breast may CROSS neutral position » -----
       §15 l.230. Le registre portait la clause NON DEMONTREE, et la raison etait
@@ -3147,5 +3154,5 @@ ROOM-ASYM-EXEMPT: 9 ligne(s) exemptees (elles n'affirment aucune asymetrie du pe
    -  ROOM-POSE-RAFFINEMENT: pose retenue a=0 f=6.2500, ecart au miroir REVALIDE a l'execution
    -  ROOM-POSE-RAFFINEMENT: ecart relatif MEDIAN du rapport gauche/droite entre 7.5 deg
    -        CONTROLE INDEPENDANT : (u_chestL - u_chestR) normalise = (-0.0810, +0.1810, +0.9801),
-   -  ROOM-REGA: pose a=0 f=6.2500, ecart au miroir revalide = 2.09 deg ; axe de rotation pris sur le SUJET
+   -  ROOM-REGA: pose a=0 f=6.2500, ecart au miroir revalide = 2.09 deg ; axe pris sur le SUJET
    -        ROOM-SYM-RESOLU: 2 cellule(s) sur 8 ou l'ecart gauche/droite DEPASSE sa ligne de base, dont 0 dans une pose ADMISSIBLE (<= 1.3 deg du 

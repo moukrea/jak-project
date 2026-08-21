@@ -1,0 +1,60 @@
+CYCLE 68 — QUESTIONS ECRITES AVANT QUE LA DONNEE EXISTE
+DIRECTIVES v3fee554599
+Branche physics-keira-clean · perimetre chestL / chestR SEULES
+
+HONNETETE SUR L'HORODATAGE : ce fichier est ecrit APRES le lancement de la course, mais PH-REGA —
+la seule phase qui produit les grandeurs ci-dessous — ne tourne qu'a la toute fin, une vingtaine de
+minutes plus tard. Aucune ligne `PHYSREGA` ni `PHYSREGAD` n'existait dans la trace au moment ou ces
+questions ont ete ecrites. Je le dis plutot que de laisser croire a un horodatage plus propre.
+
+CE QUE LE CYCLE CHANGE, ET C'EST LA SEULE VARIABLE :
+  (a) `PHYSREGAD` cesse de lire un axe FIGE (il rendait la meme constante sur les six fenetres au
+      cycle 67, instrument non discriminant, rejete) et lit le DEPLACEMENT DE L'ANCRE, projete sur
+      les trois axes du sujet ;
+  (b) PH-REGA joue chaque fenetre de rotation DANS LES DEUX SENS (+1 puis -1), parce que le signe
+      d'un axe mesure est arbitraire et qu'un signe epingle dans le source serait un choix.
+Aucun terme du solveur ne bouge.
+
+----------------------------------------------------------------------------------------------
+Q1 — L'INSTRUMENT DE SENS DISCRIMINE-T-IL, CETTE FOIS ?
+  J'engage : `dap` prend AU MOINS QUATRE valeurs distinctes sur les douze fenetres, et son ecart
+  entre les deux signes d'une MEME fenetre depasse 100 u sur les fenetres de tangage et de roulis.
+  REFUTE SI : `dap` rend la meme valeur partout, comme `apy` au cycle 67. L'instrument serait alors
+  faux une deuxieme fois, et je ne publierais aucun verdict de sens.
+
+Q2 — UN DES DEUX SIGNES DONNE-T-IL LA FLEXION AVANT DE §19 ?
+  Regle de lecture, MESUREE et posee avant : l'axe AP du solveur pointe vers l'ARRIERE (os
+  chest->lBoob a +0,154 d'avant sur le mesh livre, lu -0,130 sur cet axe, sur LES DEUX chaines),
+  donc **dap < 0 = flexion VERS L'AVANT**.
+  J'engage : sur r=11 et r=12, UN des deux signes rend dap < 0 avec |dap| > |dlat|.
+  REFUTE SI : les deux signes rendent dap > 0, ou |dlat| domine. Le geste de §19 serait alors
+  injouable meme autour de l'axe lateral, et ce serait le resultat — publie tel quel.
+
+Q3 — LES DEUX SENS SONT-ILS UN CONTROLE MIROIR UTILISABLE ?
+  J'engage : sur les fenetres de tangage (r=11, 12), le rapport gauche/droite de l'apex reste sous
+  1,10 DANS LES DEUX SENS — une flexion avant comme arriere est symetrique par construction.
+  REFUTE SI : un des deux sens rend un rapport > 1,10. La symetrie du tangage serait alors fausse,
+  et avec elle la cinquieme preuve du cycle 67.
+
+Q4 — LE ROULIS EST-IL ANTISYMETRIQUE DANS LES DEUX SENS ?
+  J'engage : sur r=13 et r=14, le rapport gauche/droite depasse 1,05 dans les deux sens, ET le
+  sens du roulis INVERSE lequel des deux seins bouge le plus. C'est ce que §20 decrit (« the
+  gravity-side and opposite-side breasts »).
+  REFUTE SI : le sens n'inverse rien. Le solveur ne distinguerait alors pas le cote de la gravite,
+  et §20 serait NON TENUE pour une raison de moteur et non d'instrument.
+
+Q5 — NON-REGRESSION, FORME DURE.
+  J'engage : entre la course du cycle 67 et celle-ci, ZERO ligne existante ne disparait ni ne
+  change, hors `PHYSREGA`/`PHYSREGAD` (qui gagnent une colonne `sgn=`), `PHYSROOM-PHASEGUARD` et
+  `PHYSROOM-PHASEVISITED`. En particulier PH-REG, PH-REGS et PH-REGT restent IDENTIQUES AU BIT :
+  le drapeau de sens ne doit pas fuir hors de PH-REGA.
+  REFUTE SI : une seule ligne d'une phase anterieure bouge.
+
+Q6 — LE TEMOIN.
+  J'engage : la seconde passe (sgn=-1) ne demarre pas sur une impulsion : le retour doux de la
+  fenetre r=9 ramene le sujet depuis l'angle de fin de r=14 comme entre deux fenetres ordinaires.
+  Preuve attendue : `dap`/`dver`/`dlat` de r=9 restent du meme ordre de grandeur dans les deux
+  passes (facteur < 3).
+  REFUTE SI : la premiere fenetre de la seconde passe rend un deplacement d'un ordre de grandeur
+  au-dessus des autres — ce serait le piege `new-room-phase-append-and-entry-ramp`, une troisieme
+  fois.

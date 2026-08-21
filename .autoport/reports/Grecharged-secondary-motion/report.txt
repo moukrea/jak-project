@@ -1,4 +1,4 @@
-RAPPORT DE CYCLE 67 — Grecharged-secondary-motion
+RAPPORT DE CYCLES 67 + 68 — Grecharged-secondary-motion
 DIRECTIVES v3fee554599
 Branche physics-keira-clean · perimetre : chestL / chestR SEULES (owner 2026-08-14 07:30)
 
@@ -430,9 +430,14 @@ Q9 TENUE, LARGEMENT. **14 poses sur 20 sont REFUSEES et 22 lignes du tableau ecr
     TENUE                    2   (§3, §37)
     TENUE PAR CONSTRUCTION   5   (§1, §4, §5, §28, §35)
     PARTIELLE               20
-    NON TENUE                7   (etait 9)
-    NON ETABLI               4   (etait 2 : §10, §13 — rejointes par §19 et §20)
+    NON TENUE                9   (§19 et §20 y reviennent au cycle 68 — voir section 12)
+    NON ETABLI               2   (§10, §13)
     total                   38
+
+    LE CHEMIN COMPTE PLUS QUE LE COMPTE. Au cycle 67, §19 et §20 quittent `NON TENUE` parce que
+    leur rouge portait sur un geste qui n'etait pas le leur. Au cycle 68 elles y reviennent parce
+    que leur PROPRE geste a enfin ete joue et qu'il sort de sa bande. Meme case, verdict d'une
+    autre nature : le premier etait une erreur d'attribution, le second est une mesure.
 
 **AUCUNE SECTION NE PASSE AU VERT, ET DEUX REGRESSENT.** §19 et §20 quittent `NON TENUE` pour
 `NON ETABLI` : leur verdict rouge portait sur un geste qui n'est pas le leur, et un rouge faux
@@ -457,3 +462,85 @@ qui regardait ailleurs.
 
 `OPEN-DEFECTS` : `breast-spec-incomplete` reste ouverte, et c'est elle qui tient la phase. Elle ne
 se retire que sur sa parole.
+
+================================================================================================
+12. CYCLE 68 — LE SENS DE L'AXE SE MESURE, ET §19 / §20 SONT JOUEES POUR LA PREMIERE FOIS
+================================================================================================
+Le cycle 67 laissait §19 et §20 bloquees sur une seule chose : **le SIGNE de l'axe**. Un axe mesure
+n'a pas de sens privilegie — celui que le solveur nomme « vertical » pointe vers le BAS. Et
+l'instrument bati pour trancher, `PHYSREGAD`, ne mesurait rien : il lisait un triedre FIGE a
+l'ancre et rendait la meme constante sur les six fenetres.
+
+**DEUX CORRECTIONS, TOUTES DEUX AU PRODUCTEUR.**
+1. L'instrument lit desormais le **DEPLACEMENT DE L'ANCRE** entre le repos de la fenetre et la fin
+   du pilotage, projete sur les trois axes du sujet. Ce n'est pas un canal neuf : c'est celui dont
+   `PHYSREGL` tire deja l'offset de pivot, relu a un autre instant. Verifie dans le moteur avant
+   usage — les emplacements 50/51/52 sont un ETAT (« la derniere valeur ecrite »), pas un maximum
+   de fenetre, et sont deliberement hors de la tranche que `phys-comexw-reset!` efface.
+2. **Le sens n'est plus choisi, il est joue deux fois.** Chaque fenetre de rotation tourne a +1 puis
+   a -1. La mesure nomme le geste ; moi non. Et la paire est en meme temps le controle a STIMULUS
+   MIROIR que §20 reclame.
+
+**LA REGLE DE LECTURE EST MESUREE, PAS POSTULEE.** Sur le mesh livre, l'os `chest -> lBoob` a une
+composante AVANT de **+0,154** ; le solveur lit cette meme direction a **-0,130** sur son axe
+avant/arriere, sur LES DEUX chaines et avec la meme grandeur. Son axe pointe donc vers l'ARRIERE :
+**`dap < 0` = le buste part vers l'AVANT.**
+
+    r   §    sgn   dap (u)   dver (u)  dlat (u)   apexL    apexR    R       geste obtenu
+    9   18   +1    -508,6      -0,0     -300,2    0,4272   0,0999   4,276   LACET
+    9   18   -1    +300,2      -0,0     -508,7    0,5323   0,1123   4,740   LACET
+    10  18   +1    -394,3      -0,0     -704,5    0,5001   0,1140   4,387   LACET
+    10  18   -1      +5,2      -0,0     -804,3    0,5820   0,1509   3,857   LACET
+    11  19   +1    -875,1    +468,7       -0,1    0,8199   0,8173   1,003   flexion AVANT
+    11  19   -1    +743,2    +662,6       -0,0    0,6334   0,5526   1,146   flexion ARRIERE
+    12  19   +1      +0,0      +0,0       +0,0    0,7943   0,8061   1,015   retour, deplacement NUL
+    12  19   -1      +0,0      +0,0       +0,0    0,6457   0,6020   1,073   retour, deplacement NUL
+    13  20   +1      +0,0    +386,2     +421,5    0,3770   0,4420   1,172   inclinaison LATERALE
+    13  20   -1       -0,1     -74,7     -564,9   0,5863   0,4553   1,288   inclinaison LATERALE
+    14  20   +1       -0,1     -74,7     -564,9   0,5281   0,4662   1,133   inclinaison LATERALE
+    14  20   -1      +0,0    +386,2     +421,5    0,5752   0,6081   1,057   inclinaison LATERALE
+
+**TROIS CONTROLES QUE LA DONNEE SE DONNE A ELLE-MEME, ET QUI VALIDENT L'INSTRUMENT :**
+  - les quatre fenetres de LACET rendent `dver` = -0,02 a -0,03 u sur une course de plusieurs
+    centaines d'unites : un lacet est purement HORIZONTAL, et la mesure le dit a la troisieme
+    decimale ;
+  - les fenetres de TANGAGE rendent `dlat` = 0,04 a 0,09 u : le tangage vit dans le plan sagittal ;
+  - les fenetres de ROULIS rendent `dap` = 0,02 a 0,05 u : le roulis vit dans le plan frontal.
+  Aucun de ces trois zeros n'a ete impose : ils tombent parce que l'axe est le bon.
+  **Et j'ai du corriger mon propre classificateur** : sa premiere version nommait le geste par la
+  plus GROSSE composante et classait donc un lacet en « flexion avant ». C'est la composante qui
+  MANQUE qui nomme un geste, pas celle qui domine.
+
+**§19 EST JOUEE POUR LA PREMIERE FOIS, ET ELLE SORT DE SA BANDE.** Au signe +1, l'ancre part de
+875 u vers l'avant (21 cm) et 469 u vers le bas (11 cm) : c'est la « rapid forward bend » de la
+section. Apex **0,8199 / 0,8173** contre « 30-40% B0 » (l.278) — **x2,05 et x2,04 au-dessus, sur
+les deux seins**. Le retour rend un deplacement d'ancre de **exactement 0,0000** sur les trois
+axes : la clause « the breast converges back to exactly 100% » est tenue au niveau de l'ancre.
+
+**§20 EST JOUEE POUR LA PREMIERE FOIS, SA BANDE ECHOUE, ET SA SECONDE CLAUSE EST DEMONTREE.**
+Les quatre lectures d'apex sont au-dessus de « 20-30% B0 » (x1,26 a x1,95). Mais « the gravity-side
+and opposite-side breasts must **not** be mechanically mirrored » : sur r=13 le sein le plus mobile
+est chestR au signe +1 et chestL au signe -1 ; sur r=14 l'inversion se produit aussi. **Le solveur
+distingue le cote de la gravite.** Le controle a stimulus miroir que cette clause reclamait
+n'existait pas avant ce cycle.
+
+**VERDICT DES SIX QUESTIONS ECRITES AVANT QUE LA DONNEE EXISTE** (`c68-predictions.txt`, md5
+0ee04feb75f4a0920ae45373adad06d2, ecrit alors qu'aucune ligne `PHYSREGA` n'existait) :
+  Q1 TENUE — `dap` prend douze valeurs distinctes, ecart entre signes de 1618 u sur le tangage.
+  Q2 TENUE — le signe +1 donne dap = -875 avec |dlat| = 0,1 : la flexion AVANT est identifiee.
+  **Q3 REFUTEE SUR SA MOITIE.** J'avais engage R < 1,10 sur le tangage DANS LES DEUX SENS. La
+     flexion AVANT rend 1,003 et 1,015 ; la flexion ARRIERE rend **1,146**, au-dessus. Une
+     rotation autour du lateral doit etre symetrique dans les deux sens et elle ne l'est pas.
+     Je n'ai pas de cause et je n'en invente pas.
+  Q4 TENUE — les quatre lectures de roulis depassent 1,05 ET le sens inverse le sein dominant.
+  Q5 TENUE SUR SA SUBSTANCE : PH-REG, PH-REGS et PH-REGT n'apparaissent meme pas dans le diff —
+     ils sont IDENTIQUES AU BIT, donc le drapeau de sens ne fuit pas. `PHYSREGA`/`PHYSREGAD`
+     changent parce qu'ils gagnent une colonne `sgn=`, comme annonce. **MAIS MON ENUMERATION A
+     ENCORE OUBLIE `PHYSREGL`** (+4, la seconde passe relit son bras de levier) — deuxieme fois
+     de suite. Dit, pas rattrape.
+  Q6 TENUE — la premiere fenetre de la seconde passe rend des deplacements du meme ordre que la
+     premiere (300/509 contre 509/300) : pas d'impulsion d'entree.
+
+**REGISTRE : §19 et §20 reviennent de `NON ETABLI` a `NON TENUE`, et ce n'est PAS un aller-retour.**
+Avant le cycle 67 elles etaient `NON TENUE` sur un geste qui n'etait pas le leur ; elles le sont
+maintenant sur le leur. Le compte est le meme, la phrase ne l'est pas.

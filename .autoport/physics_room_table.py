@@ -5414,54 +5414,103 @@ def main():
                     A('   repond donc pas a la plainte « aucun mouvement quand elle se penche en avant'
                       ' pour souder ».', notasym=True)
                 A('')
-            # ---- ROOM-REGA : LES SIX FENETRES DE ROTATION, AUTOUR DES AXES DU SUJET ---------------
-            _rga2, _rgad, _rgaw = {}, {}, {}
-            for _m in re.finditer(r'^PHYSREGA c=(\d+) r=(\d+) apex=([-\d.e+]+) com=([-\d.e+]+)',
-                                  txt, re.M):
-                _rga2[(int(_m.group(1)), int(_m.group(2)))] = (float(_m.group(3)),
-                                                               float(_m.group(4)))
-            for _m in re.finditer(r'^PHYSREGAD r=(\d+) apy=([-\d.e+]+) latx=([-\d.e+]+)', txt, re.M):
-                _rgad[int(_m.group(1))] = (float(_m.group(2)), float(_m.group(3)))
+            # ---- ROOM-REGA : LES SIX FENETRES, AUTOUR DES AXES DU SUJET ET DANS LES DEUX SENS ---
+            #
+            # POURQUOI LES DEUX SENS. Le signe d'un axe MESURE est arbitraire : le solveur rend un
+            # axe « vertical » qui pointe vers le BAS et un axe avant/arriere qui pointe vers
+            # l'ARRIERE. Epingler un signe dans le source serait un choix ; jouer les deux et
+            # publier le deplacement REEL de l'ancre est une mesure. La paire est en outre le
+            # controle a STIMULUS MIROIR que §12 et §20 reclament.
+            #
+            # COMMENT LE SENS SE NOMME, ET LA REGLE EST MESUREE, PAS SUPPOSEE. Sur le mesh livre,
+            # la direction d'os `chest -> lBoob` a une composante AVANT de **+0,154** ; le solveur
+            # lit cette meme direction a **-0,130** sur SES axes, sur LES DEUX chaines et avec la
+            # meme grandeur. Son axe avant/arriere pointe donc vers l'ARRIERE, et
+            #     **dap < 0  =  le buste est parti VERS L'AVANT**.
+            # NATURE de dap/dver/dlat : trois LONGUEURS signees (u, 4096 u = 1 m), deplacement de
+            #   l'ancre entre le repos de la fenetre et la fin du pilotage.
+            # REPERE : les axes du SUJET releves au repos. LECTURE HORS DEFAUT : 0.
+            _rga2, _rgad = {}, {}
+            for _m in re.finditer(r'^PHYSREGA c=(\d+) r=(\d+) sgn=([-\d.e+]+) apex=([-\d.e+]+)'
+                                  r' com=([-\d.e+]+)', txt, re.M):
+                _rga2[(int(_m.group(1)), int(_m.group(2)),
+                       1 if float(_m.group(3)) > 0 else -1)] = (float(_m.group(4)),
+                                                                float(_m.group(5)))
+            for _m in re.finditer(r'^PHYSREGAD r=(\d+) sgn=([-\d.e+]+) dap=([-\d.e+]+)'
+                                  r' dver=([-\d.e+]+) dlat=([-\d.e+]+)', txt, re.M):
+                _rgad[(int(_m.group(1)), 1 if float(_m.group(2)) > 0 else -1)] = \
+                    tuple(float(_m.group(k)) for k in (3, 4, 5))
             _gap = re.search(r'^PHYSREGAPOSE a=(-?\d+) f=([-\d.e+]+)', txt, re.M)
-            A('   -- ROOM-REGA : §18 A §20 JOUEES AUTOUR DES AXES DU SUJET (cycle 67) ------------')
+            A('   -- ROOM-REGA : §18 A §20, AXES DU SUJET, LES DEUX SENS (cycle 68) -------------')
             if not _rga2:
-                A('ROOM-REGA: NON PUBLIE — aucune ligne `PHYSREGA`. §19 et §20 restent donc mesurees'
-                  ' sur', notasym=True)
-                A('   un geste qui n\'est pas le leur, et leur ligne du registre le dit.',
+                A('ROOM-REGA: NON PUBLIE — aucune ligne `PHYSREGA`. §19 et §20 restent mesurees sur'
+                  ' un', notasym=True)
+                A('   geste qui n\'est pas le leur, et leur ligne du registre le dit.',
                   notasym=True)
             elif _gap is None or int(_gap.group(1)) < 0:
-                A('ROOM-REGA: l\'epingle de pose n\'a pas pris — aucun chiffre publie.', notasym=True)
+                A('ROOM-REGA: l\'epingle de pose n\'a pas pris — aucun chiffre publie.',
+                  notasym=True)
             else:
                 _dva = POSE['PH-REGA'].dev
-                A('ROOM-REGA: pose a=%d f=%.4f, ecart au miroir revalide = %s ; axe de rotation pris'
-                  ' sur le SUJET' % (int(_gap.group(1)), float(_gap.group(2)),
-                                     ('%.2f deg' % _dva) if _dva is not None else 'NON LU'),
+                A('ROOM-REGA: pose a=%d f=%.4f, ecart au miroir revalide = %s ; axe pris sur le'
+                  ' SUJET' % (int(_gap.group(1)), float(_gap.group(2)),
+                              ('%.2f deg' % _dva) if _dva is not None else 'NON LU'),
+                  notasym=True)
+                A('   dap < 0 = le buste part VERS L\'AVANT (l\'axe AP du solveur pointe vers'
+                  ' l\'arriere,', notasym=True)
+                A('   mesure : os chest->lBoob a +0.154 sur le mesh livre, -0.130 sur cet axe).',
                   notasym=True)
                 A('')
-                A('      %-3s %-8s %-9s %-9s %-9s %-9s %-9s %s'
-                  % ('r', 'section', 'apexL^t', 'apexR^t', 'apexL^a', 'apexR^a', 'apy', 'sens obtenu'))
+                A('      %-3s %-7s %-4s %-9s %-9s %-9s %-8s %-8s %-7s %s'
+                  % ('r', 'section', 'sgn', 'dap (u)', 'dver (u)', 'dlat (u)', 'apexL',
+                     'apexR', 'R', 'geste obtenu'))
+                _fwd = {}
                 for _r, _sec in ((9, '§18'), (10, '§18'), (11, '§19'), (12, '§19'),
                                  (13, '§20'), (14, '§20')):
-                    _tl, _tr = _rgt.get((0, _r)), _rgt.get((1, _r))
-                    _al, _ar = _rga2.get((0, _r)), _rga2.get((1, _r))
-                    if not (_al and _ar):
-                        A('      %-3d %-8s FENETRE MANQUANTE' % (_r, _sec))
-                        continue
-                    _apy = _rgad.get(_r, (float('nan'), float('nan')))[0]
-                    _sens = ('penche VERS L\'AVANT' if _apy < 0.0 else
-                             'penche VERS L\'ARRIERE' if _apy > 0.20 else
-                             'pas de bascule avant/arriere')
-                    A('      %-3d %-8s %-9.4f %-9.4f %-9.4f %-9.4f %-9.4f %s'
-                      % (_r, _sec, _tl[0] if _tl else float('nan'),
-                         _tr[0] if _tr else float('nan'), _al[0], _ar[0], _apy, _sens))
+                    for _sg in (1, -1):
+                        _al = _rga2.get((0, _r, _sg))
+                        _ar = _rga2.get((1, _r, _sg))
+                        _dd = _rgad.get((_r, _sg))
+                        if not (_al and _ar and _dd):
+                            A('      %-3d %-8s %-4d FENETRE MANQUANTE' % (_r, _sec, _sg))
+                            continue
+                        # LE GESTE EST NOMME PAR LA GRANDEUR QUI DOMINE, jamais par l'etiquette —
+                        # et le discriminant est celui que la donnee fournit elle-meme :
+                        #   un LACET est purement HORIZONTAL      -> dver ~ 0, dap ET dlat bougent
+                        #   un TANGAGE est dans le plan sagittal  -> dlat ~ 0, dap et dver bougent
+                        #   un ROULIS est dans le plan frontal    -> dap  ~ 0, dlat et dver bougent
+                        # Ma premiere version comparait |dap| a |dlat| et classait donc un lacet en
+                        # « flexion avant » des que son arc penchait de ce cote : elle nommait le
+                        # geste par la plus grosse composante au lieu de par celle qui MANQUE.
+                        _mx = max(abs(_dd[0]), abs(_dd[1]), abs(_dd[2]))
+                        _nom = ('deplacement negligeable' if _mx < 1.0 else
+                                'LACET' if abs(_dd[1]) < 1.0 else
+                                ('flexion AVANT' if _dd[0] < 0 else 'flexion ARRIERE')
+                                if abs(_dd[2]) < 1.0 else
+                                'inclinaison LATERALE' if abs(_dd[0]) < 1.0 else
+                                'geste MIXTE')
+                        if _sec == '§19' and _dd[0] < 0 and abs(_dd[2]) < 1.0 and _mx >= 1.0:
+                            _fwd[_r] = _sg
+                        _rr = (max(_al[0], _ar[0]) / min(_al[0], _ar[0])
+                               if min(_al[0], _ar[0]) > 0 else float('nan'))
+                        A('      %-3d %-7s %+4d %-9.1f %-9.1f %-9.1f %-8.4f %-8.4f %-7.3f %s'
+                          % (_r, _sec, _sg, _dd[0], _dd[1], _dd[2], _al[0], _ar[0], _rr, _nom))
                 A('')
-                A('      ^t = axes du MONDE (PH-REGT) · ^a = axes du SUJET (PH-REGA), MEME pose,')
-                A('      MEME course, MEMES tables de duree et d\'amplitude. La seule variable est'
-                  ' l\'AXE.')
-                A('      `apy` = composante VERTICALE de l\'axe avant/arriere du sujet a la fin du')
-                A('      pilotage. Au repos elle vaut +0.096 : elle BAISSE si le buste s\'est penche'
-                  ' en avant.')
-            A('')
+                # LE VERDICT DE SENS, ET C'EST LA SEULE CHOSE QUE CE BLOC TRANCHE AUJOURD'HUI.
+                if _fwd:
+                    A('ROOM-REGA-SENS: la flexion AVANT de §19 est obtenue au signe %s (fenetres'
+                      ' %s).' % ('+1' if list(_fwd.values())[0] > 0 else '-1',
+                                 ', '.join('r=%d' % k for k in sorted(_fwd))), notasym=True)
+                    A('   C\'est une MESURE du deplacement de l\'ancre, pas un signe choisi : le'
+                      ' geste que', notasym=True)
+                    A('   §19 nomme peut donc enfin etre joue, et l\'autre signe reste publie a'
+                      ' cote comme', notasym=True)
+                    A('   son controle a stimulus miroir.', notasym=True)
+                else:
+                    A('ROOM-REGA-SENS: AUCUN des deux signes ne produit une flexion AVANT sur les'
+                      ' fenetres', notasym=True)
+                    A('   de §19. Le geste de cette section reste INJOUABLE, et le dire est le'
+                      ' resultat.', notasym=True)
             A('')
             A('   -- ROOM-SPEC15-CROSS : « jump apex -> breast may CROSS neutral position » -----')
             A('      §15 l.230. Le registre portait la clause NON DEMONTREE, et la raison etait')

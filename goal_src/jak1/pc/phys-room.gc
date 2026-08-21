@@ -682,6 +682,16 @@
 ;; `physroom-reg-pose-axis` pour ce que ce drapeau controle et pourquoi il existe.
 (define *physroom-reg-axmode* 0)
 
+;; LE SENS DE LA ROTATION DE PH-REGA : +1.0 ou -1.0. Il existe parce que le SIGNE d'un axe mesure
+;; est arbitraire — l'axe « vertical » que le solveur rend pointe vers le BAS, et l'axe
+;; avant/arriere vers l'ARRIERE (mesure : la direction os chest->lBoob a une composante AVANT de
+;; +0,154 sur le mesh livre, et le solveur la lit a -0,130 sur LES DEUX chaines). Plutot que
+;; d'epingler un signe dans le source et d'esperer, PH-REGA joue CHAQUE fenetre dans LES DEUX sens
+;; et publie, pour chacun, le deplacement REEL de l'ancre : c'est la mesure qui nomme le geste, pas
+;; moi. Et la paire ainsi obtenue est en meme temps le controle a STIMULUS MIROIR que §12 et §20
+;; reclament (« the gravity-side and opposite-side breasts must not be mechanically mirrored »).
+(define *physroom-reg-sgn* 1.0)
+
 ;; ------------------------------------------------------------------------------------------------
 ;; LE BALAYAGE DE POSE, RESOLU A LA FRAME — ET POURQUOI CELUI DU CYCLE 54 NE POUVAIT PAS SUFFIRE.
 ;;
@@ -2595,7 +2605,12 @@
               (format 0 "PHYSREGAAX r=~D wa=~D ux=~,,6f uy=~,,6f uz=~,,6f~%"
                       r wa (-> self rax) (-> self ray) (-> self raz))))
           (set! xa (physroom-reg-axis r))
-          (set! aa (physroom-reg-ang r f (-> *physroom-reg-drv* r)))))
+          (set! aa (physroom-reg-ang r f (-> *physroom-reg-drv* r)))
+          ;; LE SENS S'APPLIQUE ICI, donc `retang` — memorise juste apres — le porte aussi et le
+          ;; retour doux retrace le MEME chemin. L'appliquer plus bas laisserait le retour remonter
+          ;; par l'autre cote, ce qui serait un stimulus qu'on n'a pas commande.
+          (when (nonzero? *physroom-reg-axmode*)
+            (set! aa (* *physroom-reg-sgn* aa)))))
        ;; L'ETAT DE FIN EST MEMORISE A CHAQUE FRAME : a la derniere du pilotage il porte donc
        ;; exactement le point d'arrivee, qui est ce dont le retour doux a besoin.
        (set! (-> self rety) yy)
@@ -5009,27 +5024,66 @@
           (when (>= (-> self pframe) (+ pre (+ drv post)))
             (dotimes (c (-> self nchain))
               (when (> (phys-chain-links (-> self slot) c) 0)
-                (format 0 "PHYSREGA c=~D r=~D apex=~f com=~f~%"
-                        c r
+                (format 0 "PHYSREGA c=~D r=~D sgn=~f apex=~f com=~f~%"
+                        c r *physroom-reg-sgn*
                         (phys-diag (-> self slot) c 53)
                         (phys-diag (-> self slot) c 43))))
-            ;; LE SENS REELLEMENT OBTENU, publie au lieu d'etre suppose : la composante VERTICALE
-            ;; de l'axe avant/arriere du sujet a la fin du pilotage. Au repos elle vaut +0.096 ;
-            ;; elle BAISSE si le buste s'est penche vers l'avant, elle MONTE s'il s'est penche en
-            ;; arriere, et elle ne bouge pas sur un lacet ou un roulis pur. Sans elle, « tangage »
-            ;; resterait un mot.
-            (format 0 "PHYSREGAD r=~D apy=~,,6f latx=~,,6f~%"
-                    r
-                    (phys-axis-world (-> self slot) 0 1 1)
-                    (phys-axis-world (-> self slot) 0 2 1))
+            ;; LE SENS REELLEMENT OBTENU — ET CETTE FOIS AVEC UNE GRANDEUR QUI VARIE.
+            ;;
+            ;; LA VERSION PRECEDENTE NE MESURAIT RIEN, ET LE CYCLE 67 L'A PUBLIE : elle lisait
+            ;; `phys-axis-world`, c'est-a-dire le triedre que le SOLVEUR a classe UNE FOIS a
+            ;; l'ancre. Il ne tourne pas avec le sujet. Resultat : `apy=0.095867` sur les SIX
+            ;; fenetres, exactement la valeur de repos — une constante sous six stimuli differents,
+            ;; donc un instrument non discriminant, rejete.
+            ;;
+            ;; CE QUI VARIE, LUI, EST LA POSITION DE L'ANCRE. `phys-diag 50/51/52` la rend en
+            ;; repere monde, et c'est deja la grandeur dont `PHYSREGL` tire l'offset de pivot :
+            ;; on ne fabrique pas un canal neuf, on relit celui-la a la fin du pilotage.
+            ;; `dap` / `dver` / `dlat` sont son deplacement depuis le repos, PROJETE sur les trois
+            ;; axes du sujet.
+            ;; NATURE : trois LONGUEURS signees, en unites moteur (4096 u = 1 m).
+            ;; REPERE : les axes du SUJET releves au repos — c'est dans ce repere-la, et pas dans
+            ;;   celui du monde, que « avant » et « bas » ont un sens.
+            ;; LECTURE HORS DEFAUT : 0,0,0 (aucune rotation). SENS : l'axe AP du solveur pointe
+            ;;   vers l'ARRIERE (mesure ci-dessus), donc **dap < 0 = flexion VERS L'AVANT** ; l'axe
+            ;;   vertical pointe vers le BAS, donc dver > 0 = l'ancre descend.
+            (let* ((ax0 (phys-diag (-> self slot) 0 50))
+                   (ay0 (phys-diag (-> self slot) 0 51))
+                   (az0 (phys-diag (-> self slot) 0 52))
+                   (dx  (- (- ax0 (-> self home x)) (-> self cex)))
+                   (dy  (- (- ay0 (-> self home y)) (-> self cey)))
+                   (dz  (- (- az0 (-> self home z)) (-> self cez))))
+              (format 0 "PHYSREGAD r=~D sgn=~f dap=~f dver=~f dlat=~f~%"
+                      r *physroom-reg-sgn*
+                      (+ (* dx (phys-axis-world (-> self slot) 0 1 0))
+                         (+ (* dy (phys-axis-world (-> self slot) 0 1 1))
+                            (* dz (phys-axis-world (-> self slot) 0 1 2))))
+                      (+ (* dx (phys-axis-world (-> self slot) 0 0 0))
+                         (+ (* dy (phys-axis-world (-> self slot) 0 0 1))
+                            (* dz (phys-axis-world (-> self slot) 0 0 2))))
+                      (+ (* dx (phys-axis-world (-> self slot) 0 2 0))
+                         (+ (* dy (phys-axis-world (-> self slot) 0 2 1))
+                            (* dz (phys-axis-world (-> self slot) 0 2 2))))))
             (set! (-> self pframe) 0)
             (+! (-> self reg) 1)
             (when (>= (-> self reg) PHYSROOM-REGN)
-              (physroom-hold)
-              (set! *physroom-reg-axmode* 0)
-              (phys-stats-reset!)
-              (phys-diag-reset!)
-              (set! (-> self phase) PHYSROOM-PH-REPORT)))))))
+              (cond
+                ;; PREMIERE PASSE FINIE : on rejoue les SIX MEMES fenetres dans l'autre sens. Le
+                ;; retour doux de la fenetre 9 ramenera le sujet depuis l'angle de fin de la
+                ;; fenetre 14, comme entre deux fenetres ordinaires — aucune impulsion ajoutee.
+                ((> *physroom-reg-sgn* 0.0)
+                 (set! *physroom-reg-sgn* -1.0)
+                 (set! (-> self reg) PHYSROOM-REGA0)
+                 (set! (-> self pframe) 0)
+                 (phys-comexw-reset!)
+                 (phys-stats-reset!))
+                (else
+                 (physroom-hold)
+                 (set! *physroom-reg-axmode* 0)
+                 (set! *physroom-reg-sgn* 1.0)
+                 (phys-stats-reset!)
+                 (phys-diag-reset!)
+                 (set! (-> self phase) PHYSROOM-PH-REPORT)))))))))
 
     ;; ---- 10. RAPPORT --------------------------------------------------------------------------
     ((= (-> self phase) PHYSROOM-PH-REPORT)
