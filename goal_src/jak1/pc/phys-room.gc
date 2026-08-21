@@ -573,6 +573,44 @@
 (defconstant PHYSROOM-PH-REGA 38)
 (defconstant PHYSROOM-REGAE 90)     ;; meme rampe d'entree, meme raison qu'a PHYSROOM-REGSE.
 (defconstant PHYSROOM-REGA0 9)      ;; premiere fenetre de ROTATION de la table des regimes
+
+;; ---- PH-REGB (cycle 70) : LES HUIT FENETRES DE TRANSLATION, SUR LES AXES DU SUJET -------------
+;;
+;; LE DEFAUT EST MESURE, ET JE L'AI NOMME DEUX FOIS SANS LE FAIRE. `physroom-run-z` accelere le
+;; sujet le long du MONDE Z. L'axe avant/arriere du sujet, mesure a l'execution (`PHYSAXW ax=1`),
+;; vaut (0.993, 0.096, 0.064) : le monde Z en est a 86.3 deg. La « course » de sa §17
+;; (« Horizontal Acceleration and BRAKING ») est donc jouee comme une EMBARDEE LATERALE. Les sauts
+;; de §14/§15/§16 partent le long du monde Y, a 11.9 deg de la verticale du sujet : 97.8 % du
+;; stimulus tombe au bon endroit, l'ecart est petit mais il est DECLARE et non ignore.
+;;
+;; C'est le MEME defaut de classe que celui des rotations (§18-§20, cycles 67-68) et que celui du
+;; nommage des orientations (§10-§13, cycle 69) : un geste COMMANDE dans le repere du MONDE, LU
+;; comme s'il etait celui du SUJET. Les deux premiers ont ete corriges. Celui-ci a ete nomme au
+;; cycle 68, renomme au cycle 69, et une troisieme mention aurait ete une note deguisee en verrou.
+;;
+;; PHASE APPENDUE, JAMAIS UNE POSE REMPLACEE. PH-REG / PH-REGS / PH-REGT / PH-REGA gardent leur
+;; trace AU BIT. PH-REGB rejoue les MEMES fenetres — memes tables `pre`/`drv`/`post`, memes profils
+;; analytiques, memes emplacements de lecture — avec UNE SEULE variable declaree : l'axe.
+;;
+;; LES DEUX SENS SONT MESURES, PAS CHOISIS. Le cycle 68 avait du jouer chaque rotation DANS LES
+;; DEUX SENS parce qu'un axe mesure n'a pas de sens privilegie. Ici deux references PHYSIQUES
+;; existent, que la rotation n'avait pas, et elles coutent une lecture chacune :
+;;   LE HAUT : la GRAVITE. `phys-shape ... 16` est sa composante sur la ligne VERTICALE de l'ancre.
+;;             Debout elle vaut +0.978, donc cette ligne pointe vers le BAS et le HAUT est son
+;;             oppose. SENTINELLE : |gv| < 0.5 = le sujet n'est pas droit, on ne conclut pas.
+;;   L'AVANT : la SAILLIE DU SEIN. `phys-link-rest-dir ... 2` vaut -0.148 sur les DEUX chaines ; un
+;;             sein fait saillie vers l'avant, donc la ligne 2 pointe vers l'ARRIERE et l'AVANT est
+;;             son oppose. SENTINELLE : |ap| < 0.03, ou les deux chaines en desaccord de signe.
+;; Les deux sens sont PUBLIES avec leur source (`PHYSREGBS`), et le deplacement d'ancre REELLEMENT
+;; obtenu est publie lui aussi (`PHYSREGBD`), decompose sur les trois axes du sujet : c'est la
+;; MESURE qui nomme le geste, jamais l'etiquette. Regle du cycle 68 : un geste se nomme par la
+;; composante qui MANQUE, pas par celle qui domine.
+(defconstant PHYSROOM-PH-REGB 39)
+(defconstant PHYSROOM-REGBE 90)     ;; meme rampe d'entree que PHYSROOM-REGAE, meme raison
+(defconstant PHYSROOM-REGB0 0)      ;; premiere fenetre rejouee : le TEMOIN r=0, qui donne son
+                                    ;; plancher a la passe — sans lui aucun chiffre n'a d'echelle
+(defconstant PHYSROOM-REGBN 9)      ;; ... jusqu'a r=8 : les six sauts et les deux de course
+(define *physroom-reg-trmode* 0)
 (defconstant PHYSROOM-PH-REPORT 40)
 (defconstant PHYSROOM-PH-DONE 41)
 
@@ -615,6 +653,9 @@
    (rax     float)     ;; PH-REGA : l'axe de rotation MESURE sur le sujet, tenu pour la fenetre
    (ray     float)
    (raz     float)
+   (tus     float)     ;; PH-REGB : le SIGNE qui oriente la verticale de l'ancre vers le HAUT,
+   (tfs     float)     ;;   et celui qui oriente sa ligne 2 vers l'AVANT. Les deux sont MESURES et
+                       ;;   latches a l'entree de la phase, jamais ecrits en dur.
    (sgi     int32)     ;; index de fenetre du balayage PAR SENS (SPEC 21/33/34, cycle 52)
    (symi    int32)     ;; index de cellule du balayage A DEUX POSES (SPEC 12/18, cycle 56)
    (cex     float)     ;; offset MESURE de l'ancre a la racine de l'acteur, releve a l'execution :
@@ -2526,6 +2567,36 @@
     (set! (-> self root trans z) (+ (-> self home z) (- pz rz))))
   (none))
 
+(defbehavior physroom-tr-set phys-subject ((yy float) (zz float))
+  "Pose la TRANSLATION du sujet : `yy` le long de sa VERTICALE, `zz` le long de son AVANT/ARRIERE.
+
+   DEUX MODES, ET LE DEFAUT EST L'ANCIEN AU BIT PRES. En mode MONDE (`*physroom-reg-trmode*` = 0)
+   ce sont litteralement les axes Y et Z du monde, et cette fonction ecrit EXACTEMENT les deux
+   memes champs qu'avant son existence — c'est ce qui garde la trace de PH-REG / PH-REGS / PH-REGT
+   identique. En mode SUJET elle compose les deux memes grandeurs sur les axes MESURES de l'ancre,
+   orientes par deux signes eux-memes mesures et latches a l'entree de la phase.
+
+   NATURE : une position, unites de jeu (4096 u = 1 m). REPERE : monde pour le vecteur ECRIT, mais
+   la DIRECTION vient du sujet. LECTURE A yy = zz = 0 : `home` exactement, dans les deux modes —
+   donc le temoin r=0 ne peut pas differer entre les deux passes, et c'est verifiable."
+  (cond
+    ((zero? *physroom-reg-trmode*)
+     (set! (-> self root trans y) (+ (-> self home y) yy))
+     (set! (-> self root trans z) (+ (-> self home z) zz)))
+    (else
+     (let ((us (-> self tus))
+           (fs (-> self tfs)))
+       (set! (-> self root trans x)
+             (+ (-> self home x) (+ (* yy (* us (phys-axis-world (-> self slot) 0 0 0)))
+                                    (* zz (* fs (phys-axis-world (-> self slot) 0 1 0))))))
+       (set! (-> self root trans y)
+             (+ (-> self home y) (+ (* yy (* us (phys-axis-world (-> self slot) 0 0 1)))
+                                    (* zz (* fs (phys-axis-world (-> self slot) 0 1 1))))))
+       (set! (-> self root trans z)
+             (+ (-> self home z) (+ (* yy (* us (phys-axis-world (-> self slot) 0 0 2)))
+                                    (* zz (* fs (phys-axis-world (-> self slot) 0 1 2)))))))))
+  (none))
+
 (defbehavior physroom-reg-drive phys-subject ((r int) (f int))
   "Pose la position et l'orientation du sujet pour la fenetre `r`. `f` est la frame comptee DEPUIS
    LE DEBUT DU PILOTAGE : `f < 0` veut dire qu'on est encore dans le repos qui precede.
@@ -2555,8 +2626,10 @@
          ((!= (-> self retang) 0.0)
           (physroom-reg-pose (-> self retax) (* b (-> self retang))))
          (else
-          (set! (-> self root trans y) (+ (-> self home y) (* b (-> self rety))))
-          (set! (-> self root trans z) (+ (-> self home z) (* b (-> self retz))))))))
+          ;; LE RETOUR DOUX EMPRUNTE LE MEME AXE QUE LE PILOTAGE QUI L'A PRODUIT, exactement comme
+          ;; le retour des rotations le fait deja : sinon il ramenerait le sujet par un chemin que
+          ;; rien n'a commande, et ce chemin entrerait dans la fenetre suivante sous son nom.
+          (physroom-tr-set (* b (-> self rety)) (* b (-> self retz)))))))
     (else
      (let ((ft (the float f)) (yy 0.0) (zz 0.0) (aa 0.0) (xa 0))
        (case r
@@ -2641,9 +2714,7 @@
          ((and (>= r 9) (nonzero? *physroom-reg-axmode*))
           (physroom-reg-pose-axis (-> self rax) (-> self ray) (-> self raz) aa))
          ((>= r 9) (physroom-reg-pose xa aa))
-         (else
-          (set! (-> self root trans y) (+ (-> self home y) yy))
-          (set! (-> self root trans z) (+ (-> self home z) zz)))))))
+         (else (physroom-tr-set yy zz))))))
   (none))
 
 (defbehavior physroom-emit-regime phys-subject ((r int))
@@ -5103,7 +5174,155 @@
                  (set! *physroom-reg-sgn* 1.0)
                  (phys-stats-reset!)
                  (phys-diag-reset!)
-                 (set! (-> self phase) PHYSROOM-PH-REPORT)))))))))
+                 (set! (-> self reg) -1)
+                 (set! (-> self pframe) 0)
+                 (set! (-> self phase) PHYSROOM-PH-REGB)))))))))
+
+    ;; ---- 9 octies. §14 A §17 SUR LES AXES DU SUJET (cycle 70) --------------------------------
+    ;; PH-REGT et PH-REGA ont rejoue les ROTATIONS ; celle-ci rejoue les TRANSLATIONS. Meme pose
+    ;; epinglee, memes tables de duree et d'amplitude, memes emplacements de lecture, et UNE SEULE
+    ;; variable declaree : l'axe. Voir le pave de `PHYSROOM-PH-REGB` pour la mesure qui la motive.
+    ((= (-> self phase) PHYSROOM-PH-REGB)
+     (cond
+       ((< (-> self reg) 0)
+        (physroom-hold)
+        (when (= (-> self pframe) 1)
+          (set! (-> self rety) 0.0)
+          (set! (-> self retz) 0.0)
+          (set! (-> self retang) 0.0)
+          (cond
+            ((>= *physroom-best-a* 0)
+             (physroom-set-anim *physroom-best-a*)
+             (set! (-> self regstep)
+                   (/ *physroom-best-f*
+                      (fmax 0.0001 (* (the float PHYSROOM-MEASAT) (-> self aspeed)))))
+             (format 0 "PHYSREGBPOSE a=~D f=~f s=~f step=~f src=argmax~%"
+                     *physroom-best-a* *physroom-best-f* *physroom-best-s* (-> self regstep)))
+            (else
+             (set! (-> self regstep) 0.0)
+             (format 0 "PHYSREGBPOSE a=-1 f=0.0 s=-2.0 step=0.0 src=INTROUVABLE~%"))))
+        (when (and (>= *physroom-best-a* 0)
+                   (> (-> self pframe) 1) (<= (-> self pframe) (+ 1 PHYSROOM-MEASAT)))
+          (physroom-advance-anim (-> self regstep)))
+        ;; LES DEUX SENS SE MESURENT ICI ET NULLE PART AILLEURS : sujet DROIT, IMMOBILE, a `home`.
+        ;; C'est la seule condition ou « le haut » et « l'avant » ont une definition, et c'est aussi
+        ;; la ou l'offset de l'ancre vaut l'offset et rien d'autre.
+        (when (= (-> self pframe) (- PHYSROOM-REGBE 1))
+          (let* ((gv  (phys-shape (-> self slot) 0 16))
+                 (ap0 (phys-link-rest-dir (-> self slot) 0 0 2))
+                 (ap1 (phys-link-rest-dir (-> self slot) 1 0 2))
+                 (gok (if (> (fabs gv) 0.5) 1 0))
+                 (aok (if (and (> (fabs ap0) 0.03) (> (fabs ap1) 0.03) (> (* ap0 ap1) 0.0)) 1 0)))
+            ;; le HAUT est l'oppose de la gravite ; l'AVANT est le sens de la saillie du sein.
+            (set! (-> self tus) (if (> gv 0.0) -1.0 1.0))
+            (set! (-> self tfs) (if (> ap0 0.0) 1.0 -1.0))
+            ;; UN SENS QUI NE SE MESURE PAS N'EST PAS DEVINE : la phase retombe en mode MONDE et le
+            ;; DIT. Une passe qui se croirait en repere sujet sans y etre serait le faux vert type.
+            (set! *physroom-reg-trmode* (if (and (nonzero? gok) (nonzero? aok)) 1 0))
+            ;; DEUX LIGNES ET PAS UNE : `format` de GOAL plafonne a huit parametres, destination
+            ;; et chaine de format COMPRISES. Le lecteur les rapproche, il n'y en a qu'une paire.
+            (format 0 "PHYSREGBS gv=~,,6f ap0=~,,6f ap1=~,,6f~%" gv ap0 ap1)
+            (format 0 "PHYSREGBS2 us=~f fs=~f gok=~D aok=~D trm=~D~%"
+                    (-> self tus) (-> self tfs) gok aok *physroom-reg-trmode*))
+          ;; L'OFFSET DE L'ANCRE, RELEVE AU MEME INSTANT ET POUR LA MEME RAISON. Les fenetres de
+          ;; TRANSLATION ne passent pas par la branche qui le releve pour les rotations ; sans ce
+          ;; relevage, `PHYSREGBD` soustrairait l'offset laisse par la derniere fenetre de PH-REGA.
+          (let ((ax0 (phys-diag (-> self slot) 0 50))
+                (ay0 (phys-diag (-> self slot) 0 51))
+                (az0 (phys-diag (-> self slot) 0 52)))
+            (cond
+              ((and (= ax0 0.0) (= ay0 0.0) (= az0 0.0))
+               (format 0 "PHYSREGBL cex=0.0 cey=0.0 cez=0.0 src=0~%"))
+              (else
+               (set! (-> self cex) (- ax0 (-> self home x)))
+               (set! (-> self cey) (- ay0 (-> self home y)))
+               (set! (-> self cez) (- az0 (-> self home z)))
+               (format 0 "PHYSREGBL cex=~f cey=~f cez=~f src=1~%"
+                       (-> self cex) (-> self cey) (-> self cez)))))
+          (dotimes (wa 3)
+            (format 0 "PHYSREGBW wa=~D ux=~,,6f uy=~,,6f uz=~,,6f~%"
+                    wa
+                    (phys-axis-world (-> self slot) 0 wa 0)
+                    (phys-axis-world (-> self slot) 0 wa 1)
+                    (phys-axis-world (-> self slot) 0 wa 2)))
+          ;; L'ENREGISTREMENT DE POSE DE CETTE PHASE, AU MEME POINT DE PROTOCOLE QUE `PHYSREGTB` ET
+          ;; `PHYSREGAB`. SANS LUI, LE VERROU D'ASYMETRIE REFUSE — a juste titre — toute ligne qui
+          ;; comparerait les deux chaines sur cette passe, et c'est precisement la comparaison qui
+          ;; porte le resultat : un rig symetrique a 0,005 deg en bind doit rendre des reponses
+          ;; egales quand le stimulus tombe sur le bon axe. Une phase qui produit une comparaison
+          ;; gauche/droite sans publier sa pose n'est pas une phase finie.
+          (let ((hd (if (-> self child) (the-as jak-hd (-> self child 0)) (the-as jak-hd #f))))
+            (when hd
+              (dotimes (c (-> self nchain))
+               (when (> (phys-chain-links (-> self slot) c) 0)
+                (dotimes (l (phys-chain-links (-> self slot) c))
+                  (format 0 "PHYSREGBB c=~D l=~D ux=~,,6f uy=~,,6f uz=~,,6f~%"
+                          c l
+                          (phys-chain-bone hd (-> self slot) c l 0)
+                          (phys-chain-bone hd (-> self slot) c l 1)
+                          (phys-chain-bone hd (-> self slot) c l 2))))))))
+        (when (>= (-> self pframe) PHYSROOM-REGBE)
+          (set! (-> self reg) PHYSROOM-REGB0)
+          (set! (-> self pframe) 0)
+          (phys-comexw-reset!)
+          (phys-stats-reset!)))
+       (else
+        (let* ((r    (-> self reg))
+               (pre  (-> *physroom-reg-pre* r))
+               (drv  (-> *physroom-reg-drv* r))
+               (post (-> *physroom-reg-post* r)))
+          (physroom-reg-drive r (- (-> self pframe) (+ pre 1)))
+          (when (= (-> self pframe) (max 1 pre))
+            (phys-comexw-reset!)
+            (phys-stats-reset!))
+          (when (>= (-> self pframe) (+ pre (+ drv post)))
+            (dotimes (c (-> self nchain))
+              (when (> (phys-chain-links (-> self slot) c) 0)
+                ;; `PHYSREGBV` ET PAS `PHYSREGB` : le tag `PHYSREGB` EXISTE DEJA — c'est celui
+                ;; des directions d'os de PH-REG (`c= l= ux= uy= uz=`). Deux enregistrements de
+                ;; NATURE differente sous une meme etiquette rendent tout `grep -c` faux et
+                ;; peuvent tromper n'importe quel lecteur futur. Mesure de la premiere course de
+                ;; ce cycle : `grep -c "^PHYSREGB "` rendait 22 la ou les deux populations valent
+                ;; 4 et 18. Renomme avant publication.
+                (format 0 "PHYSREGBV c=~D r=~D trm=~D apex=~f com=~f~%"
+                        c r *physroom-reg-trmode*
+                        (phys-diag (-> self slot) c 53)
+                        (phys-diag (-> self slot) c 43))))
+            ;; LE GESTE OBTENU, NOMME PAR LA MESURE — meme canal que `PHYSREGAD`, meme raison.
+            ;; NATURE : trois LONGUEURS signees, unites de jeu (4096 u = 1 m).
+            ;; REPERE : les axes du SUJET, ORIENTES par les deux signes mesures ci-dessus, donc
+            ;;   `dver > 0` = l'ancre MONTE et `dap > 0` = elle va vers l'AVANT sans qu'aucune
+            ;;   convention n'ait ete choisie. LECTURE HORS PILOTAGE : 0, 0, 0 (le temoin r=0).
+            ;; CE QUI DISCRIMINE : un saut doit rendre `dap` et `dlat` quasi nuls, une course doit
+            ;;   rendre `dver` et `dlat` quasi nuls. C'est la composante qui MANQUE qui nomme le
+            ;;   geste, pas celle qui domine (lecon du cycle 68, payee sur un classificateur faux).
+            (let* ((ax0 (phys-diag (-> self slot) 0 50))
+                   (ay0 (phys-diag (-> self slot) 0 51))
+                   (az0 (phys-diag (-> self slot) 0 52))
+                   (dx  (- (- ax0 (-> self home x)) (-> self cex)))
+                   (dy  (- (- ay0 (-> self home y)) (-> self cey)))
+                   (dz  (- (- az0 (-> self home z)) (-> self cez))))
+              (format 0 "PHYSREGBD r=~D trm=~D dap=~f dver=~f dlat=~f~%"
+                      r *physroom-reg-trmode*
+                      (* (-> self tfs)
+                         (+ (* dx (phys-axis-world (-> self slot) 0 1 0))
+                            (+ (* dy (phys-axis-world (-> self slot) 0 1 1))
+                               (* dz (phys-axis-world (-> self slot) 0 1 2)))))
+                      (* (-> self tus)
+                         (+ (* dx (phys-axis-world (-> self slot) 0 0 0))
+                            (+ (* dy (phys-axis-world (-> self slot) 0 0 1))
+                               (* dz (phys-axis-world (-> self slot) 0 0 2)))))
+                      (+ (* dx (phys-axis-world (-> self slot) 0 2 0))
+                         (+ (* dy (phys-axis-world (-> self slot) 0 2 1))
+                            (* dz (phys-axis-world (-> self slot) 0 2 2))))))
+            (set! (-> self pframe) 0)
+            (+! (-> self reg) 1)
+            (when (>= (-> self reg) PHYSROOM-REGBN)
+              (physroom-hold)
+              (set! *physroom-reg-trmode* 0)
+              (phys-stats-reset!)
+              (phys-diag-reset!)
+              (set! (-> self phase) PHYSROOM-PH-REPORT)))))))
 
     ;; ---- 10. RAPPORT --------------------------------------------------------------------------
     ((= (-> self phase) PHYSROOM-PH-REPORT)
@@ -5326,8 +5545,15 @@
   ;; jamais une, on en ajoute — mais elle ne porte PLUS le verdict a elle seule : `PHYSROOM-
   ;; PHASEVISITED`, emis en fin de course, publie le maximum REELLEMENT VISITE. Une liste qu'il
   ;; faut penser a rallonger ne garde rien ; une mesure n'a rien a se rappeler.
+  ;; CYCLE 70 : CINQUIEME RATTRAPAGE, ET LE DERNIER — la ligne CALCULE desormais son maximum au
+  ;; lieu de le nommer. `PH-REGB` (39) arrive, et une liste qu'il faut penser a rallonger a chaque
+  ;; phase ajoutee ne garde rien : c'est le constat que ce commentaire fait quatre fois. Le `max`
+  ;; ci-dessous est evalue a la compilation sur les MEMES constantes que la conjonction, donc une
+  ;; phase ajoutee demain SANS etre ajoutee ici sera visible par `PHYSROOM-PHASEVISITED`, qui la
+  ;; MESURE. Deux garde-fous, l'un derive et l'autre mesure, et aucun qui repose sur ma memoire.
   (format 0 "PHYSROOM-PHASEGUARD maxwork=~D report=~D done=~D ok=~D~%"
-          PHYSROOM-PH-REGA PHYSROOM-PH-REPORT PHYSROOM-PH-DONE
+          (max PHYSROOM-PH-REGB (max PHYSROOM-PH-REGA (max PHYSROOM-PH-REGT PHYSROOM-PH-REGS)))
+          PHYSROOM-PH-REPORT PHYSROOM-PH-DONE
           (if (and (< PHYSROOM-PH-PROXON PHYSROOM-PH-REPORT)
                    (< PHYSROOM-PH-REG PHYSROOM-PH-REPORT)
                    (< PHYSROOM-PH-SGN PHYSROOM-PH-REPORT)
@@ -5336,6 +5562,7 @@
                    (< PHYSROOM-PH-SKINDIS PHYSROOM-PH-REPORT)
                    (< PHYSROOM-PH-REGS PHYSROOM-PH-REPORT)
                    (< PHYSROOM-PH-REGT PHYSROOM-PH-REPORT)
+                   (< PHYSROOM-PH-REGB PHYSROOM-PH-REPORT)
                    (< PHYSROOM-PH-REGA PHYSROOM-PH-REPORT)
                    (< PHYSROOM-PH-REPORT PHYSROOM-PH-DONE))
               1 0))

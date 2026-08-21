@@ -1,0 +1,81 @@
+QUESTIONS ECRITES AVANT LA COURSE — CYCLE 70
+DIRECTIVES v3fee554599
+Perimetre : Grecharged-secondary-motion, branche physics-keira-clean, chestL/chestR SEULES.
+
+Ecrit et empreinte AVANT le premier lancement de la phase PH-REGB. Aucune ligne `PHYSREGB`,
+`PHYSREGBD` ni `PHYSREGBS` n'existe dans aucune trace au moment ou ce fichier est ferme : ce sont
+donc de VRAIES predictions, contrairement au bloc A du cycle 69 qui lisait une trace existante et
+le declarait.
+
+================================================================================================
+CE QUE LA PASSE FAIT
+================================================================================================
+`physroom-run-z` accelere le sujet le long du MONDE Z, a 86,3 deg de son axe avant/arriere mesure :
+la « course » de §17 est une EMBARDEE LATERALE. Les sauts de §14/§15/§16 partent le long du monde
+Y, a 11,9 deg de la verticale du sujet. PH-REGB rejoue les fenetres r=0 a r=8 avec UNE SEULE
+variable declaree : l'axe de translation, pris sur le SUJET et oriente par deux sens MESURES (le
+haut par la gravite, l'avant par la saillie du sein).
+
+================================================================================================
+LES QUESTIONS
+================================================================================================
+Q1. LE GESTE OBTENU EST CELUI QUE LA SECTION DECRIT. `PHYSREGBD` publie le deplacement de l'ancre
+    decompose sur les trois axes du sujet. Un saut doit rendre `dap` et `dlat` quasi nuls, une
+    course doit rendre `dver` et `dlat` quasi nuls.
+    ENGAGE : **8 fenetres de pilotage sur 8** sont nommees par la composante qui MANQUE — les six
+    sauts VERTICAL, les deux de course AVANT/ARRIERE — avec le critere « la composante dominante
+    depasse les deux autres d'un facteur 3 ».
+    CE QUI ME REFUTE : une seule fenetre classee LATERAL ou MIXTE. Alors l'axe substitue n'est pas
+    celui que je crois et la passe ne conclut rien.
+
+Q2. LES DEUX SENS SE MESURENT. ENGAGE : `gok=1` (|gravite sur la verticale| > 0,5), `aok=1`
+    (|saillie| > 0,03 sur les deux chaines ET memes signes), donc `trm=1`. Et je m'engage sur les
+    valeurs : `gv` positif (la ligne verticale de l'ancre pointe vers le BAS) et `ap0`/`ap1`
+    NEGATIFS (la ligne 2 pointe vers l'ARRIERE), tous deux entre 0,10 et 0,25 en valeur absolue.
+    CE QUI ME REFUTE : `trm=0`. Alors la phase retombe en mode MONDE, se declare comme telle, et
+    n'est qu'un doublon de PH-REG — je le publierai comme tel plutot que d'y lire une correction.
+
+Q3. LA PASSE SE LIT AU-DESSUS D'UN PLANCHER QUI EN EST UN. ENGAGE : la fenetre TEMOIN r=0 rend un
+    apex < 0,10 B0 sur les deux chaines — meme critere qu'au cycle 67, pas un seuil neuf.
+    CE QUI ME REFUTE : un temoin au-dessus. Alors la pose ou l'entree de phase injecte du mouvement
+    et aucune fenetre de la passe ne porte de verdict.
+
+Q4. LE DRAPEAU NE FUIT PAS. `*physroom-reg-trmode*` n'est arme qu'a l'entree de PH-REGB et desarme
+    a sa sortie. ENGAGE : les etiquettes `PHYSREG`, `PHYSREGS*`, `PHYSREGT*` et `PHYSREGA*` sont
+    IDENTIQUES AU BIT a celles de la course du cycle 69.
+    CE QUI ME REFUTE : la moindre ligne differente. Alors `physroom-tr-set` n'ecrit pas exactement
+    ce que l'ancien code ecrivait en mode monde, et toute la comparaison est fausse.
+
+Q5. L'AXE CHANGE QUELQUE CHOSE POUR §17, ET C'EST LA QUESTION QUI PORTE LE CYCLE. La raideur livree
+    n'est pas la meme sur les deux axes (`slat=1,2195` contre `sap=1,1111`, soit 9,8 % d'ecart) et
+    la §29 leur donne des compliances differentes (0,82 contre 0,90). Un stimulus qui passe d'un
+    axe a l'autre doit donc changer la reponse.
+    ENGAGE : sur les QUATRE lectures d'apex de §17 (r=7 et r=8, deux chaines), **au moins une**
+    s'ecarte de plus de 10 % de la lecture correspondante de PH-REGT (meme pose, meme fenetre, axe
+    du MONDE). Je ne predis PAS le SENS de l'ecart, et je ne le predirai pas apres coup.
+    CE QUI ME REFUTE : les quatre a moins de 10 %. Alors corriger l'axe de §17 ne change rien de
+    mesurable, et je le dirai — le chantier aura ete une correction de justesse sans effet, ce qui
+    est un resultat et pas un echec.
+
+Q6. L'ECART D'AXE PREDIT L'AMPLEUR DE L'EFFET. Les sauts sont a 11,9 deg de leur axe anatomique,
+    la course a 86,3 deg.
+    ENGAGE : l'ecart relatif MEDIAN entre PH-REGB et PH-REGT est **plus petit sur les six fenetres
+    de saut que sur les deux de course**.
+    CE QUI ME REFUTE : l'inverse. Alors l'ecart d'axe n'explique pas ce qu'on mesure et il faut
+    chercher ailleurs — ce serait le resultat le plus interessant des six.
+
+Q7. PORTEE. ENGAGE : `jak-hd-physics.gc` reste a **4798 lignes** (non touche ce cycle-ci), et
+    `recharged_assets/` reste intact AU BIT — aucun parametre livre au jeu n'est modifie.
+
+================================================================================================
+CE QUE CE CYCLE NE FAIT PAS, ECRIT AVANT DE COMMENCER
+================================================================================================
+N1. Il ne redresse PAS la convention `+Z` de la §7 dans le CALCUL (deux erreurs de sens s'y
+    compensent ; y toucher sans passe appariee casserait §10 et §11 ensemble).
+N2. Il ne donne PAS de lecteur a `PHYSORICTL3`, le troisieme flux muet.
+N3. Il ne touche AUCUN terme du solveur.
+N4. §8 est relue sur le tenseur complet (`PHYSDFMA`, deuxieme flux muet), mais je n'attends AUCUN
+    changement de statut : son motif passe d'une lecture de SOURCE a une MESURE, ce qui est un
+    gain de preuve et pas un gain de couverture. Si §8 devenait verte, c'est que j'aurais confondu
+    une bande respectee par une constante epinglee avec une conservation de volume.
+N5. Aucune mesure visuelle, aucune capture. Interdiction permanente.

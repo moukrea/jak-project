@@ -1,7 +1,7 @@
 ==================================================================================================
 KEIRA — SALLE DE TEST SANS JOUEUR : TABLEAU DE MESURE
 genere par .autoport/physics_room_table.py depuis .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
-empreinte de la trace lue : md5 cc1817c728b928bf526f8465e11dab0a (4344157 octets)
+empreinte de la trace lue : md5 3a961d64e96e2683d47bd5964a0ae013 (4367483 octets)
 contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 7 (ce qui fait foi)
 
 -- ROOM-INSTRUMENTS-MUETS : CE QUE CE TABLEAU NE MESURE PAS AUJOURD'HUI ------------
@@ -1228,6 +1228,156 @@ ROOM-APEX-RATIO: chestR   r=12 pitchA-return apex=0.4941 com=0.2445  rapport x2.
 ROOM-APEX-RATIO: chestR   r=13 rollA         apex=0.5468 com=0.2588  rapport x2.113
 ROOM-APEX-RATIO: chestR   r=14 rollB         apex=0.5112 com=0.2576  rapport x1.984
 ROOM-APEX-RATIO: n=30  min x1.459  mediane x1.880  max x2.236  —  bande implicite de sa spec x1.19 a x1.35
+
+-- ROOM-REGB : §14 A §17 REJOUEES SUR LES AXES DU SUJET (PH-REGB) ------------------------
+ROOM-REGB-SENS: gravite sur la ligne verticale de l'ancre = +0.981198  -> le HAUT est son oppose (garde |gv| > 0.5 : OK)
+ROOM-REGB-SENS: saillie du sein sur la ligne 2 = -0.147764 et -0.147941  -> l'AVANT est son oppose (garde |ap| > 0.03 et memes signes : OK)
+
+   LE GESTE OBTENU, NOMME PAR LA MESURE. Un saut doit rendre `dap` et `dlat` quasi nuls ;
+   une course doit rendre `dver` et `dlat` quasi nuls. C'est la composante qui MANQUE qui
+   nomme un geste, pas celle qui domine — lecon du cycle 68, payee sur un classificateur
+   qui appelait un lacet une flexion avant.
+   r   regime         dap (u)     dver (u)    dlat (u)   geste mesure
+    0  base               +0.00       +0.00       +0.00   AUCUN DEPLACEMENT (temoin)
+    1  jumpA-push         -0.00     +917.42       +0.02   VERTICAL   (dap et dlat quasi nuls)
+    2  jumpA-fly          -0.02    +1774.94       +0.00   VERTICAL   (dap et dlat quasi nuls)
+    3  jumpA-land         -0.01     +323.46       -0.02   VERTICAL   (dap et dlat quasi nuls)
+    4  jumpB-push         -0.03     +932.22       +0.01   VERTICAL   (dap et dlat quasi nuls)
+    5  jumpB-fly          +0.03    +2135.69       -0.01   VERTICAL   (dap et dlat quasi nuls)
+    6  jumpB-land         -0.01     +693.20       -0.03   VERTICAL   (dap et dlat quasi nuls)
+    7  runA-accel      +4644.56       -0.01       +0.03   AVANT/ARR. (dver et dlat quasi nuls)
+    8  runA-brake      +8291.19       -0.00       -0.01   AVANT/ARR. (dver et dlat quasi nuls)
+ROOM-REGB-GESTE: 8 fenetre(s) de pilotage sur 8 rendent le geste que leur section decrit.
+
+   LES BANDES SONT CELLES DE `ROOM-REGIME` ET `ROOM-APEX-REGIME`, AU MOT PRES : ce bloc
+   n'introduit aucun seuil. Ce qui change est l'AXE du stimulus, et rien d'autre.
+   chaine    r  regime         apex (sujet)  bande         verdict
+ROOM-REGB-APEX: chestL    0 base            0.0112      [pas de bande] PAS DE BANDE
+ROOM-REGB-APEX: chestL    1 jumpA-push      0.4574      [0.20-0.30]   AU-DESSUS (x1.52)
+ROOM-REGB-APEX: chestL    2 jumpA-fly       0.2752      [pas de bande] PAS DE BANDE
+ROOM-REGB-APEX: chestL    3 jumpA-land      0.1887      [0.30-0.42]   SOUS (x0.63)
+ROOM-REGB-APEX: chestL    4 jumpB-push      0.4597      [0.30-0.38]   AU-DESSUS (x1.21)
+ROOM-REGB-APEX: chestL    5 jumpB-fly       0.1846      [pas de bande] PAS DE BANDE
+ROOM-REGB-APEX: chestL    6 jumpB-land      0.2620      [0.42-0.50]   SOUS (x0.62)
+ROOM-REGB-APEX: chestL    7 runA-accel      0.4359      [pas de bande] PAS DE BANDE
+ROOM-REGB-APEX: chestL    8 runA-brake      0.4038      [0.25-0.35]   AU-DESSUS (x1.15)
+ROOM-REGB-APEX: chestR    0 base            0.0118      [pas de bande] PAS DE BANDE
+ROOM-REGB-APEX: chestR    1 jumpA-push      0.4322      [0.20-0.30]   AU-DESSUS (x1.44)
+ROOM-REGB-APEX: chestR    2 jumpA-fly       0.3312      [pas de bande] PAS DE BANDE
+ROOM-REGB-APEX: chestR    3 jumpA-land      0.2021      [0.30-0.42]   SOUS (x0.67)
+ROOM-REGB-APEX: chestR    4 jumpB-push      0.4615      [0.30-0.38]   AU-DESSUS (x1.21)
+ROOM-REGB-APEX: chestR    5 jumpB-fly       0.1843      [pas de bande] PAS DE BANDE
+ROOM-REGB-APEX: chestR    6 jumpB-land      0.2431      [0.42-0.50]   SOUS (x0.58)
+ROOM-REGB-APEX: chestR    7 runA-accel      0.4163      [pas de bande] PAS DE BANDE
+ROOM-REGB-APEX: chestR    8 runA-brake      0.3966      [0.25-0.35]   AU-DESSUS (x1.13)
+
+ROOM-REGB-COM:  chestL    0 base            0.0066      [pas de bande] PAS DE BANDE
+ROOM-REGB-COM:  chestL    1 jumpA-push      0.2589      [0.15-0.25]   AU-DESSUS (x1.04)
+ROOM-REGB-COM:  chestL    2 jumpA-fly       0.1597      [pas de bande] PAS DE BANDE
+ROOM-REGB-COM:  chestL    3 jumpA-land      0.1161      [0.25-0.35]   SOUS (x0.46)
+ROOM-REGB-COM:  chestL    4 jumpB-push      0.2586      [0.25-0.32]   DANS
+ROOM-REGB-COM:  chestL    5 jumpB-fly       0.1152      [pas de bande] PAS DE BANDE
+ROOM-REGB-COM:  chestL    6 jumpB-land      0.1519      [0.35-0.40]   SOUS (x0.43)
+ROOM-REGB-COM:  chestL    7 runA-accel      0.2531      [0.10-0.18]   AU-DESSUS (x1.41)
+ROOM-REGB-COM:  chestL    8 runA-brake      0.2159      [0.18-0.27]   DANS
+ROOM-REGB-COM:  chestR    0 base            0.0062      [pas de bande] PAS DE BANDE
+ROOM-REGB-COM:  chestR    1 jumpA-push      0.2226      [0.15-0.25]   DANS
+ROOM-REGB-COM:  chestR    2 jumpA-fly       0.1731      [pas de bande] PAS DE BANDE
+ROOM-REGB-COM:  chestR    3 jumpA-land      0.1077      [0.25-0.35]   SOUS (x0.43)
+ROOM-REGB-COM:  chestR    4 jumpB-push      0.2377      [0.25-0.32]   SOUS (x0.95)
+ROOM-REGB-COM:  chestR    5 jumpB-fly       0.1035      [pas de bande] PAS DE BANDE
+ROOM-REGB-COM:  chestR    6 jumpB-land      0.1288      [0.35-0.40]   SOUS (x0.37)
+ROOM-REGB-COM:  chestR    7 runA-accel      0.1865      [0.10-0.18]   AU-DESSUS (x1.04)
+ROOM-REGB-COM:  chestR    8 runA-brake      0.1977      [0.18-0.27]   DANS
+
+   -- ROOM-REGB-AXE : L'ECART ENTRE LES DEUX AXES, FENETRE PAR FENETRE -------------------
+      PH-REGT (axes du MONDE) et PH-REGB (axes du SUJET) jouent la MEME fenetre dans la MEME
+      pose epinglee. La seule variable declaree est l'axe ; ce que la colonne `ecart`
+      mesure ne peut donc venir que de lui.
+ROOM-REGB-AXE: chestL   r=1 jumpA-push    monde=0.3975  sujet=0.4574  ecart  +15.07 %  (11.9 deg entre les deux axes)
+ROOM-REGB-AXE: chestL   r=2 jumpA-fly     monde=0.4715  sujet=0.2752  ecart  -41.63 %  (11.9 deg entre les deux axes)
+ROOM-REGB-AXE: chestL   r=3 jumpA-land    monde=0.2203  sujet=0.1887  ecart  -14.34 %  (11.9 deg entre les deux axes)
+ROOM-REGB-AXE: chestL   r=4 jumpB-push    monde=0.4985  sujet=0.4597  ecart   -7.78 %  (11.9 deg entre les deux axes)
+ROOM-REGB-AXE: chestL   r=5 jumpB-fly     monde=0.2827  sujet=0.1846  ecart  -34.70 %  (11.9 deg entre les deux axes)
+ROOM-REGB-AXE: chestL   r=6 jumpB-land    monde=0.2323  sujet=0.2620  ecart  +12.79 %  (11.9 deg entre les deux axes)
+ROOM-REGB-AXE: chestL   r=7 runA-accel    monde=0.3645  sujet=0.4359  ecart  +19.59 %  (86.3 deg entre les deux axes)
+ROOM-REGB-AXE: chestL   r=8 runA-brake    monde=0.2367  sujet=0.4038  ecart  +70.60 %  (86.3 deg entre les deux axes)
+ROOM-REGB-AXE: chestR   r=1 jumpA-push    monde=0.4934  sujet=0.4322  ecart  -12.40 %  (11.9 deg entre les deux axes)
+ROOM-REGB-AXE: chestR   r=2 jumpA-fly     monde=0.2561  sujet=0.3312  ecart  +29.32 %  (11.9 deg entre les deux axes)
+ROOM-REGB-AXE: chestR   r=3 jumpA-land    monde=0.3063  sujet=0.2021  ecart  -34.02 %  (11.9 deg entre les deux axes)
+ROOM-REGB-AXE: chestR   r=4 jumpB-push    monde=0.4394  sujet=0.4615  ecart   +5.03 %  (11.9 deg entre les deux axes)
+ROOM-REGB-AXE: chestR   r=5 jumpB-fly     monde=0.3274  sujet=0.1843  ecart  -43.71 %  (11.9 deg entre les deux axes)
+ROOM-REGB-AXE: chestR   r=6 jumpB-land    monde=0.3368  sujet=0.2431  ecart  -27.82 %  (11.9 deg entre les deux axes)
+ROOM-REGB-AXE: chestR   r=7 runA-accel    monde=0.4374  sujet=0.4163  ecart   -4.82 %  (86.3 deg entre les deux axes)
+ROOM-REGB-AXE: chestR   r=8 runA-brake    monde=0.6519  sujet=0.3966  ecart  -39.16 %  (86.3 deg entre les deux axes)
+ROOM-REGB-AXE: ecart relatif MEDIAN — sauts (axes a 11,9 deg) 27.82 %  ·  course (axes a 86,3 deg) 39.16 %
+
+   -- ROOM-REGB-SYM : L'ECART GAUCHE/DROITE, SOUS LES DEUX AXES ---------------------
+ROOM-REGB-SYM: r=1 jumpA-push    ecart gauche/droite   5.51 % sur les axes du SUJET contre  19.44 % sur ceux du MONDE  -> PLUS SYMETRIQUE   [pose PH-REGT resserree, miroir 0.6 deg]
+ROOM-REGB-SYM: r=2 jumpA-fly     ecart gauche/droite  16.91 % sur les axes du SUJET contre  45.68 % sur ceux du MONDE  -> PLUS SYMETRIQUE   [pose PH-REGT resserree, miroir 0.6 deg]
+ROOM-REGB-SYM: r=3 jumpA-land    ecart gauche/droite   6.63 % sur les axes du SUJET contre  28.08 % sur ceux du MONDE  -> PLUS SYMETRIQUE   [pose PH-REGT resserree, miroir 0.6 deg]
+ROOM-REGB-SYM: r=4 jumpB-push    ecart gauche/droite   0.39 % sur les axes du SUJET contre  11.86 % sur ceux du MONDE  -> PLUS SYMETRIQUE   [pose PH-REGT resserree, miroir 0.6 deg]
+ROOM-REGB-SYM: r=5 jumpB-fly     ecart gauche/droite   0.16 % sur les axes du SUJET contre  13.65 % sur ceux du MONDE  -> PLUS SYMETRIQUE   [pose PH-REGT resserree, miroir 0.6 deg]
+ROOM-REGB-SYM: r=6 jumpB-land    ecart gauche/droite   7.21 % sur les axes du SUJET contre  31.03 % sur ceux du MONDE  -> PLUS SYMETRIQUE   [pose PH-REGT resserree, miroir 0.6 deg]
+ROOM-REGB-SYM: r=7 runA-accel    ecart gauche/droite   4.50 % sur les axes du SUJET contre  16.67 % sur ceux du MONDE  -> PLUS SYMETRIQUE   [pose PH-REGT resserree, miroir 0.6 deg]
+ROOM-REGB-SYM: r=8 runA-brake    ecart gauche/droite   1.78 % sur les axes du SUJET contre  63.69 % sur ceux du MONDE  -> PLUS SYMETRIQUE   [pose PH-REGT resserree, miroir 0.6 deg]
+ROOM-REGB-SYM: 8 fenetre(s) sur 8 rendent une reponse PLUS symetrique quand le stimulus tombe sur l'axe du sujet   [pose PH-REGT resserree, miroir 0.6 deg]
+   POURQUOI CE TEST VAUT PLUS QU'UNE BANDE. Il ne compare pas une mesure a une cible :
+   il compare le personnage a LUI-MEME. Le rig est symetrique a 0,005 deg en bind, donc
+   dans une pose symetrique un stimulus bien oriente DOIT rendre les deux seins egaux —
+   c'est une propriete de la geometrie, pas un reglage. Aucun seuil n'y entre.
+   CE QU'IL N'EST PAS : une prediction verifiee. Il n'etait pas dans
+   `c70-predictions.txt` ; je le publie comme une OBSERVATION, et je le dis.
+   CE QUI DISCRIMINE : si l'ecart d'axe explique ce qu'on mesure, la course — a 86,3 deg
+   de son axe anatomique — doit bouger PLUS que les sauts, qui n'en sont qu'a 11,9 deg.
+   L'inverse serait le resultat le plus interessant des deux : il dirait que l'axe n'est
+   pas ce qui gouverne la reponse, et qu'il faut chercher ailleurs.
+
+-- ROOM-SPEC8 : LE TENSEUR DE DEFORMATION COMPLET, ENFIN LU -------------------------------
+   chaine    i   det(M)     ecart a 1     asymetrie max |Mij - Mji|
+ROOM-SPEC8: chestL    0    0.999999  -1.18e-06     0.000000
+ROOM-SPEC8: chestL    1    0.999998  -1.65e-06     0.003520
+ROOM-SPEC8: chestL    2    0.999999  -1.17e-06     0.014743
+ROOM-SPEC8: chestL    3    0.999999  -8.20e-07     0.000049
+ROOM-SPEC8: chestL    4    0.999999  -1.01e-06     0.000048
+ROOM-SPEC8: chestL    5    0.999998  -1.67e-06     0.001249
+ROOM-SPEC8: chestL    6    0.999999  -1.16e-06     0.008683
+ROOM-SPEC8: chestL    7    0.999999  -7.29e-07     0.011157
+ROOM-SPEC8: chestL    8    0.999998  -2.11e-06     0.014310
+ROOM-SPEC8: chestR    0    0.999999  -1.24e-06     0.000000
+ROOM-SPEC8: chestR    1    0.999999  -9.25e-07     0.000301
+ROOM-SPEC8: chestR    2    0.999998  -1.51e-06     0.006064
+ROOM-SPEC8: chestR    3    0.999998  -1.85e-06     0.003872
+ROOM-SPEC8: chestR    4    0.999999  -8.14e-07     0.011520
+ROOM-SPEC8: chestR    5    0.999998  -2.00e-06     0.005897
+ROOM-SPEC8: chestR    6    0.999998  -2.17e-06     0.024827
+ROOM-SPEC8: chestR    7    0.999999  -8.70e-07     0.011070
+ROOM-SPEC8: chestR    8    0.999997  -2.50e-06     0.018090
+
+ROOM-SPEC8-VOLUME: 18 cellules · det de 0.999997 a 0.999999 · ETENDUE 1.78e-06
+   La bande de la section est 0,98-1,01 en mouvement normal et 0,96-1,02 en transitoire.
+   La bande est RESPECTEE — ET C'EST PRECISEMENT CE QUI NE PROUVE RIEN.
+   ETENDUE 1.78e-06 SUR 18 CELLULES : neuf orientations, des poles a +-90 deg, deux chaines, et
+   le determinant ne bouge pas de la sixieme decimale. Une grandeur PHYSIQUE de volume varie
+   avec la deformation ; celle-ci n'a pas de population, elle a une VALEUR. C'est une
+   NORMALISATION, pas une conservation, et une bande respectee par une constante epinglee ne
+   peut fonder aucun verdict. §8 reste NON TENUE — mais desormais sur une MESURE, la ou son
+   motif etait jusqu'ici une lecture de source (regle 0 : un commentaire n'est pas une preuve).
+
+ROOM-SPEC8-AFFINE: asymetrie de matrice de 0.000000 a 0.024827.
+   La clause en gras — « the whole breast shall NOT be represented by ONE affine scale
+   transformation » — porte sur la STRUCTURE, pas sur une valeur. Deux faits la tranchent :
+   (a) `PHYSDFMA` porte un indice de CHAINE et un indice de CELLULE, et AUCUN indice de
+       MAILLON : il n'existe pas de tenseur par maillon a publier. C'est UNE matrice pour
+       tout l'organe, ce que la section interdit en gras.
+   (b) la matrice est quasi SYMETRIQUE (asymetrie max 0.0248) : une matrice symetrique est un
+       etirement pur, donc exactement « one affine scale transformation » ecrite dans une
+       base propre. Le residu non nul dit qu'un peu de cisaillement s'y ajoute, pas qu'une
+       repartition racine/intermediaire/distal existe.
+   Les quatre comportements que la section demande a la place — « root tissue moves little ;
+   intermediate tissue redistributes ; distal tissue deforms most ; local thickness
+   compensates for elongation » — n'ont donc aucun canal, et c'est cela le defaut, pas un
+   reglage. §8 : NON TENUE, motif MESURE.
 
 
    -- ROOM-REGS : §14 A §20 REJOUEES DANS LA POSE EPINGLEE (cycle 66) -----------
@@ -3237,6 +3387,7 @@ ROOM-ASYM-POSE: PH-AXV     PH-AXV            ecart=NON MESURE source=PHYSRINGAX 
    (source : PHYSRINGAX n'a pas de compagnon de pose)
 ROOM-ASYM-POSE: PH-REG     PH-REG heritee    ecart=48.0 deg   source=PHYSREGB     -> REFUSEE
 ROOM-ASYM-POSE: PH-REGA    PH-REGA axes du sujet ecart=2.1 deg    source=PHYSREGAB    -> REFUSEE
+ROOM-ASYM-POSE: PH-REGB    PH-REGB translation sur les axes du sujet ecart=0.4 deg    source=PHYSREGBB    -> ADMISSIBLE
 ROOM-ASYM-POSE: PH-REGS    PH-REGS epinglee  ecart=7.5 deg    source=PHYSREGSB    -> REFUSEE
 ROOM-ASYM-POSE: PH-REGT    PH-REGT resserree ecart=0.6 deg    source=PHYSREGTB    -> ADMISSIBLE
 ROOM-ASYM-POSE: PH-SETTLE  PH-SETTLE (pose d'amorcage) ecart=0.3 deg    source=PHYSPOSETAG  -> ADMISSIBLE

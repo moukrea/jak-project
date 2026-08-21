@@ -1101,6 +1101,297 @@ def _spec13_block(A, txt, names, ori, com, acc, roles, zs, b0, perm=None):
     A('')
 
 
+def _regb_block(A, txt, names, RGT, RGAPX, rgvd, asym=None, POSE=None):
+    """SPEC 14 A 17 REJOUEES SUR LES AXES DU SUJET (PH-REGB, cycle 70).
+
+    POURQUOI CETTE PASSE EXISTE. `physroom-run-z` accelerait le sujet le long du MONDE Z, a
+    **86,3 deg** de son axe avant/arriere mesure : la « course » de §17 etait une EMBARDEE
+    LATERALE. Les sauts partaient le long du monde Y, a 11,9 deg de la verticale du sujet. Meme
+    defaut de classe que les rotations de §18-§20 (cycles 67-68) et que le nommage des
+    orientations de §10-§13 (cycle 69) : un geste COMMANDE dans le repere du monde et LU comme
+    celui du sujet.
+
+    CE QUE CE BLOC PUBLIE, ET CE QU'IL NE PUBLIE PAS. Il ne remplace AUCUNE ligne : `ROOM-REGIME`
+    et `ROOM-APEX-REGIME` gardent leur lecture en repere monde, et celles-ci se lisent A COTE.
+    Les BANDES sont exactement celles de `_RGT` et `_RGAPX` — aucun seuil neuf, aucune citation
+    reecrite. Ce qui change est UNIQUEMENT l'axe du stimulus.
+
+    NATURE : un deplacement d'apex et un COM, en B0. REPERE : celui des lignes `ROOM-REGIME`,
+    inchange — c'est le STIMULUS qui a change de repere, pas la mesure.
+    LIGNE DE BASE : la fenetre temoin r=0, rejouee elle aussi, et qui doit rendre le MEME chiffre
+    que dans les autres passes puisque `physroom-tr-set` ecrit `home` exactement quand yy=zz=0."""
+    A('-- ROOM-REGB : §14 A §17 REJOUEES SUR LES AXES DU SUJET (PH-REGB) ------------------------')
+    b0 = {}
+    for m in re.finditer(r'^\[HD-PHYS\] b0 c=(\d+) flesh=([-\d.e+]+)', txt, re.M):
+        b0[int(m.group(1))] = float(m.group(2))
+    ap, dd, ss = {}, {}, None
+    # `PHYSREGBV` : le tag `PHYSREGB` etait DEJA pris par les directions d'os de PH-REG. Deux
+    # populations sous une meme etiquette rendent tout comptage faux — renomme au producteur.
+    for m in re.finditer(r'^PHYSREGBV c=(\d+) r=(\d+) trm=(\d+) apex=([-\d.e+]+) com=([-\d.e+]+)',
+                         txt, re.M):
+        ap[(int(m.group(1)), int(m.group(2)))] = (int(m.group(3)), float(m.group(4)),
+                                                  float(m.group(5)))
+    for m in re.finditer(r'^PHYSREGBD r=(\d+) trm=(\d+) dap=([-\d.e+]+) dver=([-\d.e+]+)'
+                         r' dlat=([-\d.e+]+)', txt, re.M):
+        dd[int(m.group(1))] = (int(m.group(2)), float(m.group(3)), float(m.group(4)),
+                               float(m.group(5)))
+    m1 = re.search(r'^PHYSREGBS gv=([-\d.e+]+) ap0=([-\d.e+]+) ap1=([-\d.e+]+)', txt, re.M)
+    m2 = re.search(r'^PHYSREGBS2 us=([-\d.e+]+) fs=([-\d.e+]+) gok=(\d+) aok=(\d+) trm=(\d+)',
+                   txt, re.M)
+    if m1 and m2:
+        ss = (tuple(float(x) for x in m1.groups())
+              + (float(m2.group(1)), float(m2.group(2)))
+              + (int(m2.group(3)), int(m2.group(4)), int(m2.group(5))))
+    if not ap:
+        A('ROOM-REGB: ABSENT (aucune ligne PHYSREGB) — cette course precede la phase PH-REGB.')
+        A('   §14 a §17 restent lues sur les axes du MONDE, et l\'ecart d\'axe reste DECLARE et')
+        A('   non corrige : 86,3 deg pour la course de §17, 11,9 deg pour les sauts.')
+        A('')
+        return
+    # ---- LES DEUX SENS, ET LEUR SOURCE ---------------------------------------------------------
+    if ss is None:
+        A('ROOM-REGB: les deux sens ne sont pas publies (`PHYSREGBS` absent) — la passe ne peut pas')
+        A('   etre lue, et aucun chiffre n\'est publie plutot que d\'en publier sans repere.')
+        A('')
+        return
+    gv, ap0, ap1, us, fs, gok, aok, trm = ss
+    A('ROOM-REGB-SENS: gravite sur la ligne verticale de l\'ancre = %+.6f  -> le HAUT est %s'
+      ' (garde |gv| > 0.5 : %s)' % (gv, 'son oppose' if gv > 0 else 'son sens', 'OK' if gok else 'REFUSEE'))
+    A('ROOM-REGB-SENS: saillie du sein sur la ligne 2 = %+.6f et %+.6f  -> l\'AVANT est %s'
+      ' (garde |ap| > 0.03 et memes signes : %s)'
+      % (ap0, ap1, 'son oppose' if ap0 < 0 else 'son sens', 'OK' if aok else 'REFUSEE'))
+    if not trm:
+        A('ROOM-REGB: MODE MONDE — un des deux sens ne s\'est pas mesure, donc la phase a REFUSE de')
+        A('   se declarer en repere sujet et a rejoue en repere monde. C\'est un doublon de PH-REG,')
+        A('   pas une correction d\'axe : aucune conclusion sur l\'axe n\'en sort.')
+        A('')
+        return
+    # ---- LE GESTE, NOMME PAR LA COMPOSANTE QUI MANQUE ------------------------------------------
+    A('')
+    A('   LE GESTE OBTENU, NOMME PAR LA MESURE. Un saut doit rendre `dap` et `dlat` quasi nuls ;')
+    A('   une course doit rendre `dver` et `dlat` quasi nuls. C\'est la composante qui MANQUE qui')
+    A('   nomme un geste, pas celle qui domine — lecon du cycle 68, payee sur un classificateur')
+    A('   qui appelait un lacet une flexion avant.')
+    A('   r   regime         dap (u)     dver (u)    dlat (u)   geste mesure')
+    KIND = {1: 'jump', 2: 'jump', 3: 'jump', 4: 'jump', 5: 'jump', 6: 'jump', 7: 'run', 8: 'run'}
+    nb_ok = nb_tot = 0
+    for r in sorted(dd):
+        _t, dap, dver, dlat = dd[r]
+        nm = next((x[1] for x in RGT if x[0] == r), 'r=%d' % r)
+        big = max(abs(dap), abs(dver), abs(dlat))
+        if big < 1.0:
+            geste = 'AUCUN DEPLACEMENT (temoin)'
+        elif abs(dver) > 3.0 * max(abs(dap), abs(dlat)):
+            geste = 'VERTICAL   (dap et dlat quasi nuls)'
+        elif abs(dap) > 3.0 * max(abs(dver), abs(dlat)):
+            geste = 'AVANT/ARR. (dver et dlat quasi nuls)'
+        elif abs(dlat) > 3.0 * max(abs(dap), abs(dver)):
+            geste = 'LATERAL    <- ce n\'est le geste d\'AUCUNE de ces sections'
+        else:
+            geste = 'MIXTE — aucune composante ne domine, le geste n\'est PAS nomme'
+        if r in KIND:
+            nb_tot += 1
+            want = 'VERTICAL' if KIND[r] == 'jump' else 'AVANT/ARR.'
+            if geste.startswith(want):
+                nb_ok += 1
+        A('   %2d  %-13s %+10.2f %+11.2f %+11.2f   %s' % (r, nm, dap, dver, dlat, geste))
+    A('ROOM-REGB-GESTE: %d fenetre(s) de pilotage sur %d rendent le geste que leur section decrit.'
+      % (nb_ok, nb_tot))
+    A('')
+    # ---- LES BANDES, AVEC LA LECTURE EN REPERE MONDE A COTE ------------------------------------
+    A('   LES BANDES SONT CELLES DE `ROOM-REGIME` ET `ROOM-APEX-REGIME`, AU MOT PRES : ce bloc')
+    A('   n\'introduit aucun seuil. Ce qui change est l\'AXE du stimulus, et rien d\'autre.')
+    A('   chaine    r  regime         apex (sujet)  bande         verdict')
+    for c in sorted({k[0] for k in ap}):
+        nm = names[c] if c < len(names) else 'c%d' % c
+        bb = b0.get(c, 602.0)
+        for r in range(9):
+            if (c, r) not in ap:
+                continue
+            _t, apx, _com = ap[(c, r)]
+            band, cite = RGAPX.get(r, (None, 'aucune clause d\'apex pour ce regime'))
+            A('ROOM-REGB-APEX: %-8s %2d %-13s %8.4f      %-13s %s'
+              % (nm, r, next((x[1] for x in RGT if x[0] == r), '?'), apx,
+                 ('[%.2f-%.2f]' % band) if band else '[pas de bande]',
+                 rgvd(apx, band) if band else 'PAS DE BANDE'))
+    A('')
+    for c in sorted({k[0] for k in ap}):
+        nm = names[c] if c < len(names) else 'c%d' % c
+        for r in range(9):
+            if (c, r) not in ap:
+                continue
+            _t, _apx, com = ap[(c, r)]
+            band = next((x[4] for x in RGT if x[0] == r), None)
+            A('ROOM-REGB-COM:  %-8s %2d %-13s %8.4f      %-13s %s'
+              % (nm, r, next((x[1] for x in RGT if x[0] == r), '?'), com,
+                 ('[%.2f-%.2f]' % band) if band else '[pas de bande]',
+                 rgvd(com, band) if band else 'PAS DE BANDE'))
+    A('')
+    # ---- LA CONFRONTATION : MEME POSE, MEME FENETRE, UNE SEULE VARIABLE — L'AXE ----------------
+    # PH-REGT joue les MEMES fenetres dans la MEME pose epinglee, sur les axes du MONDE. La
+    # difference entre les deux passes ne peut donc etre portee que par l'axe. C'est la discipline
+    # de la passe appariee du cycle 66, appliquee a la translation.
+    tt = {}
+    for m in re.finditer(r'^PHYSREGT c=(\d+) r=(\d+) apex=([-\d.e+]+) com=([-\d.e+]+)', txt, re.M):
+        tt[(int(m.group(1)), int(m.group(2)))] = (float(m.group(3)), float(m.group(4)))
+    if not tt:
+        A('ROOM-REGB-AXE: PH-REGT absente de cette trace — la comparaison appariee est impossible,')
+        A('   et les chiffres ci-dessus se lisent seuls, sans terme de comparaison.')
+        A('')
+        return
+    A('   -- ROOM-REGB-AXE : L\'ECART ENTRE LES DEUX AXES, FENETRE PAR FENETRE -------------------')
+    A('      PH-REGT (axes du MONDE) et PH-REGB (axes du SUJET) jouent la MEME fenetre dans la MEME')
+    A('      pose epinglee. La seule variable declaree est l\'axe ; ce que la colonne `ecart`')
+    A('      mesure ne peut donc venir que de lui.')
+    saut, cour = [], []
+    for c in sorted({k[0] for k in ap}):
+        nm = names[c] if c < len(names) else 'c%d' % c
+        for r in range(1, 9):
+            if (c, r) not in ap or (c, r) not in tt:
+                continue
+            b = ap[(c, r)][1]
+            w = tt[(c, r)][0]
+            rel = abs(b - w) / max(abs(w), 1e-9)
+            (cour if r in (7, 8) else saut).append(rel)
+            A('ROOM-REGB-AXE: %-8s r=%d %-13s monde=%.4f  sujet=%.4f  ecart %+7.2f %%  (%.1f deg'
+              ' entre les deux axes)'
+              % (nm, r, next((x[1] for x in RGT if x[0] == r), '?'), w, b,
+                 100.0 * (b - w) / max(abs(w), 1e-9), 86.3 if r in (7, 8) else 11.9))
+    def _med(v):
+        v = sorted(v)
+        return v[len(v) // 2] if v else float('nan')
+    A('ROOM-REGB-AXE: ecart relatif MEDIAN — sauts (axes a 11,9 deg) %.2f %%  ·  course (axes a'
+      ' 86,3 deg) %.2f %%' % (100.0 * _med(saut), 100.0 * _med(cour)))
+    # ---- LE TEST QUE LA GEOMETRIE DU RIG DONNE GRATUITEMENT -------------------------------------
+    # Le rig est bilateralement symetrique a 0,005 deg en pose de BIND (cycle 53, sur le mesh
+    # LIVRE). Dans une pose PROUVEE symetrique, un stimulus qui tombe sur le BON axe doit donc
+    # rendre des reponses egales sur les deux seins ; un stimulus qui tombe a cote ne le peut pas.
+    # Ce test ne coute rien, ne demande aucun seuil, et n'a PAS ete pre-enregistre : il se lit
+    # comme une observation, pas comme une prediction verifiee.
+    if asym is not None and POSE is not None and 'PH-REGB' in POSE and 'PH-REGT' in POSE:
+        pb, pt = POSE['PH-REGB'], POSE['PH-REGT']
+        pw = pb if ((pb.dev if pb.dev is not None else 9e9)
+                    >= (pt.dev if pt.dev is not None else 9e9)) else pt
+        A('')
+        A('   -- ROOM-REGB-SYM : L\'ECART GAUCHE/DROITE, SOUS LES DEUX AXES ---------------------')
+        nb_mieux = nb_paire = 0
+        for r in range(1, 9):
+            if (0, r) not in ap or (1, r) not in ap:
+                continue
+            if (0, r) not in tt or (1, r) not in tt:
+                continue
+            bs = abs(ap[(0, r)][1] - ap[(1, r)][1]) / max(ap[(0, r)][1], ap[(1, r)][1], 1e-9)
+            ws = abs(tt[(0, r)][0] - tt[(1, r)][0]) / max(tt[(0, r)][0], tt[(1, r)][0], 1e-9)
+            nb_paire += 1
+            if bs < ws:
+                nb_mieux += 1
+            A(asym('ROOM-REGB-SYM',
+                   ': r=%d %-13s ecart gauche/droite %6.2f %% sur les axes du SUJET contre'
+                   ' %6.2f %% sur ceux du MONDE  -> %s'
+                   % (r, next((x[1] for x in RGT if x[0] == r), '?'),
+                      100.0 * bs, 100.0 * ws, 'PLUS SYMETRIQUE' if bs < ws else 'moins symetrique'),
+                   pw))
+        A(asym('ROOM-REGB-SYM',
+               ': %d fenetre(s) sur %d rendent une reponse PLUS symetrique quand le stimulus tombe'
+               ' sur l\'axe du sujet' % (nb_mieux, nb_paire), pw))
+        A('   POURQUOI CE TEST VAUT PLUS QU\'UNE BANDE. Il ne compare pas une mesure a une cible :')
+        A('   il compare le personnage a LUI-MEME. Le rig est symetrique a 0,005 deg en bind, donc')
+        A('   dans une pose symetrique un stimulus bien oriente DOIT rendre les deux seins egaux —')
+        A('   c\'est une propriete de la geometrie, pas un reglage. Aucun seuil n\'y entre.')
+        A('   CE QU\'IL N\'EST PAS : une prediction verifiee. Il n\'etait pas dans')
+        A('   `c70-predictions.txt` ; je le publie comme une OBSERVATION, et je le dis.')
+    A('   CE QUI DISCRIMINE : si l\'ecart d\'axe explique ce qu\'on mesure, la course — a 86,3 deg')
+    A('   de son axe anatomique — doit bouger PLUS que les sauts, qui n\'en sont qu\'a 11,9 deg.')
+    A('   L\'inverse serait le resultat le plus interessant des deux : il dirait que l\'axe n\'est')
+    A('   pas ce qui gouverne la reponse, et qu\'il faut chercher ailleurs.')
+    A('')
+
+
+def _spec8_block(A, txt, names):
+    """SPEC 8 — LA CONSERVATION DE VOLUME, LUE SUR LE TENSEUR COMPLET AU LIEU DU SOURCE.
+
+    TEXTE EXACT (SPEC-breast-softbody.md l.140-143), cite et pas resume :
+      « Normal movement: 98-101% of neutral volume · Strong transient events: 96-102% »
+      « Conceptually `Sx.Sy.Sz ~ 1`, **but the whole breast shall not be represented by one affine
+        scale transformation.** Instead: root tissue moves little; intermediate tissue
+        redistributes; distal tissue deforms most... »
+
+    POURQUOI CE BLOC EXISTE. §8 etait portee `NON TENUE` avec pour motif « le determinant est force
+    a 1 et la deformation est UNE matrice par chaine ». **Ce motif etait lu dans le SOURCE, pas dans
+    une trace** — et la regle 0 du contrat dit qu'un commentaire n'est pas une preuve. Or le tenseur
+    3x3 COMPLET est publie a chaque course depuis des dizaines de cycles sous le nom `PHYSDFMA`, en
+    base de l'ancre, **et n'a aucun lecteur** (deuxieme des trois flux muets nommes au cycle 69).
+    Ce bloc lui en donne un : la meme conclusion, mais MESUREE.
+
+    NATURE : un determinant (rapport de volumes, sans unite) et une mesure d'ASYMETRIE de matrice
+      (sans unite elle aussi). REPERE : la base de l'ANCRE, celle de `PHYSORICOML`.
+    LECTURE HORS DEFAUT : det = 1 a la cellule debout, ou §9 exige la pose d'auteur.
+    CE QUI DISCRIMINE : une population de determinants qui varie a peine plus que le bruit
+      d'impression n'est pas une mesure de volume, c'est une NORMALISATION — et une bande respectee
+      par une constante epinglee ne prouve rien. C'est le test que ce bloc fait passer a la clause."""
+    A('-- ROOM-SPEC8 : LE TENSEUR DE DEFORMATION COMPLET, ENFIN LU -------------------------------')
+    M = {}
+    for m in re.finditer(r'^PHYSDFMA c=(\d+) i=(\d+) r=(\d+) m0=([-\d.e+]+) m1=([-\d.e+]+)'
+                         r' m2=([-\d.e+]+)', txt, re.M):
+        M.setdefault((int(m.group(1)), int(m.group(2))), [None] * 3)[int(m.group(3))] = [
+            float(m.group(4)), float(m.group(5)), float(m.group(6))]
+    if not M:
+        A('ROOM-SPEC8: ABSENT (aucune ligne PHYSDFMA) — le tenseur n\'est pas publie par cette')
+        A('   course. §8 reste jugee sur une lecture de source, ce qui n\'est pas une preuve.')
+        A('')
+        return
+    def _det(a):
+        return (a[0][0] * (a[1][1] * a[2][2] - a[1][2] * a[2][1])
+                - a[0][1] * (a[1][0] * a[2][2] - a[1][2] * a[2][0])
+                + a[0][2] * (a[1][0] * a[2][1] - a[1][1] * a[2][0]))
+    dets, asys = [], []
+    A('   chaine    i   det(M)     ecart a 1     asymetrie max |Mij - Mji|')
+    for c in sorted({k[0] for k in M}):
+        nm = names[c] if c < len(names) else 'c%d' % c
+        for i in sorted({k[1] for k in M if k[0] == c}):
+            a = M[(c, i)]
+            if any(x is None for x in a):
+                continue
+            d = _det(a)
+            asy = max(abs(a[j][k] - a[k][j]) for j in range(3) for k in range(3))
+            dets.append(d)
+            asys.append(asy)
+            A('ROOM-SPEC8: %-8s %2d  %10.6f  %+.2e     %.6f' % (nm, i, d, d - 1.0, asy))
+    lo, hi = min(dets), max(dets)
+    A('')
+    A('ROOM-SPEC8-VOLUME: %d cellules · det de %.6f a %.6f · ETENDUE %.2e'
+      % (len(dets), lo, hi, hi - lo))
+    A('   La bande de la section est 0,98-1,01 en mouvement normal et 0,96-1,02 en transitoire.')
+    if 0.98 <= lo and hi <= 1.01:
+        A('   La bande est RESPECTEE — ET C\'EST PRECISEMENT CE QUI NE PROUVE RIEN.')
+    else:
+        A('   La bande est FRANCHIE.')
+    A('   ETENDUE %.2e SUR %d CELLULES : neuf orientations, des poles a +-90 deg, deux chaines, et'
+      % (hi - lo, len(dets)))
+    A('   le determinant ne bouge pas de la sixieme decimale. Une grandeur PHYSIQUE de volume varie')
+    A('   avec la deformation ; celle-ci n\'a pas de population, elle a une VALEUR. C\'est une')
+    A('   NORMALISATION, pas une conservation, et une bande respectee par une constante epinglee ne')
+    A('   peut fonder aucun verdict. §8 reste NON TENUE — mais desormais sur une MESURE, la ou son')
+    A('   motif etait jusqu\'ici une lecture de source (regle 0 : un commentaire n\'est pas une preuve).')
+    A('')
+    A('ROOM-SPEC8-AFFINE: asymetrie de matrice de %.6f a %.6f.' % (min(asys), max(asys)))
+    A('   La clause en gras — « the whole breast shall NOT be represented by ONE affine scale')
+    A('   transformation » — porte sur la STRUCTURE, pas sur une valeur. Deux faits la tranchent :')
+    A('   (a) `PHYSDFMA` porte un indice de CHAINE et un indice de CELLULE, et AUCUN indice de')
+    A('       MAILLON : il n\'existe pas de tenseur par maillon a publier. C\'est UNE matrice pour')
+    A('       tout l\'organe, ce que la section interdit en gras.')
+    A('   (b) la matrice est quasi SYMETRIQUE (asymetrie max %.4f) : une matrice symetrique est un'
+      % max(asys))
+    A('       etirement pur, donc exactement « one affine scale transformation » ecrite dans une')
+    A('       base propre. Le residu non nul dit qu\'un peu de cisaillement s\'y ajoute, pas qu\'une')
+    A('       repartition racine/intermediaire/distal existe.')
+    A('   Les quatre comportements que la section demande a la place — « root tissue moves little ;')
+    A('   intermediate tissue redistributes ; distal tissue deforms most ; local thickness')
+    A('   compensates for elongation » — n\'ont donc aucun canal, et c\'est cela le defaut, pas un')
+    A('   reglage. §8 : NON TENUE, motif MESURE.')
+    A('')
+
+
 def _oricom_block(A, txt, names, ori):
     """SPEC 10/11/12/13 ET SPEC 29 — LE DEPLACEMENT STATIQUE PAR ORIENTATION, ET LA COMPLIANCE.
 
@@ -2752,6 +3043,8 @@ def main():
         'PH-REGT': _Pose('PH-REGT resserree', _pose_dev_from(txt, 'PHYSREGTB', _lat), 'PHYSREGTB'),
         'PH-REGA': _Pose('PH-REGA axes du sujet',
                          _pose_dev_from(txt, 'PHYSREGAB', _lat), 'PHYSREGAB'),
+        'PH-REGB': _Pose('PH-REGB translation sur les axes du sujet',
+                         _pose_dev_from(txt, 'PHYSREGBB', _lat), 'PHYSREGBB'),
     }
     # PH-SYM joue DEUX poses dans la meme course (`i=0` symetrique, `i=1` asymetrique) : chacune a
     # la sienne, et les confondre reviendrait a publier l'ecart de l'une sous l'autre.
@@ -5521,6 +5814,9 @@ def main():
                   % (len(_rat), _rat[0], _rat[len(_rat) // 2], _rat[-1]))
             # ---- SPEC 15 : LA TRAVERSEE DU NEUTRE --------------------------------------------
             A('')
+            # ---- CYCLE 70 : LES MEMES FENETRES DE TRANSLATION, SUR LES AXES DU SUJET ---------
+            _regb_block(A, txt, names, _RGT, _RGAPX, _rgvd, asym, POSE)
+            _spec8_block(A, txt, names)
             # ---- ROOM-REGS : LES MEMES QUINZE FENETRES DANS LA POSE EPINGLEE (cycle 66) ----
             #
             # POURQUOI. Le cycle 65 a mesure que PH-REG joue §14 a §20 dans une pose HERITEE a
