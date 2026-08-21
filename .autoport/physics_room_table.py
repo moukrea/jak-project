@@ -5481,6 +5481,155 @@ def main():
         A('   absents de recharged_assets/physics_mesh.txt). L\'apex n\'est PAS publie a zero :')
         A('   un canal absent ne doit jamais se lire comme un apex immobile.')
 
+    # ---- (C86) SPEC 21 : LA GRANDEUR QUE LA SECTION NOMME, ET ELLE N'AVAIT JAMAIS ETE PUBLIEE --
+    # §21 l.290-293, mot pour mot :
+    #   « Linear and rotational displacement contributions shall combine vectorially.
+    #     They shall not be added without saturation.
+    #     D_combined = D_max . tanh( |D_linear + D_angular| / D_max ) »
+    # La grandeur de §21 est donc  s = D_linear + D_angular  =  e - dp,  ou `e` est l'excursion du
+    # point de chair (ROOM-APEX ci-dessus) et `dp` la part apportee par le TENSEUR. Ce n'est PAS
+    # la force du ressort : le mur `mu` de jak-hd-physics.gc:2984-2990 multiplie une FORCE et ne
+    # touche ni la rotation ni la combinaison. Quinze cycles l'ont traite comme s'il etait §21.
+    # NATURE : un VECTEUR et sa norme, en unites de B0 (602 u), sans dimension.
+    # REPERE : le MONDE — difference de deux points de la MEME frame (pose simulee vs pose
+    #          d'AUTEUR du meme joint), exactement le repere de ROOM-APEX.
+    # LES QUATRE VALEURS SONT LATCHEES AU MEME ARGMAX QUE `apex` (jak-hd-physics.gc, meme bloc
+    # `when`), donc sur LA MEME FRAME : trois maxima pris sur trois frames differentes ne se
+    # soustraient pas (`argmax-anchor-is-not-a-population`).
+    # LECTURE QUAND LE DEFAUT EST ABSENT : 0.0000 partout a la pose d'auteur.
+    # CONTROLE DE L'INSTRUMENT : |(ax,ay,az)| doit egaler `apex` publie separement. L'ecart est
+    # imprime ; au-dela de 0.001 B0 la ligne se declare NON LISIBLE au lieu de rendre un verdict.
+    _s21 = {}
+    for _pn, _ks in (('', ('apex', 'ax', 'ay')), ('2', ('az',)),
+                     ('T', ('tx', 'ty', 'tz')), ('D', ('dx', 'dy', 'dz'))):
+        for _m in re.finditer(r'^PHYSAPEX%s c=(\d+) a=(\d+) d=(\d+) (.*)$' % _pn, txt, re.M):
+            _r = _s21.setdefault((int(_m.group(1)), int(_m.group(2)), int(_m.group(3))), {})
+            for _k, _v in re.findall(r'(\w+)=(-?[\d.eE+]+)', _m.group(4)):
+                if _k in _ks:
+                    try:
+                        _r[_k] = float(_v)
+                    except ValueError:
+                        pass
+    _need21 = ('apex', 'ax', 'ay', 'az', 'tx', 'ty', 'tz', 'dx', 'dy', 'dz')
+    _cells21 = {}
+    for _k, _r in _s21.items():
+        if all(_n in _r for _n in _need21):
+            _cells21.setdefault(_k[0], []).append(_r)
+    if _cells21:
+        import math as _mt
+
+        def _n21(v):
+            return _mt.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2])
+
+        def _sm21(v, cap):
+            _kn = 0.84 * cap
+            if cap <= 0.0 or v <= _kn:
+                return v
+            _cp = cap - _kn
+            _x = (v - _kn) / _cp
+            return _kn + _cp * (_x / (1.0 + _x))
+
+        A('')
+        A('-- SPEC 21 : `D_linear + D_angular` — LA GRANDEUR QUE LA SECTION NOMME ---------------')
+        A('   §21 : « Linear and rotational displacement contributions shall combine vectorially.')
+        A('          They shall not be added without saturation.')
+        A('          D_combined = D_max . tanh( |D_linear + D_angular| / D_max ) »  (l.290-293)')
+        A('   NATURE : vecteur et norme, en B0 (602 u), sans dimension. REPERE : monde, contre la')
+        A('   pose d\'AUTEUR de la MEME frame. A LA POSE D\'AUTEUR : 0.0000. Les quatre termes sont')
+        A('   latches au MEME argmax que `apex`, donc sur la MEME frame.')
+        A('   s = D_linear + D_angular = e - dp. Le mur de force `mu` (jak-hd-physics.gc:2984-2990)')
+        A('   n\'est PAS cette grandeur : il multiplie une FORCE et ne voit ni la rotation ni la')
+        A('   combinaison. Aucune saturation ne porte aujourd\'hui sur `s`.')
+        for _c in sorted(_cells21):
+            _nm21 = names[_c] if _c < len(names) else str(_c)
+            _P = _cells21[_c]
+            _id = max(abs(_n21((_r['ax'], _r['ay'], _r['az'])) - _r['apex']) for _r in _P)
+            A('ROOM-SPEC21: chain=%-12s n=%d fenetres   controle d\'identite |e|-apex = %.6f B0'
+              % (_nm21, len(_P), _id))
+            if _id > 0.001:
+                A('   NON LISIBLE : l\'identite e = tp + rp + dp ne se verifie pas sur cette trace.')
+                A('   Aucun verdict n\'est rendu — une decomposition dont la somme ne referme pas')
+                A('   ne peut pas designer un terme coupable.')
+                continue
+            _rowsq = []
+            for _r in _P:
+                _e = (_r['ax'], _r['ay'], _r['az'])
+                _tp = (_r['tx'], _r['ty'], _r['tz'])
+                _dp = (_r['dx'], _r['dy'], _r['dz'])
+                _rp = tuple(_e[_i] - _tp[_i] - _dp[_i] for _i in range(3))
+                _s = tuple(_e[_i] - _dp[_i] for _i in range(3))
+                _rowsq.append((_e, _s, _tp, _rp, _dp))
+            def _stat(sel):
+                _v = sorted(_n21(sel(x)) for x in _rowsq)
+                return (_v[len(_v) // 2], _v[min(len(_v) - 1, int(0.9 * len(_v)))], _v[-1])
+            for _lab, _sel in (('|e|  apex   ', lambda x: x[0]), ('|s|  §21    ', lambda x: x[1]),
+                               ('|tp| transl.', lambda x: x[2]), ('|rp| rotation', lambda x: x[3]),
+                               ('|dp| tenseur', lambda x: x[4])):
+                _m50, _m90, _mx = _stat(_sel)
+                A('   %s : mediane %.4f  p90 %.4f  max %.4f B0' % (_lab, _m50, _m90, _mx))
+            _ov = sum(1 for x in _rowsq if _n21(x[1]) > 0.50)
+            A('   |s| au-dessus du plafond exceptionnel de §22 (0.50 B0) : %d/%d fenetres'
+              % (_ov, len(_rowsq)))
+            A('   PART SIGNEE DE CHAQUE TERME DANS L\'APEX (projection sur e^, mediane) — une')
+            A('   projection, PAS un rapport de normes : les trois parts se somment a 100 %.')
+            _pj = {'tp': [], 'rp': [], 'dp': []}
+            for _e, _s, _tp, _rp, _dp in _rowsq:
+                _ne = _n21(_e)
+                if _ne < 0.01:
+                    continue
+                _u = tuple(_x / _ne for _x in _e)
+                for _kk, _vv in (('tp', _tp), ('rp', _rp), ('dp', _dp)):
+                    _pj[_kk].append(100.0 * sum(_vv[_i] * _u[_i] for _i in range(3)) / _ne)
+            for _kk in ('tp', 'rp', 'dp'):
+                _vv = sorted(_pj[_kk])
+                if _vv:
+                    A('      %s : %+6.1f %%' % (_kk, _vv[len(_vv) // 2]))
+            A('   CE QUE CETTE REPARTITION NE PROUVE PAS : la phrase de §22 « Translation,')
+            A('      rotation and redistribution shall account for most of the excursion » est')
+            A('      TAUTOLOGIQUE contre cette decomposition — les trois termes SONT l\'excursion,')
+            A('      leur somme vaut 100 % par construction. Aucun verdict n\'en est tire.')
+            A('   SIMULATION EXACTE DE DEUX SATURATIONS, SUR CETTE MEME TRACE (aucune course) :')
+            A('      (A) §21 AU MOT : saturer `s` seul, e\' = g.s + dp, g = softmin(|s|)/|s|')
+            A('      (B) LE CHANTIER : saturer le POINT DE CHAIR livre, e\' = softmin(|e|)')
+            _cur = [_n21(x[0]) for x in _rowsq]
+            for _cap in (0.50, 0.42):
+                _eA = [_n21(tuple(_sm21(_n21(x[1]), _cap) / max(_n21(x[1]), 1e-9) * x[1][_i]
+                                  + x[4][_i] for _i in range(3))) for x in _rowsq]
+                _eB = [_sm21(_v, _cap) for _v in _cur]
+                A('      D_max=%.2f  (A) moy %.4f max %.4f  >0.42 %3d/%d  >0.50 %3d/%d'
+                  % (_cap, sum(_eA) / len(_eA), max(_eA),
+                     sum(1 for _v in _eA if _v > 0.42), len(_eA),
+                     sum(1 for _v in _eA if _v > 0.50), len(_eA)))
+                A('                 (B) moy %.4f max %.4f  >0.42 %3d/%d  >0.50 %3d/%d'
+                  % (sum(_eB) / len(_eB), max(_eB),
+                     sum(1 for _v in _eB if _v > 0.42), len(_eB),
+                     sum(1 for _v in _eB if _v > 0.50), len(_eB)))
+            A('      aujourd\'hui       moy %.4f max %.4f  >0.42 %3d/%d  >0.50 %3d/%d'
+              % (sum(_cur) / len(_cur), max(_cur),
+                 sum(1 for _v in _cur if _v > 0.42), len(_cur),
+                 sum(1 for _v in _cur if _v > 0.50), len(_cur)))
+            _lim = [_n21(x[4]) for x in _rowsq]
+            A('      cas LIMITE s=0    moy %.4f max %.4f  >0.42 %3d/%d  >0.50 %3d/%d'
+              % (sum(_lim) / len(_lim), max(_lim),
+                 sum(1 for _v in _lim if _v > 0.42), len(_lim),
+                 sum(1 for _v in _lim if _v > 0.50), len(_lim)))
+            A('      « cas LIMITE s=0 » = translation ET rotation du joint annulees, c\'est-a-dire')
+            A('      une poitrine IMMOBILE. C\'est le PLAFOND de ce que toute intervention confinee')
+            A('      au canal du JOINT (ressort, mur de force, borne de translation) peut rendre :')
+            A('      ce n\'est pas une option, c\'est une borne.')
+            A('      RESERVE DECLAREE : (A) et (B) sont l\'ALGEBRE de la sortie, pas une course.')
+            A('      Elles valent parce que la borne visee s\'applique a la valeur LIVREE et')
+            A('      n\'ecrit pas l\'etat du solveur (`*phys-px*`), donc sans retro-action de')
+            A('      frame a frame. La FORME d\'implementation, elle, n\'atteint pas exactement')
+            A('      le point vise (une rotation ne deplace le point que sur une sphere) : cet')
+            A('      ecart n\'est PAS mesure ici et se mesure par INTERVENTION, pas par calcul.')
+        A('   VERDICT §21 : la saturation que la section EXIGE n\'existe pas dans le moteur —')
+        A('      aucune ligne ne combine `D_linear` et `D_angular` avant de les borner. §21 est')
+        A('      donc NON TENUE PAR ABSENCE DE MECANISME, et la simulation (A) chiffre ce que')
+        A('      son ajout AU MOT changerait : presque rien. Ce n\'est pas un motif de ne pas')
+        A('      l\'implementer — c\'est un motif de ne pas en attendre §22.')
+
+
     if _comex.get('run'):
         A('-- `comex` : LE MAXIMUM SUR LES DEUX CENTROIDES DE MAILLON — CE N\'EST PAS LE COM ------')
         A('   CETTE LIGNE NE PORTE PLUS DE VERDICT §22, ET SON NOM A CHANGE POUR LE DIRE.')

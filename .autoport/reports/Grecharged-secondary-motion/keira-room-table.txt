@@ -884,6 +884,92 @@ ROOM-APEX: chain=chestR       pic_typique=0.7007  max=0.9405 B0   (normal 0.42 /
       minimal direct anchoring ») etait respectee. Un MANQUE, lui, peut venir de cet
       ancrage plutot que du solveur, et la ligne ROOM-APEX-REGIME le chiffre par
       fenetre au lieu de le supposer.
+
+-- SPEC 21 : `D_linear + D_angular` — LA GRANDEUR QUE LA SECTION NOMME ---------------
+   §21 : « Linear and rotational displacement contributions shall combine vectorially.
+          They shall not be added without saturation.
+          D_combined = D_max . tanh( |D_linear + D_angular| / D_max ) »  (l.290-293)
+   NATURE : vecteur et norme, en B0 (602 u), sans dimension. REPERE : monde, contre la
+   pose d'AUTEUR de la MEME frame. A LA POSE D'AUTEUR : 0.0000. Les quatre termes sont
+   latches au MEME argmax que `apex`, donc sur la MEME frame.
+   s = D_linear + D_angular = e - dp. Le mur de force `mu` (jak-hd-physics.gc:2984-2990)
+   n'est PAS cette grandeur : il multiplie une FORCE et ne voit ni la rotation ni la
+   combinaison. Aucune saturation ne porte aujourd'hui sur `s`.
+ROOM-SPEC21: chain=chestL       n=186 fenetres   controle d'identite |e|-apex = 0.000113 B0
+   |e|  apex    : mediane 0.6706  p90 0.8016  max 0.8929 B0
+   |s|  §21     : mediane 0.4223  p90 0.4578  max 0.5694 B0
+   |tp| transl. : mediane 0.3764  p90 0.4218  max 0.4518 B0
+   |rp| rotation : mediane 0.2296  p90 0.2671  max 0.3117 B0
+   |dp| tenseur : mediane 0.2929  p90 0.4094  max 0.4931 B0
+   |s| au-dessus du plafond exceptionnel de §22 (0.50 B0) : 5/186 fenetres
+   PART SIGNEE DE CHAQUE TERME DANS L'APEX (projection sur e^, mediane) — une
+   projection, PAS un rapport de normes : les trois parts se somment a 100 %.
+      tp :  +51.4 %
+      rp :   +9.1 %
+      dp :  +40.6 %
+   CE QUE CETTE REPARTITION NE PROUVE PAS : la phrase de §22 « Translation,
+      rotation and redistribution shall account for most of the excursion » est
+      TAUTOLOGIQUE contre cette decomposition — les trois termes SONT l'excursion,
+      leur somme vaut 100 % par construction. Aucun verdict n'en est tire.
+   SIMULATION EXACTE DE DEUX SATURATIONS, SUR CETTE MEME TRACE (aucune course) :
+      (A) §21 AU MOT : saturer `s` seul, e' = g.s + dp, g = softmin(|s|)/|s|
+      (B) LE CHANTIER : saturer le POINT DE CHAIR livre, e' = softmin(|e|)
+      D_max=0.50  (A) moy 0.6729 max 0.8854  >0.42 183/186  >0.50 174/186
+                 (B) moy 0.4783 max 0.4884  >0.42 184/186  >0.50   0/186
+      D_max=0.42  (A) moy 0.6427 max 0.8382  >0.42 179/186  >0.50 171/186
+                 (B) moy 0.4074 max 0.4126  >0.42   0/186  >0.50   0/186
+      aujourd'hui       moy 0.6777 max 0.8929  >0.42 184/186  >0.50 177/186
+      cas LIMITE s=0    moy 0.2985 max 0.4931  >0.42  13/186  >0.50   0/186
+      « cas LIMITE s=0 » = translation ET rotation du joint annulees, c'est-a-dire
+      une poitrine IMMOBILE. C'est le PLAFOND de ce que toute intervention confinee
+      au canal du JOINT (ressort, mur de force, borne de translation) peut rendre :
+      ce n'est pas une option, c'est une borne.
+      RESERVE DECLAREE : (A) et (B) sont l'ALGEBRE de la sortie, pas une course.
+      Elles valent parce que la borne visee s'applique a la valeur LIVREE et
+      n'ecrit pas l'etat du solveur (`*phys-px*`), donc sans retro-action de
+      frame a frame. La FORME d'implementation, elle, n'atteint pas exactement
+      le point vise (une rotation ne deplace le point que sur une sphere) : cet
+      ecart n'est PAS mesure ici et se mesure par INTERVENTION, pas par calcul.
+ROOM-SPEC21: chain=chestR       n=186 fenetres   controle d'identite |e|-apex = 0.000118 B0
+   |e|  apex    : mediane 0.6952  p90 0.8364  max 0.9405 B0
+   |s|  §21     : mediane 0.4404  p90 0.5002  max 0.5806 B0
+   |tp| transl. : mediane 0.3903  p90 0.4597  max 0.4774 B0
+   |rp| rotation : mediane 0.2216  p90 0.2782  max 0.3353 B0
+   |dp| tenseur : mediane 0.2783  p90 0.4368  max 0.5713 B0
+   |s| au-dessus du plafond exceptionnel de §22 (0.50 B0) : 20/186 fenetres
+   PART SIGNEE DE CHAQUE TERME DANS L'APEX (projection sur e^, mediane) — une
+   projection, PAS un rapport de normes : les trois parts se somment a 100 %.
+      tp :  +52.0 %
+      rp :   +9.9 %
+      dp :  +37.3 %
+   CE QUE CETTE REPARTITION NE PROUVE PAS : la phrase de §22 « Translation,
+      rotation and redistribution shall account for most of the excursion » est
+      TAUTOLOGIQUE contre cette decomposition — les trois termes SONT l'excursion,
+      leur somme vaut 100 % par construction. Aucun verdict n'en est tire.
+   SIMULATION EXACTE DE DEUX SATURATIONS, SUR CETTE MEME TRACE (aucune course) :
+      (A) §21 AU MOT : saturer `s` seul, e' = g.s + dp, g = softmin(|s|)/|s|
+      (B) LE CHANTIER : saturer le POINT DE CHAIR livre, e' = softmin(|e|)
+      D_max=0.50  (A) moy 0.6878 max 0.9405  >0.42 184/186  >0.50 179/186
+                 (B) moy 0.4785 max 0.4893  >0.42 184/186  >0.50   0/186
+      D_max=0.42  (A) moy 0.6478 max 0.9309  >0.42 183/186  >0.50 171/186
+                 (B) moy 0.4071 max 0.4131  >0.42   0/186  >0.50   0/186
+      aujourd'hui       moy 0.7007 max 0.9405  >0.42 184/186  >0.50 180/186
+      cas LIMITE s=0    moy 0.2926 max 0.5713  >0.42  23/186  >0.50   3/186
+      « cas LIMITE s=0 » = translation ET rotation du joint annulees, c'est-a-dire
+      une poitrine IMMOBILE. C'est le PLAFOND de ce que toute intervention confinee
+      au canal du JOINT (ressort, mur de force, borne de translation) peut rendre :
+      ce n'est pas une option, c'est une borne.
+      RESERVE DECLAREE : (A) et (B) sont l'ALGEBRE de la sortie, pas une course.
+      Elles valent parce que la borne visee s'applique a la valeur LIVREE et
+      n'ecrit pas l'etat du solveur (`*phys-px*`), donc sans retro-action de
+      frame a frame. La FORME d'implementation, elle, n'atteint pas exactement
+      le point vise (une rotation ne deplace le point que sur une sphere) : cet
+      ecart n'est PAS mesure ici et se mesure par INTERVENTION, pas par calcul.
+   VERDICT §21 : la saturation que la section EXIGE n'existe pas dans le moteur —
+      aucune ligne ne combine `D_linear` et `D_angular` avant de les borner. §21 est
+      donc NON TENUE PAR ABSENCE DE MECANISME, et la simulation (A) chiffre ce que
+      son ajout AU MOT changerait : presque rien. Ce n'est pas un motif de ne pas
+      l'implementer — c'est un motif de ne pas en attendre §22.
 -- `comex` : LE MAXIMUM SUR LES DEUX CENTROIDES DE MAILLON — CE N'EST PAS LE COM ------
    CETTE LIGNE NE PORTE PLUS DE VERDICT §22, ET SON NOM A CHANGE POUR LE DIRE.
    §6 definit `P0` = « neutral breast center-of-mass position » et §22 borne « Breast

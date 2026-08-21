@@ -1,187 +1,217 @@
-RAPPORT DE CYCLE 85b — Grecharged-secondary-motion
+RAPPORT DE CYCLE 86 — Grecharged-secondary-motion
 DIRECTIVES v3fee554599
 Branche physics-keira-clean · perimetre : chestL / chestR SEULES (owner 2026-08-14 07:30)
 
 SECTIONS DONT CE CYCLE DEBLOQUE LE VERDICT, NOMMEES AVANT DE COMMENCER (directive du
-2026-08-21 18:25) : §22 (excursion d'apex) et §21 (le mur de force qui la produit).
+2026-08-21 18:25) : §21 (la saturation de la COMBINAISON) et §22 (le plafond d'apex).
 
-SUBSTRAT : trace ARCHIVEE `keira-room-x86.c81-armed.log`.
-ZERO build, ZERO course neuve, ZERO ligne de moteur, AUCUNE gate touchee.
-Instruments : `.autoport/c84_term_discriminant.py` · `.autoport/c85_demand_origin.py`
-Sorties archivees : `c84-discriminant.out` · `c85-demand.out`
+SUBSTRAT : trace ARCHIVEE `keira-room-x86.c81-armed.log` (= `keira-room-x86.log`, 6 414 377 o).
+ZERO build, ZERO course neuve, ZERO ligne de moteur, AUCUNE gate touchee, AUCUNE donnee de
+chaine touchee.
+Instrument ajoute : bloc `ROOM-SPEC21` dans `.autoport/physics_room_table.py` (un PRODUCTEUR
+Python, hors du plafond CLEAN) + `.autoport/c86_apex_terms.py` (verification independante).
+Sortie : `.autoport/reports/Grecharged-secondary-motion/keira-room-table.txt`, bloc
+« -- SPEC 21 : D_linear + D_angular » (deux lignes `ROOM-SPEC21:`, une par chaine).
 
 BREAST-PENETRATION: 0.0544 m — `meshpen`, DIAGNOSTIC, jamais un verdict (arbitrage du
 2026-08-20 13:20 : c'est un DEPLACEMENT, pas une profondeur). INCHANGE AU BIT ce cycle :
 aucune ligne de moteur, aucune donnee, aucune course neuve.
 
 ================================================================================================
-0. JE RETIRE LE TITRE DU CYCLE 84. « LA REPONSE AU STIMULUS VAUT x10 » EST FAUX.
+0. EN UNE PHRASE
 ================================================================================================
-Le cycle 84 a publie que la demande brute « repond au stimulus a x10,19 / x10,48 ». C'est un ECART
-entre les six sous-fenetres, et je l'ai lu comme une REPONSE. Il n'est pas ORDONNE par le
-stimulus. Par pilotage, mediane sur les 31 animations :
-
-    pilotage      stimulus `acc` (u)     `perr` (B0)
-    d=3 jerk          334,2 / 334,2      0,887 / 0,865    <- le PLUS gros stimulus, petite demande
-    d=2 accel          88,1 /  88,1      0,974 / 0,941
-    d=1 leftright      51,9 /  51,9      0,821 / 0,807
-    d=0 updown         18,1 /  18,1      0,539 / 0,546
-    d=5 AUCUN           9,0 /   8,7      1,827 / 1,800
-    d=4 tilt            7,8 /   8,6      4,734 / 4,677    <- le PLUS PETIT stimulus, la PLUS GROSSE
-
-Le signe etait deja dans mon propre tableau — Pearson etage 0 contre `acc` -0,285 / -0,293,
-NEGATIF — et je ne l'ai pas pese contre le x10 que je mettais en titre. C'est
-`argmax-anchor-is-not-a-population` : un ECART pris pour une TENDANCE. **La conclusion du cycle 83
-que je pretendais retirer TIENT donc** : la sortie ne repond pas au stimulus, et l'etage 0 non plus.
-
-CE QUI SURVIT DU CYCLE 84, ET QUI EST MESURE : l'effondrement etage 0 -> etage 1 (mediane
-0,8175 -> 0,4999, CV 1,002 -> 0,061, max 5,0759 -> 0,5000) ; `tp` seul terme plat des trois et
-51-52 % de l'apex ; le plafond de §22 comme angle uniforme de forme close (-0,50 % / +1,20 %).
+**LA GRANDEUR QUE §21 NOMME EST MESUREE POUR LA PREMIERE FOIS, ET ELLE EST DEJA DANS SA BANDE :
+`|D_linear + D_angular|` vaut 0,4223 / 0,4404 B0 en mediane pour un plafond de 0,42 / 0,50.**
+Le depassement d'apex n'est donc ni dans la translation (deja bornee, max 0,4518 / 0,4774 B0)
+ni dans la combinaison de §21 — il est dans le TENSEUR de deformation, qui porte **+40,6 /
++37,3 %** de l'excursion. Et la simulation exacte le chiffre : implementer §21 AU MOT ferait
+passer les fenetres d'apex au-dessus de 0,50 B0 de 177 -> 174 et 180 -> 179 ; saturer le POINT
+DE CHAIR livre les fait passer de 177 et 180 a **0 sur 186, sur les deux chaines**.
 
 ================================================================================================
-0bis. EN UNE PHRASE
+1. JE RETIRE LE GESTE QUE LE CYCLE 85b AVAIT PUBLIE D'AVANCE POUR CE CYCLE
 ================================================================================================
-**LA DEMANDE DU SOLVEUR EST PILOTEE PAR L'ORIENTATION SOUTENUE, PAS PAR L'ACCELERATION** : le
-pilotage `tilt` (60 deg tenus, le PLUS PETIT stimulus des six) rend `perr` 4,73 / 4,68 B0 quand
-`jerk` (le plus gros, x43) rend 0,89 / 0,87. **Et le mur de force de §21 est GELE dans 95,7 % /
-97,8 % des fenetres**, y compris les 31 fenetres sans pilotage de salle (31/31), ou le joint se
-tient a 1,8 B0 — 27 cm — de sa propre cible de repos pendant que l'animation avance. La
-demande brute du solveur EST cet ecart-la (Pearson **+0,994 / +0,995**), pas la gravite (+0,674 /
-+0,724, et Spearman deux fois plus faible), pas le stimulus recu (**-0,285 / -0,293**, anti-correle),
-pas un decalage statique (`rgap` mediane 0,0034 / 0,0002 B0). Ce n'est pas une reponse a un geste :
-c'est un solveur qui ne converge jamais vers son propre equilibre.
+Le cycle 85b ecrivait, mot pour mot, en section 6 de son rapport :
 
-================================================================================================
-1. LA PREDICTION DU CYCLE 84 ETAIT POSEE AVANT LA MESURE. ELLE EST RESOLUE.
-================================================================================================
-Le commit du cycle 84 publiait, mot pour mot :
+  « GESTE : remplacer, dans `jak-hd-physics.gc:2984-2990`, la saturation-multiplicateur-de-force
+    par une saturation de DEPLACEMENT [...] PREDICTION : `ROOM-APEX` doit BAISSER. »
 
-  « si le RESSORT domine, le producteur est le mur de force `mu` de `:2984-2990` (module CONSTANT
-    au-dela de 0,4992 B0, etabli c71) ; si c'est l'ACCUMULATION DE VITESSE, la retenue `kds` est
-    trop proche de 1 et c'est §25, pas §21. »
+**La prediction est REFUTEE — par la mesure de ce cycle (a, a bis) et par deux mesures
+anterieures qui existaient DEJA quand le geste a ete publie (b, c).** C'est
+exactement ce a quoi sert une prediction posee d'avance : elle etait falsifiable, elle est
+falsifiee, et le cycle qu'elle aurait coute n'est pas depense.
 
-**Le ressort domine, a +0,994 / +0,995.** Branche 1.
+  (a) **LE MUR `mu` NE PEUT PAS ATTEINDRE `dp`.** Il multiplie la force du ressort du JOINT :
+      il deplace donc `tp` et, indirectement, `rp` (qui est fonction de la direction du joint) —
+      **jamais le terme du TENSEUR, applique en section 6, qui porte 40,6 / 37,3 % de l'apex.**
+      Et sur le terme qu'il atteint le plus directement, il n'a plus de prise utile : `|tp|`
+      vaut 0,3764 / 0,3903 B0 en mediane et **0,4518 / 0,4774 au maximum sur 372 fenetres**,
+      deja strictement sous l'asymptote de 0,50 B0 que `phys-cap-e22!` lui impose — une seconde
+      borne a 0,50 B0 sur ce terme est inerte sur la valeur livree.
+  (a bis) **LE PLAFOND DE CE QUE LE CANAL DU JOINT PEUT RENDRE, CALCULE ET NON SUPPOSE.** Cas
+      LIMITE `s = 0` (translation ET rotation du joint annulees — c'est-a-dire une poitrine
+      immobile, l'inverse de ce que l'owner demande depuis le 2026-08-11) : il reste
+      `|e| = |dp|`, moyenne 0,2985 / 0,2926 B0, max 0,4931 / **0,5713**, et **13/186 et 23/186
+      fenetres encore au-dessus de 0,42 B0**, 3/186 au-dessus de 0,50 sur chestR. Aucune
+      intervention confinee au canal du joint ne ferme donc §22 sans supprimer le mouvement.
+  (b) **LE CYCLE 78 A DEJA MESURE L'ABLATION DU MUR** : `stif_n` 48 453 -> 0, temoin negatif
+      x0,997 / x1,025, et `ROOM-APEX` chestL **0,8929 -> 1,0404 B0**. Le mur ne borne pas
+      l'apex, il freine toute la reponse ; le retirer le fait MONTER de 16,5 %.
+  (c) **LE CYCLE 73 A DEJA MESURE QU'UNE BORNE POSEE DANS LA BOUCLE EST EFFACEE EN AVAL** :
+      quinze passes ecrivent `*phys-px*` apres elle. C'est precisement pourquoi le cycle 76 a
+      du re-poser la borne APRES le dernier ecrivain, sous forme de rotation.
 
-Et les trois compteurs que le cycle 84 proposait d'ajouter dans la boucle de sous-pas **existaient
-deja** depuis le cycle 33 — `PHYSRESTW` (`phys-room.gc:1641-1649`) publie exactement la separation
-demandee, par fenetre :
-
-    rgap = |cible de repos du ressort - pose d'auteur| / B0    AUCUNE dynamique n'y entre
-    perr = |position simulee      - cible de repos|   / B0    la part que la dynamique produit
-
-Aucune ligne n'a donc ete ajoutee au moteur. Ce n'est pas un detail de confort : le plafond CLEAN
-du validateur est a 4800 lignes et le moteur en fait 4799.
-
-================================================================================================
-2. QUI PILOTE LA DEMANDE BRUTE — 186 FENETRES PAR CHAINE
-================================================================================================
-Cible : l'etage 0 de `PHYSSTGW` (la demande du joint racine AVANT le filet de §22), dont le
-cycle 84 a etabli qu'il vaut 0,8175 / 0,7970 B0 en mediane et 5,0759 / 5,0042 au maximum.
-
-    candidat                          Pearson / Spearman  (chestL)      (chestR)
-    perr   ecart au ressort             +0,994 / +0,893     +0,995 / +0,922
-    gn*tf  gravite tangentielle         +0,674 / +0,328     +0,724 / +0,385
-    acc    stimulus recu                -0,285 / -0,355     -0,293 / -0,339
-    rgap   decalage statique            -0,026 / -0,012     -0,029 / -0,045
-
-Rapport `etage0 / perr` : mediane **0,800 / 0,798**.
-
-`rgap` est mort — mediane **0,0034 / 0,0002 B0**, max 0,0190 / 0,0191. La cible de repos du
-ressort EST la pose d'auteur : le decalage n'est pas statique, il est refabrique chaque frame.
-
-PIEGE DECLARE : `etage0`, `perr` et `rgap` sont trois MAXIMA de fenetre, potentiellement pris sur
-trois frames differentes (`RAD-FLESH-IPAIR`, cycle 34). Ce qui precede est une comparaison
-d'ORDRE DE GRANDEUR et de CORRELATION, jamais une identite — et c'est la correlation qui porte le
-resultat, pas le rapport.
+Ce qui SURVIT du cycle 85b : le constat que le mur est gele dans 95,7 % / 97,8 % des fenetres
+et 31/31 sans pilotage. Il reste vrai, et il reste un defaut de FORME de §21. Ce qui tombe,
+c'est l'idee qu'en le corrigeant on toucherait §22.
 
 ================================================================================================
-3. LE MUR DE FORCE N'EST PRESQUE JAMAIS DANS SON REGIME LINEAIRE
+2. LA MESURE — DECOMPOSITION `e = tp + rp + dp`, 186 FENETRES PAR CHAINE, TRACE ARCHIVEE
 ================================================================================================
-Classement du cycle 71 (genou 0,42 B0, gel 0,4992 B0) applique aux 186 fenetres de PH-MEAS :
+§21 l.290-293, cite mot pour mot depuis `SPEC-breast-softbody.md` :
 
-    LINEAIRE (perr <= 0,4200 B0)      0/186 ( 0,0 %)   ·    2/186 ( 1,1 %)
-    GENOU    (0,42 < perr < 0,4992)   8/186 ( 4,3 %)   ·    2/186 ( 1,1 %)
-    GELE     (perr >= 0,4992 B0)    178/186 (95,7 %)   ·  182/186 (97,8 %)
+  « Linear and rotational displacement contributions shall combine vectorially.
+    **They shall not be added without saturation.**
+    D_combined = D_max . tanh( |D_linear + D_angular| / D_max ) »
 
-    perr  mediane 0,9711 / 0,9302 B0   p95 4,79 / 4,74   max 5,0715 / 5,0002 B0
+La grandeur de §21 est donc `s = D_linear + D_angular = e - dp` sur le POINT DE CHAIR livre.
+Le moteur emettait deja les trois termes depuis le cycle 73 (`PHYSAPEX` / `PHYSAPEXT` /
+`PHYSAPEXD`), **latches au MEME argmax**, et personne n'avait publie leur composition.
 
-**TEMOIN — les 31 fenetres SANS PILOTAGE DE SALLE (d=5). ET CE N'EST PAS UN REPOS :** `d=5` veut
-dire « aucun pilotage de SALLE » ; l'animation continue de jouer, donc l'ancre bouge. Ce n'est PAS
-la condition de repos du cycle 83 (animation FIGEE, `PHYSIDLE dev` 0,31 / 0,82 u). C'est aussi ce
-qui reconcilie ce chiffre avec le temoin du cycle 71, LINEAIRE a 0,0381 / 0,0241 B0 : celui-la
-etait releve sur PH-REG, sur une pose TENUE. Deux temoins, deux conditions, un facteur 50 — et il
-fallait le dire au lieu de les citer cote a cote.
+NATURE : un VECTEUR et sa norme, en unites de B0 (602 u), sans dimension.
+REPERE : le MONDE — difference de deux points de la MEME frame (pose simulee contre pose
+         d'AUTEUR du meme joint). A LA POSE D'AUTEUR : 0,0000.
 
-    perr     mediane 1,8269 / 1,7997 B0   max 2,0059 / 1,9823   GELEES **31/31 et 31/31**
-    etage 0  mediane 1,5246 / 1,4536 B0   max 1,6722 / 1,6152
+DEUX CONTROLES D'INSTRUMENT, LES DEUX PASSENT :
+  (i)  identite `|(ax,ay,az)| - apex` <= **0,000113 / 0,000118 B0** — les quatre termes sont
+       bien releves sur LA MEME frame (`argmax-anchor-is-not-a-population`) ;
+  (ii) `|tp|` max **0,4518 / 0,4774 B0**, sous l'asymptote algebrique de 0,50 B0 de la SEULE
+       borne du moteur qui agisse sur ce terme. Le terme se comporte comme ce qu'il pretend
+       etre — et c'est une verification INDEPENDANTE de (i).
 
-Un mur de force qui tient son module constant sur 100 % des fenetres SANS stimulus n'est plus une
-saturation : c'est une force constante. Et une force constante ne peut pas borner un deplacement.
+                     mediane        p90          max
+    chestL  |e|      0,6706       0,8016       0,8929 B0
+            |s| §21  0,4223       0,4578       0,5694
+            |tp|     0,3764       0,4218       0,4518
+            |rp|     0,2296       0,2671       0,3117
+            |dp|     0,2929       0,4094       0,4931
+    chestR  |e|      0,6952       0,8364       0,9405 B0
+            |s| §21  0,4404       0,5002       0,5806
+            |tp|     0,3903       0,4597       0,4774
+            |rp|     0,2216       0,2782       0,3353
+            |dp|     0,2783       0,4368       0,5713
 
-================================================================================================
-4. LE CHANTIER — SITE NOMME, FORME DEJA VALIDEE ICI, DEUX FAUSSES PISTES CLOSES
-================================================================================================
-SITE : `jak-hd-physics.gc:2984-2990`. La saturation de §21 y est ecrite comme un MULTIPLICATEUR
-DE FORCE avec un argument ecrete (`xr = fmin 0.99 ((dd - kn)/cpp)`). Au-dela du gel, le module de
-la force ne depend plus de l'erreur. C'est `saturation-as-force-multiplier-freezes`, identifie au
-cycle 34 sur le point libre de §23, **corrige la-bas et jamais porte sur le ressort principal**
-(constat du cycle 71).
+`|s|` ne depasse le plafond exceptionnel de 0,50 B0 que dans **5/186 et 20/186** fenetres.
+Part signee de chaque terme dans l'apex (PROJECTION sur `e^`, donc les trois se somment a
+100 % — pas un rapport de normes) : **tp +51,4 / +52,0 % · rp +9,1 / +9,9 % · dp +40,6 /
++37,3 %**.
 
-FORME DU CORRECTIF, DEJA MESUREE DANS CE MEME MOTEUR (cycle 34, sur `cmu`) : une saturation de
-DEPLACEMENT — `phys-softmin` applique a l'ecart a la cible, **une seule fois par frame** a la
-publication d'etat, avec `q` ecrit APRES pour ne pas injecter de vitesse. Resultat la-bas : les
-24 canaux ramenes dans la bande, jusqu'a **-79 %**, `ROOM-IDLE maxdev` inchange, `tipvar`
-identique sous `tilt` et `updown`. Contrainte connue : `phys-softmin` n'est PAS idempotent au-dessus
-de son genou — jamais dans une boucle de contraintes.
-
-DEUX VOIES CLOSES PAR LA MESURE, QUI NE SE RE-PAYENT PAS :
-  (a) desarmer le mur (`*phys-fwall*` 1 -> 0). Le cycle 78 l'a fait, avec son controle : `stif_n`
-      48 453 -> 0, temoin negatif x0,997 / x1,025. `ROOM-APEX` chestL **0,8929 -> 1,0404 B0**,
-      `meshpen` +11,6 %. C'est PIRE, et le mur reste donc arme en livraison.
-  (b) elargir l'ecretage `fmin 0.99`. Le cycle 34 a etabli que « le clamp n'etait pas une mauvaise
-      constante : `x/(1-x)` n'est defini que pour `x < 1`, **la FORME elle-meme est le defaut** ».
-      Deplacer le nombre serait regler autour du defaut.
+CE QUE CETTE REPARTITION NE PROUVE PAS, ET JE LE DIS AU LIEU DE L'ENCAISSER : la phrase de §22
+« Translation, rotation and redistribution shall account for most of the excursion » est
+TAUTOLOGIQUE contre cette decomposition — les trois termes SONT l'excursion. Aucun verdict
+n'en est tire (`tautological-instrument-reads-back-target`).
 
 ================================================================================================
-5. AUCUN STATUT NE CHANGE — LA REMONTEE DU CYCLE 84 TIENT ET SE PRECISE
+3. LA SIMULATION QUI TRANCHE — EXACTE, SUR LA MEME TRACE, AUCUNE COURSE
 ================================================================================================
-TENUE 1 · PAR CONSTRUCTION 5 · PARTIELLE 21 · NON TENUE 10 · NON ETABLI 1.
+    (A) §21 AU MOT : saturer `s` seul,  e' = g.s + dp,  g = softmin(|s|)/|s|
+    (B) LE CHANTIER : saturer le POINT DE CHAIR livre,  e' = softmin(|e|)
 
-Troisieme cycle consecutif sans mouvement. La remontee faite au cycle 84 (directive du
-2026-08-21 18:25) reste ouverte, et ce cycle la precise au lieu de la repeter : le chantier n'est
-plus « la demande », il a un SITE (`:2984-2990`), une FORME de correctif deja validee dans ce
-moteur, et deux fausses pistes fermees par des mesures anterieures.
+                              moyenne |e'|       max        > 0,42 B0     > 0,50 B0
+    chestL  aujourd'hui         0,6777          0,8929      184/186       177/186
+            (A) D_max 0,50      0,6729          0,8854      183/186       174/186
+            (A) D_max 0,42      0,6427          0,8382      179/186       171/186
+            (B) D_max 0,50      0,4783          0,4884      184/186       **0/186**
+            (B) D_max 0,42      0,4074          0,4126      **0/186**     **0/186**
+    chestR  aujourd'hui         0,7007          0,9405      184/186       180/186
+            (A) D_max 0,50      0,6878          0,9405      184/186       179/186
+            (A) D_max 0,42      0,6478          0,9309      183/186       171/186
+            (B) D_max 0,50      0,4785          0,4893      184/186       **0/186**
+            (B) D_max 0,42      0,4071          0,4131      **0/186**     **0/186**
 
-CE QUE JE NE FAIS PAS, ET POURQUOI JE LE DIS AU LIEU DE LE FAIRE EN SILENCE : je n'ai pas pose le
-correctif ce cycle. Deux raisons, toutes deux verifiables. (1) Le plafond CLEAN du validateur est
-a **4800 lignes** et le moteur en fait **4799** : le correctif doit etre pose a budget de ligne
-quasi nul, ce qui demande de REMPLACER le bloc `mu` plutot que d'en ajouter un — et un remplacement
-de la boucle de sous-pas se pose avec sa course de controle, jamais a la fin du cycle qui le
-decouvre (c'est exactement le reproche que le cycle 47 a fait au correctif a mi-chemin). (2) La
-regle 5 m'interdit de toucher au plafond moi-meme ; s'il gene, je le rapporte, et c'est fait ici.
+POURQUOI CE N'EST PAS UN MODELE MAIS DE L'ALGEBRE : la borne visee porte sur la valeur LIVREE
+et n'ecrit PAS l'etat du solveur (`*phys-px*`), donc elle n'a pas de retro-action de frame a
+frame — la sortie corrigee se calcule terme a terme depuis la sortie mesuree.
+
+RESERVE DECLAREE, ET ELLE EST REELLE : la FORME d'implementation (une rotation ne deplace un
+point que sur une sphere) n'atteint pas exactement le point vise. Cet ecart n'est PAS mesure
+ici et **se mesure par INTERVENTION, pas par calcul** — c'est la faute exacte que le cycle 78
+a payee en modelisant une ablation sans porter les plafonds qui restaient.
+
+================================================================================================
+4. CE QUE CA CHANGE AU REGISTRE
+================================================================================================
+TENUE 1 · PAR CONSTRUCTION 5 · PARTIELLE 21 · NON TENUE 10 · NON ETABLI 1. **Aucun statut ne
+change**, et je ne maquille pas ce fait : quatrieme cycle consecutif sans conversion.
+
+Ce qui change est le MOTIF de deux lignes, et il change de nature, pas de degre :
+  - **§21** : le motif n'est plus « la bonne forme au mauvais endroit » mais **« la bonne forme
+    sur une grandeur qui n'a plus de marge »**. §21 doit etre implementee pour la CONFORMITE ;
+    en attendre §22 serait le meme raccourci que la directive du 2026-08-21 20:50 a retire.
+  - **§22** : le depassement est LOCALISE. Ni `tp` (borne) ni `s` (dans sa bande) ne le portent.
+    Le terme du TENSEUR le porte a 40,6 / 37,3 %, et la seule borne qui ferme la section est
+    celle qui s'applique au point de chair ENTIER.
+
+Quinze cycles (71 a 85b) ont traite le mur de force `mu` comme s'il PORTAIT §21. La docstring
+de `phys-apex-scale` (`:1201`) disait pourtant deja « SPEC 21 sature la COMBINAISON » — et
+`phys-apex-scale` borne lui aussi le JOINT, pas la chair. L'intention etait ecrite ; la
+grandeur ne l'a jamais ete. C'est `un-commentaire-n-est-pas-une-preuve` retourne : le
+commentaire etait JUSTE et personne n'avait mesure ce dont il parlait.
+
+================================================================================================
+5. LE BLOCAGE, NOMME AVEC SON COUT EXACT — CE N'EST PAS UN DE-SCOPE SILENCIEUX
+================================================================================================
+Le geste que la section 3 chiffre (saturer le point de chair livre en section 6, la ou `bm`
+est complet, par une rotation qui laisse `bm.trans` intact) coute **~18 lignes** dans
+`goal_src/jak1/pc/jak-hd-physics.gc`. La gate `CLEAN` du validateur plafonne ce fichier a
+**4800 lignes** ; il en fait **4799**.
+
+La regle 5 des DIRECTIVES m'interdit de toucher a une gate : « Si une gate te semble fausse, tu
+le rapportes ; c'est le superviseur qui tranche. » Je ne la touche donc pas, et je ne fabrique
+pas non plus de marge en compactant des commentaires — ce serait contourner le nombre sans
+changer la composition, c'est-a-dire exactement ce que la gate existe pour empecher.
+
+CE QUE LE SUPERVISEUR A BESOIN DE SAVOIR POUR TRANCHER, ET C'EST SA PROPRE METHODE (le plafond
+a ete releve trois fois « apres verification de ce qui a grossi ») :
+  - la croissance demandee est **une BORNE de la spec**, pas un suppresseur : §21/§22 sont deux
+    sections de `SPEC-breast-softbody.md`, et l'operateur est `phys-softmin`, identite stricte
+    sous 0,84 x cap — il ne peut retirer AUCUN mouvement sous le genou ;
+  - deux voies moins couteuses ont ete essayees et sont closes par la mesure : desarmer le mur
+    (cycle 78, apex +16,5 %) et borner la translation (cycle 76, -25 % rendait -0,2 %) ;
+  - l'arbitrage du 2026-08-14 01:00 s'applique mot pour mot : « la specification de l'owner
+    prime sur toutes mes gates, sans exception ».
+
+Si le plafond ne bouge pas, le geste ne peut pas etre pose, et §22 reste rouge pour une raison
+qui n'est pas physique. Je le dis ici plutot que de le contourner ou de le taire.
 
 ================================================================================================
 6. LE PROCHAIN CYCLE, PUBLIE D'AVANCE AVEC SA PREDICTION
 ================================================================================================
-GESTE : remplacer, dans `jak-hd-physics.gc:2984-2990`, la saturation-multiplicateur-de-force par
-une saturation de DEPLACEMENT de la meme forme que celle qui a marche sur `cmu` — `phys-softmin`
-sur `|p - tg|`, une fois par frame APRES la boucle de sous-pas, `q` reecrit ensuite pour ne pas
-injecter de vitesse. Budget : remplacement, pas ajout ; le bloc `mu` disparait en meme temps.
+GESTE (sous reserve de l'arbitrage de la section 5) : en section 6 de `jak-hd-physics.gc`,
+apres `(phys-pt-exc! bm pre ...)` du bloc [NOTE-139], saturer `|c2|` par `phys-softmin` a
+`0,50 x b0e` et re-poser `bm` par une ROTATION autour du joint qui amene le point de chair sur
+la cible — `bm.trans` INTACT (sinon la longueur d'os saute et plus rien ne peut la reparer),
+determinant INTACT (une rotation le conserve, donc §8 n'est pas touchee). Interrupteur
+d'ablation `*phys-e21-off*` pose EN MEME TEMPS que le mecanisme
+(`attribution-harness-outlives-its-defect`).
 
 CONTROLES EXIGES AVANT DE PUBLIER QUOI QUE CE SOIT :
-  - controle NEGATIF : la saturation desarmee, la course doit etre identique AU BIT a celle
+  - controle NEGATIF : `*phys-e21-off*` = 1, la course doit etre identique AU BIT a celle
     d'aujourd'hui — sans quoi l'attribution ne vaut rien ;
-  - le PRIX chiffre : `tipvar` sur les deux chaines et sur les six pilotages, et nommement la
-    fenetre SANS pilotage, qui porte le mouvement subtil que l'owner protege depuis le 2026-08-11 ;
-  - `ROOM-IDLE maxdev` inchange (§2), et le determinant de §8 dans 98-101 %.
+  - le PRIX chiffre : `tipvar` sur les deux chaines et les six pilotages, nommement la fenetre
+    SANS pilotage, qui porte le mouvement subtil que l'owner protege depuis le 2026-08-11 ;
+  - `ROOM-IDLE maxdev` inchange (§2) et le determinant de §8 dans 98-101 % ;
+  - `ROOM-SPEC21` republie : `|tp|` et `|s|` ne doivent PAS bouger significativement (le geste
+    n'agit pas sur eux), seul `|e|` doit tomber.
 
-PREDICTION POSEE AVANT LA MESURE :
-  - `perr` doit QUITTER la zone gelee sur la majorite des fenetres (aujourd'hui 95,7 % / 97,8 %),
-    et le temoin sans pilotage doit passer de 31/31 gelees a une majorite lineaire ;
-  - `ROOM-APEX` doit BAISSER. S'il monte, c'est que la borne de deplacement se substitue au filet
-    de §22 sans rien retirer en amont, et le geste est refute comme l'a ete l'ablation du cycle 78 ;
-  - `tipvar` ne doit PAS s'effondrer : une baisse d'apex payee par une perte de mouvement uniforme
-    serait du muselage, pas un correctif, et se retire au lieu d'etre defendue.
+PREDICTION POSEE AVANT LA MESURE, ET FALSIFIABLE :
+  - `ROOM-APEX` max doit tomber sous **0,52 B0** sur les deux chaines (la simulation donne
+    0,4884 / 0,4893 ; la marge couvre l'ecart de FORME declare en section 3). Au-dessus de
+    0,55, c'est que la rotation n'atteint pas sa cible et le geste se retire ;
+  - les fenetres au-dessus de 0,50 B0 doivent passer de 177/186 et 180/186 a **moins de 10** ;
+  - `tipvar` ne doit PAS s'effondrer : une baisse d'apex payee par une perte de mouvement
+    uniforme serait du muselage, pas un correctif, et se retire au lieu d'etre defendue.
+    Seuil declare : plus de -15 % sur la fenetre SANS pilotage = le geste se retire.
 
 ================================================================================================
 7. A TESTER PAR L'OWNER : RIEN
@@ -192,10 +222,9 @@ valeur de chaine, aucun build. La rubrique reste VIDE (directive du 2026-08-20 2
 ================================================================================================
 8. ETAT DU VALIDATEUR — CE QUI RESTE ROUGE N'EST PAS A MOI
 ================================================================================================
-Toutes les gates de MESURE passent : `[Grecharged-secondary-motion PASS]`. La seule ligne qui
-maintient la sortie en echec est `OPEN-DEFECTS: breast-spec-incomplete`, et le validateur ecrit
-lui-meme pourquoi : « Une ligne ne se retire que quand l'owner dit que c'est bon ». Le jeton
-`.autoport/owner-ok/<phase>` est exclusivement son geste et n'est jamais cree a sa place
-(DIRECTIVES, regle de reprise du 2026-08-11). Je ne la retire donc pas, et la phase reste ouverte.
+Toutes les gates de MESURE passent. La seule ligne qui maintient la sortie en echec est
+`OPEN-DEFECTS: breast-spec-incomplete`, et le validateur ecrit lui-meme pourquoi : « Une ligne
+ne se retire que quand l'owner dit que c'est bon ». Le jeton `.autoport/owner-ok/<phase>` est
+exclusivement son geste et n'est jamais cree a sa place.
 
 `OPEN-DEFECTS` : `breast-spec-incomplete` reste ouverte. Elle ne se ferme que quand il le dit.
