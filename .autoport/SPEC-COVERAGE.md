@@ -125,7 +125,14 @@ Classement du cycle 71 applique aux 186 fenetres de PH-MEAS (genou 0,42 B0, gel 
 `perr` mediane **0,9711 / 0,9302 B0**, p95 4,79 / 4,74, max **5,0715 / 5,0002 B0**. Dans la zone
 gelee le module de la force est CONSTANT (cycle 71) : la demande n'y depend plus de son erreur.
 
-### 3. LE TEMOIN SANS PILOTAGE EST LE PIRE CAS, PAS LE PLUS CALME
+### 3. LE TEMOIN SANS PILOTAGE DE SALLE — ET CE N'EST PAS UN REPOS, L'ANIMATION AVANCE
+
+**PRECISION QUI M'A MANQUE D'ABORD, ET ELLE CHANGE LA PORTEE DE LA PHRASE.** `d=5` veut dire
+« aucun pilotage de SALLE » ; l'animation, elle, continue de jouer, donc l'ancre bouge. Ce
+n'est PAS la condition de repos du cycle 83 (animation FIGEE, `PHYSIDLE dev` 0,31 / 0,82 u).
+C'est aussi ce qui reconcilie ce chiffre avec le temoin du cycle 71, LINEAIRE a 0,0381 /
+0,0241 B0 : celui-la etait releve sur PH-REG, sur une pose TENUE. Deux temoins, deux
+conditions, un facteur 50 — et il fallait le dire au lieu de les citer cote a cote.
 
 Les 31 fenetres `d=5`, ou aucun pilotage n'est applique et ou le ressort doit dominer :
 
@@ -166,7 +173,42 @@ validee ailleurs dans ce meme moteur, et deux fausses pistes closes par la mesur
 
 ---
 
-## Cycle 84 — LA REPONSE AU STIMULUS EXISTE : ELLE VAUT x10, ET ELLE MEURT EN UNE TRANSITION D'ETAGE. JE RETIRE LA MOITIE DE MA CONCLUSION D'HIER SOIR.
+## Cycle 84 — [TITRE RETIRE AU CYCLE 85b : « LA REPONSE AU STIMULUS EXISTE, ELLE VAUT x10 » EST FAUX]
+
+**RETRACTATION, POSEE EN TETE DU BLOC QU'ELLE CORRIGE.** Le x10,19 / x10,48 ci-dessous est un
+ECART entre les six sous-fenetres, et je l'ai lu comme une REPONSE AU STIMULUS. Il ne l'est
+pas : il n'est pas ORDONNE par le stimulus. Mesure du cycle 85b, par pilotage, mediane sur
+les 31 animations —
+
+    pilotage   stimulus `acc` (u)      `perr` (B0)
+    d=3 jerk        334,2 / 334,2      0,887 / 0,865      <- le PLUS gros stimulus, petite demande
+    d=2 accel        88,1 /  88,1      0,974 / 0,941
+    d=1 leftright    51,9 /  51,9      0,821 / 0,807
+    d=0 updown       18,1 /  18,1      0,539 / 0,546
+    d=5 AUCUN         9,0 /   8,7      1,827 / 1,800
+    d=4 tilt          7,8 /   8,6      **4,734 / 4,677**  <- le PLUS PETIT stimulus, la PLUS GROSSE demande
+
+Le signe etait deja dans mon propre tableau — Pearson etage 0 contre `acc` **-0,285 / -0,293**,
+NEGATIF — et je ne l'ai pas pese contre le x10 que je mettais en titre. C'est exactement
+`argmax-anchor-is-not-a-population` : un ECART pris pour une TENDANCE, la meme faute que la
+directive du 2026-08-21 20:50 punit. **Et donc la conclusion du cycle 83 que je pretendais
+retirer TIENT** : la sortie ne repond pas au stimulus, et l'etage 0 non plus.
+
+**CE QUI SURVIT DU CYCLE 84, ET QUI EST MESURE :** (1) l'effondrement etage 0 -> etage 1
+(mediane 0,8175 -> 0,4999, CV 1,002 -> 0,061, maximum 5,0759 -> 0,5000) ; (2) `tp` est le seul
+terme plat des trois et il porte 51-52 % de l'apex ; (3) le plafond de §22 est un angle
+uniforme de forme close, verifie a -0,50 % / +1,20 %. Ce qui tombe est UNIQUEMENT la lecture
+« c'est une reponse au stimulus ».
+
+**CE QUE LE CYCLE 85b MET A LA PLACE :** la demande est pilotee par l'ORIENTATION SOUTENUE,
+pas par l'acceleration. `tilt` est un pilotage QUASI-STATIQUE (60 deg tenus) et il rend la
+plus grosse demande des six ; la gravite tangentielle `gn*tf` est le deuxieme predicteur de
+l'etage 0 (+0,674 / +0,724) derriere `perr` lui-meme. C'est coherent avec le premier terme de
+sa §3 (`g_local - g_ref`), qui est precisement un terme d'ORIENTATION.
+
+---
+
+## [TEXTE D'ORIGINE DU CYCLE 84, CONSERVE POUR L'AUDIT]
 
 **Section dont ce cycle debloque le verdict** (exigence DIRECTIVES 2026-08-21 18:25, nommee AVANT
 de commencer) : **SPEC 22**, et **SPEC 21** qui porte la saturation par laquelle elle est bornee.

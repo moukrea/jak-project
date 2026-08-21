@@ -1,4 +1,4 @@
-RAPPORT DE CYCLE 85 — Grecharged-secondary-motion
+RAPPORT DE CYCLE 85b — Grecharged-secondary-motion
 DIRECTIVES v3fee554599
 Branche physics-keira-clean · perimetre : chestL / chestR SEULES (owner 2026-08-14 07:30)
 
@@ -15,10 +15,37 @@ BREAST-PENETRATION: 0.0544 m — `meshpen`, DIAGNOSTIC, jamais un verdict (arbit
 aucune ligne de moteur, aucune donnee, aucune course neuve.
 
 ================================================================================================
-0. EN UNE PHRASE
+0. JE RETIRE LE TITRE DU CYCLE 84. « LA REPONSE AU STIMULUS VAUT x10 » EST FAUX.
 ================================================================================================
-**SANS AUCUN PILOTAGE, LE JOINT SE TIENT A 1,8 B0 — 27 cm — DE SA PROPRE CIBLE DE REPOS, SUR LES
-31 ANIMATIONS, ET LE MUR DE FORCE DE §21 EST GELE SUR CHACUNE (31/31, LES DEUX CHAINES).** La
+Le cycle 84 a publie que la demande brute « repond au stimulus a x10,19 / x10,48 ». C'est un ECART
+entre les six sous-fenetres, et je l'ai lu comme une REPONSE. Il n'est pas ORDONNE par le
+stimulus. Par pilotage, mediane sur les 31 animations :
+
+    pilotage      stimulus `acc` (u)     `perr` (B0)
+    d=3 jerk          334,2 / 334,2      0,887 / 0,865    <- le PLUS gros stimulus, petite demande
+    d=2 accel          88,1 /  88,1      0,974 / 0,941
+    d=1 leftright      51,9 /  51,9      0,821 / 0,807
+    d=0 updown         18,1 /  18,1      0,539 / 0,546
+    d=5 AUCUN           9,0 /   8,7      1,827 / 1,800
+    d=4 tilt            7,8 /   8,6      4,734 / 4,677    <- le PLUS PETIT stimulus, la PLUS GROSSE
+
+Le signe etait deja dans mon propre tableau — Pearson etage 0 contre `acc` -0,285 / -0,293,
+NEGATIF — et je ne l'ai pas pese contre le x10 que je mettais en titre. C'est
+`argmax-anchor-is-not-a-population` : un ECART pris pour une TENDANCE. **La conclusion du cycle 83
+que je pretendais retirer TIENT donc** : la sortie ne repond pas au stimulus, et l'etage 0 non plus.
+
+CE QUI SURVIT DU CYCLE 84, ET QUI EST MESURE : l'effondrement etage 0 -> etage 1 (mediane
+0,8175 -> 0,4999, CV 1,002 -> 0,061, max 5,0759 -> 0,5000) ; `tp` seul terme plat des trois et
+51-52 % de l'apex ; le plafond de §22 comme angle uniforme de forme close (-0,50 % / +1,20 %).
+
+================================================================================================
+0bis. EN UNE PHRASE
+================================================================================================
+**LA DEMANDE DU SOLVEUR EST PILOTEE PAR L'ORIENTATION SOUTENUE, PAS PAR L'ACCELERATION** : le
+pilotage `tilt` (60 deg tenus, le PLUS PETIT stimulus des six) rend `perr` 4,73 / 4,68 B0 quand
+`jerk` (le plus gros, x43) rend 0,89 / 0,87. **Et le mur de force de §21 est GELE dans 95,7 % /
+97,8 % des fenetres**, y compris les 31 fenetres sans pilotage de salle (31/31), ou le joint se
+tient a 1,8 B0 — 27 cm — de sa propre cible de repos pendant que l'animation avance. La
 demande brute du solveur EST cet ecart-la (Pearson **+0,994 / +0,995**), pas la gravite (+0,674 /
 +0,724, et Spearman deux fois plus faible), pas le stimulus recu (**-0,285 / -0,293**, anti-correle),
 pas un decalage statique (`rgap` mediane 0,0034 / 0,0002 B0). Ce n'est pas une reponse a un geste :
@@ -78,7 +105,12 @@ Classement du cycle 71 (genou 0,42 B0, gel 0,4992 B0) applique aux 186 fenetres 
 
     perr  mediane 0,9711 / 0,9302 B0   p95 4,79 / 4,74   max 5,0715 / 5,0002 B0
 
-**TEMOIN — les 31 fenetres SANS AUCUN PILOTAGE (d=5), la ou le ressort doit dominer :**
+**TEMOIN — les 31 fenetres SANS PILOTAGE DE SALLE (d=5). ET CE N'EST PAS UN REPOS :** `d=5` veut
+dire « aucun pilotage de SALLE » ; l'animation continue de jouer, donc l'ancre bouge. Ce n'est PAS
+la condition de repos du cycle 83 (animation FIGEE, `PHYSIDLE dev` 0,31 / 0,82 u). C'est aussi ce
+qui reconcilie ce chiffre avec le temoin du cycle 71, LINEAIRE a 0,0381 / 0,0241 B0 : celui-la
+etait releve sur PH-REG, sur une pose TENUE. Deux temoins, deux conditions, un facteur 50 — et il
+fallait le dire au lieu de les citer cote a cote.
 
     perr     mediane 1,8269 / 1,7997 B0   max 2,0059 / 1,9823   GELEES **31/31 et 31/31**
     etage 0  mediane 1,5246 / 1,4536 B0   max 1,6722 / 1,6152
