@@ -6307,6 +6307,79 @@ def main():
                     A('   commentaire de phys-room.gc — etait fausse. L\'ECART entre les deux est'
                       ' donc un DIAGNOSTIC')
                     A('   d\'accord, jamais un verdict : il ne fait echouer personne.')
+            # ---- ROOM-REGBONE : LA DIRECTION D'OS **JOUEE**, ET LE MIROIR DE LA POSE ---------
+            # POURQUOI CETTE LIGNE EXISTE, ET POURQUOI ELLE EST EXEMPTEE DU VERROU D'ASYMETRIE.
+            # `phys-length-chain` fait du maillon 0 un PENDULE : il ne repond qu'a la composante
+            # TANGENTIELLE de l'acceleration de son attache, soit `sin` de l'angle entre l'os et
+            # l'axe du pilotage. Le cycle 78 a mesure cet angle sur la pose de BIND (23.193 deg de
+            # la verticale) et s'en est servi pour un modele de reference qui colle sur chestR et
+            # pas sur chestL — sans pouvoir trancher, puisque `ROOM-ASYM-POSE` dit que la pose de
+            # PH-REG est a 47.3 deg du miroir. **Cette ligne N'AFFIRME AUCUNE asymetrie du
+            # PERSONNAGE : elle MESURE la symetrie de la POSE**, vue par la seule grandeur dont
+            # depend la reponse du pendule. C'est la categorie `ROOM-ASYM-EXEMPT`.
+            #   NATURE : cosinus directeurs (sans unite) et des ANGLES en degres.
+            #   REPERE : le MONDE, memes axes que `PHYSAXW` et que le pilotage lui-meme.
+            #   POPULATION : un echantillon par fenetre, celui de la frame de FERMETURE.
+            #   LECTURE QUAND LE DEFAUT EST ABSENT : `ecart_miroir` = 0 deg — le rig est
+            #            symetrique a 0.005 deg en bind (mesure primaire cycle 78 : dx=-0.0041 u),
+            #            donc tout ecart mesure ici est un fait de la POSE, pas du personnage.
+            _rbn = {}
+            for _m in re.finditer(r'^PHYSREGBONE c=(\d+) r=(\d+) ux=([-\d.e+]+)'
+                                  r' uy=([-\d.e+]+) uz=([-\d.e+]+)', txt, re.M):
+                _rbn[(int(_m.group(1)), int(_m.group(2)))] = (
+                    float(_m.group(3)), float(_m.group(4)), float(_m.group(5)))
+            A('')
+            A('   -- ROOM-REGBONE : LA DIRECTION D\'OS JOUEE, ET LA SYMETRIE DE LA POSE ---------')
+            if not _rbn:
+                A('ROOM-REGBONE: ABSENT (aucune ligne PHYSREGBONE dans cette trace) — la part')
+                A('   TANGENTIELLE du pilotage reste NON MESUREE sur la pose jouee.')
+            else:
+                A('   `sinY` = part TANGENTIELLE d\'un pilotage VERTICAL (§14/§15/§16) qu\'un')
+                A('   pendule peut convertir en deplacement ; `sinZ` = celle d\'un pilotage AVANT')
+                A('   (§17). Reference de BIND, mesuree cycle 78 sur keira-hd-donor-injected.glb :')
+                A('   u = (0.36457, 0.91918, 0.14897), sinY = 0.3938, sinZ = 0.9888.')
+                _deg = lambda x: math.degrees(x)
+                _rbworst = (0.0, -1)
+                _accL, _accR = [], []
+                for _r in sorted({k[1] for k in _rbn}):
+                    _l = _rbn.get((0, _r)); _rr = _rbn.get((1, _r))
+                    if not _l or not _rr:
+                        continue
+                    def _ang(u, ax):
+                        c = min(1.0, max(-1.0, abs(u[ax])))
+                        return _deg(math.acos(c)), math.sqrt(max(0.0, 1.0 - c * c))
+                    _ay, _sy = _ang(_l, 1); _az, _sz = _ang(_l, 2)
+                    _by, _ty = _ang(_rr, 1); _bz, _tz = _ang(_rr, 2)
+                    # miroir de chestR par le plan X=0 : (-ux, uy, uz)
+                    _mir = (-_rr[0], _rr[1], _rr[2])
+                    _dot = min(1.0, max(-1.0, sum(_l[i] * _mir[i] for i in range(3))))
+                    _dev = _deg(math.acos(_dot))
+                    _accL.append(_sy); _accR.append(_ty)
+                    if _dev > _rbworst[0]:
+                        _rbworst = (_dev, _r)
+                    _nm = _rgtab.get(_r, (None, 'r%d' % _r))[1] if _r in _rgtab else 'r%d' % _r
+                    A('ROOM-REGBONE: r=%2d %-13s L u=(%+.4f,%+.4f,%+.4f) sinY=%.4f sinZ=%.4f'
+                      % (_r, _nm, _l[0], _l[1], _l[2], _sy, _sz))
+                    A('                              R u=(%+.4f,%+.4f,%+.4f) sinY=%.4f sinZ=%.4f'
+                      '   ecart_miroir=%6.2f deg'
+                      % (_rr[0], _rr[1], _rr[2], _ty, _tz, _dev))
+                if _accL:
+                    A('')
+                    A('ROOM-REGBONE-BILAN: sinY median  chestL %.4f   chestR %.4f   (bind 0.3938)'
+                      % (sorted(_accL)[len(_accL) // 2], sorted(_accR)[len(_accR) // 2]))
+                    A('ROOM-REGBONE-MIROIR: pire ecart au miroir de la POSE = %.2f deg (r=%d),'
+                      ' seuil declare 1.30 deg' % (_rbworst[0], _rbworst[1]))
+                    if _rbworst[0] > 1.30:
+                        A('   -> **POSE NON SYMETRIQUE**. Les deux chaines ne voient PAS le meme')
+                        A('   pilotage : leurs os ne sont pas images l\'un de l\'autre dans la pose')
+                        A('   jouee. Toute comparaison gauche/droite relevee dans PH-REG reste')
+                        A('   NON ETABLIE — et la cause est la POSE, pas le personnage (rig')
+                        A('   symetrique a 0.005 deg en bind).')
+                    else:
+                        A('   -> pose MIROIR dans la tolerance : un ecart gauche/droite mesure ici')
+                        A('   ne peut plus etre impute a la geometrie de la pose.')
+                    A('   CETTE LIGNE EST `ROOM-ASYM-EXEMPT` : elle mesure la POSE, elle')
+                    A('   n\'affirme aucune asymetrie du personnage.')
             # ---- LE RAPPORT APEX/COM : LE CONTROLE DE L'INSTRUMENT LUI-MEME -------------------
             A('')
             A('   -- ROOM-APEX-RATIO : LE CONTROLE DE L\'INSTRUMENT, PAS UNE EXIGENCE DE LA SPEC -')

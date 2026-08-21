@@ -1,0 +1,47 @@
+PREDICTIONS DU CYCLE 79 — ecrites AVANT la course, l'emetteur etant deja compile
+DIRECTIVES v3fee554599
+Perimetre : chestL / chestR seules. Branche physics-keira-clean.
+
+CE QUE LE CYCLE AJOUTE : `PHYSREGBONE`, la direction d'os JOUEE du maillon 0, par chaine et par
+fenetre de regime. ZERO ligne de moteur (`jak-hd-physics.gc` reste a 4799 pour un plafond de
+4800) : l'accesseur `phys-chain-bone ... comp 0/1/2` existe depuis le cycle 52 et n'avait jamais
+ete appele avec autre chose que `comp=-1` (la longueur).
+
+LA QUESTION QU'ELLE TRANCHE. Le cycle 78 a bati un modele de reference sur la direction d'os de la
+pose de BIND (23.193 deg de la verticale, part tangentielle 0.3938 sur un pilotage vertical). Ce
+modele colle sur chestR (mediane 0.96 / 1.07) et pas sur chestL (0.38 a 1.07). Comme
+`ROOM-ASYM-POSE` publie que la pose de PH-REG est a 47.3 deg du miroir, la direction de bind ne
+peut pas etre juste des DEUX cotes — mais rien ne mesurait laquelle. C'est cette ligne.
+
+P1  PRESENCE. Exactement **30** lignes `PHYSREGBONE` (2 chaines x 15 fenetres), toutes avec un
+    vecteur de norme 1 a 1e-3 pres. Zero ligne = l'accesseur rend 0 et rien n'est lisible.
+
+P2  LA SYMETRIE DE LA POSE, AU CHEST. Les 47.3 deg de `ROOM-ASYM-POSE` sont un chiffre de POSE
+    ENTIERE. Au thorax, `PHYSAXNAME sja=754.9434` contre 759.81 u en bind (-0.64 %) indique que la
+    separation inter-sein est quasi preservee. Je predis donc un **ecart au miroir de l'os
+    <= 10 deg** sur les 15 fenetres. LES DEUX BRANCHES SONT ECRITES D'AVANCE :
+      - **<= 1.30 deg** (le seuil declare du verrou) : la pose est MIROIR au thorax, la geometrie
+        ne peut plus expliquer l'ecart chestL/chestR du cycle 78, et cet ecart devient une
+        question OUVERTE sur la chaine elle-meme ;
+      - **> 1.30 deg** : `POSE NON SYMETRIQUE` s'ecrit, l'ecart du cycle 78 reste NON ETABLI, et
+        sa cause la plus probable est la pose — donc mon modele, pas la chaine ;
+      - **> 10 deg** : ma prediction est REFUTEE et je le dis avant d'interpreter quoi que ce soit.
+
+P3  LA PART TANGENTIELLE JOUEE. `sinY` median dans **[0.19 ; 0.58]** sur les deux chaines. Borne
+    derivee, pas choisie : l'angle de bind vaut 23.193 deg et la ligne « verticale » du triedre de
+    l'ancre est a 12.08 deg du -Y monde (`PHYSAXW ax=0`), donc l'angle joue est entre 11.1 et
+    35.3 deg. Hors de cette bande, c'est mon raisonnement du cycle 78 qui tombe, pas la mesure.
+
+P4  NON-REGRESSION AU BIT, ET C'EST ELLE QUI AUTORISE A LIRE LE RESTE. L'emetteur est un AJOUT
+    PUR : toutes les lignes `PHYS` **hors `PHYSREGBONE`** doivent etre IDENTIQUES, ligne pour
+    ligne, a la course archivee du cycle 77 (`keira-room-x86.c77-baseline.log`, md5
+    ee72c62bcd281cc1b32e2bec8679fdc8). Une seule ligne differente = l'ajout n'est pas pur et
+    l'attribution du cycle 78 devient inattribuable.
+
+P5  VALIDATEUR inchange : PASS sur toutes les gates de mesure, FAIL sur OPEN-DEFECTS seul.
+    `jak-hd-physics.gc` reste a **4799** lignes. Aucune gate touchee.
+
+P6  CE QUE JE M'INTERDIS. Je ne touche pas au solveur, je ne touche pas aux donnees, et je ne
+    tire AUCUNE conclusion gauche/droite sur le PERSONNAGE a partir de cette ligne : elle mesure
+    la POSE. Si P2 sort au-dessus du seuil, la conclusion est « non lisible », pas « chestL est
+    defectueuse ».

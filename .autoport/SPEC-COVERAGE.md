@@ -77,6 +77,61 @@ parlent d'autre chose que de la poitrine sont hors périmètre, pas « tenues »
 
 
 
+## Cycle 79 — LA POSE DE PH-REG TIENT LES DEUX OS DE POITRINE A 31,5 DEG DU MIROIR **SANS AUCUN PILOTAGE** : §12, §18 ET §32 SONT NON LISIBLES LA-BAS
+
+**INSTRUMENT NEUF, ZERO LIGNE DE MOTEUR.** `PHYSREGBONE` / `ROOM-REGBONE` publie la direction d'os
+JOUEE du maillon 0, par chaine et par fenetre de regime. L'accesseur `phys-chain-bone ... comp
+0/1/2` (`jak-hd-physics.gc:4384-4388`) existait depuis le cycle 52 et n'avait **jamais** ete appele
+avec autre chose que `comp=-1` (la longueur) : cinquieme flux muet du dossier. `jak-hd-physics.gc`
+reste a **4799** lignes pour un plafond de 4800.
+
+**POURQUOI CETTE GRANDEUR.** `phys-length-chain` fait du maillon 0 un PENDULE : il ne repond qu'a
+la composante TANGENTIELLE de l'acceleration de son attache, soit `sin` de l'angle entre l'os et
+l'axe du pilotage. C'est la seule grandeur geometrique dont la reponse depende.
+
+**LA MESURE, ET LE CHIFFRE QUI COMPTE EST CELUI DU TEMOIN SANS PILOTAGE :**
+
+    fenetre           chestL u                    sinY     chestR u                    sinY   miroir
+    r=0  base         (-0,1229 +0,9707 -0,2067)  0,2405   (+0,5600 +0,8247 +0,0795)  0,5656  **31,47**
+    r=6  jumpB-land   (-0,1256 +0,9705 -0,2056)  0,2409   (+0,5577 +0,8263 +0,0790)  0,5632   31,15
+    r=14 rollB        (+0,5400 +0,8178 -0,1989)  0,5755   (+0,9480 +0,3098 +0,0731)  0,9508  **105,85**
+    mediane sinY : chestL 0,2409 · chestR 0,5643 · reference de BIND 0,3938
+
+`r=0` ne recoit AUCUN pilotage : la pose tenue, nue, est deja a **31,47 deg** du miroir. Ce n'est
+donc pas le geste qui desaligne les deux chaines, c'est la pose heritee ou on les mesure.
+L'os de chestL est a 13,9 deg de la verticale, celui de chestR a 34,4 : sur un a-coup VERTICAL
+(§14, §15, §16) un pendule convertit **24,1 %** de la poussee a gauche contre **56,4 %** a droite —
+**facteur 2,34**. Les deux seins ne recoivent pas le meme stimulus utile.
+
+`ROOM-REGBONE` est `ROOM-ASYM-EXEMPT` : elle n'affirme aucune asymetrie du PERSONNAGE, elle MESURE
+la symetrie de la POSE. Le rig est symetrique a 0,005 deg en bind (cycle 78 : dx = -0,0041 u).
+
+**CONSEQUENCE POUR LE REGISTRE.** §12 (gravite laterale), §18 (lacet) et §32 (independance
+gauche/droite) portent des verdicts releves dans PH-REG. Ils sont **NON LISIBLES**, et pour une
+raison desormais mesuree **sur l'os qui porte la reponse**, plus seulement sur la pose entiere.
+Aucun statut ne change : ce cycle ne touche pas la physique.
+
+**LE CHEMIN PROPRE EXISTE DEJA ET N'A JAMAIS SERVI A CA.** `ROOM-ASYM-POSE` publie que **PH-REGA
+(0,5 deg), PH-REGB (0,5 deg) et PH-REGT (0,2 deg) sont ADMISSIBLES** la ou PH-REG est a 47,3 et
+PH-REGS a 6,9 — et ces trois phases jouent **les memes fenetres**. Emettre `PHYSREGBONE` sur elles
+(encore zero ligne de moteur) rendrait §12/§18/§32 relisibles **sans toucher a la pose de PH-REG**,
+donc sans deplacer une seule reference. C'est le prochain geste.
+
+**ET L'HYPOTHESE QUE CE CYCLE DEVAIT TESTER EST REFUTEE.** Le cycle 78 laissait son modele collant
+sur chestR (mediane 0,96) et pas sur chestL (0,64) ; j'avais nomme la direction d'os jouee comme
+cause probable. Le MEME modele, direction MESUREE par fenetre :
+
+    etage 0, mesure/modele    chestL              chestR          etendue des deux chaines
+      direction de BIND       mediane 0,64        0,96            x3,06
+      direction JOUEE         mediane **0,62**    0,95            **x2,57**
+
+L'etendue se resserre — la geometrie jouee explique quelque chose — mais **la mediane de chestL ne
+bouge pas : la geometrie n'est pas la cause du trou.** Aucun autre mecanisme n'est propose.
+
+**NON-REGRESSION AU BIT :** 49 751 lignes `PHYS` hors `PHYSREGBONE`, **zero differente** de la
+course du cycle 77. `tipvar` 0,1877/0,1847, `meshpen` 0,0544/0,0344, `ROOM-IDLE` 0,0002 identiques.
+
+
 ## Cycle 78 — LE « RENDEMENT D'UN SEPTIEME » DU CYCLE 77 EST RETIRE : IL COMPARAIT UNE SORTIE SATUREE A UN MODELE NON SATURE
 
 **CE QUI EST RETIRE, ET C'EST MOI QUI l'avais ecrit.** Le cycle 77 a publie que la poitrine « rend
