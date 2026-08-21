@@ -1,13 +1,13 @@
-ecrit .autoport/reports/Grecharged-secondary-motion/keira-room-table.txt : 2997 lignes, 310 mesures, 2 chaines, 31/31 animations
-  tipvar min par chaine = 0.1721 (plancher de la gate MOVE : 0.05)
-  rootdev max = 0.0930 (plafond ROOT : 2.0)
-  meshpen max = 0.1288 (COLLIDE exige <= 0 sur cheveux/meches, lunettes, oreilles ; 310 valeurs distinctes)
-  idle maxdev = 0.0002 (plafond IDLE : 1.0)
-  authored: 2 chaines pilotees, 2 respectees (controle positif: 0/0)
-  limiteurs: plafond-taille 0 fois (0.0000 m) — le compteur de RECUL est retire au cycle 36, il n'avait aucun ecrivain
-    chestL       tipvar=0.1721    rootdev=0.0868    meshpen=0.0956   
-    chestR       tipvar=0.1873    rootdev=0.0930    meshpen=0.1288   
- jamais declare a la main.
+==================================================================================================
+KEIRA — SALLE DE TEST SANS JOUEUR : TABLEAU DE MESURE
+genere par .autoport/physics_room_table.py depuis .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
+empreinte de la trace lue : md5 e0a51d2fc3307b519ec6c10bddd08343 (4321113 octets)
+contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 7 (ce qui fait foi)
+
+-- ROOM-INSTRUMENTS-MUETS : CE QUE CE TABLEAU NE MESURE PAS AUJOURD'HUI ------------
+   Un instrument SUSPENDU ou ABSENT ne rend pas un zero : il ne rend RIEN. Le confondre
+   avec un vert est le faux vert le moins cher a produire. Compte derive du corps du
+   tableau, jamais declare a la main.
 ROOM-INSTRUMENTS-MUETS: 0 — tous les blocs de ce tableau ont publie un chiffre.
 
 
@@ -617,7 +617,7 @@ ROOM-GRAVSAG: chain=chestR       at0=0.0001    at60=0.0407    sag=0.0407    sagn
    survit a cette division est physique, tout ecart qui disparait etait de l'instrument.
 ROOM-GRAVSAG-TF: chain=chestL       sagn=0.1296   tf=0.7796  sagt=0.1662  
 ROOM-GRAVSAG-TF: chain=chestR       sagn=0.1409   tf=0.9982  sagt=0.1412  
-ROOM-GRAVSAG-MIRROR: chestL/chestR  ecart brut(sagn)=1.09x  ecart corrige(sagt)=1.18x
+ROOM-GRAVSAG-MIRROR: POSE NON SYMETRIQUE — PH-IDLE + PH-TILT (pire des deux) est a 143.2 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind). §12 reste NON ETABLI tant que PH-TILT ne publie pas sa pose.
    (debout, la meme gravite effective vaut : chestL=0.0001 chestR=0.0001)
 
 -- L'HYSTERESIS : LA CHAINE REVIENT-ELLE ? (ROOM-HYST) -----------------------------------
@@ -1084,10 +1084,40 @@ ROOM-REGIME-SIGN: chestR   sautB cy_pouss=-0.1018 cy_vol=-0.0811 -> CHANGEMENT D
    ROUGE §15 : le critere demande cy<0 en poussee ET cy>0 en vol ; mesure -0.1018 puis -0.0811.
    cy_reception (r=6) = -0.0848 — publiee pour lecture, §15 ne la borne pas.
 
+
+   -- ROOM-POSERANK : LES POSES DISPONIBLES, CLASSEES PAR LEUR ECART AU MIROIR ------
+ROOM-POSERANK: 682 echantillons, 202 couples (animation, frame entiere) distincts — contre
+   31 pour `PHYSPOSEB`, qui n'echantillonne qu'UNE frame par animation. 279 echantillons sont
+   ELIGIBLES a l'argmax (pframe >= 54, le point d'etablissement que la salle utilise deja
+   partout) ; les autres sont publies mais portent le ring-down du pilotage precedent.
+ROOM-POSERANK-ARITH: ecart max entre l'angle recalcule ici et le cosinus calcule en course = 0.4007 deg
+
+      rang  k       a    frame    ecart au miroir   eligible
+      1     80      0    6.250        0.41 deg        oui
+      2     88      0    7.250        0.54 deg        oui
+      3     84      0    6.750        0.89 deg        oui
+      4     76      0    5.750        1.21 deg        oui
+      5     64      0    4.250        1.34 deg        oui
+      6     52      0    2.750        1.96 deg        NON (transitoire)
+      7     68      0    4.750        2.11 deg        oui
+      8     72      0    5.250        2.55 deg        oui
+      ... population : min 0.41  p10 12.35  mediane 49.55  max 146.98 deg (n=682)
+ROOM-POSERANK-TRANSITOIRE: sur 41 couples lus DANS et HORS du transitoire, l'ecart median
+   de l'angle au miroir vaut 5.71 deg (max 41.61). C'est la part du classement qui ne vient pas de la pose.
+ROOM-POSERANK-EPINGLE: l'animation epinglee depuis le cycle 55 (a=12) apparait au rang 17
+   sur 682 ; sa MEILLEURE frame vaut 6.74 deg et sa PIRE 33.01 deg — l'ecart entre les
+   deux est la mesure de ce que « une frame par animation » laissait au hasard.
+ROOM-POSERANK-ARGMAX: la course a retenu a=0 f=6.2500 ; le tableau, en refaisant le maximum
+   sur la population publiee, trouve a=0 f=6.2500 (0.41 deg) -> LES DEUX ARGMAX COINCIDENT
+ROOM-POSEB-RANG: 31 animations classees (c'est le balayage du cycle 54, UNE frame par
+   animation) — meilleure a=12 a 9.27 deg, mediane 49.13 deg, pire a=21 a 124.07 deg.
+   L'ANIMATION EPINGLEE (a=12) Y EST AU RANG 1 SUR 31, a 9.27 deg. Le commentaire de
+   `phys-room.gc` annonce « la seule sous 10 deg » : c'est verifie ici, sur cette course,
+   et plus cite de memoire.
+
    -- ROOM-REGPOSE : L'ECART AU MIROIR DE LA POSE OU §14 A §20 SONT MESUREES --------
-ROOM-REGPOSE: l=0 ecart au miroir = 43.8 deg   (bind = 0.005 deg, cycle 53 ; pose epinglee de PH-SYM = 6.4 a 6.8 deg)
-ROOM-REGPOSE: l=1 ecart au miroir = 48.0 deg   (bind = 0.005 deg, cycle 53 ; pose epinglee de PH-SYM = 6.4 a 6.8 deg)
-ROOM-REGPOSE-VERDICT: pire ecart 48.0 deg -> POSE HERITEE NON SYMETRIQUE : tout ecart gauche/droite publie par §14, §16, §17, §18 et §20 la porte, et aucune de ces lignes ne peut attribuer son asymetrie au PERSONNAGE tant qu'elle n'est pas rejouee dans une pose epinglee.
+ROOM-REGPOSE: POSE NON SYMETRIQUE — PH-REG heritee est a 48.0 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind). par maillon : l=0 43.8 deg, l=1 48.0 deg.
+ROOM-REGPOSE-VERDICT: POSE NON SYMETRIQUE — PH-REG heritee est a 48.0 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind).
 
    -- ROOM-REGIME-MIRROR : SPEC 18 et SPEC 20, GAUCHE CONTRE DROITE -----------------
       §18 exige que les deux seins DIFFERENT en rotation, et elle en donne la cause :
@@ -1101,10 +1131,7 @@ ROOM-REGPOSE-VERDICT: pire ecart 48.0 deg -> POSE HERITEE NON SYMETRIQUE : tout 
       PARAMETRES (raideur, amortissement, rayons, poids), pas de la geometrie. La
       dissymetrie que §18 decrit par sa cause geometrique ne peut pas etre obtenue
       dans ce rig sans deplacer une racine — ce qui serait un changement de RIG.
-ROOM-REGIME-MIRROR: r= 9 yawA          com(chestL)=0.0492 com(chestR)=0.2079  ecart 123.45 %
-ROOM-REGIME-MIRROR: r=10 yawB          com(chestL)=0.0988 com(chestR)=0.2301  ecart 79.84 %
-ROOM-REGIME-MIRROR: r=13 rollA         com(chestL)=0.1982 com(chestR)=0.2588  ecart 26.52 %
-ROOM-REGIME-MIRROR: r=14 rollB         com(chestL)=0.2104 com(chestR)=0.2576  ecart 20.17 %
+ROOM-REGIME-MIRROR: POSE NON SYMETRIQUE — PH-REG heritee est a 48.0 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind). §18 et §20 restent NON ETABLI sur leur clause gauche/droite.
 
    -- ROOM-APEX-REGIME : SPEC 14/16/17/18/19/20, LA CLAUSE D'APEX ---------------
       LE PLAFOND QUE LE MESH IMPOSE, ET IL EST LU DANS LE FICHIER LIVRE — plus
@@ -1204,31 +1231,108 @@ ROOM-APEX-RATIO: n=30  min x1.459  mediane x1.880  max x2.236  —  bande implic
 
 
    -- ROOM-REGS : §14 A §20 REJOUEES DANS LA POSE EPINGLEE (cycle 66) -----------
-ROOM-REGS-POSE: animation epinglee ai=12 (name) ; ecart au miroir REVALIDE a l'execution = 7.5 deg
+ROOM-REGS-POSE: POSE NON SYMETRIQUE — PH-REGS epinglee est a 7.5 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind).
 
       r   regime        apexL^h   apexR^h   R^h      apexL^e   apexR^e   R^e     
       ^h = pose HERITEE (PH-REG, 48.0 deg) · ^e = pose EPINGLEE (PH-REGS, 7.5 deg)
-      1   jumpA-push    0.2533    0.4676    1.846    0.3209    0.4452    1.387   
-      3   jumpA-land    0.1304    0.3215    2.465    0.1960    0.2622    1.338   
-      4   jumpB-push    0.3220    0.3964    1.231    0.3903    0.4698    1.204   
-      6   jumpB-land    0.1414    0.3367    2.381    0.1812    0.3213    1.773   
-      8   runA-brake    0.4310    0.2721    1.584    0.2543    0.2927    1.151   
-      9   yawA          0.0833    0.4648    5.580    0.3631    0.2420    1.500   
-      10  yawB          0.1679    0.5057    3.012    0.6224    0.4102    1.517   
-      11  pitchA-bend   0.6280    0.5823    1.078    0.5239    0.6111    1.166   
-      12  pitchA-return 0.6423    0.4941    1.300    0.3086    0.6970    2.259   
-      13  rollA         0.3738    0.5468    1.463    0.6491    0.6503    1.002   
-      14  rollB         0.3914    0.5112    1.306    0.6496    0.6787    1.045   
+      1   jumpA-push    0.2533    0.4676    NONSYM   0.3209    0.4452    NONSYM  
+      3   jumpA-land    0.1304    0.3215    NONSYM   0.1960    0.2622    NONSYM  
+      4   jumpB-push    0.3220    0.3964    NONSYM   0.3903    0.4698    NONSYM  
+      6   jumpB-land    0.1414    0.3367    NONSYM   0.1812    0.3213    NONSYM  
+      8   runA-brake    0.4310    0.2721    NONSYM   0.2543    0.2927    NONSYM  
+      9   yawA          0.0833    0.4648    NONSYM   0.3631    0.2420    NONSYM  
+      10  yawB          0.1679    0.5057    NONSYM   0.6224    0.4102    NONSYM  
+      11  pitchA-bend   0.6280    0.5823    NONSYM   0.5239    0.6111    NONSYM  
+      12  pitchA-return 0.6423    0.4941    NONSYM   0.3086    0.6970    NONSYM  
+      13  rollA         0.3738    0.5468    NONSYM   0.6491    0.6503    NONSYM  
+      14  rollB         0.3914    0.5112    NONSYM   0.6496    0.6787    NONSYM  
+ROOM-REGS-VERROU: POSE NON SYMETRIQUE — PH-REGS epinglee est a 7.5 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind). R^h ne porte rien non plus : PH-REG est a 48.0 deg du miroir.
 
-ROOM-REGS-SENS: 5 fenetre(s) sur 11 ou la pose INVERSE lequel des deux seins bouge le plus.
-ROOM-REGS-SERRE: 9 fenetre(s) sur 11 ou l'ecart gauche/droite est PLUS PETIT dans la pose epinglee.
-ROOM-REGS-TEMOIN: r=0 (aucun pilotage) apex chestL=0.0331 chestR=0.0273 -> ligne de base SAINE (< 0.10 B0) : les quatorze autres fenetres se lisent au-dessus d'un plancher qui en est un.
+ROOM-REGS-SENS: 5 fenetre(s) sur 11 ou la pose INVERSE lequel des deux seins bouge le plus. (PH-REG 48.0 deg vs PH-REGS 7.5 deg)
+ROOM-REGS-SERRE: 9 fenetre(s) sur 11 ou l'ecart gauche/droite est PLUS PETIT dans la pose epinglee. (PH-REG 48.0 deg vs PH-REGS 7.5 deg)
+ROOM-REGS-TEMOIN: POSE NON SYMETRIQUE — PH-REGS epinglee est a 7.5 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind).
 CE QUE CE BLOC N'ETABLIT PAS, et il faut le lire avec : les deux passes
    partagent le solveur, les tables et l'operateur de pilotage, mais PAS leur
    place dans la course — PH-REGS est APPENDUE, donc elle herite d'un autre
    historique de chaine. La POSE est la seule variable DECLAREE, elle n'est pas
    la seule qui bouge. Ce bloc autorise a REFUSER une attribution au personnage
    quand le sens s'inverse ; il n'autorise pas a donner a §18 un chiffre neuf.
+
+   -- ROOM-POSE-RAFFINEMENT : LE MEME STIMULUS A TROIS ECARTS AU MIROIR ---------
+ROOM-POSE-RAFFINEMENT: pose retenue a=0 f=6.2500, ecart au miroir REVALIDE a l'execution
+   = 0.59 deg   (PH-REG 48.0 deg · PH-REGS 7.5 deg)
+
+      r   regime        apexL^t  apexR^t  R^t        R^e      |dR|/R^e sens      %/deg    ecart admissible pour 2 % (§32)
+      1   jumpA-push    0.3975   0.4934   1.241      1.387    10.5 %   stable    1.53     1.305 deg
+      3   jumpA-land    0.2203   0.3063   1.390      1.338    3.9 %    stable    0.57     3.492 deg
+      4   jumpB-push    0.4985   0.4394   1.135      1.204    5.7 %    INVERSE   0.84     2.390 deg
+      6   jumpB-land    0.2323   0.3368   1.450      1.773    18.2 %   stable    2.65     0.753 deg
+      8   runA-brake    0.2367   0.6519   2.754      1.151    139.3 %  stable    20.28    0.099 deg  <<< AUCUNE POSE DE CE RIG NE L'ATTEINT
+      9   yawA          0.4011   0.2603   1.541      1.500    2.7 %    stable    0.39     5.089 deg
+      10  yawB          0.6116   0.4917   1.244      1.517    18.0 %   stable    2.62     0.762 deg
+      11  pitchA-bend   0.4838   0.5857   1.211      1.166    3.8 %    stable    0.55     3.627 deg
+      12  pitchA-return 0.4630   0.5988   1.293      2.259    42.7 %   stable    6.22     0.321 deg  <<< AUCUNE POSE DE CE RIG NE L'ATTEINT
+      13  rollA         0.6571   0.5854   1.122      1.002    12.0 %   INVERSE   1.75     1.141 deg
+      14  rollB         0.6665   0.6452   1.033      1.045    1.1 %    INVERSE   0.16     12.180 deg
+
+ROOM-REGT-TEMOIN: r=0 (aucun pilotage) apex chestL=0.0101 chestR=0.0120 -> ligne de base SAINE (< 0.10 B0)   [pose PH-REGT resserree, miroir 0.6 deg]
+ROOM-POSE-RAFFINEMENT: ecart relatif MEDIAN du rapport gauche/droite entre 7.5 deg
+   et la pose resserree = 10.5 % sur 11 fenetres (min 1.1 %, max 139.3 %) ; 3 fenetre(s)
+   changent de sens.
+ROOM-POSE-RAFFINEMENT-VERDICT: LE PLATEAU N'EST PAS ATTEINT A 7.5 deg, ET LE SEUIL DE 10 deg EST
+   DONC REFUTE PAR LE CRITERE ECRIT AVANT LA COURSE (c67 Q3). Le pas
+   7.5 -> 0.6 deg deplace pourtant BEAUCOUP MOINS que le pas 48 ->
+   7.5. Le rapport garde une part de pose : il se publie avec son
+   ecart au miroir, jamais comme une propriete du personnage, et le
+   seuil descend a 1.3 deg (derive : 2 % de §32 / 1.53 % par deg).
+
+
+   -- ROOM-REGAXE : L'AXE DES ROTATIONS DE §18 A §20 (cycle 67) -------------------
+      axes du SUJET, mesures a l'execution (PHYSAXW, repere monde) :
+        vertical       (+0.0822, -0.9784, +0.1895)   monde X  85.3  Y  11.9  Z  79.1 deg
+        avant/arriere  (+0.9933, +0.0959, +0.0643)   monde X   6.6  Y  84.5  Z  86.3 deg
+        lateral        (-0.0811, +0.1829, +0.9798)   monde X  85.3  Y  79.5  Z  11.5 deg
+      CONTROLE INDEPENDANT : (u_chestL - u_chestR) normalise = (-0.0810, +0.1810, +0.9801),
+        a 0.240 deg de l'axe que le solveur NOMME lateral. Les deux routes concordent, donc
+        le nom est bon et ce qui suit ne depend pas de lui.
+
+      r      section  axe commande   role REEL dans le repere du sujet
+      9      §18      monde Y        LACET a 11.9 deg
+      10     §18      monde Y        LACET a 11.9 deg
+      11     §19      monde X        ROULIS (flexion laterale) a 6.6 deg   <<< CE N'EST PAS LE GESTE DE CETTE SECTION
+      12     §19      monde X        ROULIS (flexion laterale) a 6.6 deg   <<< CE N'EST PAS LE GESTE DE CETTE SECTION
+      13     §20      monde Z        TANGAGE (flexion avant/arriere) a 11.5 deg   <<< CE N'EST PAS LE GESTE DE CETTE SECTION
+      14     §20      monde Z        TANGAGE (flexion avant/arriere) a 11.5 deg   <<< CE N'EST PAS LE GESTE DE CETTE SECTION
+
+      §18 « torso yaw » veut le VERTICAL · §19 « forward bend » veut le LATERAL ·
+      §20 « lateral torso motion » veut l'AVANT/ARRIERE. Le lacet tombe juste ;
+      §19 et §20 SE JOUENT L'UN POUR L'AUTRE.
+
+ROOM-REGAXE-LEAN: une rotation AUTOUR de l'axe lateral commute avec la reflexion dans le
+   plan de normale laterale : elle laisse l'ecart au miroir INVARIANT, par algebre.
+   `physroom-lean` tourne autour du monde X et fait passer cet ecart de 0.237 deg (pose
+   `idle`) a 143.213 deg (pose `tilt`). L'axe X n'est donc PAS le lateral, et ce que la salle
+   documente comme « penchee de 60 deg VERS L'AVANT » est une inclinaison LATERALE.
+   Consequence : §12 (« sideways gravity ») est servie par le bon geste ; le PENCHE AVANT
+   de §13 (« at a 45 deg forward lean ») n'a jamais ete joue, et `ROOM-GRAVSAG` ne
+   repond donc pas a la plainte « aucun mouvement quand elle se penche en avant pour souder ».
+
+   -- ROOM-REGA : §18 A §20 JOUEES AUTOUR DES AXES DU SUJET (cycle 67) ------------
+ROOM-REGA: pose a=0 f=6.2500, ecart au miroir revalide = 2.09 deg ; axe de rotation pris sur le SUJET
+
+      r   section  apexL^t   apexR^t   apexL^a   apexR^a   apy       sens obtenu
+      9   §18      0.4011    0.2603    0.4272    0.0999    0.0959    pas de bascule avant/arriere
+      10  §18      0.6116    0.4917    0.5001    0.1140    0.0959    pas de bascule avant/arriere
+      11  §19      0.4838    0.5857    0.8199    0.8173    0.0959    pas de bascule avant/arriere
+      12  §19      0.4630    0.5988    0.7943    0.8061    0.0959    pas de bascule avant/arriere
+      13  §20      0.6571    0.5854    0.3770    0.4420    0.0959    pas de bascule avant/arriere
+      14  §20      0.6665    0.6452    0.5281    0.4662    0.0959    pas de bascule avant/arriere
+
+      ^t = axes du MONDE (PH-REGT) · ^a = axes du SUJET (PH-REGA), MEME pose,
+      MEME course, MEMES tables de duree et d'amplitude. La seule variable est l'AXE.
+      `apy` = composante VERTICALE de l'axe avant/arriere du sujet a la fin du
+      pilotage. Au repos elle vaut +0.096 : elle BAISSE si le buste s'est penche en avant.
+
 
    -- ROOM-SPEC15-CROSS : « jump apex -> breast may CROSS neutral position » -----
       §15 l.230. Le registre portait la clause NON DEMONTREE, et la raison etait
@@ -1420,8 +1524,8 @@ ROOM-MEDIAL-PEN: chestR   tag=rest  DOMAINE VIDE — 0/480 lecture(s) dans le ra
    contrainte, elle ne la remplace pas.
 ROOM-SPEC7-TRIEDRE: chestL   a0=(+0.98297 +0.18374 -0.00000)  a1=(+0.18290 -0.97844 +0.09585)  a2=(-0.01761 +0.09422 +0.99539)  orthonormalite=7.77e-06  det=-0.99998
 ROOM-SPEC7-TRIEDRE: chestR   a0=(-0.98297 -0.18374 +0.00000)  a1=(+0.18290 -0.97844 +0.09585)  a2=(-0.01761 +0.09422 +0.99539)  orthonormalite=7.77e-06  det=+0.99998
-ROOM-SPEC7-MIROIR: angle(a0[chestL], -a0[chestR]) = 0.251 deg  ->  MIROIR TENU
-ROOM-SPEC7-SENS: det(chestL)=-0.99998  det(chestR)=+0.99998  ->  SENS OPPOSES, consequence du miroir d'un seul axe
+ROOM-SPEC7-MIROIR: angle(a0[chestL], -a0[chestR]) = 0.251 deg  ->  MIROIR TENU   [pose PH-SETTLE (pose d'amorcage), miroir 0.3 deg]
+ROOM-SPEC7-SENS: det(chestL)=-0.99998  det(chestR)=+0.99998  ->  SENS OPPOSES, consequence du miroir d'un seul axe   [pose PH-SETTLE (pose d'amorcage), miroir 0.3 deg]
    CE QUI N'EST PAS JUGE ICI : la 3e clause de §7 (« all dynamic calculations
    shall occur relative to the torso/root transform rather than directly in world
    space ») porte sur le LIEU du calcul, pas sur une grandeur — ces trois lignes ne
@@ -1461,8 +1565,8 @@ ROOM-SKINADD-CONTROL: armed=0.1315 disarmed=0.1356   (injection de 400 u vers l'
 
 ROOM-SKINPEN-MIRROR: l'ecart entre paires MIROIR est l'erreur de l'instrument —
    parametres identiques, geometrie miroir : ce qui les separe n'est pas un defaut.
-ROOM-SKINPEN-MIRROR: chestL       0.0701  vs chestR       0.0868   ecart   19 %
-ROOM-SKINPEN-FLOOR: 0.0167 m — AUCUNE valeur de la colonne ci-dessus n'est interpretable en dessous de ce plancher.
+ROOM-SKINPEN-MIRROR: POSE NON SYMETRIQUE — la pose de COURSE n'est pas mesuree (PHYSSKIN / PHYSSKIN2 agregent TOUTE la course : il n'existe pas une pose, il en existe des milliers. Ce refus-la ne se corrige pas en ajoutant un enregistrement.). le plancher d erreur d instrument qui en derive est donc lui aussi indisponible.
+ROOM-SKINPEN-FLOOR: POSE NON SYMETRIQUE — la pose de COURSE n'est pas mesuree (PHYSSKIN / PHYSSKIN2 agregent TOUTE la course : il n'existe pas une pose, il en existe des milliers. Ce refus-la ne se corrige pas en ajoutant un enregistrement.).
 
 -- LE PREDICAT CONIQUE : LE SOLIDE TESTE EST ENFIN CELUI QUE LA DONNEE DESIGNE ----------
    Les 24 capsules livrees sont TOUTES coniques (radius != radius2). Le moteur testait le
@@ -2044,10 +2148,10 @@ row chain=chestR       anim=assistant-lavatube-end-idle            drive=tilt   
 
    ROOM-SIGN-P3: sur chestL, |cos| vertical=0.9226  avant-arr=0.1043  lateral=0.3714
       -> P3 TENUE : le vertical EST l'axe le plus aligne avec l'os, donc celui que la contrainte de longueur confisque le plus.
-   ROOM-SIGN-P4: |cos| vertical — chestL=0.9226  chestR=0.9293 ; parts transverses sin=0.3858 et 0.3694, rapport 0.96
-      confiscation MESUREE sur cette course (k=1 / k=0, axe vertical) : chestL s=+1 x2.20  ·  chestL s=-1 x2.59  ·  chestR s=+1 x2.71  ·  chestR s=-1 x3.60
-      predite par 1/sin : chestL x2.59  chestR x2.71
-      -> P4 REFUTEE, ET CONTRE MOI : l'os de chestL n'est PAS plus aligne que celui de chestR. La longueur etant deja eliminee, l'orientation ne rend pas compte de l'ecart gauche/droite non plus — il ne reste que la repartition de peau, que ce cycle ne mesure pas.
+   ROOM-SIGN-P4: POSE NON SYMETRIQUE — PH-SGN epinglee est a 7.9 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind). l attribution du cycle 52 depend de cette ligne.
+      confiscation MESUREE sur cette course (k=1 / k=0, axe vertical): POSE NON SYMETRIQUE — PH-SGN epinglee est a 7.9 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind). l attribution du cycle 52 depend de cette ligne.
+      predite par 1/sin: POSE NON SYMETRIQUE — PH-SGN epinglee est a 7.9 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind). l attribution du cycle 52 depend de cette ligne.
+      -> P4 REFUTEE, ET CONTRE MOI: POSE NON SYMETRIQUE — PH-SGN epinglee est a 7.9 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind). l attribution du cycle 52 depend de cette ligne.
 
 
 -- ROOM-RINGFIT : SPEC 24/25/26, AJUSTEES SUR TOUTE LA SERIE ------------------------------
@@ -2959,39 +3063,89 @@ ROOM-REST-CONTROL: vout/vin  spec=0.0200  x15=0.3000  rapport=15.00x  LE CONTROL
       que ce bloc teste. Les deux sont publies : rien n'est remplace en silence.
 
       i   pose  mesure                     dev(deg)  apexL     apexR     R        res       resc     
-      0   SYM   lacet 90  (SPEC18 modere)  6.8       0.36708   0.22266   1.649    0.45393   0.06554   RESOLU
-      1   ASYM  lacet 90  (SPEC18 modere)  123.4     0.61213   0.66402   1.085    0.45393   0.45393   NON RESOLU
-      2   ASYM  lacet 150 (SPEC18 fort)    123.4     0.69938   0.73504   1.051    0.45794   0.45794   NON RESOLU
-      3   SYM   lacet 150 (SPEC18 fort)    6.4       0.61343   0.42825   1.432    0.45794   0.07945   RESOLU
-      4   SYM   lateral +90 (SPEC12)       6.8       0.58502   0.73661   1.259    0.51858   0.41335   NON RESOLU
-      5   ASYM  lateral +90 (SPEC12)       123.5     0.64683   0.77638   1.200    0.51858   0.51858   NON RESOLU
-      6   ASYM  lateral -90 (SPEC12)       123.5     0.78459   0.64977   1.207    0.76172   0.76172   PLANCHER NON CALME
-      7   SYM   lateral -90 (SPEC12)       6.4       0.47321   0.64776   1.369    0.76172   0.38481   NON RESOLU
+      0   SYM   lacet 90  (SPEC18 modere)  6.8       0.36708   0.22266   NONSYM   0.45393   0.06554   RESOLU
+      1   ASYM  lacet 90  (SPEC18 modere)  123.4     0.61213   0.66402   NONSYM   0.45393   0.45393   NON RESOLU
+      2   ASYM  lacet 150 (SPEC18 fort)    123.4     0.69938   0.73504   NONSYM   0.45794   0.45794   NON RESOLU
+      3   SYM   lacet 150 (SPEC18 fort)    6.4       0.61343   0.42825   NONSYM   0.45794   0.07945   RESOLU
+      4   SYM   lateral +90 (SPEC12)       6.8       0.58502   0.73661   NONSYM   0.51858   0.41335   NON RESOLU
+      5   ASYM  lateral +90 (SPEC12)       123.5     0.64683   0.77638   NONSYM   0.51858   0.51858   NON RESOLU
+      6   ASYM  lateral -90 (SPEC12)       123.5     0.78459   0.64977   NONSYM   0.76172   0.76172   PLANCHER NON CALME
+      7   SYM   lateral -90 (SPEC12)       6.4       0.47321   0.64776   NONSYM   0.76172   0.38481   NON RESOLU
 
       ROOM-SYM-PLANCHER: 1 cellule(s) sur 8 dont la ligne de base porte AUTANT d'excursion
          que le pilotage : sur celles-la l'instrument ne borne rien et ne peut ni tenir ni refuter.
-      ROOM-SYM-RESOLU: 2 cellule(s) sur 8 ou l'ecart gauche/droite DEPASSE sa ligne de base.
+      ROOM-SYM-RESOLU: 2 cellule(s) sur 8 ou l'ecart gauche/droite DEPASSE sa ligne de base, dont 0 dans une pose ADMISSIBLE (<= 1.3 deg du miroir).
          TANT QUE `ROOM-SYM-PLANCHER` N'EST PAS 0, LA QUESTION QUE CE BLOC POSE —
          « l'asymetrie de §12/§18 est-elle du personnage ou de la POSE ? » — RESTE
          SANS REPONSE, et aucune ligne du registre ne doit s'appuyer dessus.
       SPEC 12 — l'aplatissement par pole, et la gravite que le SOLVEUR lit :
-      m=2 lateral +90 (SPEC12)   SYM   sx chestL=0.87875 chestR=1.03237  ecart=+16.08 %   g lue (0.9713, 0.0310, 0.2357)
-      m=2 lateral +90 (SPEC12)   ASYM  sx chestL=0.92857 chestR=0.85923  ecart= +7.76 %   g lue (-0.5814, 0.7364, -0.3459)
-      m=3 lateral -90 (SPEC12)   SYM   sx chestL=0.97817 chestR=0.82210  ecart=+17.34 %   g lue (-0.9713, -0.0310, -0.2357)
-      m=3 lateral -90 (SPEC12)   ASYM  sx chestL=0.97318 chestR=1.04750  ecart= +7.36 %   g lue (0.5814, -0.7364, 0.3459)
+      m=2 lateral +90 (SPEC12)   SYM  : POSE NON SYMETRIQUE — PH-SYM i=4 est a 6.8 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind).
+      m=2 lateral +90 (SPEC12)   ASYM : POSE NON SYMETRIQUE — PH-SYM i=5 est a 123.5 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind).
+      m=3 lateral -90 (SPEC12)   SYM  : POSE NON SYMETRIQUE — PH-SYM i=7 est a 10.6 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind).
+      m=3 lateral -90 (SPEC12)   ASYM : POSE NON SYMETRIQUE — PH-SYM i=6 est a 123.5 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind).
 
       SPEC 12 — LEQUEL DES DEUX S'APLATIT, ET EST-CE LE BON ? `gso` = cos(gravite,
       segment sein-oppose -> ce sein) : > 0 = la gravite pointe VERS ce sein, donc
       c'est lui le « gravity-side breast ». Il ne passe ni par `fx` ni par le
       melange de poles — il ne peut pas republier le verdict qu'il arbitre.
-      m=2 lateral +90 (SPEC12)   SYM    gso L=+0.9563 R=-0.9563 -> cote gravite=chestL   sx L=0.87875 R=1.03237 -> aplati=chestL   CONFORME
-      m=2 lateral +90 (SPEC12)   ASYM   gso L=-0.4308 R=+0.4308 -> cote gravite=chestR   sx L=0.92857 R=0.85923 -> aplati=chestR   CONFORME
-      m=3 lateral -90 (SPEC12)   SYM    gso L=-0.9563 R=+0.9563 -> cote gravite=chestR   sx L=0.97817 R=0.82210 -> aplati=chestR   CONFORME
-      m=3 lateral -90 (SPEC12)   ASYM   gso L=+0.4308 R=-0.4308 -> cote gravite=chestL   sx L=0.97318 R=1.04750 -> aplati=chestL   CONFORME
-      ROOM-SPEC12-COTE: 4/4 cellules laterales ou le sein aplati EST celui du cote gravite  ->  COTE TENU
+      m=2 lateral +90 (SPEC12)   SYM  : POSE NON SYMETRIQUE — PH-SYM i=4 est a 6.8 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind).
+      m=2 lateral +90 (SPEC12)   ASYM : POSE NON SYMETRIQUE — PH-SYM i=5 est a 123.5 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind).
+      m=3 lateral -90 (SPEC12)   SYM  : POSE NON SYMETRIQUE — PH-SYM i=7 est a 10.6 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind).
+      m=3 lateral -90 (SPEC12)   ASYM : POSE NON SYMETRIQUE — PH-SYM i=6 est a 123.5 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind).
+      ROOM-SPEC12-COTE: POSE NON SYMETRIQUE — PH-SYM lat. pire est a 123.5 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind). §12 : le cote est lu par paires de poses ; voir ROOM-SYM.
       L'ETIQUETTE D'AXE EST CELLE DE LA MESURE : le commentaire de `physroom-orient`
       ecrit "axis 0 = tangage", la trace dit que la gravite y est quasi pure sur l'axe
       LATERAL du triedre de sa §7. `g lue` ci-dessus est publiee pour qu'on n'ait pas
       a croire l'un ou l'autre sur parole.
       L'adjudication des six predictions de C56E1 est dans .autoport/c56_verdict.py —
       ce tableau publie la MESURE, le verdict est ailleurs et il cite ses seuils.
+
+==================================================================================================
+   -- ROOM-ASYM-VERROU : LE CONTROLE DE PUBLICATION DES COMPARAISONS GAUCHE/DROITE ------
+ROOM-ASYM-VERROU: seuil declare = 1.3 deg
+   Le rig de Keira est bilateralement symetrique a 0.005 deg en pose de BIND (cycle 53, sur le
+   mesh LIVRE). Tout ecart gauche/droite releve dans une AUTRE pose est donc porte par la POSE
+   jusqu'a preuve du contraire, et c'est la preuve que ce verrou exige avant de laisser un
+   chiffre sortir. Une pose NON MESUREE est traitee comme non symetrique : « on n'a pas mesure »
+   n'est pas « c'est symetrique ».
+
+ROOM-ASYM-POSE: COURSE     COURSE            ecart=NON MESURE source=PHYSSKIN / P -> REFUSEE
+   (source : PHYSSKIN / PHYSSKIN2 agregent TOUTE la course : il n'existe pas une pose, il en exis)
+ROOM-ASYM-POSE: PH-AXV     PH-AXV            ecart=NON MESURE source=PHYSRINGAX n -> REFUSEE
+   (source : PHYSRINGAX n'a pas de compagnon de pose)
+ROOM-ASYM-POSE: PH-REG     PH-REG heritee    ecart=48.0 deg   source=PHYSREGB     -> REFUSEE
+ROOM-ASYM-POSE: PH-REGA    PH-REGA axes du sujet ecart=2.1 deg    source=PHYSREGAB    -> REFUSEE
+ROOM-ASYM-POSE: PH-REGS    PH-REGS epinglee  ecart=7.5 deg    source=PHYSREGSB    -> REFUSEE
+ROOM-ASYM-POSE: PH-REGT    PH-REGT resserree ecart=0.6 deg    source=PHYSREGTB    -> ADMISSIBLE
+ROOM-ASYM-POSE: PH-SETTLE  PH-SETTLE (pose d'amorcage) ecart=0.3 deg    source=PHYSPOSETAG  -> ADMISSIBLE
+   (source : PHYSPOSETAG tag=settle)
+ROOM-ASYM-POSE: PH-SGN     PH-SGN epinglee   ecart=7.9 deg    source=PHYSSGNB     -> REFUSEE
+ROOM-ASYM-POSE: PH-SYM-LAT PH-SYM lat. pire  ecart=123.5 deg  source=PHYSSYMB m=2 -> REFUSEE
+   (source : PHYSSYMB m=2,3)
+ROOM-ASYM-POSE: PH-SYM0    PH-SYM i=0        ecart=6.8 deg    source=PHYSSYMB i=0 -> REFUSEE
+ROOM-ASYM-POSE: PH-SYM1    PH-SYM i=1        ecart=123.4 deg  source=PHYSSYMB i=1 -> REFUSEE
+ROOM-ASYM-POSE: PH-SYM2    PH-SYM i=2        ecart=123.4 deg  source=PHYSSYMB i=2 -> REFUSEE
+ROOM-ASYM-POSE: PH-SYM3    PH-SYM i=3        ecart=10.1 deg   source=PHYSSYMB i=3 -> REFUSEE
+ROOM-ASYM-POSE: PH-SYM4    PH-SYM i=4        ecart=6.8 deg    source=PHYSSYMB i=4 -> REFUSEE
+ROOM-ASYM-POSE: PH-SYM5    PH-SYM i=5        ecart=123.5 deg  source=PHYSSYMB i=5 -> REFUSEE
+ROOM-ASYM-POSE: PH-SYM6    PH-SYM i=6        ecart=123.5 deg  source=PHYSSYMB i=6 -> REFUSEE
+ROOM-ASYM-POSE: PH-SYM7    PH-SYM i=7        ecart=10.6 deg   source=PHYSSYMB i=7 -> REFUSEE
+ROOM-ASYM-POSE: PH-TILT    PH-IDLE + PH-TILT (pire des deux) ecart=143.2 deg  source=PHYSPOSETAG  -> REFUSEE
+   (source : PHYSPOSETAG tag=idle / tag=tilt)
+
+ROOM-ASYM-VERROU: 1 ligne(s) publient une comparaison gauche/droite SANS porter leur pose
+   C'EST UN DEFAUT DE CE TABLEAU, PAS UNE MESURE. Chacune de ces lignes pose un ecart
+   entre chestL et chestR sans dire dans quelle pose elle l'a releve : tant qu'elle ne le
+   dit pas, son chiffre est indistinguable d'un artefact de pose et ne peut fonder aucune
+   section. A corriger dans le tableau, pas a interpreter en rapport.
+   !     separation chestL - chestR = (-1.21, -0.22, +758.09) u   norme 758.09 u = 18.5 cm
+ROOM-ASYM-EXEMPT: 9 ligne(s) exemptees (elles n'affirment aucune asymetrie du personnage)
+   -  -- LE PILOTAGE (SPEC 6 : haut/bas, gauche/droite, diverses accelerations, a-coups) ---------
+   -     (debout, la meme gravite effective vaut : chestL=0.0001 chestR=0.0001)
+   -        part simulee : 0.9402 (chestL) / 0.9549 (chestR) -> plafond d'ancrage x1.06
+   -  ROOM-REGS-SERRE: 9 fenetre(s) sur 11 ou l'ecart gauche/droite est PLUS PETIT dans la pose epinglee. (PH-REG 48.0 deg vs PH-REGS 7.5 deg)
+   -  ROOM-POSE-RAFFINEMENT: pose retenue a=0 f=6.2500, ecart au miroir REVALIDE a l'execution
+   -  ROOM-POSE-RAFFINEMENT: ecart relatif MEDIAN du rapport gauche/droite entre 7.5 deg
+   -        CONTROLE INDEPENDANT : (u_chestL - u_chestR) normalise = (-0.0810, +0.1810, +0.9801),
+   -  ROOM-REGA: pose a=0 f=6.2500, ecart au miroir revalide = 2.09 deg ; axe de rotation pris sur le SUJET
+   -        ROOM-SYM-RESOLU: 2 cellule(s) sur 8 ou l'ecart gauche/droite DEPASSE sa ligne de base, dont 0 dans une pose ADMISSIBLE (<= 1.3 deg du 

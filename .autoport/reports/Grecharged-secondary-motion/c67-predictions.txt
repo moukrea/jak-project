@@ -1,0 +1,95 @@
+CYCLE 67 — QUESTIONS ECRITES AVANT LA COURSE
+DIRECTIVES v3fee554599
+Branche physics-keira-clean · perimetre chestL / chestR SEULES
+
+Ce fichier est ecrit AVANT de lancer la salle, et son md5 est publie dans le rapport. Il existe
+pour une raison simple : une question posee apres coup se repond toujours par oui. Chaque question
+dit AUSSI ce qui la REFUTERAIT — une prediction qu'aucune mesure ne peut contredire n'est pas une
+prediction.
+
+CE QUE LE CYCLE CHANGE, ET C'EST LA SEULE VARIABLE DECLAREE :
+  (a) la salle echantillonne la pose A LA FRAME pendant la sous-fenetre de LIGNE DE BASE de
+      PH-MEAS (etiquettes PHYSPOSEF / PHYSPOSEFB), sans ajouter une seule frame de course ;
+  (b) une phase PH-REGT (37) est APPENDUE apres PH-REGS et rejoue les QUINZE MEMES fenetres a la
+      pose qui maximise le score de miroir sur cette population ;
+  (c) la salle enregistre sa pose sous etiquette (PHYSPOSETAG) aux points de protocole qui n'en
+      avaient aucun ;
+  (d) le garde-fou de phase publie le maximum REELLEMENT VISITE (PHYSROOM-PHASEVISITED) ;
+  (e) le producteur du tableau refuse d'ecrire un ecart gauche/droite que sa pose ne peut pas
+      porter, et refuse de se laisser ecraser par sa propre sortie standard.
+Aucun terme du solveur ne bouge. `jak-hd-physics.gc` et `recharged_assets/` ne sont pas touches.
+
+----------------------------------------------------------------------------------------------
+Q1 — LE BALAYAGE COUVRE-T-IL VRAIMENT LA POPULATION ?
+  J'engage : PHYSPOSEF rend AU MOINS 400 echantillons, couvrant AU MOINS 150 couples distincts
+  (animation, frame entiere) — contre 31 poses (une par animation) pour PHYSPOSEB depuis le
+  cycle 54.
+  REFUTE SI : moins de 100 couples distincts. Le balayage n'aurait alors pas change d'axe et le
+  reste du cycle serait bati sur la meme sous-population.
+
+Q2 — LA POSE EPINGLEE DEPUIS LE CYCLE 55 EST-ELLE LE MINIMUM ?
+  J'engage : NON. La pose retenue par l'argmax revalide (PHYSREGTB) A MOINS DE 3.75 deg du
+  miroir, soit au moins deux fois mieux que les 7.5 deg de PH-REGS.
+  REFUTE SI : la pose retenue revalide a 7.5 deg ou plus. Le choix du cycle 54 serait alors deja
+  optimal malgre son echantillonnage a 11.7 %, et je le publierai comme tel — c'est un resultat.
+
+Q3 — LA QUESTION QUI PORTE LE CYCLE : 7.5 deg SUFFIT-IL ?
+  C'est le test de raffinement : on resserre l'instrument et on regarde si la mesure bouge.
+  GRANDEUR : sur les ONZE fenetres bornees (r = 1,3,4,6,8,9,10,11,12,13,14), l'ecart relatif
+  MEDIAN du rapport gauche/droite entre PH-REGS (7.5 deg) et PH-REGT, soit
+      mediane de  |R^t - R^e| / R^e.
+  J'engage un chiffre : il tombe ENTRE 3 % ET 30 %. Autrement dit je predis que 7.5 deg n'est PAS
+  encore le plateau, mais que le pas 7.5 -> serre deplace BEAUCOUP MOINS que le pas 48 -> 7.5
+  (qui a fait x5.58 -> x1.50 sur r=9, soit -73 %).
+  REFUTE PAR LE BAS SI : mediane <= 3 % ET aucune fenetre ne change de sens. Alors 7.5 deg EST le
+  plateau, le seuil de 10 deg est ADEQUAT et demontre, et les chiffres du cycle 66 tiennent.
+  REFUTE PAR LE HAUT SI : mediane > 30 %. Alors meme 7.5 deg reste une pose, aucune des trois
+  passes ne mesure le personnage, et AUCUN ecart gauche/droite de §14 a §20 n'est publiable —
+  y compris ceux que le cycle 66 a presentes comme propres.
+  DANS LES TROIS CAS LA REPONSE EST PUBLIEE TELLE QUELLE. Je n'ai pas de preference : la seule
+  issue inacceptable serait de ne pas savoir.
+
+Q4 — LE SENS EST-IL STABLE A 7.5 deg ?
+  « Le sens » = lequel des deux seins bouge le plus. Cinq fenetres sur onze l'inversaient entre
+  48 deg et 7.5 deg.
+  J'engage : AU PLUS 2 fenetres sur 11 changent de sens entre PH-REGS et PH-REGT.
+  REFUTE SI : 3 ou plus. La clause de §18 (« left and right trajectories shall differ ») ne
+  pourrait alors etre lue dans AUCUNE des poses disponibles, et §18 resterait NON ETABLI sur sa
+  moitie gauche/droite quoi qu'il arrive.
+
+Q5 — NON-REGRESSION, DANS SA FORME DURE.
+  J'engage : ZERO ligne existante ne disparait ni ne change. Comparaison `comm` par etiquette
+  entre la course du cycle 66 et celle-ci ; la colonne « present avant, absent apres » doit etre
+  VIDE sur toutes les etiquettes anterieures. Les seuls ecarts sont des AJOUTS :
+  PHYSPOSEF, PHYSPOSEFB, PHYSPOSETAG, PHYSREGT, PHYSREGTB, PHYSREGTPOSE,
+  PHYSROOM-PHASEVISITED, plus une ligne PHYSANIMLEN et une PHYSREMAP pour l'animation que PH-REGT
+  epingle.
+  REFUTE SI : une seule etiquette anterieure voit une de ses lignes disparaitre ou changer. Le
+  cycle serait alors non attribuable et je le dirais avant toute autre conclusion.
+
+Q6 — LE GARDE-FOU DE PHASE.
+  J'engage : PHYSROOM-PHASEVISITED rend maxvisited=37 ok=1, et PHYSROOM-PHASEGUARD rend
+  maxwork=37 (il rendait 33 alors que la derniere phase de travail etait 36 : quatrieme
+  rattrapage de cette ligne).
+  REFUTE SI : maxvisited != 37, ou ok=0.
+
+Q7 — LE TEMOIN DE PH-REGT.
+  J'engage : la fenetre r=0 de PH-REGT (aucun pilotage) rend un apex SOUS 0.10 B0 sur LES DEUX
+  chaines, comme PH-REG (0.0394 / 0.0337) et PH-REGS (0.0331 / 0.0273).
+  REFUTE SI : au-dessus de 0.10 sur une chaine. La passe se lirait alors au-dessus d'un plancher
+  qui n'en est pas un, et ses quatorze autres fenetres seraient sans echelle.
+
+Q8 — L'ARGMAX EST-IL RECALCULABLE ?
+  Le score est calcule en course par le solveur et la POPULATION ENTIERE est publiee a cote.
+  J'engage : le tableau, qui refait le maximum depuis les lignes PHYSPOSEFB et le plan de
+  reflexion PHYSAXW ax=2, retrouve EXACTEMENT la meme cle `k` que celle retenue en course.
+  REFUTE SI : les deux argmax different. L'arithmetique en course serait alors fausse et la pose
+  epinglee ne serait pas celle que la ligne PHYSREGTPOSE annonce — un faux vert de la pire espece,
+  puisqu'il porterait le nom d'une mesure.
+
+Q9 — LE VERROU DE PUBLICATION MORD-IL ?
+  J'engage : ROOM-ASYM-VERROU publie AU MOINS UNE pose REFUSEE (celles qui n'ont pas
+  d'enregistrement, ou celle de PH-REG a 48 deg), et AU MOINS UNE ligne du tableau ecrit
+  « POSE NON SYMETRIQUE » a la place d'un chiffre.
+  REFUTE SI : aucune ligne n'est refusee. Un verrou qui ne refuse jamais rien n'est pas un verrou,
+  et il faudrait alors montrer pourquoi — pas s'en rejouir.

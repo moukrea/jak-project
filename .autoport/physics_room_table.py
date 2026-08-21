@@ -324,6 +324,156 @@ def _solve3(m, b):
     return [a[i][3] / a[i][i] for i in range(3)]
 
 
+# ==================================================================================================
+# LE VERROU D'ASYMETRIE, POSE AU PRODUCTEUR (cycle 67)
+# ==================================================================================================
+# POURQUOI IL EXISTE, ET POURQUOI IL N'EST PAS UNE NOTE. Le superviseur a grave le 2026-08-21 a
+# 01:20 : « toute ligne qui publie une comparaison GAUCHE/DROITE publie, sur la meme ligne, l'ecart
+# au miroir de la pose ou elle a ete relevee. Au-dela d'un seuil declare, elle n'ecrit pas un
+# chiffre : elle ecrit POSE NON SYMETRIQUE, et la section reste NON ETABLI. » Et il ajoute la raison
+# pour laquelle le correctif du cycle 55 n'a pas tenu : « le correctif se pose au PRODUCTEUR de la
+# grandeur, jamais sur le site qui l'a revele. Un correctif par site est une note deguisee en
+# verrou. »
+#
+# L'ETAT TROUVE AU CYCLE 67, MESURE ET PAS SUPPOSE : ce fichier publie 25 lignes qui comparent
+# chestL a chestR, et la formule du miroir y est RECOPIEE QUATRE FOIS (l.4377, 4388, 4593, 7563)
+# sans qu'aucune fonction ne la porte. Quatre copies, zero utilitaire : c'est exactement la
+# structure qui fait qu'un site peut oublier sa pose sans que rien ne le dise. Le verrou remplace
+# les quatre copies par UNE fonction, et fait passer les 25 sites par UN chemin.
+#
+# TROIS PIECES, ET LA TROISIEME EST CELLE QUI EN FAIT UN VERROU :
+#   1. `_mirror_dev`  — LA formule, une seule fois.
+#   2. `asym`         — LE chemin de publication. Il refuse d'ecrire un chiffre que sa pose ne peut
+#                       pas porter, et il ecrit l'ecart au miroir SUR LA MEME LIGNE quand elle le
+#                       peut. Un site ne peut pas « oublier » : il n'a pas d'autre chemin.
+#   3. `A`            — LE POINT DE PASSAGE UNIQUE de toute ligne du tableau. Il inspecte ce qu'on
+#                       lui donne : une ligne qui RESSEMBLE a une comparaison gauche/droite et qui
+#                       ne porte pas sa marque est ENREGISTREE COMME VIOLATION et publiee comme
+#                       telle. C'est ce qui rend le verrou insensible a l'oubli : il n'y a aucune
+#                       autre facon de faire entrer du texte dans le tableau que `A`, donc aucune
+#                       facon de contourner le controle sans qu'il le dise.
+#
+# CE QUE LE VERROU NE COUVRE PAS, ET C'EST DECLARE, PAS TU. Un `max` ou un `min` PRIS SUR LES DEUX
+# CHAINES (`ROOM-SKINPEN-REST: PIRE-DES-DEUX`, `ROOM-IDLE maxdev`, `ROOM-SIGN-*`) n'affirme rien sur
+# l'asymetrie : c'est un pire-cas, et il reste vrai dans n'importe quelle pose. Les couvrir aurait
+# noye le verrou sous des lignes qu'il n'a pas de raison de taire — et aurait casse des gates du
+# validateur que la regle 5 interdit de toucher. La liste de ces agregats est PUBLIEE par
+# `ROOM-ASYM-VERROU` pour que le perimetre soit auditable au lieu d'etre affirme.
+
+# LE SEUIL, ET IL EST DERIVE — PAS HERITE, PAS CHOISI.
+#
+# CE QU'IL ETAIT. 10 deg, pose au cycle 54, sans qu'aucune mesure ne dise si un ecart de 10 deg
+# deplace ou non un rapport gauche/droite. Le cycle 67 a fait cette mesure au lieu de la supposer :
+# `ROOM-POSE-RAFFINEMENT` rejoue les MEMES quinze fenetres a trois ecarts au miroir — 48.0 deg
+# (pose heritee), 7.462 deg (pose epinglee au cycle 55) et 0.594 deg (l'argmax du balayage resolu
+# a la frame) — et publie de combien le rapport bouge entre les deux dernieres.
+#
+# CE QUE LA MESURE DIT. Entre 7.462 deg et 0.594 deg, soit 6.868 deg d'ecart, le rapport
+# gauche/droite des onze fenetres bornees bouge d'une MEDIANE de 10.5 % (min 1.1 %, max 139.3 %).
+# Sensibilite mediane : 10.5 % / 6.868 deg = **1.53 % par degre**.
+#
+# CE QUE LA SPEC EXIGE DE L'INSTRUMENT. Sa §32 : « mass +-2-4%, stiffness +-3-5%, damping +-3-5% »
+# et « symmetrical movement remains approximately symmetrical, but not mathematically identical ».
+# La plus petite difference gauche/droite que la spec demande de VOIR vaut donc 2 %.
+#
+# D'OU LE SEUIL : 2 % / 1.53 % par degre = **1.31 deg**, arrondi a 1.3. Une pose plus ecartee que
+# ca injecte, a elle seule, plus d'asymetrie que la plus petite que la spec nous demande de
+# distinguer — et un instrument qui ne resout pas la grandeur de sa cible ne mesure rien.
+#
+# ET CE N'EST PAS UN AJUSTEMENT APRES COUP : `c67-predictions.txt` (Q3, md5 grave avant la course)
+# ecrivait « REFUTE PAR LE BAS SI mediane <= 3 % ET aucune fenetre ne change de sens. Alors 7.5 deg
+# EST le plateau, le seuil de 10 deg est ADEQUAT ». La mesure a rendu 10.5 % et 3 inversions de
+# sens : le seuil de 10 deg est donc refute PAR LE CRITERE ECRIT AVANT, pas par le resultat.
+#
+# CE QUE LE SEUIL NE FAIT PAS. Il est MEDIAN, donc il ne protege pas les fenetres les plus
+# sensibles : r=8 (§17) bouge de 139.3 % sur le meme intervalle, soit 20.3 % par degre, et
+# exigerait 0.099 deg — qu'AUCUNE pose de ce rig n'atteint. `ROOM-POSE-RAFFINEMENT` publie la
+# sensibilite PAR FENETRE pour que celles-la soient lues comme non resolues, et pas comme vertes.
+_ASYM_SEUIL = 1.3
+_ASYM_MARK = '[pose '
+_ASYM_REFUS = 'POSE NON SYMETRIQUE'
+
+
+class _Pose(object):
+    """LA POSE D'UNE DONNEE : son nom, son ecart au miroir en degres, et d'ou il sort.
+
+    `dev is None` veut dire NON MESUREE — et une pose non mesuree est traitee comme non symetrique.
+    Ce n'est pas de la severite gratuite : le rig est miroir a 0.005 deg en pose de bind (cycle 53),
+    donc tout ecart gauche/droite est porte par la POSE jusqu'a preuve du contraire. « On n'a pas
+    mesure » n'est pas « c'est symetrique »."""
+    __slots__ = ('nom', 'dev', 'src')
+
+    def __init__(self, nom, dev, src):
+        self.nom, self.dev, self.src = nom, dev, src
+
+    def ok(self):
+        return self.dev is not None and self.dev <= _ASYM_SEUIL
+
+    def tag(self):
+        if self.dev is None:
+            return '%s%s, miroir NON MESURE]' % (_ASYM_MARK, self.nom)
+        return '%s%s, miroir %.1f deg]' % (_ASYM_MARK, self.nom, self.dev)
+
+
+def _mirror_dev(u, v, lat):
+    """L'ECART AU MIROIR entre deux directions d'os, EN DEGRES.
+
+    NATURE : un ANGLE. REPERE : monde ; `u` (la direction de chestL) est REFLECHIE dans le plan de
+    normale `lat` (l'axe lateral du solveur, `PHYSAXW ax=2`) puis comparee a `v` (chestR).
+    LECTURE QUAND LE DEFAUT EST ABSENT : 0 deg. Le cycle 53 a mesure le rig a 0.005 deg du miroir
+    en pose de BIND — donc tout ce que cette fonction rend au-dessus de ca est porte par la POSE.
+
+    Elle remplace QUATRE copies identiques de la meme algebre. Une formule recopiee est une formule
+    qui divergera : c'est le producteur, pas le site, qui doit la porter."""
+    if u is None or v is None or lat is None:
+        return None
+    dd = sum(u[k] * lat[k] for k in range(3))
+    mu = [u[k] - 2.0 * dd * lat[k] for k in range(3)]
+    nu = math.sqrt(sum(x * x for x in mu)) * math.sqrt(sum(x * x for x in v))
+    if nu <= 0.0:
+        return None
+    cs = sum(mu[k] * v[k] for k in range(3)) / nu
+    return math.degrees(math.acos(max(-1.0, min(1.0, cs))))
+
+
+def _pose_dev_from(txt, label, lat, extra=''):
+    """L'ECART AU MIROIR d'une phase, lu sur son enregistrement compagnon de directions d'os.
+
+    `label` est l'etiquette de trace qui publie `c= l= ux= uy= uz=` au point de protocole de la
+    phase (`PHYSREGB`, `PHYSREGSB`, `PHYSSYMB`, `PHYSSGNB`, ...). On rend le PIRE des maillons :
+    une pose n'est symetrique que si elle l'est sur toute la chaine."""
+    rec = {}
+    head = ('^%s %s ' % (label, extra)) if extra else ('^%s ' % label)
+    pat = head + r'c=(\d+) l=(\d+) ux=([-\d.e+]+) uy=([-\d.e+]+) uz=([-\d.e+]+)'
+    for m in re.finditer(pat, txt, re.M):
+        rec[(int(m.group(1)), int(m.group(2)))] = tuple(float(m.group(k)) for k in (3, 4, 5))
+    if not rec or lat is None:
+        return None
+    worst = None
+    for l in sorted({k[1] for k in rec}):
+        if (0, l) in rec and (1, l) in rec:
+            d = _mirror_dev(rec[(0, l)], rec[(1, l)], lat)
+            if d is not None:
+                worst = d if worst is None else max(worst, d)
+    return worst
+
+
+# LES IDIOMES QUI DESIGNENT UNE COMPARAISON GAUCHE/DROITE. Volontairement etroits : le verrou doit
+# attraper les affirmations d'ASYMETRIE, pas toute ligne qui prononce le mot « miroir ». Une ligne
+# qui cite les DEUX chaines et un chiffre est traitee comme une comparaison meme si elle se veut une
+# juxtaposition — poser les deux cote a cote EST une invitation a les comparer.
+_ASYM_IDIOMES = ('gauche/droite', 'chestL/chestR', 'SENS INVERSE', 'ecart au miroir',
+                 'paire miroir', 'paires MIROIR', 'angle(a0[')
+
+
+def _asym_suspect(s):
+    if not any(ch.isdigit() for ch in s):
+        return False
+    if ('chestL' in s and 'chestR' in s):
+        return True
+    return any(i in s for i in _ASYM_IDIOMES)
+
+
 def _selftest_linalg():
     """Un controle POSITIF de l'algebre elle-meme : on POSE un tenseur connu, on fabrique les
     reponses qu'il produirait, et on verifie qu'on le retrouve. Sans ca, `_solve3` pourrait rendre
@@ -1479,6 +1629,38 @@ def main():
         OUT = sys.argv[2]
     if not os.path.exists(log):
         die('log de course absent : %s' % log)
+
+    # ---- LE TABLEAU NE PEUT PLUS ETRE ECRASE PAR SA PROPRE SORTIE STANDARD (cycle 67) ----------
+    # DEFAUT TROUVE, PAS SUPPOSE. Le `keira-room-table.txt` que le validateur lisait au cycle 67
+    # commencait par les NEUF LIGNES DU RESUME que ce script imprime sur stdout, et il avait perdu
+    # son en-tete — donc sa ligne `empreinte de la trace lue : md5 ...`, le garde-fou de provenance
+    # pose au cycle 32 precisement pour qu'un tableau ne puisse pas survivre a sa course. Verifie :
+    # `grep -c md5` rendait 0 sur un fichier de 2997 lignes.
+    #
+    # LE MECANISME EST CONNU ET SILENCIEUX : `python3 physics_room_table.py LOG > TBL` (ou avec un
+    # seul argument, `OUT` valant alors ce meme chemin par defaut). Le shell TRONQUE `TBL` et donne
+    # a stdout un descripteur a l'offset 0 ; le script ecrit ensuite tout le tableau par un `open`
+    # separe ; a la sortie, le tampon de stdout se vide A L'OFFSET 0 et recouvre le debut du
+    # fichier. La taille reste plausible, le corps reste lisible, et RIEN en aval ne peut le voir —
+    # le validateur lit des lignes `ROOM-*`, qui sont plus bas.
+    #
+    # `keira_room_x86.sh` verifie deja l'empreinte APRES coup (l.147-158), mais il n'est pas le seul
+    # appelant, et un controle qui n'est pas chez le producteur ne couvre que les chemins qu'on a
+    # pense a instrumenter. « Quand une perte se repete, on la rend IMPOSSIBLE au point de
+    # production, pas detectable au point de controle » — donc ici, et pour tous les appelants.
+    try:
+        _so = os.fstat(sys.stdout.fileno())
+        if os.path.exists(OUT):
+            _to = os.stat(OUT)
+            if (_so.st_dev, _so.st_ino) == (_to.st_dev, _to.st_ino):
+                die('la SORTIE STANDARD de ce script est redirigee sur son propre fichier de'
+                    ' sortie (%s).\n  Le resume de fin recouvrirait le debut du tableau, en'
+                    ' emportant sa ligne d\'empreinte —\n  c\'est exactement ce qui est arrive au'
+                    ' tableau lu par le validateur au cycle 67.\n  Passe la destination en 2e'
+                    ' argument, ne redirige pas stdout dessus.' % OUT)
+    except (OSError, ValueError, AttributeError):
+        pass    # stdout non seekable (pipe, terminal) : aucune collision possible, on continue
+
     txt = open(log, errors='ignore').read()
 
     # ---- la course est-elle allee au bout ? -----------------------------------------------------
@@ -2036,7 +2218,101 @@ def main():
 
     # ---- ECRITURE ------------------------------------------------------------------------------
     L = []
-    A = L.append
+
+    # ---- LE POINT DE PASSAGE UNIQUE (cycle 67) ------------------------------------------------
+    # `A` etait `L.append`. Il devient une fonction, et c'est TOUT le verrou : il n'existe aucun
+    # autre chemin par lequel une ligne entre dans ce tableau — les blocs auxiliaires
+    # (`_oricom_block`, `_orictl_block`, `_shake_ring_block`, ...) le recoivent en parametre et
+    # ecrivent par lui. Une ligne qui RESSEMBLE a une comparaison gauche/droite et qui ne porte pas
+    # sa pose est donc enregistree comme VIOLATION, quel que soit le site qui l'a ecrite et meme
+    # s'il est ecrit demain par quelqu'un qui n'a jamais lu ce commentaire. C'est la difference
+    # entre un verrou et une note : la note demande qu'on s'en souvienne.
+    #
+    # `notasym=True` est la SEULE derogation, et elle n'est pas silencieuse : chaque ligne exemptee
+    # est comptee et LISTEE par `ROOM-ASYM-VERROU`. Une derogation qu'on ne peut pas compter est
+    # une porte ouverte ; celle-ci se lit dans le tableau.
+    _asym_viol, _asym_exempt = [], []
+
+    def A(s, notasym=False):
+        if _asym_suspect(s) and _ASYM_MARK not in s and _ASYM_REFUS not in s:
+            (_asym_exempt if notasym else _asym_viol).append(s)
+        L.append(s)
+
+    # ---- LE REGISTRE DE POSES : quelle donnee a ete relevee dans quelle pose ------------------
+    # C'est la piece qui manquait, et son absence est la cause du defaut du 2026-08-21 01:20 : les
+    # sites savaient calculer un rapport gauche/droite, aucun ne savait dans QUELLE pose il l'avait
+    # releve. Le registre est construit UNE fois, ici, depuis la trace — jamais devine par un site.
+    #
+    # Le plan de reflexion est publie une seule fois par la course (`PHYSAXW ax=2`, l'axe lateral
+    # du solveur) et sert a toutes les poses : c'est ce qui rend les ecarts comparables entre eux.
+    _lat = None
+    for _m in re.finditer(r'^PHYSAXW ax=2 ux=([-\d.e+]+) uy=([-\d.e+]+) uz=([-\d.e+]+)', txt, re.M):
+        _lat = tuple(float(_m.group(k)) for k in (1, 2, 3))
+    POSE = {
+        'PH-REG':  _Pose('PH-REG heritee',  _pose_dev_from(txt, 'PHYSREGB', _lat),  'PHYSREGB'),
+        'PH-REGS': _Pose('PH-REGS epinglee', _pose_dev_from(txt, 'PHYSREGSB', _lat), 'PHYSREGSB'),
+        'PH-SGN':  _Pose('PH-SGN epinglee', _pose_dev_from(txt, 'PHYSSGNB', _lat),  'PHYSSGNB'),
+        'PH-REGT': _Pose('PH-REGT resserree', _pose_dev_from(txt, 'PHYSREGTB', _lat), 'PHYSREGTB'),
+        'PH-REGA': _Pose('PH-REGA axes du sujet',
+                         _pose_dev_from(txt, 'PHYSREGAB', _lat), 'PHYSREGAB'),
+    }
+    # PH-SYM joue DEUX poses dans la meme course (`i=0` symetrique, `i=1` asymetrique) : chacune a
+    # la sienne, et les confondre reviendrait a publier l'ecart de l'une sous l'autre.
+    for _i in (0, 1):
+        POSE['PH-SYM%d' % _i] = _Pose('PH-SYM i=%d' % _i,
+                                      _pose_dev_from(txt, 'PHYSSYMB', _lat, extra='i=%d' % _i),
+                                      'PHYSSYMB i=%d' % _i)
+    # LES PHASES QUI N'ONT AUCUN ENREGISTREMENT DE POSE. Elles ne sont pas oubliees : elles sont
+    # NOMMEES, et leurs lignes gauche/droite se taisent tant que la salle ne publie pas leur pose.
+    # « On n'a pas mesure » n'est pas « c'est symetrique » — cf. la note de `_Pose`.
+    # PH-SETTLE ET PH-TILT ONT DESORMAIS LEUR ENREGISTREMENT (cycle 67). La salle emet
+    # `PHYSPOSETAG tag=<nom>` au point de protocole de chaque fenetre etiquetee, par un emetteur
+    # UNIQUE (`physroom-emit-poseb`) : c'est la piece qui manquait pour que `ROOM-SPEC7-MIROIR` et
+    # `ROOM-GRAVSAG-MIRROR` puissent dire dans quelle pose ils ont ete pris.
+    POSE['PH-SETTLE'] = _Pose('PH-SETTLE (pose d\'amorcage)',
+                              _pose_dev_from(txt, 'PHYSPOSETAG', _lat, extra='tag=settle'),
+                              'PHYSPOSETAG tag=settle')
+    # `ROOM-GRAVSAG-MIRROR` compare le sag de la fenetre `idle` a celui de la fenetre `tilt` : la
+    # comparaison ne vaut que ce que vaut la PIRE des deux poses, et c'est celle-la qu'on publie.
+    # Prendre la meilleure des deux serait choisir le chiffre qui arrange.
+    _dvi = _pose_dev_from(txt, 'PHYSPOSETAG', _lat, extra='tag=idle')
+    _dvt = _pose_dev_from(txt, 'PHYSPOSETAG', _lat, extra='tag=tilt')
+    _dvw = None if (_dvi is None and _dvt is None) else max(x for x in (_dvi, _dvt)
+                                                            if x is not None)
+    POSE['PH-TILT'] = _Pose('PH-IDLE + PH-TILT (pire des deux)', _dvw,
+                            'PHYSPOSETAG tag=idle / tag=tilt')
+    # CELLES QUI N'EN ONT TOUJOURS PAS, ET LA RAISON EST STRUCTURELLE POUR LA DERNIERE.
+    for _ph, _why in (('PH-AXV', 'PHYSRINGAX n\'a pas de compagnon de pose'),
+                      ('COURSE', 'PHYSSKIN / PHYSSKIN2 agregent TOUTE la course : il n\'existe pas'
+                                 ' une pose, il en existe des milliers. Ce refus-la ne se corrige'
+                                 ' pas en ajoutant un enregistrement.')):
+        POSE[_ph] = _Pose(_ph, None, _why)
+
+    def asym(label, corps, pose, note=''):
+        """LE SEUL CHEMIN AUTORISE pour publier une comparaison gauche/droite.
+
+        `corps` est le texte que le site VOUDRAIT publier. Il n'est publie que si la pose peut le
+        porter ; sinon la ligne dit pourquoi elle se tait, et la section qu'elle sert reste NON
+        ETABLI. Dans les deux cas la ligne porte la pose : on ne peut plus lire un ecart
+        gauche/droite de ce tableau sans lire, sur la meme ligne, dans quelle pose il a ete pris."""
+        if pose.ok():
+            return '%s%s   %s' % (label, corps, pose.tag())
+        if pose.dev is None:
+            return ('%s: %s — la pose de %s n\'est pas mesuree (%s). %s'
+                    % (label, _ASYM_REFUS, pose.nom, pose.src, note)).rstrip()
+        return ('%s: %s — %s est a %.1f deg du miroir (seuil %.1f ; le rig est a 0.005 deg en'
+                ' pose de bind). %s'
+                % (label, _ASYM_REFUS, pose.nom, pose.dev, _ASYM_SEUIL, note)).rstrip()
+
+    def _pdeg(_p):
+        """L'ECART AU MIROIR d'une pose, EN TEXTE, et qui ne tombe pas sur une pose NON MESUREE.
+
+        Les deux lignes qui comparent DEUX POSES ENTRE ELLES (`ROOM-REGS-SENS`, `ROOM-REGS-SERRE`)
+        doivent citer les deux ecarts sur leur propre ligne : un `%.1f` sur un `None` ferait
+        tomber le tableau entier, et un tableau qui tombe ne publie rien — le mode d'echec le plus
+        cher de ce dossier."""
+        return ('%.1f deg' % _p.dev) if _p.dev is not None else 'NON MESURE'
+
     A('=' * 98)
     A('KEIRA — SALLE DE TEST SANS JOUEUR : TABLEAU DE MESURE')
     A('genere par .autoport/physics_room_table.py depuis %s' % log)
@@ -2583,7 +2859,11 @@ def main():
           % legit)
         A('   seuil de refus (%.0f) tombe dans un fosse de deux ordres de grandeur.' % 50.0)
     A('')
-    A('-- LE PILOTAGE (SPEC 6 : haut/bas, gauche/droite, diverses accelerations, a-coups) ---------')
+    # EXEMPTE : ici « gauche/droite » nomme un AXE DE DEPLACEMENT de la salle (sa §6 : « moved
+    # up/down, left/right »), pas un ecart entre les deux chaines. Un titre de section n'affirme
+    # rien ; le detecteur, lui, ne lit que des mots, et c'est pour ca que l'exemption se declare.
+    A('-- LE PILOTAGE (SPEC 6 : haut/bas, gauche/droite, diverses accelerations, a-coups) ---------',
+      notasym=True)
     for dr, nm in enumerate(DRIVE_NAMES):
         sel = [r for r in rows if r['dr'] == dr]
         if not sel:
@@ -3227,19 +3507,36 @@ def main():
             sn, tf, st = _sagt[nm]
             A('ROOM-GRAVSAG-TF: chain=%-12s sagn=%-8s tf=%-7s sagt=%-8s'
               % (nm, fnum(sn), fnum(tf), fnum(st)))
-        for lft, rgt in (('lbang', 'rbang'), ('lmidhair', 'rmidhair'), ('chestL', 'chestR'),
-                         ('earL', 'earR')):
-            if lft in _sagt and rgt in _sagt:
-                sn_l, sn_r = _sagt[lft][0], _sagt[rgt][0]
-                st_l, st_r = _sagt[lft][2], _sagt[rgt][2]
-                r_bru = max(sn_l, sn_r) / min(sn_l, sn_r) if min(sn_l, sn_r) > 1e-9 else float('inf')
-                r_cor = max(st_l, st_r) / min(st_l, st_r) if min(st_l, st_r) > 1e-9 else float('inf')
-                A('ROOM-GRAVSAG-MIRROR: %s/%s  ecart brut(sagn)=%.2fx  ecart corrige(sagt)=%.2fx'
-                  % (lft, rgt, r_bru, r_cor))
+        # ---- CES RAPPORTS SONT RELEVES DANS `tilt`, DONT LA POSE N'EST PAS MESUREE (cycle 67)
+        # `tilt` applique un tangage AVANT a la pose que la phase precedente laisse : la salle
+        # n'emet aucun compagnon de directions d'os pour cette phase, donc son ecart au miroir est
+        # INCONNU. Un rapport L/R releve dans une pose inconnue ne dit pas si son ecart vient
+        # de la CHAINE ou de la POSE — et le rig etant a 0.005 deg du miroir en bind, c'est la
+        # pose qui est le suspect par defaut. UN SEUL refus couvre les N paires : la raison est
+        # la meme pour toutes, et l'ecrire N fois n'ajouterait pas une information de plus.
+        _ptil = POSE['PH-TILT']
+        _GSNOTE = '§12 reste NON ETABLI tant que PH-TILT ne publie pas sa pose.'
+        _gsmp = [(_lf, _rg) for _lf, _rg in (('lbang', 'rbang'), ('lmidhair', 'rmidhair'),
+                                             ('chestL', 'chestR'), ('earL', 'earR'))
+                 if _lf in _sagt and _rg in _sagt]
+        if not _ptil.ok():
+            A(asym('ROOM-GRAVSAG-MIRROR', ': %d paire(s) miroir relevees, aucune publiee'
+                   % len(_gsmp), _ptil, note=_GSNOTE))
+        for lft, rgt in (_gsmp if _ptil.ok() else []):
+            sn_l, sn_r = _sagt[lft][0], _sagt[rgt][0]
+            st_l, st_r = _sagt[lft][2], _sagt[rgt][2]
+            r_bru = max(sn_l, sn_r) / min(sn_l, sn_r) if min(sn_l, sn_r) > 1e-9 else float('inf')
+            r_cor = max(st_l, st_r) / min(st_l, st_r) if min(st_l, st_r) > 1e-9 else float('inf')
+            A(asym('ROOM-GRAVSAG-MIRROR',
+                   ': %s/%s  ecart brut(sagn)=%.2fx  ecart corrige(sagt)=%.2fx'
+                   % (lft, rgt, r_bru, r_cor), _ptil, note=_GSNOTE))
     if g0:
+        # EXEMPTE, ET POUR LA MEME RAISON QUE `apexL`/`apexR` RESTENT DANS LES TABLEAUX : c'est
+        # une mesure PAR CHAINE posee a cote d'une autre, pas un rapport. Ce qu'une pose non
+        # miroir invalide, c'est ce qu'on tire de leur DIFFERENCE — et cette ligne n'en tire rien.
         A('   (debout, la meme gravite effective vaut : %s)'
           % ' '.join('%s=%s' % (names[c], fnum(g0[c][0]))
-                     for c in sorted(g0) if c < len(names)))
+                     for c in sorted(g0) if c < len(names)), notasym=True)
     # ------------------------------------------------------------------------------------------
     # ROOM-HYST — L'HYSTERESIS, defaut PRIORITE 1 (owner 2026-08-13 21:30 : « beaucoup
     # d'hysteresis pour tous les cheveux […] j'ai envie de la desactiver parce que c'est
@@ -4334,6 +4631,166 @@ def main():
                       % (_rl, _rga[_kl][2]))
         A('')
         # ---- (6) SPEC 18 / SPEC 20 : GAUCHE CONTRE DROITE ------------------------------------
+        # ---- ROOM-POSERANK : LE BALAYAGE DE POSE, ET SON LECTEUR (cycle 67) ------------------
+        #
+        # POURQUOI CE BLOC EXISTE. `PHYSPOSEB` est emis par la salle depuis le cycle 54 — 31
+        # lignes de directions d'os, une par animation — et `grep -rl PHYSPOSEB` ne rend que
+        # `phys-room.gc` : **aucun lecteur, dans aucun script, depuis treize cycles**. La donnee
+        # qui a servi a choisir `PHYSROOM-SYMNAME` etait donc produite a chaque course et jetee,
+        # et le rang « 1 sur 31 » de la pose epinglee ne vivait plus que dans un commentaire.
+        # La regle 0 est explicite : un commentaire n'est pas une preuve. Ce bloc lui rend un
+        # lecteur, et il verifie le rang au lieu de le citer.
+        #
+        # ET IL PUBLIE LE BALAYAGE RESOLU A LA FRAME. Le cycle 56 avait ETABLI que « l'asymetrie
+        # est une propriete de la FRAME et pas de l'animation » ; `PHYSPOSEB` echantillonnait
+        # pourtant UNE frame par animation, soit 31 points d'une population de 264. `PHYSPOSEF`
+        # balaie la sous-fenetre de LIGNE DE BASE de chaque animation, sans ajouter une frame de
+        # course.
+        #
+        # NATURE : un ANGLE en degres, l'ecart au miroir du PIRE maillon. REPERE : monde, la
+        #   direction d'os de chestL reflechie dans le plan de normale `lat` (`PHYSAXW ax=2`),
+        #   comparee a celle de chestR. MEME formule que `ROOM-REGPOSE`, par `_mirror_dev` — une
+        #   seule fonction, pour que les deux nombres soient comparables.
+        # LECTURE QUAND LE DEFAUT EST ABSENT : 0 deg (rig miroir a 0.005 deg en pose de bind).
+        # CE QUI DISCRIMINE : la FRAME d'animation, a animation egale. Si le balayage rendait la
+        #   meme valeur sur toutes les frames d'une animation, il ne mesurerait pas la frame.
+        _psf, _psfb = {}, {}
+        for _m in re.finditer(r'^PHYSPOSEF k=(\d+) a=(\d+) f=([-\d.e+]+) s=([-\d.e+]+)', txt, re.M):
+            _psf[int(_m.group(1))] = (int(_m.group(2)), float(_m.group(3)), float(_m.group(4)))
+        for _m in re.finditer(r'^PHYSPOSEFB k=(\d+) c=(\d+) l=(\d+) ux=([-\d.e+]+)'
+                              r' uy=([-\d.e+]+) uz=([-\d.e+]+)', txt, re.M):
+            _psfb.setdefault(int(_m.group(1)), {})[(int(_m.group(2)), int(_m.group(3)))] = \
+                tuple(float(_m.group(k)) for k in (4, 5, 6))
+        A('')
+        A('   -- ROOM-POSERANK : LES POSES DISPONIBLES, CLASSEES PAR LEUR ECART AU MIROIR ------')
+        if not _psf:
+            A('ROOM-POSERANK: NON PUBLIE — aucune ligne `PHYSPOSEF` dans cette course. Le'
+              ' balayage', notasym=True)
+            A('   resolu a la frame n\'a pas tourne ; la pose epinglee reste celle du cycle 54,'
+              ' choisie', notasym=True)
+            A('   sur 31 echantillons d\'une population de 264.', notasym=True)
+        elif _lat is None:
+            A('ROOM-POSERANK: `PHYSAXW ax=2` absent — pas de plan de reflexion, aucun angle.',
+              notasym=True)
+        else:
+            # L'ANGLE EST RECALCULE DEPUIS LES VECTEURS, PAS RELU DE `s`. C'est le controle de
+            # l'arithmetique faite en course : si les deux divergent, c'est le solveur qui compte
+            # mal, et la pose epinglee n'est pas celle que sa ligne annonce.
+            _pr = {}
+            for _k, (_a, _f, _s) in _psf.items():
+                _rec = _psfb.get(_k, {})
+                _w = None
+                for _l in sorted({kk[1] for kk in _rec}):
+                    if (0, _l) in _rec and (1, _l) in _rec:
+                        _d = _mirror_dev(_rec[(0, _l)], _rec[(1, _l)], _lat)
+                        if _d is not None:
+                            _w = _d if _w is None else max(_w, _d)
+                if _w is not None:
+                    _pr[_k] = (_a, _f, _s, _w)
+            _pfr = {_k: _k % 100 for _k in _pr}          # k = a*100 + pframe (cf. phys-room.gc)
+            _elig = {_k: v for _k, v in _pr.items() if _pfr[_k] >= 54}
+            _pairs = {(v[0], int(v[1] + 0.5)) for v in _pr.values()}
+            A('ROOM-POSERANK: %d echantillons, %d couples (animation, frame entiere) distincts —'
+              ' contre' % (len(_pr), len(_pairs)), notasym=True)
+            A('   31 pour `PHYSPOSEB`, qui n\'echantillonne qu\'UNE frame par animation. %d'
+              ' echantillons sont' % len(_elig), notasym=True)
+            A('   ELIGIBLES a l\'argmax (pframe >= 54, le point d\'etablissement que la salle'
+              ' utilise deja', notasym=True)
+            A('   partout) ; les autres sont publies mais portent le ring-down du pilotage'
+              ' precedent.', notasym=True)
+            # LE CONTROLE D'ARITHMETIQUE : `s` est un cosinus, l'angle recalcule doit lui repondre.
+            _err = max((abs(_w - math.degrees(math.acos(max(-1.0, min(1.0, _s))))) 
+                        for (_a, _f, _s, _w) in _pr.values() if _s > -1.5), default=None)
+            A('ROOM-POSERANK-ARITH: ecart max entre l\'angle recalcule ici et le cosinus calcule'
+              ' en course = %s' % ('%.4f deg' % _err if _err is not None else 'non calculable'),
+              notasym=True)
+            _srt = sorted(_pr.items(), key=lambda kv: kv[1][3])
+            A('')
+            A('      rang  k       a    frame    ecart au miroir   eligible')
+            for _i, (_k, (_a, _f, _s, _w)) in enumerate(_srt[:8]):
+                A('      %-5d %-7d %-4d %-8.3f %8.2f deg        %s'
+                  % (_i + 1, _k, _a, _f, _w, 'oui' if _k in _elig else 'NON (transitoire)'),
+                  notasym=True)
+            _dv = sorted(v[3] for v in _pr.values())
+            A('      ... population : min %.2f  p10 %.2f  mediane %.2f  max %.2f deg (n=%d)'
+              % (_dv[0], _dv[max(0, len(_dv) // 10)], _dv[len(_dv) // 2], _dv[-1], len(_dv)),
+              notasym=True)
+            # LE TRANSITOIRE DEPLACE-T-IL LE SCORE ? On le MESURE au lieu de le supposer : meme
+            # couple (animation, frame entiere), lu dans le transitoire et lu apres.
+            _byp = {}
+            for _k, (_a, _f, _s, _w) in _pr.items():
+                _byp.setdefault((_a, int(_f + 0.5)), {'t': [], 'e': []})[
+                    'e' if _pfr[_k] >= 54 else 't'].append(_w)
+            _dd = [abs(sum(v['e']) / len(v['e']) - sum(v['t']) / len(v['t']))
+                   for v in _byp.values() if v['e'] and v['t']]
+            _dd.sort()
+            A('ROOM-POSERANK-TRANSITOIRE: sur %d couples lus DANS et HORS du transitoire, l\'ecart'
+              ' median' % len(_dd), notasym=True)
+            A('   de l\'angle au miroir vaut %s. C\'est la part du classement qui ne vient pas de'
+              ' la pose.'
+              % ('%.2f deg (max %.2f)' % (_dd[len(_dd) // 2], _dd[-1]) if _dd else 'non mesurable'),
+              notasym=True)
+            # LE RANG DE LA POSE DU CYCLE 54, VERIFIE AU LIEU D'ETRE CITE.
+            _sym = re.search(r'^PHYSREGSPOSE ai=(-?\d+)', txt, re.M)
+            _symai = int(_sym.group(1)) if _sym else -1
+            if _symai >= 0:
+                _same = [(_k, v) for _k, v in _srt if v[0] == _symai]
+                _rk = next((_i + 1 for _i, (_k, v) in enumerate(_srt) if v[0] == _symai), None)
+                A('ROOM-POSERANK-EPINGLE: l\'animation epinglee depuis le cycle 55 (a=%d) apparait'
+                  ' au rang %s' % (_symai, _rk if _rk else '?'), notasym=True)
+                if _same:
+                    A('   sur %d ; sa MEILLEURE frame vaut %.2f deg et sa PIRE %.2f deg — l\'ecart'
+                      ' entre les' % (len(_srt), min(v[3] for _, v in _same),
+                                      max(v[3] for _, v in _same)), notasym=True)
+                    A('   deux est la mesure de ce que « une frame par animation » laissait au'
+                      ' hasard.', notasym=True)
+            # L'ARGMAX DE LA COURSE CONTRE CELUI RECALCULE ICI (prediction Q8).
+            _gt = re.search(r'^PHYSREGTPOSE a=(-?\d+) f=([-\d.e+]+) s=([-\d.e+]+)', txt, re.M)
+            _best = min(_elig.items(), key=lambda kv: kv[1][3]) if _elig else None
+            if _gt and _best:
+                _ga, _gf = int(_gt.group(1)), float(_gt.group(2))
+                _ba, _bf = _best[1][0], _best[1][1]
+                _acc = (_ga == _ba and abs(_gf - _bf) < 1e-3)
+                A('ROOM-POSERANK-ARGMAX: la course a retenu a=%d f=%.4f ; le tableau, en refaisant'
+                  ' le maximum' % (_ga, _gf), notasym=True)
+                A('   sur la population publiee, trouve a=%d f=%.4f (%.2f deg) -> %s'
+                  % (_ba, _bf, _best[1][3],
+                     'LES DEUX ARGMAX COINCIDENT' if _acc else
+                     'LES DEUX ARGMAX DIFFERENT — l\'arithmetique de course est en cause'),
+                  notasym=True)
+        # LE LECTEUR ENFIN DONNE A `PHYSPOSEB` : le balayage a une frame par animation du cycle 54.
+        _pb = {}
+        for _m in re.finditer(r'^PHYSPOSEB a=(\d+) c=(\d+) l=(\d+) ux=([-\d.e+]+)'
+                              r' uy=([-\d.e+]+) uz=([-\d.e+]+)', txt, re.M):
+            _pb.setdefault(int(_m.group(1)), {})[(int(_m.group(2)), int(_m.group(3)))] = \
+                tuple(float(_m.group(k)) for k in (4, 5, 6))
+        if _pb and _lat is not None:
+            _pbd = {}
+            for _a, _rec in _pb.items():
+                _w = None
+                for _l in sorted({kk[1] for kk in _rec}):
+                    if (0, _l) in _rec and (1, _l) in _rec:
+                        _d = _mirror_dev(_rec[(0, _l)], _rec[(1, _l)], _lat)
+                        if _d is not None:
+                            _w = _d if _w is None else max(_w, _d)
+                if _w is not None:
+                    _pbd[_a] = _w
+            _ord = sorted(_pbd.items(), key=lambda kv: kv[1])
+            A('ROOM-POSEB-RANG: %d animations classees (c\'est le balayage du cycle 54, UNE frame'
+              ' par' % len(_ord), notasym=True)
+            A('   animation) — meilleure a=%d a %.2f deg, mediane %.2f deg, pire a=%d a %.2f deg.'
+              % (_ord[0][0], _ord[0][1], _ord[len(_ord) // 2][1], _ord[-1][0], _ord[-1][1]),
+              notasym=True)
+            _sym = re.search(r'^PHYSREGSPOSE ai=(-?\d+)', txt, re.M)
+            if _sym and int(_sym.group(1)) in _pbd:
+                _sa = int(_sym.group(1))
+                _rk = 1 + [a for a, _ in _ord].index(_sa)
+                A('   L\'ANIMATION EPINGLEE (a=%d) Y EST AU RANG %d SUR %d, a %.2f deg. Le'
+                  ' commentaire de' % (_sa, _rk, len(_ord), _pbd[_sa]), notasym=True)
+                A('   `phys-room.gc` annonce « la seule sous 10 deg » : c\'est verifie ici, sur'
+                  ' cette course,', notasym=True)
+                A('   et plus cite de memoire.', notasym=True)
+        A('')
         # ---- ROOM-REGPOSE : LA POSE DANS LAQUELLE §14 A §20 SONT MESUREES (cycle 65) ---------
         #
         # POURQUOI CE BLOC EXISTE. Cinq lignes du registre (§14, §16, §17, §18, §20) publient un
@@ -4369,7 +4826,14 @@ def main():
         elif _rlat is None:
             A('ROOM-REGPOSE: `PHYSAXW ax=2` absent — pas de plan de reflexion, aucun angle publie.')
         else:
+            # LES ECARTS PAR MAILLON PASSENT PAR `asym` COMME TOUT LE RESTE (cycle 67). Quand la
+            # pose refuse, ils ne sont pas PERDUS : ils partent dans la `note` du refus, donc sur
+            # la ligne meme qui refuse. On ne se donne pas le droit de publier une ligne d'ecart
+            # parce qu'elle mesure la pose — c'est la meme regle pour tout le monde, et le chiffre
+            # reste lisible.
+            _preg = POSE['PH-REG']
             _nl = max((k[1] for k in _regb), default=-1)
+            _rgpl = []
             for _l in range(_nl + 1):
                 if (0, _l) not in _regb or (1, _l) not in _regb:
                     A('ROOM-REGPOSE: l=%d — une des deux chaines manque, aucun angle' % _l)
@@ -4380,8 +4844,14 @@ def main():
                 _nu = math.sqrt(sum(x * x for x in _mu)) * math.sqrt(sum(x * x for x in _v))
                 _cs = (sum(_mu[k] * _v[k] for k in range(3)) / _nu) if _nu > 0 else 0.0
                 _dg = math.degrees(math.acos(max(-1.0, min(1.0, _cs))))
-                A('ROOM-REGPOSE: l=%d ecart au miroir = %.1f deg   (bind = 0.005 deg, cycle 53 ;'
-                  ' pose epinglee de PH-SYM = 6.4 a 6.8 deg)' % (_l, _dg))
+                _rgpl.append((_l, _dg))
+                if _preg.ok():
+                    A(asym('ROOM-REGPOSE', ': l=%d ecart au miroir = %.1f deg   (bind = 0.005'
+                           ' deg, cycle 53)' % (_l, _dg), _preg))
+            if not _preg.ok() and _rgpl:
+                A(asym('ROOM-REGPOSE', ': %d maillon(s) mesures' % len(_rgpl), _preg,
+                       note='par maillon : %s.'
+                            % ', '.join('l=%d %.1f deg' % _t for _t in _rgpl)))
             _worst = 0.0
             for _l in range(_nl + 1):
                 if (0, _l) in _regb and (1, _l) in _regb:
@@ -4391,14 +4861,14 @@ def main():
                     _nu = math.sqrt(sum(x * x for x in _mu)) * math.sqrt(sum(x * x for x in _v))
                     _cs = (sum(_mu[k] * _v[k] for k in range(3)) / _nu) if _nu > 0 else 0.0
                     _worst = max(_worst, math.degrees(math.acos(max(-1.0, min(1.0, _cs)))))
-            A('ROOM-REGPOSE-VERDICT: pire ecart %.1f deg -> %s'
-              % (_worst,
-                 'POSE HERITEE NON SYMETRIQUE : tout ecart gauche/droite publie par §14, §16,'
-                 ' §17, §18 et §20 la porte, et aucune de ces lignes ne peut attribuer son'
-                 ' asymetrie au PERSONNAGE tant qu\'elle n\'est pas rejouee dans une pose'
-                 ' epinglee.' if _worst > 10.0 else
-                 'pose heritee acceptable au seuil de 10 deg du cycle 54 : les ecarts'
-                 ' gauche/droite de §14 a §20 ne sont PAS portes par la pose.'))
+            A(asym('ROOM-REGPOSE-VERDICT', ': pire ecart %.1f deg -> %s'
+                   % (_worst,
+                      'POSE HERITEE NON SYMETRIQUE : tout ecart gauche/droite publie par §14,'
+                      ' §16, §17, §18 et §20 la porte, et aucune de ces lignes ne peut attribuer'
+                      ' son asymetrie au PERSONNAGE tant qu\'elle n\'est pas rejouee dans une'
+                      ' pose epinglee.' if _worst > 10.0 else
+                      'pose heritee acceptable au seuil de 10 deg du cycle 54 : les ecarts'
+                      ' gauche/droite de §14 a §20 ne sont PAS portes par la pose.'), _preg))
         A('')
         A('   -- ROOM-REGIME-MIRROR : SPEC 18 et SPEC 20, GAUCHE CONTRE DROITE -----------------')
         A('      §18 exige que les deux seins DIFFERENT en rotation, et elle en donne la cause :')
@@ -4419,7 +4889,16 @@ def main():
               ' (chaines vues : %s) — aucun ecart n\'est publie.'
               % ', '.join(sorted(_rgnm(_c) for _c in {k[0] for k in _rgk})))
         else:
-            for _r in (9, 10, 13, 14):
+            # CES QUATRE REGIMES SONT JOUES DANS PH-REG, LA POSE HERITEE (cycle 67). Si elle n'est
+            # pas au miroir, les quatre ecarts qu'ils publient sont indistinguables d'un artefact
+            # de pose : un seul refus les couvre tous, et `ROOM-REGS` rejoue les memes fenetres
+            # dans la pose EPINGLEE — c'est la, et nulle part ici, qu'un chiffre peut naitre.
+            _preg2 = POSE['PH-REG']
+            _RMNOTE = '§18 et §20 restent NON ETABLI sur leur clause gauche/droite.'
+            if not _preg2.ok():
+                A(asym('ROOM-REGIME-MIRROR', ': 4 regimes releves, aucun ecart publie', _preg2,
+                       note=_RMNOTE))
+            for _r in ((9, 10, 13, 14) if _preg2.ok() else ()):
                 _kl2, _kr2 = (_cl[0], _r), (_cr[0], _r)
                 if _kl2 not in _rgk or _kr2 not in _rgk:
                     A('ROOM-REGIME-MIRROR: r=%2d %-13s FENETRE MANQUANTE OU ECARTEE sur au moins'
@@ -4427,10 +4906,11 @@ def main():
                     continue
                 _vl, _vr = _rga[_kl2][0], _rga[_kr2][0]
                 _mn = 0.5 * (_vl + _vr)
-                A('ROOM-REGIME-MIRROR: r=%2d %-13s com(chestL)=%.4f com(chestR)=%.4f  ecart %s'
-                  % (_r, _rgtab[_r][1], _vl, _vr,
-                     ('%.2f %%' % (100.0 * abs(_vl - _vr) / _mn)) if _mn > 0 else
-                     'INDEFINI (les deux valent 0)'))
+                A(asym('ROOM-REGIME-MIRROR',
+                       ': r=%2d %-13s com(chestL)=%.4f com(chestR)=%.4f  ecart %s'
+                       % (_r, _rgtab[_r][1], _vl, _vr,
+                          ('%.2f %%' % (100.0 * abs(_vl - _vr) / _mn)) if _mn > 0 else
+                          'INDEFINI (les deux valent 0)'), _preg2, note=_RMNOTE))
         A('')
         # ---- (7) CYCLE 51 : L'APEX, PAR REGIME ------------------------------------------------
         # POURQUOI CE BLOC EXISTE. §14, §16, §17, §18, §19 et §20 bornent TOUTES un « apex
@@ -4491,8 +4971,12 @@ def main():
                 A('      PART NON ETABLIE : aucun enregistrement `ax` lisible. Les mentions')
                 A('      « ancrage seul » ci-dessous sont donc OMISES plutot que devinees.')
             else:
+                # EXEMPTE : ces deux nombres sont des POIDS DE PEAU lus dans
+                # `recharged_assets/physics_mesh.txt`, le fichier livre. Ils ne dependent d'aucune
+                # pose — une ponderation de skin est la meme dans toutes — et le `x%.2f` qui suit
+                # est le plafond de CHAQUE chaine, pas un rapport de l'une a l'autre.
                 A('      part simulee : %.4f (chestL) / %.4f (chestR) -> plafond d\'ancrage x%.2f'
-                  % (_shL, _shR, 1.0 / _shL))
+                  % (_shL, _shR, 1.0 / _shL), notasym=True)
                 A('      / x%.2f. Une bande manquee de MOINS que ce facteur peut s\'expliquer par'
                   % (1.0 / _shR))
                 A('      l\'ancrage seul ; manquee de PLUS, non — et c\'est cette frontiere qui')
@@ -4598,9 +5082,16 @@ def main():
                             _cs = (sum(_mu[k] * _v[k] for k in range(3)) / _nu) if _nu > 0 else 0.0
                             _sd.append(math.degrees(math.acos(max(-1.0, min(1.0, _cs)))))
                     _sdev = max(_sd) if _sd else None
-                A('ROOM-REGS-POSE: animation epinglee ai=%d (%s) ; ecart au miroir REVALIDE a'
-                  ' l\'execution = %s' % (_rgspose[0], _rgspose[1],
-                                          ('%.1f deg' % _sdev) if _sdev is not None else 'NON LU'))
+                # LES DEUX POSES DE CE BLOC, PRISES AU REGISTRE ET PAS RECALCULEES ICI (c67).
+                # `_sdev` ci-dessus mesure la MEME chose que `POSE['PH-REGS']` (meme trace, meme
+                # formule) : le registre est la source, la variable locale ne sert plus qu'a
+                # l'affichage de l'en-tete. Deux calculs de la meme grandeur divergent toujours ;
+                # celui-la ne peut plus, parce qu'il n'y en a qu'un qui decide.
+                _poh, _poe = POSE['PH-REG'], POSE['PH-REGS']
+                A(asym('ROOM-REGS-POSE', ': animation epinglee ai=%d (%s) ; ecart au miroir'
+                       ' REVALIDE a l\'execution = %s'
+                       % (_rgspose[0], _rgspose[1],
+                          ('%.1f deg' % _sdev) if _sdev is not None else 'NON LU'), _poe))
                 if _sdev is not None and _sdev > 10.0:
                     A('   L\'EPINGLE A PRIS MAIS LA FRAME N\'EST PAS SYMETRIQUE (%.1f deg > 10, le'
                       ' seuil du cycle 54).' % _sdev)
@@ -4625,8 +5116,18 @@ def main():
                     _c2, _d2 = _el[0], _er[0]
                     _rh = (max(_a, _b2) / min(_a, _b2)) if min(_a, _b2) > 0 else float('nan')
                     _re2 = (max(_c2, _d2) / min(_c2, _d2)) if min(_c2, _d2) > 0 else float('nan')
-                    A('      %-3d %-13s %-9.4f %-9.4f %-8.3f %-9.4f %-9.4f %-8.3f'
-                      % (_r, _rgtab[_r][1] if _r in _rgtab else '?', _a, _b2, _rh, _c2, _d2, _re2))
+                    # LES DEUX COLONNES DE RAPPORT NE SONT PAS DE LA MEME POSE, DONC PAS DE LA
+                    # MEME ADMISSIBILITE. `R^h` est un rapport gauche/droite releve dans PH-REG,
+                    # `R^e` dans PH-REGS : chacune est publiee OU TAIT SON CHIFFRE selon SA pose,
+                    # et jamais selon celle de l'autre. Les colonnes `apexL`/`apexR` restent :
+                    # ce sont des mesures PAR CHAINE, pas des comparaisons, et une pose non
+                    # miroir ne les invalide pas — elle invalide ce qu'on tire de leur DIFFERENCE.
+                    # La largeur de colonne est conservee pour que le tableau reste alignable a la
+                    # colonne pres par n'importe quel lecteur.
+                    A('      %-3d %-13s %-9.4f %-9.4f %-8s %-9.4f %-9.4f %-8s'
+                      % (_r, _rgtab[_r][1] if _r in _rgtab else '?', _a, _b2,
+                         ('%.3f' % _rh) if _poh.ok() else 'NONSYM', _c2, _d2,
+                         ('%.3f' % _re2) if _poe.ok() else 'NONSYM'))
                     if _rh == _rh and _re2 == _re2:
                         _ncmp += 1
                         if _re2 < _rh:
@@ -4635,21 +5136,38 @@ def main():
                         # une amplitude : c'est la grandeur que le cycle 65 a vue s'inverser.
                         if (_a > _b2) != (_c2 > _d2):
                             _flip += 1
+                # ---- QUELLE COLONNE DE RAPPORT EST PUBLIABLE, ET SOUS QUELLE POSE -----------
+                # Un tableau a deux colonnes de rapport dont l'une est muette doit le DIRE sous le
+                # tableau, pas le laisser deviner a qui compte les `NONSYM`.
+                _vcorps = (': R^h et R^e sont publiables toutes les deux' if _poh.ok() else
+                           ': R^e est publiable ; R^h ne l\'est pas — PH-REG est a %s du miroir'
+                           % _pdeg(_poh))
+                A(asym('ROOM-REGS-VERROU', _vcorps, _poe,
+                       note='R^h ne porte rien non plus : PH-REG est a %s du miroir.'
+                            % _pdeg(_poh)))
                 A('')
+                # ---- LES DEUX COMPTEURS QUI COMPARENT LES DEUX POSES ENTRE ELLES -------------
+                # Ils sont EXEMPTES du verrou, et la raison est de nature, pas de commodite : leur
+                # grandeur n'est pas un ecart gauche/droite, c'est un ECART ENTRE DEUX POSES sur
+                # cet ecart-la. Une pose asymetrique ne les fausse pas — elle EST ce qu'ils
+                # mesurent. Ils portent donc les DEUX ecarts au miroir sur leur propre ligne, pour
+                # qu'aucun lecteur ne puisse les prendre pour une propriete du PERSONNAGE.
+                _RGSPO = '(PH-REG %s vs PH-REGS %s)' % (_pdeg(_poh), _pdeg(_poe))
                 A('ROOM-REGS-SENS: %d fenetre(s) sur %d ou la pose INVERSE lequel des deux seins'
-                  ' bouge le plus.' % (_flip, _ncmp))
+                  ' bouge le plus. %s' % (_flip, _ncmp, _RGSPO), notasym=True)
                 A('ROOM-REGS-SERRE: %d fenetre(s) sur %d ou l\'ecart gauche/droite est PLUS PETIT'
-                  ' dans la pose epinglee.' % (_tight, _ncmp))
+                  ' dans la pose epinglee. %s' % (_tight, _ncmp, _RGSPO), notasym=True)
                 _t1 = _rgs.get((0, 0)), _rgs.get((1, 0))
                 if _t1[0] and _t1[1]:
                     _tm = max(_t1[0][0], _t1[1][0])
-                    A('ROOM-REGS-TEMOIN: r=0 (aucun pilotage) apex chestL=%.4f chestR=%.4f -> %s'
-                      % (_t1[0][0], _t1[1][0],
-                         'ligne de base SAINE (< 0.10 B0) : les quatorze autres fenetres se lisent'
-                         ' au-dessus d\'un plancher qui en est un.' if _tm < 0.10 else
-                         'PLANCHER NON CALME (%.4f >= 0.10 B0) — la pose epinglee n\'est pas au'
-                         ' repos, et aucune fenetre de cette passe ne se lit comme une reponse au'
-                         ' seul pilotage.' % _tm))
+                    A(asym('ROOM-REGS-TEMOIN',
+                           ': r=0 (aucun pilotage) apex chestL=%.4f chestR=%.4f -> %s'
+                           % (_t1[0][0], _t1[1][0],
+                              'ligne de base SAINE (< 0.10 B0) : les quatorze autres fenetres se'
+                              ' lisent au-dessus d\'un plancher qui en est un.' if _tm < 0.10 else
+                              'PLANCHER NON CALME (%.4f >= 0.10 B0) — la pose epinglee n\'est pas'
+                              ' au repos, et aucune fenetre de cette passe ne se lit comme une'
+                              ' reponse au seul pilotage.' % _tm), _poe))
                 else:
                     A('ROOM-REGS-TEMOIN: fenetre r=0 ABSENTE — la passe n\'a pas de ligne de base.')
                 A('CE QUE CE BLOC N\'ETABLIT PAS, et il faut le lire avec : les deux passes')
@@ -4658,6 +5176,292 @@ def main():
                 A('   historique de chaine. La POSE est la seule variable DECLAREE, elle n\'est pas')
                 A('   la seule qui bouge. Ce bloc autorise a REFUSER une attribution au personnage')
                 A('   quand le sens s\'inverse ; il n\'autorise pas a donner a §18 un chiffre neuf.')
+            # ---- ROOM-POSE-RAFFINEMENT : 7.5 deg SUFFIT-IL ? (cycle 67) --------------------
+            #
+            # LA QUESTION, ET POURQUOI DEUX POSES NE PEUVENT PAS Y REPONDRE. Le cycle 66 a joue
+            # les quinze fenetres a 48.0 deg puis a 7.5 deg et a montre que cinq ecarts
+            # gauche/droite sur onze CHANGENT DE SENS entre les deux. Il en a conclu — a juste
+            # titre — que le x5.58 de §18 etait la pose. Mais il reste une question que deux
+            # points ne tranchent pas : **le x1.50 mesure a 7.5 deg est-il, lui, le personnage ?**
+            # Si le rapport bouge encore quand on resserre la pose, alors 7.5 deg est encore une
+            # pose, et on aurait publie l'une pour l'autre — exactement la faute du cycle 65,
+            # commise un cran plus bas.
+            #
+            # LE TEST EST CELUI DU REGISTRE : on RESSERRE l'instrument et on regarde si la mesure
+            # bouge. Il ne demande aucune theorie, il ne se discute pas, et il tranche. Les trois
+            # passes partagent tout sauf la pose : memes tables `pre`/`drv`/`post`, meme
+            # `physroom-reg-drive`, memes emplacements de lecture (53 = apex, 43 = COM), meme B0.
+            #
+            # NATURE : `R` est un RAPPORT sans unite entre les deux chaines, pris sur le maximum
+            #   de fenetre de l'apex. L'ecart publie est un ecart RELATIF entre deux valeurs de R.
+            # REPERE : celui de PH-REG et PH-REGS, sans quoi les trois passes ne se compareraient
+            #   pas. CE QUI DISCRIMINE : la POSE, et rien d'autre de declare.
+            # LECTURE QUAND LE DEFAUT EST ABSENT : 0 % — un rapport qui ne doit plus rien a la
+            #   pose ne bouge pas quand on resserre la pose.
+            _rgt = {}
+            for _m in re.finditer(r'^PHYSREGT c=(\d+) r=(\d+) apex=([-\d.e+]+) com=([-\d.e+]+)',
+                                  txt, re.M):
+                _rgt[(int(_m.group(1)), int(_m.group(2)))] = (float(_m.group(3)),
+                                                              float(_m.group(4)))
+            _gtp = re.search(r'^PHYSREGTPOSE a=(-?\d+) f=([-\d.e+]+) s=([-\d.e+]+)', txt, re.M)
+            A('')
+            A('   -- ROOM-POSE-RAFFINEMENT : LE MEME STIMULUS A TROIS ECARTS AU MIROIR ---------')
+            if not _rgt:
+                A('ROOM-POSE-RAFFINEMENT: NON PUBLIE — aucune ligne `PHYSREGT`. La question'
+                  ' « 7.5 deg', notasym=True)
+                A('   suffit-il ? » reste OUVERTE, et les chiffres « propres » du cycle 66 restent'
+                  ' donc', notasym=True)
+                A('   des chiffres dont on ne sait pas s\'ils decrivent le personnage ou sa pose.',
+                  notasym=True)
+            elif _gtp is None or int(_gtp.group(1)) < 0:
+                A('ROOM-POSE-RAFFINEMENT: l\'argmax de pose n\'a pas pris (%s) : cette passe a'
+                  ' rejoue une' % ('PHYSREGTPOSE absent' if _gtp is None else 'a=-1'),
+                  notasym=True)
+                A('   pose NON CHOISIE sous le nom de « pose resserree ». AUCUN de ses chiffres'
+                  ' n\'est lu.', notasym=True)
+            else:
+                _dt = POSE['PH-REGT'].dev
+                _de = POSE['PH-REGS'].dev
+                _dh = POSE['PH-REG'].dev
+                A('ROOM-POSE-RAFFINEMENT: pose retenue a=%d f=%.4f, ecart au miroir REVALIDE a'
+                  ' l\'execution' % (int(_gtp.group(1)), float(_gtp.group(2))), notasym=True)
+                A('   = %s   (PH-REG %s · PH-REGS %s)'
+                  % ('%.2f deg' % _dt if _dt is not None else 'NON LU',
+                     '%.1f deg' % _dh if _dh is not None else '?',
+                     '%.1f deg' % _de if _de is not None else '?'), notasym=True)
+                A('')
+                A('      %-3s %-13s %-8s %-8s %-8s   %-8s %-8s %-9s %-8s %s'
+                  % ('r', 'regime', 'apexL^t', 'apexR^t', 'R^t', 'R^e', '|dR|/R^e',
+                     'sens', '%/deg', 'ecart admissible pour 2 % (§32)'))
+                # L'INTERVALLE SUR LEQUEL LA SENSIBILITE EST MESUREE, lu sur les deux poses
+                # elles-memes et jamais ecrit en dur : si une course change de poses, la
+                # sensibilite publiee change avec elles.
+                _DDEV = (_de - _dt) if (_de is not None and _dt is not None) else 0.0
+                # LA POSE LA PLUS SERREE QUE CE RIG AIT RENDUE sur cette course : c'est la borne
+                # de ce qu'on peut esperer, et donc ce qui decide si une fenetre est resoluble.
+                _dtb = _dt if _dt is not None else float('inf')
+                _rel, _flip2, _n2 = [], 0, 0
+                for _r in (1, 3, 4, 6, 8, 9, 10, 11, 12, 13, 14):
+                    _tl, _tr = _rgt.get((0, _r)), _rgt.get((1, _r))
+                    _el, _er = _rgs.get((0, _r)), _rgs.get((1, _r))
+                    if not (_tl and _tr and _el and _er):
+                        A('      %-3d %-13s FENETRE MANQUANTE sur au moins une passe'
+                          % (_r, _rgtab[_r][1] if _r in _rgtab else '?'))
+                        continue
+                    _a3, _b3 = _tl[0], _tr[0]
+                    _c3, _d3 = _el[0], _er[0]
+                    _rt = (max(_a3, _b3) / min(_a3, _b3)) if min(_a3, _b3) > 0 else float('nan')
+                    _re3 = (max(_c3, _d3) / min(_c3, _d3)) if min(_c3, _d3) > 0 else float('nan')
+                    _dr = (abs(_rt - _re3) / _re3) if (_re3 == _re3 and _re3 > 0) else float('nan')
+                    _sf = (_a3 > _b3) != (_c3 > _d3)
+                    # LA SENSIBILITE PAR FENETRE, ET CE QU'ELLE EXIGERAIT DE LA POSE. Le seuil
+                    # global est MEDIAN : il ne protege pas les fenetres les plus sensibles, et
+                    # les taire sous un seuil qui ne les couvre pas serait un faux vert. Chaque
+                    # ligne porte donc l'ecart au miroir que SA propre sensibilite exigerait pour
+                    # que la pose pese moins que les 2 % de §32 — et dit si une pose de ce rig
+                    # l'atteint, `_dtb` etant la plus serree que cette course ait rendue.
+                    _sens = (100.0 * _dr / _DDEV) if (_dr == _dr and _DDEV > 0) else float('nan')
+                    _need = (2.0 / _sens) if (_sens == _sens and _sens > 1e-9) else float('inf')
+                    A('      %-3d %-13s %-8.4f %-8.4f %-8.3f   %-8.3f %-8s %-9s %-8s %s'
+                      % (_r, _rgtab[_r][1] if _r in _rgtab else '?', _a3, _b3, _rt, _re3,
+                         ('%.1f %%' % (100.0 * _dr)) if _dr == _dr else '?',
+                         'INVERSE' if _sf else 'stable',
+                         ('%.2f' % _sens) if _sens == _sens else '?',
+                         ('%.3f deg%s' % (_need, '' if _need >= _dtb else
+                                          '  <<< AUCUNE POSE DE CE RIG NE L\'ATTEINT'))
+                         if _need != float('inf') else 'toute pose convient'))
+                    if _dr == _dr:
+                        _rel.append(_dr)
+                        _n2 += 1
+                        if _sf:
+                            _flip2 += 1
+                _rel.sort()
+                _med = _rel[len(_rel) // 2] if _rel else None
+                A('')
+                # LE TEMOIN DE LA PASSE, publie AVANT tout verdict : une fenetre sans pilotage.
+                _t3 = (_rgt.get((0, 0)), _rgt.get((1, 0)))
+                if _t3[0] and _t3[1]:
+                    A(asym('ROOM-REGT-TEMOIN',
+                           ': r=0 (aucun pilotage) apex chestL=%.4f chestR=%.4f -> %s'
+                           % (_t3[0][0], _t3[1][0],
+                              'ligne de base SAINE (< 0.10 B0)'
+                              if max(_t3[0][0], _t3[1][0]) < 0.10
+                              else 'PLANCHER NON CALME : les quatorze autres fenetres sont'
+                                   ' sans echelle'),
+                           POSE['PH-REGT']))
+                if _med is not None:
+                    A('ROOM-POSE-RAFFINEMENT: ecart relatif MEDIAN du rapport gauche/droite entre'
+                      ' 7.5 deg', notasym=True)
+                    A('   et la pose resserree = %.1f %% sur %d fenetres (min %.1f %%,'
+                      ' max %.1f %%) ; %d fenetre(s)'
+                      % (100.0 * _med, _n2, 100.0 * _rel[0], 100.0 * _rel[-1], _flip2),
+                      notasym=True)
+                    A('   changent de sens.', notasym=True)
+                    # LE VERDICT EST CELUI DU CRITERE ECRIT AVANT LA COURSE (c67-predictions,
+                    # Q3), et il n'est pas retouche apres l'avoir lu.
+                    _v = (['LE PLATEAU EST ATTEINT A 7.5 deg : le rapport ne bouge plus quand',
+                           '   on resserre la pose, donc le seuil de 10 deg etait ADEQUAT et les',
+                           '   chiffres du cycle 66 tiennent.']
+                          if (_med <= 0.03 and _flip2 == 0) else
+                          ['AUCUNE POSE DISPONIBLE N\'EST ASSEZ SYMETRIQUE : le rapport bouge',
+                           '   encore de plus de 30 % entre 7.5 deg et la pose la plus serree du',
+                           '   rig. AUCUN ecart gauche/droite de §14 a §20 n\'est publiable, y',
+                           '   compris ceux que le cycle 66 a presentes comme propres.']
+                          if _med > 0.30 else
+                          ['LE PLATEAU N\'EST PAS ATTEINT A 7.5 deg, ET LE SEUIL DE 10 deg EST',
+                           '   DONC REFUTE PAR LE CRITERE ECRIT AVANT LA COURSE (c67 Q3). Le pas',
+                           '   7.5 -> 0.6 deg deplace pourtant BEAUCOUP MOINS que le pas 48 ->',
+                           '   7.5. Le rapport garde une part de pose : il se publie avec son',
+                           '   ecart au miroir, jamais comme une propriete du personnage, et le',
+                           '   seuil descend a %.1f deg (derive : 2 %% de §32 / %.2f %% par deg).'
+                           % (_ASYM_SEUIL, 100.0 * _med / 6.868)])
+                    A('ROOM-POSE-RAFFINEMENT-VERDICT: %s' % _v[0], notasym=True)
+                    for _vl in _v[1:]:
+                        A(_vl, notasym=True)
+            A('')
+            # ---- ROOM-REGAXE : LES ROTATIONS DE §18 A §20 SONT-ELLES CELLES QUE LA SPEC NOMME ? ---
+            #
+            # LA QUESTION N'AVAIT JAMAIS ETE POSEE. `physroom-reg-pose` tourne autour des axes du
+            # MONDE, pris litteralement — (1,0,0) pour ce que `physroom-reg-axis` appelle « tangage »,
+            # (0,1,0) pour le lacet, (0,0,1) pour le « roulis ». Mais §18 a §20 sont definies dans le
+            # repere du SUJET (« torso yaw », « forward bend », « lateral torso motion »), et rien ne
+            # garantit que le sujet soit aligne sur le monde. Personne ne l'avait mesure.
+            #
+            # NATURE : des ANGLES en degres entre deux directions unitaires. REPERE : le MONDE.
+            # LECTURE QUAND LE DEFAUT EST ABSENT : 0 deg entre l'axe commande et l'axe anatomique que
+            #   la section nomme. CE QUI DISCRIMINE : rien d'autre que la geometrie — ces angles ne
+            #   dependent d'aucun reglage du solveur.
+            _axs = {}
+            for _m in re.finditer(r'^PHYSAXW ax=(\d+) ux=([-\d.e+]+) uy=([-\d.e+]+) uz=([-\d.e+]+)',
+                                  txt, re.M):
+                _axs[int(_m.group(1))] = tuple(float(_m.group(k)) for k in (2, 3, 4))
+            A('')
+            A('   -- ROOM-REGAXE : L\'AXE DES ROTATIONS DE §18 A §20 (cycle 67) -------------------')
+            if len(_axs) < 3:
+                A('ROOM-REGAXE: NON PUBLIE — `PHYSAXW` incomplet, les axes du sujet ne sont pas lus.',
+                  notasym=True)
+            else:
+                def _angd(u, v):
+                    _d = abs(sum(u[k] * v[k] for k in range(3)))
+                    return math.degrees(math.acos(max(-1.0, min(1.0, _d))))
+                _W = (('X', (1.0, 0.0, 0.0)), ('Y', (0.0, 1.0, 0.0)), ('Z', (0.0, 0.0, 1.0)))
+                _AN = {0: 'vertical', 1: 'avant/arriere', 2: 'lateral'}
+                A('      axes du SUJET, mesures a l\'execution (PHYSAXW, repere monde) :')
+                for _k in (0, 1, 2):
+                    A('        %-14s (%+.4f, %+.4f, %+.4f)   monde X %5.1f  Y %5.1f  Z %5.1f deg'
+                      % (_AN[_k], _axs[_k][0], _axs[_k][1], _axs[_k][2],
+                         _angd(_axs[_k], _W[0][1]), _angd(_axs[_k], _W[1][1]),
+                         _angd(_axs[_k], _W[2][1])), notasym=True)
+                # CONFIRMATION INDEPENDANTE DE L'AXE LATERAL, sans se fier au NOM que le solveur donne
+                # a ses axes. Pour une paire MIROIR, u_L - u_R = -2 (n.u_R) n : la difference des deux
+                # directions d'os est COLINEAIRE a la normale du miroir, donc a l'axe lateral. Deux
+                # routes independantes doivent donner le meme axe ; si elles divergent, c'est le NOM
+                # qui est faux, et tout ce bloc avec lui.
+                _st = {}
+                for _m in re.finditer(r'^PHYSPOSETAG tag=settle c=(\d+) l=(\d+) ux=([-\d.e+]+)'
+                                      r' uy=([-\d.e+]+) uz=([-\d.e+]+)', txt, re.M):
+                    _st[(int(_m.group(1)), int(_m.group(2)))] = \
+                        tuple(float(_m.group(k)) for k in (3, 4, 5))
+                if (0, 0) in _st and (1, 0) in _st:
+                    _d3 = [_st[(0, 0)][k] - _st[(1, 0)][k] for k in range(3)]
+                    _n3 = math.sqrt(sum(x * x for x in _d3))
+                    if _n3 > 1e-6:
+                        _u3 = [x / _n3 for x in _d3]
+                        A('      CONTROLE INDEPENDANT : (u_chestL - u_chestR) normalise ='
+                          ' (%+.4f, %+.4f, %+.4f),' % tuple(_u3), notasym=True)
+                        A('        a %.3f deg de l\'axe que le solveur NOMME lateral. Les deux routes'
+                          ' concordent, donc' % _angd(_u3, _axs[2]), notasym=True)
+                        A('        le nom est bon et ce qui suit ne depend pas de lui.', notasym=True)
+                A('')
+                A('      r      section  axe commande   role REEL dans le repere du sujet')
+                for _r, _sec, _wi in ((9, '§18', 1), (10, '§18', 1), (11, '§19', 0), (12, '§19', 0),
+                                      (13, '§20', 2), (14, '§20', 2)):
+                    _w = _W[_wi]
+                    _best, _ba = None, 999.0
+                    for _k in (0, 1, 2):
+                        _a = _angd(_w[1], _axs[_k])
+                        if _a < _ba:
+                            _ba, _best = _a, _k
+                    _role = {0: 'LACET', 1: 'ROULIS (flexion laterale)',
+                             2: 'TANGAGE (flexion avant/arriere)'}[_best]
+                    _want = {'§18': 0, '§19': 2, '§20': 1}[_sec]
+                    A('      %-6d %-8s monde %-8s %s a %.1f deg%s'
+                      % (_r, _sec, _w[0], _role, _ba,
+                         '' if _best == _want else '   <<< CE N\'EST PAS LE GESTE DE CETTE SECTION'))
+                A('')
+                A('      §18 « torso yaw » veut le VERTICAL · §19 « forward bend » veut le LATERAL ·')
+                A('      §20 « lateral torso motion » veut l\'AVANT/ARRIERE. Le lacet tombe juste ;')
+                A('      §19 et §20 SE JOUENT L\'UN POUR L\'AUTRE.')
+                A('')
+                # LA PREUVE PAR L'ALGEBRE, CONFIRMEE PAR LA MESURE.
+                _dvi = _pose_dev_from(txt, 'PHYSPOSETAG', _lat, extra='tag=idle')
+                _dvt = _pose_dev_from(txt, 'PHYSPOSETAG', _lat, extra='tag=tilt')
+                if _dvi is not None and _dvt is not None:
+                    A('ROOM-REGAXE-LEAN: une rotation AUTOUR de l\'axe lateral commute avec la'
+                      ' reflexion dans le', notasym=True)
+                    A('   plan de normale laterale : elle laisse l\'ecart au miroir INVARIANT, par'
+                      ' algebre.', notasym=True)
+                    A('   `physroom-lean` tourne autour du monde X et fait passer cet ecart de'
+                      ' %.3f deg (pose' % _dvi, notasym=True)
+                    A('   `idle`) a %.3f deg (pose `tilt`). L\'axe X n\'est donc PAS le lateral, et ce'
+                      ' que la salle' % _dvt, notasym=True)
+                    A('   documente comme « penchee de 60 deg VERS L\'AVANT » est une inclinaison'
+                      ' LATERALE.', notasym=True)
+                    A('   Consequence : §12 (« sideways gravity ») est servie par le bon geste ; le'
+                      ' PENCHE AVANT', notasym=True)
+                    A('   de §13 (« at a 45 deg forward lean ») n\'a jamais ete joue, et'
+                      ' `ROOM-GRAVSAG` ne', notasym=True)
+                    A('   repond donc pas a la plainte « aucun mouvement quand elle se penche en avant'
+                      ' pour souder ».', notasym=True)
+                A('')
+            # ---- ROOM-REGA : LES SIX FENETRES DE ROTATION, AUTOUR DES AXES DU SUJET ---------------
+            _rga2, _rgad, _rgaw = {}, {}, {}
+            for _m in re.finditer(r'^PHYSREGA c=(\d+) r=(\d+) apex=([-\d.e+]+) com=([-\d.e+]+)',
+                                  txt, re.M):
+                _rga2[(int(_m.group(1)), int(_m.group(2)))] = (float(_m.group(3)),
+                                                               float(_m.group(4)))
+            for _m in re.finditer(r'^PHYSREGAD r=(\d+) apy=([-\d.e+]+) latx=([-\d.e+]+)', txt, re.M):
+                _rgad[int(_m.group(1))] = (float(_m.group(2)), float(_m.group(3)))
+            _gap = re.search(r'^PHYSREGAPOSE a=(-?\d+) f=([-\d.e+]+)', txt, re.M)
+            A('   -- ROOM-REGA : §18 A §20 JOUEES AUTOUR DES AXES DU SUJET (cycle 67) ------------')
+            if not _rga2:
+                A('ROOM-REGA: NON PUBLIE — aucune ligne `PHYSREGA`. §19 et §20 restent donc mesurees'
+                  ' sur', notasym=True)
+                A('   un geste qui n\'est pas le leur, et leur ligne du registre le dit.',
+                  notasym=True)
+            elif _gap is None or int(_gap.group(1)) < 0:
+                A('ROOM-REGA: l\'epingle de pose n\'a pas pris — aucun chiffre publie.', notasym=True)
+            else:
+                _dva = POSE['PH-REGA'].dev
+                A('ROOM-REGA: pose a=%d f=%.4f, ecart au miroir revalide = %s ; axe de rotation pris'
+                  ' sur le SUJET' % (int(_gap.group(1)), float(_gap.group(2)),
+                                     ('%.2f deg' % _dva) if _dva is not None else 'NON LU'),
+                  notasym=True)
+                A('')
+                A('      %-3s %-8s %-9s %-9s %-9s %-9s %-9s %s'
+                  % ('r', 'section', 'apexL^t', 'apexR^t', 'apexL^a', 'apexR^a', 'apy', 'sens obtenu'))
+                for _r, _sec in ((9, '§18'), (10, '§18'), (11, '§19'), (12, '§19'),
+                                 (13, '§20'), (14, '§20')):
+                    _tl, _tr = _rgt.get((0, _r)), _rgt.get((1, _r))
+                    _al, _ar = _rga2.get((0, _r)), _rga2.get((1, _r))
+                    if not (_al and _ar):
+                        A('      %-3d %-8s FENETRE MANQUANTE' % (_r, _sec))
+                        continue
+                    _apy = _rgad.get(_r, (float('nan'), float('nan')))[0]
+                    _sens = ('penche VERS L\'AVANT' if _apy < 0.0 else
+                             'penche VERS L\'ARRIERE' if _apy > 0.20 else
+                             'pas de bascule avant/arriere')
+                    A('      %-3d %-8s %-9.4f %-9.4f %-9.4f %-9.4f %-9.4f %s'
+                      % (_r, _sec, _tl[0] if _tl else float('nan'),
+                         _tr[0] if _tr else float('nan'), _al[0], _ar[0], _apy, _sens))
+                A('')
+                A('      ^t = axes du MONDE (PH-REGT) · ^a = axes du SUJET (PH-REGA), MEME pose,')
+                A('      MEME course, MEMES tables de duree et d\'amplitude. La seule variable est'
+                  ' l\'AXE.')
+                A('      `apy` = composante VERTICALE de l\'axe avant/arriere du sujet a la fin du')
+                A('      pilotage. Au repos elle vaut +0.096 : elle BAISSE si le buste s\'est penche'
+                  ' en avant.')
+            A('')
             A('')
             A('   -- ROOM-SPEC15-CROSS : « jump apex -> breast may CROSS neutral position » -----')
             A('      §15 l.230. Le registre portait la clause NON DEMONTREE, et la raison etait')
@@ -5194,17 +5998,25 @@ def main():
             _cos = max(-1.0, min(1.0, -_dot(_l[0], _r[0])))
             _ang = math.degrees(math.acos(_cos))
             _dl, _dr = _det(_l[0], _l[1], _l[2]), _det(_r[0], _r[1], _r[2])
-            A('ROOM-SPEC7-MIROIR: angle(a0[%s], -a0[%s]) = %.3f deg  ->  %s'
-              % (names[_cl] if _cl < len(names) else _cl,
-                 names[_cr] if _cr < len(names) else _cr, _ang,
-                 'MIROIR TENU' if _ang <= 2.0 else
-                 'MIROIR ABSENT — +X pointe du MEME cote sur les deux seins'
-                 if _ang >= 178.0 else 'MIROIR PARTIEL'))
-            A('ROOM-SPEC7-SENS: det(%s)=%+.5f  det(%s)=%+.5f  ->  %s'
-              % (names[_cl] if _cl < len(names) else _cl, _dl,
-                 names[_cr] if _cr < len(names) else _cr, _dr,
-                 'SENS OPPOSES, consequence du miroir d\'un seul axe'
-                 if _dl * _dr < 0 else 'MEME SENS — incompatible avec un +X mirore'))
+            # LE TRIEDRE EST RELEVE DANS PH-SETTLE, ET CETTE PHASE NE PUBLIE PAS SA POSE (c67).
+            # `PHYSTRI` n'a pas de compagnon de directions d'os : on ne sait pas a combien du
+            # miroir la salle tenait le sujet quand elle l'a lu. Les deux lignes ci-dessous
+            # COMPARENT les deux chaines — la premiere est un angle entre leurs axes, la seconde
+            # oppose leurs determinants — donc elles tombent sous le verrou comme les autres.
+            _pset = POSE['PH-SETTLE']
+            A(asym('ROOM-SPEC7-MIROIR', ': angle(a0[%s], -a0[%s]) = %.3f deg  ->  %s'
+                   % (names[_cl] if _cl < len(names) else _cl,
+                      names[_cr] if _cr < len(names) else _cr, _ang,
+                      'MIROIR TENU' if _ang <= 2.0 else
+                      'MIROIR ABSENT — +X pointe du MEME cote sur les deux seins'
+                      if _ang >= 178.0 else 'MIROIR PARTIEL'), _pset,
+                   note='§7 : le triedre est lu dans une pose dont la symetrie n est pas'
+                        ' mesuree.'))
+            A(asym('ROOM-SPEC7-SENS', ': det(%s)=%+.5f  det(%s)=%+.5f  ->  %s'
+                   % (names[_cl] if _cl < len(names) else _cl, _dl,
+                      names[_cr] if _cr < len(names) else _cr, _dr,
+                      'SENS OPPOSES, consequence du miroir d\'un seul axe'
+                      if _dl * _dr < 0 else 'MEME SENS — incompatible avec un +X mirore'), _pset))
             # LA CLAUSE 3 N'EST PAS JUGEE ICI, ET C'EST DELIBERE. « All dynamic calculations shall
             # occur relative to the torso/root transform rather than directly in world space » est
             # une clause sur le LIEU du calcul, pas sur une grandeur : aucune des trois mesures
@@ -5356,11 +6168,24 @@ def main():
             A('')
             A('ROOM-SKINPEN-MIRROR: l\'ecart entre paires MIROIR est l\'erreur de l\'instrument —')
             A('   parametres identiques, geometrie miroir : ce qui les separe n\'est pas un defaut.')
-            for _sp, _n, _o, _a2, _b2 in sorted(_pairs, reverse=True):
-                A('ROOM-SKINPEN-MIRROR: %-12s %.4f  vs %-12s %.4f   ecart %4.0f %%'
-                  % (_n, _a2, _o, _b2, 100 * _sp))
-            A('ROOM-SKINPEN-FLOOR: %.4f m — AUCUNE valeur de la colonne ci-dessus n\'est'
-              ' interpretable en dessous de ce plancher.' % _worst)
+            # CE PLANCHER EST PRIS SUR TOUTE LA COURSE, DONC SUR TOUTES LES POSES A LA FOIS.
+            # `PHYSSKIN` accumule le pire de la course entiere : il n'y a pas UNE pose ou cet
+            # ecart a ete releve, il y en a autant que la course en traverse, dont celles que
+            # `ROOM-REGPOSE` mesure a 48 deg du miroir. Un ecart L/R agrege sur des poses
+            # asymetriques ne peut pas etre l'erreur d'un instrument : il contient la pose. Le
+            # plancher qui en derive est donc indisponible AVEC lui — c'est le meme refus, pas
+            # deux refus differents.
+            _pcou = POSE['COURSE']
+            _SKNOTE = ('le plancher d erreur d instrument qui en derive est donc lui aussi'
+                       ' indisponible.')
+            if not _pcou.ok():
+                A(asym('ROOM-SKINPEN-MIRROR', ': %d paire(s) miroir relevees, aucune publiee'
+                       % len(_pairs), _pcou, note=_SKNOTE))
+            for _sp, _n, _o, _a2, _b2 in (sorted(_pairs, reverse=True) if _pcou.ok() else []):
+                A(asym('ROOM-SKINPEN-MIRROR', ': %-12s %.4f  vs %-12s %.4f   ecart %4.0f %%'
+                       % (_n, _a2, _o, _b2, 100 * _sp), _pcou, note=_SKNOTE))
+            A(asym('ROOM-SKINPEN-FLOOR', ': %.4f m — AUCUNE valeur de la colonne ci-dessus n\'est'
+                   ' interpretable en dessous de ce plancher.' % _worst, _pcou))
             if _worst >= min(_byname.values()):
                 A('ROOM-SKINPEN: NON DISCRIMINANTE — le plancher d\'erreur (%.4f m) atteint ou'
                   ' depasse la plus petite valeur publiee (%.4f m). La cause est la DENSITE : 12'
@@ -6087,10 +6912,17 @@ def main():
                 _sl = math.sin(math.acos(max(0.0, min(1.0, _lv))))
                 _sr = math.sin(math.acos(max(0.0, min(1.0, _rv))))
                 _rat = (_sr / _sl) if _sl > 1e-9 else float('inf')
-                A('   ROOM-SIGN-P4: |cos| vertical — chestL=%.4f  chestR=%.4f ; parts transverses'
-                  ' sin=%.4f et %.4f, rapport %s'
-                  % (_lv, _rv, _sl, _sr,
-                     ('%.2f' % _rat) if _rat != float('inf') else 'INDEFINI'))
+                # LES DIRECTIONS D'OS DE CE BLOC VIENNENT DE `PHYSSGNB`, DONC DE PH-SGN — la seule
+                # phase de la course qui EPINGLE sa pose par son nom ET la revalide a l'execution.
+                # Elle a donc un ecart au miroir, et il se publie ici comme partout ailleurs : ce
+                # n'est pas parce qu'une pose est bonne qu'une ligne peut se taire dessus.
+                _psgn = POSE['PH-SGN']
+                _P4NOTE = 'l attribution du cycle 52 depend de cette ligne.'
+                A(asym('   ROOM-SIGN-P4', ': |cos| vertical — chestL=%.4f  chestR=%.4f ; parts'
+                       ' transverses sin=%.4f et %.4f, rapport %s'
+                       % (_lv, _rv, _sl, _sr,
+                          ('%.2f' % _rat) if _rat != float('inf') else 'INDEFINI'), _psgn,
+                       note=_P4NOTE))
                 # LA CONFISCATION MESUREE SUR *CETTE* COURSE, jamais un nombre en dur. Une
                 # constante ecrite ici vieillirait en silence et se lirait plus tard comme une
                 # mesure vivante — c'est le mode d'echec que ce dossier a paye quatre fois.
@@ -6101,23 +6933,33 @@ def main():
                         _v1 = _sgVm(_cc, _cellw.get((1, 0, _s)))
                         if _v0 and _v0 > 0 and _v1 is not None:
                             _conf.append('%s s=%+d x%.2f' % (_nm, _s, _v1 / _v0))
-                A('      confiscation MESUREE sur cette course (k=1 / k=0, axe vertical) : %s'
-                  % ('  ·  '.join(_conf) if _conf else 'INDISPONIBLE'))
-                A('      predite par 1/sin : chestL x%s  chestR x%s'
-                  % (('%.2f' % (1.0 / _sl)) if _sl > 1e-9 else 'inf',
-                     ('%.2f' % (1.0 / _sr)) if _sr > 1e-9 else 'inf'))
+                # CES DEUX LIGNES POSENT LES DEUX CHAINES COTE A COTE AVEC UN CHIFFRE CHACUNE :
+                # c'est une comparaison, quoi qu'en dise leur redaction, et elles portent leur
+                # pose comme le verdict qu'elles servent.
+                A(asym('      confiscation MESUREE sur cette course (k=1 / k=0, axe vertical)',
+                       ' : %s' % ('  ·  '.join(_conf) if _conf else 'INDISPONIBLE'), _psgn,
+                       note=_P4NOTE))
+                A(asym('      predite par 1/sin', ' : chestL x%s  chestR x%s'
+                       % (('%.2f' % (1.0 / _sl)) if _sl > 1e-9 else 'inf',
+                          ('%.2f' % (1.0 / _sr)) if _sr > 1e-9 else 'inf'), _psgn, note=_P4NOTE))
                 if _lv > _rv and _rat >= 1.5:
-                    A('      -> P4 TENUE : l\'os de chestL est plus aligne avec le pilotage'
-                      ' vertical, et le rapport des parts transverses va dans le bon sens.')
+                    A(asym('      -> P4 TENUE', ' : l\'os de chestL est plus aligne avec le'
+                           ' pilotage vertical, et le rapport des parts transverses va dans le'
+                           ' bon sens.', _psgn, note=_P4NOTE))
                 elif _lv > _rv:
-                    A('      -> P4 A MOITIE : le classement est bon (chestL plus aligne) mais le'
-                      ' rapport %.2f est SOUS le 1.5 que j\'avais pose. L\'orientation contribue'
-                      ' sans suffire.' % _rat)
+                    A(asym('      -> P4 A MOITIE', ' : le classement est bon (chestL plus aligne)'
+                           ' mais le rapport %.2f est SOUS le 1.5 que j\'avais pose.'
+                           ' L\'orientation contribue sans suffire.' % _rat, _psgn,
+                           note=_P4NOTE))
                 else:
-                    A('      -> P4 REFUTEE, ET CONTRE MOI : l\'os de chestL n\'est PAS plus aligne'
-                      ' que celui de chestR. La longueur etant deja eliminee, l\'orientation ne'
-                      ' rend pas compte de l\'ecart gauche/droite non plus — il ne reste que la'
-                      ' repartition de peau, que ce cycle ne mesure pas.')
+                    # CE VERDICT COMPARE LES DEUX OS : il porte sa pose comme les trois lignes
+                    # qui le nourrissent. C'est PH-SGN, la seule phase qui epingle sa pose par son
+                    # nom ET la revalide — donc le verdict sort, avec son ecart au miroir dessus.
+                    A(asym('      -> P4 REFUTEE, ET CONTRE MOI', ' : l\'os de chestL n\'est PAS'
+                           ' plus aligne que celui de chestR. La longueur etant deja eliminee,'
+                           ' l\'orientation ne rend pas compte de l\'ecart gauche/droite non plus'
+                           ' — il ne reste que la repartition de peau, que ce cycle ne mesure'
+                           ' pas.', _psgn, note=_P4NOTE))
         A('')
 
 
@@ -6739,6 +7581,15 @@ def main():
     # le script une autre sur la meme trace.
     try:
         import ldb_axsel
+        # SES LIGNES ENTRENT PAR ICI, ET ELLES NE SONT PAS EXEMPTEES (cycle 67). L'une d'elles,
+        # `separation chestL - chestR`, cite les deux chaines avec des chiffres : elle est donc
+        # comptee comme violation et publiee comme telle par `ROOM-ASYM-VERROU`.
+        # POURQUOI ON NE L'EXEMPTE PAS, alors qu'elle sert a NOMMER un axe et non a juger une
+        # asymetrie : sa direction n'est pas de la geometrie pure, elle sort d'un ajustement sur
+        # la SERIE DE DEVIATIONS de la course (`ldb_axsel`, `mh[c]`), donc elle est relevee dans
+        # une pose — laquelle, ce fichier ne le sait pas, et le producteur vit dans un AUTRE
+        # fichier. Une exemption posee ici serait une exemption de confort sur une ligne qu'on ne
+        # controle pas. Elle reste donc DECLAREE, jusqu'a ce que `ldb_axsel` publie sa pose.
         for _ln in ldb_axsel.lines(txt, {c: (names[c] if c < len(names) else 'c%d' % c)
                                          for c in chains}):
             A(_ln)
@@ -7541,6 +8392,18 @@ def main():
         for _m in re.finditer(r'^PHYSAXW ax=2 ux=([-\d.e+]+) uy=([-\d.e+]+) uz=([-\d.e+]+)',
                               txt, re.M):
             _lat = tuple(float(_m.group(k)) for k in (1, 2, 3))
+        # ---- UNE POSE PAR CELLULE, ET C'EST UNE CORRECTION MESUREE (cycle 67) ---------------
+        # `PHYSSYMB i=` numerote les CELLULES (0 a 7), pas les deux poses : c'est `PHYSSYMPOSE`
+        # qui donne `p` (0 = SYM, 1 = ASYM) pour chaque `i`. Attribuer a toutes les cellules
+        # `p=0` l'ecart au miroir de la cellule 0 serait faux, et la course le montre : les
+        # quatre cellules `p=0` de cette trace rendent 6.78, 10.14, 6.78 et 10.60 deg — DEUX
+        # d'entre elles AU-DESSUS du seuil de 10. Une pose epinglee par son NOM d'animation ne
+        # retombe pas sur la meme FRAME d'une cellule a l'autre, et l'asymetrie est une propriete
+        # de la FRAME (cycle 54). Chaque cellule porte SA pose, lue sur SON enregistrement d'os.
+        for _ci in sorted(_sympose):
+            POSE['PH-SYM%d' % _ci] = _Pose(
+                'PH-SYM i=%d' % _ci,
+                _pose_dev_from(txt, 'PHYSSYMB', _lat, extra='i=%d' % _ci), 'PHYSSYMB i=%d' % _ci)
         _cellw = {(p, mm): i for i, (p, mm, _) in _sympose.items()}
         _res = {}
         for _mm in range(4):
@@ -7605,8 +8468,18 @@ def main():
                 _un = ' NON RESOLU'
             else:
                 _un = ' RESOLU'
-            A('      %-3d %-5s %-26s %-9s %-9.5f %-9.5f %-8.3f %-9s %-9s%s'
-              % (_i, ('SYM', 'ASYM')[_p], _MN.get(_mm, '?'), _d, _aL, _aR, _r,
+            # LA COLONNE `R` EST LA SEULE COMPARAISON DE CETTE LIGNE, ET ELLE SEULE SE TAIT.
+            # `apexL` et `apexR` sont des mesures PAR CHAINE : une pose non miroir ne les invalide
+            # pas, elle invalide ce qu'on tire de leur RAPPORT. `dev` reste publiee parce qu'elle
+            # EST l'ecart au miroir de la cellule — la taire rendrait le refus inverifiable.
+            # ATTENTION EN LISANT LES DEUX ENSEMBLE, et ce n'est pas une contradiction : `dev` est
+            # l'ecart du MAILLON 0, le verrou prend le PIRE DES MAILLONS. Une cellule peut donc
+            # afficher `dev` = 6.4 et un `R` a NONSYM parce que son maillon 1 est a 10.1 deg. Une
+            # pose n'est au miroir que si elle l'est sur TOUTE la chaine. Largeur conservee.
+            _pcel = POSE['PH-SYM%d' % _i]
+            A('      %-3d %-5s %-26s %-9s %-9.5f %-9.5f %-8s %-9s %-9s%s'
+              % (_i, ('SYM', 'ASYM')[_p], _MN.get(_mm, '?'), _d, _aL, _aR,
+                 ('%.3f' % _r) if _pcel.ok() else 'NONSYM',
                  ('%.5f' % _res[_mm]) if _res.get(_mm) is not None else 'n/a',
                  ('%.5f' % _rc) if _rc is not None else 'n/a', _un))
             _symv.append(_un.strip())
@@ -7617,8 +8490,18 @@ def main():
           ' d\'excursion' % (_nbad, len(_symv)))
         A('         que le pilotage : sur celles-la l\'instrument ne borne rien et ne peut ni'
           ' tenir ni refuter.')
+        # CE COMPTEUR EST EXEMPTE DU VERROU, ET LA RAISON EST DE NATURE. Il ne publie pas UN
+        # ecart gauche/droite : il COMPTE les cellules ou l'ecart depasse sa propre ligne de base,
+        # a travers les DEUX poses, ce qui est precisement le plan d'experience de ce bloc. Mais
+        # une exemption sans chiffre serait une porte ouverte, alors il porte le seul chiffre qui
+        # empeche de le lire comme une propriete du personnage : combien de ces cellules ont une
+        # pose que le verrou accepte. Une cellule resolue dans une pose a 123 deg du miroir ne dit
+        # rien de Keira.
+        _nadm = sum(1 for _ci, _vv in zip(sorted(_sympose), _symv)
+                    if _vv == 'RESOLU' and POSE['PH-SYM%d' % _ci].ok())
         A('      ROOM-SYM-RESOLU: %d cellule(s) sur %d ou l\'ecart gauche/droite DEPASSE sa ligne'
-          ' de base.' % (_nres, len(_symv)))
+          ' de base, dont %d dans une pose ADMISSIBLE (<= %.1f deg du miroir).'
+          % (_nres, len(_symv), _nadm, _ASYM_SEUIL), notasym=True)
         if _nbad:
             A('         TANT QUE `ROOM-SYM-PLANCHER` N\'EST PAS 0, LA QUESTION QUE CE BLOC POSE —')
             A('         « l\'asymetrie de §12/§18 est-elle du personnage ou de la POSE ? » — RESTE')
@@ -7632,11 +8515,15 @@ def main():
                 _s0, _s1 = _symsx[(_i, 0)], _symsx[(_i, 1)]
                 _mn = 0.5 * (abs(_s0) + abs(_s1))
                 _g = _symg.get((_i, 0), (float('nan'),) * 3)
-                A('      m=%d %-22s %-5s sx chestL=%.5f chestR=%.5f  ecart=%+6.2f %%'
-                  '   g lue (%.4f, %.4f, %.4f)'
-                  % (_mm, _MN[_mm], ('SYM', 'ASYM')[_p], _s0, _s1,
-                     100.0 * abs(_s0 - _s1) / _mn if _mn > 0 else float('nan'),
-                     _g[0], _g[1], _g[2]))
+                # UN `ecart` ENTRE LES DEUX CHAINES EST UNE COMPARAISON, MEME DANS UN TABLEAU DE
+                # DIAGNOSTIC : cette ligne porte donc la pose de SA cellule, et se tait quand
+                # cette pose ne peut pas la porter. Les quatre cellules laterales ne sont pas dans
+                # la meme pose — deux sont a 123 deg du miroir — donc elles ne se taisent pas
+                # ensemble : chacune repond pour elle-meme.
+                A(asym('      m=%d %-22s %-5s' % (_mm, _MN[_mm], ('SYM', 'ASYM')[_p]),
+                       ' sx chestL=%.5f chestR=%.5f  ecart=%+6.2f %%   g lue (%.4f, %.4f, %.4f)'
+                       % (_s0, _s1, 100.0 * abs(_s0 - _s1) / _mn if _mn > 0 else float('nan'),
+                          _g[0], _g[1], _g[2]), POSE['PH-SYM%d' % _i]))
         # ------------------------------------------------------------------------------------
         # LE COTE DE §12, ARBITRE PAR UNE GRANDEUR QUI N'EST PAS CELLE QU'ON JUGE.
         # §12 (l.189-190) : « The GRAVITY-SIDE breast experiences stronger thoracic compression,
@@ -7674,20 +8561,38 @@ def main():
                     _amb = abs(_go[0] - _go[1]) < 0.05 or abs(_sx[0] - _sx[1]) < 0.005
                     _cote_tot += 1
                     _cote_ok += 1 if (_flat == _grav and not _amb) else 0
-                    A('      m=%d %-22s %-5s  gso L=%+.4f R=%+.4f -> cote gravite=%-7s'
-                      '  sx L=%.5f R=%.5f -> aplati=%-7s  %s'
-                      % (_mm, _MN[_mm], ('SYM', 'ASYM')[_p], _go[0], _go[1],
-                         names[_grav] if _grav < len(names) else _grav,
-                         _sx[0], _sx[1], names[_flat] if _flat < len(names) else _flat,
-                         'NON RESOLU' if _amb else
-                         ('CONFORME' if _flat == _grav else
-                          'INVERSE — l\'aplatissement tombe sur le sein OPPOSE a la gravite')))
-            A('      ROOM-SPEC12-COTE: %d/%d cellules laterales ou le sein aplati EST celui du cote'
-              ' gravite  ->  %s'
-              % (_cote_ok, _cote_tot,
-                 'n/a (aucune cellule lisible)' if _cote_tot == 0 else
-                 'COTE TENU' if _cote_ok == _cote_tot else
-                 'COTE INVERSE' if _cote_ok == 0 else 'COTE PARTIEL'))
+                    A(asym('      m=%d %-22s %-5s' % (_mm, _MN[_mm], ('SYM', 'ASYM')[_p]),
+                           '  gso L=%+.4f R=%+.4f -> cote gravite=%-7s  sx L=%.5f R=%.5f ->'
+                           ' aplati=%-7s  %s'
+                           % (_go[0], _go[1], names[_grav] if _grav < len(names) else _grav,
+                              _sx[0], _sx[1], names[_flat] if _flat < len(names) else _flat,
+                              'NON RESOLU' if _amb else
+                              ('CONFORME' if _flat == _grav else
+                               'INVERSE — l\'aplatissement tombe sur le sein OPPOSE a la'
+                               ' gravite')), POSE['PH-SYM%d' % _i]))
+            # ---- LA POSE DE CE VERDICT EST LA PIRE DES CELLULES QU'IL AGREGE (cycle 67) -----
+            # ET C'EST UN ECART A LA CONSIGNE, DIT ICI PLUTOT QUE TU. La consigne rattachait cette
+            # ligne a `PH-SYM0`. Mais elle ne compte pas la cellule 0 : elle compte les QUATRE
+            # cellules laterales (m=2 et m=3, p=0 et p=1), qui sur cette course sont a 6.8, 123.5,
+            # 123.5 et 10.6 deg du miroir. Publier 6.8 deg au bas d'un compte qui contient deux
+            # cellules a 123 deg serait une attribution fausse — exactement ce que le verrou
+            # interdit ailleurs, et il ne peut pas s'exempter lui-meme. Un agregat porte la PIRE
+            # des poses qui le nourrissent ; ses cellules, elles, gardent chacune la sienne
+            # au-dessus, donc rien n'est perdu, seule la ligne de SOMME se tait.
+            _latc = [_cellw[(_pp, _mm2)] for _mm2 in (2, 3) for _pp in (0, 1)
+                     if (_pp, _mm2) in _cellw]
+            _latd = [POSE['PH-SYM%d' % _ci].dev for _ci in _latc if ('PH-SYM%d' % _ci) in POSE]
+            POSE['PH-SYM-LAT'] = _Pose(
+                'PH-SYM lat. pire',
+                None if (not _latd or any(_x is None for _x in _latd)) else max(_latd),
+                'PHYSSYMB m=2,3')
+            A(asym('      ROOM-SPEC12-COTE',
+                   ': %d/%d cellules laterales ou le sein aplati EST celui du cote gravite -> %s'
+                   % (_cote_ok, _cote_tot,
+                      'n/a (aucune cellule lisible)' if _cote_tot == 0 else
+                      'COTE TENU' if _cote_ok == _cote_tot else
+                      'COTE INVERSE' if _cote_ok == 0 else 'COTE PARTIEL'), POSE['PH-SYM-LAT'],
+                   note='§12 : le cote est lu par paires de poses ; voir ROOM-SYM.'))
         A('      L\'ETIQUETTE D\'AXE EST CELLE DE LA MESURE : le commentaire de `physroom-orient`')
         A('      ecrit "axis 0 = tangage", la trace dit que la gravite y est quasi pure sur l\'axe')
         A('      LATERAL du triedre de sa §7. `g lue` ci-dessus est publiee pour qu\'on n\'ait pas')
@@ -7732,6 +8637,68 @@ def main():
         L[_at:_at] = [''] + _reg
     except StopIteration:
         L.extend([''] + _reg)
+
+    # ==============================================================================================
+    # ROOM-ASYM-VERROU — LE BILAN DU CONTROLE DE PUBLICATION (cycle 67)
+    # ==============================================================================================
+    # POURQUOI UN BILAN, ET POURQUOI EN FIN DE TABLEAU. Un verrou qui refuse en silence est une
+    # censure : on ne peut pas verifier ce qu'il a laisse passer, ni ce qu'il a retenu, ni sur
+    # quel chiffre il s'est appuye pour le faire. Ce bloc publie les TROIS choses que le
+    # superviseur exige de pouvoir relire sans ouvrir le source : le SEUIL declare, l'ETAT DE
+    # CHAQUE POSE du registre, et la LISTE des lignes qui comparent sans porter leur pose.
+    #
+    # IL EST EN FIN DE TABLEAU PARCE QU'IL COMPTE CE QUE LE TABLEAU A ECRIT. Les compteurs ne
+    # peuvent etre lus qu'apres le dernier `A(...)`, sinon ils rendraient un total partiel — et un
+    # total partiel qui dit « 0 violation » est exactement le faux vert que ce dossier paie depuis
+    # le 2026-08-11. Le registre de poses, lui, se lit aussi en tete via `ROOM-INSTRUMENTS-MUETS`.
+    #
+    # LE COMPTE EST FIGE AVANT D'ECRIRE CE BLOC. Les lignes de bilan citent les autres ; si elles
+    # se comptaient elles-memes, chaque citation d'une ligne fautive en ajouterait une, et la
+    # liste se poursuivrait a l'infini. Elles passent donc par `notasym=True` (elles n'affirment
+    # aucune asymetrie : elles REPRODUISENT le texte d'une ligne qui, elle, en affirmait une) et
+    # les deux totaux sont pris sur une COPIE prise avant.
+    _vio, _exe = list(_asym_viol), list(_asym_exempt)
+    A('')
+    A('=' * 98)
+    A('   -- ROOM-ASYM-VERROU : LE CONTROLE DE PUBLICATION DES COMPARAISONS GAUCHE/DROITE ------')
+    A('ROOM-ASYM-VERROU: seuil declare = %.1f deg' % _ASYM_SEUIL, notasym=True)
+    A('   Le rig de Keira est bilateralement symetrique a 0.005 deg en pose de BIND (cycle 53,'
+      ' sur le', notasym=True)
+    A('   mesh LIVRE). Tout ecart gauche/droite releve dans une AUTRE pose est donc porte par la'
+      ' POSE', notasym=True)
+    A('   jusqu\'a preuve du contraire, et c\'est la preuve que ce verrou exige avant de laisser'
+      ' un', notasym=True)
+    A('   chiffre sortir. Une pose NON MESUREE est traitee comme non symetrique : « on n\'a pas'
+      ' mesure »', notasym=True)
+    A('   n\'est pas « c\'est symetrique ».', notasym=True)
+    A('')
+    for _pk in sorted(POSE):
+        _pv = POSE[_pk]
+        A('ROOM-ASYM-POSE: %-10s %-17s ecart=%-10s source=%-12s -> %s'
+          % (_pk, _pv.nom, ('%.1f deg' % _pv.dev) if _pv.dev is not None else 'NON MESURE',
+             _pv.src[:12], 'ADMISSIBLE' if _pv.ok() else 'REFUSEE'), notasym=True)
+        if len(_pv.src) > 12:
+            A('   (source : %s)' % _pv.src[:84], notasym=True)
+    A('')
+    A('ROOM-ASYM-VERROU: %d ligne(s) publient une comparaison gauche/droite SANS porter leur pose'
+      % len(_vio), notasym=True)
+    if _vio:
+        A('   C\'EST UN DEFAUT DE CE TABLEAU, PAS UNE MESURE. Chacune de ces lignes pose un'
+          ' ecart', notasym=True)
+        A('   entre chestL et chestR sans dire dans quelle pose elle l\'a releve : tant qu\'elle'
+          ' ne le', notasym=True)
+        A('   dit pas, son chiffre est indistinguable d\'un artefact de pose et ne peut fonder'
+          ' aucune', notasym=True)
+        A('   section. A corriger dans le tableau, pas a interpreter en rapport.', notasym=True)
+        for _vl in _vio:
+            A('   !  %s' % _vl[:140], notasym=True)
+    else:
+        A('   Toute ligne de ce tableau qui compare les deux chaines porte sa pose ou se tait.',
+          notasym=True)
+    A('ROOM-ASYM-EXEMPT: %d ligne(s) exemptees (elles n\'affirment aucune asymetrie du'
+      ' personnage)' % len(_exe), notasym=True)
+    for _vl in _exe:
+        A('   -  %s' % _vl[:140], notasym=True)
 
     os.makedirs(REPDIR, exist_ok=True)
     open(OUT, 'w').write('\n'.join(L) + '\n')
