@@ -1578,6 +1578,31 @@
             (phys-diag (-> self slot) c 56)
             (phys-diag (-> self slot) c 57)
             (phys-diag (-> self slot) c 58))
+    ;; ---- LES TROIS TERMES DE L'APEX (cycle 73, [NOTE-338]) -------------------------------------
+    ;; NATURE : deux VECTEURS, en unites de B0, sans dimension. REPERE : le MONDE, difference de
+    ;; deux points de la meme frame (la pose simulee et la pose d'AUTEUR du meme joint), donc le
+    ;; meme repere que `apex`/`ax`/`ay`/`az` juste au-dessus.
+    ;;   `tp` = la part que le maillon a TRANSLATEE — le SEUL terme qu'une borne du moteur borne
+    ;;          aujourd'hui (`jak-hd-physics.gc:3120-3141`, asymptote 0.50 B0).
+    ;;   `dp` = la part apportee par le TENSEUR de deformation applique au bras de chair.
+    ;;   `rp` = ce qui reste, la ROTATION de visee : il ne s'emet PAS, il se DERIVE par
+    ;;          `rp = (ax,ay,az) - tp - dp`. L'emettre serait publier une quatrieme mesure
+    ;;          redondante que rien ne pourrait contredire ; le deriver rend l'identite
+    ;;          `e = tp + rp + dp` VERIFIABLE, et c'est le seul controle que ce canal possede.
+    ;; LES SIX VALEURS SONT PRISES AU MEME ARGMAX QUE `apex` (jak-hd-physics.gc, meme bloc `when`),
+    ;; donc sur LA MEME FRAME : trois maxima pris sur trois frames differentes ne se soustraient
+    ;; pas, et c'est exactement le piege `argmax-anchor-is-not-a-population` du registre.
+    ;; LECTURE QUAND LE DEFAUT EST ABSENT : 0.0000 partout a la pose d'auteur.
+    (format 0 "PHYSAPEXT c=~D a=~D d=~D tx=~f ty=~f tz=~f~%"
+            c (-> self ai) (-> self drive)
+            (phys-diag (-> self slot) c 59)
+            (phys-diag (-> self slot) c 60)
+            (phys-diag (-> self slot) c 61))
+    (format 0 "PHYSAPEXD c=~D a=~D d=~D dx=~f dy=~f dz=~f~%"
+            c (-> self ai) (-> self drive)
+            (phys-diag (-> self slot) c 62)
+            (phys-diag (-> self slot) c 63)
+            (phys-diag (-> self slot) c 64))
     ;; ---- SPEC 22 : L'ATTRIBUTION DE `comex` A SES TROIS TERMES (cycle 35 etape 1) ----------
     ;; `comex` est le plus gros depassement ouvert de toute la spec (1.85 / 1.91 B0 contre un
     ;; plafond dur de 0.40). Le cycle 34 a prouve PAR INTERVENTION que borner le point libre ne le

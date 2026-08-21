@@ -7367,3 +7367,127 @@ precisement pourquoi la spec la met la.
 le moteur est a 4799 lignes pour un plafond de 4800, et une fonction d'armement en coute cinq. La
 salle etant deterministe au bit (mesure au cycle 32, re-mesuree au cycle 71 : 0 ligne differente
 sur 43 254), deux courses successives font une paire appariee exacte.
+
+## NOTE-331 — POURQUOI LA GARDE `(= n 1)` A ETE RETIREE DU MUR D'APEX DE SPEC 22
+
+```
+`(= n 1)` RETIRE le 2026-08-17 — meme raison qu'a `sat` : cette garde aurait
+fait disparaitre le mur d'apex de SPEC 22 des l'injection du second os, et
+`*phys-sat-n*` aurait publie 0 parce que le bloc ne tourne plus. La borne
+porte sur l'ecart de CHAQUE maillon a SA propre pose d'auteur, donc elle
+s'applique telle quelle a l'apex quand il y en a deux.
+```
+
+## NOTE-332 — SPEC 33 : LE MEME SOMMET, CONTRE LA SURFACE DE L'AUTRE SEIN
+
+```
+[NOTE-295] SPEC 33 : LE MEME SOMMET, CONTRE LA SURFACE DE L'AUTRE SEIN.
+Memes points, meme fonction, meme frame que SPEC 34 juste au-dessus — les
+deux sections deviennent comparables terme a terme au lieu de sortir de deux
+populations. La fenetre de lecture est posee puis RENDUE immediatement.
+```
+
+## NOTE-333 — LE RAYON DE SUPPORT DECIDE SI LA LECTURE EST UNE MESURE
+
+```
+LE RAYON DE SUPPORT DECIDE SI LA LECTURE EST UNE MESURE. Un point plus
+loin du nuage que DEUX espacements n'est sur aucune surface
+echantillonnee : sa distance signee est un plan prolonge, pas une
+profondeur. Ces lectures sont COMPTEES (`medfar`), jamais publiees.
+```
+
+## NOTE-334 — LE STIMULUS GRAVITAIRE LUI-MEME, AVANT TOUTE REPONSE
+
+```
+LE STIMULUS GRAVITAIRE LUI-MEME, avant toute reponse. Sans ce nombre, un
+affaissement nul est indiscernable entre « la gravite n'arrive pas jusqu'a
+cette chaine » et « la chaine n'y repond pas », et c'est cette ambiguite qui
+a laisse quatre passes de l'owner sans reponse. 0 debout, 1.0 a 60 degres.
+```
+
+## NOTE-335 — LE RESIDU SIGNE DE PENETRATION PART DE -1e9, PAS DE ZERO
+
+```
+--- residu SIGNE de penetration (SPEC 3). > 0 = ca traverse, <= 0 = la
+--- marge qui reste avant de traverser. Le maximum de la fenetre part donc
+--- de -1e9 (voir phys-stats-reset!) et non de zero : un maximum plafonne a
+--- zero aurait rendu la colonne constante et donc inverifiable.
+```
+
+## NOTE-336 — LES DEUX CORRELATIONS PUBLIEES MAIS NON GATEES
+
+```
+publies mais NON gates : la correlation du deplacement
+ecrit avec celui d'auteur, et les deux amplitudes qui
+disent pourquoi cette correlation est bruitee des que le
+pilotage domine l'animation.
+```
+
+## NOTE-337 — LE TRIEDRE DE SPEC 7, RELEVE UNE SEULE FOIS
+
+```
+(a) LE TRIEDRE DE SA SPEC 7 (+X lateral, +Y haut, +Z avant), releve UNE
+fois, a la MEME frame que `g_ref` et `*phys-ux*`. Il ne se lit sur aucun
+nom d'os : +Y est l'oppose de la gravite de la pose d'auteur, +Z la
+protrusion racine->apex orthogonalisee, +X leur produit vectoriel.
+```
+
+## NOTE-338 — LES TROIS TERMES DE L'APEX, MESURES LA OU ILS EXISTENT (cycle 73)
+
+`SPEC-breast-softbody.md:301` : « Distal/apex displacement: normal <=42% B0, exceptional <=50% B0 ».
+Le cycle 58 a cartographie les cinq sites du moteur qui portent `0.42|0.50 x B0` : **aucun ne lit le
+point d'apex**, et le seul qui borne quoi que ce soit (`:3120-3141`) borne `*phys-px*`, la
+TRANSLATION du joint. Le cycle 58 a essaye de lui faire lire l'apex et l'a **refute par la mesure** :
+la borne mordait deux fois moins, parce qu'au point ou elle s'applique le tenseur de deformation
+n'existe pas encore. Sa conclusion, verbatim : « §22 n'est pas bornable depuis la boucle de
+contraintes ; le chantier est de borner l'apex APRES la construction du tenseur (section 6, ou `bm`
+existe) ».
+
+**AVANT DE BORNER, IL FAUT SAVOIR CE QU'ON BORNE — ET LE CHIFFRE DU CYCLE 58 A QUATORZE CYCLES.**
+Depuis, les axes ont ete classes, le tenseur a change, la §37 a ete recablee, la pose de la salle a
+ete corrigee deux fois. Concevoir une borne contre une decomposition perimee est exactement
+`attribution-harness-outlives-its-defect`. Ce cycle republie donc la decomposition SUR LE SOLVEUR
+COURANT, et rien d'autre.
+
+    e  = tp + rp + dp        (identite exacte, tous les termes sur LA MEME frame)
+    tp = SUM_l w_l (p_l - pre_l.trans)                 la TRANSLATION du maillon
+    dp = SUM_l w_l (bm_l.R . (dfm - I)) . o_l          le TENSEUR applique au bras de chair
+    rp = e - tp - dp                                   la ROTATION de visee, DERIVEE
+
+**POURQUOI `rp` SE DERIVE ET NE S'EMET PAS.** Trois mesures independantes plus une quatrieme
+redondante ne se contredisent jamais : la quatrieme serait decorative. Derivee, elle transforme
+l'identite en CONTROLE — si `e - tp - dp` sortait de l'ordre de grandeur d'une rotation, c'est que
+l'un des trois termes est faux. C'est le seul controle interne que ce canal possede.
+
+**OU CHAQUE TERME EST CAPTE, ET POURQUOI LA-BAS.**
+  - `dp` est capte **a l'interieur meme du bloc qui applique le tenseur** : `tmp = bm . dfm` et `bm`
+    y ont tous deux leur translation a zero, donc `phys-pt-exc!(tmp, bm, o)` rend EXACTEMENT
+    `(tmp.R - bm.R) . o`. Le capter ailleurs demanderait de reconstruire `dfm`, donc d'introduire
+    une seconde formule pour la meme grandeur — la faute de `two-half-blind-readers`.
+  - `tp` est capte sous LA MEME garde `aw > 0` que l'apex complet, donc sur exactement la meme
+    population de maillons. Une garde differente donnerait deux termes qui ne se soustraient pas.
+  - les six valeurs sont ecrites **au MEME argmax que `apex`** (meme bloc `when`), donc sur la meme
+    frame. Trois maxima pris sur trois frames differentes ne se soustraient pas : c'est
+    `argmax-anchor-is-not-a-population`, et l'identite serait fausse sans que rien ne le dise.
+
+**CE QUE CE CANAL NE FAIT PAS.** Il ne borne rien. Aucun terme du solveur n'est touche : la
+prediction de bit-identite du cycle 73 porte sur les 43 386 lignes `PHYS` anterieures, qui doivent
+etre identiques UNE A UNE a celles de la course precedente.
+
+## NOTE-339 — LE TENSEUR PORTE UNE TRANSLATION D'ANCRE, ET LA MESURE L'AURAIT ABSORBEE
+
+`*phys-dfm*` est construit `:3783-3785` comme `w2l . A . am`. `A` (`dfa`/`dfb`) a bien sa ligne 3
+mise a `(0,0,0,1)` explicitement — mais **`w2l` et `am` sont des transformations d'ancre et portent
+une TRANSLATION**. Donc `dfm vector 3` n'est pas nul, et `tmp = bm . dfm` en herite une.
+
+Le solveur, lui, s'en moque : trois lignes plus bas il ecrase `bm vector 3` avec `*phys-px*`. La
+translation parasite ne va nulle part. **La MESURE, elle, l'aurait lue** — `phys-pt-exc!` additionne
+`tmp.trans`, donc `dp` aurait publie la translation de l'ancre sous le nom du tenseur, sur un canal
+cree precisement pour separer ces deux choses.
+
+Mise a zero AVANT la lecture. **Sans effet sur le solveur** : cette ligne est ecrasee juste apres, ce
+que la prediction de bit-identite verifie sur les 43 386 lignes anterieures.
+
+**REGLE :** une grandeur intermediaire qu'un solveur JETTE n'est pas une grandeur nulle. Avant de
+brancher un instrument sur un temporaire, verifier ce que le code fait de chaque composante — celles
+qu'il ecrase sont precisement celles que personne n'a jamais eu besoin de tenir propres.
