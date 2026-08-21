@@ -3939,6 +3939,12 @@ TROIS LIGNES DE SA SPEC DISENT L'AUTRE FORME :
     in distal tissue » — la mobilite CROIT vers la pointe. Un budget proportionnel a la longueur de
     l'os la fait DECROITRE, et NOTE-114 publie elle-meme cette reserve sans la lever.
 
+**[RETIREE AU CYCLE 87 — voir NOTE-471.]** `phys-apex-scale` bornait la POINTE, c'est-a-dire un
+JOINT, alors que §22 nomme un point de CHAIR situe a 1,228 / 1,235 B0 de lui. Le cycle 76 l'a
+mesure par intervention (-25 % de translation du joint -> -0,2 % d'apex sur chestR) et le cycle
+86 par decomposition (le terme du TENSEUR porte 40,6 % / 37,3 % de l'excursion, et aucune borne
+posee sur un joint ne peut l'atteindre). Ce qui suit decrit le mecanisme RETIRE.
+
 CORRECTIF. `phys-apex-scale` rend UN facteur `asc = ds/dd`, ou `dd` est la deviation ABSOLUE de la
 pointe a sa pose d'auteur et `ds` le meme nombre sature au plafond `0.50*B0`. Chaque maillon voit
 son DEPLACEMENT multiplie par ce facteur commun ; comme un maillon qui pivote de `a` autour de son
@@ -8351,3 +8357,56 @@ desormais visible par machine et plus seulement par memoire.
 **Controle de non-regression, tenu au bit.** Course du cycle 77 contre course livree du cycle 76 :
 **46 937 lignes `PHYS` hors `PHYSSTGW`/`PHYSSTGR`, ZERO differente**, `PHYSSTG` et `PHYSSTGT`
 compris. C'est un ajout pur.
+
+## NOTE-471 — SPEC 21/22 SUR LA COMBINAISON LIVREE : LA BORNE PASSE DU JOINT AU POINT DE CHAIR
+
+**CE QUI EST REMPLACE, ET POURQUOI CE N'EST PAS UN AJOUT.** `phys-apex-scale` (retire au cycle 87)
+appliquait un facteur COMMUN pour ramener la POINTE dans le budget d'apex de §22. La pointe est un
+JOINT ; §22 nomme le « distal/apex displacement », c'est-a-dire un point de CHAIR situe a
+**1,228 / 1,235 B0** du joint (`recharged_assets/physics_mesh.txt`, enregistrements `ax`). Les deux
+grandeurs ne coincident pas, et l'ecart n'est pas un detail de reglage :
+
+  - cycle 76, PAR INTERVENTION : retirer **25 %** de la translation du joint rendait **-0,2 %**
+    d'apex sur chestR (et -8,1 % sur chestL) ;
+  - cycle 86, PAR DECOMPOSITION de la trace archivee : `e = tp + rp + dp`, et le terme du TENSEUR
+    `dp` porte **+40,6 % / +37,3 %** de l'excursion en projection signee. **Aucune borne posee sur
+    un joint ne peut l'atteindre** — le tenseur est applique en section 6, apres toutes les
+    contraintes.
+
+**LA FORME, ET LES TROIS CONTRAINTES QU'ELLE DOIT RESPECTER.** La borne s'applique la ou `bm` est
+complet (section 6, apres le tenseur, apres l'ecriture de la translation), sur l'excursion du point
+de chair `c2` que `phys-pt-exc!` vient de calculer :
+
+    ed = |c2|                             l'excursion livree du point de chair
+    es = phys-softmin(ed, 0.50 * B0)      §22 l.301, « exceptional <=50% B0 »
+    gg = es / ed                          identite stricte sous 0,84 x cap : rien sous le genou
+
+Puis `bm` est TOURNE autour du joint pour amener le point de chair sur la cible :
+
+  1. **`bm.trans` est INTACT.** Une contraction du point de chair vers sa cible passerait par la
+     translation du joint, et casserait `|p - b|` — la longueur d'os — que plus aucune passe ne
+     pourrait reparer ([[feedback_bound_undone_by_downstream_constraint_loop]], cycle 73/76).
+  2. **Le DETERMINANT est intact.** Une rotation le conserve exactement, donc §8 (« 98-101 % of
+     neutral volume ») n'est pas touchee par ce geste.
+  3. **La cible n'est atteinte qu'a la sphere pres.** `|bm . o|` est invariant par rotation : le
+     point ne peut se deplacer que sur la sphere de rayon `|bm . o|` centree sur `bm.trans`. La
+     rotation choisie est celle qui vise le point cible ; si la cible n'est pas sur cette sphere,
+     c'est le point le plus proche qui est atteint. **Cet ecart se MESURE (`ROOM-APEX` apres
+     coup), il ne se calcule pas** — c'est pourquoi la prediction du cycle 86 portait une marge.
+
+**L'ETAT DU SOLVEUR N'EST PAS ECRIT.** La borne ne touche que `bm`, la matrice livree au
+renderer ; `*phys-px*` n'est pas modifie. C'est la regle de [NOTE-84] (« la borne est appelee sur
+la valeur LIVREE, jamais sur l'etat ») et c'est aussi ce qui rend la simulation du cycle 86 exacte :
+sans retro-action de frame a frame, la sortie corrigee se calcule terme a terme depuis la sortie
+mesuree.
+
+**CE QUE LA BORNE CONTAMINE, ET IL FAUT LE DIRE.** `dp` est releve AVANT la rotation de correction.
+Une rotation conserve sa NORME — `|dp|` reste donc exact — mais pas sa DIRECTION, et `rp`, qui est
+DERIVE (`rp = e - tp - dp`), absorbe l'ecart. L'identite `e = tp + rp + dp` referme toujours, mais
+le partage entre `rp` et `dp` n'est plus lisible sur les fenetres ou `PHYSE21 n` est non nul. Le
+bloc `ROOM-SPEC21` du tableau le declare sur sa propre ligne.
+
+**INTERRUPTEUR ET COMPTEURS.** `*phys-e21-off*` (0 en livraison, 1 desarme) est pose EN MEME TEMPS
+que le mecanisme, jamais apres ([[feedback_attribution_harness_outlives_its_defect]]). `PHYSE21
+tag=<t> n=<compte> cut_b0=<longueur cumulee / B0>` publie ce que la borne reprend ; desarmee, elle
+DOIT rendre exactement 0, et c'est son controle negatif.

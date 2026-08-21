@@ -5623,11 +5623,30 @@ def main():
             A('      frame a frame. La FORME d\'implementation, elle, n\'atteint pas exactement')
             A('      le point vise (une rotation ne deplace le point que sur une sphere) : cet')
             A('      ecart n\'est PAS mesure ici et se mesure par INTERVENTION, pas par calcul.')
-        A('   VERDICT §21 : la saturation que la section EXIGE n\'existe pas dans le moteur —')
-        A('      aucune ligne ne combine `D_linear` et `D_angular` avant de les borner. §21 est')
-        A('      donc NON TENUE PAR ABSENCE DE MECANISME, et la simulation (A) chiffre ce que')
-        A('      son ajout AU MOT changerait : presque rien. Ce n\'est pas un motif de ne pas')
-        A('      l\'implementer — c\'est un motif de ne pas en attendre §22.')
+        A('   RESERVE SUR LA DECOMPOSITION QUAND LA BORNE DE [NOTE-471] MORD : `dp` est releve')
+        A('      AVANT la rotation de correction. Une rotation CONSERVE sa norme, donc `|dp|`')
+        A('      reste exact ; sa DIRECTION, non — et `rp`, qui est DERIVE, absorbe l\'ecart.')
+        A('      L\'identite `e = tp + rp + dp` referme donc toujours, mais le partage entre `rp`')
+        A('      et `dp` est contamine sur les fenetres ou `PHYSE21 n` est non nul : les NORMES')
+        A('      se lisent, le partage rp/dp ne se lit PAS sur ces fenetres-la.')
+        # LE VERDICT LIT LA TRACE, PAS LE SOURCE : `PHYSE21` dit si la borne existe ET si elle a
+        # mordu. Un verdict tire du source serait `un-commentaire-n-est-pas-une-preuve`.
+        _e21 = [(float(_a), float(_b)) for _a, _b in
+                re.findall(r'^PHYSE21 tag=\S+ n=([-\d.e+]+) cut_b0=([-\d.e+]+)', txt, re.M)]
+        _e21n = sum(_x[0] for _x in _e21)
+        if not _e21:
+            A('   VERDICT §21 : AUCUNE ligne `PHYSE21` dans cette trace — le moteur ne porte pas')
+            A('      de saturation sur la combinaison. §21 NON TENUE PAR ABSENCE DE MECANISME.')
+        elif _e21n <= 0.0:
+            A('   VERDICT §21 : la borne existe et n\'a JAMAIS mordu (`PHYSE21 n`=0 sur %d tags).'
+              % len(_e21))
+            A('      C\'est le CONTROLE NEGATIF s\'il s\'agit d\'une jambe desarmee ; sur une jambe')
+            A('      ARMEE ce serait un domaine vide, et aucun `TENUE` ne s\'en tire.')
+        else:
+            A('   VERDICT §21 : la borne EXISTE et a mordu — `PHYSE21` n=%.0f corrections,'
+              ' %.2f B0 cumules' % (_e21n, sum(_x[1] for _x in _e21)))
+            A('      repris sur la course. La FORME que la section prescrit est donc en place sur')
+            A('      la valeur LIVREE. Ce que ca vaut pour §22 se lit sur ROOM-APEX, pas ici.')
 
 
     if _comex.get('run'):

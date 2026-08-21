@@ -526,6 +526,8 @@
 (define *phys-e22-off* 0)
 (define *phys-e22-n* 0)
 (define *phys-e22-d* 0.0)
+;; [NOTE-471] SPEC 21/22 SUR LA COMBINAISON LIVREE. 0 EN LIVRAISON : 1 DESARME la borne d'apex.
+(define *phys-e21-off* 1) (define *phys-e21-n* 0) (define *phys-e21-d* 0.0)
 
 (defconstant PHYS-DG 86)           ;; 79-85 = [NOTE-466] le MEME septuplet a portee de FENETRE, cle sur l'etage 0 · 65-71 = [NOTE-340] les SEPT etages de |p_rlk - pose auteur| / B0 DANS LA FRAME COURANTE, 72-78 le meme septuplet LATCHE a la frame qui maximise l'etage 6 · 59-61 = [NOTE-338] la part TRANSLATION de l'apex, 62-64 sa part TENSEUR, AU MEME ARGMAX que 53-56 · 31-34 = [NOTE-92] l'attribution de `comex` · 35-42 = [NOTE-112] le COM PAR MAILLON · 43-46 = [NOTE-126] le COM PONDERE · 47-49 = [NOTE-136] son VECTEUR · 50-52 = [NOTE-137] la POSITION MONDE de l'ancre · 53-56 = [NOTE-139] l'APEX et son vecteur · 57/58 = [NOTE-139] les deux extremes verticaux du COM (SPEC 15)
 (define *phys-dg* (new 'global 'array 'float (* PHYS-SC PHYS-DG)))
@@ -1198,29 +1200,11 @@
                    (when (> ang (-> *phys-la1* scl)) (set! (-> *phys-la1* scl) ang)))))))))))
   (none))
 
-(defun phys-apex-scale ((skel skeleton) (sc int) (n int) (nbone int) (hard? symbol))
-  "Facteur COMMUN qui met la POINTE dans le budget d'apex de SPEC 22 (SPEC 21 sature la COMBINAISON).
-   NATURE rapport sans dimension ; REPERE deviation ABSOLUE de la pointe a sa pose d'auteur, monde
-   (SPEC 2/9) ; ABSENT = 1.0 exact dans le budget. [NOTE-120] -> jak-hd-physics-NOTES.md"
-  (let* ((tl (+ (* sc PHYS-LINKS) (- n 1)))
-         (kt (if (> n 0) (-> *phys-joint* tl) -1)))
-    (if (or (< kt 0) (>= (+ kt 1) nbone))
-      1.0
-      (let* ((ex (- (-> *phys-px* tl) (-> skel bones (+ kt 1) transform vector 3 x)))
-             (ey (- (-> *phys-py* tl) (-> skel bones (+ kt 1) transform vector 3 y)))
-             (ez (- (-> *phys-pz* tl) (-> skel bones (+ kt 1) transform vector 3 z)))
-             (dd (sqrtf (+ (* ex ex) (+ (* ey ey) (* ez ez)))))
-             (cap (* 0.50 (if (> (-> *phys-b0* sc) 0.0) (-> *phys-b0* sc) (-> *phys-blen* tl))))
-             (ds (if hard? (fmin dd cap) (phys-softmin dd cap))))
-        (if (or (<= cap 0.0) (< dd 0.0001) (>= ds dd)) 1.0 (/ ds dd))))))
-
 (defun phys-bend-chain ((skel skeleton) (sc int) (n int) (rlk int) (an int) (nbone int) (hard? symbol))
   ;; [NOTE-119] `hard?` = LA BORNE EST-ELLE DANS UNE BOUCLE ? SI OUI, ELLE DOIT ETRE IDEMPOTENTE. -> jak-hd-physics-NOTES.md
-  ;; [NOTE-116] [NOTE-120] SA 22 BORNE L'APEX ET SA 21 SATURE LA COMBINAISON, PAS LE MAILLON. -> jak-hd-physics-NOTES.md
-  (let* ((amax (-> *phys-maxang* sc))
-         (apx? (and (= (-> *phys-fam* sc) 1) (<= amax 0.0)))
-         (asc  (if apx? (phys-apex-scale skel sc n nbone hard?) 1.0)))
-    (when (and (zero? *phys-bend-off*) (if apx? (< asc 1.0) (> amax 0.0)))
+  ;; [NOTE-116] [NOTE-120] SA 22 NE SE BORNE PLUS ICI : `phys-apex-scale` lisait la POINTE (un JOINT), pas la chair. La borne vit en section 6, sur le point que §22 nomme. -> jak-hd-physics-NOTES.md
+  (let* ((amax (-> *phys-maxang* sc)))
+    (when (and (zero? *phys-bend-off*) (> amax 0.0))
       (dotimes (l n)
         (when (>= l rlk)
           (let* ((scl (+ (* sc PHYS-LINKS) l))
@@ -1251,13 +1235,8 @@
                          (pl (sqrtf (+ (* px px) (+ (* py py) (* pz pz)))))
                          ;; [NOTE-270] `atan` de GOAL rend des UNITES DE ROTATION (65536 = un tour) ; -> jak-hd-physics-NOTES.md
                          (adeg (* 0.0054931641 (atan pl cs)))
-                         ;; SPEC 21 : `2*ml*sin(a/2)` x `asc` s'ecrit `sin(a'/2) = asc*sin(a/2)`.
-                         (sh (if apx? (* asc (sin (* 91.02222 adeg))) 0.0))
                          ;; [NOTE-121] PIERRE TOMBALE — LA MONOTONIE DE SPEC 31, POSEE ET RETIREE SUR MESURE. -> jak-hd-physics-NOTES.md
-                         (adg2 (cond
-                                 ((not apx?) (if hard? (fmin adeg amax) (phys-softmin adeg amax)))
-                                 ((>= sh 0.9999) adeg)
-                                 (else (* 2.0 (* 0.0054931641 (atan sh (sqrtf (- 1.0 (* sh sh))))))))))
+                         (adg2 (if hard? (fmin adeg amax) (phys-softmin adeg amax))))
                     (when (and (> pl 0.0001) (< adg2 (- adeg 0.01)))
                       (let* ((au (* 182.04444 adg2))
                              (cc (cos au))
@@ -3917,6 +3896,21 @@
                               (let ((aw (-> *phys-apw* scl)))
                                 (when (> aw 0.0)
                                   (phys-pt-exc! bm pre (-> *phys-apx* scl) (-> *phys-apy* scl) (-> *phys-apz* scl))
+                                  ;; [NOTE-471] SPEC 21/22 SUR LA COMBINAISON LIVREE — la saturation porte sur le POINT DE CHAIR. -> jak-hd-physics-NOTES.md
+                                  (when (and (zero? *phys-e21-off*) (> (-> *phys-b0* sc) 0.0))
+                                    (let* ((ed (sqrtf (+ (* (-> *phys-c2* 0) (-> *phys-c2* 0)) (+ (* (-> *phys-c2* 1) (-> *phys-c2* 1)) (* (-> *phys-c2* 2) (-> *phys-c2* 2))))))
+                                           (es (phys-softmin ed (* 0.50 (-> *phys-b0* sc))))
+                                           (gg (if (> ed 0.0001) (/ es ed) 1.0)))
+                                      (when (and (> ed 0.0001) (< es (- ed 0.000001)))
+                                        (set-vector! rest (+ (* (-> *phys-apx* scl) (-> bm vector 0 x)) (+ (* (-> *phys-apy* scl) (-> bm vector 1 x)) (* (-> *phys-apz* scl) (-> bm vector 2 x)))) (+ (* (-> *phys-apx* scl) (-> bm vector 0 y)) (+ (* (-> *phys-apy* scl) (-> bm vector 1 y)) (* (-> *phys-apz* scl) (-> bm vector 2 y)))) (+ (* (-> *phys-apx* scl) (-> bm vector 0 z)) (+ (* (-> *phys-apy* scl) (-> bm vector 1 z)) (* (-> *phys-apz* scl) (-> bm vector 2 z)))) 1.0)
+                                        (set-vector! pt (- (-> rest x) (* (- 1.0 gg) (-> *phys-c2* 0))) (- (-> rest y) (* (- 1.0 gg) (-> *phys-c2* 1))) (- (-> rest z) (* (- 1.0 gg) (-> *phys-c2* 2))) 1.0)
+                                        (let ((la (vector-length rest)) (lb (vector-length pt))) (when (and (> la 0.01) (> lb 0.01))
+                                            (vector-float*! rest rest (/ 1.0 la)) (vector-float*! pt pt (/ 1.0 lb)) (vector-cross! nrm rest pt)
+                                            (let ((sn (vector-length nrm)) (cs (vector-dot rest pt))) (when (> sn 0.0001)
+                                                (vector-float*! nrm nrm (/ 1.0 sn)) (matrix-axis-angle! rot nrm (atan sn cs))
+                                                (set-vector! (-> bm vector 3) 0.0 0.0 0.0 1.0) (matrix*! tmp bm rot) (matrix-copy! bm tmp)
+                                                (set! (-> bm vector 3 x) (-> *phys-px* scl)) (set! (-> bm vector 3 y) (-> *phys-py* scl)) (set! (-> bm vector 3 z) (-> *phys-pz* scl)) (set! (-> bm vector 3 w) 1.0)
+                                                (set! *phys-e21-n* (+ *phys-e21-n* 1)) (set! *phys-e21-d* (+ *phys-e21-d* (/ (- ed es) (-> *phys-b0* sc)))) (phys-pt-exc! bm pre (-> *phys-apx* scl) (-> *phys-apy* scl) (-> *phys-apz* scl)))))))))
                                   (set! awx (+ awx (* aw (-> *phys-c2* 0))))
                                   (set! awy (+ awy (* aw (-> *phys-c2* 1))))
                                   (set! awz (+ awz (* aw (-> *phys-c2* 2))))
@@ -4514,6 +4508,7 @@
   (set! *phys-skc-r* 0.0)
   (set! *phys-e22-n* 0)
   (set! *phys-e22-d* 0.0)
+  (set! *phys-e21-n* 0) (set! *phys-e21-d* 0.0)
   (none))
 
 ;; [NOTE-453] CONTROLE POSITIF DE L'AUTO-COLLISION : 1 = l'exclusion chaine <-> ses propres volumes est LEVEE. -> jak-hd-physics-NOTES.md
@@ -4545,6 +4540,7 @@
         ((= which 2) *phys-skc-w*)
         ((= which 3) *phys-skc-r*)
         ((= which 4) (the float *phys-e22-n*))
+        ((= which 6) (the float *phys-e21-n*)) ((= which 7) *phys-e21-d*)
         (else *phys-e22-d*)))
 
 (defun phys-e22-off-set! ((v int))
@@ -4554,6 +4550,11 @@
   (set! *phys-e22-off* v)
   (none))
 
+(defun phys-e21-off-set! ((v int))
+  "ABLATION, 0 EN LIVRAISON : 1 DESARME la borne de SPEC 21/22 sur le POINT DE CHAIR livre. Elle
+   remplace `phys-apex-scale`, qui bornait la POINTE (un JOINT) : cycle 76, -25 % de translation du joint rendait -0,2 % d'apex."
+  (set! *phys-e21-off* v)
+  (none))
 (defun phys-prox-off-set! ((v int))
   "ABLATION DE MESURE, 0 EN LIVRAISON : 1 retire les SPHERES PROXIMALES de la liste des obstacles.
    Le cycle 35 a mesure qu'elles ne couvrent aucun sommet que la sphere distale ne couvre deja ;
