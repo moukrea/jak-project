@@ -1,84 +1,75 @@
-# RIEN A TESTER DANS CE BUILD — MAIS JE DOIS TE RETIRER UN AUTRE CHIFFRE QUE JE T'AI DONNE
+# RIEN A TESTER DANS CE BUILD — MAIS JE DOIS TE RETIRER CE QUE JE T'AI DIT HIER SOIR
 
-Branche `physics-keira-clean`. **Ce build ne change pas un bit de la physique.** Je n'ai ajoute
-qu'une ligne de trace. Ne perds pas de temps dessus : je te le publie parce que tu m'as demande de
-livrer au fil de l'eau.
+Branche `physics-keira-clean`. **Ce build ne change pas un bit de la physique** : pas une ligne de
+moteur, pas une donnee. Ne perds pas de temps dessus.
 
-Deux choses te reviennent. La premiere est une correction, la seconde est une question qui
-n'appartient qu'a toi.
+En echange j'ai un fait neuf, et il est plus utile que tout ce que je t'ai envoye cette semaine.
 
 ---
 
-## 1. JE RETIRE LE « x1,85 ». LA POITRINE NE DEBORDE PAS DE 85 % PARTOUT, ET SURTOUT PAS DANS LE MEME SENS.
+## 1. JE RETIRE CE QUE JE T'AI ECRIT HIER SOIR SUR SES ANIMATIONS
 
-Je t'ai fait remonter que l'excursion de sa poitrine valait **« environ 1,85 fois ce que ta spec
-autorise »**, que c'etait **un seul defaut exprime six fois**, et qu'en le divisant par 1,85 **six
-sections de ta spec basculeraient ensemble**.
+Je t'ai dit deux choses hier soir, et **les deux sont a corriger**.
 
-**Les trois affirmations sont fausses. Je les retire.**
+**(a) « Tes animations ne secouent son torse qu'a 1,06 g au plus. »** Faux — ou plutot incomplet,
+ce qui revient au meme. Je mesurais le torse **en translation seulement**. Mais sa poitrine n'est
+pas accrochee au centre du torse : elle est au bout d'un bras de levier, et quand le torse
+**tourne**, le bout du levier prend beaucoup plus que le centre. En comptant la rotation, l'entree
+reelle monte a **7,65 g**. Ma mesure ne pouvait pas la voir.
 
-Le 1,85 est un **maximum sur toute la course**, tous stimuli confondus, sur une seule ligne de ta
-spec (la 22). Mais la ou ta spec attache une amplitude a un **geste precis** — une detente, une
-reception, un freinage, un demi-tour, un buste en avant, une inclinaison laterale —, j'ai vingt
-mesures, et elles ne disent pas la meme chose du tout :
+**(b) « Il reste juste a filtrer un a-coup d'une image et la cible redevient atteignable. »**
+Faux aussi, et c'est le plus important. **Cet a-coup ne produit pas ce que tu vois.** Je l'ai
+verifie en appariant les 31 animations une a une : l'a-coup pilote mon compteur d'entree presque
+parfaitement (0,96 sur 1), et le mouvement de sa poitrine **pas du tout** (-0,04). Les animations
+qui n'ont aucun a-coup ont meme une poitrine qui s'ecarte **davantage** que celles qui en ont un.
 
-    dans ta bande         4 mesures sur 20
-    au-dessus            12 mesures sur 20    de 5 % a 64 % de trop  (jamais 85 %)
-    **en dessous**        4 mesures sur 20    jusqu'a **trois fois trop peu**
-
-**Un tiers des mesures de ta section 16 (l'atterrissage) manque sa bande PAR LE BAS.** Diviser
-l'excursion, comme je te le proposais, les aurait rendues encore plus mortes.
-
-Et le pire : **son sein gauche et son sein droit demandent des corrections en sens OPPOSE** sur
-quatre des six sections. Sur le demi-tour rapide, le gauche bouge trop peu et le droit trop —
-au meme instant, sous le meme geste. Aucun reglage commun ne peut satisfaire les deux. J'ai
-balaye tous les facteurs possibles : **le meilleur imaginable n'en corrige que deux sur six**, et
-celui que je te proposais (1,85) n'en corrige **aucune**.
-
-Je n'ai pas trouve pourquoi les deux cotes se comportent a l'envers l'un de l'autre. J'ai teste
-mon explication — la geometrie de sa pose — et **elle est fausse aussi**. Je ne t'en propose pas
-une autre tant que je ne l'ai pas mesuree.
+Si je l'avais filtre comme je te l'annoncais, **tu n'aurais rien vu changer a l'ecran.**
 
 ---
 
-## 2. TES ANIMATIONS NE SONT PAS EN CAUSE. C'EST UN A-COUP D'UNE SEULE IMAGE, ET IL EST A NOUS.
+## 2. LE FAIT NEUF, ET IL EXPLIQUE MIEUX CE QUE TU DECRIS DEPUIS DEUX SEMAINES
 
-J'avais commence a t'ecrire ici une question pour toi : « tes animations secouent sa poitrine
-2,5 fois plus fort que le geste le plus violent de ta propre spec, choisis entre ta spec et tes
-animations ». **J'ai mesure avant de te l'envoyer, et le dilemme n'existe pas. Je le retire.**
+**Sa poitrine est deja a 10 a 13 cm de la position que l'artiste a dessinee QUAND ELLE NE BOUGE
+PAS.**
 
-Ce que j'avais : la chaine recoit jusqu'a **7,85 g** sans qu'on la secoue. Ce que je n'avais pas :
-d'ou ca vient. Je ne regardais que des os que la physique elle-meme deplace — donc je voyais sa
-reponse, pas son entree. J'ai ajoute a la mesure l'os du **buste**, que la physique ne touche
-jamais : lui, c'est ton animation pure.
+Ce n'est pas une phrase en l'air, c'est la mesure. J'ai isole les animations ou son corps est
+reellement immobile — trois criteres a la fois : il ne se deplace pas (0,03 mm par image), il ne
+tourne pas (0,015 degre par image), il n'accelere pas. Il en reste cinq. Sur ces cinq :
 
-**Trois choses en sortent, et elles renversent la question :**
+    huit mesures sur dix depassent DEJA le plafond maximum de ta spec
+    et le pire ecart de toute la course — 12,9 cm, pour un plafond de 7,3 cm —
+    tombe sur l'animation ou elle est LA PLUS IMMOBILE des trente et une.
 
-  - **Le pic ne dure qu'UNE SEULE IMAGE.** Sur l'image d'avant et celle d'apres, l'acceleration
-    est quasi nulle (1,3 % du pic). Sur la duree de la fenetre, la valeur habituelle vaut **0,01 g**
-    et le pic **6 g** : un rapport de **750**. Aucun mouvement humain ne fait ca. Ce n'est pas une
-    acceleration, c'est un **saut** dans la trajectoire.
-  - **Son buste, lui, est parfaitement raisonnable.** En isolant le mouvement du TORSE seul, il ne
-    depasse jamais **1,06 g** — bien en dessous des 3,11 g que ta spec envisage pour une reception
-    dure. **Tes animations de torse sont dans les clous.**
-  - **Le saut est dans le deplacement d'ENSEMBLE du personnage**, pas dans son buste : 76 a 86 %
-    de ce que la poitrine encaisse vient de la racine du personnage qui change de vitesse d'un
-    coup, en une image.
+Puis j'ai multiplie l'entree par **380** — de « immobile » a « choc violent ». Resultat :
+**l'ecart ne bouge pas.** Il baisse meme de 4 %.
 
-**Donc : rien a arbitrer de ton cote, et rien a changer a tes animations.** C'est un a-coup qu'on
-laisse passer, et c'est a nous de le filtrer. Ta section 37 dit d'ailleurs exactement ca —
-« artificial transforms must not generate physical breast impulses » — et le mecanisme existe deja
-chez nous : il attrape bien les teleportations (167 a 258 cm, il tire a chaque fois). Mais les
-a-coups qui font le degat valent **0,7 a 1,0 cm** : ils sont cent a mille fois plus petits que ce
-qu'il surveille, et ils passent dessous. **C'est ca, le prochain travail.**
+**Donc ce n'est pas un ballotement excessif. C'est une position de repos fausse.** Sa poitrine ne
+revient pas la ou l'artiste l'a mise, et elle y reste. Ca colle beaucoup mieux a ce que tu me dis
+depuis le 13 — « ca suit aucune logique », « c'est du pudding » — qu'une sur-reaction aux gestes :
+un pudding ne reagit pas trop fort, il **se tient mal**.
 
-Et ca change ce que je t'annonce sur sa poitrine : le depassement de ta section 22 n'est **pas**
-une fatalite de tes animations. Une fois cet a-coup filtre, la bande que tu demandes redevient un
-objectif atteignable.
+**Et ca veut dire que j'ai passe plusieurs cycles a chasser la mauvaise chose.** Tout le chantier
+depuis une semaine visait a calmer sa reaction au mouvement. La reaction au mouvement n'est pas le
+probleme — le probleme est la ou elle se pose quand il n'y a pas de mouvement du tout.
 
-## 3. LA QUESTION DU CYCLE PRECEDENT TIENT TOUJOURS
+J'ai verifie que ce n'etait pas mon instrument qui se trompait de reference (c'etait l'explication
+la plus commode) : il compare bien a la pose de l'artiste de la meme image, je l'ai relu dans le
+code. **L'ecart est reel.**
 
-Ta section 16 ecrit : « **Recommended soft ceiling** : MaxApexDisplacement ≈ 0.50 B0 ». Le mot est
-**« soft »** — recommande, souple. Le moteur l'a implemente **dur** : il coupe net a 0,50, et la
-bande que la meme section demande d'atteindre a l'atterrissage (42 a 50 %) est exactement celle ou
-ce plafond se ferme. C'est ton appel, pas le mien.
+---
+
+## 3. CE QUI T'APPARTIENT ENCORE, INCHANGE
+
+  - Ta section 16 ecrit « **Recommended soft ceiling** : MaxApexDisplacement ≈ 0.50 B0 ». Le mot
+    est « soft » — recommande, souple. Je l'ai implemente **dur**. Dis-moi lequel des deux tu veux.
+  - Le denominateur `B0`, la longueur de reference de tout le dossier. Ton texte est lisible de
+    deux facons et le choix deplace quinze sections d'un coup. Je ne tranche pas a ta place.
+
+---
+
+**A TESTER : RIEN.** Et je maintiens ce que je t'ai dit le 20 : tant qu'une seule section de ta
+spec sur 38 est tenue, te demander de juger a l'oeil te coute plus que ca ne me rapporte. Le jour
+ou le bloc qui gouverne ce que tu vois tiendra ensemble, je te le dirai et je te demanderai de
+regarder.
+
+`OPEN-DEFECTS` : `breast-spec-incomplete` reste ouverte. Elle ne se ferme que quand tu le dis.
