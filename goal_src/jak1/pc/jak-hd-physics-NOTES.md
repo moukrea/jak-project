@@ -7491,3 +7491,96 @@ que la prediction de bit-identite verifie sur les 43 386 lignes anterieures.
 **REGLE :** une grandeur intermediaire qu'un solveur JETTE n'est pas une grandeur nulle. Avant de
 brancher un instrument sur un temporaire, verifier ce que le code fait de chaque composante — celles
 qu'il ecrase sont precisement celles que personne n'a jamais eu besoin de tenir propres.
+
+
+## NOTE-341 — DIAGNOSTIC PAR CHAINE — la legende des emplacements de `*phys-dg*`
+
+------------------------------------------------------------------------------------------------
+DIAGNOSTIC PAR CHAINE — les quatre defauts de la 6e passe se lisent ici, chaine par chaine.
+which : 0 selfcol  1 retreat  2 flip  3 inv  4 invres  5 elong (allongement relatif max)
+------------------------------------------------------------------------------------------------
+
+
+## NOTE-342 — `phys-link-amp` — l'amplitude PAR MAILLON, la seule qui voit le gradient inverse
+
+AMPLITUDE DE MOUVEMENT D'UN MAILLON DONNE, meme instrument que `phys-tip-amp` mais pris sur le
+maillon `link` au lieu de la pointe. C'est la suite que SPEC 2 exige croissante de la racine vers
+la pointe, et la seule mesure capable de voir « le milieu part en vrille et la pointe ne bouge
+pas » — que `tipvar`, qui ne regarde que la pointe, rendait indistinguable d'une chaine saine.
+
+
+## NOTE-343 — `phys-tip-mean` — un DEPLACEMENT SOUTENU, pas une variance (ROOM-GRAVSAG)
+
+POSITION MOYENNE de la pointe sur la fenetre, dans le repere de l'ancre, axe par axe (0=x 1=y
+2=z). C'est le DEPLACEMENT SOUTENU dont la salle fait ROOM-GRAVSAG : la difference entre la
+moyenne debout et la moyenne penchee a 60 degres EST la reponse a la gravite. Zero si la fenetre
+n'a pas de frame — jamais une valeur inventee.
+
+
+## NOTE-344 — ce que la remise a zero des statistiques de fenetre couvre, emplacement par emplacement
+
+somme et compte de la position moyenne de la pointe (12..15), pire stimulus recu (16),
+pire allongement relatif (17), stimulus gravitaire (18), sa part tangentielle (19) et la
+profondeur AJOUTEE sous la peau (20, [NOTE-150]) — ce dernier est un maximum d'une
+grandeur positive : 0 est sa lecture QUAND LE DEFAUT EST ABSENT, pas une sentinelle.
+
+
+## NOTE-345 — SPEC 23 — le troisieme degre de liberte est celui du TISSU, pas du premier maillon
+
+[NOTE-59] ---- SPEC 23 : LE TROISIEME DEGRE DE LIBERTE ---------- -> jak-hd-physics-NOTES.md
+`(>= l rlk)` DEPUIS LE CYCLE 32, et c'etait `(= l rlk)` :
+sa §23 donne un troisieme degre de liberte au TISSU, pas
+au premier maillon. Le distal en etait prive, et sa serie
+radiale etait identiquement nulle (0 sur 150, 6 canaux).
+
+
+## NOTE-346 — `*phys-sdq*` — le controle positif de SPEC 33 est une PREDICTION, pas un ratio
+
+LA POSITION MONDE du plus proche echantillon de la derniere requete. Elle sert au CONTROLE
+POSITIF de SPEC 33 : on deplace le point sonde EXACTEMENT vers lui d'une longueur connue, donc
+la reponse attendue est une PREDICTION (`approche - injection`), pas un ratio a une ligne de
+base qui bouge — arbitrage du 2026-08-20 13:20.
+
+
+## NOTE-347 — les deux ETAGES de `phys-cap-ang!` : ce que longueur, collision et attenuation retirent
+
+ETAGE 1 : apres la boucle de contraintes ET l'attenuation d'angle, avant la
+finition. L'ecart entre l'etage 0 et celui-ci est ce que longueur, collision
+et attenuation retirent.
+
+
+## NOTE-340 — `PHYSSTG` : LES SEPT ETAGES DE LA BORNE DE SPEC 22 DANS UNE MEME FRAME (cycle 74)
+
+**Ce qu'il mesure.** `|p_rlk - pose_auteur_rlk| / B0`, la MEME grandeur que `jt` de `PHYSCOMWL`
+(emplacement 39+l), relevee a SEPT instants de la frame au lieu d'un seul.
+
+  NATURE  : une LONGUEUR rapportee a `B0` (SPEC 6, la CHAIR, 602,0 u — pas l'os).
+  REPERE  : le monde, contre la pose d'AUTEUR de la MEME frame.
+  LECTURE QUAND LE DEFAUT EST ABSENT : 0,0000 aux sept etages (`ROOM-IDLE maxdev` = 0,0002).
+  ETAGES  : 0 avant le filet de §22 · 1 apres le filet · 2 apres la 1re contrainte de LONGUEUR ·
+            3 apres la 1re COLLISION · 4 apres les 8 iterations · 5 avant la peau ·
+            6 apres `phys-skin-chain` = **la valeur LIVREE**.
+
+**Pourquoi un latch et pas sept maximums.** Les sept valeurs viennent d'UNE SEULE frame, celle qui
+maximise l'etage 6 dans la fenetre. Sept maximums independants viendraient de sept frames
+differentes et ne pourraient soutenir aucun modele reliant deux etages — piege `RAD-FLESH-IPAIR`
+du cycle 34.
+
+**CONTROLE INTERNE, GRATUIT.** L'etage 1 est `<= 0,50 B0` PAR ALGEBRE (`ds = kn + cp*tanh(x)`,
+strictement `< kn + cp`). Mesure : **0 fenetre au-dessus sur 372**. S'il ne l'etait pas, ce serait
+l'INSTRUMENT qui serait faux, pas le solveur, et rien d'autre de la ligne ne serait lisible.
+
+**CONTROLE DE NON-PERTURBATION.** Les 44 130 lignes `PHYS` anterieures sont identiques UNE A UNE a
+celles de la course precedente : **0 differente**. Le canal LIT, il n'est pas un terme.
+
+**CE QU'IL A TROUVE (cycle 74).** Les etages 0 a 5 respectent le plafond de 0,50 B0 ; l'etage 6 le
+depasse sur 184/186 et 156/186 fenetres. **La fuite entiere de la §22 est produite par
+`phys-skin-chain`, et par elle seule** — les quinze passes de contraintes que le cycle 73
+soupconnait laissent la borne INTACTE (la contrainte de longueur la fait meme BAISSER de 0,3 %).
+
+**SA LIMITE, ET ELLE EST PUBLIEE AVEC LUI.** Le septuplet ne prend que **6 et 10 valeurs
+distinctes sur 186 fenetres**, la ou `PHYSAPEX` en rend 182 / 180 sur la MEME course. Il n'est donc
+**PAS DISCRIMINANT ENTRE STIMULI** au sens de SPEC 7, et aucune phrase du cycle 74 ne s'appuie sur
+une variation entre fenetres. Cause : son latch est cle sur l'etage 6, **qui sature** — la cle d'un
+argmax ne peut pas etre une grandeur saturee. Il attribue DANS une frame, ce pour quoi il est bati.
+A rebatir sur une cle non saturee avant toute lecture par stimulus.

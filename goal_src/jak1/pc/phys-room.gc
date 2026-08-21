@@ -1751,6 +1751,28 @@
               c (-> self ai) (-> self drive) l
               (phys-link-ang-stage (-> self slot) c l 0)
               (phys-link-ang-stage (-> self slot) c l 1)))
+    ;; ---- PHYSSTG — LES SEPT ETAGES DE LA BORNE DE SPEC 22 DANS UNE MEME FRAME (cycle 74) ----
+    ;; Le cycle 73 a etabli que le filet de `jak-hd-physics.gc` ne PEUT PAS laisser le maillon
+    ;; racine au-dessus de 0.50 B0 a l'instant ou il s'applique, et que la valeur LIVREE vaut
+    ;; 0.6670 B0. Quinze passes de contraintes separent les deux instants. Cette ligne les ouvre.
+    ;;   NATURE : une LONGUEUR rapportee a `B0` (SPEC 6, la CHAIR, 602.0 u) — la MEME grandeur que
+    ;;            `jt` de PHYSCOMWL ci-dessus, relevee a SEPT instants de la frame au lieu d'un.
+    ;;   REPERE : le monde, contre la pose d'AUTEUR de la MEME frame.
+    ;;   POPULATION : les sept valeurs viennent d'UNE SEULE frame, celle qui maximise l'etage 6
+    ;;            dans la fenetre. Ce ne sont PAS sept maximums independants — ceux-la viendraient
+    ;;            de sept frames differentes et ne pourraient soutenir aucun modele reliant deux
+    ;;            etages (piege `RAD-FLESH-IPAIR`, cycle 34).
+    ;;   LECTURE QUAND LE DEFAUT EST ABSENT : 0.0000 aux sept etages, a la pose d'auteur.
+    ;;   ETAGES : 0 avant le filet · 1 apres le filet · 2 apres la 1re contrainte de LONGUEUR ·
+    ;;            3 apres la 1re COLLISION · 4 apres les 8 iterations · 5 avant la peau ·
+    ;;            6 apres la peau = LA VALEUR LIVREE.
+    ;;   CONTROLE INTERNE GRATUIT : l'etage 1 est <= 0.50 B0 par ALGEBRE (`ds = kn + cp*tanh(x)`,
+    ;;            strictement < kn+cp). S'il ne l'est pas, c'est L'INSTRUMENT qui est faux, pas le
+    ;;            solveur, et rien d'autre de cette ligne n'est lisible.
+    (dotimes (st 7)
+      (format 0 "PHYSSTG c=~D a=~D d=~D st=~D jt=~f~%"
+              c (-> self ai) (-> self drive) st
+              (phys-diag (-> self slot) c (+ 72 st))))
     ;; L'ALLONGEMENT ET LE STIMULUS GRAVITAIRE DE CETTE FENETRE. Par fenetre, donc attribuables a un
     ;; PILOTAGE : « ils s'allongent sur les mouvements brusques » ne se verifie pas sur un total de
     ;; course. `gn` = |g_effective|/|g| vu par l'ancre, `tf` = la part TANGENTIELLE de cette gravite,

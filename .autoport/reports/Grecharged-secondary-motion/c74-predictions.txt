@@ -1,0 +1,96 @@
+PREDICTIONS DU CYCLE 74 — ecrites AVANT toute edition de code et AVANT toute course.
+DIRECTIVES v3fee554599
+Branche physics-keira-clean · perimetre : chestL / chestR SEULES (owner 2026-08-14 07:30)
+
+OBJET : item 1 du chantier laisse par le cycle 73 — ATTRIBUER LA FUITE de la borne de la §22.
+Le cycle 73 etablit que le filet de `jak-hd-physics.gc:3120-3141` ne PEUT PAS laisser le maillon
+racine au-dessus de kn+cp = 0.50 B0 a l'instant ou il s'applique, et que la valeur LIVREE en fin
+de frame vaut 0.6670 B0 (+33.4 %). Quinze passes de contraintes separent les deux instants.
+Le cycle 73 propose un mecanisme SANS le mesurer (rapport §5) : `phys-length-chain` est une
+projection RADIALE sur la sphere de rayon `want`, le filet tire en CORDE donc sort de la sphere
+par l'INTERIEUR, et la re-projection radiale qui suit REOUVRE l'ecart angulaire.
+
+METHODE : je n'ablate PAS. Une ablation change la trajectoire, donc les fenetres ne sont plus
+comparables (registre : `ablation-table-poisons-the-floor-reference`,
+`attribution-harness-outlives-its-defect`). J'instrumente en LECTURE PURE la MEME trajectoire a
+sept instants de la MEME frame. Un instrument qui ne perturbe rien attribue mieux qu'une ablation
+qui deplace la population qu'elle mesure.
+
+INSTRUMENT `PHYSSTG` — |p_rlk - pose_auteur_rlk| / B0
+  NATURE  : une LONGUEUR rapportee a B0 (SPEC 6, la CHAIR : 602.0 u, lu dans la trace).
+  REPERE  : le monde, contre la pose d'AUTEUR de la MEME frame. C'est exactement la grandeur `jt`
+            de `PHYSCOMWL` (emplacement 39+l), relevee a SEPT instants au lieu d'un seul.
+  LATCH   : les sept valeurs sont celles d'UNE SEULE frame — celle qui maximise l'etage 6 dans la
+            fenetre. Sept maxima independants viendraient de sept frames differentes et ne
+            pourraient porter aucun modele (piege `RAD-FLESH-IPAIR`, cycle 34).
+  LECTURE QUAND LE DEFAUT EST ABSENT : 0.0000 aux sept etages, a la pose d'auteur.
+  ETAGES :
+    0  avant le filet §22            (juste apres `phys-cap-ang! ... 0`)
+    1  apres le filet §22            (:3141)
+    2  apres le PREMIER `phys-length-chain`
+    3  apres le PREMIER `phys-collide-chain`
+    4  apres les 8 iterations (longueur + collision)
+    5  apres `bend` doux + 3x + 4x   (avant la peau)
+    6  apres `phys-skin-chain`       — LA VALEUR LIVREE
+
+------------------------------------------------------------------------------------------------
+P1 — NON-PERTURBATION. C'EST LE CONTROLE QUI AUTORISE TOUT LE RESTE.
+Toutes les lignes `PHYS` de la course precedente (44 130) sont identiques UNE A UNE.
+ENGAGEMENT : 0 DIFFERENTE. Le total monte de exactement 372 x 7 = 2 604, soit 46 734.
+Refutation : une seule ligne differente et le canal n'est pas un instrument, il est un terme.
+
+P2 — VACUITE / ALGEBRE. Controle NEGATIF gratuit sur l'affirmation du cycle 73.
+ENGAGEMENT : l'etage 1 est <= 0.5000 B0 sur 100 % des 372 fenetres, les DEUX chaines
+(tolerance flottante 0.5005). Une seule fenetre au-dessus veut dire que c'est L'INSTRUMENT qui
+est faux, pas le solveur — et alors rien d'autre de ce fichier n'est lisible.
+
+P3 — LA FUITE EXISTE ET ELLE EST EN AVAL.
+ENGAGEMENT : max(etage 6) >= 0.6670 B0 sur chestL. `PHYSCOMWL` publie deja 0.6670 mais latche a
+l'argmax de `ee`, pas au sien : c'est un MINORANT, donc mon etage 6 doit etre >= .
+
+P4 — LA RE-PROJECTION RADIALE EST LE PREMIER RE-OUVREUR (hypothese du cycle 73 §5).
+ENGAGEMENT : etage 2 > etage 1 sur >= 90 % des fenetres ou le filet a MORDU (etage 0 > 0.42 B0).
+REFUTATION : si l'ecart median (etage2 - etage1) est < 2 % de l'etage 1, le mecanisme propose est
+FAUX, je le publie comme tel, et le correctif du cycle 73 §9.2 doit changer de cible.
+
+P5 — LA FORME FERMEE. C'EST LA PREDICTION QUI ENGAGE VRAIMENT, PARCE QU'ELLE PREDIT UN NOMBRE.
+Si le mecanisme est bien la re-projection radiale, alors l'etage 2 est ENTIEREMENT determine par
+les etages 0 et 1, par une algebre sans parametre libre. Avec w = longueur d'os du MODELE
+(1040.4951 u sur chestL, 1039.0349 sur chestR — `PHYSBONE c=* l=0`) et B = 602.0 u :
+    x0    = etage0 * B / w            corde AVANT le filet, sur la sphere UNITE
+    x1    = etage1 * B / w            corde APRES le filet
+    sf    = x1 / x0
+    cos8  = 1 - x0*x0/2 ;  sin8 = x0 * sqrt(1 - x0*x0/4)
+    tan8'' = sf*sin8 / ((1-sf) + sf*cos8)
+    etage2_predit = 2*sin(8''/2) * w / B
+ENGAGEMENT : |etage2_mesure - etage2_predit| <= 0.01 B0 sur >= 80 % des fenetres ou le filet a
+mordu. Si ca tient, le mecanisme n'est plus une hypothese et le CORRECTIF est determine par la
+MEME algebre (voir plus bas). Si ca ne tient pas, je le publie refute et je n'invente pas de cause.
+
+P6 — L'ATTRIBUTION, ET C'EST L'OBJET DU CYCLE.
+ENGAGEMENT : le plus grand saut entre deux etages CONSECUTIFS, en MEDIANE sur les 372 fenetres,
+est celui de 1 -> 2 (la contrainte de longueur).
+REFUTATION : si c'est 3->4, 4->5 ou 5->6, la longueur n'est pas le coupable principal.
+
+P7 — LA PEAU NE FUIT PAS.
+ENGAGEMENT : (etage 6 - etage 5) <= 0.01 B0 en MEDIANE. Le cycle 61 avait mesure que
+`phys-skin-chain` ne museler pas (tipvar -0.2 % / +2.4 %) ; si elle porte ici un saut, c'est neuf.
+
+------------------------------------------------------------------------------------------------
+CE QUE LE CORRECTIF SERA SI P4+P5 TIENNENT — ecrit d'avance pour qu'il ne soit pas choisi APRES
+avoir vu les chiffres.
+
+Le filet et la contrainte de longueur se combattent parce que le filet produit un point qui n'est
+PAS sur la sphere. Or `t` (la pose d'auteur du joint) EST sur la sphere : |t - b| = want, par
+construction du rig (l'animation ne change pas la longueur des os), pour le maillon 0 comme pour
+le maillon 1. Les deux contraintes sont donc SIMULTANEMENT satisfaisables, et la forme qui les
+satisfait toutes les deux est une ROTATION autour de l'attache a longueur de MODELE :
+    u = (p - b)/want ,  v = (t - b)/want          (unitaires)
+    c = ds/want                                    (la corde que la §22 autorise)
+    e = normalise(u - (u.v) v)                     (la direction perpendiculaire, vers u)
+    p := b + want * ( (1 - c*c/2) * v + c*sqrt(1 - c*c/4) * e )
+Verification algebrique, sans trigonometrie : |p - b| = want exactement, et |p - t|^2 =
+(c*c/2)^2 + c*c*(1 - c*c/4) = c*c, donc |p - t| = ds exactement. La forme est IDEMPOTENTE avec
+`phys-length-chain` : celle-ci ne peut plus rien reouvrir, puisqu'elle n'a plus rien a corriger.
+C'est `rotation-must-use-model-length-not-current` du registre, applique au filet de la §22.
+Ce correctif n'est PAS pose ce cycle-ci s'il n'est pas soutenu par P4 et P5.
