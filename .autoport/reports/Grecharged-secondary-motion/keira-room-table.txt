@@ -1,7 +1,7 @@
 ==================================================================================================
 KEIRA — SALLE DE TEST SANS JOUEUR : TABLEAU DE MESURE
 genere par .autoport/physics_room_table.py depuis .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
-empreinte de la trace lue : md5 ee72c62bcd281cc1b32e2bec8679fdc8 (4618737 octets)
+empreinte de la trace lue : md5 b06b673ebaaf3767d708ce5e5097d89e (4620369 octets)
 contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 7 (ce qui fait foi)
 
 -- ROOM-INSTRUMENTS-MUETS : CE QUE CE TABLEAU NE MESURE PAS AUJOURD'HUI ------------
@@ -1291,6 +1291,52 @@ ROOM-REGSTG-CTRL: chestR    s6 vs jt0 : ecart median 0.0028 B0, pire 0.0966 B0 (
    la premisse inverse — publiee au cycle 77 dans `c77-predictions.txt` P6 et dans le
    commentaire de phys-room.gc — etait fausse. L'ECART entre les deux est donc un DIAGNOSTIC
    d'accord, jamais un verdict : il ne fait echouer personne.
+
+   -- ROOM-REGBONE : LA DIRECTION D'OS JOUEE, ET LA SYMETRIE DE LA POSE ---------
+   `sinY` = part TANGENTIELLE d'un pilotage VERTICAL (§14/§15/§16) qu'un
+   pendule peut convertir en deplacement ; `sinZ` = celle d'un pilotage AVANT
+   (§17). Reference de BIND, mesuree cycle 78 sur keira-hd-donor-injected.glb :
+   u = (0.36457, 0.91918, 0.14897), sinY = 0.3938, sinZ = 0.9888.
+ROOM-REGBONE: r= 0 base          L u=(-0.1229,+0.9707,-0.2067) sinY=0.2405 sinZ=0.9784
+                              R u=(+0.5600,+0.8247,+0.0795) sinY=0.5656 sinZ=0.9968   ecart_miroir= 31.47 deg
+ROOM-REGBONE: r= 1 jumpA-push    L u=(-0.1632,+0.9384,-0.3047) sinY=0.3457 sinZ=0.9525
+                              R u=(+0.6638,+0.7432,+0.0835) sinY=0.6690 sinZ=0.9965   ecart_miroir= 38.71 deg
+ROOM-REGBONE: r= 2 jumpA-fly     L u=(-0.1343,+0.9756,-0.1738) sinY=0.2197 sinZ=0.9848
+                              R u=(+0.4427,+0.8939,+0.0699) sinY=0.4482 sinZ=0.9976   ecart_miroir= 23.16 deg
+ROOM-REGBONE: r= 3 jumpA-land    L u=(-0.1225,+0.9709,-0.2055) sinY=0.2393 sinZ=0.9787
+                              R u=(+0.5581,+0.8260,+0.0782) sinY=0.5636 sinZ=0.9969   ecart_miroir= 31.32 deg
+ROOM-REGBONE: r= 4 jumpB-push    L u=(-0.1786,+0.9261,-0.3323) sinY=0.3773 sinZ=0.9432
+                              R u=(+0.5999,+0.7973,+0.0667) sinY=0.6036 sinZ=0.9978   ecart_miroir= 34.58 deg
+ROOM-REGBONE: r= 5 jumpB-fly     L u=(-0.1557,+0.9738,-0.1655) sinY=0.2272 sinZ=0.9862
+                              R u=(+0.4235,+0.9037,+0.0635) sinY=0.4282 sinZ=0.9980   ecart_miroir= 20.70 deg
+ROOM-REGBONE: r= 6 jumpB-land    L u=(-0.1256,+0.9705,-0.2056) sinY=0.2409 sinZ=0.9786
+                              R u=(+0.5577,+0.8263,+0.0790) sinY=0.5632 sinZ=0.9969   ecart_miroir= 31.15 deg
+ROOM-REGBONE: r= 7 runA-accel    L u=(-0.1050,+0.9554,-0.2761) sinY=0.2954 sinZ=0.9611
+                              R u=(+0.5688,+0.8211,+0.0483) sinY=0.5708 sinZ=0.9988   ecart_miroir= 33.82 deg
+ROOM-REGBONE: r= 8 runA-brake    L u=(-0.1222,+0.9705,-0.2077) sinY=0.2410 sinZ=0.9782
+                              R u=(+0.5600,+0.8246,+0.0800) sinY=0.5657 sinZ=0.9968   ecart_miroir= 31.55 deg
+ROOM-REGBONE: r= 9 yawA          L u=(-0.2064,+0.9708,+0.1225) sinY=0.2400 sinZ=0.9925
+                              R u=(+0.0800,+0.8262,-0.5577) sinY=0.5634 sinZ=0.8301   ecart_miroir= 41.39 deg
+ROOM-REGBONE: r=10 yawB          L u=(+0.0025,+0.9706,+0.2406) sinY=0.2406 sinZ=0.9706
+                              R u=(-0.4552,+0.8260,-0.3325) sinY=0.5637 sinZ=0.9431   ecart_miroir= 43.71 deg
+ROOM-REGBONE: r=11 pitchA-bend   L u=(-0.1744,+0.4146,+0.8931) sinY=0.9100 sinZ=0.4498
+                              R u=(+0.4812,+0.0570,+0.8748) sinY=0.9984 sinZ=0.4846   ecart_miroir= 27.28 deg
+ROOM-REGBONE: r=12 pitchA-return L u=(-0.1228,+0.9716,-0.2023) sinY=0.2367 sinZ=0.9793
+                              R u=(+0.5606,+0.8256,+0.0637) sinY=0.5643 sinZ=0.9980   ecart_miroir= 30.89 deg
+ROOM-REGBONE: r=13 rollA         L u=(-0.7185,+0.6652,-0.2031) sinY=0.7467 sinZ=0.9792
+                              R u=(-0.1098,+0.9896,+0.0934) sinY=0.1442 sinZ=0.9956   ecart_miroir= 55.92 deg
+ROOM-REGBONE: r=14 rollB         L u=(+0.5400,+0.8178,-0.1989) sinY=0.5755 sinZ=0.9800
+                              R u=(+0.9480,+0.3098,+0.0731) sinY=0.9508 sinZ=0.9973   ecart_miroir=105.85 deg
+
+ROOM-REGBONE-BILAN: sinY median  chestL 0.2409   chestR 0.5643   (bind 0.3938)
+ROOM-REGBONE-MIROIR: pire ecart au miroir de la POSE = 105.85 deg (r=14), seuil declare 1.30 deg
+   -> **POSE NON SYMETRIQUE**. Les deux chaines ne voient PAS le meme
+   pilotage : leurs os ne sont pas images l'un de l'autre dans la pose
+   jouee. Toute comparaison gauche/droite relevee dans PH-REG reste
+   NON ETABLIE — et la cause est la POSE, pas le personnage (rig
+   symetrique a 0.005 deg en bind).
+   CETTE LIGNE EST `ROOM-ASYM-EXEMPT` : elle mesure la POSE, elle
+   n'affirme aucune asymetrie du personnage.
 
    -- ROOM-APEX-RATIO : LE CONTROLE DE L'INSTRUMENT, PAS UNE EXIGENCE DE LA SPEC -
       LES BANDES DE SA PROPRE SPEC IMPLIQUENT UN RAPPORT apex/COM. §14 30/25,
@@ -3721,11 +3767,13 @@ ROOM-ASYM-POSE: PH-SYM7    PH-SYM i=7        ecart=7.5 deg    source=PHYSSYMB i=
 ROOM-ASYM-POSE: PH-TILT    PH-IDLE + PH-TILT (pire des deux) ecart=136.2 deg  source=PHYSPOSETAG  -> REFUSEE
    (source : PHYSPOSETAG tag=idle / tag=tilt)
 
-ROOM-ASYM-VERROU: 1 ligne(s) publient une comparaison gauche/droite SANS porter leur pose
+ROOM-ASYM-VERROU: 3 ligne(s) publient une comparaison gauche/droite SANS porter leur pose
    C'EST UN DEFAUT DE CE TABLEAU, PAS UNE MESURE. Chacune de ces lignes pose un ecart
    entre chestL et chestR sans dire dans quelle pose elle l'a releve : tant qu'elle ne le
    dit pas, son chiffre est indistinguable d'un artefact de pose et ne peut fonder aucune
    section. A corriger dans le tableau, pas a interpreter en rapport.
+   !  ROOM-REGBONE-BILAN: sinY median  chestL 0.2409   chestR 0.5643   (bind 0.3938)
+   !  ROOM-REGBONE-MIROIR: pire ecart au miroir de la POSE = 105.85 deg (r=14), seuil declare 1.30 deg
    !     separation chestL - chestR = (-1.21, -0.23, +758.09) u   norme 758.09 u = 18.5 cm
 ROOM-ASYM-EXEMPT: 9 ligne(s) exemptees (elles n'affirment aucune asymetrie du personnage)
    -  -- LE PILOTAGE (SPEC 6 : haut/bas, gauche/droite, diverses accelerations, a-coups) ---------
