@@ -2950,6 +2950,39 @@
       (dotimes (st 7)
         (format 0 "PHYSSTGR c=~D r=~D st=~D jt=~f~%"
                 c r st (phys-diag (-> self slot) c (+ 79 st))))
+      ;; ---- PHYSREGBONE — LA DIRECTION D'OS **JOUEE**, PAR CHAINE ET PAR FENETRE (cycle 79) ----
+      ;; LE TROU QUE CETTE LIGNE FERME, ET IL A COUTE UN ECART GAUCHE/DROITE NON LISIBLE. La
+      ;; contrainte de longueur DURE fait du maillon 0 un PENDULE : il ne repond qu'a la
+      ;; composante TANGENTIELLE de l'acceleration de son attache, c'est-a-dire a `sin` de
+      ;; l'angle entre l'os et l'axe du pilotage. Le cycle 78 a mesure cet angle sur la pose de
+      ;; BIND (23.193 deg de la verticale, donc 39.4 % utiles sur un pilotage vertical contre
+      ;; 98.9 % sur un pilotage avant) — mais `ROOM-ASYM-POSE` publie que la pose de PH-REG est a
+      ;; 47.3 deg du miroir. Un angle de bind ne peut donc pas etre juste des DEUX cotes, et
+      ;; l'ecart chestL/chestR restait NON ETABLI faute de cette ligne, pas faute de mesure.
+      ;;   NATURE : trois COSINUS DIRECTEURS, sans unite, d'un vecteur deja normalise par
+      ;;            `phys-chain-bone` (jak-hd-physics.gc:4384-4388, `comp` 0/1/2).
+      ;;   REPERE : le MONDE — les memes axes que `PHYSAXW`, `PHYSTRI` et que le pilotage
+      ;;            lui-meme (`physroom-tr-set` ecrit `yy` sur Y et `zz` sur Z en mode monde),
+      ;;            donc l'angle os/pilotage se compose sans rien supposer.
+      ;;   POPULATION : UN echantillon, celui de la frame de FERMETURE de la fenetre. Ce n'est
+      ;;            pas un maximum et ca ne pretend pas l'etre.
+      ;;   CE QU'ELLE LIT QUAND LE DEFAUT EST ABSENT : les deux chaines rendent des cosinus
+      ;;            MIROIR (ux oppose, uy et uz egaux), puisque le rig est symetrique a
+      ;;            0.005 deg en bind — mesure primaire cycle 78 : dx = -0.0041 u.
+      ;;   RESERVE, ET ELLE BORNE LA LIGNE : `phys-chain-bone` lit le squelette VIVANT, et la
+      ;;            salle tourne en `:trans`, donc AVANT le solveur de sa frame. Ces cosinus sont
+      ;;            donc ceux de la pose ECRITE PAR LA PHYSIQUE a la frame precedente, pas ceux
+      ;;            de la pose d'auteur. L'ecart entre les deux est borne par l'excursion du
+      ;;            joint (<= 0.50 B0 sur un os de 1.73 B0, soit <= 16.8 deg) et il est le MEME
+      ;;            pour les deux chaines a stimulus miroir : la COMPARAISON gauche/droite reste
+      ;;            valide meme si chaque angle porte ce biais.
+      (let ((hd (if (-> self child) (the-as jak-hd (-> self child 0)) (the-as jak-hd #f))))
+        (when hd
+          (format 0 "PHYSREGBONE c=~D r=~D ux=~,,5f uy=~,,5f uz=~,,5f~%"
+                  c r
+                  (phys-chain-bone hd (-> self slot) c 0 0)
+                  (phys-chain-bone hd (-> self slot) c 0 1)
+                  (phys-chain-bone hd (-> self slot) c 0 2))))
       (physroom-emit-limit PHYSROOM-PH-REG c r)))
   (none))
 
