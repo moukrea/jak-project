@@ -209,3 +209,59 @@ for j, c, nm in ((0, 0, 'chestL'), (2, 1, 'chestR')):
 print("\n    Une decroissance signerait un ring-down couvert par §27 (1.0-1.5 s). La fenetre ne"
       "\n    dure que 37 frames (0.62 s) : l'absence de TENDANCE au retour est ce qui est mesure,"
       "\n    pas l'epuisement du delai de §27. Cette mesure-la manque et elle est nommee.")
+
+# ------------------------------------------------------------------------------------------
+# [6] LE JOINT SE REPOSE-T-IL AU BIND DU MESH LIVRE ?  (ajout 81b)
+# NATURE : une LONGUEUR. L'offset d'attache dans le repere LOCAL de `chest`, (a) tel que le mesh
+#          LIVRE le definit en BIND (`inverseBindMatrices`), (b) tel que la course l'ECRIT.
+# UNITES : le glb est en METRES (controle imprime), le moteur en unites, 4096 u = 1 m.
+#          Toute longueur est publiee BRUTE ET convertie (directive du 2026-08-19 20:00).
+# CE QUE CA DISCRIMINE : `tp` (moteur, :3923) = joint SIMULE - joint AUTEUR. S'il valait le
+#          mouvement PROPRE du joint, il correlerait a `dj` a ~ +1. S'il vaut un ECART CONSTANT
+#          entre la pose d'AUTEUR et le BIND, il est grand, `dj` est petit, et ils ne correlent pas.
+try:
+    import numpy as np
+    sys.path.insert(0, '.autoport')
+    from c38_glb import Glb
+    M2U = 4096.0
+    gb = Glb("out/jak1/fr3/skin/keira-hd-lod0.glb")
+    sk = gb.j['skins'][0]
+    ibm = gb.acc(sk['inverseBindMatrices']).reshape(-1, 4, 4)
+    slot = {gb.j['nodes'][n].get('name'): i for i, n in enumerate(sk['joints'])}
+    bwm = lambda nm: np.linalg.inv(ibm[slot[nm]].T)
+    Cb = bwm('chest'); Cbi = np.linalg.inv(Cb)
+    print(f"\n[6] BIND du mesh livre — CONTROLES : base de `chest` orthonormee "
+          f"{[round(float(np.linalg.norm(Cb[:3,i])),5) for i in range(3)]} ; "
+          f"echelle main y={bwm('main')[1,3]:.3f} m, head y={bwm('head')[1,3]:.3f} m => METRES")
+    BIND = {}
+    for nm in ('lBoob', 'rBoob'):
+        BIND[nm] = (Cbi @ np.append(bwm(nm)[:3, 3], 1.0))[:3] * M2U
+        v = BIND[nm]
+        print(f"      {nm:6s} offset BIND ({v[0]:8.1f};{v[1]:8.1f};{v[2]:8.1f}) u  "
+              f"|.| {np.linalg.norm(v):7.1f} u = {np.linalg.norm(v)/M2U*100:5.2f} cm "
+              f"= {np.linalg.norm(v)/B0:.3f} B0")
+    tpv = {}
+    for line in open(LOG, errors='replace'):
+        if line.startswith('PHYSAPEXT'):
+            m = re.match(r'^PHYSAPEXT c=(\d+) a=(\d+) d=5 tx=([-\d.]+) ty=([-\d.]+) tz=([-\d.]+)', line)
+            if m: tpv[(int(m.group(1)), int(m.group(2)))] = \
+                np.array([float(m.group(3)), float(m.group(4)), float(m.group(5))])
+    for j, c, nm in ((0, 0, 'lBoob'), (2, 1, 'rBoob')):
+        mb, djv, tv = [], [], []
+        for a, kk in sorted(BY.items()):
+            o = [np.array(local(M[(k,4)], M[(k,j)][3])) for k in kk if ok(k, j) and ok(k, 4)]
+            if len(o) < 10 or (c, a) not in tpv: continue
+            med = np.array([st.median([v[i] for v in o]) for i in range(3)])
+            mb.append(float(np.linalg.norm(med - BIND[nm])) / B0)
+            djv.append(max(float(np.linalg.norm(v - med)) for v in o) / B0)
+            tv.append(float(np.linalg.norm(tpv[(c, a)])))
+        print(f"      {nm} (N={len(mb)})  mediane du joint vs BIND p50 {st.median(mb):.4f} B0 "
+              f"({st.median(mb)*B0/M2U*100:.2f} cm)")
+        print(f"             mouvement PROPRE `dj`  p50 {st.median(djv):.4f} B0   "
+              f"|tp| vs pose d'AUTEUR p50 {st.median(tv):.4f} B0  -> **x{st.median(tv)/st.median(djv):.1f}**")
+        print(f"             correlation |tp| <-> dj  Pearson {pearson(tv, djv):+.3f}"
+              f"   (un tp qui SERAIT le mouvement propre donnerait ~ +1)")
+    print("      => le joint SE REPOSE AU BIND ; `tp` est un ECART QUASI CONSTANT entre la pose")
+    print("         d'AUTEUR et le BIND, pas une excursion de la physique.")
+except Exception as e:
+    print(f"\n[6] non evalue ({type(e).__name__}: {e}) — le mesh livre doit etre present.")

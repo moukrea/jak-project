@@ -198,7 +198,9 @@ manque, et elle est nommee.**
 **JE NE PASSE AUCUN ROUGE AU VERT.** Le depassement est reel : 12,9 cm contre un plafond de
 7,3 cm. Ce qui change est **a quelle section il appartient**, et c'est decisif pour le chantier.
 
-**§2 : PARTIELLE -> NON TENUE.** Sa clause dit « the **final settled** breast geometry shall
+**§2 : PARTIELLE -> NON TENUE. [RETIRE PAR LE §15 DANS CE MEME CYCLE — la mesure contre le
+mesh LIVRE refute cette retrogradation. Le raisonnement ci-dessous est conserve tel quel pour que
+la faute soit lisible, pas efface.]** Sa clause dit « the **final settled** breast geometry shall
 reproduce the original authored standing model » (l.51-52). Sur six ancres immobiles, l'ecart a
 la pose d'auteur de la meme frame vaut **0,43 a 0,88 B0** et **ne decroit pas** sur 0,62 s
 (cinq ancres immobiles, 8 cellules sur 10 au-dessus du plafond exceptionnel). Le
@@ -218,14 +220,10 @@ reponse dynamique.
 torse) sans changer son statut `PARTIELLE` — `- a_torso` et `+ a_angular` restent sans mesure
 nommee de leur effet.
 
-    TENUE                    1   (§37)              inchange
-    TENUE PAR CONSTRUCTION   5   (§1,§4,§5,§28,§35) inchange
-    PARTIELLE               **20**                  <- etait 21
-    NON TENUE               **11**                  <- etait 10
-    NON ETABLI               1   (§10)              inchange
-    total 38
+    [TABLEAU PERIME — ANNULE PAR LE §16. Le registre final de ce cycle est INCHANGE :
+     TENUE 1 · PAR CONSTRUCTION 5 · PARTIELLE 21 · NON TENUE 10 · NON ETABLI 1.]
 
-**Un seul mouvement, et il est vers le bas.** C'est le troisieme cycle d'affilee sans gain, et je
+**[ANNULE PAR LE §15 — voir l'addendum 81b : je retire cette retrogradation.]** C'est le troisieme cycle d'affilee sans gain, et je
 le declenche moi-meme au §12.
 
 ================================================================================================
@@ -309,3 +307,94 @@ couterait plus qu'il ne rapporterait.
     dans « Recommended soft ceiling » de sa §16, et le choix du denominateur `B0`.
 
 `OPEN-DEFECTS` : `breast-spec-incomplete` reste ouverte. Elle ne se retire que sur sa parole.
+
+================================================================================================
+15. ADDENDUM 81b — JE RETIRE MA PROPRE RETROGRADATION DE §2, ET LA MESURE QUI LA TUE INVERSE
+    LE SENS DU DEFAUT
+================================================================================================
+Le §9 ci-dessus fait passer §2 de `PARTIELLE` a `NON TENUE`. **Je le retire, dans le meme cycle,
+parce que la mesure suivante l'a refute — et cette mesure change le diagnostic pour de bon.**
+
+**CE QUE J'AVAIS FAIT DE TRAVERS.** J'ai lu l'ecart de l'apex a **la pose d'auteur de la frame
+courante** et j'en ai conclu que la chaine « ne revient pas ». Or la clause de §2 ne parle pas de
+cette reference : elle dit « the original authored **standing** model » — le mesh LIVRE. Je n'ai
+pas relu sa reference avant de conclure. C'est la faute du 2026-08-19 20:50 (« citer le TEXTE
+EXACT »), commise sur la reference au lieu de la ligne.
+
+**LA MESURE, CONTRE LE MESH LIVRE.** `out/jak1/fr3/skin/keira-hd-lod0.glb`, via ses
+`inverseBindMatrices`. Controles d'abord, parce que ma premiere passe s'est trompee d'unites :
+base de `chest` orthonormee a **1,000000** ; `main` a y=1,530 m et `head` a y=2,284 m, donc **le
+glb est en METRES et non en unites moteur** (4096 u = 1 m). Ma premiere lecture publiait un
+offset de bind « 0,3 u » : c'etait 0,3 **metre**. **Un chiffre invraisemblable detruit la
+confiance dans tous les autres** — je l'ai attrape en verifiant des longueurs d'os connues, pas
+en le relisant.
+
+    offset d'attache en BIND   lBoob ( 379,9 ; -957,9 ; -155,2) u   |.| 1042,1 u = 25,44 cm
+                               rBoob (-379,9 ; -957,9 ; -155,2) u   |.| 1042,1 u = 1,731 B0
+
+Parfaitement MIROIR au dixieme d'unite — coherent avec le rig symetrique a 0,005 deg du cycle 53
+— et **egal au 1042,08 u que le dossier portait comme « longueur d'os, repli du moteur »**, ici
+re-derive independamment depuis le mesh livre.
+
+    mediane de ce que la COURSE ECRIT, vs ce BIND :  **0,0535 / 0,0505 B0  (0,79 / 0,74 cm)**
+
+**LE JOINT SE REPOSE DONC BIEN AU MODELE LIVRE.** §2 redevient `PARTIELLE`, la preuve du cycle 48
+inchangee. **CE QUI RESTE NON ETABLI, ET JE LE NOMME AU LIEU DE LE TAIRE** : je n'ai verifie ce
+repos que pour le JOINT. L'apex ajoute `rp` et `dp`, et leur position au repos **contre le mesh
+livre** n'est mesuree nulle part. C'est la mesure qui trancherait §2, et elle manque.
+
+**ET VOICI CE QUE LA MEME MESURE ETABLIT, QUI EST LE VRAI RESULTAT DE CE CYCLE.**
+
+    grandeur                                            chestL      chestR
+    mediane du joint vs BIND du mesh livre              0,0535      0,0505   B0
+    `dj`, mouvement PROPRE du joint (repere de l'ancre) 0,0454      0,0386   B0
+    `tp`, ecart a la pose d'AUTEUR (moteur, :3923)      **0,3477**  **0,3908** B0
+    rapport |tp| / dj                                   **x7,7**    **x10,1**
+    correlation |tp| <-> dj                             **-0,005**  **+0,021**
+
+Un `tp` qui SERAIT le mouvement propre du joint correlerait a ~+1 avec `dj`. Il correle a
+**zero**. Et il est etroitement borne — **0,2974 a 0,4505 B0 sur 31 animations tres
+differentes**, un facteur 1,5 la ou les gestes varient de x380 en entree.
+
+**`tp` N'EST PAS UNE EXCURSION DE LA PHYSIQUE. C'EST UN ECART QUASI CONSTANT ENTRE LA POSE
+D'AUTEUR ET LE BIND, QUE LE SOLVEUR NE SUIT PAS.** Le joint se tient au bind ; l'animation le
+place ~5,1-5,7 cm ailleurs ; l'instrument publie la difference sous le nom d'« excursion ».
+
+**CA INVERSE LE SENS DU DEFAUT QUE SIX SECTIONS PORTENT.** Depuis le cycle 57 le dossier lit ces
+chiffres comme « le solveur est trop energique » et cherche a DIVISER la reponse. La mesure dit
+l'oppose : le terme dominant de l'apex est la physique qui **RETIENT** le joint la ou l'animation
+ne le veut pas. Ca colle a ce que l'owner decrit depuis le 2026-08-11 — « trop statiques »,
+« aucune physique quand elle soude » — et pas du tout a une sur-reaction.
+
+**LA QUESTION SUIVANTE, ET ELLE EST A UNE MESURE, PAS A UN CHANTIER.** Cet ecart de 0,35-0,39 B0
+est-il (a) une intention d'auteur — l'animation de Naughty Dog pose reellement la poitrine — ou
+(b) une CONSTANTE DE RETARGET, l'animation d'origine n'ayant pas ces os et le retarget ecrivant
+une pose fixe qui n'est pas le bind du donneur ? **Les deux appellent des corrections opposees** :
+en (a) le contrat §5 dit que l'animation gagne et le solveur doit suivre ; en (b) c'est le
+retarget qu'il faut corriger et surtout PAS suivre. **Le discriminant est le canal LOCAL d'auteur
+des deux joints, publie par animation** — un emetteur qui n'existe pas encore, et c'est un ajout
+de trace pur (aucune ligne de moteur, le plafond de 4800 n'est pas engage).
+Signature attendue : en (a) l'ecart VARIE avec le geste et est different entre les 31 animations ;
+en (b) il est le MEME vecteur partout. Les 0,2974-0,4505 B0 mesures penchent deja vers (b), mais
+**une magnitude n'est pas une direction et je ne conclus pas dessus.**
+
+================================================================================================
+16. REGISTRE APRES ADDENDUM — AUCUN STATUT NE CHANGE CE CYCLE
+================================================================================================
+    TENUE                    1   (§37)
+    TENUE PAR CONSTRUCTION   5   (§1, §4, §5, §28, §35)
+    PARTIELLE               21
+    NON TENUE               10
+    NON ETABLI               1   (§10)
+    total 38
+
+**Le mouvement que le §9 annoncait (§2 vers le bas) est ANNULE par ma propre mesure suivante.**
+Le cycle ne gagne ni ne perd de section. Ce qu'il produit est ailleurs : deux priorites refutees,
+la cause des six rouges inversee, et la mesure qui trancherait nommee avec sa signature attendue.
+
+**ET LA LECON, PARCE QU'ELLE EST LA MEME QUE CELLE DU x5,2 ET DU x1,85.** J'ai ecrit un verdict
+(§2 `NON TENUE`) en comparant a une reference que la clause ne nomme pas. La mesure qui l'a tue
+etait a dix minutes et je ne l'avais pas faite AVANT de publier le statut. La regle 1 du registre
+demande une mesure nommee ; elle devrait aussi demander que la REFERENCE de cette mesure soit
+celle que le texte designe. **Trois fois de suite le defaut est le meme : le chiffre etait juste,
+la reference ne l'etait pas.**

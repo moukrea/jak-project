@@ -43,8 +43,8 @@ tourne pas (0,015 degre par image), il n'accelere pas. Il en reste cinq. Sur ces
 Puis j'ai multiplie l'entree par **380** — de « immobile » a « choc violent ». Resultat :
 **l'ecart ne bouge pas.** Il baisse meme de 4 %.
 
-**Donc ce n'est pas un ballotement excessif. C'est une position de repos fausse.** Sa poitrine ne
-revient pas la ou l'artiste l'a mise, et elle y reste. Ca colle beaucoup mieux a ce que tu me dis
+**Donc ce n'est pas un ballotement excessif.** Et en creusant j'ai trouve mieux — voir le point 3,
+qui corrige ce que je viens d'ecrire. Ca colle beaucoup mieux a ce que tu me dis
 depuis le 13 — « ca suit aucune logique », « c'est du pudding » — qu'une sur-reaction aux gestes :
 un pudding ne reagit pas trop fort, il **se tient mal**.
 
@@ -58,7 +58,30 @@ code. **L'ecart est reel.**
 
 ---
 
-## 3. CE QUI T'APPARTIENT ENCORE, INCHANGE
+## 3. ET EN FAIT C'EST L'INVERSE DE CE QUE JE CROYAIS — JE ME CORRIGE UNE DEUXIEME FOIS
+
+J'ai d'abord conclu « sa poitrine ne revient pas ou l'artiste l'a mise ». **Puis j'ai compare au
+modele 3D livre lui-meme, et c'est faux : elle y revient a 8 millimetres pres.** L'os de poitrine
+se repose exactement la ou ton modele le place.
+
+Ce que mon chiffre mesurait, c'est **l'ecart entre le modele et ce que l'ANIMATION demande** — et
+il vaut 5 a 6 cm, **le meme sur les 31 animations**. Autrement dit : l'animation veut mettre sa
+poitrine quelque part, et **la physique refuse de l'y suivre** ; elle la tient au modele.
+
+**Ca renverse completement le diagnostic.** Depuis dix jours je cherche a la faire bouger MOINS.
+La mesure dit qu'elle bouge TROP PEU la ou l'animation lui demande de bouger — ce qui ressemble
+beaucoup plus a ce que tu me dis depuis le debut (« trop statiques », « aucune physique quand
+elle soude ») qu'a une sur-reaction.
+
+**Il me reste une question a trancher avant de toucher a quoi que ce soit**, et elle est a une
+mesure : ces 5-6 cm sont-ils une vraie intention des animateurs de Naughty Dog, ou une constante
+parasite introduite quand on transpose leurs animations sur le squelette HD ? **Les deux
+demandent des corrections opposees** — dans un cas il faut suivre l'animation, dans l'autre
+surtout pas. Je ne bouge pas tant que je ne l'ai pas mesure.
+
+---
+
+## 4. CE QUI T'APPARTIENT ENCORE, INCHANGE
 
   - Ta section 16 ecrit « **Recommended soft ceiling** : MaxApexDisplacement ≈ 0.50 B0 ». Le mot
     est « soft » — recommande, souple. Je l'ai implemente **dur**. Dis-moi lequel des deux tu veux.
