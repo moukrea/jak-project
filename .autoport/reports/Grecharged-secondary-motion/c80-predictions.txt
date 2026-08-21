@@ -1,0 +1,65 @@
+PREDICTIONS DU CYCLE 80 — inscrites AVANT toute course neuve
+DIRECTIVES v3fee554599
+Perimetre : Grecharged-secondary-motion · physics-keira-clean · chestL / chestR SEULES
+
+SECTIONS DONT CE CYCLE DEBLOQUE LE VERDICT (nommees avant de commencer, comme l'exige la
+directive du 2026-08-21 18:25) : §14, §16, §17, §18, §19, §20, §22 — le groupe de l'apex.
+
+CE QUI EST DEJA MESURE SUR DONNEES ARCHIVEES (aucune course neuve, rien a pre-inscrire) :
+  A. aucun facteur uniforme ne rend §14/§16/§17/§18 tenues ; §19+§20 seules, k dans [1.643,1.685]
+  B. `apex` ne repond pas au stimulus : ecart Q1->Q5 de 4.9 % / 1.7 % pour un stimulus x449
+  C. la decomposition e = tp + rp + dp : |tp| median 0.38/0.41 B0, invariant a -2.2 % / -0.7 %
+
+------------------------------------------------------------------------------------------------
+CE QUI SUIT PORTE SUR LA CAMPAGNE APPARIEE A/B (contre-controle independant de l'apex).
+COURSE A = arbre livre. COURSE B = les deux lignes `chain chestL` / `chain chestR` retirees de
+recharged_assets/physics_chains.txt (donnee seule, zero ligne moteur) : le squelette y porte
+la POSE D'AUTEUR. Emetteur neuf `PHYSJTW` dans phys-room.gc SEUL (aucun plafond dessus).
+
+P1  APPARIEMENT. Les deux courses parcourent les MEMES couples (animation, sous-fenetre, frame).
+    Preuve exigee : pour chaque cle publiee, la ligne existe dans A ET dans B, et le compte des
+    cles communes vaut 100 % du compte de A. En dessous de 100 %, la campagne est NON CONCLUANTE
+    et je le declare au lieu d'apparier au plus proche.
+
+P2  CONTROLE NEGATIF DE LA COURSE B. En B, la physique de poitrine est retiree : la matrice
+    publiee DOIT etre la pose d'auteur. Preuve : sur les os NON simules deja presents dans les
+    deux courses, A et B doivent coincider au bit. S'ils different, B n'est pas une pose
+    d'auteur et rien ne se lit.
+
+P3  IDENTITE DU CHEMIN A. En recomposant hors moteur SUM_l w_l (M_l^A - M_l^B) p_l avec les
+    POIDS ET POINTS `ax` LIVRES et les matrices publiees, je dois retrouver `apex` de PHYSAPEX
+    a mieux que 2 % sur la mediane des fenetres. C'est le controle qui dit que l'emetteur lit
+    bien ce que le moteur calcule. Au-dela de 2 %, le chemin B ne se lit pas : l'ecart serait
+    imputable a l'emetteur et non aux deux derivations.
+
+P4  LE CHEMIN B, ET SON INDEPENDANCE. Le chemin B n'emploie NI l'axe anatomique `corg-root`,
+    NI le quantile 0.90 d'`apex_region`, NI les poids `w_l`/`p_l` des `ax`. Il se derive des
+    sommets extremaux `ms` (operateur : maxima de distance PERPENDICULAIRE par quadrant a
+    l'axe d'os, appartenance par seuil WMIN) et, en second, de la region distale definie par
+    la distance EUCLIDIENNE au joint racine (aucun axe). Les deux chiffres sont publies A COTE
+    de celui du chemin A, jamais fondus.
+
+P5  PREDICTION CHIFFREE, ET C'EST ELLE QUI PEUT ME REFUTER. Les chemins A et B mesurent la meme
+    grandeur physique par deux operateurs differents. Je predis un accord a MIEUX QUE 25 % sur
+    la mediane des fenetres, pour LES DEUX chaines.
+      - accord <= 25 %  : la grandeur d'apex est confirmee, les six sections se traitent ;
+      - accord  > 25 %  : LES DEUX CHEMINS DIVERGENT. Aucune des six ne se traite avant
+        reconciliation — c'est la clause de la directive du 2026-08-21 18:40, et elle
+        s'applique CONTRE moi, pas seulement contre le chemin A.
+    Je ne choisirai pas le chiffre qui m'arrange : les deux se publient cote a cote quoi qu'il
+    arrive.
+
+P6  LE DENOMINATEUR. `b0=602` est livre IDENTIQUE sur les deux chaines alors que les grandeurs
+    geometriques des deux organes different. Je predis que les candidats de B0 recalcules sur
+    le mesh LIVRE differeront entre chestL et chestR d'au moins 2 %. Et je predis que §22 reste
+    DEPASSEE sous LES QUATRE candidats — si elle ne l'est pas sous l'un d'eux, je le dis et le
+    verdict de §22 devient conditionnel au choix de B0.
+
+P7  NON-REGRESSION AU BIT. La course A doit rendre, hors les lignes `PHYSJTW` neuves, une trace
+    identique a celle du cycle 79 (md5 des lignes PHYS restantes). L'emetteur est un AJOUT pur.
+    Un seul octet different ailleurs et le cycle ne conclut rien.
+
+P8  CE QUE JE NE FERAI PAS. Aucune gate touchee. Aucune ligne de `jak-hd-physics.gc` (4799 pour
+    un plafond de 4800 : la marge d'UNE ligne est signalee au superviseur, pas consommee).
+    Aucun seuil deplace. Aucune mesure visuelle. `physics_chains.txt` restaure a l'identique
+    apres la course B, et verifie par md5.

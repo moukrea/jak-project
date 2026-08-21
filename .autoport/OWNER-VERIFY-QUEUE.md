@@ -1,84 +1,86 @@
-# RIEN A TESTER DANS CE BUILD — MAIS JE DOIS TE RETIRER UN CHIFFRE QUE JE T'AI DONNE
+# RIEN A TESTER DANS CE BUILD — MAIS JE DOIS TE RETIRER UN AUTRE CHIFFRE QUE JE T'AI DONNE
 
-Branche `physics-keira-clean`. **Ce build ne change pas un bit de la physique.** Il est identique
-au precedent pour tout ce qui se voit. Ne perds pas de temps dessus : je te le publie parce que tu
-m'as demande de livrer au fil de l'eau, pas parce qu'il y a quelque chose a regarder.
+Branche `physics-keira-clean`. **Ce build ne change pas un bit de la physique.** Je n'ai ajoute
+qu'une ligne de trace. Ne perds pas de temps dessus : je te le publie parce que tu m'as demande de
+livrer au fil de l'eau.
 
-Deux choses te reviennent quand meme, et la premiere est une correction.
-
----
-
-## 1. JE RETIRE LE « UN SEPTIEME ». C'ETAIT MON INSTRUMENT, PAS SA POITRINE.
-
-Je t'ai ecrit au cycle precedent, mot pour mot :
-
-> « Quand elle retombe d'un saut, sa poitrine rend entre un septieme et un quart du mouvement que
-> sa propre elasticite devrait produire. »
-
-**C'est faux. Je le retire.**
-
-Ce que j'avais fait : je comparais ce que le moteur produit a ce que produirait un ressort **sans
-aucun plafond**. Or le moteur en a deux, et ils sont armes en permanence — le plafond de ta
-section 22 (50 % de B0) et la contrainte qui empeche l'os de s'allonger. Comparer une sortie qui
-tape dans son plafond a un modele qui n'en a pas fabrique un facteur qui n'existe pas.
-
-**Refait correctement, avec les memes plafonds que le code, sans aucun reglage ajuste pour que ca
-tombe juste : le solveur rend en mediane 96 % de ce que sa propre mecanique implique**, sur les
-huit regimes (detente, vol, reception, course), sur deux mesures independantes.
-
-Et je ne me suis pas contente d'un calcul. **J'ai desarme en vrai le plus gros frein interne** et
-rejoue toute la salle : le mouvement ne monte que de **16 % en mediane**, au mieux 84 %. Pas x7.
-
-**Donc : il n'y a pas de mouvement qui se perd quelque part dans le moteur.** Quatre cycles l'ont
-cherche (70, 71, 76, 77). Il n'y a rien a trouver. C'est une piste morte, et c'est moi qui l'avais
-ouverte.
+Deux choses te reviennent. La premiere est une correction, la seconde est une question qui
+n'appartient qu'a toi.
 
 ---
 
-## 2. UNE QUESTION SUR TA SPEC — ET C'EST TOI QUI DOIS TRANCHER, PAS MOI
+## 1. JE RETIRE LE « x1,85 ». LA POITRINE NE DEBORDE PAS DE 85 % PARTOUT, ET SURTOUT PAS DANS LE MEME SENS.
 
-Ce qui limite vraiment sa poitrine, c'est un **plafond**, et il vient de ta propre spec.
+Je t'ai fait remonter que l'excursion de sa poitrine valait **« environ 1,85 fois ce que ta spec
+autorise »**, que c'etait **un seul defaut exprime six fois**, et qu'en le divisant par 1,85 **six
+sections de ta spec basculeraient ensemble**.
 
-Ta **section 22** dit : deplacement de pointe **<= 42 %** de B0 en normal, **<= 50 %** en
-exceptionnel. Le moteur l'applique : au-dela de 42 % il raidit, et a 49,9 % il se ferme.
+**Les trois affirmations sont fausses. Je les retire.**
 
-Ta **section 16** (atterrissage) dit, mot pour mot :
+Le 1,85 est un **maximum sur toute la course**, tous stimuli confondus, sur une seule ligne de ta
+spec (la 22). Mais la ou ta spec attache une amplitude a un **geste precis** — une detente, une
+reception, un freinage, un demi-tour, un buste en avant, une inclinaison laterale —, j'ai vingt
+mesures, et elles ne disent pas la meme chose du tout :
 
-        Strong landing apex:       30-42% B0
-        Very hard / exceptional:   42-50% B0
+    dans ta bande         4 mesures sur 20
+    au-dessus            12 mesures sur 20    de 5 % a 64 % de trop  (jamais 85 %)
+    **en dessous**        4 mesures sur 20    jusqu'a **trois fois trop peu**
 
-**La bande que ta section 16 demande d'atteindre a l'atterrissage est exactement celle ou le
-plafond de ta section 22 se ferme.** Les deux lignes sont dans ton fichier, elles sont coherentes
-sur le papier (l'une dit « jusqu'a », l'autre dit « va jusque-la »), mais dans un solveur ca veut
-dire que la reception vit en permanence contre la butee. C'est mecaniquement pourquoi §14 a §20
-restent sous leurs bandes.
+**Un tiers des mesures de ta section 16 (l'atterrissage) manque sa bande PAR LE BAS.** Diviser
+l'excursion, comme je te le proposais, les aurait rendues encore plus mortes.
 
-**Ce que je ne fais pas :** je ne touche pas a tes chiffres. Tu m'as dit « la spec ne bouge pas ».
-**Ce que je te demande :** est-ce que le plafond de 50 % doit etre une **butee dure** (ce qu'il est
-aujourd'hui), ou une **limite molle** qu'un atterrissage tres dur a le droit de frôler et de
-depasser brievement ? Ta section 16 ecrit d'ailleurs « **Recommended soft ceiling** » — le mot est
-« soft », et le moteur l'a implemente dur. C'est peut-etre la toute la reponse, mais c'est ton
-appel, pas le mien.
+Et le pire : **son sein gauche et son sein droit demandent des corrections en sens OPPOSE** sur
+quatre des six sections. Sur le demi-tour rapide, le gauche bouge trop peu et le droit trop —
+au meme instant, sous le meme geste. Aucun reglage commun ne peut satisfaire les deux. J'ai
+balaye tous les facteurs possibles : **le meilleur imaginable n'en corrige que deux sur six**, et
+celui que je te proposais (1,85) n'en corrige **aucune**.
 
----
-
-## 3. UN DETAIL QUI EXPLIQUE POURQUOI LES SAUTS RENDENT MOINS QUE LA COURSE
-
-Mesure neuve, prise sur le maillage livre : l'os qui porte son sein part de son torse et monte
-**presque a la verticale** — 23 degres seulement de la verticale.
-
-Comme cet os ne peut pas s'allonger, le sein **pivote** autour de son attache. Et un pendule ne
-reagit qu'a ce qui le pousse **de cote**, pas a ce qui le pousse le long de son propre axe.
-
-    saut / atterrissage (ca pousse vers le haut)  ->  **39 %** seulement de la poussee est utile
-    course / freinage   (ca pousse vers l'avant)  ->  **99 %** de la poussee est utile
-
-Ce n'est pas un bug, c'est ou l'os est place dans le rig. Ca veut dire que si tu veux plus de
-reaction **au saut** precisement, ca ne se gagnera pas en reglant le solveur.
+Je n'ai pas trouve pourquoi les deux cotes se comportent a l'envers l'un de l'autre. J'ai teste
+mon explication — la geometrie de sa pose — et **elle est fausse aussi**. Je ne t'en propose pas
+une autre tant que je ne l'ai pas mesuree.
 
 ---
 
-## CE QUE TU DOIS FAIRE : RIEN
+## 2. UNE QUESTION SUR TES ANIMATIONS, ET ELLE EST A TOI. TES ANIMATIONS SECOUENT SA POITRINE 2,5 FOIS PLUS FORT QUE LE GESTE LE PLUS VIOLENT DE TA PROPRE SPEC.
 
-Pas de test demande. Le build est la si tu le veux, il est identique au precedent a l'oeil.
-`breast-spec-incomplete` reste ouverte, et elle ne se ferme que quand **tu** dis que c'est bon.
+C'est le vrai resultat du cycle, et je ne l'attendais pas.
+
+Ma salle de test peut la secouer avec cinq stimuli, du plus doux (1 g, la gravite) au plus brutal
+(**39 g** — l'equivalent d'un crash). Elle joue aussi une sixieme fenetre **sans aucune secousse**,
+ou seule son animation d'origine tourne.
+
+Voila ce que ca donne sur le deplacement du bout de son sein :
+
+    sans AUCUNE secousse, animation seule ......... 10 cm en median, jusqu'a 13 cm
+    avec la secousse a 39 g ....................... +10 % seulement
+
+**Ta ligne 22 plafonne ce deplacement a 7,3 cm.** Il est deja a 10 cm **quand on ne la secoue pas
+du tout**. Et 100 % des animations depassent ta bande dans cette condition.
+
+La cause est mesuree : **ses animations d'origine delivrent jusqu'a 7,85 g a sa poitrine**, la ou
+le geste le plus dur que TA spec decrit — une reception dure apres un gros saut — vaut **3,11 g**.
+Ses animations tapent **2,5 fois plus fort** que ce que ta spec considere comme le maximum.
+
+**Et c'est la que j'ai besoin de toi, parce que les deux issues sont opposees et que je ne peux
+pas choisir a ta place :**
+
+  - **soit ces 7,85 g sont reels** — son torse bouge vraiment comme ca dans les animations de
+    Naughty Dog — et alors la physique fait ce qu'il faut, c'est **ta bande de 7,3 cm qui est
+    inatteignable tant qu'on joue ces animations telles quelles** ;
+  - **soit ces 7,85 g sont un artefact** — un a-coup dans la facon dont on echantillonne
+    l'animation, pas un vrai mouvement de torse — et alors c'est **a nous de le corriger**, et ta
+    bande redevient atteignable.
+
+Je sais comment trancher (regarder si le pic dure une seule image ou une dizaine), et je le ferai
+au prochain cycle. Mais **si la reponse est la premiere**, c'est toi qui devras dire ce que tu
+veux : une poitrine conforme a ta spec, ou une poitrine qui suit fidelement des animations qui la
+secouent plus fort que ta spec ne l'envisage. **On ne peut pas avoir les deux.**
+
+---
+
+## 3. LA QUESTION DU CYCLE PRECEDENT TIENT TOUJOURS
+
+Ta section 16 ecrit : « **Recommended soft ceiling** : MaxApexDisplacement ≈ 0.50 B0 ». Le mot est
+**« soft »** — recommande, souple. Le moteur l'a implemente **dur** : il coupe net a 0,50, et la
+bande que la meme section demande d'atteindre a l'atterrissage (42 a 50 %) est exactement celle ou
+ce plafond se ferme. C'est ton appel, pas le mien.

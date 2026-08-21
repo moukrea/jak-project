@@ -3230,6 +3230,84 @@
      ;; point de depart — et pour `tilt` elles contiennent en plus la rampe qui l'amene a 60 degres.
      ;; Meme regle pour les six sous-fenetres : les amplitudes restent comparables entre elles.
      (when (= (-> self pframe) PHYSROOM-MEASAT) (phys-stats-reset!))
+     ;; ---- LA TRANSFORMATION MONDE DES QUATRE JOINTS DE POITRINE (cycle 80) -------------------
+     ;; POURQUOI CET EMETTEUR EXISTE. La directive du 2026-08-21 18:40 exige un CONTRE-CONTROLE
+     ;; INDEPENDANT de la grandeur d'apex AVANT tout chantier de conversion : les six rouges
+     ;; d'apex (§14, §16, §17, §18, §19, §20, §22) reposent sur LA MEME chaine de mesure, et un
+     ;; seul defaut dedans les deplacerait tous ensemble — c'est exactement ce qui s'est produit
+     ;; au cycle 57, quand une correction d'axe a fait basculer six lignes d'un coup. Cette ligne
+     ;; publie la MATIERE BRUTE d'une seconde derivation, faite HORS MOTEUR, avec des points de
+     ;; chair choisis par un operateur DIFFERENT : elle ne partage ni l'operateur d'ancrage ni la
+     ;; table de poids du chemin actuel.
+     ;;
+     ;; NATURE : les composantes d'une transformation affine 4x4. Les lignes 0, 1 et 2 — la partie
+     ;;   lineaire — sont SANS DIMENSION ; la ligne 3 est la TRANSLATION, en UNITES DE JEU
+     ;;   (4096 u = 1 m). Rien n'est normalise, rien n'est reduit ici.
+     ;; REPERE : le MONDE. C'est la matrice ECRITE dans le squelette a cette frame — la meme que
+     ;;   celle que le moteur lit sous le nom `bm` a `jak-hd-physics.gc:3843`, ni avant ni apres.
+     ;; POPULATION : un echantillon par (animation, frame de la fenetre de LIGNE DE BASE), pour
+     ;;   quatre joints. JAMAIS un maximum, JAMAIS un argmax. C'est une TRAJECTOIRE, et c'est
+     ;;   VOLONTAIRE : l'argmax se refait hors moteur, pour les DEUX chemins a la fois, au lieu
+     ;;   d'etre herite de celui du chemin A (registre : `argmax-anchor-is-not-a-population`).
+     ;; LECTURE QUAND LE DEFAUT EST ABSENT : dans une course ou la physique de poitrine est
+     ;;   DESARMEE (les deux lignes `chain chestL` / `chain chestR` retirees du fichier de
+     ;;   donnees), ces matrices SONT la pose d'auteur. La difference entre les deux courses vaut
+     ;;   donc exactement `M^sim - M^auteur`. C'est POUR cette course-la que les joints sont
+     ;;   resolus PAR NOM et jamais par `phys-chain-joint` / `phys-chain-links` / `phys-diag` :
+     ;;   la-bas la chaine n'existe pas, ces trois-la rendent 0 ou -1, et un emetteur qui en
+     ;;   depend se tairait precisement quand on a besoin de sa ligne de base.
+     ;; POURQUOI LA SOUS-FENETRE SANS PILOTAGE, ET PAS LES CINQ AUTRES : mesure du cycle 80 sur la
+     ;;   course archivee — sans aucun pilotage l'apex atteint DEJA 0.8752 / 0.8293 B0 (100 % des
+     ;;   fenetres au-dessus de la bande normale de sa §22), et les cinq pilotages, de 1.00 g a
+     ;;   38.88 g, n'ajoutent qu'un facteur median de 1.00 a 1.19. La grandeur VIT LA ; emettre
+     ;;   sur les six sous-fenetres sextuplerait la trace pour la meme information.
+     ;; CE QUE CETTE LIGNE N'AFFIRME PAS : aucun verdict, aucune bande, aucun seuil, aucune
+     ;;   comparaison. C'est une trajectoire brute et rien d'autre.
+     ;; AJOUT PUR : aucun compteur n'est ecrit, aucune frame n'est ajoutee a la course — cette
+     ;;   sous-fenetre existe deja et dure `PHYSROOM-WIN` frames par animation.
+     (when (and (>= (-> self drive) PHYSROOM-DRIVES)
+                (>= (-> self pframe) PHYSROOM-MEASAT))
+       (let ((hd (if (-> self child) (the-as jak-hd (-> self child 0)) (the-as jak-hd #f))))
+         (when (and hd (= (-> hd type) jak-hd) (nonzero? (-> hd draw))
+                    (nonzero? (-> hd draw jgeo)) (nonzero? (-> hd draw skeleton)))
+           (let ((jg   (-> hd draw jgeo))
+                 (skel (-> hd draw skeleton))
+                 (k    (+ (* (-> self ai) 1000) (-> self pframe))))
+             ;; LA CLE SE DECODE ICI ET NULLE PART AILLEURS. Sans cette ligne, `k` ne dit ni dans
+             ;; quelle sous-fenetre ni sur quelle frame d'animation l'echantillon a ete pris.
+             (format 0 "PHYSJTWK k=~D a=~D d=~D f=~f~%"
+                     k (-> self ai) (-> self drive) (-> self fnum))
+             (dotimes (ji 4)
+               (let ((nm (cond ((zero? ji) "lBoob")
+                               ((= ji 1)   "lBooc")
+                               ((= ji 2)   "rBoob")
+                               (else       "rBooc")))
+                     (idx -1))
+                 ;; RESOLUTION PAR NOM, sur le rig REELLEMENT porte par le sujet. `ji` est
+                 ;; l'indice 0..3 dans la liste ci-dessus, PAS l'indice de joint du rig : les
+                 ;; deux courses peuvent porter des rigs differents et l'indice de rig bouge.
+                 (dotimes (j (-> jg length))
+                   (let ((jn (-> jg data j name)))
+                     (when (and (< idx 0) jn (string= jn nm)) (set! idx j))))
+                 (cond
+                   ((and (>= idx 0) (< (+ idx 1) (-> skel length)))
+                    ;; LA TABLE NOM -> INDICE DE RIG, une fois par course, a la premiere frame
+                    ;; emise. Elle DOIT etre publiee : sans elle, l'appariement des deux traces
+                    ;; reposerait sur une supposition au lieu d'une mesure.
+                    (when (and (zero? (-> self ai)) (= (-> self pframe) PHYSROOM-MEASAT))
+                      (format 0 "PHYSJTWN j=~D idx=~D name=~S~%" ji idx nm))
+                    ;; `+ 1` : convention du squelette, la meme qu'a `phys-room.gc:3195` et que
+                    ;; celle du moteur. Les quatre lignes du 4x4, la 3 etant la translation.
+                    (dotimes (row 4)
+                      (format 0 "PHYSJTW k=~D j=~D row=~D x=~,,6f y=~,,6f z=~,,6f~%"
+                              k ji row
+                              (-> skel bones (+ idx 1) transform vector row x)
+                              (-> skel bones (+ idx 1) transform vector row y)
+                              (-> skel bones (+ idx 1) transform vector row z))))
+                   (else
+                    ;; UN NOM NON TROUVE SE SIGNALE, il ne se saute jamais en silence : une
+                    ;; absence muette se lirait dans la trace comme un joint qui n'a pas bouge.
+                    (format 0 "PHYSJTWMISS k=~D j=~D name=~S~%" k ji nm)))))))))
      ;; ---- LA DIRECTION DES OS DE POITRINE, UNE FOIS PAR ANIMATION (cycle 54) -----------------
      ;; POURQUOI ICI. Le cycle 53 a mesure que le rig est bilateralement symetrique a 0.005 deg en
      ;; pose de BIND, et que la pose TENUE par la salle pendant toutes ses phases de mesure est a
