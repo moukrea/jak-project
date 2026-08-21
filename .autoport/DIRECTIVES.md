@@ -10,6 +10,37 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
+## 2026-08-21 18:40 — AUDIT DE PROVENANCE DES NEUF ROUGES. VERDICT : AUCUN NE VIENT D'UN SEUIL A MOI.
+
+L'owner : « mais tes rouges ils viennent d'où ? Faudrait pas que les validateurs biaisés soient des
+blockers ! » — l'avertissement est legitime, j'ai purge mes gates le 2026-08-19 mais je n'avais
+JAMAIS audite les verdicts du REGISTRE de la meme facon. Fait maintenant, ligne par ligne.
+
+**RESULTAT : les neuf rouges citent SON texte, et les seuils sont LES SIENS.**
+  - §14 « ordinary 20-30% B0, strong 30-38% B0 » · §16 « strong landing apex 30-42% B0 » ·
+    §18 « strong 20-30% B0 » · §19 « 30-40% B0 apex displacement » · §20 « apex 20-30% B0 » ·
+    §22 « normal <=42% B0, exceptional <=50% B0 » — six lignes, six bandes ECRITES PAR LUI, avec
+    leurs numeros de ligne dans le document.
+  - §8 cite sa phrase en gras « the whole breast shall not be represented by one affine scale
+    transformation ».
+  - §33 cite « medial surfaces shall collide or repel **before visible interpenetration** » (l.400),
+    et la mesure vaut 2,4 cm de peau DANS l'autre sein : « visible » sous toute lecture.
+  - §23 citait sa phrase en gras mais en TRADUCTION FRANCAISE sans numero de ligne — corrige, elle
+    porte l'anglais et `l.317`. C'etait la seule ligne dont la provenance n'etait pas verifiable
+    d'un coup d'oeil, et c'est exactement ce qu'il craignait.
+
+**REGLE : toute ligne du registre porte la citation VERBATIM en anglais et son numero de ligne.**
+Une traduction n'est pas une citation ; elle empeche l'audit et ouvre la porte a un glissement.
+
+**CE QUI RESTE UNE FRAGILITE REELLE, ET JE LA NOMME AU LIEU DE LA TAIRE.** Les six rouges d'apex
+reposent sur LA MEME chaine de mesure. Un seul defaut dedans les deplacerait tous ensemble — c'est
+exactement ce qui s'est produit au cycle 57 quand la correction d'axe a fait basculer six lignes
+d'un coup. Avant d'engager le chantier de conversion, **un contre-controle INDEPENDANT de la
+grandeur d'apex est exige** : une seconde derivation, par un chemin qui ne partage ni l'operateur
+d'ancrage ni la table de poids, et les deux chiffres publies cote a cote. Si les deux chemins
+divergent, aucune des six ne se traite avant reconciliation.
+
+
 ## 2026-08-21 18:25 — LA DECOUVERTE EST FINIE, LA CONVERSION N'A PAS COMMENCE. SIX ROUGES SONT UN SEUL DEFAUT.
 
 L'owner : « Ça avance ou on tourne en rond là ? » Les chiffres du registre repondent, et il faut
