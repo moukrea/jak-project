@@ -8103,3 +8103,204 @@ translation n'est plus effacee en aval.**
 **SON PRIX.** `phys-skin-chain` resout §33/§34 en poussant le joint dehors ; lui refuser la part
 qui depasse §22 lui reprend une partie de ce qu'elle avait achete. Ce prix est mesure et publie sur
 `ROOM-SKINPEN-DETAIL`, jamais tu.
+
+
+---
+## NOTE-448 — LE STIMULUS QUE LA POINTE A REELLEMENT RECU sur la fenetre, en u/frame^2 : le pire module de
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76 bis) pour tenir le plafond de 4800 lignes.
+Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+;; LE STIMULUS QUE LA POINTE A REELLEMENT RECU sur la fenetre, en u/frame^2 : le pire module de
+;; l'acceleration de sa pose d'auteur. C'est le denominateur honnete du gain — celui que la salle
+;; COMMANDE ne vaut que si rien d'autre ne le domine, et c'est ce chiffre-la qui le dit.
+```
+
+---
+## NOTE-449 — 5 = QUELLE REGLE A NOMME LES AXES (0 = protrusion propre, faute de partenaire ;
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76 bis) pour tenir le plafond de 4800 lignes.
+Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+            ;; 5 = QUELLE REGLE A NOMME LES AXES (0 = protrusion propre, faute de partenaire ;
+            ;; 1 = segment inter-seins, l'invariant externe). Sans ce champ, une course ne dirait
+            ;; pas si le verdict vient de l'anatomie ou du repli.
+```
+
+---
+## NOTE-450 — SPEC 4, l'exception : `hang` > 0 = « ce qui doit pendre » (les lunettes), qui ne retourne PAS a
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76 bis) pour tenir le plafond de 4800 lignes.
+Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+;; SPEC 4, l'exception : `hang` > 0 = « ce qui doit pendre » (les lunettes), qui ne retourne PAS a
+;; la pose du modele. La salle s'en sert pour compter ces chaines a part au repos, au lieu de
+;; devenir complice d'un ecart residuel qu'elle ne saurait pas expliquer.
+```
+
+---
+## NOTE-451 — la longueur que LE MODELE donne a l'os d'un lien (son attache est l'ancre pour le lien 0). C'est
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76 bis) pour tenir le plafond de 4800 lignes.
+Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+;; la longueur que LE MODELE donne a l'os d'un lien (son attache est l'ancre pour le lien 0). C'est
+;; le plafond geometrique de l'amplitude de ce lien : la salle le publie pour que personne n'ait a
+;; deviner si une chaine « ne bouge pas assez » ou « ne peut pas bouger plus ».
+```
+
+---
+## NOTE-452 — `comp` < 0 : LA LONGUEUR, exactement ce que cette fonction rendait. 0/1/2 : la COMPOSANTE
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76 bis) pour tenir le plafond de 4800 lignes.
+Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+  ;; `comp` < 0 : LA LONGUEUR, exactement ce que cette fonction rendait. 0/1/2 : la COMPOSANTE
+  ;; x/y/z de sa DIRECTION UNITAIRE, repere MONDE. Cycle 53 : la contrainte de longueur retire la
+  ;; composante ALIGNEE avec l'os, donc l'angle os/pilotage decide de ce qu'elle confisque.
+```
+
+---
+## NOTE-453 — CONTROLE POSITIF DE L'AUTO-COLLISION : 1 = l'exclusion chaine <-> ses propres volumes est LEVEE.
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76 bis) pour tenir le plafond de 4800 lignes.
+Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+;; CONTROLE POSITIF DE L'AUTO-COLLISION : 1 = l'exclusion chaine <-> ses propres volumes est LEVEE.
+;; Le compteur `selfcol` doit alors monter. Un zero structurel que rien ne peut faire monter ne
+;; prouve rien — c'est la regle « tout zero exige un controle positif qui a tire ».
+```
+
+---
+## NOTE-454 — CONTROLE DU CYCLE 8 : 1 = la contrainte de longueur est DESARMEE. Voir la note de
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76 bis) pour tenir le plafond de 4800 lignes.
+Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+;; CONTROLE DU CYCLE 8 : 1 = la contrainte de longueur est DESARMEE. Voir la note de
+;; `*phys-len-off*`. La salle l'arme sur les trois fenetres AXZ et le REND A 0 juste apres — un
+;; controle qui resterait arme changerait toutes les mesures suivantes.
+```
+
+---
+## NOTE-455 — `phys-jacobi-off-set!` et `phys-prio-off-set!` retirees : ZERO site d'appel dans tout `goal_src`
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76 bis) pour tenir le plafond de 4800 lignes.
+Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+;; `phys-jacobi-off-set!` et `phys-prio-off-set!` retirees : ZERO site d'appel dans tout `goal_src`,
+;; leurs interrupteurs restaient donc a leur valeur livree (1 et 1, la priorite de volume que le
+;; superviseur a retiree sur mesure). Pas un controle perdu — il etait deja injoignable.
+```
+
+---
+## NOTE-456 — le collider resolu numero ci : son joint, son second joint (-1 = sphere), ses deux rayons. Publi
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76 bis) pour tenir le plafond de 4800 lignes.
+Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+;; le collider resolu numero ci : son joint, son second joint (-1 = sphere), ses deux rayons. Publie
+;; par la salle pour que le tableau puisse dire QUELLES PARTIES DU CORPS sont couvertes — un zero de
+;; penetration contre un ensemble qui ne couvre pas le corps ne prouve rien.
+```
+
+---
+## NOTE-457 — SPEC 5. which 0 = frames ou l'anim pilotait cette chaine, 1 = celles ou la pose ecrite est parti
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76 bis) pour tenir le plafond de 4800 lignes.
+Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+;; SPEC 5. which 0 = frames ou l'anim pilotait cette chaine, 1 = celles ou la pose ecrite est partie
+;; du meme cote, 2/3 = somme(ecrit . auteur) et somme(auteur . auteur), dont le rapport est la
+;; TRANSMISSION. Ces quatre-la survivent aux fenetres : c'est le bilan de la course.
+```
+
+---
+## NOTE-458 — 25-29 : LA NATURE DE L'ENTREE DE PRESSION (cycle 36 etape 1).
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76 bis) pour tenir le plafond de 4800 lignes.
+Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+        ;; [NOTE-97] 25-29 : LA NATURE DE L'ENTREE DE PRESSION (cycle 36 etape 1).
+        ;; 25-31 : les sept emplacements de `*phys-cpa*` releves a l'argmax de `cl`
+        ;; (npf, pmax, psum, lastsw, slast, nlast, p1) ; 32 : leur DOMAINE.
+```
+
+
+
+---
+## NOTE-459 — LA PEAU DE LA CHAINE ELLE-MEME — le pendant de `bs`, expose depuis toujours et
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76 bis).
+Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+;; [NOTE-161] LA PEAU DE LA CHAINE ELLE-MEME — le pendant de `bs`, expose depuis toujours et
+;; JAMAIS APPELE. `link_si` empaquete (maillon << 3) | echantillon, comme kmachine.cpp le documente.
+```
+
+---
+## NOTE-460 — `g_ref` DE SA SPEC 3 — la gravite de la pose debout d'auteur, vue de l'ancre, relevee une fois p
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76 bis).
+Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+;; `g_ref` DE SA SPEC 3 — la gravite de la pose debout d'auteur, vue de l'ancre, relevee une fois par
+;; chaine a la meme frame que `*phys-ux*`. Derivation, mesure et raison complete au site d'usage.
+```
+
+---
+## NOTE-461 — historique MONDE de la pose d'auteur, par lien : sa difference seconde est l'acceleration du
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76 bis).
+Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+;; historique MONDE de la pose d'auteur, par lien : sa difference seconde est l'acceleration du
+;; repere que la chaine subit. C'est la seule chose qui EXCITE une chaine dont l'ecart cible est nul.
+```
+
+---
+## NOTE-462 — L'ELONGATION RADIALE PAR MAILLON. Depuis le cycle 32 ce n'est plus un miroir de mesure :
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76 bis).
+Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+;; [NOTE-79] L'ELONGATION RADIALE PAR MAILLON. Depuis le cycle 32 ce n'est plus un miroir de mesure :
+;; c'est la valeur que LIT le solveur (terme `rdr` du tenseur de §38, plus bas). `*phys-rr*` ne
+```
+
+---
+## NOTE-463 — La matrice de deformation de la chaine, en repere MONDE, rebatie a chaque frame. Elle vaut
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76 bis).
+Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+;; La matrice de deformation de la chaine, en repere MONDE, rebatie a chaque frame. Elle vaut
+;; l'identite tant que rien n'est arme : `matrix*!` par l'identite ne change pas un bit.
+```
+
+---
+## NOTE-464 — combien de poussees ont REELLEMENT eu lieu. Un controle positif qui n'a rien injecte ne prouve
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76 bis).
+Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+;; combien de poussees ont REELLEMENT eu lieu. Un controle positif qui n'a rien injecte ne prouve
+;; rien : c'est ce compteur, pas la valeur armee, qui dit que le defaut a ete pose.
+```

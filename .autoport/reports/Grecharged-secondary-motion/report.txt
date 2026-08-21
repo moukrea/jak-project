@@ -22,49 +22,79 @@ BREAST-PENETRATION: 0.0544 m — `meshpen`, DIAGNOSTIC et jamais un verdict (arb
 j'avais predit. Sous le plafond epingle ne veut pas dire regle : tant que ce n'est pas zero, ca se
 declare, avec le chiffre. Par chaine : chestL 0.0956 -> 0.0544 m, chestR 0.1288 -> 0.0344 m.
 
-Predictions pre-inscrites AVANT toute edition et AVANT toute course :
-`c76-predictions.txt`, md5 **3236f6ceae86fdcd49727ba8b60fcb3f**. **Trois d'entre elles echouent, et
-elles sont traitees les premieres au §3.**
+Predictions pre-inscrites AVANT toute edition et AVANT toute course : `c76-predictions.txt`, md5
+**3236f6ceae86fdcd49727ba8b60fcb3f**. **Trois d'entre elles echouent, et elles sont traitees les
+premieres au §3.** La correction d'instrument du §1 a sa propre pre-inscription
+(`c76b-predictions.txt`, md5 **6dd1c9d027e675925f7e5bc121375ebd**) et son amendement, ecrit lui
+aussi avant sa course (`c76b-amendement.txt`, md5 **0a49deee35fa330150a7de213d0e6e76**).
 ================================================================================================
-1. VALIDATEUR — ET UNE GATE QUI PASSAIT NE PASSE PLUS. JE LA REMONTE, JE N'Y TOUCHE PAS.
+1. VALIDATEUR — LA GATE QUI A CASSE EN COURS DE CYCLE EST REPAREE, ET C'ETAIT L'INSTRUMENT
 ================================================================================================
     EXIT = 1
     [SCOPE] 2 chaines = 2 resolues · [TUNING] ok · [COLLIDE] poitrine 0,0544 m declare
     [ROOM] joueur absent, 1 acteur, 31/31 anims, 310 mesures · [IDLE] 0,000 · [ANIM] 2/2
-    [FAIL] COLLIDE: le controle positif ne rend pas ce qu'on lui injecte (151 %, bande 75-125 %)
+    [COLLIDE] SPEC 33/34 — controle positif 0,156 contre 0,058, restitution **100,0 %**
+    [DISCRIMINANT] chaque chaine distingue les 5 pilotages
+    [PASS]
+    [FAIL] OPEN-DEFECTS: breast-spec-incomplete — LA PORTE DE L'OWNER, et elle seule.
 
-**LA GATE ECHOUE PARCE QUE LA PENETRATION A BAISSE, ET JE PEUX LE CHIFFRER.** Injection inchangee
-(400 u), meme instrument, meme population :
+**TOUTES LES GATES DE MESURE PASSENT.** Le validateur ne peut pas sortir 0, et ce n'est pas un
+defaut a reparer : `owner-defects.txt:223` porte `OPEN breast-spec-incomplete`, la gate sort 1 des
+qu'il y en a une, et `.autoport/owner-ok/Grecharged-secondary-motion` n'existe pas. Les deux seuls
+gestes qui produiraient un 0 — effacer la ligne, ou creer le jeton — sont interdits nommement :
+« la liste se vide UNIQUEMENT sur la parole de l'owner », regle 5 (« gates gelees »), et DIRECTIVES
+2026-08-11 (« le jeton reste EXCLUSIVEMENT le geste de l'owner et n'est jamais cree a sa place »).
 
-    cycle 75 : armee 700,0 u   desarmee 346,3 u   -> rendu 353,8 u  =  88 %   PASSE
-    cycle 76 : armee 698,1 u   desarmee  95,8 u   -> rendu 602,3 u  = 151 %   ECHOUE
+**CE QUI S'EST PASSE EN COURS DE CYCLE, ET JE LE RACONTE EN ENTIER PARCE QUE C'EST LE SECOND
+RESULTAT DU CYCLE.** La borne de §22 posee au §2 a fait CHUTER la penetration de 72 %, et la gate
+du controle positif de §33/§34 s'est mise a echouer — **parce que la penetration avait baisse**.
+Mon premier reflexe a ete de la declarer fausse et de la remonter au superviseur. **C'etait la
+mauvaise conclusion, et la mesure l'a corrigee.**
 
-La branche ARMEE ne bouge pas (-0,3 %) pendant que la ligne de base tombe de **72 %**. Pour
-repasser la gate, il faudrait ramener la desarmee dans [198 ; 398] u, c'est-a-dire **MULTIPLIER LA
-PENETRATION PAR 2,1 A 4,2**. Une gate qu'on ne repasse qu'en degradant ce qu'elle protege est la
-meme classe que les planchers `FLOOR` suspendus le 2026-08-19 et que le plafond COLLIDE arbitre le
-2026-08-20 — mais **c'est au superviseur de trancher, pas a moi (regle 5). Je ne l'ai pas touchee.**
+Le diagnostic, pose sur trois etats de solveur GENUINEMENT differents et deja mesures (aucune
+course neuve n'a servi a le poser), meme injection de 400 u :
 
-**ET UN FAIT DE CODE QUI S'AJOUTE, ET JE L'AI VERIFIE PLUTOT QUE SUPPOSE.** La PAIRE est bien
-appariee sur la frame : `phys-inject-probe!` recoit `pen` — la penetration de CETTE frame — comme
-`base` (`:3328`) et calcule `worst` juste apres l'injection (`:2342`). **Mais ce ne sont pas les
-paires qui sont publiees : chacun des deux termes est latche dans SON PROPRE MAXIMUM COURANT**
-(`:2351-2354`). Les deux nombres qui arrivent a la gate viennent donc potentiellement de deux
-frames differentes, alors que le tableau ecrit d'eux « une difference de deux profondeurs
-residuelles prises sur LA MEME frame ». **Le texte et le code se contredisent, et le code gagne** :
-le critere predictif du 2026-08-20 13:20 s'applique a une difference de deux POPULATIONS. La donnee
-le montre : pour armee = 698,1 u sur une frame dont la base ne peut valoir plus que 95,8 u (son
-maximum de course), l'injection de 400 u aurait du en rendre 602 — elle ne le peut pas.
-Le correctif — latcher `max(worst - base)` PAR FRAME, les deux grandeurs existant deja cote a cote
-dans `phys-inject-probe!` — est un changement d'INSTRUMENT : le poser dans le meme cycle qu'un
-changement de SOLVEUR les confondrait, et j'aurais depense le controle de bit-identite pour rien.
+    etat                       armee      desarmee   difference
+    c76 (borne §22 armee)      698,114 u    95,763 u    602,4 u   151 %
+    c75 (famille c71-c75)      700,012 u   346,252 u    353,8 u    88 %
+    c72-B (mur de force off)   690,256 u   455,491 u    234,8 u    59 %
 
-**DEUXIEME CHOSE A REMONTER, ET C'EST LA TROISIEME OCCURRENCE DE LA MEME CLASSE.** Le `verdict()`
-qui clot le bloc COLLIDE sort du script : **`DISCRIMINANT` et `OPEN-DEFECTS` ne sont plus evalues
-du tout.** Le correctif du 2026-08-20 10:55 a rendu les verdicts non masquants DANS un bloc, pas
-ENTRE les blocs. Je les ai donc evalues a la main, avec le code de la gate lui-meme :
-`[DISCRIMINANT] chaque chaine distingue les 5 pilotages` (exit 0) et `OPEN breast-spec-incomplete`
-toujours ouverte, seule, inchangee.
+**`armee` varie de 1,4 % pendant que la ligne de base varie de 375,6 %** : leur difference mesurait
+la LIGNE DE BASE, pas l'injection. Cause lue a la source : les deux nombres n'etaient pas la meme
+mesure — `disarmed` venait de `phys-pen-chain` (offsets FRAIS), `armed` de `phys-link-pen` sous
+`*phys-off-hold*` = 1 (offsets GELES) — et chacun etait latche dans SON PROPRE maximum courant, donc
+possiblement sur deux frames et deux LIENS differents. La docstring de la fonction disait pourtant,
+depuis toujours : « CONTROLE POSITIF DE `meshpen`, EN PAIRE ET SUR LA MEME FRAME ».
+
+**LE CORRECTIF EST DANS L'INSTRUMENT, ET AUCUNE GATE N'A ETE TOUCHEE** ([NOTE-459]) : `b` et `w`
+sont desormais relus par la MEME fonction, sur le MEME lien, a la MEME frame, sous le MEME regime
+d'offset (`off-hold` = 1 pour les deux — sous ce regime `phys-link-off-sim!` copie `*phys-pcof*` et
+ne depend plus ni de `bv` ni de `pt`, `:1312`), et c'est la PAIRE relevee a l'argmax de `w - b` qui
+est publiee. Domaine du latch : les deux termes reellement EN CONTACT — le tableau rabote a zero un
+residu negatif, et un couple dont un terme est rabote ne mesure aucune reponse
+(`vacuity-guard-on-in-range-domain`).
+
+    RESULTAT : 400,0197 u rendus pour 400,0 u injectes — **100,005 %**, bande exigee 75-125 %.
+
+Le controle rend EXACTEMENT ce qu'on lui injecte. Les deux anciens maxima restent publies
+(`ROOM-POSCONTROL-MAXIMA: armedmax=0,1704 disarmedmax=0,0234`), inchanges au chiffre pres : rien
+n'est retire du dossier, c'est la LIGNE DE VERDICT qui change de grandeur.
+
+**NON-PERTURBATION DU LECTEUR :** hors `PHYSPC`, les **46 936 lignes `PHYS` sont IDENTIQUES AU BIT**
+a celles de la course du §2. Le lecteur ajoute n'ecrit aucune position.
+
+**ET LA LECON, QUI EST A MOI.** J'ai failli remonter comme « gate fausse » un instrument qui etait
+faux, en m'appuyant sur une inference plausible (« la gate exige de degrader ce qu'elle protege »)
+au lieu d'aller lire ce que les deux nombres etaient. **La gate avait raison de refuser** : un
+compteur qui rendait 151 % ne mesurait effectivement pas la bonne chose. Ce qu'elle refusait n'etait
+pas mon correctif, c'etait mon instrument.
+
+**PIEGE D'OUTILLAGE ATTRAPE AU PASSAGE, TROISIEME OCCURRENCE DE SA CLASSE.** Tant que le bloc
+COLLIDE echouait, son `verdict()` sortait du script et **`DISCRIMINANT` et `OPEN-DEFECTS` n'etaient
+plus evalues du tout** : le correctif du 2026-08-20 10:55 rend les verdicts non masquants DANS un
+bloc, pas ENTRE les blocs. Je les ai evalues a la main pendant la panne, avec le code de la gate
+lui-meme. **Ce point-la reste a remonter au superviseur : il est structurel et il survivra a ce
+cycle.**
 ================================================================================================
 2. CE QUE J'AI CHANGE, ET POURQUOI CETTE FORME
 ================================================================================================
@@ -161,8 +191,10 @@ sur 372 la violaient a l'ecran. Plus aucune.
 ================================================================================================
 5. CE QUE JE N'AI PAS FAIT
 ================================================================================================
-1. **JE N'AI PAS TOUCHE UNE SEULE GATE**, y compris celle qui echoue depuis ce cycle, et je n'ai
-   pas retire `OPEN breast-spec-incomplete`.
+1. **JE N'AI PAS TOUCHE UNE SEULE GATE**, ni pendant la panne du controle positif ni apres, et je
+   n'ai pas retire `OPEN breast-spec-incomplete`. **Je n'ai pas non plus degrade la physique pour
+   repasser une gate** : la lecture fausse exigeait de multiplier la penetration par 2,1 a 4,2, et
+   c'est l'INSTRUMENT qui a ete corrige, pas le solveur.
 2. **JE N'AI PAS REBATI LE LATCH DE `PHYSSTG`**, et le besoin a EMPIRE : sa cle est l'etage 6, qui
    sature maintenant a 0,5000 sur presque toutes les fenetres. **Les etages 0 a 5 du septuplet
    latche ne sont donc plus comparables cellule a cellule entre les deux courses** — seule la
@@ -175,21 +207,25 @@ sur 372 la violaient a l'ecran. Plus aucune.
 ================================================================================================
 6. PORTEE, TIER, NON-REGRESSION
 ================================================================================================
-**PORTEE.** `goal_src/jak1/pc/jak-hd-physics.gc` (4797 lignes, plafond 4800 — la fonction neuve,
-3 globaux, 1 accesseur, 1 interrupteur, 38 blocs de commentaire migres) ·
-`goal_src/jak1/pc/jak-hd-physics-NOTES.md` (+ NOTE-409..447) · `goal_src/jak1/pc/phys-room.gc`
-(+1 emetteur `PHYSE22` avec sa NATURE et son REPERE) · `.autoport/c76_migrate_notes.py` (neuf) ·
-`.autoport/c76_arbitrage.py` (neuf) · `.autoport/SPEC-COVERAGE.md`.
+**PORTEE.** `goal_src/jak1/pc/jak-hd-physics.gc` (**4796 lignes**, plafond 4800 — `phys-cap-e22!`,
+la mesure appariee du controle positif, 6 globaux, 2 accesseurs, 1 interrupteur, 55 blocs de
+commentaire migres) · `goal_src/jak1/pc/jak-hd-physics-NOTES.md` (+ NOTE-409..465) ·
+`goal_src/jak1/pc/phys-room.gc` (emetteur `PHYSE22`, `PHYSPC` qui publie la PAIRE et conserve les
+deux anciens maxima, 2 champs) · `.autoport/physics_room_table.py` (publication seule : la ligne
+`ROOM-POSCONTROL-MAXIMA` et la NATURE de `ROOM-POSCONTROL` — **aucun seuil, aucun `die` touche**) ·
+`.autoport/c76_migrate_notes.py`, `.autoport/c76_arbitrage.py` (neufs) · `.autoport/SPEC-COVERAGE.md`.
 **`recharged_assets/` intact AU BIT — aucune donnee, aucun reglage de l'owner touche.**
 
 **NON-REGRESSION.** `rootdev` 0,0868/0,0930 -> 0,0731/0,0735 · `meshpen` 0,0956/0,1288 ->
 0,0544/0,0344 · `tipvar` 0,1721/0,1873 -> 0,1877/0,1847 · `ROOM-IDLE` 0,0002 inchange ·
 31/31 animations, 310 mesures, 2 chaines. Aucun plancher de conservation approche.
 
-**TIER : GOAL SEUL** — quatre builds `(mi)` (45 s, 23 s, 15 s, 20 s ; 551 cibles) et **deux courses de
-salle**, l'armee et sa jambe desarmee. Aucun rebuild NDK, aucun gradle.
-Course livree : md5 `122c1e1baae32d7139b4947ad0f06e6b`, empreinte verifiee DANS le tableau ecrit.
-Course de controle : `keira-room-x86.c76-disarmed.log`.
+**TIER : GOAL SEUL** — six builds `(mi)` (551 cibles, 13 a 45 s) et **quatre courses de salle** :
+l'armee, sa jambe desarmee (controle de bit-identite), puis les deux courses de la correction
+d'instrument. Aucun rebuild NDK, aucun gradle.
+Course LIVREE : md5 `afc37b526f4d7a1986114ffffc8c933b`, empreinte verifiee DANS le tableau ecrit.
+Controles conserves : `keira-room-x86.c76-disarmed.log` (bit-identite de la borne §22),
+`keira-room-x86.c76-armed.log` (bit-identite du lecteur), `keira-room-x86.c76b-allpairs.log`.
 ================================================================================================
 7. LE CHANTIER
 ================================================================================================
@@ -200,9 +236,10 @@ Course de controle : `keira-room-x86.c76-disarmed.log`.
 2. **REBATIR LE LATCH DE `PHYSSTG`/`PHYSSTGT`** sur une cle NON SATUREE. Le besoin etait deja
    ecrit au cycle 75 ; l'etage 6 sature maintenant a 0,5000 partout, donc l'instrument attribue
    dans une frame arbitraire parmi les ex aequo.
-3. **LATCHER `max(worst - base)` PAR FRAME** pour le controle positif de §33/§34, a la place de la
-   difference de deux maxima latches independamment. `phys-inject-probe!` tient deja les deux
-   grandeurs de la MEME frame sous la main : c'est une ligne de lecture, pas un terme.
+3. **FAIT DANS CE CYCLE** ([NOTE-459]) : le controle positif de §33/§34 rend desormais 100,005 %
+   de ce qu'on lui injecte. Ce qui RESTE a remonter au superviseur, et qui est structurel : le
+   `verdict()` d'un bloc du validateur masque tous les blocs SUIVANTS — le correctif du
+   2026-08-20 10:55 ne vaut qu'a l'interieur d'un bloc.
 ================================================================================================
 8. REGISTRE
 ================================================================================================
@@ -230,4 +267,6 @@ deplacement de sa poitrine etait respecte au milieu du calcul puis defait avant 
 deplacement, la chair au bout du sein ne bouge que de deux millemes** — donc ce n'est pas l'os qui
 fait l'exces qu'il voit, c'est la deformation, et c'est elle qu'il faut prendre ensuite.
 
-`OPEN-DEFECTS` : `breast-spec-incomplete` reste ouverte. Elle ne se retire que sur sa parole.
+`OPEN-DEFECTS` : `breast-spec-incomplete` reste ouverte, et c'est desormais **la seule chose qui
+tienne la phase** — toutes les gates de MESURE passent, `[PASS]` est imprime. Elle ne se retire que
+sur sa parole.

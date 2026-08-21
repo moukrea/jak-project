@@ -3177,7 +3177,8 @@ def main():
 
     # ---- le controle positif -------------------------------------------------------------------
     pc = re.search(r'^PHYSPC injections=(\d+) armed=([-\d.e+]+) disarmed=([-\d.e+]+)'
-                   r'(?: inject=([-\d.e+]+))?', txt, re.M)
+                   r'(?: inject=([-\d.e+]+))?(?: armedmax=([-\d.e+]+) disarmedmax=([-\d.e+]+))?',
+                   txt, re.M)
     if not pc:
         die('aucune ligne PHYSPC : le controle positif n\'a pas tourne')
     inj = int(pc.group(1))
@@ -3193,6 +3194,12 @@ def main():
     # homogenes. La valeur brute en unites de jeu est ecrite en clair sur la ligne publiee.
     inject_u = float(pc.group(4)) if pc.group(4) is not None else None
     inject_m = (inject_u / UNITS) if inject_u is not None else None
+    # [NOTE-459] LES DEUX ANCIENS MAXIMA, LATCHES INDEPENDAMMENT. Ils ne portent plus le verdict —
+    # `armed`/`disarmed` ci-dessus sont desormais LA PAIRE relevee a l'argmax de la reponse
+    # appariee — mais ils restent publies pour que la comparaison avec les courses anterieures
+    # reste possible. Rien n'est retire du dossier, c'est la LIGNE DE VERDICT qui change.
+    armx = (float(pc.group(5)) / UNITS) if pc.group(5) is not None else None
+    disx = (float(pc.group(6)) / UNITS) if pc.group(6) is not None else None
 
     # ---- l'intention d'animation ---------------------------------------------------------------
     auth = {}
@@ -3814,6 +3821,15 @@ def main():
     A('   `reseated` = liens dont la pose du modele etait hors de portee de leur porteur et que le')
     A('   moteur a replaces sur lui (une chaine se REPARE, elle ne se retire pas).')
     A('ROOM-POSCONTROL: injections=%d armed=%s disarmed=%s' % (inj, fnum(armed), fnum(disarmed)))
+    A('   NATURE : LA PAIRE relevee a l\'argmax de la reponse appariee `w - b` — MEME lien, MEME')
+    A('   frame, MEME regime d\'offset, MEME fonction de mesure. REPERE : le monde. [NOTE-459]')
+    if armx is not None:
+        A('ROOM-POSCONTROL-MAXIMA: armedmax=%s disarmedmax=%s ecart=%s   [DEUX MAXIMA LATCHES'
+          % (fnum(armx), fnum(disx), fnum(armx - disx)))
+        A('   INDEPENDAMMENT — c\'est ce que la ligne de verdict lisait jusqu\'au cycle 76. Mesure sur')
+        A('   trois etats de solveur differents et la MEME injection : `armedmax` varie de 1,4 %')
+        A('   pendant que `disarmedmax` varie de 375,6 %. Leur difference mesurait la LIGNE DE BASE,')
+        A('   pas l\'injection. Publie comme DIAGNOSTIC, plus jamais comme verdict.')
     # [NOTE-155] LE CRITERE PREDICTIF DE L'ARBITRAGE DU 2026-08-20 13:20 : « injecter X doit faire
     # monter la mesure de X », tolerance 25 %, l'exces comme le defaut etant un echec. `armed` et
     # `disarmed` ci-dessus sont en METRES ; ce nombre l'est donc AUSSI, sinon la comparaison serait

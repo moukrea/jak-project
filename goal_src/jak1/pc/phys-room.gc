@@ -636,6 +636,8 @@
    (killed  int32)     ;; acteurs etrangers deactives
    (dis     float)     ;; controle positif : penetration max, defaut DESARME
    (arm     float)     ;; controle positif : penetration max, defaut ARME
+   (armx    float)     ;; [NOTE-459] l'ANCIEN maximum independant, conserve a cote de la paire
+   (disx    float)     ;; [NOTE-459] idem, branche desarmee
    (condis  float)     ;; predicat conique CORRIGE   : penetration max residuelle
    (conarm  float)     ;; predicat conique D'AVANT   : la meme, elle doit MONTER
    (proxdis float)     ;; spheres proximales EN PLACE : penetration max residuelle
@@ -2393,8 +2395,12 @@
   ;; `inject` = l'amplitude REELLEMENT posee, en unites de jeu. L'arbitrage du 2026-08-20 13:20
   ;; remplace le ratio par une PREDICTION : injecter X doit faire monter la mesure de X a 25 % pres.
   ;; Sans cette valeur publiee, le critere n'a pas de X et retombe sur l'ancien ratio.
-  (format 0 "PHYSPC injections=~D armed=~f disarmed=~f inject=~f~%"
-          (-> self injn) (-> self arm) (-> self dis) PHYSROOM-INJECT)
+  ;; `armed`/`disarmed` = LA PAIRE a l'argmax de la reponse appariee ([NOTE-459]).
+  ;; `armedmax`/`disarmedmax` = les deux anciens maxima latches independamment, conserves pour que
+  ;; la comparaison avec les courses anterieures reste possible. Rien n'est retire.
+  (format 0 "PHYSPC injections=~D armed=~f disarmed=~f inject=~f armedmax=~f disarmedmax=~f~%"
+          (-> self injn) (-> self arm) (-> self dis) PHYSROOM-INJECT
+          (-> self armx) (-> self disx))
   ;; L'UNITE DE `atan`, MESUREE A L'EXECUTION ET PAS DEDUITE D'UNE LECTURE DE SOURCE (regle 0).
   ;; L'ecriture d'orientation du moteur passait `(* 57.2957795 (atan sin cos))` a
   ;; `matrix-axis-angle!` — une conversion radians->degres. Si `atan` rend des UNITES DE ROTATION,
@@ -4089,16 +4095,31 @@
      (physroom-drive 3 (-> self pframe))
      (physroom-advance-anim 1.0)
      (when (>= (-> self pframe) PHYSROOM-PCW)
-       ;; [NOTE-155] LES DEUX MAXIMA DE LA PAIRE, pris sur les MEMES frames de CETTE fenetre.
-       (let ((b PHYS-NOCONTACT) (a PHYS-NOCONTACT))
+       ;; [NOTE-459] LA PAIRE, ET PLUS DEUX MAXIMA INDEPENDANTS. Ce qui est publie comme
+       ;; `armed`/`disarmed` est desormais le COUPLE releve a l'argmax de la reponse appariee
+       ;; `w - b` : meme LIEN, meme FRAME, meme regime d'offset, meme fonction de mesure. Les deux
+       ;; anciens maxima independants restent publies a cote (`armedmax`/`disarmedmax`) : rien
+       ;; n'est retire, c'est la LIGNE DE VERDICT qui change de grandeur.
+       ;; POURQUOI : mesure sur trois etats de solveur genuinement differents, meme injection de
+       ;; 400 u — `armed` varie de 1,4 % pendant que `disarmed` varie de 375,6 %. Leur difference
+       ;; mesurait donc la LIGNE DE BASE, pas l'injection.
+       (let ((b PHYS-NOCONTACT) (a PHYS-NOCONTACT) (r PHYS-NOCONTACT)
+             (pa PHYS-NOCONTACT) (pb PHYS-NOCONTACT))
          (dotimes (c (-> self nchain))
            (when (> (phys-chain-links (-> self slot) c) 0)
              (let ((bb (phys-pc-base (-> self slot) c))
-                   (aa (phys-pc-inj  (-> self slot) c)))
+                   (aa (phys-pc-inj  (-> self slot) c))
+                   (rr (phys-pc-pair (-> self slot) c 0)))
                (when (> bb b) (set! b bb))
-               (when (> aa a) (set! a aa)))))
-         (set! (-> self dis) b)
-         (set! (-> self arm) a))
+               (when (> aa a) (set! a aa))
+               (when (> rr r)
+                 (set! r rr)
+                 (set! pa (phys-pc-pair (-> self slot) c 1))
+                 (set! pb (phys-pc-pair (-> self slot) c 2))))))
+         (set! (-> self dis) (if (> r PHYS-NOCONTACT-LIMIT) pb b))
+         (set! (-> self arm) (if (> r PHYS-NOCONTACT-LIMIT) pa a))
+         (set! (-> self armx) a)
+         (set! (-> self disx) b))
        (physroom-emit-diag "pcon")                  ;; [NOTE-150] la branche ARMEE, cote PEAU
        (set! (-> self injn) (phys-inject-count))
        (phys-inject-set! 0.0)

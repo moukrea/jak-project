@@ -28,8 +28,7 @@
 (define-extern pc-physics-bsurf-is-joint       (function string int string int))
 (define-extern pc-physics-bsurf-count          (function string int int))
 (define-extern pc-physics-bsurf-mi             (function string int int int int))
-;; [NOTE-161] LA PEAU DE LA CHAINE ELLE-MEME — le pendant de `bs`, expose depuis toujours et
-;; JAMAIS APPELE. `link_si` empaquete (maillon << 3) | echantillon, comme kmachine.cpp le documente.
+;; [NOTE-459] LA PEAU DE LA CHAINE ELLE-MEME — le pendant de `bs`, expose depuis toujours et -> jak-hd-physics-NOTES.md
 (define-extern pc-physics-chain-msample-count   (function string int int int))
 (define-extern pc-physics-chain-msample-mi      (function string int int int int))
 
@@ -135,11 +134,9 @@
 (define *phys-uy*   (new 'global 'array 'float PHYS-SCL))
 (define *phys-uz*   (new 'global 'array 'float PHYS-SCL))
 (define *phys-ucap* (new 'global 'array 'int32 PHYS-SCL))   ;; 1 = direction de repos relevee
-;; `g_ref` DE SA SPEC 3 — la gravite de la pose debout d'auteur, vue de l'ancre, relevee une fois par
-;; chaine a la meme frame que `*phys-ux*`. Derivation, mesure et raison complete au site d'usage.
+;; [NOTE-460] `g_ref` DE SA SPEC 3 — la gravite de la pose debout d'auteur, vue de l'ancre, relevee une fois p -> jak-hd-physics-NOTES.md
 (define *phys-gref* (new 'global 'array 'float (* 3 PHYS-SC)))
-;; historique MONDE de la pose d'auteur, par lien : sa difference seconde est l'acceleration du
-;; repere que la chaine subit. C'est la seule chose qui EXCITE une chaine dont l'ecart cible est nul.
+;; [NOTE-461] historique MONDE de la pose d'auteur, par lien : sa difference seconde est l'acceleration du -> jak-hd-physics-NOTES.md
 (define *phys-t1x* (new 'global 'array 'float PHYS-SCL))
 (define *phys-t1y* (new 'global 'array 'float PHYS-SCL))
 (define *phys-t1z* (new 'global 'array 'float PHYS-SCL))
@@ -265,8 +262,7 @@
 (define *phys-cqz*  (new 'global 'array 'float PHYS-SCL))
 (define *phys-rok*  (new 'global 'array 'int32 PHYS-SCL))  ;; 1 = le point libre est amorce
 (define *phys-rr*   (new 'global 'array 'float PHYS-SC))   ;; §23 elongation radiale, unites de jeu
-;; [NOTE-79] L'ELONGATION RADIALE PAR MAILLON. Depuis le cycle 32 ce n'est plus un miroir de mesure :
-;; c'est la valeur que LIT le solveur (terme `rdr` du tenseur de §38, plus bas). `*phys-rr*` ne
+;; [NOTE-462] L'ELONGATION RADIALE PAR MAILLON. Depuis le cycle 32 ce n'est plus un miroir de mesure : -> jak-hd-physics-NOTES.md
 ;; garde que celle du maillon RACINE. -> jak-hd-physics-NOTES.md
 (define *phys-rrl*  (new 'global 'array 'float PHYS-SCL))  ;; §23 elongation radiale PAR MAILLON
 (define *phys-rrm*  (new 'global 'array 'float PHYS-SC))   ;; |elongation|/B0 max fenetre, TOUS maillons
@@ -310,8 +306,7 @@
 (define *phys-twm*  (new 'global 'array 'float PHYS-SC))   ;; |torsion| max sur la fenetre (mesure)
 (define *phys-twr*  (new 'global 'array 'float PHYS-SC))   ;; torsion RELATIVE ecrite dans la 3x3
 (define *phys-twsat* 0)     ;; frames ou la saturation douce de la torsion a mordu (limiteur declare)
-;; La matrice de deformation de la chaine, en repere MONDE, rebatie a chaque frame. Elle vaut
-;; l'identite tant que rien n'est arme : `matrix*!` par l'identite ne change pas un bit.
+;; [NOTE-463] La matrice de deformation de la chaine, en repere MONDE, rebatie a chaque frame. Elle vaut -> jak-hd-physics-NOTES.md
 (define *phys-dfm* (new 'global 'inline-array 'matrix PHYS-SC))
 ;; [NOTE-168] LA MEME DEFORMATION, MAIS EN ESPACE ANCRE — et c'est celle-la qui est MESURABLE. `*phys- -> jak-hd-physics-NOTES.md
 (define *phys-dfa* (new 'global 'inline-array 'matrix PHYS-SC))
@@ -376,8 +371,7 @@
 
 ;; [NOTE-251] injection de defaut pour le CONTROLE POSITIF (SPEC 7 : tout zero exige un controle qui a -> jak-hd-physics-NOTES.md
 (define *phys-inject* 0.0)
-;; combien de poussees ont REELLEMENT eu lieu. Un controle positif qui n'a rien injecte ne prouve
-;; rien : c'est ce compteur, pas la valeur armee, qui dit que le defaut a ete pose.
+;; [NOTE-464] combien de poussees ont REELLEMENT eu lieu. Un controle positif qui n'a rien injecte ne prouve -> jak-hd-physics-NOTES.md
 (define *phys-injn* 0)
 
 ;; [NOTE-205] RETARD D'UNE FRAME injecte pour le CONTROLE POSITIF du canal d'auteur. 0 = desarme. Ar -> jak-hd-physics-NOTES.md
@@ -507,6 +501,10 @@
 ;; [NOTE-155] LE CONTROLE POSITIF DE `meshpen`, EN PAIRE ET SUR LA MEME FRAME. -> jak-hd-physics-NOTES.md
 (define *phys-pcb* (new 'global 'array 'float PHYS-SC))       ;; sans injection
 (define *phys-pci* (new 'global 'array 'float PHYS-SC))       ;; avec injection
+;; [NOTE-459] LA REPONSE APPARIEE : meme LIEN, meme FRAME, meme regime d'offset — les deux tableaux ci-dessus sont deux maxima latches INDEPENDAMMENT et leur difference n'est pas une reponse -> jak-hd-physics-NOTES.md
+(define *phys-pcr* (new 'global 'array 'float PHYS-SC))       ;; la meilleure reponse w - b
+(define *phys-pcra* (new 'global 'array 'float PHYS-SC))      ;; `w` a cet argmax
+(define *phys-pcrb* (new 'global 'array 'float PHYS-SC))      ;; `b` a cet argmax
 (define *phys-sx*  (new 'global 'array 'float PHYS-SCL))      ;; sauvegarde de la position
 (define *phys-sy*  (new 'global 'array 'float PHYS-SCL))
 (define *phys-sz*  (new 'global 'array 'float PHYS-SCL))
@@ -2340,7 +2338,16 @@
         (let ((scl (+ (* sc PHYS-LINKS) l)))
           (set-vector! pt (-> *phys-px* scl) (-> *phys-py* scl) (-> *phys-pz* scl) 1.0)
           (let ((r (phys-link-pen skel sc n nbone nco l pt 0)))
-            (when (> r worst) (set! worst r))))))
+            (when (> r worst) (set! worst r))
+            ;; [NOTE-459] LA PAIRE : `b` relu sur la position SAUVEGARDEE du MEME lien, MEME regime d'offset (`off-hold`=1), MEME fonction -> jak-hd-physics-NOTES.md
+            (set-vector! pt (-> *phys-sx* scl) (-> *phys-sy* scl) (-> *phys-sz* scl) 1.0)
+            (let ((b (phys-link-pen skel sc n nbone nco l pt 0)))
+              ;; DOMAINE : les DEUX termes reellement EN CONTACT. Le tableau rabote a zero un
+              ;; residu negatif ; un couple dont un terme est rabote ne mesure aucune reponse.
+              (when (and (>= b 0.0) (>= r 0.0) (> (- r b) (-> *phys-pcr* sc)))
+                (set! (-> *phys-pcr* sc) (- r b))
+                (set! (-> *phys-pcra* sc) r)
+                (set! (-> *phys-pcrb* sc) b)))))))
     (set! *phys-off-hold* 0)
     (dotimes (l n)
       (let ((scl (+ (* sc PHYS-LINKS) l)))
@@ -4164,9 +4171,7 @@
       0.0
       (/ (phys-stat slot chain (+ 12 axis)) n))))
 
-;; LE STIMULUS QUE LA POINTE A REELLEMENT RECU sur la fenetre, en u/frame^2 : le pire module de
-;; l'acceleration de sa pose d'auteur. C'est le denominateur honnete du gain — celui que la salle
-;; COMMANDE ne vaut que si rien d'autre ne le domine, et c'est ce chiffre-la qui le dit.
+;; [NOTE-448] LE STIMULUS QUE LA POINTE A REELLEMENT RECU sur la fenetre, en u/frame^2 : le pire module de -> jak-hd-physics-NOTES.md
 (defun phys-tip-stim ((slot int) (chain int))
   (phys-stat slot chain 16))
 
@@ -4267,9 +4272,7 @@
             ((= which 2) (-> *phys-axa* sc))
             ((= which 3) (-> *phys-axl* sc))
             ((= which 4) (-> *phys-axan* sc))
-            ;; 5 = QUELLE REGLE A NOMME LES AXES (0 = protrusion propre, faute de partenaire ;
-            ;; 1 = segment inter-seins, l'invariant externe). Sans ce champ, une course ne dirait
-            ;; pas si le verdict vient de l'anatomie ou du repli.
+            ;; [NOTE-449] 5 = QUELLE REGLE A NOMME LES AXES (0 = protrusion propre, faute de partenaire ; -> jak-hd-physics-NOTES.md
             ((= which 5) (-> *phys-axsrc* sc))
             (else -1)))))
 
@@ -4347,9 +4350,7 @@
     (-> *phys-fam* (+ (* slot PHYS-CHAINS) chain))
     0))
 
-;; SPEC 4, l'exception : `hang` > 0 = « ce qui doit pendre » (les lunettes), qui ne retourne PAS a
-;; la pose du modele. La salle s'en sert pour compter ces chaines a part au repos, au lieu de
-;; devenir complice d'un ecart residuel qu'elle ne saurait pas expliquer.
+;; [NOTE-450] SPEC 4, l'exception : `hang` > 0 = « ce qui doit pendre » (les lunettes), qui ne retourne PAS a -> jak-hd-physics-NOTES.md
 (defun phys-chain-hang ((slot int) (chain int))
   (if (and (>= slot 0) (< slot PHYS-SLOTS) (>= chain 0) (< chain PHYS-CHAINS))
     (-> *phys-hang* (+ (* slot PHYS-CHAINS) chain))
@@ -4361,13 +4362,9 @@
     (-> *phys-joint* (+ (* (+ (* slot PHYS-CHAINS) chain) PHYS-LINKS) link))
     -1))
 
-;; la longueur que LE MODELE donne a l'os d'un lien (son attache est l'ancre pour le lien 0). C'est
-;; le plafond geometrique de l'amplitude de ce lien : la salle le publie pour que personne n'ait a
-;; deviner si une chaine « ne bouge pas assez » ou « ne peut pas bouger plus ».
+;; [NOTE-451] la longueur que LE MODELE donne a l'os d'un lien (son attache est l'ancre pour le lien 0). C'est -> jak-hd-physics-NOTES.md
 (defun phys-chain-bone ((obj jak-hd) (slot int) (chain int) (link int) (comp int))
-  ;; `comp` < 0 : LA LONGUEUR, exactement ce que cette fonction rendait. 0/1/2 : la COMPOSANTE
-  ;; x/y/z de sa DIRECTION UNITAIRE, repere MONDE. Cycle 53 : la contrainte de longueur retire la
-  ;; composante ALIGNEE avec l'os, donc l'angle os/pilotage decide de ce qu'elle confisque.
+  ;; [NOTE-452] `comp` < 0 : LA LONGUEUR, exactement ce que cette fonction rendait. 0/1/2 : la COMPOSANTE -> jak-hd-physics-NOTES.md
   (let ((r 0.0))
     (when (and (>= slot 0) (< slot PHYS-SLOTS) (>= chain 0) (< chain PHYS-CHAINS)
                (>= link 0) (< link PHYS-LINKS)
@@ -4395,6 +4392,17 @@
   (none))
 
 (defun phys-inject-count () *phys-injn*)
+
+(defun phys-pc-pair ((slot int) (chain int) (which int))
+  "LA REPONSE APPARIEE DU CONTROLE POSITIF : `max` sur (frame, lien) de `w - b`. 0 = la reponse,
+   1 = `w` a son argmax, 2 = `b` a son argmax. NATURE : une profondeur, unites de jeu. REPERE : le
+   monde. HORS INJECTION : PHYS-NOCONTACT. Justification : [NOTE-459] de jak-hd-physics-NOTES.md."
+  (let ((sc (+ (* slot PHYS-CHAINS) chain)))
+    (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS))
+      PHYS-NOCONTACT
+      (cond ((= which 0) (-> *phys-pcr* sc))
+            ((= which 1) (-> *phys-pcra* sc))
+            (else (-> *phys-pcrb* sc))))))
 
 (defun phys-pc-base ((slot int) (chain int))
   (if (and (>= slot 0) (< slot PHYS-SLOTS) (>= chain 0) (< chain PHYS-CHAINS))
@@ -4431,6 +4439,9 @@
   ;; l'emplacement 4 de `*phys-st*` : un maximum plafonne a zero rendrait la colonne constante.
   (dotimes (i PHYS-SC)
     (set! (-> *phys-pcb* i) PHYS-NOCONTACT)
+    (set! (-> *phys-pcr* i) PHYS-NOCONTACT)
+    (set! (-> *phys-pcra* i) PHYS-NOCONTACT)
+    (set! (-> *phys-pcrb* i) PHYS-NOCONTACT)
     (set! (-> *phys-pci* i) PHYS-NOCONTACT))
   (none))
 
@@ -4502,9 +4513,7 @@
   (set! *phys-e22-d* 0.0)
   (none))
 
-;; CONTROLE POSITIF DE L'AUTO-COLLISION : 1 = l'exclusion chaine <-> ses propres volumes est LEVEE.
-;; Le compteur `selfcol` doit alors monter. Un zero structurel que rien ne peut faire monter ne
-;; prouve rien — c'est la regle « tout zero exige un controle positif qui a tire ».
+;; [NOTE-453] CONTROLE POSITIF DE L'AUTO-COLLISION : 1 = l'exclusion chaine <-> ses propres volumes est LEVEE. -> jak-hd-physics-NOTES.md
 (defun phys-cpc ((slot int) (chain int) (which int))
   "LE CUMUL DE POUSSEES DE CONTACT DEPUIS LA DERNIERE REMISE A ZERO DE DIAGNOSTIC.
    Justification complete : [NOTE-310] de jak-hd-physics-NOTES.md."
@@ -4558,16 +4567,12 @@
   (set! *phys-side-off* v)
   (none))
 
-;; CONTROLE DU CYCLE 8 : 1 = la contrainte de longueur est DESARMEE. Voir la note de
-;; `*phys-len-off*`. La salle l'arme sur les trois fenetres AXZ et le REND A 0 juste apres — un
-;; controle qui resterait arme changerait toutes les mesures suivantes.
+;; [NOTE-454] CONTROLE DU CYCLE 8 : 1 = la contrainte de longueur est DESARMEE. Voir la note de -> jak-hd-physics-NOTES.md
 (defun phys-len-off-set! ((v int))
   (set! *phys-len-off* v)
   (none))
 
-;; `phys-jacobi-off-set!` et `phys-prio-off-set!` retirees : ZERO site d'appel dans tout `goal_src`,
-;; leurs interrupteurs restaient donc a leur valeur livree (1 et 1, la priorite de volume que le
-;; superviseur a retiree sur mesure). Pas un controle perdu — il etait deja injoignable.
+;; [NOTE-455] `phys-jacobi-off-set!` et `phys-prio-off-set!` retirees : ZERO site d'appel dans tout `goal_src` -> jak-hd-physics-NOTES.md
 (defun phys-prio-meas-set! ((v int))
   "1 = la passe de selection tourne POUR COMPTER, sans jamais ecarter un volume. C'est ce qui rend
    `ROOM-VOLPRIO` non vide pendant que la priorite reste desarmee. Le controle de cette mesure est
@@ -4616,9 +4621,7 @@
   (set! *phys-invfix* 0)
   (none))
 
-;; le collider resolu numero ci : son joint, son second joint (-1 = sphere), ses deux rayons. Publie
-;; par la salle pour que le tableau puisse dire QUELLES PARTIES DU CORPS sont couvertes — un zero de
-;; penetration contre un ensemble qui ne couvre pas le corps ne prouve rien.
+;; [NOTE-456] le collider resolu numero ci : son joint, son second joint (-1 = sphere), ses deux rayons. Publi -> jak-hd-physics-NOTES.md
 (defun phys-collider-field ((slot int) (ci int) (which int))
   (if (and (>= slot 0) (< slot PHYS-SLOTS) (>= ci 0) (< ci (-> *phys-slot-nco* slot)))
     (let ((sco (+ (* slot PHYS-COLS) ci)))
@@ -4700,9 +4703,7 @@
   (dotimes (i (* PHYS-SC PHYS-COLS)) (set! (-> *phys-cfh* i) 0))
   (none))
 
-;; SPEC 5. which 0 = frames ou l'anim pilotait cette chaine, 1 = celles ou la pose ecrite est partie
-;; du meme cote, 2/3 = somme(ecrit . auteur) et somme(auteur . auteur), dont le rapport est la
-;; TRANSMISSION. Ces quatre-la survivent aux fenetres : c'est le bilan de la course.
+;; [NOTE-457] SPEC 5. which 0 = frames ou l'anim pilotait cette chaine, 1 = celles ou la pose ecrite est parti -> jak-hd-physics-NOTES.md
 (defun phys-auth ((slot int) (chain int) (which int))
   (if (and (>= slot 0) (< slot PHYS-SLOTS) (>= chain 0) (< chain PHYS-CHAINS))
     (let ((sc (+ (* slot PHYS-CHAINS) chain)))
@@ -4762,9 +4763,7 @@
         ((= which 22) (-> *phys-dynn* sc))
         ((= which 23) (-> *phys-prsn* sc))
         ((= which 24) (-> *phys-dyna* sc))
-        ;; [NOTE-97] 25-29 : LA NATURE DE L'ENTREE DE PRESSION (cycle 36 etape 1).
-        ;; 25-31 : les sept emplacements de `*phys-cpa*` releves a l'argmax de `cl`
-        ;; (npf, pmax, psum, lastsw, slast, nlast, p1) ; 32 : leur DOMAINE.
+        ;; [NOTE-458] 25-29 : LA NATURE DE L'ENTREE DE PRESSION (cycle 36 etape 1). -> jak-hd-physics-NOTES.md
         ((< which 32) (-> *phys-cpi* (+ (* 7 sc) (- which 25))))
         ((= which 32) (-> *phys-cpd* sc))
         (else 0.0)))))
