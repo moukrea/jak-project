@@ -282,7 +282,23 @@ def check_guards_still_installed():
 
     for m in _re.finditer(r"^GUARD (\S+) (\S+) (.+)$", reg, _re.M):
         gid, path, marker = m.group(1), m.group(2), m.group(3).strip()
-        body = _read(path)
+        # 2026-08-21 : quatre de MES entrees pointaient un REPERTOIRE (`.autoport/reports`), et
+        # `_read` levait IsADirectoryError -- ce qui tuait la boucle entiere. Le verificateur de
+        # verrous ne verifiait donc plus AUCUN verrou, silencieusement, parce qu'une seule ligne
+        # etait malformee. Un dispositif qui protege N choses ne doit jamais tomber sur la 1re.
+        # Une entree invalide se SIGNALE et la boucle continue.
+        import os as _os
+        if _os.path.isdir(path):
+            yield ("WARN", "GUARD-MALFORMED",
+                   "verrou '%s' : son chemin '%s' est un REPERTOIRE, pas un fichier. Ce verrou "
+                   "n'est pas verifie tant que l'entree n'est pas corrigee." % (gid, path))
+            continue
+        try:
+            body = _read(path)
+        except OSError as e:
+            yield ("WARN", "GUARD-MALFORMED",
+                   "verrou '%s' : '%s' illisible (%s). Non verifie." % (gid, path, e))
+            continue
         if not body:
             yield ("BLOCKER", "GUARD-GONE",
                    "verrou '%s' : son fichier %s a disparu. Le piege qu'il empechait peut "

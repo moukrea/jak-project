@@ -413,7 +413,7 @@ Verrou : une gate cite le TITRE et le TEXTE EXACT de la section qu'elle transcri
 supprimee. Quand la spec donne un mot et pas un nombre (« before visible interpenetration »), le
 nombre est declare comme MON operationnalisation, avec sa conversion.
 
-GUARD find-newermt-bare-time .autoport
+GUARD find-newermt-bare-time .autoport/PITFALLS.md horodatage complet
 **`find -newermt '21:06'` ne veut pas dire « aujourd'hui a 21h06 ».** Le 2026-08-19 cette forme a
 renvoye ZERO fichier alors que l'APK avait un mtime de 21:46:30 — j'ai failli publier une fausse
 alerte « le correctif n'est pas dans le build ». Toujours l'horodatage complet :
@@ -429,7 +429,7 @@ supprime l'ecretage qui figeait la reponse — le changement de comportement le 
 journee — et le declencheur est reste muet, faute de parametre modifie. Corrige : l'empreinte du
 source du solveur entre dans le jalon, et sa variation declenche a elle seule.
 
-GUARD instrument-fix-stops-at-the-verdict-line .autoport/reports ROOM-COMEX NOTE-112
+GUARD instrument-fix-stops-at-the-verdict-line .autoport/DIRECTIVES.md moyenne ponderee
 **Un correctif d'instrument s'arrete quand la LIGNE DE VERDICT lit la nouvelle donnee, pas quand
 la donnee existe.** Au cycle 41, `comex` a ete documente comme un MAXIMUM sur deux echantillons la
 ou §22 nomme une MOYENNE PONDEREE, et les donnees par maillon ont ete ajoutees pour permettre la
@@ -464,7 +464,7 @@ Verrou : le changement de code sort sur une ligne `VERIF` destinee au superviseu
 et decide ; il ne declenche JAMAIS a lui seul un « A TESTER ». Regle generale : un signal qui ne
 peut pas porter le jugement qu'on lui demande doit remonter a qui peut le porter, pas trancher.
 
-GUARD rest-state-proven-without-excitation .autoport/SPEC-COVERAGE.md §2 §9
+GUARD rest-state-proven-without-excitation .autoport/SPEC-COVERAGE.md sans mouvement prealable
 **Un retour au neutre mesure SANS sollicitation prealable ne prouve rien.** §2 et §9 etaient
 publiees TENUES sur un ecart au modele de 0,0002 — mesure sur un repos que rien n'avait derange.
 Or ces sections exigent que le systeme REVIENNE exactement a la pose d'auteur ; un systeme qui n'a
@@ -482,7 +482,7 @@ Verrou : un ecart anormalement PETIT est un signal d'alarme, pas un succes. Tout
 colle a sa cible a mieux que la resolution de l'instrument doit etre tracee jusqu'a sa source avant
 d'etre publiee. Voisin de `zero-from-empty-domain` et de `clamped-metric-hides-domain`.
 
-GUARD verdict-depends-on-a-duration-we-chose .autoport/SPEC-COVERAGE.md §14-§20
+GUARD verdict-depends-on-a-duration-we-chose .autoport/SPEC-COVERAGE.md la duree
 **Six sections sont rouges a cause d'une duree que la spec ne donne pas.** `SPEC-breast-softbody`
 fixe des bandes d'AMPLITUDE et aucune duree de geste ; or la reponse est gouvernee par la duree
 (le stimulus le plus faible depasse de ×1,62, le plus fort reste sous d'un facteur 3,63). Les
@@ -525,7 +525,7 @@ Verrou : une gate dont le commentaire explique pourquoi sa grandeur est inadapte
 grandeur, pas de commentaire. Et un seuil justifie par une ligne de base doit ECHOUER si cette
 ligne de base est absente de la course.
 
-GUARD measurement-axis-is-not-the-spec-axis .autoport/reports anchor30 §31
+GUARD measurement-axis-is-not-the-spec-axis .autoport/DIRECTIVES.md axe de mesure
 **Un plafond declare « hors d'atteinte de TOUTE physique » n'etait qu'un axe faux dans notre propre
 operateur.** L'ancrage calculait son abscisse sur l'axe d'OS de la chaine, a **78 deg** de l'axe
 que §31 definit mot pour mot (« r = 0 at chest attachment, r = 1 at distal/apex region »), avec une
@@ -537,7 +537,7 @@ Verrou : un axe de mesure qui n'est pas celui que la spec DEFINIT est un axe fau
 geometriquement raisonnable. Avant de declarer une limite structurelle, prouver que l'axe de
 lecture est celui que le texte nomme — et publier la correlation entre les deux.
 
-GUARD verdict-must-accumulate-not-exit .autoport/validators/phase-Grecharged-secondary-motion.sh fail() verdict()
+GUARD verdict-must-accumulate-not-exit .autoport/validators/phase-Grecharged-secondary-motion.sh def verdict()
 **Deplacer les blocs ne suffit pas : un `die` INTERNE cache tout ce qui le suit dans son propre
 bloc.** Le 2026-08-19 j'ai deplace OPEN-DEFECTS en fin de fichier parce qu'elle masquait COLLIDE.
 Le lendemain, `ROOM-POSCONTROL` echouait (×1,42 rendu contre ×3,00 exige) et n'avait JAMAIS ete
@@ -577,7 +577,7 @@ passait donc qu'en muselant la chaine, c'est-a-dire en produisant la plainte n°
 Verrou : confronter tout plafond a ce que la spec AUTORISE dans la meme unite avant de le publier,
 et verifier quelle population le tient — si c'est la population immobile, la gate est fausse.
 
-GUARD asymmetry-line-must-carry-its-pose .autoport/reports PHYSSGNB
+GUARD asymmetry-line-must-carry-its-pose .autoport/DIRECTIVES.md ecart au miroir
 **`measured-in-an-unrepresentative-pose` a recidive sur d'AUTRES sections, parce que le correctif
 etait PAR PHASE.** Le cycle 55 avait epingle une pose symetrique dans une phase ; le cycle 65
 retrouve les sept regimes de §14-§20 joues a **43,8 deg du miroir**, avec cinq lignes publiant un
