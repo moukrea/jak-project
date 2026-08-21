@@ -1775,6 +1775,27 @@
       (format 0 "PHYSSTG c=~D a=~D d=~D st=~D jt=~f~%"
               c (-> self ai) (-> self drive) st
               (phys-diag (-> self slot) c (+ 72 st))))
+    ;; ---- PHYSSTGW — LE MEME SEPTUPLET, A PORTEE DE FENETRE (cycle 77) --------------------------
+    ;; POURQUOI CETTE LIGNE EXISTE, ET C'EST UNE CORRECTION DE MON PROPRE RAPPORT. La docstring de
+    ;; `PHYSSTG` ci-dessus affirme que ses sept valeurs viennent de « la frame qui maximise l'etage
+    ;; 6 DANS LA FENETRE ». C'est FAUX et la trace du cycle 76 le dit : sur les 186 emissions de
+    ;; `PHYSSTG c=0 st=6`, il y a **ZERO DESCENTE** et la valeur plafonne a 0.4986 des la 4e. Le
+    ;; latch 72-78 n'est remis a zero que par `phys-diag-reset!`, appele une fois par PHASE : c'est
+    ;; un MAXIMUM COURANT DE PHASE republie 186 fois, pas une population de 186 fenetres. Le cycle
+    ;; 76 a compte « 340 fenetres sur 372 hors bande, plus aucune » sur ce plateau — le MAXIMUM
+    ;; qu'il rapporte tient, la POPULATION non. Piege `ratchet-running-max-eats-itself`, et
+    ;; `argmax-latch-key-must-not-saturate` par-dessus, puisque l'etage 6 est BORNE a 0.50 B0.
+    ;;   NATURE / REPERE / ABSENT : identiques a `PHYSSTG` — une LONGUEUR / B0 (SPEC 6, 602.0 u),
+    ;;            repere MONDE contre la pose d'AUTEUR de la MEME frame, 0.0000 a la pose d'auteur.
+    ;;   CE QUI CHANGE, ET RIEN D'AUTRE : (1) la PORTEE est la fenetre (remise a zero dans
+    ;;            `phys-comexw-reset!`, le seul point par lequel toute fenetre passe) ; (2) la CLE
+    ;;            du latch est l'etage 0, releve AVANT le filet de §22, donc rien ne le borne.
+    ;;   `PHYSSTG` ET `PHYSSTGT` SONT LAISSES INTACTS AU BIT : les cycles 74 et 75 les citent, et
+    ;;            la portee de `PHYSSTGT` (la JAMBE) est la bonne pour ce qu'il compare.
+    (dotimes (st 7)
+      (format 0 "PHYSSTGW c=~D a=~D d=~D st=~D jt=~f~%"
+              c (-> self ai) (-> self drive) st
+              (phys-diag (-> self slot) c (+ 79 st))))
     ;; L'ALLONGEMENT ET LE STIMULUS GRAVITAIRE DE CETTE FENETRE. Par fenetre, donc attribuables a un
     ;; PILOTAGE : « ils s'allongent sur les mouvements brusques » ne se verifie pas sur un total de
     ;; course. `gn` = |g_effective|/|g| vu par l'ancre, `tf` = la part TANGENTIELLE de cette gravite,
@@ -2897,6 +2918,38 @@
               c r
               (phys-diag (-> self slot) c 57)
               (phys-diag (-> self slot) c 58))
+      ;; ---- PHYSSTGR — LES SEPT ETAGES SUR LA FENETRE DE REGIME (cycle 77) --------------------
+      ;; LE TROU QUE CETTE LIGNE FERME. Le septuplet d'etages n'a jamais ete emis que sur les
+      ;; fenetres (animation x pilotage) de PH-MEAS. Les sept regimes de §14 a §20 — detente, vol,
+      ;; reception, course, lacet, tangage, roulis — n'en ont JAMAIS eu, alors que ce sont eux qui
+      ;; portent dix des verdicts du registre. On sait donc, pour ces fenetres, ce que le solveur
+      ;; LIVRE (`jt0` de PHYSCOMWL) et rien de ce qu'il a DEMANDE.
+      ;; CE QUE L'ETAGE 0 AJOUTE, ET C'EST TOUT L'INTERET : il est releve AVANT le filet de §22,
+      ;; donc il porte la DEMANDE. Une sortie ecretee ne dit rien de son entree
+      ;; (`clipped-input-needs-amplitude-and-frequency`) : sans l'etage 0, un `jt0` faible et un
+      ;; `jt0` ecrete se ressemblent, et §16 (reception) est justement la seule section du bloc
+      ;; dont les quatre cellules sont SOUS leur bande sur les deux chaines.
+      ;;   NATURE / REPERE / ABSENT : ceux de `PHYSSTG` — une LONGUEUR / B0 (SPEC 6, 602.0 u),
+      ;;            repere MONDE contre la pose d'AUTEUR de la MEME frame, 0.0000 a la pose
+      ;;            d'auteur. POPULATION : sept valeurs d'UNE SEULE frame, celle qui maximise
+      ;;            l'etage 0 sur la fenetre.
+      ;;   PORTEE : exactement celle de `com` et de `jt0` ci-dessus — la remise a zero est le
+      ;;            `phys-comexw-reset!` que la phase appelle a `pframe = max(1, pre)`.
+      ;;   CE QUE CETTE LIGNE NE PERMET PAS, ET JE L'AVAIS ECRIT FAUX ICI MEME. J'avais annonce le
+      ;;            controle « etage 6 <= `jt0`, un maximum a l'argmax d'une autre grandeur ne
+      ;;            pouvant pas depasser le maximum de la fenetre ». **`jt0` N'EST PAS LE MAXIMUM
+      ;;            DE `jt` SUR LA FENETRE** : il est ecrit sous le latch de `ee`
+      ;;            (`jak-hd-physics.gc:3971-3975`), donc c'est `jt` A L'ARGMAX DE `ee`. L'etage 6
+      ;;            est `jt` a l'argmax de l'etage 0 (`:1077-1078`). Deux argmax de deux grandeurs
+      ;;            differentes : AUCUNE inegalite ne les relie, et la mesure le confirme (8 a 10
+      ;;            cellules sur 15 seulement la respectent). Ce qui reste verifiable est
+      ;;            l'IDENTIFICATION DU MAILLON — somme|s6-jt0| = 0.4241 contre
+      ;;            somme|s6-jt1| = 1.2189 sur les 30 cellules, donc le septuplet lit bien le
+      ;;            maillon 0 — et l'ACCORD des deux instruments, publie comme diagnostic et
+      ;;            jamais comme verdict.
+      (dotimes (st 7)
+        (format 0 "PHYSSTGR c=~D r=~D st=~D jt=~f~%"
+                c r st (phys-diag (-> self slot) c (+ 79 st))))
       (physroom-emit-limit PHYSROOM-PH-REG c r)))
   (none))
 

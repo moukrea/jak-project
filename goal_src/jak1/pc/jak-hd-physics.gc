@@ -527,7 +527,7 @@
 (define *phys-e22-n* 0)
 (define *phys-e22-d* 0.0)
 
-(defconstant PHYS-DG 79)           ;; 65-71 = [NOTE-340] les SEPT etages de |p_rlk - pose auteur| / B0 DANS LA FRAME COURANTE, 72-78 le meme septuplet LATCHE a la frame qui maximise l'etage 6 · 59-61 = [NOTE-338] la part TRANSLATION de l'apex, 62-64 sa part TENSEUR, AU MEME ARGMAX que 53-56 · 31-34 = [NOTE-92] l'attribution de `comex` · 35-42 = [NOTE-112] le COM PAR MAILLON · 43-46 = [NOTE-126] le COM PONDERE · 47-49 = [NOTE-136] son VECTEUR · 50-52 = [NOTE-137] la POSITION MONDE de l'ancre · 53-56 = [NOTE-139] l'APEX et son vecteur · 57/58 = [NOTE-139] les deux extremes verticaux du COM (SPEC 15)
+(defconstant PHYS-DG 86)           ;; 79-85 = [NOTE-466] le MEME septuplet a portee de FENETRE, cle sur l'etage 0 · 65-71 = [NOTE-340] les SEPT etages de |p_rlk - pose auteur| / B0 DANS LA FRAME COURANTE, 72-78 le meme septuplet LATCHE a la frame qui maximise l'etage 6 · 59-61 = [NOTE-338] la part TRANSLATION de l'apex, 62-64 sa part TENSEUR, AU MEME ARGMAX que 53-56 · 31-34 = [NOTE-92] l'attribution de `comex` · 35-42 = [NOTE-112] le COM PAR MAILLON · 43-46 = [NOTE-126] le COM PONDERE · 47-49 = [NOTE-136] son VECTEUR · 50-52 = [NOTE-137] la POSITION MONDE de l'ancre · 53-56 = [NOTE-139] l'APEX et son vecteur · 57/58 = [NOTE-139] les deux extremes verticaux du COM (SPEC 15)
 (define *phys-dg* (new 'global 'array 'float (* PHYS-SC PHYS-DG)))
 ;; [NOTE-92] LE CENTRE DE CHAIR APRES ROTATION ET AVANT DEFORMATION. -> jak-hd-physics-NOTES.md
 (define *phys-c1* (new 'global 'array 'float 3))
@@ -1070,7 +1070,10 @@
         (set! (-> *phys-dg* (+ bb (+ 65 st))) (/ (sqrtf (+ (* dx dx) (+ (* dy dy) (* dz dz)))) b0f)))
       ;; LATCH : les sept valeurs publiees sont celles d'UNE SEULE frame, celle qui maximise l'etage 6. Sept maximums independants viendraient de sept frames differentes (piege `RAD-FLESH-IPAIR`, cycle 34) et ne pourraient soutenir aucun modele reliant deux etages.
       (when (and (= st 6) (> (-> *phys-dg* (+ bb 71)) (-> *phys-dg* (+ bb 78))))
-        (dotimes (i 7) (set! (-> *phys-dg* (+ bb (+ 72 i))) (-> *phys-dg* (+ bb (+ 65 i))))))))
+        (dotimes (i 7) (set! (-> *phys-dg* (+ bb (+ 72 i))) (-> *phys-dg* (+ bb (+ 65 i))))))
+      ;; [NOTE-466] LE MEME SEPTUPLET, MAIS A PORTEE DE FENETRE ET SUR UNE CLE QUI NE PEUT PAS SATURER. Le latch ci-dessus est cle sur l'etage 6, qui est BORNE a 0.50 B0 par `phys-cap-e22!` : des que la borne mord, tous les candidats sont ex aequo et l'argmax designe une frame arbitraire. L'etage 0 est releve AVANT le filet, donc rien ne le borne. Et cette tranche-la est remise a zero par `phys-comexw-reset!`, c'est-a-dire A CHAQUE FENETRE — 72-78 ne l'est pas et ne doit pas l'etre : `PHYSSTGT` le lit par JAMBE.
+      (when (and (= st 6) (> (-> *phys-dg* (+ bb 65)) (-> *phys-dg* (+ bb 79))))
+        (dotimes (i 7) (set! (-> *phys-dg* (+ bb (+ 79 i))) (-> *phys-dg* (+ bb (+ 65 i))))))))
   (none))
 
 ;; [NOTE-22] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
@@ -2059,9 +2062,7 @@
                        (cx (- tx bx)) (cy (- ty by)) (cz (- tz bz))
                        (cl (sqrtf (+ (* cx cx) (+ (* cy cy) (* cz cz))))))
                   (when (and (> ln 0.0001) (> cl 0.0001))
-                    ;; `p` vit sur la sphere de rayon `ln` centree sur l'attache ; `|p - t|` n'y
-                    ;; depend que de l'angle a `g`. On IMPOSE cet angle par sa loi des cosinus, en
-                    ;; forme close et exacte : pas de bissection, pas d'acos, pas de sur-correction.
+                    ;; [NOTE-465] `p` vit sur la sphere de rayon `ln` centree sur l'attache ; `|p - t|` n'y -> jak-hd-physics-NOTES.md
                     (let* ((gx (/ cx cl)) (gy (/ cy cl)) (gz (/ cz cl))
                            (hx (/ ux ln)) (hy (/ uy ln)) (hz (/ uz ln))
                            (ca (+ (* hx gx) (+ (* hy gy) (* hz gz))))
@@ -4493,7 +4494,9 @@
   (dotimes (i PHYS-SC)
     (dotimes (q 27) (set! (-> *phys-dg* (+ (* i PHYS-DG) (+ 23 q))) 0.0))
     ;; 53-58 [NOTE-139] l'APEX + les extremes de SPEC 15. Tranche SEPAREE : 50-52 sont un ETAT qui doit survivre.
-    (dotimes (q 6) (set! (-> *phys-dg* (+ (* i PHYS-DG) (+ 53 q))) 0.0)))
+    (dotimes (q 6) (set! (-> *phys-dg* (+ (* i PHYS-DG) (+ 53 q))) 0.0))
+    ;; [NOTE-466] 79-85 : le septuplet d'etages A PORTEE DE FENETRE. Il est remis a zero ICI et pas ailleurs, parce que c'est le seul point par lequel TOUTE fenetre passe, dans TOUTES les phases. 72-78 n'y entre pas : sa portee est la JAMBE, et `PHYSSTGT` en depend.
+    (dotimes (q 7) (set! (-> *phys-dg* (+ (* i PHYS-DG) (+ 79 q))) 0.0)))
   (none))
 
 (defun phys-diag-reset! ()
