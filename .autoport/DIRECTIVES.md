@@ -10,6 +10,34 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
+## 2026-08-21 20:50 — JE RETIRE MA PRIORITE DE 18:25. LE CONTRE-CONTROLE QUE J'AI EXIGE L'A REFUTEE.
+
+A 18:25 j'ai ecrit que les six rouges d'apex etaient **un seul defaut**, que l'excursion valait
+« ~1,85 fois la cible », et j'en ai fait la priorite unique. **C'est faux, et c'est le
+contre-controle independant que j'avais moi-meme exige a 18:40 qui l'etablit** — sans un seul
+build ni une seule course, sur la trace archivee.
+
+  1. **Le « ×1,85 » etait le MAXIMUM DE COURSE de §22**, pas une propriete des six sections. Sur
+     les 20 cellules ou la spec attache une bande a un geste : **4 DANS**, 12 au-dessus (de ×1,05
+     a ×1,64), et **4 SOUS leur bande** jusqu'a ×0,34 — pour celles-la, diviser l'excursion les
+     AGGRAVE. J'ai pris un extremum pour une tendance : `argmax-anchor-is-not-a-population`, encore.
+  2. **Aucun facteur commun ne rend §14/§16/§17/§18 tenues** : leurs deux chaines l'exigent de part
+     et d'autre de 1. Balayage complet — le meilleur facteur possible (1,645) ne convertit que
+     §19+§20 ; a 1,85, **aucune section**. Le chantier que j'ai ordonne n'aurait converti personne.
+  3. La chaine de mesure d'apex est **DISCULPEE** : le contre-controle ne la met pas en cause.
+
+**CE QUI TOMBE ET CE QUI RESTE.** Tombe : « six rouges = un defaut » et la priorite unique qui en
+decoulait. Reste, et c'est le vrai enseignement : **les six sections ne partagent pas une cause**,
+donc elles se traitent separement, et quatre cellules sont deja DANS leur bande — ce que mon
+raccourci masquait.
+
+**ET LA LECON SUR MOI, PARCE QU'ELLE EST LA MEME QUE CELLE DU ×5,2.** J'ai construit une priorite
+sur un chiffre unique sans verifier sa POPULATION, exactement comme j'avais construit un theoreme
+sur une ligne de spec sans la relire. La difference : cette fois le verrou que j'avais pose a
+attrape la faute **avant** qu'un cycle soit depense dessus. C'est ce que doit produire un
+contre-controle exige d'avance — et ca justifie de continuer a en exiger.
+
+
 ## 2026-08-21 18:40 — AUDIT DE PROVENANCE DES NEUF ROUGES. VERDICT : AUCUN NE VIENT D'UN SEUIL A MOI.
 
 L'owner : « mais tes rouges ils viennent d'où ? Faudrait pas que les validateurs biaisés soient des

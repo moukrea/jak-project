@@ -589,3 +589,15 @@ SYMETRIQUE` et la section reste `NON ETABLI`. Le rig est symetrique a 0,005 deg 
 ecart mesure ailleurs est un artefact jusqu'a preuve du contraire.
 Regle generale : un correctif se pose au PRODUCTEUR de la grandeur, jamais sur le site qui l'a
 revele. Un correctif par site est une note deguisee en verrou.
+
+GUARD priority-built-on-a-single-extremum .autoport/DIRECTIVES.md maximum de course
+**J'ai fait d'un maximum de course la priorite unique de tout le chantier.** Le 2026-08-21 a 18:25
+j'ai ecrit que six rouges etaient « un seul defaut, l'excursion vaut ~1,85 fois la cible ». Le
+×1,85 etait le MAXIMUM DE COURSE d'UNE section. Sur les 20 cellules ou la spec attache une bande a
+un geste : 4 DANS, 12 au-dessus, et **4 SOUS leur bande** — pour celles-la diviser l'excursion les
+AGGRAVE. Balayage complet : aucun facteur commun ne convertit plus de deux sections, et a 1,85
+aucune. Le chantier ordonne n'aurait converti personne.
+Verrou : une priorite ne se construit jamais sur un extremum. Avant d'en faire une, publier la
+POPULATION — combien de cellules au-dessus, combien dedans, combien dessous — et verifier qu'un
+correctif unique les deplace toutes dans le bon sens. Voisin de `argmax-anchor-is-not-a-population`
+et de `com-is-a-population-not-a-max`, tombes tous les deux sur le meme raccourci.
