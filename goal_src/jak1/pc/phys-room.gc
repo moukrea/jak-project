@@ -2068,6 +2068,21 @@
               tag c
               (phys-diag (-> self slot) c 0)
               (phys-diag (-> self slot) c 2))
+      ;; ---- PHYSSTGT — LES SEPT ETAGES DE LA BORNE DE SPEC 22, MAIS PAR JAMBE (cycle 75) ----
+      ;; Meme grandeur, meme latch et memes limites que `PHYSSTG` ([NOTE-340], et sa limite de
+      ;; DISCRIMINATION vaut ici aussi) : `|p_rlk - pose auteur| / B0`, sept instants d'UNE MEME
+      ;; frame, celle qui maximise l'etage 6 DEPUIS LA DERNIERE REMISE A ZERO DU DIAGNOSTIC.
+      ;; Ce que ce `tag` ajoute : les jambes `skin-armed` et `skin-disarmed` balayent les MEMES
+      ;; 31 animations avec le MEME pilotage et pour SEULE variable `*phys-skin-off*`. Le cout de
+      ;; la contrainte de peau sur la §22 se lit donc sur la MEME population que le benefice que
+      ;; `ROOM-SKINPEN-CONTROL` publie sur elle — au lieu d'un rapport entre deux populations,
+      ;; qui est le defaut que ce dossier traque depuis le cycle 34.
+      ;; CONTROLE GRATUIT : sur `skin-disarmed`, `phys-skin-chain` sort en tete de fonction, donc
+      ;; l'etage 6 doit valoir l'etage 5 AU BIT. S'il ne le vaut pas, l'interrupteur ne desarme
+      ;; pas ce que je crois, ou la sonde ne lit pas ce que je crois.
+      (dotimes (st 7)
+        (format 0 "PHYSSTGT tag=~S c=~D st=~D jt=~f~%"
+                tag c st (phys-diag (-> self slot) c (+ 72 st))))
       (format 0 "PHYSDIAG2 tag=~S c=~D inv=~f invres=~f elong=~f rad=~f~%"
               tag c
               (phys-diag (-> self slot) c 3)
