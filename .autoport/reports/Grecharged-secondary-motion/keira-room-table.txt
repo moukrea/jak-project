@@ -1,7 +1,7 @@
 ==================================================================================================
 KEIRA — SALLE DE TEST SANS JOUEUR : TABLEAU DE MESURE
 genere par .autoport/physics_room_table.py depuis .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
-empreinte de la trace lue : md5 122c1e1baae32d7139b4947ad0f06e6b (4516403 octets)
+empreinte de la trace lue : md5 afc37b526f4d7a1986114ffffc8c933b (4515415 octets)
 contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 7 (ce qui fait foi)
 
 -- ROOM-INSTRUMENTS-MUETS : CE QUE CE TABLEAU NE MESURE PAS AUJOURD'HUI ------------
@@ -217,9 +217,16 @@ ROOM-INVERSIONS: residual=0 corrected=0 degenerate=0 control_residual=178 reseat
    fait passer le residu de 0 a 178.
    `reseated` = liens dont la pose du modele etait hors de portee de leur porteur et que le
    moteur a replaces sur lui (une chaine se REPARE, elle ne se retire pas).
-ROOM-POSCONTROL: injections=328 armed=0.1704 disarmed=0.0234
+ROOM-POSCONTROL: injections=328 armed=0.1557 disarmed=0.0580
+   NATURE : LA PAIRE relevee a l'argmax de la reponse appariee `w - b` — MEME lien, MEME
+   frame, MEME regime d'offset, MEME fonction de mesure. REPERE : le monde. [NOTE-459]
+ROOM-POSCONTROL-MAXIMA: armedmax=0.1704 disarmedmax=0.0234 ecart=0.1471   [DEUX MAXIMA LATCHES
+   INDEPENDAMMENT — c'est ce que la ligne de verdict lisait jusqu'au cycle 76. Mesure sur
+   trois etats de solveur differents et la MEME injection : `armedmax` varie de 1,4 %
+   pendant que `disarmedmax` varie de 375,6 %. Leur difference mesurait la LIGNE DE BASE,
+   pas l'injection. Publie comme DIAGNOSTIC, plus jamais comme verdict.
 ROOM-POSCONTROL-INJECT: 0.097656   (= 400.0 u ; MEME UNITE que armed/disarmed, des METRES)
-   restitution : 0.1471 m mesures pour 0.0977 m injectes = 150.6 %  (bande exigee 75-125 %)
+   restitution : 0.0977 m mesures pour 0.0977 m injectes = 100.0 %  (bande exigee 75-125 %)
    NATURE : une difference de deux PROFONDEURS residuelles prises sur LA MEME frame, la
    position etant restauree au bit entre les deux. Ce n'est plus un rapport a une ligne
    de base qui bouge : c'est une prediction quantitative, et elle echoue dans les DEUX
@@ -227,7 +234,7 @@ ROOM-POSCONTROL-INJECT: 0.097656   (= 400.0 u ; MEME UNITE que armed/disarmed, d
    le defaut injecte pousse chaque lien libre de 400 u (~10 cm) vers l'interieur du corps
    APRES resolution ; le compteur de penetration doit MONTER. 328 poussees reelles.
    residus SIGNES bruts des deux branches (negatif = marge restante avant de traverser) :
-   arme 0.1704 m, desarme 0.0234 m.
+   arme 0.1557 m, desarme 0.0580 m.
 ROOM-IDLE: maxdev=0.0002 hanging=0 measured=2
    SPEC 4 : au repos, ce qui n'est pas cense pendre retrouve la pose du modele. Les 0
    chaines a hang>0 (ce qui pend) sont comptees a part : 
