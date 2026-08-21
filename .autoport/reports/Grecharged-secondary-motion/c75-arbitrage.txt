@@ -1,0 +1,74 @@
+DIRECTIVES v3fee554599
+================================================================================================
+ARBITRAGE SPEC 22 CONTRE SPEC 33/34 — cycle 75
+  meme population (31 animations, pilotage 3), une seule variable : `*phys-skin-off*`
+  conversion : B0 = 602.0 u, 4096 u = 1 m, donc 1 B0 = 0.14697 m
+================================================================================================
+
+Q4 NON-PERTURBATION : 46734 lignes PHYS anterieures, 0 DIFFERENTE(S) -> TENUE
+   total PHYS : 46930  (avant 46734 ; engage +28 = 46762 -> COMPTE FAUX DE MA PART, voir rapport §3c)
+
+--- chestL ------------------------------------------------------------------
+   etage                    armee    desarmee     ecart
+   0 avant filet            0.4375    1.8567    -1.4192
+   1 apres filet            0.4373    0.5000    -0.0627
+   2 apres LONGUEUR         0.4392    0.4889    -0.0497
+   3 apres COLLISION        0.4292    0.4884    -0.0592
+   4 apres 8 iters          0.4283    0.4881    -0.0598
+   5 avant peau             0.4283    0.4881    -0.0598
+   6 apres peau (LIVRE)     0.5850    0.4881    +0.0969
+
+--- chestR ------------------------------------------------------------------
+   etage                    armee    desarmee     ecart
+   0 avant filet            0.3413    1.1033    -0.7620
+   1 apres filet            0.3413    0.5000    -0.1587
+   2 apres LONGUEUR         0.2868    0.2719    +0.0149
+   3 apres COLLISION        0.2868    0.2787    +0.0081
+   4 apres 8 iters          0.2868    0.4602    -0.1734
+   5 avant peau             0.2868    0.5554    -0.2686
+   6 apres peau (LIVRE)     0.6757    0.5554    +0.1203
+
+Q1 CONTROLE DE L'INTERRUPTEUR (desarmee : etage6 == etage5 AU BIT) :
+   chestL : etage5=0.4881 etage6=0.4881  ecart=+0.000000 -> TENUE
+   chestR : etage5=0.5554 etage6=0.5554  ecart=+0.000000 -> TENUE
+   -> Q1 TENUE
+
+Q2 LE COUT (armee : etage6 > etage5, et etage6 > 0.50 B0) :
+   chestL : etage5=0.4283 -> etage6=0.5850 (+0.1567 B0)  ; > 0.50 B0 : oui -> TENUE
+   chestR : etage5=0.2868 -> etage6=0.6757 (+0.3889 B0)  ; > 0.50 B0 : oui -> TENUE
+
+Q3 L'ARBITRAGE, DANS LA MEME UNITE ET SUR LA MEME POPULATION :
+   chaine    COUT §22 (m)   BENEFICE §33/34 (m)   rapport   ce que ca dit
+   chestL       +0.0142        +0.0026            5.48   la peau COUTE 5.5 x ce qu'elle achete
+   chestR       +0.0177        +0.0155            1.14   la peau COUTE 1.1 x ce qu'elle achete
+   (BENEFICE = `ROOM-SKINPEN-CONTROL` desarmee - armee, deja en metres, MEMES jambes.)
+
+   LA LIMITE DE Q3, ET ELLE EST DANS MA PROPRE DONNEE : LES DEUX JAMBES ONT DERIVE.
+     chestL : etage 0 (AVANT toute contrainte de la frame) armee 0.4375 contre desarmee
+              1.8567 -> facteur 4.24. Les deux jambes jouent les MEMES 31 animations
+              avec le MEME pilotage, et elles n'arrivent DEJA PAS dans le meme etat.
+     chestR : etage 0 (AVANT toute contrainte de la frame) armee 0.3413 contre desarmee
+              1.1033 -> facteur 3.23. Les deux jambes jouent les MEMES 31 animations
+              avec le MEME pilotage, et elles n'arrivent DEJA PAS dans le meme etat.
+     Une ablation n'est donc PAS chirurgicale ici : le systeme est couple d'une frame
+     a l'autre. C'est exactement pourquoi le cycle 74 a refuse l'ablation et mesure en
+     LECTURE PURE — et la jambe desarmee vient de le demontrer contre elle-meme.
+
+   LE COUT SE MESURE AUSSI SANS AUCUNE ABLATION, DANS LA SEULE JAMBE ARMEE :
+   entre l'etage 5 et l'etage 6 il n'y a qu'UN appel, `phys-skin-chain`.
+   chaine    COUT sans ablation (m)   COUT par ablation (m)   BENEFICE (m)   fourchette
+   chestL          0.0230                0.0142          0.0026     x5.5 a x8.9 contre la peau
+   chestR          0.0572                0.0177          0.0155     x1.1 a x3.7 contre la peau
+   Les deux estimations vont dans le MEME sens ; je publie la FOURCHETTE, pas celle qui
+   m'arrange. La verite est encadree, elle n'est pas choisie.
+
+   ET LE FAIT QUI DECIDE VRAIMENT DE L'ARBITRAGE :
+     chestL : peau DESARMEE, valeur livree 0.4881 B0 -> SOUS le plafond de 0.50 de la §22
+     chestR : peau DESARMEE, valeur livree 0.5554 B0 -> **AU-DESSUS DE** le plafond de 0.50 de la §22
+     Desarmer la contrainte de peau ne rend donc PAS la §22 conforme sur chestR : la
+     boucle de contraintes y derive seule de 0.2787 (etage 3) a 0.5554 (etage 5). Le
+     choix n'est pas entre « peau ou §22 » — il faut les deux corrections.
+
+Q5 COHERENCE AVEC LA PHASE `run` (pilotages 0 a 5, autre population) :
+   chestL : jambe armee 0.5850  ·  phase run max 0.6539  ·  ecart 10.5 % -> TENUE
+   chestR : jambe armee 0.6757  ·  phase run max 0.6670  ·  ecart 1.3 % -> TENUE

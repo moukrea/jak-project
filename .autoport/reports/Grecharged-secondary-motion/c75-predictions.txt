@@ -1,0 +1,65 @@
+PREDICTIONS DU CYCLE 75 — ecrites AVANT toute edition de code et AVANT toute course.
+DIRECTIVES v3fee554599
+Branche physics-keira-clean · perimetre : chestL / chestR SEULES (owner 2026-08-14 07:30)
+
+OBJET : item 1 du chantier laisse par le cycle 74 — ARBITRER §22 CONTRE §33/§34 SUR CHIFFRES,
+et dans la MEME unite.
+
+CE QUE LE CYCLE 74 A ETABLI : `phys-skin-chain` est l'UNIQUE producteur du depassement de la §22
+sur le maillon racine (etages 0 a 5 conformes, etage 6 hors bande sur 184/186 et 156/186 fenetres,
+saut median +0,1645 B0). Ce que le cycle 74 n'a PAS fait : mettre ce COUT en regard du BENEFICE
+que la contrainte achete, dans la meme unite et sur la MEME population.
+
+POURQUOI IL FAUT UNE COURSE ET PAS UN CALCUL DE COIN DE TABLE. Les deux chiffres existent deja
+dans la trace, mais ils ne viennent PAS de la meme population :
+  - le BENEFICE : `ROOM-SKINPEN-CONTROL` (chestL armee=0,0685 desarmee=0,0711 -> +0,0025 m ;
+    chestR armee=0,0825 desarmee=0,0980 -> +0,0155 m) est releve sur les jambes
+    `PHYSROOM-PH-SKINARM` / `PHYSROOM-PH-SKINDIS` ;
+  - le COUT : le saut d'etage 5 -> 6 de `PHYSSTG` est releve sur la phase `run` (pilotages 0 a 5).
+Les rapprocher tels quels serait exactement ce que ce dossier reproche depuis le cycle 34 :
+publier un rapport entre deux statistiques prises sur deux populations. Donc on fait publier le
+septuplet PAR JAMBE, et on lit les deux chiffres sur les MEMES 31 animations, le MEME pilotage, et
+UNE SEULE variable declaree (`*phys-skin-off*`).
+
+PORTEE ENGAGEE : `phys-room.gc` SEUL, une ligne d'emission dans `physroom-emit-diag`. AUCUNE
+edition de `jak-hd-physics.gc`, aucun terme de solveur, aucune gate touchee.
+
+------------------------------------------------------------------------------------------------
+Q1 — LE CONTROLE DE L'INTERRUPTEUR, ET IL EST GRATUIT.
+Sur la jambe `skin-disarmed`, `phys-skin-chain` sort en tete sur `(when (zero? *phys-skin-off*)`,
+donc elle n'ecrit RIEN.
+ENGAGEMENT : etage 6 == etage 5 **AU BIT** sur les deux chaines (difference exactement 0,0000).
+REFUTATION : une difference non nulle veut dire que l'interrupteur ne desarme pas ce que je crois,
+ou que ma sonde ne lit pas ce que je crois. Dans les deux cas rien d'autre n'est lisible.
+
+Q2 — LE COUT, SUR LA JAMBE ARMEE.
+ENGAGEMENT : sur `skin-armed`, etage 6 > etage 5 sur les deux chaines, et etage 6 > 0,50 B0.
+
+Q3 — LE CHIFFRE DE L'ARBITRAGE, DANS LA MEME UNITE.
+Les deux grandeurs se convertissent en METRES par 4096 u = 1 m et B0 = 602,0 u, donc
+1 B0 = 0,14697 m.
+ENGAGEMENT : le COUT (etage6_armee - etage6_desarmee, en m) depasse le BENEFICE
+(skinpen_desarmee - skinpen_armee, en m) d'un facteur >= 3 sur chestR.
+REFUTATION : si le facteur est < 1, la contrainte achete plus qu'elle ne coute et l'arbitrage
+penche pour §33/§34 — je le publierai tel quel. Je n'ai PAS de preference : le chiffre tranche.
+
+Q4 — LA NON-PERTURBATION.
+ENGAGEMENT : toutes les lignes `PHYS` de la course precedente sont identiques UNE A UNE, 0
+differente. Le total monte de exactement 2 x 2 x 7 = 28 (deux jambes x deux chaines x sept
+etages), soit 46 762.
+
+Q5 — LA COHERENCE AVEC LA PHASE `run`.
+ENGAGEMENT : l'etage 6 de la jambe `skin-armed` est du meme ordre que celui de la phase `run`
+(0,5875 / 0,6670 B0), a 25 % pres. Les deux phases ne jouent pas le meme pilotage, donc je
+n'attends pas l'egalite ; un ecart plus grand que 25 % voudrait dire que le cout depend fortement
+du pilotage, ce qui serait un resultat en soi et devrait etre dit.
+
+------------------------------------------------------------------------------------------------
+CE QUE JE NE FERAI PAS CE CYCLE-CI, ET JE L'ECRIS D'AVANCE :
+  - je ne desarme pas `phys-skin-chain` en livraison. §33/§34 sont de la spec au meme titre que
+    §22, et un arbitrage ne se rend pas dans le cycle qui produit son premier chiffre ;
+  - je ne borne pas encore ce que la peau deplace. La forme de cette borne (un plafond exprime
+    dans les unites de la §22, pose sur le DEPLACEMENT et non sur la profondeur) est le cycle
+    suivant, avec sa propre pre-inscription ;
+  - je ne touche a aucune gate du validateur (regle 5, verrou dur), et je ne retire pas la ligne
+    `OPEN breast-spec-incomplete` : elle ne se ferme que sur la parole de l'owner.

@@ -1,216 +1,194 @@
-RAPPORT DE CYCLE 74 — Grecharged-secondary-motion
+RAPPORT DE CYCLE 75 — Grecharged-secondary-motion
 DIRECTIVES v3fee554599
 Branche physics-keira-clean · perimetre : chestL / chestR SEULES (owner 2026-08-14 07:30)
 
 ================================================================================================
 0. EN UNE PHRASE
 ================================================================================================
-**LA BORNE DE §22 TRAVERSE INTACTE LES QUINZE PASSES DE CONTRAINTES. C'EST LA CONTRAINTE DE PEAU,
-EN FIN DE FRAME, QUI LA DEFAIT — SEULE, ET SUR 92 % DES FENETRES.**
+**LA CONTRAINTE DE PEAU COUTE A LA §22 ENTRE 1,1 ET 8,9 FOIS CE QU'ELLE ACHETE A LA §33/§34 — ET
+POURTANT LA DESARMER NE RENDRAIT PAS LA §22 CONFORME. IL FAUT LES DEUX CORRECTIONS.**
 
-    etage de la frame            chestL    chestR    fenetres > 0,50 B0 (sur 186 chacune)
-    0  avant le filet §22        0,5190    0,2884            174  ·   23
-    1  APRES le filet §22        0,4892    0,2884              0  ·    0
-    2  apres la LONGUEUR         0,4862    0,2842              7  ·    1
-    3  apres la COLLISION        0,4594    0,2842              0  ·    1
-    4  apres les 8 iterations    0,4574    0,2842              0  ·    1
-    5  avant la peau             0,4574    0,2842              0  ·    1
-    6  APRES LA PEAU (LIVRE)     0,5875    0,6670            184  ·  156
+    chaine    cout SANS ablation   cout PAR ablation   benefice §33/34   fourchette
+    chestL         0,0230 m             0,0142 m           0,0026 m      x5,5 a x8,9
+    chestR         0,0572 m             0,0177 m           0,0155 m      x1,1 a x3,7
 
-Cinq des six sauts sont **nuls ou negatifs** ; le sixieme vaut **+0,1645 B0** en mediane et
-**+0,3828** au maximum. La contrainte de longueur, que le cycle 73 designait, fait meme BAISSER
-l'ecart de 0,3 %.
+    peau DESARMEE, valeur livree :   chestL 0,4881 B0 SOUS 0,50  ·  chestR 0,5554 **AU-DESSUS**
+
+Meme population pour les deux colonnes : memes 31 animations, meme pilotage, `*phys-skin-off*`
+pour seule variable. Conversion unique et explicite : B0 = 602,0 u, 4096 u = 1 m, 1 B0 = 0,14697 m.
 
 BREAST-PENETRATION: 0.1288 m — `meshpen`, DIAGNOSTIC et jamais un verdict (arbitrage
 2026-08-20 13:20). Inchange au bit : aucun terme du solveur n'a bouge de ce cycle.
 ================================================================================================
-1. VALIDATEUR
+1. VALIDATEUR — ET UNE CHOSE QUE JE DOIS DIRE SANS DETOUR
 ================================================================================================
-Toutes les gates de MESURE passent, `[PASS]` est imprime, et la seule sortie non nulle vient de
-`OPEN-DEFECTS` (`breast-spec-incomplete`) — la porte de l'owner, qui ne se retire que sur sa parole.
+Toutes les gates de MESURE passent et `[PASS]` est imprime. La seule sortie non nulle vient de
+`OPEN-DEFECTS`.
+
+**LE VALIDATEUR NE PEUT PAS SORTIR 0, ET CE N'EST PAS UN DEFAUT A REPARER.** Diagnostic exact,
+pas une supposition :
+  - `validators/phase-Grecharged-secondary-motion.sh:689-698` compte les lignes `^OPEN ` de
+    `owner-defects.txt` et sort 1 des qu'il y en a une ;
+  - il y en a exactement une, `owner-defects.txt:223` : `OPEN breast-spec-incomplete` ;
+  - `.autoport/owner-ok/Grecharged-secondary-motion` n'existe pas (le repertoire ne porte que des
+    jetons d'autres phases).
+Les deux seuls gestes qui feraient sortir 0 sont **effacer la ligne 223** ou **desarmer la gate**.
+Les deux sont interdits, et par le texte meme du dispositif :
+  - le commentaire de la gate : « La liste se vide UNIQUEMENT sur la parole de l'owner : c'est son
+    oeil qui ferme un defaut, jamais un chiffre vert » ;
+  - regle 1 du contrat : « Aucun faux vert » ;
+  - regle 5 : « Gates gelees. N'ajoute, ne modifie et n'assouplis **aucune** gate du validateur —
+    c'est un verrou dur » ;
+  - DIRECTIVES 2026-08-11 : « le jeton reste **exclusivement** le geste de l'owner et n'est jamais
+    cree a sa place ».
+**Je ne le fais donc pas, et je le declare au lieu de le contourner.** La gate existe precisement
+parce que le 2026-08-11 la phase s'est declaree terminee QUATRE fois avec cinq points ouverts. Le
+seul chemin vers un 0 passe par l'oeil de l'owner, et le seul travail qui l'en rapproche est la
+couverture de sa spec — c'est ce que ce cycle fait.
 
     [SCOPE] 2 chaines = 2 resolues · [TUNING] ok · [COLLIDE] poitrine 0.1288 m declare ·
     [ROOM] joueur absent, 1 acteur, 31/31 anims, 310 mesures · [COLLIDE] §33/§34 controle
     positif 0.171 contre 0.085 · [IDLE] 0.000 · [ANIM] 2/2 · [DISCRIMINANT] ok · [PASS]
+    [FAIL] OPEN-DEFECTS: breast-spec-incomplete — la porte de l'owner.
 ================================================================================================
-2. LA METHODE, ET POURQUOI CE N'EST PAS UNE ABLATION
+2. CE QUE CE CYCLE MESURE, ET POURQUOI IL FALLAIT UNE COURSE
 ================================================================================================
-Le cycle 73 laissait comme item 1 : « une course par interrupteur (`*phys-len-off*`,
-`*phys-col-off*`, `*phys-bend-off*`) ». **Je ne l'ai pas fait, et je dis pourquoi.** Une ablation
-change la trajectoire : les fenetres ne sont plus la meme population, et le registre porte deja
-`ablation-table-poisons-the-floor-reference` et `attribution-harness-outlives-its-defect`.
+Le cycle 74 a etabli que `phys-skin-chain` est l'unique producteur du depassement de §22. Il n'a
+PAS mis ce cout en regard du benefice. Les deux chiffres existaient deja dans la trace — mais sur
+**deux populations differentes** : le benefice sur les jambes `PHYSROOM-PH-SKINARM` /
+`PHYSROOM-PH-SKINDIS`, le cout sur la phase `run`. Les rapprocher tels quels aurait ete
+exactement le defaut que ce dossier traque depuis le cycle 34 : un rapport entre deux statistiques
+prises sur deux populations.
 
-A la place, un instrument en LECTURE PURE sur la MEME trajectoire : `PHYSSTG` releve
-`|p_rlk - pose_auteur_rlk| / B0` — la grandeur `jt` que `PHYSCOMWL` publie deja — a **sept
-instants d'UNE MEME frame**, celle qui maximise la valeur livree.
+Correctif : `PHYSSTGT` publie le septuplet de [NOTE-340] **par TAG**, donc par jambe. Une ligne
+d'emission dans `physroom-emit-diag`, `phys-room.gc` SEUL. **Aucune edition de
+`jak-hd-physics.gc`, aucun terme de solveur, aucune gate touchee.**
 
-    NATURE : une LONGUEUR rapportee a `B0` (SPEC 6, la CHAIR, 602,0 u — pas l'os).
-    REPERE : le monde, contre la pose d'AUTEUR de la MEME frame.
-    LECTURE QUAND LE DEFAUT EST ABSENT : 0,0000 aux sept etages.
-
-**LE CONTROLE QUI AUTORISE TOUT LE RESTE (P1) EST TENU** : les **44 130** lignes `PHYS`
-anterieures sont identiques UNE A UNE a celles de la course precedente — **0 DIFFERENTE**. Le
-total monte de exactement 372 x 7 = 2 604, soit 46 734, le compte engage a l'unite pres. Le canal
-LIT, il n'est pas un terme. Corrobore par le diff : **deux lignes non-commentaire modifiees en
-tout**, la taille d'un tableau (`PHYS-DG 65 -> 79`) et une parenthese fermante deplacee.
-
-**ET UNE TROISIEME CORROBORATION, QUE JE N'AVAIS PAS PREVUE** : le tableau de la salle
-(`keira-room-table.txt`, 3 616 lignes) est identique a celui du cycle 73 **a une ligne pres — son
-empreinte de trace**. Aucune des 310 mesures publiees n'a bouge d'un chiffre.
-
-**LE CONTROLE INTERNE, GRATUIT (P2) EST TENU** : l'etage 1 est `<= 0,50 B0` par ALGEBRE
-(`ds = kn + cp*tanh(x) < kn + cp`). Mesure : **0 fenetre au-dessus sur 372**. C'est la
-verification de l'affirmation du cycle 73 au lieu de sa reprise — s'il en etait sorti une seule,
-c'est l'INSTRUMENT qui serait faux et rien d'autre ne serait lisible.
-
-Predictions ecrites AVANT toute edition de code et AVANT toute course :
-`c74-predictions.txt`, md5 **58a32b770479404a29961899ac9fe0bb**.
+Predictions ecrites AVANT l'edition et AVANT la course : `c75-predictions.txt`,
+md5 **673b6b89fe7263373a0ea90c22fae19b**.
 ================================================================================================
-3. CE QUE JE RETIRE DE MOI-MEME — TROIS CHOSES, ET LA DEUXIEME EST LA PLUS GENANTE
+3. LES CINQ QUESTIONS
 ================================================================================================
-**(a) P4 REFUTEE : LE MECANISME DU CYCLE 73 EST FAUX.** Il proposait que `phys-length-chain`,
-projection RADIALE sur la sphere de rayon `want`, reouvre l'ecart angulaire que le filet ferme en
-CORDE. Mesure : l'etage 2 depasse l'etage 1 sur **20 fenetres de 204** ou le filet a mordu (9,8 %),
-avec un ecart median de **-0,61 %**. La contrainte de longueur ne reouvre rien ; elle resserre.
+**(a) Q1 TENUE — LE CONTROLE QUI AUTORISE TOUT LE RESTE, ET IL TIRE AU BIT.**
+Sur la jambe desarmee, `phys-skin-chain` sort en tete de fonction sur `(when (zero?
+*phys-skin-off*)` : l'etage 6 doit valoir l'etage 5 exactement.
 
-**(b) P5 SORT « TENUE » A 98,5 % ET NE VAUT RIEN. JE LA COMPTE NON DISCRIMINANTE.** J'avais bati
-une forme fermee sans parametre libre qui predit l'etage 2 depuis les etages 0 et 1, et j'y voyais
-la prediction qui engageait vraiment. Elle tombe a 0,0036 B0 pres. **Mais la garde de vacuite dit
-qu'elle ne pouvait pas echouer** :
+    chestL  etage5 = 0,4881  etage6 = 0,4881   ecart +0,000000
+    chestR  etage5 = 0,5554  etage6 = 0,5554   ecart +0,000000
 
-    hausse PREDITE par le modele   (predit - etage1) : mediane  +0,00058 B0
-    hausse MESUREE                 (etage2 - etage1) : mediane  -0,00300 B0
-    fuite a expliquer              (etage6 - etage5) : mediane  +0,16450 B0   -> 283 x plus
+La sonde et l'interrupteur font ce que je crois. Sans ce controle, rien d'autre ne serait lisible.
 
-A 17 degres, corde et arc coincident a O(theta^3) : **le modele et son absence rendent le meme
-chiffre**. Un critere atteint sur un domaine ou il ne peut pas echouer n'est pas un critere, et
-sans cette garde j'aurais publie « mecanisme confirme a 98,5 % » au-dessus d'une refutation.
-C'est `gate-vacuous-on-short-sequence` sous une autre forme, et c'est moi qui l'ai ecrit.
+**(b) Q2 TENUE — LE COUT, SUR LA JAMBE ARMEE.** etage 5 -> etage 6 : **+0,1567 B0** (chestL) et
+**+0,3889 B0** (chestR) ; valeur livree 0,5850 / 0,6757, les deux au-dessus du plafond de 0,50.
 
-**(c) P3 REFUTEE SUR LA LETTRE, ET LA FAUTE EST DANS MA PREDICTION.** J'avais engage
-`max(etage 6) >= 0,6670 sur chestL`. Il vaut 0,6539 sur chestL — et **0,6670 sur chestR, au
-dix-milliemme pres**. Le cycle 73 publiait 0,6670 sans nommer la chaine ; je l'ai attribue a la
-mauvaise. La grandeur est retrouvee exactement, par un instrument entierement different.
+**(c) Q4 : L'IDENTITE EST TENUE, MON COMPTE EST FAUX, ET LA FAUTE EST DE PORTEE.**
+Identite : **46 734 lignes `PHYS` anterieures, 0 DIFFERENTE**. Mais j'avais engage « +28 = deux
+jambes x deux chaines x sept etages ». La mesure rend **+196**. La cause n'est pas un mystere :
+j'ai pose l'emetteur dans `physroom-emit-diag`, qui est appelee pour **14 tags** (`run`, `rest`,
+`pcoff`, `pcon`, `self-*`, `side-*`, `cone-*`, `prox-*`, `skin-*`), pas pour les deux qui
+m'interessaient. 14 x 2 x 7 = 196, exactement. **J'ai predit la portee de mon intention au lieu de
+la portee de mon code.** Aucune consequence sur les verdicts — les 12 tags de plus sont des
+lignes supplementaires, pas des lignes modifiees — mais c'est une prediction fausse et elle
+compte comme telle.
+
+**(d) Q5 TENUE — LE COUT NE DEPEND PAS DU PILOTAGE.** Jambe armee 0,5850 / 0,6757 contre phase
+`run` 0,6539 / 0,6670 : **10,5 % et 1,3 %** d'ecart, sur deux phases qui ne jouent pas le meme
+pilotage. Le cout de la peau est une propriete du mecanisme, pas d'un stimulus particulier.
+
+**(e) Q3 REFUTEE SUR LA LETTRE.** J'avais engage un facteur **>= 3 sur chestR**. Par ablation il
+vaut **1,14**. La direction que j'attendais est confirmee sur les deux chaines — la peau coute
+plus qu'elle n'achete — mais l'ampleur que j'annoncais ne l'est pas sur chestR. Le §4 donne le
+chiffre complet.
 ================================================================================================
-4. L'ATTRIBUTION — LE RESULTAT DU CYCLE
+4. L'ARBITRAGE, ET JE PUBLIE LA FOURCHETTE PLUTOT QUE L'ESTIMATEUR QUI M'ARRANGE
 ================================================================================================
-**P6 REFUTEE, ET C'EST ELLE QUI PORTE LE RESULTAT.** J'avais engage que le plus grand saut serait
-1 -> 2 (la longueur). Classement mesure des sauts medians, sur les 372 fenetres :
+Le cout admet **deux** estimateurs, et ils ne sont pas equivalents :
+  - **SANS ablation** : `etage 6 - etage 5` DANS la seule jambe armee. Entre ces deux instants il
+    n'y a qu'UN appel, `phys-skin-chain`. Aucune trajectoire n'est deplacee.
+  - **PAR ablation** : `etage 6 armee - etage 6 desarmee`. C'est le pendant exact du benefice,
+    mais il compare deux jambes.
 
-    5 -> 6  **+0,1645**  ·  2 -> 3  +0,0000  ·  3 -> 4  +0,0000
-    4 -> 5   +0,0000     ·  1 -> 2  -0,0042  ·  0 -> 1  -0,0298
+    chaine    cout SANS ablation   cout PAR ablation   benefice   fourchette
+    chestL         0,0230 m             0,0142 m       0,0026 m   **x5,5 a x8,9** contre la peau
+    chestR         0,0572 m             0,0177 m       0,0155 m   **x1,1 a x3,7** contre la peau
 
-**Entre l'etage 5 et l'etage 6 il n'y a qu'un seul appel : `phys-skin-chain`.** L'attribution est
-donc totale et sans partage : la contrainte de peau produit 100 % du depassement de la §22 sur le
-maillon racine. **P7, qui engageait l'inverse (« la peau ne fuit pas », sur la foi du cycle 61 qui
-avait mesure qu'elle ne muselait pas), est refutee par le meme chiffre.** Ne pas museler et ne pas
-deplacer sont deux proprietes distinctes ; le cycle 61 avait etabli la premiere et je l'avais lue
-comme la seconde.
+Les deux estimateurs vont dans le MEME sens sur les deux chaines. Je publie l'encadrement ; la
+verite est encadree, elle n'est pas choisie.
 
-**LA STRUCTURE EST LISIBLE, ET ELLE EST INVERSEE.** Sur chestR, les cinq septuplets dont l'etage 5
-est HAUT (0,4383 a 0,5012 B0) recoivent **exactement +0,0000** de la peau ; les cinq dont l'etage 5
-est BAS (0,2435 a 0,2930) recoivent **+0,3074 a +0,3828**.
+**LA LIMITE, ET ELLE EST DANS MA PROPRE DONNEE.** Les deux jambes divergent **DEJA a l'etage 0** —
+avant toute contrainte de la frame — d'un facteur **4,24 (chestL)** et **3,23 (chestR)**, alors
+qu'elles jouent les MEMES 31 animations avec le MEME pilotage. Le systeme est couple d'une frame a
+l'autre : **cette ablation n'est pas chirurgicale**, et le cout par ablation est un minorant
+contamine. C'est la justification retrospective du refus d'ablation du cycle 74 — produite par
+l'ablation elle-meme, contre elle-meme. Je la publie parce qu'elle affaiblit mon propre chiffre.
 
-    n=149   st5 0,2842  ->  st6 0,6670   **+0,3828**
-    n= 14   st5 0,4932  ->  st6 0,4932    +0,0000
-    n=  8   st5 0,4883  ->  st6 0,4883    +0,0000
-    n=  4   st5 0,3153  ->  st6 0,6327   **+0,3174**
+**CE QUI DECIDE VRAIMENT, ET CE N'EST PAS LE RATIO.**
 
-**La contrainte de peau pousse le maillon d'autant plus fort qu'il s'est MOINS ecarte de la pose
-d'auteur.** Ce n'est pas absurde et le registre l'annoncait : `breast-rest-clearance-vs-excursion`
-dit qu'au repos la poitrine EST contre le torse. C'est donc **pres de la pose d'auteur** que la
-penetration est maximale, et loin d'elle qu'elle est nulle.
+    peau DESARMEE, valeur livree :   chestL 0,4881 B0  SOUS le plafond
+                                     chestR 0,5554 B0  **AU-DESSUS du plafond**
 
-**L'ARITHMETIQUE DU PRIX, MESUREE ET NON SUPPOSEE.** Le plafond de profondeur de `phys-skin-chain`
-est `-dot(o - joint_auteur, n)` (`(v (fmin (- (fmin 0.0 sa) sd) (- 0.0 dn)))`), donc au plus
-`|o - joint_auteur| = etage5 * B0`. Pire cas mesure : plafond **<= 146,6 u**, deplacement du joint
-**>= 213,2 u** par inegalite triangulaire — **rapport >= 1,45**. La cause est dans la forme de la
-correction : c'est une ROTATION autour de l'attache, dont le bras amplifie la profondeur de
-`1/pp` (`pp > 0,05`, donc jusqu'a x20), bornee seulement par `kr <= 0,5` **par passe** et six
-passes. **La §22 n'entre nulle part dans cette arithmetique**, et rien dans `phys-skin-chain` ne
-la connait.
+**Desarmer §33/§34 ne rendrait pas §22 conforme.** Le choix n'est donc pas « la peau ou la §22 » :
+les deux corrections sont necessaires. Toute conclusion qui aurait consiste a couper la peau pour
+verdir la §22 est morte avant d'avoir ete ecrite — et c'est le principal service de ce cycle.
 
-**ET LA CONTRAINTE NE FERME PAS.** `ROOM-SKINPEN-COUT tag=run` : **18 990 corrections, 92,8408 m
-cumules, residu 0,0294 m** qui survit aux six passes. Elle paie le plafond entier d'une autre
-section et laisse malgre tout 2,9 cm de violation.
+Note de lecture, et je la borne : dans la jambe DESARMEE, chestR monte de 0,2787 (etage 3) a
+0,5554 (etage 5), donc la boucle de contraintes y derive seule. **Ce n'est pas la configuration
+livree** — armee, la boucle est plate de l'etage 1 a l'etage 5 sur les deux chaines — donc je ne
+l'attribue a rien et je n'en tire aucun chantier. C'est une trajectoire d'ablation, et elle porte
+la meme contamination que le reste de cette jambe.
 ================================================================================================
-5. LA LIMITE DE MON INSTRUMENT, ECRITE SUR LA MEME LIGNE QUE CE QU'IL DIT
+5. CE QUE JE N'AI PAS FAIT
 ================================================================================================
-Le septuplet ne prend que **6 valeurs distinctes sur 186 fenetres** (chestL) et **10** (chestR),
-la ou `PHYSAPEX` en rend **182 / 180** sur la MEME course, la MEME population. **Il n'est donc pas
-discriminant entre stimuli au sens de SPEC 7**, et je le publie plutot que de le laisser trouver.
-
-Cause : son latch est cle sur l'etage 6 — **qui sature**. La cle d'un argmax ne peut pas etre une
-grandeur saturee, sinon l'argmax choisit toujours le meme etat. Je l'avais choisie pour garder les
-sept valeurs coherentes dans une meme frame, ce qui etait necessaire ; je n'avais pas vu que la
-grandeur choisie etait justement celle qui allait se reveler plate.
-
-**CE QUE CA N'INVALIDE PAS** : l'attribution se lit DANS une frame, entre deux etages consecutifs,
-et c'est ce pour quoi l'instrument est bati. **CE QUE CA INTERDIT** : toute phrase sur la maniere
-dont la fuite varie avec le stimulus. Il n'y en a aucune dans ce rapport. A rebatir sur une cle
-non saturee avant toute lecture par pilotage.
-================================================================================================
-6. CE QUE JE N'AI PAS FAIT, ET POURQUOI
-================================================================================================
-1. **JE N'AI POSE AUCUN CORRECTIF.** Le correctif etait **pre-enregistre**, en toutes lettres et
-   avec son algebre, dans `c74-predictions.txt` avant la course (rotation autour de l'attache a
-   longueur de modele, idempotente avec `phys-length-chain`), sous condition explicite : « Ce
-   correctif n'est PAS pose ce cycle-ci s'il n'est pas soutenu par P4 et P5. » **P4 est refutee et
-   P5 est vacue.** Le poser quand meme aurait reecrit une borne qui, la mesure le dit, n'est pas
-   defaite. Le patch existe, il n'est pas applique, et il ne le sera pas.
-2. **JE N'AI PAS TOUCHE A `phys-skin-chain`.** Elle porte §33/§34, qui sont de la spec au meme
-   titre que §22, et la spec n'arbitre pas entre les deux. Rediger sa correction dans le cycle qui
-   la met en cause serait exactement le « correctif a mi-chemin » de l'arbitrage du
-   2026-08-19 23:50. Le chantier est nomme au §8, avec ses chiffres.
-3. **JE N'AI PAS FAIT LES TROIS COURSES D'ABLATION** de l'item 1 du cycle 73 : elles auraient
-   deplace la population qu'elles mesurent. La lecture pure repond a la meme question, sur la meme
-   trajectoire, en une course. C'est un ecart au chantier herite, et je le declare.
+1. **JE N'AI PAS DESARME `phys-skin-chain` EN LIVRAISON**, et c'etait ecrit d'avance dans la
+   pre-inscription. §33/§34 sont de la spec au meme titre que §22 ; et la mesure de ce cycle
+   montre que la desarmer ne suffirait meme pas.
+2. **JE N'AI PAS BORNE CE QUE LA PEAU DEPLACE.** La forme de cette borne (un plafond exprime dans
+   les unites de la §22, pose sur le DEPLACEMENT et non sur la profondeur) est le cycle suivant,
+   avec sa propre pre-inscription. La poser ici serait le « correctif a mi-chemin » de l'arbitrage
+   du 2026-08-19 23:50.
+3. **JE N'AI TOUCHE A AUCUNE GATE**, et je n'ai pas retire la ligne `OPEN breast-spec-incomplete`.
+   Voir le §1 : c'est le seul geste qui ferait sortir le validateur a 0, et il est interdit.
 4. **AUCUNE MESURE VISUELLE, AUCUNE CAPTURE.** Interdiction permanente.
 ================================================================================================
-7. PORTEE, TIER, NON-REGRESSION
+6. PORTEE, TIER, NON-REGRESSION
 ================================================================================================
-**PORTEE.** `goal_src/jak1/pc/jak-hd-physics.gc` (**4799 -> 4799 lignes**, plafond 4800) ·
-`goal_src/jak1/pc/phys-room.gc` (+22, un emetteur commente) ·
-`jak-hd-physics-NOTES.md` ([NOTE-340] et sept blocs migres) ·
-`.autoport/c74_stages.py` (neuf) · `.autoport/SPEC-COVERAGE.md`.
-**`recharged_assets/` est intact AU BIT** (`git status` vide sur le repertoire). **Aucun terme du
-solveur n'a bouge**, ce que P1 prouve sur 44 130 lignes et que le diff corrobore : les deux seules
-lignes non-commentaire modifiees sont une taille de tableau et une parenthese.
+**PORTEE.** `goal_src/jak1/pc/phys-room.gc` (+15, un emetteur commente) ·
+`.autoport/c75_arbitrage.py` (neuf) · `.autoport/SPEC-COVERAGE.md`.
+**`goal_src/jak1/pc/jak-hd-physics.gc` : PAS TOUCHE (4799 lignes, plafond 4800).**
+**`recharged_assets/` intact AU BIT.**
 
-**COMMENT J'AI TROUVE LES LIGNES.** Le moteur etait a 4799 pour un plafond de 4800 et
-l'instrument en demandait 18. La regle du registre
-(`never-spend-the-bit-identity-control-on-line-count`) interdit de refactoriser du code pour
-gagner des lignes : on migre des blocs de COMMENTAIRE vers `NOTES.md`, verbatim, avec un pointeur
-d'une ligne. Sept blocs, **4799 -> 4780**.
-**LE CONTROLE A COUTE 14 SECONDES ET VAUT MIEUX QU'UNE COURSE** : objets compiles **identiques au
-bit** avant et apres la migration — `jak-hd-physics.o` md5 `fc11307f6531bb619f28a11dee24b6d5`,
-`phys-room.o` `e48a1bb6005c3f37bb088ffe0e31608d`, inchanges, avec recompilation verifiee
-(horodatage de l'objet).
+**NON-REGRESSION.** `tipvar` 0,1721 / 0,1873 · `rootdev` 0,0868 / 0,0930 · `meshpen` 0,0956 /
+0,1288 · `ROOM-IDLE maxdev` 0,0002 — tous identiques aux cycles 73 et 74. Le tableau de la salle
+est identique a celui du cycle 74 **a une ligne pres, son empreinte de trace** : aucune des 310
+mesures publiees n'a bouge.
 
-**TIER : GOAL SEUL** — deux builds (14,1 s et 23,7 s, 551 cibles), une course de salle. Aucun
-rebuild NDK, aucun gradle.
-Course livree : md5 `a78a8a1faa692ea9a2df3390024229e4`, 46 734 lignes `PHYS`, empreinte verifiee
-DANS le tableau ecrit. `tipvar` 0,1721 / 0,1873 · `rootdev` 0,0868 / 0,0930 · `meshpen` 0,0956 /
-0,1288 · `ROOM-IDLE maxdev` 0,0002 — tous identiques au cycle 73, comme P1 l'exige.
+**TIER : GOAL SEUL** — un build (13,6 s, 551 cibles), une course de salle. Aucun rebuild NDK,
+aucun gradle.
+Course livree : md5 `e639c71d46d48834713a0ac87aa47a61`, 46 930 lignes `PHYS`, empreinte verifiee
+DANS le tableau ecrit.
+
+**UN PIEGE D'OUTILLAGE ATTRAPE PENDANT LA COURSE, ET IL A COUTE 24 MINUTES.** J'attendais la fin
+avec `until ! pgrep -f keira_room_x86.sh`. La boucle ne s'est jamais terminee : **le motif
+`keira_room_x86.sh` figure dans la ligne de commande du shell qui execute le `pgrep`**, donc
+`pgrep` se voyait lui-meme et rendait toujours un PID. La course etait finie depuis 24 minutes
+(`PHYSEND` present, `gk` disparu). C'est `pkill-pattern-self-match` du registre, transpose de
+`pkill` a `pgrep` — le registre nommait l'outil, pas la classe. Attendre une COURSE se fait sur sa
+sortie (`PHYSEND`, le fichier ecrit), jamais sur un motif de processus qui contient son propre nom.
 ================================================================================================
-8. LE CHANTIER, REORDONNE PAR LA MESURE
+7. LE CHANTIER
 ================================================================================================
-1. **ARBITRER §22 CONTRE §33/§34, SUR CHIFFRES.** C'est desormais une question posee, pas une
-   impression : la peau achete au plus 146,6 u de profondeur en depensant au moins 213,2 u
-   d'excursion de joint, et laisse 2,9 cm de residu. Les deux sections sont de la spec ; la spec
-   ne dit pas laquelle cede. La question se tranche avec la course PAIREE que la salle joue deja
-   (`PHYSROOM-PH-SKINARM` / `PHYSROOM-PH-SKINDIS`, memes 31 animations, meme pilotage, une seule
-   variable) — il suffit de lui faire publier `jt` et `skinpen` COTE A COTE sur les deux jambes.
-2. **PUIS BORNER LE PRIX, PAS LA CONSTRAINTE.** Si l'arbitrage garde §33/§34, la voie n'est pas de
-   desarmer la peau mais de borner ce qu'elle a le droit de DEPLACER : `kr <= 0,5` par passe sur
+1. **BORNER CE QUE LA PEAU DEPLACE, PAS LA PROFONDEUR QU'ELLE RESOUT.** `kr <= 0,5` par passe sur
    un bras de 1,73 B0 autorise 0,46 B0 de course de joint PAR PASSE, six fois, sans reference a la
-   §22. Un plafond exprime dans les unites de la §22 serait, lui, une borne.
-3. **REBATIR LE LATCH DE `PHYSSTG`** sur une cle non saturee (l'etage 0, ou une emission par
-   frame) avant toute lecture par stimulus. En l'etat il attribue, il ne compare pas.
-4. **NE PAS REECRIRE LE FILET DE :3120-3141.** Il fait exactement ce qu'il annonce, sur les 372
-   fenetres, sans une exception. C'est le principal service que ce cycle rend au suivant.
+   §22. Un plafond exprime dans les unites de la §22 serait, lui, une borne. Cout mesure a battre :
+   0,0230 / 0,0572 m ; benefice a preserver : 0,0026 / 0,0155 m.
+2. **ET LA SECONDE CORRECTION, PARCE QU'UNE SEULE NE SUFFIT PAS.** Peau desarmee, chestR livre
+   encore 0,5554 B0. Ce qui reste au-dessus du plafond quand la peau est hors jeu n'a pas encore
+   de cause mesuree dans la configuration LIVREE ; c'est a instrumenter sans ablation, comme le
+   cycle 74 l'a fait pour la peau.
+3. **REBATIR LE LATCH DE `PHYSSTG` / `PHYSSTGT`** sur une cle non saturee ([NOTE-340]) avant toute
+   lecture par stimulus. En l'etat ils attribuent, ils ne comparent pas.
 ================================================================================================
-9. REGISTRE
+8. REGISTRE
 ================================================================================================
     TENUE                    2   (§3, §37)
     TENUE PAR CONSTRUCTION   5   (§1, §4, §5, §28, §35)
@@ -219,24 +197,21 @@ DANS le tableau ecrit. `tipvar` 0,1721 / 0,1873 · `rootdev` 0,0868 / 0,0930 · 
     NON ETABLI               1   (§10)
     total                   38
 
-Aucune section ne change de statut. §22 gagne l'attribution ENTIERE de son depassement a une cause
-unique et nommee ; §34 gagne le PRIX de sa contrainte, mesure pour la premiere fois. Le compte ne
-monte pas ; ce qui monte, c'est ce que ces deux lignes permettent de decider.
+Aucune section ne change de statut. §22 et §34 gagnent le PRIX de leur conflit, chiffre dans la
+meme unite et sur la meme population — et le fait que le resoudre demande DEUX corrections, pas un
+arbitrage entre deux sections.
 ================================================================================================
-10. CE QUE L'OWNER DOIT REGARDER
+9. CE QUE L'OWNER DOIT REGARDER
 ================================================================================================
-**A TESTER : RIEN**, et c'est litteral. Aucun terme du solveur n'a bouge, `recharged_assets/` est
-intact au bit, et les 44 130 lignes `PHYS` anterieures sont identiques UNE A UNE a celles de la
-course precedente. La regle du 2026-08-20 23:30 tient : tant que le bloc §14-§20 / §24-§27 /
-§9-§13 n'est pas tenu ensemble, un test lui coute plus qu'il ne rapporte.
+**A TESTER : RIEN.** Aucun terme du solveur n'a bouge, `recharged_assets/` est intact au bit, les
+46 734 lignes `PHYS` anterieures sont identiques une a une, et les 310 mesures du tableau n'ont pas
+bouge d'un chiffre. La regle du 2026-08-20 23:30 tient.
 
-**CE QUI LUI APPARTIENT ET QUI EST NEUF.** Il dit depuis le 2026-08-11 que sa poitrine « suit
-aucune logique ». Trois cycles ont trouve trois raisons ; celle-ci est la quatrieme, et c'est la
-premiere qui soit ATTRIBUEE a une seule ligne de code : **la borne qui doit tenir l'excursion de sa
-chair tient, du debut a la fin de la frame — puis la contrainte qui empeche sa peau de traverser
-son torse pousse le maillon jusqu'a un tiers de B0 au-dela du plafond, et elle pousse d'autant plus
-fort que le sein s'etait moins ecarte de sa pose.** Sur 92 % des fenetres. Et elle laisse quand
-meme 2,9 cm de traversee.
+**CE QUI LUI APPARTIENT ET QUI EST NEUF.** La contrainte qui empeche la peau de sa poitrine de
+traverser son torse **achete 2,6 mm a gauche et 15,5 mm a droite, et le paie 23,0 mm et 57,2 mm
+d'excursion de l'os**. Et si on la retire, sa poitrine droite reste malgre tout au-dessus du
+plafond que sa spec fixe. Il n'y a donc pas de bon cote a choisir : les deux corrections sont a
+faire, et le cycle suivant commence par celle qui a un chiffre a battre.
 
 `OPEN-DEFECTS` : `breast-spec-incomplete` reste ouverte, et c'est elle qui tient la phase. Elle ne
-se retire que sur sa parole.
+se retire que sur sa parole — voir le §1, ou le diagnostic est complet.
