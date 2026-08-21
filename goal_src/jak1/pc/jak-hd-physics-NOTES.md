@@ -7584,3 +7584,522 @@ distinctes sur 186 fenetres**, la ou `PHYSAPEX` en rend 182 / 180 sur la MEME co
 une variation entre fenetres. Cause : son latch est cle sur l'etage 6, **qui sature** — la cle d'un
 argmax ne peut pas etre une grandeur saturee. Il attribue DANS une frame, ce pour quoi il est bati.
 A rebatir sur une cle non saturee avant toute lecture par stimulus.
+
+
+---
+## NOTE-409 — L'ECHELLE EFFECTIVEMENT APPLIQUEE, dans CE triedre : (lateral, vertical, projection). C'est la
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+;; L'ECHELLE EFFECTIVEMENT APPLIQUEE, dans CE triedre : (lateral, vertical, projection). C'est la
+;; grandeur que la salle publie ; sa NATURE est un rapport sans dimension a la forme d'auteur, son
+;; REPERE est celui de l'ancre, et sa LECTURE HORS DEFAUT est 1.000 sur les trois (debout).
+```
+
+---
+## NOTE-410 — 96 -> 112 : les os de CHAINE entrent desormais dans la meme famille `bs`, donc le
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+;; [NOTE-292] 96 -> 112 : les os de CHAINE entrent desormais dans la meme famille `bs`, donc le
+;; nombre d'ensembles DECLARES passe de 92 a 96 et touchait EXACTEMENT le plafond. Un plafond
+;; atteint est une troncature qui attend son tour.
+```
+
+---
+## NOTE-411 — PAR CHAINE : l'espacement MOYEN entre echantillons voisins de sa surface, mesure sur la donnee
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+;; PAR CHAINE : l'espacement MOYEN entre echantillons voisins de sa surface, mesure sur la donnee
+;; livree et jamais choisi a la main. Il donne le RAYON DE SUPPORT du nuage : au-dela, la surface
+;; n'est tout simplement pas echantillonnee et une distance signee n'y a pas de sens.
+```
+
+---
+## NOTE-412 — LES LECTURES REJETEES PARCE QUE LE POINT EST HORS DU SUPPORT DU NUAGE. Publie a cote de `medn`
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+;; LES LECTURES REJETEES PARCE QUE LE POINT EST HORS DU SUPPORT DU NUAGE. Publie a cote de `medn`
+;; pour que l'exclusion soit VISIBLE : un rejet silencieux transformerait une extrapolation en
+;; « rien a signaler », ce qui est la forme meme d'un faux vert.
+```
+
+---
+## NOTE-413 — PHASE LARGE EXACTE : on n'ecarte un ensemble que s'il ne peut contenir AUCUN
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+            ;; PHASE LARGE EXACTE : on n'ecarte un ensemble que s'il ne peut contenir AUCUN
+            ;; echantillon plus proche que le K-ieme deja trouve — la borne du voisinage, pas du
+            ;; plus proche, sinon on jetterait des plans qui ont droit de vote.
+```
+
+---
+## NOTE-414 — LA 7e PASSE NE CORRIGE PAS, ELLE MESURE : `*phys-skc-r*` est la pire
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                    ;; LA 7e PASSE NE CORRIGE PAS, ELLE MESURE : `*phys-skc-r*` est la pire
+                    ;; violation qui SURVIT aux six passes. C'est la contrainte qui se juge
+                    ;; elle-meme — si elle ne ferme pas, ce chiffre le dit avant la gate.
+```
+
+---
+## NOTE-415 — LA COLONNE D'AUTEUR EST ENTIEREMENT D'AUTEUR : le point sonde ET la
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                          ;; LA COLONNE D'AUTEUR EST ENTIEREMENT D'AUTEUR : le point sonde ET la
+                          ;; surface opposee sont a la pose dessinee. Comparer un point d'auteur a
+                          ;; une surface simulee melangerait deux instants dans une seule distance.
+```
+
+---
+## NOTE-416 — LA POSITION MONDE DE L'ANCRE, POUR QUE LA SALLE MESURE SON BRAS DE LEVIER.
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                      ;; [NOTE-137] LA POSITION MONDE DE L'ANCRE, POUR QUE LA SALLE MESURE SON BRAS DE LEVIER.
+                      ;; HORS de la tranche 23-49 que `phys-comexw-reset!` efface : ce n'est pas un
+                      ;; maximum de fenetre, c'est un ETAT — la derniere valeur ecrite, et elle doit
+                      ;; survivre a l'ouverture d'une fenetre pour etre lisible a sa premiere frame.
+```
+
+---
+## NOTE-417 — ---- 0. LES LONGUEURS D'OS, avant d'integrer quoi que ce soit. -------------
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                    ;; ---- 0. LES LONGUEURS D'OS, avant d'integrer quoi que ce soit. -------------
+                    ;; Relevees sur la pose ANIMEE a chaque frame : elles sont quasi constantes,
+                    ;; mais les lire evite de supposer que le retarget n'a pas change une longueur.
+```
+
+---
+## NOTE-418 — L'ANCRE — LE SEUL POINT PAR LEQUEL L'ANIMATION ENTRE. Maillon
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                               ;; L'ANCRE — LE SEUL POINT PAR LEQUEL L'ANIMATION ENTRE. Maillon
+                               ;; `rootlock` (SPEC 2 : la racine suit rigidement l'os porteur), ou
+                               ;; premiere frame : la pose d'auteur EST la position, sans etat.
+```
+
+---
+## NOTE-419 — L'ATTACHE : le maillon precedent DEJA SIMULE, ou l'ancre pour le
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                               ;; L'ATTACHE : le maillon precedent DEJA SIMULE, ou l'ancre pour le
+                               ;; premier maillon libre. C'est par elle, et par elle seule, que le
+                               ;; mouvement du crane atteint la particule — par la contrainte, pas
+                               ;; par un ressort.
+```
+
+---
+## NOTE-420 — SPEC 6 — LE METRE DES BORNES DE SPEC 22, ET CE N'EST PAS
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                                      ;; SPEC 6 — LE METRE DES BORNES DE SPEC 22, ET CE N'EST PAS
+                                      ;; `bl` : `bl` est l'OS (la contrainte de longueur porte bien
+                                      ;; sur lui), `b0e` est la CHAIR. Voir PHYS-P-B0.
+```
+
+---
+## NOTE-421 — LA CIBLE du ressort de materiau, pas sa force : elle ne
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                                      ;; LA CIBLE du ressort de materiau, pas sa force : elle ne
+                                      ;; depend pas de `p`, donc elle se calcule UNE FOIS PAR FRAME
+                                      ;; pendant que la force, elle, se recalcule a chaque SOUS-PAS.
+                                      ;; C'est exactement la separation que SPEC 37 impose.
+```
+
+---
+## NOTE-422 — ---- LA CIBLE DE LA FORCE ELASTIQUE DU MATERIAU. Elle est portee
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                                 ;; ---- LA CIBLE DE LA FORCE ELASTIQUE DU MATERIAU. Elle est portee
+                                 ;; ---- rigidement par l'ancre ; elle ne connait pas l'animation du
+                                 ;; ---- maillon, donc elle ne peut pas la « suivre ».
+```
+
+---
+## NOTE-423 — `rate` = le TAUX (2 zeta omega dt), `kd` la RETENTION qu'il
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                                 ;; `rate` = le TAUX (2 zeta omega dt), `kd` la RETENTION qu'il
+                                 ;; produit sur une frame. Voir NOTE-50 : c'est `e^-rate`, pas
+                                 ;; `1 - rate`, et l'ecart valait +8.3 % sur le zeta de SPEC 25.
+```
+
+---
+## NOTE-424 — LA MEME PROJECTION POUR LA TRAINEE (SPEC 25) : `zeta` est
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                                       ;; LA MEME PROJECTION POUR LA TRAINEE (SPEC 25) : `zeta` est
+                                       ;; une constante du materiau, donc l'amortissement doit
+                                       ;; suivre la raideur AXE PAR AXE, pas rester scalaire.
+```
+
+---
+## NOTE-425 — IDENTITE STRICTE sous 0.84*(ckn+ccp) = 0.336 B0 : rien n'est
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                                     ;; IDENTITE STRICTE sous 0.84*(ckn+ccp) = 0.336 B0 : rien n'est
+                                     ;; retire au mouvement subtil. `cq` etant ecrit `cp - fns*cv`
+                                     ;; APRES, `cp - cq` est inchange -> AUCUNE vitesse creee.
+```
+
+---
+## NOTE-426 — ---- 3bis. CONTROLE POSITIF DES INVERSIONS. Arme, chaque lien libre est
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                    ;; ---- 3bis. CONTROLE POSITIF DES INVERSIONS. Arme, chaque lien libre est
+                    ;; ---- MIROITE a travers son attache : c'est exactement le defaut que l'owner a
+                    ;; ---- vu deux fois. Le compteur d'inversions doit alors monter — la correction
+                    ;; ---- s'applique a la frame suivante, quand la contrainte revoit le cote.
+```
+
+---
+## NOTE-427 — ---- 4. LES CONTRAINTES ONT BOUGE LA POSITION : on remet cet effet dans
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                    ;; ---- 4. LES CONTRAINTES ONT BOUGE LA POSITION : on remet cet effet dans
+                    ;; ---- l'ecart, sinon la frame suivante repartirait d'un etat que rien ne
+                    ;; ---- soutient (et la vitesse verlet perdrait la perte d'energie du choc).
+```
+
+---
+## NOTE-428 — --- LE GRADIENT : la boite englobante de l'ecart POUR CHAQUE MAILLON.
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                      ;; --- LE GRADIENT : la boite englobante de l'ecart POUR CHAQUE MAILLON.
+                      ;; Un maillon rootlock a un ecart identiquement nul et mesure donc zero, ce
+                      ;; qui est exactement ce que SPEC 2 demande de la racine.
+```
+
+---
+## NOTE-429 — LE CONTROLE POSITIF, APPARIE SUR CETTE FRAME. Il ne tourne que
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                        ;; [NOTE-155] LE CONTROLE POSITIF, APPARIE SUR CETTE FRAME. Il ne tourne que
+                        ;; sous armement de la salle, il restaure la position au bit, et il recoit
+                        ;; `pen` — la mesure NON injectee de cette meme frame — pour que les deux
+                        ;; maxima soient pris sur la MEME trajectoire.
+```
+
+---
+## NOTE-430 — LE MEME ALLONGEMENT, MAIS PAR FENETRE : « ils s'allongent sur
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                                    ;; LE MEME ALLONGEMENT, MAIS PAR FENETRE : « ils s'allongent sur
+                                    ;; les mouvements BRUSQUES » est une phrase sur un PILOTAGE, et
+                                    ;; le compteur par course ne peut pas la verifier.
+```
+
+---
+## NOTE-431 — LA MEME DEVIATION, MAIS SIGNEE ET VECTORIELLE (voir la note de
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                                  ;; LA MEME DEVIATION, MAIS SIGNEE ET VECTORIELLE (voir la note de
+                                  ;; `*phys-lsv*`). Ecrasee, jamais accumulee : c'est l'etat de
+                                  ;; CETTE frame, la seule forme qui puisse porter une phase.
+```
+
+---
+## NOTE-432 — OSCILLATEUR SCALAIRE, SANS ANISOTROPIE : la forme EXACTE de
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                                 ;; OSCILLATEUR SCALAIRE, SANS ANISOTROPIE : la forme EXACTE de
+                                 ;; NOTE-50 s'y pose directement. Elle n'est pas un raffinement
+                                 ;; ici — `omega dt` vaut 0.545, et l'ancienne ecriture livrait
+                                 ;; zeta 0.838 a 7.01 Hz la ou sa SPEC 36 demande 0.65 a 5.20.
+```
+
+---
+## NOTE-433 — SPEC 36 s'applique a l'EPAISSEUR locale et conserve le volume :
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                                 ;; SPEC 36 s'applique a l'EPAISSEUR locale et conserve le volume :
+                                 ;; l'epaisseur (axe +Z) module, les deux perpendiculaires prennent
+                                 ;; l'inverse de sa racine.
+```
+
+---
+## NOTE-434 — OSCILLATEUR SCALAIRE : forme EXACTE de NOTE-50.
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                                             ;; OSCILLATEUR SCALAIRE : forme EXACTE de NOTE-50.
+                                             ;; `zt` n'introduit AUCUNE constante neuve — c'est le
+                                             ;; zeta que la donnee livree porte deja, relu comme
+                                             ;; `taux / (2 omega h)` au lieu d'etre suppose.
+```
+
+---
+## NOTE-435 — PAR MAILLON depuis le cycle 32 : `*phys-rr*` (par chaine) donnait
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                                 ;; PAR MAILLON depuis le cycle 32 : `*phys-rr*` (par chaine) donnait
+                                 ;; au distal l'elongation de la RACINE. C'est le seul terme du
+                                 ;; solveur qui lit le degre de liberte de §23.
+```
+
+---
+## NOTE-436 — RELEVE A L'ARGMAX DE `cl`, PAS EN MAXIMA INDEPENDANTS.
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                              ;; [NOTE-97] RELEVE A L'ARGMAX DE `cl`, PAS EN MAXIMA INDEPENDANTS.
+                              ;; C'est la lecon N3/N4 du cycle 35 : deux maxima de fenetre pris sur
+                              ;; des grandeurs differentes ne se comparent pas, parce que l'argmax
+                              ;; n'est pas la meme frame. `tl` est deja un index PAR MAILLON.
+```
+
+---
+## NOTE-437 — SPEC 29 — la torsion est une ROTATION propre autour de l'axe
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                            ;; SPEC 29 — la torsion est une ROTATION propre autour de l'axe
+                            ;; racine->apex, appliquee AVANT l'echelle (l'axe est un axe propre de
+                            ;; l'echelle a 10^-3 pres, les deux commutent en pratique).
+```
+
+---
+## NOTE-438 — la MEME frame, le MEME vecteur, pondere par la masse
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                                    ;; [NOTE-127] la MEME frame, le MEME vecteur, pondere par la masse
+                                    ;; de peau du maillon : c'est la seule facon d'obtenir le COM sans
+                                    ;; melanger deux frames ni majorer par l'inegalite triangulaire.
+```
+
+---
+## NOTE-439 — NATURE trois longueurs SIGNEES / B0 · REPERE MONDE, meme frame, contre la
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                        ;; NATURE trois longueurs SIGNEES / B0 · REPERE MONDE, meme frame, contre la
+                        ;; pose d'auteur · A LA POSE D'AUTEUR 0.0000. Relevees A L'ARGMAX de `cw`,
+                        ;; donc les trois ensemble et sur UNE frame — jamais trois maxima separes.
+```
+
+---
+## NOTE-440 — AU MEME ARGMAX, DONC SUR LA MEME FRAME QUE 53-56 : c'est ce qui rend
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                          ;; AU MEME ARGMAX, DONC SUR LA MEME FRAME QUE 53-56 : c'est ce qui rend
+                          ;; l'identite `e = tp + rp + dp` verifiable au lieu de comparer trois
+                          ;; maxima pris sur trois frames differentes.
+```
+
+---
+## NOTE-441 — process-drawable.gc:287 appelle ceci sur TOUT process-drawable — y compris les compagnons HD,
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+;; process-drawable.gc:287 appelle ceci sur TOUT process-drawable — y compris les compagnons HD,
+;; AVANT fill-jak-hd-bones! (jak-hd.gc:552-553). Le rider stock n'est pas dans le perimetre de
+;; cette phase (KEIRA SEULE, via son compagnon HD) : il ne fait rien, et surtout pas sur un
+;; compagnon dont la pose n'est pas encore retargetee.
+```
+
+---
+## NOTE-442 — suite
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+;; ------------------------------------------------------------------------------------------------
+;; ACCES POUR LA SALLE DE TEST (phys-room.gc). Les accumulateurs vivent ici parce que c'est ici que
+;; la position ecrite est connue ; la salle ne fait que fenetrer et publier.
+;; ------------------------------------------------------------------------------------------------
+```
+
+
+---
+## NOTE-443 — suite
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+;; ------------------------------------------------------------------------------------------------
+;; les deux prises restantes attendues par le reste du jeu.
+;; ------------------------------------------------------------------------------------------------
+```
+
+---
+## NOTE-444 — SPEC 29/36 — les deux maximums de FENETRE. Ce sont des compteurs de mesure, pas des etats
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+    ;; SPEC 29/36 — les deux maximums de FENETRE. Ce sont des compteurs de mesure, pas des etats
+    ;; du solveur : `*phys-sec*`, `*phys-tw*` et leurs vitesses ne sont PAS remis a zero ici, sans
+    ;; quoi chaque fenetre relancerait le mode secondaire et la torsion depuis rien.
+```
+
+---
+## NOTE-445 — MEME PORTEE QUE `dynm`, ET ILS NE L'AVAIENT PAS : `dynr`/`dynn`/`dyna`/`prsn`
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+    ;; [NOTE-110] MEME PORTEE QUE `dynm`, ET ILS NE L'AVAIENT PAS : `dynr`/`dynn`/`dyna`/`prsn`
+    ;; (21/22/24/23) n'etaient remis a zero que dans `jak-hd-physics-init` — cumuls de COURSE
+    ;; publies sous la cle par FENETRE. `dlr` rendait la meme valeur partout (0.4061, ecart 0.7 %).
+```
+
+---
+## NOTE-446 — §23 : maximum de FENETRE, donc remis a zero ici. `*phys-rr*` et `*phys-rq*` — l'etat — ne le
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 76) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+    ;; §23 : maximum de FENETRE, donc remis a zero ici. `*phys-rr*` et `*phys-rq*` — l'etat — ne le
+    ;; sont PAS, pour la meme raison que le mode secondaire et la torsion : chaque fenetre
+    ;; relancerait sinon l'oscillateur radial depuis rien.
+```
+
+---
+## NOTE-447 — `phys-cap-e22!` : LA BORNE DE SPEC 22 SUR LA VALEUR **LIVREE** (cycle 76)
+
+**LE DEFAUT QU'ELLE FERME, ET IL EST MESURE, PAS SUPPOSE.** Le filet de SPEC 22 (`:3120-3141`)
+tient parfaitement A SON INSTANT — mesure sur la course livree du cycle 75, `PHYSSTG`, 372
+fenetres, etage 1 : maximum **0,5000 / 0,4998**, **zero** fenetre au-dessus du plafond dur. Il est
+ensuite EFFACE en aval : etage 6 (la valeur qui part au rendu), **184/186 et 156/186 fenetres
+au-dessus de 0,50**, maximum 0,6539 / 0,6670, soit **+33 %**.
+
+L'etage 5 — apres les quinze passes de contraintes, AVANT la peau — ne fuit pas non plus :
+**0 et 1 fenetre sur 186** au-dessus de 0,50. Le producteur unique est donc `phys-skin-chain`
+(cycle 74), et une borne posee APRES elle est, par construction, une borne sur la valeur livree :
+plus rien n'ecrit `*phys-px*` ensuite (seules la restitution — qui ne touche que la VITESSE — et
+les injections de controle, desarmees en livraison, suivent).
+
+**POURQUOI UNE ROTATION ET PAS UNE CONTRACTION.** Le filet amont contracte radialement vers la
+cible (`p := t + d*sf`). Applique en fin de frame, ce geste changerait `|p - b|` — la longueur de
+l'os — et **aucune passe ne pourrait plus la reparer**. `phys-cap-e22!` tourne le maillon autour
+de son attache : `|p - b|` est invariant AU BIT pour tout angle.
+
+**LA FORME EST CLOSE ET EXACTE.** `p` vit sur la sphere de rayon `ln` centree sur l'attache `b` ;
+sur cette sphere, `|p - t|` ne depend que de l'angle a `g = (t - b)/|t - b|` :
+
+    |p - t|^2 = ln^2 + cl^2 - 2.ln.cl.cos(angle)
+
+On impose donc `cos(angle) = (ln^2 + cl^2 - ds^2) / (2.ln.cl)` et on reconstruit `p` dans le plan
+`(h, g)` : `h' = cb.g + sqrt(1 - cb^2).w/|w|` avec `w = h - (h.g).g`. Pas de bissection, pas
+d'`acos`, **pas de sur-correction** : le resultat vaut `ds` au flottant pres, jamais moins.
+
+**LE SEUIL EST CELUI DE LA SECTION, PAS UN REGLAGE.** Genou `0,42*B0*rl`, asymptote `0,50*B0*rl`,
+la MEME tangente hyperbolique de Pade que le filet amont. Le duplicat de ces quatre lignes est
+ASSUME : les factoriser ferait bouger la course DESARMEE d'un ULP et detruirait le controle de
+bit-identite qui est la seule chose autorisant a lire la jambe armee
+(`never-spend-the-bit-identity-control-on-line-count`).
+
+**INERTE AU REPOS PAR ALGEBRE, PAS PAR REGLAGE.** A la pose d'auteur `|p - t| = 0`, donc sous le
+genou : la fonction sort sans rien ecrire. C'est la meme bonne forme que le plafond de deplacement
+de `phys-skin-chain` (cycle 61), et l'inverse d'un suppresseur qui mordrait en permanence.
+
+**CE QU'ELLE NE FAIT PAS, ET IL FAUT LE DIRE.** Elle borne le terme de **TRANSLATION** du maillon.
+La grandeur que SPEC 22 NOMME est le deplacement d'un point de CHAIR a 1,23 B0 de ce joint, dont
+l'excursion se decompose en `tp + rp + dp` — translation, rotation du maillon, tenseur de
+deformation. `rp` (jusqu'a 0,2313 B0) et `dp` (jusqu'a 0,4660 B0) ne sont vus par AUCUNE borne, et
+le cycle 58 a mesure puis REFUTE la tentative de faire lire l'apex a une borne posee dans la boucle
+de contraintes. **§22 ne devient donc pas TENUE ; ce qui devient vrai, c'est que sa borne de
+translation n'est plus effacee en aval.**
+
+**SON PRIX.** `phys-skin-chain` resout §33/§34 en poussant le joint dehors ; lui refuser la part
+qui depasse §22 lui reprend une partie de ce qu'elle avait achete. Ce prix est mesure et publie sur
+`ROOM-SKINPEN-DETAIL`, jamais tu.
