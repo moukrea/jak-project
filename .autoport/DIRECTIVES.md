@@ -10,6 +10,39 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
+## 2026-08-21 18:25 — LA DECOUVERTE EST FINIE, LA CONVERSION N'A PAS COMMENCE. SIX ROUGES SONT UN SEUL DEFAUT.
+
+L'owner : « Ça avance ou on tourne en rond là ? » Les chiffres du registre repondent, et il faut
+les lire sans les enrober.
+
+  - `NON ETABLI` : **15 -> 1** en 42 h. La phase de decouverte est **terminee** : tout est mesure.
+  - `NON TENUE` : **3 -> 9**. Les rouges ont triple parce que les inconnues sont devenues des
+    verdicts — c'est un progres, pas une regression.
+  - `TENUE` : **2 -> 2**. **Aucun mouvement en 42 h sur la seule metrique qui compte.**
+
+**CE N'EST PAS UN CERCLE — chaque cycle elimine definitivement quelque chose, et rien n'a ete
+refait deux fois. Mais la source de progres qu'on exploitait (transformer des inconnues en
+verdicts) est EPUISEE, et la conversion rouge -> vert n'a pas commence.**
+
+**LE FAIT QUI CHANGE LA TAILLE DU CHANTIER : les 9 rouges ne sont pas 9 problemes.** §14, §16,
+§18, §19, §20 et §22 portent toutes une bande de DEPLACEMENT D'APEX, toutes remesurees au cycle 57
+apres la levee du plafond d'ancrage, et toutes disent la meme chose : **l'excursion vaut ~1,85 fois
+ce que la spec autorise**. C'est UN defaut qui s'exprime six fois. Restent §8 (canal de deformation
+absent), §23 (chair simulee insuffisante) et §33 (contact sein-sein).
+
+**PRIORITE, ET ELLE EST UNIQUE JUSQU'A NOUVEL ORDRE :** diviser l'excursion d'apex par ~1,85 sans
+reperdre ce que la correction d'ancrage a rendu. Six sections basculent ensemble ou aucune.
+
+**BORNE SUR LE TRAVAIL D'INSTRUMENT, PARCE QU'IL PEUT S'AUTO-ENTRETENIR.** Les cycles 60 a 77 ont
+ete presque entierement des corrections d'instrument — chacune justifiee, chacune ayant trouve un
+vrai defaut, et c'est precisement le risque : un instrument repare en revele un autre, sans fin.
+Desormais :
+  1. un cycle qui touche a l'instrument **NOMME la section dont il debloque le verdict**, avant de
+     commencer. Pas de reparation « au passage » ;
+  2. **deux cycles consecutifs sans changement de statut d'une section** se remontent au
+     superviseur avec la raison, au lieu d'enchainer un troisieme.
+
+
 ## 2026-08-21 01:20 — TOUTE LIGNE D'ASYMETRIE PUBLIE L'ECART AU MIROIR DE SA PROPRE POSE, OU SE TAIT
 
 Le cycle 65 retrouve le defaut du cycle 53, **sur d'autres sections** : les sept regimes de §14 a
