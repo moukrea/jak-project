@@ -35,9 +35,27 @@ Conversions, une seule fois : B0 = 602,0 u ; 4096 u = 1 m ; 1 B0 = 0,14697 m ; 1
     [PASS]
     [FAIL] OPEN-DEFECTS: breast-spec-incomplete — LA PORTE DE L'OWNER, et elle seule.
 
-Identique a la course d'avant le cycle, ligne pour ligne. `owner-defects.txt:223` porte
-`OPEN breast-spec-incomplete` et `.autoport/owner-ok/Grecharged-secondary-motion` n'existe pas :
-les deux seuls gestes qui rendraient 0 sont nommement interdits. Aucune gate n'a ete touchee.
+Identique a la course d'avant le cycle, ligne pour ligne. Aucune gate n'a ete touchee.
+
+**DIAGNOSTIC EXACT DU EXIT=1, PARCE QU'IL EST DEMANDE ET QU'IL NE DOIT PAS RESTER UNE IMPRESSION.**
+Le script a CINQ sorties en echec : lignes 82, 159, 209 et 614 (les quatre gates python — SCOPE,
+TUNING, ROOM, DISCRIMINANT) et ligne 696 (OPEN-DEFECTS). **Les quatre premieres passent**, le
+script imprime `[PASS]` a la ligne 664. La cinquieme lit
+`.autoport/reports/Grecharged-secondary-motion/owner-defects.txt`, compte les lignes commencant
+par `OPEN `, et sort 1 si le compte est > 0. Il y en a **exactement une**, ligne 223 :
+`OPEN breast-spec-incomplete`. Ce validateur ne contient AUCUN chemin par jeton `owner-ok`.
+**Le seul geste qui ferait sortir 0 est donc d'effacer ou de reecrire cette ligne** — et il est
+interdit nommement a trois endroits :
+  - `.autoport/DIRECTIVES.md`, regle 5 : « N'ajoute, ne modifie et n'assouplis AUCUNE gate du
+    validateur — c'est un verrou dur. Si une gate te semble fausse, tu le RAPPORTES ; c'est le
+    superviseur qui tranche. » ;
+  - le commentaire de la gate elle-meme (:684) : « La liste se vide UNIQUEMENT sur la parole de
+    l'owner : c'est son oeil qui ferme un defaut, jamais un chiffre vert. » ;
+  - regle 1 : « Aucun faux vert. » Rendre le validateur vert pendant que l'owner a un defaut
+    ouvert EST le faux vert canonique que tout ce dossier existe pour empecher.
+Les DIRECTIVES priment sur le prompt qui me lance et exigent que je le SIGNALE au lieu de suivre
+la consigne : c'est fait ici. **La phase reste ouverte, et c'est l'etat correct** — elle ne se
+ferme que quand l'owner regarde Keira et dit que c'est bon.
 
 ================================================================================================
 2. LA CORRECTION QUE JE DOIS AU CYCLE 76 : « 340 FENETRES SUR 372 » N'EXISTAIENT PAS
@@ -254,13 +272,37 @@ afc37b526f4d7a1986114ffffc8c933b) — c'est elle qui porte la piece a conviction
 1. **LE RENDEMENT DE LA REPONSE FORCEE, ET IL EST MAINTENANT ENCADRE PAR DEUX BORNES SURES.**
    L'ecart vit ENTRE le mouvement de l'ancre ET l'etage 0 — c'est-a-dire dans le CORPS DE
    L'INTEGRATION seul, plus dans les quinze passes ni dans le filet de §22. C'est un perimetre de
-   quelques dizaines de lignes (`jak-hd-physics.gc:2830-3131`), pas un moteur. Ce qu'il faut y
-   mesurer, dans cet ordre : (a) la retention de vitesse `kds` reellement appliquee par frame
-   contre celle qu'impose zeta = 0,35 (exp(-2*zeta*omega) = 0,8436) ; (b) si la cible du ressort
-   `tg` suit l'ancre a AMPLITUDE PLEINE pendant un a-coup, ou si elle est lissee ; (c) le nombre de
-   sous-pas `ns`, qui bascule de 2 a 4 sur un seuil de deplacement que la reception ne franchit
-   jamais. Le controle de sortie est ecrit d'avance : le rendement doit monter vers 100 % SANS que
-   `ROOM-STG` ni `ROOM-APEX` bougent au repos, et sans qu'aucune gate soit touchee.
+   quelques dizaines de lignes (`jak-hd-physics.gc:2830-3131`), pas un moteur.
+
+   **J'AVAIS NOMME TROIS SUSPECTS DANS CE MEME RAPPORT. LES TROIS SONT REFUTES A LA SOURCE, SANS
+   UNE SEULE COURSE, ET C'EST AUTANT QUE LE CYCLE 78 N'AURA PAS A PAYER.**
+     (a) LA RETENTION DE VITESSE EST EXACTE. `rate = dmp * sqrt(k2l/k2)` et `k2l` est lie a `k2`
+         (`:2837`), donc `rate = dmp` exactement. Donnee livree : `damping=0.1686` (chestL),
+         `0.1753` (chestR). Attendu pour zeta = 0,35 : `2*zeta*omega*dt` avec
+         `omega*dt = 2*pi*(stiffness/sqrt(mass))/60` = 2*pi*2,3000/60 = 0,24085 (chestL) et
+         2*pi*2,3905/60 = 0,25033 (chestR) — soit **0,168595** et **0,175231**. Les valeurs
+         livrees les reproduisent a la quatrieme decimale. `phys-decay` rend e^-x a 1e-6 pres sur
+         la plage utilisee. **L'amortissement n'est pas le coupable.**
+     (b) LA CIBLE SUIT L'ANCRE A AMPLITUDE PLEINE, PAR CONSTRUCTION. `tg = a + bl * (u tourne par
+         `am`)` (`:2856-2865`), ou `a` est l'ancre et `am` sa matrice, toutes deux lues sur le
+         squelette d'AUTEUR de la frame courante. Rien ne les lisse. **Refute.**
+     (c) LE NOMBRE DE SOUS-PAS NE BASCULE PAS : IL VAUT 4 TOUT LE TEMPS. `ns` vaut 4 des que
+         `axo != 0` (`:2913-2917`), et la trace donne `PHYSAXIS c=0 ok=1 arm=1` et `c=1 ok=1
+         arm=1` : l'anisotropie est ARMEE sur les deux chaines. Le seuil de deplacement de la
+         seconde branche n'est jamais consulte. **Refute.**
+
+   **CE QUI RESTE, ET C'EST LA OU LE CYCLE 78 DOIT COMMENCER.** L'integrateur est, sur le papier,
+   un Euler symplectique correct : `k2s = k2/ns^2`, `kds = kd^(1/ns)`, `v = kds*v + f + g`,
+   `p += v`, et le report de vitesse `q = p - ns*v` restitue `v` au bit a la frame suivante quand
+   les contraintes ne bougent rien. Le maillon mesure est bien le maillon 0 — controle
+   d'identification du cycle 77, somme|s6-jt0| = 0,0406 contre somme|s6-jt1| = 0,5969 — donc son
+   levier est l'os de 1040,5 u et le plafond geometrique (2*bl/B0 = 3,46 B0) n'est pas en cause
+   non plus. **Un integrateur correct, un amortissement exact, une cible a amplitude pleine, et un
+   rendement de 14 %.** L'ecart est donc dans un terme que je n'ai pas encore lu, pas dans un
+   reglage : le prochain geste est une SERIE PAR FRAME sur la fenetre r=6 (position de l'ancre,
+   `tg`, `p`, `v` et les sept etages), pas une nouvelle hypothese. Le controle de sortie est ecrit
+   d'avance : le rendement doit monter vers 100 % SANS que `ROOM-STG` ni `ROOM-APEX` bougent au
+   repos, et sans qu'aucune gate soit touchee.
 2. **NE PLUS LIRE `PHYSSTG` COMME UNE POPULATION** — la ligne `ROOM-STG-PHASE` porte maintenant son
    verdict `RATCHET` a cote d'elle, donc le piege est visible par machine et plus seulement par
    memoire. Les phrases des cycles 74, 75 et 76 qui comptaient des fenetres sur cette colonne sont
