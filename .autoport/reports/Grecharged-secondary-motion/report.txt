@@ -1,400 +1,173 @@
-RAPPORT DE CYCLE 81 — Grecharged-secondary-motion
+RAPPORT DE CYCLE 84 — Grecharged-secondary-motion
 DIRECTIVES v3fee554599
 Branche physics-keira-clean · perimetre : chestL / chestR SEULES (owner 2026-08-14 07:30)
 
 SECTIONS DONT CE CYCLE DEBLOQUE LE VERDICT, NOMMEES AVANT DE COMMENCER (directive du
-2026-08-21 18:25) : §2 et §9 (le retour a la pose d'auteur), et par attribution §14, §16, §17,
-§18, §19, §20, §22 — le groupe de l'apex, dont ce cycle etablit que la CAUSE n'est pas celle
-que le dossier leur attribuait.
+2026-08-21 18:25) : §22 (excursion d'apex) et §21 (la saturation par laquelle elle est bornee).
+
+SUBSTRAT : trace ARCHIVEE `keira-room-x86.c81-armed.log`.
+ZERO build, ZERO course neuve, ZERO ligne de moteur, AUCUNE gate touchee.
+Instrument : `.autoport/c84_term_discriminant.py` · sortie : `c84-discriminant.out`.
+
+BREAST-PENETRATION: 0.0544 m — `meshpen`, DIAGNOSTIC, jamais un verdict (arbitrage du
+2026-08-20 13:20 : c'est un DEPLACEMENT, pas une profondeur). INCHANGE AU BIT ce cycle :
+aucune ligne de moteur, aucune donnee, aucune course neuve.
 
 ================================================================================================
 0. EN UNE PHRASE
 ================================================================================================
-**L'EXCURSION D'APEX QUI PORTE SIX ROUGES N'EST PAS UNE REPONSE A UN GESTE : C'EST UN DECALAGE
-PERMANENT. Elle est INVARIANTE a l'entree de l'ancre sur une plage de x380 (0,02 g -> 7,65 g),
-ses TROIS termes le sont aussi (rapports 0,92 / 0,92 / 0,99), et son MAXIMUM DE TOUTE LA COURSE
-— 0,8751 B0, soit 12,9 cm contre un plafond dur de 7,3 cm — est atteint sur l'ancre LA PLUS
-IMMOBILE des 31 (0,140 u/frame, 0,0149 deg/frame). Huit cellules sur dix depassent le plafond
-exceptionnel avec un personnage qui ne bouge pas.**
+**LA REPONSE AU STIMULUS EXISTE, ELLE VAUT UN FACTEUR DIX, ET ELLE EST ANNULEE EN UNE SEULE
+TRANSITION D'ETAGE DU SOLVEUR.** Demande brute du joint racine AVANT le filet de §22 : mediane
+0,8175 / 0,7970 B0, maximum 5,0759 / 5,0042 B0, rapport max/min sur les six pilotages d'une meme
+animation **x10,19 / x10,48**. Juste apres le filet : mediane **0,4999 / 0,4999**, maximum
+**0,5000 / 0,5000**, rapport **x1,13 / x1,12**. Ce qui est plat n'est pas la physique : c'est la
+sortie du filet.
 
-**CONSEQUENCE IMMEDIATE : LE TRAVAIL QUE LE CYCLE 80c AVAIT NOMME COMME SUIVANT — filtrer la
-discontinuite d'une frame du track de racine — EST REFUTE COMME VOIE VERS §22, ET SANS UNE SEULE
-COURSE NEUVE.** Cette discontinuite pilote le canal de STIMULUS presque parfaitement
-(Pearson +0,957 / +0,943) et l'apex pas du tout (**-0,041 / -0,094**). La filtrer deplacerait le
-compteur et rien d'autre.
-
-**ET UNE CORRECTION DU CYCLE 80c QUI EST A MOI** : son « le torse ne depasse jamais 1,06 g »
-mesurait `chest - main` en TRANSLATION SEULE. L'entree reelle de la chaine se prend au point
-d'attache, a **1,73 B0 de levier**, ou la ROTATION de l'ancre compte : l'entree rigide complete
-monte a **7,65 g** (contre 6,08 g en translation seule), jusqu'a **x3,0** sur certaines
-animations. L'exoneration etait donc incomplete. Elle ne change pas la conclusion — l'apex
-ignore aussi cette entree-la (Pearson +0,060 / -0,009) — mais elle ne se relaie pas telle quelle.
-
-BREAST-PENETRATION: 0.0544 m — `meshpen`, DIAGNOSTIC, jamais un verdict. INCHANGE AU BIT.
-Conversions : B0 livre = 602,0 u ; 4096 u = 1 m ; 1 g = 11,162 u/f² = 9,81 m/s².
-TIER : **AUCUN BUILD, AUCUNE COURSE.** Tout ce rapport sort de la course ARCHIVEE du cycle 80c
-(`keira-room-x86.log`, 6 414 377 octets) et du source. Cout : zero minute de build.
+**JE RETIRE DONC LA MOITIE DE MA CONCLUSION D'HIER SOIR.** Le cycle 83 a ecrit « aucun reglage de
+la REPONSE ne peut corriger §22 — ils agissent sur un rapport entree/sortie et **il n'y a pas de
+rapport** ». Il y en a un. Ce qui survit : la grandeur LIVREE, elle, ne repond pas — c'est vrai,
+et c'est desormais explique au lieu d'etre constate.
 
 ================================================================================================
-1. VALIDATEUR — INCHANGE, ET LE EXIT=1 EST TOUJOURS `OPEN-DEFECTS`
+1. CE QUE LE CYCLE 83 AVAIT EXIGE, ET COMMENT JE L'AI FAIT SANS COURSE
 ================================================================================================
-`git diff` sur `.autoport/validators/` est VIDE. La seule sortie en echec reste
-`OPEN breast-spec-incomplete` (:688-697), qui ne se retire que sur la parole de l'owner.
-Cinquieme cycle consecutif ou je le signale, et c'est l'etat correct.
+Le discriminant publie d'avance demandait « une ablation par terme, avec la MEME mesure des deux
+cotes ». Une ablation par intervention coutait une course de 16 minutes par terme et n'aurait
+rendu qu'un extremum par jambe. La trace archivee portait deja de quoi poser la meme question sur
+une POPULATION :
 
-================================================================================================
-2. LE CYCLE 80c EST VERIFIE PAR MOI, PAS RELAYE — ET IL TIENT
-================================================================================================
-Re-derivation independante (script neuf, `/tmp/c81_verify_root.py`, ne partage aucune ligne avec
-`c80c_anchor_input.py`), sur la meme sous-fenetre sans pilotage (`d=5`, 1147 frames, 31 anims) :
+  - `PHYSAPEXT` / `PHYSAPEXD` : les termes `tp` et `dp` de l'apex, releves AU MEME ARGMAX que
+    l'apex lui-meme, donc sur la MEME frame ; `rp` se derive (`rp = e - tp - dp`).
+  - `PHYSSTGW` : le septuplet d'etages du solveur A PORTEE DE FENETRE (2 604 enregistrements).
+    C'est la version corrigee de `PHYSSTG`, qui est un maximum courant de PHASE et que je
+    n'utilise pas (defaut documente `phys-room.gc:1778-1790`).
 
-    joint        p50 |a|   MAX |a|    MAX en g   voisin/max p50
-    main           0,000    79,232      7,10          0,000
-    chest          0,090    67,879      6,08          0,013
-    chest - main   0,088    11,804      1,06          0,040
+DEUX CONTROLES, ET LES DEUX TIENNENT AVANT TOUTE LECTURE :
+  - identite `e = tp + rp + dp` : ecart max **1,175e-04 B0** sur 372 fenetres, 0 incomplete ;
+  - controle algebrique GRATUIT grave dans l'emetteur (`phys-room.gc:1770`) : l'etage 1 est
+    <= 0,50 B0 PAR ALGEBRE, et s'il ne l'est pas c'est L'INSTRUMENT qui est faux. Mesure :
+    **0,5000 / 0,5000 exactement.**
 
-Identiques au cycle 80c a la troisieme decimale, y compris les cinq pires animations et leurs
-indices internes (i=25/35, i=25/35, i=5/35). **Le pic d'une seule frame est REEL** : voisin/max
-median 0,000 sur la racine, pour un rapport pic/mediane de 750.
-
-================================================================================================
-3. MAIS L'EXONERATION DU TORSE ETAIT INCOMPLETE, ET LA FAUTE EST DE MESURE
-================================================================================================
-`chest - main` en translation ne peut pas voir une ROTATION de l'ancre. Or la chaine n'est pas
-attachee a l'origine de `chest` : l'offset d'attache, mesure sur la trace elle-meme, vaut
-
-    lBoob   (396,3 ; -953,0 ; -154,2) u   |offset| 1043,6 u = **1,73 B0**
-    rBoob   (-364,8 ; -964,2 ; -159,8) u  |offset| 1043,2 u = **1,73 B0**
-
-et il est stable (deviation par frame p50 35,7 / 38,7 u — c'est la reponse de la physique, pas
-une derive). **CONTROLE DE L'INSTRUMENT** : les normes de ligne de la 4x4 de `chest` valent
-0,9985 a 1,0403 — `chest` est bien rigide, donc bien non simule, donc bien la pose d'auteur.
-
-Entree rigide COMPLETE (`a_trans + alpha x r + omega x (omega x r)`) evaluee au point d'attache :
-
-    MAXIMUM sur les 31 animations   **85,364 u/f² = 7,65 g**   (translation seule : 6,08 g)
-    MEDIANE sur les 31              0,728 g                     (translation seule : 0,546 g)
-    rapport complet/translation     jusqu'a **x3,0** (anims 18, 28, 29)
-
-**JE CORRIGE DONC CE QUE 80c A ECRIT** : le torse ne delivre pas « au plus 1,06 g ». Son
-ARTICULATION delivre 1,06 g ; l'ANCRE, au levier de 1,73 B0, en delivre jusqu'a 7,65. Le terme
-manquant est exactement le `+ a_angular` que §3 nomme et que le registre porte comme jamais
-mesure. **Ca ne disculpe ni n'accuse : ca remet la bonne grandeur sous le bon nom.**
+GARDE DE VACUITE, parce qu'une salle qui change d'animation toutes les 90 frames peut fabriquer un
+pic de demande sur la seule discontinuite (x74 mesure au cycle 52) :
+  Pearson etage 0 contre `amax` (plus grand deplacement d'ancre de la fenetre) **+0,070 / +0,089**
+  Pearson etage 0 contre `fired` du rebase de §37                              **-0,040 / -0,019**
+La demande brute n'est donc pas un artefact de frontiere de fenetre.
 
 ================================================================================================
-4. LA REFUTATION — LA DISCONTINUITE DE RACINE NE PRODUIT PAS L'APEX
+2. LES SEPT ETAGES : OU LA REPONSE MEURT
 ================================================================================================
-Appariement par ANIMATION, meme fenetre, meme course : le pic de racine d'un cote, l'apex publie
-et le stimulus recu de l'autre. 31 couples par chaine.
+Joint racine, en B0, portee FENETRE, 186 fenetres par chaine (chestL · chestR) :
 
-    pic de racine  <->  stimulus recu (`PHYSACC`)   Pearson **+0,957 / +0,943**  Spearman +0,933 / +0,899
-    pic de racine  <->  apex (`PHYSAPEX`)           Pearson **-0,041 / -0,094**  Spearman -0,019 / +0,031
-    entree rigide COMPLETE <-> apex                 Pearson **+0,060 / -0,009**
+  etage                                          med            max          x6 pilot      CV
+  0  demande brute, AVANT le filet §22     0,8175 · 0,7970  5,0759 · 5,0042  10,19 · 10,48  1,00 · 0,98
+  1  apres le filet                        0,4999 · 0,4999  0,5000 · 0,5000   1,13 ·  1,12  0,06 · 0,07
+  2  apres la 1re contrainte de LONGUEUR   0,4800 · 0,4790  0,5048 · 0,5053   1,34 ·  1,53
+  5  avant la peau                         0,3849 · 0,3876  0,5048 · 0,5053   1,46 ·  1,57
+  6  apres la peau = LA VALEUR LIVREE      0,3849 · 0,3831  0,4984 · 0,4897   1,48 ·  1,71
 
-Et le partage, qui n'a pas besoin d'un coefficient pour se lire :
-
-    18 animations a pic de racine < 5 u/f²    apex p50   **0,6559 / 0,6283 B0**
-     9 animations a pic de racine >= 15 u/f²  apex p50   **0,6010 / 0,6389 B0**
-
-**Les animations SANS discontinuite ont un apex MEDIAN PLUS GRAND que celles qui en ont une.**
-Le canal de stimulus, lui, suit la discontinuite a +0,95. Les deux grandeurs vivent dans deux
-mondes separes, et c'est la premiere fois que le dossier le mesure.
+Ce que le filet retire : mediane **0,3977 / 0,4325 B0**, maximum **4,7011 / 4,6545 B0**.
 
 ================================================================================================
-5. L'APEX EST UN DECALAGE PERMANENT — LES TROIS TERMES SONT INVARIANTS
+3. LE SEUL TERME PLAT DE L'APEX EST `tp`, ET IL PORTE LA MOITIE DE LA GRANDEUR
 ================================================================================================
-Decomposition de l'engin lui-meme (`e = tp + rp + dp`, [NOTE-338], les trois pris au MEME argmax).
-**Controle d'identite d'abord** : |e| contre l'apex publie, ecart max **0,000118 B0** sur les 62
-cellules — le vecteur EST la grandeur publiee.
+Entree variant de **x42,76 / x41,34** sur les six pilotages d'une meme animation :
 
-Medianes en B0, la population coupee par l'ENTREE RIGIDE COMPLETE que la chaine recoit :
+  terme  |.| med (B0)      CV            part de l'apex   x6 pilot        Pearson/acc
+  tp     0,3762 · 0,3903   0,098 · 0,124  51,2 % · 52,0 %  x1,26 · x1,29  +0,074 · +0,148
+  rp     0,2288 · 0,2214   0,326 · 0,270   9,1 % ·  9,9 %  x2,31 · x1,81  +0,213 · +0,060
+  dp     0,2918 · 0,2761   0,284 · 0,314  40,6 % · 37,2 %  x2,03 · x1,70  +0,107 · +0,169
+  e      0,6702 · 0,6952   0,143 · 0,156 100,0 %           x1,41 · x1,30  +0,200 · +0,233
 
-    entree            N     apex      tp       rp       dp
-    < 0,10 g         22    0,6369   0,4056   0,2036   0,2583
-    0,10 - 1,0 g     16    0,6917   0,3368   0,2188   0,3360
-    >= 1,0 g         24    0,6130   0,3727   0,1867   0,2549
-    ------------------------------------------------------------
-    rapport mobile / quasi-statique   **0,96     0,92     0,92     0,99**
-
-**AUCUN des trois termes ne repond a l'entree. Multiplier l'entree par 380 fait BAISSER l'apex
-de 4 %.** Ce n'est pas une saturation partielle : c'est une grandeur qui ne depend pas du
-stimulus.
-
-===========================================================================================================================================================================================
-6. LES ANCRES STRICTEMENT IMMOBILES — LE CHIFFRE QUI FERME LA QUESTION
-================================================================================================
-Selection sur TROIS criteres simultanes, pour qu'« immobile » ne veuille pas dire « acceleration
-nulle » (une vitesse constante traine un ressort, une rotation lente le tient hors centre) :
-vitesse d'ancre <= 0,49 u/frame, vitesse angulaire <= 0,024 deg/frame, entree rigide <= 0,10 g.
-Cinq animations sur 31 les tiennent toutes les trois.
-
-    anim   v u/f  w deg/f   chain    apex      tp      rp      dp   vs 0,50
-       7   0,488   0,0178  chestL  0,5568  0,4480  0,1806  0,1241   OVER
-       7   0,488   0,0178  chestR  0,4292  0,4047  0,2064  0,2377   in
-      11   0,416   0,0157  chestL  0,6492  0,3335  0,2008  0,2896   OVER
-      11   0,416   0,0157  chestR  0,7299  0,4593  0,0479  0,2546   OVER
-      23   0,140   0,0149  chestL  **0,8751** 0,4407 0,3067 0,4411  OVER
-      23   0,140   0,0149  chestR  0,6295  0,3344  0,2236  0,2569   OVER
-      25   0,198   0,0204  chestL  0,4427  0,4051  0,1176  0,2197   in
-      25   0,198   0,0204  chestR  0,7843  0,4489  0,2784  0,3072   OVER
-      30   0,140   0,0149  chestL  0,6473  0,3460  0,2393  0,2606   OVER
-      30   0,140   0,0149  chestR  0,6897  0,4515  0,1600  0,2169   OVER
-
-**HUIT CELLULES SUR DIX DEPASSENT LE PLAFOND EXCEPTIONNEL DE §22 SUR UN PERSONNAGE QUI NE BOUGE
-PAS.** Et l'animation 23 — ancre a **0,140 u/frame (0,034 mm) et 0,0149 deg/frame** — porte
-**le maximum d'apex de toute la course**, 0,8751 B0 = **12,9 cm**. C'est ce chiffre-la que le
-dossier presentait depuis le cycle 57 comme la preuve d'un solveur trop energique.
-
-L'animation 28 sort du lot par le TROISIEME critere et d'un cheveu (0,0243 contre 0,024 deg/f)
-alors qu'elle porte l'entree la plus faible des 31 (**0,02 g**) ; son apex vaut 0,6443 / 0,6193.
-Je la nomme au lieu de l'inclure : un seuil qu'on relache pour attraper un cas favorable n'est
-plus un seuil. Elle ne change ni le sens ni l'ordre de grandeur du resultat.
-
-=====
-7. LE JOINT, LUI, EST DANS LA BANDE — 31/31, LES DEUX CHAINES
-================================================================================================
-Excursion propre du joint de racine, mesuree DANS LE REPERE DE `chest` (l'ancre), donc le
-mouvement rigide de l'ancre divise :
-
-    chestL  p50 **0,1069 B0**  max **0,4082 B0**
-    chestR  p50 **0,1080 B0**  max **0,3806 B0**
-    sous le plafond dur de 0,50 B0 : **31 animations sur 31, les deux chaines**
-
-    rapport apex / excursion du joint : p50 **x5,1 / x6,5**, max **x18,3 / x24,6**
-    et le rapport est le PLUS GRAND la ou le mouvement est le plus PETIT
-    (anim 28 : joint 0,0392 -> apex 0,6443, soit x16,4 ; anim 29, chestR : x24,6)
-
-**Le joint ne sort pas de la bande. C'est ce qui est mesure AUTOUR de lui qui en sort**, et
-d'autant plus qu'il bouge moins.
+Rapport du quartile d'entree HAUT sur le quartile BAS, pour `tp` : **0,995 / 1,022**. La moitie de
+la grandeur que §22 borne est la sortie d'un limiteur, pas une reponse.
 
 ================================================================================================
-8. J'AI TESTE MON PROPRE SOUPCON D'INSTRUMENT, ET IL EST REFUTE
+4. LE PLAFOND DE §22 EST UN ANGLE UNIFORME — FORME CLOSE, PREDITE AVANT D'ETRE LUE
 ================================================================================================
-L'explication la plus economique aurait ete que l'instrument compare a la mauvaise reference : si
-la « pose d'auteur » etait la pose de BIND et non celle de la frame courante, l'apex lirait le
-mouvement de l'ANIMATION comme une excursion de physique — ce qui donnerait exactement une
-grandeur grande, permanente et insensible au stimulus. Verifie dans le source, pas suppose :
+Le filet borne `|p - t|` a `0,50*B0*rl`, `rl = blen(l)/blen(0)`, et le maillon tourne a longueur
+de MODELE autour de son attache. La corde `2*blen(l)*sin(t/2) = 0,50*B0*rl` donne donc
 
-    jak-hd-physics.gc:3843   (matrix-copy! pre bm)
+    t = 2*asin( 0,25*B0 / blen(0) )         — INDEPENDANT du maillon
 
-`bm` est la transformation du squelette **avant** que la physique n'y ecrive, sur la frame
-courante. `pre` EST donc la pose d'auteur de la meme frame. **L'instrument est disculpe, et le
-decalage est REEL.**
+  chestL  blen0 = 1040,4951 u  ->  predit 16,633 deg
+  chestR  blen0 = 1039,0349 u  ->  predit 16,657 deg
 
-**CONTROLE DE PERMANENCE — un decalage qui decroit serait un `ring-down` couvert par §27
-(1,0-1,5 s de stabilisation), pas une faute.** Ecart du joint a sa mediane de fenetre, cinq
-premieres frames contre cinq dernieres, sur les cinq ancres immobiles : rapports **0,63 · 1,07 ·
-0,55 · 1,13 · 0,67**. Sur les 31 animations : mediane **1,13** (chestL) et **1,05** (chestR), et
-**6 sur 31** puis **7 sur 31** seulement decroissent d'un facteur 0,6.
-**Ca ne decroit pas. Ca tient.**
-RESERVE DECLAREE, ET ELLE EST REELLE : la fenetre dure 37 frames (0,62 s), alors que §27 autorise
-1,0 a 1,5 s. Je conclus a l'absence de TENDANCE au retour, pas a l'epuisement du delai de §27 —
-la salle n'offre aucune fenetre immobile de plus de 1,5 s en PH-MEAS. **C'est la mesure qui
-manque, et elle est nommee.**
+Mesure de `PHYSGRAD ang` (maximum de fenetre) :
+  maillon 0  max 16,550 · 16,662 deg   ecart au predit  -0,50 % · +0,03 %
+  maillon 1  max 16,834 · 16,854 deg   ecart au predit  +1,20 % · +1,18 %
+
+Et les deux maillons n'y vivent pas de la meme facon :
+  maillon 0  REPOND    med 13,225 · 13,207 deg  p05 2,140 · 2,600  CV 0,405 · 0,367  x4,80 · x4,61
+  maillon 1  EPINGLE   med 16,640 · 16,664 deg  p05 14,397 · 14,621 CV 0,127 · 0,111 x1,09 · x1,09
+
+C'est la constante de **16,647 deg** que la directive du 2026-08-19 20:00 nommait « le chantier ».
+Elle est toujours la, a la meme valeur, et on en connait desormais la forme close et la cause.
 
 ================================================================================================
-9. CE QUE CA CHANGE AU REGISTRE — UNE RE-ATTRIBUTION, PAS UN BLANCHIMENT
+5. LA SATURATION DE §21 EST HORS DE SA ZONE DOUCE DANS 55 A 60 % DES FENETRES
 ================================================================================================
-**JE NE PASSE AUCUN ROUGE AU VERT.** Le depassement est reel : 12,9 cm contre un plafond de
-7,3 cm. Ce qui change est **a quelle section il appartient**, et c'est decisif pour le chantier.
+L'operateur du filet est une Pade de `tanh` d'argument `xr = (dd - kn)/cp`, `kn = 0,42*B0`,
+`cp = 0,08*B0`, et il rend **EXACTEMENT 1,0 des `xr >= 3`** (`jak-hd-physics.gc:3167-3169`),
+c'est-a-dire des que la demande depasse `kn + 3*cp = 0,66 B0`. Au-dela ce n'est plus une
+saturation douce : c'est `min(dd, 0,50*B0)`.
 
-**§2 : PARTIELLE -> NON TENUE. [RETIRE PAR LE §15 DANS CE MEME CYCLE — la mesure contre le
-mesh LIVRE refute cette retrogradation. Le raisonnement ci-dessous est conserve tel quel pour que
-la faute soit lisible, pas efface.]** Sa clause dit « the **final settled** breast geometry shall
-reproduce the original authored standing model » (l.51-52). Sur six ancres immobiles, l'ecart a
-la pose d'auteur de la meme frame vaut **0,43 a 0,88 B0** et **ne decroit pas** sur 0,62 s
-(cinq ancres immobiles, 8 cellules sur 10 au-dessus du plafond exceptionnel). Le
-cycle 48 l'avait deja retrogradee sur `ROOM-SHFLOOR` (plancher non nul sur 9 axes sur 12, jusqu'a
-0,890 % de `a0`) ; la meme faute se lit ici **deux ordres de grandeur plus grande** et sur la
-grandeur que six sections bornent. La moitie « retour » de la clause n'est pas a moitie tenue,
-elle est fausse.
+  sous le genou (<= 0,42 B0, filet inerte)   11/186 ( 5,9 %)  ·   12/186 ( 6,5 %)
+  bande DOUCE   (0,42 - 0,66 B0)             72/186 (38,7 %)  ·   63/186 (33,9 %)
+  ECRETAGE DUR  (> 0,66 B0)                 103/186 (55,4 %)  ·  111/186 (59,7 %)
 
-**§14, §16, §17, §18, §19, §20, §22 : STATUT INCHANGE, CAUSE RE-ATTRIBUEE.** Ces sections bornent
-l'apex PENDANT UN GESTE NOMME. Leur magnitude reste hors bande et je ne la retire pas. Mais elle
-est produite a **96 %** par un decalage present sans geste : reduire la reponse au geste ne peut
-pas les faire basculer, et deux cycles (78 et 80c) l'ont deja constate sans en connaitre la
-raison. **La ligne de chacune porte desormais ce fait**, pour qu'aucun cycle ne reparte sur la
-reponse dynamique.
-
-**§3 : la mesure de 80c est CORRIGEE dans sa ligne** (7,65 g au point d'attache, pas 1,06 g au
-torse) sans changer son statut `PARTIELLE` — `- a_torso` et `+ a_angular` restent sans mesure
-nommee de leur effet.
-
-    [TABLEAU PERIME — ANNULE PAR LE §16. Le registre final de ce cycle est INCHANGE :
-     TENUE 1 · PAR CONSTRUCTION 5 · PARTIELLE 21 · NON TENUE 10 · NON ETABLI 1.]
-
-**[ANNULE PAR LE §15 — voir l'addendum 81b : je retire cette retrogradation.]** C'est le troisieme cycle d'affilee sans gain, et je
-le declenche moi-meme au §12.
+La majorite des fenetres livrees passe donc par un ecretage brutal — ce que la directive du
+2026-08-14 03:40 interdit nommement (« une saturation douce, jamais un ecretage brutal »).
 
 ================================================================================================
-10. PORTEE, ET CE QUI EST INTOUCHE
+6. AUCUN STATUT NE CHANGE — ET JE LE REMONTE, COMME LA REGLE L'EXIGE
 ================================================================================================
-**MODIFIE :** `.autoport/SPEC-COVERAGE.md`, `.autoport/OWNER-VERIFY-QUEUE.md`, ce rapport, et
-`.autoport/c81_apex_static.py` (neuf — les cinq mesures de ce cycle en un seul fichier
-reexecutable sur la trace archivee ; **tous les chiffres de ce rapport sortent de sa sortie**,
-verifie APRES redaction, et deux d'entre eux ont ete CORRIGES pour y coller : le lot immobile
-passe de six ancres a cinq et de 10/12 a 8/10 cellules, parce que le script applique le seuil
-angulaire tel qu'il est ecrit la ou ma premiere passe l'avait applique a la main).
+TENUE 1 · PAR CONSTRUCTION 5 · PARTIELLE 21 · NON TENUE 10 · NON ETABLI 1.
 
-**INTOUCHE, `git diff` vide :**
-  - `goal_src/jak1/pc/jak-hd-physics.gc` — **PAS UNE LIGNE**, toujours **4799** (plafond 4800) ;
-  - `goal_src/jak1/pc/phys-room.gc` — **PAS UNE LIGNE**, toujours 5921 ;
-  - `.autoport/validators/` — **aucune gate** ;
-  - `recharged_assets/` — aucune donnee.
+C'est le **DEUXIEME CYCLE CONSECUTIF** sans mouvement de statut. La directive du 2026-08-21 18:25
+dit : « deux cycles consecutifs sans changement de statut d'une section se remontent au
+superviseur avec la raison, au lieu d'enchainer un troisieme. » Je le fais ici, et voici la
+raison, chiffree.
 
-**TIER : AUCUN.** Zero build, zero course, zero deploiement. Le cycle entier tient sur la trace
-archivee et sur la lecture du source. C'etait le bon choix precisement parce que la voie qu'on
-allait ouvrir demandait de toucher au moteur a une ligne du plafond : **elle est refutee avant
-que la question du plafond ne se pose.**
+Les deux voies de correction de §22 sont deja closes par des mesures anterieures :
+  - cycle 58 : faire lire l'apex a une borne posee DANS la boucle de contraintes rend la borne
+    DEUX FOIS plus faible (bendcut -69 %, |tp| max 0,50 -> 0,71 B0) — le tenseur n'existe pas
+    encore a cet endroit ;
+  - cycle 76 : -25 % sur la translation du joint rend **-0,2 %** sur l'apex — les trois termes se
+    redistribuent.
 
-================================================================================================
-11. CE QUE JE N'AI PAS FAIT
-================================================================================================
-1. **AUCUNE GATE, AUCUN SEUIL, AUCUN `die`.**
-2. **AUCUNE LIGNE DE MOTEUR.** La marge d'une ligne n'est toujours pas consommee.
-3. **JE N'AI PAS FILTRE LA DISCONTINUITE DE RACINE.** Elle est reelle et c'est un vrai defaut du
-   canal `a_torso` — mais elle ne deplace pas §22, et la directive du 2026-08-21 18:25 interdit
-   les reparations « au passage ». Elle reste au dossier, nommee, avec sa mesure.
-4. **JE N'AI PAS TRANCHE LE DENOMINATEUR `B0`.** Question ouverte du cycle 80, inchangee.
-5. **JE N'AI PAS BLANCHI LES SIX ROUGES.** Leur magnitude est reelle.
-6. **AUCUNE MESURE VISUELLE, AUCUNE CAPTURE.**
+Ce cycle etablit POURQUOI les deux echouent : **la demande brute vaut 0,80 B0 en mediane et
+5,08 B0 au pire, soit 1,6 a 10 fois le plafond DUR de la section.** A cette echelle, deplacer une
+borne ne fait que redistribuer entre `tp`, `rp` et `dp`. **Aucune borne ne peut rendre §22 tenue
+tant que la demande vaut dix fois la bande.** Le chantier n'est pas une borne : c'est la demande.
 
 ================================================================================================
-12. CE QUI REMONTE AU SUPERVISEUR
+7. LE DISCRIMINANT DU PROCHAIN CYCLE, PUBLIE D'AVANCE
 ================================================================================================
-**(a) TROISIEME CYCLE SANS GAIN — JE DECLENCHE LA REGLE DES DEUX CYCLES.** Cycles 78, 79, 80 puis
-81 : aucune section gagnee, deux perdues (§3, §2). **La raison est nommee et elle a change** : ce
-n'est plus « la source de progres est epuisee », c'est **« le chantier visait la mauvaise
-grandeur »**. Les deux priorites uniques successives (diviser l'excursion par 1,85 ; filtrer la
-discontinuite de racine) sont refutees, chacune par la mesure exigee d'avance, chacune AVANT
-d'avoir coute un cycle d'implementation. **Ce dispositif fonctionne — mais il ne produit que des
-refutations depuis quatre cycles, et il faut le dire.**
+La demande de l'etage 0 est produite par la boucle de sous-pas (`jak-hd-physics.gc:2977-3024`) et
+par elle seule — le filet est en aval. Une seule question, mesurable :
 
-**(b) CE QUE JE PROPOSE A LA PLACE, ET C'EST UNE SEULE CHOSE.** Le decalage permanent est
-maintenant chiffre, localise et separe du bruit : **0,35-0,45 B0 dans `tp` seul, present a
-0,02 g, stable sur 0,62 s, alors que le joint qui le porte reste sous 0,41 B0 dans le repere de
-son ancre.** La question a une mesure, pas a un chantier : **d'ou vient l'ecart entre
-l'excursion du joint dans le repere de l'ancre (0,107 B0 median) et `tp` contre la pose d'auteur
-(0,41 B0 median) ?** Les deux mesurent le meme joint sur la meme frame. Leur difference EST le
-decalage permanent, et elle est de x3,8.
+  **quelle part des 0,80 B0 medians vient du ressort (`f = k2s*mu*e`), quelle part de la gravite
+  (`gg`), quelle part de l'accumulation de vitesse d'une frame a la suivante ?**
 
-**(c) LE PLAFOND DE 4800 LIGNES N'A PAS EU A ETRE TRANCHE CE CYCLE**, et c'est un gain : la voie
-qui l'exigeait n'existait pas. Il reste a trancher pour la suite, et l'arbitrage du cycle 80 (c)
-tient tel quel.
+TEST : publier, par fenetre et AU MEME ARGMAX que l'etage 0, les trois contributions cumulees sur
+la frame, plus `|v|` en entree et en sortie de boucle. Trois compteurs dans une boucle qui existe
+deja ; aucun terme du solveur n'est touche. TEMOIN : la fenetre SANS pilotage (d=5), ou le ressort
+doit dominer.
 
-**(d) LES TROIS DEFAUTS D'OUTILLAGE DU CYCLE 80 (d) SONT TOUJOURS OUVERTS.** Non corriges, meme
-raison : hors du perimetre nomme de ce cycle.
+PREDICTION POSEE AVANT LA MESURE :
+  - si le RESSORT domine, le producteur est le mur de force `mu` de `:2984-2990` (force de module
+    CONSTANT au-dela de 0,4992 B0, etabli au cycle 71) — et le cycle 78 a deja chiffre ce qu'il
+    coute a l'ablation, donc le prochain cycle ne le re-paye pas ;
+  - si c'est l'ACCUMULATION DE VITESSE, la retenue `kds` est trop proche de 1 et c'est §25
+    (amortissement) qui est en cause, pas §21.
 
 ================================================================================================
-13. CE QUE L'OWNER DOIT REGARDER
+8. A TESTER PAR L'OWNER : RIEN
 ================================================================================================
-**A TESTER : RIEN.** Ce cycle ne change pas un bit de physique — aucune ligne de moteur, aucune
-donnee. La regle du 2026-08-20 23:30 tient : a 1 section tenue sur 38, un test d'ensemble lui
-couterait plus qu'il ne rapporterait.
+Ce cycle ne change pas un bit de la physique ni des donnees : pas une ligne de moteur, pas une
+valeur de chaine, aucun build. La rubrique reste VIDE, conformement a la directive du
+2026-08-20 23:30 — a 1 section tenue sur 38, lui demander de juger a l'oeil lui coute plus que ca
+ne rapporte, et le lot ne change pas le comportement d'ENSEMBLE.
 
-**CE QUI LUI APPARTIENT :**
-  - **UNE CORRECTION, ET ELLE ANNULE CE QUE JE LUI AI ECRIT AU CYCLE 80c.** Je lui ai dit que ses
-    animations secouaient le torse a 1,06 g au plus et que la bande de §22 « redevenait un
-    objectif atteignable » une fois filtree une discontinuite d'une frame. **Les deux moities
-    sont a corriger** : l'ancre delivre jusqu'a 7,65 g au point d'attache une fois la rotation
-    comptee, et surtout **filtrer cette discontinuite ne deplacerait pas §22 d'un pouce**, parce
-    que l'excursion qu'il voit n'est pas produite par le mouvement.
-  - **LE FAIT NEUF, EN UNE LIGNE :** la poitrine de Keira est **deja a 10-13 cm de la pose que
-    l'artiste a dessinee quand elle ne bouge pas**. Ce n'est pas un ballotement excessif, c'est
-    une position de repos fausse. Cela correspond a ce qu'il decrit depuis le 2026-08-13
-    (« ca suit aucune logique ») bien mieux qu'une sur-reaction aux gestes.
-  - Les deux questions ouvertes du cycle 80 restent siennes et inchangees : le mot « **soft** »
-    dans « Recommended soft ceiling » de sa §16, et le choix du denominateur `B0`.
-
-`OPEN-DEFECTS` : `breast-spec-incomplete` reste ouverte. Elle ne se retire que sur sa parole.
-
-================================================================================================
-15. ADDENDUM 81b — JE RETIRE MA PROPRE RETROGRADATION DE §2, ET LA MESURE QUI LA TUE INVERSE
-    LE SENS DU DEFAUT
-================================================================================================
-Le §9 ci-dessus fait passer §2 de `PARTIELLE` a `NON TENUE`. **Je le retire, dans le meme cycle,
-parce que la mesure suivante l'a refute — et cette mesure change le diagnostic pour de bon.**
-
-**CE QUE J'AVAIS FAIT DE TRAVERS.** J'ai lu l'ecart de l'apex a **la pose d'auteur de la frame
-courante** et j'en ai conclu que la chaine « ne revient pas ». Or la clause de §2 ne parle pas de
-cette reference : elle dit « the original authored **standing** model » — le mesh LIVRE. Je n'ai
-pas relu sa reference avant de conclure. C'est la faute du 2026-08-19 20:50 (« citer le TEXTE
-EXACT »), commise sur la reference au lieu de la ligne.
-
-**LA MESURE, CONTRE LE MESH LIVRE.** `out/jak1/fr3/skin/keira-hd-lod0.glb`, via ses
-`inverseBindMatrices`. Controles d'abord, parce que ma premiere passe s'est trompee d'unites :
-base de `chest` orthonormee a **1,000000** ; `main` a y=1,530 m et `head` a y=2,284 m, donc **le
-glb est en METRES et non en unites moteur** (4096 u = 1 m). Ma premiere lecture publiait un
-offset de bind « 0,3 u » : c'etait 0,3 **metre**. **Un chiffre invraisemblable detruit la
-confiance dans tous les autres** — je l'ai attrape en verifiant des longueurs d'os connues, pas
-en le relisant.
-
-    offset d'attache en BIND   lBoob ( 379,9 ; -957,9 ; -155,2) u   |.| 1042,1 u = 25,44 cm
-                               rBoob (-379,9 ; -957,9 ; -155,2) u   |.| 1042,1 u = 1,731 B0
-
-Parfaitement MIROIR au dixieme d'unite — coherent avec le rig symetrique a 0,005 deg du cycle 53
-— et **egal au 1042,08 u que le dossier portait comme « longueur d'os, repli du moteur »**, ici
-re-derive independamment depuis le mesh livre.
-
-    mediane de ce que la COURSE ECRIT, vs ce BIND :  **0,0535 / 0,0505 B0  (0,79 / 0,74 cm)**
-
-**LE JOINT SE REPOSE DONC BIEN AU MODELE LIVRE.** §2 redevient `PARTIELLE`, la preuve du cycle 48
-inchangee. **CE QUI RESTE NON ETABLI, ET JE LE NOMME AU LIEU DE LE TAIRE** : je n'ai verifie ce
-repos que pour le JOINT. L'apex ajoute `rp` et `dp`, et leur position au repos **contre le mesh
-livre** n'est mesuree nulle part. C'est la mesure qui trancherait §2, et elle manque.
-
-**ET VOICI CE QUE LA MEME MESURE ETABLIT, QUI EST LE VRAI RESULTAT DE CE CYCLE.**
-
-    grandeur                                            chestL      chestR
-    mediane du joint vs BIND du mesh livre              0,0535      0,0505   B0
-    `dj`, mouvement PROPRE du joint (repere de l'ancre) 0,0454      0,0386   B0
-    `tp`, ecart a la pose d'AUTEUR (moteur, :3923)      **0,3477**  **0,3908** B0
-    rapport |tp| / dj                                   **x7,7**    **x10,1**
-    correlation |tp| <-> dj                             **-0,005**  **+0,021**
-
-Un `tp` qui SERAIT le mouvement propre du joint correlerait a ~+1 avec `dj`. Il correle a
-**zero**. Et il est etroitement borne — **0,2974 a 0,4505 B0 sur 31 animations tres
-differentes**, un facteur 1,5 la ou les gestes varient de x380 en entree.
-
-**`tp` N'EST PAS UNE EXCURSION DE LA PHYSIQUE. C'EST UN ECART QUASI CONSTANT ENTRE LA POSE
-D'AUTEUR ET LE BIND, QUE LE SOLVEUR NE SUIT PAS.** Le joint se tient au bind ; l'animation le
-place ~5,1-5,7 cm ailleurs ; l'instrument publie la difference sous le nom d'« excursion ».
-
-**CA INVERSE LE SENS DU DEFAUT QUE SIX SECTIONS PORTENT.** Depuis le cycle 57 le dossier lit ces
-chiffres comme « le solveur est trop energique » et cherche a DIVISER la reponse. La mesure dit
-l'oppose : le terme dominant de l'apex est la physique qui **RETIENT** le joint la ou l'animation
-ne le veut pas. Ca colle a ce que l'owner decrit depuis le 2026-08-11 — « trop statiques »,
-« aucune physique quand elle soude » — et pas du tout a une sur-reaction.
-
-**LA QUESTION SUIVANTE, ET ELLE EST A UNE MESURE, PAS A UN CHANTIER.** Cet ecart de 0,35-0,39 B0
-est-il (a) une intention d'auteur — l'animation de Naughty Dog pose reellement la poitrine — ou
-(b) une CONSTANTE DE RETARGET, l'animation d'origine n'ayant pas ces os et le retarget ecrivant
-une pose fixe qui n'est pas le bind du donneur ? **Les deux appellent des corrections opposees** :
-en (a) le contrat §5 dit que l'animation gagne et le solveur doit suivre ; en (b) c'est le
-retarget qu'il faut corriger et surtout PAS suivre. **Le discriminant est le canal LOCAL d'auteur
-des deux joints, publie par animation** — un emetteur qui n'existe pas encore, et c'est un ajout
-de trace pur (aucune ligne de moteur, le plafond de 4800 n'est pas engage).
-Signature attendue : en (a) l'ecart VARIE avec le geste et est different entre les 31 animations ;
-en (b) il est le MEME vecteur partout. Les 0,2974-0,4505 B0 mesures penchent deja vers (b), mais
-**une magnitude n'est pas une direction et je ne conclus pas dessus.**
-
-================================================================================================
-16. REGISTRE APRES ADDENDUM — AUCUN STATUT NE CHANGE CE CYCLE
-================================================================================================
-    TENUE                    1   (§37)
-    TENUE PAR CONSTRUCTION   5   (§1, §4, §5, §28, §35)
-    PARTIELLE               21
-    NON TENUE               10
-    NON ETABLI               1   (§10)
-    total 38
-
-**Le mouvement que le §9 annoncait (§2 vers le bas) est ANNULE par ma propre mesure suivante.**
-Le cycle ne gagne ni ne perd de section. Ce qu'il produit est ailleurs : deux priorites refutees,
-la cause des six rouges inversee, et la mesure qui trancherait nommee avec sa signature attendue.
-
-**ET LA LECON, PARCE QU'ELLE EST LA MEME QUE CELLE DU x5,2 ET DU x1,85.** J'ai ecrit un verdict
-(§2 `NON TENUE`) en comparant a une reference que la clause ne nomme pas. La mesure qui l'a tue
-etait a dix minutes et je ne l'avais pas faite AVANT de publier le statut. La regle 1 du registre
-demande une mesure nommee ; elle devrait aussi demander que la REFERENCE de cette mesure soit
-celle que le texte designe. **Trois fois de suite le defaut est le meme : le chiffre etait juste,
-la reference ne l'etait pas.**
+`OPEN-DEFECTS` : `breast-spec-incomplete` reste ouverte. Elle ne se ferme que quand il le dit.
