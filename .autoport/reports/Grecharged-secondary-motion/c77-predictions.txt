@@ -1,0 +1,71 @@
+PREDICTIONS DU CYCLE 77 — ecrites AVANT toute edition et AVANT toute course
+DIRECTIVES v3fee554599
+Branche physics-keira-clean · perimetre chestL / chestR SEULES (owner 2026-08-14 07:30)
+
+CE QUE JE VAIS FAIRE, EN UNE PHRASE
+  Le septuplet d'etages `PHYSSTG` pretend, dans sa propre docstring, etre releve « dans la
+  fenetre ». Il ne l'est pas : il est un MAXIMUM COURANT depuis la derniere remise a zero du
+  diagnostic, c'est-a-dire sur toute la phase de mesure. Je lui donne une portee de FENETRE, je le
+  cle sur un etage QUI NE PEUT PAS SATURER, je le porte sur les fenetres de regime de SPEC 14-20
+  qui ne l'ont jamais eu, et je lui donne un LECTEUR dans le tableau.
+
+L'ETAT MESURE AVANT TOUTE EDITION (course livree du cycle 76, md5 afc37b526f4d7a1986114ffffc8c933b)
+  PHYSSTG c=0 st=6, ses 186 emissions dans l'ordre : 0 DESCENTE, plateau a 0.4986 des la 4e.
+    0.4162  0.4324  0.4966  0.4986  0.4986  ... (182 fois 0.4986)
+  jt0 par regime (ROOM-REGIME, deplacement du JOINT du maillon 0, /B0) :
+    chestL  r0 0.0314 · r1 0.1770 · r2 0.2220 · r3 0.1037 · r4 0.2364 · r5 0.2216 · r6 0.1244
+            r7 0.3648 · r8 0.3204
+    chestR  r0 0.0237 · r1 0.3566 · r2 0.2448 · r3 0.2867 · r4 0.3165 · r5 0.2181 · r6 0.2458
+            r7 0.3691 · r8 0.2060
+  SPEC 16 (reception) est la SEULE section du bloc 14-20 dont les QUATRE cellules sont SOUS leur
+  bande sur les DEUX chaines et sur les DEUX instruments : COM x0.23/x0.28/x0.51/x0.57 et apex
+  (REGB) x0.59/x0.62/x0.63/x0.69. Tout le reste du bloc est un melange de SOUS et d'AU-DESSUS.
+
+------------------------------------------------------------------------------------------------
+P1  LA PORTEE. Sur la nouvelle ligne a portee de FENETRE, l'etage 6 de c=0 fera AU MOINS 30
+    DESCENTES sur ses 186 emissions. Aujourd'hui : 0.
+    REFUTEE si < 30 descentes : alors la remise a zero n'agit pas, et rien d'autre de ce cycle
+    n'est lisible.
+
+P2  LE CONTROLE DE NON-CHANGEMENT. Le MAXIMUM des 186 emissions a portee de fenetre vaut
+    0.4986 +/- 0.0002 pour c=0 — la valeur terminale d'un maximum courant EST le maximum des
+    maximums par fenetre. Un ecart plus grand veut dire que j'ai change la GRANDEUR et pas sa
+    portee.
+
+P3  L'ANCIEN RESTE INTACT. Les 186 x 7 valeurs de `PHYSSTG` (emplacements 72-78, portee de phase,
+    cle sur l'etage 6) et toutes les lignes `PHYSSTGT` sont INCHANGEES AU BIT. J'AJOUTE, je ne
+    remplace pas : les comparaisons des cycles 74 et 75 doivent survivre.
+
+P4  LA DEMANDE DE LA RECEPTION — LA PREDICTION QUI DECIDE DU CYCLE.
+    Sur la fenetre de reception DURE (r=6, 34.74 u/f^2 = 3.11 g en demi-sinus sur 9 frames,
+    entree a 197-202 u/f mesures), l'etage 0 du nouveau septuplet — releve AVANT le filet de
+    sa SPEC 22 — DEPASSERA 0.50 B0 sur au moins une des deux chaines.
+    DERIVATION, pour qu'elle soit refutable : omega = 2*pi*2.320/60 = 0.2430 rad/frame (f_v
+    MESUREE, ROOM-AXRATIO-SRC), omega^2 = 0.05903. Le seul regime permanent de la deceleration
+    vaut 34.74/0.05903 = 588 u = 0.98 B0 ; l'impulsion libre Dv/omega vaut 200/0.2430 = 823 u =
+    1.37 B0. La valeur LIVREE aujourd'hui est 0.1244 (chestL) / 0.2458 (chestR) : un facteur 4 a 8.
+    SI l'etage 0 depasse 0.50 : la demande existe, une passe AVAL la mange, et P5 la nomme.
+    SI l'etage 0 reste SOUS 0.30 sur LES DEUX chaines : la demande n'existe jamais, le deficit est
+    en AMONT de toute contrainte (integration, ou livraison du stimulus a l'ancre), et toute
+    l'hypothese « une contrainte mange la reception » de ce cycle est REFUTEE. Je l'ecris comme
+    resultat, je ne la rattrape pas.
+
+P5  LA PASSE COUPABLE. L'etage qui retire le plus sur r=6 sera LE MEME sur les deux chaines, et
+    le meme sur r=3. Trois cellules qui designent trois passes differentes = aucune attribution,
+    et je l'ecris ainsi.
+
+P6  CONTROLE INTERNE GRATUIT. L'etage 6 du septuplet de regime est releve a l'argmax de l'etage 0 ;
+    `jt0` de ROOM-REGIME est le MAXIMUM de la meme grandeur sur la meme fenetre. Donc
+    etage6 <= jt0 + 0.0001 sur LES TRENTE cellules (2 chaines x 15 regimes). Une seule cellule
+    au-dessus et les deux instruments ne mesurent pas la meme chose : plus rien du bloc n'est
+    lisible.
+
+P7  AUCUNE SECTION NE CHANGE DE STATUT. Le registre restera a 2 TENUES / 5 PAR CONSTRUCTION /
+    20 PARTIELLES / 10 NON TENUES / 1 NON ETABLI. Ce cycle produit une ATTRIBUTION et un
+    instrument, pas un vert. Si SPEC 16 changeait de statut, ce serait contre ma prediction.
+
+P8  CE QUE JE M'INTERDIS D'AVANCE. Si P4 et P5 nomment une passe, je ne la corrige DANS CE CYCLE
+    que si le correctif s'ecrit sans ajouter un suppresseur, sans toucher une gate, et sans
+    baisser une borne de la spec. Sinon je le nomme avec son chiffre pour le cycle 78 — un
+    correctif improvise en fin de cycle est exactement ce que le cycle 47 a reproche au
+    rebranchement a mi-chemin.

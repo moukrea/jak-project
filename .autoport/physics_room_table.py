@@ -6139,6 +6139,174 @@ def main():
                              _limverd(_vd, _LIMW, 31, _c, _r),
                              _limtag(_LIMW, 31, _c, _r), _nd))
                 A('   %s' % _cite2)
+            # ---- CYCLE 77 : ROOM-REGSTG — LES SEPT ETAGES SUR LES FENETRES DE REGIME ----------
+            #
+            # LE TROU QUE CE BLOC LIT. Les quinze fenetres de §14 a §20 publiaient ce que le
+            # solveur LIVRE (`jt0` de PHYSREG3) et rien de ce qu'il a DEMANDE. L'etage 0 de
+            # `PHYSSTGR` est releve AVANT le filet de §22 : c'est la DEMANDE. Une sortie ecretee
+            # ne dit rien de son entree (`clipped-input-needs-amplitude-and-frequency`), et §16
+            # est justement la seule section du bloc dont les quatre cellules sont SOUS leur
+            # bande sur les deux chaines — sans l'etage 0, un `jt0` faible et un `jt0` ecrete se
+            # ressemblent.
+            #
+            # CE BLOC PUBLIE, IL NE JUGE PAS. Aucun seuil de la spec n'y est lu et aucune gate
+            # n'y est ajoutee (DIRECTIVES regle 5, gates gelees). Le seul verdict qu'il porte est
+            # le CONTROLE P6, qui compare DEUX INSTRUMENTS entre eux et pas une valeur a un
+            # seuil : l'etage 6 est releve a l'argmax de l'etage 0, `jt0` est le maximum de la
+            # MEME fenetre, donc `s6 <= jt0` par construction. S'il ne tient pas, les deux ne
+            # mesurent pas la meme grandeur et rien de ce bloc n'est lisible — c'est ecrit sur la
+            # ligne, jamais masque.
+
+            def _g7hdr():
+                """LES QUATRE DECLARATIONS OBLIGATOIRES, identiques pour les trois familles
+                d'etages (`PHYSSTGW`, `PHYSSTG`, `PHYSSTGR`) : elles lisent le MEME emplacement
+                moteur au MEME instant, seule la PORTEE du latch change."""
+                A('      NATURE : `|p_rlk - pose d\'auteur|` rapporte a B0 (SPEC 6, 602.0 u),'
+                  ' c\'est-a-dire')
+                A('      le deplacement du JOINT du maillon racine simule.')
+                A('      REPERE : le MONDE, contre la pose d\'AUTEUR de la MEME frame.')
+                A('      POPULATION : les sept valeurs viennent d\'UNE SEULE frame, celle qui'
+                  ' maximise')
+                A('      l\'ETAGE 0 sur la fenetre.')
+                A('      LECTURE QUAND LE DEFAUT EST ABSENT : 0.0000 aux sept etages.')
+                A('      ETAGES : 0 avant le filet de §22 · 1 apres le filet · 2 apres la 1re'
+                  ' contrainte')
+                A('      de LONGUEUR · 3 apres la 1re COLLISION · 4 apres les 8 iterations ·'
+                  ' 5 avant la peau ·')
+                A('      6 apres la peau = LA VALEUR LIVREE.')
+
+            def _g7par(_pref):
+                """Lit une famille d'etages a cle (a, d) et rend (ordre par chaine, valeurs).
+
+                L'ordre garde celui du FICHIER : c'est le seul dans lequel « descendre » a un
+                sens. Une fenetre a qui il manque un etage est ECARTEE, jamais completee par un
+                zero — c'est la jointure stricte deja appliquee a PHYSREG/PHYSREG2/PHYSREG3."""
+                _o, _v = {}, {}
+                _rx = (r'^%s c=(\d+) a=(-?\d+) d=(-?\d+) st=(\d+) jt=([-\d.e+]+)') % _pref
+                for _m in re.finditer(_rx, txt, re.M):
+                    _c, _w = int(_m.group(1)), (int(_m.group(2)), int(_m.group(3)))
+                    if (_c, _w) not in _v:
+                        _v[(_c, _w)] = {}
+                        _o.setdefault(_c, []).append(_w)
+                    _v[(_c, _w)][int(_m.group(4))] = float(_m.group(5))
+                return _o, _v
+
+            def _g7sum(_pref, _lbl):
+                """Publie UNE ligne de population par chaine, plus son verdict de vacuite.
+
+                Rend False si la famille est absente de la trace : l'appelant ecrit alors ABSENT,
+                jamais un zero."""
+                _o, _v = _g7par(_pref)
+                if not _o:
+                    return False
+                for _c in sorted(_o):
+                    _ser, _inc = [], 0
+                    for _w in _o[_c]:
+                        _d = _v[(_c, _w)]
+                        if len(_d) < 7:
+                            _inc += 1
+                        else:
+                            _ser.append(tuple(_d[_i] for _i in range(7)))
+                    if not _ser:
+                        A('%s chain=%s AUCUNE fenetre COMPLETE (%d ECARTEES, etages manquants)'
+                          % (_lbl, _rgnm(_c), _inc))
+                        continue
+                    _s6 = [_t[6] for _t in _ser]
+                    _dsc = sum(1 for _i in range(1, len(_s6)) if _s6[_i] < _s6[_i - 1] - 1e-9)
+                    A('%s chain=%s n=%d max6=%.4f desc6=%d distincts=%d%s'
+                      % (_lbl, _rgnm(_c), len(_ser), max(_s6), _dsc, len(set(_ser)),
+                         '' if not _inc else '  (%d fenetres incompletes ECARTEES)' % _inc))
+                    if _dsc == 0 and len(_ser) >= 10:
+                        A('   RATCHET — la serie ne descend jamais : ce n\'est pas une population'
+                          ' de fenetres, c\'est UN maximum courant republie n fois.')
+                    else:
+                        A('   population lisible (%d fenetres, %d descentes)'
+                          % (len(_ser), _dsc))
+                return True
+
+            _g7r = {}
+            _g7rx = r'^PHYSSTGR c=(\d+) r=(\d+) st=(\d+) jt=([-\d.e+]+)'
+            for _g7m in re.finditer(_g7rx, txt, re.M):
+                _g7r.setdefault((int(_g7m.group(1)), int(_g7m.group(2))),
+                                {})[int(_g7m.group(3))] = float(_g7m.group(4))
+            A('')
+            if not _g7r:
+                A('ROOM-REGSTG: ABSENT (aucune ligne PHYSSTGR dans cette trace)')
+            else:
+                A('   -- ROOM-REGSTG : LES SEPT ETAGES DE §22 SUR LES FENETRES DE REGIME -------')
+                _g7hdr()
+                _g7ct = {}
+                for _g7k in sorted(_g7r, key=lambda _q: (_q[1], _q[0])):
+                    _g7nm = _rgtab[_g7k[1]][1] if _g7k[1] in _rgtab else '?'
+                    _g7d = _g7r[_g7k]
+                    if len(_g7d) < 7:
+                        A('ROOM-REGSTG: %-8s r=%2d %-13s ECARTEE — %d etages sur 7, aucun zero'
+                          ' ne les remplace'
+                          % (_rgnm(_g7k[0]), _g7k[1], _g7nm, len(_g7d)))
+                        continue
+                    _g7s = [_g7d[_g7i] for _g7i in range(7)]
+                    A('ROOM-REGSTG: %-8s r=%2d %-13s %s'
+                      % (_rgnm(_g7k[0]), _g7k[1], _g7nm,
+                         ' '.join('s%d=%.4f' % (_g7i, _g7s[_g7i]) for _g7i in range(7))))
+                    if _g7s[0] <= 1e-6:
+                        A('   s0 nul — pas d\'attribution')
+                    else:
+                        _g7bk = max(range(1, 7), key=lambda _j: _g7s[_j - 1] - _g7s[_j])
+                        _g7bv = _g7s[_g7bk - 1] - _g7s[_g7bk]
+                        if _g7bv <= 0.0:
+                            A('   aucune passe ne retire : s6 >= s0')
+                        else:
+                            A('   retire le plus : etage %d (%.4f -> %.4f, -%.4f B0, %.1f %% de'
+                              ' s0)  ·  reste livre %.4f = %.1f %% de s0'
+                              % (_g7bk, _g7s[_g7bk - 1], _g7s[_g7bk], _g7bv,
+                                 100.0 * _g7bv / _g7s[0], _g7s[6],
+                                 100.0 * _g7s[6] / _g7s[0]))
+                    _g7cc = _g7ct.setdefault(_g7k[0], [[], 0])
+                    if _g7k not in _rgc:
+                        _g7cc[1] += 1
+                    else:
+                        _g7cc[0].append((_g7k[1], _g7s[6], _rgc[_g7k][2], _rgc[_g7k][3]))
+                # LE CONTROLE, ET CE QU'IL PEUT DIRE. La version du premier jet comptait des
+                # cellules sous `s6 <= jt0` : cette inegalite est REFUTEE, `jt0` n'etant pas un
+                # maximum de `jt` mais `jt` releve a l'argmax de `ee`. Ce qui reste verifiable
+                # entre deux argmax differents, c'est l'IDENTIFICATION DU MAILLON et l'ACCORD des
+                # deux lectures. Aucun seuil ne le remplace : cette ligne ne rend aucun verdict.
+                _g7pad = ' ' * 28
+                for _g7c in sorted(_g7ct):
+                    _g7cl, _g7nx = _g7ct[_g7c]
+                    if not _g7cl:
+                        A('ROOM-REGSTG-CTRL: %-8s  AUCUNE cellule comparable : pas de PHYSREG3'
+                          ' sur cette chaine (%d cellules)' % (_rgnm(_g7c), _g7nx))
+                        continue
+                    _g7e0 = sorted(abs(_q[1] - _q[2]) for _q in _g7cl)
+                    _g7e1 = sorted(abs(_q[1] - _q[3]) for _q in _g7cl)
+                    _g7w0 = max(_g7cl, key=lambda _q: abs(_q[1] - _q[2]))
+                    _g7w1 = max(_g7cl, key=lambda _q: abs(_q[1] - _q[3]))
+                    _g7a = sum(_g7e0)
+                    _g7b = sum(_g7e1)
+                    A('ROOM-REGSTG-CTRL: %-8s  s6 vs jt0 : ecart median %.4f B0, pire %.4f B0'
+                      ' (r=%d)'
+                      % (_rgnm(_g7c), _g7e0[len(_g7e0) // 2],
+                         abs(_g7w0[1] - _g7w0[2]), _g7w0[0]))
+                    A(_g7pad + ('s6 vs jt1 : ecart median %.4f B0, pire %.4f B0 (r=%d)'
+                                % (_g7e1[len(_g7e1) // 2], abs(_g7w1[1] - _g7w1[3]), _g7w1[0])))
+                    A(_g7pad + ('somme|s6-jt0|=%.4f  somme|s6-jt1|=%.4f  ->  le septuplet lit le'
+                                % (_g7a, _g7b)))
+                    A(_g7pad + ('MAILLON %d%s'
+                                % (0 if _g7a < _g7b else 1,
+                                   '' if not _g7nx else
+                                   '   (%d cellules sans PHYSREG3 : hors comparaison)' % _g7nx)))
+                    A('   CE CONTROLE IDENTIFIE LE MAILLON, IL NE BORNE RIEN. `jt0` est `jt` a'
+                      ' l\'argmax de `ee`')
+                    A('   (jak-hd-physics.gc:3971-3975), `s6` est `jt` a l\'argmax de l\'etage 0'
+                      ' (:1077-1078) : deux')
+                    A('   argmax de deux grandeurs differentes sur la meme fenetre. Aucune'
+                      ' inegalite ne les relie, et')
+                    A('   la premisse inverse — publiee au cycle 77 dans `c77-predictions.txt` P6'
+                      ' et dans le')
+                    A('   commentaire de phys-room.gc — etait fausse. L\'ECART entre les deux est'
+                      ' donc un DIAGNOSTIC')
+                    A('   d\'accord, jamais un verdict : il ne fait echouer personne.')
             # ---- LE RAPPORT APEX/COM : LE CONTROLE DE L'INSTRUMENT LUI-MEME -------------------
             A('')
             A('   -- ROOM-APEX-RATIO : LE CONTROLE DE L\'INSTRUMENT, PAS UNE EXIGENCE DE LA SPEC -')
@@ -6159,6 +6327,42 @@ def main():
                 A('ROOM-APEX-RATIO: n=%d  min x%.3f  mediane x%.3f  max x%.3f  —  bande implicite'
                   ' de sa spec x1.19 a x1.35'
                   % (len(_rat), _rat[0], _rat[len(_rat) // 2], _rat[-1]))
+            # ---- CYCLE 77 : ROOM-STG — LA MEME GRANDEUR, A PORTEE DE FENETRE ET DE PHASE ------
+            #
+            # POURQUOI LES DEUX LIGNES SONT PUBLIEES COTE A COTE. `PHYSSTG` (cycle 74) est latche
+            # par PHASE : sa remise a zero est `phys-diag-reset!`, appelee une fois par phase,
+            # donc ses emissions republient UN MAXIMUM COURANT — piege
+            # `ratchet-running-max-eats-itself`. `PHYSSTGW` (cycle 77) lit le MEME emplacement au
+            # MEME instant, avec une remise a zero PAR FENETRE et une cle de latch prise sur
+            # l'etage 0, que rien ne borne. La comparaison des deux lignes EST la mesure de ce
+            # que le correctif de portee a change ; publier la neuve seule laisserait croire que
+            # l'ancienne disait la meme chose.
+            #
+            # `desc6` EST LE DISCRIMINANT, PAS `max6` : un maximum courant et une population de
+            # fenetres ont exactement le meme maximum. Seule la SERIE distingue les deux, et une
+            # serie qui ne descend jamais sur n >= 10 fenetres n'est pas une population.
+            # DEUX PRESENCES INDEPENDANTES, ET C'EST LE POINT. Sur la course LIVREE du cycle 76
+            # `PHYSSTG` existe et `PHYSSTGW` non : c'est precisement la trace ou la ligne PHASE
+            # est la piece a conviction lisible par machine du defaut que le cycle 77 corrige. La
+            # taire parce que l'AUTRE famille manque perdrait la preuve. Chaque famille a donc son
+            # propre test de presence et son propre ABSENT.
+            A('')
+            _g7hw = re.search(r'^PHYSSTGW c=', txt, re.M) is not None
+            _g7hp = re.search(r'^PHYSSTG c=', txt, re.M) is not None
+            if not _g7hw and not _g7hp:
+                A('ROOM-STG: ABSENT (aucune ligne PHYSSTGW dans cette trace)')
+                A('ROOM-STG-PHASE: ABSENT (aucune ligne PHYSSTG dans cette trace)')
+            else:
+                A('   -- ROOM-STG : LES SEPT ETAGES DE §22, PORTEE FENETRE CONTRE PORTEE PHASE -')
+                _g7hdr()
+                A('      LES DEUX LIGNES LISENT LE MEME EMPLACEMENT MOTEUR AU MEME INSTANT : la')
+                A('      seule variable declaree est la PORTEE du latch — la FENETRE pour')
+                A('      `PHYSSTGW`, la PHASE pour `PHYSSTG`. Tout ecart entre elles est un')
+                A('      ecart de portee, rien d\'autre.')
+                if not _g7sum('PHYSSTGW', 'ROOM-STG:'):
+                    A('ROOM-STG: ABSENT (aucune ligne PHYSSTGW dans cette trace)')
+                if not _g7sum('PHYSSTG', 'ROOM-STG-PHASE:'):
+                    A('ROOM-STG-PHASE: ABSENT (aucune ligne PHYSSTG dans cette trace)')
             # ---- SPEC 15 : LA TRAVERSEE DU NEUTRE --------------------------------------------
             A('')
             # ---- CYCLE 70 : LES MEMES FENETRES DE TRANSLATION, SUR LES AXES DU SUJET ---------

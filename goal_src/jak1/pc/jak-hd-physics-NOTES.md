@@ -8304,3 +8304,50 @@ Aucune ligne de code n'a ete deplacee ni reecrite.
 ;; combien de poussees ont REELLEMENT eu lieu. Un controle positif qui n'a rien injecte ne prouve
 ;; rien : c'est ce compteur, pas la valeur armee, qui dit que le defaut a ete pose.
 ```
+
+
+---
+## NOTE-465 — `p` vit sur la sphere de rayon `ln` centree sur l'attache ; `|p - t|` n'y
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 77) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                    ;; `p` vit sur la sphere de rayon `ln` centree sur l'attache ; `|p - t|` n'y
+                    ;; depend que de l'angle a `g`. On IMPOSE cet angle par sa loi des cosinus, en
+                    ;; forme close et exacte : pas de bissection, pas d'acos, pas de sur-correction.
+```
+
+---
+## NOTE-466 — LE SEPTUPLET D'ETAGES A PORTEE DE FENETRE, ET POURQUOI L'ANCIEN RESTE
+
+**Le defaut, mesure.** Le latch de `PHYSSTG` (emplacements 72-78) n'est remis a zero que par
+`phys-diag-reset!`, appele **une fois par PHASE**, alors que sa docstring affirmait « la frame qui
+maximise l'etage 6 DANS LA FENETRE ». Sur la course livree du cycle 76 : **0 descente sur les 186
+emissions de chaque chaine, 7 (chestL) et 8 (chestR) septuplets distincts sur 186**. C'est UN
+maximum courant republie 186 fois. Tout comptage de fenetres tire de cette colonne aux cycles 74,
+75 et 76 est retire (`SPEC-COVERAGE.md` porte la correction) ; le MAXIMUM, lui, survit — la valeur
+terminale d'un maximum courant EST le maximum de la course.
+
+**Deux causes, pas une.** (1) la PORTEE, ci-dessus. (2) la CLE : l'argmax porte sur l'etage 6, que
+`phys-cap-e22!` borne desormais a 0,5000 exactement — tous les candidats sont ex aequo et l'argmax
+designe une frame arbitraire (`argmax-latch-key-must-not-saturate`). Le cycle 74 avait publie le
+symptome et n'avait impute que la seconde.
+
+**Le correctif, et il est au PRODUCTEUR.** Emplacements 79-85 : le MEME septuplet, (a) remis a zero
+dans `phys-comexw-reset!` — le seul point par lequel toute fenetre passe, dans toutes les phases,
+donc il n'existe plus de chemin qui ouvre une fenetre sans reinitialiser la tranche — et (b) cle
+sur l'**etage 0**, releve AVANT le filet de §22, que rien ne borne. L'emplacement 79 porte l'etage 0
+de la frame latchee et sert donc de cle sans consommer de slot supplementaire, exactement comme 78
+le fait pour l'ancien. Resultat : **186 septuplets distincts sur 186 fenetres, 97 descentes.**
+
+**Pourquoi 72-78 n'est PAS corrige.** `PHYSSTGT` (cycle 75) le lit pour publier le septuplet PAR
+JAMBE, et la portee « depuis la derniere remise a zero du diagnostic » EST la bonne pour cette
+comparaison-la : une jambe entiere. Lui donner une portee de fenetre casserait l'arbitrage du
+cycle 75 sans rien apporter. Les deux sont donc publies cote a cote, `ROOM-STG` et
+`ROOM-STG-PHASE`, la seconde portant son verdict `RATCHET` sur sa propre ligne — le piege est
+desormais visible par machine et plus seulement par memoire.
+
+**Controle de non-regression, tenu au bit.** Course du cycle 77 contre course livree du cycle 76 :
+**46 937 lignes `PHYS` hors `PHYSSTGW`/`PHYSSTGR`, ZERO differente**, `PHYSSTG` et `PHYSSTGT`
+compris. C'est un ajout pur.

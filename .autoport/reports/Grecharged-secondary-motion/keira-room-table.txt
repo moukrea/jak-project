@@ -1,7 +1,7 @@
 ==================================================================================================
 KEIRA — SALLE DE TEST SANS JOUEUR : TABLEAU DE MESURE
 genere par .autoport/physics_room_table.py depuis .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
-empreinte de la trace lue : md5 afc37b526f4d7a1986114ffffc8c933b (4515415 octets)
+empreinte de la trace lue : md5 ee72c62bcd281cc1b32e2bec8679fdc8 (4618737 octets)
 contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 7 (ce qui fait foi)
 
 -- ROOM-INSTRUMENTS-MUETS : CE QUE CE TABLEAU NE MESURE PAS AUJOURD'HUI ------------
@@ -1201,6 +1201,97 @@ ROOM-APEX-REGIME: chestL   r=14 rollB         apex=0.3552 B0  [0.20-0.30] -> AU-
 ROOM-APEX-REGIME: chestR   r=14 rollB         apex=0.4111 B0  [0.20-0.30] -> AU-DESSUS (x1.37) (SATURE) GELE     (x1.33 kn)
    §20 idem, cote oppose
 
+   -- ROOM-REGSTG : LES SEPT ETAGES DE §22 SUR LES FENETRES DE REGIME -------
+      NATURE : `|p_rlk - pose d'auteur|` rapporte a B0 (SPEC 6, 602.0 u), c'est-a-dire
+      le deplacement du JOINT du maillon racine simule.
+      REPERE : le MONDE, contre la pose d'AUTEUR de la MEME frame.
+      POPULATION : les sept valeurs viennent d'UNE SEULE frame, celle qui maximise
+      l'ETAGE 0 sur la fenetre.
+      LECTURE QUAND LE DEFAUT EST ABSENT : 0.0000 aux sept etages.
+      ETAGES : 0 avant le filet de §22 · 1 apres le filet · 2 apres la 1re contrainte
+      de LONGUEUR · 3 apres la 1re COLLISION · 4 apres les 8 iterations · 5 avant la peau ·
+      6 apres la peau = LA VALEUR LIVREE.
+ROOM-REGSTG: chestL   r= 0 base          s0=0.0308 s1=0.0308 s2=0.0309 s3=0.0309 s4=0.0309 s5=0.0309 s6=0.0309
+   aucune passe ne retire : s6 >= s0
+ROOM-REGSTG: chestR   r= 0 base          s0=0.0237 s1=0.0237 s2=0.0237 s3=0.0237 s4=0.0237 s5=0.0237 s6=0.0237
+   aucune passe ne retire : s6 >= s0
+ROOM-REGSTG: chestL   r= 1 jumpA-push    s0=0.1789 s1=0.1789 s2=0.1770 s3=0.1770 s4=0.1770 s5=0.1770 s6=0.1770
+   retire le plus : etage 2 (0.1789 -> 0.1770, -0.0019 B0, 1.1 % de s0)  ·  reste livre 0.1770 = 98.9 % de s0
+ROOM-REGSTG: chestR   r= 1 jumpA-push    s0=0.3557 s1=0.3557 s2=0.3575 s3=0.3576 s4=0.3576 s5=0.3566 s6=0.3566
+   retire le plus : etage 5 (0.3576 -> 0.3566, -0.0010 B0, 0.3 % de s0)  ·  reste livre 0.3566 = 100.3 % de s0
+ROOM-REGSTG: chestL   r= 2 jumpA-fly     s0=0.2217 s1=0.2217 s2=0.2220 s3=0.2220 s4=0.2220 s5=0.2220 s6=0.2220
+   aucune passe ne retire : s6 >= s0
+ROOM-REGSTG: chestR   r= 2 jumpA-fly     s0=0.2584 s1=0.2584 s2=0.2541 s3=0.2541 s4=0.2541 s5=0.2541 s6=0.2541
+   retire le plus : etage 2 (0.2584 -> 0.2541, -0.0043 B0, 1.7 % de s0)  ·  reste livre 0.2541 = 98.3 % de s0
+ROOM-REGSTG: chestL   r= 3 jumpA-land    s0=0.1106 s1=0.1106 s2=0.1013 s3=0.1013 s4=0.1013 s5=0.1013 s6=0.1037
+   retire le plus : etage 2 (0.1106 -> 0.1013, -0.0093 B0, 8.4 % de s0)  ·  reste livre 0.1037 = 93.8 % de s0
+ROOM-REGSTG: chestR   r= 3 jumpA-land    s0=0.2938 s1=0.2938 s2=0.2897 s3=0.2897 s4=0.2897 s5=0.2897 s6=0.2897
+   retire le plus : etage 2 (0.2938 -> 0.2897, -0.0041 B0, 1.4 % de s0)  ·  reste livre 0.2897 = 98.6 % de s0
+ROOM-REGSTG: chestL   r= 4 jumpB-push    s0=0.2385 s1=0.2385 s2=0.2364 s3=0.2364 s4=0.2364 s5=0.2364 s6=0.2364
+   retire le plus : etage 2 (0.2385 -> 0.2364, -0.0021 B0, 0.9 % de s0)  ·  reste livre 0.2364 = 99.1 % de s0
+ROOM-REGSTG: chestR   r= 4 jumpB-push    s0=0.3154 s1=0.3154 s2=0.3165 s3=0.3165 s4=0.3165 s5=0.3165 s6=0.3165
+   aucune passe ne retire : s6 >= s0
+ROOM-REGSTG: chestL   r= 5 jumpB-fly     s0=0.2223 s1=0.2223 s2=0.2216 s3=0.2216 s4=0.2216 s5=0.2216 s6=0.2216
+   retire le plus : etage 2 (0.2223 -> 0.2216, -0.0007 B0, 0.3 % de s0)  ·  reste livre 0.2216 = 99.7 % de s0
+ROOM-REGSTG: chestR   r= 5 jumpB-fly     s0=0.2978 s1=0.2978 s2=0.2918 s3=0.2918 s4=0.2918 s5=0.2918 s6=0.2918
+   retire le plus : etage 2 (0.2978 -> 0.2918, -0.0060 B0, 2.0 % de s0)  ·  reste livre 0.2918 = 98.0 % de s0
+ROOM-REGSTG: chestL   r= 6 jumpB-land    s0=0.1346 s1=0.1346 s2=0.1233 s3=0.1233 s4=0.1233 s5=0.1233 s6=0.1263
+   retire le plus : etage 2 (0.1346 -> 0.1233, -0.0113 B0, 8.4 % de s0)  ·  reste livre 0.1263 = 93.8 % de s0
+ROOM-REGSTG: chestR   r= 6 jumpB-land    s0=0.2457 s1=0.2457 s2=0.2458 s3=0.2458 s4=0.2458 s5=0.2458 s6=0.2458
+   aucune passe ne retire : s6 >= s0
+ROOM-REGSTG: chestL   r= 7 runA-accel    s0=0.3673 s1=0.3673 s2=0.3663 s3=0.3663 s4=0.3663 s5=0.3648 s6=0.3648
+   retire le plus : etage 5 (0.3663 -> 0.3648, -0.0015 B0, 0.4 % de s0)  ·  reste livre 0.3648 = 99.3 % de s0
+ROOM-REGSTG: chestR   r= 7 runA-accel    s0=0.3732 s1=0.3732 s2=0.3730 s3=0.3730 s4=0.3730 s5=0.3691 s6=0.3691
+   retire le plus : etage 5 (0.3730 -> 0.3691, -0.0039 B0, 1.0 % de s0)  ·  reste livre 0.3691 = 98.9 % de s0
+ROOM-REGSTG: chestL   r= 8 runA-brake    s0=0.3205 s1=0.3205 s2=0.3204 s3=0.3204 s4=0.3204 s5=0.3204 s6=0.3204
+   retire le plus : etage 2 (0.3205 -> 0.3204, -0.0001 B0, 0.0 % de s0)  ·  reste livre 0.3204 = 100.0 % de s0
+ROOM-REGSTG: chestR   r= 8 runA-brake    s0=0.2628 s1=0.2628 s2=0.2630 s3=0.2630 s4=0.2630 s5=0.2630 s6=0.2630
+   aucune passe ne retire : s6 >= s0
+ROOM-REGSTG: chestL   r= 9 yawA          s0=0.0690 s1=0.0690 s2=0.0690 s3=0.0690 s4=0.0690 s5=0.0690 s6=0.0690
+   aucune passe ne retire : s6 >= s0
+ROOM-REGSTG: chestR   r= 9 yawA          s0=0.3819 s1=0.3819 s2=0.3817 s3=0.3817 s4=0.3817 s5=0.3817 s6=0.3817
+   retire le plus : etage 2 (0.3819 -> 0.3817, -0.0002 B0, 0.1 % de s0)  ·  reste livre 0.3817 = 99.9 % de s0
+ROOM-REGSTG: chestL   r=10 yawB          s0=0.1022 s1=0.1022 s2=0.1021 s3=0.1021 s4=0.1021 s5=0.1021 s6=0.1021
+   retire le plus : etage 2 (0.1022 -> 0.1021, -0.0001 B0, 0.1 % de s0)  ·  reste livre 0.1021 = 99.9 % de s0
+ROOM-REGSTG: chestR   r=10 yawB          s0=0.4233 s1=0.4233 s2=0.4242 s3=0.3887 s4=0.3851 s5=0.3851 s6=0.3851
+   retire le plus : etage 3 (0.4242 -> 0.3887, -0.0355 B0, 8.4 % de s0)  ·  reste livre 0.3851 = 91.0 % de s0
+ROOM-REGSTG: chestL   r=11 pitchA-bend   s0=0.5035 s1=0.4837 s2=0.4824 s3=0.4287 s4=0.4241 s5=0.4241 s6=0.4241
+   retire le plus : etage 3 (0.4824 -> 0.4287, -0.0537 B0, 10.7 % de s0)  ·  reste livre 0.4241 = 84.2 % de s0
+ROOM-REGSTG: chestR   r=11 pitchA-bend   s0=0.4871 s1=0.4758 s2=0.4651 s3=0.4434 s4=0.4413 s5=0.4413 s6=0.4409
+   retire le plus : etage 3 (0.4651 -> 0.4434, -0.0217 B0, 4.5 % de s0)  ·  reste livre 0.4409 = 90.5 % de s0
+ROOM-REGSTG: chestL   r=12 pitchA-return s0=0.4691 s1=0.4642 s2=0.4642 s3=0.3820 s4=0.3740 s5=0.3740 s6=0.3715
+   retire le plus : etage 3 (0.4642 -> 0.3820, -0.0822 B0, 17.5 % de s0)  ·  reste livre 0.3715 = 79.2 % de s0
+ROOM-REGSTG: chestR   r=12 pitchA-return s0=0.4187 s1=0.4187 s2=0.4174 s3=0.4174 s4=0.4174 s5=0.4174 s6=0.2830
+   retire le plus : etage 6 (0.4174 -> 0.2830, -0.1344 B0, 32.1 % de s0)  ·  reste livre 0.2830 = 67.6 % de s0
+ROOM-REGSTG: chestL   r=13 rollA         s0=0.3929 s1=0.3929 s2=0.3929 s3=0.3929 s4=0.3929 s5=0.3929 s6=0.3929
+   aucune passe ne retire : s6 >= s0
+ROOM-REGSTG: chestR   r=13 rollA         s0=0.3556 s1=0.3556 s2=0.3554 s3=0.3554 s4=0.3554 s5=0.3554 s6=0.3554
+   retire le plus : etage 2 (0.3556 -> 0.3554, -0.0002 B0, 0.1 % de s0)  ·  reste livre 0.3554 = 99.9 % de s0
+ROOM-REGSTG: chestL   r=14 rollB         s0=0.3754 s1=0.3754 s2=0.3742 s3=0.3401 s4=0.3249 s5=0.3226 s6=0.3226
+   retire le plus : etage 3 (0.3742 -> 0.3401, -0.0341 B0, 9.1 % de s0)  ·  reste livre 0.3226 = 85.9 % de s0
+ROOM-REGSTG: chestR   r=14 rollB         s0=0.3841 s1=0.3841 s2=0.3851 s3=0.3851 s4=0.3851 s5=0.3851 s6=0.3851
+   aucune passe ne retire : s6 >= s0
+ROOM-REGSTG-CTRL: chestL    s6 vs jt0 : ecart median 0.0000 B0, pire 0.0192 B0 (r=9)
+                            s6 vs jt1 : ecart median 0.0494 B0, pire 0.0642 B0 (r=7)
+                            somme|s6-jt0|=0.0406  somme|s6-jt1|=0.5969  ->  le septuplet lit le
+                            MAILLON 0
+   CE CONTROLE IDENTIFIE LE MAILLON, IL NE BORNE RIEN. `jt0` est `jt` a l'argmax de `ee`
+   (jak-hd-physics.gc:3971-3975), `s6` est `jt` a l'argmax de l'etage 0 (:1077-1078) : deux
+   argmax de deux grandeurs differentes sur la meme fenetre. Aucune inegalite ne les relie, et
+   la premisse inverse — publiee au cycle 77 dans `c77-predictions.txt` P6 et dans le
+   commentaire de phys-room.gc — etait fausse. L'ECART entre les deux est donc un DIAGNOSTIC
+   d'accord, jamais un verdict : il ne fait echouer personne.
+ROOM-REGSTG-CTRL: chestR    s6 vs jt0 : ecart median 0.0028 B0, pire 0.0966 B0 (r=14)
+                            s6 vs jt1 : ecart median 0.0578 B0, pire 0.0720 B0 (r=12)
+                            somme|s6-jt0|=0.3835  somme|s6-jt1|=0.6220  ->  le septuplet lit le
+                            MAILLON 0
+   CE CONTROLE IDENTIFIE LE MAILLON, IL NE BORNE RIEN. `jt0` est `jt` a l'argmax de `ee`
+   (jak-hd-physics.gc:3971-3975), `s6` est `jt` a l'argmax de l'etage 0 (:1077-1078) : deux
+   argmax de deux grandeurs differentes sur la meme fenetre. Aucune inegalite ne les relie, et
+   la premisse inverse — publiee au cycle 77 dans `c77-predictions.txt` P6 et dans le
+   commentaire de phys-room.gc — etait fausse. L'ECART entre les deux est donc un DIAGNOSTIC
+   d'accord, jamais un verdict : il ne fait echouer personne.
+
    -- ROOM-APEX-RATIO : LE CONTROLE DE L'INSTRUMENT, PAS UNE EXIGENCE DE LA SPEC -
       LES BANDES DE SA PROPRE SPEC IMPLIQUENT UN RAPPORT apex/COM. §14 30/25,
       §16 30/25, §17 25/18, §18 20/17, §20 20/15 : entre x1.19 et x1.35. Ce n'est
@@ -1238,6 +1329,29 @@ ROOM-APEX-RATIO: chestR   r=12 pitchA-return apex=0.5054 com=0.2468  rapport x2.
 ROOM-APEX-RATIO: chestR   r=13 rollA         apex=0.4929 com=0.2577  rapport x1.913
 ROOM-APEX-RATIO: chestR   r=14 rollB         apex=0.4111 com=0.2097  rapport x1.960
 ROOM-APEX-RATIO: n=30  min x1.423  mediane x1.910  max x2.148  —  bande implicite de sa spec x1.19 a x1.35
+
+   -- ROOM-STG : LES SEPT ETAGES DE §22, PORTEE FENETRE CONTRE PORTEE PHASE -
+      NATURE : `|p_rlk - pose d'auteur|` rapporte a B0 (SPEC 6, 602.0 u), c'est-a-dire
+      le deplacement du JOINT du maillon racine simule.
+      REPERE : le MONDE, contre la pose d'AUTEUR de la MEME frame.
+      POPULATION : les sept valeurs viennent d'UNE SEULE frame, celle qui maximise
+      l'ETAGE 0 sur la fenetre.
+      LECTURE QUAND LE DEFAUT EST ABSENT : 0.0000 aux sept etages.
+      ETAGES : 0 avant le filet de §22 · 1 apres le filet · 2 apres la 1re contrainte
+      de LONGUEUR · 3 apres la 1re COLLISION · 4 apres les 8 iterations · 5 avant la peau ·
+      6 apres la peau = LA VALEUR LIVREE.
+      LES DEUX LIGNES LISENT LE MEME EMPLACEMENT MOTEUR AU MEME INSTANT : la
+      seule variable declaree est la PORTEE du latch — la FENETRE pour
+      `PHYSSTGW`, la PHASE pour `PHYSSTG`. Tout ecart entre elles est un
+      ecart de portee, rien d'autre.
+ROOM-STG: chain=chestL n=186 max6=0.4984 desc6=97 distincts=186
+   population lisible (186 fenetres, 97 descentes)
+ROOM-STG: chain=chestR n=186 max6=0.4897 desc6=97 distincts=186
+   population lisible (186 fenetres, 97 descentes)
+ROOM-STG-PHASE: chain=chestL n=186 max6=0.5000 desc6=0 distincts=7
+   RATCHET — la serie ne descend jamais : ce n'est pas une population de fenetres, c'est UN maximum courant republie n fois.
+ROOM-STG-PHASE: chain=chestR n=186 max6=0.5000 desc6=0 distincts=8
+   RATCHET — la serie ne descend jamais : ce n'est pas une population de fenetres, c'est UN maximum courant republie n fois.
 
 -- ROOM-REGB : §14 A §17 REJOUEES SUR LES AXES DU SUJET (PH-REGB) ------------------------
 ROOM-REGB-SENS: gravite sur la ligne verticale de l'ancre = +0.981198  -> le HAUT est son oppose (garde |gv| > 0.5 : OK)
