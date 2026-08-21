@@ -17,6 +17,11 @@ chestR. C'EST LE RESULTAT DU CYCLE : LA TRANSLATION DU JOINT N'EST PAS LE TERME 
 Controle : DESARMEE, la course rend **46 930 lignes `PHYS`, ZERO DIFFERENTE** de celle du cycle 75.
 Conversions, une seule fois : B0 = 602,0 u ; 4096 u = 1 m ; 1 B0 = 0,14697 m.
 
+BREAST-PENETRATION: 0.0544 m — `meshpen`, DIAGNOSTIC et jamais un verdict (arbitrage
+2026-08-20 13:20). Il etait a 0.1288 m au cycle 75 : **il BAISSE de 58 %**, et ce n'est pas ce que
+j'avais predit. Sous le plafond epingle ne veut pas dire regle : tant que ce n'est pas zero, ca se
+declare, avec le chiffre. Par chaine : chestL 0.0956 -> 0.0544 m, chestR 0.1288 -> 0.0344 m.
+
 Predictions pre-inscrites AVANT toute edition et AVANT toute course :
 `c76-predictions.txt`, md5 **3236f6ceae86fdcd49727ba8b60fcb3f**. **Trois d'entre elles echouent, et
 elles sont traitees les premieres au §3.**
@@ -181,7 +186,7 @@ sur 372 la violaient a l'ecran. Plus aucune.
 0,0544/0,0344 · `tipvar` 0,1721/0,1873 -> 0,1877/0,1847 · `ROOM-IDLE` 0,0002 inchange ·
 31/31 animations, 310 mesures, 2 chaines. Aucun plancher de conservation approche.
 
-**TIER : GOAL SEUL** — trois builds `(mi)` (44 s, 23 s, 15 s ; 551 cibles) et **deux courses de
+**TIER : GOAL SEUL** — quatre builds `(mi)` (45 s, 23 s, 15 s, 20 s ; 551 cibles) et **deux courses de
 salle**, l'armee et sa jambe desarmee. Aucun rebuild NDK, aucun gradle.
 Course livree : md5 `122c1e1baae32d7139b4947ad0f06e6b`, empreinte verifiee DANS le tableau ecrit.
 Course de controle : `keira-room-x86.c76-disarmed.log`.
