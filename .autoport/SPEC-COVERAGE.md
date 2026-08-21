@@ -77,6 +77,79 @@ parlent d'autre chose que de la poitrine sont hors périmètre, pas « tenues »
 
 
 
+## Cycle 78 — LE « RENDEMENT D'UN SEPTIEME » DU CYCLE 77 EST RETIRE : IL COMPARAIT UNE SORTIE SATUREE A UN MODELE NON SATURE
+
+**CE QUI EST RETIRE, ET C'EST MOI QUI l'avais ecrit.** Le cycle 77 a publie que la poitrine « rend
+14 a 25 % (chestL) et 26 a 51 % (chestR) » de ce que sa frequence et son amortissement impliquent,
+et il en a conclu que le deficit vivait « dans le CORPS DE L'INTEGRATION seul ». **Le numerateur
+etait bon, le DENOMINATEUR etait faux** : il comparait la sortie a la reponse impulsionnelle
+`Dv/omega` d'un oscillateur LIBRE, alors que le moteur livre porte deux limiteurs ARMES dans cette
+meme boucle — le mur de force de §21 (`*phys-fwall*`=1, genou 0,42 B0, gel 0,4992 B0 ; le cycle 71
+avait deja mesure 55,3 % de fenetres de regime dans sa zone gelee) et la contrainte de LONGUEUR
+DURE, qui fait du maillon 0 un pendule. Piege `clipped-input-needs-amplitude-and-frequency`.
+
+**PREUVE (a) — LE MODELE.** Un modele de reference du schema discret tel qu'il est ECRIT, portant
+ces deux limiteurs, pilote par le profil en forme close de la salle (`physroom-jump-y`,
+`physroom-run-z`), sur la geometrie du mesh livre, **sans un seul parametre ajuste**, reproduit
+chestR sur les huit regimes de translation et sur DEUX statistiques independantes :
+
+    perr    (|p - tg| avant les sous-pas)  mesure/modele : 0,96 1,03 1,03 1,05 1,08 1,12 1,15 1,22
+    etage 0 (|p - pose auteur| apres)      mesure/modele : 0,73 0,85 0,92 0,93 0,99 1,01 1,03 1,17
+
+L'hypothese qui porte le modele — `tg` = pose d'auteur — est MESUREE par le moteur lui-meme :
+`rgap = 0,0125 B0 = 7,5 u` sur les 30 fenetres (`ROOM-REGLIM`, colonne 1). Toutes les
+simplifications du modele le font SUR-predire (il ignore collision, peau, pli, `phys-cap-e22!`,
+restitution, et l'anisotropie de §29 dont l'ajout ne deplace la mediane que de 0,96 a 0,96).
+
+**PREUVE (b) — L'ABLATION EN MOTEUR.** `*phys-fwall*` 1 -> 0, un caractere, une course, comparee a
+la course archivee du cycle 77. Controle d'armement : `stif_n` **48 453 -> 0**. Temoin negatif :
+`r=0` sans pilotage x0,997 / x1,025. Resultat sur les 30 fenetres de regime, groupe par l'etat du
+mur dans la ligne de base — **et le classeur du cycle 71, ecrit pour une autre question, predit
+exactement quelles fenetres allaient bouger** :
+
+    LINEAIRE (mur jamais engage)  n=10   mediane **x1,004**   (5 fenetres de saut de chestL : x1,00)
+    GENOU                         n= 3   mediane   x1,015
+    GELE (force constante)        n=17   mediane **x1,245**   max x1,697
+    TOUTES                        n=30   mediane   x1,159     max x1,840
+
+**Retirer le plus gros suppresseur de la boucle d'integration rend x1,16, pas x7.** Sur toute la
+course : `tipvar` 0,1877 -> 0,1956 (chestL, +4,2 %) et 0,1847 -> 0,2097 (chestR, +13,5 %).
+
+**LE PRIX, ET C'EST POURQUOI LE MUR RESTE ARME EN LIVRAISON.** L'etage 6 (valeur LIVREE) reste
+sous le plafond dur de §22 sur le JOINT (0,4409 -> 0,4708 B0) parce que la borne en DEPLACEMENT du
+cycle 76 prend le relais (`sat_n` 38 969 -> 47 474). Mais sur l'APEX — la grandeur que §22 NOMME —
+`ROOM-APEX` chestL passe de 0,8929 a **1,0404 B0** (x1,79 -> x2,08 hors bande), `ROOM-COM` de
+0,4590 a 0,4991, et `meshpen` de 0,0544 a 0,0607 m (+11,6 %).
+
+**CE QUE CA CHANGE POUR §14 A §20.** Aucune section ne change de statut : ce cycle ne touche pas la
+physique. Ce qui change est la CAUSE inscrite. §14, §15, §16, §17, §18, §19, §20 ne sont plus « sous
+leur bande parce que le solveur perd du mouvement ». Le solveur rend ce que sa mecanique implique.
+**Elles sont sous leur bande parce que le plafond de §22 (0,42 B0 au genou, 0,4992 B0 au gel) est
+pose juste au-dessous de la bande que §16 demande d'atteindre (« Strong landing apex: 30-42% B0 ;
+Very hard / exceptional: 42-50% B0 »).** C'est un conflit entre deux sections de la spec, pas un
+defaut de moteur.
+
+**ET UN FAIT GEOMETRIQUE QUI N'ETAIT PAS AU DOSSIER**, mesure sur la source primaire
+(`keira-hd-donor-injected.glb`, trois derivations concordantes a 2e-4 u ; controle : |D| reproduit
+`PHYSBONE l=0` a +0,15 % et le maillon 1 a -0,0001 %) : l'os `chest`->`lBoob` vaut
+(+379,9040, +957,8590, +155,2385), soit **23,193 deg de la VERTICALE du monde**. Sous la contrainte
+de longueur dure, seuls **39,4 %** d'un pilotage VERTICAL (§14/§15/§16) sont tangentiels et peuvent
+deplacer le joint, contre **98,9 %** d'un pilotage AVANT (§17). C'est une raison geometrique, non
+un defaut, pour que les regimes de saut rendent structurellement moins que ceux de course.
+
+**CE QUI RESTE NON ETABLI, ET LE VERROU D'ASYMETRIE S'APPLIQUE.** chestL rend 0,38 a 1,07 la ou
+chestR rend 0,73 a 1,17 sur le MEME modele. `ROOM-ASYM-POSE` : `PH-REG heritee ecart=47,3 deg
+-> REFUSEE` (seuil 1,3 ; rig symetrique a 0,005 deg en bind, redemontre ici a dx = -0,0041 u).
+**POSE NON SYMETRIQUE** : le modele emploie la direction d'os de la pose de BIND, qui ne peut pas
+etre juste des deux cotes dans une pose a 47,3 deg du miroir. L'ecart est NON ETABLI et sa cause la
+plus probable est le modele, pas la chaine. Instrument manquant, et il est de SALLE (zero ligne de
+moteur, le plafond de 4800 etant a une ligne) : publier la direction d'os JOUEE par chaine et par
+fenetre.
+
+**NON EXPLIQUE, NOTE ET NON COMBLE :** chestR `yawA` BAISSE quand on desarme le mur (etage 0
+x0,663, etage 6 0,3817 -> 0,1117), depuis une fenetre qui part du repos.
+
+
 ## Cycle 76 — LA BORNE DE §22 N'EST PLUS EFFACEE EN AVAL, ET L'APEX NE BOUGE QUASIMENT PAS : LA PREUVE QUE LA TRANSLATION N'EST PAS LE TERME QUI COMPTE
 
 **CE QUI A CHANGE DANS LE MOTEUR.** Une passe finale, `phys-cap-e22!` ([NOTE-447]), appelee entre

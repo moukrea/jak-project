@@ -1,0 +1,59 @@
+PREDICTIONS DU CYCLE 78 — ecrites AVANT toute edition et AVANT toute course
+DIRECTIVES v3fee554599
+Perimetre : chestL / chestR seules. Branche physics-keira-clean.
+
+THESE A TESTER
+--------------
+Le "rendement 1/7" du cycle 77 compare une sortie SATUREE a un modele NON sature. Le mur de
+force de §21 (`mu`, jak-hd-physics.gc:2984-2992, arme par `*phys-fwall*`=1 :554) et la
+contrainte de LONGUEUR DURE sont tous deux armes dans le moteur livre, et le cycle 71 avait
+deja mesure que 55,3 % des fenetres de regime sont dans la zone GELEE du mur (`ROOM-REGLIM`).
+Un modele de reference du SCHEMA DISCRET tel qu'il est ecrit, pilote par le profil en forme
+close de la salle elle-meme (`physroom-jump-y` / `physroom-run-z`), sur la geometrie reelle
+(os `chest`->`lBoob` 1040.50 u), AVEC ces deux limiteurs, rend sur chestR :
+   perr    : mesure/modele = 0.96 1.03 1.03 1.05 1.08 1.12 1.15 1.22   (8 regimes)
+   etage 0 : mesure/modele = 0.73 0.85 0.92 0.93 0.99 1.01 1.03 1.17
+Aucun parametre n'est ajuste : frequence, amortissement, masse viennent de
+`recharged_assets/physics_chains.txt`, la geometrie du mesh, le pilotage du code de la salle.
+
+ABLATION : `*phys-fwall*` 1 -> 0. Un seul caractere. Rien d'autre n'est touche.
+
+P1  ARMEMENT DU CONTROLE. `PHYSLIM4 stif_n` doit valoir EXACTEMENT 0 (ligne de base 48453).
+    Non nul = l'ablation n'a pas eu lieu, et RIEN d'autre dans ce fichier n'est lisible.
+
+P2  MONTEE PAR FENETRE de `ROOM-REGSTG s0` (ablation / ligne de base archivee du cycle 77).
+    Rapports predits, tolerance +/- 35 % sur le rapport :
+        r=       1     2     3     4     5     6     7     8
+        chestL 1.34  2.14  0.91  1.97  2.76  1.01  3.04  3.97
+        chestR 1.31  2.02  0.92  1.93  2.66  1.03  3.01  5.08
+    LE CONTRASTE EST LE TEST, PAS LES HUIT NOMBRES : sur LES DEUX chaines,
+        r=3 et r=6 (receptions) doivent rester <= x1.30
+        r=7 et r=8 (course)      doivent depasser  x2.00
+    Une montee UNIFORME, ou une absence de montee, REFUTE l'attribution au mur de §21.
+
+P3  MONTEE DE `perr` (`ROOM-REGLIM`), memes fenetres, meme tolerance :
+        chestL 1.22  1.81  0.94  1.65  2.67  0.99  2.74  2.92
+        chestR 1.20  1.83  0.94  1.63  2.56  1.01  2.51  3.18
+    Et le NOMBRE de fenetres classees GELE doit AUGMENTER (le classeur lit `perr` contre le
+    genou, il ignore si le mur est arme : desarmer le mur fait monter `perr`, donc le compte).
+
+P4  TEMOIN NEGATIF DANS L'ABLATION. `r=0 base` (aucun pilotage) doit rester inchange a +/- 10 %
+    (ligne de base s0 = 0.0308 chestL / 0.0237 chestR). Raison : au repos `perr` vaut
+    0.0362 / 0.0230 B0, tres au-dessous du genou 0.42 B0, donc `mu` y vaut deja 1 et le
+    desarmement ne peut rien y changer. Si le temoin bouge, l'ablation n'est pas specifique.
+
+P5  `ROOM-IDLE` reste 0.000 et `[SCOPE] 2 chaines`, `[ANIM] 2/2`, `31/31` animations inchanges.
+
+P6  L'ARBRE LIVRE EST RESTAURE. Apres la course, `*phys-fwall*` revient a 1 et l'arbre est
+    reconstruit ; `git diff` sur `goal_src/` doit etre VIDE a la fin du cycle. La ligne de base
+    n'est PAS rejouee : c'est la course archivee du cycle 77
+    (`keira-room-x86.20260821-161318.log` etant celle du c76 ; la base c77 est
+    `keira-room-table.txt` md5 ee72c62bcd281cc1b32e2bec8679fdc8).
+
+P7  AUCUNE GATE TOUCHEE, aucun seuil, aucun `die`. Le compte de lignes de
+    `jak-hd-physics.gc` reste 4799 (l'edition est un caractere).
+
+P8  CE QUE JE M'INTERDIS. Si P2 est refutee, je NE pose aucun correctif et je publie la
+    refutation : nommer un autre coupable dans le meme cycle serait inventer une attribution.
+    Et le mur reste ARME dans le build livre quoi qu'il arrive : le desarmer ferait sauter le
+    plafond dur de §22 (0.50 B0), ce qui est un DEFAUT, pas une correction.
