@@ -560,6 +560,7 @@
 (define *phys-rr-off* 0)
 ;; [NOTE-181] CONTROLE DU CYCLE 44 — 1 = LA BORNE D'ANGLE `phys-bend-chain` EST ENTIEREMENT DESARMEE. -> jak-hd-physics-NOTES.md
 (define *phys-bend-off* 0)
+(define *phys-fwall* 0)   ;; [NOTE-330] 1 = MUR DE FORCE §21 ARME (etat d'avant le cycle 72) -> jak-hd-physics-NOTES.md
 
 ;; `*phys-njoint*` retiree : ecrite chaque step, RELUE PAR PERSONNE. Classe de `*phys-lmean*`.
 
@@ -2935,8 +2936,8 @@
                                                 (ez (- tgz (-> *phys-pz* scl)))
                                                 (dd (sqrtf (+ (* ex ex) (+ (* ey ey) (* ez ez)))))
                                                 ;; [NOTE-42] SPEC 21 SOUS LA SEULE FORME QUI NE RETIRE RIEN : -> jak-hd-physics-NOTES.md
-                                                (mu (if (and (nonzero? sat) (> dd kn)
-                                                             (> cpp 0.0001) (> dd 0.0001))
+                                                (mu (if (and (nonzero? *phys-fwall*) (nonzero? sat)
+                                                             (> dd kn) (> cpp 0.0001) (> dd 0.0001))
                                                       (let ((xr (fmin 0.99 (/ (- dd kn) cpp))))
                                                         (fmin (/ (+ kn (* cpp (/ xr (- 1.0 xr)))) dd)
                                                               (/ 1.0 (fmax 0.000001 k2s))))
