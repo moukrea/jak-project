@@ -601,3 +601,16 @@ Verrou : une priorite ne se construit jamais sur un extremum. Avant d'en faire u
 POPULATION — combien de cellules au-dessus, combien dedans, combien dessous — et verifier qu'un
 correctif unique les deplace toutes dans le bon sens. Voisin de `argmax-anchor-is-not-a-population`
 et de `com-is-a-population-not-a-max`, tombes tous les deux sur le meme raccourci.
+
+GUARD internal-target-is-not-the-rest-pose .autoport/DIRECTIVES.md cible interne du ressort
+**J'ai traduit une grandeur INTERNE en langage owner et je l'ai mis en contradiction avec ce qu'il
+voit.** Le cycle 85 publie « sans aucun pilotage le joint se tient a 1,8 B0 de sa propre cible de
+repos » ; j'ai relaye « le probleme est dans la position d'equilibre elle-meme », ce qui se lit
+« sa pose de repos est cassee ». L'owner a repondu « au repos ca avait l'air tres bien » — et il
+avait raison : `ROOM-IDLE maxdev=0,0002` contre la POSE D'AUTEUR, c'est-a-dire rien.
+Les deux sont vrais : le joint est a la bonne place a l'ecran, mais la CIBLE DU RESSORT est
+ailleurs, donc il tire en permanence — invisible a l'arret, visible des que l'animation avance.
+Verrou : avant de traduire une grandeur pour l'owner, identifier sa REFERENCE. « ecart a la cible
+interne » n'est pas « ecart a la pose d'auteur », et seul le second decrit ce qu'il voit. Une
+phrase qui contredit son observation directe est presque toujours une erreur de reference, pas une
+decouverte.
