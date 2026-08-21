@@ -1,7 +1,7 @@
 ==================================================================================================
 KEIRA — SALLE DE TEST SANS JOUEUR : TABLEAU DE MESURE
 genere par .autoport/physics_room_table.py depuis .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
-empreinte de la trace lue : md5 3a961d64e96e2683d47bd5964a0ae013 (4367483 octets)
+empreinte de la trace lue : md5 c14efe99fe92e1dc969e9da9526a4717 (4376284 octets)
 contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 7 (ce qui fait foi)
 
 -- ROOM-INSTRUMENTS-MUETS : CE QUE CE TABLEAU NE MESURE PAS AUJOURD'HUI ------------
@@ -1145,50 +1145,50 @@ ROOM-REGIME-MIRROR: POSE NON SYMETRIQUE — PH-REG heritee est a 48.0 deg du mir
       l'ancrage seul ; manquee de PLUS, non — et c'est cette frontiere qui
       rend chaque ligne ci-dessous lisible. Sa §30 ecrit « Apex — minimal
       direct anchoring » : a 0.94 / 0.95 le mesh livre s'en approche enfin.
-ROOM-APEX-REGIME: chestL   r= 0 base          apex=0.0394 B0   aucune clause d'apex pour ce regime
-ROOM-APEX-REGIME: chestR   r= 0 base          apex=0.0337 B0   aucune clause d'apex pour ce regime
+ROOM-APEX-REGIME: chestL   r= 0 base          apex=0.0394 B0   LINEAIRE (x0.09 kn) aucune clause d'apex pour ce regime
+ROOM-APEX-REGIME: chestR   r= 0 base          apex=0.0337 B0   LINEAIRE (x0.06 kn) aucune clause d'apex pour ce regime
    aucune clause d'apex pour ce regime
-ROOM-APEX-REGIME: chestL   r= 1 jumpA-push    apex=0.2533 B0  [0.20-0.30] -> DANS
-ROOM-APEX-REGIME: chestR   r= 1 jumpA-push    apex=0.4676 B0  [0.20-0.30] -> AU-DESSUS (x1.56)
+ROOM-APEX-REGIME: chestL   r= 1 jumpA-push    apex=0.2533 B0  [0.20-0.30] -> DANS             LINEAIRE (x0.77 kn)
+ROOM-APEX-REGIME: chestR   r= 1 jumpA-push    apex=0.4676 B0  [0.20-0.30] -> AU-DESSUS (x1.56) (SATURE) GELE     (x1.27 kn)
    §14 « Apex displacement: ordinary 20-30% B0 »
-ROOM-APEX-REGIME: chestL   r= 2 jumpA-fly     apex=0.3397 B0   aucune clause d'apex pour ce regime
-ROOM-APEX-REGIME: chestR   r= 2 jumpA-fly     apex=0.2469 B0   aucune clause d'apex pour ce regime
+ROOM-APEX-REGIME: chestL   r= 2 jumpA-fly     apex=0.3397 B0   LINEAIRE (x0.92 kn) aucune clause d'apex pour ce regime
+ROOM-APEX-REGIME: chestR   r= 2 jumpA-fly     apex=0.2469 B0   LINEAIRE (x0.93 kn) aucune clause d'apex pour ce regime
    aucune clause d'apex pour ce regime
-ROOM-APEX-REGIME: chestL   r= 3 jumpA-land    apex=0.1304 B0  [0.30-0.42] -> SOUS (x0.43)   ancrage seul NE SUFFIT PAS (manque x2.30, plafond x1.06)
-ROOM-APEX-REGIME: chestR   r= 3 jumpA-land    apex=0.3215 B0  [0.30-0.42] -> DANS
+ROOM-APEX-REGIME: chestL   r= 3 jumpA-land    apex=0.1304 B0  [0.30-0.42] -> SOUS (x0.43)     LINEAIRE (x0.65 kn)   ancrage seul NE SUFFIT PAS (manque x2.30, plafond x1.06)
+ROOM-APEX-REGIME: chestR   r= 3 jumpA-land    apex=0.3215 B0  [0.30-0.42] -> DANS             GENOU    (x1.07 kn)
    §16 « Strong landing apex: 30-42% B0 »
-ROOM-APEX-REGIME: chestL   r= 4 jumpB-push    apex=0.3220 B0  [0.30-0.38] -> DANS
-ROOM-APEX-REGIME: chestR   r= 4 jumpB-push    apex=0.3964 B0  [0.30-0.38] -> AU-DESSUS (x1.04)
+ROOM-APEX-REGIME: chestL   r= 4 jumpB-push    apex=0.3220 B0  [0.30-0.38] -> DANS             LINEAIRE (x0.97 kn)
+ROOM-APEX-REGIME: chestR   r= 4 jumpB-push    apex=0.3964 B0  [0.30-0.38] -> AU-DESSUS (x1.04) (SATURE) GELE     (x1.22 kn)
    §14 « strong 30-38% B0 »
-ROOM-APEX-REGIME: chestL   r= 5 jumpB-fly     apex=0.3285 B0   aucune clause d'apex pour ce regime
-ROOM-APEX-REGIME: chestR   r= 5 jumpB-fly     apex=0.3085 B0   aucune clause d'apex pour ce regime
+ROOM-APEX-REGIME: chestL   r= 5 jumpB-fly     apex=0.3285 B0   GELE     (x1.20 kn) aucune clause d'apex pour ce regime
+ROOM-APEX-REGIME: chestR   r= 5 jumpB-fly     apex=0.3085 B0   GENOU    (x1.10 kn) aucune clause d'apex pour ce regime
    aucune clause d'apex pour ce regime
-ROOM-APEX-REGIME: chestL   r= 6 jumpB-land    apex=0.1414 B0  [0.42-0.50] -> SOUS (x0.34)   ancrage seul NE SUFFIT PAS (manque x2.97, plafond x1.06)
-ROOM-APEX-REGIME: chestR   r= 6 jumpB-land    apex=0.3367 B0  [0.42-0.50] -> SOUS (x0.80)   ancrage seul NE SUFFIT PAS (manque x1.25, plafond x1.05)
+ROOM-APEX-REGIME: chestL   r= 6 jumpB-land    apex=0.1414 B0  [0.42-0.50] -> SOUS (x0.34)     LINEAIRE (x0.85 kn)   ancrage seul NE SUFFIT PAS (manque x2.97, plafond x1.06)
+ROOM-APEX-REGIME: chestR   r= 6 jumpB-land    apex=0.3367 B0  [0.42-0.50] -> SOUS (x0.80) (SATURE) GELE     (x1.21 kn)   ancrage seul NE SUFFIT PAS (manque x1.25, plafond x1.05)
    §16 « Very hard / exceptional: 42-50% B0 »
-ROOM-APEX-REGIME: chestL   r= 7 runA-accel    apex=0.5709 B0   §17 ne borne l'apex que pour « strong » : PAS de bande ici
-ROOM-APEX-REGIME: chestR   r= 7 runA-accel    apex=0.5337 B0   §17 ne borne l'apex que pour « strong » : PAS de bande ici
+ROOM-APEX-REGIME: chestL   r= 7 runA-accel    apex=0.5709 B0   GELE     (x1.45 kn) §17 ne borne l'apex que pour « strong » : PAS de bande ici
+ROOM-APEX-REGIME: chestR   r= 7 runA-accel    apex=0.5337 B0   GELE     (x1.52 kn) §17 ne borne l'apex que pour « strong » : PAS de bande ici
    §17 ne borne l'apex que pour « strong » : PAS de bande ici
-ROOM-APEX-REGIME: chestL   r= 8 runA-brake    apex=0.4310 B0  [0.25-0.35] -> AU-DESSUS (x1.23)
-ROOM-APEX-REGIME: chestR   r= 8 runA-brake    apex=0.2721 B0  [0.25-0.35] -> DANS
+ROOM-APEX-REGIME: chestL   r= 8 runA-brake    apex=0.4310 B0  [0.25-0.35] -> AU-DESSUS (x1.23) (SATURE) GELE     (x1.36 kn)
+ROOM-APEX-REGIME: chestR   r= 8 runA-brake    apex=0.2721 B0  [0.25-0.35] -> DANS (SATURE)    GELE     (x1.38 kn)
    §17 « Apex displacement: strong 25-35% B0 »
-ROOM-APEX-REGIME: chestL   r= 9 yawA          apex=0.0833 B0   §18 ne borne l'apex que pour « strong » : PAS de bande ici
-ROOM-APEX-REGIME: chestR   r= 9 yawA          apex=0.4648 B0   §18 ne borne l'apex que pour « strong » : PAS de bande ici
+ROOM-APEX-REGIME: chestL   r= 9 yawA          apex=0.0833 B0   LINEAIRE (x0.16 kn) §18 ne borne l'apex que pour « strong » : PAS de bande ici
+ROOM-APEX-REGIME: chestR   r= 9 yawA          apex=0.4648 B0   GENOU    (x1.16 kn) §18 ne borne l'apex que pour « strong » : PAS de bande ici
    §18 ne borne l'apex que pour « strong » : PAS de bande ici
-ROOM-APEX-REGIME: chestL   r=10 yawB          apex=0.1679 B0  [0.20-0.30] -> SOUS (x0.84)   ancrage seul NE SUFFIT PAS (manque x1.19, plafond x1.06)
-ROOM-APEX-REGIME: chestR   r=10 yawB          apex=0.5057 B0  [0.20-0.30] -> AU-DESSUS (x1.69)
+ROOM-APEX-REGIME: chestL   r=10 yawB          apex=0.1679 B0  [0.20-0.30] -> SOUS (x0.84)     LINEAIRE (x0.32 kn)   ancrage seul NE SUFFIT PAS (manque x1.19, plafond x1.06)
+ROOM-APEX-REGIME: chestR   r=10 yawB          apex=0.5057 B0  [0.20-0.30] -> AU-DESSUS (x1.69) (SATURE) GELE     (x1.33 kn)
    §18 « Apex displacement: strong 20-30% B0 »
-ROOM-APEX-REGIME: chestL   r=11 pitchA-bend   apex=0.6280 B0  [0.30-0.40] -> AU-DESSUS (x1.57)
-ROOM-APEX-REGIME: chestR   r=11 pitchA-bend   apex=0.5823 B0  [0.30-0.40] -> AU-DESSUS (x1.46)
+ROOM-APEX-REGIME: chestL   r=11 pitchA-bend   apex=0.6280 B0  [0.30-0.40] -> AU-DESSUS (x1.57) (SATURE) GELE     (x1.35 kn)
+ROOM-APEX-REGIME: chestR   r=11 pitchA-bend   apex=0.5823 B0  [0.30-0.40] -> AU-DESSUS (x1.46) (SATURE) GELE     (x1.58 kn)
    §19 « 30-40% B0 apex displacement » — SA SEULE CLAUSE CHIFFREE
-ROOM-APEX-REGIME: chestL   r=12 pitchA-return apex=0.6423 B0  [0.30-0.40] -> AU-DESSUS (x1.61)
-ROOM-APEX-REGIME: chestR   r=12 pitchA-return apex=0.4941 B0  [0.30-0.40] -> AU-DESSUS (x1.24)
+ROOM-APEX-REGIME: chestL   r=12 pitchA-return apex=0.6423 B0  [0.30-0.40] -> AU-DESSUS (x1.61) (SATURE) GELE     (x1.29 kn)
+ROOM-APEX-REGIME: chestR   r=12 pitchA-return apex=0.4941 B0  [0.30-0.40] -> AU-DESSUS (x1.24) (SATURE) GELE     (x1.32 kn)
    §19 idem, au retour a la verticale
-ROOM-APEX-REGIME: chestL   r=13 rollA         apex=0.3738 B0  [0.20-0.30] -> AU-DESSUS (x1.25)
-ROOM-APEX-REGIME: chestR   r=13 rollA         apex=0.5468 B0  [0.20-0.30] -> AU-DESSUS (x1.82)
+ROOM-APEX-REGIME: chestL   r=13 rollA         apex=0.3738 B0  [0.20-0.30] -> AU-DESSUS (x1.25) (SATURE) GELE     (x1.24 kn)
+ROOM-APEX-REGIME: chestR   r=13 rollA         apex=0.5468 B0  [0.20-0.30] -> AU-DESSUS (x1.82) GENOU    (x1.19 kn)
    §20 « apex 20-30% B0 »
-ROOM-APEX-REGIME: chestL   r=14 rollB         apex=0.3914 B0  [0.20-0.30] -> AU-DESSUS (x1.30)
-ROOM-APEX-REGIME: chestR   r=14 rollB         apex=0.5112 B0  [0.20-0.30] -> AU-DESSUS (x1.70)
+ROOM-APEX-REGIME: chestL   r=14 rollB         apex=0.3914 B0  [0.20-0.30] -> AU-DESSUS (x1.30) (SATURE) GELE     (x1.30 kn)
+ROOM-APEX-REGIME: chestR   r=14 rollB         apex=0.5112 B0  [0.20-0.30] -> AU-DESSUS (x1.70) (SATURE) GELE     (x1.30 kn)
    §20 idem, cote oppose
 
    -- ROOM-APEX-RATIO : LE CONTROLE DE L'INSTRUMENT, PAS UNE EXIGENCE DE LA SPEC -
@@ -1251,25 +1251,25 @@ ROOM-REGB-GESTE: 8 fenetre(s) de pilotage sur 8 rendent le geste que leur sectio
 
    LES BANDES SONT CELLES DE `ROOM-REGIME` ET `ROOM-APEX-REGIME`, AU MOT PRES : ce bloc
    n'introduit aucun seuil. Ce qui change est l'AXE du stimulus, et rien d'autre.
-   chaine    r  regime         apex (sujet)  bande         verdict
-ROOM-REGB-APEX: chestL    0 base            0.0112      [pas de bande] PAS DE BANDE
-ROOM-REGB-APEX: chestL    1 jumpA-push      0.4574      [0.20-0.30]   AU-DESSUS (x1.52)
-ROOM-REGB-APEX: chestL    2 jumpA-fly       0.2752      [pas de bande] PAS DE BANDE
-ROOM-REGB-APEX: chestL    3 jumpA-land      0.1887      [0.30-0.42]   SOUS (x0.63)
-ROOM-REGB-APEX: chestL    4 jumpB-push      0.4597      [0.30-0.38]   AU-DESSUS (x1.21)
-ROOM-REGB-APEX: chestL    5 jumpB-fly       0.1846      [pas de bande] PAS DE BANDE
-ROOM-REGB-APEX: chestL    6 jumpB-land      0.2620      [0.42-0.50]   SOUS (x0.62)
-ROOM-REGB-APEX: chestL    7 runA-accel      0.4359      [pas de bande] PAS DE BANDE
-ROOM-REGB-APEX: chestL    8 runA-brake      0.4038      [0.25-0.35]   AU-DESSUS (x1.15)
-ROOM-REGB-APEX: chestR    0 base            0.0118      [pas de bande] PAS DE BANDE
-ROOM-REGB-APEX: chestR    1 jumpA-push      0.4322      [0.20-0.30]   AU-DESSUS (x1.44)
-ROOM-REGB-APEX: chestR    2 jumpA-fly       0.3312      [pas de bande] PAS DE BANDE
-ROOM-REGB-APEX: chestR    3 jumpA-land      0.2021      [0.30-0.42]   SOUS (x0.67)
-ROOM-REGB-APEX: chestR    4 jumpB-push      0.4615      [0.30-0.38]   AU-DESSUS (x1.21)
-ROOM-REGB-APEX: chestR    5 jumpB-fly       0.1843      [pas de bande] PAS DE BANDE
-ROOM-REGB-APEX: chestR    6 jumpB-land      0.2431      [0.42-0.50]   SOUS (x0.58)
-ROOM-REGB-APEX: chestR    7 runA-accel      0.4163      [pas de bande] PAS DE BANDE
-ROOM-REGB-APEX: chestR    8 runA-brake      0.3966      [0.25-0.35]   AU-DESSUS (x1.13)
+   chaine    r  regime         apex (sujet)  bande         verdict          limiteur SPEC 21 de CETTE fenetre
+ROOM-REGB-APEX: chestL    0 base            0.0112      [pas de bande] PAS DE BANDE     LINEAIRE (x0.02 kn)
+ROOM-REGB-APEX: chestL    1 jumpA-push      0.4574      [0.20-0.30]   AU-DESSUS (x1.52) GENOU    (x1.12 kn)
+ROOM-REGB-APEX: chestL    2 jumpA-fly       0.2752      [pas de bande] PAS DE BANDE     GENOU    (x1.05 kn)
+ROOM-REGB-APEX: chestL    3 jumpA-land      0.1887      [0.30-0.42]   SOUS (x0.63)     LINEAIRE (x0.88 kn)
+ROOM-REGB-APEX: chestL    4 jumpB-push      0.4597      [0.30-0.38]   AU-DESSUS (x1.21) (SATURE) GELE     (x1.36 kn)
+ROOM-REGB-APEX: chestL    5 jumpB-fly       0.1846      [pas de bande] PAS DE BANDE     LINEAIRE (x0.92 kn)
+ROOM-REGB-APEX: chestL    6 jumpB-land      0.2620      [0.42-0.50]   SOUS (x0.62)     GENOU    (x1.07 kn)
+ROOM-REGB-APEX: chestL    7 runA-accel      0.4359      [pas de bande] PAS DE BANDE (SATURE) GELE     (x1.28 kn)
+ROOM-REGB-APEX: chestL    8 runA-brake      0.4038      [0.25-0.35]   AU-DESSUS (x1.15) (SATURE) GELE     (x1.38 kn)
+ROOM-REGB-APEX: chestR    0 base            0.0118      [pas de bande] PAS DE BANDE     LINEAIRE (x0.01 kn)
+ROOM-REGB-APEX: chestR    1 jumpA-push      0.4322      [0.20-0.30]   AU-DESSUS (x1.44) GENOU    (x1.07 kn)
+ROOM-REGB-APEX: chestR    2 jumpA-fly       0.3312      [pas de bande] PAS DE BANDE (SATURE) GELE     (x1.22 kn)
+ROOM-REGB-APEX: chestR    3 jumpA-land      0.2021      [0.30-0.42]   SOUS (x0.67)     LINEAIRE (x0.87 kn)
+ROOM-REGB-APEX: chestR    4 jumpB-push      0.4615      [0.30-0.38]   AU-DESSUS (x1.21) (SATURE) GELE     (x1.33 kn)
+ROOM-REGB-APEX: chestR    5 jumpB-fly       0.1843      [pas de bande] PAS DE BANDE     LINEAIRE (x0.99 kn)
+ROOM-REGB-APEX: chestR    6 jumpB-land      0.2431      [0.42-0.50]   SOUS (x0.58)     GENOU    (x1.06 kn)
+ROOM-REGB-APEX: chestR    7 runA-accel      0.4163      [pas de bande] PAS DE BANDE (SATURE) GELE     (x1.39 kn)
+ROOM-REGB-APEX: chestR    8 runA-brake      0.3966      [0.25-0.35]   AU-DESSUS (x1.13) (SATURE) GELE     (x1.29 kn)
 
 ROOM-REGB-COM:  chestL    0 base            0.0066      [pas de bande] PAS DE BANDE
 ROOM-REGB-COM:  chestL    1 jumpA-push      0.2589      [0.15-0.25]   AU-DESSUS (x1.04)
@@ -1332,6 +1332,193 @@ ROOM-REGB-SYM: 8 fenetre(s) sur 8 rendent une reponse PLUS symetrique quand le s
    de son axe anatomique — doit bouger PLUS que les sauts, qui n'en sont qu'a 11,9 deg.
    L'inverse serait le resultat le plus interessant des deux : il dirait que l'axe n'est
    pas ce qui gouverne la reponse, et qu'il faut chercher ailleurs.
+
+
+-- ROOM-REGLIM : LE MUR DE SPEC 21 SUR CHAQUE FENETRE DE REGIME (cycle 71) ---------------
+   LE MUR EST LU DANS LE SOURCE, PAS SUPPOSE (jak-hd-physics.gc:2859-2860 et :2938-2943) :
+       kn  = 0.42 * B0            genou — identite STRICTE en dessous, mu = 1.0 exactement
+       cpp = 0.08 * B0
+       xr  = fmin(0.99, (dd-kn)/cpp)   <- L'ARGUMENT EST PLAFONNE
+       |f| = k2s * (kn + cpp*xr/(1-xr))
+   Donc trois regimes, et un seul d'entre eux est celui que la spec decrit :
+       perr <= 0.4200 B0            LINEAIRE : le ressort est le ressort.
+       0.4200 < perr <= 0.4992 B0   GENOU : la barriere raidit en x/(1-x). La reponse cesse
+                                   d'etre proportionnelle au stimulus.
+       perr > 0.4992 B0            GELE : l'argument est au plafond, le numerateur vaut
+                                   kn + 99*cpp et LA FORCE DE RAPPEL EST CONSTANTE.
+   UNE FORCE CONSTANTE EST UN TAUX, PAS UNE BORNE. C'est le defaut que le cycle 34 a
+   mesure et corrige sur l'AUTRE canal (le point libre de sa §23) ; il n'a jamais ete
+   porte sur celui-ci. Et sa §21 demande la forme INVERSE, mot pour mot :
+   « D = D_max * tanh(|D|/D_max) » — une saturation du DEPLACEMENT, pas de la FORCE.
+
+   CE QUE VAUT LA FORCE UNE FOIS GELEE, depuis les constantes LIVREES et rien d'autre
+   (dt = 0.0166667 s, jak-hd-physics.gc:2486 ; ns = 4 sous-pas, :2867-2872) :
+   chaine   stiffness    mass  w (rad/s)          k2    k2s=k2/16       |f| gele
+   chestL      2.7696  1.4500    14.4515    0.058013    0.0036258   18.20 u/sous-pas
+                   soit 72.82 u/frame^2, CONSTANTE — elle vaut la MEME chose a 5021 u
+                   d'erreur qu'a 50207 u. Le ressort LINEAIRE, lui, rendrait k2s*dd.
+   chestR      2.9081  1.4800    15.0196    0.062664    0.0039165   19.66 u/sous-pas
+                   soit 78.65 u/frame^2, CONSTANTE — elle vaut la MEME chose a 5021 u
+                   d'erreur qu'a 50207 u. Le ressort LINEAIRE, lui, rendrait k2s*dd.
+
+ROOM-REGLIM-TEMOIN: chestL   r=0 AUCUN PILOTAGE  perr=0.0381 B0  -> LINEAIRE (x0.09 kn)
+ROOM-REGLIM-TEMOIN: chestR   r=0 AUCUN PILOTAGE  perr=0.0241 B0  -> LINEAIRE (x0.06 kn)
+   LE TEMOIN EST SOUS LE GENOU SUR LES DEUX CHAINES : les quatorze autres fenetres
+   ont donc une echelle, et ce qu'elles montrent au-dela du genou est produit par
+   LEUR pilotage.
+
+   phase     chaine     r regime            rgap      perr   etat du limiteur
+ROOM-REGLIM: PH-REG    chestL     0 base            0.0125    0.0381   LINEAIRE (x0.09 kn)    
+ROOM-REGLIM: PH-REG    chestL     1 jumpA-push      0.0125    0.3218   LINEAIRE (x0.77 kn)    
+ROOM-REGLIM: PH-REG    chestL     2 jumpA-fly       0.0125    0.3852   LINEAIRE (x0.92 kn)    
+ROOM-REGLIM: PH-REG    chestL     3 jumpA-land      0.0125    0.2735   LINEAIRE (x0.65 kn)    
+ROOM-REGLIM: PH-REG    chestL     4 jumpB-push      0.0125    0.4063   LINEAIRE (x0.97 kn)    
+ROOM-REGLIM: PH-REG    chestL     5 jumpB-fly       0.0125    0.5037   GELE     (x1.20 kn)    
+ROOM-REGLIM: PH-REG    chestL     6 jumpB-land      0.0125    0.3583   LINEAIRE (x0.85 kn)    
+ROOM-REGLIM: PH-REG    chestL     7 runA-accel      0.0125    0.6073   GELE     (x1.45 kn)    
+ROOM-REGLIM: PH-REG    chestL     8 runA-brake      0.0125    0.5702   GELE     (x1.36 kn)    
+ROOM-REGLIM: PH-REG    chestL     9 yawA            0.0126    0.0691   LINEAIRE (x0.16 kn)    
+ROOM-REGLIM: PH-REG    chestL    10 yawB            0.0126    0.1359   LINEAIRE (x0.32 kn)    
+ROOM-REGLIM: PH-REG    chestL    11 pitchA-bend     0.0126    0.5689   GELE     (x1.35 kn)    
+ROOM-REGLIM: PH-REG    chestL    12 pitchA-return   0.0126    0.5406   GELE     (x1.29 kn)    
+ROOM-REGLIM: PH-REG    chestL    13 rollA           0.0126    0.5219   GELE     (x1.24 kn)    
+ROOM-REGLIM: PH-REG    chestL    14 rollB           0.0126    0.5451   GELE     (x1.30 kn)    
+ROOM-REGLIM: PH-REG    chestR     0 base            0.0124    0.0241   LINEAIRE (x0.06 kn)    
+ROOM-REGLIM: PH-REG    chestR     1 jumpA-push      0.0124    0.5329   GELE     (x1.27 kn)    
+ROOM-REGLIM: PH-REG    chestR     2 jumpA-fly       0.0124    0.3906   LINEAIRE (x0.93 kn)    
+ROOM-REGLIM: PH-REG    chestR     3 jumpA-land      0.0124    0.4508   GENOU    (x1.07 kn)    
+ROOM-REGLIM: PH-REG    chestR     4 jumpB-push      0.0124    0.5134   GELE     (x1.22 kn)    
+ROOM-REGLIM: PH-REG    chestR     5 jumpB-fly       0.0124    0.4636   GENOU    (x1.10 kn)    
+ROOM-REGLIM: PH-REG    chestR     6 jumpB-land      0.0124    0.5098   GELE     (x1.21 kn)    
+ROOM-REGLIM: PH-REG    chestR     7 runA-accel      0.0124    0.6402   GELE     (x1.52 kn)    
+ROOM-REGLIM: PH-REG    chestR     8 runA-brake      0.0124    0.5801   GELE     (x1.38 kn)    
+ROOM-REGLIM: PH-REG    chestR     9 yawA            0.0124    0.4881   GENOU    (x1.16 kn)    
+ROOM-REGLIM: PH-REG    chestR    10 yawB            0.0124    0.5584   GELE     (x1.33 kn)    
+ROOM-REGLIM: PH-REG    chestR    11 pitchA-bend     0.0124    0.6655   GELE     (x1.58 kn)    
+ROOM-REGLIM: PH-REG    chestR    12 pitchA-return   0.0124    0.5523   GELE     (x1.32 kn)    
+ROOM-REGLIM: PH-REG    chestR    13 rollA           0.0124    0.4989   GENOU    (x1.19 kn)    
+ROOM-REGLIM: PH-REG    chestR    14 rollB           0.0124    0.5440   GELE     (x1.30 kn)    
+ROOM-REGLIM: PH-REGS   chestL     0 base            0.0159    0.0343   LINEAIRE (x0.08 kn)    
+ROOM-REGLIM: PH-REGS   chestL     1 jumpA-push      0.0159    0.3594   LINEAIRE (x0.86 kn)    
+ROOM-REGLIM: PH-REGS   chestL     2 jumpA-fly       0.0159    0.4355   GENOU    (x1.04 kn)    
+ROOM-REGLIM: PH-REGS   chestL     3 jumpA-land      0.0159    0.3046   LINEAIRE (x0.73 kn)    
+ROOM-REGLIM: PH-REGS   chestL     4 jumpB-push      0.0159    0.4539   GENOU    (x1.08 kn)    
+ROOM-REGLIM: PH-REGS   chestL     5 jumpB-fly       0.0159    0.4824   GENOU    (x1.15 kn)    
+ROOM-REGLIM: PH-REGS   chestL     6 jumpB-land      0.0159    0.3654   LINEAIRE (x0.87 kn)    
+ROOM-REGLIM: PH-REGS   chestL     7 runA-accel      0.0159    0.5430   GELE     (x1.29 kn)    
+ROOM-REGLIM: PH-REGS   chestL     8 runA-brake      0.0159    0.5441   GELE     (x1.30 kn)    
+ROOM-REGLIM: PH-REGS   chestL     9 yawA            0.0160    0.3322   LINEAIRE (x0.79 kn)    
+ROOM-REGLIM: PH-REGS   chestL    10 yawB            0.0160    0.5167   GELE     (x1.23 kn)    
+ROOM-REGLIM: PH-REGS   chestL    11 pitchA-bend     0.0160    0.5894   GELE     (x1.40 kn)    
+ROOM-REGLIM: PH-REGS   chestL    12 pitchA-return   0.0160    0.5193   GELE     (x1.24 kn)    
+ROOM-REGLIM: PH-REGS   chestL    13 rollA           0.0159    0.4991   GENOU    (x1.19 kn)    
+ROOM-REGLIM: PH-REGS   chestL    14 rollB           0.0160    0.5681   GELE     (x1.35 kn)    
+ROOM-REGLIM: PH-REGS   chestR     0 base            0.0160    0.0133   LINEAIRE (x0.03 kn)    
+ROOM-REGLIM: PH-REGS   chestR     1 jumpA-push      0.0160    0.5108   GELE     (x1.22 kn)    
+ROOM-REGLIM: PH-REGS   chestR     2 jumpA-fly       0.0160    0.3749   LINEAIRE (x0.89 kn)    
+ROOM-REGLIM: PH-REGS   chestR     3 jumpA-land      0.0160    0.4430   GENOU    (x1.05 kn)    
+ROOM-REGLIM: PH-REGS   chestR     4 jumpB-push      0.0160    0.5874   GELE     (x1.40 kn)    
+ROOM-REGLIM: PH-REGS   chestR     5 jumpB-fly       0.0160    0.4578   GENOU    (x1.09 kn)    
+ROOM-REGLIM: PH-REGS   chestR     6 jumpB-land      0.0160    0.5029   GELE     (x1.20 kn)    
+ROOM-REGLIM: PH-REGS   chestR     7 runA-accel      0.0160    0.5636   GELE     (x1.34 kn)    
+ROOM-REGLIM: PH-REGS   chestR     8 runA-brake      0.0160    0.6386   GELE     (x1.52 kn)    
+ROOM-REGLIM: PH-REGS   chestR     9 yawA            0.0161    0.2632   LINEAIRE (x0.63 kn)    
+ROOM-REGLIM: PH-REGS   chestR    10 yawB            0.0161    0.4804   GENOU    (x1.14 kn)    
+ROOM-REGLIM: PH-REGS   chestR    11 pitchA-bend     0.0161    0.5142   GELE     (x1.22 kn)    
+ROOM-REGLIM: PH-REGS   chestR    12 pitchA-return   0.0161    0.5523   GELE     (x1.32 kn)    
+ROOM-REGLIM: PH-REGS   chestR    13 rollA           0.0161    0.4742   GENOU    (x1.13 kn)    
+ROOM-REGLIM: PH-REGS   chestR    14 rollB           0.0161    0.5895   GELE     (x1.40 kn)    
+ROOM-REGLIM: PH-REGT   chestL     0 base            0.0112    0.0058   LINEAIRE (x0.01 kn)    
+ROOM-REGLIM: PH-REGT   chestL     1 jumpA-push      0.0112    0.3868   LINEAIRE (x0.92 kn)    
+ROOM-REGLIM: PH-REGT   chestL     2 jumpA-fly       0.0112    0.4721   GENOU    (x1.12 kn)    
+ROOM-REGLIM: PH-REGT   chestL     3 jumpA-land      0.0112    0.3340   LINEAIRE (x0.80 kn)    
+ROOM-REGLIM: PH-REGT   chestL     4 jumpB-push      0.0112    0.4824   GENOU    (x1.15 kn)    
+ROOM-REGLIM: PH-REGT   chestL     5 jumpB-fly       0.0112    0.5139   GELE     (x1.22 kn)    
+ROOM-REGLIM: PH-REGT   chestL     6 jumpB-land      0.0112    0.4052   LINEAIRE (x0.96 kn)    
+ROOM-REGLIM: PH-REGT   chestL     7 runA-accel      0.0112    0.5932   GELE     (x1.41 kn)    
+ROOM-REGLIM: PH-REGT   chestL     8 runA-brake      0.0112    0.5350   GELE     (x1.27 kn)    
+ROOM-REGLIM: PH-REGT   chestL     9 yawA            0.0114    0.3614   LINEAIRE (x0.86 kn)    
+ROOM-REGLIM: PH-REGT   chestL    10 yawB            0.0113    0.5120   GELE     (x1.22 kn)    
+ROOM-REGLIM: PH-REGT   chestL    11 pitchA-bend     0.0113    0.5707   GELE     (x1.36 kn)    
+ROOM-REGLIM: PH-REGT   chestL    12 pitchA-return   0.0113    0.5189   GELE     (x1.24 kn)    
+ROOM-REGLIM: PH-REGT   chestL    13 rollA           0.0112    0.5139   GELE     (x1.22 kn)    
+ROOM-REGLIM: PH-REGT   chestL    14 rollB           0.0112    0.5704   GELE     (x1.36 kn)    
+ROOM-REGLIM: PH-REGT   chestR     0 base            0.0114    0.0050   LINEAIRE (x0.01 kn)    
+ROOM-REGLIM: PH-REGT   chestR     1 jumpA-push      0.0114    0.5370   GELE     (x1.28 kn)    
+ROOM-REGLIM: PH-REGT   chestR     2 jumpA-fly       0.0114    0.3930   LINEAIRE (x0.94 kn)    
+ROOM-REGLIM: PH-REGT   chestR     3 jumpA-land      0.0114    0.4558   GENOU    (x1.09 kn)    
+ROOM-REGLIM: PH-REGT   chestR     4 jumpB-push      0.0114    0.5178   GELE     (x1.23 kn)    
+ROOM-REGLIM: PH-REGT   chestR     5 jumpB-fly       0.0114    0.4675   GENOU    (x1.11 kn)    
+ROOM-REGLIM: PH-REGT   chestR     6 jumpB-land      0.0114    0.5104   GELE     (x1.22 kn)    
+ROOM-REGLIM: PH-REGT   chestR     7 runA-accel      0.0114    0.5631   GELE     (x1.34 kn)    
+ROOM-REGLIM: PH-REGT   chestR     8 runA-brake      0.0114    0.6948   GELE     (x1.65 kn)    
+ROOM-REGLIM: PH-REGT   chestR     9 yawA            0.0114    0.2696   LINEAIRE (x0.64 kn)    
+ROOM-REGLIM: PH-REGT   chestR    10 yawB            0.0114    0.5017   GELE     (x1.19 kn)    
+ROOM-REGLIM: PH-REGT   chestR    11 pitchA-bend     0.0114    0.5098   GELE     (x1.21 kn)    
+ROOM-REGLIM: PH-REGT   chestR    12 pitchA-return   0.0114    0.5253   GELE     (x1.25 kn)    
+ROOM-REGLIM: PH-REGT   chestR    13 rollA           0.0114    0.5163   GELE     (x1.23 kn)    
+ROOM-REGLIM: PH-REGT   chestR    14 rollB           0.0114    0.5351   GELE     (x1.27 kn)    
+ROOM-REGLIM: PH-REGA   chestL     9 yawA            0.0113    0.5082   GELE     (x1.21 kn)    passe 1/2
+ROOM-REGLIM: PH-REGA   chestL     9 yawA            0.0113    0.5042   GELE     (x1.20 kn)    passe 2/2
+ROOM-REGLIM: PH-REGA   chestL    10 yawB            0.0113    0.5653   GELE     (x1.35 kn)    passe 1/2
+ROOM-REGLIM: PH-REGA   chestL    10 yawB            0.0113    0.5802   GELE     (x1.38 kn)    passe 2/2
+ROOM-REGLIM: PH-REGA   chestL    11 pitchA-bend     0.0114    0.5673   GELE     (x1.35 kn)    passe 1/2
+ROOM-REGLIM: PH-REGA   chestL    11 pitchA-bend     0.0113    0.5605   GELE     (x1.33 kn)    passe 2/2
+ROOM-REGLIM: PH-REGA   chestL    12 pitchA-return   0.0114    0.5563   GELE     (x1.32 kn)    passe 1/2
+ROOM-REGLIM: PH-REGA   chestL    12 pitchA-return   0.0113    0.5670   GELE     (x1.35 kn)    passe 2/2
+ROOM-REGLIM: PH-REGA   chestL    13 rollA           0.0113    0.5336   GELE     (x1.27 kn)    passe 1/2
+ROOM-REGLIM: PH-REGA   chestL    13 rollA           0.0113    0.5384   GELE     (x1.28 kn)    passe 2/2
+ROOM-REGLIM: PH-REGA   chestL    14 rollB           0.0113    0.5633   GELE     (x1.34 kn)    passe 1/2
+ROOM-REGLIM: PH-REGA   chestL    14 rollB           0.0113    0.5698   GELE     (x1.36 kn)    passe 2/2
+ROOM-REGLIM: PH-REGA   chestR     9 yawA            0.0115    0.0785   LINEAIRE (x0.19 kn)    passe 1/2
+ROOM-REGLIM: PH-REGA   chestR     9 yawA            0.0115    0.0893   LINEAIRE (x0.21 kn)    passe 2/2
+ROOM-REGLIM: PH-REGA   chestR    10 yawB            0.0115    0.1252   LINEAIRE (x0.30 kn)    passe 1/2
+ROOM-REGLIM: PH-REGA   chestR    10 yawB            0.0115    0.1183   LINEAIRE (x0.28 kn)    passe 2/2
+ROOM-REGLIM: PH-REGA   chestR    11 pitchA-bend     0.0114    0.5702   GELE     (x1.36 kn)    passe 1/2
+ROOM-REGLIM: PH-REGA   chestR    11 pitchA-bend     0.0115    0.5560   GELE     (x1.32 kn)    passe 2/2
+ROOM-REGLIM: PH-REGA   chestR    12 pitchA-return   0.0114    0.5492   GELE     (x1.31 kn)    passe 1/2
+ROOM-REGLIM: PH-REGA   chestR    12 pitchA-return   0.0115    0.5601   GELE     (x1.33 kn)    passe 2/2
+ROOM-REGLIM: PH-REGA   chestR    13 rollA           0.0114    0.4662   GENOU    (x1.11 kn)    passe 1/2
+ROOM-REGLIM: PH-REGA   chestR    13 rollA           0.0114    0.4708   GENOU    (x1.12 kn)    passe 2/2
+ROOM-REGLIM: PH-REGA   chestR    14 rollB           0.0114    0.5464   GELE     (x1.30 kn)    passe 1/2
+ROOM-REGLIM: PH-REGA   chestR    14 rollB           0.0114    0.5633   GELE     (x1.34 kn)    passe 2/2
+ROOM-REGLIM: PH-REGB   chestL     0 base            0.0112    0.0070   LINEAIRE (x0.02 kn)    
+ROOM-REGLIM: PH-REGB   chestL     1 jumpA-push      0.0112    0.4686   GENOU    (x1.12 kn)    
+ROOM-REGLIM: PH-REGB   chestL     2 jumpA-fly       0.0112    0.4389   GENOU    (x1.05 kn)    
+ROOM-REGLIM: PH-REGB   chestL     3 jumpA-land      0.0112    0.3689   LINEAIRE (x0.88 kn)    
+ROOM-REGLIM: PH-REGB   chestL     4 jumpB-push      0.0112    0.5700   GELE     (x1.36 kn)    
+ROOM-REGLIM: PH-REGB   chestL     5 jumpB-fly       0.0112    0.3862   LINEAIRE (x0.92 kn)    
+ROOM-REGLIM: PH-REGB   chestL     6 jumpB-land      0.0112    0.4507   GENOU    (x1.07 kn)    
+ROOM-REGLIM: PH-REGB   chestL     7 runA-accel      0.0112    0.5363   GELE     (x1.28 kn)    
+ROOM-REGLIM: PH-REGB   chestL     8 runA-brake      0.0112    0.5807   GELE     (x1.38 kn)    
+ROOM-REGLIM: PH-REGB   chestR     0 base            0.0114    0.0050   LINEAIRE (x0.01 kn)    
+ROOM-REGLIM: PH-REGB   chestR     1 jumpA-push      0.0114    0.4497   GENOU    (x1.07 kn)    
+ROOM-REGLIM: PH-REGB   chestR     2 jumpA-fly       0.0114    0.5125   GELE     (x1.22 kn)    
+ROOM-REGLIM: PH-REGB   chestR     3 jumpA-land      0.0114    0.3672   LINEAIRE (x0.87 kn)    
+ROOM-REGLIM: PH-REGB   chestR     4 jumpB-push      0.0114    0.5604   GELE     (x1.33 kn)    
+ROOM-REGLIM: PH-REGB   chestR     5 jumpB-fly       0.0114    0.4151   LINEAIRE (x0.99 kn)    
+ROOM-REGLIM: PH-REGB   chestR     6 jumpB-land      0.0114    0.4434   GENOU    (x1.06 kn)    
+ROOM-REGLIM: PH-REGB   chestR     7 runA-accel      0.0114    0.5853   GELE     (x1.39 kn)    
+ROOM-REGLIM: PH-REGB   chestR     8 runA-brake      0.0114    0.5430   GELE     (x1.29 kn)    
+
+ROOM-REGLIM-BILAN: 132 ligne(s) publiee(s) sous 120 cle(s) — 36 LINEAIRE, 23 au GENOU,
+   73 GELEES (55.3 %). 12 cle(s) portent PLUSIEURS passes (PH-REGA joue chaque fenetre
+   dans les DEUX sens et `PHYSREGW` ne porte pas le sens) : aucune d'elles ne peut
+   conditionner un verdict, elles se declarent AMBIGUES la ou elles sont lues.
+ROOM-REGLIM-RGAP: le pire ecart cible-de-repos / pose-d'auteur vaut 0.0161 B0 sur les 132
+   cellules. Il est petit devant le genou (0.42 B0) : la demande est DYNAMIQUE, pas un decalage statique de la cible.
+
+   LE CRITERE CI-DESSOUS N'EST PAS DE MOI : il est ecrit dans `phys-room.gc`, au-dessus
+   de la ligne `PHYSLIM4` qu'il juge, et il n'avait AUCUN LECTEUR. Verbatim :
+     « `stif_n` grand avec `sat_n` effondre = la force fait le travail et le filet ne
+       sert plus. `sat_n` qui reste haut = le ressort est mal pose. »
+ROOM-LIM-RESSORT: stif_n=50397 sous-pas integres au-dela du genou · sat_n=40484 morsures
+   du filet positionnel · sat_sum=3026782 u retires au total.
+   LES DEUX COMPTES NE SE DIVISENT PAS L'UN PAR L'AUTRE — `stif_n` compte des
+   SOUS-PAS et `sat_n` des MORSURES : deux portees differentes ne se rapportent pas
+   (`ratio-of-two-statistics`). Ce qui se lit, c'est la morsure MOYENNE :
+   74.76 u par morsure, soit 0.1242 B0 — le filet retire, a chaque fois, moins que le genou
+ROOM-LIM-RESSORT: VERDICT PAR LE CRITERE DE LA SALLE -> LE FILET N'EST PAS EFFONDRE (sat_n=40484) : par sa propre phrase, « LE RESSORT EST MAL POSE ».
 
 -- ROOM-SPEC8 : LE TENSEUR DE DEFORMATION COMPLET, ENFIN LU -------------------------------
    chaine    i   det(M)     ecart a 1     asymetrie max |Mij - Mji|

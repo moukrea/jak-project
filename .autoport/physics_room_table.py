@@ -1101,7 +1101,258 @@ def _spec13_block(A, txt, names, ori, com, acc, roles, zs, b0, perm=None):
     A('')
 
 
-def _regb_block(A, txt, names, RGT, RGAPX, rgvd, asym=None, POSE=None):
+# ------------------------------------------------------------------------------------------------
+# LE MUR DE SPEC 21, LU DANS LE SOURCE ET CHIFFRE ICI (cycle 71).
+#
+# `jak-hd-physics.gc:2859-2860` pose `kn = 0.42 * b0e` et `cpp = 0.08 * b0e` ; `:2941` plafonne
+# l'argument de la barriere par `fmin 0.99`. Donc :
+#   - sous `kn`                       : le multiplicateur vaut 1.0, identite STRICTE ;
+#   - entre `kn` et `kn + 0.99*cpp`   : la barriere raidit en x/(1-x), la reponse cesse d'etre
+#                                       proportionnelle au stimulus ;
+#   - au-dela de `kn + 0.99*cpp`      : l'argument GELE, le numerateur vaut `kn + 99*cpp` et la
+#                                       force de rappel est CONSTANTE. Une force constante est un
+#                                       TAUX, pas une BORNE.
+# Ces trois nombres ne sont pas de moi : ils sont les constantes du solveur, citees par ligne.
+_LIM_KN, _LIM_CPP, _LIM_XRC = 0.42, 0.08, 0.99
+_LIM_FRZ = _LIM_KN + _LIM_XRC * _LIM_CPP          # 0.4992 B0
+_LIM_PH = {31: 'PH-REG', 36: 'PH-REGS', 37: 'PH-REGT', 38: 'PH-REGA', 39: 'PH-REGB'}
+
+
+def _limload(txt):
+    """`PHYSREGW ph= c= r= rgap= perr=` -> {(ph, c, r): [(rgap, perr), ...]}.
+
+    NATURE : deux longueurs rapportees a B0, sans dimension, MAXIMUM sur la fenetre.
+    REPERE  : le monde, meme frame, meme attache — une difference de deux points du meme repere.
+    ABSENT  : la cle manque, et l'appelant ecrit « DEMANDE NON PUBLIEE » plutot que zero. Un canal
+              absent n'est pas une demande nulle — c'est la meme regle que pour l'apex.
+
+    POURQUOI UNE LISTE ET PAS UNE VALEUR — DEFAUT TROUVE PAR SA PROPRE PREDICTION, CYCLE 71. La
+    question Q1 engageait 132 lignes ; l'emetteur en a bien rendu 132, mais la premiere version de
+    ce chargeur n'en publiait que 120. PH-REGA joue CHAQUE fenetre DEUX FOIS (un sens de rotation
+    chacun, `*physroom-reg-sgn*` = +1 puis -1) et `PHYSREGW` ne porte pas le sens : les 24 lignes
+    de cette phase s'ecrasaient deux a deux sous 12 cles, en silence. Douze mesures perdues sans
+    qu'aucune ligne ne le dise — exactement `series-conflates-links` du registre. On garde donc
+    TOUTES les occurrences, on les publie toutes, et une cle qui en porte plusieurs ne peut pas
+    conditionner un verdict : elle le declare AMBIGU au lieu d'en choisir une."""
+    d = {}
+    for m in re.finditer(r'^PHYSREGW ph=(\d+) c=(\d+) r=(\d+) rgap=([-\d.e+]+) perr=([-\d.e+]+)',
+                         txt, re.M):
+        d.setdefault((int(m.group(1)), int(m.group(2)), int(m.group(3))), []).append(
+            (float(m.group(4)), float(m.group(5))))
+    return d
+
+
+def _limstate(perr):
+    """UN SEUL DENOMINATEUR POUR LES TROIS ZONES, ET C'EST UNE CORRECTION DU CYCLE 71 CONTRE
+    MOI-MEME : la premiere version rapportait le GENOU a `kn` et le GELE a `frz`, donc deux
+    multiplicateurs d'apparence comparable qui ne l'etaient pas (`ratio-of-two-statistics`). Le
+    multiplicateur publie est TOUJOURS `perr / kn` ; la zone se lit sur le mot, pas sur le
+    chiffre."""
+    if perr is None:
+        return 'DEMANDE NON PUBLIEE'
+    if perr <= _LIM_KN:
+        return 'LINEAIRE (x%.2f kn)' % (perr / _LIM_KN)
+    if perr <= _LIM_FRZ:
+        return 'GENOU    (x%.2f kn)' % (perr / _LIM_KN)
+    return 'GELE     (x%.2f kn)' % (perr / _LIM_KN)
+
+
+def _limtag(lim, ph, c, r):
+    v = lim.get((ph, c, r)) if lim else None
+    if not v:
+        return _limstate(None)
+    if len(v) > 1:
+        return 'AMBIGU (%d occurrences)' % len(v)
+    return _limstate(v[0][1])
+
+
+def _limsat(lim, ph, c, r):
+    """VRAI quand la fenetre a ete lue DANS LA ZONE GELEE. C'est le verrou du cycle 71 : une ligne
+    d'apex de §14 a §20 dont la fenetre est ici ne peut pas soutenir un `TENUE`, parce que son
+    amplitude est alors mise en forme par la force CONSTANTE du mur et non par la raideur du
+    materiau. Meme forme que le verrou de pose du 2026-08-21 : le confondeur se publie SUR LA MEME
+    LIGNE que le chiffre qu'il conditionne, ou la ligne se tait."""
+    v = lim.get((ph, c, r)) if lim else None
+    return bool(v) and len(v) == 1 and v[0][1] > _LIM_FRZ
+
+
+def _limverd(v, lim, ph, c, r):
+    """Le verdict de bande, ANNOTE par l'etat du limiteur de SA PROPRE fenetre.
+
+    POURQUOI ANNOTER ET NON SUPPRIMER — et la difference avec le verrou de pose. Un rapport
+    gauche/droite releve dans une pose non symetrique est CORROMPU : le chiffre lui-meme ne veut
+    rien dire, donc il ne s'ecrit pas. Un apex releve dans la zone gelee, lui, est un DEPLACEMENT
+    REELLEMENT MESURE : le fait tient. Ce qui ne tient plus, c'est son ATTRIBUTION au materiau.
+    La ligne garde donc le chiffre et perd le droit de valoir `TENUE`."""
+    return ('%s (SATURE)' % v) if _limsat(lim, ph, c, r) else v
+
+
+def _reglim_block(A, txt, names, RGT, LIM):
+    """LE MUR DE SPEC 21, FENETRE PAR FENETRE (cycle 71).
+
+    POURQUOI CE BLOC EXISTE. Six sections — §14, §16, §17, §18, §19, §20 — bornent un
+    « apex displacement » en % B0, et §19 ne borne que ca. Cet apex est produit par le ressort
+    principal, qui porte une saturation de sa §21 ecrite comme MULTIPLICATEUR DE FORCE. Aucune
+    ligne du registre n'a jamais dit, POUR SA PROPRE FENETRE, si ce mur avait mordu — alors que
+    l'argument du mur est calcule par le moteur a chaque frame depuis longtemps et publie sous
+    `PHYSRESTW` pour les fenetres de PH-MEAS seulement.
+
+    NATURE : `perr` est une LONGUEUR rapportee a B0, sans dimension, MAXIMUM sur la fenetre.
+    REPERE : le monde, meme frame, meme attache que la cible.
+    LIGNE DE BASE : la fenetre temoin r=0 de PH-REG, qui ne recoit AUCUN pilotage.
+    RESERVE : le moteur n'ecrit cet emplacement que sous `(= l rlk)`, et `rlk` vaut 0 sur les
+      deux chaines — c'est la demande du maillon RACINE, jamais celle de l'apex de chair."""
+    A('')
+    A('-- ROOM-REGLIM : LE MUR DE SPEC 21 SUR CHAQUE FENETRE DE REGIME (cycle 71) ---------------')
+    if not LIM:
+        A('ROOM-REGLIM: ABSENT (aucune ligne PHYSREGW) — cette course precede l\'emetteur du')
+        A('   cycle 71. Les bandes d\'apex de §14 a §20 se lisent alors SANS l\'etat du limiteur de')
+        A('   leur fenetre, ce qui est exactement le trou que ce bloc existe pour fermer.')
+        A('')
+        return
+    A('   LE MUR EST LU DANS LE SOURCE, PAS SUPPOSE (jak-hd-physics.gc:2859-2860 et :2938-2943) :')
+    A('       kn  = 0.42 * B0            genou — identite STRICTE en dessous, mu = 1.0 exactement')
+    A('       cpp = 0.08 * B0')
+    A('       xr  = fmin(0.99, (dd-kn)/cpp)   <- L\'ARGUMENT EST PLAFONNE')
+    A('       |f| = k2s * (kn + cpp*xr/(1-xr))')
+    A('   Donc trois regimes, et un seul d\'entre eux est celui que la spec decrit :')
+    A('       perr <= %.4f B0            LINEAIRE : le ressort est le ressort.' % _LIM_KN)
+    A('       %.4f < perr <= %.4f B0   GENOU : la barriere raidit en x/(1-x). La reponse cesse'
+      % (_LIM_KN, _LIM_FRZ))
+    A('                                   d\'etre proportionnelle au stimulus.')
+    A('       perr > %.4f B0            GELE : l\'argument est au plafond, le numerateur vaut'
+      % _LIM_FRZ)
+    A('                                   kn + 99*cpp et LA FORCE DE RAPPEL EST CONSTANTE.')
+    A('   UNE FORCE CONSTANTE EST UN TAUX, PAS UNE BORNE. C\'est le defaut que le cycle 34 a')
+    A('   mesure et corrige sur l\'AUTRE canal (le point libre de sa §23) ; il n\'a jamais ete')
+    A('   porte sur celui-ci. Et sa §21 demande la forme INVERSE, mot pour mot :')
+    A('   « D = D_max * tanh(|D|/D_max) » — une saturation du DEPLACEMENT, pas de la FORCE.')
+    A('')
+    # ---- LE MUR, CHIFFRE DEPUIS LA DONNEE LIVREE ------------------------------------------
+    _pr = {}
+    try:
+        for _ln in open('recharged_assets/physics_chains.txt', errors='ignore'):
+            if _ln.startswith('chain '):
+                _st = re.search(r'\bstiffness=([\d.]+)', _ln)
+                _ms = re.search(r'\bmass=([\d.]+)', _ln)
+                _b0 = re.search(r'\bb0=([\d.]+)', _ln)
+                if _st and _ms:
+                    _pr[_ln.split()[1]] = (float(_st.group(1)), float(_ms.group(1)),
+                                           float(_b0.group(1)) if _b0 else 0.0)
+    except Exception:
+        _pr = {}
+    if not _pr:
+        A('   LA FORCE GELEE N\'EST PAS CHIFFREE : `recharged_assets/physics_chains.txt` illisible.')
+        A('   Les classements ci-dessous restent valides (ils ne dependent que de `perr`), mais la')
+        A('   comparaison force/erreur n\'est pas publiee plutot que devinee.')
+    else:
+        A('   CE QUE VAUT LA FORCE UNE FOIS GELEE, depuis les constantes LIVREES et rien d\'autre')
+        A('   (dt = 0.0166667 s, jak-hd-physics.gc:2486 ; ns = 4 sous-pas, :2867-2872) :')
+        A('   %-8s %9s %7s %10s %11s %12s %14s'
+          % ('chaine', 'stiffness', 'mass', 'w (rad/s)', 'k2', 'k2s=k2/16', '|f| gele'))
+        for _n in sorted(_pr):
+            _st, _ms, _bb = _pr[_n]
+            _w = 2.0 * math.pi * _st / math.sqrt(max(0.01, _ms))
+            _k2 = (_w * 0.0166667) ** 2
+            _k2s = _k2 / 16.0
+            _bb = _bb if _bb > 0 else 602.0
+            _num = (_LIM_KN + 99.0 * _LIM_CPP) * _bb
+            _f = _k2s * _num
+            A('   %-8s %9.4f %7.4f %10.4f %11.6f %12.7f  %6.2f u/sous-pas'
+              % (_n, _st, _ms, _w, _k2, _k2s, _f))
+            A('   %-8s        soit %.2f u/frame^2, CONSTANTE — elle vaut la MEME chose a %.0f u'
+              % ('', 4.0 * _f, _num))
+            A('   %-8s        d\'erreur qu\'a %.0f u. Le ressort LINEAIRE, lui, rendrait k2s*dd.'
+              % ('', 10.0 * _num))
+    A('')
+    # ---- LE TEMOIN : SANS LUI AUCUNE DES AUTRES FENETRES N'A D'ECHELLE ---------------------
+    _wit = [(c, LIM[(31, c, 0)][0][1])
+            for c in sorted({k[1] for k in LIM if k[0] == 31 and k[2] == 0})
+            if len(LIM[(31, c, 0)]) == 1]
+    if not _wit:
+        A('ROOM-REGLIM-TEMOIN: la fenetre r=0 de PH-REG est ABSENTE de la trace — les autres')
+        A('   fenetres se lisent alors sans ligne de base, et je le dis au lieu de les lire.')
+    else:
+        for _c, _v in _wit:
+            _nm = names[_c] if _c < len(names) else 'c%d' % _c
+            A('ROOM-REGLIM-TEMOIN: %-8s r=0 AUCUN PILOTAGE  perr=%.4f B0  -> %s'
+              % (_nm, _v, _limstate(_v)))
+        if all(_v <= _LIM_KN for _, _v in _wit):
+            A('   LE TEMOIN EST SOUS LE GENOU SUR LES DEUX CHAINES : les quatorze autres fenetres')
+            A('   ont donc une echelle, et ce qu\'elles montrent au-dela du genou est produit par')
+            A('   LEUR pilotage.')
+        else:
+            A('   LE TEMOIN EST DEJA AU-DELA DU GENOU, ET C\'EST LE FAIT LE PLUS LOURD DE CE BLOC :')
+            A('   la chaine est dans la zone non lineaire du limiteur SANS AUCUN PILOTAGE, sur la')
+            A('   seule animation tenue. Aucune fenetre de regime ne peut alors attribuer son')
+            A('   amplitude au geste qu\'elle joue, et aucune bande d\'apex de §14 a §20 n\'est un')
+            A('   verdict sur le personnage.')
+    A('')
+    # ---- LE TABLEAU, PHASE PAR PHASE ------------------------------------------------------
+    A('   %-9s %-8s %3s %-13s %8s %9s   %s'
+      % ('phase', 'chaine', 'r', 'regime', 'rgap', 'perr', 'etat du limiteur'))
+    _tal, _n, _dup = {}, 0, 0
+    for _k in sorted(LIM, key=lambda k: (k[0], k[1], k[2])):
+        _ph, _c, _r = _k
+        _occ = LIM[_k]
+        if len(_occ) > 1:
+            _dup += 1
+        _nm = names[_c] if _c < len(names) else 'c%d' % _c
+        _rn = next((x[1] for x in RGT if x[0] == _r), '?')
+        for _i, (_rg, _pe) in enumerate(_occ):
+            _n += 1
+            _st = _limstate(_pe)
+            _tal[_st.split()[0]] = _tal.get(_st.split()[0], 0) + 1
+            A('ROOM-REGLIM: %-9s %-8s %3d %-13s %8.4f %9.4f   %-22s %s'
+              % (_LIM_PH.get(_ph, 'ph=%d' % _ph), _nm, _r, _rn, _rg, _pe, _st,
+                 ('passe %d/%d' % (_i + 1, len(_occ))) if len(_occ) > 1 else ''))
+    A('')
+    A('ROOM-REGLIM-BILAN: %d ligne(s) publiee(s) sous %d cle(s) — %d LINEAIRE, %d au GENOU,'
+      % (_n, len(LIM), _tal.get('LINEAIRE', 0), _tal.get('GENOU', 0)))
+    A('   %d GELEES (%.1f %%). %d cle(s) portent PLUSIEURS passes (PH-REGA joue chaque fenetre'
+      % (_tal.get('GELE', 0), 100.0 * _tal.get('GELE', 0) / max(1, _n), _dup))
+    A('   dans les DEUX sens et `PHYSREGW` ne porte pas le sens) : aucune d\'elles ne peut')
+    A('   conditionner un verdict, elles se declarent AMBIGUES la ou elles sont lues.')
+    _rgmx = max((o[0] for v in LIM.values() for o in v), default=0.0)
+    A('ROOM-REGLIM-RGAP: le pire ecart cible-de-repos / pose-d\'auteur vaut %.4f B0 sur les %d'
+      % (_rgmx, _n))
+    A('   cellules. %s'
+      % ('Il est petit devant le genou (%.2f B0) : la demande est DYNAMIQUE, pas un decalage'
+         ' statique de la cible.' % _LIM_KN if _rgmx < 0.05 else
+         'IL N\'EST PAS PETIT : une part de la demande est un decalage STATIQUE de la cible, que'
+         ' ni la raideur ni le limiteur ne peuvent faire baisser.'))
+    A('')
+    # ---- CE QUE LES DEUX LIMITEURS ONT RETIRE SUR LA COURSE, ET LE CRITERE EST DE LA SALLE --
+    _m4 = re.search(r'^PHYSLIM4 sat_n=([-\d.e+]+) sat_sum=([-\d.e+]+) stif_n=([-\d.e+]+)',
+                    txt, re.M)
+    if not _m4:
+        A('ROOM-LIM-RESSORT: `PHYSLIM4` absente de la trace — le critere ecrit par la salle')
+        A('   elle-meme n\'est pas evaluable, et rien n\'est publie a sa place.')
+    else:
+        _sn, _ss, _fn = (float(x) for x in _m4.groups())
+        A('   LE CRITERE CI-DESSOUS N\'EST PAS DE MOI : il est ecrit dans `phys-room.gc`, au-dessus')
+        A('   de la ligne `PHYSLIM4` qu\'il juge, et il n\'avait AUCUN LECTEUR. Verbatim :')
+        A('     « `stif_n` grand avec `sat_n` effondre = la force fait le travail et le filet ne')
+        A('       sert plus. `sat_n` qui reste haut = le ressort est mal pose. »')
+        A('ROOM-LIM-RESSORT: stif_n=%.0f sous-pas integres au-dela du genou · sat_n=%.0f morsures'
+          % (_fn, _sn))
+        A('   du filet positionnel · sat_sum=%.0f u retires au total.' % _ss)
+        if _sn > 0:
+            A('   LES DEUX COMPTES NE SE DIVISENT PAS L\'UN PAR L\'AUTRE — `stif_n` compte des')
+            A('   SOUS-PAS et `sat_n` des MORSURES : deux portees differentes ne se rapportent pas')
+            A('   (`ratio-of-two-statistics`). Ce qui se lit, c\'est la morsure MOYENNE :')
+            A('   %.2f u par morsure, soit %.4f B0 — le filet retire, a chaque fois, %s'
+              % (_ss / _sn, _ss / _sn / 602.0,
+                 'moins que le genou' if _ss / _sn / 602.0 < _LIM_KN else 'PLUS que le genou'))
+        A('ROOM-LIM-RESSORT: VERDICT PAR LE CRITERE DE LA SALLE -> %s'
+          % ('le filet est EFFONDRE, la force fait le travail'
+             if _sn == 0 else
+             'LE FILET N\'EST PAS EFFONDRE (sat_n=%.0f) : par sa propre phrase, « LE RESSORT EST'
+             ' MAL POSE ».' % _sn))
+    A('')
+
+
+def _regb_block(A, txt, names, RGT, RGAPX, rgvd, asym=None, POSE=None, LIM=None):
     """SPEC 14 A 17 REJOUEES SUR LES AXES DU SUJET (PH-REGB, cycle 70).
 
     POURQUOI CETTE PASSE EXISTE. `physroom-run-z` accelerait le sujet le long du MONDE Z, a
@@ -1201,7 +1452,8 @@ def _regb_block(A, txt, names, RGT, RGAPX, rgvd, asym=None, POSE=None):
     # ---- LES BANDES, AVEC LA LECTURE EN REPERE MONDE A COTE ------------------------------------
     A('   LES BANDES SONT CELLES DE `ROOM-REGIME` ET `ROOM-APEX-REGIME`, AU MOT PRES : ce bloc')
     A('   n\'introduit aucun seuil. Ce qui change est l\'AXE du stimulus, et rien d\'autre.')
-    A('   chaine    r  regime         apex (sujet)  bande         verdict')
+    A('   chaine    r  regime         apex (sujet)  bande         verdict          '
+      'limiteur SPEC 21 de CETTE fenetre')
     for c in sorted({k[0] for k in ap}):
         nm = names[c] if c < len(names) else 'c%d' % c
         bb = b0.get(c, 602.0)
@@ -1210,10 +1462,11 @@ def _regb_block(A, txt, names, RGT, RGAPX, rgvd, asym=None, POSE=None):
                 continue
             _t, apx, _com = ap[(c, r)]
             band, cite = RGAPX.get(r, (None, 'aucune clause d\'apex pour ce regime'))
-            A('ROOM-REGB-APEX: %-8s %2d %-13s %8.4f      %-13s %s'
+            _vd0 = rgvd(apx, band) if band else 'PAS DE BANDE'
+            A('ROOM-REGB-APEX: %-8s %2d %-13s %8.4f      %-13s %-16s %s'
               % (nm, r, next((x[1] for x in RGT if x[0] == r), '?'), apx,
                  ('[%.2f-%.2f]' % band) if band else '[pas de bande]',
-                 rgvd(apx, band) if band else 'PAS DE BANDE'))
+                 _limverd(_vd0, LIM, 39, c, r), _limtag(LIM, 39, c, r)))
     A('')
     for c in sorted({k[0] for k in ap}):
         nm = names[c] if c < len(names) else 'c%d' % c
@@ -5721,6 +5974,10 @@ def main():
         # l'apex que pour « strong » (donc le freinage r=8, rien pour le demarrage r=7) et §18
         # que pour « strong » (r=10, rien pour r=9). Ces deux fenetres sortent « SA SPEC NE BORNE
         # PAS L'APEX DE CE REGIME » — on n'invente pas une bande pour completer un tableau.
+        # LA DEMANDE DU RESSORT, PAR FENETRE — le verrou du cycle 71. Chargee ICI parce que
+        # c'est le premier bloc qui publie une bande d'apex, et qu'aucune bande ne doit sortir
+        # sans l'etat du limiteur de sa propre fenetre a cote d'elle.
+        _LIMW = _limload(txt)
         _RGAPX = {
             1:  ((0.20, 0.30), '§14 « Apex displacement: ordinary 20-30% B0 »'),
             4:  ((0.30, 0.38), '§14 « strong 30-38% B0 »'),
@@ -5778,8 +6035,9 @@ def main():
                 for _c in sorted({k[0] for k in _rge if k[1] == _r}):
                     _v = _rge[(_c, _r)][0]
                     if _bd is None:
-                        A('ROOM-APEX-REGIME: %-8s r=%2d %-13s apex=%.4f B0   %s'
-                          % (_rgnm(_c), _r, _rgtab[_r][1], _v, _cite2))
+                        A('ROOM-APEX-REGIME: %-8s r=%2d %-13s apex=%.4f B0   %-16s %s'
+                          % (_rgnm(_c), _r, _rgtab[_r][1], _v,
+                             _limtag(_LIMW, 31, _c, _r), _cite2))
                     else:
                         _vd = _rgvd(_v, _bd)
                         _nd = ''
@@ -5789,8 +6047,11 @@ def main():
                             _cap = 1.0 / _sh
                             _nd = ('   ancrage seul %s (manque x%.2f, plafond x%.2f)'
                                    % ('SUFFIT' if _fac <= _cap else 'NE SUFFIT PAS', _fac, _cap))
-                        A('ROOM-APEX-REGIME: %-8s r=%2d %-13s apex=%.4f B0  [%.2f-%.2f] -> %s%s'
-                          % (_rgnm(_c), _r, _rgtab[_r][1], _v, _bd[0], _bd[1], _vd, _nd))
+                        A('ROOM-APEX-REGIME: %-8s r=%2d %-13s apex=%.4f B0  [%.2f-%.2f]'
+                          ' -> %-16s %-16s%s'
+                          % (_rgnm(_c), _r, _rgtab[_r][1], _v, _bd[0], _bd[1],
+                             _limverd(_vd, _LIMW, 31, _c, _r),
+                             _limtag(_LIMW, 31, _c, _r), _nd))
                 A('   %s' % _cite2)
             # ---- LE RAPPORT APEX/COM : LE CONTROLE DE L'INSTRUMENT LUI-MEME -------------------
             A('')
@@ -5815,7 +6076,8 @@ def main():
             # ---- SPEC 15 : LA TRAVERSEE DU NEUTRE --------------------------------------------
             A('')
             # ---- CYCLE 70 : LES MEMES FENETRES DE TRANSLATION, SUR LES AXES DU SUJET ---------
-            _regb_block(A, txt, names, _RGT, _RGAPX, _rgvd, asym, POSE)
+            _regb_block(A, txt, names, _RGT, _RGAPX, _rgvd, asym, POSE, _LIMW)
+            _reglim_block(A, txt, names, _RGT, _LIMW)
             _spec8_block(A, txt, names)
             # ---- ROOM-REGS : LES MEMES QUINZE FENETRES DANS LA POSE EPINGLEE (cycle 66) ----
             #
@@ -8970,9 +9232,14 @@ def main():
         # must not generate physical breast impulses ». La salle repositionne le sujet a CHAQUE
         # frontiere de fenetre (la fenetre de ligne de base suit un `tilt` a 60 deg) : c'est
         # exactement la classe de discontinuite que sa 37 vise, et rien ne rebase.
-        # NATURE  deux grandeurs par fenetre : `perr` = |apex - cible de repos| / B0, MAXIMUM de la
-        #   fenetre (l'instrument existait avant ce cycle, PHYSRESTW) ; `jump` = pire ecart de la
-        #   pointe d'UNE frame a la suivante, en unites de jeu, sur la POSE ECRITE.
+        # NATURE  deux grandeurs par fenetre : `perr` = |position simulee - cible de repos| / B0,
+        #   MAXIMUM de la fenetre (l'instrument existait avant ce cycle, PHYSRESTW) ; `jump` = pire
+        #   ecart de la pointe d'UNE frame a la suivante, en unites de jeu, sur la POSE ECRITE.
+        # CORRECTION DE NOM, CYCLE 71 : cette ligne a porte « |apex - cible de repos| » depuis sa
+        #   creation. C'EST FAUX. Le moteur n'ecrit les emplacements 24/26 que sous `(= l rlk)`
+        #   (jak-hd-physics.gc:2824) et `rlk` vaut 0 sur chestL/chestR (`rootlk` omis du fichier
+        #   livre, :2524-2526) : c'est la demande du maillon RACINE — l'os de 1040 u — jamais
+        #   l'apex de chair. Le chiffre n'a pas bouge ; ce qui etait faux est ce qu'il nommait.
         # REPERE  le monde, meme frame, meme attache. LIGNE DE BASE  une chaine qui suit exactement
         #   l'animation lit jump=0.
         # POURQUOI LES DEUX  `perr` seul ne separe pas « la cible a saute » de « la pose a saute ».

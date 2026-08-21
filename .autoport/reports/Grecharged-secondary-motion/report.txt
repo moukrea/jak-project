@@ -1,291 +1,290 @@
-RAPPORT DE CYCLE 70 — Grecharged-secondary-motion
+RAPPORT DE CYCLE 71 — Grecharged-secondary-motion
 DIRECTIVES v3fee554599
 Branche physics-keira-clean · perimetre : chestL / chestR SEULES (owner 2026-08-14 07:30)
 
 ================================================================================================
 0. EN UNE PHRASE
 ================================================================================================
-LA « COURSE » DE §17 ETAIT UNE EMBARDEE LATERALE — le stimulus partait le long du MONDE Z, a
-86,3 deg de l'axe avant/arriere du sujet. Rejouee sur les axes MESURES du sujet, elle change tout :
-**les huit fenetres de §14 a §17 rendent une reponse PLUS SYMETRIQUE gauche/droite, sans exception**,
-jusqu'a 63,7 % -> 1,8 % sur le freinage. Le rig est symetrique a 0,005 deg en pose de bind ; un
-stimulus bien oriente DOIT rendre les deux seins egaux, et c'est ce qui arrive.
+LES SIX BANDES D'APEX DE §14 A §20 SONT LUES SUR UN CANAL DONT LE LIMITEUR A SON GENOU A
+0,42 B0 ET GELE SA FORCE A 0,4992 B0 — ET AUCUNE LIGNE N'AVAIT JAMAIS DIT, POUR SA PROPRE
+FENETRE, SI LE MUR AVAIT MORDU. Il mord sur **73 des 132 fenetres de regime (55,3 %)**.
+Le verrou est pose au PRODUCTEUR : chaque verdict de bande porte desormais l'etat du limiteur
+de SA fenetre sur LA MEME LIGNE, et un verdict lu dans la zone gelee est estampille `(SATURE)`
+— il ne peut plus soutenir un `TENUE`. **Il en a deja attrape un** : `chestR runA-brake`
+publiait `DANS [0,25-0,35]` avec une demande a x1,38 du genou.
 
-**LE PRIX EST DEUX VERTS QUI TOMBENT, ET C'EST UN GAIN.** Sur l'axe du monde, `chestR` tenait la
-bande de §16 (« premiere lecture de §16 DANS sa bande en 57 cycles ») et §17 etait « la section la
-plus proche d'un vert du dossier ». Sur le BON axe, les deux sortent — et les deux chaines sortent
-ENSEMBLE, du meme cote, ce qu'un rig symetrique doit faire. Un faux vert retire vaut mieux qu'un
-vert garde.
+**ET DEUX DE MES SEPT PREDICTIONS SONT REFUTEES PAR LA MESURE, DONT CELLE QUI PORTAIT MA
+THESE.** Je pensais que le limiteur expliquait l'inversion detente/reception du cycle 70. Il
+ne l'explique pas : les deux receptions ont la plus PETITE demande des cinq fenetres bornees,
+sur les deux chaines. L'inversion est heritee de la DEMANDE, pas fabriquee par le mur.
 
-BREAST-PENETRATION: 0.1288 m — `meshpen`, DIAGNOSTIC et jamais un verdict (arbitrage 2026-08-20
-13:20). Inchange : aucun terme du solveur n'a bouge de ce cycle.
+BREAST-PENETRATION: 0.1288 m — `meshpen`, DIAGNOSTIC et jamais un verdict (arbitrage
+2026-08-20 13:20). Inchange au bit : aucun terme du solveur n'a bouge de ce cycle.
 ================================================================================================
 1. VALIDATEUR — LA CAUSE DE L'ECHEC EST UNE PORTE HUMAINE, ET JE NE LA FRANCHIS PAS
 ================================================================================================
 `bash .autoport/validators/phase-Grecharged-secondary-motion.sh` sort 1 par la SEULE gate
 OPEN-DEFECTS (`breast-spec-incomplete`). Toutes les gates de MESURE passent et le validateur
-imprime `[PASS]` AVANT ce bloc.
+imprime `[PASS]` AVANT ce bloc :
+
+    [SCOPE] 2 chaines = 2 resolues · [TUNING] ok · [ROOM] joueur absent, 1 acteur, 31/31 anims,
+    310 mesures · [IDLE] 0.000 · [ANIM] 2/2 · [DISCRIMINANT] ok · [Grecharged... PASS]
 
 La seule action qui ferait sortir 0 serait de supprimer cette ligne. Le commentaire de la gate,
-l'en-tete du fichier et les DIRECTIVES disent trois fois qu'elle ne se retire que sur la parole de
-l'owner. L'effacer fabriquerait un verdict de sa part : c'est la seule chose que je ne ferai pas.
-La voie legitime est de couvrir la spec, et c'est ce que fait ce cycle.
+l'en-tete du fichier et les DIRECTIVES disent trois fois qu'elle ne se retire que sur la parole
+de l'owner. L'effacer fabriquerait un verdict de sa part : c'est la seule chose que je ne ferai
+pas. La voie legitime est de couvrir la spec, et c'est ce que fait ce cycle.
 ================================================================================================
-2. LE DEFAUT, ET IL ETAIT NOMME DEUX FOIS SANS ETRE FAIT
+2. LE DEFAUT, ET IL EST DANS LE SOURCE — PAS UNE HYPOTHESE, UN CALCUL
 ================================================================================================
-`physroom-run-z` accelerait le sujet le long du MONDE Z. L'axe avant/arriere du sujet, mesure a
-l'execution (`PHYSAXW ax=1`), vaut (0,993 ; 0,096 ; 0,064) : le monde Z en est a **86,3 deg**. La
-« Horizontal Acceleration and BRAKING » de §17 etait donc jouee comme une embardee LATERALE. Les
-sauts de §14/§15/§16 partaient le long du monde Y, a **11,9 deg** de la verticale du sujet.
+`jak-hd-physics.gc:2938-2943` sature la §21 comme un MULTIPLICATEUR DE FORCE :
 
-C'est le MEME defaut de classe que celui des rotations (§18-§20, cycles 67-68) et que celui du
-nommage des orientations (§10-§13, cycle 69) : un geste COMMANDE dans le repere du monde et LU
-comme celui du sujet. Les deux premiers ont ete corriges ; celui-ci a ete nomme au cycle 68,
-renomme au cycle 69, et une troisieme mention aurait ete une note deguisee en verrou.
+    kn  = 0.42 * B0 = 252.84 u          cpp = 0.08 * B0 = 48.16 u
+    xr  = fmin(0.99, (dd - kn)/cpp)     <- L'ARGUMENT EST PLAFONNE
+    |f| = k2s * (kn + cpp * xr/(1-xr))
 
-PH-REGB rejoue les fenetres r=0 a r=8 avec UNE SEULE variable declaree : l'axe. Meme pose epinglee
-(a=0, f=6,2500), memes tables `pre`/`drv`/`post`, memes profils analytiques, memes emplacements de
-lecture. **Phase APPENDUE, jamais une pose remplacee** — la lecon du cycle 66.
+Trois regimes en decoulent, et un seul est celui que la spec decrit :
+  - `dd <= kn`                    identite stricte, `mu = 1.0` exactement ;
+  - `kn < dd <= kn + 0.99*cpp`    la barriere raidit en `x/(1-x)` ;
+  - `dd > 0.4992 B0`              **l'argument GELE**. Le numerateur vaut `kn + 99*cpp` =
+                                  5020,68 u et la force de rappel devient CONSTANTE.
+
+Chiffree depuis les constantes LIVREES (dt = 0,0166667 s ligne 2486 ; ns = 4 sous-pas lignes
+2867-2872 ; `stiffness`/`mass` de `recharged_assets/physics_chains.txt`) :
+
+    chestL  w = 14,4515 rad/s  k2 = 0,058013  k2s = 0,0036258  ->  |f| = 72,82 u/frame^2
+    chestR  w = 15,0196 rad/s  k2 = 0,062664  k2s = 0,0039165  ->  |f| = 78,65 u/frame^2
+
+Elle vaut la MEME chose a 5 021 u d'erreur qu'a 50 207 u, et **16,7x ce que le ressort lineaire
+rendrait a la distance de gel** (4,36 / 4,71 u/frame^2). Une force constante est un TAUX, pas
+une BORNE — c'est le defaut exact que le cycle 34 a mesure et corrige sur l'AUTRE canal (le
+point libre de §23) et qui n'a jamais ete porte sur celui-ci.
+
+**ET LA SPEC DEMANDE LA FORME INVERSE, VERIFIEE MOT POUR MOT (l.290-293) :**
+    « Linear and rotational displacement contributions shall combine vectorially. **They shall
+      not be added without saturation.** »
+    `D_combined = D_max · tanh( |D_linear + D_angular| / D_max )`
+C'est une saturation du **DEPLACEMENT**. Le moteur sature la **FORCE**.
+
+**LE PLUS FRAPPANT EST LA PROVENANCE DES DEUX SEUILS.** `kn = 0.42 B0` et `cap = 0.50 B0` sont
+LES DEUX NOMBRES DE §22, verifies dans le texte : « Distal/apex displacement: normal <=42% B0,
+exceptional <=50% B0 ». Et la bande haute de §16 est, mot pour mot, « Very hard / exceptional:
+42-50% B0 » — **exactement l'intervalle [genou, mur]**. La region que §16 demande d'atteindre
+sur une reception tres dure est celle ou notre barriere raidit puis gele.
 ================================================================================================
-3. LES DEUX SENS SONT MESURES, PAS CHOISIS — ET CA COUTE UNE LECTURE CHACUN
+3. CE QUE LE MOTEUR CALCULAIT DEJA, ET QUI N'AVAIT PAS DE LECTEUR
 ================================================================================================
-Le cycle 68 avait du jouer chaque ROTATION dans les deux sens, parce qu'un axe mesure n'a pas de
-sens privilegie. Pour une TRANSLATION, deux references PHYSIQUES existent :
+L'argument `dd` de ce mur est ecrit a chaque frame par le solveur dans `*phys-dg*` 26
+(`jak-hd-physics.gc:2825-2832`, maximum de fenetre). Il etait publie sous `PHYSRESTW perr=`
+**pour les seules fenetres de PH-MEAS**, jamais pour une fenetre de REGIME. Quatrieme flux muet
+du dossier, apres `PHYSDFMA` (ferme au cycle 70), `PHYSORI4` (cycle 69) et `PHYSORICTL3`
+(toujours ouvert).
 
-    ROOM-REGB-SENS: gravite sur la ligne verticale de l'ancre = +0,981198
-                    -> le HAUT est son oppose   (garde |gv| > 0,5 : OK)
-    ROOM-REGB-SENS: saillie du sein sur la ligne 2 = -0,147764 et -0,147941
-                    -> l'AVANT est son oppose   (garde |ap| > 0,03 et memes signes : OK)
+Ce cycle lui donne un lecteur par fenetre de regime : un SEUL producteur
+(`physroom-emit-limit`, `phys-room.gc:2762`) appele depuis les CINQ phases de regime — PH-REG,
+PH-REGS, PH-REGT, PH-REGA, PH-REGB. **Le correctif se pose au producteur, jamais au site qui
+l'a revele** : c'est la regle du 2026-08-21 01:20, troisieme application.
 
-Un sein FAIT SAILLIE : c'est de l'anatomie, pas une convention, et c'est la meme reference que le
-cycle 69 a utilisee pour trancher supine/prone. Les deux gardes REFUSENT au lieu de deviner — si
-l'une tombe, la phase retombe en mode MONDE, se declare comme telle, et ne conclut rien.
+RESERVE, ECRITE PARCE QU'ELLE BORNE LA PORTEE : le moteur n'ecrit cet emplacement que sous
+`(= l rlk)` et `rlk` vaut 0 sur les deux chaines — **c'est la demande du maillon RACINE (l'os de
+1040 u), pas celle de l'apex de chair.** Le distal n'a pas d'equivalent publie et cette ligne ne
+pretend pas en porter un.
 
-**LE GESTE OBTENU EST NOMME PAR LA MESURE, JAMAIS PAR L'ETIQUETTE**, et par la composante qui
-MANQUE (lecon du cycle 68, payee sur un classificateur qui appelait un lacet une flexion avant) :
-
-    r   regime         dap (u)      dver (u)     dlat (u)    geste mesure
-    0   temoin           0,0000       0,0000       0,0000    aucun deplacement
-    1   jumpA-push      -0,0023     917,4152       0,0199    VERTICAL
-    2   jumpA-fly       -0,0182    1774,9355       0,0019    VERTICAL
-    3   jumpA-land      -0,0115     323,4611      -0,0241    VERTICAL
-    4   jumpB-push      -0,0304     932,2178       0,0102    VERTICAL
-    5   jumpB-fly        0,0310    2135,6894      -0,0143    VERTICAL
-    6   jumpB-land      -0,0141     693,1986      -0,0289    VERTICAL
-    7   runA-accel    4644,5556      -0,0090       0,0271    AVANT/ARRIERE
-    8   runA-brake    8291,1923      -0,0013      -0,0136    AVANT/ARRIERE
-
-**8 fenetres sur 8**, et les composantes qui doivent manquer manquent a CINQ ORDRES DE GRANDEUR
-pres : 0,01 a 0,03 u contre 323 a 8291. Aucun de ces zeros n'a ete impose ; ils tombent parce que
-l'axe est le bon. `dver > 0` = l'ancre MONTE et `dap > 0` = elle va vers l'AVANT, sans qu'aucune
-convention n'ait ete choisie : les deux sens viennent des deux mesures ci-dessus.
+AUTRE RESERVE : `perr` est echantillonne UNE FOIS PAR FRAME, avant les 4 sous-pas, alors que
+`dd` est reevalue A CHAQUE sous-pas. C'est donc une BORNE INFERIEURE de l'argument du mur : elle
+renforce toute conclusion « la fenetre etait gelee » et affaiblit toute conclusion inverse.
 ================================================================================================
-4. LE RESULTAT QUI PORTE LE CYCLE — ET IL N'ETAIT PAS PRE-ENREGISTRE, JE LE DIS
+4. LA MESURE — 132 FENETRES, ET LE TEMOIN TIENT
 ================================================================================================
-Le rig de Keira est bilateralement symetrique a **0,005 deg** en pose de bind (cycle 53, sur le
-mesh LIVRE). Dans une pose prouvee symetrique, un stimulus qui tombe sur le BON axe doit donc
-rendre les deux seins egaux ; un stimulus qui tombe a cote ne le peut pas. Ce test ne compare pas
-une mesure a une cible : il compare le personnage a LUI-MEME, et **aucun seuil n'y entre**.
+`ROOM-REGLIM-TEMOIN` : la fenetre r=0 ne recoit AUCUN pilotage.
+    chestL perr = 0,0381 B0   LINEAIRE       chestR perr = 0,0241 B0   LINEAIRE
+Le temoin est sous le genou sur les deux chaines : les 130 autres cellules ont donc une echelle,
+et ce qu'elles montrent au-dela du genou vient de LEUR pilotage. Sans cette ligne aucun des
+autres chiffres n'aurait de sens.
 
-    r   regime         axes du SUJET   axes du MONDE
-    1   jumpA-push          5,51 %         19,44 %
-    2   jumpA-fly          16,91 %         45,68 %
-    3   jumpA-land          6,63 %         28,08 %
-    4   jumpB-push          0,39 %         11,86 %
-    5   jumpB-fly           0,16 %         13,65 %
-    6   jumpB-land          7,21 %         31,03 %
-    7   runA-accel          4,50 %         16,67 %
-    8   runA-brake          1,78 %         63,69 %
+`ROOM-REGLIM-BILAN` : **132 lignes sous 120 cles — 36 LINEAIRE, 23 au GENOU, 73 GELEES (55,3 %).**
+`ROOM-REGLIM-RGAP`  : pire ecart cible-de-repos / pose-d'auteur = **0,0161 B0** sur les 132.
+   Petit devant le genou (0,42) : la demande est DYNAMIQUE, pas un decalage statique de la cible.
 
-    **8 fenetres sur 8 rendent une reponse PLUS SYMETRIQUE sur l'axe du sujet.**
+LES DIX CELLULES BORNEES DE PH-REGB (les axes du SUJET, la passe du cycle 70) :
 
-La pose est publiee SUR CHAQUE LIGNE, comme le verrou du 2026-08-21 01:20 l'exige : PH-REGB revalide
-a **0,4 deg** du miroir (`ROOM-ASYM-POSE ... ADMISSIBLE`), la pire des deux poses comparees etant
-PH-REGT a 0,6 deg. Sans cet enregistrement le verrou aurait refuse ces neuf lignes — il a fallu
-l'ajouter, et c'est la troisieme fois qu'il mord utilement.
+    r  regime        apex     bande        verdict           limiteur (x du genou)
+    1  jumpA-push  0,4574/0,4322 [0,20-0,30] AU-DESSUS x1,52/x1,44  GENOU    x1,12 / x1,07
+    3  jumpA-land  0,1887/0,2021 [0,30-0,42] SOUS      x0,63/x0,67  LINEAIRE x0,88 / x0,87
+    4  jumpB-push  0,4597/0,4615 [0,30-0,38] AU-DESSUS x1,21/x1,21  GELE     x1,36 / x1,33
+    6  jumpB-land  0,2620/0,2431 [0,42-0,50] SOUS      x0,62/x0,58  GENOU    x1,07 / x1,06
+    8  runA-brake  0,4038/0,3966 [0,25-0,35] AU-DESSUS x1,15/x1,13  GELE     x1,38 / x1,29
 
-**CE QUE CE TEST N'EST PAS : une prediction verifiee.** Il ne figure pas dans
-`c70-predictions.txt`. Je le publie comme une OBSERVATION et je le dis ici plutot que de le
-presenter comme un succes annonce.
+**LES DEUX CHAINES SONT DANS LE MEME REGIME DE LIMITEUR SUR LES CINQ FENETRES, 5 SUR 5.** Sur un
+rig symetrique a 0,005 deg en bind et un stimulus sur le bon axe, c'est ce qu'on doit obtenir —
+et ca corrobore, par un canal independant de l'apex, le resultat d'axe du cycle 70.
+
+§19 EST LA SECTION LA PLUS ENTIEREMENT CONDITIONNEE PAR LE MUR : ses QUATRE cellules
+(pitchA-bend r=11, pitchA-return r=12) sont GELEES, x1,29 a x1,58 du genou, et ses quatre
+lectures d'apex (0,4941 a 0,6423 contre 0,30-0,40) portent toutes `(SATURE)`. Il n'y reste pas
+une seule lecture en zone lineaire.
 ================================================================================================
-5. LES BANDES — DEUX VERTS TOMBENT, ET LES DEUX CHAINES S'ACCORDENT ENFIN
+5. LE VERROU, ET IL A DEJA ATTRAPE UN FAUX VERT
 ================================================================================================
-Bandes de `_RGAPX`, celles que le tableau cite deja mot pour mot. Aucun seuil neuf.
+Chaque ligne de verdict d'apex de §14 a §20 porte desormais, SUR LA MEME LIGNE, l'etat du
+limiteur de sa propre fenetre. **20 verdicts de bande sortent estampilles `(SATURE)`.**
 
-    r  regime        bande        MONDE                     SUJET
-    1  jumpA-push  [0,20-0,30]  0,3975 / 0,4934  au-dessus  0,4574 / 0,4322  AU-DESSUS x1,52 / x1,44
-    3  jumpA-land  [0,30-0,42]  0,2203 / 0,3063  SOUS/DANS  0,1887 / 0,2021  SOUS x0,63 / x0,67
-    4  jumpB-push  [0,30-0,38]  0,4985 / 0,4394  au-dessus  0,4597 / 0,4615  AU-DESSUS x1,21 / x1,21
-    6  jumpB-land  [0,42-0,50]  0,2323 / 0,3368  sous       0,2620 / 0,2431  SOUS x0,62 / x0,58
-    8  runA-brake  [0,25-0,35]  0,2367 / 0,6519  SOUS/AU-D. 0,4038 / 0,3966  AU-DESSUS x1,15 / x1,13
+Il y a QUATRE verdicts `DANS` dans tout le tableau des regimes. Le verrou les separe :
 
-**SUR LES CINQ FENETRES BORNEES, LES DEUX CHAINES RENDENT LE MEME VERDICT — c'est neuf.** Sur
-l'axe du monde elles se contredisaient sur DEUX des cinq (r=3 : SOUS contre DANS ; r=8 : SOUS
-contre AU-DESSUS). §14, §16 et §17 peuvent donc enfin se juger comme une propriete du PERSONNAGE
-et non comme un accident par chaine.
+    chestL r=1  jumpA-push  0,2533  DANS   LINEAIRE x0,77 kn   <- propre
+    chestL r=4  jumpB-push  0,3220  DANS   LINEAIRE x0,97 kn   <- propre
+    chestR r=3  jumpA-land  0,3215  DANS   GENOU    x1,07 kn   <- deja hors zone lineaire
+    chestR r=8  runA-brake  0,2721  DANS (SATURE)  GELE x1,38  <- **FAUX VERT**
 
-**CE QUE CA COUTE, ET JE NE LE LISSE PAS :**
-  - **§16 perd son unique lecture DANS la bande.** `chestR` r=3 valait 0,3063, DANS [0,30-0,42] —
-    le registre le porte comme « premiere lecture de §16 DANS sa bande en 57 cycles ». Sur le bon
-    axe il vaut **0,2021**, SOUS d'un facteur 0,67, comme `chestL`. Ce vert etait un vert d'AXE.
-  - **§17 s'eloigne du vert.** Le registre la disait « la section la plus proche d'un vert du
-    dossier » (`chestL` a 0,0055 B0 du plancher). Sur le bon axe les deux chaines sont AU-DESSUS,
-    a x1,15 et x1,13. Elles sont en revanche a **1,8 % l'une de l'autre** au lieu d'un facteur 2,75.
-  - Rien ne devient vert. Le cycle ne gagne aucune section : il rend justes des mesures qui etaient
-    fausses, et il retire deux verts qui ne l'etaient pas.
+Le dernier est exactement ce que la regle 1 du contrat interdit : une bande tenue pendant que la
+force de rappel est une constante. Sans le verrou il aurait continue de compter comme une
+lecture conforme de §17.
 
-L'ECART D'AXE PREDIT L'AMPLEUR DE L'EFFET, mais moins nettement que je ne l'attendais : ecart
-relatif MEDIAN de **27,82 %** sur les six fenetres de saut (axes a 11,9 deg) contre **39,16 %** sur
-les deux de course (a 86,3 deg). Le sens est le bon (Q6 tenue), mais 27,8 % pour 11,9 deg d'ecart
-d'axe est BEAUCOUP : la reponse n'est pas une simple projection du stimulus. Je publie le fait ;
-je n'ai pas de mecanisme a proposer et je n'en invente pas.
+**POURQUOI J'ANNOTE AU LIEU DE SUPPRIMER, ET LA DIFFERENCE AVEC LE VERROU DE POSE.** Un rapport
+gauche/droite releve dans une pose non symetrique est CORROMPU : le chiffre ne veut rien dire,
+donc il ne s'ecrit pas. Un apex releve dans la zone gelee est un DEPLACEMENT REELLEMENT MESURE :
+le fait tient. Ce qui ne tient plus, c'est son ATTRIBUTION au materiau. La ligne garde donc son
+chiffre et perd le droit de valoir `TENUE`. Je declare ce choix ici plutot que de le laisser
+deviner.
 ================================================================================================
-6. §8 — LE TENSEUR COMPLET EST ENFIN LU, ET SON MOTIF PASSE DU SOURCE A LA MESURE
+6. LE CRITERE QUE LA SALLE AVAIT ECRIT ELLE-MEME, ET QUI N'AVAIT AUCUN LECTEUR
 ================================================================================================
-§8 etait portee `NON TENUE` avec pour motif « le determinant est force a 1 et la deformation est
-UNE matrice par chaine ». **Ce motif etait lu dans le SOURCE**, et la regle 0 du contrat dit qu'un
-commentaire n'est pas une preuve. Or le tenseur 3x3 COMPLET est publie a chaque course sous le nom
-`PHYSDFMA` — 54 lignes, en base de l'ancre — et **il n'avait aucun lecteur** (deuxieme des trois
-flux muets nommes au cycle 69). Il en a un.
-
-    ROOM-SPEC8-VOLUME: 18 cellules · det de 0,999997 a 0,999999 · ETENDUE 1,78e-06
-    ROOM-SPEC8-AFFINE: asymetrie de matrice de 0,000000 a 0,024827
-
-La bande de la section (98-101 %) est RESPECTEE — **et c'est precisement ce qui ne prouve rien.**
-Neuf orientations, des poles a +-90 deg, deux chaines, et le determinant ne bouge pas de la
-sixieme decimale. Une grandeur PHYSIQUE de volume varie avec la deformation ; celle-ci n'a pas de
-population, elle a une VALEUR. C'est une NORMALISATION, pas une conservation.
-
-Et la clause en gras — « the whole breast shall NOT be represented by ONE affine scale
-transformation » — tombe sur deux faits : `PHYSDFMA` porte un indice de CHAINE et de CELLULE et
-AUCUN indice de MAILLON (il n'existe pas de tenseur par maillon a publier), et la matrice est quasi
-SYMETRIQUE, donc un etirement pur. §8 reste **NON TENUE**, mais son motif est desormais MESURE.
+Au-dessus de la ligne `PHYSLIM4`, `phys-room.gc` porte depuis longtemps, verbatim :
+   « `stif_n` grand avec `sat_n` effondre = la force fait le travail et le filet ne sert plus.
+     `sat_n` qui reste haut = le ressort est mal pose. »
+Aucun lecteur ne l'evaluait. Mesure : `stif_n = 50 397` sous-pas au-dela du genou,
+`sat_n = 40 484` morsures du filet positionnel, `sat_sum = 3 026 782 u` retires (74,76 u par
+morsure, soit 0,1242 B0). Les deux comptes ne se divisent PAS l'un par l'autre — sous-pas contre
+morsures, deux portees differentes.
+**VERDICT PAR SON PROPRE CRITERE : le filet n'est pas effondre, donc « LE RESSORT EST MAL POSE ».**
+Portee declaree : ces compteurs sont remis a zero une seule fois, a l'entree de PH-MEAS
+(`phys-room.gc:3045`) — ce sont des cumuls de COURSE, jamais des chiffres de fenetre.
 ================================================================================================
-7. NON-REGRESSION, PORTEE, TIER
+7. VERDICT DES SEPT QUESTIONS ECRITES AVANT LA COURSE
 ================================================================================================
-**ZERO LIGNE PRE-EXISTANTE NE CHANGE.** Onze prefixes verifies un par un contre la course du
-cycle 69 :
+`c71-predictions.txt`, md5 **b92190c95149e80c18d8f1189fafdcdf**, ecrit et empreinte alors
+qu'aucune ligne `PHYSREGW` n'existait dans aucune trace.
 
-    PHYSREG  PHYSREG2  PHYSREG3  PHYSREG4  PHYSREG5  PHYSREGD  PHYSREGL  PHYSREGB
-    PHYSREGS  PHYSREGT  PHYSREGA          ->  diff = 0 PARTOUT
+Q1 TENUE — ET ELLE A TROUVE UN DEFAUT CHEZ MOI. Engage : 132 lignes exactement. Emises : **132**.
+   Mais mon premier chargeur n'en publiait que **120** : PH-REGA joue chaque fenetre DEUX FOIS
+   (les deux sens) et `PHYSREGW` ne porte pas le sens, donc 24 lignes s'ecrasaient deux a deux
+   sous 12 cles, EN SILENCE. C'est `series-conflates-links` du registre, commis par moi dans le
+   cycle meme qui denonce les flux muets. Corrige : toutes les occurrences sont conservees et
+   publiees (`passe 1/2`, `passe 2/2`), et une cle multiple se declare AMBIGUE au lieu d'en
+   choisir une. Sans le chiffre engage a l'avance, la perte serait passee.
 
-C'est ce qui prouve que `physroom-tr-set` ecrit, en mode MONDE, exactement les deux memes champs
-qu'avant son existence — et donc que la comparaison des deux passes est licite.
+Q2 TENUE. Engage : temoin r=0 sous le genou sur les deux chaines. Mesure : **0,0381 / 0,0241 B0**,
+   LINEAIRE des deux cotes.
 
-Les seules etiquettes qui different sont les 39 lignes NEUVES de PH-REGB, les deux garde-fous
-(changes expres), et **une occurrence de plus de `PHYSREMAP` et de `PHYSANIMLEN`** parce que
-PH-REGB re-epingle l'animation a=0. **MON ENUMERATION LES AVAIT ENCORE OUBLIEES : troisieme fois
-d'affilee** (cycles 67, 68, 70). Dit, pas rattrape.
+Q3 **REFUTEE.** Engage : au moins 8 des 10 cellules bornees de PH-REGB GELEES. Mesure : **4 GELEES,
+   4 au GENOU, 2 LINEAIRES**. J'ai sur-estime la portee du gel. Ce qui survit, et je ne le presente
+   pas comme la prediction : **8 des 10 sont hors de la zone lineaire**, et les 2 lineaires sont
+   exactement les deux receptions souples.
 
-**PORTEE.** `goal_src/jak1/pc/phys-room.gc` et `.autoport/physics_room_table.py` SEULS.
-**`jak-hd-physics.gc` n'a pas bouge d'une ligne (4798, plafond 4800) et `recharged_assets/` est
-intact AU BIT : le comportement livre au jeu est identique.**
-Course livree : md5 `3a961d64e96e2683d47bd5964a0ae013`, 54 203 lignes (43 254 `PHYS`), empreinte
-verifiee DANS le tableau ecrit. **TIER : GOAL SEUL**, 551 cibles en 14,5 s.
+Q4 **REFUTEE, ET C'EST LE RESULTAT LE PLUS IMPORTANT DU CYCLE.** Engage : les deux receptions
+   n'auraient PAS toutes les deux la plus petite demande — c'etait ma these, le limiteur devait
+   fabriquer l'inversion detente/reception du cycle 70. Mesure : **elles ont bien les deux plus
+   petites demandes, sur LES DEUX chaines** (r=3 puis r=6, dans cet ordre, des deux cotes).
+   **L'inversion est donc HERITEE DE LA DEMANDE, pas produite par le mur.** Une reception dure
+   sollicite REELLEMENT moins le ressort qu'une detente ordinaire, et c'est le solveur qui le
+   fait, pas son limiteur. Ma these est fausse et je la retire.
+   CE QUI RESTE, ET JE LE PUBLIE COMME UNE OBSERVATION NON PREDITE : sur les cinq fenetres
+   bornees, le classement des apex suit celui de la demande SAUF pour `runA-brake`, unique
+   inversion, la meme sur les deux chaines, et c'est la cellule la plus gelee des cinq.
+   Correlation. Je n'en tire pas de mecanisme.
+
+Q5 TENUE. Engage : `rgap` < 0,05 B0 sur les 132 lignes. Mesure : **maximum 0,0161 B0**.
+
+Q6 TENUE, ET L'ENUMERATION EST COMPLETE POUR LA PREMIERE FOIS EN QUATRE CYCLES. Engage : chaque
+   etiquette pre-existante au compte IDENTIQUE, `PHYSREMAP` et `PHYSANIMLEN` comprises.
+   Mesure : **187 etiquettes, 0 disparue, 0 dont le compte bouge**, une seule neuve (`PHYSREGW`,
+   132 lignes), total 43 254 -> 43 386 = +132 exactement. **Et plus fort que le compte : le
+   `diff` des 43 254 lignes `PHYS` pre-existantes entre la course du cycle 70 et celle-ci rend
+   ZERO ligne differente.** Le nouvel emetteur LIT un etat, il ne le perturbe pas.
+
+Q7 TENUE. `jak-hd-physics.gc` a **4798** lignes (plafond 4800), `recharged_assets/` intact au bit
+   (0 fichier modifie).
 ================================================================================================
-8. TROIS DEFAUTS DE MA PART, TROUVES PAR LA PASSE DE TEST ET CORRIGES
+8. PORTEE, TIER, NON-REGRESSION
 ================================================================================================
-1. **J'AI CHOISI UNE ETIQUETTE DEJA PRISE.** Mon emetteur s'appelait `PHYSREGB` — le nom des
-   directions d'os de PH-REG. La premiere course a donc rendu `grep -c "^PHYSREGB "` = **22** la ou
-   les deux populations valent 4 et 18. Deux enregistrements de NATURE differente sous une meme
-   etiquette : c'est `series-conflates-links` du registre, et je viens de passer un cycle entier a
-   dire qu'une etiquette qui ment coute des cycles. Renomme en `PHYSREGBV` au producteur, et une
-   course refaite pour que la trace corresponde a la source.
-
-2. **`format` DE GOAL PLAFONNE A HUIT PARAMETRES, DESTINATION ET CHAINE COMPRISES.** Ma ligne
-   `PHYSREGBS` en portait dix. La compilation a echoue exactement dessus. Scindee en deux
-   emetteurs, comme le fichier le fait deja ailleurs pour la meme raison.
-
-3. **J'AI EDITE LES SOURCES PENDANT LA PASSE DE TEST — DEUX FOIS, DONT UNE PENDANT UNE
-   COMPILATION.** C'est le defaut du cycle 69 repete, en pire : le compilateur a lu une version
-   que le disque ne montrait deja plus. La passe de test l'a mesure a l'horodatage et l'a
-   rapporte ; je l'ecris ici plutot que de le laisser dans son rapport. **La regle que je m'applique
-   desormais : une fois une passe de compilation ou de course lancee, les sources ET l'analyseur
-   sont geles jusqu'a son rapport.** La course finalement livree respecte cette regle.
-
-**ET UN DEFAUT QUI N'EST PAS DE CE CYCLE MAIS QUE CE CYCLE FAIT TOMBER.** `PHYSROOM-PHASEGUARD`
-nommait `PH-REGA` comme derniere phase de travail : perime pour la **CINQUIEME** fois, et son
-propre commentaire raconte deja quatre rattrapages. La premiere course de ce cycle l'a pris en
-flagrant delit — `maxwork=38` pendant que `PHYSROOM-PHASEVISITED`, le garde-fou MESURE ajoute au
-cycle 67 pour cette raison exacte, publiait `maxvisited=39`. **C'est la premiere fois que le
-garde-fou mesure attrape le garde-fou statique**, et ca valide le correctif du cycle 67. La ligne
-statique CALCULE desormais son maximum au lieu de le nommer : les deux publient 39.
+**PORTEE.** `goal_src/jak1/pc/phys-room.gc` (5598 -> 5652 lignes, +54 nettes : un producteur
+commente et cinq appels)
+et `.autoport/physics_room_table.py` SEULS, plus `.autoport/SPEC-COVERAGE.md`.
+**`jak-hd-physics.gc` n'a pas bouge d'une ligne et `recharged_assets/` est intact AU BIT : le
+comportement livre au jeu est identique.** Aucun terme du solveur, aucune constante, aucun
+reglage.
+**TIER : GOAL SEUL** — 551 cibles en 26,3 s. Aucun rebuild NDK, aucun gradle. C'est le tier le
+moins cher qui prouve le changement, et il suffit parce que le changement est une LECTURE.
+Course livree : md5 `c14efe99fe92e1dc969e9da9526a4717`, 54 350 lignes (43 386 `PHYS`),
+empreinte verifiee DANS le tableau ecrit (3 611 lignes).
 ================================================================================================
-9. CE QUE JE N'AI PAS FAIT, ET POURQUOI
+9. DEUX AUTRES DEFAUTS TROUVES, ET CORRIGES
 ================================================================================================
-1. **JE N'AI PAS REDRESSE LA CONVENTION `+Z` DE §7 DANS LE CALCUL.** Deux erreurs de sens s'y
-   compensent exactement (cycle 69, [NOTE-408]) ; y toucher sans passe appariee casserait §10 et
-   §11 ensemble.
-2. **JE N'AI PAS DONNE DE LECTEUR A `PHYSORICTL3`**, le troisieme flux muet.
-3. **JE N'AI PAS EXPLIQUE POURQUOI 11,9 DEG D'ECART D'AXE DEPLACENT LA REPONSE DE 27,8 %.** La
-   projection du stimulus ne change que de 2,2 % ; ce qui change vraiment, c'est que la composante
-   HORS AXE (20,6 % du stimulus) disparait. Que cela suffise a deplacer la reponse de 27,8 % est
-   plausible mais non demontre. Mesure publiee, mecanisme non affirme.
-4. **JE N'AI TOUCHE AUCUN TERME DU SOLVEUR.** Aucune constante, aucun reglage, aucun parametre
-   livre au jeu.
+1. **UNE LIGNE PUBLIAIT `perr` SOUS LE NOM « apex » DEPUIS SA CREATION.** `ROOM-SPEC37-KICK`
+   decrivait sa grandeur comme « |apex - cible de repos| / B0 ». C'est faux : le moteur n'ecrit
+   les emplacements 24/26 que sous `(= l rlk)` et `rlk` vaut 0 sur chestL/chestR — c'est le
+   maillon RACINE. Le chiffre n'a jamais bouge ; ce qui etait faux est ce qu'il nommait.
+   Corrige au lecteur, avec la citation de ligne.
+
+2. **UNE LIGNE SUR 38 DU REGISTRE ETAIT MALFORMEE EN MARKDOWN.** La ligne §10 porte des `|` non
+   echappes dans ses gabarits de code : elle se decoupait en **10 cellules au lieu de 6**, donc
+   tout ce qui suit sa colonne de statut debordait dans des colonnes fantomes. Anterieur a ce
+   cycle. Repare, et les 38 lignes parsent maintenant en 6 cellules exactement.
+
+3. **LES DEUX ETIQUETTES DE ZONE RAPPORTAIENT LEUR MULTIPLICATEUR A DES DENOMINATEURS
+   DIFFERENTS** (GENOU / kn, GELE / frz) : deux nombres d'apparence comparable qui ne l'etaient
+   pas — `ratio-of-two-statistics`. Unifie : le multiplicateur est TOUJOURS `perr / kn`, la zone
+   se lit sur le mot.
+================================================================================================
+10. CE QUE JE N'AI PAS FAIT, ET POURQUOI
+================================================================================================
+1. **JE N'AI PAS CORRIGE LE LIMITEUR.** La forme correcte est connue et deja eprouvee sur
+   l'autre canal (cycle 34 : saturer le DEPLACEMENT une fois par frame a la publication d'etat,
+   `cq` ecrit apres pour ne pas toucher la vitesse). La poser ici est un changement de SOLVEUR
+   avec **2 lignes de marge sous le plafond de 4800**, et il faut sa passe appariee et son
+   controle. Le faire a la volee en fin de cycle serait exactement le « correctif a mi-chemin »
+   que l'arbitrage du 2026-08-19 23:50 condamne. C'est le chantier du cycle suivant, et il est
+   maintenant specifie par une mesure au lieu d'une intuition.
+2. **JE N'AI PAS PUBLIE LA DEMANDE DU MAILLON DISTAL.** Le moteur ne l'ecrit pas ; l'inventer
+   cote salle donnerait une grandeur qui n'est pas celle que le mur lit.
+3. **JE N'AI PAS DONNE DE LECTEUR A `PHYSORICTL3`**, le flux muet restant.
+4. **JE N'AI PAS EXPLIQUE POURQUOI UNE RECEPTION DURE SOLLICITE MOINS LE RESSORT QU'UNE DETENTE
+   ORDINAIRE.** C'est le fait que Q4 etablit, et je n'ai pas de mecanisme. Je ne l'invente pas.
 5. **AUCUNE MESURE VISUELLE, AUCUNE CAPTURE.** Interdiction permanente.
-================================================================================================
-10. VERDICT DES SEPT QUESTIONS ECRITES AVANT LA COURSE
-================================================================================================
-`c70-predictions.txt`, md5 **1e2e48bf21111f7aeeb3a83e33a801af**, ecrit et empreinte alors
-qu'aucune ligne `PHYSREGB*` n'existait dans aucune trace.
-
-Q1 TENUE, ET LARGEMENT. Engage : 8 fenetres sur 8 nommees par la composante qui MANQUE, facteur 3.
-   Mesure : **8 sur 8**, et le facteur reel est de 10^4 a 10^5, pas 3.
-
-Q2 TENUE, VALEURS COMPRISES. Engage : `gok=1`, `aok=1`, `trm=1`, `gv` positif, `ap0`/`ap1` negatifs
-   entre 0,10 et 0,25 en valeur absolue. Mesure : `gv=+0,981198`, `ap0=-0,147764`,
-   `ap1=-0,147941`, `gok=1 aok=1 trm=1`.
-
-Q3 TENUE. Engage : temoin r=0 sous 0,10 B0 sur les deux chaines. Mesure : **0,0112 / 0,0118**.
-
-Q4 TENUE SUR SA SUBSTANCE, INCOMPLETE DANS SON ENUMERATION. Zero ligne pre-existante ne change sur
-   les onze prefixes. Mais ma liste d'ajouts attendus avait oublie `PHYSREMAP` et `PHYSANIMLEN`
-   (+1 chacune, dues au re-epinglage de l'animation). **Troisieme cycle de suite** que cette
-   enumeration est incomplete. Dit, pas rattrape.
-
-Q5 TENUE, LARGEMENT. Engage : au moins UNE des quatre lectures de §17 s'ecarte de plus de 10 % de
-   PH-REGT. Mesure : **trois sur quatre** (+19,59 %, +70,60 %, -39,16 %), la quatrieme a -4,82 %.
-   Je n'avais pas predit le SENS et je ne le predis pas apres coup.
-
-Q6 TENUE. Engage : ecart median plus petit sur les sauts que sur la course. Mesure : **27,82 %
-   contre 39,16 %**. Le sens est le bon ; l'ampleur cote saut me surprend et je le dis (section 9.3).
-
-Q7 TENUE. `jak-hd-physics.gc` a **4798** lignes, `recharged_assets/` intact au bit (0 fichier
-   modifie).
 ================================================================================================
 11. REGISTRE
 ================================================================================================
     TENUE                    2   (§3, §37)
     TENUE PAR CONSTRUCTION   5   (§1, §4, §5, §28, §35)
-    PARTIELLE               21
-    NON TENUE                9
+    PARTIELLE               20
+    NON TENUE               10
     NON ETABLI               1   (§10)
     total                   38
 
-**AUCUNE SECTION NE CHANGE DE STATUT, ET C'EST LE RESULTAT.** §14, §16 et §17 restent `NON TENUE` —
-mais leurs mesures etaient prises sur le mauvais axe, et l'une d'elles portait un vert que l'axe
-fabriquait. §8 reste `NON TENUE` — mais son motif passe d'une lecture de SOURCE a une MESURE.
+**UNE SECTION CHANGE DE STATUT, ET ELLE BAISSE : §21 PASSE DE `PARTIELLE` A `NON TENUE`.** Son
+ancien motif (« facteur commun pose au cycle 46, il ne mord presque jamais ») ne decrivait qu'UNE
+des deux saturations du canal. La seconde — le multiplicateur de force — mord sur 55,3 % des
+fenetres et degenere en constante. La section ne donne pas une bande mais une FORME, et la forme
+livree n'est pas la forme prescrite.
 
-Ce que le cycle change, c'est la QUALITE de la preuve, pas le compte. Le compte, lui, a deja
-bouge au cycle precedent (§13), et il ne bougera pas a chaque cycle : trois sections viennent de
-passer d'un rouge mal mesure a un rouge bien mesure, sur lequel les deux chaines s'accordent enfin.
+§14, §16, §17, §18, §19, §20 et §22 gardent leur statut et gagnent l'etat du limiteur de chacune
+de leurs fenetres. **Le compte ne monte pas ; ce qui monte, c'est ce qu'une ligne du registre a
+le droit d'affirmer.**
 ================================================================================================
 12. CE QUE L'OWNER DOIT REGARDER
 ================================================================================================
-**A TESTER : RIEN**, et c'est litteral. Aucun fichier du jeu n'a change — le solveur n'a pas bouge
-d'une ligne, `recharged_assets/` est intact au bit, les 43 254 lignes `PHYS` des phases anterieures
-sont identiques a celles du cycle precedent. La regle du 2026-08-20 23:30 tient.
+**A TESTER : RIEN**, et c'est litteral. Aucun fichier du jeu n'a change — le solveur n'a pas
+bouge d'une ligne, `recharged_assets/` est intact au bit, et les 43 254 lignes `PHYS` des phases
+anterieures sont identiques A LA LIGNE PRES a celles du cycle precedent. La regle du
+2026-08-20 23:30 tient : on ne le sollicite pas pour un changement qui ne modifie pas le
+comportement d'ensemble.
 
-**CE QUI LUI APPARTIENT ET QUI EST NEUF.** Depuis le 2026-08-11 il decrit une poitrine dont le
-comportement « suit aucune logique », et le dossier lui a repondu par des chiffres gauche/droite
-qui se contredisaient d'une chaine a l'autre — jusqu'a un facteur **2,75** sur le freinage. Une
-part de ces contradictions n'etait ni son personnage ni le solveur : **c'etait le sens dans lequel
-la salle poussait le sujet.** Sur l'axe qu'un corps utilise reellement pour courir, les deux seins
-repondent a **1,8 %** l'un de l'autre.
+**CE QUI LUI APPARTIENT ET QUI EST NEUF.** Depuis le 2026-08-11 il decrit une poitrine qui « suit
+aucune logique » et qui n'a « pas l'impression d'une masse ». Il y a une raison mecanique, ecrite
+dans notre code et jamais declaree : **au-dela de 0,4992 B0 d'ecart, le ressort de sa poitrine
+n'est plus un ressort — c'est une force constante.** Dans ce regime la reponse ne depend plus de
+la raideur du tout, et 55,3 % des fenetres de regime y tombent. Ca n'a pas ete corrige ce
+cycle-ci ; ca a ete mesure, chiffre, et le chantier suivant est nomme.
 
-Ce que ca ne dit pas : que la reponse soit bonne. Elle est trop grande sur quatre des cinq bandes,
-et elle l'est maintenant des DEUX cotes.
-
-`OPEN-DEFECTS` : `breast-spec-incomplete` reste ouverte, et c'est elle qui tient la phase. Elle ne
-se retire que sur sa parole.
+`OPEN-DEFECTS` : `breast-spec-incomplete` reste ouverte, et c'est elle qui tient la phase. Elle
+ne se retire que sur sa parole.

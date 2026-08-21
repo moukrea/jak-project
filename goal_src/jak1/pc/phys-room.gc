@@ -2717,6 +2717,55 @@
          (else (physroom-tr-set yy zz))))))
   (none))
 
+;; ------------------------------------------------------------------------------------------------
+;; L'ETAT DU LIMITEUR DE SPEC 21, PAR FENETRE DE REGIME (cycle 71).
+;;
+;; POURQUOI CETTE LIGNE EXISTE. §14, §16, §17, §18, §19 et §20 bornent TOUTES un « apex
+;; displacement » en % B0, et cet apex est produit par le ressort principal. Ce ressort porte une
+;; saturation de sa §21 ecrite comme MULTIPLICATEUR DE FORCE (jak-hd-physics.gc:2938-2943) :
+;;
+;;     kn  = 0.42 * B0   cpp = 0.08 * B0
+;;     xr  = fmin(0.99, (dd - kn)/cpp)          <- L'ARGUMENT EST PLAFONNE
+;;     |f| = k2s * (kn + cpp * xr/(1-xr))
+;;
+;; Sous `kn` c'est l'identite stricte. Au-dessus de `kn + 0.99*cpp = 0.4992 B0` l'argument GELE :
+;; le numerateur vaut kn + 99*cpp et la force de rappel devient CONSTANTE. Une force constante est
+;; un TAUX, pas une BORNE — c'est le defaut que le cycle 34 a mesure et corrige sur l'AUTRE canal
+;; (le point libre de sa §23) et qui n'a jamais ete porte sur celui-ci.
+;;
+;; L'ARGUMENT DE CE MUR EST DEJA CALCULE PAR LE MOTEUR : c'est `*phys-dg*` 26, le maximum de
+;; fenetre de |position simulee - cible de repos| / B0 (jak-hd-physics.gc:2825-2832). Il etait
+;; publie SEULEMENT par `physroom-emit-window` (PH-MEAS, par animation x pilotage) et JAMAIS par
+;; une fenetre de REGIME. Six sections publiaient donc une bande d'apex sans que rien ne dise si
+;; leur propre fenetre avait ete lue dans la zone gelee. Un flux muet de plus, le quatrieme.
+;;
+;; NATURE : DEUX LONGUEURS RAPPORTEES A B0, sans dimension, MAXIMUM SUR LA FENETRE (le moteur les
+;;   accumule par `>`, jak-hd-physics.gc:2829-2832). Ce ne sont PAS des moyennes et PAS des series.
+;; REPERE : le monde, meme frame, meme attache, meme longueur d'os que la cible — c'est une
+;;   difference de deux points exprimes dans le meme repere, donc invariante par rotation.
+;; LIGNE DE BASE : `rgap` = 0 exactement si la cible de repos EST la pose d'auteur ; `perr` = 0
+;;   exactement si le solveur est immobile sur cette cible. La fenetre temoin r=0 de PH-REG ne
+;;   recoit AUCUN pilotage : c'est elle qui donne son echelle a toutes les autres.
+;; CE QUE CHACUNE SEPARE, ET C'EST TOUT L'INTERET D'EN PUBLIER DEUX :
+;;   `rgap` = |cible de repos - pose d'auteur| / B0   AUCUNE dynamique n'y entre ;
+;;   `perr` = |position simulee - cible de repos| / B0  la part que la dynamique produit, et
+;;            l'ARGUMENT EXACT du mur ci-dessus.
+;;   Un `perr` grand avec un `rgap` nul est une demande dynamique ; l'inverse serait un decalage
+;;   statique de la cible, que ni la raideur ni le limiteur ne peuvent faire baisser.
+;; RESERVE, ECRITE PARCE QU'ELLE BORNE LA PORTEE DE LA LIGNE : le moteur n'ecrit ces deux
+;;   emplacements que sous `(= l rlk)` (jak-hd-physics.gc:2824) — c'est donc la demande du maillon
+;;   RACINE de la chaine, pas celle du distal. Le distal n'a pas d'equivalent publie, et cette
+;;   ligne ne pretend pas en porter un.
+;; `ph` = la phase qui l'emet, parce que les cinq phases de regime jouent les MEMES fenetres dans
+;;   des poses differentes et qu'une ligne qui ne dit pas d'ou elle vient ne se rapproche de rien.
+;; ------------------------------------------------------------------------------------------------
+(defbehavior physroom-emit-limit phys-subject ((ph int) (c int) (r int))
+  (format 0 "PHYSREGW ph=~D c=~D r=~D rgap=~f perr=~f~%"
+          ph c r
+          (phys-diag (-> self slot) c 24)
+          (phys-diag (-> self slot) c 26))
+  (none))
+
 (defbehavior physroom-emit-regime phys-subject ((r int))
   "Publie la fenetre de regime `r` : UNE ligne de stimulus, puis TROIS par chaine.
 
@@ -2768,7 +2817,8 @@
       (format 0 "PHYSREG5 c=~D r=~D cydn=~f cyup=~f~%"
               c r
               (phys-diag (-> self slot) c 57)
-              (phys-diag (-> self slot) c 58))))
+              (phys-diag (-> self slot) c 58))
+      (physroom-emit-limit PHYSROOM-PH-REG c r)))
   (none))
 
 ;; ------------------------------------------------------------------------------------------------
@@ -4953,7 +5003,8 @@
                 (format 0 "PHYSREGS c=~D r=~D apex=~f com=~f~%"
                         c r
                         (phys-diag (-> self slot) c 53)
-                        (phys-diag (-> self slot) c 43))))
+                        (phys-diag (-> self slot) c 43))
+                (physroom-emit-limit PHYSROOM-PH-REGS c r)))
             (set! (-> self pframe) 0)
             (+! (-> self reg) 1)
             (when (>= (-> self reg) PHYSROOM-REGN)
@@ -5035,7 +5086,8 @@
                 (format 0 "PHYSREGT c=~D r=~D apex=~f com=~f~%"
                         c r
                         (phys-diag (-> self slot) c 53)
-                        (phys-diag (-> self slot) c 43))))
+                        (phys-diag (-> self slot) c 43))
+                (physroom-emit-limit PHYSROOM-PH-REGT c r)))
             (set! (-> self pframe) 0)
             (+! (-> self reg) 1)
             (when (>= (-> self reg) PHYSROOM-REGN)
@@ -5118,7 +5170,8 @@
                 (format 0 "PHYSREGA c=~D r=~D sgn=~f apex=~f com=~f~%"
                         c r *physroom-reg-sgn*
                         (phys-diag (-> self slot) c 53)
-                        (phys-diag (-> self slot) c 43))))
+                        (phys-diag (-> self slot) c 43))
+                (physroom-emit-limit PHYSROOM-PH-REGA c r)))
             ;; LE SENS REELLEMENT OBTENU — ET CETTE FOIS AVEC UNE GRANDEUR QUI VARIE.
             ;;
             ;; LA VERSION PRECEDENTE NE MESURAIT RIEN, ET LE CYCLE 67 L'A PUBLIE : elle lisait
@@ -5287,7 +5340,8 @@
                 (format 0 "PHYSREGBV c=~D r=~D trm=~D apex=~f com=~f~%"
                         c r *physroom-reg-trmode*
                         (phys-diag (-> self slot) c 53)
-                        (phys-diag (-> self slot) c 43))))
+                        (phys-diag (-> self slot) c 43))
+                (physroom-emit-limit PHYSROOM-PH-REGB c r)))
             ;; LE GESTE OBTENU, NOMME PAR LA MESURE — meme canal que `PHYSREGAD`, meme raison.
             ;; NATURE : trois LONGUEURS signees, unites de jeu (4096 u = 1 m).
             ;; REPERE : les axes du SUJET, ORIENTES par les deux signes mesures ci-dessus, donc
