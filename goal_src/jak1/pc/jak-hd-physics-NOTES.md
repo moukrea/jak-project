@@ -8361,6 +8361,38 @@ desormais visible par machine et plus seulement par memoire.
 **46 937 lignes `PHYS` hors `PHYSSTGW`/`PHYSSTGR`, ZERO differente**, `PHYSSTG` et `PHYSSTGT`
 compris. C'est un ajout pur.
 
+## NOTE-472 — LA PART RADIALE DE L'EXCURSION D'APEX : LE NOMBRE QUI DECIDE L'OPERATEUR
+
+NOTE-471 explique l'echec de la borne-par-rotation par « la correction demandee est RADIALE, une
+rotation est TANGENTIELLE ». **Le cycle 88 a mesure cette explication au lieu de la laisser en
+hypothese** — c'etait le prealable que le cycle 87 s'etait lui-meme impose (« aucune ligne de
+solveur ne se touche avant cette mesure »), et il a ete tenu.
+
+`PHYSAPEXR ... rad=<B0>`, emplacement 86 de `*phys-dg*`, latche au MEME argmax que 53-56.
+NATURE une LONGUEUR SIGNEE en B0, PAS un rapport : somme ponderee par `aw` des projections de
+l'excursion de chaque maillon sur **son propre** levier de chair (les deux maillons n'ont pas le
+meme levier). REPERE le monde, contre la pose d'auteur de la meme frame.
+
+    chaine   |rad|/apex  min      mediane   p90      max      rad median   signe<0
+    chestL               0,0068   0,9114    0,9755   0,9897   +0,6132 B0   7/186
+    chestR               0,0064   0,8465    0,9663   0,9808   +0,5786 B0   7/186
+
+**L'excursion est presque entierement RADIALE, et POSITIVE : le point de chair s'eloigne de son
+joint.** Une rotation le deplace sur la sphere de rayon `|bm.o|`, donc perpendiculairement : elle
+ne peut agir que sur 9 a 15 %. NOTE-471 est confirmee par une mesure directe.
+
+DEUX CONTROLES, ET ILS SONT DANS LA TRACE, PAS DANS CE COMMENTAIRE :
+  - INERTIE AU BIT : la course privee de la seule ligne neuve rend le meme md5
+    `863743f90c962b8f488a1ef6e1cd7876` sur 78 462 lignes `PHYS`, 0 differente. Pur observateur.
+  - INTEGRITE : `rad` est une projection, donc `|rad| <= apex` doit tenir — 372/372.
+
+**BORNE DE LECTURE, POSEE AVANT QU'ON SUR-LISE LE CHIFFRE.** `rad` n'est PAS l'allongement du
+levier : `rad = r^.(p - p_auteur) + |r| - r^.r_auteur` melange la translation du joint projetee
+sur le levier et la variation de longueur du levier. **Aucun pourcentage d'elongation de tissu
+n'en sort**, et il ne se compare pas au « Absolute stretch clamp: 25% » de §22. Le separer demande
+`|bm.o|` publie a cote : c'est le prealable du geste suivant, parce qu'une contraction du levier ne
+peut retirer que le second terme.
+
 ## NOTE-471 — BORNER LE POINT DE CHAIR PAR UNE ROTATION : ESSAYE AU CYCLE 87, MESURE, REFUTE, RETIRE
 
 **VERDICT, EN TETE, PARCE QUE C'EST LUI QUI COMPTE.** Le mecanisme decrit plus bas a ete

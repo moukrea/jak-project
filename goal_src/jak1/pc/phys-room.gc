@@ -1605,6 +1605,28 @@
             (phys-diag (-> self slot) c 62)
             (phys-diag (-> self slot) c 63)
             (phys-diag (-> self slot) c 64))
+    ;; [NOTE-472] LA PART RADIALE DE L'EXCURSION D'APEX — LE NOMBRE QUI DECIDE L'OPERATEUR.
+    ;; Le cycle 87 a implemente, mesure et RETIRE une borne de §22 posee sur le point de chair
+    ;; par ROTATION : elle a fait MONTER l'apex (0.7413 -> 0.8382 / 0.7660 -> 0.8651 B0), et
+    ;; toute la hausse etait dans `rp`. L'explication proposee est qu'une rotation ne deplace le
+    ;; point que TANGENTIELLEMENT (sphere de rayon |o| = 1.23 B0) alors que la correction
+    ;; demandee est RADIALE. **Cette explication n'etait PAS mesuree** — elle l'est ici, et elle
+    ;; est falsifiable : si `rad` est petit devant `apex`, elle est FAUSSE.
+    ;;   NATURE : une LONGUEUR SIGNEE, en B0 (SPEC 6, 602 u) — pas un rapport. C'est la somme
+    ;;            ponderee par `aw` des projections de l'excursion de chaque maillon sur SON
+    ;;            PROPRE levier de chair `o` (les deux maillons n'ont pas le meme levier, donc
+    ;;            une projection sur un axe commun n'aurait pas de sens).
+    ;;   REPERE : le MONDE, contre la pose d'AUTEUR de la MEME frame — celui de `apex`.
+    ;;   ARGMAX : le MEME que 53-56, donc la MEME frame que `apex` : `rad/apex` est un rapport
+    ;;            legitime et pas deux maxima pris sur deux frames (`argmax-anchor-is-not-a-population`).
+    ;;   SIGNE  : positif = le point de chair s'ELOIGNE du joint le long de son levier.
+    ;;   LECTURE QUAND LE DEFAUT EST ABSENT : 0.0000 a la pose d'auteur, comme `apex`.
+    ;;   CE QU'ELLE NE DIT PAS : |rad| <= |apex| toujours (c'est une projection) ; un |rad|
+    ;;            proche de |apex| ne prouve pas qu'une contraction SUFFIT, seulement qu'une
+    ;;            rotation ne peut pas y arriver. Le geste se mesure par INTERVENTION, pas ici.
+    (format 0 "PHYSAPEXR c=~D a=~D d=~D rad=~f~%"
+            c (-> self ai) (-> self drive)
+            (phys-diag (-> self slot) c 86))
     ;; ---- SPEC 22 : L'ATTRIBUTION DE `comex` A SES TROIS TERMES (cycle 35 etape 1) ----------
     ;; `comex` est le plus gros depassement ouvert de toute la spec (1.85 / 1.91 B0 contre un
     ;; plafond dur de 0.40). Le cycle 34 a prouve PAR INTERVENTION que borner le point libre ne le

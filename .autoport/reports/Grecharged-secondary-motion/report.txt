@@ -1,4 +1,4 @@
-RAPPORT DE CYCLE 87 — Grecharged-secondary-motion
+RAPPORT DE CYCLES 87 + 88 — Grecharged-secondary-motion
 DIRECTIVES v3fee554599
 Branche physics-keira-clean · perimetre : chestL / chestR SEULES (owner 2026-08-14 07:30)
 
@@ -23,6 +23,10 @@ avait lui-meme ecrite. Ce qui reste et qui vaut le cycle : **toute la hausse est
 terme de ROTATION, et c'est arithmetique** — une rotation autour du joint deplace le point de
 chair TANGENTIELLEMENT, alors que la correction demandee est RADIALE le long d'un levier de
 1,23 B0 ; le deficit radial reste et le tangentiel s'y ajoute en quadrature.
+**ET LE CYCLE 88 A MESURE CETTE EXPLICATION AU LIEU DE LA LAISSER EN HYPOTHESE : la part
+RADIALE de l'excursion d'apex vaut 91,1 % / 84,7 % en mediane** (p90 96,6-97,6 %). Une
+rotation ne peut donc agir que sur les 9 a 15 % restants. L'explication tient, et le geste
+suivant — une CONTRACTION du levier de chair — est desormais fonde sur une mesure.
 
 ================================================================================================
 1. POURQUOI LA TENTATIVE PRECEDENTE A ECHOUE — CE N'ETAIT NI LE MOTEUR NI LA DONNEE
@@ -217,3 +221,59 @@ en echec est `OPEN-DEFECTS: breast-spec-incomplete`, et le validateur ecrit lui-
 `.autoport/owner-ok/<phase>` est exclusivement son geste et n'est jamais cree a sa place.
 
 `OPEN-DEFECTS` : `breast-spec-incomplete` reste ouverte. Elle ne se ferme que quand il le dit.
+
+================================================================================================
+10. CYCLE 88 — LE PREALABLE QUE LE CYCLE 87 AVAIT DECLARE OBLIGATOIRE. IL EST MESURE.
+================================================================================================
+La section 6 ci-dessus posait, mot pour mot : « PREALABLE OBLIGATOIRE, ET IL EST GRATUIT —
+AUCUNE LIGNE DE SOLVEUR NE SE TOUCHE AVANT. [...] publier `dot(c2, o^)/|c2|` a cote de `|c2|`
+dans `PHYSAPEX`. Si la part RADIALE de l'excursion est faible, l'analyse ci-dessus est fausse et
+le chantier change. » C'est fait, et **aucune ligne de solveur n'a ete touchee**.
+
+INSTRUMENT : `PHYSAPEXR c=<chaine> a=<anim> d=<pilotage> rad=<B0>`, emplacement 86 de `*phys-dg*`.
+  NATURE  une LONGUEUR SIGNEE en B0 (602 u), PAS un rapport : la somme ponderee par `aw` des
+          projections de l'excursion de CHAQUE maillon sur SON PROPRE levier de chair (les deux
+          maillons n'ont pas le meme levier, une projection sur un axe commun n'aurait pas de sens).
+  REPERE  le MONDE, contre la pose d'AUTEUR de la MEME frame — celui de `apex`.
+  ARGMAX  le MEME que les emplacements 53-56, donc la MEME frame que `apex` : `rad/apex` est un
+          rapport legitime et non deux maxima pris sur deux frames.
+  ABSENT  0.0000 a la pose d'auteur, comme `apex`.
+
+**CONTROLE D'INERTIE, AU BIT.** Un instrument qui bouge la physique qu'il observe ne mesure rien.
+La course du cycle 88, privee de la seule ligne neuve, rend **le meme md5
+`863743f90c962b8f488a1ef6e1cd7876` sur 78 462 lignes `PHYS`, ZERO ligne differente** que la course
+du cycle 87. L'ajout est un pur observateur, prouve par l'execution.
+
+**CONTROLE D'INTEGRITE INTERNE.** `rad` est une PROJECTION : `|rad| <= apex` doit tenir sur toutes
+les fenetres, sinon l'instrument est faux et non le resultat. Tenu sur **372/372**.
+
+LA MESURE, 186 fenetres par chaine :
+
+    chaine    |rad|/apex : min      mediane    p90       max      rad median   signe<0
+    chestL                 0,0068   0,9114     0,9755    0,9897   +0,6132 B0   7/186
+    chestR                 0,0064   0,8465     0,9663    0,9808   +0,5786 B0   7/186
+
+**LECTURE, ET ELLE EST SANS AMBIGUITE.** L'excursion du point de chair est **presque entierement
+RADIALE le long de son propre levier**, et de signe POSITIF sur 179 fenetres sur 186 : le point
+s'ELOIGNE de son joint. Une rotation autour du joint deplace ce point sur la sphere de rayon
+`|bm.o|`, donc perpendiculairement au levier : **elle ne peut agir que sur les 9 a 15 % restants**,
+et le reste lui est inaccessible par construction. L'explication du cycle 87 n'est plus une
+interpretation de la hausse de `rp` : c'est une mesure directe, avec son controle d'inertie et son
+controle d'integrite.
+
+**CE QUE CETTE MESURE NE DIT PAS, ET JE LE BORNE AVANT QU'ON LE SUR-LISE.** `rad` n'est PAS
+l'allongement du levier de chair. Sa decomposition exacte est
+`rad = r^.(p - p_auteur) + |r| - r^.r_auteur` : elle melange la translation du joint PROJETEE sur
+le levier et la variation de longueur du levier. **On ne peut donc PAS en tirer un pourcentage
+d'elongation de tissu**, et notamment pas le comparer au plafond de 25 % de §22. Separer les deux
+termes demande un second nombre (`|bm.o|` publie a cote), et il n'est pas mesure ici.
+
+**CE QUE CA CHANGE POUR LE GESTE SUIVANT.** La voie « contraction du levier de chair » est
+maintenue et desormais FONDEE : c'est le seul operateur qui produit un deplacement radial sans
+toucher `bm.trans`. Elle reste soumise a la borne que la section 6 lui pose deja — plafonnee au
+budget local de §22 (« Absolute stretch clamp: 25% »), determinant dans 98-101 % (§8), et retiree
+si `ROOM-APEX` max ne passe pas sous 0,55 B0. **PREALABLE AJOUTE PAR CETTE MESURE** : publier
+`|bm.o|` a cote de `rad`, pour savoir quelle PART du radial est de l'elongation de tissu et quelle
+part est la translation du joint projetee. Contracter le levier ne peut retirer que la premiere ;
+si elle est minoritaire, le geste suivant se dimensionne autrement, et c'est ce nombre-la qui le
+dira.
