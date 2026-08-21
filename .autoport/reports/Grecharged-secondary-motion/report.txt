@@ -6,16 +6,19 @@ Branche physics-keira-clean · perimetre : chestL / chestR SEULES (owner 2026-08
 0. EN UNE PHRASE
 ================================================================================================
 LE MUR DE FORCE DE §21 EST DEVENU DESARMABLE ET LA PAIRE APPARIEE EST FAITE — ET ELLE REPOND
-AUTRE CHOSE QUE MA QUESTION : **CE MUR NE BORNAIT PAS L'APEX, IL RAPETISSAIT TOUTE LA REPONSE, ET
-LA BORNE QUI EST CENSEE TENIR §22 EST POSEE SUR UNE GRANDEUR QUI N'EST PAS L'APEX.**
+AUTRE CHOSE QUE MA QUESTION : **CE MUR NE BORNAIT PAS L'APEX. IL RAPETISSAIT TOUTE LA REPONSE, ET
+C'EST CE QUI MASQUAIT UN DEPASSEMENT DE §22 DEJA CONNU.**
 
-L'apex publie est un point de chair situe a **1,228 / 1,235 B0 de son joint** (mesure dans la
-donnee LIVREE), donc il porte la TRANSLATION du maillon **et** la ROTATION de sa matrice. La borne
-de §22 (`:3120-3141`) n'agit que sur la translation, et son asymptote vaut **0,50 B0 — la totalite
-du plafond exceptionnel de la section**. Il reste donc **zero budget** pour la rotation d'un levier
-de 1,23 B0 : **10 degres deplacent deja l'apex de 0,213 B0 a translation nulle, et 24,3 degres
-suffisent a atteindre le plafond sans qu'un seul maillon se soit translate.** Aucun reglage de
-cette borne ne peut la reconcilier avec la grandeur qu'elle pretend tenir.
+**CE QUI EST NEUF EST LA MESURE PAR ABLATION, PAS LE DIAGNOSTIC.** Que la borne de §22 tienne un
+JOINT pendant que le point qu'elle nomme est a 1,23 B0 de ce joint est **etabli depuis le cycle
+58**, qui a aussi ESSAYE de le corriger en amont et l'a **refute par la mesure**. Ce que ce cycle
+ajoute : le mur de force est desormais desarmable, et desarme, les cellules de regime au-dessus du
+plafond exceptionnel passent de **8/30 a 16/30** (apex max 0,6423 -> 0,7176 B0). Le mur ne bornait
+donc rien — il reduisait tout, et c'est pour ca que le depassement paraissait plus petit qu'il
+n'est. S'y ajoute un cadrage en BUDGET qui dit pourquoi aucune constante ne fermera cette borne :
+son asymptote (0,50 B0) consomme a elle seule la TOTALITE du plafond de la section, et il ne reste
+**zero** pour la rotation d'un levier de 1,23 B0 — **24,3 degres y suffisent, sans qu'un seul
+maillon se soit translate.**
 
 **JE NE LIVRE PAS LA JAMBE DESARMEE**, et je dis pourquoi avec les chiffres : elle fait passer les
 cellules d'apex au-dessus du plafond exceptionnel de **8/30 a 16/30**, et elle fait **ECHOUER le
@@ -122,9 +125,21 @@ donc pas affecte par l'ablation.
 ================================================================================================
 6. LE RESULTAT PRINCIPAL — LA BORNE DE §22 N'EST PAS POSEE SUR L'APEX
 ================================================================================================
-Ce cycle cherchait la forme de §21 ; il a trouve un defaut d'allocation dans §22. Il est etabli
-**dans le source et dans la donnee LIVREE, sans aucune course neuve** — donc il ne depend
-d'aucune des deux jambes.
+**CORRECTION D'ATTRIBUTION, ET JE LA METS AVANT LE RESULTAT PLUTOT QU'EN NOTE.** Le fait que la
+§22 borne un JOINT pendant que le point qu'elle nomme est a 739,5 u de ce joint **n'est pas une
+decouverte de ce cycle : il est etabli depuis le cycle 58**, avec la meme cartographie des cinq
+sites et les memes valeurs `ax`. Le cycle 58 a MEME essaye de le corriger — faire lire l'apex a
+`phys-apex-scale` — et l'a **mesure puis REFUTE** : la borne mordait deux fois moins
+(`bendcut` -68,7 % / -58,7 %, `|tp|` max 0,5008 -> 0,7127 B0), parce que le tenseur de deformation
+n'existe pas encore au point ou cette borne s'applique. Presenter ce fait comme neuf serait de la
+fiction de rapport.
+
+**CE QUE CE CYCLE AJOUTE, ET C'EST CA QUI EST NEUF : PAR ABLATION, QUE LE MUR DE FORCE MASQUAIT LE
+DEPASSEMENT.** Le cycle 58 avait le levier et la cartographie ; il n'avait pas de mesure de ce que
+le mur de force retenait, parce que ce mur n'etait pas desarmable. Il l'est maintenant, et la
+reponse est chiffree : 8/30 -> 16/30 cellules au-dessus du plafond exceptionnel, apex max
+0,6423 -> 0,7176 B0. Plus le cadrage en BUDGET ci-dessous, qui dit pourquoi aucune constante ne
+fermera cette borne. Le rappel des faits du cycle 58 suit, parce que le raisonnement en depend.
 
 **(1) CE QU'EST L'APEX PUBLIE.** `jak-hd-physics.gc:3902-3908` accumule et `:4026-4034` publie :
 
@@ -196,11 +211,16 @@ corriger seule ne suffit pas.
 ================================================================================================
 8. LE CHANTIER SUIVANT, NOMME PAR LA MESURE
 ================================================================================================
-1. **BORNER LA GRANDEUR QUE §22 NOMME.** L'excursion du POINT DE CHAIR, rotation comprise — pas la
-   translation du joint. Le moteur la calcule DEJA (`:3902-3908`, emplacement 53) : ce qui manque
-   est un lecteur qui la BORNE, pas une grandeur a inventer. C'est la meme forme que la lecon du
-   2026-08-19 23:50 (« un correctif s'arrete quand la LIGNE DE VERDICT lit la nouvelle donnee »),
-   et le meme geste que le cycle 71 a fait pour `perr`.
+1. **BORNER L'APEX LA OU SES TROIS TERMES EXISTENT — LA SECTION 6, PAS LA BOUCLE DE CONTRAINTES.**
+   C'est la conclusion que le cycle 58 a lui-meme ecrite apres sa refutation : « §22 n'est pas
+   bornable depuis la boucle de contraintes ; le chantier est de borner l'apex APRES la
+   construction du tenseur (section 6, ou `bm` existe), ou de reduire `dp` a la source. » Ce cycle
+   confirme l'adresse : `bm` est complet a `:3897-3900` et l'excursion y est deja calculee
+   (`:3902-3908`, emplacement 53). **Ce qui manque n'est pas la grandeur, c'est un lecteur qui la
+   BORNE la-bas.** Piege connu a ne pas re-payer : borner en amont a ete essaye et refute — la
+   grandeur y est incomplete (`dp`, jusqu'a 0,4660 B0, n'existe pas encore).
+   Contrainte a tenir : la borne devra agir sur la ROTATION/le tenseur, jamais sur `bm.trans`, sous
+   peine de defaire la contrainte de longueur ; et §8 exige que le determinant reste dans 98-101 %.
 2. **PUIS SEULEMENT** desarmer le mur de force : une fois §22 tenue sur la bonne grandeur, la
    jambe B n'a plus son cout principal, et son gain (+5,5 a +10,7 % de mouvement, §21 dans la
    forme du texte) devient livrable.
