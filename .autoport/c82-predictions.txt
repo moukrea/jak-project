@@ -1,0 +1,119 @@
+DIRECTIVES v3fee554599 — cycle 82, PREDICTIONS ECRITES AVANT LA COURSE.
+
+LA QUESTION, ET ELLE EST CELLE QUE LE CYCLE 81b A LAISSEE OUVERTE MOT POUR MOT
+  « ces 5-6 cm sont-ils une vraie intention des animateurs, ou une constante parasite
+    introduite quand on transpose leurs animations sur le squelette HD ? »
+Les deux appellent des corrections OPPOSEES (§5 du contrat : l'animation gagne sur ce qu'elle
+MANIPULE ; une constante de retarget ne doit surtout pas etre suivie).
+
+SECTION DONT CE CYCLE DEBLOQUE LE VERDICT (exigence DIRECTIVES 2026-08-21 18:25) : **SPEC 22**,
+la seule ligne qui borne l'apex par un plafond DUR (<=0.42 / <=0.50 B0) sans passer par un geste.
+Les six autres rouges d'apex (§14 §16 §17 §18 §19 §20) lisent la MEME grandeur et heritent du
+resultat, mais je ne les nomme pas comme debloquees : le cycle 80 a etabli qu'elles ne partagent
+pas un facteur commun, elles se traiteront separement.
+
+FAIT STRUCTUREL ETABLI AVANT LA COURSE, SUR LE RIG LIVRE (aucune course necessaire)
+  PHYSJTWN de la trace archivee + skins[0].joints de out/jak1/fr3/skin/keira-hd-donor-injected.glb
+    lBoob = rig idx 45     rBoob = rig idx 44      -> INFERIEURS a 96
+    lBooc = rig idx 105    rBooc = rig idx 106     -> SUPERIEURS a 96
+  PHYSANIM ... joints=96 sur les 31 animations, PHYSREMAP ... identity=1.
+  => `lBoob` et `rBoob` PORTENT un canal d'animation d'auteur ; `lBooc` et `rBooc` n'en ont
+     aucun (ce sont les os injectes). C'est deja la moitie de la reponse : la question « canal
+     d'auteur ou pas » ne se pose que pour les maillons 0.
+
+L'INSTRUMENT — UNE ABLATION DE DONNEE, ZERO BUILD
+  `recharged_assets/physics_chains.txt` : les deux `chain` (chestL, chestR) et leurs 4 lignes `j`
+  sont mises en commentaire. Plus rien n'ecrit lBoob/lBooc/rBoob/rBooc. `PHYSJTW` les resout PAR
+  NOM sur le rig (phys-room.gc:3299-3313) et continue donc de les publier : sa matrice devient
+  alors, exactement, LA POSE D'AUTEUR. Aucune ligne de moteur, aucune ligne de salle, aucun
+  rebuild : la fraicheur du CGO est inchangee.
+
+NATURE / REPERE / POPULATION, declares avant de lire quoi que ce soit
+  NATURE   : des LONGUEURS (positions de joint), rapportees a B0 = 602 u ; 4096 u = 1 m.
+  REPERE   : le repere LOCAL DE `chest` (rig idx 3), lignes orthonormees de sa 4x4 ecrite.
+             `chest` n'est simule par RIEN : sa matrice est identique dans les deux courses, ce
+             qui est le CONTROLE NEGATIF ci-dessous. Mesurer en repere MONDE melangerait le
+             deplacement du personnage a l'ecart cherche (piege du 2026-08-11 18:00).
+  POPULATION : les 1147 frames de la sous-fenetre SANS PILOTAGE (d=5) de PH-MEAS, 31 animations
+             x 37 frames. JAMAIS un argmax : le cycle 81b a compare une MEDIANE (joint vs bind)
+             a un ARGMAX (|tp|), et c'est exactement `argmax-anchor-is-not-a-population`.
+  ABSENT   : si l'animation ne deplacait pas le joint, A_loc == B_loc, ecart 0.0000 B0.
+
+LES QUATRE GRANDEURS PUBLIEES, PAR CHAINE
+  A_loc(k) = position d'AUTEUR de lBoob/rBoob dans le repere de `chest`   (course DESARMEE)
+  S_loc(k) = position SIMULEE du meme joint dans le meme repere            (course ARMEE archivee)
+  B_loc    = offset de BIND du meme joint / `chest`, lu dans les inverseBindMatrices du glb LIVRE
+  gap(k)   = |A_loc(k) - S_loc(k)|   — la version PAR FRAME de `tp`, sans argmax
+
+CONTROLES, ET ILS SONT DANS LA MESURE, PAS A COTE
+  NEGATIF (doit tirer a ZERO)  : `chest` (j=4) et `main` (j=5) ne sont simules par rien. Leurs
+      24 flottants publies doivent etre IDENTIQUES au chiffre pres entre les deux courses, sur
+      les 1147 cles `k`. Un seul ecart => les deux courses ne sont pas comparables et AUCUN
+      chiffre de ce cycle ne se publie. C'est aussi le test de determinisme de la salle.
+  POSITIF (doit MONTER)        : les quatre joints de poitrine doivent DIFFERER entre les deux
+      courses, mediane |S_loc - A_loc| >= 0.02 B0. S'ils ne different pas, l'ablation n'a pas eu
+      lieu (chaines toujours lues) et le cycle ne conclut rien.
+  VACUITE                      : le nombre de cles `k` presentes DANS LES DEUX courses doit valoir
+      1147. En dessous de 1100 la population n'est pas celle qui est declaree, et je le dis.
+
+LES DEUX SIGNATURES, PUBLIEES D'AVANCE ET MUTUELLEMENT EXCLUSIVES
+  Soit d = |mediane(A_loc) - B_loc| (l'ecart de l'animation au modele livre) et soit sigma la
+  dispersion de A_loc (ecart-type de la norme, plus dispersion vectorielle) sur la POPULATION.
+
+  HYP-R « CONSTANTE DE RETARGET »  : sigma_inter-animations <= 0.10 * d
+      ET d compris entre 0.25 et 0.55 B0 ET l'ecart gauche/droite du VECTEUR A_loc-B_loc, apres
+      miroir de la composante laterale, <= 15 % (le rig est symetrique a 0.005 deg en bind).
+      => l'animation ne MANIPULE pas ces joints, elle republie une constante. §5 du contrat donne
+         alors la main a la physique, et `apex` publie une constante de rig sous le nom
+         d'excursion : le rouge de §22 est un FAUX ROUGE et se retire.
+
+  HYP-A « INTENTION D'AUTEUR »     : sigma_inter-animations >= 0.25 * d
+      => l'animation manipule reellement le joint, la physique doit la suivre (§5), et le defaut
+         est qu'elle la ramene au bind. Le rouge de §22 reste, mais son SENS s'inverse : trop
+         statique, pas trop energique.
+
+  ENTRE LES DEUX (0.10*d < sigma < 0.25*d) : **NON CONCLUANT**, publie comme tel, aucun statut ne
+      bouge, et je nomme ce qui manque. Je n'arrondis pas vers l'hypothese qui m'arrange.
+
+CE QUE CE CYCLE NE FAIT PAS
+  Aucune ligne de moteur. Aucune gate touchee. Aucun statut ne bouge AVANT que le controle negatif
+  ait tire a zero. Aucun build APK n'est declenche : le verrou de livraison est pose pendant toute
+  la duree ou l'arbre porte la donnee ablatee, et l'arbre est restaure avant qu'il soit rendu.
+
+================================================================================================
+ADDENDUM — LA METHODE A CHANGE, LE CRITERE NON. (ecrit apres la premiere tentative, avant la 2e)
+
+CE QUI S'EST PASSE. Retirer LES DEUX chaines ne produit aucune mesure : `jak-hd-physics-init`
+sort sur « no chain data for keira-hd — physics inert » (mesure : la ligne est dans la trace),
+donc aucun slot n'est alloue, donc `physroom-tick` reste indefiniment dans `PHYSROOM-PH-SETTLE`
+dont la sortie exige `(> (-> self nchain) 0)` (phys-room.gc:3026). 13 minutes de course, zero
+`PHYSJTW`. L'ablation etait trop large — c'est un fait sur l'INSTRUMENT, pas sur la physique, et
+je le consigne au lieu de le taire.
+
+LA METHODE CORRIGEE : UNE CHAINE A LA FOIS, PAR DELETION SEULE, JAMAIS PAR INVENTION.
+  course A : `chain chestR` + `j rBoob` + `j rBooc` mis en commentaire. chestL reste ARMEE, donc
+             la salle alloue son slot et parcourt ses phases normalement. rBoob/rBooc ne sont
+             ecrits par rien : leur `PHYSJTW` EST la pose d'auteur.
+  course B : le miroir exact — chestL desarmee, chestR armee.
+Aucune ligne n'est AJOUTEE au fichier de donnees : je ne fabrique pas de chaine de substitution
+(regle 4 : donnees generees, jamais rustinees). On ne retire que ce qui existe.
+
+LES SEUILS DE HYP-R / HYP-A CI-DESSUS SONT INCHANGES. Seule la facon d'obtenir A_loc change.
+
+CE QUE JE PREDIS EN PLUS, PARCE QUE LA NOUVELLE METHODE LE REND TESTABLE
+  (P1) `chest` (j=4) et `main` (j=5) restent IDENTIQUES au chiffre pres entre la course armee et
+       chacune des deux courses : rien ne les simule, et le pilotage de la salle est scripte par
+       `pframe`, pas par la physique. C'est LE controle negatif, et il est le meme qu'avant.
+  (P2) la chaine RESTEE ARMEE ne sera PAS identique a la course armee, et ce n'est pas un defaut :
+       le couplage de Jacobi ([NOTE-05]) et le contact sein-sein de §33 lient les deux chaines.
+       Je l'ecris AVANT de le lire pour ne pas pouvoir le presenter apres coup comme une surprise.
+       Si au contraire elle etait identique au bit pres, cela voudrait dire que le couplage et le
+       contact sein-sein sont INERTES — ce qui serait, en soi, un resultat a publier.
+  (P3) le CONTROLE POSITIF devient : sur le cote DESARME, |S_loc - A_loc| mediane >= 0.02 B0 ; sur
+       le cote ARME, la meme grandeur n'est pas definie (rien ne fournit A_loc de ce cote-la dans
+       cette course) et ne sera donc PAS publiee — jamais un zero tire d'un domaine vide.
+
+DEUX COURSES, DEUX COTES, CHACUN CONTRE SON PROPRE BIND. Le bind est miroir EXACT sur les deux
+seins (mesure sur les inverseBindMatrices du glb livre : x = +/-379.908, y = -957.859,
+z = -155.239, |v| = 1042.08 u des deux cotes, ecart 0.001 u), donc aucun raisonnement de ce cycle
+n'a besoin de supposer la symetrie : chaque cote est compare a lui-meme.
