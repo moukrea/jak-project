@@ -1,7 +1,7 @@
 ==================================================================================================
 KEIRA — SALLE DE TEST SANS JOUEUR : TABLEAU DE MESURE
 genere par .autoport/physics_room_table.py depuis .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
-empreinte de la trace lue : md5 c14efe99fe92e1dc969e9da9526a4717 (4376284 octets)
+empreinte de la trace lue : md5 16cfe162f50ef90db29095a76f9f691f (4376224 octets)
 contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 7 (ce qui fait foi)
 
 -- ROOM-INSTRUMENTS-MUETS : CE QUE CE TABLEAU NE MESURE PAS AUJOURD'HUI ------------
@@ -1335,6 +1335,11 @@ ROOM-REGB-SYM: 8 fenetre(s) sur 8 rendent une reponse PLUS symetrique quand le s
 
 
 -- ROOM-REGLIM : LE MUR DE SPEC 21 SUR CHAQUE FENETRE DE REGIME (cycle 71) ---------------
+ROOM-REGLIM-JAMBE: le mur de FORCE de §21 est ARME (stif_n=50397 sous-pas au-dessus de mu=1)
+   Depuis le cycle 72 `mu` est conditionne par `*phys-fwall*` ([NOTE-330]). La jambe se LIT
+   dans la trace — `stif_n` n'a qu'un seul incrementeur — elle ne se declare pas. Desarme,
+   les mots GENOU / GELE / (SATURE) ne sont pas ecrits : ils nommeraient un mecanisme qui
+   n'a pas tourne, et une etiquette qui survit a son mecanisme est le defaut du cycle 28.
    LE MUR EST LU DANS LE SOURCE, PAS SUPPOSE (jak-hd-physics.gc:2859-2860 et :2938-2943) :
        kn  = 0.42 * B0            genou — identite STRICTE en dessous, mu = 1.0 exactement
        cpp = 0.08 * B0

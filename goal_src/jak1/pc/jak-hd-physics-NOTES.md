@@ -7325,3 +7325,45 @@ mesure. Ne pas les relire comme des references.
 docstrings fausses sont corrigees, et le NOMMAGE des cellules d'orientation passe desormais par
 un chemin unique cote tableau (`orole()`), qui derive le role de `PHYSORI4` au lieu de le lire
 dans une etiquette. Une etiquette ne se verifie pas ; une gravite mesuree si.
+
+## NOTE-330 — LE MUR DE FORCE DE §21 DEVIENT DESARMABLE, PARCE QU'UN MECANISME NON DESARMABLE EST INFALSIFIABLE
+
+`*phys-fwall*` (moteur, ligne ~562) — 1 = le multiplicateur `mu` du bloc `:2939-2944` est ARME,
+c'est-a-dire l'etat de toutes les courses jusqu'au cycle 71 inclus ; 0 = il vaut 1.0 partout et le
+materiau redevient un ressort LINEAIRE.
+
+**POURQUOI IL FALLAIT UN INTERRUPTEUR AVANT DE TOUCHER AU MECANISME.** Le registre le dit sous
+`attribution-harness-outlives-its-defect` : « ajoute l'interrupteur d'ablation AVANT de t'autoriser
+a corriger le mecanisme que tu soupconnes. Un mecanisme DIMENSIONNE mais pas DESARMABLE est
+infalsifiable. » Le cycle 28 l'avait fait pour la borne radiale (`phys-rr-off-set!`) et le controle
+avait **exonere** le suspect : la « correction » serait partie inerte. Le mur de force est ici dans
+la meme position — soupconne, chiffre, jamais desarme.
+
+**CE QUE LE MUR EST, EN ALGEBRE ET SANS MESURE.** `xr = min(0.99, (dd - kn)/cpp)` puis
+`|f| = k2s * (kn + cpp * xr/(1-xr))`. Le `min 0.99` GELE le numerateur des que
+`dd >= kn + 0.99*cpp = 0.4992 B0` : au-dela, la force de rappel est **CONSTANTE**
+(5020.68 u, soit 16.7x ce que le ressort lineaire rendrait a cette distance), identique a 0.50 B0
+d'erreur et a 5 B0 d'erreur. Une force constante est un TAUX, pas une BORNE — le defaut exact que
+le cycle 34 a mesure et corrige sur l'AUTRE canal ([NOTE-87]) et qui n'a jamais ete porte sur
+celui-ci.
+
+**ET LA §21 EST DEJA IMPLEMENTEE, CORRECTEMENT, VINGT LIGNES PLUS BAS.** Le bloc `:3120-3141`
+(`*phys-sat-n*`) sature le **DEPLACEMENT** : genou a `0.42 B0`, tanh de Pade, asymptote exacte a
+`0.50 B0` — les deux nombres de sa §22, dans la forme que sa §21 ecrit
+(`D = D_max * tanh(|D|/D_max)`). Le moteur porte donc DEUX implementations de la meme section sur
+le meme canal : une sur la bonne grandeur, une sur la mauvaise.
+
+**L'ARGUMENT QUI TRANCHE N'EST PAS §21, C'EST §24.** Sa §24 donne UNE frequence propre par axe
+(2.30 / 2.50 / 2.65 Hz). Un multiplicateur de raideur qui monte a x16.7 rend la frequence
+instantanee dependante du deplacement (x4.09 sur la racine carree) : les deux lignes ne peuvent pas
+etre vraies ensemble. Une saturation de DEPLACEMENT, elle, laisse la raideur intacte — c'est
+precisement pourquoi la spec la met la.
+
+**PORTEE DECLAREE.** L'interrupteur ne touche QUE le maillon principal. Le point libre de §23
+(`cmu`, `:2988-2992`) porte la meme faute de forme et n'est PAS touche : son `cdd` est deja borne a
+~0.40 B0 par le filet de [NOTE-87], donc sa degenerescence est marginale, et un probleme a la fois.
+
+**COMMENT ON L'ARME.** Constante de compilation, un build GOAL (26 s) par jambe. Pas de `-set!` :
+le moteur est a 4799 lignes pour un plafond de 4800, et une fonction d'armement en coute cinq. La
+salle etant deterministe au bit (mesure au cycle 32, re-mesuree au cycle 71 : 0 ligne differente
+sur 43 254), deux courses successives font une paire appariee exacte.

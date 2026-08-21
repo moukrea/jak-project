@@ -1117,6 +1117,44 @@ _LIM_KN, _LIM_CPP, _LIM_XRC = 0.42, 0.08, 0.99
 _LIM_FRZ = _LIM_KN + _LIM_XRC * _LIM_CPP          # 0.4992 B0
 _LIM_PH = {31: 'PH-REG', 36: 'PH-REGS', 37: 'PH-REGT', 38: 'PH-REGA', 39: 'PH-REGB'}
 
+# LE MUR DE FORCE A-T-IL PU AGIR DANS **CETTE** COURSE ? (cycle 72)
+#
+# Depuis le cycle 72 le multiplicateur `mu` est conditionne par `*phys-fwall*` (jak-hd-physics.gc
+# :562, [NOTE-330]). Une course peut donc venir de deux jambes, et les mots « GENOU » / « GELE » /
+# « (SATURE) » decrivent un mecanisme qui, sur la jambe desarmee, N'EXISTE PAS. Les publier quand
+# meme serait exactement le defaut que le cycle 71 denonce : une etiquette qui survit a son
+# mecanisme (`attribution-harness-outlives-its-defect`).
+#
+# LA JAMBE SE LIT DANS LA TRACE, ELLE NE SE DECLARE PAS. `*phys-stif-n*` (publie par `PHYSLIM4`) a
+# UN SEUL incrementeur, `(> mu 1.000001)` a :2945, evalue a chaque sous-pas de chaque maillon
+# elastique. `stif_n = 0` sur toute la course veut dire que `mu` n'a JAMAIS depasse 1 — et comme le
+# meme tableau publie des fenetres dont `perr` depasse le genou, la seule lecture qui reste est que
+# la branche etait desarmee. Deux lignes de la MEME trace, pas une declaration.
+#
+# ABSENT : `PHYSLIM4` manquante -> on ne sait pas, et on garde les etiquettes ARMEES en le disant.
+_LIM_ARMED = True
+_LIM_ARMED_WHY = 'indetermine (PHYSLIM4 absente) — etiquettes ARMEES par defaut'
+
+
+def _limarm(txt):
+    """Fixe `_LIM_ARMED` pour toute la course. Appele UNE FOIS, tot, par `main()`."""
+    global _LIM_ARMED, _LIM_ARMED_WHY
+    m = re.search(r'^PHYSLIM4 sat_n=[-\d.e+]+ sat_sum=[-\d.e+]+ stif_n=([-\d.e+]+)', txt, re.M)
+    if not m:
+        return
+    n = float(m.group(1))
+    over = sum(1 for x in re.finditer(r'^PHYSREGW .* perr=([-\d.e+]+)', txt, re.M)
+               if float(x.group(1)) > _LIM_KN)
+    if n > 0.0:
+        _LIM_ARMED, _LIM_ARMED_WHY = True, 'ARME (stif_n=%.0f sous-pas au-dessus de mu=1)' % n
+    elif over > 0:
+        _LIM_ARMED = False
+        _LIM_ARMED_WHY = ('DESARME (stif_n=0 alors que %d fenetre(s) depassent le genou : la seule'
+                          ' lecture possible)' % over)
+    else:
+        _LIM_ARMED_WHY = ('indetermine (stif_n=0 mais AUCUNE fenetre au-dessus du genou : le mur'
+                          ' n\'avait rien a mordre) — etiquettes ARMEES par defaut')
+
 
 def _limload(txt):
     """`PHYSREGW ph= c= r= rgap= perr=` -> {(ph, c, r): [(rgap, perr), ...]}.
@@ -1150,6 +1188,12 @@ def _limstate(perr):
     chiffre."""
     if perr is None:
         return 'DEMANDE NON PUBLIEE'
+    if not _LIM_ARMED:
+        # Le mur est desarme : il n'y a plus ni genou ni gel, la raideur est celle du materiau
+        # partout. `perr` reste publie — c'est une LONGUEUR mesuree, pas une etiquette — mais il ne
+        # classe plus rien. Le multiplicateur garde le MEME denominateur qu'a la jambe armee pour
+        # que les deux colonnes restent comparables ligne a ligne.
+        return 'MATERIAU (x%.2f kn)' % (perr / _LIM_KN)
     if perr <= _LIM_KN:
         return 'LINEAIRE (x%.2f kn)' % (perr / _LIM_KN)
     if perr <= _LIM_FRZ:
@@ -1172,6 +1216,8 @@ def _limsat(lim, ph, c, r):
     amplitude est alors mise en forme par la force CONSTANTE du mur et non par la raideur du
     materiau. Meme forme que le verrou de pose du 2026-08-21 : le confondeur se publie SUR LA MEME
     LIGNE que le chiffre qu'il conditionne, ou la ligne se tait."""
+    if not _LIM_ARMED:
+        return False        # pas de zone gelee quand le mur ne tourne pas : il n'y a rien a stigmatiser
     v = lim.get((ph, c, r)) if lim else None
     return bool(v) and len(v) == 1 and v[0][1] > _LIM_FRZ
 
@@ -1210,6 +1256,11 @@ def _reglim_block(A, txt, names, RGT, LIM):
         A('   leur fenetre, ce qui est exactement le trou que ce bloc existe pour fermer.')
         A('')
         return
+    A('ROOM-REGLIM-JAMBE: le mur de FORCE de §21 est %s' % _LIM_ARMED_WHY)
+    A('   Depuis le cycle 72 `mu` est conditionne par `*phys-fwall*` ([NOTE-330]). La jambe se LIT')
+    A('   dans la trace — `stif_n` n\'a qu\'un seul incrementeur — elle ne se declare pas. Desarme,')
+    A('   les mots GENOU / GELE / (SATURE) ne sont pas ecrits : ils nommeraient un mecanisme qui')
+    A('   n\'a pas tourne, et une etiquette qui survit a son mecanisme est le defaut du cycle 28.')
     A('   LE MUR EST LU DANS LE SOURCE, PAS SUPPOSE (jak-hd-physics.gc:2859-2860 et :2938-2943) :')
     A('       kn  = 0.42 * B0            genou — identite STRICTE en dessous, mu = 1.0 exactement')
     A('       cpp = 0.08 * B0')
@@ -1307,10 +1358,25 @@ def _reglim_block(A, txt, names, RGT, LIM):
               % (_LIM_PH.get(_ph, 'ph=%d' % _ph), _nm, _r, _rn, _rg, _pe, _st,
                  ('passe %d/%d' % (_i + 1, len(_occ))) if len(_occ) > 1 else ''))
     A('')
-    A('ROOM-REGLIM-BILAN: %d ligne(s) publiee(s) sous %d cle(s) — %d LINEAIRE, %d au GENOU,'
-      % (_n, len(LIM), _tal.get('LINEAIRE', 0), _tal.get('GENOU', 0)))
-    A('   %d GELEES (%.1f %%). %d cle(s) portent PLUSIEURS passes (PH-REGA joue chaque fenetre'
-      % (_tal.get('GELE', 0), 100.0 * _tal.get('GELE', 0) / max(1, _n), _dup))
+    if not _LIM_ARMED:
+        # Le comptage par zone n'a plus d'objet ; ce qui reste comparable a la jambe armee est la
+        # part de fenetres AU-DESSUS du genou et au-dessus de l'ancien point de gel, parce que ce
+        # sont des seuils sur `perr`, pas des etats d'un mecanisme.
+        _kn = sum(1 for v in LIM.values() for o in v if o[1] > _LIM_KN)
+        _fz = sum(1 for v in LIM.values() for o in v if o[1] > _LIM_FRZ)
+        A('ROOM-REGLIM-BILAN: %d ligne(s) sous %d cle(s), mur DESARME — le comptage par zone n\'a'
+          % (_n, len(LIM)))
+        A('   plus d\'objet. Ce qui reste comparable a la jambe armee, parce que ce sont des seuils')
+        A('   sur `perr` et non des etats d\'un mecanisme : %d (%.1f %%) au-dessus du genou'
+          % (_kn, 100.0 * _kn / max(1, _n)))
+        A('   0.4200 B0, dont %d (%.1f %%) au-dessus de l\'ancien point de gel 0.4992 B0.'
+          % (_fz, 100.0 * _fz / max(1, _n)))
+        A('   %d cle(s) portent PLUSIEURS passes (PH-REGA joue chaque fenetre' % _dup)
+    else:
+        A('ROOM-REGLIM-BILAN: %d ligne(s) publiee(s) sous %d cle(s) — %d LINEAIRE, %d au GENOU,'
+          % (_n, len(LIM), _tal.get('LINEAIRE', 0), _tal.get('GENOU', 0)))
+        A('   %d GELEES (%.1f %%). %d cle(s) portent PLUSIEURS passes (PH-REGA joue chaque fenetre'
+          % (_tal.get('GELE', 0), 100.0 * _tal.get('GELE', 0) / max(1, _n), _dup))
     A('   dans les DEUX sens et `PHYSREGW` ne porte pas le sens) : aucune d\'elles ne peut')
     A('   conditionner un verdict, elles se declarent AMBIGUES la ou elles sont lues.')
     _rgmx = max((o[0] for v in LIM.values() for o in v), default=0.0)
@@ -2703,6 +2769,10 @@ def main():
         pass    # stdout non seekable (pipe, terminal) : aucune collision possible, on continue
 
     txt = open(log, errors='ignore').read()
+
+    # QUELLE JAMBE EST CETTE COURSE ? A lire AVANT tout bloc qui etiquette une fenetre, sinon les
+    # premiers blocs sortiraient avec les mots de l'autre jambe. Voir `_limarm` / [NOTE-330].
+    _limarm(txt)
 
     # ---- la course est-elle allee au bout ? -----------------------------------------------------
     if not re.search(r'^PHYSEND', txt, re.M):
