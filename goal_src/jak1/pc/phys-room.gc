@@ -2367,19 +2367,6 @@
   ;;   LECTURE QUAND LA BORNE NE MORD PAS : les deux a zero — et desarmee (`*phys-e22-off*` = 1)
   ;;   elle DOIT rendre exactement 0, c'est son controle negatif.
   (format 0 "PHYSE22 tag=~S n=~f cut_b0=~f~%" tag (phys-skc 4) (phys-skc 5))
-  ;; [NOTE-471] CE QUE LA BORNE DE SPEC 21/22 SUR LE POINT DE CHAIR A REPRIS, UNE FOIS PAR TAG.
-  ;; Elle REMPLACE `phys-apex-scale`, qui bornait la POINTE — un JOINT — alors que §22 nomme le
-  ;; « distal/apex displacement », c'est-a-dire un point de CHAIR. Le cycle 86 a mesure que le
-  ;; terme du TENSEUR porte 40,6 % / 37,3 % de cette excursion : aucune borne posee sur un joint
-  ;; ne peut l'atteindre. A lire A COTE de `PHYSE22`, jamais seule : celle-la borne la
-  ;; TRANSLATION du joint, celle-ci la COMBINAISON livree.
-  ;;   NATURE : un COMPTE (nombre de corrections, une par maillon et par frame) et une LONGUEUR
-  ;;            CUMULEE rapportee a `B0` (SPEC 6, la CHAIR, 602,0 u) — jamais des unites de jeu.
-  ;;   REPERE : le monde, contre la pose d'AUTEUR de la MEME frame ; c'est le repere de `apex`.
-  ;;   AGREGAT DE JAMBE, GLOBAL A LA COURSE : jamais une colonne par chaine (regle 7).
-  ;;   LECTURE QUAND LA BORNE NE MORD PAS : les deux a zero. Desarmee (`*phys-e21-off*` = 1) elle
-  ;;   DOIT rendre exactement 0 — c'est son controle negatif, et il se lit sur cette ligne.
-  (format 0 "PHYSE21 tag=~S n=~f cut_b0=~f~%" tag (phys-skc 6) (phys-skc 7))
   (phys-skinpen-reset!)
   (none))
 

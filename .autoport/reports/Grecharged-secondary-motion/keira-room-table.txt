@@ -1,7 +1,7 @@
 ==================================================================================================
 KEIRA — SALLE DE TEST SANS JOUEUR : TABLEAU DE MESURE
 genere par .autoport/physics_room_table.py depuis .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
-empreinte de la trace lue : md5 cb5c3e6d89836959c05f226ebc039902 (6414377 octets)
+empreinte de la trace lue : md5 b79d51b4038374771b830ca18b82e94b (6414377 octets)
 contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 7 (ce qui fait foi)
 
 -- ROOM-INSTRUMENTS-MUETS : CE QUE CE TABLEAU NE MESURE PAS AUJOURD'HUI ------------
@@ -965,11 +965,14 @@ ROOM-SPEC21: chain=chestR       n=186 fenetres   controle d'identite |e|-apex = 
       frame a frame. La FORME d'implementation, elle, n'atteint pas exactement
       le point vise (une rotation ne deplace le point que sur une sphere) : cet
       ecart n'est PAS mesure ici et se mesure par INTERVENTION, pas par calcul.
-   VERDICT §21 : la saturation que la section EXIGE n'existe pas dans le moteur —
-      aucune ligne ne combine `D_linear` et `D_angular` avant de les borner. §21 est
-      donc NON TENUE PAR ABSENCE DE MECANISME, et la simulation (A) chiffre ce que
-      son ajout AU MOT changerait : presque rien. Ce n'est pas un motif de ne pas
-      l'implementer — c'est un motif de ne pas en attendre §22.
+   RESERVE SUR LA DECOMPOSITION QUAND LA BORNE DE [NOTE-471] MORD : `dp` est releve
+      AVANT la rotation de correction. Une rotation CONSERVE sa norme, donc `|dp|`
+      reste exact ; sa DIRECTION, non — et `rp`, qui est DERIVE, absorbe l'ecart.
+      L'identite `e = tp + rp + dp` referme donc toujours, mais le partage entre `rp`
+      et `dp` est contamine sur les fenetres ou `PHYSE21 n` est non nul : les NORMES
+      se lisent, le partage rp/dp ne se lit PAS sur ces fenetres-la.
+   VERDICT §21 : AUCUNE ligne `PHYSE21` dans cette trace — le moteur ne porte pas
+      de saturation sur la combinaison. §21 NON TENUE PAR ABSENCE DE MECANISME.
 -- `comex` : LE MAXIMUM SUR LES DEUX CENTROIDES DE MAILLON — CE N'EST PAS LE COM ------
    CETTE LIGNE NE PORTE PLUS DE VERDICT §22, ET SON NOM A CHANGE POUR LE DIRE.
    §6 definit `P0` = « neutral breast center-of-mass position » et §22 borne « Breast

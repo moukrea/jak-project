@@ -3939,11 +3939,14 @@ TROIS LIGNES DE SA SPEC DISENT L'AUTRE FORME :
     in distal tissue » — la mobilite CROIT vers la pointe. Un budget proportionnel a la longueur de
     l'os la fait DECROITRE, et NOTE-114 publie elle-meme cette reserve sans la lever.
 
-**[RETIREE AU CYCLE 87 — voir NOTE-471.]** `phys-apex-scale` bornait la POINTE, c'est-a-dire un
-JOINT, alors que §22 nomme un point de CHAIR situe a 1,228 / 1,235 B0 de lui. Le cycle 76 l'a
-mesure par intervention (-25 % de translation du joint -> -0,2 % d'apex sur chestR) et le cycle
-86 par decomposition (le terme du TENSEUR porte 40,6 % / 37,3 % de l'excursion, et aucune borne
-posee sur un joint ne peut l'atteindre). Ce qui suit decrit le mecanisme RETIRE.
+**[EN PLACE. SON RETRAIT A ETE ESSAYE AU CYCLE 87 ET IL A COUTE — voir NOTE-471.]**
+`phys-apex-scale` borne la POINTE, c'est-a-dire un JOINT, alors que §22 nomme un point de CHAIR
+situe a 1,228 / 1,235 B0 de lui : c'est un PROXY, et le cycle 58 l'avait deja dit. Le cycle 87 en
+a tire la conclusion qui semblait suivre — le retirer — et **la paire appariee a mesure que le
+proxy est un MAJORANT PLUS STRICT que la grandeur qu'il approxime** : sans lui, apex moyen
+0,6778 -> 0,7413 (chestL) et 0,7007 -> 0,7660 (chestR), `|tp|` median +17,5 % / +15,7 %.
+Il reste donc EN PLACE. Un proxy ne se retire pas parce qu'il est un proxy ; il se retire quand
+la mesure montre que ce qui le remplace fait mieux.
 
 CORRECTIF. `phys-apex-scale` rend UN facteur `asc = ds/dd`, ou `dd` est la deviation ABSOLUE de la
 pointe a sa pose d'auteur et `ds` le meme nombre sature au plafond `0.50*B0`. Chaque maillon voit
@@ -8358,7 +8361,61 @@ desormais visible par machine et plus seulement par memoire.
 **46 937 lignes `PHYS` hors `PHYSSTGW`/`PHYSSTGR`, ZERO differente**, `PHYSSTG` et `PHYSSTGT`
 compris. C'est un ajout pur.
 
-## NOTE-471 — SPEC 21/22 SUR LA COMBINAISON LIVREE : LA BORNE PASSE DU JOINT AU POINT DE CHAIR
+## NOTE-471 — BORNER LE POINT DE CHAIR PAR UNE ROTATION : ESSAYE AU CYCLE 87, MESURE, REFUTE, RETIRE
+
+**VERDICT, EN TETE, PARCE QUE C'EST LUI QUI COMPTE.** Le mecanisme decrit plus bas a ete
+implemente, joue sur la course complete en PAIRE APPARIEE (jambe desarmee / jambe armee, meme
+build, meme salle), et **il AGGRAVE la section qu'il visait**. Il est retire ; le code n'existe
+plus dans l'arbre. Ce qui suit est conserve parce que la RAISON de l'echec est un resultat, pas
+un accident de reglage.
+
+                          c81 (avant)   B = retrait seul   A = retrait + borne
+    apex moyen chestL       0,6778          0,7413              0,8382
+    apex moyen chestR       0,7007          0,7660              0,8651
+    apex max   chestL       0,8929          1,1048              1,1327
+    apex max   chestR       0,9405          1,0273              1,2014
+    fenetres > 0,50 B0      177/180         182/183             183/183
+
+Prediction posee d'avance par le cycle 86 : « apex max sous 0,52 B0 ; au-dessus de 0,55 le geste
+se retire ». Mesure : **1,1327 / 1,2014**. La borne a pourtant bien mordu — `PHYSE21 n=33338`,
+`cut_b0=4045,83` — et son controle negatif est propre (`n=0` exactement sur les 14 tags de la
+jambe desarmee, contre `PHYSE22 n=59330` dans la meme course).
+
+**LA CAUSE, ET ELLE SE LIT DANS LA DECOMPOSITION.** `|tp|` et `|dp|` ne bougent pas (0,4424 ->
+0,4405 et 0,3210 -> 0,3152) : la borne ne touche ni la translation ni le tenseur, comme prevu.
+**TOUTE la hausse est dans `rp`, le terme de ROTATION : 0,2721 -> 0,3317 (+21,9 %) et
+0,2766 -> 0,3611 (+30,5 %).** Le geste cense retirer de l'excursion en AJOUTE, et il en ajoute
+exactement par le canal qu'il actionne.
+
+**POURQUOI — UNE ROTATION EST TANGENTIELLE, LA CORRECTION DEMANDEE EST RADIALE.** Le point de
+chair est au bout d'un levier `|o|` = 1,228 / 1,235 B0. Une rotation autour du joint le deplace
+sur la SPHERE de rayon `|o|` : le deplacement qu'elle peut produire est orthogonal au levier.
+Or la correction demandee, `-(1-gg)*c2`, a une composante RADIALE (le long du levier) que la
+rotation ne peut pas produire. La rotation substitue donc un deplacement TANGENTIEL a un
+deplacement RADIAL : le deficit radial reste, le tangentiel s'y ajoute **en quadrature**, et la
+norme MONTE. C'est arithmetique, pas un reglage — aucune valeur de `D_max` ne l'inverse.
+
+**ET CA N'EST PAS EN CONTRADICTION AVEC LE CYCLE 76, IL FAUT LE DIRE PRECISEMENT.** NOTE-447 a
+pose avec succes une borne « par ROTATION, pas par contraction » — mais sur le JOINT, dont le
+levier est l'os depuis l'ATTACHE et dont l'excursion a corriger est justement tangentielle a cet
+os. Transposer la FORME sans re-verifier la GEOMETRIE etait le pas de trop. **Une forme
+d'operateur ne se transporte pas d'une grandeur a une autre : elle se re-derive sur le levier de
+la nouvelle grandeur.**
+
+**LE PROCHAIN GESTE, ET IL EST FALSIFIABLE.** La correction radiale d'un point de chair est une
+CONTRACTION DU LEVIER DE CHAIR — c'est-a-dire une compression de tissu, que §22 autorise
+explicitement dans son budget local (« Local tissue elongation: common 5-15%, large 15-21%,
+exceptional 21-25% ») et que §22 DEMANDE meme (« Large apex displacement shall not imply equally
+large tissue extension »). Elle ne touche ni `bm.trans` (donc pas la longueur d'os) ni le
+determinant si elle est compensee. **PREALABLE OBLIGATOIRE, ET IL EST GRATUIT** : publier
+`dot(c2, o^)/|c2|` a cote de `|c2|` dans `PHYSAPEX`. Si la part RADIALE de l'excursion est
+faible, l'analyse ci-dessus est fausse et le chantier change. Aucune ligne de solveur ne se
+touche avant cette mesure.
+
+---
+
+### CE QUI SUIT DECRIT LE MECANISME RETIRE, CONSERVE POUR LA TRACABILITE
+
 
 **CE QUI EST REMPLACE, ET POURQUOI CE N'EST PAS UN AJOUT.** `phys-apex-scale` (retire au cycle 87)
 appliquait un facteur COMMUN pour ramener la POINTE dans le budget d'apex de §22. La pointe est un
