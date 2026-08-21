@@ -2333,6 +2333,17 @@
   ;; LECTURE QUAND LA CONTRAINTE NE MORD PAS : les trois a zero.
   (format 0 "PHYSSKINC tag=~S n=~f sum=~f worst=~f reste=~f~%"
           tag (phys-skc 0) (phys-skc 1) (phys-skc 2) (phys-skc 3))
+  ;; [NOTE-447] CE QUE LA BORNE DE SPEC 22 SUR LA VALEUR LIVREE A REPRIS, UNE FOIS PAR TAG.
+  ;; C'est le pendant exact de `PHYSSKINC` : une borne qui enleve du mouvement se CHIFFRE (SPEC 7),
+  ;; et celle-ci reprend a `phys-skin-chain` une part de ce que la ligne du dessus dit qu'elle a
+  ;; achete. Les deux se lisent donc COTE A COTE, sur la MEME population, jamais separement.
+  ;;   NATURE : un COMPTE (nombre de corrections) et une LONGUEUR CUMULEE rapportee a `B0`
+  ;;            (SPEC 6, la CHAIR, 602,0 u) — PAS des unites de jeu, contrairement a `PHYSSKINC`.
+  ;;   REPERE : le monde, contre la pose d'AUTEUR de la MEME frame rebasee sur l'ecart du parent.
+  ;;   AGREGAT DE JAMBE, GLOBAL A LA COURSE : jamais une colonne par chaine (regle 7).
+  ;;   LECTURE QUAND LA BORNE NE MORD PAS : les deux a zero — et desarmee (`*phys-e22-off*` = 1)
+  ;;   elle DOIT rendre exactement 0, c'est son controle negatif.
+  (format 0 "PHYSE22 tag=~S n=~f cut_b0=~f~%" tag (phys-skc 4) (phys-skc 5))
   (phys-skinpen-reset!)
   (none))
 

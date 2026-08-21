@@ -241,9 +241,7 @@
 (define *phys-fy*  (new 'global 'inline-array 'vector PHYS-SC))
 (define *phys-fz*  (new 'global 'inline-array 'vector PHYS-SC))
 (define *phys-fok* (new 'global 'array 'int32 PHYS-SC))    ;; 1 = triedre SPEC 7 releve
-;; L'ECHELLE EFFECTIVEMENT APPLIQUEE, dans CE triedre : (lateral, vertical, projection). C'est la
-;; grandeur que la salle publie ; sa NATURE est un rapport sans dimension a la forme d'auteur, son
-;; REPERE est celui de l'ancre, et sa LECTURE HORS DEFAUT est 1.000 sur les trois (debout).
+;; [NOTE-409] L'ECHELLE EFFECTIVEMENT APPLIQUEE, dans CE triedre : (lateral, vertical, projection). C'est la -> jak-hd-physics-NOTES.md
 (define *phys-dfs*  (new 'global 'array 'float (* PHYS-SC 3)))
 ;; [NOTE-253] LA DIRECTION DE LA GRAVITE TELLE QUE LE SOLVEUR LA VOIT, dans le triedre de sa §7 : c'es -> jak-hd-physics-NOTES.md
 (define *phys-gc*   (new 'global 'array 'float (* PHYS-SC 3)))
@@ -435,9 +433,7 @@
 ;; [NOTE-19] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
 ;; [NOTE-158] LA PEAU ETAIT TRONQUEE EN SILENCE, ET C'EST LA CAUSE DE TOUT CE FIL. -> jak-hd-physics-NOTES.md
 ;; [NOTE-325] la troncature de la peau, mesuree : `sets=64/92` et 12 echantillons par ensemble. -> jak-hd-physics-NOTES.md
-;; [NOTE-292] 96 -> 112 : les os de CHAINE entrent desormais dans la meme famille `bs`, donc le
-;; nombre d'ensembles DECLARES passe de 92 a 96 et touchait EXACTEMENT le plafond. Un plafond
-;; atteint est une troncature qui attend son tour.
+;; [NOTE-410] 96 -> 112 : les os de CHAINE entrent desormais dans la meme famille `bs`, donc le -> jak-hd-physics-NOTES.md
 (defconstant PHYS-BSURF-SETS 112)
 (defconstant PHYS-BSURF-MAX  48)
 (defconstant PHYS-SB  (* PHYS-SLOTS PHYS-BSURF-SETS))
@@ -467,9 +463,7 @@
 (define *phys-sdq* (new 'global 'vector))
 ;; [NOTE-321] SPEC 33, controle positif : une FRACTION SANS DIMENSION (0 < f < 1), plus une longueu -> jak-hd-physics-NOTES.md
 (define *phys-med-inj* 0.5)
-;; PAR CHAINE : l'espacement MOYEN entre echantillons voisins de sa surface, mesure sur la donnee
-;; livree et jamais choisi a la main. Il donne le RAYON DE SUPPORT du nuage : au-dela, la surface
-;; n'est tout simplement pas echantillonnee et une distance signee n'y a pas de sens.
+;; [NOTE-411] PAR CHAINE : l'espacement MOYEN entre echantillons voisins de sa surface, mesure sur la donnee -> jak-hd-physics-NOTES.md
 (define *phys-bssp* (new 'global 'array 'float PHYS-SC))
 
 (defun phys-bsurf-sets ((slot int))
@@ -501,9 +495,7 @@
 (define *phys-medpen*  (new 'global 'array 'float PHYS-SC))
 (define *phys-medrest* (new 'global 'array 'float PHYS-SC))
 (define *phys-medn*    (new 'global 'array 'float PHYS-SC))
-;; LES LECTURES REJETEES PARCE QUE LE POINT EST HORS DU SUPPORT DU NUAGE. Publie a cote de `medn`
-;; pour que l'exclusion soit VISIBLE : un rejet silencieux transformerait une extrapolation en
-;; « rien a signaler », ce qui est la forme meme d'un faux vert.
+;; [NOTE-412] LES LECTURES REJETEES PARCE QUE LE POINT EST HORS DU SUPPORT DU NUAGE. Publie a cote de `medn` -> jak-hd-physics-NOTES.md
 (define *phys-medfar*  (new 'global 'array 'float PHYS-SC))
 ;; L'APPROCHE MINIMALE MESUREE AVEC L'INJECTION ARMEE, meme frame et memes points que sans elle :
 ;; controle APPAIRE, donc l'ecart des deux colonnes n'est imputable qu'a l'injection.
@@ -532,6 +524,10 @@
 (define *phys-skc-w* 0.0)
 (define *phys-saq* (new 'global 'array 'float PHYS-MS-MAX))
 (define *phys-skc-r* 0.0)
+;; [NOTE-447] SPEC 22 SUR LA VALEUR LIVREE. 0 EN LIVRAISON : 1 DESARME la borne finale.
+(define *phys-e22-off* 0)
+(define *phys-e22-n* 0)
+(define *phys-e22-d* 0.0)
 
 (defconstant PHYS-DG 79)           ;; 65-71 = [NOTE-340] les SEPT etages de |p_rlk - pose auteur| / B0 DANS LA FRAME COURANTE, 72-78 le meme septuplet LATCHE a la frame qui maximise l'etage 6 · 59-61 = [NOTE-338] la part TRANSLATION de l'apex, 62-64 sa part TENSEUR, AU MEME ARGMAX que 53-56 · 31-34 = [NOTE-92] l'attribution de `comex` · 35-42 = [NOTE-112] le COM PAR MAILLON · 43-46 = [NOTE-126] le COM PONDERE · 47-49 = [NOTE-136] son VECTEUR · 50-52 = [NOTE-137] la POSITION MONDE de l'ancre · 53-56 = [NOTE-139] l'APEX et son vecteur · 57/58 = [NOTE-139] les deux extremes verticaux du COM (SPEC 15)
 (define *phys-dg* (new 'global 'array 'float (* PHYS-SC PHYS-DG)))
@@ -1858,9 +1854,7 @@
               (vector-copy! og (the-as vector (-> bm vector 3))))
             (vector-! dv p og)
             (set! (-> dv w) 0.0)
-            ;; PHASE LARGE EXACTE : on n'ecarte un ensemble que s'il ne peut contenir AUCUN
-            ;; echantillon plus proche que le K-ieme deja trouve — la borne du voisinage, pas du
-            ;; plus proche, sinon on jetterait des plans qui ont droit de vote.
+            ;; [NOTE-413] PHASE LARGE EXACTE : on n'ecarte un ensemble que s'il ne peut contenir AUCUN -> jak-hd-physics-NOTES.md
             (when (< (- (vector-length dv) (-> *phys-bsr* (+ sb s)))
                      (sqrtf (-> *phys-sdk-d* (- PHYS-SD-K 1))))
               (dotimes (q (-> *phys-bsn* (+ sb s)))
@@ -1980,9 +1974,7 @@
                                   (set! bv v)
                                   (set! bq q)
                                   (vector-copy! nb *phys-sdn*))))))))
-                    ;; LA 7e PASSE NE CORRIGE PAS, ELLE MESURE : `*phys-skc-r*` est la pire
-                    ;; violation qui SURVIT aux six passes. C'est la contrainte qui se juge
-                    ;; elle-meme — si elle ne ferme pas, ce chiffre le dit avant la gate.
+                    ;; [NOTE-414] LA 7e PASSE NE CORRIGE PAS, ELLE MESURE : `*phys-skc-r*` est la pire -> jak-hd-physics-NOTES.md
                     (when (and (= it 6) (> bv *phys-skc-r*)) (set! *phys-skc-r* bv))
                     (when (and (>= bq 0) (< it 6))
                       (let* ((ux (- (-> *phys-px* scl) bx))
@@ -2017,6 +2009,74 @@
                     (when (= (-> *phys-cpe* scl) 0.0)
                       (set! (-> *phys-cpe* scl) PHYS-RST-CH)))))))))
       (set! *phys-sd-quiet* 0)))
+  (none))
+
+(defun phys-cap-e22! ((skel skeleton) (sc int) (n int) (rlk int) (an int) (nbone int))
+  "SPEC 22 SUR LA VALEUR LIVREE — LA SEULE PLACE DE LA FRAME OU CE MOT A UN SENS, puisque rien
+   n'ecrit `*phys-px*` apres elle. NATURE : une LONGUEUR rapportee a `B0` (SPEC 6, la CHAIR).
+   REPERE : le monde, contre la pose d'AUTEUR de la MEME frame rebasee sur l'ecart du parent —
+   exactement la cible du filet amont, pas une laisse vers la pose. LECTURE QUAND LE DEFAUT EST
+   ABSENT : aucune correction, `*phys-e22-n*` = 0 (a la pose d'auteur l'ecart vaut 0, donc sous le
+   genou de 0.42 B0 : la borne est INERTE PAR ALGEBRE, pas par reglage).
+   ROTATION EXACTE AUTOUR DE L'ATTACHE, donc `|p - b|` invariant AU BIT : une contraction radiale
+   vers la cible — la forme du filet amont — casserait la longueur, et aucune passe ne pourrait
+   plus la reparer. Justification complete : [NOTE-447] de jak-hd-physics-NOTES.md."
+  (when (zero? *phys-e22-off*)
+    (dotimes (l n)
+      (when (>= l rlk)
+        (let* ((scl (+ (* sc PHYS-LINKS) l))
+               (kk  (-> *phys-joint* scl))
+               (kp  (if (> l rlk) (-> *phys-joint* (- scl 1)) an))
+               (b0f (if (> (-> *phys-b0* sc) 0.0) (-> *phys-b0* sc) (-> *phys-blen* scl))))
+          (when (and (>= kk 0) (>= kp 0) (< (+ kk 1) nbone) (< (+ kp 1) nbone) (> b0f 0.01))
+            (let* ((bx (if (> l rlk) (-> *phys-px* (- scl 1)) (-> skel bones (+ kp 1) transform vector 3 x)))
+                   (by (if (> l rlk) (-> *phys-py* (- scl 1)) (-> skel bones (+ kp 1) transform vector 3 y)))
+                   (bz (if (> l rlk) (-> *phys-pz* (- scl 1)) (-> skel bones (+ kp 1) transform vector 3 z)))
+                   (tx (+ (-> skel bones (+ kk 1) transform vector 3 x)
+                          (if (> l rlk) (- bx (-> skel bones (+ kp 1) transform vector 3 x)) 0.0)))
+                   (ty (+ (-> skel bones (+ kk 1) transform vector 3 y)
+                          (if (> l rlk) (- by (-> skel bones (+ kp 1) transform vector 3 y)) 0.0)))
+                   (tz (+ (-> skel bones (+ kk 1) transform vector 3 z)
+                          (if (> l rlk) (- bz (-> skel bones (+ kp 1) transform vector 3 z)) 0.0)))
+                   (rlb (-> *phys-blen* (+ (* sc PHYS-LINKS) rlk)))
+                   (rl  (if (> rlb 0.01) (fmin 1.0 (/ (-> *phys-blen* scl) rlb)) 1.0))
+                   (kn  (* (* 0.42 b0f) rl))
+                   (cp  (* (* 0.08 b0f) rl))
+                   (ex  (- (-> *phys-px* scl) tx))
+                   (ey  (- (-> *phys-py* scl) ty))
+                   (ez  (- (-> *phys-pz* scl) tz))
+                   (dd  (sqrtf (+ (* ex ex) (+ (* ey ey) (* ez ez))))))
+              ;; MEME GENOU, MEME ASYMPTOTE, MEME TANH DE PADE QUE LE FILET AMONT. Le duplicat est
+              ;; assume : factoriser ferait bouger la course DESARMEE et detruirait son controle.
+              (when (and (> dd kn) (> cp 0.0001))
+                (let* ((xr (/ (- dd kn) cp))
+                       (th (if (>= xr 3.0)
+                             1.0
+                             (/ (* xr (+ 27.0 (* xr xr))) (+ 27.0 (* 9.0 (* xr xr))))))
+                       (ds (+ kn (* cp th)))
+                       (ux (- (-> *phys-px* scl) bx))
+                       (uy (- (-> *phys-py* scl) by))
+                       (uz (- (-> *phys-pz* scl) bz))
+                       (ln (sqrtf (+ (* ux ux) (+ (* uy uy) (* uz uz)))))
+                       (cx (- tx bx)) (cy (- ty by)) (cz (- tz bz))
+                       (cl (sqrtf (+ (* cx cx) (+ (* cy cy) (* cz cz))))))
+                  (when (and (> ln 0.0001) (> cl 0.0001))
+                    ;; `p` vit sur la sphere de rayon `ln` centree sur l'attache ; `|p - t|` n'y
+                    ;; depend que de l'angle a `g`. On IMPOSE cet angle par sa loi des cosinus, en
+                    ;; forme close et exacte : pas de bissection, pas d'acos, pas de sur-correction.
+                    (let* ((gx (/ cx cl)) (gy (/ cy cl)) (gz (/ cz cl))
+                           (hx (/ ux ln)) (hy (/ uy ln)) (hz (/ uz ln))
+                           (ca (+ (* hx gx) (+ (* hy gy) (* hz gz))))
+                           (cb (fmin 1.0 (/ (- (+ (* ln ln) (* cl cl)) (* ds ds)) (* 2.0 (* ln cl)))))
+                           (wx (- hx (* ca gx))) (wy (- hy (* ca gy))) (wz (- hz (* ca gz)))
+                           (wl (sqrtf (+ (* wx wx) (+ (* wy wy) (* wz wz))))))
+                      (when (and (> cb ca) (> wl 0.0001))
+                        (let ((sb (/ (sqrtf (fmax 0.0 (- 1.0 (* cb cb)))) wl)))
+                          (set! (-> *phys-px* scl) (+ bx (* ln (+ (* cb gx) (* sb wx)))))
+                          (set! (-> *phys-py* scl) (+ by (* ln (+ (* cb gy) (* sb wy)))))
+                          (set! (-> *phys-pz* scl) (+ bz (* ln (+ (* cb gz) (* sb wz)))))
+                          (set! *phys-e22-n* (+ *phys-e22-n* 1))
+                          (set! *phys-e22-d* (+ *phys-e22-d* (/ (- dd ds) b0f)))))))))))))))
   (none))
 
 (defun phys-skinpen-worst ((slot int) (chain int))
@@ -2379,9 +2439,7 @@
                                 (phys-surf-sd skel (/ sc PHYS-CHAINS) ap nbone)
                                 (when (< *phys-sd-d1* (-> *phys-medgapi* sc))
                                   (set! (-> *phys-medgapi* sc) *phys-sd-d1*)))))
-                          ;; LA COLONNE D'AUTEUR EST ENTIEREMENT D'AUTEUR : le point sonde ET la
-                          ;; surface opposee sont a la pose dessinee. Comparer un point d'auteur a
-                          ;; une surface simulee melangerait deux instants dans une seule distance.
+                          ;; [NOTE-415] LA COLONNE D'AUTEUR EST ENTIEREMENT D'AUTEUR : le point sonde ET la -> jak-hd-physics-NOTES.md
                           (set-vector! ap bx by bz 1.0)
                           (set! *phys-sd-auth* 1)
                           (let* ((ma (phys-surf-sd skel (/ sc PHYS-CHAINS) ap nbone))
@@ -2656,10 +2714,7 @@
                               (+! (-> *phys-qx* s2) dx) (+! (-> *phys-qy* s2) dy) (+! (-> *phys-qz* s2) dz)
                               (+! (-> *phys-cpx* s2) dx) (+! (-> *phys-cpy* s2) dy) (+! (-> *phys-cpz* s2) dz)
                               (+! (-> *phys-cqx* s2) dx) (+! (-> *phys-cqy* s2) dy) (+! (-> *phys-cqz* s2) dz)))))
-                      ;; [NOTE-137] LA POSITION MONDE DE L'ANCRE, POUR QUE LA SALLE MESURE SON BRAS DE LEVIER.
-                      ;; HORS de la tranche 23-49 que `phys-comexw-reset!` efface : ce n'est pas un
-                      ;; maximum de fenetre, c'est un ETAT — la derniere valeur ecrite, et elle doit
-                      ;; survivre a l'ouverture d'une fenetre pour etre lisible a sa premiere frame.
+                      ;; [NOTE-416] LA POSITION MONDE DE L'ANCRE, POUR QUE LA SALLE MESURE SON BRAS DE LEVIER. -> jak-hd-physics-NOTES.md
                       (set! (-> *phys-dg* (+ dgr 50)) (-> anc x))
                       (set! (-> *phys-dg* (+ dgr 51)) (-> anc y))
                       (set! (-> *phys-dg* (+ dgr 52)) (-> anc z))
@@ -2678,9 +2733,7 @@
                             (set! *phys-rstout* (+ *phys-rstout* vn))
                             (set! *phys-rstm* (+ *phys-rstm* 1)))
                           (set! (-> *phys-rstp* scl w) 0.0))))
-                    ;; ---- 0. LES LONGUEURS D'OS, avant d'integrer quoi que ce soit. -------------
-                    ;; Relevees sur la pose ANIMEE a chaque frame : elles sont quasi constantes,
-                    ;; mais les lire evite de supposer que le retarget n'a pas change une longueur.
+                    ;; [NOTE-417] ---- 0. LES LONGUEURS D'OS, avant d'integrer quoi que ce soit. ------------- -> jak-hd-physics-NOTES.md
                     (dotimes (l n)
                       (let* ((scl (+ (* sc PHYS-LINKS) l))
                              (kk  (-> *phys-joint* scl))
@@ -2732,9 +2785,7 @@
                             (set! (-> *phys-t1z* scl) (-> tw z))
                             (cond
                               ((or (< warm 1) (< l rlk))
-                               ;; L'ANCRE — LE SEUL POINT PAR LEQUEL L'ANIMATION ENTRE. Maillon
-                               ;; `rootlock` (SPEC 2 : la racine suit rigidement l'os porteur), ou
-                               ;; premiere frame : la pose d'auteur EST la position, sans etat.
+                               ;; [NOTE-418] L'ANCRE — LE SEUL POINT PAR LEQUEL L'ANIMATION ENTRE. Maillon -> jak-hd-physics-NOTES.md
                                (set! (-> *phys-px* scl) (-> tw x))
                                (set! (-> *phys-py* scl) (-> tw y))
                                (set! (-> *phys-pz* scl) (-> tw z))
@@ -2768,24 +2819,16 @@
                                                 (tf (sqrtf (fmax 0.0 (- 1.0 (* cs cs))))))
                                            (when (> tf (-> *phys-st* (+ stb 19)))
                                              (set! (-> *phys-st* (+ stb 19)) tf))))))))
-                               ;; L'ATTACHE : le maillon precedent DEJA SIMULE, ou l'ancre pour le
-                               ;; premier maillon libre. C'est par elle, et par elle seule, que le
-                               ;; mouvement du crane atteint la particule — par la contrainte, pas
-                               ;; par un ressort.
+                               ;; [NOTE-419] L'ATTACHE : le maillon precedent DEJA SIMULE, ou l'ancre pour le -> jak-hd-physics-NOTES.md
                                (let* ((ax (if (> l 0) (-> *phys-px* (- scl 1)) (-> anc x)))
                                       (ay (if (> l 0) (-> *phys-py* (- scl 1)) (-> anc y)))
                                       (az (if (> l 0) (-> *phys-pz* (- scl 1)) (-> anc z)))
                                       (bl (-> *phys-blen* scl))
-                                      ;; SPEC 6 — LE METRE DES BORNES DE SPEC 22, ET CE N'EST PAS
-                                      ;; `bl` : `bl` est l'OS (la contrainte de longueur porte bien
-                                      ;; sur lui), `b0e` est la CHAIR. Voir PHYS-P-B0.
+                                      ;; [NOTE-420] SPEC 6 — LE METRE DES BORNES DE SPEC 22, ET CE N'EST PAS -> jak-hd-physics-NOTES.md
                                       (b0e (if (> (-> *phys-b0* sc) 0.0) (-> *phys-b0* sc) bl))
                                       ;; [NOTE-74] SPEC 24 CONTRE SPEC 31 : LE GRADIENT NE VIT PLUS DANS LA FREQUENCE. -> jak-hd-physics-NOTES.md
                                       (k2l k2)
-                                      ;; LA CIBLE du ressort de materiau, pas sa force : elle ne
-                                      ;; depend pas de `p`, donc elle se calcule UNE FOIS PAR FRAME
-                                      ;; pendant que la force, elle, se recalcule a chaque SOUS-PAS.
-                                      ;; C'est exactement la separation que SPEC 37 impose.
+                                      ;; [NOTE-421] LA CIBLE du ressort de materiau, pas sa force : elle ne -> jak-hd-physics-NOTES.md
                                       (tgx 0.0)
                                       (tgy 0.0)
                                       (tgz 0.0)
@@ -2803,9 +2846,7 @@
                                        (set! (-> *phys-uy* scl) (/ (-> sv y) sl))
                                        (set! (-> *phys-uz* scl) (/ (-> sv z) sl))
                                        (set! (-> *phys-ucap* scl) 1))))
-                                 ;; ---- LA CIBLE DE LA FORCE ELASTIQUE DU MATERIAU. Elle est portee
-                                 ;; ---- rigidement par l'ancre ; elle ne connait pas l'animation du
-                                 ;; ---- maillon, donc elle ne peut pas la « suivre ».
+                                 ;; [NOTE-422] ---- LA CIBLE DE LA FORCE ELASTIQUE DU MATERIAU. Elle est portee -> jak-hd-physics-NOTES.md
                                  (when (and (nonzero? ela) (nonzero? (-> *phys-ucap* scl)) (> bl 0.01))
                                    (set-vector! uv (-> *phys-ux* scl) (-> *phys-uy* scl) (-> *phys-uz* scl) 0.0)
                                    (vector-rotate*! uv uv am)
@@ -2852,9 +2893,7 @@
                                    (set! (-> *phys-cqz* scl) (-> *phys-qz* scl))
                                    (set! (-> *phys-rok* scl) 1))
                                  ;; [NOTE-40] ---- INTEGRATION EN POSITION MONDE. Trois termes, et c'est TOUT : -> jak-hd-physics-NOTES.md
-                                 ;; `rate` = le TAUX (2 zeta omega dt), `kd` la RETENTION qu'il
-                                 ;; produit sur une frame. Voir NOTE-50 : c'est `e^-rate`, pas
-                                 ;; `1 - rate`, et l'ecart valait +8.3 % sur le zeta de SPEC 25.
+                                 ;; [NOTE-423] `rate` = le TAUX (2 zeta omega dt), `kd` la RETENTION qu'il -> jak-hd-physics-NOTES.md
                                  (let* ((rate (if (and (nonzero? ela) (> k2 0.000001))
                                                 (* dmp (sqrtf (/ k2l k2)))
                                                 dmp))
@@ -2957,9 +2996,7 @@
                                                (set! fx (* k2s (* mu ex)))
                                                (set! fy (* k2s (* mu ey)))
                                                (set! fz (* k2s (* mu ez)))))))
-                                       ;; LA MEME PROJECTION POUR LA TRAINEE (SPEC 25) : `zeta` est
-                                       ;; une constante du materiau, donc l'amortissement doit
-                                       ;; suivre la raideur AXE PAR AXE, pas rester scalaire.
+                                       ;; [NOTE-424] LA MEME PROJECTION POUR LA TRAINEE (SPEC 25) : `zeta` est -> jak-hd-physics-NOTES.md
                                        (if (nonzero? axo)
                                          (let* ((wa (* (+ (* vx n0x) (+ (* vy n0y) (* vz n0z))) kds0))
                                                 (wb (* (+ (* vx n1x) (+ (* vy n1y) (* vz n1z))) kds1))
@@ -3013,9 +3050,7 @@
                                    ;; [NOTE-62] L'ELONGATION RADIALE : LA COMPOSANTE DU POINT LIBRE LE LONG DE -> jak-hd-physics-NOTES.md
                                    (when (nonzero? rlo)
                                      ;; [NOTE-87] SPEC 21 BORNE LE DEPLACEMENT, PAS LA FORCE. -> jak-hd-physics-NOTES.md
-                                     ;; IDENTITE STRICTE sous 0.84*(ckn+ccp) = 0.336 B0 : rien n'est
-                                     ;; retire au mouvement subtil. `cq` etant ecrit `cp - fns*cv`
-                                     ;; APRES, `cp - cq` est inchange -> AUCUNE vitesse creee.
+                                     ;; [NOTE-425] IDENTITE STRICTE sous 0.84*(ckn+ccp) = 0.336 B0 : rien n'est -> jak-hd-physics-NOTES.md
                                      (let* ((wex (- cpx tgx))
                                             (wey (- cpy tgy))
                                             (wez (- cpz tgz))
@@ -3169,6 +3204,7 @@
                     (phys-stage-jt! skel sc rlk nbone 5)
                     ;; [NOTE-323] SPEC 33/34 — la peau ferme la frame -> jak-hd-physics-NOTES.md
                     (phys-skin-chain skel sc n rlk nbone)
+                    (phys-cap-e22! skel sc n rlk an nbone)
                     (phys-stage-jt! skel sc rlk nbone 6)
                     ;; [NOTE-63] SPEC 33/34 — LA RESTITUTION, UNE FOIS PAR FRAME, SUR LA VITESSE SEULE. -> jak-hd-physics-NOTES.md
                     (when (zero? *phys-rst-off*)
@@ -3204,10 +3240,7 @@
                     ;; [NOTE-46] ------------------------------------------------------------------------ -> jak-hd-physics-NOTES.md
                     (phys-flip-count skel sc n rlk nbone nco)
 
-                    ;; ---- 3bis. CONTROLE POSITIF DES INVERSIONS. Arme, chaque lien libre est
-                    ;; ---- MIROITE a travers son attache : c'est exactement le defaut que l'owner a
-                    ;; ---- vu deux fois. Le compteur d'inversions doit alors monter — la correction
-                    ;; ---- s'applique a la frame suivante, quand la contrainte revoit le cote.
+                    ;; [NOTE-426] ---- 3bis. CONTROLE POSITIF DES INVERSIONS. Arme, chaque lien libre est -> jak-hd-physics-NOTES.md
                     (when (nonzero? *phys-inv-inject*)
                       (dotimes (l n)
                         (when (>= l rlk)
@@ -3218,9 +3251,7 @@
 
                     ;; [NOTE-220] ---- 3. L'INJECTION DE DEFAUT A DEMENAGE — [NOTE-155]. Elle etait ICI, EN -> jak-hd-physics-NOTES.md
 
-                    ;; ---- 4. LES CONTRAINTES ONT BOUGE LA POSITION : on remet cet effet dans
-                    ;; ---- l'ecart, sinon la frame suivante repartirait d'un etat que rien ne
-                    ;; ---- soutient (et la vitesse verlet perdrait la perte d'energie du choc).
+                    ;; [NOTE-427] ---- 4. LES CONTRAINTES ONT BOUGE LA POSITION : on remet cet effet dans -> jak-hd-physics-NOTES.md
                     (dotimes (l n)
                       (when (>= l rlk)
                         (let* ((scl (+ (* sc PHYS-LINKS) l))
@@ -3257,9 +3288,7 @@
 
                     ;; [NOTE-192] ------------------------------------------------------------------------ -> jak-hd-physics-NOTES.md
                     (let ((stb (* sc PHYS-ST)))
-                      ;; --- LE GRADIENT : la boite englobante de l'ecart POUR CHAQUE MAILLON.
-                      ;; Un maillon rootlock a un ecart identiquement nul et mesure donc zero, ce
-                      ;; qui est exactement ce que SPEC 2 demande de la racine.
+                      ;; [NOTE-428] --- LE GRADIENT : la boite englobante de l'ecart POUR CHAQUE MAILLON. -> jak-hd-physics-NOTES.md
                       (dotimes (l n)
                         (let* ((scl (+ (* sc PHYS-LINKS) l))
                                (lb  (* scl PHYS-LB))
@@ -3294,10 +3323,7 @@
                           (set! (-> *phys-conf* sc) (+ 1.0 (-> *phys-conf* sc)))
                           (when (> pen (-> *phys-st* (+ stb 4)))
                             (set! (-> *phys-st* (+ stb 4)) pen)))
-                        ;; [NOTE-155] LE CONTROLE POSITIF, APPARIE SUR CETTE FRAME. Il ne tourne que
-                        ;; sous armement de la salle, il restaure la position au bit, et il recoit
-                        ;; `pen` — la mesure NON injectee de cette meme frame — pour que les deux
-                        ;; maxima soient pris sur la MEME trajectoire.
+                        ;; [NOTE-429] LE CONTROLE POSITIF, APPARIE SUR CETTE FRAME. Il ne tourne que -> jak-hd-physics-NOTES.md
                         (when (> *phys-inject* 0.01)
                           (phys-inject-probe! skel sc n rlk nbone nco pen)))
                       ;; [NOTE-150] la profondeur AJOUTEE sous la peau, MAXIMUM DE LA FENETRE.
@@ -3370,9 +3396,7 @@
                                   (let ((el (fabs (- (/ (sqrtf u2) (sqrtf m2)) 1.0))))
                                     (when (> el (-> *phys-dg* (+ (* sc PHYS-DG) 5)))
                                       (set! (-> *phys-dg* (+ (* sc PHYS-DG) 5)) el))
-                                    ;; LE MEME ALLONGEMENT, MAIS PAR FENETRE : « ils s'allongent sur
-                                    ;; les mouvements BRUSQUES » est une phrase sur un PILOTAGE, et
-                                    ;; le compteur par course ne peut pas la verifier.
+                                    ;; [NOTE-430] LE MEME ALLONGEMENT, MAIS PAR FENETRE : « ils s'allongent sur -> jak-hd-physics-NOTES.md
                                     (when (> el (-> *phys-st* (+ stb 17)))
                                       (set! (-> *phys-st* (+ stb 17)) el)))
                                   ;; [NOTE-190] LE MOUVEMENT PROPRE DU MAILLON : l'angle entre sa direction -> jak-hd-physics-NOTES.md
@@ -3386,9 +3410,7 @@
                                            (ang (* 0.0054931641 (atan sn dot))))
                                       (when (> ang (-> *phys-la* scl))
                                         (set! (-> *phys-la* scl) ang))))
-                                  ;; LA MEME DEVIATION, MAIS SIGNEE ET VECTORIELLE (voir la note de
-                                  ;; `*phys-lsv*`). Ecrasee, jamais accumulee : c'est l'etat de
-                                  ;; CETTE frame, la seule forme qui puisse porter une phase.
+                                  ;; [NOTE-431] LA MEME DEVIATION, MAIS SIGNEE ET VECTORIELLE (voir la note de -> jak-hd-physics-NOTES.md
                                   (when (> u2 0.0001)
                                     (let ((iu (/ 1.0 (sqrtf u2)))
                                           (im (/ 1.0 (sqrtf m2)))
@@ -3583,10 +3605,7 @@
                                  (dvy (- vty (-> *phys-vp* sc y)))
                                  (dvz (- vtz (-> *phys-vp* sc z)))
                                  (dvn (/ (sqrtf (+ (* dvx dvx) (+ (* dvy dvy) (* dvz dvz)))) b0f))
-                                 ;; OSCILLATEUR SCALAIRE, SANS ANISOTROPIE : la forme EXACTE de
-                                 ;; NOTE-50 s'y pose directement. Elle n'est pas un raffinement
-                                 ;; ici — `omega dt` vaut 0.545, et l'ancienne ecriture livrait
-                                 ;; zeta 0.838 a 7.01 Hz la ou sa SPEC 36 demande 0.65 a 5.20.
+                                 ;; [NOTE-432] OSCILLATEUR SCALAIRE, SANS ANISOTROPIE : la forme EXACTE de -> jak-hd-physics-NOTES.md
                                  (w2  (* 6.2831853 PHYS-SEC-F))
                                  (wh2 (* w2 dt))
                                  (k2s (phys-osc-k2 PHYS-SEC-Z wh2))
@@ -3599,9 +3618,7 @@
                                  (smc (if (>= sm0 0.0)
                                         (phys-softmin sm0 PHYS-SEC-MAX)
                                         (- 0.0 (phys-softmin (- 0.0 sm0) PHYS-SEC-MAX))))
-                                 ;; SPEC 36 s'applique a l'EPAISSEUR locale et conserve le volume :
-                                 ;; l'epaisseur (axe +Z) module, les deux perpendiculaires prennent
-                                 ;; l'inverse de sa racine.
+                                 ;; [NOTE-433] SPEC 36 s'applique a l'EPAISSEUR locale et conserve le volume : -> jak-hd-physics-NOTES.md
                                  (sqz (sqrtf (fmax 0.0001 (+ 1.0 smc))))
                                  (sx1 (* cvn (/ sx0 sqz)))
                                  (sy1 (* cvn (/ sy0 sqz)))
@@ -3666,10 +3683,7 @@
                                              ;; [NOTE-217] SPEC 37 — « artificial transforms must not generate -> jak-hd-physics-NOTES.md
                                              (when (< (fabs dphi) 0.5)
                                                (set! (-> *phys-twa* sc) (+ (-> *phys-twa* sc) dphi)))
-                                             ;; OSCILLATEUR SCALAIRE : forme EXACTE de NOTE-50.
-                                             ;; `zt` n'introduit AUCUNE constante neuve — c'est le
-                                             ;; zeta que la donnee livree porte deja, relu comme
-                                             ;; `taux / (2 omega h)` au lieu d'etre suppose.
+                                             ;; [NOTE-434] OSCILLATEUR SCALAIRE : forme EXACTE de NOTE-50. -> jak-hd-physics-NOTES.md
                                              (let* ((w   (/ (* 6.2831853 (-> *phys-stiff* sc))
                                                             (sqrtf (fmax 0.01 (-> *phys-mass* sc)))))
                                                     (mbt (sqrtf (/ 1.0 PHYS-MOB-TOR)))
@@ -3697,9 +3711,7 @@
                                                  (set! (-> *phys-twm* sc) (fabs rel))))))))))))))
                           ;; [NOTE-60] (f) LA MATRICE, BATIE UNE FOIS PAR CHAINE ET PAR FRAME. -> jak-hd-physics-NOTES.md
                           (let* ((gb  (* sc 3))
-                                 ;; PAR MAILLON depuis le cycle 32 : `*phys-rr*` (par chaine) donnait
-                                 ;; au distal l'elongation de la RACINE. C'est le seul terme du
-                                 ;; solveur qui lit le degre de liberte de §23.
+                                 ;; [NOTE-435] PAR MAILLON depuis le cycle 32 : `*phys-rr*` (par chaine) donnait -> jak-hd-physics-NOTES.md
                                  (rdr (* PHYS-DYN-K (/ (-> *phys-rrl* tl) b0f)))
                                  (dx  (+ (* PHYS-DYN-K (/ (-> *phys-ox* tl) b0f))
                                          (* rdr (-> *phys-ux* tl))))
@@ -3741,10 +3753,7 @@
                                    (prs (fmin PHYS-PRS-MAX pr0))
                                    (pe  (- 1.0 prs))
                                    (pt2 (/ 1.0 (sqrtf (fmax 0.0001 pe)))))
-                              ;; [NOTE-97] RELEVE A L'ARGMAX DE `cl`, PAS EN MAXIMA INDEPENDANTS.
-                              ;; C'est la lecon N3/N4 du cycle 35 : deux maxima de fenetre pris sur
-                              ;; des grandeurs differentes ne se comparent pas, parce que l'argmax
-                              ;; n'est pas la meme frame. `tl` est deja un index PAR MAILLON.
+                              ;; [NOTE-436] RELEVE A L'ARGMAX DE `cl`, PAS EN MAXIMA INDEPENDANTS. -> jak-hd-physics-NOTES.md
                               (when (> pr0 (-> *phys-prsr* sc))
                                 (set! (-> *phys-prsr* sc) pr0)
                                 (dotimes (k 7)
@@ -3795,9 +3804,7 @@
                             (matrix*! (-> *phys-dfm* sc) w2l tmp)
                             (matrix-copy! tmp (-> *phys-dfm* sc))
                             (matrix*! (-> *phys-dfm* sc) tmp am)
-                            ;; SPEC 29 — la torsion est une ROTATION propre autour de l'axe
-                            ;; racine->apex, appliquee AVANT l'echelle (l'axe est un axe propre de
-                            ;; l'echelle a 10^-3 pres, les deux commutent en pratique).
+                            ;; [NOTE-437] SPEC 29 — la torsion est une ROTATION propre autour de l'axe -> jak-hd-physics-NOTES.md
                             (when (> (fabs (-> *phys-twr* sc)) 0.00001)
                               (let* ((ax (+ (* (-> *phys-ux* tl) (-> am vector 0 x))
                                             (+ (* (-> *phys-uy* tl) (-> am vector 1 x))
@@ -3945,9 +3952,7 @@
                                                 (fmax 1.0 b0c))))
                                     (when (> ee (-> *phys-dg* (+ (* sc PHYS-DG) 19)))
                                       (set! (-> *phys-dg* (+ (* sc PHYS-DG) 19)) ee))
-                                    ;; [NOTE-127] la MEME frame, le MEME vecteur, pondere par la masse
-                                    ;; de peau du maillon : c'est la seule facon d'obtenir le COM sans
-                                    ;; melanger deux frames ni majorer par l'inegalite triangulaire.
+                                    ;; [NOTE-438] la MEME frame, le MEME vecteur, pondere par la masse -> jak-hd-physics-NOTES.md
                                     (let ((wl (-> *phys-comw* scl)))
                                       (when (> wl 0.0)
                                         (set! cwx (+ cwx (* wl ex)))
@@ -4008,9 +4013,7 @@
                              (cw (/ (sqrtf (+ (* cwx cwx) (+ (* cwy cwy) (* cwz cwz))))
                                     (fmax 1.0 b0w))))
                         ;; [NOTE-136] LE VECTEUR DU COM, ET POURQUOI UNE NORME NE SUFFIT PAS. -> jak-hd-physics-NOTES.md
-                        ;; NATURE trois longueurs SIGNEES / B0 · REPERE MONDE, meme frame, contre la
-                        ;; pose d'auteur · A LA POSE D'AUTEUR 0.0000. Relevees A L'ARGMAX de `cw`,
-                        ;; donc les trois ensemble et sur UNE frame — jamais trois maxima separes.
+                        ;; [NOTE-439] NATURE trois longueurs SIGNEES / B0 · REPERE MONDE, meme frame, contre la -> jak-hd-physics-NOTES.md
                         (when (> cw (-> *phys-dg* (+ (* sc PHYS-DG) 43)))
                           (set! (-> *phys-dg* (+ (* sc PHYS-DG) 43)) cw)
                           (set! (-> *phys-dg* (+ (* sc PHYS-DG) 47)) (/ cwx (fmax 1.0 b0w)))
@@ -4035,9 +4038,7 @@
                           (set! (-> *phys-dg* (+ (* sc PHYS-DG) 54)) (/ awx (fmax 1.0 b0a)))
                           (set! (-> *phys-dg* (+ (* sc PHYS-DG) 55)) (/ awy (fmax 1.0 b0a)))
                           (set! (-> *phys-dg* (+ (* sc PHYS-DG) 56)) (/ awz (fmax 1.0 b0a)))
-                          ;; AU MEME ARGMAX, DONC SUR LA MEME FRAME QUE 53-56 : c'est ce qui rend
-                          ;; l'identite `e = tp + rp + dp` verifiable au lieu de comparer trois
-                          ;; maxima pris sur trois frames differentes.
+                          ;; [NOTE-440] AU MEME ARGMAX, DONC SUR LA MEME FRAME QUE 53-56 : c'est ce qui rend -> jak-hd-physics-NOTES.md
                           (set! (-> *phys-dg* (+ (* sc PHYS-DG) 59)) (/ twx (fmax 1.0 b0a)))
                           (set! (-> *phys-dg* (+ (* sc PHYS-DG) 60)) (/ twy (fmax 1.0 b0a)))
                           (set! (-> *phys-dg* (+ (* sc PHYS-DG) 61)) (/ twz (fmax 1.0 b0a)))
@@ -4060,21 +4061,13 @@
           (phys-snapshot-sim! skel slot nco nbone)))))
   (none))
 
-;; ------------------------------------------------------------------------------------------------
-;; les deux prises restantes attendues par le reste du jeu.
-;; ------------------------------------------------------------------------------------------------
+;; [NOTE-443] suite -> jak-hd-physics-NOTES.md
 (defun phys-note-covered! ((n int)) (none))
 
-;; process-drawable.gc:287 appelle ceci sur TOUT process-drawable — y compris les compagnons HD,
-;; AVANT fill-jak-hd-bones! (jak-hd.gc:552-553). Le rider stock n'est pas dans le perimetre de
-;; cette phase (KEIRA SEULE, via son compagnon HD) : il ne fait rien, et surtout pas sur un
-;; compagnon dont la pose n'est pas encore retargetee.
+;; [NOTE-441] process-drawable.gc:287 appelle ceci sur TOUT process-drawable — y compris les compagnons HD, -> jak-hd-physics-NOTES.md
 (defun phys-rider-post! ((obj process-drawable)) (none))
 
-;; ------------------------------------------------------------------------------------------------
-;; ACCES POUR LA SALLE DE TEST (phys-room.gc). Les accumulateurs vivent ici parce que c'est ici que
-;; la position ecrite est connue ; la salle ne fait que fenetrer et publier.
-;; ------------------------------------------------------------------------------------------------
+;; [NOTE-442] suite -> jak-hd-physics-NOTES.md
 (defun phys-stats-reset! ()
   (dotimes (sc PHYS-SC)
     (let ((stb (* sc PHYS-ST)))
@@ -4111,15 +4104,11 @@
       (set! (-> *phys-rrtl* (+ (* sc PHYS-LINKS) l)) 0.0)
       (set! (-> *phys-cddl* (+ (* sc PHYS-LINKS) l)) 0.0)
       (set! (-> *phys-rrsl* (+ (* sc PHYS-LINKS) l)) 0.0))
-    ;; SPEC 29/36 — les deux maximums de FENETRE. Ce sont des compteurs de mesure, pas des etats
-    ;; du solveur : `*phys-sec*`, `*phys-tw*` et leurs vitesses ne sont PAS remis a zero ici, sans
-    ;; quoi chaque fenetre relancerait le mode secondaire et la torsion depuis rien.
+    ;; [NOTE-444] SPEC 29/36 — les deux maximums de FENETRE. Ce sont des compteurs de mesure, pas des etats -> jak-hd-physics-NOTES.md
     (set! (-> *phys-secm* sc) 0.0)
     (set! (-> *phys-secr* sc) 0.0)
     (set! (-> *phys-dynm* sc) 0.0)
-    ;; [NOTE-110] MEME PORTEE QUE `dynm`, ET ILS NE L'AVAIENT PAS : `dynr`/`dynn`/`dyna`/`prsn`
-    ;; (21/22/24/23) n'etaient remis a zero que dans `jak-hd-physics-init` — cumuls de COURSE
-    ;; publies sous la cle par FENETRE. `dlr` rendait la meme valeur partout (0.4061, ecart 0.7 %).
+    ;; [NOTE-445] MEME PORTEE QUE `dynm`, ET ILS NE L'AVAIENT PAS : `dynr`/`dynn`/`dyna`/`prsn` -> jak-hd-physics-NOTES.md
     (set! (-> *phys-dynr* sc) 0.0)
     (set! (-> *phys-dynn* sc) 0.0)
     (set! (-> *phys-dyna* sc) 0.0)
@@ -4128,9 +4117,7 @@
     (set! (-> *phys-prsn* sc) 0.0)
     (set! (-> *phys-cpd* sc) 0.0)
     (dotimes (k 7) (set! (-> *phys-cpi* (+ (* 7 sc) k)) 0.0))
-    ;; §23 : maximum de FENETRE, donc remis a zero ici. `*phys-rr*` et `*phys-rq*` — l'etat — ne le
-    ;; sont PAS, pour la meme raison que le mode secondaire et la torsion : chaque fenetre
-    ;; relancerait sinon l'oscillateur radial depuis rien.
+    ;; [NOTE-446] §23 : maximum de FENETRE, donc remis a zero ici. `*phys-rr*` et `*phys-rq*` — l'etat — ne le -> jak-hd-physics-NOTES.md
     (set! (-> *phys-rrm* sc) 0.0)
     (set! (-> *phys-rrr* sc) 0.0)
     (set! (-> *phys-twm* sc) 0.0)
@@ -4511,6 +4498,8 @@
   (set! *phys-skc-d* 0.0)
   (set! *phys-skc-w* 0.0)
   (set! *phys-skc-r* 0.0)
+  (set! *phys-e22-n* 0)
+  (set! *phys-e22-d* 0.0)
   (none))
 
 ;; CONTROLE POSITIF DE L'AUTO-COLLISION : 1 = l'exclusion chaine <-> ses propres volumes est LEVEE.
@@ -4542,7 +4531,16 @@
   (cond ((= which 0) (the float *phys-skc-n*))
         ((= which 1) *phys-skc-d*)
         ((= which 2) *phys-skc-w*)
-        (else *phys-skc-r*)))
+        ((= which 3) *phys-skc-r*)
+        ((= which 4) (the float *phys-e22-n*))
+        (else *phys-e22-d*)))
+
+(defun phys-e22-off-set! ((v int))
+  "ABLATION, 0 EN LIVRAISON : 1 DESARME `phys-cap-e22!`, la borne de SPEC 22 sur la valeur LIVREE.
+   Desarmee, la course doit etre IDENTIQUE AU BIT a celle d'avant son ajout — c'est ce controle,
+   et lui seul, qui autorise a attribuer a la borne ce que la jambe armee rend de different."
+  (set! *phys-e22-off* v)
+  (none))
 
 (defun phys-prox-off-set! ((v int))
   "ABLATION DE MESURE, 0 EN LIVRAISON : 1 retire les SPHERES PROXIMALES de la liste des obstacles.
