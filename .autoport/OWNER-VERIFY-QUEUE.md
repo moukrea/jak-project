@@ -41,42 +41,40 @@ une autre tant que je ne l'ai pas mesuree.
 
 ---
 
-## 2. UNE QUESTION SUR TES ANIMATIONS, ET ELLE EST A TOI. TES ANIMATIONS SECOUENT SA POITRINE 2,5 FOIS PLUS FORT QUE LE GESTE LE PLUS VIOLENT DE TA PROPRE SPEC.
+## 2. TES ANIMATIONS NE SONT PAS EN CAUSE. C'EST UN A-COUP D'UNE SEULE IMAGE, ET IL EST A NOUS.
 
-C'est le vrai resultat du cycle, et je ne l'attendais pas.
+J'avais commence a t'ecrire ici une question pour toi : « tes animations secouent sa poitrine
+2,5 fois plus fort que le geste le plus violent de ta propre spec, choisis entre ta spec et tes
+animations ». **J'ai mesure avant de te l'envoyer, et le dilemme n'existe pas. Je le retire.**
 
-Ma salle de test peut la secouer avec cinq stimuli, du plus doux (1 g, la gravite) au plus brutal
-(**39 g** — l'equivalent d'un crash). Elle joue aussi une sixieme fenetre **sans aucune secousse**,
-ou seule son animation d'origine tourne.
+Ce que j'avais : la chaine recoit jusqu'a **7,85 g** sans qu'on la secoue. Ce que je n'avais pas :
+d'ou ca vient. Je ne regardais que des os que la physique elle-meme deplace — donc je voyais sa
+reponse, pas son entree. J'ai ajoute a la mesure l'os du **buste**, que la physique ne touche
+jamais : lui, c'est ton animation pure.
 
-Voila ce que ca donne sur le deplacement du bout de son sein :
+**Trois choses en sortent, et elles renversent la question :**
 
-    sans AUCUNE secousse, animation seule ......... 10 cm en median, jusqu'a 13 cm
-    avec la secousse a 39 g ....................... +10 % seulement
+  - **Le pic ne dure qu'UNE SEULE IMAGE.** Sur l'image d'avant et celle d'apres, l'acceleration
+    est quasi nulle (1,3 % du pic). Sur la duree de la fenetre, la valeur habituelle vaut **0,01 g**
+    et le pic **6 g** : un rapport de **750**. Aucun mouvement humain ne fait ca. Ce n'est pas une
+    acceleration, c'est un **saut** dans la trajectoire.
+  - **Son buste, lui, est parfaitement raisonnable.** En isolant le mouvement du TORSE seul, il ne
+    depasse jamais **1,06 g** — bien en dessous des 3,11 g que ta spec envisage pour une reception
+    dure. **Tes animations de torse sont dans les clous.**
+  - **Le saut est dans le deplacement d'ENSEMBLE du personnage**, pas dans son buste : 76 a 86 %
+    de ce que la poitrine encaisse vient de la racine du personnage qui change de vitesse d'un
+    coup, en une image.
 
-**Ta ligne 22 plafonne ce deplacement a 7,3 cm.** Il est deja a 10 cm **quand on ne la secoue pas
-du tout**. Et 100 % des animations depassent ta bande dans cette condition.
+**Donc : rien a arbitrer de ton cote, et rien a changer a tes animations.** C'est un a-coup qu'on
+laisse passer, et c'est a nous de le filtrer. Ta section 37 dit d'ailleurs exactement ca —
+« artificial transforms must not generate physical breast impulses » — et le mecanisme existe deja
+chez nous : il attrape bien les teleportations (167 a 258 cm, il tire a chaque fois). Mais les
+a-coups qui font le degat valent **0,7 a 1,0 cm** : ils sont cent a mille fois plus petits que ce
+qu'il surveille, et ils passent dessous. **C'est ca, le prochain travail.**
 
-La cause est mesuree : **ses animations d'origine delivrent jusqu'a 7,85 g a sa poitrine**, la ou
-le geste le plus dur que TA spec decrit — une reception dure apres un gros saut — vaut **3,11 g**.
-Ses animations tapent **2,5 fois plus fort** que ce que ta spec considere comme le maximum.
-
-**Et c'est la que j'ai besoin de toi, parce que les deux issues sont opposees et que je ne peux
-pas choisir a ta place :**
-
-  - **soit ces 7,85 g sont reels** — son torse bouge vraiment comme ca dans les animations de
-    Naughty Dog — et alors la physique fait ce qu'il faut, c'est **ta bande de 7,3 cm qui est
-    inatteignable tant qu'on joue ces animations telles quelles** ;
-  - **soit ces 7,85 g sont un artefact** — un a-coup dans la facon dont on echantillonne
-    l'animation, pas un vrai mouvement de torse — et alors c'est **a nous de le corriger**, et ta
-    bande redevient atteignable.
-
-Je sais comment trancher (regarder si le pic dure une seule image ou une dizaine), et je le ferai
-au prochain cycle. Mais **si la reponse est la premiere**, c'est toi qui devras dire ce que tu
-veux : une poitrine conforme a ta spec, ou une poitrine qui suit fidelement des animations qui la
-secouent plus fort que ta spec ne l'envisage. **On ne peut pas avoir les deux.**
-
----
+Et ca change ce que je t'annonce sur sa poitrine : le depassement de ta section 22 n'est **pas**
+une fatalite de tes animations. Une fois cet a-coup filtre, la bande que tu demandes redevient un
+objectif atteignable.
 
 ## 3. LA QUESTION DU CYCLE PRECEDENT TIENT TOUJOURS
 

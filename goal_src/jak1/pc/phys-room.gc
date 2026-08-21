@@ -3277,11 +3277,22 @@
              ;; quelle sous-fenetre ni sur quelle frame d'animation l'echantillon a ete pris.
              (format 0 "PHYSJTWK k=~D a=~D d=~D f=~f~%"
                      k (-> self ai) (-> self drive) (-> self fnum))
-             (dotimes (ji 4)
+             ;; SIX NOMS, ET LES DEUX DERNIERS SONT LA RAISON DU CYCLE 80b. `chest` est le PARENT
+             ;; des deux racines de chaine (`lBoob <- chest <- main`, mesure sur le rig livre) et
+             ;; il n'est SIMULE PAR RIEN : sa matrice ecrite EST donc la pose d'AUTEUR, image par
+             ;; image, sans une seule contribution de la physique. C'est l'ENTREE du solveur, et
+             ;; jusqu'ici le dossier ne l'avait jamais publiee — il ne mesurait que des joints que
+             ;; la physique ecrit, donc lissee par l'integrateur. `main` est la racine du
+             ;; personnage : `chest` moins `main` separe l'ARTICULATION DU TORSE du deplacement
+             ;; d'ENSEMBLE, et sans cette separation « le torse accelere a 7,85 g » ne dit pas si
+             ;; c'est le buste qui travaille ou le personnage entier qu'on deplace.
+             (dotimes (ji 6)
                (let ((nm (cond ((zero? ji) "lBoob")
                                ((= ji 1)   "lBooc")
                                ((= ji 2)   "rBoob")
-                               (else       "rBooc")))
+                               ((= ji 3)   "rBooc")
+                               ((= ji 4)   "chest")
+                               (else       "main")))
                      (idx -1))
                  ;; RESOLUTION PAR NOM, sur le rig REELLEMENT porte par le sujet. `ji` est
                  ;; l'indice 0..3 dans la liste ci-dessus, PAS l'indice de joint du rig : les

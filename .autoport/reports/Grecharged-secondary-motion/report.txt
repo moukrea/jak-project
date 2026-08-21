@@ -443,3 +443,66 @@ couterait plus qu'il ne rapporterait.
     MaxApexDisplacement ≈ 0.50 B0 » et le moteur l'a implemente DUR. Le mot est « soft ».
 
 `OPEN-DEFECTS` : `breast-spec-incomplete` reste ouverte. Elle ne se retire que sur sa parole.
+
+================================================================================================
+15. ADDENDUM (80b/c/d/e) — LA QUESTION N°1 DU CHANTIER EST TRANCHEE DANS LA MEME SEANCE, ET
+    ELLE CORRIGE CE QUE J'AI ECRIT PLUS HAUT
+================================================================================================
+Le §11 posait comme priorite : « trancher ce que sont les 7,85 g de l'animation », entre (a) une
+vraie acceleration de torse et (b) un a-coup d'echantillonnage. **C'est fait, et la reponse n'est
+ni (a) ni (b) telles que je les avais formulees.** L'emetteur `PHYSJTW` a ete etendu de 4 a 6
+joints (`chest`, le PARENT des deux racines, et `main`, la racine du personnage) — **zero ligne de
+moteur**, une modification de deux lignes dans `phys-room.gc`.
+
+**POURQUOI `chest` TRANCHE LA OU LES QUATRE PREMIERS NE POUVAIENT PAS.** `chest` n'est simule par
+RIEN : sa matrice ecrite EST la pose d'auteur. Il n'y a aucun integrateur entre la donnee
+d'animation et le chiffre, donc la reserve qui affaiblissait la premiere passe (« un ressort lisse
+sa sortie ») ne s'applique plus.
+
+**PREMIERE PASSE (80b), SUR LES JOINTS QUE LA PHYSIQUE ECRIT — et elle m'a induit en erreur :**
+voisin/maximum median **0,706**, ce qui ressemblait a un geste soutenu. **C'etait le lissage de
+l'integrateur, pas l'entree.**
+
+**SUR L'ANCRE `chest`, SANS AUCUN LISSAGE :**
+
+    grandeur                    |a| max p50      |a| MAX        median de fenetre   voisin/max p50
+    chest  (pose d'auteur)     6,10 u/f2        67,88 (6,08 g)   0,09 u/f2 (0,01 g)   **0,013**
+    main   (racine perso)      3,95 u/f2        79,23 (7,10 g)   0,00 u/f2            **0,000**
+    chest - main (TORSE seul)  2,24 u/f2        **11,80 (1,06 g)** 0,07 u/f2           0,040
+
+**TROIS FAITS, ET ILS CHANGENT LA CONCLUSION :**
+  1. **LE PIC EST ISOLE SUR UNE SEULE FRAME.** Voisin/maximum median **0,013** sur `chest`,
+     **0,000** sur `main`. L'acceleration mediane de fenetre vaut 0,01 g pour un pic a 6,08 g :
+     **un rapport de 750**. Aucun geste humain ne fait ca ; c'est une discontinuite C1 du track
+     de racine, pas une acceleration.
+  2. **CE N'EST PAS MON DECOUPAGE.** 84 % des maxima tombent a l'INTERIEUR de la fenetre (i=25/35,
+     i=17/35, i=5/35 sur les pires), pas sur ses bords. Et `physroom-hold` tient bien la position :
+     le pas median de `main` sur les 31 animations vaut **1,06 u (0,026 mm)**.
+  3. **LE TORSE N'EST PAS COUPABLE. LA RACINE L'EST.** `chest - main`, c'est-a-dire
+     l'ARTICULATION DU TORSE seule, ne depasse jamais **1,06 g** — tres en dessous des 3,11 g que
+     la spec envisage. Sur les cinq pires animations, la part du torse vaut **14 a 24 %** : les
+     **76 a 86 %** restants sont le deplacement d'ENSEMBLE du personnage.
+
+**JE RETIRE DONC CE QUE J'AI ECRIT AU §11 ET DANS LA FILE DE L'OWNER.** Je m'appretais a lui
+demander d'arbitrer « une poitrine conforme a ta spec OU une poitrine fidele a des animations qui
+la secouent plus fort que ta spec ne l'envisage ». **Ce dilemme n'existe pas.** Ses animations ne
+secouent pas le torse a 7,85 g : elles le secouent a **1,06 g au plus**. Les 6-8 g sont une
+discontinuite d'une frame du track de RACINE, et c'est a NOUS de la filtrer. La bande de §22
+redevient un objectif atteignable.
+
+**ET §37 EST EXONEREE — J'AI TESTE MA PROPRE SUSPICION ET ELLE EST REFUTEE.** Je soupconnais un
+faux vert sur la derniere ligne verte du dossier. `PHYSREBASE` dit le contraire : dans la
+sous-fenetre sans pilotage le rebase tire **62 fois sur 62 fenetres (100 %)**, une fois par
+fenetre, sur des sauts d'ancre de **6841 a 10570 u (167 a 258 cm)**. Sa clause vise le teleport
+et elle le fait. **§37 reste TENUE.**
+
+**CE QUI RESTE, ET C'EST LA RESERVE A INSCRIRE, PAS UN VERDICT :** le rebase intercepte des sauts
+de 167-258 cm ; les discontinuites qui delivrent l'impulsion valent **0,7 a 1,0 cm par frame** —
+**deux a trois ordres de grandeur plus petites**. Son seuil est calibre sur le teleport, pas sur
+la rupture de vitesse. Le savoir ne fait pas de §37 un faux vert : sa clause nomme le teleport, la
+cinematique et la discontinuite, et le troisieme terme n'a jamais eu de seuil mesure. **C'est ca,
+le prochain travail — et il est desormais nomme avec son ordre de grandeur.**
+
+**NON-REGRESSION, TROISIEME COURSE ET TROISIEME BINAIRE :** 49 781 lignes `PHYS` hors `PHYSJTW`,
+md5 `d9368a1301b669345c1e17271d5dfac3`, **0 differente**. Le determinisme de la salle tient
+maintenant sur **trois binaires distincts**.
