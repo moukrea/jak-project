@@ -648,3 +648,15 @@ laquelle elle classe.** Et quand la trace porte deja de quoi calculer une second
 de `com-is-a-population-not-a-max`, `argmax-anchor-is-not-a-population` et
 `priority-built-on-a-single-extremum` — quatrieme occurrence de la meme famille, et la premiere ou
 la donnee corrective etait DEJA EMISE et simplement pas lue.
+
+GUARD hardcoded-preset-value-is-a-mirror .autoport/SPEC-COVERAGE.md TAUTOLOGIQUE
+**Poser une valeur du preset EN DUR puis la relire n'est pas une mesure, c'est un miroir.** Six
+valeurs de forme du preset §38 sont ecrites en dur dans le moteur ; l'instrument republie la
+constante qu'il est cense verifier, et **13 entrees du registre** comptaient comme mesurees sur ce
+mecanisme. L'owner l'a formule sans le savoir en disant « suffit d'appliquer le preset exactement » :
+la ou on l'a fait litteralement, ca a produit une conformite vide.
+Verrou : toute ligne dont la mesure republie sa cible porte `TAUTOLOGIQUE` dans sa colonne de
+STATUT, est exclue de tous les comptes, et ne peut pas rendre une section tenue. Corollaire utile :
+sur 74 lignes de preset, 55 sont des GRANDEURS A MESURER et non des valeurs a poser — un preset
+n'est pas un jeu de boutons, et le confondre avec ca fait croire le chantier plus simple qu'il
+n'est.

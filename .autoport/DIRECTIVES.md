@@ -10,6 +10,33 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
+## 2026-08-22 22:50 — LES 13 ENTREES TAUTOLOGIQUES NE COMPTENT PLUS. C'EST L'OWNER QUI M'Y AMENE.
+
+Il ecrit : « la spec est relativement factuelle, suffit de poser le bon cadre et appliquer le
+preset exactement ». J'ai verifie au lieu de me defendre, et sa remarque touche un vrai defaut chez
+moi.
+
+**CE QU'IL A RAISON DE DIRE :** les lignes du preset qui sont de VRAIS reglages sont posees a ses
+chiffres. `GlobalFrequencyVertical = 2.30 Hz` -> chestL rend **2,300 Hz** mesures. Amortissement,
+masse : idem. Cette moitie-la est faite.
+
+**CE QUI L'EMPECHE DE SUFFIRE :** sur les 74 lignes du preset, **55 sont des GRANDEURS A MESURER,
+pas des valeurs a poser** — `SupineProjectionScale`, `HangingLengthScale`, `StrongLandingApex`... Il
+n'existe aucun bouton « projection couchee » dans un solveur a articulations : ca sort du calcul ou
+ca n'en sort pas. Seules **4** lignes sont du code vivant reglable.
+
+**ET LA OU ON A FAIT EXACTEMENT CE QU'IL DECRIT, CA A PRODUIT UNE TAUTOLOGIE.** Six valeurs de
+forme sont ECRITES EN DUR dans le moteur ; l'instrument relit la constante qu'il est cense
+verifier. **13 entrees du registre sont dans ce cas** et elles comptaient comme mesurees.
+
+**DECISION :** ces 13 entrees ne comptent plus. Toute ligne dont la mesure republie la constante
+visee porte `TAUTOLOGIQUE` **dans sa colonne de statut**, est exclue de tous les comptes, et sa
+section ne peut pas etre declaree tenue par elle. Une valeur ecrite en dur puis relue n'est pas une
+mesure : c'est un miroir. Regle generale, deja tombee sous
+`instrument-republishes-its-target` — cette fois elle s'applique a **13** lignes d'un coup, et
+c'est l'owner qui a mis le doigt dessus, pas moi.
+
+
 ## 2026-08-21 20:50 — JE RETIRE MA PRIORITE DE 18:25. LE CONTRE-CONTROLE QUE J'AI EXIGE L'A REFUTEE.
 
 A 18:25 j'ai ecrit que les six rouges d'apex etaient **un seul defaut**, que l'excursion valait
