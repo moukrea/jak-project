@@ -20,6 +20,21 @@ Donc, sur l'ensemble de sommets qui constitue l'organe :
 La sonde ne mesure QUE `W_0`, `W_1`, `N`. Les `d_j` viennent de la course. Aucune valeur de
 physique n'est choisie ici.
 
+CYCLE 89 — TROIS GRANDEURS AJOUTEES, TOUTES GEOMETRIQUES, AUCUNE DE PHYSIQUE.
+  `L`   le PREMIER MOMENT de chair, `SOMME_v SOMME_j w(v,j).(v_bind - p_j_bind)`, en base
+        d'ANCRE. C'est le terme par lequel le TENSEUR de deformation deplace la peau sans
+        deplacer un joint : `d_tens = (D - I).L / N`. Sans lui `d_COM` n'est qu'une BORNE
+        INFERIEURE, et c'est ce qui laissait sa §10 indecidable depuis le cycle 64.
+  `W0`  l'etendue LATERALE du nuage de chair en pose de bind — le denominateur de la clause
+        « Outward COM migration per breast: 4-10% W0 ». Il valait 776,1 u dans la PROSE de
+        `SPEC-COVERAGE.md` §6 et **n'avait aucun producteur dans le depot** : aucun script ne
+        le calculait, aucune trace ne le portait. Un denominateur sans producteur n'est pas
+        une mesure.
+  `axes` le triedre de sa §7 en base d'ancre, mesure et non construit : `+X` = separation
+        racine-a-racine (donc MIROITE par chaine, comme sa §7 l.130-131 l'exige), `+Z` = la
+        direction du centroide de chair depuis la racine (la SAILLIE), orthogonalisee contre
+        `+X`, `+Y = +Z x +X`. « toward thorax » de sa §10 est `-Z`.
+
 LA FRONTIERE DE L'ORGANE EST UN CHOIX : ON LA PUBLIE TROIS FOIS. §30 veut « no hard attachment
 boundary », donc il n'existe pas de bord net a lire dans la donnee. Trois definitions sont
 publiees cote a cote (`w>0`, `w>=0.05`, `w>=0.25`) : si les trois rendent le meme rapport, la
@@ -35,6 +50,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import numpy as np
 import physics_c6_volumes as c6
+from physics_c6_volumes import consolidate_buffers, read_glb, skin_info
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SHIPPED = 'out/jak1/fr3/skin/keira-hd-lod0.glb'
@@ -54,6 +70,19 @@ def main():
     print('PROBE-COM-MASS: source=%s  verts=%d  joints=%d' % (g['src'], len(V), len(names)))
     out = {'source': g['src'], 'chains': {}}
     ai = names.index(ANCHOR) if ANCHOR in names else None
+    # LA BASE DE L'ANCRE, celle ou vivent `PHYSORICOML` et `PHYSDFMA` : les colonnes de
+    # l'inverse de l'inverse-bind de `chest`, normalisees. `anch(v) = R^T v`.
+    js, bufs = read_glb(os.path.join(REPO, glb) if not os.path.isabs(glb) else glb)
+    _nn, ibms, _pp = skin_info(js, consolidate_buffers(js, bufs))
+    R = np.linalg.inv(np.array(ibms[ai], dtype=float))[:3, :3].copy()
+    for k in range(3):
+        R[:, k] /= np.linalg.norm(R[:, k])
+    out['anchor_ortho'] = float(np.abs(R.T @ R - np.eye(3)).max())
+    anch = lambda v: R.T @ np.asarray(v, dtype=float)
+    # +X SORTANT : la separation racine-a-racine, exactement opposee entre les deux seins.
+    sepv = anch(P[names.index('rBoob')] - P[names.index('lBoob')])
+    sepv = sepv / np.linalg.norm(sepv)
+    OUTW = {'chestL': -sepv, 'chestR': sepv}
     for cname, joints in CHAINS.items():
         idx = [names.index(j) for j in joints if j in names]
         if len(idx) != len(joints):
@@ -78,13 +107,37 @@ def main():
                     for ji in idx]
             cen = V[sel].mean(axis=0)
             arm_c = float(np.linalg.norm(cen - P[ai])) if ai is not None else float('nan')
+            # PREMIER MOMENT DE CHAIR, en base d'ancre — le levier par lequel le tenseur agit.
+            Lm = np.zeros(3)
+            for k, ji in enumerate(idx):
+                Lm += (wj[sel, k][:, None] * (V[sel] - P[ji])).sum(axis=0)
+            Lm = anch(Lm)
+            # W0 : etendue du nuage sur le lateral de l'ancre (le signe est indifferent a une
+            # etendue, donc `sepv` brut suffit et le resultat est le meme sur les deux seins).
+            lat = (V[sel] - P[ai]) @ R @ np.array([1.0, 0.0, 0.0])
+            w0 = float(lat.max() - lat.min())
             print('PROBE-COM-MASS: %-8s w>=%.2f  n=%-4d  %s  N=%d  '
                   'part_chaine=%.4f  bras_bind(u): %s  centroide=%.1f'
                   % (cname, cut, n,
                      '  '.join('W[%s]=%8.3f' % (joints[k], Wj[k]) for k in range(len(idx))),
                      n, sum(Wj) / n,
                      ' '.join('%s=%.1f' % (joints[k], arms[k]) for k in range(len(idx))), arm_c))
-            rec['defs'].append(dict(cut=cut, n=n, W=Wj, arms=arms, arm_centroid=arm_c))
+            rec['defs'].append(dict(cut=cut, n=n, W=Wj, arms=arms, arm_centroid=arm_c,
+                                    L=[float(x) for x in Lm], W0=w0))
+            print('PROBE-COM-MASS: %-8s w>=%.2f  L(ancre)=[%+9.1f %+9.1f %+9.1f] u   W0=%.1f u'
+                  % (cname, cut, Lm[0], Lm[1], Lm[2], w0))
+        # LE TRIEDRE DE SA §7, en base d'ancre. `+Z` est la SAILLIE (centroide depuis la racine)
+        # orthogonalisee contre `+X` pour que « toward thorax » et « outward » ne se melangent pas.
+        selz = wsum >= 0.05
+        xo = OUTW[cname]
+        zf = anch(V[selz].mean(axis=0) - P[idx[0]])
+        zf = zf - float(zf @ xo) * xo
+        zf = zf / np.linalg.norm(zf)
+        yu = np.cross(zf, xo)
+        rec['axes'] = {'out': [float(v) for v in xo], 'up': [float(v) for v in yu],
+                       'fwd': [float(v) for v in zf]}
+        print('PROBE-COM-MASS: %-8s +X=[%+.5f %+.5f %+.5f] +Y=[%+.5f %+.5f %+.5f]'
+              ' +Z=[%+.5f %+.5f %+.5f]' % (cname, *xo, *yu, *zf))
         out['chains'][cname] = rec
     # HORODATAGE DE LA SOURCE — sans lui, un consommateur ne peut pas savoir si ce fichier est
     # PLUS VIEUX que le mesh qu'il pretend decrire. Paye une fois : le 2026-08-18 ce fichier a ete

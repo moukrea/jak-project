@@ -3402,6 +3402,85 @@ ROOM-ORICOM-MASS: chestR       §12 lateral i=4  |d_COM|=0.0519/0.0581/0.0664 B0
                               squelettique seul SOUS — borne INFERIEURE, la part tensorielle manque  ·  cible 0.19 (bande 0.15-0.24)  ·  rr(joint, pour memoire, NON compose) 0.3479  ·  controle de pointe 0.36 %
    (frontieres w>0 / w>=0.05 / w>=0.25 — les trois colonnes de |d_COM| ci-dessus ; N=90, part de l'organe portee par la chaine 0.5452, le reste est ancre au buste)
 
+-- ROOM-SPEC10 : SPEC 10 SUPINE, LES DEUX CLAUSES DE DEPLACEMENT EN PROJECTION -----------
+ROOM-SPEC10: NATURE : deux LONGUEURS SIGNEES (projections d'un deplacement soutenu), en B0 et en % W0.
+ROOM-SPEC10:          Pas une norme — une norme est >= toute projection et lirait une clause
+ROOM-SPEC10:          directionnelle comme une borne superieure.
+ROOM-SPEC10: REPERE : la base de l'ANCRE (e0,e1,e2), celle de `PHYSORICOML` et de `PHYSDFMA`.
+ROOM-SPEC10: LECTURE HORS DEFAUT : i=0 est la pose debout d'auteur, ou sa §9 exige 0.0000 ; publiee en ABSOLU.
+ROOM-SPEC10: CE QUI RESTE DEHORS, NOMME : `PHYSDFMA` porte dfa x dfb x dfc mais PAS la rotation de torsion
+ROOM-SPEC10:   de sa §29, appliquee apres et seulement dans `*phys-dfm*` (jak-hd-physics.gc:3815-3824).
+ROOM-SPEC10:   `PHYSSHAPE2 twm` la mesure a 0.0008 : le terme manquant est de cet ordre, il est DECLARE
+ROOM-SPEC10:   et non suppose nul.
+ROOM-SPEC10: PAS DE LECTURE GAUCHE/DROITE : la pose du balayage d'orientation n'a PAS de mesure d'ecart au
+ROOM-SPEC10:   miroir (elle est absente de `ROOM-ASYM-POSE`). Chaque chaine est jugee contre la bande de la
+ROOM-SPEC10:   spec, SEULE ; aucun ecart chestL/chestR n'est interprete ici (DIRECTIVES 2026-08-21 01:20).
+ROOM-SPEC10: CELLULE DU VERDICT : i=8, designee par la GRAVITE MESUREE (ecart 6.6 deg a la direction canonique, marge 33.9 deg sur la deuxieme).
+ROOM-SPEC10:   le triplet d'echelles (argmin-L1 contre les constantes du moteur, TAUTOLOGIQUE) designe la MEME cellule : ACCORD.
+ROOM-SPEC10: SOURCE DES POIDS, DU MOMENT `L`, DE `W0` ET DES AXES : out/jak1/fr3/skin/keira-hd-lod0.glb (mesh LIVRE), mtime 1787201927, taille 1002412 —
+ROOM-SPEC10:   CONCORDANCE VERIFIEE avec le mesh sur disque (sinon ce bloc se suspend).
+ROOM-SPEC10: BANDES, CITEES VERBATIM DE `SPEC-breast-softbody.md` :
+ROOM-SPEC10:   l.168  « COM toward thorax:   18–28% B0,   nominal 23% B0 »   -> 0.18-0.28 B0
+ROOM-SPEC10:   l.169  « Outward COM migration per breast: 4–10% W0, nominal 7% W0 »   -> 4.0-10.0 % W0
+ROOM-SPEC10: chestL   CONTROLE DE MONTAGE |s-t|/max(|s|,|t|), EN VECTEUR — seuil declare 5 % (cycle 64b) :
+ROOM-SPEC10: chestL     i=1  0.16 % · i=2  0.14 % · i=3  0.42 % · i=4  2.76 % · i=5  0.28 % · i=6  0.09 % · i=7  0.68 % · i=8 10.27 %
+ROOM-SPEC10: chestL     i=0 HORS RAPPORT (deux quasi-zeros : une division par le bruit) — en ABSOLU : |sum ldb| = 0.00090 B0 · |t| = 0.00077 B0
+ROOM-SPEC10: chestL     au-dela du seuil la cellule n'est PAS jetee : son effet est BORNE ci-dessous, sur le terme SQUELETTIQUE seul.
+ROOM-SPEC10: chestL     les bandes de §10 ne portent que sur la cellule SUPINE i=8 (designee par la GRAVITE mesuree) : toute autre ligne est marquee DIAGNOSTIC et ne porte AUCUN verdict.
+ROOM-SPEC10: chestL   cellule          frontiere |  vers thorax (B0)          |  sortant (% W0)
+ROOM-SPEC10: chestL                              |    total   squel.    tens. |    total   squel.    tens.
+ROOM-SPEC10: chestL   §10 supine       w>0.00    |   0.2311   0.1628   0.0683 |    2.047   -0.914    2.960  CELLULE DU VERDICT
+ROOM-SPEC10: chestL   §10 supine       w>0.05    |   0.2547   0.1793   0.0754 |    2.263   -1.006    3.269  CELLULE DU VERDICT
+ROOM-SPEC10: chestL   §10 supine       w>0.25    |   0.2824   0.1978   0.0846 |    2.502   -1.103    3.606  CELLULE DU VERDICT
+ROOM-SPEC10: chestL   vers thorax bande 0.18-0.28 B0     frontieres 0.2311/0.2547/0.2824 -> AU-DESSUS/DANS    raffinement  18.2 % (<=30 % OK)
+ROOM-SPEC10: chestL   vers thorax pire cas du montage (+/- 10.27 % du terme squelettique) : [0.2144 ; 0.3027] -> AU-DESSUS/DANS
+ROOM-SPEC10: chestL   vers thorax VERDICT DE LA CLAUSE : INDÉTERMINÉE (la frontière ou le montage décide) — ensemble AU-DESSUS/DANS
+ROOM-SPEC10: chestL   sortant     bande 4.00-10.00 % W0   frontieres 2.0467/2.2629/2.5024 -> SOUS              raffinement  18.2 % (<=30 % OK)
+ROOM-SPEC10: chestL   sortant     pire cas du montage (+/- 10.27 % du terme squelettique) : [1.9529 ; 2.6157] -> SOUS
+ROOM-SPEC10: chestL   sortant     VERDICT DE LA CLAUSE : SOUS (verdict unique sur les trois frontieres ET sur le pire cas du montage)
+ROOM-SPEC10: chestL   §11 prone        w>0.00    |  -0.2681  -0.1118  -0.1564 |   -4.521   -2.227   -2.293  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestL   §11 prone        w>0.05    |  -0.2957  -0.1231  -0.1726 |   -4.985   -2.453   -2.532  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestL   §11 prone        w>0.25    |  -0.3293  -0.1356  -0.1937 |   -5.498   -2.703   -2.795  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestL   §12 lateral i=2  w>0.00    |   0.0198   0.0412  -0.0214 |    4.936    8.367   -3.432  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestL   §12 lateral i=2  w>0.05    |   0.0217   0.0454  -0.0236 |    5.427    9.215   -3.788  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestL   §12 lateral i=2  w>0.25    |   0.0232   0.0500  -0.0268 |    5.934   10.155   -4.220  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestL   §12 lateral i=4  w>0.00    |   0.0498   0.0265   0.0233 |  -10.378  -12.299    1.921  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestL   §12 lateral i=4  w>0.05    |   0.0549   0.0291   0.0258 |  -11.425  -13.546    2.120  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestL   §12 lateral i=4  w>0.25    |   0.0611   0.0322   0.0289 |  -12.581  -14.933    2.352  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestL   debout i=0       w>0.00    |   0.0001   0.0002  -0.0000 |    0.021    0.036   -0.015  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestL   debout i=0       w>0.05    |   0.0002   0.0002  -0.0000 |    0.024    0.040   -0.016  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestL   debout i=0       w>0.25    |   0.0002   0.0002  -0.0000 |    0.026    0.044   -0.018  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestL   SYNTHESE : vers thorax INDÉTERMINÉE/NON ÉTABLIE · sortant SOUS  —  0 clause(s) DANS la bande sur 1 jugee(s) (2 clauses au total)
+ROOM-SPEC10: chestR   CONTROLE DE MONTAGE |s-t|/max(|s|,|t|), EN VECTEUR — seuil declare 5 % (cycle 64b) :
+ROOM-SPEC10: chestR     i=1  4.92 % · i=2 11.10 % · i=3  0.18 % · i=4  0.36 % · i=5  0.13 % · i=6  0.06 % · i=7  1.59 % · i=8 10.05 %
+ROOM-SPEC10: chestR     i=0 HORS RAPPORT (deux quasi-zeros : une division par le bruit) — en ABSOLU : |sum ldb| = 0.00076 B0 · |t| = 0.00076 B0
+ROOM-SPEC10: chestR     au-dela du seuil la cellule n'est PAS jetee : son effet est BORNE ci-dessous, sur le terme SQUELETTIQUE seul.
+ROOM-SPEC10: chestR     les bandes de §10 ne portent que sur la cellule SUPINE i=8 (designee par la GRAVITE mesuree) : toute autre ligne est marquee DIAGNOSTIC et ne porte AUCUN verdict.
+ROOM-SPEC10: chestR   cellule          frontiere |  vers thorax (B0)          |  sortant (% W0)
+ROOM-SPEC10: chestR                              |    total   squel.    tens. |    total   squel.    tens.
+ROOM-SPEC10: chestR   §10 supine       w>0.00    |   0.2097   0.1461   0.0636 |   -1.797   -3.836    2.039  CELLULE DU VERDICT
+ROOM-SPEC10: chestR   §10 supine       w>0.05    |   0.2350   0.1636   0.0714 |   -2.008   -4.293    2.286  CELLULE DU VERDICT
+ROOM-SPEC10: chestR   §10 supine       w>0.25    |   0.2719   0.1885   0.0834 |   -2.265   -4.916    2.651  CELLULE DU VERDICT
+ROOM-SPEC10: chestR   vers thorax bande 0.18-0.28 B0     frontieres 0.2097/0.2350/0.2719 -> DANS              raffinement  22.9 % (<=30 % OK)
+ROOM-SPEC10: chestR   vers thorax pire cas du montage (+/- 10.05 % du terme squelettique) : [0.1950 ; 0.2908] -> AU-DESSUS/DANS
+ROOM-SPEC10: chestR   vers thorax VERDICT DE LA CLAUSE : INDÉTERMINÉE (la frontière ou le montage décide) — ensemble AU-DESSUS/DANS
+ROOM-SPEC10: chestR   sortant     bande 4.00-10.00 % W0   frontieres -1.7971/-2.0076/-2.2652 -> SOUS              raffinement  20.7 % (<=30 % OK)
+ROOM-SPEC10: chestR   sortant     pire cas du montage (+/- 10.05 % du terme squelettique) : [-2.7595 ; -1.4114] -> SOUS
+ROOM-SPEC10: chestR   sortant     VERDICT DE LA CLAUSE : SOUS (verdict unique sur les trois frontieres ET sur le pire cas du montage)
+ROOM-SPEC10: chestR   §11 prone        w>0.00    |  -0.1997  -0.0961  -0.1035 |  -10.180   -6.544   -3.636  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestR   §11 prone        w>0.05    |  -0.2239  -0.1076  -0.1163 |  -11.403   -7.323   -4.081  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestR   §11 prone        w>0.25    |  -0.2597  -0.1231  -0.1365 |  -13.145   -8.380   -4.764  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestR   §12 lateral i=2  w>0.00    |   0.0657   0.0385   0.0271 |   -9.867  -12.657    2.790  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestR   §12 lateral i=2  w>0.05    |   0.0737   0.0432   0.0305 |  -11.039  -14.173    3.134  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestR   §12 lateral i=2  w>0.25    |   0.0856   0.0497   0.0359 |  -12.612  -16.288    3.675  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestR   §12 lateral i=4  w>0.00    |  -0.0304   0.0291  -0.0595 |    0.957    3.010   -2.053  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestR   §12 lateral i=4  w>0.05    |  -0.0343   0.0326  -0.0669 |    1.068    3.367   -2.299  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestR   §12 lateral i=4  w>0.25    |  -0.0415   0.0372  -0.0787 |    1.193    3.848   -2.655  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestR   debout i=0       w>0.00    |  -0.0001  -0.0001  -0.0000 |   -0.039   -0.026   -0.013  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestR   debout i=0       w>0.05    |  -0.0002  -0.0001  -0.0000 |   -0.043   -0.029   -0.014  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestR   debout i=0       w>0.25    |  -0.0002  -0.0001  -0.0000 |   -0.050   -0.034   -0.017  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestR   SYNTHESE : vers thorax INDÉTERMINÉE/NON ÉTABLIE · sortant SOUS  —  0 clause(s) DANS la bande sur 1 jugee(s) (2 clauses au total)
+ROOM-SPEC10: VERDICT  NON TENUE  — la clause « sortant » est hors bande de facon robuste (frontieres ET pire cas du montage) sur LES DEUX chaines, chacune contre la bande de la spec et jamais l'une contre l'autre : chestL SOUS · chestR SOUS.
 -- ROOM-ORICTL : LE REDRESSEMENT, ET SES TROIS SUSPECTS DESARMES TOUR A TOUR -------------
    NATURE : le meme deplacement soutenu que `ROOM-ORICOM`, mesure sur la meme fenetre par
      le meme emetteur, une fois par passe. REPERE : triedre de SPEC 7. Le rapport compare
@@ -3864,7 +3943,7 @@ ROOM-ASYM-VERROU: 3 ligne(s) publient une comparaison gauche/droite SANS porter 
    !  ROOM-REGBONE-BILAN: sinY median  chestL 0.2409   chestR 0.5643   (bind 0.3938)
    !  ROOM-REGBONE-MIROIR: pire ecart au miroir de la POSE = 105.85 deg (r=14), seuil declare 1.30 deg
    !     separation chestL - chestR = (-1.21, -0.23, +758.09) u   norme 758.09 u = 18.5 cm
-ROOM-ASYM-EXEMPT: 9 ligne(s) exemptees (elles n'affirment aucune asymetrie du personnage)
+ROOM-ASYM-EXEMPT: 11 ligne(s) exemptees (elles n'affirment aucune asymetrie du personnage)
    -  -- LE PILOTAGE (SPEC 6 : haut/bas, gauche/droite, diverses accelerations, a-coups) ---------
    -     (debout, la meme gravite effective vaut : chestL=0.0001 chestR=0.0001)
    -        part simulee : 0.9402 (chestL) / 0.9549 (chestR) -> plafond d'ancrage x1.06
@@ -3873,4 +3952,6 @@ ROOM-ASYM-EXEMPT: 9 ligne(s) exemptees (elles n'affirment aucune asymetrie du pe
    -  ROOM-POSE-RAFFINEMENT: ecart relatif MEDIAN du rapport gauche/droite entre 7.5 deg
    -        CONTROLE INDEPENDANT : (u_chestL - u_chestR) normalise = (-0.0810, +0.1810, +0.9801),
    -  ROOM-REGA: pose a=0 f=6.2500, ecart au miroir revalide = 0.52 deg ; axe pris sur le SUJET
+   -  ROOM-SPEC10:   spec, SEULE ; aucun ecart chestL/chestR n'est interprete ici (DIRECTIVES 2026-08-21 01:20).
+   -  ROOM-SPEC10: VERDICT  NON TENUE  — la clause « sortant » est hors bande de facon robuste (frontieres ET pire cas du montage) sur LES DEUX ch
    -        ROOM-SYM-RESOLU: 2 cellule(s) sur 8 ou l'ecart gauche/droite DEPASSE sa ligne de base, dont 0 dans une pose ADMISSIBLE (<= 1.3 deg du 

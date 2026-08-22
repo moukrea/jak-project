@@ -2028,6 +2028,7 @@ def _oricom_block(A, txt, names, ori):
           ' avant/arriere non resolus. Aucun verdict plutot qu\'un verdict devine.')
         A('')
     _oricom_mass_block(A, txt, names, com, com2, role, axis, b0)
+    _spec10_block(A, txt, names, com, role, b0, _roles)
     _orictl_block(A, txt, names, ori, axis, b0, _roles)
 
 
@@ -2381,6 +2382,358 @@ def _oricom_mass_block(A, txt, names, com, com2, role, axis, b0):
           ' N=%d, part de l\'organe portee par la chaine %.4f, le reste est ancre au buste)'
           % (d0['n'], sum(d0['W']) / float(d0['n'])))
     A('')
+
+
+def _spec10_block(A, txt, names, com, role, b0, roles=None):
+    """SPEC 10 SUPINE — LES DEUX CLAUSES DE DEPLACEMENT, LUES COMME DES PROJECTIONS.
+
+    PORTAGE, PAS UN CALCUL NEUF. Le calcul est celui de `.autoport/c89_spec10_migration.py`
+    (cycle 89), deja valide sur la trace archivee ; il vit ici parce qu'un derive qu'il faut
+    PENSER A LANCER n'est pas produit (lecon du cycle 56). Rien n'est recopie : tout est
+    re-derive a chaque course, depuis la trace et l'instantane de masse.
+
+    POURQUOI DES PROJECTIONS, ET PAS LA NORME DE `ROOM-ORICOM-MASS`. Les deux clauses de
+    deplacement de sa §10 nomment chacune une DIRECTION :
+        l.168  « COM toward thorax:   18-28% B0,   nominal 23% B0 »
+        l.169  « Outward COM migration per breast: 4-10% W0, nominal 7% W0 »
+    Une norme est >= toute projection : la comparer a une bande directionnelle est une BORNE
+    SUPERIEURE deguisee en mesure (`metric-nature-and-frame`). La seconde clause, elle, n'avait
+    tout simplement AUCUN canal avant ce bloc.
+
+    CE QUI EST MESURE, EN DEUX TERMES QUI NE SE MELANGENT PAS.
+      - part SQUELETTIQUE  `(W_0.d_0 + W_1.d_1)/N`, ou `d_j` est le CUMUL TELESCOPIQUE des
+        increments `PHYSORICOML` (`u - m` est un ecart A SON PROPRE PARENT, jamais un absolu) ;
+      - part TENSORIELLE   `(D - I).L/N`, ou `D` est `PHYSDFMA` (dfa x dfb x dfc, en base
+        d'ancre) et `L` le premier moment de chair de la meme base, mesure sur le mesh LIVRE.
+    `ROOM-ORICOM-MASS` ci-dessus est MUETTE sur le second terme et se declare borne inferieure ;
+    ici les deux sont publies separement, sur la meme ligne, pour qu'on voie lequel porte le
+    deplacement.
+
+    L'ORDRE DES COMPOSANTES COMPTE ICI, ET PAS LA-HAUT. `PHYSORICOML` publie `dv/dap/dlat`, qui
+    sont les composantes sur les lignes `rv=1 / rap=2 / rlat=0` de l'ancre : le vecteur en base
+    (e0,e1,e2) est donc `(dlat, dv, dap)`. `_oricom_mass_block` stocke `(dv, dap, dlat)` et n'en
+    prend que la NORME — l'ordre lui est indifferent. Une projection, non.
+    """
+    ldb, _rows = {}, {}
+    for m in re.finditer(r'^PHYSORICOML c=(\d+) i=(\d+) l=(\d+) dv=([-\d.e+]+)'
+                         r' dap=([-\d.e+]+) dlat=([-\d.e+]+)', txt, re.M):
+        ldb[(int(m.group(1)), int(m.group(2)), int(m.group(3)))] = (
+            float(m.group(6)), float(m.group(4)), float(m.group(5)))   # (dlat, dv, dap)
+    for m in re.finditer(r'^PHYSDFMA c=(\d+) i=(\d+) r=(\d+) m0=([-\d.e+]+)'
+                         r' m1=([-\d.e+]+) m2=([-\d.e+]+)', txt, re.M):
+        _rows.setdefault((int(m.group(1)), int(m.group(2))), {})[int(m.group(3))] = (
+            float(m.group(4)), float(m.group(5)), float(m.group(6)))
+    # une matrice n'existe que COMPLETE : trois rangees, sinon elle n'entre pas.
+    dfma = {k: [v[0], v[1], v[2]] for k, v in _rows.items() if len(v) == 3}
+
+    A('-- ROOM-SPEC10 : SPEC 10 SUPINE, LES DEUX CLAUSES DE DEPLACEMENT EN PROJECTION -----------')
+    A('ROOM-SPEC10: NATURE : deux LONGUEURS SIGNEES (projections d\'un deplacement soutenu),'
+      ' en B0 et en % W0.')
+    A('ROOM-SPEC10:          Pas une norme — une norme est >= toute projection et lirait une clause')
+    A('ROOM-SPEC10:          directionnelle comme une borne superieure.')
+    A('ROOM-SPEC10: REPERE : la base de l\'ANCRE (e0,e1,e2), celle de `PHYSORICOML` et de'
+      ' `PHYSDFMA`.')
+    # `ROOM-INSTRUMENTS-MUETS` compte les blocs qui n'ont rien publie, sur le motif
+    # `^ROOM-[A-Z0-9-]+: (SUSPENDU|ABSENTE?)\b` (:10566). Ecrire « ABSENT : » comme ETIQUETTE
+    # de la 3e question de SPEC 7 y faisait entrer ce bloc alors qu'il publie. On garde donc
+    # l'autre nom de la meme chose, deja employe dans `phys-room.gc` : LECTURE HORS DEFAUT.
+    A('ROOM-SPEC10: LECTURE HORS DEFAUT : i=0 est la pose debout d\'auteur, ou sa §9 exige'
+      ' 0.0000 ; publiee en ABSOLU.')
+    A('ROOM-SPEC10: CE QUI RESTE DEHORS, NOMME : `PHYSDFMA` porte dfa x dfb x dfc mais PAS la'
+      ' rotation de torsion')
+    A('ROOM-SPEC10:   de sa §29, appliquee apres et seulement dans `*phys-dfm*`'
+      ' (jak-hd-physics.gc:3815-3824).')
+    A('ROOM-SPEC10:   `PHYSSHAPE2 twm` la mesure a 0.0008 : le terme manquant est de cet ordre,'
+      ' il est DECLARE')
+    A('ROOM-SPEC10:   et non suppose nul.')
+    A('ROOM-SPEC10: PAS DE LECTURE GAUCHE/DROITE : la pose du balayage d\'orientation n\'a PAS de'
+      ' mesure d\'ecart au')
+    A('ROOM-SPEC10:   miroir (elle est absente de `ROOM-ASYM-POSE`). Chaque chaine est jugee'
+      ' contre la bande de la')
+    # `notasym=True` : cette ligne NOMME les deux chaines pour DECLARER qu'elle ne les compare
+    # pas. Le verrou d'asymetrie la prenait pour une comparaison — c'est la seule derogation
+    # prevue, et elle est comptee et LISTEE par `ROOM-ASYM-EXEMPT`, jamais silencieuse.
+    A('ROOM-SPEC10:   spec, SEULE ; aucun ecart chestL/chestR n\'est interprete ici'
+      ' (DIRECTIVES 2026-08-21 01:20).', notasym=True)
+
+    if not ldb:
+        A('ROOM-SPEC10: SUSPENDU — aucune ligne `PHYSORICOML` dans cette course : la part'
+          ' squelettique n\'est pas mesuree, donc rien n\'est publie.')
+        return
+    if not dfma:
+        A('ROOM-SPEC10: SUSPENDU — aucune matrice `PHYSDFMA` complete (trois rangees) dans cette'
+          ' course : la part tensorielle n\'est pas mesuree, donc rien n\'est publie.')
+        return
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), _COM_MASS_JSON)
+    try:
+        mass = json.load(open(path))
+    except Exception as e:
+        A('ROOM-SPEC10: SUSPENDU — la repartition de masse est ABSENTE (%s) : `L`, `W0` et les'
+          ' axes en viennent. Relancer `python3 .autoport/probe_breast_com_mass.py`.' % e)
+        return
+    # MEME GARDE D'INSTANTANE PERIME QUE `_oricom_mass_block` : sans horodatage concordant avec le
+    # mesh LIVRE, des poids/moments perimes donneraient une projection fausse avec une provenance
+    # juste. On ne le detecte pas au point de production, on le rend impossible a la consommation.
+    _msrc, _mt, _msz = mass.get('source'), mass.get('source_mtime'), mass.get('source_size')
+    _stale = None
+    if _msrc:
+        _mp = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), _msrc)
+        if not os.path.exists(_mp):
+            _stale = 'le mesh %s n\'existe plus' % _msrc
+        elif _mt is None or _msz is None:
+            _stale = ('l\'instantane ne porte pas l\'horodatage de sa source (produit par une '
+                      'version anterieure de probe_breast_com_mass.py)')
+        else:
+            _st = os.stat(_mp)
+            if abs(_st.st_mtime - float(_mt)) > 1.0 or _st.st_size != int(_msz):
+                _stale = ('instantane PERIME : ecrit sur un mesh de mtime %.0f taille %d, le mesh '
+                          'livre porte mtime %.0f taille %d'
+                          % (float(_mt), int(_msz), _st.st_mtime, _st.st_size))
+    if _stale:
+        A('ROOM-SPEC10: SUSPENDU — %s. Aucun chiffre n\'est publie.' % _stale)
+        return
+
+    chains = sorted({c for (c, _i, _l) in ldb})
+    _miss = []
+    for c in chains:
+        nm = names[c] if c < len(names) else 'c%d' % c
+        rec = mass.get('chains', {}).get(nm)
+        if not rec or not rec.get('defs'):
+            _miss.append('%s : aucune repartition de masse' % nm)
+            continue
+        axr = rec.get('axes') or {}
+        if any(k not in axr for k in ('out', 'up', 'fwd')):
+            _miss.append('%s : `axes` (out/up/fwd) absents' % nm)
+        if any('L' not in d or 'W0' not in d for d in rec['defs']):
+            _miss.append('%s : `L` ou `W0` absents des frontieres' % nm)
+    if _miss:
+        A('ROOM-SPEC10: SUSPENDU — l\'instantane de masse ne porte pas ce que ce bloc lit (%s).'
+          % ' ; '.join(_miss))
+        A('ROOM-SPEC10:   Relancer `python3 .autoport/probe_breast_com_mass.py` PUIS regenerer ce'
+          ' tableau. Aucun chiffre n\'est publie.')
+        return
+    # ---- QUELLE CELLULE PORTE LE VERDICT, ET PAR QUELLE ROUTE ---------------------------------
+    # DEUX ROUTES EXISTENT ET ELLES NE SE VALENT PAS.
+    #   (a) le TRIPLET d'echelles (`role[...]['sup']`, :1776-1798) : un argmin-L1 contre
+    #       1.230/1.090/0.700, c'est-a-dire contre les constantes que le moteur ecrit EN DUR
+    #       (`jak-hd-physics.gc:3597-3602`). Elle ne peut pas echouer — c'est une TAUTOLOGIE, et
+    #       le registre la porte comme telle depuis le cycle 64.
+    #   (b) la GRAVITE MESUREE (`_ori_role_block`, `PHYSORI4`) : aucune constante de la spec n'y
+    #       entre, et elle publie son ecart a la direction canonique et sa marge sur la deuxieme.
+    # Le verdict se lit sur (b). (a) est publiee A COTE, en confrontation : leur accord est une
+    # information, leur DESACCORD en serait une plus grande — et dans ce cas ce bloc se suspend
+    # plutot que de choisir. Designer une cellule de verdict par un argmin contre la cible qu'on
+    # va juger est exactement le piege `tautological-instrument-reads-back-target`.
+    _isup_grav = None
+    if roles:
+        _cand = [i for i, r in roles.items() if r and r[0] and r[0].startswith('SUPINE')]
+        if len(_cand) == 1:
+            _isup_grav = _cand[0]
+    _isup_tri = next((role.get(c, {}).get('sup') for c in chains
+                      if role.get(c, {}).get('sup') is not None), None)
+    if _isup_grav is None and _isup_tri is None:
+        A('ROOM-SPEC10: SUSPENDU — aucune des deux routes ne designe une cellule SUPINE : ni la'
+          ' gravite mesuree (`PHYSORI4`), ni le triplet d\'echelles. Aucun verdict devine.')
+        return
+    if _isup_grav is not None and _isup_tri is not None and _isup_grav != _isup_tri:
+        A('ROOM-SPEC10: SUSPENDU — les deux routes DESIGNENT DES CELLULES DIFFERENTES : la gravite'
+          ' mesuree dit i=%d, le triplet d\'echelles dit i=%d.' % (_isup_grav, _isup_tri))
+        A('ROOM-SPEC10:   Un desaccord de designation invalide le verdict des DEUX, pas seulement'
+          ' de l\'une. Rien n\'est publie.')
+        return
+    _isup = _isup_grav if _isup_grav is not None else _isup_tri
+    _rr = (roles or {}).get(_isup)
+    A('ROOM-SPEC10: CELLULE DU VERDICT : i=%d, designee par la GRAVITE MESUREE%s.'
+      % (_isup, (' (ecart %.1f deg a la direction canonique, marge %.1f deg sur la deuxieme)'
+                 % (_rr[1], _rr[2])) if _rr else
+         ' ABSENTE — repli sur le triplet d\'echelles, qui est TAUTOLOGIQUE ; le verdict'
+         ' ci-dessous en herite'))
+    if _isup_tri is not None and _isup_grav is not None:
+        A('ROOM-SPEC10:   le triplet d\'echelles (argmin-L1 contre les constantes du moteur,'
+          ' TAUTOLOGIQUE) designe la MEME cellule : ACCORD.')
+
+    A('ROOM-SPEC10: SOURCE DES POIDS, DU MOMENT `L`, DE `W0` ET DES AXES : %s (mesh LIVRE),'
+      ' mtime %.0f, taille %d —' % (_msrc, float(_mt), int(_msz)))
+    A('ROOM-SPEC10:   CONCORDANCE VERIFIEE avec le mesh sur disque (sinon ce bloc se suspend).')
+    A('ROOM-SPEC10: BANDES, CITEES VERBATIM DE `SPEC-breast-softbody.md` :')
+    A('ROOM-SPEC10:   l.168  « COM toward thorax:   18–28% B0,   nominal 23% B0 »'
+      '   -> 0.18-0.28 B0')
+    A('ROOM-SPEC10:   l.169  « Outward COM migration per breast: 4–10% W0, nominal 7% W0 »'
+      '   -> 4.0-10.0 % W0')
+
+    _BANDS = (('vers thorax', 'th', 0.18, 0.28, 'B0   '),
+              ('sortant    ', 'ou', 4.0, 10.0, '% W0'))
+    _vd = lambda v, lo, hi: 'SOUS' if v < lo else ('DANS' if v <= hi else 'AU-DESSUS')
+    judged = {}
+
+    def _cum(cc, ii, j):
+        """L'ecart ABSOLU du j-eme joint : somme telescopique des increments `ldb[0..j]`."""
+        acc = [0.0, 0.0, 0.0]
+        for l in range(j + 1):
+            v = ldb.get((cc, ii, l))
+            if v is None:
+                return None
+            for k in range(3):
+                acc[k] += v[k]
+        return acc
+
+    for c in chains:
+        nm = names[c] if c < len(names) else 'c%d' % c
+        rec = mass['chains'][nm]
+        outv = [float(v) for v in rec['axes']['out']]
+        thx = [-float(v) for v in rec['axes']['fwd']]      # « toward thorax » = -avant, et rien d'autre
+        bb = b0.get(c, 602.0)
+        isup = _isup
+        ipro = role.get(c, {}).get('pro')
+
+        # --- LE CONTROLE DE MONTAGE, EN VECTEUR (cycle 64b : une norme est aveugle a la direction)
+        ctrl, base = {}, None
+        for i in sorted({ii for (cc, ii, _l) in ldb if cc == c}):
+            if (c, i, 0) not in ldb or (c, i, 1) not in ldb or (c, i) not in com:
+                continue
+            s_ = [ldb[(c, i, 0)][k] + ldb[(c, i, 1)][k] for k in range(3)]
+            t_ = list(com[(c, i)])
+            ns = math.sqrt(sum(x * x for x in s_))
+            nt = math.sqrt(sum(x * x for x in t_))
+            if i == 0:
+                # DEUX QUASI-ZEROS NE FONT PAS UN RAPPORT : i=0 est publiee en ABSOLU, et exclue
+                # du rapport. C'est le partage des roles deja pose par `_oricom_mass_block`.
+                base = (ns / bb, nt / bb)
+                continue
+            den = max(ns, nt)
+            ctrl[i] = (100.0 * math.sqrt(sum((s_[k] - t_[k]) ** 2 for k in range(3))) / den
+                       if den > 1e-9 else 0.0)
+        A('ROOM-SPEC10: %-8s CONTROLE DE MONTAGE |s-t|/max(|s|,|t|), EN VECTEUR — seuil declare'
+          ' 5 %% (cycle 64b) :' % nm)
+        if ctrl:
+            A('ROOM-SPEC10: %-8s   %s'
+              % (nm, ' · '.join('i=%d %5.2f %%' % (i, ctrl[i]) for i in sorted(ctrl))))
+        if base is not None:
+            A('ROOM-SPEC10: %-8s   i=0 HORS RAPPORT (deux quasi-zeros : une division par le bruit)'
+              ' — en ABSOLU : |sum ldb| = %.5f B0 · |t| = %.5f B0' % (nm, base[0], base[1]))
+        A('ROOM-SPEC10: %-8s   au-dela du seuil la cellule n\'est PAS jetee : son effet est BORNE'
+          ' ci-dessous, sur le terme SQUELETTIQUE seul.' % nm)
+        A('ROOM-SPEC10: %-8s   les bandes de §10 ne portent que sur la cellule SUPINE i=%d'
+          ' (designee par la GRAVITE mesuree) : toute autre ligne est marquee DIAGNOSTIC et ne'
+          ' porte AUCUN verdict.' % (nm, _isup))
+
+        cells = []
+        if isup is not None:
+            cells.append(('§10 supine', isup))
+        else:
+            A('ROOM-SPEC10: %-8s SUPINE introuvable — NON MESURÉ' % nm)
+        if ipro is not None and ipro != isup:
+            cells.append(('§11 prone', ipro))
+        for i in (2, 4):
+            if i != isup and i != ipro:
+                cells.append(('§12 lateral i=%d' % i, i))
+        if 0 != isup and 0 != ipro:
+            cells.append(('debout i=0', 0))
+
+        A('ROOM-SPEC10: %-8s %-16s %-9s |  vers thorax (B0)          |  sortant (%% W0)'
+          % (nm, 'cellule', 'frontiere'))
+        A('ROOM-SPEC10: %-8s %-16s %-9s |    total   squel.    tens. |    total   squel.    tens.'
+          % (nm, '', ''))
+        for lab, i in cells:
+            if (c, i, 0) not in ldb or (c, i, 1) not in ldb or (c, i) not in dfma:
+                A('ROOM-SPEC10: %-8s %-16s ABSENTE de la trace (`PHYSORICOML` ou `PHYSDFMA`)'
+                  % (nm, lab))
+                continue
+            D = dfma[(c, i)]
+            d0 = _cum(c, i, 0)
+            d1 = _cum(c, i, 1)          # CUMUL telescopique, jamais l'increment seul
+            row = []
+            for d in rec['defs']:
+                W, n, L, w0 = d['W'], float(d['n']), d['L'], float(d['W0'])
+                sk = [(W[0] * d0[k] + W[1] * d1[k]) / n for k in range(3)]
+                tn = [sum((D[r][k] - (1.0 if r == k else 0.0)) * L[k] for k in range(3)) / n
+                      for r in range(3)]
+                v = [sk[k] + tn[k] for k in range(3)]
+                dot = lambda a, b: sum(a[k] * b[k] for k in range(3))
+                row.append(dict(cut=d['cut'],
+                                th=(dot(v, thx) / bb, dot(sk, thx) / bb, dot(tn, thx) / bb),
+                                ou=(dot(v, outv) / w0 * 100.0, dot(sk, outv) / w0 * 100.0,
+                                    dot(tn, outv) / w0 * 100.0)))
+            for r_ in row:
+                A('ROOM-SPEC10: %-8s %-16s %-9s | %8.4f %8.4f %8.4f | %8.3f %8.3f %8.3f  %s'
+                  % (nm, lab, 'w>%.2f' % r_['cut'], r_['th'][0], r_['th'][1], r_['th'][2],
+                     r_['ou'][0], r_['ou'][1], r_['ou'][2],
+                     'CELLULE DU VERDICT' if i == isup else 'DIAGNOSTIC — sans bande'))
+            if i != isup:
+                continue
+            e = ctrl.get(i, 0.0) / 100.0
+            for bnm, key, lo, hi, un in _BANDS:
+                vals = [r_[key][0] for r_ in row]
+                den = max(abs(min(vals)), abs(max(vals)))
+                spread = (max(vals) - min(vals)) / den * 100.0 if den > 1e-12 else 0.0
+                vd = sorted({_vd(v, lo, hi) for v in vals})
+                # L'ECART DE MONTAGE PORTE SUR LE TERME SQUELETTIQUE SEUL : son effet est BORNE,
+                # la cellule n'est pas jetee.
+                lo_b = min(r_[key][0] - e * abs(r_[key][1]) for r_ in row)
+                hi_b = max(r_[key][0] + e * abs(r_[key][1]) for r_ in row)
+                vdb = sorted({_vd(v, lo, hi) for v in (lo_b, hi_b)})
+                allv = sorted(set(vd) | set(vdb))
+                A('ROOM-SPEC10: %-8s %-11s bande %.2f-%.2f %-5s  frontieres %s -> %-16s'
+                  '  raffinement %5.1f %% %s'
+                  % (nm, bnm, lo, hi, un, '/'.join('%.4f' % v for v in vals), '/'.join(vd),
+                     spread, '(<=30 % OK)' if spread <= 30.0 else '(>30 % REJETE)'))
+                A('ROOM-SPEC10: %-8s %-11s pire cas du montage (+/- %.2f %% du terme'
+                  ' squelettique) : [%.4f ; %.4f] -> %s'
+                  % (nm, bnm, ctrl.get(i, 0.0), lo_b, hi_b, '/'.join(vdb)))
+                if spread > 30.0:
+                    judged[(c, bnm.strip())] = None
+                    A('ROOM-SPEC10: %-8s %-11s CLAUSE NON ÉTABLIE — le test de raffinement rend'
+                      ' %.1f %% > 30 %% : la frontiere d\'organe decide de la valeur.'
+                      % (nm, bnm, spread))
+                elif len(allv) == 1:
+                    judged[(c, bnm.strip())] = allv[0]
+                    A('ROOM-SPEC10: %-8s %-11s VERDICT DE LA CLAUSE : %s (verdict unique sur les'
+                      ' trois frontieres ET sur le pire cas du montage)' % (nm, bnm, allv[0]))
+                else:
+                    judged[(c, bnm.strip())] = None
+                    A('ROOM-SPEC10: %-8s %-11s VERDICT DE LA CLAUSE : INDÉTERMINÉE (la frontière'
+                      ' ou le montage décide) — ensemble %s' % (nm, bnm, '/'.join(allv)))
+        _syn = ' · '.join('%s %s' % (b.strip(), judged.get((c, b.strip())) or 'INDÉTERMINÉE/NON ÉTABLIE')
+                          for b, _k, _lo, _hi, _u in _BANDS)
+        _nin = sum(1 for b, _k, _lo, _hi, _u in _BANDS if judged.get((c, b.strip())) == 'DANS')
+        _njg = sum(1 for b, _k, _lo, _hi, _u in _BANDS if judged.get((c, b.strip())) is not None)
+        A('ROOM-SPEC10: %-8s SYNTHESE : %s  —  %d clause(s) DANS la bande sur %d jugee(s)'
+          ' (2 clauses au total)' % (nm, _syn, _nin, _njg))
+
+    # ---- LE VERDICT DE REGISTRE, SELON SA REGLE : DEUX CHAINES, TOUTES LES CLAUSES JUGEES ------
+    dec = {k: v for k, v in judged.items() if v is not None}
+    _bn = [b.strip() for b, _k, _lo, _hi, _u in _BANDS]
+    if not dec:
+        A('ROOM-SPEC10: VERDICT  NON ETABLI  — aucune clause ne survit au test de raffinement et'
+          ' a la borne du montage : la frontiere d\'organe ou le montage decide de chaque valeur.')
+        return
+    both_bad = [b for b in _bn
+                if len(chains) >= 2 and all(dec.get((c, b)) not in (None, 'DANS') for c in chains)]
+    all_in = [c for c in chains
+              if any(k[0] == c for k in dec)
+              and all(v == 'DANS' for k, v in dec.items() if k[0] == c)]
+    if both_bad:
+        # `notasym=True` : la ligne NOMME les deux chaines parce que la regle du registre exige
+        # que les DEUX soient hors bande pour ecrire NON TENUE. Chacune est comparee a la bande de
+        # la spec, jamais l'une a l'autre : aucun ecart gauche/droite n'est affirme ici. Derogation
+        # comptee et LISTEE par `ROOM-ASYM-EXEMPT`.
+        A('ROOM-SPEC10: VERDICT  NON TENUE  — la clause « %s » est hors bande de facon robuste'
+          ' (frontieres ET pire cas du montage) sur LES DEUX chaines, chacune contre la bande de'
+          ' la spec et jamais l\'une contre l\'autre : %s.'
+          % (both_bad[0], ' · '.join('%s %s' % (names[c] if c < len(names) else 'c%d' % c,
+                                                dec.get((c, both_bad[0]))) for c in chains)),
+          notasym=True)
+    elif len(all_in) == len(chains):
+        A('ROOM-SPEC10: VERDICT  TENUE  — les deux chaines sont DANS la bande sur toutes les'
+          ' clauses jugees.')
+    elif all_in:
+        A('ROOM-SPEC10: VERDICT  PARTIELLE  — %s est DANS la bande sur ses clauses jugees, l\'autre'
+          ' chaine ne l\'est pas.'
+          % ', '.join(names[c] if c < len(names) else 'c%d' % c for c in all_in))
+    else:
+        A('ROOM-SPEC10: VERDICT  NON ETABLI  — aucune clause jugee n\'est DANS la bande sur une'
+          ' chaine entiere, et aucune n\'est hors bande sur les deux : la regle du registre ne'
+          ' tranche pas ce couple de mesures.')
 
 
 def _orictl_block(A, txt, names, ori, axis, b0, roles=None):

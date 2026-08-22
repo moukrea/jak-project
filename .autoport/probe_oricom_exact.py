@@ -171,7 +171,7 @@ def main():
         return 1
     L = []
     A = L.append
-    A('DIRECTIVES vb249967379')
+    A('DIRECTIVES v3fee554599')
     A('')
     A('SPEC 10 / 11 / 12 LUES SUR LE COM — TENSEUR D\'EQUILIBRE COMPRIS')
     A('=' * 100)
@@ -265,11 +265,30 @@ def main():
     for c in (0, 1):
         g = geo[c]
         fy, fz = d['tri'][(c, 1)], d['tri'][(c, 2)]
-        fx = np.cross(fy, fz)
-        fx /= np.linalg.norm(fx)
+        # CE `fx` N'EST PAS LE LATERAL SORTANT DU MOTEUR, ET LE CONFONDRE EST UN PIEGE ARME.
+        # `cross(fy, fz)` rend le MEME vecteur pour les deux seins, alors que le moteur MIROITE
+        # le sien par chaine (`jak-hd-physics.gc:3571-3572`, NOTE-324) comme sa §7 l.130-131
+        # l'exige : la trace publie `PHYSTRI c=0 a=0 = (+0.98297 +0.18374 0)` contre
+        # `c=1 a=0 = (-0.98297 -0.18374 0)`, et `cross(fy,fz)` rend le SECOND dans les deux cas.
+        # Ici c'est SANS CONSEQUENCE NUMERIQUE : `fx` n'entre que dans `outer(fx,fx)` du repli
+        # ci-dessous, ou le signe s'annule, et le repli n'est pas pris quand `PHYSDFMA` est la.
+        # Mais quiconque reutiliserait ce vecteur pour une clause DIRECTIONNELLE (« outward COM
+        # migration » de sa §10) lirait le sein droit a l'envers. Le sortant se lit dans
+        # `PHYSTRI a=0` (repere MONDE) ou se remesure sur le rig (base d'ANCRE) — c'est ce que
+        # fait `.autoport/c89_spec10_migration.py`, et c'est cette voie-la qui porte le verdict.
+        # RESERVE DE REPERE, declaree : `fy`/`fz` viennent de `PHYSTRI`, publie en repere MONDE
+        # (`phys-room.gc:3117-3118`), alors que `L` est en base d'ANCRE. Le repli melange donc
+        # deux reperes ; il n'est pris que si `PHYSDFMA` manque, et la ligne `D :` le dit.
+        fx_cross = np.cross(fy, fz)
+        fx_cross /= np.linalg.norm(fx_cross)
+        fx = fx_cross
+        fx_eng = d['tri'].get((c, 0))
         A('')
-        A('   === %s ===  fx=[%+.4f %+.4f %+.4f] fy=[%+.4f %+.4f %+.4f] fz=[%+.4f %+.4f %+.4f]'
-          % (CH[c][0], *fx, *fy, *fz))
+        A('   === %s ===  fx(moteur, MONDE, miroite)=[%+.4f %+.4f %+.4f]'
+          '  fy=[%+.4f %+.4f %+.4f] fz=[%+.4f %+.4f %+.4f]'
+          % (CH[c][0], *(fx_eng if fx_eng is not None else (float('nan'),) * 3), *fy, *fz))
+        A('            cross(fy,fz)=[%+.4f %+.4f %+.4f] — NON miroite, ne sert qu\'au repli'
+          ' `outer(fx,fx)` ou le signe s\'annule' % (*fx_cross,))
         base = []
         for cut in CUTS:
             gg = g[cut]
