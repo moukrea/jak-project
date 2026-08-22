@@ -2305,12 +2305,19 @@
       ;;            monde, a la frame ecrite. LECTURE HORS DEFAUT : 0.
       ;;            `tests` = echantillons reellement compares. Un skinpen nul avec tests=0 veut
       ;;            dire « je n'ai pas regarde » et se lit comme tel, jamais comme « rien ne passe ».
-      ;;   skinadd  [NOTE-150] la profondeur AJOUTEE sous cette meme peau par la PHYSIQUE :
-      ;;            `sd(point d'auteur) - sd(point simule)`, MEME frame, MEME surface, MEME lien.
+      ;;   skinadd  [NOTE-150] [NOTE-479] la profondeur AJOUTEE sous cette meme peau par la
+      ;;            PHYSIQUE : `min(0, sd(point d'auteur)) - sd(point simule)`, MEME frame, MEME
+      ;;            surface, MEME lien, MEME echantillon. C'est EXACTEMENT l'expression que la
+      ;;            contrainte minimise (`jak-hd-physics.gc:1971`) — cycle 105 : elle publiait
+      ;;            `sd(auteur) - sd(simule)` SANS l'ecretage, donc sur les ~9,8 % de lectures ou
+      ;;            le point d'auteur est DEHORS (`skinout`) elle ajoutait sa distance de sortie a
+      ;;            une profondeur. Deux formules pour une question : celle-ci est la bonne.
       ;;            `skinpen` mesure l'ANATOMIE (l'os de poitrine est interieur par construction) ;
-      ;;            celle-ci retranche cet offset EXACTEMENT au lieu de l'estimer sur une autre
-      ;;            fenetre. NATURE : une longueur, max de fenetre. REPERE : le monde, frame ecrite.
-      ;;            LECTURE HORS DEFAUT : 0.0000 — et la pose d'auteur la rend AU BIT.
+      ;;            celle-ci retranche cet offset EXACTEMENT, et A LA MEME FRAME SUR LE MEME
+      ;;            ECHANTILLON — ce que `skinpen - skinrest` ne fait PAS (deux maxima latches
+      ;;            separement, [NOTE-479]). NATURE : une longueur, max de fenetre. REPERE : le
+      ;;            monde, frame ecrite. LECTURE HORS DEFAUT : 0.0000 — la pose d'auteur la rend
+      ;;            AU BIT, et l'ecretage ne peut que la faire BAISSER, jamais monter.
       (format 0 "PHYSSKIN tag=~S c=~D skinpen=~f skinadd=~f tests=~D~%"
               tag c (phys-skinpen-worst (-> self slot) c)
               (phys-skinadd-worst (-> self slot) c) (phys-skintest-count))

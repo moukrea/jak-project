@@ -8782,3 +8782,78 @@ la ou le conflit existe se lit a l'etage 6 de `PHYSSTG`, publie a chaque cycle.
 plafond CLEAN de 4800. **COUT EN CALCUL : `phys-skin-chain` est evaluee deux fois par frame et par
 maillon au lieu d'une** — c'est la partie chere du solveur (`ROOM-SKINPEN-TESTS` compte 154 462 959
 echantillons de surface sur la fenetre), et le cout est declare, pas tu.
+
+## NOTE-479 — cycle 105 : LE VERDICT DE §33/§34 EST VALIDE QUAND IL ECHOUE ET **VIDE** QUAND IL PASSE
+
+`ROOM-SKINPEN-VERDICT` publie `skinpen - skinrest`. Les deux termes sont des **maxima courants
+INDEPENDANTS** (`jak-hd-physics.gc:2404-2405` et `:2412-2413`), remis a zero ensemble par
+`phys-skinpen-reset!` (`:2087`) mais latches separement : rien ne les oblige a tomber sur la meme
+frame, le meme maillon, ni le meme echantillon `ms`. Le tag `run` couvre TOUTE la course (un seul
+`physroom-emit-diag "run"`, `phys-room.gc:3588`, depuis le reset de `:3391`), soit 31 animations
+x 5 pilotages : les deux argmax ont ~16 700 frames pour diverger.
+
+**L'ASYMETRIE LOGIQUE, ET C'EST TOUTE LA NOTE.**
+  * `max(skinpen) > max(skinrest)`  ==> il EXISTE un echantillon qui viole. **SOUND.**
+  * `max(skinpen) <= max(skinrest)` ==> **RIEN.** Un maximum sous un autre maximum ne dit rien
+    d'une inegalite ECHANTILLON PAR ECHANTILLON. La direction qui fait passer est vide.
+
+Donc la ligne est un bon detecteur d'ECHEC et un detecteur de SUCCES sans contenu. Or c'est
+exactement par la direction vide que §34 a gagne son statut au cycle 104.
+
+**LA MESURE, tag=run, une seule fenetre, memes frames, memes echantillons, meme fonction :**
+
+    chestL   max(skinpen) 280.1669 u   max(skinrest) 250.7885 u   difference  +29.3784 u = +0.0072 m
+    chestR   max(skinpen) 349.7382 u   max(skinrest) 361.8413 u   difference  -12.1031 u = -0.0030 m
+
+**LE `-0.0030` DE chestR SE REFUTE TOUT SEUL.** La grandeur visee est une profondeur AJOUTEE,
+ecretee a zero par construction : elle ne peut pas etre negative. Une difference negative est donc
+la **preuve** que les deux maxima ne sont pas co-localises — et c'est ce nombre-la, et lui seul,
+qui imprimait `TENUE`.
+
+**ET LA BORNE QUE [NOTE-241] DECLARAIT « PAR CONSTRUCTION » EST REFUTEE PAR LA MEME LIGNE.**
+[NOTE-241] (cycle 61) ecrit : « elle borne la mesure qu'elle vise : `skinpen <= skinrest` sur la
+fenetre, par construction ». Si cette borne tenait ECHANTILLON PAR ECHANTILLON elle tiendrait sur
+les maxima. Sur **chestL** elle ne tient pas (280.17 > 250.79) : au moins un echantillon viole. Sur
+chestR l'ordre des maxima lui est compatible — ce qui, par l'asymetrie ci-dessus, ne la prouve pas.
+Ce n'est pas une construction, c'est une esperance, et elle est fausse sur une chaine sur deux.
+
+**LA GRANDEUR APPARIEE EXISTE, ELLE EST CALCULEE DANS LA MEME PASSE, ET LE VERDICT NE LA LIT PAS.**
+`skinadd` (`*phys-saf*`, `:2411`) est prise sur le MEME echantillon, a la MEME frame, contre la
+MEME surface. Elle rend **617.7986 u = 0.1508 m** (chestL) et **602.1514 u = 0.1470 m** (chestR) :
+**21x** ce que la difference de maxima publie sur chestL, et un nombre POSITIF la ou celle-ci est
+negative. L'inegalite `max(A) - max(B) <= max(A - B)` rend l'ecart inevitable et unilateral : la
+ligne de verdict est assise sur la borne INFERIEURE de la grandeur qu'elle pretend borner.
+
+**POURQUOI LA GRANDEUR APPARIEE NE PORTAIT PAS LE VERDICT : SON CONTROLE N'EN EST PAS UN.**
+`ROOM-SKINADD-CONTROL` declarait `skinadd` NON PROBANT sur la foi d'une injection de 400 u
+(`*phys-inject*`). Cette injection ne peut pas la toucher, et c'est structurel :
+  1. `phys-inject-probe!` (`:2276`) tourne **APRES** `phys-pen-chain` (`:3328` puis `:3336`), seul
+     ecrivain de `*phys-saf*` / `*phys-skinadd*` ;
+  2. elle n'appelle **jamais** `phys-surf-sd` — elle ne mesure que `phys-link-pen`, contre les
+     VOLUMES : c'est le controle de `meshpen` ([NOTE-155]), pas celui de la peau ;
+  3. elle **restaure** `*phys-px/py/pz*` avant de rendre la main (`:2350-2355`).
+Les deux jambes comparees (`pcon` / `pcoff`) sont donc deux FENETRES differentes et rien d'autre —
+d'ou un « arme 0.1219 < desarme 0.1368 » qui n'est pas un controle qui echoue mais un controle
+absent. C'est [[feedback_injection_must_displace_the_measured_point]] : deplacer un point que la
+mesure ne sonde pas, apres qu'elle a deja latche.
+
+**CE QUE LE CYCLE 105 CHANGE.**
+  * `:2411` publie desormais `(- (fmin 0.0 sa) sd)` — **exactement** l'expression que la contrainte
+    minimise (`:1971`). Deux formules pour une meme question etaient en vigueur : la mesure ajoutait
+    la distance de SORTIE du point d'auteur sur les lectures ou il est DEHORS (`skinout` = 105 441,
+    ~9,8 % des lectures). L'ecretage ne peut que faire BAISSER `skinadd`, jamais monter. **0 ligne**
+    (4800 -> 4800).
+  * `ROOM-SKINADD-CONTROL` cesse de citer une injection qui ne l'exerce pas et passe a l'ABLATION
+    de la contrainte elle-meme (`*phys-skin-off*`, tags `skin-armed` / `skin-disarmed`), qui deplace
+    le point MESURE. Les tailles de population sont publiees A COTE : 148 260 086 contre
+    25 748 571, soit **5,76x** — comparer deux MAXIMA sur des populations dans ce rapport est
+    `ratio-of-two-statistics`, et un controle qui tire CONTRE ce biais (la petite jambe rend le plus
+    grand maximum) est concluant, tandis qu'un ecart DANS le sens du biais ne l'est pas.
+  * `ROOM-SKINPEN-VERDICT` publie les TROIS grandeurs (difference de maxima, appariee, tailles) et
+    **refuse d'imprimer `TENUE`** sur la direction vide. Regle du 2026-08-19 23:50, appliquee au mot.
+
+**CE QUI N'EST PAS TOUCHE : LA GATE.** `phase-Grecharged-secondary-motion.sh:434-451` lit
+`ROOM-SKINPEN:` et `ROOM-SKINPEN-REST:`, pas la ligne de verdict, pas `skinadd`. Aucune de ces
+corrections ne peut faire verdir quoi que ce soit par accident (regle 5, et la condition posee par
+l'arbitrage du 2026-08-19 23:50). La faiblesse de la gate — un plancher unique `PIRE-DES-DEUX`
+applique aux DEUX chaines — est remontee, pas corrigee.

@@ -1,0 +1,70 @@
+CYCLE 105 — PREDICTIONS ECRITES AVANT TOUTE EDITION DE CODE ET AVANT LA COURSE
+DIRECTIVES v3fee554599
+Section dont ce cycle debloque le verdict, nommee AVANT de commencer : SPEC 33 et SPEC 34.
+
+DIAGNOSTIC (etabli sur la SOURCE et la TRACE ARCHIVEE, zero course) :
+  D1. `phys-inject-probe!` (jak-hd-physics.gc:2276-2362) ne peut pas bouger `skinadd` :
+      il tourne APRES `phys-pen-chain` (:3328 puis :3336), n'appelle jamais `phys-surf-sd`,
+      et restaure `*phys-px/py/pz*` avant de rendre la main. `ROOM-SKINADD-CONTROL` compare
+      donc deux FENETRES differentes (pcon/pcoff), pas une injection.
+  D2. `skinpen - skinrest` soustrait DEUX maxima latches separement (:2404 et :2412).
+      Sur chestR (tag=run) il vaut -0.0030 m. Une valeur NEGATIVE prouve a elle seule que
+      les deux maxima ne sont pas co-localises : une difference appariee ecretee ne peut
+      pas etre negative. Le `TENUE` de chestR est donc tire d'un nombre auto-refutant.
+  D3. La contrainte (:1971) minimise `(fmin 0.0 sa) - sd` ; la mesure (:2411) publie
+      `(- sa sd)`. Deux formules pour la meme question, et ~9,8 % des lectures d'auteur
+      sont DEHORS (skinout=105441), domaine ou les deux different.
+
+PREDICTIONS, CHACUNE REFUTABLE :
+
+P1  Apres l'ecretage de :2411, `skinadd` BAISSE ou reste egal sur les deux chaines,
+    jamais ne monte. (L'ecretage ne peut que reduire : min(0,sa) <= sa.)
+    REFUTEE si une chaine monte d'un seul u.
+
+P2  `skinadd` ecrete reste STRICTEMENT SUPERIEUR a `skinpen - skinrest` sur les deux
+    chaines, tag=run. (max(A)-max(B) <= max(A-B), inegalite algebrique.)
+    REFUTEE si une chaine rend l'inverse — ce qui denoncerait une erreur de fenetre.
+
+P3  Le nouveau controle par ablation (skin-armed vs skin-disarmed) EXERCE reellement
+    `skinadd`, contrairement a pcon/pcoff. Je ne predis PAS son signe : les deux jambes
+    ont des populations dans un rapport 5,76x (tests 148 260 086 contre 25 748 571) et
+    ce desequilibre est publie A COTE du resultat. Si la jambe DESARMEE — la plus PETITE —
+    rend quand meme le plus grand maximum, le controle a tire CONTRE son propre biais et
+    c'est concluant. Sinon il est declare NON CONCLUANT, pas « rate ».
+
+P4  Le verdict de §34 sur chestR passe de TENUE a DEPASSEE, ou a NON ETABLI.
+    REFUTEE s'il reste TENUE sur une grandeur appariee.
+
+P5  La gate COLLIDE du validateur ne bascule pas : elle lit `ROOM-SKINPEN:` et
+    `ROOM-SKINPEN-REST:`, que ce cycle ne touche pas. La sortie du validateur garde ses
+    17 lignes et le seul echec reste OPEN-DEFECTS.
+    REFUTEE si une gate change d'etat — ce serait la preuve que j'ai touche a une gate.
+
+P6  Le moteur reste a 4800 lignes exactement (plafond CLEAN `-gt 4800`).
+    REFUTEE a 4801.
+
+CE QUE JE NE PREDIS PAS, ET JE LE DIS : la VALEUR de `skinadd` ecrete. Elle est bornee
+par [0.0072 ; 0.1508] m sur chestL et [-0.0030 ; 0.1470] m sur chestR — un intervalle de
+21x et de 50x. C'est precisement parce que le bracket est aussi large que la mesure vaut
+la course : le verdict publie aujourd'hui est assis sur sa borne INFERIEURE par
+construction.
+
+--- AJOUT, ECRIT APRES LE LANCEMENT DE LA COURSE ET AVANT TOUT RESULTAT ---
+(Je date l'ajout au lieu de le glisser en silence : la course tournait deja, aucun chiffre n'etait
+revenu. C'est un CONTROLE NEGATIF que j'aurais du poser d'emblee.)
+
+P7  L'ecretage ne touche QUE `skinadd`. `*phys-skinpen*` (:2404) et `*phys-skinrest*` (:2412) sont
+    ecrits par des instructions que ce cycle n'a pas touchees, et `add` est une variable LOCALE qui
+    ne nourrit que `*phys-saf*` -> `*phys-skinadd*` / `*phys-st*` slot 20, dont rien ne revient dans
+    le solveur. La salle etant deterministe (cycle 32), `PHYSSKIN skinpen=` et `PHYSSKIN2 skinrest=`
+    doivent etre **IDENTIQUES AU CHIFFRE** a ceux de `keira-room-x86.c105-BASE.log` sur les 14 tags.
+    REFUTEE au moindre ecart — ce serait la preuve que mon edition a fuite dans le solveur, et le
+    cycle serait a jeter.
+
+P8  `PHYSSKINC` (compteurs propres de la contrainte) et `PHYSE22` doivent etre IDENTIQUES AU
+    CHIFFRE eux aussi : la contrainte n'a pas ete touchee. Meme consequence si non.
+
+P9  Ce cycle change le verdict de **§34** (peau contre le THORAX). Il ne change PAS §33, qui est
+    mesuree par `ROOM-MEDIAL` contre la surface du sein OPPOSE — un autre instrument. Ma ligne de
+    diagnostic en tete de ce fichier nommait « §33 et §34 » : c'est trop large, et je le corrige
+    ici plutot que dans le rapport.

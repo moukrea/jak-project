@@ -1,228 +1,314 @@
-RAPPORT DE CYCLE 104 — Grecharged-secondary-motion
+RAPPORT DE CYCLE 105 — Grecharged-secondary-motion
 DIRECTIVES v3fee554599
 Branche physics-keira-clean · perimetre : chestL / chestR SEULES (owner 2026-08-14 07:30)
-(le rapport precedent est archive a cote de celui-ci sous `report.c103.txt`)
+(le rapport precedent est archive a cote de celui-ci sous `report.c104.txt`)
 
 SECTION DONT CE CYCLE DEBLOQUE LE VERDICT, NOMMEE AVANT DE COMMENCER (directive du 2026-08-21
-18:25) : **§34** — le SEUL verdict de mesure rouge que le validateur portait a l'entree du cycle.
-Le cycle 103 l'avait attribue par ablation et avait nomme son correctif sans le poser. Ce cycle
-le pose.
+18:25) : **§34** (peau contre le THORAX). J'avais ecrit « §33 et §34 » dans
+`.autoport/c105-predictions.txt` : c'est trop large et je le corrige ici. §33 est mesuree par
+`ROOM-MEDIAL` contre la surface du sein OPPOSE — un autre instrument, que ce cycle ne touche pas.
+La gate du validateur, elle, s'intitule « COLLIDE §33/§34 » et ne lit que la grandeur de §34 : la
+confusion est dans son intitule, pas dans le registre, qui les separe depuis le 2026-08-20 18:50.
 
-BREAST-PENETRATION: 0.0973 m — `meshpen`, DIAGNOSTIC, jamais un verdict (arbitrage 2026-08-20
-13:20 : c'est un DEPLACEMENT, pas une profondeur, invariant au rayon a 1e-10 pres sur 229 560
-couples). Etait 0.0529 m au cycle 103 : **il MONTE**, et c'est attendu — la contrainte de peau
-tourne deux fois par frame, donc elle DEPLACE le joint deux fois plus, et ce compteur mesure
-exactement ce deplacement. La grandeur qui porte le verdict, `skinpen`, BAISSE dans le meme
-temps (0.0886 -> 0.0854 sur chestR). Sous le plafond epingle n'est pas « regle » : tant que ce
-n'est pas zero, ca se declare avec son chiffre, a chaque cycle.
-  chestL meshpen max 0.0555 m (anim `assistant-village3-idle`, drive `jerk`)
-  chestR meshpen max 0.0973 m (anim `assistant-village2-idle-to-a`, drive `accel`)
-
-SUBSTRAT : GOAL seul, x86. Un `(mi)` (551 cibles, 13,8 s) et UNE course complete (trace
-6 891 632 octets, md5 `1a6e921fbe1fffab1330efdd59238103`, empreinte relue DANS le tableau ecrit).
-Etat FINAL du source : `jak-hd-physics.gc` **4800** lignes pour un plafond CLEAN de 4800 —
-**INTOUCHE**, le correctif est a cout nul en lignes (voir §2). `phys-room.gc` inchange.
-
-ETAT DU VALIDATEUR : **toutes les gates de mesure passent**, `[Grecharged-secondary-motion PASS]`
-est imprime, et le seul echec restant est `OPEN-DEFECTS` — la porte de l'owner, qu'aucune
-tentative worker ne franchit et qu'on ne touche pas. La sortie du validateur passe de **15 a 17
-lignes** : `DISCRIMINANT` et `[PASS]`, invisibles depuis deux cycles derriere un verdict de mesure
-en echec, sont a nouveau atteintes et evaluees. Aucune gate n'a ete modifiee (regle 5).
+ETAT DU VALIDATEUR : inchange par construction — ce cycle ne touche AUCUNE gate (regle 5), et la
+gate COLLIDE lit `ROOM-SKINPEN:` et `ROOM-SKINPEN-REST:`, deux grandeurs que ce cycle laisse
+bit-a-bit identiques (controle P7). Le seul echec reste `OPEN-DEFECTS`, la porte de l'owner.
 
 ================================================================================================
 0. EN UNE PHRASE
 ================================================================================================
-**LA BORNE DE §22 ET LA CONTRAINTE DE PEAU SE DISPUTAIENT LE MEME POINT SUR LA MEME SPHERE, ET
-LA DERNIERE ARRIVEE EFFACAIT L'AUTRE. ALTERNEES AU LIEU D'ETRE ENCHAINEES, ELLES TIENNENT LES
-DEUX : chestR REPASSE SOUS SON PLANCHER (-0,0030 m, TENUE) ET LA VALEUR LIVREE DE §22 NE MONTE
-PAS D'UN POUCE (etage 6 : 0,4741 / 0,4999 B0 pour un plafond dur de 0,50). L'ARBITRAGE QUE LE
-CYCLE 103 REFUSAIT DE RENDRE N'AVAIT PAS A ETRE RENDU : IL N'Y AVAIT PAS DE PRIX A PAYER.**
+**LE VERDICT DE §34 SOUSTRAIT DEUX MAXIMA LATCHES SEPAREMENT. IL EST DONC VALIDE QUAND IL ECHOUE
+ET **VIDE** QUAND IL PASSE — ET C'EST PAR LA DIRECTION VIDE, SUR UN NOMBRE NEGATIF, QUE LE CYCLE
+104 LUI A FAIT GAGNER SON STATUT. LA GRANDEUR APPARIEE ETAIT CALCULEE DANS LA MEME PASSE, SUR LE
+MEME ECHANTILLON, A LA MEME FRAME, ET PUBLIEE A COTE : ELLE VAUT 21x PLUS. ELLE NE PORTAIT PAS LE
+VERDICT PARCE QU'UN « CONTROLE POSITIF » L'AVAIT DECLAREE NON PROBANTE — UN CONTROLE QUI, LU DANS
+LE CODE, NE PEUT PAS LA TOUCHER.**
 
 ================================================================================================
-1. LE DEFAUT, ET IL ETAIT DEJA ATTRIBUE
+1. CE QUE JE RETIRE AU CYCLE 104, ET C'ETAIT SON SEUL GAIN DE STATUT
 ================================================================================================
-Le cycle 103 avait fait le travail d'attribution et je n'ai rien eu a redecouvrir. Site unique,
-`jak-hd-physics.gc:3215-3216` :
+Le cycle 104 a fait passer §34 de `NON TENUE` a `PARTIELLE` sur cette ligne :
 
-    (phys-skin-chain skel sc n rlk nbone)      ;; SPEC 33/34 — sort la peau du corps
-    (phys-cap-e22!   skel sc n rlk an nbone)   ;; SPEC 22   — ramene vers la pose d'auteur
+    ROOM-SKINPEN-VERDICT: chestR  course=0.0854  plancher-propre=0.0883  physique=-0.0030 -> TENUE
 
-Les deux sont des ROTATIONS autour de la MEME attache : leurs ensembles admissibles vivent sur la
-MEME sphere de rayon `|p - b|`, et la seconde peut defaire la premiere. Elle le faisait. Ablation
-du cycle 103 (`*phys-e22-off*` 0 -> 1, course dediee) : chestR **0,0886 -> 0,0836 m**, verdict
-`+0,0003 DEPASSEE` -> `-0,0047 TENUE`. **La borne de §22 enfoncait 5,0 mm de peau dans le thorax**,
-dont 0,3 mm au-dessus du plancher d'auteur.
+**CE `TENUE` N'EST PAS UNE MESURE.** `course` est `max(skinpen)` et `plancher-propre` est
+`max(skinrest)` : deux maxima courants INDEPENDANTS (`jak-hd-physics.gc:2404-2405` et
+`:2412-2413`), remis a zero ensemble mais latches separement. Ils partagent la fenetre, le
+domaine, les maillons, les echantillons et la fonction — ce que le fichier de tableau affirme
+depuis le cycle 61 (`physics_room_table.py:8110-8113`) et c'est VRAI. Ce qu'ils ne partagent pas,
+c'est l'ARGMAX : sur le tag `run` ils ont 31 animations x 5 pilotages, ~16 700 frames, 2 maillons
+et 8 echantillons `ms` pour tomber a deux endroits differents. « Meme population » n'est pas
+« meme point ».
 
-**ET LES DEUX DOCSTRINGS SE CONTREDISAIENT, CE QUI EST CE QUI A CACHE LE CONFLIT SI LONGTEMPS.**
-Celle de `phys-skin-chain` (cycle 74) disait « c'est la DERNIERE contrainte de position de la
-frame [...] rien ne s'execute apres elle ». Celle de `phys-cap-e22!` (cycle 76) disait « rien
-n'ecrit `*phys-px*` apres elle ». Le code rendait la seconde vraie et la premiere fausse, et
-aucune gate ne lit une docstring. C'est la regle 0 du contrat prise a revers : un commentaire
-n'est pas une preuve — y compris quand il ment sur l'ordre d'appel.
+**L'ASYMETRIE LOGIQUE, ET ELLE SUFFIT A CLORE LA QUESTION :**
 
-================================================================================================
-2. LE CORRECTIF — TROIS LIGNES POUR TROIS LIGNES
-================================================================================================
-    (dotimes (it 2) (phys-cap-e22! skel sc n rlk an nbone) (phys-skin-chain skel sc n rlk nbone))
+    max(course) >  max(plancher)  ==> il EXISTE un echantillon qui viole.        SOUND.
+    max(course) <= max(plancher)  ==> RIEN. Un maximum sous un autre maximum ne dit rien
+                                      d'une inegalite ECHANTILLON PAR ECHANTILLON.
 
-**CE N'EST PAS UNE PERMUTATION.** Le cycle 103 avait raison d'ecarter la permutation seche :
-NOTE-447 a mesure que sans borne posee apres la peau, l'etage 6 vaut 0,6539 / 0,6670 B0 contre un
-plafond dur de 0,50, sur 184/186 et 156/186 fenetres. Permuter aurait echange le rouge de §34
-contre un rouge de §22, et le cycle 103 a explicitement refuse de le faire sans mesure.
+La ligne est un bon detecteur d'ECHEC et un detecteur de SUCCES sans contenu. §34 a gagne son
+statut par la seconde direction.
 
-**POURQUOI L'ALTERNANCE, ELLE, NE TROQUE RIEN — L'ARGUMENT EST GEOMETRIQUE ET IL EST TESTABLE.**
-La cible `t` de §22 EST la pose d'auteur ; la penetration de la pose d'auteur EST, par definition,
-le plancher `ROOM-SKINPEN-REST`. Donc le centre de la calotte admissible de §22 est un point ou
-§33/§34 est tenue exactement a son plancher : **les deux ensembles se coupent.** Des projections
-alternees sur deux ensembles d'intersection non vide convergent vers cette intersection au lieu
-d'osciller. C'est la raison pour laquelle deux tours suffisent la ou un tour de chaque echouait —
-et c'est une prediction refutable, pas une justification apres coup : si l'intersection avait ete
-vide, chestR serait reste au-dessus de 0,0883 et l'arbitrage aurait ete inevitable. Cette
-alternative etait ecrite dans `.autoport/c104-predictions.txt` AVANT l'edition du moteur.
-
-**L'ORDRE DANS LE TOUR : §22 D'ABORD, LA PEAU ENSUITE.** La derniere ecriture de `*phys-px*` de
-la frame est donc la fermeture de peau. Cela rend enfin VRAIE la docstring de `phys-skin-chain`,
-et cela applique la regle 6 de l'owner — « rien ne traverse le mesh de son personnage, quelle
-qu'en soit la raison » — qui est dans sa liste « REGLES QUI NE SE NEGOCIENT JAMAIS ». Verifie au
-code : apres ce bloc, seules la restitution (qui ne touche que la VITESSE) et deux injections de
-controle desarmees en livraison (`*phys-inv-inject*`, `*phys-auth-lag*`) suivent.
-
-**COUT EN LIGNES : ZERO.** 4800 pour un plafond de 4800, marge inchangee. Le cycle 103 declarait
-ce correctif bloque par le plafond (« ca demande des lignes de MOTEUR, et il est a 4800/4800 ») :
-c'est la seule de ses trois raisons qui tombe, et elle tombe parce que la forme choisie tient sur
-une ligne. La docstring de `phys-cap-e22!` est corrigee dans ses deux lignes existantes ; le texte
-long va dans NOTE-470 de `jak-hd-physics-NOTES.md`, qui n'a pas de plafond.
-
-**COUT EN CALCUL, DECLARE : `phys-skin-chain` est evaluee DEUX FOIS par frame et par maillon.**
-C'est la partie chere du solveur. Mesure sur la course, `PHYSEND vu apres` : **720 s -> 1 139 s**
-(x1,58). Le plafond du script a ete monte de 1500 a 2400 s pour la course, rien d'autre.
+**ET LE SIGNE LE PROUVE TOUT SEUL, SANS AUCUN RAISONNEMENT SUR LES ARGMAX.** La grandeur visee est
+une profondeur AJOUTEE, ecretee a zero par construction : elle ne peut pas etre negative. Le
+`-0.0030` est donc, en lui-meme, la preuve que ses deux termes ne sont pas co-localises. Un nombre
+impossible imprimait un verdict.
 
 ================================================================================================
-3. LES HUIT PREDICTIONS, ECRITES AVANT LA COURSE. SEPT TIENNENT, ET LA HUITIEME EST REFUTEE
-   DANS LE SENS QUI M'ARRANGE — DONC JE LA SIGNE PLUS FORT QUE LES AUTRES.
+2. LA BORNE QUE [NOTE-241] DECLARAIT « PAR CONSTRUCTION » EST FAUSSE SUR UNE CHAINE SUR DEUX
 ================================================================================================
-`.autoport/c104-predictions.txt`, ecrit AVANT l'edition du moteur, resultats ajoutes apres lecture.
+[NOTE-241] (cycle 61) : « elle borne la mesure qu'elle vise : `skinpen <= skinrest` sur la fenetre,
+par construction ». C'est une affirmation ECHANTILLON PAR ECHANTILLON. Si elle tenait, elle
+tiendrait sur les maxima. Mesure, tag `run`, meme fenetre :
 
-  P1  chestR sous son plancher        0,0886 -> **0,0854** (plancher 0,0883)      CONFIRMEE
-  P2  chestL reste au-dessus du sien  0,0686 -> 0,0684 (plancher 0,0612, +0,0072) CONFIRMEE
-  P3  le plancher ne bouge pas        0,0883 / 0,0612 **identiques au chiffre**   CONFIRMEE
-  P4  §22 n'est pas desarmee          `PHYSE22 n` 23 857 -> **46 575** (x1,95)    CONFIRMEE
-  P5  §22 paie quelque chose          etage 6 : 0,4845 -> **0,4741** / 0,4998 -> **0,4999**  REFUTEE
-  P6  l'apex bouge de moins de 5 %    -0,3 % / +0,3 %                             CONFIRMEE
-  P7  l'os ne s'allonge pas           `ROOM-STRETCH` 2,8885 -> **2,7950 %**       CONFIRMEE
-  P8  aucune autre gate ne bascule    sortie du validateur 15 -> **17 lignes**    CONFIRMEE
+    chestL   max(skinpen) 280.1669 u  >  max(skinrest) 250.7885 u   -> REFUTEE : un echantillon viole
+    chestR   max(skinpen) 349.7382 u  <= max(skinrest) 361.8413 u   -> compatible, et ne PROUVE rien
 
-**P5 EST LA SEULE QUI COMPTE VRAIMENT, ET JE ME SUIS TROMPE DESSUS.** J'avais predit que la valeur
-livree de §22 monterait au-dessus de 0,50 B0 — c'est-a-dire que le correctif se paierait sur §22,
-comme la permutation l'aurait fait. **Elle n'a pas monte : elle a BAISSE sur chestL (0,4845 ->
-0,4741) et est restee plate sur chestR (0,4998 -> 0,4999), sur les 186 fenetres des deux chaines,
-sous le plafond dur.** L'alternance converge donc reellement vers l'intersection au lieu de faire
-un balancier entre les deux contraintes. C'est le resultat le plus fort du cycle, et c'est
-precisement celui que ma prediction n'osait pas : je l'avais ecrite pessimiste pour ne pas
-m'auto-justifier, et la mesure a fait mieux que moi.
-
-**LES DEUX CONTROLES QUI RENDENT CES CHIFFRES LISIBLES :**
-  * **P3 EST UN CONTROLE D'INSTRUMENT, PAS UN RESULTAT.** `ROOM-SKINPEN-REST` est la lecture de la
-    pose d'AUTEUR : elle ne depend d'aucun ordre de contraintes. Elle est **identique au chiffre**
-    (0,0883 / 0,0612). S'il avait bouge, tout le reste de la comparaison etait sans valeur.
-  * **P4 EST LE CONTROLE QUE §22 TOURNE ENCORE.** Un correctif qui aurait silencieusement desarme
-    la borne aurait rendu `n = 0`, comme l'ablation du cycle 103. Il rend **x1,95** — exactement le
-    doublement de passes, ni plus ni moins.
-  * `ROOM-POSCONTROL` rend **0,0977 m pour 0,097656 m injectes (x1,0004)**, dans la bande +/-25 %
-    du critere predictif du 2026-08-20 13:20.
+Ce n'est donc pas une construction, c'est une esperance — et la contrainte de peau ne la tient pas
+(son propre residu le dit : `ROOM-SKINPEN-COUT reste` = 0.0316 m, non nul).
 
 ================================================================================================
-4. LE CHANGEMENT DE STATUT, ET IL N'EST PAS CELUI QU'UN `[PASS]` LAISSERAIT CROIRE
+3. LA GRANDEUR APPARIEE EXISTE, ELLE EST DANS LA MEME PASSE, ET LE VERDICT NE LA LISAIT PAS
 ================================================================================================
-    ROOM-SKINPEN-VERDICT   AVANT (c103)                          APRES (c104)
-    chestL   course=0,0686  plancher=0,0612  +0,0074  DEPASSEE   0,0684  +0,0072  **DEPASSEE**
-    chestR   course=0,0886  plancher=0,0883  +0,0003  DEPASSEE   0,0854  -0,0030  **TENUE**
+`skinadd` (`*phys-saf*`, `:2411`) est prise sur le MEME echantillon, a la MEME frame, contre la
+MEME surface — c'est une difference APPARIEE, pas une difference de maxima. Trace archivee,
+tag `run` :
 
-**§34 PASSE `NON TENUE` -> `PARTIELLE`, PAS `TENUE`.** La regle 2 du registre est explicite : une
-seule chaine conforme = PARTIELLE. chestL depasse encore SON PROPRE plancher de **7,2 mm**.
+    chestL   difference-de-maxima +29.3784 u = +0.0072 m     APPARIEE 617.7986 u = 0.1508 m   21.0x
+    chestR   difference-de-maxima -12.1031 u = -0.0030 m     APPARIEE 602.1514 u = 0.1470 m   (n/a)
 
-**ET IL FAUT DIRE POURQUOI LA GATE, ELLE, EST VERTE SUR chestL — PARCE QUE C'EST UNE FAIBLESSE DE
-LA GATE, PAS UNE PROPRIETE DE LA CHAINE.** Le validateur lit UNE seule ligne
-`ROOM-SKINPEN-REST:` (la premiere que sa regex trouve) et l'applique aux deux chaines. Le tableau
-publie la `PIRE-DES-DEUX` = 0,0883, donc chestL est juge contre le plancher de chestR et passe.
-Le tableau publie **a cote**, et depuis le cycle 61, le verdict PAR CHAINE contre SON plancher —
-c'est lui qui fait foi au registre. Un `[PASS]` de gate n'est pas un vert de section, et je ne
-m'en sers pas comme tel. Je ne touche pas la gate (regle 5) ; je remonte la faiblesse.
-
-**LA CAUSE DE chestL EST CONNUE, MESUREE, ET CE N'EST PAS CELLE DE chestR.** Le cycle 103 l'a
-separee par ablation : desarmer §22 ne rend que **-0,3 mm** sur chestL contre -5,0 mm sur chestR.
-Son exces est le **residu propre de la contrainte de peau**, qui ne ferme pas et le publie
-elle-meme : `ROOM-SKINPEN-COUT tag=run reste` **0,0298 -> 0,0316 m**. Et c'est structurel, pas un
-manque de tours : la boucle corrige **UN SEUL echantillon par iteration** (celui de pire
-penetration) sur 6 iterations, pour jusqu'a 48 echantillons par maillon. Doubler les passes a
-porte les corrections de 19 878 a **22 182** sans fermer le residu — ce qui confirme le
-diagnostic au lieu de le contredire. C'est la classe `collision-residual-is-a-plateau`, et c'est
-un chantier d'algorithme (corriger la pire penetration de CHAQUE echantillon, pas d'un seul),
-pas un chantier de budget d'iterations.
+`max(A) - max(B) <= max(A - B)` : l'ecart est inevitable ET unilateral. **La ligne de verdict etait
+assise sur la BORNE INFERIEURE de la grandeur qu'elle pretendait borner.**
 
 ================================================================================================
-5. CE QUE JE DECLARE CONTRE MOI
+4. POURQUOI L'APPARIEE NE PORTAIT PAS LE VERDICT : SON « CONTROLE POSITIF » NE PEUT PAS LA TOUCHER
 ================================================================================================
-**(a) `meshpen` MONTE, ET FORT : 0,0529 -> 0,0973 m sur chestR (x1,84).** C'est un DEPLACEMENT et
-non une profondeur — arbitrage du 2026-08-20 13:20, etabli par une identite exacte, pas une
-opinion — et la contrainte qui le produit tourne deux fois plus souvent, donc il monte
-mecaniquement. Mais je ne me cache pas derriere ca : c'est la deuxieme fois en deux cycles que la
-grandeur qui NE porte PAS le verdict va dans le sens contraire de celle qui le porte, et si un
-jour l'arbitrage de 13:20 est revise, ce chiffre-la redevient un rouge. Il est declare en tete de
-rapport avec ses deux argmax nommes.
+`ROOM-SKINADD-CONTROL` declarait `skinadd` NON PROBANTE sur la foi d'une injection de 400 u
+(`*phys-inject*`). Cette injection ne peut pas la bouger, et ce sont trois faits de code :
 
-**(b) LE `max` D'APEX DE chestR MONTE DE 6,5 %** (0,9073 -> 0,9664 B0) pendant que le pic typique
-ne bouge que de +0,3 %. Un maximum n'est pas une population — c'est exactement
-`argmax-anchor-is-not-a-population`, et c'est la faute que le superviseur s'est retiree a lui-meme
-le 2026-08-21 20:50. Je ne construis donc rien dessus. Mais je ne le tais pas non plus : §22 etait
-NON TENUE, elle le reste, et sur cet extremum-la elle est un peu pire.
+  1. `phys-inject-probe!` (`:2276`) tourne **APRES** `phys-pen-chain` (`:3328` puis `:3336`), qui
+     est le SEUL ecrivain de `*phys-saf*` / `*phys-skinadd*` — la mesure a deja latche ;
+  2. elle n'appelle **jamais** `phys-surf-sd`. Elle ne mesure que `phys-link-pen`, contre les
+     VOLUMES : c'est le controle de `meshpen` ([NOTE-155]), pas celui de la peau ;
+  3. elle **restaure** `*phys-px/py/pz*` avant de rendre la main (`:2350-2355`).
 
-**(c) LE RESIDU DE LA PEAU EMPIRE LEGEREMENT** (`reste` 0,0298 -> 0,0316 m ; `pire` 0,0581 ->
-0,0639 m). Deux passes corrigent plus (22 182 contre 19 878) mais la pire violation survivante
-monte. Explication non verifiee — donc declaree comme telle : la 7e passe qui MESURE prend le
-`max` sur les DEUX appels, donc elle republie le pire des deux etats intermediaires et non l'etat
-final. Si c'est ca, le chiffre est pessimiste par construction et **la mesure du residu final
-n'existe pas**. Je ne l'affirme pas, je nomme la mesure qui manque.
+Les deux jambes comparees (`pcon` / `pcoff`) etaient donc deux FENETRES et rien d'autre. L'ecart
+publie — « arme 0.1219 < desarme 0.1368 » — n'etait pas un controle qui echoue, c'etait un controle
+ABSENT. C'est `injection-must-displace-the-measured-point`, et le prix a ete quatre cycles de
+verdicts §34 rendus par la mauvaise grandeur.
 
-**(d) JE N'AI PAS REMESURE LES DIX SECTIONS A RESERVE DECLAREE DU CYCLE 103 (§6d).** Le correctif
-touche le MOTEUR, donc toutes les sections qui lisent une valeur livree sont concernees en
-principe. J'ai remesure celles qui ont une ligne dans le tableau et un verdict : §22, §33, §34.
-Les autres gardent leur reserve. Reclasser sans remesurer serait la faute que le cycle 103 avait
-corrigee chez le cycle 102.
-
-**(e) LA COURSE EST 1,7x PLUS LENTE.** C'est un cout de mesure et de jeu. Sur x86 il est invisible
-(la salle n'a pas de budget de frame ; la course passe de 720 s a 1 139 s, x1,58) ; **sur le Redmi
-et sur le Honor de l'owner, il ne l'est pas**, et je n'ai pas mesure le cout par frame sur device. C'est la mesure qui manque avant de
-considerer ce correctif comme livrable sans reserve.
+**ET LA RAISON PUBLIEE ETAIT DEJA FAUSSE POUR UNE AUTRE CAUSE, QUE JE NOTE SANS M'EN SERVIR :** le
+texte affirmait « 400 u injectes ne rendent pas 400 u ». Meme si l'injection avait atteint la
+mesure, cette prediction serait mal posee : un deplacement de 400 u dans une direction `d` change
+une PROFONDEUR mesuree le long de la normale `n` de `400 x (d.n)`, pas de 400. Predire l'un pour
+l'autre, c'est `radius-blind-to-direction`. Je ne construis rien dessus — le controle est absent,
+donc sa prediction n'a pas a etre discutee — mais la ligne ne doit pas rester au dossier.
 
 ================================================================================================
-6. LE PLAFOND DU MOTEUR — LA REMONTEE DU CYCLE 103 EST LEVEE, MAIS ELLE RESTE VRAIE
+5. LA MESURE — UNE COURSE, ET LES TROIS ESTIMATEURS COTE A COTE
 ================================================================================================
-Le cycle 103 remontait que le plafond de 4800 bloquait le prochain pas nomme. **Ce cycle-ci n'a
-rien coute** (4800 -> 4800) parce que la forme du correctif tenait sur une ligne, ce qui est de la
-chance de forme et non une reponse au probleme. Les deux chantiers nommes qui restent — le seuil
-du rebase de §37 (7,00 * B0 = 4 214 u laisse passer 2 154 u) et la convergence de la contrainte de
-peau (§4 ci-dessus) — sont l'un et l'autre du MOTEUR, et la marge est toujours **zero**.
+SUBSTRAT : GOAL seul, x86. Un `(mi)` (551 cibles, 24,1 s) et UNE course complete
+(`PHYSEND vu apres 1139s`, trace 6 891 445 octets, md5 `d77e3041eee51b2c3ff4865703ca5cb0`,
+empreinte relue DANS le tableau ecrit). Aucun build Android : le changement est du GOAL et une
+mesure, l'APK n'apporte rien a la question. Moteur **4800** lignes pour un plafond CLEAN de 4800,
+**INTOUCHE** — l'ecretage remplace une expression par une expression sur la MEME ligne.
+
+TROIS ESTIMATEURS DE LA MEME QUESTION — « de combien la physique enfonce-t-elle la peau sous la
+pose d'auteur ? » — sur la MEME course, la MEME fenetre, les MEMES echantillons :
+
+    tag=run                                          chestL              chestR
+    (1) difference de maxima  (publie jusqu'ici)   +0.0072 m           -0.0030 m
+    (2) appariee NON ECRETEE  (l'ancien `skinadd`)  0.1508 m            0.1470 m
+    (3) appariee ECRETEE      (ce cycle)            0.0684 m            0.0681 m
+
+**(3) EST LA BONNE, ET CE N'EST PAS UN CHOIX D'AUTEUR : c'est mot pour mot l'expression que la
+CONTRAINTE minimise** (`:1971` contre `:2410`). (1) ne peut que sous-estimer (algebre) ; (2) ne
+peut que sur-estimer (elle ajoute la distance de SORTIE du point d'auteur sur les ~9,8 % de
+lectures ou il est dehors). La vraie valeur etait encadree entre les deux, et personne ne l'avait
+lue.
+
+    L'ANCIEN VERDICT SOUS-ESTIMAIT **9,5x** SUR chestL, ET SE TROMPAIT DE **SIGNE** SUR chestR.
 
 ================================================================================================
-7. LA SUITE, NOMMEE
+6. LE FAIT QUI DEMOLIT LA JUSTIFICATION MEME DU PLANCHER, ET IL EST EXACT AU CHIFFRE
 ================================================================================================
-(a) **chestL : faire fermer la contrainte de peau.** Corriger la pire penetration de CHAQUE
-    echantillon dans une iteration, au lieu d'un seul echantillon par iteration. C'est le seul
-    obstacle restant entre §34 et `TENUE`, il est chiffre (+7,2 mm) et il est structurel.
-(b) **Mesurer le residu FINAL de la peau** (§5c) : la sonde actuelle prend un `max` sur les deux
-    appels et ne peut donc pas dire ou on en est a la fin de la frame.
-(c) **Le cout par frame sur device** (§5e), avant de traiter ce correctif comme acquis en jeu.
-(d) **Le seuil du rebase de §37** (c103 §8a) — bloque par le plafond du moteur.
-(e) **Les dix sections a reserve declaree** (c103 §6d).
+    PHYSSKIN tag=run c=0 skinpen=280.1669 skinadd=280.1669
+
+**Les deux colonnes sont EGALES au chiffre pres sur chestL.** Ce n'est pas une coincidence, c'est
+une identite qui se demontre : `skinadd = max(0, min(0,sa) - sd)` et `skinpen = max(0, -sd)`. Si
+`skinadd = skinpen`, il existe un echantillon ou `min(0,sa) - sd = max(-sd)`, donc `min(0,sa) = 0`,
+donc **`sa >= 0` : le point d'AUTEUR y est DEHORS.**
+
+    LE POINT LE PLUS ENFONCE DE chestL EST UN POINT OU LA PEAU DE L'AUTEUR EST **HORS** DU CORPS.
+    IL N'Y A AUCUN OFFSET ANATOMIQUE A RETRANCHER : LES 6,84 cm SONT DE LA PHYSIQUE, EN ENTIER.
+
+Or toute la construction du plancher repose sur l'inverse — « l'os de poitrine est INTERIEUR par
+construction anatomique, donc `skinpen` mesure le rig et pas la physique » ([NOTE-150],
+`physics_room_table.py:8110`). C'est vrai du JOINT. Ce n'est **pas** vrai des echantillons de peau
+qui decident du verdict, et sur chestL c'est faux precisement la ou ca compte.
+
+**LA MEME ALGEBRE DIT LE CONTRAIRE SUR chestR, ET JE LE PUBLIE AUSSI** : `skinadd` 278.9003 <
+`skinpen` 349.7382, donc a l'argmax de `skinpen` on a `min(0,sa) <= 278.9003 - 349.7382 =
+-70.8379 u`, soit un point d'auteur enfonce d'au moins **1,73 cm**. Les deux chaines ne sont pas
+dans la meme situation, et l'agregat les confondait.
 
 ================================================================================================
-8. A TESTER PAR L'OWNER
+7. LE CONTROLE, QUI EN EST ENFIN UN — ET QUI NE CONCLUT QUE SUR UNE CHAINE
 ================================================================================================
-**RIEN.** La directive du 2026-08-20 23:30 tient : pas de sollicitation pour un changement d'une
-seule section tant que le bloc §14-§20 / §24-§27 / §9-§13 n'est pas tenu ensemble — a 3 TENUE sur
-38, aucun changement d'une section ne produit un ecart qu'un oeil peut trancher, et lui demander
-d'arbitrer a ce niveau use le seul instrument qui compte. Ce cycle change bien le MOTEUR (contrai-
-rement au cycle 103), donc il change ce qui est a l'ecran ; mais ce qu'il change est une
-penetration de 3 mm sous la peau et une borne qui ne bouge pas. La livraison au fil de l'eau n'est
-pas suspendue : l'auto-constructeur tourne, le build reste disponible s'il en veut un.
+L'ablation de la contrainte (`*phys-skin-off*`) deplace le point que la mesure SONDE, donc elle
+l'exerce. Son controle NEGATIF tire d'abord : `PHYSSKINC tag=skin-disarmed n=0.0000` — desarmee,
+la contrainte fait **zero** correction, l'interrupteur fait donc ce qu'il dit.
+
+    chaine   armee      desarmee    populations           lecture
+    chestL   0.0684 m   0.0702 m    148 260 086 / 25 748 571   desarmee PLUS GRANDE
+    chestR   0.0707 m   0.0623 m    (rapport 5,76x)            armee plus grande
+
+**LE BIAIS EST PUBLIE AU LIEU D'ETRE TU.** Les deux jambes n'ont pas la meme taille de population,
+et comparer deux MAXIMA sur des populations dans un rapport 5,76 est `ratio-of-two-statistics`. Le
+biais favorise la jambe ARMEE (la plus grande). Donc :
+  * **chestL : LE CONTROLE A TIRE, ET CONTRE SON BIAIS** — la jambe DESARMEE, cinq fois plus
+    petite, rend quand meme le plus grand maximum (+0,0018 m). L'instrument n'est pas tautologique.
+  * **chestR : NON CONCLUANT** — l'ecart (0,0083 m) va DANS le sens du biais. Ce n'est PAS « le
+    controle a rate » : il faudrait des jambes de MEME taille pour trancher, et je ne fabrique pas
+    la conclusion en agrandissant l'injection (`never-fit-a-parameter-to-the-instrument`).
+
+**ET J'AI CORRIGE MON PROPRE CONTROLE EN COURS DE CYCLE, JE LE DIS.** Ma premiere version prenait
+un `max` SUR LES DEUX CHAINES avant de comparer : elle melangeait une chaine dont le controle tire
+avec une dont il ne tire pas, et publiait `NON CONCLUANT` pour les deux. C'est la regle 7 (« une
+mesure par chaine doit varier par chaine ») enfreinte sur un CONTROLE au lieu d'un verdict. La
+version publiee est par chaine. J'ai trouve ce defaut en lisant les nombres de la course, pas
+avant : c'est un correctif que la mesure m'a impose, pas un que j'avais prevu.
+
+**CE QUE LE CONTROLE NE CHANGE PAS, ET C'EST IMPORTANT POUR LA LECTURE DU ROUGE.** Le risque que
+[NOTE-150] nomme est la TAUTOLOGIE : si l'echantillon le plus proche appartenait toujours a la
+propre chair de la chaine, la grandeur vaudrait **0 par construction**. Une valeur de 0,0681 m
+n'est pas explicable par une tautologie — une tautologie produit un ZERO, donc un faux VERT. Le
+`NON CONCLUANT` de chestR fragiliserait un vert ; il ne fragilise pas un rouge.
+
+================================================================================================
+8. LES PREDICTIONS, ECRITES AVANT (`.autoport/c105-predictions.txt`)
+================================================================================================
+  P1  `skinadd` ne peut que BAISSER          617.80 -> 280.17 / 602.15 -> 278.90, 28 tags   CONFIRMEE
+  P2  appariee > difference de maxima        0.0684 > 0.0072 · 0.0681 > -0.0030             CONFIRMEE
+  P3  le controle EXERCE la mesure           tire sur chestL contre son biais, pas chestR   COMME POSEE
+  P4  §34 chestR quitte `TENUE`              -> DEPASSEE par la grandeur appariee           CONFIRMEE
+  P5  aucune gate ne bascule                 12 gates de mesure, toutes au meme etat        CONFIRMEE
+  P6  moteur a 4800 lignes                   4800                                          CONFIRMEE
+  P7  `skinpen`/`skinrest` IDENTIQUES        `diff` vide sur les 28 + 28 lignes             CONFIRMEE
+  P8  `PHYSSKINC`/`PHYSE22` IDENTIQUES       `diff` vide sur les 14 lignes                  CONFIRMEE
+
+**P7 ET P8 SONT CE QUI REND LE CYCLE LISIBLE**, et je les ai poses APRES avoir lance la course —
+c'est note et date dans le fichier de predictions au lieu d'etre glisse en silence. Ils prouvent
+que l'ecretage n'a pas fui dans le solveur : la course est identique AU CHIFFRE partout sauf sur
+la colonne changee. Sans eux, « §34 devient rouge » serait indiscernable de « j'ai casse le
+solveur ».
+
+**UNE PREDICTION ETAIT MAL CHIFFREE, ET C'EST MA FAUTE :** P5 annoncait « la sortie du validateur
+garde ses 17 lignes ». Elle en fait **18**, et elle en faisait deja 18 avant ce cycle. J'avais
+repris le « 17 » du rapport du cycle 104 sans le recompter. La substance de P5 — aucune gate ne
+change d'etat — est confirmee ; le nombre etait un chiffre herite, pas mesure.
+
+================================================================================================
+9. LE CHANGEMENT DE STATUT
+================================================================================================
+    §34   AVANT (cycle 104)   **PARTIELLE**   chestR TENUE (-0,0030), chestL DEPASSEE (+0,0072)
+          APRES (cycle 105)   **NON TENUE**   chestL 0,0684 m · chestR 0,0681 m, LES DEUX DEPASSEES
+
+**C'EST UNE REGRESSION DU REGISTRE, ET C'EST LE POINT DU CYCLE.** Le cycle 104 n'avait qu'un seul
+gain de statut ; je le retire, parce qu'il venait d'un nombre qui ne pouvait pas exister. Un faux
+vert coute plus cher qu'un rouge : il envoie le chantier suivant corriger un ecart de 7,2 mm qui
+n'existe pas, pendant que l'ecart reel est de 68,4 mm — **9,5 fois plus**. C'est exactement ce que
+le cycle 104 avait nomme comme prochaine tache (« chestL : faire fermer la contrainte de peau,
++7,2 mm, c'est le seul obstacle »). Cette tache visait une cible fausse.
+
+**ET LA GATE, ELLE, EST TOUJOURS VERTE SUR CETTE SECTION.** `[COLLIDE] SPEC §33/§34 — controle
+positif 0.168 contre 0.070` passe, parce qu'elle lit `ROOM-SKINPEN:` contre un plancher unique
+`PIRE-DES-DEUX` (0,0883, celui de chestR) applique aux DEUX chaines. Je n'y touche pas (regle 5).
+**Le registre porte NON TENUE au-dessus d'une gate verte, et c'est le registre qui fait foi** — un
+tableau vert au-dessus d'une ligne rouge publiee est la forme meme du faux vert, et la regle 2 du
+registre s'applique contre mon propre resultat comme elle s'est appliquee au cycle 61.
+
+================================================================================================
+10. CE QUE JE DECLARE CONTRE MOI
+================================================================================================
+**(a) JE N'AI PAS FAIT LA TACHE QUE LE CYCLE 104 AVAIT NOMMEE.** Sa suite (a) etait « faire fermer
+la contrainte de peau sur chestL ». Je ne l'ai pas faite, et ce n'est pas un de-scope silencieux :
+la cible qu'elle visait (+7,2 mm) est produite par la statistique que ce cycle refute. Regler le
+solveur pour satisfaire un chiffre faux, c'est `never-fit-a-parameter-to-the-instrument` a
+l'envers. L'instrument passe d'abord ; la tache reste ouverte, avec sa vraie cible : **0,0684 m**.
+
+**(b) LE CONTROLE NE CONCLUT QUE SUR UNE CHAINE SUR DEUX**, et la cause est structurelle : les deux
+jambes de l'ablation ont des populations dans un rapport 5,76 (148 260 086 contre 25 748 571). Je
+ne l'ai pas corrige — egaliser les fenetres demande de retoucher l'enchainement des tags de la
+salle. Tant que ce n'est pas fait, `ROOM-SKINADD-CONTROL` ne peut pas autoriser un VERT sur chestR.
+
+**(c) LA COLONNE `skinadd` CHANGE DE DEFINITION, DONC LES CHIFFRES DES RAPPORTS ANTERIEURS NE SONT
+PLUS COMPARABLES.** Tout `skinadd` publie avant ce cycle vaut ~1,8 a 2,2 fois la grandeur publiee
+maintenant (617,80 -> 280,17 sur chestL). L'ancienne valeur n'etait pas « une autre convention » :
+elle ajoutait la distance de SORTIE du point d'auteur a une PROFONDEUR, ce qui n'a pas d'unite
+commune de sens. [NOTE-150] et la legende de `phys-room.gc` sont corrigees au lieu d'etre laissees.
+
+**(d) J'AI CORRIGE MON PROPRE CONTROLE EN COURS DE CYCLE** (agregat sur les deux chaines -> par
+chaine), et je l'ai trouve en lisant les nombres, pas en le prevoyant. Publie en §7.
+
+**(e) `meshpen` RESTE A 0,0973 m** (chestR, anim `assistant-village2-idle-to-a`, drive `accel`) et
+chestL a 0,0555 m — inchanges au chiffre, ce cycle ne touchant pas le solveur. C'est un
+DEPLACEMENT et non une profondeur (arbitrage du 2026-08-20 13:20), il reste publie comme
+diagnostic, et il reste au-dessus de son plafond epingle. Je ne m'en sers pas et je ne le cache pas.
+
+**(f) LE COUT PAR FRAME SUR DEVICE DU CORRECTIF DU CYCLE 104 N'EST TOUJOURS PAS MESURE.** Sa suite
+(c) reste ouverte, et ce cycle ne l'a pas fermee.
+
+**(g) CONFIRME PAR LECTURE, CE QUE LE CYCLE 104 AVAIT POSE COMME HYPOTHESE (son §5c) :** la sonde
+de residu `*phys-skc-r*` (`:1977`) est un maximum COURANT et `phys-skin-chain` tourne DEUX fois par
+frame (`:3216`), donc elle publie `max(residu apres l'appel 1, residu apres l'appel 2)`. Le residu
+de l'appel 1 est releve AVANT le second `phys-cap-e22!` : c'est un etat INTERMEDIAIRE. Donc
+`ROOM-SKINPEN-COUT reste = 0,0316 m` est **pessimiste par construction** et **le residu FINAL de
+la frame n'est mesure par rien**. Le cycle 104 le donnait comme « explication non verifiee » ; elle
+est verifiee, et elle reste NON CORRIGEE (il faut une ligne de moteur, la marge est zero).
+
+================================================================================================
+11. LE PLAFOND DU MOTEUR
+================================================================================================
+**4800 pour un plafond de 4800, marge ZERO, inchangee.** Ce cycle n'a rien coute parce que
+l'ecretage remplace une expression par une expression sur la meme ligne — de la chance de forme,
+pas une reponse au probleme, exactement comme au cycle 104. Les chantiers nommes qui restent (le
+residu FINAL de la peau ci-dessus, le seuil du rebase de §37) demandent l'un et l'autre des lignes
+de MOTEUR, et il n'y en a pas.
+
+================================================================================================
+12. LA SUITE, NOMMEE
+================================================================================================
+(a) **chestL : faire fermer la contrainte de peau, contre la VRAIE cible.** 0,0684 m, pas 0,0072 m.
+    Le diagnostic d'algorithme du cycle 104 tient (la boucle corrige UN SEUL echantillon par
+    iteration, 6 iterations, 8 echantillons par maillon), mais son chiffrage etait faux d'un
+    facteur 9,5.
+(b) **Egaliser les populations des deux jambes de l'ablation**, sans quoi le controle de §34 ne
+    pourra jamais conclure sur chestR — et donc §34 ne pourra jamais devenir verte proprement.
+(c) **Mesurer le residu FINAL de la peau** (§10g) — defaut confirme, correctif bloque par le
+    plafond du moteur.
+(d) **Le cout par frame sur device** du doublement de passes du cycle 104 (§10f).
+(e) **Le seuil du rebase de §37** — bloque par le plafond du moteur.
+
+================================================================================================
+13. A TESTER PAR L'OWNER
+================================================================================================
+**RIEN, ET CETTE FOIS C'EST DEMONTRE ET PAS SEULEMENT ARGUMENTE.** Ce cycle ne change **aucun**
+comportement a l'ecran : les controles P7 et P8 etablissent que la course est identique AU CHIFFRE
+sur `skinpen`, `skinrest`, `PHYSSKINC` et `PHYSE22` — l'ecretage vit dans une variable LOCALE de la
+passe de MESURE, qui ne revient jamais dans le solveur. Le seul octet de moteur qui change est une
+grandeur publiee.
+
+La directive du 2026-08-20 23:30 tient par ailleurs : pas de sollicitation pour un changement d'une
+seule section tant que le bloc §14-§20 / §24-§27 / §9-§13 n'est pas tenu ensemble. La livraison au
+fil de l'eau n'est pas suspendue — l'auto-constructeur tourne, un build reste disponible s'il en
+veut un.
+
+================================================================================================
+14. ETAT DU VALIDATEUR
+================================================================================================
+**18 lignes, 12 gates de mesure, TOUTES PASSANTES, `[Grecharged-secondary-motion PASS]` imprime.**
+Le seul echec est `OPEN-DEFECTS` — la porte de l'owner, en DERNIERE position depuis le
+2026-08-20, qu'aucune tentative worker ne franchit et qu'on ne touche pas. `breast-spec-incomplete`
+reste ouverte : elle ne se retire que sur SA parole. **exit 1, et c'est le meilleur resultat
+atteignable ici.** Aucune gate n'a ete ajoutee, modifiee ni assouplie (regle 5).

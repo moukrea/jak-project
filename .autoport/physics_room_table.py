@@ -8183,13 +8183,58 @@ def main():
             # LE VERDICT PAR CHAINE, CONTRE SON PROPRE PLANCHER. La gate n'en lit qu'un ; celui-ci
             # est plus strict et il est publie a cote pour qu'aucune chaine ne se cache derriere
             # l'agregat. Une regression sur une seule chaine se voit ici avant d'etre invisible la.
+            # ======================================================================================
+            # [NOTE-479] CYCLE 105 — CETTE LIGNE EST VALIDE QUAND ELLE ECHOUE ET **VIDE** QUAND
+            # ELLE PASSE. `course` et `plancher-propre` sont DEUX MAXIMA COURANTS INDEPENDANTS
+            # (jak-hd-physics.gc:2404-2405 et :2412-2413) : meme fenetre, meme domaine, mais
+            # latches separement, donc possiblement sur deux frames, deux maillons et deux
+            # echantillons `ms` differents — et le tag `run` leur laisse ~16 700 frames pour
+            # diverger. Il en resulte une asymetrie logique qui n'avait jamais ete posee :
+            #     max(course) >  max(plancher)  ==> il EXISTE un echantillon qui viole.  SOUND.
+            #     max(course) <= max(plancher)  ==> RIEN. Un maximum sous un autre maximum ne
+            #                                       dit rien d'une inegalite ECHANTILLON PAR
+            #                                       ECHANTILLON. La direction qui passe est VIDE.
+            # Le signe le prouve tout seul : la grandeur visee est une profondeur AJOUTEE, donc
+            # ecretee a zero par construction. Une valeur NEGATIVE est impossible pour une
+            # difference appariee ; quand elle apparait, elle EST la preuve que les deux maxima
+            # ne sont pas co-localises. C'est par cette direction-la que §34 avait gagne son
+            # statut au cycle 104, sur chestR, avec -0.0030 m.
+            #
+            # LA GRANDEUR APPARIEE EXISTE ET ELLE EST CALCULEE DANS LA MEME PASSE : `skinadd`
+            # (*phys-saf*, :2411) est prise sur le MEME echantillon, a la MEME frame, contre la
+            # MEME surface. `max(A) - max(B) <= max(A - B)` rend l'ecart inevitable ET unilateral :
+            # la ligne ci-dessous est assise sur la BORNE INFERIEURE de ce qu'elle pretend borner.
+            # Les TROIS grandeurs se publient donc ensemble (regle du 2026-08-19 23:50), et le mot
+            # `TENUE` ne s'imprime plus sur la direction vide.
+            # AUCUNE GATE NE LIT CETTE LIGNE (le validateur lit `ROOM-SKINPEN:` et
+            # `ROOM-SKINPEN-REST:`), donc cette correction ne peut rien faire verdir par accident.
+            _sa_v = skinadd.get('run', {})
             for c in sorted(_restw):
                 _v = sp_run.get(c, (None, 0))[0]
                 if _v is None:
                     continue
-                A('ROOM-SKINPEN-VERDICT: %-8s course=%.4f  plancher-propre=%.4f  physique=%+.4f m'
-                  ' -> %s' % (names[c] if c < len(names) else c, _v, _restw[c], _v - _restw[c],
-                              'TENUE' if _v <= _restw[c] else 'DEPASSEE'))
+                _dm = _v - _restw[c]
+                _ap = _sa_v.get(c)
+                if _dm > 0.0:
+                    _verd = 'DEPASSEE'
+                elif _ap is None:
+                    _verd = 'NON ETABLI (appariee non mesuree dans cette trace)'
+                elif _ap > 0.0:
+                    _verd = 'DEPASSEE (par la grandeur APPARIEE)'
+                else:
+                    _verd = 'TENUE'
+                A('ROOM-SKINPEN-VERDICT: %-8s course=%.4f  plancher-propre=%.4f'
+                  '  difference-de-maxima=%+.4f m -> %s'
+                  % (names[c] if c < len(names) else c, _v, _restw[c], _dm, _verd))
+                A('   APPARIEE (meme frame, meme echantillon, meme surface) = %s'
+                  % (fnum(_ap) if _ap is not None else 'non mesuree'))
+                if _ap is not None and _dm <= 0.0 < _ap:
+                    A('   LA DIFFERENCE DE MAXIMA EST <= 0 ET L\'APPARIEE EST > 0 : les deux maxima')
+                    A('   ne sont pas co-localises. `TENUE` ne s\'imprime pas sur ce nombre-la.')
+                if _ap is not None and _dm > 0.0 and _ap > 0.0:
+                    A('   rapport appariee / difference-de-maxima = %.1fx — l\'ecart est unilateral'
+                      % (_ap / _dm))
+                    A('   par algebre : la difference de maxima ne peut que SOUS-ESTIMER.')
         elif _rest:
             A('ROOM-SKINPEN-REST-REJETEE: la colonne d\'auteur existe mais un garde-fou ci-dessus')
             A('   la refuse comme plancher. Ce n\'est PAS « la mesure manque » : c\'est « la mesure')
@@ -8536,33 +8581,80 @@ def main():
                 A('ROOM-SKINADD: chain=%-12s course=%-9s  pire fenetre=%-9s'
                   % (names[c] if c < len(names) else c, fnum(_sa_run[c]),
                      fnum(max(_rows_c)) if _rows_c else 'n/a'))
-            _on, _off = skinadd.get('pcon', {}), skinadd.get('pcoff', {})
-            _va = [v for v in _on.values() if v is not None]
-            _vd = [v for v in _off.values() if v is not None]
-            _a = max(_va) if _va else None
-            _d = max(_vd) if _vd else None
-            if _a is None or _d is None:
+            # ======================================================================================
+            # [NOTE-479] CYCLE 105 — CE CONTROLE N'EN ETAIT PAS UN, ET C'EST STRUCTUREL.
+            #
+            # Il comparait `skinadd` entre les fenetres `pcon` et `pcoff`, en l'attribuant a
+            # l'injection de 400 u de `*phys-inject*`. Cette injection NE PEUT PAS toucher
+            # `skinadd`, par trois faits de code et non par opinion :
+            #   1. `phys-inject-probe!` (jak-hd-physics.gc:2276) tourne APRES `phys-pen-chain`
+            #      (:3328 puis :3336), qui est le SEUL ecrivain de `*phys-saf*`/`*phys-skinadd*` ;
+            #   2. elle n'appelle jamais `phys-surf-sd` — elle ne mesure que `phys-link-pen`,
+            #      contre les VOLUMES : c'est le controle de `meshpen` ([NOTE-155]), pas celui
+            #      de la peau ;
+            #   3. elle RESTAURE `*phys-px/py/pz*` avant de rendre la main (:2350-2355).
+            # Les deux jambes n'etaient donc que deux FENETRES differentes, et l'ecart publie
+            # (« arme 0.1219 < desarme 0.1368 ») n'etait pas un controle qui echoue mais un
+            # controle ABSENT — `injection-must-displace-the-measured-point`. Sur la foi de ce
+            # non-controle, la SEULE grandeur appariee du fichier etait declaree NON PROBANTE,
+            # et le verdict de §33/§34 retombait sur `skinpen - skinrest`.
+            #
+            # CE QUI LE REMPLACE : l'ABLATION de la contrainte elle-meme (`*phys-skin-off*`,
+            # tags `skin-armed` / `skin-disarmed`). Elle deplace le point que la mesure SONDE,
+            # donc elle l'exerce. Desarmee, la contrainte ne pousse plus rien dehors : `skinadd`
+            # doit MONTER.
+            #
+            # ET LE BIAIS SE PUBLIE AU LIEU D'ETRE TU : les deux jambes n'ont pas la meme taille
+            # de population (`tests`). Comparer deux MAXIMA sur des populations inegales est
+            # `ratio-of-two-statistics`. Un controle qui tire CONTRE son biais (la PLUS PETITE
+            # jambe rend le PLUS GRAND maximum) est concluant ; un ecart DANS le sens du biais
+            # ne l'est pas, et se declare NON CONCLUANT — jamais « rate », jamais « vert ».
+            _on, _off = skinadd.get('skin-armed', {}), skinadd.get('skin-disarmed', {})
+            _na = (skinpen.get('skin-armed', {}).get(0) or (0, 0))[1]
+            _nd = (skinpen.get('skin-disarmed', {}).get(0) or (0, 0))[1]
+            # PAR CHAINE, ET PAS UN MAXIMUM SUR LES DEUX. Un `max` sur les chaines melangeait
+            # une chaine dont le controle TIRE avec une dont il ne tire pas, et publiait le
+            # verdict de la seconde pour les deux — c'est la regle 7 (« une mesure par chaine
+            # doit varier par chaine ») et la regle 2 du registre (une seule chaine conforme =
+            # PARTIELLE), appliquees a un CONTROLE au lieu d'un verdict.
+            _pairs = [(c, _on.get(c), _off.get(c)) for c in sorted(set(_on) | set(_off))]
+            _pairs = [(c, a, d) for c, a, d in _pairs if a is not None and d is not None]
+            if not _pairs:
                 A('ROOM-SKINADD-CONTROL: ABSENT — sans lui cette colonne ne prouve rien, et son')
                 A('   zero serait indistinguable d\'un instrument tautologique. Aucun verdict.')
             else:
-                A('ROOM-SKINADD-CONTROL: armed=%s disarmed=%s   (injection de 400 u vers l\'ancre,'
-                  ' le point d\'auteur ne bouge pas)' % (fnum(_a), fnum(_d)))
-                if _a <= _d * 3.0:
-                    # LE CRITERE CITE ICI EST PERIME et je le dis au lieu de le laisser : l'arbitrage
-                    # du 2026-08-20 13:20 a retire le ratio « arme >= 3x desarme » (« un ratio se
-                    # degrade avec sa ligne de base ») au profit d'une PREDICTION quantitative. Le
-                    # verdict de cette ligne ne change pas — l'injection de 400 u rend ~81 u, donc
-                    # elle echoue AUSSI sous le critere predictif — mais la RAISON publiee doit etre
-                    # la bonne. Cette ligne reste un diagnostic : aucune gate ne la lit.
-                    A('   LE CONTROLE N\'A PAS TIRE (critere courant : injecter X doit faire monter')
-                    A('   la mesure de X a 25 %% pres ; 400 u injectes ne rendent pas 400 u). Le')
-                    A('   ratio « arme >= 3x desarme » qui figurait ici est PERIME depuis le 13:20.')
-                    A('   L\'instrument est')
-                    A('   declare NON PROBANT : soit il est tautologique (la peau suit l\'os qui la')
-                    A('   pilote), soit l\'injection ne l\'exerce pas. Aucun verdict ne s\'en tire,')
-                    A('   et surtout pas un vert.')
+                _biais = (float(_na) / _nd) if _nd else 0.0
+                A('ROOM-SKINADD-CONTROL: ABLATION de la contrainte de peau (`*phys-skin-off*`) —'
+                  ' elle deplace le point MESURE.')
+                A('   POPULATIONS : armee=%d echantillons  desarmee=%d  -> la jambe armee est'
+                  ' %.2fx la desarmee.' % (_na, _nd, _biais))
+                A('   Deux MAXIMA sur des populations inegales : le biais favorise la jambe la plus')
+                A('   GRANDE (l\'armee). Le controle ne CONCLUT que s\'il tire CONTRE ce biais,')
+                A('   c\'est-a-dire si la DESARMEE — la plus petite — rend le plus grand maximum.')
+                _fired = []
+                for c, a, d in _pairs:
+                    _nm = names[c] if c < len(names) else c
+                    if d > a:
+                        _fired.append(_nm)
+                        A('   %-8s armee=%s  desarmee=%s  -> A TIRE, ET CONTRE SON BIAIS (+%s)'
+                          % (_nm, fnum(a), fnum(d), fnum(d - a)))
+                    else:
+                        A('   %-8s armee=%s  desarmee=%s  -> NON CONCLUANT : l\'ecart (%s) va DANS'
+                          % (_nm, fnum(a), fnum(d), fnum(a - d)))
+                        A('            le sens du biais de population, une jambe %.2fx plus grande'
+                          ' rend un maximum' % _biais)
+                        A('            plus grand sans qu\'aucune physique n\'ait a intervenir.')
+                if _fired:
+                    A('   CONCLUSION : le controle a tire sur %s. Sur cette ou ces chaines la'
+                      % ', '.join(_fired))
+                    A('   colonne n\'est PAS tautologique — retirer la contrainte fait bien MONTER')
+                    A('   la profondeur qu\'elle est censee retirer, donc son zero mesurerait.')
+                    A('   Les chaines non concluantes ne sont pas « ratees » : leurs deux jambes')
+                    A('   sont trop inegales pour trancher, et il faudrait des jambes de MEME')
+                    A('   taille. Aucune d\'elles ne porte de vert.')
                 else:
-                    A('   Le controle a TIRE : la colonne n\'est pas tautologique, son zero mesure.')
+                    A('   CONCLUSION : AUCUNE chaine ne tranche. Cette colonne se lit comme')
+                    A('   DIAGNOSTIC et ne porte aucun verdict.')
         else:
             A('ROOM-SKINADD: NON MESUREE dans cette trace (anterieure au cycle 60).')
         # LE PLANCHER D'ERREUR DE L'INSTRUMENT, MESURE PAR SES PROPRES PAIRES MIROIR.

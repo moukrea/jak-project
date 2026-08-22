@@ -2407,7 +2407,7 @@
                         (set-vector! ap bx by bz 1.0)
                         (let ((sa (phys-surf-sd skel (/ sc PHYS-CHAINS) ap nbone)))
                           (when (and (> sa -100000.0) (< sa 900000.0))
-                            (let ((add (- sa sd)))
+                            (let ((add (- (fmin 0.0 sa) sd)))
                               (when (> add (-> *phys-saf* sc)) (set! (-> *phys-saf* sc) add)))
                             (when (> (- 0.0 sa) (-> *phys-skinrest* sc))
                               (set! (-> *phys-skinrest* sc) (- 0.0 sa)))
