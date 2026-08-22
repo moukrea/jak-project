@@ -4812,17 +4812,27 @@ def main():
     for c in sorted(chains):
         bl = max((v for (cc, _ai), v in base.items() if cc == c), default=0.0)
         for dr, nm in enumerate(DRIVE_NAMES):
-            sel = [r['amp'] for r in rows if r['c'] == c and r['dr'] == dr]
+            sel = [(r['amp'], r['ai']) for r in rows if r['c'] == c and r['dr'] == dr]
             if not sel:
                 continue
-            tip = max(sel)
+            # `tip` ET `recu` VIENNENT DE LA MEME FENETRE (cycle 98). Avant, `tip` etait un max sur
+            # les 31 animations et `recu` un AUTRE max, pris independamment : les deux pouvaient
+            # tomber sur deux fenetres differentes, et la ligne presentait alors une reponse a cote
+            # d'un stimulus que cette reponse n'avait pas subi. Mesure qui l'impose : 76 fenetres
+            # sur 372 (20,4 %) recoivent plus de 1,25x la mediane de leur pilotage, jusqu'a x4,0
+            # (`updown`) et x7,9 (`tilt`) — c'est exactement sur celles-la que `tip` tombe.
+            tip, tip_ai = max(sel)
             mag = stim.get(dr, 0.0) * 3600.0 / UNITS      # u/frame^2 -> m/s^2
-            got = max((v for (cc, _a, dd), v in stimr.items() if cc == c and dd == dr), default=0.0)
+            got = stimr.get((c, tip_ai, dr), 0.0)
+            allg = [v for (cc, _a, dd), v in stimr.items() if cc == c and dd == dr]
+            gmed = sorted(allg)[len(allg) // 2] if allg else 0.0
             g = (tip - bl) / mag if mag > 0.0 else 0.0
             A('ROOM-RESPONSE: chain=%-12s drive=%-10s stimulus=%-9s tip=%-9s baseline=%-9s'
-              ' gain=%-11s recu=%s'
+              ' gain=%-11s recu=%s recu_med=%s recu/med=%s anim=%s'
               % (names[c], nm, '%.2f' % mag, fnum(tip), fnum(bl), '%.6f' % g,
-                 '%.2f' % (got * 3600.0 / UNITS)))
+                 '%.2f' % (got * 3600.0 / UNITS), '%.2f' % (gmed * 3600.0 / UNITS),
+                 ('%.2f' % (got / gmed)) if gmed > 0.0 else 'n/a',
+                 anims.get(tip_ai, {}).get('name', str(tip_ai))))
     A('')
     A('-- LE STIMULUS COMMANDE CONTRE LE STIMULUS RECU (la cause racine, en un tableau) ------------')
     A('   `recu` ci-dessus est le pire module de l\'acceleration de la pose d\'auteur de la pointe,')

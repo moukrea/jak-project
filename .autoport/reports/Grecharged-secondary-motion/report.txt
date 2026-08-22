@@ -323,3 +323,71 @@ etait un artefact des fenetres contaminees.
 VALIDATEUR : inchange. Toutes les gates passent ; la phase echoue sur `OPEN-DEFECTS`
 (`breast-spec-incomplete`), qui ne se retire **que** sur la parole de l'owner — le jeton
 `.autoport/owner-ok/<phase>` est son geste et n'est jamais cree a sa place.
+
+================================================================================================
+ADDENDUM CYCLE 98 — AUDIT DE LA CLASSE DE DEFAUT TROUVEE AU CYCLE 96, SUR TOUTES LES PHASES
+================================================================================================
+DIRECTIVES v3fee554599
+
+« Quand un defaut se corrige a un endroit et peut se reproduire ailleurs, le correctif se pose au
+PRODUCTEUR, jamais sur le site qui l'a revele » (DIRECTIVES 2026-08-21 01:20). Le cycle 96 a
+corrige UN site. Ce cycle demande a toutes les autres phases a fenetres chainees si elles portent
+le meme defaut. **Aucun build, aucune course** : audit du code et lecture de la trace archivee.
+
+**RESULTAT : LA CLASSE N'EXISTAIT QU'A UN SEUL ENDROIT, ET C'ETAIT CELUI QUI PORTE §24 A §27.**
+
+    phase                     protection contre l'etat terminal de la fenetre precedente
+    PH-MEAS (5x31)            modes 0-2 finissent EXACTEMENT sur `home` (WIN=90 = 2,5 x PERIOD=36,
+                              donc sin=0) ; `jerk` et `tilt` sautent, mais 54 frames d'absorption
+                              precedent `phys-stats-reset!` et le code le DECLARE.  -> voir plus bas
+    PH-RESP (6 niveaux)       `drive-exc` a une periode de 24 et RESPW=72 = 3x24 : la fenetre finit
+                              sur `home` quelle que soit l'amplitude.  PROPRE PAR CONSTRUCTION
+    PH-ORI (9 orientations)   60 frames d'etablissement + `PHYSORITR`.  **MESURE** : l'orientation
+                              i=0, ligne de base declaree par le code, rend `sx=0,9999 sy=0,9999
+                              sz=1,0000 det=1,0000` — ecart **1e-4** — alors qu'elle est ELLE-MEME
+                              entree depuis le saut de 365 u que AXZL laisse. Le pire pic
+                              transitoire des 9 orientations vaut 0,398 (sa §11 en autorise 1,30).
+    PH-REG/REGS/REGT/REGA/REGB  retour en demi-cosinus sur RETF frames + >= 30 frames de tenue, et
+                              le commentaire de `physroom-reg-drive` DECRIT le defaut du cycle 96
+                              mot pour mot.  PROTEGEE PAR CONSTRUCTION
+    PH-SGN (72 fenetres)      retour en demi-cosinus + 60 frames de calme (cycle 52).  PROTEGEE
+    PH-AXV/AXB/AXL/AXZ*       **AUCUNE** — le defaut, corrige au cycle 96 par PH-AXC.
+
+**MAIS PH-MEAS PORTE UN RESIDU BORNE, ET IL SE MESURE.** Le stimulus RECU (`PHYSACC`) suit le
+COMMANDE a la mediane : x1,006 (`updown`), x0,999 (`leftright`), x0,918 (`accel`). Aux extremes,
+non : **76 fenetres sur 372 (20,4 %) recoivent plus de 1,25 fois la mediane de leur pilotage**,
+jusqu'a **x4,0** (`updown`) et **x7,9** (`tilt`). Repartition : `tilt` 26, ligne de base 25,
+`updown` 12, `leftright` 7, `accel` 6.
+
+**ET LE CONTROLE QUI DESIGNE LA CAUSE EST DANS LA DONNEE, PAS DANS MON RAISONNEMENT : `jerk` rend
+0 fenetre hors norme sur 62.** C'est le SEUL des cinq pilotages qui ne remette jamais la position
+sur `home` — il integre en continu — donc le seul qui n'ait pas de saut d'entree. Le meme mecanisme
+qu'aux fenetres AX, vu par l'autre bout.
+
+**CE QUE CA CASSAIT, ET C'EST CORRIGE ICI.** `ROOM-RESPONSE` publiait `tip` (maximum sur les 31
+animations) a cote de `recu` (un AUTRE maximum, pris independamment) : les deux pouvaient venir de
+deux fenetres differentes, et la ligne presentait alors une reponse a cote d'un stimulus que cette
+reponse n'avait pas subi. Corrige : `recu` est desormais celui de LA fenetre qui porte `tip`, et la
+ligne publie en plus `recu_med`, le rapport `recu/med` et le NOM de l'animation. Ce que ca revele
+immediatement :
+
+    chestR updown   recu/med = 4,09   anim=assistant-village2-idle-hut-stop-welding
+    chestL tilt     recu/med = 4,07   anim=assistant-village2-idle-hut-start-welding
+    chestR accel    recu/med = 1,30
+    chestR tilt     recu/med = **0,19**  anim=assistant-lavatube-start-idle
+    (les six autres lignes sont a 0,99-1,04)
+
+**La derniere est la plus parlante et c'est un defaut, pas une curiosite : la plus grosse reponse
+de `chestR` en `tilt` vient de la fenetre qui a recu 19 % du stimulus median.** Un gain calcule
+contre les 9,81 m/s^2 COMMANDES y est faux d'un facteur ~7. `ROOM-RESPONSE` est une ligne de
+DIAGNOSTIC, aucune gate ne la lit — mais elle nourrit le jugement, et elle mentait.
+
+**CONTROLE DE LA CORRECTION** : le tableau regenere depuis la MEME trace ne differe de celui du
+cycle 97 que par les lignes `ROOM-RESPONSE` elles-memes — **0 ligne differente ailleurs**.
+
+**CE QUE CE CYCLE NE CHANGE PAS** : aucun statut du registre, aucune ligne de moteur, aucune
+donnee de chaine. Il ferme une question (« la classe de defaut du cycle 96 est-elle ailleurs ? »)
+et corrige une ligne de diagnostic. **Le residu de PH-MEAS n'est PAS corrige** : le faire
+demanderait d'allonger l'absorption ou de refermer les fenetres comme PH-AXC, donc de deplacer
+toutes les mesures `row` — c'est un cycle a lui seul, et il est nomme ici pour que le suivant le
+trouve.

@@ -347,16 +347,16 @@ drive=tilt       windows=62   tipvar_max=0.1242 tipvar_min=0.0010 rootdev_max=0.
              le stimulus monte est une SATURATION : la chaine est collee a son plafond
              geometrique et ne mesure plus le stimulus. C'est ce qui rendait 16 chaines sur
              22 identiques sous cinq stimuli differents.
-ROOM-RESPONSE: chain=chestL       drive=updown     stimulus=15.82     tip=0.1274    baseline=0.0973    gain=0.001903    recu=63.60
-ROOM-RESPONSE: chain=chestL       drive=leftright  stimulus=45.70     tip=0.1558    baseline=0.0973    gain=0.001281    recu=88.84
-ROOM-RESPONSE: chain=chestL       drive=accel      stimulus=84.38     tip=0.1864    baseline=0.0973    gain=0.001056    recu=110.65
-ROOM-RESPONSE: chain=chestL       drive=jerk       stimulus=381.45    tip=0.1780    baseline=0.0973    gain=0.000212    recu=294.41
-ROOM-RESPONSE: chain=chestL       drive=tilt       stimulus=9.81      tip=0.0984    baseline=0.0973    gain=0.000118    recu=77.13
-ROOM-RESPONSE: chain=chestR       drive=updown     stimulus=15.82     tip=0.1362    baseline=0.1045    gain=0.002004    recu=64.97
-ROOM-RESPONSE: chain=chestR       drive=leftright  stimulus=45.70     tip=0.1646    baseline=0.1045    gain=0.001316    recu=88.79
-ROOM-RESPONSE: chain=chestR       drive=accel      stimulus=84.38     tip=0.1728    baseline=0.1045    gain=0.000810    recu=109.94
-ROOM-RESPONSE: chain=chestR       drive=jerk       stimulus=381.45    tip=0.1787    baseline=0.1045    gain=0.000194    recu=295.15
-ROOM-RESPONSE: chain=chestR       drive=tilt       stimulus=9.81      tip=0.1242    baseline=0.1045    gain=0.002008    recu=77.24
+ROOM-RESPONSE: chain=chestL       drive=updown     stimulus=15.82     tip=0.1274    baseline=0.0973    gain=0.001903    recu=15.78 recu_med=15.92 recu/med=0.99 anim=assistant-firecanyon-idle-fiddle
+ROOM-RESPONSE: chain=chestL       drive=leftright  stimulus=45.70     tip=0.1558    baseline=0.0973    gain=0.001281    recu=47.38 recu_med=45.65 recu/med=1.04 anim=assistant-idle-transition-left-to-right
+ROOM-RESPONSE: chain=chestL       drive=accel      stimulus=84.38     tip=0.1864    baseline=0.0973    gain=0.001056    recu=77.30 recu_med=77.46 recu/med=1.00 anim=assistant-idle-transition-right-to-left
+ROOM-RESPONSE: chain=chestL       drive=jerk       stimulus=381.45    tip=0.1780    baseline=0.0973    gain=0.000212    recu=293.95 recu_med=293.74 recu/med=1.00 anim=assistant-village2-idle-to-a
+ROOM-RESPONSE: chain=chestL       drive=tilt       stimulus=9.81      tip=0.0984    baseline=0.0973    gain=0.000118    recu=27.87 recu_med=6.84 recu/med=4.07 anim=assistant-village2-idle-hut-start-welding
+ROOM-RESPONSE: chain=chestR       drive=updown     stimulus=15.82     tip=0.1362    baseline=0.1045    gain=0.002004    recu=64.97 recu_med=15.90 recu/med=4.09 anim=assistant-village2-idle-hut-stop-welding
+ROOM-RESPONSE: chain=chestR       drive=leftright  stimulus=45.70     tip=0.1646    baseline=0.1045    gain=0.001316    recu=46.43 recu_med=45.65 recu/med=1.02 anim=assistant-idle-transition-to-welding
+ROOM-RESPONSE: chain=chestR       drive=accel      stimulus=84.38     tip=0.1728    baseline=0.1045    gain=0.000810    recu=100.39 recu_med=77.44 recu/med=1.30 anim=assistant-village2-idle-hut-stop-welding
+ROOM-RESPONSE: chain=chestR       drive=jerk       stimulus=381.45    tip=0.1787    baseline=0.1045    gain=0.000194    recu=294.14 recu_med=293.76 recu/med=1.00 anim=assistant-village2-idle-hut-stop-welding
+ROOM-RESPONSE: chain=chestR       drive=tilt       stimulus=9.81      tip=0.1242    baseline=0.1045    gain=0.002008    recu=1.43 recu_med=7.53 recu/med=0.19 anim=assistant-lavatube-start-idle
 
 -- LE STIMULUS COMMANDE CONTRE LE STIMULUS RECU (la cause racine, en un tableau) ------------
    `recu` ci-dessus est le pire module de l'acceleration de la pose d'auteur de la pointe,
