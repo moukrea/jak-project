@@ -412,3 +412,47 @@ Controle de reproductibilite fourni en plus de ce qui etait demande, et il compt
 ete regenere depuis la trace archivee **AVANT** toute edition, et le diff avec l'archive est de
 **0 ligne**. Le diff avant/apres ne contient donc que le correctif, et rien d'un ecart de
 regeneration.
+
+================================================================================================
+14. ADDENDUM CYCLE 95 — UNE EXPLICATION CANDIDATE REFUTEE PAR LE CALCUL, LA RESERVE RESSERREE
+================================================================================================
+Section debloquee, nommee d'avance : **§24** (la reserve de la section 9 est ce qui interdit de
+poser le correctif). Zero build, zero course, aucune ligne de moteur.
+
+**CANDIDAT TESTE : l'amortissement non classique.** Le moteur amortit par axe,
+`kd_i = phys-decay(rate * sqrt(s_i))` (`jak-hd-physics.gc:2954-2956`) — donc `C ~ K^(1/2)` DANS LE
+TRIEDRE. Non projetees, `K` et `K^(1/2)` commutent exactement (`||[K,K^1/2]|| = 0.000e+00`) : modes
+REELS. Mon hypothese etait que la PROJECTION les decouple — `P K P` et `P K^(1/2) P` n'ont aucune
+raison de commuter — ce qui rendrait les modes COMPLEXES et ferait TOURNER la direction de reponse.
+
+**REFUTE, par le calcul, avant toute mesure :**
+
+    ||[P K P , P C P]|| normalise = 8,05e-06 (chestL) · 8,00e-06 (chestR)
+    angle entre leurs axes propres majeurs = 0,25 deg sur les deux chaines
+
+L'anisotropie est trop faible (1,0000 / 1,1111 / 1,2195) pour que la projection les separe : le
+systeme contraint reste **classiquement amorti**. L'hypothese tombe sans qu'un cycle soit depense
+a l'implementer.
+
+**ET LA MESURE LE CONFIRME.** Direction principale dans le plan par tranches de 25 frames : la
+derive vaut **-20 a +10 deg sur les trois premieres tranches** (frames 0-75) puis saute de +30 a
++89 deg — mais a 75 frames, a 2,5 Hz et zeta 0,35, l'amplitude est tombee d'un facteur ~700 : la
+direction d'un signal quasi nul n'est pas definie, et ces tranches-la ne disent rien. **Sur la
+partie lisible, la trajectoire est une DROITE FIXE.** Pas de rotation, donc pas de mode complexe.
+
+**CE QUE CA RESSERRE.** La reponse est bien sur une droite fixe, et cette droite est a 25-42 deg
+des DEUX vecteurs propres de `P K P`. Pour un systeme lineaire a modes reels, la direction
+dominante d'une decroissance libre DOIT etre (proche d')un vecteur propre. Elle ne l'est pas.
+Trois sorties possibles restent, et je les nomme au lieu d'en choisir une :
+  (a) un terme du solveur qui n'est ni le ressort anisotrope ni la contrainte de longueur oriente
+      la reponse dans le plan — le candidat principal est `phys-skin-chain` (`:1919`, `:3212`), que
+      le dossier connait deja comme l'unique producteur du depassement de §22 ;
+  (b) le systeme n'est pas invariant sur ces amplitudes ;
+  (c) la grandeur mesuree n'est pas l'etat (l'effet de CORDE est ecarte : a |d| <= 238 u sur un os
+      de 1040 u l'inclinaison de corde vaut 6,5 deg, pas 42 a 88).
+
+**(a) N'EST PAS TESTABLE SUR LA TRACE ARCHIVEE, ET JE LE DIS PLUTOT QUE DE LE CONTOURNER.** Le
+commutateur existe (`*phys-skin-off*`, `:516`, setter `phys-skin-off-set!` `:4527`) mais les
+fenetres AX ne l'exercent pas : la course ne porte qu'une jambe a peau ARMEE. Le trancher demande
+une **paire appariee** (memes actifs, meme arbre, `*phys-skin-off*` 1 puis 0) sur les phases AX —
+donc un build et une course. **C'est le cycle suivant, et son protocole est ecrit ici.**
