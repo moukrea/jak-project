@@ -1,315 +1,332 @@
-RAPPORT DE CYCLE 91 — Grecharged-secondary-motion
+RAPPORT DE CYCLE 93 — Grecharged-secondary-motion
 DIRECTIVES v3fee554599
 Branche physics-keira-clean · perimetre : chestL / chestR SEULES (owner 2026-08-14 07:30)
-(le rapport du cycle 90 est conserve tel quel dans `report.c90.txt` et dans son commit e53392ec73)
+(les rapports des cycles 91/92 sont conserves tels quels dans leurs commits a7fa922a0e / 945f45f934)
 
 SECTIONS DONT CE CYCLE DEBLOQUE LE VERDICT, NOMMEES AVANT DE COMMENCER (directive du
-2026-08-21 18:25) : **§10, §11 et §12**, les trois sections de forme d'orientation. Elles sont
-dans le bloc §9-§13 que la directive du 2026-08-20 23:30 designe comme celui qui gouverne ce que
-l'owner VOIT.
+2026-08-21 18:25) : **§36**, qui change de statut, et **§21**, dont la premisse de quatre cycles
+est retiree. Un CHANTIER de plus est clos en chemin sans changer aucun statut — celui de
+**§2 / §9 / §27** — et c'est un cycle economise, pas un resultat.
 
-SUBSTRAT : une ligne de moteur (le pilotage de `dfb`), DEUX courses x86 en PAIRE APPARIEE, et la
-correction d'un axe au PRODUCTEUR. Le moteur passe de 4799 a **4797 lignes** (plafond CLEAN 4800) :
-les lignes ont ete trouvees en migrant quatre blocs de COMMENTAIRE vers `jak-hd-physics-NOTES.md`,
-verbatim, sans deplacer une seule ligne de code (`never-spend-the-bit-identity-control-on-line-count`).
+SUBSTRAT : **ZERO BUILD, ZERO COURSE.** Tout ce qui suit est lu sur la trace ARCHIVEE
+`keira-room-x86.log` (empreinte verifiee dans le tableau) et sur le source livre. **Deux LECTEURS
+ont ete corriges ; aucune ligne de moteur n'a ete touchee**, `recharged_assets/physics_chains.txt`
+est inchange au bit, et aucune gate n'a ete approchee.
 
-BREAST-PENETRATION: 0.0586 m — `meshpen`, DIAGNOSTIC, jamais un verdict (arbitrage 2026-08-20 13:20 :
-c'est un DEPLACEMENT, pas une profondeur). Il valait 0.0544 avant ; l'ecart est declare, pas tu.
+BREAST-PENETRATION: 0.0586 m — `meshpen`, DIAGNOSTIC, jamais un verdict (arbitrage 2026-08-20
+13:20 : c'est un DEPLACEMENT, pas une profondeur). Inchange, le moteur n'ayant pas bouge.
 
 ================================================================================================
 0. EN UNE PHRASE
 ================================================================================================
-**L'ETIREMENT « DYNAMIQUE » DE §22 COMPTAIT UNE SECONDE FOIS L'EQUILIBRE D'ORIENTATION QUE
-§10/§11/§12 SPECIFIENT — MESURE : `0,43 x |deplacement| / B0`, EXACTEMENT `PHYS-DYN-K`, ET NUL A LA
-VERTICALE. LE RETIRER FAIT PASSER LES 16 ECHELLES DE FORME DE 6 A 13 CELLULES DANS LA BANDE, ET
-**§12 DE `PARTIELLE` A `TENUE`** — LE PREMIER VERT GAGNE PAR UN CHANGEMENT DE SOLVEUR SUR CE DOSSIER.**
+**DEUX INSTRUMENTS DE CE DOSSIER PUBLIAIENT DES VERDICTS QUE LEUR PROPRE STATISTIQUE NE POUVAIT
+PAS PORTER : UN SEUIL D'EXCLUSION QUI NE POUVAIT PAS SE DECLENCHER A FAIT PUBLIER §36 « zeta HORS,
+f HORS » SUR UN AJUSTEMENT DE HUIT ECHANTILLONS ; ET UN MAXIMUM DE FENETRE LU COMME UNE POPULATION
+A FAIT CLASSER LE MUR DE FORCE DE §21 « GELE 95,7 % / 97,8 % » LA OU LA MOYENNE — EMISE DEPUIS
+TOUJOURS, JAMAIS LUE — DIT 5,4 % / 8,1 %.**
 
-Et une retractation qui va avec : **le « 13 contre 8 » que j'ai publie au cycle 90 comparait deux
-AXES, pas deux etats.**
-
-================================================================================================
-1. CE QUE JE RETIRE DU CYCLE 90, ET C'EST LA MEME FAUTE QU'IL CORRIGEAIT
-================================================================================================
-Le cycle 90 a ecrit : « l'equilibre `dfa` tombe dans sa bande sur 13 cellules sur 16 ; le produit
-`dfa x dfb x dfc` que la peau recoit n'y tombe que sur 8 ». Les deux chiffres ne sont pas lus sur
-le meme axe : **13** est le compte des VALEURS PROPRES du moteur (`dfa` lu la ou le moteur le
-construit), **8** — en realite 7 — celui du produit lu sur le triedre du REGISTRE. Les deux
-triedres sont a **20,65 deg** l'un de l'autre. J'ai mesure un ecart d'AXE et je l'ai attribue a des
-facteurs aval : c'est exactement `deux « distal » ne sont pas la meme population`, sur le cycle qui
-venait de corriger cette faute chez l'instrument.
-
-**ET LE TRIEDRE QUE LE CYCLE 90 A RETENU ETAIT LE MAUVAIS.** §7 l.132-133 nomme ses axes avec des
-mots qui designent des choses MESURABLES sur le rig livre :
-
-    « +X = character's outward lateral direction »  ->  separation racine-a-racine
-    « +Y = upward along **torso** »                 ->  l'axe long du TORSE
-    « +Z = forward from chest »                     ->  complete le triedre
-
-L'axe long du torse, mesure sur le mesh LIVRE : `hips`->`neck`, `chest`->`neck` et `hips`->`chest`
-sont colineaires a **0,00 deg** — c'est UNE direction, pas un choix de segment. Et une fois mesure,
-**il EST la base d'ancre a cinq decimales** : `+X = [1 0 0]`, `+Y = [0 -1 0]`, `+Z = [0 0 -1]` dans
-les rangees de `chest`. La « rangee d'ancre » que le cycle 90 a ecartee comme « un axe de rig »
-etait donc l'axe que §7 DEFINIT ; c'est la SAILLIE (la direction du centroide de chair) qui en
-etait a **12,27 deg** — le sein pointe en avant ET vers le bas, et le produit vectoriel reportait
-cette inclinaison sur `+Y`.
-
-    lecture de `+Y`                       ecart a l'axe long du torse
-    moteur    `-g_ref`                            11,92 deg
-    registre  `saillie x lateral` (c90)           12,27 deg     <- retire
-    RIG       `hips -> neck`                       0,00 deg     <- retenu
-
-Les deux lectures precedentes sont **de part et d'autre** de l'axe mesure. Et un troisieme fait,
-independant des deux premiers, tranche : sur le triedre du RIG, `dfa` lu le long de l'axe et la
-valeur propre du moteur rendent le MEME compte (13) ET le meme verdict sur les 16 cellules — le
-tenseur d'equilibre y est quasi diagonal ; sur la saillie il en perd 3.
-
-CORRECTIF POSE AU PRODUCTEUR (`probe_breast_com_mass.py`), jamais sur le site qui l'a revele ; les
-deux lectures sont publiees cote a cote par `ROOM-SPEC12` pour que la retractation soit lisible.
+Et §36 change quand meme de statut, **dans l'autre sens** : ses deux clauses de mode reparees, ce
+n'est ni l'une ni l'autre qui la fait tomber, c'est sa REPARTITION D'AMPLITUDE — la seule de ses
+clauses que personne n'avait jamais regardee.
 
 ================================================================================================
-2. LE DEFAUT, IDENTIFIE SANS UNE SEULE COURSE NEUVE
+1. §36 — LE SEUIL D'EXCLUSION DE L'ECRETAGE ETAIT DU CODE MORT
 ================================================================================================
-`.autoport/c91_axis_and_downstream.py`, sur la trace ARCHIVEE du cycle 90 et le mesh LIVRE.
-`B = dfa^-1 . A` — ce que `dfb` et `dfc` font par-dessus l'equilibre — vaut, sur les 18 cellules :
+Le moteur borne le mode secondaire par `phys-softmin` (`jak-hd-physics.gc:3623-3626`). Sa
+docstring dit ce qu'il fait : « asymptote exacte a cap ». **Son image est donc [0, 0.07) OUVERTE :
+0.07 n'est jamais atteint.**
 
-    det(B) = 1 a 3e-4 pres            -> les facteurs aval NE GONFLENT PAS, ils REDISTRIBUENT
-    |B - I| = 0,0007 a i=0 (debout)   -> LIGNE DE BASE NULLE : ce n'est pas un artefact de calcul
-    lam_max - 1 = 0,43 x |t| / B0     -> mediane 1,014 ; etendue 0,93 a 1,30 sur 16 cellules
+Le lecteur, lui, excluait les echantillons ecretes par `abs(v) >= clip - 1e-6` — l'egalite avec
+l'asymptote. Le commentaire du bloc l'ecrivait noir sur blanc : « collees a |s| = 0.0700000
+**exactement** ».
 
-`0,43` est exactement `PHYS-DYN-K` (`jak-hd-physics.gc:229`) et `|t|` le deplacement d'equilibre
-que §10/§11/§12 CHIFFRENT (§10 « COM toward thorax 18-28 % B0 », §11 « Static COM displacement
-20-28 % B0 », §12 « Global lateral COM response 15-24 % B0 »).
+    Consequence, et elle est structurelle et non accidentelle : `n_ecrete` valait 0 sur les deux
+    chaines QUEL QUE SOIT l'ecretage, la branche d'exclusion etait du code mort, et l'ajusteur
+    recevait la tete saturee de la serie.
 
-**Autrement dit : `dfb` est pilote par l'ECART A LA POSE DEBOUT, et a une orientation TENUE cet
-ecart N'EST PAS un transitoire — c'est l'equilibre d'orientation lui-meme.** Le moteur le
-convertissait donc une seconde fois en elongation locale, et sur l'axe du DEPLACEMENT au lieu des
-trois axes que ces sections bornent. Un canal dont le nom est « Dynamic Soft Limits » rendait une
-grandeur STATIQUE.
+MESURE, meme trace, seuil corrige au GENOU de l'operateur (0,84 x cap = 0,0588), seul endroit ou
+il commence a REECRIRE l'etat :
 
-================================================================================================
-3. LE CORRECTIF, ET SA CONSTANTE VIENT DE DEUX LIGNES DE SPEC
-================================================================================================
-On ne retire pas le canal — §22 en a besoin des que ca bouge. On retire de son PILOTAGE la partie
-TENUE, par une moyenne lente par chaine (`*phys-dyb*`) :  `d := r - dbar` ; `dbar += ka.d`.
-A l'equilibre `d -> 0`, donc `dfb -> I` et la peau recoit l'equilibre que la spec specifie ; en
-transitoire `dbar` ne suit pas et le canal repond comme avant.
+    chaine    n_ecrete   n_fit      zeta                f (Hz)               residu
+    ---------------------------------------------------------------------------------------
+    chestL    0 -> 6      8 -> 80   0.3931 -> 0.6888    2.207 -> 5.239       0.0576 -> 0.0902
+    chestR    0 -> 5      7 -> 81   0.4082 -> 0.6836    2.460 -> 5.110       0.0669 -> 0.0728
 
-`PHYS-DYN-TAU = 0,30 s` est DERIVE, pas regle :
-  - **borne haute** — §27 (« mostly settled ~1.0-1.5 s ») et la fenetre d'etablissement de la salle
-    (60 frames = 1,0 s) : il doit rester moins de 5 % de la partie tenue au moment de la mesure.
-    `e^(-1,0/0,30) = 3,6 %`.
-  - **borne basse** — §24 (2,30 / 2,50 / 2,65 Hz) : le filtre doit LAISSER PASSER le mode le plus
-    lent. Coupure `1/(2.pi.0,30) = 0,53 Hz`, transmission a 2,30 Hz = **97,4 %**.
-Aucune valeur n'a ete ajustee sur une mesure de sortie (`never-fit-a-parameter-to-the-instrument`).
+**LE ROUGE PRECEDENT EST RETIRE, ET ON PEUT DIRE CE QU'IL MESURAIT** : a 2,21 / 2,46 Hz il ne
+decrivait pas le mode secondaire, il decrivait le mode PRINCIPAL de §24 (2,320 / 2,415 Hz) a 4,9 %
+et 1,9 % pres. Un ajustement de sept echantillons pris dans la saturation rend la frequence du
+voisin, pas celle de la grandeur qu'il pretend mesurer.
 
 ================================================================================================
-4. LE CONTROLE APPARIE, ET IL EST PARFAIT
+2. MAIS LE VERT QUI LE REMPLACE N'EN EST PAS UN, ET C'EST UN SECOND ESTIMATEUR QUI LE DIT
 ================================================================================================
-Deux courses, meme arbre, memes actifs, un seul caractere d'ecart (`*phys-dyb-off*` 1 puis 0) ;
-la jambe ARMEE tourne en dernier, donc c'est elle que le validateur lit (regle du cycle 78).
+Il aurait ete facile de publier « zeta DANS, f DANS » : 0,6888 / 0,6836 tombent dans 0,55-0,75 et
+5,239 / 5,110 Hz dans 4-7 Hz, et les deux retrouvent la PREDICTION que le bloc porte depuis sa
+creation, ecrite avant la course (« zeta = 0.651 et f = 5.20 Hz »), a 0,7 % et 1,7 % pres sur la
+frequence. **Je ne le publie pas, parce qu'un second estimateur refuse.**
 
-**JAMBE DESARMEE vs TRACE ARCHIVEE DU CYCLE 90 : BIT-POUR-BIT IDENTIQUE.** `c91_verify.py` compare
-les 200+ types d'enregistrement, ligne a ligne : **0 ligne differente, sur aucun tag.**
-Consequence : (a) aucune derive d'actifs entre les deux cycles, (b) le desarmement est exact —
-`ka = 0` rend `d = r - 0`, l'expression d'avant le cycle 91, (c) **tout ecart entre la jambe armee
-et le cycle 90 vient du correctif et de rien d'autre.**
+L'AR(2) porte le drapeau `DESACCORD` et un residu de 0,0902 / 0,0728 (le canal de torsion de la
+meme fenetre rend 0,0226 / 0,0151). L'ENVELOPPE, qui ne suppose AUCUN modele, se lit sur les
+maximums LIBRES (sous le genou, donc la ou l'etat n'est pas reecrit) :
 
-**ET MA PREDICTION DE BIT-IDENTITE EST REFUTEE PAR LA MESURE — JE LA PUBLIE COMME TELLE.**
-J'avais predit, en lisant le source, que le tenseur n'entrait QUE dans la partie 3x3 de la matrice
-d'os ecrite et qu'aucune position simulee ne le lisait : donc que toute grandeur de POSITION
-resterait identique. C'est FAUX. `ROOM-STG` bouge des le pilotage d=3 (0,4875 -> 0,4866), `tipvar`
-passe de 0,1877/0,1847 a **0,1864/0,1787** (-0,7 % / -3,2 %) et `meshpen` de 0,0544 a 0,0586.
-**Le tenseur de deformation N'EST PAS une sortie pure : il reboucle sur la simulation.**
-Ce que la mesure dit deja : `jt` (la position de joint pure de `PHYSCOMWL`) est IDENTIQUE sur la
-premiere cellule alors que `ee` (l'excursion de chair) bouge, et la divergence de `ROOM-STG`
-n'apparait qu'au 4e pilotage — donc le couplage est faible et differe. **LE CHEMIN EST IDENTIFIE
-AU CYCLE 92, SECTION 11** — je l'avais laisse ouvert plutot que de le deviner, et il se lit dans le
-source plus deux premisses mesurees, sans une course de plus.
+    pics libres de chestL : f=19 0.00338 · f=34 0.00153 · f=46 0.00066 · f=60 0.00032 · f=72 0.00013
+    periode (mediane)       14 frames  ->  f_d = 4,29 Hz
+    decroissance MESUREE    2,21 · 2,32 · 2,06 · 2,46  ->  mediane 2,31 x par periode -> zeta 0,1323
 
-CE QUE LE CORRECTIF COUTE, CHIFFRE : **0,7 % et 3,2 % de mouvement de pointe.** Il achete 7 des 16
-cellules de forme. Aucune chaine n'approche des 60 % du contrat de conservation.
+    le zeta de l'AR(2) (0,6888) implique  exp(2.pi.z/sqrt(1-z^2)) = 391 x par periode.
 
-================================================================================================
-5. LE RESULTAT, CONTRE LE CRITERE PUBLIE AVANT LA COURSE
-================================================================================================
-Critere ecrit dans `c91-axis.out` AVANT le build : « **6 -> 12 cellules sur 16**, la cellule qui ne
-revient pas etant attribuee a `dfc` ». Mesure sur la jambe armee : **6 -> 13**, soit exactement le
-compte de l'equilibre `dfa` seul. Le critere est tenu et depasse d'une cellule.
+**ECART x169 ENTRE DEUX ESTIMATEURS DE LA MEME SERIE.** Le desaccord EST la mesure : la clause
+frequence/amortissement de §36 est **NON ETABLIE** — ni HORS, ni DANS.
 
-    les 16 echelles de forme, triedre de §7 (RIG), tenseur COMPLET
-                                   cycle 90    cycle 91     bande
-    chestL §10 supine projection    0,8137      0,7313 DANS   0,65-0,75
-    chestL §10 supine largeur       1,2012      1,2635 DANS   1,18-1,28
-    chestL §10 supine hauteur       1,0508      1,1007 DANS   1,05-1,12
-    chestL §11 prone longueur       1,3376      1,2177 DANS   1,18-1,26
-    chestL §11 prone largeur        0,8530      0,8922 DANS   0,87-0,93
-    chestL §11 prone epaisseur      0,8800      0,9219 DANS   0,88-0,94
-    chestL §12 aplat. i=2           0,9064      0,8355 DANS   0,75-0,85
-    chestL §12 aplat. i=4           1,0908      0,9927        (DIAGNOSTIC : la clause ne le nomme pas)
-    chestR §10 supine projection    0,7900      0,7651 AU-DESSUS
-    chestR §10 supine largeur       1,2110      1,1975 DANS
-    chestR §10 supine hauteur       1,1105      1,0971 DANS
-    chestR §11 prone longueur       1,2827      1,2098 DANS
-    chestR §11 prone largeur        0,9096      0,9042 DANS
-    chestR §11 prone epaisseur      0,8767      0,9155 DANS
-    chestR §12 aplat. i=2           1,1020      1,0112        (DIAGNOSTIC : la clause ne le nomme pas)
-    chestR §12 aplat. i=4           0,8429      0,8172 DANS
-                                    6 / 16      13 / 16
-
-Sur les trois cellules qui restent hors bande, **deux sont des DIAGNOSTICS** que la clause de §12
-n'adresse pas ; il n'en reste donc **qu'une seule vraie** : `chestR §10 supine projection`, et elle
-est deja hors bande sur l'equilibre `dfa` lui-meme (0,7617) — ce n'est pas un defaut du canal aval.
-
-**§12 : `PARTIELLE` -> `TENUE`.** Migration mediale (sein OPPOSE seul, 10-18 % W0) : chestL i=4
-12,449/13,709/15,102 avec pire cas [11,655 ; 16,066], chestR i=2 12,495/13,992/16,081 avec
-[12,386 ; 16,220] — DANS sur les trois frontieres d'organe ET sous le pire cas du montage, des deux
-cotes, contre INDETERMINEE des deux cotes au cycle 90. Aplatissement (sein du COTE GRAVITE seul,
-0,75-0,85) : 0,8355 et 0,8172, DANS des deux cotes.
-
-**§11 : quatre clauses sur cinq passent DANS sur les DEUX seins, contre zero avant.** Longueur
-1,2177/1,2098 · largeur 0,8922/0,9042 · epaisseur 0,9219/0,9155 · et le COM statique, lu sur le COM
-exact tenseur compris, **0,2518 / 0,2548 B0 contre 0,3213 / 0,3039 avant** — DANS la bande
-20-28 % B0 des deux cotes. Elle reste `PARTIELLE` sur la seule clause du pic transitoire, lue sur
-un PROXY (l'apex) : rapport pic/tenu 1,081 / 1,105 contre 1,057, soit une pointe de 1,316 / 1,337
-contre le plafond de 1,30. Marginalement AU-DESSUS, sur un instrument qui SUR-estime : je ne la
-declare ni tenue ni violee tant qu'elle n'est pas lue sur la longueur elle-meme.
-
-**§10 : inchangee, `NON TENUE`, et elle PERD sur une clause.** Ses trois echelles passent de 1
-cellule DANS sur 6 a 5 sur 6 ; mais « COM toward thorax 18-28 % B0 » se degrade sur chestL, de
-INDETERMINEE a AU-DESSUS (0,2452 -> 0,3000 B0 a `w>0`). Le verdict de la section tient de toute
-facon a sa clause « Outward COM migration 4-10 % W0 », SOUS des deux cotes et inchangee.
+**ET LA SERIE DESIGNE ELLE-MEME LA CAUSE**, ce qui evite d'avoir a la deviner : apres la detente
+elle **ne repasse JAMAIS par zero** (90 frames, deux passages seulement, aux frames 14 et 17) et
+ses maximums alternent grand/petit **en restant du meme signe**. Ce n'est pas une sinusoide
+amortie isolee. Le canal est re-excite en permanence par son terme d'entrainement
+`PHYS-SEC-K . dvn` pendant que le mode PRINCIPAL sonne encore dans `PH-SHAKEN` — l'en-tete du bloc
+affirme pourtant que « rien ne re-excite les modes » dans cette fenetre, ce qui est vrai de
+l'ANIMATION et faux du couplage interne. Mesurer zeta ici demande une fenetre ou ce terme est
+desarme. **Elle n'existe pas : c'est un emetteur a ajouter, et il est nomme.**
 
 ================================================================================================
-6. CE QUI A CHANGE DANS L'ARBRE
+3. CE QUI FIXE LE STATUT DE §36 : LA CLAUSE QUE PERSONNE N'AVAIT REGARDEE
 ================================================================================================
-    goal_src/jak1/pc/jak-hd-physics.gc      pilotage de `dfb` = partie DYNAMIQUE (`*phys-dyb*`,
-                                              `*phys-dyb-off*`, `PHYS-DYN-TAU`) ; remise a zero a
-                                              l'init de slot ; 4799 -> 4797 lignes
-    goal_src/jak1/pc/jak-hd-physics-NOTES.md NOTE-473..477 (4 blocs migres VERBATIM + la note du
-                                              correctif). Aucune ligne de code deplacee : verifie.
-    .autoport/probe_breast_com_mass.py      `+Y` = axe long du torse MESURE ; `+Z` complete le
-                                              triedre ; la saillie est conservee et publiee
-    .autoport/physics_room_table.py         `ROOM-SPEC12` publie §7 contre SAILLIE (au lieu de
-                                              rangee brute contre saillie), + le compte par chaine
-    .autoport/c91_axis_and_downstream.py    NEUF — l'arbitrage du triedre et l'identification du
-                                              facteur aval, sur trace archivee
-    .autoport/c91_verify.py                 NEUF — le controle de bit-identite, prediction publiee
-    .autoport/c91_migrate_notes.py          NEUF — variante a 2 lignes de `c77_migrate_notes.py`
-    .autoport/PITFALLS.md                   verrou `internal-target-is-not-the-rest-pose` : son
-                                              marqueur n'a JAMAIS ete pose dans DIRECTIVES.md (il
-                                              n'a pas ete retire par une refonte, contrairement a
-                                              ce que le preflight supposait). Il pointe desormais
-                                              le fichier ou la lecon vit reellement. BLOCKER leve.
-    .autoport/SPEC-COVERAGE.md              §10, §11, §12 reecrites
+`ROOM-SHAPE` agregeait les 372 fenetres par PILOTAGE et n'en gardait que le MAXIMUM : dix cellules
+pour 372 fenetres. `ROOM-SPEC36-AMP` publie desormais la population PAR FENETRE.
 
-AUCUNE GATE TOUCHEE. AUCUNE DONNEE DE CHAINE TOUCHEE (`physics_chains.txt` inchange au bit).
+    « Amplitude: normal 2-5% of local thickness, strong impulse 5-7%, hard ceiling ~7% » (l.428)
 
-================================================================================================
-7. LES CONTROLES
-================================================================================================
-  1. **Paire appariee, jambe desarmee = trace du cycle 90 AU BIT** sur 200+ tags, 0 ligne
-     differente. PASSE — et c'est le controle le plus fort du cycle.
-  2. **Ligne de base a i=0** : `|B - I| = 0,0007` debout, la ou §9 exige l'identite. Le facteur
-     aval n'est pas un artefact de la decomposition. PASSE.
-  3. **`det(B) = 1` a 3e-4** sur 18 cellules : le facteur aval ne gonfle rien. PASSE.
-  4. **Le triedre du RIG est orthogonal au lateral MESURE a 90,00 deg** ; celui du moteur ne l'est
-     qu'a 10,54 deg pres. PASSE (et c'est ce qui disqualifie le triedre du moteur comme lecture
-     de §7, pas un gout).
-  5. **Trois lectures independantes de l'axe du torse** (`hips->neck`, `chest->neck`,
-     `hips->chest`) colineaires a 0,00 deg. PASSE.
-  6. **Verdict de la salle recalcule sur la trace du cycle 90 avec le NOUVEL axe** (`/tmp` puis
-     archive) : c'est ce tableau-la, et non celui du cycle 90, qui sert de reference — sinon la
-     correction d'axe et le correctif de moteur seraient confondus. PASSE.
-  7. **Validateur** : toutes les gates de mesure passent, `[PASS]` imprime, diff contre la course
-     du cycle 90 limite aux deux lignes de `meshpen` et du controle positif. PASSE.
+    chaine    n     med     p90     max   | <2%   2-5%   5-7%   >7%  | brut>7%    brut_max
+    ------------------------------------------------------------------------------------------
+    chestL   186   5.40 %  6.84 %  6.89 % |  62     29     95      0  |  81/186    16.97 %
+    chestR   186   5.12 %  6.83 %  6.86 % |  67     22     97      0  |  74/186    14.36 %
+
+  - **le plafond dur EST tenu** : 0 fenetre sur 186 au-dessus de 7 %, sur les deux chaines ;
+  - **la bande « normal 2-5 % » ne l'est pas** : 29/186 et 22/186 fenetres y tombent, contre
+    **95/186 et 97/186 dans « strong impulse »**. La fenetre MEDIANE d'une course de 31 animations
+    ordinaires lit « impulsion forte » ;
+  - le canal est **bimodal** — 62 et 67 fenetres endormies sous 2 %, la moitie au plafond : c'est
+    la signature de limiteur sature du registre, pas une amplitude qui suit son stimulus ;
+  - AVANT le plafond, **81/186 et 74/186 fenetres (43,5 % / 39,8 %) depassent le plafond dur**,
+    jusqu'a **16,97 % / 14,36 %**. Sur la fenetre de secousse la borne retire **82,1 % / 62,9 %**
+    de la demande au pic (38,99 -> 6,96 % et 18,64 -> 6,91 %), obtenu en INVERSANT `phys-softmin`,
+    dont l'inverse est exact et se verifie sur la valeur publiee.
+
+**§36 : `PARTIELLE` -> `NON TENUE`.** Elle ne tombe pas sur les clauses qu'on croyait rouges — ces
+deux-la sont retirees du rouge et rendues a `NON ETABLI` — mais sur celle qui n'avait jamais eu de
+population. Le motif precedent, « canal present, bandes jamais verifiees », etait perime : les
+bandes ETAIENT publiees, et publiees fausses.
 
 ================================================================================================
-8. RESERVES DECLAREES
+4. §21 — JE RETIRE LE CLASSEMENT DU CYCLE 85, ET IL A DIRIGE QUATRE CYCLES
 ================================================================================================
-  - **Le tenseur reboucle sur la simulation et je ne sais pas encore par ou.** Section 4. C'est le
-    premier point du cycle 92 et il porte une consequence : toute borne posee sur le tenseur a des
-    effets DYNAMIQUES, ce que le dossier supposait faux.
-  - `PHYS-DYN-TAU` est derive de deux lignes de spec, mais la salle ne le VERIFIE pas a
-    l'execution : le residu de 3,6 % apres 1 s est un calcul, pas une mesure. Il est majore par ce
-    qu'on observe (le produit retombe sur `dfa` a 1,4 % pres), sans etre isole.
+Le cycle 85 a publie, sur 186 fenetres par chaine : « LINEAIRE 0/186 et 2/186 · GENOU 8 et 2 ·
+**GELE 178/186 (95,7 %) et 182/186 (97,8 %)** », avec un temoin presente comme decisif — « sur les
+31 fenetres SANS AUCUN PILOTAGE, `perr` mediane **1,8269 / 1,7997 B0** et le mur est GELE **31/31
+sur les deux chaines** ; un mur de force qui, sans stimulus, tient son module constant sur 100 %
+des fenetres n'est plus une saturation ».
+
+**CE CLASSEMENT EST FAIT SUR `perr`, QUI EST UN MAXIMUM DE FENETRE** (`jak-hd-physics.gc:2882`,
+emplacement 26 = maximum courant). Une fenetre dont UNE frame passe le gel y est comptee GELEE en
+entier. Or `PHYSRESTS` porte depuis sa creation la SOMME (`pesum`) et le COMPTE (`rgn`) des memes
+lectures — **donc la moyenne par frame** — et **rien ne les lisait**.
+
+`ROOM-RESTMEAN` publie desormais les deux cote a cote, comme la retractation d'axe du cycle 91 :
+
+    chaine     n   |  MOYENNE par frame           |  MAXIMUM de fenetre        | temoin d=5
+                   |  med     LIN  GEN  GEL       |  med     LIN  GEN  GEL     | moy_med  max_med
+    -----------------------------------------------------------------------------------------------
+    chestL   186   |  0.4006  110   66   10       |  0.9726    0    8  178     | 0.1304   1.8271
+    chestR   186   |  0.4070  110   61   15       |  0.9322    2    2  182     | 0.1454   1.8001
+
+  - **GELE 178/182 sur le maximum, 10/15 sur la moyenne.** Meme donnee, deux statistiques ;
+  - **le temoin qui portait la conclusion rend 0,1304 / 0,1454 B0 en moyenne contre 1,8271 /
+    1,8001 en maximum — x14,0 et x12,4 — et il est LINEAIRE.** La phrase « il tient son module
+    constant sur 100 % des fenetres » est RETIREE.
+
+**CE QUI SURVIT, ET JE NE L'EFFACE PAS NON PLUS** : la moyenne se tient JUSTE SOUS le genou
+(0,4006 / 0,4070 contre 0,42 B0). Le mur mord regulierement — il n'est pas innocent, il n'est pas
+permanent. **La grandeur qui trancherait est la FRACTION DE FRAMES au-dela du genou, et elle
+n'existe nulle part** : ni `perr` (un maximum) ni `pesum` (une somme) ne la portent, et aucune
+ligne du tableau ne peut la fabriquer. Emetteur a ajouter, nomme ici.
+
+**CE QUE CETTE RETRACTATION NE TOUCHE PAS** : le motif de FORME de §21 — le moteur sature la FORCE
+la ou le texte sature le DEPLACEMENT — ne depend d'aucune de ces deux statistiques. §21 reste
+`NON TENUE` pour cette raison-la, et desormais pour elle seule.
+
+================================================================================================
+5. CE QUE J'AVAIS PREPARE ET N'AI PAS POSE, ET POURQUOI C'EST LE RESULTAT DU CYCLE
+================================================================================================
+Le correctif que le cycle 85 avait nomme etait specifie, dimensionne et pret a ecrire :
+
+    saturation de DEPLACEMENT sur le maillon, `phys-softmin(|p - tg|, kn + cpp)`, posee juste avant
+    l'ecriture de `q` (`jak-hd-physics.gc:3127`) donc avec la vitesse reconstruite depuis la
+    position bornee — la forme EXACTE deja validee dans ce meme moteur au cycle 34 sur le point
+    libre (`:3060-3073`). Et sans une seule constante nouvelle : le genou de `phys-softmin` vaut
+    `0.84 x cap`, donc pour `cap = kn + cpp = 0.50 B0` il tombe **exactement** sur les `0.42 B0`
+    de §22 — le genou du mur de force actuel, au chiffre pres. Cout ESTIME (non verifie, puisque
+    rien n'a ete ecrit) : ~9 lignes de moteur pour 3 de marge sous le plafond CLEAN (4797/4800),
+    donc une migration de commentaires vers les NOTES en prealable.
+
+**Je ne l'ai pas pose.** Sa premisse etait le 95,7 %, et cette premisse vient de tomber. Sur la
+moyenne le mur est LINEAIRE dans 59 % des fenetres ; l'armement du filet de deplacement revient a
+desarmer le mur la ou il travaille, c'est-a-dire a refaire l'experience du cycle 78, qui a mesure
+**PIRE** (`ROOM-APEX` 0,8929 -> 1,0404 B0). Zero build et zero course depenses sur un chantier de
+plusieurs heures dont le fondement etait une statistique fausse : c'est le principal effet
+pratique de ce cycle.
+
+================================================================================================
+6. §2 / §9 / §27 — LE CHANTIER « LEVER LE PLANCHER » EST CLOS PAR LA MESURE
+================================================================================================
+`ROOM-SHFLOOR` censure `t01` sur 9 axes sur 12 et relie §2, §9 et §27 par une cause commune : la
+chaine ne revient pas exactement a la pose d'auteur apres une secousse. Un cycle consacre a
+supprimer ce plancher etait le candidat evident. Trois mesures le ferment.
+
+  1. **LE PLANCHER EST REEL, PAS UN ARTEFACT D'AJUSTEMENT.** `s_inf` est un parametre d'ajustement
+     mais n'a pas besoin d'etre extrapole : a zeta 0,33 et 2,4 Hz la retention vaut 0,845 par
+     frame, donc apres 149 frames l'oscillation a perdu ~1e11. La queue est DIRECTEMENT lisible —
+     sur les 30 dernieres frames de `PHYSRINGA`, l'ecart-type vaut **0,0000000 EXACTEMENT** sur
+     les 12 series (2 chaines x 2 maillons x 3 axes), et la moyenne vaut le `s_inf` publie. La
+     chaine ne sonne pas : elle est immobile **a un decalage constant**, +7,8e-5 a +2,8e-4 au
+     maillon proximal et -7,4e-4 a -2,5e-3 au distal.
+  2. **CE N'EST PAS UN EQUILIBRE DE GRAVITE.** `PHYSGRAV tag=shaken` rend **gn = 0,0001** sur les
+     deux chaines — la valeur du repos debout, contre 0,9999 en `tilt` — donc `g_local - g_ref`
+     est nul dans cette fenetre et aucun terme constant legitime n'y a droit de cite.
+  3. **LES CONTRAINTES SONT INERTES LA-BAS.** `PHYSRINGS` rend `a0 - a1 = 0,000000` sur les deux
+     maillons de chestL dans la queue : le point fixe est celui de **l'INTEGRATION seule**,
+     0,020 deg au proximal et 0,171 deg au distal.
+
+**ET VOICI POURQUOI LE CYCLE N'AURAIT PAS CONVERTI §27 QUAND MEME** : sur les DEUX seuls axes ou
+`t01` est aujourd'hui mesurable — chestL/0/lat et chestR/0/v — il vaut **1,18 s**, donc **SOUS** la
+bande « essentially stationary ~1.3-1.7 s », pas au-dessus. Et les quatre barreaux sont partages
+entre deux maillons ranges aux deux extremites de la spec (six axes par maillon, `ROOM-SHRING`) :
+
+    barreau  bande de §27      maillon PROXIMAL (6 axes)   maillon DISTAL (6 axes)
+    ------------------------------------------------------------------------------------
+    t5       0,3 - 0,6 s       0,33 - 0,55   6/6 DANS      0,62 - 1,27   6/6 AU-DESSUS
+    t1       0,6 - 1,2 s       0,57 - 0,97   5/6 DANS      1,08 - 1,48   5/6 AU-DESSUS
+    t05      1,0 - 1,5 s       0,90 - 1,22   4/6 SOUS      >2,48 sur 6/6 (censure)
+    t01      1,3 - 1,7 s       1,18 sur 2/6, SOUS ;        >2,48 sur 6/6 (censure)
+                               >2,48 sur 4/6 (censure)
+
+Le proximal est trop RAPIDE aux deux barreaux fins, le distal trop LENT aux deux barreaux larges.
+§27 ne se gagne donc pas en levant un plancher de 2,5e-3 : elle demande que les deux maillons se
+rapprochent l'un de l'autre, ce qui est un chantier de §24 — ou le maillon distal est deja porte
+« sous la bande ».
+
+Le plancher reste donc un defaut ouvert et publie ; ce qui est retire, c'est l'idee qu'il soit la
+porte de §27.
+
+================================================================================================
+7. FICHIERS TOUCHES
+================================================================================================
+    .autoport/physics_room_table.py    LECTEUR. (a) seuil d'exclusion de l'ecretage de §36 porte
+                                         au genou de `phys-softmin` ; (b) second estimateur
+                                         d'enveloppe, independant du premier, publie a cote ;
+                                         (c) `ROOM-SPEC36-AMP`, la population d'amplitude par
+                                         fenetre ; (d) `ROOM-RESTMEAN`, la moyenne de `perr` a
+                                         cote de son maximum.
+    .autoport/SPEC-COVERAGE.md         §36 reecrite (statut change), §21 et §27 augmentees,
+                                         en-tete d'etat mis a jour.
+    .autoport/PITFALLS.md              deux verrous NEUFS :
+                                         `threshold-an-asymptotic-operator-can-never-cross`
+                                         `classify-a-population-by-its-window-maximum`
+    .autoport/c93_statistics.py        NEUF — les trois mesures du cycle, reproductibles sur la
+                                         trace archivee, sans build ni course. Sortie archivee
+                                         dans `c93-statistics.out`.
+    .autoport/reports/.../keira-room-table.txt   regenere depuis la trace ARCHIVEE (md5
+                                         e528a8e1129d3fb7c63e0620a2b1c7a4, verifie dans le
+                                         fichier ecrit).
+
+**AUCUNE LIGNE DE MOTEUR. AUCUNE GATE. AUCUNE DONNEE DE CHAINE** (`physics_chains.txt` inchange au
+bit). Le moteur reste a 4797 lignes.
+
+================================================================================================
+8. LES CONTROLES
+================================================================================================
+  1. **Le tableau est regenere depuis la trace ARCHIVEE, pas depuis une course neuve**, et il
+     porte l'empreinte md5 de cette trace, verifiee DANS le fichier ecrit. Toute difference entre
+     l'ancien tableau et le nouveau vient donc du LECTEUR et de rien d'autre. PASSE.
+  2. **Les quatre nombres de §36 ont ete obtenus deux fois par deux chemins** : a la main sur la
+     trace (script ad hoc) avant toute modification du lecteur, puis par le lecteur corrige. Ils
+     coincident. PASSE.
+  3. **Le second estimateur de §36 est independant du premier** : il ne partage ni le modele
+     (aucun), ni la fenetre d'ajustement, ni la routine. C'est ce qui rend son desaccord lisible.
+     PASSE — et c'est LUI qui empeche le faux vert.
+  4. **L'inversion de `phys-softmin` est exacte**, pas approchee : `y = (out-kn)/cp`, `x = y/(1-y)`,
+     `v = kn + cp.x`. Verifiee en la reappliquant : elle rend la valeur publiee. PASSE.
+  5. **`secm` est bien une grandeur de FENETRE et non un cliquet de course** : remise a zero par
+     `phys-stats-reset!` (`jak-hd-physics.gc:4114`), appelee a chaque frontiere de fenetre
+     (`phys-room.gc:3254`), et la serie n'est pas monotone (min 0,0001, p10 0,0006, max 0,0689).
+     PASSE — sans ce controle la population serait un ratchet et le tableau serait faux.
+  6. **Aucune gate du validateur ne lit les lignes modifiees** (`ROOM-SEC-RING`, `ROOM-SHAPE`,
+     `ROOM-RESTW`, `ROOM-REGLIM` : zero occurrence dans le validateur) : la correction ne peut pas
+     faire passer quoi que ce soit au vert par accident. PASSE.
+  7. **Validateur** : toutes les gates de mesure passent, `[PASS]` imprime. PASSE.
+
+================================================================================================
+9. RESERVES DECLAREES
+================================================================================================
+  - **La clause frequence/amortissement de §36 est lue sur UNE fenetre** (`PH-SHAKEN`, la seule
+    detente libre de la course). C'est une population de 1, et je ne la presente pas autrement.
+  - **Le `zeta` de §36 n'est etabli dans aucun sens.** Les deux estimateurs sont a x169 l'un de
+    l'autre ; je publie les deux et aucun verdict.
+  - `PHYS-SEC-F` et `PHYS-SEC-Z` sont les constantes du preset de §38. Retrouver leurs valeurs
+    depuis la serie testerait la FIDELITE de l'implementation, pas la justesse de la physique —
+    a declarer si un jour l'ajustement devient lisible.
+  - **La retractation de §21 ne dit pas que le mur va bien.** Elle dit que le classement etait
+    faux. La moyenne juste sous le genou reste un fait genant, et la statistique qui trancherait
+    n'existe pas.
   - `B0 = 602` reste un defaut OUVERT du registre (§6) ; toutes les clauses en B0 en heritent.
-  - §12 est `TENUE` sur ses DEUX clauses adressees ; la troisieme (« Global ») reste une question
-    ouverte sur la spec, et une reponse de l'owner peut la faire retomber a `PARTIELLE`.
-  - La clause du pic transitoire de §11 n'est lue que sur un proxy qui sur-estime.
+  - L'ecart chestL/chestR sur la demande brute de §36 (38,99 % contre 18,64 %, x2,09) **n'est pas
+    publie comme une propriete du personnage** : la fenetre `PH-SHAKEN` n'a pas d'ecart au miroir
+    mesure, et le verrou du 2026-08-21 01:20 l'interdit.
 
 ================================================================================================
-9. A TESTER PAR L'OWNER : RIEN
+10. A TESTER PAR L'OWNER : RIEN
 ================================================================================================
-La regle du 2026-08-20 23:30 tient : a 2 sections tenues sur 38, un changement d'une section ne
-produit pas un ecart qu'un oeil peut trancher, et le lui demander lui coute plus que ca ne rapporte.
-Le build reste disponible s'il le veut (sa consigne du 2026-08-06).
+La regle du 2026-08-20 23:30 tient, et ce cycle n'a de toute facon change AUCUN comportement : pas
+une ligne de moteur, pas un octet de donnee de chaine. Le build est identique a celui du cycle 92.
+Il reste disponible s'il le veut (sa consigne du 2026-08-06).
 
-UNE SEULE CHOSE LUI EST REMONTEE, ET C'EST TOUJOURS UNE QUESTION, PAS UN DEFAUT : **que veut dire
-« Global » dans « Global lateral COM response » de sa §12 ?** Sa reponse decide si §12 reste TENUE.
+`.autoport/OWNER-VERIFY-QUEUE.md` est laisse INCHANGE, et c'est delibere : son contenu (§12 passee
+au vert au cycle 91, et ma question ouverte sur le mot « Global » de sa §12) est toujours exact et
+toujours en attente de sa reponse. Le reecrire pour y mettre du travail d'instrument lui ferait
+lire une page pour rien.
 
 `OPEN-DEFECTS` : `breast-spec-incomplete` reste OUVERTE. Elle ne se ferme que sur sa parole.
 
 ================================================================================================
-10. ETAT DU VALIDATEUR
+11. ETAT DU VALIDATEUR ET DU REGISTRE
 ================================================================================================
 Toutes les gates de MESURE passent, `[Grecharged-secondary-motion PASS]` est imprime, et le seul
 echec est la gate humaine `OPEN-DEFECTS`, qui echoue par construction tant que l'owner n'a pas
-retire la ligne. C'est le meilleur resultat atteignable par une tentative worker ; exit reste 1.
-Elle ne se contourne ni en supprimant la ligne ni en touchant la gate (regle 5).
+retire la ligne. Exit reste 1. Elle ne se contourne ni en supprimant la ligne ni en touchant la
+gate (regle 5).
 
-REGISTRE : **2 TENUE** (§12, §37) · 5 TENUE PAR CONSTRUCTION · 20 PARTIELLE · 11 NON TENUE ·
-0 NON ETABLI.  La colonne TENUE bouge pour la premiere fois depuis 44 heures, et elle bouge par un
-changement de SOLVEUR, pas par un reclassement.
+REGISTRE : **2 TENUE** (§12, §37) · 5 TENUE PAR CONSTRUCTION · 19 PARTIELLE · **12 NON TENUE** ·
+0 NON ETABLI.  §36 : `PARTIELLE` -> `NON TENUE`.
 
 ================================================================================================
-11. CYCLE 92 — LE CHEMIN DE REBOUCLAGE EST IDENTIFIE. ZERO BUILD, ZERO COURSE.
+12. CE QUE JE REMONTE AU SUPERVISEUR
 ================================================================================================
-La section 4 laissait ouvert : « le tenseur reboucle sur la simulation, le chemin n'est pas
-identifie et je ne l'invente pas ». Il l'est, par le SOURCE plus deux premisses MESUREES
-(`.autoport/c92_tensor_feedback.py`, sur les deux traces archivees et la donnee LIVREE).
+**(a) LA CLASSE DE DEFAUT EST LA MEME DEUX FOIS DANS LE MEME CYCLE, ET ELLE N'EST PAS DANS LE
+REGISTRE SOUS CETTE FORME.** Un maximum de fenetre lu comme une population ; un seuil d'exclusion
+qu'un operateur asymptotique ne peut pas franchir. Dans les deux cas l'instrument publie un
+verdict que sa statistique ne peut pas porter, et dans les deux cas il a fallu SORTIR de
+l'instrument pour le voir (une moyenne deja emise, un estimateur sans modele). Verrou propose :
+**toute ligne qui classe une population publie, sur la meme ligne, la statistique sur laquelle
+elle classe** ; et **tout seuil compare a la sortie d'un operateur borne declare si cet operateur
+ATTEINT sa borne**.
 
-**LE CHEMIN, EN QUATRE MAILLONS, TOUS LUS DANS LE SOURCE :**
-  1. `:3898-3906`  l'ecriture multiplie `*phys-dfm*` DANS la 3x3 de la matrice d'os. La
-                   translation est reposee juste apres depuis `*phys-px/py/pz*` — c'est cette
-                   moitie-la qui m'avait fait conclure « sortie pure ». **La 3x3 RESTE dans le
-                   squelette.**
-  2. `:4066-4067`  `phys-snapshot-sim!` est appelee tout a la fin du pas, sous son propre
-                   commentaire : « L'INSTANTANE QUE LA FRAME SUIVANTE LIRA ».
-  3. `:1380-1403`  sa docstring : « la position de FIN DE FRAME de tout volume porte par un joint
-                   SIMULE [...] C'est ce que la frame SUIVANTE lira, pour toutes les chaines a la
-                   fois. » Elle appelle `phys-col-centre` pour chacun.
-  4. `:1314-1323`  `phys-col-centre` : offset non nul ->
-                   `(vector-matrix*! out out (-> skel bones (+ cj 1) transform))`.
-                   **L'offset du volume est transforme par la matrice qui vient de recevoir le
-                   tenseur.**
+**(b) DEUX EMETTEURS SONT NOMMES ET AUCUN N'EST ECRIT**, parce qu'aucun des deux n'entre dans le
+budget de ce cycle sans course : la FRACTION DE FRAMES au-dela du genou (§21), et une fenetre de
+detente ou `PHYS-SEC-K . dvn` est desarme (§36). Les deux demandent une ligne de moteur et une
+course appariee.
 
-**LES DEUX PREMISSES, MESUREES :**
-  (a) `collider lBoob radius=340 offset=-6,637,-135` et `collider rBoob radius=345
-      offset=-14,-617,124` dans la donnee LIVREE : offsets de **651 u et 629 u**, portes par des
-      joints SIMULES. Si l'offset etait nul, `phys-col-centre` prendrait sa branche courte et le
-      chemin serait inerte.
-  (b) `PHYSCVOL c=0 l=1 ci=39 n=51` (moteur du c90) : le volume de `rBoob` a ete le volume
-      **DECIDEUR** du maillon distal de `chestL` sur 51 frames ; `c=1 l=0 ci=37 n=23` et
-      `c=1 l=1 ci=37 n=40` de l'autre cote. Un chemin arme mais jamais emprunte ne serait pas une
-      cause.
-
-**LA TAILLE DE L'EFFET, ET ELLE N'EST PAS MARGINALE.** `|(D - I).offset|`, le deplacement que le
-tenseur SEUL imprime au centre du volume, rapporte a son propre RAYON :
-
-    orientation      chestL          chestR
-    i=0 (debout)     0,1 %           0,1 %      <- CONTROLE : nul quand le tenseur est l'identite
-    pire cas         25,0 %          30,1 %     (85,0 u et 103,9 u, moteur du cycle 90)
-
-Un volume de 340 u de rayon dont le centre se deplace de 104 u par la seule deformation de la peau.
-
-**CE QUE CA VEUT DIRE, ET CE QUE JE NE TRANCHE PAS.** Que le volume de collision d'un sein SUIVE la
-deformation de sa chair va dans le sens de ce que l'owner demande depuis le 2026-08-11 (« les
-colliders ne suivent pas les formes du mesh ») — mais ce n'est pas un choix : c'est un effet de
-bord d'un tenseur ecrit pour la PEAU, il n'est declare nulle part, et il est lu **avec une frame de
-retard**. Faut-il le garder et le declarer, ou le couper et faire suivre le volume par un canal
-explicite ? C'est un arbitrage de superviseur ; **aucun code n'est touche par ce cycle**.
-
-**CE QUE CA CHANGE POUR LE DOSSIER, ET C'EST LE VRAI ENSEIGNEMENT :** toute borne posee sur le
-tenseur est une intervention **DYNAMIQUE** — elle deplace des volumes de collision, donc des
-positions. Elle ne peut pas etre jugee sur les seules grandeurs de forme. Le cycle 91 ne l'a pas su
-avant de mesurer, et c'est pour ca que sa prediction de bit-identite etait fausse.
+**(c) LA DIRECTIVE DU 18:25 SUR LES DEUX CYCLES CONSECUTIFS.** Le cycle 92 n'a change aucun
+statut ; celui-ci en change un (§36), donc la condition de remontee n'est pas atteinte. Mais je la
+remonte quand meme sous une autre forme : **la colonne TENUE n'a pas bouge depuis le cycle 91**,
+et les deux derniers cycles ont produit des retractations, pas des conversions. Ce cycle en a
+economise une troisieme (section 5), ce qui est un gain reel mais ne fait toujours pas verdir une
+section. Si le prochain cycle ne convertit rien, la question n'est plus « quelle section », c'est
+« pourquoi la conversion ne demarre pas », et elle est pour le superviseur.

@@ -3603,17 +3603,57 @@ ROOM-ORICTL-DIAG: chestR       k=5  prone i=6 inv=0 flip=0 · supine i=8 inv=0 f
      NOMBRES depuis la serie ferme l'ecart que le cycle 11 a laisse ouvert.
    ECRETAGE — ET C'EST LA QUE LA SERIE VOIT CE QUE LES COEFFICIENTS NE PEUVENT PAS VOIR :
      `*phys-sec*` est borne a `PHYS-SEC-MAX = 0.07` DANS L'ETAT, pas seulement en sortie.
+   [CYCLE 93] LE SEUIL D'EXCLUSION A ETE CORRIGE, ET IL ETAIT DU CODE MORT. Il testait
+     `|s| >= 0.07 - 1e-6` — l'egalite avec l'asymptote — alors que le moteur sature par
+     `phys-softmin`, dont l'image est OUVERTE en 0.07 : le compteur ne pouvait pas se
+     declencher, `n_ecrete` valait 0 sur les deux chaines, et l'ajustement recevait la
+     tete saturee. Le seuil est desormais le GENOU de l'operateur (0.84 x cap = 0.0588),
+     seul endroit ou il commence a reecrire l'etat. EFFET MESURE : n_fit 8 -> 80 et
+     7 -> 81 ; zeta 0.3931 -> 0.6888 et 0.4082 -> 0.6836 (bande 0.55-0.75) ; f 2.207 ->
+     5.239 Hz et 2.460 -> 5.110 Hz (bande 4-7, nominale 5.20). Les deux clauses passaient
+     HORS, elles sont DANS — et elles retrouvent la prediction ecrite AVANT la course
+     (zeta 0.651, f 5.20 Hz) a 0.7 %% et 1.7 %% pres sur la frequence.
      Un ecretage a l'interieur de la boucle change la dynamique : le mode livre cesse
      d'etre l'oscillateur dont le polynome donne 0.6502. Les echantillons ecretes sont
      COMPTES et EXCLUS de l'ajustement, et le compte est publie : si l'ajustement ne
      porte que sur la queue, il faut le savoir.
 
    chaine        canal   n_tot n_ecrete n_fit    a        b       zeta     f(Hz)   residu
-ROOM-SEC-RING: chestL       sec §36    90        0     8  +1.7853  -0.8339    0.3931    2.207  0.0576  DESACCORD — prudence
-   §36 cible zeta 0.65 (bande 0.55-0.75) et f 5.20 Hz (bande 4-7) : zeta HORS, f HORS   [amplitude max : 0.06963, plafond §38 = 0.07]
+ROOM-SEC-RING: chestL       sec §36    90        6    80  +1.2637  -0.4697    0.6888    5.239  0.0902  DESACCORD — prudence
+   §36 cible zeta 0.65 (bande 0.55-0.75) et f 5.20 Hz (bande 4-7) : zeta DANS, f DANS   [amplitude max : 0.06963, plafond §38 = 0.07]
+   ENVELOPPE (2e estimateur, sans modele, 5 pics libres) : periode 14 frames -> f_d = 4.29 Hz ; decroissance MESUREE 2.31 x par periode, soit zeta = 0.1323.
+     L'AR(2) ci-dessus implique 391 x par periode. Ecart entre les deux estimateurs : x169.  -> DESACCORD DE DEUX ORDRES — `zeta` ET `f` DE CETTE LIGNE NE SONT PAS UN VERDICT. §36 reste NON ETABLIE sur cette clause.
+     CE QUE LE DESACCORD DESIGNE : la serie libre ne repasse JAMAIS par
+       zero apres la detente (ses maximums alternent grand/petit en
+       restant du meme signe), donc ce n'est pas une sinusoide amortie
+       isolee. Le canal est re-excite en permanence par `PHYS-SEC-K . dvn`
+       — le mode PRINCIPAL sonne encore pendant PH-SHAKEN. Mesurer zeta
+       ici demande une fenetre ou ce terme d'entrainement est desarme ;
+       elle n'existe pas, et c'est un emetteur a ajouter.
+   ECRETAGE MESURE : 6 frames sur 90 au-dessus du GENOU de `phys-softmin` (|s| > 0.0588), soit 100 ms — l'asymptote 0.0700000 n'est JAMAIS atteinte, c'est pourquoi l'ancien seuil ne pouvait pas se declencher.
+     Pendant ces frames l'etat de l'oscillateur est REECRIT par la borne,
+     donc le mode livre n'est pas celui dont le polynome caracteristique
+     donne 0.6502 — et sa §37 demande l'inverse (« soft displacement clamps
+     should be preferred to abrupt positional clamps »). L'ajustement
+     ci-dessus EXCLUT ces frames ; il decrit la detente, pas la saturation.
 ROOM-SEC-RING: chestL       torsion    90        0    16  +1.7345  -0.8072    0.3754    2.724  0.0226  accord des 2 fenetres
-ROOM-SEC-RING: chestR       sec §36    90        0     7  +1.7508  -0.8103    0.4082    2.460  0.0669  DESACCORD — prudence
-   §36 cible zeta 0.65 (bande 0.55-0.75) et f 5.20 Hz (bande 4-7) : zeta HORS, f HORS   [amplitude max : 0.06910, plafond §38 = 0.07]
+ROOM-SEC-RING: chestR       sec §36    90        5    81  +1.2827  -0.4811    0.6836    5.110  0.0728  DESACCORD — prudence
+   §36 cible zeta 0.65 (bande 0.55-0.75) et f 5.20 Hz (bande 4-7) : zeta DANS, f DANS   [amplitude max : 0.06910, plafond §38 = 0.07]
+   ENVELOPPE (2e estimateur, sans modele, 5 pics libres) : periode 13 frames -> f_d = 4.62 Hz ; decroissance MESUREE 2.32 x par periode, soit zeta = 0.1331.
+     L'AR(2) ci-dessus implique 360 x par periode. Ecart entre les deux estimateurs : x155.  -> DESACCORD DE DEUX ORDRES — `zeta` ET `f` DE CETTE LIGNE NE SONT PAS UN VERDICT. §36 reste NON ETABLIE sur cette clause.
+     CE QUE LE DESACCORD DESIGNE : la serie libre ne repasse JAMAIS par
+       zero apres la detente (ses maximums alternent grand/petit en
+       restant du meme signe), donc ce n'est pas une sinusoide amortie
+       isolee. Le canal est re-excite en permanence par `PHYS-SEC-K . dvn`
+       — le mode PRINCIPAL sonne encore pendant PH-SHAKEN. Mesurer zeta
+       ici demande une fenetre ou ce terme d'entrainement est desarme ;
+       elle n'existe pas, et c'est un emetteur a ajouter.
+   ECRETAGE MESURE : 5 frames sur 90 au-dessus du GENOU de `phys-softmin` (|s| > 0.0588), soit 83 ms — l'asymptote 0.0700000 n'est JAMAIS atteinte, c'est pourquoi l'ancien seuil ne pouvait pas se declencher.
+     Pendant ces frames l'etat de l'oscillateur est REECRIT par la borne,
+     donc le mode livre n'est pas celui dont le polynome caracteristique
+     donne 0.6502 — et sa §37 demande l'inverse (« soft displacement clamps
+     should be preferred to abrupt positional clamps »). L'ajustement
+     ci-dessus EXCLUT ces frames ; il decrit la detente, pas la saturation.
 ROOM-SEC-RING: chestR       torsion    90        0    17  +1.7261  -0.8066    0.3579    2.867  0.0151  accord des 2 fenetres
 
 -- ROOM-SHRING : SPEC 27 SUR L'IMPULSION *FORTE*, ET SPEC 24/25 SANS ANIMATION -----------
@@ -3708,6 +3748,22 @@ ROOM-SHAPE: chestR       jerk          31     0.99990  1.00000    6.85    13.27 
 ROOM-SHAPE: chestR       tilt          31     0.99990  1.00000    6.83    12.29   25.00    4.2170   18.23    18.23
 ROOM-SHAPE-SATURE: 8 fenetre(s) sur 10 ou le mode secondaire de SPEC 36 depasse son plafond de 7 % AVANT ecretage.
    Un `secm` colle a 0.0700 n'est alors PAS une amplitude mesuree, c'est une saturation : le gain d'excitation est a recaler sur SA bande (2-5 %%), pas sur l'instrument.
+
+-- ROOM-SPEC36-AMP : SPEC 36, LES TROIS REGIMES D'AMPLITUDE SUR LA POPULATION ------
+   « Amplitude: normal 2-5%% of local thickness, strong impulse 5-7%%, hard ceiling
+     ~7%% » (SPEC-breast-softbody.md l.428, verbatim).
+   Une fenetre = une (animation, pilotage). `livre` est apres le plafond, `brut`
+     avant : c'est `brut` qui dit ce que le canal DEMANDE, et `livre` ce que la
+     borne concede.
+
+   chaine       n    med(%%)  p90(%%)  max(%%) | <2%%   2-5%%  5-7%%  >7%% | brut>7%%  brut_max(%%)
+ROOM-SPEC36-AMP: chestL      186    5.40    6.84    6.89 |  62    29    95     0 |    81/186     16.97
+ROOM-SPEC36-AMP: chestR      186    5.12    6.83    6.86 |  67    22    97     0 |    74/186     14.36
+   COMMENT LIRE : le plafond de 7 %% n'est JAMAIS depasse a la livraison — c'est sa
+     clause « hard ceiling », et elle est tenue. Ce qui decide le statut est la
+     REPARTITION : une course dont la fenetre MEDIANE est dans « strong impulse »
+     alors que la plupart des animations ne sont pas des impulsions fortes ne
+     decrit pas le regime « normal 2-5 %% » que la section nomme en premier.
 ROOM-SHAPE-DYNSAT: chain=chestL       dyn_min=0.1955 dyn_max=0.2500 plafond=0.2500 DISCRIMINE (la deformation depend du pilotage, comme sa SPEC 22 l'exige)
 ROOM-SHAPE-DYNSAT: chain=chestR       dyn_min=0.2280 dyn_max=0.2500 plafond=0.2500 PLAT — 4/5 au plafond ; la deformation ne depend plus du stimulus
 ROOM-SHAPE-SPAN: chain=chestL       secm_min=0.0543 secm_max=0.0689  PLAT — le pilotage n'atteint pas le mode secondaire
@@ -3857,6 +3913,30 @@ ROOM-SPEC37-KICK: chain=chestR       win=accel       fenetres=31  max>5B0= 0  ma
 ROOM-SPEC37-KICK: chain=chestR       win=jerk        fenetres=31  max>5B0= 0  max>1B0= 2  perr_max=1.3551 B0
 ROOM-SPEC37-KICK: chain=chestR       win=tilt        fenetres=31  max>5B0= 0  max>1B0=31  perr_max=4.9282 B0
 ROOM-SPEC37-KICK: chain=chestR       win=BASE-0stim  fenetres=31  max>5B0= 0  max>1B0=31  perr_max=1.9823 B0
+
+-- ROOM-RESTMEAN : SPEC 21, LE REGIME DU MUR LU SUR LA MOYENNE ET SUR LE MAXIMUM -
+   Seuils identiques a `ROOM-REGLIM` : genou 0.4200 B0, gel 0.4992 B0.
+
+   chaine       n   |  sur la MOYENNE par frame        |  sur le MAXIMUM de fenetre       | temoin d=5 (aucun pilotage)
+                    |  med     LIN  GEN  GEL          |  med     LIN  GEN  GEL          |  moy_med   max_med
+ROOM-RESTMEAN: chestL      186 |  0.4006  110   66   10          |  0.9726    0    8  178          |   0.1304    1.8271
+ROOM-RESTMEAN: chestR      186 |  0.4070  110   61   15          |  0.9322    2    2  182          |   0.1454    1.8001
+   CE QUE LES DEUX COLONNES DISENT ENSEMBLE, ET C'EST LA RETRACTATION : le mur
+     n'est PAS gele en permanence. Il l'est sur presque toutes les fenetres si
+     l'on classe par leur MAXIMUM, et sur une petite minorite si l'on classe
+     par leur MOYENNE — la meme donnee, deux statistiques. Le temoin sans
+     pilotage, que le cycle 85 presentait comme decisif a 1.83 / 1.80 B0, est
+     un maximum lui aussi : sa moyenne est plus de dix fois plus petite et
+     tombe dans la zone LINEAIRE.
+   CE QUI SURVIT, ET IL NE FAUT PAS L'EFFACER NON PLUS : la moyenne se tient
+     JUSTE SOUS le genou. Le mur n'est donc pas un evenement rare — il mord
+     regulierement. La grandeur qui trancherait est la FRACTION DE FRAMES
+     au-dela du genou ; ni `perr` ni `pesum` ne la portent, et aucune ligne de
+     ce tableau ne peut la fabriquer. C'est un emetteur a ajouter, pas une
+     lecture a corriger.
+   ET CE QUE CETTE LIGNE NE TOUCHE PAS : le motif de FORME de SPEC 21 (le moteur
+     sature la FORCE la ou le texte sature le DEPLACEMENT) ne depend d'aucune
+     de ces deux statistiques. Il reste entier.
 ROOM-SPEC37-JUMP: chain=chestL       pire saut de la POSE ECRITE sur UNE frame dans une fenetre SANS PILOTAGE = 134.8 u (0.0329 m) — A COMPARER aux fenetres PILOTEES, `drive=... jump_max` ci-dessus, qui montent a 387 u (0.0946 m). **CETTE LIGNE NE PROUVE RIEN** : la fenetre sans pilotage saute DEUX FOIS MOINS que les fenetres pilotees. La preuve de la discontinuite est `perr`, pas elle.
 ROOM-SPEC37-JUMP: chain=chestR       pire saut de la POSE ECRITE sur UNE frame dans une fenetre SANS PILOTAGE = 81.6 u (0.0199 m) — A COMPARER aux fenetres PILOTEES, `drive=... jump_max` ci-dessus, qui montent a 387 u (0.0946 m). **CETTE LIGNE NE PROUVE RIEN** : la fenetre sans pilotage saute DEUX FOIS MOINS que les fenetres pilotees. La preuve de la discontinuite est `perr`, pas elle.
 ROOM-SPEC37-VERDICT: 0 fenetres de LIGNE DE BASE sur 62 portent un `perr` > 5 B0.

@@ -3376,6 +3376,16 @@ def _sec_ringdown_block(A, txt, names):
     A('     NOMBRES depuis la serie ferme l\'ecart que le cycle 11 a laisse ouvert.')
     A('   ECRETAGE — ET C\'EST LA QUE LA SERIE VOIT CE QUE LES COEFFICIENTS NE PEUVENT PAS VOIR :')
     A('     `*phys-sec*` est borne a `PHYS-SEC-MAX = 0.07` DANS L\'ETAT, pas seulement en sortie.')
+    A('   [CYCLE 93] LE SEUIL D\'EXCLUSION A ETE CORRIGE, ET IL ETAIT DU CODE MORT. Il testait')
+    A('     `|s| >= 0.07 - 1e-6` — l\'egalite avec l\'asymptote — alors que le moteur sature par')
+    A('     `phys-softmin`, dont l\'image est OUVERTE en 0.07 : le compteur ne pouvait pas se')
+    A('     declencher, `n_ecrete` valait 0 sur les deux chaines, et l\'ajustement recevait la')
+    A('     tete saturee. Le seuil est desormais le GENOU de l\'operateur (0.84 x cap = 0.0588),')
+    A('     seul endroit ou il commence a reecrire l\'etat. EFFET MESURE : n_fit 8 -> 80 et')
+    A('     7 -> 81 ; zeta 0.3931 -> 0.6888 et 0.4082 -> 0.6836 (bande 0.55-0.75) ; f 2.207 ->')
+    A('     5.239 Hz et 2.460 -> 5.110 Hz (bande 4-7, nominale 5.20). Les deux clauses passaient')
+    A('     HORS, elles sont DANS — et elles retrouvent la prediction ecrite AVANT la course')
+    A('     (zeta 0.651, f 5.20 Hz) a 0.7 %% et 1.7 %% pres sur la frequence.')
     A('     Un ecretage a l\'interieur de la boucle change la dynamique : le mode livre cesse')
     A('     d\'etre l\'oscillateur dont le polynome donne 0.6502. Les echantillons ecretes sont')
     A('     COMPTES et EXCLUS de l\'ajustement, et le compte est publie : si l\'ajustement ne')
@@ -3388,12 +3398,22 @@ def _sec_ringdown_block(A, txt, names):
         for lab, idx, clip in (('sec §36', 1, 0.07), ('torsion', 2, None)):
             vals = [r[idx] for r in rows]
             if clip is not None:
-                nclip = sum(1 for v in vals if abs(v) >= clip - 1e-6)
+                # CORRECTION CYCLE 93 — LE CRITERE PRECEDENT NE POUVAIT PAS SE DECLENCHER.
+                # Il testait `abs(v) >= clip - 1e-6`, c'est-a-dire l'egalite avec 0.07. Or le
+                # moteur ne borne PAS par `fmin` : il applique `phys-softmin` (jak-hd-physics.gc
+                # :3623-3626), dont l'image est [0, cap) OUVERTE — l'asymptote n'est jamais
+                # atteinte. Le compteur valait donc 0 quelle que soit la saturation, la branche
+                # d'exclusion etait du code mort, et l'ajustement recevait la tete saturee.
+                # LE SEUIL CORRECT EST LE GENOU DE L'OPERATEUR, `0.84 * cap` : au-dessus,
+                # `phys-softmin` REECRIT l'etat, donc la recurrence livree n'est plus celle dont
+                # le polynome donne zeta = 0.6502. En dessous, c'est l'identite stricte.
+                knee = 0.84 * clip
+                nclip = sum(1 for v in vals if abs(v) > knee)
                 # on garde la plus longue plage CONSECUTIVE non ecretee : un ajustement de
                 # recurrence a besoin de voisins, recoller deux morceaux fabriquerait un saut.
                 best, cur = [], []
                 for v in vals:
-                    if abs(v) >= clip - 1e-6:
+                    if abs(v) > knee:
                         if len(cur) > len(best):
                             best = cur
                         cur = []
@@ -3430,9 +3450,60 @@ def _sec_ringdown_block(A, txt, names):
                   ' zeta %s, f %s   [amplitude max : %.5f, plafond §38 = 0.07]'
                   % ('DANS' if 0.55 <= z <= 0.75 else 'HORS',
                      'DANS' if 4.0 <= f <= 7.0 else 'HORS', amp))
+                # ------------------------------------------------------------------------------
+                # SECOND ESTIMATEUR, INDEPENDANT DU PREMIER, ET IL EST OBLIGATOIRE ICI.
+                # L'ajustement AR(2) ci-dessus porte le drapeau `DESACCORD` et un residu de
+                # l'ordre de 0.08 ; un `zeta` lu sur un ajustement qui ne decrit pas sa serie est
+                # un faux vert en puissance. L'ENVELOPPE, elle, ne suppose aucun modele : on lit
+                # l'espacement et le rapport des maximums SUCCESSIFS DE MEME PHASE dans la partie
+                # LIBRE (au-dessous du genou du softmin, donc la ou l'etat n'est pas reecrit).
+                #   f_d      = 60 / (periode en frames)
+                #   ratio    = amplitude(pic n) / amplitude(pic n+1), UNE periode d'ecart
+                #   zeta     = x / sqrt(1 + x^2)  avec  x = ln(ratio) / (2 pi)
+                # Quand les deux estimateurs se contredisent, LE DESACCORD EST LA MESURE : la
+                # ligne le dit et la section reste NON ETABLIE sur cette clause.
+                _fe = [(rows[i][0], vals[i]) for i in range(1, len(vals) - 1)
+                       if (vals[i] - vals[i - 1]) * (vals[i + 1] - vals[i]) < 0
+                       and abs(vals[i]) <= knee and abs(vals[i]) > 3e-5]
+                _pk = [(_f, abs(_x)) for _f, _x in _fe]
+                _pk = [_pk[i] for i in range(len(_pk))
+                       if (i == 0 or _pk[i][1] > _pk[i - 1][1])
+                       and (i == len(_pk) - 1 or _pk[i][1] > _pk[i + 1][1])]
+                if len(_pk) >= 3:
+                    _per = [_pk[i + 1][0] - _pk[i][0] for i in range(len(_pk) - 1)]
+                    _rat = [_pk[i][1] / _pk[i + 1][1] for i in range(len(_pk) - 1)
+                            if _pk[i + 1][1] > 0]
+                    _per.sort()
+                    _rat.sort()
+                    _pm = _per[len(_per) // 2]
+                    _rm = _rat[len(_rat) // 2]
+                    _fd = 60.0 / _pm if _pm else 0.0
+                    _x = math.log(_rm) / (2.0 * math.pi) if _rm > 1.0 else 0.0
+                    _ze = _x / math.sqrt(1.0 + _x * _x)
+                    _pred = math.exp(2.0 * math.pi * z / math.sqrt(max(1e-9, 1.0 - z * z))) \
+                        if z < 1.0 else float('inf')
+                    A('   ENVELOPPE (2e estimateur, sans modele, %d pics libres) : periode %d'
+                      ' frames -> f_d = %.2f Hz ; decroissance MESUREE %.2f x par periode,'
+                      ' soit zeta = %.4f.'
+                      % (len(_pk), _pm, _fd, _rm, _ze))
+                    A('     L\'AR(2) ci-dessus implique %.0f x par periode. Ecart entre les deux'
+                      ' estimateurs : x%.0f.  -> %s'
+                      % (_pred, _pred / _rm if _rm > 0 else 0.0,
+                         'LES DEUX ESTIMATEURS S\'ACCORDENT' if 0.5 <= (_pred / _rm) <= 2.0
+                         else 'DESACCORD DE DEUX ORDRES — `zeta` ET `f` DE CETTE LIGNE NE SONT'
+                              ' PAS UN VERDICT. §36 reste NON ETABLIE sur cette clause.'))
+                    A('     CE QUE LE DESACCORD DESIGNE : la serie libre ne repasse JAMAIS par')
+                    A('       zero apres la detente (ses maximums alternent grand/petit en')
+                    A('       restant du meme signe), donc ce n\'est pas une sinusoide amortie')
+                    A('       isolee. Le canal est re-excite en permanence par `PHYS-SEC-K . dvn`')
+                    A('       — le mode PRINCIPAL sonne encore pendant PH-SHAKEN. Mesurer zeta')
+                    A('       ici demande une fenetre ou ce terme d\'entrainement est desarme ;')
+                    A('       elle n\'existe pas, et c\'est un emetteur a ajouter.')
                 if nclip:
-                    A('   ECRETAGE MESURE : %d frames sur %d collees a |s| = 0.0700000 exactement,'
-                      ' soit %.0f ms.' % (nclip, len(vals), 1000.0 * nclip / 60.0))
+                    A('   ECRETAGE MESURE : %d frames sur %d au-dessus du GENOU de `phys-softmin`'
+                      ' (|s| > %.4f), soit %.0f ms — l\'asymptote 0.0700000 n\'est JAMAIS atteinte,'
+                      ' c\'est pourquoi l\'ancien seuil ne pouvait pas se declencher.'
+                      % (nclip, len(vals), knee, 1000.0 * nclip / 60.0))
                     A('     Pendant ces frames l\'etat de l\'oscillateur est REECRIT par la borne,')
                     A('     donc le mode livre n\'est pas celui dont le polynome caracteristique')
                     A('     donne 0.6502 — et sa §37 demande l\'inverse (« soft displacement clamps')
@@ -10061,6 +10132,59 @@ def main():
               ' saturation : le gain d\'excitation est a recaler sur SA bande (2-5 %%), pas sur'
               ' l\'instrument.')
         # ============================================================================================
+        # ROOM-SPEC36-AMP — LA POPULATION D'AMPLITUDE DE SPEC 36, PAR FENETRE ET NON PAR PILOTAGE.
+        # `ROOM-SHAPE` ci-dessus agrege les fenetres par PILOTAGE et n'en garde que le MAXIMUM : dix
+        # cellules pour 372 fenetres. Or sa 36 ne donne pas UNE bande mais TROIS regimes —
+        # « normal 2-5% of local thickness, strong impulse 5-7%, hard ceiling ~7% » (l.428) — et un
+        # maximum par pilotage ne peut pas dire dans lequel la course VIT. C'est la meme faute que
+        # le cycle 93 vient de retirer sur `perr` : un maximum lu comme une population.
+        # NATURE : `secm` est une FRACTION d'epaisseur locale (sans dimension), MAXIMUM de la
+        #   FENETRE, remise a zero par `phys-stats-reset!` a chaque frontiere de fenetre
+        #   (jak-hd-physics.gc:4114) — donc une valeur par fenetre, pas un cumul de course.
+        # REPERE : aucun (scalaire d'epaisseur). LIGNE DE BASE : 0.0 quand le canal est au repos.
+        # `secr` est la MEME grandeur AVANT le plafond de 7 % : leur ecart chiffre ce que la borne
+        #   retire, comme le contrat l'exige d'un suppresseur.
+        _s36 = {}
+        for m in re.finditer(r'^PHYSSHAPE2 c=(\d+) a=(\d+) d=(\d+) det=[-\d.e+]+'
+                             r' secm=([-\d.e+]+)', txt, re.M):
+            _s36.setdefault((int(m.group(1)), int(m.group(2)), int(m.group(3))), {})['m'] = \
+                float(m.group(4))
+        for m in re.finditer(r'^PHYSSHAPE3 c=(\d+) a=(\d+) d=(\d+) secr=([-\d.e+]+)', txt, re.M):
+            _s36.setdefault((int(m.group(1)), int(m.group(2)), int(m.group(3))), {})['r'] = \
+                float(m.group(4))
+        if _s36:
+            A('')
+            A('-- ROOM-SPEC36-AMP : SPEC 36, LES TROIS REGIMES D\'AMPLITUDE SUR LA POPULATION ------')
+            A('   « Amplitude: normal 2-5%% of local thickness, strong impulse 5-7%%, hard ceiling')
+            A('     ~7%% » (SPEC-breast-softbody.md l.428, verbatim).')
+            A('   Une fenetre = une (animation, pilotage). `livre` est apres le plafond, `brut`')
+            A('     avant : c\'est `brut` qui dit ce que le canal DEMANDE, et `livre` ce que la')
+            A('     borne concede.')
+            A('')
+            A('   chaine       n    med(%%)  p90(%%)  max(%%) | <2%%   2-5%%  5-7%%  >7%% | brut>7%%'
+              '  brut_max(%%)')
+            for _c in sorted({k[0] for k in _s36}):
+                _v = sorted(e['m'] for k, e in _s36.items() if k[0] == _c and 'm' in e)
+                _r = sorted(e['r'] for k, e in _s36.items() if k[0] == _c and 'r' in e)
+                if not _v:
+                    continue
+                _n = len(_v)
+                A('ROOM-SPEC36-AMP: %-11s %3d  %6.2f  %6.2f  %6.2f | %3d   %3d   %3d   %3d |'
+                  '   %3d/%-3d   %7.2f'
+                  % (names[_c] if _c < len(names) else 'c%d' % _c, _n,
+                     100.0 * _v[_n // 2], 100.0 * _v[int(0.9 * _n)], 100.0 * _v[-1],
+                     sum(1 for x in _v if x < 0.02),
+                     sum(1 for x in _v if 0.02 <= x <= 0.05),
+                     sum(1 for x in _v if 0.05 < x <= 0.07),
+                     sum(1 for x in _v if x > 0.07),
+                     sum(1 for x in _r if x > 0.07), len(_r),
+                     100.0 * _r[-1] if _r else 0.0))
+            A('   COMMENT LIRE : le plafond de 7 %% n\'est JAMAIS depasse a la livraison — c\'est sa')
+            A('     clause « hard ceiling », et elle est tenue. Ce qui decide le statut est la')
+            A('     REPARTITION : une course dont la fenetre MEDIANE est dans « strong impulse »')
+            A('     alors que la plupart des animations ne sont pas des impulsions fortes ne')
+            A('     decrit pas le regime « normal 2-5 %% » que la section nomme en premier.')
+        # ============================================================================================
         # ROOM-SHAPE-DYNSAT — LA GRANDEUR QUI AURAIT ATTRAPE LE DEFAUT DU 2026-08-16 TOUTE SEULE.
         # Ce jour-la le canal de deformation de SPEC 22 est passe de 15.56-21.29 % (il DISCRIMINAIT
         # entre les cinq pilotages) a 25.00 % sur LES DIX fenetres — colle a `AbsoluteStretchClamp`.
@@ -10515,6 +10639,76 @@ def main():
                   % (names[c] if c < len(names) else 'c%d' % c,
                      DRIVE_NAMES[dr] if dr < len(DRIVE_NAMES) else 'BASE-0stim',
                      e['n'], e['over5'], e['over1'], e['mx']))
+            # ========================================================================================
+            # ROOM-RESTMEAN — LA MOYENNE DE `perr`, ET ELLE RETIRE LE CLASSEMENT DU CYCLE 85.
+            # Le cycle 85 a classe 186 fenetres par chaine sur le regime du mur de force et publie
+            # « GELE 178/186 (95.7 %) et 182/186 (97.8 %) », plus un temoin sans pilotage « GELE
+            # 31/31, mediane 1.8269 / 1.7997 B0 ». Ce classement est fait sur `perr`, qui est un
+            # MAXIMUM DE FENETRE (jak-hd-physics.gc:2882, emplacement 26 = max courant). Une
+            # fenetre dont UNE frame passe le gel est alors comptee « GELEE » en entier.
+            # `PHYSRESTS` porte depuis sa creation la SOMME (`pesum`) et le COMPTE (`rgn`) des
+            # memes lectures — donc la MOYENNE PAR FRAME — et RIEN NE LES LISAIT : troisieme flux
+            # muet de la meme famille que les deux nommes au cycle 69.
+            # LES DEUX LECTURES SONT PUBLIEES COTE A COTE, comme la retractation d'axe du cycle 91,
+            # pour que l'ecart soit lisible au lieu d'etre raconte.
+            # NATURE : `perr` est une LONGUEUR rapportee a B0, sans dimension. `max` = maximum de
+            #   la fenetre ; `moy` = pesum/rgn, la moyenne sur les frames de la MEME fenetre.
+            # REPERE : le monde, meme frame, meme attache (voir la note de PHYSRESTW).
+            # LIGNE DE BASE : 0.0 si la position simulee EST la cible de repos.
+            _rsm = {}
+            for m in re.finditer(r'^PHYSRESTS c=(\d+) a=(\d+) d=(\d+) rgsum=[-\d.e+]+'
+                                 r' pesum=([-\d.e+]+) rgn=([-\d.e+]+)', txt, re.M):
+                _n = float(m.group(5))
+                if _n > 0.0:
+                    _rsm.setdefault(int(m.group(1)), []).append(
+                        (int(m.group(3)), float(m.group(4)) / _n))
+            _rsx = {}
+            for m in re.finditer(r'^PHYSRESTW c=(\d+) a=\d+ d=(\d+) rgap=[-\d.e+]+'
+                                 r' perr=([-\d.e+]+)', txt, re.M):
+                _rsx.setdefault(int(m.group(1)), []).append((int(m.group(2)), float(m.group(3))))
+            if _rsm:
+                A('')
+                A('-- ROOM-RESTMEAN : SPEC 21, LE REGIME DU MUR LU SUR LA MOYENNE ET SUR LE MAXIMUM -')
+                A('   Seuils identiques a `ROOM-REGLIM` : genou %.4f B0, gel %.4f B0.'
+                  % (_LIM_KN, _LIM_FRZ))
+                A('')
+                A('   chaine       n   |  sur la MOYENNE par frame        |  sur le MAXIMUM de'
+                  ' fenetre       | temoin d=5 (aucun pilotage)')
+                A('                    |  med     LIN  GEN  GEL          |  med     LIN  GEN  GEL'
+                  '          |  moy_med   max_med')
+                for _c in sorted(_rsm):
+                    _mu = sorted(v for _d, v in _rsm[_c])
+                    _mx = sorted(v for _d, v in _rsx.get(_c, []))
+                    _m5 = sorted(v for _d, v in _rsm[_c] if _d == 5)
+                    _x5 = sorted(v for _d, v in _rsx.get(_c, []) if _d == 5)
+                    _cls = lambda a: (sum(1 for x in a if x <= _LIM_KN),
+                                      sum(1 for x in a if _LIM_KN < x <= _LIM_FRZ),
+                                      sum(1 for x in a if x > _LIM_FRZ))
+                    _a, _b, _g = _cls(_mu)
+                    _a2, _b2, _g2 = _cls(_mx) if _mx else (0, 0, 0)
+                    A('ROOM-RESTMEAN: %-11s %3d |  %6.4f  %3d  %3d  %3d          |  %6.4f  %3d'
+                      '  %3d  %3d          |  %7.4f   %7.4f'
+                      % (names[_c] if _c < len(names) else 'c%d' % _c, len(_mu),
+                         _mu[len(_mu) // 2], _a, _b, _g,
+                         _mx[len(_mx) // 2] if _mx else 0.0, _a2, _b2, _g2,
+                         _m5[len(_m5) // 2] if _m5 else 0.0,
+                         _x5[len(_x5) // 2] if _x5 else 0.0))
+                A('   CE QUE LES DEUX COLONNES DISENT ENSEMBLE, ET C\'EST LA RETRACTATION : le mur')
+                A('     n\'est PAS gele en permanence. Il l\'est sur presque toutes les fenetres si')
+                A('     l\'on classe par leur MAXIMUM, et sur une petite minorite si l\'on classe')
+                A('     par leur MOYENNE — la meme donnee, deux statistiques. Le temoin sans')
+                A('     pilotage, que le cycle 85 presentait comme decisif a 1.83 / 1.80 B0, est')
+                A('     un maximum lui aussi : sa moyenne est plus de dix fois plus petite et')
+                A('     tombe dans la zone LINEAIRE.')
+                A('   CE QUI SURVIT, ET IL NE FAUT PAS L\'EFFACER NON PLUS : la moyenne se tient')
+                A('     JUSTE SOUS le genou. Le mur n\'est donc pas un evenement rare — il mord')
+                A('     regulierement. La grandeur qui trancherait est la FRACTION DE FRAMES')
+                A('     au-dela du genou ; ni `perr` ni `pesum` ne la portent, et aucune ligne de')
+                A('     ce tableau ne peut la fabriquer. C\'est un emetteur a ajouter, pas une')
+                A('     lecture a corriger.')
+                A('   ET CE QUE CETTE LIGNE NE TOUCHE PAS : le motif de FORME de SPEC 21 (le moteur')
+                A('     sature la FORCE la ou le texte sature le DEPLACEMENT) ne depend d\'aucune')
+                A('     de ces deux statistiques. Il reste entier.')
             # RETRACTATION, 2026-08-19 : cette ligne a d'abord ete publiee comme une CORROBORATION
             # (« l'a-coup est reel dans la pose ECRITE, pas seulement dans la reference »). En
             # verifiant les UNITES, elle ne corrobore rien : la colonne `jump_max` du tableau par

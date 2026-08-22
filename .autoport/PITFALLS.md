@@ -614,3 +614,37 @@ Verrou : avant de traduire une grandeur pour l'owner, identifier sa REFERENCE. �
 interne » n'est pas « ecart a la pose d'auteur », et seul le second decrit ce qu'il voit. Une
 phrase qui contredit son observation directe est presque toujours une erreur de reference, pas une
 decouverte.
+
+GUARD threshold-an-asymptotic-operator-can-never-cross .autoport/PITFALLS.md n_ecrete = 0 par construction
+**Un seuil d'exclusion qui ne pouvait pas se declencher a decide d'un verdict pendant tout le temps
+ou il a existe.** `ROOM-SEC-RING` excluait de son ajustement les echantillons ecretes par
+`abs(v) >= clip - 1e-6`, c'est-a-dire l'egalite avec 0.07. Le moteur, lui, sature par
+`phys-softmin` (`jak-hd-physics.gc:3623-3626`), dont la docstring dit « asymptote exacte a cap » :
+son image est **[0, cap) OUVERTE**. Le compteur valait donc 0 QUEL QUE SOIT l'ecretage, la branche
+d'exclusion etait du code mort, et l'ajusteur recevait la tete saturee — 8 et 7 echantillons au
+lieu de 80 et 81, d'ou §36 publiee « zeta HORS, f HORS » sur une frequence qui etait celle du
+mode VOISIN (2,21 Hz contre 2,32 Hz pour §24) et non celle du mode mesure.
+Verrou : un seuil ne se compare jamais a la BORNE d'un operateur sans verifier que l'operateur
+l'ATTEINT. Une saturation asymptotique (`softmin`, `tanh`, Pade) n'atteint jamais son plafond : le
+seuil se pose sur son GENOU — le seul endroit ou elle commence a reecrire l'etat — pas sur son
+asymptote. Test de conception : ecrire la valeur que le compteur devrait rendre dans le pire cas
+possible ; si c'est zero, le compteur n'existe pas. Voisin de `gate-vacuous-on-short-sequence` et
+de `declared-but-never-selected`, mais celui-ci est pire : il est INVISIBLE, parce qu'un zero se
+lit comme « pas d'ecretage » au lieu de « pas de mesure ».
+
+GUARD classify-a-population-by-its-window-maximum .autoport/PITFALLS.md GELE 95,7 % vs 5,4 %
+**Le meme jeu de donnees rend 95,7 % ou 5,4 % selon la statistique par laquelle on le classe, et
+seul le premier chiffre a ete publie.** Le cycle 85 a classe 186 fenetres par chaine sur le regime
+du mur de force de §21 et publie « GELE 178/186 et 182/186 », avec un temoin sans pilotage « GELE
+31/31, mediane 1,83 / 1,80 B0 » presente comme decisif. `perr` est un MAXIMUM DE FENETRE : une
+fenetre dont UNE frame passe le gel y est comptee gelee en entier. `PHYSRESTS` portait depuis
+toujours la somme et le compte des memes lectures — donc la moyenne par frame — et rien ne les
+lisait. Sur la moyenne : GELE 10/186 et 15/186, et le temoin rend 0,130 / 0,145 B0, x14 plus
+petit, en zone LINEAIRE. Quatre cycles (85 a 88) et une intervention retractee (87) ont ete
+diriges par le premier chiffre.
+Verrou : **toute ligne qui CLASSE une population publie, sur la meme ligne, la statistique sur
+laquelle elle classe.** Et quand la trace porte deja de quoi calculer une seconde statistique
+(somme + compte a cote d'un maximum), la publier n'est pas optionnel : c'est le controle. Voisin
+de `com-is-a-population-not-a-max`, `argmax-anchor-is-not-a-population` et
+`priority-built-on-a-single-extremum` — quatrieme occurrence de la meme famille, et la premiere ou
+la donnee corrective etait DEJA EMISE et simplement pas lue.

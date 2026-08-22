@@ -1,0 +1,37 @@
+trace : .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
+== A. SPEC 21 — `perr`, LA MOYENNE CONTRE LE MAXIMUM ========================================
+  chestL  n=186
+    MOYENNE  med=0.4006  LIN/GEN/GEL = 110/66/10
+    MAXIMUM  med=0.9726  LIN/GEN/GEL = 0/8/178   <- le classement du cycle 85
+    temoin d=5 (aucun pilotage) : moyenne 0.1304  contre maximum 1.8271   -> x14.0
+  chestR  n=186
+    MOYENNE  med=0.4070  LIN/GEN/GEL = 110/61/15
+    MAXIMUM  med=0.9322  LIN/GEN/GEL = 2/2/182   <- le classement du cycle 85
+    temoin d=5 (aucun pilotage) : moyenne 0.1454  contre maximum 1.8001   -> x12.4
+== B. SPEC 36 — POPULATION D'AMPLITUDE ET DEMANDE BRUTE ====================================
+  chestL  n=186   med=5.40 %  max=6.89 %   | <2%:62  2-5%:29  5-7%:95  >7%:0
+           AVANT plafond : max=16.97 %   fenetres > 7 % : 81/186 (43.5 %)
+  chestR  n=186   med=5.12 %  max=6.86 %   | <2%:67  2-5%:22  5-7%:97  >7%:0
+           AVANT plafond : max=14.36 %   fenetres > 7 % : 74/186 (39.8 %)
+  chestL  fenetre de secousse : pic LIVRE 0.06963 (99.48 % du plafond) ; demande BRUTE 38.99 % ; le filet retire 82.1 %
+  chestR  fenetre de secousse : pic LIVRE 0.06910 (98.71 % du plafond) ; demande BRUTE 18.64 % ; le filet retire 62.9 %
+== C. SPEC 2/9/27 — LE PLANCHER DE DETENTE EST-IL REEL ? ===================================
+  Si la queue est PLATE, `s_inf` n'est pas extrapole : il se lit directement.
+  chestL  l=0 v     moyenne des 30 dernieres frames = +0.0000781   ecart-type = 0.0000000
+  chestL  l=0 ap    moyenne des 30 dernieres frames = +0.0001993   ecart-type = 0.0000000
+  chestL  l=0 lat   moyenne des 30 dernieres frames = +0.0002771   ecart-type = 0.0000000
+  chestL  l=1 v     moyenne des 30 dernieres frames = -0.0007386   ecart-type = 0.0000000
+  chestL  l=1 ap    moyenne des 30 dernieres frames = -0.0014895   ecart-type = 0.0000000
+  chestL  l=1 lat   moyenne des 30 dernieres frames = -0.0024823   ecart-type = 0.0000000
+  chestR  l=0 v     moyenne des 30 dernieres frames = +0.0001813   ecart-type = 0.0000000
+  chestR  l=0 ap    moyenne des 30 dernieres frames = -0.0003444   ecart-type = 0.0000000
+  chestR  l=0 lat   moyenne des 30 dernieres frames = -0.0003205   ecart-type = 0.0000000
+  chestR  l=1 v     moyenne des 30 dernieres frames = +0.0004755   ecart-type = 0.0000000
+  chestR  l=1 ap    moyenne des 30 dernieres frames = +0.0019766   ecart-type = 0.0000000
+  chestR  l=1 lat   moyenne des 30 dernieres frames = -0.0019970   ecart-type = 0.0000000
+  PHYSGRAV idle    chestL  gn=0.0001   (gn~0 = ancre debout : aucun terme de gravite constant n'a droit de cite)
+  PHYSGRAV idle    chestR  gn=0.0001   (gn~0 = ancre debout : aucun terme de gravite constant n'a droit de cite)
+  PHYSGRAV tilt    chestL  gn=0.9999   (gn~0 = ancre debout : aucun terme de gravite constant n'a droit de cite)
+  PHYSGRAV tilt    chestR  gn=0.9999   (gn~0 = ancre debout : aucun terme de gravite constant n'a droit de cite)
+  PHYSGRAV shaken  chestL  gn=0.0001   (gn~0 = ancre debout : aucun terme de gravite constant n'a droit de cite)
+  PHYSGRAV shaken  chestR  gn=0.0001   (gn~0 = ancre debout : aucun terme de gravite constant n'a droit de cite)
