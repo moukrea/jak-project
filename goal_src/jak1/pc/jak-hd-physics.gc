@@ -202,8 +202,8 @@
 ;; [NOTE-13] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
 (define *phys-lsv* (new 'global 'array 'float (* PHYS-SCL 3)))
 ;; [NOTE-14] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
-(defconstant PHYS-K24-AP  1.186962) ;; [NOTE-433] §24 ap  APRES le projecteur -> jak-hd-physics-NOTES.md
-(defconstant PHYS-K24-LAT 1.375656) ;; [NOTE-433] §24 lat APRES le projecteur -> jak-hd-physics-NOTES.md
+(defconstant PHYS-MOB-AP  0.90)   ;; §29 Front/back [NOTE-433] : la valeur de §24 est RETIREE (cycle 99)
+(defconstant PHYS-MOB-LAT 0.82)   ;; §29 Lateral   [NOTE-433] elle coutait +1,0 mm de peau -> §33
 ;; [NOTE-73] QUEL AXE DE L'ANCRE EST QUOI — classe UNE FOIS par chaine, a sa premiere frame -> jak-hd-physics-NOTES.md
 (define *phys-axv*  (new 'global 'array 'int32 PHYS-SC))   ;; index de ligne : vertical
 (define *phys-axa*  (new 'global 'array 'int32 PHYS-SC))   ;; ...              avant-arriere
@@ -2670,8 +2670,8 @@
                           ;; [NOTE-163] ARMEE DES QU'IL Y A UN MAILLON LIBRE. Ce verrou exigeait DEUX -> jak-hd-physics-NOTES.md
                           (when (> (- n rlk) 0)
                             (set! (-> *phys-axs* (+ (* sc 3) iv)) 1.0)
-                            (set! (-> *phys-axs* (+ (* sc 3) ia)) PHYS-K24-AP)
-                            (set! (-> *phys-axs* (+ (* sc 3) il)) PHYS-K24-LAT)
+                            (set! (-> *phys-axs* (+ (* sc 3) ia)) (/ 1.0 PHYS-MOB-AP))
+                            (set! (-> *phys-axs* (+ (* sc 3) il)) (/ 1.0 PHYS-MOB-LAT))
                             (set! (-> *phys-axan* sc) 1))))))
                   ;; [NOTE-35] LA GRAVITE ABSOLUE, VUE DE L'ANCRE, AVANT TOUTE SOUSTRACTION. C'est elle qui -> jak-hd-physics-NOTES.md
                   (vector-copy! gla gl)
