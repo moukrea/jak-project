@@ -3429,24 +3429,24 @@ ROOM-SPEC10: chestL     au-dela du seuil la cellule n'est PAS jetee : son effet 
 ROOM-SPEC10: chestL     les bandes de §10 ne portent que sur la cellule SUPINE i=8 (designee par la GRAVITE mesuree) : toute autre ligne est marquee DIAGNOSTIC et ne porte AUCUN verdict.
 ROOM-SPEC10: chestL   cellule          frontiere |  vers thorax (B0)          |  sortant (% W0)
 ROOM-SPEC10: chestL                              |    total   squel.    tens. |    total   squel.    tens.
-ROOM-SPEC10: chestL   §10 supine       w>0.00    |   0.2311   0.1628   0.0683 |    2.047   -0.914    2.960  CELLULE DU VERDICT
-ROOM-SPEC10: chestL   §10 supine       w>0.05    |   0.2547   0.1793   0.0754 |    2.263   -1.006    3.269  CELLULE DU VERDICT
-ROOM-SPEC10: chestL   §10 supine       w>0.25    |   0.2824   0.1978   0.0846 |    2.502   -1.103    3.606  CELLULE DU VERDICT
-ROOM-SPEC10: chestL   vers thorax bande 0.18-0.28 B0     frontieres 0.2311/0.2547/0.2824 -> AU-DESSUS/DANS    raffinement  18.2 % (<=30 % OK)
-ROOM-SPEC10: chestL   vers thorax pire cas du montage (+/- 10.27 % du terme squelettique) : [0.2144 ; 0.3027] -> AU-DESSUS/DANS
+ROOM-SPEC10: chestL   §10 supine       w>0.00    |   0.2287   0.1628   0.0660 |    1.814   -0.914    2.728  CELLULE DU VERDICT
+ROOM-SPEC10: chestL   §10 supine       w>0.05    |   0.2521   0.1793   0.0728 |    2.006   -1.006    3.012  CELLULE DU VERDICT
+ROOM-SPEC10: chestL   §10 supine       w>0.25    |   0.2795   0.1978   0.0817 |    2.215   -1.103    3.318  CELLULE DU VERDICT
+ROOM-SPEC10: chestL   vers thorax bande 0.18-0.28 B0     frontieres 0.2287/0.2521/0.2795 -> DANS              raffinement  18.2 % (<=30 % OK)
+ROOM-SPEC10: chestL   vers thorax pire cas du montage (+/- 10.27 % du terme squelettique) : [0.2120 ; 0.2998] -> AU-DESSUS/DANS
 ROOM-SPEC10: chestL   vers thorax VERDICT DE LA CLAUSE : INDÉTERMINÉE (la frontière ou le montage décide) — ensemble AU-DESSUS/DANS
-ROOM-SPEC10: chestL   sortant     bande 4.00-10.00 % W0   frontieres 2.0467/2.2629/2.5024 -> SOUS              raffinement  18.2 % (<=30 % OK)
-ROOM-SPEC10: chestL   sortant     pire cas du montage (+/- 10.27 % du terme squelettique) : [1.9529 ; 2.6157] -> SOUS
+ROOM-SPEC10: chestL   sortant     bande 4.00-10.00 % W0   frontieres 1.8143/2.0064/2.2147 -> SOUS              raffinement  18.1 % (<=30 % OK)
+ROOM-SPEC10: chestL   sortant     pire cas du montage (+/- 10.27 % du terme squelettique) : [1.7205 ; 2.3280] -> SOUS
 ROOM-SPEC10: chestL   sortant     VERDICT DE LA CLAUSE : SOUS (verdict unique sur les trois frontieres ET sur le pire cas du montage)
-ROOM-SPEC10: chestL   §11 prone        w>0.00    |  -0.2681  -0.1118  -0.1564 |   -4.521   -2.227   -2.293  DIAGNOSTIC — sans bande
-ROOM-SPEC10: chestL   §11 prone        w>0.05    |  -0.2957  -0.1231  -0.1726 |   -4.985   -2.453   -2.532  DIAGNOSTIC — sans bande
-ROOM-SPEC10: chestL   §11 prone        w>0.25    |  -0.3293  -0.1356  -0.1937 |   -5.498   -2.703   -2.795  DIAGNOSTIC — sans bande
-ROOM-SPEC10: chestL   §12 lateral i=2  w>0.00    |   0.0198   0.0412  -0.0214 |    4.936    8.367   -3.432  DIAGNOSTIC — sans bande
-ROOM-SPEC10: chestL   §12 lateral i=2  w>0.05    |   0.0217   0.0454  -0.0236 |    5.427    9.215   -3.788  DIAGNOSTIC — sans bande
-ROOM-SPEC10: chestL   §12 lateral i=2  w>0.25    |   0.0232   0.0500  -0.0268 |    5.934   10.155   -4.220  DIAGNOSTIC — sans bande
-ROOM-SPEC10: chestL   §12 lateral i=4  w>0.00    |   0.0498   0.0265   0.0233 |  -10.378  -12.299    1.921  DIAGNOSTIC — sans bande
-ROOM-SPEC10: chestL   §12 lateral i=4  w>0.05    |   0.0549   0.0291   0.0258 |  -11.425  -13.546    2.120  DIAGNOSTIC — sans bande
-ROOM-SPEC10: chestL   §12 lateral i=4  w>0.25    |   0.0611   0.0322   0.0289 |  -12.581  -14.933    2.352  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestL   §11 prone        w>0.00    |  -0.2693  -0.1118  -0.1575 |   -4.871   -2.227   -2.643  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestL   §11 prone        w>0.05    |  -0.2970  -0.1231  -0.1739 |   -5.371   -2.453   -2.918  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestL   §11 prone        w>0.25    |  -0.3307  -0.1356  -0.1951 |   -5.932   -2.703   -3.229  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestL   §12 lateral i=2  w>0.00    |   0.0175   0.0412  -0.0237 |    4.302    8.367   -4.066  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestL   §12 lateral i=2  w>0.05    |   0.0193   0.0454  -0.0261 |    4.727    9.215   -4.488  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestL   §12 lateral i=2  w>0.25    |   0.0205   0.0500  -0.0295 |    5.150   10.155   -5.005  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestL   §12 lateral i=4  w>0.00    |   0.0499   0.0265   0.0235 |  -10.328  -12.299    1.971  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestL   §12 lateral i=4  w>0.05    |   0.0551   0.0291   0.0259 |  -11.369  -13.546    2.176  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestL   §12 lateral i=4  w>0.25    |   0.0613   0.0322   0.0291 |  -12.518  -14.933    2.415  DIAGNOSTIC — sans bande
 ROOM-SPEC10: chestL   debout i=0       w>0.00    |   0.0001   0.0002  -0.0000 |    0.021    0.036   -0.015  DIAGNOSTIC — sans bande
 ROOM-SPEC10: chestL   debout i=0       w>0.05    |   0.0002   0.0002  -0.0000 |    0.024    0.040   -0.016  DIAGNOSTIC — sans bande
 ROOM-SPEC10: chestL   debout i=0       w>0.25    |   0.0002   0.0002  -0.0000 |    0.026    0.044   -0.018  DIAGNOSTIC — sans bande
@@ -3458,29 +3458,78 @@ ROOM-SPEC10: chestR     au-dela du seuil la cellule n'est PAS jetee : son effet 
 ROOM-SPEC10: chestR     les bandes de §10 ne portent que sur la cellule SUPINE i=8 (designee par la GRAVITE mesuree) : toute autre ligne est marquee DIAGNOSTIC et ne porte AUCUN verdict.
 ROOM-SPEC10: chestR   cellule          frontiere |  vers thorax (B0)          |  sortant (% W0)
 ROOM-SPEC10: chestR                              |    total   squel.    tens. |    total   squel.    tens.
-ROOM-SPEC10: chestR   §10 supine       w>0.00    |   0.2097   0.1461   0.0636 |   -1.797   -3.836    2.039  CELLULE DU VERDICT
-ROOM-SPEC10: chestR   §10 supine       w>0.05    |   0.2350   0.1636   0.0714 |   -2.008   -4.293    2.286  CELLULE DU VERDICT
-ROOM-SPEC10: chestR   §10 supine       w>0.25    |   0.2719   0.1885   0.0834 |   -2.265   -4.916    2.651  CELLULE DU VERDICT
-ROOM-SPEC10: chestR   vers thorax bande 0.18-0.28 B0     frontieres 0.2097/0.2350/0.2719 -> DANS              raffinement  22.9 % (<=30 % OK)
-ROOM-SPEC10: chestR   vers thorax pire cas du montage (+/- 10.05 % du terme squelettique) : [0.1950 ; 0.2908] -> AU-DESSUS/DANS
+ROOM-SPEC10: chestR   §10 supine       w>0.00    |   0.2084   0.1461   0.0623 |   -1.565   -3.836    2.271  CELLULE DU VERDICT
+ROOM-SPEC10: chestR   §10 supine       w>0.05    |   0.2335   0.1636   0.0699 |   -1.748   -4.293    2.545  CELLULE DU VERDICT
+ROOM-SPEC10: chestR   §10 supine       w>0.25    |   0.2700   0.1885   0.0815 |   -1.964   -4.916    2.952  CELLULE DU VERDICT
+ROOM-SPEC10: chestR   vers thorax bande 0.18-0.28 B0     frontieres 0.2084/0.2335/0.2700 -> DANS              raffinement  22.8 % (<=30 % OK)
+ROOM-SPEC10: chestR   vers thorax pire cas du montage (+/- 10.05 % du terme squelettique) : [0.1937 ; 0.2890] -> AU-DESSUS/DANS
 ROOM-SPEC10: chestR   vers thorax VERDICT DE LA CLAUSE : INDÉTERMINÉE (la frontière ou le montage décide) — ensemble AU-DESSUS/DANS
-ROOM-SPEC10: chestR   sortant     bande 4.00-10.00 % W0   frontieres -1.7971/-2.0076/-2.2652 -> SOUS              raffinement  20.7 % (<=30 % OK)
-ROOM-SPEC10: chestR   sortant     pire cas du montage (+/- 10.05 % du terme squelettique) : [-2.7595 ; -1.4114] -> SOUS
+ROOM-SPEC10: chestR   sortant     bande 4.00-10.00 % W0   frontieres -1.5655/-1.7479/-1.9640 -> SOUS              raffinement  20.3 % (<=30 % OK)
+ROOM-SPEC10: chestR   sortant     pire cas du montage (+/- 10.05 % du terme squelettique) : [-2.4583 ; -1.1798] -> SOUS
 ROOM-SPEC10: chestR   sortant     VERDICT DE LA CLAUSE : SOUS (verdict unique sur les trois frontieres ET sur le pire cas du montage)
-ROOM-SPEC10: chestR   §11 prone        w>0.00    |  -0.1997  -0.0961  -0.1035 |  -10.180   -6.544   -3.636  DIAGNOSTIC — sans bande
-ROOM-SPEC10: chestR   §11 prone        w>0.05    |  -0.2239  -0.1076  -0.1163 |  -11.403   -7.323   -4.081  DIAGNOSTIC — sans bande
-ROOM-SPEC10: chestR   §11 prone        w>0.25    |  -0.2597  -0.1231  -0.1365 |  -13.145   -8.380   -4.764  DIAGNOSTIC — sans bande
-ROOM-SPEC10: chestR   §12 lateral i=2  w>0.00    |   0.0657   0.0385   0.0271 |   -9.867  -12.657    2.790  DIAGNOSTIC — sans bande
-ROOM-SPEC10: chestR   §12 lateral i=2  w>0.05    |   0.0737   0.0432   0.0305 |  -11.039  -14.173    3.134  DIAGNOSTIC — sans bande
-ROOM-SPEC10: chestR   §12 lateral i=2  w>0.25    |   0.0856   0.0497   0.0359 |  -12.612  -16.288    3.675  DIAGNOSTIC — sans bande
-ROOM-SPEC10: chestR   §12 lateral i=4  w>0.00    |  -0.0304   0.0291  -0.0595 |    0.957    3.010   -2.053  DIAGNOSTIC — sans bande
-ROOM-SPEC10: chestR   §12 lateral i=4  w>0.05    |  -0.0343   0.0326  -0.0669 |    1.068    3.367   -2.299  DIAGNOSTIC — sans bande
-ROOM-SPEC10: chestR   §12 lateral i=4  w>0.25    |  -0.0415   0.0372  -0.0787 |    1.193    3.848   -2.655  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestR   §11 prone        w>0.00    |  -0.2030  -0.0961  -0.1069 |  -11.130   -6.544   -4.587  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestR   §11 prone        w>0.05    |  -0.2277  -0.1076  -0.1201 |  -12.471   -7.323   -5.148  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestR   §11 prone        w>0.25    |  -0.2641  -0.1231  -0.1410 |  -14.398   -8.380   -6.017  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestR   §12 lateral i=2  w>0.00    |   0.0656   0.0385   0.0271 |   -9.887  -12.657    2.770  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestR   §12 lateral i=2  w>0.05    |   0.0736   0.0432   0.0304 |  -11.062  -14.173    3.111  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestR   §12 lateral i=2  w>0.25    |   0.0855   0.0497   0.0358 |  -12.640  -16.288    3.648  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestR   §12 lateral i=4  w>0.00    |  -0.0316   0.0291  -0.0608 |    0.491    3.010   -2.519  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestR   §12 lateral i=4  w>0.05    |  -0.0357   0.0326  -0.0683 |    0.545    3.367   -2.823  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestR   §12 lateral i=4  w>0.25    |  -0.0430   0.0372  -0.0803 |    0.578    3.848   -3.270  DIAGNOSTIC — sans bande
 ROOM-SPEC10: chestR   debout i=0       w>0.00    |  -0.0001  -0.0001  -0.0000 |   -0.039   -0.026   -0.013  DIAGNOSTIC — sans bande
 ROOM-SPEC10: chestR   debout i=0       w>0.05    |  -0.0002  -0.0001  -0.0000 |   -0.043   -0.029   -0.014  DIAGNOSTIC — sans bande
 ROOM-SPEC10: chestR   debout i=0       w>0.25    |  -0.0002  -0.0001  -0.0000 |   -0.050   -0.034   -0.017  DIAGNOSTIC — sans bande
 ROOM-SPEC10: chestR   SYNTHESE : vers thorax INDÉTERMINÉE/NON ÉTABLIE · sortant SOUS  —  0 clause(s) DANS la bande sur 1 jugee(s) (2 clauses au total)
 ROOM-SPEC10: VERDICT  NON TENUE  — la clause « sortant » est hors bande de facon robuste (frontieres ET pire cas du montage) sur LES DEUX chaines, chacune contre la bande de la spec et jamais l'une contre l'autre : chestL SOUS · chestR SOUS.
+-- ROOM-SPEC12 : GRAVITE LATERALE — CHAQUE CLAUSE SUR LE SEIN QU'ELLE NOMME -------------
+ROOM-SPEC12: CONTROLE — `D` est symetrique a 0.0316 pres sur les 18 cellules chargees : lire ses LIGNES ou ses COLONNES
+ROOM-SPEC12:   donne le meme chiffre. La question de convention est close par la MESURE.
+ROOM-SPEC12: LE ROLE, DERIVE DE LA GRAVITE MESUREE (`PHYSORI4 r0`) ET DU SORTANT DU RIG — « cote gravite » = dot(g, sortant) > 0 :
+ROOM-SPEC12:   i=2  g_lateral(ancre) = +0.9797  ->  chestL GRAVITE · chestR OPPOSE
+ROOM-SPEC12:   i=4  g_lateral(ancre) = -0.9797  ->  chestL OPPOSE · chestR GRAVITE
+ROOM-SPEC12: CLAUSE l.194 « Upper/opposite breast medial migration: 10–18% W0, nominal 14% W0 » — SEIN OPPOSE SEUL :
+ROOM-SPEC12:   chestL   i=2 GRAVITE    -4.302   -4.727   -5.150   DIAGNOSTIC — la clause ne nomme pas ce sein
+ROOM-SPEC12:   chestL   i=4 OPPOSE     10.328   11.369   12.518   pire cas montage (+/- 2.76 %) [9.989 ; 12.930]  -> INDETERMINEE (DANS/SOUS)
+ROOM-SPEC12:   chestR   i=2 OPPOSE      9.887   11.062   12.640   pire cas montage (+/- 11.10 %) [8.483 ; 14.447]  -> INDETERMINEE (DANS/SOUS)
+ROOM-SPEC12:   chestR   i=4 GRAVITE    -0.491   -0.545   -0.578   DIAGNOSTIC — la clause ne nomme pas ce sein
+ROOM-SPEC12:   (colonnes : frontieres d'organe w>0 / w>=0.05 / w>=0.25)
+ROOM-SPEC12: CLAUSE l.193 « Global lateral COM response: 15–24% B0, nominal 19% » — le mot
+ROOM-SPEC12:   « Global » se lit de TROIS facons et aucune ne se choisit par gout. Les trois sont publiees ;
+ROOM-SPEC12:   le verdict n'est prononce QUE si elles s'accordent, sinon la clause est rendue a l'owner comme
+ROOM-SPEC12:   une QUESTION OUVERTE SUR SA SPEC (DIRECTIVES 2026-08-20 02:50).
+ROOM-SPEC12:   (A) chestL   i=2 lateral +0.0555 +0.0609 +0.0664 B0 -> SOUS   ·   (C) norme  0.0762  0.0839  0.0917 B0 -> SOUS
+ROOM-SPEC12:   (A) chestL   i=4 lateral -0.1331 -0.1466 -0.1614 B0 -> DANS/SOUS   ·   (C) norme  0.1481  0.1631  0.1799 B0 -> DANS/SOUS
+ROOM-SPEC12:   (A) chestR   i=2 lateral -0.1275 -0.1426 -0.1629 B0 -> DANS/SOUS   ·   (C) norme  0.1457  0.1631  0.1870 B0 -> DANS/SOUS
+ROOM-SPEC12:   (A) chestR   i=4 lateral +0.0063 +0.0070 +0.0075 B0 -> SOUS   ·   (C) norme  0.0422  0.0474  0.0560 B0 -> SOUS
+ROOM-SPEC12:   (B) pole i=2 moyenne des deux seins +0.0915 +0.1018 +0.1147 B0 -> SOUS
+ROOM-SPEC12:   (B) pole i=4 moyenne des deux seins -0.0697 -0.0768 -0.0844 B0 -> SOUS
+ROOM-SPEC12:   les trois lectures reunies rendent {DANS, SOUS} -> AUCUN VERDICT : la clause depend de la lecture de « Global ». QUESTION OUVERTE.
+ROOM-SPEC12: CLAUSE l.195 « Gravity-side lateral flattening: -15 to -25%, nominal -20% » -> bande 0.75-0.85, SEIN DU COTE GRAVITE SEUL.
+ROOM-SPEC12: ET LE TABLEAU DES ECHELLES DE §10/§11/§12, DEUX FOIS : sur la RANGEE BRUTE de l'ancre (ce que
+ROOM-SPEC12:   l'instrument lisait) et sur le TRIEDRE DE §7 MESURE sur le rig (ce que la spec DEFINIT). `dfa`
+ROOM-SPEC12:   est l'equilibre d'orientation seul, `complet` le produit dfa x dfb x dfc que la PEAU recoit.
+ROOM-SPEC12:   chestL                                        dfa verdict     rangee verdict         §7 verdict     cible bande
+ROOM-SPEC12:   chestL   §10 supine projection             0.7440 DANS        0.8137 AU-DESSUS   0.8714 AU-DESSUS   0.70 0.65-0.75
+ROOM-SPEC12:   chestL   §10 supine largeur                1.2275 DANS        1.2012 DANS        1.2012 DANS        1.23 1.18-1.28
+ROOM-SPEC12:   chestL   §10 supine hauteur                1.0948 DANS        1.0508 DANS        1.0035 SOUS        1.09 1.05-1.12  <<< L'AXE CHANGE LE VERDICT
+ROOM-SPEC12:   chestL   §11 prone longueur                1.2195 DANS        1.3376 AU-DESSUS   1.3053 AU-DESSUS   1.23 1.18-1.26
+ROOM-SPEC12:   chestL   §11 prone largeur                 0.8912 DANS        0.8530 SOUS        0.8530 SOUS        0.90 0.87-0.93
+ROOM-SPEC12:   chestL   §11 prone epaisseur               0.9199 DANS        0.8800 SOUS        0.9272 DANS        0.91 0.88-0.94  <<< L'AXE CHANGE LE VERDICT
+ROOM-SPEC12:   chestL   §12 lateral i=2 aplatissement     0.8240 DANS        0.9064 AU-DESSUS   0.9064 AU-DESSUS   0.80 0.75-0.85
+ROOM-SPEC12:   chestL   §12 lateral i=4 aplatissement     0.9911 AU-DESSUS   1.0908 AU-DESSUS   1.0908 AU-DESSUS   0.80 0.75-0.85  DIAGNOSTIC — la clause ne nomme pas ce sein
+ROOM-SPEC12:   chestR                                        dfa verdict     rangee verdict         §7 verdict     cible bande
+ROOM-SPEC12:   chestR   §10 supine projection             0.7582 AU-DESSUS   0.7900 AU-DESSUS   0.8777 AU-DESSUS   0.70 0.65-0.75
+ROOM-SPEC12:   chestR   §10 supine largeur                1.2059 DANS        1.2110 DANS        1.2110 DANS        1.23 1.18-1.28
+ROOM-SPEC12:   chestR   §10 supine hauteur                1.0935 DANS        1.1105 DANS        1.0426 SOUS        1.09 1.05-1.12  <<< L'AXE CHANGE LE VERDICT
+ROOM-SPEC12:   chestR   §11 prone longueur                1.2125 DANS        1.2827 AU-DESSUS   1.2441 DANS        1.23 1.18-1.26  <<< L'AXE CHANGE LE VERDICT
+ROOM-SPEC12:   chestR   §11 prone largeur                 0.9034 DANS        0.9096 DANS        0.9096 DANS        0.90 0.87-0.93
+ROOM-SPEC12:   chestR   §11 prone epaisseur               0.9128 DANS        0.8767 SOUS        0.9306 DANS        0.91 0.88-0.94  <<< L'AXE CHANGE LE VERDICT
+ROOM-SPEC12:   chestR   §12 lateral i=2 aplatissement     1.0094 AU-DESSUS   1.1020 AU-DESSUS   1.1020 AU-DESSUS   0.80 0.75-0.85  DIAGNOSTIC — la clause ne nomme pas ce sein
+ROOM-SPEC12:   chestR   §12 lateral i=4 aplatissement     0.8054 DANS        0.8429 DANS        0.8429 DANS        0.80 0.75-0.85
+ROOM-SPEC12:   5 cellule(s) sur 16 changent de verdict entre la rangee d'ancre et le triedre de §7 (12,3 deg d'ecart).
+ROOM-SPEC12:   Le verdict retenu est celui du TRIEDRE DE §7 : c'est l'axe que la spec DEFINIT, l'autre est un axe de rig.
+ROOM-SPEC12: VERDICT  PARTIELLE  — medial : chestL INDET., chestR INDET. · flattening : chestL AU-DESSUS, chestR DANS
+
 -- ROOM-ORICTL : LE REDRESSEMENT, ET SES TROIS SUSPECTS DESARMES TOUR A TOUR -------------
    NATURE : le meme deplacement soutenu que `ROOM-ORICOM`, mesure sur la meme fenetre par
      le meme emetteur, une fois par passe. REPERE : triedre de SPEC 7. Le rapport compare
@@ -3943,7 +3992,7 @@ ROOM-ASYM-VERROU: 3 ligne(s) publient une comparaison gauche/droite SANS porter 
    !  ROOM-REGBONE-BILAN: sinY median  chestL 0.2409   chestR 0.5643   (bind 0.3938)
    !  ROOM-REGBONE-MIROIR: pire ecart au miroir de la POSE = 105.85 deg (r=14), seuil declare 1.30 deg
    !     separation chestL - chestR = (-1.21, -0.23, +758.09) u   norme 758.09 u = 18.5 cm
-ROOM-ASYM-EXEMPT: 11 ligne(s) exemptees (elles n'affirment aucune asymetrie du personnage)
+ROOM-ASYM-EXEMPT: 14 ligne(s) exemptees (elles n'affirment aucune asymetrie du personnage)
    -  -- LE PILOTAGE (SPEC 6 : haut/bas, gauche/droite, diverses accelerations, a-coups) ---------
    -     (debout, la meme gravite effective vaut : chestL=0.0001 chestR=0.0001)
    -        part simulee : 0.9402 (chestL) / 0.9549 (chestR) -> plafond d'ancrage x1.06
@@ -3954,4 +4003,7 @@ ROOM-ASYM-EXEMPT: 11 ligne(s) exemptees (elles n'affirment aucune asymetrie du p
    -  ROOM-REGA: pose a=0 f=6.2500, ecart au miroir revalide = 0.52 deg ; axe pris sur le SUJET
    -  ROOM-SPEC10:   spec, SEULE ; aucun ecart chestL/chestR n'est interprete ici (DIRECTIVES 2026-08-21 01:20).
    -  ROOM-SPEC10: VERDICT  NON TENUE  — la clause « sortant » est hors bande de facon robuste (frontieres ET pire cas du montage) sur LES DEUX ch
+   -  ROOM-SPEC12:   i=2  g_lateral(ancre) = +0.9797  ->  chestL GRAVITE · chestR OPPOSE
+   -  ROOM-SPEC12:   i=4  g_lateral(ancre) = -0.9797  ->  chestL OPPOSE · chestR GRAVITE
+   -  ROOM-SPEC12: VERDICT  PARTIELLE  — medial : chestL INDET., chestR INDET. · flattening : chestL AU-DESSUS, chestR DANS
    -        ROOM-SYM-RESOLU: 2 cellule(s) sur 8 ou l'ecart gauche/droite DEPASSE sa ligne de base, dont 0 dans une pose ADMISSIBLE (<= 1.3 deg du 

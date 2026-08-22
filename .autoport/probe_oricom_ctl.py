@@ -105,7 +105,12 @@ def com(D, ldb, g, c, k, i, cut):
     d0 = ldb[(c, k, i, 0)]
     d1 = d0 + ldb[(c, k, i, 1)]
     sk = (gg['W'][0] * d0 + gg['W'][1] * d1) / gg['n']
-    tn = (D[(c, k, i)] - np.eye(3)) @ gg['L'] / gg['n']
+    # CONVENTION DU MOTEUR : `jak-hd-physics.gc:3922` applique l'offset en VECTEUR-LIGNE
+    # (`r_j = SOMME_i o_i . bm[i][j]`) et le tenseur multiplie A DROITE (`matrix*! tmp bm dfm`).
+    # La contribution tensorielle est donc `L . (D - I)`, PAS `(D - I) . L`. `D` est symetrique
+    # a 0.032 pres (controle de `ROOM-SPEC12`), donc l'ecart vaut ~0.5 % — on prend quand meme
+    # la convention du moteur, pour que sonde et tableau ne divergent jamais.
+    tn = gg['L'] @ (D[(c, k, i)] - np.eye(3)) / gg['n']
     return float(np.linalg.norm(sk + tn) / B0)
 
 

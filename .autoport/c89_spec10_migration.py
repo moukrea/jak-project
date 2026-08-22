@@ -215,7 +215,12 @@ def main():
                 d0 = d['ldb'][(c, i, 0)]
                 d1 = d0 + d['ldb'][(c, i, 1)]
                 sk = (gc['W'][0] * d0 + gc['W'][1] * d1) / gc['n']
-                tn = (D - np.eye(3)) @ gc['L'] / gc['n']
+                # CONVENTION DU MOTEUR : `jak-hd-physics.gc:3922` applique l'offset en VECTEUR-LIGNE
+                # (`r_j = SOMME_i o_i . bm[i][j]`) et le tenseur multiplie A DROITE (`matrix*! tmp bm dfm`).
+                # La contribution tensorielle est donc `L . (D - I)`, PAS `(D - I) . L`. `D` est symetrique
+                # a 0.032 pres (controle de `ROOM-SPEC12`), donc l'ecart vaut ~0.5 % — on prend quand meme
+                # la convention du moteur, pour que sonde et tableau ne divergent jamais.
+                tn = gc['L'] @ (D - np.eye(3)) / gc['n']
                 row.append(dict(
                     th=(float((sk + tn) @ thx) / B0, float(sk @ thx) / B0, float(tn @ thx) / B0),
                     ou=(float((sk + tn) @ x) / w0[c][cut] * 100.0,

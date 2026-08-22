@@ -133,7 +133,15 @@ def main():
         zf = anch(V[selz].mean(axis=0) - P[idx[0]])
         zf = zf - float(zf @ xo) * xo
         zf = zf / np.linalg.norm(zf)
-        yu = np.cross(zf, xo)
+        # SEUL `+X` EST MIROITE. Sa §7 l.130-131 ecrit « for the left and right breasts, outward
+        # +X should be MIRRORED » — et RIEN d'autre : `+Y = upward along torso` et
+        # `+Z = forward from chest` sont communs aux deux seins. Construire `+Y = +Z x +X` avec un
+        # `+X` miroite le retourne d'une chaine a l'autre (mesure : 167.7 deg entre les deux `up`),
+        # ce qui est faux des qu'on s'en sert pour autre chose qu'une ECHELLE (une norme est
+        # aveugle au signe, une projection ne l'est pas — [[feedback_directional_clause_read_as_a_norm]]).
+        # `+Y` se construit donc sur un `+X` COMMUN, celui de chestR, et il sort identique des
+        # deux cotes.
+        yu = np.cross(zf, OUTW['chestR'])
         rec['axes'] = {'out': [float(v) for v in xo], 'up': [float(v) for v in yu],
                        'fwd': [float(v) for v in zf]}
         print('PROBE-COM-MASS: %-8s +X=[%+.5f %+.5f %+.5f] +Y=[%+.5f %+.5f %+.5f]'

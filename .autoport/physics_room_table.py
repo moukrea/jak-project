@@ -2029,6 +2029,7 @@ def _oricom_block(A, txt, names, ori):
         A('')
     _oricom_mass_block(A, txt, names, com, com2, role, axis, b0)
     _spec10_block(A, txt, names, com, role, b0, _roles)
+    _spec12_block(A, txt, names, com, b0)
     _orictl_block(A, txt, names, ori, axis, b0, _roles)
 
 
@@ -2646,8 +2647,17 @@ def _spec10_block(A, txt, names, com, role, b0, roles=None):
             for d in rec['defs']:
                 W, n, L, w0 = d['W'], float(d['n']), d['L'], float(d['W0'])
                 sk = [(W[0] * d0[k] + W[1] * d1[k]) / n for k in range(3)]
-                tn = [sum((D[r][k] - (1.0 if r == k else 0.0)) * L[k] for k in range(3)) / n
-                      for r in range(3)]
+                # LA CONVENTION EST CELLE DU MOTEUR, ET ELLE SE LIT DANS LE MOTEUR.
+                # `jak-hd-physics.gc:3922` applique l'offset en VECTEUR-LIGNE :
+                # `r_j = SOMME_i o_i . bm[i][j]`, et le tenseur multiplie A DROITE
+                # (`matrix*! tmp bm dfm`). La contribution tensorielle est donc `L . (D - I)`,
+                # composante j = SOMME_i L_i (D[i][j] - delta_ij) — pas `(D - I) . L`.
+                # `D` est symetrique a 0.032 pres (controle de `ROOM-SPEC12`), donc l'ecart entre
+                # les deux conventions vaut ~0.5 % ici et ne deplace aucun verdict ; on prend
+                # quand meme celle du moteur, parce que deux blocs du MEME tableau qui emploient
+                # des conventions OPPOSEES est exactement ce qui se paie plus tard.
+                tn = [sum((D[i][j] - (1.0 if i == j else 0.0)) * L[i] for i in range(3)) / n
+                      for j in range(3)]
                 v = [sk[k] + tn[k] for k in range(3)]
                 dot = lambda a, b: sum(a[k] * b[k] for k in range(3))
                 row.append(dict(cut=d['cut'],
@@ -2734,6 +2744,314 @@ def _spec10_block(A, txt, names, com, role, b0, roles=None):
         A('ROOM-SPEC10: VERDICT  NON ETABLI  — aucune clause jugee n\'est DANS la bande sur une'
           ' chaine entiere, et aucune n\'est hors bande sur les deux : la regle du registre ne'
           ' tranche pas ce couple de mesures.')
+
+
+# ------------------------------------------------------------------------------------------------
+_SPEC12_SHAPE = (
+    # (etiquette, orientation, axe du triedre de §7, index de rangee d'ancre, cible, lo, hi)
+    ('§10 supine projection', 8, 'fwd', 2, 0.70, 0.65, 0.75),
+    ('§10 supine largeur',    8, 'out', 0, 1.23, 1.18, 1.28),
+    ('§10 supine hauteur',    8, 'up',  1, 1.09, 1.05, 1.12),
+    ('§11 prone longueur',    6, 'fwd', 2, 1.23, 1.18, 1.26),
+    ('§11 prone largeur',     6, 'out', 0, 0.90, 0.87, 0.93),
+    ('§11 prone epaisseur',   6, 'up',  1, 0.91, 0.88, 0.94),
+    ('§12 lateral i=2 aplatissement', 2, 'out', 0, 0.80, 0.75, 0.85),
+    ('§12 lateral i=4 aplatissement', 4, 'out', 0, 0.80, 0.75, 0.85),
+)
+
+
+def _spec12_block(A, txt, names, com, b0):
+    """SPEC 12 — CHAQUE CLAUSE SUR LE SEIN QU'ELLE NOMME, ET SUR L'AXE QUE §7 DEFINIT.
+
+    DEUX DEFAUTS D'INSTRUMENT SONT CORRIGES ICI, ET ILS SONT DE LA MEME FAMILLE : on lisait la
+    bonne grandeur au mauvais endroit.
+
+    (1) LE SEIN. La premiere phrase de sa §12 (l.188-189) est une clause, pas une introduction :
+        « The breasts shall not behave identically. The **gravity-side** breast experiences
+          stronger thoracic compression, while the **opposite** breast migrates across the chest. »
+        Deux de ses trois lignes chiffrees ne s'appliquent donc PAS aux deux seins :
+        « **Upper/opposite** breast medial migration: 10-18% W0 » ne concerne que le sein du HAUT,
+        « **Gravity-side** lateral flattening: -15 to -25% » que celui du BAS. L'instrument les
+        lisait sur LES DEUX chaines et aux DEUX poles — quatre cellules la ou la spec en designe
+        une par pole. Un verdict pris sur une cellule que la clause n'adresse pas ne vaut rien,
+        dans un sens comme dans l'autre.
+        LE ROLE EST DERIVE DE LA GRAVITE MESUREE : `PHYSORI4 r0` est la gravite sur la ligne
+        laterale de l'ancre, le sortant vient du rig livre, et « cote gravite » est
+        `dot(g, sortant) > 0`. Aucune etiquette, aucune constante.
+
+    (2) L'AXE. Les echelles de forme etaient lues sur les RANGEES BRUTES de la base d'ancre. Sa
+        §7 l.126-134 DEFINIT le triedre autrement (« +X outward lateral, +Y upward along torso,
+        +Z forward from chest ») et le rig livre le place a **12,3 deg** des rangees d'ancre sur
+        `up` et `fwd`. « Un axe de mesure qui n'est pas celui que la spec DEFINIT est un axe faux,
+        meme s'il est geometriquement raisonnable » (DIRECTIVES 2026-08-20 07:20). Les deux
+        lectures sont publiees cote a cote et les cellules qui CHANGENT de verdict sont marquees :
+        ce n'est pas un detail, c'est 5 cellules sur 16.
+
+    CE QUI NE CHANGE RIEN, ET C'EST UN CONTROLE, PAS UNE OMISSION. `D` est SYMETRIQUE a 0,032
+    pres sur les 10 cellules chargees : lire ses LIGNES ou ses COLONNES donne le meme chiffre a
+    0,007 pres. La question « ligne ou colonne » est donc close par la mesure, pas par une
+    convention. Et `det(D) = 1.00000` sur les 10 : sa §8 (98-101 % du volume neutre) est exacte
+    par construction dans ce tenseur — les echelles hors bande sont des REDISTRIBUTIONS, jamais
+    un gonflement.
+
+    LES TROIS QUESTIONS (SPEC 7) :
+      NATURE : des RAPPORTS D'ECHELLE sans unite (|u . D|), et une LONGUEUR SIGNEE en % W0 pour la
+               migration mediale. Pas des normes sur des clauses directionnelles.
+      REPERE : la base de l'ANCRE pour `D`, le triedre de §7 MESURE sur le rig pour les axes.
+      LECTURE HORS DEFAUT : a i=0 (debout) `D` est l'identite et les trois echelles valent 1.
+    """
+    import json as _json
+    g4 = {}
+    for m in re.finditer(r'^PHYSORI4 c=(\d+) i=(\d+) r0=([-\d.e+]+) r1=([-\d.e+]+)'
+                         r' r2=([-\d.e+]+)', txt, re.M):
+        g4[(int(m.group(1)), int(m.group(2)))] = (float(m.group(3)), float(m.group(4)),
+                                                  float(m.group(5)))
+    ldb = {}
+    for m in re.finditer(r'^PHYSORICOML c=(\d+) i=(\d+) l=(\d+) dv=([-\d.e+]+)'
+                         r' dap=([-\d.e+]+) dlat=([-\d.e+]+)', txt, re.M):
+        ldb[(int(m.group(1)), int(m.group(2)), int(m.group(3)))] = (
+            float(m.group(6)), float(m.group(4)), float(m.group(5)))     # (dlat, dv, dap)
+    _rw = {}
+    for m in re.finditer(r'^PHYSDFMA c=(\d+) i=(\d+) r=(\d+) m0=([-\d.e+]+)'
+                         r' m1=([-\d.e+]+) m2=([-\d.e+]+)', txt, re.M):
+        _rw.setdefault((int(m.group(1)), int(m.group(2))), {})[int(m.group(3))] = (
+            float(m.group(4)), float(m.group(5)), float(m.group(6)))
+    dfma = {k: [v[0], v[1], v[2]] for k, v in _rw.items() if len(v) == 3}
+    sca = {}
+    for m in re.finditer(r'^PHYSORI2 c=(\d+) i=(\d+) sx=([-\d.e+]+) sy=([-\d.e+]+)'
+                         r' sz=([-\d.e+]+) det=([-\d.e+]+)', txt, re.M):
+        sca[(int(m.group(1)), int(m.group(2)))] = (float(m.group(3)), float(m.group(4)),
+                                                   float(m.group(5)))
+
+    A('-- ROOM-SPEC12 : GRAVITE LATERALE — CHAQUE CLAUSE SUR LE SEIN QU\'ELLE NOMME -------------')
+    if not (g4 and ldb and dfma):
+        A('ROOM-SPEC12: SUSPENDU — il manque `PHYSORI4`, `PHYSORICOML` ou `PHYSDFMA` : le role ou'
+          ' la deformation ne sont pas mesures. Aucun chiffre.')
+        A('')
+        return
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), _COM_MASS_JSON)
+    try:
+        mass = _json.load(open(path))
+    except Exception as e:
+        A('ROOM-SPEC12: SUSPENDU — la repartition de masse est ABSENTE (%s).' % e)
+        A('')
+        return
+    _msrc, _mt, _msz = mass.get('source'), mass.get('source_mtime'), mass.get('source_size')
+    _mp = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), _msrc or '')
+    if (not _msrc or not os.path.exists(_mp) or _mt is None or _msz is None
+            or abs(os.stat(_mp).st_mtime - float(_mt)) > 1.0
+            or os.stat(_mp).st_size != int(_msz)):
+        A('ROOM-SPEC12: SUSPENDU — instantane de masse PERIME ou incomplet : les axes de §7 et `W0`'
+          ' en viennent. Relancer `probe_breast_com_mass.py`.')
+        A('')
+        return
+    chains = sorted({c for (c, _i) in dfma})
+    AX, W0, DEF = {}, {}, {}
+    for c in chains:
+        nm = names[c] if c < len(names) else 'c%d' % c
+        rec = (mass.get('chains') or {}).get(nm)
+        if not rec or 'axes' not in rec:
+            A('ROOM-SPEC12: SUSPENDU — %s n\'a pas de triedre `axes` dans l\'instantane.' % nm)
+            A('')
+            return
+        AX[c] = {k: [float(x) for x in rec['axes'][k]] for k in ('out', 'up', 'fwd')}
+        DEF[c] = rec['defs']
+        W0[c] = {d['cut']: float(d['W0']) for d in rec['defs'] if 'W0' in d}
+        if not W0[c]:
+            A('ROOM-SPEC12: SUSPENDU — `W0` absente de l\'instantane pour %s.' % nm)
+            A('')
+            return
+
+    def _dot(a, b):
+        return sum(a[k] * b[k] for k in range(3))
+
+    def _rowD(D, u):
+        # |u . D| — l'echelle d'extension le long de `u`. `D` est symetrique a 0.032 pres
+        # (controle publie ci-dessous), donc lignes et colonnes donnent le meme chiffre.
+        return math.sqrt(sum(sum(u[i] * D[i][j] for i in range(3)) ** 2 for j in range(3)))
+
+    def _vecCOM(c, i, cut):
+        gc = next(d for d in DEF[c] if d['cut'] == cut)
+        W, N, L, D = gc['W'], float(gc['n']), gc['L'], dfma[(c, i)]
+        d0 = ldb[(c, i, 0)]
+        d1 = tuple(d0[k] + ldb[(c, i, 1)][k] for k in range(3))
+        sk = [(W[0] * d0[k] + W[1] * d1[k]) / N for k in range(3)]
+        tn = [sum((D[k][j] - (1.0 if k == j else 0.0)) * L[k] for k in range(3)) / N
+              for j in range(3)]
+        return [sk[k] + tn[k] for k in range(3)], sk
+
+    def _band(v, lo, hi):
+        return 'SOUS' if v < lo else ('DANS' if v <= hi else 'AU-DESSUS')
+
+    # ---- LE CONTROLE DE SYMETRIE DE `D` : il clot la question « ligne ou colonne » -------------
+    _as = max((max(abs(dfma[k][i][j] - dfma[k][j][i]) for i in range(3) for j in range(3))
+               for k in dfma), default=0.0)
+    A('ROOM-SPEC12: CONTROLE — `D` est symetrique a %.4f pres sur les %d cellules chargees : lire'
+      ' ses LIGNES ou ses COLONNES' % (_as, len(dfma)))
+    A('ROOM-SPEC12:   donne le meme chiffre. La question de convention est close par la MESURE.')
+
+    # ---- LE ROLE, DERIVE DE LA GRAVITE MESUREE -------------------------------------------------
+    POLES = [i for i in (2, 4) if all((c, i) in dfma for c in chains)]
+    role = {}
+    A('ROOM-SPEC12: LE ROLE, DERIVE DE LA GRAVITE MESUREE (`PHYSORI4 r0`) ET DU SORTANT DU RIG —'
+      ' « cote gravite » = dot(g, sortant) > 0 :')
+    for i in POLES:
+        _lab = []
+        for c in chains:
+            gl = g4.get((c, i), (0.0, 0.0, 0.0))[0]
+            role[(c, i)] = 'GRAVITE' if gl * AX[c]['out'][0] > 0 else 'OPPOSE'
+            _lab.append('%s %s' % (names[c] if c < len(names) else 'c%d' % c, role[(c, i)]))
+        # `notasym=True` : la ligne NOMME les deux chaines pour publier leur ROLE, qui est une
+        # propriete de la POSE (quel sein est en bas), pas un ecart entre les deux seins.
+        A('ROOM-SPEC12:   i=%d  g_lateral(ancre) = %+.4f  ->  %s'
+          % (i, g4.get((chains[0], i), (0.0,))[0], ' · '.join(_lab)), notasym=True)
+
+    # ---- CLAUSE « Upper/opposite breast medial migration: 10-18% W0 » --------------------------
+    A('ROOM-SPEC12: CLAUSE l.194 « Upper/opposite breast medial migration: 10–18% W0, nominal'
+      ' 14% W0 » — SEIN OPPOSE SEUL :')
+    med = {}
+    for c in chains:
+        nm = names[c] if c < len(names) else 'c%d' % c
+        for i in POLES:
+            vals, sks = [], []
+            for cut in sorted(W0[c]):
+                v, sk = _vecCOM(c, i, cut)
+                vals.append(-_dot(v, AX[c]['out']) / W0[c][cut] * 100.0)
+                sks.append(-_dot(sk, AX[c]['out']) / W0[c][cut] * 100.0)
+            if role[(c, i)] != 'OPPOSE':
+                A('ROOM-SPEC12:   %-8s i=%d %-8s %s   DIAGNOSTIC — la clause ne nomme pas ce sein'
+                  % (nm, i, role[(c, i)], ' '.join('%8.3f' % v for v in vals)))
+                continue
+            # borne du montage : elle ne porte que sur le terme SQUELETTIQUE (meme regle que §10)
+            e = _tipctl_pct(ldb, com, c, i) / 100.0
+            lo_b = min(v - e * abs(s) for v, s in zip(vals, sks))
+            hi_b = max(v + e * abs(s) for v, s in zip(vals, sks))
+            vd = sorted({_band(v, 10.0, 18.0) for v in vals}
+                        | {_band(lo_b, 10.0, 18.0), _band(hi_b, 10.0, 18.0)})
+            med[c] = vd[0] if len(vd) == 1 else None
+            A('ROOM-SPEC12:   %-8s i=%d %-8s %s   pire cas montage (+/- %.2f %%) [%.3f ; %.3f]'
+              '  -> %s' % (nm, i, role[(c, i)], ' '.join('%8.3f' % v for v in vals),
+                           e * 100.0, lo_b, hi_b,
+                           vd[0] if len(vd) == 1 else 'INDETERMINEE (%s)' % '/'.join(vd)))
+    A('ROOM-SPEC12:   (colonnes : frontieres d\'organe w>0 / w>=0.05 / w>=0.25)')
+
+    # ---- CLAUSE « Global lateral COM response: 15-24% B0 » — TROIS LECTURES --------------------
+    A('ROOM-SPEC12: CLAUSE l.193 « Global lateral COM response: 15–24% B0, nominal 19% » — le mot')
+    A('ROOM-SPEC12:   « Global » se lit de TROIS facons et aucune ne se choisit par gout. Les'
+      ' trois sont publiees ;')
+    A('ROOM-SPEC12:   le verdict n\'est prononce QUE si elles s\'accordent, sinon la clause est'
+      ' rendue a l\'owner comme')
+    A('ROOM-SPEC12:   une QUESTION OUVERTE SUR SA SPEC (DIRECTIVES 2026-08-20 02:50).')
+    glob = set()
+    for c in chains:
+        nm = names[c] if c < len(names) else 'c%d' % c
+        for i in POLES:
+            va, vn = [], []
+            for cut in sorted(W0[c]):
+                v, _s = _vecCOM(c, i, cut)
+                va.append(_dot(v, AX[c]['out']) / b0.get(c, 602.0))
+                vn.append(math.sqrt(sum(x * x for x in v)) / b0.get(c, 602.0))
+            glob |= {_band(abs(x), 0.15, 0.24) for x in va}
+            glob |= {_band(x, 0.15, 0.24) for x in vn}
+            A('ROOM-SPEC12:   (A) %-8s i=%d lateral %s B0 -> %s   ·   (C) norme %s B0 -> %s'
+              % (nm, i, ' '.join('%+7.4f' % x for x in va),
+                 '/'.join(sorted({_band(abs(x), 0.15, 0.24) for x in va})),
+                 ' '.join('%7.4f' % x for x in vn),
+                 '/'.join(sorted({_band(x, 0.15, 0.24) for x in vn}))))
+    if len(chains) >= 2:
+        for i in POLES:
+            vb = []
+            for cut in sorted(W0[chains[0]]):
+                v0, _ = _vecCOM(chains[0], i, cut)
+                v1, _ = _vecCOM(chains[1], i, cut)
+                # les deux sortants sont opposes : on les ramene sur le MEME axe avant de moyenner
+                vb.append((_dot(v0, AX[chains[0]]['out']) - _dot(v1, AX[chains[1]]['out']))
+                          / 2.0 / b0.get(chains[0], 602.0))
+            glob |= {_band(abs(x), 0.15, 0.24) for x in vb}
+            A('ROOM-SPEC12:   (B) pole i=%d moyenne des deux seins %s B0 -> %s'
+              % (i, ' '.join('%+7.4f' % x for x in vb),
+                 '/'.join(sorted({_band(abs(x), 0.15, 0.24) for x in vb}))))
+    A('ROOM-SPEC12:   les trois lectures reunies rendent {%s} -> %s'
+      % (', '.join(sorted(glob)),
+         'VERDICT %s' % sorted(glob)[0] if len(glob) == 1 else
+         'AUCUN VERDICT : la clause depend de la lecture de « Global ». QUESTION OUVERTE.'))
+
+    # ---- CLAUSE « Gravity-side lateral flattening » + LE TABLEAU DES ECHELLES ------------------
+    A('ROOM-SPEC12: CLAUSE l.195 « Gravity-side lateral flattening: -15 to -25%, nominal -20% »'
+      ' -> bande 0.75-0.85, SEIN DU COTE GRAVITE SEUL.')
+    A('ROOM-SPEC12: ET LE TABLEAU DES ECHELLES DE §10/§11/§12, DEUX FOIS : sur la RANGEE BRUTE de'
+      ' l\'ancre (ce que')
+    A('ROOM-SPEC12:   l\'instrument lisait) et sur le TRIEDRE DE §7 MESURE sur le rig (ce que la'
+      ' spec DEFINIT). `dfa`')
+    A('ROOM-SPEC12:   est l\'equilibre d\'orientation seul, `complet` le produit dfa x dfb x dfc'
+      ' que la PEAU recoit.')
+    flat, nflip = {}, 0
+    for c in chains:
+        nm = names[c] if c < len(names) else 'c%d' % c
+        A('ROOM-SPEC12:   %-8s %-32s %7s %-10s %7s %-10s %7s %-10s  cible bande'
+          % (nm, '', 'dfa', 'verdict', 'rangee', 'verdict', '§7', 'verdict'))
+        for lab, i, key, k, tgt, lo, hi in _SPEC12_SHAPE:
+            if (c, i) not in dfma:
+                continue
+            D = dfma[(c, i)]
+            sv = sca.get((c, i), (float('nan'),) * 3)[k]
+            raw = math.sqrt(sum(D[k][j] ** 2 for j in range(3)))
+            sp = _rowD(D, AX[c][key])
+            _fl = _band(raw, lo, hi) != _band(sp, lo, hi)
+            nflip += 1 if _fl else 0
+            _own = ''
+            if lab.startswith('§12'):
+                _own = ('' if role.get((c, i)) == 'GRAVITE'
+                        else '  DIAGNOSTIC — la clause ne nomme pas ce sein')
+                if role.get((c, i)) == 'GRAVITE':
+                    flat[c] = _band(sp, lo, hi)
+            A('ROOM-SPEC12:   %-8s %-32s %7.4f %-10s %7.4f %-10s %7.4f %-10s  %.2f %.2f-%.2f%s%s'
+              % (nm, lab, sv, _band(sv, lo, hi), raw, _band(raw, lo, hi), sp, _band(sp, lo, hi),
+                 tgt, lo, hi, '  <<< L\'AXE CHANGE LE VERDICT' if _fl else '', _own))
+    A('ROOM-SPEC12:   %d cellule(s) sur %d changent de verdict entre la rangee d\'ancre et le'
+      ' triedre de §7 (12,3 deg d\'ecart).' % (nflip, len(_SPEC12_SHAPE) * len(chains)))
+    A('ROOM-SPEC12:   Le verdict retenu est celui du TRIEDRE DE §7 : c\'est l\'axe que la spec'
+      ' DEFINIT, l\'autre est un axe de rig.')
+
+    # ---- LE VERDICT DE REGISTRE ----------------------------------------------------------------
+    _cl = {'medial': med, 'flattening': flat}
+    _in = [k for k, v in _cl.items()
+           if len(chains) >= 2 and all(v.get(c) == 'DANS' for c in chains)]
+    _out = [k for k, v in _cl.items()
+            if len(chains) >= 2 and all(v.get(c) not in (None, 'DANS') for c in chains)]
+    if _out:
+        A('ROOM-SPEC12: VERDICT  NON TENUE  — la clause « %s » est hors bande sur les deux seins,'
+          ' chacun contre la bande de la spec et jamais l\'un contre l\'autre.' % _out[0],
+          notasym=True)
+    elif len(_in) == len(_cl):
+        A('ROOM-SPEC12: VERDICT  TENUE  — les deux clauses adressees sont DANS la bande sur le'
+          ' sein que chacune nomme.')
+    elif _in or any(v.get(c) == 'DANS' for v in _cl.values() for c in chains):
+        A('ROOM-SPEC12: VERDICT  PARTIELLE  — %s'
+          % ' · '.join('%s : %s' % (k, ', '.join('%s %s' % (names[c] if c < len(names)
+                                                            else 'c%d' % c, v.get(c) or 'INDET.')
+                                                 for c in chains))
+                       for k, v in _cl.items()), notasym=True)
+    else:
+        A('ROOM-SPEC12: VERDICT  NON ETABLI  — aucune clause adressee ne rend un verdict unique.')
+    A('')
+
+
+def _tipctl_pct(ldb, com, c, i):
+    """L'ECART DE MONTAGE DE LA POINTE, EN VECTEUR, A CETTE ORIENTATION (cycle 64b, seuil 5 %).
+
+    Meme grandeur et meme convention que dans `_spec10_block` : la somme TELESCOPIQUE des
+    increments `PHYSORICOML` contre `t` de `PHYSORICOM`, deux accumulateurs independants qui
+    mesurent LA MEME chose. i=0 en est exclu ailleurs (deux quasi-zeros ne font pas un rapport) ;
+    ici la fonction n'est appelee que sur les poles lateraux."""
+    if (c, i, 0) not in ldb or (c, i, 1) not in ldb or (c, i) not in com:
+        return 0.0
+    s_ = [ldb[(c, i, 0)][k] + ldb[(c, i, 1)][k] for k in range(3)]
+    t_ = list(com[(c, i)])
+    den = max(math.sqrt(sum(x * x for x in s_)), math.sqrt(sum(x * x for x in t_)))
+    if den <= 1e-9:
+        return 0.0
+    return 100.0 * math.sqrt(sum((s_[k] - t_[k]) ** 2 for k in range(3))) / den
 
 
 def _orictl_block(A, txt, names, ori, axis, b0, roles=None):

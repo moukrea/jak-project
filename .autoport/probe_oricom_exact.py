@@ -320,7 +320,12 @@ def main():
                 d0 = d['ldb'][(c, i, 0)]
                 d1 = d0 + d['ldb'][(c, i, 1)]
                 sk = (gg['W'][0] * d0 + gg['W'][1] * d1) / gg['n']
-                tn = (D - np.eye(3)) @ gg['L'] / gg['n']
+                # CONVENTION DU MOTEUR : `jak-hd-physics.gc:3922` applique l'offset en VECTEUR-LIGNE
+                # (`r_j = SOMME_i o_i . bm[i][j]`) et le tenseur multiplie A DROITE (`matrix*! tmp bm dfm`).
+                # La contribution tensorielle est donc `L . (D - I)`, PAS `(D - I) . L`. `D` est symetrique
+                # a 0.032 pres (controle de `ROOM-SPEC12`), donc l'ecart vaut ~0.5 % — on prend quand meme
+                # la convention du moteur, pour que sonde et tableau ne divergent jamais.
+                tn = gg['L'] @ (D - np.eye(3)) / gg['n']
                 vals.append((np.linalg.norm(sk) / B0, np.linalg.norm(sk + tn) / B0))
             aA = float(np.linalg.norm(d['t'][(c, i)] / B0 + d['rr'][(c, i)]
                                       * ACP[c] / np.linalg.norm(ACP[c])))
@@ -370,7 +375,9 @@ def main():
                 D = d['dfma'][(c, i)]
                 sv = d['s'][(c, i)][0]
                 for nm, k, tgt, lo, hi in axes:
-                    full = float(np.linalg.norm(D[:, k]))
+                    # LIGNE et non colonne : meme convention de vecteur-ligne que ci-dessus.
+                    # `D` est symetrique a 0.032 pres, l'ecart entre les deux est <= 0.007.
+                    full = float(np.linalg.norm(D[k, :]))
                     va = 'DANS' if lo <= sv[k] <= hi else ('SOUS' if sv[k] < lo else 'AU-DESSUS')
                     vf = 'DANS' if lo <= full <= hi else ('SOUS' if full < lo else 'AU-DESSUS')
                     A('      %-20s %8.4f %-9s %8.4f %-9s  %.2f  %.2f-%.2f'
