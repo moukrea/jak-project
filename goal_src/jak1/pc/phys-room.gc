@@ -3185,9 +3185,13 @@
       ;; l'ecart chestL/chestR restait NON ETABLI faute de cette ligne, pas faute de mesure.
       ;;   NATURE : trois COSINUS DIRECTEURS, sans unite, d'un vecteur deja normalise par
       ;;            `phys-chain-bone` (jak-hd-physics.gc:4384-4388, `comp` 0/1/2).
-      ;;   REPERE : le MONDE — les memes axes que `PHYSAXW`, `PHYSTRI` et que le pilotage
-      ;;            lui-meme (`physroom-tr-set` ecrit `yy` sur Y et `zz` sur Z en mode monde),
-      ;;            donc l'angle os/pilotage se compose sans rien supposer.
+      ;;   REPERE : le MONDE — les memes axes que `PHYSAXW` et que le pilotage lui-meme
+      ;;            (`physroom-tr-set` ecrit `yy` sur Y et `zz` sur Z en mode monde), donc
+      ;;            l'angle os/pilotage se compose sans rien supposer.
+      ;;            CORRECTION cycle 108 : `PHYSTRI` a ete RETIRE de cette liste. Il n'est PAS
+      ;;            en repere monde mais dans la base de l'ANCRE (voir la note de
+      ;;            `phys-tri-world`). Le citer ici invitait a une composition fausse, et un
+      ;;            lecteur s'y est trompe.
       ;;   POPULATION : UN echantillon, celui de la frame de FERMETURE de la fenetre. Ce n'est
       ;;            pas un maximum et ca ne pretend pas l'etre.
       ;;   CE QU'ELLE LIT QUAND LE DEFAUT EST ABSENT : les deux chaines rendent des cosinus
@@ -3316,8 +3320,24 @@
              ;; qui separe supine de prone — donc qui decide lequel des deux triplets de §10/§11
              ;; s'applique. Voir la note de `phys-tri-world` : la mesure qui a fixe ce signe date
              ;; d'une epoque ou `axa` valait 0, et la course publie aujourd'hui `rap=2`.
-             ;; NATURE : cosinus directeurs, sans unite. REPERE : MONDE — les memes axes que
-             ;; `PHYSAXW`, pour que `fz . ligne[rap]` se calcule sur la trace sans rien supposer.
+             ;; NATURE : cosinus directeurs, sans unite. REPERE : la base de l'ANCRE, PAS le
+             ;; MONDE — cette ligne disait « MONDE, les memes axes que `PHYSAXW` » et c'est FAUX.
+             ;; Le registre l'avait corrige au cycle 69 sur la ligne de §7 ; le COMMENTAIRE, lui,
+             ;; est reste, et au cycle 108 il a fait produire a un lecteur neuf une « rectification »
+             ;; entierement fausse (il a compare `PHYSTRI` a `PHYSAXW` et conclu que l'axe lateral
+             ;; du sujet etait a 86,4 deg de la verite). Corriger le registre sans corriger le
+             ;; producteur, c'est une note deguisee en verrou — directive du 2026-08-21 01:20.
+             ;; LA PREUVE, NUMERIQUE ET REFAISABLE SUR LA TRACE : `fy = -gref/|gref|` et `gref`
+             ;; est deja passe par `w2l = inverse(am)` (jak-hd-physics.gc:2606, :3543-3550), donc
+             ;; le triedre NAIT dans la base de l'ancre. Sur la course archivee,
+             ;; `PHYSTRI c=0 a=1 uy = -0.97844` est EXACTEMENT `PHYSAXR c=0 a=0 uy = -0.97844` :
+             ;; un « haut le long du torse » a y = -0.98 en MONDE sur un sujet DEBOUT est
+             ;; impossible, et l'egalite au cinquieme chiffre nomme la base.
+             ;; NE PAS COMPOSER `PHYSTRI` AVEC `PHYSAXW` / `PHYSREGAW` : c'est une faute de repere.
+             ;; Le miroir sagittal en repere MONDE est `PHYSAXW ax=2`, verifie deux fois de facon
+             ;; independante : (a) la reflexion de `PHYSPOSETAG c=0` dans le plan de normale ax=2
+             ;; redonne `PHYSPOSETAG c=1` a 0.003 pres ; (b) `(u_chestL - u_chestR)` normalise
+             ;; vaut ax=2 a 0.24 deg — ce qui est l'identite exacte d'une reflexion.
              ;; LIGNE DE BASE : trois zeros = triedre non releve (`fok=0`), aucune conclusion.
              ;; L'AXE 0 — LE LATERAL SORTANT, ET C'EST CELUI DONT SA §7 PARLE EXPLICITEMENT.
              ;; Il etait le SEUL des trois a n'etre jamais publie comme VECTEUR : la ligne
