@@ -2760,6 +2760,22 @@ _SPEC12_SHAPE = (
 )
 
 
+def _saillie_triad(rec, recR):
+    """LE TRIEDRE D'AVANT LE CYCLE 91, reconstruit — `+Z` = la SAILLIE, `+Y = +Z x +X(chestR)`.
+
+    Il est RECONSTRUIT et non relu d'un fichier fige : le producteur a ete corrige, et une
+    retractation qui ne se recalcule pas n'est pas verifiable. `axes_saillie` est la direction du
+    centroide de chair depuis la racine, orthogonalisee contre `+X` — exactement ce que
+    `probe_breast_com_mass.py` appelait `+Z` jusqu'au cycle 90 inclus."""
+    import math as _m
+    s_ = [float(x) for x in rec.get('axes_saillie', rec['axes']['fwd'])]
+    oR = [float(x) for x in recR['axes']['out']]
+    y_ = [s_[1] * oR[2] - s_[2] * oR[1], s_[2] * oR[0] - s_[0] * oR[2],
+          s_[0] * oR[1] - s_[1] * oR[0]]
+    n_ = _m.sqrt(sum(v * v for v in y_)) or 1.0
+    return {'out': [float(x) for x in rec['axes']['out']], 'up': [v / n_ for v in y_], 'fwd': s_}
+
+
 def _spec12_block(A, txt, names, com, b0):
     """SPEC 12 — CHAQUE CLAUSE SUR LE SEIN QU'ELLE NOMME, ET SUR L'AXE QUE §7 DEFINIT.
 
@@ -2846,7 +2862,7 @@ def _spec12_block(A, txt, names, com, b0):
         A('')
         return
     chains = sorted({c for (c, _i) in dfma})
-    AX, W0, DEF = {}, {}, {}
+    AX, AXS, W0, DEF = {}, {}, {}, {}
     for c in chains:
         nm = names[c] if c < len(names) else 'c%d' % c
         rec = (mass.get('chains') or {}).get(nm)
@@ -2855,6 +2871,9 @@ def _spec12_block(A, txt, names, com, b0):
             A('')
             return
         AX[c] = {k: [float(x) for x in rec['axes'][k]] for k in ('out', 'up', 'fwd')}
+        # le `+X` COMMUN est celui de chestR (convention du producteur depuis le cycle 90) ; a
+        # defaut, celui de la chaine courante — la reconstruction se degrade, elle ne ment pas.
+        AXS[c] = _saillie_triad(rec, (mass.get('chains') or {}).get('chestR') or rec)
         DEF[c] = rec['defs']
         W0[c] = {d['cut']: float(d['W0']) for d in rec['defs'] if 'W0' in d}
         if not W0[c]:
@@ -2979,24 +2998,35 @@ def _spec12_block(A, txt, names, com, b0):
     # ---- CLAUSE « Gravity-side lateral flattening » + LE TABLEAU DES ECHELLES ------------------
     A('ROOM-SPEC12: CLAUSE l.195 « Gravity-side lateral flattening: -15 to -25%, nominal -20% »'
       ' -> bande 0.75-0.85, SEIN DU COTE GRAVITE SEUL.')
-    A('ROOM-SPEC12: ET LE TABLEAU DES ECHELLES DE §10/§11/§12, DEUX FOIS : sur la RANGEE BRUTE de'
-      ' l\'ancre (ce que')
-    A('ROOM-SPEC12:   l\'instrument lisait) et sur le TRIEDRE DE §7 MESURE sur le rig (ce que la'
-      ' spec DEFINIT). `dfa`')
-    A('ROOM-SPEC12:   est l\'equilibre d\'orientation seul, `complet` le produit dfa x dfb x dfc'
-      ' que la PEAU recoit.')
+    # CYCLE 91 — LE CYCLE 90 AVAIT PRIS L'AXE A L'ENVERS, ET C'EST MESURE, PAS ARBITRE.
+    # Il opposait « la RANGEE BRUTE de l'ancre (un axe de rig) » au « TRIEDRE DE §7 » dans lequel
+    # `+Z` etait la SAILLIE de la chair. Or §7 l.132-133 dit « +Y = upward along **torso** » et
+    # « +Z = forward from chest » : l'axe long du torse se MESURE sur le rig livre (`hips`->`neck`,
+    # colineaire a `chest`->`neck` a 0,00 deg), et une fois mesure il **EST la rangee d'ancre** a
+    # cinq decimales. C'est la saillie qui s'en ecartait de 12,27 deg — le sein pointe en avant ET
+    # vers le bas, et le produit vectoriel reportait cette inclinaison sur `+Y`.
+    # `probe_breast_com_mass.py` est corrige au PRODUCTEUR ; la colonne du milieu publie desormais
+    # la lecture de la SAILLIE, celle d'avant ce cycle, pour que la retractation soit lisible.
+    A('ROOM-SPEC12: ET LE TABLEAU DES ECHELLES DE §10/§11/§12, DEUX FOIS : sur le TRIEDRE DE §7'
+      ' MESURE sur le rig')
+    A('ROOM-SPEC12:   (`+Y` = axe long du torse ; il EST la rangee d\'ancre a 5 decimales) et sur'
+      ' la SAILLIE, l\'axe')
+    A('ROOM-SPEC12:   que le cycle 90 avait retenu et qui en est a 12,27 deg. `dfa` est'
+      ' l\'equilibre d\'orientation')
+    A('ROOM-SPEC12:   seul (valeur propre du moteur), `§7` le produit dfa x dfb x dfc que la PEAU'
+      ' recoit.')
     flat, nflip = {}, 0
     for c in chains:
         nm = names[c] if c < len(names) else 'c%d' % c
         A('ROOM-SPEC12:   %-8s %-32s %7s %-10s %7s %-10s %7s %-10s  cible bande'
-          % (nm, '', 'dfa', 'verdict', 'rangee', 'verdict', '§7', 'verdict'))
+          % (nm, '', 'dfa', 'verdict', '§7', 'verdict', 'saillie', 'verdict'))
         for lab, i, key, k, tgt, lo, hi in _SPEC12_SHAPE:
             if (c, i) not in dfma:
                 continue
             D = dfma[(c, i)]
             sv = sca.get((c, i), (float('nan'),) * 3)[k]
-            raw = math.sqrt(sum(D[k][j] ** 2 for j in range(3)))
             sp = _rowD(D, AX[c][key])
+            raw = _rowD(D, AXS[c][key])
             _fl = _band(raw, lo, hi) != _band(sp, lo, hi)
             nflip += 1 if _fl else 0
             _own = ''
@@ -3006,12 +3036,23 @@ def _spec12_block(A, txt, names, com, b0):
                 if role.get((c, i)) == 'GRAVITE':
                     flat[c] = _band(sp, lo, hi)
             A('ROOM-SPEC12:   %-8s %-32s %7.4f %-10s %7.4f %-10s %7.4f %-10s  %.2f %.2f-%.2f%s%s'
-              % (nm, lab, sv, _band(sv, lo, hi), raw, _band(raw, lo, hi), sp, _band(sp, lo, hi),
+              % (nm, lab, sv, _band(sv, lo, hi), sp, _band(sp, lo, hi), raw, _band(raw, lo, hi),
                  tgt, lo, hi, '  <<< L\'AXE CHANGE LE VERDICT' if _fl else '', _own))
-    A('ROOM-SPEC12:   %d cellule(s) sur %d changent de verdict entre la rangee d\'ancre et le'
-      ' triedre de §7 (12,3 deg d\'ecart).' % (nflip, len(_SPEC12_SHAPE) * len(chains)))
-    A('ROOM-SPEC12:   Le verdict retenu est celui du TRIEDRE DE §7 : c\'est l\'axe que la spec'
-      ' DEFINIT, l\'autre est un axe de rig.')
+        A('ROOM-SPEC12:   %-8s DANS : %d/%d sur le triedre de §7 · %d/%d sur `dfa` seul'
+          % (nm,
+             sum(1 for l_, i_, k_, kk_, t_, lo_, hi_ in _SPEC12_SHAPE
+                 if (c, i_) in dfma and _band(_rowD(dfma[(c, i_)], AX[c][k_]), lo_, hi_) == 'DANS'),
+             len(_SPEC12_SHAPE),
+             sum(1 for l_, i_, k_, kk_, t_, lo_, hi_ in _SPEC12_SHAPE
+                 if (c, i_) in dfma
+                 and _band(sca.get((c, i_), (float('nan'),) * 3)[kk_], lo_, hi_) == 'DANS'),
+             len(_SPEC12_SHAPE)))
+    A('ROOM-SPEC12:   %d cellule(s) sur %d changent de verdict entre le triedre de §7 et la'
+      ' saillie (12,27 deg d\'ecart).' % (nflip, len(_SPEC12_SHAPE) * len(chains)))
+    A('ROOM-SPEC12:   Le verdict retenu est celui du TRIEDRE DE §7 : ses trois axes viennent'
+      ' chacun d\'une phrase de §7')
+    A('ROOM-SPEC12:   et d\'une mesure sur le mesh LIVRE. La saillie n\'est pas « forward from'
+      ' chest ».')
 
     # ---- LE VERDICT DE REGISTRE ----------------------------------------------------------------
     _cl = {'medial': med, 'flattening': flat}

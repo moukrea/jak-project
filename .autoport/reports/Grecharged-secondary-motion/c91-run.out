@@ -1,0 +1,77 @@
+staged: 236656 out/jak1/obj/assistant-ag.go 16608 out/jak1/obj/keira-hd-ag.go 
+archive: course precedente -> .autoport/reports/Grecharged-secondary-motion/keira-room-x86.20260822-034815.log
+purge: .autoport/reports/Grecharged-secondary-motion/keira-room-x86.20260821-220730.log
+gk pid=4117712  log=.autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
+PHYSEND vu apres 1127s
+---- marqueurs ----
+PHYSROOM-START   2
+PHYSFAIL         0
+0
+PHYSSUBJECT      1
+PHYSANIM         339
+PHYSCHAIN        2
+PHYSROW          620
+PHYSIDLE         4
+PHYSAUTH         6
+PHYSNOPLAY       1
+PHYSCOUNTS       1
+PHYSPC           1
+PHYSEND          1
+PHYS-ROOM        2
+HD-PHYS          16
+HD-COMP          3
+hd-phys          8
+---- premieres lignes utiles ----
+[48:31:442] [debug] [link and exec] jak-hd-physics     0 275222 heap-use 31356576  3150020: 0x1f273c0
+[48:31:442] [debug] link finish: jak-hd-physics
+[48:31:489] [info] [hd-phys] toggle push: false lvl 1 -> true lvl 2
+[48:31:489] [info] [hd-phys] PARAMSRC=package path=/home/emeric/code/jak-project/recharged_assets/physics_chains.txt
+[48:31:489] [info] [hd-phys] section [eyescale] is not ours (skipped)
+[48:31:493] [info] [hd-phys] MESHSRC=package path=/home/emeric/code/jak-project/recharged_assets/physics_mesh.txt links-with-samples=4 dropped=0 apex-links=4 apex-dropped=0
+[48:31:493] [info] [hd-phys] BSURFSRC=package bsets=96 dropped=0
+[48:31:493] [info] [hd-phys] params loaded: 1 models, 2 chains
+[HD-COMP] asset missing (jak-hd art-group not loadable) — HD unavailable
+[HD-COMP] asset missing (dax-hd art-group not loadable) — HD unavailable
+[48:45:712] [info] [PHYS-ROOM] armed *listener-function* = #x3964004 spec '1' delay 600
+PHYSROOM-PHASEGUARD maxwork=39 report=40 done=41 ok=1
+PHYSROOM-START target-before=#<target target suspended :state target-title :flags  :stack 352/1024 :heap 34832/49152 @ #x1be2b4>
+PHYSAG name=assistant source=resident
+PHYSREST chan=91 restok=42
+PHYSSUBJECT ag=assistant elems=17 bones=97 joints=96 mgeo=assistant-lod0
+PHYSANIM a=0 ag=assistant name=assistant-idle-leaning-right joints=96
+PHYSANIM a=1 ag=assistant name=assistant-idle-transition-right-to-left joints=96
+PHYSANIM a=2 ag=assistant name=assistant-idle-leaning-left joints=96
+PHYSANIM a=3 ag=assistant name=assistant-idle-transition-left-to-right joints=96
+PHYSANIM a=4 ag=assistant name=assistant-idle-wiping-brow joints=96
+PHYSANIM a=5 ag=assistant name=assistant-idle-transition-to-welding joints=96
+PHYSANIM a=6 ag=assistant name=assistant-idle-welding joints=96
+PHYSAG name=assistant-village2 source=loado
+PHYSANIM a=7 ag=assistant-village2 name=assistant-village2-idle-a joints=96
+PHYSANIM a=8 ag=assistant-village2 name=assistant-village2-idle-to-b joints=96
+PHYSANIM a=9 ag=assistant-village2 name=assistant-village2-idle-b joints=96
+PHYSANIM a=10 ag=assistant-village2 name=assistant-village2-idle-to-a joints=96
+PHYSANIM a=11 ag=assistant-village2 name=assistant-village2-idle-after joints=96
+PHYSANIM a=12 ag=assistant-village2 name=assistant-village2-idle-hut-breath joints=96
+PHYSANIM a=13 ag=assistant-village2 name=assistant-village2-idle-hut-look-right joints=96
+PHYSANIM a=14 ag=assistant-village2 name=assistant-village2-idle-hut-start-welding joints=96
+PHYSANIM a=15 ag=assistant-village2 name=assistant-village2-idle-hut-welding joints=96
+PHYSANIM a=16 ag=assistant-village2 name=assistant-village2-idle-hut-stop-welding joints=96
+PHYSAG name=assistant-village3 source=loado
+PHYSANIM a=17 ag=assistant-village3 name=assistant-village3-idle joints=96
+PHYSAG name=assistant-firecanyon source=loado
+PHYSANIM a=18 ag=assistant-firecanyon name=assistant-firecanyon-idle-twist joints=94
+PHYSANIMRIG ag=assistant-firecanyon name=assistant-firecanyon-idle-twist joints=94 porteur=96
+PHYSANIM a=19 ag=assistant-firecanyon name=assistant-firecanyon-idle-down joints=94
+---- tableau ----
+ecrit .autoport/reports/Grecharged-secondary-motion/keira-room-table.txt : 4012 lignes, 310 mesures, 2 chaines, 31/31 animations
+  tipvar min par chaine = 0.1787 (plancher de la gate MOVE : 0.05)
+  rootdev max = 0.0734 (plafond ROOT : 2.0)
+  meshpen max = 0.0586 (COLLIDE exige <= 0 sur cheveux/meches, lunettes, oreilles ; 310 valeurs distinctes)
+  idle maxdev = 0.0002 (plafond IDLE : 1.0)
+  authored: 2 chaines pilotees, 2 respectees (controle positif: 0/0)
+  limiteurs: plafond-taille 0 fois (0.0000 m) — le compteur de RECUL est retire au cycle 36, il n'avait aucun ecrivain
+    chestL       tipvar=0.1864    rootdev=0.0734    meshpen=0.0586   
+    chestR       tipvar=0.1787    rootdev=0.0734    meshpen=0.0338   
+table: .autoport/reports/Grecharged-secondary-motion/keira-room-table.txt <- .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log (md5 e528a8e1129d3fb7c63e0620a2b1c7a4, verifie DANS le fichier ecrit)
+OK
+RUNRC=0

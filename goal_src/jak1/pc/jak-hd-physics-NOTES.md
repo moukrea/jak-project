@@ -8499,3 +8499,92 @@ bloc `ROOM-SPEC21` du tableau le declare sur sa propre ligne.
 que le mecanisme, jamais apres ([[feedback_attribution_harness_outlives_its_defect]]). `PHYSE21
 tag=<t> n=<compte> cut_b0=<longueur cumulee / B0>` publie ce que la borne reprend ; desarmee, elle
 DOIT rendre exactement 0, et c'est son controle negatif.
+
+
+
+---
+## NOTE-473 — paires (lien, volume) ou le lien est ENTIEREMENT dans le volume a sa pose de modele : pas de
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 91) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+;; paires (lien, volume) ou le lien est ENTIEREMENT dans le volume a sa pose de modele : pas de
+;; surface devant lui, donc rien a traverser. Comptees a chaque mesure, publiees par la salle.
+```
+
+---
+## NOTE-474 — la somme des profondeurs que ces poussees ont vues a l'entree (u de jeu) : elle donne l'ordre de
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 91) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+;; la somme des profondeurs que ces poussees ont vues a l'entree (u de jeu) : elle donne l'ordre de
+;; grandeur de ce qui restait a corriger apres les balayages, que le compte seul ne dit pas.
+```
+
+---
+## NOTE-475 — combien d'ensembles le PACKAGE declare, face a combien on en CHARGE. Sans ce second
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 91) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+;; [NOTE-158] combien d'ensembles le PACKAGE declare, face a combien on en CHARGE. Sans ce second
+;; nombre, `sets=64/92` reste dans une ligne de log et la troncature redevient silencieuse.
+```
+
+---
+## NOTE-476 — FENETRE DE LECTURE de `phys-surf-sd`. lo=0 / hi=-1 rend EXACTEMENT la population de corps :
+
+Migre VERBATIM depuis `jak-hd-physics.gc` (cycle 91) pour tenir le plafond de 4800 lignes
+de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+;; FENETRE DE LECTURE de `phys-surf-sd`. lo=0 / hi=-1 rend EXACTEMENT la population de corps :
+;; les valeurs par defaut reproduisent le comportement d'avant ce cycle par construction.
+```
+
+---
+## NOTE-477 — §22 EST UNE LIMITE *DYNAMIQUE* : CE QUI EST TENU EST DEJA L'EQUILIBRE DE §10-§13
+
+Cycle 91. Le pilotage de `dfb` — l'etirement local de sa §22 — etait l'ECART A LA POSE D'AUTEUR
+DEBOUT (`*phys-ox/oy/oz*`), plus l'elongation radiale du maillon. A une orientation TENUE, cet
+ecart n'est pas un transitoire : **c'est l'equilibre d'orientation lui-meme**, celui que ses §10,
+§11 et §12 chiffrent (« COM toward thorax 18-28% B0 », « Static COM displacement 20-28% B0 »,
+« Global lateral COM response 15-24% B0 »). Le moteur le convertissait donc **une seconde fois**
+en elongation locale, et sur l'axe du DEPLACEMENT au lieu des trois axes que ces sections bornent.
+
+MESURE, sur la trace ARCHIVEE, sans une seule course neuve (`.autoport/c91_axis_and_downstream.py`) :
+`B = dfa^-1 . A` est un etirement UNIAXIAL de determinant 1 (a 3e-4 pres sur les 18 cellules),
+**nul a la verticale** (|B - I| = 0,0007 a i=0, la ligne de base de §9), et de magnitude
+
+    lam_max - 1  =  0,43 x |deplacement d'equilibre| / B0      (mediane 1,014 ; 0,93 a 1,30)
+
+ou 0,43 est exactement `PHYS-DYN-K`. Ce n'est donc pas une reponse dynamique : c'est l'equilibre,
+compte deux fois. Cout mesure : sur les 16 echelles de forme de §10/§11/§12 lues sur le triedre
+de sa §7, **13 cellules DANS pour `dfa` seul, 6 pour le produit que la peau recoit**.
+
+LE CORRECTIF, ET SA FORME. On ne retire pas le canal — sa §22 en a besoin des que ca bouge. On
+retire de son pilotage la partie **TENUE**, par une moyenne lente `*phys-dyb*` : `d := r - dbar`,
+`dbar += ka.d`. A l'equilibre `d -> 0` et `dfb -> I`, donc la peau recoit l'equilibre que la spec
+specifie ; en transitoire `dbar` ne suit pas et le canal repond comme avant.
+
+LA CONSTANTE VIENT DE DEUX LIGNES DE SPEC, PAS D'UN REGLAGE. `PHYS-DYN-TAU = 0,30 s` :
+  - **borne haute** — §27 (« mostly settled ~1.0-1.5 s ») et la fenetre d'etablissement de la
+    salle (60 frames = 1,0 s) : apres 1 s il doit rester moins de 5 % de la partie tenue.
+    `e^(-1,0/0,30) = 3,6 %`.
+  - **borne basse** — §24 (modes propres 2,30 / 2,50 / 2,65 Hz) : le filtre doit LAISSER PASSER
+    le mode le plus lent. Coupure `1/(2.pi.0,30) = 0,53 Hz`, transmission a 2,30 Hz =
+    `2,30/sqrt(2,30^2 + 0,53^2) = 97,4 %`.
+Aucune valeur n'a ete ajustee sur une mesure de sortie (`never-fit-a-parameter-to-the-instrument`).
+
+`*phys-dyb-off*` desarme le filtre par `ka = 0` : `dbar` reste nul et `d = r - 0` reproduit
+**l'expression exacte d'avant le cycle 91**, donc la jambe desarmee est bit-pour-bit l'ancienne.
+
+CE QUE LE CORRECTIF NE PEUT PAS CHANGER, ET C'EST LE CONTROLE : `*phys-dfm*` n'entre QUE dans la
+partie 3x3 de la matrice d'os ecrite (`:3898-3906`), la translation etant reposee juste apres
+depuis `*phys-px/py/pz*`. Aucune position simulee, aucune vitesse, aucune contrainte ne le lit.
+Toute grandeur de POSITION du tableau doit donc rester identique au bit ; seules les grandeurs de
+FORME et les compteurs `dyn*` ont le droit de bouger.

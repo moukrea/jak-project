@@ -1,0 +1,94 @@
+DIRECTIVES v3fee554599
+
+C91 — LE TRIEDRE DE §7, TRANCHE PAR LA MESURE ; ET LE FACTEUR AVAL, IDENTIFIE
+========================================================================================================
+log  : .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
+mesh : out/jak1/fr3/skin/keira-hd-lod0.glb
+
+-- 1. « +Y = upward along torso » (§7 l.132) : TROIS LECTURES, ET AUCUNE N'EST L'AUTRE --
+                                  moteur     registre   RIG        RIG        RIG       
+   moteur    +Y = -g_ref               0.00      20.65      11.92      11.92      11.92 
+   registre  +Y = saillie x lat       20.65       0.00      12.27      12.27      12.27 
+   RIG       hips -> neck             11.92      12.27       0.00       0.00       0.00 
+   RIG       chest -> neck            11.92      12.27       0.00       0.00       0.00 
+   RIG       hips  -> chest           11.92      12.27       0.00       0.00       0.00 
+   Les trois lectures de RIG sont colineaires (0,00 deg) : l'axe long du torse est UNE
+   direction, pas un choix de segment. Le moteur en est a 11.92 deg, le registre d'avant ce
+   cycle a 12.27 deg, et les deux sont DE PART ET D'AUTRE (20.65 deg l'un de l'autre).
+   ET LE FAIT QUI CLOT LA QUESTION : le triedre du RIG **EST la base de l'ancre**, a 5
+   decimales — `+X = [1 0 0]`, `+Y = [0 -1 0]`, `+Z = [0 0 -1]` dans les rangees de `chest`.
+   La « rangee d'ancre » que le cycle 90 a ecartee comme « un axe de rig » etait donc
+   l'axe de §7, et c'est la saillie qui s'en ecartait.
+
+-- « +Z = forward from chest » (§7 l.133) --------------------------------------------------
+   moteur   `fz` (rangee d'ancre orthogonalisee)   a   5.50 deg du complement du RIG
+   registre `fwd` (saillie de la chair)            a  12.27 deg du complement du RIG
+   La saillie n'est pas « forward from chest » : le sein pointe en avant ET vers le bas, et
+   c'est cette inclinaison que le produit vectoriel a reportee sur `+Y`.
+
+-- ORTHOGONALITE AU LATERAL MESURE (§7 exige un triedre, et `+X` est le seul miroite) -----
+   moteur   +Y  angle a `+X` (separation racine-a-racine) =  79.46 deg
+   registre +Y  angle a `+X` (separation racine-a-racine) =  90.00 deg
+   RIG      +Y  angle a `+X` (separation racine-a-racine) =  90.00 deg
+   Le triedre du moteur n'est pas orthogonal au lateral MESURE : il l'est a 10,54 deg pres.
+
+-- 2. LE FACTEUR AVAL `B = dfa^-1 . A` : CE QUE `dfb` ET `dfc` FONT, MESURE ---------------
+   c    i       det(B)   lam_max   lam_min     |B-I|    |t|/B0 0.43|t|/B0
+   0    0      1.00024    1.0006    0.9998    0.0007    0.0008    0.0003
+   0    1      1.00020    1.0994    0.9538    0.1190    0.2282    0.0981
+   0    2      1.00021    1.1121    0.9484    0.1338    0.2580    0.1109
+   0    3      1.00017    1.1120    0.9484    0.1337    0.2577    0.1108
+   0    4      1.00015    1.1318    0.9350    0.1569    0.3197    0.1375
+   0    5      1.00019    1.0987    0.9541    0.1182    0.2266    0.0974
+   0    6      1.00027    1.1035    0.9521    0.1237    0.2374    0.1021
+   0    7      1.00019    1.1198    0.9451    0.1428    0.2771    0.1191
+   0    8      1.00020    1.1146    0.9143    0.1446    0.2861    0.1230
+   1    0      1.00024    1.0006    0.9998    0.0007    0.0008    0.0003
+   1    1      1.00026    1.1047    0.9516    0.1251    0.2441    0.1049
+   1    2      1.00023    1.1311    0.9404    0.1559    0.2937    0.1263
+   1    3      1.00014    1.0729    0.9655    0.0877    0.1625    0.0699
+   1    4      1.00016    1.0571    0.9727    0.0690    0.1212    0.0521
+   1    5      1.00025    1.1004    0.9534    0.1201    0.2304    0.0991
+   1    6      1.00018    1.1222    0.9440    0.1456    0.2826    0.1215
+   1    7      1.00018    1.1151    0.9436    0.1374    0.2625    0.1129
+   1    8      1.00023    1.1478    0.8509    0.2119    0.2652    0.1140
+   det(B) = 1 a 3e-4 pres sur les 18 : les facteurs aval NE GONFLENT PAS, ils REDISTRIBUENT.
+   i=0 (debout, §9) : |B-I| = 0,0007 — la LIGNE DE BASE, et elle est nulle.
+   Sur les 16 cellules non nulles, `lam_max - 1` vaut 0.932 a 1.296 fois `0.43 x |t|/B0`
+   (mediane 1.014). `0.43` est `PHYS-DYN-K` (jak-hd-physics.gc:229) et `t` le deplacement
+   d'equilibre que §10/§11/§12 SPECIFIENT. Le facteur aval est donc l'equilibre COMPTE UNE
+   SECONDE FOIS, en elongation locale, sur l'axe du deplacement et non sur ceux de §7.
+
+-- 3. LES 16 ECHELLES, SUR UN SEUL AXE ET DANS QUATRE ETATS -------------------------------
+   `dfb -> I` est la PROJECTION du geste (algebre sur la trace archivee), pas une course.
+   chaine   cellule                                A (produit) dfb->I (dfc garde)          dfa seul    moteur
+   chestL   §10 supine projection              0.8137 AU-DESSUS   0.7438 DANS       0.7480 DANS       0.7440  0.65-0.75
+   chestL   §10 supine largeur                 1.2012 DANS       1.2659 DANS       1.2232 DANS       1.2275  1.18-1.28
+   chestL   §10 supine hauteur                 1.0508 DANS       1.0697 DANS       1.0969 DANS       1.0948  1.05-1.12
+   chestL   §11 prone longueur                 1.3376 AU-DESSUS   1.2171 DANS       1.2171 DANS       1.2195  1.18-1.26
+   chestL   §11 prone largeur                  0.8530 SOUS       0.8924 DANS       0.8923 DANS       0.8912  0.87-0.93
+   chestL   §11 prone epaisseur                0.8800 SOUS       0.9221 DANS       0.9220 DANS       0.9199  0.88-0.94
+   chestL   §12 lateral i=2 aplatissement      0.9064 AU-DESSUS   0.8354 DANS       0.8354 DANS       0.8240  0.75-0.85
+   chestL   §12 lateral i=4 aplatissement      1.0908 AU-DESSUS   0.9912 AU-DESSUS   0.9911 AU-DESSUS   0.9911  0.75-0.85
+   chestR   §10 supine projection              0.7900 AU-DESSUS   0.7840 AU-DESSUS   0.7619 AU-DESSUS   0.7582  0.65-0.75
+   chestR   §10 supine largeur                 1.2110 DANS       1.1529 SOUS       1.2022 DANS       1.2059  1.18-1.28
+   chestR   §10 supine hauteur                 1.1105 DANS       1.1193 DANS       1.0949 DANS       1.0935  1.05-1.12
+   chestR   §11 prone longueur                 1.2827 AU-DESSUS   1.2101 DANS       1.2101 DANS       1.2125  1.18-1.26
+   chestR   §11 prone largeur                  0.9096 DANS       0.9039 DANS       0.9038 DANS       0.9034  0.87-0.93
+   chestR   §11 prone epaisseur                0.8767 SOUS       0.9156 DANS       0.9156 DANS       0.9128  0.88-0.94
+   chestR   §12 lateral i=2 aplatissement      1.1020 AU-DESSUS   1.0091 AU-DESSUS   1.0091 AU-DESSUS   1.0094  0.75-0.85
+   chestR   §12 lateral i=4 aplatissement      0.8429 DANS       0.8173 DANS       0.8173 DANS       0.8054  0.75-0.85
+
+   DANS sur 16, TRIEDRE DU RIG (celui de §7) : produit 6 · dfb->I 12 · dfa seul 13
+   DANS sur 16, valeur propre du MOTEUR       : 13   <- le « 13 » du cycle 90
+   DANS sur 16, TRIEDRE DE LA SAILLIE (le registre AVANT ce cycle) : produit 7 · dfa seul 10   <- le « 8 » du cycle 90
+
+   LE FAIT QUI TRANCHE LE TRIEDRE UNE TROISIEME FOIS, ET IL EST INDEPENDANT DES DEUX
+   PREMIERS : sur le triedre du RIG, `dfa` lu le long de l'axe (13) et la valeur propre du
+   moteur (13) rendent le MEME compte ET le meme verdict sur les 16 cellules — le tenseur
+   d'equilibre y est quasi diagonal. Sur le triedre de la saillie il en perd 3. C'est le
+   triedre du REGISTRE qui etait l'intrus, pas le facteur aval.
+
+   CE QUE LE GESTE DOIT RENDRE, PUBLIE AVANT LA COURSE : 6 -> 12 cellules sur 16.
+   La cellule qui ne revient pas est attribuee a `dfc` (pression de contact), que le geste
+   ne touche pas et ne pretend pas toucher.

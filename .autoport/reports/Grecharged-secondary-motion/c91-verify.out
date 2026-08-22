@@ -1,0 +1,209 @@
+DIRECTIVES v3fee554599
+
+C91 — CONTROLE DE BIT-IDENTITE, PREDICTION PUBLIEE AVANT LA COURSE
+====================================================================================================
+avant : /tmp/room-c90-archive.log
+apres : .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
+
+tag               n avant  n apres lignes !=   verdict
+PHYS                    1        1         0   -         non predit
+PHYSACC               372      372         0   IDENTIQUE OK
+PHYSAG                  6        6         0   -         non predit
+PHYSANIM               31       31         0   IDENTIQUE OK
+PHYSANIMLEN           294      294         0   -         non predit
+PHYSANIMRIG            13       13         0   -         non predit
+PHYSANIMS               1        1         0   -         non predit
+PHYSAPEX              372      372       372   BOUGE     OK
+PHYSAPEX2             372      372       372   BOUGE     OK
+PHYSAPEXD             372      372       372   BOUGE     OK
+PHYSAPEXR             372      372       372   BOUGE     OK
+PHYSAPEXT             372      372       330   BOUGE     OK
+PHYSAUTH                2        2         2   -         non predit
+PHYSAUTH2               2        2         0   -         non predit
+PHYSAUTHPC              2        2         0   -         non predit
+PHYSAXCOM              12       12        11   -         non predit
+PHYSAXIS                2        2         0   IDENTIQUE OK
+PHYSAXISS               2        2         0   -         non predit
+PHYSAXNAME              2        2         0   -         non predit
+PHYSAXR                 4        4         0   -         non predit
+PHYSAXRES              12       12         6   -         non predit
+PHYSAXTAN               6        6         6   -         non predit
+PHYSAXW                 6        6         0   -         non predit
+PHYSBACK                2        2         1   -         non predit
+PHYSBASE               62       62        54   -         non predit
+PHYSBONE                4        4         0   IDENTIQUE OK
+PHYSBSURF              28       28         0   -         non predit
+PHYSCFVOL              33       32        33   -         non predit
+PHYSCHAIN               2        2         0   IDENTIQUE OK
+PHYSCOL                56       56         0   -         non predit
+PHYSCOMD              372      372       372   IDENTIQUE **ECHEC : predit identique, 372 lignes changent**
+PHYSCOMDL             372      372        22   IDENTIQUE **ECHEC : predit identique, 22 lignes changent**
+PHYSCOMW              372      372       372   IDENTIQUE **ECHEC : predit identique, 372 lignes changent**
+PHYSCOMWL             744      744       744   IDENTIQUE **ECHEC : predit identique, 744 lignes changent**
+PHYSCOMX              372      372       372   -         non predit
+PHYSCOMX2             372      372        50   -         non predit
+PHYSCONE                2        2         2   -         non predit
+PHYSCOUNTS              1        1         0   -         non predit
+PHYSCTLDF             324      324       324   BOUGE     OK
+PHYSCTLML             216      216       102   -         non predit
+PHYSCVOL               32       33        33   -         non predit
+PHYSDECAY               1        1         0   -         non predit
+PHYSDFMA               54       54        54   BOUGE     OK
+PHYSDIAG               28       28        26   -         non predit
+PHYSDIAG2              28       28        27   -         non predit
+PHYSDIAG3              28       28        28   -         non predit
+PHYSDIAG4              28       28         6   -         non predit
+PHYSDIAG5              28       28        28   -         non predit
+PHYSDIAG6              84       84        53   -         non predit
+PHYSDIAG8              28       28        28   -         non predit
+PHYSE22                14       14        14   -         non predit
+PHYSEND                 1        1         0   -         non predit
+PHYSGRAD              744      744       645   IDENTIQUE **ECHEC : predit identique, 645 lignes changent**
+PHYSGRADS             744      744       641   IDENTIQUE **ECHEC : predit identique, 641 lignes changent**
+PHYSGRAV               10       10         0   -         non predit
+PHYSIDLE                2        2         2   -         non predit
+PHYSIDLEG               2        2         0   -         non predit
+PHYSINV                 2        2         0   -         non predit
+PHYSJOINT               4        4         0   IDENTIQUE OK
+PHYSJTW             27528    27528     17335   IDENTIQUE **ECHEC : predit identique, 17335 lignes changent**
+PHYSJTWK             1147     1147         0   IDENTIQUE OK
+PHYSJTWN                6        6         0   IDENTIQUE OK
+PHYSKEY                 1        1         0   -         non predit
+PHYSLIM                 1        1         0   -         non predit
+PHYSLIM4                1        1         1   -         non predit
+PHYSLIMW                1        1         1   -         non predit
+PHYSMEAN               10       10         7   -         non predit
+PHYSMED                28       28        27   -         non predit
+PHYSMED2               28       28        15   -         non predit
+PHYSMED3               28       28        27   -         non predit
+PHYSMGEO                6        6         0   -         non predit
+PHYSNOPLAY              1        1         0   -         non predit
+PHYSORI                18       18         0   IDENTIQUE OK
+PHYSORI2               18       18        10   IDENTIQUE **ECHEC : predit identique, 10 lignes changent**
+PHYSORI3               18       18         0   IDENTIQUE OK
+PHYSORI4               18       18         0   IDENTIQUE OK
+PHYSORICOM             18       18        14   IDENTIQUE **ECHEC : predit identique, 14 lignes changent**
+PHYSORICOM2            18       18        14   IDENTIQUE **ECHEC : predit identique, 14 lignes changent**
+PHYSORICOML            36       36        25   IDENTIQUE **ECHEC : predit identique, 25 lignes changent**
+PHYSORICTL            108      108        59   -         non predit
+PHYSORICTL2           108      108        47   -         non predit
+PHYSORICTL3           108      108        59   -         non predit
+PHYSORITR              18       18        12   IDENTIQUE **ECHEC : predit identique, 12 lignes changent**
+PHYSOSCK2               1        1         0   -         non predit
+PHYSPAIR              108      108        97   -         non predit
+PHYSPC                  1        1         1   -         non predit
+PHYSPOSEB             124      124        86   -         non predit
+PHYSPOSED               1        1         0   -         non predit
+PHYSPOSEF             682      682       580   IDENTIQUE **ECHEC : predit identique, 580 lignes changent**
+PHYSPOSEFB           2728     2728      2196   IDENTIQUE **ECHEC : predit identique, 2196 lignes changent**
+PHYSPOSETAG            24       24        14   -         non predit
+PHYSPROX                2        2         2   -         non predit
+PHYSPROXC               4        4         4   -         non predit
+PHYSRAD               372      372       317   IDENTIQUE **ECHEC : predit identique, 317 lignes changent**
+PHYSRADL              744      744       527   IDENTIQUE **ECHEC : predit identique, 527 lignes changent**
+PHYSRADLD             744      744       606   IDENTIQUE **ECHEC : predit identique, 606 lignes changent**
+PHYSRADLE             744      744       567   IDENTIQUE **ECHEC : predit identique, 567 lignes changent**
+PHYSRADSAT            372      372       246   -         non predit
+PHYSREBASE            372      372         0   -         non predit
+PHYSREG                30       30        30   -         non predit
+PHYSREG2               30       30        30   -         non predit
+PHYSREG3               30       30        30   -         non predit
+PHYSREG4               30       30        30   -         non predit
+PHYSREG5               30       30        29   -         non predit
+PHYSREGA               24       24        24   -         non predit
+PHYSREGAAX              8        8         0   -         non predit
+PHYSREGAB               4        4         2   -         non predit
+PHYSREGAD              12       12         0   -         non predit
+PHYSREGAPOSE            1        1         0   -         non predit
+PHYSREGAW               3        3         0   -         non predit
+PHYSREGB                4        4         3   -         non predit
+PHYSREGBB               4        4         2   -         non predit
+PHYSREGBD               9        9         0   -         non predit
+PHYSREGBL               1        1         0   -         non predit
+PHYSREGBONE            30       30         3   -         non predit
+PHYSREGBPOSE            1        1         0   -         non predit
+PHYSREGBS               1        1         0   -         non predit
+PHYSREGBS2              1        1         0   -         non predit
+PHYSREGBV              18       18        18   -         non predit
+PHYSREGBW               3        3         0   -         non predit
+PHYSREGD               15       15         0   -         non predit
+PHYSREGL               20       20         0   -         non predit
+PHYSREGS               30       30        30   -         non predit
+PHYSREGSB               4        4         4   -         non predit
+PHYSREGSPOSE            1        1         0   -         non predit
+PHYSREGT               30       30        30   -         non predit
+PHYSREGTB               4        4         2   -         non predit
+PHYSREGTPOSE            1        1         0   -         non predit
+PHYSREGW              132      132        52   -         non predit
+PHYSREMAP             294      294         0   -         non predit
+PHYSREMAPORPHAN       242      242         0   -         non predit
+PHYSRESEAT              1        1         0   -         non predit
+PHYSRESP               12       12        10   -         non predit
+PHYSREST              187      187       158   IDENTIQUE **ECHEC : predit identique, 158 lignes changent**
+PHYSREST2             186      186       158   IDENTIQUE **ECHEC : predit identique, 158 lignes changent**
+PHYSRESTLEG             2        2         2   -         non predit
+PHYSRESTS             372      372       332   IDENTIQUE **ECHEC : predit identique, 332 lignes changent**
+PHYSRESTW             372      372       296   IDENTIQUE **ECHEC : predit identique, 296 lignes changent**
+PHYSRING              596      596       591   IDENTIQUE **ECHEC : predit identique, 591 lignes changent**
+PHYSRING3             596      596       575   -         non predit
+PHYSRINGA             596      596       592   IDENTIQUE **ECHEC : predit identique, 592 lignes changent**
+PHYSRINGAT            596      596       222   IDENTIQUE **ECHEC : predit identique, 222 lignes changent**
+PHYSRINGAX           1800     1800       960   -         non predit
+PHYSRINGAX2          1800     1800       960   -         non predit
+PHYSRINGAZ           1800     1800       900   -         non predit
+PHYSRINGAZ2          1800     1800       900   -         non predit
+PHYSRINGBX           1800     1800       960   -         non predit
+PHYSRINGBX2          1800     1800       960   -         non predit
+PHYSRINGBZ           1800     1800       900   -         non predit
+PHYSRINGBZ2          1800     1800       900   -         non predit
+PHYSRINGCX           1800     1800       872   -         non predit
+PHYSRINGCZ           1800     1800       822   -         non predit
+PHYSRINGS             596      596       592   IDENTIQUE **ECHEC : predit identique, 592 lignes changent**
+PHYSRINGSH            600      600       595   -         non predit
+PHYSROOM                4        4         0   -         non predit
+PHYSROW               310      310       276   -         non predit
+PHYSROW2              310      310       260   -         non predit
+PHYSSEC               180      180       180   -         non predit
+PHYSSGN               144      144       144   -         non predit
+PHYSSGN2              144      144       144   -         non predit
+PHYSSGN3              144      144       144   -         non predit
+PHYSSGN4              144      144       144   -         non predit
+PHYSSGNB                4        4         2   -         non predit
+PHYSSGNPOSE             1        1         0   -         non predit
+PHYSSHAPE             372      372       246   BOUGE     OK
+PHYSSHAPE2            372      372       268   BOUGE     OK
+PHYSSHAPE3            372      372       372   BOUGE     OK
+PHYSSHAPE4            372      372       238   BOUGE     OK
+PHYSSHAPE5            372      372       372   BOUGE     OK
+PHYSSHAPE6            372      372        18   BOUGE     OK
+PHYSSHAPE7            372      372       249   BOUGE     OK
+PHYSSHAPE8            372      372       181   BOUGE     OK
+PHYSSHAPE9            372      372       248   BOUGE     OK
+PHYSSKIN               28       28        28   -         non predit
+PHYSSKIN2              28       28         0   -         non predit
+PHYSSKINC              14       14        13   -         non predit
+PHYSSTG              2604     2604      2436   IDENTIQUE **ECHEC : predit identique, 2436 lignes changent**
+PHYSSTGR              210      210        28   -         non predit
+PHYSSTGT              196      196       165   -         non predit
+PHYSSTGW             2604     2604      1841   IDENTIQUE **ECHEC : predit identique, 1841 lignes changent**
+PHYSSTIM                5        5         0   -         non predit
+PHYSSTR               372      372       263   IDENTIQUE **ECHEC : predit identique, 263 lignes changent**
+PHYSSUBJECT             1        1         0   -         non predit
+PHYSSYM                16       16        16   -         non predit
+PHYSSYM2               16       16        16   -         non predit
+PHYSSYM3               16       16        16   -         non predit
+PHYSSYM4               16       16         4   -         non predit
+PHYSSYM5               16       16         0   -         non predit
+PHYSSYM6               16       16         0   -         non predit
+PHYSSYMB               32       32         7   -         non predit
+PHYSSYML                8        8         0   -         non predit
+PHYSSYMPOSE             8        8         0   -         non predit
+PHYSTAN                 1        1         1   -         non predit
+PHYSTAN2                1        1         1   -         non predit
+PHYSTILT                2        2         0   -         non predit
+PHYSTRI                 6        6         0   IDENTIQUE OK
+PHYSUNITS               1        1         0   -         non predit
+PHYSURST                4        4         0   -         non predit
+
+PREDICTION « IDENTIQUE » : 29 tag(s) en echec -> PHYSCOMD, PHYSCOMDL, PHYSCOMW, PHYSCOMWL, PHYSGRAD, PHYSGRADS, PHYSJTW, PHYSORI2, PHYSORICOM, PHYSORICOM2, PHYSORICOML, PHYSORITR, PHYSPOSEF, PHYSPOSEFB, PHYSRAD, PHYSRADL, PHYSRADLD, PHYSRADLE, PHYSREST, PHYSREST2, PHYSRESTS, PHYSRESTW, PHYSRING, PHYSRINGA, PHYSRINGAT, PHYSRINGS, PHYSSTG, PHYSSTGW, PHYSSTR
+PREDICTION « BOUGE »     : 0 tag(s) muets (aucun)

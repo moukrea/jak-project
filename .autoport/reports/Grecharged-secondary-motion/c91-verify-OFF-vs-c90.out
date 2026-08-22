@@ -1,0 +1,209 @@
+DIRECTIVES v3fee554599
+
+C91 — CONTROLE DE BIT-IDENTITE, PREDICTION PUBLIEE AVANT LA COURSE
+====================================================================================================
+avant : /tmp/room-c90-archive.log
+apres : .autoport/reports/Grecharged-secondary-motion/keira-room-x86.c91-OFF.log
+
+tag               n avant  n apres lignes !=   verdict
+PHYS                    1        1         0   -         non predit
+PHYSACC               372      372         0   IDENTIQUE OK
+PHYSAG                  6        6         0   -         non predit
+PHYSANIM               31       31         0   IDENTIQUE OK
+PHYSANIMLEN           294      294         0   -         non predit
+PHYSANIMRIG            13       13         0   -         non predit
+PHYSANIMS               1        1         0   -         non predit
+PHYSAPEX              372      372         0   BOUGE     **MUET : predit different, aucune ligne ne change**
+PHYSAPEX2             372      372         0   BOUGE     **MUET : predit different, aucune ligne ne change**
+PHYSAPEXD             372      372         0   BOUGE     **MUET : predit different, aucune ligne ne change**
+PHYSAPEXR             372      372         0   BOUGE     **MUET : predit different, aucune ligne ne change**
+PHYSAPEXT             372      372         0   BOUGE     **MUET : predit different, aucune ligne ne change**
+PHYSAUTH                2        2         0   -         non predit
+PHYSAUTH2               2        2         0   -         non predit
+PHYSAUTHPC              2        2         0   -         non predit
+PHYSAXCOM              12       12         0   -         non predit
+PHYSAXIS                2        2         0   IDENTIQUE OK
+PHYSAXISS               2        2         0   -         non predit
+PHYSAXNAME              2        2         0   -         non predit
+PHYSAXR                 4        4         0   -         non predit
+PHYSAXRES              12       12         0   -         non predit
+PHYSAXTAN               6        6         0   -         non predit
+PHYSAXW                 6        6         0   -         non predit
+PHYSBACK                2        2         0   -         non predit
+PHYSBASE               62       62         0   -         non predit
+PHYSBONE                4        4         0   IDENTIQUE OK
+PHYSBSURF              28       28         0   -         non predit
+PHYSCFVOL              33       33         0   -         non predit
+PHYSCHAIN               2        2         0   IDENTIQUE OK
+PHYSCOL                56       56         0   -         non predit
+PHYSCOMD              372      372         0   IDENTIQUE OK
+PHYSCOMDL             372      372         0   IDENTIQUE OK
+PHYSCOMW              372      372         0   IDENTIQUE OK
+PHYSCOMWL             744      744         0   IDENTIQUE OK
+PHYSCOMX              372      372         0   -         non predit
+PHYSCOMX2             372      372         0   -         non predit
+PHYSCONE                2        2         0   -         non predit
+PHYSCOUNTS              1        1         0   -         non predit
+PHYSCTLDF             324      324         0   BOUGE     **MUET : predit different, aucune ligne ne change**
+PHYSCTLML             216      216         0   -         non predit
+PHYSCVOL               32       32         0   -         non predit
+PHYSDECAY               1        1         0   -         non predit
+PHYSDFMA               54       54         0   BOUGE     **MUET : predit different, aucune ligne ne change**
+PHYSDIAG               28       28         0   -         non predit
+PHYSDIAG2              28       28         0   -         non predit
+PHYSDIAG3              28       28         0   -         non predit
+PHYSDIAG4              28       28         0   -         non predit
+PHYSDIAG5              28       28         0   -         non predit
+PHYSDIAG6              84       84         0   -         non predit
+PHYSDIAG8              28       28         0   -         non predit
+PHYSE22                14       14         0   -         non predit
+PHYSEND                 1        1         0   -         non predit
+PHYSGRAD              744      744         0   IDENTIQUE OK
+PHYSGRADS             744      744         0   IDENTIQUE OK
+PHYSGRAV               10       10         0   -         non predit
+PHYSIDLE                2        2         0   -         non predit
+PHYSIDLEG               2        2         0   -         non predit
+PHYSINV                 2        2         0   -         non predit
+PHYSJOINT               4        4         0   IDENTIQUE OK
+PHYSJTW             27528    27528         0   IDENTIQUE OK
+PHYSJTWK             1147     1147         0   IDENTIQUE OK
+PHYSJTWN                6        6         0   IDENTIQUE OK
+PHYSKEY                 1        1         0   -         non predit
+PHYSLIM                 1        1         0   -         non predit
+PHYSLIM4                1        1         0   -         non predit
+PHYSLIMW                1        1         0   -         non predit
+PHYSMEAN               10       10         0   -         non predit
+PHYSMED                28       28         0   -         non predit
+PHYSMED2               28       28         0   -         non predit
+PHYSMED3               28       28         0   -         non predit
+PHYSMGEO                6        6         0   -         non predit
+PHYSNOPLAY              1        1         0   -         non predit
+PHYSORI                18       18         0   IDENTIQUE OK
+PHYSORI2               18       18         0   IDENTIQUE OK
+PHYSORI3               18       18         0   IDENTIQUE OK
+PHYSORI4               18       18         0   IDENTIQUE OK
+PHYSORICOM             18       18         0   IDENTIQUE OK
+PHYSORICOM2            18       18         0   IDENTIQUE OK
+PHYSORICOML            36       36         0   IDENTIQUE OK
+PHYSORICTL            108      108         0   -         non predit
+PHYSORICTL2           108      108         0   -         non predit
+PHYSORICTL3           108      108         0   -         non predit
+PHYSORITR              18       18         0   IDENTIQUE OK
+PHYSOSCK2               1        1         0   -         non predit
+PHYSPAIR              108      108         0   -         non predit
+PHYSPC                  1        1         0   -         non predit
+PHYSPOSEB             124      124         0   -         non predit
+PHYSPOSED               1        1         0   -         non predit
+PHYSPOSEF             682      682         0   IDENTIQUE OK
+PHYSPOSEFB           2728     2728         0   IDENTIQUE OK
+PHYSPOSETAG            24       24         0   -         non predit
+PHYSPROX                2        2         0   -         non predit
+PHYSPROXC               4        4         0   -         non predit
+PHYSRAD               372      372         0   IDENTIQUE OK
+PHYSRADL              744      744         0   IDENTIQUE OK
+PHYSRADLD             744      744         0   IDENTIQUE OK
+PHYSRADLE             744      744         0   IDENTIQUE OK
+PHYSRADSAT            372      372         0   -         non predit
+PHYSREBASE            372      372         0   -         non predit
+PHYSREG                30       30         0   -         non predit
+PHYSREG2               30       30         0   -         non predit
+PHYSREG3               30       30         0   -         non predit
+PHYSREG4               30       30         0   -         non predit
+PHYSREG5               30       30         0   -         non predit
+PHYSREGA               24       24         0   -         non predit
+PHYSREGAAX              8        8         0   -         non predit
+PHYSREGAB               4        4         0   -         non predit
+PHYSREGAD              12       12         0   -         non predit
+PHYSREGAPOSE            1        1         0   -         non predit
+PHYSREGAW               3        3         0   -         non predit
+PHYSREGB                4        4         0   -         non predit
+PHYSREGBB               4        4         0   -         non predit
+PHYSREGBD               9        9         0   -         non predit
+PHYSREGBL               1        1         0   -         non predit
+PHYSREGBONE            30       30         0   -         non predit
+PHYSREGBPOSE            1        1         0   -         non predit
+PHYSREGBS               1        1         0   -         non predit
+PHYSREGBS2              1        1         0   -         non predit
+PHYSREGBV              18       18         0   -         non predit
+PHYSREGBW               3        3         0   -         non predit
+PHYSREGD               15       15         0   -         non predit
+PHYSREGL               20       20         0   -         non predit
+PHYSREGS               30       30         0   -         non predit
+PHYSREGSB               4        4         0   -         non predit
+PHYSREGSPOSE            1        1         0   -         non predit
+PHYSREGT               30       30         0   -         non predit
+PHYSREGTB               4        4         0   -         non predit
+PHYSREGTPOSE            1        1         0   -         non predit
+PHYSREGW              132      132         0   -         non predit
+PHYSREMAP             294      294         0   -         non predit
+PHYSREMAPORPHAN       242      242         0   -         non predit
+PHYSRESEAT              1        1         0   -         non predit
+PHYSRESP               12       12         0   -         non predit
+PHYSREST              187      187         0   IDENTIQUE OK
+PHYSREST2             186      186         0   IDENTIQUE OK
+PHYSRESTLEG             2        2         0   -         non predit
+PHYSRESTS             372      372         0   IDENTIQUE OK
+PHYSRESTW             372      372         0   IDENTIQUE OK
+PHYSRING              596      596         0   IDENTIQUE OK
+PHYSRING3             596      596         0   -         non predit
+PHYSRINGA             596      596         0   IDENTIQUE OK
+PHYSRINGAT            596      596         0   IDENTIQUE OK
+PHYSRINGAX           1800     1800         0   -         non predit
+PHYSRINGAX2          1800     1800         0   -         non predit
+PHYSRINGAZ           1800     1800         0   -         non predit
+PHYSRINGAZ2          1800     1800         0   -         non predit
+PHYSRINGBX           1800     1800         0   -         non predit
+PHYSRINGBX2          1800     1800         0   -         non predit
+PHYSRINGBZ           1800     1800         0   -         non predit
+PHYSRINGBZ2          1800     1800         0   -         non predit
+PHYSRINGCX           1800     1800         0   -         non predit
+PHYSRINGCZ           1800     1800         0   -         non predit
+PHYSRINGS             596      596         0   IDENTIQUE OK
+PHYSRINGSH            600      600         0   -         non predit
+PHYSROOM                4        4         0   -         non predit
+PHYSROW               310      310         0   -         non predit
+PHYSROW2              310      310         0   -         non predit
+PHYSSEC               180      180         0   -         non predit
+PHYSSGN               144      144         0   -         non predit
+PHYSSGN2              144      144         0   -         non predit
+PHYSSGN3              144      144         0   -         non predit
+PHYSSGN4              144      144         0   -         non predit
+PHYSSGNB                4        4         0   -         non predit
+PHYSSGNPOSE             1        1         0   -         non predit
+PHYSSHAPE             372      372         0   BOUGE     **MUET : predit different, aucune ligne ne change**
+PHYSSHAPE2            372      372         0   BOUGE     **MUET : predit different, aucune ligne ne change**
+PHYSSHAPE3            372      372         0   BOUGE     **MUET : predit different, aucune ligne ne change**
+PHYSSHAPE4            372      372         0   BOUGE     **MUET : predit different, aucune ligne ne change**
+PHYSSHAPE5            372      372         0   BOUGE     **MUET : predit different, aucune ligne ne change**
+PHYSSHAPE6            372      372         0   BOUGE     **MUET : predit different, aucune ligne ne change**
+PHYSSHAPE7            372      372         0   BOUGE     **MUET : predit different, aucune ligne ne change**
+PHYSSHAPE8            372      372         0   BOUGE     **MUET : predit different, aucune ligne ne change**
+PHYSSHAPE9            372      372         0   BOUGE     **MUET : predit different, aucune ligne ne change**
+PHYSSKIN               28       28         0   -         non predit
+PHYSSKIN2              28       28         0   -         non predit
+PHYSSKINC              14       14         0   -         non predit
+PHYSSTG              2604     2604         0   IDENTIQUE OK
+PHYSSTGR              210      210         0   -         non predit
+PHYSSTGT              196      196         0   -         non predit
+PHYSSTGW             2604     2604         0   IDENTIQUE OK
+PHYSSTIM                5        5         0   -         non predit
+PHYSSTR               372      372         0   IDENTIQUE OK
+PHYSSUBJECT             1        1         0   -         non predit
+PHYSSYM                16       16         0   -         non predit
+PHYSSYM2               16       16         0   -         non predit
+PHYSSYM3               16       16         0   -         non predit
+PHYSSYM4               16       16         0   -         non predit
+PHYSSYM5               16       16         0   -         non predit
+PHYSSYM6               16       16         0   -         non predit
+PHYSSYMB               32       32         0   -         non predit
+PHYSSYML                8        8         0   -         non predit
+PHYSSYMPOSE             8        8         0   -         non predit
+PHYSTAN                 1        1         0   -         non predit
+PHYSTAN2                1        1         0   -         non predit
+PHYSTILT                2        2         0   -         non predit
+PHYSTRI                 6        6         0   IDENTIQUE OK
+PHYSUNITS               1        1         0   -         non predit
+PHYSURST                4        4         0   -         non predit
+
+PREDICTION « IDENTIQUE » : 0 tag(s) en echec (aucun)
+PREDICTION « BOUGE »     : 16 tag(s) muets -> PHYSAPEX, PHYSAPEX2, PHYSAPEXD, PHYSAPEXR, PHYSAPEXT, PHYSCTLDF, PHYSDFMA, PHYSSHAPE, PHYSSHAPE2, PHYSSHAPE3, PHYSSHAPE4, PHYSSHAPE5, PHYSSHAPE6, PHYSSHAPE7, PHYSSHAPE8, PHYSSHAPE9

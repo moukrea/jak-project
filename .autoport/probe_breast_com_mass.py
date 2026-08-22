@@ -126,26 +126,49 @@ def main():
                                     L=[float(x) for x in Lm], W0=w0))
             print('PROBE-COM-MASS: %-8s w>=%.2f  L(ancre)=[%+9.1f %+9.1f %+9.1f] u   W0=%.1f u'
                   % (cname, cut, Lm[0], Lm[1], Lm[2], w0))
-        # LE TRIEDRE DE SA §7, en base d'ancre. `+Z` est la SAILLIE (centroide depuis la racine)
-        # orthogonalisee contre `+X` pour que « toward thorax » et « outward » ne se melangent pas.
+        # LE TRIEDRE DE SA §7, en base d'ancre — CHAQUE AXE D'UNE PHRASE DE §7, MESURE SUR LE RIG.
+        #
+        # CORRIGE AU CYCLE 91, ET C'ETAIT UN AXE FAUX. Jusqu'ici `+Z` etait la SAILLIE (le
+        # centroide de chair depuis la racine) et `+Y` s'en deduisait par produit vectoriel. Or
+        # sa §7 l.132-133 ecrit « +Y = upward along **torso** » et « +Z = forward from chest » :
+        # la saillie n'est pas « forward from chest », le sein pointe en avant ET VERS LE BAS, et
+        # le produit vectoriel reportait cette inclinaison sur `+Y`. Mesure : l'axe long du torse
+        # du rig LIVRE (`hips` -> `neck`, colineaire a `chest`->`neck` et `hips`->`chest` a
+        # 0,00 deg) est a **12,27 deg** de l'ancien `+Y`. Trois cellules du registre des 16
+        # echelles de §10/§11/§12 changeaient de verdict pour cette seule raison.
+        # `+Y` est donc pris SUR LE TORSE et orthogonalise contre `+X` ; `+Z` complete le triedre.
+        #
+        # SEUL `+X` EST MIROITE. Sa §7 l.130-131 ecrit « for the left and right breasts, outward
+        # +X should be MIRRORED » — et RIEN d'autre : `+Y` et `+Z` sont communs aux deux seins.
+        # On les construit donc sur un `+X` COMMUN, celui de chestR, et ils sortent identiques des
+        # deux cotes ; sur un `+X` miroite ils se retourneraient d'une chaine a l'autre, ce qui est
+        # faux des qu'on projette ([[feedback_directional_clause_read_as_a_norm]]).
         selz = wsum >= 0.05
         xo = OUTW[cname]
-        zf = anch(V[selz].mean(axis=0) - P[idx[0]])
-        zf = zf - float(zf @ xo) * xo
+        sail = anch(V[selz].mean(axis=0) - P[idx[0]])
+        sail = sail - float(sail @ xo) * xo
+        sail = sail / np.linalg.norm(sail)
+        yu = anch(P[names.index('neck')] - P[names.index('hips')])
+        yu = yu - float(yu @ OUTW['chestR']) * OUTW['chestR']
+        yu = yu / np.linalg.norm(yu)
+        zf = np.cross(OUTW['chestR'], yu)
         zf = zf / np.linalg.norm(zf)
-        # SEUL `+X` EST MIROITE. Sa §7 l.130-131 ecrit « for the left and right breasts, outward
-        # +X should be MIRRORED » — et RIEN d'autre : `+Y = upward along torso` et
-        # `+Z = forward from chest` sont communs aux deux seins. Construire `+Y = +Z x +X` avec un
-        # `+X` miroite le retourne d'une chaine a l'autre (mesure : 167.7 deg entre les deux `up`),
-        # ce qui est faux des qu'on s'en sert pour autre chose qu'une ECHELLE (une norme est
-        # aveugle au signe, une projection ne l'est pas — [[feedback_directional_clause_read_as_a_norm]]).
-        # `+Y` se construit donc sur un `+X` COMMUN, celui de chestR, et il sort identique des
-        # deux cotes.
-        yu = np.cross(zf, OUTW['chestR'])
+        # le SENS de `+Z` est « forward », donc l'hemisphere de la saillie ; sa DIRECTION vient du
+        # triedre, jamais de la saillie.
+        if float(zf @ sail) < 0.0:
+            zf = -zf
         rec['axes'] = {'out': [float(v) for v in xo], 'up': [float(v) for v in yu],
                        'fwd': [float(v) for v in zf]}
+        rec['axes_saillie'] = [float(v) for v in sail]
         print('PROBE-COM-MASS: %-8s +X=[%+.5f %+.5f %+.5f] +Y=[%+.5f %+.5f %+.5f]'
               ' +Z=[%+.5f %+.5f %+.5f]' % (cname, *xo, *yu, *zf))
+        print('PROBE-COM-MASS: %-8s  +Y a %.2f deg de la SAILLIE x lateral (l\'ancien +Y),'
+              ' +Z a %.2f deg de la saillie (l\'ancien +Z) — publie pour que la correction'
+              ' d\'axe soit visible'
+              % (cname,
+                 np.degrees(np.arccos(min(1.0, abs(float(yu @ (np.cross(sail, OUTW['chestR'])
+                                                               / np.linalg.norm(np.cross(sail, OUTW['chestR'])))))))),
+                 np.degrees(np.arccos(min(1.0, abs(float(zf @ sail)))))))
         out['chains'][cname] = rec
     # HORODATAGE DE LA SOURCE — sans lui, un consommateur ne peut pas savoir si ce fichier est
     # PLUS VIEUX que le mesh qu'il pretend decrire. Paye une fois : le 2026-08-18 ce fichier a ete

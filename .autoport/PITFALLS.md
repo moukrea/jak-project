@@ -602,7 +602,7 @@ POPULATION — combien de cellules au-dessus, combien dedans, combien dessous �
 correctif unique les deplace toutes dans le bon sens. Voisin de `argmax-anchor-is-not-a-population`
 et de `com-is-a-population-not-a-max`, tombes tous les deux sur le meme raccourci.
 
-GUARD internal-target-is-not-the-rest-pose .autoport/DIRECTIVES.md cible interne du ressort
+GUARD internal-target-is-not-the-rest-pose .autoport/PITFALLS.md CIBLE DU RESSORT est ailleurs
 **J'ai traduit une grandeur INTERNE en langage owner et je l'ai mis en contradiction avec ce qu'il
 voit.** Le cycle 85 publie « sans aucun pilotage le joint se tient a 1,8 B0 de sa propre cible de
 repos » ; j'ai relaye « le probleme est dans la position d'equilibre elle-meme », ce qui se lit

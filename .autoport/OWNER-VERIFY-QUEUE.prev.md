@@ -1,98 +1,89 @@
-# RIEN A TESTER DANS CE BUILD — MAIS JE DOIS TE RETIRER CE QUE JE T'AI DIT HIER SOIR
+# RIEN A TESTER — MAIS J'AI UNE QUESTION SUR TA SPEC, ET DEUX CHOSES A TE DIRE
 
-Branche `physics-keira-clean`. **Ce build ne change pas un bit de la physique** : pas une ligne de
-moteur, pas une donnee. Ne perds pas de temps dessus.
-
-En echange j'ai un fait neuf, et il est plus utile que tout ce que je t'ai envoye cette semaine.
+Branche `physics-keira-clean`. **Ces deux cycles ne changent pas un bit de la physique** : pas une
+ligne de moteur, pas une donnee. Ne perds pas de temps a tester.
 
 ---
 
-## 1. JE RETIRE CE QUE JE T'AI ECRIT HIER SOIR SUR SES ANIMATIONS
+## 1. MA QUESTION, ET C'EST LA SEULE CHOSE QUE JE TE DEMANDE
 
-Je t'ai dit deux choses hier soir, et **les deux sont a corriger**.
+Dans ta section 12 (elle est couchee sur le cote) tu ecris trois lignes. La premiere est :
 
-**(a) « Tes animations ne secouent son torse qu'a 1,06 g au plus. »** Faux — ou plutot incomplet,
-ce qui revient au meme. Je mesurais le torse **en translation seulement**. Mais sa poitrine n'est
-pas accrochee au centre du torse : elle est au bout d'un bras de levier, et quand le torse
-**tourne**, le bout du levier prend beaucoup plus que le centre. En comptant la rotation, l'entree
-reelle monte a **7,65 g**. Ma mesure ne pouvait pas la voir.
+> **Global lateral COM response: 15-24% B0, nominal 19%**
 
-**(b) « Il reste juste a filtrer un a-coup d'une image et la cible redevient atteignable. »**
-Faux aussi, et c'est le plus important. **Cet a-coup ne produit pas ce que tu vois.** Je l'ai
-verifie en appariant les 31 animations une a une : l'a-coup pilote mon compteur d'entree presque
-parfaitement (0,96 sur 1), et le mouvement de sa poitrine **pas du tout** (-0,04). Les animations
-qui n'ont aucun a-coup ont meme une poitrine qui s'ecarte **davantage** que celles qui en ont un.
+**Je ne sais pas ce que « Global » veut dire ici**, et les trois facons de le lire ne donnent pas
+le meme resultat :
 
-Si je l'avais filtre comme je te l'annoncais, **tu n'aurais rien vu changer a l'ecran.**
+  - la reponse laterale de **chaque sein** pris separement  -> entre 0,006 et 0,163 (bande 0,15-0,24)
+  - la **moyenne des deux** a chaque pose                   -> 0,102 et 0,077, donc SOUS
+  - la **longueur totale** du deplacement de chaque sein    -> entre 0,042 et 0,187
+
+Selon la lecture, ta ligne est tenue ou pas. Je ne tranche pas a ta place — dis-moi laquelle tu
+avais en tete et je la mesure.
 
 ---
 
-## 2. LE FAIT NEUF, ET IL EXPLIQUE MIEUX CE QUE TU DECRIS DEPUIS DEUX SEMAINES
+## 2. LES 38 SECTIONS DE TA SPEC PORTENT MAINTENANT TOUTES UN VERDICT
 
-**Sa poitrine est deja a 10 a 13 cm de la position que l'artiste a dessinee QUAND ELLE NE BOUGE
-PAS.**
+La derniere qui restait sans reponse — la 10, allongee sur le dos — est jugee, et c'est non.
 
-Ce n'est pas une phrase en l'air, c'est la mesure. J'ai isole les animations ou son corps est
-reellement immobile — trois criteres a la fois : il ne se deplace pas (0,03 mm par image), il ne
-tourne pas (0,015 degre par image), il n'accelere pas. Il en reste cinq. Sur ces cinq :
+    ta ligne  « le sein migre vers l'exterieur de 4 a 10 % de sa largeur »
+    mesure    sein gauche  +2,0 %      -> deux fois trop peu
+              sein droit   -1,7 %      -> il part dans l'AUTRE SENS, il rentre
 
-    huit mesures sur dix depassent DEJA le plafond maximum de ta spec
-    et le pire ecart de toute la course — 12,9 cm, pour un plafond de 7,3 cm —
-    tombe sur l'animation ou elle est LA PLUS IMMOBILE des trente et une.
+    ta ligne  « la projection vers l'avant se reduit de 25 a 35 % »
+    mesure    elle se reduit de 13 % a gauche, 12 % a droite  -> pas assez ecrase
 
-Puis j'ai multiplie l'entree par **380** — de « immobile » a « choc violent ». Resultat :
-**l'ecart ne bouge pas.** Il baisse meme de 4 %.
+    ta ligne  « le volume vertical augmente de 5 a 12 % »
+    mesure    +0,4 % a gauche, +4,3 % a droite                -> pas assez non plus
 
-**Donc ce n'est pas un ballotement excessif.** Et en creusant j'ai trouve mieux — voir le point 3,
-qui corrige ce que je viens d'ecrire. Ca colle beaucoup mieux a ce que tu me dis
-depuis le 13 — « ca suit aucune logique », « c'est du pudding » — qu'une sur-reaction aux gestes :
-un pudding ne reagit pas trop fort, il **se tient mal**.
-
-**Et ca veut dire que j'ai passe plusieurs cycles a chasser la mauvaise chose.** Tout le chantier
-depuis une semaine visait a calmer sa reaction au mouvement. La reaction au mouvement n'est pas le
-probleme — le probleme est la ou elle se pose quand il n'y a pas de mouvement du tout.
-
-J'ai verifie que ce n'etait pas mon instrument qui se trompait de reference (c'etait l'explication
-la plus commode) : il compare bien a la pose de l'artiste de la meme image, je l'ai relu dans le
-code. **L'ecart est reel.**
+Etat complet : **1 section tenue, 5 tenues par construction, 21 partielles, 11 non tenues, 0
+inconnue.** Le dernier chiffre est celui qui compte. Depuis dix jours j'avancais en transformant
+des inconnues en verdicts ; **cette source est epuisee**, et le vrai travail — faire passer des
+rouges au vert — n'a pas commence.
 
 ---
 
-## 3. ET EN FAIT C'EST L'INVERSE DE CE QUE JE CROYAIS — JE ME CORRIGE UNE DEUXIEME FOIS
+## 3. J'AI TROUVE POURQUOI TANT DE TES LIGNES DE FORME SONT ROUGES, ET C'EST ENCOURAGEANT
 
-J'ai d'abord conclu « sa poitrine ne revient pas ou l'artiste l'a mise ». **Puis j'ai compare au
-modele 3D livre lui-meme, et c'est faux : elle y revient a 8 millimetres pres.** L'os de poitrine
-se repose exactement la ou ton modele le place.
+Le moteur calcule d'abord la forme d'equilibre que tes sections 10, 11 et 12 decrivent — et **il
+la calcule BIEN** : sur les 16 mesures de forme de ces trois sections, **13 tombent dans tes
+bandes**.
 
-Ce que mon chiffre mesurait, c'est **l'ecart entre le modele et ce que l'ANIMATION demande** — et
-il vaut 5 a 6 cm, **le meme sur les 31 animations**. Autrement dit : l'animation veut mettre sa
-poitrine quelque part, et **la physique refuse de l'y suivre** ; elle la tient au modele.
+Puis il applique deux corrections par-dessus (l'etirement quand ca bouge vite, l'ecrasement au
+contact). Ces deux-la ne gonflent rien — elles conservent le volume exactement — mais elles
+**defont** l'equilibre : apres elles, il ne reste que **8 mesures sur 16** dans tes bandes.
 
-**Ca renverse completement le diagnostic.** Depuis dix jours je cherche a la faire bouger MOINS.
-La mesure dit qu'elle bouge TROP PEU la ou l'animation lui demande de bouger — ce qui ressemble
-beaucoup plus a ce que tu me dis depuis le debut (« trop statiques », « aucune physique quand
-elle soude ») qu'a une sur-reaction.
-
-**Il me reste une question a trancher avant de toucher a quoi que ce soit**, et elle est a une
-mesure : ces 5-6 cm sont-ils une vraie intention des animateurs de Naughty Dog, ou une constante
-parasite introduite quand on transpose leurs animations sur le squelette HD ? **Les deux
-demandent des corrections opposees** — dans un cas il faut suivre l'animation, dans l'autre
-surtout pas. Je ne bouge pas tant que je ne l'ai pas mesure.
+Autrement dit : ce que tu decris est deja produit, puis efface en aval. C'est la piste la plus
+large que j'aie, et c'est la prochaine que j'attaque.
 
 ---
 
-## 4. CE QUI T'APPARTIENT ENCORE, INCHANGE
+## 4. DEUX ERREURS DE MESURE QUE JE CORRIGE, ET ELLES SONT A MOI
 
-  - Ta section 16 ecrit « **Recommended soft ceiling** : MaxApexDisplacement ≈ 0.50 B0 ». Le mot
-    est « soft » — recommande, souple. Je l'ai implemente **dur**. Dis-moi lequel des deux tu veux.
-  - Le denominateur `B0`, la longueur de reference de tout le dossier. Ton texte est lisible de
-    deux facons et le choix deplace quinze sections d'un coup. Je ne tranche pas a ta place.
+**(a) Je mesurais ta section 12 sur le mauvais sein.** Sa premiere phrase dit que le sein du
+DESSOUS s'ecrase et que celui du DESSUS migre vers le milieu. Ce sont donc deux lignes qui parlent
+chacune d'UN sein — et je les lisais sur les deux. Corrige : le role (dessus / dessous) est
+maintenant deduit de la direction de la gravite mesuree, pas d'une etiquette.
+
+**(b) Je mesurais les formes le long des axes du squelette, pas ceux que ta spec definit.** Il y a
+**12 degres** entre les deux. Sur les 16 mesures de forme, **5 changent de verdict** une fois
+corrige — dont deux qui deviennent bonnes et deux qui deviennent mauvaises. Les deux lectures sont
+publiees cote a cote pour que la difference soit visible.
 
 ---
 
-**A TESTER : RIEN.** Et je maintiens ce que je t'ai dit le 20 : tant qu'une seule section de ta
-spec sur 38 est tenue, te demander de juger a l'oeil te coute plus que ca ne me rapporte. Le jour
-ou le bloc qui gouverne ce que tu vois tiendra ensemble, je te le dirai et je te demanderai de
-regarder.
+## 5. ET UNE CHOSE QUE J'AVAIS OUBLIEE PENDANT 30 CYCLES
+
+Le 20 aout j'avais ecrit qu'il fallait corriger, au cycle suivant, le fait que **le deuxieme os du
+sein droit ne pilote AUCUNE des pointes de chair** (poids exactement zero). Tout ce que je mesure
+sur la pointe du sein droit depuis un mois decrit donc **un seul os**, pas la chaine. Je l'avais
+ecrit avec la mention « surtout pas l'oubli », et je l'ai oublie. C'est retrouve, chiffre, et
+verifie : ce n'est pas un artefact de la facon dont je decoupe l'organe, c'est le maillage.
+
+---
+
+**A TESTER : RIEN.** Le moteur n'a pas bouge. Je maintiens ce que je t'ai dit le 20 : tant qu'une
+seule section sur 38 est tenue, te demander de juger a l'oeil te coute plus que ca ne me rapporte.
 
 `OPEN-DEFECTS` : `breast-spec-incomplete` reste ouverte. Elle ne se ferme que quand tu le dis.

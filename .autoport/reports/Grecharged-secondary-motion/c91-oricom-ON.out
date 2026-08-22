@@ -1,0 +1,139 @@
+DIRECTIVES v3fee554599
+
+SPEC 10 / 11 / 12 LUES SUR LE COM — TENSEUR D'EQUILIBRE COMPRIS
+====================================================================================================
+log  : .autoport/reports/Grecharged-secondary-motion/keira-room-x86.c91-ON.log
+mesh : out/jak1/fr3/skin/keira-hd-lod0.glb   (orthogonalite du repere d'ancre : R^T R - I max = 1.0e-24)
+B0   : 602 u  (sa §6, la chair)   ·   1 m = 4096 u
+lignes lues : PHYSORICOM 18 · PHYSORICOM2 18 · PHYSORICOML 36 · PHYSORI2 18 · PHYSTRI 6
+
+-- CONTROLE 1 : LES DEUX ACCUMULATEURS, ORIENTATION PAR ORIENTATION ---------------------
+   |somme telescopique de PHYSORICOML| contre |t| de PHYSORICOM, ecart relatif a la plus
+   grande des deux. Le bloc `ROOM-ORICOM-MASS` prend le PIRE sur les 9 orientations et
+   suspend ses HUIT lignes ; ce controle-ci est evalue A L'ORIENTATION QUE CHAQUE VERDICT
+   UTILISE, parce que la portee d'un controle doit etre celle de la donnee qu'il garde.
+   chestL   i=1   0.11% i=2   0.14% i=3   0.30% i=4   4.74% i=5   0.19% i=6   0.02% i=7   0.35% i=8   7.12%
+   chestR   i=1   4.57% i=2   0.20% i=3   0.14% i=4   0.34% i=5   0.15% i=6   0.04% i=7   0.03% i=8   7.67%
+   -> 14 cellules sur 16 passent le seuil de 5 pour cent. Les deux qui echouent sont chestL i=4
+      et chestR i=1 ; une seule des huit cellules publiees s'appuie sur elles.
+
+-- CONTROLE 2 : L'AXE D'OS, LU DANS LE RIG CONTRE AJUSTE PAR ACP -----------------------
+   `ROOM-ORIAXIS` ajuste l'axe de l'os par ACP sur la dispersion des 9 deplacements et
+   imprime « NON PLAN — le reste du bloc est invalide » sur les deux chaines. Voici l'axe
+   VRAI, lu dans le rig livre (racine -> pointe, espace ancre), et l'ecart angulaire.
+   chestL   axe VRAI = [+0.36454 -0.91919 -0.14897]  len = 140.4 u
+            axe ACP  = [-0.36200 +0.92950 +0.07110]  ecart = 4.50 deg
+            -> l'axe ajuste est donc a 4.50 deg de la verite : l'alarme « NON PLAN » est
+               trop severe sur cette chaine, mais la RAISON qu'elle donne est FAUSSE.
+   chestR   axe VRAI = [-0.36456 -0.91919 -0.14897]  len = 144.2 u
+            axe ACP  = [+0.11540 +0.99320 +0.01400]  ecart = 16.84 deg
+            -> l'axe ajuste est donc a 16.84 deg de la verite : l'alarme « NON PLAN » est
+               trop severe sur cette chaine, mais la RAISON qu'elle donne est FAUSSE.
+
+   CE QUE L'ALARME AFFIRME ET QUI NE TIENT PAS : « l'axe de l'os n'est PAS l'axe
+   anatomique racine->apex (qui est +Z) ». Sur le rig LIVRE l'axe racine->pointe est
+   VERTICAL a 92 pour cent, pas avant-arriere. L'instrument comparait son ajustement a une
+   attente fausse — celle que la SPEC decrit, pas celle que le RIG porte.
+
+-- CONTROLE 3 : L'AXE DE REPOS DU MOTEUR CONTRE CELUI DU RIG --------------------------
+   `PHYSURST` publie `*phys-ux*`, la direction de repos que le SOLVEUR a relevee. Elle
+   doit retomber sur l'axe racine->pointe lu dans le rig : deux origines independantes,
+   un seul vecteur. Un ecart mesure l'erreur du montage, il ne se corrige pas.
+   chestL   moteur = [+0.36488 -0.91925 -0.14776]  rig = [+0.36454 -0.91919 -0.14897]  ecart = 0.07 deg  CONCORDE
+   chestR   moteur = [-0.36148 -0.92057 -0.14794]  rig = [-0.36456 -0.91919 -0.14897]  ecart = 0.20 deg  CONCORDE
+
+-- LA STRUCTURE DE LA CHAINE, MESUREE SUR LE RIG LIVRE ----------------------------------
+   chestL   angle(rayon chest->racine , os racine->pointe) = 0.001 deg   -> COLINEAIRE
+            angle(os , direction du centroide de la chair depuis la racine) = 86.26 deg
+            |centroide - racine| = 562.4 u, direction [+0.3088 +0.2021 -0.9294]
+   chestR   angle(rayon chest->racine , os racine->pointe) = 0.000 deg   -> COLINEAIRE
+            angle(os , direction du centroide de la chair depuis la racine) = 86.80 deg
+            |centroide - racine| = 545.5 u, direction [-0.2848 +0.2041 -0.9366]
+
+   LECTURE : les deux joints sont empiles sur le RAYON chest->sein (colineaire a 0.001 deg),
+   donc le degre de liberte ajoute par §23 agit le long d'un axe qui fait ~85 deg avec la
+   direction ou vit la masse de l'organe. Ce n'est PAS un defaut de la pose du cycle 24 :
+   `derive_c24_breast_nodes.py:158` place les noeuds en INTERPOLANT sur le segment de joints
+   PREEXISTANT (`pos = spec[jb] + t*(spec[jc]-spec[jb])`), et il atteint exactement sa cible
+   derivee (r = 0.480 / 0.674 mesures contre 0.480 / 0.674 derives). L'operation ne peut que
+   FAIRE GLISSER les noeuds le long de ce rayon, jamais le REORIENTER.
+
+-- LE COM, PAR SECTION ------------------------------------------------------------------
+   colonnes : squelettique seul (ce que la salle publie) · + tenseur d'equilibre (cette
+   sonde) · borne apex avec l'axe ACP · borne apex avec l'axe VRAI · controle de CETTE
+   orientation. Les trois frontieres d'organe sont publiees sous chaque ligne : si elles
+   changent le verdict, c'est la frontiere qui decide et la ligne le dit.
+
+   === chestL ===  fx(moteur, MONDE, miroite)=[+0.9830 +0.1837 -0.0000]  fy=[+0.1829 -0.9784 +0.0959] fz=[-0.0176 +0.0942 +0.9954]
+            cross(fy,fz)=[-0.9830 -0.1837 +0.0000] — NON miroite, ne sert qu'au repli `outer(fx,fx)` ou le signe s'annule
+   ligne de base i=0 (§9 exige 0.0000) : |d_COM| = 0.00060 / 0.00066 / 0.00073 B0   -> nulle a la 3e decimale
+   D : LUE dans la trace (PHYSDFMA, 9 orientations) — dfa x dfb x dfc, rien de reconstruit, rien d'omis
+   section                skel  +tenseur  apex ACP apex VRAI     ctrl  cible/bande -> verdict
+   §10 supine           0.1831    0.3371    0.3616    0.3351    7.12%  0.23 0.18-0.28 -> SUSPENDUE (controle 7.1 % > 5 %)
+                     frontieres w>0 / w>=0.05 / w>=0.25 : 0.3057 / 0.3371 / 0.3746   det(D)=0.9999  FRONTIERE INDIFFERENTE
+   §11 prone            0.1274    0.2518    0.4270    0.3862    0.02%  0.24 0.20-0.30 -> DANS
+                     frontieres w>0 / w>=0.05 / w>=0.25 : 0.2284 / 0.2518 / 0.2798   det(D)=1.0000  FRONTIERE INDIFFERENTE
+   §12 lateral i=2      0.1402    0.1032    0.4131    0.3880    0.14%  0.19 0.15-0.24 -> SOUS
+                     frontieres w>0 / w>=0.05 / w>=0.25 : 0.0938 / 0.1032 / 0.1139   det(D)=1.0000  FRONTIERE INDIFFERENTE
+   §12 lateral i=4      0.1911    0.1867    0.4190    0.3852    4.74%  0.19 0.15-0.24 -> DANS
+                     frontieres w>0 / w>=0.05 / w>=0.25 : 0.1695 / 0.1867 / 0.2057   det(D)=1.0000  FRONTIERE INDIFFERENTE
+
+   === chestR ===  fx(moteur, MONDE, miroite)=[-0.9830 -0.1837 +0.0000]  fy=[+0.1829 -0.9784 +0.0959] fz=[-0.0176 +0.0942 +0.9954]
+            cross(fy,fz)=[-0.9830 -0.1837 +0.0000] — NON miroite, ne sert qu'au repli `outer(fx,fx)` ou le signe s'annule
+   ligne de base i=0 (§9 exige 0.0000) : |d_COM| = 0.00011 / 0.00012 / 0.00014 B0   -> nulle a la 3e decimale
+   D : LUE dans la trace (PHYSDFMA, 9 orientations) — dfa x dfb x dfc, rien de reconstruit, rien d'omis
+   section                skel  +tenseur  apex ACP apex VRAI     ctrl  cible/bande -> verdict
+   §10 supine           0.1826    0.3026    0.3196    0.3155    7.67%  0.23 0.18-0.28 -> SUSPENDUE (controle 7.7 % > 5 %)
+                     frontieres w>0 / w>=0.05 / w>=0.25 : 0.2699 / 0.3026 / 0.3507   det(D)=0.9999  LA FRONTIERE DECIDE (AU-DESSUS/DANS)
+   §11 prone            0.1466    0.2548    0.4041    0.3839    0.04%  0.24 0.20-0.30 -> DANS
+                     frontieres w>0 / w>=0.05 / w>=0.25 : 0.2273 / 0.2548 / 0.2949   det(D)=1.0000  FRONTIERE INDIFFERENTE
+   §12 lateral i=2      0.1914    0.1910    0.3081    0.3079    0.20%  0.19 0.15-0.24 -> DANS
+                     frontieres w>0 / w>=0.05 / w>=0.25 : 0.1706 / 0.1910 / 0.2197   det(D)=1.0000  FRONTIERE INDIFFERENTE
+   §12 lateral i=4      0.0583    0.0603    0.3863    0.3637    0.34%  0.19 0.15-0.24 -> SOUS
+                     frontieres w>0 / w>=0.05 / w>=0.25 : 0.0536 / 0.0603 / 0.0709   det(D)=1.0000  FRONTIERE INDIFFERENTE
+
+-- LA FORME : LES NEUF ECHELLES DE §10/§11/§12, DEUX FOIS -------------------------------
+   `ROOM-ORI` publie `sx/sy/sz`, les echelles du SEUL facteur d'equilibre `dfa`. Le
+   solveur applique `dfa x dfb x dfc` : la matrice complete porte en plus l'etirement
+   dynamique de SPEC 38 et la pression de contact de SPEC 23, ET DES TERMES DE
+   CISAILLEMENT que trois echelles ne peuvent pas exprimer. Les deux colonnes ci-dessous
+   ne visent donc PAS la meme chose, et il faut les lire separement :
+     `dfa`    = la grandeur que §10/§11/§12 DEFINISSENT (un equilibre d'orientation) ;
+     complet  = ce que la PEAU recoit reellement, donc ce que l'owner VOIT.
+   L'echelle d'extension le long de l'axe k est |D.e_k|, pas l'element diagonal — une
+   matrice non diagonale n'a pas d'echelle « par axe » lisible sur sa diagonale.
+   === chestL ===
+                                dfa verdict    complet verdict    cible  bande
+      §10 supine projection (z)   0.7410 DANS        0.7313 DANS       0.70  0.65-0.75
+      §10 supine largeur    (x)   1.2300 DANS        1.2635 DANS       1.23  1.18-1.28
+      §10 supine hauteur    (y)   1.0970 DANS        1.1007 DANS       1.09  1.05-1.12
+      §11 prone longueur   (z)   1.2195 DANS        1.2177 DANS       1.23  1.18-1.26
+      §11 prone largeur    (x)   0.8912 DANS        0.8922 DANS       0.90  0.87-0.93
+      §11 prone epaisseur  (y)   0.9199 DANS        0.9219 DANS       0.91  0.88-0.94
+      §12 lateral i=2 aplatissement (x)   0.8240 DANS        0.8355 DANS       0.80  0.75-0.85
+      §12 lateral i=4 aplatissement (x)   0.9907 AU-DESSUS   0.9927 AU-DESSUS  0.80  0.75-0.85
+   === chestR ===
+                                dfa verdict    complet verdict    cible  bande
+      §10 supine projection (z)   0.7617 AU-DESSUS   0.7651 AU-DESSUS  0.70  0.65-0.75
+      §10 supine largeur    (x)   1.2031 DANS        1.1975 DANS       1.23  1.18-1.28
+      §10 supine hauteur    (y)   1.0910 DANS        1.0971 DANS       1.09  1.05-1.12
+      §11 prone longueur   (z)   1.2125 DANS        1.2098 DANS       1.23  1.18-1.26
+      §11 prone largeur    (x)   0.9034 DANS        0.9042 DANS       0.90  0.87-0.93
+      §11 prone epaisseur  (y)   0.9128 DANS        0.9155 DANS       0.91  0.88-0.94
+      §12 lateral i=2 aplatissement (x)   1.0116 AU-DESSUS   1.0112 AU-DESSUS  0.80  0.75-0.85
+      §12 lateral i=4 aplatissement (x)   0.8054 DANS        0.8172 DANS       0.80  0.75-0.85
+
+-- CE QUE CES CHIFFRES DISENT, ET CE QU'ILS NE DISENT PAS ------------------------------
+   1. La part TENSORIELLE est le mecanisme meme de sa §10 (« COM toward thorax 18-28 % B0 »)
+      et elle etait ABSENTE de l'unique instrument qui mesurait ces sections. En l'ajoutant,
+      4 cellules sur 8 entrent dans leur bande la ou la part squelettique seule lisait SOUS
+      partout.
+   2. L'apex CESSE d'etre une borne superieure du COM des que le tenseur est compte : un
+      joint ne subit pas la deformation de la peau autour de lui. Le raisonnement de
+      `C23-spec10-12-com-bound.txt` ne valait que pour la part squelettique, et il est retire.
+   3. `dfb` (etirement dynamique de sa §38, uniaxial le long de l'os) n'est publie a AUCUNE
+      orientation. `d_COM` reste donc PARTIEL. Une ligne de `format` dans la salle le fermerait.
+   4. §12 donne « Global lateral COM response 15-24 % B0 ». Comparer QUATRE cellules
+      (chaine x pole) a une grandeur GLOBALE est peut-etre deja une erreur de nature ; meme
+      en moyennant les quatre (0.119 B0) le resultat reste SOUS la bande.
+
