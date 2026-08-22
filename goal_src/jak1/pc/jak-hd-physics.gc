@@ -2011,8 +2011,8 @@
   (none))
 
 (defun phys-cap-e22! ((skel skeleton) (sc int) (n int) (rlk int) (an int) (nbone int))
-  "SPEC 22 SUR LA VALEUR LIVREE — LA SEULE PLACE DE LA FRAME OU CE MOT A UN SENS, puisque rien
-   n'ecrit `*phys-px*` apres elle. NATURE : une LONGUEUR rapportee a `B0` (SPEC 6, la CHAIR).
+  "SPEC 22, ALTERNEE AVEC LA PEAU (cycle 104) : elle n'est PLUS le dernier ecrivain de
+   `*phys-px*` — voir NOTE-470. NATURE : une LONGUEUR rapportee a `B0` (SPEC 6, la CHAIR).
    REPERE : le monde, contre la pose d'AUTEUR de la MEME frame rebasee sur l'ecart du parent —
    exactement la cible du filet amont, pas une laisse vers la pose. LECTURE QUAND LE DEFAUT EST
    ABSENT : aucune correction, `*phys-e22-n*` = 0 (a la pose d'auteur l'ecart vaut 0, donc sous le
@@ -3212,8 +3212,8 @@
                       (phys-bend-chain skel sc n rlk an nbone #t))
                     (phys-stage-jt! skel sc rlk nbone 5)
                     ;; [NOTE-323] SPEC 33/34 — la peau ferme la frame -> jak-hd-physics-NOTES.md
-                    (phys-skin-chain skel sc n rlk nbone)
-                    (phys-cap-e22! skel sc n rlk an nbone)
+                    ;; [NOTE-470] cycle 104 : ALTERNEES, PAS ENCHAINEES — la peau ferme VRAIMENT -> jak-hd-physics-NOTES.md
+                    (dotimes (it 2) (phys-cap-e22! skel sc n rlk an nbone) (phys-skin-chain skel sc n rlk nbone))
                     (phys-stage-jt! skel sc rlk nbone 6)
                     ;; [NOTE-63] SPEC 33/34 — LA RESTITUTION, UNE FOIS PAR FRAME, SUR LA VITESSE SEULE. -> jak-hd-physics-NOTES.md
                     (when (zero? *phys-rst-off*)

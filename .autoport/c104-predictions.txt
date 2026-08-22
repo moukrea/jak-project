@@ -1,0 +1,93 @@
+CYCLE 104 — PREDICTIONS ECRITES AVANT LA COURSE (fichier cree avant l'edition du moteur)
+DIRECTIVES v3fee554599
+
+SECTION DONT CE CYCLE DEBLOQUE LE VERDICT, NOMMEE AVANT DE COMMENCER : §34 (et §33 par le meme
+site), c'est-a-dire le SEUL verdict de mesure rouge du validateur.
+
+DEFAUT, ETABLI PAR L'ABLATION DU CYCLE 103 (pas suppose) :
+  `phys-cap-e22!` (borne de SPEC 22) tourne APRES `phys-skin-chain` (SPEC 33/34) au site unique
+  `jak-hd-physics.gc:3215-3216`. Les deux sont des rotations autour de la MEME attache, donc sur
+  la MEME sphere. e22 corrige VERS la pose d'auteur ; pour un sein qui pend hors du thorax, cela
+  le RENTRE. Mesure c103 : `*phys-e22-off*` 0->1 fait passer chestR de 0.0886 a 0.0836 m, verdict
+  `+0.0003 DEPASSEE` -> `-0.0047 TENUE`. C'est 5.0 mm de peau enfoncee par la borne de §22.
+
+CORRECTIF : les deux contraintes sont ALTERNEES au lieu d'etre enchainees une fois chacune —
+  (dotimes (it 2) (phys-cap-e22! ...) (phys-skin-chain ...))
+La peau FERME la frame (ce que sa propre docstring affirme depuis le cycle 74 et que l'ordre
+livre rendait faux), et §22 passe DEUX fois au lieu d'une, donc sa borne tient partout ou elle
+n'entre pas en conflit avec la regle 6 de l'owner (« rien ne traverse le mesh, quelle qu'en soit
+la raison »). Cout : 0 ligne de moteur (3 lignes remplacent 3 lignes, 4800/4800 intouche).
+
+POURQUOI L'INTERSECTION DES DEUX CONTRAINTES N'EST PAS VIDE, ET C'EST CE QUI REND L'ALTERNANCE
+LEGITIME PLUTOT QU'UN SIMPLE ECHANGE DE ROUGE : la cible `t` de §22 EST la pose d'auteur, dont la
+penetration vaut EXACTEMENT le plancher (0.0883 m sur chestR — c'est la definition du plancher).
+Le centre de la calotte de §22 est donc un point ou §33/§34 est tenue a son plancher. Les deux
+ensembles se coupent ; des projections alternees convergent vers leur intersection.
+
+PREDICTIONS (resultat ajoute APRES lecture de la course, jamais avant) :
+
+  P1  chestR `ROOM-SKINPEN` <= son plancher 0.0883 m -> verdict TENUE, et la gate COLLIDE de
+      `phase-Grecharged-secondary-motion.sh` cesse d'echouer.
+      ALTERNATIVE EXPLICITE : si chestR reste > 0.0883, les deux ensembles sont LOCALEMENT
+      DISJOINTS a cette configuration, l'arbitrage §22 contre §33/§34 est inevitable, et c'est la
+      regle 6 de l'owner qui tranche — pas moi.
+      RESULTAT : **CONFIRMEE.** chestR 0.0886 -> **0.0854 m** contre son plancher 0.0883.
+      `ROOM-SKINPEN-VERDICT` : `+0.0003 DEPASSEE` -> **`-0.0030 TENUE`**. La gate COLLIDE
+      cesse d'echouer ; le validateur imprime `[PASS]`.
+
+  P2  chestL reste AU-DESSUS de son PROPRE plancher (0.0612 m). Son exces n'est PAS la borne de
+      §22 — c103 l'a mesure : ablation e22 => 0.0686 -> 0.0683, soit -0.3 mm sur +7.4 mm. C'est le
+      residu propre de la contrainte de peau (`ROOM-SKINPEN-COUT tag=run reste=0.0298 m`, elle ne
+      ferme pas). Il faut le DIRE : la gate ne le voit pas parce qu'elle lit UN plancher unique
+      (`PIRE-DES-DEUX`) pour les deux chaines. Un vert de gate ne vaut pas un vert de section.
+      RESULTAT : **CONFIRMEE, ET C'EST UN ROUGE QUI RESTE.** chestL 0.0686 -> 0.0684 m,
+      soit **+0.0072 m au-dessus de SON plancher (0.0612)** : toujours `DEPASSEE`. La gate
+      ne le voit pas (elle lit `PIRE-DES-DEUX 0.0883`) ; le tableau, lui, le publie. §34
+      reste donc **NON TENUE** au registre — un `[PASS]` de gate n'est pas un vert de section.
+
+  P3  `ROOM-SKINPEN-REST` INCHANGE (0.0883 / 0.0612). C'est la pose d'AUTEUR : elle ne depend
+      d'aucun ordre de contraintes. CONTROLE D'INSTRUMENT — s'il bouge, la mesure ne vaut rien.
+      RESULTAT : **CONFIRMEE.** 0.0883 / 0.0612 m, identiques au chiffre. L'instrument tient :
+      le plancher est bien la pose d'auteur et ne depend d'aucun ordre de contraintes.
+
+  P4  `PHYSE22 tag=run n` MONTE (la borne passe deux fois par frame au lieu d'une). Elle n'est pas
+      desarmee : ce cycle ne retire PAS §22, il la fait cohabiter.
+      RESULTAT : **CONFIRMEE.** `PHYSE22 tag=run n` **23 857 -> 46 575** (x1.95, soit exactement
+      le doublement attendu de deux passes), `cut_b0` 804.99 -> 874.74. La borne de §22 n'est
+      pas desarmee : elle mord PLUS qu'avant.
+
+  P5  §22 SUR LA VALEUR LIVREE PAIE QUELQUE CHOSE, ET JE LE PUBLIE AU LIEU DE LE TAIRE.
+      NOTE-447 a mesure que l'etage 5 (avant la peau) est propre (0-1 fenetre sur 186 au-dessus de
+      0.50 B0) et que l'etage 6 valait 0.6539/0.6670 AVANT que la borne soit posee en dernier.
+      Avec l'alternance, l'etage 6 doit tomber ENTRE les deux : au-dessus de 0.50 (la derniere
+      poussee de peau n'est plus rattrapee) mais NETTEMENT sous 0.65 (la borne passe encore).
+      RESULTAT : **REFUTEE — ET ELLE L'EST DANS LE SENS QUI M'ARRANGE, DONC JE LA SIGNE.**
+      J'avais predit que l'etage 6 MONTERAIT au-dessus de 0.50 B0, c'est-a-dire que §22
+      paierait le correctif. Il n'a pas monte : `ROOM-STG max6` **chestL 0.4845 -> 0.4741**
+      (il BAISSE) et **chestR 0.4998 -> 0.4999** (plat). La valeur livree reste sous le
+      plafond dur de 0.50 sur les 186 fenetres des deux chaines. **§22 ne paie RIEN.**
+      C'est ce que l'argument d'intersection non vide predisait et que ma prediction, elle,
+      n'osait pas : l'alternance ne troque pas un rouge contre un autre, elle converge.
+
+  P6  `ROOM-APEX pic_typique` (la grandeur que §22 NOMME vraiment, pas le proxy de joint) bouge de
+      moins de +/-5 % : 0.6558 / 0.6736 B0 aujourd'hui. Le registre a deja mesure que borner la
+      TRANSLATION du joint ne rend que -0.2 % sur l'apex (c76).
+      ALTERNATIVE : un mouvement superieur a 5 % refuterait cette mesure archivee et vaudrait
+      plus que le correctif lui-meme.
+      RESULTAT : **CONFIRMEE.** `ROOM-APEX pic_typique` chestL 0.6558 -> 0.6538 (**-0.3 %**),
+      chestR 0.6736 -> 0.6757 (**+0.3 %**). La mesure archivee du cycle 76 tient.
+      RESERVE PUBLIEE CONTRE MOI : le `max` de chestR, lui, bouge de 0.9073 -> **0.9664 B0
+      (+6.5 %)**. Un maximum n'est pas une population (`argmax-anchor-is-not-a-population`),
+      mais je ne le tais pas : §22 etait deja NON TENUE et le reste, en pire sur cet extremum.
+
+  P7  `ROOM-STRETCH` reste <= 3 % (2.8885 aujourd'hui) : les DEUX operateurs conservent |p - b| au
+      bit pres, donc l'alternance ne peut pas allonger un os.
+      RESULTAT : **CONFIRMEE.** `ROOM-STRETCH` 2.8885 -> **2.7950 %**, sous 3 %.
+
+  P8  Aucune autre gate de mesure ne bascule ; le validateur imprime `[PASS]` puis echoue sur le
+      SEUL `OPEN-DEFECTS`, qui est la porte de l'owner et qu'aucune tentative worker ne franchit.
+      RESULTAT : **CONFIRMEE.** Sortie du validateur passee de 15 a **17 lignes** (DISCRIMINANT
+      et `[PASS]` deviennent atteignables des que plus aucun verdict de mesure n'echoue).
+      `ROOM-POSCONTROL` rend 0.0977 m pour 0.097656 injectes (**x1.0004**, bande +/-25 %) ;
+      `ROOM-IDLE` 0.0002 ; `ROOM-ANIMS` 31/31 skipped=0 ; `ROOM-AUTHORED` 2/2 perchain=yes ;
+      DISCRIMINANT passe sur les 5 pilotages. Seul `OPEN-DEFECTS` echoue — porte de l'owner.

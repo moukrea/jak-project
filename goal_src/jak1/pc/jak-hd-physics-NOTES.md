@@ -8734,3 +8734,51 @@ maillon, les deux matrices (`a0m^T` puis `am` — deux rotations successives, ja
 `matrix*!` sur des 4x4 melangerait les translations dans le bloc 3x3) et le vecteur `t`. Huit
 parametres : c'est la limite du compilateur, et c'est pourquoi la translation est pre-composee dans
 `t` au site d'appel plutot que passee en `anc`/`anp`.
+
+---
+## NOTE-470 — cycle 104 : §22 ET §33/§34 SONT ALTERNEES, PARCE QU'ELLES VIVENT SUR LA MEME SPHERE
+
+**LE DEFAUT, ETABLI PAR ABLATION AU CYCLE 103, PAS SUPPOSE.** L'ordre livre etait
+`phys-skin-chain` puis `phys-cap-e22!`, une fois chacune. Les deux sont des ROTATIONS autour de la
+MEME attache, donc leurs deux ensembles admissibles vivent sur la MEME sphere de rayon `|p - b|` :
+la seconde peut defaire la premiere, et c'est ce qu'elle faisait. `*phys-e22-off*` 0 -> 1 fait
+passer `ROOM-SKINPEN` de chestR de **0.0886 a 0.0836 m** — la borne de §22 enfoncait **5,0 mm** de
+peau dans le thorax, et 0,3 mm de cet enfoncement passaient au-dessus du plancher d'auteur
+(0.0883 m), c'est-a-dire au-dessus de la regle 6 de l'owner : « rien ne traverse le mesh de son
+personnage, quelle qu'en soit la raison ».
+
+C'etait la classe `bound-undone-by-downstream-constraint-loop` **dans l'autre sens** : ce n'est pas
+§22 qui se faisait effacer en aval, c'est §22 qui effacait §33/§34. Et les DEUX docstrings se
+contredisaient — celle de `phys-skin-chain` disait « rien ne s'execute apres elle », celle de
+`phys-cap-e22!` disait « rien n'ecrit `*phys-px*` apres elle ». Le code rendait la seconde vraie.
+
+**LE CORRECTIF, ET POURQUOI CE N'EST PAS UN ECHANGE DE ROUGE.** Permuter simplement les deux
+appels aurait rendu §34 verte en rendant §22 rouge : NOTE-447 a mesure que sans borne posee apres
+la peau, l'etage 6 vaut 0,6539 / 0,6670 B0 contre un plafond dur de 0,50, sur 184/186 et 156/186
+fenetres. Le cycle 103 l'avait vu et avait refuse de trancher a l'aveugle — a juste titre.
+
+Les deux contraintes sont donc **ALTERNEES** :
+
+```
+(dotimes (it 2) (phys-cap-e22! skel sc n rlk an nbone) (phys-skin-chain skel sc n rlk nbone))
+```
+
+**L'INTERSECTION N'EST PAS VIDE, ET C'EST CE QUI FAIT LA DIFFERENCE ENTRE UNE ALTERNANCE ET UN
+BALANCIER.** La cible `t` de §22 EST la pose d'auteur ; la penetration de la pose d'auteur EST, par
+definition, le plancher `ROOM-SKINPEN-REST`. Le centre de la calotte admissible de §22 est donc un
+point ou §33/§34 est tenue exactement a son plancher. Les deux ensembles se coupent, et des
+projections alternees sur deux ensembles geodesiquement convexes d'intersection non vide
+convergent vers cette intersection. Ce n'est pas un reglage : c'est la raison pour laquelle deux
+tours suffisent la ou un tour de chaque ne suffisait pas.
+
+**ORDRE DANS LE TOUR : §22 D'ABORD, LA PEAU ENSUITE.** La derniere ecriture de `*phys-px*` de la
+frame est donc la fermeture de peau, ce qui rend enfin VRAIE la docstring de `phys-skin-chain`
+(posee au cycle 74) et ce qui applique la regle 6 de l'owner, qui est dans sa liste
+« RÈGLES QUI NE SE NÉGOCIENT JAMAIS ». §22 n'est pas retiree pour autant : elle passe DEUX fois par
+frame, donc sa borne tient partout ou elle n'entre pas en conflit avec la peau, et ce qu'elle perd
+la ou le conflit existe se lit a l'etage 6 de `PHYSSTG`, publie a chaque cycle.
+
+**COUT EN LIGNES : ZERO.** 3 lignes remplacent 3 lignes, `jak-hd-physics.gc` reste a 4800 pour un
+plafond CLEAN de 4800. **COUT EN CALCUL : `phys-skin-chain` est evaluee deux fois par frame et par
+maillon au lieu d'une** — c'est la partie chere du solveur (`ROOM-SKINPEN-TESTS` compte 154 462 959
+echantillons de surface sur la fenetre), et le cout est declare, pas tu.
