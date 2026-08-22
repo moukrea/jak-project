@@ -72,12 +72,70 @@ ASSET = {
     'RootDeformationExponentHi': ('gradient racine->apex de la 31, cuit dans les poids', ),
 }
 
-INDIRECT = {
-    'GlobalFrequencyVertical': ('stiffness / sqrt(mass) sur la ligne `chain` — f = 2.300 Hz mesure'),
-    'GlobalDampingRatio':      ('damping= sur la ligne `chain`'),
-    'MassPerBreast':           ('mass= sur la ligne `chain` — JAUGE : le solveur ne lit la masse '
-                                'que dans stiffness/sqrt(mass), donc sa valeur absolue est inerte'),
+# =================================================================================================
+# CYCLE 111 — UN CANAL « INDIRECT » NE SE DECLARE PLUS, IL SE PROUVE PAR PERTURBATION.
+#
+# CE QUI ETAIT FAUX ICI, ET C'ETAIT UN FAUX VERT DANS LE SEUL INSTRUMENT QUI MESURE L'AVANCEMENT.
+# Ce fichier portait un dictionnaire `INDIRECT` ECRIT A LA MAIN : trois cles y etaient declarees
+# `CANAL FICHIER (indirect)` sur la foi d'une note (« stiffness / sqrt(mass) sur la ligne chain —
+# f = 2.300 Hz mesure »), et le script les comptait comme des boutons branches. C'est exactement
+# la regle 0 du contrat prise a l'envers : un commentaire tenait lieu de preuve.
+#
+# LA MESURE QUI L'A TRANCHE (cycle 111, aucune course, aucun build) : poser le preset de MAIA sur
+# la chaine de KEIRA fait passer `pk GlobalFrequencyVertical` de 2.3 a 1.85 (-20 %),
+# `pk GlobalDampingRatio` de 0.35 a 0.33 et `pk MassPerBreast` de 0.5 a 1.05 (x2.1) — et la ligne
+# `chain chestL ... stiffness=2.7696 damping=0.1686 mass=1.45 ...` ressortait IDENTIQUE AU BIT.
+# Les trois cles ne touchaient rien. Leurs valeurs livrees venaient d'une derivation HUMAINE faite
+# le 2026-08-14 et figee dans `keira-owner-tuning.txt:1237-1241` ; `apply_owner_tuning.py` ne
+# contient pas une seule occurrence de `pk`.
+#
+# CE QUI REMPLACE LA DECLARATION : `prove_indirect()` PERTURBE la cle (x1.5) et refait passer le
+# producteur reel. Si l'artefact que le moteur lit ne bouge pas, la cle est `CANAL ABSENT`, quelle
+# que soit la note qui l'accompagne. Une note ne peut plus accorder un canal.
+# =================================================================================================
+
+# Cles qui PRETENDENT un chemin indirect (elles n'entrent pas dans `kPhysPresetKeys`, mais un
+# producteur pourrait ecrire une ligne que le moteur lit). Chacune est PROUVEE ou REFUTEE ci-dessous.
+INDIRECT_CANDIDATES = {
+    'GlobalFrequencyVertical': 'stiffness= sur la ligne `chain` (SPEC 24 : f = stiffness/sqrt(mass))',
+    'GlobalDampingRatio':      'damping= sur la ligne `chain` (SPEC 25)',
 }
+
+# JAUGE — inerte PAR CONSTRUCTION, et ce n'est pas un manque d'implementation.
+# DIRECTIVES 2026-08-19 20:25 : « le solveur ne lit la masse QUE dans w = 2*pi*stiffness/sqrt(mass)
+# [...] Passer de 1,45 a la valeur nominale 0,50 kg de sa SPEC 5 ne ferait que reechelonner la
+# raideur a frequence constante : ZERO effet observable. » Une jauge ne se compte donc JAMAIS comme
+# un canal gagne — meme statut que `TENUE PAR CONSTRUCTION` au registre : declaree, jamais comptee
+# comme une victoire. La compter en canal gonflerait le seul chiffre que l'owner lit.
+JAUGE = {
+    'MassPerBreast': ('mass= sur la ligne `chain` — JAUGE : le solveur ne lit la masse que dans '
+                      'stiffness/sqrt(mass), sa valeur absolue est inerte (DIRECTIVES 2026-08-19 '
+                      '20:25). Declaree, jamais comptee comme un canal.'),
+}
+
+
+def prove_indirect(key, mine, who):
+    """PERTURBE `key` et regarde si l'artefact que le moteur lit bouge. Rend (prouve, detail).
+
+    NATURE  : un booleen de causalite, obtenu en changeant l'entree et en comparant la sortie.
+    HORS DEFAUT : une cle sans lecteur rend une sortie IDENTIQUE, donc `prouve = False`.
+    LIGNE DE BASE : la sortie du meme producteur avec la valeur non perturbee.
+    """
+    lines = open(CHAINS, encoding='utf-8').read().split('\n')
+    ref, _ = pa.derive_mechanics(lines, mine, who)
+    if key not in mine:
+        return False, 'cle absente du preset'
+    v = mine[key]
+    pert = dict(mine)
+    pert[key] = (v[0] * 1.5,) + tuple(v[1:])
+    got, _ = pa.derive_mechanics(lines, pert, who)
+    chg = [(a, b) for a, b in zip(ref, got) if a != b]
+    if not chg:
+        return False, ('perturbee x1.5, AUCUNE ligne du fichier livre ne bouge — la note qui '
+                       'annoncait un canal ne decrivait pas une lecture')
+    ex = chg[0][1].split()[1] if len(chg[0][1].split()) > 1 else '?'
+    return True, ('PROUVE PAR PERTURBATION : x1.5 sur la cle change %d ligne(s) `chain` (p.ex. %s)'
+                  % (len(chg), ex))
 
 
 def main():
@@ -86,6 +144,9 @@ def main():
     keira = [k for k in names if k.lower().startswith('keira')][0]
     maia = [k for k in names if k.lower().startswith('maia')][0]
     SK, SM = pa.scalars(P[keira]), pa.scalars(P[maia])
+    # `MINE` porte AUSSI les cles derivees : c'est ce que le producteur consomme reellement, donc
+    # c'est sur lui que la perturbation doit porter, sinon on testerait une autre entree que la sienne.
+    MINE = pa.add_derived(pa.scalars(P[keira]), P[keira])
 
     eng = open(ENGINE, encoding='utf-8').read()
     km = open(KM, encoding='utf-8').read()
@@ -97,7 +158,7 @@ def main():
 
     rows, errs = [], []
     n = {'CANAL FICHIER': 0, 'CANAL FICHIER (indirect)': 0, 'CONSTANTE MOTEUR': 0,
-         'HORS RUNTIME (asset)': 0, 'CANAL ABSENT': 0}
+         'HORS RUNTIME (asset)': 0, 'JAUGE (inerte par construction)': 0, 'CANAL ABSENT': 0}
     tauto = 0
 
     for k in sorted(SK):
@@ -109,9 +170,14 @@ def main():
                 errs.append('%s est CABLE mais absent du fichier livre' % k)
             st = 'CANAL FICHIER'
             note = 'lu par le moteur (kPhysPresetKeys), pose par preset_apply.py'
-        elif k in INDIRECT:
-            st = 'CANAL FICHIER (indirect)'
-            note = INDIRECT[k]
+        elif k in INDIRECT_CANDIDATES:
+            # LE CANAL SE PROUVE, IL NE SE DECLARE PAS. Voir prove_indirect() plus haut.
+            ok, why = prove_indirect(k, MINE, keira)
+            st = 'CANAL FICHIER (indirect)' if ok else 'CANAL ABSENT'
+            note = '%s — %s' % (INDIRECT_CANDIDATES[k], why)
+        elif k in JAUGE:
+            st = 'JAUGE (inerte par construction)'
+            note = JAUGE[k]
         elif k in ASSET:
             st = 'HORS RUNTIME (asset)'
             note = ASSET[k][0] if isinstance(ASSET[k], tuple) else ASSET[k]
@@ -166,14 +232,14 @@ def main():
     print()
     tot = len(rows)
     for st in ('CANAL FICHIER', 'CANAL FICHIER (indirect)', 'CONSTANTE MOTEUR',
-               'HORS RUNTIME (asset)', 'CANAL ABSENT'):
-        print('%-26s %3d / %d' % (st, n.get(st, 0), tot))
+               'HORS RUNTIME (asset)', 'JAUGE (inerte par construction)', 'CANAL ABSENT'):
+        print('%-32s %3d / %d' % (st, n.get(st, 0), tot))
     print('%-26s %3d' % ('dont TAUTOLOGIQUES', tauto))
     diffs = [r for r in rows if r[3]]
     print('cles dont la valeur DIFFERE entre les deux presets : %d' % len(diffs))
     for st in ('CANAL FICHIER', 'CANAL FICHIER (indirect)', 'CONSTANTE MOTEUR',
-               'HORS RUNTIME (asset)', 'CANAL ABSENT'):
-        print('   dont %-24s %3d' % (st, sum(1 for r in diffs if r[4] == st)))
+               'HORS RUNTIME (asset)', 'JAUGE (inerte par construction)', 'CANAL ABSENT'):
+        print('   dont %-30s %3d' % (st, sum(1 for r in diffs if r[4] == st)))
     # CANAL PARTIEL : la meme cle lue a un endroit et gardee en dur a un autre. Un bouton a demi
     # branche ment plus qu'un bouton absent, donc il se publie a part et nommement.
     kind, site, f = CONSTS['SupineProjectionScale#2']

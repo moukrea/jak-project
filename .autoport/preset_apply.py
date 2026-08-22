@@ -139,6 +139,106 @@ def fmt(v):
     return s if s else '0'
 
 
+# =================================================================================================
+# CYCLE 111 — `pk GlobalFrequencyVertical` DEVIENT UN VRAI CANAL. IL N'EN ETAIT PAS UN.
+#
+# PREUVE PAR PERTURBATION, PAS PAR LECTURE DE CODE (regle 0 : un commentaire n'est pas une preuve).
+# Avant ce bloc, en passant le preset de MAIA sur la chaine de KEIRA :
+#     pk GlobalFrequencyVertical  2.3  -> 1.85   (-20 %)
+#     pk GlobalDampingRatio       0.35 -> 0.33
+#     pk MassPerBreast            0.5  -> 1.05   (x2.1)
+#     ligne `chain chestL ... stiffness=2.7696 damping=0.1686 mass=1.45 ...`  ->  IDENTIQUE AU BIT
+# Les trois cles les plus consequentes du preset ne touchaient RIEN. `.autoport/
+# preset_channel_audit.py` les comptait pourtant `CANAL FICHIER (indirect)` sur la foi d'une note
+# ecrite a la main — c'est-a-dire un faux vert dans le seul instrument qui mesure l'avancement.
+#
+# CE QU'ELLES ETAIENT REELLEMENT : une derivation HUMAINE, faite le 2026-08-14 et FIGEE dans
+# `recharged_assets/keira-owner-tuning.txt:1237-1241`, qui ecrit le resultat (2.7696) et jamais
+# l'operation. Tourner le bouton ne pouvait rien produire puisque personne ne le lisait :
+# `apply_owner_tuning.py` ne contient pas une seule occurrence de `pk`.
+#
+# CE QUE CE BLOC FAIT : il refait CETTE derivation, a l'execution, depuis la cle du fichier livre.
+#     SPEC 24  stiffness = GlobalFrequencyVertical * sqrt(mass)        (w = 2*pi*stiffness/sqrt(mass))
+#     SPEC 32  chestR porte +5 % de raideur (haut de sa bande « stiffness +-3-5 % »)
+#
+# CONTROLE NEGATIF, ET IL EST EXACT : avec le preset de Keira la derivation rend 2.7696 et 2.9081,
+# c'est-a-dire les deux nombres deja livres, AU BIT PRES. Cabler le canal est donc INERTE sur ce
+# qu'on livre — la physique mesuree ne bouge pas d'un bit, et la course en cours reste valable.
+# CONTROLE POSITIF : avec le preset de Maia elle rend 2.2277 (x0.8043), donc le bouton tourne.
+#
+# `damping=` N'EST PAS DERIVE ICI, ET LE MOTIF EST PUBLIE PLUTOT QUE CONTOURNE. La meme formule
+# (2*zeta*2*pi*f/60) rend 0.1686 sur chestL — exact — mais **0.1752 sur chestR contre 0.1753
+# livre**. L'ecart est de 1e-4, et il est REEL : le 2.3913 Hz utilise le 2026-08-14 n'est pas le
+# 2.390443 Hz qu'on obtient avec la masse effectivement livree (1.4800). Ajuster la derivation
+# pour retomber sur 0.1753 serait fitter le calcul sur le nombre qu'il doit reproduire
+# (`never-fit-a-parameter-to-the-instrument`) ; changer 0.1753 en 0.1752 en silence serait modifier
+# la physique au milieu d'un changement d'instrument. Les deux sont refuses : la cle reste
+# `CANAL ABSENT` et l'ecart est signe dans le rapport.
+# =================================================================================================
+
+# SPEC 32 « Left/Right Independence [...] stiffness +-3-5 % ». Le +5 % (haut de bande) est un CHOIX
+# de personnage, pas une cle du preset : il est donc nomme ici avec sa source, jamais devine.
+# Derivation d'origine : recharged_assets/keira-owner-tuning.txt:1340-1365.
+SPEC32_STIFFNESS_ASYM = {'chestL': 1.00, 'chestR': 1.05}
+
+
+def derive_mechanics(lines, mine, who):
+    """Reecrit `stiffness=` de chaque ligne `chain` depuis `GlobalFrequencyVertical` du preset.
+
+    NATURE  : une raideur en unites moteur, telle que f = stiffness/sqrt(mass) [Hz] (SPEC 24).
+    REPERE  : sans objet — grandeur scalaire d'un ressort, pas une direction.
+    HORS DEFAUT : avec le preset de Keira, la valeur ecrite est celle deja livree, au bit pres.
+
+    Rend (lines, journal) ou `journal` liste (chaine, avant, apres, change) pour publication.
+    """
+    fv = mine.get('GlobalFrequencyVertical', (None,))[0]
+    journal = []
+    if fv is None:
+        return lines, journal
+
+    # PREMIERE PASSE — LA RAIDEUR DE REFERENCE, SUR LA CHAINE QUE SPEC 32 NE TOUCHE PAS.
+    # Erreur commise puis corrigee au cycle 111, et le controle negatif l'a attrapee AVANT
+    # qu'elle atteigne le fichier livre : recalculer chestR avec SA PROPRE masse (1.4800) rend
+    # 2.9380 au lieu des 2.9081 livres. Sa derivation d'origine ne fait pas ca — elle prend la
+    # raideur de chestL et lui applique +5 % (keira-owner-tuning.txt:1340-1365, « chestL n'est PAS
+    # touchee : elle porte exactement le nominal de sa spec ; l'asymetrie est portee d'un seul
+    # cote »). La masse de chestR porte SON propre ecart de SPEC 32 (+2.03 %) et n'entre donc pas
+    # une seconde fois dans la raideur, sinon l'ecart serait compte deux fois.
+    base = None
+    for ln in lines:
+        if not ln.startswith('chain '):
+            continue
+        name = ln.split()[1]
+        if SPEC32_STIFFNESS_ASYM.get(name, 1.00) != 1.00:
+            continue
+        mm = re.search(r'\bmass=(%s)\b' % NUM, ln)
+        if mm:
+            base = round(fv * (float(mm.group(1)) ** 0.5), 4)
+            break
+    if base is None:
+        return lines, journal
+
+    # SECONDE PASSE — chaque chaine porte la reference fois son facteur de SPEC 32.
+    out = []
+    for ln in lines:
+        if not ln.startswith('chain '):
+            out.append(ln)
+            continue
+        name = ln.split()[1]
+        ms = re.search(r'\bstiffness=(%s)\b' % NUM, ln)
+        if not ms:
+            out.append(ln)
+            continue
+        asym = SPEC32_STIFFNESS_ASYM.get(name, 1.00)
+        val = base if asym == 1.00 else round(base * asym, 4)
+        avant = ms.group(1)
+        apres = '%.4f' % val
+        journal.append((name, avant, apres, avant != apres))
+        out.append(ln[:ms.start(1)] + apres + ln[ms.end(1):])
+    return out, journal
+
+
+
 def strip_block(text):
     out, skip = [], False
     for ln in text.split('\n'):
@@ -226,12 +326,20 @@ def main():
             out.append(MARK_END)
             n_chain += 1
         i += 1
+    # LE CANAL MECANIQUE, DERIVE DE LA CLE ET PAS RECOPIE D'UN FICHIER FIGE (cf. derive_mechanics).
+    out, mech = derive_mechanics(out, mine, who)
     text = '\n'.join(out)
     with open(dst, 'w', encoding='utf-8') as f:
         f.write(text)
     dg = hashlib.sha256(text.encode()).hexdigest()[:16]
     print('[preset] %s: %d cles posees sur %d chaine(s) -> %s (%d octets, sha %s)'
           % (who, len(posed), n_chain, dst, len(text), dg))
+    # Publie TOUJOURS, y compris quand rien ne bouge : c'est le controle de bit-identite, et un
+    # controle qui ne s'imprime que lorsqu'il echoue n'est pas un controle.
+    for name, avant, apres, chg in mech:
+        print('[preset] SPEC24 canal  %-8s stiffness %s -> %s   %s'
+              % (name, avant, apres,
+                 'CHANGE (le bouton tourne)' if chg else 'identique au bit (controle negatif)'))
     if bad:
         print('[preset] %d cle(s) non numeriques, NON posees: %s' % (len(bad), ', '.join(bad)))
     return 0

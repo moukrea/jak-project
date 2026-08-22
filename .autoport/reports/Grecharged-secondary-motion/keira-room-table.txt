@@ -1,7 +1,7 @@
 ==================================================================================================
 KEIRA — SALLE DE TEST SANS JOUEUR : TABLEAU DE MESURE
 genere par .autoport/physics_room_table.py depuis .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
-empreinte de la trace lue : md5 4cf61baeb2c5af4ef4c4493bcf0d9a66 (6944127 octets)
+empreinte de la trace lue : md5 5b798ee81c9e6b85bb3aa62f308be9bc (6946997 octets)
 contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 7 (ce qui fait foi)
 
 -- ROOM-INSTRUMENTS-MUETS : CE QUE CE TABLEAU NE MESURE PAS AUJOURD'HUI ------------
@@ -3591,11 +3591,19 @@ ROOM-ORICOM-SPEC: chestL       §11 prone   i=6  |d|=0.4198 B0   cible 0.24 (ban
 ROOM-ORICOM-SPEC: chestL       §12 lateral i=2  |d|=0.4206 B0   cible 0.19 (bande 0.15-0.24)  AU-DESSUS
 ROOM-ORICOM-SPEC: chestL       §12 lateral i=4  |d|=0.4082 B0   cible 0.19 (bande 0.15-0.24)  AU-DESSUS
 ROOM-ORICOM-SPEC: chestL       §11 transitoire  pic d'etablissement=0.33039  tenu=0.32176  rapport=1.027  (§11 : 1.30 contre 1.23, soit 1.057)
+ROOM-ORICOM-SPEC:              ^ AGREGAT PAR CHAINE — le numerateur est un max pris sur TOUS les maillons, le denominateur UN SEUL maillon (celui que la boucle du solveur ecrit en dernier). Rapport de deux populations : NE PORTE PAS LE VERDICT.
+ROOM-ORICOM-TRL: chestL       §11 transitoire l=0  pic=0.33039  tenu=0.32176  rapport=1.027  (plafond 1.057)   DANS
+ROOM-ORICOM-TRL: chestL       §11 transitoire l=1  pic=0.05803  tenu=0.05802  rapport=1.000  (plafond 1.057)   DANS
+ROOM-ORICOM-TRL: chestL       §11 VERDICT sur le maillon le PIRE (l=0) : rapport=1.027 contre 1.057  ->  DANS
 ROOM-ORICOM-SPEC: chestR       §10 supine  i=8  |d|=0.3378 B0   cible 0.23 (bande 0.18-0.28)  AU-DESSUS
 ROOM-ORICOM-SPEC: chestR       §11 prone   i=6  |d|=0.4089 B0   cible 0.24 (bande 0.20-0.30)  AU-DESSUS
 ROOM-ORICOM-SPEC: chestR       §12 lateral i=2  |d|=0.3252 B0   cible 0.19 (bande 0.15-0.24)  AU-DESSUS
 ROOM-ORICOM-SPEC: chestR       §12 lateral i=4  |d|=0.3794 B0   cible 0.19 (bande 0.15-0.24)  AU-DESSUS
 ROOM-ORICOM-SPEC: chestR       §11 transitoire  pic d'etablissement=0.29236  tenu=0.28337  rapport=1.032  (§11 : 1.30 contre 1.23, soit 1.057)
+ROOM-ORICOM-SPEC:              ^ AGREGAT PAR CHAINE — le numerateur est un max pris sur TOUS les maillons, le denominateur UN SEUL maillon (celui que la boucle du solveur ecrit en dernier). Rapport de deux populations : NE PORTE PAS LE VERDICT.
+ROOM-ORICOM-TRL: chestR       §11 transitoire l=0  pic=0.29236  tenu=0.28337  rapport=1.032  (plafond 1.057)   DANS
+ROOM-ORICOM-TRL: chestR       §11 transitoire l=1  pic=0.05959  tenu=0.05957  rapport=1.000  (plafond 1.057)   DANS
+ROOM-ORICOM-TRL: chestR       §11 VERDICT sur le maillon le PIRE (l=0) : rapport=1.032 contre 1.057  ->  DANS
 
 -- ROOM-ORIROLE : LE ROLE DE CHAQUE CELLULE, DERIVE DE LA GRAVITE MESUREE ----------------
    `PHYSORI4` est emis a CHAQUE course depuis qu'il existe et n'avait AUCUN LECTEUR —

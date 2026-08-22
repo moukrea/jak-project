@@ -1360,6 +1360,17 @@ collider rBooc radius=415 offset=5,-466,36
 ## chestL n'est PAS touchee : elle porte exactement le nominal de sa spec (2.3000 Hz, zeta 0.35).
 ## L'asymetrie est donc portee d'un seul cote, ce qui est aussi ce que sa section decrit
 ## (« subtle parameter variation »), et non un decalage symetrique invente autour du nominal.
+## 2026-08-23 (cycle 111) — CES DEUX RAIDEURS NE SONT PLUS RECOPIEES, ELLES SONT DERIVEES.
+## `preset_apply.py` refait la derivation ci-dessus A L'EXECUTION depuis `pk GlobalFrequencyVertical`
+## du fichier livre (stiffness = f*sqrt(mass), SPEC 32 : chestR = chestL x1.05). Elle rend 2.7696 et
+## 2.9081, c'est-a-dire EXACTEMENT les deux lignes ci-dessous — le cablage est donc inerte sur ce
+## qu'on livre, et c'est le controle negatif. Les deux lignes RESTENT ici parce que la gate TUNING
+## est ce qui rend le desaccord AUDIBLE : le jour ou quelqu'un tourne `pk GlobalFrequencyVertical`
+## sans toucher ici, le fichier livre cessera de porter 2.7696 et la gate le criera au lieu de
+## laisser deux autorites diverger en silence. C'est voulu, ce n'est pas une redondance oubliee.
+## `damping=` N'EST PAS DERIVE : la meme formule rend 0.1752 sur chestR contre 0.1753 ici (ecart
+## 1e-4, reel). Ni fitter le calcul sur le nombre, ni changer le nombre en silence — l'ecart est
+## publie et `GlobalDampingRatio` reste compte CANAL ABSENT.
 chain chestL stiffness=2.7696 damping=0.1686
 # chain chestR stiffness=2.8804 damping=0.1753   (REMPLACE : raideur +4 % -> +5 %, cf. SPEC 32)
 chain chestR stiffness=2.9081 damping=0.1753
