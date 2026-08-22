@@ -310,6 +310,8 @@
 (define *phys-dfm* (new 'global 'inline-array 'matrix PHYS-SC))
 ;; [NOTE-168] LA MEME DEFORMATION, MAIS EN ESPACE ANCRE — et c'est celle-la qui est MESURABLE. `*phys- -> jak-hd-physics-NOTES.md
 (define *phys-dfa* (new 'global 'inline-array 'matrix PHYS-SC))
+;; [NOTE-477] la MOYENNE LENTE du pilotage de `dfb`, par chaine — la partie TENUE, celle que `dfa` porte deja -> jak-hd-physics-NOTES.md
+(define *phys-dyb* (new 'global 'array 'float (* PHYS-SC 3))) (define *phys-dyb-off* 0) (defconstant PHYS-DYN-TAU 0.30)
 ;; [NOTE-288] SPEC 33/34 — la poussee de contact CUMULEE sur la frame et le coefficient du volume qui  -> jak-hd-physics-NOTES.md
 (define *phys-cpu* (new 'global 'inline-array 'vector PHYS-SCL))
 (define *phys-cpe* (new 'global 'array 'float PHYS-SCL))
@@ -380,8 +382,7 @@
 ;; [NOTE-204] ce que les limiteurs RETIRENT de mouvement, mesure et non estime (SPEC 7 : un suppress -> jak-hd-physics-NOTES.md
 (define *phys-raddrop-n*   0)
 (define *phys-raddrop-sum* 0.0)
-;; paires (lien, volume) ou le lien est ENTIEREMENT dans le volume a sa pose de modele : pas de
-;; surface devant lui, donc rien a traverser. Comptees a chaque mesure, publiees par la salle.
+;; [NOTE-473] paires (lien, volume) ou le lien est ENTIEREMENT dans le volume a sa pose de modele : pas de -> jak-hd-physics-NOTES.md
 (define *phys-buried-n*    0)
 ;; [NOTE-182] ... et le MEME compte, mais PAR CHAINE et UNE SEULE FOIS PAR FRAME. Le compteur global c -> jak-hd-physics-NOTES.md
 (define *phys-buried-tally* 0)
@@ -394,8 +395,7 @@
 (define *phys-reseat-n* 0)
 ;; [NOTE-282] COMBIEN DE FOIS LA PROFONDEUR A ETE POUSSEE TANGENTIELLEMENT DANS LA BOUCLE DE FINITION. -> jak-hd-physics-NOTES.md
 (define *phys-tan-n* 0)
-;; la somme des profondeurs que ces poussees ont vues a l'entree (u de jeu) : elle donne l'ordre de
-;; grandeur de ce qui restait a corriger apres les balayages, que le compte seul ne dit pas.
+;; [NOTE-474] la somme des profondeurs que ces poussees ont vues a l'entree (u de jeu) : elle donne l'ordre de -> jak-hd-physics-NOTES.md
 (define *phys-tan-d* 0.0)
 (define *phys-tan-e* 0.0)
 ;; [NOTE-125] TROIS SONDES INERTES : ce que le pas CORRIGE retirerait (`o`), et la CALOTTE VIDE -> jak-hd-physics-NOTES.md
@@ -437,16 +437,14 @@
 (define *phys-bsp*  (new 'global 'inline-array 'vector (* PHYS-SB PHYS-BSURF-MAX)))
 (define *phys-bsnm* (new 'global 'inline-array 'vector (* PHYS-SB PHYS-BSURF-MAX)))
 (define *phys-slot-nbsurf* (new 'global 'array 'int32 PHYS-SLOTS))
-;; [NOTE-158] combien d'ensembles le PACKAGE declare, face a combien on en CHARGE. Sans ce second
-;; nombre, `sets=64/92` reste dans une ligne de log et la troncature redevient silencieuse.
+;; [NOTE-475] combien d'ensembles le PACKAGE declare, face a combien on en CHARGE. Sans ce second -> jak-hd-physics-NOTES.md
 (define *phys-slot-nbsurf-decl* (new 'global 'array 'int32 PHYS-SLOTS))
 ;; [NOTE-322] deux populations dans le meme tableau -> jak-hd-physics-NOTES.md
 (define *phys-bslo* (new 'global 'array 'int32 PHYS-SC))   ;; 1er ensemble de surface de la chaine
 (define *phys-bscn* (new 'global 'array 'int32 PHYS-SC))   ;; combien elle en porte
 ;; [NOTE-326] `*phys-bssl*` : l'ORIGINE a laquelle chaque ensemble de surface est porte. -> jak-hd-physics-NOTES.md
 (define *phys-bssl* (new 'global 'array 'int32 PHYS-SB))
-;; FENETRE DE LECTURE de `phys-surf-sd`. lo=0 / hi=-1 rend EXACTEMENT la population de corps :
-;; les valeurs par defaut reproduisent le comportement d'avant ce cycle par construction.
+;; [NOTE-476] FENETRE DE LECTURE de `phys-surf-sd`. lo=0 / hi=-1 rend EXACTEMENT la population de corps : -> jak-hd-physics-NOTES.md
 (define *phys-sd-lo* 0)
 (define *phys-sd-hi* -1)
 ;; [NOTE-327] `*phys-sd-d1*` : la distance au plus proche echantillon dit MESURE ou EXTRAPOLATION. -> jak-hd-physics-NOTES.md
@@ -648,7 +646,7 @@
                     (set! (-> *phys-rrm* sc) 0.0)
                     (set-vector! (-> *phys-vp* sc) 0.0 0.0 0.0 0.0)
                     (dotimes (ii 3)
-                      (set! (-> *phys-dfs* (+ (* sc 3) ii)) 1.0))
+                      (set! (-> *phys-dfs* (+ (* sc 3) ii)) 1.0) (set! (-> *phys-dyb* (+ (* sc 3) ii)) 0.0))
                     ;; [NOTE-277] la direction de repos du materiau se releve a la premiere frame utile, sur la -> jak-hd-physics-NOTES.md
                     (dotimes (l PHYS-LINKS)
                       (set! (-> *phys-ucap* (+ (* sc PHYS-LINKS) l)) 0))))
@@ -3721,16 +3719,16 @@
                           (let* ((gb  (* sc 3))
                                  ;; [NOTE-435] PAR MAILLON depuis le cycle 32 : `*phys-rr*` (par chaine) donnait -> jak-hd-physics-NOTES.md
                                  (rdr (* PHYS-DYN-K (/ (-> *phys-rrl* tl) b0f)))
-                                 (dx  (+ (* PHYS-DYN-K (/ (-> *phys-ox* tl) b0f))
-                                         (* rdr (-> *phys-ux* tl))))
-                                 (dy  (+ (* PHYS-DYN-K (/ (-> *phys-oy* tl) b0f))
-                                         (* rdr (-> *phys-uy* tl))))
-                                 (dz  (+ (* PHYS-DYN-K (/ (-> *phys-oz* tl) b0f))
-                                         (* rdr (-> *phys-uz* tl))))
+                                 (rx  (+ (* PHYS-DYN-K (/ (-> *phys-ox* tl) b0f)) (* rdr (-> *phys-ux* tl))))
+                                 (ry  (+ (* PHYS-DYN-K (/ (-> *phys-oy* tl) b0f)) (* rdr (-> *phys-uy* tl))))
+                                 (rz  (+ (* PHYS-DYN-K (/ (-> *phys-oz* tl) b0f)) (* rdr (-> *phys-uz* tl))))
+                                 (ka  (if (zero? *phys-dyb-off*) (fmin 1.0 (/ dt PHYS-DYN-TAU)) 0.0)) ;; [NOTE-477] §22 EST UNE LIMITE *DYNAMIQUE* : CE QUI EST TENU EST DEJA L'EQUILIBRE DE §10-§13 -> jak-hd-physics-NOTES.md
+                                 (dx  (- rx (-> *phys-dyb* gb))) (dy (- ry (-> *phys-dyb* (+ gb 1)))) (dz (- rz (-> *phys-dyb* (+ gb 2))))
                                  (dl  (sqrtf (+ (* dx dx) (+ (* dy dy) (* dz dz)))))
                                  (sdy (fmin PHYS-DYN-MAX dl))
                                  (ee  (+ 1.0 sdy))
                                  (tt  (/ 1.0 (sqrtf ee))))
+                            (set! (-> *phys-dyb* gb) (+ (-> *phys-dyb* gb) (* ka dx))) (set! (-> *phys-dyb* (+ gb 1)) (+ (-> *phys-dyb* (+ gb 1)) (* ka dy))) (set! (-> *phys-dyb* (+ gb 2)) (+ (-> *phys-dyb* (+ gb 2)) (* ka dz)))
                             (when (> sdy (-> *phys-dynm* sc)) (set! (-> *phys-dynm* sc) sdy))
                             (when (> dl (-> *phys-dynr* sc)) (set! (-> *phys-dynr* sc) dl))
                             (set! (-> *phys-dyna* sc) (+ 1.0 (-> *phys-dyna* sc)))
