@@ -10,7 +10,7 @@ pour convertir les 55-63 % en 100 %, et il est desormais debloque »), et jamais
 SUBSTRAT : GOAL seul. `(mi)` + une course x86. **4 lignes changees, 0 ligne ajoutee** — le moteur
 reste a 4797 (plafond CLEAN 4800). `recharged_assets/physics_chains.txt` INCHANGE.
 
-BREAST-PENETRATION: 0.0504 m — `meshpen`, DIAGNOSTIC, jamais un verdict (arbitrage 2026-08-20
+BREAST-PENETRATION: 0.0586 m — `meshpen`, DIAGNOSTIC, jamais un verdict (arbitrage 2026-08-20
 13:20 : c'est un DEPLACEMENT, pas une profondeur). Valeur DE CETTE COURSE ; celle du rapport
 precedent (0.0586) etait celle du cycle 98 et la gate ne verifie que la PRESENCE de la ligne, pas
 sa fraicheur — signale ici plutot que laisse mentir.
@@ -207,3 +207,67 @@ la parole de l'owner, et le jeton `.autoport/owner-ok/<phase>` est son geste, ja
 A TESTER PAR L'OWNER : **rien.** La consigne du 2026-08-20 23:30 tient — a 4 sections tenues sur 38,
 un changement d'une seule section ne produit pas d'ecart qu'un oeil puisse trancher. Le build est la
 s'il le veut.
+
+================================================================================================
+ADDENDUM CYCLE 99 (SUITE) — LE CORRECTIF EST RETIRE. LA MESURE A TRANCHE CONTRE LUI.
+================================================================================================
+DIRECTIVES v3fee554599
+
+Tout ce qui precede reste vrai comme MESURE ; ce qui change est la conclusion. Le correctif
+d'anisotropie de §24 est **RETIRE** : `PHYS-K24-AP`/`PHYS-K24-LAT` reviennent a `PHYS-MOB-AP 0.90`
+/ `PHYS-MOB-LAT 0.82`. Le seul ecart de code avec le cycle 98 est un COMMENTAIRE.
+
+**MOTIF, ET IL EST DANS LE CONTRAT, PAS DANS MON GOUT.** Le correctif faisait franchir a `chestR`
+son propre plancher de penetration de peau (`ROOM-SKINPEN-VERDICT` -0,0021 -> +0,0010 m) et passait
+`COLLIDE §33/§34` au ROUGE. La regle 6 des « REGLES QUI NE SE NEGOCIENT JAMAIS » dit : « Rien ne
+traverse le mesh de son personnage, **quelle qu'en soit la raison**. » Une conformite de §24 est une
+raison ; la regle dit qu'aucune raison ne vaut.
+
+**ET J'AI CHERCHE A GARDER LES DEUX AVANT DE RECULER. LES TROIS LEVIERS SONT CLOS, CHACUN PAR UNE
+LIGNE DE SA SPEC :**
+  1. **Renormaliser `s` a niveau de raideur constant** (multiplier les trois par un meme alpha) :
+     annule exactement ce que §24 demande, puisque §24 porte sur des RAPPORTS a la verticale.
+  2. **Baisser la raideur de base** : CLOS, et c'est le fait qui m'a fait changer d'avis. `stiffness`
+     **EST** la frequence — `w = 2*pi*stiffness/sqrt(mass)` (`jak-hd-physics.gc:2701`) — et
+     `2.7696/sqrt(1.45)` vaut **2,30003 Hz**, le nominal EXACT de §24 sur chestL. Il n'y avait donc
+     aucune « inflation de raideur » a defaire : la verticale etait deja juste, et c'est la
+     TANGENTIELLE que §24 demande de monter. Baisser aurait eloigne du nominal.
+  3. **Ceder sur §32** : CLOS. §32 (l.395) demande masse +-2-4 %, raideur +-3-5 %, amortissement
+     +-3-5 %. Livre : **stiffness +5,00 %, masse +2,07 %, damping +3,97 %** — deja tenue, et la
+     raideur est **au bord exact** de sa bande. Rien a prendre.
+
+Tout autre choix aurait ete un nombre cale pour faire passer ma propre gate, c'est-a-dire
+`never-fit-a-parameter-to-the-instrument` applique a l'envers.
+
+**LE RETRAIT EST VERIFIE AU BIT, PAS SUR PAROLE.**
+  * le binaire porte le retrait : `PHYSAXISS sv=1.0000 sap=1.1111 slat=1.2195`, et le controle
+    negatif tire — la trace d'avant le retrait porte `sap=1.1869 slat=1.3756` ;
+  * tableau neuf contre le tableau archive du cycle 98 : **4235 lignes identiques sur 4236**, la
+    seule differente etant l'empreinte md5 de la trace lue ;
+  * traces brutes : **0 ligne `PHYS` differente sur 87 866**. La salle est deterministe, et ce
+    retrait le re-atteste au passage.
+
+**ETAT DU VALIDATEUR — c'est l'objet du retrait et il est atteint :**
+
+    AVANT le retrait   FAIL COLLIDE §33/§34 (chestR 0.0893 > 0.0883)   <- une gate de MESURE
+    APRES le retrait   toutes les gates de mesure PASSENT
+                       FAIL OPEN-DEFECTS: breast-spec-incomplete       <- la porte de l'OWNER
+
+`OPEN-DEFECTS` ne se retire **que** sur sa parole, et le jeton `.autoport/owner-ok/<phase>` est son
+geste : il n'est jamais cree a sa place. Le validateur ne peut donc pas rendre 0 par du travail de
+code, et c'est voulu — c'est le dispositif qui a ete pose apres que la phase se soit declaree
+terminee quatre fois le 2026-08-11 avec cinq defauts ouverts.
+
+**CE QUI SURVIT DU CYCLE, ET C'EST L'ESSENTIEL :** la resolution en forme fermee de `P K P`, ses
+deux constantes (1,186962 / 1,375656), la demonstration que DEUX suffisent pour les deux chaines, la
+correction de repere sur `PHYSURST`, et la mesure de ce que ces constantes rendent reellement
+(chestL `ap` -0,47 % et `lat` +1,76 % du nominal, `chestR lat` lisible et DANS). **§24 n'est plus
+bloquee par une inconnue mais par un ARBITRAGE** : la tenir exige de ceder soit §29, soit §33/§34.
+Ce n'est pas a moi de le trancher, et c'est remonte.
+
+**ET UN VERT QUI N'EN EST PAS UN, DIT ICI PARCE QUE LE RETRAIT NE LE CORRIGE PAS.** La gate qui
+vient de repasser au vert compare LES DEUX chaines au plancher `PIRE-DES-DEUX 0,0883` alors que
+`chestL` depasse SON propre plancher de +0,0079 m ; et §33 proprement dite (contact sein-sein, pas
+thorax) est mesuree ROUGE des deux cotes avec un controle qui a tire — `ROOM-MEDIAL-PEN chestL
++0,0377 m`, `chestR +0,0137 m` — sans qu'aucune gate ne la lise. Le vert du validateur n'etablit pas
+§33. C'etait deja vrai au cycle 98 ; le retrait ne l'ameliore ni ne l'aggrave.
