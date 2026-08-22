@@ -8588,3 +8588,100 @@ partie 3x3 de la matrice d'os ecrite (`:3898-3906`), la translation etant repose
 depuis `*phys-px/py/pz*`. Aucune position simulee, aucune vitesse, aucune contrainte ne le lit.
 Toute grandeur de POSITION du tableau doit donc rester identique au bit ; seules les grandeurs de
 FORME et les compteurs `dyn*` ont le droit de bouger.
+
+## [NOTE-433] §24 — LA RAIDEUR PAR AXE EST POSEE *APRES* LE PROJECTEUR DE LONGUEUR (cycle 99)
+
+`jak-hd-physics.gc:205-206` (constantes) et `:2673-2674` (site d'armement).
+
+**LE DEFAUT, ETABLI AUX CYCLES 94/96/97.** La raideur par axe est definie en 3-D
+(`K = diag(s_v, s_ap, s_lat)` dans le triedre de l'ancre), PUIS la contrainte de longueur
+restreint le mouvement au plan perpendiculaire a l'os. La raideur qui atteint reellement le joint
+est donc `A = P K P`, `P = I - m^ m^T`. Avec les compliances de §29 lues comme des raideurs
+(`s = 1/0.90`, `1/0.82`), les deux valeurs propres non nulles de `A` valent 1,1078 / 1,1911
+(chestL) et 1,1078 / 1,1917 (chestR) : un rapport de frequences de **1,031-1,039 quand §24 en
+exige 1,0600**. L'anisotropie n'arrivait pas au joint. `sv` est de surcroit annulee par le
+projecteur, l'os etant a ~92 % sur la verticale du triedre.
+
+**LE CORRECTIF : ON INVERSE `P K P` AU LIEU DE POSER `K`.** Pour un `A` de rang 2 :
+
+    T = trace(A) = somme_i s_i (1 - m_i^2)                  = tau_ap + tau_lat
+    D = det(K) * m^T K^-1 m^ = s_ap s_lat m_v^2
+                            + s_v s_lat m_ap^2
+                            + s_v s_ap m_lat^2              = tau_ap * tau_lat
+
+avec `tau_ap = (2.50/2.30)^2 = 1,1814745` et `tau_lat = (2.65/2.30)^2 = 1,3275047`, les rapports
+de raideur que §24 (l.325-329) demande. `s_v` reste a 1,0. La premiere equation est LINEAIRE :
+on substitue et on resout la quadratique en `s_lat`. Forme fermee, aucun ajustement.
+
+**LES DEUX RACINES SONT POSITIVES** — la positivite ne discrimine pas. Ce qui discrimine est
+l'AFFECTATION DES MODES : la racine `s_ap > s_lat` place le mode LENT a 85,8 deg de `ap`, donc
+§24 a l'envers ; la racine retenue le place a 11,4 deg de `ap` et le mode rapide a 21,8 deg de
+`lat`. C'est ce test, pas le signe, qui choisit.
+
+**LES DEUX CHAINES DONNENT LA MEME REPONSE, ET C'EST POURQUOI DEUX CONSTANTES SUFFISENT.**
+En base d'ANCRE (et non en base monde — `*phys-ux/uy/uz*` sont deja tournes par `w2l`,
+cf. `:2846-2853`), l'axe d'os vaut `(v -0,919254, ap -0,147761, lat +0,364882)` sur chestL et
+`(v -0,920567, ap -0,147941, lat -0,361483)` sur chestR : de vrais miroirs, et seule la
+composante laterale change de signe — or seuls les CARRES entrent dans `T` et `D`. Solutions :
+1,186970 / 1,376174 et 1,186953 / 1,375137, soit **0,075 % d'ecart**. Les constantes posees sont
+leur moyenne. Sensibilite : 1 deg de rotation d'os deplace `s_ap` de 0,12 % et `s_lat` de 0,38 %.
+
+**LE CANAL RADIAL DE §23 LIT LE MEME `K`** (`:3038-3040`, `d_i = s_i q_i` sur le point libre, qui
+n'est PAS projete) : `f_v` monte donc aussi, de +1,1 %. C'est declare, pas ignore — et c'est la
+raison pour laquelle les rapports `ap/v` et `lat/v` atteignent 1,059 et 1,122 au lieu des 1,087 et
+1,152 de §24, quand `lat/ap` tombe a 1,0600 exactement. Les six lectures restent DANS leurs bandes.
+
+**`zeta` EST INVARIANT PAR CONSTRUCTION**, et c'est ce qui protege §25 et §26 : le taux par axe
+vaut `rate * sqrt(s_i)` (`:2954-2956`) quand la pulsation vaut `omega * sqrt(s_i)`, donc
+`zeta_i = rate_i / (2 omega_i)` ne depend pas de `s_i`.
+
+**CE QUE CA COUTE, ET JE NE LE LISSE PAS : §29 ET §24 SONT INCOMPATIBLES.** Les compliances
+equivalentes deviennent 0,8425 / 0,7267 la ou §29 (l.366-367) ecrit 0,90 / 0,82 — soit -6,4 % et
+-11,4 %. Le projecteur dilue l'anisotropie : il faut `s_lat/s_ap = 1,1594` dans `K` brut pour
+obtenir 1,1236 dans le plan. Tant que c'est le MEME bouton qui porte les deux sections, l'une des
+deux cede. Les chiffres de §29 tiendraient simultanement si l'inertie effective differait par axe
+(`m_ap/m_v = 0,940`, `m_lat/m_v = 0,919`) — ce n'est ni mesure ni implemente, donc ce n'est PAS
+une echappatoire, c'est une question ouverte a remonter a l'owner. `PHYS-MOB-TOR` (§29 torsion,
+0,72) n'est pas touchee.
+
+### [NOTE-433] — CE QUE LA COURSE A MESURE, ET LA PARTIE DE MA PREDICTION QU'ELLE REFUTE
+
+Course x86 du cycle 99, meme salle, meme tableau, meme trace-pipeline que le cycle 98 ; seule la
+paire de constantes change. `PHYSAXISS c=0/c=1 sv=1.0000 sap=1.1869 slat=1.3756` — le binaire porte
+bien les nouvelles valeurs (le cycle 98 portait `1.1111 / 1.2195`).
+
+**CE QUI EST CONFIRME — les deltas tangentiels.** Sur `ROOM-AXRATIO-SPEC24` :
+
+    chestL  ap   2.440 -> 2.510 Hz  (+2.9 % mesure, +3.3 % predit)   ecart au nominal §24 : -3.24 % -> -0.47 %
+    chestL  lat  2.550 -> 2.720 Hz  (+6.7 % mesure, +5.6 % predit)   ecart au nominal §24 : -4.60 % -> +1.76 %
+    chestR  lat  non lisible -> 2.690 Hz DANS                        ecart au nominal §24 : -3.12 %
+
+**CE QUI EST REFUTE — « `f_v` monte de +1,1 % ».** J'avais ecrit que le canal radial de §23 lisant le
+meme `K`, la verticale monterait. `ROOM-AXFIT-RAD` mesure **chestL 2.320 -> 2.320** (identique au
+millieme) et **chestR 2.415 -> 2.410** (-0,2 %). La verticale N'A PAS BOUGE. Le raisonnement
+(`:3038-3040` applique bien `s_i` au point libre) reste vrai au code ; ce qui est faux est d'en
+conclure que la FREQUENCE lue sur ce canal suit `sqrt(m^T K m^)`. La consequence pratique est
+FAVORABLE — les rapports `ap/v` et `lat/v` gagnent tout le delta tangentiel au lieu d'en perdre une
+part au denominateur — mais elle est favorable par accident, pas par prevision, et c'est dit ici.
+
+**CE QUE CA COUTE, MESURE, ET QUI N'EST PAS LISSE :**
+  * `ROOM-SKINPEN-VERDICT chestR` passe de `-0.0021 m -> TENUE` a `+0.0010 m -> DEPASSEE` : la
+    penetration de peau monte de 0.0863 a 0.0893 m et franchit SON PROPRE plancher (0.0883).
+    `chestL` etait deja dessus et se degrade de +0.0079 a +0.0083 m. La gate COLLIDE §33/§34 du
+    validateur passe donc au ROUGE. Mecanisme coherent : une raideur tangentielle plus haute tire le
+    point de chair plus fort vers sa cible et le repoussoir de collision perd le bras de fer.
+  * `ROOM-RINGFIT repos chestR ap` sort par le HAUT : 2.645 DANS -> 2.795 HORS (plafond §24-ap 2.7).
+  * La jambe de CONTROLE `ROOM-AXFIT-RAD-NOLEN` (contrainte de longueur DESARMEE) se degrade : 3
+    cellules sur 6 passent `INSUFFISANT` (residu > 0.08), aucune ne l'etait. A contrainte levee et
+    raideur plus haute, la serie ne porte plus un mode unique.
+
+**CE QUI S'AMELIORE PAR AILLEURS** : `ROOM-COM` (§22) baisse des deux cotes, chestL 0.4940 -> 0.4583
+et chestR 0.4452 -> 0.4302 B0 — toujours au-dessus du plafond dur 0.40, mais dans le bon sens.
+
+**RESERVE D'INSTRUMENT, NOMMEE ET NON TRAITEE ICI.** Le verdict §24 du TABLEAU est bati sur les six
+fenetres AX d'origine (`ROOM-AXFIT`), pas sur les fenetres a entree propre `PH-AXC` que le cycle 96 a
+construites (leurs tags `PHYSAXPRE`/`PHYSAXWN`/`PHYSAXRESN` sont bien dans la trace, mais le tableau
+ne les lit pas). Le registre, lui, cite l'ajustement hors ligne du cycle 97 sur ces fenetres propres.
+**Deux instruments, un seul numero de section** : c'est ce qui explique que le cycle 97 lise
+`chestL lat = 2.393 SOUS` la ou le tableau lisait `2.550 DANS` a la meme course. A reconcilier avant
+de prononcer §24 `TENUE`, et c'est le blocage reel de la section.
