@@ -660,3 +660,15 @@ STATUT, est exclue de tous les comptes, et ne peut pas rendre une section tenue.
 sur 74 lignes de preset, 55 sont des GRANDEURS A MESURER et non des valeurs a poser — un preset
 n'est pas un jeu de boutons, et le confondre avec ca fait croire le chantier plus simple qu'il
 n'est.
+
+GUARD my-engine-limit-presented-as-a-spec-property .autoport/DIRECTIVES.md le preset est une entree
+**J'ai fait passer une limite de NOTRE moteur pour une propriete de SA spec.** J'ai repondu a
+l'owner que « 55 des 74 lignes du preset sont des grandeurs a mesurer, pas des valeurs a poser ».
+Faux : elles n'ont pas de CANAL chez nous, ce qui est un manque d'implementation. Sa reponse a
+tranche en une phrase — les deux presets du document ont **71 cles communes dont 51 aux valeurs
+DIFFERENTES**, donc ce sont des ENTREES par construction, sinon la seconde colonne n'existerait pas.
+Verrou : avant d'ecrire qu'une exigence « n'est pas reglable », verifier si elle est reglable
+AILLEURS dans le meme document. Une cle qui prend deux valeurs pour deux personnages est un
+parametre, point. Et une cle sans canal se declare `CANAL ABSENT` — un manque nomme — jamais une
+section non tenue comme si le solveur avait echoue. Voisin de
+`impossibility-inherits-model-blindspots`.

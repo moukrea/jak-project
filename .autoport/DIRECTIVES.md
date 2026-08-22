@@ -10,6 +10,44 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
+## 2026-08-22 23:00 — L'OWNER A RAISON SUR L'ARCHITECTURE : LE PRESET EST UNE ENTREE, PAS UNE DESCRIPTION. SCOPE-SERIAL 9.
+
+Verbatim : « tu pourrais faire en sorte que ce soit des boutons qu'on tourne justement, regarde le
+preset de Maïa, les mêmes propriétés des presets ont des valeurs différentes, on pourrait donc
+imaginer que ces "knobs" influencent proprement le tout... C'est un peu le but d'un preset. »
+
+**SA PREMISSE EST VERIFIEE ET ELLE TRANCHE : 71 cles communes aux deux presets, 51 AVEC DES VALEURS
+DIFFERENTES.** `GlobalFrequencyVertical` 2,30 contre 1,85. `SupineProjectionScale` 0,70 contre 0,57.
+`MassPerBreast` 0,50 contre 1,05. Un document qui donne les MEMES cles avec des valeurs
+differentes pour deux personnages n'ecrit pas des observations : il ecrit des **ENTREES**.
+
+**JE RETIRE MA REPONSE DE 22:20.** J'ai ecrit que « 55 des 74 lignes sont des grandeurs a mesurer,
+pas des valeurs a poser ». C'etait une description de NOTRE MOTEUR presentee comme une propriete de
+SA SPEC. La verite : ces 55 lignes n'ont pas de canal **chez nous**, et c'est un manque
+d'implementation, pas une impossibilite. Confondre les deux, c'est faire passer ma limite pour la
+sienne — exactement la faute que le registre appelle `impossibility-inherits-model-blindspots`.
+
+**NOUVELLE DIRECTION, ET ELLE REMPLACE LA PRECEDENTE :** chaque cle du preset devient un CANAL que
+le moteur LIT dans le fichier livre. Le travail n'est plus « esperer que le comportement emergent
+tombe dans la bande », c'est **construire le canal qui rend la cle effective**. Trois consequences
+immediates :
+  1. les 6 valeurs de forme ECRITES EN DUR sont lues depuis le fichier livre. La tautologie
+     disparait par construction, sans qu'on ait a la declarer ;
+  2. une cle sans canal se declare `CANAL ABSENT` — un manque d'implementation NOMME, jamais une
+     section « non tenue » comme si le solveur echouait ;
+  3. l'ordre de traitement suit les 51 cles qui DIFFERENT entre les deux presets : ce sont
+     exactement celles dont la valeur doit produire un effet, sinon elle ne servirait a rien.
+
+**ET CA NOUS DONNE LE CONTROLE QUE CE DOSSIER N'A JAMAIS EU.** Charger le preset de **Maia** sur la
+chaine de Keira doit produire un comportement MESURABLEMENT DIFFERENT, dans le sens que ses 51
+ecarts prescrivent — plus lent (1,85 contre 2,30 Hz), plus lourd, plus etale au couche. Un moteur
+qui consomme vraiment le preset le montre ; un moteur qui fait semblant rend la meme chose. C'est un
+controle positif AU NIVEAU DU SYSTEME ENTIER, impossible a truquer, et il ne coute qu'un fichier.
+**PRECISION DE PERIMETRE : on ne livre PAS la physique de Maia et on ne touche pas a son
+personnage.** Ses chiffres servent de VECTEUR DE TEST sur la chaine de Keira, rien d'autre. Le
+perimetre reste sa poitrine a elle.
+
+
 ## 2026-08-22 22:50 — LES 13 ENTREES TAUTOLOGIQUES NE COMPTENT PLUS. C'EST L'OWNER QUI M'Y AMENE.
 
 Il ecrit : « la spec est relativement factuelle, suffit de poser le bon cadre et appliquer le
@@ -1186,7 +1224,7 @@ jamais un nombre choisi. Les grosses mèches portent encore `stiffness=1.80 damp
 
 ## PÉRIMÈTRE ACTIF (2026-08-11)
 
-SCOPE-SERIAL: 8
+SCOPE-SERIAL: 9
 <!-- Bump ce numéro UNIQUEMENT pour un vrai changement de périmètre : il invalide
      immédiatement la tentative en cours (gate SYNC). Corriger une coquille ou
      reformuler ne doit jamais coûter une tentative. -->
