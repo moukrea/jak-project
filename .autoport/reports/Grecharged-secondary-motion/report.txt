@@ -1,226 +1,208 @@
-RAPPORT DE CYCLE 107 — Grecharged-secondary-motion
 DIRECTIVES v3fee554599
-Branche physics-keira-clean · perimetre : chestL / chestR SEULES (owner 2026-08-14 07:30)
-(le rapport precedent est archive a cote de celui-ci sous `report.c106.txt`)
 
-SECTIONS DONT CE CYCLE DEBLOQUE LE VERDICT, NOMMEES AVANT DE COMMENCER : **SPEC 14, SPEC 16,
-SPEC 17, SPEC 18**. Ce cycle ne touche NI le moteur, NI la salle, NI une gate : il relit la trace
-ARCHIVEE. **Zero build, zero course neuve, zero ligne de moteur, zero gate touchee.**
-
-ETAT DU VALIDATEUR : **18 lignes, 12 gates de mesure toutes passantes, `[PASS]` imprime**, sortie
-identique octet pour octet a celle du cycle 106. Le seul echec reste `OPEN-DEFECTS`, la porte de
-l'owner, qu'aucune tentative worker ne franchit.
+================================================================================================
+DECLARATIONS OBLIGATOIRES — CE BLOC RESTE EN TETE DE CHAQUE RAPPORT ET NE SE REECRIT PAS.
+  Le validateur EXIGE deux lignes de ce fichier : `DIRECTIVES <version>` et `BREAST-PENETRATION:`.
+  Les reecrire de memoire les fait tomber : c'est arrive au cycle 105 (commit 455ddd5140) et
+  A NOUVEAU ce cycle-ci, sur la meme ligne, pour la meme raison — un rapport recrit a neuf.
+  Le remede n'est pas « faire attention » : c'est ce bloc, en tete, recopie avant d'ecrire le
+  reste. Verification apres ecriture :
+      bash .autoport/validators/phase-Grecharged-secondary-motion.sh | wc -l   -> 18 lignes
+  Une sortie PLUS COURTE que 18 lignes signale une gate qui a coupe le reste, jamais un progres.
 
 BREAST-PENETRATION: 0.0973 m — `meshpen`, DIAGNOSTIC, jamais un verdict (arbitrage 2026-08-20
-13:20 : c'est un DEPLACEMENT, pas une profondeur). Inchange, ce cycle ne touche pas le solveur.
+13:20 : c'est un DEPLACEMENT, pas une profondeur). Inchange : ce cycle ne touche pas le solveur.
   chestL meshpen max 0.0555 m (anim `assistant-village3-idle`, drive `jerk`)
   chestR meshpen max 0.0973 m (anim `assistant-village2-idle-to-a`, drive `accel`)
-
 ================================================================================================
-0. EN UNE PHRASE
-================================================================================================
-**LE THEOREME DU CYCLE 80 — « LES DEUX CHAINES DEMANDENT LE FACTEUR DE PART ET D'AUTRE DE 1, CE
-N'EST PAS UNE QUESTION D'AMPLITUDE » — EST CALCULE SUR LA PASSE QUE LA SALLE ELLE-MEME DECLARE
-PERIMEE (repere MONDE, pose a 48,7 deg du miroir). RECALCULE SUR LA PASSE CORRIGEE, IL EST **FAUX
-POUR §14** : ses quatre cellules d'apex demandent TOUTES k > 1 et leur intersection vaut
-[1,473 .. 1,514]. LA CONCLUSION GENERALE SURVIT (aucune section n'est atteignable en entier), MAIS
-ELLE CHANGE DE RAISON, SECTION PAR SECTION — ET §16 DEVIENT LA PREMIERE SECTION DU BLOC A ETRE
-COHERENTE EN SIGNE : SES HUIT CELLULES DEMANDENT PLUS DE MOUVEMENT, PAS MOINS.**
 
-================================================================================================
-1. LE FAIT DE DEPART, ET IL EST DANS LE TABLEAU DEPUIS LE CYCLE 68
-================================================================================================
-`ROOM-APEX-REGIME` et `ROOM-REGIME` — les lignes sur lesquelles les verdicts d'apex et de COM de
-§14 a §20 sont lus — viennent de **PH-REG**, et le tableau publie lui-meme ce que vaut cette passe :
+CYCLE 108 — L'ENTREE DU RESSORT EST SYMETRIQUE, LA SORTIE NE L'EST PAS.
+             ET CE N'EST PAS chestL QUI DEBORDE : C'EST chestR QUI S'EFFONDRE.
 
-    ROOM-REGPOSE-VERDICT: POSE NON SYMETRIQUE — PH-REG heritee est a 48.7 deg du miroir
-                          (seuil 1.3 ; le rig est a 0.005 deg en pose de bind)
-    ROOM-REGBONE-MIROIR:  pire ecart au miroir de la POSE = 105.85 deg (r=14)
+Zero build de moteur, zero course neuve, aucune gate touchee. Tout est lu dans la trace
+ARCHIVEE `keira-room-x86.log`. Le compilateur GOAL a ete passe (551 cibles, 15,8 s) parce que
+deux COMMENTAIRES de `phys-room.gc` ont ete corriges. Sortie du validateur : 18 lignes,
+12 gates passantes, meme echec final sur `OPEN-DEFECTS` — IDENTIQUE avant et apres.
 
-et le moteur de salle ajoute que ses AXES sont ceux du MONDE alors que §18 a §20 nomment ceux du
-SUJET, « et les deux sont a ~90 deg l'un de l'autre — le tangage de §19 est joue comme un roulis
-et le roulis de §20 comme un tangage » (`phys-room.gc`, pave de PH-REGA).
+SECTION NOMMEE AVANT DE COMMENCER (directive du 2026-08-21 18:25) : §18, et par ricochet
+§19 et §20, qui partagent la meme passe et la meme arithmetique de facteur.
 
-**LES PASSES CORRIGEES EXISTENT DANS LA MEME COURSE** : `ROOM-REGB-APEX` / `ROOM-REGB-COM` (les
-huit fenetres de TRANSLATION, axes du SUJET, pose PH-REGT resserree — temoin r=0 a 0,0139/0,0156 B0
-et miroir 0,2 deg) et `ROOM-REGA` (les six fenetres de ROTATION, axes du SUJET, miroir REVALIDE a
-0,54 deg). Le registre les cite deja. **Ce que personne n'avait fait, c'est refaire l'ARITHMETIQUE
-DU CYCLE 80 dessus** — et c'est elle qui a fait annuler le chantier de conversion le 2026-08-21.
 
-================================================================================================
-2. L'ARITHMETIQUE, REFAITE SUR LES DEUX PASSES, COTE A COTE
-================================================================================================
-Regle inchangee (cycle 80) : une cellule `a` de bande [lo,hi] est mise DANS par un facteur uniforme
-`k` si et seulement si `a/hi <= k <= a/lo` ; une section est tenue quand TOUTES ses cellules le
-sont (regle 2 du registre). Aucune bande n'est reecrite, aucun seuil n'est invente.
+1. LA MESURE DU CYCLE, ET ELLE ETAIT DEJA DANS LA TRACE
 
-    section  famille   PH-REG (monde, 48,7 deg)          PH-REGB (sujet, 0,2 deg)
-    -------  --------  --------------------------------  --------------------------------
-    §14      apex      VIDE  (2 cellules k>1, 2 DEJA DANS)  **[1,473 .. 1,514]  ATTEIGNABLE**
-    §14      COM       VIDE  (2 k<1, 2 deja dans)         VIDE (1 k>1, 1 k<1, 2 deja dans)
-    §16      apex      VIDE  (3 k<1, 1 deja dans)         VIDE — mais **4 cellules sur 4 k<1**
-    §16      COM       VIDE  (4 k<1)                      VIDE — **4 cellules sur 4 k<1**
-    §17      apex      [1,335 .. 1,530] ATTEIGNABLE       **VIDE** (1 k>1, 1 deja dans)
-    §17      COM       VIDE  (2 k>1, 2 deja dans)         VIDE (2 k>1, 1 k<1, 1 deja dans)
+`PHYSREGW` publie DEUX nombres sur la meme ligne depuis le cycle 71. Seul le second a jamais
+ete lu.
 
-**CE QUI TOMBE.** La phrase que le registre porte sur §14 — « `chestR/r1` exige k >= 1,561 pendant
-que `chestL/r4` exige k <= 1,136. Les deux chaines demandent le facteur de part et d'autre de 1 —
-ce n'est pas une question d'amplitude » — decrit la passe PERIMEE. Sur la passe corrigee les quatre
-cellules d'apex de §14 valent 0,4420 / 0,4160 (bande 0,20-0,30) et 0,4543 / 0,4571 (bande
-0,30-0,38) : **toutes AU-DESSUS, aucune en dessous, et un facteur unique de ~1,49 les met les
-quatre dans leur bande.** Pour l'apex de §14, c'est donc bien une question d'amplitude.
+    rgap = |cible du ressort - pose d'auteur| / B0     -> l'ENTREE geometrique du solveur
+    perr = max |p_rlk - cible du ressort| / B0         -> sa SORTIE
 
-**CE QUI SURVIT.** Aucune des trois sections ne devient TENUE : il reste, pour chacune, une
-famille dont l'intervalle est vide. §14 est bloquee par son COM seul ; §16 par le desaccord
-d'AMPLITUDE entre ses deux gestes (et non de sens) ; §17 par ses deux familles.
+Les confronter est la mesure que le registre reclame depuis `response-dies-at-one-solver-stage`
+(« mesurer le rapport entree/sortie ETAGE PAR ETAGE »). Elle ne coutait rien.
 
-**ET LE CONTROLE QUI EMPECHE DE CROIRE QUE « LA PASSE CORRIGEE ARRANGE TOUT » : §17 VA DANS
-L'AUTRE SENS.** Son apex etait ATTEIGNABLE sur la passe perimee et ne l'est plus sur la corrigee.
-Un changement d'instrument qui n'ameliorerait que ce qu'on regarde serait suspect ; celui-ci
-degrade une cellule sur trois sections, ce qui est la signature d'une correction et pas d'un tri.
+    r   section    rgapL    rgapR   ENTREE      perrL    perrR   SORTIE   gain relatif
+    9   §18       0.0102   0.0103 x0.986      0.5030   0.0843 x5.967    x6.06  <<<
+    10  §18       0.0102   0.0103 x0.990      0.5575   0.1228 x4.539    x4.58  <<<
+    11  §19       0.0102   0.0103 x0.986      0.5607   0.5626 x0.997    x1.01
+    12  §19       0.0102   0.0103 x0.986      0.5353   0.5403 x0.991    x1.01
+    13  §20       0.0102   0.0103 x0.986      0.5367   0.4682 x1.147    x1.16
+    14  §20       0.0102   0.0104 x0.981      0.5666   0.5544 x1.022    x1.04
 
-================================================================================================
-3. §16 DEVIENT LA PREMIERE SECTION DU BLOC COHERENTE EN SIGNE, ET C'EST EXPLOITABLE
-================================================================================================
-Sur la passe corrigee, les HUIT cellules de §16 (apex et COM, les deux chaines, les deux gestes)
-demandent **k < 1**, c'est-a-dire **PLUS de mouvement** :
+L'entree est la MEME sur les deux chaines, a moins de 2 %, sur les SIX regimes. La sortie l'est
+sur QUATRE et vaut x5,97 / x4,54 sur les DEUX LACETS. L'asymetrie de §18 nait donc ENTRE
+l'entree et la sortie, c'est-a-dire DANS LE SOLVEUR.
 
-    §16 apex  r3 jumpA-land  chestL 0,2099 · chestR 0,2254   bande [0,30-0,42]   k <= 0,70 / 0,75
-    §16 apex  r6 jumpB-land  chestL 0,3993 · chestR 0,2743   bande [0,42-0,50]   k <= 0,95 / 0,65
-    §16 COM   r3             chestL 0,1247 · chestR 0,1145   bande [0,25-0,35]   k <= 0,50 / 0,46
-    §16 COM   r6             chestL 0,2251 · chestR 0,1409   bande [0,35-0,40]   k <= 0,64 / 0,40
 
-**LA RECEPTION D'ATTERRISSAGE SOUS-REPOND, DES DEUX COTES, SUR LES DEUX GRANDEURS**, d'un facteur
-1,05 a 2,00 sur l'apex et 1,79 a 2,81 sur le COM. C'est le premier enonce DIRECTIONNEL et
-NON AMBIGU qu'on puisse faire sur une section de ce bloc — sur la passe perimee, §16 melangeait les
-sens et ne disait rien d'actionnable. **Et il pointe dans le sens INVERSE du chantier « diviser
-l'excursion » que le registre a porte pendant vingt cycles.**
+2. ET ELLE SE LIT A L'ENVERS DE CE QU'ON EN DISAIT DEPUIS TROIS CYCLES
 
-================================================================================================
-4. §18 : SON ASYMETRIE GAUCHE/DROITE N'EST **PAS** UN ARTEFACT DE POSE
-================================================================================================
-`ROOM-REGA` joue les six fenetres de rotation sur les axes du SUJET, dans une pose dont l'ecart au
-miroir est **REVALIDE A L'EXECUTION a 0,54 deg** (le rig est a 0,005 deg en bind). Le rapport
-gauche/droite de l'apex y vaut :
+`perr` de chestL vaut 0,5021 a 0,5704 B0 sur DOUZE cellules sur DOUZE — c'est-a-dire au
+plafond de deplacement `kn + cp` = 0,42 + 0,08 = 0,50 B0, dans TOUS les regimes de rotation.
+Une sortie constante au plafond ne mesure plus son entree.
 
-    r= 9 §18 sgn+1   apexL 0,4100  apexR 0,1019   R = 4,024
-    r= 9 §18 sgn-1   apexL 0,4958  apexR 0,1593   R = 3,112
-    r=10 §18 sgn+1   apexL 0,4796  apexR 0,1251   R = 3,834
-    r=10 §18 sgn-1   apexL 0,5192  apexR 0,1717   R = 3,024
-    r=11..14 §19/§20                              R = 1,012 a 1,220
+    CE N'EST DONC PAS chestL QUI DEBORDE. C'est chestR qui tombe a 0,079-0,127 B0, soit UN
+    CINQUIEME du plafond, et UNIQUEMENT sous lacet (il est a 0,466-0,563 sur les quatre autres).
 
-**Un facteur 3,0 a 4,0 sur §18 dans une pose symetrique a 0,54 deg, quand §19 et §20 rendent 1,0 a
-1,2 dans LA MEME pose et LA MEME course.** La directive du 2026-08-21 01:20 pose que tout ecart
-gauche/droite mesure hors du miroir est presume artefact de pose ; ici la pose est admissible et
-l'ecart reste. **Il faut donc cesser de l'imputer a la pose** — ce qui reste a expliquer est propre
-au lacet, et le fait que §19 et §20 rendent ~1,0 dans la meme fenetre est le controle qui interdit
-d'accuser l'instrument.
+La question de §18 se reformule : non pas « pourquoi chestL repond-il quatre fois trop »,
+mais « QU'EST-CE QUI RETIENT chestR SOUS LACET ». Ce n'est pas une nuance : les trois derniers
+cycles cherchaient un exces la ou il y a un blocage.
 
-================================================================================================
-4bis. LE CHANTIER D'INSTRUMENT QUE CE CYCLE NOMMAIT EST FAIT DANS LE MEME CYCLE
-================================================================================================
-La section 7(C) plus bas nommait le trou : `ROOM-REGB-APEX` confronte chaque cellule de TRANSLATION
-a sa bande, `ROOM-REGA` publiait `apexL`/`apexR` SANS bande — donc §18, §19 et §20 etaient les
-seules sections dont AUCUNE cellule n'etait confrontee a sa bande sur les axes que la spec nomme.
-**Fait : `ROOM-REGA-BANDE` et `ROOM-REGA-FACTEUR`.** Script de tableau uniquement — zero ligne de
-moteur, zero course neuve, aucune gate touchee, **et la sortie du validateur reste IDENTIQUE OCTET
-POUR OCTET** (18 lignes, 12 gates passantes). Les bandes sont celles de `_RGAPX`, au mot pres :
-aucun seuil neuf.
 
-    ROOM-REGA-FACTEUR: §18 sgn=+1   AUCUN facteur uniforme : il faudrait k >= 1,599 et k <= 0,625
-    ROOM-REGA-FACTEUR: §18 sgn=-1   AUCUN facteur uniforme : il faudrait k >= 1,731 et k <= 0,858
-    ROOM-REGA-FACTEUR: §19 sgn=+1   k uniforme ATTEIGNABLE dans [2,135 .. 2,406]
-    ROOM-REGA-FACTEUR: §19 sgn=-1   k uniforme ATTEIGNABLE dans [1,533 .. 1,796]
-    ROOM-REGA-FACTEUR: §20 sgn=+1   k uniforme ATTEIGNABLE dans [1,608 .. 2,041]
-    ROOM-REGA-FACTEUR: §20 sgn=-1   k uniforme ATTEIGNABLE dans [2,129 .. 2,284]
+3. LE STIMULUS EST DISCULPE PAR LA MESURE, PLUS PAR HYPOTHESE
 
-**TROIS ENONCES NEUFS, ET AUCUN N'ETAIT DISPONIBLE AVANT CE CYCLE :**
-  1. **§19 et §20 sont mesurees contre leur bande sur le bon axe pour la premiere fois.** Jusqu'ici
-     le « tangage » de §19 etait joue comme un roulis et le « roulis » de §20 comme un tangage, les
-     deux reperes etant a ~90 deg l'un de l'autre. Leurs huit et quatre cellules sont TOUTES
-     AU-DESSUS de leur bande, et les deux chaines s'accordent (R = 1,012 a 1,220) : ces deux
-     sections n'ont **pas** de probleme d'asymetrie, elles ont un probleme d'AMPLITUDE, chiffre.
-  2. **Mais les DEUX GESTES MIROIR d'une meme section exigent des facteurs DISJOINTS** ([2,135..
-     2,406] contre [1,533..1,796] pour §19 ; [1,608..2,041] contre [2,129..2,284] pour §20). Un
-     gain unique ne peut donc pas tenir les deux sens : il faut un mecanisme qui les distingue.
-  3. **§18 est bloquee par son ASYMETRIE, pas par son amplitude** : chestL demande k >= 1,60
-     (moins de mouvement) pendant que chestR demande k <= 0,63 (plus de mouvement), dans une pose
-     ADMISSIBLE a 0,54 deg du miroir. C'est le meme fait que la section 4, exprime cette fois sur
-     la grandeur que la spec borne.
+Pour une rotation d'angle theta autour d'un axe fixe, deux identites exactes :
 
-================================================================================================
-5. CE QUE JE DECLARE CONTRE MOI
-================================================================================================
-**(a) AUCUN STATUT NE CHANGE. §14, §16, §17 et §18 restent `NON TENUE`.** Ce cycle change ce que le
-chantier CROIT devoir corriger, pas un verdict. **C'est le DEUXIEME cycle consecutif sans
-changement de statut : la directive du 2026-08-21 18:25 impose la remontee au superviseur, elle est
-ecrite en section 7 et je ne l'ai pas contournee en enchainant un troisieme cycle.**
+    cos ang(d+, d-) = - cos theta          |d| = |r| * sqrt(2 - 2 cos theta)
 
-**(b) TROIS PISTES EXAMINEES ET ABANDONNEES, PUBLIEES POUR QU'ON NE LES REFASSE PAS.**
-  1. « Le registre lit la mauvaise passe » — **FAUX** : les lignes §14 a §20 citent deja PH-REGA et
-     PH-REGB. Ce qui n'y etait pas, c'est l'arithmetique refaite dessus. Verifie avant de publier.
-  2. « La fenetre r=12 de §19 a un stimulus NUL (dap=dver=dlat=0,0) donc son verdict est vide » —
-     **FAUX** : c'est un deplacement NET de fenetre, et r=12 est le RETOUR, qui finit ou il a
-     commence ; `ROOM-REGIME-STIM` publie `amax = 76,36 u/f` pour cette meme fenetre. Le tableau
-     l'etiquetait deja « deplacement negligeable ». Je l'avais pris pour un defaut.
-  3. « `acmd` (10 a 32 fois plus petit que `amax`) prouve que le stimulus commande n'est pas
-     subi » — **FAUX** : `acmd` est une ACCELERATION (u/f^2) et `amax` une VITESSE (u/f), le
-     tableau le declare, et le rapport des deux est simplement la duree de la rampe. Comparer deux
-     unites differentes aurait ete un faux rouge.
+donc theta et le bras de levier se LISENT dans `PHYSREGAD`, sans modele et sans seuil choisi :
 
-**(c) [CORRIGE DANS LE MEME CYCLE, VOIR SECTION 4bis] Les sections de rotation n'avaient pas de
-tableau de cellules sur les axes corriges.** Je laisse la ligne ecrite parce qu'elle etait vraie
-quand je l'ai posee et que c'est elle qui a designe le correctif ; ce qui reste vrai apres :
-`ROOM-REGA-BANDE` ne porte que l'APEX, pas le COM — la moitie COM de §18/§19/§20 n'est toujours
-pas confrontee a sa bande sur les axes du sujet, et je ne l'extrapole pas.
+    r=9   theta =  90,005 deg   bras 417,61 / 417,62 u   |d+|/|d-| = 1,0000   MIROIR EXACT
+    r=10  theta = 150,398 deg   bras 417,46 / 415,95 u   |d+|/|d-| = 1,0036   MIROIR EXACT
+    r=11  theta =  69,893 deg   bras 866,43 / 869,19 u   |d+|/|d-| = 0,9968   MIROIR EXACT
+    r=13  theta =  34,964 deg   bras 951,33 / 948,40 u   |d+|/|d-| = 1,0031   MIROIR EXACT
+    r=14  theta =  34,964 deg   bras 948,40 / 951,33 u   |d+|/|d-| = 0,9969   MIROIR EXACT
 
-**(d) `meshpen` reste a 0,0973 m**, au-dessus de son plafond epingle. Diagnostic, publie, non
-utilise comme verdict.
+Le cycle 107 affirmait que les deux jambes de signe etaient « deux gestes MIROIR » ; c'etait
+ECRIT dans son commentaire comme un « piege declare » et ce n'etait pas verifie. Ca l'est.
 
-**(e) LES QUATRE SUITES DU CYCLE 105 ET DU CYCLE 106 RESTENT OUVERTES** : le vrai correctif du
-plafond de [NOTE-291], l'egalisation des populations de l'ablation de §34, le residu FINAL de la
-peau, le cout par frame sur device, le seuil du rebase de §37.
 
-================================================================================================
-6. SUBSTRAT
-================================================================================================
-**Aucun.** Trace ARCHIVEE `keira-room-x86.log` (celle du cycle 106 apres retrait du correctif,
-88 131 enregistrements `PHYS*`) et son tableau. Aucun `(mi)`, aucune course, aucune ligne de
-moteur, aucune gate. Moteur inchange a **4799 / 4800**.
+4. §20 : SES QUATRE « CELLULES MIROIR » SONT DEUX GESTES JOUES DEUX FOIS
 
-================================================================================================
-7. REMONTEE AU SUPERVISEUR (directive du 2026-08-21 18:25)
-================================================================================================
-**DEUX CYCLES CONSECUTIFS SANS CHANGEMENT DE STATUT — 106 et 107. LA RAISON, ET ELLE EST LA MEME
-POUR LES DEUX : LES DEUX CHANTIERS OUVERTS SONT BLOQUES PAR UN ARBITRAGE QUI N'EST PAS LE MIEN.**
+    (r=13 sgn=+1) et (r=14 sgn=-1)  ->  dap/dver/dlat = 0.0174 / 386.1346 / 421.4196
+    (r=13 sgn=-1) et (r=14 sgn=+1)  ->  dap/dver/dlat = 0.0089 / -74.7105 / -564.8944
 
-**(A) §33/§34 — le plafond de [NOTE-291].** Le cycle 106 a mesure que c'est lui le producteur du
-chiffre (attribution par intervention : -28,5 % / -18,4 % quand on le change) et que sa version
-naive coute §22 (0,82 B0 contre un plafond dur de 0,50), `ROOM-STRETCH` (4,59 % contre 3 %), le
-repos §2/§9 (x202) et la gate DISCRIMINANT. Le remplacer proprement demande de construire une garde
-contre le CYCLE LIMITE que [NOTE-291] avait mesuree (`PHYSIDLE dev=374`) — **c'est un chantier de
-solveur avec un risque reel sur quatre lignes de contrat, et je ne l'engage pas sans arbitrage.**
-Question au superviseur : accepte-t-on de degrader temporairement §2/§9 et `ROOM-STRETCH` pour
-instruire cette voie, ou exige-t-on un budget qui les preserve des la premiere livraison ?
+identiques au millieme d'unite pres sur les trois composantes. Meme theta (34,964 deg), meme
+bras. Ce qui les separe est le TAUX : `alp` 0,006835 contre 0,013670, exactement x2.
 
-**(B) §14 a §20 — la direction du chantier vient de s'inverser sur §16.** Vingt cycles de dossier
-ont porte « diviser l'excursion ». Sur la passe corrigee, §16 demande **plus** de mouvement sur ses
-huit cellules, et §14 demande **moins** sur ses quatre cellules d'apex (facteur ~1,49). Les deux
-sections veulent des choses opposees du meme solveur. **Aucun reglage global ne peut satisfaire les
-deux ; il faut un mecanisme qui distingue une RECEPTION d'une POUSSEE**, c'est-a-dire un chantier
-de modele, pas de parametre. Question au superviseur : est-ce la prochaine priorite, devant §33/§34 ?
+    Donc r=14 n'est PAS « le cote oppose » de r=13, comme la table le declarait : c'est la MEME
+    PAIRE DE GESTES A VITESSE DOUBLE, avec l'etiquette de signe inversee.
 
-**(C) FAIT DANS LE MEME CYCLE, PAS REMONTE (section 4bis).** `ROOM-REGA-BANDE` /
-`ROOM-REGA-FACTEUR` existent, §18/§19/§20 sont lisibles sur les axes du sujet, la sortie du
-validateur n'a pas bouge d'un octet. **CE QUI EN SORT ET QUI EST POUR LE SUPERVISEUR :** §19 et §20
-demandent des facteurs DISJOINTS pour leurs deux gestes miroir, et §14 et §16 demandent des
-facteurs de sens OPPOSES. Quatre sections, quatre demandes incompatibles d'un meme solveur.
-**Aucun reglage ne peut les servir : la question est si le prochain chantier est un MODELE (un
-mecanisme qui distingue reception / poussee / avant / arriere) plutot qu'un parametre.** Reste
-ouvert et non fait : la moitie COM de §18/§19/§20 sur les axes du sujet.
+Consequence sur le cycle 107 : son regroupement par `sgn` met un exemplaire de CHAQUE geste
+dans CHAQUE groupe. Sa conclusion « les deux gestes MIROIR d'une meme section exigent des
+intervalles DISJOINTS » ne parle donc pas des gestes miroir. Le regroupement PAR GESTE est
+publie depuis ce cycle et ne donne pas les memes bornes (gH [1,858..2,284], gI AUCUN).
 
-================================================================================================
-8. A TESTER PAR L'OWNER
-================================================================================================
-**RIEN.** Ce cycle ne change aucun octet de ce qui tourne : ni moteur, ni salle, ni donnees. Il ne
-produit que de la lecture sur une trace deja archivee.
+CE QUI BLOQUE §20, CHIFFRE : ses cellules s'etalent de 0,4082 a 0,6388 B0, rapport 1,565,
+quand sa bande 0,20-0,30 n'en tolere que 1,50. Elle est infaisable de 4,3 % — et l'etalement
+qui la rend infaisable est celui du DOUBLEMENT DE TAUX, pas celui du miroir.
+
+
+5. L'ARITHMETIQUE DE FACTEUR PORTE SUR DES CELLULES SATUREES
+
+Le registre porte depuis le cycle 71, sur la ligne de §18 : « les deux chaines ne sont pas dans
+le meme regime de limiteur sur la meme fenetre, ce qui suffit a INTERDIRE d'en tirer un ecart
+L/R ». Cette regle etait posee sur `ROOM-REGIME` / `ROOM-APEX-REGIME`. Elle n'a jamais ete
+portee sur `ROOM-REGA-BANDE`, cree au cycle 107 — un correctif PAR SITE, ce que la directive
+du 2026-08-21 01:20 interdit explicitement.
+
+Portee maintenant, AU PRODUCTEUR. Sur les 24 cellules de PH-REGA :
+
+    18 GELE   ·   2 GENOU   ·   4 LINEAIRE
+
+et les quatre LINEAIRE sont exactement les quatre cellules de chestR sous lacet, celles qui
+rendent §18 « impossible ». Dans la zone GELE (`jak-hd-physics.gc:2982-2987`, argument plafonne
+par `fmin 0.99`) la force de rappel est CONSTANTE : la meme a 5 021 u d'erreur qu'a 50 207 u.
+
+    DIVISER L'ENTREE D'UN LIMITEUR GELE NE DIVISE PAS SA SORTIE.
+
+Donc `k uniforme ATTEIGNABLE dans [2,135 .. 2,406]` (cycle 107), le `k` du cycle 80 et le
+x1,85 de la directive du 2026-08-21 18:25 sont des ECARTS A COMBLER, pas des reglages a poser.
+`ROOM-REGA-FACTEUR` refuse desormais de dire « ATTEIGNABLE » sans nommer la cellule
+contraignante et sa zone.
+
+
+6. TROIS CAUSES REFUTEES, PUBLIEES POUR QU'ON NE LES REFASSE PAS
+
+  a) LA MAIN DU TRIEDRE. Le correctif de §7 (cycle 63) rend le triedre de chestL GAUCHE
+     (det -0,99998 contre +0,99998). Mais `*phys-fx/fy/fz*` n'a que trois consommateurs —
+     `:3577-3585` (produits scalaires), `:3801-3803` (produits exterieurs), `:4677-4681`
+     (accesseur de log) — et AUCUN ne lit un determinant ni ne refait un produit vectoriel.
+     Mecanisme sans consommateur : REFUTE.
+  b) LA DIVERGENCE D'INDEX D'AXE. `iv` (`:2643`) est choisi sur `gl`, identique par ancre
+     partagee ; `il` (`:2649-2651`) sur des VALEURS ABSOLUES de `sep`, donc insensible au
+     miroir. Mesure : `PHYSAXNAME` |sja|/|sjb| = 83 882. REFUTE.
+  c) LA POSE. La reflexion de `PHYSREGAB c=0` dans le plan de normale `PHYSREGAW wa=2` redonne
+     `c=1` a 0,0046 pres. REFUTE.
+
+
+7. CE QUI RESTE, ET SON TEST EST ECRIT AVANT LA COURSE
+
+La geometrie de COLLISION est le seul mecanisme du chemin qui soit a la fois dur, non lineaire
+et INDEPENDANT DU SENS du lacet — et l'independance au sens est exigee par la mesure :
+l'asymetrie ne s'inverse pas quand le lacet s'inverse (chestL reste 3,0 a 4,0 fois chestR aux
+deux signes), ce qui refute a lui seul toute explication par le contact medial.
+
+Elle est mesuree non-miroir :
+
+    capsules   Lshoulder 612/721  contre  Rshoulder 554/738    -9,5 %
+               Lelbow    265/257  contre  Relbow    308/256   +16,2 %
+               Lhand     229/242  contre  Rhand     228/279   +15,3 %
+    sondes     levier distal 514,54 (chestL) contre 467,42 (chestR)   -9,2 %
+    volumes    chestL {5,6,39,40,44,46,47}  contre  chestR {8,9,37,38,45,49}   DISJOINTS
+
+TEST DISCRIMINANT, ECRIT MAINTENANT : desarmer la collision sur les SEULES fenetres r=9/r=10
+et relire `perr`. Si le rapport L/R tombe de x5,97 a moins de x1,3, la collision porte §18.
+S'il ne baisse pas d'au moins 20 %, elle est refutee et la cause est ailleurs. Non fait ce
+cycle : il demande une course.
+
+
+8. UNE ETIQUETTE DE REPERE CORRIGEE AU PRODUCTEUR, PARCE QU'ELLE VIENT DE COUTER UNE FAUTE
+
+Le cycle 69 avait corrige DANS LE REGISTRE que `PHYSTRI` est publie dans la base de l'ANCRE.
+Le COMMENTAIRE du code disait toujours « REPERE : MONDE — les memes axes que `PHYSAXW` »
+(`phys-room.gc:3320-3321`), et `PHYSTRI` figurait dans la liste « repere monde » de `:3188`.
+Ce cycle, un lecteur neuf a compose les deux et publie une rectification entierement fausse
+(l'axe lateral du sujet serait a 86,4 deg de ce que la salle nomme lateral). Les deux
+commentaires sont corriges, avec la preuve numerique refaisable et avec le miroir sagittal
+MONDE nomme : `PHYSAXW ax=2`, verifie deux fois independamment.
+
+
+9. TROUS D'INSTRUMENT NOMMES (non corriges : chacun se fera avec la section qu'il debloque)
+
+  - `*phys-dfs*` n'est publie dans AUCUNE fenetre de regime §14-§20 (`PHYSSHAPE` n'est emis
+    qu'en PH-MEAS, derniere occurrence ligne 57917 ; les regimes commencent ligne 85348).
+  - Aucun compteur de contact ni de saturation a portee de FENETRE : `*phys-cfh*` n'est remis
+    a zero que par `phys-limiter-reset!`, donc `PHYSCVOL`/`PHYSCFVOL` sont des cumuls de COURSE
+    publies sous une cle qui ressemble a une fenetre.
+  - `masse`, `raideur`, `amortissement` ne sont emis PAR CHAINE par aucun enregistrement : les
+    trois bandes de §32 sont verifiees sur la DONNEE LIVREE, jamais sur l'execution.
+
+
+10. CE QUI NE BOUGE PAS, ET JE LE DIS EN PREMIER PLUTOT QU'EN DERNIER
+
+AUCUN STATUT NE CHANGE. C'est le TROISIEME cycle consecutif. La remontee exigee par la
+directive du 2026-08-21 18:25 est celle-ci, et elle a maintenant une cause chiffree :
+
+    la conversion rouge -> vert de §14 a §20 est bloquee par §21, pas par un reglage. Tant que
+    le mur sature la FORCE au lieu du DEPLACEMENT, 20 des 24 cellules qui portent ces verdicts
+    sont hors zone lineaire et aucun facteur applique au pilotage ne les deplace.
+
+Le correctif de §21 est une passe APPARIEE — desarmer le mur de FORCE **et** armer une vraie
+saturation de DEPLACEMENT, la forme que la section ecrit mot pour mot. Le cycle 72 a deja
+mesure la moitie « desarmer » seule et a eu raison de la refuser (apex au-dela du plafond
+exceptionnel de §22 de 8/30 a 16/30, controle positif de §33/§34 casse). C'est le chantier a
+ouvrir, et il ne se commence pas a la fin d'un cycle d'analyse.
+
+A TESTER PAR L'OWNER : RIEN. Aucun changement de comportement n'est livre — la regle du
+2026-08-20 23:30 tient, on ne sollicite pas son oeil pour un cycle qui ne change pas
+l'ensemble.
+
+DIRECTIVES v3fee554599

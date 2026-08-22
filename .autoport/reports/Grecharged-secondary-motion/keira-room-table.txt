@@ -1931,37 +1931,156 @@ ROOM-REGA: pose a=0 f=5.7500, ecart au miroir revalide = 0.54 deg ; axe pris sur
       14  §20       +1 0.0       -74.7     -564.9    0.4759   0.4824   1.014   inclinaison LATERALE
       14  §20       -1 0.0       386.1     421.4     0.6388   0.5879   1.087   inclinaison LATERALE
 
+   -- ROOM-REGA-GESTE : LES DEUX JAMBES DE SIGNE SONT-ELLES UN VRAI MIROIR ? --
+ROOM-REGA-GESTE: r=9  theta=  90.005 deg  bras |r| =   417.61 /   417.62 u  |d+|/|d-| = 1.0000  -> MIROIR EXACT
+ROOM-REGA-GESTE: r=10 theta= 150.398 deg  bras |r| =   417.46 /   415.95 u  |d+|/|d-| = 1.0036  -> MIROIR EXACT
+ROOM-REGA-GESTE: r=11 theta=  69.893 deg  bras |r| =   866.43 /   869.19 u  |d+|/|d-| = 0.9968  -> MIROIR EXACT
+ROOM-REGA-GESTE: r=12 DEPLACEMENT NET NUL sur au moins une jambe (|d+|=0.0 |d-|=0.0 u) :
+   la fenetre est un ALLER-RETOUR, son stimulus ne se lit pas dans un deplacement net.
+ROOM-REGA-GESTE: r=13 theta=  34.964 deg  bras |r| =   951.33 /   948.40 u  |d+|/|d-| = 1.0031  -> MIROIR EXACT
+ROOM-REGA-GESTE: r=14 theta=  34.964 deg  bras |r| =   948.40 /   951.33 u  |d+|/|d-| = 0.9969  -> MIROIR EXACT
+
+ROOM-REGA-GESTE-DOUBLON: (r=13 sgn=-1) et (r=14 sgn=+1) ont le MEME deplacement commande
+   au millieme d'unite pres sur les trois composantes : ce sont DEUX ETIQUETTES DU MEME GESTE.
+ROOM-REGA-GESTE-DOUBLON: (r=13 sgn=+1) et (r=14 sgn=-1) ont le MEME deplacement commande
+   au millieme d'unite pres sur les trois composantes : ce sont DEUX ETIQUETTES DU MEME GESTE.
+   CONSEQUENCE, ET ELLE PORTE SUR LES DEUX BLOCS QUI SUIVENT : regrouper les
+   cellules PAR SIGNE ne separe alors PAS les deux gestes miroir — chaque
+   groupe de signe en contient un de chaque. Un « les deux gestes miroir
+   exigent des intervalles disjoints » lu sur ce regroupement ne parle pas
+   des gestes miroir. Le regroupement PAR GESTE est publie plus bas.
+
    -- ROOM-REGA-BANDE : LA MEME CELLULE, CONTRE LA BANDE DE SA SECTION -------
-ROOM-REGA-BANDE: chestL r=9  sgn=+1 §18  apex=0.4100 B0  [pas de bande] §18 ne borne l'apex que pour « strong » : PAS de bande ici
-ROOM-REGA-BANDE: chestR r=9  sgn=+1 §18  apex=0.1019 B0  [pas de bande] §18 ne borne l'apex que pour « strong » : PAS de bande ici
-ROOM-REGA-BANDE: chestL r=9  sgn=-1 §18  apex=0.4958 B0  [pas de bande] §18 ne borne l'apex que pour « strong » : PAS de bande ici
-ROOM-REGA-BANDE: chestR r=9  sgn=-1 §18  apex=0.1593 B0  [pas de bande] §18 ne borne l'apex que pour « strong » : PAS de bande ici
-ROOM-REGA-BANDE: chestL r=10 sgn=+1 §18  apex=0.4796 B0  [0.20-0.30]  AU-DESSUS (x1.60)  k admissible [1.599 .. 2.398]
-ROOM-REGA-BANDE: chestR r=10 sgn=+1 §18  apex=0.1251 B0  [0.20-0.30]  SOUS (x0.63)       k admissible [0.417 .. 0.625]
-ROOM-REGA-BANDE: chestL r=10 sgn=-1 §18  apex=0.5192 B0  [0.20-0.30]  AU-DESSUS (x1.73)  k admissible [1.731 .. 2.596]
-ROOM-REGA-BANDE: chestR r=10 sgn=-1 §18  apex=0.1717 B0  [0.20-0.30]  SOUS (x0.86)       k admissible [0.572 .. 0.858]
-ROOM-REGA-BANDE: chestL r=11 sgn=+1 §19  apex=0.8397 B0  [0.30-0.40]  AU-DESSUS (x2.10)  k admissible [2.099 .. 2.799]
-ROOM-REGA-BANDE: chestR r=11 sgn=+1 §19  apex=0.8541 B0  [0.30-0.40]  AU-DESSUS (x2.14)  k admissible [2.135 .. 2.847]
-ROOM-REGA-BANDE: chestL r=11 sgn=-1 §19  apex=0.5963 B0  [0.30-0.40]  AU-DESSUS (x1.49)  k admissible [1.491 .. 1.988]
-ROOM-REGA-BANDE: chestR r=11 sgn=-1 §19  apex=0.5388 B0  [0.30-0.40]  AU-DESSUS (x1.35)  k admissible [1.347 .. 1.796]
-ROOM-REGA-BANDE: chestL r=12 sgn=+1 §19  apex=0.7218 B0  [0.30-0.40]  AU-DESSUS (x1.80)  k admissible [1.804 .. 2.406]
-ROOM-REGA-BANDE: chestR r=12 sgn=+1 §19  apex=0.7302 B0  [0.30-0.40]  AU-DESSUS (x1.83)  k admissible [1.825 .. 2.434]
-ROOM-REGA-BANDE: chestL r=12 sgn=-1 §19  apex=0.6012 B0  [0.30-0.40]  AU-DESSUS (x1.50)  k admissible [1.503 .. 2.004]
-ROOM-REGA-BANDE: chestR r=12 sgn=-1 §19  apex=0.6134 B0  [0.30-0.40]  AU-DESSUS (x1.53)  k admissible [1.533 .. 2.045]
-ROOM-REGA-BANDE: chestL r=13 sgn=+1 §20  apex=0.4082 B0  [0.20-0.30]  AU-DESSUS (x1.36)  k admissible [1.361 .. 2.041]
-ROOM-REGA-BANDE: chestR r=13 sgn=+1 §20  apex=0.4273 B0  [0.20-0.30]  AU-DESSUS (x1.42)  k admissible [1.424 .. 2.136]
-ROOM-REGA-BANDE: chestL r=13 sgn=-1 §20  apex=0.5574 B0  [0.20-0.30]  AU-DESSUS (x1.86)  k admissible [1.858 .. 2.787]
-ROOM-REGA-BANDE: chestR r=13 sgn=-1 §20  apex=0.4569 B0  [0.20-0.30]  AU-DESSUS (x1.52)  k admissible [1.523 .. 2.284]
-ROOM-REGA-BANDE: chestL r=14 sgn=+1 §20  apex=0.4759 B0  [0.20-0.30]  AU-DESSUS (x1.59)  k admissible [1.586 .. 2.379]
-ROOM-REGA-BANDE: chestR r=14 sgn=+1 §20  apex=0.4824 B0  [0.20-0.30]  AU-DESSUS (x1.61)  k admissible [1.608 .. 2.412]
-ROOM-REGA-BANDE: chestL r=14 sgn=-1 §20  apex=0.6388 B0  [0.20-0.30]  AU-DESSUS (x2.13)  k admissible [2.129 .. 3.194]
-ROOM-REGA-BANDE: chestR r=14 sgn=-1 §20  apex=0.5879 B0  [0.20-0.30]  AU-DESSUS (x1.96)  k admissible [1.960 .. 2.939]
+ROOM-REGA-BANDE: chestL r=9  sgn=+1 §18  apex=0.4100 B0  [pas de bande] §18 ne borne l'apex que pour « strong » : PAS de bande ici  | GELE (perr 0.5021-0.5040 B0, 2 jambe(s))
+ROOM-REGA-BANDE: chestR r=9  sgn=+1 §18  apex=0.1019 B0  [pas de bande] §18 ne borne l'apex que pour « strong » : PAS de bande ici  | LINEAIRE (perr 0.0791-0.0895 B0, 2 jambe(s))
+ROOM-REGA-BANDE: chestL r=9  sgn=-1 §18  apex=0.4958 B0  [pas de bande] §18 ne borne l'apex que pour « strong » : PAS de bande ici  | GELE (perr 0.5021-0.5040 B0, 2 jambe(s))
+ROOM-REGA-BANDE: chestR r=9  sgn=-1 §18  apex=0.1593 B0  [pas de bande] §18 ne borne l'apex que pour « strong » : PAS de bande ici  | LINEAIRE (perr 0.0791-0.0895 B0, 2 jambe(s))
+ROOM-REGA-BANDE: chestL r=10 sgn=+1 §18  apex=0.4796 B0  [0.20-0.30]  AU-DESSUS (x1.60)  k admissible [1.599 .. 2.398]  | GELE (perr 0.5510-0.5639 B0, 2 jambe(s))
+ROOM-REGA-BANDE: chestR r=10 sgn=+1 §18  apex=0.1251 B0  [0.20-0.30]  SOUS (x0.63)       k admissible [0.417 .. 0.625]  | LINEAIRE (perr 0.1188-0.1268 B0, 2 jambe(s))
+ROOM-REGA-BANDE: chestL r=10 sgn=-1 §18  apex=0.5192 B0  [0.20-0.30]  AU-DESSUS (x1.73)  k admissible [1.731 .. 2.596]  | GELE (perr 0.5510-0.5639 B0, 2 jambe(s))
+ROOM-REGA-BANDE: chestR r=10 sgn=-1 §18  apex=0.1717 B0  [0.20-0.30]  SOUS (x0.86)       k admissible [0.572 .. 0.858]  | LINEAIRE (perr 0.1188-0.1268 B0, 2 jambe(s))
+ROOM-REGA-BANDE: chestL r=11 sgn=+1 §19  apex=0.8397 B0  [0.30-0.40]  AU-DESSUS (x2.10)  k admissible [2.099 .. 2.799]  | GELE (perr 0.5602-0.5612 B0, 2 jambe(s))
+ROOM-REGA-BANDE: chestR r=11 sgn=+1 §19  apex=0.8541 B0  [0.30-0.40]  AU-DESSUS (x2.14)  k admissible [2.135 .. 2.847]  | GELE (perr 0.5554-0.5698 B0, 2 jambe(s))
+ROOM-REGA-BANDE: chestL r=11 sgn=-1 §19  apex=0.5963 B0  [0.30-0.40]  AU-DESSUS (x1.49)  k admissible [1.491 .. 1.988]  | GELE (perr 0.5602-0.5612 B0, 2 jambe(s))
+ROOM-REGA-BANDE: chestR r=11 sgn=-1 §19  apex=0.5388 B0  [0.30-0.40]  AU-DESSUS (x1.35)  k admissible [1.347 .. 1.796]  | GELE (perr 0.5554-0.5698 B0, 2 jambe(s))
+ROOM-REGA-BANDE: chestL r=12 sgn=+1 §19  apex=0.7218 B0  [0.30-0.40]  AU-DESSUS (x1.80)  k admissible [1.804 .. 2.406]  | GELE (perr 0.5142-0.5564 B0, 2 jambe(s))
+ROOM-REGA-BANDE: chestR r=12 sgn=+1 §19  apex=0.7302 B0  [0.30-0.40]  AU-DESSUS (x1.83)  k admissible [1.825 .. 2.434]  | GELE (perr 0.5303-0.5502 B0, 2 jambe(s))
+ROOM-REGA-BANDE: chestL r=12 sgn=-1 §19  apex=0.6012 B0  [0.30-0.40]  AU-DESSUS (x1.50)  k admissible [1.503 .. 2.004]  | GELE (perr 0.5142-0.5564 B0, 2 jambe(s))
+ROOM-REGA-BANDE: chestR r=12 sgn=-1 §19  apex=0.6134 B0  [0.30-0.40]  AU-DESSUS (x1.53)  k admissible [1.533 .. 2.045]  | GELE (perr 0.5303-0.5502 B0, 2 jambe(s))
+ROOM-REGA-BANDE: chestL r=13 sgn=+1 §20  apex=0.4082 B0  [0.20-0.30]  AU-DESSUS (x1.36)  k admissible [1.361 .. 2.041]  | GELE (perr 0.5327-0.5408 B0, 2 jambe(s))
+ROOM-REGA-BANDE: chestR r=13 sgn=+1 §20  apex=0.4273 B0  [0.20-0.30]  AU-DESSUS (x1.42)  k admissible [1.424 .. 2.136]  | GENOU (perr 0.4660-0.4703 B0, 2 jambe(s))
+ROOM-REGA-BANDE: chestL r=13 sgn=-1 §20  apex=0.5574 B0  [0.20-0.30]  AU-DESSUS (x1.86)  k admissible [1.858 .. 2.787]  | GELE (perr 0.5327-0.5408 B0, 2 jambe(s))
+ROOM-REGA-BANDE: chestR r=13 sgn=-1 §20  apex=0.4569 B0  [0.20-0.30]  AU-DESSUS (x1.52)  k admissible [1.523 .. 2.284]  | GENOU (perr 0.4660-0.4703 B0, 2 jambe(s))
+ROOM-REGA-BANDE: chestL r=14 sgn=+1 §20  apex=0.4759 B0  [0.20-0.30]  AU-DESSUS (x1.59)  k admissible [1.586 .. 2.379]  | GELE (perr 0.5628-0.5704 B0, 2 jambe(s))
+ROOM-REGA-BANDE: chestR r=14 sgn=+1 §20  apex=0.4824 B0  [0.20-0.30]  AU-DESSUS (x1.61)  k admissible [1.608 .. 2.412]  | GELE (perr 0.5462-0.5626 B0, 2 jambe(s))
+ROOM-REGA-BANDE: chestL r=14 sgn=-1 §20  apex=0.6388 B0  [0.20-0.30]  AU-DESSUS (x2.13)  k admissible [2.129 .. 3.194]  | GELE (perr 0.5628-0.5704 B0, 2 jambe(s))
+ROOM-REGA-BANDE: chestR r=14 sgn=-1 §20  apex=0.5879 B0  [0.20-0.30]  AU-DESSUS (x1.96)  k admissible [1.960 .. 2.939]  | GELE (perr 0.5462-0.5626 B0, 2 jambe(s))
 ROOM-REGA-FACTEUR: §18 sgn=-1  2 cellule(s)  ->  AUCUN facteur uniforme : il faudrait k >= 1.731 et k <= 0.858
+   limiteur des cellules : 1 LINEAIRE / 0 au GENOU / 1 GELE   <<< la borne ne porte pas sur une population lineaire
+   CELLULE CONTRAIGNANTE chestL(GELE r=10) et chestR(LINEAIRE r=10) : AU MOINS UNE EST HORS ZONE LINEAIRE.
+   CE `k` N'EST DONC PAS UN OBJECTIF ATTEIGNABLE PAR UN FACTEUR : dans la
+   zone GELE du mur de §21 la force de rappel est CONSTANTE, la sortie ne
+   suit pas l'entree, et diviser l'entree ne divise pas l'excursion.
+   Il se lit comme un ECART A COMBLER, jamais comme un reglage a poser.
 ROOM-REGA-FACTEUR: §18 sgn=+1  2 cellule(s)  ->  AUCUN facteur uniforme : il faudrait k >= 1.599 et k <= 0.625
+   limiteur des cellules : 1 LINEAIRE / 0 au GENOU / 1 GELE   <<< la borne ne porte pas sur une population lineaire
+   CELLULE CONTRAIGNANTE chestL(GELE r=10) et chestR(LINEAIRE r=10) : AU MOINS UNE EST HORS ZONE LINEAIRE.
+   CE `k` N'EST DONC PAS UN OBJECTIF ATTEIGNABLE PAR UN FACTEUR : dans la
+   zone GELE du mur de §21 la force de rappel est CONSTANTE, la sortie ne
+   suit pas l'entree, et diviser l'entree ne divise pas l'excursion.
+   Il se lit comme un ECART A COMBLER, jamais comme un reglage a poser.
 ROOM-REGA-FACTEUR: §19 sgn=-1  4 cellule(s)  ->  k uniforme ATTEIGNABLE dans [1.533 .. 1.796]
+   limiteur des cellules : 0 LINEAIRE / 0 au GENOU / 4 GELE   <<< la borne ne porte pas sur une population lineaire
+   CELLULE CONTRAIGNANTE chestR(GELE r=12) et chestR(GELE r=11) : AU MOINS UNE EST HORS ZONE LINEAIRE.
+   CE `k` N'EST DONC PAS UN OBJECTIF ATTEIGNABLE PAR UN FACTEUR : dans la
+   zone GELE du mur de §21 la force de rappel est CONSTANTE, la sortie ne
+   suit pas l'entree, et diviser l'entree ne divise pas l'excursion.
+   Il se lit comme un ECART A COMBLER, jamais comme un reglage a poser.
 ROOM-REGA-FACTEUR: §19 sgn=+1  4 cellule(s)  ->  k uniforme ATTEIGNABLE dans [2.135 .. 2.406]
+   limiteur des cellules : 0 LINEAIRE / 0 au GENOU / 4 GELE   <<< la borne ne porte pas sur une population lineaire
+   CELLULE CONTRAIGNANTE chestR(GELE r=11) et chestL(GELE r=12) : AU MOINS UNE EST HORS ZONE LINEAIRE.
+   CE `k` N'EST DONC PAS UN OBJECTIF ATTEIGNABLE PAR UN FACTEUR : dans la
+   zone GELE du mur de §21 la force de rappel est CONSTANTE, la sortie ne
+   suit pas l'entree, et diviser l'entree ne divise pas l'excursion.
+   Il se lit comme un ECART A COMBLER, jamais comme un reglage a poser.
 ROOM-REGA-FACTEUR: §20 sgn=-1  4 cellule(s)  ->  k uniforme ATTEIGNABLE dans [2.129 .. 2.284]
+   limiteur des cellules : 0 LINEAIRE / 1 au GENOU / 3 GELE   <<< la borne ne porte pas sur une population lineaire
+   CELLULE CONTRAIGNANTE chestL(GELE r=14) et chestR(GENOU r=13) : AU MOINS UNE EST HORS ZONE LINEAIRE.
+   CE `k` N'EST DONC PAS UN OBJECTIF ATTEIGNABLE PAR UN FACTEUR : dans la
+   zone GELE du mur de §21 la force de rappel est CONSTANTE, la sortie ne
+   suit pas l'entree, et diviser l'entree ne divise pas l'excursion.
+   Il se lit comme un ECART A COMBLER, jamais comme un reglage a poser.
 ROOM-REGA-FACTEUR: §20 sgn=+1  4 cellule(s)  ->  k uniforme ATTEIGNABLE dans [1.608 .. 2.041]
+   limiteur des cellules : 0 LINEAIRE / 1 au GENOU / 3 GELE   <<< la borne ne porte pas sur une population lineaire
+   CELLULE CONTRAIGNANTE chestR(GELE r=14) et chestL(GELE r=13) : AU MOINS UNE EST HORS ZONE LINEAIRE.
+   CE `k` N'EST DONC PAS UN OBJECTIF ATTEIGNABLE PAR UN FACTEUR : dans la
+   zone GELE du mur de §21 la force de rappel est CONSTANTE, la sortie ne
+   suit pas l'entree, et diviser l'entree ne divise pas l'excursion.
+   Il se lit comme un ECART A COMBLER, jamais comme un reglage a poser.
+
+ROOM-REGA-FACTEUR: §18 geste=gC  2 cellule(s)  ->  AUCUN facteur uniforme : il faudrait k >= 1.731 et k <= 0.858
+   limiteur des cellules : 1 LINEAIRE / 0 au GENOU / 1 GELE   <<< la borne ne porte pas sur une population lineaire
+   CELLULE CONTRAIGNANTE chestL(GELE r=10) et chestR(LINEAIRE r=10) : AU MOINS UNE EST HORS ZONE LINEAIRE.
+   CE `k` N'EST DONC PAS UN OBJECTIF ATTEIGNABLE PAR UN FACTEUR : dans la
+   zone GELE du mur de §21 la force de rappel est CONSTANTE, la sortie ne
+   suit pas l'entree, et diviser l'entree ne divise pas l'excursion.
+   Il se lit comme un ECART A COMBLER, jamais comme un reglage a poser.
+ROOM-REGA-FACTEUR: §18 geste=gD  2 cellule(s)  ->  AUCUN facteur uniforme : il faudrait k >= 1.599 et k <= 0.625
+   limiteur des cellules : 1 LINEAIRE / 0 au GENOU / 1 GELE   <<< la borne ne porte pas sur une population lineaire
+   CELLULE CONTRAIGNANTE chestL(GELE r=10) et chestR(LINEAIRE r=10) : AU MOINS UNE EST HORS ZONE LINEAIRE.
+   CE `k` N'EST DONC PAS UN OBJECTIF ATTEIGNABLE PAR UN FACTEUR : dans la
+   zone GELE du mur de §21 la force de rappel est CONSTANTE, la sortie ne
+   suit pas l'entree, et diviser l'entree ne divise pas l'excursion.
+   Il se lit comme un ECART A COMBLER, jamais comme un reglage a poser.
+ROOM-REGA-FACTEUR: §19 g?12+1  2 cellule(s)  ->  GESTE NON IDENTIFIE : deplacement net nul,
+   la fenetre est un aller-retour et son geste ne se lit pas dans un deplacement net.
+ROOM-REGA-FACTEUR: §19 g?12-1  2 cellule(s)  ->  GESTE NON IDENTIFIE : deplacement net nul,
+   la fenetre est un aller-retour et son geste ne se lit pas dans un deplacement net.
+ROOM-REGA-FACTEUR: §19 geste=gE  2 cellule(s)  ->  k uniforme ATTEIGNABLE dans [1.491 .. 1.796]
+   limiteur des cellules : 0 LINEAIRE / 0 au GENOU / 2 GELE   <<< la borne ne porte pas sur une population lineaire
+   CELLULE CONTRAIGNANTE chestL(GELE r=11) et chestR(GELE r=11) : AU MOINS UNE EST HORS ZONE LINEAIRE.
+   CE `k` N'EST DONC PAS UN OBJECTIF ATTEIGNABLE PAR UN FACTEUR : dans la
+   zone GELE du mur de §21 la force de rappel est CONSTANTE, la sortie ne
+   suit pas l'entree, et diviser l'entree ne divise pas l'excursion.
+   Il se lit comme un ECART A COMBLER, jamais comme un reglage a poser.
+ROOM-REGA-FACTEUR: §19 geste=gF  2 cellule(s)  ->  k uniforme ATTEIGNABLE dans [2.135 .. 2.799]
+   limiteur des cellules : 0 LINEAIRE / 0 au GENOU / 2 GELE   <<< la borne ne porte pas sur une population lineaire
+   CELLULE CONTRAIGNANTE chestR(GELE r=11) et chestL(GELE r=11) : AU MOINS UNE EST HORS ZONE LINEAIRE.
+   CE `k` N'EST DONC PAS UN OBJECTIF ATTEIGNABLE PAR UN FACTEUR : dans la
+   zone GELE du mur de §21 la force de rappel est CONSTANTE, la sortie ne
+   suit pas l'entree, et diviser l'entree ne divise pas l'excursion.
+   Il se lit comme un ECART A COMBLER, jamais comme un reglage a poser.
+ROOM-REGA-FACTEUR: §20 geste=gG  4 cellule(s)  ->  k uniforme ATTEIGNABLE dans [1.858 .. 2.284]
+   limiteur des cellules : 0 LINEAIRE / 1 au GENOU / 3 GELE   <<< la borne ne porte pas sur une population lineaire
+   CELLULE CONTRAIGNANTE chestL(GELE r=13) et chestR(GENOU r=13) : AU MOINS UNE EST HORS ZONE LINEAIRE.
+   CE `k` N'EST DONC PAS UN OBJECTIF ATTEIGNABLE PAR UN FACTEUR : dans la
+   zone GELE du mur de §21 la force de rappel est CONSTANTE, la sortie ne
+   suit pas l'entree, et diviser l'entree ne divise pas l'excursion.
+   Il se lit comme un ECART A COMBLER, jamais comme un reglage a poser.
+ROOM-REGA-FACTEUR: §20 geste=gH  4 cellule(s)  ->  AUCUN facteur uniforme : il faudrait k >= 2.129 et k <= 2.041
+   limiteur des cellules : 0 LINEAIRE / 1 au GENOU / 3 GELE   <<< la borne ne porte pas sur une population lineaire
+   CELLULE CONTRAIGNANTE chestL(GELE r=14) et chestL(GELE r=13) : AU MOINS UNE EST HORS ZONE LINEAIRE.
+   CE `k` N'EST DONC PAS UN OBJECTIF ATTEIGNABLE PAR UN FACTEUR : dans la
+   zone GELE du mur de §21 la force de rappel est CONSTANTE, la sortie ne
+   suit pas l'entree, et diviser l'entree ne divise pas l'excursion.
+   Il se lit comme un ECART A COMBLER, jamais comme un reglage a poser.
+
+   -- ROOM-REGA-GAIN : ENTREE SYMETRIQUE ? SORTIE SYMETRIQUE ? ---------------
+      r   section    rgapL    rgapR   ENTREE      perrL    perrR   SORTIE   gain relatif
+      9   §18       0.0102   0.0103 x0.986      0.5030   0.0843 x5.967    x6.06 <<<
+      10  §18       0.0102   0.0103 x0.990      0.5575   0.1228 x4.539    x4.58 <<<
+      11  §19       0.0102   0.0103 x0.986      0.5607   0.5626 x0.997    x1.01 
+      12  §19       0.0102   0.0103 x0.986      0.5353   0.5403 x0.991    x1.01 
+      13  §20       0.0102   0.0103 x0.986      0.5367   0.4682 x1.147    x1.16 
+      14  §20       0.0102   0.0104 x0.981      0.5666   0.5544 x1.022    x1.04 
+   CE QUE CE TABLEAU ETABLIT, ET IL EST LU SUR DES COLONNES DEJA PUBLIEES :
+   l'ENTREE geometrique du ressort est la MEME sur les deux chaines, a
+   moins de 2 %, sur les SIX regimes. Toute asymetrie de la SORTIE est donc
+   produite ENTRE les deux, c'est-a-dire dans le solveur — ni par la pose,
+   ni par le stimulus (que `ROOM-REGA-GESTE` mesure miroir-exact), ni par
+   les parametres de §32, dont l'ecart plafonne a ~8 % sur la reponse.
+   LE PIRE GAIN RELATIF VAUT x6.06. Une reponse qui s'ecarte d'un facteur
+   6.1 pour une entree identique n'est pas un ecart de reglage.
    LECTURE : un `k` > 1 demande MOINS de mouvement, un `k` < 1 en demande PLUS.
    Ces lignes ne remplacent pas `ROOM-APEX-REGIME` : elles se lisent A COTE, et
    c'est CELLE-CI qui porte l'axe que la spec nomme (`ROOM-REGPOSE-VERDICT`
@@ -4281,13 +4400,23 @@ ROOM-ASYM-POSE: PH-SYM7    PH-SYM i=7        ecart=6.8 deg    source=PHYSSYMB i=
 ROOM-ASYM-POSE: PH-TILT    PH-IDLE + PH-TILT (pire des deux) ecart=142.2 deg  source=PHYSPOSETAG  -> REFUSEE
    (source : PHYSPOSETAG tag=idle / tag=tilt)
 
-ROOM-ASYM-VERROU: 4 ligne(s) publient une comparaison gauche/droite SANS porter leur pose
+ROOM-ASYM-VERROU: 14 ligne(s) publient une comparaison gauche/droite SANS porter leur pose
    C'EST UN DEFAUT DE CE TABLEAU, PAS UNE MESURE. Chacune de ces lignes pose un ecart
    entre chestL et chestR sans dire dans quelle pose elle l'a releve : tant qu'elle ne le
    dit pas, son chiffre est indistinguable d'un artefact de pose et ne peut fonder aucune
    section. A corriger dans le tableau, pas a interpreter en rapport.
    !  ROOM-REGBONE-BILAN: sinY median  chestL 0.2409   chestR 0.5643   (bind 0.3938)
    !  ROOM-REGBONE-MIROIR: pire ecart au miroir de la POSE = 105.85 deg (r=14), seuil declare 1.30 deg
+   !     CELLULE CONTRAIGNANTE chestL(GELE r=10) et chestR(LINEAIRE r=10) : AU MOINS UNE EST HORS ZONE LINEAIRE.
+   !     CELLULE CONTRAIGNANTE chestL(GELE r=10) et chestR(LINEAIRE r=10) : AU MOINS UNE EST HORS ZONE LINEAIRE.
+   !     CELLULE CONTRAIGNANTE chestR(GELE r=11) et chestL(GELE r=12) : AU MOINS UNE EST HORS ZONE LINEAIRE.
+   !     CELLULE CONTRAIGNANTE chestL(GELE r=14) et chestR(GENOU r=13) : AU MOINS UNE EST HORS ZONE LINEAIRE.
+   !     CELLULE CONTRAIGNANTE chestR(GELE r=14) et chestL(GELE r=13) : AU MOINS UNE EST HORS ZONE LINEAIRE.
+   !     CELLULE CONTRAIGNANTE chestL(GELE r=10) et chestR(LINEAIRE r=10) : AU MOINS UNE EST HORS ZONE LINEAIRE.
+   !     CELLULE CONTRAIGNANTE chestL(GELE r=10) et chestR(LINEAIRE r=10) : AU MOINS UNE EST HORS ZONE LINEAIRE.
+   !     CELLULE CONTRAIGNANTE chestL(GELE r=11) et chestR(GELE r=11) : AU MOINS UNE EST HORS ZONE LINEAIRE.
+   !     CELLULE CONTRAIGNANTE chestR(GELE r=11) et chestL(GELE r=11) : AU MOINS UNE EST HORS ZONE LINEAIRE.
+   !     CELLULE CONTRAIGNANTE chestL(GELE r=13) et chestR(GENOU r=13) : AU MOINS UNE EST HORS ZONE LINEAIRE.
    !     l=0  separation chestL - chestR = (+0.01, +0.09, +755.15) u   norme 755.15 u = 18.4 cm (longueurs d'os 1040.50 / 1039.03 u)
    !     l=1  separation chestL - chestR = (+3.52, +0.57, +103.77) u   norme 103.83 u = 2.5 cm (longueurs d'os 140.42 / 144.23 u)
 ROOM-ASYM-EXEMPT: 13 ligne(s) exemptees (elles n'affirment aucune asymetrie du personnage)

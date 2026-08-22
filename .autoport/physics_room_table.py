@@ -7922,12 +7922,126 @@ def main():
                 #   n'est tenue que si TOUTES ses cellules le sont (regle 2 du registre).
                 #   PIEGE DECLARE : les deux SIGNES sont deux gestes MIROIR, pas deux repetitions —
                 #   ils sont publies separement et jamais moyennes.
+                # ---- ROOM-REGA-GESTE (cycle 108) : LE STIMULUS DE CHAQUE JAMBE DE SIGNE,
+                # RECONSTRUIT DEPUIS `PHYSREGAD` ET RIEN D'AUTRE. Le bloc ci-dessus et le bloc
+                # ci-dessous traitent les deux signes comme « deux gestes MIROIR » — c'est ECRIT
+                # dans le commentaire du cycle 107 (« PIEGE DECLARE ») et ce n'etait pas VERIFIE.
+                # Ici on le verifie, par algebre, sans modele et sans seuil choisi :
+                #   pour une rotation d'angle theta autour d'un axe fixe, le deplacement net d'un
+                #   point a distance |r| de l'axe vaut d = (R(theta) - I) r, d'ou
+                #       |d|              = |r| * sqrt(2 - 2 cos theta)
+                #       cos ang(d+, d-)  = - cos theta                (identite exacte)
+                #   donc theta et |r| se LISENT dans la trace. Deux jambes qui sont vraiment
+                #   miroir doivent rendre le MEME theta et le MEME |r|, et |d+|/|d-| = 1.
+                # NATURE : theta un ANGLE (deg), |r| une LONGUEUR (u, 4096 u = 1 m). REPERE : les
+                #   axes du SUJET, ceux de `ROOM-REGA`. LECTURE HORS DEFAUT : |d+|/|d-| = 1.0000.
+                A('   -- ROOM-REGA-GESTE : LES DEUX JAMBES DE SIGNE SONT-ELLES UN VRAI MIROIR ? --')
+                _gst = {}
+                for _r in (9, 10, 11, 12, 13, 14):
+                    _dp, _dm = _rgad.get((_r, 1)), _rgad.get((_r, -1))
+                    if not _dp or not _dm:
+                        continue
+                    _np = math.sqrt(sum(x * x for x in _dp))
+                    _nm = math.sqrt(sum(x * x for x in _dm))
+                    if _np < 1.0 or _nm < 1.0:
+                        A('ROOM-REGA-GESTE: r=%-2d DEPLACEMENT NET NUL sur au moins une jambe'
+                          ' (|d+|=%.1f |d-|=%.1f u) :' % (_r, _np, _nm))
+                        A('   la fenetre est un ALLER-RETOUR, son stimulus ne se lit pas dans un'
+                          ' deplacement net.')
+                        continue
+                    _cs = sum(a * b for a, b in zip(_dp, _dm)) / (_np * _nm)
+                    _cs = max(-1.0, min(1.0, _cs))
+                    _cth = max(-1.0, min(1.0, -_cs))
+                    _th = math.degrees(math.acos(_cth))
+                    _lv = _np / math.sqrt(max(1e-9, 2.0 - 2.0 * _cth))
+                    _lm = _nm / math.sqrt(max(1e-9, 2.0 - 2.0 * _cth))
+                    _gst[_r] = (_th, _lv, _np / _nm)
+                    A('ROOM-REGA-GESTE: r=%-2d theta=%8.3f deg  bras |r| = %8.2f / %8.2f u'
+                      '  |d+|/|d-| = %.4f  -> %s'
+                      % (_r, _th, _lv, _lm, _np / _nm,
+                         'MIROIR EXACT' if abs(_np / _nm - 1.0) <= 0.01
+                         and abs(_lv - _lm) <= 0.01 * max(_lv, _lm)
+                         else 'PAS UN MIROIR'))
+                # ---- LE MEME GESTE JOUE SOUS DEUX ETIQUETTES. `_RGAPX` declare r=14 « §20 idem,
+                # cote oppose » : c'est une HYPOTHESE de l'instrument, et la trace la tranche.
+                _same = []
+                _kk = sorted(_rgad)
+                for _i in range(len(_kk)):
+                    for _j in range(_i + 1, len(_kk)):
+                        _a, _b = _rgad[_kk[_i]], _rgad[_kk[_j]]
+                        if max(abs(x - y) for x, y in zip(_a, _b)) <= 1e-3 \
+                                and math.sqrt(sum(x * x for x in _a)) > 1.0:
+                            _same.append((_kk[_i], _kk[_j]))
+                # IDENTITE DE GESTE : deux cellules qui portent le meme deplacement commande
+                # sont le meme geste. Le nom est arbitraire (gA, gB, ...) mais l'appartenance ne
+                # l'est pas : elle est lue sur les trois composantes de `PHYSREGAD`.
+                # GARDE : une fenetre dont le deplacement NET est nul (aller-retour) ne dit RIEN de
+                # son geste. Deux zeros ne sont pas « le meme geste » — les apparier serait le
+                # meme defaut que celui que ce bloc denonce. Elles recoivent une identite PROPRE,
+                # marquee `?`, et le regroupement par geste les laisse de cote.
+                _gid, _gn = {}, 0
+                for _k in sorted(_rgad):
+                    if _k in _gid:
+                        continue
+                    if math.sqrt(sum(x * x for x in _rgad[_k])) <= 1.0:
+                        _gid[_k] = 'g?%d%+d' % (_k[0], _k[1])
+                        continue
+                    _gn += 1
+                    _nm2 = 'g%s' % chr(ord('A') + _gn - 1)
+                    _gid[_k] = _nm2
+                    for _k2 in sorted(_rgad):
+                        if _k2 not in _gid \
+                                and math.sqrt(sum(x * x for x in _rgad[_k2])) > 1.0 \
+                                and max(abs(x - y) for x, y
+                                        in zip(_rgad[_k], _rgad[_k2])) <= 1e-3:
+                            _gid[_k2] = _nm2
+                if _same:
+                    A('')
+                    for _a, _b in _same:
+                        A('ROOM-REGA-GESTE-DOUBLON: (r=%d sgn=%+d) et (r=%d sgn=%+d) ont le MEME'
+                          ' deplacement commande' % (_a[0], _a[1], _b[0], _b[1]))
+                        A('   au millieme d\'unite pres sur les trois composantes : ce sont DEUX'
+                          ' ETIQUETTES DU MEME GESTE.')
+                    A('   CONSEQUENCE, ET ELLE PORTE SUR LES DEUX BLOCS QUI SUIVENT : regrouper les')
+                    A('   cellules PAR SIGNE ne separe alors PAS les deux gestes miroir — chaque')
+                    A('   groupe de signe en contient un de chaque. Un « les deux gestes miroir')
+                    A('   exigent des intervalles disjoints » lu sur ce regroupement ne parle pas')
+                    A('   des gestes miroir. Le regroupement PAR GESTE est publie plus bas.')
+                else:
+                    A('   Aucun doublon de geste entre les six regimes : le regroupement par SIGNE')
+                    A('   separe bien deux gestes distincts.')
+                A('')
                 A('   -- ROOM-REGA-BANDE : LA MEME CELLULE, CONTRE LA BANDE DE SA SECTION -------')
                 try:
                     _abnd = _RGAPX
                 except NameError:
                     _abnd = {}
-                _aiv = {}
+                # ---- L'ETAT DU LIMITEUR DE §21 SUR LA CELLULE, cycle 108. Le registre porte
+                # depuis le cycle 71, sur la ligne de §18 : « les deux chaines ne sont pas dans le
+                # meme regime de limiteur sur la meme fenetre, ce qui suffit a INTERDIRE d'en tirer
+                # un ecart L/R meme si la pose etait symetrique ». Cette regle etait posee sur
+                # `ROOM-REGIME` / `ROOM-APEX-REGIME` et n'a jamais ete portee sur ce bloc-ci, cree
+                # au cycle 107 — un correctif PAR SITE, exactement ce que la directive du
+                # 2026-08-21 01:20 interdit. Il est porte ici, au PRODUCTEUR de la ligne.
+                # NATURE : une etiquette de zone (LINEAIRE / GENOU / GELE), lue sur `perr` de la
+                #   MEME fenetre (ph=38 = PH-REGA). REPERE : sans objet, c'est une longueur / B0.
+                _limA = {}
+                for _m in re.finditer(r'^PHYSREGW ph=38 c=(\d+) r=(\d+) rgap=[-\d.e+]+'
+                                      r' perr=([-\d.e+]+)', txt, re.M):
+                    _limA.setdefault((int(_m.group(1)), int(_m.group(2))), []).append(
+                        float(_m.group(3)))
+
+                def _limtagA(_ci, _r):
+                    _pp = _limA.get((_ci, _r))
+                    if not _pp:
+                        return 'limiteur NON PUBLIE', None
+                    _zz = sorted({_limstate(_v).split()[0] for _v in _pp})
+                    if len(_zz) == 1:
+                        return ('%s (perr %.4f-%.4f B0, %d jambe(s))'
+                                % (_zz[0], min(_pp), max(_pp), len(_pp)), _zz[0])
+                    return ('ZONES MELEES %s (perr %.4f-%.4f B0)'
+                            % ('/'.join(_zz), min(_pp), max(_pp)), None)
+                _aiv, _agv = {}, {}
                 for _r, _sec in ((9, '§18'), (10, '§18'), (11, '§19'), (12, '§19'),
                                  (13, '§20'), (14, '§20')):
                     _bd = _abnd.get(_r, (None, ''))
@@ -7939,7 +8053,8 @@ def main():
                             _v = _a[0]
                             if _bd[0] is None:
                                 A('ROOM-REGA-BANDE: %-6s r=%-2d sgn=%+d %-4s apex=%.4f B0'
-                                  '  [pas de bande] %s' % (_cn, _r, _sg, _sec, _v, _bd[1]))
+                                  '  [pas de bande] %s  | %s'
+                                  % (_cn, _r, _sg, _sec, _v, _bd[1], _limtagA(_ci, _r)[0]))
                                 continue
                             _lo, _hi = _bd[0]
                             if _v < _lo:
@@ -7948,21 +8063,124 @@ def main():
                                 _vd = 'AU-DESSUS (x%.2f)' % (_v / _hi)
                             else:
                                 _vd = 'DANS'
-                            _aiv.setdefault((_sec, _sg), []).append((_v / _hi, _v / _lo))
+                            _lt, _lz = _limtagA(_ci, _r)
+                            _aiv.setdefault((_sec, _sg), []).append(
+                                (_v / _hi, _v / _lo, _cn, _r, _lz))
+                            _agv.setdefault((_sec, _gid.get((_r, _sg), 'g?')), []).append(
+                                (_v / _hi, _v / _lo, _cn, _r, _sg, _lz))
                             A('ROOM-REGA-BANDE: %-6s r=%-2d sgn=%+d %-4s apex=%.4f B0  [%.2f-%.2f]'
-                              '  %-18s k admissible [%.3f .. %.3f]'
-                              % (_cn, _r, _sg, _sec, _v, _lo, _hi, _vd, _v / _hi, _v / _lo))
+                              '  %-18s k admissible [%.3f .. %.3f]  | %s'
+                              % (_cn, _r, _sg, _sec, _v, _lo, _hi, _vd, _v / _hi, _v / _lo, _lt))
                 # LE FACTEUR UNIFORME, PAR SECTION ET PAR SIGNE — meme algebre que le cycle 80,
                 # refaite ici sur les axes du SUJET au lieu du repere MONDE.
+                # ---- LA GARDE DU CYCLE 108, ET C'EST LA RAISON D'ETRE DE LA COLONNE CI-DESSUS.
+                # `k` est le facteur par lequel il faudrait DIVISER l'excursion. Cette arithmetique
+                # suppose que la sortie SUIT son entree. Dans la zone GELE du mur de §21 elle ne la
+                # suit pas : `jak-hd-physics.gc:2982-2987` plafonne l'argument par `fmin 0.99`, donc
+                # au-dela de kn + 0.99*cpp la force de rappel est CONSTANTE — la meme a 5 021 u
+                # d'erreur qu'a 50 207 u (chiffres du bloc ROOM-REGLIM, calcules sur les constantes
+                # livrees). Diviser l'entree d'un limiteur gele ne divise pas sa sortie. Une borne
+                # `k` dont la cellule CONTRAIGNANTE est GELE n'est donc pas un objectif atteignable
+                # par un facteur : elle est un nombre sans mecanisme. On le DIT sur la ligne au lieu
+                # de publier « ATTEIGNABLE ».
+                def _fact(_ivs, _lbl):
+                    _lo = max(x[0] for x in _ivs)
+                    _hi = min(x[1] for x in _ivs)
+                    _blo = max(_ivs, key=lambda x: x[0])
+                    _bhi = min(_ivs, key=lambda x: x[1])
+                    _zs = [x[-1] for x in _ivs]
+                    _nl = sum(1 for _z in _zs if _z == 'LINEAIRE')
+                    _bz = {_blo[-1], _bhi[-1]}
+                    if _lo <= _hi:
+                        _verd = 'k uniforme ATTEIGNABLE dans [%.3f .. %.3f]' % (_lo, _hi)
+                    else:
+                        _verd = ('AUCUN facteur uniforme : il faudrait k >= %.3f et k <= %.3f'
+                                 % (_lo, _hi))
+                    A('ROOM-REGA-FACTEUR: %s  %d cellule(s)  ->  %s' % (_lbl, len(_ivs), _verd))
+                    A('   limiteur des cellules : %d LINEAIRE / %d au GENOU / %d GELE'
+                      '   %s'
+                      % (_nl, sum(1 for _z in _zs if _z == 'GENOU'),
+                         sum(1 for _z in _zs if _z == 'GELE'),
+                         ('' if _nl == len(_ivs) else
+                          '<<< la borne ne porte pas sur une population lineaire')))
+                    if _bz - {'LINEAIRE'}:
+                        A('   CELLULE CONTRAIGNANTE %s(%s r=%d) et %s(%s r=%d) : %s.'
+                          % (_blo[2], _blo[-1], _blo[3], _bhi[2], _bhi[-1], _bhi[3],
+                             'AU MOINS UNE EST HORS ZONE LINEAIRE'))
+                        A('   CE `k` N\'EST DONC PAS UN OBJECTIF ATTEIGNABLE PAR UN FACTEUR : dans la')
+                        A('   zone GELE du mur de §21 la force de rappel est CONSTANTE, la sortie ne')
+                        A('   suit pas l\'entree, et diviser l\'entree ne divise pas l\'excursion.')
+                        A('   Il se lit comme un ECART A COMBLER, jamais comme un reglage a poser.')
                 for _key in sorted(_aiv):
-                    _ivs = _aiv[_key]
-                    _lo, _hi = max(x[0] for x in _ivs), min(x[1] for x in _ivs)
-                    A('ROOM-REGA-FACTEUR: %s sgn=%+d  %d cellule(s)  ->  %s'
-                      % (_key[0], _key[1], len(_ivs),
-                         ('k uniforme ATTEIGNABLE dans [%.3f .. %.3f]' % (_lo, _hi))
-                         if _lo <= _hi else
-                         ('AUCUN facteur uniforme : il faudrait k >= %.3f et k <= %.3f'
-                          % (_lo, _hi))))
+                    _fact(_aiv[_key], '%s sgn=%+d' % (_key[0], _key[1]))
+                # ---- ET LE MEME CALCUL, REGROUPE PAR GESTE AU LIEU DE PAR SIGNE. Quand un geste
+                # porte deux etiquettes de signe (voir ROOM-REGA-GESTE-DOUBLON), c'est CE
+                # regroupement-ci qui separe les gestes miroir, et l'autre qui les mele.
+                if _agv and len({_g for _s2, _g in _agv}) > 1:
+                    A('')
+                    for _key in sorted(_agv):
+                        if str(_key[1]).startswith('g?'):
+                            A('ROOM-REGA-FACTEUR: %s %s  %d cellule(s)  ->  GESTE NON IDENTIFIE :'
+                              ' deplacement net nul,'
+                              % (_key[0], _key[1], len(_agv[_key])))
+                            A('   la fenetre est un aller-retour et son geste ne se lit pas dans'
+                              ' un deplacement net.')
+                            continue
+                        _ivs = [(x[0], x[1], x[2], x[3], x[5]) for x in _agv[_key]]
+                        _fact(_ivs, '%s geste=%s' % (_key[0], _key[1]))
+                # ---- ROOM-REGA-GAIN (cycle 108) : LE RAPPORT ENTREE / SORTIE, ETAGE PAR ETAGE.
+                # `PHYSREGW` publie DEUX nombres sur la meme ligne depuis le cycle 71 et seul le
+                # second a jamais ete lu :
+                #     `rgap` = |cible_du_ressort - pose d'auteur| / B0  -> l'ENTREE geometrique
+                #     `perr` = max |p_rlk - cible_du_ressort| / B0      -> la SORTIE du solveur
+                # Les confronter est la mesure que le registre reclame depuis
+                # `response-dies-at-one-solver-stage` : « mesurer le rapport entree/sortie ETAGE
+                # PAR ETAGE ». Elle ne coute rien — les deux colonnes sont deja la.
+                # NATURE : deux LONGUEURS / B0, maximum de fenetre. REPERE : monde, la meme pour
+                #   les deux (les deux chaines partagent l'ancre `chest`).
+                # LECTURE HORS DEFAUT : si l'entree est symetrique, la sortie doit l'etre aussi ;
+                #   le GAIN RELATIF (rapport des sorties / rapport des entrees) vaut alors 1.
+                A('')
+                A('   -- ROOM-REGA-GAIN : ENTREE SYMETRIQUE ? SORTIE SYMETRIQUE ? ---------------')
+                _gw = {}
+                for _m in re.finditer(r'^PHYSREGW ph=38 c=(\d+) r=(\d+) rgap=([-\d.e+]+)'
+                                      r' perr=([-\d.e+]+)', txt, re.M):
+                    _gw.setdefault((int(_m.group(2)), int(_m.group(1))), []).append(
+                        (float(_m.group(3)), float(_m.group(4))))
+                if not _gw:
+                    A('ROOM-REGA-GAIN: NON PUBLIE — aucune ligne `PHYSREGW ph=38`.')
+                else:
+                    A('      %-3s %-7s %8s %8s %8s   %8s %8s %8s   %s'
+                      % ('r', 'section', 'rgapL', 'rgapR', 'ENTREE',
+                         'perrL', 'perrR', 'SORTIE', 'gain relatif'))
+                    _gmax = 0.0
+                    for _r, _sec in ((9, '§18'), (10, '§18'), (11, '§19'), (12, '§19'),
+                                     (13, '§20'), (14, '§20')):
+                        _L, _R = _gw.get((_r, 0)), _gw.get((_r, 1))
+                        if not _L or not _R:
+                            continue
+                        _gl = sum(x[0] for x in _L) / len(_L)
+                        _gr = sum(x[0] for x in _R) / len(_R)
+                        _pl = sum(x[1] for x in _L) / len(_L)
+                        _pr = sum(x[1] for x in _R) / len(_R)
+                        if _gr <= 0 or _pr <= 0:
+                            continue
+                        _ri, _ro = _gl / _gr, _pl / _pr
+                        _gmax = max(_gmax, max(_ro / _ri, _ri / _ro))
+                        A('      %-3d %-7s %8.4f %8.4f x%-7.3f  %8.4f %8.4f x%-7.3f  x%.2f %s'
+                          % (_r, _sec, _gl, _gr, _ri, _pl, _pr, _ro, _ro / _ri,
+                             '<<<' if max(_ro / _ri, _ri / _ro) >= 2.0 else ''))
+                    A('   CE QUE CE TABLEAU ETABLIT, ET IL EST LU SUR DES COLONNES DEJA PUBLIEES :')
+                    A('   l\'ENTREE geometrique du ressort est la MEME sur les deux chaines, a')
+                    A('   moins de 2 %, sur les SIX regimes. Toute asymetrie de la SORTIE est donc')
+                    A('   produite ENTRE les deux, c\'est-a-dire dans le solveur — ni par la pose,')
+                    A('   ni par le stimulus (que `ROOM-REGA-GESTE` mesure miroir-exact), ni par')
+                    A('   les parametres de §32, dont l\'ecart plafonne a ~8 % sur la reponse.')
+                    if _gmax >= 2.0:
+                        A('   LE PIRE GAIN RELATIF VAUT x%.2f. Une reponse qui s\'ecarte d\'un facteur'
+                          % _gmax)
+                        A('   %.1f pour une entree identique n\'est pas un ecart de reglage.'
+                          % _gmax)
                 A('   LECTURE : un `k` > 1 demande MOINS de mouvement, un `k` < 1 en demande PLUS.')
                 A('   Ces lignes ne remplacent pas `ROOM-APEX-REGIME` : elles se lisent A COTE, et')
                 A('   c\'est CELLE-CI qui porte l\'axe que la spec nomme (`ROOM-REGPOSE-VERDICT`')
