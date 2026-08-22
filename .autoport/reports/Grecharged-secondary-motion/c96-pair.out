@@ -82,6 +82,48 @@
    AXC  chestR   1   ap   |     2.308     2.400 |     2.258   0.123  0.921  0.5725
    AXC  chestR   1   lat  |     2.400     2.500 |     2.332   0.125  0.926  0.5477
 
+-- C96-OS : L'AXE D'OS PAR DEUX CHEMINS INDEPENDANTS, ET CE QUE CHACUN VAUT -------------
+   chestL   [PHYSURST, DONNEE]  os dans le triedre = (+0.9014,+0.2648,-0.3425)  angle a la VERTICALE = 25.66 deg
+            part RADIALE de l'axe pousse (ce que la contrainte confisque) : v 0.813 · ap 0.070 · lat 0.117
+            [3e vecteur propre, DERIVE] (+0.6362,-0.3883,-0.6667) — ECART A LA DONNEE 45.65 deg : mal conditionne, NON RETENU
+   chestR   [PHYSURST, DONNEE]  os dans le triedre = (+0.8430,-0.4568,-0.2840)  angle a la VERTICALE = 32.54 deg
+            part RADIALE de l'axe pousse (ce que la contrainte confisque) : v 0.711 · ap 0.209 · lat 0.081
+            [3e vecteur propre, DERIVE] (+0.6194,+0.3322,+0.7114) — ECART A LA DONNEE 80.31 deg : mal conditionne, NON RETENU
+
+-- C96-RAD : LE CANAL RADIAL (§23), OU LA VERTICALE DE §24 EST CENSEE VIVRE ---------------
+   La contrainte de longueur confisque le degre de liberte RADIAL de la translation du
+   joint : `|u| = |m|`. L'os est a 25,7 / 32,5 deg de la ligne VERTICALE du triedre
+   (mesure C96-OS ci-dessus, pas les ~92 pour cent du cycle 94), donc la poussee verticale est
+   RADIALE a 81 / 71 pour cent : la contrainte de longueur la retire de la translation du
+   joint par construction. Ce que §24 appelle « vertical » se lit donc ici.
+   NATURE : une DEFORMATION signee rapportee a B0. REPERE : l'axe de l'os, triedre ancre.
+   LIGNE DE BASE : 0.0 a la pose d'auteur.
+   jeu  chaine   l   ax   |     fit f    zeta     R2       pic |  zero-cr  autocor
+   AX   chestL   0   v    |     2.209   0.327  0.976   0.24071 |    0.805    2.308
+   AX   chestL   0   ap   |     2.179   0.319  0.969   0.13318 |    0.805    2.222
+   AX   chestL   0   lat  |     2.528   0.347  0.962   0.07802 |    0.604    2.500
+   AX   chestL   1   v    |     2.216   0.193  0.868   0.05790 |    2.105    2.308
+   AX   chestL   1   ap   |     3.012   0.338  0.651   0.05773 |    1.409      nan
+   AX   chestL   1   lat  |     3.512   0.207  0.731   0.05756 |    0.805    4.000
+   AX   chestR   0   v    |     2.282   0.338  0.997   0.26060 |    2.308    2.609
+   AX   chestR   0   ap   |     2.258   0.320  0.965   0.14825 |    0.805    2.308
+   AX   chestR   0   lat  |     2.280   0.338  0.954   0.08595 |    0.604    2.400
+   AX   chestR   1   v    |     2.259   0.208  0.910   0.05950 |    2.105    2.400
+   AX   chestR   1   ap   |     2.347   0.255  0.802   0.05938 |    2.113    2.308
+   AX   chestR   1   lat  |     2.414   0.166  0.841   0.05958 |    1.208    2.609
+   AXC  chestL   0   v    |     2.209   0.327  0.976   0.24085 |    0.805    2.308
+   AXC  chestL   0   ap   |     2.305   0.475  0.974   0.06263 |    2.250    2.609
+   AXC  chestL   0   lat  |     2.389   0.316  0.986   0.07815 |    2.308    2.727
+   AXC  chestL   1   v    |     2.217   0.193  0.868   0.05790 |    2.105    2.308
+   AXC  chestL   1   ap   |     4.020   0.166  0.653   0.05721 |    0.604    4.615
+   AXC  chestL   1   lat  |     2.210   0.225  0.766   0.05672 |    0.805    2.609
+   AXC  chestR   0   v    |     2.284   0.337  0.997   0.26060 |    2.308    2.609
+   AXC  chestR   0   ap   |     2.429   0.464  0.971   0.05932 |    2.432    2.857
+   AXC  chestR   0   lat  |     2.546   0.362  0.995   0.10508 |    2.500    2.857
+   AXC  chestR   1   v    |     2.259   0.207  0.910   0.05950 |    2.105    2.400
+   AXC  chestR   1   ap   |     4.020   0.192  0.619   0.05866 |    1.007    4.615
+   AXC  chestR   1   lat  |     2.611   0.178  0.748   0.05917 |    1.007    2.500
+
 -- C96-POSE : L'AXE REELLEMENT POUSSE DANS LES DEUX JEUX (revalidation de l'epingle) ---
    La pose de PH-AXC est epinglee sur l'animation 0 frame 0, celle des fenetres AX. Si les
    deux triedres different, les deux jeux ne sont PAS comparables et il faut le dire.
@@ -127,6 +169,30 @@
    AXC  chestR   1   v    |   1.0114   0.5891     nan |   0.033    0.867    1.100
    AXC  chestR   1   ap   |   0.9694   0.5342   0.010 |   0.183    0.933    1.317
    AXC  chestR   1   lat  |   0.9893   0.9371   0.003 |   0.033    0.917    1.283
+
+-- C96-SPEC24 : LE VERDICT, CHAQUE FREQUENCE LUE SUR SON PROPRE CANAL --------------------
+   POURQUOI DEUX CANAUX ET PAS UN. La contrainte de longueur rend la translation du joint
+   exactement 2-D. L'os etant a 25,7 / 32,5 deg de la ligne verticale, la poussee VERTICALE
+   est radiale a 81 / 71 pour cent : elle est confisquee. Ce qui reste d'elle dans le plan
+   repond a 67,0 / 67,1 deg de la ligne verticale — ce n'est pas un mouvement vertical, et
+   y lire `f_v` serait lire une projection. `f_v` se lit donc sur le canal RADIAL, `f_ap` et
+   `f_lat` sur la translation. LES DEUX LECTURES SONT PUBLIEES, la retenue est nommee.
+   CE QUI REND LE CHOIX FALSIFIABLE : le canal radial doit etre SELECTIF pour la poussee
+   verticale. Pic radial dans la fenetre v contre les fenetres ap/lat, maillon racine :
+     chestL   v 0.24085 · ap 0.06263 · lat 0.07815   -> x3.85 et x3.08
+     chestR   v 0.26060 · ap 0.05932 · lat 0.10508   -> x4.39 et x2.48
+
+   chaine   ax   canal     |      fit  autocor  zero-cr | bande §24        verdict (sur le fit)
+   chestL   v    radial §23 |    2.209    2.308    0.805 | 2.30  [2.1-2.5]   DANS
+   chestL   ap   translation |    2.309    2.609    2.353 | 2.50  [2.3-2.7]   DANS
+   chestL   lat  translation |    2.393    2.727    2.449 | 2.65  [2.4-2.9]   SOUS
+   chestL   clause « Vertical motion is intentionally the slowest » : 2.209 < 2.309 < 2.393  -> TENUE
+   chestL   ecart f_lat/f_v = 1.0833 (sa §24 en demande 1.1522, soit 55 pour cent du spread)
+   chestR   v    radial §23 |    2.284    2.609    2.308 | 2.30  [2.1-2.5]   DANS
+   chestR   ap   translation |    2.404    2.727    2.500 | 2.50  [2.3-2.7]   DANS
+   chestR   lat  translation |    2.502    2.857    2.553 | 2.65  [2.4-2.9]   DANS
+   chestR   clause « Vertical motion is intentionally the slowest » : 2.284 < 2.404 < 2.502  -> TENUE
+   chestR   ecart f_lat/f_v = 1.0954 (sa §24 en demande 1.1522, soit 63 pour cent du spread)
 
 -- C96-CTRL : LE TEMOIN NEGATIF (ax=0, propre dans LES DEUX jeux) ------------------------
    chestL   l=0 : amplitude AXC/AX = 0.9967, ecart de direction = 0.09 deg

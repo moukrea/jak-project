@@ -128,7 +128,8 @@ bouge : **tout ce qui suit est attribuable a l'ETAT D'ENTREE et a rien d'autre.*
       AXC   chestR  1        69,6        23,0      **87,4**
 
 **LE « 10,3 DEG » DU CYCLE 94 ETAIT LA SIGNATURE DE LA CONTAMINATION.** La fenetre `lat` suit la
-fenetre `ap`, dont l'axe est tangentiel a 99 % — donc son saut de retour n'est presque pas
+fenetre `ap`, dont l'axe est tangentiel a 93 % / 79 % (mesure du cycle 97 sur `PHYSURST`,
+voir plus bas — le « 99 % » du cycle 94 ne suit pas de son propre axe d'os) — donc son saut de retour n'est presque pas
 confisque par la contrainte de longueur et arrive en entier dans la fenetre suivante. La reponse
 `lat` etait celle du saut `ap`. Entree propre, les deux axes sont **orthogonaux a 1,6-2,8 deg pres
 sur les quatre cellules**, ce qui est un accord bien meilleur que ce que je serais alle chercher.
@@ -248,3 +249,77 @@ tau = 0,467-0,607 s, trois fois le primaire.
 
 VALIDATEUR : toutes les gates passent ; la phase echoue sur `OPEN-DEFECTS`
 (`breast-spec-incomplete`), qui ne se retire que sur la parole de l'owner.
+
+================================================================================================
+ADDENDUM CYCLE 97 — §24 : CHAQUE FREQUENCE SUR LE CANAL QUI PORTE SON DEGRE DE LIBERTE
+================================================================================================
+DIRECTIVES v3fee554599
+
+Section nommee d'avance : **§24**. **AUCUNE MESURE NEUVE** — meme course, memes fenetres propres,
+aucun build. Ce qui change est une LECTURE, et un desaccord d'estimateurs tranche par la donnee.
+
+**1. L'AXE D'OS, PAR DEUX CHEMINS, ET LE SECOND EST JETE.** Tout depend de l'angle de l'os a la
+ligne verticale du triedre. Deux estimateurs :
+  * `PHYSURST` — `phys-link-rest-dir`, relevee UNE FOIS par le solveur sur la pose d'auteur, donc
+    une DONNEE. Exprimee dans le triedre : **25,66 deg (chestL) / 32,54 deg (chestR)**.
+  * la direction que la trajectoire NE VISITE PAS (3e vecteur propre) : **45,7 / 80,3 deg a cote**.
+    Elle est MAL CONDITIONNEE et le fichier le dit au lieu de moyenner : la contrainte ne rend la
+    trajectoire plane qu'au SECOND ordre (`d.m^ = -|d|^2/2|m|`), soit ~13,6 u hors plan pour
+    |d| = 168 u sur un os de 1040 u — 8 %, assez pour faire tourner un vecteur propre dont la
+    valeur propre est deja minuscule. **La donnee porte le verdict, la derivation est publiee a
+    cote et NON RETENUE.**
+
+**ET CA CORRIGE LE CYCLE 94.** Ses parts tangentielles (`v` 0,3906 · `ap` 0,9889 · `lat` 0,9309) ne
+suivent pas de son propre axe d'os. Celles de `PHYSURST` valent **`v` 0,187 / 0,289 · `ap` 0,930 /
+0,791 · `lat` 0,883 / 0,919**. Le mecanisme de contamination decrit plus haut n'en est pas change —
+l'axe `ap` reste tangentiel a 79-93 % quand la verticale ne l'est qu'a 19-29 % — mais les chiffres
+que j'avais repris le sont.
+
+**2. POURQUOI `f_v` NE SE LIT PAS SUR LA TRANSLATION DU JOINT.** La contrainte rend cette
+translation exactement 2-D. L'os etant a 25,7 / 32,5 deg de la verticale, la poussee verticale est
+**radiale a 81 % / 71 %** : la contrainte la confisque. Ce qui en reste dans le plan repond a
+**67,0 / 67,1 deg** de la ligne verticale — **une reponse a 67 degres de la verticale n'est pas un
+mouvement vertical**, et y lire `f_v` etait lire une projection.
+
+**LE CHOIX DE CANAL EST FALSIFIABLE, ET IL PASSE SON TEST.** Le canal radial doit etre SELECTIF
+pour la poussee verticale, sans quoi il lirait la meme chose partout : son pic dans la fenetre `v`
+vaut **x3,85 et x3,08** (chestL) et **x4,39 et x2,48** (chestR) celui des fenetres `ap` et `lat`.
+
+**3. LE RESULTAT.** Ajustement de sinusoide amortie sur les fenetres propres, R^2 0,976 a 0,998 :
+
+    chaine   axe   canal          fit     autocor   zero-cr   bande §24        verdict
+    chestL   v     radial §23    2,209     2,308     0,805    2,30 [2,1-2,5]    DANS
+    chestL   ap    translation   2,309     2,609     2,353    2,50 [2,3-2,7]    DANS
+    chestL   lat   translation   2,393     2,727     2,449    2,65 [2,4-2,9]    SOUS de 0,29 %
+    chestR   v     radial §23    2,284     2,609     2,308    2,30 [2,1-2,5]    DANS
+    chestR   ap    translation   2,404     2,727     2,500    2,50 [2,3-2,7]    DANS
+    chestR   lat   translation   2,502     2,857     2,553    2,65 [2,4-2,9]    DANS
+
+**LA CLAUSE QUE LA SECTION ECRIT EN GRAS EST TENUE SUR LES DEUX CHAINES** — « Vertical motion is
+intentionally the slowest » : 2,209 < 2,309 < 2,393 et 2,284 < 2,404 < 2,502.
+
+**§24 PASSE `NON TENUE` -> `PARTIELLE`.** Ce qui l'empeche d'etre TENUE est la regle 2 : une seule
+chaine a ses trois lectures dans leur bande.
+
+**4. DEUX RESERVES, ET JE NE LES LISSE PAS.**
+  * **L'ecart de frequence ne vaut que 55 % / 63 % de ce qu'elle demande** : `f_lat/f_v` rend
+    1,0833 / 1,0954 contre 1,1522. Les bandes sont larges assez pour l'absorber, mais le manque est
+    reel — et c'est exactement ce que le calcul `P K P` du cycle 94 annonce (1,031-1,039 contre
+    1,0600). **Ce calcul-la SURVIT a tout ce que les cycles 96 et 97 ont retire.**
+  * **Les trois estimateurs ne sont pas d'accord.** L'autocorrelation lit systematiquement plus
+    haut et sortirait `f_v` de chestR par le haut (2,609 contre un plafond a 2,5). Le verdict est
+    porte par l'AJUSTEMENT, pour une raison nommee et pas par preference : l'autocorrelation est
+    quantifiee en `60/k`, soit +/-0,10 a 0,13 Hz a ces frequences, quand l'ajustement rend
+    R^2 = 0,976 a 0,998. **Si l'owner veut un verdict qui ne depende d'aucun estimateur, il faut un
+    stimulus plus long : 150 frames ne portent que 5 a 6 periodes.**
+
+**5. CE QUE CE CYCLE NE PRETEND PAS.** Aucune ligne de code, aucun parametre, aucune course : le
+comportement livre est identique au bit. Et le correctif specifie au cycle 94 — re-deriver
+`s_ap`/`s_lat` pour que les valeurs propres de `P K P` soient dans le rapport de §24 — **n'est
+toujours pas pose** : il reste la voie pour convertir les 55-63 % en 100 %, et il est desormais
+debloque puisque la « reserve ouverte » qui l'interdisait (des directions inexpliquees a 25-42 deg)
+etait un artefact des fenetres contaminees.
+
+VALIDATEUR : inchange. Toutes les gates passent ; la phase echoue sur `OPEN-DEFECTS`
+(`breast-spec-incomplete`), qui ne se retire **que** sur la parole de l'owner — le jeton
+`.autoport/owner-ok/<phase>` est son geste et n'est jamais cree a sa place.

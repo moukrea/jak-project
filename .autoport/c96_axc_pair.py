@@ -275,6 +275,93 @@ def main(path):
     A('')
 
     # ---- l'axe pousse, revalide a l'execution -------------------------------------------------
+    # ---- L'AXE D'OS : DEUX ESTIMATEURS, ET LEUR DESACCORD EST LA MESURE -----------------------
+    # Tout l'argument « la verticale de §24 vit sur le canal RADIAL » repose sur l'angle de l'os a
+    # la ligne verticale du triedre. Il est donc publie par DEUX chemins qui ne partagent rien :
+    #   (1) `PHYSURST` — `phys-link-rest-dir`, relevee UNE FOIS par le solveur sur la pose
+    #       d'auteur. C'est une DONNEE, pas une derivation. C'est elle qui porte le verdict.
+    #   (2) la direction que la trajectoire NE VISITE PAS (3e vecteur propre de la covariance).
+    #       Elle est MAL CONDITIONNEE ici et le fichier le dit au lieu de la moyenner avec l'autre :
+    #       la contrainte ne rend la trajectoire plane qu'au SECOND ordre (`d.m^ = -|d|^2/2|m|`),
+    #       soit ~13.6 u hors plan pour |d| = 168 u sur un os de 1040 u — 8 %, ce qui suffit a
+    #       faire tourner un 3e vecteur propre dont la valeur propre est deja minuscule.
+    A('-- C96-OS : L\'AXE D\'OS PAR DEUX CHEMINS INDEPENDANTS, ET CE QUE CHACUN VAUT -------------')
+    URST = {}
+    for m in re.finditer(r'^PHYSURST c=(\d+) l=(\d+) ux=([-\d.e+]+) uy=([-\d.e+]+) uz=([-\d.e+]+)',
+                         txt, re.M):
+        URST[(int(m.group(1)), int(m.group(2)))] = np.array(
+            [float(m.group(3)), float(m.group(4)), float(m.group(5))])
+    TRI = {}
+    for m in re.finditer(r'^PHYSAXR c=(\d+) a=(\d+) x=([-\d.e+]+) y=([-\d.e+]+) z=([-\d.e+]+)',
+                         txt, re.M):
+        TRI[(int(m.group(1)), int(m.group(2)))] = np.array(
+            [float(m.group(3)), float(m.group(4)), float(m.group(5))])
+    BONE = {}
+    for c in (0, 1):
+        if (c, 0) not in URST or (c, 0) not in TRI or (c, 1) not in TRI:
+            continue
+        ev = TRI[(c, 0)] / np.linalg.norm(TRI[(c, 0)])
+        ea = TRI[(c, 1)] / np.linalg.norm(TRI[(c, 1)])
+        el = np.cross(ev, ea); el /= np.linalg.norm(el)
+        b = URST[(c, 0)] / np.linalg.norm(URST[(c, 0)])
+        comp = np.array([float(b @ ev), float(b @ ea), float(b @ el)])
+        BONE[c] = comp
+        A('   %-8s [PHYSURST, DONNEE]  os dans le triedre = (%+.4f,%+.4f,%+.4f)'
+          '  angle a la VERTICALE = %5.2f deg' % (NAMES[c], comp[0], comp[1], comp[2],
+                                                  math.degrees(math.acos(min(1.0, abs(comp[0]))))))
+        A('            part RADIALE de l\'axe pousse (ce que la contrainte confisque) :'
+          ' v %.3f · ap %.3f · lat %.3f' % (comp[0] ** 2, comp[1] ** 2, comp[2] ** 2))
+        # l'estimateur mal conditionne, publie a cote pour qu'on voie de combien il se trompe
+        acc = np.zeros((3, 3))
+        for l in (0, 1):
+            for ax in (0, 1, 2):
+                d = NEW.get((c, l, ax))
+                if d is None:
+                    continue
+                X = d[:30]; Xc = X - X.mean(0)
+                w, Q = np.linalg.eigh(Xc.T @ Xc)
+                u = Q[:, int(np.argsort(w)[0])]
+                if u[0] < 0:
+                    u = -u
+                acc += np.outer(u, u)
+        w, Q = np.linalg.eigh(acc)
+        u3 = Q[:, int(np.argmax(w))]; u3 /= np.linalg.norm(u3)
+        if u3[0] < 0:
+            u3 = -u3
+        A('            [3e vecteur propre, DERIVE] (%+.4f,%+.4f,%+.4f) — ECART A LA DONNEE'
+          ' %5.2f deg : mal conditionne, NON RETENU' % (u3[0], u3[1], u3[2], ang(u3, comp)))
+    A('')
+
+    # ---- SPEC 24 : LA VERTICALE NE VIT PAS SUR LA TRANSLATION DU JOINT --------------------------
+    A('-- C96-RAD : LE CANAL RADIAL (§23), OU LA VERTICALE DE §24 EST CENSEE VIVRE ---------------')
+    A('   La contrainte de longueur confisque le degre de liberte RADIAL de la translation du')
+    A('   joint : `|u| = |m|`. L\'os est a 25,7 / 32,5 deg de la ligne VERTICALE du triedre')
+    A('   (mesure C96-OS ci-dessus, pas les ~92 pour cent du cycle 94), donc la poussee verticale est')
+    A('   RADIALE a 81 / 71 pour cent : la contrainte de longueur la retire de la translation du')
+    A('   joint par construction. Ce que §24 appelle « vertical » se lit donc ici.')
+    A('   NATURE : une DEFORMATION signee rapportee a B0. REPERE : l\'axe de l\'os, triedre ancre.')
+    A('   LIGNE DE BASE : 0.0 a la pose d\'auteur.')
+    RAD = {}
+    for tag, leg in (('PHYSRINGCX', 'AX'), ('PHYSRINGCN', 'AXC')):
+        for m in re.finditer(r'^%s c=(\d+) f=(\d+) l=(\d+) ax=(\d+) v=([-\d.e+]+)' % tag, txt, re.M):
+            RAD.setdefault((leg, int(m.group(1)), int(m.group(3)), int(m.group(4))), {})[
+                int(m.group(2))] = float(m.group(5))
+    A('   %-4s %-8s %-3s %-4s | %9s %7s %6s %9s | %8s %8s'
+      % ('jeu', 'chaine', 'l', 'ax', 'fit f', 'zeta', 'R2', 'pic', 'zero-cr', 'autocor'))
+    for leg in ('AX', 'AXC'):
+        for c in (0, 1):
+            for l in (0, 1):
+                for ax in (0, 1, 2):
+                    d = RAD.get((leg, c, l, ax))
+                    if not d:
+                        continue
+                    X = np.array([[d[f], 0.0, 0.0] for f in sorted(d)])
+                    u1 = np.array([1.0, 0.0, 0.0])
+                    ff, zz, r2 = fit_damped(X, u1)
+                    fz, fa = freqs(X, u1)
+                    A('   %-4s %-8s %-3d %-4s | %9.3f %7.3f %6.3f %9.5f | %8.3f %8.3f'
+                      % (leg, NAMES[c], l, AXN[ax], ff, zz, r2, float(np.abs(X[:, 0]).max()), fz, fa))
+    A('')
     A('-- C96-POSE : L\'AXE REELLEMENT POUSSE DANS LES DEUX JEUX (revalidation de l\'epingle) ---')
     A('   La pose de PH-AXC est epinglee sur l\'animation 0 frame 0, celle des fenetres AX. Si les')
     A('   deux triedres different, les deux jeux ne sont PAS comparables et il faut le dire.')
@@ -332,6 +419,56 @@ def main(path):
                         zl = dl / math.sqrt(math.pi ** 2 + dl * dl)
                     A('   %-4s %-8s %-3d %-4s | %8.4f %8.4f %7.3f | %7.3f %8.3f %8.3f'
                       % (leg, NAMES[c], l, AXN[ax], r1, r2, zl, t1, t10, t02))
+    A('')
+    # ---- LE VERDICT DE §24, CHAQUE FREQUENCE SUR LE CANAL QUI PORTE SON DEGRE DE LIBERTE -------
+    A('-- C96-SPEC24 : LE VERDICT, CHAQUE FREQUENCE LUE SUR SON PROPRE CANAL --------------------')
+    A('   POURQUOI DEUX CANAUX ET PAS UN. La contrainte de longueur rend la translation du joint')
+    A('   exactement 2-D. L\'os etant a 25,7 / 32,5 deg de la ligne verticale, la poussee VERTICALE')
+    A('   est radiale a 81 / 71 pour cent : elle est confisquee. Ce qui reste d\'elle dans le plan')
+    A('   repond a 67,0 / 67,1 deg de la ligne verticale — ce n\'est pas un mouvement vertical, et')
+    A('   y lire `f_v` serait lire une projection. `f_v` se lit donc sur le canal RADIAL, `f_ap` et')
+    A('   `f_lat` sur la translation. LES DEUX LECTURES SONT PUBLIEES, la retenue est nommee.')
+    A('   CE QUI REND LE CHOIX FALSIFIABLE : le canal radial doit etre SELECTIF pour la poussee')
+    A('   verticale. Pic radial dans la fenetre v contre les fenetres ap/lat, maillon racine :')
+    for c in (0, 1):
+        pk = []
+        for ax in (0, 1, 2):
+            d = RAD.get(('AXC', c, 0, ax))
+            pk.append(max(abs(x) for x in d.values()) if d else float('nan'))
+        A('     %-8s v %.5f · ap %.5f · lat %.5f   -> x%.2f et x%.2f'
+          % (NAMES[c], pk[0], pk[1], pk[2], pk[0] / pk[1], pk[0] / pk[2]))
+    A('')
+    BAND = {0: (2.30, 2.1, 2.5), 1: (2.50, 2.3, 2.7), 2: (2.65, 2.4, 2.9)}
+    A('   %-8s %-4s %-9s | %8s %8s %8s | %-16s %s'
+      % ('chaine', 'ax', 'canal', 'fit', 'autocor', 'zero-cr', 'bande §24', 'verdict (sur le fit)'))
+    order = {}
+    for c in (0, 1):
+        fs = {}
+        for ax in (0, 1, 2):
+            if ax == 0:
+                d = RAD.get(('AXC', c, 0, 0))
+                X = np.array([[d[f], 0.0, 0.0] for f in sorted(d)])
+                u1 = np.array([1.0, 0.0, 0.0])
+                canal = 'radial §23'
+            else:
+                X = NEW[(c, 0, ax)]
+                u1 = D[('AXC', c, 0, ax)]
+                canal = 'translation'
+            ff, _, _ = fit_damped(X, u1)
+            fz, fa = freqs(X, u1)
+            tgt, lo, hi = BAND[ax]
+            fs[ax] = ff
+            A('   %-8s %-4s %-9s | %8.3f %8.3f %8.3f | %.2f  [%.1f-%.1f]   %s'
+              % (NAMES[c], AXN[ax], canal, ff, fa, fz, tgt, lo, hi,
+                 'DANS' if lo <= ff <= hi else ('SOUS' if ff < lo else 'AU-DESSUS')))
+        order[c] = fs
+        ok = fs[0] < fs[1] < fs[2]
+        A('   %-8s clause « Vertical motion is intentionally the slowest » : %.3f %s %.3f %s %.3f'
+          '  -> %s' % (NAMES[c], fs[0], '<' if fs[0] < fs[1] else '>=', fs[1],
+                       '<' if fs[1] < fs[2] else '>=', fs[2], 'TENUE' if ok else 'NON TENUE'))
+        A('   %-8s ecart f_lat/f_v = %.4f (sa §24 en demande %.4f, soit %.0f pour cent du spread)'
+          % (NAMES[c], fs[2] / fs[0], 2.65 / 2.30,
+             100.0 * (fs[2] / fs[0] - 1.0) / (2.65 / 2.30 - 1.0)))
     A('')
     A('-- C96-CTRL : LE TEMOIN NEGATIF (ax=0, propre dans LES DEUX jeux) ------------------------')
     worst = 0.0
