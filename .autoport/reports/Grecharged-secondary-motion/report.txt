@@ -14,7 +14,8 @@ BREAST-PENETRATION: 0.0529 m — `meshpen`, DIAGNOSTIC, jamais un verdict (arbit
 la course FINALE (table md5 865e224d, trace 6 893 049 octets). Sous le plafond epingle n'est pas
 « regle » : tant que ce n'est pas zero, ca se declare avec son chiffre, a chaque cycle.
 
-SUBSTRAT : GOAL seul. Un `(mi)` (551 cibles, 14,4 s) et **une** course x86 complete. Etat FINAL du
+SUBSTRAT : GOAL seul. Trois `(mi)` (551 cibles) et **trois** courses x86 completes — l'etat
+livre, l'ablation `*phys-e22-off*` du §5bis, et la remise en etat livre apres reversion. Etat FINAL du
 source : `jak-hd-physics.gc` **4800** (plafond CLEAN 4800 — INTOUCHE, voir §7) et `phys-room.gc`
 **6240** (+38 ; ce fichier n'a pas de plafond).
 
@@ -153,6 +154,53 @@ texte : tout compteur qui decoupe la ligne sur `|` et prend le 4e champ la rate.
 pas un statut qui aurait bouge.
 
 ================================================================================================
+5bis. LE ROUGE EST ATTRIBUE, PAR ABLATION, ET LES DEUX CHAINES N'ONT PAS LA MEME CAUSE
+================================================================================================
+Un rouge publie sans cause est un rouge qui ne dirige rien. Celui-ci a la sienne, prouvee par une
+course dediee.
+
+**LE SUSPECT, DESIGNE AVANT LA MESURE.** `phys-cap-e22!` — la borne de §22 sur la valeur LIVREE —
+tourne **APRES** `phys-skin-chain` (`jak-hd-physics.gc:3215` puis `:3216`) et sa propre docstring
+la declare **dernier ecrivain de `*phys-px*`**. Elle mord **23 857 fois par course** (804,99 B0
+retranches) contre 19 878 corrections de peau, et elle corrige par ROTATION VERS LA POSE D'AUTEUR
+— donc, pour un sein qui pend hors du thorax, **vers le thorax**.
+
+**L'ABLATION.** `*phys-e22-off*` 0 -> 1 : un caractere, une course complete, revertie apres.
+Predictions ecrites avant lecture (`.autoport/c103-predictions.txt`), les trois tiennent :
+
+    E1  l'interrupteur tire        `PHYSE22 tag=run n` 23857 -> **0**  (cut 804,99 -> 0,00 B0)
+    E2  le plancher ne bouge pas   `ROOM-SKINPEN-REST` **0,0883 m, inchange** — c'est la pose
+                                   d'AUTEUR, elle ne depend pas de la physique. Controle de
+                                   l'instrument : s'il avait bouge, la mesure ne valait rien.
+    E3  la peau remonte            chestR **0,0886 -> 0,0836 m**, verdict `+0,0003 DEPASSEE` ->
+                                   **`-0,0047 TENUE`**
+
+**LA BORNE DE §22 ENFONCE LA PEAU DE chestR DE 5,0 mm DANS LE CORPS**, et c'est elle qui porte les
+0,3 mm d'exces. C'est la classe `bound-undone-by-downstream-constraint-loop` du registre, **dans
+l'autre sens** : ce n'est pas §22 qui se fait effacer en aval, c'est §22 qui efface §33/§34.
+
+**ET UN RESULTAT QUE JE N'AVAIS PAS PREVU, QUI SEPARE LES DEUX CHAINES.** chestL ne bouge que de
+**-0,3 mm** (0,0686 -> 0,0683) et **reste DEPASSEE** (+0,0071 m). Son exces n'est donc PAS la borne
+de §22 : c'est le **residu propre de la contrainte de peau**, qu'elle publie elle-meme
+(`ROOM-SKINPEN-COUT tag=run reste = 0,0298 m` — elle ne ferme pas). **Deux chaines, deux causes.**
+Les traiter comme un seul defaut aurait ete exactement la faute que le superviseur a retiree le
+2026-08-21 20:50 en refutant sa propre priorite « six rouges = un defaut ».
+
+**POURQUOI JE NE CORRIGE PAS DANS CE CYCLE, ET CE N'EST PAS UN DE-SCOPE SILENCIEUX.** Le correctif
+demande que la borne de §22 et la contrainte de peau COMMUTENT : les deux sont des rotations autour
+de l'attache, donc elles vivent sur la MEME sphere et s'y disputent le meme point. Trois raisons,
+toutes declarees :
+  1. ca demande des lignes de MOTEUR, et il est a **4800/4800** (§7) ;
+  2. permuter simplement les deux appels coute zero ligne mais **echange le rouge de §34 contre un
+     rouge de §22**, et je n'ai aucune mesure pour dire lequel coute le moins ;
+  3. c'est **un arbitrage entre deux sections de la spec**, et le dossier le declare NON RENDU
+     depuis le cycle 74 (« §33/§34 sont des sections de la spec au meme titre que §22, et
+     l'arbitrage entre les deux n'est pas encore rendu »). Je ne le rends pas seul.
+L'etat livre garde donc le rouge, avec sa cause prouvee et son cout chiffre — c'est ce que la
+directive du 2026-08-17 23:50 demande : « un rouge se PUBLIE comme rouge avec sa mesure — il ne
+bloque plus l'avancee, il la DIRIGE ».
+
+================================================================================================
 6. CE QUE JE DECLARE CONTRE MOI
 ================================================================================================
 **(a) LA RAMPE A FAIT PASSER LE SAUT SOUS LE SEUIL DU REBASE SANS LE FAIRE PASSER SOUS LA
@@ -219,8 +267,11 @@ pas nomme de §37 est bloque par le plafond, pas par la comprehension.
     qui reste. Il est dans la salle, donc pas bloque.
 (c) **La part de rampe dans l'etat d'entree** (§6b) : non mesuree, nommee.
 (d) **Les dix sections a reserve declaree** (§6d) : a remesurer une par une.
-(e) **§34 est maintenant rouge sur les deux chaines** : +0,0074 m et +0,0003 m au-dessus du
-    plancher d'auteur. C'est du solveur, etabli par ablation au cycle 102.
+(e) **§34 est rouge sur les deux chaines, et les deux causes sont maintenant SEPAREES** (§5bis) :
+    chestR = la borne de §22 qui tourne apres la contrainte de peau et l'enfonce de 5,0 mm ;
+    chestL = le residu propre de la contrainte de peau (0,0298 m, elle ne ferme pas). Le premier
+    est un arbitrage §22 contre §33/§34 a rendre par le superviseur ; le second est un chantier
+    de convergence. **Ce sont deux chantiers, pas un.**
 
 ================================================================================================
 9. A TESTER PAR L'OWNER
