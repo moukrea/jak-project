@@ -2993,6 +2993,53 @@
               (phys-diag (-> self slot) c 54)
               (phys-diag (-> self slot) c 55)
               (phys-diag (-> self slot) c 56))
+      ;; ---- PHYSREG4T / PHYSREG4D / PHYSREG4R — LES TROIS TERMES DE L'APEX, SUR LA FENETRE
+      ;; ---- DE REGIME (cycle 100) -------------------------------------------------------------
+      ;; LE TROU QUE CES TROIS LIGNES FERMENT, ET LA SECTION QU'ELLES DEBLOQUENT. `PHYSREG4`
+      ;; ci-dessus publie l'apex des 30 cellules de regime (2 chaines x 15 fenetres, dont 20
+      ;; portent une bande de §14/§16/§17/§18/§19/§20 et 10 n'en portent pas) mais PAS sa
+      ;; decomposition ; `PHYSAPEXT`/`PHYSAPEXD`/`PHYSAPEXR` la publient, et ne sont emis QUE
+      ;; dans PH-MEAS. Consequence mesuree au cycle 100 : les 9 cellules ANGULAIRES au-dessus de
+      ;; leur bande (§18 fort, §19, §20 — `yawB`, `pitchA-bend`, `pitchA-return`, `rollA`,
+      ;; `rollB`) ne peuvent etre attribuees a AUCUN terme, alors que les cellules LINEAIRES le
+      ;; peuvent. Les deux populations ne se transportent pas l'une sur l'autre : la fenetre
+      ;; temoin sans pilotage rend 0.0644 / 0.0529 B0 en PH-REG contre 0.6010 / 0.6106 en
+      ;; PH-MEAS (facteur 9.3) — le piedestal produit par l'animation existe d'un cote et pas de
+      ;; l'autre. SECTIONS DEBLOQUEES, NOMMEES D'AVANCE : §18, §19, §20.
+      ;;   NATURE : des LONGUEURS SIGNEES rapportees a `B0` (SPEC 6, la CHAIR, 602 u) pour
+      ;;            `tx/ty/tz` et `dx/dy/dz` ; une LONGUEUR SIGNEE / B0 pour `rad` (projection
+      ;;            sur le levier de chair PROPRE a chaque maillon). Aucun rapport, aucun angle.
+      ;;   REPERE : le MONDE, contre la pose d'AUTEUR de la MEME frame — celui de `PHYSREG4`.
+      ;;   ARGMAX : les emplacements 59-64 et 86 sont ecrits DANS LA MEME GARDE que 53-56
+      ;;            (`jak-hd-physics.gc:4042-4053`, `when (> ap dg53)`), donc a la MEME frame que
+      ;;            `apex`. `tp + rp + dp = e` est donc verifiable, et `rp` se DERIVE par
+      ;;            `rp = (ax,ay,az) - tp - dp` : trois maxima pris sur trois frames differentes
+      ;;            ne se soustraient pas (`argmax-anchor-is-not-a-population`).
+      ;;   LECTURE QUAND LE DEFAUT EST ABSENT : 0.0000 partout a la pose d'auteur.
+      ;;   INSTRUMENT PUR : ces trois lignes LISENT `phys-diag` et n'ecrivent aucune position,
+      ;;            aucun compteur, aucun etat du solveur.
+      ;; GARDE DE VACUITE, ET ELLE EST NECESSAIRE : `phys-comexw-reset!` remet a zero 53-58 a
+      ;; chaque fenetre mais PAS 59-64 ni 86. Ils ne sont rafraichis que lorsque la garde
+      ;; `ap > dg53` passe. Si une fenetre ne produit AUCUN echantillon d'apex (`awn = 0` sur
+      ;; toute la fenetre), `apex` vaut 0 et les six-plus-un porteraient encore les valeurs de la
+      ;; fenetre PRECEDENTE. Une telle fenetre se SIGNALE (`PHYSREG4V`) au lieu de publier un
+      ;; nombre perime en silence — une absence muette se lirait comme une mesure.
+      (if (> (phys-diag (-> self slot) c 53) 0.0)
+        (begin
+          (format 0 "PHYSREG4T c=~D r=~D tx=~f ty=~f tz=~f~%"
+                  c r
+                  (phys-diag (-> self slot) c 59)
+                  (phys-diag (-> self slot) c 60)
+                  (phys-diag (-> self slot) c 61))
+          (format 0 "PHYSREG4D c=~D r=~D dx=~f dy=~f dz=~f~%"
+                  c r
+                  (phys-diag (-> self slot) c 62)
+                  (phys-diag (-> self slot) c 63)
+                  (phys-diag (-> self slot) c 64))
+          (format 0 "PHYSREG4R c=~D r=~D rad=~f~%"
+                  c r
+                  (phys-diag (-> self slot) c 86)))
+        (format 0 "PHYSREG4V c=~D r=~D apex0=1 terms=perimes~%" c r))
       (format 0 "PHYSREG5 c=~D r=~D cydn=~f cyup=~f~%"
               c r
               (phys-diag (-> self slot) c 57)

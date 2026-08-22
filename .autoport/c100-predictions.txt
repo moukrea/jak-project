@@ -1,0 +1,45 @@
+DIRECTIVES v3fee554599 — cycle 100. PREDICTIONS ECRITES AVANT LA MESURE.
+
+QUESTION TRANCHEE : le registre porte, sur les lignes de §14/§16/§18/§19/§20 (et §22), un
+`NON ETABLI ET NOMME` identique issu du cycle 81b : `tp` (= joint SIMULE - joint AUTEUR,
+jak-hd-physics.gc:3923) vaut 0.372 / 0.383 B0 en mediane, porte +52 % de l'apex, et NE
+CORRELE PAS avec le mouvement propre du joint. Le registre dit : « si cet ecart est une
+intention d'auteur (l'animation pose la poitrine) ou une CONSTANTE DE RETARGET, ca n'est pas
+tranche, et ca demande de publier le canal LOCAL d'auteur des deux joints ».
+
+CE QUI EST MESURE : la position de `lBoob` (resp. `rBoob`) DANS LE REPERE DE `chest`, sur la
+course ou SA PROPRE chaine est DESARMEE — donc ou rien n'ecrit ce joint et ou sa matrice EST
+la pose d'auteur. `chest` n'est simule par rien dans aucune des courses.
+  auteur lBoob  <- keira-room-x86.c82-LEFTOFF.log   (chestL retiree du fichier de donnees)
+  auteur rBoob  <- keira-room-x86.c82-RIGHTOFF.log  (chestR retiree)
+  simule  les deux <- keira-room-x86.c82-ARMED (course ARMEE appariee du meme cycle)
+
+NATURE : une LONGUEUR, rapportee a B0 = 602 u (4096 u = 1 m).
+REPERE : le repere LOCAL de `chest`, lignes de sa 4x4 ECRITE, convention vecteur-ligne.
+POPULATION : toutes les cles (animation, frame) de la sous-fenetre SANS PILOTAGE. JAMAIS un argmax.
+LECTURE SI LE DEFAUT EST ABSENT : si l'animation ne posait pas la poitrine, la position locale
+d'auteur serait CONSTANTE et son etendue vaudrait 0.0000 B0.
+
+LES DEUX HYPOTHESES FONT DES PREDICTIONS OPPOSEES SUR **UN SEUL** NOMBRE :
+l'ETENDUE de la position locale d'AUTEUR (max des ecarts a sa mediane, en B0).
+
+  H1 — `tp` EST UNE CONSTANTE DE RETARGET / DE POSE DE REPOS.
+       L'animation ne pose pas la poitrine. Alors :
+         (a) etendue de la position locale d'AUTEUR < 0.05 B0 sur les 31 animations ;
+         (b) l'ecart auteur-vs-simule est ~0.37 / ~0.38 B0 et pointe TOUJOURS dans la meme
+             direction du repere de `chest` (dispersion angulaire < 15 deg).
+       CONSEQUENCE SI VRAIE : les six lignes rouges ne mesurent pas une excursion de physique.
+       Le defaut est en amont (pose de repos / retarget), et il se corrige a SON producteur.
+
+  H2 — `tp` EST UNE INTENTION D'AUTEUR : l'animation pose la poitrine et le solveur ne la suit pas.
+         (a) etendue de la position locale d'AUTEUR >= 0.20 B0 ;
+         (b) la direction de l'ecart auteur-vs-simule VARIE avec l'animation (dispersion > 45 deg).
+       CONSEQUENCE SI VRAIE : c'est la regle §5 du contrat de perimetre qui est violee
+       (« l'animation a la priorite sur ce qu'elle manipule EXPLICITEMENT »), et le correctif
+       est de faire SUIVRE la pose d'auteur, pas de brider l'excursion.
+
+  H3 — NI L'UN NI L'AUTRE (etendue entre 0.05 et 0.20 B0, ou directions mixtes) : alors les deux
+       lectures sont fausses et je le publie comme tel au lieu d'en choisir une.
+
+CE QUE CETTE MESURE NE DIT PAS : aucun verdict de conformite, aucune bande, aucun seuil de spec.
+Elle ne ferme aucune section ; elle tranche une ALTERNATIVE que le registre a nommee.
