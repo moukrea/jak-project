@@ -304,7 +304,12 @@ retire la ligne. Exit reste 1. Elle ne se contourne ni en supprimant la ligne ni
 gate (regle 5).
 
 REGISTRE : **2 TENUE** (§12, §37) · 5 TENUE PAR CONSTRUCTION · 19 PARTIELLE · **12 NON TENUE** ·
-0 NON ETABLI.  §36 : `PARTIELLE` -> `NON TENUE`.
+0 NON ETABLI.  §36 : `PARTIELLE` -> `NON TENUE`. §25 et §26 restent `PARTIELLE` mais leurs motifs
+sont refaits sur la course courante (section 13) — celui de §26 decrivait une trace qui n'existe
+plus depuis 41 cycles.
+
+**SUR L'IMPOSSIBILITE DE SORTIR A 0 : voir la section 14.** Elle n'est pas une excuse, c'est un
+diagnostic ligne par ligne, et les trois chemins qui y meneraient sont nommes et interdits.
 
 ================================================================================================
 12. CE QUE JE REMONTE AU SUPERVISEUR
@@ -330,3 +335,106 @@ et les deux derniers cycles ont produit des retractations, pas des conversions. 
 economise une troisieme (section 5), ce qui est un gain reel mais ne fait toujours pas verdir une
 section. Si le prochain cycle ne convertit rien, la question n'est plus « quelle section », c'est
 « pourquoi la conversion ne demarre pas », et elle est pour le superviseur.
+
+================================================================================================
+13. §25 ET §26 NE SONT PAS DEUX VERDICTS : C'EST UN SEUL FAIT, LU PAR DEUX CHEMINS
+================================================================================================
+Ajout apres la premiere passe du cycle, sur la MEME trace archivee, toujours sans build ni course.
+
+**LE MOTIF DE §26 DECRIVAIT UNE TRACE QUI N'EXISTE PLUS.** Il citait, depuis le cycle 52 :
+« chestL ap 0,314 / lat 0,322 ; chestR ap 0,313 / lat 0,318 », et « les deux canaux VERTICAUX sont
+NON LISIBLES (residu 0,184 / 0,104 ; ils rendent 0,545 contre 0,309) ». **Aucun de ces six nombres
+n'est dans la course courante** : les canaux verticaux ont un residu de 0,044 / 0,062 — donc
+LISIBLES au seuil de 0,08 que le bloc se donne — et chestR est passe de 0,313 / 0,318 a
+**0,368 / 0,386**. Le registre a decrit pendant 41 cycles un etat qui avait bouge sous lui.
+
+**CE QUE LA TRACE DIT AUJOURD'HUI**, sur les deux canaux correctement nommes (`ap`, `lat` ; les
+lignes `v` portent la mention `tangentiel` et ne valent pas verdict) :
+
+    chaine    zeta (§25, bande 0,32-0,42)   rebond (§26)   rebond predit par le zeta mesure
+    ----------------------------------------------------------------------------------------
+    chestL    0,35 · 0,38      DANS         0,313 · 0,292   0,309 · 0,275   (+1,3 % · +6,2 %)
+    chestR    0,31 · 0,31      SOUS         0,368 · 0,386   0,359 · 0,359   (+2,5 % · +7,5 %)
+
+**LA BANDE DE §26 N'EST PAS DE MOI : LA SECTION ECRIT SA PROPRE FORMULE**, `exp(-zeta.pi/
+sqrt(1-zeta^2)) ~ 0.31` (l.338-339), et « Practical target ~30-31% » (l.341). Appliquee a la bande
+de §25, elle donne [0,234 ; 0,346]. chestL y est ; chestR en sort par le haut sur ses DEUX canaux,
+et au-dessus meme du plafond theorique.
+
+**LES DEUX INSTRUMENTS SE CORROBORENT, ET C'EST CA QUI REND LA LECTURE SOLIDE** : `zeta` sort d'un
+moindres carres sur la serie entiere, le rebond sort des EXTREMA BRUTS — deux chemins differents
+sur la meme serie — et la formule de la spec les relie a 1,3 a 7,5 % pres sur les quatre lectures.
+§25 et §26 ne sont donc pas deux sections a traiter separement : **c'est UN SEUL FAIT, chestR est
+sous-amortie, vu deux fois.**
+
+**ET LE PARAMETRE LIVRE EST HORS DE CAUSE, CE QUI DEPLACE LE CHANTIER.** `physics_chains.txt`
+encode `zeta` = **0,3500 (chestL) et 0,3501 (chestR)** — identiques a la quatrieme decimale :
+
+    chestL  stiffness 2,7696  mass 1,4500  damping 0,1686  -> omega 14,4515  zeta 0,3500
+    chestR  stiffness 2,9081  mass 1,4800  damping 0,1753  -> omega 15,0196  zeta 0,3501
+
+L'ecart gauche/droite que §32 exige vit dans la RAIDEUR et la MASSE, pas dans l'amortissement. Le
+meme `zeta` code sort donc a 0,35-0,38 d'un cote et 0,31 de l'autre : **c'est un ecart de
+LIVRAISON, pas de reglage.** Le corriger en baissant `damping` sur chestR serait poser un chiffre
+sur un symptome — exactement ce que la directive du 2026-08-19 20:25 interdit.
+
+**RESERVE QUI INTERDIT D'ALLER PLUS LOIN AUJOURD'HUI, ET ELLE DESIGNE LE VRAI CHANTIER.**
+`ROOM-RINGFIT-SEP` publie `chestR : v/ap confondus · ap/lat confondus · v/lat confondus` — **les
+trois modes de chestR ne sont pas separes** (chestL en separe deux sur trois). Son `zeta` est donc
+ajuste sur un MELANGE, pas sur un mode, et l'ecart gauche/droite n'est pas attribuable au
+personnage — ni par la separation des modes, ni par le verrou du 2026-08-21 01:20, l'ecart au
+miroir de la pose n'etant pas mesure sur cette fenetre.
+
+**LA CAUSE EST EN AMONT, ELLE EST MESUREE, ET ELLE BLOQUE QUATRE SECTIONS D'UN COUP.**
+`ROOM-AXSEL` chiffre la selectivite des trois impulsions isolees — la part de la reponse qui tombe
+sur l'axe REELLEMENT pousse :
+
+    excite=v    chestL  v 24,4 %   ap 23,1 %   lat 52,5 %   -> MELANGE, domine par LAT
+    excite=ap   chestL  v 13,8 %   ap 38,3 %   lat 47,9 %   -> MELANGE, domine par LAT
+    excite=lat  chestL  v 12,0 %   ap 46,3 %   lat 41,7 %   -> MELANGE, domine par AP
+    excite=v    chestR  v 24,1 %   ap 21,6 %   lat 54,2 %   -> MELANGE, domine par LAT
+    excite=ap   chestR  v 11,6 %   ap 43,4 %   lat 45,0 %   -> MELANGE, domine par LAT
+    excite=lat  chestR  v 11,4 %   ap 66,5 %   lat 22,1 %   -> MELANGE, domine par AP
+
+**Aucune des six fenetres ne fait dominer l'axe qu'elle pousse.** L'axe excite porte 22 a 43 % de
+la reponse ; dans un cas (chestR/lat) il en porte 22,1 % pendant qu'un autre en porte 66,5 %. Tant
+que c'est vrai, `zeta`, la frequence propre et le rebond sont lus sur des melanges, et **§24, §25,
+§26 et §27 sont bloquees sur ce seul fait** — pas sur quatre causes distinctes.
+
+C'est le chantier nomme pour le cycle suivant, et il est dans le bloc que la directive du
+2026-08-20 23:30 designe comme celui qui gouverne ce que l'owner voit.
+
+================================================================================================
+14. LE VALIDATEUR NE PEUT PAS SORTIR A 0, ET CE N'EST PAS UN DEFAUT A CORRIGER
+================================================================================================
+Diagnostic precis, pas une supposition. Toutes les gates de MESURE passent et `[Grecharged-
+secondary-motion PASS]` est imprime. Le seul echec est le bloc final :
+
+    validateur, l.688-698 :
+        DEF=.autoport/reports/Grecharged-secondary-motion/owner-defects.txt
+        _open=$(grep -c "^OPEN " "$DEF")
+        if [ "${_open:-0}" -gt 0 ] ; then ... exit 1 ; fi
+
+    `owner-defects.txt` l.223, unique ligne `OPEN ` du fichier :
+        OPEN breast-spec-incomplete  PRIORITE 1 -- LA SEULE LIGNE QUI TIENT LA PHASE OUVERTE.
+
+Il n'existe donc que trois facons de faire sortir ce validateur a 0, et **les trois sont
+interdites par le contrat** :
+  1. retirer la ligne de `owner-defects.txt` — le commentaire de la gate elle-meme l'interdit :
+     « La liste se vide UNIQUEMENT sur la parole de l'owner : c'est son oeil qui ferme un defaut,
+     jamais un chiffre vert » ;
+  2. modifier ou assouplir la gate — regle 5 des RULES QUI NE SE NEGOCIENT JAMAIS : « N'ajoute, ne
+     modifie et n'assouplis AUCUNE gate du validateur — c'est un verrou dur » ;
+  3. creer le jeton `.autoport/owner-ok/<phase>` — DIRECTIVES, RÈGLE DE REPRISE du 2026-08-11 :
+     il « reste EXCLUSIVEMENT le geste de l'owner et n'est JAMAIS cree a sa place ».
+
+**Cette gate est faite pour echouer tant que l'owner n'a pas parle, et elle existe precisement
+parce que la phase s'est declaree terminee QUATRE fois le 2026-08-11 pendant que cinq defauts sur
+six etaient ouverts** (son propre commentaire, l.681-684). Un exit 0 obtenu par un des trois
+chemins ci-dessus ne serait pas une phase terminee : ce serait la faute que la gate a ete ecrite
+pour rendre impossible.
+
+**Exit 1 est donc le meilleur resultat atteignable par une tentative worker, et il est atteint.**
+Ce qui fait avancer la ligne `breast-spec-incomplete` n'est pas le validateur : c'est le registre
+de couverture, section par section, jusqu'a ce que l'owner regarde et tranche. C'est ce que ce
+cycle a fait, et c'est le seul levier qui existe.
