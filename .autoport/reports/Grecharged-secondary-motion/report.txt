@@ -407,3 +407,122 @@ B et C n'ecrivent aucun fichier livre ni aucun tableau ; le fichier livre est re
 script de controle, empreinte republiee apres restauration.
 
 DIRECTIVES vd9e8b66782
+
+
+================================================================================================
+CYCLE 110 — REMONTEE AU SUPERVISEUR. LA REGLE DES DEUX CYCLES EST ATTEINTE, ET L'ECHEC DU
+VALIDATEUR N'EST PAS UN DEFAUT A CORRIGER.
+================================================================================================
+
+12. CE QUE LE VALIDATEUR REFUSE, ET POURQUOI CE N'EST PAS UN BUG
+
+La sortie fait 18 lignes, treize gates passent, `[Grecharged-secondary-motion PASS]` est imprime,
+et l'echec final est CELUI-CI et rien d'autre :
+
+    [FAIL] OPEN-DEFECTS: 1 defaut(s) rapporte(s) par l'owner sont encore ouverts.
+      - breast-spec-incomplete  PRIORITE 1 -- LA SEULE LIGNE QUI TIENT LA PHASE OUVERTE.
+
+Cette gate n'a pas de mode « reussi ». Trois textes concordants disent qu'elle ne se ferme que sur
+la parole de l'owner :
+  - le validateur lui-meme, l.686-687 : « La liste se vide UNIQUEMENT sur la parole de l'owner :
+    c'est son oeil qui ferme un defaut, jamais un chiffre vert » ;
+  - l'en-tete de `owner-defects.txt` : « une ligne se retire UNIQUEMENT quand l'owner dit que
+    c'est bon, jamais parce qu'une mesure est verte » ;
+  - DIRECTIVES 2026-08-20 00:25 : « `OPEN breast-spec-incomplete` reste ouverte ».
+
+Les deux seuls gestes qui feraient sortir 0 sont donc interdits, chacun par une regle nommee :
+editer la gate tombe sous la regle 5 du contrat (« gates gelees — verrou dur »), et retirer la
+ligne `OPEN` reviendrait a signer un verdict a la place de l'owner, exactement la faute consignee
+le 2026-08-13 21:50 (« J'AI INVENTE DEUX VALIDATIONS QUI N'ONT JAMAIS EU LIEU »).
+
+CONFLIT DECLARE, COMME LES DIRECTIVES L'EXIGENT PLUTOT QUE DE LE RESOUDRE EN SILENCE. Le prompt de
+tache dit « ne declare pas le succes tant que le validateur ne sort pas 0 ». Le contrat, qui prime
+et qui est plus recent, rend cette sortie inatteignable sans l'owner. Je ne declare donc PAS de
+succes : je declare que la phase est en attente d'un humain, et je le chiffre ci-dessous.
+
+13. LA CHAINE DE BLOCAGE, MESUREE — ET ELLE EST PLUS LONGUE QU'UN CYCLE
+
+  (1) le validateur echoue sur `breast-spec-incomplete` ;
+  (2) seul l'oeil de l'owner retire cette ligne ;
+  (3) DIRECTIVES 2026-08-20 23:30 INTERDIT de le solliciter avant que soit tenu le bloc qui
+      gouverne ce qu'un oeil percoit — « les regimes dynamiques 14 a 20, les frequences et
+      l'amortissement 24 a 27, et les equilibres 9 a 13 » ;
+  (4) ce bloc est a **3 sections tenues sur 16** (parse de `SPEC-COVERAGE.md`, ce jour) :
+
+        equilibres 9-13      9 PARTIELLE · 10 NON TENUE · 11 PARTIELLE · 12 TENUE · 13 PARTIELLE
+        regimes 14-20        14 16 18 19 20 NON TENUE · 15 17 PARTIELLE
+        freq/amort 24-27     24 PARTIELLE · 25 TENUE · 26 TENUE · 27 PARTIELLE
+
+      Etat global des 38 : 3 TENUE · 5 TENUE PAR CONSTRUCTION · 17 PARTIELLE · 13 NON TENUE
+      (8, 10, 14, 16, 18, 19, 20, 21, 22, 23, 33, 34, 36).
+      CORRECTION DE MON PROPRE COMPTE, FAITE AVANT DE PUBLIER : mon premier parse rendait 12 et
+      ratait la 21, dont la ligne contient un `\|` echappe dans la formule `tanh` citee. Le
+      registre le signale depuis le cycle 106 (« tout compteur decoupant la ligne sur `|` la
+      rate ») ; je suis tombe dans le piege qu'il decrit, la valeur juste est 13 et elle
+      concorde avec l'en-tete du registre.
+
+Autrement dit : la sortie 0 est a treize conversions de statut de distance, dans un bloc dont la
+directive du 2026-08-21 18:25 constate que la conversion rouge -> vert « n'a pas commence ».
+Presenter l'echec du validateur comme un defaut de ce cycle serait faux.
+
+14. LA REGLE DES DEUX CYCLES EST ATTEINTE. JE REMONTE AU LIEU D'ENCHAINER UN TROISIEME.
+
+DIRECTIVES 2026-08-21 18:25, borne sur le travail d'instrument, point 2 : « **deux cycles
+consecutifs sans changement de statut d'une section** se remontent au superviseur avec la raison,
+au lieu d'enchainer un troisieme. »
+
+Les deux cycles y sont, et c'est verifie sur le fichier, pas de memoire — statut de chaque section
+touchee lu avant c109 et apres c109b :
+
+    section 10   NON TENUE  ->  NON TENUE
+    section 36   NON TENUE  ->  NON TENUE
+    c109b le dit lui-meme dans son message : « Registre: sections 22, 29, 33, 34 relues ;
+    aucun statut ne change. »
+
+Le troisieme cycle etait deja nomme par le c109 : la course `k4` (mur de collision desarme,
+`phys-col-off-set!`, phys-room.gc:4173) pour etablir ou refuter le mecanisme du couplage de la
+36. **JE NE LE LANCE PAS**, et la raison est la regle ci-dessus : cette course est une attribution
+de mecanisme, elle laisserait la 36 NON TENUE dans les deux cas de figure (son rouge porte sur la
+repartition d'amplitude, pas sur le couplage), et ce serait donc le troisieme cycle consecutif
+sans conversion. Ce n'est pas un abandon : c'est la premiere action recommandee APRES arbitrage,
+et elle est consignee ici pour ne pas se perdre.
+
+15. CE QUE J'AI VERIFIE MOI-MEME CE CYCLE, AU LIEU DE LE REPRENDRE DU RAPPORT PRECEDENT
+
+`preset_channel_audit.py` relance sur l'arbre courant confirme la ligne de force du c109b :
+
+    CANAL FICHIER 19/90 · indirect 3/90 · **CONSTANTE MOTEUR 0/90** · HORS RUNTIME 11/90
+    CANAL ABSENT 57/90 · **dont TAUTOLOGIQUES 0**
+    cles dont la valeur DIFFERE entre les deux presets : 62 — dont 37 encore CANAL ABSENT
+    CANAL PARTIEL — RESOLU (`PHYS-FLESH-YIELD` n'existe plus ; `phys-vol-floor` recoit `sc`).
+
+L'acquis du c109/c109b est donc reel et il tient : le preset est une ENTREE, plus aucune de ses
+cles n'est ecrite dans le moteur, et le controle positif de niveau systeme (preset de Maia comme
+VECTEUR DE TEST sur la chaine de Keira, sa physique non livree, son personnage non touche) a
+verifie P1 a P4 et refute P5.
+
+**ET C'EST AUSSI LA OU EST LA PROCHAINE SOURCE DE PROGRES REELLE : 37 cles qui DIFFERENT entre les
+deux presets sont encore CANAL ABSENT.** Ce sont exactement celles dont la directive du
+2026-08-22 23:00 dit qu'elles doivent produire un effet, « sinon elles ne serviraient a rien ».
+Parmi elles se trouvent les boutons des sections rouges du bloc de re-sollicitation —
+`HardLandingApex`, `HardLandingCOM`, `HardYawApex`, `HardYawCOM`, `HardLinearAccelCOM`,
+`NormalDynamicStretch`, `GlobalFrequencyAP`, `GlobalFrequencyLateral`, `FirstBounceRatio`. Ouvrir
+ces canaux est du gain de COUVERTURE sur les sections 14 a 20 et 24, c'est-a-dire dans le bloc
+meme qui conditionne la re-sollicitation de l'owner — pas un cycle d'instrument de plus.
+
+16. CE QUE JE DEMANDE AU SUPERVISEUR DE TRANCHER
+
+  A. La course `k4` (attribution du couplage de la 36) passe-t-elle AVANT ou APRES l'ouverture des
+     canaux absents ? Mon avis, et il est argumente par le point 13 : APRES. Le `k4` ferme une
+     clause d'un rouge ; les canaux absents peuvent en convertir plusieurs, et ils sont dans le
+     bloc que la directive du 2026-08-20 23:30 designe comme le seuil de re-sollicitation.
+  B. Confirmer que l'echec `OPEN-DEFECTS` n'est PAS traite comme un echec de tentative tant que le
+     bloc 9-13 / 14-20 / 24-27 n'est pas tenu. En l'etat, chaque tentative se termine sur un
+     rouge structurel, et le signal utile (les treize gates qui passent) est noye.
+
+A TESTER PAR L'OWNER : **RIEN.** Aucun bit du solveur n'a change ce cycle — aucune edition de
+`jak-hd-physics.gc`, de `phys-room.gc` ni de `physics_chains.txt`. Le seuil de re-sollicitation du
+2026-08-20 23:30 n'est pas atteint (3/16), et lui demander de juger a ce niveau lui couterait plus
+que ca ne rapporterait.
+
+DIRECTIVES vd9e8b66782
