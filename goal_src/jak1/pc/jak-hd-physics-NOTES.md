@@ -8685,3 +8685,52 @@ ne les lit pas). Le registre, lui, cite l'ajustement hors ligne du cycle 97 sur 
 **Deux instruments, un seul numero de section** : c'est ce qui explique que le cycle 97 lise
 `chestL lat = 2.393 SOUS` la ou le tableau lisait `2.550 DANS` a la meme course. A reconcilier avant
 de prononcer §24 `TENUE`, et c'est le blocage reel de la section.
+
+## NOTE-478 — SPEC 37, LA MOITIE ROTATION DU REBASE. Elle n'existait pas ; la cellule du registre
+affirmait le contraire, et le cycle 101 l'a etabli au source. Ce qui suit est le correctif, et il
+est une GENERALISATION STRICTE de la moitie translation, pas un mecanisme de plus.
+
+**LE DECLENCHEUR NE CHANGE PAS.** Aucun seuil neuf, aucun parametre neuf, aucun etat neuf. Le
+`when` reste `rbd > 7.00 * B0` ([NOTE-83]) : un rebase est UNE operation sur UN evenement, et
+donner a la rotation son propre seuil aurait demande d'arbitrer un nombre que rien ne derive.
+
+**L'ACTION PASSE D'UNE TRANSLATION A UN MOUVEMENT RIGIDE.**
+
+    avant :  p' = p + (anc - anp)                     translation pure
+    apres :  p' = R.p + t   avec   R = a0m^T . am ,   t = anc - R.anp
+
+`R` est la rotation que l'ancre a subie en une frame, `a0m` etant son orientation a la frame -1.
+Les quatre jeux de points de l'etat (`p`, `q` verlet, `cp`, `cq`) subissent le MEME mouvement, donc
+aucune vitesse relative n'est creee : c'est exactement « artificial transforms must not generate
+physical breast impulses » (l.441).
+
+**POURQUOI C'EST UNE GENERALISATION STRICTE.** Quand `R = I`, `R.p = p` au bit pres (produit par
+la matrice identite) et `t = anc - anp`, donc `p' = p + (anc - anp)` : la forme d'avant, a
+l'identique. Le chemin de code vit ENTIEREMENT dans le `when`, donc toute fenetre ou le rebase ne
+tire pas est inchangee AU BIT — c'est le controle de ce cycle, pose avant la course.
+
+**L'ETAT EST REUTILISE, PAS DUPLIQUE.** `*phys-a0m*` porte deja l'orientation de l'ancre a la
+frame -1 ; il est maintenu par le bloc de torsion de §29, qui s'execute PLUS LOIN dans la meme
+iteration de `(dotimes (c nch))` (site du rebase :2718, mise a jour de `a0m` :3691/:3717 — meme
+fonction `jak-hd-physics-step`, profondeur de parentheses verifiee). A l'instant du rebase, `a0m`
+est donc la frame -1. Le garde `*phys-twok*` couvre le seul cas ou il ne le serait pas — la toute
+premiere passe, ou `a0m` vaut encore ZERO : sans garde, `R` serait la matrice nulle et TOUT l'etat
+s'effondrerait sur l'ancre. Le garde met a l'identite les DEUX matrices de la composition (`rot` ET
+la copie `tmp` de `am`), pas seulement la premiere : mettre `rot = I` seul laisserait `R = am`,
+c'est-a-dire l'orientation ABSOLUE de l'ancre appliquee a l'etat — pire que le defaut. Avec les
+deux, `R = I` exactement et `t = anc - anp` : le rebase retombe sur sa moitie translation, au bit.
+Ce chemin ne devrait jamais s'executer (`twok` passe a 1 des la 1re passe, le rebase exige
+`warm > 1`, soit la 3e, et les deux sont remis a zero au meme endroit :603/:618) — il est ecrit
+parce que « ne devrait jamais » n'est pas une mesure.
+
+**RESERVE DECLAREE, ET ELLE EST A NOUS.** La mise a jour de `a0m` est gardee par
+`(> al 0.0001)` (`al` = longueur de l'axe de chaine). Sur une frame ou ce garde ne passerait pas,
+`a0m` aurait plus d'une frame d'age et `R` couvrirait plus d'une frame. Le rebase ne tire que sur
+une discontinuite, ou transporter par un delta multi-frames reste un mouvement rigide coherent ;
+mais l'age n'est pas MESURE, et tant qu'il ne l'est pas, cette ligne le dit au lieu de le taire.
+
+**IMPLEMENTATION.** `phys-rebase-pt!` prend les trois tableaux d'un jeu de points, l'indice du
+maillon, les deux matrices (`a0m^T` puis `am` — deux rotations successives, jamais leur produit :
+`matrix*!` sur des 4x4 melangerait les translations dans le bloc 3x3) et le vecteur `t`. Huit
+parametres : c'est la limite du compilateur, et c'est pourquoi la translation est pre-composee dans
+`t` au site d'appel plutot que passee en `anc`/`anp`.

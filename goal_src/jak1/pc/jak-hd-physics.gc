@@ -2540,6 +2540,12 @@
               (set! (-> skel bones (+ kk 1) transform vector 3 w) 1.0)))))))
   (none))
 
+;; [NOTE-478] SPEC 37 — LA MOITIE ROTATION DU REBASE : `p' = R.p + t`, R = a0m^T.am, t = anc - R.anp. -> jak-hd-physics-NOTES.md
+(defun phys-rebase-pt! ((ax (pointer float)) (ay (pointer float)) (az (pointer float)) (i int) (mt matrix) (mn matrix) (t0 vector) (v vector))
+  (set-vector! v (-> ax i) (-> ay i) (-> az i) 1.0)
+  (vector-rotate*! v v mt) (vector-rotate*! v v mn)
+  (set! (-> ax i) (+ (-> t0 x) (-> v x))) (set! (-> ay i) (+ (-> t0 y) (-> v y))) (set! (-> az i) (+ (-> t0 z) (-> v z))) (none))
+
 ;; [NOTE-226] LE PAS — appele depuis do-joint-math! de jak-hd, APRES fill-jak-hd-bones!. A cet instant -> jak-hd-physics-NOTES.md
 (defun jak-hd-physics-step ((obj jak-hd))
   (let ((slot (phys-slot-for-pid (the int (-> obj pid)))))
@@ -2705,21 +2711,18 @@
                          (gsc  (-> *phys-grav* sc))
                          (cpl  (-> *phys-couple* sc)))
                     (set! (-> *phys-warm* sc) (min 3 (+ warm 1)))
-                    ;; [NOTE-83] SPEC 37 — LE REBASE DE TRANSLATION, ET LA MESURE QUI JUGE SON SEUIL. -> jak-hd-physics-NOTES.md
+                    ;; [NOTE-83] SPEC 37 — LE REBASE RIGIDE (translation ET rotation), ET LA MESURE QUI JUGE SON SEUIL. -> jak-hd-physics-NOTES.md
                     (let ((rbd (if (> warm 1) (vector-vector-distance anc (-> *phys-anp* sc)) 0.0))
                           (dgr (* sc PHYS-DG)))
                       (when (> rbd (-> *phys-dg* (+ dgr 30))) (set! (-> *phys-dg* (+ dgr 30)) rbd))
                       (when (> rbd (* 7.00 (fmax 1.0 (-> *phys-b0* sc))))
                         (set! (-> *phys-dg* (+ dgr 29)) (+ 1.0 (-> *phys-dg* (+ dgr 29))))
-                        (let ((dx (- (-> anc x) (-> *phys-anp* sc x)))
-                              (dy (- (-> anc y) (-> *phys-anp* sc y)))
-                              (dz (- (-> anc z) (-> *phys-anp* sc z))))
-                          (dotimes (l n)
-                            (let ((s2 (+ (* sc PHYS-LINKS) l)))
-                              (+! (-> *phys-px* s2) dx) (+! (-> *phys-py* s2) dy) (+! (-> *phys-pz* s2) dz)
-                              (+! (-> *phys-qx* s2) dx) (+! (-> *phys-qy* s2) dy) (+! (-> *phys-qz* s2) dz)
-                              (+! (-> *phys-cpx* s2) dx) (+! (-> *phys-cpy* s2) dy) (+! (-> *phys-cpz* s2) dz)
-                              (+! (-> *phys-cqx* s2) dx) (+! (-> *phys-cqy* s2) dy) (+! (-> *phys-cqz* s2) dz)))))
+                        (matrix-transpose! rot (-> *phys-a0m* sc)) (matrix-copy! tmp am) (when (zero? (-> *phys-twok* sc)) (matrix-identity! rot) (matrix-identity! tmp))
+                        (vector-rotate*! ov (-> *phys-anp* sc) rot) (vector-rotate*! ov ov tmp) (vector-! ov anc ov)
+                        (dotimes (l n)
+                          (let ((s2 (+ (* sc PHYS-LINKS) l)))
+                            (phys-rebase-pt! *phys-px* *phys-py* *phys-pz* s2 rot tmp ov pt) (phys-rebase-pt! *phys-qx* *phys-qy* *phys-qz* s2 rot tmp ov pt)
+                            (phys-rebase-pt! *phys-cpx* *phys-cpy* *phys-cpz* s2 rot tmp ov pt) (phys-rebase-pt! *phys-cqx* *phys-cqy* *phys-cqz* s2 rot tmp ov pt))))
                       ;; [NOTE-416] LA POSITION MONDE DE L'ANCRE, POUR QUE LA SALLE MESURE SON BRAS DE LEVIER. -> jak-hd-physics-NOTES.md
                       (set! (-> *phys-dg* (+ dgr 50)) (-> anc x))
                       (set! (-> *phys-dg* (+ dgr 51)) (-> anc y))
