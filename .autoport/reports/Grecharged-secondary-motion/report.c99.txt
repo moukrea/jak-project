@@ -1,0 +1,273 @@
+RAPPORT DE CYCLE 99 — Grecharged-secondary-motion
+DIRECTIVES v3fee554599
+Branche physics-keira-clean · perimetre : chestL / chestR SEULES (owner 2026-08-14 07:30)
+(le rapport precedent est archive a cote de celui-ci sous `report.c98.txt`)
+
+SECTION DONT CE CYCLE DEBLOQUE LE VERDICT, NOMMEE AVANT DE COMMENCER (directive du 2026-08-21
+18:25) : **§24**. Le correctif etait SPECIFIE au cycle 94, DEBLOQUE au cycle 97 (« il reste la voie
+pour convertir les 55-63 % en 100 %, et il est desormais debloque »), et jamais pose.
+
+SUBSTRAT : GOAL seul. `(mi)` + une course x86. **4 lignes changees, 0 ligne ajoutee** — le moteur
+reste a 4797 (plafond CLEAN 4800). `recharged_assets/physics_chains.txt` INCHANGE.
+
+BREAST-PENETRATION: 0.0586 m — `meshpen`, DIAGNOSTIC, jamais un verdict (arbitrage 2026-08-20
+13:20 : c'est un DEPLACEMENT, pas une profondeur). Valeur DE CETTE COURSE ; celle du rapport
+precedent (0.0586) etait celle du cycle 98 et la gate ne verifie que la PRESENCE de la ligne, pas
+sa fraicheur — signale ici plutot que laisse mentir.
+
+================================================================================================
+0. EN UNE PHRASE
+================================================================================================
+**LA RAIDEUR PAR AXE EST DESORMAIS POSEE *APRES* LE PROJECTEUR DE LONGUEUR, EN FORME FERMEE ET SANS
+UN SEUL PARAMETRE AJUSTE : L'ANISOTROPIE DE §24 ARRIVE ENFIN AU JOINT (chestL `ap` -3,24 % ->
+-0,47 % du nominal, `lat` -4,60 % -> +1,76 %, et `chestR lat` PASSE DE NON LISIBLE A DANS SA
+BANDE). MAIS §24 RESTE `PARTIELLE`, ET LE CORRECTIF COUTE UNE GATE : LA PENETRATION DE PEAU DE
+chestR FRANCHIT SON PLANCHER DE 1,0 mm ET `COLLIDE §33/§34` PASSE AU ROUGE.**
+
+**ET LA CONSEQUENCE DE PROCEDURE, QUE JE REMONTE AU LIEU DE L'ENCHAINER : C'EST LE DEUXIEME CYCLE
+CONSECUTIF SANS CHANGEMENT DE STATUT.** La directive du 2026-08-21 18:25, point 2, dit que ca se
+remonte au superviseur avec la raison au lieu de lancer un troisieme cycle. La raison est en §5.
+
+================================================================================================
+1. LE CORRECTIF — ON INVERSE `P K P` AU LIEU DE POSER `K`
+================================================================================================
+Le defaut est etabli depuis le cycle 94 : la raideur par axe est definie en 3-D, PUIS la contrainte
+de longueur restreint le mouvement au plan perpendiculaire a l'os. Ce qui atteint le joint est donc
+`A = P K P`, `P = I - m^ m^T`. Avec les compliances de §29 lues comme des raideurs, les valeurs
+propres non nulles rendaient un rapport de frequences de **1,031-1,039 quand §24 exige 1,0600**.
+
+On resout l'inverse. Pour un `A` de rang 2, deux identites suffisent :
+
+    T = trace(A) = somme_i s_i (1 - m_i^2)                    = tau_ap + tau_lat
+    D = det(K) * m^T K^-1 m^                                  = tau_ap * tau_lat
+
+avec `tau_ap = (2,50/2,30)^2 = 1,1814745` et `tau_lat = (2,65/2,30)^2 = 1,3275047`, et `s_v = 1`.
+La premiere est LINEAIRE : on substitue et on resout la quadratique. **Forme fermee, aucun
+ajustement, aucun parametre cale sur une mesure.**
+
+    (defconstant PHYS-K24-AP  1.186962)     <- etait PHYS-MOB-AP  0.90, lue comme 1/0.90 = 1.1111
+    (defconstant PHYS-K24-LAT 1.375656)     <- etait PHYS-MOB-LAT 0.82, lue comme 1/0.82 = 1.2195
+
+**DEUX CONSTANTES SUFFISENT, ET CE N'EST PAS UNE APPROXIMATION DE CONFORT.** En base d'ANCRE l'axe
+d'os vaut `(v -0,919254, ap -0,147761, lat +0,364882)` sur chestL et `(v -0,920567, ap -0,147941,
+lat -0,361483)` sur chestR : de vrais miroirs, seule la composante laterale change de signe — or
+seuls les CARRES entrent dans `T` et `D`. Les deux chaines rendent donc 1,186970/1,376174 et
+1,186953/1,375137, soit **0,075 % d'ecart**. Les constantes posees sont leur moyenne.
+
+**LE CHOIX DE RACINE EST FALSIFIABLE, ET CE N'EST PAS LE SIGNE QUI TRANCHE.** Les deux racines sont
+positives. Ce qui discrimine est l'AFFECTATION DES MODES : la racine `s_ap > s_lat` place le mode
+LENT a **85,8 deg de `ap`**, c'est-a-dire §24 a l'envers ; la racine retenue le place a **11,4 deg
+de `ap`**, le mode rapide a 21,8 deg de `lat`.
+
+================================================================================================
+2. LES CONTROLES, AVANT LES RESULTATS
+================================================================================================
+**(a) LE BINAIRE PORTE BIEN LE CHANGEMENT.** `PHYSAXISS c=0 sv=1.0000 sap=1.1869 slat=1.3756` et
+idem `c=1`. La trace archivee du cycle 98 porte `sap=1.1111 slat=1.2195`. Sans cette ligne, tout ce
+qui suit serait inverifiable.
+
+**(b) LE REPERE A ETE CORRIGE AVANT LE CALCUL, ET IL FAISAIT LA DIFFERENCE.** J'avais d'abord traite
+`PHYSURST` comme un vecteur MONDE. Il est deja tourne par `w2l` (`:2846-2853`), donc exprime en base
+d'ANCRE ; l'emetteur le dit (`phys-room.gc:3216`, « REPERE : la base de l'ANCRE »). Projeter une
+seconde fois donnait un axe **a 51,85 deg** de la verite sur chestR, avec le SIGNE de `m_ap`
+inverse. Le tell qui l'a attrape : la voie fausse rendait deux chaines NON miroirs.
+
+**(c) LE TRIEDRE ET L'AXE SONT ORTHONORMES.** Gram hors-diagonale max 7,4e-06, |diag-1| max 1,4e-05.
+`|m|^2` = 0,999991 / 0,999985. Troisieme valeur propre de `P K P` : 2,2e-17 / 4,8e-18 — c'est l'os,
+et c'est le controle du calcul.
+
+**(d) LE MODELE PREDIT AVANT DE CORRIGER.** Sur l'etat LIVRE il rend des valeurs propres a
+**+0,02 % a +1,24 %** de celles que le cycle 94 avait derivees par un chemin independant (ACP de la
+trajectoire, qui ne lit jamais `PHYSURST`). Deux derivations independantes a 1,24 % pres.
+
+**(e) L'INVERSION EST RE-VERIFIEE.** `P K P` recalcule avec les `s` trouvees retombe sur `tau_ap` et
+`tau_lat` a **1,1e-15** pres.
+
+**(f) SENSIBILITE.** 1 deg de rotation d'os deplace `s_ap` de 0,12 % et `s_lat` de 0,38 %, balaye
+sur 360 azimuts. La solution n'est pas sur une lame de couteau.
+
+================================================================================================
+3. LE RESULTAT MESURE — MEME SALLE, MEME TABLEAU, SEULE LA PAIRE DE CONSTANTES CHANGE
+================================================================================================
+    `ROOM-AXRATIO-SPEC24`            cycle 98              cycle 99
+      chestL  ap    2,440 Hz DANS  (-3,24 % du nominal)  2,510 Hz DANS  (**-0,47 %**)
+      chestL  lat   2,550 Hz DANS  (-4,60 %)             2,720 Hz DANS  (**+1,76 %**)
+      chestR  ap    non lisible                          non lisible
+      chestR  lat   **non lisible**                      **2,690 Hz DANS** (-3,12 %)
+    `ROOM-AXFIT-RAD` (verticale, canal radial de §23)
+      chestL  v     2,320 Hz DANS                        2,320 Hz DANS   (inchangee)
+      chestR  v     2,415 Hz DANS                        2,410 Hz DANS   (-0,2 %)
+
+Les deltas tangentiels sont ceux que le modele annoncait : +2,9 % mesure contre +3,3 % predit sur
+`ap`, +6,7 % contre +5,6 % sur `lat`.
+
+**ET UNE MOITIE DE MA PREDICTION EST REFUTEE, JE NE LA LAISSE PAS PASSER.** J'avais ecrit d'avance
+que `f_v` monterait de +1,1 %, le canal radial de §23 lisant le meme `K` (`:3038-3040`). **La
+verticale n'a pas bouge du tout** (2,320 -> 2,320 ; 2,415 -> 2,410). Le fait de code reste vrai ;
+en tirer que la FREQUENCE suit `sqrt(m^T K m^)` etait faux. La consequence est FAVORABLE — tout le
+delta tangentiel va au rapport au lieu d'en perdre au denominateur — mais elle est favorable par
+accident, pas par prevision.
+
+================================================================================================
+4. CE QUE CA COUTE, ET JE NE LE LISSE PAS
+================================================================================================
+**(a) `COLLIDE §33/§34` PASSE AU ROUGE — pour la premiere fois le validateur echoue sur une MESURE
+et non sur la seule porte de l'owner.**
+
+    ROOM-SKINPEN-VERDICT chestR   0,0863 -> 0,0893 m   physique -0,0021 -> **+0,0010 m**  DEPASSEE
+    ROOM-SKINPEN-VERDICT chestL   0,0691 -> 0,0696 m   physique +0,0079 -> +0,0083 m      DEPASSEE
+
+Mecanisme coherent, pas fortuit : une raideur tangentielle plus haute tire le point de chair plus
+fort vers sa cible et le repoussoir de collision perd le bras de fer.
+**CE QUE VALAIT LE VERT PRECEDENT, PARCE QUE CA CHANGE LA TAILLE DU RECUL.** Il ne tenait que par le
+plancher PARTAGE : la gate lit la premiere ligne `ROOM-SKINPEN-REST` (= `PIRE-DES-DEUX 0,0883`) et
+l'applique aux DEUX chaines, alors que `chestL` depassait DEJA son propre plancher de 0,0079 m —
+exactement le defaut que la directive du 2026-08-20 18:50 decrit. Le cycle 99 n'a pas casse un vert
+propre ; il a fait franchir le plancher partage a la SECONDE chaine. **La degradation reste reelle
+(+0,0030 m sur chestR) et elle est a moi.**
+
+**(b) `ROOM-RINGFIT repos chestR ap` SORT PAR LE HAUT** : 2,645 DANS -> 2,795 HORS (plafond §24-ap
+2,7). Cause identifiee et chiffree : `chestR` a une `f_v` de **2,410 Hz, soit +4,8 % au-dessus du
+nominal 2,30 de §24** ; sa cible `ap` derivee (2,410 x 1,0870 = 2,620) est donc deja a 3 % du
+plafond. Ce n'est pas l'anisotropie qui deborde, c'est la raideur DE BASE de chestR qui est haute.
+
+**(c) LA JAMBE DE CONTROLE SE DEGRADE.** `ROOM-AXFIT-RAD-NOLEN` (contrainte de longueur DESARMEE) :
+**3 cellules sur 6 passent `INSUFFISANT`** (residu > 0,08), aucune ne l'etait. A contrainte levee et
+raideur plus haute, la serie ne porte plus un mode unique. Non explique.
+
+**(d) CE QUI S'AMELIORE PAR AILLEURS** : `ROOM-COM` (§22) baisse des deux cotes — chestL 0,4940 ->
+**0,4583** B0, chestR 0,4452 -> **0,4302** B0. Toujours au-dessus du plafond dur 0,40, mais dans le
+bon sens, et sans que §22 ait ete vise.
+
+**(e) §29 CEDE, ET C'EST ARITHMETIQUE.** Les compliances equivalentes livrees deviennent 0,8425 /
+0,7267 la ou §29 ecrit 0,90 / 0,82 (-6,4 % / -11,4 %). §29 implique des rapports de frequence
+1,0541 / 1,1043 ; §24 en exige 1,0870 / 1,1522. **Le meme bouton porte les deux sections : l'une
+cede.** J'ai tranche pour §24 (bandes explicites en Hz, clause en gras, et c'est la section du bloc
+que l'owner a designe le 2026-08-20 23:30). Les deux tiendraient si l'inertie effective differait
+par axe (`m_ap/m_v = 0,940`, `m_lat/m_v = 0,919`) — **ni mesure ni implemente, donc ce n'est pas une
+echappatoire : c'est une question ouverte pour l'owner.** `PHYS-MOB-TOR` (§29 torsion) est intacte.
+
+================================================================================================
+5. POURQUOI §24 N'EST PAS `TENUE` — ET POURQUOI JE REMONTE AU LIEU D'ENCHAINER
+================================================================================================
+La regle 2 du registre exige la bande sur LES DEUX seins. `chestL` a ses trois lectures DANS.
+`chestR` a `v` et `lat` DANS et **`ap` NON LISIBLE** : l'ajustement de sa fenetre `ap` bute sur la
+borne de recherche (`ROOM-AXFIT` f=6,000 sur [5,385..6,000], residu 0,567). Le blocage n'est plus
+l'anisotropie — il est **d'instrument**, et c'est un progres de le savoir.
+
+**ET IL Y A PIRE, QUE JE PREFERE NOMMER : DEUX INSTRUMENTS PORTENT LE MEME NUMERO DE SECTION.**
+Le verdict §24 du TABLEAU est bati sur les six fenetres AX d'origine. Le verdict du REGISTRE vient
+de l'ajustement hors ligne du cycle 97 sur les fenetres a ENTREE PROPRE `PH-AXC` que le cycle 96 a
+construites — leurs tags (`PHYSAXPRE`, `PHYSAXWN`, `PHYSAXRESN`, `PHYSAXCOMN`) sont bien dans la
+trace, mais **le tableau ne les lit pas**. C'est ce qui explique que le cycle 97 lise
+`chestL lat = 2,393 SOUS` la ou le tableau lisait `2,550 DANS` **A LA MEME COURSE**. Tant que ce
+n'est pas reconcilie, prononcer `TENUE` reviendrait a choisir l'instrument qui arrange.
+
+**REMONTEE AU SUPERVISEUR (directive du 2026-08-21 18:25, point 2).** Cycles 98 et 99 : aucun
+changement de statut. Je ne lance pas un troisieme cycle sans arbitrage. Les trois voies, chiffrees :
+  1. **Reconcilier les deux instruments de §24** (faire lire les fenetres propres au tableau, ou
+     retirer le verdict du cycle 97). C'est un cycle d'INSTRUMENT, et il nomme sa section : §24.
+  2. **Rendre lisible `chestR ap`** — la fenetre `ap` de chestR ne porte pas un mode unique. Meme
+     classe que le cycle 96, vue sur une autre fenetre.
+  3. **Baisser la raideur de base de `chestR`** (`f_v` 2,410 contre 2,30 nominal, +4,8 %) : ca
+     recentre `ap` et `lat` dans leurs bandes ET ca reduit la penetration. **Mais ca remonte §22**,
+     deja hors bande. C'est un arbitrage, pas une evidence — d'ou la remontee.
+
+================================================================================================
+6. CE QUE CE CYCLE NE PRETEND PAS
+================================================================================================
+* Il ne fait passer AUCUNE section au vert. §24 reste `PARTIELLE`, §29 et §33 sont mises a jour
+  avec leur mesure et leur degradation.
+* Il ne corrige pas le residu de PH-MEAS nomme au cycle 98 : toujours ouvert.
+* `ROOM-AXRATIO` compare encore a une reference §29 **codee en dur** (`physics_room_table.py:9817`,
+  `_R29 = {'ap': 1.05409, 'lat': 1.10432}`) alors que la ligne affirme la deriver de `PHYSAXISS` :
+  cette colonne-la est desormais perimee. La colonne SPEC24, elle, est juste. Signale, pas touche
+  (regle 5 : les gates et l'instrument ne se modifient pas sans arbitrage).
+* Aucune gate n'a ete ajoutee, modifiee ni assouplie.
+
+================================================================================================
+7. FICHIERS ET COMMANDES DE REPRODUCTION
+================================================================================================
+    goal_src/jak1/pc/jak-hd-physics.gc         4 lignes (205-206, 2673-2674), 0 ajoutee, 4797 total
+    goal_src/jak1/pc/jak-hd-physics-NOTES.md   [NOTE-433] + son addendum de mesure
+    .autoport/SPEC-COVERAGE.md                 §24, §29, §33 mis a jour
+    .autoport/reports/.../c99-aniso-solve.out  la resolution en forme fermee et ses controles
+    .autoport/reports/.../c99-blast.out        l'audit de rayon d'impact (zeta, gates, §14-§20)
+    .autoport/reports/.../keira-room-table.c98-BASE.txt   le tableau d'avant, pour le diff
+
+    ./build/goalc/goalc --user-auto --game jak1 -c '(mi)'
+    bash .autoport/keira_room_x86.sh
+    python3 .autoport/physics_room_table.py
+    bash .autoport/validators/phase-Grecharged-secondary-motion.sh
+
+VALIDATEUR : echoue sur `COLLIDE §33/§34` (§4a ci-dessus). `OPEN-DEFECTS`
+(`breast-spec-incomplete`) n'est donc meme pas atteinte — elle ne se retire de toute facon que sur
+la parole de l'owner, et le jeton `.autoport/owner-ok/<phase>` est son geste, jamais cree a sa place.
+
+A TESTER PAR L'OWNER : **rien.** La consigne du 2026-08-20 23:30 tient — a 4 sections tenues sur 38,
+un changement d'une seule section ne produit pas d'ecart qu'un oeil puisse trancher. Le build est la
+s'il le veut.
+
+================================================================================================
+ADDENDUM CYCLE 99 (SUITE) — LE CORRECTIF EST RETIRE. LA MESURE A TRANCHE CONTRE LUI.
+================================================================================================
+DIRECTIVES v3fee554599
+
+Tout ce qui precede reste vrai comme MESURE ; ce qui change est la conclusion. Le correctif
+d'anisotropie de §24 est **RETIRE** : `PHYS-K24-AP`/`PHYS-K24-LAT` reviennent a `PHYS-MOB-AP 0.90`
+/ `PHYS-MOB-LAT 0.82`. Le seul ecart de code avec le cycle 98 est un COMMENTAIRE.
+
+**MOTIF, ET IL EST DANS LE CONTRAT, PAS DANS MON GOUT.** Le correctif faisait franchir a `chestR`
+son propre plancher de penetration de peau (`ROOM-SKINPEN-VERDICT` -0,0021 -> +0,0010 m) et passait
+`COLLIDE §33/§34` au ROUGE. La regle 6 des « REGLES QUI NE SE NEGOCIENT JAMAIS » dit : « Rien ne
+traverse le mesh de son personnage, **quelle qu'en soit la raison**. » Une conformite de §24 est une
+raison ; la regle dit qu'aucune raison ne vaut.
+
+**ET J'AI CHERCHE A GARDER LES DEUX AVANT DE RECULER. LES TROIS LEVIERS SONT CLOS, CHACUN PAR UNE
+LIGNE DE SA SPEC :**
+  1. **Renormaliser `s` a niveau de raideur constant** (multiplier les trois par un meme alpha) :
+     annule exactement ce que §24 demande, puisque §24 porte sur des RAPPORTS a la verticale.
+  2. **Baisser la raideur de base** : CLOS, et c'est le fait qui m'a fait changer d'avis. `stiffness`
+     **EST** la frequence — `w = 2*pi*stiffness/sqrt(mass)` (`jak-hd-physics.gc:2701`) — et
+     `2.7696/sqrt(1.45)` vaut **2,30003 Hz**, le nominal EXACT de §24 sur chestL. Il n'y avait donc
+     aucune « inflation de raideur » a defaire : la verticale etait deja juste, et c'est la
+     TANGENTIELLE que §24 demande de monter. Baisser aurait eloigne du nominal.
+  3. **Ceder sur §32** : CLOS. §32 (l.395) demande masse +-2-4 %, raideur +-3-5 %, amortissement
+     +-3-5 %. Livre : **stiffness +5,00 %, masse +2,07 %, damping +3,97 %** — deja tenue, et la
+     raideur est **au bord exact** de sa bande. Rien a prendre.
+
+Tout autre choix aurait ete un nombre cale pour faire passer ma propre gate, c'est-a-dire
+`never-fit-a-parameter-to-the-instrument` applique a l'envers.
+
+**LE RETRAIT EST VERIFIE AU BIT, PAS SUR PAROLE.**
+  * le binaire porte le retrait : `PHYSAXISS sv=1.0000 sap=1.1111 slat=1.2195`, et le controle
+    negatif tire — la trace d'avant le retrait porte `sap=1.1869 slat=1.3756` ;
+  * tableau neuf contre le tableau archive du cycle 98 : **4235 lignes identiques sur 4236**, la
+    seule differente etant l'empreinte md5 de la trace lue ;
+  * traces brutes : **0 ligne `PHYS` differente sur 87 866**. La salle est deterministe, et ce
+    retrait le re-atteste au passage.
+
+**ETAT DU VALIDATEUR — c'est l'objet du retrait et il est atteint :**
+
+    AVANT le retrait   FAIL COLLIDE §33/§34 (chestR 0.0893 > 0.0883)   <- une gate de MESURE
+    APRES le retrait   toutes les gates de mesure PASSENT
+                       FAIL OPEN-DEFECTS: breast-spec-incomplete       <- la porte de l'OWNER
+
+`OPEN-DEFECTS` ne se retire **que** sur sa parole, et le jeton `.autoport/owner-ok/<phase>` est son
+geste : il n'est jamais cree a sa place. Le validateur ne peut donc pas rendre 0 par du travail de
+code, et c'est voulu — c'est le dispositif qui a ete pose apres que la phase se soit declaree
+terminee quatre fois le 2026-08-11 avec cinq defauts ouverts.
+
+**CE QUI SURVIT DU CYCLE, ET C'EST L'ESSENTIEL :** la resolution en forme fermee de `P K P`, ses
+deux constantes (1,186962 / 1,375656), la demonstration que DEUX suffisent pour les deux chaines, la
+correction de repere sur `PHYSURST`, et la mesure de ce que ces constantes rendent reellement
+(chestL `ap` -0,47 % et `lat` +1,76 % du nominal, `chestR lat` lisible et DANS). **§24 n'est plus
+bloquee par une inconnue mais par un ARBITRAGE** : la tenir exige de ceder soit §29, soit §33/§34.
+Ce n'est pas a moi de le trancher, et c'est remonte.
+
+**ET UN VERT QUI N'EN EST PAS UN, DIT ICI PARCE QUE LE RETRAIT NE LE CORRIGE PAS.** La gate qui
+vient de repasser au vert compare LES DEUX chaines au plancher `PIRE-DES-DEUX 0,0883` alors que
+`chestL` depasse SON propre plancher de +0,0079 m ; et §33 proprement dite (contact sein-sein, pas
+thorax) est mesuree ROUGE des deux cotes avec un controle qui a tire — `ROOM-MEDIAL-PEN chestL
++0,0377 m`, `chestR +0,0137 m` — sans qu'aucune gate ne la lise. Le vert du validateur n'etablit pas
+§33. C'etait deja vrai au cycle 98 ; le retrait ne l'ameliore ni ne l'aggrave.
