@@ -8857,3 +8857,60 @@ mesure ne sonde pas, apres qu'elle a deja latche.
 corrections ne peut faire verdir quoi que ce soit par accident (regle 5, et la condition posee par
 l'arbitrage du 2026-08-19 23:50). La faiblesse de la gate — un plancher unique `PIRE-DES-DEUX`
 applique aux DEUX chaines — est remontee, pas corrigee.
+
+## NOTE-480 — cycle 105 (suite) : LE PLAFOND DE DEPLACEMENT EST **REFUTE** COMME COUPABLE SUR chestL, ET CE QUI RESTE EST UNE BORNE DE LEVIER
+
+Le cycle 104 nommait comme prochaine tache « faire fermer la contrainte de peau sur chestL » avec
+un ecart de **7,2 mm**. Le cycle 105 a montre que ce chiffre venait d'une difference de deux maxima
+latches separement : la vraie cible est **280,1669 u = 0,0684 m**, soit **9,5x** plus. Cette note
+resserre le diagnostic AVANT d'engager le chantier, et elle ELIMINE une hypothese sur les trois.
+
+**HYPOTHESE B — LE PLAFOND `-dn` — REFUTEE, PAR ALGEBRE, SUR L'ECHANTILLON QUI DECIDE.**
+La contrainte borne sa correction par `v = fmin((fmin 0.0 sa) - sd, -dn)` avec
+`dn = (o - b) . n` : `o` le joint simule a l'entree, `b` le joint d'AUTEUR, `n` la normale de
+l'echantillon (sortante — c'est le gradient de `phys-surf-sd`, et le code pousse vers `+nb`).
+Le cycle 105 etablit que sur chestL, a l'argmax, **`sa >= 0`** (`skinpen` et `skinadd` EGAUX au
+chiffre, 280,1669). L'echantillon et le joint partagent le MEME deplacement (l'offset `ap` est
+rigide), donc `n . (o - b) ~= sd - sa <= sd < 0`, d'ou **`-dn >= sa - sd >= -sd = v demande`**.
+**Le plafond laisse donc passer la totalite de la correction demandee.** Il n'est pas le coupable.
+
+**CE QUI RESTE, ET C'EST UNE BORNE DE FORME, PAS UN REGLAGE.** La correction est une **ROTATION**
+autour de l'attache du maillon. Son autorite dans la direction NORMALE est bornee, par iteration :
+
+    progres_normal <= ln * kr/sqrt(1+kr^2) * pp ,  avec kr <= 0.5  donc  <= 0.4472 * ln * pp
+
+ou `pp = sin(angle entre la normale n et l'axe attache->joint h)`. Une rotation est TANGENTIELLE :
+quand la poussee demandee devient RADIALE (`pp -> 0`), son autorite tend vers zero, et sous
+`pp <= 0.05` le code ne corrige meme plus du tout. C'est
+[[feedback_operator_form_does_not_transport_between_quantities]], sur un autre operateur.
+
+**LES DEUX LEVIERS SONT MESURES** (`PHYSBONE c=0`) : racine `l=0` **1040,4951 u**, chair `l=1`
+**140,4159 u**. Avec 6 iterations correctrices, fermer 280,1669 u exige donc :
+
+    maillon        ln          progres max / iteration     pp requis      angle n/os requis
+    racine l=0   1040,4951 u      465,32 * pp u            >= 0,1003        >= 5,8 deg
+    chair  l=1    140,4159 u       62,80 * pp u            >= 0,7436       >= 48,0 deg
+
+**C'EST UNE CONDITION NECESSAIRE, ET ELLE EST GENEREUSE** : elle suppose `kr` sature a 0,5 a CHAQUE
+iteration et aucune interference entre echantillons. Le progres reel est inferieur.
+
+**LA MESURE QUI TRANCHE, ET ELLE EST FALSIFIABLE.** Instrumenter, a l'argmax de `skinadd` : (1) le
+MAILLON proprietaire, (2) `pp`, (3) `kr` et s'il sature. Alors :
+  * si l'echantillon vit sur le maillon de CHAIR avec `pp < 0,74`, la contrainte **ne peut pas**
+    fermer avec sa forme et son budget actuels — le chantier est STRUCTUREL, pas un reglage
+    d'iterations ;
+  * si `pp >= 0,74`, ou si l'echantillon vit sur la RACINE, la borne de levier n'explique rien et
+    il reste l'hypothese C (un echantillon corrige par iteration, 6 iterations, 8 echantillons).
+
+**ET LE PIEGE A NE PAS TOMBER DEDANS, ECRIT D'AVANCE.** « Il suffit d'ajouter une composante
+RADIALE » est faux tel quel : une poussee radiale change la LONGUEUR du maillon, que
+`phys-length-chain` reprojette et que `ROOM-STRETCH <= 3 %` interdit (l'owner : « les seins sont
+FERMES, l'os ne s'allonge pas »). C'est precisement pourquoi l'auteur de la contrainte a choisi une
+rotation. Le chantier doit donc arbitrer entre : porter la correction sur le maillon au GRAND
+levier (racine), relever le plafond `kr`, augmenter les iterations, ou admettre une deformation de
+CHAIR qui n'est pas une elongation d'OS. Aucune de ces quatre voies n'est gratuite, et le cycle qui
+l'engage doit publier ce qu'elle coute ([[feedback_never_spend_the_bit_identity_control_on_line_count]]).
+
+**COUT EN LIGNES DE MOTEUR : ZERO** — cette note ne touche pas le moteur. Mais l'instrumentation
+qu'elle prescrit, elle, en demande, et la marge est **0** (4800/4800). Le plafond CLEAN est donc le
+blocage effectif du prochain cycle, et c'est remonte comme tel.

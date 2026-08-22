@@ -289,9 +289,24 @@ de MOTEUR, et il n'y en a pas.
 12. LA SUITE, NOMMEE
 ================================================================================================
 (a) **chestL : faire fermer la contrainte de peau, contre la VRAIE cible.** 0,0684 m, pas 0,0072 m.
-    Le diagnostic d'algorithme du cycle 104 tient (la boucle corrige UN SEUL echantillon par
-    iteration, 6 iterations, 8 echantillons par maillon), mais son chiffrage etait faux d'un
-    facteur 9,5.
+    Le chiffrage du cycle 104 etait faux d'un facteur 9,5. **ET LE DIAGNOSTIC EST RESSERRE AVANT
+    D'ENGAGER LE CHANTIER — [NOTE-480], zero course :**
+      * le plafond `-dn` est **REFUTE** comme coupable sur chestL. `sa >= 0` a l'argmax (etabli en
+        §6), et l'echantillon partage le deplacement du joint, donc `-dn >= -sd` : le plafond
+        laisse passer la TOTALITE de la correction demandee ;
+      * ce qui reste est une **borne de LEVIER**. La correction est une ROTATION : son autorite
+        dans la direction NORMALE vaut au plus `0,4472 * ln * pp` par iteration (`kr <= 0,5`,
+        `pp = sin(angle normale/os)`). Leviers mesures (`PHYSBONE`) : racine 1040,4951 u, chair
+        140,4159 u. Fermer 280,1669 u en 6 iterations exige donc **pp >= 0,7436 (48,0 deg) sur le
+        maillon de CHAIR**, ou pp >= 0,1003 (5,8 deg) sur la RACINE — condition NECESSAIRE et
+        genereuse (elle suppose `kr` sature partout) ;
+      * **la mesure qui tranche est nommee et falsifiable** : le maillon proprietaire de l'argmax,
+        `pp`, et si `kr` sature. Si c'est la chair avec pp < 0,74, le chantier est STRUCTUREL et
+        pas un budget d'iterations.
+    Piege ecrit d'avance : « ajouter une composante RADIALE » est faux tel quel — une poussee
+    radiale change la LONGUEUR de l'os, que `phys-length-chain` reprojette et que
+    `ROOM-STRETCH <= 3 %` interdit (« les seins sont FERMES »). C'est pour ca que l'auteur avait
+    choisi une rotation.
 (b) **Egaliser les populations des deux jambes de l'ablation**, sans quoi le controle de §34 ne
     pourra jamais conclure sur chestR — et donc §34 ne pourra jamais devenir verte proprement.
 (c) **Mesurer le residu FINAL de la peau** (§10g) — defaut confirme, correctif bloque par le
