@@ -1115,7 +1115,8 @@ def _spec13_block(A, txt, names, ori, com, acc, roles, zs, b0, perm=None):
 # Ces trois nombres ne sont pas de moi : ils sont les constantes du solveur, citees par ligne.
 _LIM_KN, _LIM_CPP, _LIM_XRC = 0.42, 0.08, 0.99
 _LIM_FRZ = _LIM_KN + _LIM_XRC * _LIM_CPP          # 0.4992 B0
-_LIM_PH = {31: 'PH-REG', 36: 'PH-REGS', 37: 'PH-REGT', 38: 'PH-REGA', 39: 'PH-REGB'}
+_LIM_PH = {31: 'PH-REG', 36: 'PH-REGS', 37: 'PH-REGT', 38: 'PH-REGA', 39: 'PH-REGB',
+           44: 'PH-REGC/ARM', 45: 'PH-REGC/ABL'}
 
 # LE MUR DE FORCE A-T-IL PU AGIR DANS **CETTE** COURSE ? (cycle 72)
 #
@@ -8201,6 +8202,114 @@ def main():
                       ' fenetres', notasym=True)
                     A('   de §19. Le geste de cette section reste INJOUABLE, et le dire est le'
                       ' resultat.', notasym=True)
+            # ---- ROOM-REGC (cycle 108/109) : LE LACET PUR, COLLISION ARMEE CONTRE DESARMEE.
+            # La phase PH-REGC (`phys-room.gc`, pave de `PHYSROOM-PH-REGC`) rejoue les DEUX
+            # fenetres de lacet dans les DEUX sens, chacune DEUX FOIS : une fois collision armee
+            # (l'etat LIVRE, jambe de reference) et une fois desarmee. Les deux jambes d'une meme
+            # cellule sont jouees DE SUITE, donc a etat d'entree quasi identique, et la jambe
+            # s'inverse d'une cellule a l'autre pour equilibrer l'ablation contre le RANG.
+            # NATURE : `perr` est une LONGUEUR / B0, maximum de fenetre (le moteur l'accumule par
+            #   `>` depuis l'ouverture). `apex` idem. REPERE : celui de `ROOM-REGA`, axes du SUJET.
+            # LECTURE HORS DEFAUT : la jambe ARMEE doit reproduire `PHYSREGA` r=9/r=10 ; si elle ne
+            #   le fait pas, la comparaison ne mesure pas ce qu'elle pretend et le bloc se tait.
+            # LE CRITERE EST CELUI DU SOURCE, ECRIT AVANT LA COURSE — il n'est pas recalcule ici :
+            #   rapport gauche/droite de `perr` SOUS x1.30 sur la jambe DESARMEE -> la collision
+            #   porte §18 ; baisse de MOINS de 20 % par rapport a la jambe ARMEE -> REFUTEE.
+            A('')
+            A('   -- ROOM-REGC : LE LACET PUR, COLLISION ARMEE CONTRE DESARMEE (cycle 108) ------')
+            _rc, _rcw = {}, {}
+            for _m in re.finditer(r'^PHYSREGC c=(\d+) r=(\d+) sgn=([-\d.e+]+) abl=(\d+)'
+                                  r' apex=([-\d.e+]+) com=([-\d.e+]+)', txt, re.M):
+                _rc[(int(_m.group(1)), int(_m.group(2)),
+                     1 if float(_m.group(3)) > 0 else -1, int(_m.group(4)))] = (
+                         float(_m.group(5)), float(_m.group(6)))
+            for _m in re.finditer(r'^PHYSREGW ph=(44|45) c=(\d+) r=(\d+) rgap=([-\d.e+]+)'
+                                  r' perr=([-\d.e+]+)', txt, re.M):
+                _rcw.setdefault((int(_m.group(2)), int(_m.group(3)),
+                                 0 if _m.group(1) == '44' else 1), []).append(
+                                     (float(_m.group(4)), float(_m.group(5))))
+            if not _rc:
+                A('ROOM-REGC: NON PUBLIE — aucune ligne `PHYSREGC`. Cette course precede la phase')
+                A('   PH-REGC, ou la phase n\'a pas ete atteinte. Le test d\'ablation du lacet reste')
+                A('   donc NON FAIT, et §18 garde sa cause NON ATTRIBUEE.')
+            else:
+                # GARDE DE VALIDITE, avant tout verdict : la jambe ARMEE doit reproduire PH-REGA.
+                _bad, _seen = [], 0
+                for (_ci, _r, _sg), _av in sorted(_rga2.items()):
+                    if _r not in (9, 10):
+                        continue
+                    _cv = _rc.get((_ci, _r, _sg, 0))
+                    if not _cv:
+                        continue
+                    _seen += 1
+                    _d = abs(_cv[0] - _av[0]) / max(1e-9, _av[0])
+                    A('ROOM-REGC-REF: %-6s r=%-2d sgn=%+d  PH-REGA apex=%.4f  PH-REGC abl=0'
+                      ' apex=%.4f  ecart %+6.1f %%%s'
+                      % (('chestL' if _ci == 0 else 'chestR'), _r, _sg, _av[0], _cv[0],
+                         100.0 * (_cv[0] - _av[0]) / max(1e-9, _av[0]),
+                         '   <<< >25 %' if _d > 0.25 else ''))
+                    if _d > 0.25:
+                        _bad.append((_ci, _r, _sg))
+                if _seen == 0:
+                    A('   AUCUNE cellule commune avec PH-REGA : la garde ne peut pas se prononcer.')
+                elif _bad:
+                    A('   LA JAMBE DE REFERENCE NE REPRODUIT PAS PH-REGA sur %d cellule(s) sur %d.'
+                      % (len(_bad), _seen))
+                    A('   La comparaison armee/desarmee ne mesure alors pas ce qu\'elle pretend, et')
+                    A('   AUCUN verdict d\'ablation n\'est publie. C\'est la garde, pas un echec du')
+                    A('   moteur : une jambe de reference qui derive rend les deux jambes')
+                    A('   incomparables, et un chiffre publie dessus serait un faux vert.')
+                else:
+                    A('   La jambe ARMEE reproduit PH-REGA sur %d cellule(s) sur %d : les deux'
+                      % (_seen, _seen))
+                    A('   jambes sont comparables, le verdict peut se lire.')
+                    A('')
+                    A('      %-3s %-4s | %9s %9s %7s | %9s %9s %7s | %s'
+                      % ('r', 'sgn', 'perrL_arm', 'perrR_arm', 'R_arm',
+                         'perrL_abl', 'perrR_abl', 'R_abl', 'baisse du rapport'))
+                    _vd = []
+                    for _r in (9, 10):
+                        for _sg in (1, -1):
+                            _cells = []
+                            for _ab in (0, 1):
+                                _pl = _rcw.get((0, _r, _ab))
+                                _pr = _rcw.get((1, _r, _ab))
+                                if not _pl or not _pr:
+                                    _cells.append(None)
+                                    continue
+                                _i = 0 if _sg > 0 else min(1, len(_pl) - 1)
+                                _j = 0 if _sg > 0 else min(1, len(_pr) - 1)
+                                _cells.append((_pl[_i][1], _pr[_j][1]))
+                            if _cells[0] is None or _cells[1] is None:
+                                continue
+                            (_la, _ra), (_lb, _rb) = _cells[0], _cells[1]
+                            _Ra = _la / max(1e-9, _ra)
+                            _Rb = _lb / max(1e-9, _rb)
+                            _dr = 100.0 * (1.0 - _Rb / max(1e-9, _Ra))
+                            _vd.append((_Rb, _dr))
+                            A('      %-3d %+4d | %9.4f %9.4f x%6.2f | %9.4f %9.4f x%6.2f | %+6.1f %%'
+                              % (_r, _sg, _la, _ra, _Ra, _lb, _rb, _Rb, _dr))
+                    if not _vd:
+                        A('   Aucun couple armee/desarmee lisible dans `PHYSREGW ph=44/45`.')
+                    else:
+                        _s13 = sum(1 for _x in _vd if _x[0] < 1.30)
+                        _b20 = sum(1 for _x in _vd if _x[1] >= 20.0)
+                        A('')
+                        A('ROOM-REGC-VERDICT: %d/%d cellule(s) sous x1.30 desarmees · %d/%d en'
+                          ' baisse d\'au moins 20 %%' % (_s13, len(_vd), _b20, len(_vd)))
+                        if _s13 == len(_vd):
+                            A('   -> LA COLLISION PORTE L\'ECART DE §18. Le critere ecrit avant la')
+                            A('      course est atteint sur TOUTES les cellules.')
+                        elif _b20 == 0:
+                            A('   -> LA COLLISION EST REFUTEE COMME CAUSE DE §18. Aucune cellule ne')
+                            A('      baisse de 20 %. Le suspect classe premier au cycle 108 tombe,')
+                            A('      et la cause de l\'ecart x5.97 reste A TROUVER — ce qui se dit,')
+                            A('      au lieu de se remplacer par le suspect suivant sans mesure.')
+                        else:
+                            A('   -> RESULTAT PARTIEL, ET IL SE PUBLIE TEL QUEL : la collision')
+                            A('      CONTRIBUE sans porter l\'ecart. Ni « sous x1.30 » ni « aucune')
+                            A('      baisse » n\'est vrai sur toutes les cellules. Une cause')
+                            A('      partielle n\'est pas une cause, et le reste est ailleurs.')
             A('')
             A('   -- ROOM-SPEC15-CROSS : « jump apex -> breast may CROSS neutral position » -----')
             A('      §15 l.230. Le registre portait la clause NON DEMONTREE, et la raison etait')

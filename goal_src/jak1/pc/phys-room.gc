@@ -6054,6 +6054,145 @@
               (physroom-hold)
               (phys-stats-reset!)
               (phys-diag-reset!)
+              (set! (-> self phase) PHYSROOM-PH-REGC)))))))
+
+    ;; ---- 9 nonies. LACET PUR : COLLISION ARMEE CONTRE COLLISION DESARMEE (cycle 108) ----------
+    ;;
+    ;; POURQUOI CETTE PHASE EXISTE, ET LE TEST EST ECRIT AVANT LA COURSE. Voir le pave des
+    ;; constantes `PHYSROOM-PH-REGC` : sous LACET PUR l'ENTREE du ressort est identique sur les
+    ;; deux chaines a 2 % pres (`rgap` 0.0102 contre 0.0103, `PHYSREGW ph=38`) et la SORTIE vaut
+    ;; x5.97 / x4.54 (`perr`). Le seul suspect survivant est la geometrie de COLLISION, qui n'est
+    ;; pas miroir. On la desarme sur les seules fenetres de lacet et on relit `perr`.
+    ;;   CRITERE, ET IL NE SE RENEGOCIE PAS APRES LECTURE :
+    ;;     rapport gauche/droite de `perr` SOUS x1.3 sur la jambe desarmee  -> la collision porte §18 ;
+    ;;     baisse de moins de 20 % par rapport a la jambe ARMEE de la meme cellule -> REFUTEE.
+    ;;
+    ;; LE GESTE EST CELUI DE PH-REGA, MOT POUR MOT : meme pose epinglee (l'argmax de symetrie),
+    ;; meme rampe d'entree, `*physroom-reg-axmode*` a 1 donc rotation autour des axes du SUJET,
+    ;; memes tables `*physroom-reg-pre*` / `drv` / `post`, meme emplacement de lecture. LA SEULE
+    ;; VARIABLE DECLAREE EST L'ABLATION DE COLLISION.
+    ;;
+    ;; L'ORDRE DES HUIT FENETRES N'EST PAS « LES QUATRE ARMEES PUIS LES QUATRE DESARMEES ». Chaque
+    ;; cellule (sens, regime) est jouee DEUX FOIS DE SUITE, une fois armee et une fois desarmee :
+    ;; les deux jambes partagent ainsi l'etat d'entree le plus proche possible. Et la jambe
+    ;; s'inverse d'une cellule a la suivante, ce qui equilibre l'ABLATION contre le RANG — c'est
+    ;; la lecon du cycle 52, celle que `PH-SGN` encode deja.
+    ;;
+    ;; NATURE DE `PHYSREGC` : `apex` et `com` sont des LONGUEURS sans dimension, exprimees en
+    ;;   fractions de B0 (la distance racine->apex de SPEC 6), et ce sont des MAXIMA SUR LA
+    ;;   FENETRE — le moteur les accumule par `>` depuis le `phys-stats-reset!` d'ouverture. Ce ne
+    ;;   sont ni des moyennes ni des series. `abl` est un ENTIER : 0 = collision ARMEE (l'etat
+    ;;   LIVRE), 1 = collision DESARMEE.
+    ;; REPERE : celui de `ROOM-REGA` — les axes du SUJET releves a l'execution, dans la pose
+    ;;   epinglee par `*physroom-best-a*`, et jamais ceux du monde. `PHYSREGCW` republie les trois
+    ;;   axes et `PHYSREGCB` les directions d'os a la derniere frame de la rampe : on ne fait
+    ;;   jamais confiance a une epingle, on la mesure.
+    ;; LECTURE HORS DEFAUT : `abl=0` EST l'etat livre, donc ses chiffres doivent reproduire ceux
+    ;;   de `PHYSREGA` r=9 / r=10 a la contamination de fenetre pres. Si `abl=0` ne les reproduit
+    ;;   pas, la comparaison armee/desarmee ne mesure pas ce qu'elle pretend et tout ce bloc tombe.
+    ;;   `PHYSREGW ph=44` porte la jambe ARMEE, `ph=45` la jambe DESARMEE : les deux `perr` se
+    ;;   rapprochent par la cle (c, r).
+    ((= (-> self phase) PHYSROOM-PH-REGC)
+     (cond
+       ((< (-> self regc) 0)
+        (physroom-hold)
+        (when (= (-> self pframe) 1)
+          (set! (-> self retang) 0.0)
+          (set! (-> self rety) 0.0)
+          (set! (-> self retz) 0.0)
+          ;; LE DRAPEAU N'EST ARME QU'ICI, et il est desarme a la sortie de la phase : un drapeau
+          ;; qui survit a sa phase est le moyen le plus simple de casser la non-contamination.
+          (set! *physroom-reg-axmode* 1)
+          ;; l'ablation est REPOSEE a l'etat livre avant la premiere fenetre : une ablation laissee
+          ;; armee par une phase amont contaminerait la jambe de reference.
+          (phys-col-off-set! 0)
+          (cond
+            ((>= *physroom-best-a* 0)
+             (physroom-set-anim *physroom-best-a*)
+             (set! (-> self regstep)
+                   (/ *physroom-best-f*
+                      (fmax 0.0001 (* (the float PHYSROOM-MEASAT) (-> self aspeed)))))
+             (format 0 "PHYSREGCPOSE a=~D f=~f s=~f step=~f src=argmax~%"
+                     *physroom-best-a* *physroom-best-f* *physroom-best-s* (-> self regstep)))
+            (else
+             (set! (-> self regstep) 0.0)
+             (format 0 "PHYSREGCPOSE a=-1 f=0.0 s=-2.0 step=0.0 src=INTROUVABLE~%"))))
+        (when (and (>= *physroom-best-a* 0)
+                   (> (-> self pframe) 1) (<= (-> self pframe) (+ 1 PHYSROOM-MEASAT)))
+          (physroom-advance-anim (-> self regstep)))
+        ;; LA POSE EST REVALIDEE A LA FIN DE LA RAMPE, sujet droit, immobile, a `home` : meme point
+        ;; de protocole que `PHYSREGAB` / `PHYSREGAW`, pour que l'ecart au miroir de la pose ou
+        ;; cette phase releve son gauche/droite soit publie et pas suppose.
+        (when (= (-> self pframe) (- PHYSROOM-REGCE 1))
+          (let ((hd (if (-> self child) (the-as jak-hd (-> self child 0)) (the-as jak-hd #f))))
+            (when hd
+              (dotimes (c (-> self nchain))
+               (when (> (phys-chain-links (-> self slot) c) 0)
+                (dotimes (l (phys-chain-links (-> self slot) c))
+                  (format 0 "PHYSREGCB c=~D l=~D ux=~,,6f uy=~,,6f uz=~,,6f~%"
+                          c l
+                          (phys-chain-bone hd (-> self slot) c l 0)
+                          (phys-chain-bone hd (-> self slot) c l 1)
+                          (phys-chain-bone hd (-> self slot) c l 2))))))
+            (dotimes (wa 3)
+              (format 0 "PHYSREGCW wa=~D ux=~,,6f uy=~,,6f uz=~,,6f~%"
+                      wa
+                      (phys-axis-world (-> self slot) 0 wa 0)
+                      (phys-axis-world (-> self slot) 0 wa 1)
+                      (phys-axis-world (-> self slot) 0 wa 2)))))
+        (when (>= (-> self pframe) PHYSROOM-REGCE)
+          (set! (-> self regc) 0)
+          (set! (-> self pframe) 0)
+          (phys-comexw-reset!)
+          (phys-stats-reset!)))
+       (else
+        (let* ((w    (-> self regc))
+               (cell (/ w 2))                              ;; 0..3 : (sens, regime)
+               (pos  (mod w 2))                            ;; 0 = jouee en 1re position, 1 = en 2e
+               (leg  (if (= (mod cell 2) 0) pos (- 1 pos))) ;; 0 = ARMEE, 1 = DESARMEE
+               (sg   (if (< cell 2) 1.0 -1.0))
+               (rr   (+ 9 (mod cell 2)))                   ;; 9 ou 10 : les deux fenetres de lacet
+               (pre  (-> *physroom-reg-pre* rr))
+               (drv  (-> *physroom-reg-drv* rr))
+               (post (-> *physroom-reg-post* rr)))
+          (set! *physroom-reg-sgn* sg)
+          (physroom-reg-drive rr (- (-> self pframe) (+ pre 1)))
+          ;; L'ABLATION EST ARMEE A LA PREMIERE FRAME DE LA FENETRE ET NULLE PART AILLEURS. `pframe`
+          ;; est remis a 0 en FIN de fenetre puis INCREMENTE en tete du tick suivant : il ne vaut
+          ;; donc JAMAIS 0 dans la phase, et un test `(= pframe 0)` ne se declencherait jamais.
+          ;; C'est le defaut que le cycle 49 a paye sur six fenetres — voir `PH-SGN`.
+          (when (= (-> self pframe) 1)
+            (phys-col-off-set! leg))
+          (when (= (-> self pframe) (max 1 pre))
+            (phys-comexw-reset!)
+            (phys-stats-reset!))
+          (when (>= (-> self pframe) (+ pre (+ drv post)))
+            (dotimes (c (-> self nchain))
+              (when (> (phys-chain-links (-> self slot) c) 0)
+                (format 0 "PHYSREGC c=~D r=~D sgn=~f abl=~D apex=~f com=~f~%"
+                        c rr sg leg
+                        (phys-diag (-> self slot) c 53)
+                        (phys-diag (-> self slot) c 43))
+                ;; `ph` separe les deux jambes dans `PHYSREGW` : 44 = ARMEE, 45 = DESARMEE.
+                ;; `physroom-emit-limit` ne fait que formater ce parametre (`:3066-3071`).
+                ;; POURQUOI 44/45 ET PAS 40/41 : 40 est le numero de PH-AXC et 41 celui de
+                ;; PH-REGC. PH-AXC n'emet aucune ligne `PHYSREGW` aujourd'hui, donc 40 serait
+                ;; libre — mais un `ph` qui vaut le numero d'une AUTRE phase est un piege qui
+                ;; attend un lecteur, et ce dossier a deja paye cette classe-la. 44 et 45 sont
+                ;; hors de la plage des constantes de phase : ils ne peuvent designer qu'ici.
+                (physroom-emit-limit (if (zero? leg) 44 45) c rr)))
+            (phys-col-off-set! 0)
+            (set! (-> self pframe) 0)
+            (+! (-> self regc) 1)
+            (when (>= (-> self regc) PHYSROOM-REGCN)
+              (physroom-hold)
+              (set! *physroom-reg-axmode* 0)
+              (set! *physroom-reg-sgn* 1.0)
+              (phys-col-off-set! 0)   ;; une ablation laissee armee contaminerait le rapport
+              (phys-stats-reset!)
+              (phys-diag-reset!)
+              (set! (-> self regc) -1)
+              (set! (-> self pframe) 0)
               (set! (-> self phase) PHYSROOM-PH-REPORT)))))))
 
     ;; ---- 10. RAPPORT --------------------------------------------------------------------------
@@ -6286,8 +6425,9 @@
   ;; phase ajoutee demain SANS etre ajoutee ici sera visible par `PHYSROOM-PHASEVISITED`, qui la
   ;; MESURE. Deux garde-fous, l'un derive et l'autre mesure, et aucun qui repose sur ma memoire.
   (format 0 "PHYSROOM-PHASEGUARD maxwork=~D report=~D done=~D ok=~D~%"
-          (max PHYSROOM-PH-AXC
-               (max PHYSROOM-PH-REGB (max PHYSROOM-PH-REGA (max PHYSROOM-PH-REGT PHYSROOM-PH-REGS))))
+          (max PHYSROOM-PH-REGC
+               (max PHYSROOM-PH-AXC
+                    (max PHYSROOM-PH-REGB (max PHYSROOM-PH-REGA (max PHYSROOM-PH-REGT PHYSROOM-PH-REGS)))))
           PHYSROOM-PH-REPORT PHYSROOM-PH-DONE
           (if (and (< PHYSROOM-PH-PROXON PHYSROOM-PH-REPORT)
                    (< PHYSROOM-PH-REG PHYSROOM-PH-REPORT)
@@ -6300,6 +6440,7 @@
                    (< PHYSROOM-PH-REGB PHYSROOM-PH-REPORT)
                    (< PHYSROOM-PH-REGA PHYSROOM-PH-REPORT)
                    (< PHYSROOM-PH-AXC PHYSROOM-PH-REPORT)
+                   (< PHYSROOM-PH-REGC PHYSROOM-PH-REPORT)
                    (< PHYSROOM-PH-REPORT PHYSROOM-PH-DONE))
               1 0))
   (format 0 "PHYSROOM-START target-before=~A~%" *target*)
