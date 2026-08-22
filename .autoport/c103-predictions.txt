@@ -1,0 +1,53 @@
+CYCLE 103 — PREDICTIONS ENREGISTREES AVANT DE LIRE LA COURSE
+DIRECTIVES v3fee554599
+horodatage : voir le mtime de ce fichier ; il est ecrit AVANT que la course se termine.
+
+CHANGEMENT : `physroom-hold` -> `physroom-unlean` a phys-room.gc:3403, sous-fenetre de LIGNE DE
+BASE (drive 5) de PH-MEAS UNIQUEMENT. Le relachement des 60 degres passe d'UNE frame a une rampe
+en demi-cosinus sur PHYSROOM-TILTRAMP = 24 frames (< MEASAT = 54). Moteur INTOUCHE (4800/4800).
+
+ETAT MESURE AVANT (trace c103-BASE, md5 0fd119bf5b52, = etat livre du cycle 102) :
+  PHYSREBASE arme  d0 14/62 · d1 0/62 · d2 0/62 · d3 0/62 · d4 0/62 · d5 62/62
+  PHYSREBASE amax p50 (u/frame)  d0 137 · d1 298 · d2 488 · d3 543 · d4 662 · d5 10987
+  PHYSAPEX apex p50 (B0)   d0 0.5998 · d1 0.6683 · d2 0.6868 · d3 0.6862 · d4 0.6986 · d5 0.3705
+  PHYSCOMX com  p50 (B0)   d0 0.2995 · d1 0.3345 · d2 0.3451 · d3 0.3395 · d4 0.3450 · d5 0.1888
+
+P1. `PHYSREBASE` arme sur d5 tombe de 62/62 a <= 5/62.
+P2. `PHYSREBASE amax` sur d5 tombe de 10987 u a < 1000 u en mediane.
+P3. L'APEX DE d5 MONTE de 0.3705 vers la bande 0.67-0.70 des d1-d4.
+    RAISON : d5 est la SEULE sous-fenetre ou le rebase de §37 tire (62/62), et le rebase RECALE la
+    chaine sur son ancre. Le 0.3705 serait donc une valeur SUPPRIMEE par notre propre coup, pas
+    une valeur calme. Meme raisonnement pour `com` (0.1888).
+    ALTERNATIVE EXPLICITEMENT PREVUE : si d5 reste a ~0.37, alors la ligne de base etait bien
+    calme et le rebase etait inerte sur les frames mesurees (54..90) — P3 serait REFUTEE et c'est
+    ce resultat-la qui compterait.
+P4. `ROOM-SKINPEN` chestR monte au-dessus de `ROOM-SKINPEN-REST` (0.0883 m) -> la gate
+    COLLIDE §33/§34 passe au ROUGE. C'est le FAUX VERT que le cycle 102 a trouve sans avoir le
+    droit de le retirer : le coup de 60 degres le masquait.
+P5. Les pilotages d1-d4 bougent peu (< 5 % sur la mediane). d0 peut bouger : l'etat du solveur
+    traverse les fenetres (cycle 102 §3), et d0 d'une animation suit d5 de la precedente.
+P6. Aucune autre gate de MESURE du validateur ne bascule.
+
+CONTROLE D'IDENTITE : les 5 premieres sous-fenetres de la PREMIERE animation (a=0, d=0..4)
+precedent tout appel a `physroom-unlean` -> elles doivent etre IDENTIQUES AU CARACTERE.
+
+================================================================================================
+RESULTAT, ECRIT APRES LA COURSE (md5 865e224d842ba180dd6d72b146944f47)
+================================================================================================
+P1  CONFIRMEE ET DEPASSEE : d5 arme 62/62 -> 0/62 (je predisais <= 5/62). Total 76/372 -> 14/372.
+P2  CONFIRMEE : d5 amax p50 10986.7 -> 752.0 u. Table : amax de fenetre 31471.2 -> 2153.9 u.
+P3  CONFIRMEE : apex d5 p50 0.3311 -> 0.5967 (chestL, +80.2 %) et 0.3977 -> 0.6602 (chestR,
+    +66.0 %). L'ALTERNATIVE QUE J'AVAIS PREVUE EST DONC REFUTEE : la ligne de base n'etait pas
+    calme, elle etait EPINGLEE par le rebase. Fenetres au-dessus de 0.50 B0 : 22.6/19.4 % ->
+    93.5/87.1 %. comex idem : 0.1795 -> 0.3156 et 0.2037 -> 0.3257.
+P4  CONFIRMEE AU CHIFFRE : ROOM-SKINPEN chestR 0.0868 -> 0.0886 contre plancher d'auteur 0.0883
+    -> +0.0003 m -> DEPASSEE. chestL reste DEPASSEE (+0.0074). LES DEUX CHAINES DEPASSENT.
+P5  CONFIRMEE : d0 -1.6 / -0.5 % · d1 +0.1 / -0.4 % · d2 +0.2 / +0.4 % · d3 +0.7 / +3.9 % ·
+    d4 +2.3 / -2.2 %. Seule d5 bouge (+66 a +80 %).
+P6  CONFIRMEE : exactement UN verdict de mesure bascule (COLLIDE §33/§34). Aucun autre.
+CONTROLE D'IDENTITE  TENU : 460/460 lignes emises avant le premier appel a `physroom-unlean`
+    (a=0, d=0..4) sont IDENTIQUES AU CARACTERE ; controle negatif 402/589 differentes ensuite.
+CONTROLE DE STIMULUS TENU : l'ancre `chest` bouge PAREIL dans les frames MESUREES (54..90) :
+    rotation p50 0.1218 / p90 1.7574 / max 4.6185 deg et translation p50 3.1 / max 78.1 u,
+    IDENTIQUES A QUATRE DECIMALES dans les deux courses. Meme stimulus, meme fenetre : la
+    difference d'apex vient de l'ETAT D'ENTREE de la chaine, de rien d'autre.

@@ -1,248 +1,233 @@
-RAPPORT DE CYCLE 102 — Grecharged-secondary-motion
+RAPPORT DE CYCLE 103 — Grecharged-secondary-motion
 DIRECTIVES v3fee554599
 Branche physics-keira-clean · perimetre : chestL / chestR SEULES (owner 2026-08-14 07:30)
-(le rapport precedent est archive a cote de celui-ci sous `report.c101.txt`)
+(le rapport precedent est archive a cote de celui-ci sous `report.c102.txt`)
 
 SECTION DONT CE CYCLE DEBLOQUE LE VERDICT, NOMMEE AVANT DE COMMENCER (directive du 2026-08-21
-18:25) : **§37**. Le cycle 101 avait etabli que la moitie ROTATION du rebase n'existe pas. Ce
-cycle la pose, et commence par un contre-controle independant de la mesure qui la justifiait.
+18:25) : **§34**, et par consequence la famille des sections qui lisent la sous-fenetre de LIGNE
+DE BASE. Le cycle 102 avait ecrit, compile et MESURE ce correctif puis l'avait retire du lot en
+nommant sa condition de livraison — « ca se livre avec la relecture des sections qui citent cette
+fenetre comme reference ». Ce cycle est cette relecture.
 
-BREAST-PENETRATION: 0.0564 m — `meshpen`, DIAGNOSTIC, jamais un verdict (arbitrage 2026-08-20
-13:20 : c'est un DEPLACEMENT, pas une profondeur, identite exacte du cycle 59). Etait 0.0586 m au
-cycle 101 : **-3,8 %**, sur la course FINALE (table md5 0fd119bf, trace 6 890 122 octets). Sous le
-plafond epingle n'est pas « regle » : tant que ce n'est pas zero, ca se declare avec son chiffre,
-a chaque cycle.
+BREAST-PENETRATION: 0.0529 m — `meshpen`, DIAGNOSTIC, jamais un verdict (arbitrage 2026-08-20
+13:20 : c'est un DEPLACEMENT, pas une profondeur). Etait 0.0564 m au cycle 102 : **-6,2 %**, sur
+la course FINALE (table md5 865e224d, trace 6 893 049 octets). Sous le plafond epingle n'est pas
+« regle » : tant que ce n'est pas zero, ca se declare avec son chiffre, a chaque cycle.
 
-SUBSTRAT : GOAL seul. Six `(mi)` (551 cibles) et **cinq courses x86 completes** — une par
-configuration, parce qu'aucune attribution de ce cycle n'a ete supposee. Etat FINAL du source :
-`jak-hd-physics.gc` **4800** (plafond CLEAN 4800 — voir §7) et `phys-room.gc` **6202**.
+SUBSTRAT : GOAL seul. Un `(mi)` (551 cibles, 14,4 s) et **une** course x86 complete. Etat FINAL du
+source : `jak-hd-physics.gc` **4800** (plafond CLEAN 4800 — INTOUCHE, voir §7) et `phys-room.gc`
+**6240** (+38 ; ce fichier n'a pas de plafond).
 
-ETAT DU VALIDATEUR : **toutes les gates de MESURE passent**, `[Grecharged-secondary-motion PASS]`
-est imprime, et la course s'arrete sur `OPEN-DEFECTS` — la gate terminale que seul l'owner peut
-retirer (1 ligne : `breast-spec-incomplete`). C'est le meilleur etat atteignable, et c'est celui du
-cycle 101 : je l'ai casse en cours de cycle (DISCRIMINANT, puis COLLIDE) et je l'ai retabli en
-corrigeant les defauts que ces gates designaient, sans toucher a une seule gate.
+ETAT DU VALIDATEUR : **une gate de mesure passe au ROUGE — `COLLIDE §33/§34` — et c'est le but
+du cycle**, pas un accident : elle designe le faux vert que le cycle 102 avait trouve sans avoir
+le droit de le retirer. Aucune gate n'a ete touchee (regle 5). Voir §6 pour ce que ce rouge cache
+mecaniquement, et qui est un defaut de structure du validateur, pas de ce cycle.
 
 ================================================================================================
 0. EN UNE PHRASE
 ================================================================================================
-**LA MOITIE ROTATION DU REBASE DE §37 EXISTE MAINTENANT — MAIS LE RESULTAT LE PLUS IMPORTANT DU
-CYCLE EST AILLEURS : LES « 59,9 DEG EN UNE FRAME » QUE LE CYCLE 101 A PRIS POUR UN DEFAUT DU
-MOTEUR SONT `PHYSROOM-TILTDEG`. C'EST NOTRE SALLE QUI RELACHE SA PROPRE POSE DE 60 DEGRES EN UNE
-FRAME, SUR 62 FENETRES SUR 62. LE FICHIER LE DECLARE DEJA — ET LA PARADE QU'IL DECLARE AVEC EST
-REFUTEE PAR LA MESURE.**
+**LE « -34 % D'APEX » QUE LE CYCLE 102 A PUBLIE COMME LE GAIN DE LA MOITIE ROTATION DE §37
+N'ETAIT PAS UN GAIN DE PHYSIQUE : C'ETAIT NOTRE REBASE QUI ANNULAIT NOTRE PROPRE COUP DE 60
+DEGRES. LE COUP RETIRE A LA SOURCE, L'APEX DE LA LIGNE DE BASE REMONTE DE +66 A +80 % — AU-DESSUS
+DE SON NIVEAU D'AVANT LE CYCLE 102 — ET UN FAUX VERT DE §34 TOMBE.**
 
 ================================================================================================
-1. CONTRE-CONTROLE INDEPENDANT — ET IL CORRIGE LE CYCLE 101 SUR DEUX POINTS
+1. CE QUE J'AI MESURE AVANT DE TOUCHER A QUOI QUE CE SOIT
 ================================================================================================
-Le cycle 101 a publie `PHYSANROT`, un instrument du MOTEUR depuis retire, et en a tire que
-« l'ancre tourne de 59,9 deg **en une frame** dans TOUTES les fenetres de ligne de base ». Avant
-de construire quoi que ce soit dessus j'ai rederive la grandeur par un chemin qui ne partage NI
-l'operateur NI le site d'emission : **`PHYSJTW`**, publie par la SALLE, qui donne les quatre
-lignes de la 4x4 du joint `chest` resolu PAR NOM (`PHYSJTWN j=4 idx=3 name=chest`) — `chest` etant
-l'ancre des deux chaines (`*phys-anchor*`, « parent rig du lien 0 ») et n'etant simule par rien.
-Instrument : `.autoport/c102_anchor_rotation.py`. Zero build, zero course : trace archivee du
-cycle 101 (`keira-room-x86.c101-ANROT.log`).
+Le cycle 102 a etabli que la sous-fenetre de LIGNE DE BASE (`drive = 5`, celle qu'on appelle
+« sans pilotage ») s'ouvre sur un relachement de 60 degres en UNE frame, parce que `physroom-hold`
+fait `quaternion-identity!` juste apres le pilotage `tilt` qui se termine a `PHYSROOM-TILTDEG` =
+60,0. Sur la trace archivee, **par sous-fenetre** :
 
-    rotation frame-a-frame, sous-fenetre SANS pilotage, 1116 couples de frames consecutives
-      chest  = L'ANCRE            p50  0,0809   p90  0,7373   max   2,3890 deg
-      main   (racine perso)       p50  0,1111   p90  0,5753   max   1,6565 deg
-      lBoob  (racine de chaine)   p50  0,2805   p90  1,4543   max  12,7045 deg
+    drive              rebase arme    saut d'ancre p50    max
+      0  updown          14/62             137,3 u      37 811,6 u
+      1  leftright        0/62             297,6 u         354,4 u
+      2  accel            0/62             487,6 u         519,7 u
+      3  jerk             0/62             542,8 u         582,3 u
+      4  tilt             0/62             661,9 u       2 030,7 u
+      5  LIGNE DE BASE   62/62          10 986,7 u      31 471,2 u
 
-**CORRECTION 1 — CE N'EST PAS UN REGIME, C'EST UN EVENEMENT PAR FENETRE.** `PHYSANROT` publiait
-un **MAXIMUM DE FENETRE** ; la phrase du cycle 101 le lisait comme une propriete de la fenetre.
-`PHYSJTW` couvre les frames 54 a 90 des 90 et y lit **0,08 deg en mediane, 2,39 au pire** — le saut
-de 58,8 a 60,6 deg est donc ailleurs, dans les 54 premieres frames, **une fois**.
-
-**CORRECTION 2 — LA ZONE GRISE EXISTE**, la ou le cycle 101 ecrivait « il n'y a pas de zone grise
-a arbitrer ». Appariement `PHYSANROT` x `PHYSREBASE`, **domaines 372 / 372, intersection 372/372** :
-
-    fenetres ou le rebase de TRANSLATION tire   n= 76   p50 59,9019   max 171,8668 deg
-    fenetres ou il ne tire pas                  n=296   p50  0,7039   max  33,8004 deg
-
-Rapport des medianes **x85** — les deux moities repondent au MEME evenement. Mais
-**max(sans declenchement) = 33,80 > min(avec) = 20,62** : les populations SE CHEVAUCHENT, et
-**14 fenetres sur 296** portent 11,1 a 33,8 deg sans que rien ne s'arme.
+**62 DES 76 FENETRES SUR LESQUELLES LE CYCLE 102 A MESURE SON « -34 % » SONT CETTE FENETRE-LA**,
+et les 14 autres sont `updown`, dont la discontinuite est le changement d'animation — le
+troisieme saut que l'entete de `phys-room.gc` declare et ne corrige pas. **Aucune des 310 fenetres
+de pilotage reel ne declenche le rebase.** Le domaine sur lequel §37 est exercee dans cette salle
+est donc integralement fabrique par l'instrument.
 
 ================================================================================================
-2. LE CORRECTIF DE MOTEUR — UNE GENERALISATION STRICTE
+2. LE CORRECTIF, ET SON PERIMETRE EXACT
 ================================================================================================
-    avant :  p' = p + (anc - anp)                       translation pure
-    apres :  p' = R.p + t   avec  R = a0m^T . am ,  t = anc - R.anp
+`physroom-hold` -> `physroom-unlean` a **`phys-room.gc:3403`**, et **a ce seul site**. Le retour
+de 60 a 0 degres se fait en demi-cosinus sur `PHYSROOM-TILTRAMP` = 24 frames, exactement le
+miroir de la rampe d'entree de `tilt` ; a f=0 il rend la pose de sortie de `tilt`, a f>=24 il rend
+exactement ce que `physroom-hold` rendait. 24 < `PHYSROOM-MEASAT` = 54 : la rampe est FINIE avant
+que la fenetre de mesure ne s'ouvre. Les 43 autres appels de `physroom-hold` et la phase PH-TILT
+ne sont pas touches — celle-la EXPLOITE volontairement les 60 degres en une frame comme seconde
+direction d'excitation pour §24. **Moteur INTOUCHE : 4800 lignes, plafond 4800.**
 
-**AUCUN SEUIL NEUF, AUCUN PARAMETRE NEUF, AUCUN ETAT NEUF.** Le declencheur reste
-`rbd > 7,00 * B0`. `a0m` porte deja l'orientation de l'ancre a la frame -1. Quand `R = I` la forme
-redonne `p' = p + (anc - anp)` **au bit**. Detail : NOTE-478. **+2 lignes nettes.**
-
-**LA RESERVE QUE J'AVAIS DECLAREE EST LEVEE PAR VERIFICATION, PAS PAR ARGUMENT.** J'avais ecrit
-que l'age de `a0m` n'etait pas mesure. Il l'est maintenant, en remontant la chaine de gardes :
-`a0m` n'est rafraichi que sous `(nonzero? *phys-fok*)` (:3576) et `(= *phys-fam* 1)` (:3539).
-`*phys-fok*` est un **verrou a un coup** — mis a 1 une seule fois (:3575) et jamais remis a 0 ;
-et `*phys-twok*`, qui garde mon rebase, est mis a 1 **dans le meme bloc**. Donc `twok = 1` implique
-`fok = 1`, ce qui implique que le bloc tourne a CHAQUE frame : `a0m` a exactement une frame d'age.
-Le cas `twok = 0` est couvert par une identite sur les DEUX matrices de la composition.
+Le code vient de `e2bb66ff3a`, le commit que l'auto-constructeur avait fait au milieu du cycle
+102 (piege `autobuilder-ships-your-wip`). Il etait donc recuperable au bit ; je l'ai repris tel
+quel plutot que de le reecrire, et j'ai verifie que la difference avec HEAD se reduit a ces deux
+seuls blocs (+39 / -1 sur le seul `phys-room.gc`).
 
 ================================================================================================
-3. MA PREDICTION DE CONTROLE ETAIT FAUSSE. JE LA DONNE AVANT LE RESULTAT.
+3. J'AI ENREGISTRE MES PREDICTIONS AVANT DE LIRE LA COURSE. CINQ SUR SIX, ET LA SIXIEME A ETE
+   POSEE AVEC SON ALTERNATIVE.
 ================================================================================================
-J'avais enregistre, avant la course, que « toute fenetre ou `fired = 0` doit etre INCHANGEE AU
-CARACTERE ». **286 des 296 ont change.** La prediction etait mal posee, pas le correctif :
-**l'etat du solveur est CONTINU d'une fenetre a l'autre**. Le dossier porte deja cette lecon sous
-`impulse-window-not-isolated-without-return-ramp`, et je l'ai refaite.
+`.autoport/c103-predictions.txt`, ecrit pendant que la course tournait, resultat ajoute apres.
 
-**LE CONTROLE CORRIGE EST EXACT :** les **10** fenetres qui precedent le premier declenchement sont
-**identiques AU CARACTERE**, les **362** suivantes toutes differentes ; et `PHYSREBASE.fired`,
-`PHYSREBASE.amax` et `PHYSACC.acc` restent **identiques au bit sur 372 fenetres** — declencheur et
-stimulus recu inchanges, seule la reponse bouge.
+  P1  arme sur d5 <= 5/62            **62/62 -> 0/62**                              CONFIRMEE
+  P2  saut d'ancre d5 < 1000 u       **10 986,7 -> 752,0 u** (fenetre 31 471 -> 2 154) CONFIRMEE
+  P3  l'apex de d5 MONTE             **+80,2 % / +66,0 %**                          CONFIRMEE
+  P4  chestR franchit son plancher   **0,0886 contre 0,0883 -> DEPASSEE**           CONFIRMEE
+  P5  d0-d4 bougent peu              -1,6 % a +3,9 %                                CONFIRMEE
+  P6  aucune autre gate ne bascule   exactement UN verdict                          CONFIRMEE
 
-================================================================================================
-3bis. LE VRAI RESULTAT DU CYCLE : LES 60 DEGRES SONT LES NOTRES
-================================================================================================
-`PHYSROOM-TILTDEG` vaut **60.0**, et `physroom-hold` — la sous-fenetre de LIGNE DE BASE — fait
-`(quaternion-identity! (-> self root quat))`. Elle suit immediatement la sous-fenetre `tilt`, qui
-se termine exactement a 60 degres. **Les 58,83 a 60,58 deg mesures sur 62 fenetres sur 62 sont ce
-relachement, en une frame.** Ce n'est pas un comportement du jeu ; c'est l'instrument.
+P3 portait une alternative explicite — « si d5 reste a ~0,37, alors la ligne de base etait bien
+calme et le rebase etait inerte ». **Cette alternative est refutee par la mesure**, ce qui est le
+seul cas ou une prediction vaut quelque chose.
 
-**LE FICHIER LE DECLARE DEJA, ET SA PARADE EST REFUTEE.** L'entete de `phys-room.gc` (note de
-`PHYSROOM-MEASAT`) liste les trois teleportations d'ouverture de sous-fenetre — changement
-d'animation, retour a la verticale (60 deg), retour au point de depart (jusqu'a 3 m) — et conclut :
-« 54 frames de decroissance [...] laissent 0.76^54 = 6e-8 du transitoire ».
-**Si 6e-8 survivait, la cellule `chestR / tilt` serait uniforme.** Elle ne l'est pas : sur
-`assistant-lavatube-start-idle` elle rendait **0,1564** de `tipvar` dans les frames 54..90 sous un
-stimulus recu de **1,62** — 8,8 fois la mediane de sa cellule (0,0178) et du meme ordre que la
-reponse a `jerk` (334 de stimulus). L'amortissement de 0,24 suppose par l'estimation n'est pas
-celui que la chaine presente.
-
-**CE QUI EST CORRIGE ICI, ET CE QUI NE L'EST PAS.**
-  * **CORRIGE — le retour au point de depart avant `tilt`.** `jerk` laisse le sujet derive ; la
-    sous-fenetre `tilt` le ramenait a `home` en UNE frame. Mesure : `PHYSREBASE amax` = **2833 u
-    en mediane (69 cm/frame) sur 62 fenetres sur 62**, quand les trois pilotages continus
-    plafonnent a 582 u. Remplace par la meme rampe en demi-cosinus que l'orientation, sur
-    `PHYSROOM-TILTRAMP` = 24 frames, donc entierement dans les 54 frames d'amorcage : **amax
-    tombe a 678 u en mediane**, dans la plage des gestes plausibles.
-  * **NON CORRIGE, ET C'EST DELIBERE — le relachement des 60 degres avant la ligne de base.** Il a
-    ete ecrit, compile et MESURE (`amax` 10 987 -> 715 u, rebase arme **62/62 -> 0/34**), puis
-    **retire du lot**. Raison, et elle n'a rien a voir avec une gate : cette sous-fenetre est la
-    **fenetre de REFERENCE** de la plupart des analyses archivees du dossier (cycles 71, 80, 85,
-    100 la citent comme « sans pilotage »). En changer l'excitation invalide leur comparabilite ;
-    ca se livre avec la relecture de ces sections-la, pas en passager d'un autre correctif.
-    **Et ca a revele une chose qu'il faut dire** : sans ce coup, `chestR` passe de 0,0863 a
-    **0,0886 m** de penetration de peau contre un plancher d'auteur de 0,0883 — donc `DEPASSEE`.
-    Mesure identique **avec et sans** la moitie rotation (0,0886 dans les deux cas, cf. §5) :
-    l'exces appartient au solveur, et le coup de la salle le MASQUAIT. C'est un faux vert que ce
-    cycle a trouve et qu'il n'a pas encore le droit de retirer.
+**LES DEUX CONTROLES, ET C'EST EUX QUI FONT LE RESULTAT :**
+  * **IDENTITE** — les **460** lignes emises avant le tout premier appel a `physroom-unlean`
+    (animation 0, pilotages 0 a 4) sont **IDENTIQUES AU CARACTERE**. Controle negatif : 402 des
+    589 lignes suivantes different. Rien avant ne bouge, tout apres bouge.
+  * **STIMULUS** — pendant les frames REELLEMENT MESUREES (54..90), l'ancre `chest` bouge
+    **PAREIL a quatre decimales** dans les deux courses : rotation p50 0,1218 / p90 1,7574 /
+    max 4,6185 deg, translation p50 3,1 / max 78,1 u, sur 1116 couples de frames consecutives.
+    **Meme stimulus, memes frames, meme animation : la seule chose qui differe est l'ETAT DANS
+    LEQUEL LA CHAINE ARRIVE a la frame 54.** C'est ce qui autorise a attribuer tout l'ecart
+    d'apex a l'ouverture de la fenetre, et rien d'autre.
 
 ================================================================================================
-4. L'EFFET, SEPARE PAR LE MECANISME
+4. LE RESULTAT PRINCIPAL — UNE SERIE A TROIS POINTS, SUR TROIS TRACES ARCHIVEES
 ================================================================================================
-Etat livre (moteur : rebase rigide · salle : rampe de retour sur `tilt`) contre le cycle 101 :
+`PHYSAPEX.apex`, sous-fenetre SANS PILOTAGE, 31 fenetres par chaine :
 
-    apex (B0)    rebase TIRE   n= 76   p50 0,5968 -> 0,3908   moy 0,6041 -> 0,4051   69 baisses / 7 hausses
-    apex (B0)    ne tire pas   n=296   p50 0,6802 -> 0,6775   moy 0,6803 -> 0,6763  140 baisses / 138 hausses
-    comex (B0)   rebase TIRE   n= 76   p50 0,5714 -> 0,3762   moy 0,5688 -> 0,3947   70 baisses / 6 hausses
-    comex (B0)   ne tire pas   n=296   p50 0,6309 -> 0,6280   moy 0,6372 -> 0,6342  137 baisses / 142 hausses
+    etat                                         p50 chestL / chestR   >0,42 B0      >0,50 B0
+    c101  coup present, rebase translation seule    0,5917 / 0,6172   93,5 / 100 %  87,1 / 83,9 %
+    c102  coup present, + moitie ROTATION           0,3311 / 0,3977   32,3 /  32,3% 22,6 / 19,4 %
+    c103  COUP RETIRE, + moitie rotation            0,5967 / 0,6602  100,0 /  96,8% 93,5 / 87,1 %
 
-**-34 % la ou le mecanisme agit, 0,4 % la ou il n'agit pas, 69/76 contre 140/278 sur le SIGNE.**
-La rotation d'ancre non rebasee injectait environ un tiers de l'excursion d'apex dans ces
-fenetres ; leur mediane (0,3908 B0) rentre sous le plafond normal de §22 (0,42). `meshpen` suit :
-0,0586 -> 0,0564 m. Le declencheur est inchange : rebase arme **d0 14/62, d5 62/62** dans les deux
-courses, au bit.
+**LA BAISSE DU CYCLE 102 ETAIT NOTRE REBASE QUI MANGEAIT NOTRE PROPRE COUP.** Retire le coup a la
+source, et l'excursion revient a son niveau d'avant — legerement AU-DESSUS. La phrase du cycle
+102, « la rotation d'ancre non rebasee injectait environ un tiers de l'excursion d'apex dans ces
+fenetres ; leur mediane rentre sous le plafond normal de §22 », est donc **refutee** : le tiers
+en question etait injecte par la SALLE, et le rebase le retirait. §22 n'y gagnait rien.
 
-**CE QUE JE NE PEUX PAS AFFIRMER, ET C'EST LA GRANDEUR QUE §37 NOMME.** L'impulsion elle-meme
-(`jump`) ne bouge pas : p50 0,0416 -> 0,0430 sur 310 lignes, 130 hausses / 127 baisses. Elle n'est
-publiee que pour les cinq pilotages, donc **62 des 76 fenetres declenchantes n'en ont aucune**, et
-c'est un max de fenetre qui n'est pas oblige de tomber sur la frame du rebase. **L'EXCURSION baisse,
-mesuree ; l'IMPULSION est NON MESUREE sur le domaine qui compte.**
+`comex` suit exactement : 0,1795 -> 0,3156 (chestL) et 0,2037 -> 0,3257 (chestR).
+`ROOM-APEX pic_typique` : **0,6134 -> 0,6558** et **0,6283 -> 0,6736**. **§22 EMPIRE.**
 
-================================================================================================
-5. LES QUATRE CONFIGURATIONS, PARCE QUE JE N'AI RIEN ATTRIBUE SANS LE MESURER
-================================================================================================
-Deux gates ont bascule en cours de cycle. Chacune a ete diagnostiquee puis attribuee par une
-course dediee, jamais par un raisonnement.
-
-    configuration                              chestR peau   verdict    chestL peau   DISCRIM chestR
-    c101   translation seule · salle sautante    0,0863      TENUE       +0,0079        30,5 %
-    c102a  rebase rigide     · salle sautante    0,0875      TENUE       +0,0118        23,8 %  <- gate cassee
-    c102b  rebase rigide     · salle continue    0,0886      DEPASSEE    +0,0074        36,9 %
-    ABLAT  translation seule · salle continue    0,0886      DEPASSEE    +0,0098        36,9 %
-    LIVRE  rebase rigide     · rampe `tilt`      0,0868      TENUE       +0,0080        26,0 %
-
-Ce que ce tableau etablit, et qu'aucun argument n'aurait pu etablir :
-  1. **la moitie rotation est DISCULPEE sur la peau** : `chestR` rend **0,0886 avec ET sans** elle
-     (c102b = ABLAT, a la quatrieme decimale). L'exces vient du retrait du coup de salle, pas du
-     correctif ;
-  2. **elle AMELIORE `chestL`** : +0,0074 avec, +0,0098 sans, a salle identique — **2,4 mm** ;
-  3. **la bascule de `DISCRIMINANT` au c102a etait portee par UNE ligne** :
-     `chestR / tilt / assistant-lavatube-start-idle`, seule ligne au-dessus de 0,10 de sa cellule,
-     dont la mediane ne bougeait pas. Le meme ecart calcule sur les **MEDIANES** vaut **88,4 %
-     avant et 88,4 % apres**. La cause reelle etait le saut d'entree de 69 cm de cette
-     sous-fenetre — corrige au §3bis, et la gate revient a 26,0 %.
-
-**FRAGILITE QUE JE DECLARE AU LIEU DE LA TAIRE.** `DISCRIMINANT` passe a **26,0 %** pour un seuil
-de 25 % : un point de marge. Et ce n'est pas nouveau — sur les QUATRE pilotages hors `tilt`,
-`chestR` rend **23,8 % dans toutes les courses**, avant comme apres. La gate ne tient donc que par
-la cellule `tilt`, dont le maximum est un point isole. Elle rebasculera au prochain cycle qui
-touche a quoi que ce soit. Je ne la modifie pas (regle 5) : je la signale.
+**ET CETTE CELLULE PORTAIT DEPUIS LE CYCLE 102 UNE PHRASE QUE LE CYCLE 102 AVAIT RENDUE FAUSSE.**
+Son point (iii) affirme « dans la sous-fenetre SANS aucun pilotage, 100 % des fenetres depassent
+0,42 B0 et 83,9 / 90,3 % depassent 0,50 ». C'est la ligne c101 du tableau — elle etait juste
+quand elle a ete ecrite. Le cycle 102 l'a rendue fausse d'un facteur 4 (32,3 % et 22,6 / 19,4 %)
+et a conclu « aucune section ne change de statut ». **La donnee avait bouge, la ligne de verdict
+ne l'avait pas lue** — c'est mot pour mot l'arbitrage du 2026-08-19 23:50. La phrase est
+retablie sur la mesure de ce cycle.
 
 ================================================================================================
-6. ETAT DU REGISTRE
+5. LE FAUX VERT DE §34 TOMBE — SEUL CHANGEMENT DE STATUT DU CYCLE
 ================================================================================================
-**§37 reste `PARTIELLE`, et le motif change entierement.** L'ACTION est complete : les deux moities
-du rebase existent, la rotation est exercee sur les 76 memes fenetres que la translation, et son
-effet est mesure. Ce qui reste ouvert est le **DECLENCHEUR** : 14 fenetres sur 372 portent une
-rotation artificielle de 11,1 a 33,8 deg qu'aucun seuil n'intercepte.
-Comptes inchanges : **3 TENUE · 5 TENUE PAR CONSTRUCTION · 18 PARTIELLE · 11 NON TENUE.**
-Aucune section ne change de statut — premier cycle sans changement depuis le 101, et la directive
-du 2026-08-21 18:25 en compte deux avant remontee.
+    ROOM-SKINPEN-VERDICT   AVANT                                   APRES
+    chestL   course=0,0692 plancher=0,0612 +0,0080  DEPASSEE   0,0686 / +0,0074  DEPASSEE
+    chestR   course=0,0868 plancher=0,0883 -0,0016  TENUE      0,0886 / +0,0003  DEPASSEE
+
+Le coup de 60 degres projetait la chaine hors du thorax pendant les frames mesurees et **masquait**
+un depassement de 0,3 mm. Les DEUX chaines depassent maintenant leur propre plancher d'auteur,
+donc la regle 2 du registre ne rend plus `PARTIELLE` : **§34 passe `PARTIELLE` -> `NON TENUE`.**
+L'exces appartient au SOLVEUR et pas au correctif de §37 : le cycle 102 l'avait etabli par
+ablation (0,0886 avec ET sans la moitie rotation, a la quatrieme decimale).
+
+Controle negatif du perimetre : `ROOM-MEDIAL tag=rest` (PH-IDLE) est **inchange au chiffre** —
+le correctif ne touche que la fenetre qu'il vise.
+
+Comptes du registre : **3 TENUE · 5 TENUE PAR CONSTRUCTION · 17 PARTIELLE · 13 NON TENUE**
+(etait 18 / 12). La directive du 2026-08-21 18:25 exigeait un changement de statut ou une
+remontee apres deux cycles muets : le cycle 102 etait le premier, celui-ci n'est pas le second.
+
+**ET JE CORRIGE UN COMPTE QUI ETAIT FAUX DEPUIS PLUSIEURS CYCLES.** Le cycle 102 publiait
+« 3 TENUE · 5 TENUE PAR CONSTRUCTION · 18 PARTIELLE · 11 NON TENUE » — **cela fait 37, pas 38.**
+La ligne manquante est **§21**, dont la cellule contient des barres verticales dans son propre
+texte : tout compteur qui decoupe la ligne sur `|` et prend le 4e champ la rate. §21 est
+`NON TENUE` et l'a toujours ete ; le compte correct est donc **13**, et il l'etait deja au cycle
+102 (12 a l'epoque). Rien ne change au fond — c'est le compteur qui etait aveugle a une ligne,
+pas un statut qui aurait bouge.
 
 ================================================================================================
-7. LE PLAFOND DU MOTEUR EST ATTEINT — REMONTEE FACTUELLE, PAS UNE DEMANDE
+6. CE QUE JE DECLARE CONTRE MOI
 ================================================================================================
-`jak-hd-physics.gc` est a **4800 lignes pour un plafond de 4800**. Marge restante : **zero**. Le
-cycle 101 s'y est deja casse (4863, et le `fail()` de CLEAN **sort**, donc plus aucune gate de
-mesure n'etait evaluee). Avant d'ecrire une ligne j'ai cherche du mou, et **il n'y en a pas** :
+**(a) LA RAMPE A FAIT PASSER LE SAUT SOUS LE SEUIL DU REBASE SANS LE FAIRE PASSER SOUS LA
+SENSIBILITE DE LA CHAINE.** Le residu vaut 752 u/frame en mediane et **2 154 u au pire**, donc
+sous le declencheur `rbd > 7,00 * B0` = **4 214 u**. Rien ne l'intercepte, et la chaine le prend :
+`ROOM-SPEC37-KICK` sur `BASE-0stim` passe de `perr_max = 0,4852 B0, max>1B0 = 0` a
+**`perr_max = 3,9405 B0, max>1B0 = 26/31`** (chestL ; 3,9251 et 23/31 sur chestR). Je ne presente
+donc pas cette fenetre comme « propre » : elle est **14,6 fois moins frappee**, et elle est encore
+frappee. C'est le meme defaut de seuil que le cycle 102 avait nomme (14 fenetres a 11-34 deg sans
+interception), maintenant chiffre dans les unites du declencheur.
 
-    commentaires : 540 lignes, dont 402 sont deja le pointeur d'une ligne vers `-NOTES.md`
-                   (convention du fichier) ; **le plus gros bloc restant fait 7 lignes**, l'entete
-    emplacements de diagnostic : le moteur en ecrit 61, la salle **les lit tous les 61** —
-                   audit croise `phys-diag` cote salle contre `(+ dgr N)` cote moteur, zero mort
-    lignes mortes : aucune trouvee
+**(b) JE N'AI PAS PU SEPARER LE TRANSITOIRE DE LA RAMPE DU MOUVEMENT DE L'ANIMATION.** J'ai
+essaye, avec `PHYSJTW` par frame : l'ecart de `lBooc` a l'etat de fin de fenetre decroit de ~58 a
+~5 u dans la course neuve **et de ~44 a ~7 u dans l'ancienne**. Les deux fenetres sont non
+stationnaires parce que l'animation y joue ; ce probe ne discrimine pas, et je le dis au lieu de
+choisir la lecture qui m'arrange. Ce qui EST etabli est plus fort et ne depend pas de lui : le
+stimulus recu pendant les frames mesurees est identique a quatre decimales entre les deux courses
+(§3), donc l'ecart d'apex vient de l'etat d'entree — mais la part de cet etat d'entree qui est un
+reste de rampe n'est **pas mesuree**. C'est la mesure qui manque, et elle est nommee.
 
-Le correctif de ce cycle tient parce qu'il RETIRE 9 lignes au site du rebase pour en remettre 6,
-plus une fonction de 5 : **+2 net**. Le prochain changement de moteur, quel qu'il soit, ne rentre
-pas. La seule reserve mobilisable serait de reecrire les 24 lignes de produit matriciel developpe
-a la main du bloc de torsion de §29 (:3691-3717) — **je ne l'ai pas fait** : payer §37 en prenant
-un risque arithmetique sur §29, qui est une section vivante et deja bloquee par son conflit avec
-§24, est un mauvais echange, et acheter du budget en reecrivant du code sans rapport est un
-contournement de gate deguise en menage.
-Le commentaire de la gate dit lui-meme comment elle se releve (« c'est la COMPOSITION qui decide,
-jamais le nombre ») ; la composition est ci-dessus. **Je ne la touche pas — c'est au superviseur.**
+**(c) `DISCRIMINANT` N'A PAS ETE EVALUEE PAR LE VALIDATEUR, ET C'EST LA TROISIEME FOIS QUE CE
+MOTIF PASSE.** `verdict()` sort en echec a la ligne 591 ; `DISCRIMINANT` vit aux lignes 597-661 et
+`OPEN-DEFECTS` apres. Des qu'un verdict de mesure echoue — ce qui est le cas voulu de ce cycle —
+ces deux gates ne sont **jamais atteintes**. C'est exactement `gate-behind-an-always-failing-gate`,
+deja paye le 2026-08-19 et le 2026-08-20. **Je n'ai pas touche a la gate (regle 5)** : j'ai
+execute son propre code, verbatim, contre les deux tableaux.
+
+    chestL   ecart 49,8 % -> **46,7 %**    (seuil 25 %)
+    chestR   ecart 26,0 % -> **36,9 %**    (seuil 25 %)
+
+Elle passerait, et la fragilite que le cycle 102 signalait — « 26,0 % pour un seuil de 25 %, un
+point de marge, elle rebasculera au prochain cycle qui touche a quoi que ce soit » — est **levee** :
+la marge passe d'un point a douze. Mais **je ne le presente pas comme un vert du validateur** :
+c'est ma reproduction de sa gate, pas sa sortie. La remontee, elle, est structurelle et
+c'est au superviseur : **deux gates sont devenues invisibles des qu'un verdict de mesure echoue.**
+
+**(d) 15 SECTIONS LISENT CETTE FENETRE, JE N'EN AI REMESURE QUE CINQ.** L'inventaire (croise
+code + tableau, pas par mots-cles) donne : chiffre de statut directement dessus — §21, §22, §24,
+§33, §34, §36, §37 ; attribution seulement — §2, §3, §14, §16, §17, §18, §19, §20. J'ai remesure
+et reecrit §22, §33, §34, §36, §37. Les dix autres portent desormais une **reserve declaree** sur
+leur propre ligne au lieu d'un silence, et **aucune n'est reclassee** — reclasser sans remesurer
+serait la faute que ce cycle vient de corriger chez le precedent. §36 a ete trouvee par
+recoupement de code et **lisait la ligne de base sans le dire** (`ROOM-SPEC36-AMP` agrege 186
+fenetres sans filtre sur `d`, la ou `ROOM-SHAPE` juste au-dessus exclut `d >= 5`) ; il peut en
+rester d'autres, et l'inventaire le declare.
 
 ================================================================================================
-8. LA SUITE, ET UN INCIDENT DE PROCESS
+7. LE PLAFOND DU MOTEUR — REMONTEE REITEREE, TOUJOURS SANS REPONSE
 ================================================================================================
-(a) **Le retour a la verticale de la sous-fenetre de LIGNE DE BASE** : ecrit, compile, mesure
-    (`amax` 10 987 -> 715 u, rebase arme 62/62 -> 0/34), retire du lot. Il se livre avec la
-    relecture des sections qui citent cette fenetre comme reference, pas en passager.
-(b) **Le faux vert qu'il decouvre** : sans ce coup, `chestR` depasse son plancher d'auteur de
-    0,0003 m (§34). Mesure identique avec et sans la moitie rotation : c'est le solveur.
-(c) **Le declencheur du rebase** : 14/372 fenetres a 11-34 deg sans interception. C'est ce qui
-    tient §37 en `PARTIELLE`. Demande des lignes de moteur — voir §7.
-(d) **Les 296 fenetres non declenchantes restent a 0,68 B0 d'apex** contre 0,42 autorises. Ce
-    cycle etablit, par difference, que cet exces-la **ne vient PAS d'une discontinuite d'ancre**.
-(e) **L'isolement des fenetres** : l'etat du solveur les traverse (§3). Aucune comparaison par
-    fenetre n'est un controle propre tant que ce n'est pas traite.
+`jak-hd-physics.gc` est a **4800 pour un plafond de 4800**, marge **zero**. Le cycle 102 l'a
+remonte au superviseur ; `.autoport/DIRECTIVES.md` n'a pas bouge depuis le 2026-08-21 20:50, donc
+la remontee est sans reponse. **Ce cycle n'a rien coute au moteur** — il est entierement dans la
+salle, qui n'a pas de plafond — mais le point (a) ci-dessus (le seuil du rebase) est un correctif
+de MOTEUR, et il ne rentre pas. Je ne touche ni la gate ni le seuil : je signale que le prochain
+pas nomme de §37 est bloque par le plafond, pas par la comprehension.
 
-**INCIDENT DE PROCESS, SIGNALE PARCE QU'IL EST AU REGISTRE.** L'auto-constructeur a commite mon
-travail en cours au milieu du cycle (`e2bb66ff3a`, `phys-room.gc` a 6240 lignes, l'etat
-intermediaire c102b). Rien n'est perdu et l'arbre livre est bien l'etat voulu, mais le piege
-`autobuilder-ships-your-wip` a remordu : un commit de lui porte un etat que je n'ai pas choisi de
-publier. A garder en tete pour lire l'historique de ce cycle.
+================================================================================================
+8. LA SUITE, NOMMEE
+================================================================================================
+(a) **Le seuil du rebase** : 7,00 * B0 = 4 214 u laisse passer 2 154 u. C'est ce qui tient §37 en
+    `PARTIELLE`, c'est chiffre, et c'est du moteur — donc bloque par §7.
+(b) **Le troisieme saut declare** : le changement d'animation avant `updown`, `amax` jusqu'a
+    37 811 u, 14 fenetres sur 62. C'est le dernier des trois que l'entete declare, et le seul
+    qui reste. Il est dans la salle, donc pas bloque.
+(c) **La part de rampe dans l'etat d'entree** (§6b) : non mesuree, nommee.
+(d) **Les dix sections a reserve declaree** (§6d) : a remesurer une par une.
+(e) **§34 est maintenant rouge sur les deux chaines** : +0,0074 m et +0,0003 m au-dessus du
+    plancher d'auteur. C'est du solveur, etabli par ablation au cycle 102.
 
 ================================================================================================
 9. A TESTER PAR L'OWNER
 ================================================================================================
-**RIEN.** Le changement porte sur une seule section, et la directive du 2026-08-20 23:30 est
-explicite : « je ne sollicite plus de test pour un changement d'une seule section » tant que le
-bloc §14-§20 / §24-§27 / §9-§13 n'est pas tenu ensemble. La livraison au fil de l'eau n'est pas
-suspendue pour autant : le build reste disponible s'il en veut un.
+**RIEN.** Ce cycle ne change pas le comportement du jeu : `phys-room.gc` est la SALLE DE TEST, et
+le moteur est intouche au bit. Ce qui a change est ce que la salle MESURE. La directive du
+2026-08-20 23:30 s'applique de toute facon (pas de sollicitation pour un changement d'une seule
+section tant que le bloc §14-§20 / §24-§27 / §9-§13 n'est pas tenu ensemble), mais ici c'est plus
+simple que ca : il n'y a rien a voir a l'ecran. La livraison au fil de l'eau n'est pas suspendue —
+le build reste disponible s'il en veut un.
