@@ -9026,3 +9026,178 @@ etait la raison d'etre du plafond) et il garde l'inertie AU BIT au repos : `dj =
 l'auto-limitation par signe ; ce qu'il gagne, c'est de ne plus etre aveugle a la direction
 ([[feedback_radius_blind_to_direction]]). Le cout se chiffre dans le rapport du cycle : `tipvar`,
 SPEC 22 etage 6, `ROOM-STRETCH` et `ROOM-IDLE` sont publies avant/apres.
+
+## MIGRATION DU 2026-08-22 (cycle 109) — 17 blocs sortis pour tenir sous le plafond CLEAN
+
+Le canal de preset (`pk <Cle> <valeur>` lu dans le fichier livre) coute 15 lignes au moteur, et
+la gate CLEAN en plafonne 4800. Conformement a la convention de ce fichier, les lignes se
+trouvent en deplacant des blocs de COMMENTAIRE, VERBATIM, jamais en refactorisant du code : un
+deplacement d'expression flottante ferait bouger la course et detruirait le controle de
+bit-identite qui est justement la preuve que ce cycle apporte.
+
+## NOTE-484  (moteur, aux alentours de la ligne 490)
+
+```
+;; L'APPROCHE MINIMALE MESUREE AVEC L'INJECTION ARMEE, meme frame et memes points que sans elle :
+;; controle APPAIRE, donc l'ecart des deux colonnes n'est imputable qu'a l'injection.
+```
+
+## NOTE-485  (moteur, aux alentours de la ligne 507)
+
+```
+;; combien d'echantillons ont ete VRAIMENT testes : un zero avec un compteur de tests a zero veut
+;; dire « je n'ai pas regarde », pas « rien ne penetre ». Les deux se distinguent, toujours.
+```
+
+## NOTE-486  (moteur, aux alentours de la ligne 531)
+
+```
+;; etat de contrainte de la frame precedente, par (lien, volume), pour compter les bascules.
+;; 1 bit par volume, un mot par lien : PHYS-COLS <= 96 tient sur trois mots de 32 bits.
+```
+
+## NOTE-487  (moteur, aux alentours de la ligne 536)
+
+```
+;; CONTROLE POSITIF de l'auto-collision : arme, l'exclusion chaine<->ses propres volumes est levee.
+;; Le compteur `selfcol` doit alors monter — sinon il ne mesure rien.
+```
+
+## NOTE-488  (moteur, aux alentours de la ligne 539)
+
+```
+;; ARME, LA CONTRAINTE DE COTE EST LEVEE et son compteur doit MONTER. Un compteur tombe a zero
+;; est soit une correction, soit un predicat devenu inevaluable — le piege de `(= l 0)`.
+```
+
+## NOTE-489  (moteur, aux alentours de la ligne 544)
+
+```
+;; [NOTE-53] CONTROLE k=4 — 1 = LE MUR DE COLLISION EST DESARME (`feff` -> PHYS-VOL-FREE), sur la
+;; fenetre d'orientation seule. C'est le suspect que le cycle 13 a dimensionne sans le desarmer.
+```
+
+## NOTE-490  (moteur, aux alentours de la ligne 555)
+
+```
+;; deltas de propagation aux descendants non simules (les verres de lunettes pendent sous
+;; gogglesMid : si on bouge le milieu sans eux, ils se decrochent).
+```
+
+## NOTE-491  (moteur, aux alentours de la ligne 709)
+
+```
+                      ;; [NOTE-126] la part de masse de peau de CHAQUE maillon. 0 = non declaree,
+                      ;; et le COM pondere n'est alors pas publie du tout, jamais publie a zero.
+```
+
+## NOTE-492  (moteur, aux alentours de la ligne 895)
+
+```
+                    ;; PREUVE D'EXECUTION (regle 0) : ce que le moteur a REELLEMENT resolu, pas ce
+                    ;; que le fichier promet. Le validateur et la salle s'ancrent sur cette ligne.
+```
+
+## NOTE-493  (moteur, aux alentours de la ligne 1120)
+
+```
+                      ;; PLAFOND DUR, ET IL DOIT LE RESTER : voir la note d'IDEMPOTENCE au-dessus
+                      ;; de `phys-softmin`. Ce bloc tourne onze fois par frame.
+```
+
+## NOTE-494  (moteur, aux alentours de la ligne 1153)
+
+```
+               ;; LONGUEUR INVARIANTE : projection sur la sphere de rayon `want` centree sur
+               ;; l'attache.
+```
+
+## NOTE-495  (moteur, aux alentours de la ligne 1603)
+
+```
+                            ;; une correction issue d'un volume PROPRE a la chaine : elle ne peut
+                            ;; arriver que sous controle positif, et c'est ce compteur qui le dit.
+```
+
+## NOTE-496  (moteur, aux alentours de la ligne 1661)
+
+```
+            ;; retour aux coordonnees du JOINT : le solveur, la contrainte de longueur et l'ecriture
+            ;; dans le squelette raisonnent tous sur le joint, jamais sur le centre du volume.
+```
+
+## NOTE-497  (moteur, aux alentours de la ligne 1714)
+
+```
+                                  ;; `dd * s^2` = ce que le pas retire REELLEMENT. Le rapport
+                                  ;; `removed/sumdepth` EST le rendement geometrique moyen.
+```
+
+## NOTE-498  (moteur, aux alentours de la ligne 1743)
+
+```
+              ;; --- (b) LA LONGUEUR, et c'est la DERNIERE operation de la boucle, donc du
+              ;; --- solveur : `ROOM-STRETCH` reste exact par construction.
+```
+
+## NOTE-499  (moteur, aux alentours de la ligne 1848)
+
+```
+    ;; [NOTE-293] LA FENETRE DE LECTURE. lo=0 / hi=-1 (les valeurs par defaut, jamais modifiees
+    ;; hors de `phys-medial-scan`) rendent EXACTEMENT [0, nbsurf) : la population de CORPS.
+```
+
+## NOTE-500  (moteur, aux alentours de la ligne 1880)
+
+```
+                          ;; insertion triee : le K-voisinage reste ordonne par distance, donc le
+                          ;; dernier porte toujours le rayon du noyau.
+```
+
+## NOTE-501  (moteur, les trois `define-extern` du preset)
+
+```
+LE PRESET EST UNE ENTREE, PAS UNE DESCRIPTION. Owner, 2026-08-22 : « tu pourrais faire en sorte
+que ce soit des boutons qu'on tourne justement, regarde le preset de Maia, les memes proprietes
+des presets ont des valeurs differentes... c'est un peu le but d'un preset. »
+
+Sa premisse se verifie sur le document : les deux presets de la section 38 partagent 74 cles
+(71 ecrites avec `=`, 3 avec `≈` ou `>=`) et 53 portent des valeurs differentes (51 parmi les 71).
+Un document qui donne les MEMES cles avec des valeurs DIFFERENTES pour deux personnages n'ecrit
+pas des observations : il ecrit des ENTREES.
+
+Les trois prises ci-dessous rendent donc chaque cle LISIBLE depuis le fichier livre :
+  pc-physics-chain-preset-mi     (chaine, id de cle) -> milli, ou -1 si la cle n'est pas au fichier
+  pc-physics-chain-preset-count  (chaine)            -> nombre de cles `pk` que le fichier porte
+  pc-physics-chain-preset-absent (chaine)            -> celles que CE moteur ne lit pas : CANAL ABSENT
+
+-1 et pas 0 pour l'absence : `AdditionalStandingSag = 0.00` est une valeur legitime du preset, donc
+un zero ne peut jamais vouloir dire « absente ». Le moteur remplace une cle absente par l'element
+NEUTRE (1.0 pour une echelle, 0.0 pour une amplitude) et le compte : un canal manquant apparait
+dans la trace au lieu de restaurer en silence une ancienne constante.
+
+La table des cles CABLEES vit dans `kPhysPresetKeys` (kmachine.cpp), une seule liste : une cle
+absente de cette liste n'a pas de canal, et c'est exactement ce que `preset-absent` compte.
+```
+
+## NOTE-502  (moteur, `*phys-pset*`)
+
+```
+LES VALEURS DU PRESET, PAR CHAINE, LUES DANS LE FICHIER LIVRE.
+
+Rangement `(* sc PHYS-PSET-N) + id`. PAR CHAINE et non global : la section 32 (Left/Right
+Independence) demande 2 a 5 % d'ecart entre les deux seins, donc la granularite du preset est la
+chaine, pas le modele.
+
+CE QUE CE MAGASIN SUPPRIME, ET C'EST SA RAISON D'ETRE. Six valeurs de FORME etaient ECRITES EN DUR
+dans le tenseur de deformation (sections 10 et 11 : Supine{Projection,Width,Height}Scale,
+Hanging{Length,Width,Thickness}Scale). L'instrument relisait donc la constante qu'il etait cense
+verifier — 13 entrees du registre etaient dans ce cas et comptaient comme mesurees. Elles ne le
+sont plus : la valeur vient du fichier, l'instrument mesure ce que le fichier a demande.
+
+ET CA DONNE LE CONTROLE POSITIF DE NIVEAU SYSTEME QUE CE DOSSIER N'A JAMAIS EU : poser le preset de
+MAIA sur la chaine de KEIRA doit produire un comportement MESURABLEMENT different, dans le sens que
+ses ecarts prescrivent. Un moteur qui consomme vraiment le preset le montre ; un moteur qui fait
+semblant rend la meme chose. Le perimetre ne bouge pas pour autant : ses chiffres sont un VECTEUR
+DE TEST sur la chaine de Keira, on ne livre pas sa physique et on ne touche pas a son personnage.
+```

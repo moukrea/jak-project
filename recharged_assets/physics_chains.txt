@@ -102,10 +102,202 @@ level 2 substeps=4 iters=20 collide=2 classmask=7 fixedhz=240
 chain chestL class=primary stiffness=2.7696 damping=0.1686 gravity=1.00 radius=655 mass=1.45 hang=0.00 family=A couple=1.85 radii=723,587 b0=602 comw=0.3266,0.2449
 j lBoob
 j lBooc
+# --- PRESET (SPEC-breast-softbody section 38) — pose par .autoport/preset_apply.py pour chestL.
+#     source: SPEC-breast-softbody.md « Keira Hagai », une ligne par cle, valeur et
+#     numero de ligne recopies TELS QUELS. Une cle sans lecteur dans le
+#     moteur se compte CANAL ABSENT (pc-physics-chain-preset-absent), pas
+#     une section non tenue.
+pk APCompliance 0.9   # SPEC-breast-softbody.md:515
+pk AbsoluteStretchClamp 0.25   # SPEC-breast-softbody.md:509
+pk AdditionalStandingSag 0   # SPEC-breast-softbody.md:460
+pk BreastBreastRestitution 0.06   # SPEC-breast-softbody.md:528
+pk BreastChestRestitution 0.02   # SPEC-breast-softbody.md:529
+pk DistalAnchorHi 0.3   # SPEC-breast-softbody.md:524
+pk DistalAnchorLo 0.05   # SPEC-breast-softbody.md:524
+pk EnableBreastBreastCollision 1   # SPEC-breast-softbody.md:530
+pk EnableChestCollision 1   # SPEC-breast-softbody.md:531
+pk EnableExternalCollision 1   # SPEC-breast-softbody.md:532
+pk FirstBounceRatio 0.31   # SPEC-breast-softbody.md:467
+pk GarmentCompression 0   # SPEC-breast-softbody.md:536
+pk GarmentDynamicDamping 0   # SPEC-breast-softbody.md:537
+pk GarmentSupport 0   # SPEC-breast-softbody.md:535
+pk GlobalDampingRatio 0.35   # SPEC-breast-softbody.md:466
+pk GlobalFrequencyAP 2.5   # SPEC-breast-softbody.md:464
+pk GlobalFrequencyLateral 2.65   # SPEC-breast-softbody.md:465
+pk GlobalFrequencyVertical 2.3   # SPEC-breast-softbody.md:463
+pk HangingCOMDisplacement 0.24   # SPEC-breast-softbody.md:480
+pk HangingLengthScale 1.23   # SPEC-breast-softbody.md:477
+pk HangingThicknessScale 0.91   # SPEC-breast-softbody.md:479
+pk HangingTransientLengthMax 1.3   # SPEC-breast-softbody.md:481
+pk HangingWidthScale 0.9   # SPEC-breast-softbody.md:478
+pk HardImpactSubstepsHi 4   # SPEC-breast-softbody.md:553
+pk HardImpactSubstepsLo 3   # SPEC-breast-softbody.md:553
+pk HardLandingApex 0.5   # SPEC-breast-softbody.md:494
+pk HardLandingCOM 0.4   # SPEC-breast-softbody.md:492
+pk HardLinearAccelCOM 0.3   # SPEC-breast-softbody.md:496
+pk HardMaxApexDisplacement 0.5   # SPEC-breast-softbody.md:506
+pk HardMaxCOMDisplacement 0.4   # SPEC-breast-softbody.md:504
+pk HardVolumeRangeHi 1.02   # SPEC-breast-softbody.md:511
+pk HardVolumeRangeLo 0.96   # SPEC-breast-softbody.md:511
+pk HardYawApex 0.35   # SPEC-breast-softbody.md:500
+pk HardYawCOM 0.28   # SPEC-breast-softbody.md:498
+pk LateralCompliance 0.82   # SPEC-breast-softbody.md:516
+pk LowerBreastCompression 0.2   # SPEC-breast-softbody.md:486
+pk MassPerBreast 0.5   # SPEC-breast-softbody.md:455
+pk MidVolumeAnchorHi 0.55   # SPEC-breast-softbody.md:523
+pk MidVolumeAnchorLo 0.25   # SPEC-breast-softbody.md:523
+pk MinimumSubstepsAt60FPS 2   # SPEC-breast-softbody.md:552
+pk NeutralCOMOffset 0   # SPEC-breast-softbody.md:459
+pk NeutralHeight 1   # SPEC-breast-softbody.md:458
+pk NeutralProjection 1   # SPEC-breast-softbody.md:456
+pk NeutralWidth 1   # SPEC-breast-softbody.md:457
+pk NominalVolumePerBreast 0.525   # SPEC-breast-softbody.md:454
+pk NormalDynamicStretch 0.15   # SPEC-breast-softbody.md:507
+pk NormalMaxApexDisplacement 0.42   # SPEC-breast-softbody.md:505
+pk NormalMaxCOMDisplacement 0.35   # SPEC-breast-softbody.md:503
+pk NormalVolumeRangeHi 1.01   # SPEC-breast-softbody.md:510
+pk NormalVolumeRangeLo 0.98   # SPEC-breast-softbody.md:510
+pk RearIntermediateAnchorHi 0.85   # SPEC-breast-softbody.md:522
+pk RearIntermediateAnchorLo 0.55   # SPEC-breast-softbody.md:522
+pk RecommendedEffectiveRate 120   # SPEC-breast-softbody.md:551
+pk RootAnchorHi 1   # SPEC-breast-softbody.md:521
+pk RootAnchorLo 0.9   # SPEC-breast-softbody.md:521
+pk RootDeformationExponentHi 2   # SPEC-breast-softbody.md:525
+pk RootDeformationExponentLo 1.6   # SPEC-breast-softbody.md:525
+pk SecondaryDampingRatio 0.65   # SPEC-breast-softbody.md:543
+pk SecondaryFrequency 5.2   # SPEC-breast-softbody.md:542
+pk SecondaryJiggleAmplitudeHi 0.05   # SPEC-breast-softbody.md:540
+pk SecondaryJiggleAmplitudeLo 0.02   # SPEC-breast-softbody.md:540
+pk SecondaryJiggleHardMax 0.07   # SPEC-breast-softbody.md:541
+pk SideGravityCOM 0.19   # SPEC-breast-softbody.md:484
+pk StrongDynamicStretch 0.21   # SPEC-breast-softbody.md:508
+pk StrongJumpApexLagHi 0.38   # SPEC-breast-softbody.md:490
+pk StrongJumpApexLagLo 0.3   # SPEC-breast-softbody.md:490
+pk StrongJumpCOMLagHi 0.32   # SPEC-breast-softbody.md:489
+pk StrongJumpCOMLagLo 0.25   # SPEC-breast-softbody.md:489
+pk StrongLandingApexHi 0.42   # SPEC-breast-softbody.md:493
+pk StrongLandingApexLo 0.3   # SPEC-breast-softbody.md:493
+pk StrongLandingCOMHi 0.35   # SPEC-breast-softbody.md:491
+pk StrongLandingCOMLo 0.25   # SPEC-breast-softbody.md:491
+pk StrongLinearAccelCOMHi 0.27   # SPEC-breast-softbody.md:495
+pk StrongLinearAccelCOMLo 0.18   # SPEC-breast-softbody.md:495
+pk StrongRootFraction 0.3   # SPEC-breast-softbody.md:520
+pk StrongYawApexHi 0.3   # SPEC-breast-softbody.md:499
+pk StrongYawApexLo 0.2   # SPEC-breast-softbody.md:499
+pk StrongYawCOMHi 0.24   # SPEC-breast-softbody.md:497
+pk StrongYawCOMLo 0.17   # SPEC-breast-softbody.md:497
+pk SupineCOMDepth 0.23   # SPEC-breast-softbody.md:473
+pk SupineCOMLateral 0.07   # SPEC-breast-softbody.md:474
+pk SupineHeightScale 1.09   # SPEC-breast-softbody.md:472
+pk SupineProjectionScale 0.7   # SPEC-breast-softbody.md:470
+pk SupineWidthScale 1.23   # SPEC-breast-softbody.md:471
+pk TorsionalCompliance 0.72   # SPEC-breast-softbody.md:517
+pk UpperBreastMedialShift 0.14   # SPEC-breast-softbody.md:485
+pk VerticalCompliance 1   # SPEC-breast-softbody.md:514
+pk VerticalEffectiveDamping 5.1   # SPEC-breast-softbody.md:548
+pk VerticalEffectiveMass 0.5   # SPEC-breast-softbody.md:546
+pk VerticalEffectiveStiffness 104   # SPEC-breast-softbody.md:547
+# --- fin PRESET
 # chestR [A] rBoob verts=55 wsum=19.75 r=725 | rBooc verts=41 wsum=28.57 r=533
 chain chestR class=primary stiffness=2.9081 damping=0.1753 gravity=1.00 radius=629 mass=1.4800 hang=0.00 family=A couple=1.85 radii=725,533 b0=602 comw=0.3581,0.1871
 j rBoob
 j rBooc
+# --- PRESET (SPEC-breast-softbody section 38) — pose par .autoport/preset_apply.py pour chestR.
+#     source: SPEC-breast-softbody.md « Keira Hagai », une ligne par cle, valeur et
+#     numero de ligne recopies TELS QUELS. Une cle sans lecteur dans le
+#     moteur se compte CANAL ABSENT (pc-physics-chain-preset-absent), pas
+#     une section non tenue.
+pk APCompliance 0.9   # SPEC-breast-softbody.md:515
+pk AbsoluteStretchClamp 0.25   # SPEC-breast-softbody.md:509
+pk AdditionalStandingSag 0   # SPEC-breast-softbody.md:460
+pk BreastBreastRestitution 0.06   # SPEC-breast-softbody.md:528
+pk BreastChestRestitution 0.02   # SPEC-breast-softbody.md:529
+pk DistalAnchorHi 0.3   # SPEC-breast-softbody.md:524
+pk DistalAnchorLo 0.05   # SPEC-breast-softbody.md:524
+pk EnableBreastBreastCollision 1   # SPEC-breast-softbody.md:530
+pk EnableChestCollision 1   # SPEC-breast-softbody.md:531
+pk EnableExternalCollision 1   # SPEC-breast-softbody.md:532
+pk FirstBounceRatio 0.31   # SPEC-breast-softbody.md:467
+pk GarmentCompression 0   # SPEC-breast-softbody.md:536
+pk GarmentDynamicDamping 0   # SPEC-breast-softbody.md:537
+pk GarmentSupport 0   # SPEC-breast-softbody.md:535
+pk GlobalDampingRatio 0.35   # SPEC-breast-softbody.md:466
+pk GlobalFrequencyAP 2.5   # SPEC-breast-softbody.md:464
+pk GlobalFrequencyLateral 2.65   # SPEC-breast-softbody.md:465
+pk GlobalFrequencyVertical 2.3   # SPEC-breast-softbody.md:463
+pk HangingCOMDisplacement 0.24   # SPEC-breast-softbody.md:480
+pk HangingLengthScale 1.23   # SPEC-breast-softbody.md:477
+pk HangingThicknessScale 0.91   # SPEC-breast-softbody.md:479
+pk HangingTransientLengthMax 1.3   # SPEC-breast-softbody.md:481
+pk HangingWidthScale 0.9   # SPEC-breast-softbody.md:478
+pk HardImpactSubstepsHi 4   # SPEC-breast-softbody.md:553
+pk HardImpactSubstepsLo 3   # SPEC-breast-softbody.md:553
+pk HardLandingApex 0.5   # SPEC-breast-softbody.md:494
+pk HardLandingCOM 0.4   # SPEC-breast-softbody.md:492
+pk HardLinearAccelCOM 0.3   # SPEC-breast-softbody.md:496
+pk HardMaxApexDisplacement 0.5   # SPEC-breast-softbody.md:506
+pk HardMaxCOMDisplacement 0.4   # SPEC-breast-softbody.md:504
+pk HardVolumeRangeHi 1.02   # SPEC-breast-softbody.md:511
+pk HardVolumeRangeLo 0.96   # SPEC-breast-softbody.md:511
+pk HardYawApex 0.35   # SPEC-breast-softbody.md:500
+pk HardYawCOM 0.28   # SPEC-breast-softbody.md:498
+pk LateralCompliance 0.82   # SPEC-breast-softbody.md:516
+pk LowerBreastCompression 0.2   # SPEC-breast-softbody.md:486
+pk MassPerBreast 0.5   # SPEC-breast-softbody.md:455
+pk MidVolumeAnchorHi 0.55   # SPEC-breast-softbody.md:523
+pk MidVolumeAnchorLo 0.25   # SPEC-breast-softbody.md:523
+pk MinimumSubstepsAt60FPS 2   # SPEC-breast-softbody.md:552
+pk NeutralCOMOffset 0   # SPEC-breast-softbody.md:459
+pk NeutralHeight 1   # SPEC-breast-softbody.md:458
+pk NeutralProjection 1   # SPEC-breast-softbody.md:456
+pk NeutralWidth 1   # SPEC-breast-softbody.md:457
+pk NominalVolumePerBreast 0.525   # SPEC-breast-softbody.md:454
+pk NormalDynamicStretch 0.15   # SPEC-breast-softbody.md:507
+pk NormalMaxApexDisplacement 0.42   # SPEC-breast-softbody.md:505
+pk NormalMaxCOMDisplacement 0.35   # SPEC-breast-softbody.md:503
+pk NormalVolumeRangeHi 1.01   # SPEC-breast-softbody.md:510
+pk NormalVolumeRangeLo 0.98   # SPEC-breast-softbody.md:510
+pk RearIntermediateAnchorHi 0.85   # SPEC-breast-softbody.md:522
+pk RearIntermediateAnchorLo 0.55   # SPEC-breast-softbody.md:522
+pk RecommendedEffectiveRate 120   # SPEC-breast-softbody.md:551
+pk RootAnchorHi 1   # SPEC-breast-softbody.md:521
+pk RootAnchorLo 0.9   # SPEC-breast-softbody.md:521
+pk RootDeformationExponentHi 2   # SPEC-breast-softbody.md:525
+pk RootDeformationExponentLo 1.6   # SPEC-breast-softbody.md:525
+pk SecondaryDampingRatio 0.65   # SPEC-breast-softbody.md:543
+pk SecondaryFrequency 5.2   # SPEC-breast-softbody.md:542
+pk SecondaryJiggleAmplitudeHi 0.05   # SPEC-breast-softbody.md:540
+pk SecondaryJiggleAmplitudeLo 0.02   # SPEC-breast-softbody.md:540
+pk SecondaryJiggleHardMax 0.07   # SPEC-breast-softbody.md:541
+pk SideGravityCOM 0.19   # SPEC-breast-softbody.md:484
+pk StrongDynamicStretch 0.21   # SPEC-breast-softbody.md:508
+pk StrongJumpApexLagHi 0.38   # SPEC-breast-softbody.md:490
+pk StrongJumpApexLagLo 0.3   # SPEC-breast-softbody.md:490
+pk StrongJumpCOMLagHi 0.32   # SPEC-breast-softbody.md:489
+pk StrongJumpCOMLagLo 0.25   # SPEC-breast-softbody.md:489
+pk StrongLandingApexHi 0.42   # SPEC-breast-softbody.md:493
+pk StrongLandingApexLo 0.3   # SPEC-breast-softbody.md:493
+pk StrongLandingCOMHi 0.35   # SPEC-breast-softbody.md:491
+pk StrongLandingCOMLo 0.25   # SPEC-breast-softbody.md:491
+pk StrongLinearAccelCOMHi 0.27   # SPEC-breast-softbody.md:495
+pk StrongLinearAccelCOMLo 0.18   # SPEC-breast-softbody.md:495
+pk StrongRootFraction 0.3   # SPEC-breast-softbody.md:520
+pk StrongYawApexHi 0.3   # SPEC-breast-softbody.md:499
+pk StrongYawApexLo 0.2   # SPEC-breast-softbody.md:499
+pk StrongYawCOMHi 0.24   # SPEC-breast-softbody.md:497
+pk StrongYawCOMLo 0.17   # SPEC-breast-softbody.md:497
+pk SupineCOMDepth 0.23   # SPEC-breast-softbody.md:473
+pk SupineCOMLateral 0.07   # SPEC-breast-softbody.md:474
+pk SupineHeightScale 1.09   # SPEC-breast-softbody.md:472
+pk SupineProjectionScale 0.7   # SPEC-breast-softbody.md:470
+pk SupineWidthScale 1.23   # SPEC-breast-softbody.md:471
+pk TorsionalCompliance 0.72   # SPEC-breast-softbody.md:517
+pk UpperBreastMedialShift 0.14   # SPEC-breast-softbody.md:485
+pk VerticalCompliance 1   # SPEC-breast-softbody.md:514
+pk VerticalEffectiveDamping 5.1   # SPEC-breast-softbody.md:548
+pk VerticalEffectiveMass 0.5   # SPEC-breast-softbody.md:546
+pk VerticalEffectiveStiffness 104   # SPEC-breast-softbody.md:547
+# --- fin PRESET
 
 # ---- COLLIDERS, fitted from the same mesh. One capsule per obstacle bone segment,
 # one sphere per obstacle joint no capsule caps (a part root: a strand hanging off the

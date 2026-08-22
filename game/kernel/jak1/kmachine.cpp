@@ -1074,6 +1074,16 @@ struct PhysChain {
   // 0/absent = UNDECLARED, and the engine then publishes no COM at all rather than a wrong one,
   // so adding this key moves no chain that does not carry it.
   std::vector<float> link_comw;
+  // `pk <Key> <value>` : the CHARACTER PRESET, copied VERBATIM from SPEC-breast-softbody.md
+  // section 38 by .autoport/preset_apply.py — key name and number, never re-typed by hand.
+  // The owner, 2026-08-22: « les memes proprietes des presets ont des valeurs differentes, on
+  // pourrait donc imaginer que ces knobs influencent proprement le tout ». A preset that gives
+  // the SAME keys with DIFFERENT numbers for two characters writes INPUTS, not observations —
+  // so every key here is a channel the engine READS, and a key the engine does not read is
+  // reported as CANAL ABSENT rather than silently ignored.
+  // Parallel vectors, insertion order preserved; lookup is BY NAME (see kPhysPresetKeys).
+  std::vector<std::string> pkey;
+  std::vector<float> pval;
   // (C51) ax= : the APEX region representative, per LINK — `w` is the share of the distal
   // region's skin mass this link carries, `p` the mass-weighted centroid of that region in THIS
   // link's bone-local bind space (game units). Comes from recharged_assets/physics_mesh.txt
@@ -1596,6 +1606,20 @@ static int pc_physics_parse_file() {
       continue;
     }
 
+    // `pk <Key> <value>` — one preset line of SPEC-breast-softbody section 38, verbatim.
+    // Kept as a NAME->value pair rather than a positional list: a positional list makes the key
+    // order a convention living in two files at once, and it cannot express "this key has no
+    // reader" — which is exactly the state the audit has to publish.
+    if (toks[0] == "pk" && toks.size() >= 3) {
+      if (!cur_chain) {
+        lg::warn("[hd-phys] 'pk' with no current chain (skipped): {}", raw);
+        continue;
+      }
+      cur_chain->pkey.push_back(toks[1]);
+      cur_chain->pval.push_back(phys_to_float(toks[2]));
+      continue;
+    }
+
     if (toks[0] == "j" && toks.size() >= 2) {
       if (!cur_chain) {
         lg::warn("[hd-phys] 'j' with no current chain (skipped): {}", raw);
@@ -1935,6 +1959,83 @@ s64 pc_physics_chain_link_comw_mi(u32 ag_name, s64 chain, s64 link) {
     return 0;
   }
   return phys_mi(comw[link]);
+}
+
+// ---- the character PRESET, read as a CHANNEL (2026-08-22) -------------------------------------
+// These are the preset keys the engine actually CONSUMES, in the order GOAL indexes them. The
+// table lives here and not in GOAL so that "wired" is a property of one list: a key absent from
+// this array has NO channel, and `pc_physics_chain_preset_absent` counts exactly those keys the
+// delivered file carries and this list does not name. That count is what the report publishes as
+// CANAL ABSENT — a named implementation gap, never a section reported as "not held".
+static const char* kPhysPresetKeys[] = {
+    "SupineProjectionScale",   // 0  section 10 — projection lost against the thorax, lying face-up
+    "SupineWidthScale",        // 1  section 10
+    "SupineHeightScale",       // 2  section 10
+    "HangingLengthScale",      // 3  section 11 — torso horizontal, breast hanging free
+    "HangingWidthScale",       // 4  section 11
+    "HangingThicknessScale",   // 5  section 11
+    "LowerBreastCompression",  // 6  section 12 — side gravity, lower breast squashed
+    "SecondaryFrequency",      // 7  section 36 — secondary soft-tissue mode
+    "SecondaryDampingRatio",   // 8  section 36
+    "SecondaryJiggleHardMax",  // 9  section 36
+};
+static const int kPhysNumPresetKeys = (int)(sizeof(kPhysPresetKeys) / sizeof(kPhysPresetKeys[0]));
+
+// milli value of wired preset key `key_id` for this chain, or -1 when the delivered file does not
+// carry that key. -1 and not 0: `AdditionalStandingSag = 0.00` is a legitimate preset value, so a
+// zero can never be allowed to mean "absent". GOAL turns -1 into the neutral element AND counts
+// it, so a missing channel shows up in the trace instead of quietly restoring an old constant.
+s64 pc_physics_chain_preset_mi(u32 ag_name, s64 chain, s64 key_id) {
+  pc_physics_ensure_loaded();
+  const auto* model = pc_physics_find_model(ag_name);
+  if (!model || chain < 0 || chain >= (s64)model->chains.size()) {
+    return -1;
+  }
+  if (key_id < 0 || key_id >= (s64)kPhysNumPresetKeys) {
+    return -1;
+  }
+  const auto& ch = model->chains[chain];
+  for (size_t i = 0; i < ch.pkey.size(); i++) {
+    if (ch.pkey[i] == kPhysPresetKeys[key_id]) {
+      return phys_mi(ch.pval[i]);
+    }
+  }
+  return -1;
+}
+
+// how many `pk` keys this chain carries in the delivered file (the preset's own size).
+s64 pc_physics_chain_preset_count(u32 ag_name, s64 chain) {
+  pc_physics_ensure_loaded();
+  const auto* model = pc_physics_find_model(ag_name);
+  if (!model || chain < 0 || chain >= (s64)model->chains.size()) {
+    return 0;
+  }
+  return (s64)model->chains[chain].pkey.size();
+}
+
+// how many of those keys have NO reader in this engine — the CANAL ABSENT count, measured on the
+// delivered file rather than asserted in a report.
+s64 pc_physics_chain_preset_absent(u32 ag_name, s64 chain) {
+  pc_physics_ensure_loaded();
+  const auto* model = pc_physics_find_model(ag_name);
+  if (!model || chain < 0 || chain >= (s64)model->chains.size()) {
+    return 0;
+  }
+  const auto& ch = model->chains[chain];
+  s64 n = 0;
+  for (size_t i = 0; i < ch.pkey.size(); i++) {
+    bool wired = false;
+    for (int k = 0; k < kPhysNumPresetKeys; k++) {
+      if (ch.pkey[i] == kPhysPresetKeys[k]) {
+        wired = true;
+        break;
+      }
+    }
+    if (!wired) {
+      n++;
+    }
+  }
+  return n;
 }
 
 // (C51) the APEX region representative for one link, in milli. `axis` selects: 0 = w, the share
@@ -4196,6 +4297,12 @@ void InitMachine_PCPort() {
                               (void*)pc_physics_chain_link_comw_mi);
   make_function_symbol_from_c("pc-physics-chain-link-apex-mi",
                               (void*)pc_physics_chain_link_apex_mi);
+  make_function_symbol_from_c("pc-physics-chain-preset-mi",
+                              (void*)pc_physics_chain_preset_mi);
+  make_function_symbol_from_c("pc-physics-chain-preset-count",
+                              (void*)pc_physics_chain_preset_count);
+  make_function_symbol_from_c("pc-physics-chain-preset-absent",
+                              (void*)pc_physics_chain_preset_absent);
   // (C14) mesh-surface audit inputs: per-link extremal skinned-vertex offsets
   make_function_symbol_from_c("pc-physics-chain-msample-count",
                               (void*)pc_physics_chain_msample_count);

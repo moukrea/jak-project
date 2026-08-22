@@ -1,0 +1,48 @@
+c109 — PREDICTIONS ECRITES AVANT DE LIRE LA COURSE DE CONTROLE
+Ecrit le 2026-08-23, pendant que `preset_ctrl_run.sh` tourne encore. La course B n'est pas lue.
+Verifiable : /tmp/runB.log n'a pas atteint PHYSEND au moment ou ce fichier est ecrit.
+
+MONTAGE. Une seule variable : le bloc `pk` du fichier livre passe du preset KEIRA au preset MAIA.
+124 paires (chaine, cle) changent de valeur sur 180 ; 20 d'entre elles sont CABLEES, c'est-a-dire
+lues par le moteur. Tout le reste du fichier — `chain`, `j`, `capsule`, `collider` — est identique
+au caractere. Le moteur, l'iso et l'art-group sont ceux de la course A.
+
+LES DIX CLES CABLEES QUI CHANGENT
+    SupineProjectionScale    0.70 -> 0.57      HangingLengthScale      1.23 -> 1.33
+    SupineWidthScale         1.23 -> 1.40      HangingWidthScale       0.90 -> 0.87
+    SupineHeightScale        1.09 -> 1.18      HangingThicknessScale   0.91 -> 0.87
+    LowerBreastCompression   0.20 -> 0.28
+    SecondaryFrequency       5.2  -> 4.4 Hz    SecondaryDampingRatio   0.65 -> 0.60
+    SecondaryJiggleHardMax   0.07 -> 0.10
+
+P1 (LE TEST QUI COMPTE). Le comportement DOIT changer. Si les 372 fenetres `PHYSSHAPE` et les 18
+cellules `PHYSDFMA` rendent les MEMES nombres, le moteur ne consomme pas le preset : il fait
+semblant, et le canal construit ce cycle est cosmetique. C'est le seul resultat qui refuterait
+tout le cycle, et c'est pour ca qu'il est ecrit avant.
+
+P2 (SENS ET AMPLITUDE, cellule SUPINE — la colonne `wfw` du melange). Apres la renormalisation
+de volume `cvn = det^(-1/3)`, qui force det=1 dans les deux cas :
+        Keira  det = 1.23*1.09*0.70 = 0.93849,  cvn = 1.02152
+        Maia   det = 1.40*1.18*0.57 = 0.94164,  cvn = 1.02038
+        sx (lateral)     1.2565 -> 1.4285      soit  +13.7 %   MONTE
+        sy (vertical)    1.1135 -> 1.2041      soit   +8.1 %   MONTE
+        sz (projection)  0.7151 -> 0.5816      soit  -18.7 %   DESCEND
+    « plus etale au couche » de la directive = exactement ce +13.7 % de largeur contre -18.7 % de
+    projection. Le SIGNE est la prediction ; les pourcentages sont la valeur au pole pur, et une
+    cellule du balayage est un MELANGE, donc l'amplitude reelle sera PLUS PETITE. Un ecart de
+    signe INVERSE refute ; un ecart plus petit ne refute pas.
+
+P3 (cellule PRONE / suspendue — colonne `wbk`).
+        sx  0.8978 -> 0.8681   -3.3 %  DESCEND
+        sy  0.9078 -> 0.8681   -4.4 %  DESCEND
+        sz  1.2270 -> 1.3271   +8.2 %  MONTE   (`HangingLengthScale`, l'organe s'allonge)
+
+P4 (MODE SECONDAIRE, section 36). Le plafond passe de 0.07 a 0.10, donc le maximum de |s| dans
+`PHYSSEC` DOIT monter et rester sous 0.10. Prediction : max entre 0.07 et 0.10 sur les deux
+chaines. S'il reste colle a 0.07 le plafond n'est pas lu ; s'il depasse 0.10 le limiteur ne borne
+pas ce qu'il annonce.
+
+P5 (CE QUI NE DOIT PAS BOUGER). Aucune cle de frequence PRINCIPALE n'est dans le vecteur : la
+frequence verticale vit dans `stiffness=` sur la ligne `chain`, qui est identique dans les deux
+fichiers. Donc `PHYSRING`/§24 ne doit PAS changer de frequence propre. Si elle change, la variable
+n'etait pas unique et P1 a P4 ne sont pas attribuables.

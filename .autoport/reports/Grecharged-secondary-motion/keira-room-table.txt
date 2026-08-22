@@ -1,7 +1,7 @@
 ==================================================================================================
 KEIRA — SALLE DE TEST SANS JOUEUR : TABLEAU DE MESURE
 genere par .autoport/physics_room_table.py depuis .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
-empreinte de la trace lue : md5 a332980331fbb1d34bc06dd7bd450d09 (6904153 octets)
+empreinte de la trace lue : md5 13a619b7109bd999f5558edec0000214 (6946958 octets)
 contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 7 (ce qui fait foi)
 
 -- ROOM-INSTRUMENTS-MUETS : CE QUE CE TABLEAU NE MESURE PAS AUJOURD'HUI ------------
@@ -1758,12 +1758,28 @@ ROOM-REGLIM: PH-REGB   chestR     5 jumpB-fly       0.0103    0.4148   LINEAIRE 
 ROOM-REGLIM: PH-REGB   chestR     6 jumpB-land      0.0103    0.4429   GENOU    (x1.05 kn)    
 ROOM-REGLIM: PH-REGB   chestR     7 runA-accel      0.0103    0.6220   GELE     (x1.48 kn)    
 ROOM-REGLIM: PH-REGB   chestR     8 runA-brake      0.0103    0.5525   GELE     (x1.32 kn)    
+ROOM-REGLIM: PH-REGC/ARM chestL     9 yawA            0.0102    0.5041   GELE     (x1.20 kn)    passe 1/2
+ROOM-REGLIM: PH-REGC/ARM chestL     9 yawA            0.0102    0.5034   GELE     (x1.20 kn)    passe 2/2
+ROOM-REGLIM: PH-REGC/ARM chestL    10 yawB            0.0102    0.5770   GELE     (x1.37 kn)    passe 1/2
+ROOM-REGLIM: PH-REGC/ARM chestL    10 yawB            0.0102    0.5678   GELE     (x1.35 kn)    passe 2/2
+ROOM-REGLIM: PH-REGC/ARM chestR     9 yawA            0.0104    0.0783   LINEAIRE (x0.19 kn)    passe 1/2
+ROOM-REGLIM: PH-REGC/ARM chestR     9 yawA            0.0103    0.0902   LINEAIRE (x0.21 kn)    passe 2/2
+ROOM-REGLIM: PH-REGC/ARM chestR    10 yawB            0.0103    0.1250   LINEAIRE (x0.30 kn)    passe 1/2
+ROOM-REGLIM: PH-REGC/ARM chestR    10 yawB            0.0103    0.1184   LINEAIRE (x0.28 kn)    passe 2/2
+ROOM-REGLIM: PH-REGC/ABL chestL     9 yawA            0.0102    0.5244   GELE     (x1.25 kn)    passe 1/2
+ROOM-REGLIM: PH-REGC/ABL chestL     9 yawA            0.0102    0.5041   GELE     (x1.20 kn)    passe 2/2
+ROOM-REGLIM: PH-REGC/ABL chestL    10 yawB            0.0102    0.5777   GELE     (x1.38 kn)    passe 1/2
+ROOM-REGLIM: PH-REGC/ABL chestL    10 yawB            0.0102    0.5821   GELE     (x1.39 kn)    passe 2/2
+ROOM-REGLIM: PH-REGC/ABL chestR     9 yawA            0.0104    0.0782   LINEAIRE (x0.19 kn)    passe 1/2
+ROOM-REGLIM: PH-REGC/ABL chestR     9 yawA            0.0103    0.0904   LINEAIRE (x0.22 kn)    passe 2/2
+ROOM-REGLIM: PH-REGC/ABL chestR    10 yawB            0.0103    0.1251   LINEAIRE (x0.30 kn)    passe 1/2
+ROOM-REGLIM: PH-REGC/ABL chestR    10 yawB            0.0103    0.1191   LINEAIRE (x0.28 kn)    passe 2/2
 
-ROOM-REGLIM-BILAN: 132 ligne(s) publiee(s) sous 120 cle(s) — 35 LINEAIRE, 21 au GENOU,
-   76 GELEES (57.6 %). 12 cle(s) portent PLUSIEURS passes (PH-REGA joue chaque fenetre
+ROOM-REGLIM-BILAN: 148 ligne(s) publiee(s) sous 128 cle(s) — 43 LINEAIRE, 21 au GENOU,
+   84 GELEES (56.8 %). 20 cle(s) portent PLUSIEURS passes (PH-REGA joue chaque fenetre
    dans les DEUX sens et `PHYSREGW` ne porte pas le sens) : aucune d'elles ne peut
    conditionner un verdict, elles se declarent AMBIGUES la ou elles sont lues.
-ROOM-REGLIM-RGAP: le pire ecart cible-de-repos / pose-d'auteur vaut 0.0161 B0 sur les 132
+ROOM-REGLIM-RGAP: le pire ecart cible-de-repos / pose-d'auteur vaut 0.0161 B0 sur les 148
    cellules. Il est petit devant le genou (0.42 B0) : la demande est DYNAMIQUE, pas un decalage statique de la cible.
 
    LE CRITERE CI-DESSOUS N'EST PAS DE MOI : il est ecrit dans `phys-room.gc`, au-dessus
@@ -2090,6 +2106,30 @@ ROOM-REGA-SENS: la flexion AVANT de §19 est obtenue au signe +1 (fenetres r=11)
    C'est une MESURE du deplacement de l'ancre, pas un signe choisi : le geste que
    §19 nomme peut donc enfin etre joue, et l'autre signe reste publie a cote comme
    son controle a stimulus miroir.
+
+   -- ROOM-REGC : LE LACET PUR, COLLISION ARMEE CONTRE DESARMEE (cycle 108) ------
+ROOM-REGC-REF: chestL r=9  sgn=-1  PH-REGA apex=0.4958  PH-REGC abl=0 apex=0.4908  ecart   -1.0 %
+ROOM-REGC-REF: chestL r=9  sgn=+1  PH-REGA apex=0.4100  PH-REGC abl=0 apex=0.4061  ecart   -1.0 %
+ROOM-REGC-REF: chestL r=10 sgn=-1  PH-REGA apex=0.5192  PH-REGC abl=0 apex=0.5213  ecart   +0.4 %
+ROOM-REGC-REF: chestL r=10 sgn=+1  PH-REGA apex=0.4796  PH-REGC abl=0 apex=0.5113  ecart   +6.6 %
+ROOM-REGC-REF: chestR r=9  sgn=-1  PH-REGA apex=0.1593  PH-REGC abl=0 apex=0.1593  ecart   +0.0 %
+ROOM-REGC-REF: chestR r=9  sgn=+1  PH-REGA apex=0.1019  PH-REGC abl=0 apex=0.1028  ecart   +0.9 %
+ROOM-REGC-REF: chestR r=10 sgn=-1  PH-REGA apex=0.1717  PH-REGC abl=0 apex=0.1731  ecart   +0.8 %
+ROOM-REGC-REF: chestR r=10 sgn=+1  PH-REGA apex=0.1251  PH-REGC abl=0 apex=0.1206  ecart   -3.6 %
+   La jambe ARMEE reproduit PH-REGA sur 8 cellule(s) sur 8 : les deux
+   jambes sont comparables, le verdict peut se lire.
+
+      r   sgn  | perrL_arm perrR_arm   R_arm | perrL_abl perrR_abl   R_abl | baisse du rapport
+      9     +1 |    0.5041    0.0783 x  6.44 |    0.5244    0.0782 x  6.71 |   -4.2 %
+      9     -1 |    0.5034    0.0902 x  5.58 |    0.5041    0.0904 x  5.58 |   +0.1 %
+      10    +1 |    0.5770    0.1250 x  4.62 |    0.5777    0.1251 x  4.62 |   -0.0 %
+      10    -1 |    0.5678    0.1184 x  4.80 |    0.5821    0.1191 x  4.89 |   -1.9 %
+
+ROOM-REGC-VERDICT: 0/4 cellule(s) sous x1.30 desarmees · 0/4 en baisse d'au moins 20 %
+   -> LA COLLISION EST REFUTEE COMME CAUSE DE §18. Aucune cellule ne
+      baisse de 20 %. Le suspect classe premier au cycle 108 tombe,
+      et la cause de l'ecart x5.97 reste A TROUVER — ce qui se dit,
+      au lieu de se remplacer par le suspect suivant sans mesure.
 
    -- ROOM-SPEC15-CROSS : « jump apex -> breast may CROSS neutral position » -----
       §15 l.230. Le registre portait la clause NON DEMONTREE, et la raison etait

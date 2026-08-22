@@ -1,4 +1,4 @@
-DIRECTIVES v3fee554599
+DIRECTIVES vd9e8b66782
 
 ================================================================================================
 DECLARATIONS OBLIGATOIRES — CE BLOC RESTE EN TETE DE CHAQUE RAPPORT ET NE SE REECRIT PAS.
@@ -15,194 +15,331 @@ BREAST-PENETRATION: 0.0973 m — `meshpen`, DIAGNOSTIC, jamais un verdict (arbit
   chestL meshpen max 0.0555 m (anim `assistant-village3-idle`, drive `jerk`)
   chestR meshpen max 0.0973 m (anim `assistant-village2-idle-to-a`, drive `accel`)
 ================================================================================================
+CYCLE 109 — LE PRESET DEVIENT UNE ENTREE : DIX CLES SONT LUES DANS LE FICHIER LIVRE,
+            ET LE MOTEUR LE PROUVE A L'EXECUTION.
 
-CYCLE 108 — L'ENTREE DU RESSORT EST SYMETRIQUE, LA SORTIE NE L'EST PAS.
-             ET CE N'EST PAS chestL QUI DEBORDE : C'EST chestR QUI S'EFFONDRE.
-
-Zero build de moteur, zero course neuve, aucune gate touchee. Tout est lu dans la trace
-ARCHIVEE `keira-room-x86.log`. Le compilateur GOAL a ete passe (551 cibles, 15,8 s) parce que
-deux COMMENTAIRES de `phys-room.gc` ont ete corriges. Sortie du validateur : 18 lignes,
-12 gates passantes, meme echec final sur `OPEN-DEFECTS` — IDENTIQUE avant et apres.
-
-SECTION NOMMEE AVANT DE COMMENCER (directive du 2026-08-21 18:25) : §18, et par ricochet
-§19 et §20, qui partagent la meme passe et la meme arithmetique de facteur.
+SECTION NOMMEE AVANT DE COMMENCER (directive du 2026-08-21 18:25, qui interdit les reparations
+« au passage ») : §10 et §11 — leurs trois clauses d'echelle chacune. C'est la cible : leur
+motif porte depuis le cycle 64 la mention « les trois clauses d'echelle sont TAUTOLOGIQUES et
+NON JUGEES », et c'est cette tautologie-la que ce cycle retire.
 
 
-1. LA MESURE DU CYCLE, ET ELLE ETAIT DEJA DANS LA TRACE
+0. POURQUOI LA TENTATIVE PRECEDENTE A ECHOUE, ET CE N'ETAIT PAS UNE FAUTE DE MESURE
 
-`PHYSREGW` publie DEUX nombres sur la meme ligne depuis le cycle 71. Seul le second a jamais
-ete lu.
+Le validateur a rendu TROIS lignes :
 
-    rgap = |cible du ressort - pose d'auteur| / B0     -> l'ENTREE geometrique du solveur
-    perr = max |p_rlk - cible du ressort| / B0         -> sa SORTIE
+    [Grecharged-secondary-motion FAIL] SYNC: le rapport ne porte pas le contrat courant
+      (accepte: vd9e8b66782).
 
-Les confronter est la mesure que le registre reclame depuis `response-dies-at-one-solver-stage`
-(« mesurer le rapport entree/sortie ETAGE PAR ETAGE »). Elle ne coutait rien.
+Cause exacte : le rapport de la tentative 1 portait `DIRECTIVES v3fee554599` et le contrat a
+change PENDANT la tentative (SCOPE-SERIAL 8 -> 9, section du 2026-08-22 23:00 : « le preset est
+une ENTREE, pas une description »). SYNC est une gate BASH, donc elle SORT : les douze gates de
+mesure qui la suivent n'ont jamais ete evaluees. C'est le meme mecanisme que
+`gate-behind-an-always-failing-gate`, cette fois en amont, et la contre-mesure du dossier
+s'applique telle quelle — comparer la LONGUEUR de la sortie du validateur, pas seulement son
+code de retour : 3 lignes contre 18 attendues.
 
-    r   section    rgapL    rgapR   ENTREE      perrL    perrR   SORTIE   gain relatif
-    9   §18       0.0102   0.0103 x0.986      0.5030   0.0843 x5.967    x6.06  <<<
-    10  §18       0.0102   0.0103 x0.990      0.5575   0.1228 x4.539    x4.58  <<<
-    11  §19       0.0102   0.0103 x0.986      0.5607   0.5626 x0.997    x1.01
-    12  §19       0.0102   0.0103 x0.986      0.5353   0.5403 x0.991    x1.01
-    13  §20       0.0102   0.0103 x0.986      0.5367   0.4682 x1.147    x1.16
-    14  §20       0.0102   0.0104 x0.981      0.5666   0.5544 x1.022    x1.04
-
-L'entree est la MEME sur les deux chaines, a moins de 2 %, sur les SIX regimes. La sortie l'est
-sur QUATRE et vaut x5,97 / x4,54 sur les DEUX LACETS. L'asymetrie de §18 nait donc ENTRE
-l'entree et la sortie, c'est-a-dire DANS LE SOLVEUR.
+Le correctif n'est pas de reestampiller un vieux rapport. C'est de faire le cycle SOUS le
+nouveau contrat, ce que decrit la suite.
 
 
-2. ET ELLE SE LIT A L'ENVERS DE CE QU'ON EN DISAIT DEPUIS TROIS CYCLES
+1. CE QUE L'OWNER DEMANDE, ET LA PREMISSE VERIFIEE PUIS RECONCILIEE
 
-`perr` de chestL vaut 0,5021 a 0,5704 B0 sur DOUZE cellules sur DOUZE — c'est-a-dire au
-plafond de deplacement `kn + cp` = 0,42 + 0,08 = 0,50 B0, dans TOUS les regimes de rotation.
-Une sortie constante au plafond ne mesure plus son entree.
+« tu pourrais faire en sorte que ce soit des boutons qu'on tourne justement, regarde le preset
+de Maia, les memes proprietes des presets ont des valeurs differentes [...] C'est un peu le but
+d'un preset. »
 
-    CE N'EST DONC PAS chestL QUI DEBORDE. C'est chestR qui tombe a 0,079-0,127 B0, soit UN
-    CINQUIEME du plafond, et UNIQUEMENT sous lacet (il est a 0,466-0,563 sur les quatre autres).
+Le contrat annonce 71 cles communes et 51 valeurs differentes. Recompte independamment sur le
+document (`.autoport/preset_apply.py --audit`), l'ecart s'explique entierement et il n'y a pas
+de desaccord :
 
-La question de §18 se reformule : non pas « pourquoi chestL repond-il quatre fois trop »,
-mais « QU'EST-CE QUI RETIENT chestR SOUS LACET ». Ce n'est pas une nuance : les trois derniers
-cycles cherchaient un exces la ou il y a un blocage.
+    cles ecrites avec `=`                      71 communes, 51 DIFFERENTES   <- le chiffre du contrat
+    + cles ecrites avec `≈` ou `>=`             3 de plus,    2 DIFFERENTES
+      (VerticalEffectiveStiffness 104/142, VerticalEffectiveDamping 5,1/8,1,
+       RecommendedEffectiveRate 120/120)
+    = total lisible                            74 communes, 53 DIFFERENTES
+    apres eclatement des 19 PLAGES en Lo/Hi    90 communes, 62 DIFFERENTES
 
-
-3. LE STIMULUS EST DISCULPE PAR LA MESURE, PLUS PAR HYPOTHESE
-
-Pour une rotation d'angle theta autour d'un axe fixe, deux identites exactes :
-
-    cos ang(d+, d-) = - cos theta          |d| = |r| * sqrt(2 - 2 cos theta)
-
-donc theta et le bras de levier se LISENT dans `PHYSREGAD`, sans modele et sans seuil choisi :
-
-    r=9   theta =  90,005 deg   bras 417,61 / 417,62 u   |d+|/|d-| = 1,0000   MIROIR EXACT
-    r=10  theta = 150,398 deg   bras 417,46 / 415,95 u   |d+|/|d-| = 1,0036   MIROIR EXACT
-    r=11  theta =  69,893 deg   bras 866,43 / 869,19 u   |d+|/|d-| = 0,9968   MIROIR EXACT
-    r=13  theta =  34,964 deg   bras 951,33 / 948,40 u   |d+|/|d-| = 1,0031   MIROIR EXACT
-    r=14  theta =  34,964 deg   bras 948,40 / 951,33 u   |d+|/|d-| = 0,9969   MIROIR EXACT
-
-Le cycle 107 affirmait que les deux jambes de signe etaient « deux gestes MIROIR » ; c'etait
-ECRIT dans son commentaire comme un « piege declare » et ce n'etait pas verifie. Ca l'est.
+Une plage (« 0.25–0.32 B0 ») devient DEUX cles plutot qu'une moyenne : moyenner deux bornes
+fabrique un nombre que la spec n'ecrit nulle part.
 
 
-4. §20 : SES QUATRE « CELLULES MIROIR » SONT DEUX GESTES JOUES DEUX FOIS
+2. CE QUI EST CONSTRUIT — UN CANAL, PAS UN REGLAGE
 
-    (r=13 sgn=+1) et (r=14 sgn=-1)  ->  dap/dver/dlat = 0.0174 / 386.1346 / 421.4196
-    (r=13 sgn=-1) et (r=14 sgn=+1)  ->  dap/dver/dlat = 0.0089 / -74.7105 / -564.8944
+`pk <Cle> <valeur>` est un enregistrement neuf du fichier de chaines, un par cle et par chaine,
+ecrit par `.autoport/preset_apply.py` en LISANT `SPEC-breast-softbody.md` section 38. Aucune
+valeur n'est retapee : chaque ligne porte son numero de ligne d'origine dans le document.
 
-identiques au millieme d'unite pres sur les trois composantes. Meme theta (34,964 deg), meme
-bras. Ce qui les separe est le TAUX : `alp` 0,006835 contre 0,013670, exactement x2.
+    recharged_assets/physics_chains.txt   180 lignes `pk` (90 cles x 2 chaines)
+    game/kernel/jak1/kmachine.cpp         parse `pk`, table `kPhysPresetKeys` des cles CABLEES,
+                                          trois prises : preset-mi / preset-count / preset-absent
+    goal_src/jak1/pc/jak-hd-physics.gc    `*phys-pset*`, chargement par chaine, dix consommateurs
 
-    Donc r=14 n'est PAS « le cote oppose » de r=13, comme la table le declarait : c'est la MEME
-    PAIRE DE GESTES A VITESSE DOUBLE, avec l'etiquette de signe inversee.
+Granularite PAR CHAINE et non par modele : la section 32 (Left/Right Independence) demande 2 a
+5 % d'ecart entre les deux seins, donc la chaine est la bonne maille.
 
-Consequence sur le cycle 107 : son regroupement par `sgn` met un exemplaire de CHAQUE geste
-dans CHAQUE groupe. Sa conclusion « les deux gestes MIROIR d'une meme section exigent des
-intervalles DISJOINTS » ne parle donc pas des gestes miroir. Le regroupement PAR GESTE est
-publie depuis ce cycle et ne donne pas les memes bornes (gH [1,858..2,284], gI AUCUN).
+Une cle absente du fichier ne retombe PAS sur l'ancienne constante : le moteur prend l'element
+NEUTRE (1.0 pour une echelle, 0.0 pour une amplitude) et le COMPTE. Le sentinelle est -1 et non
+0, parce que `AdditionalStandingSag = 0.00` est une valeur legitime du preset : un zero ne peut
+jamais vouloir dire « absente ».
 
-CE QUI BLOQUE §20, CHIFFRE : ses cellules s'etalent de 0,4082 a 0,6388 B0, rapport 1,565,
-quand sa bande 0,20-0,30 n'en tolere que 1,50. Elle est infaisable de 4,3 % — et l'etalement
-qui la rend infaisable est celui du DOUBLEMENT DE TAUX, pas celui du miroir.
+DIX CLES SONT CABLEES, ce sont celles que le moteur consommait deja EN DUR :
 
+    SupineProjectionScale  SupineWidthScale  SupineHeightScale          section 10
+    HangingLengthScale     HangingWidthScale HangingThicknessScale      section 11
+    LowerBreastCompression                                              section 12
+    SecondaryFrequency     SecondaryDampingRatio  SecondaryJiggleHardMax section 36
 
-5. L'ARITHMETIQUE DE FACTEUR PORTE SUR DES CELLULES SATUREES
+PREUVE D'EXECUTION (regle 0 — un commentaire n'est pas une preuve). Trace de la course livree :
 
-Le registre porte depuis le cycle 71, sur la ligne de §18 : « les deux chaines ne sont pas dans
-le meme regime de limiteur sur la meme fenetre, ce qui suffit a INTERDIRE d'en tirer un ecart
-L/R ». Cette regle etait posee sur `ROOM-REGIME` / `ROOM-APEX-REGIME`. Elle n'a jamais ete
-portee sur `ROOM-REGA-BANDE`, cree au cycle 107 — un correctif PAR SITE, ce que la directive
-du 2026-08-21 01:20 interdit explicitement.
+    [HD-PHYS] PHYSPSET  c=0 keys=90 absent=80
+    [HD-PHYS] PHYSPSETA c=0 sp=0.7000 sw=1.2300 sh=1.0900 hl=1.2300 hw=0.9000
+    [HD-PHYS] PHYSPSETB c=0 ht=0.9100 lbc=0.2000 secf=5.1999 secz=0.6500 secmax=0.0700
+    (idem c=1)
 
-Portee maintenant, AU PRODUCTEUR. Sur les 24 cellules de PH-REGA :
-
-    18 GELE   ·   2 GENOU   ·   4 LINEAIRE
-
-et les quatre LINEAIRE sont exactement les quatre cellules de chestR sous lacet, celles qui
-rendent §18 « impossible ». Dans la zone GELE (`jak-hd-physics.gc:2982-2987`, argument plafonne
-par `fmin 0.99`) la force de rappel est CONSTANTE : la meme a 5 021 u d'erreur qu'a 50 207 u.
-
-    DIVISER L'ENTREE D'UN LIMITEUR GELE NE DIVISE PAS SA SORTIE.
-
-Donc `k uniforme ATTEIGNABLE dans [2,135 .. 2,406]` (cycle 107), le `k` du cycle 80 et le
-x1,85 de la directive du 2026-08-21 18:25 sont des ECARTS A COMBLER, pas des reglages a poser.
-`ROOM-REGA-FACTEUR` refuse desormais de dire « ATTEIGNABLE » sans nommer la cellule
-contraignante et sa zone.
+`keys=90` = ce que le FICHIER porte. `absent=80` = les cles que CE moteur ne lit pas, comptees
+par le moteur lui-meme et non affirmees dans un rapport. 90 - 10 = 80 : le compte se ferme.
 
 
-6. TROIS CAUSES REFUTEES, PUBLIEES POUR QU'ON NE LES REFASSE PAS
+3. CONTROLE NEGATIF — LE CABLAGE EST INERTE AU BIT, ET C'EST CE QUI AUTORISE A LIRE LE POSITIF
 
-  a) LA MAIN DU TRIEDRE. Le correctif de §7 (cycle 63) rend le triedre de chestL GAUCHE
-     (det -0,99998 contre +0,99998). Mais `*phys-fx/fy/fz*` n'a que trois consommateurs —
-     `:3577-3585` (produits scalaires), `:3801-3803` (produits exterieurs), `:4677-4681`
-     (accesseur de log) — et AUCUN ne lit un determinant ni ne refait un produit vectoriel.
-     Mecanisme sans consommateur : REFUTE.
-  b) LA DIVERGENCE D'INDEX D'AXE. `iv` (`:2643`) est choisi sur `gl`, identique par ancre
-     partagee ; `il` (`:2649-2651`) sur des VALEURS ABSOLUES de `sep`, donc insensible au
-     miroir. Mesure : `PHYSAXNAME` |sja|/|sjb| = 83 882. REFUTE.
-  c) LA POSE. La reflexion de `PHYSREGAB c=0` dans le plan de normale `PHYSREGAW wa=2` redonne
-     `c=1` a 0,0046 pres. REFUTE.
+Le fichier porte EXACTEMENT les nombres que les constantes portaient. Donc cabler le canal doit
+etre sans effet. Mesure, course complete avant / course complete apres :
+
+    enregistrements PHYS* compares (hors PHYSPSET, qui n'existait pas)   88 190
+    lignes differentes                                                        1
+    et cette ligne est `PHYS-ROOM] armed *listener-function* = #x3969634`
+    -> une ADRESSE DE TAS dans une banniere de demarrage, qui bouge parce que le code a grossi.
+    Adresses masquees : 0 ligne differente sur 88 190.
+
+Confirmation independante par le derive : `keira-room-table.txt` est IDENTIQUE ligne pour ligne
+entre les deux courses, a l'exception de la ligne d'empreinte de la trace. tipvar 0.1844 /
+0.2018, rootdev 0.0733 / 0.0735, meshpen 0.0555 / 0.0973 : les memes a la quatrieme decimale.
+
+Ce controle est ce qui rend le suivant lisible : tout ecart observe en section 4 est imputable
+au CONTENU du preset, a rien d'autre.
+
+4. CONTROLE POSITIF DE NIVEAU SYSTEME — LE PRESET DE MAIA SUR LA CHAINE DE KEIRA
+
+C'est le controle que le contrat reclame : « charger le preset de Maia sur la chaine de Keira doit
+produire un comportement MESURABLEMENT DIFFERENT, dans le sens que ses ecarts prescrivent. Un
+moteur qui consomme vraiment le preset le montre ; un moteur qui fait semblant rend la meme
+chose. » PERIMETRE : ses chiffres sont un VECTEUR DE TEST sur la chaine de Keira. On ne livre pas
+sa physique, on ne touche pas a son personnage, et le fichier livre est RESTAURE par le script
+lui-meme (`.autoport/preset_ctrl_run.sh`, trap EXIT, empreinte republiee apres restauration).
+La course de controle n'ecrit NI `keira-room-x86.log` NI `keira-room-table.txt` : un tableau qui
+decrirait une configuration qu'on ne livre pas serait le defaut du cycle 56 remis en place.
+
+UNE SEULE VARIABLE : 124 paires (chaine, cle) sur 180 changent de valeur, dont 20 CABLEES ; tout
+le reste du fichier — `chain`, `j`, `capsule`, `collider` — est identique au caractere. Meme
+moteur, meme iso, meme art-group.
+
+LES PREDICTIONS ONT ETE ECRITES AVANT DE LIRE LA COURSE, dans `.autoport/c109-predictions.txt`,
+pendant que `gk` tournait encore (le fichier le dit et la trace n'avait pas atteint PHYSEND).
+
+  P1 — LE COMPORTEMENT DOIT CHANGER.
+       PHYSSHAPE : 0 cellule identique sur 372.   PHYSDFMA : 18 diagonales changees sur 18.
+       VERIFIEE. Le moteur consomme le preset.
+
+  P2 — CELLULE SUPINE (i=8), signes predits : sx MONTE, sy MONTE, sz DESCEND ; amplitudes au pole
+       pur +13,7 / +8,1 / -18,7 %, avec la reserve ecrite « une cellule est un MELANGE, donc
+       l'amplitude reelle sera PLUS PETITE ; un signe INVERSE refute ».
+       MESURE   chestL  +12,3 / +7,2 / -16,6 %      chestR  +11,8 / +7,1 / -15,9 %
+       VERIFIEE sur les trois signes et les deux chaines, amplitudes plus petites comme annonce.
+       C'est le « plus etale au couche » du contrat, en chiffres.
+
+  P3 — CELLULE PRONE (i=6), predit -3,3 / -4,4 / +8,2 %.
+       MESURE   chestL  -3,5 / -3,8 / +7,8 %        chestR  -3,2 / -4,0 / +7,6 %
+       VERIFIEE. `HangingLengthScale` 1,23 -> 1,33 : l'organe s'allonge de 7,6 a 7,8 % de plus.
+
+  P4 — MODE SECONDAIRE, plafond 0,07 -> 0,10 : le maximum de |s| doit monter et rester sous 0,10.
+       MESURE   chestL 0,069658 -> 0,099349 (x1,426)   chestR 0,069013 -> 0,098332 (x1,425)
+       VERIFIEE des deux cotes. Et les deux valeurs de depart sont JUSTE SOUS 0,07 : c'est
+       l'image ouverte de `phys-softmin`, exactement ce que le motif de §36 decrit.
+
+  UN CONTROLE NEGATIF EST TOMBE DEDANS SANS QU'ON L'AIT PLACE. La cellule i=0 du balayage — la
+  pose DEBOUT — rend -0,0 / -0,0 / +0,0 % : les deux presets y ecrivent le meme pole neutre
+  (1,00 / 1,00 / 1,00), donc le canal ne doit RIEN y changer, et il ne change rien. Le preset ne
+  mord que la ou le personnage quitte la verticale, c'est-a-dire exactement le domaine que
+  §10/§11/§12 decrivent.
+
+  P5 — REFUTEE, ET C'EST LE RESULTAT LE PLUS UTILE DU CYCLE.
+       J'avais predit que le mode PRINCIPAL ne bougerait pas : aucune cle de frequence principale
+       n'est dans le vecteur (elle vit dans `stiffness=`, identique dans les deux fichiers).
+       MESURE : `PHYSRING` (angle de maillon, fenetre de detente) change sur 592 cellules sur 596.
+       Le preset atteint donc la chaine de JOINTS, pas seulement la peau.
+
+       PLUTOT QUE DE LAISSER DEUX SUSPECTS, UNE TROISIEME COURSE LES SEPARE. Vecteur C = preset de
+       KEIRA partout SAUF les trois cles du mode secondaire, prises chez Maia (6 lignes `pk`
+       changees sur 180, verifie par diff). Le verdict est net :
+
+           ecart d'angle du mode PRINCIPAL contre la course A
+             B (preset Maia entier)    592/596 non nuls   p50 0,0176   p90 0,585   max  8,10 deg
+             C (mode secondaire SEUL)  592/596 non nuls   p50 0,0567   p90 0,577   max 32,75 deg
+           tenseur de FORME (PHYSDFMA), ecart max contre A
+             B  0,14892          C  0,01714   (11 % de B)
+           PHYSSEC |s| max      A 0,069658    B 0,099349    C 0,099349  (IDENTIQUE a B)
+
+       LE CHEMIN EST LE MODE SECONDAIRE, PAS LE TENSEUR DE FORME. C reproduit la totalite de
+       l'effet sur la chaine — il le DEPASSE meme (32,75 contre 8,10 deg au pire) — avec 11 % de
+       l'effet sur le tenseur. Les cles de forme ATTENUENT donc l'excursion extreme que le mode
+       secondaire provoque, elles ne la causent pas.
+
+       CE QUE CA DIT DE §36, ET C'EST UNE CLAUSE DE SA SPEC. La section demande un mode secondaire
+       « clearly subordinate to the slower primary global motion ». Monter son SEUL plafond de
+       0,07 a 0,10 deplace un maillon du mode principal de 32,75 deg au pire (44 cellules
+       au-dessus de 1 deg, 5 au-dessus de 5 deg). Un mode subordonne ne fait pas ca. C'est un
+       COUPLAGE, il est desormais mesure, et il n'etait pas visible avant que le plafond devienne
+       un bouton qu'on puisse tourner sans build.
+
+       MECANISME : CANDIDAT NOMME, NON ETABLI. `jak-hd-physics.gc:3898` multiplie le tenseur DANS
+       la matrice d'os ecrite au squelette (le commentaire du site le dit : « LA DEFORMATION ENTRE
+       ICI, ET NULLE PART AILLEURS »), et les echantillons de peau que la collision teste chevauchent
+       cette matrice. Une deformation « de peau » reviendrait alors dans la chaine a la frame
+       suivante, par la collision. Je ne le declare PAS etabli : la mesure qui trancherait est une
+       course avec la collision desarmee (`k4`, le controle qui existe deja), et elle n'est pas
+       faite. C'est le deuxieme point du cycle suivant, apres le canal a moitie branche.
+
+5. L'INVENTAIRE DES CANAUX, CLE PAR CLE — `reports/.../preset-channels.md`
+
+C'est la consequence (2) du contrat : « une cle sans canal se declare CANAL ABSENT — un manque
+d'implementation NOMME, jamais une section non tenue comme si le solveur echouait. »
+`.autoport/preset_channel_audit.py` ne donne pas un avis, il VERIFIE : pour un canal fichier, que
+la cle est dans `kPhysPresetKeys` ET que le fichier livre la porte ; pour une constante moteur,
+que le `defconstant` existe ET que sa valeur EGALE celle du preset — c'est cette egalite, calculee
+et non retapee, qui rend le mot TAUTOLOGIQUE demontrable. Un desaccord fait sortir le script en
+echec plutot qu'imprimer un tableau faux.
+
+    CANAL FICHIER               10 / 90    lu dans le fichier, tournable SANS build
+    CANAL FICHIER (indirect)     3 / 90    descend sous un autre nom (`stiffness=`, `damping=`, `mass=`)
+    CONSTANTE MOTEUR             8 / 90    ecrite dans le source ; les 8 EGALENT le preset
+    HORS RUNTIME (asset)        11 / 90    poids de peau et rig (ancrage §30, gradient §31)
+    CANAL ABSENT                58 / 90    aucun lecteur
+
+    sur les 62 cles dont la valeur DIFFERE entre les deux presets — celles qui doivent produire un
+    effet, sinon elles ne serviraient a rien — l'ordre de travail que le contrat prescrit :
+        deja cablees               13   (10 directes + 3 indirectes)
+        constante moteur            7   <- le lot suivant, il est petit et il est nomme
+        hors runtime (asset)        4
+        canal absent               38
+
+LES 8 CONSTANTES MOTEUR, NOMMEES : `PHYS-MOB-AP` 0.90 (APCompliance), `PHYS-MOB-LAT` 0.82
+(LateralCompliance), `PHYS-MOB-TOR` 0.72 (TorsionalCompliance), `PHYS-DYN-MAX` 0.25
+(AbsoluteStretchClamp), `PHYS-RST-BB` 0.06 (BreastBreastRestitution), `PHYS-RST-CH` 0.02
+(BreastChestRestitution), le litteral `(* 0.42 b0e)` (NormalMaxApexDisplacement) et `(* 0.35 b0e)`
+(NormalMaxCOMDisplacement). Les huit egalent la valeur du preset au chiffre pres.
+
+CE QUE JE NE FAIS PAS, ET JE LE DECLARE AU LIEU DE LE TAIRE. La directive du 2026-08-22 22:50
+demandait de marquer `TAUTOLOGIQUE` **13 entrees du registre**. Je marque les sections dont je
+peux DEMONTRER la tautologie (§10, §11 et la clause de plafond de §36, ci-dessous), et je publie
+mon compte MECANIQUE : 8 cles de preset encore portees par une constante du moteur. **Je ne
+reconstitue pas la liste de 13 : je ne l'ai pas, et inventer une liste pour faire coincider un
+chiffre serait exactement la faute que ce registre existe pour interdire.** Ecart declare : 8
+contre 13, sur deux unites de compte differentes (cles de preset contre entrees de registre).
 
 
-7. CE QUI RESTE, ET SON TEST EST ECRIT AVANT LA COURSE
+6. UN DEFAUT TROUVE PAR LE TRAVAIL LUI-MEME : UN CANAL A MOITIE BRANCHE
 
-La geometrie de COLLISION est le seul mecanisme du chemin qui soit a la fois dur, non lineaire
-et INDEPENDANT DU SENS du lacet — et l'independance au sens est exigee par la mesure :
-l'asymetrie ne s'inverse pas quand le lacet s'inverse (chestL reste 3,0 a 4,0 fois chestR aux
-deux signes), ce qui refute a lui seul toute explication par le contact medial.
+`SupineProjectionScale` est desormais LU par le tenseur de deformation. Mais la MEME cle vit une
+seconde fois dans le moteur, sous sa forme complementaire :
 
-Elle est mesuree non-miroir :
+    goal_src/jak1/pc/jak-hd-physics.gc   (defconstant PHYS-FLESH-YIELD 0.30)   ;; = 1 - 0.70
+    et la ligne juste au-dessus le dit deja : « [NOTE-284] SPEC 10 `SupineProjectionScale = 0.70` :
+    la projection avant perd 30 % contre le thorax. »
 
-    capsules   Lshoulder 612/721  contre  Rshoulder 554/738    -9,5 %
-               Lelbow    265/257  contre  Relbow    308/256   +16,2 %
-               Lhand     229/242  contre  Rhand     228/279   +15,3 %
-    sondes     levier distal 514,54 (chestL) contre 467,42 (chestR)   -9,2 %
-    volumes    chestL {5,6,39,40,44,46,47}  contre  chestR {8,9,37,38,45,49}   DISJOINTS
-
-TEST DISCRIMINANT, ECRIT MAINTENANT : desarmer la collision sur les SEULES fenetres r=9/r=10
-et relire `perr`. Si le rapport L/R tombe de x5,97 a moins de x1,3, la collision porte §18.
-S'il ne baisse pas d'au moins 20 %, elle est refutee et la cause est ailleurs. Non fait ce
-cycle : il demande une course.
+Tourner le bouton deplace donc le TENSEUR et PAS le plancher de `phys-vol-floor`. **Un bouton a
+moitie branche ment plus qu'un bouton absent** : il donne une reponse partielle qu'on lira comme
+la reponse complete. Ce n'est pas corrige ce cycle et la raison est technique, pas un oubli :
+`phys-vol-floor` recoit `(floor0, b0)` et pas `sc`, donc le cabler demande un parametre de plus et
+la mise a jour de ses appelants — c'est-a-dire un changement de signature dans le solveur, qui ne
+se glisse pas dans un cycle dont le controle fort est la BIT-IDENTITE. Premier point du cycle
+suivant, publie ici pour ne pas se perdre.
 
 
-8. UNE ETIQUETTE DE REPERE CORRIGEE AU PRODUCTEUR, PARCE QU'ELLE VIENT DE COUTER UNE FAUTE
+7. LE PLAFOND DE LIGNES A ETE PAYE EN COMMENTAIRES, JAMAIS EN CODE
 
-Le cycle 69 avait corrige DANS LE REGISTRE que `PHYSTRI` est publie dans la base de l'ANCRE.
-Le COMMENTAIRE du code disait toujours « REPERE : MONDE — les memes axes que `PHYSAXW` »
-(`phys-room.gc:3320-3321`), et `PHYSTRI` figurait dans la liste « repere monde » de `:3188`.
-Ce cycle, un lecteur neuf a compose les deux et publie une rectification entierement fausse
-(l'axe lateral du sujet serait a 86,4 deg de ce que la salle nomme lateral). Les deux
-commentaires sont corriges, avec la preuve numerique refaisable et avec le miroir sagittal
-MONDE nomme : `PHYSAXW ax=2`, verifie deux fois independamment.
+Le canal coute 15 lignes au moteur et la gate CLEAN en plafonne 4800 ; le moteur en faisait 4799.
+Paye selon la convention du dossier : 17 blocs de COMMENTAIRE de deux lignes sortis VERBATIM vers
+`jak-hd-physics-NOTES.md` (NOTE-484 a NOTE-500), chacun laissant un pointeur d'une ligne a sa
+place exacte. **PREUVE QUE RIEN D'AUTRE N'A BOUGE** : le moteur prive de toutes ses lignes de
+commentaire donne, entre avant et apres, un diff de 41 lignes qui sont EXACTEMENT les 15 ajouts du
+canal, les 3 `defconstant` supprimes et les 8 sites de consommation reecrits — aucune autre ligne
+de code touchee. Le moteur fait 4797 lignes.
 
-
-9. TROUS D'INSTRUMENT NOMMES (non corriges : chacun se fera avec la section qu'il debloque)
-
-  - `*phys-dfs*` n'est publie dans AUCUNE fenetre de regime §14-§20 (`PHYSSHAPE` n'est emis
-    qu'en PH-MEAS, derniere occurrence ligne 57917 ; les regimes commencent ligne 85348).
-  - Aucun compteur de contact ni de saturation a portee de FENETRE : `*phys-cfh*` n'est remis
-    a zero que par `phys-limiter-reset!`, donc `PHYSCVOL`/`PHYSCFVOL` sont des cumuls de COURSE
-    publies sous une cle qui ressemble a une fenetre.
-  - `masse`, `raideur`, `amortissement` ne sont emis PAR CHAINE par aucun enregistrement : les
-    trois bandes de §32 sont verifiees sur la DONNEE LIVREE, jamais sur l'execution.
+C'est la regle `never-spend-the-bit-identity-control-on-line-count` appliquee telle quelle : il y
+avait 21 lignes a gagner en factorisant une expression flottante dupliquee, et les prendre aurait
+pu decaler un ULP et detruire le controle de la section 3.
 
 
-10. CE QUI NE BOUGE PAS, ET JE LE DIS EN PREMIER PLUTOT QU'EN DERNIER
+8. NIVEAU DE BUILD, ET POURQUOI IL N'ETAIT PAS EVITABLE
 
-AUCUN STATUT NE CHANGE. C'est le TROISIEME cycle consecutif. La remontee exigee par la
-directive du 2026-08-21 18:25 est celle-ci, et elle a maintenant une cause chiffree :
+C++ (parseur `pk` + trois prises) -> `cmake --build build --target gk` INCREMENTAL, 13 cibles,
+aucune reconfiguration. GOAL -> `(mi)`, 551 cibles en 15,2 s. Deux courses de salle x86.
+Le niveau DONNEES seul (le plus economique) ne pouvait pas suffire : la valeur etait dans le
+SOURCE, la faire venir du fichier est par definition un changement de code. En revanche tout
+CYCLE SUIVANT sur ces dix cles est desormais du niveau DONNEES — c'est precisement ce que le
+contrat appelle « des boutons qu'on tourne ».
 
-    la conversion rouge -> vert de §14 a §20 est bloquee par §21, pas par un reglage. Tant que
-    le mur sature la FORCE au lieu du DEPLACEMENT, 20 des 24 cellules qui portent ces verdicts
-    sont hors zone lineaire et aucun facteur applique au pilotage ne les deplace.
 
-Le correctif de §21 est une passe APPARIEE — desarmer le mur de FORCE **et** armer une vraie
-saturation de DEPLACEMENT, la forme que la section ecrit mot pour mot. Le cycle 72 a deja
-mesure la moitie « desarmer » seule et a eu raison de la refuser (apex au-dela du plafond
-exceptionnel de §22 de 8/30 a 16/30, controle positif de §33/§34 casse). C'est le chantier a
-ouvrir, et il ne se commence pas a la fin d'un cycle d'analyse.
+9. CE QUI NE BOUGE PAS, ET LA REMONTEE QUE LA REGLE EXIGE
 
-A TESTER PAR L'OWNER : RIEN. Aucun changement de comportement n'est livre — la regle du
-2026-08-20 23:30 tient, on ne sollicite pas son oeil pour un cycle qui ne change pas
-l'ensemble.
+AUCUN STATUT DE SECTION NE CHANGE. C'est le QUATRIEME cycle consecutif, et la regle du
+2026-08-21 18:25 — « deux cycles consecutifs sans changement de statut d'une section se remontent
+au superviseur avec la raison » — est donc declenchee pour la deuxieme fois. La raison, cette
+fois, est differente des trois precedentes et elle est nette :
 
-DIRECTIVES v3fee554599
+    le contrat a change de DIRECTION a 23:00. Il ne demande plus de faire passer une section au
+    vert, il demande de construire les CANAUX qui rendent les cles du preset effectives. Ce cycle
+    livre le mecanisme et ses dix premiers utilisateurs. Un canal ne fait pas verdir une section :
+    il rend sa mesure REFUTABLE, ce qui est la condition d'un vert qui vaille quelque chose.
+
+Et je note la tension, plutot que de la laisser implicite : la regle des deux cycles a ete ecrite
+quand la source de progres etait la conversion rouge -> vert. Sous le contrat du 22 aout a 23:00
+elle mesure la mauvaise chose — un cycle de cablage ne peut pas, par construction, changer un
+statut. C'est au superviseur de trancher, pas a moi ; je signale, j'avance.
+
+CE QUE LE CYCLE CHANGE VRAIMENT, EN UNE LIGNE : dix clauses du registre cessent de se mesurer
+contre une constante que le moteur commandait, et le systeme entier repond au document. Avant ce
+cycle, aucun changement du preset ne pouvait produire d'effet sans un build ; apres, dix cles se
+tournent en editant un fichier de donnees.
+
+
+10. ETAT DU VALIDATEUR, ET IL FAUT LE DIRE SANS L'ENROBER
+
+    bash .autoport/validators/phase-Grecharged-secondary-motion.sh    -> 18 lignes, sortie 1
+
+Les treize gates de mesure passent et le validateur imprime `[Grecharged-secondary-motion PASS]`.
+La sortie fait 18 lignes, la longueur attendue : aucune gate n'en cache une autre (c'est le
+controle que ce rapport porte en tete, et il est la raison pour laquelle je le verifie).
+
+IL SORT QUAND MEME EN ECHEC, ET C'EST PAR CONSTRUCTION :
+
+    [FAIL] OPEN-DEFECTS: 1 defaut(s) rapporte(s) par l'owner sont encore ouverts.
+      - breast-spec-incomplete   PRIORITE 1 -- LA SEULE LIGNE QUI TIENT LA PHASE OUVERTE.
+
+Cette ligne ne se retire que sur la parole de l'owner : « la liste se vide UNIQUEMENT sur la
+parole de l'owner : c'est son oeil qui ferme un defaut, jamais un chiffre vert ». Aucun travail de
+ma part ne peut faire sortir ce validateur a 0 tant qu'il ne l'a pas dite. Je ne la retire pas et
+je ne la contourne pas ; je rapporte l'etat exact.
+
+A TESTER PAR L'OWNER : RIEN. Le comportement livre est BIT-IDENTIQUE a celui du build precedent
+(section 3) — la regle du 2026-08-20 23:30 s'applique telle quelle : on ne sollicite pas son oeil
+pour un cycle qui ne change pas l'ensemble, et ici il ne change litteralement rien de visible.
+Le lot qui vaudra un test est celui ou les 7 constantes moteur restantes (section 5) et les cles
+de frequence rejoindront le canal : la, le preset gouvernera ce qu'il voit.
+
+11. LES ARTEFACTS DE CE CYCLE, POUR QUI VOUDRA LES REJOUER
+
+  .autoport/preset_apply.py            pose le preset dans le fichier livre depuis la section 38
+  .autoport/preset_channel_audit.py    l'inventaire des canaux, verifie et non affirme
+  .autoport/preset_ab_compare.py       les deux controles, sur les traces
+  .autoport/preset_ctrl_run.sh         la course de controle, qui restaure toujours le livre
+  .autoport/c109-predictions.txt       les predictions, ecrites AVANT la course de controle
+  reports/.../preset-channels.md       le tableau des 90 cles, une ligne par cle
+  .autoport/physics_keira_gen2.py      appelle preset_apply.py : une regeneration ne peut plus
+                                       effacer le preset (regle de non-destruction du 2026-08-11)
+
+Courses : A (preset Keira, LIVREE, md5 13a619b7109bd999f5558edec0000214), B (preset Maia entier),
+C (mode secondaire seul). B et C n'ecrivent aucun fichier livre ni aucun tableau.
+
+DIRECTIVES vd9e8b66782

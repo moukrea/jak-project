@@ -2368,6 +2368,28 @@ def main():
                       % _r.returncode)
         except Exception as _e:
             print('[gen] ATTENTION: reglages owner NON reappliques: %s' % _e)
+        # LE PRESET DU PERSONNAGE EST POSE ICI, DANS LE PRODUCTEUR (2026-08-22, cycle 109).
+        # Owner : « les memes proprietes des presets ont des valeurs differentes, on pourrait donc
+        # imaginer que ces knobs influencent proprement le tout ». Les cles de
+        # `SPEC-breast-softbody.md` section 38 sont des ENTREES : elles descendent dans le fichier
+        # livre sous forme d'enregistrements `pk <Cle> <valeur>` que le moteur LIT.
+        # POURQUOI ICI ET PAS DANS UN APPELANT : une regeneration qui efface le preset rendrait au
+        # moteur des cles absentes, et le moteur remplacerait alors chaque valeur de forme par son
+        # element neutre — c'est-a-dire supprimerait la deformation. C'est la meme perte, en pire,
+        # que celle des reglages de l'owner effacee deux fois le 2026-08-11. Elle se rend
+        # IMPOSSIBLE au point de production, pas detectable au point de controle.
+        try:
+            import subprocess as _sp3, os as _os3
+            _root3 = _os3.path.dirname(_os3.path.dirname(_os3.path.abspath(__file__)))
+            _r3 = _sp3.run(['python3', _os3.path.join(_root3, '.autoport', 'preset_apply.py'),
+                            '--preset', 'keira', '--chains', args.out, '--out', args.out],
+                           capture_output=True, text=True, timeout=120)
+            print((_r3.stdout or _r3.stderr).strip())
+            if _r3.returncode != 0:
+                print('[gen] ATTENTION: le preset N\'a pas ete pose (%d) — le moteur lirait des'
+                      ' cles absentes et neutraliserait la deformation' % _r3.returncode)
+        except Exception as _e3:
+            print('[gen] ATTENTION: preset NON pose: %s' % _e3)
         # --------------------------------------------------------------------------------------
         # LES ECHANTILLONS DE PEAU SONT DERIVES DE CE FICHIER **ET** DU MESH CUIT : ILS SE
         # REGENERENT ICI, DANS LE PRODUCTEUR (2026-08-18, cycle 24).
