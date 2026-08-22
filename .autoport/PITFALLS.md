@@ -672,3 +672,14 @@ AILLEURS dans le meme document. Une cle qui prend deux valeurs pour deux personn
 parametre, point. Et une cle sans canal se declare `CANAL ABSENT` — un manque nomme — jamais une
 section non tenue comme si le solveur avait echoue. Voisin de
 `impossibility-inherits-model-blindspots`.
+
+GUARD green-validator-is-not-conformance .autoport/SPEC-COVERAGE.md l'avancement se lit
+**13 gates au vert pour 2 sections tenues sur 38.** L'ecart n'est pas un paradoxe : mes gates
+verifient l'INTEGRITE DE LA MESURE — la salle a tourne, le controle tire, aucun organe gele n'est
+simule — et **pas la conformite a la spec de l'owner**. Un validateur vert dit « ce que j'ai mesure
+est honnete », jamais « sa poitrine est conforme ».
+Verrou : le validateur ne sert JAMAIS d'indicateur d'avancement ; l'avancement se lit dans
+`SPEC-COVERAGE.md` et nulle part ailleurs. Un rapport qui ouvre sur « le validateur passe » enterre
+l'information que l'owner attend. Corollaire : la borne des deux cycles sans changement de statut
+ne compte pas les cycles dont le seul echec est la porte humaine de l'owner — sinon on lui remonte
+indefiniment une decision qui n'appartient qu'a lui.

@@ -10,6 +10,34 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
+## 2026-08-23 01:20 — ARBITRAGE : LE VALIDATEUR AU VERT N'EST PAS LA CONFORMITE. ET LA BORNE DES DEUX CYCLES NE COMPTE PAS LA PORTE DE L'OWNER.
+
+Le cycle 110 remonte, sans avoir touche un bit du solveur : 13 gates de mesure au vert, `[PASS]`
+imprime, et le seul echec est `OPEN-DEFECTS / breast-spec-incomplete` — une gate qui n'a pas de
+mode « reussi » par construction, puisque seul l'owner retire cette ligne.
+
+**IL A RAISON SUR LES DEUX POINTS, ET JE PRECISE LA REGLE.**
+
+**1. La borne des deux cycles ne s'applique pas quand le SEUL echec est la porte de l'owner.**
+Sinon chaque cycle remonterait indefiniment une decision qui n'appartient pas au worker. La borne
+vise les cycles qui n'avancent RIEN ; un cycle qui bute uniquement sur la parole de l'owner a
+avance ou non selon le REGISTRE, pas selon le validateur.
+
+**2. ET C'EST LE POINT QUI COMPTE : 13 GATES AU VERT POUR 2 SECTIONS TENUES SUR 38.** Cet ecart
+n'est pas un paradoxe, c'est un DIAGNOSTIC SUR MES GATES. Elles verifient l'integrite de la mesure
+— la salle a tourne, le controle tire, aucun organe gele n'est simule, la penetration est declaree
+— et **pas la conformite a la spec**. Un validateur vert veut dire « ce que j'ai mesure est
+honnete », jamais « sa poitrine est conforme ».
+**Consequence : le validateur ne sert plus JAMAIS d'indicateur d'avancement.** L'avancement se lit
+dans `SPEC-COVERAGE.md`, et nulle part ailleurs. Un rapport qui ouvre sur « le validateur passe »
+enterre l'information que l'owner attend.
+
+**3. CE QUI EST REELLEMENT ACQUIS CETTE NUIT, ET C'EST SUBSTANTIEL :** plus AUCUNE cle du preset
+n'est ecrite en dur dans le moteur (cycle 109b). Les 13 entrees tautologiques que j'ai exclues des
+comptes hier soir disparaissent donc PAR CONSTRUCTION et non par etiquetage — c'etait exactement
+l'effet attendu de la direction posee a 23:00 sur l'intuition de l'owner.
+
+
 ## 2026-08-22 23:00 — L'OWNER A RAISON SUR L'ARCHITECTURE : LE PRESET EST UNE ENTREE, PAS UNE DESCRIPTION. SCOPE-SERIAL 9.
 
 Verbatim : « tu pourrais faire en sorte que ce soit des boutons qu'on tourne justement, regarde le
