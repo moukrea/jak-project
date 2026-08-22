@@ -1731,6 +1731,15 @@ def _oricom_block(A, txt, names, ori):
                                                     float(m.group(5)))
     for m in re.finditer(r'^PHYSORITR c=(\d+) i=(\d+) rrt=([-\d.e+]+)', txt, re.M):
         tr[(int(m.group(1)), int(m.group(2)))] = float(m.group(3))
+    # CYCLE 110 — les deux tags PAR MAILLON. `PHYSORITR`/`rr` sont des agregats PAR CHAINE et le
+    # rapport que la §11 en tirait divisait un max pris sur TOUS les maillons par l'echantillon
+    # d'UN SEUL (celui que la boucle du solveur a ecrit en dernier). Meme defaut que cycle 31
+    # (PHYSRINGCX) et cycle 33 (PHYSRAD -> PHYSRADL), jamais propage jusqu'ici.
+    trl, c2l = {}, {}
+    for m in re.finditer(r'^PHYSORITRL c=(\d+) i=(\d+) l=(\d+) rrml=([-\d.e+]+)', txt, re.M):
+        trl[(int(m.group(1)), int(m.group(2)), int(m.group(3)))] = float(m.group(4))
+    for m in re.finditer(r'^PHYSORICOM2L c=(\d+) i=(\d+) l=(\d+) rrl=([-\d.e+]+)', txt, re.M):
+        c2l[(int(m.group(1)), int(m.group(2)), int(m.group(3)))] = float(m.group(4))
     b0 = {}
     for m in re.finditer(r'^\[HD-PHYS\] b0 c=(\d+) flesh=([-\d.e+]+)', txt, re.M):
         b0[int(m.group(1))] = float(m.group(2))
@@ -2015,6 +2024,33 @@ def _oricom_block(A, txt, names, ori):
             A('ROOM-ORICOM-SPEC: %-12s §11 transitoire  pic d\'etablissement=%.5f  tenu=%.5f'
               '  rapport=%s  (§11 : 1.30 contre 1.23, soit 1.057)'
               % (nm, tr[(c, ip)], eq, ('%.3f' % (tr[(c, ip)] / eq)) if eq > 1e-6 else 'n/a'))
+            A('ROOM-ORICOM-SPEC:              ^ AGREGAT PAR CHAINE — le numerateur est un max pris'
+              ' sur TOUS les maillons, le denominateur UN SEUL maillon (celui que la boucle du'
+              ' solveur ecrit en dernier). Rapport de deux populations : NE PORTE PAS LE VERDICT.')
+            _ln = sorted({l for (cc, ii, l) in trl if cc == c and ii == ip})
+            if not _ln:
+                A('ROOM-ORICOM-TRL: %-12s §11 transitoire PAR MAILLON — ABSENT (aucune ligne'
+                  ' PHYSORITRL : trace anterieure au cycle 110). Le verdict reste NON ETABLI.' % nm)
+            else:
+                _worst = None
+                for l in _ln:
+                    pk = trl[(c, ip, l)]
+                    hd = abs(c2l.get((c, ip, l), 0.0))
+                    rt = (pk / hd) if hd > 1e-6 else None
+                    A('ROOM-ORICOM-TRL: %-12s §11 transitoire l=%d  pic=%.5f  tenu=%.5f'
+                      '  rapport=%s  (plafond 1.057)   %s'
+                      % (nm, l, pk, hd, ('%.3f' % rt) if rt else 'n/a — tenu nul',
+                         ('' if rt is None else ('DANS' if rt <= 1.057 else 'AU-DESSUS'))))
+                    if rt is not None and (_worst is None or rt > _worst[1]):
+                        _worst = (l, rt)
+                if _worst is None:
+                    A('ROOM-ORICOM-TRL: %-12s §11 VERDICT : n/a — aucun maillon n\'a un equilibre'
+                      ' radial non nul a la cellule prone. Domaine vide, pas un vert.' % nm)
+                else:
+                    A('ROOM-ORICOM-TRL: %-12s §11 VERDICT sur le maillon le PIRE (l=%d) :'
+                      ' rapport=%.3f contre 1.057  ->  %s'
+                      % (nm, _worst[0], _worst[1],
+                         'DANS' if _worst[1] <= 1.057 else 'AU-DESSUS'))
     A('')
     # ---- CYCLE 69 : LE ROLE DES CELLULES, MESURE ; PUIS §13, QUI EN DEPEND ----------------
     _roles = _ori_role_block(A, txt, names, ori, com, role, b0)

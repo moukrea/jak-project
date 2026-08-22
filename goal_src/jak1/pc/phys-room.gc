@@ -4203,7 +4203,31 @@
         (dotimes (c (-> self nchain))
          (when (> (phys-chain-links (-> self slot) c) 0)
           (format 0 "PHYSORITR c=~D i=~D rrt=~,,7f~%"
-                  c oi (phys-chain-radial (-> self slot) c 2)))))
+                  c oi (phys-chain-radial (-> self slot) c 2))
+          ;; ---- LE MEME PIC, PAR MAILLON. C'EST LA TROISIEME FOIS QUE CE DEFAUT EST CORRIGE, ET
+          ;; ---- CETTE FOIS AU PRODUCTEUR DE LA GRANDEUR, PAS AU SITE QUI L'A REVELE.
+          ;; `rrt` ci-dessus est `*phys-rrm*` : un maximum de fenetre pris sur TOUS LES MAILLONS a
+          ;; la fois (jak-hd-physics.gc:3113). Le denominateur que la §11 lui oppose est `rr` de
+          ;; `PHYSORICOM2`, c'est-a-dire `*phys-rr*`, qui est garde sur le maillon RACINE seul
+          ;; (`(when (= l rlk))`, :3088). Le code le dit lui-meme a ce site : « `*phys-rr*` GARDE
+          ;; LA RACINE ; LES AGREGATS PORTENT TOUTE LA CHAINE ». Personne n'a reconcilie les deux
+          ;; domaines au point ou la §11 en fait un RAPPORT : diviser un max PRIS SUR LA CHAINE
+          ;; par la valeur de la RACINE ne mesure pas un depassement d'etablissement — un distal
+          ;; plus etire que la racine suffit a le rendre > 1 sans qu'aucun transitoire existe.
+          ;; LE MEME DEFAUT A DEJA ETE CORRIGE DEUX FOIS SUR CE MEME `phys-chain-radial` : cycle 31
+          ;; sur `PHYSRINGCX` (« imprimait la MEME valeur pour l=0 et l=1, verifie max|l0-l1| = 0 »)
+          ;; et cycle 33 sur `PHYSRAD` -> `PHYSRADL` (« un agregat par chaine qui cache une verite
+          ;; par maillon »). Il n'avait jamais ete propage ici.
+          ;; NATURE : maximum de FENETRE d'une elongation radiale ABSOLUE, rapportee a B0 (§6) —
+          ;;   pas une amplitude agregee, pas une variance.
+          ;; REPERE : l'axe de l'os DU MAILLON, dans le triedre de l'ANCRE (§7).
+          ;; FENETRE : les 60 frames d'ETABLISSEMENT, la meme que `PHYSORITR` — `*phys-rrml*` et
+          ;;   `*phys-rrm*` sont remis a zero par le MEME `phys-stats-reset!` (:4100 et :4121),
+          ;;   donc les deux sont comparables sans hypothese.
+          ;; LIGNE DE BASE : 0.0 quand le maillon n'a pas de degre de liberte radial arme.
+          (dotimes (l (phys-chain-links (-> self slot) c))
+           (format 0 "PHYSORITRL c=~D i=~D l=~D rrml=~,,7f~%"
+                   c oi l (phys-chain-radial-link (-> self slot) c l 2))))))
        (phys-stats-reset!)
        ;; les compteurs de diagnostic couvrent la FENETRE DE MESURE et rien d'autre : sans ce
        ;; reset ils cumuleraient l'etablissement, ou vit justement le pic de §37.
@@ -4278,6 +4302,19 @@
                  (phys-chain-radial (-> self slot) c 1)
                  (phys-chain-radial (-> self slot) c 2)
                  (phys-stat (-> self slot) c 15))
+         ;; ---- LE DENOMINATEUR DE LA §11, PAR MAILLON — SANS LUI `PHYSORITRL` NE SERT A RIEN.
+         ;; `rr` ci-dessus est `*phys-rr*`, garde sur le maillon RACINE seul (`(when (= l rlk))`,
+         ;; jak-hd-physics.gc:3088), alors que `rrm`/`rrt` sont des maximums pris SUR TOUTE LA
+         ;; CHAINE. Le pic d'etablissement de la §11 doit se lire sur LE MEME maillon que
+         ;; l'equilibre auquel on le compare, sinon le rapport melange deux populations. Cette
+         ;; ligne fournit l'equilibre par maillon ; `PHYSORITRL` fournit le pic par maillon.
+         ;; NATURE : une elongation radiale SIGNEE rapportee a B0 (§6), instantanee — meme nature
+         ;;   et meme instant que le `rr` ci-dessus, donc les deux se comparent directement.
+         ;; REPERE : l'axe de l'os DU MAILLON, dans le triedre de l'ANCRE (§7).
+         ;; LIGNE DE BASE : 0.0 a la pose d'auteur (orientation i=0, ou §9 exige la pose debout).
+         (dotimes (l (phys-chain-links (-> self slot) c))
+          (format 0 "PHYSORICOM2L c=~D i=~D l=~D rrl=~,,7f~%"
+                  c oi l (phys-chain-radial-link (-> self slot) c l 1)))
          ;; ---- LA DEFORMATION EN ESPACE ANCRE, TELLE QUELLE ------------------------------------
          ;; Le cycle 26 a compose le COM de ses §10/§11/§12 en RECONSTRUISANT cette matrice hors
          ;; moteur depuis les trois echelles de `PHYSORI2` et le triedre. La reconstruction ne
