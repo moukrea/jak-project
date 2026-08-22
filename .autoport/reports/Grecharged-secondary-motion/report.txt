@@ -8,6 +8,12 @@ SECTION DONT CE CYCLE DEBLOQUE LE VERDICT, NOMMEE AVANT DE COMMENCER (directive 
 mediane a l'entree du mur de §22 ? — et nomme deux causes candidates, dont le saut d'ancre non
 rebase de §37.
 
+BREAST-PENETRATION: 0.0586 m — `meshpen`, DIAGNOSTIC, jamais un verdict (arbitrage 2026-08-20
+13:20 : c'est un DEPLACEMENT, pas une profondeur, identite exacte du cycle 59). Valeur de la
+course dont le tableau courant est derive (md5 834be16a) — la meme source que le cycle 100,
+puisque le source final de ce cycle est identique au sien. Sous le plafond epingle n'est pas
+« regle » : tant que ce n'est pas zero, ca se declare avec son chiffre, a chaque cycle.
+
 SUBSTRAT : GOAL seul. Deux `(mi)` (551 cibles) et une course x86. Etat FINAL du source :
 `jak-hd-physics.gc` 4797 et `phys-room.gc` 6180 — **identiques au cycle 100**, voir §4.
 
