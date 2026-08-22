@@ -1,0 +1,158 @@
+RAPPORT DE CYCLE 100 — Grecharged-secondary-motion
+DIRECTIVES v3fee554599
+Branche physics-keira-clean · perimetre : chestL / chestR SEULES (owner 2026-08-14 07:30)
+(le rapport precedent est archive a cote de celui-ci sous `report.c99.txt`)
+
+SECTIONS DONT CE CYCLE DEBLOQUE LE VERDICT, NOMMEES AVANT DE COMMENCER (directive du 2026-08-21
+18:25) : **§18, §19, §20** — les trois sections angulaires. L'emetteur pose ici est le seul qui
+manquait pour attribuer leurs cellules a un terme du moteur.
+
+SUBSTRAT : GOAL seul. `(mi)` (551 cibles, 15,0 s) + une course x86. **+46 lignes dans
+`phys-room.gc`, moteur `jak-hd-physics.gc` INCHANGE** (4797, plafond CLEAN 4800).
+`recharged_assets/physics_chains.txt` INCHANGE. Aucun `cmake`, aucun rebuild de `gk`.
+
+BREAST-PENETRATION: 0.0586 m — `meshpen`, DIAGNOSTIC, jamais un verdict (arbitrage 2026-08-20
+13:20 : c'est un DEPLACEMENT, pas une profondeur). Valeur DE CETTE COURSE (md5 834be16a).
+
+================================================================================================
+0. EN UNE PHRASE
+================================================================================================
+**LE `NON ETABLI` QUE SIX LIGNES DU REGISTRE PORTAIENT DEPUIS LE CYCLE 81b EST TRANCHE, ET LA
+REPONSE EST « NI L'UN NI L'AUTRE » : `tp` N'EST NI UNE INTENTION D'AUTEUR NI UNE CONSTANTE DE
+RETARGET, C'EST UN RESIDU DE SOLVEUR — ET LE CHIFFRE QUI FONDAIT LA RESERVE COMPARAIT DEUX
+POPULATIONS QUI NE PARTAGENT AUCUNE CLE D'ECHANTILLON.**
+
+================================================================================================
+1. CE QUI EST ETABLI, ET COMMENT
+================================================================================================
+(1) LE CANAL D'AUTEUR EST PLAT — L'ANIMATION NE POSE PAS LA POITRINE.
+    Position de `lBoob` / `rBoob` dans le repere de `chest` (qui n'est simule par rien), relevee
+    sur la course ou SA PROPRE chaine est DESARMEE, donc ou sa matrice EST la pose d'auteur.
+    1147 frames x 31 animations :   ecart a la mediane  p50 0,0033 / 0,0001 B0
+                                                        p90 0,0670 / 0,0670
+                                                        max 0,0948 / 0,0950 B0
+    CONTROLE NEGATIF, MEMES FRAMES, meme joint sur la course ou il EST simule :
+                                                        max 0,4086 / 0,3806 B0   (x20 la mediane)
+    L'instrument voit donc le mouvement quand il y en a. Predictions ecrites AVANT la mesure :
+    `.autoport/c100-predictions.txt` (md5 bea9b0fbd0d27ae5763ca5a7cefa22c0).
+    Reproductible : `.autoport/c100_author_local.py`. Aucun build, aucune course.
+
+(2) LA CIBLE DU SOLVEUR **EST** LA POSE D'AUTEUR — donc `tp` est mesure contre la bonne reference.
+    `PHYSRESTW rgap` = |cible de repos - pose d'auteur| / B0 ne depasse JAMAIS **0,0191 B0**
+    (11,5 u = 2,8 mm) sur 186 fenetres x 31 animations.
+
+(3) UN OFFSET STATIQUE NE PEUT PRODUIRE NI DE L'UN NI DE L'AUTRE :
+    `perr` moyen/frame  0,150 B0 SANS pilotage  ->  0,42-0,50 B0 SOUS pilotage ;
+    les sept etages deplacent LE MEME joint DANS LA MEME FRAME de 1,42 a 0,389 B0 (`PHYSSTGW`).
+
+(4) ET LE CHIFFRE QUI FONDAIT LA RESERVE NE MESURAIT RIEN.
+    Le rapport x7,7 / x10,1 et le Pearson -0,005 / +0,021 de c81b opposaient `PHYSCOMD` (`tp`,
+    emis sur d=0..5, 186 fenetres) au « mouvement propre du joint » tire de `PHYSJTW` — **qui
+    n'est emis QUE sur d=5**, la seule sous-fenetre SANS pilotage, celle ou `perr` vaut 0,150 au
+    lieu de 0,45 B0. Deux series sans cle d'echantillon commune ne se correlent pas.
+    `argmax-anchor-is-not-a-population`, et cette fois c'est le mien.
+
+================================================================================================
+2. L'INSTRUMENT POSE, ET LA PREUVE QU'IL EST PUR
+================================================================================================
+`PHYSREG4T` / `PHYSREG4D` / `PHYSREG4R` publient les trois termes de l'apex (translation, tenseur,
+part radiale) sur les fenetres de REGIME. Ils existaient dans PH-MEAS et nulle part ailleurs ;
+sans eux les 20 cellules de §14/§16/§17/§18/§19/§20 n'etaient attribuables a aucun terme.
+  - MEME ARGMAX que `PHYSREG4` : meme garde `(> ap dg53)`, `jak-hd-physics.gc:4042-4053`.
+    Controle d'identite `| |(ax,ay,az)| - apex |` = **max 9,2e-05 sur 30/30 cellules**.
+  - GARDE DE VACUITE `PHYSREG4V` : `phys-comexw-reset!` remet 53-58 a zero a chaque fenetre mais
+    PAS 59-64 ni 86 ; une fenetre sans echantillon d'apex publierait des termes PERIMES. Elle se
+    signale au lieu de publier en silence.
+  - PURETE ATTESTEE A L'EXECUTION : **0 ligne de MESURE differente** du tableau du cycle 98 ;
+    exactement **90 lignes = 3 x 30 ajoutees** a la trace brute ; sortie du validateur **octet
+    pour octet identique** a celle du cycle 99.
+
+================================================================================================
+3. LA PREMIERE ATTRIBUTION DES 20 CELLULES — ET LE TENSEUR NE REPOND PAS AU CANAL ANGULAIRE
+================================================================================================
+Parts SIGNEES (projection sur `e^`, les trois somment a 100 %), moyennes par canal de stimulus :
+
+    canal        n    apex moy      tp        rp        dp
+    LINEAIRE    10    0,3193 B0   +64,1 %   +15,3 %   +20,6 %
+    ANGULAIRE   10    0,4619 B0   +60,9 %   **+25,2 %**   +13,9 %
+
+L'ecart de canal vaut 0,1426 B0 et se repartit **~54 % sur `tp`, ~47 % sur `rp`, ~0 % sur `dp`**.
+En valeur ABSOLUE le tenseur rend **0,0642 B0 sur l'angulaire contre 0,0658 sur le lineaire, soit
+2,5 % d'ecart** — sous la barre de 25 % que le contrat impose a toute grandeur publiee par
+stimulus. **Le tenseur de deformation ne distingue pas un stimulus angulaire d'un lineaire.**
+C'est le canal ou vivent §8/§10-13/§29/§36 ([NOTE-151]) : je le publie comme OBSERVATION, pas
+comme un verdict de §29, et je ne touche pas au statut de §29.
+
+ET AUCUN TERME SEUL NE CONVERTIT LA MAJORITE. Sur les 12 cellules au-dessus de leur bande :
+retirer `rp` en entier en convertit **5**, `dp` en entier **1**, et **6 ne sont converties par
+aucun terme pris seul**. Le levier « diviser la reponse angulaire par 1,6-1,8 » (qui rendrait
+13/20 DANS, 0 perdue) n'est donc porte par AUCUN canal unique du moteur.
+Reproductible : `.autoport/c100_regime_terms.py`.
+
+================================================================================================
+4. UN SECOND FAIT, MESURE AU PASSAGE, ET IL CHANGE CE QUE LE ROUGE DE §22 VEUT DIRE
+================================================================================================
+Le mur de §22 (`jak-hd-physics.gc:3136-3172`) a un genou `kn = 0,42 B0`, une marge `cp = 0,08 B0`,
+et une branche `(if (>= xr 3.0) 1.0 ...)` qui rend **exactement 1,0** des que son entree atteint
+0,66 B0 : au-dela, la sortie est la CONSTANTE 0,50 B0.
+Mesure sur les 186 fenetres de PH-MEAS, via `PHYSSTGW` — le septuplet cle sur l'etage 0, que rien
+ne borne. (`PHYSSTG`, lui, est cle sur l'etage 6 QUI EST BORNE : sa saturation apparente est une
+tautologie de sa cle, piege [NOTE-466]. Je l'ai verifie avant de conclure, et les deux lectures
+disent des choses differentes.)
+
+    entree (etage 0)  p50 0,8095 / 0,8336   p90 4,4026 / 4,3489   max 5,0550 / 4,9197 B0
+    au-dessus du genou            174/186 = 93,5 %  sur les DEUX chaines
+    ENTIEREMENT SATUREE           104/186 = 55,9 %  et  108/186 = 58,1 %
+    sortie (etage 1)  p50 0,4999   p90 0,500000   max 0,500000   sur les deux chaines
+
+4,40 / 4,26 B0 d'etendue d'entree comprimes en **0,0009 / 0,0008 B0** de sortie.
+CE QUE CA CHANGE : la grandeur que §22 juge est lue APRES ce mur. Une sortie collee a son plafond
+dans plus d'une fenetre sur deux ne peut pas repondre a son stimulus — et c'est exactement
+l'invariance a x380 mesuree au cycle 81, et la correlation -0,041 / -0,094 du pic de racine avec
+l'apex. Le rouge n'est pas refute ; sa CAUSE ne peut simplement pas etre cherchee dans l'excursion
+livree. Elle est dans ce qui envoie 0,81 B0 de mediane et jusqu'a 5,06 B0 (73 cm) a l'entree.
+
+================================================================================================
+5. CE QUI N'EST PAS FAIT, ET POURQUOI — DE-SCOPE DECLARE
+================================================================================================
+- **AUCUNE SECTION NE PASSE AU VERT. C'EST LE TROISIEME CYCLE CONSECUTIF SANS CHANGEMENT DE
+  STATUT**, et la directive du 2026-08-21 18:25 point 2 exige que ce soit remonte avec sa raison
+  plutot qu'enchaine. RAISON : les cycles 99 et 99-suite se sont arretes sur un ARBITRAGE (tenir
+  §24 exige de ceder §29 ou §33/§34) ; ce cycle-ci a leve une INCONNUE nommee au lieu de tenter un
+  correctif a l'aveugle sur six lignes dont la cause commune venait d'etre refutee (20:50).
+  Ce qui a change d'etat : la reserve `NON ETABLI ET NOMME` de §14/§16/§18/§19/§20 est LEVEE et
+  remplacee par une attribution mesuree ; §22 porte desormais la cause de son illisibilite.
+- **AUCUNE INTERVENTION SUR LE SOLVEUR.** Melanger un correctif a un ajout d'instrument aurait
+  rendu les deux inattribuables. L'entree du mur de §22 n'est pas touchee.
+- **`PHYSREG4V` N'A PAS TIRE (0/30).** La garde de vacuite n'est donc PAS attestee a l'execution :
+  c'est une branche lue au source, et un commentaire n'est pas une preuve (regle 0). Elle n'a pas
+  de controle positif, et je ne la compte pas comme acquise.
+- **RESERVE DE POSE, NON LEVEE.** `ROOM-REGPOSE` porte PH-REG a **47,3 deg du miroir** : toute
+  lecture GAUCHE/DROITE des 20 cellules reste NON ETABLIE (verrou du 2026-08-21 01:20). Chaque
+  cellule prise SEULE reste une mesure. Les deux courses d'ablation n'ont qu'UNE chaine armee
+  chacune : la collision mediale de §33 n'y agit pas comme a deux chaines armees.
+- **CE QUI RESTE ROUGE ET QUE JE REDIS PARCE QUE LE RETRAIT DE c99 NE L'A PAS CORRIGE** : le vert
+  de `COLLIDE §33/§34` est assis sur une ligne rouge publiee (la gate lit le plancher PARTAGE
+  `PIRE-DES-DEUX 0,0883` quand `chestL` depasse SON propre plancher de +0,0079 m), et §33
+  elle-meme est rouge des deux cotes avec un controle qui a tire (`ROOM-MEDIAL-PEN` +0,0377 /
+  +0,0137 m) sans qu'aucune gate ne la lise.
+
+================================================================================================
+6. LA SUITE, NOMMEE
+================================================================================================
+Une seule question decide la suite, et elle est maintenant isolee :
+**qu'est-ce qui envoie 0,81 B0 de mediane (et jusqu'a 5,06 B0) a l'entree du mur de §22 ?**
+Deux causes candidates, disjointes et toutes deux testables sur la trace archivee :
+  (a) divergence de l'integrateur ;
+  (b) saut d'ancre non rebase — §37, `PHYSREBASE` tire 76 fois sur 372.
+Tant que l'entree est 2 a 10 fois son propre seuil de saturation, aucune modification de la borne,
+des bandes ou de la mesure ne peut deplacer §22 — c'est une propriete de l'operateur, pas un
+reglage.
+
+================================================================================================
+7. A TESTER PAR L'OWNER
+================================================================================================
+**RIEN.** Directive du 2026-08-20 23:30 : je ne sollicite plus de test pour un changement d'une
+seule section, et ce cycle ne change AUCUN comportement — les quatre lignes ajoutees sont des
+emetteurs purs, prouves sans effet (0 ligne de mesure differente, validateur identique a l'octet).
+La livraison au fil de l'eau n'est pas suspendue pour autant : le build reste publiable.

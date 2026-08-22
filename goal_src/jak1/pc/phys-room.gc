@@ -1757,21 +1757,6 @@
             c (-> self ai) (-> self drive)
             (phys-diag (-> self slot) c 29)
             (phys-diag (-> self slot) c 30))
-    ;; [NOTE-473] SPEC 37 — L'ANGLE DONT L'ANCRE A TOURNE EN UNE FRAME, PIRE CAS DE LA FENETRE.
-    ;; POURQUOI CETTE LIGNE EXISTE : `PHYSREBASE` ci-dessus ne rapporte que la moitie TRANSLATION
-    ;; du rebase — son declencheur est une DISTANCE et son action un `+!` sur x/y/z. Une rotation
-    ;; discontinue de l'ancre n'y apparait pas, et c'est elle qui produit le plus gros artefact
-    ;; mesure de la course (pilotage `tilt` : entree du mur de §22 a 4.41 / 4.38 B0, 100 % des
-    ;; fenetres saturees, `fired=0` sur 62/62). Sans cette ligne, tout seuil de declenchement en
-    ;; rotation serait un nombre CHOISI et pas DERIVE.
-    ;; NATURE : un ANGLE en DEGRES (pas un taux, pas un rapport). REPERE : celui de l'ancre —
-    ;;   angle de `R(frame-1)^T . R(frame)`, intrinseque, sans axe choisi.
-    ;; STATISTIQUE : le MAXIMUM sur la fenetre, remis a zero par `phys-comexw-reset!`.
-    ;; LECTURE QUAND LE DEFAUT EST ABSENT : 0.0000 sur une ancre qui ne tourne pas.
-    ;; CE QU'ELLE N'AFFIRME PAS : aucun seuil, aucun verdict. C'est une distribution a lire.
-    (format 0 "PHYSANROT c=~D a=~D d=~D deg=~f~%"
-            c (-> self ai) (-> self drive)
-            (phys-diag (-> self slot) c 87))
     ;; LE STIMULUS REELLEMENT RECU, pour CHAQUE fenetre y compris la ligne de base. Compare a
     ;; l'amplitude commandee (PHYSSTIM), il dit si le pilotage a domine ou s'il a ete noye.
     (format 0 "PHYSACC c=~D a=~D d=~D acc=~f wraps=~D~%"
