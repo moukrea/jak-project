@@ -1,0 +1,136 @@
+== C96 — SPEC 24/25/26/27 : LA MEME IMPULSION, ENTREE CONTAMINEE contre ENTREE PROPRE ==
+   Trace : .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
+   AX  = les trois fenetres livrees (PH-AXV/AXB/AXL) — ax=1 et ax=2 heritent d'un saut
+         d'ancre de 365 u en une frame le long de l'axe de la fenetre precedente.
+   AXC = les trois MEMES impulsions, retour en demi-cosinus + 60 frames de calme.
+
+-- C96-PRE : LE RESIDU A LA PREMIERE FRAME DE CHAQUE FENETRE PROPRE (unites de jeu) ------
+   Il n'existe PAS pour les fenetres livrees : rien ne le publiait, et c'est le defaut.
+   chaine   l   ax        |pre| |pre|/max(AXC)
+   chestL   0   v      0.000000   0.000000
+   chestL   0   ap     0.000000   0.000000
+   chestL   0   lat    0.000000   0.000000
+   chestL   1   v      0.000000   0.000000
+   chestL   1   ap     0.000000   0.000000
+   chestL   1   lat    0.000000   0.000000
+   chestR   0   v      0.000000   0.000000
+   chestR   0   ap     0.000000   0.000000
+   chestR   0   lat    0.000000   0.000000
+   chestR   1   v      0.000000   0.000000
+   chestR   1   ap     0.000000   0.000000
+   chestR   1   lat    0.000000   0.000000
+
+-- C96-AMP/DIR : AMPLITUDE ET DIRECTION PRINCIPALE (PCA sur f=1..40) ---------------------
+   chaine   l   ax   |    AX f=1    AX max  AX/ax |   AXC f=1   AXC max AXC/ax |  dir AX
+                     |                        deg |                        deg |  vs AXC
+   chestL   0   v    |     59.52     59.52   67.0 |     59.32     59.32   67.0 |     0.1
+   chestL   0   ap   |    160.33    160.33   53.3 |    168.64    168.64    9.3 |    53.4
+   chestL   0   lat  |     71.45    117.38   48.9 |    155.25    155.25   20.9 |    43.9
+   chestL   1   v    |     34.08     39.62   67.1 |     32.46     39.60   67.1 |     0.2
+   chestL   1   ap   |     29.38     40.64   51.2 |     39.34     39.34    9.4 |    52.0
+   chestL   1   lat  |     38.02     39.18   50.2 |     36.10     39.30   20.9 |    46.8
+   chestR   0   v    |     55.20     55.20   67.1 |     55.44     55.44   67.1 |     0.1
+   chestR   0   ap   |    151.64    151.64   47.6 |    159.15    159.15    9.1 |    47.3
+   chestR   0   lat  |    194.64    238.93   75.7 |    141.29    141.29   21.6 |    76.4
+   chestR   1   v    |     24.24     39.53   67.0 |     29.24     39.63   66.9 |     0.4
+   chestR   1   ap   |     39.88     40.46   49.1 |     40.41     40.41    9.3 |    49.2
+   chestR   1   lat  |     41.78     41.79   69.2 |     40.51     40.58   22.2 |    69.0
+
+-- C96-SEP : L'ANGLE ENTRE LES REPONSES DES TROIS AXES (la question de §24) -------------
+   Sa §24 attache une frequence a chaque DIRECTION. Deux reponses a 10 deg l'une de
+   l'autre sont UNE direction : la separation par axe n'existe pas, quelle que soit la
+   frequence lue sur chacune.
+   jeu  chaine   l   |  ang(v,ap) ang(v,lat) ang(ap,lat)
+   AX   chestL   0   |       59.0       68.9       10.1
+   AX   chestL   1   |       58.5       68.8       10.3
+   AX   chestR   0   |       60.6       56.0       63.7
+   AX   chestR   1   |       61.5       87.8       30.7
+   AXC  chestL   0   |       67.8       25.0       87.2
+   AXC  chestL   1   |       69.8       21.8       88.4
+   AXC  chestR   0   |       72.2       20.3       87.4
+   AXC  chestR   1   |       69.6       23.0       87.4
+
+-- C96-FREQ : DEUX ESTIMATEURS INDEPENDANTS, COTE A COTE (Hz) ---------------------------
+   Cibles de sa §24 : v 2.30 (2.1-2.5) · ap 2.50 (2.3-2.7) · lat 2.65 (2.4-2.9).
+   Sa §25 fixe zeta = 0.35 (bande 0.30-0.42) ; R^2 dit si l'ajustement a un sens.
+   tau = 1/(zeta*2*pi*f) est la constante de temps de l'ENVELOPPE. Le nominal de sa spec
+   (f=2.30, zeta=0.35) donne tau_spec = 0.1976 s : c'est la grandeur que §27 re-exprime en
+   durees, et la comparer directement evite d'avoir a choisir un seuil de « settled ».
+   jeu  chaine   l   ax   |   zero-cr  autocorr |     fit f    zeta     R2   tau s
+   AX   chestL   0   v    |     2.400     2.727 |     2.385   0.336  0.997  0.1988
+   AX   chestL   0   ap   |     2.400     2.727 |     2.493   0.299  0.967  0.2138
+   AX   chestL   0   lat  |     0.805     2.400 |     2.370   0.330  0.976  0.2037
+   AX   chestL   1   v    |     2.143     2.400 |     2.315   0.145  0.948  0.4745
+   AX   chestL   1   ap   |     2.222     2.400 |     2.216   0.128  0.905  0.5602
+   AX   chestL   1   lat  |     2.250     2.308 |     2.210   0.139  0.939  0.5179
+   AX   chestR   0   v    |     2.449     2.727 |     2.471   0.338  0.996  0.1907
+   AX   chestR   0   ap   |     2.222     2.857 |     2.394   0.358  0.995  0.1859
+   AX   chestR   0   lat  |     2.093     2.609 |     2.321   0.400  0.969  0.1713
+   AX   chestR   1   v    |     2.239     2.609 |     2.508   0.134  0.921  0.4738
+   AX   chestR   1   ap   |     2.143     2.500 |     2.339   0.132  0.913  0.5147
+   AX   chestR   1   lat  |     1.409     2.500 |     2.778   0.124  0.555  0.4623
+   AXC  chestL   0   v    |     2.400     2.727 |     2.389   0.337  0.997  0.1978
+   AXC  chestL   0   ap   |     2.353     2.609 |     2.309   0.339  0.998  0.2036
+   AXC  chestL   0   lat  |     2.449     2.727 |     2.393   0.339  0.998  0.1961
+   AXC  chestL   1   v    |     2.174     2.400 |     2.335   0.143  0.944  0.4766
+   AXC  chestL   1   ap   |     2.195     2.308 |     2.170   0.121  0.923  0.6069
+   AXC  chestL   1   lat  |     2.308     2.400 |     2.251   0.121  0.918  0.5823
+   AXC  chestR   0   v    |     2.500     2.857 |     2.493   0.334  0.996  0.1912
+   AXC  chestR   0   ap   |     2.500     2.727 |     2.404   0.337  0.998  0.1967
+   AXC  chestR   0   lat  |     2.553     2.857 |     2.502   0.334  0.998  0.1905
+   AXC  chestR   1   v    |     2.273     2.609 |     2.480   0.137  0.932  0.4674
+   AXC  chestR   1   ap   |     2.308     2.400 |     2.258   0.123  0.921  0.5725
+   AXC  chestR   1   lat  |     2.400     2.500 |     2.332   0.125  0.926  0.5477
+
+-- C96-POSE : L'AXE REELLEMENT POUSSE DANS LES DEUX JEUX (revalidation de l'epingle) ---
+   La pose de PH-AXC est epinglee sur l'animation 0 frame 0, celle des fenetres AX. Si les
+   deux triedres different, les deux jeux ne sont PAS comparables et il faut le dire.
+   ax=v    AX (+0.08216,-0.97844,+0.18948)  AXC (+0.08216,-0.97844,+0.18948)  ecart 0.0000 deg
+   ax=ap   AX (+0.99331,+0.09586,+0.06432)  AXC (+0.99331,+0.09586,+0.06432)  ecart 0.0000 deg
+   ax=lat  AX (-0.08110,+0.18292,+0.97977)  AXC (-0.08110,+0.18292,+0.97977)  ecart 0.0000 deg
+
+-- C96-COMEX : L'EXCURSION DU CENTRE DE CHAIR PAR FENETRE (B0), ET LE STIMULUS RECU -----
+   chaine   ax   |  AX comex AXC comex   AXC/AX |  AXC stim
+   chestL   v    |    0.1523    0.1524    1.001 |   16.9954
+   chestL   ap   |    0.3195    0.4696    1.470 |   16.9903
+   chestL   lat  |    0.5971    0.2961    0.496 |   17.0331
+   chestR   v    |    0.1395    0.1400    1.004 |   16.9954
+   chestR   ap   |    0.3237    0.4483    1.385 |   16.9903
+   chestR   lat  |    0.6308    0.3564    0.565 |   17.0331
+
+-- C96-RING : SPEC 26 (rebond) ET SPEC 27 (extinction) SUR LA FENETRE PROPRE -----------
+   §26 : rebond oppose ~30-31 %% du precedent, deuxieme retour 4-6 mm pour 50 mm (8-12 %%).
+   §27 : « mostly settled » 1.0-1.5 s, « essentially stationary » 1.3-1.7 s. LES SEUILS
+   10 %% et 2 %% QUI SEPARENT CES ETAPES SONT LES MIENS : sa §27 n'en donne aucun.
+   jeu  chaine   l   ax   |  reb1/A1  reb2/A1  z(dec) |  t(A1)s  t<10%%s   t<2%%s
+   AX   chestL   0   v    |   0.3065   0.1008   0.352 |   0.150    0.583    0.833
+   AX   chestL   0   ap   |   0.3113   0.0965   0.348 |   0.150    0.450    0.833
+   AX   chestL   0   lat  |   0.3128   0.0962   0.347 |   0.117    0.417    0.817
+   AX   chestL   1   v    |   0.9778   0.5699   0.007 |   0.050    0.917    1.150
+   AX   chestL   1   ap   |   0.9937   0.9890   0.002 |   0.050    1.117    1.333
+   AX   chestL   1   lat  |   0.9808   0.5831   0.006 |   0.133    1.067    1.300
+   AX   chestR   0   v    |   0.2973   0.0970   0.360 |   0.150    0.433    0.800
+   AX   chestR   0   ap   |   0.3201   0.0158   0.341 |   0.167    0.450    0.500
+   AX   chestR   0   lat  |   0.2257   0.0710   0.428 |   0.033    0.283    0.667
+   AX   chestR   1   v    |   1.0118   0.5875     nan |   0.067    0.867    1.100
+   AX   chestR   1   ap   |   0.9794   0.9138   0.007 |   0.033    0.867    1.133
+   AX   chestR   1   lat  |   1.1293   0.8002     nan |   0.100    0.967    1.200
+   AXC  chestL   0   v    |   0.3045   0.0990   0.354 |   0.150    0.450    0.850
+   AXC  chestL   0   ap   |   0.3142   0.0962   0.346 |   0.167    0.467    0.867
+   AXC  chestL   0   lat  |   0.3058      nan   0.353 |   0.150    0.450    0.833
+   AXC  chestL   1   v    |   0.9762   0.5701   0.008 |   0.050    0.900    1.133
+   AXC  chestL   1   ap   |   0.9733   0.5378   0.009 |   0.183    1.133    1.383
+   AXC  chestL   1   lat  |   1.0103   0.9702     nan |   0.033    1.083    1.317
+   AXC  chestR   0   v    |   0.3011   0.0963   0.357 |   0.150    0.433    0.783
+   AXC  chestR   0   ap   |   0.3181   0.1001   0.343 |   0.150    0.583    0.833
+   AXC  chestR   0   lat  |   0.3172   0.0975   0.343 |   0.150    0.433    0.800
+   AXC  chestR   1   v    |   1.0114   0.5891     nan |   0.033    0.867    1.100
+   AXC  chestR   1   ap   |   0.9694   0.5342   0.010 |   0.183    0.933    1.317
+   AXC  chestR   1   lat  |   0.9893   0.9371   0.003 |   0.033    0.917    1.283
+
+-- C96-CTRL : LE TEMOIN NEGATIF (ax=0, propre dans LES DEUX jeux) ------------------------
+   chestL   l=0 : amplitude AXC/AX = 0.9967, ecart de direction = 0.09 deg
+   chestL   l=1 : amplitude AXC/AX = 0.9996, ecart de direction = 0.21 deg
+   chestR   l=0 : amplitude AXC/AX = 1.0044, ecart de direction = 0.15 deg
+   chestR   l=1 : amplitude AXC/AX = 1.0024, ecart de direction = 0.36 deg
+   ECART MAXIMAL DU TEMOIN : 0.44 % en amplitude.

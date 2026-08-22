@@ -1,0 +1,458 @@
+RAPPORT DE CYCLE 94 — Grecharged-secondary-motion
+DIRECTIVES v3fee554599
+Branche physics-keira-clean · perimetre : chestL / chestR SEULES (owner 2026-08-14 07:30)
+(les rapports des cycles 91/92/93 sont conserves tels quels dans leurs commits)
+
+SECTION DONT CE CYCLE DEBLOQUE LE VERDICT, NOMMEE AVANT DE COMMENCER (directive du 2026-08-21
+18:25) : **§24**. Elle CHANGE DE STATUT. Le cycle 93b avait remonte que §24, §25, §26 et §27 sont
+bloquees sur UN SEUL fait — « aucune des six impulsions isolees ne fait dominer l'axe qu'elle
+pousse » — et que la cause etait inconnue depuis le cycle 8. Ce cycle la mesure.
+
+SUBSTRAT : **ZERO BUILD, ZERO COURSE.** Tout est lu sur la trace ARCHIVEE
+`.autoport/reports/Grecharged-secondary-motion/keira-room-x86.log` et sur le source livre.
+**Aucune ligne de moteur.** `recharged_assets/physics_chains.txt` inchange au bit. Aucune gate
+approchee. Un instrument NEUF (`.autoport/c94_axis_rank.py`, sortie archivee `c94-rank.out`) et
+des correctifs de LECTEUR dans `.autoport/ldb_axsel.py`.
+
+BREAST-PENETRATION: 0.0586 m — `meshpen`, DIAGNOSTIC, jamais un verdict (arbitrage 2026-08-20
+13:20 : c'est un DEPLACEMENT, pas une profondeur). Inchange, le moteur n'ayant pas bouge.
+
+================================================================================================
+0. EN UNE PHRASE
+================================================================================================
+**SA §24 DEMANDE UNE FREQUENCE PAR DIRECTION ANATOMIQUE. LES DEUX FENETRES CENSEES EN RENDRE
+DEUX RENDENT LA MEME DIRECTION A 10,3 DEGRES PRES, ALORS QUE L'AXE POUSSE Y EST DEJA TANGENTIEL A
+93-99 % — DONC RIEN DANS LA CINEMATIQUE NE PEUT L'EXPLIQUER. ET L'ANISOTROPIE QUE LE MOTEUR LIVRE
+CORRECTEMENT (1,0000 / 1,1111 / 1,2195, PUBLIEE PAR `PHYSAXISS`, APPLIQUEE A `:2991-3000`) EST
+RE-MELANGEE PAR LA CONTRAINTE DE LONGUEUR AVANT D'ATTEINDRE LE JOINT : IL EN RESTE 52 A 65 % DE CE
+QUE §24 EXIGE, ET LA RAIDEUR VERTICALE EST ANNULEE EXACTEMENT.**
+
+**§24 PASSE `PARTIELLE` -> `NON TENUE`**, et pas parce que ses frequences seraient hors bande —
+sur chestL elles sont dedans — mais parce que la SEPARATION PAR AXE qu'elle exige n'existe pas
+dans la reponse. Son motif au registre reposait sur un PARAMETRE (« raideur derivee pour
+2,30 Hz »), pas sur une reponse.
+
+**ET LE CONTRE-CONTROLE INDEPENDANT QUE LES DIRECTIVES EXIGENT A RETIRE DEUX DE MES AFFIRMATIONS
+AVANT PUBLICATION** — la planarite comme « mesure » (c'est une identite algebrique de la
+contrainte, verifiee a 1 %), et le « controle a priori » de la fenetre verticale (il ne controle
+pas l'instrument, il redemontre la meme identite). Les deux sont retirees en section 2 et 3. Ce
+qui reste tient sans elles.
+
+================================================================================================
+1. CE QUE §24 DEMANDE, MOT POUR MOT
+================================================================================================
+`SPEC-breast-softbody.md` l.325-329 :
+
+    Vertical    = 2.30 Hz     (range 2.1-2.5 Hz)
+    Front/Back  = 2.50 Hz     (range 2.3-2.7 Hz)
+    Lateral     = 2.65 Hz     (range 2.4-2.9 Hz)
+    **Vertical motion is intentionally the slowest.**
+
+Trois frequences attachees a trois DIRECTIONS nommees. Il faut donc trois degres de liberte
+separables dans la grandeur qui porte le verdict, et il faut que les directions propres soient
+celles que la section nomme. Ni l'un ni l'autre n'est vrai.
+
+================================================================================================
+2. JE RETIRE UNE AFFIRMATION AVANT DE LA PUBLIER : « LA TRAJECTOIRE EST PLANE » EST UNE IDENTITE,
+   PAS UNE MESURE. C'EST LE CONTRE-CONTROLE QUE J'AVAIS EXIGE QUI L'ETABLIT.
+================================================================================================
+J'avais mesure, sur 12 combinaisons (chaine x maillon x fenetre), que la trajectoire du joint est
+plane des la premiere frame et que la normale du plan est l'axe de l'os — part d'energie de la 3e
+direction 0,02 a 3,75 %, angle a l'os 2,1 a 14,2 deg. J'allais le publier comme le resultat du
+cycle. **C'est une tautologie, et le contre-controle independant le demontre par l'algebre.**
+
+`phys-length-chain` impose `|u| = |m|` (`jak-hd-physics.gc:1098` pour `want = |m|`, `:1147-1154`
+pour la projection sur la sphere), avec **le meme `m` que la mesure** (`:3375-3386`). La grandeur
+publiee etant `d = u - m`, il vient `|m + d|^2 = |m|^2`, donc
+
+    2 m.d + |d|^2 = 0     soit     d.m^ = -|d|^2 / (2|m|)
+
+La composante hors-plan est du **second ordre en |d|, imposee par la contrainte, et sans aucun
+contenu**. Verification sur la trace, prediction `max|d.n| = max|d|^2/(2|m|)` sans un seul
+parametre : **rapport mesure/predit = 0,996 a 1,010 sur 12 sur 12.**
+
+Et le controle negatif etait deja dans la course : les fenetres `AXZ*` (`nolen=1`,
+`phys-room.gc:3711-3714`) emettent la meme impulsion contrainte LEVEE. Energie hors-plan :
+**0,03-1,2 % contrainte armee, 1,5-76,8 % contrainte levee.** La planarite est PRODUITE par la
+contrainte.
+
+**CE QUE JE RETIRE** : « le rang 2 est un fait mesure de ce cycle ». Il etait deja affirme en
+commentaire (`phys-room.gc:3781-3784`) et il est demontrable au tableau noir. Ce que ce cycle
+ajoute est la FORME EXACTE de l'identite et sa verification a 1 % — utile, mais ce n'est pas une
+decouverte sur la physique, et le presenter comme telle aurait ete un instrument qui republie sa
+propre cible.
+
+**CE QUI SURVIT, ET C'EST UN VRAI DEFAUT TROUVE EN CHEMIN** : la contrainte dure est **VIOLEE sur
+3 frames sur 1800**. `c=0 l=1 ax=1 f=6` rend `|u| - |m| = +40,04 u` sur un os de 140,42 u, soit
+**+28,5 %** — pour un plafond d'allongement d'os de 3 % au contrat, et §22 qui plafonne
+l'elongation LOCALE a 25 %. Les deux autres : `c=1 l=1 ax=2` a -17,46 et +9,01 u. Hors de ces 3
+frames le residu d'identite est <= 0,047 u (0,03 %). C'est un transitoire, pas un regime — mais
+c'est publie ici et porte au registre, pas laisse dans une note.
+
+================================================================================================
+3. LE CONTROLE A PRIORI : SON CONTRASTE TIENT, MON INTERPRETATION NE TIENT PAS
+================================================================================================
+J'allais ecrire : « la reponse a l'impulsion verticale est predite par la cinematique seule a
+0,9-3,5 deg, contre 44-77 deg pour ap et lat ; l'instrument est donc disculpe ». **Deux corrections,
+toutes deux du contre-controle.**
+
+**(a) LE CHIFFRE.** Trois estimateurs sans covariance donnent, pour la verticale, **1,3 a 11,1
+deg**, pas 0,9 a 3,5. Mon intervalle etait un artefact de mon estimateur. La fourchette honnete
+est 1,3-11,1 deg contre **42,5 a 88,6 deg** pour `ap`/`lat` — le contraste tient, sans
+recouvrement, mais le chiffre que j'allais publier etait faux.
+
+**(b) L'INTERPRETATION, ET C'EST LA CORRECTION QUI COMPTE.** La cellule verticale n'est PAS un
+controle de l'instrument : c'est la meme identite que la section 2. Sur `ax=0` la projection
+tangentielle gagne +50,8 a +66,9 deg sur l'axe pousse brut — le contenu predictif y est reel,
+mais ce qu'il etablit est seulement que **la contrainte de longueur redirige une poussee quasi
+radiale**, ce qu'une contrainte de longueur fait par definition. Preuve : contrainte levee
+(`PHYSRINGBZ`), les 4 cellules verticales passent a 28,4 / 90,0 / 73,0 / 66,5 deg — la prediction
+s'effondre.
+
+**CE QUI SURVIT, ET C'EST PLUS PROPRE QUE CE QUE J'AVAIS ECRIT.** Le contre-controle publie la
+grandeur qui manquait a mon raisonnement : **la part TANGENTIELLE de l'axe pousse lui-meme.**
+
+    excite    part tangentielle de l'axe pousse    ecart reponse / axe pousse
+    v                0,3906 a 0,3944                 (la contrainte a tout a rediriger)
+    ap               0,9889 a 0,9890                 47,0 a 88,6 deg
+    lat              0,9309 a 0,9324                 42,5 a 86,5 deg
+
+**Pour `ap` et `lat`, l'axe pousse est deja tangentiel a 93-99 % : la contrainte de longueur n'a
+presque rien a rediriger. Et la reponse sort quand meme de 42,5 a 88,6 degres a cote.** Cet
+ecart-la n'est imputable ni a l'instrument, ni a la contrainte — c'est le fait du cycle, et il
+remplace le « controle » que j'avais cru avoir.
+
+**CE QUE LE CONTRE-CONTROLE CONFIRME, ET QUI ETAIT NECESSAIRE :**
+  - mon axe d'os est juste a **0,048-0,194 deg** contre une source qui ne partage ni l'operateur
+    ni la table (`PHYSURST` = `phys-link-rest-dir`, relevee UNE FOIS dans le solveur sur la pose
+    d'auteur, `jak-hd-physics.gc:2846-2854`) ;
+  - le triedre **ne bouge pas** pendant les fenetres : reconstruction monde<->ancre a
+    0,036-0,304 deg, et le test est discriminant (au tag `tilt` le meme calcul rend 61 a 73 deg) ;
+  - les 150 frames sont bien la **decroissance libre** : les 67 a 97 dernieres frames de chacune
+    des 12 fenetres sont **bit-identiques** (97 frames au meme triplet sur `c=1 l=0 ax=2`). Un
+    point fixe exact sur 97 frames est impossible si la pose d'auteur avance.
+
+**RESERVE NOUVELLE, remontee par le contre-controle et que je ne classe pas moi-meme :** le
+triedre n'est **PAS** miroite entre les deux chaines — `PHYSAXR c=0 a=0` et `c=1 a=0` sont
+BIT-IDENTIQUES, et les deux portent `rv=1 rap=2 rlat=0`. Seul l'axe d'OS est miroite (a
+0,03-0,21 deg). Or sa §7 exige « for the left and right breasts, outward **+X should be mirrored**
+so that the equations remain symmetrical ». Je ne touche pas au statut de §7 sur ce seul fait :
+il faut d'abord etablir quels termes du solveur sont sensibles au SENS de `lat`, et ce n'est pas
+fait. **Porte au registre comme clause a etablir, pas comme verdict.**
+
+================================================================================================
+4. LES DEUX FENETRES QUI DOIVENT RENDRE DEUX FREQUENCES RENDENT UNE SEULE DIRECTION
+================================================================================================
+    chaine    maillon   |cos(v,ap)|  |cos(v,lat)|  |cos(ap,lat)|   angle ap/lat
+    chestL      l=0       0,5170       0,3574        0,9837          10,3 deg
+    chestL      l=1       0,5126       0,3555        0,9848          10,0 deg
+    chestR      l=0       0,4931       0,5543        0,4458          63,5 deg
+    chestR      l=1       0,4822       0,0464        0,8519          31,6 deg
+
+**3 combinaisons sur 4**, et je le dis comme tel : sur `chestR l=0` les deux directions sont bien
+distinctes (63,5 deg). Ce n'est donc pas universel, et l'ecrire universel serait la faute que le
+cycle 80 a payee.
+
+Sur `chestL`, pousser « Front/Back » et pousser « Lateral » produit **la meme direction de
+reponse a 10 degres pres**. Les deux nombres que le tableau publie comme `f_ap` et `f_lat` ne sont
+donc pas les frequences de deux directions : ce sont deux vues de la meme reponse. C'est
+exactement le piege que `feedback_excitation_selectivity_control` decrit, et il a maintenant son
+chiffre.
+
+Et c'est **la cause du « confondus » de chestR** que quatre cycles ont contourne : les residus
+d'ajustement de `ROOM-AXFIT` sur la diagonale de chestR (0,159 et 0,129, contre un seuil de 0,08)
+ne viennent pas d'un mauvais estimateur, ils viennent de ce que la projection diagonale n'est pas
+le mode.
+
+================================================================================================
+5. POURQUOI : L'ANISOTROPIE EST LIVREE EN 3-D PUIS RE-MELANGEE PAR LA CONTRAINTE
+================================================================================================
+Le mecanisme de §24/§29 est bien la et bien arme — ce n'est pas un `declared-but-never-selected`
+au niveau du parametre. Le solveur projette la force sur les trois lignes du triedre et applique
+une raideur par ligne (`jak-hd-physics.gc:2950-2952` pour `s0/s1/s2`, `:2991-3000` pour la
+recomposition `c_i = s_i * p_i`), et `PHYSAXIS c=0 ok=1 arm=1` confirme a l'execution que le
+classement est arme.
+
+Mais la raideur est definie en 3-D **avant** que la contrainte de longueur ne restreigne le
+mouvement au plan perpendiculaire a l'os. La raideur qui atteint reellement le joint est donc
+`P K P`. Calcul sans aucun ajustement, a partir des compliances que le moteur PUBLIE
+(`PHYSAXISS sv=1.0000 sap=1.1111 slat=1.2195`) et de l'axe d'os mesure :
+
+    chaine     k dans le plan        rapport de frequences    §24 exige   part livree
+    chestL   1,10701 / 1,17657            1,0309               1,0600       51,6 %
+    chestR   1,10757 / 1,19609            1,0392               1,0600       65,3 %
+    (la troisieme valeur propre vaut 2e-16 et -9e-17 : c'est l'os, et c'est le controle du calcul)
+
+Avec l'axe d'os de `ROOM-AXPLANE` : 1,0370 sur les deux chaines. **La fourchette honnete est donc
+1,031 a 1,039 contre 1,0600 exige — entre 52 % et 65 % de l'anisotropie demandee.**
+
+Et le second effet est exact, pas approche : **`sv = 1,0000` est ANNULEE par le projecteur.** La
+raideur verticale ne participe pour rien a la reponse dans le plan. Sa §24 attache une frequence
+a la verticale et le solveur lui attache une raideur ; entre les deux, la contrainte de longueur
+la retire integralement.
+
+**RESERVE QUE JE DECLARE AU LIEU DE LA TAIRE, ET ELLE EST LA RAISON POUR LAQUELLE JE NE POSE
+AUCUN CORRECTIF CE CYCLE.** `P K P` explique l'anisotropie livree, il n'explique PAS les
+directions mesurees : les reponses tombent a **25 a 42 degres** de ses vecteurs propres. Il y a
+donc un second terme qui oriente la reponse dans le plan, et il n'est pas identifie. Poser une
+re-derivation de raideur sur un modele qui n'explique qu'une part, ce serait refaire le cycle 87
+(« la borne est implementee, mesuree, et elle AGGRAVE §22. Retiree ») et le cycle 93 (« le
+correctif que le cycle 85 avait nomme n'est PAS pose, sa premisse vient de tomber »).
+
+================================================================================================
+6. LE CANAL VERTICAL LUI-MEME : TROIS FREQUENCES POUR UN SEUL MODE, ET UN DISTAL ECRETE
+================================================================================================
+`ROOM-AXFIT-RAD` ajuste le MEME canal radial dans les TROIS fenetres et publie :
+
+    chestL   2,320  /  2,355  /  2,550        chestR   2,415  /  2,460  /  2,705
+
+**Un mode propre n'a qu'une frequence.** Un ecart de 9,9 % / 12,0 % selon la direction qu'on
+pousse dit que ce canal n'est pas un mode propre isole. Le verdict `DANS` de §24-v repose sur le
+fait de retenir la premiere des trois — defendable (c'est le protocole d'impulsion isolee de
+§27), mais il faut publier les deux autres a cote, et ce n'etait pas fait.
+
+Amplitudes du canal radial, et **le controle negatif est dans le tableau** :
+
+    chaine   maillon   pic fenetre v / ap / lat        etalement des trois pics
+    chestL     l=0     0,24071 / 0,13318 / 0,07802          67,6 %   la sortie suit
+    chestL     l=1     0,05790 / 0,05773 / 0,05756           0,6 %   PLAT
+    chestR     l=0     0,26060 / 0,14825 / 0,08595          67,0 %   la sortie suit
+    chestR     l=1     0,05950 / 0,05938 / 0,05958           0,3 %   PLAT
+
+**Le maillon DISTAL est ECRETE.** Sa sortie radiale vaut 0,0576 a 0,0596 quelle que soit
+l'excitation, pendant que la RACINE, meme canal, meme instrument, meme trace, varie de 67 %.
+Le maillon racine est donc le controle negatif de cette affirmation, et il tire.
+
+Le motif que le registre portait pour §24 (« Le maillon distal est **sous la bande** ») decrivait
+donc la mauvaise chose : le distal n'est pas bas, il est **plat**. Une frequence ne se tire pas
+d'une sortie constante.
+
+================================================================================================
+7. DEUX LECTEURS CORRIGES — ET UN FAUX ROUGE RETIRE
+================================================================================================
+`.autoport/ldb_axsel.py` produit toute la famille ABS du tableau (`ROOM-AXPLANE`, `ROOM-AXLABEL`,
+`ROOM-AXSEL-ABS`, `ROOM-AXFIT-ABS`, `ROOM-AXORDER`). Trois defauts, corriges, **verifies par moi
+sur le diff et pas sur parole** :
+
+**(a) `load()` JETAIT L'INDEX DE MAILLON.** Les deux expressions rationnelles capturaient `l=` et
+ne le mettaient jamais dans la cle : les deux maillons ecrivaient dans la MEME case de la MEME
+frame et **le dernier ecrit ecrasait le premier**. Toute la famille ABS publiait donc le maillon
+**DISTAL** sous le nom de la CHAINE, pendant que `ROOM-AXFIT` publiait le maillon **RACINE** — et
+les deux blocs se lisaient cote a cote comme deux avis sur la meme grandeur.
+
+**CONTROLE DE FIDELITE, exige avant et verifie apres** : les nouvelles lignes `l=1` reproduisent
+l'ancien tableau **caractere pour caractere** —
+
+    AVANT   armee  v   chestL  138  2.3500 [2.3100,2.3850]  0.260  0.0807  25.1%
+    APRES   armee  l=1  v  chestL  138  2.3500 [2.3100,2.3850]  0.260  0.0807  25.1%
+    (idem ap 2.3000/0.150/0.1896 et lat 2.3050/0.160/0.2515)
+
+et le maillon RACINE, jamais publie par ce lecteur, rend 2.5350 / 2.4400 / 2.5500 avec des residus
+de 0.0263 / 0.0372 / 0.0240 — **lisibles, la ou le distal ne l'etait pas**. Le recensement
+`ROOM-AXLINK` publie `reecritures = 0` sur les six series : l'ecrasement n'est plus evite, il est
+impossible. C'est un chiffre, pas une affirmation.
+
+**(b) `ROOM-AXFIT-ABS` PUBLIAIT `DANS`/`HORS` SANS AUCUN CRITERE DE RESIDU.** Le lecteur frere
+refuse tout ajustement au-dela de 0.08 ; celui-ci publiait des verdicts contre les bandes de §24
+sur des residus de **0.19 et 0.25**. Meme seuil que le frere, meme formule, aucun seuil invente.
+
+**(c) `ROOM-AXORDER` LISAIT UN `f_v` QUE LE DOSSIER AVAIT RETIRE LE 2026-08-18** — la projection
+`v` de `PHYSRINGBX`, tangentielle, sur laquelle le tableau imprime lui-meme « tangentiel — §24-v:
+ROOM-AXFIT-RAD ». **C'ETAIT UN FAUX ROUGE, et il tombe :**
+
+    AVANT   armee chestL  f_v=2.3500 f_ap=2.3000 f_lat=2.3050          -> ORDRE NON TENU
+    APRES   armee chestL  f_v=2.3200 [radial, residu 0.0074]
+                          f_ap=2.4400 [0.0372]  f_lat=2.5500 [0.0240]  -> ORDRE TENU  etalement 9,9 %
+
+    AVANT   armee chestR  f_v=2.4850 f_ap=2.2100 f_lat=2.7550          -> ORDRE NON TENU
+    APRES   armee chestR  f_ap residu 0.1589 · f_lat residu 0.1286     -> ORDRE NON ETABLI
+
+**Et il ne devient PAS un vert** : `ROOM-AXORDER-BILAN` conclut « 1 chaine sur 2 -> NON TENU POUR
+§24 (il faut les deux chaines) », ce qui est la regle 2 du registre appliquee contre le resultat
+favorable. « Vertical motion is intentionally the slowest » est donc **tenue sur chestL et non
+etablie sur chestR** — au lieu de « violee des deux cotes », qui etait faux.
+
+**CONTROLE DE NON-CONTAMINATION.** Sur le diff du tableau regenere depuis la MEME trace, les
+seules lignes de MESURE qui changent appartiennent a la famille ABS. Trois occurrences hors
+famille (`ROOM-RINGFIT`, `ROOM-AXFIT`, `ROOM-AXFIT-RAD`) sont des MENTIONS dans la prose neuve,
+pas des valeurs.
+
+**UN COUT, ET JE LE DECLARE AU LIEU DE LE TAIRE.** `ROOM-ASYM-VERROU` passe de **3 a 4** lignes qui
+publient une comparaison gauche/droite sans porter leur pose : la ligne `ROOM-AXLABEL` (separation
+chestL - chestR) est desormais publiee PAR MAILLON, donc le defaut pre-existant est compte deux
+fois au lieu d'une. Ce n'est pas un defaut neuf, mais le compte du verrou monte par mon fait, et
+la regle du 2026-08-21 01:20 veut que ces lignes portent leur pose. **Porte au registre comme
+dette de ce cycle.**
+
+    (l'implementeur a par ailleurs trouve et nomme un defaut supplementaire dans le meme fichier :
+     `ROOM-AXLABEL` melangeait une longueur d'os du maillon RACINE et une direction du maillon
+     DISTAL — deux maillons sur une meme ligne, sans que rien ne le dise.)
+
+================================================================================================
+8. CE QUI CHANGE AU REGISTRE, ET CE QUI N'Y CHANGE PAS
+================================================================================================
+**§24 : `PARTIELLE` -> `NON TENUE`.** Elle repose sur quatre faits, et j'indique pour chacun sa
+portee exacte :
+
+  1. **[8 sur 8]** L'axe pousse pour `ap` et `lat` est deja tangentiel a **93-99 %** — la
+     contrainte de longueur n'a rien a y rediriger — et la reponse sort neanmoins **42,5 a
+     88,6 deg** a cote. Une frequence lue dans cette fenetre n'est pas la frequence de cet axe.
+  2. **[3 sur 4]** Les deux fenetres censees rendre `f_ap` et `f_lat` rendent la MEME direction de
+     reponse (10,0-10,3 deg sur chestL, 31,6 deg sur chestR l=1 ; chestR l=0 fait exception a
+     63,5 deg).
+  3. **[calcul, sans ajustement]** L'anisotropie qui survit a la contrainte vaut **1,031 a 1,039**
+     contre **1,0600** exige, soit 52 a 65 % ; et `sv = 1,0000` est **annulee exactement** par le
+     projecteur.
+  4. **[2 sur 2, avec controle negatif]** Le canal radial du maillon DISTAL est **ECRETE** :
+     pic 0,0576-0,0596 sur trois fenetres, etalement 0,3-0,6 %, la ou la RACINE — meme canal,
+     meme instrument — varie de 67 %. Aucune frequence ne se tire d'une sortie constante.
+
+Le motif precedent (« Raideur derivee pour 2,30 Hz. Le maillon distal est sous la bande »)
+decrivait un PARAMETRE, et se trompait meme sur le distal : il n'est pas bas, il est plat. La
+ligne recoit aussi, comme les DIRECTIVES du 2026-08-21 18:40 l'exigent de toute ligne du registre,
+sa **citation verbatim en anglais avec son numero de ligne** — elle ne l'avait pas.
+
+**§25, §26, §27 : STATUT INCHANGE, MOTIF COMPLETE.** Elles lisent les MEMES fenetres. Le cycle 93b
+avait etabli que les quatre sections sont bloquees sur un seul fait ; ce cycle nomme ce fait. Je
+ne bouge pas leurs statuts : ce serait propager un verdict sans l'avoir mesure chez elles.
+
+**§7 : CLAUSE A ETABLIR AJOUTEE, STATUT INCHANGE.** Le triedre est BIT-IDENTIQUE entre les deux
+chaines (`PHYSAXR c=0 a=0` = `c=1 a=0`, `rv=1 rap=2 rlat=0` des deux cotes) ; seul l'axe d'OS est
+miroite. Sa §7 exige « outward **+X should be mirrored** ». Etablir si un terme du solveur est
+sensible au SENS de `lat` est un travail qui n'est pas fait — la clause est inscrite, pas jugee.
+
+**§22/§23 : POINT OUVERT AJOUTE.** La contrainte de longueur, qui doit etre DURE, est violee sur
+**3 frames sur 1800**, jusqu'a **+28,5 %** de la longueur d'os (`c=0 l=1 ax=1 f=6` : +40,04 u sur
+140,42 u). Le contrat plafonne l'allongement d'os a 3 %. Transitoire, mais publie.
+
+================================================================================================
+9. LE CHANTIER SUIVANT, NOMME AVEC SA PREDICTION ECRITE AVANT — ET POURQUOI JE NE LE POSE PAS ICI
+================================================================================================
+**Le correctif que la mesure designe** : l'anisotropie doit etre specifiee SUR LA VARIETE DE
+CONTRAINTE, pas en 3-D avant projection. Concretement, choisir `s_ap'` et `s_lat'` tels que les
+deux valeurs propres non nulles de `P diag(sv, s_ap', s_lat') P` soient dans le rapport que §24
+exige (1,0600^2 = 1,1236 en raideur). Cela se resout en forme fermee a partir de l'axe d'os
+mesure, et c'est un changement de DONNEE, pas de moteur.
+
+**PREDICTION, ECRITE AVANT ET FALSIFIABLE DANS LES DEUX SENS :**
+  - le rapport de frequences dans le plan passe de 1,031-1,039 a 1,0600 ;
+  - l'ecart `f_ap`/`f_lat` de `ROOM-AXFIT` sur chestL passe de 4,5 % (2,440 / 2,550) a ~6,0 % ;
+  - **et si les ecarts de 42,5-88,6 deg du point 1 NE BOUGENT PAS, le melange a une seconde cause
+    et ce correctif est insuffisant** — c'est cette clause-la qui rend le cycle suivant decisif
+    quel que soit son resultat.
+
+**POURQUOI IL N'EST PAS POSE CE CYCLE.** `P K P` explique l'anisotropie livree ; il n'explique PAS
+les directions mesurees, qui tombent **25 a 42 deg** de ses vecteurs propres. Un second terme
+oriente la reponse dans le plan et il n'est pas identifie. Poser une re-derivation de raideur sur
+un modele qui n'explique qu'une part, ce serait refaire le cycle 87 (« la borne est implementee,
+mesuree, et elle AGGRAVE §22 — retiree ») et ignorer la lecon du cycle 93 (« le correctif que le
+cycle 85 avait nomme n'est PAS pose, sa premisse vient de tomber »). La premisse ici est
+incomplete, et je le dis au lieu de la completer par une hypothese.
+
+================================================================================================
+10. A TESTER PAR L'OWNER
+================================================================================================
+**RIEN.** Consigne du 2026-08-20 23:30, verbatim : « je ne sollicite plus de test pour un
+changement d'une seule section ». Aucune ligne de moteur n'a bouge ce cycle, aucune donnee de
+chaine non plus : le comportement a l'ecran est **identique au bit** a celui du cycle 93. Lui
+demander de regarder serait lui faire depenser du temps sur une question que l'etat du dossier
+rend indecidable.
+
+Le seuil de re-sollicitation reste celui qu'il a fixe : le bloc §14-§20 + §24-§27 + §9-§13 tenu
+ENSEMBLE. Ce cycle avance §24-§27 d'un cran de diagnostic, pas d'un cran de conformite.
+
+================================================================================================
+11. LE VALIDATEUR — POURQUOI IL SORT 1, LIGNE PAR LIGNE
+================================================================================================
+    [SCOPE]        2 chaines declarees = 2 resolues = ['chestL','chestR']            PASSE
+                   aucun joint de cheveu / sangle / languette / oreille / lunettes
+    [TUNING]       tous les reglages de l'owner sont dans le fichier livre           PASSE
+    [COLLIDE]      controle positif 0.154 contre 0.056                               PASSE
+    [ROOM]         joueur absent, 1 acteur, 2 chaines x 31/31 animations             PASSE
+    [IDLE]         ecart max au modele 0.000                                         PASSE
+    [ANIM]         2 chaines pilotees, toutes respectees                             PASSE
+    [DISCRIMINANT] chaque chaine distingue les 5 pilotages                           PASSE
+    [OPEN-DEFECTS] `breast-spec-incomplete` encore ouverte                           ECHOUE
+
+**Le seul echec est `OPEN-DEFECTS`, et c'est le meme qu'au cycle 93b.** Les trois chemins qui y
+meneraient sont interdits par le contrat : retirer la ligne (seul l'owner le fait — « une ligne ne
+se retire que quand l'owner dit que c'est bon »), toucher la gate (regle 5, gates gelees), ou
+creer le jeton `owner-ok` a sa place (exclusivement son geste). **Exit 1 est le meilleur resultat
+atteignable par un worker sur cette phase**, et ce n'est pas un blocage technique : c'est la porte
+humaine, a sa place.
+
+================================================================================================
+12. CE QUI A ETE FAIT, ET PAR QUI — POUR QUE LE PROCHAIN CYCLE SACHE OU REGARDER
+================================================================================================
+  NEUF     `.autoport/c94_axis_rank.py` — instrument reproductible du cycle (rang, controle
+           cinematique, anisotropie livree, ecretage radial). Sortie archivee `c94-rank.out`.
+  CORRIGE  `.autoport/ldb_axsel.py` — LECTEUR : maillon dans la cle + recensement `ROOM-AXLINK`
+           (`reecritures = 0`), critere de residu 0.08 aligne sur le lecteur frere, `ROOM-AXORDER`
+           sur `f_v` radial. Controle de fidelite `l=1` reproduit l'ancien caractere pour
+           caractere ; controle de non-contamination verifie sur le diff du tableau.
+  INCHANGE `goal_src/` en entier · `recharged_assets/physics_chains.txt` au bit · toutes les gates.
+  UN CONTRE-CONTROLE INDEPENDANT a tourne sur la trace archivee par un chemin qui ne partage ni
+  l'operateur ni la table (`PHYSURST` au lieu de l'ajusteur) : **il a retire deux de mes
+  affirmations avant qu'elles soient publiees**, corrige un intervalle que j'avais trop resserre,
+  et fourni la grandeur qui manquait a mon raisonnement (la part tangentielle de l'axe pousse).
+  C'est le second cycle consecutif ou le verrou exige d'avance attrape une faute avant qu'elle
+  coute quelque chose.
+
+================================================================================================
+13. POINT OUVERT NOMME, PAS CORRIGE — POUR QU'IL NE SE PERDE PAS
+================================================================================================
+`ROOM-AXFIT-ABS` publie encore `DANS`/`HORS` contre la cible 2,30 Hz **sur ses lignes `v`**, alors
+que la projection `v` est TANGENTIELLE et que le lecteur frere imprime « tangentiel — §24-v:
+ROOM-AXFIT-RAD » sur chaque ligne concernee depuis le 2026-08-18. **C'est exactement le defaut que
+la correction de `ROOM-AXORDER` vient de retirer, reste en place sur le bloc voisin.** Il n'a pas
+ete touche ce cycle : il sort des trois taches specifiees, et corriger « au passage » est ce que
+les DIRECTIVES du 2026-08-21 18:25 interdisent. **Inscrit ici pour que le cycle suivant le trouve.**
+
+Controle de reproductibilite fourni en plus de ce qui etait demande, et il compte : le tableau a
+ete regenere depuis la trace archivee **AVANT** toute edition, et le diff avec l'archive est de
+**0 ligne**. Le diff avant/apres ne contient donc que le correctif, et rien d'un ecart de
+regeneration.
+
+================================================================================================
+14. ADDENDUM CYCLE 95 — UNE EXPLICATION CANDIDATE REFUTEE PAR LE CALCUL, LA RESERVE RESSERREE
+================================================================================================
+Section debloquee, nommee d'avance : **§24** (la reserve de la section 9 est ce qui interdit de
+poser le correctif). Zero build, zero course, aucune ligne de moteur.
+
+**CANDIDAT TESTE : l'amortissement non classique.** Le moteur amortit par axe,
+`kd_i = phys-decay(rate * sqrt(s_i))` (`jak-hd-physics.gc:2954-2956`) — donc `C ~ K^(1/2)` DANS LE
+TRIEDRE. Non projetees, `K` et `K^(1/2)` commutent exactement (`||[K,K^1/2]|| = 0.000e+00`) : modes
+REELS. Mon hypothese etait que la PROJECTION les decouple — `P K P` et `P K^(1/2) P` n'ont aucune
+raison de commuter — ce qui rendrait les modes COMPLEXES et ferait TOURNER la direction de reponse.
+
+**REFUTE, par le calcul, avant toute mesure :**
+
+    ||[P K P , P C P]|| normalise = 8,05e-06 (chestL) · 8,00e-06 (chestR)
+    angle entre leurs axes propres majeurs = 0,25 deg sur les deux chaines
+
+L'anisotropie est trop faible (1,0000 / 1,1111 / 1,2195) pour que la projection les separe : le
+systeme contraint reste **classiquement amorti**. L'hypothese tombe sans qu'un cycle soit depense
+a l'implementer.
+
+**ET LA MESURE LE CONFIRME.** Direction principale dans le plan par tranches de 25 frames : la
+derive vaut **-20 a +10 deg sur les trois premieres tranches** (frames 0-75) puis saute de +30 a
++89 deg — mais a 75 frames, a 2,5 Hz et zeta 0,35, l'amplitude est tombee d'un facteur ~700 : la
+direction d'un signal quasi nul n'est pas definie, et ces tranches-la ne disent rien. **Sur la
+partie lisible, la trajectoire est une DROITE FIXE.** Pas de rotation, donc pas de mode complexe.
+
+**CE QUE CA RESSERRE.** La reponse est bien sur une droite fixe, et cette droite est a 25-42 deg
+des DEUX vecteurs propres de `P K P`. Pour un systeme lineaire a modes reels, la direction
+dominante d'une decroissance libre DOIT etre (proche d')un vecteur propre. Elle ne l'est pas.
+Trois sorties possibles restent, et je les nomme au lieu d'en choisir une :
+  (a) un terme du solveur qui n'est ni le ressort anisotrope ni la contrainte de longueur oriente
+      la reponse dans le plan — le candidat principal est `phys-skin-chain` (`:1919`, `:3212`), que
+      le dossier connait deja comme l'unique producteur du depassement de §22 ;
+  (b) le systeme n'est pas invariant sur ces amplitudes ;
+  (c) la grandeur mesuree n'est pas l'etat (l'effet de CORDE est ecarte : a |d| <= 238 u sur un os
+      de 1040 u l'inclinaison de corde vaut 6,5 deg, pas 42 a 88).
+
+**(a) N'EST PAS TESTABLE SUR LA TRACE ARCHIVEE, ET JE LE DIS PLUTOT QUE DE LE CONTOURNER.** Le
+commutateur existe (`*phys-skin-off*`, `:516`, setter `phys-skin-off-set!` `:4527`) mais les
+fenetres AX ne l'exercent pas : la course ne porte qu'une jambe a peau ARMEE. Le trancher demande
+une **paire appariee** (memes actifs, meme arbre, `*phys-skin-off*` 1 puis 0) sur les phases AX —
+donc un build et une course. **C'est le cycle suivant, et son protocole est ecrit ici.**
