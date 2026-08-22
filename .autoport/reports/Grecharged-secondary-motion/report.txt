@@ -14,6 +14,15 @@ ETAT DU VALIDATEUR : inchange par construction — ce cycle ne touche AUCUNE gat
 gate COLLIDE lit `ROOM-SKINPEN:` et `ROOM-SKINPEN-REST:`, deux grandeurs que ce cycle laisse
 bit-a-bit identiques (controle P7). Le seul echec reste `OPEN-DEFECTS`, la porte de l'owner.
 
+BREAST-PENETRATION: 0.0973 m — `meshpen`, DIAGNOSTIC, jamais un verdict (arbitrage 2026-08-20
+13:20 : c'est un DEPLACEMENT, pas une profondeur, invariant au rayon a 1e-10 pres sur 229 560
+couples). **INCHANGE AU CHIFFRE depuis le cycle 104** (0.0973), et c'est attendu : ce cycle ne
+touche pas le solveur — les controles P7/P8 le prouvent, `skinpen`, `skinrest`, `PHYSSKINC` et
+`PHYSE22` sont identiques au chiffre sur les 14 tags. Sous le plafond epingle n'est pas « regle » :
+tant que ce n'est pas zero, ca se declare, avec son chiffre et ses argmax, a chaque cycle.
+  chestL meshpen max 0.0555 m (anim `assistant-village3-idle`, drive `jerk`)
+  chestR meshpen max 0.0973 m (anim `assistant-village2-idle-to-a`, drive `accel`)
+
 ================================================================================================
 0. EN UNE PHRASE
 ================================================================================================
