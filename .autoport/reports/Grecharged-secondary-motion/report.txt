@@ -1,292 +1,226 @@
-RAPPORT DE CYCLE 106 — Grecharged-secondary-motion
+RAPPORT DE CYCLE 107 — Grecharged-secondary-motion
 DIRECTIVES v3fee554599
 Branche physics-keira-clean · perimetre : chestL / chestR SEULES (owner 2026-08-14 07:30)
-(le rapport precedent est archive a cote de celui-ci sous `report.c105.txt`)
+(le rapport precedent est archive a cote de celui-ci sous `report.c106.txt`)
 
-SECTION DONT CE CYCLE DEBLOQUE LE VERDICT, NOMMEE AVANT DE COMMENCER (directive du 2026-08-21
-18:25, ecrite dans `.autoport/c106-predictions.txt` avant le premier build) : **SPEC 34** (la peau
-du sein contre le THORAX). C'est la suite (a) que le cycle 105 avait nommee.
+SECTIONS DONT CE CYCLE DEBLOQUE LE VERDICT, NOMMEES AVANT DE COMMENCER : **SPEC 14, SPEC 16,
+SPEC 17, SPEC 18**. Ce cycle ne touche NI le moteur, NI la salle, NI une gate : il relit la trace
+ARCHIVEE. **Zero build, zero course neuve, zero ligne de moteur, zero gate touchee.**
 
-ETAT DU VALIDATEUR : **18 lignes, 12 gates de mesure, TOUTES PASSANTES, `[PASS]` imprime.** La
-sortie est IDENTIQUE OCTET POUR OCTET a celle d'avant ce cycle. Le seul echec reste `OPEN-DEFECTS`,
-la porte de l'owner. Aucune gate n'a ete ajoutee, modifiee ni assouplie (regle 5).
+ETAT DU VALIDATEUR : **18 lignes, 12 gates de mesure toutes passantes, `[PASS]` imprime**, sortie
+identique octet pour octet a celle du cycle 106. Le seul echec reste `OPEN-DEFECTS`, la porte de
+l'owner, qu'aucune tentative worker ne franchit.
 
 BREAST-PENETRATION: 0.0973 m — `meshpen`, DIAGNOSTIC, jamais un verdict (arbitrage 2026-08-20
-13:20 : c'est un DEPLACEMENT, pas une profondeur). INCHANGE AU CHIFFRE depuis le cycle 104.
+13:20 : c'est un DEPLACEMENT, pas une profondeur). Inchange, ce cycle ne touche pas le solveur.
   chestL meshpen max 0.0555 m (anim `assistant-village3-idle`, drive `jerk`)
   chestR meshpen max 0.0973 m (anim `assistant-village2-idle-to-a`, drive `accel`)
 
 ================================================================================================
 0. EN UNE PHRASE
 ================================================================================================
-**LA BORNE DE LEVIER QUE J'AVAIS DESIGNEE COMME SEULE SUSPECTE SURVIVANTE EST REFUTEE PAR LA
-MESURE — LE PROPRIETAIRE DU DEFAUT EST LA RACINE, `pp` = 0,99 ET L'AUTORITE NE SATURE MEME PAS.
-CE QUI BLOQUE EST LE PLAFOND DE DEPLACEMENT DE [NOTE-291], ET IL NE FREINE PAS : **IL EST NEGATIF
-AU POINT EXACT QUI PORTE LE VERDICT PUBLIE, DONC LE MOTEUR N'Y APPLIQUE RIEN DU TOUT.** 97,3 % DU
-DEPLACEMENT QUI ENFONCE LA PEAU EST TANGENTIEL, ET CE PLAFOND NE BORNE QUE LA COMPOSANTE NORMALE.
-LE CORRECTIF EVIDENT A ETE ESSAYE, MESURE, ET **RETIRE** : IL ACHETE -28 % SUR §34 ET PAIE §22
-(0,50 -> 0,82 B0), `ROOM-STRETCH` (2,80 -> 4,59 %), LE REPOS (x202) ET LA GATE DISCRIMINANT.**
+**LE THEOREME DU CYCLE 80 — « LES DEUX CHAINES DEMANDENT LE FACTEUR DE PART ET D'AUTRE DE 1, CE
+N'EST PAS UNE QUESTION D'AMPLITUDE » — EST CALCULE SUR LA PASSE QUE LA SALLE ELLE-MEME DECLARE
+PERIMEE (repere MONDE, pose a 48,7 deg du miroir). RECALCULE SUR LA PASSE CORRIGEE, IL EST **FAUX
+POUR §14** : ses quatre cellules d'apex demandent TOUTES k > 1 et leur intersection vaut
+[1,473 .. 1,514]. LA CONCLUSION GENERALE SURVIT (aucune section n'est atteignable en entier), MAIS
+ELLE CHANGE DE RAISON, SECTION PAR SECTION — ET §16 DEVIENT LA PREMIERE SECTION DU BLOC A ETRE
+COHERENTE EN SIGNE : SES HUIT CELLULES DEMANDENT PLUS DE MOUVEMENT, PAS MOINS.**
 
 ================================================================================================
-1. CE QUE JE PARIAIS, ET CE QUE LA MESURE EN FAIT
+1. LE FAIT DE DEPART, ET IL EST DANS LE TABLEAU DEPUIS LE CYCLE 68
 ================================================================================================
-Le cycle 105 avait ecrit, avant de finir : « ce qui reste est une borne de LEVIER […] la mesure qui
-tranche est nommee et falsifiable : le maillon proprietaire de l'argmax, `pp`, et si `kr` sature.
-Si c'est la chair avec pp < 0,74, le chantier est STRUCTUREL ». J'ai mise dessus en P7 :
-« sur au moins une des deux chaines, le proprietaire est le maillon DISTAL et `pp` y est < 0,74 ».
+`ROOM-APEX-REGIME` et `ROOM-REGIME` — les lignes sur lesquelles les verdicts d'apex et de COM de
+§14 a §20 sont lus — viennent de **PH-REG**, et le tableau publie lui-meme ce que vaut cette passe :
 
-    ROOM-SKINLEVER (tag=run)         chestL                    chestR
-    proprietaire du pire ecart       maillon 0 (RACINE)        maillon 0 (RACINE)
-    pp                               0,9929                    0,9999
-    ln                               1040,1981 u               1039,2214 u
-    levier pp*ln                     1032,8127 u               1039,1175 u
-    capacite de 6 iterations         2771,04 u                 2787,95 u
-    demande a fermer                  261,80 u                  186,21 u
-    kr = bv/(pp*ln)                  0,2534  NON SATURE        0,1791  NON SATURE
+    ROOM-REGPOSE-VERDICT: POSE NON SYMETRIQUE — PH-REG heritee est a 48.7 deg du miroir
+                          (seuil 1.3 ; le rig est a 0.005 deg en pose de bind)
+    ROOM-REGBONE-MIROIR:  pire ecart au miroir de la POSE = 105.85 deg (r=14)
 
-**P7 EST REFUTEE, ET P9 AVEC.** Le levier vaut 10,6 fois / 15,0 fois ce qu'il faudrait, et
-l'autorite par iteration n'atteint meme pas la moitie de son plafond. `pp` exige pour fermer en six
-passes : 0,0938 (5,4 deg) et 0,0668 (3,8 deg) — on en est a 0,99. **La voie « le chantier est
-structurel, il faut re-riguer » est CLOSE, et c'est moi qui l'avais ouverte.** Je la publie comme
-une refutation de mon propre pari, pas comme une note de bas de page.
+et le moteur de salle ajoute que ses AXES sont ceux du MONDE alors que §18 a §20 nomment ceux du
+SUJET, « et les deux sont a ~90 deg l'un de l'autre — le tangage de §19 est joue comme un roulis
+et le roulis de §20 comme un tangage » (`phys-room.gc`, pave de PH-REGA).
 
-Ce qui SURVIT de l'hypothese : le maillon de CHAIR touche bien un plancher de levier, mais il est
-secondaire. Refus faute de levier (`pp <= 0,05`, le moteur ne corrige alors RIEN) :
-  chestL **11 sur 6674** demandes (0,16 %), cumul 32,81 u, pire 3,47 u — negligeable ;
-  chestR **924 sur 16443** demandes (5,62 %), cumul 20654,64 u, pire **70,28 u**, maillon 1.
-70,28 u = 1,7 cm, soit quatre fois moins que le defaut publie (278,90 u). Reel, chiffre, secondaire.
+**LES PASSES CORRIGEES EXISTENT DANS LA MEME COURSE** : `ROOM-REGB-APEX` / `ROOM-REGB-COM` (les
+huit fenetres de TRANSLATION, axes du SUJET, pose PH-REGT resserree — temoin r=0 a 0,0139/0,0156 B0
+et miroir 0,2 deg) et `ROOM-REGA` (les six fenetres de ROTATION, axes du SUJET, miroir REVALIDE a
+0,54 deg). Le registre les cite deja. **Ce que personne n'avait fait, c'est refaire l'ARITHMETIQUE
+DU CYCLE 80 dessus** — et c'est elle qui a fait annuler le chantier de conversion le 2026-08-21.
 
 ================================================================================================
-2. LE COUPABLE, MESURE **CO-LOCALISE** — ET LE MOT COMPTE
+2. L'ARITHMETIQUE, REFAITE SUR LES DEUX PASSES, COTE A COTE
 ================================================================================================
-La premiere course laissait le plafond `-dn` designe par une INEGALITE ENTRE DEUX MAXIMA :
-`max(min(add,-dn))` = 129,55 u contre `max(add)` = 280,17 u, le `min` etant le seul operateur entre
-les deux. C'est rigoureux — mais **comparer deux maxima est exactement la faute que le cycle 105 a
-retiree du verdict de §34**, et je refuse de rebatir un diagnostic dessus. D'ou une seconde course
-avec un latch qui lit les trois grandeurs **dans la MEME expression, sur le MEME echantillon, a la
-MEME frame** (7e passe, celle qui ne corrige pas). Cout : **zero ligne de moteur**.
+Regle inchangee (cycle 80) : une cellule `a` de bande [lo,hi] est mise DANS par un facteur uniforme
+`k` si et seulement si `a/hi <= k <= a/lo` ; une section est tenue quand TOUTES ses cellules le
+sont (regle 2 du registre). Aucune bande n'est reecrite, aucun seuil n'est invente.
 
-    ROOM-SKINLEVER, triplet co-localise, tag=run       chestL          chestR
-    demande NON ecretee `radd`                        280,1669 u      278,9003 u
-    plafond `-dn` de [NOTE-291]                      **-58,0360 u**  **-32,0811 u**
-    ce que le moteur applique                          0,0000 u        0,0000 u
-    part retenue par le plafond                         100,0 %         100,0 %
+    section  famille   PH-REG (monde, 48,7 deg)          PH-REGB (sujet, 0,2 deg)
+    -------  --------  --------------------------------  --------------------------------
+    §14      apex      VIDE  (2 cellules k>1, 2 DEJA DANS)  **[1,473 .. 1,514]  ATTEIGNABLE**
+    §14      COM       VIDE  (2 k<1, 2 deja dans)         VIDE (1 k>1, 1 k<1, 2 deja dans)
+    §16      apex      VIDE  (3 k<1, 1 deja dans)         VIDE — mais **4 cellules sur 4 k<1**
+    §16      COM       VIDE  (4 k<1)                      VIDE — **4 cellules sur 4 k<1**
+    §17      apex      [1,335 .. 1,530] ATTEIGNABLE       **VIDE** (1 k>1, 1 deja dans)
+    §17      COM       VIDE  (2 k>1, 2 deja dans)         VIDE (2 k>1, 1 k<1, 1 deja dans)
 
-**`radd` EGALE `addw` EGALE `skinadd` AU CHIFFRE sur les deux chaines** (ecart 0,00e+00 m, controle
-publie dans le tableau) : trois latches independants tombent sur le meme nombre, donc le triplet est
-lu AU POINT QUI PORTE LE VERDICT, pas a cote.
+**CE QUI TOMBE.** La phrase que le registre porte sur §14 — « `chestR/r1` exige k >= 1,561 pendant
+que `chestL/r4` exige k <= 1,136. Les deux chaines demandent le facteur de part et d'autre de 1 —
+ce n'est pas une question d'amplitude » — decrit la passe PERIMEE. Sur la passe corrigee les quatre
+cellules d'apex de §14 valent 0,4420 / 0,4160 (bande 0,20-0,30) et 0,4543 / 0,4571 (bande
+0,30-0,38) : **toutes AU-DESSUS, aucune en dessous, et un facteur unique de ~1,49 les met les
+quatre dans leur bande.** Pour l'apex de §14, c'est donc bien une question d'amplitude.
 
-**ET LE PLAFOND N'EST PAS SEULEMENT TROP SERRE : IL EST NEGATIF.** `bv` part de 0.0 et un
-echantillon n'est elu (`bq`) que si `v > bv`. Un plafond negatif rend `v` negatif, donc
-l'echantillon n'est JAMAIS elu et **le moteur n'applique AUCUNE correction dessus**. Ce n'est pas un
-etranglement partiel a 46 %, c'est une inhibition totale, au point le plus enfonce de la course.
+**CE QUI SURVIT.** Aucune des trois sections ne devient TENUE : il reste, pour chacune, une
+famille dont l'intervalle est vide. §14 est bloquee par son COM seul ; §16 par le desaccord
+d'AMPLITUDE entre ses deux gestes (et non de sens) ; §17 par ses deux familles.
 
-**LE MECANISME, ET IL EST GEOMETRIQUE, PAS NUMERIQUE.**
-
-    deplacement du joint par rapport a sa pose d'auteur   chestL              chestR
-    module                                               249,5416 u          139,1254 u
-    composante NORMALE (c'est ce que le plafond borne)     58,0360 u (23,3 %)  32,0811 u (23,1 %)
-    composante TANGENTIELLE                               242,6991 u (97,3 %) 135,3761 u (97,3 %)
-
-97,3 % sur les deux chaines, au chiffre pres. Le sein a pivote LE LONG du torse ; le joint est passe
-DEVANT sa pose d'auteur en normale (`dn > 0`) tout en emmenant l'echantillon de peau, distant de
-~700 u, a 6,84 cm dans le corps. La regle de [NOTE-291] — « tu ne peux pas pousser plus dehors que
-la pose d'auteur » — se declenche donc exactement quand le defaut est produit tangentiellement.
-**La grandeur qui gouverne n'etait pas mesuree sur le bon axe** ; c'est `radius-blind-to-direction`,
-sur un plafond au lieu d'un rayon.
-
-**ET IL EST REDONDANT, PAS SEULEMENT MAL PROJETE.** `add = min(0,sa) - sd` retranche DEJA la
-profondeur de l'AUTEUR — c'est la definition meme que [NOTE-150] donne a la colonne, et c'est deja
-« la part de la physique ». `-dot(dj,n)` est un SECOND garde-fou pose sur la meme intention.
+**ET LE CONTROLE QUI EMPECHE DE CROIRE QUE « LA PASSE CORRIGEE ARRANGE TOUT » : §17 VA DANS
+L'AUTRE SENS.** Son apex etait ATTEIGNABLE sur la passe perimee et ne l'est plus sur la corrigee.
+Un changement d'instrument qui n'ameliorerait que ce qu'on regarde serait suspect ; celui-ci
+degrade une cellule sur trois sections, ce qui est la signature d'une correction et pas d'un tri.
 
 ================================================================================================
-3. LE CORRECTIF EVIDENT A ETE ESSAYE. IL EST MESURE, ET IL EST **RETIRE**.
+3. §16 DEVIENT LA PREMIERE SECTION DU BLOC COHERENTE EN SIGNE, ET C'EST EXPLOITABLE
 ================================================================================================
-Une ligne, en place, zero ligne de moteur : le plafond passe de `-dot(dj,n)` a `|dj|` — meme role
-(rattacher la correction a la pose d'auteur, INERTE au bit quand `dj = 0`), mais invariant par
-direction. Predictions ecrites AVANT la course (P15 a P20 de `c106-predictions.txt`).
+Sur la passe corrigee, les HUIT cellules de §16 (apex et COM, les deux chaines, les deux gestes)
+demandent **k < 1**, c'est-a-dire **PLUS de mouvement** :
 
-    grandeur                          AVANT (livre)   APRES (correctif)   verdict
-    ROOM-SKINADD chestL  (**§34**)      0,0684 m        0,0489 m          -28,5 %  GAIN
-    ROOM-SKINADD chestR  (**§34**)      0,0681 m        0,0556 m          -18,4 %  GAIN
-    ROOM-SKINPEN chestL / chestR        0,0684/0,0854   0,0600/0,0627     GAIN
-    ROOM-MEDIAL approche chestR (§33)   0,0239 m        0,0106 m          GAIN
-    -----------------------------------------------------------------------------------------
-    ROOM-STG etage 6 chestL (**§22**)   0,4741 B0       **0,7783 B0**     plafond DUR 0,50 : CASSE
-    ROOM-STG etage 6 chestR (**§22**)   0,4999 B0       **0,8247 B0**     plafond DUR 0,50 : CASSE
-    ROOM-STRETCH (contrat owner <=3 %)  2,7950 %        **4,5886 %**      CASSE
-    ROOM-IDLE (**§2/§9**)               0,0002          **0,0405**        x202
-    rootdev chestL / chestR             0,0733/0,0735   0,1327/0,2218     x1,8 / x3,0
-    gate DISCRIMINANT                   PASSE           **ECHOUE** (chestL : ecart 11 % sur 5 pilotages)
-    corrections `PHYSSKINC n`           22 182          88 064            x3,97 (cumul x6,06)
-    `PHYSE22 cut_b0` (ce que §22 rogne)   874,74         2 128,70          x2,43
-    tipvar chestL / chestR              0,1844/0,2018   0,1989/0,2364     +7,9 % / +17,1 %
+    §16 apex  r3 jumpA-land  chestL 0,2099 · chestR 0,2254   bande [0,30-0,42]   k <= 0,70 / 0,75
+    §16 apex  r6 jumpB-land  chestL 0,3993 · chestR 0,2743   bande [0,42-0,50]   k <= 0,95 / 0,65
+    §16 COM   r3             chestL 0,1247 · chestR 0,1145   bande [0,25-0,35]   k <= 0,50 / 0,46
+    §16 COM   r6             chestL 0,2251 · chestR 0,1409   bande [0,35-0,40]   k <= 0,64 / 0,40
 
-**LA GATE DISCRIMINANT EST CE QUI TRANCHE, ET ELLE DIT LE MOT DE L'OWNER.** chestL rend
-0,1922 / 0,1989 / 0,1851 / 0,1792 / 0,1774 sous `accel`, `jerk`, `leftright`, `tilt`, `updown` :
-**11 % d'ecart entre une secousse et une inclinaison soutenue.** Une contrainte qui tire quatre fois
-plus souvent APLATIT la reponse — c'est la signature de `oversized-volume-flattens-response`, et
-c'est litteralement « du pudding qui suit aucune logique ». Le mouvement n'est pas MUSELE (tipvar
-MONTE), il est DESERVI : il repond pareil a tout.
-
-**DECISION : RETIRE.** Il achete -28,5 % / -18,4 % sur un chiffre qui **reste rouge de toute
-facon** (0,0489 et 0,0556 m ne sont pas zero), et il paie deux lignes de contrat DURES (§22 a
-0,50 B0, `ROOM-STRETCH` a 3 %), une section mesuree propre (§2/§9, x202) et une gate. Ce n'est pas
-« avancer a travers un rouge » : c'est deplacer le rouge, et en ajouter deux. Le moteur livre est
-revenu a l'identique, et la course de restauration le PROUVE (section 5).
-
-**CE QUE CETTE JAMBE ETABLIT MALGRE TOUT, ET C'EST LE RESULTAT LE PLUS SOLIDE DU CYCLE :** c'est
-une ATTRIBUTION PAR INTERVENTION. Toucher au seul plafond — rien d'autre — deplace §34 de -28,5 % /
--18,4 %. **Le plafond n'est donc pas un suspect designe par un raisonnement : c'est le producteur du
-chiffre, prouve en le bougeant.** Et le prix de la version naive est desormais chiffre, ce qui
-interdit a un cycle futur de la reproposer sans repondre a ces quatre lignes.
+**LA RECEPTION D'ATTERRISSAGE SOUS-REPOND, DES DEUX COTES, SUR LES DEUX GRANDEURS**, d'un facteur
+1,05 a 2,00 sur l'apex et 1,79 a 2,81 sur le COM. C'est le premier enonce DIRECTIONNEL et
+NON AMBIGU qu'on puisse faire sur une section de ce bloc — sur la passe perimee, §16 melangeait les
+sens et ne disait rien d'actionnable. **Et il pointe dans le sens INVERSE du chantier « diviser
+l'excursion » que le registre a porte pendant vingt cycles.**
 
 ================================================================================================
-4. LES PREDICTIONS, ECRITES AVANT (`.autoport/c106-predictions.txt`)
+4. §18 : SON ASYMETRIE GAUCHE/DROITE N'EST **PAS** UN ARTEFACT DE POSE
 ================================================================================================
-  P1  moteur <= 4800 lignes                4799                                        CONFIRMEE
-  P2  validateur 18 lignes, meme etat      18, identique OCTET POUR OCTET              CONFIRMEE
-  P3  `PHYSSKIN`/`PHYSSKIN2` identiques    `diff` vide, 28 + 28 lignes                 CONFIRMEE
-  P4  `PHYSSKINC`/`PHYSE22` identiques     `diff` vide, 14 + 14 lignes                 CONFIRMEE
-  P5  `addw` == `skinadd`                  0,00e+00 m sur tag=run, LES DEUX chaines    CONFIRMEE
-      (et FAUSSE sur tag=rest : voir §6b, c'est une FENETRE differente, pas un latch faux)
-  P6  meme maillon pour skinpen et add     0 et 0 sur les deux chaines                 CONFIRMEE
-  P7  proprietaire = CHAIR, pp < 0,74      RACINE, pp 0,9929 / 0,9999                  **REFUTEE**
-  P8  refus faute de levier > 0            11/6674  ·  924/16443                       CONFIRMEE
-  P9  `kr` sature (>= 0,5)                 0,2534 / 0,1791                             **REFUTEE**
-  P10 residu porte par le meme maillon     demande sur 0, residu sur 1                 branche « AUTRE »
-  P11 plafond < demande, >= 100 u retenus  plafond NEGATIF, 100 % retenus              CONFIRMEE (au-dela)
-  P12 plafond < 50 % du module             23,3 % / 23,1 %                             CONFIRMEE
-  P13 maillon du triplet = 0               0 et 0                                      CONFIRMEE
-  P14 identite entre les deux courses      `diff` vide sur les 8 familles              CONFIRMEE
-  P15 skinadd chestL <= 0,045 m            0,0489 m (-28,5 %, pas -35 %)               **FAUSSE**
-  P16 `ROOM-IDLE` <= 0,001                 0,0405                                      **FAUSSE**
-  P17 `ROOM-STRETCH` <= 3 %                4,5886 %                                    **FAUSSE**
-  P18 tipvar -20 % max ET §22 <= 0,50 B0   tipvar +8/+17 % OK · §22 0,78/0,82 B0       **MOITIE FAUSSE**
-  P19 `PHYSSKINC n` monte                  22 182 -> 88 064                            CONFIRMEE
-  P20 le triplet republie un plafond >= 0  mal posee par moi : la case 16 garde `-dn`  MAL SPECIFIEE
+`ROOM-REGA` joue les six fenetres de rotation sur les axes du SUJET, dans une pose dont l'ecart au
+miroir est **REVALIDE A L'EXECUTION a 0,54 deg** (le rig est a 0,005 deg en bind). Le rapport
+gauche/droite de l'apex y vaut :
 
-**CINQ PREDICTIONS TOMBENT, ET QUATRE SONT LES MIENNES SUR LE FOND** (P7, P9, P15, P16/P17/P18).
-Je les laisse ecrites telles quelles. P16 et P17 meritent une explication et pas une excuse : mon
-argument « `dj = 0` au repos donc budget 0 donc inerte » est vrai **a la limite exacte** et faux
-partout ailleurs — au repos `dj` est petit mais non nul, et `|dj|` donne alors un budget dans TOUTES
-les directions la ou `-dot(dj,n)` en donnait zero dans la moitie d'entre elles. Une propriete vraie
-en un point ne se transporte pas a son voisinage : c'est la meme faute de forme que
-`operator-form-does-not-transport-between-quantities`, commise sur un budget.
+    r= 9 §18 sgn+1   apexL 0,4100  apexR 0,1019   R = 4,024
+    r= 9 §18 sgn-1   apexL 0,4958  apexR 0,1593   R = 3,112
+    r=10 §18 sgn+1   apexL 0,4796  apexR 0,1251   R = 3,834
+    r=10 §18 sgn-1   apexL 0,5192  apexR 0,1717   R = 3,024
+    r=11..14 §19/§20                              R = 1,012 a 1,220
+
+**Un facteur 3,0 a 4,0 sur §18 dans une pose symetrique a 0,54 deg, quand §19 et §20 rendent 1,0 a
+1,2 dans LA MEME pose et LA MEME course.** La directive du 2026-08-21 01:20 pose que tout ecart
+gauche/droite mesure hors du miroir est presume artefact de pose ; ici la pose est admissible et
+l'ecart reste. **Il faut donc cesser de l'imputer a la pose** — ce qui reste a expliquer est propre
+au lacet, et le fait que §19 et §20 rendent ~1,0 dans la meme fenetre est le controle qui interdit
+d'accuser l'instrument.
 
 ================================================================================================
-5. LES CONTROLES, ET IL Y EN A QUATRE
+4bis. LE CHANTIER D'INSTRUMENT QUE CE CYCLE NOMMAIT EST FAIT DANS LE MEME CYCLE
 ================================================================================================
-**(a) IDENTITE DU SOLVEUR.** Entre la course de reference du cycle 105 (`c106-BASE`) et la course
-livree de ce cycle (`c106-CAP`), `PHYSSKIN`, `PHYSSKIN2`, `PHYSSKINC` et `PHYSE22` sont IDENTIQUES
-AU CHIFFRE sur leurs 28 + 28 + 14 + 14 lignes, et les neuf lignes de tableau que les gates lisent
-sont identiques. L'instrument LIT, il n'ecrit aucun etat du solveur. Sans ce controle, « §34 change
-de cause » serait indiscernable de « j'ai casse le solveur ».
+La section 7(C) plus bas nommait le trou : `ROOM-REGB-APEX` confronte chaque cellule de TRANSLATION
+a sa bande, `ROOM-REGA` publiait `apexL`/`apexR` SANS bande — donc §18, §19 et §20 etaient les
+seules sections dont AUCUNE cellule n'etait confrontee a sa bande sur les axes que la spec nomme.
+**Fait : `ROOM-REGA-BANDE` et `ROOM-REGA-FACTEUR`.** Script de tableau uniquement — zero ligne de
+moteur, zero course neuve, aucune gate touchee, **et la sortie du validateur reste IDENTIQUE OCTET
+POUR OCTET** (18 lignes, 12 gates passantes). Les bandes sont celles de `_RGAPX`, au mot pres :
+aucun seuil neuf.
 
-**(b) CONTROLE INTERNE DU LATCH.** La case `addw` est un maximum de `add` par chaine, latche a la
-main dans `phys-pen-chain` ; `*phys-skinadd*` est le meme maximum par un autre chemin. Ecart mesure
-sur tag=run : **0,00e+00 m sur les deux chaines**. Sur tag=`rest` les deux DIVERGENT (245,84 contre
-0,00) — et ce n'est pas le latch : `*phys-skl*` vit la fenetre de `phys-diag-reset!`, `*phys-skinadd*`
-celle de `phys-skinpen-reset!`, et les deux ne coincident pas sur ce tag. **C'est
-`course-scoped-counter-under-window-key`, et je le declare au lieu de publier un ecart comme s'il
-mesurait quelque chose : les colonnes du levier ne se lisent QUE dans leur propre fenetre.**
+    ROOM-REGA-FACTEUR: §18 sgn=+1   AUCUN facteur uniforme : il faudrait k >= 1,599 et k <= 0,625
+    ROOM-REGA-FACTEUR: §18 sgn=-1   AUCUN facteur uniforme : il faudrait k >= 1,731 et k <= 0,858
+    ROOM-REGA-FACTEUR: §19 sgn=+1   k uniforme ATTEIGNABLE dans [2,135 .. 2,406]
+    ROOM-REGA-FACTEUR: §19 sgn=-1   k uniforme ATTEIGNABLE dans [1,533 .. 1,796]
+    ROOM-REGA-FACTEUR: §20 sgn=+1   k uniforme ATTEIGNABLE dans [1,608 .. 2,041]
+    ROOM-REGA-FACTEUR: §20 sgn=-1   k uniforme ATTEIGNABLE dans [2,129 .. 2,284]
 
-**(c) CONTROLE NEGATIF DE L'INSTRUMENT.** `PHYSSKLV5 tag=skin-disarmed` rend `radd=0 rcap=0
-rdisp=0` sur les deux chaines : contrainte desarmee, `phys-skin-chain` sort en tete de fonction et
-le latch n'ecrit rien. L'instrument ne peut pas fabriquer un chiffre hors de la contrainte.
-
-**(d) DETERMINISME, ET IL A ETE PAYE D'UNE COURSE ENTIERE.** Apres le retrait du correctif l'arbre
-est redevenu bit-identique a celui qui a produit `c106-CAP`, et la course a ete **REJOUEE**.
-Resultat : **88 131 enregistrements `PHYS*`, ZERO different**. Le `md5` des deux traces differe
-neanmoins (a332980331… contre a5293fe0bb…) — uniquement par les HORODATAGES du prefixe de log
-(`[42:36:381]` contre `[42:21:286]`), ce que le diff montre ligne par ligne. **Un md5 de trace n'est
-donc PAS une empreinte de course sur cette salle**, et je le note pour ne pas le relire de travers
-plus tard : l'empreinte est le corps `PHYS*`. C'est ce controle qui autorise a lire la jambe du
-correctif comme un ECART et pas comme du bruit de course, et il vaut aussi comme preuve que le
-retrait est effectif : la sortie du validateur est redevenue IDENTIQUE OCTET POUR OCTET.
-
-================================================================================================
-6. CE QUE JE DECLARE CONTRE MOI
-================================================================================================
-**(a) AUCUN STATUT NE CHANGE.** §34 reste **NON TENUE** sur les deux chaines. Ce cycle change la
-CAUSE (mesuree, co-localisee, attribuee par intervention), pas le statut. C'est le PREMIER cycle
-consecutif sans changement de statut ; la directive du 2026-08-21 18:25 en autorise un, et impose
-la remontee au superviseur au second. **Si le cycle 107 n'en produit pas non plus, il remonte.**
-
-**(b) LES QUATRE SUITES NOMMEES PAR LE CYCLE 105 : UNE FAITE, TROIS OUVERTES.** (a) est faite — et
-son diagnostic est renverse. (b) egaliser les populations des deux jambes de l'ablation : NON FAIT,
-donc le controle de §34 ne peut toujours pas conclure sur chestR. (c) le residu FINAL de la peau :
-NON FAIT. (d) le cout par frame sur device : NON MESURE. (e) le seuil du rebase de §37 : NON FAIT.
-
-**(c) J'AI DEPENSE UNE COURSE ENTIERE SUR UN CORRECTIF QUE JE RETIRE.** Je ne la compte pas comme
-perdue — elle donne l'attribution par intervention et le PRIX de la voie naive — mais elle a coute
-~20 minutes de machine et elle etait evitable si j'avais teste `ROOM-IDLE` et `ROOM-STG` en
-prediction AVANT de decider que le correctif etait « evident ». Je l'avais fait (P16 a P18) ; ce que
-je n'avais pas fait, c'est en tirer que trois predictions de COUT sur quatre etaient a haut risque.
-
-**(d) LA FENETRE DE MES NOUVELLES COLONNES N'EST PAS CELLE DE `PHYSSKIN`.** C'est un defaut de
-l'instrument que je publie (§5b) et que je ne corrige pas : le faire demande de toucher a
-l'enchainement des remises a zero, ce qui deplacerait des grandeurs deja publiees.
-
-**(e) `meshpen` RESTE A 0,0973 m** (chestR) et 0,0555 m (chestL), au-dessus de son plafond epingle.
-Diagnostic, publie, non utilise comme verdict, non cache.
-
-**(f) LA MIGRATION DE L'EN-TETE A COUTE DES LIGNES DE COMMENTAIRE, PAS DE CODE.** `git diff` du
-moteur ne montre AUCUNE ligne de code supprimee par la migration — c'est la seule methode autorisee
-pour rendre des lignes sous le plafond CLEAN, et elle est verifiable dans le diff.
+**TROIS ENONCES NEUFS, ET AUCUN N'ETAIT DISPONIBLE AVANT CE CYCLE :**
+  1. **§19 et §20 sont mesurees contre leur bande sur le bon axe pour la premiere fois.** Jusqu'ici
+     le « tangage » de §19 etait joue comme un roulis et le « roulis » de §20 comme un tangage, les
+     deux reperes etant a ~90 deg l'un de l'autre. Leurs huit et quatre cellules sont TOUTES
+     AU-DESSUS de leur bande, et les deux chaines s'accordent (R = 1,012 a 1,220) : ces deux
+     sections n'ont **pas** de probleme d'asymetrie, elles ont un probleme d'AMPLITUDE, chiffre.
+  2. **Mais les DEUX GESTES MIROIR d'une meme section exigent des facteurs DISJOINTS** ([2,135..
+     2,406] contre [1,533..1,796] pour §19 ; [1,608..2,041] contre [2,129..2,284] pour §20). Un
+     gain unique ne peut donc pas tenir les deux sens : il faut un mecanisme qui les distingue.
+  3. **§18 est bloquee par son ASYMETRIE, pas par son amplitude** : chestL demande k >= 1,60
+     (moins de mouvement) pendant que chestR demande k <= 0,63 (plus de mouvement), dans une pose
+     ADMISSIBLE a 0,54 deg du miroir. C'est le meme fait que la section 4, exprime cette fois sur
+     la grandeur que la spec borne.
 
 ================================================================================================
-7. LE PLAFOND DU MOTEUR
+5. CE QUE JE DECLARE CONTRE MOI
 ================================================================================================
-**4799 pour un plafond de 4800.** Six lignes ont ete rendues en deplacant l'en-tete du fichier
-VERBATIM vers [NOTE-481] avec un pointeur d'une ligne a sa place ; trois ont ete depensees (un
-global, le latch de levier, l'accesseur). Les trois autres latches — propriete de `skinpen`,
-propriete de `add`, triplet co-localise de la 7e passe — ont coute **zero ligne** : ce sont des
-extensions de lignes existantes. Marge restante : **1**.
+**(a) AUCUN STATUT NE CHANGE. §14, §16, §17 et §18 restent `NON TENUE`.** Ce cycle change ce que le
+chantier CROIT devoir corriger, pas un verdict. **C'est le DEUXIEME cycle consecutif sans
+changement de statut : la directive du 2026-08-21 18:25 impose la remontee au superviseur, elle est
+ecrite en section 7 et je ne l'ai pas contournee en enchainant un troisieme cycle.**
+
+**(b) TROIS PISTES EXAMINEES ET ABANDONNEES, PUBLIEES POUR QU'ON NE LES REFASSE PAS.**
+  1. « Le registre lit la mauvaise passe » — **FAUX** : les lignes §14 a §20 citent deja PH-REGA et
+     PH-REGB. Ce qui n'y etait pas, c'est l'arithmetique refaite dessus. Verifie avant de publier.
+  2. « La fenetre r=12 de §19 a un stimulus NUL (dap=dver=dlat=0,0) donc son verdict est vide » —
+     **FAUX** : c'est un deplacement NET de fenetre, et r=12 est le RETOUR, qui finit ou il a
+     commence ; `ROOM-REGIME-STIM` publie `amax = 76,36 u/f` pour cette meme fenetre. Le tableau
+     l'etiquetait deja « deplacement negligeable ». Je l'avais pris pour un defaut.
+  3. « `acmd` (10 a 32 fois plus petit que `amax`) prouve que le stimulus commande n'est pas
+     subi » — **FAUX** : `acmd` est une ACCELERATION (u/f^2) et `amax` une VITESSE (u/f), le
+     tableau le declare, et le rapport des deux est simplement la duree de la rampe. Comparer deux
+     unites differentes aurait ete un faux rouge.
+
+**(c) [CORRIGE DANS LE MEME CYCLE, VOIR SECTION 4bis] Les sections de rotation n'avaient pas de
+tableau de cellules sur les axes corriges.** Je laisse la ligne ecrite parce qu'elle etait vraie
+quand je l'ai posee et que c'est elle qui a designe le correctif ; ce qui reste vrai apres :
+`ROOM-REGA-BANDE` ne porte que l'APEX, pas le COM — la moitie COM de §18/§19/§20 n'est toujours
+pas confrontee a sa bande sur les axes du sujet, et je ne l'extrapole pas.
+
+**(d) `meshpen` reste a 0,0973 m**, au-dessus de son plafond epingle. Diagnostic, publie, non
+utilise comme verdict.
+
+**(e) LES QUATRE SUITES DU CYCLE 105 ET DU CYCLE 106 RESTENT OUVERTES** : le vrai correctif du
+plafond de [NOTE-291], l'egalisation des populations de l'ablation de §34, le residu FINAL de la
+peau, le cout par frame sur device, le seuil du rebase de §37.
 
 ================================================================================================
-8. SUBSTRAT
+6. SUBSTRAT
 ================================================================================================
-GOAL seul, x86. **Quatre `(mi)`** (551 cibles, 13,9 / 14,7 / 14,1 / 14,1 s) et **quatre courses
-completes** de la salle (31/31 animations, 5 pilotages, 310 mesures chacune). Aucun build Android :
-le changement livre est une colonne de mesure, l'APK n'apporte rien a la question et la livraison au
-fil de l'eau continue par l'auto-constructeur.
-
-    course          role                                          md5 de la trace
-    c106-BASE       reference (etat livre du cycle 105)           d77e3041eee51b2c3ff4865703ca5cb0
-    c106-LEVIER     instrument 1 : le levier                      efa8cdbb6db4df4c86b37649280f0a81
-    c106-CAP        instrument 2 : + le triplet co-localise       a5293fe0bbfc325b28d190e8caa2a0ae
-    c106-FIX        jambe du correctif (RETIREE)                  61eed5db5200a8c704e111e9048096cb
-    c106-RESTORE    apres retrait — controle de determinisme      a332980331fbb1d34bc06dd7bd450d09
+**Aucun.** Trace ARCHIVEE `keira-room-x86.log` (celle du cycle 106 apres retrait du correctif,
+88 131 enregistrements `PHYS*`) et son tableau. Aucun `(mi)`, aucune course, aucune ligne de
+moteur, aucune gate. Moteur inchange a **4799 / 4800**.
 
 ================================================================================================
-9. LA SUITE, NOMMEE
+7. REMONTEE AU SUPERVISEUR (directive du 2026-08-21 18:25)
 ================================================================================================
-(a) **LE PLAFOND DE [NOTE-291] EST LE CHANTIER, ET IL A MAINTENANT UN CAHIER DES CHARGES CHIFFRE.**
-    Il faut un budget qui soit A LA FOIS : (1) invariant par direction — sinon il s'annule sur un
-    deplacement tangentiel, ce que ce cycle mesure ; (2) NUL a la pose d'auteur, sinon §2/§9
-    partent a 0,0405 (mesure) ; (3) assez serre pour ne pas rendre §22 a 0,82 B0 ni `ROOM-STRETCH`
-    a 4,59 % (mesures) ; (4) assez serre pour que la reponse reste DISCRIMINANTE — la gate est
-    tombee a 11 % d'ecart entre cinq pilotages. `|dj|` satisfait (1) et echoue (2) (3) (4).
-    Piste a instruire, pas a proclamer : un budget par ECHANTILLON plutot que par JOINT — `add` est
-    deja « la part de la physique » et vaut 0 a la pose d'auteur, donc il satisfait (1) et (2) par
-    construction ; ce qui manque alors est la garde contre le CYCLE LIMITE que [NOTE-291] avait
-    mesuree (`PHYSIDLE dev=374`), et c'est ELLE qu'il faut construire, pas un second plafond
-    directionnel. Prevoir la mesure de cycle limite AVANT de livrer.
-(b) **EGALISER LES POPULATIONS des deux jambes de l'ablation de §34** (suite (b) du cycle 105,
-    toujours ouverte) : sans elle le controle ne conclut pas sur chestR et §34 ne peut pas verdir.
-(c) **LE PLANCHER DE LEVIER DU MAILLON DE CHAIR SUR chestR**, mesure ici pour la premiere fois :
-    924 demandes sur 16443 (5,62 %) refusees faute de levier, pire 70,28 u. Reel, secondaire,
-    a traiter apres (a).
-(d) Le residu FINAL de la peau, le cout par frame sur device, le seuil du rebase de §37 : ouverts.
+**DEUX CYCLES CONSECUTIFS SANS CHANGEMENT DE STATUT — 106 et 107. LA RAISON, ET ELLE EST LA MEME
+POUR LES DEUX : LES DEUX CHANTIERS OUVERTS SONT BLOQUES PAR UN ARBITRAGE QUI N'EST PAS LE MIEN.**
+
+**(A) §33/§34 — le plafond de [NOTE-291].** Le cycle 106 a mesure que c'est lui le producteur du
+chiffre (attribution par intervention : -28,5 % / -18,4 % quand on le change) et que sa version
+naive coute §22 (0,82 B0 contre un plafond dur de 0,50), `ROOM-STRETCH` (4,59 % contre 3 %), le
+repos §2/§9 (x202) et la gate DISCRIMINANT. Le remplacer proprement demande de construire une garde
+contre le CYCLE LIMITE que [NOTE-291] avait mesuree (`PHYSIDLE dev=374`) — **c'est un chantier de
+solveur avec un risque reel sur quatre lignes de contrat, et je ne l'engage pas sans arbitrage.**
+Question au superviseur : accepte-t-on de degrader temporairement §2/§9 et `ROOM-STRETCH` pour
+instruire cette voie, ou exige-t-on un budget qui les preserve des la premiere livraison ?
+
+**(B) §14 a §20 — la direction du chantier vient de s'inverser sur §16.** Vingt cycles de dossier
+ont porte « diviser l'excursion ». Sur la passe corrigee, §16 demande **plus** de mouvement sur ses
+huit cellules, et §14 demande **moins** sur ses quatre cellules d'apex (facteur ~1,49). Les deux
+sections veulent des choses opposees du meme solveur. **Aucun reglage global ne peut satisfaire les
+deux ; il faut un mecanisme qui distingue une RECEPTION d'une POUSSEE**, c'est-a-dire un chantier
+de modele, pas de parametre. Question au superviseur : est-ce la prochaine priorite, devant §33/§34 ?
+
+**(C) FAIT DANS LE MEME CYCLE, PAS REMONTE (section 4bis).** `ROOM-REGA-BANDE` /
+`ROOM-REGA-FACTEUR` existent, §18/§19/§20 sont lisibles sur les axes du sujet, la sortie du
+validateur n'a pas bouge d'un octet. **CE QUI EN SORT ET QUI EST POUR LE SUPERVISEUR :** §19 et §20
+demandent des facteurs DISJOINTS pour leurs deux gestes miroir, et §14 et §16 demandent des
+facteurs de sens OPPOSES. Quatre sections, quatre demandes incompatibles d'un meme solveur.
+**Aucun reglage ne peut les servir : la question est si le prochain chantier est un MODELE (un
+mecanisme qui distingue reception / poussee / avant / arriere) plutot qu'un parametre.** Reste
+ouvert et non fait : la moitie COM de §18/§19/§20 sur les axes du sujet.
 
 ================================================================================================
-10. A TESTER PAR L'OWNER
+8. A TESTER PAR L'OWNER
 ================================================================================================
-**RIEN, ET C'EST DEMONTRE.** L'etat livre est BIT-IDENTIQUE a celui du cycle 105 pour tout ce qui
-se voit : `PHYSSKIN`, `PHYSSKIN2`, `PHYSSKINC`, `PHYSE22` identiques au chiffre, les neuf lignes de
-tableau que les gates lisent identiques, la sortie du validateur identique octet pour octet. Le
-correctif qui aurait change quelque chose a l'ecran a ete mesure puis RETIRE, avec son prix publie.
-La directive du 2026-08-20 23:30 tient par ailleurs : pas de sollicitation pour un changement d'une
-seule section tant que le bloc §14-§20 / §24-§27 / §9-§13 n'est pas tenu ensemble. La livraison au
-fil de l'eau n'est pas suspendue.
+**RIEN.** Ce cycle ne change aucun octet de ce qui tourne : ni moteur, ni salle, ni donnees. Il ne
+produit que de la lecture sur une trace deja archivee.

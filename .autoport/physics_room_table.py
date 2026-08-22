@@ -7909,7 +7909,66 @@ def main():
                         A('      %-3d %-7s %+4d %-9.1f %-9.1f %-9.1f %-8.4f %-8.4f %-7.3f %s'
                           % (_r, _sec, _sg, _dd[0], _dd[1], _dd[2], _al[0], _ar[0], _rr, _nom))
                 A('')
-                # LE VERDICT DE SENS, ET C'EST LA SEULE CHOSE QUE CE BLOC TRANCHE AUJOURD'HUI.
+                # ---- ROOM-REGA-BANDE (cycle 107) : LA CELLULE CONTRE SA BANDE, SUR LES AXES DU
+                # SUJET. Le bloc ci-dessus publiait `apexL`/`apexR` SANS la bande, alors que son
+                # pendant de TRANSLATION (`ROOM-REGB-APEX`) la publie : §18, §19 et §20 etaient
+                # donc les seules sections dont aucune cellule n'etait confrontee a sa bande sur
+                # les axes que la spec NOMME. Les bandes sont celles de `_RGAPX`, AU MOT PRES —
+                # aucun seuil neuf, aucune citation reecrite. Ce qui change est l'AXE, et rien
+                # d'autre.
+                #   NATURE : un deplacement d'apex, en B0, maximum de fenetre. REPERE : celui de
+                #   `ROOM-REGA`, inchange. `k` est le facteur uniforme qui mettrait la cellule DANS
+                #   sa bande : `a/hi <= k <= a/lo` (meme algebre que le cycle 80). Une section
+                #   n'est tenue que si TOUTES ses cellules le sont (regle 2 du registre).
+                #   PIEGE DECLARE : les deux SIGNES sont deux gestes MIROIR, pas deux repetitions —
+                #   ils sont publies separement et jamais moyennes.
+                A('   -- ROOM-REGA-BANDE : LA MEME CELLULE, CONTRE LA BANDE DE SA SECTION -------')
+                try:
+                    _abnd = _RGAPX
+                except NameError:
+                    _abnd = {}
+                _aiv = {}
+                for _r, _sec in ((9, '§18'), (10, '§18'), (11, '§19'), (12, '§19'),
+                                 (13, '§20'), (14, '§20')):
+                    _bd = _abnd.get(_r, (None, ''))
+                    for _sg in (1, -1):
+                        for _ci, _cn in ((0, 'chestL'), (1, 'chestR')):
+                            _a = _rga2.get((_ci, _r, _sg))
+                            if not _a:
+                                continue
+                            _v = _a[0]
+                            if _bd[0] is None:
+                                A('ROOM-REGA-BANDE: %-6s r=%-2d sgn=%+d %-4s apex=%.4f B0'
+                                  '  [pas de bande] %s' % (_cn, _r, _sg, _sec, _v, _bd[1]))
+                                continue
+                            _lo, _hi = _bd[0]
+                            if _v < _lo:
+                                _vd = 'SOUS (x%.2f)' % (_v / _lo)
+                            elif _v > _hi:
+                                _vd = 'AU-DESSUS (x%.2f)' % (_v / _hi)
+                            else:
+                                _vd = 'DANS'
+                            _aiv.setdefault((_sec, _sg), []).append((_v / _hi, _v / _lo))
+                            A('ROOM-REGA-BANDE: %-6s r=%-2d sgn=%+d %-4s apex=%.4f B0  [%.2f-%.2f]'
+                              '  %-18s k admissible [%.3f .. %.3f]'
+                              % (_cn, _r, _sg, _sec, _v, _lo, _hi, _vd, _v / _hi, _v / _lo))
+                # LE FACTEUR UNIFORME, PAR SECTION ET PAR SIGNE — meme algebre que le cycle 80,
+                # refaite ici sur les axes du SUJET au lieu du repere MONDE.
+                for _key in sorted(_aiv):
+                    _ivs = _aiv[_key]
+                    _lo, _hi = max(x[0] for x in _ivs), min(x[1] for x in _ivs)
+                    A('ROOM-REGA-FACTEUR: %s sgn=%+d  %d cellule(s)  ->  %s'
+                      % (_key[0], _key[1], len(_ivs),
+                         ('k uniforme ATTEIGNABLE dans [%.3f .. %.3f]' % (_lo, _hi))
+                         if _lo <= _hi else
+                         ('AUCUN facteur uniforme : il faudrait k >= %.3f et k <= %.3f'
+                          % (_lo, _hi))))
+                A('   LECTURE : un `k` > 1 demande MOINS de mouvement, un `k` < 1 en demande PLUS.')
+                A('   Ces lignes ne remplacent pas `ROOM-APEX-REGIME` : elles se lisent A COTE, et')
+                A('   c\'est CELLE-CI qui porte l\'axe que la spec nomme (`ROOM-REGPOSE-VERDICT`')
+                A('   dit a combien de degres du miroir l\'autre est relevee).')
+                A('')
+                # LE VERDICT DE SENS, ET C'EST LA SEULE CHOSE QUE CE BLOC TRANCHAIT AVANT LE C107.
                 if _fwd:
                     A('ROOM-REGA-SENS: la flexion AVANT de §19 est obtenue au signe %s (fenetres'
                       ' %s).' % ('+1' if list(_fwd.values())[0] > 0 else '-1',

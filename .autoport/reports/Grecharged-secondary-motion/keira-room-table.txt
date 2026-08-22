@@ -1931,6 +1931,42 @@ ROOM-REGA: pose a=0 f=5.7500, ecart au miroir revalide = 0.54 deg ; axe pris sur
       14  §20       +1 0.0       -74.7     -564.9    0.4759   0.4824   1.014   inclinaison LATERALE
       14  §20       -1 0.0       386.1     421.4     0.6388   0.5879   1.087   inclinaison LATERALE
 
+   -- ROOM-REGA-BANDE : LA MEME CELLULE, CONTRE LA BANDE DE SA SECTION -------
+ROOM-REGA-BANDE: chestL r=9  sgn=+1 §18  apex=0.4100 B0  [pas de bande] §18 ne borne l'apex que pour « strong » : PAS de bande ici
+ROOM-REGA-BANDE: chestR r=9  sgn=+1 §18  apex=0.1019 B0  [pas de bande] §18 ne borne l'apex que pour « strong » : PAS de bande ici
+ROOM-REGA-BANDE: chestL r=9  sgn=-1 §18  apex=0.4958 B0  [pas de bande] §18 ne borne l'apex que pour « strong » : PAS de bande ici
+ROOM-REGA-BANDE: chestR r=9  sgn=-1 §18  apex=0.1593 B0  [pas de bande] §18 ne borne l'apex que pour « strong » : PAS de bande ici
+ROOM-REGA-BANDE: chestL r=10 sgn=+1 §18  apex=0.4796 B0  [0.20-0.30]  AU-DESSUS (x1.60)  k admissible [1.599 .. 2.398]
+ROOM-REGA-BANDE: chestR r=10 sgn=+1 §18  apex=0.1251 B0  [0.20-0.30]  SOUS (x0.63)       k admissible [0.417 .. 0.625]
+ROOM-REGA-BANDE: chestL r=10 sgn=-1 §18  apex=0.5192 B0  [0.20-0.30]  AU-DESSUS (x1.73)  k admissible [1.731 .. 2.596]
+ROOM-REGA-BANDE: chestR r=10 sgn=-1 §18  apex=0.1717 B0  [0.20-0.30]  SOUS (x0.86)       k admissible [0.572 .. 0.858]
+ROOM-REGA-BANDE: chestL r=11 sgn=+1 §19  apex=0.8397 B0  [0.30-0.40]  AU-DESSUS (x2.10)  k admissible [2.099 .. 2.799]
+ROOM-REGA-BANDE: chestR r=11 sgn=+1 §19  apex=0.8541 B0  [0.30-0.40]  AU-DESSUS (x2.14)  k admissible [2.135 .. 2.847]
+ROOM-REGA-BANDE: chestL r=11 sgn=-1 §19  apex=0.5963 B0  [0.30-0.40]  AU-DESSUS (x1.49)  k admissible [1.491 .. 1.988]
+ROOM-REGA-BANDE: chestR r=11 sgn=-1 §19  apex=0.5388 B0  [0.30-0.40]  AU-DESSUS (x1.35)  k admissible [1.347 .. 1.796]
+ROOM-REGA-BANDE: chestL r=12 sgn=+1 §19  apex=0.7218 B0  [0.30-0.40]  AU-DESSUS (x1.80)  k admissible [1.804 .. 2.406]
+ROOM-REGA-BANDE: chestR r=12 sgn=+1 §19  apex=0.7302 B0  [0.30-0.40]  AU-DESSUS (x1.83)  k admissible [1.825 .. 2.434]
+ROOM-REGA-BANDE: chestL r=12 sgn=-1 §19  apex=0.6012 B0  [0.30-0.40]  AU-DESSUS (x1.50)  k admissible [1.503 .. 2.004]
+ROOM-REGA-BANDE: chestR r=12 sgn=-1 §19  apex=0.6134 B0  [0.30-0.40]  AU-DESSUS (x1.53)  k admissible [1.533 .. 2.045]
+ROOM-REGA-BANDE: chestL r=13 sgn=+1 §20  apex=0.4082 B0  [0.20-0.30]  AU-DESSUS (x1.36)  k admissible [1.361 .. 2.041]
+ROOM-REGA-BANDE: chestR r=13 sgn=+1 §20  apex=0.4273 B0  [0.20-0.30]  AU-DESSUS (x1.42)  k admissible [1.424 .. 2.136]
+ROOM-REGA-BANDE: chestL r=13 sgn=-1 §20  apex=0.5574 B0  [0.20-0.30]  AU-DESSUS (x1.86)  k admissible [1.858 .. 2.787]
+ROOM-REGA-BANDE: chestR r=13 sgn=-1 §20  apex=0.4569 B0  [0.20-0.30]  AU-DESSUS (x1.52)  k admissible [1.523 .. 2.284]
+ROOM-REGA-BANDE: chestL r=14 sgn=+1 §20  apex=0.4759 B0  [0.20-0.30]  AU-DESSUS (x1.59)  k admissible [1.586 .. 2.379]
+ROOM-REGA-BANDE: chestR r=14 sgn=+1 §20  apex=0.4824 B0  [0.20-0.30]  AU-DESSUS (x1.61)  k admissible [1.608 .. 2.412]
+ROOM-REGA-BANDE: chestL r=14 sgn=-1 §20  apex=0.6388 B0  [0.20-0.30]  AU-DESSUS (x2.13)  k admissible [2.129 .. 3.194]
+ROOM-REGA-BANDE: chestR r=14 sgn=-1 §20  apex=0.5879 B0  [0.20-0.30]  AU-DESSUS (x1.96)  k admissible [1.960 .. 2.939]
+ROOM-REGA-FACTEUR: §18 sgn=-1  2 cellule(s)  ->  AUCUN facteur uniforme : il faudrait k >= 1.731 et k <= 0.858
+ROOM-REGA-FACTEUR: §18 sgn=+1  2 cellule(s)  ->  AUCUN facteur uniforme : il faudrait k >= 1.599 et k <= 0.625
+ROOM-REGA-FACTEUR: §19 sgn=-1  4 cellule(s)  ->  k uniforme ATTEIGNABLE dans [1.533 .. 1.796]
+ROOM-REGA-FACTEUR: §19 sgn=+1  4 cellule(s)  ->  k uniforme ATTEIGNABLE dans [2.135 .. 2.406]
+ROOM-REGA-FACTEUR: §20 sgn=-1  4 cellule(s)  ->  k uniforme ATTEIGNABLE dans [2.129 .. 2.284]
+ROOM-REGA-FACTEUR: §20 sgn=+1  4 cellule(s)  ->  k uniforme ATTEIGNABLE dans [1.608 .. 2.041]
+   LECTURE : un `k` > 1 demande MOINS de mouvement, un `k` < 1 en demande PLUS.
+   Ces lignes ne remplacent pas `ROOM-APEX-REGIME` : elles se lisent A COTE, et
+   c'est CELLE-CI qui porte l'axe que la spec nomme (`ROOM-REGPOSE-VERDICT`
+   dit a combien de degres du miroir l'autre est relevee).
+
 ROOM-REGA-SENS: la flexion AVANT de §19 est obtenue au signe +1 (fenetres r=11).
    C'est une MESURE du deplacement de l'ancre, pas un signe choisi : le geste que
    §19 nomme peut donc enfin etre joue, et l'autre signe reste publie a cote comme
