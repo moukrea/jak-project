@@ -8914,3 +8914,115 @@ l'engage doit publier ce qu'elle coute ([[feedback_never_spend_the_bit_identity_
 **COUT EN LIGNES DE MOTEUR : ZERO** — cette note ne touche pas le moteur. Mais l'instrumentation
 qu'elle prescrit, elle, en demande, et la marge est **0** (4800/4800). Le plafond CLEAN est donc le
 blocage effectif du prochain cycle, et c'est remonte comme tel.
+
+
+## NOTE-481  (moteur, en-tete du fichier, lignes 4-10 avant le cycle 106)
+
+Bloc d'en-tete deplace VERBATIM ici au cycle 106 pour rendre 6 lignes sous le plafond CLEAN
+de 4800 (le moteur y etait a 4800/4800, marge ZERO). Aucune ligne de CODE n'a bouge :
+`git diff` du cycle ne montre que des lignes de commentaire a cet endroit.
+
+```
+;; jak-hd-physics.gc — PHYSIQUE SECONDAIRE DE KEIRA (depart propre 2026-08-11).
+;;
+;; [NOTE-000] LA FORME DU MOTEUR (l'ecart a la pose d'auteur en repere ancre) ET COMMENT ELLE
+;; FAIT TOMBER LES SPEC 1/2/3/4/5/7 D'UN COUP. -> jak-hd-physics-NOTES.md
+;;
+;; REGLE 0 (owner) : un commentaire n'est pas une preuve. Tout ce que ce fichier PRETEND faire est
+;; mesure par la salle de test (phys-room.gc) et publie dans keira-room-table.txt.
+```
+
+
+## NOTE-482  (moteur, `phys-skin-chain` et `phys-pen-chain`, cycle 106)
+
+**CE QUE MESURE `*phys-skl*`, ET POURQUOI CETTE GRANDEUR-LA.** Le cycle 105 a laisse une question
+nommee et falsifiable : la contrainte de peau laisse 0,0684 m (chestL) / 0,0681 m (chestR) de
+profondeur AJOUTEE par la physique, et le plafond de deplacement `-dn` est REFUTE comme coupable
+sur chestL. Ce qui restait etait une **borne de LEVIER** : la correction est une ROTATION autour
+de l'attache, donc son autorite dans la direction NORMALE vaut au plus `0,4472 * ln * pp` par
+iteration, ou `ln` est la longueur du maillon et `pp = sin(angle entre la normale et l'axe de
+l'os)`. Six iterations ne peuvent donc fermer que `2,683 * ln * pp`.
+
+  * `ln = 140,4159 u` (maillon de CHAIR) exige `pp >= 0,7436`, soit 48,0 deg ;
+  * `ln = 1040,4951 u` (maillon RACINE) exige `pp >= 0,1003`, soit 5,8 deg.
+
+**NATURE ET REPERE.** `bv`, `ln` et le residu sont des LONGUEURS en unites de jeu (4096 u = 1 m),
+maxima de FENETRE (la fenetre de `phys-diag-reset!`, la meme que `phys-skc`). `pp` est un SINUS
+sans dimension. Les indices de maillon sont des ENTIERS ranges dans des cases flottantes. Le
+repere est le MONDE, frame courante. **Piege declare** : les cases 0 a 4 sont co-localisees (elles
+sont ecrites ENSEMBLE, au meme argmax), mais les cases 10 et 13 sont des maxima SEPARES — les
+comparer entre elles est `ratio-of-two-statistics`, exactement le defaut que le cycle 105 a retire
+du verdict de §34.
+
+**POURQUOI LE LATCH EST POSE AVANT LE TEST `pp > 0.05` ET PAS APRES.** Quand `pp <= 0.05` le
+moteur ne corrige RIEN : la demande est refusee en silence, et `*phys-skc-w*` — qui ne latche
+qu'apres le test — ne la voit jamais. Un refus faute de levier est precisement la forme la plus
+directe du defaut structurel cherche ; il fallait donc le compter (cases 5 a 8) et non le laisser
+tomber dans l'angle mort de l'instrument precedent.
+
+**CONTROLE INTERNE.** La case 13 est un maximum de `add` par chaine, latche a la main dans
+`phys-pen-chain` ; `*phys-skinadd*` est le meme maximum obtenu par un autre chemin (max des
+maxima de frame). Les deux DOIVENT etre egaux au chiffre. Un ecart denonce le latch, pas le
+solveur.
+
+**COUT EN LIGNES DE MOTEUR : +3** (un global, un latch de levier, un accesseur), les autres
+latches etant des extensions de lignes existantes. Les lignes ont ete rendues en migrant l'en-tete
+du fichier vers [NOTE-481], VERBATIM — aucune ligne de CODE n'a bouge, et c'est la seule methode
+autorisee ([[feedback_never_spend_the_bit_identity_control_on_line_count]]).
+
+**AJOUT DU MEME CYCLE — LE TRIPLET CO-LOCALISE DE LA 7e PASSE (cases 15 a 19).** La premiere
+course a rendu un fait que je ne pouvais etablir que par une INEGALITE ENTRE DEUX MAXIMA :
+`max(min(add, -dn))` = 129,55 u contre `max(add)` = 280,17 u sur chestL. L'inegalite est
+rigoureuse — le `min` est le seul operateur entre les deux — mais comparer deux maxima est
+exactement le defaut que le cycle 105 a retire du verdict de SPEC 34, et je ne construis pas un
+diagnostic dessus. Les cases 15 a 19 lisent donc `add` NON ECRETEE, le plafond `-dn`, le module du
+deplacement du joint par rapport a la pose d'auteur, le maillon et la valeur retenue **dans la
+MEME expression, sur le MEME echantillon, a la MEME frame**. La difference `add - v` est alors ce
+que le plafond retient A CE POINT, pas un ecart entre deux populations.
+
+`rdisp` (le module du deplacement) est la pour trancher le MECANISME et pas seulement le fait :
+`-dn` est la composante NORMALE de ce deplacement. Si `-dn << rdisp`, le deplacement qui produit la
+penetration est en grande part TANGENTIEL, et un plafond qui ne borne que la composante normale
+est alors trop serre par construction, pas par reglage. COUT EN LIGNES : **zero** — le latch est
+une extension de la ligne qui existait deja.
+
+
+## NOTE-483  (moteur, `phys-skin-chain`, le plafond de deplacement — cycle 106)
+
+**[NOTE-291] EST CORRIGEE PAR UNE MESURE CO-LOCALISEE, ET LA MESURE EST NETTE.** La note posait
+que la contrainte de peau ne peut se voir demander que de defaire « SA PROPRE part RENTRANTE »,
+et l'operationnalisait par `-dot(dj, n)` — la composante NORMALE de l'ecart du joint a sa pose
+d'auteur. Elle notait meme la propriete comme un avantage : « pousser vers l'exterieur rend
+`dot(dj,n)` positif, donc le plafond retombe a zero de lui-meme ».
+
+**AU POINT QUI PORTE LE VERDICT PUBLIE DE SPEC 34, IL VAUT DEJA ZERO — ET EN DESSOUS.** Triplet lu
+dans la MEME expression, sur le MEME echantillon, a la MEME frame (7e passe, celle qui ne corrige
+pas), tag `run` :
+
+    chaine   demande NON ecretee   plafond -dn    applique   deplacement du joint / auteur
+    chestL       280,1669 u        **-58,0360**   0,0000 u   |dj| 249,54 u = 58,04 N + 242,70 T
+    chestR       278,9003 u        **-32,0811**   0,0000 u   |dj| 139,13 u = 32,08 N + 135,36 T
+
+`radd` egale `addw` egale `skinadd` AU CHIFFRE : ce n'est pas un point voisin, c'est LE point du
+verdict. Le plafond y est NEGATIF, donc `v > bv` est faux (`bv` part de 0.0) : l'echantillon n'est
+jamais elu `bq` et **le moteur n'applique AUCUNE correction dessus**. Ce n'est pas un etranglement
+partiel, c'est une inhibition totale.
+
+**LE MECANISME, ET IL EST GEOMETRIQUE.** 97,3 % du deplacement qui produit la penetration est
+TANGENTIEL a la surface. Le plafond ne borne que la composante NORMALE, et celle-ci pointe vers le
+DEHORS (`dn > 0`) : la regle « tu ne peux pas pousser plus dehors que la pose d'auteur » se declenche
+alors que la PEAU est enfoncee de 6,84 cm. Le sein a pivote LE LONG du torse ; le joint est passe
+devant sa pose d'auteur en normale tout en emmenant l'echantillon de peau, distant de ~700 u, dans
+le corps. La grandeur qui gouverne n'etait pas mesuree sur le bon axe.
+
+**ET LE PLAFOND EST REDONDANT, PAS SEULEMENT MAL PROJETE.** `add = min(0,sa) - sd` retranche DEJA
+la profondeur de l'AUTEUR : c'est deja « la part de la physique », et c'est la definition meme que
+[NOTE-150] donne a la colonne. `-dot(dj,n)` est donc un SECOND garde-fou pose sur la meme intention.
+
+**CE QUI REMPLACE, ET POURQUOI CA GARDE LA PROPRIETE QUI COMPTE.** Le plafond devient `|dj|` — le
+MODULE du meme ecart. Il tient le meme role (rattacher la correction a la pose d'auteur, ce qui
+etait la raison d'etre du plafond) et il garde l'inertie AU BIT au repos : `dj = 0` implique budget
+0, donc SPEC 2 et SPEC 9 restent tenues PAR ALGEBRE et pas par reglage. Ce qu'il perd, c'est
+l'auto-limitation par signe ; ce qu'il gagne, c'est de ne plus etre aveugle a la direction
+([[feedback_radius_blind_to_direction]]). Le cout se chiffre dans le rapport du cycle : `tipvar`,
+SPEC 22 etage 6, `ROOM-STRETCH` et `ROOM-IDLE` sont publies avant/apres.

@@ -1,7 +1,7 @@
 ==================================================================================================
 KEIRA — SALLE DE TEST SANS JOUEUR : TABLEAU DE MESURE
 genere par .autoport/physics_room_table.py depuis .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
-empreinte de la trace lue : md5 d77e3041eee51b2c3ff4865703ca5cb0 (6891445 octets)
+empreinte de la trace lue : md5 a332980331fbb1d34bc06dd7bd450d09 (6904153 octets)
 contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 7 (ce qui fait foi)
 
 -- ROOM-INSTRUMENTS-MUETS : CE QUE CE TABLEAU NE MESURE PAS AUJOURD'HUI ------------
@@ -2152,6 +2152,33 @@ ROOM-SKINPEN-COUT: tag=skin-disarmed  corrections=0  cumul=0.0000 m  pire=0.0000
    AGREGAT DE JAMBE, GLOBAL A LA COURSE et PAS par chaine — il ne se lit donc jamais
    comme une colonne par chaine (regle 7). `corrections`=0 sur la jambe DESARMEE est
    la preuve d'execution que l'interrupteur fait ce qu'il dit.
+ROOM-SKINLEVER: chestL   demande=261.7951 u  maillon=0  pp=0.9929  ln=1040.1981 u  levier=pp*ln=1032.8127 u
+   capacite de 6 iterations = 2.683*levier = 2771.0365 u  contre 261.7951 u demandes  -> LE LEVIER SUFFIT (la borne de levier est REFUTEE comme coupable)
+   kr=bv/(pp*ln)=0.2534 -> NON SATURE (l autorite par iteration n est pas la borne) ; pp exige pour fermer en 6 = 0.0938 (5.4 deg)
+   REFUS faute de levier (pp<=0.05, le moteur ne corrige RIEN) : 11 sur 6674 demandes (0.16 %)  cumul=32.8056 u  pire=3.4664 u  maillon=1
+   residu de la 7e passe=129.5547 u  maillon=1   |   max(add)=280.1669 u  maillon=0   max(skinpen) maillon=0
+   TRIPLET CO-LOCALISE de la 7e passe (MEME echantillon, MEME frame, MEME expression — ce ne sont PAS trois maxima separes) :
+     demande NON ecretee=280.1669 u  plafond -dn=-58.0360 u  retenu=-58.0360 u  applique=0.0000 u  maillon=0
+     -> le plafond de deplacement [NOTE-291] RETIENT 280.1669 u = 0.0684 m, soit 100.0 % de la demande, A CE POINT PRECIS.  ET IL EST <= 0 : l echantillon ne peut pas devenir `bq`, le moteur applique ZERO correction dessus.
+     deplacement du joint / pose d auteur : module=249.5416 u  =  composante NORMALE 58.0360 u (23.3 %) + composante TANGENTIELLE 242.6991 u (97.3 %)
+     -> le deplacement qui produit la penetration est majoritairement TANGENTIEL. Le plafond ne borne QUE la composante normale : un `dn` POSITIF veut dire que le joint est deja PLUS DEHORS que la pose d auteur le long de la normale, donc le plafond interdit toute poussee supplementaire alors que la peau est enfoncee.
+   CONTROLE DU LATCH : addw=0.068400 m contre skinadd=0.068400 m, ecart=0.00e+00 m -> IDENTIQUES
+ROOM-SKINLEVER: chestR   demande=186.2147 u  maillon=0  pp=0.9999  ln=1039.2214 u  levier=pp*ln=1039.1175 u
+   capacite de 6 iterations = 2.683*levier = 2787.9522 u  contre 186.2147 u demandes  -> LE LEVIER SUFFIT (la borne de levier est REFUTEE comme coupable)
+   kr=bv/(pp*ln)=0.1791 -> NON SATURE (l autorite par iteration n est pas la borne) ; pp exige pour fermer en 6 = 0.0668 (3.8 deg)
+   REFUS faute de levier (pp<=0.05, le moteur ne corrige RIEN) : 924 sur 16443 demandes (5.62 %)  cumul=20654.6425 u  pire=70.2775 u  maillon=1
+   residu de la 7e passe=109.3272 u  maillon=1   |   max(add)=278.9003 u  maillon=0   max(skinpen) maillon=0
+   TRIPLET CO-LOCALISE de la 7e passe (MEME echantillon, MEME frame, MEME expression — ce ne sont PAS trois maxima separes) :
+     demande NON ecretee=278.9003 u  plafond -dn=-32.0811 u  retenu=-32.0811 u  applique=0.0000 u  maillon=0
+     -> le plafond de deplacement [NOTE-291] RETIENT 278.9003 u = 0.0681 m, soit 100.0 % de la demande, A CE POINT PRECIS.  ET IL EST <= 0 : l echantillon ne peut pas devenir `bq`, le moteur applique ZERO correction dessus.
+     deplacement du joint / pose d auteur : module=139.1254 u  =  composante NORMALE 32.0811 u (23.1 %) + composante TANGENTIELLE 135.3761 u (97.3 %)
+     -> le deplacement qui produit la penetration est majoritairement TANGENTIEL. Le plafond ne borne QUE la composante normale : un `dn` POSITIF veut dire que le joint est deja PLUS DEHORS que la pose d auteur le long de la normale, donc le plafond interdit toute poussee supplementaire alors que la peau est enfoncee.
+   CONTROLE DU LATCH : addw=0.068091 m contre skinadd=0.068091 m, ecart=0.00e+00 m -> IDENTIQUES
+   LECTURE : `maillon` 0 = la RACINE (lBoob/rBoob, ln ~1040 u), 1 = la CHAIR
+   (lBooc/rBooc, ln ~140 u). Le cycle 105 avait chiffre les deux conditions
+   necessaires : pp>=0.7436 (48.0 deg) sur la chair, pp>=0.1003 (5.8 deg) sur la
+   racine. Elles supposent `kr` sature partout : elles sont GENEREUSES, donc un
+   echec les franchit a fortiori.
 ROOM-SKINADD: chain=chestL       course=0.0684     pire fenetre=0.0666   
 ROOM-SKINADD: chain=chestR       course=0.0681     pire fenetre=0.0648   
 ROOM-SKINADD-CONTROL: ABLATION de la contrainte de peau (`*phys-skin-off*`) — elle deplace le point MESURE.

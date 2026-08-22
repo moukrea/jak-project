@@ -1,13 +1,7 @@
 ;;-*-Lisp-*-
 (in-package goal)
 
-;; jak-hd-physics.gc — PHYSIQUE SECONDAIRE DE KEIRA (depart propre 2026-08-11).
-;;
-;; [NOTE-000] LA FORME DU MOTEUR (l'ecart a la pose d'auteur en repere ancre) ET COMMENT ELLE
-;; FAIT TOMBER LES SPEC 1/2/3/4/5/7 D'UN COUP. -> jak-hd-physics-NOTES.md
-;;
-;; REGLE 0 (owner) : un commentaire n'est pas une preuve. Tout ce que ce fichier PRETEND faire est
-;; mesure par la salle de test (phys-room.gc) et publie dans keira-room-table.txt.
+;; jak-hd-physics.gc — PHYSIQUE SECONDAIRE DE KEIRA (depart propre 2026-08-11). [NOTE-000] la forme du moteur · [NOTE-481] l'en-tete complet et la REGLE 0 (un commentaire n'est pas une preuve) -> jak-hd-physics-NOTES.md
 
 (#when FLAG_PHYSICS
 
@@ -520,6 +514,7 @@
 (define *phys-skc-w* 0.0)
 (define *phys-saq* (new 'global 'array 'float PHYS-MS-MAX))
 (define *phys-skc-r* 0.0)
+(define *phys-skl* (new 'global 'array 'float (* PHYS-SC 20)))   ;; [NOTE-482] LE LEVIER DE LA CONTRAINTE DE PEAU, AU POINT QUI DECIDE -> jak-hd-physics-NOTES.md
 ;; [NOTE-447] SPEC 22 SUR LA VALEUR LIVREE. 0 EN LIVRAISON : 1 DESARME la borne finale.
 (define *phys-e22-off* 0)
 (define *phys-e22-n* 0)
@@ -1962,7 +1957,7 @@
                                           (+ (-> *phys-pz* scl) (-> ap z)) 1.0)
                           (let ((sd (phys-surf-sd skel (/ sc PHYS-CHAINS) sp nbone)))
                             (when (< (fabs sd) 100000.0)
-                              ;; [NOTE-291] LE PLAFOND DE DEPLACEMENT, ET C'EST LUI QUI EMPECHE L'EMBALLEMENT. -> jak-hd-physics-NOTES.md
+                              ;; [NOTE-291] [NOTE-483] LE PLAFOND DE DEPLACEMENT : SON MODULE, PLUS SA COMPOSANTE NORMALE (cycle 106, mesure co-localisee) -> jak-hd-physics-NOTES.md
                               (let* ((dx (- ox (-> skel bones (+ kk 1) transform vector 3 x)))
                                      (dy (- oy (-> skel bones (+ kk 1) transform vector 3 y)))
                                      (dz (- oz (-> skel bones (+ kk 1) transform vector 3 z)))
@@ -1972,9 +1967,9 @@
                                 (when (> v bv)
                                   (set! bv v)
                                   (set! bq q)
-                                  (vector-copy! nb *phys-sdn*))))))))
+                                  (vector-copy! nb *phys-sdn*)) (when (and (= it 6) (> (- (fmin 0.0 sa) sd) (-> *phys-skl* (+ (* sc 20) 15)))) (set! (-> *phys-skl* (+ (* sc 20) 15)) (- (fmin 0.0 sa) sd)) (set! (-> *phys-skl* (+ (* sc 20) 16)) (- 0.0 dn)) (set! (-> *phys-skl* (+ (* sc 20) 17)) (sqrtf (+ (* dx dx) (+ (* dy dy) (* dz dz))))) (set! (-> *phys-skl* (+ (* sc 20) 18)) (the float l)) (set! (-> *phys-skl* (+ (* sc 20) 19)) v))))))))
                     ;; [NOTE-414] LA 7e PASSE NE CORRIGE PAS, ELLE MESURE : `*phys-skc-r*` est la pire -> jak-hd-physics-NOTES.md
-                    (when (and (= it 6) (> bv *phys-skc-r*)) (set! *phys-skc-r* bv))
+                    (when (= it 6) (when (> bv *phys-skc-r*) (set! *phys-skc-r* bv)) (let ((sk (* sc 20))) (when (> bv (-> *phys-skl* (+ sk 10))) (set! (-> *phys-skl* (+ sk 10)) bv) (set! (-> *phys-skl* (+ sk 11)) (the float l)))))
                     (when (and (>= bq 0) (< it 6))
                       (let* ((ux (- (-> *phys-px* scl) bx))
                              (uy (- (-> *phys-py* scl) by))
@@ -1986,6 +1981,8 @@
                                  (cn (+ (* (-> nb x) hx) (+ (* (-> nb y) hy) (* (-> nb z) hz))))
                                  (s2 (- 1.0 (* cn cn)))
                                  (pp (sqrtf (fmax 0.0 s2))))
+                            ;; [NOTE-482] LE LEVIER, LU LA OU LA CORRECTION SE DECIDE — instrument pur, il n'ecrit aucun etat du solveur. -> jak-hd-physics-NOTES.md
+                            (let ((sk (* sc 20))) (when (> bv (-> *phys-skl* sk)) (set! (-> *phys-skl* sk) bv) (set! (-> *phys-skl* (+ sk 1)) (the float l)) (set! (-> *phys-skl* (+ sk 2)) pp) (set! (-> *phys-skl* (+ sk 3)) ln) (set! (-> *phys-skl* (+ sk 4)) (/ bv (fmax 0.0001 (* pp ln))))) (+! (-> *phys-skl* (+ sk 9)) 1.0) (when (<= pp 0.05) (+! (-> *phys-skl* (+ sk 5)) 1.0) (+! (-> *phys-skl* (+ sk 6)) bv) (when (> bv (-> *phys-skl* (+ sk 7))) (set! (-> *phys-skl* (+ sk 7)) bv) (set! (-> *phys-skl* (+ sk 8)) (the float l)))))
                             (when (> pp 0.05)
                               (let* ((tx (/ (- (-> nb x) (* cn hx)) pp))
                                      (ty (/ (- (-> nb y) (* cn hy)) pp))
@@ -2402,13 +2399,13 @@
                         (set! (-> *phys-skinmiss* sc) (+ 1.0 (-> *phys-skinmiss* sc))))
                       (when (and (< sd 0.0) (> sd -100000.0)
                                  (> (- 0.0 sd) (-> *phys-skinpen* sc)))
-                        (set! (-> *phys-skinpen* sc) (- 0.0 sd)))
+                        (set! (-> *phys-skinpen* sc) (- 0.0 sd)) (set! (-> *phys-skl* (+ (* sc 20) 12)) (the float l)))
                       (when (and (> sd -100000.0) (< sd 900000.0))
                         (set-vector! ap bx by bz 1.0)
                         (let ((sa (phys-surf-sd skel (/ sc PHYS-CHAINS) ap nbone)))
                           (when (and (> sa -100000.0) (< sa 900000.0))
                             (let ((add (- (fmin 0.0 sa) sd)))
-                              (when (> add (-> *phys-saf* sc)) (set! (-> *phys-saf* sc) add)))
+                              (when (> add (-> *phys-saf* sc)) (set! (-> *phys-saf* sc) add)) (when (> add (-> *phys-skl* (+ (* sc 20) 13))) (set! (-> *phys-skl* (+ (* sc 20) 13)) add) (set! (-> *phys-skl* (+ (* sc 20) 14)) (the float l))))
                             (when (> (- 0.0 sa) (-> *phys-skinrest* sc))
                               (set! (-> *phys-skinrest* sc) (- 0.0 sa)))
                             ;; [NOTE-227] [NOTE-161] CONTROLE D'INTEGRITE, REDEFINI AVEC LA GRANDEUR. Un sommet -> jak-hd-physics-NOTES.md
@@ -4512,7 +4509,7 @@
   (set! *phys-skc-n* 0)
   (set! *phys-skc-d* 0.0)
   (set! *phys-skc-w* 0.0)
-  (set! *phys-skc-r* 0.0)
+  (set! *phys-skc-r* 0.0) (dotimes (i (* PHYS-SC 20)) (set! (-> *phys-skl* i) 0.0))
   (set! *phys-e22-n* 0)
   (set! *phys-e22-d* 0.0)
   (none))
@@ -4547,6 +4544,8 @@
         ((= which 3) *phys-skc-r*)
         ((= which 4) (the float *phys-e22-n*))
         (else *phys-e22-d*)))
+
+(defun phys-skl ((slot int) (chain int) (w int)) "LE LEVIER DE LA CONTRAINTE DE PEAU AU POINT QUI DECIDE — instrument PUR (aucune case n'est lue par le solveur), 20 cases par chaine, meme fenetre que `phys-skc`. Table des cases : [NOTE-482] de jak-hd-physics-NOTES.md." (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS) (< w 0) (>= w 20)) 0.0 (-> *phys-skl* (+ (* 20 (+ (* slot PHYS-CHAINS) chain)) w))))
 
 (defun phys-e22-off-set! ((v int))
   "ABLATION, 0 EN LIVRAISON : 1 DESARME `phys-cap-e22!`, la borne de SPEC 22 sur la valeur LIVREE.

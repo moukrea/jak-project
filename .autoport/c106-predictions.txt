@@ -1,0 +1,131 @@
+PREDICTIONS DU CYCLE 106 — ecrites AVANT la course, avant tout build.
+DIRECTIVES v3fee554599
+Perimetre : chestL / chestR SEULES (owner 2026-08-14 07:30). Branche physics-keira-clean.
+
+SECTION DONT CE CYCLE DEBLOQUE LE VERDICT, NOMMEE AVANT DE COMMENCER (directive 2026-08-21 18:25) :
+  **SPEC 34** (peau du sein contre le THORAX). C'est la suite (a) nommee par le cycle 105 :
+  « la mesure qui tranche est nommee et falsifiable : le maillon proprietaire de l'argmax, `pp`,
+    et si `kr` sature. Si c'est la chair avec pp < 0,74, le chantier est STRUCTUREL et pas un
+    budget d'iterations. »
+  Ce cycle CONSTRUIT cette mesure et la publie. Il ne touche AUCUNE gate (regle 5).
+
+CE QUI EST AJOUTE : un latch de LEVIER dans `phys-skin-chain` et deux latches de PROPRIETE dans
+`phys-pen-chain`. Aucun n'ecrit dans l'etat du solveur — ils lisent des grandeurs deja calculees.
+
+------------------------------------------------------------------------------------------------
+CONTROLES D'IDENTITE (ils rendent le cycle lisible ; sans eux « §34 bouge » serait indiscernable
+de « j'ai casse le solveur »)
+------------------------------------------------------------------------------------------------
+P1  Le moteur reste <= 4800 lignes (gate CLEAN). Cible annoncee : 4796 (4800 - 6 d'en-tete migre
+    VERBATIM vers NOTES.md + 2 lignes de code neuves). Si > 4800, la gate BASH sort et TOUTES les
+    gates de mesure cessent d'etre evaluees (`engine-line-ceiling-hides-all-gates`).
+P2  La sortie du validateur garde **18 lignes** et le meme etat sur les 12 gates de mesure.
+    (Le cycle 105 a publie « 17 » par heritage ; recompte : 18. C'est 18 qui fait foi.)
+P3  `PHYSSKIN` (skinpen, skinadd) IDENTIQUE AU CHIFFRE sur les 28 lignes de la course de base
+    `keira-room-x86.c105-BASE.log`. L'instrument ne doit rien deplacer.
+P4  `PHYSSKINC` et `PHYSE22` IDENTIQUES AU CHIFFRE sur leurs 14 lignes.
+P5  Controle interne de l'instrument : la colonne `addw` du nouvel enregistrement `PHYSSKLV`
+    (max de `add` par chaine et par tag, latche a la main) doit EGALER `skinadd` de `PHYSSKIN`
+    au chiffre. Deux chemins independants vers la meme grandeur ; un ecart denonce le latch.
+
+------------------------------------------------------------------------------------------------
+LA QUESTION DE FOND, ET CE QUE JE PARIE DESSUS
+------------------------------------------------------------------------------------------------
+Rappel du calcul du cycle 105 (borne SUPERIEURE et GENEREUSE, elle suppose `kr` sature partout) :
+l'autorite de la rotation dans la direction NORMALE vaut au plus `0,4472 * ln * pp` par iteration,
+6 iterations corrigent donc au plus `2,683 * ln * pp`. Fermer 280,1669 u exige `ln*pp >= 104,42 u`,
+soit pp >= 0,7436 sur la CHAIR (ln = 140,4159 u) ou pp >= 0,1003 sur la RACINE (ln = 1040,4951 u).
+
+P6  **PROPRIETE.** Le maillon proprietaire du maximum de `skinadd` (slot 14) et celui du maximum
+    de `skinpen` (slot 12) sont LE MEME sur chaque chaine. Si les deux different, la grandeur du
+    verdict et la grandeur du diagnostic ne parlent pas du meme endroit et il faudra le dire.
+P7  **LE PARI PRINCIPAL, FALSIFIABLE.** Sur au moins une des deux chaines, le maillon proprietaire
+    du pire ecart est le maillon **DISTAL** (l = 1, la chair), et `pp` y est **< 0,74**.
+    Raison mecanique posee d'avance : l'os de chair pointe vers l'AVANT/DEHORS, c'est-a-dire
+    approximativement le long de la NORMALE de la surface du thorax a cet endroit ; `cn -> 1`
+    entraine `pp -> 0`. Une rotation autour de l'attache ne peut pas deplacer sa pointe le long
+    d'un axe qui lui est colineaire. **Si P7 est refutee — proprietaire = racine, ou pp >= 0,74 —
+    alors la borne de levier n'est PAS le coupable et il faudra chercher ailleurs ; je le publierai
+    comme une refutation de ma propre hypothese, pas comme un resultat neutre.**
+P8  **REFUS.** Le compteur de demandes refusees faute de levier (`pp <= 0,05`, le moteur ne
+    corrige alors RIEN) est **> 0** sur au moins une chaine. Un refus silencieux est la forme la
+    plus directe du defaut structurel : la contrainte voit la penetration et ne peut pas agir.
+P9  **SATURATION.** Au maximum, `bv / (pp*ln) >= 0,5` — donc `kr` SATURE. Consequence : le moteur
+    est deja a son autorite maximale par iteration, et augmenter un gain ne donnerait rien.
+    Si `< 0,5`, `kr` ne sature pas et le probleme n'est pas l'autorite mais le nombre de passes.
+P10 **RESIDU.** Le maximum residuel a la 7e passe (it = 6, slot 10) est porte par le MEME maillon
+    que le maximum de demande. Si c'est un AUTRE maillon, la contrainte deplace le defaut au lieu
+    de le fermer, et c'est un fait different de celui que je cherche.
+
+------------------------------------------------------------------------------------------------
+CE QUE CE CYCLE NE FAIT PAS, DECLARE D'AVANCE (pas de de-scope silencieux, regle 3)
+------------------------------------------------------------------------------------------------
+  (b) EGALISER LES POPULATIONS des deux jambes de l'ablation de §34 : NON FAIT. Le controle de
+      §34 reste donc non concluant sur chestR, et §34 ne peut pas devenir verte proprement.
+  (c) Le residu FINAL de la peau (§10g du cycle 105) : NON FAIT.
+  (d) Le cout par frame sur device du cycle 104 : NON MESURE.
+  (e) Le seuil du rebase de §37 : NON FAIT.
+  Aucune section autre que §34 n'est visee par ce cycle.
+
+------------------------------------------------------------------------------------------------
+SECONDE MOITIE DU CYCLE — PREDICTIONS ECRITES **APRES** LA PREMIERE COURSE ET **AVANT** LA
+SECONDE. Je le date au lieu de le glisser en silence (le cycle 105 avait fait de meme pour P7/P8).
+------------------------------------------------------------------------------------------------
+CE QUE LA PREMIERE COURSE A RENDU, ET POURQUOI IL FAUT UNE SECONDE :
+  P7 est **REFUTEE**. Le proprietaire du pire ecart est la RACINE (l=0) sur les DEUX chaines, avec
+  pp = 0,9929 / 0,9999 et une capacite de 2771 / 2788 u pour 262 / 186 u demandes ; `kr` = 0,2534 /
+  0,1791, donc **il ne sature meme pas**. La borne de LEVIER que le cycle 105 avait nommee comme
+  seule suspecte survivante est morte. Je publierai cette refutation de mon propre pari comme un
+  resultat, pas comme une note.
+  CE QUI RESTE, ET IL EST DESIGNE PAR ALGEBRE : `bv = min(add, -dn)`. `max(min(add,-dn))` = 129,55 u
+  contre `max(add)` = 280,17 u sur chestL — le `min` est le SEUL operateur entre les deux, donc le
+  plafond de deplacement `-dn` ([NOTE-291]) retient au moins 150,62 u. **Mais c'est une inegalite
+  entre DEUX MAXIMA, et c'est precisement la faute que le cycle 105 a retiree du verdict de §34.
+  Je refuse de batir le diagnostic dessus.** D'ou le triplet CO-LOCALISE, cout zero ligne.
+
+P11 Au meme echantillon, a la meme frame, dans la MEME expression : `rcap` < `radd` sur les deux
+    chaines, et la part retenue par le plafond est **>= 100 u (2,4 cm)** sur chestL. Si `rcap >=
+    radd` (le plafond ne mord pas la ou le defaut est le plus grand), alors mon explication tombe
+    AUSSI et il ne reste plus aucun suspect nomme — je le dirais tel quel.
+P12 `rcap` (composante NORMALE du deplacement du joint par rapport a la pose d'auteur) vaut **moins
+    de 50 %** de `rdisp` (son module) : le deplacement qui produit la penetration est en grande part
+    TANGENTIEL. C'est le mecanisme, et il explique pourquoi un plafond pose sur la seule composante
+    normale est trop serre par CONSTRUCTION et pas par reglage.
+P13 `rl` (le maillon du triplet) vaut 0 — la RACINE — comme `ladd`.
+P14 Controles d'identite a nouveau : `PHYSSKIN`, `PHYSSKIN2`, `PHYSSKINC`, `PHYSE22` identiques AU
+    CHIFFRE a la course `c106-LEVIER`. Le nouveau latch ne fait que LIRE.
+
+------------------------------------------------------------------------------------------------
+TROISIEME TEMPS — LE CORRECTIF, PREDICTIONS ECRITES **APRES** LA SECONDE COURSE ET **AVANT** LA
+TROISIEME. Encore une fois date, pas glisse.
+------------------------------------------------------------------------------------------------
+CE QUE LA SECONDE COURSE A RENDU (triplet CO-LOCALISE, tag=run, 7e passe) :
+    chestL  demande NON ecretee 280,1669 u   plafond -dn = **-58,0360 u**   applique **0,0000 u**
+    chestR  demande NON ecretee 278,9003 u   plafond -dn = **-32,0811 u**   applique **0,0000 u**
+  `radd` EGALE `addw` EGALE `skinadd` AU CHIFFRE sur les deux chaines : le triplet est lu AU POINT
+  QUI PORTE LE VERDICT PUBLIE, pas a cote. Le plafond y est **NEGATIF**, donc l'echantillon ne peut
+  pas devenir `bq` (`bv` part de 0.0 et l'election exige `v > bv`) : **le moteur n'applique RIEN**.
+  Decomposition du deplacement du joint par rapport a la pose d'auteur : module 249,54 u = normale
+  58,04 u (23,3 %, vers le DEHORS) + tangentielle 242,70 u (**97,3 %**). Le plafond ne borne que la
+  composante normale ; il se referme donc exactement quand le defaut est produit tangentiellement.
+
+LE CORRECTIF PROPOSE, ET SA JUSTIFICATION EN UNE LIGNE : `add = min(0,sa) - sd` retranche DEJA la
+profondeur de l'AUTEUR — c'est deja « la part de la physique » ([[admissible-depth-is-not-penetration]]).
+Le plafond `-dot(dj,n)` est donc un SECOND garde-fou, redondant, et projete sur le mauvais axe. Il
+est remplace par `|dj|` : meme role (rattacher la correction a la pose d'auteur, INERTE au bit quand
+`dj = 0`, donc SPEC 2 et SPEC 9 sont preservees par ALGEBRE), mais invariant par direction.
+
+P15 `ROOM-SKINADD` BAISSE sur les deux chaines. Plancher chiffre d'avance : au point co-localise le
+    budget passe de 0 a 249,54 u pour 280,17 u demandes, donc ce point tombe de 280,17 a ~30,63 u.
+    Je predis **<= 0,045 m sur chestL** (soit au moins -35 %). Au-dessus, la prediction est FAUSSE
+    et je le publie.
+P16 `ROOM-IDLE` reste <= 0,001. C'est le controle qui protege SPEC 2/9 : a la pose d'auteur
+    `dj = 0`, donc le budget est 0 et la contrainte est inerte PAR ALGEBRE, pas par reglage.
+P17 `ROOM-STRETCH` reste <= 3 %. La correction reste une ROTATION a longueur invariante ; seul le
+    module de `bv` change, et `kr` garde son plafond de 0,5.
+P18 **LE COUT, ET C'EST LUI QUI PEUT FAIRE RETIRER LE CORRECTIF.** `tipvar` (0,1844 / 0,2018) ne
+    doit pas perdre plus de 20 %, et SPEC 22 (`ROOM-STG` etage 6) doit rester <= 0,50 B0. Un
+    correctif qui MUSELLE se retire et son cout se chiffre — c'est la regle depuis le 2026-08-11.
+P19 `PHYSSKINC n` (nombre de corrections) MONTE : des demandes jusqu'ici negatives deviennent
+    positives. Si `n` ne bouge pas, le correctif n'a pas atteint la boucle et tout le reste est nul.
+P20 Le triplet co-localise republie `plafond` = `|dj|` >= 0 : plus aucun plafond negatif.

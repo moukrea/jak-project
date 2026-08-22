@@ -2505,6 +2505,45 @@
   ;;   LECTURE QUAND LA BORNE NE MORD PAS : les deux a zero — et desarmee (`*phys-e22-off*` = 1)
   ;;   elle DOIT rendre exactement 0, c'est son controle negatif.
   (format 0 "PHYSE22 tag=~S n=~f cut_b0=~f~%" tag (phys-skc 4) (phys-skc 5))
+  ;; [NOTE-482] LE LEVIER DE LA CONTRAINTE DE PEAU, AU POINT QUI DECIDE. Le cycle 105 a laisse une
+  ;; question nommee : la correction de `phys-skin-chain` est une ROTATION autour de l'attache, donc
+  ;; son autorite dans la direction NORMALE vaut au plus `0,4472 * ln * pp` par iteration. Ces
+  ;; colonnes disent, PAR CHAINE, si le levier suffit — et si des demandes sont refusees en silence.
+  ;;   NATURE : `bv`, `ln`, `sref`, `wref`, `res` sont des LONGUEURS (unites de jeu, 4096 u = 1 m),
+  ;;            maxima ou cumuls de FENETRE ; `pp` est un SINUS sans dimension ; `kr` est le rapport
+  ;;            `bv/(pp*ln)` NON ECRETE (>= 0.5 => le moteur sature son plafond de rotation) ;
+  ;;            `l`, `lref`, `lres`, `lpen`, `ladd` sont des INDICES DE MAILLON (0 = racine).
+  ;;   REPERE : le MONDE, frame courante. FENETRE : celle de `phys-diag-reset!`, comme `PHYSSKINC`.
+  ;;   PIEGE DECLARE : `bv/l/pp/ln/kr` sont CO-LOCALISES (ecrits ensemble au meme argmax) ; `res`
+  ;;            et `addw` sont des maxima SEPARES — les soustraire serait la faute que le cycle 105
+  ;;            a retiree du verdict de SPEC 34.
+  ;;   LECTURE QUAND LA CONTRAINTE NE MORD PAS : tout a zero.
+  ;;   CONTROLE INTERNE : `addw` doit EGALER `skinadd` de `PHYSSKIN` au chiffre (deux chemins).
+  (dotimes (c (-> self nchain))
+    (when (> (phys-chain-links (-> self slot) c) 0)
+      (format 0 "PHYSSKLV tag=~S c=~D bv=~f l=~f pp=~f ln=~f~%" tag c
+              (phys-skl (-> self slot) c 0) (phys-skl (-> self slot) c 1)
+              (phys-skl (-> self slot) c 2) (phys-skl (-> self slot) c 3))
+      (format 0 "PHYSSKLV2 tag=~S c=~D kr=~f ntot=~f nref=~f sref=~f~%" tag c
+              (phys-skl (-> self slot) c 4) (phys-skl (-> self slot) c 9)
+              (phys-skl (-> self slot) c 5) (phys-skl (-> self slot) c 6))
+      (format 0 "PHYSSKLV3 tag=~S c=~D wref=~f lref=~f res=~f lres=~f~%" tag c
+              (phys-skl (-> self slot) c 7) (phys-skl (-> self slot) c 8)
+              (phys-skl (-> self slot) c 10) (phys-skl (-> self slot) c 11))
+      (format 0 "PHYSSKLV4 tag=~S c=~D lpen=~f addw=~f ladd=~f~%" tag c
+              (phys-skl (-> self slot) c 12) (phys-skl (-> self slot) c 13)
+              (phys-skl (-> self slot) c 14))
+      ;; LE TRIPLET CO-LOCALISE DE LA 7e PASSE. `radd` (demande NON ECRETEE), `rcap` (le plafond
+      ;; de deplacement `-dn` de [NOTE-291]) et `rv` (ce que le moteur retient, = min des deux)
+      ;; sont lus SUR LE MEME ECHANTILLON, A LA MEME FRAME, dans la MEME expression — ce ne sont
+      ;; PAS trois maxima separes. C'est precisement la faute que le cycle 105 a retiree du
+      ;; verdict de SPEC 34, et elle ne se reproduit pas ici. `rdisp` est le MODULE du deplacement
+      ;; du joint par rapport a la pose d'auteur au meme point : `rcap` en est la composante
+      ;; NORMALE, donc `rcap << rdisp` veut dire que le deplacement est en grande part TANGENTIEL.
+      (format 0 "PHYSSKLV5 tag=~S c=~D radd=~f rcap=~f rdisp=~f rl=~f~%" tag c
+              (phys-skl (-> self slot) c 15) (phys-skl (-> self slot) c 16)
+              (phys-skl (-> self slot) c 17) (phys-skl (-> self slot) c 18))
+      (format 0 "PHYSSKLV6 tag=~S c=~D rv=~f~%" tag c (phys-skl (-> self slot) c 19))))
   (phys-skinpen-reset!)
   (none))
 

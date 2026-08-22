@@ -3878,6 +3878,40 @@ def main():
         skinc[m.group(1)] = (float(m.group(2)), float(m.group(3)) / UNITS,
                              float(m.group(4)) / UNITS,
                              (float(m.group(5)) / UNITS) if m.group(5) is not None else None)
+    # [NOTE-482] LE LEVIER DE LA CONTRAINTE DE PEAU, AU POINT QUI DECIDE (cycle 106). Colonnes en
+    # UNITES DE JEU (4096 u = 1 m) et laissees telles quelles : le raisonnement de levier du cycle
+    # 105 est ecrit en u, et convertir ici obligerait a reconvertir pour le relire. `pp` et `kr`
+    # sont sans dimension. Absent des traces anterieures au cycle 106 : le dict reste vide et
+    # AUCUNE ligne ne se publie — « pas mesure » ne se confond jamais avec « mesure a zero ».
+    sklv = {}
+    def _sklv(tag, c):
+        return sklv.setdefault(tag, {}).setdefault(int(c), {})
+    for m in re.finditer(r'^PHYSSKLV tag=(\S+) c=(\d+) bv=([-\d.e+]+) l=([-\d.e+]+)'
+                         r' pp=([-\d.e+]+) ln=([-\d.e+]+)', txt, re.M):
+        d = _sklv(m.group(1), m.group(2))
+        d['bv'], d['l'] = float(m.group(3)), float(m.group(4))
+        d['pp'], d['ln'] = float(m.group(5)), float(m.group(6))
+    for m in re.finditer(r'^PHYSSKLV2 tag=(\S+) c=(\d+) kr=([-\d.e+]+) ntot=([-\d.e+]+)'
+                         r' nref=([-\d.e+]+) sref=([-\d.e+]+)', txt, re.M):
+        d = _sklv(m.group(1), m.group(2))
+        d['kr'], d['ntot'] = float(m.group(3)), float(m.group(4))
+        d['nref'], d['sref'] = float(m.group(5)), float(m.group(6))
+    for m in re.finditer(r'^PHYSSKLV3 tag=(\S+) c=(\d+) wref=([-\d.e+]+) lref=([-\d.e+]+)'
+                         r' res=([-\d.e+]+) lres=([-\d.e+]+)', txt, re.M):
+        d = _sklv(m.group(1), m.group(2))
+        d['wref'], d['lref'] = float(m.group(3)), float(m.group(4))
+        d['res'], d['lres'] = float(m.group(5)), float(m.group(6))
+    for m in re.finditer(r'^PHYSSKLV4 tag=(\S+) c=(\d+) lpen=([-\d.e+]+) addw=([-\d.e+]+)'
+                         r' ladd=([-\d.e+]+)', txt, re.M):
+        d = _sklv(m.group(1), m.group(2))
+        d['lpen'], d['addw'], d['ladd'] = float(m.group(3)), float(m.group(4)), float(m.group(5))
+    for m in re.finditer(r'^PHYSSKLV5 tag=(\S+) c=(\d+) radd=([-\d.e+]+) rcap=([-\d.e+]+)'
+                         r' rdisp=([-\d.e+]+) rl=([-\d.e+]+)', txt, re.M):
+        d = _sklv(m.group(1), m.group(2))
+        d['radd'], d['rcap'] = float(m.group(3)), float(m.group(4))
+        d['rdisp'], d['rl'] = float(m.group(5)), float(m.group(6))
+    for m in re.finditer(r'^PHYSSKLV6 tag=(\S+) c=(\d+) rv=([-\d.e+]+)', txt, re.M):
+        _sklv(m.group(1), m.group(2))['rv'] = float(m.group(3))
     skinrest, skinout = {}, {}
     # [NOTE-158] LA COUVERTURE DE LA PEAU. Une troncature silencieuse est un de-scope : ce couple
     # doit vivre DANS le tableau, a cote de `skinpen`, et pas dans une ligne de log.
@@ -8551,6 +8585,107 @@ def main():
             A('   AGREGAT DE JAMBE, GLOBAL A LA COURSE et PAS par chaine — il ne se lit donc jamais')
             A('   comme une colonne par chaine (regle 7). `corrections`=0 sur la jambe DESARMEE est')
             A('   la preuve d\'execution que l\'interrupteur fait ce qu\'il dit.')
+        # ============================================================================================
+        # [NOTE-482] ROOM-SKINLEVER — LE LEVIER DE LA CONTRAINTE DE PEAU, AU POINT QUI DECIDE.
+        #
+        # POURQUOI ELLE EXISTE. Le cycle 105 a laisse UNE question nommee et falsifiable : la
+        # correction de `phys-skin-chain` est une ROTATION autour de l'attache, donc son autorite
+        # dans la direction NORMALE vaut au plus `0,4472 * ln * pp` par iteration, ou `pp` est le
+        # SINUS de l'angle entre la normale de la surface et l'axe de l'os. Six iterations ne
+        # peuvent donc fermer que `2,683 * ln * pp`. Si cette capacite est SOUS la demande, la
+        # contrainte ne peut pas fermer avec sa forme actuelle : le chantier est STRUCTUREL et pas
+        # un budget d'iterations. Ces lignes tranchent, avec les deux nombres cote a cote.
+        #   NATURE  : `demande`, `ln`, `levier`, `residu` sont des LONGUEURS en UNITES DE JEU
+        #             (4096 u = 1 m), maxima de FENETRE ; `pp` un sinus ; `kr` un rapport ;
+        #             `maillon` un INDICE (0 = racine, 1 = chair).
+        #   REPERE  : le MONDE, frame courante. FENETRE : celle de `phys-diag-reset!`.
+        #   ABSENT  : la contrainte qui ne mord pas rend tout a zero et AUCUN maillon proprietaire.
+        #   PIEGE DECLARE : `demande/maillon/pp/ln/kr` sont CO-LOCALISES (ecrits ENSEMBLE au meme
+        #             argmax) ; `residu` et `max(add)` sont des maxima SEPARES. Les soustraire
+        #             serait exactement la faute que le cycle 105 a retiree du verdict de SPEC 34.
+        _sk = sklv.get('run') or {}
+        for c in sorted(_sk):
+            d = _sk[c]
+            if not d or 'bv' not in d:
+                continue
+            nm = names[c] if c < len(names) else str(c)
+            lev = d['pp'] * d['ln']
+            cap = 2.683 * lev                      # ce que 6 iterations peuvent fermer, borne SUP
+            if d['bv'] <= 0.0:
+                A('ROOM-SKINLEVER: %-8s AUCUNE DEMANDE sur la fenetre — rien a lire.' % nm)
+                continue
+            A('ROOM-SKINLEVER: %-8s demande=%.4f u  maillon=%.0f  pp=%.4f  ln=%.4f u'
+              '  levier=pp*ln=%.4f u' % (nm, d['bv'], d['l'], d['pp'], d['ln'], lev))
+            A('   capacite de 6 iterations = 2.683*levier = %.4f u  contre %.4f u demandes'
+              '  -> %s' % (cap, d['bv'],
+                           'LE LEVIER SUFFIT (la borne de levier est REFUTEE comme coupable)'
+                           if cap >= d['bv'] else
+                           'LE LEVIER NE SUFFIT PAS — manque un facteur %.2f' % (d['bv'] / cap)))
+            if 'kr' in d:
+                A('   kr=bv/(pp*ln)=%.4f -> %s ; pp exige pour fermer en 6 = %.4f (%.1f deg)'
+                  % (d['kr'],
+                     'SATURE (plafond 0.5 : le moteur est deja a son autorite maximale)'
+                     if d['kr'] >= 0.5 else 'NON SATURE (l autorite par iteration n est pas la borne)',
+                     min(1.0, d['bv'] / (2.683 * d['ln'])),
+                     math.degrees(math.asin(min(1.0, d['bv'] / (2.683 * d['ln']))))))
+            if 'nref' in d:
+                _pct = (100.0 * d['nref'] / d['ntot']) if d['ntot'] > 0 else 0.0
+                A('   REFUS faute de levier (pp<=0.05, le moteur ne corrige RIEN) : %.0f sur %.0f'
+                  ' demandes (%.2f %%)  cumul=%.4f u  pire=%.4f u  maillon=%.0f'
+                  % (d['nref'], d['ntot'], _pct, d['sref'], d.get('wref', 0.0), d.get('lref', -1.0)))
+            if 'res' in d:
+                A('   residu de la 7e passe=%.4f u  maillon=%.0f   |   max(add)=%.4f u'
+                  '  maillon=%.0f   max(skinpen) maillon=%.0f'
+                  % (d['res'], d['lres'], d.get('addw', 0.0), d.get('ladd', -1.0),
+                     d.get('lpen', -1.0)))
+            if 'radd' in d and d['radd'] > 0.0:
+                # `rv` est ce que le moteur RETIENT, mais il ne devient une correction que s'il est
+                # STRICTEMENT POSITIF : `bv` part de 0.0 et l'echantillon n'est elu (`bq`) que si
+                # `v > bv`. Un `rv` negatif ou nul n'est donc pas « une correction plus petite »,
+                # c'est ZERO correction sur cet echantillon. La part appliquee se lit max(0, rv).
+                _app = max(0.0, d.get('rv', 0.0))
+                _wh = d['radd'] - _app
+                _dn = -d['rcap']                       # `rcap` = -dn ; `dn` = la composante signee
+                _tg = math.sqrt(max(0.0, d['rdisp'] ** 2 - _dn ** 2))
+                A('   TRIPLET CO-LOCALISE de la 7e passe (MEME echantillon, MEME frame, MEME'
+                  ' expression — ce ne sont PAS trois maxima separes) :')
+                A('     demande NON ecretee=%.4f u  plafond -dn=%.4f u  retenu=%.4f u'
+                  '  applique=%.4f u  maillon=%.0f'
+                  % (d['radd'], d['rcap'], d.get('rv', 0.0), _app, d.get('rl', -1.0)))
+                A('     -> le plafond de deplacement [NOTE-291] RETIENT %.4f u = %.4f m, soit'
+                  ' %.1f %% de la demande, A CE POINT PRECIS.%s'
+                  % (_wh, _wh / UNITS, 100.0 * _wh / d['radd'],
+                     '  ET IL EST <= 0 : l echantillon ne peut pas devenir `bq`,'
+                     ' le moteur applique ZERO correction dessus.'
+                     if d.get('rv', 0.0) <= 0.0 else ''))
+                A('     deplacement du joint / pose d auteur : module=%.4f u  =  composante'
+                  ' NORMALE %.4f u (%.1f %%) + composante TANGENTIELLE %.4f u (%.1f %%)'
+                  % (d['rdisp'], _dn,
+                     (100.0 * _dn / d['rdisp']) if d['rdisp'] > 0 else 0.0,
+                     _tg, (100.0 * _tg / d['rdisp']) if d['rdisp'] > 0 else 0.0))
+                A('     -> %s. Le plafond ne borne QUE la composante normale : %s'
+                  % ('le deplacement qui produit la penetration est majoritairement TANGENTIEL'
+                     if (d['rdisp'] > 0 and _tg > 0.5 * d['rdisp'])
+                     else 'le deplacement est majoritairement NORMAL',
+                     'un `dn` POSITIF veut dire que le joint est deja PLUS DEHORS que la pose'
+                     ' d auteur le long de la normale, donc le plafond interdit toute poussee'
+                     ' supplementaire alors que la peau est enfoncee.' if _dn > 0 else
+                     'il reste ici une marge normale positive.'))
+            # CONTROLE INTERNE DU LATCH : `addw` et `skinadd` sont la MEME grandeur par deux
+            # chemins (latch a la main dans `phys-pen-chain` contre max des maxima de frame). Un
+            # ecart denonce l'instrument, pas le solveur — et se publie au lieu d'etre tu.
+            _ref = (skinadd.get('run') or {}).get(c)
+            if _ref is not None and 'addw' in d:
+                _dl = abs(d['addw'] / UNITS - _ref)
+                A('   CONTROLE DU LATCH : addw=%.6f m contre skinadd=%.6f m, ecart=%.2e m -> %s'
+                  % (d['addw'] / UNITS, _ref, _dl,
+                     'IDENTIQUES' if _dl <= 1e-6 else 'DIVERGENTS — le latch est faux, pas le solveur'))
+        if _sk:
+            A('   LECTURE : `maillon` 0 = la RACINE (lBoob/rBoob, ln ~1040 u), 1 = la CHAIR')
+            A('   (lBooc/rBooc, ln ~140 u). Le cycle 105 avait chiffre les deux conditions')
+            A('   necessaires : pp>=0.7436 (48.0 deg) sur la chair, pp>=0.1003 (5.8 deg) sur la')
+            A('   racine. Elles supposent `kr` sature partout : elles sont GENEREUSES, donc un')
+            A('   echec les franchit a fortiori.')
         # ============================================================================================
         # [NOTE-150] ROOM-SKINADD — LA PROFONDEUR **AJOUTEE** SOUS LA PEAU PAR LA PHYSIQUE.
         #
