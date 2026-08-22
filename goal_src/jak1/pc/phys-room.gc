@@ -636,8 +636,34 @@
 ;; a REPORT, parce que `physroom-tick` arme le balayage d'acteurs etrangers par
 ;; `(< phase PHYSROOM-PH-REPORT)`. C'est la regle que le cycle 38 a payee en la violant.
 (defconstant PHYSROOM-PH-AXC 40)
-(defconstant PHYSROOM-PH-REPORT 41)
-(defconstant PHYSROOM-PH-DONE 42)
+
+;; ---- PH-REGC (cycle 108) : LE LACET PUR, COLLISION ARMEE CONTRE COLLISION DESARMEE -----------
+;;
+;; CE QUE LA PHASE TRANCHE, ET LE CRITERE EST ECRIT ICI AVANT LA COURSE. Sous LACET PUR (les
+;; fenetres r=9 et r=10 de la table des regimes) l'ENTREE geometrique du ressort est la MEME sur
+;; les deux chaines a moins de 2 % pres (`PHYSREGW ph=38 ... rgap=0.0102` contre `0.0103`) et la
+;; SORTIE vaut x5.97 et x4.54 (`perr` 0.5030 contre 0.0843 ; 0.5575 contre 0.1228). Le seul
+;; suspect qui survive a cet appariement est la GEOMETRIE DE COLLISION, qui n'est pas miroir.
+;;   - si, collision DESARMEE, le rapport gauche/droite de `perr` tombe SOUS x1.3
+;;     -> la collision porte l'ecart de SPEC 18 ;
+;;   - s'il ne baisse pas d'au moins 20 % par rapport a la jambe ARMEE de la MEME cellule
+;;     -> la collision est REFUTEE comme cause, et l'ecart est ailleurs.
+;; Aucune autre lecture n'est admise apres coup : ces deux lignes sont le protocole.
+;;
+;; NUMERO : 41, et REPORT/DONE montent a 42/43. Toute phase de TRAVAIL doit rester INFERIEURE a
+;; REPORT parce que `physroom-tick` arme le balayage d'acteurs etrangers par
+;; `(< phase PHYSROOM-PH-REPORT)` — c'est exactement le geste que PH-AXC a fait en prenant 40.
+;; 0 a 40 sont tous pris, donc il n'y avait aucun trou libre sous REPORT.
+;;
+;; APPENDUE EN FIN DE CHAINE, entre PH-AXC et PH-REPORT : tout ce qui precede reste identique au
+;; bit, et c'est la seule facon de garder les traces deja publiees comparables.
+(defconstant PHYSROOM-PH-REGC 41)
+(defconstant PHYSROOM-REGCE 90)     ;; meme rampe d'entree que PHYSROOM-REGAE, meme raison : la
+                                    ;; premiere fenetre d'une phase neuve recoit sinon le retour
+                                    ;; de la phase precedente comme un stimulus (x74 au cycle 52).
+(defconstant PHYSROOM-REGCN 8)      ;; 4 cellules (sens x regime) x 2 jambes d'ablation
+(defconstant PHYSROOM-PH-REPORT 42)
+(defconstant PHYSROOM-PH-DONE 43)
 
 (deftype phys-subject (process-drawable)
   ((phase   int32)
@@ -674,6 +700,7 @@
    (nchan   int32)     ;; canaux d'animation du PORTEUR (= (-> draw mgeo num-joints))
    (nperm   int32)     ;; positions de canal deplacees par la permutation de l'animation courante
    (reg     int32)     ;; index dans la table des regimes de SPEC 14-20
+   (regc    int32)     ;; PH-REGC : index de fenetre 0..7, -1 = rampe d'entree
    (rety    float)     ;; etat de fin de la fenetre precedente, pour le retour DOUX vers `home` :
    (retz    float)     ;;   sans lui, revenir a `home` d'un coup serait une impulsion artificielle
    (retang  float)     ;;   que sa §37 devrait absorber — un stimulus qu'on n'a pas commande
@@ -6105,6 +6132,7 @@
   (set! (-> self injn) 0)
   (set! (-> self lvl) 0)
   (set! (-> self axc) -1)
+  (set! (-> self regc) -1)
   (set! (-> self nchan) 0)
   (set! (-> self nperm) 0)
   (set! (-> self reg) 0)
