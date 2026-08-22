@@ -1,0 +1,75 @@
+== C94 — SPEC 24 : COMBIEN DE DEGRES DE LIBERTE, ET DANS QUELLES DIRECTIONS ? ==
+   Trace : .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
+
+-- C94-RANG-PLAN : la trajectoire du joint est-elle PLANE, et si oui de quelle normale ? --
+   30 PREMIERES frames de chaque fenetre : si le plan n'apparaissait qu'ensuite, ce serait
+   une decroissance, pas une contrainte. `w3` = part d'energie de la 3e direction propre.
+   C94-BONE: chain=chestL   axe d'os (re-derive de la serie, pas de ROOM-AXPLANE) = (+0.8802,+0.1491,-0.4505)
+   C94-RANG-PLAN: chain=chestL   l=0 excite=v    w1= 99.73% w2= 0.24% w3= 0.02%   angle(3e direction, os)=  5.6 deg
+   C94-RANG-PLAN: chain=chestL   l=0 excite=ap   w1= 96.01% w2= 3.82% w3= 0.16%   angle(3e direction, os)=  8.9 deg
+   C94-RANG-PLAN: chain=chestL   l=0 excite=lat  w1= 99.32% w2= 0.64% w3= 0.04%   angle(3e direction, os)=  2.4 deg
+   C94-RANG-PLAN: chain=chestL   l=1 excite=v    w1= 98.68% w2= 0.83% w3= 0.49%   angle(3e direction, os)= 14.2 deg
+   C94-RANG-PLAN: chain=chestL   l=1 excite=ap   w1= 90.13% w2= 6.12% w3= 3.75%   angle(3e direction, os)= 69.5 deg
+   C94-RANG-PLAN: chain=chestL   l=1 excite=lat  w1= 97.64% w2= 2.01% w3= 0.35%   angle(3e direction, os)=  4.0 deg
+   C94-BONE: chain=chestR   axe d'os (re-derive de la serie, pas de ROOM-AXPLANE) = (+0.9300,+0.1577,+0.3319)
+   C94-RANG-PLAN: chain=chestR   l=0 excite=v    w1= 97.45% w2= 2.53% w3= 0.02%   angle(3e direction, os)=  2.1 deg
+   C94-RANG-PLAN: chain=chestR   l=0 excite=ap   w1= 87.42% w2=12.48% w3= 0.10%   angle(3e direction, os)=  2.7 deg
+   C94-RANG-PLAN: chain=chestR   l=0 excite=lat  w1= 95.59% w2= 4.39% w3= 0.03%   angle(3e direction, os)=  9.3 deg
+   C94-RANG-PLAN: chain=chestR   l=1 excite=v    w1= 96.72% w2= 2.82% w3= 0.46%   angle(3e direction, os)=  3.4 deg
+   C94-RANG-PLAN: chain=chestR   l=1 excite=ap   w1= 76.62% w2=23.25% w3= 0.13%   angle(3e direction, os)=  2.3 deg
+   C94-RANG-PLAN: chain=chestR   l=1 excite=lat  w1= 80.81% w2=17.51% w3= 1.68%   angle(3e direction, os)=  7.4 deg
+
+-- C94-CTRL-CINEM : CONTROLE A PRIORI, ZERO PARAMETRE AJUSTE ------------------------------
+   Sous contrainte de longueur DURE le joint vit sur une sphere : la seule part d'une
+   poussee qui peut le deplacer est sa projection TANGENTIELLE. La direction de reponse est
+   donc PREDITE par la geometrie seule. Les trois axes passent par le meme calcul : c'est
+   ce qui rend l'ecart entre eux imputable au solveur et non a l'instrument.
+   C94-CTRL-CINEM: chain=chestL   l=0 excite=v    predite=(+0.4745,-0.2765,+0.8357)  mesuree=(-0.3910,+0.3684,-0.8435)  ecart=  7.1 deg
+   C94-CTRL-CINEM: chain=chestL   l=0 excite=ap   predite=(-0.1327,+0.9888,+0.0679)  mesuree=(-0.2154,-0.5961,-0.7735)  ecart= 52.2 deg
+   C94-CTRL-CINEM: chain=chestL   l=0 excite=lat  predite=(+0.4442,+0.0752,+0.8928)  mesuree=(-0.1838,-0.7306,-0.6576)  ecart= 43.6 deg
+   C94-CTRL-CINEM: chain=chestL   l=1 excite=v    predite=(+0.4745,-0.2765,+0.8357)  mesuree=(-0.3915,+0.3294,-0.8592)  ecart=  5.8 deg
+   C94-CTRL-CINEM: chain=chestL   l=1 excite=ap   predite=(-0.1327,+0.9888,+0.0679)  mesuree=(-0.2072,-0.6338,-0.7452)  ecart= 49.5 deg
+   C94-CTRL-CINEM: chain=chestL   l=1 excite=lat  predite=(+0.4442,+0.0752,+0.8928)  mesuree=(-0.1441,-0.7564,-0.6381)  ecart= 46.3 deg
+   C94-CTRL-CINEM: chain=chestR   l=0 excite=v    predite=(+0.3675,-0.3993,-0.8400)  mesuree=(-0.3887,+0.2924,+0.8738)  ecart=  6.5 deg
+   C94-CTRL-CINEM: chain=chestR   l=0 excite=ap   predite=(-0.1486,+0.9875,-0.0530)  mesuree=(+0.1555,+0.6752,-0.7211)  ecart= 47.0 deg
+   C94-CTRL-CINEM: chain=chestR   l=0 excite=lat  predite=(-0.3272,-0.0555,+0.9433)  mesuree=(+0.1606,-0.9567,-0.2428)  ecart= 76.8 deg
+   C94-CTRL-CINEM: chain=chestR   l=1 excite=v    predite=(+0.3675,-0.3993,-0.8400)  mesuree=(-0.3934,+0.3340,+0.8566)  ecart=  4.1 deg
+   C94-CTRL-CINEM: chain=chestR   l=1 excite=ap   predite=(-0.1486,+0.9875,-0.0530)  mesuree=(+0.1744,+0.6527,-0.7373)  ecart= 48.9 deg
+   C94-CTRL-CINEM: chain=chestR   l=1 excite=lat  predite=(-0.3272,-0.0555,+0.9433)  mesuree=(+0.0761,-0.9354,+0.3454)  ecart= 69.3 deg
+
+-- C94-MEMEDIR : les fenetres `ap` et `lat` rendent-elles DEUX directions, ou UNE ? -------
+   Deux frequences par direction exigent deux directions. |cos| entre les directions de
+   reponse dominantes des trois fenetres, par maillon.
+   C94-MEMEDIR: chain=chestL   l=0  |cos(v,ap)|=0.5170  |cos(v,lat)|=0.3574  |cos(ap,lat)|=0.9837  -> ap/lat a 10.3 deg l'une de l'autre
+   C94-MEMEDIR: chain=chestL   l=1  |cos(v,ap)|=0.5126  |cos(v,lat)|=0.3555  |cos(ap,lat)|=0.9848  -> ap/lat a 10.0 deg l'une de l'autre
+   C94-MEMEDIR: chain=chestR   l=0  |cos(v,ap)|=0.4931  |cos(v,lat)|=0.5543  |cos(ap,lat)|=0.4458  -> ap/lat a 63.5 deg l'une de l'autre
+   C94-MEMEDIR: chain=chestR   l=1  |cos(v,ap)|=0.4822  |cos(v,lat)|=0.0464  |cos(ap,lat)|=0.8519  -> ap/lat a 31.6 deg l'une de l'autre
+
+-- C94-ANISO-LIVREE : quelle anisotropie SURVIT a la contrainte de longueur ? -------------
+   Le solveur projette la force sur le triedre et applique une raideur par ligne
+   (jak-hd-physics.gc:2950-2952 et 2991-3000). La contrainte de longueur restreint ensuite
+   le mouvement au plan perpendiculaire a l'os. La raideur EFFECTIVE dans ce plan est donc
+   P K P, et ses deux valeurs propres non nulles donnent le rapport de frequences que le
+   joint peut REELLEMENT porter. Sa §24 demande f_lat/f_ap = 2.65/2.50 = 1.0600.
+   C94-ANISO-LIVREE: chain=chestL    K publiee (sv,sap,slat)=(1.0000,1.1111,1.2195)
+   C94-ANISO-LIVREE: chain=chestL    P K P -> k_plan = 1.10701 / 1.17657  (la 3e = 2.11e-16, c'est l'os)  rapport de frequences = 1.0309  contre 1.0600 exige par SPEC 24 -> 51.6 % de l'anisotropie demandee
+   C94-ANISO-LIVREE: chain=chestL    sv=1.0000 est ANNULEE par le projecteur : la raideur VERTICALE ne participe pas a la reponse dans le plan.
+   C94-ANISO-LIVREE: chain=chestR    K publiee (sv,sap,slat)=(1.0000,1.1111,1.2195)
+   C94-ANISO-LIVREE: chain=chestR    P K P -> k_plan = 1.10757 / 1.19609  (la 3e = -8.93e-17, c'est l'os)  rapport de frequences = 1.0392  contre 1.0600 exige par SPEC 24 -> 65.3 % de l'anisotropie demandee
+   C94-ANISO-LIVREE: chain=chestR    sv=1.0000 est ANNULEE par le projecteur : la raideur VERTICALE ne participe pas a la reponse dans le plan.
+
+-- C94-RAD-PLAT : le canal RADIAL, celui du mode VERTICAL de sa §24 --------------------
+   `ROOM-AXFIT-RAD` ajuste CE MEME canal dans les TROIS fenetres et publie trois
+   frequences : chestL 2.320 / 2.355 / 2.550, chestR 2.415 / 2.460 / 2.705. Un mode propre
+   n'a QU'UNE frequence. On publie donc l'AMPLITUDE des trois fenetres a cote, parce que
+   c'est elle qui dit si l'ecart est une non-linearite ou une contamination.
+   NATURE : un deplacement radial rapporte a B0 (§6), sans dimension. REPERE : l'axe de
+   l'os. LIGNE DE BASE : 0.0 a la pose d'auteur.
+   C94-RAD-PLAT: chain=chestL   l=0  v rms=0.05527 pic=0.24071  |  ap rms=0.03054 pic=0.13318  |  lat rms=0.01564 pic=0.07802
+   C94-RAD-PLAT: chain=chestL   l=0  etalement des trois PICS = 67.6 %   la sortie suit la fenetre
+   C94-RAD-PLAT: chain=chestL   l=1  v rms=0.02227 pic=0.05790  |  ap rms=0.01864 pic=0.05773  |  lat rms=0.01650 pic=0.05756
+   C94-RAD-PLAT: chain=chestL   l=1  etalement des trois PICS = 0.6 %   PLAT : la sortie ne suit pas la fenetre -> canal SATURE, aucune frequence n'en est tirable
+   C94-RAD-PLAT: chain=chestR   l=0  v rms=0.04378 pic=0.26060  |  ap rms=0.03318 pic=0.14825  |  lat rms=0.01962 pic=0.08595
+   C94-RAD-PLAT: chain=chestR   l=0  etalement des trois PICS = 67.0 %   la sortie suit la fenetre
+   C94-RAD-PLAT: chain=chestR   l=1  v rms=0.02056 pic=0.05950  |  ap rms=0.01899 pic=0.05938  |  lat rms=0.02340 pic=0.05958
+   C94-RAD-PLAT: chain=chestR   l=1  etalement des trois PICS = 0.3 %   PLAT : la sortie ne suit pas la fenetre -> canal SATURE, aucune frequence n'en est tirable

@@ -2939,6 +2939,39 @@ ROOM-AXFIT-RAD-NOLEN: chain=chestR       ax=lat n=138 f=2.670 ci=[2.660,2.675] z
    republie les memes mesures sur `PHYSRINGBX` (la meme deviation, NON normalisee, meme
    instant, meme triedre) et donne le controle qui prouve l'aveuglement. L'ancien bloc n'est
    PAS retire : l'ecart entre les deux EST la mesure de l'erreur, et il lui faut un avant.
+   ROOM-AXLINK — LES DEUX MAILLONS SONT DESORMAIS PUBLIES SEPAREMENT, ET NOMMES SUR CHAQUE
+   LIGNE (correctif d'instrument du 2026-08-22).
+   Jusqu'a ce correctif la cle de lecture de ce fichier etait (axe excite, chaine) : le
+   champ `l=` de la trace etait capture par la regex puis JETE. Les deux maillons de la
+   chaine ecrivaient donc dans la MEME case de la MEME frame et le DERNIER ECRIT ECRASAIT LE
+   PREMIER ; la trace emet `l=0` puis `l=1` a chaque frame, donc TOUTES les valeurs de la
+   famille ABS publiees avant ce correctif (AXPLANE, AXBLIND, AXLABEL, AXSEL-ABS, AXFIT-ABS,
+   AXORDER) etaient celles du maillon DISTAL `l=1`, imprimees sous le nom de la CHAINE.
+   `ROOM-AXFIT` de physics_room_table.py publie, lui, le maillon RACINE (il filtre `l != 0`,
+   :9650) : les deux blocs se lisaient cote a cote comme deux avis sur la meme grandeur,
+   alors qu'ils ne decrivaient pas le meme maillon. Rien ne le disait.
+   DESORMAIS : la serie de reference reste le maillon RACINE `l=0` (le meme choix que
+   ROOM-AXFIT, documente physics_room_table.py:9649), et le maillon DISTAL `l=1` est publie
+   a cote, meme format, sur ses propres lignes — les chiffres du distal ne sont pas perdus,
+   ils sont NOMMES. Les lignes `l=1` de ROOM-AXFIT-ABS portent EXACTEMENT les nombres que ce
+   bloc publiait avant le correctif (n, f, intervalle, zeta, residu, sel) ; seule la colonne
+   de VERDICT y change, parce que le critere de residu ci-dessous s'y applique desormais.
+   UNE EXCEPTION, ET ELLE EST NOMMEE : la ligne ROOM-AXLABEL melangeait une longueur d'os du
+   maillon RACINE (`PHYSBONE l=0`) et une direction du maillon DISTAL. Aucune de ses deux
+   lignes ne reproduit donc l'ancienne : chacune porte desormais la longueur ET la direction
+   de SON maillon.
+
+   RECENSEMENT — l'ecrasement n'est pas « evite », il est IMPOSSIBLE (deux maillons sont
+   deux cles). `reecritures` est le controle qui le dit avec un chiffre plutot qu'avec une
+   affirmation : c'est le nombre de cases (cle, frame, composante) ecrites deux fois.
+   serie             tags                          enregistrements  maillons  reecritures
+   normalisee        PHYSRINGAX / PHYSRINGAX2       1800 + 1800     [0, 1]    0
+   NON normalisee    PHYSRINGBX / PHYSRINGBX2       1800 + 1800     [0, 1]    0
+   normalisee/Z      PHYSRINGAZ / PHYSRINGAZ2       1800 + 1800     [0, 1]    0
+   NON normalisee/Z  PHYSRINGBZ / PHYSRINGBZ2       1800 + 1800     [0, 1]    0
+   radial armee      PHYSRINGCX / -                 1800 + 0        [0, 1]    0
+   radial levee      PHYSRINGCZ / -                 1800 + 0        [0, 1]    0
+
    ROOM-AXPLANE — LA SERIE PORTE-T-ELLE TROIS DEGRES DE LIBERTE, OU DEUX ?
    `s3/s1` est le rapport de la plus petite a la plus grande valeur singuliere du nuage des
    vecteurs (v, ap, lat). Une serie PLANE (s3/s1 ~ 1 %) ne peut pas porter trois frequences
@@ -2951,50 +2984,86 @@ ROOM-AXFIT-RAD-NOLEN: chain=chestR       ax=lat n=138 f=2.670 ci=[2.660,2.675] z
    imprimee n'y veut alors rien dire. On ne lit la colonne de droite que sur les lignes ou
    `s2/s3` est franchement > 5.
 
-   serie             excite chaine     s1        s2        s3      s3/s1  s2/s3  direction NULLE
-   normalisee        v     chestL     8.38e-02 8.90e-03 8.53e-03  0.1018   1.0  (+0.130,+0.944,+0.303) <- indeterminee
-   normalisee        ap    chestL     1.07e-01 2.28e-02 1.19e-02  0.1107   1.9  (+0.926,+0.129,-0.355) <- indeterminee
-   normalisee        lat   chestL     1.02e-01 1.74e-02 1.08e-02  0.1065   1.6  (+0.880,+0.196,-0.432) <- indeterminee
-   normalisee        v     chestR     8.06e-02 1.38e-02 8.42e-03  0.1044   1.6  (+0.918,+0.188,+0.348) <- indeterminee
-   normalisee        ap    chestR     9.52e-02 5.24e-02 1.17e-02  0.1229   4.5  (+0.928,+0.142,+0.345) <- indeterminee
-   normalisee        lat   chestR     9.19e-02 4.10e-02 9.92e-03  0.1079   4.1  (+0.885,+0.205,+0.418) <- indeterminee
-   NON normalisee    v     chestL     1.18e+01 1.25e+00 1.20e+00  0.1018   1.0  (+0.128,+0.944,+0.304) <- indeterminee
-   NON normalisee    ap    chestL     1.51e+01 3.74e+00 3.17e+00  0.2105   1.2  (-0.091,+0.771,-0.630) <- indeterminee
-   NON normalisee    lat   chestL     1.43e+01 2.44e+00 1.52e+00  0.1064   1.6  (+0.880,+0.196,-0.432) <- indeterminee
-   NON normalisee    v     chestR     1.16e+01 1.98e+00 1.21e+00  0.1043   1.6  (+0.918,+0.191,+0.347) <- indeterminee
-   NON normalisee    ap    chestR     1.37e+01 7.55e+00 1.69e+00  0.1230   4.5  (+0.928,+0.142,+0.345) <- indeterminee
-   NON normalisee    lat   chestR     1.32e+01 6.05e+00 2.07e+00  0.1572   2.9  (+0.856,+0.239,+0.459) <- indeterminee
-   normalisee/Z      v     chestL     7.82e-02 3.28e-02 7.85e-03  0.1003   4.2  (+0.913,+0.190,-0.361) <- indeterminee
-   normalisee/Z      ap    chestL     7.57e-02 1.82e-02 6.07e-03  0.0802   3.0  (+0.964,+0.035,-0.265) <- indeterminee
-   normalisee/Z      lat   chestL     9.43e-02 2.99e-02 9.59e-03  0.1017   3.1  (+0.927,+0.151,-0.343) <- indeterminee
-   normalisee/Z      v     chestR     7.36e-02 3.72e-02 6.29e-03  0.0855   5.9  (+0.908,+0.222,+0.356) 
-   normalisee/Z      ap    chestR     5.85e-02 3.42e-02 5.82e-03  0.0995   5.9  (+0.917,+0.114,+0.384) 
-   normalisee/Z      lat   chestR     8.51e-02 4.61e-02 8.97e-03  0.1055   5.1  (+0.919,+0.144,+0.368) 
-   NON normalisee/Z  v     chestL     1.47e+01 1.11e+01 4.40e+00  0.2998   2.5  (-0.095,+0.995,-0.037) <- indeterminee
-   NON normalisee/Z  ap    chestL     1.32e+01 9.59e+00 2.68e+00  0.2031   3.6  (+0.398,-0.503,+0.767) <- indeterminee
-   NON normalisee/Z  lat   chestL     1.42e+01 6.03e+00 1.46e+00  0.1029   4.1  (+0.894,-0.165,+0.416) <- indeterminee
-   NON normalisee/Z  v     chestR     1.40e+01 6.80e+00 4.99e+00  0.3572   1.4  (+0.233,+0.948,+0.215) <- indeterminee
-   NON normalisee/Z  ap    chestR     1.21e+01 7.93e+00 4.93e+00  0.4095   1.6  (-0.228,+0.152,+0.962) <- indeterminee
-   NON normalisee/Z  lat   chestR     1.30e+01 8.54e+00 4.40e+00  0.3387   1.9  (+0.476,-0.537,+0.697) <- indeterminee
+   serie             maillon excite chaine     s1        s2        s3      s3/s1  s2/s3  direction NULLE
+   normalisee        l=0     v     chestL     9.56e-03 4.91e-04 1.78e-04  0.0187   2.8  (+0.919,+0.116,-0.376) <- indeterminee
+   normalisee        l=0     ap    chestL     3.01e-02 6.52e-03 1.42e-03  0.0471   4.6  (+0.953,+0.045,-0.300) <- indeterminee
+   normalisee        l=0     lat   chestL     2.44e-02 1.98e-03 5.72e-04  0.0234   3.5  (+0.852,+0.215,-0.477) <- indeterminee
+   normalisee        l=0     v     chestR     8.95e-03 1.78e-03 1.55e-04  0.0173  11.5  (+0.920,+0.169,+0.353) 
+   normalisee        l=0     ap    chestR     2.24e-02 9.21e-03 8.38e-04  0.0374  11.0  (+0.947,+0.105,+0.302) 
+   normalisee        l=0     lat   chestR     3.27e-02 6.87e-03 6.14e-04  0.0188  11.2  (+0.977,+0.120,+0.175) 
+   normalisee        l=1     v     chestL     8.38e-02 8.90e-03 8.53e-03  0.1018   1.0  (+0.130,+0.944,+0.303) <- indeterminee
+   normalisee        l=1     ap    chestL     1.07e-01 2.28e-02 1.19e-02  0.1107   1.9  (+0.926,+0.129,-0.355) <- indeterminee
+   normalisee        l=1     lat   chestL     1.02e-01 1.74e-02 1.08e-02  0.1065   1.6  (+0.880,+0.196,-0.432) <- indeterminee
+   normalisee        l=1     v     chestR     8.06e-02 1.38e-02 8.42e-03  0.1044   1.6  (+0.918,+0.188,+0.348) <- indeterminee
+   normalisee        l=1     ap    chestR     9.52e-02 5.24e-02 1.17e-02  0.1229   4.5  (+0.928,+0.142,+0.345) <- indeterminee
+   normalisee        l=1     lat   chestR     9.19e-02 4.10e-02 9.92e-03  0.1079   4.1  (+0.885,+0.205,+0.418) <- indeterminee
+   NON normalisee    l=0     v     chestL     9.95e+00 5.11e-01 1.87e-01  0.0188   2.7  (+0.920,+0.116,-0.376) <- indeterminee
+   NON normalisee    l=0     ap    chestL     3.13e+01 6.78e+00 1.48e+00  0.0471   4.6  (+0.953,+0.045,-0.300) <- indeterminee
+   NON normalisee    l=0     lat   chestL     2.54e+01 2.06e+00 5.96e-01  0.0235   3.5  (+0.852,+0.215,-0.477) <- indeterminee
+   NON normalisee    l=0     v     chestR     9.30e+00 1.85e+00 1.61e-01  0.0173  11.5  (+0.920,+0.169,+0.353) 
+   NON normalisee    l=0     ap    chestR     2.33e+01 9.56e+00 8.69e-01  0.0373  11.0  (+0.947,+0.105,+0.302) 
+   NON normalisee    l=0     lat   chestR     3.39e+01 7.13e+00 6.38e-01  0.0188  11.2  (+0.977,+0.120,+0.175) 
+   NON normalisee    l=1     v     chestL     1.18e+01 1.25e+00 1.20e+00  0.1018   1.0  (+0.128,+0.944,+0.304) <- indeterminee
+   NON normalisee    l=1     ap    chestL     1.51e+01 3.74e+00 3.17e+00  0.2105   1.2  (-0.091,+0.771,-0.630) <- indeterminee
+   NON normalisee    l=1     lat   chestL     1.43e+01 2.44e+00 1.52e+00  0.1064   1.6  (+0.880,+0.196,-0.432) <- indeterminee
+   NON normalisee    l=1     v     chestR     1.16e+01 1.98e+00 1.21e+00  0.1043   1.6  (+0.918,+0.191,+0.347) <- indeterminee
+   NON normalisee    l=1     ap    chestR     1.37e+01 7.55e+00 1.69e+00  0.1230   4.5  (+0.928,+0.142,+0.345) <- indeterminee
+   NON normalisee    l=1     lat   chestR     1.32e+01 6.05e+00 2.07e+00  0.1572   2.9  (+0.856,+0.239,+0.459) <- indeterminee
+   normalisee/Z      l=0     v     chestL     3.70e-02 1.21e-03 1.11e-03  0.0299   1.1  (+0.898,-0.011,-0.439) <- indeterminee
+   normalisee/Z      l=0     ap    chestL     2.35e-02 3.88e-03 4.35e-04  0.0185   8.9  (+0.909,+0.120,-0.399) 
+   normalisee/Z      l=0     lat   chestL     2.27e-02 3.10e-03 5.38e-04  0.0236   5.8  (+0.883,+0.175,-0.435) 
+   normalisee/Z      l=0     v     chestR     2.76e-02 9.71e-03 9.04e-04  0.0327  10.7  (+0.956,+0.030,+0.292) 
+   normalisee/Z      l=0     ap    chestR     1.74e-02 2.16e-03 2.58e-04  0.0148   8.4  (+0.921,+0.178,+0.347) 
+   normalisee/Z      l=0     lat   chestR     2.61e-02 5.34e-03 6.19e-04  0.0237   8.6  (+0.939,+0.131,+0.317) 
+   normalisee/Z      l=1     v     chestL     7.82e-02 3.28e-02 7.85e-03  0.1003   4.2  (+0.913,+0.190,-0.361) <- indeterminee
+   normalisee/Z      l=1     ap    chestL     7.57e-02 1.82e-02 6.07e-03  0.0802   3.0  (+0.964,+0.035,-0.265) <- indeterminee
+   normalisee/Z      l=1     lat   chestL     9.43e-02 2.99e-02 9.59e-03  0.1017   3.1  (+0.927,+0.151,-0.343) <- indeterminee
+   normalisee/Z      l=1     v     chestR     7.36e-02 3.72e-02 6.29e-03  0.0855   5.9  (+0.908,+0.222,+0.356) 
+   normalisee/Z      l=1     ap    chestR     5.85e-02 3.42e-02 5.82e-03  0.0995   5.9  (+0.917,+0.114,+0.384) 
+   normalisee/Z      l=1     lat   chestR     8.51e-02 4.61e-02 8.97e-03  0.1055   5.1  (+0.919,+0.144,+0.368) 
+   NON normalisee/Z  l=0     v     chestL     4.01e+01 7.74e+00 1.48e-01  0.0037  52.2  (-0.003,+1.000,+0.001) 
+   NON normalisee/Z  l=0     ap    chestL     2.89e+01 4.57e+00 9.48e-01  0.0328   4.8  (+0.774,-0.616,-0.148) <- indeterminee
+   NON normalisee/Z  l=0     lat   chestL     2.57e+01 5.25e+00 9.51e-01  0.0371   5.5  (+0.846,-0.310,+0.434) 
+   NON normalisee/Z  l=0     v     chestR     2.85e+01 1.51e+01 1.28e+00  0.0448  11.8  (+0.870,-0.356,-0.342) 
+   NON normalisee/Z  l=0     ap    chestR     2.83e+01 1.52e+01 2.20e+00  0.0777   6.9  (-0.372,+0.166,+0.913) 
+   NON normalisee/Z  l=0     lat   chestR     2.73e+01 6.14e+00 2.13e+00  0.0782   2.9  (+0.898,+0.439,+0.008) <- indeterminee
+   NON normalisee/Z  l=1     v     chestL     1.47e+01 1.11e+01 4.40e+00  0.2998   2.5  (-0.095,+0.995,-0.037) <- indeterminee
+   NON normalisee/Z  l=1     ap    chestL     1.32e+01 9.59e+00 2.68e+00  0.2031   3.6  (+0.398,-0.503,+0.767) <- indeterminee
+   NON normalisee/Z  l=1     lat   chestL     1.42e+01 6.03e+00 1.46e+00  0.1029   4.1  (+0.894,-0.165,+0.416) <- indeterminee
+   NON normalisee/Z  l=1     v     chestR     1.40e+01 6.80e+00 4.99e+00  0.3572   1.4  (+0.233,+0.948,+0.215) <- indeterminee
+   NON normalisee/Z  l=1     ap    chestR     1.21e+01 7.93e+00 4.93e+00  0.4095   1.6  (-0.228,+0.152,+0.962) <- indeterminee
+   NON normalisee/Z  l=1     lat   chestR     1.30e+01 8.54e+00 4.40e+00  0.3387   1.9  (+0.476,-0.537,+0.697) <- indeterminee
 
    ROOM-AXBLIND — POURQUOI LA SERIE EST PLANE : L'IDENTITE DE LA DIFFERENCE D'UNITAIRES.
    `dv.m = -|dv|^2/2` est vraie EXACTEMENT pour une difference de deux vecteurs unitaires, et
    pour rien d'autre. `m` est ajuste sans contrainte de norme : s'il sort a |m|=1, la
    grandeur mesuree EST une difference de directions, et `m` est la direction AVEUGLE.
 
-   serie             excite chaine     m ajuste (v, ap, lat)        R2        |m|     part_v
-   normalisee        v     chestL     (+0.9191,+0.1491,-0.3647)    1.00000  1.0000   84.5%
-   normalisee        ap    chestL     (+0.9191,+0.1491,-0.3647)    1.00000  1.0000   84.5%
-   normalisee        lat   chestL     (+0.9191,+0.1491,-0.3647)    1.00000  1.0000   84.5%
-   normalisee        v     chestR     (+0.9192,+0.1490,+0.3644)    1.00000  1.0000   84.5%
-   normalisee        ap    chestR     (+0.9192,+0.1490,+0.3644)    1.00000  1.0000   84.5%
-   normalisee        lat   chestR     (+0.9192,+0.1490,+0.3644)    1.00000  1.0000   84.5%
-   NON normalisee    v     chestL     (+0.9191,+0.1487,-0.3648)    0.99999  140.4908   84.5%
-   NON normalisee    ap    chestL     (+0.8072,+0.3485,-0.4764)   -0.17474  20.4836   65.2%
-   NON normalisee    lat   chestL     (+0.9191,+0.1491,-0.3648)    0.99999  140.4353   84.5%
-   NON normalisee    v     chestR     (+0.9193,+0.1511,+0.3635)    0.99988  144.2635   84.5%
-   NON normalisee    ap    chestR     (+0.9192,+0.1492,+0.3644)    0.99994  144.0278   84.5%
-   NON normalisee    lat   chestR     (+0.9242,+0.1316,+0.3585)    0.53091  78.2108   85.4%
+   serie             maillon excite chaine     m ajuste (v, ap, lat)        R2        |m|     part_v
+   normalisee        l=0     v     chestL     (+0.9193,+0.1478,-0.3648)    1.00000  0.9999   84.5%
+   normalisee        l=0     ap    chestL     (+0.9193,+0.1477,-0.3648)    1.00000  1.0000   84.5%
+   normalisee        l=0     lat   chestL     (+0.9193,+0.1477,-0.3648)    1.00000  1.0000   84.5%
+   normalisee        l=0     v     chestR     (+0.9206,+0.1480,+0.3614)    1.00000  1.0001   84.7%
+   normalisee        l=0     ap    chestR     (+0.9206,+0.1480,+0.3614)    1.00000  1.0000   84.7%
+   normalisee        l=0     lat   chestR     (+0.9206,+0.1480,+0.3614)    1.00000  1.0000   84.7%
+   normalisee        l=1     v     chestL     (+0.9191,+0.1491,-0.3647)    1.00000  1.0000   84.5%
+   normalisee        l=1     ap    chestL     (+0.9191,+0.1491,-0.3647)    1.00000  1.0000   84.5%
+   normalisee        l=1     lat   chestL     (+0.9191,+0.1491,-0.3647)    1.00000  1.0000   84.5%
+   normalisee        l=1     v     chestR     (+0.9192,+0.1490,+0.3644)    1.00000  1.0000   84.5%
+   normalisee        l=1     ap    chestR     (+0.9192,+0.1490,+0.3644)    1.00000  1.0000   84.5%
+   normalisee        l=1     lat   chestR     (+0.9192,+0.1490,+0.3644)    1.00000  1.0000   84.5%
+   NON normalisee    l=0     v     chestL     (+0.9193,+0.1494,-0.3641)    0.99959  1036.6620   84.5%
+   NON normalisee    l=0     ap    chestL     (+0.9193,+0.1476,-0.3648)    0.99999  1040.4605   84.5%
+   NON normalisee    l=0     lat   chestL     (+0.9194,+0.1475,-0.3647)    0.99999  1040.3353   84.5%
+   NON normalisee    l=0     v     chestR     (+0.9206,+0.1481,+0.3614)    0.99733  1035.9627   84.7%
+   NON normalisee    l=0     ap    chestR     (+0.9206,+0.1480,+0.3615)    0.99998  1039.0560   84.7%
+   NON normalisee    l=0     lat   chestR     (+0.9206,+0.1480,+0.3614)    1.00000  1038.6063   84.7%
+   NON normalisee    l=1     v     chestL     (+0.9191,+0.1487,-0.3648)    0.99999  140.4908   84.5%
+   NON normalisee    l=1     ap    chestL     (+0.8072,+0.3485,-0.4764)   -0.17474  20.4836   65.2%
+   NON normalisee    l=1     lat   chestL     (+0.9191,+0.1491,-0.3648)    0.99999  140.4353   84.5%
+   NON normalisee    l=1     v     chestR     (+0.9193,+0.1511,+0.3635)    0.99988  144.2635   84.5%
+   NON normalisee    l=1     ap    chestR     (+0.9192,+0.1492,+0.3644)    0.99994  144.0278   84.5%
+   NON normalisee    l=1     lat   chestR     (+0.9242,+0.1316,+0.3585)    0.53091  78.2108   85.4%
 
    LECTURE : sur la serie NORMALISEE, R2 = 1 et |m| = 1 -> la grandeur est bien une
    difference de directions, et `part_v` dit quelle FRACTION de la direction aveugle tombe
@@ -3005,9 +3074,20 @@ ROOM-AXFIT-RAD-NOLEN: chain=chestR       ax=lat n=138 f=2.670 ci=[2.660,2.675] z
    ROOM-AXLABEL — LE TRIEDRE PORTE-T-IL LES BONS NOMS ?
    Le segment qui separe les deux seins est LATERAL par anatomie. On le reconstruit
    (meme attache : parent commun joint 3 `chest`) et on regarde sur quel axe il tombe.
-   separation chestL - chestR = (-1.21, -0.23, +758.09) u   norme 758.09 u = 18.5 cm
-   part d'energie :  v   0.0%   ap   0.0%   lat 100.0%
-   -> le segment gauche-droite tombe sur l'axe nomme `lat`. LES NOMS SONT BONS.
+   UNE LIGNE PAR MAILLON. L'argument anatomique (parent commun) porte sur le maillon
+   RACINE `l=0` : c'est LUI qui part du joint `chest`. La ligne `l=1` est publiee pour
+   que le distal ne disparaisse pas, mais son segment ne joint pas deux attaches
+   communes — elle se lit comme un report, pas comme la preuve d'etiquetage.
+   AVANT LE 2026-08-22 CETTE LIGNE ETAIT UN MELANGE : la longueur d'os venait du maillon
+   RACINE (`PHYSBONE l=0`) et la direction `m` du maillon DISTAL, parce que la cle de
+   lecture jetait le maillon. Chaque ligne porte maintenant la longueur ET la direction
+   du MEME maillon.
+   l=0  separation chestL - chestR = (+0.00, +0.02, +755.11) u   norme 755.11 u = 18.4 cm (longueurs d'os 1040.50 / 1039.03 u)
+   l=0  part d'energie :  v   0.0%   ap   0.0%   lat 100.0%
+   l=0  -> le segment gauche-droite tombe sur l'axe nomme `lat`. LES NOMS SONT BONS.
+   l=1  separation chestL - chestR = (+3.52, +0.57, +103.77) u   norme 103.83 u = 2.5 cm (longueurs d'os 140.42 / 144.23 u)
+   l=1  part d'energie :  v   0.1%   ap   0.0%   lat  99.9%
+   l=1  -> le segment gauche-droite tombe sur l'axe nomme `lat`. LES NOMS SONT BONS.
 
    ROOM-AXSEL-ABS — LA MEME SELECTIVITE, SUR LES QUATRE COMBINAISONS.
    Deux facteurs se croisent, et le cycle 8 ne pouvait en voir qu'un :
@@ -3018,13 +3098,19 @@ ROOM-AXFIT-RAD-NOLEN: chain=chestR       ax=lat n=138 f=2.670 ci=[2.660,2.675] z
    monte, la contrainte de longueur EST ce qui confisque le troisieme mode — l'hypothese que
    le cycle 8 avait posee puis declaree refutee en la lisant avec l'instrument aveugle.
 
-   excite chaine        norm/armee   abs/armee    norm/levee   abs/levee    -> dominant (abs/levee)
-   v      chestL          25.1%      25.1%      21.2%      47.3%    ISOLE
-   ap     chestL          39.7%      37.8%      54.5%      35.6%    melange->V
-   lat    chestL          40.5%      40.5%      38.2%      40.9%    melange->AP
-   v      chestR          24.8%      24.8%      15.5%      33.1%    melange->LAT
-   ap     chestR          41.6%      41.6%      55.1%      31.3%    melange->V
-   lat    chestR          30.1%      29.6%      37.6%      32.8%    melange->AP
+   maillon excite chaine        norm/armee   abs/armee    norm/levee   abs/levee    -> dominant (abs/levee)
+   l=0     v      chestL          24.4%      24.4%      31.4%      50.8%    ISOLE
+   l=0     ap     chestL          38.1%      38.1%      52.9%      44.8%    ISOLE
+   l=0     lat    chestL          41.7%      41.7%      41.5%      47.4%    ISOLE
+   l=0     v      chestR          24.1%      24.1%      12.0%      14.6%    melange->LAT
+   l=0     ap     chestR          43.4%      43.4%      73.0%      29.5%    melange->V
+   l=0     lat    chestR          21.9%      21.9%      35.9%      33.8%    melange->AP
+   l=1     v      chestL          25.1%      25.1%      21.2%      47.3%    ISOLE
+   l=1     ap     chestL          39.7%      37.8%      54.5%      35.6%    melange->V
+   l=1     lat    chestL          40.5%      40.5%      38.2%      40.9%    melange->AP
+   l=1     v      chestR          24.8%      24.8%      15.5%      33.1%    melange->LAT
+   l=1     ap     chestR          41.6%      41.6%      55.1%      31.3%    melange->V
+   l=1     lat    chestR          30.1%      29.6%      37.6%      32.8%    melange->AP
 
    ROOM-AXFIT-ABS — SPEC 24 : TROIS FREQUENCES PROPRES, UNE PAR AXE.
    Lue sur la serie NON normalisee, sur la projection de l'axe EXCITE (la fenetre ou cet
@@ -3037,30 +3123,87 @@ ROOM-AXFIT-RAD-NOLEN: chain=chestR       ax=lat n=138 f=2.670 ci=[2.660,2.675] z
         qu'on livre : la frequence qu'on y lit dit ce que le mode vertical VAUDRAIT si le
         degre de liberte existait. C'est un diagnostic, pas une conformite.
 
-   etat   excite chaine        n    f (Hz)   intervalle        zeta   residu   sel     cible §24
-   armee  v      chestL       138   2.3500  [2.3100,2.3850]  0.260  0.0807  25.1%  2.30 (2.1-2.5) DANS (fenetre NON ISOLEE, sel<40% : melange)
-   armee  ap     chestL       138   2.3000  [2.2400,2.3650]  0.150  0.1896  37.8%  2.50 (2.3-2.7) HORS (fenetre NON ISOLEE, sel<40% : melange)
-   armee  lat    chestL       138   2.3050  [2.2350,2.3800]  0.160  0.2515  40.5%  2.65 (2.4-2.9) HORS
-   armee  v      chestR       138   2.4850  [2.4450,2.5300]  0.270  0.0816  24.8%  2.30 (2.1-2.5) DANS (fenetre NON ISOLEE, sel<40% : melange)
-   armee  ap     chestR       138   2.2100  [2.0950,2.3200]  0.210  0.2865  41.6%  2.50 (2.3-2.7) HORS
-   armee  lat    chestR       138   2.7550  [2.7100,2.8050]  0.290  0.1012  29.6%  2.65 (2.4-2.9) DANS (fenetre NON ISOLEE, sel<40% : melange)
-   levee  v      chestL       138   2.1550  [2.1050,2.2050]  0.150  0.2031  47.3%  2.30 (2.1-2.5) DANS
-   levee  ap     chestL       138   2.1300  [2.0900,2.1700]  0.180  0.1808  35.6%  2.50 (2.3-2.7) HORS (fenetre NON ISOLEE, sel<40% : melange)
-   levee  lat    chestL       138   2.2800  [2.2250,2.3400]  0.170  0.2258  40.9%  2.65 (2.4-2.9) HORS
-   levee  v      chestR       138   2.3300  [2.3000,2.3650]  0.200  0.0918  33.1%  2.30 (2.1-2.5) DANS (fenetre NON ISOLEE, sel<40% : melange)
-   levee  ap     chestR       138   4.1450  [3.7450,4.6400]  0.100  0.8089  31.3%  2.50 (2.3-2.7) HORS (fenetre NON ISOLEE, sel<40% : melange)
-   levee  lat    chestR       138   2.3450  [2.2950,2.4000]  0.170  0.1964  32.8%  2.65 (2.4-2.9) HORS (fenetre NON ISOLEE, sel<40% : melange)
+   LE CRITERE DE RESIDU EST CELUI DU LECTEUR FRERE, PAS UN SEUIL A MOI (ajout 2026-08-22) :
+   au-dela de `residu` > 0.08 la ligne n'ecrit plus ni DANS ni HORS mais « residu trop
+   grand, non lisible » — meme comparaison et meme phrase que `ROOM-AXFIT`
+   (physics_room_table.py:9780-9781), `ROOM-RINGFIT` (:9520-9521) et `ROOM-AXFIT-RAD`
+   (:9971-9973). Jusqu'ici ce bloc publiait des verdicts DANS/HORS sur des residus de 0.19
+   et 0.25, que son frere refusait de lire comme des frequences.
+
+   etat   maillon excite chaine        n    f (Hz)   intervalle        zeta   residu   sel     cible §24
+   armee  l=0     v      chestL       138   2.5350  [2.5200,2.5450]  0.360  0.0263  24.4%  2.30 (2.1-2.5) HORS (fenetre NON ISOLEE, sel<40% : melange)
+   armee  l=0     ap     chestL       138   2.4400  [2.4300,2.4550]  0.360  0.0372  38.1%  2.50 (2.3-2.7) DANS (fenetre NON ISOLEE, sel<40% : melange)
+   armee  l=0     lat    chestL       138   2.5500  [2.5450,2.5600]  0.350  0.0240  41.7%  2.65 (2.4-2.9) DANS
+   armee  l=0     v      chestR       138   2.6250  [2.6050,2.6500]  0.360  0.0493  24.1%  2.30 (2.1-2.5) HORS (fenetre NON ISOLEE, sel<40% : melange)
+   armee  l=0     ap     chestR       138   2.4100  [2.3000,2.5250]  0.540  0.1589  43.4%  2.50 (2.3-2.7) residu trop grand, non lisible
+   armee  l=0     lat    chestR       138   2.2750  [2.1850,2.3800]  0.430  0.1286  21.9%  2.65 (2.4-2.9) residu trop grand, non lisible (fenetre NON ISOLEE, sel<40% : melange)
+   armee  l=1     v      chestL       138   2.3500  [2.3100,2.3850]  0.260  0.0807  25.1%  2.30 (2.1-2.5) residu trop grand, non lisible (fenetre NON ISOLEE, sel<40% : melange)
+   armee  l=1     ap     chestL       138   2.3000  [2.2400,2.3650]  0.150  0.1896  37.8%  2.50 (2.3-2.7) residu trop grand, non lisible (fenetre NON ISOLEE, sel<40% : melange)
+   armee  l=1     lat    chestL       138   2.3050  [2.2350,2.3800]  0.160  0.2515  40.5%  2.65 (2.4-2.9) residu trop grand, non lisible
+   armee  l=1     v      chestR       138   2.4850  [2.4450,2.5300]  0.270  0.0816  24.8%  2.30 (2.1-2.5) residu trop grand, non lisible (fenetre NON ISOLEE, sel<40% : melange)
+   armee  l=1     ap     chestR       138   2.2100  [2.0950,2.3200]  0.210  0.2865  41.6%  2.50 (2.3-2.7) residu trop grand, non lisible
+   armee  l=1     lat    chestR       138   2.7550  [2.7100,2.8050]  0.290  0.1012  29.6%  2.65 (2.4-2.9) residu trop grand, non lisible (fenetre NON ISOLEE, sel<40% : melange)
+   levee  l=0     v      chestL       138   2.3250  [2.3250,2.3250]  0.350  0.0046  50.8%  2.30 (2.1-2.5) DANS
+   levee  l=0     ap     chestL       138   2.4550  [2.4500,2.4600]  0.340  0.0148  44.8%  2.50 (2.3-2.7) DANS
+   levee  l=0     lat    chestL       138   2.5700  [2.5600,2.5750]  0.340  0.0255  47.4%  2.65 (2.4-2.9) DANS
+   levee  l=0     v      chestR       138   2.4250  [2.4100,2.4400]  0.330  0.0423  14.6%  2.30 (2.1-2.5) DANS (fenetre NON ISOLEE, sel<40% : melange)
+   levee  l=0     ap     chestR       138   2.8450  [2.5750,3.1700]  0.230  0.4800  29.5%  2.50 (2.3-2.7) residu trop grand, non lisible (fenetre NON ISOLEE, sel<40% : melange)
+   levee  l=0     lat    chestR       138   2.6900  [2.6750,2.7050]  0.340  0.0392  33.8%  2.65 (2.4-2.9) DANS (fenetre NON ISOLEE, sel<40% : melange)
+   levee  l=1     v      chestL       138   2.1550  [2.1050,2.2050]  0.150  0.2031  47.3%  2.30 (2.1-2.5) residu trop grand, non lisible
+   levee  l=1     ap     chestL       138   2.1300  [2.0900,2.1700]  0.180  0.1808  35.6%  2.50 (2.3-2.7) residu trop grand, non lisible (fenetre NON ISOLEE, sel<40% : melange)
+   levee  l=1     lat    chestL       138   2.2800  [2.2250,2.3400]  0.170  0.2258  40.9%  2.65 (2.4-2.9) residu trop grand, non lisible
+   levee  l=1     v      chestR       138   2.3300  [2.3000,2.3650]  0.200  0.0918  33.1%  2.30 (2.1-2.5) residu trop grand, non lisible (fenetre NON ISOLEE, sel<40% : melange)
+   levee  l=1     ap     chestR       138   4.1450  [3.7450,4.6400]  0.100  0.8089  31.3%  2.50 (2.3-2.7) residu trop grand, non lisible (fenetre NON ISOLEE, sel<40% : melange)
+   levee  l=1     lat    chestR       138   2.3450  [2.2950,2.4000]  0.170  0.1964  32.8%  2.65 (2.4-2.9) residu trop grand, non lisible (fenetre NON ISOLEE, sel<40% : melange)
 
    ROOM-AXORDER — SPEC 24 : « vertical motion is intentionally the SLOWEST ».
    L'ordre f_v < f_ap < f_lat est une exigence de SA section, independante des nominaux.
-   armee  chestL       f_v=2.3500  f_ap=2.3000  f_lat=2.3050  etalement=2.2%  -> ORDRE NON TENU
-   armee  chestL         (dont 2 fenetre(s) NON ISOLEE(s) : l'ordre lu dessus ne decide rien)
-   armee  chestR       f_v=2.4850  f_ap=2.2100  f_lat=2.7550  etalement=24.7%  -> ORDRE NON TENU
-   armee  chestR         (dont 2 fenetre(s) NON ISOLEE(s) : l'ordre lu dessus ne decide rien)
-   levee  chestL       f_v=2.1550  f_ap=2.1300  f_lat=2.2800  etalement=7.0%  -> ORDRE NON TENU
-   levee  chestL         (dont 1 fenetre(s) NON ISOLEE(s) : l'ordre lu dessus ne decide rien)
-   levee  chestR       f_v=2.3300  f_ap=4.1450  f_lat=2.3450  etalement=77.9%  -> ORDRE NON TENU
-   levee  chestR         (dont 3 fenetre(s) NON ISOLEE(s) : l'ordre lu dessus ne decide rien)
+
+   `f_v` VIENT DU CANAL RADIAL, PLUS DE LA PROJECTION `v` (correctif du 2026-08-22).
+   Cette ligne prenait `f_v` sur la projection `v` de PHYSRINGBX. Or le dossier a RETIRE
+   cette grandeur du verdict SPEC 24-v le 2026-08-18 : le joint vit sur la sphere de la
+   contrainte de longueur, sa composante radiale y est nulle PAR CONSTRUCTION, et l'axe
+   vertical de SPEC 24 est a 84,5 % radial — la projection `v` lit la FUITE des deux modes
+   TANGENTIELS. Le lecteur frere imprime depuis « tangentiel — §24-v: ROOM-AXFIT-RAD » sur
+   chaque ligne concernee (physics_room_table.py:9519 et :9779). ROOM-AXORDER concluait
+   donc « ORDRE NON TENU » sur un denominateur retire. `f_v` est desormais lu sur le canal
+   RADIAL de SPEC 23 — PHYSRINGCX (armee) / PHYSRINGCZ (levee), fenetre d'impulsion
+   VERTICALE — qui est la source que `ROOM-AXRATIO-SRC` designe deja
+   (physics_room_table.py:9830). Meme estimateur, meme skip=12, meme grille : sur `l=0` la
+   valeur est celle que `ROOM-AXFIT-RAD` publie plus haut, verifiable ligne a ligne.
+   L'ANCIENNE VALEUR TANGENTIELLE N'EST PAS EFFACEE : elle est publiee juste en dessous de
+   chaque ligne d'ordre, nommee comme telle, pour que l'avant/apres se lise ici.
+   LISIBILITE : « ORDRE TENU » n'est ecrit que si les TROIS frequences passent le critere
+   de residu du lecteur frere (<= 0.08). Sinon la ligne ecrit ORDRE NON ETABLI en nommant
+   ce qui manque, et ne conclut pas.
+
+   armee  l=0   chestL       f_v=2.3200 (residu 0.0074) [radial PHYSRINGCX]  f_ap=2.4400 (residu 0.0372)  f_lat=2.5500 (residu 0.0240)  -> ORDRE TENU  etalement=9.9%
+   armee  l=0   chestL         [ANCIEN f_v, TANGENTIEL — hors verdict depuis le 2026-08-18] projection `v` de PHYSRINGBX = 2.5350 (residu 0.0263)
+   armee  l=0   chestL         (dont 1 fenetre(s) tangentielle(s) NON ISOLEE(s) parmi ap/lat : l'ordre lu dessus ne decide rien)
+   armee  l=0   chestR       f_v=2.4150 (residu 0.0142) [radial PHYSRINGCX]  f_ap=2.4100 (residu 0.1589 > 0.08 NON LISIBLE)  f_lat=2.2750 (residu 0.1286 > 0.08 NON LISIBLE)  -> ORDRE NON ETABLI (f_ap non lisible (residu 0.1589 > 0.08) et f_lat non lisible (residu 0.1286 > 0.08))
+   armee  l=0   chestR         [ANCIEN f_v, TANGENTIEL — hors verdict depuis le 2026-08-18] projection `v` de PHYSRINGBX = 2.6250 (residu 0.0493)
+   armee  l=0   chestR         (dont 1 fenetre(s) tangentielle(s) NON ISOLEE(s) parmi ap/lat : l'ordre lu dessus ne decide rien)
+   ROOM-AXORDER-BILAN: etat=armee  l=0  1 chaine(s) sur 2 avec ORDRE TENU -> NON TENU POUR §24 (il faut les deux chaines)
+   armee  l=1   chestL       f_v=2.1300 (residu 0.1494 > 0.08 NON LISIBLE) [radial PHYSRINGCX]  f_ap=2.3000 (residu 0.1896 > 0.08 NON LISIBLE)  f_lat=2.3050 (residu 0.2515 > 0.08 NON LISIBLE)  -> ORDRE NON ETABLI (f_v radial non lisible : residu 0.1494 > 0.08 sur PHYSRINGCX)
+   armee  l=1   chestL         [ANCIEN f_v, TANGENTIEL — hors verdict depuis le 2026-08-18] projection `v` de PHYSRINGBX = 2.3500 (residu 0.0807 > 0.08 NON LISIBLE)
+   armee  l=1   chestL         (dont 1 fenetre(s) tangentielle(s) NON ISOLEE(s) parmi ap/lat : l'ordre lu dessus ne decide rien)
+   armee  l=1   chestR       f_v=2.1550 (residu 0.1390 > 0.08 NON LISIBLE) [radial PHYSRINGCX]  f_ap=2.2100 (residu 0.2865 > 0.08 NON LISIBLE)  f_lat=2.7550 (residu 0.1012 > 0.08 NON LISIBLE)  -> ORDRE NON ETABLI (f_v radial non lisible : residu 0.1390 > 0.08 sur PHYSRINGCX)
+   armee  l=1   chestR         [ANCIEN f_v, TANGENTIEL — hors verdict depuis le 2026-08-18] projection `v` de PHYSRINGBX = 2.4850 (residu 0.0816 > 0.08 NON LISIBLE)
+   armee  l=1   chestR         (dont 1 fenetre(s) tangentielle(s) NON ISOLEE(s) parmi ap/lat : l'ordre lu dessus ne decide rien)
+   ROOM-AXORDER-BILAN: etat=armee  l=1  0 chaine(s) sur 2 avec ORDRE TENU -> NON TENU POUR §24 (il faut les deux chaines)
+   levee  l=0   chestL       f_v=2.2650 (residu 0.0216) [radial PHYSRINGCZ]  f_ap=2.4550 (residu 0.0148)  f_lat=2.5700 (residu 0.0255)  -> ORDRE TENU  etalement=13.5%
+   levee  l=0   chestL         [ANCIEN f_v, TANGENTIEL — hors verdict depuis le 2026-08-18] projection `v` de PHYSRINGBZ = 2.3250 (residu 0.0046)
+   levee  l=0   chestR       f_v=2.4650 (residu 0.0106) [radial PHYSRINGCZ]  f_ap=2.8450 (residu 0.4800 > 0.08 NON LISIBLE)  f_lat=2.6900 (residu 0.0392)  -> ORDRE NON ETABLI (f_ap non lisible (residu 0.4800 > 0.08))
+   levee  l=0   chestR         [ANCIEN f_v, TANGENTIEL — hors verdict depuis le 2026-08-18] projection `v` de PHYSRINGBZ = 2.4250 (residu 0.0423)
+   levee  l=0   chestR         (dont 2 fenetre(s) tangentielle(s) NON ISOLEE(s) parmi ap/lat : l'ordre lu dessus ne decide rien)
+   ROOM-AXORDER-BILAN: etat=levee  l=0  1 chaine(s) sur 2 avec ORDRE TENU -> NON TENU POUR §24 (il faut les deux chaines)
+   levee  l=1   chestL       f_v=2.1150 (residu 0.3446 > 0.08 NON LISIBLE) [radial PHYSRINGCZ]  f_ap=2.1300 (residu 0.1808 > 0.08 NON LISIBLE)  f_lat=2.2800 (residu 0.2258 > 0.08 NON LISIBLE)  -> ORDRE NON ETABLI (f_v radial non lisible : residu 0.3446 > 0.08 sur PHYSRINGCZ)
+   levee  l=1   chestL         [ANCIEN f_v, TANGENTIEL — hors verdict depuis le 2026-08-18] projection `v` de PHYSRINGBZ = 2.1550 (residu 0.2031 > 0.08 NON LISIBLE)
+   levee  l=1   chestL         (dont 1 fenetre(s) tangentielle(s) NON ISOLEE(s) parmi ap/lat : l'ordre lu dessus ne decide rien)
+   levee  l=1   chestR       f_v=1.2000 (residu 0.4888 > 0.08 NON LISIBLE) [radial PHYSRINGCZ]  f_ap=4.1450 (residu 0.8089 > 0.08 NON LISIBLE)  f_lat=2.3450 (residu 0.1964 > 0.08 NON LISIBLE)  -> ORDRE NON ETABLI (f_v radial non lisible : residu 0.4888 > 0.08 sur PHYSRINGCZ)
+   levee  l=1   chestR         [ANCIEN f_v, TANGENTIEL — hors verdict depuis le 2026-08-18] projection `v` de PHYSRINGBZ = 2.3300 (residu 0.0918 > 0.08 NON LISIBLE)
+   levee  l=1   chestR         (dont 2 fenetre(s) tangentielle(s) NON ISOLEE(s) parmi ap/lat : l'ordre lu dessus ne decide rien)
+   ROOM-AXORDER-BILAN: etat=levee  l=1  0 chaine(s) sur 2 avec ORDRE TENU -> NON TENU POUR §24 (il faut les deux chaines)
 
 -- ROOM-ORI : SPEC 10-13, LES EQUILIBRES PAR ORIENTATION, ET LEUR CONTINUITE --------------
    SPEC 13 : « supine, prone, upright and lateral states shall NOT exist as unrelated
@@ -4068,14 +4211,15 @@ ROOM-ASYM-POSE: PH-SYM7    PH-SYM i=7        ecart=7.1 deg    source=PHYSSYMB i=
 ROOM-ASYM-POSE: PH-TILT    PH-IDLE + PH-TILT (pire des deux) ecart=130.9 deg  source=PHYSPOSETAG  -> REFUSEE
    (source : PHYSPOSETAG tag=idle / tag=tilt)
 
-ROOM-ASYM-VERROU: 3 ligne(s) publient une comparaison gauche/droite SANS porter leur pose
+ROOM-ASYM-VERROU: 4 ligne(s) publient une comparaison gauche/droite SANS porter leur pose
    C'EST UN DEFAUT DE CE TABLEAU, PAS UNE MESURE. Chacune de ces lignes pose un ecart
    entre chestL et chestR sans dire dans quelle pose elle l'a releve : tant qu'elle ne le
    dit pas, son chiffre est indistinguable d'un artefact de pose et ne peut fonder aucune
    section. A corriger dans le tableau, pas a interpreter en rapport.
    !  ROOM-REGBONE-BILAN: sinY median  chestL 0.2409   chestR 0.5643   (bind 0.3938)
    !  ROOM-REGBONE-MIROIR: pire ecart au miroir de la POSE = 105.85 deg (r=14), seuil declare 1.30 deg
-   !     separation chestL - chestR = (-1.21, -0.23, +758.09) u   norme 758.09 u = 18.5 cm
+   !     l=0  separation chestL - chestR = (+0.00, +0.02, +755.11) u   norme 755.11 u = 18.4 cm (longueurs d'os 1040.50 / 1039.03 u)
+   !     l=1  separation chestL - chestR = (+3.52, +0.57, +103.77) u   norme 103.83 u = 2.5 cm (longueurs d'os 140.42 / 144.23 u)
 ROOM-ASYM-EXEMPT: 13 ligne(s) exemptees (elles n'affirment aucune asymetrie du personnage)
    -  -- LE PILOTAGE (SPEC 6 : haut/bas, gauche/droite, diverses accelerations, a-coups) ---------
    -     (debout, la meme gravite effective vaut : chestL=0.0001 chestR=0.0001)

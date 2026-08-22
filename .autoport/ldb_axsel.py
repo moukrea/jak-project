@@ -37,6 +37,23 @@ NATURE / REPERE / LIGNE DE BASE (les trois questions de SPEC 7, pour chaque gran
   ROOM-AXFIT-ABS : NATURE  une frequence (Hz) et un rapport d'amortissement, meme estimateur que
                            `ROOM-AXFIT` (sinusoide amortie + constante, balayage f x zeta).
                    REPERE  idem. ABSENT aucune ligne PHYSRINGBX (emetteurs non tires).
+                   LISIBLE  residu <= 0.08 : le MEME seuil et la MEME phrase de sortie que le
+                           lecteur frere (physics_room_table.py:9780-9781). Au-dela, la ligne
+                           n'ecrit ni DANS ni HORS.
+  ROOM-AXORDER   : NATURE  un ORDRE entre trois frequences (Hz). `f_v` vient du canal RADIAL
+                           (PHYSRINGCX armee / PHYSRINGCZ levee), jamais de la projection `v`,
+                           qui est TANGENTIELLE et retiree du verdict SPEC 24-v depuis le
+                           2026-08-18 (physics_room_table.py:9519, :9779).
+                   REPERE  idem. NON ETABLI  une des trois frequences n'est pas lisible.
+
+CE QUE CE FICHIER PUBLIE PAR MAILLON — CORRECTIF DU 2026-08-22
+--------------------------------------------------------------
+`load()` capturait le champ `l=` de la trace et le JETAIT : les deux maillons de la chaine
+ecrivaient dans la MEME case et le DISTAL ecrasait la RACINE. Toutes les lignes de ce bloc
+decrivaient donc le maillon DISTAL sous le nom de la CHAINE, pendant que `ROOM-AXFIT` de
+physics_room_table.py decrivait le maillon RACINE. La cle porte desormais le maillon, chaque ligne
+le NOMME, et les deux maillons sont publies separement — voir `ROOM-AXLINK`, en tete de la sortie,
+qui publie le recensement (enregistrements lus, maillons presents, reecritures = 0).
 """
 import math
 import re
@@ -53,23 +70,81 @@ AXN = {0: 'v', 1: 'ap', 2: 'lat'}
 TGT = {'v': (2.30, 2.1, 2.5), 'ap': (2.50, 2.3, 2.7), 'lat': (2.65, 2.4, 2.9)}
 
 
-def load(txt, tag1, tag2):
-    """Les deux lignes d'une meme fenetre, reunies par (axe excite, chaine, frame).
+def load(txt, tag1, tag2, meta=None):
+    """Les deux lignes d'une meme fenetre, reunies par (axe excite, chaine, MAILLON) puis frame.
 
     `ax` est repete sur la seconde ligne parce que les trois fenetres repartent chacune a la
     frame 0 : `f` seule ne designe pas une fenetre.
+
+    LE MAILLON EST DANS LA CLE — CORRECTIF DU 2026-08-22, ET C'EST LE MEME DEFAUT QUE CELUI DEJA
+    CORRIGE TROIS FOIS DANS LE LECTEUR FRERE (`physics_room_table.py` :9474 pour ROOM-RINGFIT,
+    :9644 pour ROOM-AXFIT, :9925 pour ROOM-AXFIT-RAD). Les deux expressions rationnelles
+    capturaient le champ de maillon et ne s'en servaient JAMAIS : la cle etait (ax, c), donc les
+    deux maillons ecrivaient dans la MEME case [v, ap, lat] de la MEME frame, et le DERNIER ECRIT
+    ECRASAIT LE PREMIER. La trace emet le maillon 0 puis le maillon 1 pour chaque frame (verifie
+    ligne a ligne : `PHYSRINGBX c=0 f=1 l=0` est suivi de `PHYSRINGBX c=0 f=1 l=1`), donc toute la
+    famille ABS publiait le maillon DISTAL seul, sous le nom de la CHAINE, pendant que ROOM-AXFIT
+    publiait le maillon RACINE.
+
+    Avec le maillon dans la cle, l'ecrasement n'est plus « evite » : il est IMPOSSIBLE, deux
+    maillons sont deux cles. `meta`, si fourni, recoit le recensement publie par ROOM-AXLINK —
+    dont `dup`, le nombre de cases reecrites, qui doit rester a 0 et qui est IMPRIME.
     """
     S = {}
+    seen = {}
+    dup = 0
+    n1 = n2 = 0
     for m in re.finditer(r'^%s c=(\d+) f=(\d+) l=(\d+) ax=(\d+) v=([-\d.e+]+)' % tag1, txt, re.M):
-        S.setdefault((int(m.group(4)), int(m.group(1))), {}) \
-         .setdefault(int(m.group(2)), [0.0, 0.0, 0.0])[0] = float(m.group(5))
+        key = (int(m.group(4)), int(m.group(1)), int(m.group(3)))
+        fr = int(m.group(2))
+        n1 += 1
+        msk = seen.get((key, fr), 0)
+        if msk & 1:
+            dup += 1
+        seen[(key, fr)] = msk | 1
+        S.setdefault(key, {}).setdefault(fr, [0.0, 0.0, 0.0])[0] = float(m.group(5))
     for m in re.finditer(r'^%s c=(\d+) f=(\d+) ax=(\d+) l=(\d+) ap=([-\d.e+]+) lat=([-\d.e+]+)'
                          % tag2, txt, re.M):
-        d = S.setdefault((int(m.group(3)), int(m.group(1))), {}) \
-             .setdefault(int(m.group(2)), [0.0, 0.0, 0.0])
+        key = (int(m.group(3)), int(m.group(1)), int(m.group(4)))
+        fr = int(m.group(2))
+        n2 += 1
+        msk = seen.get((key, fr), 0)
+        if msk & 2:
+            dup += 1
+        seen[(key, fr)] = msk | 2
+        d = S.setdefault(key, {}).setdefault(fr, [0.0, 0.0, 0.0])
         d[1] = float(m.group(5))
         d[2] = float(m.group(6))
+    if meta is not None:
+        meta.update(tag1=tag1, tag2=tag2, n1=n1, n2=n2, dup=dup,
+                    links=sorted({_l for (_a, _c, _l) in S}))
     return S
+
+
+def load_rad(txt, tag, meta=None):
+    """Le canal RADIAL de SPEC 23 (`PHYSRINGCX` armee / `PHYSRINGCZ` levee), meme cle.
+
+    Une seule composante : l'elongation radiale du tissu. C'est la source que
+    `ROOM-AXRATIO-SRC` de physics_room_table.py:9830 designe deja pour `f_v` — la projection `v`
+    de PHYSRINGBX est TANGENTIELLE (le joint vit sur la sphere de la contrainte de longueur) et a
+    ete retiree du verdict SPEC 24-v le 2026-08-18 (physics_room_table.py:9519, :9779).
+    """
+    R = {}
+    seen = set()
+    dup = 0
+    n = 0
+    for m in re.finditer(r'^%s c=(\d+) f=(\d+) l=(\d+) ax=(\d+) v=([-\d.e+]+)' % tag, txt, re.M):
+        key = (int(m.group(4)), int(m.group(1)), int(m.group(3)))
+        fr = int(m.group(2))
+        n += 1
+        if (key, fr) in seen:
+            dup += 1
+        seen.add((key, fr))
+        R.setdefault(key, {})[fr] = float(m.group(5))
+    if meta is not None:
+        meta.update(tag1=tag, tag2='-', n1=n, n2=0, dup=dup,
+                    links=sorted({_l for (_a, _c, _l) in R}))
+    return R
 
 
 def pca(rows):
@@ -131,34 +206,76 @@ def fitseries(vals, skip=12):
 
 
 _FITCACHE = {}
+_RADCACHE = {}
+
+# LE SEUIL DE LISIBILITE, ET IL N'EST PAS A MOI. Il est repris VERBATIM du lecteur frere
+# `physics_room_table.py` — meme comparaison `rel > 0.08` et meme phrase de sortie « residu trop
+# grand, non lisible » — a ses trois emplacements :
+#     physics_room_table.py:9520-9521   ROOM-RINGFIT
+#     physics_room_table.py:9780-9781   ROOM-AXFIT
+#     physics_room_table.py:9971-9973   ROOM-AXFIT-RAD (meme seuil, verdict INSUFFISANT)
+# Sa justification y est ecrite : « au-dela de ~0.08 la serie ne porte pas un mode unique et le
+# chiffre ne doit PAS etre lu comme une frequence » (physics_room_table.py:9409-9410).
+RESMAX = 0.08
 
 
-def fit_axis(S, lbl, k, c):
-    """`fitseries` sur la projection de l'axe EXCITE, MEMOISE.
+def fit_axis(S, lbl, k, c, l):
+    """`fitseries` sur la projection de l'axe EXCITE, pour UN maillon, MEMOISE.
 
     Le balayage f x zeta coute ~58 000 moindres carres par serie : le refaire pour `ROOM-AXORDER`
     apres l'avoir fait pour `ROOM-AXFIT-ABS` doublait le temps du tableau pour un resultat
     identique — et deux calculs du meme nombre sont surtout deux occasions de diverger.
     """
-    key = (lbl, k, c)
+    key = (lbl, k, c, l)
     if key not in _FITCACHE:
-        if (k, c) not in S:
+        if (k, c, l) not in S:
             _FITCACHE[key] = None
         else:
-            _FITCACHE[key] = fitseries([S[(k, c)][f][k] for f in sorted(S[(k, c)])])
+            _FITCACHE[key] = fitseries([S[(k, c, l)][f][k] for f in sorted(S[(k, c, l)])])
     return _FITCACHE[key]
 
 
-def selectivity(S, k, c):
-    """Part de la reponse tombant sur chaque projection, moyenne retiree."""
+def fit_rad(R, lbl, k, c, l):
+    """`fitseries` sur le canal RADIAL, meme estimateur, meme skip, meme grille. MEMOISE.
+
+    Aucun ajusteur n'est reecrit : c'est `fitseries`, deja recopie a l'identique de `_fitseries`
+    de physics_room_table.py. Sur (k=0, l=0) cette fonction rend donc exactement le nombre que
+    `ROOM-AXFIT-RAD` publie plus haut dans le meme tableau — verifiable ligne a ligne.
+    """
+    key = ('rad', lbl, k, c, l)
+    if key not in _RADCACHE:
+        if (k, c, l) not in R:
+            _RADCACHE[key] = None
+        else:
+            _RADCACHE[key] = fitseries([R[(k, c, l)][f] for f in sorted(R[(k, c, l)])])
+    return _RADCACHE[key]
+
+
+def readable(r):
+    """Le MEME critere que le lecteur frere : un ajustement de residu > 0.08 n'est pas lisible."""
+    return bool(r) and r['rel'] <= RESMAX
+
+
+def selectivity(S, k, c, l):
+    """Part de la reponse tombant sur chaque projection, moyenne retiree, pour UN maillon."""
     r = {}
     for i, ax in AXN.items():
-        if (k, c) not in S:
+        if (k, c, l) not in S:
             return None
-        vals = [S[(k, c)][f][i] for f in sorted(S[(k, c)])]
+        vals = [S[(k, c, l)][f][i] for f in sorted(S[(k, c, l)])]
         mu = sum(vals) / len(vals)
         r[ax] = math.sqrt(sum((x - mu) ** 2 for x in vals) / len(vals))
     return r
+
+
+def links_of(S):
+    """Les maillons presents dans une serie, dans l'ordre : la RACINE d'abord."""
+    return sorted({_l for (_k, _c, _l) in S})
+
+
+def chains_of(S, l):
+    """Les chaines presentes pour UN maillon."""
+    return sorted({_c for (_k, _c, _ll) in S if _ll == l})
 
 
 def chain_names(txt, chains_file='recharged_assets/physics_chains.txt'):
@@ -209,10 +326,53 @@ def lines(txt, names=None):
         A('ROOM-AXPLANE: ABSENT (numpy indisponible)')
         return out
 
-    NORM = load(txt, 'PHYSRINGAX', 'PHYSRINGAX2')
-    RAW = load(txt, 'PHYSRINGBX', 'PHYSRINGBX2')
-    NORM_Z = load(txt, 'PHYSRINGAZ', 'PHYSRINGAZ2')
-    RAW_Z = load(txt, 'PHYSRINGBZ', 'PHYSRINGBZ2')
+    MET = {k: {} for k in ('normalisee', 'NON normalisee', 'normalisee/Z', 'NON normalisee/Z',
+                           'radial armee', 'radial levee')}
+    NORM = load(txt, 'PHYSRINGAX', 'PHYSRINGAX2', MET['normalisee'])
+    RAW = load(txt, 'PHYSRINGBX', 'PHYSRINGBX2', MET['NON normalisee'])
+    NORM_Z = load(txt, 'PHYSRINGAZ', 'PHYSRINGAZ2', MET['normalisee/Z'])
+    RAW_Z = load(txt, 'PHYSRINGBZ', 'PHYSRINGBZ2', MET['NON normalisee/Z'])
+    # Le canal RADIAL de SPEC 23, pour `f_v` de ROOM-AXORDER (voir la note de ce bloc).
+    CXS = load_rad(txt, 'PHYSRINGCX', MET['radial armee'])
+    CXZ = load_rad(txt, 'PHYSRINGCZ', MET['radial levee'])
+
+    # ---- 0. LE MAILLON, ET CE QUE CE BLOC PUBLIAIT AVANT LE 2026-08-22 ---------------------------
+    A('   ROOM-AXLINK — LES DEUX MAILLONS SONT DESORMAIS PUBLIES SEPAREMENT, ET NOMMES SUR CHAQUE')
+    A('   LIGNE (correctif d\'instrument du 2026-08-22).')
+    A('   Jusqu\'a ce correctif la cle de lecture de ce fichier etait (axe excite, chaine) : le')
+    A('   champ `l=` de la trace etait capture par la regex puis JETE. Les deux maillons de la')
+    A('   chaine ecrivaient donc dans la MEME case de la MEME frame et le DERNIER ECRIT ECRASAIT LE')
+    A('   PREMIER ; la trace emet `l=0` puis `l=1` a chaque frame, donc TOUTES les valeurs de la')
+    A('   famille ABS publiees avant ce correctif (AXPLANE, AXBLIND, AXLABEL, AXSEL-ABS, AXFIT-ABS,')
+    A('   AXORDER) etaient celles du maillon DISTAL `l=1`, imprimees sous le nom de la CHAINE.')
+    A('   `ROOM-AXFIT` de physics_room_table.py publie, lui, le maillon RACINE (il filtre `l != 0`,')
+    A('   :9650) : les deux blocs se lisaient cote a cote comme deux avis sur la meme grandeur,')
+    A('   alors qu\'ils ne decrivaient pas le meme maillon. Rien ne le disait.')
+    A('   DESORMAIS : la serie de reference reste le maillon RACINE `l=0` (le meme choix que')
+    A('   ROOM-AXFIT, documente physics_room_table.py:9649), et le maillon DISTAL `l=1` est publie')
+    A('   a cote, meme format, sur ses propres lignes — les chiffres du distal ne sont pas perdus,')
+    A('   ils sont NOMMES. Les lignes `l=1` de ROOM-AXFIT-ABS portent EXACTEMENT les nombres que ce')
+    A('   bloc publiait avant le correctif (n, f, intervalle, zeta, residu, sel) ; seule la colonne')
+    A('   de VERDICT y change, parce que le critere de residu ci-dessous s\'y applique desormais.')
+    A('   UNE EXCEPTION, ET ELLE EST NOMMEE : la ligne ROOM-AXLABEL melangeait une longueur d\'os du')
+    A('   maillon RACINE (`PHYSBONE l=0`) et une direction du maillon DISTAL. Aucune de ses deux')
+    A('   lignes ne reproduit donc l\'ancienne : chacune porte desormais la longueur ET la direction')
+    A('   de SON maillon.')
+    A('')
+    A('   RECENSEMENT — l\'ecrasement n\'est pas « evite », il est IMPOSSIBLE (deux maillons sont')
+    A('   deux cles). `reecritures` est le controle qui le dit avec un chiffre plutot qu\'avec une')
+    A('   affirmation : c\'est le nombre de cases (cle, frame, composante) ecrites deux fois.')
+    A('   serie             tags                          enregistrements  maillons  reecritures')
+    for _lbl in ('normalisee', 'NON normalisee', 'normalisee/Z', 'NON normalisee/Z',
+                 'radial armee', 'radial levee'):
+        _m = MET[_lbl]
+        if not _m:
+            A('   %-17s (aucun enregistrement)' % _lbl)
+            continue
+        A('   %-17s %-29s %5d + %-5d    %-9s %d'
+          % (_lbl, '%s / %s' % (_m['tag1'], _m['tag2']), _m['n1'], _m['n2'],
+             str(_m['links']), _m['dup']))
+    A('')
 
     # ---- 1. LE CONTROLE DE L'INSTRUMENT LUI-MEME ------------------------------------------------
     A('   ROOM-AXPLANE — LA SERIE PORTE-T-ELLE TROIS DEGRES DE LIBERTE, OU DEUX ?')
@@ -227,26 +387,31 @@ def lines(txt, names=None):
     A('   imprimee n\'y veut alors rien dire. On ne lit la colonne de droite que sur les lignes ou')
     A('   `s2/s3` est franchement > 5.')
     A('')
-    A('   serie             excite chaine     s1        s2        s3      s3/s1  s2/s3  direction NULLE')
+    A('   serie             maillon excite chaine     s1        s2        s3      s3/s1  s2/s3'
+      '  direction NULLE')
     for lbl, S in (('normalisee', NORM), ('NON normalisee', RAW),
                    ('normalisee/Z', NORM_Z), ('NON normalisee/Z', RAW_Z)):
         if not S:
             A('   %-17s ABSENTE de la trace' % lbl)
             continue
-        for c in sorted({c for (_k, c) in S}):
-            nm = names.get(c, 'c%d' % c)
-            for k in (0, 1, 2):
-                if (k, c) not in S:
-                    continue
-                rows = [S[(k, c)][f] for f in sorted(S[(k, c)])]
-                if len(rows) < 20:
-                    continue
-                s, V = pca(rows)
-                _det = s[1] / s[2] if s[2] else float('inf')
-                A('   %-17s %-4s  %-10s %.2e %.2e %.2e  %6.4f %5.1f  (%+.3f,%+.3f,%+.3f) %s'
-                  % (lbl, AXN[k], nm, s[0], s[1], s[2],
-                     s[2] / s[0] if s[0] else 0.0, _det, V[2][0], V[2][1], V[2][2],
-                     '' if _det > 5.0 else '<- indeterminee'))
+        # Maillon EN PREMIER : les lignes `l=0` (la serie de reference) gardent leur ordre relatif
+        # et les lignes `l=1` s'ajoutent dessous au lieu de s'y melanger.
+        for l in links_of(S):
+            for c in chains_of(S, l):
+                nm = names.get(c, 'c%d' % c)
+                for k in (0, 1, 2):
+                    if (k, c, l) not in S:
+                        continue
+                    rows = [S[(k, c, l)][f] for f in sorted(S[(k, c, l)])]
+                    if len(rows) < 20:
+                        continue
+                    s, V = pca(rows)
+                    _det = s[1] / s[2] if s[2] else float('inf')
+                    A('   %-17s l=%-5d %-4s  %-10s %.2e %.2e %.2e  %6.4f %5.1f'
+                      '  (%+.3f,%+.3f,%+.3f) %s'
+                      % (lbl, l, AXN[k], nm, s[0], s[1], s[2],
+                         s[2] / s[0] if s[0] else 0.0, _det, V[2][0], V[2][1], V[2][2],
+                         '' if _det > 5.0 else '<- indeterminee'))
     A('')
 
     # ---- 1 bis. LA PREUVE ALGEBRIQUE, ET C'EST ELLE QUI TRANCHE ---------------------------------
@@ -266,30 +431,32 @@ def lines(txt, names=None):
     A('   pour rien d\'autre. `m` est ajuste sans contrainte de norme : s\'il sort a |m|=1, la')
     A('   grandeur mesuree EST une difference de directions, et `m` est la direction AVEUGLE.')
     A('')
-    A('   serie             excite chaine     m ajuste (v, ap, lat)        R2        |m|     part_v')
+    A('   serie             maillon excite chaine     m ajuste (v, ap, lat)        R2        |m|'
+      '     part_v')
     for lbl, S in (('normalisee', NORM), ('NON normalisee', RAW)):
         if not S:
             A('   %-17s ABSENTE de la trace' % lbl)
             continue
-        for c in sorted({c for (_k, c) in S}):
-            nm = names.get(c, 'c%d' % c)
-            for k in (0, 1, 2):
-                if (k, c) not in S:
-                    continue
-                D = _np.array([S[(k, c)][f] for f in sorted(S[(k, c)])], dtype=float)
-                if len(D) < 20:
-                    continue
-                y = -0.5 * (D * D).sum(axis=1)
-                mv, *_ = _np.linalg.lstsq(D, y, rcond=None)
-                pred = D @ mv
-                den = float(((y - y.mean()) ** 2).sum())
-                r2 = 1.0 - float(((pred - y) ** 2).sum()) / den if den > 0 else float('nan')
-                nrm = float(_np.linalg.norm(mv))
-                u = (mv / nrm) if nrm > 0 else mv
-                if u[int(_np.argmax(_np.abs(u)))] < 0:
-                    u = -u
-                A('   %-17s %-4s  %-10s (%+.4f,%+.4f,%+.4f)  %9.5f  %.4f  %5.1f%%'
-                  % (lbl, AXN[k], nm, u[0], u[1], u[2], r2, nrm, 100.0 * u[0] * u[0]))
+        for l in links_of(S):
+            for c in chains_of(S, l):
+                nm = names.get(c, 'c%d' % c)
+                for k in (0, 1, 2):
+                    if (k, c, l) not in S:
+                        continue
+                    D = _np.array([S[(k, c, l)][f] for f in sorted(S[(k, c, l)])], dtype=float)
+                    if len(D) < 20:
+                        continue
+                    y = -0.5 * (D * D).sum(axis=1)
+                    mv, *_ = _np.linalg.lstsq(D, y, rcond=None)
+                    pred = D @ mv
+                    den = float(((y - y.mean()) ** 2).sum())
+                    r2 = 1.0 - float(((pred - y) ** 2).sum()) / den if den > 0 else float('nan')
+                    nrm = float(_np.linalg.norm(mv))
+                    u = (mv / nrm) if nrm > 0 else mv
+                    if u[int(_np.argmax(_np.abs(u)))] < 0:
+                        u = -u
+                    A('   %-17s l=%-5d %-4s  %-10s (%+.4f,%+.4f,%+.4f)  %9.5f  %.4f  %5.1f%%'
+                      % (lbl, l, AXN[k], nm, u[0], u[1], u[2], r2, nrm, 100.0 * u[0] * u[0]))
     A('')
     A('   LECTURE : sur la serie NORMALISEE, R2 = 1 et |m| = 1 -> la grandeur est bien une')
     A('   difference de directions, et `part_v` dit quelle FRACTION de la direction aveugle tombe')
@@ -308,46 +475,61 @@ def lines(txt, names=None):
     # verifie dans keira-hd-k2e.json), donc leurs deux os partent du meme point et la difference de
     # leurs vecteurs EST le segment qui va d'un sein a l'autre. L'axe qui porte ce segment est le
     # LATERAL, par definition. `m` vient de l'identite ci-dessus, `|m|` de `PHYSBONE`.
-    if len(NORM) and len({c for (_k, c) in NORM}) == 2:
+    if len(NORM) and len({c for (_k, c, _l) in NORM}) == 2:
         A('   ROOM-AXLABEL — LE TRIEDRE PORTE-T-IL LES BONS NOMS ?')
         A('   Le segment qui separe les deux seins est LATERAL par anatomie. On le reconstruit')
         A('   (meme attache : parent commun joint 3 `chest`) et on regarde sur quel axe il tombe.')
+        A('   UNE LIGNE PAR MAILLON. L\'argument anatomique (parent commun) porte sur le maillon')
+        A('   RACINE `l=0` : c\'est LUI qui part du joint `chest`. La ligne `l=1` est publiee pour')
+        A('   que le distal ne disparaisse pas, mais son segment ne joint pas deux attaches')
+        A('   communes — elle se lit comme un report, pas comme la preuve d\'etiquetage.')
+        A('   AVANT LE 2026-08-22 CETTE LIGNE ETAIT UN MELANGE : la longueur d\'os venait du maillon')
+        A('   RACINE (`PHYSBONE l=0`) et la direction `m` du maillon DISTAL, parce que la cle de')
+        A('   lecture jetait le maillon. Chaque ligne porte maintenant la longueur ET la direction')
+        A('   du MEME maillon.')
         blen = {}
-        for m in re.finditer(r'^PHYSBONE c=(\d+) l=0 len=([-\d.]+)', txt, re.M):
-            blen[int(m.group(1))] = float(m.group(2))
-        mh = {}
-        for c in sorted({c for (_k, c) in NORM}):
-            D = _np.array([NORM[(0, c)][f] for f in sorted(NORM[(0, c)])], dtype=float) \
-                if (0, c) in NORM else None
-            if D is None or len(D) < 20:
-                continue
-            y = -0.5 * (D * D).sum(axis=1)
-            mv, *_ = _np.linalg.lstsq(D, y, rcond=None)
-            nr = float(_np.linalg.norm(mv))
-            if nr > 0:
-                mh[c] = mv / nr
-        cs = sorted(mh)
-        if len(cs) == 2 and all(c in blen for c in cs):
-            sep = blen[cs[0]] * mh[cs[0]] - blen[cs[1]] * mh[cs[1]]
-            nrm = float(_np.linalg.norm(sep))
-            frac = 100.0 * (sep ** 2) / max(1e-30, float((sep ** 2).sum()))
-            dom = AXN[int(_np.argmax(_np.abs(sep)))]
-            A('   separation %s - %s = (%+.2f, %+.2f, %+.2f) u   norme %.2f u = %.1f cm'
-              % (names.get(cs[0], 'c0'), names.get(cs[1], 'c1'),
-                 sep[0], sep[1], sep[2], nrm, nrm / 40.96))
-            A('   part d\'energie :  v %5.1f%%   ap %5.1f%%   lat %5.1f%%'
-              % (frac[0], frac[1], frac[2]))
-            if dom == 'lat':
-                A('   -> le segment gauche-droite tombe sur l\'axe nomme `lat`. LES NOMS SONT BONS.')
+        for m in re.finditer(r'^PHYSBONE c=(\d+) l=(\d+) len=([-\d.]+)', txt, re.M):
+            blen[(int(m.group(1)), int(m.group(2)))] = float(m.group(3))
+        for l in links_of(NORM):
+            mh = {}
+            for c in chains_of(NORM, l):
+                D = _np.array([NORM[(0, c, l)][f] for f in sorted(NORM[(0, c, l)])], dtype=float) \
+                    if (0, c, l) in NORM else None
+                if D is None or len(D) < 20:
+                    continue
+                y = -0.5 * (D * D).sum(axis=1)
+                mv, *_ = _np.linalg.lstsq(D, y, rcond=None)
+                nr = float(_np.linalg.norm(mv))
+                if nr > 0:
+                    mh[c] = mv / nr
+            cs = sorted(mh)
+            if len(cs) == 2 and all((c, l) in blen for c in cs):
+                sep = blen[(cs[0], l)] * mh[cs[0]] - blen[(cs[1], l)] * mh[cs[1]]
+                nrm = float(_np.linalg.norm(sep))
+                frac = 100.0 * (sep ** 2) / max(1e-30, float((sep ** 2).sum()))
+                dom = AXN[int(_np.argmax(_np.abs(sep)))]
+                A('   l=%d  separation %s - %s = (%+.2f, %+.2f, %+.2f) u   norme %.2f u = %.1f cm'
+                  ' (longueurs d\'os %.2f / %.2f u)'
+                  % (l, names.get(cs[0], 'c0'), names.get(cs[1], 'c1'),
+                     sep[0], sep[1], sep[2], nrm, nrm / 40.96,
+                     blen[(cs[0], l)], blen[(cs[1], l)]))
+                A('   l=%d  part d\'energie :  v %5.1f%%   ap %5.1f%%   lat %5.1f%%'
+                  % (l, frac[0], frac[1], frac[2]))
+                if dom == 'lat':
+                    A('   l=%d  -> le segment gauche-droite tombe sur l\'axe nomme `lat`.'
+                      ' LES NOMS SONT BONS.' % l)
+                else:
+                    A('   l=%d  -> le segment gauche-droite tombe sur l\'axe nomme `%s`, PAS sur'
+                      ' `lat`.' % (l, dom))
+                    A('         LES ROLES `ap` ET `lat` SONT INTERVERTIS. Consequence directe :')
+                    A('         SPEC 29 applique la compliance 0.90 (avant-arriere) au LATERAL et')
+                    A('         0.82 (lateral) a l\'AVANT-ARRIERE, et les cibles de SPEC 24 (2.50 /')
+                    A('         2.65 Hz) sont comparees aux mauvais axes. Le mecanisme est arme et')
+                    A('         la mesure est propre : c\'est l\'ETIQUETTE qui est fausse, et rien')
+                    A('         d\'autre ne pouvait le signaler.')
             else:
-                A('   -> le segment gauche-droite tombe sur l\'axe nomme `%s`, PAS sur `lat`.' % dom)
-                A('      LES ROLES `ap` ET `lat` SONT INTERVERTIS. Consequence directe : SPEC 29')
-                A('      applique la compliance 0.90 (avant-arriere) au LATERAL et 0.82 (lateral) a')
-                A('      l\'AVANT-ARRIERE, et les cibles de SPEC 24 (2.50 / 2.65 Hz) sont comparees')
-                A('      aux mauvais axes. Le mecanisme est arme et la mesure est propre : c\'est')
-                A('      l\'ETIQUETTE qui est fausse, et rien d\'autre ne pouvait le signaler.')
-        else:
-            A('   ROOM-AXLABEL: ABSENT (il faut 2 chaines avec `PHYSBONE l=0` et une fenetre v)')
+                A('   l=%d  ROOM-AXLABEL: ABSENT (il faut 2 chaines avec `PHYSBONE l=%d` et une'
+                  ' fenetre v)' % (l, l))
         A('')
 
     # ---- 2. LA SELECTIVITE, SUR LES DEUX INSTRUMENTS ---------------------------------------------
@@ -360,30 +542,37 @@ def lines(txt, names=None):
     A('   monte, la contrainte de longueur EST ce qui confisque le troisieme mode — l\'hypothese que')
     A('   le cycle 8 avait posee puis declaree refutee en la lisant avec l\'instrument aveugle.')
     A('')
-    A('   excite chaine        norm/armee   abs/armee    norm/levee   abs/levee    -> dominant (abs/levee)')
-    for c in sorted(set().union(*[{c for (_k, c) in S} for S in (NORM, RAW, NORM_Z, RAW_Z) if S])
-                    or set()):
-        nm = names.get(c, 'c%d' % c)
-        for k in (0, 1, 2):
-            cells = []
-            for S in (NORM, RAW, NORM_Z, RAW_Z):
-                r = selectivity(S, k, c) if S else None
-                if r is None:
-                    cells.append('    --   ')
+    A('   maillon excite chaine        norm/armee   abs/armee    norm/levee   abs/levee'
+      '    -> dominant (abs/levee)')
+    _alll = sorted(set().union(*[{l for (_k, _c, l) in S}
+                                 for S in (NORM, RAW, NORM_Z, RAW_Z) if S]) or set())
+    _allc = sorted(set().union(*[{c for (_k, c, _l) in S}
+                                 for S in (NORM, RAW, NORM_Z, RAW_Z) if S]) or set())
+    for l in _alll:
+        for c in _allc:
+            nm = names.get(c, 'c%d' % c)
+            for k in (0, 1, 2):
+                cells = []
+                for S in (NORM, RAW, NORM_Z, RAW_Z):
+                    r = selectivity(S, k, c, l) if S else None
+                    if r is None:
+                        cells.append('    --   ')
+                        continue
+                    t = sum(r.values()) or 1.0
+                    cells.append('  %5.1f%%  ' % (100 * r[AXN[k]] / t))
+                # La colonne de verdict lit `abs/levee` ET RIEN D'AUTRE. Un repli silencieux sur
+                # une autre serie ferait porter a cette colonne un titre qu'elle ne tient pas —
+                # c'est exactement la lecture faussee que ce fichier existe pour retirer.
+                _rz = selectivity(RAW_Z, k, c, l) if RAW_Z else None
+                if _rz is None:
+                    mark = '-- (abs/levee absente)'
+                else:
+                    _d = max(_rz, key=_rz.get)
+                    mark = 'ISOLE' if _d == AXN[k] else 'melange->%s' % _d.upper()
+                if all(x.strip() == '--' for x in cells):
                     continue
-                t = sum(r.values()) or 1.0
-                cells.append('  %5.1f%%  ' % (100 * r[AXN[k]] / t))
-            # La colonne de verdict lit `abs/levee` ET RIEN D'AUTRE. Un repli silencieux sur une
-            # autre serie ferait porter a cette colonne un titre qu'elle ne tient pas — c'est
-            # exactement la lecture faussee que ce fichier existe pour retirer.
-            _rz = selectivity(RAW_Z, k, c) if RAW_Z else None
-            if _rz is None:
-                mark = '-- (abs/levee absente)'
-            else:
-                _d = max(_rz, key=_rz.get)
-                mark = 'ISOLE' if _d == AXN[k] else 'melange->%s' % _d.upper()
-            A('   %-4s   %-12s %s %s %s %s  %s'
-              % (AXN[k], nm, cells[0], cells[1], cells[2], cells[3], mark))
+                A('   l=%-5d %-4s   %-12s %s %s %s %s  %s'
+                  % (l, AXN[k], nm, cells[0], cells[1], cells[2], cells[3], mark))
     A('')
 
     # ---- 3. SPEC 24 : LES TROIS FREQUENCES, SUR L'INSTRUMENT NON AVEUGLE -------------------------
@@ -398,65 +587,147 @@ def lines(txt, names=None):
     A('        qu\'on livre : la frequence qu\'on y lit dit ce que le mode vertical VAUDRAIT si le')
     A('        degre de liberte existait. C\'est un diagnostic, pas une conformite.')
     A('')
-    A('   etat   excite chaine        n    f (Hz)   intervalle        zeta   residu   sel     cible §24')
+    A('   LE CRITERE DE RESIDU EST CELUI DU LECTEUR FRERE, PAS UN SEUIL A MOI (ajout 2026-08-22) :')
+    A('   au-dela de `residu` > 0.08 la ligne n\'ecrit plus ni DANS ni HORS mais « residu trop')
+    A('   grand, non lisible » — meme comparaison et meme phrase que `ROOM-AXFIT`')
+    A('   (physics_room_table.py:9780-9781), `ROOM-RINGFIT` (:9520-9521) et `ROOM-AXFIT-RAD`')
+    A('   (:9971-9973). Jusqu\'ici ce bloc publiait des verdicts DANS/HORS sur des residus de 0.19')
+    A('   et 0.25, que son frere refusait de lire comme des frequences.')
+    A('')
+    A('   etat   maillon excite chaine        n    f (Hz)   intervalle        zeta   residu   sel'
+      '     cible §24')
     for lbl, S in (('armee', RAW), ('levee', RAW_Z)):
         if not S:
             A('   %-6s ABSENTE de la trace' % lbl)
             continue
-        for c in sorted({c for (_k, c) in S}):
-            nm = names.get(c, 'c%d' % c)
-            for k in (0, 1, 2):
-                if (k, c) not in S:
-                    continue
-                ax = AXN[k]
-                r = fit_axis(S, lbl, k, c)
-                sel = selectivity(S, k, c)
-                selp = 100 * sel[ax] / (sum(sel.values()) or 1.0) if sel else 0.0
-                if not r:
-                    A('   %-6s %-4s   %-12s  serie trop courte ou nulle' % (lbl, ax, nm))
-                    continue
-                nom, lo, hi = TGT[ax]
-                mark = 'DANS' if lo <= r['f'] <= hi else 'HORS'
-                # Une frequence lue sur une fenetre non isolee reste un MELANGE, quel que soit son
-                # residu d'ajustement : on le dit sur la ligne au lieu de le laisser au lecteur.
-                if selp < 40.0:
-                    mark += ' (fenetre NON ISOLEE, sel<40% : melange)'
-                A('   %-6s %-4s   %-12s %3d  %7.4f  [%6.4f,%6.4f]  %5.3f  %6.4f  %4.1f%%  %.2f (%.1f-%.1f) %s'
-                  % (lbl, ax, nm, r['n'], r['f'], r['fmin'], r['fmax'], r['zeta'], r['rel'], selp,
-                     nom, lo, hi, mark))
+        for l in links_of(S):
+            for c in chains_of(S, l):
+                nm = names.get(c, 'c%d' % c)
+                for k in (0, 1, 2):
+                    if (k, c, l) not in S:
+                        continue
+                    ax = AXN[k]
+                    r = fit_axis(S, lbl, k, c, l)
+                    sel = selectivity(S, k, c, l)
+                    selp = 100 * sel[ax] / (sum(sel.values()) or 1.0) if sel else 0.0
+                    if not r:
+                        A('   %-6s l=%-5d %-4s   %-12s  serie trop courte ou nulle'
+                          % (lbl, l, ax, nm))
+                        continue
+                    nom, lo, hi = TGT[ax]
+                    if r['rel'] > RESMAX:
+                        # MEME SEUIL ET MEME FORMULE QUE LE FRERE : physics_room_table.py:9780-9781
+                        # (`if _r['rel'] > 0.08: _in = 'residu trop grand, non lisible'`). Une
+                        # serie de residu superieur ne porte pas un mode unique ; publier DANS ou
+                        # HORS dessus, c'est faire porter un verdict de bande a un melange.
+                        mark = 'residu trop grand, non lisible'
+                    else:
+                        mark = 'DANS' if lo <= r['f'] <= hi else 'HORS'
+                    # Une frequence lue sur une fenetre non isolee reste un MELANGE, quel que soit
+                    # son residu d'ajustement : on le dit sur la ligne au lieu de le laisser au
+                    # lecteur. La note est INDEPENDANTE du verdict de residu et se cumule avec lui.
+                    if selp < 40.0:
+                        mark += ' (fenetre NON ISOLEE, sel<40% : melange)'
+                    A('   %-6s l=%-5d %-4s   %-12s %3d  %7.4f  [%6.4f,%6.4f]  %5.3f  %6.4f  %4.1f%%'
+                      '  %.2f (%.1f-%.1f) %s'
+                      % (lbl, l, ax, nm, r['n'], r['f'], r['fmin'], r['fmax'], r['zeta'], r['rel'],
+                         selp, nom, lo, hi, mark))
     A('')
 
     # ---- 4. L'ORDRE QUE SPEC 24 IMPOSE ------------------------------------------------------------
     A('   ROOM-AXORDER — SPEC 24 : « vertical motion is intentionally the SLOWEST ».')
     A('   L\'ordre f_v < f_ap < f_lat est une exigence de SA section, independante des nominaux.')
-    for lbl, S in (('armee', RAW), ('levee', RAW_Z)):
+    A('')
+    A('   `f_v` VIENT DU CANAL RADIAL, PLUS DE LA PROJECTION `v` (correctif du 2026-08-22).')
+    A('   Cette ligne prenait `f_v` sur la projection `v` de PHYSRINGBX. Or le dossier a RETIRE')
+    A('   cette grandeur du verdict SPEC 24-v le 2026-08-18 : le joint vit sur la sphere de la')
+    A('   contrainte de longueur, sa composante radiale y est nulle PAR CONSTRUCTION, et l\'axe')
+    A('   vertical de SPEC 24 est a 84,5 % radial — la projection `v` lit la FUITE des deux modes')
+    A('   TANGENTIELS. Le lecteur frere imprime depuis « tangentiel — §24-v: ROOM-AXFIT-RAD » sur')
+    A('   chaque ligne concernee (physics_room_table.py:9519 et :9779). ROOM-AXORDER concluait')
+    A('   donc « ORDRE NON TENU » sur un denominateur retire. `f_v` est desormais lu sur le canal')
+    A('   RADIAL de SPEC 23 — PHYSRINGCX (armee) / PHYSRINGCZ (levee), fenetre d\'impulsion')
+    A('   VERTICALE — qui est la source que `ROOM-AXRATIO-SRC` designe deja')
+    A('   (physics_room_table.py:9830). Meme estimateur, meme skip=12, meme grille : sur `l=0` la')
+    A('   valeur est celle que `ROOM-AXFIT-RAD` publie plus haut, verifiable ligne a ligne.')
+    A('   L\'ANCIENNE VALEUR TANGENTIELLE N\'EST PAS EFFACEE : elle est publiee juste en dessous de')
+    A('   chaque ligne d\'ordre, nommee comme telle, pour que l\'avant/apres se lise ici.')
+    A('   LISIBILITE : « ORDRE TENU » n\'est ecrit que si les TROIS frequences passent le critere')
+    A('   de residu du lecteur frere (<= 0.08). Sinon la ligne ecrit ORDRE NON ETABLI en nommant')
+    A('   ce qui manque, et ne conclut pas.')
+    A('')
+
+    def _f3(rr):
+        """Une frequence et son residu, avec la marque de non-lisibilite s'il depasse 0.08."""
+        if rr is None:
+            return 'absent'
+        return '%.4f (residu %.4f%s)' % (rr['f'], rr['rel'],
+                                         '' if rr['rel'] <= RESMAX else ' > 0.08 NON LISIBLE')
+
+    for lbl, S, R, rtag in (('armee', RAW, CXS, 'PHYSRINGCX'),
+                            ('levee', RAW_Z, CXZ, 'PHYSRINGCZ')):
         if not S:
             continue
-        for c in sorted({c for (_k, c) in S}):
-            nm = names.get(c, 'c%d' % c)
-            fs, sp = {}, {}
-            for k in (0, 1, 2):
-                if (k, c) not in S:
-                    continue
-                r = fit_axis(S, lbl, k, c)
-                sel = selectivity(S, k, c)
-                if r:
-                    fs[AXN[k]] = r['f']
-                    sp[AXN[k]] = 100 * sel[AXN[k]] / (sum(sel.values()) or 1.0) if sel else 0.0
-            if len(fs) == 3:
-                ok = fs['v'] < fs['ap'] < fs['lat']
-                # L'ECART RELATIF entre la plus haute et la plus basse : trois frequences a 1 % les
-                # unes des autres ne sont pas trois modes, c'est un mode vu trois fois — et ca se
-                # dit avec un chiffre, pas avec un adjectif.
-                spread = (max(fs.values()) - min(fs.values())) / min(fs.values())
-                A('   %-6s %-12s f_v=%.4f  f_ap=%.4f  f_lat=%.4f  etalement=%.1f%%  -> %s'
-                  % (lbl, nm, fs['v'], fs['ap'], fs['lat'], 100 * spread,
-                     'ORDRE TENU' if ok else 'ORDRE NON TENU'))
-                if min(sp.values()) < 40.0:
-                    A('   %-6s %-12s   (dont %d fenetre(s) NON ISOLEE(s) : l\'ordre lu dessus ne'
-                      ' decide rien)' % (lbl, nm, sum(1 for v in sp.values() if v < 40.0)))
-            else:
-                A('   %-6s %-12s incomplet (%d axes sur 3 ajustables)' % (lbl, nm, len(fs)))
+        for l in links_of(S):
+            _held, _seen_ch = 0, 0
+            for c in chains_of(S, l):
+                nm = names.get(c, 'c%d' % c)
+                rrad = fit_rad(R, lbl, 0, c, l) if R else None
+                rap = fit_axis(S, lbl, 1, c, l)
+                rlat = fit_axis(S, lbl, 2, c, l)
+                rtan = fit_axis(S, lbl, 0, c, l)
+                _seen_ch += 1
+                # (a) LA LIGNE D'ORDRE. Elle ne conclut que sur trois frequences LISIBLES.
+                if not readable(rrad):
+                    if rrad is None:
+                        _why = 'aucune serie %s (chaine %s, l=%d, fenetre v)' % (rtag, nm, l)
+                    else:
+                        _why = 'residu %.4f > %.2f sur %s' % (rrad['rel'], RESMAX, rtag)
+                    verdict = 'ORDRE NON ETABLI (f_v radial non lisible : %s)' % _why
+                elif not (readable(rap) and readable(rlat)):
+                    _miss = []
+                    for _n, _r in (('f_ap', rap), ('f_lat', rlat)):
+                        if _r is None:
+                            _miss.append('%s absent' % _n)
+                        elif _r['rel'] > RESMAX:
+                            _miss.append('%s non lisible (residu %.4f > %.2f)'
+                                         % (_n, _r['rel'], RESMAX))
+                    verdict = 'ORDRE NON ETABLI (%s)' % ' et '.join(_miss)
+                else:
+                    _ok = rrad['f'] < rap['f'] < rlat['f']
+                    # L'ECART RELATIF entre la plus haute et la plus basse : trois frequences a 1 %
+                    # les unes des autres ne sont pas trois modes, c'est un mode vu trois fois — et
+                    # ca se dit avec un chiffre, pas avec un adjectif.
+                    _fv3 = (rrad['f'], rap['f'], rlat['f'])
+                    _spread = (max(_fv3) - min(_fv3)) / min(_fv3)
+                    verdict = '%s  etalement=%.1f%%' % ('ORDRE TENU' if _ok else 'ORDRE NON TENU',
+                                                        100 * _spread)
+                    if _ok:
+                        _held += 1
+                A('   %-6s l=%-3d %-12s f_v=%s [radial %s]  f_ap=%s  f_lat=%s  -> %s'
+                  % (lbl, l, nm, _f3(rrad), rtag, _f3(rap), _f3(rlat), verdict))
+                # (b) L'ANCIENNE VALEUR, NOMMEE COMME TELLE. Elle ne participe a aucun verdict.
+                A('   %-6s l=%-3d %-12s   [ANCIEN f_v, TANGENTIEL — hors verdict depuis le'
+                  ' 2026-08-18] projection `v` de %s = %s'
+                  % (lbl, l, nm, 'PHYSRINGBX' if lbl == 'armee' else 'PHYSRINGBZ', _f3(rtan)))
+                # La note d'isolement porte sur les DEUX fenetres tangentielles qui alimentent
+                # encore cette ligne (ap, lat) : la fenetre `v` ne la nourrit plus.
+                _sp = {}
+                for _k, _n in ((1, 'ap'), (2, 'lat')):
+                    _s = selectivity(S, _k, c, l)
+                    if _s:
+                        _sp[_n] = 100 * _s[_n] / (sum(_s.values()) or 1.0)
+                if _sp and min(_sp.values()) < 40.0:
+                    A('   %-6s l=%-3d %-12s   (dont %d fenetre(s) tangentielle(s) NON ISOLEE(s)'
+                      ' parmi ap/lat : l\'ordre lu dessus ne decide rien)'
+                      % (lbl, l, nm, sum(1 for v in _sp.values() if v < 40.0)))
+            # LE BILAN PAR ETAT ET PAR MAILLON. Un ordre etabli sur UNE chaine n'est jamais publie
+            # comme tenu sur les deux : la ligne dit combien de chaines le tiennent sur combien.
+            if _seen_ch:
+                A('   ROOM-AXORDER-BILAN: etat=%-6s l=%d  %d chaine(s) sur %d avec ORDRE TENU -> %s'
+                  % (lbl, l, _held, _seen_ch,
+                     'ORDRE TENU SUR TOUTES LES CHAINES' if _held == _seen_ch else
+                     'NON TENU POUR §24 (il faut les deux chaines)'))
 
     return out
 
