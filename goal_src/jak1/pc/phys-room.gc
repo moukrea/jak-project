@@ -1055,44 +1055,6 @@
   (none))
 
 ;; ------------------------------------------------------------------------------------------------
-;; LE RETOUR A LA VERTICALE, RENDU CONTINU — ET C'EST UNE JUSTIFICATION DE CE FICHIER QUE LA MESURE
-;; REFUTE, PAS UNE IDEE NEUVE.
-;;
-;; L'entete de ce fichier (voir PHYSROOM-MEASAT) declare deja le defaut : « retour a la verticale
-;; (avant la ligne de base) : `physroom-hold` repose le quaternion a l'identite, donc 60 degres
-;; rendus en UNE frame apres le pilotage `tilt` ». Et il declare sa parade : « 54 frames de
-;; decroissance avec l'amortissement le plus faible du fichier (0.24) laissent 0.76^54 = 6e-8 du
-;; transitoire ».
-;;
-;; CETTE PARADE EST FAUSSE, ET C'EST MESURE. Si 6e-8 du transitoire survivait, la cellule
-;; `chestR / tilt` serait uniforme. Elle ne l'est pas : sur `assistant-lavatube-start-idle` elle
-;; rend un `tipvar` de 0.1564 dans les frames 54..90, sous un stimulus recu de 1.62 — 8.8 fois la
-;; mediane de sa propre cellule (0.0178), et du meme ordre que la reponse a `jerk` (334 de
-;; stimulus). L'amortissement de 0.24 suppose par l'estimation n'est pas celui que la chaine
-;; presente.
-;;
-;; ON NE FAIT DONC PLUS DECROITRE LE TRANSITOIRE : ON CESSE DE LE PRODUIRE. Le retour de 60 a 0
-;; degres se fait en demi-cosinus sur PHYSROOM-TILTRAMP frames, exactement le miroir de la rampe
-;; d'entree de `tilt` (`physroom-drive`, mode 4). A `f = 0` il rend EXACTEMENT la pose de sortie de
-;; `tilt` (a = TILTDEG), a `f >= TILTRAMP` il rend EXACTEMENT `physroom-hold` (a = 0) — donc la
-;; fenetre de mesure, qui s'ouvre a la frame 54, voit le meme etat qu'avant, sans le coup.
-;;
-;; PERIMETRE : CE SEUL SITE, la sous-fenetre de LIGNE DE BASE de PH-MEAS. Les 37 autres appels de
-;; `physroom-hold` ne sont pas touches, et PH-TILT non plus — cette phase-la EXPLOITE volontairement
-;; les 60 degres en une frame comme seconde direction d'excitation pour §24 (voir sa note). Un
-;; correctif qui l'aurait avalee aurait rendu un instrument muet sans que rien ne le dise.
-(defbehavior physroom-unlean phys-subject ((f int))
-  "meme etat final que `physroom-hold`, atteint par une rampe au lieu d'un saut de 60 degres."
-  (set-vector! (-> self vel) 0.0 0.0 0.0 1.0)
-  (vector-copy! (-> self root trans) (-> self home))
-  (let* ((u (if (< f PHYSROOM-TILTRAMP)
-              (/ (the float f) (the float PHYSROOM-TILTRAMP))
-              1.0))
-         (a (* PHYSROOM-TILTDEG 0.5 (+ 1.0 (cos (* 32768.0 u))))))
-    (quaternion-axis-angle! (-> self root quat) 1.0 0.0 0.0 (degrees a)))
-  (none))
-
-;; ------------------------------------------------------------------------------------------------
 ;; SPEC 10-13 — L'ORIENTATION, SUR DEUX AXES ET SUR TOUTE LA PLAGE.
 ;; Sa §13 : « supine, prone, upright and lateral states SHALL NOT exist as unrelated hard-coded
 ;; morph targets ; the equilibrium state shall vary CONTINUOUSLY with the local gravity direction ».
@@ -3400,7 +3362,7 @@
     ;; ---- 1. MESURE : toutes les animations x les quatre pilotages -----------------------------
     ((= (-> self phase) PHYSROOM-PH-MEAS)
      (if (>= (-> self drive) PHYSROOM-DRIVES)
-       (physroom-unlean (-> self pframe))               ;; sous-fenetre de LIGNE DE BASE
+       (physroom-hold)                                  ;; sous-fenetre de LIGNE DE BASE
        (physroom-drive (-> self drive) (-> self pframe)))
      (physroom-advance-anim 1.0)
      ;; AUCUNE FENETRE NE COMMENCE SUR UNE DISCONTINUITE (voir PHYSROOM-MEASAT). Les 54 premieres
