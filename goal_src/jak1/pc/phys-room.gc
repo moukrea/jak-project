@@ -249,6 +249,27 @@
 ;; qu'un point contraint sur une sphere n'a que deux degres de liberte de translation. Si c'est
 ;; vrai, desarmer la contrainte doit faire MONTER la selectivite. Si elle ne bouge pas, l'hypothese
 ;; est fausse — et c'est un resultat aussi, publie tel quel.
+;; ---- CYCLE 96 : LES SIX FENETRES CI-DESSUS NE SONT PAS ISOLEES, ET C'EST UN DEFAUT
+;; ---- D'INSTRUMENT, PAS UNE PROPRIETE DU SOLVEUR.
+;; `physroom-drive-imp` TIENT le sujet a `home + PHYSROOM-IMPA * u_ax` jusqu'a la fin de sa fenetre,
+;; puis la fenetre suivante repart a `f = 1`, c'est-a-dire a `home + 8.93 u`. Entre deux fenetres
+;; l'ancre fait donc un saut de **365 unites en UNE frame** le long de l'axe de la fenetre
+;; PRECEDENTE, quand l'impulsion qu'on veut isoler monte, elle, en 10 frames (pic 18 u/frame^2).
+;; Le rebase de translation de sa §37 ne l'absorbe pas : son seuil est `7 * B0 = 4214 u`
+;; (`jak-hd-physics.gc:2712`, `B0 = 602 u`), et 365 u passe dessous. Les cinq fenetres qui suivent
+;; une autre fenetre AX sont donc excitees DEUX FOIS : par leur impulsion et par le saut de retour
+;; de la precedente. Seule la premiere (AXV, entree depuis PH-BACK qui tient `home`) est propre.
+;; `physroom-drive-sgn` a corrige exactement ce defaut au cycle 52 — « le RETOUR a `home`, en
+;; demi-cosinus lui aussi, pour que la fenetre suivante reparte du meme etat » — et le correctif
+;; n'a jamais ete reporte sur les fenetres AX, qui sont celles qui portent §24 a §27.
+;; LES SIX FENETRES EXISTANTES NE SONT PAS TOUCHEES : PH-AXC rejoue les TROIS MEMES impulsions,
+;; avec le MEME `physroom-drive-imp` sur le segment mesure, la MEME pose (animation 0 frame 0,
+;; epinglee et republiee), et en APPEND en fin de course — la trace existante reste identique au
+;; bit, ce qui est la seule facon de rendre la comparaison imputable a l'ENTREE et a rien d'autre.
+(defconstant PHYSROOM-AXCE 120)      ;; calme d'ENTREE de la phase, apres l'epinglage de la pose
+(defconstant PHYSROOM-AXCC 60)       ;; calme entre fenetres : 5.05 constantes de temps a 2.5 Hz /
+                                     ;; zeta 0.35, residu 0.6 % — le meme chiffre que PH-SGN
+(defconstant PHYSROOM-AXCW 230)      ;; fenetre totale : 160 (AXW) + 10 (retour) + 60 (calme)
 (defconstant PHYSROOM-PH-AXZV 23)    ;; idem AXV, contrainte de longueur LEVEE
 (defconstant PHYSROOM-PH-AXZB 27)    ;; idem AXB, contrainte de longueur LEVEE
 (defconstant PHYSROOM-PH-AXZL 28)    ;; idem AXL, contrainte de longueur LEVEE
@@ -611,8 +632,12 @@
                                     ;; plancher a la passe — sans lui aucun chiffre n'a d'echelle
 (defconstant PHYSROOM-REGBN 9)      ;; ... jusqu'a r=8 : les six sauts et les deux de course
 (define *physroom-reg-trmode* 0)
-(defconstant PHYSROOM-PH-REPORT 40)
-(defconstant PHYSROOM-PH-DONE 41)
+;; PH-AXC prend 40 et REPORT/DONE montent a 41/42 : toute phase de TRAVAIL doit rester INFERIEURE
+;; a REPORT, parce que `physroom-tick` arme le balayage d'acteurs etrangers par
+;; `(< phase PHYSROOM-PH-REPORT)`. C'est la regle que le cycle 38 a payee en la violant.
+(defconstant PHYSROOM-PH-AXC 40)
+(defconstant PHYSROOM-PH-REPORT 41)
+(defconstant PHYSROOM-PH-DONE 42)
 
 (deftype phys-subject (process-drawable)
   ((phase   int32)
@@ -644,6 +669,7 @@
    (proxarm float)     ;; spheres proximales RETIREES : la meme, elle NE DOIT PAS se degrader
    (injn    int32)     ;; poussees reellement injectees
    (lvl     int32)     ;; niveau d'excitation courant de la courbe de reponse
+   (axc     int32)     ;; PH-AXC : index de la fenetre a entree propre (-1 = rampe d'entree)
    (ori     int32)     ;; index dans la table d'orientations de SPEC 10-13
    (nchan   int32)     ;; canaux d'animation du PORTEUR (= (-> draw mgeo num-joints))
    (nperm   int32)     ;; positions de canal deplacees par la permutation de l'animation courante
@@ -1149,6 +1175,37 @@
          ;; suffit a le porter. Si elle n'est pas encore classee, les trois composantes valent 0 —
          ;; c'est le cas que `PHYSAXW` publie, pour qu'une impulsion nulle ne se lise jamais comme
          ;; une absence de reponse.
+         (ux (phys-axis-world (-> self slot) 0 ax 0))
+         (uy (phys-axis-world (-> self slot) 0 ax 1))
+         (uz (phys-axis-world (-> self slot) 0 ax 2)))
+    (set! (-> self root trans x) (+ (-> self home x) (* d ux)))
+    (set! (-> self root trans y) (+ (-> self home y) (* d uy)))
+    (set! (-> self root trans z) (+ (-> self home z) (* d uz))))
+  (none))
+
+;; LA MEME IMPULSION, REFERMEE SUR ELLE-MEME (cycle 96) — c'est la SEULE difference avec
+;; `physroom-drive-imp`, et elle est entierement APRES la fenetre de mesure.
+;;   f <= PHYSROOM-IMPF                 montee 0 -> A, demi-cosinus  : EXPRESSION IDENTIQUE a celle
+;;                                      de `physroom-drive-imp`, au caractere pres
+;;   f <= PHYSROOM-AXW                  tenue a A : la decroissance LIBRE, la fenetre mesuree
+;;   f <= PHYSROOM-AXW + PHYSROOM-IMPF  descente A -> 0, demi-cosinus (ce qui manque aux six AX)
+;;   au-dela                            pile sur `home` : le calme qui rend l'entree suivante propre
+;; Le retour est lui-meme une impulsion de sens oppose : c'est pour cela qu'il est suivi des 60
+;; frames de PHYSROOM-AXCC, et non parce qu'on l'espere negligeable.
+(defbehavior physroom-drive-impc phys-subject ((f int) (ax int))
+  (set-vector! (-> self vel) 0.0 0.0 0.0 1.0)
+  (vector-copy! (-> self root trans) (-> self home))
+  (quaternion-identity! (-> self root quat))
+  (let* ((s (cond
+              ((<= f PHYSROOM-IMPF)
+               (* 0.5 (- 1.0 (cos (* 32768.0 (/ (the float f) PHYSROOM-IMPFF))))))
+              ((<= f PHYSROOM-AXW) 1.0)
+              ((<= f (+ PHYSROOM-AXW PHYSROOM-IMPF))
+               (* 0.5 (+ 1.0 (cos (* 32768.0 (/ (the float (- f PHYSROOM-AXW))
+                                                PHYSROOM-IMPFF))))))
+              (else 0.0)))
+         (d  (* PHYSROOM-IMPA s))
+         ;; MEME source d'axe que `physroom-drive-imp` : la direction MONDE de l'axe du solveur.
          (ux (phys-axis-world (-> self slot) 0 ax 0))
          (uy (phys-axis-world (-> self slot) 0 ax 1))
          (uz (phys-axis-world (-> self slot) 0 ax 2)))
@@ -5667,6 +5724,136 @@
               (set! *physroom-reg-trmode* 0)
               (phys-stats-reset!)
               (phys-diag-reset!)
+              (set! (-> self phase) PHYSROOM-PH-AXC)))))))
+
+    ;; ---- 9 sexies. CYCLE 96 — LES TROIS MEMES IMPULSIONS, MAIS AVEC UNE ENTREE PROPRE -------
+    ;; POURQUOI CETTE PHASE EXISTE. Voir le pave pose au-dessus de `PHYSROOM-PH-AXZV` : cinq des
+    ;; six fenetres AX/AXZ commencent par un saut d'ancre de 365 u en UNE frame, le long de l'axe
+    ;; de la fenetre PRECEDENTE, que le rebase de §37 ne rattrape pas (seuil 7*B0 = 4214 u). §24 a
+    ;; §27 reposent entierement sur ces fenetres. Celle-ci rejoue les trois impulsions avec un
+    ;; RETOUR en demi-cosinus et 60 frames de calme entre elles — exactement le correctif que
+    ;; `physroom-drive-sgn` porte depuis le cycle 52 et qui n'a jamais ete reporte ici.
+    ;;
+    ;; NATURE : la MEME serie temporelle que `PHYSRINGAX`/`BX`/`CX` — deplacement signe du maillon
+    ;;   par rapport a sa pose d'auteur. Aucun estimateur n'est change : seule l'ENTREE l'est.
+    ;; REPERE : le triedre orthonorme de l'ANCRE, comme les six fenetres AX. Jamais le monde.
+    ;; LIGNE DE BASE : `PHYSAXPRE`, publie a la premiere frame de chaque fenetre, EST la ligne de
+    ;;   base — c'est le residu laisse par le calme, la grandeur dont l'absence est tout le defaut.
+    ;;   Sur une fenetre propre elle doit etre petite devant la reponse ; si elle ne l'est pas, ce
+    ;;   sont ces fenetres-ci qu'il faut rejeter, et le dire.
+    ;; CE QUI DISCRIMINE : `ax=0` est le TEMOIN NEGATIF. AXV etait deja propre (elle entre depuis
+    ;;   PH-BACK, qui tient `home`), donc la fenetre `ax=0` d'ici doit REPRODUIRE AXV. Si elle ne
+    ;;   la reproduit pas, ce n'est pas le saut d'entree qui explique l'ecart des deux autres, et
+    ;;   tout ce cycle tombe. `ax=1` et `ax=2` sont les deux fenetres contaminees.
+    ((= (-> self phase) PHYSROOM-PH-AXC)
+     (cond
+       ((< (-> self axc) 0)
+        ;; RAMPE D'ENTREE. La pose est EPINGLEE sur celle des six fenetres AX : `physroom-set-anim 0`
+        ;; est exactement ce que la transition PH-MEAS -> PH-RESP fait, et aucune des phases qui
+        ;; separent celle-la des fenetres AX n'avance l'animation. `PHYSAXWN` la REVALIDE a
+        ;; l'execution contre le `PHYSAXW` des six fenetres : on n'a pas a croire l'epingle.
+        (physroom-hold)
+        (when (= (-> self pframe) 1)
+          (physroom-set-anim 0)
+          ;; L'ETAT DE LIVRAISON EST REPOSE EXPLICITEMENT. Les treize interrupteurs ci-dessous
+          ;; valent TOUS 0 en livraison (`jak-hd-physics.gc` :188 :296 :375 :380 :393 :513 :516
+          ;; :539 :542 :544 :547 :549 :992) : cette ligne ne peut donc rien changer a ce qui est
+          ;; livre. Ce qu'elle interdit, c'est qu'une ablation oubliee par une phase amont soit
+          ;; encore armee ici — le defaut que le cycle 38 a paye sur PROXON.
+          (phys-len-off-set! 0)
+          (phys-side-off-set! 0)
+          (phys-cone-off-set! 0)
+          (phys-col-off-set! 0)
+          (phys-prox-off-set! 0)
+          (phys-skin-off-set! 0)
+          (phys-rr-off-set! 0)
+          (phys-self-inject-set! 0)
+          (phys-inv-inject-set! 0)
+          (phys-auth-lag-set! 0)
+          (phys-prio-meas-set! 0)
+          (phys-skin-meas-set! 0)
+          (phys-inject-set! 0.0))
+        (when (>= (-> self pframe) PHYSROOM-AXCE)
+          (set! (-> self axc) 0)
+          (set! (-> self pframe) 0)
+          (phys-stats-reset!)
+          (phys-diag-reset!)))
+       (else
+        (let ((ax (-> self axc)))
+          (physroom-drive-impc (-> self pframe) ax)
+          (when (= (-> self pframe) 1)
+            (format 0 "PHYSAXWN ax=~D ux=~,,5f uy=~,,5f uz=~,,5f~%"
+                    ax
+                    (phys-axis-world (-> self slot) 0 ax 0)
+                    (phys-axis-world (-> self slot) 0 ax 1)
+                    (phys-axis-world (-> self slot) 0 ax 2))
+            ;; L'ETAT D'ENTREE LUI-MEME. Il est lu AVANT que le solveur de cette frame ait tourne,
+            ;; donc c'est le residu que le calme a laisse. Sans lui, « l'entree est propre » serait
+            ;; une intention ecrite dans un commentaire.
+            (dotimes (c (-> self nchain))
+              (let ((nl (phys-chain-links (-> self slot) c)))
+                (dotimes (l nl)
+                  (format 0 "PHYSAXPRE c=~D l=~D ax=~D v=~,,7f ap=~,,7f lat=~,,7f~%"
+                          c l ax
+                          (phys-link-dev-anc-abs (-> self slot) c l 0)
+                          (phys-link-dev-anc-abs (-> self slot) c l 1)
+                          (phys-link-dev-anc-abs (-> self slot) c l 2)))))
+            (phys-diag-reset!))
+          ;; LA FENETRE MESUREE EST EXACTEMENT CELLE DES SIX AUTRES : `f` va de 1 a 150 et les cinq
+          ;; emetteurs sont les memes a leur tag pres, pour que les deux jeux se comparent ligne a
+          ;; ligne sans qu'aucun ecart puisse venir de l'instrument.
+          (when (and (> (-> self pframe) PHYSROOM-IMPF)
+                     (<= (-> self pframe) PHYSROOM-AXW))
+            (dotimes (c (-> self nchain))
+              (let ((nl (phys-chain-links (-> self slot) c)))
+                (dotimes (l nl)
+                  (format 0 "PHYSRINGAN c=~D f=~D l=~D ax=~D v=~,,7f~%"
+                          c (- (-> self pframe) PHYSROOM-IMPF) l ax
+                          (phys-link-dev-anc (-> self slot) c l 0))
+                  (format 0 "PHYSRINGAN2 c=~D f=~D ax=~D l=~D ap=~,,7f lat=~,,7f~%"
+                          c (- (-> self pframe) PHYSROOM-IMPF) ax l
+                          (phys-link-dev-anc (-> self slot) c l 1)
+                          (phys-link-dev-anc (-> self slot) c l 2))
+                  (format 0 "PHYSRINGBN c=~D f=~D l=~D ax=~D v=~,,7f~%"
+                          c (- (-> self pframe) PHYSROOM-IMPF) l ax
+                          (phys-link-dev-anc-abs (-> self slot) c l 0))
+                  (format 0 "PHYSRINGBN2 c=~D f=~D ax=~D l=~D ap=~,,7f lat=~,,7f~%"
+                          c (- (-> self pframe) PHYSROOM-IMPF) ax l
+                          (phys-link-dev-anc-abs (-> self slot) c l 1)
+                          (phys-link-dev-anc-abs (-> self slot) c l 2))
+                  (format 0 "PHYSRINGCN c=~D f=~D l=~D ax=~D v=~,,7f~%"
+                          c (- (-> self pframe) PHYSROOM-IMPF) l ax
+                          (phys-chain-radial-link (-> self slot) c l 1))))))
+          ;; LES TROIS RESUMES DE FENETRE SORTENT A `PHYSROOM-AXW`, PAS A LA FERMETURE. Ce sont
+          ;; des MAXIMA sur le domaine couvert depuis `phys-diag-reset!` : les laisser a `AXCW`
+          ;; leur aurait fait couvrir en plus le RETOUR et le calme, c'est-a-dire une seconde
+          ;; impulsion — et ils n'auraient plus mesure le meme domaine que leurs freres
+          ;; `PHYSAXRES`/`PHYSAXCOM`/`PHYSAXTAN`. Une paire dont les deux membres n'ont pas le
+          ;; meme domaine n'est pas une paire.
+          (when (= (-> self pframe) PHYSROOM-AXW)
+            (dotimes (c (-> self nchain))
+              (when (> (phys-chain-links (-> self slot) c) 0)
+                (format 0 "PHYSAXRESN c=~D ax=~D res=~f ci=~f rot0=~f~%"
+                        c ax
+                        (phys-diag (-> self slot) c 17)
+                        (phys-diag (-> self slot) c 18)
+                        (phys-diag (-> self slot) c 13))
+                ;; le STIMULUS RECU est publie A COTE de la reponse : une fenetre dont le stimulus
+                ;; s'ecarte des autres n'est pas comparable, et c'est la lecon du cycle 52.
+                (format 0 "PHYSAXCOMN c=~D ax=~D comex=~f stim=~f~%"
+                        c ax
+                        (phys-diag (-> self slot) c 19)
+                        (phys-tip-stim (-> self slot) c))))
+            (format 0 "PHYSAXTANN ax=~D n=~D sumdepth=~f removed=~f~%"
+                    ax (phys-tan-count) (phys-tan-depth) (phys-tan-eff)))
+          (when (>= (-> self pframe) PHYSROOM-AXCW)
+            (set! (-> self pframe) 0)
+            (phys-stats-reset!)
+            (+! (-> self axc) 1)
+            (when (>= (-> self axc) 3)
+              (physroom-hold)
+              (phys-stats-reset!)
+              (phys-diag-reset!)
               (set! (-> self phase) PHYSROOM-PH-REPORT)))))))
 
     ;; ---- 10. RAPPORT --------------------------------------------------------------------------
@@ -5744,6 +5931,7 @@
   (set! (-> self arm) 0.0)
   (set! (-> self injn) 0)
   (set! (-> self lvl) 0)
+  (set! (-> self axc) -1)
   (set! (-> self nchan) 0)
   (set! (-> self nperm) 0)
   (set! (-> self reg) 0)
@@ -5897,7 +6085,8 @@
   ;; phase ajoutee demain SANS etre ajoutee ici sera visible par `PHYSROOM-PHASEVISITED`, qui la
   ;; MESURE. Deux garde-fous, l'un derive et l'autre mesure, et aucun qui repose sur ma memoire.
   (format 0 "PHYSROOM-PHASEGUARD maxwork=~D report=~D done=~D ok=~D~%"
-          (max PHYSROOM-PH-REGB (max PHYSROOM-PH-REGA (max PHYSROOM-PH-REGT PHYSROOM-PH-REGS)))
+          (max PHYSROOM-PH-AXC
+               (max PHYSROOM-PH-REGB (max PHYSROOM-PH-REGA (max PHYSROOM-PH-REGT PHYSROOM-PH-REGS))))
           PHYSROOM-PH-REPORT PHYSROOM-PH-DONE
           (if (and (< PHYSROOM-PH-PROXON PHYSROOM-PH-REPORT)
                    (< PHYSROOM-PH-REG PHYSROOM-PH-REPORT)
@@ -5909,6 +6098,7 @@
                    (< PHYSROOM-PH-REGT PHYSROOM-PH-REPORT)
                    (< PHYSROOM-PH-REGB PHYSROOM-PH-REPORT)
                    (< PHYSROOM-PH-REGA PHYSROOM-PH-REPORT)
+                   (< PHYSROOM-PH-AXC PHYSROOM-PH-REPORT)
                    (< PHYSROOM-PH-REPORT PHYSROOM-PH-DONE))
               1 0))
   (format 0 "PHYSROOM-START target-before=~A~%" *target*)
