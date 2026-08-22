@@ -99,10 +99,12 @@ valeur est identique au bit pres sur 186/186 couples — les deux chaines s'ancr
 Ce n'est pas une constante fabriquee, mais la publier par chaine est trompeur au sens de la
 regle 7. S'il est repose, il s'emet UNE fois, avec le nom de son ancre.
 
-SIGNALE, PAS TOUCHE (regle 5, gates gelees) : le `fail()` du validateur SORT (ligne 19), alors que
-la note DIRECTIVES du 2026-08-20 10:55 declare le correctif applique (« les verdicts de MESURE
-passent par `fail()`, qui ENREGISTRE et CONTINUE »). Dans CE fichier, il sort. C'est le
-superviseur qui tranche.
+PRECISION, PARCE QUE MA PREMIERE LECTURE ETAIT INCOMPLETE : le validateur porte DEUX `fail`
+distincts. Celui de PYTHON, qui sert les verdicts de MESURE, ENREGISTRE et CONTINUE — le correctif
+du 2026-08-20 10:55 est bien applique, et la course de ce cycle l'atteste (« 1 verdict(s) de mesure
+en echec — tous ci-dessus, aucun masque par un autre »). Celui de BASH (ligne 19), qui sert les
+gates STRUCTURELLES amont (CLEAN, SCOPE), sort. C'est lui que le depassement de plafond a
+declenche. Les deux ne se confondent pas, et je ne touche ni l'un ni l'autre (regle 5).
 
 ================================================================================================
 5. ETAT DU REGISTRE
