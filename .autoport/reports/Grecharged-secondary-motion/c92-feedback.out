@@ -1,0 +1,62 @@
+DIRECTIVES v3fee554599
+
+C92 — LE TENSEUR DEPLACE LE VOLUME DE COLLISION QUE LA FRAME SUIVANTE LIRA
+====================================================================================================
+trace c90/desarmee : .autoport/reports/Grecharged-secondary-motion/keira-room-x86.c91-OFF.log
+trace armee        : .autoport/reports/Grecharged-secondary-motion/keira-room-x86.c91-ON.log
+donnee             : recharged_assets/physics_chains.txt (offsets et rayons LUS, non recopies)
+
+chestL   volume `lBoob` : rayon 340 u, offset [-6 +637 -135] (|offset| = 651 u)
+chestR   volume `rBoob` : rayon 345 u, offset [-14 -617 +124] (|offset| = 629 u)
+
+|(D - I) . offset| — le deplacement du CENTRE du volume par le tenseur SEUL
+chaine   i        c90 (u)     c91 (u)  c90 /rayon  c91 /rayon
+chestL   0            0.3         0.2        0.1%        0.1%
+chestL   1            7.2        37.2        2.1%       10.9%
+chestL   2           40.4        75.2       11.9%       22.1%
+chestL   3           45.9         2.4       13.5%        0.7%
+chestL   4           52.6         8.7       15.5%        2.5%
+chestL   5           60.3        30.1       17.7%        8.9%
+chestL   6           85.0        55.0       25.0%       16.2%
+chestL   7           32.4        32.9        9.5%        9.7%
+chestL   8           58.9        75.5       17.3%       22.2%
+chestR   0            0.3         0.2        0.1%        0.1%
+chestR   1           33.5         3.1        9.7%        0.9%
+chestR   2           49.2         3.6       14.3%        1.0%
+chestR   3           20.0        33.4        5.8%        9.7%
+chestR   4           52.1        69.2       15.1%       20.1%
+chestR   5           58.3        30.9       16.9%        8.9%
+chestR   6           85.9        56.6       24.9%       16.4%
+chestR   7           32.1        33.2        9.3%        9.6%
+chestR   8          103.9        68.6       30.1%       19.9%
+
+CONTROLE INTERNE : a i=0 (debout, §9 exige l'identite) la sonde lit 0,2 a 0,3 u, soit
+  0,1 % du rayon. Le deplacement n'est donc pas un artefact du calcul : il APPARAIT avec
+  l'inclinaison, exactement comme le tenseur.
+PIRE CAS sur le moteur du cycle 90 : 25.0 % du rayon (chestL) et 30.1 % (chestR).
+
+PREMISSE (b), MESUREE : CES VOLUMES DECIDENT REELLEMENT DE LA CONTRAINTE D'UNE CHAINE.
+  `PHYSCVOL c=<chaine> l=<maillon> ci=<volume> n=<frames> max=<penetration>` — frames ou ce
+  volume a ete le DECIDEUR. Un chemin arme mais jamais emprunte ne serait pas une cause.
+  c90/desarmee PHYSCVOL c=0 l=1 ci=39 n=51 max=152.4698
+  c90/desarmee PHYSCVOL c=1 l=0 ci=37 n=23 max=255.9132
+  c90/desarmee PHYSCVOL c=1 l=1 ci=37 n=40 max=83.0595
+  armee        PHYSCVOL c=0 l=0 ci=39 n=2 max=4.1911
+  armee        PHYSCVOL c=0 l=1 ci=39 n=52 max=97.8032
+  armee        PHYSCVOL c=1 l=0 ci=37 n=22 max=277.7991
+  armee        PHYSCVOL c=1 l=1 ci=37 n=44 max=109.0945
+
+CE QUE CA VEUT DIRE, ET CE QUE CA NE VEUT PAS DIRE.
+  - Le volume de collision d'un sein SUIT la deformation de sa chair. Vu du besoin que
+    l'owner repete depuis le 2026-08-11 (« les colliders ne suivent pas les formes du
+    mesh »), c'est la bonne direction — mais ce n'est pas un choix : c'est un effet de
+    bord d'un tenseur ecrit pour la PEAU, et il n'est declare nulle part.
+  - Il est lu avec UNE FRAME DE RETARD (`phys-snapshot-sim!` ecrit en fin de pas ce que la
+    frame suivante lira). Un volume qui suit sa surface avec un retard d'une frame est une
+    source connue de vibration et de traversee.
+  - CONSEQUENCE POUR LE DOSSIER, ET ELLE EST LA VRAIE : toute borne posee sur le tenseur
+    est une intervention DYNAMIQUE. Elle ne peut pas etre jugee sur les seules grandeurs de
+    forme, et le cycle 91 ne l'a pas su avant de mesurer.
+  - CE QUI N'EST PAS TRANCHE ICI : faut-il que le volume suive la chair, et si oui par un
+    canal DECLARE plutot que par ce chemin ? C'est un arbitrage de superviseur, pas une
+    initiative de worker. Aucun code n'est touche par ce cycle.

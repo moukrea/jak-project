@@ -122,11 +122,9 @@ passe de 0,1877/0,1847 a **0,1864/0,1787** (-0,7 % / -3,2 %) et `meshpen` de 0,0
 **Le tenseur de deformation N'EST PAS une sortie pure : il reboucle sur la simulation.**
 Ce que la mesure dit deja : `jt` (la position de joint pure de `PHYSCOMWL`) est IDENTIQUE sur la
 premiere cellule alors que `ee` (l'excursion de chair) bouge, et la divergence de `ROOM-STG`
-n'apparait qu'au 4e pilotage — donc le couplage est faible et differe. **Le CHEMIN n'est pas
-identifie et je ne l'invente pas.** Le suspect le plus proche est au registre depuis longtemps —
-`link-volume-offset-animated-matrix` : les volumes de collision sont places par la matrice ANIMEE
-de l'os, qui porte desormais le tenseur. **C'est le premier point du cycle 92**, avec sa mesure
-discriminante : desarmer le placement par matrice animee et voir si la paire redevient identique.
+n'apparait qu'au 4e pilotage — donc le couplage est faible et differe. **LE CHEMIN EST IDENTIFIE
+AU CYCLE 92, SECTION 11** — je l'avais laisse ouvert plutot que de le deviner, et il se lit dans le
+source plus deux premisses mesurees, sans une course de plus.
 
 CE QUE LE CORRECTIF COUTE, CHIFFRE : **0,7 % et 3,2 % de mouvement de pointe.** Il achete 7 des 16
 cellules de forme. Aucune chaine n'approche des 60 % du contrat de conservation.
@@ -262,3 +260,56 @@ Elle ne se contourne ni en supprimant la ligne ni en touchant la gate (regle 5).
 REGISTRE : **2 TENUE** (§12, §37) · 5 TENUE PAR CONSTRUCTION · 20 PARTIELLE · 11 NON TENUE ·
 0 NON ETABLI.  La colonne TENUE bouge pour la premiere fois depuis 44 heures, et elle bouge par un
 changement de SOLVEUR, pas par un reclassement.
+
+================================================================================================
+11. CYCLE 92 — LE CHEMIN DE REBOUCLAGE EST IDENTIFIE. ZERO BUILD, ZERO COURSE.
+================================================================================================
+La section 4 laissait ouvert : « le tenseur reboucle sur la simulation, le chemin n'est pas
+identifie et je ne l'invente pas ». Il l'est, par le SOURCE plus deux premisses MESUREES
+(`.autoport/c92_tensor_feedback.py`, sur les deux traces archivees et la donnee LIVREE).
+
+**LE CHEMIN, EN QUATRE MAILLONS, TOUS LUS DANS LE SOURCE :**
+  1. `:3898-3906`  l'ecriture multiplie `*phys-dfm*` DANS la 3x3 de la matrice d'os. La
+                   translation est reposee juste apres depuis `*phys-px/py/pz*` — c'est cette
+                   moitie-la qui m'avait fait conclure « sortie pure ». **La 3x3 RESTE dans le
+                   squelette.**
+  2. `:4066-4067`  `phys-snapshot-sim!` est appelee tout a la fin du pas, sous son propre
+                   commentaire : « L'INSTANTANE QUE LA FRAME SUIVANTE LIRA ».
+  3. `:1380-1403`  sa docstring : « la position de FIN DE FRAME de tout volume porte par un joint
+                   SIMULE [...] C'est ce que la frame SUIVANTE lira, pour toutes les chaines a la
+                   fois. » Elle appelle `phys-col-centre` pour chacun.
+  4. `:1314-1323`  `phys-col-centre` : offset non nul ->
+                   `(vector-matrix*! out out (-> skel bones (+ cj 1) transform))`.
+                   **L'offset du volume est transforme par la matrice qui vient de recevoir le
+                   tenseur.**
+
+**LES DEUX PREMISSES, MESUREES :**
+  (a) `collider lBoob radius=340 offset=-6,637,-135` et `collider rBoob radius=345
+      offset=-14,-617,124` dans la donnee LIVREE : offsets de **651 u et 629 u**, portes par des
+      joints SIMULES. Si l'offset etait nul, `phys-col-centre` prendrait sa branche courte et le
+      chemin serait inerte.
+  (b) `PHYSCVOL c=0 l=1 ci=39 n=51` (moteur du c90) : le volume de `rBoob` a ete le volume
+      **DECIDEUR** du maillon distal de `chestL` sur 51 frames ; `c=1 l=0 ci=37 n=23` et
+      `c=1 l=1 ci=37 n=40` de l'autre cote. Un chemin arme mais jamais emprunte ne serait pas une
+      cause.
+
+**LA TAILLE DE L'EFFET, ET ELLE N'EST PAS MARGINALE.** `|(D - I).offset|`, le deplacement que le
+tenseur SEUL imprime au centre du volume, rapporte a son propre RAYON :
+
+    orientation      chestL          chestR
+    i=0 (debout)     0,1 %           0,1 %      <- CONTROLE : nul quand le tenseur est l'identite
+    pire cas         25,0 %          30,1 %     (85,0 u et 103,9 u, moteur du cycle 90)
+
+Un volume de 340 u de rayon dont le centre se deplace de 104 u par la seule deformation de la peau.
+
+**CE QUE CA VEUT DIRE, ET CE QUE JE NE TRANCHE PAS.** Que le volume de collision d'un sein SUIVE la
+deformation de sa chair va dans le sens de ce que l'owner demande depuis le 2026-08-11 (« les
+colliders ne suivent pas les formes du mesh ») — mais ce n'est pas un choix : c'est un effet de
+bord d'un tenseur ecrit pour la PEAU, il n'est declare nulle part, et il est lu **avec une frame de
+retard**. Faut-il le garder et le declarer, ou le couper et faire suivre le volume par un canal
+explicite ? C'est un arbitrage de superviseur ; **aucun code n'est touche par ce cycle**.
+
+**CE QUE CA CHANGE POUR LE DOSSIER, ET C'EST LE VRAI ENSEIGNEMENT :** toute borne posee sur le
+tenseur est une intervention **DYNAMIQUE** — elle deplace des volumes de collision, donc des
+positions. Elle ne peut pas etre jugee sur les seules grandeurs de forme. Le cycle 91 ne l'a pas su
+avant de mesurer, et c'est pour ca que sa prediction de bit-identite etait fausse.

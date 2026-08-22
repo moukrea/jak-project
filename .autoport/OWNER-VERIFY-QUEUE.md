@@ -66,9 +66,20 @@ changeaient de verdict a cause de mon erreur.
 
 J'avais annonce, en lisant le code, que ce changement ne pouvait PAS toucher aux positions — qu'il
 n'agissait que sur la forme de la peau. J'ai fait tourner les deux versions cote a cote pour le
-verifier, et **les positions bougent** (le mouvement de pointe baisse de 0,7 % et 3,2 %). Donc la
-deformation de la chair revient influencer la simulation par un chemin que je n'avais pas vu. Je ne
-sais pas encore lequel, je ne l'invente pas, et c'est la premiere chose que je regarde ensuite.
+verifier, et **les positions bougent** (le mouvement de pointe baisse de 0,7 % et 3,2 %).
+
+**J'ai trouve pourquoi, et c'est une chose que tu dois savoir.** La boule de collision de chaque
+sein n'est pas posee sur l'os : elle est **decalee de 651 unites** (c'est comme ca qu'on lui fait
+epouser la forme du sein). Or ce decalage est porte par la matrice de l'os — la meme dans laquelle
+on ecrit la deformation de la chair. Resultat : **quand la chair se deforme, la boule de collision
+se deplace avec elle, jusqu'a 30 % de son propre rayon** (104 unites pour une boule de 345). Et la
+frame suivante s'en sert pour les contacts.
+
+Ce n'est pas forcement un mal — c'est meme la direction de ce que tu demandes depuis le 11 aout
+(« les colliders ne suivent pas les formes du mesh »). Mais ce n'est pas un choix : c'est un effet
+de bord, il n'est ecrit nulle part, et il arrive avec **une frame de retard**. Je ne le touche pas
+tout seul : garder ce comportement et l'assumer, ou le couper et faire suivre la boule par un
+mecanisme explicite, c'est une decision, pas une correction.
 
 Le controle, lui, est net : la version desarmee reproduit la course d'hier **bit pour bit**, sur
 tous les enregistrements. Tout ce qui change vient donc du correctif et de rien d'autre.
