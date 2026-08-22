@@ -112,6 +112,9 @@ pk AbsoluteStretchClamp 0.25   # SPEC-breast-softbody.md:509
 pk AdditionalStandingSag 0   # SPEC-breast-softbody.md:460
 pk BreastBreastRestitution 0.06   # SPEC-breast-softbody.md:528
 pk BreastChestRestitution 0.02   # SPEC-breast-softbody.md:529
+pk DerivedApexSoftBand 0.08   # SPEC-breast-softbody.md:505
+pk DerivedCOMSoftBand 0.05   # SPEC-breast-softbody.md:503
+pk DerivedSupineProjectionYield 0.3   # SPEC-breast-softbody.md:470
 pk DistalAnchorHi 0.3   # SPEC-breast-softbody.md:524
 pk DistalAnchorLo 0.05   # SPEC-breast-softbody.md:524
 pk EnableBreastBreastCollision 1   # SPEC-breast-softbody.md:530
@@ -212,6 +215,9 @@ pk AbsoluteStretchClamp 0.25   # SPEC-breast-softbody.md:509
 pk AdditionalStandingSag 0   # SPEC-breast-softbody.md:460
 pk BreastBreastRestitution 0.06   # SPEC-breast-softbody.md:528
 pk BreastChestRestitution 0.02   # SPEC-breast-softbody.md:529
+pk DerivedApexSoftBand 0.08   # SPEC-breast-softbody.md:505
+pk DerivedCOMSoftBand 0.05   # SPEC-breast-softbody.md:503
+pk DerivedSupineProjectionYield 0.3   # SPEC-breast-softbody.md:470
 pk DistalAnchorHi 0.3   # SPEC-breast-softbody.md:524
 pk DistalAnchorLo 0.05   # SPEC-breast-softbody.md:524
 pk EnableBreastBreastCollision 1   # SPEC-breast-softbody.md:530

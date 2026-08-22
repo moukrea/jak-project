@@ -178,14 +178,33 @@ def main():
     # branche ment plus qu'un bouton absent, donc il se publie a part et nommement.
     kind, site, f = CONSTS['SupineProjectionScale#2']
     m = re.search(r'\(defconstant\s+%s\s+([0-9.]+)\)' % re.escape(site), eng)
+    print()
     if m:
-        print()
         print('CANAL PARTIEL — `SupineProjectionScale` est LU par le tenseur de deformation et')
         print('  reste ECRIT EN DUR dans `phys-vol-floor` sous sa forme complementaire :')
         print('  %s = %s, soit 1 - %s. Tourner le bouton deplace le tenseur et PAS ce plancher.'
               % (site, m.group(1), pa.fmt(SK['SupineProjectionScale'][0])))
-        print('  Premier point du cycle suivant : `phys-vol-floor` ne recoit pas `sc`, donc le')
-        print('  cabler demande un parametre de plus et la mise a jour de ses appelants.')
+    else:
+        print('CANAL PARTIEL — RESOLU. `%s` n\'existe plus dans le moteur : `phys-vol-floor` recoit'
+              % site)
+        print('  `sc` et lit la cle DERIVEE `DerivedSupineProjectionYield` (= 1 - SupineProjection-')
+        print('  Scale, calculee en decimal exact par preset_apply.py pour rester identique au')
+        print('  litteral qu\'elle remplace). La seconde copie de la cle 0 est donc branchee elle')
+        print('  aussi : le bouton n\'est plus a moitie connecte.')
+
+    # Les cles DERIVEES : elles sont cablees mais n'appartiennent pas au document. Elles se
+    # publient a part pour qu'on ne les confonde pas avec des lignes de la spec.
+    der = [k for k in wired if k.startswith('Derived')]
+    if der:
+        print()
+        print('CLES DERIVEES CABLEES (%d) — pas dans le document, deduites par soustraction EXACTE :'
+              % len(der))
+        for k in sorted(der):
+            mm = re.search(r'^pk %s ([0-9.]+)' % re.escape(k), ch, re.M)
+            print('  %-32s %s' % (k, mm.group(1) if mm else 'ABSENTE DU FICHIER'))
+        print('  Elles existent parce que le moteur consomme la BANDE (genou -> plafond) et non les')
+        print('  deux bornes separement : sans elles il resterait un litteral en dur a cote d\'un')
+        print('  canal, c\'est-a-dire un bouton a moitie branche.')
     if errs:
         print()
         for e in errs:

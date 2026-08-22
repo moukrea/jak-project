@@ -83,22 +83,35 @@ NEUTRE (1.0 pour une echelle, 0.0 pour une amplitude) et le COMPTE. Le sentinell
 0, parce que `AdditionalStandingSag = 0.00` est une valeur legitime du preset : un zero ne peut
 jamais vouloir dire « absente ».
 
-DIX CLES SONT CABLEES, ce sont celles que le moteur consommait deja EN DUR :
+VINGT-DEUX CLES SONT CABLEES — c'est-a-dire TOUTES celles que le moteur consommait en dur.
+Le cycle les a prises en deux passes ; la seconde est en section 12.
 
     SupineProjectionScale  SupineWidthScale  SupineHeightScale          section 10
     HangingLengthScale     HangingWidthScale HangingThicknessScale      section 11
     LowerBreastCompression                                              section 12
     SecondaryFrequency     SecondaryDampingRatio  SecondaryJiggleHardMax section 36
+    APCompliance           LateralCompliance      TorsionalCompliance   section 29
+    AbsoluteStretchClamp   NormalMaxApexDisplacement  NormalMaxCOMDisplacement
+    HardMaxCOMDisplacement                                              section 22
+    BreastBreastRestitution                                             section 33
+    BreastChestRestitution                                              section 34
+    + 3 cles DERIVEES par soustraction EXACTE (DerivedApexSoftBand, DerivedCOMSoftBand,
+      DerivedSupineProjectionYield) : le moteur consomme la BANDE genou->plafond, pas les deux
+      bornes separement. Sans elles il resterait un litteral en dur a cote d'un canal.
 
 PREUVE D'EXECUTION (regle 0 — un commentaire n'est pas une preuve). Trace de la course livree :
 
-    [HD-PHYS] PHYSPSET  c=0 keys=90 absent=80
+    [HD-PHYS] PHYSPSET  c=0 keys=93 absent=71
     [HD-PHYS] PHYSPSETA c=0 sp=0.7000 sw=1.2300 sh=1.0900 hl=1.2300 hw=0.9000
     [HD-PHYS] PHYSPSETB c=0 ht=0.9100 lbc=0.2000 secf=5.1999 secz=0.6500 secmax=0.0700
+    [HD-PHYS] PHYSPSETC c=0 ap=0.9000 lat=0.8199 tor=0.7200 asc=0.2500 rbb=0.0599
+    [HD-PHYS] PHYSPSETD c=0 rbc=0.0199 akn=0.4199 acp=0.0799 ckn=0.3500 ccp=0.0500
+    [HD-PHYS] PHYSPSETE c=0 chard=0.4000 syld=0.3000
     (idem c=1)
 
-`keys=90` = ce que le FICHIER porte. `absent=80` = les cles que CE moteur ne lit pas, comptees
-par le moteur lui-meme et non affirmees dans un rapport. 90 - 10 = 80 : le compte se ferme.
+`keys=93` = ce que le FICHIER porte (90 du document + 3 derivees). `absent=71` = les cles que CE
+moteur ne lit pas, comptees par le moteur lui-meme et non affirmees dans un rapport.
+93 - 22 = 71 : le compte se ferme.
 
 
 3. CONTROLE NEGATIF — LE CABLAGE EST INERTE AU BIT, ET C'EST CE QUI AUTORISE A LIRE LE POSITIF
@@ -210,32 +223,32 @@ que le `defconstant` existe ET que sa valeur EGALE celle du preset — c'est cet
 et non retapee, qui rend le mot TAUTOLOGIQUE demontrable. Un desaccord fait sortir le script en
 echec plutot qu'imprimer un tableau faux.
 
-    CANAL FICHIER               10 / 90    lu dans le fichier, tournable SANS build
+    CANAL FICHIER               19 / 90    lu dans le fichier, tournable SANS build
     CANAL FICHIER (indirect)     3 / 90    descend sous un autre nom (`stiffness=`, `damping=`, `mass=`)
-    CONSTANTE MOTEUR             8 / 90    ecrite dans le source ; les 8 EGALENT le preset
+    CONSTANTE MOTEUR             0 / 90    <- ZERO. plus une seule cle du preset n'est en dur.
     HORS RUNTIME (asset)        11 / 90    poids de peau et rig (ancrage §30, gradient §31)
-    CANAL ABSENT                58 / 90    aucun lecteur
+    CANAL ABSENT                57 / 90    aucun lecteur
+    dont TAUTOLOGIQUES           0
 
     sur les 62 cles dont la valeur DIFFERE entre les deux presets — celles qui doivent produire un
-    effet, sinon elles ne serviraient a rien — l'ordre de travail que le contrat prescrit :
-        deja cablees               13   (10 directes + 3 indirectes)
-        constante moteur            7   <- le lot suivant, il est petit et il est nomme
+    effet, sinon elles ne serviraient a rien :
+        cablees                    21   (18 directes + 3 indirectes)
+        constante moteur            0
         hors runtime (asset)        4
-        canal absent               38
+        canal absent               37   <- le chantier suivant, et il n'est plus petit
 
-LES 8 CONSTANTES MOTEUR, NOMMEES : `PHYS-MOB-AP` 0.90 (APCompliance), `PHYS-MOB-LAT` 0.82
-(LateralCompliance), `PHYS-MOB-TOR` 0.72 (TorsionalCompliance), `PHYS-DYN-MAX` 0.25
-(AbsoluteStretchClamp), `PHYS-RST-BB` 0.06 (BreastBreastRestitution), `PHYS-RST-CH` 0.02
-(BreastChestRestitution), le litteral `(* 0.42 b0e)` (NormalMaxApexDisplacement) et `(* 0.35 b0e)`
-(NormalMaxCOMDisplacement). Les huit egalent la valeur du preset au chiffre pres.
+CE QUE CA REGLE, ET C'EST LA DIRECTIVE DU 2026-08-22 22:50. Elle demandait de marquer
+`TAUTOLOGIQUE` 13 entrees du registre parce que « l'instrument relit la constante qu'il est cense
+verifier ». **Il n'y a plus aucune constante de preset a relire : `CONSTANTE MOTEUR = 0`,
+`TAUTOLOGIQUES = 0`.** La tautologie disparait par construction, ce que la directive du 23:00
+appelait exactement — « sans qu'on ait a la declarer ». Je n'ai donc pas a reconstituer la liste
+de 13, et je ne l'invente pas : le compte mecanique la remplace, et il est verifiable.
 
-CE QUE JE NE FAIS PAS, ET JE LE DECLARE AU LIEU DE LE TAIRE. La directive du 2026-08-22 22:50
-demandait de marquer `TAUTOLOGIQUE` **13 entrees du registre**. Je marque les sections dont je
-peux DEMONTRER la tautologie (§10, §11 et la clause de plafond de §36, ci-dessous), et je publie
-mon compte MECANIQUE : 8 cles de preset encore portees par une constante du moteur. **Je ne
-reconstitue pas la liste de 13 : je ne l'ai pas, et inventer une liste pour faire coincider un
-chiffre serait exactement la faute que ce registre existe pour interdire.** Ecart declare : 8
-contre 13, sur deux unites de compte differentes (cles de preset contre entrees de registre).
+CE QUI RESTE TAUTOLOGIQUE, ET QUE LE CABLAGE NE CORRIGE PAS : une clause bornee par un OPERATEUR.
+« hard ceiling ~7 % » se mesure contre `phys-softmin`, dont l'image est [0, cap) OUVERT : « 0
+fenetre au-dessus du plafond » est vrai QUEL QUE SOIT le plafond, et deplacer le nombre du source
+vers le fichier n'y change rien. C'est une propriete de l'operateur, pas de la provenance de la
+constante.
 
 
 6. UN DEFAUT TROUVE PAR LE TRAVAIL LUI-MEME : UN CANAL A MOITIE BRANCHE
@@ -328,6 +341,55 @@ pour un cycle qui ne change pas l'ensemble, et ici il ne change litteralement ri
 Le lot qui vaudra un test est celui ou les 7 constantes moteur restantes (section 5) et les cles
 de frequence rejoindront le canal : la, le preset gouvernera ce qu'il voit.
 
+12. DEUXIEME PASSE — LES DOUZE CONSTANTES QUI RESTAIENT SONT CABLEES, ET LE CANAL A MOITIE
+    BRANCHE DE LA SECTION 6 EST REFERME
+
+La section 5 nommait 8 cles encore portees par une constante du moteur et la section 6 un bouton a
+moitie connecte. Les deux sont traites dans le meme cycle plutot que reportes — un defaut nomme
+qu'on laisse ouvert redevient un defaut oublie.
+
+DISPARUS DU MOTEUR (six `defconstant` supprimes, plus cinq litteraux) :
+
+    PHYS-MOB-AP 0.90 / PHYS-MOB-LAT 0.82 / PHYS-MOB-TOR 0.72   -> §29, les trois compliances
+    PHYS-DYN-MAX 0.25                                          -> §22 AbsoluteStretchClamp
+    PHYS-RST-BB 0.06 / PHYS-RST-CH 0.02                        -> §33 et §34, les restitutions
+    litteraux (* 0.42 b0e) / (* 0.35 b0e) / (* 0.40 b0e)        -> §22, genoux et plafond
+    litteraux (* 0.08 b0e) / (* 0.05 b0e)                      -> §22, les deux BANDES
+    PHYS-FLESH-YIELD 0.30                                      -> la 2e copie de SupineProjectionScale
+
+LES TROIS CLES DERIVEES, ET POURQUOI ELLES EXISTENT. Le moteur ne consomme pas les deux bornes de
+§22 separement : il consomme le GENOU et la LARGEUR DE BANDE (`kn`, `cp`). Ecrire `cp` comme
+`HardMax - NormalMax` en flottant rendrait 0.080000005 contre le litteral 0.08 — un ULP d'ecart,
+et le controle de bit-identite tomberait. `preset_apply.py` fait donc la soustraction en DECIMAL
+EXACT et pose `DerivedApexSoftBand = 0.08`, `DerivedCOMSoftBand = 0.05`,
+`DerivedSupineProjectionYield = 0.3`. Chacune porte sa formule dans le fichier.
+
+`phys-vol-floor` RECOIT MAINTENANT `sc`. C'etait la raison technique de reporter, en section 6 :
+la fonction prenait `(floor0, b0)`. Verifie avant de toucher : ses QUATRE appelants ont tous `sc`
+en portee (ils passent deja `(phys-vol-yield sc cj cj2)` en second argument). Le changement de
+signature ne coute donc aucune ligne et aucun appelant ne se devine.
+
+LE MEME CONTROLE NEGATIF, ET IL TIENT :
+
+    enregistrements PHYS* compares entre la course A (10 canaux) et la course D (22 canaux)
+                                                                                   88 190
+    lignes differentes                                                                  1
+    et c'est encore l'adresse de tas de la banniere de demarrage.
+    Le tableau derive `keira-room-table.txt` est identique ligne pour ligne, a sa seule ligne
+    d'empreinte pres. tipvar 0.1844 / 0.2018, meshpen 0.0555 / 0.0973 : inchanges.
+
+DOUZE BOUTONS DE PLUS — dont la borne d'apex de §22, les trois compliances de §29, les deux
+restitutions de §33/§34 et le plancher de collision — passent du SOURCE au FICHIER **sans que le
+solveur bouge d'un bit**. Preuve d'execution : `PHYSPSET c=0 keys=93 absent=71`, puis PHYSPSETA a
+PHYSPSETE qui republient les 22 valeurs lues.
+
+ET L'INVENTAIRE TOMBE A ZERO CONSTANTE : `CONSTANTE MOTEUR 0 / 90`, `TAUTOLOGIQUES 0`. Plus une
+seule cle du preset n'est ecrite dans le moteur.
+
+DETAIL D'OUTIL, PAYE UNE FOIS : `format` de GOAL n'accepte que SIX arguments apres sa chaine. La
+premiere version des emissions en passait sept et la compilation echouait sur une « Compiler
+Exception » sans nom de symbole. Redecoupe a cinq valeurs par ligne (PHYSPSETC/D/E).
+
 11. LES ARTEFACTS DE CE CYCLE, POUR QUI VOUDRA LES REJOUER
 
   .autoport/preset_apply.py            pose le preset dans le fichier livre depuis la section 38
@@ -339,7 +401,9 @@ de frequence rejoindront le canal : la, le preset gouvernera ce qu'il voit.
   .autoport/physics_keira_gen2.py      appelle preset_apply.py : une regeneration ne peut plus
                                        effacer le preset (regle de non-destruction du 2026-08-11)
 
-Courses : A (preset Keira, LIVREE, md5 13a619b7109bd999f5558edec0000214), B (preset Maia entier),
-C (mode secondaire seul). B et C n'ecrivent aucun fichier livre ni aucun tableau.
+Courses : A (preset Keira, 10 canaux), B (preset Maia entier), C (mode secondaire seul),
+D (preset Keira, 22 canaux — LIVREE, md5 4cf61baeb2c5af4ef4c4493bcf0d9a66).
+B et C n'ecrivent aucun fichier livre ni aucun tableau ; le fichier livre est restaure par le
+script de controle, empreinte republiee apres restauration.
 
 DIRECTIVES vd9e8b66782

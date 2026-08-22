@@ -1978,6 +1978,21 @@ static const char* kPhysPresetKeys[] = {
     "SecondaryFrequency",      // 7  section 36 — secondary soft-tissue mode
     "SecondaryDampingRatio",   // 8  section 36
     "SecondaryJiggleHardMax",  // 9  section 36
+    "APCompliance",            // 10 section 29 — anisotropie avant/arriere
+    "LateralCompliance",       // 11 section 29
+    "TorsionalCompliance",     // 12 section 29
+    "AbsoluteStretchClamp",    // 13 section 22 — plafond dur d'elongation locale
+    "BreastBreastRestitution", // 14 section 33
+    "BreastChestRestitution",  // 15 section 34
+    "NormalMaxApexDisplacement",  // 16 section 22 — le GENOU de la borne d'apex
+    "DerivedApexSoftBand",        // 17 = HardMaxApex - NormalMaxApex, calcule par preset_apply.py
+    "NormalMaxCOMDisplacement",   // 18 section 22 — le genou de la borne de COM
+    "DerivedCOMSoftBand",         // 19 = HardMaxCOM - NormalMaxCOM, calcule par preset_apply.py
+    "HardMaxCOMDisplacement",     // 20 section 22 — le plafond du canal radial
+    "DerivedSupineProjectionYield",  // 21 = 1 - SupineProjectionScale ; la SECONDE copie de la
+                                     //    cle 0, celle de `phys-vol-floor`. Une cle lue a un
+                                     //    endroit et gardee en dur a l'autre rend une reponse
+                                     //    partielle qu'on lit comme complete.
 };
 static const int kPhysNumPresetKeys = (int)(sizeof(kPhysPresetKeys) / sizeof(kPhysPresetKeys[0]));
 

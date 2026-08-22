@@ -103,6 +103,37 @@ def scalars(keys):
     return out
 
 
+# Cles DERIVEES : elles ne sont pas ecrites dans le document, elles s'en DEDUISENT par une
+# soustraction exacte. Elles existent parce que le moteur consomme la BANDE (genou -> plafond) et
+# pas les deux bornes separement : sans elles il resterait un litteral en dur a cote d'un canal,
+# c'est-a-dire un bouton a moitie branche, qui ment plus qu'un bouton absent. Le calcul est fait
+# en DECIMAL exact (`Decimal`) pour que la valeur posee soit celle qu'un humain ecrirait — sinon
+# 0.50 - 0.42 rend 0.080000005 en flottant et la valeur cesse d'etre identique au litteral
+# qu'elle remplace, ce qui detruirait le controle de bit-identite.
+DERIVED = {
+    'DerivedApexSoftBand':          ('HardMaxApexDisplacement', '-', 'NormalMaxApexDisplacement'),
+    'DerivedCOMSoftBand':           ('HardMaxCOMDisplacement', '-', 'NormalMaxCOMDisplacement'),
+    'DerivedSupineProjectionYield': ('1', '-', 'SupineProjectionScale'),
+}
+
+
+def add_derived(out, raw):
+    from decimal import Decimal
+    def dec(name):
+        if name == '1':
+            return Decimal('1')
+        txt = raw[name][0].replace('\u2248', '').strip()
+        m = re.match(r'^(%s)' % NUM, txt)
+        return Decimal(m.group(1))
+    for k, (a, op, b) in DERIVED.items():
+        if (a != '1' and a not in raw) or b not in raw:
+            continue
+        v = dec(a) - dec(b)
+        ln = raw[b][1] if b in raw else 0
+        out[k] = (float(v), ln, '%s %s %s' % (a, op, b))
+    return out
+
+
 def fmt(v):
     s = ('%.6f' % v).rstrip('0').rstrip('.')
     return s if s else '0'
@@ -141,7 +172,7 @@ def main():
     other = [k for k in presets if k != who]
 
     S = {k: scalars(v) for k, v in presets.items()}
-    mine = S[who]
+    mine = add_derived(S[who], presets[who])
     bad = sorted(k[len('#UNPARSED#'):] for k in mine if k.startswith('#UNPARSED#'))
 
     if args.audit or args.preset.lower() != 'keira':

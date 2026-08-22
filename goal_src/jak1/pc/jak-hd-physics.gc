@@ -66,7 +66,7 @@
 (defconstant PHYS-SC   (* PHYS-SLOTS PHYS-CHAINS))
 (defconstant PHYS-SCL  (* PHYS-SLOTS PHYS-CHAINS PHYS-LINKS))
 (defconstant PHYS-SCO  (* PHYS-SLOTS PHYS-COLS))
-(defconstant PHYS-PSET-N 10)  ;; cles du preset que ce moteur CONSOMME (table kPhysPresetKeys, kmachine.cpp)
+(defconstant PHYS-PSET-N 22)  ;; cles du preset que ce moteur CONSOMME (table kPhysPresetKeys, kmachine.cpp)
 
 ;; identite du slot
 (define *phys-slot-pid*  (new 'global 'array 'int32 PHYS-SLOTS))
@@ -203,8 +203,6 @@
 ;; [NOTE-13] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
 (define *phys-lsv* (new 'global 'array 'float (* PHYS-SCL 3)))
 ;; [NOTE-14] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
-(defconstant PHYS-MOB-AP  0.90)   ;; §29 Front/back [NOTE-433] : la valeur de §24 est RETIREE (cycle 99)
-(defconstant PHYS-MOB-LAT 0.82)   ;; §29 Lateral   [NOTE-433] elle coutait +1,0 mm de peau -> §33
 ;; [NOTE-73] QUEL AXE DE L'ANCRE EST QUOI — classe UNE FOIS par chaine, a sa premiere frame -> jak-hd-physics-NOTES.md
 (define *phys-axv*  (new 'global 'array 'int32 PHYS-SC))   ;; index de ligne : vertical
 (define *phys-axa*  (new 'global 'array 'int32 PHYS-SC))   ;; ...              avant-arriere
@@ -221,16 +219,12 @@
 (define *phys-axsrc* (new 'global 'array 'int32 PHYS-SC))  ;; 0 = pas de partenaire, 1 = separation
 (define *phys-sepv* (new 'global 'inline-array 'vector PHYS-SC))  ;; la MEME separation, en VECTEUR
 ;; [NOTE-75] ============================================================================== -> jak-hd-physics-NOTES.md
-(defconstant PHYS-MOB-TOR 0.72)    ;; §29 TorsionalCompliance
 ;; [NOTE-169] §36 — LE GAIN D'EXCITATION, CALE SUR SA BANDE ET SUR RIEN D'AUTRE. Mesure de la course B -> jak-hd-physics-NOTES.md
 (defconstant PHYS-SEC-K   0.05)
 (defconstant PHYS-DYN-K   0.43)    ;; §38 NormalDynamicStretch 0.15 atteint a 0.35 B0
-(defconstant PHYS-DYN-MAX 0.25)    ;; §38 AbsoluteStretchClamp
 ;; [NOTE-76] §23 — « the solver should then derive local deformation from COM displacement, -> jak-hd-physics-NOTES.md
 (defconstant PHYS-PRS-K   0.45)
 (defconstant PHYS-PRS-MAX 0.25)    ;; §12 : -25 % au pire, borne haute de sa bande
-(defconstant PHYS-RST-BB  0.06)    ;; §33 restitution sein <-> sein
-(defconstant PHYS-RST-CH  0.02)    ;; §34 restitution sein <-> buste / externe
 ;; [NOTE-183] LE TRIEDRE DE SA SPEC 7 (+X lateral sortant, +Y haut du torse, +Z vers l'avant du buste) -> jak-hd-physics-NOTES.md
 (define *phys-fx*  (new 'global 'inline-array 'vector PHYS-SC))
 (define *phys-fy*  (new 'global 'inline-array 'vector PHYS-SC))
@@ -279,7 +273,7 @@
 (define *phys-prsm* (new 'global 'array 'float PHYS-SC))  ;; §23 aplatissement de contact, max fenetre
 (define *phys-prsr* (new 'global 'array 'float PHYS-SC))  ;; le meme AVANT plafond (anti-saturation)
 ;; [NOTE-96] LES DEUX ENTREES DU TENSEUR, MESUREES AVANT LEUR PLAFOND. -> jak-hd-physics-NOTES.md
-(define *phys-dynr* (new 'global 'array 'float PHYS-SC))  ;; `dl` AVANT `fmin PHYS-DYN-MAX`
+(define *phys-dynr* (new 'global 'array 'float PHYS-SC))  ;; `dl` AVANT le plafond §22 (cle AbsoluteStretchClamp)
 (define *phys-dynn* (new 'global 'array 'float PHYS-SC))  ;; frames ou `dl` a mordu le plafond
 (define *phys-prsn* (new 'global 'array 'float PHYS-SC))  ;; frames ou `pr0` a mordu le sien
 (define *phys-dyna* (new 'global 'array 'float PHYS-SC))  ;; frames comptees, denominateur commun
@@ -358,7 +352,6 @@
 (defconstant PHYS-COL-MARGIN 0.5)
 
 ;; [NOTE-284] SPEC 10 `SupineProjectionScale = 0.70` : la projection avant perd 30 % contre le thorax. -> jak-hd-physics-NOTES.md
-(defconstant PHYS-FLESH-YIELD 0.30)
 
 ;; [NOTE-16] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
 
@@ -710,10 +703,13 @@
                       (let ((pb (* sc PHYS-PSET-N)))
                         (dotimes (pki PHYS-PSET-N)
                           (let ((mi (pc-physics-chain-preset-mi agname c pki)))
-                            (set! (-> *phys-pset* (+ pb pki)) (if (>= mi 0) (phys-mi->f mi) (if (< pki 6) 1.0 0.0)))))
+                            (set! (-> *phys-pset* (+ pb pki)) (if (>= mi 0) (phys-mi->f mi) (if (or (< pki 6) (and (>= pki 10) (< pki 13))) 1.0 0.0)))))
                         (format 0 "[HD-PHYS] PHYSPSET c=~D keys=~D absent=~D~%" c (pc-physics-chain-preset-count agname c) (pc-physics-chain-preset-absent agname c))
                         (format 0 "[HD-PHYS] PHYSPSETA c=~D sp=~f sw=~f sh=~f hl=~f hw=~f~%" c (-> *phys-pset* (+ pb 0)) (-> *phys-pset* (+ pb 1)) (-> *phys-pset* (+ pb 2)) (-> *phys-pset* (+ pb 3)) (-> *phys-pset* (+ pb 4)))
-                        (format 0 "[HD-PHYS] PHYSPSETB c=~D ht=~f lbc=~f secf=~f secz=~f secmax=~f~%" c (-> *phys-pset* (+ pb 5)) (-> *phys-pset* (+ pb 6)) (-> *phys-pset* (+ pb 7)) (-> *phys-pset* (+ pb 8)) (-> *phys-pset* (+ pb 9))))
+                        (format 0 "[HD-PHYS] PHYSPSETB c=~D ht=~f lbc=~f secf=~f secz=~f secmax=~f~%" c (-> *phys-pset* (+ pb 5)) (-> *phys-pset* (+ pb 6)) (-> *phys-pset* (+ pb 7)) (-> *phys-pset* (+ pb 8)) (-> *phys-pset* (+ pb 9)))
+                        (format 0 "[HD-PHYS] PHYSPSETC c=~D ap=~f lat=~f tor=~f asc=~f rbb=~f~%" c (-> *phys-pset* (+ pb 10)) (-> *phys-pset* (+ pb 11)) (-> *phys-pset* (+ pb 12)) (-> *phys-pset* (+ pb 13)) (-> *phys-pset* (+ pb 14)))
+                        (format 0 "[HD-PHYS] PHYSPSETD c=~D rbc=~f akn=~f acp=~f ckn=~f ccp=~f~%" c (-> *phys-pset* (+ pb 15)) (-> *phys-pset* (+ pb 16)) (-> *phys-pset* (+ pb 17)) (-> *phys-pset* (+ pb 18)) (-> *phys-pset* (+ pb 19)))
+                        (format 0 "[HD-PHYS] PHYSPSETE c=~D chard=~f syld=~f~%" c (-> *phys-pset* (+ pb 20)) (-> *phys-pset* (+ pb 21))))
                       (when (> (-> *phys-nlink* sc) 0)
                         (+! armed 1)
                         (+! links (-> *phys-nlink* sc)))))
@@ -935,14 +931,14 @@
          (s (* u (+ (- 1.0 (* 0.16666667 (* u u))) (* 0.00833333 (* (* u u) (* u u)))))))
     (+ (* (- 1.0 r) (- 1.0 r)) (* 4.0 (* r (* s s))))))
 
-(defun phys-vol-floor ((floor0 float) (b0 float))
+(defun phys-vol-floor ((sc int) (floor0 float) (b0 float))
   "Profondeur maximale que cette paire (lien, volume) tolere : sa profondeur d'AUTEUR plus ce que
    la SPEC 22 autorise a l'excursion. NATURE : une profondeur, unites de jeu. REPERE : le monde.
    LECTURE HORS DEFAUT : la profondeur mesuree reste dessous.
    Justification complete : [NOTE-301] de jak-hd-physics-NOTES.md."
   (if (nonzero? *phys-col-off*)
     PHYS-VOL-FREE
-    (+ floor0 (* PHYS-FLESH-YIELD b0))))
+    (+ floor0 (* (-> *phys-pset* (+ (* sc PHYS-PSET-N) 21)) b0))))
 
 (defun phys-vol-yield ((sc int) (cj int) (cj2 int))
   "La bande de SPEC 10 est la compression de la chair CONTRE SON PROPRE BUSTE — pas une licence de
@@ -1513,7 +1509,7 @@
                              (floorc (phys-collide-depth rest rl ca cb (-> *phys-cr* sco)
                                                          (-> *phys-cr2* sco) cap? nrm))
                              (floor0 (if (> floorc floors) floorc floors))
-                             (feff   (if selfpair 0.0 (phys-vol-floor floor0 (phys-vol-yield sc cj cj2))))
+                             (feff   (if selfpair 0.0 (phys-vol-floor sc floor0 (phys-vol-yield sc cj cj2))))
                              (dep    (phys-collide-depth pt rl ca cb (-> *phys-cr* sco)
                                                          (-> *phys-cr2* sco) cap? nrm)))
                         (when (> dep feff)
@@ -1570,7 +1566,7 @@
                              (floorc (phys-collide-depth rest rl ca cb (-> *phys-cr* sco)
                                                          (-> *phys-cr2* sco) cap? nrm))
                              (floor0 (if (> floorc floors) floorc floors))
-                             (feff   (if selfpair 0.0 (phys-vol-floor floor0 (phys-vol-yield sc cj cj2))))
+                             (feff   (if selfpair 0.0 (phys-vol-floor sc floor0 (phys-vol-yield sc cj cj2))))
                              (dep    (phys-collide-depth pt rl ca cb (-> *phys-cr* sco)
                                                          (-> *phys-cr2* sco) cap? nrm)))
                         ;; [NOTE-128] SPEC 33 — LE DOMAINE DE LA PAIRE -> jak-hd-physics-NOTES.md
@@ -1623,7 +1619,7 @@
                                   (set! (-> *phys-cpc* (+ qb 2))
                                         (+ push (-> *phys-cpc* (+ qb 2)))))))
                             (set! (-> *phys-cpe* scl)
-                                  (if (nonzero? (-> *phys-csim* sco)) PHYS-RST-BB PHYS-RST-CH))))
+                                  (if (nonzero? (-> *phys-csim* sco)) (-> *phys-pset* (+ (* sc PHYS-PSET-N) 14)) (-> *phys-pset* (+ (* sc PHYS-PSET-N) 15))))))
                         ;; [NOTE-29] ---------------------------------------------------------------- -> jak-hd-physics-NOTES.md
                         (when (and (zero? *phys-side-off*)
                                    (> floor0 0.0)
@@ -1672,7 +1668,7 @@
                              (fc (phys-collide-depth rest rl ca cb (-> *phys-cr* sco)
                                                      (-> *phys-cr2* sco) cap? nrm))
                              (fe (if selfp 0.0
-                                   (phys-vol-floor (if (> fc fs) fc fs)
+                                   (phys-vol-floor sc (if (> fc fs) fc fs)
                                                    (phys-vol-yield sc cj cj2)))))
                         (set-vector! pv qx qy qz 1.0)
                         (let ((fq (phys-collide-depth pv rl ca cb (-> *phys-cr* sco)
@@ -1997,7 +1993,7 @@
                     (set! (-> *phys-cpu* scl y) (+ (-> *phys-cpu* scl y) ddy))
                     (set! (-> *phys-cpu* scl z) (+ (-> *phys-cpu* scl z) ddz))
                     (when (= (-> *phys-cpe* scl) 0.0)
-                      (set! (-> *phys-cpe* scl) PHYS-RST-CH)))))))))
+                      (set! (-> *phys-cpe* scl) (-> *phys-pset* (+ (* sc PHYS-PSET-N) 15)))))))))))
       (set! *phys-sd-quiet* 0)))
   (none))
 
@@ -2030,8 +2026,8 @@
                           (if (> l rlk) (- bz (-> skel bones (+ kp 1) transform vector 3 z)) 0.0)))
                    (rlb (-> *phys-blen* (+ (* sc PHYS-LINKS) rlk)))
                    (rl  (if (> rlb 0.01) (fmin 1.0 (/ (-> *phys-blen* scl) rlb)) 1.0))
-                   (kn  (* (* 0.42 b0f) rl))
-                   (cp  (* (* 0.08 b0f) rl))
+                   (kn  (* (* (-> *phys-pset* (+ (* sc PHYS-PSET-N) 16)) b0f) rl))
+                   (cp  (* (* (-> *phys-pset* (+ (* sc PHYS-PSET-N) 17)) b0f) rl))
                    (ex  (- (-> *phys-px* scl) tx))
                    (ey  (- (-> *phys-py* scl) ty))
                    (ez  (- (-> *phys-pz* scl) tz))
@@ -2225,7 +2221,7 @@
                                                  (-> *phys-cr2* sco) cap? nrm))
                      (floor0 (if (> floorc floors) floorc floors))
                      ;; [NOTE-242] MEME PLANCHER QUE LE SOLVEUR, IMPOSE PAR UNE MESURE : ancre a la pose d'AUTEUR -> jak-hd-physics-NOTES.md
-                     (feff   (phys-vol-floor floor0 (phys-vol-yield sc cj cj2)))
+                     (feff   (phys-vol-floor sc floor0 (phys-vol-yield sc cj cj2)))
                      (dep    (phys-collide-depth q rl ca cb (-> *phys-cr* sco)
                                                  (-> *phys-cr2* sco) cap? nrm))
                      (res    (- dep feff)))
@@ -2667,8 +2663,8 @@
                           ;; [NOTE-163] ARMEE DES QU'IL Y A UN MAILLON LIBRE. Ce verrou exigeait DEUX -> jak-hd-physics-NOTES.md
                           (when (> (- n rlk) 0)
                             (set! (-> *phys-axs* (+ (* sc 3) iv)) 1.0)
-                            (set! (-> *phys-axs* (+ (* sc 3) ia)) (/ 1.0 PHYS-MOB-AP))
-                            (set! (-> *phys-axs* (+ (* sc 3) il)) (/ 1.0 PHYS-MOB-LAT))
+                            (set! (-> *phys-axs* (+ (* sc 3) ia)) (/ 1.0 (-> *phys-pset* (+ (* sc PHYS-PSET-N) 10))))
+                            (set! (-> *phys-axs* (+ (* sc 3) il)) (/ 1.0 (-> *phys-pset* (+ (* sc PHYS-PSET-N) 11))))
                             (set! (-> *phys-axan* sc) 1))))))
                   ;; [NOTE-35] LA GRAVITE ABSOLUE, VUE DE L'ANCRE, AVANT TOUTE SOUSTRACTION. C'est elle qui -> jak-hd-physics-NOTES.md
                   (vector-copy! gla gl)
@@ -2898,8 +2894,8 @@
                                                 (* dmp (sqrtf (/ k2l k2)))
                                                 dmp))
                                         (kd  (phys-decay rate))
-                                        (kn  (* 0.42 b0e))
-                                        (cpp (* 0.08 b0e))
+                                        (kn  (* (-> *phys-pset* (+ (* sc PHYS-PSET-N) 16)) b0e))
+                                        (cpp (* (-> *phys-pset* (+ (* sc PHYS-PSET-N) 17)) b0e))
                                         (ex0 (- tgx (-> *phys-px* scl)))
                                         (ey0 (- tgy (-> *phys-py* scl)))
                                         (ez0 (- tgz (-> *phys-pz* scl)))
@@ -2957,8 +2953,8 @@
                                         ;; [NOTE-345] SPEC 23 — le troisieme degre de liberte est celui du TISSU, pas du premier maillon -> jak-hd-physics-NOTES.md
                                         (rlo (if (and (nonzero? axo) (>= l rlk) (nonzero? hasf)) 1 0))
                                         ;; [NOTE-222] §22 SUR LE COM, ET C'EST UNE AUTRE BANDE QUE CELLE DE -> jak-hd-physics-NOTES.md
-                                        (ckn (* 0.35 b0e))
-                                        (ccp (* 0.05 b0e))
+                                        (ckn (* (-> *phys-pset* (+ (* sc PHYS-PSET-N) 18)) b0e))
+                                        (ccp (* (-> *phys-pset* (+ (* sc PHYS-PSET-N) 19)) b0e))
                                         (cpx (-> *phys-cpx* scl))
                                         (cpy (-> *phys-cpy* scl))
                                         (cpz (-> *phys-cpz* scl))
@@ -3083,7 +3079,7 @@
                                                       bl)
                                                    0.0))
                                             ;; [NOTE-81] LA BORNE DE §22 SUR LE CANAL RADIAL. -> jak-hd-physics-NOTES.md
-                                            (rcap (if (zero? *phys-rr-off*) (fmin (* 0.40 b0e) (* PHYS-DYN-MAX bl)) (* 1000000.0 b0e)))
+                                            (rcap (if (zero? *phys-rr-off*) (fmin (* (-> *phys-pset* (+ (* sc PHYS-PSET-N) 20)) b0e) (* (-> *phys-pset* (+ (* sc PHYS-PSET-N) 13)) bl)) (* 1000000.0 b0e)))
                                             ;; [NOTE-84] LA BORNE EST APPELEE SUR LA VALEUR LIVREE, JAMAIS SUR L'ETAT. -> jak-hd-physics-NOTES.md
                                             (drr (if (>= dr0 0.0)
                                                    (phys-softmin dr0 rcap)
@@ -3690,7 +3686,7 @@
                                              ;; [NOTE-434] OSCILLATEUR SCALAIRE : forme EXACTE de NOTE-50. -> jak-hd-physics-NOTES.md
                                              (let* ((w   (/ (* 6.2831853 (-> *phys-stiff* sc))
                                                             (sqrtf (fmax 0.01 (-> *phys-mass* sc)))))
-                                                    (mbt (sqrtf (/ 1.0 PHYS-MOB-TOR)))
+                                                    (mbt (sqrtf (/ 1.0 (-> *phys-pset* (+ (* sc PHYS-PSET-N) 12)))))
                                                     (wht (* w (* dt mbt)))
                                                     (zt  (/ (* (-> *phys-damp* sc) mbt)
                                                             (* 2.0 (fmax 0.000001 wht))))
@@ -3723,14 +3719,14 @@
                                  (ka  (if (zero? *phys-dyb-off*) (fmin 1.0 (/ dt PHYS-DYN-TAU)) 0.0)) ;; [NOTE-477] §22 EST UNE LIMITE *DYNAMIQUE* : CE QUI EST TENU EST DEJA L'EQUILIBRE DE §10-§13 -> jak-hd-physics-NOTES.md
                                  (dx  (- rx (-> *phys-dyb* gb))) (dy (- ry (-> *phys-dyb* (+ gb 1)))) (dz (- rz (-> *phys-dyb* (+ gb 2))))
                                  (dl  (sqrtf (+ (* dx dx) (+ (* dy dy) (* dz dz)))))
-                                 (sdy (fmin PHYS-DYN-MAX dl))
+                                 (sdy (fmin (-> *phys-pset* (+ (* sc PHYS-PSET-N) 13)) dl))
                                  (ee  (+ 1.0 sdy))
                                  (tt  (/ 1.0 (sqrtf ee))))
                             (set! (-> *phys-dyb* gb) (+ (-> *phys-dyb* gb) (* ka dx))) (set! (-> *phys-dyb* (+ gb 1)) (+ (-> *phys-dyb* (+ gb 1)) (* ka dy))) (set! (-> *phys-dyb* (+ gb 2)) (+ (-> *phys-dyb* (+ gb 2)) (* ka dz)))
                             (when (> sdy (-> *phys-dynm* sc)) (set! (-> *phys-dynm* sc) sdy))
                             (when (> dl (-> *phys-dynr* sc)) (set! (-> *phys-dynr* sc) dl))
                             (set! (-> *phys-dyna* sc) (+ 1.0 (-> *phys-dyna* sc)))
-                            (when (> dl PHYS-DYN-MAX)
+                            (when (> dl (-> *phys-pset* (+ (* sc PHYS-PSET-N) 13)))
                               (set! (-> *phys-dynn* sc) (+ 1.0 (-> *phys-dynn* sc))))
                             (cond
                               ((and (> dl 0.000001) (> sdy 0.000001))
