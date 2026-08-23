@@ -9201,3 +9201,10 @@ ses ecarts prescrivent. Un moteur qui consomme vraiment le preset le montre ; un
 semblant rend la meme chose. Le perimetre ne bouge pas pour autant : ses chiffres sont un VECTEUR
 DE TEST sur la chaine de Keira, on ne livre pas sa physique et on ne touche pas a son personnage.
 ```
+
+
+## [NOTE-501] `PHYSSTGQ` — LE SEPTUPLET EN INSTANTANE, AU POINT DE PARCAGE
+
+```
+[NOTE-501] INSTANTANE, ET C'EST LA DIFFERENCE QUI COMPTE. 72-78 et 79-85 sont des LATCHES sur un argmax : ils repondent DANS une frame choisie pour son extremum, jamais dans une frame de REPOS. Le cycle 114b a etabli que la chaine se gare a un point qui depend du CHEMIN (sigma30 nul sur 324 series, decalage jamais nul sur 324) et que la mesure manquante est le septuplet AU POINT DE PARCAGE. Cette tranche-ci n'a donc ni cle ni reset : elle porte toujours la DERNIERE frame ecrite, et c'est la salle qui choisit QUAND la lire — a la fermeture de la fenetre PH-AXC, la ou la chaine est immobile au bit pres.
+```

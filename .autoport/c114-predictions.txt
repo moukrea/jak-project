@@ -63,3 +63,40 @@ P5  MONOTONIE. Sur toute grandeur que la borne touche, l'ordre B <= A <= C doit 
 CE QUE CES COURSES NE PROUVENT PAS, ET JE L'ECRIS AVANT : elles ne disent rien de la CONFORMITE de
 la 22. Elles disent seulement si le bouton du preset est branche. L'avancement se lit dans
 `SPEC-COVERAGE.md` et nulle part ailleurs (arbitrage du superviseur, 2026-08-23 01:20).
+
+==================================================================================================
+CYCLE 114c — PREDICTIONS ECRITES AVANT LA COURSE, SUR LE SEPTUPLET AU POINT DE PARCAGE
+==================================================================================================
+Le cycle 114b etablit que la chaine se gare a un point qui depend du CHEMIN (103/108 series
+deplacees par une borne sans rapport avec le repos, sigma30 nul sur 324/324, decalage jamais nul
+sur 324/324) et disculpe la borne d'apex. Il NOMME deux etages suspects sur des maxima de JAMBE,
+et dit que la mesure manquante est le septuplet AU POINT DE PARCAGE.
+
+INSTRUMENT POSE : `PHYSSTGQ c=<chaine> ax=<axe> st=<0..6> jt=<v>` — le meme septuplet que
+`PHYSSTG` (|p_rlk - pose d'auteur| / B0, repere MONDE contre la pose d'auteur de la MEME frame),
+mais pris en INSTANTANE a la derniere frame de la fenetre PH-AXC (`pframe = PHYSROOM-AXW = 160`),
+c'est-a-dire exactement la fenetre ou `ROOM-AXC-SETTLE` mesure sigma30 = 0. Ce n'est PAS un latch
+et il n'a pas d'argmax : c'est UNE frame, celle ou la chaine est immobile.
+LECTURE QUAND LE DEFAUT EST ABSENT : les sept valeurs sont EGALES entre elles (aucun etage ne
+deplace quoi que ce soit sur une chaine deja au repos), et les six deltas valent 0.0000.
+
+  Q1  LES DELTAS NE SONT PAS TOUS NULS. Si les six deltas valent 0 au point de parcage, alors
+      AUCUNE contrainte n'est active au repos : le decalage aurait ete etabli pendant le
+      transitoire et jamais defait, et la cause serait l'absence de toute force de rappel — pas
+      deux contraintes qui se disputent. Ce serait une REFUTATION de la piste du cycle 114b, et
+      elle changerait le chantier.
+
+  Q2  SI ELLES NE SONT PAS NULLES, LES DEUX ETAGES NOMMES SONT LES COUPABLES ET ILS S'OPPOSENT.
+      delta(st1->st2) = `phys-length-chain`, delta(st5->st6) = `cap-e22` + `phys-skin-chain`.
+      Prediction : les deux sont NON NULS, de SIGNES OPPOSES, et leurs modules sont dans un
+      facteur 3 l'un de l'autre. Sur la jambe `rest` (maxima de jambe, donc PAS la meme mesure)
+      ils valaient -0.0802 et +0.1073 B0, soit un rapport 1.34.
+
+  Q3  LES ETAGES 3 ET 4 (collision) RESTENT NULS AU REPOS. Sur les six jambes lues au cycle 114b,
+      les etages 3, 4 et 5 rendaient +0.0000 dans 10 cas sur 12. Prediction : ils sont nuls au
+      point de parcage aussi. S'ils ne le sont pas, la collision est active AU REPOS et c'est un
+      troisieme suspect qu'il faudra ajouter.
+
+  Q4  CONTROLE DE NON-VACUITE. `PHYSSTGQ` doit sortir 2 chaines x 3 axes x 7 etages = 42 lignes
+      par course. Moins que 42 veut dire que l'emetteur n'a pas ete atteint, et un tableau tire
+      d'un domaine vide serait le faux vert le plus facile a produire.

@@ -6068,6 +6068,23 @@
           ;; `PHYSAXRES`/`PHYSAXCOM`/`PHYSAXTAN`. Une paire dont les deux membres n'ont pas le
           ;; meme domaine n'est pas une paire.
           (when (= (-> self pframe) PHYSROOM-AXW)
+            ;; ---- PHYSSTGQ — LE SEPTUPLET AU POINT DE PARCAGE (cycle 114c) ------------------
+            ;; NATURE : une LONGUEUR rapportee a `B0` (SPEC 6, la CHAIR), sept fois, dans UNE
+            ;;   SEULE frame. REPERE : le monde, contre la pose d'AUTEUR de la MEME frame.
+            ;;   LECTURE QUAND LE DEFAUT EST ABSENT : les sept valeurs sont EGALES entre elles,
+            ;;   donc les six deltas valent 0 — sur une chaine deja au repos, aucun etage du
+            ;;   solveur ne doit rien deplacer.
+            ;; POURQUOI ICI ET PAS AILLEURS : `PHYSSTG`/`PHYSSTGT`/`PHYSSTGW` sont des LATCHES sur
+            ;;   un argmax ; ils repondent DANS une frame choisie pour son extremum, jamais dans
+            ;;   une frame de repos. Le cycle 114b a etabli que la chaine se gare a un point qui
+            ;;   depend du CHEMIN (sigma30 nul sur 324 series, decalage jamais nul sur 324) et que
+            ;;   la mesure manquante etait celle-la. `PHYSROOM-AXW` est la derniere frame de la
+            ;;   fenetre PH-AXC, exactement celle ou `ROOM-AXC-SETTLE` mesure sigma30 = 0.
+            (dotimes (c (-> self nchain))
+              (when (> (phys-chain-links (-> self slot) c) 0)
+                (dotimes (i 7)
+                  (format 0 "PHYSSTGQ c=~D ax=~D st=~D jt=~f~%"
+                          c ax i (phys-diag (-> self slot) c (+ 87 i))))))
             (dotimes (c (-> self nchain))
               (when (> (phys-chain-links (-> self slot) c) 0)
                 (format 0 "PHYSAXRESN c=~D ax=~D res=~f ci=~f rot0=~f~%"
