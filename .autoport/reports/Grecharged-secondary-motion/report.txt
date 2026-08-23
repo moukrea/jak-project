@@ -88,6 +88,57 @@ aux trois entrees mecaniques du document. Ce n'est pas ce que le cycle 109 a ann
     donc la masse de chestR ne doit pas entrer une seconde fois dans la raideur. Sans la bit-
     identite exigee d'avance, ce +1,03 % serait parti dans le pack.
 
+3 bis. LA PREUVE DE BOUT EN BOUT — ELLE ETAIT DECLAREE NON FAITE, ELLE EST FAITE
+------------------------------------------------------------------------------------------------
+Le diff de fichier prouve `preset -> stiffness` ; `stiffness -> f mesuree` etait prouve ailleurs.
+Les deux bouts n'avaient jamais ete parcourus dans une meme course. Ils le sont : course de
+controle complete sur le vecteur Maia (`preset_ctrl_run.sh`, `PHYSEND`, 99 481 lignes), tableau
+derive a part — la course de controle n'est PAS la course livree et n'ecrit ni son log ni son
+tableau. Fichier livre RESTAURE et verifie apres coup : md5 `2cf3ea7c0a92c7e4176bbc4c550257eb`.
+
+PREDICTION POSEE AVANT DE REGARDER, comme l'arbitrage du 2026-08-20 13:20 l'exige d'un controle
+(« une PREDICTION quantitative, jamais un ratio a une ligne de base qui bouge ») :
+    f_B / f_A = 1.85 / 2.30 = 0.8043 sur les SIX cellules.
+
+Mesure — `ROOM-AXFIT-RAD-NOLEN`, ajustement de sinusoide amortie avec intervalle de confiance,
+instrument INDEPENDANT de la chaine que je viens de cabler :
+
+    cellule           f_A (Keira)   f_B (Maia)    B/A      ecart a la prediction
+    chestL v             2.265        1.840      0.8124        +1.00 %
+    chestL ap            2.345        1.880      0.8017        -0.33 %
+    chestL lat           2.570        2.030      0.7899        -1.80 %
+    chestR v             2.465        1.980      0.8032        -0.14 %
+    chestR ap            2.445        1.940      0.7935        -1.35 %
+    chestR lat           2.685        2.190      0.8156        +1.40 %
+    ---------------------------------------------------------------------------
+    moyenne              -            -          0.8027        -0.20 %
+
+**LES SIX CELLULES DANS +-1,8 % DE LA PREDICTION, LA MOYENNE A -0,20 %.** Les intervalles de
+confiance sont a +-0,005 a +-0,025 Hz : la separation est tres au-dela du bruit. Le canal §24
+porte donc reellement, du fichier livre jusqu'a la frequence mesuree.
+
+  ESTIMATEUR CONCURRENT, ET JE PUBLIE SON DESACCORD PLUTOT QUE DE LE TAIRE. Un comptage de
+  passages par zero sur `PHYSRINGCX` donne la bonne DIRECTION (baisse sur 11 cellules sur 12)
+  mais des rapports qui quantifient a 3/4, 2/3, 1/2 : sur une fenetre aussi courte sa resolution
+  est de ~0,2 Hz, trop grossiere pour trancher un ecart de 0,45 Hz. Il confirme le sens, il ne
+  confirme pas l'amplitude — c'est l'ajustement amorti qui porte le chiffre, pas lui.
+
+3 ter. ET LE CANAL D'AMORTISSEMENT ABSENT A UN COUT, MESURE
+------------------------------------------------------------------------------------------------
+`damping=` n'etant pas derive, il reste a la valeur de Keira pendant que la frequence descend.
+Consequence mecanique (`zeta = damping/(2*2*pi*f/60)` monte quand f baisse a damping constant) :
+
+    zeta   chestL v  0.34 -> 0.45     chestR v  0.36 -> 0.42
+           chestL ap 0.36 -> 0.43     chestR ap 0.35 -> 0.43
+           chestL lat 0.32 -> 0.42    chestR lat 0.34 -> 0.43
+
+Les valeurs mesurees en B collent a la prediction « damping constant » a 0,01-0,03 pres sur les
+six cellules — donc c'est bien le mecanisme, pas un artefact. Or `GlobalDampingRatio` de Maia vaut
+**0,33** : tourner la seule frequence emmene zeta a 0,42-0,45, c'est-a-dire a l'OPPOSE de ce que
+son preset demande. **Le canal d'amortissement n'est donc pas un manque cosmetique : sans lui, le
+bouton de frequence n'est pas utilisable seul.** Ca fait passer l'ecart 0,1752 / 0,1753 de la
+section 4 du rang de coquette a celui de chantier nomme, avec sa mesure.
+
 `.autoport/preset_channel_audit.py` ne DECLARE plus un canal indirect : il le **PROUVE PAR
 PERTURBATION** (x1.5 sur la cle, puis on regarde si l'artefact que le moteur lit bouge). Si rien
 ne bouge, c'est `CANAL ABSENT`, quelle que soit la note. **Une note ne peut plus accorder un
@@ -184,10 +235,10 @@ est identique au bit. Le seuil de re-sollicitation (§9-13, §14-20, §24-27) es
 
 TIER DE BUILD : **aucun.** Changement d'outillage pur (`preset_apply.py`,
 `preset_channel_audit.py`) plus de la documentation. Zero compilation, zero course neuve, zero
-APK. Les deux controles sont des diffs de fichiers, pas des campagnes. NON PROUVE, ET DECLARE
-COMME TEL : que la frequence MESUREE suive le nouveau `stiffness` sur le vecteur Maia — la chaine
-`preset -> stiffness` est prouvee par diff, et `stiffness -> f` l'etait deja (f = 2.300 Hz mesure),
-mais les deux bouts n'ont pas ete parcourus dans une meme course. Elle coute une course de 13 min
-et c'est le premier geste du cycle suivant.
+APK de moteur. UNE course de controle x86 (~15 min) a ete faite pour la preuve de bout en bout de
+la section 3 bis, sur le VECTEUR de test uniquement ; le fichier livre a ete restaure et verifie
+par md5 apres coup. Ce qui reste NON PROUVE et declare comme tel : l'effet du canal sur un
+APPAREIL (tout est x86 ici) — mais le fichier livre etant identique au bit, il n'y a rien de neuf
+a observer sur un device ce cycle.
 
 DIRECTIVES vd9e8b66782
