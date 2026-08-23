@@ -19,7 +19,7 @@ BREAST-PENETRATION: 0.0973 m — `meshpen`, DIAGNOSTIC, jamais un verdict (arbit
   sont identiques a celles du cycle 113 — c'est ATTENDU et c'est meme la preuve du controle
   negatif : le solveur est bit-identique.
 
-CYCLE 114 — « CONSTANTE MOTEUR 0/90 » ETAIT FAUX. MON AUDIT CHERCHAIT LE SITE, PAS LA VALEUR :
+CYCLE 114 (+114b) — « CONSTANTE MOTEUR 0/90 » ETAIT FAUX. MON AUDIT CHERCHAIT LE SITE, PAS LA VALEUR :
 IL NE POUVAIT TROUVER QUE LES SITES QU'ON LUI AVAIT NOMMES. NEUF COPIES EN DUR SURVIVAIENT,
 DONT UNE QUE SA PROPRE NOTE DESIGNAIT PAR SON NOM DE CLE.
 
@@ -272,6 +272,57 @@ sans laquelle les trois cles neuves ne seraient pas verifiables a l'execution �
 attrape le defaut de la section 5.
 
 ================================================================================================
+6bis. CYCLE 114b — LE DECALAGE DE §2/§9 N'EST PAS UN EQUILIBRE MAL REGLE. ZERO BUILD, ZERO COURSE.
+================================================================================================
+Les trois barreaux de l'echelle etaient deja payes ; ils repondent a une SECONDE question, gratuite,
+que le cycle 113b avait laissee ouverte : d'ou vient le decalage CONSTANT sur lequel la chaine se
+gare apres une impulsion isolee ?
+
+L'echelle est un discriminant parfait pour ca, et ce n'est pas pour ca qu'elle avait ete construite :
+elle ne fait varier qu'une borne — le plafond d'apex — qui n'a RIEN A VOIR avec le repos.
+
+MESURE, SUR LES 324 SERIES (108 par barreau x 3 barreaux), recalculee depuis les traces brutes
+(`PHYSRINGA/B/C` x `N/X/Z`) par `.autoport/c114_settle.py` :
+
+    (a) `sigma30` = **0.0000000000 sur 324 / 324**. La chaine est rigoureusement immobile a la fin
+        de CHAQUE fenetre, dans les TROIS configurations. Il n'y a aucune oscillation a amortir.
+    (b) le decalage vaut exactement zero sur **0 serie sur 324**. Elle ne se repose JAMAIS sur la
+        pose d'auteur, dans aucune configuration.
+    (c) l'AMPLITUDE du decalage est quasi insensible au plafond : p50 **0.391 / 0.586 / 0.359 %**
+        de l'amplitude primaire pour 0.20 / 0.50 / 0.65 (p90 1.17 / 1.41 / 1.17).
+    (d) mais le POINT de parcage se deplace sur **103 series sur 108** (barreau serre) et
+        **78 sur 108** (barreau desserre).
+
+CE QUE CA ETABLIT. Tourner une borne SANS RAPPORT AVEC LE REPOS relocalise le point de parcage sur
+la quasi-totalite des series **sans jamais reduire le residu**. Le point ou la chaine s'arrete
+depend donc du CHEMIN qui l'y a menee, pas d'un equilibre. Le solveur n'a pas UN point de repos a
+la pose d'auteur : il a une **VARIETE** de points de repos, et il meurt sur celui que la trajectoire
+lui donne.
+
+    LE DEFAUT DE §2/§9 N'EST PAS « LA CIBLE EST MAL POSEE ». C'EST « IL N'EXISTE PAS DE FORCE DE
+    RAPPEL LE LONG D'AU MOINS UNE DIRECTION ». Ce sont deux chantiers differents, et le second
+    n'aurait jamais ete atteint en reglant le premier.
+
+CE QUE CA DISCULPE : la borne d'apex de la 22 n'est pas la cause. Le barreau le plus desserre ne
+ramene AUCUNE serie a zero. Elle module le point de parcage, elle ne l'engendre pas.
+
+CE QUE CA N'ETABLIT PAS, ET JE NE L'INVENTE PAS : quelle direction est plate, et quelle contrainte
+l'a rendue plate.
+
+PISTE NOMMEE, MESUREE SUR LA MEME TRACE, ET SA LIMITE DITE AVEC ELLE. Le septuplet d'etages
+(`PHYSSTGT`) donne le deplacement du maillon racine ETAGE PAR ETAGE. Sur la jambe `rest` de chestL :
+
+    etage 2 `phys-length-chain` (1re projection)          **-0.0802 B0**
+    etage 6 `cap-e22` + `phys-skin-chain` (fermeture)     **+0.1073 B0**
+
+Deux etages qui poussent en SENS OPPOSES avec des amplitudes comparables : c'est la signature de
+deux contraintes sur la MEME variete qui ALTERNENT au lieu de s'arbitrer
+(`bound-undone-by-downstream-constraint-loop`, resolu une fois au cycle 104 et manifestement pas
+partout). **LIMITE : ces chiffres sont des maxima de JAMBE, pas des valeurs de fenetre de REPOS.**
+Le septuplet n'existe pas au repos, et c'est l'instrument que le cycle suivant doit poser — une
+edition sur place de la portee du latch, pas un instrument neuf.
+
+================================================================================================
 7. CE QUE LE PROCHAIN CYCLE DOIT PRENDRE, DANS CET ORDRE
 ================================================================================================
 1. `PHYS-DYN-K` (0.43) : une constante REGLEE pour que la mesure de la 22 tombe sur la valeur du
@@ -281,8 +332,11 @@ attrape le defaut de la section 5.
    c'est le controle positif de niveau systeme que la directive du 2026-08-22 23:00 demande, et il
    tournerait maintenant sur 23 canaux au lieu de 19 — dont les deux bornes d'apex COUPLEES, ce que
    la reserve (a) montre etre necessaire pour que le desserrage ait un sens.
-3. Le decalage CONSTANT de §2/§9 mesure au cycle 113b (ecart-type de queue nul au bit, decalage de
-   0,109 a 1,898 % de l'amplitude primaire, rapport distal/proximal x3,2 a x15,6). Sa cause n'est
-   toujours pas nommee, et elle rend un FAUX ROUGE sur §27.
+3. §2/§9 : POSER LE SEPTUPLET D'ETAGES SUR LA FENETRE DE REPOS. La section 6bis etablit que le
+   point de parcage est PATH-DEPENDANT et que la borne d'apex est disculpee ; elle nomme deux
+   etages suspects (`phys-length-chain` et la fermeture `cap-e22`+`phys-skin-chain`, qui poussent
+   en sens opposes) mais sur des maxima de JAMBE. Le latch de `phys-stage-jt!` doit recevoir une
+   tranche a portee de fenetre de REPOS — c'est une edition sur place, comme la tranche 79-85 du
+   cycle 77. Sans elle, l'attribution restera une piste.
 
 DIRECTIVES vd9e8b66782
