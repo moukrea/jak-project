@@ -3026,6 +3026,26 @@ def _spec10_block(A, txt, names, com, role, b0, roles=None):
 
 
 # ------------------------------------------------------------------------------------------------
+# ---- CYCLE 120 : LES SIX MIROIRS DE §10 ET §11 NE PORTENT PLUS DE VERDICT --------------------
+# Directive du 2026-08-23 16:00, priorite 1, texte exact : « leur verdict doit se mesurer contre
+# une grandeur INDEPENDANTE de l'entree du solveur, ou la section repasse NON ETABLI. C'est du
+# faux vert actif, ca passe avant tout. »
+# LE FAIT : les six cibles ci-dessous SONT les cles que le solveur recoit (`SupineProjectionScale`,
+# `SupineWidthScale`, `SupineHeightScale`, `HangingLengthScale`, `HangingWidthScale`,
+# `HangingThicknessScale`, descendues dans le fichier livre au cycle 109b). Une sortie commandee a
+# 1.23 tombe dans [1.18 ; 1.26] par construction : la cellule ne peut pas echouer, et un `DANS`
+# imprime la se lit comme une conformite alors qu'il ne mesure que notre propre entree.
+# CE QUI EST FAIT ICI, ET C'EST LA SECONDE BRANCHE DE LA DIRECTIVE : la cellule publie sa valeur
+# et sa MARGE, et elle publie `MIROIR` a la place de `DANS`/`HORS`. Elle ne compte plus dans les
+# totaux. Le mot `NON ETABLI` se pose dans SPEC-COVERAGE, pas ici : un tableau publie des mesures,
+# c'est le registre qui porte les statuts.
+# CE QUI N'EST PAS FAIT : trouver la grandeur INDEPENDANTE (premiere branche). C'est le chantier
+# nomme du cycle 121. Une clause sans verdict n'est pas une clause tenue — c'est ce que la
+# directive demande d'afficher au lieu d'un faux vert.
+_MIROIR_SPEC1011 = frozenset((
+    '§10 supine projection', '§10 supine largeur', '§10 supine hauteur',
+    '§11 prone longueur', '§11 prone largeur', '§11 prone epaisseur'))
+
 _SPEC12_SHAPE = (
     # (etiquette, orientation, axe du triedre de §7, index de rangee d'ancre, cible, lo, hi)
     ('§10 supine projection', 8, 'fwd', 2, 0.70, 0.65, 0.75),
@@ -3314,18 +3334,30 @@ def _spec12_block(A, txt, names, com, b0):
                         else '  DIAGNOSTIC — la clause ne nomme pas ce sein')
                 if role.get((c, i)) == 'GRAVITE':
                     flat[c] = _band(sp, lo, hi)
+            if lab in _MIROIR_SPEC1011:
+                # marge de falsifiabilite : |mesure - entree| rapporte a la DEMI-bande. Sous
+                # 100 % la cellule ne peut pas sortir de sa bande, donc elle ne peut pas echouer.
+                _demi = 0.5 * (hi - lo)
+                _mrg = (abs(sp - tgt) / _demi * 100.0) if _demi > 0 else float('nan')
+                A('ROOM-SPEC12:   %-8s %-32s %7.4f %-10s %7.4f %-10s %7.4f %-10s  %.2f %.2f-%.2f'
+                  '   [MIROIR : la cible EST l\'entree du solveur ; marge %.0f %% de la demi-bande'
+                  ' — AUCUN VERDICT, exclu des totaux]'
+                  % (nm, lab, sv, 'MIROIR', sp, 'MIROIR', raw, 'MIROIR', tgt, lo, hi, _mrg))
+                continue
             A('ROOM-SPEC12:   %-8s %-32s %7.4f %-10s %7.4f %-10s %7.4f %-10s  %.2f %.2f-%.2f%s%s'
               % (nm, lab, sv, _band(sv, lo, hi), sp, _band(sp, lo, hi), raw, _band(raw, lo, hi),
                  tgt, lo, hi, '  <<< L\'AXE CHANGE LE VERDICT' if _fl else '', _own))
+        _jug = tuple(r for r in _SPEC12_SHAPE if r[0] not in _MIROIR_SPEC1011)
         A('ROOM-SPEC12:   %-8s DANS : %d/%d sur le triedre de §7 · %d/%d sur `dfa` seul'
+          '   (les %d cellules MIROIR de §10/§11 sont EXCLUES des deux totaux)'
           % (nm,
-             sum(1 for l_, i_, k_, kk_, t_, lo_, hi_ in _SPEC12_SHAPE
+             sum(1 for l_, i_, k_, kk_, t_, lo_, hi_ in _jug
                  if (c, i_) in dfma and _band(_rowD(dfma[(c, i_)], AX[c][k_]), lo_, hi_) == 'DANS'),
-             len(_SPEC12_SHAPE),
-             sum(1 for l_, i_, k_, kk_, t_, lo_, hi_ in _SPEC12_SHAPE
+             len(_jug),
+             sum(1 for l_, i_, k_, kk_, t_, lo_, hi_ in _jug
                  if (c, i_) in dfma
                  and _band(sca.get((c, i_), (float('nan'),) * 3)[kk_], lo_, hi_) == 'DANS'),
-             len(_SPEC12_SHAPE)))
+             len(_jug), len(_SPEC12_SHAPE) - len(_jug)))
     A('ROOM-SPEC12:   %d cellule(s) sur %d changent de verdict entre le triedre de §7 et la'
       ' saillie (12,27 deg d\'ecart).' % (nflip, len(_SPEC12_SHAPE) * len(chains)))
     A('ROOM-SPEC12:   Le verdict retenu est celui du TRIEDRE DE §7 : ses trois axes viennent'

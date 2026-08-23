@@ -48,6 +48,42 @@ que `jak-hd-physics.gc` et `phys-room.gc`. Deux courses x86 completes : une AVAN
 `keira-room-x86.c120-REF.log`), une APRES (celle qui est livree).
 
 ================================================================================================
+SIGNAL DE PERIMETRE — LA DIRECTIVE DU 2026-08-23 16:00 EST ARRIVEE **PENDANT** CE CYCLE
+================================================================================================
+Elle a ete commitee a **16:18** (`a2a4523cd8`), c'est-a-dire apres que le lot de ce cycle etait
+concu et pendant que la course de reference tournait. Le contrat exige de le SIGNALER au lieu de
+l'absorber en silence : c'est fait ici, en tete, avant tout resultat. La version reste
+`vd9e8b66782`, donc ce rapport porte bien le contrat courant.
+
+**CE QU'ELLE ORDONNE, ET OU EN EST CE CYCLE, SANS ARRONDIR :**
+
+  1. **« Les 6 miroirs de §10/§11 : leur verdict doit se mesurer contre une grandeur INDEPENDANTE
+     de l'entree du solveur, ou la section repasse NON ETABLI. C'est du faux vert actif, ca passe
+     avant tout. »**
+     -> **LA PREMIERE BRANCHE N'EST PAS FAITE** (trouver la grandeur independante) : c'est le
+     chantier nomme du cycle 121. **LA SECONDE EST APPLIQUEE, AU POINT DE PRODUCTION** : les six
+     cellules publient desormais `MIROIR` a la place de `DANS`/`HORS`, avec leur MARGE en pourcent
+     de la demi-bande, et elles sont EXCLUES des totaux — `physics_room_table.py`, plus
+     `SPEC-COVERAGE` §10 et §11 qui declarent ces trois clauses SANS VERDICT de chaque cote. Le
+     faux vert actif est retire ; ce qui n'est pas fait est de le remplacer par une vraie mesure.
+     Aucun statut de section ne bouge : §10 restait `NON TENUE` par sa clause de COM, §11
+     `PARTIELLE` par la sienne.
+  2. **« Le bouton manquant `HangingTransientLengthMax`, seul vrai trou de cablage. »**
+     -> **C'EST TOUT CE CYCLE**, et le resultat corrige le compte : ce n'est pas un trou de
+     cablage. Sa valeur se recalcule depuis deux cles deja cablees (section 1) ; ce qui manquait
+     etait la DYNAMIQUE qui produit le pic (sections 2 a 4).
+  3. **« Plus aucun canal cree pour une cle-REPONSE. Une reponse se MESURE, elle ne se pose pas. »**
+     -> **RESPECTE A LA LETTRE, et c'est ce qui donne sa valeur au resultat** : `1.30` n'entre
+     nulle part dans le solveur. Il ne recoit que `GlobalFrequencyVertical`, `GlobalDampingRatio`
+     et `HangingLengthScale`. Le pic est une SORTIE mesuree, pas une valeur posee puis relue.
+
+**CE QUE JE NE PRETENDS PAS :** avoir traite la priorite 1 en entier. La directive dit qu'elle
+passe avant tout ; elle est arrivee 13 minutes apres le debut de ce cycle, sur un lot deja bati et
+une course deja lancee. J'ai livre la priorite 2 en entier, retire le faux vert de la priorite 1
+par sa seconde branche, et je nomme la premiere branche comme le premier geste du cycle 121 —
+plutot que de jeter un lot mesure ou de bacler une mesure d'independance en fin de cycle.
+
+================================================================================================
 0. L'AVANCEMENT, EN PREMIER (arbitrage du 2026-08-23 01:20 : il se lit ICI, pas au validateur)
 ================================================================================================
 `SPEC-COVERAGE.md` : **4 `TENUE` · 5 `TENUE PAR CONSTRUCTION` · 17 `PARTIELLE` · 12 `NON TENUE`**
@@ -279,8 +315,9 @@ meme tableau** —
     chestR   ecart 34 %   (accel 0.2064 · jerk 0.1870 · leftright 0.1616 · tilt 0.1432 · updown 0.1363)
     -> chaque chaine distingue les 5 pilotages (seuil 25 %). PASSE.
 
-Donc l'etat reel des gates apres le lot est : **13 vertes, 1 rouge (`COLLIDE §33/§34`), plus la
-porte humaine `OPEN-DEFECTS` qui n'a pas de mode reussi.**
+Donc l'etat reel des gates apres le lot est : **12 vertes, 1 rouge (`COLLIDE §33/§34`), plus la
+porte humaine `OPEN-DEFECTS` qui n'a pas de mode reussi et qui n'est meme pas atteinte.** Avant le
+lot : 13 vertes, 0 rouge, meme porte humaine.
 
 **POURQUOI LE LOT RESTE, ET CE N'EST PAS MON ARBITRAGE MAIS LE SIEN.** Owner, 2026-08-17 23:50 :
 « Un plancher qui casse n'est plus un motif de retrait : c'est la LISTE DE TRAVAIL. […] meshpen
@@ -300,6 +337,7 @@ de course de `chestR` sous 0,0883 m sans reprendre le transitoire.
     ROOM-IDLE maxdev             0,0002      0,0001     le repos ne bouge pas
     controle positif (u)         400,2       400,04     400,0 injectes : restitution exacte
     ROOM-ANIMS                   31/31       31/31      skipped=0
+
 ================================================================================================
 6. CE QUE CE CYCLE NE PRETEND PAS
 ================================================================================================
@@ -313,9 +351,10 @@ de course de `chestR` sous 0,0883 m sans reprendre le transitoire.
     pas une confirmation de la spec. Ce qui reste EMERGENT, et c'est le seul chiffre qui vaut
     contre §11, est le **PIC** sur l'echelon debout->prone, parce que 1,30 n'entre nulle part dans
     le solveur.
-  - **Les six miroirs de §10/§11 ne sont pas corriges** (chantier nomme au cycle 119, toujours
-    ouvert) : les valeurs TENUES restent des bandes centrees sur nos propres entrees. Le lot ne
-    touche qu'au TRANSITOIRE, qui lui est emergent.
+  - **Les six miroirs de §10/§11 ne sont pas MESURES autrement** : leur faux vert est RETIRE (ils
+    publient `MIROIR` et leur marge, exclus des totaux — priorite 1, seconde branche), mais la
+    grandeur INDEPENDANTE qui devrait les juger n'existe toujours pas. Retirer un faux vert n'est
+    pas produire une mesure, et je ne compte pas le premier pour la seconde.
   - **La gate `COLLIDE §33/§34` est ROUGE apres le lot**, et le lot reste (ordre de l'owner du
     2026-08-17 23:50). Ce n'est pas « sous controle » : c'est le chantier nomme du cycle 121,
     avec sa cible chiffree (ramener le max de course de `chestR` sous 0,0883 m sans reprendre le
@@ -347,17 +386,22 @@ lui-meme**, pas par mon jugement.
 Les cycles 51, 118, 119b et 120 ont paye en deplacant des docstrings vers NOTES.md — c'est
 lossless et sans risque, mais il reste peu de docstrings assez longues pour financer un lot de
 plus. **Je ne touche pas a la gate (regle 5), je signale.** Ce que la gate vise est
-l'empilement de SUPPRESSEURS ; la composition actuelle reste 3 clamps / 1 hysteresis contre 84 / 9
-dans l'ancien moteur de 6000 lignes. Le prochain lot qui demande plus de 4 lignes remontera au
+l'empilement de SUPPRESSEURS ; la composition, RECOMPTEE CE CYCLE sur le fichier livre, reste
+**4 occurrences de `clamp` et 1 d'`hysteres`** contre 84 et 9 dans l'ancien moteur de 6000 lignes,
+pour 43 occurrences de longueur/invariant/projection — la croissance est de la CONTRAINTE et de la
+MESURE, pas des suppresseurs. Le prochain lot qui demande plus de 4 lignes remontera au
 lieu de rogner.
 
 ================================================================================================
 8. CONFLIT ENTRE LE VERROU D'ARRET ET LA PORTE HUMAINE DE L'OWNER — SIGNALE, PAS CONTOURNE
 ================================================================================================
-Identique aux cycles 117, 118 et 119, verifie a nouveau sur CETTE course. Le verrou d'arret exige
-que `bash .autoport/validators/phase-Grecharged-secondary-motion.sh` sorte en 0. Il sort en 1, et
-le code non nul vient du seul bloc `OPEN-DEFECTS`, qui compte les lignes `OPEN ` de
-`owner-defects.txt`. Il en reste UNE :
+Le verrou d'arret exige que `bash .autoport/validators/phase-Grecharged-secondary-motion.sh` sorte
+en 0. Il sort en 1. **CE CYCLE-CI, DEUX CHOSES LE FONT SORTIR EN 1, ET IL FAUT LES DISTINGUER** :
+(a) `COLLIDE §33/§34`, un verdict de MESURE, qui est le cout declare du lot (section 5) et qui a
+un mode « reussi » — c'est du travail, pas un blocage de principe ; (b) `OPEN-DEFECTS`, la porte
+humaine, qui n'en a pas. Sur CETTE course (a) sort avant (b), donc (b) n'est meme pas atteinte.
+Le point ci-dessous porte sur (b) et il est identique aux cycles 117, 118 et 119. Il reste UNE
+ligne :
 
     OPEN breast-spec-incomplete  PRIORITE 1 -- LA SEULE LIGNE QUI TIENT LA PHASE OUVERTE.
 
@@ -396,6 +440,10 @@ veut, et celui-ci contient le lot.
   goal_src/jak1/pc/phys-room.gc           deux cellules d'orientation ajoutees EN QUEUE
   goal_src/jak1/pc/jak-hd-physics-NOTES.md [NOTE-507] [NOTE-508] [NOTE-509]
   .autoport/physics_room_table.py         `ROOM-SPEC11-RHO` et `ROOM-SPEC11-STEP`
-  .autoport/SPEC-COVERAGE.md              en-tete de cycle + la ligne §11 reecrite — AUCUN statut
-                                          change
+  .autoport/SPEC-COVERAGE.md              en-tete de cycle + les lignes §10 et §11 reecrites —
+                                          AUCUN statut change
+  .autoport/physics_room_table.py (2e)    `_MIROIR_SPEC1011` : les six echelles de §10/§11
+                                          publient `MIROIR` + leur marge, exclues des totaux
+                                          (priorite 1 de la directive du 2026-08-23 16:00,
+                                          seconde branche)
 

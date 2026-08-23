@@ -4172,25 +4172,25 @@ ROOM-SPEC12:   (`+Y` = axe long du torse ; il EST la rangee d'ancre a 5 decimale
 ROOM-SPEC12:   que le cycle 90 avait retenu et qui en est a 12,27 deg. `dfa` est l'equilibre d'orientation
 ROOM-SPEC12:   seul (valeur propre du moteur), `§7` le produit dfa x dfb x dfc que la PEAU recoit.
 ROOM-SPEC12:   chestL                                        dfa verdict         §7 verdict    saillie verdict     cible bande
-ROOM-SPEC12:   chestL   §10 supine projection             0.7462 DANS        0.7352 DANS        0.7983 AU-DESSUS   0.70 0.65-0.75  <<< L'AXE CHANGE LE VERDICT
-ROOM-SPEC12:   chestL   §10 supine largeur                1.2257 DANS        1.2691 DANS        1.2691 DANS        1.23 1.18-1.28
-ROOM-SPEC12:   chestL   §10 supine hauteur                1.0932 DANS        1.0974 DANS        1.0524 DANS        1.09 1.05-1.12
-ROOM-SPEC12:   chestL   §11 prone longueur                1.2195 DANS        1.2171 DANS        1.1949 DANS        1.23 1.18-1.26
-ROOM-SPEC12:   chestL   §11 prone largeur                 0.8913 DANS        0.8924 DANS        0.8924 DANS        0.90 0.87-0.93
-ROOM-SPEC12:   chestL   §11 prone epaisseur               0.9199 DANS        0.9221 DANS        0.9506 AU-DESSUS   0.91 0.88-0.94  <<< L'AXE CHANGE LE VERDICT
+ROOM-SPEC12:   chestL   §10 supine projection             0.7462 MIROIR      0.7352 MIROIR      0.7983 MIROIR      0.70 0.65-0.75   [MIROIR : la cible EST l'entree du solveur ; marge 70 % de la demi-bande — AUCUN VERDICT, exclu des totaux]
+ROOM-SPEC12:   chestL   §10 supine largeur                1.2257 MIROIR      1.2691 MIROIR      1.2691 MIROIR      1.23 1.18-1.28   [MIROIR : la cible EST l'entree du solveur ; marge 78 % de la demi-bande — AUCUN VERDICT, exclu des totaux]
+ROOM-SPEC12:   chestL   §10 supine hauteur                1.0932 MIROIR      1.0974 MIROIR      1.0524 MIROIR      1.09 1.05-1.12   [MIROIR : la cible EST l'entree du solveur ; marge 21 % de la demi-bande — AUCUN VERDICT, exclu des totaux]
+ROOM-SPEC12:   chestL   §11 prone longueur                1.2195 MIROIR      1.2171 MIROIR      1.1949 MIROIR      1.23 1.18-1.26   [MIROIR : la cible EST l'entree du solveur ; marge 32 % de la demi-bande — AUCUN VERDICT, exclu des totaux]
+ROOM-SPEC12:   chestL   §11 prone largeur                 0.8913 MIROIR      0.8924 MIROIR      0.8924 MIROIR      0.90 0.87-0.93   [MIROIR : la cible EST l'entree du solveur ; marge 25 % de la demi-bande — AUCUN VERDICT, exclu des totaux]
+ROOM-SPEC12:   chestL   §11 prone epaisseur               0.9199 MIROIR      0.9221 MIROIR      0.9506 MIROIR      0.91 0.88-0.94   [MIROIR : la cible EST l'entree du solveur ; marge 40 % de la demi-bande — AUCUN VERDICT, exclu des totaux]
 ROOM-SPEC12:   chestL   §12 lateral i=2 aplatissement     0.8240 DANS        0.8354 DANS        0.8354 DANS        0.80 0.75-0.85
 ROOM-SPEC12:   chestL   §12 lateral i=4 aplatissement     0.9908 AU-DESSUS   0.9956 AU-DESSUS   0.9956 AU-DESSUS   0.80 0.75-0.85  DIAGNOSTIC — la clause ne nomme pas ce sein
-ROOM-SPEC12:   chestL   DANS : 7/8 sur le triedre de §7 · 7/8 sur `dfa` seul
+ROOM-SPEC12:   chestL   DANS : 1/2 sur le triedre de §7 · 1/2 sur `dfa` seul   (les 6 cellules MIROIR de §10/§11 sont EXCLUES des deux totaux)
 ROOM-SPEC12:   chestR                                        dfa verdict         §7 verdict    saillie verdict     cible bande
-ROOM-SPEC12:   chestR   §10 supine projection             0.7592 AU-DESSUS   0.7648 AU-DESSUS   0.7980 AU-DESSUS   0.70 0.65-0.75
-ROOM-SPEC12:   chestR   §10 supine largeur                1.2051 DANS        1.2007 DANS        1.2007 DANS        1.23 1.18-1.28
-ROOM-SPEC12:   chestR   §10 supine hauteur                1.0928 DANS        1.0924 DANS        1.0685 DANS        1.09 1.05-1.12
-ROOM-SPEC12:   chestR   §11 prone longueur                1.2125 DANS        1.2099 DANS        1.1877 DANS        1.23 1.18-1.26
-ROOM-SPEC12:   chestR   §11 prone largeur                 0.9034 DANS        0.9042 DANS        0.9042 DANS        0.90 0.87-0.93
-ROOM-SPEC12:   chestR   §11 prone epaisseur               0.9128 DANS        0.9155 DANS        0.9441 AU-DESSUS   0.91 0.88-0.94  <<< L'AXE CHANGE LE VERDICT
+ROOM-SPEC12:   chestR   §10 supine projection             0.7592 MIROIR      0.7648 MIROIR      0.7980 MIROIR      0.70 0.65-0.75   [MIROIR : la cible EST l'entree du solveur ; marge 130 % de la demi-bande — AUCUN VERDICT, exclu des totaux]
+ROOM-SPEC12:   chestR   §10 supine largeur                1.2051 MIROIR      1.2007 MIROIR      1.2007 MIROIR      1.23 1.18-1.28   [MIROIR : la cible EST l'entree du solveur ; marge 59 % de la demi-bande — AUCUN VERDICT, exclu des totaux]
+ROOM-SPEC12:   chestR   §10 supine hauteur                1.0928 MIROIR      1.0924 MIROIR      1.0685 MIROIR      1.09 1.05-1.12   [MIROIR : la cible EST l'entree du solveur ; marge 7 % de la demi-bande — AUCUN VERDICT, exclu des totaux]
+ROOM-SPEC12:   chestR   §11 prone longueur                1.2125 MIROIR      1.2099 MIROIR      1.1877 MIROIR      1.23 1.18-1.26   [MIROIR : la cible EST l'entree du solveur ; marge 50 % de la demi-bande — AUCUN VERDICT, exclu des totaux]
+ROOM-SPEC12:   chestR   §11 prone largeur                 0.9034 MIROIR      0.9042 MIROIR      0.9042 MIROIR      0.90 0.87-0.93   [MIROIR : la cible EST l'entree du solveur ; marge 14 % de la demi-bande — AUCUN VERDICT, exclu des totaux]
+ROOM-SPEC12:   chestR   §11 prone epaisseur               0.9128 MIROIR      0.9155 MIROIR      0.9441 MIROIR      0.91 0.88-0.94   [MIROIR : la cible EST l'entree du solveur ; marge 18 % de la demi-bande — AUCUN VERDICT, exclu des totaux]
 ROOM-SPEC12:   chestR   §12 lateral i=2 aplatissement     1.0095 AU-DESSUS   1.0324 AU-DESSUS   1.0324 AU-DESSUS   0.80 0.75-0.85  DIAGNOSTIC — la clause ne nomme pas ce sein
 ROOM-SPEC12:   chestR   §12 lateral i=4 aplatissement     0.8054 DANS        0.8173 DANS        0.8173 DANS        0.80 0.75-0.85
-ROOM-SPEC12:   chestR   DANS : 6/8 sur le triedre de §7 · 6/8 sur `dfa` seul
+ROOM-SPEC12:   chestR   DANS : 1/2 sur le triedre de §7 · 1/2 sur `dfa` seul   (les 6 cellules MIROIR de §10/§11 sont EXCLUES des deux totaux)
 ROOM-SPEC12:   3 cellule(s) sur 16 changent de verdict entre le triedre de §7 et la saillie (12,27 deg d'ecart).
 ROOM-SPEC12:   Le verdict retenu est celui du TRIEDRE DE §7 : ses trois axes viennent chacun d'une phrase de §7
 ROOM-SPEC12:   et d'une mesure sur le mesh LIVRE. La saillie n'est pas « forward from chest ».
