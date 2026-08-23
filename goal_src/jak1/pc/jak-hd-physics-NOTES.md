@@ -9208,3 +9208,106 @@ DE TEST sur la chaine de Keira, on ne livre pas sa physique et on ne touche pas 
 ```
 [NOTE-501] INSTANTANE, ET C'EST LA DIFFERENCE QUI COMPTE. 72-78 et 79-85 sont des LATCHES sur un argmax : ils repondent DANS une frame choisie pour son extremum, jamais dans une frame de REPOS. Le cycle 114b a etabli que la chaine se gare a un point qui depend du CHEMIN (sigma30 nul sur 324 series, decalage jamais nul sur 324) et que la mesure manquante est le septuplet AU POINT DE PARCAGE. Cette tranche-ci n'a donc ni cle ni reset : elle porte toujours la DERNIERE frame ecrite, et c'est la salle qui choisit QUAND la lire — a la fermeture de la fenetre PH-AXC, la ou la chaine est immobile au bit pres.
 ```
+
+
+## NOTE-503 — cycle 115 : `PHYS-DYN-K` ETAIT UN RAPPORT DE DEUX CLES, RECOPIE. UN BALAYAGE PAR VALEUR NE POUVAIT PAS LE VOIR.
+
+Le cycle 114 a inverse la charge de la preuve sur les constantes du moteur : tout litteral egal a une
+valeur du preset sort en `NON TRIE` tant qu'il n'est pas JUSTIFIE. Ce balayage a un angle mort qu'il
+declarait lui-meme, et `PHYS-DYN-K` etait dedans :
+
+    PHYS-DYN-K = 0.43  =  NormalDynamicStretch / NormalMaxCOMDisplacement  =  0.15 / 0.35
+
+**Une constante ajustee sur un RAPPORT de deux cles n'egale AUCUNE valeur du preset.** Aucun
+balayage par valeur ne peut la trouver, quelle que soit sa completude. Elle ne se trouve qu'a la
+lecture, et elle ne se retire qu'en cablant les deux cles.
+
+CE QUI A ETE FAIT. `NormalMaxCOMDisplacement` etait deja cablee (indice 18) ; `NormalDynamicStretch`
+ne l'etait pas et entre en indice 26 (`kPhysPresetKeys`, `kmachine.cpp`), `PHYS-PSET-N` passe de 26
+a 27. Le gain se calcule a l'execution, par chaine, avec sa garde de division par zero — le repli
+`0.0` DESARME le canal, qui est le neutre correct pour un etirement.
+
+**LE PIEGE, ET IL AURAIT RENDU LE GAIN 6,7 FOIS TROP GRAND.** La regle d'element neutre de
+`pc-physics-chain-preset-mi` rendait `1.0` pour tout indice `>= 22` et `0.0` sinon. Un indice 26
+neuf tombait donc dans la branche `1.0`, ce qui donne un gain de `1.0 / 0.35 = 2.857` au lieu de
+`0.4286`. La clause est bornee a `(and (>= pki 22) (< pki 26))` dans le meme lot, et la valeur est
+republiee a l'execution (`PHYSPSETF ndyn=`) pour que le defaut se voie en une ligne au lieu de
+contaminer une course entiere.
+
+**CE RECABLAGE N'EST PAS BIT-IDENTIQUE, ET C'EST DIT AVANT LA COURSE.** `float32(0.43)` vaut
+0.4300000072 et `float32(0.15/0.35)` vaut 0.4285714626 : facteur **0.9966778**, soit -0.333 %.
+`rdr`, `rx`, `ry`, `rz` sont LINEAIRES en ce gain, donc `dl` aussi. Le signal le plus net n'est pas
+un flottant mais un COMPTE ENTIER : `PHYSSHAPE5 dsat=`, le nombre de fenetres ou l'ecretage mord,
+qui doit passer de 11 a 10 sur chestL. Un flottant a -0,33 % pourrait etre du bruit d'arrondi ; une
+fenetre qui cesse de saturer ne peut pas l'etre.
+
+ET L'INSTRUMENT SUIVAIT LE MEME NOMBRE. `.autoport/physics_room_table.py` portait `_RAD_K = 0.43`,
+une TROISIEME copie. `ROOM-RAD elong` valait donc `0.43 x rrm` — un RENOMMAGE DETERMINISTE du
+verdict `com=`, incapable de dire quoi que ce soit d'independant. Il lit desormais le gain DANS LA
+TRACE qu'il analyse (`PHYSPSETF ndyn=` / `PHYSPSETD ckn=`) et non dans le fichier livre : une course
+de CONTROLE tourne sur un vecteur d'essai, et un lecteur qui irait chercher le fichier livre
+decrirait une configuration qui n'est pas celle de la trace.
+
+
+## NOTE-504 — cycle 115 : `PHYS-SEC-K` EST UNE CONSTANTE MOTEUR **SANS CLE**, ET ON NE LUI EN INVENTE PAS UNE
+
+`PHYS-SEC-K = 0.05` est le gain d'excitation du mode secondaire de la 36. Contrairement a
+`PHYS-DYN-K`, **ce n'est le rapport d'AUCUNE paire de cles** : la [NOTE-169] decrit un balayage
+(2.5 -> 0.05) mene jusqu'a ce que la sortie tombe dans la bande. C'est
+`never-fit-a-parameter-to-the-instrument` a l'etat pur, et le cabler ne le corrigerait pas.
+
+**IL Y A UNE COINCIDENCE NUMERIQUE EXACTE, ET ELLE EST NOMMEE ICI POUR QU'ELLE NE SOIT PAS
+« DECOUVERTE » COMME UN CABLAGE EVIDENT AU CYCLE SUIVANT** : `SecondaryJiggleAmplitudeHi` vaut
+0.05 chez Keira. Ecrire `PHYS-SEC-K := pset[SecondaryJiggleAmplitudeHi]` serait bit-identique sur
+Keira et rendrait 0.07 sur Maia — un canal qui AURAIT L'AIR de tirer alors que l'egalite est
+fortuite. Les natures ne correspondent pas : `PHYS-SEC-K . dvn` est un gain sur une VARIATION DE
+POSITION normalisee par frame, tandis que `SecondaryJiggleAmplitudeHi` est une AMPLITUDE en fraction
+d'epaisseur locale. C'est `declared-channel-must-be-proven-by-perturbation`, pris a l'envers.
+
+CE QUI EST DONC ECRIT : la constante se declare `CONSTANTE MOTEUR SANS CLE`. La paire qui DEVRAIT
+la gouverner est `SecondaryJiggleAmplitudeLo/Hi` (0.02-0.05, la bande « normal 2-5 % » de la 36), et
+le cablage correct n'est pas une affectation mais une NORMALISATION : deriver le gain pour que
+l'amplitude de regime etabli du mode secondaire SOIT la cle. Ca demande de mesurer le gain de
+l'oscillateur (f=5.2 Hz, zeta=0.65) sur l'excitation `dvn` — **NON ETABLI**, et pas invente.
+
+
+## NOTE-505 — cycle 115 : `PHYSRESTQ`, PARCE QUE `rgap` N'ETAIT PAS EMIS SUR LA FENETRE DU VERDICT
+
+Le cycle 114c a interdit de toucher au solveur tant que `rgap` (0.0145 B0) et la deviation au point
+de parcage (0.0004-0.0010 B0) ne seraient pas reconciliees — « facteur ~24 ». **L'audit rend une
+reponse que ni l'un ni l'autre des deux chiffres ne laissait deviner : ils ne vivent pas sur la meme
+fenetre, et l'un des deux n'etait meme pas mesure la ou le verdict se prend.**
+
+  1. `rgap` n'est PAS la constante 0.0145 : c'est le **p90 des maxima de fenetre**. Sur 186 fenetres
+     par chaine, le max de fenetre a pour mediane **0.0034** (chestL) et **0.0002** (chestR), et la
+     moyenne sur les 16 740 frames vaut 0.003805 / 0.002722 B0. Prendre un p90 de maxima pour une
+     valeur typique est `classify-population-by-window-maximum`, deja au registre.
+  2. `PHYSRESTW` n'a qu'un emetteur (`physroom-emit-window`) et un seul appelant (PH-MEAS), et sa
+     cle est (animation, pilotage). **PH-AXC n'a ni l'une ni l'autre.** Le verdict de 2/9 se prend
+     sur PH-AXC ; `rgap` n'y etait pas emis. Le « facteur 24 » comparait des maxima releves sous
+     animation qui AVANCE a un instantane sous animation GELEE.
+  3. `rgap` est **purement angulaire, par identite de code** : `*phys-blen*` est recalculee chaque
+     frame depuis la MEME paire d'os que `tw`, donc `|tw - anc| = bl` exactement et
+     `rgap = (bl/b0e) . 2 sin(dtheta/2)`. Aucun terme de longueur ne peut y entrer. dtheta va de
+     0.003 a 0.634 degre.
+  4. Et sa variance est expliquee a **90.9 % / 91.6 % par l'ANIMATION**, a **2.0 % / 1.9 % par le
+     PILOTAGE**. Maximum sur `assistant-village2-idle-hut-breath`, une RESPIRATION — donc
+     l'animation qui articule le thorax ; minimum (0.0002) sur les poses de soudure TENUES.
+     `rgap` mesure la derive angulaire de la POSE D'AUTEUR depuis la frame de capture de `u`, ce
+     que la [NOTE-422] decrit deja comme un CHOIX (« elle ne suit pas l'animation ») et dont on
+     n'avait jamais publie l'amplitude.
+
+`PHYSRESTQ` publie donc `rgap` et `perr` a la derniere frame de PH-AXC, juste au-dessus de
+`PHYSSTGQ`, avec la MEME portee — le `phys-diag-reset!` de `pframe = 1` de cette fenetre.
+
+**CE QU'ELLE TRANCHE, ET LES DEUX FACES SONT ECRITES AVANT LA COURSE.** Si `rgap` y vaut du meme
+ordre que `PHYSSTGQ`, la cible du ressort EST la pose d'auteur dans cette pose et l'attribution du
+cycle 114c tombe comme artefact de population. Si `rgap` y vaut ~0.013 pendant que `PHYSSTGQ` reste
+a 0.0006, alors la these du 114c est REFUTEE : la chaine ne se repose pas sur la cible du ressort,
+et comme le septuplet est plat sur ses sept etages, ce serait l'INTEGRATION qui la tient.
+
+**ET LE SOLVEUR N'EST PAS TOUCHE, POUR UNE RAISON CHIFFREE.** Recalculer `u` chaque frame ferait du
+ressort une LAISSE vers la pose d'auteur, ce que la [NOTE-113] et `author-pinned-floor-is-a-rectifier`
+interdisent. Et l'ecart MAXIMAL de `rgap` (0.019 B0) vaut 22 a 26 fois MOINS que la bande d'apex de
+la 22 (0.42-0.50 B0), pendant que `perr` moyen vaut 0.388 B0 — **102 fois `rgap` moyen**. Corriger
+`rgap` serait travailler le centieme du defaut.

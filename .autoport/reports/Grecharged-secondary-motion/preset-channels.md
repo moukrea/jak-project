@@ -1,13 +1,15 @@
 PROVENANCE — ce tableau decrit CES fichiers-la, et l'empreinte le prouve :
-  jak-hd-physics.gc 1c6feb78f87d
-  phys-room.gc 9148b12192b8
-  kmachine.cpp 7f1383cd2bf6
-  physics_chains.txt 2cf3ea7c0a92
+  jak-hd-physics.gc 7dee7efee593
+  phys-room.gc f9b12924dbfa
+  kmachine.cpp 7be159f2865a
+  physics_chains.txt 688b93eaa48b
+  physics_room_table.py 4b5df9522738
 Regenere par : python3 .autoport/preset_channel_audit.py > .../preset-channels.md
 
-BALAYAGE PAR VALEUR (cycle 114) — moteur + salle, tout litteral egal a une valeur du
+BALAYAGE PAR VALEUR (cycle 114, etendu a l'INSTRUMENT au cycle 115) — moteur, salle ET
+les constantes de module de `physics_room_table.py` : tout litteral egal a une valeur du
 preset. Une coincidence doit etre JUSTIFIEE pour etre ignoree, elle n'est plus ignoree
-par oubli. Entrees d'allowlist : 48. Sites non tries : 0.
+par oubli. Entrees d'allowlist : 50. Sites non tries : 0.
   ANGLE MORT DECLARE : les valeurs 0, 1, 2, 3, 4, 120 sont FILTREES (elles sont partout et sans portee),
   donc une cle qui vaut 1, 2, 3, 4 ou 120 ne peut PAS etre trouvee par ce balayage. Les
   trois qui etaient dans ce cas (VerticalCompliance 1, MinimumSubstepsAt60FPS 2,
@@ -17,8 +19,7 @@ par oubli. Entrees d'allowlist : 48. Sites non tries : 0.
 
 CONSTANTES AJUSTEES SUR UN RAPPORT DE DEUX CLES — pas un litteral, donc invisibles au
 balayage, et publiees ici pour qu'elles ne disparaissent pas :
-  PHYS-DYN-K     = 0.43    NormalDynamicStretch / NormalMaxCOMDisplacement = 0.15 / 0.35 = 0.428571 -> 0.43 : le gain est regle pour que `sdy` (l etirement dynamique de la 22, :3722) vaille exactement 0.15 quand l excursion radiale vaut exactement 0.35 B0. TAUTOLOGIE CONDITIONNELLE : elle ne mord que si l excursion traine autour de 0.35 B0.
-  PHYS-SEC-K     = 0.05    gain d excitation du mode secondaire (36). NOTE-169 : « cale sur sa bande ». Pas une republication (un gain sur une vitesse n est pas une amplitude), mais la meme faute de methode. A re-examiner si la 36 devait etre declaree tenue sur une amplitude.
+  PHYS-SEC-K     = 0.05    CONSTANTE MOTEUR SANS CLE (cycle 115). Gain d excitation du mode secondaire (36). Ce n est le rapport d AUCUNE paire de cles : NOTE-169 decrit un BALAYAGE (2.5 -> 0.05) mene jusqu a ce que la sortie tombe dans la bande — `never-fit-a-parameter-to-the-instrument` a l etat pur. COINCIDENCE NOMMEE POUR QU ELLE NE SOIT PAS « DECOUVERTE » COMME UN CABLAGE EVIDENT : SecondaryJiggleAmplitudeHi vaut AUSSI 0.05 chez Keira, et la cabler serait bit-identique ici et rendrait 0.07 chez Maia — un canal qui AURAIT L AIR de tirer sur une egalite fortuite, les natures ne correspondant pas (un gain sur une vitesse normalisee contre une amplitude en fraction d epaisseur). La paire qui DEVRAIT la gouverner est SecondaryJiggleAmplitudeLo/Hi, par NORMALISATION et non par affectation ; le gain de l oscillateur qui la rendrait derivable est NON ETABLI. Voir [NOTE-504].
 
 | cle | Keira | Maia | differe | etat du canal | site |
 |---|---|---|---|---|---|
@@ -36,7 +37,7 @@ balayage, et publiees ici pour qu'elles ne disparaissent pas :
 | `GarmentCompression` | 0 | 0 | non | **CANAL ABSENT** | aucun lecteur |
 | `GarmentDynamicDamping` | 0 | 0 | non | **CANAL ABSENT** | aucun lecteur |
 | `GarmentSupport` | 0 | 0 | non | **CANAL ABSENT** | aucun lecteur |
-| `GlobalDampingRatio` | 0.35 | 0.33 | oui | **CANAL ABSENT** | damping= sur la ligne `chain` (SPEC 25) — perturbee x1.5, AUCUNE ligne du fichier livre ne bouge — la note qui annoncait un canal ne decrivait pas une lecture |
+| `GlobalDampingRatio` | 0.35 | 0.33 | oui | **CANAL FICHIER (indirect)** | damping= sur la ligne `chain` (SPEC 25) — PROUVE PAR PERTURBATION : x1.5 sur la cle change 2 ligne(s) `chain` (p.ex. chestL) |
 | `GlobalFrequencyAP` | 2.5 | 2 | oui | **CANAL ABSENT** | aucun lecteur |
 | `GlobalFrequencyLateral` | 2.65 | 2.1 | oui | **CANAL ABSENT** | aucun lecteur |
 | `GlobalFrequencyVertical` | 2.3 | 1.85 | oui | **CANAL FICHIER (indirect)** | stiffness= sur la ligne `chain` (SPEC 24 : f = stiffness/sqrt(mass)) — PROUVE PAR PERTURBATION : x1.5 sur la cle change 2 ligne(s) `chain` (p.ex. chestL) |
@@ -67,7 +68,7 @@ balayage, et publiees ici pour qu'elles ne disparaissent pas :
 | `NeutralProjection` | 1 | 1 | non | **CANAL ABSENT** | aucun lecteur |
 | `NeutralWidth` | 1 | 1 | non | **CANAL ABSENT** | aucun lecteur |
 | `NominalVolumePerBreast` | 0.525 | 1.1 | oui | **CANAL ABSENT** | aucun lecteur |
-| `NormalDynamicStretch` | 0.15 | 0.18 | oui | **CANAL ABSENT** | aucun lecteur |
+| `NormalDynamicStretch` | 0.15 | 0.18 | oui | **CANAL FICHIER** | lu par le moteur (kPhysPresetKeys), pose par preset_apply.py |
 | `NormalMaxApexDisplacement` | 0.42 | 0.6 | oui | **CANAL FICHIER** | lu par le moteur (kPhysPresetKeys), pose par preset_apply.py |
 | `NormalMaxCOMDisplacement` | 0.35 | 0.45 | oui | **CANAL FICHIER** | lu par le moteur (kPhysPresetKeys), pose par preset_apply.py |
 | `NormalVolumeRangeHi` | 1.01 | 1.01 | non | **CANAL ABSENT** | aucun lecteur |
@@ -113,20 +114,20 @@ balayage, et publiees ici pour qu'elles ne disparaissent pas :
 | `VerticalEffectiveMass` | 0.5 | 1.05 | oui | **CANAL ABSENT** | aucun lecteur |
 | `VerticalEffectiveStiffness` | 104 | 142 | oui | **CANAL ABSENT** | aucun lecteur |
 
-CANAL FICHIER                     23 / 90
-CANAL FICHIER (indirect)           1 / 90
+CANAL FICHIER                     24 / 90
+CANAL FICHIER (indirect)           2 / 90
 CONSTANTE MOTEUR                   0 / 90
 HORS RUNTIME (asset)              11 / 90
 JAUGE (inerte par construction)    1 / 90
-CANAL ABSENT                      54 / 90
+CANAL ABSENT                      52 / 90
 dont TAUTOLOGIQUES           0
 cles dont la valeur DIFFERE entre les deux presets : 62
-   dont CANAL FICHIER                   19
-   dont CANAL FICHIER (indirect)         1
+   dont CANAL FICHIER                   20
+   dont CANAL FICHIER (indirect)         2
    dont CONSTANTE MOTEUR                 0
    dont HORS RUNTIME (asset)             4
    dont JAUGE (inerte par construction)   1
-   dont CANAL ABSENT                    37
+   dont CANAL ABSENT                    35
 
 CANAL PARTIEL — RESOLU. `PHYS-FLESH-YIELD` n'existe plus dans le moteur : `phys-vol-floor` recoit
   `sc` et lit la cle DERIVEE `DerivedSupineProjectionYield` (= 1 - SupineProjection-

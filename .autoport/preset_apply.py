@@ -33,6 +33,7 @@ ligne d'origine, et le bloc pose porte ce numero. Une valeur retapee est une val
 """
 import argparse
 import hashlib
+import math
 import os
 import re
 import shutil
@@ -166,14 +167,31 @@ def fmt(v):
 # qu'on livre — la physique mesuree ne bouge pas d'un bit, et la course en cours reste valable.
 # CONTROLE POSITIF : avec le preset de Maia elle rend 2.2277 (x0.8043), donc le bouton tourne.
 #
-# `damping=` N'EST PAS DERIVE ICI, ET LE MOTIF EST PUBLIE PLUTOT QUE CONTOURNE. La meme formule
-# (2*zeta*2*pi*f/60) rend 0.1686 sur chestL — exact — mais **0.1752 sur chestR contre 0.1753
-# livre**. L'ecart est de 1e-4, et il est REEL : le 2.3913 Hz utilise le 2026-08-14 n'est pas le
-# 2.390443 Hz qu'on obtient avec la masse effectivement livree (1.4800). Ajuster la derivation
-# pour retomber sur 0.1753 serait fitter le calcul sur le nombre qu'il doit reproduire
-# (`never-fit-a-parameter-to-the-instrument`) ; changer 0.1753 en 0.1752 en silence serait modifier
-# la physique au milieu d'un changement d'instrument. Les deux sont refuses : la cle reste
-# `CANAL ABSENT` et l'ecart est signe dans le rapport.
+# `damping=` EST DERIVE ICI DEPUIS LE CYCLE 115, ET LE CYCLE 111 AVAIT RAISON DE REFUSER — SUR CE
+# QU'IL REFUSAIT. Il ecrivait : « changer 0.1753 en 0.1752 EN SILENCE serait modifier la physique au
+# milieu d'un changement d'instrument ». Le mot qui porte est **en silence**. Le faire avec l'ecart
+# PUBLIE, PREDIT D'AVANCE et MESURE n'est pas la meme chose, et le motif du 1e-4 est etabli par le
+# cycle 111 lui-meme : le 2.3913 Hz employe a la main le 2026-08-14 n'est pas le 2.390443 Hz que
+# rend la masse effectivement livree (1.4800). **0.1753 est un artefact d'arrondi de la derivation
+# humaine ; 0.1752 est ce que la formule rend.** Ce n'est donc pas un ajustement, c'est la
+# substitution d'un nombre fige par sa formule — et le sens de la substitution est le bon :
+# `never-fit-a-parameter-to-the-instrument` interdit de tordre la FORMULE pour retomber sur le
+# nombre, pas de garder la formule et de publier l'ecart.
+#
+# POURQUOI CE CANAL EST UNE CONDITION, PAS UN CONFORT. Le moteur consomme `damping=` comme un TAUX
+# PAR PAS (`2*zeta*omega*dt`), pas comme un zeta. Le laisser gele pendant que la frequence tourne
+# emmene zeta a l'OPPOSE de ce que le preset demande — le cycle 111 l'a MESURE : le vecteur Maia
+# rendait zeta = 0.4351 la ou le preset de Maia ecrit 0.33 (+31.9 %, et Maia est censee etre un peu
+# MOINS amortie que Keira, pas nettement plus). Le controle de niveau systeme que l'owner demande
+# le 2026-08-22 a 23:00 aurait donc montre un personnage plus lent ET plus amorti : un faux
+# resultat, dans le mauvais sens, sur la grandeur meme qu'il sert a prouver.
+#
+#   SPEC 25 / SPEC 28   damping = 2 * GlobalDampingRatio * 2*pi*f / 60,  f = stiffness / sqrt(mass)
+#
+# CONTROLE NEGATIF PARTIEL, ET IL EST EXACT SUR UNE CHAINE : chestL 0.1686 -> 0.1686, au bit.
+# ECART, CHIFFRE D'AVANCE ET SUR UNE SEULE CHAINE : chestR 0.1753 -> 0.1752 (-0.057 %).
+# Contrairement a `stiffness=`, la masse ne s'annule PAS ici : `f` est relue sur la ligne `chain`
+# APRES que la premiere passe a reecrit `stiffness=`, donc le zeta obtenu est bien celui du preset.
 # =================================================================================================
 
 # SPEC 32 « Left/Right Independence [...] stiffness +-3-5 % ». Le +5 % (haut de bande) est un CHOIX
@@ -233,9 +251,33 @@ def derive_mechanics(lines, mine, who):
         val = base if asym == 1.00 else round(base * asym, 4)
         avant = ms.group(1)
         apres = '%.4f' % val
-        journal.append((name, avant, apres, avant != apres))
+        journal.append(('stiffness', name, avant, apres, avant != apres))
         out.append(ln[:ms.start(1)] + apres + ln[ms.end(1):])
-    return out, journal
+
+    # TROISIEME PASSE — `damping=` DEPUIS `GlobalDampingRatio`. Elle vient APRES la seconde et lit
+    # la raideur QU'ELLE VIENT D'ECRIRE : le taux depend de la frequence, donc le derive dans
+    # l'autre ordre rendrait le zeta de l'ANCIENNE frequence. Motif complet en tete de fichier.
+    zeta = mine.get('GlobalDampingRatio', (None,))[0]
+    if zeta is None:
+        return out, journal
+    out2 = []
+    for ln in out:
+        if not ln.startswith('chain '):
+            out2.append(ln)
+            continue
+        name = ln.split()[1]
+        md = re.search(r'\bdamping=(%s)\b' % NUM, ln)
+        mst = re.search(r'\bstiffness=(%s)\b' % NUM, ln)
+        mms = re.search(r'\bmass=(%s)\b' % NUM, ln)
+        if not (md and mst and mms) or float(mms.group(1)) <= 0.0:
+            out2.append(ln)
+            continue
+        f = float(mst.group(1)) / (float(mms.group(1)) ** 0.5)
+        avant = md.group(1)
+        apres = '%.4f' % round(2.0 * zeta * 2.0 * math.pi * f / 60.0, 4)
+        journal.append(('damping', name, avant, apres, avant != apres))
+        out2.append(ln[:md.start(1)] + apres + ln[md.end(1):])
+    return out2, journal
 
 
 
@@ -336,9 +378,9 @@ def main():
           % (who, len(posed), n_chain, dst, len(text), dg))
     # Publie TOUJOURS, y compris quand rien ne bouge : c'est le controle de bit-identite, et un
     # controle qui ne s'imprime que lorsqu'il echoue n'est pas un controle.
-    for name, avant, apres, chg in mech:
-        print('[preset] SPEC24 canal  %-8s stiffness %s -> %s   %s'
-              % (name, avant, apres,
+    for what, name, avant, apres, chg in mech:
+        print('[preset] %-7s canal %-8s %-9s %s -> %s   %s'
+              % ('SPEC24' if what == 'stiffness' else 'SPEC25', name, what, avant, apres,
                  'CHANGE (le bouton tourne)' if chg else 'identique au bit (controle negatif)'))
     if bad:
         print('[preset] %d cle(s) non numeriques, NON posees: %s' % (len(bad), ', '.join(bad)))

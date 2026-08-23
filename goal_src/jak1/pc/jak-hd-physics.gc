@@ -66,7 +66,7 @@
 (defconstant PHYS-SC   (* PHYS-SLOTS PHYS-CHAINS))
 (defconstant PHYS-SCL  (* PHYS-SLOTS PHYS-CHAINS PHYS-LINKS))
 (defconstant PHYS-SCO  (* PHYS-SLOTS PHYS-COLS))
-(defconstant PHYS-PSET-N 26)  ;; cles du preset que ce moteur CONSOMME (table kPhysPresetKeys, kmachine.cpp)
+(defconstant PHYS-PSET-N 27)  ;; cles du preset que ce moteur CONSOMME (table kPhysPresetKeys, kmachine.cpp)
 
 ;; identite du slot
 (define *phys-slot-pid*  (new 'global 'array 'int32 PHYS-SLOTS))
@@ -220,8 +220,7 @@
 (define *phys-sepv* (new 'global 'inline-array 'vector PHYS-SC))  ;; la MEME separation, en VECTEUR
 ;; [NOTE-75] ============================================================================== -> jak-hd-physics-NOTES.md
 ;; [NOTE-169] §36 — LE GAIN D'EXCITATION, CALE SUR SA BANDE ET SUR RIEN D'AUTRE. Mesure de la course B -> jak-hd-physics-NOTES.md
-(defconstant PHYS-SEC-K   0.05)
-(defconstant PHYS-DYN-K   0.43)    ;; §38 NormalDynamicStretch 0.15 atteint a 0.35 B0
+(defconstant PHYS-SEC-K   0.05)    ;; [NOTE-504] CONSTANTE MOTEUR SANS CLE — gain INVENTE, pas un rapport
 ;; [NOTE-76] §23 — « the solver should then derive local deformation from COM displacement, -> jak-hd-physics-NOTES.md
 (defconstant PHYS-PRS-K   0.45)
 (defconstant PHYS-PRS-MAX 0.25)    ;; §12 : -25 % au pire, borne haute de sa bande
@@ -703,14 +702,14 @@
                       (let ((pb (* sc PHYS-PSET-N)))
                         (dotimes (pki PHYS-PSET-N)
                           (let ((mi (pc-physics-chain-preset-mi agname c pki)))
-                            (set! (-> *phys-pset* (+ pb pki)) (if (>= mi 0) (phys-mi->f mi) (if (or (< pki 6) (and (>= pki 10) (< pki 13)) (>= pki 22)) 1.0 0.0)))))
+                            (set! (-> *phys-pset* (+ pb pki)) (if (>= mi 0) (phys-mi->f mi) (if (or (< pki 6) (and (>= pki 10) (< pki 13)) (and (>= pki 22) (< pki 26))) 1.0 0.0)))))
                         (format 0 "[HD-PHYS] PHYSPSET c=~D keys=~D absent=~D~%" c (pc-physics-chain-preset-count agname c) (pc-physics-chain-preset-absent agname c))
                         (format 0 "[HD-PHYS] PHYSPSETA c=~D sp=~f sw=~f sh=~f hl=~f hw=~f~%" c (-> *phys-pset* (+ pb 0)) (-> *phys-pset* (+ pb 1)) (-> *phys-pset* (+ pb 2)) (-> *phys-pset* (+ pb 3)) (-> *phys-pset* (+ pb 4)))
                         (format 0 "[HD-PHYS] PHYSPSETB c=~D ht=~f lbc=~f secf=~f secz=~f secmax=~f~%" c (-> *phys-pset* (+ pb 5)) (-> *phys-pset* (+ pb 6)) (-> *phys-pset* (+ pb 7)) (-> *phys-pset* (+ pb 8)) (-> *phys-pset* (+ pb 9)))
                         (format 0 "[HD-PHYS] PHYSPSETC c=~D ap=~f lat=~f tor=~f asc=~f rbb=~f~%" c (-> *phys-pset* (+ pb 10)) (-> *phys-pset* (+ pb 11)) (-> *phys-pset* (+ pb 12)) (-> *phys-pset* (+ pb 13)) (-> *phys-pset* (+ pb 14)))
                         (format 0 "[HD-PHYS] PHYSPSETD c=~D rbc=~f akn=~f acp=~f ckn=~f ccp=~f~%" c (-> *phys-pset* (+ pb 15)) (-> *phys-pset* (+ pb 16)) (-> *phys-pset* (+ pb 17)) (-> *phys-pset* (+ pb 18)) (-> *phys-pset* (+ pb 19)))
                         (format 0 "[HD-PHYS] PHYSPSETE c=~D chard=~f syld=~f ahard=~f~%" c (-> *phys-pset* (+ pb 20)) (-> *phys-pset* (+ pb 21)) (-> *phys-pset* (+ pb 22)))
-                        (format 0 "[HD-PHYS] PHYSPSETF c=~D vcomp=~f nshi=~f nslo=~f~%" c (-> *phys-pset* (+ pb 23)) (-> *phys-pset* (+ pb 24)) (-> *phys-pset* (+ pb 25))))
+                        (format 0 "[HD-PHYS] PHYSPSETF c=~D vcomp=~f nshi=~f nslo=~f ndyn=~f~%" c (-> *phys-pset* (+ pb 23)) (-> *phys-pset* (+ pb 24)) (-> *phys-pset* (+ pb 25)) (-> *phys-pset* (+ pb 26))))
                       (when (> (-> *phys-nlink* sc) 0)
                         (+! armed 1)
                         (+! links (-> *phys-nlink* sc)))))
@@ -3715,10 +3714,11 @@
                           ;; [NOTE-60] (f) LA MATRICE, BATIE UNE FOIS PAR CHAINE ET PAR FRAME. -> jak-hd-physics-NOTES.md
                           (let* ((gb  (* sc 3))
                                  ;; [NOTE-435] PAR MAILLON depuis le cycle 32 : `*phys-rr*` (par chaine) donnait -> jak-hd-physics-NOTES.md
-                                 (rdr (* PHYS-DYN-K (/ (-> *phys-rrl* tl) b0f)))
-                                 (rx  (+ (* PHYS-DYN-K (/ (-> *phys-ox* tl) b0f)) (* rdr (-> *phys-ux* tl))))
-                                 (ry  (+ (* PHYS-DYN-K (/ (-> *phys-oy* tl) b0f)) (* rdr (-> *phys-uy* tl))))
-                                 (rz  (+ (* PHYS-DYN-K (/ (-> *phys-oz* tl) b0f)) (* rdr (-> *phys-uz* tl))))
+                                 (dnk (let ((ckn (-> *phys-pset* (+ (* sc PHYS-PSET-N) 18)))) (if (> ckn 0.000001) (/ (-> *phys-pset* (+ (* sc PHYS-PSET-N) 26)) ckn) 0.0))) ;; [NOTE-503] `PHYS-DYN-K` ETAIT 0.15/0.35 RECOPIE : un litteral ajuste sur un RAPPORT de deux cles est invisible a un balayage par valeur -> jak-hd-physics-NOTES.md
+                                 (rdr (* dnk (/ (-> *phys-rrl* tl) b0f)))
+                                 (rx  (+ (* dnk (/ (-> *phys-ox* tl) b0f)) (* rdr (-> *phys-ux* tl))))
+                                 (ry  (+ (* dnk (/ (-> *phys-oy* tl) b0f)) (* rdr (-> *phys-uy* tl))))
+                                 (rz  (+ (* dnk (/ (-> *phys-oz* tl) b0f)) (* rdr (-> *phys-uz* tl))))
                                  (ka  (if (zero? *phys-dyb-off*) (fmin 1.0 (/ dt PHYS-DYN-TAU)) 0.0)) ;; [NOTE-477] §22 EST UNE LIMITE *DYNAMIQUE* : CE QUI EST TENU EST DEJA L'EQUILIBRE DE §10-§13 -> jak-hd-physics-NOTES.md
                                  (dx  (- rx (-> *phys-dyb* gb))) (dy (- ry (-> *phys-dyb* (+ gb 1)))) (dz (- rz (-> *phys-dyb* (+ gb 2))))
                                  (dl  (sqrtf (+ (* dx dx) (+ (* dy dy) (* dz dz)))))

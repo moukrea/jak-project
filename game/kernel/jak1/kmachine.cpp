@@ -2009,6 +2009,16 @@ static const char* kPhysPresetKeys[] = {
                                      //    (3) n'a AUCUN site : le moteur ne choisit qu'entre 4 et
                                      //    2, donc ce barreau de sa spec reste CANAL ABSENT et on
                                      //    le dit au lieu de l'arrondir.
+    "NormalDynamicStretch",          // 26 section 22 — le NUMERATEUR du gain d'etirement dynamique.
+                                     //    `PHYS-DYN-K = 0.43` etait la valeur 0.15/0.35 RECOPIEE
+                                     //    dans le moteur : un litteral ajuste sur un RAPPORT de
+                                     //    deux cles n'egale aucune valeur du preset, donc le
+                                     //    balayage par valeur du cycle 114 ne pouvait pas le voir.
+                                     //    Le denominateur (18) etait deja cable ; il manquait
+                                     //    celle-ci. ATTENTION : la regle d'element neutre de
+                                     //    `jak-hd-physics.gc` rendait 1.0 pour tout indice >= 22,
+                                     //    ce qui aurait donne un gain de 1/0.35 = 2.857, soit 6.7x
+                                     //    trop grand — elle est bornee a < 26 dans le meme lot.
 };
 static const int kPhysNumPresetKeys = (int)(sizeof(kPhysPresetKeys) / sizeof(kPhysPresetKeys[0]));
 

@@ -1,0 +1,196 @@
+c115 — PREDICTIONS ECRITES AVANT LES COURSES
+DIRECTIVES vd9e8b66782 · phase Grecharged-secondary-motion · poitrine de Keira seule
+=====================================================================================
+
+BLOC A — LE CANAL D'AMORTISSEMENT (`GlobalDampingRatio`), ECRIT LE 2026-08-23 06:4x,
+AVANT TOUTE COURSE DE CE CYCLE.
+
+CE QUI EST FAIT : `derive_mechanics()` de `.autoport/preset_apply.py` re-derive `damping=` sur la
+ligne `chain` depuis `pk GlobalDampingRatio`, par la formule de SPEC 25/28 deja utilisee pour
+`stiffness=` :   damping = 2 * zeta * 2*pi*f / 60   avec   f = stiffness / sqrt(mass)   (SPEC 24).
+
+POURQUOI MAINTENANT, ET CE N'EST PAS UN CONFORT : le cycle 111 a MESURE que, sans ce canal, tourner
+le seul bouton de frequence emmene zeta a l'OPPOSE de ce que le preset demande — 0,32-0,36 -> 0,42-0,45
+alors que Maia ecrit 0,33. Le controle de niveau systeme demande par l'owner le 2026-08-22 23:00
+serait donc FAUX SANS CE CANAL : il montrerait un personnage plus lent ET plus amorti la ou la spec
+demande plus lent et MOINS amorti. Le canal est une CONDITION du controle, pas un ajout.
+
+CE QUE JE RETIRE DU CYCLE 111, ET JE LE DIS AU LIEU DE LE GLISSER : il refusait ce cablage parce que
+« changer 0,1753 en 0,1752 EN SILENCE serait modifier la physique au milieu d'un changement
+d'instrument ». Le mot qui porte est **en silence**. Le faire avec l'ecart PUBLIE et MESURE n'est pas
+la meme chose, et le motif du 1e-4 est deja etabli par le cycle 111 lui-meme : le 2,3913 Hz employe
+a la main le 2026-08-14 n'est pas le 2,390443 Hz que rend la masse effectivement livree (1,4800).
+**0,1753 est un artefact d'arrondi de la derivation humaine ; 0,1752 est ce que la formule rend.**
+Ce n'est donc pas un ajustement, c'est la substitution d'un nombre fige par sa formule.
+
+  A0 — CONTROLE NEGATIF PARTIEL, ET IL EST EXACT SUR UNE CHAINE :
+       chestL  damping 0,1686 -> **0,1686**, IDENTIQUE AU BIT (f = 2,300028 Hz, zeta = 0,35).
+       Si chestL bouge d'un chiffre, la derivation est fausse et tout le bloc tombe.
+  A1 — L'ECART, CHIFFRE D'AVANCE ET SUR UNE SEULE CHAINE :
+       chestR  damping 0,1753 -> **0,1752**, soit **-0,0001 (-0,057 %)**, et RIEN D'AUTRE ne change
+       dans le fichier livre. Prediction : `diff` rend **exactement 2 lignes** (une paire +/-).
+  A2 — CE QUE CET ECART FAIT AU COMPORTEMENT. La salle est DETERMINISTE (cycle 32 : 30 091 lignes,
+       0 differente), donc toute difference est du SIGNAL, jamais du bruit. Je predis :
+         (a) chestL : **0 enregistrement `PHYS*` different** de la course de reference. C'est un
+             controle negatif STRICT, et il peut me refuter tout seul.
+         (b) chestR : des differences NON NULLES mais petites. zeta passe de 0,350000 a 0,349800,
+             soit -0,057 %. Sur `ROOM-AXFIT-*` (frequence amortie f_d = f_n.sqrt(1-zeta^2)) l'effet
+             attendu est de **+0,0000 a +0,0002 Hz** — c'est-a-dire SOUS la resolution publiee de
+             l'instrument (IC +-0,005 a 0,025 Hz au cycle 111). Je le declare d'avance : cette
+             grandeur-la NE POURRA PAS trancher, et l'annoncer apres coup serait de la retouche.
+         (c) La grandeur qui PEUT trancher est le nombre d'enregistrements differents, pas leur
+             valeur. Prediction : > 0 sur chestR, et **aucune ligne de verdict de section ne change
+             de cote de sa bande**. Si une section bascule sur -0,057 % d'amortissement, ce n'est
+             pas le canal qui est en cause, c'est que la section etait sur son seuil au bit — et ca
+             se publierait comme tel.
+  A3 — CONTROLE POSITIF DU CANAL (vecteur MAIA, ecrit dans /tmp, jamais livre) :
+       zeta 0,35 -> 0,33 ET f 2,300 -> 1,850 doivent donner
+         chestL  stiffness 2,7696 -> **2,2277**   damping 0,1686 -> **0,1279**
+         chestR  stiffness 2,9081 -> **2,3391**   damping 0,1753 -> **0,1329**
+       Verification arithmetique independante : zeta reconstruit = damping*60/(4*pi*f) doit rendre
+       **0,3300** sur les deux chaines. Sans le canal il rendrait **0,4351 / 0,4348** — c'est
+       exactement l'erreur que le cycle 111 a mesuree, et c'est le falsificateur de ce bloc.
+
+BLOC B — LE VECTEUR MAIA COMPLET (controle positif de niveau systeme).
+       [ECRIT PLUS BAS, AVANT SA PROPRE COURSE, une fois l'inventaire des canaux etabli.]
+
+BLOC C — §2/§9.
+       [ECRIT PLUS BAS, AVANT TOUTE MODIFICATION DU SOLVEUR, apres la reconciliation exigee par le
+        cycle 114c section 7 point 3.]
+
+
+=====================================================================================
+BLOC A' — JE CORRIGE MA PROPRE PREDICTION A2(a) AVANT LA COURSE, ET JE DIS POURQUOI.
+=====================================================================================
+J'ai ecrit en A2(a) « chestL : 0 enregistrement `PHYS*` different ». **C'EST PERIME, ET C'EST MOI
+QUI L'AI PERIME** : j'ai groupe dans le MEME build la correction de `PHYS-DYN-K` (le gain
+d'etirement dynamique de la 22, qui etait `0.43`, c'est-a-dire `0.15/0.35` RECOPIE dans le moteur).
+Deux variables dans une course, c'est exactement ce que ce dossier reproche a ses cycles rates.
+
+**ELLES SE SEPARENT PAR LA CHAINE, PAS PAR LA COURSE, ET C'EST GRATUIT :**
+  * le canal d'amortissement ne touche QUE `chestR` (chestL est identique au bit, mesure ci-dessus) ;
+  * `PHYS-DYN-K` touche LES DEUX chaines.
+  Donc **`chestL` est une jambe a VARIABLE UNIQUE pour `PHYS-DYN-K`**, et `chestR` porte les deux.
+  Aucune conclusion sur l'amortissement ne se tirera de chestL, aucune sur `PHYS-DYN-K` seul ne se
+  tirera de chestR.
+
+A4 — `PHYS-DYN-K` : le gain passe du litteral `0.43` au rapport LU `ndyn/ckn` = 0.15/0.35.
+     float32(0.43) = 0.4300000072 · float32(0.15/0.35) = 0.4285714626 · **facteur 0.9966778**.
+     `rdr`, `rx`, `ry`, `rz` sont LINEAIRES en ce gain, donc `dl` aussi. Predictions, sur chestL
+     (jambe propre) et calculees depuis la course archivee de 06:11 :
+       `PHYSSHAPE5 dlr=` max   chestL  0.2882 -> **0.2872**   (chestR 0.3291 -> 0.3280)
+       `PHYSSHAPE5 dsat=`      chestL  **11 fenetres -> 10**  (chestR 6 -> 6)
+       `PHYSSHAPE3 dynm=`      ecrete a 0.2500 inchange ; hors ecretage x0.99668
+       `PHYSAPEXD |d|` p50     0.2765 / 0.2437 B0 -> environ **-0.3 %**
+     **LE CONTROLE DE BIT-IDENTITE ECHOUERA, ET C'EST ATTENDU.** Le signal le plus net est
+     `dsat` : un COMPTE ENTIER qui perd une unite sur chestL. Un flottant a -0.33 % pourrait etre
+     du bruit d'arrondi ; une fenetre qui cesse de saturer ne peut pas l'etre.
+A5 — LE FALSIFICATEUR DE A4 : si `dsat` chestL reste a 11 ET `dlr` max reste a 0.2882 au chiffre,
+     le gain n'a pas ete relu et le cablage est mort. Et si `dlr` bouge de PLUS de 1 %, ce n'est
+     pas ce recablage : c'est autre chose dans le lot, et je le chercherai avant de conclure.
+A6 — `PHYSPSETF c=~ ... ndyn=` doit imprimer **0.1500** sur les deux chaines. Si elle imprime
+     **1.0000**, la regle d'element neutre n'a pas ete bornee et le gain vaut 2.857 au lieu de
+     0.4286 — 6.7x trop grand. C'est le piege que R2 a nomme d'avance ; la ligne le rend visible
+     en une seconde au lieu de contaminer la course.
+
+=====================================================================================
+BLOC B — LE VECTEUR MAIA COMPLET SUR LA CHAINE DE KEIRA (controle de niveau systeme).
+ECRIT AVANT LA COURSE B. Le vecteur est /tmp/c115-maia-chains.txt, le fichier livre est RESTAURE
+par `preset_ctrl_run.sh` quoi qu'il arrive.
+=====================================================================================
+CE QUE CE CONTROLE PROUVE ET CE QU'IL NE PROUVE PAS. 22 boutons tournent ensemble : il prouve que
+le preset est CONSOMME, il n'attribue AUCUN effet a AUCUNE cle isolee. Dit d'avance pour qu'aucune
+ligne du tableau ne soit relue comme une attribution.
+
+B0 LES ECHOS DE CHARGEMENT (si l'un manque, tout le reste est sans objet) :
+     PHYSPSETC asc=  0.2500 -> **0.3000**      PHYSPSETD ckn= 0.3500 -> **0.4500**
+     PHYSPSETE chard=0.4000 -> **0.5000**      syld= 0.3000 -> **0.4300**   ahard= 0.5000 -> **0.6500**
+     PHYSPSETF ndyn= 0.1500 -> **0.1800**      (donc le gain dnk passe de 0.4286 a **0.4000**, x0.9333)
+B1 **LE DISCRIMINANT LE PLUS DUR, ET IL EST BINAIRE : `PHYSSHAPE3 dynm=`.** C'est un `fmin` EXACT
+     contre la cle 13. Aujourd'hui son maximum vaut **0.2500 = la cle au chiffre pres**, sur
+     17 cellules-fenetre de 372. Sous un vecteur qui porte 0.30 :
+       si `dynm` max reste **exactement 0.2500** sur des cellules -> **LE MOTEUR NE CONSOMME PAS
+       LA CLE 13**, et le controle a echoue, quelle que soit la beaute du reste ;
+       s'il consomme, `dynm` max est soit 0.3000 (ecretage encore actif) soit strictement en
+       dessous (ecretage libere) — mais **jamais 0.2500 pile**.
+B2 **LA PREUVE DU CANAL D'AMORTISSEMENT, ET C'EST LA NOUVEAUTE DE CE CYCLE.** Le cycle 111 a
+     MESURE zeta 0.32-0.36 -> **0.42-0.45** sous le vecteur Maia SANS ce canal (x1.24, dans le
+     mauvais sens). Avec le canal, zeta reconstruit du fichier vaut **0.3301 / 0.3300** (verifie
+     avant la course). Prediction sur la MESURE de ring-down :
+       **zeta_B / zeta_A doit valoir environ 0.33/0.35 = 0.94, PAS 1.24.**
+     Prediction a deux faces : au-dessus de 1.10 le canal n'a pas pris ; entre 0.85 et 1.05 il a pris.
+B3 FREQUENCE : `f_n` verticale x **0.8043** (2.30 -> 1.85 Hz). Deja etabli au cycle 111 a -0.20 %
+     pres sur six cellules ; ici c'est un controle de NON-REGRESSION du canal deja acquis.
+B4 `PHYSSHAPE2 secm=` : cle 9 `SecondaryJiggleHardMax` 0.07 -> 0.10, et l'operateur est un
+     `phys-softmin` d'image [0, plafond) OUVERTE. Max aujourd'hui 0.0693. Predit : **environ 0.098,
+     et STRICTEMENT sous 0.100**. « 0 fenetre au-dessus du plafond » restera vrai et ne prouvera
+     RIEN — c'est `threshold-an-asymptotic-operator-never-crosses`, deja au registre.
+B5 FORME COUCHEE : `det` est RENORMALISE a 1 par construction, donc seules les FORMES sont
+     lisibles. Predit sur le RAPPORT, invariant a la renormalisation :
+       sx/sz couche : 1.23/0.70 = 1.757 -> 1.40/0.57 = 2.456, soit **x1.398**.
+     `PHYSSHAPE2 det=` doit rester dans [0.9999, 1.0000] : c'est un canal MORT, et un « il n'a pas
+     bouge » ne veut pas dire « le preset n'a rien fait ».
+B6 CE QUI NE DIRA RIEN, ET JE LE POSE D'AVANCE POUR NE PAS LIRE UN FAUX NEGATIF : **37 cles
+     DIFFERENT et sont `CANAL ABSENT`** (le moteur ne les lit pas), 4 sont HORS RUNTIME (cuites
+     dans les poids de peau), 1 est une JAUGE inerte (`MassPerBreast` : la masse s'annule
+     exactement dans w = 2.pi.stiffness/sqrt(mass) puisque stiffness est derive avec cette meme
+     masse). Aucune difference attendue de leur fait.
+B7 DEUX COUPLES QUI S'OPPOSENT SUR LA MEME GRANDEUR — le seul cas ou « aucune difference » ne
+     prouverait PAS que le moteur fait semblant :
+       (i) cle 16 `NormalMaxApexDisplacement` x1.429 (genou qui MONTE) contre cle 17
+           `DerivedApexSoftBand` x0.625 (bande qui RETRECIT). Net : asymptote 0.50 -> 0.65 B0, donc
+           **plus lache**, mais bien moins que les +42.9 % de la cle 16 seule ;
+       (ii) frequence x0.804 (ressort plus mou, excursion UP) contre zeta qui, LUI, baisse
+           maintenant de 0.35 a 0.33 (excursion UP aussi). **Avec le canal d'amortissement les deux
+           vont desormais DANS LE MEME SENS** — c'etait l'inverse au cycle 111, et c'est
+           precisement ce que ce cycle repare.
+
+
+=====================================================================================
+BLOC C — §2/§9 : L'EMISSION MANQUANTE. ECRITE AVANT LA COURSE A.
+=====================================================================================
+CE QUE LE CYCLE 114c DEMANDAIT — « reconcilier `rgap` (0.0145 B0) et la deviation au point de
+parcage (0.0004-0.0010 B0), facteur ~24, AVANT de toucher au solveur » — EST FAIT, ET LA REPONSE
+EST QU'IL N'Y AVAIT PAS DE FACTEUR A RECONCILIER :
+
+  (1) `rgap` n'est PAS la constante 0.0145. C'est le **p90 des maxima de fenetre**. Population
+      mesuree sur 186 fenetres x 2 chaines : max de fenetre p50 **0.0034** (chestL) et **0.0002**
+      (chestR) ; moyenne sur les 16 740 frames **0.003805** / **0.002722** B0.
+  (2) `PHYSRESTW` n'a qu'un emetteur (`physroom-emit-window`) et un seul appelant (PH-MEAS), et sa
+      cle est (animation, pilotage). **PH-AXC n'a ni l'une ni l'autre : `rgap` n'y etait PAS EMIS.**
+      Les deux chiffres ne vivaient pas sur la meme fenetre — l'un sous animation qui AVANCE,
+      l'autre sous animation GELEE (anim 0, frame 0).
+  (3) Les deux SONT commensurables une fois ramenees a `PHYSSTGQ` : meme maillon (rlk = 0), meme
+      reference (pose d'auteur), meme unite (B0). Contre-controle independant par un chemin qui ne
+      partage aucun operateur (norme du triplet `PHYSRINGBN`+`BN2` / 602) : accord a 4 decimales
+      sur **6 cellules sur 6**.
+  (4) `rgap` est **purement angulaire** (identite de code : `bl` est recalculee chaque frame depuis
+      la MEME paire d'os que `tw`, donc `|tw-anc| = bl` exactement). Delta-theta va de 0.003 a
+      0.634 degre.
+  (5) Et sa variance est expliquee a **90.9 % / 91.6 % par l'ANIMATION** et a **2.0 % / 1.9 % par
+      le PILOTAGE**. Maximum sur `assistant-village2-idle-hut-breath` — une RESPIRATION, donc
+      l'animation qui articule le thorax ; minimum (0.0002) sur les poses de soudure TENUES.
+
+C1 — L'EMISSION `PHYSRESTQ c=~ ax=~ rgap=~ perr=~` est posee a la derniere frame de PH-AXC, juste
+     au-dessus de `PHYSSTGQ`, avec la MEME portee (`phys-diag-reset!` de `pframe = 1`).
+     NON-VACUITE : **2 chaines x 3 axes = 6 lignes attendues.** Moins de 6 = domaine vide, et le
+     verdict serait sans objet.
+C2 — LA PREDICTION A DEUX FACES, ET C'EST ELLE QUI DECIDE DE §2/§9 :
+       (a) si `rgap` y vaut **0.0004 a 0.0015 B0** — du meme ordre que les `PHYSSTGQ` (0.0004 a
+           0.0010) — alors la cible du ressort EST la pose d'auteur dans cette pose a un demi-
+           millimetre pres, la chaine s'y gare, et **l'attribution du cycle 114c (« la cible n'est
+           pas la pose d'auteur, et rgap le mesure ») est RETIREE comme un artefact de population**.
+           Il n'y a alors rien a corriger dans le solveur, et le residu de §2/§9 est de
+           **0.06 a 0.15 mm**, a publier en clair.
+       (b) si `rgap` y vaut **~0.013 B0** pendant que `PHYSSTGQ` reste a 0.0006, alors la these
+           centrale du cycle 114c est **REFUTEE** : la chaine ne se repose PAS sur la cible du
+           ressort, elle se repose 24 fois plus pres de la POSE D'AUTEUR, et comme le septuplet est
+           plat sur ses sept etages ce serait l'INTEGRATION elle-meme qui la tient — donc le
+           raisonnement « v=0 => f=0 => p=cible » serait faux.
+     **JE N'AI PAS DE PREFERENCE ENTRE (a) ET (b), ET LES DEUX SONT ECRITES AVANT LA COURSE.**
+C3 — CE QUE JE NE FAIS PAS, ET POURQUOI. Je ne touche PAS au solveur ce cycle. Recalculer `u`
+     chaque frame ferait du ressort une LAISSE vers la pose d'auteur — ce que [NOTE-113] et
+     `author-pinned-floor-is-a-rectifier` interdisent — et l'ecart maximal (0.019 B0) vaut 22 a
+     26 fois MOINS que la bande d'apex de §22 (0.42-0.50 B0), pendant que `perr` moyen vaut
+     0.388 B0, soit **102 fois `rgap` moyen**. Corriger `rgap` serait travailler le centieme du
+     defaut. L'interdiction du cycle 114c est levee par la mesure, pas contournee.

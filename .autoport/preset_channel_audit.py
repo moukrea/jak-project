@@ -109,16 +109,51 @@ SWEEP_TRIVIAL = {0.0, 1.0, 2.0, 3.0, 4.0, 120.0}   # 0/1/2/3/4 et 120 Hz : parto
 # la cible, ce qui est la meme tautologie par un autre chemin (`never-fit-a-parameter-to-the-
 # instrument`). Elles se publient nommement, avec l'arithmetique qui les trahit.
 CALIBRATED = (
-    ('PHYS-DYN-K', 'NormalDynamicStretch / NormalMaxCOMDisplacement = 0.15 / 0.35 = 0.428571 -> 0.43 : '
-                   'le gain est regle pour que `sdy` (l etirement dynamique de la 22, :3722) vaille '
-                   'exactement 0.15 quand l excursion radiale vaut exactement 0.35 B0. TAUTOLOGIE '
-                   'CONDITIONNELLE : elle ne mord que si l excursion traine autour de 0.35 B0.'),
-    ('PHYS-SEC-K', 'gain d excitation du mode secondaire (36). NOTE-169 : « cale sur sa bande ». Pas '
-                   'une republication (un gain sur une vitesse n est pas une amplitude), mais la meme '
-                   'faute de methode. A re-examiner si la 36 devait etre declaree tenue sur une amplitude.'),
+    ('PHYS-SEC-K', 'CONSTANTE MOTEUR SANS CLE (cycle 115). Gain d excitation du mode secondaire (36). '
+                   'Ce n est le rapport d AUCUNE paire de cles : NOTE-169 decrit un BALAYAGE (2.5 -> '
+                   '0.05) mene jusqu a ce que la sortie tombe dans la bande — `never-fit-a-parameter-'
+                   'to-the-instrument` a l etat pur. COINCIDENCE NOMMEE POUR QU ELLE NE SOIT PAS '
+                   '« DECOUVERTE » COMME UN CABLAGE EVIDENT : SecondaryJiggleAmplitudeHi vaut AUSSI '
+                   '0.05 chez Keira, et la cabler serait bit-identique ici et rendrait 0.07 chez Maia '
+                   '— un canal qui AURAIT L AIR de tirer sur une egalite fortuite, les natures ne '
+                   'correspondant pas (un gain sur une vitesse normalisee contre une amplitude en '
+                   'fraction d epaisseur). La paire qui DEVRAIT la gouverner est SecondaryJiggle'
+                   'AmplitudeLo/Hi, par NORMALISATION et non par affectation ; le gain de l oscillateur '
+                   'qui la rendrait derivable est NON ETABLI. Voir [NOTE-504].'),
 )
 
+# CYCLE 115 — `PHYS-DYN-K` EST SORTI DE CETTE LISTE PARCE QU IL EST CABLE, PAS PARCE QU ON L A
+# RECLASSE. Il valait 0.43 = NormalDynamicStretch / NormalMaxCOMDisplacement = 0.15/0.35 : une
+# constante ajustee sur un RAPPORT de deux cles n egale AUCUNE valeur du preset, donc le balayage
+# par valeur du cycle 114 ne pouvait pas la voir, quelle que soit sa completude. Les deux cles sont
+# desormais lues (18 deja cablee, 26 ajoutee) et le gain se calcule a l execution. Le recablage
+# n est PAS bit-identique : float32(0.43)/float32(0.15/0.35) = 1.0033, soit -0.333 % sur `dl`.
+# Voir [NOTE-503].
+
+# BALAYAGE DE L INSTRUMENT — ANGLE MORT PAYE AU CYCLE 115, ET REFERME AU POINT DE PRODUCTION.
+# Le balayage du cycle 114 ne couvrait que le MOTEUR, la SALLE, `kmachine.cpp` et le fichier livre.
+# Il ne pouvait donc pas voir `_RAD_K = 0.43` dans `.autoport/physics_room_table.py` — une TROISIEME
+# copie du meme nombre, qui faisait de `ROOM-RAD elong` un RENOMMAGE DETERMINISTE du verdict `com=`.
+# Un instrument qui porte en dur la constante qu il mesure est la meme faute que le moteur qui la
+# porte, un cran plus loin de l oeil. On balaye donc aussi ses CONSTANTES DE MODULE.
+# ANGLE MORT QUI RESTE, ET IL EST DECLARE PLUTOT QUE TU : les litteraux EN LIGNE de l instrument
+# (12 000 lignes) ne sont PAS balayes — seules les affectations de constantes de module le sont.
+# Le dire vaut mieux que laisser croire a une preuve d exhaustivite.
+TABLE = os.path.join(REPO, '.autoport', 'physics_room_table.py')
+
 SWEEP_COINCIDENCE = {
+    # --- instrument : deux SEUILS DE LECTURE, trouves par l extension du balayage au cycle 115 ---
+    # Les deux sont des seuils de l ANALYSEUR, pas des grandeurs du solveur, et chacun porte deja
+    # sa justification dans son propre commentaire. Ils sont ici parce que la regle du cycle 114
+    # exige qu un site soit JUSTIFIE pour etre ignore, jamais ignore par oubli.
+    'TRANSMISSION_MIN = 0.90': 'seuil de LECTURE a 90 % qui separe deux formes de transmission ; la '
+                               'valeur mesuree de chaque chaine est publiee a cote, donc le seuil ne '
+                               'porte aucun verdict. Coincide avec APCompliance/HangingWidthScale par '
+                               'le seul fait que 0.90 est un pourcentage rond',
+    '_ASYM_SEUIL = 1.3': 'seuil de REFUS de pose (au-dela de x1.3 d ecart au miroir la ligne ecrit '
+                         'POSE NON SYMETRIQUE au lieu d un chiffre). Coincide avec '
+                         'HangingTransientLengthMax par le seul fait que 1.3 est un rapport rond ; '
+                         'aucune des deux grandeurs n a la dimension de l autre',
     # --- moteur : des MOITIES arithmetiques, pas des plafonds ------------------------------------
     '(h (* 0.5 a))': 'moitie arithmetique (demi-amplitude), aucune grandeur de preset',
     '(u (* 0.5 (* wh (sqrtf (fmax 0.0 (- 1.0 (* z z)))))))': 'moitie arithmetique de la pulsation amortie',
@@ -246,6 +281,28 @@ def sweep_hardcoded(byval):
             for k in found:
                 hits.setdefault(k, []).append((short, i, txt[:110]))
             untriaged.append((short, i, txt[:110], sorted(found)))
+
+    # ---- L INSTRUMENT, CONSTANTES DE MODULE SEULEMENT (cycle 115) -------------------------------
+    # `_RAD_K = 0.43` a survecu au balayage du cycle 114 parce que celui-ci ne regardait pas ce
+    # fichier. Un instrument qui porte en dur la valeur qu il mesure produit une ligne de tableau
+    # tautologique — ici `ROOM-RAD elong`, qui n etait qu un renommage de `com=`.
+    try:
+        for i, raw in enumerate(open(TABLE, encoding='utf-8'), 1):
+            code = raw.split('#')[0]
+            m = re.match(r'\s*(_?[A-Z][A-Z0-9_]*)\s*=\s*(\d+\.\d+)\s*$', code)
+            if not m:
+                continue
+            f = float(m.group(2))
+            if f in SWEEP_TRIVIAL or f not in byval:
+                continue
+            txt = code.strip()
+            if txt in allow or [t for t in allow if t and t in txt]:
+                continue
+            for k in byval[f]:
+                hits.setdefault(k, []).append(('physics_room_table.py', i, txt[:110]))
+            untriaged.append(('physics_room_table.py', i, txt[:110], sorted(byval[f])))
+    except OSError:
+        pass
     return hits, untriaged
 
 
@@ -326,8 +383,13 @@ def stamp():
     """
     import hashlib
     out = []
+    # CINQ fichiers depuis le cycle 115 : l'INSTRUMENT est entre dans le balayage le jour ou
+    # `_RAD_K = 0.43` y a ete trouve — une troisieme copie d'une valeur du preset, qui rendait
+    # `ROOM-RAD elong` tautologique. Un tableau qui parle du balayage doit porter l'empreinte de
+    # TOUT ce qu'il balaye, sinon la provenance ment par omission.
     for f, n in ((ENGINE, 'jak-hd-physics.gc'), (ROOM, 'phys-room.gc'),
-                 (KM, 'kmachine.cpp'), (CHAINS, 'physics_chains.txt')):
+                 (KM, 'kmachine.cpp'), (CHAINS, 'physics_chains.txt'),
+                 (TABLE, 'physics_room_table.py')):
         out.append('%s %s' % (n, hashlib.md5(open(f, 'rb').read()).hexdigest()[:12]))
     return out
 
@@ -462,7 +524,8 @@ def main():
         print('  %s' % l)
     print('Regenere par : python3 .autoport/preset_channel_audit.py > .../preset-channels.md')
     print()
-    print('BALAYAGE PAR VALEUR (cycle 114) — moteur + salle, tout litteral egal a une valeur du')
+    print('BALAYAGE PAR VALEUR (cycle 114, etendu a l\'INSTRUMENT au cycle 115) — moteur, salle ET')
+    print('les constantes de module de `physics_room_table.py` : tout litteral egal a une valeur du')
     print('preset. Une coincidence doit etre JUSTIFIEE pour etre ignoree, elle n\'est plus ignoree')
     print('par oubli. Entrees d\'allowlist : %d. Sites non tries : %d.'
           % (len(SWEEP_COINCIDENCE) + len(SWEEP_REPEATED), len(untriaged)))

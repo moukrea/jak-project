@@ -202,7 +202,7 @@ pk VerticalEffectiveMass 0.5   # SPEC-breast-softbody.md:546
 pk VerticalEffectiveStiffness 104   # SPEC-breast-softbody.md:547
 # --- fin PRESET
 # chestR [A] rBoob verts=55 wsum=19.75 r=725 | rBooc verts=41 wsum=28.57 r=533
-chain chestR class=primary stiffness=2.9081 damping=0.1753 gravity=1.00 radius=629 mass=1.4800 hang=0.00 family=A couple=1.85 radii=725,533 b0=602 comw=0.3581,0.1871
+chain chestR class=primary stiffness=2.9081 damping=0.1752 gravity=1.00 radius=629 mass=1.4800 hang=0.00 family=A couple=1.85 radii=725,533 b0=602 comw=0.3581,0.1871
 j rBoob
 j rBooc
 # --- PRESET (SPEC-breast-softbody section 38) — pose par .autoport/preset_apply.py pour chestR.

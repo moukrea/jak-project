@@ -6085,6 +6085,27 @@
                 (dotimes (i 7)
                   (format 0 "PHYSSTGQ c=~D ax=~D st=~D jt=~f~%"
                           c ax i (phys-diag (-> self slot) c (+ 87 i))))))
+            ;; ---- [NOTE-505] CYCLE 115 : `rgap` / `perr` SUR LA FENETRE QUI PORTE LE VERDICT DE 2/9 --
+            ;; `PHYSRESTW` n'a qu'un emetteur, `physroom-emit-window`, et un seul appelant, PH-MEAS.
+            ;; Sa cle est (animation, pilotage) ; PH-AXC n'a ni l'une ni l'autre. **`rgap` n'etait
+            ;; donc PAS emis sur la fenetre ou `ROOM-AXC-SETTLE` et `PHYSSTGQ` prennent le verdict**,
+            ;; et le « facteur ~24 » que le cycle 114c demandait de reconcilier comparait un p90 de
+            ;; MAXIMA releves sous animation qui AVANCE a un INSTANTANE sous animation GELEE. Ce
+            ;; n'etait pas un desaccord de grandeur : c'etait deux fenetres differentes.
+            ;; NATURE deux LONGUEURS rapportees a B0 (SPEC 6), maximums sur CETTE fenetre — le
+            ;;   `phys-diag-reset!` de `pframe = 1` ci-dessus en fixe la portee, la meme que celle
+            ;;   des sept etages de `PHYSSTGQ` emis juste au-dessus, a la meme frame.
+            ;; REPERE le monde, meme frame, meme attache, meme longueur d'os que la pose d'auteur.
+            ;; ABSENT `rgap` = 0.0000 si la cible de repos EST la pose d'auteur dans cette pose.
+            ;; CE QU'ELLE TRANCHE : si `rgap` y vaut ~0.0005 comme `PHYSSTGQ`, la chaine se gare
+            ;;   bien sur la cible du ressort et il n'y a rien a corriger ; si elle y vaut ~0.013
+            ;;   pendant que `PHYSSTGQ` reste a 0.0006, la these du cycle 114c est REFUTEE.
+            (dotimes (c (-> self nchain))
+              (when (> (phys-chain-links (-> self slot) c) 0)
+                (format 0 "PHYSRESTQ c=~D ax=~D rgap=~,,7f perr=~,,7f~%"
+                        c ax
+                        (phys-diag (-> self slot) c 24)
+                        (phys-diag (-> self slot) c 26))))
             (dotimes (c (-> self nchain))
               (when (> (phys-chain-links (-> self slot) c) 0)
                 (format 0 "PHYSAXRESN c=~D ax=~D res=~f ci=~f rot0=~f~%"

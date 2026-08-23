@@ -11332,14 +11332,56 @@ def main():
     #   `n` (nombre de fenetres agregees) est publie pour cette raison : sans le DOMAINE, un zero
     #   ne distingue pas « rien ne bouge » de « rien ne mesure ».
     # ============================================================================================
-    _RAD_K = 0.43   # PHYS-DYN-K du moteur (:356), derive de SPEC 38 : 0.15 de stretch a 0.35 B0.
+    # ============================================================================================
+    # LE GAIN VIENT DE LA TRACE, PLUS D'UN LITTERAL — cycle 115, et c'est un faux vert retire.
+    # Il portait `_RAD_K = 0.43`, une COPIE du `PHYS-DYN-K` du moteur, lui-meme une copie du rapport
+    # `NormalDynamicStretch / NormalMaxCOMDisplacement` = 0.15/0.35. Trois copies du meme nombre
+    # dans trois fichiers : le jour ou l'une bouge, les deux autres mentent en silence. Le moteur
+    # publie desormais les DEUX cles a l'execution (`PHYSPSETF ndyn=`, `PHYSPSETD ckn=`) et le gain
+    # se LIT dans la course qu'on analyse. Ca vaut mieux que de relire le fichier livre : une course
+    # de CONTROLE tourne sur un vecteur d'essai, et un lecteur qui irait chercher le fichier livre
+    # decrirait une configuration qui n'est pas celle de la trace (`snapshot-provenance-path-not-time`).
+    _RAD_K, _RAD_KSRC = None, 'ABSENT'
+    # LE PREFIXE `[HD-PHYS] ` EST OBLIGATOIRE SUR CES LIGNES-LA, ET L'AVOIR OUBLIE A COUTE UNE
+    # REGENERATION DU TABLEAU (cycle 115). `PHYSPSET*` sort de l'INIT DU MOTEUR, donc PREFIXEE ;
+    # `PHYSRAD` et consorts sortent de la SALLE, donc NUES. Un `^PHYSPSETF` ne matche jamais : la
+    # garde rendait `GAIN-ABSENT` et le tableau se taisait pour une faute de LECTURE au lieu d'un
+    # defaut du moteur. Meme piege que celui que `c114_ladder.py` documente en tete. Le prefixe est
+    # rendu OPTIONNEL pour que le bloc reste lisible sur une trace deja filtree.
+    _ndyn = re.search(r'^(?:\[HD-PHYS\] )?PHYSPSETF c=0 .*\bndyn=([-\d.e+]+)', txt, re.M)
+    _ckn = re.search(r'^(?:\[HD-PHYS\] )?PHYSPSETD c=0 .*\bckn=([-\d.e+]+)', txt, re.M)
+    if _ndyn and _ckn and float(_ckn.group(1)) > 1e-6:
+        _RAD_K = float(_ndyn.group(1)) / float(_ckn.group(1))
+        _RAD_KSRC = 'lu dans la trace : ndyn=%.4f / ckn=%.4f' % (float(_ndyn.group(1)),
+                                                                 float(_ckn.group(1)))
+    # LE PLAFOND DE CONSTRUCTION, ET IL DOIT ETRE PUBLIE A COTE DE LA BANDE, SINON LA BANDE MENT.
+    # `rrm` est lui-meme ecrete par `rcap <= HardMaxCOMDisplacement * B0` (jak-hd-physics.gc:3085),
+    # donc `elong = k * rrm < k * chard` PAR CONSTRUCTION, quel que soit le stimulus. Avec les
+    # valeurs livrees ca vaut 0.4286 * 0.40 = 0.171 : les bandes « large 15-21 % » et
+    # « exceptional 21-25 % » de SPEC 22 sont INATTEIGNABLES par cette grandeur, et un « jamais
+    # au-dessus de 21 % » se lirait comme un vert alors que c'est un seuil que l'operateur ne peut
+    # pas franchir (`threshold-an-asymptotic-operator-never-crosses`).
+    _chard = re.search(r'^(?:\[HD-PHYS\] )?PHYSPSETE c=0 .*\bchard=([-\d.e+]+)', txt, re.M)
+    _RAD_CEIL = (_RAD_K * float(_chard.group(1))) if (_RAD_K is not None and _chard) else None
     A('-- ROOM-RAD : SPEC 22, DEPLACEMENT RADIAL DU COM ET ELONGATION QU\'IL PRODUIT -------------')
     A('   DEUX grandeurs, DEUX lignes de sa spec, et ne pas les confondre est le point :')
     A('     `rrm`   = DEPLACEMENT du COM / B0   -> « Breast COM: normal <= 35 % B0, hard transient')
     A('               <= 40 % B0 » (SPEC 22 / SPEC 38) ;')
-    A('     `elong` = l\'ELONGATION commandee au tissu, `PHYS-DYN-K * rrm` avec PHYS-DYN-K = 0.43')
-    A('               (SPEC 38 : 0.15 de stretch a 0.35 B0) -> « local tissue elongation: common')
-    A('               5-15 %, large 15-21 %, exceptional 21-25 %, absolute clamp 25 % ».')
+    A('     `elong` = l\'ELONGATION commandee au tissu, `k * rrm` -> « local tissue elongation:')
+    A('               common 5-15 %, large 15-21 %, exceptional 21-25 %, absolute clamp 25 % ».')
+    A('   GAIN k = NormalDynamicStretch / NormalMaxCOMDisplacement, %s'
+      % (('%.6f (%s)' % (_RAD_K, _RAD_KSRC)) if _RAD_K is not None
+         else 'NON LU — la trace ne porte ni `ndyn=` ni `ckn=` ; `elong` n\'est PAS publie'))
+    if _RAD_CEIL is not None:
+        A('   PLAFOND DE CONSTRUCTION : `rrm` est ecrete a HardMaxCOMDisplacement, donc')
+        A('     elong < %.4f (= %.6f x %.4f) SUR TOUTE COURSE, quel que soit le stimulus.'
+          % (_RAD_CEIL, _RAD_K, float(_chard.group(1))))
+        _unr = [nm for nm, lo in (('large 15-21 %', 0.15), ('exceptional 21-25 %', 0.21),
+                                  ('absolute clamp 25 %', 0.25)) if lo >= _RAD_CEIL]
+        A('     BANDES INATTEIGNABLES PAR CETTE GRANDEUR : %s.'
+          % (', '.join(_unr) if _unr else 'aucune'))
+        A('     Donc « jamais au-dessus » n\'est PAS un verdict sur ces bandes-la : c\'est un seuil')
+        A('     que l\'operateur ne peut pas franchir. Aucune section ne se declare tenue dessus.')
     A('   NATURE : un deplacement sans unite et la deformation qu\'il commande. REPERE : axe de l\'os')
     A('   dans le triedre de l\'ancre. LIGNE DE BASE : 0.0 a la pose d\'auteur debout (SPEC 9).')
     _rad = {}
@@ -11419,10 +11461,11 @@ def main():
                     _sx += ' libre'
                 if e['sat'] is not None:
                     _sx += ' sat=%d fr' % int(e['sat'])
-            A('ROOM-RAD: chain=%-12s drive=%-10s rrm=%.4f com=%-15s elong=%.4f tissu=%-12s n=%d%s%s'
+            _el = ('elong=%.4f tissu=%-12s' % (_RAD_K * e['rrm'], _radband(_RAD_K * e['rrm']))
+                   if _RAD_K is not None else 'elong=NON-PUBLIE tissu=GAIN-ABSENT')
+            A('ROOM-RAD: chain=%-12s drive=%-10s rrm=%.4f com=%-15s %s n=%d%s%s'
               % (names[c] if c < len(names) else 'c%d' % c, DRIVE_NAMES[dr], e['rrm'],
-                 _comband(e['rrm']), _RAD_K * e['rrm'], _radband(_RAD_K * e['rrm']),
-                 e['n'], _sx, _mk))
+                 _comband(e['rrm']), _el, e['n'], _sx, _mk))
         # ---- ROOM-RAD-LINK : LES MEMES TROIS GRANDEURS, RESOLUES PAR MAILLON (cycle 33) -------
         # `rrr` ci-dessus est un maximum SUR LA CHAINE. Il vaut 1.42 B0 pour un plafond de 0.40 sans
         # dire QUEL maillon sature, et les deux remedes candidats de SPEC 22 (borne par maillon, ou
@@ -11895,8 +11938,10 @@ def main():
             _per = {DRIVE_NAMES[d]: _rad[(c, d)]['rrm']
                     for d in range(len(DRIVE_NAMES)) if (c, d) in _rad}
             _hi, _lo = max(_per.values()), min(_per.values())
-            A('ROOM-RAD-MAX: chain=%-12s rrm=%.4f com=%s elong=%.4f tissu=%s%s'
-              % (_nm, _hi, _comband(_hi), _RAD_K * _hi, _radband(_RAD_K * _hi),
+            _elm = ('elong=%.4f tissu=%s' % (_RAD_K * _hi, _radband(_RAD_K * _hi))
+                    if _RAD_K is not None else 'elong=NON-PUBLIE tissu=GAIN-ABSENT')
+            A('ROOM-RAD-MAX: chain=%-12s rrm=%.4f com=%s %s%s'
+              % (_nm, _hi, _comband(_hi), _elm,
                  '   (maximum identiquement nul : le canal radial n\'a rien ecrit sur AUCUN'
                  ' pilotage — ce n\'est pas un repos mesure, c\'est un domaine vide)'
                  if _hi <= 0.0 else ''))
