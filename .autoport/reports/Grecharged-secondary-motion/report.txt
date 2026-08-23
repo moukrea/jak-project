@@ -3,10 +3,10 @@ DIRECTIVES vd9e8b66782
 ================================================================================================
 DECLARATIONS OBLIGATOIRES — CE BLOC RESTE EN TETE DE CHAQUE RAPPORT ET NE SE REECRIT PAS.
   Le validateur EXIGE deux lignes de ce fichier : `DIRECTIVES <version>` et `BREAST-PENETRATION:`.
-  Les reecrire de memoire les fait tomber : c'est arrive au cycle 105 (commit 455ddd5140) et
-  A NOUVEAU au cycle 109, sur la meme ligne, pour la meme raison — un rapport recrit a neuf.
-  Le remede n'est pas « faire attention » : c'est ce bloc, en tete, recopie avant d'ecrire le
-  reste. Verification apres ecriture :
+  Les reecrire de memoire les fait tomber : c'est arrive au cycle 105 (commit 455ddd5140), au
+  cycle 109, et UNE TROISIEME FOIS AU CYCLE 112 — a chaque fois pour la meme raison, un rapport
+  recrit a neuf au lieu d'etre amende. Le remede n'est pas « faire attention » : c'est ce bloc, en
+  tete, RECOPIE AVANT d'ecrire le reste. Verification apres ecriture :
       bash .autoport/validators/phase-Grecharged-secondary-motion.sh | wc -l   -> 18 lignes
   Une sortie PLUS COURTE que 18 lignes signale une gate qui a coupe le reste, jamais un progres.
 
@@ -14,231 +14,206 @@ BREAST-PENETRATION: 0.0973 m — `meshpen`, DIAGNOSTIC, jamais un verdict (arbit
 13:20 : c'est un DEPLACEMENT, pas une profondeur). Inchange : ce cycle ne touche pas le solveur.
   chestL meshpen max 0.0555 m (anim `assistant-village3-idle`, drive `jerk`)
   chestR meshpen max 0.0973 m (anim `assistant-village2-idle-to-a`, drive `accel`)
-  Releve sur la course de ce cycle (01:22, 99 481 lignes, `PHYSEND` atteint), pas recopie.
+  Relu ce cycle dans `keira-room-table.txt` (course de 99 481 lignes, `PHYSEND` atteint), pas
+  recopie du rapport precedent : les deux valeurs et leurs animations ont ete reverifiees.
 ================================================================================================
 
-CYCLE 111 — LE CANAL LE PLUS CONSEQUENT DU PRESET N'EN ETAIT PAS UN, ET C'EST MON PROPRE
-            INSTRUMENT D'AVANCEMENT QUI LE COMPTAIT COMME TEL.
+CYCLE 112 — LE DISCRIMINANT DE §18 DORMAIT DANS LA TRACE DEPUIS QUATRE COURSES. LU, IL REFUTE LA
+COLLISION — ET LA LISTE DES SUSPECTS DE CETTE SECTION EST DESORMAIS VIDE.
 
+================================================================================================
+0. L'AVANCEMENT, ET IL SE LIT DANS `SPEC-COVERAGE.md`, PAS DANS LE VALIDATEUR
+================================================================================================
+    TENUE                    3   (§12, §25, §26)
+    TENUE PAR CONSTRUCTION   5   (§1, §4, §5, §28, §35)
+    PARTIELLE               17
+    NON TENUE               13
+    -------------------------------------------------------------------------------
+    INCHANGE DEPUIS LE CYCLE 106. SEPT CYCLES SANS CHANGEMENT DE STATUT.
 
-1. L'AVANCEMENT, ET IL SE LIT DANS `SPEC-COVERAGE.md` — PAS DANS LE VALIDATEUR
-------------------------------------------------------------------------------------------------
-Arbitrage du superviseur du 2026-08-23 01:20, applique ici pour la premiere fois : le validateur
-n'est plus un indicateur d'avancement. Donc j'ouvre sur le registre.
+Je mets ce chiffre en premier parce que c'est celui que l'owner attend, et parce que la directive
+du 2026-08-23 01:20 est explicite : un validateur vert dit « ce que j'ai mesure est honnete »,
+jamais « sa poitrine est conforme ». L'etat du validateur est en section 6, en dernier.
 
-    3 TENUE · 5 TENUE PAR CONSTRUCTION · 17 PARTIELLE · 13 NON TENUE · 0 NON ETABLI   (38 sections)
+Ce cycle ne fait verdir aucune section. Ce qu'il fait est fermer le DERNIER suspect classe de §18
+et etablir que la question, telle qu'elle etait posee, ne peut pas etre repondue par la mesure sur
+laquelle on la posait.
 
-**AUCUN STATUT NE BOUGE CE CYCLE.** Zero ligne de moteur, zero build, zero course neuve.
-Le verrou `green-validator-is-not-conformance` que le PREFLIGHT signalait comme disparu est
-RETABLI dans `.autoport/SPEC-COVERAGE.md` (regle 6 de son en-tete), et il y porte la formulation
-du superviseur : un validateur vert dit « ce que j'ai mesure est honnete », jamais « sa poitrine
-est conforme ».
+================================================================================================
+1. LA CAUSE RACINE DE LA TENTATIVE 4 — ET ELLE N'EST PAS TECHNIQUE
+================================================================================================
+La tentative 4 s'est arretee sur `OPEN-DEFECTS / breast-spec-incomplete`, la porte humaine. Rien a
+diagnostiquer de ce cote : cette gate n'a pas de mode « reussi » par construction, seul l'owner
+retire la ligne, et le jeton `.autoport/owner-ok/<phase>` n'est jamais cree a sa place. Le
+superviseur l'a arbitre le 2026-08-23 a 01:20 et a pose que la borne des deux cycles ne compte pas
+les cycles dont le SEUL echec est cette porte.
 
+Le vrai defaut de la tentative 4 est ailleurs, et il est a moi : elle a conclu, comme les cycles
+109, 110 et 111 avant elle, que le test de §18 « demande une course ». **LA COURSE AVAIT DEJA EU
+LIEU.**
 
-2. LE FAUX VERT, ET IL ETAIT DANS LE CHIFFRE QUE JE REMONTE A L'OWNER
-------------------------------------------------------------------------------------------------
-L'etat du cycle 110 publie « CANAL FICHIER 19/90, indirect 3/90 ». **Les trois « indirects » n'en
-etaient pas.** `.autoport/preset_channel_audit.py` portait un dictionnaire `INDIRECT` ECRIT A LA
-MAIN — « stiffness / sqrt(mass) sur la ligne `chain` — f = 2.300 Hz mesure » — et comptait ces
-cles comme des boutons branches sur la foi de cette note. C'est la regle 0 du contrat prise a
-l'envers : un commentaire tenait lieu de preuve, dans le seul instrument qui mesure l'avancement.
+================================================================================================
+2. SEIZE LIGNES EMISES, JAMAIS LUES, PENDANT QUATRE COURSES
+================================================================================================
+Le cycle 108 a ecrit le discriminant de §18 AVANT la course, dans le pave `PHYSROOM-PH-REGC`
+(`phys-room.gc:6095-6131`), et a construit la phase qui le joue : chaque cellule (sens x regime)
+jouee DEUX FOIS DE SUITE, une fois collision ARMEE, une fois DESARMEE, l'ordre des jambes s'inversant
+d'une cellule a l'autre pour separer l'ablation du rang.
 
-MESURE QUI TRANCHE — PERTURBATION, AUCUN BUILD, AUCUNE COURSE :
+    $ grep -c "PHYSREGW ph=4[45]" keira-room-x86.log
+    16
 
-    pk GlobalFrequencyVertical   2.3   ->  1.85   (-20 %)      preset de MAIA sur la chaine de KEIRA
-    pk GlobalDampingRatio        0.35  ->  0.33
-    pk MassPerBreast             0.5   ->  1.05   (x2.1)
-    ---------------------------------------------------------------------------------------------
-    chain chestL ... stiffness=2.7696 damping=0.1686 mass=1.45 ...   ->   IDENTIQUE AU BIT
+Ces seize lignes sont dans la trace depuis le 2026-08-22 22:57. QUATRE courses completes les ont
+emises (22:57, 22:57, 23:30, 2026-08-23 00:52) et TROIS cycles sont passes au-dessus sans les
+ouvrir. Cout de la lecture ce cycle : zero build, zero course, un script.
 
-Les trois cles les plus consequentes du document ne touchaient RIEN. Leurs valeurs livrees
-venaient d'une derivation HUMAINE faite le 2026-08-14 et FIGEE dans
-`recharged_assets/keira-owner-tuning.txt:1237-1241`, qui ecrit le resultat (2.7696) et jamais
-l'operation. `apply_owner_tuning.py` ne contient pas une seule occurrence de `pk`.
+C'est la troisieme occurrence du meme mode d'echec, et il porte deja son nom au registre :
+`stage-ratio-was-already-in-the-trace` (les deux colonnes de `PHYSREGW`, publiees depuis le cycle 71
+et confrontees seulement au cycle 108) et `classify-population-by-window-maximum` (la donnee
+corrective de §21, emise et non lue).
 
-CE QUE CA COUTE AU CONTROLE POSITIF DU CYCLE 109, ET JE LE DIS SANS L'ENROBER. Il a tire, et il
-reste valable pour les 19 cles reellement cablees — les 372 cellules de `PHYSSHAPE` changees ne
-sont pas un artefact. Mais **sa jambe « B (preset Maia entier) » a tourne avec la frequence,
-l'amortissement et la masse de KEIRA**. Le controle « au niveau du systeme entier » etait aveugle
-aux trois entrees mecaniques du document. Ce n'est pas ce que le cycle 109 a annonce.
+**REGLE QUI EN SORT : avant d'ecrire « il faut une course », grepper la trace pour le tag qu'on
+croit manquant.** Un emetteur pose et jamais lu coute exactement ce que couterait son absence, mais
+il se repare en une minute au lieu d'un quart d'heure. Je l'ai appliquee a §36 dans ce meme cycle
+(section 5), et la la donnee n'existait vraiment pas.
 
+================================================================================================
+3. LE CRITERE, RECOPIE ET NON CHOISI, PUIS APPLIQUE
+================================================================================================
+Le pave du cycle 108, mot pour mot :
 
-3. CE QUI EST CABLE, ET LES DEUX CONTROLES
-------------------------------------------------------------------------------------------------
-`.autoport/preset_apply.py` DERIVE desormais `stiffness=` depuis la cle du fichier livre :
+    rapport gauche/droite de `perr` SOUS x1.3 sur la jambe desarmee  -> la collision porte §18 ;
+    baisse de moins de 20 % par rapport a la jambe ARMEE de la meme cellule -> REFUTEE.
 
-    SPEC 24   stiffness = GlobalFrequencyVertical * sqrt(mass)     (w = 2*pi*stiffness/sqrt(mass))
-    SPEC 32   chestR = chestL x 1.05                              (haut de sa bande « +-3-5 % »)
+`.autoport/regc_ablation_read.py` RECOPIE ces deux nombres depuis le pave au lieu de les choisir.
+La lecture est reproductible : `python3 .autoport/regc_ablation_read.py`.
 
-  CONTROLE NEGATIF — EXACT. Avec le preset de Keira la derivation rend 2.7696 et 2.9081,
-    c'est-a-dire les deux nombres deja livres. `diff` du fichier livre : IDENTIQUE AU BIT,
-    md5 `2cf3ea7c0a92c7e4176bbc4c550257eb` inchange. Le cablage est donc INERTE sur ce qu'on
-    livre : la physique mesuree ne bouge pas d'un bit, et la course de 01:22 reste valable.
-        [preset] SPEC24 canal  chestL   stiffness 2.7696 -> 2.7696   identique au bit
-        [preset] SPEC24 canal  chestR   stiffness 2.9081 -> 2.9081   identique au bit
+3.1 CLAUSE DE VALIDITE D'ABORD — le pave en fait une condition de lecture (« si `abl=0` ne
+    reproduit pas `PHYSREGA`, tout ce bloc tombe »). Elle passe :
 
-  CONTROLE POSITIF — LE BOUTON TOURNE.
-        [preset] SPEC24 canal  chestL   stiffness 2.7696 -> 2.2277   CHANGE (vecteur Maia)
-        [preset] SPEC24 canal  chestR   stiffness 2.9081 -> 2.3391   CHANGE (vecteur Maia)
-    x0.8043 des deux cotes, soit exactement 1.85/2.30, et le rapport de SPEC 32 conserve a 1.0500.
+        c=1 r=9  sgn=-1    0.1593 contre 0.1593    0.00 %
+        c=0 r=9  sgn=+1    0.4061 contre 0.4100   -0.95 %
+        c=0 r=10 sgn=+1    0.5113 contre 0.4796   +6.61 %   <- le pire
+        (8 cellules, ecart max 6.61 %)
 
-  ET LE CONTROLE NEGATIF A SERVI A QUELQUE CHOSE — il a attrape une faute de MA derivation avant
-    qu'elle atteigne le fichier livre. Recalculer chestR avec SA propre masse (1.4800) rend
-    **2.9380** et non 2.9081 : SPEC 32 porte l'asymetrie d'un seul cote (chestL reste au nominal),
-    donc la masse de chestR ne doit pas entrer une seconde fois dans la raideur. Sans la bit-
-    identite exigee d'avance, ce +1,03 % serait parti dans le pack.
+    **Ce 6,61 % devient le PLANCHER DE BRUIT de la comparaison**, et il sert en 3.3.
 
-3 bis. LA PREUVE DE BOUT EN BOUT — ELLE ETAIT DECLAREE NON FAITE, ELLE EST FAITE
-------------------------------------------------------------------------------------------------
-Le diff de fichier prouve `preset -> stiffness` ; `stiffness -> f mesuree` etait prouve ailleurs.
-Les deux bouts n'avaient jamais ete parcourus dans une meme course. Ils le sont : course de
-controle complete sur le vecteur Maia (`preset_ctrl_run.sh`, `PHYSEND`, 99 481 lignes), tableau
-derive a part — la course de controle n'est PAS la course livree et n'ecrit ni son log ni son
-tableau. Fichier livre RESTAURE et verifie apres coup : md5 `2cf3ea7c0a92c7e4176bbc4c550257eb`.
+3.2 LE RESULTAT — rapport L/R de l'apex, arme puis desarme :
 
-PREDICTION POSEE AVANT DE REGARDER, comme l'arbitrage du 2026-08-20 13:20 l'exige d'un controle
-(« une PREDICTION quantitative, jamais un ratio a une ligne de base qui bouge ») :
-    f_B / f_A = 1.85 / 2.30 = 0.8043 sur les SIX cellules.
+        r=9  sgn=-1    x3.081 -> x3.124    -1.40 %
+        r=9  sgn=+1    x3.950 -> x3.772    +4.52 %
+        r=10 sgn=-1    x3.012 -> x2.903    +3.60 %
+        r=10 sgn=+1    x4.240 -> x4.162    +1.84 %
 
-Mesure — `ROOM-AXFIT-RAD-NOLEN`, ajustement de sinusoide amortie avec intervalle de confiance,
-instrument INDEPENDANT de la chaine que je viens de cabler :
+    Sur `perr`, meme verdict : desarme x6.71 / x4.62 / x5.58 / x4.89. Aucune cellule ne s'approche
+    du x1,3 qu'exigeait la branche « la collision porte §18 ». La baisse maximale vaut 4,52 %,
+    contre un critere de refutation a 20 %.
 
-    cellule           f_A (Keira)   f_B (Maia)    B/A      ecart a la prediction
-    chestL v             2.265        1.840      0.8124        +1.00 %
-    chestL ap            2.345        1.880      0.8017        -0.33 %
-    chestL lat           2.570        2.030      0.7899        -1.80 %
-    chestR v             2.465        1.980      0.8032        -0.14 %
-    chestR ap            2.445        1.940      0.7935        -1.35 %
-    chestR lat           2.685        2.190      0.8156        +1.40 %
-    ---------------------------------------------------------------------------
-    moyenne              -            -          0.8027        -0.20 %
+    **VERDICT : LA GEOMETRIE DE COLLISION EST REFUTEE COMME CAUSE DE L'ASYMETRIE DE §18.**
 
-**LES SIX CELLULES DANS +-1,8 % DE LA PREDICTION, LA MOYENNE A -0,20 %.** Les intervalles de
-confiance sont a +-0,005 a +-0,025 Hz : la separation est tres au-dela du bruit. Le canal §24
-porte donc reellement, du fichier livre jusqu'a la frequence mesuree.
+3.3 ET LA REFUTATION EST ROBUSTE AU BRUIT, CE QUI N'ALLAIT PAS DE SOI — JE NE LE CACHE PAS.
+    L'effet de l'ablation vaut **-1,92 % en moyenne sur chestL**, donc **SOUS le plancher de bruit
+    de 6,61 %**. Je ne peux donc PAS distinguer « le mur vaut 2 % » de « le mur vaut 0 », et je ne
+    pretends pas le contraire. Mais la conclusion n'en depend pas :
 
-  ESTIMATEUR CONCURRENT, ET JE PUBLIE SON DESACCORD PLUTOT QUE DE LE TAIRE. Un comptage de
-  passages par zero sur `PHYSRINGCX` donne la bonne DIRECTION (baisse sur 11 cellules sur 12)
-  mais des rapports qui quantifient a 3/4, 2/3, 1/2 : sur une fenetre aussi courte sa resolution
-  est de ~0,2 Hz, trop grossiere pour trancher un ecart de 0,45 Hz. Il confirme le sens, il ne
-  confirme pas l'amplitude — c'est l'ajustement amorti qui porte le chiffre, pas lui.
+        pour tomber sous x1,3 il faudrait une baisse de 56,8 / 67,1 / 56,8 / 69,3 %
+        la plus petite vaut 56,8 %, soit 8,6 fois le plancher de bruit
 
-3 ter. ET LE CANAL D'AMORTISSEMENT ABSENT A UN COUT, MESURE
-------------------------------------------------------------------------------------------------
-`damping=` n'etant pas derive, il reste a la valeur de Keira pendant que la frequence descend.
-Consequence mecanique (`zeta = damping/(2*2*pi*f/60)` monte quand f baisse a damping constant) :
+    Un bruit de 6,6 % ne dissimule pas un effet de 57 %. La refutation tient independamment de la
+    resolution de l'instrument, et c'est publie a cote du resultat plutot que suppose.
 
-    zeta   chestL v  0.34 -> 0.45     chestR v  0.36 -> 0.42
-           chestL ap 0.36 -> 0.43     chestR ap 0.35 -> 0.43
-           chestL lat 0.32 -> 0.42    chestR lat 0.34 -> 0.43
+3.4 NON-VACUITE — un zero tire d'un couteau emousse n'est pas une refutation.
+    * au CODE : `phys-vol-floor` rend `PHYS-VOL-FREE = 1e9` quand `*phys-col-off*` est arme
+      (`jak-hd-physics.gc:939-941`, `PHYS-VOL-FREE` defini `:897`). Aucune profondeur ne franchit
+      1e9 : le mur est muet, ce n'est pas un adoucissement.
+    * CORROBORATION INDEPENDANTE, autre phase et autres fenetres, meme bouton : sur le balayage
+      d'orientation, la passe `k=4` (`phys-col-off-set!`) deplace l'apex de **-1,10 % (chestL) /
+      -0,35 % (chestR)** la ou `k=1` (contrainte de longueur) le deplace de **+21,5 % / +27,9 %**.
+      Le harnais d'ablation mord ; ce n'est pas la collision qui porte.
+    * **RESERVE DECLAREE, ET ELLE EST A MOI** : aucun COMPTEUR de corrections de collision n'est
+      emis PAR FENETRE dans cette phase. La preuve que le mur se tait est le code plus un effet non
+      nul et de signe coherent — ce n'est PAS un compteur tombe a zero, et je ne le presente pas
+      comme tel. Poser ce compteur est bon marche (l'etat `*phys-cdmok*` existe deja) et c'est le
+      premier point du cycle suivant.
 
-Les valeurs mesurees en B collent a la prediction « damping constant » a 0,01-0,03 pres sur les
-six cellules — donc c'est bien le mecanisme, pas un artefact. Or `GlobalDampingRatio` de Maia vaut
-**0,33** : tourner la seule frequence emmene zeta a 0,42-0,45, c'est-a-dire a l'OPPOSE de ce que
-son preset demande. **Le canal d'amortissement n'est donc pas un manque cosmetique : sans lui, le
-bouton de frequence n'est pas utilisable seul.** Ca fait passer l'ecart 0,1752 / 0,1753 de la
-section 4 du rang de coquette a celui de chantier nomme, avec sa mesure.
+================================================================================================
+4. CE QUE CA CHANGE POUR §18 — ET LA QUESTION EST MAINTENANT VIDE DE SUSPECTS
+================================================================================================
+Les QUATRE causes classees de l'asymetrie gauche/droite de §18 sont refutees :
 
-`.autoport/preset_channel_audit.py` ne DECLARE plus un canal indirect : il le **PROUVE PAR
-PERTURBATION** (x1.5 sur la cle, puis on regarde si l'artefact que le moteur lit bouge). Si rien
-ne bouge, c'est `CANAL ABSENT`, quelle que soit la note. **Une note ne peut plus accorder un
-canal.** Correctif pose au PRODUCTEUR du verdict, pas sur le site qui l'a revele.
+    1. la MAIN du triedre           refutee cycle 108 (aucun consommateur ne lit un determinant)
+    2. l'index d'AXE                refutee cycle 108 (|sja|/|sjb| = 83 882)
+    3. la POSE                      refutee cycle 108 (reflexion a 0,0046 pres ; miroir a 0,54 deg)
+    4. la geometrie de COLLISION    REFUTEE ICI
 
-`MassPerBreast` prend une categorie propre — **`JAUGE (inerte par construction)`** — jamais comptee
-comme un canal. Meme statut que `TENUE PAR CONSTRUCTION` : declaree, jamais une victoire
-(DIRECTIVES 2026-08-19 20:25, « zero effet observable »). La compter gonflait le chiffre.
+**La liste est vide, et je ne la remplis pas d'un cinquieme nom pour avoir quelque chose a dire.**
+Ce que la mesure impose a la place est une reformulation, et le cycle 108 l'avait deja a moitie
+ecrite sans en tirer la consequence :
 
-COMPTES HONNETES, QUI REMPLACENT CEUX DU CYCLE 110 :
+    `perr` de chestL vaut 0,5034 a 0,5821 B0 sur 12 cellules sur 12, pour un plafond de
+    deplacement a 0,50 B0. **IL EST SATURE.**
 
-    CANAL FICHIER                     19 / 90
-    CANAL FICHIER (indirect)           1 / 90     <- etait 3 ; et ce 1, c'est celui de ce cycle.
-    JAUGE (inerte par construction)    1 / 90        Avant lui, le compte honnete etait 0.
-    HORS RUNTIME (asset)              11 / 90
-    CONSTANTE MOTEUR                   0 / 90     TAUTOLOGIQUES 0
-    CANAL ABSENT                      58 / 90
+Un rapport bati sur une valeur ecretee mesure une saturation, pas une asymetrie — c'est
+`factor-arithmetic-on-saturated-cells` au registre, et `clipped-input-needs-amplitude-and-frequency`.
+Le « x5,97 » qui a oriente trois cycles de chasse est de cette famille. Et `apex` ne sauve pas la
+mesure : 0,3866 a 0,5821 pour le meme plafond, **la moitie des cellules de chestL sont au-dessus**.
 
-    sur les 62 cles dont la valeur DIFFERE entre les deux presets :
-        18 cablees + 1 indirect PROUVE = 19 effectives · 1 jauge · 4 hors runtime · 38 ABSENTES
+**LE PROCHAIN TRAVAIL DE §18 N'EST DONC PAS UN CINQUIEME SUSPECT : c'est de mesurer chestL sur une
+grandeur QUI N'EST PAS AU PLAFOND.** Sans elle, aucun rapport L/R de cette section n'est
+interpretable, refute ou pas. C'est le point de depart nomme du cycle suivant.
 
+§18 reste **NON TENUE** et son statut ne bouge pas. Ce qui bouge est la liste des suspects et la
+nature de la question.
 
-4. CE QUI RESTE BLOQUE, SIGNE PLUTOT QUE CONTOURNE
-------------------------------------------------------------------------------------------------
-`GlobalDampingRatio` reste `CANAL ABSENT`, et le motif est un ecart de 1e-4 que je refuse de faire
-disparaitre des deux facons possibles. La meme formule (`damping = 2*zeta*2*pi*f/60`) rend :
+================================================================================================
+5. CE QUE JE N'AI PAS FAIT, DECLARE AU LIEU D'ETRE TU
+================================================================================================
+(a) **§36 n'est pas tranchee, et sa course n'est pas faite.** Le cycle 109 nommait le mecanisme
+    candidat (`jak-hd-physics.gc:3898` — le tenseur entre dans la matrice d'os, les echantillons de
+    collision la chevauchent) et le test qui trancherait : desarmer la collision pendant la
+    descente. J'ai applique la regle de la section 2 avant de conclure : `PHYSRING` **ne porte ni
+    `k=` ni `abl=`** — il est emis dans la phase de descente, qui n'est pas sous le balayage
+    d'ablation. Ici la donnee n'existe VRAIMENT pas ; il faut un emetteur et une course. Je l'ai
+    cherchee avant de le dire, ce qui est exactement ce qui a manque a §18 pendant trois cycles.
 
-    chestL   f = 2.300028 Hz   ->  0.1686   EXACT, c'est la valeur livree
-    chestR   f = 2.390443 Hz   ->  0.1752   contre **0.1753** livre
+(b) **Le plafond du moteur reste a 7 lignes** (`jak-hd-physics.gc` = 4793 pour un plafond de 4800),
+    et je le signale sans le contourner (regle 5 : les gates sont gelees). **La voie d'echappement
+    habituelle est epuisee, et c'est neuf** : sur 522 lignes de commentaire, **409 sont deja des
+    pointeurs `[NOTE-x]`** et il ne reste **qu'UN SEUL bloc de commentaire de 4 lignes ou plus**
+    (L418-421). Migrer un commentaire d'UNE ligne vers `NOTES.md` coute une ligne de pointeur :
+    gain net zero. La migration de commentaires ne peut donc plus liberer de place. Tout chantier
+    de solveur — §24, la moitie rotation du declencheur de §37, le canal de deformation de §8 —
+    demande que ce plafond soit rediscute par le superviseur. Ce cycle n'en avait pas besoin : il
+    n'a pas touche au moteur.
 
-Le 2.3913 Hz utilise le 2026-08-14 n'est pas le 2.390443 Hz qu'on obtient avec la masse
-effectivement livree (1.4800). Ajuster la derivation pour retomber sur 0.1753 serait fitter le
-calcul sur le nombre qu'il doit reproduire (`never-fit-a-parameter-to-the-instrument`) ; changer
-0.1753 en 0.1752 en silence serait modifier la physique au milieu d'un changement d'instrument.
-Les deux sont refuses. L'ecart est publie, et la cle reste comptee ABSENTE.
+(c) **Le conflit §24 / §29 reste ouvert** et il appartient a l'owner, pas a moi : §29 (0,90 / 0,82)
+    implique 1,0541 / 1,1043 quand §24 exige 1,0870 / 1,1522, et l'ecart est du MEME signe et de la
+    meme taille chez Maia. Remonte au cycle 111b, non repris ici pour ne pas le remonter deux fois.
 
+(d) **Rien n'est prouve sur APPAREIL ce cycle** : tout est x86, et le fichier livre n'a pas bouge
+    d'un bit — il n'y a rien de neuf a observer sur un device.
 
-5. REMONTEE AU SUPERVISEUR — DEUX POINTS QUE JE NE TRANCHE PAS SEUL
-------------------------------------------------------------------------------------------------
-(a) **§24 ET §29 SE DISPUTENT LE MEME BOUTON, ET LE CONFLIT EST DANS LE DOCUMENT.**
-    `GlobalFrequencyAP` (2.50/2.00) et `GlobalFrequencyLateral` (2.65/2.10) sont deux des 38 cles
-    differentes encore `CANAL ABSENT`. Les cabler demande un arbitrage : elles partagent le
-    tableau `*phys-axs*` avec §29, et les deux sections sont arithmetiquement incompatibles —
-    §29 (0.90 / 0.82) implique `sqrt(1/0.90)=1.0541` et `sqrt(1/0.82)=1.1043` ; §24 exige 1.0870
-    et 1.1522. Mesure du jour (`ROOM-AXRATIO`, `ROOM-AXRATIO-SPEC24`) :
+TIER DE BUILD : **aucun**. Zero compilation, zero course, zero APK. Lecture d'une trace archivee
+(99 481 lignes, `PHYSEND` et `PHYSCOUNTS` presents, donc course complete) plus un script d'analyse
+et deux mises a jour de documentation. C'est le tier le moins cher qui prouve le changement, et il
+se trouve que c'etait aussi le seul necessaire.
 
-        chestL   ap 1.0517  (SPEC29 -0.22 %  ·  SPEC24 -3.24 %)
-                 lat 1.0970 (SPEC29 -0.66 %  ·  SPEC24 -4.79 %)
+A TESTER PAR L'OWNER : **rien.** DIRECTIVES 2026-08-20 23:30 — on ne le sollicite pas pour un
+changement d'une seule section, et ce cycle ne change meme pas le comportement : aucun bit du
+fichier livre ni du moteur n'a bouge. Le seuil de re-sollicitation (§9-13, §14-20, §24-27) est a
+3 tenues sur 16.
 
-    Le moteur tient donc §29 et rate §24, et il ne peut pas faire les deux. Le correctif §24 a
-    ete pose au cycle 99 (`10fcd09940`) et RETIRE le meme jour (`956543ede5`) parce qu'il faisait
-    passer `COLLIDE §33/§34` au rouge (`ROOM-SKINPEN-VERDICT` chestR -0.0021 -> +0.0010 m),
-    contre la regle 6 du contrat. **L'ecart §24 vs §29 est du MEME signe et de la meme taille chez
-    Maia (+5.4 % / +6.5 %)** : ce n'est pas un defaut de Keira, c'est structurel dans la spec.
-    C'est une question ouverte pour l'owner, pas un defaut de solveur — et je la pose comme telle.
-
-(b) **LE PLAFOND DU MOTEUR EST ATTEINT A 7 LIGNES PRES.** `jak-hd-physics.gc` fait 4793 lignes
-    pour un plafond de 4800 (gate CLEAN). Le registre porte deja
-    `engine-line-ceiling-hides-all-gates` : au-dela, la sortie du validateur tombe de 18 lignes a
-    3 et TOUTES les gates de mesure disparaissent. Aucun chantier de solveur — §24 compris — ne
-    rentre sans que ce plafond soit rediscute. Je le signale, je ne le contourne pas, et c'est
-    aussi pourquoi ce cycle a travaille dans l'outillage et pas dans le moteur.
-
-
-6. LA CAUSE RACINE DE L'ECHEC DE LA TENTATIVE 3
-------------------------------------------------------------------------------------------------
-    [Grecharged-secondary-motion FAIL] SCOPE: aucune ligne PHYSCOUNTS dans la trace
-
-Ce n'etait ni le moteur ni la salle. **Le validateur a lu une trace EN COURS D'ECRITURE.** La
-course lancee a 01:22 tournait encore (pid 1561757/1561776, verrou `.keira-room-x86.lock` detenu
-et horodate) quand la tentative a ete arretee et le validateur declenche : le log etait a
-58 073 lignes sur les ~99 400 d'une course complete, et `PHYSCOUNTS` est emis en fin de course
-(`phys-room.gc:2616`). Les six courses archivees portent toutes `PHYSEND 1` et `PHYSCOUNTS 1`.
-La course a ete laissee finir — `PHYSEND` atteint, **99 481 lignes** — et le tableau derive porte
-l'empreinte de CETTE course, verifiee dans le fichier ecrit par l'analyseur lui-meme.
-Rien n'a ete relance : tuer et refaire aurait coute 13 minutes pour la meme trace.
-
-
-7. ETAT DU VALIDATEUR — EN DERNIER, PARCE QU'IL NE MESURE PAS L'AVANCEMENT
-------------------------------------------------------------------------------------------------
-18 lignes, la longueur attendue. SCOPE, CLEAN, TUNING, ROOM, COLLIDE (x5), IDLE, ANIM (x2),
-DISCRIMINANT : toutes vertes, `[Grecharged-secondary-motion PASS]` imprime. Le seul echec est
+================================================================================================
+6. ETAT DU VALIDATEUR — EN DERNIER, PARCE QU'IL NE MESURE PAS L'AVANCEMENT
+================================================================================================
+Sortie de 18 lignes, la longueur attendue (une sortie qui RETRECIT voudrait dire que des gates ont
+cesse d'etre evaluees — `engine-line-ceiling-hides-all-gates`). SCOPE, CLEAN, TUNING, ROOM,
+COLLIDE (x5), IDLE, ANIM (x2), DISCRIMINANT : toutes vertes, `[Grecharged-secondary-motion PASS]`
+imprime. Le seul echec est
 
     OPEN-DEFECTS: breast-spec-incomplete
 
-qui **n'a pas de mode « reussi » par construction** : seul l'owner retire cette ligne, et le jeton
-`.autoport/owner-ok/<phase>` reste exclusivement son geste — il n'est jamais cree a sa place. Le
-validateur sort donc 1, et il sortira 1 tant qu'il n'aura pas parle. Ce n'est pas un defaut de
-cycle : c'est la porte humaine, et le superviseur l'a arbitree le 2026-08-23 a 01:20.
-
-A TESTER PAR L'OWNER : **rien.** DIRECTIVES 2026-08-20 23:30 — on ne le sollicite pas pour un
-changement d'une seule section, et ce cycle ne change meme pas le comportement : le fichier livre
-est identique au bit. Le seuil de re-sollicitation (§9-13, §14-20, §24-27) est a 3 tenues sur 16.
-
-TIER DE BUILD : **aucun.** Changement d'outillage pur (`preset_apply.py`,
-`preset_channel_audit.py`) plus de la documentation. Zero compilation, zero course neuve, zero
-APK de moteur. UNE course de controle x86 (~15 min) a ete faite pour la preuve de bout en bout de
-la section 3 bis, sur le VECTEUR de test uniquement ; le fichier livre a ete restaure et verifie
-par md5 apres coup. Ce qui reste NON PROUVE et declare comme tel : l'effet du canal sur un
-APPAREIL (tout est x86 ici) — mais le fichier livre etant identique au bit, il n'y a rien de neuf
-a observer sur un device ce cycle.
+qui n'a pas de mode « reussi » par construction. Le validateur sort donc 1, et il sortira 1 tant que
+l'owner n'aura pas parle. Ce n'est pas un defaut de ce cycle : c'est la porte humaine.
 
 DIRECTIVES vd9e8b66782
