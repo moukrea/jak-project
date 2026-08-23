@@ -924,11 +924,7 @@
     (/ (+ (- 1.0 h) (- q c)) (+ (+ 1.0 h) (+ q c)))))
 
 (defun phys-osc-k2 ((z float) (wh float))
-  "Raideur par pas telle que la recurrence symplectique rende EXACTEMENT l'amortissement `z` et
-   la pulsation dont `wh` = omega * pas. Retention a lui associer : `(phys-decay (* 2.0 z wh))`.
-   `4 r sin^2(theta/2)` et JAMAIS `1 - cos theta` : egaux en algebre, mais `1 - cos` perd ses
-   chiffres significatifs quand theta est petit, et theta vaut 0.06 sur le mode principal.
-   Somme de termes positifs, donc k2 > 0 toujours : ne peut pas destabiliser la boucle."
+  "Raideur par pas telle que la recurrence symplectique rende EXACTEMENT `z` et la pulsation dont `wh` = omega * pas ; retention associee `(phys-decay (* 2.0 z wh))`. Pourquoi `4 r sin^2(theta/2)` et jamais `1 - cos` : [NOTE-521] de jak-hd-physics-NOTES.md."
   (let* ((r (phys-decay (* z wh)))
          (u (* 0.5 (* wh (sqrtf (fmax 0.0 (- 1.0 (* z z)))))))
          (s (* u (+ (- 1.0 (* 0.16666667 (* u u))) (* 0.00833333 (* (* u u) (* u u)))))))
@@ -944,20 +940,13 @@
     (+ floor0 (* (-> *phys-pset* (+ (* sc PHYS-PSET-N) 21)) b0))))
 
 (defun phys-vol-yield ((sc int) (cj int) (cj2 int))
-  "La bande de SPEC 10 est la compression de la chair CONTRE SON PROPRE BUSTE — pas une licence de
-   traverser un bras, une main ou les lunettes (regle 6). Critere STRUCTUREL, tire du rig et jamais
-   d'une liste a la main (regle 4) : le volume doit porter l'ANCRE de la chaine comme extremite.
-   Ancre `chest` => `chest->main`, `neck->chest`, `L|Rshoulder->chest`, RIEN d'autre : les bras,
-   `head->neck` et `sphere:gogglesMid` gardent le mur dur. Meme plancher pour la mesure. NOTE-55."
+  "La bande de SPEC 10 est la compression de la chair CONTRE SON PROPRE BUSTE, jamais une licence de traverser un bras (regle 6). Critere STRUCTUREL et liste des volumes concernes : [NOTE-522] et [NOTE-55] de jak-hd-physics-NOTES.md."
   (let ((a (-> *phys-anchor* sc)))
     (if (and (>= a 0) (or (= cj a) (= cj2 a))) (-> *phys-b0* sc) 0.0)))
 
 ;; [NOTE-179] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
 (defun phys-axis-dir ((pt vector) (ca vector) (cb vector) (out vector))
-  "Direction unitaire allant du point le plus proche de l'AXE du volume vers `pt`, que `pt` soit
-   dedans ou dehors. `phys-collide-depth` ne peut pas servir a ca : elle ecrit une normale
-   arbitraire (0,1,0) des que le point est hors du volume, ce qui est correct pour une poussee et
-   faux pour un COTE. Rend #f quand le point est sur l'axe, ou aucun cote n'existe."
+  "Direction unitaire allant du point le plus proche de l'AXE du volume vers `pt`, dedans comme dehors ; rend #f sur l'axe. Pourquoi `phys-collide-depth` ne peut pas servir a ca : [NOTE-523] de jak-hd-physics-NOTES.md."
   (let ((cx (-> ca x)) (cy (-> ca y)) (cz (-> ca z)))
     (let* ((ax (- (-> cb x) (-> ca x)))
            (ay (- (-> cb y) (-> ca y)))
@@ -3832,13 +3821,13 @@
                     ;; [NOTE-127] LE COM DE SA §22 EST UNE MOYENNE PONDEREE, ACCUMULEE SUR LA FRAME. -> jak-hd-physics-NOTES.md
                     ;; [NOTE-338] LES TROIS TERMES DE L'APEX, MESURES LA OU ILS EXISTENT. -> jak-hd-physics-NOTES.md
                     (let ((cwx 0.0) (cwy 0.0) (cwz 0.0) (cwn 0) (awx 0.0) (awy 0.0) (awz 0.0) (awn 0) (arw 0.0)
-                          (twx 0.0) (twy 0.0) (twz 0.0) (dwx 0.0) (dwy 0.0) (dwz 0.0))
+                          (twx 0.0) (twy 0.0) (twz 0.0) (dwx 0.0) (dwy 0.0) (dwz 0.0) (aws 0.0) (cws 0.0))
                     (dotimes (l n)
                       (when (>= l 0)
                         (let* ((scl (+ (* sc PHYS-LINKS) l))
                                (k   (-> *phys-joint* scl)))
                           (when (and (>= k 0) (< (+ k 1) nbone))
-                            (let ((bm (the-as matrix (-> skel bones (+ k 1) transform))) (dpx 0.0) (dpy 0.0) (dpz 0.0))
+                            (let ((bm (the-as matrix (-> skel bones (+ k 1) transform))))
                               (matrix-copy! pre bm)
                               ;; [NOTE-48] ------------------------------------------------------------ -> jak-hd-physics-NOTES.md
                               (let ((have #f))
@@ -3906,29 +3895,12 @@
                                     (phys-pt-exc! tmp bm (-> *phys-apx* scl) (-> *phys-apy* scl) (-> *phys-apz* scl))
                                     (set! dwx (+ dwx (* aw (-> *phys-c2* 0))))
                                     (set! dwy (+ dwy (* aw (-> *phys-c2* 1))))
-                                    (set! dwz (+ dwz (* aw (-> *phys-c2* 2)))) (set! dpx (-> *phys-c2* 0)) (set! dpy (-> *phys-c2* 1)) (set! dpz (-> *phys-c2* 2))))
+                                    (set! dwz (+ dwz (* aw (-> *phys-c2* 2))))))
                                 (matrix-copy! bm tmp))
                               (set! (-> bm vector 3 x) (-> *phys-px* scl))
                               (set! (-> bm vector 3 y) (-> *phys-py* scl))
                               (set! (-> bm vector 3 z) (-> *phys-pz* scl))
                               (set! (-> bm vector 3 w) 1.0)
-                              ;; [NOTE-518] SPEC 21 — LA COMBINAISON EST SATUREE, ET C'EST LA VALEUR LIVREE QUI L'EST. -> jak-hd-physics-NOTES.md
-                              (when (and (zero? *phys-e21-off*) (> (-> *phys-apw* scl) 0.0))
-                                (phys-pt-exc! bm pre (-> *phys-apx* scl) (-> *phys-apy* scl) (-> *phys-apz* scl))
-                                (let* ((sx (- (-> *phys-c2* 0) dpx)) (sy (- (-> *phys-c2* 1) dpy)) (sz (- (-> *phys-c2* 2) dpz))
-                                       (sd (sqrtf (+ (* sx sx) (+ (* sy sy) (* sz sz)))))
-                                       (b0f (if (> (-> *phys-b0* sc) 0.0) (-> *phys-b0* sc) (-> *phys-blen* scl)))
-                                       (kn  (* (-> *phys-pset* (+ (* sc PHYS-PSET-N) 16)) b0f)) (cp (* (-> *phys-pset* (+ (* sc PHYS-PSET-N) 17)) b0f))
-                                       ;; MEME GENOU, MEME ASYMPTOTE, MEME TANH DE PADE QUE LES DEUX AUTRES FILETS (`:2039`, `:3160`) : `tanh` est la fonction que la section ECRIT, et le duplicat est assume pour la meme raison qu'a `phys-cap-e22!` — factoriser ferait bouger les courses desarmees et detruirait leur controle.
-                                       (xr  (if (and (> sd kn) (> cp 0.0001)) (/ (- sd kn) cp) 0.0))
-                                       (th  (if (>= xr 3.0) 1.0 (/ (* xr (+ 27.0 (* xr xr))) (+ 27.0 (* 9.0 (* xr xr))))))
-                                       (g   (if (and (> sd 0.0001) (> xr 0.0)) (/ (+ kn (* cp th)) sd) 1.0)))
-                                  (when (< g 0.999999)
-                                    (set! *phys-e21-n* (+ *phys-e21-n* 1))
-                                    (set! *phys-e21-d* (+ *phys-e21-d* (/ (* sd (- 1.0 g)) (fmax 1.0 b0f))))
-                                    (set! (-> bm vector 3 x) (- (-> bm vector 3 x) (* (- 1.0 g) sx)))
-                                    (set! (-> bm vector 3 y) (- (-> bm vector 3 y) (* (- 1.0 g) sy)))
-                                    (set! (-> bm vector 3 z) (- (-> bm vector 3 z) (* (- 1.0 g) sz))))))
                               ;; [NOTE-139] L'APEX — accumule sur le MEME `bm` que l'ecriture livre. -> jak-hd-physics-NOTES.md
                               (let ((aw (-> *phys-apw* scl)))
                                 (when (> aw 0.0)
@@ -3939,7 +3911,7 @@
                                   (set! twx (+ twx (* aw (- (-> bm vector 3 x) (-> pre vector 3 x)))))
                                   (set! twy (+ twy (* aw (- (-> bm vector 3 y) (-> pre vector 3 y)))))
                                   (set! twz (+ twz (* aw (- (-> bm vector 3 z) (-> pre vector 3 z)))))
-                                  (set! awn (+ awn 1))))
+                                  (set! awn (+ awn 1)) (set! aws (+ aws aw)) (set! cws (+ cws (-> *phys-comw* scl)))))
                               ;; [NOTE-85] SPEC 22 — L'EXCURSION DU CENTRE DE CHAIR, EN B0, DEFORMATION COMPRISE. -> jak-hd-physics-NOTES.md
                               (let ((lcx (-> *phys-lcx* scl))
                                     (lcy (-> *phys-lcy* scl))
@@ -4028,6 +4000,38 @@
                                 (matrix-4x4-inverse! inv pre)
                                 (matrix*! (-> *phys-dmat* k) inv bm)
                                 (set! (-> *phys-dhas* k) 1)))))))
+                    ;; [NOTE-518] SPEC 21 — LA COMBINAISON EST SATUREE, ET C'EST LA VALEUR LIVREE QUI L'EST. -> jak-hd-physics-NOTES.md
+                    (when (and (zero? *phys-e21-off*) (> awn 0) (> aws 0.0001))
+                      (let* ((sx (- awx dwx)) (sy (- awy dwy)) (sz (- awz dwz))
+                             (sd (sqrtf (+ (* sx sx) (+ (* sy sy) (* sz sz)))))
+                             (b0a (if (> (-> *phys-b0* sc) 0.0) (-> *phys-b0* sc) (-> *phys-blen* (* sc PHYS-LINKS))))
+                             (kn (* (-> *phys-pset* (+ (* sc PHYS-PSET-N) 16)) b0a)) (cp (* (-> *phys-pset* (+ (* sc PHYS-PSET-N) 17)) b0a))
+                             ;; MEME GENOU, MEME ASYMPTOTE, MEME TANH DE PADE QUE LES DEUX AUTRES FILETS (`:2039`, `:3160`) : `tanh` est la fonction que la section ECRIT, et le duplicat est assume pour la meme raison qu'a `phys-cap-e22!` — factoriser ferait bouger les courses desarmees et detruirait leur controle.
+                             (xr (if (and (> sd kn) (> cp 0.0001)) (/ (- sd kn) cp) 0.0))
+                             (th (if (>= xr 3.0) 1.0 (/ (* xr (+ 27.0 (* xr xr))) (+ 27.0 (* 9.0 (* xr xr))))))
+                             (g  (if (and (> sd 0.0001) (> xr 0.0)) (/ (+ kn (* cp th)) sd) 1.0)))
+                        (when (< g 0.999999)
+                          (set! *phys-e21-n* (+ *phys-e21-n* 1))
+                          (set! *phys-e21-d* (+ *phys-e21-d* (/ (* sd (- 1.0 g)) (fmax 1.0 b0a))))
+                          ;; la correction est une TRANSLATION RIGIDE de l'organe : `dl` la repartit sur les
+                          ;; maillons de sorte que la somme PONDEREE recoive exactement `-(1-g) s`.
+                          (let ((dl (/ (- 1.0 g) aws)))
+                            (dotimes (l n)
+                              (let* ((scl (+ (* sc PHYS-LINKS) l)) (k (-> *phys-joint* scl)))
+                                (when (and (>= k 0) (< (+ k 1) nbone) (> (-> *phys-apw* scl) 0.0))
+                                  (let ((bm (the-as matrix (-> skel bones (+ k 1) transform))))
+                                    (set! (-> bm vector 3 x) (- (-> bm vector 3 x) (* dl sx)))
+                                    (set! (-> bm vector 3 y) (- (-> bm vector 3 y) (* dl sy)))
+                                    (set! (-> bm vector 3 z) (- (-> bm vector 3 z) (* dl sz))))))))
+                          ;; les accumulateurs suivent EXACTEMENT la correction : une translation entre dans
+                          ;; `tp`, `rp` et `dp` sont inchanges, et l'identite e = tp + rp + dp referme.
+                          (set! awx (- awx (* (- 1.0 g) sx))) (set! awy (- awy (* (- 1.0 g) sy))) (set! awz (- awz (* (- 1.0 g) sz)))
+                          (set! twx (- twx (* (- 1.0 g) sx))) (set! twy (- twy (* (- 1.0 g) sy))) (set! twz (- twz (* (- 1.0 g) sz)))
+                          ;; ET LE COM SUIT : les maillons deplaces portent `cws` de la masse de COM, donc le
+                          ;; centre publie bouge de `cws * dl * s`. Laisser `comex` sur la valeur d'avant
+                          ;; publierait un COM qui ne decrit plus le squelette livre (regle du 2026-08-19 23:50).
+                          (let ((cd (* cws (/ (- 1.0 g) aws))))
+                            (set! cwx (- cwx (* cd sx))) (set! cwy (- cwy (* cd sy))) (set! cwz (- cwz (* cd sz)))))))
                     ;; [NOTE-127] TOUS les maillons ont contribue, ou AUCUN chiffre n'est publie : un
                     ;; poids manquant ne doit jamais se lire comme un COM de zero.
                     (when (and (> cwn 0) (= cwn n))
@@ -4558,10 +4562,7 @@
   (none))
 
 (defun phys-prox-off-set! ((v int))
-  "ABLATION DE MESURE, 0 EN LIVRAISON : 1 retire les SPHERES PROXIMALES de la liste des obstacles.
-   Le cycle 35 a mesure qu'elles ne couvrent aucun sommet que la sphere distale ne couvre deja ;
-   cet interrupteur repond a la question a l'execution, sans toucher aux rayons — qui sont une
-   SURCHARGE DE L'OWNER que la gate TUNING protege."
+  "ABLATION DE MESURE, 0 EN LIVRAISON : 1 retire les SPHERES PROXIMALES de la liste des obstacles. Ce qu'elle discrimine et pourquoi elle ne touche pas aux rayons : [NOTE-524] de jak-hd-physics-NOTES.md."
   (set! *phys-prox-off* v)
   (none))
 

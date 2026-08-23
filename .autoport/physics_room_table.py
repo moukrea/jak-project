@@ -6419,6 +6419,13 @@ def main():
             _x = (v - _kn) / _cp
             return _kn + _cp * (_x / (1.0 + _x))
 
+        # LE VERDICT LIT LA TRACE, PAS LE SOURCE (regle 0) : `PHYSE21` dit si la borne EXISTE
+        # dans le moteur qui a produit CETTE course et si elle a mordu. Il est lu ICI, avant
+        # l'entete, pour que l'entete DECRIVE la trace au lieu de figer une phrase d'epoque —
+        # c'est la faute que le cycle 117 a trouvee sur `ROOM-SPEC13-VERDICT` (prose figee).
+        _e21 = [(float(_a), float(_b)) for _a, _b in
+                re.findall(r'^PHYSE21 tag=\S+ n=([-\d.e+]+) cut_b0=([-\d.e+]+)', txt, re.M)]
+        _e21n = sum(_x[0] for _x in _e21)
         A('')
         A('-- SPEC 21 : `D_linear + D_angular` — LA GRANDEUR QUE LA SECTION NOMME ---------------')
         A('   §21 : « Linear and rotational displacement contributions shall combine vectorially.')
@@ -6429,7 +6436,15 @@ def main():
         A('   latches au MEME argmax que `apex`, donc sur la MEME frame.')
         A('   s = D_linear + D_angular = e - dp. Le mur de force `mu` (jak-hd-physics.gc:2984-2990)')
         A('   n\'est PAS cette grandeur : il multiplie une FORCE et ne voit ni la rotation ni la')
-        A('   combinaison. Aucune saturation ne porte aujourd\'hui sur `s`.')
+        A('   combinaison.')
+        if _e21n > 0.0:
+            A('   CETTE TRACE PORTE LA BORNE DE §21 SUR `s` (cycle 118, [NOTE-518]) : les chiffres')
+            A('   ci-dessous sont donc la SORTIE de l\'operateur, jamais son entree. L\'entree ne se')
+            A('   lit que sur la jambe DESARMEE (`*phys-e21-off*` = 1), et le rapport publie les')
+            A('   deux cote a cote — une sortie collee a son plafond ne dit rien de son entree.')
+        else:
+            A('   AUCUNE saturation ne porte sur `s` dans cette trace : les chiffres ci-dessous')
+            A('   sont l\'ENTREE brute de l\'operateur (jambe desarmee, ou moteur d\'avant le c118).')
         for _c in sorted(_cells21):
             _nm21 = names[_c] if _c < len(names) else str(_c)
             _P = _cells21[_c]
@@ -6481,6 +6496,11 @@ def main():
             A('   SIMULATION EXACTE DE DEUX SATURATIONS, SUR CETTE MEME TRACE (aucune course) :')
             A('      (A) §21 AU MOT : saturer `s` seul, e\' = g.s + dp, g = softmin(|s|)/|s|')
             A('      (B) LE CHANTIER : saturer le POINT DE CHAIR livre, e\' = softmin(|e|)')
+            if _e21n > 0.0:
+                A('      ATTENTION SUR CETTE TRACE : (A) est DEJA APPLIQUEE par le moteur, et')
+                A('      `phys-softmin` n\'est PAS idempotente au-dessus de son genou. La colonne')
+                A('      (A) ci-dessous est donc une SECONDE application, pas la premiere : elle ne')
+                A('      se lit pas comme une prevision. (B) reste une prevision valable.')
             _cur = [_n21(x[0]) for x in _rowsq]
             for _cap in (0.50, 0.42):
                 _eA = [_n21(tuple(_sm21(_n21(x[1]), _cap) / max(_n21(x[1]), 1e-9) * x[1][_i]
@@ -6508,22 +6528,24 @@ def main():
             A('      au canal du JOINT (ressort, mur de force, borne de translation) peut rendre :')
             A('      ce n\'est pas une option, c\'est une borne.')
             A('      RESERVE DECLAREE : (A) et (B) sont l\'ALGEBRE de la sortie, pas une course.')
-            A('      Elles valent parce que la borne visee s\'applique a la valeur LIVREE et')
-            A('      n\'ecrit pas l\'etat du solveur (`*phys-px*`), donc sans retro-action de')
-            A('      frame a frame. La FORME d\'implementation, elle, n\'atteint pas exactement')
-            A('      le point vise (une rotation ne deplace le point que sur une sphere) : cet')
-            A('      ecart n\'est PAS mesure ici et se mesure par INTERVENTION, pas par calcul.')
-        A('   RESERVE SUR LA DECOMPOSITION QUAND LA BORNE DE [NOTE-471] MORD : `dp` est releve')
-        A('      AVANT la rotation de correction. Une rotation CONSERVE sa norme, donc `|dp|`')
-        A('      reste exact ; sa DIRECTION, non — et `rp`, qui est DERIVE, absorbe l\'ecart.')
-        A('      L\'identite `e = tp + rp + dp` referme donc toujours, mais le partage entre `rp`')
-        A('      et `dp` est contamine sur les fenetres ou `PHYSE21 n` est non nul : les NORMES')
-        A('      se lisent, le partage rp/dp ne se lit PAS sur ces fenetres-la.')
-        # LE VERDICT LIT LA TRACE, PAS LE SOURCE : `PHYSE21` dit si la borne existe ET si elle a
-        # mordu. Un verdict tire du source serait `un-commentaire-n-est-pas-une-preuve`.
-        _e21 = [(float(_a), float(_b)) for _a, _b in
-                re.findall(r'^PHYSE21 tag=\S+ n=([-\d.e+]+) cut_b0=([-\d.e+]+)', txt, re.M)]
-        _e21n = sum(_x[0] for _x in _e21)
+            A('      LA PHRASE QUI SUIVAIT ICI EST RETIREE AU CYCLE 118, ET C\'EST UNE MESURE QUI')
+            A('      LA RETIRE. Elle disait que ces simulations valaient « parce que la borne')
+            A('      s\'applique a la valeur LIVREE et n\'ecrit pas l\'etat du solveur, donc sans')
+            A('      retro-action de frame a frame ». FAUX : `phys-snapshot-sim!`')
+            A('      (jak-hd-physics.gc:1376, [NOTE-214]) releve en FIN DE FRAME, sur le squelette')
+            A('      ECRIT, la position de tout volume porte par un joint simule — et c\'est ce que')
+            A('      la frame SUIVANTE lit comme obstacle. Une borne posee sur la valeur livree')
+            A('      deplace donc les volumes de collision, donc la trajectoire. MESURE (cycle 118,')
+            A('      borne de §21 armee contre la course archivee du 117) : `PHYSRESTW`, qui ne lit')
+            A('      que `*phys-px*`, differe sur 346 cellules sur 372 ; les 8 premieres sont')
+            A('      IDENTIQUES et la divergence s\'ouvre a (a=0, d=4). Ces simulations restent des')
+            A('      APPROXIMATIONS utiles — l\'ecart mesure sur `|s| max` vaut 0.006 a 0.03 B0 —')
+            A('      mais elles ne sont PAS l\'algebre exacte de la course, et aucun verdict ne se')
+            A('      tire d\'elles seules.')
+        A('   OU TOMBE LA CORRECTION DANS LA DECOMPOSITION (cycle 118) : elle est une TRANSLATION')
+        A('      de la matrice LIVREE, donc `e` et `tp` baissent du MEME vecteur et `rp = e-tp-dp`')
+        A('      est INCHANGE, `dp` aussi. Le partage rp/dp reste donc lisible — contrairement a')
+        A('      la correction par ROTATION du cycle 87 ([NOTE-471]), qui contaminait `rp`.')
         if not _e21:
             A('   VERDICT §21 : AUCUNE ligne `PHYSE21` dans cette trace — le moteur ne porte pas')
             A('      de saturation sur la combinaison. §21 NON TENUE PAR ABSENCE DE MECANISME.')

@@ -1,0 +1,75 @@
+CYCLE 118 — PREDICTIONS ECRITES AVANT TOUTE EDITION DE CODE ET AVANT TOUTE COURSE
+DIRECTIVES vd9e8b66782
+
+SECTION DONT CE CYCLE DEBLOQUE LE VERDICT (directive 2026-08-21 18:25) : §21.
+GESTE : la saturation que §21 ecrit mot pour mot est posee sur la COMBINAISON LIVREE.
+  s = D_linear + D_angular = e - dp  (translation + rotation du joint, tenseur EXCLU)
+  g = phys-softmin(|s|, cap) / |s|   cap = (cle 16 + cle 17) * B0 = 0.50 B0, genou 0.84*cap = 0.42 B0
+  correction appliquee a la TRANSLATION de la matrice d'os LIVREE : bm.v3 -= (1-g)*s
+  `*phys-px*` N'EST PAS TOUCHE -> aucune retro-action de frame a frame, donc l'algebre de la
+  sortie predit exactement, et c'est ce qui rend ces predictions falsifiables au chiffre.
+
+POURQUOI UNE TRANSLATION ET PAS UNE ROTATION : le cycle 87 a implemente cette meme borne PAR
+ROTATION du point de chair et elle a AGGRAVE §22 (rotation = tangentielle, correction demandee
+= radiale ; cycle 88 : part radiale 0.9114 / 0.8465). Une translation rend EXACTEMENT la
+direction -s, donc la forme de l'operateur correspond a la demande. C'est la difference, et
+c'est elle que ces predictions testent.
+
+--------------------------------------------------------------------------------------------
+P1  |s| (la grandeur de §21), maximum de course, ARME :
+      chestL  0.5622 -> <= 0.5000 B0     prediction ponctuelle 0.4712
+      chestR  0.5836 -> <= 0.5000 B0     prediction ponctuelle 0.4737
+    FALSIFICATEUR : un max > 0.5000 sur l'une des deux chaines refute le geste.
+
+P2  |s| p50 / p90, ARME :
+      chestL  p50 0.4205 -> 0.4205   p90 0.4490 -> 0.4413
+      chestR  p50 0.4441 -> 0.4385   p90 0.5009 -> 0.4602
+    FALSIFICATEUR : un ecart > 0.005 B0 a ces quatre nombres.
+
+P3  LA BORNE MORD, ET LE COMPTE EST ECRIT D'AVANCE : |s| > 0.42 B0 sur
+      chestL 96/186 fenetres (51.6 %)   chestR 144/186 fenetres (77.4 %)
+    donc `PHYSE21 n` doit etre NON NUL et du meme ordre que `PHYSE22 n`.
+    FALSIFICATEUR : n = 0 (borne inerte, geste sans effet) ou n = 0 sur une seule chaine.
+
+P4  §22 NE BASCULE PAS, ET JE L'ECRIS AVANT LA COURSE — le geste ne le pretend pas :
+      |e| apex moyen  chestL 0.6529 -> 0.6489 (-0.6 %)   chestR 0.6754 -> 0.6615 (-2.1 %)
+      |e| apex max    chestL 0.9239 -> 0.9224            chestR 0.9324 -> 0.9100
+      fenetres > 0.50 B0  chestL 175/186 -> 174/186      chestR 180/186 -> 179/186
+    §22 reste NON TENUE. Une lecture qui la declarerait tenue sur ce cycle serait un faux vert.
+
+P5  CONTROLE NEGATIF (jambe DESARMEE, `*phys-e21-off*` = 1) : la course doit etre IDENTIQUE AU
+    BIT a la course archivee du cycle 116/117 (`keira-room-x86.log`), hors la banniere de
+    demarrage (adresses de tas). Seuil : <= 2 lignes `PHYS*` differentes sur ~88 000.
+    FALSIFICATEUR : plus de 2 lignes differentes -> l'edition a touche autre chose que la borne,
+    et aucune attribution n'est possible.
+
+P6  DECOMPOSITION : la correction est une TRANSLATION, donc elle tombe entierement dans `tp`.
+      |rp| et |dp| INCHANGES a 1e-3 B0 pres entre les deux jambes sur les fenetres ou la borne
+      ne mord pas ; sur celles ou elle mord, |dp| inchange et |tp| baisse.
+      L'identite |e - (tp+rp+dp)| doit rester <= 0.0002 B0 (elle vaut 0.000115 aujourd'hui).
+    FALSIFICATEUR : identite > 0.0005 B0, ou |dp| qui bouge.
+
+P7  COUT — JE PREDIS QU'IL EST PETIT, ET LE FALSIFICATEUR EST LA GATE :
+      DISCRIMINANT : ecart chestL 46.1 % et chestR 33.4 % aujourd'hui ; je predis qu'ils
+        restent AU-DESSUS de 25 % (la correction mediane vaut 0.000 / 0.0056 B0, soit 0 / 3.4 u).
+      ROOM-IDLE maxdev : 0.000 -> 0.000 (au repos |s| = 0 donc g = 1 : la borne est INERTE PAR
+        ALGEBRE, pas par reglage).
+      COLLIDE / ROOM-POSCONTROL : inchanges (la borne n'ecrit pas `*phys-px*`).
+      `meshpen` : je predis une BAISSE ou une stabilite (la correction tire vers la pose
+        d'auteur, qui EST le plancher de penetration). Une HAUSSE > 5 % refute cette phrase.
+      Sortie du validateur : 18 lignes. Moins de 18 = une gate a cesse d'etre evaluee.
+
+P8  MOTEUR : 4800 lignes AVANT, 4800 lignes APRES. Les lignes sont trouvees en deplacant des
+    DOCSTRINGS vers `jak-hd-physics-NOTES.md` VERBATIM avec un pointeur d'une ligne (convention
+    du fichier, 174+ pointeurs). `git diff` ne doit montrer AUCUNE ligne de CODE supprimee par
+    cette migration.
+    FALSIFICATEUR : une ligne de code disparue, ou wc -l > 4800.
+
+--------------------------------------------------------------------------------------------
+CE QUE CE CYCLE NE PRETEND PAS
+  - il ne fait pas basculer §22 (P4 l'ecrit d'avance et le chiffre) ;
+  - il ne touche pas le mur de FORCE `mu` (§21 en portait le motif depuis le cycle 71 ; le
+    present geste ne le retire pas et ne le remplace pas — il pose la grandeur que la section
+    NOMME, la ou elle est livree) ;
+  - il ne mesure pas ce que l'owner voit : aucune sollicitation, le bloc §9-13 / §14-20 /
+    §24-27 reste sous le seuil de re-sollicitation de la directive du 2026-08-20 23:30.

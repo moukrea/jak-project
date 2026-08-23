@@ -9311,3 +9311,179 @@ ressort une LAISSE vers la pose d'auteur, ce que la [NOTE-113] et `author-pinned
 interdisent. Et l'ecart MAXIMAL de `rgap` (0.019 B0) vaut 22 a 26 fois MOINS que la bande d'apex de
 la 22 (0.42-0.50 B0), pendant que `perr` moyen vaut 0.388 B0 — **102 fois `rgap` moyen**. Corriger
 `rgap` serait travailler le centieme du defaut.
+
+## NOTE-513 — cycle 118 : docstring de `phys-skin-off-set!`, deplacee VERBATIM
+
+Texte d'origine, mot pour mot, tel qu'il vivait dans `jak-hd-physics.gc` :
+
+    ABLATION, 0 EN LIVRAISON : 1 DESARME la contrainte de peau de SPEC 33/34 ([NOTE-241]).
+    C'est SON controle positif — desarmee, `skinpen` doit REMONTER au-dessus de `skinrest`, et
+    l'ecart entre les deux jambes EST ce que la contrainte tient. Armee, elle ne peut pas tirer un
+    sein dehors, donc un ecart dans l'autre sens denoncerait un defaut de la contrainte elle-meme.
+
+## NOTE-514 — cycle 118 : docstring de `phys-skc`, deplacee VERBATIM
+
+Texte d'origine, mot pour mot :
+
+    CE QUE LA CONTRAINTE DE PEAU RETIRE, AGREGE sur toutes les frames depuis la derniere remise a
+    zero de diagnostic : un cumul de JAMBE, jamais un maximum de fenetre. GLOBAL A LA COURSE ET PAS
+    PAR CHAINE — il ne se publie donc jamais comme une colonne par chaine (regle 7).
+    0 = NOMBRE de corrections. 1 = somme de leurs modules (unites de jeu). 2 = la pire d'entre elles.
+    LECTURE QUAND LA CONTRAINTE NE MORD PAS : les trois a zero.
+
+AJOUT DU CYCLE 118 : les cases 6 et 7 portent le meme couple pour la borne de §21 posee sur la
+valeur LIVREE — 6 = NOMBRE de corrections `*phys-e21-n*`, 7 = somme des modules retranches en
+unites de `B0` (`*phys-e21-d*`). Memes NATURE et REPERE que 4/5 (`phys-cap-e22!`), meme cycle de
+vie (cumul de JAMBE remis a zero par le diagnostic). LECTURE QUAND LA BORNE NE MORD PAS : les deux
+a zero — et desarmee (`*phys-e21-off*` = 1) elles y sont PAR CONSTRUCTION, ce qui est le controle
+negatif de la case elle-meme.
+
+## NOTE-515 — cycle 118 : docstring de `phys-rr-off-set!`, deplacee VERBATIM
+
+Texte d'origine, mot pour mot :
+
+    1 = la borne §22 du canal RADIAL est desarmee (`rcap` -> +inf), sur la fenetre d'orientation
+    seule. La salle l'arme sur la passe k=5 du balayage et le REND A 0 en sortant. Arme, le canal
+    radial doit REMONTER vers son brut `rrr` (jusqu'a 0.6843 B0 mesures contre 0.3900 bornes) : si
+    le pole medial de sa §12 remonte avec lui, l'ecretage est le mecanisme ; s'il ne bouge pas, la
+    borne est exoneree et la cause est ailleurs dans la confiscation de longueur.
+
+## NOTE-516 — cycle 118 : docstring de `phys-cone-off-set!`, deplacee VERBATIM
+
+Texte d'origine, mot pour mot :
+
+    1 = le rayon redevient interpole sur le parametre de PROJECTION, c'est-a-dire le predicat faux
+    d'avant. La penetration residuelle mesuree contre les 24 capsules — toutes coniques — doit alors
+    REMONTER : desarme, le moteur teste le solide que la donnee designe ; arme, il teste un ensemble
+    plus PETIT, donc il laisse entrer ce qu'il devrait refuser.
+
+## NOTE-517 — cycle 118 : docstring de `phys-prio-meas-set!`, deplacee VERBATIM
+
+Texte d'origine, mot pour mot :
+
+    1 = la passe de selection tourne POUR COMPTER, sans jamais ecarter un volume. C'est ce qui rend
+    `ROOM-VOLPRIO` non vide pendant que la priorite reste desarmee. Le controle de cette mesure est
+    son propre desarmement : a 0, la passe ne tourne pas et les trois compteurs doivent retomber a
+    zero exactement — un compteur qui resterait non nul mesurerait autre chose que cette passe.
+
+## NOTE-518 — cycle 118 : SPEC 21, LA SATURATION EST POSEE SUR LA COMBINAISON **LIVREE**
+
+§21 (l.290-293), mot pour mot :
+
+    Linear and rotational displacement contributions shall combine vectorially. **They shall not be
+    added without saturation.**
+        D_combined = D_max . tanh( |D_linear + D_angular| / D_max )
+
+**CE QUE LE MOTEUR FAISAIT AVANT CE CYCLE.** Les trois termes de l'excursion d'apex — `tp`
+(translation du joint), `rp` (rotation de visee), `dp` (tenseur de deformation) — etaient ADDITIONNES
+sans qu'aucune saturation ne porte sur leur somme. Le mur de force `mu` (`:2984-2990`) multiplie une
+FORCE et ne voit ni la rotation ni la combinaison ; `phys-cap-e22!` borne `|p - cible|` du JOINT,
+c'est-a-dire `tp` seul (son maximum vaut 0.5008 B0 pour un plafond de 0.5000, cycle 58). La grandeur
+que la section NOMME — `s = D_linear + D_angular = e - dp` — n'etait bornee par rien, et
+`ROOM-SPEC21` la publiait depuis le cycle 86 a `max 0.5622 / 0.5836 B0` pour un plafond dur de 0.50.
+
+**CE QUE CE BLOC FAIT.** Une fois la matrice d'os LIVREE ecrite (rotation, tenseur, translation), il
+lit `e` par `phys-pt-exc!` contre la pose d'AUTEUR de la meme frame, retranche `dp` releve dix lignes
+plus haut, et sature la somme restante :
+
+    g = phys-softmin(|s|, cap) / |s|        cap = (cle 16 + cle 17) * B0 = 0.50 B0
+    bm.v3 -= (1 - g) * s
+
+`phys-softmin` a son genou a `0.84 * cap`, soit **exactement les 0.42 B0** que la §22 appelle
+« normal », et son asymptote exactement au plafond dur de 0.50 : les deux bornes de la spec sont la
+FORME de l'operateur, aucune n'est un reglage. En dessous du genou c'est l'IDENTITE STRICTE, donc a
+la pose d'auteur (`|s| = 0`) la borne est **INERTE PAR ALGEBRE**, pas par reglage — meme propriete
+que la borne de collision du cycle 61.
+
+**POURQUOI UNE TRANSLATION, ET PAS UNE ROTATION.** Le cycle 87 a implemente cette meme borne PAR
+ROTATION du point de chair : elle a AGGRAVE §22 (apex moyen 0.7413 -> 0.8382 et 0.7660 -> 0.8651),
+et le cycle 88 a mesure pourquoi — la part RADIALE de l'excursion vaut 0.9114 / 0.8465 en mediane,
+alors qu'une rotation autour du joint ne deplace le point que TANGENTIELLEMENT. Une translation, elle,
+rend exactement la direction `-s` : la forme de l'operateur correspond a la demande. C'est la seule
+difference avec le geste refute, et c'est elle qui rend l'algebre de la sortie exacte.
+
+**CE QUE CA COUTE DANS LA DECOMPOSITION, ET C'EST DECLARE, PAS TU.** La correction etant une
+translation, elle tombe entierement dans `tp` : `rp` et `dp` sont inchanges, `tp` absorbe
+`-(1-g) s`, et l'identite `e = tp + rp + dp` referme comme avant. La valeur ECRITE du joint cesse
+donc d'etre egale a `*phys-px*` — c'est le sens meme de « la borne porte sur la valeur LIVREE », et
+et c'est ce qui la rend attribuable.
+
+**ET CE QUE J'AI CRU GARANTIR ET QUI EST FAUX, MESURE DANS LE MEME CYCLE.** J'ai ecrit ici que la
+borne, n'ecrivant pas `*phys-px*`, n'avait « aucune retro-action de frame a frame ». **C'est faux.**
+`phys-snapshot-sim!` (`:1376`, [NOTE-214]) releve en FIN DE FRAME, **sur le squelette ECRIT**, la
+position de tout volume porte par un joint simule, et c'est ce que la frame SUIVANTE lit comme
+obstacle. Deplacer la valeur livree deplace donc les volumes de collision, donc la trajectoire.
+Mesure : `PHYSRESTW` — qui ne lit que `*phys-px*` — differe sur **346 cellules sur 372** entre la
+course armee et la course archivee, les 8 premieres etant identiques et la divergence s'ouvrant a
+(a=0, d=4). La consequence pratique : l'algebre de la sortie reste une bonne APPROXIMATION (ecart
+mesure de 0,006 a 0,03 B0 sur `|s| max`), jamais une prediction exacte, et toute lecture qui s'y
+appuie doit le dire.
+
+**ET UNE SECONDE CORRECTION, PAR MESURE AUSSI : LA BORNE PORTE SUR L'ORGANE, PAS SUR LE MAILLON.**
+La premiere implementation du cycle 118 saturait la contribution de CHAQUE maillon. Or la grandeur
+que §21 et §22 nomment est le deplacement de l'ORGANE, c'est-a-dire la somme PONDEREE `Σ aw_l e_l`
+que `PHYSAPEX` publie — et la somme des poids d'apex vaut **0,9402 / 0,9549**, pas 1. Une borne par
+maillon a 0,4998 B0 rendait donc un plafond PUBLIE de 0,4699 / 0,4773 B0 : plus serre que ce que la
+spec ecrit, et il mordait sur 76 a 87 % des fenetres au lieu de 52 a 77 %. Mesure de la premiere
+implementation : `|s| max` 0,4688 / 0,4702 la ou l'algebre de l'organe annoncait 0,4972 / 0,4987 —
+c'est cet ecart qui a revele le defaut. La borne porte desormais sur la somme ponderee, et la
+correction est repartie sur les maillons par `dl = (1-g)/Σaw` : une TRANSLATION RIGIDE de l'organe
+dont la somme ponderee vaut exactement `-(1-g) s`.
+
+## NOTE-519 — cycle 118 : docstring de `phys-link-dev-ax`, deplacee VERBATIM
+
+Texte d'origine, mot pour mot :
+
+    LA MEME DEVIATION QUE `phys-link-dev`, DANS LE TRIEDRE DE L'ANCRE (voir `*phys-lda*`).
+    axis 0/1/2 = vertical / avant-arriere / lateral — l'ordre de SPEC 24, pas celui des lignes de la
+    matrice. REPERE : le triedre de l'ANCRE, que SPEC 7 impose ; le repere monde ne peut pas separer
+    les trois axes de SPEC 24. Instantanee, nulle a la pose du modele. Rend 0.0 sur une chaine que le
+    solveur n'a pas classee — l'outil de lecture le declare, il ne le comble pas.
+
+## NOTE-520 — cycle 118 : docstring de `phys-axsel`, deplacee VERBATIM
+
+Texte d'origine, mot pour mot :
+
+    LA CLASSIFICATION DU TRIEDRE, TELLE QUE LE SOLVEUR L'A FAITE — pour que la salle la publie et
+    qu'elle soit RELISIBLE dans la trace au lieu d'etre supposee.
+    which 0 = classee (0/1), 1/2/3 = index de ligne vertical / avant-arriere / lateral,
+    4 = raideur par axe ARMEE (0/1) — voir la note de `*phys-axan*` : classee et armee ne sont pas
+    la meme chose, et c'est precisement l'ecart entre les deux qu'il faut pouvoir lire.
+
+## NOTE-521 — cycle 118 : docstring de `phys-osc-k2`, deplacee VERBATIM
+
+Texte d'origine, mot pour mot :
+
+    Raideur par pas telle que la recurrence symplectique rende EXACTEMENT l'amortissement `z` et
+    la pulsation dont `wh` = omega * pas. Retention a lui associer : `(phys-decay (* 2.0 z wh))`.
+    `4 r sin^2(theta/2)` et JAMAIS `1 - cos theta` : egaux en algebre, mais `1 - cos` perd ses
+    chiffres significatifs quand theta est petit, et theta vaut 0.06 sur le mode principal.
+    Somme de termes positifs, donc k2 > 0 toujours : ne peut pas destabiliser la boucle.
+
+## NOTE-522 — cycle 118 : docstring de `phys-vol-yield`, deplacee VERBATIM
+
+Texte d'origine, mot pour mot :
+
+    La bande de SPEC 10 est la compression de la chair CONTRE SON PROPRE BUSTE — pas une licence de
+    traverser un bras, une main ou les lunettes (regle 6). Critere STRUCTUREL, tire du rig et jamais
+    d'une liste a la main (regle 4) : le volume doit porter l'ANCRE de la chaine comme extremite.
+    Ancre `chest` => `chest->main`, `neck->chest`, `L|Rshoulder->chest`, RIEN d'autre : les bras,
+    `head->neck` et `sphere:gogglesMid` gardent le mur dur. Meme plancher pour la mesure. NOTE-55.
+
+## NOTE-523 — cycle 118 : docstring de `phys-axis-dir`, deplacee VERBATIM
+
+Texte d'origine, mot pour mot :
+
+    Direction unitaire allant du point le plus proche de l'AXE du volume vers `pt`, que `pt` soit
+    dedans ou dehors. `phys-collide-depth` ne peut pas servir a ca : elle ecrit une normale
+    arbitraire (0,1,0) des que le point est hors du volume, ce qui est correct pour une poussee et
+    faux pour un COTE. Rend #f quand le point est sur l'axe, ou aucun cote n'existe.
+
+## NOTE-524 — cycle 118 : docstring de `phys-prox-off-set!`, deplacee VERBATIM
+
+Texte d'origine, mot pour mot :
+
+    ABLATION DE MESURE, 0 EN LIVRAISON : 1 retire les SPHERES PROXIMALES de la liste des obstacles.
+    Le cycle 35 a mesure qu'elles ne couvrent aucun sommet que la sphere distale ne couvre deja ;
+    cet interrupteur repond a la question a l'execution, sans toucher aux rayons — qui sont une
+    SURCHARGE DE L'OWNER que la gate TUNING protege.
