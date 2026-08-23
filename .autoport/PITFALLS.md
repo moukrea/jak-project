@@ -19,6 +19,21 @@ attend indéfiniment. Tombé **quatre fois en 24 h** sous quatre formes, et a fa
 livraison toutes les deux minutes pendant une nuit entière. Verrou : chaque démon écrit son PID,
 le superviseur teste `kill -0`. Un PID ne se confond avec rien.
 
+GUARD registry-unindexed .autoport/lib/preflight.py check_metric_frame_declared
+**Une note du registre qui n'est indexee nulle part n'existe pas.** Le 2026-08-17, une note du
+registre etablissait deja que le residu de repos de la SPEC 9 est le **plancher ULP d'une
+integration en coordonnees MONDE en flottant 32 bits**, et nommait le correctif (« integrer
+relativement a l'ancre, ~128x plus fin »). Elle n'etait **indexee dans aucun `MEMORY.md`**, et le
+fait n'avait ete propage ni dans `SPEC-COVERAGE.md`, ni ici, ni dans `DIRECTIVES.md`. **Quatre
+cycles (114b, 114c, 115, 116) l'ont re-derive a la main**, dont un qui a conclu a « un quatrieme
+terme qui porte 91 a 96 % de l'equilibre » — un terme qui n'existait pas. Etat mesure au cycle 116 :
+**610 fichiers de registre, 335 indexes — 275 (45 %) inatteignables par le rappel**, et l'index
+lui-meme depasse la taille a laquelle il est charge en entier. Verrou, en deux parties : (1) un fait
+qui change la lecture d'une SECTION se propage dans `SPEC-COVERAGE.md` **le cycle ou il est trouve**
+— le registre est une memoire, le tableau de couverture est la source de verite du cycle ; (2) avant
+d'ouvrir une enquete sur une grandeur, `grep` le registre ET les trois documents sur la GRANDEUR
+(ici : `0.015625`, `ULP`, `float32`), pas sur le mot qu'on emploie pour la decrire.
+
 GUARD world-float-quantum .autoport/c116_blockD_plateau.py QNORM
 **Intégrer la position simulée en coordonnées MONDE ABSOLUES, en flottant 32 bits.** Un flottant de
 magnitude `m` a un pas de `2^(floor(log2 m) - 23)`. La salle place le sujet à **259,1 m de l'origine
