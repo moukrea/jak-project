@@ -798,3 +798,17 @@ Verrou : si le SEUL echec du validateur est cette porte — une seule ligne `FAI
 `OPEN-DEFECTS` — l'etat est `awaiting-owner`, pas `fail`. Regle generale : un harnais generique ne
 sait pas qu'une gate est humaine ; c'est a l'orchestrateur de le lui dire, jamais a la gate de
 mentir sur son resultat.
+
+GUARD a-channel-for-a-response-is-a-mirror .autoport/DIRECTIVES.md fabriquer un miroir
+**Cabler une cle qui est une REPONSE fabrique un miroir.** Le 2026-08-22 a 23:00 j'ai ordonne que
+« chaque cle du preset devienne un canal que le moteur lit ». L'audit exhaustif du cycle 119 montre
+que sur 21 cles sans canal, **15 sont des reponses attendues** (le document ecrit le nominal d'une
+plage sans nommer de reglage), 4 sont des identites exactes d'autres cles, et **un seul bouton
+manque reellement**. Pire : le meme test retourne sur les 24 canaux DEJA cables trouve **6
+MIROIRS** — les echelles de forme de §10/§11, dont la bande de verdict est centree sur l'entree du
+solveur, donc structurellement infaillibles.
+Verrou : avant de cabler une cle, etablir si elle est un REGLAGE ou une CONSEQUENCE. Une
+consequence se MESURE contre une grandeur independante de l'entree ; lui donner un canal, c'est
+injecter la reponse attendue et la relire. Un contrat d'entree se compose d'un petit nombre de
+boutons et d'un grand nombre de resultats qu'ils doivent produire — confondre les deux transforme
+une direction juste en machine a faux verts.

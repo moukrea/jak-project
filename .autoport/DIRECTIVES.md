@@ -10,6 +10,37 @@ périmètre qu'il désigne ci-dessous.
 
 ---
 
+## 2026-08-23 16:00 — JE CORRIGE MA DIRECTIVE DU 23:00 : « CHAQUE CLE DEVIENT UN CANAL » ETAIT TROP LARGE, ET L'AUDIT LE PROUVE
+
+Deuxieme cycle consecutif sans changement de statut, remonte selon la regle. La remontee apporte
+l'audit exhaustif que ma directive appelait, et **il me contredit sur un point precis**.
+
+**SUR LES 21 CLES QUI DIFFERENT ENTRE LES DEUX PRESETS ET N'ONT PAS DE CANAL :**
+  - **15 sont des REPONSES ATTENDUES** — le document ecrit le nominal d'une plage sans nommer de
+    reglage. Ce sont des RESULTATS ;
+  - **4 sont des IDENTITES EXACTES** d'autres cles, verifiees sur LES DEUX presets ;
+  - 1 est sur-determinee ;
+  - **il reste UN SEUL bouton reellement manquant : `HangingTransientLengthMax`.**
+
+**CE QUE CA CORRIGE DANS MA DIRECTIVE.** J'ai ecrit « chaque cle du preset devient un CANAL que le
+moteur lit ». Applique a une cle qui est une REPONSE, cela fabrique exactement le defaut que nous
+traquons : on injecte la valeur attendue et on la relit. **Fabriquer un canal pour une reponse,
+c'est fabriquer un miroir.** L'intuition de l'owner reste juste — le preset EST un contrat
+d'entree, ses 51 ecarts le prouvent — mais l'entree se compose d'un petit nombre de boutons et
+d'un grand nombre de CONSEQUENCES qu'ils doivent produire.
+
+**ET VOICI LE VRAI RESULTAT DU CYCLE, QUI VAUT PLUS QUE LA FILE :** le meme test retourne sur les
+**24 canaux deja cables** trouve **6 MIROIRS** — les echelles de forme de §10 et §11, dont la bande
+de verdict est CENTREE SUR L'ENTREE DU SOLVEUR, donc structurellement infaillibles — et 4
+deformations imposees. Six sections sont jugees contre une cible alimentee par ce qu'on injecte.
+
+**PRIORITE, DANS CET ORDRE :**
+  1. **les 6 miroirs** : leur verdict doit se mesurer contre une grandeur INDEPENDANTE de l'entree
+     du solveur, ou la section repasse `NON ETABLI`. C'est du faux vert actif, ca passe avant tout ;
+  2. le bouton manquant `HangingTransientLengthMax`, seul vrai trou de cablage ;
+  3. **plus aucun canal cree pour une cle-REPONSE.** Une reponse se MESURE, elle ne se pose pas.
+
+
 ## 2026-08-23 01:20 — ARBITRAGE : LE VALIDATEUR AU VERT N'EST PAS LA CONFORMITE. ET LA BORNE DES DEUX CYCLES NE COMPTE PAS LA PORTE DE L'OWNER.
 
 Le cycle 110 remonte, sans avoir touche un bit du solveur : 13 gates de mesure au vert, `[PASS]`
