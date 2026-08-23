@@ -1659,6 +1659,25 @@ def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
     state["retries"][pid] = attempt
     save_state(state)
 
+    # 2026-08-23 — LA PORTE HUMAINE N'EST PAS UN ECHEC A REESSAYER.
+    # `OPEN breast-spec-incomplete` n'a pas de mode « reussi » : seul l'owner la retire. Le
+    # validateur sort donc TOUJOURS en 1, meme quand les 13 gates de MESURE passent, et chaque
+    # tentative etait comptee comme un echec puis relancee — une boucle qui ne peut pas se
+    # terminer, sur une phase qui attend en realite une personne. Le worker a signale le conflit
+    # au lieu de le contourner (cycle 117) ; le contourner aurait voulu dire toucher a la gate.
+    # Ici : si le SEUL echec du validateur est cette porte, l'etat est `awaiting-owner`, pas
+    # `fail`. Un seul echec, et il doit NOMMER OPEN-DEFECTS — sinon on retombe dans le cas normal.
+    if v.returncode != 0:
+        try:
+            _vlog = validator_log.read_text(errors="ignore")
+        except OSError:
+            _vlog = ""
+        _fails = [l for l in _vlog.splitlines() if "FAIL]" in l]
+        if len(_fails) == 1 and "OPEN-DEFECTS" in _fails[0]:
+            console.print("[dim]validateur: seule la porte de l'owner echoue "
+                          "— phase en attente de sa parole, pas en echec.[/dim]")
+            return "awaiting-owner", "", []
+
     if v.returncode == 0:
         # The phase's own validator passed — but run the central close-gate to
         # catch false-greens a lax validator misses (no-code stub, stale/mixed

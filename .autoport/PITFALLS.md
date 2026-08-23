@@ -785,3 +785,16 @@ l'ecrit comme ca. Ici elle le requalifie utilement : le 0,121-0,143 venait de ce
 residu vaut 2,5 a 3,2 fois le seuil de lisibilite, et la seule lecture recevable rend **0,26**, le
 double. Different de `registry-unindexed` : la, le fait dormait dans une note non indexee ; ici il
 etait sur la ligne meme qu'on allait changer.
+
+GUARD human-gate-counted-as-a-retryable-failure .autoport/orchestrator.py awaiting-owner
+**Une porte que seul l'owner peut retirer etait comptee comme un echec a reessayer.**
+`OPEN breast-spec-incomplete` n'a pas de mode « reussi » par construction ; le validateur sort donc
+TOUJOURS en 1, meme avec ses 13 gates de MESURE au vert. L'orchestrateur exigeait `returncode == 0`
+pour meme envisager la cloture, donc chaque tentative etait comptee comme un echec et relancee —
+une boucle qui ne peut pas se terminer, sur une phase qui attend en realite une PERSONNE. Le worker
+a signale le conflit au lieu de le contourner (cycle 117) : le contourner aurait voulu dire toucher
+a la gate, ce que la regle 5 interdit.
+Verrou : si le SEUL echec du validateur est cette porte — une seule ligne `FAIL]`, et elle nomme
+`OPEN-DEFECTS` — l'etat est `awaiting-owner`, pas `fail`. Regle generale : un harnais generique ne
+sait pas qu'une gate est humaine ; c'est a l'orchestrateur de le lui dire, jamais a la gate de
+mentir sur son resultat.
