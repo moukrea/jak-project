@@ -768,3 +768,20 @@ Verrou : toute ligne de verdict porte au moins un champ formate depuis la mesure
 le scan est mecanique — un bloc `A(...)` qui nomme un verdict sans `%` alimente est un faux vert en
 attente. Voisin de `instrument-republishes-its-target` : la, l'instrument relit sa cible ; ici, il
 ne relit rien du tout.
+
+GUARD reread-the-cell-before-changing-its-status .autoport/SPEC-COVERAGE.md CE QUE CETTE LIGNE NE COUVRE PAS
+**J'AI RETROGRADE UNE SECTION SUR UN FAIT QUI ETAIT DEJA PUBLIE SUR SA PROPRE LIGNE.** Cycle 117 :
+filtre `l=0` leve sur `PHYSRINGAX`, maillon distal mesure sous la bande de §25, section passee
+`TENUE` -> `PARTIELLE`. En relisant la cellule AVANT de committer, elle publiait deja « le maillon
+DISTAL rend zeta = 0,121 a 0,143 sur les deux chaines », sous un intitule qui dit mot pour mot
+« CE QUE CETTE LIGNE NE COUVRE PAS, ET C'EST NOMME AU LIEU D'ETRE TU » — et la PORTEE y etait deja
+arbitree : le mode distal est rattache a §36, `NON TENUE`, qui le porte deja. Retrograder aurait
+compte le MEME defaut dans DEUX sections. Un faux rouge coute autant qu'un faux vert, et la regle
+ne fait pas d'exception pour les rouges qui donnent l'air rigoureux.
+Verrou : avant de modifier le STATUT d'une section, relire sa cellule EN ENTIER et y chercher (a)
+le fait qu'on croit apporter, (b) une decision de PORTEE deja prise. Si le fait y est, la mesure
+neuve n'est pas un motif de changement de statut — elle REQUALIFIE le chiffre deja inscrit, et on
+l'ecrit comme ca. Ici elle le requalifie utilement : le 0,121-0,143 venait de cellules dont le
+residu vaut 2,5 a 3,2 fois le seuil de lisibilite, et la seule lecture recevable rend **0,26**, le
+double. Different de `registry-unindexed` : la, le fait dormait dans une note non indexee ; ici il
+etait sur la ligne meme qu'on allait changer.

@@ -24,8 +24,9 @@ sens dessus).
   republies sur la bonne trace, pas un resultat du 117.
 
 CYCLE 117 — UNE LIGNE DE VERDICT AFFIRMAIT LE CONTRAIRE DE SA PROPRE COLONNE, ET LA CAUSE EST UNE
-PRECONDITION DE GARDE QUE LE CYCLE 116 A RENDUE FAUSSE. §27 EST RELUE SUR LA GRANDEUR QU'ELLE
-NOMME, ET SON CHANTIER DEVIENT UN NOMBRE UNIQUE : x1,86 ENTRE LES DEUX MAILLONS.
+PRECONDITION DE GARDE QUE LE CYCLE 116 A RENDUE FAUSSE. PUIS LE FILTRE `l=0` A ETE LEVE — ET LA
+RETROGRADATION QUE J'EN AI TIREE EST RETIREE PAR MOI, DANS LE MEME CYCLE : LE FAIT ETAIT DEJA SUR
+LA LIGNE DE §25, ET SA PORTEE DEJA TRANCHEE.
 
 ================================================================================================
 0. L'AVANCEMENT, ET IL SE LIT DANS `SPEC-COVERAGE.md`, PAS DANS LE VALIDATEUR
@@ -34,13 +35,14 @@ NOMME, ET SON CHANTIER DEVIENT UN NOMBRE UNIQUE : x1,86 ENTRE LES DEUX MAILLONS.
 0 `NON ETABLI`, sur 38 sections.
 
 **AUCUN STATUT NE BOUGE. C'EST LE QUATRIEME CYCLE CONSECUTIF (114, 115, 116, 117) ET JE L'ECRIS
-EN PREMIERE LIGNE.** La remontee au superviseur qu'exige la directive du 2026-08-21 18:25 est en
-section 6, avec sa raison et ce qui l'a empechee.
+EN PREMIERE LIGNE.** J'ai fait passer §25 a `PARTIELLE` en milieu de cycle, puis je l'ai retablie :
+le detail de cette retractation est en section 5, et elle est a mettre a mon debit, pas au sien.
+La remontee au superviseur qu'exige la directive du 2026-08-21 18:25 est en section 7.
 
 Le bloc que la directive du 2026-08-20 23:30 designe comme seuil de re-sollicitation de l'owner —
-equilibres §9-13, regimes §14-20, frequences et amortissement §24-27 — est a **4 sections tenues
-sur 16** (§12, §24, §25, §26). L'owner n'est donc pas sollicite ce cycle, conformement a cette
-meme directive : a ce niveau de couverture un test lui coute plus qu'il ne rapporte.
+equilibres §9-13, regimes §14-20, frequences et amortissement §24-27 — reste a **4 sections tenues
+sur 16** (§12, §24, §25, §26). L'owner n'est donc pas sollicite ce cycle, conformement a cette meme
+directive : a ce niveau de couverture un test lui coute plus qu'il ne rapporte.
 
 **LE VALIDATEUR N'EST PAS UN INDICATEUR D'AVANCEMENT** (arbitrage du 2026-08-23 01:20). Il sort
 18 lignes, treize gates au vert, et le seul echec est `OPEN-DEFECTS / breast-spec-incomplete`,
@@ -164,17 +166,25 @@ de §24 et §25), ni le tau (il en SORT).
 **LA BANDE DE §27 TOMBE ENTRE LES DEUX MAILLONS.** L'etape 4 est DANS pour 3 des 4 series
 proximales et EN RETARD pour 4 des 4 distales ; l'etape 1 est trop TOT pour le proximal
 (0,233-0,250 s pour une fenetre 0,3-0,6 s) et trop TARD pour le distal (0,700-0,933 s). Le
-chantier de §27 n'est donc plus « le decalage residuel » : c'est **rapprocher les deux maillons,
-et l'ecart est chiffre a x1,86**.
+chantier de §27 n'est donc plus « le decalage residuel » : c'est **rapprocher les deux maillons**.
 
-CONSEQUENCE SUR §25, ET C'EST UNE RESERVE, PAS UNE RETROGRADATION. Son `TENUE` est ajuste sur
+**ATTENTION — LE `x1,86` DE CE PARAGRAPHE EST CORRIGE EN SECTION 5, PAR MOI, DANS LE MEME CYCLE.**
+C'est l'estimateur par franchissements SEUL. L'ajustement par maillon (section 5) rend **x1,43**
+sur les cellules ou une sinusoide amortie est lisible, et le chiffre publiable est l'INTERVALLE
+**x1,43 a x1,94**. Le paragraphe ci-dessus n'est pas retire : l'ecart entre les deux estimateurs
+est lui-meme une mesure, et il faut son avant.
+
+CONSEQUENCE SUR §25 — ET LA SECTION 5 MONTRE QUE CETTE RESERVE ETAIT DEJA SUR SA LIGNE. Son `TENUE` est ajuste sur
 `l=0` UNIQUEMENT — filtre DECLARE dans le code (`if int(m.group(3)) != 0: continue` sur
 `PHYSRINGAX`, motif « le mode primaire de §28 »). Le tau ci-dessus est un instrument INDEPENDANT
 (il ne partage ni l'ajusteur, ni la table de poids, ni meme la notion de frequence) et il
 **CONFIRME §25 sur ce maillon a 4 % pres**. Mais le maillon que le commentaire de collecte de §27
 appelle lui-meme « celui qu'on voit » relaxe **1,86 fois plus lentement** et ne porte aucun zeta
 attribuable. §25 dit mot pour mot « **primary** damping ratio » : le vert est juste, et sa PORTEE
-est desormais ecrite a cote du chiffre. Il ne doit jamais se lire « l'amortissement est bon ».
+etait DEJA ecrite a cote du chiffre avant ce cycle — la cellule publiait « le maillon DISTAL rend
+zeta = 0,121 a 0,143 » sous l'intitule « CE QUE CETTE LIGNE NE COUVRE PAS ». J'ai cru y apporter
+un fait neuf et j'ai voulu retrograder ; la section 5 dit pourquoi c'etait faux et ce que la mesure
+apporte reellement.
 
 C'est le test d'admissibilite de la SPEC §7 applique a mon propre vert : si ce chiffre est vert et
 que l'owner voit encore « du pudding » et « de l'hysteresis », qu'est-ce qui l'expliquerait ? La
@@ -226,7 +236,82 @@ publie (« il faudrait k >= 1,724 et k <= 0,865 »). r=9 ne porte pas de bande d
 de §18 et n'est donc pas compte ici.
 
 ================================================================================================
-5. CE QUE LE CYCLE 116 A ETABLI, ET QUI N'ETAIT DANS AUCUN RAPPORT
+5. LE FILTRE `l=0` EST LEVE — ET JE RETIRE LA RETROGRADATION QUE J'EN AVAIS TIREE
+================================================================================================
+CE QUI A ETE FAIT. `PHYSRINGAX` / `PHYSRINGAX2` portent le champ `l=` depuis toujours ; le
+collecteur de §24/§25 le jetait (`if int(m.group(3)) != 0: continue`, choix DECLARE « le mode
+primaire de §28 »). Filtre leve (`_ansL`). **L'ajusteur n'est pas reecrit** : MEME `_fitseries`
+(grille f in [1,20 ; 6,00] pas 0,005 · zeta in [0,10 ; 0,70] pas 0,01), MEME regle de selection
+(diagonale), MEME seuil de lisibilite 0,08. Publie sous `ROOM-AXC-FIT-LINK` / `-BILAN`.
+
+LES PREDICTIONS, ECRITES AVANT LE FIT (`.autoport/c117-predictions.txt` bloc C) :
+
+  Q1  PURETE : les 6 cellules `l=0` doivent reproduire les 6 lignes etoilees de `ROOM-AXC-FIT`.
+      **TENUE, AU DERNIER CHIFFRE** — 2,550 / 2,600 / 2,460 / 2,555 / 2,560 / 2,655 Hz ·
+      zeta 0,36 / 0,36 / 0,35 / 0,35 / 0,34 / 0,34 · residus 0,023 / 0,036 / 0,011 / 0,012 /
+      0,012 / 0,020. Six sur six.
+  Q2  ZETA DU DISTAL predit 0,14-0,21, SOUS la bande. **TENUE sur la clause** (SOUS, 6/6),
+      **trop etroite sur l'intervalle** : mesure 0,14-0,26, les deux cellules `v` a 0,26.
+  Q3  RESIDU DU DISTAL predit > 0,08. **TENUE sur 4 cellules, REFUTEE sur 2** : `ap`/`lat` rendent
+      0,197-0,254 (2,5 a 3,2 fois le seuil), mais les deux `v` rendent **0,073 et 0,069, SOUS le
+      seuil**. Ma phrase de la section 3, « le distal n'est pas une exponentielle unique », etait
+      trop large : sur l'axe vertical il l'est.
+  Q4  BORD DE GRILLE : **aucune cellule** en butee, sur l'un ou l'autre maillon.
+  Q5  PURETE DU TABLEAU : un seul bloc d'insertion, **zero ligne retiree**, verrou d'asymetrie
+      inchange a 14.
+
+CE QUE J'EN AI TIRE, ET C'ETAIT FAUX. J'ai conclu que §25 devait passer `TENUE` -> `PARTIELLE`,
+sur deux arguments : (a) le mode distal lisible bat a 2,350 / 2,480 Hz, donc au voisinage de la
+frequence PRIMAIRE et pas au 4-7 Hz de §36 ; (b) la regle 2 du registre (« la bande respectee sur
+LES DEUX seins ») se transposerait aux maillons. **J'AI ENSUITE RELU LA CELLULE DE §25 AVANT DE
+COMMITTER, ET LES DEUX ARGUMENTS Y ETAIENT DEJA TRAITES :**
+
+  - elle publiait DEJA « le maillon DISTAL rend zeta = 0,121 a 0,143 sur les deux chaines », sous
+    un intitule qui dit mot pour mot « **CE QUE CETTE LIGNE NE COUVRE PAS, ET C'EST NOMME AU LIEU
+    D'ETRE TU** ». Je n'apportais donc pas un fait : je re-derivais le sien ;
+  - et la PORTEE y etait deja arbitree : le mode distal « n'est ni le mode primaire de §25 (§28 :
+    effective whole-breast mode) ni le mode secondaire de §36 », et il est **rattache a §36**, qui
+    est `NON TENUE` et le porte deja.
+
+Retrograder aurait donc compte le MEME defaut dans DEUX sections. **Un faux rouge coute autant
+qu'un faux vert** — c'est la regle 1 du contrat, et elle ne fait pas d'exception pour les rouges
+qui me donneraient l'air rigoureux. **STATUT DE §25 RETABLI : `TENUE`.** La retractation est
+inscrite sur sa ligne, pas seulement ici.
+
+CE QUE LA MESURE AJOUTE REELLEMENT, ET C'EST PLUS FIN QUE CE QUE JE VOULAIS EN FAIRE. Avec
+l'instrument MEME de la section (et non plus un ajusteur tiers d'un autre cycle et d'une autre
+fenetre), le maillon distal n'est **LISIBLE que sur 2 cellules sur 6** — les deux `v` — et il y
+rend **zeta = 0,26 sur les DEUX chaines**. Sur les quatre autres, le residu vaut 0,197 a 0,254 et
+le zeta qui en sort (0,14-0,15) **n'est pas une mesure** : c'est justement la valeur que la cellule
+publiait. **Donc le 0,121-0,143 deja inscrit vient de cellules que le test de forme REFUSE, et la
+seule lecture recevable du distal vaut 0,26 — le double.** Je ne tranche pas entre les deux
+nombres : les deux instruments ne partagent ni fenetre ni ajusteur. Le desaccord est publie a cote.
+
+ET JE CORRIGE UN CHIFFRE QUE J'AI PUBLIE EN SECTION 3 DE CE MEME RAPPORT. L'ecart entre les deux
+maillons n'est pas « x1,86 » : c'etait l'estimateur par franchissements SEUL.
+
+    tau (s), sur les seules cellules ou une sinusoide amortie est LISIBLE
+      l=0   FIT 0,1700 - 0,1848   (6 cellules)      franchissements 0,1845 - 0,1922
+      l=1   FIT 0,2468 - 0,2605   (2 cellules)      franchissements 0,3221 - 0,3570
+      RAPPORT distal / proximal :  **x1,43 par le fit**  ·  **x1,94 par les franchissements**
+
+**LE CHIFFRE PUBLIABLE EST L'INTERVALLE x1,43 A x1,94**, et le chantier de §27 se dimensionne
+dessus, pas sur son extremite favorable. Le desaccord est lui-meme une mesure : sur les cellules
+lisibles les franchissements lisent **1,01 a 1,45 fois plus long** que le fit — biais systematique,
+meme sens — et sur les quatre cellules distales NON lisibles ils rendent quand meme un nombre
+(0,366-0,417 s) la ou le fit refuse. CAUSE DU BIAIS NON MESUREE, CANDIDAT NOMME : les
+franchissements lisent le DERNIER passage sur toute la fenetre et voient une queue lente que le fit
+moyenne ; je ne l'ai pas separe et je ne le presente pas comme etabli.
+
+LA LECON, ET ELLE EST SUR MOI. Le cycle 116 a mesure que **275 notes de registre sur 610 sont
+inatteignables par le rappel** et qu'un fait connu depuis le 2026-08-17 avait ete re-derive a la
+main pendant quatre cycles. Ici le fait n'etait pas dans une note perdue : il etait sur **la ligne
+meme de la section que je m'appretais a retrograder**, et je ne l'ai vu qu'en relisant avant de
+committer. Le verrou n'est donc pas « mieux indexer » : c'est **relire la cellule AVANT de changer
+son statut**, systematiquement, et pas apres.
+
+================================================================================================
+6. CE QUE LE CYCLE 116 A ETABLI, ET QUI N'ETAIT DANS AUCUN RAPPORT
 ================================================================================================
 Repris ici parce que son rapport n'a jamais ete ecrit. Source : `SPEC-COVERAGE.md` (§2, §9, §27),
 `.autoport/c116-predictions.txt`, `.autoport/c116_priorite.py`.
@@ -250,17 +335,18 @@ Repris ici parce que son rapport n'a jamais ete ecrit. Source : `SPEC-COVERAGE.m
 Le present cycle s'appuie sur cette course ARMEE et sur elle seule.
 
 ================================================================================================
-6. REMONTEE AU SUPERVISEUR — QUATRIEME CYCLE SANS CHANGEMENT DE STATUT
+7. REMONTEE AU SUPERVISEUR — LE MUR N'EST PAS LE COMPTE DE VERTS, C'EST LA CONVERSION
 ================================================================================================
 La directive du 2026-08-21 18:25 demande une remontee apres DEUX cycles consecutifs sans
-changement de statut. Nous en sommes au QUATRIEME (114, 115, 116, 117). Je remonte, et je dis ce
-qui l'a empeche plutot que de l'enrober.
+changement de statut. Nous en sommes au QUATRIEME (114, 115, 116, 117). Je remonte, et ce que je
+remonte n'est pas le compte de verts : c'est le mur qui empeche la CONVERSION, et il n'a pas bouge
+d'un pouce.
 
 CE QUI A ETE FAIT PENDANT CES QUATRE CYCLES N'EST PAS RIEN : une cause d'arithmetique qui bloquait
 §2, §9 et §27 a ete trouvee, prouvee par intervention et corrigee ; deux verdicts d'instrument
-faux ont ete retires ; une reserve de portee a ete posee sur le seul vert qui touche a ce que
-l'owner voit. Mais **aucune de ces choses ne fait passer une section**, et c'est la seule
-metrique qui compte.
+faux ont ete retires ; et une mesure qui n'avait jamais ete faite — l'ajustement PAR MAILLON — existe
+desormais et a corrige un de mes propres chiffres. Mais **aucune de ces choses ne fait PASSER une
+section**, et c'est la seule metrique qui compte.
 
 POURQUOI. Les quatre cycles ont tous butte sur le meme mur, et il se nomme maintenant :
 
@@ -280,7 +366,8 @@ POURQUOI. Les quatre cycles ont tous butte sur le meme mur, et il se nomme maint
      - le mur de FORCE de §21 gele 18 des 24 cellules de rotation (force de rappel CONSTANTE
        au-dela de 0,4992 B0, donc raideur effective NULLE) — c'est ce qui porte les bandes
        d'apex de §14, §16, §18, §19, §20 et §22 ;
-     - l'ecart **x1,86** entre les deux maillons porte §27, et par ricochet la portee de §25.
+     - l'ecart **x1,43 a x1,94** entre les deux maillons porte §27 ; il ne fait PAS tomber §25,
+       dont la portee etait deja arbitree (section 5). C'est le second mecanisme, et il est chiffre.
 
 CE QUE JE DEMANDE, ET C'EST UNE SEULE CHOSE : que le plafond de lignes du moteur soit rediscute
 sur sa COMPOSITION, comme les trois fois precedentes, ou que le superviseur nomme lequel des trois
@@ -288,7 +375,7 @@ chantiers doit tenir dans 0 ligne nette. Sans cela le prochain cycle sera le cin
 changement de statut, pour la meme raison.
 
 ================================================================================================
-7. CE QUI EST LIVRE, ET CE QUI NE L'EST PAS
+8. CE QUI EST LIVRE, ET CE QUI NE L'EST PAS
 ================================================================================================
 TIER DE BUILD UTILISE : **AUCUN**. Zero ligne de `goal_src/`, zero build, zero course neuve. Tout
 est lu dans la trace ARMEE du cycle 116 (`keira-room-x86.log`, 10:50). Les seuls fichiers
@@ -297,13 +384,18 @@ modifies sont l'instrument (`.autoport/physics_room_table.py`), le registre
 
   - `.autoport/c117_verdict_audit.py`     recompte la ligne de verdict contre ses propres lignes
   - `.autoport/c117_settle_motion.py`     la lecture MOUVEMENT et le tau par maillon, sur la trace
+  - `ROOM-AXC-FIT-LINK` / `-BILAN`        l'ajustement par maillon, dans le tableau
   - `.autoport/c117-predictions.txt`      md5 3fdc01109393667bdf1234b0603ff82e, ecrit avant
 
 CE QUI N'EST PAS PROUVE, ET JE LE NOMME :
-  - le tau par maillon est derive de QUATRE franchissements, pas d'un ajustement de sinusoide
-    amortie avec intervalle de confiance. Il est independant de l'ajusteur — c'est sa force — mais
-    il est plus grossier. Un ajustement PAR MAILLON n'existe pas encore : `PHYSRINGAX` est
-    collecte avec un filtre `l=0`. C'est le premier geste du prochain cycle, et il est petit.
+  - CE POINT EST FAIT DANS LE MEME CYCLE, section 5 : l'ajustement PAR MAILLON existe desormais
+    (`ROOM-AXC-FIT-LINK`), et il a corrige mon propre chiffre (x1,86 -> intervalle x1,43-x1,94).
+    CE QUI RESTE NON PROUVE : le BIAIS entre les deux estimateurs (franchissements 1,01 a 1,45
+    fois plus long que le fit sur les cellules lisibles) a un candidat nomme — la queue lente que
+    le dernier franchissement voit et que le fit moyenne — et il n'est PAS separe.
+  - le maillon distal n'a de zeta lisible que sur DEUX cellules sur six. Sur les quatre autres le
+    residu vaut 2,5 a 3,2 fois le seuil : ce n'est pas une sinusoide amortie, et je ne dis pas ce
+    que c'est. Nommer un second mode demanderait une decomposition que je n'ai pas faite.
   - la lecture MOUVEMENT retranche la moyenne des 30 DERNIERES frames, donc suppose le decalage
     CONSTANT sur la fenetre. Sur les series ou le decalage derive encore, ce retrait est un
     majorant. Non mesure.

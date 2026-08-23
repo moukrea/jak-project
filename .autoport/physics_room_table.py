@@ -10713,13 +10713,24 @@ def main():
     # ABSENT  : aucune ligne `PHYSRINGAN` (phase PH-AXC non jouee) — le bloc le dit et se tait.
     # ============================================================================================
     _ans, _cns, _pre, _wn, _wx = {}, {}, {}, {}, {}
+    # [CYCLE 117] `_ansL` GARDE LE MAILLON. `_ans` jette `l != 0` — un choix DECLARE (« le mode
+    # primaire de §28 ») mais qui rend §24 et §25 muettes sur le maillon que le commentaire de
+    # collecte de §27, dix lignes plus bas, appelle lui-meme « celui qu'on voit ». La trace PORTE
+    # le champ `l=` depuis toujours ; seule la lecture le jetait. `_ansL` est la MEME collecte sans
+    # le filtre, et elle passe par le MEME `_fitseries` : aucune seconde implementation.
+    _ansL = {}
     for m in re.finditer(r'^PHYSRINGAN c=(\d+) f=(\d+) l=(\d+) ax=(\d+) v=([-\d.e+]+)', txt, re.M):
+        _ansL.setdefault((int(m.group(4)), int(m.group(1)), 'v', int(m.group(3))), []).append(
+            (int(m.group(2)), float(m.group(5))))
         if int(m.group(3)) != 0:
             continue
         _ans.setdefault((int(m.group(4)), int(m.group(1)), 'v'), []).append(
             (int(m.group(2)), float(m.group(5))))
     for m in re.finditer(r'^PHYSRINGAN2 c=(\d+) f=(\d+) ax=(\d+) l=(\d+)'
                          r' ap=([-\d.e+]+) lat=([-\d.e+]+)', txt, re.M):
+        for _ai_, _gi_ in (('ap', 5), ('lat', 6)):
+            _ansL.setdefault((int(m.group(3)), int(m.group(1)), _ai_, int(m.group(4))),
+                             []).append((int(m.group(2)), float(m.group(_gi_))))
         if int(m.group(4)) != 0:
             continue
         _ans.setdefault((int(m.group(3)), int(m.group(1)), 'ap'), []).append(
@@ -10894,6 +10905,65 @@ def main():
                  _r['rel'], ('%.3f' % _rb) if _rb else 'n/a', _TC24[_ax], _in))
             if _AXC3[_k] == _ax and _r['rel'] <= 0.08:
                 _fvn[(_c, _ax)] = _r
+
+        # ---- (3 bis) [CYCLE 117] LE MEME AJUSTEMENT, PAR MAILLON -----------------------------
+        # §24 et §25 sont prononcees sur `l=0` uniquement. Le champ `l=` est dans la trace ; seule
+        # la lecture le jetait. Ici la MEME fonction `_fitseries` (grille f in [1.20;6.00] pas
+        # 0.005, zeta in [0.10;0.70] pas 0.01), la MEME regle de selection (diagonale : axe mesure
+        # = axe excite), le MEME seuil de lisibilite 0.08. Rien n'est ajuste pour l'occasion.
+        # NATURE / REPERE : identiques aux lignes ci-dessus — deviation angulaire du maillon
+        # RELATIVEMENT A SON PARENT, triedre de l'ancre (SPEC 7), fenetres a entree propre PH-AXC.
+        # BUTEE DE GRILLE : `zeta` sorti a 0.10 ou 0.70 n'est PAS une mesure, c'est un bord ; la
+        # cellule le declare au lieu de publier le nombre.
+        _lnk = sorted({_l for (_k, _c, _a, _l) in _ansL})
+        if len(_lnk) > 1:
+            A('')
+            A('   (3 bis) LE MEME AJUSTEMENT, PAR MAILLON — §24 ET §25 SONT PRONONCEES SUR `l=0`')
+            A('       SEUL, PAR UN FILTRE DECLARE. La trace porte `l=` ; seule la lecture le')
+            A('       jetait. Meme ajusteur, meme regle de selection, meme seuil de lisibilite.')
+            A('   excite chaine        l   n    f (Hz)  intervalle      zeta   residu  bande §24'
+              '        bande §25 (0.32-0.42)')
+            _zlo, _zhi = 0.32, 0.42          # §25 « useful range 0.32-0.42 » (l.333)
+            _tally = {}
+            for (_k, _c, _ax, _l) in sorted(_ansL):
+                if _AXC3[_k] != _ax:         # DIAGONALE seulement, comme au-dessus
+                    continue
+                _vals = [v for _f, v in sorted(_ansL[(_k, _c, _ax, _l)])]
+                _r = _fitseries(_vals)
+                if not _r:
+                    continue
+                _nm = names[_c] if _c < len(names) else 'c%d' % _c
+                _lo, _hi = _BC24[_ax]
+                _f24 = ('DANS' if _lo <= _r['f'] <= _hi else 'HORS') if _ax != 'v' \
+                    else 'tangentiel (cf. ROOM-AXC-RAD)'
+                _bord = (_r['zeta'] <= 0.1001 or _r['zeta'] >= 0.6999)
+                if _bord:
+                    _z25 = 'BUTEE DE GRILLE — pas une mesure'
+                elif _r['rel'] > 0.08:
+                    _z25 = 'residu %.3f > 0.08 : NON LISIBLE' % _r['rel']
+                else:
+                    _z25 = 'DANS' if _zlo <= _r['zeta'] <= _zhi else \
+                        ('SOUS x%.2f' % (_r['zeta'] / _zlo) if _r['zeta'] < _zlo
+                         else 'AU-DESSUS x%.2f' % (_r['zeta'] / _zhi))
+                _tally.setdefault(_l, []).append((_r, _bord, _z25))
+                A('ROOM-AXC-FIT-LINK: %-6s %-12s %d %3d  %6.3f  [%.3f..%.3f]  %.2f   %.3f   %-14s'
+                  '  %s' % (_AXC3[_k], _nm, _l, _r['n'], _r['f'], _r['fmin'], _r['fmax'],
+                            _r['zeta'], _r['rel'], _f24, _z25))
+            for _l in sorted(_tally):
+                _rs = _tally[_l]
+                _zz = sorted(r['zeta'] for r, b, _t in _rs if not b)
+                _rr = sorted(r['rel'] for r, _b, _t in _rs)
+                _nb = sum(1 for _r2, b, _t in _rs if b)
+                _nl = sum(1 for _r2, _b, _t in _rs if _r2['rel'] > 0.08)
+                A('ROOM-AXC-FIT-LINK-BILAN: maillon l=%d  n=%d cellule(s)  ·  zeta %s  ·  residu'
+                  ' median %.3f  ·  %d au-dessus de 0.08  ·  %d en butee de grille'
+                  % (_l, len(_rs),
+                     ('%.2f a %.2f' % (min(_zz), max(_zz))) if _zz else 'aucune hors butee',
+                     _rr[len(_rr) // 2], _nl, _nb))
+            A('   CE QUE CE BLOC NE FAIT PAS : il ne deplace pas le verdict de §24 ni celui de §25,')
+            A('   qui restent lus sur `l=0` — la section dit « **primary** damping ratio » et le')
+            A('   mode primaire est celui de la racine. Il dit ce que ces deux sections NE disent')
+            A('   PAS, et c est le maillon que l oeil de l owner juge.')
 
         # ---- (4) LE RADIAL, par la MEME fonction que ROOM-AXFIT-RAD --------------------------
         A('')

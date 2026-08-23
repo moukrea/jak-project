@@ -3239,6 +3239,29 @@ ROOM-AXC-FIT: lat    chestR       ap  138   2.535  [2.400..2.685]  0.33   0.337 
 ROOM-AXC-FIT:*lat    chestR       lat 138   2.655  [2.650..2.665]  0.34   0.020   0.313   2.65 (2.4-2.9)  DANS
 ROOM-AXC-FIT: lat    chestR       v   138   2.635  [2.625..2.650]  0.33   0.032   0.300   2.30 (2.1-2.5)  tangentiel — §24-v: ROOM-AXC-RAD
 
+   (3 bis) LE MEME AJUSTEMENT, PAR MAILLON — §24 ET §25 SONT PRONONCEES SUR `l=0`
+       SEUL, PAR UN FILTRE DECLARE. La trace porte `l=` ; seule la lecture le
+       jetait. Meme ajusteur, meme regle de selection, meme seuil de lisibilite.
+   excite chaine        l   n    f (Hz)  intervalle      zeta   residu  bande §24        bande §25 (0.32-0.42)
+ROOM-AXC-FIT-LINK: v      chestL       0 138   2.550  [2.540..2.565]  0.36   0.023   tangentiel (cf. ROOM-AXC-RAD)  DANS
+ROOM-AXC-FIT-LINK: v      chestL       1 138   2.350  [2.320..2.385]  0.26   0.073   tangentiel (cf. ROOM-AXC-RAD)  SOUS x0.81
+ROOM-AXC-FIT-LINK: v      chestR       0 138   2.600  [2.585..2.620]  0.36   0.036   tangentiel (cf. ROOM-AXC-RAD)  DANS
+ROOM-AXC-FIT-LINK: v      chestR       1 138   2.480  [2.445..2.515]  0.26   0.069   tangentiel (cf. ROOM-AXC-RAD)  SOUS x0.81
+ROOM-AXC-FIT-LINK: ap     chestL       0 138   2.460  [2.455..2.460]  0.35   0.011   DANS            DANS
+ROOM-AXC-FIT-LINK: ap     chestL       1 138   2.250  [2.180..2.315]  0.15   0.208   HORS            residu 0.208 > 0.08 : NON LISIBLE
+ROOM-AXC-FIT-LINK: ap     chestR       0 138   2.555  [2.550..2.560]  0.35   0.012   DANS            DANS
+ROOM-AXC-FIT-LINK: ap     chestR       1 138   2.330  [2.260..2.400]  0.15   0.213   DANS            residu 0.213 > 0.08 : NON LISIBLE
+ROOM-AXC-FIT-LINK: lat    chestL       0 138   2.560  [2.555..2.560]  0.34   0.012   DANS            DANS
+ROOM-AXC-FIT-LINK: lat    chestL       1 138   2.330  [2.235..2.415]  0.14   0.254   HORS            residu 0.254 > 0.08 : NON LISIBLE
+ROOM-AXC-FIT-LINK: lat    chestR       0 138   2.655  [2.650..2.665]  0.34   0.020   DANS            DANS
+ROOM-AXC-FIT-LINK: lat    chestR       1 138   2.395  [2.330..2.455]  0.15   0.197   HORS            residu 0.197 > 0.08 : NON LISIBLE
+ROOM-AXC-FIT-LINK-BILAN: maillon l=0  n=6 cellule(s)  ·  zeta 0.34 a 0.36  ·  residu median 0.020  ·  0 au-dessus de 0.08  ·  0 en butee de grille
+ROOM-AXC-FIT-LINK-BILAN: maillon l=1  n=6 cellule(s)  ·  zeta 0.14 a 0.26  ·  residu median 0.208  ·  4 au-dessus de 0.08  ·  0 en butee de grille
+   CE QUE CE BLOC NE FAIT PAS : il ne deplace pas le verdict de §24 ni celui de §25,
+   qui restent lus sur `l=0` — la section dit « **primary** damping ratio » et le
+   mode primaire est celui de la racine. Il dit ce que ces deux sections NE disent
+   PAS, et c est le maillon que l oeil de l owner juge.
+
    (4) LE DEGRE DE LIBERTE RADIAL (SPEC 23) sur les fenetres propres — c est lui qui
        porte la VERTICALE de §24 (l os est vertical a 84.5 %). Meme fonction que
        `ROOM-AXFIT-RAD`, meme bande, meme seuil.

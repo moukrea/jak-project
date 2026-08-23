@@ -78,3 +78,45 @@ CE QUE CE CYCLE NE PRETEND PAS FAIRE
     fausse est corrigee, et ce sera ecrit comme tel ;
   - il ne sollicite pas l'owner (directive 2026-08-20 23:30 : le bloc §9-13 / §14-20 / §24-27
     n'est pas tenu, donc un test lui coute plus qu'il ne rapporte).
+
+================================================================================================
+BLOC C — L'AJUSTEMENT PAR MAILLON. PREDICTIONS ECRITES AVANT DE LANCER LE FIT.
+================================================================================================
+POURQUOI. Le bloc B a mesure, par les quatre franchissements de §27 (`t_i = tau.ln(1/L_i)`, sans
+parametre libre), que le maillon DISTAL relaxe x1,86 plus lentement que le proximal et que ses
+quatre estimations se contredisent de x1,65 a x1,99. C'est un instrument GROSSIER : il ne rend ni
+frequence, ni intervalle de confiance, ni residu. Or `PHYSRINGAX` / `PHYSRINGAX2` PORTENT le champ
+`l=` et le collecteur de §24/§25 le JETTE (`if int(m.group(3)) != 0: continue`). L'ajusteur existe
+(`_fitseries`, grille f in [1,20 ; 6,00] pas 0,005 et zeta in [0,10 ; 0,70] pas 0,01, moindres
+carres sur amplitude/phase/offset). On le REUTILISE tel quel sur `l=1` : aucune seconde
+implementation, aucun parametre change.
+
+Q1  CONTROLE DE PURETE, ET IL PASSE EN PREMIER. Le fit relance sur `l=0` doit reproduire les
+    lignes `ROOM-AXC-FIT` existantes **au pas de grille pres** sur les 6 cellules etoilees. Si
+    elles different, ma collecte est fausse et RIEN de ce bloc n'est publiable.
+
+Q2  ZETA DU DISTAL. Depuis tau = 0,3221-0,4174 s et f de l'ordre de 2,3-2,7 Hz,
+    `zeta = 1/(tau.2.pi.f)` predit **0,14 a 0,21** — donc **SOUS la bande [0,32 ; 0,42] de §25**.
+    FALSIFICATEUR : si zeta tombe DANS [0,32 ; 0,42] sur la majorite des cellules distales, ma
+    mesure de tau du bloc B est fausse, je le dis, et je retire la reserve posee sur §25.
+
+Q3  RESIDU DU DISTAL. Le bloc B conclut que le distal n'est PAS une exponentielle unique. Un
+    ajustement de sinusoide AMORTIE (une seule exponentielle par construction) doit donc mal le
+    representer : je predis un residu relatif **au-dessus de 0,08**, le seuil de lisibilite que ce
+    tableau applique partout ailleurs.
+    FALSIFICATEUR, ET IL EST SYMETRIQUE : si le residu est SOUS 0,08 sur la majorite des cellules
+    distales, alors la serie EST une sinusoide amortie propre, ma conclusion « pas une
+    exponentielle unique » est refutee, et c'est mon test des quatre franchissements qui est en
+    cause — je le publierai comme tel.
+
+Q4  BORD DE GRILLE. `zeta` est cherche dans [0,10 ; 0,70]. Une valeur qui SORT a 0,10 ou 0,70
+    n'est pas une mesure, c'est une butee. Toute cellule au bord sera declaree
+    **BUTEE DE GRILLE**, jamais publiee comme un chiffre. (Registre :
+    `never-fit-a-parameter-to-the-instrument`, `saturated-limiter-signature`.)
+
+Q5  PURETE DU TABLEAU. Le diff de la table regeneree ne doit toucher QUE le bloc neuf
+    `ROOM-AXC-FIT-LINK`. Toute autre ligne qui bouge est annulee, pas publiee.
+
+CE QUE CE BLOC NE PEUT PAS FAIRE, ET JE L'ECRIS D'AVANCE : il ne peut pas faire PASSER une
+section. Au mieux il retrograde §25 de `TENUE` a `PARTIELLE` — un statut qui bouge dans le mauvais
+sens est quand meme un statut qui bouge, et le registre dit qu'un statut qui regresse se reecrit.
