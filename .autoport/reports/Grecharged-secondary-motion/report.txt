@@ -319,6 +319,33 @@ Donc l'etat reel des gates apres le lot est : **12 vertes, 1 rouge (`COLLIDE §3
 porte humaine `OPEN-DEFECTS` qui n'a pas de mode reussi et qui n'est meme pas atteinte.** Avant le
 lot : 13 vertes, 0 rouge, meme porte humaine.
 
+**LE MECANISME EST LOCALISE, ET C'EST UN FAIT D'ORDRE DANS LE SOURCE, PAS UNE HYPOTHESE.**
+`phys-skin-chain` — « SPEC 33/34, la peau ferme la frame » — est appelee a
+`jak-hd-physics.gc:3197`. La deformation, elle, est appliquee aux matrices d'os a **:3886**
+(« [NOTE-151] LA DEFORMATION ENTRE ICI, ET NULLE PART AILLEURS »), soit **689 lignes plus loin,
+dans la meme frame**. La contrainte de peau de la frame N ne peut donc pas voir la deformation de
+la frame N : elle lit la surface telle que les matrices de la frame N-1 l'ont peaufinee. **Un lot
+qui ne touche QUE la deformation peut donc faire monter `skinpen` sans que la contrainte reagisse
+dans la meme frame** — c'est exactement ce qui se passe ici. Ce n'est pas une absence de
+contrainte, c'est un RETARD D'UNE FRAME, et il mord d'autant plus que la forme varie vite.
+
+**LES DEUX CORRECTIFS CANDIDATS, ET L'UN EST DEJA PRICE :**
+  (a) **Rendre le plafond de la contrainte invariant par direction** (`|dj|` au lieu de
+      `-dot(dj,n)`). **DEJA ESSAYE, MESURE ET RETIRE AU CYCLE 106**, et son prix est publie :
+      il achete -28,5 % / -18,4 % sur §34 mais casse §22 (0,4741 -> 0,7783 B0 contre un plafond
+      DUR de 0,50), `ROOM-STRETCH` (2,80 % -> 4,59 % contre le contrat owner de 3 %), §2/§9
+      (`ROOM-IDLE` x202) et la gate `DISCRIMINANT`. Le cycle 106 interdit explicitement de le
+      reproposer sans repondre a ces quatre lignes. **Je ne le repropose pas.**
+  (b) **Retirer le retard d'une frame** entre :3197 et :3886. C'est une restructuration du chemin
+      d'ecriture, pas une retouche — et c'est le chantier NOMME du cycle 121, avec sa cible
+      chiffree : `chestR` sous 0,0883 m sans reprendre le transitoire de §11.
+
+**CE QUE J'AI VERIFIE AVANT DE PROPOSER (b), POUR NE PAS ENVOYER LE CYCLE SUIVANT SUR UNE FAUSSE
+PISTE :** la contrainte n'est PAS aveugle a la deformation, elle est EN RETARD. `phys-surf-sd`
+construit la surface depuis `skel`, donc elle porte deja la deformation ECRITE a la frame
+precedente ; composer la deformation courante dans les points d'echantillon la compterait DEUX
+FOIS. Le correctif est donc l'ORDRE, pas l'echantillonnage.
+
 **POURQUOI LE LOT RESTE, ET CE N'EST PAS MON ARBITRAGE MAIS LE SIEN.** Owner, 2026-08-17 23:50 :
 « Un plancher qui casse n'est plus un motif de retrait : c'est la LISTE DE TRAVAIL. […] meshpen
 monte ? On corrige la collision POUR la nouvelle structure. […] On avance A TRAVERS les rouges, on
