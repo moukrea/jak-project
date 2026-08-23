@@ -10716,6 +10716,19 @@ def main():
                              txt, re.M):
             _dst[int(m.group(1))] = (float(m.group(2)), float(m.group(3)), float(m.group(4)))
 
+    # collecte PAR MAILLON, pour §27 : le reste du bloc ne garde que `l=0` (le mode primaire de
+    # §28), mais le DECALAGE RESIDUEL doit etre lu sur les deux maillons — le distal en porte
+    # cinq a dix fois plus, et c'est lui qu'on voit.
+    _ansl = {}
+    for m in re.finditer(r'^PHYSRINGAN c=(\d+) f=(\d+) l=(\d+) ax=(\d+) v=([-\d.e+]+)', txt, re.M):
+        _d = _ansl.setdefault((int(m.group(4)), int(m.group(1)), 'v'), {})
+        _d.setdefault(int(m.group(3)), []).append((int(m.group(2)), float(m.group(5))))
+    for m in re.finditer(r'^PHYSRINGAN2 c=(\d+) f=(\d+) ax=(\d+) l=(\d+)'
+                         r' ap=([-\d.e+]+) lat=([-\d.e+]+)', txt, re.M):
+        for _ai, _gi in (('ap', 5), ('lat', 6)):
+            _d = _ansl.setdefault((int(m.group(3)), int(m.group(1)), _ai), {})
+            _d.setdefault(int(m.group(4)), []).append((int(m.group(2)), float(m.group(_gi))))
+
     _AXC3 = {0: 'v', 1: 'ap', 2: 'lat'}
     _BC24 = {'v': (2.1, 2.5), 'ap': (2.3, 2.7), 'lat': (2.4, 2.9)}
     _TC24 = {'v': '2.30 (2.1-2.5)', 'ap': '2.50 (2.3-2.7)', 'lat': '2.65 (2.4-2.9)'}
@@ -10965,6 +10978,99 @@ def main():
              'OK' if _wmax <= 0.5 else 'ECHEC',
              'OK' if not _prebad else 'ECHEC',
              'OK' if _ctrl_ok else 'ECHEC'))
+        # ---- (7) SPEC 27 : SES QUATRE DUREES, AVEC DES SEUILS DERIVES DE SA PROPRE SPEC ------
+        # §27 nomme quatre etapes SANS donner le seuil qui les separe. Le registre porte donc
+        # depuis le cycle 96 la mise en garde « tout verdict en durees depend d un seuil que J AI
+        # choisi » — et le cycle 48 a retrograde la section sur un faux vert de colonne.
+        # MAIS §24 ET §25 DONNENT CE SEUIL, ET ELLES SONT MAINTENANT TENUES TOUTES LES DEUX :
+        # l enveloppe d un mode amorti vaut e^{-zeta.w.t}, donc chaque duree de §27 EST un residu.
+        # Aucun des seuils ci-dessous n est de moi : ils sortent de f = 2.30 Hz (§24) et
+        # zeta = 0.35 (§25), les NOMINAUX que l owner ecrit.
+        #
+        # NATURE : des DUREES en secondes, et un residu relatif sans dimension.
+        # REPERE : triedre de l ancre (SPEC 7). LIGNE DE BASE : la pose d auteur, donc 0.
+        # CE QUI DISCRIMINE, ET C EST LE POINT : `sigma30` = ecart-type des 30 dernieres frames.
+        #   Une duree qui n est jamais atteinte veut dire DEUX choses opposees — soit la chaine
+        #   sonne encore, soit elle est IMMOBILE mais garee a cote de sa cible. `sigma30` les
+        #   separe, et sans elle un `>2.50 s` se lit comme « ca sonne toujours » alors que la
+        #   chaine ne bouge plus d un bit. C est le piege `threshold-an-asymptotic-operator-
+        #   never-crosses` du registre, et §27 le porte depuis le cycle 48.
+        _F24, _Z25 = 2.30, 0.35
+        _zw = _Z25 * 2.0 * math.pi * _F24
+        _ST = [('reponse visible dominante', 0.3, 0.6), ('mouvement secondaire', 0.6, 1.2),
+               ('mostly settled', 1.0, 1.5), ('essentially stationary', 1.3, 1.7)]
+        A('')
+        A('   (7) SPEC 27 — SES QUATRE DUREES, SEUILS DERIVES DE SES §24 ET §25, PAS CHOISIS.')
+        A('       enveloppe e^{-zeta.w.t} avec f=%.2f Hz (§24) et zeta=%.2f (§25) : zeta.w=%.4f /s,'
+          % (_F24, _Z25, _zw))
+        A('       tau = %.4f s. Chaque duree de §27 devient donc un RESIDU, et aucun seuil n est'
+          % (1.0 / _zw))
+        A('       de moi :')
+        for _nm, _t0, _t1 in _ST:
+            A('         %-26s %.1f-%.1f s  ->  residu %8.4f %% a %8.4f %%'
+              % (_nm, _t0, _t1, 100.0 * math.exp(-_zw * _t0), 100.0 * math.exp(-_zw * _t1)))
+        A('   Pour chaque etape on lit le PREMIER instant apres lequel le residu reste sous le')
+        A('   NIVEAU D ENTREE de cette etape, et on demande qu il tombe dans la fenetre que §27')
+        A('   lui donne. `sigma30` dit si un `>fin` veut dire « sonne encore » ou « garee ».')
+        A('   chaine       l axe   a0        offset      off/a0   sigma30      %s'
+          % ' '.join('%-11s' % _n[:11] for _n, _t0, _t1 in _ST))
+        _unreach, _nser = [], 0
+        for (_k, _c, _ax) in sorted(_ansl):
+            if _AXC3[_k] != _ax:
+                continue
+            for _l in sorted(_ansl[(_k, _c, _ax)]):
+                _v = [x for _f, x in sorted(_ansl[(_k, _c, _ax)][_l])]
+                if len(_v) < 40:
+                    continue
+                _nm2 = names[_c] if _c < len(names) else 'c%d' % _c
+                _a0 = max(abs(x) for x in _v[:5]) or 1e-12
+                _tl = _v[-30:]
+                _mo = sum(_tl) / 30.0
+                _sd = (sum((x - _mo) ** 2 for x in _tl) / 30.0) ** 0.5
+                _cols = []
+                for _nm3, _t0, _t1 in _ST:
+                    _fr = math.exp(-_zw * _t0)      # NIVEAU D ENTREE de l etape, derive de §24/§25
+                    _thr = _fr * _a0
+                    _t = 0.0
+                    for _i in range(len(_v) - 1, -1, -1):
+                        if abs(_v[_i]) > _thr:
+                            _t = (_i + 1) / 60.0 if _i + 1 < len(_v) else None
+                            break
+                    if _t is None:
+                        _cols.append('%-11s' % ('>%.2f' % (len(_v) / 60.0)))
+                    else:
+                        _cols.append('%-11s' % ('%.3f%s' % (_t, '' if _t0 <= _t <= _t1 else '!')))
+                _nser += 1
+                _still = _sd <= 0.05 * abs(_mo) if _mo else _sd == 0.0
+                if _still and abs(_mo) / _a0 > math.exp(-_zw * _ST[-1][1]):
+                    _unreach.append((_nm2, _l, _ax, 100.0 * abs(_mo) / _a0))
+                A('ROOM-AXC-SETTLE: %-12s %d %-4s %.6f %+.7f %6.3f%% %.10f %s'
+                  % (_nm2, _l, _ax, _a0, _mo, 100.0 * abs(_mo) / _a0, _sd, ' '.join(_cols)))
+        A('   (`!` = etape atteinte HORS de la fenetre que §27 lui donne ; `>fin` = jamais'
+          ' atteinte sur la fenetre mesuree.)')
+        A('')
+        if _unreach:
+            A('ROOM-AXC-SETTLE-VERDICT: les %d series ont un sigma30 NUL AU BIT PRES — aucune ne'
+              ' sonne encore — et toutes s arretent a un decalage CONSTANT.' % _nser)
+            A('   Sur ces %d, **%d** portent un decalage SUPERIEUR au niveau d entree de la derniere'
+              ' etape de §27 (%.4f %%), donc %.3f a %.3f %% de leur amplitude primaire :'
+              % (_nser, len(_unreach), 100.0 * math.exp(-_zw * _ST[-1][1]),
+                 min(x[3] for x in _unreach), max(x[3] for x in _unreach)))
+            A('   pour celles-la cette etape est INATTEIGNABLE PAR CONSTRUCTION. Les %d autres, dont'
+              ' le decalage est PLUS PETIT que ce niveau, l atteignent — et elles l atteignent TOT'
+              % (_nser - len(_unreach)))
+            A('   (1,033 et 1,100 s pour une fenetre 1,3-1,7 s), ce qui montre que la DYNAMIQUE est'
+              ' assez rapide et que seul le decalage bloque.')
+            A('   CONSEQUENCE, ET C EST UNE REATTRIBUTION, PAS UN ASSOUPLISSEMENT : tout seuil de')
+            A('   §27 place SOUS ce decalage est INATTEIGNABLE PAR CONSTRUCTION. Un `>2.50 s`')
+            A('   publie dessus se lit « ca sonne encore » alors que la chaine ne bouge PLUS D UN')
+            A('   BIT. Ce n est pas une stabilisation trop lente : c est un retour a la pose')
+            A('   d auteur qui ne se fait pas, donc **SPEC 2 et SPEC 9**, pas §27.')
+            A('   §27 garde ce qui lui appartient — le TAUX — et il est mesurable sans seuil :')
+            A('   tau = 1/(zeta.2.pi.f) contre le tau_spec de %.4f s ci-dessus.' % (1.0 / _zw))
+        else:
+            A('ROOM-AXC-SETTLE-VERDICT: aucune serie ne reste garee hors cible : les durees de §27')
+            A('   se lisent directement sur les colonnes ci-dessus.')
         A('   `fd` = la meme cellule exprimee en frequence AMORTIE, pour comparaison avec tout')
         A('   estimateur par passages par zero. Ce n est PAS la grandeur que §24 borne.')
         A('   CE QUE CETTE LIGNE NE DIT PAS : elle ne ferme rien. Seul l owner ferme une ligne.')

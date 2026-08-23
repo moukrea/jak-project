@@ -3261,6 +3261,44 @@ ROOM-SPEC24-RECONCILE: chain=chestR       lat  2.655 Hz              2.655 Hz   
 ROOM-SPEC24-VERDICT: chain=chestL       v=2.320(fd 2.173) DANS  ap=2.450(fd 2.295) DANS  lat=2.550(fd 2.389) DANS  ·  verticale la plus lente : OUI  ->  LES QUATRE CLAUSES TENUES
 ROOM-SPEC24-VERDICT: chain=chestR       v=2.415(fd 2.262) DANS  ap=2.555(fd 2.393) DANS  lat=2.655(fd 2.487) DANS  ·  verticale la plus lente : OUI  ->  LES QUATRE CLAUSES TENUES
 ROOM-SPEC24-BILAN: 2 chaine(s) sur 2 tiennent les quatre clauses de §24 sur les fenetres a entree propre.  Recevabilite : pose OK · entree OK · temoin OK.
+
+   (7) SPEC 27 — SES QUATRE DUREES, SEUILS DERIVES DE SES §24 ET §25, PAS CHOISIS.
+       enveloppe e^{-zeta.w.t} avec f=2.30 Hz (§24) et zeta=0.35 (§25) : zeta.w=5.0580 /s,
+       tau = 0.1977 s. Chaque duree de §27 devient donc un RESIDU, et aucun seuil n est
+       de moi :
+         reponse visible dominante  0.3-0.6 s  ->  residu  21.9284 % a   4.8085 %
+         mouvement secondaire       0.6-1.2 s  ->  residu   4.8085 % a   0.2312 %
+         mostly settled             1.0-1.5 s  ->  residu   0.6358 % a   0.0507 %
+         essentially stationary     1.3-1.7 s  ->  residu   0.1394 % a   0.0184 %
+   Pour chaque etape on lit le PREMIER instant apres lequel le residu reste sous le
+   NIVEAU D ENTREE de cette etape, et on demande qu il tombe dans la fenetre que §27
+   lui donne. `sigma30` dit si un `>fin` veut dire « sonne encore » ou « garee ».
+   chaine       l axe   a0        offset      off/a0   sigma30      reponse vis mouvement s mostly sett essentially
+ROOM-AXC-SETTLE: chestL       0 v    0.020906 +0.0000795  0.380% 0.0000000000 0.233!      0.617       0.867!      >2.50      
+ROOM-AXC-SETTLE: chestL       1 v    0.072246 -0.0002549  0.353% 0.0000000000 0.733!      1.117       1.183       >2.50      
+ROOM-AXC-SETTLE: chestR       0 v    0.019389 +0.0002166  1.117% 0.0000000000 0.233!      0.600       >2.50       >2.50      
+ROOM-AXC-SETTLE: chestR       1 v    0.072410 -0.0013746  1.898% 0.0000000000 0.700!      1.067       >2.50       >2.50      
+ROOM-AXC-SETTLE: chestL       0 ap   0.157860 +0.0001720  0.109% 0.0000000000 0.250!      0.633       0.900!      1.100!     
+ROOM-AXC-SETTLE: chestL       1 ap   0.262736 +0.0026838  1.021% 0.0000000000 0.950!      1.183       >2.50       >2.50      
+ROOM-AXC-SETTLE: chestR       0 ap   0.149285 +0.0002453  0.164% 0.0000000000 0.233!      0.600       0.867!      >2.50      
+ROOM-AXC-SETTLE: chestR       1 ap   0.263005 +0.0030911  1.175% 0.0000000000 0.900!      1.150       >2.50       >2.50      
+ROOM-AXC-SETTLE: chestL       0 lat  0.142640 +0.0002942  0.206% 0.0000000000 0.233!      0.600       0.850!      >2.50      
+ROOM-AXC-SETTLE: chestL       1 lat  0.264081 +0.0021380  0.810% 0.0000000000 0.883!      1.150       >2.50       >2.50      
+ROOM-AXC-SETTLE: chestR       0 lat  0.123401 +0.0001380  0.112% 0.0000000000 0.233!      0.583!      0.833!      1.033!     
+ROOM-AXC-SETTLE: chestR       1 lat  0.239718 +0.0004709  0.196% 0.0000000000 0.867!      1.100       1.333       >2.50      
+   (`!` = etape atteinte HORS de la fenetre que §27 lui donne ; `>fin` = jamais atteinte sur la fenetre mesuree.)
+
+ROOM-AXC-SETTLE-VERDICT: les 12 series ont un sigma30 NUL AU BIT PRES — aucune ne sonne encore — et toutes s arretent a un decalage CONSTANT.
+   Sur ces 12, **10** portent un decalage SUPERIEUR au niveau d entree de la derniere etape de §27 (0.1394 %), donc 0.164 a 1.898 % de leur amplitude primaire :
+   pour celles-la cette etape est INATTEIGNABLE PAR CONSTRUCTION. Les 2 autres, dont le decalage est PLUS PETIT que ce niveau, l atteignent — et elles l atteignent TOT
+   (1,033 et 1,100 s pour une fenetre 1,3-1,7 s), ce qui montre que la DYNAMIQUE est assez rapide et que seul le decalage bloque.
+   CONSEQUENCE, ET C EST UNE REATTRIBUTION, PAS UN ASSOUPLISSEMENT : tout seuil de
+   §27 place SOUS ce decalage est INATTEIGNABLE PAR CONSTRUCTION. Un `>2.50 s`
+   publie dessus se lit « ca sonne encore » alors que la chaine ne bouge PLUS D UN
+   BIT. Ce n est pas une stabilisation trop lente : c est un retour a la pose
+   d auteur qui ne se fait pas, donc **SPEC 2 et SPEC 9**, pas §27.
+   §27 garde ce qui lui appartient — le TAUX — et il est mesurable sans seuil :
+   tau = 1/(zeta.2.pi.f) contre le tau_spec de 0.1977 s ci-dessus.
    `fd` = la meme cellule exprimee en frequence AMORTIE, pour comparaison avec tout
    estimateur par passages par zero. Ce n est PAS la grandeur que §24 borne.
    CE QUE CETTE LIGNE NE DIT PAS : elle ne ferme rien. Seul l owner ferme une ligne.

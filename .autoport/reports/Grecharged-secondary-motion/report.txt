@@ -35,6 +35,14 @@ l'un des trois groupes « qui gouvernent ce qu'un oeil voit ». Ce bloc passe de
 a **3 sur 4** (§24, §25, §26 ; §27 reste PARTIELLE). Le seuil global de re-sollicitation de
 l'owner passe de 3 tenues sur 16 a **4 sur 16** — toujours en dessous, donc je ne le sollicite pas.
 
+**ET UN SECOND RESULTAT QUI NE CHANGE AUCUN STATUT MAIS CORRIGE UN MOTIF FAUX** (section 5) : le
+rouge de **§27** — « `t01` vaut `>2,47 s` », lu depuis le cycle 48 comme une stabilisation trop
+lente — est un **FAUX ROUGE**. Les douze series propres ont un ecart-type de queue de
+**0,0000000000** : la chaine ne sonne pas, elle est immobile a un decalage constant, et le seuil
+est inatteignable par construction. Le defaut appartient a **§2 et §9**, qui recoivent au passage
+la mesure APRES MOUVEMENT que leurs cellules declaraient manquante depuis le cycle 48. Trois
+cellules du registre sont donc reecrites ; aucune ne change de statut, et je le dis en clair.
+
 ================================================================================================
 1. CE QUE CE CYCLE A FAIT, ET C'ETAIT LE PROCHAIN PAS ECRIT DANS LE REGISTRE
 ================================================================================================
@@ -202,7 +210,70 @@ INDEPENDANTES**, jamais l'une derivee de l'autre. `.autoport/c113_spec24_spec29.
 de Maia est livree, ses §24 et §29 ne peuvent pas etre tenues par le meme bouton. Chez Keira, si.
 
 ================================================================================================
-5. LE FACTEUR LIMITANT DU DOSSIER, CHIFFRE POUR LA PREMIERE FOIS
+5. §27 — SON ROUGE ETAIT UN FAUX ROUGE, ET LE DEFAUT APPARTIENT A §2 / §9
+================================================================================================
+§24 et §25 etant desormais TENUES toutes les deux, un verrou de §27 saute : sa cellule portait,
+depuis le cycle 96, la mise en garde « sa §27 nomme quatre etapes SANS donner le SEUIL qui les
+separe ; tout verdict en durees depend donc d'un seuil que J'AI choisi ». **Ce seuil n'a plus a
+etre choisi : il se DERIVE.** L'enveloppe d'un mode amorti vaut `e^{-ζωt}` ; avec les nominaux que
+l'owner ecrit lui-meme — f = 2,30 Hz (§24) et ζ = 0,35 (§25) — chaque duree de §27 devient un
+residu, et aucun des quatre niveaux ci-dessous ne vient de moi :
+
+    reponse visible dominante   0,3-0,6 s   ->  residu 21,9284 %  a  4,8085 %
+    mouvement secondaire        0,6-1,2 s   ->  residu  4,8085 %  a  0,2312 %
+    mostly settled              1,0-1,5 s   ->  residu  0,6358 %  a  0,0507 %
+    essentially stationary      1,3-1,7 s   ->  residu  0,1394 %  a  0,0184 %
+
+**ET C'EST LA QU'ON VOIT QUE LE ROUGE DE §27 NE MESURE RIEN.** Sur les DOUZE series des fenetres
+propres (2 chaines x 2 maillons x 3 axes) :
+
+    ecart-type des 30 dernieres frames   **0,0000000000  sur 12 series sur 12**
+    decalage constant final              **0,109 % a 1,898 %** de l'amplitude primaire
+
+**La chaine ne sonne pas. Elle est immobile au bit pres, GAREE a cote de sa cible.** Tout seuil de
+§27 place sous ce decalage est donc **inatteignable par construction**, et le `>2,47 s` que le
+registre lisait depuis le cycle 48 comme « stabilisation trop lente » n'est pas une duree : c'est
+une mesure absente, publiee sous la forme d'un defaut.
+
+**ET LA POPULATION LE PROUVE PLUTOT QUE DE L'ILLUSTRER — C'EST LE POINT LE PLUS FORT DE LA
+SECTION.** Le niveau d'entree de « essentially stationary » vaut 0,1394 %. **Dix series sur douze**
+portent un decalage AU-DESSUS de ce niveau : pour elles l'etape est inatteignable, et elles
+rendent toutes `>2,50 s`. **Les DEUX autres — les seules dont le decalage est SOUS ce niveau
+(0,109 % et 0,112 %) — l'atteignent, a 1,100 s et 1,033 s.** Autrement dit : partout ou le
+decalage laisse passer, la chaine arrive **EN AVANCE** sur la fenetre 1,3-1,7 s de §27. La
+dynamique n'est donc pas trop lente ; c'est le decalage, et lui seul, qui bloque. Un seul chiffre
+n'aurait pas pu le montrer — il fallait la population, et la coupure tombe exactement sur le
+niveau derive de sa spec.
+
+**C'EST UN FAUX ROUGE, ET IL COUTE AUTANT QU'UN FAUX VERT.** Il envoyait le chantier corriger un
+amortissement qui est correct — `tau` mesure a **-3,6 % / +3,0 %** du nominal de sa propre spec —
+au lieu du vrai defaut : **la chaine ne revient pas exactement a la pose d'auteur apres du
+mouvement**. Ce sont les mots de ses §2 (« the **final settled** breast geometry shall reproduce
+the original authored standing model ») et §9 (« the original authored standing shape shall be
+**restored exactly** »), toutes deux `PARTIELLE`, toutes deux retrogradees au cycle 48 avec pour
+motif que `ROOM-IDLE` mesure le repos **SANS mouvement**. **Voici la mesure qui leur manquait**, et
+elle est APRES mouvement, sur une impulsion isolee a entree propre.
+
+Le miroir du piege `threshold-an-asymptotic-operator-never-crosses` est complet, et cette moitie-ci
+est la plus difficile a voir : la, le compteur rendait 0 et se lisait « pas de defaut » (faux
+VERT) ; ici la montre rend `>fenetre` et se lit « defaut » (faux ROUGE), donc personne ne la
+conteste. **Le discriminant est l'ecart-type de la queue, et il est desormais publie a cote du
+temps** (`ROOM-AXC-SETTLE`).
+
+**CE QUE JE NE CLAME PAS, ET IL Y A DEUX CHOSES.** §27 **ne devient pas `TENUE`**.
+  (i) le decalage residuel rend ses deux dernieres etapes inevaluables — c'est le point ci-dessus ;
+  (ii) et il reste un ecart que je n'ai PAS explique : le niveau d'entree de « mostly settled »
+       (0,6358 %) est franchi a **0,83-0,90 s** la ou la derivation en predit **1,00 s**. Ce n'est
+       PAS le taux de decroissance — `tau` colle a ±3,6 %. Ca vient donc soit de la reference
+       d'amplitude `a0` (« maximum des 5 premiers echantillons », une convention de l'INSTRUMENT
+       et pas une ligne de la spec), soit d'une superposition de modes au debut de la fenetre.
+       **Je n'ai pas separe les deux, et je ne choisis pas entre elles ici.**
+La seule grandeur de §27 qui ne depend d'AUCUNE convention est `tau`, et elle passe. Les durees ne
+se prononceront qu'une fois (a) le decalage residuel ferme et (b) `a0` defini autrement que par
+mon choix. **§27 reste `PARTIELLE`, et son motif est desormais juste au lieu d'etre faux.**
+
+================================================================================================
+6. LE FACTEUR LIMITANT DU DOSSIER, CHIFFRE POUR LA PREMIERE FOIS
 ================================================================================================
 Le cycle 112 a ecrit que ce dossier « produit plus de donnees qu'il n'en lit » et que c'etait
 devenu son premier facteur limitant. Ce n'etait pas chiffre. Ca l'est :
@@ -238,7 +309,7 @@ ecartee — est portee par cette gate-la, et elle est vivante. C'est une branche
 Je le rectifie plutot que de le relayer.
 
 ================================================================================================
-6. UN CINQUIEME SUSPECT DE §18 EST NE ET MORT DANS LE MEME CYCLE — MEME PIEGE D'AXE, TROISIEME FOIS
+7. UN CINQUIEME SUSPECT DE §18 EST NE ET MORT DANS LE MEME CYCLE — MEME PIEGE D'AXE, TROISIEME FOIS
 ================================================================================================
 `PHYSREGCB` publie les directions d'OS des deux chaines dans la pose epinglee de PH-REGC (sujet
 droit, immobile) et n'a aucun lecteur. Lues, elles donnent un ecart BRUT gauche/droite de
@@ -265,15 +336,15 @@ publie puis retire comme sa propre erreur d'axe. Le meme piege a mordu trois foi
 Il est desormais au registre sous `project_keira_median_plane_normal_is_the_lateral_axis`.
 
 ================================================================================================
-7. CE QUE JE N'AI PAS FAIT, DECLARE AU LIEU D'ETRE TU
+8. CE QUE JE N'AI PAS FAIT, DECLARE AU LIEU D'ETRE TU
 ================================================================================================
-(a) **§25, §26 ET §27 NE SONT PAS RE-JUGEES SUR CE BLOC, ALORS QUE SES DONNEES LE PERMETTRAIENT.**
+(a) **§25 ET §26 NE SONT PAS RE-JUGEES SUR CE BLOC, ALORS QUE SES DONNEES LE PERMETTRAIENT.**
     `ROOM-AXC-FIT` publie `zeta` et le rebond des memes cellules (zeta 0,35 sur les quatre
-    diagonales, rebond 0,307 / 0,313 / n/a). §25 et §26 sont deja `TENUE` sur ces memes fenetres
-    par un autre chemin (le cycle 96), et §27 est `PARTIELLE`. Les re-prononcer a la volee, en
-    fin de cycle, sur un bloc que je viens d'ecrire, serait exactement le correctif a mi-chemin
-    que la directive du 2026-08-19 23:50 interdit. Le rapprochement est nomme ici comme le pas
-    suivant, pas fait ici.
+    diagonales, rebond 0,307 / 0,313). Les deux sont deja `TENUE` sur ces memes fenetres par un
+    autre chemin (le cycle 96) : les re-prononcer a la volee, en fin de cycle, sur un bloc que je
+    viens d'ecrire, serait exactement le correctif a mi-chemin que la directive du 2026-08-19
+    23:50 interdit. Le rapprochement est nomme ici comme le pas suivant, pas fait ici. §27, elle,
+    EST reprise (section 5) parce que son motif etait FAUX, pas parce que son chiffre bougeait.
 
 (b) **LE CANAL DE §24 N'EST TOUJOURS PAS BRANCHE, ET LA SECTION EST TENUE SANS LUI.**
     `GlobalFrequencyAP` (2,50) et `GlobalFrequencyLateral` (2,65) restent `CANAL ABSENT` :
@@ -307,7 +378,7 @@ Il est desormais au registre sous `project_keira_median_plane_normal_is_the_late
     ajoutees, 0 changee, 0 supprimee.
 
 ================================================================================================
-8. TIER DE BUILD, ET CE QUE L'OWNER DOIT TESTER
+9. TIER DE BUILD, ET CE QUE L'OWNER DOIT TESTER
 ================================================================================================
 **TIER : AUCUN.** Zero compilation, zero course, zero APK. Une lecture de la trace archivee
 (99 481 lignes, `PHYSEND` et `PHYSCOUNTS` presents, donc course complete), un bloc ajoute au
@@ -320,7 +391,7 @@ fichier livre ni du moteur n'a bouge. Le seuil de re-sollicitation (§9-13, §14
 de 3 tenues sur 16 a **4 sur 16**.
 
 ================================================================================================
-9. ETAT DU VALIDATEUR — EN DERNIER, PARCE QU'IL NE MESURE PAS L'AVANCEMENT
+10. ETAT DU VALIDATEUR — EN DERNIER, PARCE QU'IL NE MESURE PAS L'AVANCEMENT
 ================================================================================================
 Sortie de **18 lignes**, la longueur attendue — une sortie qui RETRECIT voudrait dire que des
 gates ont cesse d'etre evaluees (`engine-line-ceiling-hides-all-gates`). SCOPE, CLEAN, TUNING,
