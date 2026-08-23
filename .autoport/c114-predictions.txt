@@ -1,0 +1,65 @@
+CYCLE 114 — PREDICTIONS ECRITES AVANT LES COURSES B ET C
+DIRECTIVES vd9e8b66782 · SCOPE-SERIAL 9 · perimetre : poitrine de Keira seule.
+
+CE QUI EST TESTE. `HardMaxApexDisplacement` etait declaree « CANAL ABSENT — aucun lecteur » dans
+`preset-channels.md` alors que DEUX sites du moteur la portaient en dur (`(* 0.50 ...)`), et que la
+NOTE-160 le DISAIT en toutes lettres. Elle devient la cle 22 de `kPhysPresetKeys`, lue a ces deux
+sites :
+   (E) `phys-apex-scale` (:1202) — le plafond DUR de l'apex de la 22, applique comme FACTEUR COMMUN
+       par `phys-bend-chain` quand la deviation de la POINTE a sa pose d'auteur depasse le genou de
+       `phys-softmin` (0.84 x plafond) ;
+   (F) le plafond de torsion de la 38 (:3700) — `tcap = plafond x B0 / rw`.
+
+L'ECHELLE EST A VARIABLE UNIQUE. Le fichier livre est copie et SEULE la ligne
+`pk HardMaxApexDisplacement` change (2 lignes sur 380, verifie par `diff`). Rien d'autre — ni
+`DerivedApexSoftBand`, ni `NormalMaxApexDisplacement`, ni la raideur.
+
+   course A : 0.50   (valeur livree — sert AUSSI de controle negatif contre la course archivee)
+   course B : 0.20   (serrage franc : une borne reelle DOIT mordre)
+   course C : 0.65   (la valeur de Maia : desserrage)
+
+--------------------------------------------------------------------------------------------------
+P0  CONTROLE NEGATIF — course A contre la course archivee du 2026-08-23 01:41
+    (md5 5b798ee81c9e6b85bb3aa62f308be9bc, copiee en /tmp/c114-BASE.log AVANT la course).
+    Les valeurs livrees EGALENT les litteraux retires (0.42, 0.08, 0.40, 0.50), donc le recablage
+    doit etre INERTE AU BIT.
+    PREDICTION : 0 enregistrement `PHYS*` different (hors `PHYSPSET*`, qui gagnent le champ
+    `ahard=`). Une seule ligne differente = le recablage a change le solveur en pretendant ne rien
+    changer, et la cle est mal indexee ou `sc` est faux.
+
+P1  LE CANAL EXISTE — course B (0.20) contre course A (0.50).
+    PREDICTION : le nombre d'enregistrements `PHYS*` differents est > 0.
+    Si c'est 0, ma correction est un canal SANS LECTEUR EFFECTIF : les deux sites existent mais la
+    borne ne mord jamais sur Keira. Je le publierais alors comme tel, pas comme une victoire.
+
+P2  LE SENS EST PRESCRIT — un plafond SERRE retire du mouvement.
+    PREDICTION : sous 0.20, la deviation de la pointe (et tout ce qui en depend : `tipvar`,
+    `PHYSAPEX apex=`, les etages 5 et 6 du septuplet) est INFERIEURE OU EGALE, jamais superieure,
+    a celle de la course A, chaine par chaine. Une borne qui, resserree, fait MONTER le mouvement
+    est une borne qui ne borne pas — c'est le defaut mesure au cycle 102 sur la rotation.
+
+P3  PREDICTION A DEUX FACES, ET C'EST ELLE QUI PEUT ME REFUTER.
+    L'etage 6 du septuplet (`PHYSSTGT st=6`) est plafonne a 0.4986-0.5000 sur 12 legs sur 14 dans
+    la course archivee. J'affirme que ce plafond-la vient de `phys-cap-e22!`, dont l'asymptote vaut
+    `NormalMaxApexDisplacement + DerivedApexSoftBand = 0.42 + 0.08 = 0.50` (cles 16/17), et NON de
+    la cle 22.
+    PREDICTION : en course C (0.65), l'etage 6 RESTE colle a ~0.4986-0.5000. Il ne monte PAS vers
+    0.65.
+    S'il monte, mon attribution est fausse : c'est la cle 22 qui pinnait l'etage 6, et il faudra
+    relire les six sections d'apex sous cette lecture.
+
+P4  LA TORSION EST INERTE, ET JE LE DIS AVANT DE LE MESURER.
+    `PHYSREST2 twsat=` vaut 0.0000 sur les 186 lignes de la course archivee : la saturation douce
+    de la torsion NE MORD JAMAIS dans la configuration livree.
+    PREDICTION : le site (F) ne produit AUCUNE difference entre A, B et C, et `twsat` reste a
+    0.0000 dans les trois. Le canal y est reel mais sans effet observable — a publier comme tel,
+    jamais comme un gain.
+
+P5  MONOTONIE. Sur toute grandeur que la borne touche, l'ordre B <= A <= C doit tenir (0.20 serre,
+    0.50 livre, 0.65 desserre). Une non-monotonie designerait un cycle limite entre deux
+    contraintes de la meme variete — le defaut du cycle 104.
+--------------------------------------------------------------------------------------------------
+
+CE QUE CES COURSES NE PROUVENT PAS, ET JE L'ECRIS AVANT : elles ne disent rien de la CONFORMITE de
+la 22. Elles disent seulement si le bouton du preset est branche. L'avancement se lit dans
+`SPEC-COVERAGE.md` et nulle part ailleurs (arbitrage du superviseur, 2026-08-23 01:20).

@@ -1,3 +1,25 @@
+PROVENANCE — ce tableau decrit CES fichiers-la, et l'empreinte le prouve :
+  jak-hd-physics.gc 1c6feb78f87d
+  phys-room.gc 9148b12192b8
+  kmachine.cpp 7f1383cd2bf6
+  physics_chains.txt 2cf3ea7c0a92
+Regenere par : python3 .autoport/preset_channel_audit.py > .../preset-channels.md
+
+BALAYAGE PAR VALEUR (cycle 114) — moteur + salle, tout litteral egal a une valeur du
+preset. Une coincidence doit etre JUSTIFIEE pour etre ignoree, elle n'est plus ignoree
+par oubli. Entrees d'allowlist : 48. Sites non tries : 0.
+  ANGLE MORT DECLARE : les valeurs 0, 1, 2, 3, 4, 120 sont FILTREES (elles sont partout et sans portee),
+  donc une cle qui vaut 1, 2, 3, 4 ou 120 ne peut PAS etre trouvee par ce balayage. Les
+  trois qui etaient dans ce cas (VerticalCompliance 1, MinimumSubstepsAt60FPS 2,
+  HardImpactSubstepsHi 4) ont ete trouvees A LA LECTURE et cablees au cycle 114 ; les
+  suivantes ne le seront pas par cet outil. Le balayage reduit l'angle mort, il ne le
+  supprime pas, et le dire ici vaut mieux que laisser croire a une preuve d'exhaustivite.
+
+CONSTANTES AJUSTEES SUR UN RAPPORT DE DEUX CLES — pas un litteral, donc invisibles au
+balayage, et publiees ici pour qu'elles ne disparaissent pas :
+  PHYS-DYN-K     = 0.43    NormalDynamicStretch / NormalMaxCOMDisplacement = 0.15 / 0.35 = 0.428571 -> 0.43 : le gain est regle pour que `sdy` (l etirement dynamique de la 22, :3722) vaille exactement 0.15 quand l excursion radiale vaut exactement 0.35 B0. TAUTOLOGIE CONDITIONNELLE : elle ne mord que si l excursion traine autour de 0.35 B0.
+  PHYS-SEC-K     = 0.05    gain d excitation du mode secondaire (36). NOTE-169 : « cale sur sa bande ». Pas une republication (un gain sur une vitesse n est pas une amplitude), mais la meme faute de methode. A re-examiner si la 36 devait etre declaree tenue sur une amplitude.
+
 | cle | Keira | Maia | differe | etat du canal | site |
 |---|---|---|---|---|---|
 | `APCompliance` | 0.9 | 0.95 | oui | **CANAL FICHIER** | lu par le moteur (kPhysPresetKeys), pose par preset_apply.py |
@@ -14,21 +36,21 @@
 | `GarmentCompression` | 0 | 0 | non | **CANAL ABSENT** | aucun lecteur |
 | `GarmentDynamicDamping` | 0 | 0 | non | **CANAL ABSENT** | aucun lecteur |
 | `GarmentSupport` | 0 | 0 | non | **CANAL ABSENT** | aucun lecteur |
-| `GlobalDampingRatio` | 0.35 | 0.33 | oui | **CANAL FICHIER (indirect)** | damping= sur la ligne `chain` |
+| `GlobalDampingRatio` | 0.35 | 0.33 | oui | **CANAL ABSENT** | damping= sur la ligne `chain` (SPEC 25) — perturbee x1.5, AUCUNE ligne du fichier livre ne bouge — la note qui annoncait un canal ne decrivait pas une lecture |
 | `GlobalFrequencyAP` | 2.5 | 2 | oui | **CANAL ABSENT** | aucun lecteur |
 | `GlobalFrequencyLateral` | 2.65 | 2.1 | oui | **CANAL ABSENT** | aucun lecteur |
-| `GlobalFrequencyVertical` | 2.3 | 1.85 | oui | **CANAL FICHIER (indirect)** | stiffness / sqrt(mass) sur la ligne `chain` — f = 2.300 Hz mesure |
+| `GlobalFrequencyVertical` | 2.3 | 1.85 | oui | **CANAL FICHIER (indirect)** | stiffness= sur la ligne `chain` (SPEC 24 : f = stiffness/sqrt(mass)) — PROUVE PAR PERTURBATION : x1.5 sur la cle change 2 ligne(s) `chain` (p.ex. chestL) |
 | `HangingCOMDisplacement` | 0.24 | 0.33 | oui | **CANAL ABSENT** | aucun lecteur |
 | `HangingLengthScale` | 1.23 | 1.33 | oui | **CANAL FICHIER** | lu par le moteur (kPhysPresetKeys), pose par preset_apply.py |
 | `HangingThicknessScale` | 0.91 | 0.87 | oui | **CANAL FICHIER** | lu par le moteur (kPhysPresetKeys), pose par preset_apply.py |
 | `HangingTransientLengthMax` | 1.3 | 1.45 | oui | **CANAL ABSENT** | aucun lecteur |
 | `HangingWidthScale` | 0.9 | 0.87 | oui | **CANAL FICHIER** | lu par le moteur (kPhysPresetKeys), pose par preset_apply.py |
-| `HardImpactSubstepsHi` | 4 | 4 | non | **CANAL ABSENT** | aucun lecteur |
+| `HardImpactSubstepsHi` | 4 | 4 | non | **CANAL FICHIER** | lu par le moteur (kPhysPresetKeys), pose par preset_apply.py |
 | `HardImpactSubstepsLo` | 3 | 3 | non | **CANAL ABSENT** | aucun lecteur |
 | `HardLandingApex` | 0.5 | 0.65 | oui | **CANAL ABSENT** | aucun lecteur |
 | `HardLandingCOM` | 0.4 | 0.5 | oui | **CANAL ABSENT** | aucun lecteur |
 | `HardLinearAccelCOM` | 0.3 | 0.35 | oui | **CANAL ABSENT** | aucun lecteur |
-| `HardMaxApexDisplacement` | 0.5 | 0.65 | oui | **CANAL ABSENT** | aucun lecteur |
+| `HardMaxApexDisplacement` | 0.5 | 0.65 | oui | **CANAL FICHIER** | lu par le moteur (kPhysPresetKeys), pose par preset_apply.py |
 | `HardMaxCOMDisplacement` | 0.4 | 0.5 | oui | **CANAL FICHIER** | lu par le moteur (kPhysPresetKeys), pose par preset_apply.py |
 | `HardVolumeRangeHi` | 1.02 | 1.02 | non | **CANAL ABSENT** | aucun lecteur |
 | `HardVolumeRangeLo` | 0.96 | 0.96 | non | **CANAL ABSENT** | aucun lecteur |
@@ -36,10 +58,10 @@
 | `HardYawCOM` | 0.28 | 0.35 | oui | **CANAL ABSENT** | aucun lecteur |
 | `LateralCompliance` | 0.82 | 0.88 | oui | **CANAL FICHIER** | lu par le moteur (kPhysPresetKeys), pose par preset_apply.py |
 | `LowerBreastCompression` | 0.2 | 0.28 | oui | **CANAL FICHIER** | lu par le moteur (kPhysPresetKeys), pose par preset_apply.py |
-| `MassPerBreast` | 0.5 | 1.05 | oui | **CANAL FICHIER (indirect)** | mass= sur la ligne `chain` — JAUGE : le solveur ne lit la masse que dans stiffness/sqrt(mass), donc sa valeur absolue est inerte |
+| `MassPerBreast` | 0.5 | 1.05 | oui | **JAUGE (inerte par construction)** | mass= sur la ligne `chain` — JAUGE : le solveur ne lit la masse que dans stiffness/sqrt(mass), sa valeur absolue est inerte (DIRECTIVES 2026-08-19 20:25). Declaree, jamais comptee comme un canal. |
 | `MidVolumeAnchorHi` | 0.55 | 0.55 | non | **HORS RUNTIME (asset)** | profil d'ancrage de la 30 |
 | `MidVolumeAnchorLo` | 0.25 | 0.25 | non | **HORS RUNTIME (asset)** | profil d'ancrage de la 30 |
-| `MinimumSubstepsAt60FPS` | 2 | 2 | non | **CANAL ABSENT** | aucun lecteur |
+| `MinimumSubstepsAt60FPS` | 2 | 2 | non | **CANAL FICHIER** | lu par le moteur (kPhysPresetKeys), pose par preset_apply.py |
 | `NeutralCOMOffset` | 0 | 0 | non | **CANAL ABSENT** | aucun lecteur |
 | `NeutralHeight` | 1 | 1 | non | **CANAL ABSENT** | aucun lecteur |
 | `NeutralProjection` | 1 | 1 | non | **CANAL ABSENT** | aucun lecteur |
@@ -86,23 +108,25 @@
 | `SupineWidthScale` | 1.23 | 1.4 | oui | **CANAL FICHIER** | lu par le moteur (kPhysPresetKeys), pose par preset_apply.py |
 | `TorsionalCompliance` | 0.72 | 0.8 | oui | **CANAL FICHIER** | lu par le moteur (kPhysPresetKeys), pose par preset_apply.py |
 | `UpperBreastMedialShift` | 0.14 | 0.21 | oui | **CANAL ABSENT** | aucun lecteur |
-| `VerticalCompliance` | 1 | 1 | non | **CANAL ABSENT** | aucun lecteur |
+| `VerticalCompliance` | 1 | 1 | non | **CANAL FICHIER** | lu par le moteur (kPhysPresetKeys), pose par preset_apply.py |
 | `VerticalEffectiveDamping` | 5.1 | 8.1 | oui | **CANAL ABSENT** | aucun lecteur |
 | `VerticalEffectiveMass` | 0.5 | 1.05 | oui | **CANAL ABSENT** | aucun lecteur |
 | `VerticalEffectiveStiffness` | 104 | 142 | oui | **CANAL ABSENT** | aucun lecteur |
 
-CANAL FICHIER               19 / 90
-CANAL FICHIER (indirect)     3 / 90
-CONSTANTE MOTEUR             0 / 90
-HORS RUNTIME (asset)        11 / 90
-CANAL ABSENT                57 / 90
+CANAL FICHIER                     23 / 90
+CANAL FICHIER (indirect)           1 / 90
+CONSTANTE MOTEUR                   0 / 90
+HORS RUNTIME (asset)              11 / 90
+JAUGE (inerte par construction)    1 / 90
+CANAL ABSENT                      54 / 90
 dont TAUTOLOGIQUES           0
 cles dont la valeur DIFFERE entre les deux presets : 62
-   dont CANAL FICHIER             18
-   dont CANAL FICHIER (indirect)   3
-   dont CONSTANTE MOTEUR           0
-   dont HORS RUNTIME (asset)       4
-   dont CANAL ABSENT              37
+   dont CANAL FICHIER                   19
+   dont CANAL FICHIER (indirect)         1
+   dont CONSTANTE MOTEUR                 0
+   dont HORS RUNTIME (asset)             4
+   dont JAUGE (inerte par construction)   1
+   dont CANAL ABSENT                    37
 
 CANAL PARTIEL — RESOLU. `PHYS-FLESH-YIELD` n'existe plus dans le moteur : `phys-vol-floor` recoit
   `sc` et lit la cle DERIVEE `DerivedSupineProjectionYield` (= 1 - SupineProjection-

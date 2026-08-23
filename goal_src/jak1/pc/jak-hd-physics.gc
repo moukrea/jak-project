@@ -66,7 +66,7 @@
 (defconstant PHYS-SC   (* PHYS-SLOTS PHYS-CHAINS))
 (defconstant PHYS-SCL  (* PHYS-SLOTS PHYS-CHAINS PHYS-LINKS))
 (defconstant PHYS-SCO  (* PHYS-SLOTS PHYS-COLS))
-(defconstant PHYS-PSET-N 22)  ;; cles du preset que ce moteur CONSOMME (table kPhysPresetKeys, kmachine.cpp)
+(defconstant PHYS-PSET-N 26)  ;; cles du preset que ce moteur CONSOMME (table kPhysPresetKeys, kmachine.cpp)
 
 ;; identite du slot
 (define *phys-slot-pid*  (new 'global 'array 'int32 PHYS-SLOTS))
@@ -703,13 +703,14 @@
                       (let ((pb (* sc PHYS-PSET-N)))
                         (dotimes (pki PHYS-PSET-N)
                           (let ((mi (pc-physics-chain-preset-mi agname c pki)))
-                            (set! (-> *phys-pset* (+ pb pki)) (if (>= mi 0) (phys-mi->f mi) (if (or (< pki 6) (and (>= pki 10) (< pki 13))) 1.0 0.0)))))
+                            (set! (-> *phys-pset* (+ pb pki)) (if (>= mi 0) (phys-mi->f mi) (if (or (< pki 6) (and (>= pki 10) (< pki 13)) (>= pki 22)) 1.0 0.0)))))
                         (format 0 "[HD-PHYS] PHYSPSET c=~D keys=~D absent=~D~%" c (pc-physics-chain-preset-count agname c) (pc-physics-chain-preset-absent agname c))
                         (format 0 "[HD-PHYS] PHYSPSETA c=~D sp=~f sw=~f sh=~f hl=~f hw=~f~%" c (-> *phys-pset* (+ pb 0)) (-> *phys-pset* (+ pb 1)) (-> *phys-pset* (+ pb 2)) (-> *phys-pset* (+ pb 3)) (-> *phys-pset* (+ pb 4)))
                         (format 0 "[HD-PHYS] PHYSPSETB c=~D ht=~f lbc=~f secf=~f secz=~f secmax=~f~%" c (-> *phys-pset* (+ pb 5)) (-> *phys-pset* (+ pb 6)) (-> *phys-pset* (+ pb 7)) (-> *phys-pset* (+ pb 8)) (-> *phys-pset* (+ pb 9)))
                         (format 0 "[HD-PHYS] PHYSPSETC c=~D ap=~f lat=~f tor=~f asc=~f rbb=~f~%" c (-> *phys-pset* (+ pb 10)) (-> *phys-pset* (+ pb 11)) (-> *phys-pset* (+ pb 12)) (-> *phys-pset* (+ pb 13)) (-> *phys-pset* (+ pb 14)))
                         (format 0 "[HD-PHYS] PHYSPSETD c=~D rbc=~f akn=~f acp=~f ckn=~f ccp=~f~%" c (-> *phys-pset* (+ pb 15)) (-> *phys-pset* (+ pb 16)) (-> *phys-pset* (+ pb 17)) (-> *phys-pset* (+ pb 18)) (-> *phys-pset* (+ pb 19)))
-                        (format 0 "[HD-PHYS] PHYSPSETE c=~D chard=~f syld=~f~%" c (-> *phys-pset* (+ pb 20)) (-> *phys-pset* (+ pb 21))))
+                        (format 0 "[HD-PHYS] PHYSPSETE c=~D chard=~f syld=~f ahard=~f~%" c (-> *phys-pset* (+ pb 20)) (-> *phys-pset* (+ pb 21)) (-> *phys-pset* (+ pb 22)))
+                        (format 0 "[HD-PHYS] PHYSPSETF c=~D vcomp=~f nshi=~f nslo=~f~%" c (-> *phys-pset* (+ pb 23)) (-> *phys-pset* (+ pb 24)) (-> *phys-pset* (+ pb 25))))
                       (when (> (-> *phys-nlink* sc) 0)
                         (+! armed 1)
                         (+! links (-> *phys-nlink* sc)))))
@@ -1199,7 +1200,7 @@
              (ey (- (-> *phys-py* tl) (-> skel bones (+ kt 1) transform vector 3 y)))
              (ez (- (-> *phys-pz* tl) (-> skel bones (+ kt 1) transform vector 3 z)))
              (dd (sqrtf (+ (* ex ex) (+ (* ey ey) (* ez ez)))))
-             (cap (* 0.50 (if (> (-> *phys-b0* sc) 0.0) (-> *phys-b0* sc) (-> *phys-blen* tl))))
+             (cap (* (-> *phys-pset* (+ (* sc PHYS-PSET-N) 22)) (if (> (-> *phys-b0* sc) 0.0) (-> *phys-b0* sc) (-> *phys-blen* tl))))
              (ds (if hard? (fmin dd cap) (phys-softmin dd cap))))
         (if (or (<= cap 0.0) (< dd 0.0001) (>= ds dd)) 1.0 (/ ds dd))))))
 
@@ -2662,7 +2663,7 @@
                               (set! (-> *phys-axw* (+ bb 2)) (* (-> am vector rr z) ir))))
                           ;; [NOTE-163] ARMEE DES QU'IL Y A UN MAILLON LIBRE. Ce verrou exigeait DEUX -> jak-hd-physics-NOTES.md
                           (when (> (- n rlk) 0)
-                            (set! (-> *phys-axs* (+ (* sc 3) iv)) 1.0)
+                            (set! (-> *phys-axs* (+ (* sc 3) iv)) (/ 1.0 (-> *phys-pset* (+ (* sc PHYS-PSET-N) 23))))
                             (set! (-> *phys-axs* (+ (* sc 3) ia)) (/ 1.0 (-> *phys-pset* (+ (* sc PHYS-PSET-N) 10))))
                             (set! (-> *phys-axs* (+ (* sc 3) il)) (/ 1.0 (-> *phys-pset* (+ (* sc PHYS-PSET-N) 11))))
                             (set! (-> *phys-axan* sc) 1))))))
@@ -2906,7 +2907,7 @@
                                                      (and (nonzero? sat) (nonzero? hasf)
                                                           (> (+ (* ex0 ex0) (+ (* ey0 ey0) (* ez0 ez0)))
                                                              (* kn kn))))
-                                               4 2))
+                                               (the int (-> *phys-pset* (+ (* sc PHYS-PSET-N) 24))) (the int (-> *phys-pset* (+ (* sc PHYS-PSET-N) 25)))))
                                         (fns (the float ns))
                                         (k2s (/ k2l (* fns fns)))
                                         (ggx (/ (* gsc (-> gdw x)) (* fns fns)))
@@ -3150,8 +3151,8 @@
                                      ;; [NOTE-114] LA MEME LONGUEUR ABSOLUE SUR DEUX OS DE 1040.5 ET 140.4 u -> jak-hd-physics-NOTES.md
                                      (rlb (-> *phys-blen* (+ (* sc PHYS-LINKS) rlk)))
                                      (rl  (if (> rlb 0.01) (fmin 1.0 (/ (-> *phys-blen* scl) rlb)) 1.0))
-                                     (kn (* (* 0.42 b0f) rl))
-                                     (cp (* (* 0.08 b0f) rl)))
+                                     (kn (* (* (-> *phys-pset* (+ (* sc PHYS-PSET-N) 16)) b0f) rl))
+                                     (cp (* (* (-> *phys-pset* (+ (* sc PHYS-PSET-N) 17)) b0f) rl)))
                                 (when (and (> dd kn) (> cp 0.0001))
                                   (let* ((xr (/ (- dd kn) cp))
                                          (th (if (>= xr 3.0)
@@ -3697,7 +3698,7 @@
                                                     (twn (+ (-> *phys-tw* sc) tv))
                                                     (rw  (fmax 1.0 (-> *phys-lcr* tl)))
                                                     ;; [NOTE-160] SPEC 38 — la torsion deplace un point de la -> jak-hd-physics-NOTES.md
-                                                    (tcap (/ (* 0.50 b0f) rw))
+                                                    (tcap (/ (* (-> *phys-pset* (+ (* sc PHYS-PSET-N) 22)) b0f) rw))
                                                     (rel0 (- twn (-> *phys-twa* sc)))
                                                     (rel  (if (>= rel0 0.0)
                                                             (phys-softmin rel0 tcap)
@@ -3996,7 +3997,7 @@
                                           (+ ee (-> *phys-dg* (+ (* sc PHYS-DG) 20))))
                                     (set! (-> *phys-dg* (+ (* sc PHYS-DG) 21))
                                           (+ 1.0 (-> *phys-dg* (+ (* sc PHYS-DG) 21))))
-                                    (when (> ee 0.40)
+                                    (when (> ee (-> *phys-pset* (+ (* sc PHYS-PSET-N) 20)))
                                       (set! (-> *phys-dg* (+ (* sc PHYS-DG) 22))
                                             (+ 1.0 (-> *phys-dg* (+ (* sc PHYS-DG) 22))))))))
                               ;; delta pour les descendants non simules
@@ -4026,7 +4027,7 @@
                         ;; [NOTE-139] SPEC 15 — DEUX MAXIMA (57 = le plus bas, en positif ; 58 = le plus haut), jamais un min. -> jak-hd-physics-NOTES.md
                         (set! (-> *phys-dg* (+ (* sc PHYS-DG) 57)) (fmax (-> *phys-dg* (+ (* sc PHYS-DG) 57)) (/ (- 0.0 cwy) (fmax 1.0 b0w))))
                         (set! (-> *phys-dg* (+ (* sc PHYS-DG) 58)) (fmax (-> *phys-dg* (+ (* sc PHYS-DG) 58)) (/ cwy (fmax 1.0 b0w))))
-                        (when (> cw 0.40)
+                        (when (> cw (-> *phys-pset* (+ (* sc PHYS-PSET-N) 20)))
                           (set! (-> *phys-dg* (+ (* sc PHYS-DG) 46))
                                 (+ 1.0 (-> *phys-dg* (+ (* sc PHYS-DG) 46)))))))
                     ;; [NOTE-139] L'APEX, PUBLIE. Garde `awn > 0` et NON `awn = n`. -> jak-hd-physics-NOTES.md

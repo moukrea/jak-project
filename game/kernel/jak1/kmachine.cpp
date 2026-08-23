@@ -1993,6 +1993,22 @@ static const char* kPhysPresetKeys[] = {
                                      //    cle 0, celle de `phys-vol-floor`. Une cle lue a un
                                      //    endroit et gardee en dur a l'autre rend une reponse
                                      //    partielle qu'on lit comme complete.
+    "HardMaxApexDisplacement",       // 22 section 22 — le PLAFOND DUR de l'apex. Le cycle 109b
+                                     //    l'a classee « CANAL ABSENT, aucun lecteur » alors que
+                                     //    DEUX sites du moteur la portaient en dur (0.50 B0 dans
+                                     //    `phys-apex-scale` et dans le plafond de torsion de la
+                                     //    38), et que la NOTE-160 le DISAIT. L'audit cherchait le
+                                     //    SITE au lieu de la VALEUR : il ne pouvait pas la voir.
+    "VerticalCompliance",            // 23 section 29 — la TROISIEME ligne du tenseur d'anisotropie.
+                                     //    Ses deux soeurs (10, 11) lisaient le fichier et elle
+                                     //    restait le litteral `1.0`, entre les deux. Inerte sur
+                                     //    les deux presets (1.00 partout) : c'est un bouton, pas
+                                     //    un changement de comportement.
+    "HardImpactSubstepsHi",          // 24 section 37 — sous-pas sur impact (4)
+    "MinimumSubstepsAt60FPS",        // 25 section 37 — sous-pas nominal (2). `HardImpactSubstepsLo`
+                                     //    (3) n'a AUCUN site : le moteur ne choisit qu'entre 4 et
+                                     //    2, donc ce barreau de sa spec reste CANAL ABSENT et on
+                                     //    le dit au lieu de l'arrondir.
 };
 static const int kPhysNumPresetKeys = (int)(sizeof(kPhysPresetKeys) / sizeof(kPhysPresetKeys[0]));
 

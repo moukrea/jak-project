@@ -31,6 +31,7 @@ pa = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(pa)
 
 ENGINE = os.path.join(REPO, 'goal_src', 'jak1', 'pc', 'jak-hd-physics.gc')
+ROOM = os.path.join(REPO, 'goal_src', 'jak1', 'pc', 'phys-room.gc')
 KM = os.path.join(REPO, 'game', 'kernel', 'jak1', 'kmachine.cpp')
 CHAINS = os.path.join(REPO, 'recharged_assets', 'physics_chains.txt')
 GEN = os.path.join(REPO, '.autoport', 'physics_keira_gen2.py')
@@ -71,6 +72,182 @@ ASSET = {
     'RootDeformationExponentLo': ('gradient racine->apex de la 31, cuit dans les poids', ),
     'RootDeformationExponentHi': ('gradient racine->apex de la 31, cuit dans les poids', ),
 }
+
+# =================================================================================================
+# CYCLE 114 — CET AUDIT CHERCHAIT LE SITE, IL DOIT CHERCHER LA VALEUR.
+#
+# CE QUI ETAIT FAUX ICI, ET C'EST LE MEME DEFAUT QU'AU CYCLE 111, UN CRAN PLUS BAS. Le dictionnaire
+# `CONSTS` ci-dessus est une LISTE ECRITE A LA MAIN de sites, cherches par leur TEXTE EXACT
+# (`'(* 0.42 b0e)'`). Le cycle 109b a converti ces textes-la et le compte est tombe a
+# `CONSTANTE MOTEUR 0/90`. Mais une recherche indexee sur le SITE ne peut trouver que les sites
+# qu'on lui a nommes : elle est aveugle a toute AUTRE copie de la meme valeur. Trois lui ont
+# echappe, et la troisieme se denoncait elle-meme :
+#
+#   * `jak-hd-physics.gc` mur d'apex de la 22 DANS la boucle : `(* 0.42 b0f)` / `(* 0.08 b0f)` —
+#     meme grandeur que `phys-cap-e22!`, qui lit deja les cles 16/17. UN BOUTON A MOITIE BRANCHE.
+#   * les deux compteurs de la NOTE-91 : `(> ee 0.40)` / `(> cw 0.40)`, ou 0.40 est textuellement
+#     « le plafond DUR de sa 22 » — c'est-a-dire la cle 20, deja cablee. Un SEUIL D'INSTRUMENT
+#     fige est le meme defaut, du cote de la mesure.
+#   * `phys-apex-scale` `(* 0.50 B0)` et le plafond de torsion `(* 0.50 b0f)` : la NOTE-160 ECRIT
+#     « Sa borne est donc CELLE DE L'APEX [...] HardMaxApexDisplacement 0.50 B0 ». La note nommait
+#     la cle ; le tableau publiait « CANAL ABSENT — aucun lecteur » pour cette meme cle.
+#
+# CE QUI REMPLACE LA LISTE : `sweep_hardcoded()` balaye TOUT le code du moteur ET de la salle, et
+# rapporte CHAQUE litteral egal a une valeur du preset. La charge de la preuve est inversee — un
+# site n'a plus besoin d'etre RETROUVE pour compter, il doit etre JUSTIFIE pour etre ignore. Toute
+# coincidence est nommee ci-dessous avec sa raison ; tout hit non justifie sort en `NON TRIE` et
+# fait echouer le script.
+#
+# LA CLE DE L'ALLOWLIST EST LE TEXTE DU CODE, JAMAIS UN NUMERO DE LIGNE : un numero derive au
+# premier ajout et l'allowlist redeviendrait un tampon encreur.
+# =================================================================================================
+
+SWEEP_TRIVIAL = {0.0, 1.0, 2.0, 3.0, 4.0, 120.0}   # 0/1/2/3/4 et 120 Hz : partout, sans portee
+
+# CONSTANTES CALEES SUR UNE CIBLE DU PRESET. Elles ne sont EGALES a aucune valeur du preset, donc
+# aucun balayage par valeur ne peut les voir — mais elles sont reglees pour que la mesure tombe sur
+# la cible, ce qui est la meme tautologie par un autre chemin (`never-fit-a-parameter-to-the-
+# instrument`). Elles se publient nommement, avec l'arithmetique qui les trahit.
+CALIBRATED = (
+    ('PHYS-DYN-K', 'NormalDynamicStretch / NormalMaxCOMDisplacement = 0.15 / 0.35 = 0.428571 -> 0.43 : '
+                   'le gain est regle pour que `sdy` (l etirement dynamique de la 22, :3722) vaille '
+                   'exactement 0.15 quand l excursion radiale vaut exactement 0.35 B0. TAUTOLOGIE '
+                   'CONDITIONNELLE : elle ne mord que si l excursion traine autour de 0.35 B0.'),
+    ('PHYS-SEC-K', 'gain d excitation du mode secondaire (36). NOTE-169 : « cale sur sa bande ». Pas '
+                   'une republication (un gain sur une vitesse n est pas une amplitude), mais la meme '
+                   'faute de methode. A re-examiner si la 36 devait etre declaree tenue sur une amplitude.'),
+)
+
+SWEEP_COINCIDENCE = {
+    # --- moteur : des MOITIES arithmetiques, pas des plafonds ------------------------------------
+    '(h (* 0.5 a))': 'moitie arithmetique (demi-amplitude), aucune grandeur de preset',
+    '(u (* 0.5 (* wh (sqrtf (fmax 0.0 (- 1.0 (* z z)))))))': 'moitie arithmetique de la pulsation amortie',
+    '(omx (* 0.5 (- r21 r12)))': 'partie antisymetrique d une 3x3 : le 1/2 est la formule',
+    '(omy (* 0.5 (- r02 r20)))': 'partie antisymetrique d une 3x3 : le 1/2 est la formule',
+    '(omz (* 0.5 (- r10 r01)))': 'partie antisymetrique d une 3x3 : le 1/2 est la formule',
+    '(kr (fmin 0.5 (/ bv (* pp ln))))': 'plafond de rapport sans dimension, sans equivalent au preset',
+    # --- moteur : des SEUILS et des TOLERANCES ----------------------------------------------------
+    '(defconstant PHYS-AUTH-TOL 0.05)': 'tolerance de detection de pose d auteur (unites moteur), pas une amplitude',
+    '(defconstant PHYS-SIDE-COS 0.05)': 'seuil sur un COSINUS, sans dimension et sans cle correspondante',
+    '(defconstant PHYS-COL-MARGIN 0.5)': 'marge de collision en UNITES MOTEUR, pas en B0',
+    '(defconstant PHYS-DYN-TAU 0.30)': 'constante de TEMPS de la 38 (frames), homonyme numerique seulement',
+    '(define *phys-med-inj* 0.5)': 'amplitude d INJECTION du controle positif medial, pas une grandeur livree',
+    '(when (> pp 0.05)': 'seuil de POIDS de peau (un vertex compte si w>0.05)',
+    '(when (> zl 0.05)': 'seuil de LONGUEUR, garde de division',
+    '(when (< (fabs dphi) 0.5)': 'garde d angle (radians) sur la reconstruction de holonomie',
+    '(when (> (-> *phys-rstp* scl w) 0.5)': 'test d un DRAPEAU stocke en flottant (0 ou 1)',
+    '(if (or (< n 0.5) (< axis 0) (> axis 2))': 'test d un ENTIER stocke en flottant (n = 0 ?)',
+    # --- moteur : deux constantes de SPEC, declarees et dont la morsure est COMPTEE ---------------
+    '(defconstant PHYS-PRS-MAX 0.25)':
+        'borne BASSE de la bande de la 12 (« gravity-side lateral flattening -15 a -25 % ») : c est '
+        'un nombre de la SPEC, pas une cle du preset (aucun `pk` ne le porte), et sa morsure est '
+        'publiee — `prsr` (non ecrete) est emis A COTE de `prsm` (ecrete) par PHYSSHAPE4, et '
+        '`*phys-prsn*` compte les frames ou elle mord.',
+    '(defconstant PHYS-SEC-K   0.05)':
+        'GAIN d excitation du mode secondaire (36) : il multiplie une vitesse, il ne borne rien ; '
+        'la cle homonyme `SecondaryJiggleAmplitudeHi` est une AMPLITUDE DE SORTIE. NON TRANCHE '
+        'reste possible et NOTE-169 dit « cale sur sa bande » : a re-examiner si la 36 devait etre '
+        'declaree tenue sur une amplitude — ce n est pas le cas aujourd hui.',
+    # --- salle : enveloppes (1-cos)/2, normes au carre, drapeaux ---------------------------------
+    '(w (* 0.5 (- 1.0 (cos (* 32768.0 u)))))': 'enveloppe (1-cos)/2 : le 1/2 est la formule',
+    '(s  (* 0.5 (- 1.0 (cos (* 32768.0 tt)))))': 'enveloppe (1-cos)/2',
+    '(s (* 0.5 (- 1.0 (cos (* 32768.0 u))))))': 'enveloppe (1-cos)/2',
+    '(b (* 0.5 (+ 1.0 (cos (* 32768.0 u))))))': 'enveloppe (1+cos)/2',
+    '(a (* PHYSROOM-TILTDEG 0.5 (+ 1.0 (cos (* 32768.0 u))))))': 'enveloppe (1+cos)/2 sur l inclinaison',
+    '(let ((yp (* 0.5 (* v0 tp))))': 'cinematique : 1/2 v t',
+    '(z1 (* 0.5 (* a1 (* t1 t1))))': 'cinematique : 1/2 a t^2',
+    '(* 0.5 (* a1 (* t t)))': 'cinematique : 1/2 a t^2',
+    '(gok (if (> (fabs gv) 0.5) 1 0))': 'test d un DRAPEAU stocke en flottant',
+    '((and (> qn 0.5) (< qn 2.0))': 'test d un ENTIER stocke en flottant',
+    '(set! (-> self root trans y) (+ (-> self home y) (* 0.4 amp (sin (* 2.0 ph))))))':
+        'facteur de FORME du pilotage de la salle, aucune grandeur de preset',
+    '(set! (-> self root trans z) (+ (-> self home z) (* 0.5 amp (cos ph))))))))':
+        'facteur de FORME du pilotage de la salle',
+    '(phys-osc-k2 0.65 0.5445367)':
+        'AUTO-TEST des deux convertisseurs (PHYSOSCK2) : entrees fixes, sorties attendues ecrites '
+        'avant la course. Ces nombres ne descendent dans aucun solveur.',
+    '(phys-decay (* 2.0 (* 0.65 0.5445367)))': 'AUTO-TEST du convertisseur (PHYSOSCK2)',
+    '(phys-osc-k2 0.35 0.2838553))': 'AUTO-TEST du convertisseur (PHYSOSCK2)',
+}
+
+# Les hits dont la forme se repete a l identique (meme texte, plusieurs lignes) : une seule entree
+# d allowlist suffit, et c est voulu — le texte EST la justification.
+SWEEP_REPEATED = (
+    '(< (phys-stat slot chain 0) 0.5))',
+    '(if (< (phys-stat slot chain 0) 0.5)',
+    '(when (> (+ (* lx lx) (+ (* ly ly) (* lz lz))) 0.5)',
+    '(when (> (+ (* ux ux) (+ (* uy uy) (* uz uz))) 0.5)',
+    '(* 0.5 (- 1.0 (cos (* 32768.0 (/ (the float f) PHYSROOM-IMPFF))))))',
+    '(* 0.5 (+ 1.0 (cos (* 32768.0 (/ (the float (- f PHYSROOM-AXW))',
+    '(* 0.5 (- 1.0 (cos (* 32768.0 (/ (the float f) PHYSROOM-SGNIF)))))))',
+    '(* 0.5 (+ 1.0 (cos (* 32768.0 (/ (the float (- f PHYSROOM-SGNM))',
+    '(* 0.5 (* v0 (- t (* (/ tp 3.14159265) (sin (* 32768.0 (/ t tp))))))))',
+    '(+ yp (- (* v0 tau) (* 0.5 (* PHYSROOM-REGG (* tau tau)))))))',
+    '(let* ((yf (+ yp (- (* v0 tf) (* 0.5 (* PHYSROOM-REGG (* tf tf))))))',
+    '(* 0.5 (* vl (- sg (* (/ tl 3.14159265) (sin (* 32768.0 (/ sg tl))))))))))))))',
+    '(+ z1 (- (* v1 tau) (* 0.5 (* a2 (* tau tau)))))))))',
+    '(* (-> self raz) (-> self raz)))) 0.5)',
+    '(when (<= pp 0.05)',
+)
+
+
+def sweep_hardcoded(byval):
+    """Chaque litteral du CODE egal a une valeur du preset, moteur ET salle.
+
+    NATURE : une liste de sites, pas un jugement. REPERE : aucun, c est du texte source.
+    LECTURE QUAND LE DEFAUT EST ABSENT : toute ligne rendue est soit dans l allowlist ci-dessus
+    avec sa raison ecrite, soit imputee a une cle et publiee comme CONSTANTE MOTEUR / CANAL PARTIEL.
+    """
+    allow = dict(SWEEP_COINCIDENCE)
+    for t in SWEEP_REPEATED:
+        allow.setdefault(t, 'forme repetee, meme justification que son jumeau')
+    hits, untriaged = {}, []
+    for path, short in ((ENGINE, 'jak-hd-physics.gc'), (ROOM, 'phys-room.gc')):
+        # LES DOCSTRINGS SONT DE LA PROSE, PAS DU CODE, et elles citent souvent la valeur voisine.
+        # On suit la PARITE DES GUILLEMETS depuis le debut du fichier : une chaine GOAL peut courir
+        # sur vingt lignes, et un `split(';;')` ne la voit pas. Quatre faux positifs du cycle 114
+        # venaient exactement de la.
+        instr = False
+        for i, raw in enumerate(open(path, encoding='utf-8'), 1):
+            line, code, j = raw, [], 0
+            while j < len(line):
+                c = line[j]
+                if instr:
+                    if c == '\\':
+                        j += 2
+                        continue
+                    if c == '"':
+                        instr = False
+                elif c == '"':
+                    instr = True
+                elif c == ';' and j + 1 < len(line) and line[j + 1] == ';':
+                    break
+                else:
+                    code.append(c)
+                j += 1
+            code = ''.join(code)
+            if not code.strip():
+                continue
+            found = set()
+            for m in re.finditer(r'(?<![\w.\-])(\d+\.\d+)', code):
+                f = float(m.group(1))
+                if f in SWEEP_TRIVIAL:
+                    continue
+                if f in byval:
+                    found |= byval[f]
+            if not found:
+                continue
+            txt = code.strip()
+            if txt in allow:
+                continue
+            matched = [t for t in allow if t and t in txt]
+            if matched:
+                continue
+            for k in found:
+                hits.setdefault(k, []).append((short, i, txt[:110]))
+            untriaged.append((short, i, txt[:110], sorted(found)))
+    return hits, untriaged
+
 
 # =================================================================================================
 # CYCLE 111 — UN CANAL « INDIRECT » NE SE DECLARE PLUS, IL SE PROUVE PAR PERTURBATION.
@@ -136,6 +313,23 @@ def prove_indirect(key, mine, who):
     ex = chg[0][1].split()[1] if len(chg[0][1].split()) > 1 else '?'
     return True, ('PROUVE PAR PERTURBATION : x1.5 sur la cle change %d ligne(s) `chain` (p.ex. %s)'
                   % (len(chg), ex))
+
+
+def stamp():
+    """L'EMPREINTE DES QUATRE FICHIERS DONT CE TABLEAU PARLE.
+
+    Paye au cycle 114 : `preset-channels.md` publiait `CANAL FICHIER (indirect) 3/90` avec
+    `GlobalDampingRatio` en indirect, alors que le script QUI L'ENGENDRE le refutait deja par
+    perturbation et rendait 1/90. Le document avait ete copie a la main a un moment, puis le
+    script avait avance sans lui. Un chemin n'est pas un horodatage : c'est l'empreinte qui dit
+    de quel arbre ce tableau parle.
+    """
+    import hashlib
+    out = []
+    for f, n in ((ENGINE, 'jak-hd-physics.gc'), (ROOM, 'phys-room.gc'),
+                 (KM, 'kmachine.cpp'), (CHAINS, 'physics_chains.txt')):
+        out.append('%s %s' % (n, hashlib.md5(open(f, 'rb').read()).hexdigest()[:12]))
+    return out
 
 
 def main():
@@ -216,13 +410,78 @@ def main():
             st = 'CANAL ABSENT'
             note = 'aucun lecteur'
         n[st] = n.get(st, 0) + 1
-        rows.append((k, kv, mv, differe, st, note))
+        rows.append([k, kv, mv, differe, st, note])
+
+    # --- CYCLE 114 : LE BALAYAGE PAR VALEUR A LE DERNIER MOT ------------------------------------
+    # Il vient APRES la boucle et il peut DEGRADER un statut, jamais l'ameliorer. Un `CANAL FICHIER`
+    # dont une copie survit en dur devient `CANAL PARTIEL` : un bouton a moitie branche ment plus
+    # qu'un bouton absent, parce qu'on le compte comme gagne.
+    byval = {}
+    for k in SK:
+        v = SK[k][0]
+        if v is None or v in SWEEP_TRIVIAL:
+            continue
+        byval.setdefault(v, set()).add(k)
+    for k in MINE:                      # les cles DERIVEES portent aussi des valeurs a chercher
+        v = MINE[k][0]
+        if v is None or v in SWEEP_TRIVIAL:
+            continue
+        byval.setdefault(v, set()).add(k)
+    hits, untriaged = sweep_hardcoded(byval)
+    # UN `NON TRIE` FAIT ECHOUER LE SCRIPT, ET PAS SEULEMENT IMPRIMER UNE LIGNE. Sans ca, la
+    # phrase « tout hit non justifie sort en NON TRIE et fait echouer le script » serait un
+    # COMMENTAIRE, c'est-a-dire exactement ce que la regle 0 du contrat interdit de prendre pour
+    # une preuve. Le rendre vrai coute deux lignes.
+    for f, l, txt, ks in untriaged:
+        errs.append('site NON TRIE : %s:%d  %s  [%s] — justifie-le dans SWEEP_COINCIDENCE '
+                    'ou cable la cle' % (f, l, txt, ','.join(ks)))
+    for r in rows:
+        h = hits.get(r[0])
+        if not h:
+            continue
+        where = ' ; '.join('%s:%d' % (f, l) for f, l, _ in h)
+        if r[4] == 'CANAL FICHIER':
+            r[4] = 'CANAL PARTIEL'
+            r[5] = 'CABLE, MAIS une copie survit en dur : %s' % where
+        elif r[4] == 'CANAL ABSENT':
+            r[4] = 'CONSTANTE MOTEUR'
+            r[5] = 'aucun canal, la valeur est ECRITE EN DUR : %s' % where
+        else:
+            r[5] += ' — copie en dur signalee : %s' % where
+    n = {}
+    for r in rows:
+        n[r[4]] = n.get(r[4], 0) + 1
 
     if 'SupineProjectionScale#2' in CONSTS:
         # la deuxieme copie de la meme cle est signalee A PART : elle ne change pas le compte des
         # cles, elle nomme un canal PARTIEL.
         pass
 
+    print('PROVENANCE — ce tableau decrit CES fichiers-la, et l\'empreinte le prouve :')
+    for l in stamp():
+        print('  %s' % l)
+    print('Regenere par : python3 .autoport/preset_channel_audit.py > .../preset-channels.md')
+    print()
+    print('BALAYAGE PAR VALEUR (cycle 114) — moteur + salle, tout litteral egal a une valeur du')
+    print('preset. Une coincidence doit etre JUSTIFIEE pour etre ignoree, elle n\'est plus ignoree')
+    print('par oubli. Entrees d\'allowlist : %d. Sites non tries : %d.'
+          % (len(SWEEP_COINCIDENCE) + len(SWEEP_REPEATED), len(untriaged)))
+    for f, l, txt, ks in untriaged:
+        print('  NON TRIE  %s:%d  %s   [%s]' % (f, l, txt, ','.join(ks)))
+    print('  ANGLE MORT DECLARE : les valeurs %s sont FILTREES (elles sont partout et sans portee),'
+          % ', '.join(('%g' % v) for v in sorted(SWEEP_TRIVIAL)))
+    print('  donc une cle qui vaut 1, 2, 3, 4 ou 120 ne peut PAS etre trouvee par ce balayage. Les')
+    print('  trois qui etaient dans ce cas (VerticalCompliance 1, MinimumSubstepsAt60FPS 2,')
+    print('  HardImpactSubstepsHi 4) ont ete trouvees A LA LECTURE et cablees au cycle 114 ; les')
+    print('  suivantes ne le seront pas par cet outil. Le balayage reduit l\'angle mort, il ne le')
+    print('  supprime pas, et le dire ici vaut mieux que laisser croire a une preuve d\'exhaustivite.')
+    print()
+    print('CONSTANTES AJUSTEES SUR UN RAPPORT DE DEUX CLES — pas un litteral, donc invisibles au')
+    print('balayage, et publiees ici pour qu\'elles ne disparaissent pas :')
+    for sym, formula in CALIBRATED:
+        m = re.search(r'\(defconstant\s+%s\s+([0-9.]+)\)' % re.escape(sym), eng)
+        print('  %-14s = %-6s  %s' % (sym, m.group(1) if m else 'ABSENTE', formula))
+    print()
     print('| cle | Keira | Maia | differe | etat du canal | site |')
     print('|---|---|---|---|---|---|')
     for k, kv, mv, d, st, note in rows:
