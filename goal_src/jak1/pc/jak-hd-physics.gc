@@ -202,6 +202,8 @@
 (define *phys-la1* (new 'global 'array 'float PHYS-SCL))
 ;; [NOTE-13] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
 (define *phys-lsv* (new 'global 'array 'float (* PHYS-SCL 3)))
+;; [NOTE-512] SPEC 2 / SPEC 9 — LE RESTE SOUS LE QUANTUM DU FLOTTANT, UN PAR MAILLON ET PAR AXE. Le cycle 116 a MESURE que `p <- p + v` est une addition en virgule flottante 32 bits sur une coordonnee MONDE dont le pas vaut 0.015625 u, et que la vitesse commandee au repos vaut 7 a 20 fois moins : l'addition est un NO-OP et le mouvement est detruit par l'arrondi, pas par une force. Ces trois tableaux portent la partie de `v` que l'addition a perdue, et la reinjectent a la frame suivante (sommation compensee de Kahan) : le joint avance alors par pas d'un quantum mais a la VITESSE MOYENNE JUSTE. Ce n'est PAS un suppresseur — il n'enleve pas un micron, il rend celui que le materiel jetait. `*phys-kah-off*` = 1 remet la compensation a zero a chaque pas, ce qui rend `y = v` et `t = p + v` : la branche desarmee est BIT-IDENTIQUE a l'addition d'avant, et c'est le controle negatif exact.
+(define *phys-kx* (new 'global 'array 'float PHYS-SCL)) (define *phys-ky* (new 'global 'array 'float PHYS-SCL)) (define *phys-kz* (new 'global 'array 'float PHYS-SCL)) (define *phys-kah-off* 0)
 ;; [NOTE-14] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
 ;; [NOTE-73] QUEL AXE DE L'ANCRE EST QUOI — classe UNE FOIS par chaine, a sa premiere frame -> jak-hd-physics-NOTES.md
 (define *phys-axv*  (new 'global 'array 'int32 PHYS-SC))   ;; index de ligne : vertical
@@ -2711,7 +2713,7 @@
                         (dotimes (l n)
                           (let ((s2 (+ (* sc PHYS-LINKS) l)))
                             (phys-rebase-pt! *phys-px* *phys-py* *phys-pz* s2 rot tmp ov pt) (phys-rebase-pt! *phys-qx* *phys-qy* *phys-qz* s2 rot tmp ov pt)
-                            (phys-rebase-pt! *phys-cpx* *phys-cpy* *phys-cpz* s2 rot tmp ov pt) (phys-rebase-pt! *phys-cqx* *phys-cqy* *phys-cqz* s2 rot tmp ov pt))))
+                            (phys-rebase-pt! *phys-cpx* *phys-cpy* *phys-cpz* s2 rot tmp ov pt) (phys-rebase-pt! *phys-cqx* *phys-cqy* *phys-cqz* s2 rot tmp ov pt) (set! (-> *phys-kx* s2) 0.0) (set! (-> *phys-ky* s2) 0.0) (set! (-> *phys-kz* s2) 0.0))))
                       ;; [NOTE-416] LA POSITION MONDE DE L'ANCRE, POUR QUE LA SALLE MESURE SON BRAS DE LEVIER. -> jak-hd-physics-NOTES.md
                       (set! (-> *phys-dg* (+ dgr 50)) (-> anc x))
                       (set! (-> *phys-dg* (+ dgr 51)) (-> anc y))
@@ -3010,9 +3012,9 @@
                                            (set! vx (+ (* vx kds) (+ fx ggx)))
                                            (set! vy (+ (* vy kds) (+ fy ggy)))
                                            (set! vz (+ (* vz kds) (+ fz ggz)))))
-                                       (set! (-> *phys-px* scl) (+ (-> *phys-px* scl) vx))
-                                       (set! (-> *phys-py* scl) (+ (-> *phys-py* scl) vy))
-                                       (set! (-> *phys-pz* scl) (+ (-> *phys-pz* scl) vz)) (when (= l rlk) (set! (-> *phys-dg* (+ (* sc PHYS-DG) 95)) (* (sqrtf (+ (* fx fx) (+ (* fy fy) (* fz fz)))) (* fns fns))))
+                                       (let* ((ky (- vx (-> *phys-kx* scl))) (kt (+ (-> *phys-px* scl) ky))) (set! (-> *phys-kx* scl) (if (zero? *phys-kah-off*) (- (- kt (-> *phys-px* scl)) ky) 0.0)) (set! (-> *phys-px* scl) kt))
+                                       (let* ((ky (- vy (-> *phys-ky* scl))) (kt (+ (-> *phys-py* scl) ky))) (set! (-> *phys-ky* scl) (if (zero? *phys-kah-off*) (- (- kt (-> *phys-py* scl)) ky) 0.0)) (set! (-> *phys-py* scl) kt))
+                                       (let* ((ky (- vz (-> *phys-kz* scl))) (kt (+ (-> *phys-pz* scl) ky))) (set! (-> *phys-kz* scl) (if (zero? *phys-kah-off*) (- (- kt (-> *phys-pz* scl)) ky) 0.0)) (set! (-> *phys-pz* scl) kt)) (when (= l rlk) (set! (-> *phys-dg* (+ (* sc PHYS-DG) 95)) (* (sqrtf (+ (* fx fx) (+ (* fy fy) (* fz fz)))) (* fns fns))))
                                        ;; [NOTE-132] SPEC 23 POINT LIBRE -> jak-hd-physics-NOTES.md
                                        (when (nonzero? rlo)
                                          (let* ((cex (- tgx cpx))
@@ -4569,6 +4571,7 @@
   (none))
 
 ;; [NOTE-454] CONTROLE DU CYCLE 8 : 1 = la contrainte de longueur est DESARMEE. Voir la note de -> jak-hd-physics-NOTES.md
+(defun phys-kah-off-set! ((v int)) "1 = la sommation compensee est DESARMEE (branche bit-identique a l'addition d'avant le cycle 116). Controle negatif de [NOTE-512]." (set! *phys-kah-off* v) (none))
 (defun phys-len-off-set! ((v int))
   (set! *phys-len-off* v)
   (none))

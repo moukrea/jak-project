@@ -1,0 +1,257 @@
+CYCLE 116 — PREDICTIONS ECRITES AVANT TOUTE EDITION DE CODE ET AVANT TOUTE COURSE
+DIRECTIVES vd9e8b66782
+Horodatage : ecrit avant `git diff` non vide sur goal_src/, avant `(mi)`, avant keira_room_x86.sh.
+
+------------------------------------------------------------------------------------------------
+CE QUI EST ETABLI PAR LA SEULE LECTURE DU CODE, SANS COURSE (bloc 0)
+------------------------------------------------------------------------------------------------
+0a. `phys-cap-ang!` (jak-hd-physics.gc:1153) NE DEPLACE RIEN malgre son `!` : ses deux seules
+    ecritures sont `*phys-la0*` et `*phys-la1*`, deux latches de MESURE. L'etage 0 du septuplet
+    est donc bien la position POST-INTEGRATION / PRE-CONTRAINTE. Aucun echantillon ne manque
+    en amont de `PHYSSTGQ st=0`.
+0b. La cible du ressort `tg = a + bl.R_am(u^)` (:2848-2856) est CONSTRUITE sur la sphere de rayon
+    `bl` centree sur l'attache ; `phys-length-chain` (:1073) projette sur la sphere de rayon
+    `want` = |bones[kk+1] - bones[kp+1]| centree sur la MEME attache, et `want == bl`.
+    => la projection de longueur est TANGENTIELLEMENT NEUTRE : elle ne peut pas equilibrer une
+    force de rappel qui est, elle, tangentielle. Candidat « la projection de longueur retient la
+    chaine » : REFUTE PAR LA CONSTRUCTION, sans course.
+0c. RESOLUTION DE `PHYSSTGQ` (phys-room.gc:6086) : il imprime `jt=~f`, soit QUATRE decimales d'un
+    RAPPORT A B0. B0 = 602,0 u (SPEC 6). Le quantum d'impression vaut donc :
+        0,0001 B0 = 0,0602 u
+    a comparer aux deux termes que le cycle 115 met en balance sur cette meme fenetre :
+        ressort   k2 . e = 0,058013 x 0,3612 = 0,02096 u/frame^2   -> quantum = 2,87 x le terme
+        gravite   gg     ~ 0,0015 u/frame^2                        -> quantum = 40,1 x le terme
+    => LE SEPTUPLET PLAT DU CYCLE 115 EST UNE QUANTIFICATION, PAS UNE MESURE. L'instrument bati
+    au cycle 114c pour arbitrer le point de parcage est ~3 fois trop grossier pour voir le PLUS
+    GROS des deux termes en litige. Son voisin immediat `PHYSRESTQ` (:6105) imprime `~,,7f` :
+    la resolution existait dans le meme bloc, a deux lignes de la.
+0d. LE POINT FIXE N'EST PAS `f + gg = 0`. `sigma30 = 0` etablit la STATIONNARITE DE POSITION d'une
+    frame a l'autre. Dans cette boucle (Verlet a `q` reconstruit, :3119, PUIS contraintes :3208+),
+    la stationnarite impose
+        Somme_sous-pas(v)  +  Delta_contraintes  =  0
+    et non `f + gg = 0`. Le cycle 115 a resolu une equation a DEUX termes pour une boucle qui en a
+    TROIS ; le « quatrieme terme qui porte 91 a 96 % » est le terme de CONTRAINTE que son equation
+    ne contenait pas. Ce n'est pas une force manquante : c'est un terme omis, et un instrument qui
+    ne pouvait pas le contredire.
+
+------------------------------------------------------------------------------------------------
+LA MESURE DU CYCLE (bloc A) — `PHYSSTGU`, LE MEME SEPTUPLET A 7 DECIMALES
+------------------------------------------------------------------------------------------------
+`PHYSSTGQ` reste INTACT AU BIT (il est cite par c114c et c115) et les deux chemins sont publies
+cote a cote. `PHYSSTGU` lit les MEMES cases `phys-diag 87..93`, a `~,,7f`, sur les CINQ dernieres
+frames de la fenetre PH-AXC au lieu d'une seule (une frame unique ne dit pas si le delta est
+stable ou accidentel). Quantum : 0,0000001 B0 = 0,0000602 u, soit 348 fois plus fin que le terme
+de ressort et 24,9 fois plus fin que celui de gravite.
+
+A1  NON-VACUITE : 5 frames x 3 axes x 2 chaines x 7 etages = 210 lignes `PHYSSTGU`.
+A2  PURETE DE L'EMETTEUR (controle negatif) : `PHYSRESTQ` doit ressortir BIT-IDENTIQUE a la course
+    archivee — rgap = 0,0001557 (c=0) et 0,0001491 (c=1) — et `PHYSSTGQ` doit rendre les MEMES
+    0.0006 / 0.0009 / 0.0005 / 0.0010 / 0.0007 / 0.0004. Un seul chiffre different signerait un
+    changement de solveur, et ce cycle n'a le droit d'en changer aucun.
+A3  COHERENCE : pour chaque cellule, `PHYSSTGU st=i` arrondi a 4 decimales == `PHYSSTGQ st=i`.
+    Deux chemins d'impression de la MEME case ; s'ils divergent, c'est l'impression qui est fausse.
+
+A4  LA PREDICTION, ET ELLE EST CHIFFREE : au moins un des six deltas |jt_st - jt_(st-1)| atteint
+    3,5e-5 B0 (= 0,021 u, l'impulsion de ressort d'une frame) sur au moins une des six cellules.
+    Sous la lecture du cycle 115 (« les contraintes sont inertes, il manque une force »), les six
+    deltas valent 0,0000000 sur les six cellules.
+A5  LA SOMME DOIT FERMER LE BILAN : |jt_st6 - jt_st0| doit valoir l'ordre du deplacement
+    d'integration d'une frame, soit 1,7e-5 a 5,8e-5 B0 (0,010 a 0,035 u selon le nombre de
+    sous-pas et le profil d'accumulation). Au-dessus de 1,7e-4 B0 (0,1 u) le bilan ne ferme plus
+    et il faut chercher un terme HORS des sept etages — c'est-a-dire la these du cycle 115.
+
+A6  FALSIFICATEUR, ECRIT AVEC LA PREDICTION : si les six deltas sortent a 0,0000000 sur les six
+    cellules, alors les contraintes sont VRAIMENT inertes au point de parcage, le bloc 0d ne
+    suffit pas, et le terme manquant n'est pas une contrainte. Dans ce cas la piste suivante n'est
+    PAS une quatrieme force : c'est que le ressort n'applique pas `k2.e` — a verifier sur `hasf`,
+    `ela`, `*phys-ucap*` et `mu`, tous lisibles sans course.
+
+A7  RESERVE D'HONNETETE, POSEE D'AVANCE : `jt` est une NORME (|p - pose d'auteur|), pas un vecteur.
+    Un delta NON NUL PROUVE qu'un etage a deplace le joint ; un delta NUL NE PROUVE PAS qu'il ne
+    l'a pas deplace (un deplacement sur la sphere centree sur la pose d'auteur serait invisible).
+    L'instrument est donc concluant dans UN sens seulement, et je ne lui ferai pas dire l'autre.
+
+------------------------------------------------------------------------------------------------
+CE QUE CE CYCLE NE PROMET PAS
+------------------------------------------------------------------------------------------------
+Aucun statut de `SPEC-COVERAGE.md` n'est promis. La section dont ce cycle debloque le VERDICT est
+nommee d'avance, comme l'exige la directive du 2026-08-21 18:25 : **§2, §9 et §27**, dont les trois
+cellules butent sur le MEME residu de parcage. Si le bloc A nomme un etage, la cause de ces trois
+lignes passe de « inconnue » a « localisee », et c'est ce qui sera ecrit — ni plus, ni moins.
+
+------------------------------------------------------------------------------------------------
+ADDENDUM — ECRIT APRES LE LANCEMENT DE LA COURSE, AVANT D'AVOIR LU LA MOINDRE LIGNE DE SORTIE
+(le fichier de course existe mais n'a pas ete ouvert ; ce qui suit sort de la LECTURE DU CODE)
+------------------------------------------------------------------------------------------------
+LA CARTE DES SIX INTERVALLES, ETABLIE AU CODE (jak-hd-physics.gc:3124-3206) :
+  st=0        apres `phys-cap-ang!` — qui NE DEPLACE RIEN : c'est la position POST-INTEGRATION
+  st=0 -> 1   le mur de saturation d'apex de SPEC 21/22 (facteur `sf` vers l'attache)
+  st=1 -> 2   `phys-length-chain`, premiere passe (projection dure sur la sphere)
+  st=2 -> 3   `phys-collide-chain`, premiere passe
+  st=3 -> 4   les iterations 1..7 de (longueur + collision)
+  st=4 -> 5   `phys-bend-chain`, puis 3x(longueur+collision+repli) puis 4x(collision+repli)
+  st=5 -> 6   2x(`phys-cap-e22!` + `phys-skin-chain`)
+
+BORNE QUI REND LA PREDICTION A4 NON GRATUITE, ET ELLE VIENT DE LA TRACE ARCHIVEE :
+  jt(frame de parcage)  = 0,0006 B0 = 0,3612 u          (`PHYSSTGQ st=6`, c=0 ax=0)
+  rgap(max sur fenetre) = 0,0001557 B0 = 0,0937 u       (`PHYSRESTQ`, c=0)
+  inegalite triangulaire, valide meme en melangeant un instantane et un MAJORANT :
+      |p - cible|(frame) >= jt(frame) - rgap(max) = 0,3612 - 0,0937 = **0,2675 u**
+  donc l'impulsion de ressort de la frame vaut au moins k2 x 0,2675 = **0,0155 u/frame^2**,
+  contre 0,00145 pour la gravite. L'equilibre du ressort SEUL exigerait |p - cible| = |gg|/k2 =
+  **0,0250 u**, soit 10,7 fois moins que la borne inferieure mesuree. Un terme absorbe donc entre
+  0,014 et 0,021 u par frame, et les sept etages sont les seuls candidats restants.
+
+PREDICTION NOMMEE (A4b) — QUEL ETAGE. La collision, soit `st=2 -> 3` soit `st=3 -> 4`.
+  Raison : le registre porte deja que **au REPOS la poitrine est dans 1 a 2 volumes**
+  (`breast-rest-clearance-vs-excursion`) — un contact permanent au repos est un fait deja mesure,
+  pas une hypothese neuve. Un contact permanent pousse le joint de la meme quantite a chaque
+  frame et rend exactement la stationnarite bit-exacte que `sigma30 = 0` constate.
+  SI C'EST CA : le residu de SPEC 2 / SPEC 9 n'est pas un equilibre de forces mal regle, c'est un
+  VOLUME DE COLLISION QUI RECOUVRE LA POSE D'AUTEUR — et ca se corrige sur la geometrie du
+  volume, pas sur le solveur.
+  SINON, l'ordre des candidats suivants est : `st=5 -> 6` (peau + borne d'apex, deja connue comme
+  la fuite de SPEC 22), puis `st=0 -> 1` (le mur de saturation), puis `st=4 -> 5` (le repli).
+
+------------------------------------------------------------------------------------------------
+BLOC B — ECRIT APRES LES RESULTATS DU BLOC A, AVANT LA DEUXIEME COURSE
+------------------------------------------------------------------------------------------------
+CE QUE LE BLOC A A RENDU, ET IL REFUTE DEUX DE MES PROPRES AFFIRMATIONS :
+  * A2 controle negatif : `PHYSSTGQ` 0/42 et `PHYSRESTQ` 0/6 valeurs differentes -> emetteur PUR.
+  * A4 REFUTEE SUR SON SEUIL : le plus gros delta vaut 0,015772 u, sous les 0,021 u annonces.
+  * A4b (« l'etage coupable est la COLLISION ») REFUTEE : c'est l'etage **1->2, la PROJECTION DE
+    LONGUEUR**, 0,008729 u a CHAQUE frame sur chestR/ax=0. La collision ne rend 0,005960 u que sur
+    une frame sur cinq.
+  * ET LE BLOC 0 §1.3(b) EST REFUTE PAR MA PROPRE MESURE : j'avais ecrit que la projection de
+    longueur etait « tangentiellement neutre, elle ne peut absorber que 3,0e-7 u ». Elle en absorbe
+    0,0087 — **29 000 fois** ma borne. Donc le deplacement qu'elle retire est RADIAL, et rien dans
+    ma lecture de la boucle ne produit une composante radiale de cette taille.
+  * A6 le falsificateur TIRE, MAIS SUR UNE SEULE CHAINE : chestL rend 0,0000000 sur les six deltas,
+    15 cellules sur 15, et son st0 egale son st6 a chaque frame. Sur chestL, ni les contraintes ni
+    l'integration ne deplacent le joint.
+
+ET UNE CORRECTION DE GRANDEUR QUI EST A MOI COMME AU CYCLE 115. Le cycle 115 chiffre la gravite a
+0,00145 u/frame^2 via `|gy| . gn . tf`. Le code ne fait pas ca pour la famille A : `gdw` est
+REECHELONNE a la longueur `gn` (:2685), qui est une difference de vecteurs UNITAIRES, donc sans
+dimension, et `gg = gsc . gdw / fns^2` (:2913). Avec gsc = 1,00 et gn = 0,0001320, |gg| vaut
+**0,000132 u/frame^2**, soit **11,0 fois moins**. La part de gravite dans l'equilibre n'est donc pas
+4 a 9 % : elle est de **0,4 a 0,9 %**, et la part inexpliquee passe de 91-96 % a **>99 %**.
+
+DEUX CANDIDATS DE PLUS TOMBENT, SUR LA TRACE, SANS COURSE :
+  * `*phys-axs*` (raideur par axe de la 29) : `PHYSAXISS` rend sv=1,0000 sap=1,1111 slat=1,2195 sur
+    LES DEUX chaines. Aucun facteur 0,09 la-dedans, et les trois sont >= 1.
+  * `ela` : `(if (= (-> *phys-fam* sc) 1) 1 0)` (:2746), et les deux chaines sont famille A. Donc
+    `ela` = 1 en permanence, et `hasf` = 1 des que `*phys-ucap*` est pose — ce que `PHYSRESTQ`
+    CONFIRME a l'execution, puisque le bloc qui ecrit `rgap`/`perr` est garde par `hasf`.
+
+PREDICTIONS DU BLOC B, ECRITES AVANT LA COURSE (`PHYSBALQ`, memes 5 frames que `PHYSSTGU`) :
+B1  NON-VACUITE : 30 lignes `PHYSBALQ`.
+B2  PURETE : `PHYSSTGU`, `PHYSSTGQ` et `PHYSRESTQ` doivent ressortir BIT-IDENTIQUES a la course du
+    bloc A. Les trois cases ajoutees sont en dehors de toute lecture du solveur.
+B3  BORNE DEDUITE DE L'INEGALITE TRIANGULAIRE, elle ne peut pas etre violee sans que l'un des deux
+    instruments soit faux : `pe` >= jt - rgap, soit **>= 0,00045 B0 sur chestL** et **>= 0,00079 B0
+    sur chestR**. Si `pe` sort en dessous, c'est `rgap` ou `jt` qui ment, et le cycle change de
+    sujet.
+B4  LA QUESTION, ET SES TROIS REPONSES POSSIBLES, TOUTES DISCRIMINANTES :
+      (i)  `fn` ~ k2 . pe . B0 = **0,0157 u/frame^2 (chestL)** et `dint` ~ 0  -> la force est
+           produite mais n'ecrit pas la position : le defaut est dans l'integration ;
+      (ii) `fn` << 0,0157 -> la force n'est pas produite : le defaut est dans la ligne de force,
+           et `mu` est le dernier suspect non encore mesure ;
+      (iii) `fn` ~ 0,0157 ET `dint` ~ 0,02 u -> l'integration ecrit bien, et c'est `PHYSSTGU` qui
+           est aveugle — l'asymetrie A7 mordrait, et il faudrait un vecteur, pas une norme.
+B5  MA PREDICTION NOMMEE : **(ii)**, parce que (i) demanderait qu'un `p += v` de trois lignes
+    n'ecrive pas, et (iii) demanderait que le deplacement soit orthogonal a (p - pose d'auteur)
+    alors que la cible en est a moins de 15 degres. Je la donne pour pouvoir avoir tort dessus.
+
+------------------------------------------------------------------------------------------------
+RETRACTATION, ECRITE AVANT QUE LA COURSE DU BLOC B N'AIT RENDU UNE LIGNE
+------------------------------------------------------------------------------------------------
+Le bloc B ci-dessus affirme que « le cycle 115 chiffre la gravite 11,0 fois trop grand ». **C'EST
+MOI QUI AI TORT, ET JE LE RETIRE AVANT QU'IL N'ENTRE DANS UN RAPPORT.** J'avais lu `gl` comme une
+difference de vecteurs UNITAIRES. Il n'en est pas une : `:2595-2600` pose `gl = (0, gy, 0)` avec
+gy = -11,16, le tourne dans le repere de l'ancre, PUIS **le renormalise a |gy|**. Donc `gl` porte
+la gravite PHYSIQUE, et `gn = |g_local - g_ref|` est en unites de 11,16. Ce que la trace publie
+sous le nom `gn` est le rapport SANS DIMENSION `gm = |gl| / |gy|` (`:2721`, `*phys-st*[18]`) — d'ou
+0,9999 en `tilt` et 0,0001 debout. La force vaut donc bien
+    |gg| = gsc . gm . |gy| = 1,00 x 0,000132 x 11,16 = **0,00147 u/frame^2**
+c'est-a-dire le 0,00145 du cycle 115, a 1,4 % pres. **Sa formule `|gy| . gn . tf` est juste, son
+chiffre est juste, et sa part « 4 a 9 % » tient.** Ce qui reste vrai de ma correction, c'est
+seulement qu'elle n'existait pas : je la retire en entier.
+LA LECON, ET ELLE EST DEJA AU REGISTRE : j'ai deduit une dimension du NOM d'une variable au lieu de
+suivre son echelle jusqu'a sa derniere ecriture. Trois lignes plus bas, `vector-float*!` disait le
+contraire. C'est `metric-nature-and-frame` applique a moi-meme, et ca aurait publie un facteur 11
+faux dans un rapport qui reproche au cycle precedent un facteur 24 faux.
+
+------------------------------------------------------------------------------------------------
+BLOC C — ECRIT APRES LES RESULTATS DU BLOC B, AVANT LA TROISIEME COURSE
+------------------------------------------------------------------------------------------------
+CE QUE LE BLOC B A RENDU, ET IL REPOND A LA QUESTION DU CYCLE :
+  * B3 TENUE : `pe` = 0,0005878 B0 (chestL) et 0,0009110 (chestR) au point de parcage, au-dessus
+    des bornes triangulaires 0,00045 / 0,00079 que j'avais posees. Les deux instruments sont
+    d'accord.
+  * **LA FORCE EST PRODUITE, ET ELLE EST EXACTE** : `fn` = 0,0237178 u/frame^2 sur chestL contre
+    k2 . pe . B0 = 0,058019 x 0,0005878 x 602 = 0,020530, soit un rapport de 1,155 — c'est-a-dire
+    la projection par axe de la 29 (sv 1,0000 / sap 1,1111 / slat 1,2195). Ma branche (ii) est
+    donc **REFUTEE** : la ligne de force fait exactement son travail.
+  * **ET LE DEPLACEMENT EST NUL** : `dint` = 0,0000000 u sur chestL, a chaque frame de la queue,
+    pendant que cette force de 0,0237 u/frame^2 est appliquee. Ma branche (i) est celle qui sort.
+  * **LE MECANISME EST UNE QUANTIFICATION, ET LA POPULATION LE PROUVE AU LIEU DE L'ILLUSTRER.**
+    Sur les 1 380 emissions de la fenetre, `dint` vaut **EXACTEMENT 0 sur 465 (33,7 %)**, et
+    **CHACUNE** des 14 plus petites valeurs non nulles vaut `2^-6 . racine(n)` avec n entier :
+        0,0156250 (n=1) · 0,0312500 (4) · 0,0468750 (9) · 0,0625000 (16) · 0,0644235 (17)
+        0,0698771 (20) · 0,0781250 (25) · 0,0883883 (32) · 0,1250000 (64) · 0,1259727 (65)
+        0,1288470 (68) · 0,1335000 (73) · 0,1397542 (80) · 0,1406250 (81)
+    Les carres tombent sur des entiers a 0,001 pres. C'est la signature d'un deplacement dont les
+    trois composantes cartesiennes sont des multiples ENTIERS d'un meme pas q = 2^-6 = 0,015625 u.
+    **Le solveur ne peut pas deplacer le joint de moins de 0,015625 u = 3,8 micrometres**, et au
+    repos il lui en commande 7 a 20 fois moins.
+
+PREDICTION DU BLOC C, ECRITE AVANT LA COURSE — ET ELLE PEUT ECHOUER :
+C1  Un flottant 32 bits de magnitude m a un pas de `2^(floor(log2 m) - 23)`. Un pas de 2^-6 exige
+    donc **`floor(log2 m) = 17`**, c'est-a-dire une coordonnee dans **[131072 ; 262144) u**, soit
+    **[32,0 ; 64,0) metres** de l'origine du monde. `PHYSQUANT2` publie `ancx/ancy/ancz`, la
+    position MONDE de l'attache. **Au moins une des trois doit tomber dans cette bande.**
+C2  `PHYSQUANT` publie les trois composantes SIGNEES. Chacune doit etre un multiple entier du pas
+    de SA PROPRE coordonnee, `2^(floor(log2 |anc_i|) - 23)` — pas forcement le meme sur les trois.
+C3  FALSIFICATEUR : si les trois coordonnees de l'attache sont toutes hors de [131072 ; 262144) et
+    qu'aucune ne rend 2^-6, alors le pas ne vient PAS de la magnitude monde du point simule, la
+    these tombe, et il faut chercher la quantification ailleurs (conversion en virgule fixe a
+    l'ecriture du squelette, ou stockage intermediaire). Je publierai ce qui sort, pas ce que
+    j'espere.
+C4  PURETE : `PHYSSTGU`, `PHYSSTGQ`, `PHYSRESTQ` et `PHYSBALQ` doivent ressortir bit-identiques a
+    la course du bloc B. Les trois cases ajoutees ne sont lues par aucun etage du solveur.
+
+------------------------------------------------------------------------------------------------
+BLOC D — LE CONTROLE POSITIF DU DIAGNOSTIC. ECRIT AVANT DE COMPILER, AVANT LA COURSE ARMEE.
+------------------------------------------------------------------------------------------------
+UN DIAGNOSTIC SANS CONTROLE POSITIF N'EN EST PAS UN. Si le mouvement est detruit par l'arrondi de
+`p <- p + v`, alors RENDRE l'increment perdu doit faire bouger la chaine, et rien d'autre ne doit
+en changer. La sommation compensee (Kahan) porte la partie de `v` que l'addition a jetee et la
+reinjecte a la frame suivante : le joint avance par pas d'un quantum mais a la VITESSE MOYENNE
+JUSTE. `*phys-kah-off*` = 1 force le terme de compensation a zero, ce qui rend `y = v` et
+`t = p + v` : la branche desarmee est **bit-identique par ALGEBRE** a l'addition d'avant — je
+l'ecris comme une algebre, pas comme une mesure, et je ne la presenterai pas autrement.
+
+D1  `dint` AU REPOS DOIT CESSER D'ETRE NUL. Aujourd'hui il vaut 0,0000000 sur 33,7 % des 1 380
+    emissions et sur 100 % de la queue de chestL. Arme, il doit valoir 0,015625 u sur une frame
+    sur k, avec k ~ quantum / vitesse commandee. Prediction chiffree : la vitesse au repos est de
+    l'ordre de `fn / (1 - kds) / ns^2` ~ 0,0007 a 0,0024 u/frame, donc **une frame sur 7 a 22**
+    doit porter un quantum, et les autres zero. Si `dint` reste nul partout, LE DIAGNOSTIC EST
+    FAUX et je le dirai.
+D2  LE RESIDU DE PARCAGE DOIT BAISSER. `pe` vaut 0,0005878 B0 (chestL) / 0,0009110 (chestR). La
+    chaine doit maintenant pouvoir continuer a descendre vers sa cible. Prediction : baisse d'au
+    moins un facteur 2 sur les deux chaines. Une baisse INFERIEURE a 10 % serait un echec du
+    controle, pas une demi-victoire.
+D3  ET `sigma30` DOIT CESSER D'ETRE NUL AU BIT. C'est la contrepartie honnete : le
+    `0,0000000000 sur 324/324` du cycle 114b n'etait pas une stabilisation, c'etait une
+    impossibilite de bouger. Une fois la compensation armee, la queue doit dithérer de +-1 quantum
+    (3,8 micrometres — invisible a l'oeil, mais non nul a l'instrument). Si `sigma30` reste
+    exactement nul, la compensation n'atteint pas la position et le controle ne tire pas.
+D4  ET LE COUT SE PUBLIE, MEME S'IL EST BON. `tipvar` (plancher MOVE 0,05), `meshpen` et
+    `rootdev` sont releves des deux cotes. Une correction qui rendrait du mouvement au repos en
+    en retirant en regime serait un echec, et je la retirerais.
+D5  CE QUE CE CONTROLE NE PROUVE PAS, ET JE LE POSE D'AVANCE : qu'il faille LIVRER la sommation
+    compensee. Le correctif STRUCTUREL est d'integrer dans un repere LOCAL a l'attache (les
+    offsets valent ~700 u, ou le pas d'un flottant 32 bits vaut 6e-5 u, soit 256 fois plus fin) au
+    lieu d'une coordonnee MONDE a 2^17. La compensation est le controle du diagnostic et un
+    correctif de premiere intention ; elle ne dispense pas du second.
