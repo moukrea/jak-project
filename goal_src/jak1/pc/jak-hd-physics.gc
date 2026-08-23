@@ -515,6 +515,7 @@
 (define *phys-e22-off* 0)
 (define *phys-e22-n* 0)
 (define *phys-e22-d* 0.0)
+(define *phys-e21-off* 0) (define *phys-e21-n* 0) (define *phys-e21-d* 0.0)  ;; [NOTE-518] SPEC 21 sur la valeur LIVREE : 1 = borne DESARMEE (controle negatif, bit-identique a l'etat d'avant le cycle 118) ; `n` = son compteur de corrections, `d` = le module cumule retranche en B0
 
 (defconstant PHYS-DG 100)          ;; [NOTE-510] 97/98/99 = les TROIS COMPOSANTES SIGNEES du meme deplacement d integration que 96, unites de jeu : la NORME ne dit pas quel axe a bouge, et le quantum d un flottant 32 bits depend de la MAGNITUDE de CHAQUE coordonnee, donc il faut les separer. · [NOTE-508] 94 = `pe` = |p - cible du ressort| / B0 INSTANTANE (pas un max : la case est reecrite a chaque frame, maillon `rlk`) · 95 = la NORME de la force elastique de la frame, |f|.fns^2, unites de jeu · 96 = |p_apres_sous-pas - p_avant_sous-pas|, le DEPLACEMENT QUE L INTEGRATION PRODUIT, unites de jeu. Les trois sont hors de la tranche 23-49 remise a zero par fenetre : ecrites a chaque frame, elles portent TOUJOURS la frame courante. Elles existent parce que le cycle 116 a mesure que les sept etages ne deplacent le joint de rien au point de parcage alors que |p - cible| y vaut au moins 0.271 u : il faut donc lire la force ET le deplacement qu elle produit, au meme endroit et a la meme frame. · 87-93 = [NOTE-501] le MEME septuplet en INSTANTANE (pas un latch, pas un argmax) : la DERNIERE frame ecrite, lue par la salle a la fermeture de la fenetre PH-AXC, la ou `ROOM-AXC-SETTLE` mesure sigma30 = 0 · 86 = [NOTE-472] la part RADIALE de l'excursion d'apex (projection signee sur le levier de chair, ponderee, en B0, AU MEME ARGMAX que 53-56) · 79-85 = [NOTE-466] le MEME septuplet a portee de FENETRE, cle sur l'etage 0 · 65-71 = [NOTE-340] les SEPT etages de |p_rlk - pose auteur| / B0 DANS LA FRAME COURANTE, 72-78 le meme septuplet LATCHE a la frame qui maximise l'etage 6 · 59-61 = [NOTE-338] la part TRANSLATION de l'apex, 62-64 sa part TENSEUR, AU MEME ARGMAX que 53-56 · 31-34 = [NOTE-92] l'attribution de `comex` · 35-42 = [NOTE-112] le COM PAR MAILLON · 43-46 = [NOTE-126] le COM PONDERE · 47-49 = [NOTE-136] son VECTEUR · 50-52 = [NOTE-137] la POSITION MONDE de l'ancre · 53-56 = [NOTE-139] l'APEX et son vecteur · 57/58 = [NOTE-139] les deux extremes verticaux du COM (SPEC 15)
 (define *phys-dg* (new 'global 'array 'float (* PHYS-SC PHYS-DG)))
@@ -3837,7 +3838,7 @@
                         (let* ((scl (+ (* sc PHYS-LINKS) l))
                                (k   (-> *phys-joint* scl)))
                           (when (and (>= k 0) (< (+ k 1) nbone))
-                            (let ((bm (the-as matrix (-> skel bones (+ k 1) transform))))
+                            (let ((bm (the-as matrix (-> skel bones (+ k 1) transform))) (dpx 0.0) (dpy 0.0) (dpz 0.0))
                               (matrix-copy! pre bm)
                               ;; [NOTE-48] ------------------------------------------------------------ -> jak-hd-physics-NOTES.md
                               (let ((have #f))
@@ -3905,12 +3906,29 @@
                                     (phys-pt-exc! tmp bm (-> *phys-apx* scl) (-> *phys-apy* scl) (-> *phys-apz* scl))
                                     (set! dwx (+ dwx (* aw (-> *phys-c2* 0))))
                                     (set! dwy (+ dwy (* aw (-> *phys-c2* 1))))
-                                    (set! dwz (+ dwz (* aw (-> *phys-c2* 2))))))
+                                    (set! dwz (+ dwz (* aw (-> *phys-c2* 2)))) (set! dpx (-> *phys-c2* 0)) (set! dpy (-> *phys-c2* 1)) (set! dpz (-> *phys-c2* 2))))
                                 (matrix-copy! bm tmp))
                               (set! (-> bm vector 3 x) (-> *phys-px* scl))
                               (set! (-> bm vector 3 y) (-> *phys-py* scl))
                               (set! (-> bm vector 3 z) (-> *phys-pz* scl))
                               (set! (-> bm vector 3 w) 1.0)
+                              ;; [NOTE-518] SPEC 21 — LA COMBINAISON EST SATUREE, ET C'EST LA VALEUR LIVREE QUI L'EST. -> jak-hd-physics-NOTES.md
+                              (when (and (zero? *phys-e21-off*) (> (-> *phys-apw* scl) 0.0))
+                                (phys-pt-exc! bm pre (-> *phys-apx* scl) (-> *phys-apy* scl) (-> *phys-apz* scl))
+                                (let* ((sx (- (-> *phys-c2* 0) dpx)) (sy (- (-> *phys-c2* 1) dpy)) (sz (- (-> *phys-c2* 2) dpz))
+                                       (sd (sqrtf (+ (* sx sx) (+ (* sy sy) (* sz sz)))))
+                                       (b0f (if (> (-> *phys-b0* sc) 0.0) (-> *phys-b0* sc) (-> *phys-blen* scl)))
+                                       (kn  (* (-> *phys-pset* (+ (* sc PHYS-PSET-N) 16)) b0f)) (cp (* (-> *phys-pset* (+ (* sc PHYS-PSET-N) 17)) b0f))
+                                       ;; MEME GENOU, MEME ASYMPTOTE, MEME TANH DE PADE QUE LES DEUX AUTRES FILETS (`:2039`, `:3160`) : `tanh` est la fonction que la section ECRIT, et le duplicat est assume pour la meme raison qu'a `phys-cap-e22!` — factoriser ferait bouger les courses desarmees et detruirait leur controle.
+                                       (xr  (if (and (> sd kn) (> cp 0.0001)) (/ (- sd kn) cp) 0.0))
+                                       (th  (if (>= xr 3.0) 1.0 (/ (* xr (+ 27.0 (* xr xr))) (+ 27.0 (* 9.0 (* xr xr))))))
+                                       (g   (if (and (> sd 0.0001) (> xr 0.0)) (/ (+ kn (* cp th)) sd) 1.0)))
+                                  (when (< g 0.999999)
+                                    (set! *phys-e21-n* (+ *phys-e21-n* 1))
+                                    (set! *phys-e21-d* (+ *phys-e21-d* (/ (* sd (- 1.0 g)) (fmax 1.0 b0f))))
+                                    (set! (-> bm vector 3 x) (- (-> bm vector 3 x) (* (- 1.0 g) sx)))
+                                    (set! (-> bm vector 3 y) (- (-> bm vector 3 y) (* (- 1.0 g) sy)))
+                                    (set! (-> bm vector 3 z) (- (-> bm vector 3 z) (* (- 1.0 g) sz))))))
                               ;; [NOTE-139] L'APEX — accumule sur le MEME `bm` que l'ecriture livre. -> jak-hd-physics-NOTES.md
                               (let ((aw (-> *phys-apw* scl)))
                                 (when (> aw 0.0)
@@ -4216,11 +4234,7 @@
     (-> *phys-lsv* (+ (* (+ (* (+ (* slot PHYS-CHAINS) chain) PHYS-LINKS) link) 3) axis))))
 
 (defun phys-link-dev-anc ((slot int) (chain int) (link int) (axis int))
-  "LA MEME DEVIATION QUE `phys-link-dev`, DANS LE TRIEDRE DE L'ANCRE (voir `*phys-lda*`).
-   axis 0/1/2 = vertical / avant-arriere / lateral — l'ordre de SPEC 24, pas celui des lignes de la
-   matrice. REPERE : le triedre de l'ANCRE, que SPEC 7 impose ; le repere monde ne peut pas separer
-   les trois axes de SPEC 24. Instantanee, nulle a la pose du modele. Rend 0.0 sur une chaine que le
-   solveur n'a pas classee — l'outil de lecture le declare, il ne le comble pas."
+  "LA MEME DEVIATION QUE `phys-link-dev`, DANS LE TRIEDRE DE L'ANCRE (`*phys-lda*`) ; axis 0/1/2 = vertical / avant-arriere / lateral, l'ordre de SPEC 24. REPERE et lecture hors defaut : [NOTE-519] de jak-hd-physics-NOTES.md."
   (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS)
           (< link 0) (>= link PHYS-LINKS) (< axis 0) (> axis 2)
           (< (phys-stat slot chain 0) 0.5))
@@ -4258,11 +4272,7 @@
     (-> *phys-ldb* (+ (* (+ (* (+ (* slot PHYS-CHAINS) chain) PHYS-LINKS) link) 3) axis))))
 
 (defun phys-chain-axis ((slot int) (chain int) (which int))
-  "LA CLASSIFICATION DU TRIEDRE, TELLE QUE LE SOLVEUR L'A FAITE — pour que la salle la publie et
-   qu'elle soit RELISIBLE dans la trace au lieu d'etre supposee.
-   which 0 = classee (0/1), 1/2/3 = index de ligne vertical / avant-arriere / lateral,
-   4 = raideur par axe ARMEE (0/1) — voir la note de `*phys-axan*` : classee et armee ne sont pas
-   la meme chose, et c'est precisement l'ecart entre les deux qu'il faut pouvoir lire."
+  "LA CLASSIFICATION DU TRIEDRE, TELLE QUE LE SOLVEUR L'A FAITE, pour qu'elle soit RELISIBLE dans la trace au lieu d'etre supposee. Table de `which` : [NOTE-520] de jak-hd-physics-NOTES.md."
   (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS))
     -1
     (let ((sc (+ (* slot PHYS-CHAINS) chain)))
@@ -4511,7 +4521,7 @@
   (set! *phys-skc-w* 0.0)
   (set! *phys-skc-r* 0.0) (dotimes (i (* PHYS-SC 20)) (set! (-> *phys-skl* i) 0.0))
   (set! *phys-e22-n* 0)
-  (set! *phys-e22-d* 0.0)
+  (set! *phys-e22-d* 0.0) (set! *phys-e21-n* 0) (set! *phys-e21-d* 0.0)
   (none))
 
 ;; [NOTE-453] CONTROLE POSITIF DE L'AUTO-COLLISION : 1 = l'exclusion chaine <-> ses propres volumes est LEVEE. -> jak-hd-physics-NOTES.md
@@ -4525,25 +4535,18 @@
       (-> *phys-cpc* (+ (* 3 sc) which)))))
 
 (defun phys-skin-off-set! ((v int))
-  "ABLATION, 0 EN LIVRAISON : 1 DESARME la contrainte de peau de SPEC 33/34 ([NOTE-241]).
-   C'est SON controle positif — desarmee, `skinpen` doit REMONTER au-dessus de `skinrest`, et
-   l'ecart entre les deux jambes EST ce que la contrainte tient. Armee, elle ne peut pas tirer un
-   sein dehors, donc un ecart dans l'autre sens denoncerait un defaut de la contrainte elle-meme."
+  "ABLATION, 0 EN LIVRAISON : 1 DESARME la contrainte de peau de SPEC 33/34 ([NOTE-241]). Texte complet : [NOTE-513] de jak-hd-physics-NOTES.md."
   (set! *phys-skin-off* v)
   (none))
 
 (defun phys-skc ((which int))
-  "CE QUE LA CONTRAINTE DE PEAU RETIRE, AGREGE sur toutes les frames depuis la derniere remise a
-   zero de diagnostic : un cumul de JAMBE, jamais un maximum de fenetre. GLOBAL A LA COURSE ET PAS
-   PAR CHAINE — il ne se publie donc jamais comme une colonne par chaine (regle 7).
-   0 = NOMBRE de corrections. 1 = somme de leurs modules (unites de jeu). 2 = la pire d'entre elles.
-   LECTURE QUAND LA CONTRAINTE NE MORD PAS : les trois a zero."
+  "CE QUE LES CONTRAINTES RETIRENT, cumul de JAMBE et jamais un maximum de fenetre. Table des cases (0-2 peau, 3, 4-5 borne §22, 6-7 borne §21) et leur LECTURE HORS DEFAUT : [NOTE-514] de jak-hd-physics-NOTES.md."
   (cond ((= which 0) (the float *phys-skc-n*))
         ((= which 1) *phys-skc-d*)
         ((= which 2) *phys-skc-w*)
         ((= which 3) *phys-skc-r*)
-        ((= which 4) (the float *phys-e22-n*))
-        (else *phys-e22-d*)))
+        ((= which 4) (the float *phys-e22-n*)) ((= which 5) *phys-e22-d*)
+        ((= which 6) (the float *phys-e21-n*)) (else *phys-e21-d*)))
 
 (defun phys-skl ((slot int) (chain int) (w int)) "LE LEVIER DE LA CONTRAINTE DE PEAU AU POINT QUI DECIDE — instrument PUR (aucune case n'est lue par le solveur), 20 cases par chaine, meme fenetre que `phys-skc`. Table des cases : [NOTE-482] de jak-hd-physics-NOTES.md." (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS) (< w 0) (>= w 20)) 0.0 (-> *phys-skl* (+ (* 20 (+ (* slot PHYS-CHAINS) chain)) w))))
 
@@ -4578,10 +4581,7 @@
 
 ;; [NOTE-455] `phys-jacobi-off-set!` et `phys-prio-off-set!` retirees : ZERO site d'appel dans tout `goal_src` -> jak-hd-physics-NOTES.md
 (defun phys-prio-meas-set! ((v int))
-  "1 = la passe de selection tourne POUR COMPTER, sans jamais ecarter un volume. C'est ce qui rend
-   `ROOM-VOLPRIO` non vide pendant que la priorite reste desarmee. Le controle de cette mesure est
-   son propre desarmement : a 0, la passe ne tourne pas et les trois compteurs doivent retomber a
-   zero exactement — un compteur qui resterait non nul mesurerait autre chose que cette passe."
+  "1 = la passe de selection tourne POUR COMPTER, sans jamais ecarter un volume. Son controle est son propre desarmement : [NOTE-517] de jak-hd-physics-NOTES.md."
   (set! *phys-prio-meas* v)
   (none))
 
@@ -4592,19 +4592,12 @@
   (none))
 
 (defun phys-rr-off-set! ((v int))
-  "1 = la borne §22 du canal RADIAL est desarmee (`rcap` -> +inf), sur la fenetre d'orientation
-   seule. La salle l'arme sur la passe k=5 du balayage et le REND A 0 en sortant. Arme, le canal
-   radial doit REMONTER vers son brut `rrr` (jusqu'a 0.6843 B0 mesures contre 0.3900 bornes) : si
-   le pole medial de sa §12 remonte avec lui, l'ecretage est le mecanisme ; s'il ne bouge pas, la
-   borne est exoneree et la cause est ailleurs dans la confiscation de longueur."
+  "1 = la borne §22 du canal RADIAL est desarmee (`rcap` -> +inf), sur la fenetre d'orientation seule. Ce qu'elle discrimine : [NOTE-515] de jak-hd-physics-NOTES.md."
   (set! *phys-rr-off* v)
   (none))
 
 (defun phys-cone-off-set! ((v int))
-  "1 = le rayon redevient interpole sur le parametre de PROJECTION, c'est-a-dire le predicat faux
-   d'avant. La penetration residuelle mesuree contre les 24 capsules — toutes coniques — doit alors
-   REMONTER : desarme, le moteur teste le solide que la donnee designe ; arme, il teste un ensemble
-   plus PETIT, donc il laisse entrer ce qu'il devrait refuser."
+  "1 = le rayon redevient interpole sur le parametre de PROJECTION, c'est-a-dire le predicat faux d'avant. Ce qui doit REMONTER, et pourquoi : [NOTE-516] de jak-hd-physics-NOTES.md."
   (set! *phys-cone-off* v)
   (none))
 
