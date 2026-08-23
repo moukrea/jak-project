@@ -19,6 +19,35 @@ attend indéfiniment. Tombé **quatre fois en 24 h** sous quatre formes, et a fa
 livraison toutes les deux minutes pendant une nuit entière. Verrou : chaque démon écrit son PID,
 le superviseur teste `kill -0`. Un PID ne se confond avec rien.
 
+GUARD world-float-quantum .autoport/c116_blockD_plateau.py QNORM
+**Intégrer la position simulée en coordonnées MONDE ABSOLUES, en flottant 32 bits.** Un flottant de
+magnitude `m` a un pas de `2^(floor(log2 m) - 23)`. La salle place le sujet à **259,1 m de l'origine
+du niveau** ; les trois coordonnées de l'attache tombent alors dans des binades différentes et le
+pas vaut **0,0625 u sur X et Z** (2^19) et **0,015625 u sur Y** (2^17). Or la vitesse commandée au
+repos vaut **7 à 20 fois moins** : `p <- p + v` est un NO-OP, et la fin de chaque amortissement
+n'est pas amortie — elle est **supprimée**. Coût réel : `sigma30 = 0,0000000000 sur 324 séries sur
+324` a été lu comme « stabilisation » pendant **65 cycles** alors qu'il voulait dire « ne peut pas
+bouger », et trois cycles (114b, 114c, 115) ont bâti des attributions dessus — dont un « quatrième
+terme qui porte 91 à 96 % de l'équilibre » qui n'était que l'arrondi. Verrou, en trois parties :
+(1) toute grandeur qui est un DÉPLACEMENT du point simulé publie le pas de sa binade **à côté du
+chiffre** — c'est un plancher de bruit, et il **double à chaque puissance de deux parcourue dans le
+niveau**, donc il n'est pas une constante ; (2) un contrôle qui rend « aucun effet » sur une
+grandeur dont l'échelle approche ce pas est **non concluant**, pas négatif ; (3) le correctif de
+fond est le REPÈRE : intégrer dans un repère local à l'attache (offsets ~700 u, pas 256 fois plus
+fin), la sommation compensée n'étant qu'un correctif de première intention.
+
+GUARD parking-point-is-a-plateau .autoport/c116_blockD_plateau.py plateau_window
+**Prendre la DERNIÈRE frame d'une fenêtre pour un point de repos.** `PHYSSTGQ`, `PHYSRESTQ` et
+`PHYSBALQ` émettent tous à la dernière frame de PH-AXC, et trois cycles (114c, 115, 116 blocs A-C)
+ont appelé ce point « le point de parcage ». La fenêtre porte **deux** impulsions, la montée au
+plateau demande 60 à 75 frames, et sur **4 cellules sur 6 elle s'arrête 4 à 38 frames avant** le
+second plateau : à la dernière frame `dint` vaut encore 0,19 u et `pe` change à chaque frame. Lu là,
+le contrôle positif du cycle 116 rendait ×0,975 / ×1,049 — « aucun effet » — quand le même contrôle
+lu au plateau rend **×0,196**. Un correctif juste a failli être retiré sur cet instantané. Verrou :
+un point de repos se **reconnaît à un critère objectif** — la grandeur y est constante au dernier
+chiffre imprimé sur ≥ 20 frames consécutives et l'incrément d'intégration y est nul — jamais à sa
+position dans la fenêtre.
+
 GUARD metric-frame .autoport/lib/preflight.py check_metric_frame_declared
 **Mesurer la mauvaise grandeur.** Une variance ne décrit pas un affaissement soutenu ; un scalaire
 ne décrit pas une forme ; le repère monde masque le mouvement propre d'un maillon (la pointe hérite

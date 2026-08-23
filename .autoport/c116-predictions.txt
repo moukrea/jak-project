@@ -255,3 +255,78 @@ D5  CE QUE CE CONTROLE NE PROUVE PAS, ET JE LE POSE D'AVANCE : qu'il faille LIVR
     offsets valent ~700 u, ou le pas d'un flottant 32 bits vaut 6e-5 u, soit 256 fois plus fin) au
     lieu d'une coordonnee MONDE a 2^17. La compensation est le controle du diagnostic et un
     correctif de premiere intention ; elle ne dispense pas du second.
+
+------------------------------------------------------------------------------------------------
+RESULTATS DU BLOC D — ECRITS APRES LA COURSE ARMEE, CONTRE LES PREDICTIONS CI-DESSUS
+------------------------------------------------------------------------------------------------
+Paire : DESARMEE = course 10:23 (md5 adf46e0f...), ARMEE = course 10:50 (md5 f4995d49...). Les deux
+binaires ne different QUE par le bloc Kahan (`git show ef8b3f485e -- goal_src/jak1/pc/jak-hd-physics.gc`,
+3 lignes d'integration + la remise a zero au rebase + le setter du controle negatif).
+
+ET LA PREMIERE CHOSE A ECRIRE EST UNE FAUTE A MOI, PARCE QU'ELLE A FAILLI FAIRE RETIRER UN
+CORRECTIF JUSTE. Lu a la DERNIERE FRAME de la fenetre — l'endroit ou `PHYSSTGQ`, `PHYSRESTQ` et
+`PHYSBALQ` prennent tous leur verdict — D2 rend x0,975 (chestL) et x1,049 (chestR) : « aucun effet »,
+c'est-a-dire l'echec que j'avais moi-meme defini (« une baisse INFERIEURE a 10 % serait un echec du
+controle »). J'ai demande la POPULATION avant de conclure, et elle dit le contraire.
+LA DERNIERE FRAME N'EST PAS UN POINT DE PARCAGE. La fenetre PH-AXC porte DEUX impulsions
+(f~4 et f~164-194) ; la montee vers le plateau prend 60 a 75 frames ; la fenetre s'arrete a f=230.
+Sur 4 cellules sur 6 elle se termine 4 a 38 frames AVANT que le second plateau soit atteint, et a
+f=230 `dint` vaut encore 0,19 u pendant que `pe` change a chaque frame. Le point de parcage est le
+PLATEAU entre les deux impulsions, reconnu par un critere objectif et non par gout : `pe` y est
+CONSTANT au dernier chiffre imprime pendant 85 a 97 frames consecutives.
+=> CONSEQUENCE QUI DEPASSE CE CYCLE : tout chiffre publie « au point de parcage » par les cycles
+   114c, 115 et 116 (blocs A a C) est un INSTANTANE DE RAMPE. C'est la meme classe que
+   `impulse-window-not-isolated-without-return-ramp`, deja au registre.
+
+D1  TENUE. Au plateau (f=100..160), la course desarmee rend `dint` = 0,0000000 sur 61 frames sur 61
+    dans 4 cellules sur 6 : le joint est GELE AU BIT. Armee : 18 a 52 zeros sur 61. Sur les 1 380
+    emissions de la fenetre, les zeros tombent de 465 (33,7 %) a 280 (20,3 %).
+D2  TENUE, ET LARGEMENT, UNE FOIS LUE AU PLATEAU. `pe` median :
+        c=0 ax=0  0,0005878 -> 0,0000000   x0,000
+        c=0 ax=1  0,0006964 -> 0,0002140   x0,307
+        c=0 ax=2  0,0006147 -> 0,0001070   x0,174
+        c=1 ax=0  0,0009110 -> 0,0001798   x0,197
+        c=1 ax=1  0,0009231 -> 0,0001798   x0,195
+        c=1 ax=2  0,0006075 -> 0,0001557   x0,256
+    rapport med 0,196 — la baisse exigee etait « au moins un facteur 2 », la mesure rend 3,3 a l'infini.
+    EN PAS DE FLOTTANT (le plancher de bruit du bloc C, declare a cote du chiffre) : le residu passe
+    de **3,9-6,2 pas** a **0,00-1,44 pas**, soit de 0,086-0,136 mm a 0,000-0,032 mm.
+    RESERVE FAVORABLE, PUBLIEE : au plateau la chaine armee DESCEND ENCORE (0,00049 -> 0,00024 ->
+    0,00021 -> 0,00011 sur c=0 ax=1) quand la seconde impulsion arrive. 1,44 pas est donc un
+    PLAFOND, pas la limite.
+D3  TENUE. `sigma30` passe de 0 serie non nulle sur 12 a **12 sur 12** (8,2e-6 a 3,9e-4). Le
+    « 0,0000000000 sur 324 series sur 324 » du cycle 114b n'etait pas une stabilisation : c'etait
+    une IMPOSSIBILITE DE BOUGER, et elle a ete lue comme un resultat pendant 65 cycles.
+D4  LE COUT, PUBLIE SANS L'ADOUCIR.
+      mouvement  `amp` rapport APPARIE p50 **1,0022** (min 0,357, baisse dans 136 fenetres sur 310)
+                 -> aucun muselage systematique. `tipvar` pire fenetre 0,1873->0,1829 (chestL) et
+                 0,1906->0,2047 (chestR), tres au-dessus du plancher MOVE de 0,05.
+      racine     `rootdev` 0,0730->0,0734 et 0,0735->0,0735 : inchangee.
+      contact    `pen` p50 **+9,2 %** · `skinadd` p50 **+8,3 %**, max +6,7 %. C'est un COUT REEL et
+                 il a une cause : une chaine qui cesse de geler atteint des configurations de
+                 contact devant lesquelles elle s'arretait.
+      a-coup     `jump` rapport APPARIE p50 1,0005, p90 1,387 ; pire fenetre chestR 0,1169->0,1663
+                 (+42 %) — mais la pire fenetre DESARMEE va, elle, de 0,4803 a 0,2101 (x0,44) :
+                 les extremes sont REBRASSES, pas systematiquement aggraves. Et le dither du repos
+                 vaut 1 pas = 3,8 a 15,3 micrometres, pas 681 u : ces deux choses ne sont pas la
+                 meme.
+D5  NON PROUVE, ET JE LE MAINTIENS TEL QUEL : rien ici ne dit qu'il faille LIVRER la compensation
+    plutot que le correctif structurel (integrer dans un repere LOCAL a l'attache). Elle est le
+    controle du diagnostic et un correctif de premiere intention.
+
+PURETE : `rgap` ressort IDENTIQUE AU DERNIER CHIFFRE sur 6 cellules sur 6 (0,0001557 / 0,0001491).
+La cible du ressort n'a pas bouge ; ce qui a change, c'est la capacite de la chaine a l'atteindre.
+
+EFFET DE BORD MESURE, NON PREDIT, ET IL EST FAVORABLE : `ROOM-SPEC12` passe de `PARTIELLE` a
+`TENUE` entre les deux courses. Cause lisible dans le tableau : la clause « opposite breast medial
+migration 10-18 % W0 » sur chestR rend 12,827 / 14,363 / 16,508 des DEUX cotes, mais son PIRE CAS
+DE MONTAGE tombe de **+-11,32 % a +-4,41 %** — l'intervalle [11,183 ; 18,081] devient [12,266 ;
+17,230] et rentre dans la bande. Le bruit de quantification gonflait la dispersion d'un facteur 2,6.
+Aucun autre verdict de section ne change entre les deux tableaux.
+
+CE QUE LE BLOC D REPOND A LA QUESTION LAISSEE OUVERTE PAR LE CYCLE 115. Le cycle 115 concluait a
+« un troisieme terme qui n'est ni le ressort, ni la gravite, ni aucun des sept etages, et qui porte
+91 a 96 % de l'equilibre ». **CE TERME N'EST PAS UNE FORCE : c'est l'ARRONDI de `p <- p + v`.**
+L'equation d'equilibre n'avait pas de quatrieme terme — l'integrateur ne pouvait pas ecrire son
+resultat. Le controle positif le prouve dans le seul sens qui compte : rendre l'increment jete fait
+tomber le residu d'un facteur 5 et fait sortir `sigma30` de zero sur 12 series sur 12.
