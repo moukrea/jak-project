@@ -173,3 +173,4 @@ recharged_assets/hd_anim/
 # Commite par accident le 2026-08-11, il a ete restaure par un git checkout avec un mtime
 # neuf et aurait fait patienter le publieur une heure de plus, en silence.
 .autoport/.deploy-in-progress
+.autoport/.keira-room-x86.lock
