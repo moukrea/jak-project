@@ -1,3 +1,13 @@
+CYCLE 119 — CE TABLEAU EST RAFFINE PAR `.autoport/reports/Grecharged-secondary-motion/c119-file.txt`.
+  Les 21 cles que ce tableau compte encore `CANAL ABSENT` **et differentes** ne sont PAS 21
+  boutons manquants : 15 sont des REPONSES ATTENDUES (le document les ecrit comme le nominal
+  d'une plage sans nommer la cle), 4 sont des IDENTITES EXACTES d'autres cles (verifiees sur LES
+  DEUX presets a la precision ecrite), 1 est sur-determinee, et **il reste UN SEUL BOUTON :
+  `HangingTransientLengthMax`**. Le meme test, retourne sur les 24 canaux CABLES, trouve 6
+  MIROIRS (les echelles de forme de §10/§11 : la bande de verdict est centree sur l'entree du
+  solveur) et 4 DEFORMATIONS IMPOSEES. Ce tableau-ci reste la source de l'etat de CABLAGE ;
+  `c119-file.txt` est la source de la NATURE de chaque cle.
+
 PROVENANCE — ce tableau decrit CES fichiers-la, et l'empreinte le prouve :
   jak-hd-physics.gc 7dab2bafce52
   phys-room.gc 25e58baa9365

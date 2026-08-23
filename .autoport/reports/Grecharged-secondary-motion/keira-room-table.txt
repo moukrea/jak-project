@@ -3844,7 +3844,7 @@ ROOM-ORICOM-SPEC: chestL       §11 transitoire  pic d'etablissement=0.33041  te
 ROOM-ORICOM-SPEC:              ^ AGREGAT PAR CHAINE — le numerateur est un max pris sur TOUS les maillons, le denominateur UN SEUL maillon (celui que la boucle du solveur ecrit en dernier). Rapport de deux populations : NE PORTE PAS LE VERDICT.
 ROOM-ORICOM-TRL: chestL       §11 transitoire l=0  pic=0.33041  tenu=0.32176  rapport=1.027  (plafond 1.057)   DANS
 ROOM-ORICOM-TRL: chestL       §11 transitoire l=1  pic=0.05803  tenu=0.05802  rapport=1.000  (plafond 1.057)   DANS
-ROOM-ORICOM-TRL: chestL       §11 VERDICT sur le maillon le PIRE (l=0) : rapport=1.027 contre 1.057  ->  DANS
+ROOM-ORICOM-TRL: chestL       §11 VERDICT sur le maillon le PIRE (l=0) : rapport=1.027 contre 1.057  ->  DANS   [1/2 maillon(s) ont un transitoire lisible ; 47 % du depassement permis est consomme]
 ROOM-ORICOM-SPEC: chestR       §10 supine  i=8  |d|=0.3379 B0   cible 0.23 (bande 0.18-0.28)  AU-DESSUS
 ROOM-ORICOM-SPEC: chestR       §11 prone   i=6  |d|=0.4089 B0   cible 0.24 (bande 0.20-0.30)  AU-DESSUS
 ROOM-ORICOM-SPEC: chestR       §12 lateral i=2  |d|=0.3286 B0   cible 0.19 (bande 0.15-0.24)  AU-DESSUS
@@ -3853,7 +3853,7 @@ ROOM-ORICOM-SPEC: chestR       §11 transitoire  pic d'etablissement=0.29234  te
 ROOM-ORICOM-SPEC:              ^ AGREGAT PAR CHAINE — le numerateur est un max pris sur TOUS les maillons, le denominateur UN SEUL maillon (celui que la boucle du solveur ecrit en dernier). Rapport de deux populations : NE PORTE PAS LE VERDICT.
 ROOM-ORICOM-TRL: chestR       §11 transitoire l=0  pic=0.29234  tenu=0.28338  rapport=1.032  (plafond 1.057)   DANS
 ROOM-ORICOM-TRL: chestR       §11 transitoire l=1  pic=0.05959  tenu=0.05957  rapport=1.000  (plafond 1.057)   DANS
-ROOM-ORICOM-TRL: chestR       §11 VERDICT sur le maillon le PIRE (l=0) : rapport=1.032 contre 1.057  ->  DANS
+ROOM-ORICOM-TRL: chestR       §11 VERDICT sur le maillon le PIRE (l=0) : rapport=1.032 contre 1.057  ->  DANS   [1/2 maillon(s) ont un transitoire lisible ; 56 % du depassement permis est consomme]
 
 -- ROOM-ORIROLE : LE ROLE DE CHAQUE CELLULE, DERIVE DE LA GRAVITE MESUREE ----------------
    `PHYSORI4` est emis a CHAQUE course depuis qu'il existe et n'avait AUCUN LECTEUR —

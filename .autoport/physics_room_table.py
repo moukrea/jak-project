@@ -2073,10 +2073,26 @@ def _oricom_block(A, txt, names, ori):
                     A('ROOM-ORICOM-TRL: %-12s §11 VERDICT : n/a — aucun maillon n\'a un equilibre'
                       ' radial non nul a la cellule prone. Domaine vide, pas un vert.' % nm)
                 else:
+                    # CYCLE 119 — GARDE DE VACUITE. Le plafond de §11 est A SENS UNIQUE parce que
+                    # le texte de Keira ne donne qu'UN nombre et le nomme « Max » (l.180,
+                    # « Transient settling peak: ~+30%   HangingTransientLengthMax = 1.30 »).
+                    # Un maillon SANS transitoire rend donc rapport=1.000 et lit `DANS` — un
+                    # plafond qu'on ne peut pas franchir n'est pas une mesure. On publie donc
+                    # combien de maillons ont REELLEMENT un transitoire, et quelle PART de
+                    # l'excursion permise est consommee. Le seuil 1.0005 est le plancher de
+                    # lisibilite de `pic`/`tenu`, tous deux imprimes a 5 decimales.
+                    _nact = sum(1 for l in _ln
+                                if (trl[(c, ip, l)] / abs(c2l[(c, ip, l)]))> 1.0005
+                                if abs(c2l.get((c, ip, l), 0.0)) > 1e-6)
+                    _use = 100.0 * (_worst[1] - 1.0) / 0.057
                     A('ROOM-ORICOM-TRL: %-12s §11 VERDICT sur le maillon le PIRE (l=%d) :'
-                      ' rapport=%.3f contre 1.057  ->  %s'
+                      ' rapport=%.3f contre 1.057  ->  %s   [%d/%d maillon(s) ont un transitoire'
+                      ' lisible ; %.0f %% du depassement permis est consomme]'
                       % (nm, _worst[0], _worst[1],
-                         'DANS' if _worst[1] <= 1.057 else 'AU-DESSUS'))
+                         ('DANS' if _worst[1] <= 1.057 else 'AU-DESSUS') if _nact
+                         else 'DANS **VIDE** — aucun maillon ne produit de transitoire, un plafond'
+                              ' qu\'on ne peut pas franchir n\'est pas une mesure',
+                         _nact, len(_ln), _use))
     A('')
     # ---- CYCLE 69 : LE ROLE DES CELLULES, MESURE ; PUIS §13, QUI EN DEPEND ----------------
     _roles = _ori_role_block(A, txt, names, ori, com, role, b0)

@@ -1,0 +1,238 @@
+CYCLE 119 — CLASSEMENT DE LA FILE DE LA DIRECTIVE DU 2026-08-22 23:00, PAR PREUVE
+DIRECTIVES vd9e8b66782
+
+PROVENANCE — ce tableau decrit CES fichiers-la, et l'empreinte le prouve :
+  SPEC-breast-softbody.md      160b2d39a79a
+  physics_room_table.py        21e4ec3c6b5b
+  kmachine.cpp                 7be159f2865a
+  preset-channels.md           0c499820e5ff
+  cles du preset : KEIRA 90 · MAIA 90   ·   cablees (kPhysPresetKeys) : 27
+
+FILE LAISSEE PAR LE CYCLE 118b : 21 cles `CANAL ABSENT` dont la valeur DIFFERE, declaree MAJORANT.
+
+FirstBounceRatio               0.31     0.33     [PRIMARY DYNAMICS]
+    P-PROSE            la valeur est ecrite dans la prose de §26 (l.342) comme le nominal ou le bord d'une PLAGE, SANS le nom de la cle : « Practical target ~30–31% of the previous major excursion. »
+    P-IDENTITE         exp(-pi.z/sqrt(1-z^2)), z = GlobalDampingRatio -> KEIRA 0.3092 contre 0.31 ecrit (0.26 %) · MAIA 0.3335 contre 0.33 ecrit (1.05 %)  [l'ecrit EST l'arrondi du calcul a la precision du document]
+    => REDONDANTE (identite exacte)
+
+GlobalFrequencyAP              2.5      2        [PRIMARY DYNAMICS]
+    P-PROSE            la valeur est ecrite dans la prose de §24 (l.326) comme le nominal ou le bord d'une PLAGE, SANS le nom de la cle : « Front/Back  = 2.50 Hz     (range 2.3–2.7 Hz) »
+    P-IDENTITE(ecart)  GlobalFrequencyVertical / sqrt(APCompliance)  [§24 contre §29] -> KEIRA 2.4244 contre 2.50 ecrit (3.02 %) · MAIA 1.8981 contre 2.00 ecrit (5.10 %)
+    P-INSTRUMENT       litteral 2.5 sur une ligne de CODE de physics_room_table.py:10212, dans la fenetre d'une citation de §24 — _band = {'v': (2.1, 2.5), 'ap': (2.3, 2.7), 'lat': (2.4, 2.9)}   [1 site(s)]
+    => CIBLE DE VERDICT (reponse attendue)
+
+GlobalFrequencyLateral         2.65     2.1      [PRIMARY DYNAMICS]
+    P-PROSE            la valeur est ecrite dans la prose de §24 (l.327) comme le nominal ou le bord d'une PLAGE, SANS le nom de la cle : « Lateral     = 2.65 Hz     (range 2.4–2.9 Hz) »
+    P-IDENTITE(ecart)  GlobalFrequencyVertical / sqrt(LateralCompliance)  [§24 contre §29] -> KEIRA 2.5399 contre 2.65 ecrit (4.15 %) · MAIA 1.9721 contre 2.10 ecrit (6.09 %)
+    => CIBLE DE VERDICT (reponse attendue)
+
+HangingCOMDisplacement         0.24     0.33     [HANGING EQUILIBRIUM]
+    P-PROSE            la valeur est ecrite dans la prose de §11 (l.178) comme le nominal ou le bord d'une PLAGE, SANS le nom de la cle : « Static COM displacement: 20–28% B0, nominal 24% B0, upper static target 30% B0 »
+    P-INSTRUMENT       litteral 0.24 sur une ligne de CODE de physics_room_table.py:2032, dans la fenetre d'une citation de §11 — ('§11 prone  ', r.get('pro'), 0.24, (0.20, 0.30))]   [4 site(s)]
+    => CIBLE DE VERDICT (reponse attendue)
+
+HangingTransientLengthMax      1.3      1.45     [HANGING EQUILIBRIUM]
+    P-PROSE-NOMMEE     la prose de §11 (l.180) NOMME la cle sur la ligne : « Transient settling peak: ~+30%                       HangingTransientLengthMax = 1.30 » -> le document la pose comme REGLAGE
+    => BOUTON (le document le NOMME sur sa ligne)
+
+HardLandingApex                0.5      0.65     [DYNAMIC RESPONSE]
+    P-PROSE            la valeur est ecrite dans la prose de §16 (l.241) comme le nominal ou le bord d'une PLAGE, SANS le nom de la cle : « Very hard / exceptional:   42–50% B0 »
+    P-GROUPE           sous `# DYNAMIC RESPONSE` (KEIRA l.488, MAIA l.960), en-tete de l'owner identique dans les deux presets : les reponses attendues par regime
+    P-DOUBLON          meme valeur que `HardMaxApexDisplacement` (DEJA CABLEE) sur LES DEUX presets : 0.5 / 0.65
+    P-INSTRUMENT       litteral 0.5 sur une ligne de CODE de physics_room_table.py:7151, dans la fenetre d'une citation de §16 — 6:  ((0.42, 0.50), '§16 « Very hard / exceptional: 42-50% B0 »'),   [1 site(s)]
+    => CIBLE DE VERDICT (reponse attendue)
+
+HardLandingCOM                 0.4      0.5      [DYNAMIC RESPONSE]
+    P-PROSE            la valeur est ecrite dans la prose de §16 (l.239) comme le nominal ou le bord d'une PLAGE, SANS le nom de la cle : « Very hard landing COM:     35–40% B0 »
+    P-GROUPE           sous `# DYNAMIC RESPONSE` (KEIRA l.488, MAIA l.960), en-tete de l'owner identique dans les deux presets : les reponses attendues par regime
+    P-DOUBLON          meme valeur que `HardMaxCOMDisplacement` (DEJA CABLEE) sur LES DEUX presets : 0.4 / 0.5
+    P-INSTRUMENT       litteral 0.4 sur une ligne de CODE de physics_room_table.py:6048, dans la fenetre d'une citation de §16 — A('   La comparaison au plafond 0.40 ci-dessus, elle, ne depend d\'aucun mapping.')   [2 site(s)]
+    => CIBLE DE VERDICT (reponse attendue)
+
+HardLinearAccelCOM             0.3      0.35     [DYNAMIC RESPONSE]
+    P-PROSE            la valeur est ecrite dans la prose de §17 (l.251) comme le nominal ou le bord d'une PLAGE, SANS le nom de la cle : « COM lag:                moderate 10–18% B0, strong 18–27% B0, upper transient ~30% B0 »
+    P-GROUPE           sous `# DYNAMIC RESPONSE` (KEIRA l.488, MAIA l.960), en-tete de l'owner identique dans les deux presets : les reponses attendues par regime
+    P-INSTRUMENT       litteral 0.3 sur une ligne de CODE de physics_room_table.py:7149, dans la fenetre d'une citation de §17 — 4:  ((0.30, 0.38), '§14 « strong 30-38% B0 »'),   [4 site(s)]
+    => CIBLE DE VERDICT (reponse attendue)
+
+HardYawApex                    0.35     0.5      [DYNAMIC RESPONSE]
+    P-PROSE            la valeur est ecrite dans la prose de §18 (l.262) comme le nominal ou le bord d'une PLAGE, SANS le nom de la cle : « Apex displacement:       strong 20–30% B0, exceptional ~35% B0 »
+    P-GROUPE           sous `# DYNAMIC RESPONSE` (KEIRA l.488, MAIA l.960), en-tete de l'owner identique dans les deux presets : les reponses attendues par regime
+    P-INSTRUMENT       litteral 0.35 sur une ligne de CODE de physics_room_table.py:7153, dans la fenetre d'une citation de §18 — 8:  ((0.25, 0.35), '§17 « Apex displacement: strong 25-35% B0 »'),   [1 site(s)]
+    => CIBLE DE VERDICT (reponse attendue)
+
+HardYawCOM                     0.28     0.35     [DYNAMIC RESPONSE]
+    P-PROSE            la valeur est ecrite dans la prose de §18 (l.261) comme le nominal ou le bord d'une PLAGE, SANS le nom de la cle : « COM displacement:        moderate 10–17% B0, strong 17–24% B0, exceptional ~28% B0 »
+    P-GROUPE           sous `# DYNAMIC RESPONSE` (KEIRA l.488, MAIA l.960), en-tete de l'owner identique dans les deux presets : les reponses attendues par regime
+    => CIBLE DE VERDICT (reponse attendue)
+
+NominalVolumePerBreast         0.525    1.1      [MORPHOLOGY]
+    P-IDENTITE(ecart)  MassPerBreast / densite (§5 l.104 : 0,93-0,98, nominal 0,95) -> KEIRA 0.5263 contre 0.525 ecrit (0.25 %) · MAIA 1.1053 contre 1.10 ecrit (0.48 %)
+    => SUR-DETERMINEE (a arbitrer)
+
+SecondaryJiggleAmplitudeHi     0.05     0.07     [SECONDARY TISSUE MODE]
+    P-PROSE            la valeur est ecrite dans la prose de §36 (l.429) comme le nominal ou le bord d'une PLAGE, SANS le nom de la cle : « Frequency: 4–7 Hz, nominal ~5.2 Hz »
+    => CIBLE DE VERDICT (reponse attendue)
+
+SecondaryJiggleAmplitudeLo     0.02     0.03     [SECONDARY TISSUE MODE]
+    P-PROSE            la valeur est ecrite dans la prose de §36 (l.428) comme le nominal ou le bord d'une PLAGE, SANS le nom de la cle : « Amplitude: normal 2–5% of local thickness, strong impulse 5–7%, hard ceiling ~7% »
+    => CIBLE DE VERDICT (reponse attendue)
+
+SideGravityCOM                 0.19     0.27     [SIDE-GRAVITY EQUILIBRIUM]
+    P-PROSE            la valeur est ecrite dans la prose de §12 (l.192) comme le nominal ou le bord d'une PLAGE, SANS le nom de la cle : « Global lateral COM response:            15–24% B0, nominal 19% »
+    P-INSTRUMENT       litteral 0.19 sur une ligne de CODE de physics_room_table.py:2033, dans la fenetre d'une citation de §12 — todo += [('§12 lateral', i, 0.19, (0.15, 0.24)) for i in lat]   [2 site(s)]
+    => CIBLE DE VERDICT (reponse attendue)
+
+StrongDynamicStretch           0.21     0.25     [SOFT LIMITS]
+    P-PROSE            la valeur est ecrite dans la prose de §22 (l.302) comme le nominal ou le bord d'une PLAGE, SANS le nom de la cle : « Local tissue elongation: common 5–15%, large 15–21%, exceptional 21–25% »
+    => CIBLE DE VERDICT (reponse attendue)
+
+SupineCOMDepth                 0.23     0.33     [SUPINE EQUILIBRIUM]
+    P-PROSE            la valeur est ecrite dans la prose de §10 (l.168) comme le nominal ou le bord d'une PLAGE, SANS le nom de la cle : « COM toward thorax:   18–28% B0,   nominal 23% B0 »
+    P-INSTRUMENT       litteral 0.23 sur une ligne de CODE de physics_room_table.py:2031, dans la fenetre d'une citation de §10 — todo = [('§10 supine ', r.get('sup'), 0.23, (0.18, 0.28)),   [2 site(s)]
+    => CIBLE DE VERDICT (reponse attendue)
+
+SupineCOMLateral               0.07     0.11     [SUPINE EQUILIBRIUM]
+    P-PROSE            la valeur est ecrite dans la prose de §10 (l.169) comme le nominal ou le bord d'une PLAGE, SANS le nom de la cle : « Outward COM migration per breast: 4–10% W0, nominal 7% W0 »
+    => CIBLE DE VERDICT (reponse attendue)
+
+UpperBreastMedialShift         0.14     0.21     [SIDE-GRAVITY EQUILIBRIUM]
+    P-PROSE            la valeur est ecrite dans la prose de §12 (l.193) comme le nominal ou le bord d'une PLAGE, SANS le nom de la cle : « Upper/opposite breast medial migration: 10–18% W0, nominal 14% »
+    => CIBLE DE VERDICT (reponse attendue)
+
+VerticalEffectiveDamping       5.1      8.1      [EFFECTIVE PRIMARY VERTICAL SPRING]
+    P-APPROX           le document ecrit `≈` et non `=` sur LES DEUX presets (KEIRA l.548, MAIA l.1020)
+    P-IDENTITE         2.GlobalDampingRatio.sqrt(k.m) -> KEIRA 5.0580 contre 5.1 ecrit (0.82 %) · MAIA 8.0554 contre 8.1 ecrit (0.55 %)  [l'ecrit EST l'arrondi du calcul a la precision du document]
+    => REDONDANTE (identite exacte)
+
+VerticalEffectiveMass          0.5      1.05     [EFFECTIVE PRIMARY VERTICAL SPRING]
+    P-IDENTITE         MassPerBreast -> KEIRA 0.5000 contre 0.50 ecrit (0.00 %) · MAIA 1.0500 contre 1.05 ecrit (0.00 %)  [l'ecrit EST l'arrondi du calcul a la precision du document]
+    P-INSTRUMENT       litteral 0.5 sur une ligne de CODE de physics_room_table.py:11096, dans la fenetre d'une citation de §24 — 'OK' if _wmax <= 0.5 else 'ECHEC',   [1 site(s)]
+    => REDONDANTE (identite exacte)
+
+VerticalEffectiveStiffness     104      142      [EFFECTIVE PRIMARY VERTICAL SPRING]
+    P-APPROX           le document ecrit `≈` et non `=` sur LES DEUX presets (KEIRA l.547, MAIA l.1019)
+    P-IDENTITE         MassPerBreast x (2.pi.GlobalFrequencyVertical)^2 -> KEIRA 104.4204 contre 104 ecrit (0.40 %) · MAIA 141.8706 contre 142 ecrit (0.09 %)  [l'ecrit EST l'arrondi du calcul a la precision du document]
+    => REDONDANTE (identite exacte)
+
+--------------------------------------------------------------------------------------------------
+LA FILE, APRES PREUVE :
+   CIBLE DE VERDICT (reponse attendue)        15
+   REDONDANTE (identite exacte)                4
+   BOUTON (le document le NOMME sur sa ligne)  1
+   SUR-DETERMINEE (a arbitrer)                 1
+   VRAIE FILE : AUCUNE
+
+==================================================================================================
+BLOC B — LES 24 CANAUX DEJA CABLES, PASSES AUX MEMES PREUVES
+==================================================================================================
+
+Le cycle 109b a annonce que descendre les constantes du moteur vers le fichier livre faisait
+disparaitre la tautologie « par construction ». Ce bloc le TESTE. Deux marqueurs, tous deux
+mecaniques :
+
+  (T1) la cle est LUE PAR LE SOLVEUR **et** son litteral est un SEUIL DE VERDICT de
+       `physics_room_table.py`, avec le NOM DE LA CLE dans la fenetre de 3 lignes (preuve
+       FORTE, sans homonyme). Ce qui est mesure est alors le RESIDU de notre propre entree.
+       LE MOT `TAUTOLOGIQUE` N'EST PAS POSE POUR AUTANT : la directive du 22:50 le reserve a
+       une mesure qui NE PEUT PAS echouer, et `.autoport/c119_mirror_margin.py` mesure que
+       1 cellule sur 12 ECHOUE. Le mot pose est `MIROIR`, et la marge est publiee.
+       Une citation de § SEULE ne suffit pas : elle est publiee comme `candidat`, jamais
+       comme verdict — `0.50` apparait des dizaines de fois dans l'instrument.
+  (T2) le document ecrit la valeur comme le NOMINAL D'UNE PLAGE **sans nommer la cle** sur la
+       ligne — c'est-a-dire comme une REPONSE ATTENDUE — et nous la DONNONS au solveur. La
+       reponse est alors imposee, pas produite.
+
+Deplacer le nombre du moteur vers le fichier ne change ni l'un ni l'autre : c'est une propriete
+du COUPLE (entree du solveur, seuil de l'instrument), pas du lieu ou le nombre est ecrit.
+
+SupineProjectionScale          §10   0.7      MIROIR (bande centree sur l'entree) (T1)
+      T1-FORT   physics_room_table.py:1812 (le NOM de la cle est dans la fenetre) — _SUP = (1.23, 1.09, 0.70)     # §10 SupineWidthScale / SupineHeightScale / SupineProjectionScale   [1 site(s)]
+      candidat  physics_room_table.py:2815 (§10 seule, HOMONYME POSSIBLE) — ('§10 supine projection', 8, 'fwd', 2, 0.70, 0.65, 0.75),   [1 site(s)]
+      --(nommee)  prose §10 l.165 : « Forward projection:  −25 to −35%, nominal −30%   SupineProjectionScale = 0.70 »
+SupineWidthScale               §10   1.23     MIROIR (bande centree sur l'entree) (T1)
+      T1-FORT   physics_room_table.py:1812 (le NOM de la cle est dans la fenetre) — _SUP = (1.23, 1.09, 0.70)     # §10 SupineWidthScale / SupineHeightScale / SupineProjectionScale   [2 site(s)]
+      candidat  physics_room_table.py:2816 (§10 seule, HOMONYME POSSIBLE) — ('§10 supine largeur',    8, 'out', 0, 1.23, 1.18, 1.28),   [2 site(s)]
+      --(nommee)  prose §10 l.166 : « Width:               +18 to +28%, nominal +23%   SupineWidthScale      = 1.23 »
+SupineHeightScale              §10   1.09     MIROIR (bande centree sur l'entree) (T1)
+      T1-FORT   physics_room_table.py:1812 (le NOM de la cle est dans la fenetre) — _SUP = (1.23, 1.09, 0.70)     # §10 SupineWidthScale / SupineHeightScale / SupineProjectionScale   [1 site(s)]
+      candidat  physics_room_table.py:2817 (§10 seule, HOMONYME POSSIBLE) — ('§10 supine hauteur',    8, 'up',  1, 1.09, 1.05, 1.12),   [1 site(s)]
+      --(nommee)  prose §10 l.167 : « Vertical envelope:   +5 to +12%,  nominal +9%    SupineHeightScale     = 1.09 »
+HangingLengthScale             §11   1.23     MIROIR (bande centree sur l'entree) (T1)
+      T1-FORT   physics_room_table.py:1812 (le NOM de la cle est dans la fenetre) — _SUP = (1.23, 1.09, 0.70)     # §10 SupineWidthScale / SupineHeightScale / SupineProjectionScale   [2 site(s)]
+      candidat  physics_room_table.py:2816 (§11 seule, HOMONYME POSSIBLE) — ('§10 supine largeur',    8, 'out', 0, 1.23, 1.18, 1.28),   [2 site(s)]
+      --(nommee)  prose §11 l.179 : « Root-to-apex length:     +18 to +26%, nominal +23%   HangingLengthScale = 1.23 »
+HangingWidthScale              §11   0.9      MIROIR (bande centree sur l'entree) (T1)
+      T1-FORT   physics_room_table.py:1813 (le NOM de la cle est dans la fenetre) — _PRO = (0.90, 0.91, 1.23)     # §11 HangingWidthScale / HangingThicknessScale / HangingLengthScale   [1 site(s)]
+      candidat  physics_room_table.py:2819 (§11 seule, HOMONYME POSSIBLE) — ('§11 prone largeur',     6, 'out', 0, 0.90, 0.87, 0.93),   [1 site(s)]
+      --(nommee)  prose §11 l.181 : « Width:                   −7 to −13%, nominal −10%    HangingWidthScale = 0.90 »
+HangingThicknessScale          §11   0.91     MIROIR (bande centree sur l'entree) (T1)
+      T1-FORT   physics_room_table.py:1813 (le NOM de la cle est dans la fenetre) — _PRO = (0.90, 0.91, 1.23)     # §11 HangingWidthScale / HangingThicknessScale / HangingLengthScale   [1 site(s)]
+      candidat  physics_room_table.py:2820 (§11 seule, HOMONYME POSSIBLE) — ('§11 prone epaisseur',   6, 'up',  1, 0.91, 0.88, 0.94),   [1 site(s)]
+      --(nommee)  prose §11 l.182 : « Thickness:               −6 to −12%, nominal −9%     HangingThicknessScale = 0.91 »
+LowerBreastCompression         §12   0.2      DEFORMATION IMPOSEE (T2)
+      candidat  physics_room_table.py:2032 (§12 seule, HOMONYME POSSIBLE) — ('§11 prone  ', r.get('pro'), 0.24, (0.20, 0.30))]   [2 site(s)]
+      T2   prose §12 l.194 : « Gravity-side lateral flattening:        −15 to −25%, nominal −20% »
+SecondaryFrequency             §36   5.2      SAIN
+      --(sans %)  prose §36 l.429 : « Frequency: 4–7 Hz, nominal ~5.2 Hz »
+SecondaryDampingRatio          §36   0.65     SAIN
+      --(sans %)  prose §36 l.430 : « Damping ratio: 0.55–0.75, nominal 0.65 »
+SecondaryJiggleHardMax         §36   0.07     DEFORMATION IMPOSEE (T2)
+      candidat  physics_room_table.py:3461 (§36 seule, HOMONYME POSSIBLE) — for lab, idx, clip in (('sec §36', 1, 0.07), ('torsion', 2, None)):   [1 site(s)]
+      T2   prose §36 l.428 : « Amplitude: normal 2–5% of local thickness, strong impulse 5–7%, hard ceiling ~7% »
+APCompliance                   §29   0.9      SAIN
+      candidat  physics_room_table.py:1963 (§29 seule, HOMONYME POSSIBLE) — '   %+6.1f %%' % (100.0 * (cz / cy / 0.900 - 1.0), 100.0 * (cx / cy / 0.820 - 1.0)))   [1 site(s)]
+LateralCompliance              §29   0.82     SAIN
+      candidat  physics_room_table.py:1963 (§29 seule, HOMONYME POSSIBLE) — '   %+6.1f %%' % (100.0 * (cz / cy / 0.900 - 1.0), 100.0 * (cx / cy / 0.820 - 1.0)))   [1 site(s)]
+TorsionalCompliance            §29   0.72     SAIN
+AbsoluteStretchClamp           §22   0.25     DEFORMATION IMPOSEE (T2)
+      T2   prose §22 l.302 : « Local tissue elongation: common 5–15%, large 15–21%, exceptional 21–25% »
+BreastBreastRestitution        §33   0.06     SAIN
+      --(sans %)  prose §33 l.403 : « Recommended restitution 0.00–0.15, nominal **0.06**. Contact shall not create billia »
+BreastChestRestitution         §34   0.02     SAIN
+      --(sans %)  prose §34 l.408 : « external surfaces where appropriate. Chest restitution 0.00–0.05, nominal **0.02**. »
+NormalMaxApexDisplacement      §22   0.42     SAIN
+      candidat  physics_room_table.py:6340 (§22 seule, HOMONYME POSSIBLE) — % (_pk3, 'DANS' if _pk3 <= 0.42 else 'HORS (x%.2f)' % (_pk3 / 0.42)))   [1 site(s)]
+NormalMaxCOMDisplacement       §22   0.35     SAIN
+      candidat  physics_room_table.py:6246 (§22 seule, HOMONYME POSSIBLE) — _wn_35 = 100.0 * sum(1 for x in _wm if x > 0.35) / len(_wm)   [2 site(s)]
+HardMaxCOMDisplacement         §22   0.4      SAIN
+      candidat  physics_room_table.py:6245 (§22 seule, HOMONYME POSSIBLE) — _wn_hi = 100.0 * sum(1 for x in _wm if x > 0.40) / len(_wm)   [2 site(s)]
+HardMaxApexDisplacement        §22   0.5      SAIN
+      candidat  physics_room_table.py:6268 (§22 seule, HOMONYME POSSIBLE) — % (_q(0.50), _q(0.95), len(_wm)))   [4 site(s)]
+VerticalCompliance             §29   1        SAIN
+      candidat  physics_room_table.py:1898 (§29 seule, HOMONYME POSSIBLE) — A('     livree porte `sv=1.0000 sap=1.1111 slat=1.2195` (raideurs par axe, lues a l\'execution')   [2 site(s)]
+HardImpactSubstepsHi           §37   4        SAIN
+      --(sans %)  prose §37 l.437 : « **≥120 Hz**; at 60 FPS, **2 substeps minimum**; hard impacts may use **3–4 adaptive  »
+MinimumSubstepsAt60FPS         §37   2        SAIN
+      --(sans %)  prose §37 l.437 : « **≥120 Hz**; at 60 FPS, **2 substeps minimum**; hard impacts may use **3–4 adaptive  »
+NormalDynamicStretch           §22   0.15     DEFORMATION IMPOSEE (T2)
+      candidat  physics_room_table.py:1949 (§22 seule, HOMONYME POSSIBLE) — if resid < 0.15 else 'NON LINEAIRE — saturation ou morphs figes, voir §21/§22'))   [1 site(s)]
+      T2   prose §22 l.302 : « Local tissue elongation: common 5–15%, large 15–21%, exceptional 21–25% »
+
+   SAIN                                       14
+   MIROIR (bande centree sur l'entree) (T1)    6
+   DEFORMATION IMPOSEE (T2)                    4
+CYCLE 119 — MARGE DE FALSIFIABILITE DES SIX ECHELLES CENTREES SUR LEUR PROPRE ENTREE
+DIRECTIVES vd9e8b66782
+source : .autoport/reports/Grecharged-secondary-motion/keira-room-table.txt
+
+cellule                    chaine    entree  mesure    ecart demi-band    part  verdict
+§10 supine projection      chestL    0.7000  0.7461   0.0461    0.0500     92 %  DANS
+§10 supine projection      chestR    0.7000  0.7569   0.0569    0.0500    114 %  HORS
+§10 supine largeur         chestL    1.2300  1.2258   0.0042    0.0500      8 %  DANS
+§10 supine largeur         chestR    1.2300  1.2069   0.0231    0.0500     46 %  DANS
+§10 supine hauteur         chestL    1.0900  1.0933   0.0033    0.0350      9 %  DANS
+§10 supine hauteur         chestR    1.0900  1.0945   0.0045    0.0350     13 %  DANS
+§11 prone longueur         chestL    1.2300  1.2195   0.0105    0.0400     26 %  DANS
+§11 prone longueur         chestR    1.2300  1.2125   0.0175    0.0400     44 %  DANS
+§11 prone largeur          chestL    0.9000  0.8912   0.0088    0.0300     29 %  DANS
+§11 prone largeur          chestR    0.9000  0.9034   0.0034    0.0300     11 %  DANS
+§11 prone epaisseur        chestL    0.9100  0.9199   0.0099    0.0300     33 %  DANS
+§11 prone epaisseur        chestR    0.9100  0.9128   0.0028    0.0300      9 %  DANS
+
+1 cellules sur 12 ECHOUENT — le test n'est donc PAS vide, et le mot `TAUTOLOGIQUE`
+(reserve par la directive du 22:50 a une mesure qui NE PEUT PAS echouer) n'est PAS pose.
+part de la demi-bande : min 8 % · mediane 29 % · max 114 %
+CE QUI EST POSE A LA PLACE : `MIROIR (bande centree sur l'entree)`. La bande n'est pas
+une propriete du personnage : elle est construite autour du nombre que NOUS donnons au
+solveur, et ce que la cellule mesure est le RESIDU de notre propre entree.
