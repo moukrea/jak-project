@@ -370,18 +370,34 @@ pas livree, son personnage n'est pas touche : le vecteur est un fichier de /tmp.
       « environ 0.098, et STRICTEMENT sous 0.100 ». **TENUE**, et sans valeur de verdict : l'image
       de `phys-softmin` est OUVERTE, donc « 0 fenetre au-dessus » l'aurait ete de toute facon.
 
-  B2/B3 **LA PREUVE DU CANAL D'AMORTISSEMENT.** Estimateur independant, decrement logarithmique sur
-      les extrema BRUTS de `PHYSRINGAN` (aucun parametre ajuste), maillon racine, 6 cellules :
-          zeta_B/zeta_A : **0,9419** (chestL v) · **0,9345** (chestR v) · moyenne 6 cellules 0,8458
-      **Predit : ~0,94, et surtout PAS ~1,24.** Le cycle 111 avait MESURE 1,24 sans ce canal ; la
-      prediction a deux faces disait « au-dessus de 1,10 le canal n'a pas pris, entre 0,85 et 1,05
-      il a pris ». **Les deux cellules VERTICALES — l'axe que la cle gouverne — tombent a 0,94.**
-      **RESERVE QUE JE NE LISSE PAS** : mon estimateur est jetable et sa resolution en frequence est
-      QUANTIFIEE par l'indice de frame entier (T=25 -> 2,40 Hz, T=33 -> 1,82 Hz) ; il echoue
-      franchement sur 2 cellules sur 6 (il rend f_A = 1,58 et 1,62 Hz la ou la chaine tourne a
-      2,5-2,6). Le chiffre qui fait foi est l'ajustement de sinusoide amortie avec intervalle de
-      confiance (`ROOM-AXFIT-RAD-NOLEN`), celui-la meme que le cycle 111 a employe. **Le SENS et
-      l'ORDRE sont etablis ; l'amplitude fine ne l'est pas par cet estimateur-ci, et je le dis.**
+  B2/B3 **LA PREUVE DU CANAL D'AMORTISSEMENT, ET C'EST LE RESULTAT CENTRAL DU CYCLE.**
+      Instrument : `ROOM-AXFIT-RAD-NOLEN`, ajustement d'une sinusoide amortie AVEC intervalle de
+      confiance, sur les fenetres a entree propre de PH-AXC, n=138 par cellule — le meme que le
+      cycle 111 a employe, et il est INDEPENDANT du cablage qu'il teste.
+
+        cellule        f_A     f_B    f_B/f_A |  zeta_A  zeta_B   rapport
+        chestL v     2.265   1.850   0.8168  |   0.34    0.34    1.0000
+        chestR v     2.465   1.960   0.7951  |   0.36    0.33    0.9167
+        chestL ap    2.350   1.865   0.7936  |   0.36    0.33    0.9167
+        chestR ap    2.445   1.975   0.8078  |   0.35    0.33    0.9429
+        chestL lat   2.570   1.945   0.7568  |   0.32    0.30    0.9375
+        chestR lat   2.655   2.095   0.7891  |   0.34    0.33    0.9706
+
+      **f_B/f_A = 0,7932 en moyenne** contre **0,8043** predit (1,85/2,30) : ecart **-1,38 %**, six
+      cellules sur six dans [0,757 ; 0,817]. Le canal de la 24 porte, et ce n'est pas neuf.
+
+      **CE QUI EST NEUF, C'EST LA COLONNE DE DROITE.** `zeta_A` = **0,3450** en moyenne,
+      `zeta_B` = **0,3267** — et **le preset de Maia ecrit 0,33**. Le moteur realise donc le zeta
+      COMMANDE a **-1,0 %** pres. Rapport `zeta_B/zeta_A` = **0,9474**, contre **~0,94 predit** et
+      contre les **~1,24 que le cycle 111 avait MESURES sans ce canal**. La prediction a deux faces
+      disait « au-dessus de 1,10 le canal n'a pas pris ; entre 0,85 et 1,05 il a pris » : **0,9474**.
+
+      SECOND ESTIMATEUR, INDEPENDANT ET SANS PARAMETRE AJUSTE (decrement logarithmique sur les
+      extrema BRUTS de `PHYSRINGAN`) : 0,9419 et 0,9345 sur les deux cellules VERTICALES, meme
+      verdict. **RESERVE QUE JE NE LISSE PAS** : cet estimateur-la est jetable, sa resolution en
+      frequence est QUANTIFIEE par l'indice de frame entier (T=25 -> 2,40 Hz, T=33 -> 1,82 Hz) et il
+      echoue franchement sur 2 cellules sur 6 (il rend f_A = 1,58 et 1,62 Hz la ou l'ajustement
+      rend 2,57 et 2,45). Il confirme le SENS ; c'est l'ajustement avec IC qui porte l'amplitude.
 
   B6  CE QUI N'A RIEN DIT, ET C'ETAIT ECRIT D'AVANCE : **35 cles differentes sont `CANAL ABSENT`**,
       4 sont HORS RUNTIME (cuites dans les poids de peau), 1 est une JAUGE inerte par construction
