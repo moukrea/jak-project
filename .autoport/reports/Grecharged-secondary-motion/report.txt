@@ -298,3 +298,21 @@ RIEN. Directive du 2026-08-20 23:30 : tant que le bloc §9-13 / §14-20 / §24-2
 ensemble, un changement d'UNE section ne produit pas un ecart qu'un oeil peut trancher, et le lui
 demander use le seul instrument qui compte. Le build reste livre au fil de l'eau : il peut le
 prendre quand il veut, et sa consigne du 2026-08-06 tient.
+
+================================================================================================
+9. CONFLIT ENTRE LE VERROU D'ARRET ET LE CONTRAT — SIGNALE, PAS CONTOURNE (identique au c117)
+================================================================================================
+Le verrou d'arret exige que `bash .autoport/validators/phase-Grecharged-secondary-motion.sh` sorte
+en 0. Il sort en 1, et le diagnostic est le meme qu'au cycle 117, verifie a nouveau ce cycle :
+les treize gates de MESURE passent, `[Grecharged-secondary-motion PASS]` est imprime, la sortie
+fait bien 18 lignes, et le code non nul vient du seul bloc `OPEN-DEFECTS` (`:689-698`) qui compte
+les lignes `OPEN ` de `owner-defects.txt`. Il en reste UNE :
+
+    OPEN breast-spec-incomplete  PRIORITE 1 -- LA SEULE LIGNE QUI TIENT LA PHASE OUVERTE.
+
+LE SEUL GESTE QUI FERAIT SORTIR 0 EST DE RETIRER CETTE LIGNE, ET IL EST INTERDIT QUATRE FOIS : par
+le commentaire du bloc, par l'en-tete de `owner-defects.txt`, par les regles 1 et 5 du contrat, et
+par l'arbitrage du 2026-08-23 01:20 qui nomme CETTE gate comme n'ayant « pas de mode reussi par
+construction, puisque seul l'owner retire cette ligne ». Le contrat ordonne de signaler le conflit
+plutot que de suivre la consigne perimee : c'est fait ici. Rien n'est contourne, aucune gate n'est
+touchee.
