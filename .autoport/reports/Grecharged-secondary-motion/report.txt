@@ -280,6 +280,34 @@ L'equilibre `k2.e = gg` predit
 soit **12,5 a 31,3 fois MOINS** que le residu mesure, et moins encore une fois appliquee la part
 TANGENTIELLE `tf` (la part radiale ne peut produire aucun deplacement angulaire).
 
+**ET LA COURSE DE CONTROLE, QUI N'AVAIT PAS ETE CONSTRUITE POUR CA, TRANCHE ENTRE MES TROIS
+CANDIDATS.** Le vecteur de Maia baisse la raideur (2,7696 -> 2,2277 et 2,9081 -> 2,3391), donc
+`k2 = w²dt²` tombe d'un facteur **0,6470** sur les DEUX chaines. Les deux modeles en competition
+predisent alors des choses opposees, et c'est ce qui les separe :
+
+    une CIBLE PERIMEE ne depend pas de la raideur          -> residu inchange, rapport **1,000**
+    un EQUILIBRE DE FORCES `f = -gg` depend de 1/k2        -> residu x **1,546**
+
+    chaine   e_A       e_B       rapport mesure   intervalle d'arrondi a 4 decimales
+    chestL   0.0006    0.0008    1,333            [1,15 ; 1,55]
+    chestR   0.0009    0.0015    1,667            [1,53 ; 1,82]
+
+**LES DEUX INTERVALLES CONTIENNENT 1,546 ET EXCLUENT 1,000.** Le residu de parcage suit la
+raideur ; il n'est pas une cible mal posee.
+
+**ET LE COMPLEMENT EST AUSSI NET QUE LE FAIT LUI-MEME** : sur la meme paire de courses, `rgap` est
+**IDENTIQUE AU DERNIER CHIFFRE** — 0,0001557 et 0,0001491 en A comme en B — pendant que 22 boutons
+tournent, que l'apex monte de 26 % et que le mouvement de pointe monte sur 302 lignes sur 310.
+La distance entre la CIBLE et la POSE D'AUTEUR est une propriete de la POSE, insensible au
+solveur ; le residu de PARCAGE, lui, suit la raideur. **Les deux grandeurs sont decouplees, ce que
+le modele d'equilibre predit et ce que le modele de cible perimee interdit.**
+
+RESERVE, ET JE NE LA LISSE PAS : (a) 22 cles tournent ensemble, donc ceci n'est PAS une
+attribution — mais le facteur predit vient de la SEULE raideur et il tombe, tandis que
+l'hypothese adverse predit 1,000 et est exclue des deux cotes ; (b) `PHYSSTGQ` est publie a
+QUATRE decimales sur des valeurs de l'ordre de 0,001, donc la quantification vaut +-8 % a +-10 % —
+c'est un test a deux points, pas une loi. La mesure directe reste a faire.
+
 **CE QUI MANQUE EST UNE MESURE, ET ELLE COUTE UNE LIGNE.** `gn` et `tf` n'ont JAMAIS ete lus sur
 PH-AXC : ils le sont sur PH-IDLE, qui tient une AUTRE pose (PH-AXC epingle anim 0 frame 0). Trois
 candidats, aucun affirme : (i) `gn` plus grand a cette pose, (ii) la compliance par axe de la 29
@@ -399,6 +427,16 @@ pas livree, son personnage n'est pas touche : le vecteur est un fichier de /tmp.
       echoue franchement sur 2 cellules sur 6 (il rend f_A = 1,58 et 1,62 Hz la ou l'ajustement
       rend 2,57 et 2,45). Il confirme le SENS ; c'est l'ajustement avec IC qui porte l'amplitude.
 
+  B5  **L'AMPLEUR DE L'EFFET, SUR LES GRANDEURS QUE LE SOLVEUR PRODUIT** (et pas seulement sur les
+      echos de chargement) :
+          `PHYSAPEX` p50   chestL 0.6669 -> **0.8405**   chestR 0.6772 -> **0.8694**   (+26 %)
+          `PHYSAPEX` max   chestL 0.9609 -> **1.1381**   chestR 0.9178 -> **1.1815**
+          `PHYSSTGT` etage 6 : **28 jambes sur 28 MONTENT** — A tient entre 0.4566 et 0.5000,
+              B entre 0.6158 et 0.6498, c'est-a-dire que le mur de la 22 suit
+              `HardMaxApexDisplacement` de 0.50 a 0.65 sur TOUTES les jambes ;
+          `PHYSROW amp` : **302 lignes MONTENT, 8 baissent, 0 egale** sur 310.
+      Un moteur qui ferait semblant rendrait la meme chose. Il ne rend pas la meme chose.
+
   B6  CE QUI N'A RIEN DIT, ET C'ETAIT ECRIT D'AVANCE : **35 cles differentes sont `CANAL ABSENT`**,
       4 sont HORS RUNTIME (cuites dans les poids de peau), 1 est une JAUGE inerte par construction
       (`MassPerBreast` : la masse s'annule exactement dans `w = 2.pi.stiffness/sqrt(mass)` puisque
@@ -477,9 +515,14 @@ CE QUE LE PROCHAIN CYCLE DOIT PRENDRE, DANS CET ORDRE :
 
 1. **§2/§9 — LIRE `gn` ET `tf` SUR PH-AXC. UNE LIGNE, A COTE DE `PHYSRESTQ`.** Ce cycle etablit que
    le point fixe est `f = -gg` et non `p = cible`, que la cible est la pose d'auteur a 0,023 mm
-   pres, et que la gravite mesuree AILLEURS (PH-IDLE, autre pose) predit un ecart 12,5 a 31,3 fois
-   trop petit. **Les deux termes de l'equilibre n'ont jamais ete lus au meme endroit.** Trois
-   candidats sont nommes et aucun n'est affirme : `gn` plus grand a cette pose, la compliance par
+   pres, et — par la course de controle, qui n'avait pas ete construite pour ca — que **le residu
+   de parcage SUIT LA RAIDEUR** : k2 tombe de x0,6470 sous le vecteur de Maia et le residu monte
+   de x1,333 et x1,667, deux intervalles d'arrondi qui contiennent le x1,546 predit par
+   `f = -gg` et **excluent le x1,000 qu'une cible perimee imposerait**. Pendant ce temps `rgap` ne
+   bouge pas d'un chiffre. **Le mecanisme est donc etabli ; ce qui manque est son AMPLITUDE**, car
+   la gravite mesuree AILLEURS (PH-IDLE, autre pose) predit un ecart 12,5 a 31,3 fois trop petit.
+   `gn` et `tf` n'ont JAMAIS ete lus sur PH-AXC : **les deux termes de l'equilibre n'ont jamais ete
+   lus au meme endroit.** Restent a departager : `gn` plus grand a cette pose, la compliance par
    axe de la 29 qui abaisse la raideur effective sur la direction libre, ou une troisieme force.
    C'est la meme forme de correctif que celui qui vient de trancher : une EMISSION, pas un solveur.
 
