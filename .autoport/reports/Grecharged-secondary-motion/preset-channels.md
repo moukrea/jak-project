@@ -1,9 +1,9 @@
 PROVENANCE — ce tableau decrit CES fichiers-la, et l'empreinte le prouve :
-  jak-hd-physics.gc 7dee7efee593
-  phys-room.gc f9b12924dbfa
+  jak-hd-physics.gc 7dab2bafce52
+  phys-room.gc 25e58baa9365
   kmachine.cpp 7be159f2865a
   physics_chains.txt 688b93eaa48b
-  physics_room_table.py 4b5df9522738
+  physics_room_table.py 21e4ec3c6b5b
 Regenere par : python3 .autoport/preset_channel_audit.py > .../preset-channels.md
 
 BALAYAGE PAR VALEUR (cycle 114, etendu a l'INSTRUMENT au cycle 115) — moteur, salle ET
@@ -87,21 +87,21 @@ balayage, et publiees ici pour qu'elles ne disparaissent pas :
 | `SecondaryJiggleHardMax` | 0.07 | 0.1 | oui | **CANAL FICHIER** | lu par le moteur (kPhysPresetKeys), pose par preset_apply.py |
 | `SideGravityCOM` | 0.19 | 0.27 | oui | **CANAL ABSENT** | aucun lecteur |
 | `StrongDynamicStretch` | 0.21 | 0.25 | oui | **CANAL ABSENT** | aucun lecteur |
-| `StrongJumpApexLagHi` | 0.38 | 0.5 | oui | **CANAL ABSENT** | aucun lecteur |
-| `StrongJumpApexLagLo` | 0.3 | 0.4 | oui | **CANAL ABSENT** | aucun lecteur |
-| `StrongJumpCOMLagHi` | 0.32 | 0.4 | oui | **CANAL ABSENT** | aucun lecteur |
-| `StrongJumpCOMLagLo` | 0.25 | 0.32 | oui | **CANAL ABSENT** | aucun lecteur |
-| `StrongLandingApexHi` | 0.42 | 0.58 | oui | **CANAL ABSENT** | aucun lecteur |
-| `StrongLandingApexLo` | 0.3 | 0.45 | oui | **CANAL ABSENT** | aucun lecteur |
-| `StrongLandingCOMHi` | 0.35 | 0.45 | oui | **CANAL ABSENT** | aucun lecteur |
-| `StrongLandingCOMLo` | 0.25 | 0.32 | oui | **CANAL ABSENT** | aucun lecteur |
-| `StrongLinearAccelCOMHi` | 0.27 | 0.32 | oui | **CANAL ABSENT** | aucun lecteur |
-| `StrongLinearAccelCOMLo` | 0.18 | 0.23 | oui | **CANAL ABSENT** | aucun lecteur |
+| `StrongJumpApexLagHi` | 0.38 | 0.5 | oui | **CIBLE DE VERDICT (instrument)** | bande de verdict lue par physics_room_table.py:7149 — 4:  ((0.30, 0.38), '§14 « strong 30-38% B0 »'), [tuple HOMONYME : 1 sites, sections §14, §16] |
+| `StrongJumpApexLagLo` | 0.3 | 0.4 | oui | **CIBLE DE VERDICT (instrument)** | bande de verdict lue par physics_room_table.py:7149 — 4:  ((0.30, 0.38), '§14 « strong 30-38% B0 »'), [tuple HOMONYME : 1 sites, sections §14, §16] |
+| `StrongJumpCOMLagHi` | 0.32 | 0.4 | oui | **CIBLE DE VERDICT (instrument)** | bande de verdict lue par physics_room_table.py:6615 — (4,  'jumpB-push',    '14',  'jump',     (0.25, 0.32), |
+| `StrongJumpCOMLagLo` | 0.25 | 0.32 | oui | **CIBLE DE VERDICT (instrument)** | bande de verdict lue par physics_room_table.py:6615 — (4,  'jumpB-push',    '14',  'jump',     (0.25, 0.32), |
+| `StrongLandingApexHi` | 0.42 | 0.58 | oui | **CIBLE DE VERDICT (instrument)** | bande de verdict lue par physics_room_table.py:7150 — 3:  ((0.30, 0.42), '§16 « Strong landing apex: 30-42% B0 »'), [tuple HOMONYME : 1 sites, sections §16, §17] |
+| `StrongLandingApexLo` | 0.3 | 0.45 | oui | **CIBLE DE VERDICT (instrument)** | bande de verdict lue par physics_room_table.py:7150 — 3:  ((0.30, 0.42), '§16 « Strong landing apex: 30-42% B0 »'), [tuple HOMONYME : 1 sites, sections §16, §17] |
+| `StrongLandingCOMHi` | 0.35 | 0.45 | oui | **CIBLE DE VERDICT (instrument)** | bande de verdict lue par physics_room_table.py:6613 — (3,  'jumpA-land',    '16',  'land',     (0.25, 0.35), [tuple HOMONYME : 2 sites, sections §17, §18] |
+| `StrongLandingCOMLo` | 0.25 | 0.32 | oui | **CIBLE DE VERDICT (instrument)** | bande de verdict lue par physics_room_table.py:6613 — (3,  'jumpA-land',    '16',  'land',     (0.25, 0.35), [tuple HOMONYME : 2 sites, sections §17, §18] |
+| `StrongLinearAccelCOMHi` | 0.27 | 0.32 | oui | **CIBLE DE VERDICT (instrument)** | bande de verdict lue par physics_room_table.py:6623 — (8,  'runA-brake',    '17',  'run',      (0.18, 0.27), |
+| `StrongLinearAccelCOMLo` | 0.18 | 0.23 | oui | **CIBLE DE VERDICT (instrument)** | bande de verdict lue par physics_room_table.py:6623 — (8,  'runA-brake',    '17',  'run',      (0.18, 0.27), |
 | `StrongRootFraction` | 0.3 | 0.26 | oui | **HORS RUNTIME (asset)** | barre de repesage : >= 30 % des sommets de la chaine doivent avoir le nouvel os pour joint MAJORITAIRE (DIRECTIVES 2026-08-18 08:55). Verifiee a la cuisson, pas a l'execution. |
-| `StrongYawApexHi` | 0.3 | 0.42 | oui | **CANAL ABSENT** | aucun lecteur |
-| `StrongYawApexLo` | 0.2 | 0.3 | oui | **CANAL ABSENT** | aucun lecteur |
-| `StrongYawCOMHi` | 0.24 | 0.31 | oui | **CANAL ABSENT** | aucun lecteur |
-| `StrongYawCOMLo` | 0.17 | 0.23 | oui | **CANAL ABSENT** | aucun lecteur |
+| `StrongYawApexHi` | 0.3 | 0.42 | oui | **CIBLE DE VERDICT (instrument)** | bande de verdict lue par physics_room_table.py:2032 — ('§11 prone  ', r.get('pro'), 0.24, (0.20, 0.30))] [tuple HOMONYME : 6 sites, sections §11, §12, §14, §16, §18, §19, §20] |
+| `StrongYawApexLo` | 0.2 | 0.3 | oui | **CIBLE DE VERDICT (instrument)** | bande de verdict lue par physics_room_table.py:2032 — ('§11 prone  ', r.get('pro'), 0.24, (0.20, 0.30))] [tuple HOMONYME : 6 sites, sections §11, §12, §14, §16, §18, §19, §20] |
+| `StrongYawCOMHi` | 0.24 | 0.31 | oui | **CIBLE DE VERDICT (instrument)** | bande de verdict lue par physics_room_table.py:6627 — (10, 'yawB',          '18',  'yaw',      (0.17, 0.24), |
+| `StrongYawCOMLo` | 0.17 | 0.23 | oui | **CIBLE DE VERDICT (instrument)** | bande de verdict lue par physics_room_table.py:6627 — (10, 'yawB',          '18',  'yaw',      (0.17, 0.24), |
 | `SupineCOMDepth` | 0.23 | 0.33 | oui | **CANAL ABSENT** | aucun lecteur |
 | `SupineCOMLateral` | 0.07 | 0.11 | oui | **CANAL ABSENT** | aucun lecteur |
 | `SupineHeightScale` | 1.09 | 1.18 | oui | **CANAL FICHIER** | lu par le moteur (kPhysPresetKeys), pose par preset_apply.py |
@@ -119,7 +119,8 @@ CANAL FICHIER (indirect)           2 / 90
 CONSTANTE MOTEUR                   0 / 90
 HORS RUNTIME (asset)              11 / 90
 JAUGE (inerte par construction)    1 / 90
-CANAL ABSENT                      52 / 90
+CIBLE DE VERDICT (instrument)     14 / 90
+CANAL ABSENT                      38 / 90
 dont TAUTOLOGIQUES           0
 cles dont la valeur DIFFERE entre les deux presets : 62
    dont CANAL FICHIER                   20
@@ -127,7 +128,8 @@ cles dont la valeur DIFFERE entre les deux presets : 62
    dont CONSTANTE MOTEUR                 0
    dont HORS RUNTIME (asset)             4
    dont JAUGE (inerte par construction)   1
-   dont CANAL ABSENT                    35
+   dont CIBLE DE VERDICT (instrument)   14
+   dont CANAL ABSENT                    21
 
 CANAL PARTIEL — RESOLU. `PHYS-FLESH-YIELD` n'existe plus dans le moteur : `phys-vol-floor` recoit
   `sc` et lit la cle DERIVEE `DerivedSupineProjectionYield` (= 1 - SupineProjection-

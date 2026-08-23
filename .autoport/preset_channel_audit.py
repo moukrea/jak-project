@@ -13,7 +13,19 @@ Ce script ne donne pas un avis, il VERIFIE, cle par cle :
                      EGALE la valeur du preset, alors toute mesure de cette grandeur REPUBLIE sa
                      propre cible : elle est TAUTOLOGIQUE, et le script le dit mecaniquement en
                      comparant les deux nombres, pas de memoire.
-  CANAL ABSENT       ni l'un ni l'autre. Manque d'implementation nomme.
+  CIBLE DE VERDICT   la cle n'est pas un BOUTON, c'est une BANDE que la spec attend en SORTIE, et
+                     l'instrument la lit deja comme telle. Le script le PROUVE (cycle 118) : il
+                     cherche la paire `(Lo, Hi)` comme tuple litteral de `physics_room_table.py`
+                     sur une ligne non commentee dont la fenetre de 3 lignes cite un `§`. Une cle
+                     de cette classe **ne doit JAMAIS devenir un canal du fichier livre** : un
+                     instrument qui lit sa CIBLE dans le fichier qui alimente le solveur ne peut
+                     plus jamais echouer (`instrument-republishes-its-target`). La compter comme
+                     un « manque d'implementation » gonflait le plan de travail de la directive du
+                     2026-08-22 23:00, qui ordonne de traiter les cles par ordre de DIFFERENCE
+                     entre les deux presets.
+  CANAL ABSENT       ni l'un ni l'autre. Manque d'implementation nomme. FAIL-CLOSED : une cle que
+                     la preuve ci-dessus ne trouve pas RESTE `CANAL ABSENT`, jamais reclassee a la
+                     main.
 
 Les deux premiers verdicts sont verifies par lecture des fichiers ; un desaccord fait sortir le
 script en echec plutot que d'imprimer un tableau faux.
@@ -412,9 +424,41 @@ def main():
     wired = re.findall(r'"([A-Za-z][A-Za-z0-9]*)",\s*//\s*\d', km)
     wired = set(wired)
 
+    # --- CYCLE 118 : LA CIBLE SE PROUVE, ELLE NE SE DECLARE PAS -------------------------------
+    # Meme doctrine que `prove_indirect` : on cherche l'ARTEFACT, pas le nom. Une paire Lo/Hi est
+    # une CIBLE DE VERDICT si et seulement si l'instrument porte le tuple `(Lo, Hi)` en litteral,
+    # sur une ligne de CODE (pas un commentaire), dans une fenetre de 3 lignes qui cite un `§`.
+    # Si l'instrument cesse de s'en servir, la cle retombe en `CANAL ABSENT` toute seule.
+    rt_src = open(os.path.join(REPO, '.autoport', 'physics_room_table.py'), encoding='utf-8').read()
+    rt_lines = rt_src.split('\n')
+
+    def prove_target(lo, hi):
+        # TOUS les sites, pas le premier : deux sections peuvent porter la MEME bande (0.20-0.30
+        # est a la fois §11 prone et §18 yaw). Publier un site sans dire qu'il est homonyme
+        # donnerait une provenance fausse a une classification juste.
+        sites, secs = [], set()
+        for i, l in enumerate(rt_lines):
+            if l.lstrip().startswith('#'):
+                continue
+            for m in re.finditer(r'\((\d\.\d+),\s*(\d\.\d+)\)', l):
+                if abs(float(m.group(1)) - lo) > 1e-9 or abs(float(m.group(2)) - hi) > 1e-9:
+                    continue
+                ctx = ' '.join(rt_lines[i:i + 3])
+                if '\u00a7' in ctx or 'SPEC' in ctx.upper():
+                    sites.append((i + 1, l.strip()[:64]))
+                    secs.update(re.findall(r'\u00a7(\d+)', ctx))
+        if not sites:
+            return False, ''
+        why = 'bande de verdict lue par physics_room_table.py:%d — %s' % sites[0]
+        if len(secs) > 1:
+            why += ' [tuple HOMONYME : %d sites, sections %s]' % (
+                len(sites), ', '.join('\u00a7' + x for x in sorted(secs, key=int)))
+        return True, why
+
     rows, errs = [], []
     n = {'CANAL FICHIER': 0, 'CANAL FICHIER (indirect)': 0, 'CONSTANTE MOTEUR': 0,
-         'HORS RUNTIME (asset)': 0, 'JAUGE (inerte par construction)': 0, 'CANAL ABSENT': 0}
+         'HORS RUNTIME (asset)': 0, 'JAUGE (inerte par construction)': 0,
+         'CIBLE DE VERDICT (instrument)': 0, 'CANAL ABSENT': 0}
     tauto = 0
 
     for k in sorted(SK):
@@ -469,8 +513,19 @@ def main():
                     tauto += 1
                     note = 'constante du GENERATEUR (%s) — TAUTOLOGIQUE' % site
         else:
-            st = 'CANAL ABSENT'
-            note = 'aucun lecteur'
+            _base = k[:-2] if k.endswith(('Lo', 'Hi')) else None
+            _part = (_base + ('Hi' if k.endswith('Lo') else 'Lo')) if _base else None
+            _ok, _why = (False, '')
+            if _part and _part in SK:
+                _lo = kv if k.endswith('Lo') else SK[_part][0]
+                _hi = SK[_part][0] if k.endswith('Lo') else kv
+                _ok, _why = prove_target(_lo, _hi)
+            if _ok:
+                st = 'CIBLE DE VERDICT (instrument)'
+                note = _why
+            else:
+                st = 'CANAL ABSENT'
+                note = 'aucun lecteur'
         n[st] = n.get(st, 0) + 1
         rows.append([k, kv, mv, differe, st, note])
 
@@ -554,13 +609,15 @@ def main():
     print()
     tot = len(rows)
     for st in ('CANAL FICHIER', 'CANAL FICHIER (indirect)', 'CONSTANTE MOTEUR',
-               'HORS RUNTIME (asset)', 'JAUGE (inerte par construction)', 'CANAL ABSENT'):
+               'HORS RUNTIME (asset)', 'JAUGE (inerte par construction)',
+               'CIBLE DE VERDICT (instrument)', 'CANAL ABSENT'):
         print('%-32s %3d / %d' % (st, n.get(st, 0), tot))
     print('%-26s %3d' % ('dont TAUTOLOGIQUES', tauto))
     diffs = [r for r in rows if r[3]]
     print('cles dont la valeur DIFFERE entre les deux presets : %d' % len(diffs))
     for st in ('CANAL FICHIER', 'CANAL FICHIER (indirect)', 'CONSTANTE MOTEUR',
-               'HORS RUNTIME (asset)', 'JAUGE (inerte par construction)', 'CANAL ABSENT'):
+               'HORS RUNTIME (asset)', 'JAUGE (inerte par construction)',
+               'CIBLE DE VERDICT (instrument)', 'CANAL ABSENT'):
         print('   dont %-30s %3d' % (st, sum(1 for r in diffs if r[4] == st)))
     # CANAL PARTIEL : la meme cle lue a un endroit et gardee en dur a un autre. Un bouton a demi
     # branche ment plus qu'un bouton absent, donc il se publie a part et nommement.
