@@ -683,3 +683,13 @@ Verrou : le validateur ne sert JAMAIS d'indicateur d'avancement ; l'avancement s
 l'information que l'owner attend. Corollaire : la borne des deux cycles sans changement de statut
 ne compte pas les cycles dont le seul echec est la porte humaine de l'owner — sinon on lui remonte
 indefiniment une decision qui n'appartient qu'a lui.
+
+GUARD absolute-threshold-on-a-relative-quantity .autoport/owner_testable.py seuil RELATIF
+**Un seuil ABSOLU sur une grandeur dont l'echelle varie crie pour rien.** Le 2026-08-23 a 08:44 le
+declencheur a annonce « A TESTER » pour un amortissement passant de 0,1753 a 0,1752 — **0,06 %**,
+invisible, mais au-dessus du seuil fixe de 1e-4. Le meme 1e-4 sur un rayon de 655 unites serait
+1000 fois plus petit encore. Un ecart perceptible est une FRACTION de la valeur, jamais une
+quantite fixe.
+Verrou : le declencheur compare en RELATIF (2 % de la valeur). Regle generale : avant d'ecrire un
+seuil, verifier l'echelle de TOUTES les grandeurs qu'il gouverne — un seuil unique sur des
+grandeurs d'echelles differentes est faux pour au moins l'une d'elles.

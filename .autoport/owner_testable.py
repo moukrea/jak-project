@@ -148,7 +148,14 @@ def main():
         old = prev.get('params', {}).get(name, {})
         for k, v in vals.items():
             o = old.get(k)
-            if o is None or abs(v - o) < 1e-4:
+            # 2026-08-23 : seuil RELATIF, pas absolu. Le 08:44 cette ligne a fait crier
+            # « A TESTER » pour un amortissement passant de 0,1753 a 0,1752 — **0,06 %**, tres en
+            # dessous de tout ce qu'un oeil peut voir, mais au-dessus d'un seuil absolu de 1e-4.
+            # Un ecart perceptible est une FRACTION de la valeur, jamais une quantite fixe :
+            # 0,0001 sur un amortissement de 0,17 n'est pas la meme chose que sur un rayon de 655.
+            if o is None:
+                continue
+            if abs(v - o) <= 0.02 * max(abs(o), abs(v), 1e-9):
                 continue
             for key, human in defects_for(name):
                 touched.setdefault(key, {'human': human, 'why': []})
