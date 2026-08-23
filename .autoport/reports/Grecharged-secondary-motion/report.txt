@@ -375,6 +375,44 @@ chantiers doit tenir dans 0 ligne nette. Sans cela le prochain cycle sera le cin
 changement de statut, pour la meme raison.
 
 ================================================================================================
+7 bis. CONFLIT ENTRE LE VERROU D'ARRET ET LE CONTRAT — SIGNALE, PAS CONTOURNE
+================================================================================================
+Le verrou d'arret (`.autoport/hooks/stop.sh`) a refuse la fin de ce cycle avec le message
+« Do not stop again until `bash .autoport/validators/phase-Grecharged-secondary-motion.sh` exits
+with status 0 ». Je ne l'execute pas, et le contrat m'ordonne de le dire ici plutot que de le
+suivre (`DIRECTIVES.md`, en-tete : « en cas de conflit, c'est lui qui gagne, et tu le signales dans
+ton rapport au lieu de suivre une consigne perimee »).
+
+DIAGNOSTIC PRECIS, PAS UNE SUPPOSITION. Les treize gates de MESURE passent et le validateur imprime
+`[Grecharged-secondary-motion PASS]`. Le code de sortie non nul vient d'un seul bloc, en toute fin
+de fichier (`:689-698`) : il lit `owner-defects.txt`, compte les lignes commencant par `OPEN ` et
+sort 1 s'il en reste. Il en reste **une**, a la ligne 223 :
+
+    OPEN breast-spec-incomplete  PRIORITE 1 -- LA SEULE LIGNE QUI TIENT LA PHASE OUVERTE.
+
+LE SEUL GESTE QUI FERAIT SORTIR 0 EST DE RETIRER CETTE LIGNE, ET IL EST INTERDIT QUATRE FOIS :
+  - par le commentaire du bloc lui-meme : « La liste se vide UNIQUEMENT sur la parole de l'owner :
+    c'est son oeil qui ferme un defaut, jamais un chiffre vert » ;
+  - par l'en-tete de `owner-defects.txt`, qui dit la meme chose ;
+  - par la regle 1 du contrat (« aucun faux vert ») et la regle 5 (« n'ajoute, ne modifie et
+    n'assouplis AUCUNE gate du validateur — c'est un verrou dur ») ;
+  - par l'arbitrage du 2026-08-23 01:20, qui nomme CETTE gate : « une gate qui n'a pas de mode
+    "reussi" par construction, puisque seul l'owner retire cette ligne », et qui en tire la
+    consequence : « le validateur ne sert plus JAMAIS d'indicateur d'avancement ».
+
+Le verrou d'arret est un composant GENERIQUE du harnais : il ne sait pas qu'une des gates de cette
+phase-ci est une porte humaine. Sa demande est donc structurellement insatisfaisable par le worker,
+et y ceder produirait exactement le faux vert que tout ce dossier existe pour empecher — la phase
+s'est deja declaree terminee QUATRE fois le 2026-08-11 pendant que cinq defauts sur six etaient
+ouverts, et c'est pour ca que ce bloc a ete ecrit.
+
+CE QUE JE FAIS A LA PLACE : le travail qui rapproche reellement la fermeture de cette ligne, c'est
+a-dire la couverture de `SPEC-breast-softbody.md`, qui se lit dans `SPEC-COVERAGE.md`. Le verrou a
+d'ailleurs eu un effet utile : il a paye le bloc C de ce cycle (l'ajustement par maillon, section 5),
+qui a requalifie un chiffre inscrit depuis plusieurs cycles sur la ligne de §25 — et il m'a fait
+relire cette ligne assez tot pour retirer une retrogradation fausse avant de la committer.
+
+================================================================================================
 8. CE QUI EST LIVRE, ET CE QUI NE L'EST PAS
 ================================================================================================
 TIER DE BUILD UTILISE : **AUCUN**. Zero ligne de `goal_src/`, zero build, zero course neuve. Tout
