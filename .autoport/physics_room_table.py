@@ -10647,6 +10647,328 @@ def main():
     _radfit_lines(_cxz, 'PHYSRINGCZ', 'ROOM-AXFIT-RAD-NOLEN',
                   '  [CONTROLE — PAS UNE CONFORMITE]')
     A('')
+
+    # `_fv` est peuple par le bloc AXFIT ci-dessus, qui vit dans une branche `else`.
+    # S'il n'a pas tourne (trace sans PHYSRINGAX), la reconciliation se fait a vide au
+    # lieu de lever une NameError qui masquerait tout ce qui suit.
+    try:
+        _fv
+    except NameError:
+        _fv = {}
+
+    # ============================================================================================
+    # ROOM-AXC — LES MEMES TROIS IMPULSIONS, MAIS A ENTREE PROPRE.  (cycle 113)
+    #
+    # POURQUOI CE BLOC EXISTE, ET CE N'EST PAS UNE PREFERENCE D'INSTRUMENT.
+    # `SPEC-COVERAGE.md` porte depuis le cycle 99 une RESERVE OUVERTE sur §24, ecrite mot pour mot :
+    #   « DEUX INSTRUMENTS POUR UN NUMERO : le verdict de ce tableau est bati sur les six fenetres
+    #     AX d'origine, celui du cycle 97 sur les fenetres a entree propre PH-AXC (tags PHYSAXPRE /
+    #     PHYSAXWN bien presents dans la trace, mais le tableau ne les lit pas) [...]
+    #     A reconcilier AVANT de prononcer TENUE. »
+    # Elle n'a jamais ete levee. Les series de PH-AXC sont dans la trace depuis le cycle 96 —
+    # `PHYSRINGAN` 1800 lignes, `PHYSRINGAN2` 1800 lignes, `PHYSRINGCN` 1800 lignes — et AUCUN
+    # lecteur permanent ne les ouvre : ce sont les deux plus gros tags jamais lus de toute la
+    # trace. Ce bloc les lit. Cout : zero build, zero course.
+    #
+    # ET L'ARGUMENT QUI TRANCHE EST UNE CONSISTANCE, PAS UN GOUT. §25 et §26 sont passees `TENUE`
+    # au cycle 96 EXPLICITEMENT « sur une fenetre dont l'entree est mesuree propre », c'est-a-dire
+    # sur PH-AXC. §24, §25, §26 et §27 sont le MEME protocole (« after ONE STRONG ISOLATED
+    # IMPULSE ») et la MEME course. Les juger sur deux entrees differentes n'est pas defendable :
+    # ou les fenetres propres valent pour les quatre, ou elles ne valent pour aucune.
+    #
+    # NATURE  : une FREQUENCE propre (Hz), un rapport d'amortissement, un rebond — exactement les
+    #   memes grandeurs que `ROOM-AXFIT`, par le MEME estimateur `_fitseries` (meme skip=12, meme
+    #   grille, meme intervalle a 1.10x le residu minimum). AUCUN ajusteur n'est reecrit : si un
+    #   chiffre bouge, c'est l'ENTREE qui a bouge, jamais la mesure.
+    # REPERE  : le triedre orthonorme de l'ANCRE (torse), SPEC 7 — le meme que `ROOM-AXFIT`, donc
+    #   les deux familles se comparent ligne a ligne.
+    # LIGNE DE BASE : `PHYSAXPRE`, le residu d'entree lu AVANT que le solveur de la frame ait
+    #   tourne. C'est la grandeur dont l'ABSENCE est tout le defaut des fenetres AX d'origine.
+    # ABSENT  : aucune ligne `PHYSRINGAN` (phase PH-AXC non jouee) — le bloc le dit et se tait.
+    # ============================================================================================
+    _ans, _cns, _pre, _wn, _wx = {}, {}, {}, {}, {}
+    for m in re.finditer(r'^PHYSRINGAN c=(\d+) f=(\d+) l=(\d+) ax=(\d+) v=([-\d.e+]+)', txt, re.M):
+        if int(m.group(3)) != 0:
+            continue
+        _ans.setdefault((int(m.group(4)), int(m.group(1)), 'v'), []).append(
+            (int(m.group(2)), float(m.group(5))))
+    for m in re.finditer(r'^PHYSRINGAN2 c=(\d+) f=(\d+) ax=(\d+) l=(\d+)'
+                         r' ap=([-\d.e+]+) lat=([-\d.e+]+)', txt, re.M):
+        if int(m.group(4)) != 0:
+            continue
+        _ans.setdefault((int(m.group(3)), int(m.group(1)), 'ap'), []).append(
+            (int(m.group(2)), float(m.group(5))))
+        _ans.setdefault((int(m.group(3)), int(m.group(1)), 'lat'), []).append(
+            (int(m.group(2)), float(m.group(6))))
+    for m in re.finditer(r'^PHYSRINGCN c=(\d+) f=(\d+) l=(\d+) ax=(\d+) v=([-\d.e+]+)', txt, re.M):
+        if int(m.group(3)) != 0:
+            continue
+        _cns.setdefault((int(m.group(4)), int(m.group(1))), []).append(
+            (int(m.group(2)), float(m.group(5))))
+    for m in re.finditer(r'^PHYSAXPRE c=(\d+) l=(\d+) ax=(\d+)'
+                         r' v=([-\d.e+]+) ap=([-\d.e+]+) lat=([-\d.e+]+)', txt, re.M):
+        if int(m.group(2)) != 0:
+            continue
+        _pre[(int(m.group(3)), int(m.group(1)))] = (
+            float(m.group(4)), float(m.group(5)), float(m.group(6)))
+    for _tg, _dst in (('PHYSAXWN', _wn), ('PHYSAXW', _wx)):
+        for m in re.finditer(r'^%s ax=(\d+) ux=([-\d.e+]+) uy=([-\d.e+]+) uz=([-\d.e+]+)' % _tg,
+                             txt, re.M):
+            _dst[int(m.group(1))] = (float(m.group(2)), float(m.group(3)), float(m.group(4)))
+
+    _AXC3 = {0: 'v', 1: 'ap', 2: 'lat'}
+    _BC24 = {'v': (2.1, 2.5), 'ap': (2.3, 2.7), 'lat': (2.4, 2.9)}
+    _TC24 = {'v': '2.30 (2.1-2.5)', 'ap': '2.50 (2.3-2.7)', 'lat': '2.65 (2.4-2.9)'}
+    A('')
+    A('-- ROOM-AXC : SPEC 24 SUR LES MEMES TROIS IMPULSIONS, A ENTREE PROPRE (PH-AXC) -----------')
+    A('   RESERVE OUVERTE DEPUIS LE CYCLE 99, CITEE MOT POUR MOT DANS SPEC-COVERAGE.md : « le')
+    A('   verdict de ce tableau est bati sur les six fenetres AX d origine, celui du cycle 97 sur')
+    A('   les fenetres a entree propre PH-AXC (tags PHYSAXPRE/PHYSAXWN bien presents dans la')
+    A('   trace, MAIS LE TABLEAU NE LES LIT PAS) [...] A reconcilier AVANT de prononcer TENUE. »')
+    A('   Ce bloc les lit. Meme course, meme estimateur, meme repere : seule l ENTREE differe.')
+    A('   `PHYSRINGAN` / `PHYSRINGAN2` portent 1800 lignes chacun et n avaient aucun lecteur.')
+    A('')
+    A('   QUELLE FREQUENCE — ET C EST LA QUESTION QUI A COUTE LE VERDICT DU CYCLE 97.')
+    A('   `_fitseries` pose w = 2.pi.f puis oscille a w_d = w.sqrt(1-zeta^2) : son `f` est la')
+    A('   frequence propre NON AMORTIE `f_n`. Un compteur de passages par zero, ou un ajustement')
+    A('   ecrit A.exp(-sigma.t).cos(2.pi.f.t+phi), rend au contraire la frequence AMORTIE `f_d`,')
+    A('   et f_d = f_n.sqrt(1-zeta^2) — soit -6,0 a -6,3 % a zeta = 0,335-0,339.')
+    A('   §24 S INTITULE « Primary NATURAL Frequencies » ET §28 POSE k = m(2.pi.f)^2, qui EST la')
+    A('   definition de la pulsation propre non amortie : SA BANDE PORTE SUR `f_n`. Les deux sont')
+    A('   publiees ci-dessous pour que la confusion ne puisse plus se reproduire en silence.')
+    A('   (identite verifiee a 0,75 % au pire sur les six cellules contre l ajusteur independant')
+    A('    de `.autoport/c96_axc_pair.py` — voir `.autoport/c113_estimator_identity.py`.)')
+    if not _HAVE_NP:
+        A('ROOM-AXC: ABSENT (numpy indisponible)')
+    elif not _ans:
+        A('ROOM-AXC: ABSENT (aucune serie PHYSRINGAN — phase PH-AXC non jouee sur cette course).')
+        A('   La reserve du cycle 99 reste OUVERTE et §24 ne peut pas etre prononcee.')
+    else:
+        # ---- (0) LA POSE EST-ELLE LA MEME QUE CELLE DES SIX FENETRES AX ? --------------------
+        # `physroom-set-anim 0` EPINGLE la pose ; le code de PH-AXC dit « on n a pas a croire
+        # l epingle » et republie les axes sous `PHYSAXWN`. Si les deux triedres divergent, les
+        # deux familles ne poussent pas dans la meme direction et rien ne se compare.
+        # NATURE : un ANGLE entre deux directions unitaires, en degres. LIGNE DE BASE : 0.000 deg.
+        A('')
+        A('   (0) LA POSE EST LA MEME — `PHYSAXWN` (PH-AXC) contre `PHYSAXW` (fenetres AX).')
+        A('       Un ecart non nul voudrait dire que les deux familles poussent ailleurs.')
+        _wmax = 0.0
+        for _k in sorted(_wn):
+            if _k not in _wx:
+                A('ROOM-AXC-WN: axe=%-3s ABSENT de PHYSAXW — comparaison impossible' % _AXC3[_k])
+                continue
+            _d = sum(a * b for a, b in zip(_wn[_k], _wx[_k]))
+            _d = max(-1.0, min(1.0, _d))
+            _ang = math.degrees(math.acos(_d))
+            _wmax = max(_wmax, _ang)
+            A('ROOM-AXC-WN: axe=%-3s ecart au triedre des fenetres AX = %.4f deg' % (_AXC3[_k], _ang))
+        A('ROOM-AXC-WN-VERDICT: ecart max %.4f deg  ->  %s'
+          % (_wmax, 'MEME POSE' if _wmax <= 0.5 else
+             'POSES DIFFERENTES — les deux familles ne se comparent pas'))
+        A('       (le bar de 0.5 deg est MIEN, pas une ligne de la spec : il vaut cent fois la')
+        A('        symetrie du rig mesuree en pose de bind, 0.005 deg.)')
+
+        # ---- (1) L ENTREE EST-ELLE PROPRE ? -------------------------------------------------
+        # Condition ECRITE DANS LE CODE AVANT LA MESURE (phys-room.gc:5977-5983) : « Sur une
+        # fenetre propre elle doit etre petite devant la reponse ; si elle ne l est pas, ce sont
+        # ces fenetres-ci qu il faut rejeter, et le dire. » Le mot « petite » n a pas de nombre
+        # dans le code : le bar de 10 % ci-dessous est MIEN et il est declare comme tel.
+        # NATURE : un rapport sans dimension, residu d entree / valeur efficace de la reponse.
+        A('')
+        A('   (1) L ENTREE EST-ELLE PROPRE — `PHYSAXPRE` (residu laisse par le calme, lu AVANT')
+        A('       le solveur de la frame) rapporte a la valeur efficace de la reponse.')
+        _prebad = []
+        for _k in (0, 1, 2):
+            for _c in sorted({c for (_kk, c, _a) in _ans if _kk == _k}):
+                _nm = names[_c] if _c < len(names) else 'c%d' % _c
+                if (_k, _c) not in _pre:
+                    A('ROOM-AXC-PRE: chain=%-12s axe=%-3s ABSENT (aucune ligne PHYSAXPRE)'
+                      % (_nm, _AXC3[_k]))
+                    _prebad.append((_nm, _AXC3[_k], None))
+                    continue
+                _pv = math.sqrt(sum(x * x for x in _pre[(_k, _c)]))
+                _rms = 0.0
+                for _a in ('v', 'ap', 'lat'):
+                    _vv = [v for _f, v in _ans.get((_k, _c, _a), [])]
+                    if _vv:
+                        _rms += sum(x * x for x in _vv) / len(_vv)
+                _rms = math.sqrt(_rms)
+                _rr = 100.0 * _pv / _rms if _rms > 0 else 999.9
+                if _rr > 10.0:
+                    _prebad.append((_nm, _AXC3[_k], _rr))
+                A('ROOM-AXC-PRE: chain=%-12s axe=%-3s pre=%.7f  reponse_rms=%.7f'
+                  '  rapport=%5.2f%%  -> %s'
+                  % (_nm, _AXC3[_k], _pv, _rms, _rr, 'PROPRE' if _rr <= 10.0 else 'REJETEE'))
+        A('ROOM-AXC-PRE-VERDICT: %s'
+          % ('les six fenetres sont PROPRES (residu d entree <= 10 %% de la reponse)'
+             if not _prebad else
+             'FENETRES REJETEES : %s — SPEC 24 ne se prononce pas dessus'
+             % ', '.join('%s/%s' % (a, b) for a, b, _x in _prebad)))
+
+        # ---- (2) SELECTIVITE, exactement la meme mesure que ROOM-AXSEL sur la famille AX -----
+        A('')
+        A('   (2) SELECTIVITE DE L EXCITATION — meme grandeur que `ROOM-AXSEL` plus haut.')
+        for _c in sorted({c for (_k, c, _a) in _ans}):
+            _nm = names[_c] if _c < len(names) else 'c%d' % _c
+            for _k in (0, 1, 2):
+                _r = {}
+                for _a in ('v', 'ap', 'lat'):
+                    if (_k, _c, _a) in _ans:
+                        _vv = [v for _f, v in _ans[(_k, _c, _a)]]
+                        _r[_a] = (sum(x * x for x in _vv) / max(1, len(_vv))) ** 0.5
+                if len(_r) != 3:
+                    continue
+                _tt = sum(_r.values()) or 1.0
+                _dom = max(_r, key=_r.get)
+                A('ROOM-AXC-SEL: excite=%-3s chain=%-12s v=%4.1f%% ap=%4.1f%% lat=%4.1f%%   -> %s'
+                  % (_AXC3[_k], _nm, 100 * _r['v'] / _tt, 100 * _r['ap'] / _tt,
+                     100 * _r['lat'] / _tt,
+                     'ISOLE' if _dom == _AXC3[_k] else 'MELANGE, domine par %s' % _dom.upper()))
+
+        # ---- (3) LES DIX-HUIT AJUSTEMENTS ---------------------------------------------------
+        # La regle de selection de la cellule N EST PAS CHANGEE : c est la DIAGONALE (axe mesure =
+        # axe excite), exactement comme `ROOM-AXFIT`. Changer la regle EN MEME TEMPS que l entree
+        # rendrait l ecart entre les deux familles ininterpretable — et ce serait exactement
+        # `never-fit-a-parameter-to-the-instrument`.
+        A('')
+        A('   (3) LES AJUSTEMENTS. Regle de lecture INCHANGEE : la ligne etoilee (axe mesure =')
+        A('       axe excite) porte le mode propre ; seuil de lisibilite 0.08, le meme.')
+        A('   excite  chaine        axe  n    f (Hz)  intervalle       zeta   residu  rebond'
+          '   cible §24')
+        _fvn = {}
+        for (_k, _c, _ax) in sorted(_ans):
+            _vals = [v for _f, v in sorted(_ans[(_k, _c, _ax)])]
+            _r = _fitseries(_vals)
+            if not _r:
+                continue
+            _rb = _rebound(_vals)
+            _nm = names[_c] if _c < len(names) else 'c%d' % _c
+            _lo, _hi = _BC24[_ax]
+            _in = 'DANS' if _lo <= _r['f'] <= _hi else 'HORS'
+            if _ax == 'v':
+                _in = 'tangentiel — §24-v: ROOM-AXC-RAD'
+            if _r['rel'] > 0.08:
+                _in = 'residu trop grand, non lisible'
+            _mk = '*' if _AXC3[_k] == _ax else ' '
+            A('ROOM-AXC-FIT:%s%-6s %-12s %-3s %3d  %6.3f  [%.3f..%.3f]  %.2f   %.3f   %-6s  %s  %s'
+              % (_mk, _AXC3[_k], _nm, _ax, _r['n'], _r['f'], _r['fmin'], _r['fmax'], _r['zeta'],
+                 _r['rel'], ('%.3f' % _rb) if _rb else 'n/a', _TC24[_ax], _in))
+            if _AXC3[_k] == _ax and _r['rel'] <= 0.08:
+                _fvn[(_c, _ax)] = _r
+
+        # ---- (4) LE RADIAL, par la MEME fonction que ROOM-AXFIT-RAD --------------------------
+        A('')
+        A('   (4) LE DEGRE DE LIBERTE RADIAL (SPEC 23) sur les fenetres propres — c est lui qui')
+        A('       porte la VERTICALE de §24 (l os est vertical a 84.5 %). Meme fonction que')
+        A('       `ROOM-AXFIT-RAD`, meme bande, meme seuil.')
+        _radfit_lines(_cns, 'PHYSRINGCN', 'ROOM-AXC-RAD', '')
+
+        # ---- (5) LE TEMOIN NEGATIF, DECLARE DANS LE CODE AVANT LA MESURE ---------------------
+        # phys-room.gc:5984-5987 : « `ax=0` est le TEMOIN NEGATIF. AXV etait deja propre (elle
+        # entre depuis PH-BACK, qui tient `home`), donc la fenetre `ax=0` d ici doit REPRODUIRE
+        # AXV. Si elle ne la reproduit pas, ce n est pas le saut d entree qui explique l ecart des
+        # deux autres, et tout ce cycle tombe. »
+        A('')
+        A('   (5) TEMOIN NEGATIF, ECRIT DANS LE CODE AVANT LA MESURE (phys-room.gc:5984-5987) :')
+        A('       la fenetre `ax=0` etait DEJA propre cote AX. Les deux familles doivent donc y')
+        A('       rendre la MEME chose. Si elles ne le font pas, ce n est pas l entree qui separe')
+        A('       les deux autres fenetres, et tout ce bloc tombe.')
+        _ctrl_ok, _ctrl_max = True, 0.0
+        for _c in sorted({c for (_k, c) in _cns if _k == 0}):
+            _nm = names[_c] if _c < len(names) else 'c%d' % _c
+            _rx = _fitseries([v for _f, v in sorted(_cxs[(0, _c)])]) if (0, _c) in _cxs else None
+            _rn = _fitseries([v for _f, v in sorted(_cns[(0, _c)])])
+            if not _rx or not _rn:
+                A('ROOM-AXC-CTRL: chain=%-12s canal=radial  comparaison impossible' % _nm)
+                _ctrl_ok = False
+                continue
+            _dd = 100.0 * abs(_rn['f'] - _rx['f']) / _rx['f']
+            _ctrl_max = max(_ctrl_max, _dd)
+            if _dd > 5.0:
+                _ctrl_ok = False
+            A('ROOM-AXC-CTRL: chain=%-12s canal=radial  AX f=%.3f [%.3f,%.3f]  ·  AXC f=%.3f'
+              ' [%.3f,%.3f]  ecart=%.2f%%  -> %s'
+              % (_nm, _rx['f'], _rx['fmin'], _rx['fmax'], _rn['f'], _rn['fmin'], _rn['fmax'],
+                 _dd, 'REPRODUIT' if _dd <= 5.0 else 'NE REPRODUIT PAS'))
+        A('ROOM-AXC-CTRL-VERDICT: ecart max %.2f%%  ->  %s   (le bar de 5 %% est MIEN)'
+          % (_ctrl_max, 'TEMOIN TIRE — les fenetres propres sont recevables' if _ctrl_ok
+             else 'TEMOIN EN ECHEC — ce bloc ne peut rien conclure'))
+
+        # ---- (6) LA RECONCILIATION, ET LE VERDICT DE §24 ------------------------------------
+        # `_fv` (famille AX) est peuple plus haut par le meme critere. Les deux tableaux sont
+        # publies COTE A COTE : l ancien n est pas retire, l ecart entre les deux EST la mesure
+        # de ce que l entree sale coutait.
+        A('')
+        A('   (6) RECONCILIATION — LES DEUX FAMILLES COTE A COTE. L ancienne n est PAS retiree :')
+        A('       l ecart entre les deux EST la mesure de ce que l entree contaminee coutait.')
+        A('   chaine        axe   AX (entree sale)      AXC (entree propre)     ecart')
+        for _c in sorted({c for (c, _a) in _fvn} | {c for (c, _a) in _fv}):
+            _nm = names[_c] if _c < len(names) else 'c%d' % _c
+            for _a in ('ap', 'lat'):
+                _x = _fv.get((_c, _a))
+                _n = _fvn.get((_c, _a))
+                _sx = ('%.3f Hz' % _x['f']) if _x else 'non lisible'
+                _sn = ('%.3f Hz' % _n['f']) if _n else 'non lisible'
+                _de = ('%+.2f %%' % (100.0 * (_n['f'] - _x['f']) / _x['f'])) if (_x and _n) else 'n/a'
+                A('ROOM-SPEC24-RECONCILE: chain=%-12s %-4s %-21s %-23s %s'
+                  % (_nm, _a, _sx, _sn, _de))
+        _frn = {}
+        for (_kk, _cc) in _cns:
+            if _kk != 0:
+                continue
+            _rr_ = _fitseries([v for _f, v in sorted(_cns[(_kk, _cc)])])
+            if _rr_ and _rr_['rel'] <= 0.08:
+                _frn[_cc] = _rr_
+        A('')
+        A('   LE VERDICT DE §24 SUR LES FENETRES PROPRES. Quatre clauses, et la quatrieme est')
+        A('   celle que la section ecrit EN GRAS : « Vertical motion is intentionally the')
+        A('   slowest. » Une chaine dont une seule lecture manque ne compte pas (regle 2).')
+        _held = {}
+        for _c in sorted(set(list(_frn) + [c for (c, _a) in _fvn])):
+            _nm = names[_c] if _c < len(names) else 'c%d' % _c
+            _row, _ok = [], True
+            if _c in _frn:
+                _f0 = _frn[_c]['f']
+                _row.append('v=%.3f(fd %.3f) %s'
+                            % (_f0, _f0 * math.sqrt(max(0.0, 1.0 - _frn[_c]['zeta'] ** 2)),
+                               'DANS' if 2.1 <= _f0 <= 2.5 else 'HORS'))
+                _ok = _ok and (2.1 <= _f0 <= 2.5)
+            else:
+                _f0 = None
+                _row.append('v=non lisible')
+                _ok = False
+            for _a in ('ap', 'lat'):
+                if (_c, _a) in _fvn:
+                    _fa = _fvn[(_c, _a)]['f']
+                    _lo, _hi = _BC24[_a]
+                    _fd = _fa * math.sqrt(max(0.0, 1.0 - _fvn[(_c, _a)]['zeta'] ** 2))
+                    _row.append('%s=%.3f(fd %.3f) %s'
+                                % (_a, _fa, _fd, 'DANS' if _lo <= _fa <= _hi else 'HORS'))
+                    _ok = _ok and (_lo <= _fa <= _hi)
+                else:
+                    _row.append('%s=non lisible' % _a)
+                    _ok = False
+            _slow = None
+            if _f0 is not None and (_c, 'ap') in _fvn and (_c, 'lat') in _fvn:
+                _slow = _f0 < _fvn[(_c, 'ap')]['f'] and _f0 < _fvn[(_c, 'lat')]['f']
+                _ok = _ok and _slow
+            else:
+                _ok = False
+            _held[_c] = _ok
+            A('ROOM-SPEC24-VERDICT: chain=%-12s %s  ·  verticale la plus lente : %s  ->  %s'
+              % (_nm, '  '.join(_row),
+                 ('OUI' if _slow else 'NON') if _slow is not None else 'indeterminee',
+                 'LES QUATRE CLAUSES TENUES' if _ok else 'CLAUSE(S) NON TENUE(S)'))
+        A('ROOM-SPEC24-BILAN: %d chaine(s) sur %d tiennent les quatre clauses de §24 sur les'
+          ' fenetres a entree propre.  Recevabilite : pose %s · entree %s · temoin %s.'
+          % (sum(1 for v in _held.values() if v), len(_held),
+             'OK' if _wmax <= 0.5 else 'ECHEC',
+             'OK' if not _prebad else 'ECHEC',
+             'OK' if _ctrl_ok else 'ECHEC'))
+        A('   `fd` = la meme cellule exprimee en frequence AMORTIE, pour comparaison avec tout')
+        A('   estimateur par passages par zero. Ce n est PAS la grandeur que §24 borne.')
+        A('   CE QUE CETTE LIGNE NE DIT PAS : elle ne ferme rien. Seul l owner ferme une ligne.')
+
     A('-- ROOM-AXBLIND / AXSEL-ABS / AXFIT-ABS : SPEC 24 SUR UN INSTRUMENT NON AVEUGLE ----------')
     A('   Tout ce qui precede sur SPEC 24 est lu sur `PHYSRINGAX`, qui projette une DIFFERENCE DE')
     A('   VECTEURS UNITAIRES : sa composante radiale est nulle par construction. Le bloc ci-dessous')

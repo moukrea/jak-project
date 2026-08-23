@@ -3160,6 +3160,110 @@ ROOM-AXFIT-RAD-NOLEN: chain=chestR       ax=ap  n=138 f=2.445 ci=[2.435,2.455] z
 ROOM-AXFIT-RAD-NOLEN: chain=chestL       ax=lat n=138 f=2.570 ci=[2.550,2.590] zeta=0.32 resid=0.041 cible=2.30 bande=[2.10,2.50] verdict=HORS  [CONTROLE — PAS UNE CONFORMITE]
 ROOM-AXFIT-RAD-NOLEN: chain=chestR       ax=lat n=138 f=2.685 ci=[2.660,2.710] zeta=0.34 resid=0.050 cible=2.30 bande=[2.10,2.50] verdict=HORS  [CONTROLE — PAS UNE CONFORMITE]
 
+
+-- ROOM-AXC : SPEC 24 SUR LES MEMES TROIS IMPULSIONS, A ENTREE PROPRE (PH-AXC) -----------
+   RESERVE OUVERTE DEPUIS LE CYCLE 99, CITEE MOT POUR MOT DANS SPEC-COVERAGE.md : « le
+   verdict de ce tableau est bati sur les six fenetres AX d origine, celui du cycle 97 sur
+   les fenetres a entree propre PH-AXC (tags PHYSAXPRE/PHYSAXWN bien presents dans la
+   trace, MAIS LE TABLEAU NE LES LIT PAS) [...] A reconcilier AVANT de prononcer TENUE. »
+   Ce bloc les lit. Meme course, meme estimateur, meme repere : seule l ENTREE differe.
+   `PHYSRINGAN` / `PHYSRINGAN2` portent 1800 lignes chacun et n avaient aucun lecteur.
+
+   QUELLE FREQUENCE — ET C EST LA QUESTION QUI A COUTE LE VERDICT DU CYCLE 97.
+   `_fitseries` pose w = 2.pi.f puis oscille a w_d = w.sqrt(1-zeta^2) : son `f` est la
+   frequence propre NON AMORTIE `f_n`. Un compteur de passages par zero, ou un ajustement
+   ecrit A.exp(-sigma.t).cos(2.pi.f.t+phi), rend au contraire la frequence AMORTIE `f_d`,
+   et f_d = f_n.sqrt(1-zeta^2) — soit -6,0 a -6,3 % a zeta = 0,335-0,339.
+   §24 S INTITULE « Primary NATURAL Frequencies » ET §28 POSE k = m(2.pi.f)^2, qui EST la
+   definition de la pulsation propre non amortie : SA BANDE PORTE SUR `f_n`. Les deux sont
+   publiees ci-dessous pour que la confusion ne puisse plus se reproduire en silence.
+   (identite verifiee a 0,75 % au pire sur les six cellules contre l ajusteur independant
+    de `.autoport/c96_axc_pair.py` — voir `.autoport/c113_estimator_identity.py`.)
+
+   (0) LA POSE EST LA MEME — `PHYSAXWN` (PH-AXC) contre `PHYSAXW` (fenetres AX).
+       Un ecart non nul voudrait dire que les deux familles poussent ailleurs.
+ROOM-AXC-WN: axe=v   ecart au triedre des fenetres AX = 0.1210 deg
+ROOM-AXC-WN: axe=ap  ecart au triedre des fenetres AX = 0.2437 deg
+ROOM-AXC-WN: axe=lat ecart au triedre des fenetres AX = 0.3011 deg
+ROOM-AXC-WN-VERDICT: ecart max 0.3011 deg  ->  MEME POSE
+       (le bar de 0.5 deg est MIEN, pas une ligne de la spec : il vaut cent fois la
+        symetrie du rig mesuree en pose de bind, 0.005 deg.)
+
+   (1) L ENTREE EST-ELLE PROPRE — `PHYSAXPRE` (residu laisse par le calme, lu AVANT
+       le solveur de la frame) rapporte a la valeur efficace de la reponse.
+ROOM-AXC-PRE: chain=chestL       axe=v   pre=0.0000000  reponse_rms=0.0095369  rapport= 0.00%  -> PROPRE
+ROOM-AXC-PRE: chain=chestR       axe=v   pre=0.0000000  reponse_rms=0.0090307  rapport= 0.00%  -> PROPRE
+ROOM-AXC-PRE: chain=chestL       axe=ap  pre=0.0000000  reponse_rms=0.0264023  rapport= 0.00%  -> PROPRE
+ROOM-AXC-PRE: chain=chestR       axe=ap  pre=0.0000000  reponse_rms=0.0250373  rapport= 0.00%  -> PROPRE
+ROOM-AXC-PRE: chain=chestL       axe=lat pre=0.0000000  reponse_rms=0.0245653  rapport= 0.00%  -> PROPRE
+ROOM-AXC-PRE: chain=chestR       axe=lat pre=0.0000000  reponse_rms=0.0221238  rapport= 0.00%  -> PROPRE
+ROOM-AXC-PRE-VERDICT: les six fenetres sont PROPRES (residu d entree <= 10 %% de la reponse)
+
+   (2) SELECTIVITE DE L EXCITATION — meme grandeur que `ROOM-AXSEL` plus haut.
+ROOM-AXC-SEL: excite=v   chain=chestL       v=24.4% ap=23.0% lat=52.7%   -> MELANGE, domine par LAT
+ROOM-AXC-SEL: excite=ap  chain=chestL       v=13.5% ap=81.8% lat= 4.7%   -> ISOLE
+ROOM-AXC-SEL: excite=lat chain=chestL       v=26.4% ap= 4.3% lat=69.3%   -> ISOLE
+ROOM-AXC-SEL: excite=v   chain=chestR       v=24.3% ap=22.7% lat=53.0%   -> MELANGE, domine par LAT
+ROOM-AXC-SEL: excite=ap  chain=chestR       v=13.1% ap=82.0% lat= 4.9%   -> ISOLE
+ROOM-AXC-SEL: excite=lat chain=chestR       v=27.0% ap= 4.3% lat=68.6%   -> ISOLE
+
+   (3) LES AJUSTEMENTS. Regle de lecture INCHANGEE : la ligne etoilee (axe mesure =
+       axe excite) porte le mode propre ; seuil de lisibilite 0.08, le meme.
+   excite  chaine        axe  n    f (Hz)  intervalle       zeta   residu  rebond   cible §24
+ROOM-AXC-FIT: v      chestL       ap  138   2.535  [2.485..2.595]  0.35   0.085   0.348   2.50 (2.3-2.7)  residu trop grand, non lisible
+ROOM-AXC-FIT: v      chestL       lat 138   2.550  [2.535..2.570]  0.35   0.040   0.322   2.65 (2.4-2.9)  DANS
+ROOM-AXC-FIT:*v      chestL       v   138   2.555  [2.545..2.575]  0.36   0.027   0.329   2.30 (2.1-2.5)  tangentiel — §24-v: ROOM-AXC-RAD
+ROOM-AXC-FIT: v      chestR       ap  138   3.195  [2.875..3.520]  0.39   0.332   6.238   2.50 (2.3-2.7)  residu trop grand, non lisible
+ROOM-AXC-FIT: v      chestR       lat 138   2.550  [2.515..2.590]  0.35   0.083   0.311   2.65 (2.4-2.9)  residu trop grand, non lisible
+ROOM-AXC-FIT:*v      chestR       v   138   2.615  [2.580..2.645]  0.35   0.066   0.339   2.30 (2.1-2.5)  tangentiel — §24-v: ROOM-AXC-RAD
+ROOM-AXC-FIT:*ap     chestL       ap  138   2.450  [2.445..2.455]  0.35   0.015   0.307   2.50 (2.3-2.7)  DANS
+ROOM-AXC-FIT: ap     chestL       lat 138   2.575  [2.465..2.680]  0.27   0.240   0.391   2.65 (2.4-2.9)  residu trop grand, non lisible
+ROOM-AXC-FIT: ap     chestL       v   138   2.365  [2.305..2.425]  0.30   0.117   0.253   2.30 (2.1-2.5)  residu trop grand, non lisible
+ROOM-AXC-FIT:*ap     chestR       ap  138   2.555  [2.545..2.560]  0.35   0.015   n/a     2.50 (2.3-2.7)  DANS
+ROOM-AXC-FIT: ap     chestR       lat 138   2.235  [2.180..2.290]  0.48   0.094   0.216   2.65 (2.4-2.9)  residu trop grand, non lisible
+ROOM-AXC-FIT: ap     chestR       v   138   2.565  [2.530..2.600]  0.30   0.072   n/a     2.30 (2.1-2.5)  tangentiel — §24-v: ROOM-AXC-RAD
+ROOM-AXC-FIT: lat    chestL       ap  138   2.550  [2.510..2.590]  0.43   0.056   n/a     2.50 (2.3-2.7)  DANS
+ROOM-AXC-FIT:*lat    chestL       lat 138   2.550  [2.545..2.560]  0.35   0.018   n/a     2.65 (2.4-2.9)  DANS
+ROOM-AXC-FIT: lat    chestL       v   138   2.585  [2.570..2.595]  0.36   0.028   n/a     2.30 (2.1-2.5)  tangentiel — §24-v: ROOM-AXC-RAD
+ROOM-AXC-FIT: lat    chestR       ap  138   2.170  [2.055..2.285]  0.59   0.201   0.222   2.50 (2.3-2.7)  residu trop grand, non lisible
+ROOM-AXC-FIT:*lat    chestR       lat 138   2.655  [2.650..2.665]  0.35   0.019   0.313   2.65 (2.4-2.9)  DANS
+ROOM-AXC-FIT: lat    chestR       v   138   2.645  [2.635..2.660]  0.33   0.032   0.301   2.30 (2.1-2.5)  tangentiel — §24-v: ROOM-AXC-RAD
+
+   (4) LE DEGRE DE LIBERTE RADIAL (SPEC 23) sur les fenetres propres — c est lui qui
+       porte la VERTICALE de §24 (l os est vertical a 84.5 %). Meme fonction que
+       `ROOM-AXFIT-RAD`, meme bande, meme seuil.
+ROOM-AXC-RAD: chain=chestL       ax=v   n=138 f=2.320 ci=[2.320,2.320] zeta=0.35 resid=0.007 cible=2.30 bande=[2.10,2.50] verdict=DANS
+ROOM-AXC-RAD: chain=chestR       ax=v   n=138 f=2.415 ci=[2.410,2.420] zeta=0.35 resid=0.014 cible=2.30 bande=[2.10,2.50] verdict=DANS
+ROOM-AXC-RAD: chain=chestL       ax=ap  n=138 f=2.405 ci=[2.370,2.435] zeta=0.30 resid=0.074 cible=2.30 bande=[2.10,2.50] verdict=DANS
+ROOM-AXC-RAD: chain=chestR       ax=ap  n=138 f=2.440 ci=[2.380,2.495] zeta=0.34 resid=0.120 cible=2.30 bande=[2.10,2.50] verdict=INSUFFISANT (residu 0.120 > 0.08 : la serie ne porte pas un mode unique)
+ROOM-AXC-RAD: chain=chestL       ax=lat n=138 f=2.570 ci=[2.565,2.580] zeta=0.37 resid=0.021 cible=2.30 bande=[2.10,2.50] verdict=HORS
+ROOM-AXC-RAD: chain=chestR       ax=lat n=138 f=2.675 ci=[2.655,2.690] zeta=0.33 resid=0.043 cible=2.30 bande=[2.10,2.50] verdict=HORS
+
+   (5) TEMOIN NEGATIF, ECRIT DANS LE CODE AVANT LA MESURE (phys-room.gc:5984-5987) :
+       la fenetre `ax=0` etait DEJA propre cote AX. Les deux familles doivent donc y
+       rendre la MEME chose. Si elles ne le font pas, ce n est pas l entree qui separe
+       les deux autres fenetres, et tout ce bloc tombe.
+ROOM-AXC-CTRL: chain=chestL       canal=radial  AX f=2.320 [2.320,2.320]  ·  AXC f=2.320 [2.320,2.320]  ecart=0.00%  -> REPRODUIT
+ROOM-AXC-CTRL: chain=chestR       canal=radial  AX f=2.415 [2.405,2.425]  ·  AXC f=2.415 [2.410,2.420]  ecart=0.00%  -> REPRODUIT
+ROOM-AXC-CTRL-VERDICT: ecart max 0.00%  ->  TEMOIN TIRE — les fenetres propres sont recevables   (le bar de 5 % est MIEN)
+
+   (6) RECONCILIATION — LES DEUX FAMILLES COTE A COTE. L ancienne n est PAS retiree :
+       l ecart entre les deux EST la mesure de ce que l entree contaminee coutait.
+   chaine        axe   AX (entree sale)      AXC (entree propre)     ecart
+ROOM-SPEC24-RECONCILE: chain=chestL       ap   2.440 Hz              2.450 Hz                +0.41 %
+ROOM-SPEC24-RECONCILE: chain=chestL       lat  2.545 Hz              2.550 Hz                +0.20 %
+ROOM-SPEC24-RECONCILE: chain=chestR       ap   non lisible           2.555 Hz                n/a
+ROOM-SPEC24-RECONCILE: chain=chestR       lat  2.655 Hz              2.655 Hz                +0.00 %
+
+   LE VERDICT DE §24 SUR LES FENETRES PROPRES. Quatre clauses, et la quatrieme est
+   celle que la section ecrit EN GRAS : « Vertical motion is intentionally the
+   slowest. » Une chaine dont une seule lecture manque ne compte pas (regle 2).
+ROOM-SPEC24-VERDICT: chain=chestL       v=2.320(fd 2.173) DANS  ap=2.450(fd 2.295) DANS  lat=2.550(fd 2.389) DANS  ·  verticale la plus lente : OUI  ->  LES QUATRE CLAUSES TENUES
+ROOM-SPEC24-VERDICT: chain=chestR       v=2.415(fd 2.262) DANS  ap=2.555(fd 2.393) DANS  lat=2.655(fd 2.487) DANS  ·  verticale la plus lente : OUI  ->  LES QUATRE CLAUSES TENUES
+ROOM-SPEC24-BILAN: 2 chaine(s) sur 2 tiennent les quatre clauses de §24 sur les fenetres a entree propre.  Recevabilite : pose OK · entree OK · temoin OK.
+   `fd` = la meme cellule exprimee en frequence AMORTIE, pour comparaison avec tout
+   estimateur par passages par zero. Ce n est PAS la grandeur que §24 borne.
+   CE QUE CETTE LIGNE NE DIT PAS : elle ne ferme rien. Seul l owner ferme une ligne.
 -- ROOM-AXBLIND / AXSEL-ABS / AXFIT-ABS : SPEC 24 SUR UN INSTRUMENT NON AVEUGLE ----------
    Tout ce qui precede sur SPEC 24 est lu sur `PHYSRINGAX`, qui projette une DIFFERENCE DE
    VECTEURS UNITAIRES : sa composante radiale est nulle par construction. Le bloc ci-dessous

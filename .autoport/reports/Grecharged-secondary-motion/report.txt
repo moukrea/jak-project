@@ -16,256 +16,327 @@ BREAST-PENETRATION: 0.0973 m — `meshpen`, DIAGNOSTIC, jamais un verdict (arbit
   chestR meshpen max 0.0973 m (anim `assistant-village2-idle-to-a`, drive `accel`)
   Relu ce cycle dans `keira-room-table.txt` (course de 99 481 lignes, `PHYSEND` atteint), pas
   recopie du rapport precedent : les deux valeurs et leurs animations ont ete reverifiees.
-================================================================================================
 
-CYCLE 112 — DEUX MESURES QUI TRANCHENT §18 DORMAIENT DANS LA TRACE. LUES, ELLES REFUTENT LA
-COLLISION ET LOCALISENT LE DEFAUT SUR UNE VARIABLE UNIQUE — POUR ZERO COURSE.
+CYCLE 113 — §24 PASSE `PARTIELLE` -> `TENUE`. LA RESERVE QUI LA BLOQUAIT DEPUIS LE CYCLE 99 EST
+LEVEE, SON ATTRIBUTION ETAIT FAUSSE, ET LA VRAIE CAUSE EST UNE IDENTITE. ZERO BUILD, ZERO COURSE.
 
 ================================================================================================
 0. L'AVANCEMENT, ET IL SE LIT DANS `SPEC-COVERAGE.md`, PAS DANS LE VALIDATEUR
 ================================================================================================
-    TENUE                    3   (§12, §25, §26)
+    TENUE                    4   (§12, §24, §25, §26)      <- +1, et c'est §24
     TENUE PAR CONSTRUCTION   5   (§1, §4, §5, §28, §35)
-    PARTIELLE               17
+    PARTIELLE               16                             <- -1
     NON TENUE               13
     -------------------------------------------------------------------------------
-    INCHANGE DEPUIS LE CYCLE 106. SEPT CYCLES SANS CHANGEMENT DE STATUT.
+    PREMIER CHANGEMENT DE STATUT DEPUIS LE CYCLE 106. Huit cycles s'etaient ecoules.
 
-Je mets ce chiffre en premier parce que c'est celui que l'owner attend, et parce que la directive
-du 2026-08-23 01:20 est explicite : un validateur vert dit « ce que j'ai mesure est honnete »,
-jamais « sa poitrine est conforme ». L'etat du validateur est en section 6, en dernier.
-
-Ce cycle ne fait verdir aucune section. Ce qu'il fait est fermer le DERNIER suspect classe de §18
-et etablir que la question, telle qu'elle etait posee, ne peut pas etre repondue par la mesure sur
-laquelle on la posait.
+Et il tombe dans le bloc qui compte : la directive du 2026-08-20 23:30 nomme §24 a §27 comme
+l'un des trois groupes « qui gouvernent ce qu'un oeil voit ». Ce bloc passe de **2 tenues sur 4**
+a **3 sur 4** (§24, §25, §26 ; §27 reste PARTIELLE). Le seuil global de re-sollicitation de
+l'owner passe de 3 tenues sur 16 a **4 sur 16** — toujours en dessous, donc je ne le sollicite pas.
 
 ================================================================================================
-1. LA CAUSE RACINE DE LA TENTATIVE 4 — ET ELLE N'EST PAS TECHNIQUE
+1. CE QUE CE CYCLE A FAIT, ET C'ETAIT LE PROCHAIN PAS ECRIT DANS LE REGISTRE
 ================================================================================================
-La tentative 4 s'est arretee sur `OPEN-DEFECTS / breast-spec-incomplete`, la porte humaine. Rien a
-diagnostiquer de ce cote : cette gate n'a pas de mode « reussi » par construction, seul l'owner
-retire la ligne, et le jeton `.autoport/owner-ok/<phase>` n'est jamais cree a sa place. Le
-superviseur l'a arbitre le 2026-08-23 a 01:20 et a pose que la borne des deux cycles ne compte pas
-les cycles dont le SEUL echec est cette porte.
+Le registre portait, depuis le cycle 99, une reserve OUVERTE sur §24, mot pour mot :
 
-Le vrai defaut de la tentative 4 est ailleurs, et il est a moi : elle a conclu, comme les cycles
-109, 110 et 111 avant elle, que le test de §18 « demande une course ». **LA COURSE AVAIT DEJA EU
-LIEU.**
+    « DEUX INSTRUMENTS POUR UN NUMERO : le verdict de ce tableau est bati sur les six fenetres AX
+      d'origine, celui du cycle 97 sur les fenetres a entree propre PH-AXC (tags PHYSAXPRE /
+      PHYSAXWN bien presents dans la trace, MAIS LE TABLEAU NE LES LIT PAS) — d'ou
+      `chestL lat = 2,393 SOUS` au cycle 97 contre `2,550 DANS` au tableau, A LA MEME COURSE.
+      A reconcilier AVANT de prononcer TENUE. »
 
-================================================================================================
-2. SEIZE LIGNES EMISES, JAMAIS LUES, PENDANT QUATRE COURSES
-================================================================================================
-Le cycle 108 a ecrit le discriminant de §18 AVANT la course, dans le pave `PHYSROOM-PH-REGC`
-(`phys-room.gc:6095-6131`), et a construit la phase qui le joue : chaque cellule (sens x regime)
-jouee DEUX FOIS DE SUITE, une fois collision ARMEE, une fois DESARMEE, l'ordre des jambes s'inversant
-d'une cellule a l'autre pour separer l'ablation du rang.
+Elle n'avait jamais ete levee, et la donnee etait la : `PHYSRINGAN` (1 800 lignes),
+`PHYSRINGAN2` (1 800) et `PHYSRINGCN` (1 800) sont emises depuis le cycle 96 et **aucun lecteur
+permanent ne les ouvrait**. `PHYSRINGAN` et `PHYSRINGAN2` n'avaient meme AUCUN lecteur nulle part
+dans les 1 068 scripts du dossier — ce sont les deux plus gros tags dans ce cas de toute la trace ;
+`PHYSRINGCN` n'en avait qu'un, le script de cycle mort `c96_axc_pair.py`. Le
+tableau les lit maintenant (`ROOM-AXC-*`, bloc neuf dans `physics_room_table.py`), sur la course
+ARCHIVEE. La regle du cycle 112 — « grepper la trace AVANT d'ecrire qu'il faut une course » — a
+paye une troisieme fois.
 
-    $ grep -c "PHYSREGW ph=4[45]" keira-room-x86.log
-    16
-
-Ces seize lignes sont dans la trace depuis le 2026-08-22 22:57. QUATRE courses completes les ont
-emises (22:57, 22:57, 23:30, 2026-08-23 00:52) et TROIS cycles sont passes au-dessus sans les
-ouvrir. Cout de la lecture ce cycle : zero build, zero course, un script.
-
-C'est la troisieme occurrence du meme mode d'echec, et il porte deja son nom au registre :
-`stage-ratio-was-already-in-the-trace` (les deux colonnes de `PHYSREGW`, publiees depuis le cycle 71
-et confrontees seulement au cycle 108) et `classify-population-by-window-maximum` (la donnee
-corrective de §21, emise et non lue).
-
-**REGLE QUI EN SORT : avant d'ecrire « il faut une course », grepper la trace pour le tag qu'on
-croit manquant.** Un emetteur pose et jamais lu coute exactement ce que couterait son absence, mais
-il se repare en une minute au lieu d'un quart d'heure. Je l'ai appliquee a §36 dans ce meme cycle
-(section 5), et la la donnee n'existait vraiment pas.
+**SECTION DONT CE CYCLE DEBLOQUE LE VERDICT, NOMMEE AVANT DE COMMENCER** (exigence DIRECTIVES
+2026-08-21 18:25) : **§24**, et elle seule.
 
 ================================================================================================
-3. LE CRITERE, RECOPIE ET NON CHOISI, PUIS APPLIQUE
+2. LES FENETRES PROPRES SONT RECEVABLES — PAR TROIS CONDITIONS ECRITES DANS LE CODE AVANT MOI
 ================================================================================================
-Le pave du cycle 108, mot pour mot :
+Je n'ai choisi aucun critere d'acceptation. `phys-room.gc:5977-5987` les pose avant la mesure :
 
-    rapport gauche/droite de `perr` SOUS x1.3 sur la jambe desarmee  -> la collision porte §18 ;
-    baisse de moins de 20 % par rapport a la jambe ARMEE de la meme cellule -> REFUTEE.
+  (a) **LA POSE.** « on n'a pas a croire l'epingle » : `PHYSAXWN` republie les axes pousses et se
+      compare a `PHYSAXW` des six fenetres AX. Ecart **0,1210 / 0,2437 / 0,3011 deg**, max
+      0,3011 — les deux familles poussent au meme endroit. (Le bar de 0,5 deg est MIEN ; il vaut
+      cent fois la symetrie de bind du rig, 0,005 deg.)
+  (b) **L'ENTREE.** « Sur une fenetre propre [le residu] doit etre petite devant la reponse ; si
+      elle ne l'est pas, ce sont ces fenetres-ci qu'il faut rejeter, et le dire. » Mesure :
+      **pre = 0,0000000 sur les SIX cellules**, contre des reponses de 0,0090 a 0,0264. Rapport
+      0,00 %.
+  (c) **LE TEMOIN NEGATIF, DECLARE D'AVANCE.** « `ax=0` est le TEMOIN NEGATIF [...] la fenetre
+      `ax=0` d'ici doit REPRODUIRE AXV. Si elle ne la reproduit pas, [...] tout ce cycle tombe. »
+      Mesure : **ecart 0,00 % sur les deux chaines** (chestL 2,320 contre 2,320 ; chestR 2,415
+      contre 2,415). Le temoin tire.
 
-`.autoport/regc_ablation_read.py` RECOPIE ces deux nombres depuis le pave au lieu de les choisir.
-La lecture est reproductible : `python3 .autoport/regc_ablation_read.py`.
+**ET ELLES REPARENT UN DEFAUT QUE LE TABLEAU DECLARAIT SANS LE CORRIGER.** Au-dessus de sa regle
+de diagonale, il ecrit : « L'axe EXCITE doit dominer sa propre fenetre ; sinon la frequence lue
+est un melange. » **Les six fenetres AX violaient cette precondition, toutes.** Sur les fenetres
+propres :
 
-3.1 CLAUSE DE VALIDITE D'ABORD — le pave en fait une condition de lecture (« si `abl=0` ne
-    reproduit pas `PHYSREGA`, tout ce bloc tombe »). Elle passe :
+    axe excite      chestL                     chestR
+    ap        38,4 % -> **81,8 %  ISOLE**   43,5 % -> **82,0 %  ISOLE**
+    lat       41,7 % -> **69,3 %  ISOLE**   22,1 % -> **68,6 %  ISOLE**
+    v         24,4 % -> 24,4 % MELANGE      24,0 % -> 24,3 % MELANGE   (deferee au canal radial)
 
-        c=1 r=9  sgn=-1    0.1593 contre 0.1593    0.00 %
-        c=0 r=9  sgn=+1    0.4061 contre 0.4100   -0.95 %
-        c=0 r=10 sgn=+1    0.5113 contre 0.4796   +6.61 %   <- le pire
-        (8 cellules, ecart max 6.61 %)
-
-    **Ce 6,61 % devient le PLANCHER DE BRUIT de la comparaison**, et il sert en 3.3.
-
-3.2 LE RESULTAT — rapport L/R de l'apex, arme puis desarme :
-
-        r=9  sgn=-1    x3.081 -> x3.124    -1.40 %
-        r=9  sgn=+1    x3.950 -> x3.772    +4.52 %
-        r=10 sgn=-1    x3.012 -> x2.903    +3.60 %
-        r=10 sgn=+1    x4.240 -> x4.162    +1.84 %
-
-    Sur `perr`, meme verdict : desarme x6.71 / x4.62 / x5.58 / x4.89. Aucune cellule ne s'approche
-    du x1,3 qu'exigeait la branche « la collision porte §18 ». La baisse maximale vaut 4,52 %,
-    contre un critere de refutation a 20 %.
-
-    **VERDICT : LA GEOMETRIE DE COLLISION EST REFUTEE COMME CAUSE DE L'ASYMETRIE DE §18.**
-
-3.3 ET LA REFUTATION EST ROBUSTE AU BRUIT, CE QUI N'ALLAIT PAS DE SOI — JE NE LE CACHE PAS.
-    L'effet de l'ablation vaut **-1,92 % en moyenne sur chestL**, donc **SOUS le plancher de bruit
-    de 6,61 %**. Je ne peux donc PAS distinguer « le mur vaut 2 % » de « le mur vaut 0 », et je ne
-    pretends pas le contraire. Mais la conclusion n'en depend pas :
-
-        pour tomber sous x1,3 il faudrait une baisse de 56,8 / 67,1 / 56,8 / 69,3 %
-        la plus petite vaut 56,8 %, soit 8,6 fois le plancher de bruit
-
-    Un bruit de 6,6 % ne dissimule pas un effet de 57 %. La refutation tient independamment de la
-    resolution de l'instrument, et c'est publie a cote du resultat plutot que suppose.
-
-3.4 NON-VACUITE — un zero tire d'un couteau emousse n'est pas une refutation.
-    * au CODE : `phys-vol-floor` rend `PHYS-VOL-FREE = 1e9` quand `*phys-col-off*` est arme
-      (`jak-hd-physics.gc:939-941`, `PHYS-VOL-FREE` defini `:897`). Aucune profondeur ne franchit
-      1e9 : le mur est muet, ce n'est pas un adoucissement.
-    * CORROBORATION INDEPENDANTE, autre phase et autres fenetres, meme bouton : sur le balayage
-      d'orientation, la passe `k=4` (`phys-col-off-set!`) deplace l'apex de **-1,10 % (chestL) /
-      -0,35 % (chestR)** la ou `k=1` (contrainte de longueur) le deplace de **+21,5 % / +27,9 %**.
-      Le harnais d'ablation mord ; ce n'est pas la collision qui porte.
-    * **RESERVE DECLAREE, ET ELLE EST A MOI** : aucun COMPTEUR de corrections de collision n'est
-      emis PAR FENETRE dans cette phase. La preuve que le mur se tait est le code plus un effet non
-      nul et de signe coherent — ce n'est PAS un compteur tombe a zero, et je ne le presente pas
-      comme tel. Poser ce compteur est bon marche (l'etat `*phys-cdmok*` existe deja) et c'est le
-      premier point du cycle suivant.
+Quatre fenetres passent de `MELANGE` a `ISOLE`. **JE N'AI PAS TOUCHE A LA REGLE DE LECTURE** —
+diagonale, seuil de residu 0,08, meme estimateur, meme repere, meme `skip` : seule l'ENTREE change.
+Changer la regle EN MEME TEMPS que l'entree aurait rendu l'ecart ininterpretable, et ca aurait ete
+exactement `never-fit-a-parameter-to-the-instrument`.
 
 ================================================================================================
-4. CE QUE CA CHANGE POUR §18 — ET LA QUESTION EST MAINTENANT VIDE DE SUSPECTS
+3. LA RESERVE DU CYCLE 99 ETAIT MAL ATTRIBUEE, ET LES DEUX MOITIES SE MESURENT SEPAREMENT
 ================================================================================================
-Les QUATRE causes classees de l'asymetrie gauche/droite de §18 sont refutees :
+3.1 **LES DEUX FAMILLES DE FENETRES NE SONT PAS LA CAUSE.** Sur le MEME estimateur :
 
-    1. la MAIN du triedre           refutee cycle 108 (aucun consommateur ne lit un determinant)
-    2. l'index d'AXE                refutee cycle 108 (|sja|/|sjb| = 83 882)
-    3. la POSE                      refutee cycle 108 (reflexion a 0,0046 pres ; miroir a 0,54 deg)
-    4. la geometrie de COLLISION    REFUTEE ICI
+        chaine   axe   AX (entree sale)   AXC (entree propre)   ecart
+        chestL   ap        2,440 Hz            2,450 Hz         +0,41 %
+        chestL   lat       2,545 Hz            2,550 Hz         +0,20 %
+        chestR   ap      non lisible           2,555 Hz          n/a
+        chestR   lat       2,655 Hz            2,655 Hz         +0,00 %
 
-**La liste est vide, et je ne la remplis pas d'un cinquieme nom pour avoir quelque chose a dire.**
-Ce que la mesure impose a la place est une reformulation, et le cycle 108 l'avait deja a moitie
-ecrite sans en tirer la consequence :
+    **C'est le controle negatif de tout l'exercice** : changer d'entree ne deplace AUCUNE cellule
+    deja lisible de plus de 0,41 %. Ca ne fait que combler le trou — `chestR ap` passe de
+    « non lisible » (residu **0,159**, l'ajustement butait sur sa borne a `f=6,000`) a un residu
+    de **0,015**. Le blocage que le cycle 99 avait nomme (« `chestR ap` reste NON LISIBLE [...]
+    le blocage n'est plus l'anisotropie, il est d'instrument ») disparait.
 
-    [CETTE EXPLICATION EST RETIREE UNE HEURE PLUS TARD PAR MOI-MEME — VOIR 4 bis.]
+3.2 **LA CAUSE EST UN CHANGEMENT DE GRANDEUR, PAS UN DESACCORD DE MESURE.** L'ecart entre les
+    deux instruments est de **-6,0 a -6,6 %, sur SIX cellules sur six, toujours dans le meme
+    sens**. Un ecart systematique de meme signe partout n'est pas du bruit : c'est une conversion.
 
-4 bis. JE RETIRE L'EXPLICATION PAR LA SATURATION, ET CE QUI LA REMPLACE EST BIEN MEILLEUR
-------------------------------------------------------------------------------------------------
-J'ai ecrit ci-dessus, en reprenant le cycle 108, que `perr` de chestL etait « SATURE au plafond de
-0,50 B0 » et ne portait aucune information. **C'est faux, et la population entiere le dit.** Sur
-les 74 valeurs de `PHYSREGW`, chestL prend **61 valeurs distinctes au millieme, de 0,0055 a
-0,6207**, et **chestR monte PLUS HAUT que lui (0,7076)** — impossible si chestL butait sur un
-plafond que chestR n'atteint pas. Le cycle 108 avait generalise a « TOUS les regimes » les douze
-cellules de PH-REGA, qui tombent en 0,50-0,58 par coincidence de regime, et je l'ai repris sans le
-verifier. (`perr` monte a 3,94 sur `PHYSRESTW`, mais c'est un AUTRE emetteur et une autre fenetre :
-je ne melange pas les deux populations.)
+        `physics_room_table.py::_fitseries` pose `w = 2πf` et oscille a `w√(1-ζ²)`
+              -> son `f` est la frequence propre NON AMORTIE `f_n`
+        `c96_axc_pair.py::fit_damped` ajuste `A·e^{-σt}·cos(2πf·t + φ)`
+              -> son `f` est la frequence AMORTIE `f_d`
+        et  f_d = f_n·√(1-ζ²)
 
-**L'asymetrie de §18 est donc REELLE et interpretable. C'est plus grave, pas moins.**
+    Verifie cellule par cellule, **sans un seul parametre ajuste** :
 
-**ET POUR LA DEUXIEME FOIS DANS LE MEME CYCLE, LA MESURE QUI LOCALISE LE DEFAUT ETAIT DEJA LA.**
-Les cycles 66 et 67 ont construit une echelle de raffinement A VARIABLE UNIQUE et personne n'en
-avait compare les barreaux sur cette grandeur. Quatre phases, MEME course, MEMES fenetres r=9/r=10
-(`.autoport/reg_phase_ladder.py`) :
+        chaine  axe   f_n     f_d   z(c96)  fd predit  residu | z=0,35  residu
+        chestL  v    2,320   2,209  0,327    2,1925   -0,75 % | 2,1733  -1,62 %
+        chestL  ap   2,450   2,309  0,339    2,3049   -0,18 % | 2,2950  -0,60 %
+        chestL  lat  2,550   2,393  0,339    2,3990   +0,25 % | 2,3887  -0,18 %
+        chestR  v    2,415   2,282  0,338    2,2729   -0,40 % | 2,2623  -0,87 %
+        chestR  ap   2,555   2,409  0,335    2,4074   -0,07 % | 2,3934  -0,65 %
+        chestR  lat  2,655   2,502  0,335    2,5016   -0,02 % | 2,4871  -0,60 %
 
-    phase              pose        axes    ecart miroir   L/R r=9   L/R r=10
-    ph=31  PH-REG      heritee     MONDE      46,27 deg     0,144      0,250
-    ph=36  PH-REGS     nommee      MONDE       7,16 deg     1,258      1,063
-    ph=37  PH-REGT     argmax      MONDE       0,23 deg     1,340      1,037
-    ph=38  PH-REGA     argmax      SUJET       0,40 deg     5,967      4,539
-    ph=44  PH-REGC     argmax      SUJET       0,33 deg     5,979      4,703
+    **LES DEUX SOURCES DE `zeta` SONT PUBLIEES COTE A COTE POUR QU'ON NE PUISSE PAS ME SOUPCONNER
+    D'AVOIR CHOISI LA PLUS FLATTEUSE** : celle de `fit_damped` (raffinee, 0,327-0,339) et celle de
+    `_fitseries` (grille de pas 0,01, qui rend 0,35 partout). Residu maximal **0,75 %** avec la
+    premiere, **1,62 %** avec la seconde. Les deux confirment l'identite ; la grille est plus
+    grossiere, et c'est tout ce qui les separe.
 
-  * **31 -> 36 -> 37 : seule la POSE change.** Le rapport passe de 0,14-0,25 — c'est-a-dire chestR
-    qui DOMINE, l'inverse du defaut cherche — a la PARITE, et il se STABILISE : 36 et 37 rendent la
-    meme chose, donc 7,2 deg suffisait deja. Le test de raffinement du registre CONVERGE.
-  * **37 -> 38 : la POSE NE BOUGE PAS** (0,23 contre 0,40 deg) **et la seule variable declaree est
-    le REPERE DE LA ROTATION** — monde vers axes du sujet. Le rapport saute a **x4,5 - x6,0**.
+    **Les deux instruments ne se contredisent donc pas. Ils mesurent deux grandeurs exactement
+    reliees.** Instrument reproductible : `.autoport/c113_estimator_identity.py`, sortie
+    `c113-estimator-identity.out`. Le tableau publie desormais `fd` a cote de `f` sur sa ligne de
+    verdict, avec le `zeta` de grille — donc la colonne la plus PRUDENTE des deux.
 
-L'asymetrie n'est pas portee par la pose : le cycle 107 avait raison, et c'est confirme par un
-chemin qu'il n'avait pas emprunte. **Elle apparait au changement de repere du geste.** Et §18 nomme
-les axes du SUJET : PH-REGA joue le BON geste, PH-REGT mesurait la parite sur le MAUVAIS.
+3.3 **ET LA SPEC DIT LAQUELLE DES DEUX ELLE BORNE.** §24 s'intitule « Primary **NATURAL**
+    Frequencies », et §28 pose `k = m(2πf)²` — la definition meme de la pulsation propre NON
+    AMORTIE. Sa bande porte sur `f_n`. **Le « SOUS de 0,29 % » du cycle 97 comparait `f_d` a une
+    bande definie sur `f_n`.** C'est la meme classe de faute que `b0-denominator-axis-not-in-spec`
+    et `strain-denominator-is-the-local-rest-length` : une grandeur confrontee a la bande d'une
+    autre. Sur la grandeur que la section nomme, `chestL lat` vaut **2,550**, pas 2,393.
 
-**RESERVE, ET ELLE EST A MOI : ceci LOCALISE, ca n'explique pas.** Le lacet de PH-REGA tourne autour
-de `wa=0`, orthogonal au plan median a **-5e-6** pres : le geste est lui-meme mirror-symetrique. Une
-pose symetrique a 0,40 deg PLUS un geste symetrique qui rendent x4,5-6,0 **designent le solveur** —
-conclusion du cycle 108, intacte, et aucune des quatre causes classees ne la porte.
-
-**LE CHANTIER DE §18 EST DONC NOMME ET ETROIT** : ce que le solveur fait d'une rotation exprimee
-dans les axes du SUJET et qu'il ne fait pas de la meme rotation exprimee dans ceux du MONDE, sur
-deux chaines par ailleurs miroir a 0,4 deg. C'est une question a une variable, et c'est la premiere
-fois que §18 en a une.
-
-**UNE HYPOTHESE QUE J'AI FORMEE ET REFUTEE DANS LE MEME PAS**, publiee pour qu'on ne la refasse pas :
-j'ai d'abord calcule l'ecart au miroir contre l'axe `wa=1` et trouve 46 deg sur PH-REGA, d'ou
-« les chaines ne sont pas miroir dans cette pose ». Le plan median a pour normale `wa=2`, pas `wa=1` :
-contre le bon axe, PH-REGA est a **0,40 deg**. L'hypothese etait un choix d'axe errone, pas un
-resultat — exactement la faute que le registre appelle `b0-denominator-axis-not-in-spec`.
-
-§18 reste **NON TENUE** et son statut ne bouge pas. Ce qui bouge est la liste des suspects et la
-nature de la question.
+    Le tableau publie desormais **les deux** sur la ligne de verdict (`f` et `fd`) avec la phrase
+    qui dit laquelle §24 borne : la confusion ne peut plus se reproduire en silence.
 
 ================================================================================================
-5. CE QUE JE N'AI PAS FAIT, DECLARE AU LIEU D'ETRE TU
+4. LE VERDICT DE §24 — QUATRE CLAUSES, DEUX CHAINES, SIX LECTURES SUR SIX
 ================================================================================================
-(a) **§36 n'est pas tranchee, et sa course n'est pas faite.** Le cycle 109 nommait le mecanisme
-    candidat (`jak-hd-physics.gc:3898` — le tenseur entre dans la matrice d'os, les echantillons de
-    collision la chevauchent) et le test qui trancherait : desarmer la collision pendant la
-    descente. J'ai applique la regle de la section 2 avant de conclure : `PHYSRING` **ne porte ni
-    `k=` ni `abl=`** — il est emis dans la phase de descente, qui n'est pas sous le balayage
-    d'ablation. Ici la donnee n'existe VRAIMENT pas ; il faut un emetteur et une course. Je l'ai
-    cherchee avant de le dire, ce qui est exactement ce qui a manque a §18 pendant trois cycles.
+    ROOM-SPEC24-VERDICT: chestL   v 2,320 · ap 2,450 · lat 2,550   les 3 DANS
+    ROOM-SPEC24-VERDICT: chestR   v 2,415 · ap 2,555 · lat 2,655   les 3 DANS
+    bandes de la section :        2,1-2,5 · 2,3-2,7 · 2,4-2,9
 
-(b) **Le plafond du moteur reste a 7 lignes** (`jak-hd-physics.gc` = 4793 pour un plafond de 4800),
-    et je le signale sans le contourner (regle 5 : les gates sont gelees). **La voie d'echappement
-    habituelle est epuisee, et c'est neuf** : sur 522 lignes de commentaire, **409 sont deja des
-    pointeurs `[NOTE-x]`** et il ne reste **qu'UN SEUL bloc de commentaire de 4 lignes ou plus**
-    (L418-421). Migrer un commentaire d'UNE ligne vers `NOTES.md` coute une ligne de pointeur :
-    gain net zero. La migration de commentaires ne peut donc plus liberer de place. Tout chantier
-    de solveur — §24, la moitie rotation du declencheur de §37, le canal de deformation de §8 —
-    demande que ce plafond soit rediscute par le superviseur. Ce cycle n'en avait pas besoin : il
-    n'a pas touche au moteur.
+  * les **six** lectures sont dans leurs bandes, sur les DEUX seins (regle 2 du registre) ;
+  * la clause que la section ecrit EN GRAS — « **Vertical motion is intentionally the slowest** »
+    — est tenue sur les deux chaines, et dans l'ordre meme de la section :
+    **2,320 < 2,450 < 2,550** et **2,415 < 2,555 < 2,655** ;
+  * residus des quatre cellules diagonales : **0,015 a 0,019** pour un seuil de lisibilite a
+    0,08 ; du canal radial : 0,007 et 0,014 ;
+  * `f_v` reste lue sur le canal RADIAL (`PHYSRINGCN`) et non sur la ligne `v` de la translation,
+    radialement aveugle par construction. C'est le choix du cycle 97, inchange et re-verifie ici,
+    et il reste falsifiable : le pic radial de la fenetre `v` vaut **x3,84 / x3,08** (chestL) et
+    **x4,39 / x2,48** (chestR) celui des fenetres `ap` et `lat`.
 
-(c) **Le conflit §24 / §29 reste ouvert** et il appartient a l'owner, pas a moi : §29 (0,90 / 0,82)
-    implique 1,0541 / 1,1043 quand §24 exige 1,0870 / 1,1522, et l'ecart est du MEME signe et de la
-    meme taille chez Maia. Remonte au cycle 111b, non repris ici pour ne pas le remonter deux fois.
+**UNE TROISIEME RESERVE, PETITE MAIS REELLE :** le canal radial lu dans les fenetres `ap` et `lat`
+ne rend PAS la meme frequence que dans la fenetre `v` — chestL 2,405 / 2,570 et chestR 2,440 /
+2,675 contre 2,320 / 2,415. Dans la fenetre `lat` il vaut quasiment le mode LATERAL (2,550 /
+2,655) : c'est de la diaphonie, et c'est attendu. Le verdict n'utilise que la fenetre `v`, celle
+que §27 prescrit (« one strong isolated impulse ») et la seule ou le canal radial est selectif.
+Je le publie parce qu'un lecteur pressé pourrait lire ces six lignes comme six mesures du meme
+mode : elles ne le sont pas.
 
-(d) **Rien n'est prouve sur APPAREIL ce cycle** : tout est x86, et le fichier livre n'a pas bouge
-    d'un bit — il n'y a rien de neuf a observer sur un device.
-
-(e) **J'ai publie puis retire une explication dans le meme cycle** (section 4 bis) : la saturation
-    de `perr`, reprise du cycle 108 sans etre verifiee sur sa population. Elle est retiree en clair
-    plutot que reecrite en silence, et la section 4 porte la marque du retrait a l'endroit exact ou
-    la phrase se trouvait.
-
-**LA LECON DU CYCLE, ET C'EST LA MEME DEUX FOIS.** Le discriminant de collision dormait dans la
-trace depuis QUATRE courses ; l'echelle de raffinement de PH-REG/REGS/REGT/REGA y dormait depuis
-QUARANTE-CINQ cycles. Les deux ont ete lues aujourd'hui pour zero course et zero build, et les deux
-tranchent. **Ce dossier produit plus de donnees qu'il n'en lit, et c'est devenu son premier facteur
-limitant** — devant le plafond de lignes du moteur, devant le cout des courses, devant tout le reste.
-
-TIER DE BUILD : **aucun**. Zero compilation, zero course, zero APK. Lecture d'une trace archivee
-(99 481 lignes, `PHYSEND` et `PHYSCOUNTS` presents, donc course complete) plus un script d'analyse
-et deux mises a jour de documentation. C'est le tier le moins cher qui prouve le changement, et il
-se trouve que c'etait aussi le seul necessaire.
-
-A TESTER PAR L'OWNER : **rien.** DIRECTIVES 2026-08-20 23:30 — on ne le sollicite pas pour un
-changement d'une seule section, et ce cycle ne change meme pas le comportement : aucun bit du
-fichier livre ni du moteur n'a bouge. Le seuil de re-sollicitation (§9-13, §14-20, §24-27) est a
-3 tenues sur 16.
+**§24 EST DONC `TENUE`.** Et je redis ce que la ligne du tableau dit elle-meme : elle ne ferme
+rien. Seul l'owner ferme une ligne ; `TENUE` veut dire « ma mesure est dans sa bande », jamais
+« approuve ».
 
 ================================================================================================
-6. ETAT DU VALIDATEUR — EN DERNIER, PARCE QU'IL NE MESURE PAS L'AVANCEMENT
+4 bis. L'ESCALADE §24 / §29 DU CYCLE 112 EST RETIREE — ELLE NE BLOQUE PAS KEIRA
 ================================================================================================
-Sortie de 18 lignes, la longueur attendue (une sortie qui RETRECIT voudrait dire que des gates ont
-cesse d'etre evaluees — `engine-line-ceiling-hides-all-gates`). SCOPE, CLEAN, TUNING, ROOM,
-COLLIDE (x5), IDLE, ANIM (x2), DISCRIMINANT : toutes vertes, `[Grecharged-secondary-motion PASS]`
-imprime. Le seul echec est
+J'ai remonte a l'owner, au cycle 112 (point c), que « §29 (0,90 / 0,82) implique 1,0541 / 1,1043
+quand §24 exige 1,0870 / 1,1522 » et que l'arbitrage lui appartenait. **La comparaison etait faite
+au mauvais niveau : §24 publie des PLAGES, pas seulement des nominaux.**
+
+    personnage   axe   C(§29)   f = f_v/√(C)     plage §24     verdict
+    KEIRA        ap     0,90      2,4244 Hz      2,3 - 2,7     DANS
+    KEIRA        lat    0,82      2,5399 Hz      2,4 - 2,9     DANS
+    MAIA         ap     0,95      1,8981 Hz      1,9 - 2,2     HORS
+    MAIA         lat    0,88      1,9721 Hz      2,0 - 2,3     HORS
+
+Pour **Keira — le perimetre** — les deux tombent DANS. La sur-determination du document ne bloque
+rien chez elle, et l'escalade etait un blocage fabrique par moi. Elle mord sur **Maia**, et ce
+test croise donne l'information NEUVE que le cycle 111 n'avait pas cherchee : **la relation
+`f = f_v/√(C)` marche sur un personnage et pas sur l'autre, donc §24 et §29 sont deux exigences
+INDEPENDANTES**, jamais l'une derivee de l'autre. `.autoport/c113_spec24_spec29.py`.
+
+**CE QUE JE LAISSE A L'OWNER, ET C'EST UNE INFORMATION, PLUS UN BLOCAGE :** si un jour la physique
+de Maia est livree, ses §24 et §29 ne peuvent pas etre tenues par le meme bouton. Chez Keira, si.
+
+================================================================================================
+5. LE FACTEUR LIMITANT DU DOSSIER, CHIFFRE POUR LA PREMIERE FOIS
+================================================================================================
+Le cycle 112 a ecrit que ce dossier « produit plus de donnees qu'il n'en lit » et que c'etait
+devenu son premier facteur limitant. Ce n'etait pas chiffre. Ca l'est :
+
+    lignes de la course archivee                                     99 481
+    lignes portant un tag d'emission                                 88 308   (232 tags distincts)
+    dont le tag n'a AUCUN lecteur dans `.autoport/` (1 068 scripts)   4 296   (28 tags)
+    dont le tag ne traverse pas `physics_room_table.py`,
+      le SEUL instrument qui tourne a chaque course                  49 469   (56,0 %)
+
+Apres ce cycle, `PHYSRINGAN` / `PHYSRINGAN2` / `PHYSRINGCN` (5 400 lignes) passent du cote lu :
+**sans lecteur du tout 28 tags / 4 296 lignes -> 26 tags / 696 lignes**, et non lus par
+l'instrument permanent **56,0 % -> 49,9 %**. Les deux comptes sont recomptes a la main sur la
+trace et sur les 1 068 scripts, pas repris d'un rapport.
+
+**LE PLUS GROS RESTE DEHORS, ET JE LE NOMME :** `PHYSJTW` porte **27 528 lignes** — le plus gros
+emetteur de toute la trace — et n'est lu que par des scripts de cycle morts (c80 a c102). Viennent
+ensuite `PHYSRINGBZ`/`BZ2`/`BX2`/`BN`/`BN2` a 1 800 lignes chacun.
+
+**TROIS LECTEURS POINTENT DES EMETTEURS RETIRES, ET ILS PRODUISENT DES LIGNES « ABSENT » QUI SE
+LISENT COMME DES MESURES MANQUANTES.** `PHYSDIAG7`, `PHYSLIM2` et `PHYSLIM3` ont ete retires du
+moteur au cycle 36 ; leurs lecteurs sont restes dans `physics_room_table.py` (:4023, :4128, :4120).
+Trois autres lecteurs n'ont AUCUN emetteur nulle part : `PHYSSHELL` (:4001), `PHYSB0`, `PHYSE21`.
+Et `ROOM-COMEX` est lu par `c34e2_verdict.py` sous un nom que la table ne publie plus
+(`ROOM-COMEX-MAX2`). Je ne les touche pas ce cycle — les toucher change des lignes de tableau que
+des gates lisent, et ce n'est pas le chantier nomme. Signale au superviseur.
+
+**UNE CORRECTION QUE JE FAIS A MON PROPRE INVENTAIRE.** Il m'a ete remonte que la gate
+`ROOM-ANIM-SKIPPED` du validateur serait « structurellement vacue ». Verifie au code : la ligne
+`if skipped and not re.search(...)` (:306) est effectivement INATTEIGNABLE, parce que
+`if skipped > 0: ... sys.exit(1)` la precede (:296). Mais l'exigence de FOND — aucune animation
+ecartee — est portee par cette gate-la, et elle est vivante. C'est une branche morte, pas un trou.
+Je le rectifie plutot que de le relayer.
+
+================================================================================================
+6. UN CINQUIEME SUSPECT DE §18 EST NE ET MORT DANS LE MEME CYCLE — MEME PIEGE D'AXE, TROISIEME FOIS
+================================================================================================
+`PHYSREGCB` publie les directions d'OS des deux chaines dans la pose epinglee de PH-REGC (sujet
+droit, immobile) et n'a aucun lecteur. Lues, elles donnent un ecart BRUT gauche/droite de
+**43,49 deg** (`l=0`) et **44,34 deg** (`l=1`), et un miroir en X MONDE de **50,00 deg** — de quoi
+conclure « les deux chaines ne sont pas miroir », c'est-a-dire un cinquieme suspect pour §18 apres
+les quatre refutes au cycle 112.
+
+**C'EST UN CHOIX D'AXE ERRONE, ET LE BON AXE EST PUBLIE SUR LA LIGNE D'A COTE.** `PHYSREGCW` donne
+le triedre du SUJET (orthonorme a 1e-6). Le plan median a pour normale l'axe **LATERAL** (`wa=2`),
+pas l'axe monde X ni `wa=1` :
+
+    normale du plan          l=0        l=1
+      wa=0  vertical      164,97 deg  167,75 deg
+      wa=1  avant/arriere  46,27 deg   46,17 deg
+      X MONDE              50,00 deg   49,37 deg
+      wa=2  LATERAL         0,19 deg    0,47 deg   <- le plan median
+
+**Les deux os sont miroir a moins d'un demi-degre.** Le suspect n'existe pas, et le resultat est
+meilleur que ca : il **corrobore le cycle 112b par un second chemin** — la geometrie d'OS, la ou
+112b lisait l'ancre. Ni la pose ni le rig ne portent l'asymetrie de §18 ; elle est dans le solveur.
+
+Note que `wa=1` rend **46,27 deg**, c'est-a-dire exactement le « 46 deg » que le cycle 112b avait
+publie puis retire comme sa propre erreur d'axe. Le meme piege a mordu trois fois sur ce dossier.
+Il est desormais au registre sous `project_keira_median_plane_normal_is_the_lateral_axis`.
+
+================================================================================================
+7. CE QUE JE N'AI PAS FAIT, DECLARE AU LIEU D'ETRE TU
+================================================================================================
+(a) **§25, §26 ET §27 NE SONT PAS RE-JUGEES SUR CE BLOC, ALORS QUE SES DONNEES LE PERMETTRAIENT.**
+    `ROOM-AXC-FIT` publie `zeta` et le rebond des memes cellules (zeta 0,35 sur les quatre
+    diagonales, rebond 0,307 / 0,313 / n/a). §25 et §26 sont deja `TENUE` sur ces memes fenetres
+    par un autre chemin (le cycle 96), et §27 est `PARTIELLE`. Les re-prononcer a la volee, en
+    fin de cycle, sur un bloc que je viens d'ecrire, serait exactement le correctif a mi-chemin
+    que la directive du 2026-08-19 23:50 interdit. Le rapprochement est nomme ici comme le pas
+    suivant, pas fait ici.
+
+(b) **LE CANAL DE §24 N'EST TOUJOURS PAS BRANCHE, ET LA SECTION EST TENUE SANS LUI.**
+    `GlobalFrequencyAP` (2,50) et `GlobalFrequencyLateral` (2,65) restent `CANAL ABSENT` :
+    l'anisotropie livree vient des compliances de §29 via `*phys-axs*`, pas des cles de §24 du
+    fichier livre. La section tient A LA BANDE sans que ses deux boutons existent. C'est un
+    manque d'implementation NOMME (direction du 2026-08-22 23:00), pas une section qui echoue —
+    et je refuse de le presenter comme un acquis complet.
+
+(c) **LE PLAFOND DU MOTEUR RESTE A 7 LIGNES** (`jak-hd-physics.gc` 4793 pour un plafond de 4800).
+    Ce cycle n'a pas touche au moteur, donc il n'en avait pas besoin ; mais la remontee du cycle
+    112 tient, et je la reformule avec la mesure que la gate elle-meme demande (« c'est la
+    COMPOSITION qui decide, jamais le nombre ») :
+        clamps 3 · hysteresis 1 · sommeil/gel 1 · fmin/fmax 76 · contrainte-longueur/projection 47
+    contre **84 clamps et 9 hysteresis** dans le moteur de 6 000 lignes que le plafond vise. La
+    croissance n'est pas de la suppression. **Je ne touche pas la gate** (regle 5) : c'est au
+    superviseur de trancher, et §8, §21 et la moitie rotation de §37 attendent cet arbitrage.
+
+(d) **RIEN N'EST PROUVE SUR APPAREIL, ET IL N'Y A RIEN A Y PROUVER.** Zero ligne de moteur, zero
+    bit du fichier livre, zero course neuve : le comportement du jeu est identique au bit pres a
+    celui du cycle 112. Le seul artefact qui bouge est le TABLEAU, et il se recalcule sur la trace
+    archivee. Substrat : x86, lecture seule.
+
+(e) **LES SIX AUTRES BLOCAGES D'INSTRUMENT QUE J'AI TROUVES NE SONT PAS CORRIGES** (section 5) :
+    trois lecteurs pointent des emetteurs retires au cycle 36, trois n'ont aucun emetteur, un est
+    un renommage non reporte. Les corriger change des lignes que des gates lisent, et ce n'etait
+    pas le chantier nomme. Signale, pas fait.
+
+(f) **JE N'AI PAS TOUCHE UNE SEULE GATE DU VALIDATEUR**, ni un seuil, ni un plancher. Le bloc
+    ajoute est en AVAL de toutes les gates : il ne peut rien faire passer au vert. Verifie par
+    diff : la nouvelle table ne RETIRE ni ne MODIFIE aucune ligne de l'ancienne — 91 lignes
+    ajoutees, 0 changee, 0 supprimee.
+
+================================================================================================
+8. TIER DE BUILD, ET CE QUE L'OWNER DOIT TESTER
+================================================================================================
+**TIER : AUCUN.** Zero compilation, zero course, zero APK. Une lecture de la trace archivee
+(99 481 lignes, `PHYSEND` et `PHYSCOUNTS` presents, donc course complete), un bloc ajoute au
+generateur de tableau, et deux scripts d'analyse. C'est le tier le moins cher qui prouve le
+changement — et pour la troisieme fois de suite, c'etait le seul necessaire.
+
+**A TESTER PAR L'OWNER : RIEN.** Directive du 2026-08-20 23:30 : on ne le sollicite pas pour un
+changement d'une seule section, et ce cycle ne change meme pas le comportement — pas un bit du
+fichier livre ni du moteur n'a bouge. Le seuil de re-sollicitation (§9-13, §14-20, §24-27) passe
+de 3 tenues sur 16 a **4 sur 16**.
+
+================================================================================================
+9. ETAT DU VALIDATEUR — EN DERNIER, PARCE QU'IL NE MESURE PAS L'AVANCEMENT
+================================================================================================
+Sortie de **18 lignes**, la longueur attendue — une sortie qui RETRECIT voudrait dire que des
+gates ont cesse d'etre evaluees (`engine-line-ceiling-hides-all-gates`). SCOPE, CLEAN, TUNING,
+ROOM, COLLIDE (x5), IDLE, ANIM (x2), DISCRIMINANT : toutes vertes, `[PASS]` imprime. Le seul
+echec est
 
     OPEN-DEFECTS: breast-spec-incomplete
 
-qui n'a pas de mode « reussi » par construction. Le validateur sort donc 1, et il sortira 1 tant que
-l'owner n'aura pas parle. Ce n'est pas un defaut de ce cycle : c'est la porte humaine.
+qui n'a **pas de mode « reussi » par construction** : seul l'owner retire cette ligne, et le jeton
+`.autoport/owner-ok/<phase>` n'est jamais cree a sa place. Le validateur sort donc 1, et il
+sortira 1 tant qu'il n'aura pas parle. Ce n'est pas un defaut de ce cycle : c'est la porte humaine,
+arbitree comme telle par le superviseur le 2026-08-23 a 01:20.
+
+**ET LE RAPPEL QUI VA AVEC, PARCE QUE C'EST LUI QUI COMPTE :** treize gates au vert pour quatre
+sections tenues sur 38 n'est pas un paradoxe, c'est le diagnostic du superviseur sur mes gates.
+Elles verifient l'INTEGRITE DE LA MESURE, pas la conformite a sa spec. L'avancement est en
+section 0, et nulle part ailleurs.
 
 DIRECTIVES vd9e8b66782
