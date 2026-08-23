@@ -1,0 +1,54 @@
+CYCLE 119b — PREDICTIONS, ECRITES AVANT D'AVOIR LU UNE SEULE LIGNE DE LA COURSE
+DIRECTIVES vd9e8b66782
+
+ETAT AU MOMENT OU J'ECRIS : la course tourne, `grep -ac '^PHYSORI5'` rend 0 et la phase ORI n'a
+pas encore commence (PHYSORI/PHYSORI2/PHYSORITRL a 0 eux aussi). Aucun chiffre de ce cycle n'a
+ete lu.
+
+SECTION DONT CE LOT DEBLOQUE LE VERDICT : §11.
+GESTE : un cliquet de MAXIMUM sur `*phys-dfs*` (les trois echelles COMMANDEES), remis a zero par
+le meme `phys-stats-reset!` que `*phys-rrml*`, emis par `PHYSORI5` au MEME point que
+`PHYSORITRL`. Objet : savoir si `HangingTransientLengthMax = 1.30` MORDRAIT une fois cablee.
+
+RAISONNEMENT QUI PRODUIT LES CHIFFRES (algebre du site, `jak-hd-physics.gc`) :
+  sz1 = cvn * sz0 * (1 + smc)
+  `sz0` est un melange CONVEXE de poles pilote par la direction de gravite : il ne peut pas
+  depasser son pole, donc il monte de facon monotone vers la valeur tenue et n'a PAS de
+  transitoire propre. `cvn` est le facteur de conservation de volume de §8, tres proche de 1.
+  `smc` est le mode secondaire de §36, borne par `phys-softmin` a `SecondaryJiggleHardMax` = 0.07
+  (image OUVERTE [0, 0.07)). **Donc tout le transitoire de l'echelle vient de §36, et il est
+  borne par +7 %.**
+
+P1  szm(prone, i=6) est SUPERIEUR au tenu, et l'ecart est celui du mode secondaire :
+      chestL  tenu 1.2195 -> szm dans [1.2195 ; 1.3049]
+      chestR  tenu 1.2125 -> szm dans [1.2125 ; 1.2974]
+    FALSIFICATEUR : un szm INFERIEUR au tenu, ou superieur a tenu x 1.07 — l'un ou l'autre
+    refuterait l'algebre ci-dessus, donc ma lecture du site.
+
+P2  LA CLE EST AU BORD, ET C'EST LE POINT INTERESSANT : le plafond 1.30 tombe DANS l'intervalle
+    de chestL (borne haute 1.3049) et HORS de celui de chestR (1.2974). Je predis donc que la
+    reponse a « la cle mordrait-elle ? » est **OUI SUR chestL, NON SUR chestR**, ou **NON SUR LES
+    DEUX** si le mode secondaire ne sature pas pendant l'etablissement prone.
+    FALSIFICATEUR : `AU-DESSUS` sur chestR — ma borne serait fausse.
+
+P3  szm(debout, i=0) reste sous 1.07 (le tenu y vaut 1.0000).
+    FALSIFICATEUR : szm(i=0) > 1.07 -> il existe une source de transitoire d'echelle que
+    l'algebre ci-dessus ne contient pas, et P1/P2 tombent avec elle.
+
+P4  CONTROLE DE NON-REGRESSION, ET C'EST LUI QUI DECIDE SI LE RESTE DU CYCLE 119 TIENT : le
+    cliquet est un COMPTEUR, il n'ecrit aucune variable d'etat du solveur. La course doit donc
+    etre IDENTIQUE a `keira-room-x86.c118-REF.log` (md5 05ff18290dc96fcd5c676e44f7547306) **hors
+    les lignes `PHYSORI5` (neuves) et la banniere de demarrage (adresses de tas)**.
+    SEUIL : <= 2 lignes `PHYS*` differentes hors PHYSORI5.
+    FALSIFICATEUR : au-dela, le lot a touche autre chose qu'un compteur, et TOUS les chiffres
+    publies par le cycle 119 sur la course de reference sont a relire.
+
+P5  LE PLAFOND DE LIGNES TIENT : `jak-hd-physics.gc` a 4793 lignes (etait 4794 ; +5 de cliquet,
+    -8 par le deplacement VERBATIM de la docstring de `phys-cap-e22!` vers [NOTE-506]).
+    FALSIFICATEUR : > 4800, et la gate CLEAN coupe la sortie du validateur.
+
+CE QUE CES PREDICTIONS NE COUVRENT PAS, ET JE LE DIS D'AVANCE : elles portent sur la cellule
+d'ORIENTATION prone de la salle, qui est un ETABLISSEMENT DE POSE sur 60 frames. Ce n'est pas
+forcement le geste que l'owner appelle « transient settling » dans sa §11. Si la mesure rend un
+transitoire quasi nul, la conclusion honnete sera « la cle est inerte SUR CE GESTE », pas « la
+cle est inerte ».

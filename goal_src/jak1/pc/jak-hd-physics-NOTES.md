@@ -9487,3 +9487,19 @@ Texte d'origine, mot pour mot :
     Le cycle 35 a mesure qu'elles ne couvrent aucun sommet que la sphere distale ne couvre deja ;
     cet interrupteur repond a la question a l'execution, sans toucher aux rayons — qui sont une
     SURCHARGE DE L'OWNER que la gate TUNING protege.
+
+## [NOTE-506] `phys-cap-e22!` — docstring integrale, deplacee VERBATIM depuis le source
+
+Deplacee au cycle 119b pour rendre 8 lignes au plafond de 4800 du moteur, sans toucher une
+instruction. Methode etablie depuis le cycle 51 et reemployee au cycle 118 (11 docstrings, 17
+lignes). Le texte ci-dessous est celui qui etait dans `jak-hd-physics.gc`, mot pour mot :
+
+    SPEC 22, ALTERNEE AVEC LA PEAU (cycle 104) : elle n'est PLUS le dernier ecrivain de
+    `*phys-px*` — voir NOTE-470. NATURE : une LONGUEUR rapportee a `B0` (SPEC 6, la CHAIR).
+    REPERE : le monde, contre la pose d'AUTEUR de la MEME frame rebasee sur l'ecart du parent —
+    exactement la cible du filet amont, pas une laisse vers la pose. LECTURE QUAND LE DEFAUT EST
+    ABSENT : aucune correction, `*phys-e22-n*` = 0 (a la pose d'auteur l'ecart vaut 0, donc sous le
+    genou de 0.42 B0 : la borne est INERTE PAR ALGEBRE, pas par reglage).
+    ROTATION EXACTE AUTOUR DE L'ATTACHE, donc `|p - b|` invariant AU BIT : une contraction radiale
+    vers la cible — la forme du filet amont — casserait la longueur, et aucune passe ne pourrait
+    plus la reparer. Justification complete : [NOTE-447] de jak-hd-physics-NOTES.md.

@@ -4237,7 +4237,34 @@
           ;; LIGNE DE BASE : 0.0 quand le maillon n'a pas de degre de liberte radial arme.
           (dotimes (l (phys-chain-links (-> self slot) c))
            (format 0 "PHYSORITRL c=~D i=~D l=~D rrml=~,,7f~%"
-                   c oi l (phys-chain-radial-link (-> self slot) c l 2))))))
+                   c oi l (phys-chain-radial-link (-> self slot) c l 2)))
+          ;; ---- LE PIC D'ETABLISSEMENT DE LA FORME ELLE-MEME (cycle 119b). C'EST L'INSTRUMENT
+          ;; ---- QUI MANQUAIT POUR DECIDER DU DERNIER BOUTON DE LA FILE DU 2026-08-22 23:00.
+          ;; `HangingTransientLengthMax = 1.30` (§11 l.180) borne le PIC D'ETABLISSEMENT DE LA
+          ;; LONGUEUR racine->apex. Jusqu'ici rien ne le mesurait : `PHYSORI2` lit `phys-shape`
+          ;; which 0/1/2, c'est-a-dire `*phys-dfs*` INSTANTANE (jak-hd-physics.gc), donc un
+          ;; echantillon a la frame d'emission — et l'inventaire des 200+ types d'enregistrement
+          ;; de la trace du cycle 118 n'en contenait aucun autre. Sans ce pic, cabler la cle
+          ;; produirait un canal dont on ne pourrait pas montrer qu'il agit.
+          ;; POURQUOI ICI ET PAS AILLEURS : cette emission est au MEME point que `PHYSORITRL`,
+          ;; juste avant `phys-stats-reset!`, donc les deux couvrent LA MEME fenetre (les 60
+          ;; frames d'ETABLISSEMENT) et se comparent sans hypothese. Emise ailleurs, elle
+          ;; mesurerait une autre fenetre et le rapprochement serait faux.
+          ;; NATURE : maximum de FENETRE des trois echelles COMMANDEES a la racine, sans
+          ;;   dimension (1.0 = pose d'auteur). PAS la deformation vue sur le mesh.
+          ;; REPERE : le triedre de sa §7 (+X lateral sortant, +Y haut, +Z vers l'ARRIERE —
+          ;;   voir NOTE-408, `gz > 0` = SUPINE).
+          ;; LIGNE DE BASE : 1/1/1 — c'est ce que doit rendre une cellule debout et immobile.
+          ;; RESERVE PUBLIEE AVEC LA GRANDEUR : un MAXIMUM est la statistique juste pour une
+          ;;   borne SUPERIEURE (la longueur au pendage, qui CROIT). Pour une echelle qui
+          ;;   DIMINUE (projection supine 0.70, largeur prone 0.90) l'extreme pertinent est le
+          ;;   MINIMUM, et ce cliquet ne le porte pas : sa valeur y est donc a lire comme
+          ;;   « le moins contracte de la fenetre », jamais comme un pic de deformation.
+          (format 0 "PHYSORI5 c=~D i=~D sxm=~f sym=~f szm=~f~%"
+                  c oi
+                  (phys-shape (-> self slot) c 33)
+                  (phys-shape (-> self slot) c 34)
+                  (phys-shape (-> self slot) c 35)))))
        (phys-stats-reset!)
        ;; les compteurs de diagnostic couvrent la FENETRE DE MESURE et rien d'autre : sans ce
        ;; reset ils cumuleraient l'etablissement, ou vit justement le pic de §37.

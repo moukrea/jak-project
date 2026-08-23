@@ -1766,6 +1766,18 @@ def _oricom_block(A, txt, names, ori):
         trl[(int(m.group(1)), int(m.group(2)), int(m.group(3)))] = float(m.group(4))
     for m in re.finditer(r'^PHYSORICOM2L c=(\d+) i=(\d+) l=(\d+) rrl=([-\d.e+]+)', txt, re.M):
         c2l[(int(m.group(1)), int(m.group(2)), int(m.group(3)))] = float(m.group(4))
+    # CYCLE 119b — `PHYSORI5`, LE PIC D'ETABLISSEMENT DES TROIS ECHELLES COMMANDEES. Il n'existait
+    # pas : `PHYSORI2` lit `phys-shape` which 0/1/2, c'est-a-dire l'INSTANTANE, donc un echantillon
+    # a la frame d'emission. Sans ce pic, `HangingTransientLengthMax` (1.30, §11 l.180) ne peut pas
+    # etre confrontee a une mesure, et la cabler produirait un canal dont on ne pourrait pas
+    # montrer qu'il agit. Emis au MEME point que `PHYSORITRL`, donc MEME fenetre : les 60 frames
+    # d'etablissement de la cellule. Absent d'une trace anterieure -> le bloc se tait (`ori5` vide)
+    # et le DIT, il n'invente rien.
+    ori5 = {}
+    for m in re.finditer(r'^PHYSORI5 c=(\d+) i=(\d+) sxm=([-\d.e+]+) sym=([-\d.e+]+)'
+                         r' szm=([-\d.e+]+)', txt, re.M):
+        ori5[(int(m.group(1)), int(m.group(2)))] = (float(m.group(3)), float(m.group(4)),
+                                                    float(m.group(5)))
     b0 = {}
     for m in re.finditer(r'^\[HD-PHYS\] b0 c=(\d+) flesh=([-\d.e+]+)', txt, re.M):
         b0[int(m.group(1))] = float(m.group(2))
@@ -2093,6 +2105,93 @@ def _oricom_block(A, txt, names, ori):
                          else 'DANS **VIDE** — aucun maillon ne produit de transitoire, un plafond'
                               ' qu\'on ne peut pas franchir n\'est pas une mesure',
                          _nact, len(_ln), _use))
+                    # CYCLE 119b — DEUX LECTURES DU PLAFOND, ET JE NE TRANCHE PAS ENTRE ELLES.
+                    # `rr` est une ELONGATION (une difference), pas une longueur : son accesseur
+                    # le dit mot pour mot (`phys-chain-radial-link`, « l'elongation radiale du
+                    # maillon »). Or le plafond 1.057 est le rapport de deux LONGUEURS de la spec
+                    # (1.30 / 1.23). Le rapport homologue pour une DIFFERENCE est 0.30 / 0.23 =
+                    # 1.304, soit une tolerance 5.3 fois plus large. Les deux lectures sont
+                    # publiees cote a cote : le desaccord EST la mesure, et le choix est une
+                    # question de lecture de la spec, remontee et non tranchee ici.
+                    # ET LA CELLULE DEBOUT EST PUBLIEE A COTE, PARCE QU'ELLE DONNE L'ECHELLE DE
+                    # CE QUE LA FENETRE D'ETABLISSEMENT PRODUIT A ELLE SEULE. `PHYSORITRL` est le
+                    # maximum des 60 frames d'ETABLISSEMENT (le code le declare a son site,
+                    # phys-room.gc), donc il contient la mise en place de la pose et pas seulement
+                    # la reponse a l'orientation. A la cellule i=0 (sujet debout) le pic vaut
+                    # 0.16-0.17 B0 pour un tenu de 0.0004 : le rapport pic/tenu y depasse 400.
+                    # DEUX CONSEQUENCES, ET AUCUNE N'EST UN VERDICT : (i) le denominateur du
+                    # rapport tend vers zero sur les cellules ou la chaine ne s'allonge pas, donc
+                    # la statistique n'est lisible que la ou le tenu est franc — c'est le cas au
+                    # prone (0.32 / 0.28 B0) et ce n'est PAS le cas debout ; (ii) une part du pic
+                    # prone vient de l'etablissement lui-meme, pas du pendage.
+                    _b0up, _h0up = trl.get((c, 0, _worst[0])), c2l.get((c, 0, _worst[0]))
+                    A('ROOM-ORICOM-TRL: %-12s §11 LECTURE ALTERNATIVE DU PLAFOND : `rr` est une'
+                      ' ELONGATION (son accesseur le dit : « l\'elongation radiale du maillon »),'
+                      ' donc le rapport homologue de la spec est 0.30/0.23 = 1.304 et non'
+                      ' 1.30/1.23 = 1.057, qui est un rapport de LONGUEURS. Contre 1.304 : %s,'
+                      ' %.0f %% du permis consomme. LES DEUX LECTURES SONT PUBLIEES, AUCUNE N\'EST'
+                      ' CHOISIE — c\'est une question de lecture de la spec, remontee.'
+                      % (nm, 'DANS' if _worst[1] <= 1.304 else 'AU-DESSUS',
+                         100.0 * (_worst[1] - 1.0) / 0.304))
+                    A('ROOM-ORICOM-TRL: %-12s §11 ECHELLE DE L\'ETABLISSEMENT (cellule i=0, sujet'
+                      ' DEBOUT, meme maillon) : pic=%s  tenu=%s B0. La fenetre d\'etablissement'
+                      ' produit donc a elle seule ce pic-la, orientation ou pas ; et le'
+                      ' denominateur du rapport y est quasi nul, ce qui rend la statistique'
+                      ' illisible sur cette cellule. Elle est lisible au prone (tenu franc).'
+                      % (nm, ('%.5f' % _b0up) if _b0up is not None else 'non emise',
+                         ('%.5f' % abs(_h0up)) if _h0up is not None else 'non emis'))
+                    # ---- CYCLE 119b : LA CLE ELLE-MEME, CONFRONTEE A UNE MESURE ---------------
+                    # `HangingTransientLengthMax = 1.30` borne le PIC D'ETABLISSEMENT DE LA
+                    # LONGUEUR, pas une elongation radiale. C'est `PHYSORI5 szm` — l'axe `fwd`
+                    # (index 2) du triedre de §7, celui que `_SPEC12_SHAPE` utilise deja pour
+                    # « §11 prone longueur ». Le tenu vient de `PHYSORI2` a la MEME cellule.
+                    # NATURE : maximum de FENETRE d'une echelle, sans dimension (1.0 = pose
+                    #   d'auteur). REPERE : triedre de §7. FENETRE : les 60 frames
+                    #   d'etablissement, la meme que `PHYSORITRL`.
+                    # LECTURE QUAND LE DEFAUT EST ABSENT : `szm` = le tenu, donc 0 % consomme —
+                    #   et la ligne le DIT, au lieu de laisser lire un `DANS` vide.
+                    _o5 = ori5.get((c, ip))
+                    _o2 = ori.get((c, ip))
+                    if _o5 is None:
+                        A('ROOM-ORI5: %-12s §11 PIC D\'ETABLISSEMENT DE L\'ECHELLE DE LONGUEUR —'
+                          ' ABSENT (aucune ligne PHYSORI5 : trace anterieure au cycle 119b).'
+                          ' `HangingTransientLengthMax` reste donc SANS MESURE : ni tenue, ni'
+                          ' violee, et surtout pas cablable sur la foi d\'un chiffre absent.' % nm)
+                    else:
+                        _szm = _o5[2]
+                        _szt = _o2.get('sz') if _o2 else None   # `ori` est un DICT, pas un tuple
+                        _up = ori5.get((c, 0))
+                    # GARDE DE VACUITE SUR LE CLIQUET LUI-MEME : il part de 0.0 et n'est ecrit que
+                    # sur les frames ou le canal de deformation est ARME. Un `szm` a 0 ne veut donc
+                    # pas dire « pas de transitoire », il veut dire « rien n'a ete mesure » — et
+                    # les deux se lisent pareil si on ne le dit pas. C'est le mode d'echec
+                    # `vacuity-guard` du registre, pose ici AVANT d'avoir lu le premier chiffre.
+                    if _o5 is not None and _o5[2] <= 0.0:
+                        A('ROOM-ORI5: %-12s §11 PIC D\'ETABLISSEMENT — NON MESURE : le cliquet vaut'
+                          ' 0.0000, donc le canal de deformation n\'a pas ete arme une seule frame'
+                          ' de la fenetre. Ce n\'est pas « aucun transitoire », c\'est « aucune'
+                          ' mesure », et aucun verdict ne s\'en tire.' % nm)
+                    elif _o5 is not None:
+                        A('ROOM-ORI5: %-12s §11 PIC D\'ETABLISSEMENT DE L\'ECHELLE DE LONGUEUR'
+                          ' (cellule prone i=%d) : szm=%.4f  tenu=%s  contre'
+                          ' HangingTransientLengthMax=1.30 (et HangingLengthScale=1.23)  ->  %s'
+                          % (nm, ip, _szm, ('%.4f' % _szt) if _szt else 'non emis',
+                             'DANS' if _szm <= 1.30 else 'AU-DESSUS (x%.3f)' % (_szm / 1.30)))
+                        if _szt:
+                            _ov = _szm - _szt
+                            A('ROOM-ORI5: %-12s §11   depassement mesure=%+.4f sur les 0.07'
+                              ' d\'echelle que la spec autorise entre 1.23 et 1.30, soit %.0f %% ;'
+                              ' %s'
+                              % (nm, _ov, 100.0 * _ov / 0.07,
+                                 'la cle MORDRAIT une fois cablee' if _szm > 1.30 else
+                                 ('AUCUN transitoire de longueur : un plafond qu\'on ne peut pas'
+                                  ' franchir n\'est pas une mesure, et le cabler donnerait un'
+                                  ' canal INERTE' if _ov <= 0.0005 else
+                                  'la cle serait INERTE sur cette course : le pic reste sous elle')))
+                        if _up:
+                            A('ROOM-ORI5: %-12s §11   ligne de base DEBOUT (cellule i=0) :'
+                              ' szm=%.4f — l\'ecart a 1.0 est ce que la mise en place de la pose'
+                              ' produit a elle seule, orientation ou pas.' % (nm, _up[2]))
     A('')
     # ---- CYCLE 69 : LE ROLE DES CELLULES, MESURE ; PUIS §13, QUI EN DEPEND ----------------
     _roles = _ori_role_block(A, txt, names, ori, com, role, b0)
