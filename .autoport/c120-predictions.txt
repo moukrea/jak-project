@@ -1,0 +1,110 @@
+CYCLE 120 — PREDICTIONS, ECRITES AVANT D'AVOIR LU UNE LIGNE DE LA COURSE DE CE CYCLE
+DIRECTIVES vd9e8b66782
+
+SECTION DONT CE LOT DEBLOQUE LE VERDICT (directive du 2026-08-21 18:25) : **§11**, et par
+couplage §10 et §13 (meme canal de forme). §11 est `PARTIELLE`, §10 `NON TENUE` — bloc §9-13,
+celui que la directive du 2026-08-20 23:30 met en tete.
+
+ETAT AU MOMENT OU J'ECRIS : la course de reference (configuration LIVREE, moteur inchange) tourne
+et n'a pas atteint `PHYSEND`. Aucun chiffre de ce cycle n'a ete lu. Les seuls chiffres cites
+ci-dessous viennent (a) du DOCUMENT de l'owner et (b) de la trace TRONQUEE du cycle 119b, deja
+publiee.
+
+------------------------------------------------------------------------------------------------
+LE FAIT D'ARITHMETIQUE QUI MOTIVE LE LOT (aucune course, il se refait a la main)
+------------------------------------------------------------------------------------------------
+`HangingTransientLengthMax` n'est pas un bouton independant : c'est le DEPASSEMENT D'UN SECOND
+ORDRE qui s'etablit de la pose debout (1.00) vers la pose pendante, au taux d'amortissement
+global — et les DEUX cles qui le produisent sont deja ecrites par le document sur la meme page :
+
+    HangingTransientLengthMax  =  1 + (HangingLengthScale - 1) x (1 + FirstBounceRatio)
+
+    KEIRA   1 + 0.23 x (1 + 0.31) = 1.3013   ->  1.30 ecrit l.481   ECART +0.10 %  (exact a la
+                                                 precision du document)
+    MAIA    1 + 0.33 x (1 + 0.33) = 1.4389   ->  1.45 ecrit l.953   ECART -0.76 %  ; la prose de
+                                                 Maia ecrit une PLAGE « +40 to +45% » (l.690) et
+                                                 1.4389 est DEDANS ; la cle est epinglee au HAUT.
+    (`FirstBounceRatio` est la cle du document lui-meme, l.467 / l.939 ; le recalcul
+     exp(-pi.z/sqrt(1-z^2)) rend 0.3092 / 0.3335 et deplace les deux resultats de moins de 0.2 %.)
+
+RESERVE PUBLIEE AVEC LE FAIT : l'identite est EXACTE sur Keira et DANS LA BANDE ECRITE sur Maia,
+pas exacte sur les deux. Elle ne satisfait donc PAS le critere `P-IDENTITE` du cycle 119 (« exact
+sur LES DEUX presets »). Je ne la classe pas `REDONDANTE` ; je la publie comme ce qu'elle est.
+
+CE QUE CA TRANCHE, ET C'EST LA QUESTION QUE LE CYCLE 119b A REMONTEE SANS LA FERMER : la clause
+de §11 se lisait de deux facons opposees — un PLAFOND (« ...Max », un seul nombre chez Keira) ou
+un PIC ATTENDU. Un plafond arbitraire ne tomberait pas a 0.10 % du depassement de second ordre
+que les deux autres cles imposent. **Les deux lectures disent donc la meme chose : le pic doit
+EXISTER a ~+30 %.** La cle est sa borne ; le defaut est le pic qui manque.
+
+------------------------------------------------------------------------------------------------
+LE GESTE DU LOT
+------------------------------------------------------------------------------------------------
+Le canal de forme est aujourd'hui SANS MEMOIRE : `sx0/sy0/sz0` (jak-hd-physics.gc:3577-3582) sont
+un melange CONVEXE des poids de direction de gravite, evalue a la frame, sans etat. Une echelle
+sans etat ne peut pas depasser sa valeur d'equilibre : le seul terme dynamique de ce canal est le
+mode secondaire de §36, borne a `SecondaryJiggleHardMax` = 0.07, et la trace tronquee du 119b le
+mesure a **1.0 % / 1.9 %** du depassement que §11 demande sur la cellule prone.
+
+LOT : un second ordre sur les TROIS echelles, exactement la recurrence symplectique deja employee
+par §29 et §36 (`phys-osc-k2` / `phys-decay`), avec omega = 2.pi.raideur/sqrt(masse) (la cle
+`GlobalFrequencyVertical`) et zeta = `GlobalDampingRatio`, tous deux LUS DANS LE FICHIER LIVRE.
+`HangingTransientLengthMax` n'est PAS donne au solveur : le pic reste une grandeur EMERGENTE, et
+c'est ce qui empeche la mesure d'etre un miroir.
+
+------------------------------------------------------------------------------------------------
+PREDICTIONS
+------------------------------------------------------------------------------------------------
+P0  COURSE DE REFERENCE (avant le lot) : `PHYSORI5` sur la cellule prone i=6 doit reproduire les
+    chiffres de la trace tronquee du 119b — szm 1.2202 (chestL) / 1.2138 (chestR), a 1e-3 pres.
+    FALSIFICATEUR : un ecart > 1e-3. Il voudrait dire que la course tronquee et la course
+    complete ne mesurent pas la meme chose, et tous les chiffres de 119b seraient a relire.
+
+P1  INERTIE AU REPOS, PAR ALGEBRE : a la pose debout d'auteur la cible vaut (1,1,1) et l'etat est
+    INITIALISE a (1,1,1) — c'est donc un POINT FIXE, pas un regime transitoire amorti.
+    PREDICTION : `PHYSORI2 i=0` reste 1.0000/1.0000/1.0000 et `ROOM-IDLE maxdev` ne bouge pas.
+    FALSIFICATEUR : le moindre ecart a i=0. Il designerait une erreur d'initialisation, et le lot
+    violerait §2/§9 (« Additional Procedural Sag = 0% »).
+
+P2  LE DEPASSEMENT MESURE, ET C'EST LE VERDICT DU LOT. Sur chaque PAS d'orientation du balayage,
+    le rapport
+        rho = (pic - tenu_i) / (tenu_i - tenu_{i-1})
+    (les trois grandeurs sont deja emises : `PHYSORI5` pour le pic, `PHYSORI2` pour les tenus)
+    doit valoir `FirstBounceRatio` = 0.31, MEDIANE sur les 8 pas x 2 chaines, et non un maximum
+    (`a-maximum-is-not-a-linear-functional`).
+    PREDICTION : mediane de rho dans [0.24 ; 0.38].
+    FALSIFICATEUR : mediane < 0.15 ou > 0.50 -> l'oscillateur n'a pas la forme que je crois, ou
+    les 60 frames d'etablissement ne contiennent pas le pic.
+    AVANT LE LOT, la meme mediane doit valoir ~0 (canal sans memoire).
+
+P3  LE PIC DEBOUT->PRONE, QUI EST LE CHIFFRE DE SA §11. Le balayage ne joue PAS ce pas (il va de
+    45 deg a 90 deg), donc le pic contre 1.30 est une DERIVATION, pas une mesure, et il se publie
+    comme telle :
+        pic(debout->prone) = tenu_prone + rho x (tenu_prone - 1.0)
+    Avec tenu_prone = 1.2195 / 1.2125 (mesures) et rho = 0.31 : **1.2876 / 1.2784**.
+    PREDICTION : la derivation tombe dans [1.26 ; 1.31].
+    RESERVE ECRITE D'AVANCE : meme si elle y tombe, §11 ne devient PAS `TENUE` par cette
+    derivation — il manque le geste. La cellule debout->prone est le chantier nomme du cycle 121.
+
+P4  LES EQUILIBRES NE BOUGENT QUASI PAS. 60 frames d'etablissement a zeta.omega = 0.35 x 2.pi x
+    2.30 = 5.06 /s laissent e^-5.06 = 0.64 % du pas.
+    PREDICTION : chaque tenu de `PHYSORI2` bouge de moins de 2 % en valeur relative.
+    FALSIFICATEUR : > 5 % -> la fenetre d'etablissement est trop courte pour le second ordre et
+    le balayage mesure une trajectoire, pas un equilibre.
+
+P5  COUT DECLARE D'AVANCE, PARCE QU'IL EST STRUCTUREL : le tenseur porte 37-41 % de l'exces
+    d'apex de §22 (registre `apex-excess-lives-in-the-deformation-tensor`). Un depassement de
+    +31 % du pas d'echelle pendant l'etablissement doit donc faire MONTER `comex` et `meshpen` en
+    TRANSITOIRE.
+    PREDICTION : `BREAST-PENETRATION` (meshpen max) monte, et de moins de x1.5.
+    FALSIFICATEUR : une BAISSE (le lot ne ferait pas ce que je dis) ou un facteur > 2 (le cout
+    serait hors de proportion et le lot se retire, mesure a l'appui).
+
+P6  PLAFOND DE LIGNES : `jak-hd-physics.gc` doit rester <= 4800. Il est a 4793 ; le lot ajoute
+    10 lignes et en rend 6 par le deplacement VERBATIM de la docstring de `phys-shape` vers
+    [NOTE-507]. Cible : 4797.
+    FALSIFICATEUR : > 4800 — la gate CLEAN est une gate BASH qui SORT, et la sortie du validateur
+    tomberait de 18 lignes a 3 sans qu'aucune gate de mesure soit evaluee.
+
+P7  NON-REGRESSION DE PERIMETRE : `PHYSCOUNTS chains=2`, `PHYSJOINT` ne nomme que lBoob/lBooc/
+    rBoob/rBooc. Le lot ne touche a aucune chaine.

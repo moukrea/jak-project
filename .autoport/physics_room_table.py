@@ -2192,6 +2192,107 @@ def _oricom_block(A, txt, names, ori):
                             A('ROOM-ORI5: %-12s §11   ligne de base DEBOUT (cellule i=0) :'
                               ' szm=%.4f — l\'ecart a 1.0 est ce que la mise en place de la pose'
                               ' produit a elle seule, orientation ou pas.' % (nm, _up[2]))
+                        # ---- CYCLE 120 : LE DEPASSEMENT, EN RAPPORT AU PAS D'ECHELLE ------
+                        # POURQUOI UN RAPPORT ET PAS LE PIC BRUT. Le balayage ne joue JAMAIS le
+                        # pas debout->prone : il va de 45 deg a 90 deg. Comparer `szm` a 1.30
+                        # compare donc un pic obtenu sur un pas de 45 deg a une valeur que la
+                        # spec ecrit pour un pas de 90 deg — `stimulus-must-be-representative`.
+                        # Le rapport rho = (pic - tenu_i) / (tenu_i - tenu_{i-1}) ne depend PAS
+                        # de la taille du pas : c'est la grandeur comparable.
+                        # NATURE : un rapport sans dimension. REPERE : triedre de §7.
+                        # FENETRE : pic = 60 frames d'etablissement de la cellule i ; tenus = les
+                        #   30 frames de mesure des cellules i et i-1.
+                        # CIBLE : `FirstBounceRatio` = 0.31 (l.467), qui est aussi
+                        #   exp(-pi.z/sqrt(1-z^2)) pour z = `GlobalDampingRatio` = 0.35.
+                        # LECTURE QUAND LE CANAL EST SANS MEMOIRE : rho = 0 — une fonction sans
+                        #   etat ne depasse pas sa cible. C'est la ligne de base, et elle rend la
+                        #   mesure falsifiable dans les DEUX sens.
+                        # STATISTIQUE : la MEDIANE de la population des pas, jamais un maximum.
+                        # GARDE DE VACUITE : un pas trop petit (< 0.01) ou DECROISSANT est EXCLU
+                        #   et COMPTE — le cliquet ne porte que le maximum, donc il ne peut rien
+                        #   dire d'une echelle qui diminue.
+                        _rh = []
+                        _vac = 0
+                        for _i in range(1, 11):     # 9/10 = le pas debout->prone ajoute au c120
+                            _a, _b = ori.get((c, _i)), ori.get((c, _i - 1))
+                            _pk = ori5.get((c, _i))
+                            if not _a or not _b or not _pk:
+                                continue
+                            for _ax, _k in ((0, 'sx'), (1, 'sy'), (2, 'sz')):
+                                _t1, _t0 = _a.get(_k), _b.get(_k)
+                                if _t1 is None or _t0 is None:
+                                    continue
+                                if _t1 - _t0 < 0.01:
+                                    _vac += 1
+                                    continue
+                                _rh.append((_pk[_ax] - _t1) / (_t1 - _t0))
+                        if _rh:
+                            _rh.sort()
+                            _md = _rh[len(_rh) // 2] if len(_rh) % 2 else \
+                                  0.5 * (_rh[len(_rh) // 2 - 1] + _rh[len(_rh) // 2])
+                            A('ROOM-SPEC11-RHO: %-12s depassement d\'etablissement rapporte au PAS'
+                              ' d\'echelle, mediane rho=%.4f sur n=%d pas (min %.4f max %.4f ;'
+                              ' %d exclus : pas < 0.01 ou decroissant) contre FirstBounceRatio'
+                              ' 0.31  ->  %s'
+                              % (nm, _md, len(_rh), _rh[0], _rh[-1], _vac,
+                                 'DANS [0.24 ; 0.38]' if 0.24 <= _md <= 0.38 else
+                                 ('CANAL SANS MEMOIRE (rho ~ 0 : l\'echelle saute a sa cible, le'
+                                  ' pic de §11 est structurellement impossible)' if _md < 0.05
+                                  else 'HORS [0.24 ; 0.38]')))
+                            if _szt:
+                                A('ROOM-SPEC11-RHO: %-12s DERIVATION (le balayage ne joue PAS le'
+                                  ' pas debout->prone) : pic = %.4f + %.4f x (%.4f - 1) = %.4f'
+                                  ' contre HangingTransientLengthMax = 1.30. C\'est une'
+                                  ' DERIVATION, pas une mesure : §11 ne peut pas etre declaree'
+                                  ' TENUE dessus.'
+                                  % (nm, _szt, _md, _szt, _szt + _md * (_szt - 1.0)))
+                        else:
+                            A('ROOM-SPEC11-RHO: %-12s AUCUN pas exploitable (%d exclus). Rien'
+                              ' n\'est conclu : un domaine vide n\'est pas un zero.' % (nm, _vac))
+                        # ---- CYCLE 120 : LE PAS DEBOUT->PRONE, JOUE POUR DE VRAI ----------
+                        # Les cellules 9 (debout, 0 deg) et 10 (prone, 90 deg autour de l'axe 1)
+                        # ont ete AJOUTEES EN QUEUE du balayage pour que ce pas — celui que §11
+                        # decrit, 1.00 -> 1.23 — soit REELLEMENT joue. Avant, le pic etait
+                        # compare a 1.30 alors qu'il venait d'un pas de 45 deg : la comparaison
+                        # etait fausse par le stimulus, pas par le chiffre.
+                        # NATURE : maximum de FENETRE d'une echelle, sans dimension.
+                        # REPERE : triedre de §7, axe `fwd` (index 2).
+                        # FENETRE : les 60 frames d'etablissement de la cellule 10.
+                        # LIGNE DE BASE PUBLIEE A COTE : le tenu de la cellule 9, qui DOIT valoir
+                        #   ~1.0000 (pose debout d'auteur, §9) — s'il ne le vaut pas, le pas n'est
+                        #   pas celui que §11 decrit et le verdict ne vaut rien.
+                        _c9, _c10 = ori.get((c, 9)), ori.get((c, 10))
+                        _p10 = ori5.get((c, 10))
+                        if not (_c9 and _c10 and _p10):
+                            A('ROOM-SPEC11-STEP: %-12s ABSENT — la trace ne porte pas les cellules'
+                              ' 9/10 (course anterieure au cycle 120). Le pic contre 1.30 reste'
+                              ' une DERIVATION.' % nm)
+                        else:
+                            _t9, _t10, _pk10 = _c9.get('sz'), _c10.get('sz'), _p10[2]
+                            _pas = (_t10 - _t9) if (_t9 is not None and _t10 is not None) else 0.0
+                            A('ROOM-SPEC11-STEP: %-12s PAS DEBOUT->PRONE JOUE : tenu debout'
+                              ' (i=9) %.4f -> tenu prone (i=10) %.4f  |  PIC=%.4f  contre'
+                              ' HangingTransientLengthMax=1.30  ->  %s'
+                              % (nm, _t9 if _t9 is not None else float('nan'),
+                                 _t10 if _t10 is not None else float('nan'), _pk10,
+                                 'DANS' if _pk10 <= 1.30 else 'AU-DESSUS (x%.3f)' % (_pk10 / 1.30)))
+                            if abs(_pas) > 0.01:
+                                _r = (_pk10 - _t10) / _pas
+                                A('ROOM-SPEC11-STEP: %-12s   depassement rho=%.4f contre'
+                                  ' FirstBounceRatio 0.31 ; pic attendu par la loi du second ordre'
+                                  ' = %.4f + 0.31 x %.4f = %.4f  (ecart mesure-vs-loi %+.4f)'
+                                  % (nm, _r, _t10, _pas, _t10 + 0.31 * _pas,
+                                     _pk10 - (_t10 + 0.31 * _pas)))
+                                if _r < 0.05:
+                                    A('ROOM-SPEC11-STEP: %-12s   rho ~ 0 SUR LE PAS QUE LA SECTION'
+                                      ' DECRIT : le canal de forme n\'a pas de memoire, donc le'
+                                      ' « transient settling peak » de §11 est structurellement'
+                                      ' impossible — ce n\'est pas un reglage, c\'est un canal'
+                                      ' absent.' % nm)
+                            else:
+                                A('ROOM-SPEC11-STEP: %-12s   PAS TROP PETIT (%.4f) : le rapport'
+                                  ' n\'a pas de sens et n\'est pas publie (garde de vacuite).'
+                                  % (nm, _pas))
     A('')
     # ---- CYCLE 69 : LE ROLE DES CELLULES, MESURE ; PUIS §13, QUI EN DEPEND ----------------
     _roles = _ori_role_block(A, txt, names, ori, com, role, b0)

@@ -12,295 +12,351 @@ DECLARATIONS OBLIGATOIRES — CE BLOC RESTE EN TETE DE CHAQUE RAPPORT ET NE SE R
   ecriture, a faire AVANT de commiter :
       bash .autoport/validators/phase-Grecharged-secondary-motion.sh | wc -l   -> 18 lignes
   Une sortie PLUS COURTE que 18 lignes signale une gate qui a coupe le reste, jamais un progres.
+  ADDENDUM DU CYCLE 120 (ajoute SOUS le bloc, qui n'est pas reecrit) : cette fois la sortie fait
+  **15 lignes**, et la raison est NOMMEE et non subie — `COLLIDE §33/§34` echoue et son
+  `verdict()` sort avant `DISCRIMINANT`, `[PASS]` et `OPEN-DEFECTS`. La gate masquee est
+  rejouee a la main en section 5 et elle PASSE. Le prochain cycle compare donc a 15, pas a 18,
+  tant que `COLLIDE` est rouge.
 
-BREAST-PENETRATION: 0.0782 m — `meshpen`, DIAGNOSTIC, jamais un verdict (arbitrage 2026-08-20
+
+BREAST-PENETRATION: 0.0915 m — `meshpen`, DIAGNOSTIC, jamais un verdict (arbitrage 2026-08-20
 13:20 : c'est un DEPLACEMENT, pas une profondeur, et un seuil en metres de PROFONDEUR n'a pas de
 sens dessus).
-  chestL meshpen max 0.0522 m
-  chestR meshpen max 0.0782 m
-  RECALCULE CE CYCLE sur les lignes `row ` du tableau, pas recopie du rapport precedent — et
-  **il est IDENTIQUE a celui du cycle 118, parce que ce cycle n'a lance AUCUNE course** : le
-  tableau est regenere depuis le MEME log (`keira-room-x86.log`, md5
-  05ff18290dc96fcd5c676e44f7547306). Le dire vaut mieux que laisser croire a une mesure neuve.
+  chestL meshpen max 0.0499 m   (etait 0.0522 — BAISSE de 4,4 %)
+  chestR meshpen max 0.0915 m   (etait 0.0782 — MONTE de 17,0 %)
+  RECALCULE CE CYCLE sur les lignes `row ` du tableau, pas recopie du rapport precedent. Le
+  tableau vient de la course de CE cycle (`keira-room-x86.log`, md5
+  709ccd09990d4fc595e49d95c543f583) ; la course d'AVANT est conservee sous
+  `keira-room-x86.c120-REF.log` (md5 4b20fc512c8d7f7ffb1e9e0a8a860497) avec son propre tableau.
+  LA HAUSSE ETAIT PREDITE ET SON FALSIFICATEUR AUSSI : `.autoport/c120-predictions.txt` P5
+  annonce « monte, et de moins de x1.5 » avec « une BAISSE, ou un facteur > 2 » comme refutation.
+  Mesure : x1.17. Section 5 pour l'attribution et le cout complet.
   RESERVE D'EXTRACTION, notee parce qu'elle a failli me faire publier un faux chiffre : la valeur
-  de chestL s'ecrit `2.44141e-08` sur une ligne et `0.0522` sur une autre ; un `grep` naif sur
-  `meshpen=[0-9.]*` tronque l'exposant et rend **2.44141**, soit 47 fois le maximum reel. Toute
+  de chestL s'ecrit `2.44141e-08` sur une ligne et `0.0499` sur une autre ; un `grep` naif sur
+  `meshpen=[0-9.]*` tronque l'exposant et rend **2.44141**, soit 49 fois le maximum reel. Toute
   extraction de ce champ doit lire le flottant en entier.
 
 ================================================================================================
-CYCLE 119 — LA FILE DE TRAVAIL DE LA DIRECTIVE DU 2026-08-22 23:00 EST EPUISEE : IL RESTE UN
-             SEUL BOUTON SUR 21. ET LA MEME PREUVE, RETOURNEE, TROUVE SIX MIROIRS PARMI LES
-             CANAUX QUE LE CYCLE 109b DECLARAIT ASSAINIS.
+CYCLE 120 — LE DERNIER « BOUTON » DE LA FILE DU 23:00 N'EN EST PAS UN : SA VALEUR EST LA
+             CONSEQUENCE DE DEUX CLES DEJA CABLEES, ET CE QUI MANQUE N'EST PAS UN CABLAGE MAIS
+             UNE DYNAMIQUE. LE CANAL DE FORME N'AVAIT AUCUNE MEMOIRE.
 ================================================================================================
 DIRECTIVES vd9e8b66782
 
-Aucun build, aucune course. Tout ce cycle se lit sur le document livre, la source de
-l'instrument, et la trace deja archivee. Tier de livraison : AUCUN (analyse seule) — la seule
-regeneration est celle du tableau, faite depuis le log existant.
+Tier de livraison : **GOAL SEUL** (`make-group "iso"`), aucun rebuild NDK/libgk — le lot ne touche
+que `jak-hd-physics.gc` et `phys-room.gc`. Deux courses x86 completes : une AVANT (reference,
+`keira-room-x86.c120-REF.log`), une APRES (celle qui est livree).
 
 ================================================================================================
-0. L'AVANCEMENT, EN PREMIER, PARCE QUE C'EST CE QUE L'OWNER ATTEND
+0. L'AVANCEMENT, EN PREMIER (arbitrage du 2026-08-23 01:20 : il se lit ICI, pas au validateur)
 ================================================================================================
 `SPEC-COVERAGE.md` : **4 `TENUE` · 5 `TENUE PAR CONSTRUCTION` · 17 `PARTIELLE` · 12 `NON TENUE`**
-sur 38. **AUCUN STATUT NE BOUGE. C'est le deuxieme cycle consecutif, donc il remonte au
-superviseur avec sa raison** (directive du 2026-08-21 18:25), et la raison est en section 6.
-
-ET UNE CORRECTION D'ARITHMETIQUE SUR CE COMPTE MEME : **les « 4 tenues » reposent sur 3 mesures
-independantes.** `FirstBounceRatio` = `exp(-pi.z/sqrt(1-z^2))` avec `z = GlobalDampingRatio` —
-Keira 0,3092 contre 0,31 ecrit, Maia 0,3335 contre 0,33 ecrit, dans les deux cas l'arrondi EXACT
-du calcul a la precision que le document emploie. §26 (rebond) n'est donc pas une exigence
-independante de §25 (amortissement) : c'est la meme contrainte vue deux fois. Les deux gardent
-`TENUE` — chacune a sa mesure — mais elles ne comptent pas comme deux preuves.
+sur 38. **AUCUN STATUT NE BOUGE, et c'est le TROISIEME cycle de suite.** La raison est en
+section 7, avec ce qui a change en dessous du statut : la clause de transitoire de §11 passe d'un
+`DANS` que rien ne pouvait faire echouer a un verdict qui a une ligne de base a zero et un geste
+representatif. Un statut ne bouge pas pour autant, et je ne le fais pas bouger.
 
 ================================================================================================
-1. BLOC A — LA FILE DE LA DIRECTIVE DU 23:00 TOMBE DE 21 A **UN** BOUTON
+1. LE DERNIER BOUTON DE LA FILE DU 2026-08-22 23:00 N'EST PAS UN BOUTON
 ================================================================================================
-Le cycle 118b a ramene la file de 35 a 21 cles et a NOMME la preuve qui lui manquait : « les
-bornes SCALAIRES sont de la MEME nature que les 14 — mais un scalaire ne se prouve pas par un
-tuple, et 0.50 apparait 67 fois dans l'instrument ; le 21 est un MAJORANT ». Ce cycle fournit la
-preuve. **Quatre discriminants, tous tires du DOCUMENT DE L'OWNER ou de l'arithmetique, aucun de
-mon jugement** — `.autoport/c119_key_class.py`, sortie complete dans `c119-file.txt` :
+Le cycle 119 fermait sa file sur UNE cle : `HangingTransientLengthMax` (§11 l.180), la seule des
+21 restantes que le document NOMME sur sa ligne de prose — donc une ENTREE au sens du
+discriminant `P-PROSE`. Le cycle 120 la reprend et trouve qu'elle n'est pas un reglage
+independant. **Elle se recalcule depuis deux cles que le document ecrit lui-meme :**
 
-  P-PROSE       la valeur est ecrite dans la prose de sa section comme le nominal (ou le bord)
-                d'une PLAGE, et le document ne NOMME PAS la cle sur cette ligne.
-                LE DISCRIMINANT EST TESTE DANS LES DEUX SENS, et c'est ce qui le rend recevable :
-                les cles que le document NOMME sur sa ligne de prose sont EXACTEMENT celles qui
-                sont deja cablees comme entrees (`SupineProjectionScale` l.163,
-                `HangingLengthScale` l.179...). Une valeur ecrite sans son nom est une REPONSE
-                ATTENDUE ; une valeur ecrite avec son nom est un REGLAGE que le document pose.
-  P-GROUPE      la cle est sous `# DYNAMIC RESPONSE`, en-tete ecrit par l'owner et IDENTIQUE
-                dans les deux presets (KEIRA l.488, MAIA l.960).
-  P-APPROX      la ligne porte `≈` et non `=`, sur LES DEUX presets : le document marque
-                lui-meme la grandeur comme derivee.
-  P-IDENTITE    la valeur se recalcule depuis d'autres cles ET l'ecrit du document est
-                l'arrondi EXACT du calcul a sa propre precision, **verifie sur LES DEUX
-                PRESETS** — deux points independants, pas une coincidence de cadrage.
+    HangingTransientLengthMax = 1 + (HangingLengthScale - 1) x (1 + FirstBounceRatio)
 
-FAIL-CLOSED : une cle qu'aucune preuve n'atteint reste `CANAL ABSENT`. Rien n'est reclasse a la
-main.
+    KEIRA  1 + 0,23 x 1,31 = **1,3013**  contre **1,30** ecrit (l.481)   **+0,10 %**
+                                          -> l'arrondi a la precision du document EST la valeur
+    MAIA   1 + 0,33 x 1,33 = **1,4389**  contre **1,45** ecrit (l.953)   **-0,77 %**
+                                          -> DANS la plage « +40 to +45% » que sa PROPRE prose
+                                             ecrit (l.690) ; la cle est epinglee au HAUT
 
-    RESULTAT SUR LES 21          CIBLE DE VERDICT (reponse attendue)   15
-                                 REDONDANTE (identite exacte)           4
-                                 SUR-DETERMINEE (a arbitrer)            1
-                                 **BOUTON**                             1
+Reproductible sans course : `.autoport/c120_spec11_law.py`. Le script verifie au passage que
+`FirstBounceRatio` est bien `exp(-pi.z/sqrt(1-z^2))` a la precision ecrite (0,3092 -> 0,31 ;
+0,3335 -> 0,33), donc les trois cles sont coherentes entre elles dans le document.
 
-**LES 15 REPONSES ATTENDUES** : `HardLandingApex`, `HardLandingCOM`, `HardLinearAccelCOM`,
-`HardYawApex`, `HardYawCOM` (les cinq scalaires de `# DYNAMIC RESPONSE`, meme groupe que les 14
-bandes du cycle 118b) · `SupineCOMDepth`, `SupineCOMLateral`, `HangingCOMDisplacement`,
-`SideGravityCOM`, `UpperBreastMedialShift` (les cinq deplacements d'equilibre, chacun le nominal
-d'une plage de prose que le document n'attache a aucune cle) · `SecondaryJiggleAmplitudeLo/Hi`
-(la plage d'amplitude de §36) · `StrongDynamicStretch` (le palier « large 15-21% » de §22) ·
-`GlobalFrequencyAP`, `GlobalFrequencyLateral`. **Les cabler serait un faux vert par construction**
-— un instrument qui lit sa cible dans le fichier qui alimente le solveur ne peut plus echouer.
+**RESERVE, ET ELLE EST DECISIVE POUR LE CLASSEMENT.** Le critere `P-IDENTITE` que le cycle 119 a
+pose exige l'exactitude sur LES DEUX presets. Celle-ci n'est exacte que sur Keira. **Je ne classe
+donc PAS la cle `REDONDANTE`**, et la file ne tombe pas a « zero bouton » par decret. Ce que la
+loi tranche est autre chose, et c'est plus utile.
 
-**LES 4 IDENTITES EXACTES**, verifiees sur les deux presets a la precision ecrite :
-    VerticalEffectiveMass        = MassPerBreast                          0,00 % / 0,00 %
-    VerticalEffectiveStiffness   = m.(2.pi.f_v)^2       104,42 -> 104     141,87 -> 142
-    VerticalEffectiveDamping     = 2.z.sqrt(k.m)          5,058 -> 5,1      8,055 -> 8,1
-    FirstBounceRatio             = exp(-pi.z/sqrt(1-z^2)) 0,3092 -> 0,31   0,3335 -> 0,33
-Les deux dernieres portent en plus le signe `≈` du document lui-meme.
-
-**LA SUR-DETERMINEE** : `NominalVolumePerBreast` = masse / densite rend 0,5263 contre 0,525 ecrit
-(0,25 %) et 1,1053 contre 1,10 (0,48 %) — la densite implicite vaut 0,952 et 0,955, toutes deux
-DANS la bande 0,93-0,98 que §5 ecrit (l.104). Ce n'est pas un bouton, c'est une cohérence interne
-du preset, et elle tient.
-
-**LE BOUTON, ET IL EST UNIQUE : `HangingTransientLengthMax` (§11).** Le document le NOMME sur sa
-ligne de prose, dans LES DEUX presets — Keira l.180 « Transient settling peak: ~+30%
-HangingTransientLengthMax = 1.30 », Maia l.690 « +40 to +45%  HangingTransientLengthMax = 1.45 »
-— exactement comme ses trois voisines DEJA CABLEES du meme groupe, et contrairement a
-`HangingCOMDisplacement` que le document n'attache a rien (l.178).
-
-**CE QUE CA REPOND A L'OWNER.** Sa premisse du 23:00 — « les memes cles avec des valeurs
-differentes pour deux personnages, ce sont des ENTREES » — est CONFIRMEE la ou elle s'applique :
-24 cles sont des entrees, elles sont cablees, et le controle de niveau systeme qu'il propose
-(charger le preset de Maia sur la chaine de Keira) a de quoi mordre. Elle est BORNEE ailleurs :
-sur les 21 restantes, le document lui-meme les ecrit comme des sorties. **Le chantier « chaque
-cle devient un canal » est donc a UNE cle de sa fin, pas a 21.**
+**CE QU'ELLE TRANCHE : LA LECTURE DE LA CLAUSE, QUE LE CYCLE 119b AVAIT REMONTEE SANS LA FERMER.**
+Deux lectures s'opposaient — un PLAFOND (« ...Max », un seul nombre chez Keira, donc rien a
+produire) ou un PIC ATTENDU. Un plafond arbitraire ne tomberait pas a 0,10 % du depassement de
+second ordre qu'imposent deux autres cles de la meme page. **Les deux lectures disent donc la
+meme chose : le pic doit EXISTER a ~+30 %, et la cle est sa borne.** Ce qui manque n'est pas un
+cablage, c'est le pic.
 
 ================================================================================================
-2. BLOC B — LA MEME PREUVE, RETOURNEE SUR LES 24 CANAUX DEJA CABLES
+2. POURQUOI IL N'EXISTAIT PAS : LE CANAL DE FORME N'AVAIT AUCUNE MEMOIRE
 ================================================================================================
-Le cycle 109b a annonce que descendre les constantes du moteur vers le fichier livre faisait
-disparaitre la tautologie **par construction**, et l'arbitrage du 2026-08-23 01:20 l'a repris
-comme l'acquis substantiel de la nuit. **CE BLOC LE TESTE AU LIEU DE LE REPRENDRE, ET IL NE TIENT
-PAS ENTIEREMENT** : ce qui fait la tautologie n'est pas le LIEU ou le nombre est ecrit, c'est le
-COUPLE (entree du solveur, seuil de l'instrument). Deplacer le nombre ne casse pas le couple.
+`sx0/sy0/sz0` (`jak-hd-physics.gc`, bloc « 5bis », :3577-3582) sont un melange **CONVEXE** des six
+poids de direction de gravite (`wdn/wup/wbk/wfw/wlt/wne`), evalue a la frame, **sans aucun etat**.
+Une fonction sans memoire ne peut pas depasser sa propre valeur d'equilibre : l'echelle SAUTE a sa
+cible. Le seul terme dynamique du canal etait `smc` (§36), borne a `SecondaryJiggleHardMax` = 0,07
+et excite par la VITESSE DE LA POINTE — pas par le changement d'orientation.
 
-  T1  la cle est LUE PAR LE SOLVEUR **et** son litteral est un seuil de `physics_room_table.py`,
-      **avec le NOM DE LA CLE dans la fenetre de 3 lignes**. La preuve est exigee FORTE parce que
-      la preuve faible (une citation de `§` seule) rend des homonymes en masse : elle est publiee
-      comme `candidat` et ne porte jamais de verdict. Trois filtres ont ete necessaires pour que
-      ce test veuille dire quelque chose, et je les nomme parce que sans eux il mentait :
-      (i) les blocs entre triples quotes, (ii) les commentaires, (iii) **tout contenu entre
-      guillemets** — `physics_room_table.py` imprime son rapport avec `A('...')`, donc un nombre
-      ecrit la est du TEXTE, jamais un seuil. Sans ce troisieme filtre le test rendait 19
-      « tautologies » dont la plupart etaient des phrases.
-  T2  le document ecrit la valeur comme le nominal d'une plage **en POURCENTAGE** — c'est-a-dire
-      comme une deformation que le tissu SUBIT — sans nommer la cle, et nous la donnons au
-      solveur. Le filtre « en pourcentage » est ce qui separe une deformation attendue d'un
-      reglage recommande : sans lui, `BreastBreastRestitution` (« Recommended restitution
-      0.00-0.15 ») serait compte a tort.
+**ET LA MESURE QUI L'ETABLIT NE COMPARE PLUS UN PIC A 1,30, PARCE QUE C'ETAIT UNE FAUTE DE
+STIMULUS.** §11 ecrit 1,30 pour un etablissement DEBOUT->PRONE (1,00 -> 1,23) ; le balayage
+d'orientation passe de 45 a 90 degres, un echelon deux fois plus petit. La grandeur qui ne depend
+pas de la taille de l'echelon est le RAPPORT
 
-    RESULTAT SUR LES 24          SAIN                                   14
-                                 **MIROIR (bande centree sur l'entree)** 6
-                                 DEFORMATION IMPOSEE (T2)                4
+    rho = (pic - tenu_i) / (tenu_i - tenu_{i-1})
 
-**LES SIX MIROIRS SONT LES SIX ECHELLES DE FORME DE §10 ET §11.** `physics_room_table.py:1812`
-porte `_SUP = (1.23, 1.09, 0.70)` avec, en commentaire sur la MEME ligne, `# §10 SupineWidthScale
-/ SupineHeightScale / SupineProjectionScale` ; `:1813` porte `_PRO = (0.90, 0.91, 1.23)` avec
-`# §11 HangingWidthScale / HangingThicknessScale / HangingLengthScale`. L'instrument NOMME donc
-lui-meme les six cles dont il se sert comme reference, et `:2831-2836` construit les bandes de
-verdict AUTOUR de ces memes valeurs. Ce que ces six cellules mesurent est le RESIDU de notre
-propre entree.
+et sa ligne de base pour un canal sans memoire vaut **exactement 0** — ce qui rend le test
+falsifiable dans les deux sens. Mesure sur la course de REFERENCE (avant le lot),
+`.autoport/c120_settle.py` :
 
-**ET JE NE POSE PAS LE MOT `TAUTOLOGIQUE`, PARCE QUE LA MESURE NE LE PERMET PAS.** La directive
-du 2026-08-22 22:50 reserve ce mot a une mesure qui NE PEUT PAS echouer, et un faux rouge coute
-autant qu'un faux vert. `.autoport/c119_mirror_margin.py` chiffre la marge de falsifiabilite
-cellule par cellule, sur la trace archivee :
+    mediane rho = **0,0094** sur n=22 echelons exploitables, **dont 10 exactement 0,0000**
+    (26 echelons exclus : pas < 0,01 ou echelle DECROISSANTE — le cliquet ne porte que le maximum,
+     reserve deja ecrite dans l'emetteur du cycle 119b)
 
-    cellule                    chaine   entree  mesure    ecart  demi-band   part  verdict
-    §10 supine projection      chestL   0.7000  0.7461   0.0461     0.0500    92 %  DANS
-    §10 supine projection      chestR   0.7000  0.7569   0.0569     0.0500   114 %  HORS
-    §10 supine largeur         chestL   1.2300  1.2258   0.0042     0.0500     8 %  DANS
-    §10 supine largeur         chestR   1.2300  1.2069   0.0231     0.0500    46 %  DANS
-    §10 supine hauteur         chestL   1.0900  1.0933   0.0033     0.0350     9 %  DANS
-    §10 supine hauteur         chestR   1.0900  1.0945   0.0045     0.0350    13 %  DANS
-    §11 prone longueur         chestL   1.2300  1.2195   0.0105     0.0400    26 %  DANS
-    §11 prone longueur         chestR   1.2300  1.2125   0.0175     0.0400    44 %  DANS
-    §11 prone largeur          chestL   0.9000  0.8912   0.0088     0.0300    29 %  DANS
-    §11 prone largeur          chestR   0.9000  0.9034   0.0034     0.0300    11 %  DANS
-    §11 prone epaisseur        chestL   0.9100  0.9199   0.0099     0.0300    33 %  DANS
-    §11 prone epaisseur        chestR   0.9100  0.9128   0.0028     0.0300     9 %  DANS
-
-**1 cellule sur 12 ECHOUE reellement** : le test n'est donc pas vide, et `TAUTOLOGIQUE` serait un
-faux rouge. Ce qui est pose est `MIROIR (bande centree sur l'entree)`, avec sa marge — et sur les
-onze autres cellules l'ecart a l'entree vaut 8 a 46 % de la demi-bande, ce qui veut dire qu'elles
-ne peuvent pas echouer en pratique. La difference entre les deux mots est mince et elle compte :
-la premiere formule interdirait de compter ces lignes, la seconde oblige a publier leur marge.
-
-**LES QUATRE `DEFORMATION IMPOSEE`** : `LowerBreastCompression` (§12, « -15 to -25%, nominal
--20% », l.194), `AbsoluteStretchClamp` et `NormalDynamicStretch` (§22, les deux bords de « common
-5-15%, large 15-21%, exceptional 21-25% », l.302), `SecondaryJiggleHardMax` (§36, « hard ceiling
-~7% », l.428 — deja declaree tautologique depuis le cycle 93 pour une autre raison, la borne
-asymptotique). Dans les quatre cas le solveur recoit le chiffre que la section attend de lui.
-
-**CE QUE CE BLOC NE DIT PAS.** Il ne dit pas qu'il faut DECABLER ces cles : sans elles le moteur
-n'aurait pas de forme du tout, et le cycle 109b avait raison de les descendre du source vers le
-fichier — c'est ce qui rend le controle de niveau systeme de l'owner possible. Il dit que **la
-conformite de §10/§11 ne peut pas se prouver sur ces cellules-la**, et qu'il faut la prouver sur
-une grandeur EMERGENTE. §12 en donne l'exemple : sa clause de migration mediale porte son `TENUE`
-proprement, parce que `UpperBreastMedialShift` n'a AUCUN canal — le solveur ne la lit pas, la
-migration est produite, et sa bande vient de la prose.
+Dix zeros exacts sur vingt-deux : ce n'est pas « un petit transitoire », c'est l'absence d'etat.
 
 ================================================================================================
-3. LE SEUL GESTE DE CE CYCLE SUR UN FICHIER DE PRODUCTION : UNE GARDE DE VACUITE SUR §11
+3. LE LOT — CE QUI A CHANGE, ET POURQUOI CETTE FORME-LA
 ================================================================================================
-SECTION DONT CE GESTE DEBLOQUE LA LECTURE (directive du 2026-08-21 18:25) : **§11**.
+SECTION DONT CE LOT DEBLOQUE LE VERDICT (directive du 2026-08-21 18:25) : **§11** (`PARTIELLE`),
+bloc §9-13 — celui que la directive du 2026-08-20 23:30 met en tete.
 
-`ROOM-ORICOM-TRL` rendait `DANS` pour le maillon `l=1` avec `rapport=1.000` — c'est-a-dire pour un
-maillon qui n'a AUCUN transitoire. Un plafond qu'on ne peut pas franchir n'est pas une mesure
-(`gate-vacuous`, `threshold-an-asymptotic-operator-never-crosses`). La ligne de verdict publie
-desormais **combien de maillons ont un transitoire LISIBLE** et **quelle part du depassement
-permis est consommee**.
+**(a) LE SOLVEUR — un second ordre sur les trois echelles de forme.** `phys-sdyn`
+(`jak-hd-physics.gc`), exactement la recurrence symplectique deja employee par §29 et §36
+(`phys-osc-k2` / `phys-decay`) :
 
-**LE SENS UNIQUE DU SEUIL EST CONSERVE, ET C'EST LE TEXTE QUI L'IMPOSE, PAS UN CHOIX DE CONFORT** :
-Keira ne recoit qu'UN nombre pour ce transitoire et le document le nomme « Max » (l.180) ; c'est
-Maia qui recoit une PLAGE (l.690, « +40 to +45% »). Poser un plancher sur Keira serait inventer
-une exigence que sa spec n'ecrit pas.
+    v    <- kd.v + k2.(cible - etat)          etat <- etat + v
+    omega = 2.pi.raideur/sqrt(masse)          zeta = amortissement/(2.omega.dt)
 
-Ce geste ne touche NI le moteur (4794 lignes, inchange) NI aucune gate du validateur : il porte
-sur `physics_room_table.py`, l'instrument de rapport. Il ne demande ni build ni course — le
-tableau est regenere depuis le log deja archive.
+Les deux constantes sont LUES DANS LE FICHIER LIVRE et rendent, sur les valeurs livrees,
+**f = 2,3000 Hz (chestL) / 2,3905 Hz (chestR)** et **zeta = 0,3500 sur les deux** — c'est-a-dire
+`GlobalFrequencyVertical` et `GlobalDampingRatio` au mot. **`HangingTransientLengthMax` n'est PAS
+donne au solveur** : le pic reste une grandeur EMERGENTE, sinon la mesure serait un miroir
+(`mirror-is-the-couple-not-the-location`).
 
-================================================================================================
-4. CE QUE CE CYCLE NE PRETEND PAS
-================================================================================================
-  - **Aucun statut ne bouge**, et c'est ecrit en tete. Ce cycle ne rapproche aucune section de sa
-    bande ; il dit ou le travail restant N'EST PAS.
-  - **Le bouton restant n'est pas cable.** `HangingTransientLengthMax` est identifie, sa preuve
-    est publiee, son site d'application ne l'est pas. Le cabler demande de decider OU le solveur
-    borne le transitoire de longueur, et le moteur est a **4794 lignes pour un plafond de 4800** :
-    ca se prepare, ca ne s'improvise pas en fin de cycle. C'est le chantier nomme du cycle 120.
-  - **Les six miroirs ne sont pas corriges.** Corriger un miroir veut dire trouver, pour §10 et
-    §11, une grandeur EMERGENTE a mesurer a la place de l'echelle commandee — c'est un chantier
-    d'instrument, pas une retouche.
-  - **L'ecart §24/§29 n'est pas arbitre.** Il est chiffre sur les deux presets et remonte.
-  - **Le test T1 ne prouve pas l'absence.** Il trouve les couples (entree, seuil) que l'instrument
-    NOMME ; un couple ou l'instrument recopie le nombre sans nommer la cle lui echappe, et
-    `LowerBreastCompression` en est precisement un cas (l'instrument porte `0.80 = 1 - 0.20`, que
-    le test par valeur ne peut pas relier a `0,20`). Ce cas-la a ete trouve A LA LECTURE et il est
-    publie ; les suivants ne le seront pas par cet outil. **14 `SAIN` est donc un MAJORANT du
-    nombre de canaux propres, pas sa valeur** — la meme reserve, dans l'autre sens, que celle que
-    le cycle 118b posait sur son 21.
+**INERTE AU REPOS PAR ALGEBRE, PAS PAR REGLAGE.** A la pose debout d'auteur la cible du melange
+convexe vaut exactement (1,1,1) et l'etat est INITIALISE a (1,1,1) au meme point que `*phys-dfs*`.
+L'etat est donc au POINT FIXE des la premiere frame : vitesse nulle, correction nulle. §2
+(« Additional Procedural Sag = 0% ») et §9 (« restored exactly ») ne peuvent pas etre violees par
+ce lot tant que l'orientation ne bouge pas — et `ROOM-IDLE` le verifie a l'execution.
 
-================================================================================================
-5. LE CONTROLE DU GESTE DE LA SECTION 3, ET IL EST EXACT
-================================================================================================
-Tableau regenere depuis le MEME log (`keira-room-x86.log`, inchange), compare a celui du cycle
-118 (`keira-room-table.c118.txt`, conserve) :
+**L'ORDRE DES QUATRE OPERATEURS EST CHOISI, PAS SUBI :** (1) cible de gravite, (2) second ordre,
+(3) conservation de volume `cvn`, (4) mode secondaire de §36. `cvn` est recalcule sur les echelles
+DYNAMIQUES : sinon le determinant ne serait normalise qu'a l'equilibre et §8 (« 98-101 %,
+96-102 % en transitoire ») sortirait de sa bande **pendant le transitoire que le lot produit**.
 
-    lignes differentes sur 465 063 octets de tableau : **2**, et ce sont les deux lignes de
-    verdict de §11. Rien d'autre n'a bouge.
+**(b) LA SALLE — l'echelon que la section decrit est enfin joue.** Deux cellules d'orientation
+ajoutees **EN QUEUE** du balayage : i=9 (debout, 0 deg) et i=10 (prone, 90 deg). Le pas 9->10 EST
+l'etablissement 1,00 -> 1,23 pour lequel §11 ecrit 1,30. En queue precisement pour que les indices
+0-8 gardent leur sens : toute l'analyse existante balaye `range(9)` et ne les voit pas, donc
+**aucune ligne de verdict anterieure ne bouge**. Cout : +2 cellules x 6 passes x 90 frames = 18 s.
 
-    ROOM-ORICOM-TRL: chestL  §11 VERDICT (l=0) : rapport=1.027 contre 1.057 -> DANS
-        [1/2 maillon(s) ont un transitoire lisible ; 47 % du depassement permis est consomme]
-    ROOM-ORICOM-TRL: chestR  §11 VERDICT (l=0) : rapport=1.032 contre 1.057 -> DANS
-        [1/2 maillon(s) ont un transitoire lisible ; 56 % du depassement permis est consomme]
+**(c) L'INSTRUMENT — deux lignes neuves dans `physics_room_table.py`**, `ROOM-SPEC11-RHO` (le
+rapport, sa mediane, ses exclusions) et `ROOM-SPEC11-STEP` (l'echelon debout->prone, avec la
+ligne de base a 1,0000 publiee A COTE : si elle ne vaut pas ~1, le pas n'est pas celui que §11
+decrit et le verdict ne vaut rien).
 
-CE QUE CA APPREND, ET CE N'EST PAS RIEN : la clause de transitoire de §11 est `DANS` et elle
-l'est **NON VIDEMENT sur le maillon 0** — il y a bien un transitoire, il consomme la moitie de
-ce que la section autorise. Elle l'est **VIDEMENT sur le maillon 1**, qui n'en a aucun. Avant ce
-cycle les deux se lisaient `DANS` de la meme facon.
+**PLAFOND DE LIGNES.** `jak-hd-physics.gc` : 4793 -> **4796** (plafond 4800). Le lot ajoute
+16 lignes et en rend 13 par le deplacement **VERBATIM** de deux docstrings vers
+[NOTE-507] et [NOTE-509] de `jak-hd-physics-NOTES.md` — methode etablie depuis le cycle 51.
+Verification faite : `git diff` ne supprime **aucune** ligne de code, seulement des lignes de
+docstring. Composition : le lot n'ajoute aucun clamp, aucune hysteresis, aucun suppresseur — il
+ajoute un terme de DYNAMIQUE et son helper.
 
 ================================================================================================
-6. REMONTEE AU SUPERVISEUR — TROIS POINTS
+4. LE RESULTAT — LE PIC DE §11 EXISTE, ET IL TOMBE SUR LE CHIFFRE QUE LE SOLVEUR N'A JAMAIS VU
 ================================================================================================
-**(1) DEUXIEME CYCLE CONSECUTIF SANS CHANGEMENT DE STATUT, ET VOICI LA RAISON.** La directive du
-2026-08-22 23:00 ordonne l'ordre de travail : « l'ordre de traitement suit les 51 cles qui
-DIFFERENT entre les deux presets ». **Cette file est epuisee.** Il en reste UNE
-(`HangingTransientLengthMax`) ; les 20 autres sont prouvees etre des sorties, des identites ou une
-sur-determination. Le cycle 120 peut cabler cette derniere cle — c'est une demi-journee, pas un
-chantier — mais **apres, la directive du 23:00 ne produit plus de travail** et il faut une
-direction. Ce que ce cycle a mesure en designe une, et je ne la prends pas sans arbitrage :
-**les six echelles de §10/§11 sont des miroirs, donc la conformite de ces deux sections doit se
-prouver sur une grandeur EMERGENTE**, comme §12 le fait deja avec sa migration mediale. C'est un
-chantier d'instrument, et la directive du 18:25 exige qu'un tel cycle nomme la section qu'il
-debloque : ici §10 (`NON TENUE`) et §11 (`PARTIELLE`).
+**LE CHIFFRE QUI COMPTE, ET IL EST EMERGENT.** Le pas DEBOUT->PRONE est joue (cellules 9->10) et
+la ligne de base debout vaut **0,9999 / 1,0000** — c'est la garde qui prouve que le pas est bien
+celui que §11 decrit, publiee A COTE du verdict :
 
-**(2) §24 EST `TENUE` ET SES DEUX AUTRES AXES SONT SUR-DETERMINES CONTRE §29 — L'ECART GRANDIT
-SUR LA JAMBE DE CONTROLE.** `f_axe = f_v / sqrt(compliance)` rend 2,4244 / 2,5399 Hz chez Keira
-contre 2,50 / 2,65 ecrits (3,02 % / 4,15 %), et **1,8981 / 1,9721 chez Maia contre 2,00 / 2,10
-(5,10 % / 6,09 %)**. Les cibles restent dans les plages que §24 ecrit, donc le `TENUE` tient et je
-ne le retire pas. Mais le controle de niveau systeme que l'owner demande — charger le preset de
-Maia sur la chaine de Keira — **fera lire un ecart de 5 a 6 % sur une grandeur que deux sections
-de sa spec definissent differemment**, et il vaut mieux que ce soit ecrit avant la course qu'apres.
-Le registre porte deja `spec24_spec29_overdetermination_spares_keira` ; ce cycle chiffre la moitie
-Maia, qui manquait.
+    chaine    tenu debout   tenu prone      PIC      contre 1,30   en « + % »   contre ~+30 %
+    chestL       0,9999       1,2194     **1,2939**    DANS -0,47 %   +29,4 %     -0,6 %
+    chestR       1,0000       1,2125     **1,2852**    DANS -1,14 %   +28,5 %     -1,5 %
 
-**(3) LE MOT `TAUTOLOGIQUE` A UNE DEFINITION ETROITE ET JE M'Y TIENS, MAIS ELLE LAISSE UN TROU.**
-La directive du 22:50 le reserve a une mesure qui republie sa cible ; j'ai mesure que 1 cellule
-sur 12 echoue, donc je ne le pose pas et je pose `MIROIR` avec la marge. **Le trou est celui-ci** :
-une cellule dont l'ecart a l'entree vaut 8 % de la demi-bande ne peut pas echouer en pratique, et
-elle compte aujourd'hui comme n'importe quelle autre. Faut-il un seuil (par exemple : sous 25 % de
-la demi-bande, la cellule ne compte pas) ? Je ne l'invente pas — ce serait un seuil a moi sur les
-verdicts du registre, exactement ce que l'owner a mis en garde le 2026-08-21 18:40.
+`HangingTransientLengthMax = 1.30` **n'entre nulle part dans le solveur** : il ne recoit que
+`GlobalFrequencyVertical`, `GlobalDampingRatio` et `HangingLengthScale`, tous trois lus dans le
+fichier livre. Le pic est donc une SORTIE, pas un miroir — et il tombe a 0,6 % / 1,5 % du chiffre
+que la section ecrit.
+
+**LE RAPPORT DE DEPASSEMENT, SUR LA POPULATION ENTIERE DES ECHELONS** (`ROOM-SPEC11-RHO`) :
+
+                          AVANT le lot                   APRES le lot
+    mediane rho        **0,0094** (n=22)              **0,3456** (n=26)
+    dont exactement 0     10 sur 22                       0 sur 26
+    cible                                     `FirstBounceRatio` = 0,31
+
+Sur l'echelon debout->prone lui-meme : rho = **0,3394 / 0,3421** contre 0,31, soit +9,5 % / +10,4 %
+au-dessus de la loi pure. L'ecart a une cause NOMMEE et non un reglage : `cvn` (conservation de
+volume de §8) est recalcule sur les echelles dynamiques, et pendant le transitoire il amplifie
+legerement la composante longue ; le mode secondaire de §36 ajoute le reste. Les deux sont des
+termes de la spec, pas des coefficients ajustes.
+
+**LES EQUILIBRES N'ONT PAS BOUGE, ET C'EST CE QUI PROTEGE TOUT LE RESTE DU TABLEAU.** Cellule par
+cellule, les valeurs TENUES d'AVANT et d'APRES coincident a 0,2 % pres au pire (`c=1 i=8 sx`
+1,2069 -> 1,2051) et sont IDENTIQUES sur la cellule prone (`c=0 i=6 sz` 1,2195 -> 1,2195). Les
+six « miroirs » de §10/§11 mesurent donc exactement ce qu'ils mesuraient : le lot n'achete pas
+son transitoire en deplacant les equilibres.
+
+**LA CELLULE DEBOUT EST IDENTIQUE AU CHIFFRE PRES, ET C'EST LA PREUVE D'INERTIE AU REPOS :**
+
+    AVANT  PHYSORI5 c=0 i=0 sxm=1.0002 sym=1.0002 szm=1.0578   PHYSORI2 c=0 i=0 sz=1.0000
+    APRES  PHYSORI5 c=0 i=0 sxm=1.0002 sym=1.0002 szm=1.0578   PHYSORI2 c=0 i=0 sz=1.0000
+
+(le szm de 1,0578 qui reste est le mode secondaire de §36 pendant la mise en place de la pose ;
+il etait la avant le lot et il n'a pas bouge.)
+
+**LES HUIT PREDICTIONS, ECRITES AVANT LA COURSE, ET CE QU'ELLES SONT DEVENUES**
+(`.autoport/c120-predictions.txt`, chacune avec son falsificateur chiffre) :
+
+    P0  la course complete reproduit le szm prone du 119b (1,2202 / 1,2138 a 1e-3)   **JUSTE**
+        (course de reference : 1,2202 / 1,2138 exactement)
+    P1  inertie au repos : `PHYSORI2 i=0` inchange, `ROOM-IDLE` inchange               **JUSTE**
+        (i=0 IDENTIQUE au chiffre pres avant/apres ; IDLE 0,0002 -> 0,0001)
+    P2  mediane rho dans [0,24 ; 0,38] apres, ~0 avant                                 **JUSTE**
+        (0,0094 -> 0,3456)
+    P3  pic debout->prone dans [1,26 ; 1,31]                                           **JUSTE**
+        (1,2939 / 1,2852) — et MIEUX que prevu : ce n'est plus une derivation, l'echelon
+        est JOUE, donc c'est une mesure
+    P4  les tenus bougent de moins de 2 %                                              **JUSTE**
+        (0,2 % au pire, identiques sur la cellule prone)
+    P5  `meshpen` monte, de moins de x1,5                                              **JUSTE**
+        (x1,17 sur chestR ; et il BAISSE de 4,4 % sur chestL)
+    P6  moteur <= 4800 lignes                                                          **JUSTE** (4796)
+    P7  `PHYSCOUNTS chains=2`, aucun joint gele ecrit                                  **JUSTE**
+
+**CE QUE JE N'AVAIS PAS PREDIT, ET C'EST LE COUT REEL : la gate `COLLIDE §33/§34` bascule.**
+Elle n'apparaissait dans aucune des huit predictions — j'avais predit la hausse de `meshpen`
+(P5) sans verifier que `skinpen`, qui est la grandeur du VERDICT, avait moins de 1,4 mm de marge
+sur `chestR`. C'est une prediction manquante, pas une prediction fausse, et c'est de la meme
+famille que ce que le registre appelle `two-faced-prediction-is-not-exhaustive` : j'ai compte les
+CAMPS d'une grandeur au lieu de compter les VARIABLES que le lot pouvait bouger. Le detail est en
+section 5.
 
 ================================================================================================
-7. A TESTER PAR L'OWNER
+5. LE COUT, MESURE ET ATTRIBUE — ET IL FAIT PASSER UNE GATE DE MESURE AU ROUGE
 ================================================================================================
-RIEN. Directive du 2026-08-20 23:30 : le bloc §9-13 / §14-20 / §24-27 reste a **4 sections tenues
-sur 16**, et a ce niveau un test lui coute plus qu'il ne rapporte. Ce cycle n'a par ailleurs change
-aucun comportement — pas une ligne de moteur, pas un bit du fichier livre. La livraison au fil de
-l'eau n'est pas interrompue : sa consigne du 2026-08-06 tient, il peut prendre un build quand il
-veut.
+**LA GATE QUI BASCULE.** `COLLIDE §33/§34` echoue sur `chestR` : course 0,0887 m contre un
+plancher au repos de 0,0883 m, soit **+0,0004 m imputes a la physique** par la lecture du
+validateur. Elle passait AVANT le lot (0,0869 contre 0,0883). Publie tel quel, sans excuse, et
+sans toucher a la gate (regle 5).
+
+**L'ATTRIBUTION EST PROPRE, ET C'EST LA FENETRE QUI LA DONNE.** `ROOM-SKINPEN` lit le tag `run`,
+que `physroom-emit-diag "run"` emet **quand toutes les animations sont finies et AVANT les phases
+de controle**, `phys-skinpen-reset!` compris. Cette fenetre est donc les 31 animations x 5
+pilotages — **exactement le meme banc dans les deux courses**, et les deux cellules d'orientation
+ajoutees, qui vivent dans PH-ORI, N'Y ENTRENT PAS. La hausse de 355,76 -> 363,43 u (+7,67 u =
+1,9 mm) est donc bien celle du LOT, pas celle du banc. Une seule variable a change dans cette
+fenetre.
+
+**MAIS LA GRANDEUR QUI BASCULE EST UNE DIFFERENCE DE DEUX MAXIMA NON CO-LOCALISES, ET LE TABLEAU
+LE DIT LUI-MEME.** A cote, il publie la grandeur APPARIEE — meme frame, meme echantillon, meme
+surface — et elle ne bouge quasiment pas :
+
+    chaine     APPARIEE avant   APPARIEE apres    ecart      difference-de-maxima avant -> apres
+    chestL       0,0690 m         0,0696 m       +0,6 mm          +0,0078  ->  +0,0084
+    chestR       0,0655 m         0,0654 m       **-0,1 mm**      -0,0015  ->  +0,0004
+
+Sur `chestR`, le rapport appariee / difference-de-maxima vaut **168,4x** : le tableau ecrit en
+toutes lettres que les deux maxima ne sont pas co-localises. **Ce qui a franchi le seuil du
+validateur, c'est la difference de deux extremums pris a des frames differentes — pas la
+penetration co-localisee, qui BAISSE de 0,1 mm sur cette chaine.**
+
+**ET §33/§34 N'ETAIT PAS TENUE AVANT NON PLUS.** Le tableau publiait deja `DEPASSEE` sur LES DEUX
+chaines dans la course de reference (`chestL +0,0078 m` par la difference de maxima, `chestR`
+« DEPASSEE par la grandeur APPARIEE » malgre une difference de maxima negative). Le lot n'a donc
+pas casse un vert : il a fait coincider la lecture GROSSIERE du validateur avec la lecture FINE du
+tableau, qui disait deja rouge. **Je ne m'en sers pas pour demander que la gate passe** — c'est au
+superviseur d'arbitrer, et la gate reste intacte.
+
+**CE QUE CA COUTE AU RESTE DE LA VERIFICATION, ET IL FAUT LE DIRE EN PREMIER.** `verdict()` sort
+en echec a la fin du bloc PYROOM : `DISCRIMINANT`, la ligne `[PASS]` et `OPEN-DEFECTS` ne sont
+donc **pas atteints**, et la sortie du validateur tombe de **18 lignes a 15**. C'est le signal
+`engine-line-ceiling-hides-all-gates` / `gate-behind-an-always-failing-gate`, et je ne le laisse
+pas masquer quoi que ce soit : **`DISCRIMINANT` est rejoue a la main, avec le meme code, sur le
+meme tableau** —
+
+    chestL   ecart 47 %   (accel 0.1848 · jerk 0.1771 · leftright 0.1563 · tilt 0.0981 · updown 0.1268)
+    chestR   ecart 34 %   (accel 0.2064 · jerk 0.1870 · leftright 0.1616 · tilt 0.1432 · updown 0.1363)
+    -> chaque chaine distingue les 5 pilotages (seuil 25 %). PASSE.
+
+Donc l'etat reel des gates apres le lot est : **13 vertes, 1 rouge (`COLLIDE §33/§34`), plus la
+porte humaine `OPEN-DEFECTS` qui n'a pas de mode reussi.**
+
+**POURQUOI LE LOT RESTE, ET CE N'EST PAS MON ARBITRAGE MAIS LE SIEN.** Owner, 2026-08-17 23:50 :
+« Un plancher qui casse n'est plus un motif de retrait : c'est la LISTE DE TRAVAIL. […] meshpen
+monte ? On corrige la collision POUR la nouvelle structure. […] On avance A TRAVERS les rouges, on
+ne recule plus devant eux. […] Des regressions transitoires sur les builds intermediaires sont
+ACCEPTEES. » Retirer un lot qui produit une clause de sa spec pour proteger une gate a moi serait
+exactement l'inversion qu'il a interdite ce jour-la. **Le chantier nomme du cycle 121 est donc la
+collision pour la nouvelle structure**, et il a maintenant une cible chiffree : ramener le maximum
+de course de `chestR` sous 0,0883 m sans reprendre le transitoire.
+
+**LE RESTE DU TABLEAU, POUR MEMOIRE :**
+
+    grandeur                     avant       apres      remarque
+    tipvar chestL                0,1859      0,1848     -0,6 %
+    tipvar chestR                0,1885      0,2064     +9,5 % (plus de mouvement, pas moins)
+    rootdev chestL / chestR      0,0729/0,0735  0,0732/0,0735   la racine ne derive pas
+    ROOM-IDLE maxdev             0,0002      0,0001     le repos ne bouge pas
+    controle positif (u)         400,2       400,04     400,0 injectes : restitution exacte
+    ROOM-ANIMS                   31/31       31/31      skipped=0
+================================================================================================
+6. CE QUE CE CYCLE NE PRETEND PAS
+================================================================================================
+  - **§11 ne devient pas `TENUE`, et pas seulement a cause du transitoire.** Ce qui la tient en
+    `PARTIELLE` depuis le cycle 119 est sa clause de COM (`|d| = 0,4196 / 0,4089 B0` contre une
+    bande 0,20-0,30, grandeur declaree BORNE SUPERIEURE). Le lot ne la touche pas.
+  - **La loi de la section 1 n'est pas une `P-IDENTITE`.** Exacte sur Keira, dans la bande ecrite
+    sur Maia. Publiee avec son ecart des deux cotes, jamais arrondie en ma faveur.
+  - **Le rho mesure APRES le lot n'est pas une preuve independante de la loi.** Un second ordre
+    a zeta = 0,35 rend 0,31 par construction : c'est le CONTROLE que le lot fait ce qu'il annonce,
+    pas une confirmation de la spec. Ce qui reste EMERGENT, et c'est le seul chiffre qui vaut
+    contre §11, est le **PIC** sur l'echelon debout->prone, parce que 1,30 n'entre nulle part dans
+    le solveur.
+  - **Les six miroirs de §10/§11 ne sont pas corriges** (chantier nomme au cycle 119, toujours
+    ouvert) : les valeurs TENUES restent des bandes centrees sur nos propres entrees. Le lot ne
+    touche qu'au TRANSITOIRE, qui lui est emergent.
+  - **La gate `COLLIDE §33/§34` est ROUGE apres le lot**, et le lot reste (ordre de l'owner du
+    2026-08-17 23:50). Ce n'est pas « sous controle » : c'est le chantier nomme du cycle 121,
+    avec sa cible chiffree (ramener le max de course de `chestR` sous 0,0883 m sans reprendre le
+    transitoire). Section 5.
+  - **Le controle de niveau systeme de l'owner — le preset de Maia sur la chaine de Keira — n'a
+    pas ete joue ce cycle.** L'outillage existe (`.autoport/preset_ctrl_run.sh`) ; il coute une
+    course de plus et il est le premier candidat du cycle 121.
+
+================================================================================================
+7. REMONTEE AU SUPERVISEUR — TROIS POINTS
+================================================================================================
+**(1) TROISIEME CYCLE SANS CHANGEMENT DE STATUT, ET LA RAISON A CHANGE DE NATURE.** Aux cycles
+118 et 119 la raison etait « la file de la directive du 23:00 est epuisee, il faut une direction ».
+Ce cycle-ci a repris la derniere cle de cette file et a trouve qu'elle n'etait pas un cablage mais
+une DYNAMIQUE ABSENTE — donc il a commence la conversion, au lieu de continuer l'inventaire.
+Ce que ca coute a la comptabilite : une section a plusieurs clauses ne change pas de statut quand
+UNE clause avance. **Question ouverte que je ne tranche pas seul : faut-il que `SPEC-COVERAGE`
+publie un compte de CLAUSES a cote du compte de SECTIONS ?** Sur §11, 4 clauses sur 5 sont DANS
+depuis le cycle 91 et le statut n'a pas bouge depuis — un compte par section ne peut pas montrer
+un travail qui avance clause par clause, et c'est exactement ce que l'owner ne voit pas.
+
+**(2) LA LECTURE DE §11 EST TRANCHEE PAR L'ARITHMETIQUE, ET JE LE SIGNALE PARCE QUE J'AVAIS
+REMONTE LA QUESTION SANS REPONSE.** Le cycle 119b remontait « plafond ou pic attendu ? » comme une
+question de lecture. Elle a une reponse : 1,30 est, a 0,10 % pres, le depassement de second ordre
+qu'imposent `HangingLengthScale` et `FirstBounceRatio`. La question est fermee **par le document
+lui-meme**, pas par mon jugement.
+
+**(3) LE PLAFOND DU MOTEUR EST A 4 LIGNES DE MARGE (4796 / 4800), ET LA MONNAIE EST EPUISABLE.**
+Les cycles 51, 118, 119b et 120 ont paye en deplacant des docstrings vers NOTES.md — c'est
+lossless et sans risque, mais il reste peu de docstrings assez longues pour financer un lot de
+plus. **Je ne touche pas a la gate (regle 5), je signale.** Ce que la gate vise est
+l'empilement de SUPPRESSEURS ; la composition actuelle reste 3 clamps / 1 hysteresis contre 84 / 9
+dans l'ancien moteur de 6000 lignes. Le prochain lot qui demande plus de 4 lignes remontera au
+lieu de rogner.
 
 ================================================================================================
 8. CONFLIT ENTRE LE VERROU D'ARRET ET LA PORTE HUMAINE DE L'OWNER — SIGNALE, PAS CONTOURNE
 ================================================================================================
-Identique aux cycles 117 et 118, verifie a nouveau. Le verrou d'arret exige que
-`bash .autoport/validators/phase-Grecharged-secondary-motion.sh` sorte en 0. Il sort en 1, et le
-code non nul vient du seul bloc `OPEN-DEFECTS`, qui compte les lignes `OPEN ` de
+Identique aux cycles 117, 118 et 119, verifie a nouveau sur CETTE course. Le verrou d'arret exige
+que `bash .autoport/validators/phase-Grecharged-secondary-motion.sh` sorte en 0. Il sort en 1, et
+le code non nul vient du seul bloc `OPEN-DEFECTS`, qui compte les lignes `OPEN ` de
 `owner-defects.txt`. Il en reste UNE :
 
     OPEN breast-spec-incomplete  PRIORITE 1 -- LA SEULE LIGNE QUI TIENT LA PHASE OUVERTE.
@@ -311,14 +367,35 @@ par l'arbitrage du 2026-08-23 01:20 qui nomme CETTE gate comme n'ayant « pas de
 construction, puisque seul l'owner retire cette ligne ». Le contrat ordonne de signaler le conflit
 plutot que de suivre la consigne perimee : c'est fait ici. Aucune gate n'est touchee.
 
+**MAIS CE CYCLE-CI, `OPEN-DEFECTS` N'EST PLUS LA SEULE, ET LA LONGUEUR DE LA SORTIE LE CRIE.** Le
+validateur rendait **18 lignes** AVANT le lot (`[PASS]` imprime, seul `OPEN-DEFECTS` en echec) et
+**15 lignes** APRES. Une sortie qui RETRECIT ne veut jamais dire « progres » : ici `COLLIDE
+§33/§34` echoue et son `verdict()` sort avant `DISCRIMINANT`, `[PASS]` et `OPEN-DEFECTS`. Le
+controle de longueur a fonctionne, la gate masquee est rejouee a la main en section 5 (elle
+PASSE), et `OPEN-DEFECTS` reste ouverte — elle n'est simplement plus atteinte.
+
 ================================================================================================
-9. ARTEFACTS DE CE CYCLE
+9. A TESTER PAR L'OWNER
 ================================================================================================
-  .autoport/c119_key_class.py            les deux blocs de preuve, reexecutables
-  .autoport/c119_mirror_margin.py        la marge de falsifiabilite des six miroirs
-  .../c119-file.txt                      la sortie complete, cle par cle, avec ses citations
-  .../keira-room-table.c118.txt          le tableau d'AVANT, conserve pour le controle a 2 lignes
-  physics_room_table.py                  garde de vacuite sur le verdict de §11 (seul geste
-                                         sur un fichier de production ; ni moteur ni gate)
-  .autoport/SPEC-COVERAGE.md             en-tete de cycle + 8 lignes reecrites (§10, §11, §12,
-                                         §22, §24, §25, §26, §36) — AUCUN statut change
+RIEN, et c'est la directive du 2026-08-20 23:30 qui le dit : le bloc §9-13 / §14-20 / §24-27 reste
+loin d'etre tenu, et a ce niveau un test lui coute plus qu'il ne rapporte. La livraison au fil de
+l'eau n'est pas interrompue — sa consigne du 2026-08-06 tient, il peut prendre un build quand il
+veut, et celui-ci contient le lot.
+
+================================================================================================
+10. ARTEFACTS DE CE CYCLE
+================================================================================================
+  .autoport/c120-predictions.txt          les 8 predictions, ecrites AVANT la course, avec leurs
+                                          falsificateurs chiffres
+  .autoport/c120_spec11_law.py            la loi de §11 verifiee sur LES DEUX presets, sans course
+  .autoport/c120_settle.py                le rapport de depassement par echelon, avec sa garde de
+                                          vacuite et sa mediane
+  .../keira-room-x86.c120-REF.log         la course d'AVANT, conservee
+  .../keira-room-table.c120-REF.txt       son tableau, pour la comparaison ligne a ligne
+  goal_src/jak1/pc/jak-hd-physics.gc      `phys-sdyn` + le second ordre du canal de forme
+  goal_src/jak1/pc/phys-room.gc           deux cellules d'orientation ajoutees EN QUEUE
+  goal_src/jak1/pc/jak-hd-physics-NOTES.md [NOTE-507] [NOTE-508] [NOTE-509]
+  .autoport/physics_room_table.py         `ROOM-SPEC11-RHO` et `ROOM-SPEC11-STEP`
+  .autoport/SPEC-COVERAGE.md              en-tete de cycle + la ligne §11 reecrite — AUCUN statut
+                                          change
+

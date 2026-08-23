@@ -241,6 +241,8 @@
 (define *phys-dfdet* (new 'global 'array 'float PHYS-SC))  ;; §8 : det de l'echelle appliquee
 ;; [NOTE-505] LE MAXIMUM DE FENETRE DES TROIS ECHELLES COMMANDEES. `*phys-dfs*` est un INSTANTANE : `phys-shape` (which 0/1/2) le rend tel quel, donc `PHYSORI2` ne publie que l'echantillon de la frame d'emission et le PIC D'ETABLISSEMENT de la forme n'etait mesure nulle part — inventaire du cycle 119b sur les 200+ types d'enregistrement de la trace. Sans lui, on ne peut pas dire si `HangingTransientLengthMax` (1.30, §11 l.180) mordrait une fois cablee, et un canal dont on ne peut pas montrer qu'il agit est ce que la directive du 2026-08-22 23:00 cherche a eviter. NATURE : maximum de FENETRE, sans dimension (1.0 = pose d'auteur). REPERE : le triedre de §7. FENETRE : la meme que `*phys-rrml*` — remise a zero par le MEME `phys-stats-reset!`, donc les deux sont comparables sans hypothese. LECTURE HORS DEFAUT : 1/1/1. RESERVE QUI SE PUBLIE AVEC LA GRANDEUR : un MAXIMUM est la statistique juste pour une borne SUPERIEURE (la longueur au pendage) ; pour une echelle qui DIMINUE (projection supine 0.70, largeur prone 0.90) l'extreme pertinent est le MINIMUM et ce cliquet ne le porte pas.
 (define *phys-dfsm* (new 'global 'array 'float (* PHYS-SC 3)))
+;; [NOTE-508] SPEC 11 — LE SECOND ORDRE DU CANAL DE FORME. `sds` = les trois echelles APRES memoire (etat), `sdv` leur vitesse. Sans lui les echelles sautent a leur cible et le « transient settling peak ~+30% » de §11 (l.180) est structurellement impossible. NATURE : sans dimension (1.0 = pose d'auteur). REPERE : le triedre de §7. LECTURE HORS DEFAUT : 1/1/1, POINT FIXE — inerte au repos par algebre, pas par reglage. -> jak-hd-physics-NOTES.md
+(define *phys-sds* (new 'global 'array 'float (* PHYS-SC 3))) (define *phys-sdv* (new 'global 'array 'float (* PHYS-SC 3)))
 (define *phys-sec*  (new 'global 'array 'float PHYS-SC))   ;; §36 modulation d'epaisseur (fraction)
 (define *phys-secv* (new 'global 'array 'float PHYS-SC))
 (define *phys-secm* (new 'global 'array 'float PHYS-SC))   ;; son maximum sur la fenetre (mesure)
@@ -635,7 +637,7 @@
                     (set! (-> *phys-rrm* sc) 0.0)
                     (set-vector! (-> *phys-vp* sc) 0.0 0.0 0.0 0.0)
                     (dotimes (ii 3)
-                      (set! (-> *phys-dfs* (+ (* sc 3) ii)) 1.0) (set! (-> *phys-dyb* (+ (* sc 3) ii)) 0.0))
+                      (set! (-> *phys-dfs* (+ (* sc 3) ii)) 1.0) (set! (-> *phys-dyb* (+ (* sc 3) ii)) 0.0) (set! (-> *phys-sds* (+ (* sc 3) ii)) 1.0) (set! (-> *phys-sdv* (+ (* sc 3) ii)) 0.0))
                     ;; [NOTE-277] la direction de repos du materiau se releve a la premiere frame utile, sur la -> jak-hd-physics-NOTES.md
                     (dotimes (l PHYS-LINKS)
                       (set! (-> *phys-ucap* (+ (* sc PHYS-LINKS) l)) 0))))
@@ -931,6 +933,13 @@
          (u (* 0.5 (* wh (sqrtf (fmax 0.0 (- 1.0 (* z z)))))))
          (s (* u (+ (- 1.0 (* 0.16666667 (* u u))) (* 0.00833333 (* (* u u) (* u u)))))))
     (+ (* (- 1.0 r) (- 1.0 r)) (* 4.0 (* r (* s s))))))
+
+;; [NOTE-508] SPEC 11 — UN PAS DU SECOND ORDRE SUR UNE ECHELLE DE FORME. -> jak-hd-physics-NOTES.md
+(defun phys-sdyn ((sc int) (i int) (tgt float) (k2 float) (kd float))
+  "Avance l'echelle `i` de la chaine `sc` d'un pas vers `tgt` et rend sa valeur. Recurrence symplectique IDENTIQUE a §29/§36 : `v <- kd.v + k2.(cible - etat)` puis `etat <- etat + v`. NATURE : sans dimension. LECTURE HORS DEFAUT : `tgt` constant et etat = `tgt` => v = 0, rendu = `tgt` AU BIT."
+  (let* ((g (+ (* sc 3) i)) (v (+ (* kd (-> *phys-sdv* g)) (* k2 (- tgt (-> *phys-sds* g))))))
+    (set! (-> *phys-sdv* g) v) (set! (-> *phys-sds* g) (+ (-> *phys-sds* g) v))
+    (-> *phys-sds* g)))
 
 (defun phys-vol-floor ((sc int) (floor0 float) (b0 float))
   "Profondeur maximale que cette paire (lien, volume) tolere : sa profondeur d'AUTEUR plus ce que
@@ -1808,11 +1817,7 @@
 (define *phys-sdk-n* (new 'global 'inline-array 'vector PHYS-SD-K))  ;; leur normale monde
 
 (defun phys-surf-sd ((skel skeleton) (slot int) (p vector) (nbone int))
-  "(SPEC 18) DISTANCE SIGNEE du point `p` a la VRAIE SURFACE SKINNEE. Positive = dehors.
-   NATURE : une distance, unites de jeu. REPERE : le monde, frame courante. LECTURE HORS DEFAUT :
-   positive. La sentinelle 1000000.0 = aucun echantillon a portee, ce qui n'est PAS zero.
-   La FENETRE lue est [*phys-sd-lo*, *phys-sd-hi*), 0/-1 par defaut = la population de CORPS.
-   Justification complete : [NOTE-299] de jak-hd-physics-NOTES.md."
+  "(SPEC 18) distance SIGNEE a la vraie surface skinnee. Docstring integrale : [NOTE-509] de jak-hd-physics-NOTES.md."
   (let ((qw (new 'stack-no-clear 'vector))
         (nw (new 'stack-no-clear 'vector))
         (dv (new 'stack-no-clear 'vector))
@@ -3581,8 +3586,12 @@
                                             (+ (* wbk pht) (+ (* wfw psh) (+ (* wlt 1.118) (* wne 1.000)))))) wsm))
                                  (sz0 (/ (+ (* wdn 1.000) (+ (* wup pht)
                                             (+ (* wbk phl) (+ (* wfw psp) (+ (* wlt 1.118) (* wne 1.000)))))) wsm))
+                                 ;; [NOTE-508] SPEC 11 — LE SECOND ORDRE DU CANAL DE FORME, entre la cible de gravite et `cvn`. -> jak-hd-physics-NOTES.md
+                                 (whs (* dt (/ (* 6.2831853 (-> *phys-stiff* sc)) (sqrtf (fmax 0.01 (-> *phys-mass* sc))))))
+                                 (zsh (/ (-> *phys-damp* sc) (* 2.0 (fmax 0.000001 whs)))) (k2u (phys-osc-k2 zsh whs)) (kdu (phys-decay (* 2.0 (* zsh whs))))
+                                 (sxd (phys-sdyn sc 0 sx0 k2u kdu)) (syd (phys-sdyn sc 1 sy0 k2u kdu)) (szd (phys-sdyn sc 2 sz0 k2u kdu))
                                  ;; [NOTE-140] SPEC 8 — LE DETERMINANT DES TROIS ECHELLES -> jak-hd-physics-NOTES.md
-                                 (det (* sx0 (* sy0 sz0)))
+                                 (det (* sxd (* syd szd)))
                                  (y1  (- 1.0 (/ (- 1.0 det) 3.0)))
                                  (y2  (- y1 (/ (- (* y1 (* y1 y1)) det) (fmax 0.0001 (* 3.0 (* y1 y1))))))
                                  (cvn (/ 1.0 (fmax 0.0001 y2)))
@@ -3609,9 +3618,9 @@
                                         (- 0.0 (phys-softmin (- 0.0 sm0) (-> *phys-pset* (+ pb 9))))))
                                  ;; [NOTE-433] SPEC 36 s'applique a l'EPAISSEUR locale et conserve le volume : -> jak-hd-physics-NOTES.md
                                  (sqz (sqrtf (fmax 0.0001 (+ 1.0 smc))))
-                                 (sx1 (* cvn (/ sx0 sqz)))
-                                 (sy1 (* cvn (/ sy0 sqz)))
-                                 (sz1 (* cvn (* sz0 (+ 1.0 smc)))))
+                                 (sx1 (* cvn (/ sxd sqz)))
+                                 (sy1 (* cvn (/ syd sqz)))
+                                 (sz1 (* cvn (* szd (+ 1.0 smc)))))
                             (set! (-> *phys-secv* sc) sv2)
                             (set! (-> *phys-sec* sc) smc)
                             (when (> (fabs smc) (-> *phys-secm* sc))
@@ -4729,13 +4738,7 @@
 
 ;; le slot de simulation d'un compagnon, pour que la salle sache ou lire ses chiffres.
 (defun phys-shape ((slot int) (chain int) (which int))
-  "SPEC 8/10-13/29/36 — L'ETAT DE FORME ET DE TORSION, LU SUR LE MECANISME ARME.
-   NATURE : `which` 0/1/2 = les trois ECHELLES appliquees, sans unite (1.0 = pose d'auteur) ; 3 =
-   leur determinant ; 8 = l'interrupteur ; 9/10/11 la gravite unitaire ; 15/16/17 en repere ancre.
-   REPERE : le triedre de sa SPEC 7 — mais +X est le lateral SORTANT et **+Z pointe vers
-   l'ARRIERE**, PAS vers l'avant comme sa §7 l.130 et cette ligne l'ecrivaient : `gz > 0` =
-   SUPINE. Mesure et consequences : [NOTE-408]. LECTURE HORS DEFAUT : 1/1/1.
-   Justification complete : [NOTE-296] de jak-hd-physics-NOTES.md."
+  "SPEC 8/10-13/29/36 — l'etat de forme et de torsion. Docstring integrale : [NOTE-507] de jak-hd-physics-NOTES.md."
   (let ((sc (+ (* slot PHYS-CHAINS) chain)))
     (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS))
       0.0

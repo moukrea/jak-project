@@ -1153,10 +1153,19 @@
 ;; les intermediaires a 45 sont la pour §13 : entre deux poles la forme doit varier CONTINUMENT,
 ;; ce qui ne se lit que si on echantillonne entre les poles. 0 degre est inclus comme ligne de
 ;; base : cette orientation-la doit rendre 1.000 / 1.000 / 1.000, sinon tout le reste est decale.
-(defconstant PHYSROOM-ORIN 9)
-(define *physroom-ori-ax* (new 'static 'array int32 9 0 0 0 0 0 1 1 1 1))
-(define *physroom-ori-dg* (new 'static 'array float 9
-                               0.0 45.0 90.0 -45.0 -90.0 45.0 90.0 -45.0 -90.0))
+;; ---- CYCLE 120 : DEUX CELLULES AJOUTEES EN QUEUE, ET ELLES NE DEPLACENT RIEN -----------------
+;; §11 ecrit « Transient settling peak: ~+30%  HangingTransientLengthMax = 1.30 » (l.180) pour un
+;; etablissement DEPUIS LA POSE DEBOUT : 1.00 -> 1.23. Le balayage ci-dessous ne joue JAMAIS ce
+;; pas — il passe de 45 deg a 90 deg — donc comparer son pic a 1.30 comparait un pic obtenu sur un
+;; PETIT pas a une valeur ecrite pour un GRAND (`stimulus-must-be-representative`). Les cellules
+;; 9 (debout) et 10 (prone) forment ce pas-la, et elles sont AJOUTEES EN QUEUE precisement pour que
+;; les indices 0-8 gardent leur sens : toute l'analyse existante balaye `range(9)` et ne les voit
+;; pas, donc aucune ligne de verdict anterieure ne bouge. Cout : +2 cellules x 6 passes x 90 frames
+;; = 18 s de course.
+(defconstant PHYSROOM-ORIN 11)
+(define *physroom-ori-ax* (new 'static 'array int32 11 0 0 0 0 0 1 1 1 1 1 1))
+(define *physroom-ori-dg* (new 'static 'array float 11
+                               0.0 45.0 90.0 -45.0 -90.0 45.0 90.0 -45.0 -90.0 0.0 90.0))
 
 (defbehavior physroom-lean phys-subject ((deg float))
   "immobile mais INCLINEE de `deg` degres SUR LE COTE — le nom `lean` et la phrase « vers l'avant »

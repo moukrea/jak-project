@@ -9503,3 +9503,79 @@ lignes). Le texte ci-dessous est celui qui etait dans `jak-hd-physics.gc`, mot p
     ROTATION EXACTE AUTOUR DE L'ATTACHE, donc `|p - b|` invariant AU BIT : une contraction radiale
     vers la cible — la forme du filet amont — casserait la longueur, et aucune passe ne pourrait
     plus la reparer. Justification complete : [NOTE-447] de jak-hd-physics-NOTES.md.
+
+## [NOTE-507] `phys-shape` — docstring integrale, deplacee VERBATIM depuis le source
+
+Deplacee au cycle 120 pour rendre 6 lignes au plafond de 4800 du moteur, sans toucher une
+instruction. Meme methode qu'aux cycles 51, 118 et 119b. Le texte ci-dessous est celui qui etait
+dans `jak-hd-physics.gc`, mot pour mot :
+
+    SPEC 8/10-13/29/36 — L'ETAT DE FORME ET DE TORSION, LU SUR LE MECANISME ARME.
+    NATURE : `which` 0/1/2 = les trois ECHELLES appliquees, sans unite (1.0 = pose d'auteur) ; 3 =
+    leur determinant ; 8 = l'interrupteur ; 9/10/11 la gravite unitaire ; 15/16/17 en repere ancre.
+    REPERE : le triedre de sa SPEC 7 — mais +X est le lateral SORTANT et **+Z pointe vers
+    l'ARRIERE**, PAS vers l'avant comme sa §7 l.130 et cette ligne l'ecrivaient : `gz > 0` =
+    SUPINE. Mesure et consequences : [NOTE-408]. LECTURE HORS DEFAUT : 1/1/1.
+    Justification complete : [NOTE-296] de jak-hd-physics-NOTES.md.
+
+## NOTE-508 — cycle 120 : LE CANAL DE FORME ETAIT SANS MEMOIRE, ET C'EST POUR CA QUE LE PIC DE §11 N'EXISTAIT PAS
+
+**LE FAIT DE STRUCTURE.** `sx0/sy0/sz0` sont un melange CONVEXE des six poids de direction de
+gravite (`wdn/wup/wbk/wfw/wlt/wne`), evalue a la frame, **sans aucun etat**. Une fonction sans
+memoire ne peut pas depasser sa propre valeur d'equilibre : quel que soit le geste, l'echelle
+saute a sa cible et s'y tient. Le seul terme dynamique du canal etait le mode secondaire de §36
+(`smc`), borne a `SecondaryJiggleHardMax` = 0.07 et EXCITE PAR LA VITESSE DE LA POINTE, pas par le
+changement d'orientation : la trace du cycle 119b le mesure a **1.0 % / 1.9 %** du depassement que
+§11 demande sur la cellule prone, et — le tell — a **82.6 % / 52.9 % sur la cellule DEBOUT**, ou
+§11 ne demande rien. Un transitoire qui est cinquante fois plus fort la ou la section n'en veut pas
+n'est pas le transitoire de la section.
+
+**LA LOI QUE LE DOCUMENT ECRIT, ET IL L'ECRIT DEUX FOIS.** `HangingTransientLengthMax` n'est pas un
+reglage independant :
+
+    HangingTransientLengthMax  =  1 + (HangingLengthScale - 1) x (1 + FirstBounceRatio)
+    KEIRA  1 + 0.23 x 1.31 = 1.3013  contre 1.30 ecrit (l.481)  -> +0.10 %
+    MAIA   1 + 0.33 x 1.33 = 1.4389  contre 1.45 ecrit (l.953)  -> -0.76 %, et DANS la plage
+                                     « +40 to +45% » que sa propre prose ecrit (l.690)
+
+Les trois cles sont du document (`FirstBounceRatio` l.467 / l.939). RESERVE : exact sur Keira,
+dans la bande sur Maia — donc ce n'est PAS une `P-IDENTITE` au sens du cycle 119, qui exige
+l'exactitude sur les deux presets. Elle tranche neanmoins la lecture que le cycle 119b avait
+remontee sans la fermer : un plafond arbitraire ne tomberait pas a 0.10 % du depassement de
+second ordre qu'imposent deux autres cles de la meme page. **Le pic doit EXISTER.**
+
+**LE LOT.** Un second ordre sur les trois echelles, `phys-sdyn`, exactement la recurrence
+symplectique de §29 et §36 (`phys-osc-k2` / `phys-decay`), avec omega = 2.pi.raideur/sqrt(masse)
+et zeta = `*phys-damp*`/(2.omega.dt) — c'est-a-dire `GlobalFrequencyVertical` et
+`GlobalDampingRatio`, tous deux LUS DANS LE FICHIER LIVRE. `HangingTransientLengthMax` n'est
+**pas** donne au solveur : le pic reste EMERGENT, sinon la mesure serait un miroir
+(`mirror-is-the-couple-not-the-location`).
+
+**POURQUOI C'EST INERTE AU REPOS, PAR ALGEBRE ET PAS PAR REGLAGE.** A la pose debout d'auteur la
+cible vaut exactement (1,1,1) — c'est la lecture du melange convexe quand `wdn` porte tout le
+poids — et l'etat est INITIALISE a (1,1,1) au meme point que `*phys-dfs*`. L'etat est donc au
+POINT FIXE des la premiere frame : vitesse nulle, correction nulle. §2 (« Additional Procedural
+Sag = 0% ») et §9 (« restored exactly ») ne peuvent pas etre violees par ce lot tant que
+l'orientation ne bouge pas.
+
+**L'ORDRE DES TROIS OPERATEURS COMPTE, ET IL EST CELUI-CI :** (1) la cible de gravite, (2) le
+second ordre, (3) la conservation de volume `cvn`, (4) le mode secondaire de §36. `cvn` est
+recalcule sur les echelles DYNAMIQUES et non sur la cible : sinon le determinant ne serait
+normalise qu'a l'equilibre et §8 (« 98-101 %, 96-102 % en transitoire ») sortirait de sa bande
+pendant l'etablissement, c'est-a-dire exactement pendant le transitoire que le lot produit.
+
+**COUT DECLARE D'AVANCE** : le tenseur porte 37-41 % de l'exces d'apex de §22
+(`apex-excess-lives-in-the-deformation-tensor`). Un depassement de +31 % du PAS d'echelle pendant
+l'etablissement fait donc monter `comex` et `meshpen` en transitoire. C'est ecrit dans
+`.autoport/c120-predictions.txt` AVANT la course, avec son falsificateur.
+
+## [NOTE-509] `phys-surf-sd` — docstring integrale, deplacee VERBATIM depuis le source
+
+Deplacee au cycle 120, meme methode que [NOTE-507] : 4 lignes rendues au plafond de 4800, aucune
+instruction touchee. Texte d'origine, mot pour mot :
+
+    (SPEC 18) DISTANCE SIGNEE du point `p` a la VRAIE SURFACE SKINNEE. Positive = dehors.
+    NATURE : une distance, unites de jeu. REPERE : le monde, frame courante. LECTURE HORS DEFAUT :
+    positive. La sentinelle 1000000.0 = aucun echantillon a portee, ce qui n'est PAS zero.
+    La FENETRE lue est [*phys-sd-lo*, *phys-sd-hi*), 0/-1 par defaut = la population de CORPS.
+    Justification complete : [NOTE-299] de jak-hd-physics-NOTES.md.
