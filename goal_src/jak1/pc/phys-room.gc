@@ -6067,6 +6067,100 @@
           ;; impulsion — et ils n'auraient plus mesure le meme domaine que leurs freres
           ;; `PHYSAXRES`/`PHYSAXCOM`/`PHYSAXTAN`. Une paire dont les deux membres n'ont pas le
           ;; meme domaine n'est pas une paire.
+          ;; ---- [NOTE-507] CYCLE 116 : `PHYSSTGU` — LE MEME SEPTUPLET, A UNE RESOLUTION QUI PEUT
+          ;; ---- VOIR LES TERMES QU'IL EST CENSE SEPARER ------------------------------------
+          ;; POURQUOI IL EXISTE. `PHYSSTGQ`, quinze lignes plus bas, imprime `jt=~f` : QUATRE
+          ;;   decimales d'un RAPPORT A B0. B0 vaut 602,0 u (SPEC 6), donc son quantum
+          ;;   d'impression vaut 0,0001 B0 = **0,0602 u**. Les deux termes que le cycle 115 met en
+          ;;   balance sur CETTE fenetre valent, eux, 0,02096 u (ressort, k2.e) et ~0,0015 u
+          ;;   (gravite) par frame. **Le quantum est 2,87 fois le plus GROS des deux et 40 fois le
+          ;;   plus petit.** Le septuplet « plat a 0.0006 » du cycle 115 n'etait donc pas une
+          ;;   mesure d'immobilite : c'etait une QUANTIFICATION, et aucune valeur de delta
+          ;;   inferieure a 0,06 u ne pouvait s'y imprimer autrement que par un zero. Son voisin
+          ;;   immediat `PHYSRESTQ` imprime deja `~,,7f` : la resolution etait disponible dans le
+          ;;   meme bloc, a deux lignes de la.
+          ;; CE QU'IL LIT : les MEMES cases `phys-diag 87..93` que `PHYSSTGQ` — aucune grandeur
+          ;;   nouvelle, aucun calcul nouveau, pas une ligne de solveur touchee. Seule
+          ;;   l'IMPRESSION change. `PHYSSTGQ` est laisse INTACT AU BIT parce que les cycles 114c
+          ;;   et 115 le citent, et les deux chemins sont publies cote a cote : `PHYSSTGU` arrondi
+          ;;   a quatre decimales DOIT redonner `PHYSSTGQ`, sinon c'est l'impression qui ment.
+          ;; CINQ FRAMES ET NON UNE : une frame unique ne dit pas si un delta est stable ou
+          ;;   accidentel. Les cinq dernieres de la fenetre PH-AXC sont toutes dans le regime
+          ;;   « garee » que `ROOM-AXC-SETTLE` mesure (sigma30 = 0 sur 324 series, cycle 114b).
+          ;; NATURE : une LONGUEUR rapportee a B0 (SPEC 6, la CHAIR), sept fois, dans UNE MEME
+          ;;   frame. REPERE : le monde, contre la pose d'AUTEUR de la MEME frame — identiques a
+          ;;   ceux de `PHYSSTGQ`, puisque c'est la meme case.
+          ;; LECTURE QUAND LE DEFAUT EST ABSENT : les sept valeurs sont egales, les six deltas
+          ;;   valent 0,0000000. Sur une chaine deja au repos, aucun etage ne doit rien deplacer.
+          ;; ASYMETRIE, ET ELLE EST DECLAREE AVANT LA COURSE : `jt` est une NORME, pas un vecteur.
+          ;;   Un delta NON NUL PROUVE qu'un etage a deplace le joint. Un delta NUL NE PROUVE PAS
+          ;;   l'inverse — un deplacement sur la sphere centree sur la pose d'auteur serait
+          ;;   invisible a une norme. L'instrument ne conclut donc que dans UN sens.
+          (when (and (>= (-> self pframe) (- PHYSROOM-AXW 4))
+                     (<= (-> self pframe) PHYSROOM-AXW))
+            (dotimes (c (-> self nchain))
+              (when (> (phys-chain-links (-> self slot) c) 0)
+                (dotimes (i 7)
+                  (format 0 "PHYSSTGU c=~D ax=~D f=~D st=~D jt=~,,7f~%"
+                          c ax (-> self pframe) i
+                          (phys-diag (-> self slot) c (+ 87 i)))))))
+            ;; ---- [NOTE-509] `PHYSBALQ` — LES TROIS TERMES DU BILAN, A LA MEME FRAME ---------
+            ;; POURQUOI. `PHYSSTGU` ci-dessus montre que les SEPT ETAGES ne deplacent le joint de
+            ;;   RIEN au point de parcage sur chestL (0.0000000 sur 15 cellules sur 15) et de
+            ;;   0,0087 u par frame sur chestR (etage 1->2, la projection de longueur). Or
+            ;;   l'inegalite triangulaire sur les grandeurs DEJA emises donne
+            ;;       |p - cible| >= jt - rgap = 0,0006059 - 0,0001557 = 0,00045 B0 = 0,271 u
+            ;;   donc une force de rappel d'au moins k2 x 0,271 = 0,0157 u/frame^2. Une force qui
+            ;;   ne deplace rien et qu'aucun etage n'absorbe n'est pas un equilibre : c'est une
+            ;;   force qui n'arrive pas. Ces trois cases repondent a l'endroit exact ou elle se
+            ;;   perd, et elles sont lues A LA MEME FRAME que `PHYSSTGU`.
+            ;; NATURE / REPERE / ABSENT :
+            ;;   `pe`   longueur / B0 (SPEC 6), monde, maillon `rlk`, INSTANTANEE. 0 = la chaine
+            ;;          est exactement sur la cible du ressort.
+            ;;   `f`    NORME d'une acceleration, unites de jeu par frame^2, monde. 0 = aucune
+            ;;          force elastique n'est produite cette frame (`hasf` = 0, ou `e` nul).
+            ;;   `dint` LONGUEUR, unites de jeu, monde : ce que les `ns` sous-pas ont DEPLACE le
+            ;;          joint avant qu'aucune contrainte ne tourne. 0 = l'integration n'ecrit rien.
+            ;; CONTROLE D'INTEGRITE NON TAUTOLOGIQUE, ecrit avant la course : les trois cases
+            ;;   viennent de trois chemins differents, et `f` doit valoir k2 x pe x B0 a la
+            ;;   projection par axe pres (sv=1,0000 sap=1,1111 slat=1,2195, `PHYSAXISS`), avec
+            ;;   k2 = 0,058019 (chestL) et 0,062661 (chestR) recalcules du fichier livre. Un `f`
+            ;;   tres inferieur DESIGNE la ligne de force ; un `f` conforme avec `dint` nul
+            ;;   designe l'integration ; les deux conformes designent la mesure de `PHYSSTGU`.
+            (dotimes (c (-> self nchain))
+              (when (> (phys-chain-links (-> self slot) c) 0)
+                (format 0 "PHYSBALQ c=~D ax=~D f=~D pe=~,,7f fn=~,,7f dint=~,,7f~%"
+                        c ax (-> self pframe)
+                        (phys-diag (-> self slot) c 94)
+                        (phys-diag (-> self slot) c 95)
+                        (phys-diag (-> self slot) c 96))))
+            ;; ---- [NOTE-511] `PHYSQUANT` — LE QUANTUM, ET LA COORDONNEE QUI LE FIXE -------
+            ;; `PHYSBALQ dint` ne prend que des valeurs 2^-6 . racine(entier) — 0.0156250,
+            ;; 0.0312500, 0.0468750, 0.0644235 (=racine 17), 0.0698771 (=racine 20) ... — et vaut
+            ;; EXACTEMENT 0 sur un tiers des frames pendant que la force elastique, elle, n'est pas
+            ;; nulle. C'est la signature d'une addition en virgule flottante 32 bits dont
+            ;; l'increment tombe sous le demi-ULP de l'operande. Cette ligne publie les DEUX cotes
+            ;; de cette these pour qu'elle cesse d'etre une deduction : les trois composantes
+            ;; SIGNEES du deplacement (dont les quanta doivent etre des puissances de deux) et la
+            ;; POSITION MONDE de l'attache (dont l'exposant doit rendre ces puissances de deux).
+            ;; NATURE : quatre LONGUEURS en unites de jeu (4096 u = 1 m). REPERE : le monde.
+            ;; PREDICTION FALSIFIABLE : pour une coordonnee de magnitude m, un flottant 32 bits a
+            ;;   un pas de 2^(floor(log2 m) - 23). Si le quantum observe sur une composante n'est
+            ;;   PAS cette valeur-la, la these tombe et il faut chercher ailleurs.
+            (dotimes (c (-> self nchain))
+              (when (> (phys-chain-links (-> self slot) c) 0)
+                ;; DEUX LIGNES et non une : `format` de GOAL est cape a huit parametres,
+                ;; destination comprise — la meme borne que `PHYSRADLE` documente plus haut.
+                (format 0 "PHYSQUANT c=~D ax=~D f=~D dx=~,,7f dy=~,,7f dz=~,,7f~%"
+                        c ax (-> self pframe)
+                        (phys-diag (-> self slot) c 97)
+                        (phys-diag (-> self slot) c 98)
+                        (phys-diag (-> self slot) c 99))
+                (format 0 "PHYSQUANT2 c=~D ax=~D ancx=~,,4f ancy=~,,4f ancz=~,,4f~%"
+                        c ax
+                        (phys-diag (-> self slot) c 50)
+                        (phys-diag (-> self slot) c 51)
+                        (phys-diag (-> self slot) c 52))))
           (when (= (-> self pframe) PHYSROOM-AXW)
             ;; ---- PHYSSTGQ — LE SEPTUPLET AU POINT DE PARCAGE (cycle 114c) ------------------
             ;; NATURE : une LONGUEUR rapportee a `B0` (SPEC 6, la CHAIR), sept fois, dans UNE

@@ -514,7 +514,7 @@
 (define *phys-e22-n* 0)
 (define *phys-e22-d* 0.0)
 
-(defconstant PHYS-DG 94)           ;; 87-93 = [NOTE-501] le MEME septuplet en INSTANTANE (pas un latch, pas un argmax) : la DERNIERE frame ecrite, lue par la salle a la fermeture de la fenetre PH-AXC, la ou `ROOM-AXC-SETTLE` mesure sigma30 = 0 · 86 = [NOTE-472] la part RADIALE de l'excursion d'apex (projection signee sur le levier de chair, ponderee, en B0, AU MEME ARGMAX que 53-56) · 79-85 = [NOTE-466] le MEME septuplet a portee de FENETRE, cle sur l'etage 0 · 65-71 = [NOTE-340] les SEPT etages de |p_rlk - pose auteur| / B0 DANS LA FRAME COURANTE, 72-78 le meme septuplet LATCHE a la frame qui maximise l'etage 6 · 59-61 = [NOTE-338] la part TRANSLATION de l'apex, 62-64 sa part TENSEUR, AU MEME ARGMAX que 53-56 · 31-34 = [NOTE-92] l'attribution de `comex` · 35-42 = [NOTE-112] le COM PAR MAILLON · 43-46 = [NOTE-126] le COM PONDERE · 47-49 = [NOTE-136] son VECTEUR · 50-52 = [NOTE-137] la POSITION MONDE de l'ancre · 53-56 = [NOTE-139] l'APEX et son vecteur · 57/58 = [NOTE-139] les deux extremes verticaux du COM (SPEC 15)
+(defconstant PHYS-DG 100)          ;; [NOTE-510] 97/98/99 = les TROIS COMPOSANTES SIGNEES du meme deplacement d integration que 96, unites de jeu : la NORME ne dit pas quel axe a bouge, et le quantum d un flottant 32 bits depend de la MAGNITUDE de CHAQUE coordonnee, donc il faut les separer. · [NOTE-508] 94 = `pe` = |p - cible du ressort| / B0 INSTANTANE (pas un max : la case est reecrite a chaque frame, maillon `rlk`) · 95 = la NORME de la force elastique de la frame, |f|.fns^2, unites de jeu · 96 = |p_apres_sous-pas - p_avant_sous-pas|, le DEPLACEMENT QUE L INTEGRATION PRODUIT, unites de jeu. Les trois sont hors de la tranche 23-49 remise a zero par fenetre : ecrites a chaque frame, elles portent TOUJOURS la frame courante. Elles existent parce que le cycle 116 a mesure que les sept etages ne deplacent le joint de rien au point de parcage alors que |p - cible| y vaut au moins 0.271 u : il faut donc lire la force ET le deplacement qu elle produit, au meme endroit et a la meme frame. · 87-93 = [NOTE-501] le MEME septuplet en INSTANTANE (pas un latch, pas un argmax) : la DERNIERE frame ecrite, lue par la salle a la fermeture de la fenetre PH-AXC, la ou `ROOM-AXC-SETTLE` mesure sigma30 = 0 · 86 = [NOTE-472] la part RADIALE de l'excursion d'apex (projection signee sur le levier de chair, ponderee, en B0, AU MEME ARGMAX que 53-56) · 79-85 = [NOTE-466] le MEME septuplet a portee de FENETRE, cle sur l'etage 0 · 65-71 = [NOTE-340] les SEPT etages de |p_rlk - pose auteur| / B0 DANS LA FRAME COURANTE, 72-78 le meme septuplet LATCHE a la frame qui maximise l'etage 6 · 59-61 = [NOTE-338] la part TRANSLATION de l'apex, 62-64 sa part TENSEUR, AU MEME ARGMAX que 53-56 · 31-34 = [NOTE-92] l'attribution de `comex` · 35-42 = [NOTE-112] le COM PAR MAILLON · 43-46 = [NOTE-126] le COM PONDERE · 47-49 = [NOTE-136] son VECTEUR · 50-52 = [NOTE-137] la POSITION MONDE de l'ancre · 53-56 = [NOTE-139] l'APEX et son vecteur · 57/58 = [NOTE-139] les deux extremes verticaux du COM (SPEC 15)
 (define *phys-dg* (new 'global 'array 'float (* PHYS-SC PHYS-DG)))
 ;; [NOTE-92] LE CENTRE DE CHAIR APRES ROTATION ET AVANT DEFORMATION. -> jak-hd-physics-NOTES.md
 (define *phys-c1* (new 'global 'array 'float 3))
@@ -2875,7 +2875,7 @@
                                        (set! (-> *phys-dg* (+ dgb 26)) pe))
                                      ;; [NOTE-224] 28 = la SOMME de `perr`. Le maximum seul ne separe pas « un -> jak-hd-physics-NOTES.md
                                      (set! (-> *phys-dg* (+ dgb 28))
-                                           (+ pe (-> *phys-dg* (+ dgb 28))))
+                                           (+ pe (-> *phys-dg* (+ dgb 28)))) (set! (-> *phys-dg* (+ dgb 94)) pe)
                                      (set! (-> *phys-dg* (+ dgb 25))
                                            (+ rg (-> *phys-dg* (+ dgb 25))))
                                      (set! (-> *phys-dg* (+ dgb 27))
@@ -2962,7 +2962,8 @@
                                         (cpz (-> *phys-cpz* scl))
                                         (cvx (/ (- cpx (-> *phys-cqx* scl)) fns))
                                         (cvy (/ (- cpy (-> *phys-cqy* scl)) fns))
-                                        (cvz (/ (- cpz (-> *phys-cqz* scl)) fns)))
+                                        (cvz (/ (- cpz (-> *phys-cqz* scl)) fns))
+                                   (px0 (-> *phys-px* scl)) (py0 (-> *phys-py* scl)) (pz0 (-> *phys-pz* scl)))
                                    (dotimes (ss ns)
                                      (let ((fx 0.0) (fy 0.0) (fz 0.0))
                                        (when (nonzero? hasf)
@@ -3011,7 +3012,7 @@
                                            (set! vz (+ (* vz kds) (+ fz ggz)))))
                                        (set! (-> *phys-px* scl) (+ (-> *phys-px* scl) vx))
                                        (set! (-> *phys-py* scl) (+ (-> *phys-py* scl) vy))
-                                       (set! (-> *phys-pz* scl) (+ (-> *phys-pz* scl) vz))
+                                       (set! (-> *phys-pz* scl) (+ (-> *phys-pz* scl) vz)) (when (= l rlk) (set! (-> *phys-dg* (+ (* sc PHYS-DG) 95)) (* (sqrtf (+ (* fx fx) (+ (* fy fy) (* fz fz)))) (* fns fns))))
                                        ;; [NOTE-132] SPEC 23 POINT LIBRE -> jak-hd-physics-NOTES.md
                                        (when (nonzero? rlo)
                                          (let* ((cex (- tgx cpx))
@@ -3118,7 +3119,7 @@
                                            (set! (-> *phys-rrml* scl) ar)))))
                                    (set! (-> *phys-qx* scl) (- (-> *phys-px* scl) (* fns vx)))
                                    (set! (-> *phys-qy* scl) (- (-> *phys-py* scl) (* fns vy)))
-                                   (set! (-> *phys-qz* scl) (- (-> *phys-pz* scl) (* fns vz)))))))))))
+                                   (set! (-> *phys-qz* scl) (- (-> *phys-pz* scl) (* fns vz))) (when (= l rlk) (set! (-> *phys-dg* (+ (* sc PHYS-DG) 97)) (- (-> *phys-px* scl) px0)) (set! (-> *phys-dg* (+ (* sc PHYS-DG) 98)) (- (-> *phys-py* scl) py0)) (set! (-> *phys-dg* (+ (* sc PHYS-DG) 99)) (- (-> *phys-pz* scl) pz0)) (set! (-> *phys-dg* (+ (* sc PHYS-DG) 96)) (sqrtf (+ (* (- (-> *phys-px* scl) px0) (- (-> *phys-px* scl) px0)) (+ (* (- (-> *phys-py* scl) py0) (- (-> *phys-py* scl) py0)) (* (- (-> *phys-pz* scl) pz0) (- (-> *phys-pz* scl) pz0)))))))))))))))
 
                     ;; [NOTE-221] ---- 2. LES CONTRAINTES. Gauss-Seidel : longueur puis collision, puis des -> jak-hd-physics-NOTES.md
                     (phys-cap-ang! skel sc n rlk an nbone 0)
