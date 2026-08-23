@@ -1,0 +1,80 @@
+CYCLE 117 — PREDICTIONS ECRITES AVANT LA MESURE
+DIRECTIVES vd9e8b66782
+Perimetre actif : Grecharged-secondary-motion / physics-keira-clean / KEIRA SEULE, sa poitrine.
+Section dont ce cycle debloque le verdict, NOMMEE AVANT DE COMMENCER (directive 2026-08-21 18:25) :
+  §27 « dominant visible response 0.3-0.6 s ; secondary movement 0.6-1.2 s ; mostly settled
+       ~1.0-1.5 s ; essentially stationary ~1.3-1.7 s » (l.350-351).
+
+------------------------------------------------------------------------------------------------
+BLOC A — LE FAIT DEJA ETABLI (audit, aucune prediction : c'est un recomptage)
+------------------------------------------------------------------------------------------------
+`ROOM-AXC-SETTLE-VERDICT` publie, sur la course ARMEE du cycle 116, trois affirmations que sa
+PROPRE colonne contredit. Recompte par `.autoport/c117_verdict_audit.py` (lit le tableau, pas la
+trace ; aucune course) :
+    affirme « les 12 series ont un sigma30 NUL AU BIT »      -> 1/12
+    affirme « 1 porte un decalage superieur au niveau »      -> 8/12
+    affirme « les 11 autres l'atteignent »                   -> 3/12 l'atteignent, 9/12 jamais
+    affirme « elles l'atteignent TOT (1,033 et 1,100 s) »    -> deux durees ECRITES EN DUR (c113)
+CAUSE : le comptage etait garde par `sigma30 <= 5 % du decalage`. Gelee au bit, la garde etait
+vraie partout et le compte etait juste ; la sommation compensee du cycle 116 a rendu la queue
+mobile, la garde est tombee a 1/12, et le bloc a declare ATTEINTES 9 series affichees `>fin`.
+
+------------------------------------------------------------------------------------------------
+BLOC B — LA MESURE NEUVE, ET SES PREDICTIONS SONT ECRITES ICI AVANT D'ETRE CALCULEES
+------------------------------------------------------------------------------------------------
+CE QUE §27 DEMANDE, ET DE QUELLE NATURE. « essentially stationary » est une propriete du
+MOUVEMENT. L'instrument actuel lit la DISTANCE A LA POSE D'AUTEUR : une chaine garee a un
+decalage CONSTANT est immobile et il la declare « sonne encore ». Le cycle 113 avait deja tranche
+que ce decalage appartient a §2 / §9 (« restored exactly ») et pas a §27 — mais l'instrument, lui,
+n'a jamais ete change. Donc on lit la MEME serie debarrassee de son terme CONSTANT :
+    v'(t) = v(t) - moyenne(30 dernieres frames)
+et on refait, a l'identique, la recherche du DERNIER franchissement de chaque niveau. Aucun
+parametre libre n'est introduit : le terme retranche est deja publie (colonne `offset`), et les
+quatre niveaux restent derives de §24 et §25 (21.9284 % / 4.8085 % / 0.6358 % / 0.1394 % de a0).
+LES DEUX LECTURES SONT PUBLIEES COTE A COTE. L'ancienne n'est pas retiree : l'ecart entre les deux
+EST la mesure de ce que le decalage coutait a §27.
+
+P1  ETAPE 4 (« essentially stationary », niveau 0.1394 %, fenetre 1.3-1.7 s). Les 8 series
+    bloquees par le DECALAGE doivent maintenant l'atteindre. PREDICTION : >= 8 des 12 l'atteignent.
+    Si moins de 8 l'atteignent, la separation decalage/mouvement est fausse et je le dirai.
+
+P2  MAIS ATTEINDRE NE SUFFIT PAS : il faut tomber DANS 1.3-1.7 s. PREDICTION EXPLICITE, ET ELLE
+    N'EST PAS FAVORABLE : la plupart tomberont TROP TOT (< 1.3 s), donc encore `!`. Raison : `a0`
+    reste « le max des 5 premiers echantillons » d'une serie qui PORTE son decalage, donc `a0` est
+    surestime, donc tous les seuils absolus le sont, donc les franchissements arrivent en avance.
+    **Je predis que §27 ne devient PAS `TENUE` par ce seul changement**, et que le barreau qui
+    restera est `a0`, exactement comme la cellule de §27 le dit depuis le cycle 113.
+    Si au contraire une majorite tombe DANS la fenetre, c'est une surprise et je l'ecrirai comme
+    telle au lieu de la presenter comme attendue.
+
+P3  ETAPES 1 A 3 QUASI INCHANGEES. Le decalage vaut 0.005 a 0.391 % de a0 quand les niveaux des
+    etapes 1, 2 et 3 valent 21.93 %, 4.81 % et 0.6358 %. Retrancher 0.4 % d'un seuil de 21.93 %
+    ne peut pas deplacer l'etape 1. PREDICTION : etape 1 identique a la frame pres sur 12/12 ;
+    etape 2 identique sur >= 10/12.
+    FALSIFICATEUR : si l'etape 1 ou l'etape 2 bouge de plus de deux frames sur plus de deux
+    series, alors le decalage n'est PAS petit devant ces niveaux, la separation que je viens
+    d'ecrire est fausse dans son principe, et tout le bloc B tombe. Je republierai l'ancienne
+    lecture seule.
+
+P4  PLANCHER DE BRUIT PUBLIE A COTE, PAS APRES COUP. Une duree n'est lisible que si le bruit de
+    queue est SOUS le niveau de son etape. `sigma30/a0` mesure 0.0000 a 0.2601 % ; le niveau de
+    l'etape 4 vaut 0.1394 %. PREDICTION : 2 series (chestR l=0 v a 0.2052 % et chestR l=1 lat a
+    0.2601 %) restent illisibles a l'etape 4 MEME apres retrait du decalage, et elles doivent
+    porter la marque `~` au lieu d'une duree qu'on croirait mesuree.
+
+P5  PURETE. Le tableau est une fonction PURE du log : verifie avant toute edition, la
+    regeneration de `keira-room-x86.log` (10:50, course ARMEE) rend un fichier IDENTIQUE OCTET
+    POUR OCTET au tableau livre. Donc tout ecart apres edition est imputable a l'edition seule.
+    EXIGENCE : le diff du tableau regenere ne doit toucher QUE les blocs `ROOM-AXC-SETTLE*` et
+    `ROOM-SPEC13-VERDICT`. Toute autre ligne qui bouge est un effet de bord non voulu, et je
+    l'annule au lieu de le publier.
+
+------------------------------------------------------------------------------------------------
+CE QUE CE CYCLE NE PRETEND PAS FAIRE
+------------------------------------------------------------------------------------------------
+  - il ne touche pas au solveur : zero ligne de `jak-hd-physics.gc` (qui est a 4800/4800, le
+    plafond CLEAN), zero build, zero course neuve ;
+  - il ne convertit aucune section par un reglage ; si un statut bouge, c'est parce qu'une mesure
+    fausse est corrigee, et ce sera ecrit comme tel ;
+  - il ne sollicite pas l'owner (directive 2026-08-20 23:30 : le bloc §9-13 / §14-20 / §24-27
+    n'est pas tenu, donc un test lui coute plus qu'il ne rapporte).

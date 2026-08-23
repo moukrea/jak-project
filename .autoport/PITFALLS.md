@@ -737,3 +737,34 @@ quantite fixe.
 Verrou : le declencheur compare en RELATIF (2 % de la valeur). Regle generale : avant d'ecrire un
 seuil, verifier l'echelle de TOUTES les grandeurs qu'il gouverne — un seuil unique sur des
 grandeurs d'echelles differentes est faux pour au moins l'une d'elles.
+
+GUARD guard-precondition-reverses-a-verdict .autoport/physics_room_table.py trois categories exclusives et exhaustives
+**UNE PRECONDITION DE GARDE QUI CESSE D'ETRE VRAIE RETOURNE LE VERDICT AU LIEU DE LE SUSPENDRE.**
+`ROOM-AXC-SETTLE-VERDICT` classait « inatteignable » les series de §27 dont le decalage depasse le
+niveau d'entree de l'etape, **a condition que** `sigma30 <= 5 % du decalage` — une garde de vacuite,
+posee pour ne pas juger une serie qui bouge encore. Tant que la queue etait GELEE AU BIT la garde
+etait vraie partout : le compte etait juste et la phrase decrivait bien la mesure. Le cycle 116 a
+arme la sommation compensee, la queue s'est mise a bouger, **la garde est tombee a 1 serie sur 12**
+— et le bloc a alors declare ATTEINTES les 11 autres, dont **9 que sa PROPRE colonne affiche a
+`>2.50`**. Aucune ligne de code n'avait change ; c'est la DONNEE qui a retourne le sens de la
+phrase. La ligne portait en plus deux durees ECRITES EN DUR (« 1,033 et 1,100 s », mesurees trois
+cycles plus tot), donc meme le detail qui donnait l'air d'une mesure etait une citation.
+Verrou : un verdict se recalcule en categories **exclusives et exhaustives** sur la donnee
+courante, chaque categorie enumerant ses membres ; une garde ne CHOISIT plus qui est compte, elle
+se publie comme diagnostic a cote. Et aucune duree, aucun compte, aucun exemple ne s'ecrit en dur
+dans une ligne d'emission. Regle generale, et c'est le miroir de
+`gate-behind-an-always-failing-gate` : quand une condition devient fausse, demander toujours
+« est-ce que ca SUSPEND le verdict ou est-ce que ca l'INVERSE ? » — si c'est la seconde, la
+condition n'est pas une garde, c'est un aiguillage non declare.
+
+GUARD frozen-prose-verdict .autoport/physics_room_table.py descripteurs juges, comptes sur
+**UNE LIGNE DE VERDICT SANS UN SEUL CHAMP ALIMENTE PAR LA DONNEE NE PEUT PAS CESSER D'ETRE VRAIE.**
+Audit du cycle 117 sur les 15 lignes `*-VERDICT` / `*-BILAN` du tableau : 14 sont formatees depuis
+la mesure, **1 etait de la prose pure** (`ROOM-SPEC13-VERDICT` : « trois descripteurs sur quatre
+sont juges et encadres ») alors que les trois decisions en question etaient calculees dix lignes
+plus haut et jetees. Elle etait juste ce jour-la — et elle le serait restee, mot pour mot, si le
+solveur avait rendu l'inverse.
+Verrou : toute ligne de verdict porte au moins un champ formate depuis la mesure qu'elle resume, et
+le scan est mecanique — un bloc `A(...)` qui nomme un verdict sans `%` alimente est un faux vert en
+attente. Voisin de `instrument-republishes-its-target` : la, l'instrument relit sa cible ; ici, il
+ne relit rien du tout.

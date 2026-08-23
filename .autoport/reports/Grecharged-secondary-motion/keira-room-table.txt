@@ -3286,7 +3286,7 @@ ROOM-SPEC24-BILAN: 2 chaine(s) sur 2 tiennent les quatre clauses de §24 sur les
    chaine       l axe   a0        offset      off/a0   sigma30      reponse vis mouvement s mostly sett essentially
 ROOM-AXC-SETTLE: chestL       0 v    0.021045 +0.0000330  0.157% 0.0000000000 0.250!      0.617       0.867!      >2.50      
 ROOM-AXC-SETTLE: chestL       1 v    0.072376 +0.0002832  0.391% 0.0000392500 0.733!      1.133       1.200       >2.50      
-ROOM-AXC-SETTLE: chestR       0 v    0.019494 +0.0000598  0.307% 0.0000400002 0.233!      0.600       >2.50       >2.50      
+ROOM-AXC-SETTLE: chestR       0 v    0.019494 +0.0000598  0.307% 0.0000400002 0.233!      0.600       >2.50       >2.50~     
 ROOM-AXC-SETTLE: chestR       1 v    0.068722 +0.0001653  0.241% 0.0000890266 0.700!      1.083       >2.50       >2.50      
 ROOM-AXC-SETTLE: chestL       0 ap   0.157987 -0.0001243  0.079% 0.0000151906 0.250!      0.617       0.900!      1.767!     
 ROOM-AXC-SETTLE: chestL       1 ap   0.262730 +0.0005317  0.202% 0.0001089970 0.933!      1.200       1.767!      >2.50      
@@ -3295,20 +3295,72 @@ ROOM-AXC-SETTLE: chestR       1 ap   0.263154 +0.0007615  0.289% 0.0001249818 0.
 ROOM-AXC-SETTLE: chestL       0 lat  0.142816 +0.0000325  0.023% 0.0000286860 0.233!      0.600       0.867!      1.283!     
 ROOM-AXC-SETTLE: chestL       1 lat  0.263674 +0.0008347  0.317% 0.0001670705 0.733!      1.150       1.700!      >2.50      
 ROOM-AXC-SETTLE: chestR       0 lat  0.123121 -0.0001537  0.125% 0.0001337824 0.233!      0.583!      0.983!      >2.50      
-ROOM-AXC-SETTLE: chestR       1 lat  0.239640 +0.0005355  0.223% 0.0006232666 0.867!      1.267!      2.450!      >2.50      
-   (`!` = etape atteinte HORS de la fenetre que §27 lui donne ; `>fin` = jamais atteinte sur la fenetre mesuree.)
+ROOM-AXC-SETTLE: chestR       1 lat  0.239640 +0.0005355  0.223% 0.0006232666 0.867!      1.267!      2.450!      >2.50~     
+   (`!` = etape atteinte HORS de la fenetre que §27 lui donne ; `>fin` = jamais atteinte sur la fenetre mesuree ; `~` = sigma30 depasse a lui seul le niveau d entree de cette etape, donc la duree est lue A SON PLANCHER DE BRUIT et ne mesure pas une stabilisation.)
 
-ROOM-AXC-SETTLE-VERDICT: les 12 series ont un sigma30 NUL AU BIT PRES — aucune ne sonne encore — et toutes s arretent a un decalage CONSTANT.
-   Sur ces 12, **1** portent un decalage SUPERIEUR au niveau d entree de la derniere etape de §27 (0.1394 %), donc 0.157 a 0.157 % de leur amplitude primaire :
-   pour celles-la cette etape est INATTEIGNABLE PAR CONSTRUCTION. Les 11 autres, dont le decalage est PLUS PETIT que ce niveau, l atteignent — et elles l atteignent TOT
-   (1,033 et 1,100 s pour une fenetre 1,3-1,7 s), ce qui montre que la DYNAMIQUE est assez rapide et que seul le decalage bloque.
-   CONSEQUENCE, ET C EST UNE REATTRIBUTION, PAS UN ASSOUPLISSEMENT : tout seuil de
-   §27 place SOUS ce decalage est INATTEIGNABLE PAR CONSTRUCTION. Un `>2.50 s`
-   publie dessus se lit « ca sonne encore » alors que la chaine ne bouge PLUS D UN
-   BIT. Ce n est pas une stabilisation trop lente : c est un retour a la pose
-   d auteur qui ne se fait pas, donc **SPEC 2 et SPEC 9**, pas §27.
+ROOM-AXC-SETTLE-VERDICT: 3 serie(s) sur 12 ATTEIGNENT « essentially stationary », 9 ne l atteignent JAMAIS sur la fenetre mesuree.
+   sigma30 EXACTEMENT NUL : 1 serie(s) sur 12 — la queue BOUGE sur les 11 autres.
+   (a) INATTEIGNABLE PAR LE DECALAGE — 8 serie(s). Leur decalage final vaut 0.157 a 0.391 % de l amplitude primaire, au-dessus du niveau d entree de l etape (0.1394 %) :
+       chestL l=0 v
+       chestL l=1 v
+       chestR l=0 v
+       chestR l=1 v
+       chestL l=1 ap
+       chestR l=1 ap
+       chestL l=1 lat
+       chestR l=1 lat
+       Pour celles-la le seuil est INATTEIGNABLE PAR CONSTRUCTION et le defaut
+       appartient a **SPEC 2 / SPEC 9** (retour a la pose d auteur), pas a §27.
+   (b) INATTEIGNABLE PAR LE PLANCHER DE BRUIT — 1 serie(s). Leur decalage est SOUS le niveau (0.125 a 0.125 %) mais la queue dithere jusqu a 0.325 % de a0,
+       donc le DERNIER franchissement est fixe par le dither et pas par la decroissance :
+       chestR l=0 lat
+       CES LECTURES NE MESURENT PAS UNE DUREE DE STABILISATION, et un `>fin`
+       publie dessus ne se lit ni « ca sonne encore » ni « c est gare ».
+   (c) ATTEINTE — 3 serie(s) :
+       chestL l=0 ap  1.767 s  HORS
+       chestR l=0 ap  1.417 s  DANS
+       chestL l=0 lat  1.283 s  HORS
+       La fenetre que §27 donne a cette etape est 1.3-1.7 s : **1** serie(s) sur 12 y tombent.
+   `sigma30 <= 5 % du decalage` (l ancienne garde) n est vraie que sur 1 serie(s) sur 12 : elle est publiee comme DIAGNOSTIC, elle ne garde plus aucun comptage.
+   Une precondition de garde qui inverse le SENS d un verdict quand la donnee change
+   est la meme faute que `gate-behind-an-always-failing-gate` : le verdict se
+   recalcule sur la donnee courante, jamais sur une phrase.
    §27 garde ce qui lui appartient — le TAUX — et il est mesurable sans seuil :
    tau = 1/(zeta.2.pi.f) contre le tau_spec de 0.1977 s ci-dessus.
+
+   (7 bis) SPEC 27 LU SUR LE MOUVEMENT, LE DECALAGE CONSTANT RETRANCHE.
+   Le bloc ci-dessus lit une DISTANCE A LA POSE D AUTEUR ; §27 nomme un MOUVEMENT.
+   Une chaine GAREE a un decalage constant est immobile et s y lit « sonne encore ».
+   Le cycle 113 avait deja reattribue ce decalage a §2 / §9 ; l instrument ne l avait
+   jamais suivi. Ci-dessous la MEME serie moins la moyenne de ses 30 dernieres frames
+   (colonne `offset`, aucun parametre libre), meme recherche, memes niveaux.
+   chaine       l axe   reponse vis mouvement s mostly sett essentially
+ROOM-AXC-SETTLE-MOTION: chestL       0 v    0.250!      0.617       0.883!      1.467      
+ROOM-AXC-SETTLE-MOTION: chestL       1 v    0.733!      1.117       1.333       1.817!     
+ROOM-AXC-SETTLE-MOTION: chestR       0 v    0.233!      0.600       0.967!      >2.50~     
+ROOM-AXC-SETTLE-MOTION: chestR       1 v    0.700!      1.083       1.400       >2.50      
+ROOM-AXC-SETTLE-MOTION: chestL       0 ap   0.250!      0.617       0.900!      1.500      
+ROOM-AXC-SETTLE-MOTION: chestL       1 ap   0.933!      1.200       1.700!      2.033!     
+ROOM-AXC-SETTLE-MOTION: chestR       0 ap   0.233!      0.600       0.867!      1.317      
+ROOM-AXC-SETTLE-MOTION: chestR       1 ap   0.900!      1.150       1.567!      2.417!     
+ROOM-AXC-SETTLE-MOTION: chestL       0 lat  0.233!      0.600       0.867!      1.383      
+ROOM-AXC-SETTLE-MOTION: chestL       1 lat  0.883!      1.150       1.533!      2.383!     
+ROOM-AXC-SETTLE-MOTION: chestR       0 lat  0.233!      0.583!      0.983!      >2.50      
+ROOM-AXC-SETTLE-MOTION: chestR       1 lat  0.867!      1.267!      1.750!      >2.50~     
+ROOM-AXC-SETTLE-MOTION-VERDICT: etape 4 ATTEINTE sur 8 serie(s) sur 12 (contre 3 en lecture DECALAGE), et DANS la fenetre 1.3-1.7 s sur **4**.
+   L ecart entre les deux lectures EST la mesure de ce que le decalage de §2/§9
+   coutait a §27. Aucune des deux ne remplace l autre.
+
+   (7 ter) LA FORME DE L ENVELOPPE, PAR MAILLON — UN TEST SANS PARAMETRE LIBRE.
+   Si l enveloppe est `a0.e^{-t/tau}`, le franchissement du niveau de l etape i
+   tombe a `t_i = tau.ln(1/L_i)` EXACTEMENT : les quatre etapes doivent rendre LE
+   MEME tau. Leur DISPERSION teste donc la FORME du modele, et rien ne s y ajuste.
+ROOM-AXC-SETTLE-TAU: maillon l=0  tau median 0.1897 s = x0.96 le tau_spec (0.1977 s)  ·  n=6  ·  dispersion INTERNE pire x1.38  ->  PAS une exponentielle unique
+ROOM-AXC-SETTLE-TAU: maillon l=1  tau median 0.3682 s = x1.86 le tau_spec (0.1977 s)  ·  n=6  ·  dispersion INTERNE pire x1.99  ->  PAS une exponentielle unique
+   §24 et §25 sont ajustees sur `l=0` UNIQUEMENT (filtre declare sur PHYSRINGAX :
+   « le mode primaire de §28 »). Le commentaire de collecte de §27 dit du distal
+   qu il « en porte cinq a dix fois plus, et c est lui qu on voit ». Les deux
+   affirmations sont desormais mesurees et publiees ensemble, avec leur ecart.
    `fd` = la meme cellule exprimee en frequence AMORTIE, pour comparaison avec tout
    estimateur par passages par zero. Ce n est PAS la grandeur que §24 borne.
    CE QUE CETTE LIGNE NE DIT PAS : elle ne ferme rien. Seul l owner ferme une ligne.
@@ -3866,11 +3918,17 @@ ROOM-SPEC13-LEAN45: chestR       (4) redistribution vers le pole distal   NON JU
                                    la faute que ce registre existe pour interdire. Nomme,
                                    pas contourne.
 
-ROOM-SPEC13-VERDICT: PARTIELLE. Trois descripteurs sur quatre sont juges et encadres par les
-   poles que sa propre spec chiffre ; le quatrieme n'a pas de montage sain. Et la clause de
-   CONTINUITE ne passe que sur un canal des deux : la FORME interpole, le DEPLACEMENT non.
-   §13 sort de NON ETABLI — non parce que le solveur a change (il n'a pas bouge d'une
-   ligne) mais parce que sa mesure existait et n'avait pas de lecteur.
+ROOM-SPEC13-VERDICT: descripteurs juges, comptes sur 2 chaine(s) :
+   (1) sens                   2/2  ->  TENU
+   (1) amplitude encadree     2/2  ->  TENU
+   (2) elongation encadree    2/2  ->  TENU
+   (3) largeur encadree       2/2  ->  TENU
+   (4) redistribution distale   0/2  ->  NON JUGE (montage qui se contredit, nomme ci-dessus, pas contourne)
+ROOM-SPEC13-VERDICT: PARTIELLE — TOUS les descripteurs juges sont encadres par les poles que sa propre spec chiffre, le quatrieme n a pas de montage sain.
+   §13 est sortie de NON ETABLI au cycle 64 — non parce que le solveur a change (il
+   n avait pas bouge d une ligne) mais parce que sa mesure existait et n avait pas de
+   lecteur. La clause de CONTINUITE se lit sur les lignes `ROOM-SPEC13-CONT` ci-dessus,
+   qui portent leurs propres comptes ; ce verdict ne les resume plus de memoire.
 
 -- ROOM-ORICOM-MASS : SPEC 10/11/12 LUES SUR UN CENTRE DE MASSE ---------------------------
    NATURE : un DEPLACEMENT SOUTENU du centre de masse, en B0. REPERE : le triedre de

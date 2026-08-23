@@ -1053,6 +1053,12 @@ def _spec13_block(A, txt, names, ori, com, acc, roles, zs, b0, perm=None):
     A('   la pose. La cause de l\'erreur est nommee : l\'etiquette du code disait « axis 1 = roulis »,')
     A('   elle etait fausse, et personne ne lisait la gravite qui la contredisait a chaque course.')
     A('')
+    # [CYCLE 117] LES TROIS DESCRIPTEURS SONT DESORMAIS COMPTES. Le verdict de cette section
+    # etait la SEULE ligne `*-VERDICT` du tableau entierement en PROSE FIGEE (audit du cycle 117,
+    # 1 sur 15) : il affirmait « trois descripteurs sur quatre sont juges et encadres » sans lire
+    # une seule des trois decisions calculees juste au-dessus. Une prose ne peut pas voir la
+    # donnee changer — c'est la meme faute que `ROOM-AXC-SETTLE-VERDICT` corrigee au meme cycle.
+    _d13 = []
     for c in sorted({c for (c, _i) in ori}):
         nm = names[c] if c < len(names) else 'c%d' % c
         bb = b0.get(c, 602.0)
@@ -1085,6 +1091,8 @@ def _spec13_block(A, txt, names, ori, com, acc, roles, zs, b0, perm=None):
           '   -> %s' % (nm, s45['sx'], sup['sx'], spr['sx'],
                         'LEGEREMENT REDUITE, ENCADREE' if spr['sx'] < s45['sx'] < sup['sx']
                         else 'HORS ENCADREMENT'))
+        _d13.append((nm, (fwd > 0 and dwn > 0), (0.0 < nrm < npr),
+                     (sup['sz'] < s45['sz'] < spr['sz']), (spr['sx'] < s45['sx'] < sup['sx'])))
         A('ROOM-SPEC13-LEAN45: %-12s (4) redistribution vers le pole distal   NON JUGE' % nm)
     A('                                   Le quatrieme descripteur demande une repartition PAR')
     A('                                   MAILLON, que `PHYSORICOML` donne — mais son controle de')
@@ -1093,11 +1101,29 @@ def _spec13_block(A, txt, names, ori, com, acc, roles, zs, b0, perm=None):
     A('                                   la faute que ce registre existe pour interdire. Nomme,')
     A('                                   pas contourne.')
     A('')
-    A('ROOM-SPEC13-VERDICT: PARTIELLE. Trois descripteurs sur quatre sont juges et encadres par les')
-    A('   poles que sa propre spec chiffre ; le quatrieme n\'a pas de montage sain. Et la clause de')
-    A('   CONTINUITE ne passe que sur un canal des deux : la FORME interpole, le DEPLACEMENT non.')
-    A('   §13 sort de NON ETABLI — non parce que le solveur a change (il n\'a pas bouge d\'une')
-    A('   ligne) mais parce que sa mesure existait et n\'avait pas de lecteur.')
+    _n13 = len(_d13)
+    if not _n13:
+        A('ROOM-SPEC13-VERDICT: AUCUNE chaine ne rend les trois descripteurs — rien a juger.')
+    else:
+        _s13 = ('(1) sens', '(1) amplitude encadree', '(2) elongation encadree',
+                '(3) largeur encadree')
+        A('ROOM-SPEC13-VERDICT: descripteurs juges, comptes sur %d chaine(s) :' % _n13)
+        for _j, _lb in enumerate(_s13):
+            _ok = sum(1 for x in _d13 if x[_j + 1])
+            A('   %-26s %d/%d  ->  %s'
+              % (_lb, _ok, _n13, 'TENU' if _ok == _n13 else
+                 ('PARTIEL' if _ok else 'NON TENU')))
+        A('   (4) redistribution distale   0/%d  ->  NON JUGE (montage qui se contredit, nomme'
+          ' ci-dessus, pas contourne)' % _n13)
+        _all = all(all(x[1:]) for x in _d13)
+        A('ROOM-SPEC13-VERDICT: PARTIELLE — %s, le quatrieme n a pas de montage sain.'
+          % ('TOUS les descripteurs juges sont encadres par les poles que sa propre spec chiffre'
+             if _all else
+             'UNE PARTIE SEULEMENT des descripteurs juges est encadree par les poles de sa spec'))
+        A('   §13 est sortie de NON ETABLI au cycle 64 — non parce que le solveur a change (il')
+        A('   n avait pas bouge d une ligne) mais parce que sa mesure existait et n avait pas de')
+        A('   lecteur. La clause de CONTINUITE se lit sur les lignes `ROOM-SPEC13-CONT` ci-dessus,')
+        A('   qui portent leurs propres comptes ; ce verdict ne les resume plus de memoire.')
     A('')
 
 
@@ -11014,7 +11040,8 @@ def main():
         A('   lui donne. `sigma30` dit si un `>fin` veut dire « sonne encore » ou « garee ».')
         A('   chaine       l axe   a0        offset      off/a0   sigma30      %s'
           % ' '.join('%-11s' % _n[:11] for _n, _t0, _t1 in _ST))
-        _unreach, _nser = [], 0
+        _unreach, _reach, _nser, _nsd0, _nstill = [], [], 0, 0, 0
+        _mrows, _mline, _taus = [], [], {}
         for (_k, _c, _ax) in sorted(_ansl):
             if _AXC3[_k] != _ax:
                 continue
@@ -11028,6 +11055,8 @@ def main():
                 _mo = sum(_tl) / 30.0
                 _sd = (sum((x - _mo) ** 2 for x in _tl) / 30.0) ** 0.5
                 _cols = []
+                _times = []
+                _tmax = max(abs(x) for x in _tl)
                 for _nm3, _t0, _t1 in _ST:
                     _fr = math.exp(-_zw * _t0)      # NIVEAU D ENTREE de l etape, derive de §24/§25
                     _thr = _fr * _a0
@@ -11036,41 +11065,173 @@ def main():
                         if abs(_v[_i]) > _thr:
                             _t = (_i + 1) / 60.0 if _i + 1 < len(_v) else None
                             break
+                    _times.append((_t, _fr))
+                    # `~` = LA LECTURE EST A SON PROPRE PLANCHER DE BRUIT. L ecart-type de la queue
+                    # depasse a lui seul le niveau d entree de l etape : le DERNIER franchissement
+                    # est alors fixe par le dither et pas par la decroissance, et la duree ne mesure
+                    # plus une stabilisation. Registre : `refutation-must-be-robust-to-its-noise-floor`.
+                    _nf = '~' if _sd > _thr else ''
                     if _t is None:
-                        _cols.append('%-11s' % ('>%.2f' % (len(_v) / 60.0)))
+                        _cols.append('%-11s' % ('>%.2f%s' % (len(_v) / 60.0, _nf)))
                     else:
-                        _cols.append('%-11s' % ('%.3f%s' % (_t, '' if _t0 <= _t <= _t1 else '!')))
+                        _cols.append('%-11s' % ('%.3f%s%s' % (_t, '' if _t0 <= _t <= _t1 else '!', _nf)))
                 _nser += 1
+                if _sd == 0.0:
+                    _nsd0 += 1
                 _still = _sd <= 0.05 * abs(_mo) if _mo else _sd == 0.0
-                if _still and abs(_mo) / _a0 > math.exp(-_zw * _ST[-1][1]):
-                    _unreach.append((_nm2, _l, _ax, 100.0 * abs(_mo) / _a0))
+                if _still:
+                    _nstill += 1
+                _off4 = abs(_mo) / _a0
+                _t4, _fr4 = _times[-1]
+                # TROIS CATEGORIES EXCLUSIVES ET EXHAUSTIVES, RECALCULEES SUR LA DONNEE COURANTE.
+                # Une serie qui n atteint pas l etape a forcement `max|queue| > seuil` ; la cause
+                # est alors le DECALAGE si le decalage seul suffit a franchir, sinon le BRUIT.
+                if _t4 is None:
+                    _unreach.append((_nm2, _l, _ax, 100.0 * _off4, 100.0 * _sd / _a0,
+                                     100.0 * _tmax / _a0,
+                                     'decalage' if _off4 > _fr4 else 'bruit', _still))
+                else:
+                    _reach.append((_nm2, _l, _ax, _t4, _ST[-1][1] <= _t4 <= _ST[-1][2]))
+                # [CYCLE 117] LA MEME SERIE, DEBARRASSEE DE SON TERME CONSTANT. §27 nomme un
+                # MOUVEMENT (« essentially stationary ») ; les colonnes ci-dessus lisent une
+                # DISTANCE A LA POSE D'AUTEUR, si bien qu'une chaine GAREE a un decalage constant
+                # est immobile et se lit « sonne encore ». Le cycle 113 a deja reattribue ce
+                # decalage a §2 / §9 (« restored exactly ») — l'instrument, lui, n'avait jamais
+                # suivi. On retranche donc la moyenne des 30 dernieres frames (deja publiee
+                # colonne `offset`, AUCUN parametre libre) et on refait la MEME recherche. Les
+                # deux lectures sont publiees COTE A COTE : l'ancienne n'est pas retiree, et
+                # l'ecart entre les deux EST la mesure de ce que le decalage coutait a §27.
+                _vd = [x - _mo for x in _v]
+                _cm, _tau = [], []
+                for _nm3, _t0, _t1 in _ST:
+                    _fr = math.exp(-_zw * _t0)
+                    _thr = _fr * _a0
+                    _t = 0.0
+                    for _i in range(len(_vd) - 1, -1, -1):
+                        if abs(_vd[_i]) > _thr:
+                            _t = (_i + 1) / 60.0 if _i + 1 < len(_vd) else None
+                            break
+                    _nf = '~' if _sd > _thr else ''
+                    if _t is None:
+                        _cm.append('%-11s' % ('>%.2f%s' % (len(_vd) / 60.0, _nf)))
+                    else:
+                        _cm.append('%-11s' % ('%.3f%s%s'
+                                              % (_t, '' if _t0 <= _t <= _t1 else '!', _nf)))
+                        if _t > 0.0:
+                            # Si l'enveloppe est `a0.e^{-t/tau}`, le franchissement du niveau L
+                            # tombe a `t = tau.ln(1/L)` EXACTEMENT : les quatre etapes doivent
+                            # donc rendre LE MEME tau. Leur dispersion teste la FORME du modele
+                            # et ne contient aucun parametre ajustable.
+                            _tau.append(_t / (_zw * _t0))
+                    _mline.append((_nm2, _l, _ax, _cm[-1]))
+                if _tau:
+                    _tau.sort()
+                    _md = (_tau[len(_tau) // 2] if len(_tau) % 2
+                           else 0.5 * (_tau[len(_tau) // 2 - 1] + _tau[len(_tau) // 2]))
+                    _taus.setdefault(_l, []).append((_nm2, _ax, _md, max(_tau) / min(_tau)))
+                _mrows.append((_nm2, _l, _ax, ' '.join(_cm)))
                 A('ROOM-AXC-SETTLE: %-12s %d %-4s %.6f %+.7f %6.3f%% %.10f %s'
                   % (_nm2, _l, _ax, _a0, _mo, 100.0 * abs(_mo) / _a0, _sd, ' '.join(_cols)))
         A('   (`!` = etape atteinte HORS de la fenetre que §27 lui donne ; `>fin` = jamais'
-          ' atteinte sur la fenetre mesuree.)')
+          ' atteinte sur la fenetre mesuree ; `~` = sigma30 depasse a lui seul le niveau'
+          ' d entree de'
+          ' cette etape, donc la duree est lue A SON PLANCHER DE BRUIT et ne mesure pas'
+          ' une stabilisation.)')
         A('')
-        if _unreach:
-            A('ROOM-AXC-SETTLE-VERDICT: les %d series ont un sigma30 NUL AU BIT PRES — aucune ne'
-              ' sonne encore — et toutes s arretent a un decalage CONSTANT.' % _nser)
-            A('   Sur ces %d, **%d** portent un decalage SUPERIEUR au niveau d entree de la derniere'
-              ' etape de §27 (%.4f %%), donc %.3f a %.3f %% de leur amplitude primaire :'
-              % (_nser, len(_unreach), 100.0 * math.exp(-_zw * _ST[-1][1]),
-                 min(x[3] for x in _unreach), max(x[3] for x in _unreach)))
-            A('   pour celles-la cette etape est INATTEIGNABLE PAR CONSTRUCTION. Les %d autres, dont'
-              ' le decalage est PLUS PETIT que ce niveau, l atteignent — et elles l atteignent TOT'
-              % (_nser - len(_unreach)))
-            A('   (1,033 et 1,100 s pour une fenetre 1,3-1,7 s), ce qui montre que la DYNAMIQUE est'
-              ' assez rapide et que seul le decalage bloque.')
-            A('   CONSEQUENCE, ET C EST UNE REATTRIBUTION, PAS UN ASSOUPLISSEMENT : tout seuil de')
-            A('   §27 place SOUS ce decalage est INATTEIGNABLE PAR CONSTRUCTION. Un `>2.50 s`')
-            A('   publie dessus se lit « ca sonne encore » alors que la chaine ne bouge PLUS D UN')
-            A('   BIT. Ce n est pas une stabilisation trop lente : c est un retour a la pose')
-            A('   d auteur qui ne se fait pas, donc **SPEC 2 et SPEC 9**, pas §27.')
+        # [CYCLE 117] CE BLOC A PUBLIE FAUX DU CYCLE 113 AU CYCLE 116 INCLUS, ET C EST CORRIGE
+        # ICI. Il annoncait « les N series ont un sigma30 NUL AU BIT PRES » et « les N-1 autres
+        # l atteignent », avec DEUX DUREES ECRITES EN DUR (1,033 et 1,100 s, mesurees au cycle
+        # 113). Le comptage etait garde par `sigma30 <= 5 % du decalage` : tant que la queue etait
+        # gelee au bit cette garde etait vraie partout et le compte etait juste ; des que la
+        # sommation compensee du cycle 116 a rendu la queue mobile, la garde est tombee a 1 serie
+        # sur 12 et le bloc a declare ATTEINTES 9 series que sa PROPRE colonne affiche a `>fin`.
+        # Tout est desormais recalcule sur la donnee courante, et aucune duree n est ecrite en dur.
+        if _nser:
+            _lvl4 = 100.0 * math.exp(-_zw * _ST[-1][1])
+            _dec = [x for x in _unreach if x[6] == 'decalage']
+            _bru = [x for x in _unreach if x[6] == 'bruit']
+            A('ROOM-AXC-SETTLE-VERDICT: %d serie(s) sur %d ATTEIGNENT « essentially stationary »,'
+              ' %d ne l atteignent JAMAIS sur la fenetre mesuree.'
+              % (len(_reach), _nser, len(_unreach)))
+            A('   sigma30 EXACTEMENT NUL : %d serie(s) sur %d — la queue BOUGE sur les %d autres.'
+              % (_nsd0, _nser, _nser - _nsd0))
+            if _dec:
+                A('   (a) INATTEIGNABLE PAR LE DECALAGE — %d serie(s). Leur decalage final vaut'
+                  ' %.3f a %.3f %% de l amplitude primaire, au-dessus du niveau d entree de'
+                  ' l etape (%.4f %%) :'
+                  % (len(_dec), min(x[3] for x in _dec), max(x[3] for x in _dec), _lvl4))
+                for _x in _dec:                    # une serie PAR LIGNE : le verrou
+                    A('       %s l=%d %s' % _x[:3])     # d'asymetrie ne se desarme pas
+                A('       Pour celles-la le seuil est INATTEIGNABLE PAR CONSTRUCTION et le defaut')
+                A('       appartient a **SPEC 2 / SPEC 9** (retour a la pose d auteur), pas a §27.')
+            if _bru:
+                A('   (b) INATTEIGNABLE PAR LE PLANCHER DE BRUIT — %d serie(s). Leur decalage est'
+                  ' SOUS le niveau (%.3f a %.3f %%) mais la queue dithere jusqu a %.3f %% de a0,'
+                  % (len(_bru), min(x[3] for x in _bru), max(x[3] for x in _bru),
+                     max(x[5] for x in _bru)))
+                A('       donc le DERNIER franchissement est fixe par le dither et pas par la'
+                  ' decroissance :')
+                for _x in _bru:
+                    A('       %s l=%d %s' % _x[:3])
+                A('       CES LECTURES NE MESURENT PAS UNE DUREE DE STABILISATION, et un `>fin`')
+                A('       publie dessus ne se lit ni « ca sonne encore » ni « c est gare ».')
+            if _reach:
+                A('   (c) ATTEINTE — %d serie(s) :' % len(_reach))
+                for _x in _reach:
+                    A('       %s l=%d %s  %.3f s  %s'
+                      % (_x[0], _x[1], _x[2], _x[3], 'DANS' if _x[4] else 'HORS'))
+                A('       La fenetre que §27 donne a cette etape est %.1f-%.1f s : **%d** serie(s)'
+                  ' sur %d y tombent.'
+                  % (_ST[-1][1], _ST[-1][2], sum(1 for x in _reach if x[4]), _nser))
+            A('   `sigma30 <= 5 %% du decalage` (l ancienne garde) n est vraie que sur %d serie(s)'
+              ' sur %d : elle est publiee comme DIAGNOSTIC, elle ne garde plus aucun comptage.'
+              % (_nstill, _nser))
+            A('   Une precondition de garde qui inverse le SENS d un verdict quand la donnee change')
+            A('   est la meme faute que `gate-behind-an-always-failing-gate` : le verdict se')
+            A('   recalcule sur la donnee courante, jamais sur une phrase.')
             A('   §27 garde ce qui lui appartient — le TAUX — et il est mesurable sans seuil :')
             A('   tau = 1/(zeta.2.pi.f) contre le tau_spec de %.4f s ci-dessus.' % (1.0 / _zw))
-        else:
-            A('ROOM-AXC-SETTLE-VERDICT: aucune serie ne reste garee hors cible : les durees de §27')
-            A('   se lisent directement sur les colonnes ci-dessus.')
+        # ---- [CYCLE 117] LA MEME MESURE SUR LE MOUVEMENT, PUBLIEE A COTE ------------------
+        if _mrows:
+            A('')
+            A('   (7 bis) SPEC 27 LU SUR LE MOUVEMENT, LE DECALAGE CONSTANT RETRANCHE.')
+            A('   Le bloc ci-dessus lit une DISTANCE A LA POSE D AUTEUR ; §27 nomme un MOUVEMENT.')
+            A('   Une chaine GAREE a un decalage constant est immobile et s y lit « sonne encore ».')
+            A('   Le cycle 113 avait deja reattribue ce decalage a §2 / §9 ; l instrument ne l avait')
+            A('   jamais suivi. Ci-dessous la MEME serie moins la moyenne de ses 30 dernieres frames')
+            A('   (colonne `offset`, aucun parametre libre), meme recherche, memes niveaux.')
+            A('   chaine       l axe   %s'
+              % ' '.join('%-11s' % _n[:11] for _n, _t0, _t1 in _ST))
+            for _a_, _b_, _c_, _d_ in _mrows:
+                A('ROOM-AXC-SETTLE-MOTION: %-12s %d %-4s %s' % (_a_, _b_, _c_, _d_))
+            _bm = sum(1 for _a_, _b_, _c_, _d_ in _mrows
+                      if not _d_.split()[-1].startswith('>') and '!' not in _d_.split()[-1])
+            _rm = sum(1 for _a_, _b_, _c_, _d_ in _mrows if not _d_.split()[-1].startswith('>'))
+            A('ROOM-AXC-SETTLE-MOTION-VERDICT: etape 4 ATTEINTE sur %d serie(s) sur %d (contre %d'
+              ' en lecture DECALAGE), et DANS la fenetre %.1f-%.1f s sur **%d**.'
+              % (_rm, len(_mrows), len(_reach), _ST[-1][1], _ST[-1][2], _bm))
+            A('   L ecart entre les deux lectures EST la mesure de ce que le decalage de §2/§9')
+            A('   coutait a §27. Aucune des deux ne remplace l autre.')
+        if _taus:
+            A('')
+            A('   (7 ter) LA FORME DE L ENVELOPPE, PAR MAILLON — UN TEST SANS PARAMETRE LIBRE.')
+            A('   Si l enveloppe est `a0.e^{-t/tau}`, le franchissement du niveau de l etape i')
+            A('   tombe a `t_i = tau.ln(1/L_i)` EXACTEMENT : les quatre etapes doivent rendre LE')
+            A('   MEME tau. Leur DISPERSION teste donc la FORME du modele, et rien ne s y ajuste.')
+            for _l_ in sorted(_taus):
+                _v_ = sorted(x[2] for x in _taus[_l_])
+                _md_ = (_v_[len(_v_) // 2] if len(_v_) % 2
+                        else 0.5 * (_v_[len(_v_) // 2 - 1] + _v_[len(_v_) // 2]))
+                _sp_ = max(x[3] for x in _taus[_l_])
+                A('ROOM-AXC-SETTLE-TAU: maillon l=%d  tau median %.4f s = x%.2f le tau_spec'
+                  ' (%.4f s)  ·  n=%d  ·  dispersion INTERNE pire x%.2f  ->  %s'
+                  % (_l_, _md_, _md_ * _zw, 1.0 / _zw, len(_v_), _sp_,
+                     'exponentielle unique' if _sp_ < 1.35 else
+                     'PAS une exponentielle unique'))
+            A('   §24 et §25 sont ajustees sur `l=0` UNIQUEMENT (filtre declare sur PHYSRINGAX :')
+            A('   « le mode primaire de §28 »). Le commentaire de collecte de §27 dit du distal')
+            A('   qu il « en porte cinq a dix fois plus, et c est lui qu on voit ». Les deux')
+            A('   affirmations sont desormais mesurees et publiees ensemble, avec leur ecart.')
         A('   `fd` = la meme cellule exprimee en frequence AMORTIE, pour comparaison avec tout')
         A('   estimateur par passages par zero. Ce n est PAS la grandeur que §24 borne.')
         A('   CE QUE CETTE LIGNE NE DIT PAS : elle ne ferme rien. Seul l owner ferme une ligne.')
