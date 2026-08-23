@@ -14,8 +14,8 @@ BREAST-PENETRATION: 0.0733 m — `meshpen`, DIAGNOSTIC, jamais un verdict (arbit
 13:20 : c'est un DEPLACEMENT, pas une profondeur).
   chestL meshpen max 0.0489 m (anim `assistant-village2-idle-after`, drive `accel`)
   chestR meshpen max 0.0733 m (anim `assistant-idle-transition-right-to-left`, drive `tilt`)
-  RECALCULE ce cycle sur la course neuve (`keira-room-table.txt` regenere a 07:51:25, 310 lignes
-  `row`, md5 de la trace `0e1ac5a757...` verifie DANS le fichier ecrit), jamais recopie du rapport
+  RECALCULE ce cycle sur la course neuve (`keira-room-table.txt` regenere a 08:35:03, 310 lignes
+  `row`, md5 de la trace `5b13d5daec...` verifie DANS le fichier ecrit), jamais recopie du rapport
   precedent. **IL BAISSE, ET CE N'EST PAS UN GAIN** : 0.0555 -> 0.0489 (-11,9 %) et 0.0973 ->
   0.0733 (-24,7 %), SUR D'AUTRES ANIMATIONS, pour deux perturbations de -0,33 % et -0,057 %. Un
   maximum de course qui bouge de 25 % sous une entree de 0,3 % ne mesure pas un progres : il
@@ -543,5 +543,82 @@ CE QUE LE PROCHAIN CYCLE DOIT PRENDRE, DANS CET ORDRE :
    section : 0,74 -> 0,84 B0), sans toucher `bm.trans` et en gardant le determinant dans 98-101 %
    de la 8. **Ce chantier ne se commence pas a la fin d'un cycle d'analyse**, et c'est exactement
    ce que le cycle 108 disait deja.
+
+DIRECTIVES vd9e8b66782
+
+================================================================================================
+8. ET LE GESTE QUE LA SECTION 7 DESIGNAIT COMME « LE PROCHAIN CYCLE » EST FAIT DANS CELUI-CI
+================================================================================================
+La section 7 nommait, en premier, une mesure d'UNE LIGNE : lire `gn` et `tf` sur PH-AXC, parce que
+**les deux termes de l'equilibre `f = -gg` n'avaient jamais ete lus au meme endroit**. Le banc
+etait chaud, la mesure coute une emission et une course, et la reporter d'un cycle n'aurait servi
+qu'a l'ordre du jour.
+
+PREDICTIONS ECRITES AVANT L'EDITION DU CODE — bloc D de `.autoport/c115-predictions.txt`, D1 a D6,
+avec leur falsificateur. Le point fixe impose
+
+    k2 . e = |gy| . gn . tf      donc      gn x tf = e . k2 / |gy|
+
+    chestL   k2 = 0,058013   e = 0,0006 B0 = 0,3612 u   ->  gn x tf PREDIT = 0,001878
+    chestR   k2 = 0,062663   e = 0,0009 B0 = 0,5418 u   ->  gn x tf PREDIT = 0,003042
+
+soit **18,8 et 30,4 fois** le 0,0001 que PH-IDLE publie sur une AUTRE pose. Et le falsificateur,
+ecrit avec : si `gn x tf` y ressort autour de 0,0001, la gravite ne peut PAS produire ce residu,
+les candidats (i) et (ii) tombent, et **le survivant est une troisieme force**.
+
+RESULTAT — ET C'EST MON FALSIFICATEUR QUI TIRE, PAS MA PREDICTION.
+
+  D1 NON-VACUITE : **6 lignes attendues, 6 obtenues.**
+  D2 COHERENCE INTERNE : `gn` est **IDENTIQUE sur les trois axes** et sur les deux chaines
+     (0,0001320), exactement comme `rgap`. La pose de PH-AXC est bien gelee et je lis bien la
+     gravite, pas du bruit. Cette garde-la etait la condition pour lire la suivante.
+  D6 L'EMETTEUR EST PUR, VERIFIE SUR LA GRANDEUR LA PLUS INSTABLE DU DOSSIER : `meshpen` max rend
+     **EXACTEMENT 0.0489 et 0.0733** sur les MEMES animations, et `PHYSRESTQ rgap` comme
+     `PHYSSTGQ st=6` sont bit-identiques. Le solveur n'a pas bouge d'un bit.
+
+  D3 **LA PREDICTION EST REFUTEE, ET LARGEMENT :**
+
+        cellule    e (B0)   gn x tf PREDIT   gn x tf MESURE   rapport
+        c=0 ax=0   0.0006      0.001878         0.000130       0.07
+        c=0 ax=1   0.0005      0.001565         0.000130       0.08
+        c=0 ax=2   0.0007      0.002191         0.000130       0.06
+        c=1 ax=0   0.0009      0.003042         0.000123       0.04
+        c=1 ax=1   0.0010      0.003380         0.000123       0.04
+        c=1 ax=2   0.0004      0.001352         0.000123       0.09
+
+     **LA GRAVITE FOURNIT 4 A 9 % DE LA FORCE QUE L'EQUILIBRE EXIGE.** Et `gn` sur PH-AXC
+     (0,0001320) vaut essentiellement le 0,0001 de PH-IDLE : **changer de pose n'y change rien**.
+
+  D4 EST DONC LA BRANCHE QUI SORT, ET ELLE ETAIT ECRITE AVANT LE CODE :
+     * **candidat (i) — « `gn` plus grand a cette pose » : TOMBE PAR LA MESURE.** 0,000132 contre
+       0,0001, un facteur 1,3 la ou il en faudrait 11 a 25.
+     * **candidat (ii) — « la compliance par axe de la 29 » : TOMBE PAR L'ARITHMETIQUE.** Ses
+       compliances valent 1,00 / 0,90 / 0,82 / 0,72, donc au plus un facteur 1,4 — et elles
+       entrent comme `s_i = 1/compliance`, c'est-a-dire qu'elles AUGMENTENT la force et creusent
+       l'ecart au lieu de le combler. Elles vont dans le mauvais sens.
+     * **SURVIVANT : le candidat (iii), un troisieme terme dans l'equilibre** — qui n'est ni le
+       ressort de materiau, ni la gravite, ni aucun des sept etages instrumentes.
+
+  ET J'AI TESTE, DANS LA FOULEE, L'ECHAPPATOIRE LA PLUS EVIDENTE — ELLE EST REFUTEE AUSSI.
+  Si `sigma30` etait calcule sur des vecteurs UNITAIRES, un residu purement RADIAL lui serait
+  invisible et « v = 0 » serait faux. Mesure sur la trace, bloc A (sans dimension) **et** bloc B
+  (deplacement en unites de jeu), 30 dernieres frames, maillon racine :
+      bloc A : sigma30 = 0,000000000 sur 6 series sur 6
+      bloc B : sigma30 = 0,000000000 sur 6 series sur 6   (moyennes 0,090 a 0,223 u)
+  **L'immobilite est reelle dans les deux unites. `v = 0` tient.**
+
+  CE QUE CA LAISSE, ET JE NE L'INVENTE PAS. Avec `v = 0` etabli, l'integrateur impose `f + gg = 0`.
+  Or les deux termes mesures ne s'equilibrent pas : `f ~ k2.e = 0,021 u/frame²` contre
+  `gg ~ 0,0015 u/frame²`. **Un terme manque a ma lecture de cette boucle, et il porte 91 a 96 % de
+  l'equilibre.** Reserve d'honnetete sur `e` : j'ai employe `PHYSSTGQ st=6` = |p - pose d'auteur|,
+  alors que le ressort voit |p - cible| ; comme la cible est a 0,000156 B0 de la pose d'auteur,
+  `e` est borne dans [0,00044 ; 0,00076] B0, soit +-27 % — nulle part pres du facteur 11 a 25.
+
+  **LE PROCHAIN CYCLE NE CHERCHE DONC PLUS UNE CAUSE PARMI TROIS : IL EN CHERCHE UNE QUATRIEME,
+  ET IL SAIT DEJA QU'ELLE N'EST NI DANS LES SEPT ETAGES NI DANS L'OBSERVABLE.** C'est un chantier
+  plus etroit qu'a l'ouverture de ce cycle, et il est nomme.
+
+  D5 tenait aussi, et je le rappelle : cette mesure ne change AUCUN statut. §2/§9 restent
+  PARTIELLE — un residu de 0,06 a 0,15 mm reste un residu, et la section dit « restored EXACTLY ».
 
 DIRECTIVES vd9e8b66782

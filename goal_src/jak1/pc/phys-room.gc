@@ -6106,6 +6106,35 @@
                         c ax
                         (phys-diag (-> self slot) c 24)
                         (phys-diag (-> self slot) c 26))))
+            ;; ---- [NOTE-506] LES DEUX TERMES DE L'EQUILIBRE, ENFIN AU MEME ENDROIT -------------
+            ;; Le point fixe de l'integrateur est `f = -gg` et non `p = cible` : `v <- z(v)+f+gg`
+            ;; puis `p <- p+v`, donc v constant impose f + gg = 0, jamais f = 0. Le residu de
+            ;; parcage est donc un EQUILIBRE DE FORCES — confirme par le vecteur de Maia, qui
+            ;; baisse k2 de x0,6470 et fait monter le residu de x1,333 et x1,667 quand une cible
+            ;; perimee imposerait x1,000. Mais ses DEUX termes n'avaient jamais ete lus au meme
+            ;; endroit : `gn` et `tf` sont emis sur PH-IDLE, qui tient une AUTRE pose, tandis que
+            ;; PH-AXC epingle anim 0 frame 0.
+            ;; NATURE  `gn` = |g_local - g_ref| / |g|, un RAPPORT SANS DIMENSION — et c'est la
+            ;;   faute d'unite qui a fait conclure au cycle 114c que « g est nul donc f = 0 ».
+            ;;   `tf` est sa part TANGENTIELLE : la part radiale ne peut produire aucun
+            ;;   deplacement angulaire, donc c'est `gn * tf` qui porte l'ecart.
+            ;; PORTEE  la fenetre PH-AXC courante (`phys-stats-reset!` a la fin de la precedente,
+            ;;   plus bas dans ce meme bloc) — une frame de plus que la portee du diagnostic, et
+            ;;   ca se dit au lieu de se taire.
+            ;; REPERE  celui de l'ancre (SPEC 7), comme `gl` dont les deux sont tires.
+            ;; ABSENT  `gn` = 0 debout : sa SPEC 3 l'ecrit elle-meme (« standing still gives
+            ;;   g_local = g_ref, therefore a_drive = 0 »).
+            ;; CE QU'ELLE TRANCHE : le point fixe impose `gn * tf = e * k2 / |gy|`. Avec les
+            ;;   `PHYSSTGQ st=6` du cycle 115 ca vaut 0,001878 et 0,003042 — soit 18,8 et 30,4 fois
+            ;;   le 0,0001 de PH-IDLE. Si la mesure y ressort a 0,0001, la gravite ne peut PAS
+            ;;   produire ce residu et le coupable est ailleurs. Cette ligne n'ecrit aucune
+            ;;   position : c'est un emetteur pur.
+            (dotimes (c (-> self nchain))
+              (when (> (phys-chain-links (-> self slot) c) 0)
+                (format 0 "PHYSIDLEQ c=~D ax=~D gn=~,,7f tf=~,,7f~%"
+                        c ax
+                        (phys-stat (-> self slot) c 18)
+                        (phys-stat (-> self slot) c 19))))
             (dotimes (c (-> self nchain))
               (when (> (phys-chain-links (-> self slot) c) 0)
                 (format 0 "PHYSAXRESN c=~D ax=~D res=~f ci=~f rot0=~f~%"

@@ -194,3 +194,52 @@ C3 — CE QUE JE NE FAIS PAS, ET POURQUOI. Je ne touche PAS au solveur ce cycle.
      26 fois MOINS que la bande d'apex de §22 (0.42-0.50 B0), pendant que `perr` moyen vaut
      0.388 B0, soit **102 fois `rgap` moyen**. Corriger `rgap` serait travailler le centieme du
      defaut. L'interdiction du cycle 114c est levee par la mesure, pas contournee.
+
+
+=====================================================================================
+BLOC D — LA MESURE QUE LE CYCLE 115 DESIGNAIT COMME SON GESTE SUIVANT, FAITE DANS LE
+MEME CYCLE. ECRITE AVANT L'EDITION DU CODE, A PLUS FORTE RAISON AVANT LA COURSE.
+=====================================================================================
+CE QUI EST ETABLI ET QUI N'EST PLUS EN QUESTION : le point fixe de l'integrateur est `f = -gg`
+(identite de trois lignes) ; la cible du ressort est la pose d'auteur a 0,023 mm pres sur PH-AXC ;
+et le residu de parcage SUIT LA RAIDEUR (x1,333 et x1,667 mesures pour x1,546 predit, l'hypothese
+« cible perimee » etant exclue des deux cotes puisqu'elle imposerait x1,000).
+
+CE QUI MANQUE : les DEUX termes de l'equilibre n'ont jamais ete lus AU MEME ENDROIT. `gn` et `tf`
+sont emis sur PH-IDLE, qui tient une AUTRE pose ; PH-AXC epingle anim 0 frame 0.
+
+L'EMISSION : `PHYSIDLEQ c=~ ax=~ gn=~ tf=~`, a la derniere frame de PH-AXC, a cote de `PHYSRESTQ`
+et `PHYSSTGQ`. Elle lit `phys-stat` 18 et 19, dont la portee est la fenetre PH-AXC courante
+(`phys-stats-reset!` a la fin de la fenetre precedente, `:6126`) — soit une frame de plus que la
+portee du diagnostic, ce qui est dit et non cache. Aucune position n'est ecrite.
+
+D1 NON-VACUITE : **6 lignes attendues** (2 chaines x 3 axes). Moins de 6 = domaine vide.
+D2 COHERENCE INTERNE : la pose de PH-AXC est GELEE (anim 0, frame 0), et `rgap` l'a deja montre en
+   ressortant **identique au dernier chiffre** sur les trois axes. Donc `gn` doit lui aussi etre
+   **identique sur ax=0/1/2** pour une chaine donnee. S'il varie d'un axe a l'autre, ce n'est pas
+   la gravite que je lis et tout le bloc tombe.
+D3 **LA PREDICTION QUANTITATIVE, ET C'EST ELLE QUI DECIDE.** Le point fixe impose
+       k2 . e = |gy| . gn . tf        donc     gn x tf = e . k2 / |gy|
+   avec |gy| = 11,16 u/frame² (9,81 m/s² exact), B0 = 602 u, et `e` = `PHYSSTGQ st=6` :
+       chestL  k2 = 0,058013  e = 0,0006 B0 = 0,3612 u  ->  gn x tf = **0,001878**
+       chestR  k2 = 0,062663  e = 0,0009 B0 = 0,5418 u  ->  gn x tf = **0,003042**
+   soit **18,8 et 30,4 fois** le 0,0001 mesure sur PH-IDLE. Tolerance que je m'accorde : un
+   facteur 2, parce que `e` n'est publie qu'a 4 decimales sur des valeurs de l'ordre de 0,001 et
+   que la compliance par axe de la 29 peut deplacer la raideur effective de +-20 %.
+D4 **LE FALSIFICATEUR, ET IL EST NET.** Si `gn x tf` ressort autour de **0,0001** — la valeur de
+   PH-IDLE — alors la gravite ne peut pas produire ce residu : le candidat (i) tombe, le candidat
+   (ii) ne peut pas combler un facteur 20 a 30 a lui seul, et **le survivant est le candidat (iii),
+   une troisieme force**, qu'il faudra alors chercher au lieu de regler la gravite.
+D5 CE QUE CETTE MESURE NE FERA PAS : elle ne change AUCUN statut. §2/§9 restent PARTIELLE quel que
+   soit le resultat — un residu de 0,06 a 0,15 mm reste un residu, et la section dit « restored
+   EXACTLY ». Elle nomme la cause ; elle ne la corrige pas.
+D6 **CONTROLE NEGATIF DE L'EMETTEUR, ECRIT AVANT DE LIRE LA COURSE.** `PHYSIDLEQ` n'ecrit aucune
+   position : c'est un emetteur pur. Donc le SOLVEUR doit etre bit-identique a la course A de ce
+   cycle, et je le teste sur la grandeur la plus instable du dossier — celle qui a bouge de -12 %
+   et -25 % pour une entree de 0,33 % :
+       `meshpen` max chestL doit valoir **exactement 0.0489** sur `assistant-village2-idle-after`
+       `meshpen` max chestR doit valoir **exactement 0.0733** sur `assistant-idle-transition-right-to-left`
+       `PHYSSTGQ st=6` doit rendre **exactement** 0.0006 / 0.0005 / 0.0007 et 0.0009 / 0.0010 / 0.0004
+       `PHYSRESTQ rgap` doit rendre **exactement** 0.0001557 et 0.0001491
+   Si l'un de ces chiffres bouge, l'emetteur n'est pas pur et TOUT le bloc D est sans valeur.
+   Le nombre d'enregistrements `PHYS*`, lui, doit MONTER de 6 exactement (les 6 lignes neuves).
