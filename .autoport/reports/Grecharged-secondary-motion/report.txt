@@ -18,8 +18,8 @@ BREAST-PENETRATION: 0.0973 m — `meshpen`, DIAGNOSTIC, jamais un verdict (arbit
   recopie du rapport precedent : les deux valeurs et leurs animations ont ete reverifiees.
 ================================================================================================
 
-CYCLE 112 — LE DISCRIMINANT DE §18 DORMAIT DANS LA TRACE DEPUIS QUATRE COURSES. LU, IL REFUTE LA
-COLLISION — ET LA LISTE DES SUSPECTS DE CETTE SECTION EST DESORMAIS VIDE.
+CYCLE 112 — DEUX MESURES QUI TRANCHENT §18 DORMAIENT DANS LA TRACE. LUES, ELLES REFUTENT LA
+COLLISION ET LOCALISENT LE DEFAUT SUR UNE VARIABLE UNIQUE — POUR ZERO COURSE.
 
 ================================================================================================
 0. L'AVANCEMENT, ET IL SE LIT DANS `SPEC-COVERAGE.md`, PAS DANS LE VALIDATEUR
@@ -150,17 +150,58 @@ Les QUATRE causes classees de l'asymetrie gauche/droite de §18 sont refutees :
 Ce que la mesure impose a la place est une reformulation, et le cycle 108 l'avait deja a moitie
 ecrite sans en tirer la consequence :
 
-    `perr` de chestL vaut 0,5034 a 0,5821 B0 sur 12 cellules sur 12, pour un plafond de
-    deplacement a 0,50 B0. **IL EST SATURE.**
+    [CETTE EXPLICATION EST RETIREE UNE HEURE PLUS TARD PAR MOI-MEME — VOIR 4 bis.]
 
-Un rapport bati sur une valeur ecretee mesure une saturation, pas une asymetrie — c'est
-`factor-arithmetic-on-saturated-cells` au registre, et `clipped-input-needs-amplitude-and-frequency`.
-Le « x5,97 » qui a oriente trois cycles de chasse est de cette famille. Et `apex` ne sauve pas la
-mesure : 0,3866 a 0,5821 pour le meme plafond, **la moitie des cellules de chestL sont au-dessus**.
+4 bis. JE RETIRE L'EXPLICATION PAR LA SATURATION, ET CE QUI LA REMPLACE EST BIEN MEILLEUR
+------------------------------------------------------------------------------------------------
+J'ai ecrit ci-dessus, en reprenant le cycle 108, que `perr` de chestL etait « SATURE au plafond de
+0,50 B0 » et ne portait aucune information. **C'est faux, et la population entiere le dit.** Sur
+les 74 valeurs de `PHYSREGW`, chestL prend **61 valeurs distinctes au millieme, de 0,0055 a
+0,6207**, et **chestR monte PLUS HAUT que lui (0,7076)** — impossible si chestL butait sur un
+plafond que chestR n'atteint pas. Le cycle 108 avait generalise a « TOUS les regimes » les douze
+cellules de PH-REGA, qui tombent en 0,50-0,58 par coincidence de regime, et je l'ai repris sans le
+verifier. (`perr` monte a 3,94 sur `PHYSRESTW`, mais c'est un AUTRE emetteur et une autre fenetre :
+je ne melange pas les deux populations.)
 
-**LE PROCHAIN TRAVAIL DE §18 N'EST DONC PAS UN CINQUIEME SUSPECT : c'est de mesurer chestL sur une
-grandeur QUI N'EST PAS AU PLAFOND.** Sans elle, aucun rapport L/R de cette section n'est
-interpretable, refute ou pas. C'est le point de depart nomme du cycle suivant.
+**L'asymetrie de §18 est donc REELLE et interpretable. C'est plus grave, pas moins.**
+
+**ET POUR LA DEUXIEME FOIS DANS LE MEME CYCLE, LA MESURE QUI LOCALISE LE DEFAUT ETAIT DEJA LA.**
+Les cycles 66 et 67 ont construit une echelle de raffinement A VARIABLE UNIQUE et personne n'en
+avait compare les barreaux sur cette grandeur. Quatre phases, MEME course, MEMES fenetres r=9/r=10
+(`.autoport/reg_phase_ladder.py`) :
+
+    phase              pose        axes    ecart miroir   L/R r=9   L/R r=10
+    ph=31  PH-REG      heritee     MONDE      46,27 deg     0,144      0,250
+    ph=36  PH-REGS     nommee      MONDE       7,16 deg     1,258      1,063
+    ph=37  PH-REGT     argmax      MONDE       0,23 deg     1,340      1,037
+    ph=38  PH-REGA     argmax      SUJET       0,40 deg     5,967      4,539
+    ph=44  PH-REGC     argmax      SUJET       0,33 deg     5,979      4,703
+
+  * **31 -> 36 -> 37 : seule la POSE change.** Le rapport passe de 0,14-0,25 — c'est-a-dire chestR
+    qui DOMINE, l'inverse du defaut cherche — a la PARITE, et il se STABILISE : 36 et 37 rendent la
+    meme chose, donc 7,2 deg suffisait deja. Le test de raffinement du registre CONVERGE.
+  * **37 -> 38 : la POSE NE BOUGE PAS** (0,23 contre 0,40 deg) **et la seule variable declaree est
+    le REPERE DE LA ROTATION** — monde vers axes du sujet. Le rapport saute a **x4,5 - x6,0**.
+
+L'asymetrie n'est pas portee par la pose : le cycle 107 avait raison, et c'est confirme par un
+chemin qu'il n'avait pas emprunte. **Elle apparait au changement de repere du geste.** Et §18 nomme
+les axes du SUJET : PH-REGA joue le BON geste, PH-REGT mesurait la parite sur le MAUVAIS.
+
+**RESERVE, ET ELLE EST A MOI : ceci LOCALISE, ca n'explique pas.** Le lacet de PH-REGA tourne autour
+de `wa=0`, orthogonal au plan median a **-5e-6** pres : le geste est lui-meme mirror-symetrique. Une
+pose symetrique a 0,40 deg PLUS un geste symetrique qui rendent x4,5-6,0 **designent le solveur** —
+conclusion du cycle 108, intacte, et aucune des quatre causes classees ne la porte.
+
+**LE CHANTIER DE §18 EST DONC NOMME ET ETROIT** : ce que le solveur fait d'une rotation exprimee
+dans les axes du SUJET et qu'il ne fait pas de la meme rotation exprimee dans ceux du MONDE, sur
+deux chaines par ailleurs miroir a 0,4 deg. C'est une question a une variable, et c'est la premiere
+fois que §18 en a une.
+
+**UNE HYPOTHESE QUE J'AI FORMEE ET REFUTEE DANS LE MEME PAS**, publiee pour qu'on ne la refasse pas :
+j'ai d'abord calcule l'ecart au miroir contre l'axe `wa=1` et trouve 46 deg sur PH-REGA, d'ou
+« les chaines ne sont pas miroir dans cette pose ». Le plan median a pour normale `wa=2`, pas `wa=1` :
+contre le bon axe, PH-REGA est a **0,40 deg**. L'hypothese etait un choix d'axe errone, pas un
+resultat — exactement la faute que le registre appelle `b0-denominator-axis-not-in-spec`.
 
 §18 reste **NON TENUE** et son statut ne bouge pas. Ce qui bouge est la liste des suspects et la
 nature de la question.
@@ -192,6 +233,17 @@ nature de la question.
 
 (d) **Rien n'est prouve sur APPAREIL ce cycle** : tout est x86, et le fichier livre n'a pas bouge
     d'un bit — il n'y a rien de neuf a observer sur un device.
+
+(e) **J'ai publie puis retire une explication dans le meme cycle** (section 4 bis) : la saturation
+    de `perr`, reprise du cycle 108 sans etre verifiee sur sa population. Elle est retiree en clair
+    plutot que reecrite en silence, et la section 4 porte la marque du retrait a l'endroit exact ou
+    la phrase se trouvait.
+
+**LA LECON DU CYCLE, ET C'EST LA MEME DEUX FOIS.** Le discriminant de collision dormait dans la
+trace depuis QUATRE courses ; l'echelle de raffinement de PH-REG/REGS/REGT/REGA y dormait depuis
+QUARANTE-CINQ cycles. Les deux ont ete lues aujourd'hui pour zero course et zero build, et les deux
+tranchent. **Ce dossier produit plus de donnees qu'il n'en lit, et c'est devenu son premier facteur
+limitant** — devant le plafond de lignes du moteur, devant le cout des courses, devant tout le reste.
 
 TIER DE BUILD : **aucun**. Zero compilation, zero course, zero APK. Lecture d'une trace archivee
 (99 481 lignes, `PHYSEND` et `PHYSCOUNTS` presents, donc course complete) plus un script d'analyse
