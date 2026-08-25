@@ -305,8 +305,6 @@
 (define *phys-twsat* 0)     ;; frames ou la saturation douce de la torsion a mordu (limiteur declare)
 ;; [NOTE-463] La matrice de deformation de la chaine, en repere MONDE, rebatie a chaque frame. Elle vaut -> jak-hd-physics-NOTES.md
 (define *phys-dfm* (new 'global 'inline-array 'matrix PHYS-SC))
-(define *phys-rgm* (new 'global 'inline-array 'matrix PHYS-SCL))   ;; [NOTE-534] le repere du maillon AVANT le tenseur de forme -> jak-hd-physics-NOTES.md
-(define *phys-rgok* (new 'global 'array 'int32 PHYS-SCL))
 ;; [NOTE-168] LA MEME DEFORMATION, MAIS EN ESPACE ANCRE — et c'est celle-la qui est MESURABLE. `*phys- -> jak-hd-physics-NOTES.md
 (define *phys-dfa* (new 'global 'inline-array 'matrix PHYS-SC))
 ;; [NOTE-477] la MOYENNE LENTE du pilotage de `dfb`, par chaine — la partie TENUE, celle que `dfa` porte deja -> jak-hd-physics-NOTES.md
@@ -1373,13 +1371,7 @@
              (cj  (-> *phys-cj* sco))
              (cj2 (-> *phys-cj2* sco)))
         (when (and (nonzero? (-> *phys-csim* sco)) (>= cj 0) (< (+ cj 1) nbone))
-          ;; [NOTE-534] le maillon qui porte ce volume, s'il a ete ecrit cette frame -> jak-hd-physics-NOTES.md
-          (let ((rl -1))
-            (dotimes (c2 PHYS-CHAINS) (dotimes (l2 PHYS-LINKS) (let ((s2 (+ (* (+ (* slot PHYS-CHAINS) c2) PHYS-LINKS) l2))) (when (and (= (-> *phys-joint* s2) cj) (nonzero? (-> *phys-rgok* s2))) (set! rl s2)))))
-            (cond
-              ((< rl 0) (phys-col-centre skel sco cj ca))
-              ((and (= (-> *phys-cox* sco) 0.0) (= (-> *phys-coy* sco) 0.0) (= (-> *phys-coz* sco) 0.0)) (vector-copy! ca (the-as vector (-> *phys-rgm* rl vector 3))))
-              (else (set-vector! ca (-> *phys-cox* sco) (-> *phys-coy* sco) (-> *phys-coz* sco) 1.0) (vector-matrix*! ca ca (-> *phys-rgm* rl)))))
+          (phys-col-centre skel sco cj ca)
           (set! (-> *phys-csax* sco) (-> ca x))
           (set! (-> *phys-csay* sco) (-> ca y))
           (set! (-> *phys-csaz* sco) (-> ca z))
@@ -1393,8 +1385,6 @@
              (set! (-> *phys-csby* sco) (-> ca y))
              (set! (-> *phys-csbz* sco) (-> ca z))))
           (set! (-> *phys-csok* sco) 1)))))
-  ;; [NOTE-534] un repere releve vaut pour SA frame : sans cette remise a zero, un maillon qui cesse d'etre ecrit placerait son volume avec une pose perimee.
-  (dotimes (i PHYS-CHAINS) (dotimes (l PHYS-LINKS) (set! (-> *phys-rgok* (+ (* (+ (* slot PHYS-CHAINS) i) PHYS-LINKS) l)) 0)))
   (none))
 
 (defun phys-col-key ((sco int) (cj int))
@@ -3886,8 +3876,6 @@
                               (set! (-> *phys-c1* 0) (+ (* (-> *phys-lcx* scl) (-> bm vector 0 x)) (+ (* (-> *phys-lcy* scl) (-> bm vector 1 x)) (* (-> *phys-lcz* scl) (-> bm vector 2 x)))))
                               (set! (-> *phys-c1* 1) (+ (* (-> *phys-lcx* scl) (-> bm vector 0 y)) (+ (* (-> *phys-lcy* scl) (-> bm vector 1 y)) (* (-> *phys-lcz* scl) (-> bm vector 2 y)))))
                               (set! (-> *phys-c1* 2) (+ (* (-> *phys-lcx* scl) (-> bm vector 0 z)) (+ (* (-> *phys-lcy* scl) (-> bm vector 1 z)) (* (-> *phys-lcz* scl) (-> bm vector 2 z)))))
-                              ;; [NOTE-534] LE VOLUME DE COLLISION EST UN PROXY RIGIDE : on releve le repere du maillon ICI, avant que le tenseur de forme entre, et c'est LUI que l'instantane de JACOBI lira. -> jak-hd-physics-NOTES.md
-                              (matrix-copy! (-> *phys-rgm* scl) bm) (set-vector! (-> *phys-rgm* scl vector 3) (-> *phys-px* scl) (-> *phys-py* scl) (-> *phys-pz* scl) 1.0) (set! (-> *phys-rgok* scl) 1)
                               (when (nonzero? (-> *phys-dfon* sc))
                                 (set! (-> bm vector 3 x) 0.0)
                                 (set! (-> bm vector 3 y) 0.0)

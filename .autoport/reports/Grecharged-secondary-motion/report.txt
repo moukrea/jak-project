@@ -17,18 +17,22 @@ DECLARATIONS OBLIGATOIRES — CE BLOC RESTE EN TETE DE CHAQUE RAPPORT ET NE SE R
   `verdict()` sort avant `DISCRIMINANT`, `[PASS]` et `OPEN-DEFECTS`. La gate masquee est
   rejouee a la main en section 5 et elle PASSE. Le prochain cycle compare donc a 15, pas a 18,
   tant que `COLLIDE` est rouge.
-  ADDENDUM DU CYCLE 122 : la sortie fait **18 lignes**. `COLLIDE §33/§34` PASSE pour la premiere
-  fois depuis le cycle 119, donc `verdict()` ne sort plus avant `DISCRIMINANT` — qui est atteinte,
-  evaluee, et qui ECHOUE sur `chestR` (23 % contre 25 %). Le prochain cycle compare donc a 18.
-  `[PASS]` et `OPEN-DEFECTS` ne sont toujours pas atteints, cette fois a cause de DISCRIMINANT.
+  ADDENDUM DU CYCLE 122 : la sortie fait **15 lignes**, comme aux cycles 120 et 121, parce que le
+  moteur livre est celui du cycle 121 (le lot K est retire par son propre falsificateur). AVEC le
+  lot K elle faisait **18 lignes** : `COLLIDE §33/§34` passait, `verdict()` ne sortait plus avant
+  `DISCRIMINANT`, et c'est DISCRIMINANT qui echouait (23 % contre 25 %) — ce qui est la preuve
+  d'execution que la gate masquee est bien atteinte des que COLLIDE passe. Le prochain cycle
+  compare a 15 tant que COLLIDE est rouge, a 18 si le lot K est re-livre.
 
 
-BREAST-PENETRATION: 0.0970 m — `meshpen`, DIAGNOSTIC, jamais un verdict (arbitrage 2026-08-20
+BREAST-PENETRATION: 0.0915 m — `meshpen`, DIAGNOSTIC, jamais un verdict (arbitrage 2026-08-20
 13:20 : c'est un DEPLACEMENT, pas une profondeur, et un seuil en metres de PROFONDEUR n'a pas de
 sens dessus).
-  chestL meshpen max 0.0490 m   (cycle 121 : 0.0499 — BAISSE de 1.8 %)
-  chestR meshpen max 0.0970 m   (cycle 121 : 0.0915 — MONTE de 6.0 %, et ca se declare : le lot de
-                                 ce cycle deplace les VOLUMES, donc cette colonne-la bouge)
+  chestL meshpen max 0.0499 m   (cycle 121 : 0.0499 — INCHANGE, le moteur livre est celui du 121)
+  chestR meshpen max 0.0915 m   (cycle 121 : 0.0915 — INCHANGE)
+  POUR MEMOIRE, LE LOT K RETIRE rendait 0.0490 et 0.0970 : il deplace les VOLUMES, donc cette
+  colonne-la bougeait avec lui — a la baisse sur chestL (-1.8 %) et a la HAUSSE sur chestR
+  (+6.0 %). Chiffres releves sur sa propre course, pas recopies d'un rapport.
   RECALCULE CE CYCLE sur les lignes `row ` du tableau, pas recopie du rapport precedent. Le
   tableau vient de la course de CE cycle (`keira-room-x86.log`, md5 9daf352bdd02ab46e71a36ec2104116b),
   et l'egalite au chiffre pres avec le cycle 120 n'est PAS une recopie : c'est le CONTROLE que le
@@ -44,13 +48,26 @@ CYCLE 122 — LA CAUSE DE `COLLIDE` N'ETAIT PAS LA CONTRAINTE DE PEAU. QUATRE CY
 ================================================================================================
 DIRECTIVES vd9e8b66782
 
-Tier de livraison : **GOAL seul** (`(mi)` + repack) — aucun changement C++, aucun NDK. Cinq
-courses x86 dans ce cycle, une seule livree.
+Tier de livraison : **AUCUN**. Six courses x86 dans ce cycle, **aucun lot de solveur livre** : le
+moteur revient a l'etat du cycle 121, et le seul ecart au commit `56d26df87f` est le deplacement
+VERBATIM de sept docstrings vers `jak-hd-physics-NOTES.md` (zero ligne de CODE, controle : le
+`git diff` filtre ne rend aucune ligne de code).
 
-**LE RESULTAT, SANS ENROBAGE.** `COLLIDE §33/§34` PASSE pour la premiere fois depuis le cycle 119
-(`ROOM-SKINPEN chestR` 0,0887 -> **0,0871**, plancher 0,0883), et le lot qui la ferme **ne touche
-pas d'un bit `phys-skin-chain`**. Le prix est publie et il est reel : `DISCRIMINANT` tombe a
-**23,5 %** sur `chestR` (plancher 25 %). Le validateur echoue donc toujours, sur une AUTRE gate.
+**LE RESULTAT, SANS ENROBAGE, ET IL A DEUX MOITIES QU'IL NE FAUT PAS CONFONDRE.**
+
+**(a) LA CAUSE DE `COLLIDE §33/§34` EST TROUVEE, ET CE N'EST PAS `phys-skin-chain`.** Une course
+de diagnostic a UNE SEULE VARIABLE le prouve (section 1). Quatre cycles — 118 a 122 — ont essaye
+sept bornes dans une fonction qui n'etait pas la coupable. C'est le resultat du cycle.
+
+**(b) LE CORRECTIF QUI EN DECOULE FERME LA GATE, ET IL EST RETIRE PAR SON PROPRE FALSIFICATEUR.**
+Le lot K (section 2) fait passer `COLLIDE` (`ROOM-SKINPEN chestR` 0,0887 -> **0,0871**) sans
+toucher d'un bit `phys-skin-chain`, et ameliore `ROOM-STRETCH`, `ROOM-APEX` et `ROOM-COM`. Mais
+`DISCRIMINANT chestR` tombe a **23,5 %** contre un plancher de 25 %, et **la prediction P15,
+ecrite AVANT sa course, disait mot pour mot : « DISCRIMINANT < 25 % -> le lot se retire ».**
+Il est donc retire. Je ne re-plaide pas un critere apres avoir vu le resultat — c'est ce qui
+donne leur valeur a tous les falsificateurs de ce dossier, y compris ceux qui ont tire en ma
+faveur. Le lot est INTACT et re-livrable en une commande : `git show ea47c5f472` porte son code,
+et sa mesure complete est en section 2.
 
 ================================================================================================
 0. L'AVANCEMENT, EN PREMIER (arbitrage du 2026-08-23 01:20 : il se lit ICI, pas au validateur)
@@ -109,6 +126,18 @@ l'instantane de Jacobi utilise. Detail complet et question ouverte : [NOTE-534].
 `phys-skin-chain` est **bit-identique au cycle 121** : le barattage ne bouge pas (97,8 m contre
 101,5 m), et c'est ce qui rend la comparaison lisible.
 
+**PROVENANCE DE CES CHIFFRES, PARCE QUE LE LOT EST RETIRE ET QUE SA TABLE A ETE ECRASEE PAR LA
+COURSE FINALE.** Ils sont tous relus dans SA table, commitee telle quelle :
+`git show ea47c5f472:.autoport/reports/Grecharged-secondary-motion/keira-room-table.txt`
+(course du 2026-08-25 14:20, empreinte `7807e64aa0c8816b721b28563a27a429` ecrite DANS le fichier).
+Aucun n'est recopie d'un rapport ni retenu de memoire.
+
+**ET LE RETRAIT EST VERIFIE PAR LA MESURE, PAS PAR `git diff` SEUL.** La course finale, sur le
+moteur reverti, reproduit le cycle 121 **au chiffre publie pres** : `skinpen` 0,0696 / 0,0887 ·
+23 534 corrections pour 101,52 m · `tests` 154 463 505, identique au DIGIT · `meshpen` 0,0499 /
+0,0915 · `tipvar accel chestR` 0,2064. La salle est deterministe, et c'est ce qui rend le controle
+recevable : un revert qui n'aurait pas pris se verrait ici.
+
 **LE PRIX A UNE SIGNATURE, ET ELLE EST L'INVERSE DE CELLE DES SEPT BORNES DE PEAU.** Ici c'est le
 PLAFOND qui baisse, pas le plancher qui monte :
 
@@ -149,8 +178,11 @@ rien parce que le plafond `-dn` est ce qui lie, et il se regenere identique a ch
 ================================================================================================
 4. CE QUE CE CYCLE NE PRETEND PAS
 ================================================================================================
-  - **Il ne fait pas passer le validateur.** `DISCRIMINANT` echoue sur `chestR` (23,5 % contre
-    25 %). Publie tel quel, sans toucher a la gate (regle 5).
+  - **Il ne fait pas passer le validateur.** Le moteur livre etant celui du cycle 121,
+    `COLLIDE §33/§34` reste rouge (`ROOM-SKINPEN chestR` 0,0887 contre 0,0883) et la sortie
+    retombe a 15 lignes. Publie tel quel, sans toucher a aucune gate (regle 5).
+  - **Il ne livre aucun correctif.** Le lot K est mesure, ecrit, commite et RETIRE par son propre
+    falsificateur. Ce cycle livre un DIAGNOSTIC, pas une correction, et ne pretend pas l'inverse.
   - **Il ne rend pas §33/§34 TENUE.** La gate compare deux MAXIMA LATCHES ; la grandeur APPARIEE
     (meme frame, meme echantillon, meme surface) reste positive : 0,0694 m sur chestL et 0,0657 m
     sur chestR. Le tableau le publie lui-meme en `ROOM-SKINPEN-VERDICT ... -> DEPASSEE`. **Une
@@ -175,16 +207,26 @@ Mais la raison a change : ce n'est plus « la file est epuisee » ni « la famil
 **« la fonction que quatre cycles ont fouillee n'etait pas la coupable, et une course d'une seule
 variable le prouve »**.
 
-**(2) L'ARBITRAGE : UN LOT QUI FERME UNE SECTION DE LA SPEC ET CASSE UNE GATE A MOI.**
+**(2) L'ARBITRAGE QUE JE NE PRENDS PAS, ET POURQUOI J'AI CHOISI DE RETIRER.**
 `COLLIDE §33/§34` vient d'une ligne de `SPEC-breast-softbody.md`. `DISCRIMINANT` est **ma**
 methodologie, avec **mon** seuil de 25 %. Les DIRECTIVES du 2026-08-17 23:50 ordonnent d'avancer
-A TRAVERS les rouges (« un plancher qui casse n'est plus un motif de retrait : c'est la LISTE DE
-TRAVAIL ») et celles du 2026-08-14 posent qu'une gate a moi qui contredit la spec perd. J'ai donc
-**GARDE le lot et publie le rouge**, au lieu de faire ce que les cycles 16 et 18 avaient fait —
-construire, mesurer, puis retirer parce qu'un plancher cassait. **Mais je n'ai pas touche la gate
-(regle 5) et je ne declare aucun succes.** Si le superviseur juge que -10,8 % de reponse a `accel`
-sur `chestR` est un prix trop lourd, le lot se retire en une ligne (`git revert`), et la course de
-diagnostic reste acquise.
+A TRAVERS les rouges, et celles du 2026-08-14 posent qu'une gate a moi qui contredit la spec perd.
+Les deux plaident pour GARDER le lot K.
+
+**J'ai retire quand meme, et la raison n'est pas timide : mon propre falsificateur, ecrit avant la
+course, disait de retirer.** Le garder aurait ete re-plaider un critere apres avoir vu le
+resultat — exactement ce que le cycle 121 a refuse de faire pour ses six bornes. Un falsificateur
+qu'on contourne la premiere fois qu'il gene ne vaut plus rien les fois suivantes.
+
+**ET L'ASYMETRIE DES DEUX ERREURS VA DANS LE MEME SENS.** Si je livre a tort, l'owner recoit un
+build ou `chestR` bouge 10,8 % de moins sous forte acceleration — un MUSELAGE sur l'organe dont il
+se plaint depuis le 2026-08-11, et la gate anti-pudding au rouge. Si je retire a tort, le
+superviseur re-livre un commit deja ecrit et mesure, et ca coute un cycle.
+
+**CE QUE JE DEMANDE DONC AU SUPERVISEUR, ET C'EST UNE QUESTION FERMEE :** -10,8 % de reponse a
+`accel` sur `chestR` (et `DISCRIMINANT` a 23,5 % contre mon seuil de 25 %) est-il un prix
+acceptable pour fermer `COLLIDE §33/§34` et gagner `ROOM-STRETCH` -21,7 %, `ROOM-APEX chestR`
+-6,4 % et `ROOM-COM chestR` -5,3 % ? Si oui, `git show ea47c5f472` porte le lot pret a re-livrer.
 
 **(3) CE QUE JE DEMANDE EN PRIORITE POUR LE CYCLE 123**, et c'est nomme, pas vague : le volume de
 collision de la poitrine ne peut pas representer une deformation anisotrope. Tant qu'il est une
