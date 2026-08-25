@@ -3,6 +3,10 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+
+#ifdef __ANDROID__
+#include <malloc.h>
+#endif
 #include <set>
 
 #include "common/custom_data/MeshConsolidate.h"
@@ -23,6 +27,12 @@
 
 Loader::Loader(const fs::path& base_path, int max_levels)
     : m_base_path(base_path), m_max_levels(max_levels) {
+#ifdef __ANDROID__
+  // autoport 2026-08-25: Android's Scudo allocator caches freed blocks rather
+  // than returning them. Harmless with 8 GB, fatal with 3 GB. Decay 0 = release
+  // as soon as a block is free.
+  mallopt(M_DECAY_TIME, 0);
+#endif
   m_loader_thread = std::thread(&Loader::loader_thread, this);
   m_loader_stages = make_loader_stages();
 }
@@ -917,6 +927,27 @@ void Loader::update(TexturePool& texture_pool) {
   if (loader_timer.getMs() > 5) {
     fmt::print("Loader::update slow setup: {:.1f}ms\n", loader_timer.getMs());
   }
+
+#ifdef __ANDROID__
+  // Measured on the NVIDIA Shield (3 GB, 2026-08-25): 690 MB of native heap for
+  // 476 MB actually live — 208 MB retained by the allocator — and lmkd killed
+  // the game while ~460 MB was still nominally available. Level loading is where
+  // that garbage is produced, so give the pages back here.
+  {
+    // The transient is what gets the game killed, not the resident set: measured
+    // on the Shield, idle sits at ~680 MB and a level load spikes to ~993 MB.
+    // Purge often while a load is actually running, rarely when idle — M_PURGE
+    // walks the whole heap, so it is not free.
+    static Timer purge_timer;
+    static bool purge_armed = false;
+    const double purge_interval_ms = did_gpu_stuff ? 100.0 : 2000.0;
+    if (!purge_armed || purge_timer.getMs() > purge_interval_ms) {
+      purge_armed = true;
+      purge_timer.start();
+      mallopt(M_PURGE, 0);
+    }
+  }
+#endif
 }
 
 std::optional<MercRef> Loader::get_merc_model(const char* model_name) {
