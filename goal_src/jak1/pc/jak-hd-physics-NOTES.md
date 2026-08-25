@@ -9579,3 +9579,74 @@ instruction touchee. Texte d'origine, mot pour mot :
     positive. La sentinelle 1000000.0 = aucun echantillon a portee, ce qui n'est PAS zero.
     La FENETRE lue est [*phys-sd-lo*, *phys-sd-hi*), 0/-1 par defaut = la population de CORPS.
     Justification complete : [NOTE-299] de jak-hd-physics-NOTES.md.
+
+## NOTE-510  (cycle 121 — SIX BORNES ESSAYEES SUR `phys-skin-chain`, SIX MESUREES, ZERO LIVREE)
+
+**RIEN DE CE CYCLE N'EST DANS LE MOTEUR.** `phys-skin-chain` est exactement celle du cycle 120.
+Ce qui est acquis est un REGISTRE D'ELIMINATION, et il vaut plus qu'un lot : il ferme une famille
+entiere de correctifs et il nomme le mecanisme qui la ferme.
+
+**LE DEFAUT DE DEPART, REMESURE ET NON SUPPOSE.** `PHYSSKLV5 tag=run`, cycle 120, au point qui
+porte le verdict publie de SPEC 33/34 — meme expression, meme echantillon, meme frame (7e passe) :
+
+    chaine   demande `radd`   plafond `-dn`    applique     pp        ln
+    chestL     285,2682 u     **-64,5091**     0,0000 u    0,9975   1040,1988 u
+    chestR     268,0815 u     **  0,0187**     0,0000 u    0,7570   1038,7474 u
+
+Le plafond accorde 0,019 u pour une demande de 268 u : inhibition TOTALE au point du verdict.
+C'est [NOTE-483] (cycle 106) retrouvee telle quelle apres son retrait.
+
+**LES SIX BORNES, LEUR PRIX, ET LA COURSE QUI LE MESURE.** Ligne de base = cycle 120 :
+`skinpen` 0,0696 / 0,0887 m · `skinadd` 0,0696 / 0,0654 m · `ROOM-IDLE` 0,0001 m ·
+DISCRIMINANT 46,9 % / 34,0 % · 8 frames en depassement · 23 534 corrections pour 101,5 m cumules
+et un residu de 7e passe de 0,0277 m.
+
+    borne                          skinadd L/R      IDLE      DISCR L/R     verdict
+    A  `|dj|` qui se consomme      0,0404 / 0,0592  x710      7,7 / 18,0    REFUTEE (repos, discr)
+    B  monotone vers l'auteur      0,0723 / 0,0737  rendu     —             REFUTEE (grandeur
+                                                                            HONNETE aggravee des
+                                                                            deux cotes : faux vert)
+    C  boule de rayon `|dj|`       —                —         —             REFUTEE (le candidat
+                                                                            tombe a 312,99/444,16 u
+                                                                            pour 279,21/211,57
+                                                                            alloues : REJET au point
+                                                                            du verdict, skinpen MONTE
+                                                                            a 0,0917)
+    D  aucune borne + descente     0,0540 / 0,0559  0,0051 m  —             REFUTEE (21 646 frames
+                                                                            en depassement, course
+                                                                            jamais terminee)
+    E  borne = la DEMANDE          0,0510 / 0,0532  0,0405 m  —             REFUTEE (repos x405)
+    F  `kr <= 0,1` + descente      0,0505 / 0,0572  0,0405 m  13,8 / 22,9   REFUTEE (repos x405 ET
+                                                                            DISCRIMINANT sous 25 %)
+
+**LES QUATRE QUI FONT BAISSER LA GRANDEUR HONNETE (A, D, E, F) FONT TOUTES LA MEME CHOSE, ET LE
+TABLEAU DE `tipvar` LE MONTRE SANS INTERPRETATION.** Sur F :
+
+    chestL  tilt  0,0981 -> 0,1724  (+76 %)      pendant que  accel 0,1848 -> 0,1855  (+0,4 %)
+
+La contrainte AJOUTE ~0,07 de mouvement aux stimuli FAIBLES et ~0 aux stimuli FORTS. Ce n'est pas
+un muselage : c'est un **PLANCHER D'AGITATION independant du stimulus**, exactement ce que l'owner
+appelle « un pudding sur lequel on tape au moindre mouvement ». Le meme plancher se relit au repos
+(`ROOM-IDLE` 0,0405 m contre 0,0001).
+
+**ET LE CHIFFRE QUI NOMME LE MECANISME, PARCE QU'IL NE DEMANDE AUCUNE INTERPRETATION :**
+
+    cycle 120 : 23 534 corrections · 101,5 m cumules · residu de 7e passe **0,0277 m**
+    F         : 39 127 corrections · 331,1 m cumules · residu de 7e passe **0,0572 m**
+
+**3,3 fois plus de travail pour DEUX FOIS PLUS de residu.** Une projection qui converge fait
+l'inverse. Ce n'est donc pas une correction, c'est un **CYCLE LIMITE** — et le registre le porte
+deja sous `constraint-on-discontinuous-field-limit-cycles`, avec sa conclusion : « il faut AUSSI
+un plafond `-dot(dj,n)` ». **Le plafond du cycle 120 n'est pas une maladresse : c'est le
+SUPPRESSEUR DE CYCLE LIMITE**, et son prix est l'inhibition au point du verdict. Les six bornes
+echouent parce qu'elles bornent toutes la MAGNITUDE d'un pas dont c'est la **DIRECTION** qui
+oscille — `*phys-sdn*` est une moyenne ponderee sur un K-voisinage dont le rayon s'adapte a la
+densite locale ([NOTE-509]), donc la normale bascule quand le voisinage change, et le pas suivant
+repousse dans l'autre sens quelle que soit sa taille.
+
+**CE QUE CA REND AU CYCLE SUIVANT, ET C'EST UNE CIBLE, PAS UNE PISTE.** Le chantier n'est plus
+« trouver la bonne borne » — cette famille est fermee, six fois, avec les chiffres. C'est **rendre
+la DIRECTION continue** : mesurer la variation image par image de `*phys-sdn*` au point qui decide
+(l'instrument `*phys-skl*` a deja les cases), et si elle bascule, la stabiliser AVANT de reparler
+de borne. Falsifiable dans les deux sens : si la normale ne bascule pas, le cycle limite vient
+d'ailleurs et cette note est fausse.

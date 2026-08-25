@@ -1,0 +1,290 @@
+# cycle 121 — PREDICTIONS ECRITES AVANT LA COURSE
+# DIRECTIVES vd9e8b66782
+#
+# CHANTIER NOMME (regle du 2026-08-21 18:25) : la section dont ce lot debloque le verdict est
+# SPEC-breast-softbody §33/§34, aujourd'hui NON TENUE, et la gate COLLIDE du validateur.
+#
+# DIAGNOSTIC (lu dans la trace du cycle 120, AUCUNE course neuve) — PHYSSKLV5 tag=run :
+#   chestL  radd=285.2682 u  rcap=-64.5091 u  rdisp=250.3496 u  ->  v = -64.51  => AUCUNE correction
+#   chestR  radd=268.0815 u  rcap=  0.0187 u  rdisp=176.3754 u  ->  v =   0.019 => AUCUNE correction
+# Au point QUI PORTE le verdict publie, la contrainte de peau demande 268-285 u et le plafond
+# `-dot(dj,n)` lui en accorde 0.02 u ou -64 u : inhibition TOTALE, pas un etranglement. C'est
+# [NOTE-483] (cycle 106) remesuree telle quelle, et [[project_spec34_cap_is_negative_at_the_verdict_point]].
+#
+# LOT : le plafond passe de `-dot(dj,n)` (une COMPOSANTE, aveugle au glissement tangentiel) a un
+# BUDGET DE DEPLACEMENT `|dj|` QUI SE CONSOMME. Les trois proprietes de [NOTE-291] sont gardees et
+# la quatrieme, perdue par le `|dj|` par-passe du cycle 106, est rendue :
+#   (1) dj = 0 a la pose d'auteur => budget 0 => INERTE PAR ALGEBRE (SPEC 2/9) ;
+#   (2) sans direction privilegiee => plus aveugle au tangentiel (97,3 % du deplacement, NOTE-483) ;
+#   (3) AUTO-LIMITANT : le budget est DEPENSE, donc la boucle ne peut pas s'auto-entretenir ;
+#   (4) BORNE : le total corrige ne depasse jamais ce que la physique a elle-meme deplace.
+# Le cycle 106 posait `|dj|` PAR PASSE, soit 6 passes x 2 appels = 12 x |dj| au total : c'est cela
+# qui a produit son prix (§22 0,7783 B0, STRETCH 4,59 %, IDLE x202, DISCRIMINANT en echec).
+#
+# ------------------------------------------------------------------------------------------
+P1  PHYSSKLV5 `rcap` devient STRICTEMENT POSITIF sur LES DEUX chaines (il est aujourd'hui
+    0.0187 et -64.5091). C'est la prediction qui teste le MECANISME : si elle est fausse, le
+    plafond n'etait pas ce qui bloquait et tout le reste du lot est a jeter.
+
+P2  ROOM-SKINPEN chestR passe SOUS son plancher d'auteur de 0.0883 m (il est a 0.0887).
+    Fourchette predite : [0.070, 0.088]. Borne basse = la mesure du cycle 61 sans plafond
+    (311,50 u = 0.0760 m) ; borne haute = la valeur d'aujourd'hui.
+    REFUTATION : chestR >= 0.0883 => le plafond n'etait pas le terme dominant.
+
+P3  ROOM-SKINPEN chestL BAISSE aussi (0.0696 aujourd'hui), parce que son plafond etait NEGATIF
+    donc encore plus inhibe. Predit : < 0.0696.
+
+P4  ROOM-IDLE maxdev reste <= 0.02 (gate a 1.0, valeur d'aujourd'hui 0.0001). Le budget vaut
+    |dj|, qui tend vers 0 au repos : l'inertie est algebrique, pas un reglage.
+
+P5  ROOM-STRETCH reste <= 3.0 % (contrat owner ; 2.7913 % aujourd'hui). La correction est une
+    ROTATION a longueur invariante et reste la derniere operation du solveur.
+
+P6  DISCRIMINANT passe. Le budget est PROPORTIONNEL au deplacement de la frame, donc la
+    correction croit avec le stimulus au lieu de l'ecreter : elle ne peut pas aplatir la reponse
+    ([[feedback_flattening_is_not_muzzling]]).
+
+P7  Le nombre de corrections de peau MONTE (PHYSSKINC / ROOM-SKINPEN-COUT, 23534 aujourd'hui sur
+    tag=run) ET `reste` BAISSE (0.0277 m aujourd'hui).
+
+P8  tipvar ne baisse pas de plus de 10 % sur aucune des deux chaines (0.1753/0.1818 au cycle 61
+    pour reference). Au-dela, la contrainte MUSELLE et le lot se retire, quel que soit COLLIDE.
+
+# CE QUE JE N'AI PAS PREDIT ET QUI SERA DIT COMME TEL : la valeur exacte de chestR. Deux faces
+# ecrites d'avance peuvent sortir fausses ENSEMBLE ([[feedback_two_faced_prediction_is_not_exhaustive]]).
+
+# ==========================================================================================
+# ADDENDUM — TROIS VARIANTES ONT ETE COURUES, ET LES PREDICTIONS DE CHACUNE SONT ECRITES
+# AVANT SA COURSE. Les predictions P1-P8 ci-dessus portent sur la VARIANTE A ; leur bilan est
+# dans le rapport, refutations comprises.
+#
+# VARIANTE A — budget `|dj|` par appel, qui se consomme.
+#   RESULTAT : COLLIDE passe (chestR 0.0879 < 0.0883) et `skinadd` BAISSE sur les deux chaines
+#   (0.0696 -> 0.0404, 0.0654 -> 0.0592), MAIS `PHYSIDLE dev` passe de 0.2338 a **165.97 u**
+#   (x710) et DISCRIMINANT tombe a 7.7 % / 18.0 % contre un plancher de 25 %.
+#   CAUSE, MESUREE ET NON SUPPOSEE : le budget est remis a `|dj|` A CHAQUE FRAME alors que
+#   l'ecart qu'il a cree PERSISTE. La borne tient DANS la frame et pas ENTRE les frames : au
+#   repos `dj` = 0.23 u, la contrainte depense 0.23 u, la frame suivante `dj` vaut 0.46 u, etc.
+#   Ce que `-dot(dj,n)` tenait par le SIGNE, un budget par frame ne le tient pas.
+#   Et les deux echecs sont LE MEME defaut : tipvar MONTE aux stimuli faibles (tilt 0.0981 ->
+#   0.1807) au lieu de baisser aux forts — la contrainte est devenue une SOURCE de mouvement.
+#
+# VARIANTE B — regle monotone : la correction ne doit jamais ELOIGNER le joint de la pose
+#   d'auteur (|P'-A| <= |P-A| a chaque passe).
+#   RESULTAT : IDLE RENDU (dev 0.2072 / 0.2301 contre 0.2338 / 0.2301 au cycle 120 — chestL est
+#   MEILLEUR que la ligne de base) et COLLIDE passe (0.0723 / 0.0828 < 0.0883). MAIS la grandeur
+#   APPARIEE `skinadd` EMPIRE sur LES DEUX chaines : 0.0696 -> 0.0723 et 0.0654 -> 0.0737.
+#   CAUSE : la pose d'AUTEUR est elle-meme a 0.0883 m SOUS la surface estimee. Une regle qui
+#   force la correction a se rapprocher de la pose d'auteur tire donc vers un endroit PROFOND.
+#   ELLE PASSE LA GATE ET AGGRAVE LA GRANDEUR HONNETE : c'est un faux vert, elle n'est pas livree.
+#
+# VARIANTE C — la borne porte sur la POSITION, pas sur le chemin : la correction est admise si
+#   et seulement si elle laisse le joint DANS LA BOULE de rayon `dj0` centree sur la pose
+#   d'auteur, ou `dj0` est l'ecart que LE RESTE DU SOLVEUR a produit a l'entree de l'appel.
+#   Elle rend a la contrainte la liberte de direction de A (c'est elle qui faisait baisser
+#   `skinadd`) et elle borne l'ecart en ABSOLU, donc la derive inter-frame de A est impossible
+#   PAR CONSTRUCTION : la contrainte de peau ne peut jamais rendre le joint plus eloigne de la
+#   pose d'auteur que ne l'a fait le reste du solveur.
+#
+# PREDICTIONS DE C, ECRITES AVANT SA COURSE :
+C1  PHYSIDLE dev revient au niveau du cycle 120 (<= 0.30 u sur les deux chaines). C'est
+    ALGEBRIQUE : au repos `dj0` ~ 0.23 u borne l'ecart total, il ne peut pas s'accumuler.
+C2  `skinadd` <= celui du cycle 120 sur LES DEUX chaines (0.0696 / 0.0654). C'est la grandeur
+    qui decide si le lot est livre : au-dessus, C subit le defaut de B et n'est pas livree.
+C3  ROOM-SKINPEN chestR < 0.0883 (gate COLLIDE), chestL aussi.
+C4  DISCRIMINANT >= 25 % sur les deux chaines.
+C5  ROOM-STRETCH <= 3.0 %.
+    REFUTATION GLOBALE : si C2 ou C4 tombe, aucune des trois variantes n'est livrable et le
+    cycle publie COLLIDE en ROUGE avec la localisation, sans rien livrer — un faux vert coute
+    plus cher qu'un rouge de plus.
+
+# VARIANTE D — TEST DE DESCENTE, ecrit AVANT sa course.
+#   RESULTAT DE C (boule de rayon dj0, centree sur la pose d'auteur) : REFUTEE. `PHYSSKLV5` montre
+#   que le candidat se serait pose a 312.99 / 444.16 u de la pose d'auteur pour une allocation de
+#   279.21 / 211.57 u : le test REJETTE la correction au point du verdict, et `skinpen` chestR
+#   MONTE a 0.0917 (contre 0.0887 au cycle 120). C2 et C3 tombent toutes les deux.
+#
+#   CE QUE LES TROIS COURSES ETABLISSENT ENSEMBLE, ET QUI EST LE VRAI RESULTAT :
+#   toute borne posee sur la GEOMETRIE de la correction (une composante, un budget de chemin, une
+#   boule de position) se trompe, parce qu'AUCUNE ne regarde si la correction fait ce qu'elle
+#   pretend faire. A corrige beaucoup et derive ; B et C ne derivent pas et corrigent au mauvais
+#   endroit. La grandeur qui manque n'est pas une borne, c'est une VERIFICATION.
+#
+#   D : la correction est calculee comme au cycle 120 (demande appariee, `kr <= 0.5`), puis le
+#   moteur RELIT la surface au point candidat et n'applique la correction QUE si la profondeur de
+#   l'echantillon qui l'a decidee a REELLEMENT baisse. C'est une methode de DESCENTE : elle ne
+#   peut pas deriver, parce qu'un pas qui n'ameliore pas l'objectif n'est jamais pris, et
+#   l'objectif est borne. Cout : un appel de plus a `phys-surf-sd` par correction retenue, contre
+#   154 millions d'evaluations deja faites — invisible.
+#
+D1  PHYSIDLE dev reste au niveau du cycle 120 (<= 0.40 u). PAS DE DERIVE : au repos une correction
+    qui n'ameliore rien est refusee, et c'est ce que A n'avait pas.
+D2  `skinadd` <= cycle 120 sur LES DEUX chaines (0.0696 / 0.0654). SEUL CRITERE DE LIVRAISON.
+D3  ROOM-SKINPEN chestR < 0.0883 et chestL < 0.0883 (gate COLLIDE).
+D4  DISCRIMINANT >= 25 % sur les deux chaines, et tipvar ne perd pas plus de 10 % (B en perdait
+    11.4 % / 19.7 % : c'est du muselage, et c'est la plainte n1 de l'owner depuis le 2026-08-11).
+D5  ROOM-STRETCH <= 3.0 %.
+    SI D2 OU D4 TOMBE : rien n'est livre, le moteur revient a l'etat du cycle 120, et le cycle
+    publie COLLIDE EN ROUGE avec les quatre variantes eliminees et leur prix mesure. Un faux vert
+    coute plus cher qu'un rouge de plus — et B passerait toutes les gates en payant 11 a 20 % du
+    mouvement, ce qui est exactement le troc que l'owner refuse depuis six semaines.
+
+# ==========================================================================================
+# VARIANTE E — ECRITE AVANT SA COURSE, APRES LA MESURE COMPLETE DE D.
+#
+#   CE QUE D A RENDU (course tag=run complete, 310 lignes `row`, unites de jeu / 4096 = m) :
+#     skinpen  chestL 238.94 u = 0.0583 m   chestR 322.59 u = 0.0788 m   (c120 : 0.0696 / 0.0887)
+#     skinadd  chestL 221.28 u = 0.0540 m   chestR 228.87 u = 0.0559 m   (c120 : 0.0696 / 0.0654)
+#     PHYSIDLE dev    chestL 0.2072   chestR **20.9039**                 (c120 : 0.2338 / 0.2301)
+#     corrections 34708 (c120 : 23534) ; cumul 276.9 m (c120 : 101.5 m)
+#     « Kernel dispatch time » : **21646 frames en depassement** contre **8** au cycle 120, et
+#     la course n'atteint PAS `PHYSEND` dans les 1500 s (33 `PHYSANIMLEN` sur 296).
+#
+#   VERDICT SUR D : D2 (`skinadd` <= c120) et D3 (gate COLLIDE) sont **JUSTES** — la grandeur
+#   HONNETE baisse de 22 % / 15 % sur les deux chaines, ce qu'aucune variante n'avait fait sans
+#   contrepartie. **D1 EST FAUSSE** : le repos de chestR part a x90. D4/D5 sont INDECIDABLES,
+#   la course n'ayant pas atteint les phases qui les mesurent — et c'est dit comme tel.
+#
+#   LA CAUSE DES DEUX ECHECS EST LA MEME, ET ELLE EST MESUREE, PAS SUPPOSEE : sans aucune borne
+#   de magnitude, la correction est prise jusqu'a 6 fois par appel et 2 appels par frame, chacune
+#   d'un pas `kr <= 0.5` — le joint finit LOIN de la surface. Le cout n'est pas le test de
+#   descente (un appel de plus par correction retenue, ~2 %) : c'est que `phys-surf-sd` ne peut
+#   plus ECARTER un ensemble d'echantillons quand le point de requete est loin de tout
+#   (:1844, la phase large ne coupe que si un ensemble ne peut PAS contenir un voisin plus
+#   proche que le K-ieme deja trouve). Un point loin de la surface force le balayage complet des
+#   96 ensembles. La lenteur EST le signal de la sur-correction, pas un cout d'instrument.
+#
+# LOT E — UNE SEULE VARIABLE CHANGE PAR RAPPORT A D : la magnitude est bornee.
+#   `bud` = la DEMANDE A L'ENTREE de l'appel (`bv` a la passe 0), et chaque correction retenue
+#   lui retranche la corde qu'elle vient de parcourir (`ln.kr`, majorant de la corde exacte).
+#   **La contrainte de peau ne deplace jamais le joint de plus que la profondeur qu'on lui
+#   demande de retirer.** C'est la borne que les quatre variantes precedentes n'ont pas essayee :
+#     - [NOTE-291] bornait une COMPOSANTE d'un deplacement ETRANGER (`-dot(dj,n)`) : aveugle au
+#       glissement tangentiel, qui porte 97,3 % du deplacement fautif ;
+#     - A et le cycle 106 bornaient par `|dj|`, un deplacement ETRANGER lui aussi, qui CROIT
+#       quand la contrainte agit — d'ou la derive inter-frame ;
+#     - C bornait une POSITION par rapport a la pose d'auteur, laquelle est elle-meme a 0,0883 m
+#       SOUS la surface : elle tirait vers un endroit profond ;
+#     - E borne par la DEMANDE. Elle vaut 0 a la pose d'auteur (`sd = sa` => `v = 0`), donc
+#       l'inertie de SPEC 2 / SPEC 9 est ALGEBRIQUE et non un reglage ; elle est sans direction
+#       privilegiee ; elle se consomme, donc l'appel termine ; et elle est dans les MEMES UNITES
+#       que ce qu'on corrige, ce qu'aucune des trois autres n'etait.
+#   Le test de descente de D est CONSERVE : un pas qui ne remonte pas l'echantillon qui l'a
+#   decide n'est jamais pris.
+#
+# PREDICTIONS DE E, ECRITES AVANT SA COURSE :
+E1  PHYSIDLE dev <= 0,40 u sur LES DEUX chaines (c120 : 0,2338 / 0,2301 ; D : 0,2072 / 20,9039).
+    REFUTATION : > 1,0 u sur une chaine => la borne ne tient pas le repos et E tombe comme D.
+E2  La course atteint `PHYSEND` et le nombre de frames en depassement (« Kernel dispatch time »)
+    reste sous 1000 (c120 : 8 ; D : 21646). C'est le test du MECANISME : si la lenteur persiste,
+    c'est que le point de requete reste loin de la surface, donc que la borne ne mord pas.
+E3  ROOM-SKINPEN < 0,0883 sur LES DEUX chaines (gate COLLIDE ; c120 : 0,0696 / 0,0887).
+E4  ROOM-SKINADD <= c120 sur LES DEUX chaines (0,0696 / 0,0654). **SEUL CRITERE DE LIVRAISON.**
+    E rend forcement moins que D (0,0540 / 0,0559) puisqu'elle corrige moins ; ce qui est exige
+    est de rester sous la ligne de base, pas d'egaler D.
+E5  DISCRIMINANT >= 25 % sur les deux chaines, et `tipvar` ne perd pas plus de 10 % contre c120
+    (accel 0,1848 / 0,2064). Museler la chaine est la plainte n1 de l'owner depuis le 2026-08-11.
+E6  ROOM-STRETCH <= 3,0 % (c120 : 2,7913 %).
+E7  SPEC 22 ne repasse pas le mur du cycle 106 : ROOM-COM max <= 0,48 B0 et ROOM-APEX max <= 1,00
+    B0 (c120 : 0,4363 / 0,4388 et 0,8720 / 0,9397). Le cycle 106 rendait 0,7783 B0 de `jt` : si E
+    y retourne, elle est retiree quel que soit COLLIDE.
+    SI E4 OU E5 TOMBE : rien n'est livre, le moteur revient a l'etat du cycle 120, et le cycle
+    publie COLLIDE en ROUGE avec les CINQ variantes eliminees et leur prix mesure.
+
+# ==========================================================================================
+# RESULTAT DE E, ET IL EST REFUTE PAR SA PROPRE PREDICTION E1.
+#   skinpen  chestL 239.87 u = 0.0586 m   chestR 313.28 u = 0.0765 m   -> E3 JUSTE (gate passee)
+#   skinadd  chestL 208.89 u = 0.0510 m   chestR 217.89 u = 0.0532 m   -> E4 JUSTE (-27 % / -19 %,
+#            MEILLEUR que D et que toutes les variantes precedentes)
+#   PHYSIDLE dev  chestL **165.8235**  chestR 20.3836                  -> **E1 FAUSSE** (x709)
+#   « Kernel dispatch » 37 952                                          -> **E2 FAUSSE**
+#   E5/E6/E7 INDECIDABLES : la course n'atteint pas PHYSEND (2400 s, animlen 292/296) et les
+#   phases qui les mesurent ne sont pas jouees. Dit comme tel, jamais suppose.
+#
+# CE QUE LA COMPARAISON D <-> E ETABLIT, ET C'EST LE RESULTAT QUI COMPTE :
+#   D (aucune borne)  : chestL dev **0,2072** (MIEUX que le cycle 120), chestR 20,90
+#   E (borne=demande) : chestL dev **165,82**, chestR 20,38
+#   Une seule variable les separe — le budget. **AJOUTER une borne de magnitude AGGRAVE le repos
+#   d'un facteur 800 sur chestL.** Ce n'est pas ce qu'une borne est censee faire, et l'explication
+#   qui reste debout est qu'une projection ARRETEE EN COURS DE ROUTE est pire que pas de
+#   projection du tout : elle laisse la chaine dans un etat a moitie corrige que la frame suivante
+#   reprend, et le biais se cliquete. A (budget `|dj|`) rendait 165,97 sur la meme chaine : deux
+#   budgets differents, la MEME valeur a 0,1 % pres — ce n'est pas la TAILLE du budget qui compte,
+#   c'est le fait d'en avoir un.
+#
+# ET LA LENTEUR N'EST PAS OU JE L'AI ECRITE. Mesure de la course de E, horodatee :
+#   a 08:57 (5 min) : 620 lignes `row`, animlen 33, **8 frames en depassement** — c'est-a-dire
+#   EXACTEMENT le compte du cycle 120 sur sa course entiere. La phase de mesure, celle qui tourne
+#   dans la configuration LIVREE, n'a pas ralenti.
+#   a 09:14 (22 min) : animlen 219, **16 532** depassements. L'explosion arrive dans les JAMBES
+#   D'ABLATION (`side-disarmed`, `cone-disarmed`, `prox-disarmed`, `self-disarmed`), ou la
+#   collision est partiellement desarmee, donc la chaine s'enfonce, donc la demande explose.
+#   **Le cout est celui du BANC, pas celui du build.** E2 reste FAUSSE telle qu'elle est ecrite —
+#   je ne la reecris pas apres coup — mais ce qu'elle mesurait n'est pas ce que l'owner paierait.
+#
+# ==========================================================================================
+# VARIANTE F — ECRITE AVANT SA COURSE. UNE SEULE VARIABLE CHANGE PAR RAPPORT A D.
+#   D est la seule variante qui ait rendu un repos MEILLEUR que la ligne de base sur chestL
+#   (0,2072 contre 0,2338) tout en faisant baisser `skinadd` des deux cotes. Ses deux defauts —
+#   le repos de chestR (20,90 u) et le cout — sont les DEUX symptomes d'une meme sur-correction,
+#   et la sur-correction a une cause NOMMEE qui n'est pas une borne de magnitude :
+#
+#   `kr = tan(theta)` est plafonne a **0,5**, soit **26,6 degres** de rotation du maillon EN UNE
+#   PASSE. Le pas est calcule dans la LINEARISATION « le point d'echantillon avance de `bv` le
+#   long de la normale » ; a 26,6 degres l'echantillon suit un ARC, pas la normale, et l'erreur de
+#   linearisation est de l'ordre de 1 - cos(theta) = **11 %** du bras. Le pas depasse donc sa
+#   cible, enterre un echantillon voisin, et la passe suivante repousse dans l'autre sens. Le test
+#   de descente ne l'attrape pas : chaque pas AMELIORE bien l'echantillon qui l'a decide.
+#   F plafonne `kr` a **0,1**, soit 5,71 degres, ou l'erreur de linearisation tombe a **0,50 %**
+#   (facteur 22). Ce n'est pas un reglage ajuste sur l'instrument : c'est le domaine de validite
+#   du calcul que le moteur fait deja. Le total reste largement suffisant — 6 passes x 2 appels
+#   x 5,71 deg = 68,5 degres par frame.
+#
+F1  PHYSIDLE dev <= 0,40 u sur LES DEUX chaines (c120 : 0,2338 / 0,2301 ; D : 0,2072 / 20,90).
+    REFUTATION : > 1,0 u sur une chaine.
+F2  « Kernel dispatch » < 1000 sur la course COMPLETE, et la course atteint PHYSEND.
+F3  ROOM-SKINPEN < 0,0883 sur LES DEUX chaines (gate COLLIDE).
+F4  ROOM-SKINADD <= c120 sur LES DEUX chaines (0,0696 / 0,0654). SEUL CRITERE DE LIVRAISON avec F1.
+F5  DISCRIMINANT >= 25 % et tipvar ne perd pas plus de 10 % (accel 0,1848 / 0,2064).
+F6  ROOM-STRETCH <= 3,0 % ; SPEC 22 : ROOM-COM max <= 0,48 B0, ROOM-APEX max <= 1,00 B0.
+    SI F1 OU F4 TOMBE : rien n'est livre, le moteur revient a l'etat du cycle 120, et le cycle
+    publie COLLIDE en ROUGE avec les SIX variantes eliminees et leur prix mesure. Un faux vert
+    coute plus cher qu'un rouge de plus.
+
+# ==========================================================================================
+# RESULTAT DE F — LA COURSE EST COMPLETE (PHYSEND, 296 animlen, **8** frames en depassement,
+# c'est-a-dire EXACTEMENT le compte du cycle 120 : F2 JUSTE, le cout est rendu).
+#
+#   grandeur                  cycle 120        F              verdict
+#   ROOM-SKINPEN chestL        0,0696         0,0584          F3 JUSTE
+#   ROOM-SKINPEN chestR        0,0887 (rouge) 0,0771          F3 JUSTE — la gate COLLIDE PASSERAIT
+#   ROOM-SKINADD chestL        0,0696         0,0505 (-27 %)  F4 JUSTE
+#   ROOM-SKINADD chestR        0,0654         0,0572 (-13 %)  F4 JUSTE
+#   ROOM-STRETCH               2,7913 %       2,1689 %        F6 JUSTE
+#   SPEC22 COM max             0,4363/0,4388  0,4669/0,4374   F6 JUSTE
+#   SPEC22 APEX max            0,8720/0,9397  0,9264/0,9350   F6 JUSTE
+#   ROOM-IDLE maxdev           **0,0001**     **0,0405**      **F1 FAUSSE (x405)**
+#   DISCRIMINANT chestL        46,9 %         **13,8 %**      **F5 FAUSSE (plancher 25 %)**
+#   DISCRIMINANT chestR        34,0 %         **22,9 %**      **F5 FAUSSE**
+#
+# F1 ET F5 SONT LE MEME DEFAUT, ET LE TABLEAU DE tipvar LE MONTRE SANS INTERPRETATION :
+#   chestL  tilt 0,0981 -> 0,1724 (+76 %)   pendant que  accel 0,1848 -> 0,1855 (+0,4 %)
+# La contrainte AJOUTE ~0,07 de mouvement aux stimuli FAIBLES et ~0 aux stimuli FORTS. Ce n'est
+# pas un muselage, c'est un PLANCHER D'AGITATION independant du stimulus — litteralement « un
+# pudding sur lequel on tape au moindre mouvement ». Le meme plancher se lit au repos :
+# `ROOM-IDLE` 0,0405 m. C'est la signature exacte de la variante A (tilt 0,0981 -> 0,1807).
+#
+# ET LE CHIFFRE QUI NOMME LE MECANISME, PARCE QU'IL NE DEMANDE AUCUNE INTERPRETATION :
+#   cycle 120 : 23 534 corrections, 101,5 m cumules, residu de 7e passe **0,0277 m**
+#   F         : 39 127 corrections, 331,1 m cumules, residu de 7e passe **0,0572 m**
+# **3,3 fois plus de travail pour DEUX FOIS PLUS de residu.** Une projection qui converge fait
+# l'inverse. Ce n'est pas une correction, c'est un CYCLE LIMITE — et le registre le porte deja
+# sous `constraint-on-discontinuous-field-limit-cycles`, avec sa conclusion : « il faut AUSSI un
+# plafond -dot(dj,n) ». Le plafond du cycle 120 n'est donc pas une maladresse : c'est le
+# SUPPRESSEUR DE CYCLE LIMITE, et il se paie par l'inhibition au point du verdict.
+#
+# DECISION, ET C'EST LA REGLE ECRITE AVANT LA COURSE : F1 et F5 tombent, donc RIEN N'EST LIVRE.
+# Le moteur revient a l'etat du cycle 120 et le cycle publie COLLIDE en ROUGE avec les SIX
+# variantes eliminees et leur prix mesure. Un faux vert coute plus cher qu'un rouge de plus, et
+# F aurait ete un faux vert particulierement cher : elle fait passer COLLIDE en cassant
+# DISCRIMINANT, c'est-a-dire en payant avec la plainte n1 de l'owner.
