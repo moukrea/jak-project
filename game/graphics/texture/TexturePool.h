@@ -356,6 +356,25 @@ class TexturePool {
   u64 get_placeholder_texture() { return m_placeholder_texture_id; }
   void draw_debug_window();
   void relocate(u32 destination, u32 source, u32 format);
+
+  /*!
+   * Is a relocate from this source slot safe RIGHT NOW?
+   *
+   * 2026-08-25 — la Shield plantait ici. `relocate` appelle `move_existing_to_vram`, qui
+   * affirme `!is_placeholder` et `!gpu_textures.empty()`. Au DEMARRAGE, la file Android rejoue
+   * les appels de texture accumules avant que le rendu ne soit pret (`drain_pending_tex_calls`) :
+   * si le chargeur n'a pas encore fourni la texture SOURCE, la fente contient un PLACEHOLDER et
+   * l'assertion tue le jeu. C'est une course d'ordre au boot, pas une donnee corrompue — le jeu
+   * reemet ses deplacements a chaque frame.
+   *
+   * Cette fonction ne fait que REPONDRE, elle ne modifie rien, et elle prend le meme verrou que
+   * `relocate`. Aucun appelant sur le bureau : le comportement hors Android est inchange au bit.
+   */
+  bool relocate_source_ready(u32 source) {
+    std::unique_lock<std::mutex> lk(m_mutex);
+    GpuTexture* src = m_textures[source].source;
+    return src && !src->is_placeholder && !src->gpu_textures.empty();
+  }
   void draw_debug_for_tex(const std::string& name, GpuTexture* tex, u32 slot);
   const std::array<TextureVRAMReference, 1024 * 1024 * 4 / 256>& all_textures() const {
     return m_textures;

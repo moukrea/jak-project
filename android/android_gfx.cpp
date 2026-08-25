@@ -1298,6 +1298,23 @@ std::vector<TexturePool::PrecomputedUpload> snapshot_upload(const u8* tpage,
 
 void run_tex_call(const PendingTexCall& c) {
   if (c.is_relocate) {
+    // 2026-08-25 — LA SHIELD PLANTAIT ICI, ET C'ETAIT UNE COURSE D'ORDRE, PAS UNE CORRUPTION.
+    // Un `relocate` rejoue depuis la file de demarrage peut designer une fente SOURCE que le
+    // chargeur n'a pas encore remplie : elle contient alors un placeholder, et l'assertion de
+    // `move_existing_to_vram` (`!is_placeholder`) abattait le processus pendant
+    // `init_renderer_on_gl_thread`. Le jeu reemet ses deplacements a chaque frame, donc en
+    // sauter UN au boot est sans consequence — l'abattre, non. On le DIT au journal au lieu de
+    // le taire : un saut silencieux redeviendrait un defaut invisible.
+    if (!g_data->texture_pool->relocate_source_ready(c.src)) {
+      static u32 s_skipped = 0;
+      if (++s_skipped <= 16 || (s_skipped % 100) == 0) {
+        __android_log_print(ANDROID_LOG_WARN, kLogTag,
+                            "A41-TEX relocate IGNORE #%u dst=0x%x src=0x%x fmt=%u — source pas "
+                            "encore chargee au drain (course d'ordre au boot)",
+                            s_skipped, c.dst, c.src, c.format);
+      }
+      return;
+    }
     __android_log_print(ANDROID_LOG_INFO, kLogTag, "A41-TEX relocate dst=0x%x src=0x%x fmt=%u",
                         c.dst, c.src, c.format);
     g_data->texture_pool->relocate(c.dst, c.src, c.format);
