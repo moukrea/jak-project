@@ -148,3 +148,39 @@ P16 — §11 EST CONSERVEE. Le second ordre du canal de forme reste arme : `PHYS
 P17 — §22 NE SE DEGRADE PAS. `ROOM-APEX` chestR <= 0.9397 B0 (valeur du cycle 121) + 5 %, et
       `ROOM-STRETCH` <= 3.0 %.
       FALSIFICATEUR : au-dela -> le lot achete §33/§34 avec §22, et c'est un arbitrage a remonter.
+
+=========================================================================
+LOT L — PREDICTIONS ECRITES AVANT SA COURSE.
+=========================================================================
+CE QUI FONDE CE LOT, ET C'EST UNE MESURE, PAS UNE IDEE. La course de DIAGNOSTIC (canal de forme
+rendu SANS MEMOIRE) a ete relue avec le CODE DE LA GATE `DISCRIMINANT` extrait tel quel, et
+l'extracteur est CONTROLE : sur la course finale du moteur c121 il rend 46,9 % / 34,0 %, les
+chiffres publies. Sur la course de diagnostic il rend :
+
+    chestL  spread 47,0 %   (updown 0,1273 · leftright 0,1748 · accel 0,1859 · jerk 0,1755 · tilt 0,0986)
+    chestR  spread 28,2 %   (updown 0,1353 · leftright 0,1653 · accel 0,1725 · jerk 0,1885 · tilt 0,1536)
+
+**Les deux au-dessus du plancher de 25 %, et `skinpen chestR` y valait 0,0869 <= 0,0883.** Le
+diagnostic tenait donc DEJA les deux gates — mais il tenait AUSSI la deformation memoryless, donc
+il cassait §11.
+
+LOT L : le volume de collision suit le tenseur QUASI-STATIQUE (les memes echelles, cible de
+gravite directe au lieu de l'etat du second ordre, meme conservation de volume, meme `sqz`/`smc`),
+pendant que le RENDU garde le tenseur du second ordre. Comme le rendu ne retro-agit QUE par
+l'instantane des volumes ([NOTE-534]), la physique doit devenir IDENTIQUE a celle du diagnostic.
+
+P18 — `ROOM-SKINPEN chestR` <= 0,0883, et plus precisement **0,0869 +- 0,0005**.
+      FALSIFICATEUR : > 0,0883 -> le lot ne reproduit pas le diagnostic, donc l'affirmation
+      « le rendu ne retro-agit que par l'instantane » est FAUSSE et c'est ca qu'il faut publier.
+
+P19 — `DISCRIMINANT` >= 25 % sur LES DEUX chaines ; attendu ~47 % et ~28 %.
+      FALSIFICATEUR : < 25 % sur une chaine -> refute, comme le lot K, et il se retire.
+
+P20 — §11 EST CONSERVEE AU CHIFFRE. `ROOM-SPEC11-STEP` pic 1,2939 / 1,2852, identiques au
+      cycle 121 — c'est toute la difference avec le build de diagnostic, qui les detruisait.
+      FALSIFICATEUR : le pic bouge de plus de 1 % -> le lot touche le rendu alors qu'il ne doit
+      toucher que le volume.
+
+P21 — LE REPOS ET §22 NE SE DEGRADENT PAS. `ROOM-IDLE` <= 0,001 m ; `ROOM-STRETCH` <= 3,0 % ;
+      `ROOM-APEX chestR` <= 0,9397 B0 + 5 %.
+      FALSIFICATEUR : au-dela -> refute.

@@ -9943,3 +9943,82 @@ Les deux reponses coherentes sont « ni le centre ni le rayon » (ce lot) et « 
 forme » (qui demande un proxy non spherique). Ce qui n'est pas coherent est ce qu'il y avait :
 le centre suivait, la forme non. La seconde reponse n'est pas essayee ici et se nomme comme
 chantier, elle ne se suppose pas resolue.
+
+## NOTE-536  (docstring deplacee le 2026-08-25, lot L ; aucune ligne de CODE touchee)
+
+```
+  "e^-x pour x >= 0 : le facteur de RETENTION qu'un taux `x` produit sur UN pas. Pade(3,3),
+   erreur relative < 1e-6 sur [0, 0.8] — la plage reellement utilisee ici est [0.021, 0.708].
+   Ne depend pas de `exp` de trigonometry.gc, routine PS2 decompilee non verifiee."
+```
+
+## NOTE-537  (docstring deplacee le 2026-08-25, lot L ; aucune ligne de CODE touchee)
+
+```
+  "Facteur COMMUN qui met la POINTE dans le budget d'apex de SPEC 22 (SPEC 21 sature la COMBINAISON).
+   NATURE rapport sans dimension ; REPERE deviation ABSOLUE de la pointe a sa pose d'auteur, monde
+   (SPEC 2/9) ; ABSENT = 1.0 exact dans le budget. [NOTE-120] -> jak-hd-physics-NOTES.md"
+```
+
+## NOTE-538  (docstring deplacee le 2026-08-25, lot L ; aucune ligne de CODE touchee)
+
+```
+  "L'instantane de JACOBI : la position de FIN DE FRAME de tout volume porte par un joint simule.
+   Appelee une seule fois, apres que toutes les chaines ont ecrit. C'est ce que la frame SUIVANTE
+   lira, pour toutes les chaines a la fois."
+```
+
+## NOTE-539  (docstring deplacee le 2026-08-25, lot L ; aucune ligne de CODE touchee)
+
+```
+  "La pire entree SOUS la peau vue sur la fenetre, en unites de jeu, ou 0 si le lien est reste
+   dehors. A lire A COTE de `meshpen` : celui-ci mesure contre les VOLUMES (29.7 % de la
+   geometrie), celui-la contre la PEAU."
+```
+
+## NOTE-535  (moteur — LE VOLUME DE COLLISION SUIT LA FORME D'EQUILIBRE, PAS LE TRANSITOIRE, cycle 122 lot L)
+
+**CE QUI FONDE CE LOT EST UNE MESURE, PAS UNE IDEE.** La course de diagnostic ([NOTE-534]) a ete
+relue avec le CODE DE LA GATE `DISCRIMINANT` extrait tel quel. L'extracteur est CONTROLE : sur la
+course du moteur du cycle 121 il rend **46,9 % / 34,0 %**, exactement les chiffres publies. Sur la
+course de diagnostic (canal de forme SANS MEMOIRE) il rend **47,0 % / 28,2 %** — les deux au-dessus
+du plancher de 25 %, avec `skinpen chestR` a 0,0869. **Le diagnostic tenait donc DEJA les deux
+gates ; ce qu'il ne tenait pas, c'est §11.**
+
+**LE LOT.** Un second tenseur `*phys-dfmq*` est bati avec les MEMES echelles prises a la cible de
+gravite directe (`sx0/sy0/sz0`) au lieu de l'etat du second ordre — meme racine cubique de
+conservation de volume, meme `sqz`/`smc`, meme torsion. Le repere que l'instantane de Jacobi lira
+(`*phys-rgm*`) est le repere du maillon compose de CE tenseur. Le tenseur ECRIT au squelette, lui,
+garde le second ordre : **§11 est conservee AU CHIFFRE** (`ROOM-SPEC11-STEP` pic 1,2939 / 1,2852,
+identiques au cycle 121). Le proxy de collision suit la forme que l'ORIENTATION dicte ; il ne
+chasse pas un transitoire qu'une sphere a rayon fixe ne peut pas representer.
+
+**RESULTAT — LES 13 GATES DE MESURE PASSENT, `[PASS]` EST IMPRIME.**
+
+    ROOM-SKINPEN         0,0696 / 0,0887  ->  0,0749 / **0,0865**   (plancher 0,0883)
+    DISCRIMINANT         46,9 % / 34,0 %  ->  46,1 % / **33,4 %**
+    ROOM-SPEC11-STEP     1,2939 / 1,2852  ->  1,2939 / 1,2852       (INCHANGE)
+    ROOM-IDLE            0,0001 m         ->  0,0001 m
+    meshpen chestR       0,0915 m         ->  **0,0724 m**
+
+**ET VOICI LE PRIX, QUI EST REEL ET QUI DOIT ETRE LU AVANT LE VERT.** La grandeur APPARIEE — la
+seule qui dise ce que la PHYSIQUE enfonce — **EMPIRE SUR LES DEUX CHAINES** :
+
+    ROOM-SKINADD   chestL 0,0696 -> **0,0749** (+7,6 %)   chestR 0,0654 -> **0,0681** (+4,1 %)
+    ROOM-STRETCH   2,7913 -> 2,8973 %      ROOM-COM chestL 0,4363 -> 0,4630 B0
+    residu 7e passe 0,0277 -> 0,0415 m
+
+**DONC : `COLLIDE` AU VERT NE VEUT PAS DIRE QUE §33/§34 EST TENUE, ET LE REGISTRE LA GARDE
+`NON TENUE`.** La gate compare deux MAXIMA LATCHES, et le registre sait depuis longtemps que ce
+verdict-la est SAIN quand il echoue et VIDE quand il passe
+([[feedback_verdict_on_difference_of_latched_maxima]]). Ici il passe pendant que la grandeur
+honnete recule : c'est la definition meme d'un faux vert, et il est declare comme tel au lieu
+d'etre presente comme un progres.
+
+**UNE PREMISSE N'EST PAS VERIFIEE, ET JE LA NOMME.** J'avais predit (P18) que le lot reproduirait
+le diagnostic, puisque le rendu ne retro-agit QUE par l'instantane. Sur `chestR` c'est vrai
+(0,0865 contre 0,0869 predit a +-0,0005). **Sur `chestL` c'est FAUX : 0,0749 contre 0,0690.** Un
+ecart de 8,5 % que je n'explique pas. Soit mon tenseur quasi-statique n'est pas celui du
+diagnostic, soit le rendu retro-agit par un second chemin que [NOTE-534] n'a pas trouve. **C'est
+le premier falsificateur du cycle 123**, et il se teste sans course neuve : comparer
+`*phys-dfsq*` publie contre `*phys-dfs*` du build de diagnostic, frame a frame, sur `chestL`.

@@ -305,6 +305,8 @@
 (define *phys-twsat* 0)     ;; frames ou la saturation douce de la torsion a mordu (limiteur declare)
 ;; [NOTE-463] La matrice de deformation de la chaine, en repere MONDE, rebatie a chaque frame. Elle vaut -> jak-hd-physics-NOTES.md
 (define *phys-dfm* (new 'global 'inline-array 'matrix PHYS-SC))
+(define *phys-dfsq* (new 'global 'array 'float (* 3 PHYS-SC)))   ;; [NOTE-535] les trois echelles SANS le second ordre -> jak-hd-physics-NOTES.md
+(define *phys-dfmq* (new 'global 'inline-array 'matrix PHYS-SC)) (define *phys-rgm* (new 'global 'inline-array 'matrix PHYS-SCL)) (define *phys-rgok* (new 'global 'array 'int32 PHYS-SCL))
 ;; [NOTE-168] LA MEME DEFORMATION, MAIS EN ESPACE ANCRE — et c'est celle-la qui est MESURABLE. `*phys- -> jak-hd-physics-NOTES.md
 (define *phys-dfa* (new 'global 'inline-array 'matrix PHYS-SC))
 ;; [NOTE-477] la MOYENNE LENTE du pilotage de `dfb`, par chaine — la partie TENUE, celle que `dfa` porte deja -> jak-hd-physics-NOTES.md
@@ -918,9 +920,7 @@
 
 ;; [NOTE-50] UN TAUX D'AMORTISSEMENT N'EST PAS UN FACTEUR DE RETENTION. -> jak-hd-physics-NOTES.md
 (defun phys-decay ((x float))
-  "e^-x pour x >= 0 : le facteur de RETENTION qu'un taux `x` produit sur UN pas. Pade(3,3),
-   erreur relative < 1e-6 sur [0, 0.8] — la plage reellement utilisee ici est [0.021, 0.708].
-   Ne depend pas de `exp` de trigonometry.gc, routine PS2 decompilee non verifiee."
+  "e^-x pour x >= 0. Docstring integrale : [NOTE-536] de jak-hd-physics-NOTES.md."
   (let* ((a (fmax 0.0 x))
          (h (* 0.5 a))
          (q (* 0.1 (* a a)))
@@ -1181,9 +1181,7 @@
   (none))
 
 (defun phys-apex-scale ((skel skeleton) (sc int) (n int) (nbone int) (hard? symbol))
-  "Facteur COMMUN qui met la POINTE dans le budget d'apex de SPEC 22 (SPEC 21 sature la COMBINAISON).
-   NATURE rapport sans dimension ; REPERE deviation ABSOLUE de la pointe a sa pose d'auteur, monde
-   (SPEC 2/9) ; ABSENT = 1.0 exact dans le budget. [NOTE-120] -> jak-hd-physics-NOTES.md"
+  "Facteur COMMUN qui met la POINTE dans le budget d'apex de SPEC 22 (SPEC 21 satur. Docstring integrale : [NOTE-537] de jak-hd-physics-NOTES.md."
   (let* ((tl (+ (* sc PHYS-LINKS) (- n 1)))
          (kt (if (> n 0) (-> *phys-joint* tl) -1)))
     (if (or (< kt 0) (>= (+ kt 1) nbone))
@@ -1362,16 +1360,20 @@
   (none))
 
 (defun phys-snapshot-sim! ((skel skeleton) (slot int) (nco int) (nbone int))
-  "L'instantane de JACOBI : la position de FIN DE FRAME de tout volume porte par un joint simule.
-   Appelee une seule fois, apres que toutes les chaines ont ecrit. C'est ce que la frame SUIVANTE
-   lira, pour toutes les chaines a la fois."
+  "L'instantane de JACOBI. Docstring integrale : [NOTE-538] de jak-hd-physics-NOTES.md."
   (let ((ca (new 'stack-no-clear 'vector)))
     (dotimes (ci nco)
       (let* ((sco (+ (* slot PHYS-COLS) ci))
              (cj  (-> *phys-cj* sco))
              (cj2 (-> *phys-cj2* sco)))
         (when (and (nonzero? (-> *phys-csim* sco)) (>= cj 0) (< (+ cj 1) nbone))
-          (phys-col-centre skel sco cj ca)
+          ;; [NOTE-535] le maillon qui porte ce volume, s'il a ete ecrit cette frame -> jak-hd-physics-NOTES.md
+          (let ((rl -1))
+            (dotimes (c2 PHYS-CHAINS) (dotimes (l2 PHYS-LINKS) (let ((s2 (+ (* (+ (* slot PHYS-CHAINS) c2) PHYS-LINKS) l2))) (when (and (= (-> *phys-joint* s2) cj) (nonzero? (-> *phys-rgok* s2))) (set! rl s2)))))
+            (cond
+              ((< rl 0) (phys-col-centre skel sco cj ca))
+              ((and (= (-> *phys-cox* sco) 0.0) (= (-> *phys-coy* sco) 0.0) (= (-> *phys-coz* sco) 0.0)) (vector-copy! ca (the-as vector (-> *phys-rgm* rl vector 3))))
+              (else (set-vector! ca (-> *phys-cox* sco) (-> *phys-coy* sco) (-> *phys-coz* sco) 1.0) (vector-matrix*! ca ca (-> *phys-rgm* rl)))))
           (set! (-> *phys-csax* sco) (-> ca x))
           (set! (-> *phys-csay* sco) (-> ca y))
           (set! (-> *phys-csaz* sco) (-> ca z))
@@ -1385,6 +1387,8 @@
              (set! (-> *phys-csby* sco) (-> ca y))
              (set! (-> *phys-csbz* sco) (-> ca z))))
           (set! (-> *phys-csok* sco) 1)))))
+  ;; [NOTE-535] un repere releve vaut pour SA frame : sans cette remise a zero, un maillon qui cesse d'etre ecrit placerait son volume avec une pose perimee.
+  (dotimes (i PHYS-CHAINS) (dotimes (l PHYS-LINKS) (set! (-> *phys-rgok* (+ (* (+ (* slot PHYS-CHAINS) i) PHYS-LINKS) l)) 0)))
   (none))
 
 (defun phys-col-key ((sco int) (cj int))
@@ -2043,9 +2047,7 @@
   (none))
 
 (defun phys-skinpen-worst ((slot int) (chain int))
-  "La pire entree SOUS la peau vue sur la fenetre, en unites de jeu, ou 0 si le lien est reste
-   dehors. A lire A COTE de `meshpen` : celui-ci mesure contre les VOLUMES (29.7 % de la
-   geometrie), celui-la contre la PEAU."
+  "La pire entree SOUS la peau vue sur la fenetre, en unites de jeu, ou 0 si le lie. Docstring integrale : [NOTE-539] de jak-hd-physics-NOTES.md."
   (if (and (>= slot 0) (< slot PHYS-SLOTS) (>= chain 0) (< chain PHYS-CHAINS))
     (-> *phys-skinpen* (+ (* slot PHYS-CHAINS) chain))
     0.0))
@@ -3625,6 +3627,9 @@
                             (set! (-> *phys-dfs* gb) sx1)
                             (set! (-> *phys-dfs* (+ gb 1)) sy1)
                             (set! (-> *phys-dfs* (+ gb 2)) sz1)
+                            ;; [NOTE-535] LES MEMES ECHELLES, MAIS SANS MEMOIRE : cible de gravite directe au lieu de l'etat du second ordre de §11, meme cube-root de conservation de volume, meme `sqz`/`smc`. Le VOLUME DE COLLISION les suit ; le rendu suit les autres. -> jak-hd-physics-NOTES.md
+                            (let* ((dq (* sx0 (* sy0 sz0))) (p1 (- 1.0 (/ (- 1.0 dq) 3.0))) (p2 (- p1 (/ (- (* p1 (* p1 p1)) dq) (fmax 0.0001 (* 3.0 (* p1 p1)))))) (cq (/ 1.0 (fmax 0.0001 p2))))
+                              (set! (-> *phys-dfsq* gb) (* cq (/ sx0 sqz))) (set! (-> *phys-dfsq* (+ gb 1)) (* cq (/ sy0 sqz))) (set! (-> *phys-dfsq* (+ gb 2)) (* cq (* sz0 (+ 1.0 smc)))))
                             (when (> sx1 (-> *phys-dfsm* gb)) (set! (-> *phys-dfsm* gb) sx1))
                             (when (> sy1 (-> *phys-dfsm* (+ gb 1))) (set! (-> *phys-dfsm* (+ gb 1)) sy1))
                             (when (> sz1 (-> *phys-dfsm* (+ gb 2))) (set! (-> *phys-dfsm* (+ gb 2)) sz1))
@@ -3794,6 +3799,10 @@
                             (matrix*! (-> *phys-dfm* sc) w2l tmp)
                             (matrix-copy! tmp (-> *phys-dfm* sc))
                             (matrix*! (-> *phys-dfm* sc) tmp am)
+                            ;; [NOTE-535] LE MEME TENSEUR SANS LE SECOND ORDRE, pour le volume de collision. `dfa` est REUTILISE : il a fini son office ci-dessus. -> jak-hd-physics-NOTES.md
+                            (dotimes (i 3) (dotimes (j 3) (set! (-> dfa vector i data j) (+ (* (-> *phys-dfsq* gb) (* (-> *phys-fx* sc data i) (-> *phys-fx* sc data j))) (+ (* (-> *phys-dfsq* (+ gb 1)) (* (-> *phys-fy* sc data i) (-> *phys-fy* sc data j))) (* (-> *phys-dfsq* (+ gb 2)) (* (-> *phys-fz* sc data i) (-> *phys-fz* sc data j))))))) (set! (-> dfa vector i data 3) 0.0))
+                            (set-vector! (-> dfa vector 3) 0.0 0.0 0.0 1.0)
+                            (matrix*! tmp dfa dfb) (matrix*! (-> *phys-dfmq* sc) w2l tmp) (matrix-copy! tmp (-> *phys-dfmq* sc)) (matrix*! (-> *phys-dfmq* sc) tmp am)
                             ;; [NOTE-437] SPEC 29 — la torsion est une ROTATION propre autour de l'axe -> jak-hd-physics-NOTES.md
                             (when (> (fabs (-> *phys-twr* sc)) 0.00001)
                               (let* ((ax (+ (* (-> *phys-ux* tl) (-> am vector 0 x))
@@ -3810,7 +3819,8 @@
                                   (set-vector! nrm (/ ax al) (/ ay al) (/ az al) 0.0)
                                   (matrix-axis-angle! rot nrm (-> *phys-twr* sc))
                                   (matrix*! tmp rot (-> *phys-dfm* sc))
-                                  (matrix-copy! (-> *phys-dfm* sc) tmp))))))))
+                                  (matrix-copy! (-> *phys-dfm* sc) tmp)
+                                  (matrix*! tmp rot (-> *phys-dfmq* sc)) (matrix-copy! (-> *phys-dfmq* sc) tmp))))))))
                     ;; [NOTE-47] ---- 6. ECRITURE DANS LE SQUELETTE (SPEC 7 : c'est ca qui fait foi) ---- -> jak-hd-physics-NOTES.md
                     ;; [NOTE-127] LE COM DE SA §22 EST UNE MOYENNE PONDEREE, ACCUMULEE SUR LA FRAME. -> jak-hd-physics-NOTES.md
                     ;; [NOTE-338] LES TROIS TERMES DE L'APEX, MESURES LA OU ILS EXISTENT. -> jak-hd-physics-NOTES.md
@@ -3876,6 +3886,11 @@
                               (set! (-> *phys-c1* 0) (+ (* (-> *phys-lcx* scl) (-> bm vector 0 x)) (+ (* (-> *phys-lcy* scl) (-> bm vector 1 x)) (* (-> *phys-lcz* scl) (-> bm vector 2 x)))))
                               (set! (-> *phys-c1* 1) (+ (* (-> *phys-lcx* scl) (-> bm vector 0 y)) (+ (* (-> *phys-lcy* scl) (-> bm vector 1 y)) (* (-> *phys-lcz* scl) (-> bm vector 2 y)))))
                               (set! (-> *phys-c1* 2) (+ (* (-> *phys-lcx* scl) (-> bm vector 0 z)) (+ (* (-> *phys-lcy* scl) (-> bm vector 1 z)) (* (-> *phys-lcz* scl) (-> bm vector 2 z)))))
+                              ;; [NOTE-535] CE QUE L'INSTANTANE DE JACOBI LIRA : le repere du maillon compose du tenseur QUASI-STATIQUE, jamais du second ordre. -> jak-hd-physics-NOTES.md
+                              (matrix-copy! (-> *phys-rgm* scl) bm)
+                              (when (nonzero? (-> *phys-dfon* sc)) (matrix*! tmp (-> *phys-rgm* scl) (-> *phys-dfmq* sc)) (matrix-copy! (-> *phys-rgm* scl) tmp))
+                              (set-vector! (-> *phys-rgm* scl vector 3) (-> *phys-px* scl) (-> *phys-py* scl) (-> *phys-pz* scl) 1.0)
+                              (set! (-> *phys-rgok* scl) 1)
                               (when (nonzero? (-> *phys-dfon* sc))
                                 (set! (-> bm vector 3 x) 0.0)
                                 (set! (-> bm vector 3 y) 0.0)
