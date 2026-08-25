@@ -305,6 +305,8 @@
 (define *phys-twsat* 0)     ;; frames ou la saturation douce de la torsion a mordu (limiteur declare)
 ;; [NOTE-463] La matrice de deformation de la chaine, en repere MONDE, rebatie a chaque frame. Elle vaut -> jak-hd-physics-NOTES.md
 (define *phys-dfm* (new 'global 'inline-array 'matrix PHYS-SC))
+(define *phys-rgm* (new 'global 'inline-array 'matrix PHYS-SCL))   ;; [NOTE-534] le repere du maillon AVANT le tenseur de forme -> jak-hd-physics-NOTES.md
+(define *phys-rgok* (new 'global 'array 'int32 PHYS-SCL))
 ;; [NOTE-168] LA MEME DEFORMATION, MAIS EN ESPACE ANCRE — et c'est celle-la qui est MESURABLE. `*phys- -> jak-hd-physics-NOTES.md
 (define *phys-dfa* (new 'global 'inline-array 'matrix PHYS-SC))
 ;; [NOTE-477] la MOYENNE LENTE du pilotage de `dfb`, par chaine — la partie TENUE, celle que `dfa` porte deja -> jak-hd-physics-NOTES.md
@@ -908,10 +910,7 @@
 
 ;; [NOTE-21] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
 (defun phys-softmin ((v float) (cap float))
-  "min DOUX de v et cap A ZONE MORTE : IDENTITE STRICTE sous le genou kn = 0.84 cap, puis l'EXCES
-   seul est sature, asymptote exacte a cap. Pente continue au genou (f'(kn) = 1), strictement
-   croissante partout. NON IDEMPOTENT AU-DESSUS DU GENOU (en dessous c'est l'identite, donc
-   idempotent) : ne jamais l'appeler dans une boucle de contraintes."
+  "min DOUX de v et cap A ZONE MORTE. Docstring integrale : [NOTE-527] de jak-hd-physics-NOTES.md."
   (let ((kn (* 0.84 cap)))
     (if (or (<= cap 0.0) (<= v kn))
       v
@@ -945,10 +944,7 @@
     (-> *phys-sds* g)))
 
 (defun phys-vol-floor ((sc int) (floor0 float) (b0 float))
-  "Profondeur maximale que cette paire (lien, volume) tolere : sa profondeur d'AUTEUR plus ce que
-   la SPEC 22 autorise a l'excursion. NATURE : une profondeur, unites de jeu. REPERE : le monde.
-   LECTURE HORS DEFAUT : la profondeur mesuree reste dessous.
-   Justification complete : [NOTE-301] de jak-hd-physics-NOTES.md."
+  "Profondeur maximale que cette paire (lien, volume) tolere. Docstring integrale : [NOTE-528] de jak-hd-physics-NOTES.md."
   (if (nonzero? *phys-col-off*)
     PHYS-VOL-FREE
     (+ floor0 (* (-> *phys-pset* (+ (* sc PHYS-PSET-N) 21)) b0))))
@@ -992,10 +988,7 @@
 
 (defun phys-collide-depth ((pt vector) (rlink float) (ca vector) (cb vector)
                            (ra float) (rb float) (capsule? symbol) (nrm vector))
-  "DISTANCE AU SOLIDE QUE LA LIGNE DE DONNEES DESIGNE — l'enveloppe convexe des deux spheres,
-   minimisee sur [0,1] (jamais projeter puis interpoler le rayon). NATURE : une profondeur signee,
-   unites de jeu, positive DEDANS. REPERE : le monde, frame courante. `nrm` rend la normale.
-   Justification complete : [NOTE-300] de jak-hd-physics-NOTES.md."
+  "DISTANCE AU SOLIDE QUE LA LIGNE DE DONNEES DESIGNE. Docstring integrale : [NOTE-529] de jak-hd-physics-NOTES.md."
   (let ((cx 0.0) (cy 0.0) (cz 0.0) (rr ra))
     (cond
       ((not capsule?)
@@ -1077,10 +1070,7 @@
 
 ;; [NOTE-22] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
 (defun phys-length-chain ((skel skeleton) (sc int) (n int) (rlk int) (an int) (nbone int))
-  "LA CONTRAINTE DE LONGUEUR, DURE, ET LA MEME POUR LES DEUX FORMES DE LIEN : projection sur la
-   sphere de rayon `want` = la longueur que LE MODELE donne a cet os. Une egalite, pas un plafond :
-   ca tourne, ca ne s'etire pas. `*phys-len-off*` la DESARME (controle, 0 en livraison).
-   [NOTE-122] -> jak-hd-physics-NOTES.md"
+  "LA CONTRAINTE DE LONGUEUR, DURE, LA MEME POUR LES DEUX FORMES DE LIEN. Docstring integrale : [NOTE-530] de jak-hd-physics-NOTES.md."
   (dotimes (l n)
     (when (and (>= l rlk) (zero? *phys-len-off*))
       (let* ((scl (+ (* sc PHYS-LINKS) l))
@@ -1157,10 +1147,7 @@
 
 ;; [NOTE-25] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
 (defun phys-cap-ang! ((skel skeleton) (sc int) (n int) (rlk int) (an int) (nbone int) (stage int))
-  "RELEVE L'ANGLE DE CHAQUE MAILLON A UN ETAGE DU SOLVEUR (voir la note de `*phys-la0*`).
-   Rigoureusement le meme calcul que la mesure de fin de frame : direction courante prise depuis
-   l'attache SIMULEE, direction du modele prise depuis l'attache ANIMEE. Deux etages mesures
-   autrement ne seraient pas comparables, et c'est leur COMPARAISON qui designe le coupable."
+  "RELEVE L ANGLE DE CHAQUE MAILLON A UN ETAGE DU SOLVEUR. Docstring integrale : [NOTE-531] de jak-hd-physics-NOTES.md."
   (dotimes (l n)
     (when (>= l rlk)
       (let* ((scl (+ (* sc PHYS-LINKS) l))
@@ -1386,7 +1373,13 @@
              (cj  (-> *phys-cj* sco))
              (cj2 (-> *phys-cj2* sco)))
         (when (and (nonzero? (-> *phys-csim* sco)) (>= cj 0) (< (+ cj 1) nbone))
-          (phys-col-centre skel sco cj ca)
+          ;; [NOTE-534] le maillon qui porte ce volume, s'il a ete ecrit cette frame -> jak-hd-physics-NOTES.md
+          (let ((rl -1))
+            (dotimes (c2 PHYS-CHAINS) (dotimes (l2 PHYS-LINKS) (let ((s2 (+ (* (+ (* slot PHYS-CHAINS) c2) PHYS-LINKS) l2))) (when (and (= (-> *phys-joint* s2) cj) (nonzero? (-> *phys-rgok* s2))) (set! rl s2)))))
+            (cond
+              ((< rl 0) (phys-col-centre skel sco cj ca))
+              ((and (= (-> *phys-cox* sco) 0.0) (= (-> *phys-coy* sco) 0.0) (= (-> *phys-coz* sco) 0.0)) (vector-copy! ca (the-as vector (-> *phys-rgm* rl vector 3))))
+              (else (set-vector! ca (-> *phys-cox* sco) (-> *phys-coy* sco) (-> *phys-coz* sco) 1.0) (vector-matrix*! ca ca (-> *phys-rgm* rl)))))
           (set! (-> *phys-csax* sco) (-> ca x))
           (set! (-> *phys-csay* sco) (-> ca y))
           (set! (-> *phys-csaz* sco) (-> ca z))
@@ -1400,6 +1393,8 @@
              (set! (-> *phys-csby* sco) (-> ca y))
              (set! (-> *phys-csbz* sco) (-> ca z))))
           (set! (-> *phys-csok* sco) 1)))))
+  ;; [NOTE-534] un repere releve vaut pour SA frame : sans cette remise a zero, un maillon qui cesse d'etre ecrit placerait son volume avec une pose perimee.
+  (dotimes (i PHYS-CHAINS) (dotimes (l PHYS-LINKS) (set! (-> *phys-rgok* (+ (* (+ (* slot PHYS-CHAINS) i) PHYS-LINKS) l)) 0)))
   (none))
 
 (defun phys-col-key ((sco int) (cj int))
@@ -3891,6 +3886,8 @@
                               (set! (-> *phys-c1* 0) (+ (* (-> *phys-lcx* scl) (-> bm vector 0 x)) (+ (* (-> *phys-lcy* scl) (-> bm vector 1 x)) (* (-> *phys-lcz* scl) (-> bm vector 2 x)))))
                               (set! (-> *phys-c1* 1) (+ (* (-> *phys-lcx* scl) (-> bm vector 0 y)) (+ (* (-> *phys-lcy* scl) (-> bm vector 1 y)) (* (-> *phys-lcz* scl) (-> bm vector 2 y)))))
                               (set! (-> *phys-c1* 2) (+ (* (-> *phys-lcx* scl) (-> bm vector 0 z)) (+ (* (-> *phys-lcy* scl) (-> bm vector 1 z)) (* (-> *phys-lcz* scl) (-> bm vector 2 z)))))
+                              ;; [NOTE-534] LE VOLUME DE COLLISION EST UN PROXY RIGIDE : on releve le repere du maillon ICI, avant que le tenseur de forme entre, et c'est LUI que l'instantane de JACOBI lira. -> jak-hd-physics-NOTES.md
+                              (matrix-copy! (-> *phys-rgm* scl) bm) (set-vector! (-> *phys-rgm* scl vector 3) (-> *phys-px* scl) (-> *phys-py* scl) (-> *phys-pz* scl) 1.0) (set! (-> *phys-rgok* scl) 1)
                               (when (nonzero? (-> *phys-dfon* sc))
                                 (set! (-> bm vector 3 x) 0.0)
                                 (set! (-> bm vector 3 y) 0.0)
@@ -4300,10 +4297,7 @@
             (else -1)))))
 
 (defun phys-chain-radial ((slot int) (chain int) (which int))
-  "SPEC 23 — LE TROISIEME DEGRE DE LIBERTE, LU A L'EXECUTION. Voir la note de `*phys-rr*`.
-   NATURE : une DEFORMATION signee, sans unite, pas une amplitude agregee. REPERE : l'axe de l'OS,
-   dans le triedre de l'ANCRE (SPEC 7). LECTURE HORS DEFAUT : 0 (aucune deformation radiale).
-   Justification complete : [NOTE-297] de jak-hd-physics-NOTES.md."
+  "SPEC 23 — LE TROISIEME DEGRE DE LIBERTE, LU A L EXECUTION. Docstring integrale : [NOTE-532] de jak-hd-physics-NOTES.md."
   (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS)
           (< which 0) (> which 4))
     0.0
@@ -4336,10 +4330,7 @@
             (else        (-> *phys-cddl* scl))))))
 
 (defun phys-chain-axsep ((slot int) (chain int) (which int))
-  "LES DEUX PROJECTIONS QUE LA DECISION DE NOMMAGE A COMPARE, et la norme du segment inter-seins.
-   which 0/1 = les deux projections candidates, 2 = |separation|, 3/4/5 = le VECTEUR lui-meme.
-   REPERE : le triedre de l'ANCRE (SPEC 7). NATURE : une longueur signee, en unites de jeu.
-   LIGNE DE BASE : 0 quand il n'y a pas de chaine partenaire — et `phys-chain-axis … 5` le dit."
+  "LES DEUX PROJECTIONS QUE LA DECISION DE NOMMAGE A COMPARE. Docstring integrale : [NOTE-533] de jak-hd-physics-NOTES.md."
   (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS)
           (< which 0) (> which 5))
     0.0
