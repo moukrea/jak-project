@@ -4223,6 +4223,14 @@ def main():
         d['rdisp'], d['rl'] = float(m.group(5)), float(m.group(6))
     for m in re.finditer(r'^PHYSSKLV6 tag=(\S+) c=(\d+) rv=([-\d.e+]+)', txt, re.M):
         _sklv(m.group(1), m.group(2))['rv'] = float(m.group(3))
+    # [NOTE-521] LES RENVERSEMENTS DE LA DIRECTION DE POUSSEE, PAR (tag, chaine, maillon).
+    # NATURE : un COMPTE, sans dimension. REPERE : le monde, deux appels consecutifs de
+    # `phys-skin-chain` (elle tourne DEUX fois par frame). LECTURE HORS DEFAUT : `rev` nul.
+    nflip = {}
+    for m in re.finditer(r'^PHYSNFLIP tag=(\S+) c=(\d+) l=(\d+) rev=([-\d.e+]+)'
+                         r' tot=([-\d.e+]+)', txt, re.M):
+        nflip.setdefault(m.group(1), {}).setdefault(int(m.group(2)), {})[int(m.group(3))] = (
+            float(m.group(4)), float(m.group(5)))
     skinrest, skinout = {}, {}
     # [NOTE-158] LA COUVERTURE DE LA PEAU. Une troncature silencieuse est un de-scope : ce couple
     # doit vivre DANS le tableau, a cote de `skinpen`, et pas dans une ligne de log.
@@ -9339,6 +9347,24 @@ def main():
                            'LE LEVIER SUFFIT (la borne de levier est REFUTEE comme coupable)'
                            if cap >= d['bv'] else
                            'LE LEVIER NE SUFFIT PAS — manque un facteur %.2f' % (d['bv'] / cap)))
+            _nf = (nflip.get('run') or {}).get(c)
+            if _nf:
+                A('   RENVERSEMENTS DE LA DIRECTION DE POUSSEE (cycle 121, instrument PUR) — angle'
+                  ' > 90 deg entre la normale de l echantillon QUI DECIDE et celle de l appel'
+                  ' precedent. NATURE : un COMPTE. REPERE : deux appels consecutifs de'
+                  ' `phys-skin-chain`, qui tourne DEUX fois par frame. LECTURE HORS DEFAUT : 0 %.')
+                for _l in sorted(_nf):
+                    _rev, _tot = _nf[_l]
+                    if _tot <= 0.0:
+                        A('     maillon %d : AUCUN appel comparable (garde de vacuite : le premier'
+                          ' appel d une fenetre n a pas de predecesseur). Pas de verdict.' % _l)
+                    else:
+                        _p = 100.0 * _rev / _tot
+                        A('     maillon %d : %.0f renversements sur %.0f appels comparables ='
+                          ' **%.1f %%**%s' % (_l, _rev, _tot, _p,
+                          '   -> la DIRECTION bascule' if _p >= 20.0 else
+                          ('   -> la direction est STABLE : une borne de MAGNITUDE reste en cause'
+                           if _p < 5.0 else '   -> zone intermediaire, aucun verdict')))
             if 'kr' in d:
                 A('   kr=bv/(pp*ln)=%.4f -> %s ; pp exige pour fermer en 6 = %.4f (%.1f deg)'
                   % (d['kr'],

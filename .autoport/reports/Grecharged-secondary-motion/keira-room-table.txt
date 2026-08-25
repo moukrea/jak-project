@@ -1,7 +1,7 @@
 ==================================================================================================
 KEIRA — SALLE DE TEST SANS JOUEUR : TABLEAU DE MESURE
 genere par .autoport/physics_room_table.py depuis .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
-empreinte de la trace lue : md5 9daf352bdd02ab46e71a36ec2104116b (7281944 octets)
+empreinte de la trace lue : md5 dea00178edf27c407c03270d7a3e8748 (7285170 octets)
 contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 7 (ce qui fait foi)
 
 -- ROOM-INSTRUMENTS-MUETS : CE QUE CE TABLEAU NE MESURE PAS AUJOURD'HUI ------------
@@ -2393,6 +2393,9 @@ ROOM-SKINPEN-COUT: tag=skin-disarmed  corrections=0  cumul=0.0000 m  pire=0.0000
    la preuve d'execution que l'interrupteur fait ce qu'il dit.
 ROOM-SKINLEVER: chestL   demande=265.5152 u  maillon=0  pp=0.9975  ln=1040.1988 u  levier=pp*ln=1037.5983 u
    capacite de 6 iterations = 2.683*levier = 2783.8762 u  contre 265.5152 u demandes  -> LE LEVIER SUFFIT (la borne de levier est REFUTEE comme coupable)
+   RENVERSEMENTS DE LA DIRECTION DE POUSSEE (cycle 121, instrument PUR) — angle > 90 deg entre la normale de l echantillon QUI DECIDE et celle de l appel precedent. NATURE : un COMPTE. REPERE : deux appels consecutifs de `phys-skin-chain`, qui tourne DEUX fois par frame. LECTURE HORS DEFAUT : 0 %.
+     maillon 0 : 63 renversements sur 1387 appels comparables = **4.5 %**   -> la direction est STABLE : une borne de MAGNITUDE reste en cause
+     maillon 1 : 8 renversements sur 201 appels comparables = **4.0 %**   -> la direction est STABLE : une borne de MAGNITUDE reste en cause
    kr=bv/(pp*ln)=0.2558 -> NON SATURE (l autorite par iteration n est pas la borne) ; pp exige pour fermer en 6 = 0.0951 (5.5 deg)
    REFUS faute de levier (pp<=0.05, le moteur ne corrige RIEN) : 0 sur 6946 demandes (0.00 %)  cumul=0.0000 u  pire=0.0000 u  maillon=0
    residu de la 7e passe=103.8514 u  maillon=0   |   max(add)=285.2682 u  maillon=0   max(skinpen) maillon=0
@@ -2404,6 +2407,9 @@ ROOM-SKINLEVER: chestL   demande=265.5152 u  maillon=0  pp=0.9975  ln=1040.1988 
    CONTROLE DU LATCH : addw=0.069646 m contre skinadd=0.069646 m, ecart=0.00e+00 m -> IDENTIQUES
 ROOM-SKINLEVER: chestR   demande=174.3832 u  maillon=0  pp=0.7570  ln=1038.7474 u  levier=pp*ln=786.3318 u
    capacite de 6 iterations = 2.683*levier = 2109.7282 u  contre 174.3832 u demandes  -> LE LEVIER SUFFIT (la borne de levier est REFUTEE comme coupable)
+   RENVERSEMENTS DE LA DIRECTION DE POUSSEE (cycle 121, instrument PUR) — angle > 90 deg entre la normale de l echantillon QUI DECIDE et celle de l appel precedent. NATURE : un COMPTE. REPERE : deux appels consecutifs de `phys-skin-chain`, qui tourne DEUX fois par frame. LECTURE HORS DEFAUT : 0 %.
+     maillon 0 : 59 renversements sur 1361 appels comparables = **4.3 %**   -> la direction est STABLE : une borne de MAGNITUDE reste en cause
+     maillon 1 : 17 renversements sur 2380 appels comparables = **0.7 %**   -> la direction est STABLE : une borne de MAGNITUDE reste en cause
    kr=bv/(pp*ln)=0.2217 -> NON SATURE (l autorite par iteration n est pas la borne) ; pp exige pour fermer en 6 = 0.0626 (3.6 deg)
    REFUS faute de levier (pp<=0.05, le moteur ne corrige RIEN) : 906 sur 17494 demandes (5.18 %)  cumul=19965.8437 u  pire=71.1561 u  maillon=1
    residu de la 7e passe=113.3687 u  maillon=1   |   max(add)=268.0815 u  maillon=0   max(skinpen) maillon=0

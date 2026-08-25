@@ -288,3 +288,122 @@ F6  ROOM-STRETCH <= 3,0 % ; SPEC 22 : ROOM-COM max <= 0,48 B0, ROOM-APEX max <= 
 # variantes eliminees et leur prix mesure. Un faux vert coute plus cher qu'un rouge de plus, et
 # F aurait ete un faux vert particulierement cher : elle fait passer COLLIDE en cassant
 # DISCRIMINANT, c'est-a-dire en payant avec la plainte n1 de l'owner.
+
+# ==========================================================================================
+# LOT G — INSTRUMENT SEUL. ECRIT AVANT SA COURSE.
+#
+# LE DEFAUT, LU DANS LE SOURCE ET DEJA DOCUMENTE PAR NOUS : [NOTE-328] (cycle 63) dit mot pour mot
+#   « 1 = les ensembles de CHAINE sont portes par la pose d'AUTEUR (la translation de l'os), 0 =
+#     par la position RESOLUE. Sans cet interrupteur la colonne d'auteur comparerait un point
+#     d'auteur a une surface SIMULEE : deux instants dans une meme distance, et le pair ne
+#     mesurerait plus la physique. C'est le defaut exact que le cycle 61 a paye sur `skinrest`. »
+# `*phys-sd-auth*` n'est arme QU'A UN SEUL SITE : le bloc MEDIAL de §33 (`jak-hd-physics.gc:2430`).
+# La colonne d'auteur qui produit `skinadd` ET `skinrest` — `jak-hd-physics.gc:2387-2388` — sonde
+# un point d'AUTEUR contre une surface dont les 4 ensembles de CHAINE sont portes par la position
+# **SIMULEE**. C'est le meme defaut, au site que la note NOMME, non corrige depuis le cycle 63.
+#
+# `ROOM-SKINPEN-REST` est la grandeur que la gate COLLIDE utilise comme PLANCHER. Elle est donc
+# aujourd'hui un melange de deux instants. Le correctif se pose au PRODUCTEUR (l'interrupteur
+# existe deja), pas sur le site qui l'a revele.
+#
+# PERIMETRE : `phys-pen-chain` est un INSTRUMENT — rien dans le solveur ne lit `*phys-skinpen*`,
+# `*phys-skinrest*` ni `*phys-saf*`. La colonne d'auteur du SOLVEUR (`*phys-saq*` de
+# `phys-skin-chain`, meme defaut) n'est **PAS** touchee ce lot : une variable a la fois, et
+# l'identite du solveur est le controle.
+#
+G0  CONTROLE DE BIT-IDENTITE DU SOLVEUR, et c'est la prediction qui rend le lot interpretable :
+    `PHYSSKLV5 tag=run` (285.2682 / -64.5091 / 250.3496 et 268.0815 / 0.0187 / 176.3754),
+    `PHYSIDLE dev` (0.2338 / 0.2301), `tipvar` par pilotage (accel 0.1848 / 0.2064),
+    `ROOM-STRETCH` (2.7913 %), `ROOM-COM` (0.4363 / 0.4388), `ROOM-APEX` (0.8720 / 0.9397),
+    `PHYSSKINC tag=run` (23534 / 101.5173 m / 0.0277) et `meshpen` (0.0499 / 0.0915) sont
+    INCHANGES AU CHIFFRE PUBLIE. **Si l'un d'eux bouge, j'ai touche le solveur et le lot est nul.**
+G1  `ROOM-SKINPEN` est INCHANGE (0.0696 / 0.0887) : c'est la lecture `sd`, que le lot ne touche pas.
+G2  `ROOM-SKINPEN-REST-DETAIL` BOUGE d'au moins 0.0001 m sur au moins une chaine (0.0612 / 0.0883
+    aujourd'hui). **JE NE PREDIS PAS LE SIGNE** : porter les ensembles de chaine par la pose
+    d'auteur peut rapprocher ou eloigner le sein oppose, et ecrire les deux faces serait
+    exactement `two-faced-prediction-is-not-exhaustive`. REFUTATION : si rien ne bouge, le defaut
+    est REEL mais INERTE ici — aucun voisin le plus proche ne vient des ensembles adverses — et il
+    faut le dire ainsi au lieu de le compter comme un progres.
+G3  `ROOM-SKINADD` bouge par le meme mecanisme (meme `sa`), et dans le meme sens que G2.
+G4  LE VERDICT DE `COLLIDE` N'EST PAS PREDIT. Il depend du signe de G2, que je refuse de deviner.
+    Si la gate passe, elle passe parce qu'un plancher CONTAMINE a ete rendu propre — et le rapport
+    devra publier les deux planchers cote a cote pour que ce ne soit pas un vert de plus.
+#
+# AUDIT PAR VALEUR, PAS PAR LISTE ECRITE A LA MAIN (`audit-indexed-on-site-not-value`) : les SEPT
+# appels a `phys-surf-sd` du moteur, balayes un par un.
+#   :1937  sonde d'AUTEUR (`*phys-saq*`, phys-skin-chain)   -> **DEFAUT PRESENT** — SOLVEUR, PAS
+#                                                              TOUCHE CE LOT (une variable a la fois)
+#   :1949  sonde SIMULEE (phys-skin-chain)                  -> correct avec l'interrupteur a 0
+#   :2380  sonde SIMULEE (phys-pen-chain, `sd`)             -> correct
+#   :2389  sonde d'AUTEUR (phys-pen-chain, `sa`)            -> **CORRIGE CE LOT**
+#   :2404  sonde SIMULEE (medial, `md`)                     -> correct
+#   :2427  point INJECTE, derive du point simule            -> correct
+#   :2433  sonde d'AUTEUR (medial, `ma`)                    -> deja arme au cycle 63
+# Il y a donc exactement DEUX sondes d'auteur hors du bloc medial ; l'une est corrigee ici, l'autre
+# est nommee et laissee, avec sa raison.
+
+# ==========================================================================================
+# RESULTAT DE G — G0 ET G1 JUSTES, **G2 REFUTEE**.
+#   G0 (bit-identite du solveur) : `PHYSSKLV5` 285.2682 / -64.5091 / 250.3496 et 268.0815 /
+#      0.0187 / 176.3754 ; `PHYSIDLE` 0.2338 / 0.2301 ; `tipvar` ecart 46.9 % ; `ROOM-STRETCH`
+#      2.7913 % ; `ROOM-COM` 0.4363 / 0.4388 ; `ROOM-APEX` 0.8720 / 0.9397 ; `PHYSSKINC tag=run`
+#      23534 / 101.5173 m / 0.0277 ; `PHYSEND` a **1179 s** contre 1180 s. IDENTIQUES au chiffre
+#      publie : le lot n'a pas touche le solveur, et c'est ce qui rend G2 lisible.
+#   G1 `ROOM-SKINPEN` inchange : 0.0696 / 0.0887. JUSTE.
+#   G2 **REFUTEE** : `skinrest` ne bouge PAS (250.7885 / 361.8413 u = 0.0612 / 0.0883 m, au bit),
+#      ni `skinadd` (0.0696 / 0.0654). Le defaut de [NOTE-328] est **REEL mais INERTE ICI** : au
+#      point qui porte les maxima, aucun plus-proche-voisin ne vient des ensembles de la chaine
+#      ADVERSE — ils viennent du corps, dont la surface etait deja portee par la pose d'auteur.
+#      C'est la branche de refutation que j'avais ecrite, et je la lis telle quelle : le correctif
+#      RESTE (il est juste, il ne coute rien, et il mordra des que les deux seins s'approcheront),
+#      mais il n'achete RIEN pour COLLIDE et ne se compte pas comme un progres.
+#   G4 non predit, et il reste rouge : COLLIDE echoue toujours a +0.0004 m sur chestR.
+#
+# ==========================================================================================
+# LOT H — LE DIAGNOSTIC NOMME, ECRIT AVANT SA COURSE. INSTRUMENT SEUL, ZERO LIGNE DE SOLVEUR.
+#
+# Le rapport de ce cycle affirme que les six bornes echouent parce qu'elles bornent la MAGNITUDE
+# d'un pas dont c'est la DIRECTION qui oscille. **C'est une lecture, pas une mesure**, et je l'ai
+# ecrit comme telle. H la met a l'epreuve.
+#
+# MESURE : a la premiere passe de correction de chaque frame, pour chaque (chaine, maillon), le
+# moteur garde la normale `nb` de l'echantillon qui DECIDE, et la compare a celle de la frame
+# precedente au meme endroit. Deux compteurs par maillon : le nombre de frames ou l'angle depasse
+# **90 degres** (un vrai renversement : le pas suivant repousse dans l'AUTRE sens) et le nombre
+# total de frames comparees. NATURE : un compte, sans dimension. REPERE : le monde, deux frames
+# consecutives. LECTURE HORS DEFAUT : une part de renversements NULLE.
+#
+H1  La part de renversements est **>= 20 %** sur au moins un maillon d'au moins une chaine.
+    C'est la prediction qui teste la lecture publiee en section 3 du rapport.
+H2  **REFUTATION, ECRITE AVEC AUTANT DE FORCE :** si la part est < 5 % sur TOUS les maillons des
+    DEUX chaines, **la section 3 du rapport est FAUSSE** — la direction ne bascule pas, le cycle
+    limite vient d'ailleurs, et la famille des bornes de magnitude n'est PAS fermee pour la raison
+    que j'ai donnee. Ce resultat-la se publie tel quel, et le rapport se corrige.
+H3  CONTROLE DE BIT-IDENTITE DU SOLVEUR, comme pour G : toutes les grandeurs listees en G0 sont
+    INCHANGEES. Si l'une bouge, j'ai touche le solveur et H est nul.
+H4  `ROOM-SKINPEN` reste 0.0696 / 0.0887 et COLLIDE reste ROUGE. H ne pretend rien corriger.
+
+# ==========================================================================================
+# RESULTAT DE H — **H1 EST FAUSSE, H2 TIRE, H3 ET H4 SONT JUSTES.**
+#   chestL maillon 0 :  63 / 1387 = **4,5 %**
+#   chestL maillon 1 :   8 /  201 = **4,0 %**
+#   chestR maillon 0 :  59 / 1361 = **4,3 %**
+#   chestR maillon 1 :  17 / 2380 = **0,7 %**
+#   Les QUATRE sont sous le seuil de refutation de 5 %. **LA DIRECTION DE POUSSEE NE BASCULE PAS**,
+#   donc la lecture publiee en section 3 du rapport — « les six bornes echouent parce qu'elles
+#   bornent la MAGNITUDE d'un pas dont c'est la DIRECTION qui oscille » — est **FAUSSE**. Elle est
+#   retiree du rapport, de [NOTE-510] et de SPEC-COVERAGE, dans le meme cycle qui l'a produite.
+#   H3 (bit-identite du solveur) : `PHYSSKLV5`, `PHYSIDLE`, `tipvar`, `ROOM-STRETCH`, `ROOM-COM`,
+#   `ROOM-APEX`, `PHYSSKINC` et `meshpen` IDENTIQUES au chiffre publie ; `PHYSEND` a 1179 s contre
+#   1180 s. H4 : `ROOM-SKINPEN` 0.0696 / 0.0887, COLLIDE toujours ROUGE.
+#
+# CE QUI RESTE MESURE APRES LA REFUTATION : les six bornes echouent ; le plancher d'agitation est
+# independant du stimulus ; le travail croit sans que le residu baisse. CE QUI TOMBE : mon
+# explication. La famille des bornes de MAGNITUDE reste fermee PAR LA MESURE, six fois.
+#
+# LECTURE DE REMPLACEMENT (etiquetee LECTURE) ET SES DEUX FALSIFICATEURS, POUR LE CYCLE 122 :
+#   la contrainte s'EQUILIBRE contre le ressort de rappel au lieu de resoudre une geometrie —
+#   l'ecart au repos croit avec la liberte qu'on lui laisse (0,0001 m / 0,0051 m / 0,0405 m).
+#   (a) sur la fenetre de repos, la serie PAR FRAME de la correction et de l'ecart doit montrer
+#       DEUX PLATEAUX non nuls ; une rampe ou une oscillation refute ;
+#   (b) diviser `stiffness` par deux doit MULTIPLIER l'ecart par ~2 ; le laisser inchange refute.

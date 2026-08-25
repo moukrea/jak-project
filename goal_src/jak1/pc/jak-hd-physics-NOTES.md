@@ -9580,7 +9580,7 @@ instruction touchee. Texte d'origine, mot pour mot :
     La FENETRE lue est [*phys-sd-lo*, *phys-sd-hi*), 0/-1 par defaut = la population de CORPS.
     Justification complete : [NOTE-299] de jak-hd-physics-NOTES.md.
 
-## NOTE-510  (cycle 121 — SIX BORNES ESSAYEES SUR `phys-skin-chain`, SIX MESUREES, ZERO LIVREE)
+## NOTE-510  (cycle 121 — SIX BORNES ESSAYEES, SIX MESUREES, ZERO LIVREE ; ET L'EXPLICATION QUE J'EN DONNAIS EST REFUTEE PAR [NOTE-521], MEME CYCLE)
 
 **RIEN DE CE CYCLE N'EST DANS LE MOTEUR.** `phys-skin-chain` est exactement celle du cycle 120.
 Ce qui est acquis est un REGISTRE D'ELIMINATION, et il vaut plus qu'un lot : il ferme une famille
@@ -9635,18 +9635,80 @@ appelle « un pudding sur lequel on tape au moindre mouvement ». Le meme planch
     F         : 39 127 corrections · 331,1 m cumules · residu de 7e passe **0,0572 m**
 
 **3,3 fois plus de travail pour DEUX FOIS PLUS de residu.** Une projection qui converge fait
-l'inverse. Ce n'est donc pas une correction, c'est un **CYCLE LIMITE** — et le registre le porte
-deja sous `constraint-on-discontinuous-field-limit-cycles`, avec sa conclusion : « il faut AUSSI
-un plafond `-dot(dj,n)` ». **Le plafond du cycle 120 n'est pas une maladresse : c'est le
-SUPPRESSEUR DE CYCLE LIMITE**, et son prix est l'inhibition au point du verdict. Les six bornes
-echouent parce qu'elles bornent toutes la MAGNITUDE d'un pas dont c'est la **DIRECTION** qui
-oscille — `*phys-sdn*` est une moyenne ponderee sur un K-voisinage dont le rayon s'adapte a la
-densite locale ([NOTE-509]), donc la normale bascule quand le voisinage change, et le pas suivant
-repousse dans l'autre sens quelle que soit sa taille.
+l'inverse.
 
-**CE QUE CA REND AU CYCLE SUIVANT, ET C'EST UNE CIBLE, PAS UNE PISTE.** Le chantier n'est plus
-« trouver la bonne borne » — cette famille est fermee, six fois, avec les chiffres. C'est **rendre
-la DIRECTION continue** : mesurer la variation image par image de `*phys-sdn*` au point qui decide
-(l'instrument `*phys-skl*` a deja les cases), et si elle bascule, la stabiliser AVANT de reparler
-de borne. Falsifiable dans les deux sens : si la normale ne bascule pas, le cycle limite vient
-d'ailleurs et cette note est fausse.
+**LA LECTURE QUE J'EN AI TIREE EST REFUTEE, DANS LE MEME CYCLE, PAR SON PROPRE FALSIFICATEUR.**
+J'avais ecrit ici : « c'est un CYCLE LIMITE ; les six bornes echouent parce qu'elles bornent la
+MAGNITUDE d'un pas dont c'est la DIRECTION qui oscille — `*phys-sdn*` est une moyenne ponderee sur
+un K-voisinage dont le rayon s'adapte a la densite locale, donc la normale bascule ». Le
+falsificateur etait ecrit AVANT la course (lot H de `.autoport/c121-predictions.txt`) : « si la
+part de renversements est < 5 % sur tous les maillons des deux chaines, cette lecture est FAUSSE ».
+L'instrument de [NOTE-521] rend **63/1387 (4,5 %) · 8/201 (4,0 %) · 59/1361 (4,3 %) ·
+17/2380 (0,7 %)** — les quatre sous le seuil. **LA DIRECTION NE BASCULE PAS, ET LA LECTURE EST
+RETIREE.**
+
+**CE QUI RESTE MESURE** : les six bornes echouent ; le plancher d'agitation est independant du
+stimulus ; le travail croit sans que le residu baisse. **CE QUI TOMBE** : l'explication.
+
+**LECTURE DE REMPLACEMENT — ETIQUETEE LECTURE, PAS MESURE.** Direction stable + travail sans
+convergence + ecart permanent au repos = la contrainte ne resout pas une geometrie, elle
+**s'equilibre contre le ressort de rappel**. Elle pousse dans le meme sens a chaque frame, le
+rappel vers la pose d'auteur la defait a chaque frame, et le point fixe du bras de fer est un ecart
+NON NUL — c'est-a-dire `ROOM-IDLE`. Soutien deja mesure : l'ecart CROIT avec la liberte laissee a
+la contrainte (0,0001 m au cycle 120 · 0,0051 m pour D · 0,0405 m pour A, E et F). Sous cette
+lecture, `-dot(dj,n)` n'est pas un suppresseur de cycle limite mais un **suppresseur d'OFFSET
+D'EQUILIBRE** : il vaut zero quand la physique n'a pas pousse vers l'interieur, donc le bras de fer
+ne peut pas s'installer.
+
+**CE QUE CA REND AU CYCLE SUIVANT — LES DEUX FALSIFICATEURS DE LA LECTURE DE REMPLACEMENT, A
+EXECUTER AVANT D'Y CROIRE :**
+  (a) sur la fenetre de repos, publier la SERIE PAR FRAME de la correction de peau et de l'ecart
+      `PHYSIDLE`. Un bras de fer donne DEUX PLATEAUX non nuls ; une rampe ou une oscillation le
+      refute — et le registre previent deja que la derniere frame d'une fenetre est sur la rampe
+      (`parking-point-is-a-plateau-not-the-last-frame`) ;
+  (b) test a UNE variable sur un bouton qui existe deja : diviser `stiffness` par deux doit
+      MULTIPLIER l'ecart par ~2 si c'est un equilibre de forces, et le laisser inchange sinon.
+Ce qui NE change pas : la famille des bornes de MAGNITUDE reste fermee par la MESURE (six fois),
+independamment de l'explication qu'on en donne.
+
+## [NOTE-520] `phys-skin-chain` — docstring integrale, deplacee VERBATIM depuis le source
+
+Deplacee au cycle 121 pour rendre 5 lignes au plafond de 4800 du moteur, sans toucher une
+instruction. Meme methode qu'aux cycles 51, 118, 119b et 120. Le texte ci-dessous est celui qui
+etait dans `jak-hd-physics.gc`, mot pour mot :
+
+    SPEC 33/34 — LA PEAU N'ENTRE PAS DANS LE CORPS, et c'est la DERNIERE contrainte de position de
+    la frame : la correction est une ROTATION autour de l'attache, donc la longueur est invariante
+    AU BIT et rien ne s'execute apres elle. NATURE : une profondeur, unites de jeu. REPERE : le
+    monde, frame courante. LECTURE HORS DEFAUT : aucune correction (la pose d'auteur la rend nulle).
+    Justification complete : [NOTE-298] de jak-hd-physics-NOTES.md.
+
+## NOTE-521 — cycle 121 : LE DIAGNOSTIC DE DIRECTION, PARCE QU'UNE LECTURE N'EST PAS UNE MESURE
+
+[NOTE-510] conclut que les six bornes de deplacement echouent parce qu'elles bornent la MAGNITUDE
+d'un pas dont c'est la **DIRECTION** qui oscille. **C'etait une lecture du mecanisme, pas une
+mesure**, et elle etait publiee comme telle. Cette note est l'instrument qui la met a l'epreuve.
+
+**CE QUI EST MESURE.** A la premiere passe de correction de chaque appel a `phys-skin-chain`, et
+pour chaque (chaine, maillon), le moteur garde la normale `nb` de l'echantillon **qui decide** — la
+direction dans laquelle la correction va pousser — et la compare a celle de l'appel precedent au
+meme endroit. Deux compteurs par maillon, dans `*phys-nflip*` :
+
+    w=0   nombre d'appels ou l'angle depasse **90 degres** (produit scalaire negatif) : un vrai
+          RENVERSEMENT, c'est-a-dire un pas qui repousse dans l'autre sens ;
+    w=1   nombre total d'appels compares.
+
+**NATURE** : un COMPTE, sans dimension. **REPERE** : le monde, deux appels consecutifs — et
+`phys-skin-chain` est appelee **DEUX fois par frame** (l'alternance avec `phys-cap-e22!` de
+[NOTE-470]), donc l'unite de comparaison est l'APPEL, pas la frame. **LECTURE HORS DEFAUT** : `w=0`
+nul. **GARDE DE VACUITE** : le premier appel d'une fenetre n'a pas de predecesseur — la normale
+memorisee est remise a zero par `phys-diag-reset!` et un vecteur de longueur nulle n'est jamais
+compare, donc `w=1` compte les appels QUI PEUVENT rendre un verdict, pas tous les appels.
+
+**INSTRUMENT PUR** : `*phys-sdnp*` et `*phys-nflip*` ne sont lus par aucune expression du solveur.
+Le controle est publie avec le lot : toutes les grandeurs de solveur restent identiques au chiffre
+publie.
+
+**LE FALSIFICATEUR, ECRIT AVANT LA COURSE** (`.autoport/c121-predictions.txt`, lot H) : si la part
+de renversements est **< 5 % sur tous les maillons des deux chaines**, la lecture de [NOTE-510] est
+FAUSSE, le cycle limite vient d'ailleurs, et c'est ce resultat-la qu'il faut publier.
