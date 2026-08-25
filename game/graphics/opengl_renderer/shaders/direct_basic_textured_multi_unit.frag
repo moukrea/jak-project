@@ -33,16 +33,16 @@ uniform sampler2D tex_T29;
 
 vec4 sample_tex(vec2 coord, uint unit) {
   switch (unit) {
-    case 0: return texture(tex_T20, coord);
-    case 1: return texture(tex_T21, coord);
-    case 2: return texture(tex_T22, coord);
-    case 3: return texture(tex_T23, coord);
-    case 4: return texture(tex_T24, coord);
-    case 5: return texture(tex_T25, coord);
-    case 6: return texture(tex_T26, coord);
-    case 7: return texture(tex_T27, coord);
-    case 8: return texture(tex_T28, coord);
-    case 9: return texture(tex_T29, coord);
+    case 0u: return texture(tex_T20, coord);
+    case 1u: return texture(tex_T21, coord);
+    case 2u: return texture(tex_T22, coord);
+    case 3u: return texture(tex_T23, coord);
+    case 4u: return texture(tex_T24, coord);
+    case 5u: return texture(tex_T25, coord);
+    case 6u: return texture(tex_T26, coord);
+    case 7u: return texture(tex_T27, coord);
+    case 8u: return texture(tex_T28, coord);
+    case 9u: return texture(tex_T29, coord);
     default : return vec4(1.0, 0, 1.0, 1.0);
   }
 }
@@ -52,16 +52,16 @@ vec4 sample_tex_px(vec2 coordf, uint unit) {
   coord.x = int(coordf.x / 16.0);
   coord.y = int(coordf.y / 16.0);
   switch (unit) {
-    case 0: return texelFetch(tex_T20, coord, 0);
-    case 1: return texelFetch(tex_T21, coord, 0);
-    case 2: return texelFetch(tex_T22, coord, 0);
-    case 3: return texelFetch(tex_T23, coord, 0);
-    case 4: return texelFetch(tex_T24, coord, 0);
-    case 5: return texelFetch(tex_T25, coord, 0);
-    case 6: return texelFetch(tex_T26, coord, 0);
-    case 7: return texelFetch(tex_T27, coord, 0);
-    case 8: return texelFetch(tex_T28, coord, 0);
-    case 9: return texelFetch(tex_T29, coord, 0);
+    case 0u: return texelFetch(tex_T20, coord, 0);
+    case 1u: return texelFetch(tex_T21, coord, 0);
+    case 2u: return texelFetch(tex_T22, coord, 0);
+    case 3u: return texelFetch(tex_T23, coord, 0);
+    case 4u: return texelFetch(tex_T24, coord, 0);
+    case 5u: return texelFetch(tex_T25, coord, 0);
+    case 6u: return texelFetch(tex_T26, coord, 0);
+    case 7u: return texelFetch(tex_T27, coord, 0);
+    case 8u: return texelFetch(tex_T28, coord, 0);
+    case 9u: return texelFetch(tex_T29, coord, 0);
     default : return vec4(1.0, 0, 1.0, 1.0);
   }
 }
