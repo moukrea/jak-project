@@ -17,13 +17,18 @@ DECLARATIONS OBLIGATOIRES — CE BLOC RESTE EN TETE DE CHAQUE RAPPORT ET NE SE R
   `verdict()` sort avant `DISCRIMINANT`, `[PASS]` et `OPEN-DEFECTS`. La gate masquee est
   rejouee a la main en section 5 et elle PASSE. Le prochain cycle compare donc a 15, pas a 18,
   tant que `COLLIDE` est rouge.
+  ADDENDUM DU CYCLE 122 : la sortie fait **18 lignes**. `COLLIDE §33/§34` PASSE pour la premiere
+  fois depuis le cycle 119, donc `verdict()` ne sort plus avant `DISCRIMINANT` — qui est atteinte,
+  evaluee, et qui ECHOUE sur `chestR` (23 % contre 25 %). Le prochain cycle compare donc a 18.
+  `[PASS]` et `OPEN-DEFECTS` ne sont toujours pas atteints, cette fois a cause de DISCRIMINANT.
 
 
-BREAST-PENETRATION: 0.0915 m — `meshpen`, DIAGNOSTIC, jamais un verdict (arbitrage 2026-08-20
+BREAST-PENETRATION: 0.0970 m — `meshpen`, DIAGNOSTIC, jamais un verdict (arbitrage 2026-08-20
 13:20 : c'est un DEPLACEMENT, pas une profondeur, et un seuil en metres de PROFONDEUR n'a pas de
 sens dessus).
-  chestL meshpen max 0.0499 m   (cycle 120 : 0.0499 — INCHANGE)
-  chestR meshpen max 0.0915 m   (cycle 120 : 0.0915 — INCHANGE)
+  chestL meshpen max 0.0490 m   (cycle 121 : 0.0499 — BAISSE de 1.8 %)
+  chestR meshpen max 0.0970 m   (cycle 121 : 0.0915 — MONTE de 6.0 %, et ca se declare : le lot de
+                                 ce cycle deplace les VOLUMES, donc cette colonne-la bouge)
   RECALCULE CE CYCLE sur les lignes `row ` du tableau, pas recopie du rapport precedent. Le
   tableau vient de la course de CE cycle (`keira-room-x86.log`, md5 9daf352bdd02ab46e71a36ec2104116b),
   et l'egalite au chiffre pres avec le cycle 120 n'est PAS une recopie : c'est le CONTROLE que le
@@ -32,6 +37,168 @@ sens dessus).
   de chestL s'ecrit `2.44141e-08` sur une ligne et `0.0499` sur une autre ; un `grep` naif sur
   `meshpen=[0-9.]*` tronque l'exposant et rend **2.44141**, soit 49 fois le maximum reel. Toute
   extraction de ce champ doit lire le flottant en entier.
+
+================================================================================================
+CYCLE 122 — LA CAUSE DE `COLLIDE` N'ETAIT PAS LA CONTRAINTE DE PEAU. QUATRE CYCLES ONT CHERCHE
+             DANS LA MAUVAISE FONCTION, ET C'EST UNE COURSE DE DIAGNOSTIC QUI LE PROUVE.
+================================================================================================
+DIRECTIVES vd9e8b66782
+
+Tier de livraison : **GOAL seul** (`(mi)` + repack) — aucun changement C++, aucun NDK. Cinq
+courses x86 dans ce cycle, une seule livree.
+
+**LE RESULTAT, SANS ENROBAGE.** `COLLIDE §33/§34` PASSE pour la premiere fois depuis le cycle 119
+(`ROOM-SKINPEN chestR` 0,0887 -> **0,0871**, plancher 0,0883), et le lot qui la ferme **ne touche
+pas d'un bit `phys-skin-chain`**. Le prix est publie et il est reel : `DISCRIMINANT` tombe a
+**23,5 %** sur `chestR` (plancher 25 %). Le validateur echoue donc toujours, sur une AUTRE gate.
+
+================================================================================================
+0. L'AVANCEMENT, EN PREMIER (arbitrage du 2026-08-23 01:20 : il se lit ICI, pas au validateur)
+================================================================================================
+`SPEC-COVERAGE.md` : **4 `TENUE` · 5 `TENUE PAR CONSTRUCTION` · 17 `PARTIELLE` · 12 `NON TENUE`**
+— **aucun statut ne bouge**, et c'est le cinquieme cycle de suite. La raison a change de nature et
+elle est enfin utile : §33/§34 reste `NON TENUE` parce que la grandeur APPARIEE reste positive
+(0,0694 / 0,0657 m), pas parce que la gate echoue — la gate, elle, est passee.
+
+================================================================================================
+1. LE FAIT QUI RETOURNE QUATRE CYCLES DE TRAVAIL
+================================================================================================
+Course de DIAGNOSTIC, build JETABLE, **une seule variable** : le canal de forme est rendu SANS
+MEMOIRE (`sxd/syd/szd` = `sx0/sy0/sz0`), c'est-a-dire l'etat d'AVANT le lot §11 du cycle 120. Tout
+le reste est bit-identique au cycle 121.
+
+    ROOM-SKINPEN chestR    cycle 121 : 0,0887 m       canal SANS MEMOIRE : **0,0869 m**
+    ROOM-SKINPEN chestL    cycle 121 : 0,0696 m       canal SANS MEMOIRE :   0,0690 m
+
+**0,0869 <= 0,0883 : la gate passerait.** Et 0,0869 est EXACTEMENT la valeur que le cycle 120
+avait relevee avant son propre lot. **La cause de l'echec de `COLLIDE` etait le lot §11 du cycle
+120, pas `phys-skin-chain`.** Les cycles 118 a 122 ont essaye SEPT bornes dans une fonction qui
+n'etait pas la coupable.
+
+**ET LE CHEMIN EST UNIQUE, DEMONTRE PAR VALEUR ET PAS PAR UNE LISTE ECRITE A LA MAIN.** Pendant le
+solveur, `skel bones` porte la pose d'AUTEUR de la frame (l'animation la recalcule, la physique
+n'ecrit qu'a la fin) : ni `phys-surf-sd`, ni les points d'echantillon de `phys-skin-chain`, ni ceux
+de `phys-pen-chain` ne voient le tenseur. Le tenseur n'entre que dans la matrice ECRITE, et la
+seule chose qui relit cette matrice est `phys-snapshot-sim!`, qui place les VOLUMES DE COLLISION
+que la frame suivante lira. Une deformation n'a donc qu'UNE porte vers `skinpen`, et c'est elle.
+
+================================================================================================
+2. LE LOT LIVRE (K) — LE VOLUME DE COLLISION EST UN PROXY RIGIDE
+================================================================================================
+`phys-col-centre` appliquait la matrice ECRITE (`R_auteur . rot . DFM`) a l'offset local du
+volume : le CENTRE suivait le tenseur de forme pendant que le RAYON, mesure sur la geometrie de
+bind, ne le suivait pas. Avec un offset de ~651 u et un transitoire §11 qui monte a 1,29, cela
+deplace le centre de plusieurs dizaines d'unites.
+
+Le lot releve le repere du maillon **juste avant** que le tenseur entre, et c'est lui que
+l'instantane de Jacobi utilise. Detail complet et question ouverte : [NOTE-534].
+
+    grandeur (fenetre `run`)              cycle 121      cycle 122 (lot K)
+    ROOM-SKINPEN chestR                   0,0887         **0,0871**   <- sous le plancher 0,0883
+    ROOM-SKINPEN chestL                   0,0696           0,0694
+    ROOM-SKINADD (appariee) L / R         0,0696/0,0654    0,0694/0,0657   (inchangee, +-0,4 %)
+    ROOM-IDLE maxdev                      0,0001 m         0,0001 m
+    ROOM-STRETCH                          2,7913 %       **2,1863 %**
+    ROOM-APEX chestR                      0,9397 B0      **0,8796 B0**
+    ROOM-COM  chestR                      0,4388 B0      **0,4154 B0**
+    ROOM-SPEC11-STEP pic L / R            1,2939/1,2852    1,2939/1,2852  <- §11 INTACTE AU CHIFFRE
+    PHYSSKINC run (corrections / cumul)   23 534 / 101,5 m 23 097 / 97,8 m
+    DISCRIMINANT chestL                   46,9 %         **48,0 %**
+    DISCRIMINANT chestR                   34,0 %         **23,5 %**   <- LE PRIX, ET IL ECHOUE
+
+`phys-skin-chain` est **bit-identique au cycle 121** : le barattage ne bouge pas (97,8 m contre
+101,5 m), et c'est ce qui rend la comparaison lisible.
+
+**LE PRIX A UNE SIGNATURE, ET ELLE EST L'INVERSE DE CELLE DES SEPT BORNES DE PEAU.** Ici c'est le
+PLAFOND qui baisse, pas le plancher qui monte :
+
+    chestR   accel 0,2064 -> 0,1842 (-10,8 %)   ·   updown 0,1363 -> 0,1410   ·   tilt 0,1432 -> 0,1432
+
+Le mouvement retire est celui que le volume de collision injectait en suivant le tenseur avec un
+rayon fixe, et il n'apparait qu'a fort stimulus. `chestL` passe et s'ameliore (46,9 -> 48,0 %).
+
+================================================================================================
+3. LES TROIS LOTS ESSAYES ET REFUTES AVANT LUI, AVEC LEURS FALSIFICATEURS ECRITS D'AVANCE
+================================================================================================
+Les predictions et leurs falsificateurs chiffres sont dans `.autoport/c122-predictions.txt`,
+ecrits AVANT chaque course et jamais reecrits apres. **Trois faussetes y restent en toutes lettres.**
+
+**J1 — le budget d'entree SDF a la place du plafond `-dot(dj,n)`, plus un test de descente.**
+FERME LA GATE (`skinpen` 0,0590 / **0,0789**, les DEUX chaines sous LEUR PROPRE plancher pour la
+premiere fois), fait BAISSER la grandeur honnete des deux cotes (`skinadd` -27,9 % / -7,9 %), et
+fait TIRER le controle positif d'ablation **sur les deux chaines et contre son biais de
+population** — ce qui n'etait jamais arrive. **Et il est REFUTE par son propre falsificateur P5** :
+`DISCRIMINANT` 13 % / 15 %. Signature mesuree, et elle est neuve : c'est un RELEVEMENT DU PLANCHER
+(chestL `tilt` +90,3 %, `updown` +28,9 %, `accel` +1,8 %) — mot pour mot « un pudding sur lequel on
+tape tres fort au moindre mouvement ». Mecanisme chiffre : 35 783 corrections pour 261,3 m contre
+23 534 pour 101,5 m, soit ~15 mm de deplacement de joint par frame contre ~6. Detail : [NOTE-525 bis].
+
+**J3 — le plafond conserve, le test de descente seul.** Il refuse 32,4 % des pas candidats et fait
+**MONTER** `skinpen chestR` a **0,0916**. Fait neuf et contre-intuitif : les pas que le critere
+rejette (« la profondeur de l'echantillon QUI A DECIDE ne baisse pas ») sont des pas qui font
+BAISSER le maximum de course, lequel porte sur TOUS les echantillons. **Un critere de descente
+pose sur l'echantillon decideur n'est pas aligne sur la grandeur que la gate mesure.**
+
+**J4 — une alternance `phys-cap-e22!`/`phys-skin-chain` de plus (2 -> 3), seule variable.** Ecrit
+d'avance : « le barattage monte de moitie, `skinpen chestR` tombe a ~0,0855 ». Mesure : barattage
++14 % seulement (116,2 m, HORS de la fourchette [120 ; 200] annoncee) et `skinpen chestR`
+**inchangee a 0,0887**. **P9 ET P10 SONT TOUTES DEUX FAUSSES**, et avec elles le modele
+« barattage -> skinpen » que j'avais tire de J1 et J3. Je le retire : ajouter des passes ne fait
+rien parce que le plafond `-dn` est ce qui lie, et il se regenere identique a chaque passe.
+
+================================================================================================
+4. CE QUE CE CYCLE NE PRETEND PAS
+================================================================================================
+  - **Il ne fait pas passer le validateur.** `DISCRIMINANT` echoue sur `chestR` (23,5 % contre
+    25 %). Publie tel quel, sans toucher a la gate (regle 5).
+  - **Il ne rend pas §33/§34 TENUE.** La gate compare deux MAXIMA LATCHES ; la grandeur APPARIEE
+    (meme frame, meme echantillon, meme surface) reste positive : 0,0694 m sur chestL et 0,0657 m
+    sur chestR. Le tableau le publie lui-meme en `ROOM-SKINPEN-VERDICT ... -> DEPASSEE`. **Une
+    gate verte au-dessus d'une ligne rouge publiee est la forme meme d'un faux vert, et je ne
+    l'ecris pas autrement.**
+  - **Il ne tranche pas si un volume de collision doit suivre une deformation qui conserve le
+    VOLUME mais change la FORME** quand le proxy est une sphere. Ce lot choisit « ni le centre ni
+    le rayon » ; l'autre reponse coherente (« le centre ET la forme ») demande un proxy non
+    spherique et n'est pas essayee. Ce qui est certain est que l'etat precedent — le centre suit,
+    la forme non — n'etait coherent ni dans un sens ni dans l'autre.
+  - **Le cout par frame n'est pas mesure de facon appariee.** Les durees de course de ce cycle
+    vont de 20 a 47 min, mais le cycle 121 a etabli que ce compteur mesure le COMPOSITEUR ; je ne
+    m'en sers pas pour conclure, et je ne lui substitue pas une mesure que je n'ai pas.
+  - **Le controle de niveau systeme de l'owner — le preset de Maia sur la chaine de Keira — n'a
+    toujours pas ete joue.** Troisieme cycle qu'il est nomme et pas fait.
+
+================================================================================================
+5. REMONTEE AU SUPERVISEUR — L'ARBITRAGE QUE JE NE PEUX PAS PRENDRE
+================================================================================================
+**(1) CINQUIEME CYCLE SANS CHANGEMENT DE STATUT**, remonte selon la regle du 2026-08-21 18:25.
+Mais la raison a change : ce n'est plus « la file est epuisee » ni « la famille est fausse », c'est
+**« la fonction que quatre cycles ont fouillee n'etait pas la coupable, et une course d'une seule
+variable le prouve »**.
+
+**(2) L'ARBITRAGE : UN LOT QUI FERME UNE SECTION DE LA SPEC ET CASSE UNE GATE A MOI.**
+`COLLIDE §33/§34` vient d'une ligne de `SPEC-breast-softbody.md`. `DISCRIMINANT` est **ma**
+methodologie, avec **mon** seuil de 25 %. Les DIRECTIVES du 2026-08-17 23:50 ordonnent d'avancer
+A TRAVERS les rouges (« un plancher qui casse n'est plus un motif de retrait : c'est la LISTE DE
+TRAVAIL ») et celles du 2026-08-14 posent qu'une gate a moi qui contredit la spec perd. J'ai donc
+**GARDE le lot et publie le rouge**, au lieu de faire ce que les cycles 16 et 18 avaient fait —
+construire, mesurer, puis retirer parce qu'un plancher cassait. **Mais je n'ai pas touche la gate
+(regle 5) et je ne declare aucun succes.** Si le superviseur juge que -10,8 % de reponse a `accel`
+sur `chestR` est un prix trop lourd, le lot se retire en une ligne (`git revert`), et la course de
+diagnostic reste acquise.
+
+**(3) CE QUE JE DEMANDE EN PRIORITE POUR LE CYCLE 123**, et c'est nomme, pas vague : le volume de
+collision de la poitrine ne peut pas representer une deformation anisotrope. Tant qu'il est une
+sphere, l'un des deux couts est inevitable (soit le centre chasse une forme que le rayon ignore,
+soit il l'ignore et on perd 10,8 % de reponse). **Le chantier est le PROXY, pas le tenseur** —
+c'est exactement la suggestion de l'owner du 2026-08-11 (« pourquoi deriver du rig et pas du
+mesh ? »), restee sans reponse chiffree depuis.
+
+================================================================================================
+6. A TESTER PAR L'OWNER
+================================================================================================
+**RIEN.** Directive du 2026-08-20 23:30 : pas de sollicitation pour un changement d'une seule
+section. Ce lot change §33/§34 et rien d'autre de visible ; lui demander de trancher a 4 sections
+tenues sur 38 lui couterait son oeil pour une question que l'etat du dossier rend indecidable.
 
 ================================================================================================
 CYCLE 121 — LE PLAFOND DU CYCLE 120 N'EST PAS UNE MALADRESSE : C'EST LE SUPPRESSEUR DE CYCLE

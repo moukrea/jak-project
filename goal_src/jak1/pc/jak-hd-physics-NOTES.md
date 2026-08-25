@@ -9712,3 +9712,234 @@ publie.
 **LE FALSIFICATEUR, ECRIT AVANT LA COURSE** (`.autoport/c121-predictions.txt`, lot H) : si la part
 de renversements est **< 5 % sur tous les maillons des deux chaines**, la lecture de [NOTE-510] est
 FAUSSE, le cycle limite vient d'ailleurs, et c'est ce resultat-la qu'il faut publier.
+
+## MIGRATION DU 2026-08-25 (cycle 122) — 7 docstrings sorties pour tenir sous le plafond CLEAN
+
+Le lot de ce cycle coute 17 lignes au moteur (budget d'entree par echantillon, test de descente,
+deux compteurs et leur accesseur), et la gate CLEAN en plafonne 4800. Conformement a la convention
+de ce fichier, les lignes se trouvent en deplacant des blocs de TEXTE, VERBATIM, jamais en
+refactorisant du code : un deplacement d'expression flottante ferait bouger la course.
+
+## NOTE-527  (docstring deplacee le 2026-08-25 ; aucune ligne de CODE touchee)
+
+```
+  "min DOUX de v et cap A ZONE MORTE : IDENTITE STRICTE sous le genou kn = 0.84 cap, puis l'EXCES
+   seul est sature, asymptote exacte a cap. Pente continue au genou (f'(kn) = 1), strictement
+   croissante partout. NON IDEMPOTENT AU-DESSUS DU GENOU (en dessous c'est l'identite, donc
+   idempotent) : ne jamais l'appeler dans une boucle de contraintes."
+```
+
+## NOTE-528  (docstring deplacee le 2026-08-25 ; aucune ligne de CODE touchee)
+
+```
+  "Profondeur maximale que cette paire (lien, volume) tolere : sa profondeur d'AUTEUR plus ce que
+   la SPEC 22 autorise a l'excursion. NATURE : une profondeur, unites de jeu. REPERE : le monde.
+   LECTURE HORS DEFAUT : la profondeur mesuree reste dessous.
+   Justification complete : [NOTE-301] de jak-hd-physics-NOTES.md."
+```
+
+## NOTE-529  (docstring deplacee le 2026-08-25 ; aucune ligne de CODE touchee)
+
+```
+  "DISTANCE AU SOLIDE QUE LA LIGNE DE DONNEES DESIGNE — l'enveloppe convexe des deux spheres,
+   minimisee sur [0,1] (jamais projeter puis interpoler le rayon). NATURE : une profondeur signee,
+   unites de jeu, positive DEDANS. REPERE : le monde, frame courante. `nrm` rend la normale.
+   Justification complete : [NOTE-300] de jak-hd-physics-NOTES.md."
+```
+
+## NOTE-530  (docstring deplacee le 2026-08-25 ; aucune ligne de CODE touchee)
+
+```
+  "LA CONTRAINTE DE LONGUEUR, DURE, ET LA MEME POUR LES DEUX FORMES DE LIEN : projection sur la
+   sphere de rayon `want` = la longueur que LE MODELE donne a cet os. Une egalite, pas un plafond :
+   ca tourne, ca ne s'etire pas. `*phys-len-off*` la DESARME (controle, 0 en livraison).
+   [NOTE-122] -> jak-hd-physics-NOTES.md"
+```
+
+## NOTE-531  (docstring deplacee le 2026-08-25 ; aucune ligne de CODE touchee)
+
+```
+  "RELEVE L'ANGLE DE CHAQUE MAILLON A UN ETAGE DU SOLVEUR (voir la note de `*phys-la0*`).
+   Rigoureusement le meme calcul que la mesure de fin de frame : direction courante prise depuis
+   l'attache SIMULEE, direction du modele prise depuis l'attache ANIMEE. Deux etages mesures
+   autrement ne seraient pas comparables, et c'est leur COMPARAISON qui designe le coupable."
+```
+
+## NOTE-532  (docstring deplacee le 2026-08-25 ; aucune ligne de CODE touchee)
+
+```
+  "SPEC 23 — LE TROISIEME DEGRE DE LIBERTE, LU A L'EXECUTION. Voir la note de `*phys-rr*`.
+   NATURE : une DEFORMATION signee, sans unite, pas une amplitude agregee. REPERE : l'axe de l'OS,
+   dans le triedre de l'ANCRE (SPEC 7). LECTURE HORS DEFAUT : 0 (aucune deformation radiale).
+   Justification complete : [NOTE-297] de jak-hd-physics-NOTES.md."
+```
+
+## NOTE-533  (docstring deplacee le 2026-08-25 ; aucune ligne de CODE touchee)
+
+```
+  "LES DEUX PROJECTIONS QUE LA DECISION DE NOMMAGE A COMPARE, et la norme du segment inter-seins.
+   which 0/1 = les deux projections candidates, 2 = |separation|, 3/4/5 = le VECTEUR lui-meme.
+   REPERE : le triedre de l'ANCRE (SPEC 7). NATURE : une longueur signee, en unites de jeu.
+   LIGNE DE BASE : 0 quand il n'y a pas de chaine partenaire — et `phys-chain-axis … 5` le dit."
+```
+
+## NOTE-525  (moteur, `phys-skin-chain` — LE BUDGET D'ENTREE REMPLACE LE PLAFOND DE [NOTE-291], cycle 122)
+
+**CE QUI EST RETIRE.** `v = min(add, -dot(dj, n))`, ou `dj = o - joint_auteur` etait pris a
+l'entree de l'appel et `n` la normale de surface a l'echantillon. [NOTE-483] (cycle 106) avait
+deja mesure que ce plafond vaut **-58,0 / -32,1 u AU POINT QUI PORTE LE VERDICT** de SPEC 34,
+c'est-a-dire qu'il n'etranglait pas la correction : il l'**INTERDISAIT** (un `v <= 0` ne peut pas
+etre elu `bq`, `bv` partant de 0.0). Le cycle 120 le remesure a **-64,5091 u** sur chestL et
+**+0,0187 u** sur chestR pour des demandes de 285,27 et 268,08 u — 100,0 % retenus des deux cotes.
+
+**POURQUOI IL EST FAUX, ET C'EST GEOMETRIQUE, PAS UN REGLAGE.** Au point du verdict, 96,6 % /
+100,0 % du deplacement du joint par rapport a la pose d'auteur est **TANGENTIEL** a la surface.
+Le plafond ne lit que la composante NORMALE, et elle pointe DEHORS : la regle « tu ne peux pas
+pousser plus dehors que la pose d'auteur » se declenche alors que la peau est enfoncee de 6,5 a
+7 cm. La grandeur qui gouverne n'etait pas mesuree sur le bon axe — et surtout, elle etait
+mesuree par une PROJECTION LINEAIRE alors que la profondeur est lue par un champ de nuage de
+points qui n'est pas localement lineaire sur 250 u ([[feedback_point_cloud_sdf_not_lipschitz]]).
+
+**CE QUI REMPLACE, ET IL GARDE LES DEUX PROPRIETES QUI COMPTAIENT.** Le budget est desormais lu
+**AVEC LE MEME CHAMP QUE LE VERDICT, ET SUR LE MEME ECHANTILLON** :
+
+    bud_q = min(0, sa_q) - sd_q(entree)      ;  v = min( add_q(courant), bud_q )
+
+  - **inerte a la pose d'auteur PAR ALGEBRE** : `sd(entree) = sa` donne `bud = 0`. SPEC 2 et
+    SPEC 9 restent tenues par construction, exactement comme avec l'ancien plafond, et pas par
+    reglage ;
+  - **auto-limitant et SIGNE** : si la physique a rendu l'echantillon PLUS DEHORS que la pose
+    d'auteur, `bud < 0` et rien n'est pousse. C'est la propriete que [NOTE-291] appelait
+    « il retombe a zero de lui-meme », rendue dans les unites du verdict au lieu d'une
+    projection ;
+  - **il interdit a la contrainte de courir apres ce qu'elle a elle-meme cree** : le budget est
+    fige a l'ENTREE de l'appel. Corriger l'echantillon A fait tourner le maillon et peut enfoncer
+    l'echantillon B ; B ne peut alors etre corrigee qu'a hauteur de sa violation D'ENTREE. C'est
+    la reponse au symptome mesure au cycle 121 (« 3,3 fois plus de travail pour DEUX FOIS plus de
+    residu »).
+
+`dn` reste calcule et **PUBLIE** (cases 16/17 de `*phys-skl*`, ligne `ROOM-SKINLEVER`) : il
+devient un DIAGNOSTIC, il ne decide plus rien. Le rapport doit le lire comme tel.
+
+**FALSIFICATEUR, ECRIT AVANT LA COURSE.** Si `ROOM-IDLE` depasse 0,02 m ou si `DISCRIMINANT`
+tombe sous 25 % sur une chaine, ce lot est REFUTE et se retire — c'est exactement ce qui a tue
+les six bornes du cycle 121, et il n'y a aucune raison de s'en exempter.
+
+## NOTE-526  (moteur, `phys-skin-chain` — LE TEST DE DESCENTE, cycle 122)
+
+`phys-surf-sd` est une moyenne ponderee sur un K-voisinage d'un NUAGE DE POINTS : elle n'est pas
+lisse, et une passe peut deplacer le maillon de `0,5 * pp * ln` ~ 9,6 cm d'un coup. Rien ne
+garantissait que la profondeur de l'echantillon qui a DECIDE la correction baisse reellement.
+
+Le moteur relit donc la surface **au point candidat**, pour le meme echantillon `bq`, et
+n'applique le deplacement que si `sd(candidat) > sd(decideur)`. Sinon la passe est comptee comme
+REFUSEE et rien n'est ecrit.
+
+**CE N'EST PAS UN SUPPRESSEUR, ET LA MESURE LE DIT** : `PHYSSKIND` publie `nref/ntot` et le cumul
+refuse. Un `nref = 0` voudrait dire que le test ne se declenche jamais, donc qu'il ne mesure rien
+— et c'est alors LUI qu'il faut retirer, pas le garder « au cas ou ». Le compteur est remis a
+zero par jambe, comme `PHYSSKINC`, donc les deux jambes d'une ablation restent comparables.
+
+**AJOUT DU MEME CYCLE — UN REFUS RETIRE L'ECHANTILLON DE L'ELECTION.** Sans cela, l'argmax
+redesigne l'echantillon refuse a l'iteration suivante (rien n'a bouge), et les six passes se
+consomment sur un candidat qu'on vient de juger nuisible — la contrainte ne corrigerait alors
+RIEN sur ce maillon, pas meme les echantillons suivants. Le refus met donc `bud[bq]` a zero :
+`v = min(ad, 0) = 0` ne peut plus etre elu (`bv` part de 0.0), et l'iteration suivante passe au
+deuxieme candidat. C'est la difference entre « on ne fait pas ce pas-la » et « on ne fait plus
+rien ».
+
+## NOTE-525 bis  (LE BUDGET D'ENTREE EST REFUTE PAR SON PROPRE FALSIFICATEUR — cycle 122, course J1)
+
+Le falsificateur P5 de `.autoport/c122-predictions.txt` etait ecrit AVANT la course : « DISCRIMINANT
+ecart >= 25 % sur LES DEUX chaines, sinon REFUTE, le lot se retire ». **Il a tire**, et la mesure
+est publiee telle quelle :
+
+    chestL   ecart 13 %   (accel 0,1882 · jerk 0,1855 · leftright 0,1762 · tilt 0,1867 · updown 0,1635)
+    chestR   ecart 15 %   (accel 0,1771 · jerk 0,1620 · leftright 0,1641 · tilt 0,1917 · updown 0,1792)
+
+**CE QUE LE LOT ACHETAIT, ET IL FAUT LE DIRE PARCE QUE C'ETAIT REEL** : `ROOM-SKINPEN` 0,0696 ->
+**0,0590** et 0,0887 -> **0,0789** (la gate `COLLIDE` passait, et pour la premiere fois LES DEUX
+chaines tombaient sous LEUR PROPRE plancher) ; `ROOM-SKINADD`, la grandeur APPARIEE, 0,0696 ->
+**0,0502** (-27,9 %) et 0,0654 -> **0,0602** (-7,9 %) ; le controle positif d'ablation tirait
+**sur les deux chaines et contre son biais de population** pour la premiere fois (desarmee 0,0709
+contre armee 0,0353 ; 0,0627 contre 0,0539). `ROOM-STRETCH` 2,7913 -> 2,2689 %.
+
+**ET VOICI L'ATTRIBUTION, QUI EST NEUVE ET QUI FERME LA DIRECTION.** L'echec de DISCRIMINANT n'est
+pas un aplatissement du PLAFOND, c'est un RELEVEMENT DU PLANCHER, et les cinq pilotages le disent
+sans interpretation (chestL) :
+
+    accel  0,1848 -> 0,1882  (+1,8 %)     le stimulus le PLUS FORT ne bouge pas
+    jerk   0,1771 -> 0,1855  (+4,7 %)
+    updown 0,1268 -> 0,1635  (+28,9 %)
+    tilt   0,0981 -> 0,1867  (+90,3 %)    le stimulus le PLUS FAIBLE double
+
+La contrainte ajoute une quantite de mouvement QUASI CONSTANTE, independante du stimulus. C'est,
+mot pour mot, « un pudding sur lequel on tape tres fort au moindre mouvement ».
+
+**LE MECANISME EST CHIFFRE, ET C'EST UN BARATTAGE POSITIONNEL.** `PHYSSKINC tag=run` :
+23 534 corrections pour 101,5 m (cycle 121) contre **35 783 pour 261,3 m** (J1) — 4,3 mm par
+correction contre **7,3 mm**, soit ~6 mm de deplacement de joint par frame contre **~15 mm**.
+`ROOM-IDLE` suit la meme loi : 0,0001 -> 0,0051 m, et `PHYSIDLE dev` chestR 0,2301 -> **20,9039 u**
+— *exactement* la valeur de la variante D du cycle 121 (20,90), ce qui montre que le budget
+d'entree ne mord PAS au repos.
+
+**CONSEQUENCE POUR LA SUITE, ET ELLE EST GENERALE.** Sur les SEPT bornes maintenant essayees
+(A-F au cycle 121, ce budget au cycle 122), **toutes celles qui font baisser `skinadd` augmentent
+le barattage, et toutes celles qui augmentent le barattage relevent le plancher de `tipvar`**. La
+relation est monotone sur les deux points mesures (6 mm/frame -> 47 % d'ecart ; 15 mm/frame ->
+13 %). Toute proposition future qui augmente l'AUTORITE de `phys-skin-chain` doit donc predire son
+barattage par frame AVANT sa course, et montrer pourquoi elle echappe a cette relation.
+
+## NOTE-534  (moteur, `phys-snapshot-sim!` + le bloc d'ecriture — LE VOLUME DE COLLISION EST UN PROXY RIGIDE, cycle 122)
+
+**LE FAIT QUI OUVRE CETTE NOTE, ET IL EST MESURE, PAS DEDUIT.** Build JETABLE, canal de forme rendu
+SANS MEMOIRE (`sxd/syd/szd` = `sx0/sy0/sz0`, c'est-a-dire l'etat d'AVANT le lot §11 du cycle 120),
+tout le reste bit-identique au cycle 121, meme salle, meme pilotage :
+
+    ROOM-SKINPEN chestR   cycle 121 : 0,0887 m     canal SANS MEMOIRE : **0,0869 m**
+    ROOM-SKINPEN chestL   cycle 121 : 0,0696 m     canal SANS MEMOIRE :   0,0690 m
+
+0,0869 <= 0,0883 : **la gate `COLLIDE` passerait**. Et 0,0869 est EXACTEMENT la valeur que le
+cycle 120 avait relevee AVANT son propre lot. **La cause de l'echec de `COLLIDE §33/§34` n'etait
+pas `phys-skin-chain`.** Les cycles 118 a 122 ont cherche cinq familles de correctifs dans une
+fonction qui n'etait pas la coupable.
+
+**LE CHEMIN, ET IL EST UNIQUE.** Pendant le solveur, `skel bones` porte la pose d'AUTEUR de la
+frame — l'animation la recalcule a chaque frame et la physique n'ecrit qu'a la fin. Donc ni
+`phys-surf-sd` (qui construit la surface avec `skel bones`), ni les points d'echantillon de
+`phys-skin-chain`, ni ceux de `phys-pen-chain` ne voient le tenseur de forme. Le tenseur n'entre
+que dans la matrice ECRITE (`:3879`), et **la seule chose qui relit cette matrice est
+`phys-snapshot-sim!`**, qui place les VOLUMES DE COLLISION que la frame suivante lira
+([[feedback_delivered_value_bound_feeds_back_via_snapshot]]). Audit fait PAR VALEUR sur les sept
+appels a `phys-surf-sd` et sur les deux instantanes, pas sur une liste ecrite a la main.
+
+**CE QUI ETAIT INCOHERENT.** `phys-col-centre` applique la matrice ECRITE — donc
+`R_auteur . rot . DFM` — a l'offset local du volume. Le CENTRE suivait donc le tenseur de forme,
+pendant que le RAYON, mesure sur la geometrie de bind, ne le suivait pas. Avec un offset de
+~651 u et des echelles a 0,97-1,06 en fenetre `run`, cela deplace le centre de plusieurs dizaines
+d'unites — et le transitoire du second ordre de §11, qui monte a 1,29, l'amplifie.
+
+**LE CORRECTIF.** Le repere du maillon est releve JUSTE AVANT que le tenseur entre
+(`*phys-rgm*`, `*phys-rgok*`), et c'est lui que `phys-snapshot-sim!` utilise. La deformation reste
+INTACTE dans ce qui est LIVRE au rendu : `phys-skin-chain` n'est pas touchee d'un bit, et §11 est
+conservee AU CHIFFRE (`ROOM-SPEC11-STEP` pic 1,2939 / 1,2852, identiques au cycle 121).
+
+**LE PRIX, MESURE ET PUBLIE.** `DISCRIMINANT` sur `chestR` tombe de 34 % a **23,5 %**, sous le
+plancher de 25 % — et la SIGNATURE est l'inverse de celle des sept bornes de peau : ici c'est le
+PLAFOND qui baisse (`accel` 0,2064 -> 0,1842, -10,8 %) et non le plancher qui monte (`updown`
+0,1363 -> 0,1410, `tilt` 0,1432 -> 0,1432 inchange). `chestL` PASSE et s'ameliore meme (46,9 % ->
+48,0 %). Le mouvement que le lot retire est celui que le volume de collision injectait en suivant
+le tenseur avec un rayon fixe, et il n'apparait qu'a fort stimulus.
+
+**CE QUE LE LOT AMELIORE PAR AILLEURS, SUR LA MEME COURSE :** `ROOM-STRETCH` 2,7913 -> 2,1863 % ·
+`ROOM-APEX` chestR 0,9397 -> 0,8796 B0 · `ROOM-COM` chestR 0,4388 -> 0,4154 B0 · `meshpen` chestL
+0,0499 -> 0,0490 m. `ROOM-IDLE` reste a 0,0001 m et le controle positif d'ablation tire toujours
+sur les deux chaines.
+
+**LA QUESTION OUVERTE QUE CE LOT NE TRANCHE PAS.** Un volume de collision doit-il suivre une
+deformation qui CONSERVE LE VOLUME (`ROOM-SPEC8` : det = 0,999998 a 1,000000) mais change la
+FORME, quand le proxy est une sphere ou une capsule qui ne peut representer aucune anisotropie ?
+Les deux reponses coherentes sont « ni le centre ni le rayon » (ce lot) et « le centre ET la
+forme » (qui demande un proxy non spherique). Ce qui n'est pas coherent est ce qu'il y avait :
+le centre suivait, la forme non. La seconde reponse n'est pas essayee ici et se nomme comme
+chantier, elle ne se suppose pas resolue.

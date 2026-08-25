@@ -1,0 +1,150 @@
+PREDICTIONS DU CYCLE 122 — ECRITES AVANT LA COURSE, JAMAIS REECRITES APRES
+=========================================================================
+DIRECTIVES vd9e8b66782
+Lot : [NOTE-525] budget d'entree PAR ECHANTILLON a la place du plafond `-dot(dj,n)` de
+      [NOTE-291], + [NOTE-526] test de descente sur le point candidat.
+Ligne de base = table du cycle 121 (keira-room-table.c121-BASE.txt), course livree du 2026-08-25
+11:29, empreinte dans le fichier.
+
+LIGNE DE BASE, RELUE DANS LA TABLE :
+  ROOM-SKINPEN          chestL 0.0696   chestR 0.0887   (plancher publie 0.0883)
+  ROOM-SKINPEN-REST-DETAIL chestL 0.0612  chestR 0.0883
+  ROOM-SKINADD (appariee)  chestL 0.0696   chestR 0.0654
+  ROOM-SKINPEN-COUT run  corrections=23534  cumul=101.5173 m  pire=0.0648  reste=0.0277
+  ROOM-IDLE maxdev      0.0001 m
+  DISCRIMINANT          chestL 47 %   chestR 34 %   (plancher 25 %)
+  ROOM-STRETCH          2.7913 %
+  ROOM-COM              0.4363 / 0.4388 B0     ROOM-APEX  0.8720 / 0.9397 B0
+  PHYSSKLV5 chestL      radd 285.2682  -dn -64.5091  retenu 0.0000
+  PHYSSKLV5 chestR      radd 268.0815  -dn  +0.0187  retenu 0.0187
+
+P1 — LE BUDGET D'ENTREE DEBLOQUE LE POINT DU VERDICT.
+    `retenu` (case 19) doit devenir EGAL a `radd` (case 15) au point du triplet co-localise,
+    sur LES DEUX chaines, a 1 % pres. C'est une identite par construction a it=0.
+    FALSIFICATEUR : `retenu` reste < 0.5 * `radd` sur une chaine -> le budget ne mord pas la ou
+    on l'attend, et l'attribution de [NOTE-483] est fausse.
+
+P2 — LA GATE COLLIDE PASSE.
+    `ROOM-SKINPEN chestR` <= 0.0883 m. Valeur attendue : 0.075 a 0.085 (la variante D du cycle
+    121, sans budget et avec descente, rendait 0.0788 ; le budget ne peut que REDUIRE la
+    correction, donc j'attends >= 0.0788).
+    FALSIFICATEUR : > 0.0883 -> le lot ne ferme pas la gate.
+
+P3 — LA GRANDEUR HONNETE BAISSE SUR LES DEUX CHAINES.
+    `ROOM-SKINADD` chestL < 0.0696 ET chestR < 0.0654. Attendu -10 a -25 %.
+    FALSIFICATEUR : elle MONTE sur une chaine -> meme defaut que les variantes B et C du cycle
+    121 (tirer vers un endroit profond), le lot se retire.
+
+P4 — LE REPOS TIENT. C'EST LA PREDICTION QUI PEUT TUER LE LOT.
+    `ROOM-IDLE maxdev` <= 0.02 m, et `PHYSIDLE dev` <= 5 u sur les deux chaines.
+    Justification : a la pose d'auteur `sd(entree) = sa` donc `bud = 0` — inerte PAR ALGEBRE.
+    FALSIFICATEUR ECRIT D'AVANCE : > 0.02 m -> REFUTE, le lot se retire (c'est le meme
+    falsificateur que celui qui a tue A, E et F au cycle 121 a 0.0405 m).
+
+P5 — DISCRIMINANT TIENT.
+    ecart >= 25 % sur LES DEUX chaines. F l'avait casse a 13.8 / 22.9 %.
+    FALSIFICATEUR : < 25 % sur une chaine -> REFUTE, le lot se retire.
+
+P6 — LE TEST DE DESCENTE SE DECLENCHE.
+    `ROOM-SKINDESC tag=run refuses` > 0. Un zero voudrait dire que le garde-fou est inerte et
+    qu'il faut le RETIRER (il ne mesurerait rien).
+    FALSIFICATEUR : refuses = 0 -> le test de descente sort du lot au cycle suivant.
+
+P7 — LA CONTRAINTE FERME MIEUX QU'AVANT, OU LE LOT NE VAUT PAS SON TRAVAIL.
+    `ROOM-SKINPEN-COUT run reste` < 0.0277 m. Le cycle 121 a mesure que les variantes
+    « plus de travail » rendaient PLUS de residu (0.0572 pour 3.3x le travail) : si `reste`
+    monte, le lot reproduit ce defaut.
+    FALSIFICATEUR : reste >= 0.0277 m -> publie comme tel, et le lot est au mieux neutre.
+
+P8 — SPEC 22 ET L'ETIREMENT NE SE DEGRADENT PAS.
+    `ROOM-STRETCH` <= 3.0 % (contrat owner) et `ROOM-APEX` ne monte pas de plus de 5 %.
+    FALSIFICATEUR : STRETCH > 3.0 % -> le lot paie §22 pour §34, arbitrage a remonter.
+
+=========================================================================
+LOT J4 — PREDICTIONS ECRITES AVANT SA COURSE (les resultats de J1 et J3 sont deja connus,
+ceux de J4 non). SEULE VARIABLE contre le cycle 121 : `(dotimes (it 2) ...)` -> `(dotimes (it 3))`
+sur l'alternance `phys-cap-e22!` / `phys-skin-chain`. Le plafond [NOTE-291], le test de descente
+et le budget d'entree sont TOUS RETIRES : la fonction de peau est bit-identique au cycle 121.
+=========================================================================
+
+CE QUE J1 ET J3 ONT MESURE, ET QUI FONDE CETTE PREDICTION (trois points, une seule grandeur
+explicative : le BARATTAGE, c'est-a-dire le deplacement de joint que la contrainte impose par
+frame — `PHYSSKINC sum` rapporte aux ~16 740 frames de la fenetre `run`) :
+
+    lot                          corrections   cumul      mm/frame   skinpen chestR   DISCR L/R
+    J3  (plafond + descente)        11 228      43,7 m      2,6        0,0916          non mesure
+    c121 (plafond seul)             23 534     101,5 m      6,1        0,0887          47 % / 34 %
+    J1  (budget SDF + descente)     35 783     261,3 m     15,6        0,0789          13 % / 15 %
+
+`skinpen` DESCEND quand le barattage MONTE, et DISCRIMINANT descend avec lui. C'est une LECTURE
+tiree de trois points, pas une loi — et J4 est son test.
+
+P9 — LE BARATTAGE MONTE D'ENVIRON MOITIE. Une alternance de plus regenere une fois de plus le
+     budget `-dn`, donc j'attends `PHYSSKINC sum` entre 130 et 180 m (8 a 11 mm/frame).
+     FALSIFICATEUR : hors de [120 m, 200 m] -> le modele « une alternance = un budget de plus »
+     est faux, et l'interpolation qui suit ne vaut rien.
+
+P10 — LA GATE COLLIDE PASSE. Interpolation lineaire des trois points : a 9 mm/frame,
+     `ROOM-SKINPEN chestR` ~ 0,0855 m, sous le plancher de 0,0883.
+     FALSIFICATEUR : > 0,0883 -> J4 est refute et la relation barattage/skinpen ne suffit pas a
+     predire la gate.
+
+P11 — DISCRIMINANT TIENT. Interpolation : ~35 % / ~26 %. La marge de chestR est MINCE et je
+     l'ecris d'avance : c'est la prediction la plus fragile du lot.
+     FALSIFICATEUR : < 25 % sur une chaine -> refute, comme J1.
+
+P12 — LE REPOS TIENT. `ROOM-IDLE` <= 0,002 m (c121 : 0,0001 ; J1 a 15,6 mm/frame : 0,0051).
+     FALSIFICATEUR : > 0,002 m -> refute.
+
+P13 — SPEC 22 NE SE DEGRADE PAS. Une alternance de plus, c'est aussi un passage de plus de
+     `phys-cap-e22!` : `ROOM-APEX` et `ROOM-COM` ne doivent pas MONTER, et `ROOM-STRETCH`
+     doit rester <= 3,0 %.
+     FALSIFICATEUR : `ROOM-APEX` chestR > 0,9597 B0 (la valeur de J1) -> le passage
+     supplementaire de §22 ne compense pas la poussee supplementaire de la peau.
+
+=========================================================================
+LOT K — PREDICTIONS ECRITES AVANT SA COURSE.
+=========================================================================
+CE QUE LA COURSE DE DIAGNOSTIC A ETABLI (build JETABLE, canal de forme rendu SANS MEMOIRE,
+c'est-a-dire l'etat d'AVANT le lot §11 du cycle 120, tout le reste bit-identique au cycle 121) :
+
+    skinpen chestR   0.0887  (cycle 121)   ->  **0.0869**  sans le second ordre de §11
+    skinpen chestL   0.0696                ->    0.0690
+
+0.0869 <= 0.0883 : **la gate COLLIDE passerait**. Et 0.0869 est EXACTEMENT la valeur que le
+cycle 120 avait relevee avant son propre lot. La cause de l'echec de COLLIDE n'est donc PAS
+`phys-skin-chain` — c'est le canal de forme du cycle 120, et les quatre cycles 118-122 passes sur
+la contrainte de peau visaient le mauvais bout.
+
+LE SEUL CHEMIN PAR LEQUEL UNE DEFORMATION PEUT ATTEINDRE `skinpen`, ET IL EST UNIQUE : pendant le
+solveur, `skel bones` porte la pose d'AUTEUR (l'animation la recalcule chaque frame) — donc ni
+`phys-surf-sd`, ni les points d'echantillon, ni `phys-pen-chain` ne voient le tenseur. Le tenseur
+n'entre que dans la matrice ECRITE (`:3879`), et la seule chose qui relit cette matrice est
+`phys-snapshot-sim!`, qui place les VOLUMES DE COLLISION pour la frame suivante
+([[feedback_delivered_value_bound_feeds_back_via_snapshot]]). Le transitoire de §11 translate donc
+le CENTRE d'un volume dont le RAYON, lui, ne bouge pas.
+
+LOT K : `phys-snapshot-sim!` place le volume avec le repere du maillon RELEVE AVANT le tenseur.
+Le volume de collision est un proxy RIGIDE — son rayon a ete mesure sur la geometrie de bind et ne
+s'echelonne pas avec la forme ; lui appliquer la moitie translation d'une deformation dont il
+ignore la moitie echelle est une incoherence de modele, pas un reglage.
+`phys-skin-chain` n'est pas touchee : elle est BIT-IDENTIQUE au cycle 121.
+
+P14 — LA GATE COLLIDE PASSE. `ROOM-SKINPEN chestR` <= 0.0883, attendu 0.0865 a 0.0875.
+      FALSIFICATEUR : > 0.0883 -> le chemin de retro-action n'est pas (ou pas seulement) celui-la,
+      et l'attribution ci-dessus est incomplete. C'est alors CE resultat qu'il faut publier.
+
+P15 — DISCRIMINANT ET LE REPOS NE BOUGENT PAS. `phys-skin-chain` est inchangee et le barattage ne
+      doit pas monter : DISCRIMINANT >= 25 % sur les deux chaines (attendu ~47 % / ~34 %),
+      `ROOM-IDLE` <= 0.001 m, `PHYSSKINC tag=run` entre 90 et 115 m.
+      FALSIFICATEUR : DISCRIMINANT < 25 % ou `ROOM-IDLE` > 0.001 -> le lot deplace autre chose que
+      ce que je crois, et il se retire.
+
+P16 — §11 EST CONSERVEE. Le second ordre du canal de forme reste arme : `PHYSSHAPE` doit encore
+      montrer un pic au-dessus de la tenue sur les cellules d'orientation (le lot ne touche pas
+      `phys-sdyn`). FALSIFICATEUR : le pic disparait -> j'ai casse §11 en croyant ne toucher que
+      le volume.
+
+P17 — §22 NE SE DEGRADE PAS. `ROOM-APEX` chestR <= 0.9397 B0 (valeur du cycle 121) + 5 %, et
+      `ROOM-STRETCH` <= 3.0 %.
+      FALSIFICATEUR : au-dela -> le lot achete §33/§34 avec §22, et c'est un arbitrage a remonter.

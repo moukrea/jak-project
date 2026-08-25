@@ -4189,6 +4189,14 @@ def main():
         skinc[m.group(1)] = (float(m.group(2)), float(m.group(3)) / UNITS,
                              float(m.group(4)) / UNITS,
                              (float(m.group(5)) / UNITS) if m.group(5) is not None else None)
+    # [NOTE-526] LE TEST DE DESCENTE (cycle 122) : combien de deplacements candidats ont ete
+    # REFUSES parce que la profondeur de l'echantillon qui les a decides ne baissait pas. Absent
+    # des traces anterieures : le dict reste vide et AUCUNE ligne ne se publie — « pas mesure »
+    # ne se confond jamais avec « mesure a zero ».
+    skind = {}
+    for m in re.finditer(r'^PHYSSKIND tag=(\S+) nref=([-\d.e+]+) ntot=([-\d.e+]+)'
+                         r' dref=([-\d.e+]+)', txt, re.M):
+        skind[m.group(1)] = (float(m.group(2)), float(m.group(3)), float(m.group(4)) / UNITS)
     # [NOTE-482] LE LEVIER DE LA CONTRAINTE DE PEAU, AU POINT QUI DECIDE (cycle 106). Colonnes en
     # UNITES DE JEU (4096 u = 1 m) et laissees telles quelles : le raisonnement de levier du cycle
     # 105 est ecrit en u, et convertir ici obligerait a reconvertir pour le relire. `pp` et `kr`
@@ -9311,6 +9319,24 @@ def main():
             A('   AGREGAT DE JAMBE, GLOBAL A LA COURSE et PAS par chaine — il ne se lit donc jamais')
             A('   comme une colonne par chaine (regle 7). `corrections`=0 sur la jambe DESARMEE est')
             A('   la preuve d\'execution que l\'interrupteur fait ce qu\'il dit.')
+        # ---- [NOTE-526] LE TEST DE DESCENTE SE JUGE PAR SON TAUX DE DECLENCHEMENT --------------
+        if skind:
+            for _tg in ('run', 'skin-armed', 'skin-disarmed'):
+                if _tg in skind:
+                    _nr, _nt, _dr = skind[_tg]
+                    _pc = (100.0 * _nr / _nt) if _nt > 0 else 0.0
+                    A('ROOM-SKINDESC: tag=%-14s refuses=%.0f / %.0f candidats (%.2f %%)'
+                      '  cumul refuse=%.4f m%s'
+                      % (_tg, _nr, _nt, _pc, _dr,
+                         '   -> NE SE DECLENCHE JAMAIS : ce test ne mesure rien, il se RETIRE'
+                         if (_nt > 0 and _nr == 0) else ''))
+            A('   Le champ de surface est un NUAGE DE POINTS, donc pas localement lineaire : une')
+            A('   passe deplace le maillon de 0.5*pp*ln (jusqu\'a ~9,6 cm) et rien ne garantissait')
+            A('   que la profondeur de l\'echantillon DECIDEUR baisse. Le moteur relit la surface AU')
+            A('   POINT CANDIDAT et n\'ecrit que si elle baisse. NATURE : deux COMPTES et une')
+            A('   LONGUEUR cumulee (m). REPERE : le monde, meme fonction que le verdict. AGREGAT DE')
+            A('   JAMBE, jamais une colonne par chaine (regle 7). LECTURE HORS DEFAUT : `refuses`')
+            A('   NON NUL — un zero voudrait dire que le garde-fou est inerte.')
         # ============================================================================================
         # [NOTE-482] ROOM-SKINLEVER — LE LEVIER DE LA CONTRAINTE DE PEAU, AU POINT QUI DECIDE.
         #
@@ -9402,6 +9428,8 @@ def main():
                      '  ET IL EST <= 0 : l echantillon ne peut pas devenir `bq`,'
                      ' le moteur applique ZERO correction dessus.'
                      if d.get('rv', 0.0) <= 0.0 else ''))
+                A('     LE REMPLACER A ETE ESSAYE ET REFUTE AU CYCLE 122 ([NOTE-525 bis]) : le budget'
+                  ' SDF d entree ferme la gate mais rend DISCRIMINANT a 13 %% / 15 %%.')
                 A('     deplacement du joint / pose d auteur : module=%.4f u  =  composante'
                   ' NORMALE %.4f u (%.1f %%) + composante TANGENTIELLE %.4f u (%.1f %%)'
                   % (d['rdisp'], _dn,
