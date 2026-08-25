@@ -1296,7 +1296,7 @@ std::vector<TexturePool::PrecomputedUpload> snapshot_upload(const u8* tpage,
   return out;
 }
 
-void run_tex_call(const PendingTexCall& c) {
+bool run_tex_call(const PendingTexCall& c) {
   if (c.is_relocate) {
     // 2026-08-25 — LA SHIELD PLANTAIT ICI, ET C'ETAIT UNE COURSE D'ORDRE, PAS UNE CORRUPTION.
     // Un `relocate` rejoue depuis la file de demarrage peut designer une fente SOURCE que le
@@ -1306,18 +1306,19 @@ void run_tex_call(const PendingTexCall& c) {
     // sauter UN au boot est sans consequence — l'abattre, non. On le DIT au journal au lieu de
     // le taire : un saut silencieux redeviendrait un defaut invisible.
     if (!g_data->texture_pool->relocate_source_ready(c.src)) {
-      static u32 s_skipped = 0;
-      if (++s_skipped <= 16 || (s_skipped % 100) == 0) {
+      static u32 s_deferred = 0;
+      if (++s_deferred <= 16 || (s_deferred % 100) == 0) {
         __android_log_print(ANDROID_LOG_WARN, kLogTag,
-                            "A41-TEX relocate IGNORE #%u dst=0x%x src=0x%x fmt=%u — source pas "
-                            "encore chargee au drain (course d'ordre au boot)",
-                            s_skipped, c.dst, c.src, c.format);
+                            "A41-TEX relocate REPORTE #%u dst=0x%x src=0x%x fmt=%u — source pas "
+                            "encore chargee, il repassera au prochain drain",
+                            s_deferred, c.dst, c.src, c.format);
       }
-      return;
+      return false;  // PAS consomme : le rappeler plus tard
     }
     __android_log_print(ANDROID_LOG_INFO, kLogTag, "A41-TEX relocate dst=0x%x src=0x%x fmt=%u",
                         c.dst, c.src, c.format);
     g_data->texture_pool->relocate(c.dst, c.src, c.format);
+    return true;
   } else {
     static u32 s_upload_count = 0;
     const u32 n = ++s_upload_count;
@@ -1326,6 +1327,7 @@ void run_tex_call(const PendingTexCall& c) {
                           c.upload_entries.size());
     }
     g_data->texture_pool->handle_upload_precomputed(c.upload_entries);
+    return true;
   }
 }
 
@@ -1334,16 +1336,33 @@ void drain_pending_tex_calls_locked() {
   if (g_pending_tex_flushed) {
     return;
   }
-  g_pending_tex_flushed = true;
   if (!g_pending_tex_calls.empty()) {
     __android_log_print(ANDROID_LOG_INFO, kLogTag,
                         "A41-TEX flushing %zu queued pre-ready texture calls (boot-order race)",
                         g_pending_tex_calls.size());
+    // 2026-08-25 — ON GARDE CE QU'ON N'A PAS PU JOUER. Premiere version : on SAUTAIT un relocate
+    // dont la source n'etait pas chargee. Le jeu allait alors plus loin puis mourait ailleurs, a
+    // des endroits VARIABLES (fil SDL, fil audio, blocage) — signature d'une fente laissee non
+    // liee et dereferencee plus tard. Sauter n'etait donc pas corriger, c'etait deplacer.
+    // Ici l'appel reste en file et repasse au prochain drain, quand le chargeur aura fourni la
+    // source. L'ORDRE relatif est conserve.
+    std::vector<PendingTexCall> retained;
     for (const auto& c : g_pending_tex_calls) {
-      run_tex_call(c);
+      if (!run_tex_call(c)) {
+        retained.push_back(c);
+      }
     }
-    g_pending_tex_calls.clear();
-    g_pending_tex_calls.shrink_to_fit();
+    g_pending_tex_calls.swap(retained);
+    if (g_pending_tex_calls.empty()) {
+      g_pending_tex_flushed = true;
+      g_pending_tex_calls.shrink_to_fit();
+    } else {
+      __android_log_print(ANDROID_LOG_WARN, kLogTag,
+                          "A41-TEX %zu appel(s) reportes — la file reste ouverte",
+                          g_pending_tex_calls.size());
+    }
+  } else {
+    g_pending_tex_flushed = true;
   }
 }
 
@@ -1360,7 +1379,18 @@ void enqueue_or_run_tex_call(const PendingTexCall& c) {
     return;
   }
   drain_pending_tex_calls_locked();  // FIFO: anything queued runs first
-  run_tex_call(c);
+  // 2026-08-25 — L'ORDRE RESTE FIFO MEME QUAND UN APPEL EST REPORTE. Si le drain n'a pas pu
+  // tout jouer, la file n'est pas vide : jouer CET appel-ci tout de suite le ferait passer
+  // devant des appels plus anciens. Il prend donc la queue. Et s'il ne passe pas lui-meme
+  // (source pas encore chargee), il est mis en file au lieu d'etre perdu.
+  if (!g_pending_tex_calls.empty()) {
+    g_pending_tex_calls.push_back(c);
+    return;
+  }
+  if (!run_tex_call(c)) {
+    g_pending_tex_calls.push_back(c);
+    g_pending_tex_flushed = false;
+  }
 }
 
 void flush_pending_texture_calls_on_ready() {
