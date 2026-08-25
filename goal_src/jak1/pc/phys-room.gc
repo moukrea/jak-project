@@ -2589,7 +2589,16 @@
       (format 0 "PHYSSKLV5 tag=~S c=~D radd=~f rcap=~f rdisp=~f rl=~f~%" tag c
               (phys-skl (-> self slot) c 15) (phys-skl (-> self slot) c 16)
               (phys-skl (-> self slot) c 17) (phys-skl (-> self slot) c 18))
-      (format 0 "PHYSSKLV6 tag=~S c=~D rv=~f~%" tag c (phys-skl (-> self slot) c 19))))
+      (format 0 "PHYSSKLV6 tag=~S c=~D rv=~f~%" tag c (phys-skl (-> self slot) c 19))
+      ;; [NOTE-521] LES RENVERSEMENTS DE LA DIRECTION DE POUSSEE, PAR MAILLON. `rev` = nombre
+      ;; d'appels ou l'angle entre la normale de l'echantillon QUI DECIDE et celle de l'appel
+      ;; precedent depasse 90 degres ; `tot` = nombre d'appels COMPARABLES (le premier d'une
+      ;; fenetre n'a pas de predecesseur et n'est pas compte : garde de vacuite).
+      ;; NATURE : un COMPTE, sans dimension. REPERE : le monde, deux appels consecutifs de
+      ;; `phys-skin-chain`, qui tourne DEUX fois par frame. LECTURE HORS DEFAUT : `rev` nul.
+      (dotimes (l (phys-chain-links (-> self slot) c))
+        (format 0 "PHYSNFLIP tag=~S c=~D l=~D rev=~f tot=~f~%" tag c l
+                (phys-nflip (-> self slot) c l 0) (phys-nflip (-> self slot) c l 1)))))
   (phys-skinpen-reset!)
   (none))
 

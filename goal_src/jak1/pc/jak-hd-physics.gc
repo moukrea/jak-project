@@ -529,6 +529,9 @@
 (defconstant PHYS-FLIPW 3)
 (define *phys-fl* (new 'global 'array 'int32 (* PHYS-SCL PHYS-FLIPW)))
 (define *phys-flhas* (new 'global 'array 'int32 PHYS-SCL))
+;; [NOTE-521] LA DIRECTION DE POUSSEE DE LA FRAME PRECEDENTE, ET LE COMPTE DE SES RENVERSEMENTS — instrument PUR, aucun etat du solveur ne le lit. -> jak-hd-physics-NOTES.md
+(define *phys-sdnp* (new 'global 'inline-array 'vector PHYS-SCL))
+(define *phys-nflip* (new 'global 'array 'float (* PHYS-SCL 2)))
 ;; [NOTE-487] CONTROLE POSITIF de l'auto-collision : arme, l'exclusion chaine<->ses propres volumes es -> jak-hd-physics-NOTES.md
 (define *phys-self-inject* 0)
 ;; [NOTE-488] ARME, LA CONTRAINTE DE COTE EST LEVEE et son compteur doit MONTER. Un compteur tombe a z -> jak-hd-physics-NOTES.md
@@ -1903,11 +1906,7 @@
               (/ sv sw))))))))
 
 (defun phys-skin-chain ((skel skeleton) (sc int) (n int) (rlk int) (nbone int))
-  "SPEC 33/34 — LA PEAU N'ENTRE PAS DANS LE CORPS, et c'est la DERNIERE contrainte de position de
-   la frame : la correction est une ROTATION autour de l'attache, donc la longueur est invariante
-   AU BIT et rien ne s'execute apres elle. NATURE : une profondeur, unites de jeu. REPERE : le
-   monde, frame courante. LECTURE HORS DEFAUT : aucune correction (la pose d'auteur la rend nulle).
-   Justification complete : [NOTE-298] de jak-hd-physics-NOTES.md."
+  "SPEC 33/34 — la peau ne rentre pas dans le corps. Docstring integrale : [NOTE-520] de jak-hd-physics-NOTES.md."
   (when (zero? *phys-skin-off*)
     (set! *phys-sd-quiet* 1)
     (let ((ap  (new 'stack-no-clear 'vector))
@@ -1961,6 +1960,8 @@
                                   (vector-copy! nb *phys-sdn*)) (when (and (= it 6) (> (- (fmin 0.0 sa) sd) (-> *phys-skl* (+ (* sc 20) 15)))) (set! (-> *phys-skl* (+ (* sc 20) 15)) (- (fmin 0.0 sa) sd)) (set! (-> *phys-skl* (+ (* sc 20) 16)) (- 0.0 dn)) (set! (-> *phys-skl* (+ (* sc 20) 17)) (sqrtf (+ (* dx dx) (+ (* dy dy) (* dz dz))))) (set! (-> *phys-skl* (+ (* sc 20) 18)) (the float l)) (set! (-> *phys-skl* (+ (* sc 20) 19)) v))))))))
                     ;; [NOTE-414] LA 7e PASSE NE CORRIGE PAS, ELLE MESURE : `*phys-skc-r*` est la pire -> jak-hd-physics-NOTES.md
                     (when (= it 6) (when (> bv *phys-skc-r*) (set! *phys-skc-r* bv)) (let ((sk (* sc 20))) (when (> bv (-> *phys-skl* (+ sk 10))) (set! (-> *phys-skl* (+ sk 10)) bv) (set! (-> *phys-skl* (+ sk 11)) (the float l)))))
+                    ;; [NOTE-521] instrument PUR : renversements de la DIRECTION de poussee entre deux appels consecutifs. -> jak-hd-physics-NOTES.md
+                    (when (and (= it 0) (>= bq 0)) (let ((pv (-> *phys-sdnp* scl)) (ci (* 2 scl))) (when (> (+ (* (-> pv x) (-> pv x)) (+ (* (-> pv y) (-> pv y)) (* (-> pv z) (-> pv z)))) 0.5) (+! (-> *phys-nflip* (+ ci 1)) 1.0) (when (< (+ (* (-> nb x) (-> pv x)) (+ (* (-> nb y) (-> pv y)) (* (-> nb z) (-> pv z)))) 0.0) (+! (-> *phys-nflip* ci) 1.0))) (vector-copy! pv nb)))
                     (when (and (>= bq 0) (< it 6))
                       (let* ((ux (- (-> *phys-px* scl) bx))
                              (uy (- (-> *phys-py* scl) by))
@@ -2384,8 +2385,10 @@
                                  (> (- 0.0 sd) (-> *phys-skinpen* sc)))
                         (set! (-> *phys-skinpen* sc) (- 0.0 sd)) (set! (-> *phys-skl* (+ (* sc 20) 12)) (the float l)))
                       (when (and (> sd -100000.0) (< sd 900000.0))
-                        (set-vector! ap bx by bz 1.0)
+                        ;; [NOTE-328] LA COLONNE D'AUTEUR EST ENTIEREMENT D'AUTEUR — 2e SITE, manquant depuis le cycle 63 (cycle 121). -> jak-hd-physics-NOTES.md
+                        (set-vector! ap bx by bz 1.0) (set! *phys-sd-auth* 1)
                         (let ((sa (phys-surf-sd skel (/ sc PHYS-CHAINS) ap nbone)))
+                          (set! *phys-sd-auth* 0)
                           (when (and (> sa -100000.0) (< sa 900000.0))
                             (let ((add (- (fmin 0.0 sa) sd)))
                               (when (> add (-> *phys-saf* sc)) (set! (-> *phys-saf* sc) add)) (when (> add (-> *phys-skl* (+ (* sc 20) 13))) (set! (-> *phys-skl* (+ (* sc 20) 13)) add) (set! (-> *phys-skl* (+ (* sc 20) 14)) (the float l))))
@@ -4530,7 +4533,7 @@
   (set! *phys-skc-n* 0)
   (set! *phys-skc-d* 0.0)
   (set! *phys-skc-w* 0.0)
-  (set! *phys-skc-r* 0.0) (dotimes (i (* PHYS-SC 20)) (set! (-> *phys-skl* i) 0.0))
+  (set! *phys-skc-r* 0.0) (dotimes (i (* PHYS-SC 20)) (set! (-> *phys-skl* i) 0.0)) (dotimes (i (* PHYS-SCL 2)) (set! (-> *phys-nflip* i) 0.0)) (dotimes (i PHYS-SCL) (set-vector! (-> *phys-sdnp* i) 0.0 0.0 0.0 0.0))
   (set! *phys-e22-n* 0)
   (set! *phys-e22-d* 0.0) (set! *phys-e21-n* 0) (set! *phys-e21-d* 0.0)
   (none))
@@ -4561,6 +4564,7 @@
 
 (defun phys-skl ((slot int) (chain int) (w int)) "LE LEVIER DE LA CONTRAINTE DE PEAU AU POINT QUI DECIDE — instrument PUR (aucune case n'est lue par le solveur), 20 cases par chaine, meme fenetre que `phys-skc`. Table des cases : [NOTE-482] de jak-hd-physics-NOTES.md." (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS) (< w 0) (>= w 20)) 0.0 (-> *phys-skl* (+ (* 20 (+ (* slot PHYS-CHAINS) chain)) w))))
 
+(defun phys-nflip ((slot int) (chain int) (link int) (w int)) "LES RENVERSEMENTS DE LA DIRECTION DE POUSSEE — instrument PUR. w=0 renversements (angle > 90 deg entre deux appels consecutifs), w=1 total compare. NATURE : un COMPTE, sans dimension. REPERE : le monde, deux appels consecutifs de `phys-skin-chain` (elle est appelee DEUX fois par frame). LECTURE HORS DEFAUT : w=0 nul. Justification : [NOTE-521]." (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS) (< link 0) (>= link PHYS-LINKS) (< w 0) (>= w 2)) 0.0 (-> *phys-nflip* (+ (* 2 (+ (* PHYS-LINKS (+ (* slot PHYS-CHAINS) chain)) link)) w))))
 (defun phys-e22-off-set! ((v int))
   "ABLATION, 0 EN LIVRAISON : 1 DESARME `phys-cap-e22!`, la borne de SPEC 22 sur la valeur LIVREE.
    Desarmee, la course doit etre IDENTIQUE AU BIT a celle d'avant son ajout — c'est ce controle,
