@@ -6,6 +6,9 @@
 #include <atomic>
 #include <cstdlib>
 #include <cstring>
+#include <map>
+#include <mutex>
+#include <tuple>
 #include <unordered_map>
 #ifdef OG_FEAT_PBR
 #include <cmath>
@@ -662,7 +665,51 @@ float pbr_uv_density_median(const std::vector<float>& samples) {
 }
 }  // namespace
 
+// autoport 2026-08-26 — CACHE DE DENSITE UV, POUR POUVOIR LIBERER LES SOMMETS CPU.
+// `unpacked.vertices` pese 57,0 Mo par niveau (mesure `A50-LEVRAM`, village1) et il est
+// DEJA televerse dans le GPU. Apres chargement, ses seuls lecteurs sont ces trois mesures
+// de densite, appelees une fois par niveau depuis le chemin de rendu — donc APRES le
+// chargement, ce qui interdisait de liberer le tableau. On memorise le resultat au
+// chargement : les mesures deviennent des lectures, et les sommets peuvent partir.
+// Cle : (niveau, systeme, index de texture). systeme 0=tfrag 1=tie 2=shrub.
+namespace {
+std::map<std::tuple<const tfrag3::Level*, int, s32>, std::pair<float, u32>> g_uv_density_cache;
+std::mutex g_uv_density_mutex;
+
+bool uv_density_cached(const tfrag3::Level& lev, int system, s32 tex_idx, float* dens,
+                       u32* out_samples) {
+  std::lock_guard<std::mutex> lk(g_uv_density_mutex);
+  const auto it = g_uv_density_cache.find({&lev, system, tex_idx});
+  if (it == g_uv_density_cache.end()) {
+    return false;
+  }
+  *dens = it->second.first;
+  if (out_samples) {
+    *out_samples = it->second.second;
+  }
+  return true;
+}
+}  // namespace
+
+void uv_density_store(const tfrag3::Level& lev, int system, s32 tex_idx, float dens, u32 samples) {
+  std::lock_guard<std::mutex> lk(g_uv_density_mutex);
+  g_uv_density_cache[{&lev, system, tex_idx}] = {dens, samples};
+}
+
+void uv_density_forget_level(const tfrag3::Level& lev) {
+  std::lock_guard<std::mutex> lk(g_uv_density_mutex);
+  for (auto it = g_uv_density_cache.begin(); it != g_uv_density_cache.end();) {
+    it = (std::get<0>(it->first) == &lev) ? g_uv_density_cache.erase(it) : std::next(it);
+  }
+}
+
 float measure_uv_density_tfrag(const tfrag3::Level& lev, s32 tex_idx, u32* out_samples) {
+  {
+    float cached = 0.f;
+    if (uv_density_cached(lev, 0, tex_idx, &cached, out_samples)) {
+      return cached;
+    }
+  }
   std::vector<float> samples;
   samples.reserve(1024);
   // GEOM 0 only: the highest-detail tree carries the authored UVs, and the lower LODs share them.
@@ -680,6 +727,12 @@ float measure_uv_density_tfrag(const tfrag3::Level& lev, s32 tex_idx, u32* out_s
 }
 
 float measure_uv_density_tie(const tfrag3::Level& lev, s32 tex_idx, u32* out_samples) {
+  {
+    float cached = 0.f;
+    if (uv_density_cached(lev, 1, tex_idx, &cached, out_samples)) {
+      return cached;
+    }
+  }
   std::vector<float> samples;
   samples.reserve(1024);
   // TieTree's unpacked vertices are the same tfrag3::PreloadedVertex type, and its static_draws are
@@ -698,6 +751,12 @@ float measure_uv_density_tie(const tfrag3::Level& lev, s32 tex_idx, u32* out_sam
 }
 
 float measure_uv_density_shrub(const tfrag3::Level& lev, s32 tex_idx, u32* out_samples) {
+  {
+    float cached = 0.f;
+    if (uv_density_cached(lev, 2, tex_idx, &cached, out_samples)) {
+      return cached;
+    }
+  }
   std::vector<float> samples;
   samples.reserve(1024);
   // Shrub has no geom-LOD array — one tree list, all of it authored.

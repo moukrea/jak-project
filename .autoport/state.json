@@ -228,7 +228,7 @@
     "Grecharged-secondary-motion": 5,
     "Grecharged-hd-eye-scale": 2,
     "Grecharged-title-logo-fullres": 1,
-    "Grecharged-managed-assets-merge": 4
+    "Grecharged-managed-assets-merge": 5
   },
   "fingerprints": {
     "00-harness": [
@@ -595,7 +595,8 @@
     ],
     "Grecharged-managed-assets-merge": [
       "c2d31134c1f5",
-      "bbaf44015262"
+      "bbaf44015262",
+      "5d34f50d17aa"
     ]
   },
   "stuck_reasons": {
@@ -1039,7 +1040,7 @@
     "Grecharged-materials-modern-parity": 1786167637.0459936,
     "Grecharged-managed-assets-merge": 1787735930.1454916
   },
-  "last_update": "2026-08-26T15:10:34.220917+00:00",
+  "last_update": "2026-08-26T17:05:31.786196+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -1143,7 +1144,8 @@
     "Grecharged-hd-models5",
     "Grecharged-title-logo-fullres",
     "Grecharged-hud-jak1",
-    "Grecharged-secondary-motion"
+    "Grecharged-secondary-motion",
+    "Grecharged-managed-assets-merge"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",

@@ -18,6 +18,9 @@
 #include "common/util/Timer.h"
 #include "common/util/compress.h"
 
+#include "game/graphics/opengl_renderer/background/background_common.h"
+#include "game/graphics/opengl_renderer/loader/CustomTextureReplacements.h"
+
 #include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/loader/CustomTextureReplacements.h"
 #include "game/graphics/opengl_renderer/loader/LoaderStages.h"
@@ -716,6 +719,51 @@ void release_uploaded_tangents(tfrag3::Level& lev) {
   }
 }
 
+// autoport 2026-08-26 — LIBERER LES SOMMETS CPU APRES TELEVERSEMENT.
+// `unpacked.vertices` = 57,0 Mo par niveau (A50-LEVRAM, village1), le plus gros poste des
+// 122,1 Mo qu'un niveau garde en RAM. Ils sont deja dans le GPU. Leurs seuls lecteurs apres
+// chargement sont les trois mesures de densite UV du chemin PBR, appelees une fois par niveau
+// DEPUIS LE RENDU — donc trop tard pour liberer. On mesure ici, on memorise, on libere.
+// Les INDEX restent : TFragment leur passe `unpacked.indices.data()` a chaque frame.
+void precompute_uv_density_then_release_vertices(tfrag3::Level& lev) {
+  // Ne mesurer que ce que le rendu mesurerait : les textures portant un materiau PBR.
+  for (size_t ti = 0; ti < lev.textures.size(); ++ti) {
+    if (!custom_tex::find_pbr_material(lev.textures[ti].debug_name)) {
+      continue;
+    }
+    u32 n = 0;
+    const float d_tfrag = measure_uv_density_tfrag(lev, (s32)ti, &n);
+    uv_density_store(lev, 0, (s32)ti, d_tfrag, n);
+    n = 0;
+    const float d_tie = measure_uv_density_tie(lev, (s32)ti, &n);
+    uv_density_store(lev, 1, (s32)ti, d_tie, n);
+    n = 0;
+    const float d_shrub = measure_uv_density_shrub(lev, (s32)ti, &n);
+    uv_density_store(lev, 2, (s32)ti, d_shrub, n);
+  }
+
+  size_t freed = 0;
+  auto drop_pv = [&freed](std::vector<tfrag3::PreloadedVertex>& v) {
+    freed += v.size() * sizeof(tfrag3::PreloadedVertex);
+    std::vector<tfrag3::PreloadedVertex>().swap(v);
+  };
+  for (auto& geo : lev.tfrag_trees) {
+    for (auto& t : geo) {
+      drop_pv(t.unpacked.vertices);
+    }
+  }
+  for (auto& geo : lev.tie_trees) {
+    for (auto& t : geo) {
+      drop_pv(t.unpacked.vertices);
+    }
+  }
+  for (auto& t : lev.shrub_trees) {
+    freed += t.unpacked.vertices.size() * sizeof(tfrag3::ShrubGpuVertex);
+    std::vector<tfrag3::ShrubGpuVertex>().swap(t.unpacked.vertices);
+  }
+  fmt::print("A54-VERTFREE lev={} libere={:.1f}MB\n", lev.level_name, freed / 1048576.0);
+}
+
 LevelRamReport measure_level_ram(const tfrag3::Level& lev) {
   LevelRamReport r;
   for (const auto& geo : lev.tfrag_trees) {
@@ -935,6 +983,13 @@ void Loader::update(TexturePool& texture_pool) {
               ram.draws / 1048576.0, ram.hfrag / 1048576.0, ram.total() / 1048576.0);
         }
         release_uploaded_tangents(*lev->level);
+        // DESARME 2026-08-26 : liberer les sommets ICI casse le rendu (tris=0, drawn=0/80,
+        // puis SIGSEGV). `Shrub::update_load` et `Tie3::load_from_fr3_data` ne sont PAS des
+        // fonctions de chargement malgre leur nom : le RENDERER les appelle quand il decouvre
+        // le niveau, donc APRES ce point. Le gain est reel et mesure (57,0 Mo par niveau,
+        // total du niveau 122,1 -> 38,9 Mo) mais il faut liberer APRES ces deux consommateurs,
+        // pas ici. La mesure de densite reste memorisee : elle est correcte et inerte.
+        // precompute_uv_density_then_release_vertices(*lev->level);
         {
           const auto after = measure_level_ram(*lev->level);
           fmt::print("A50-LEVRAM lev={} apres liberation tangentes: total={:.1f}MB\n", name,

@@ -203,6 +203,12 @@ float measure_uv_density_tie(const tfrag3::Level& lev, s32 tex_idx, u32* out_sam
 // derived from the material's real feature size in metres) would be wrong.
 float measure_uv_density_shrub(const tfrag3::Level& lev, s32 tex_idx, u32* out_samples);
 
+// autoport 2026-08-26 : memoriser une densite mesuree au CHARGEMENT, pour que les trois
+// mesures ci-dessus deviennent des lectures et que `unpacked.vertices` (57 Mo/niveau) puisse
+// etre libere apres televersement. systeme 0=tfrag 1=tie 2=shrub.
+void uv_density_store(const tfrag3::Level& lev, int system, s32 tex_idx, float dens, u32 samples);
+void uv_density_forget_level(const tfrag3::Level& lev);
+
 class PbrDrawBinder {
  public:
   // program = the TFRAG3 program id (u_pbr_mode lives there); draws = the level's

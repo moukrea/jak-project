@@ -67,3 +67,44 @@ Chiffres :
 - Toute conclusion doit s'appuyer sur une MESURE nommant sa scene, jamais sur une capture.
 - Un correctif qui aide la Shield doit aider ou etre neutre pour x86 / Redmi (Adreno) / Honor (Mali).
 - Assets HD derives des dumps Jak2/Jak3 : jamais dans l'APK, le binaire ou git.
+
+## LEVIER MESURE LE 2026-08-26 : LIBERER LES SOMMETS CPU (−68 % PAR NIVEAU)
+
+Le plus gros poste des 122,1 Mo qu'un niveau garde en RAM est `unpacked.vertices` : **57,0 Mo**.
+Ces sommets sont **deja televerses dans le GPU**. Essai realise et MESURE sur le Redmi :
+
+    A54-VERTFREE lev=village1 libere=57.0MB
+    memoire du niveau : 122,1 Mo  ->  38,9 Mo      (avec la liberation des tangentes deja en place)
+
+Soit **−68 % par niveau**, et ~166 Mo repris sur les deux niveaux du cache — l'ordre de grandeur
+qui manque exactement a la Shield (elle meurt vers 1 200 Mo pour ~2 946 Mo de RAM totale).
+
+### L'obstacle est leve, il reste le SEQUENCEMENT
+
+Les seuls lecteurs de `unpacked.vertices` apres chargement sont les trois mesures de densite UV du
+chemin PBR. **Elles sont deja memorisables** : un cache existe desormais dans
+`background_common.{h,cpp}` — `uv_density_store(lev, systeme, tex_idx, densite, echantillons)` et
+`uv_density_forget_level(lev)`, avec `measure_uv_density_{tfrag,tie,shrub}` qui consultent le cache
+en premier. Mesurer au chargement, memoriser, puis liberer.
+
+### PIEGE — deux fonctions mentent sur leur nom (erreur commise, ne pas la refaire)
+
+`Shrub::update_load()` et `Tie3::load_from_fr3_data()` **ne sont PAS des fonctions de chargement**
+malgre leur nom : le RENDERER les appelle quand il decouvre le niveau, donc APRES la fin du
+chargement. Liberer les sommets a la fin de `Loader::update` (au moment ou le niveau entre dans
+`m_loaded_tfrag3_levels`) casse le rendu — mesure : `A42-TFTREE ... draws=80 tris=0 drawn=0/80`
+puis `sig=11`.
+
+Il faut donc liberer APRES ces deux consommateurs. Une piste : que le DERNIER consommateur libere
+lui-meme (compteur par niveau ; quand `Shrub::update_load` et `Tie3::load_from_fr3_data` ont tourne
+pour ce niveau, les sommets partent). `TFragment::handle_initialization` lisait aussi les sommets
+pour la densite UV — le cache le couvre desormais.
+
+**NE PAS toucher aux INDEX** : `TFragment` passe `tree.unpacked.indices.data()` au rendu a CHAQUE
+frame (le moteur reconstruit ses index par visibilite, comme la PS2). Seuls les SOMMETS partent.
+
+### Preuve attendue
+- `A50-LEVRAM` avant/apres sur le meme niveau (reference : 122,1 -> 38,9 Mo).
+- RSS du jeu en regime et en pic, sur la Shield, avant/apres.
+- `A42-TFTREE` doit montrer `tris` et `drawn` NON NULS : c'est le controle qui a attrape la casse.
+- Zero `sig=11` sur un demarrage complet jusqu'a une partie chargee.
