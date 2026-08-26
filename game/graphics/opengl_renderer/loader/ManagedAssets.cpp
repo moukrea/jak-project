@@ -265,6 +265,19 @@ bool upload_bound_texture(const CompressedTex& tex) {
     lg::warn("managed_assets: no GL format for vkFormat {}", tex.info.vk_format);
     return false;
   }
+  // glTexStorage2D est ES 3.0 CORE, mais glad le range dans sa liste GL 4.2 et
+  // ne charge donc pas son pointeur sur un contexte GLES (glad lit
+  // "OpenGL ES 3.2" comme 3.2). android_gfx.cpp le resout explicitement au
+  // demarrage du renderer ; cette garde rend l'appel-vers-0 IMPOSSIBLE plutot
+  // que seulement improbable, ici comme sur n'importe quel pilote qui n'aurait
+  // pas cette entree. Rendre `false` renvoie l'appelant sur le chemin RVBA
+  // stock qu'il implemente deja (LoaderStages.cpp) : degradation, pas mort.
+  if (!glad_glTexStorage2D) {
+    lg::warn(
+        "managed_assets: glTexStorage2D unavailable (glad slot NULL) — falling back to the stock "
+        "texture path");
+    return false;
+  }
   // GL_MAX_TEXTURE_SIZE guard (the audited defect): offline mips make the
   // fix free — skip leading levels until the size fits.
   GLint max_size = 0;

@@ -52,6 +52,22 @@ else
   fail "aucune trace de test_asset_manager / test_rpack_ktx2 dans $REP"
 fi
 
+# 6. REGRESSION D'EXECUTION (ajoutee 2026-08-26 apres coup) — la fusion a passe les cinq
+# gates ci-dessus et le jeu PLANTAIT quand meme a l'ecran-titre :
+#   GK-DIAG sig=11 fault=0x0 pc=0x0 lr=0x2aecd02ef4
+#   F1A-CAMJOINT f=60 proc=0x1ebfb4 logo skel=0x1ed114 fg=0x904d4(#f)
+# `pc=0x0` = appel indirect vers un pointeur de fonction NUL ; `fg=#f` = le groupe d'art du
+# logo n'est pas charge. Avant la fusion le jeu mourait par manque de RAM SANS signal : le
+# mode de defaillance a change, donc c'est bien une regression de la fusion.
+# Une gate de mecanique de merge ne suffit pas : exiger une preuve d'EXECUTION.
+if [ -f "$REP" ] && grep -qiE 'sig=11|SIGSEGV|SIG_DFL' "$REP"; then
+  fail "le rapport contient encore une trace de SIGSEGV — le jeu plante a l'execution"
+elif [ -f "$REP" ] && grep -qiE 'ecran.titre|title.screen|logo' "$REP" && grep -qiE 'sans plantage|no crash|aucun signal' "$REP"; then
+  ok "le rapport demontre un demarrage jusqu'a l'ecran-titre sans plantage"
+else
+  fail "aucune preuve d'execution : il faut un demarrage jusqu'a l'ecran-titre SANS SIGSEGV, mesure sur l'appareil"
+fi
+
 [ "$F" -gt 0 ] && { echo "[$TAG] $F verdict(s) en echec"; exit 1; }
 echo "[$TAG] toutes les gates passent"
 exit 0

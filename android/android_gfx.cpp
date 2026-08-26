@@ -11,6 +11,7 @@
 #include <condition_variable>
 #include <cstdio>  // supervisor-diag: snprintf for jak2 breadcrumb line
 #include <cstdlib>
+#include <cstring>  // A36-GLGATED: strlen when building the still-NULL list
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -263,25 +264,64 @@ bool init_renderer_on_gl_thread(int win_w, int win_h) {
       }
       return p;
     };
-    if (!glad_glClearDepthf) {
-      glad_glClearDepthf = (PFNGLCLEARDEPTHFPROC)resolve("glClearDepthf");
+    // Grecharged-managed-assets — LE CORRECTIF EST POSE AU PRODUCTEUR, PLUS
+    // FONCTION PAR FONCTION.
+    // Ce defaut a ete paye TROIS FOIS, une entree a la fois : glClearDepthf /
+    // glDepthRangef (A36), glVertexAttribDivisor (F1a), et glTexStorage2D
+    // (fusion de la branche des assets geres — premier appelant de l'arbre,
+    // mort a la premiere texture geree). La cause est unique et ne bouge pas :
+    // glad range chaque entree par VERSION DE GL DE BUREAU, lit
+    // "OpenGL ES 3.2" comme 3.2, et saute integralement toutes ses listes
+    // au-dessus. Une entree qui est CORE en GLES mais rangee par glad dans une
+    // liste > 3.2 reste donc NULL, et son premier appel est un BLR vers 0.
+    //
+    // La table ci-dessous n'est pas une liste choisie a la main : c'est la
+    // sortie EXHAUSTIVE de `.autoport/gl_entrypoint_audit.py`, qui croise tous
+    // les symboles gl* references sous game/, common/ et android/ avec la
+    // liste de chargement de glad. Toute entree qui apparait dans cette sortie
+    // et pas ici est un crash qui attend son premier appelant : relancer le
+    // script quand du code GL neuf atterrit.
+    struct GatedEntry {
+      void** slot;
+      const char* name;
+    };
+    const GatedEntry gated[] = {
+        // liste glad 3.3 — ES 3.0 core (instanciation du renderer de sprites)
+        {(void**)&glad_glVertexAttribDivisor, "glVertexAttribDivisor"},
+        // liste glad 4.0 — ES 3.2 core (tessellation ; Shader.cpp tente en plus
+        // les suffixes EXT/OES si le pilote n'exporte pas le nom nu)
+        {(void**)&glad_glPatchParameteri, "glPatchParameteri"},
+        // liste glad 4.1 — ES 2.0 core
+        {(void**)&glad_glClearDepthf, "glClearDepthf"},
+        {(void**)&glad_glDepthRangef, "glDepthRangef"},
+        {(void**)&glad_glGetShaderPrecisionFormat, "glGetShaderPrecisionFormat"},
+        // liste glad 4.2 — ES 3.0 core (stockage immuable ; les textures KTX2
+        // du pack gere passent par la, et c'est CE slot qui valait 0)
+        {(void**)&glad_glTexStorage2D, "glTexStorage2D"},
+        // liste glad 4.3 — ES 3.2 core (KHR_debug)
+        {(void**)&glad_glDebugMessageCallback, "glDebugMessageCallback"},
+        {(void**)&glad_glDebugMessageControl, "glDebugMessageControl"},
+    };
+    char still_null[256] = {0};
+    int n_resolved = 0;
+    for (const auto& g : gated) {
+      if (!*g.slot) {
+        *g.slot = resolve(g.name);
+        if (*g.slot) {
+          n_resolved++;
+        }
+      }
+      if (!*g.slot) {
+        size_t used = strlen(still_null);
+        snprintf(still_null + used, sizeof(still_null) - used, " %s", g.name);
+      }
     }
-    if (!glad_glDepthRangef) {
-      glad_glDepthRangef = (PFNGLDEPTHRANGEFPROC)resolve("glDepthRangef");
-    }
-    if (!glad_glGetShaderPrecisionFormat) {
-      glad_glGetShaderPrecisionFormat =
-          (PFNGLGETSHADERPRECISIONFORMATPROC)resolve("glGetShaderPrecisionFormat");
-    }
-    // F1a: same disease, one version line UP — glad gates
-    // glVertexAttribDivisor behind its GL_VERSION_3_3 list, above the parsed
-    // "ES 3.2", but it is ES 3.0 CORE and the driver exports it. The sprite
-    // distort instancing path BLR'd to 0 through the NULL slot
-    // (run-2 GK-DIAG: pc=0 lr in Sprite3::opengl_setup_distort+0x52c,
-    // GOT slot = glad_glVertexAttribDivisor).
-    if (!glad_glVertexAttribDivisor) {
-      glad_glVertexAttribDivisor = (PFNGLVERTEXATTRIBDIVISORPROC)resolve("glVertexAttribDivisor");
-    }
+    __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                        "A36-GLGATED sweep: %d/%d gated entry points checked, %d resolved here, "
+                        "still NULL:%s",
+                        (int)(sizeof(gated) / sizeof(gated[0])),
+                        (int)(sizeof(gated) / sizeof(gated[0])), n_resolved,
+                        still_null[0] ? still_null : " (none)");
     // F1a: KHR_debug is core in ES 3.2 — let the driver narrate its own
     // errors (runs 4-6 crash INSIDE libGLESv2_adreno on the first village
     // merc draw with apparently-valid bound state; the message stream is
