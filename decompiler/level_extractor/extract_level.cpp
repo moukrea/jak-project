@@ -285,7 +285,7 @@ void extract_common(const ObjectFileDB& db,
 
   confirm_textures_identical(tex_db);
 
-  tfrag3::Level tfrag_level;
+  tfrag3::Level tfrag_level{};
   std::map<std::string, level_tools::ArtData> art_group_data;
   add_all_textures_from_level(tfrag_level, dgo_name, tex_db);
   extract_art_groups_from_level(db, tex_db, {}, dgo_name, tfrag_level, art_group_data);
@@ -358,7 +358,7 @@ void extract_from_level(const ObjectFileDB& db,
     lg::warn("Skipping extract for {} because the DGO was not part of the input", dgo_name);
     return;
   }
-  tfrag3::Level level_data;
+  tfrag3::Level level_data{};
   std::map<std::string, level_tools::ArtData> art_group_data;
   add_all_textures_from_level(level_data, dgo_name, tex_db);
 

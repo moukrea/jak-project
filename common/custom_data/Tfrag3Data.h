@@ -199,7 +199,7 @@ struct PackedShrubVertices {
   std::vector<std::array<math::Vector4f, 4>> matrices;
   std::vector<InstanceGroup> instance_groups;  // todo pack
   std::vector<Vertex> vertices;
-  u32 total_vertex_count;
+  u32 total_vertex_count = 0;
   void memory_usage(MemoryUsageTracker* tracker) const;
   void serialize(Serializer& ser);
 };
@@ -246,8 +246,8 @@ struct ShrubDraw {
   DrawMode mode;        // the OpenGL draw settings.
   u32 tree_tex_id = 0;  // the texture that should be bound for the draw
 
-  u32 first_index_index;
-  u32 num_indices;
+  u32 first_index_index = 0;
+  u32 num_indices = 0;
 
   // for debug counting.
   u32 num_triangles = 0;
@@ -323,7 +323,7 @@ struct PackedTimeOfDay {
 
 // A single texture. Stored as RGBA8888.
 struct Texture {
-  u16 w, h;
+  u16 w = 0, h = 0;
   u32 combo_id = 0;
   std::vector<u32> data;
   std::string debug_name;
@@ -334,7 +334,7 @@ struct Texture {
 };
 
 struct IndexTexture {
-  u16 w, h;
+  u16 w = 0, h = 0;
   u32 combo_id = 0;
   std::vector<u8> index_data;
   std::vector<std::string> level_names;
@@ -353,7 +353,7 @@ constexpr const char* tfrag_tree_names[] = {"normal", "trans",        "dirt",  "
 
 // A tfrag model
 struct TfragTree {
-  TFragmentTreeKind kind;        // our tfrag kind
+  TFragmentTreeKind kind = TFragmentTreeKind::INVALID;        // our tfrag kind
   std::vector<StripDraw> draws;  // the actual topology and settings
   PackedTfragVertices packed_vertices;
   PackedTimeOfDay colors;  // vertex colors (pre-interpolation)
@@ -379,9 +379,9 @@ struct TfragTree {
 };
 
 struct TieWindInstance {
-  std::array<math::Vector4f, 4> matrix;
-  u16 wind_idx;
-  float stiffness;
+  std::array<math::Vector4f, 4> matrix = {};
+  u16 wind_idx = 0;
+  float stiffness = 0;
   void serialize(Serializer& ser);
 };
 
@@ -444,7 +444,7 @@ struct TieTree {
   BVH bvh;
   std::vector<StripDraw> static_draws;
   // Category n uses draws: static_draws[cdi[n]] to static_draws[cdi[n + 1]]
-  std::array<u32, kNumTieCategories + 1> category_draw_indices;
+  std::array<u32, kNumTieCategories + 1> category_draw_indices = {};
 
   PackedTieVertices packed_vertices;
   PackedTimeOfDay colors;  // vertex colors (pre-interpolation)
@@ -510,7 +510,7 @@ struct HfragmentCorner {
 
 struct HfragmentBucket {
   std::vector<u32> corners;
-  std::array<u16, 16> montage_table;
+  std::array<u16, 16> montage_table = {};
   void serialize(Serializer& ser);
 };
 
@@ -521,9 +521,9 @@ struct Hfragment {
   std::vector<HfragmentBucket> buckets;
   PackedTimeOfDay time_of_day_colors;
 
-  std::array<s32, 4> wang_tree_tex_id;
+  std::array<s32, 4> wang_tree_tex_id = {};
   DrawMode draw_mode;
-  u32 occlusion_offset;
+  u32 occlusion_offset = 0;
 
   void serialize(Serializer& ser);
   void memory_usage(MemoryUsageTracker* tracker) const;
@@ -568,9 +568,9 @@ struct MercDraw {
   DrawMode mode;
   s32 tree_tex_id = 0;  // the texture that should be bound for the draw (negative for anim slot)
   u8 eye_id = 0xff;     // 0xff if not eyes, (slot << 1) | (is_r)
-  u32 first_index;
-  u32 index_count;
-  u32 num_triangles;
+  u32 first_index = 0;
+  u32 index_count = 0;
+  u32 num_triangles = 0;
   // no strip hack for custom models
   bool no_strip = false;
   void serialize(Serializer& ser);
@@ -616,7 +616,7 @@ struct MercEffect {
   std::vector<MercDraw> all_draws;
   MercModifiableDrawGroup mod;
   DrawMode envmap_mode;
-  u32 envmap_texture;
+  u32 envmap_texture = 0;
   bool has_envmap = false;
   bool has_mod_draw = false;
   void serialize(Serializer& ser);
@@ -626,11 +626,11 @@ struct MercEffect {
 struct MercModel {
   std::string name;
   std::vector<MercEffect> effects;
-  u32 max_draws;
-  u32 max_bones;
-  u32 st_vif_add;
-  float xyz_scale;
-  float st_magic;
+  u32 max_draws = 0;
+  u32 max_bones = 0;
+  u32 st_vif_add = 0;
+  float xyz_scale = 0;
+  float st_magic = 0;
   void serialize(Serializer& ser);
   void memory_usage(MemoryUsageTracker* tracker) const;
 };

@@ -18,7 +18,7 @@ bool run_build_level(const std::string& input_file,
   auto level_json = parse_commented_json(
       file_util::read_text_file(file_util::get_file_path({input_file})), input_file);
   LevelFile file;                   // GOAL level file
-  tfrag3::Level pc_level;           // PC level file
+  tfrag3::Level pc_level{};           // PC level file
   gltf_util::TexturePool tex_pool;  // pc level texture pool
 
   // process input mesh from blender

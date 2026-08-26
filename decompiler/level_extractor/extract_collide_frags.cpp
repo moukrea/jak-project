@@ -226,6 +226,10 @@ void set_vertices_for_tri(tfrag3::CollisionMesh::Vertex* out, const math::Vector
     out[i].nz = normal.z();
     out[i].flags = 0;  // todo
     out[i].pad = 0;
+    // pad2 n'etait ecrit par AUCUN appelant du chemin niveau-custom : les 4 octets partaient
+    // tels quels dans le .fr3, soit 744 octets de pile publies pour test-zone (des fragments
+    // de chaine ASCII y ont ete lus). `pat` est, lui, pose par l'appelant.
+    out[i].pad2 = 0;
   }
 }
 
