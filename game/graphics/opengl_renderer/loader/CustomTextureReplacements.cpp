@@ -1,13 +1,14 @@
 #include "CustomTextureReplacements.h"
 
 #include <atomic>
+#include <cctype>
 #include <cstring>
 #include <fstream>
 #include <map>
+#include <mutex>
 #include <set>
 #ifdef OG_FEAT_PBR
 #include <algorithm>
-#include <cctype>
 #include <cmath>
 #include <cstdlib>
 #include <unordered_map>
@@ -19,10 +20,13 @@
 
 #include "common/log/log.h"
 #include "common/util/FileUtil.h"
+#include "common/util/Ktx2Subset.h"
 
 #include "game/graphics/gfx.h"
+#include "game/graphics/opengl_renderer/GpuCaps.h"
 #include "game/runtime.h"
 
+#include "third-party/json.hpp"
 #include "third-party/stb_image/stb_image.h"
 
 namespace custom_tex {
@@ -257,9 +261,19 @@ std::string normalize_key(std::string key) {
 // the bare-name fallback. A leading "texture_replacements/" wrapper (how internet packs
 // ship: texture_replacements/<tpage>/<name>.png) is stripped before key derivation, so
 // wrapped and unwrapped layouts produce the same keys on both the user and bundled sides.
-int scan_dir(const fs::path& dir, std::map<std::string, fs::path>& index) {
+// Gshield-load-and-crash: `ext` (lowercase, with the dot) selects the tier's file type. The
+// PNG tiers pass the default and are therefore untouched: ".png"/".PNG" are exactly the two
+// spellings accepted before. The PRE-BAKED tier passes ".ktx2" and gets the SAME key
+// derivation — which is the point, since it indexes the same tree under different extensions.
+int scan_dir(const fs::path& dir,
+             std::map<std::string, fs::path>& index,
+             const char* ext = ".png") {
   if (!fs::exists(dir)) {
     return 0;
+  }
+  std::string ext_upper(ext);
+  for (auto& c : ext_upper) {
+    c = (char)std::toupper((unsigned char)c);
   }
   int file_count = 0;
   for (const auto& entry : fs::recursive_directory_iterator(dir)) {
@@ -267,7 +281,7 @@ int scan_dir(const fs::path& dir, std::map<std::string, fs::path>& index) {
       continue;
     }
     const auto& p = entry.path();
-    if (p.extension() != ".png" && p.extension() != ".PNG") {
+    if (p.extension() != ext && p.extension() != ext_upper) {
       continue;
     }
     file_count++;
@@ -398,6 +412,243 @@ BaseSource base_source(const std::string& tpage_name, const std::string& tex_nam
     return BaseSource::Bundled;
   }
   return BaseSource::Stock;
+}
+
+// ===============================================================================================
+// Gshield-load-and-crash — THE PRE-BAKED (ASTC KTX2) TIER
+//
+// Same images as the bundled PNG tier, already GPU-compressed and already mipmapped offline by
+// tools/bake_recharged_textures.py. Nothing here decodes: no stbi_load, no glGenerateMipmap, and
+// no CPU measurement pass — the statistics the PNG path used to compute from decoded pixels are
+// read from the <material>.stats.json the bake wrote next to the textures.
+//
+// MEASURED reason (SHIELD, 2026-08-26): `stage texture took 1799 ms` is ONE add_texture. The mass
+// is inside the atom — a 2048x2048 PNG decode per map (151-330 ms), each map decoded TWICE (probe
+// pass + re-fetch), then glGenerateMipmap (68-235 ms). The KTX2 path already in this build serves
+// the same material in 87 ms, and keeps a compressed image on the GPU instead of 16 MiB of RGBA8.
+// ===============================================================================================
+namespace {
+
+// One subdirectory per GPU profile under <...>_baked/. Only "astc" is produced today; the name
+// is also what the two hit lines print, so a logcat can be counted per profile.
+constexpr const char* kBakedProfile = "astc";
+
+struct BakedState {
+  // The PNG scan above is lock-free because it predates the managed tier; this one is not.
+  // add_texture runs on whichever thread owns the GL context at the time (main thread at boot,
+  // loader thread during streaming), which is exactly the race ManagedAssets.cpp locks for.
+  std::mutex mutex;
+  bool scanned = false;
+  bool last_enable = false;
+  std::map<std::string, fs::path> index;  // same key shapes as scan_dir()
+  // Parsed <material>.stats.json documents, keyed by absolute sidecar path. A null value is a
+  // NEGATIVE cache entry (missing or unreadable), so the warning is printed once per material
+  // instead of once per map.
+  std::map<std::string, nlohmann::json> sidecars;
+} g_baked;
+
+// The capability this tier hangs on. gpu_caps::detect() queries the live context ONCE (the
+// renderer's init does it: opengl.cpp / android_gfx.cpp, which is where the
+// "gpu caps: GLES 3.2 ... astc=true -> asset profile 'android-astc'" line comes from) and caches
+// the result, so this is a struct field read, not a GL call.
+bool baked_gpu_reads_astc() {
+  // MESURE, 2026-08-26 (Gmemory-ceiling-and-crash), course de non-regression x86 : le pilote
+  // de bureau annonce `astc=true` (GL 4.6), donc ce niveau pre-cuit N'ETAIT PAS inerte sur le
+  // bureau — 28 lignes `custom texture BAKED` dans une course x86, alors que le commentaire de
+  // ce fichier ET celui de LoaderStages.cpp affirmaient le contraire. Un commentaire n'est pas
+  // une preuve : c'est la course qui a tranche.
+  //
+  // La capacite ne suffit donc pas comme garde, il faut le PROFIL. `preferred_profile()`
+  // (GpuCaps.cpp:72-92) applique deja exactement cette regle a l'ETC2, avec la meme raison
+  // ecrite : « Deliberately NOT android-etc2 on desktop: that would be software decompression
+  // on most desktop drivers ». Un bureau qui a du BC doit lire du BC ; le seul niveau pre-cuit
+  // qui existe est en ASTC, donc il ne s'applique qu'aux GPU dont le profil EST l'ASTC.
+  // Effet : le chemin PNG du bureau redevient ce que la conception disait qu'il etait.
+  return gpu_caps::detect().astc_ldr && gpu_caps::preferred_profile() == "android-astc";
+}
+
+// Scan gate: the MASTER, exactly like the bundled PNG index (ensure_scanned's `bundled_on`).
+// The per-lookup gates below are the finer ones (base = recharged_textures, maps = master).
+void ensure_baked_scanned_locked() {
+  const bool on = Gfx::recharged_master_active() && baked_gpu_reads_astc();
+  if (g_baked.scanned && g_baked.last_enable == on) {
+    return;
+  }
+  g_baked.scanned = true;
+  g_baked.last_enable = on;
+  g_baked.index.clear();
+  g_baked.sidecars.clear();
+  if (!on) {
+    return;
+  }
+  const auto dir = file_util::get_bundled_recharged_textures_baked_dir(g_game_version,
+                                                                       kBakedProfile);
+  const int count = scan_dir(dir, g_baked.index, ".ktx2");
+  lg::info("baked recharged textures ({}): {} files ({} keys) in {}", kBakedProfile, count,
+           (int)g_baked.index.size(), dir.string());
+}
+
+// The sidecar of a baked map is <its own directory>/<that directory's name>.stats.json — the
+// layout the bake tool writes (<tpage>/<material>/<material>.stats.json). Returns nullptr when
+// it is missing or unreadable; the caller then declines the whole material.
+const nlohmann::json* baked_sidecar_locked(const fs::path& ktx2_path) {
+  const auto dir = ktx2_path.parent_path();
+  const auto sidecar = dir / (dir.filename().string() + ".stats.json");
+  const auto key = sidecar.string();
+  auto it = g_baked.sidecars.find(key);
+  if (it == g_baked.sidecars.end()) {
+    nlohmann::json doc;  // null on any failure => negative cache entry
+    if (!fs::exists(sidecar)) {
+      lg::warn(
+          "baked recharged textures: no sidecar {} — the PBR statistics have nowhere to come "
+          "from without a decode, so this material falls back to PNG",
+          sidecar.string());
+    } else {
+      try {
+        doc = nlohmann::json::parse(file_util::read_text_file(sidecar));
+      } catch (const std::exception& e) {
+        doc = nlohmann::json();
+        lg::warn("baked recharged textures: unreadable sidecar {}: {} — falling back to PNG",
+                 sidecar.string(), e.what());
+      }
+    }
+    it = g_baked.sidecars.emplace(key, std::move(doc)).first;
+  }
+  return it->second.is_null() ? nullptr : &it->second;
+}
+
+// What the shader must be told about the payload's channels. NEVER "rg": the bake stores full
+// RGB normals, and "rg" would make the shader reconstruct Z and change the render.
+const char* baked_channels(const std::string& suffix) {
+  if (suffix.empty()) {
+    return "rgba";  // base colour
+  }
+  if (suffix == "_normal" || suffix == "_specular" || suffix == "_emissive") {
+    return "rgb";
+  }
+  return "r";  // _roughness / _height / _metallic / _ao — sampled as .r and nothing else
+}
+
+// Load one baked file. `suffix` is "" for the base and "_<kind>" for a companion map; it is also
+// the key the sidecar files its entry under ("base" for the empty one).
+std::optional<managed_assets::CompressedTex> baked_load(const std::string& tpage_name,
+                                                        const std::string& tex_name,
+                                                        const std::string& suffix,
+                                                        const char* log_what) {
+  if (!baked_gpu_reads_astc()) {
+    return std::nullopt;
+  }
+  const std::string name = tex_name + suffix;
+  const std::string exact_key = normalize_key(tpage_name + "/" + name);
+
+  std::lock_guard<std::mutex> lock(g_baked.mutex);
+  ensure_baked_scanned_locked();
+  const fs::path* found = find_key(g_baked.index, exact_key, name);
+  if (!found) {
+    return std::nullopt;
+  }
+  const fs::path path = *found;
+
+  // STATISTICS FIRST. Without the sidecar the POM relief would be silently wrong and nobody
+  // would see it, so a material with no readable sidecar is declined outright — PNG, which
+  // measures them, is the better answer.
+  const nlohmann::json* doc = baked_sidecar_locked(path);
+  if (!doc) {
+    return std::nullopt;
+  }
+  const auto maps_it = doc->find("maps");
+  if (maps_it == doc->end() || !maps_it->is_object()) {
+    lg::warn("baked recharged textures: sidecar for {} has no \"maps\" object — falling back",
+             path.string());
+    return std::nullopt;
+  }
+  const auto entry_it = maps_it->find(suffix.empty() ? std::string("base") : suffix);
+  if (entry_it == maps_it->end() || !entry_it->is_object()) {
+    // The file exists but the bake never described it: treat it as a MISS, not as a texture
+    // with default statistics.
+    lg::warn("baked recharged textures: {} is not described by its sidecar — falling back",
+             path.string());
+    return std::nullopt;
+  }
+
+  managed_assets::CompressedTex out;
+  {
+    std::ifstream f(path, std::ios::binary);
+    if (!f) {
+      lg::warn("baked recharged textures: cannot open {} — falling back to PNG", path.string());
+      return std::nullopt;
+    }
+    f.seekg(0, std::ios::end);
+    const std::streamoff len = f.tellg();
+    f.seekg(0, std::ios::beg);
+    if (len <= 0) {
+      lg::warn("baked recharged textures: empty file {} — falling back to PNG", path.string());
+      return std::nullopt;
+    }
+    out.payload.resize((size_t)len);
+    f.read((char*)out.payload.data(), len);
+    if (!f) {
+      lg::warn("baked recharged textures: short read on {} — falling back to PNG", path.string());
+      return std::nullopt;
+    }
+  }
+  std::string err;
+  if (!ktx2::parse(out.payload.data(), out.payload.size(), &out.info, &err)) {
+    // A broken baked file must never produce a black texture: decline and let the PNG tier win.
+    lg::error("baked recharged textures: bad ktx2 {}: {} — falling back to PNG", path.string(),
+              err);
+    return std::nullopt;
+  }
+  out.wrap_mode = "repeat";
+  out.channels = baked_channels(suffix);
+
+  const auto& e = *entry_it;
+  if (e.contains("normal_dc_x") && e.contains("normal_dc_y")) {
+    out.stats.has_normal_dc = true;
+    out.stats.normal_dc_x = e.value("normal_dc_x", 0.f);
+    out.stats.normal_dc_y = e.value("normal_dc_y", 0.f);
+  }
+  if (e.contains("height_mean") && e.contains("height_norm") &&
+      e.contains("height_lambda_tiles")) {
+    out.stats.has_height = true;
+    out.stats.height_mean = e.value("height_mean", 0.5f);
+    out.stats.height_norm = e.value("height_norm", 1.0f);
+    out.stats.height_lambda_tiles = e.value("height_lambda_tiles", 0.25f);
+  }
+
+  lg::info("{} ({}): {} <- {}", log_what, kBakedProfile, exact_key, path.string());
+  return out;
+}
+
+}  // namespace
+
+std::optional<managed_assets::CompressedTex> lookup_baked_base(const std::string& tpage_name,
+                                                               const std::string& tex_name) {
+  // Same gate as the BUNDLED PNG base swap (lookup()): this tier replaces it.
+  if (!Gfx::recharged_active(Gfx::g_global_settings.recharged_textures)) {
+    return std::nullopt;
+  }
+  return baked_load(tpage_name, tex_name, "", "custom texture BAKED");
+}
+
+std::optional<managed_assets::CompressedTex> lookup_baked_map(const std::string& tpage_name,
+                                                              const std::string& tex_name,
+                                                              const char* map_kind) {
+  // Same gate as the BUNDLED PNG maps (resolve_suffixed): the MASTER, deliberately NOT the
+  // base-swap toggle — PBR maps apply whenever PBR is on.
+  if (!Gfx::recharged_master_active() || !map_kind || !*map_kind) {
+    return std::nullopt;
+  }
+  return baked_load(tpage_name, tex_name, std::string("_") + map_kind, "custom pbr map BAKED");
+}
+
+bool baked_available() {
+  if (!Gfx::recharged_master_active() || !baked_gpu_reads_astc()) {
+    return false;
+  }
+  std::lock_guard<std::mutex> lock(g_baked.mutex);
+  ensure_baked_scanned_locked();
+  return !g_baked.index.empty();
 }
 
 #ifdef OG_FEAT_PBR

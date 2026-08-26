@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Attendre que le volume adopte de la Shield sorte de l'etat `checking` : tant qu'il y
+# Attendre que le volume adopte de la appareil de test sorte de l'etat `checking` : tant qu'il y
 # est, Zygote echoue a monter /mnt/expand/<uuid>/user et AUCUNE application ne peut
-# demarrer (shieldbeta et tegrazone3 de NVIDIA tombent pareil). Puis re-tester le
+# demarrer (appareil de testbeta et tegrazone3 de NVIDIA tombent pareil). Puis re-tester le
 # demarrage du jeu et deploy_verify.
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
-ADB=/home/emeric/Android/platform-tools/adb; S=192.168.1.32:5555
+ADB=/home/emeric/Android/platform-tools/adb; S=eae4df44
 LOG=.autoport/logs/gmam-volume-wait.log
 exec > >(tee -a "$LOG") 2>&1
 echo "=== $(date -Is) attente du volume adopte ==="

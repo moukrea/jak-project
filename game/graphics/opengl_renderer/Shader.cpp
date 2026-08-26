@@ -5,6 +5,7 @@
 #include "common/log/log.h"
 #include "common/util/Assert.h"
 #include "common/util/FileUtil.h"
+#include "common/util/rss_census.h"
 
 #include "game/graphics/pipelines/opengl.h"
 
@@ -678,4 +679,7 @@ ShaderLibrary::ShaderLibrary(GameVersion version) {
     ASSERT_MSG(m_shaders[i].okay(), "error compiling shader");
   }
 #endif
+  // A55-RSS: pose juste apres la ligne `A35-RENDER all {} shaders compiled` ci-dessus
+  // (hors du #ifdef pour que le meme marqueur existe aussi sur la cible x86 de reference).
+  rss_census::mark("shaders");
 }

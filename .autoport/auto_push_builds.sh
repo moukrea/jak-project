@@ -1,4 +1,15 @@
 #!/usr/bin/env bash
+# --- GARDE SHIELD (owner 2026-08-26) : ce demon fait son travail normalement,
+# mais il ne doit JAMAIS parler a la NVIDIA Shield. Elle s'etait reconnectee
+# toute seule au serveur adb et l'owner a exige l'arret total :
+#   « TU TOUCHES PLUS A LA SHIELD TANT QUE JE TE LE DIT PAS »
+# On la sort du serveur adb a chaque tour, sans rien changer au reste.
+SHIELD_ADDR="192.168.1.32:5555"
+shield_keep_out() { "${ADB:-adb}" disconnect "$SHIELD_ADDR" >/dev/null 2>&1 || true; }
+shield_keep_out
+
+
+
 # Continuously ship intermediate builds to jak-builds so the owner never waits.
 # Owner 2026-08-06: "n'hésite pas à pousser les builds intermédiaires au fil de l'eau que je teste aussi"
 # Uploads only when the APK's content hash actually changed, and never while a build is mid-write.

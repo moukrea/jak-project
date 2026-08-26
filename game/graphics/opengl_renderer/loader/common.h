@@ -29,6 +29,17 @@ struct LevelData {
 
   GLuint merc_vertices;
   GLuint merc_indices;
+  // Gmemory-ceiling-and-crash : le nombre de sommets merc SURVIT a la liberation du tableau
+  // CPU (`release_uploaded_merc_vertices`). Un seul lecteur en avait besoin — le diagnostic
+  // F1A-MERC-VERIFY de Merc2 — et lire `.size()` d'un vecteur rendu afficherait 0 sans que
+  // rien ne le dise.
+  size_t merc_vertex_count = 0;
+  // Gmemory-ceiling-and-crash : vrai des que les tangentes et les sommets CPU de tfrag/tie de
+  // ce niveau ont ete rendus. Le drapeau existe parce que la liberation N'EST PAS idempotente :
+  // `precompute_uv_density_then_release_vertices` MESURE la densite UV avant de liberer, donc un
+  // second passage la re-mesurerait sur des tableaux vides et ecraserait le cache avec la valeur
+  // par defaut — un faux silencieux sur le relief, exactement le defaut que ce cache evite.
+  bool cpu_geo_released[2] = {false, false};  // [0] = tfrag, [1] = tie
   std::unordered_map<std::string, const tfrag3::MercModel*> merc_model_lookup;
 
   GLuint hfrag_vertices;

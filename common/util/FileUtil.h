@@ -92,6 +92,12 @@ fs::path get_recharged_assets_dir();
 std::optional<fs::path> get_external_recharged_assets_dir();
 fs::path get_custom_assets_replacements_dir(GameVersion game_version);
 fs::path get_bundled_recharged_textures_dir(GameVersion game_version);
+// Gshield-load-and-crash: the PRE-BAKED (GPU-compressed) twin of the directory above, one
+// subdirectory per GPU profile ("astc"). Same tree, same names, ".ktx2" instead of ".png",
+// plus one <material>.stats.json sidecar carrying the statistics the PNG path used to measure
+// at load. Produced offline by tools/bake_recharged_textures.py; ships through the SAME custom
+// pack, so it resolves against the same roots as its PNG twin.
+fs::path get_bundled_recharged_textures_baked_dir(GameVersion game_version, const char* profile);
 // Grecharged-mesh-browser: the per-level mesh catalogue distilled from tess_sign, shipped inside
 // the game package next to the bundled recharged textures (same custom-pack root on Android, same
 // checked-out tree on desktop). Read on demand by the debug mesh browser.

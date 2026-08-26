@@ -3,6 +3,7 @@
 #include "common/goal_constants.h"
 #include "common/log/log.h"
 #include "common/util/FileUtil.h"
+#include "common/util/rss_census.h"
 
 #include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/BlitDisplays.h"
@@ -79,6 +80,7 @@ OpenGLRenderer::OpenGLRenderer(std::shared_ptr<TexturePool> texture_pool,
     : m_render_state(texture_pool, loader, version),
       m_collide_renderer(version),
       m_version(version) {
+  rss_census::mark("renderer-ctor");
   // requires OpenGL 4.3
 #ifndef __APPLE__
   // setup OpenGL errors
@@ -167,6 +169,8 @@ OpenGLRenderer::OpenGLRenderer(std::shared_ptr<TexturePool> texture_pool,
     default:
       ASSERT(false);
   }
+  rss_census::mark("renderer-buckets");
+  rss_census::mark("renderer-fin");
 }
 
 void OpenGLRenderer::init_bucket_renderers_jak3() {

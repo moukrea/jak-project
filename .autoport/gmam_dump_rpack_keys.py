@@ -1,5 +1,5 @@
 import json, struct, subprocess, sys, os
-ADB=["adb","-s","192.168.1.32:5555"]
+ADB=["adb","-s","eae4df44"]
 PKG="org.opengoal.gk.jak1"
 DIR=f"files/managed_assets/jak1"
 def sh(cmd):

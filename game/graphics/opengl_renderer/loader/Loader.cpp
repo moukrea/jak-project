@@ -17,6 +17,11 @@
 #include "common/util/FileUtil.h"
 #include "common/util/Timer.h"
 #include "common/util/compress.h"
+#include "common/util/rss_census.h"
+
+#ifdef __ANDROID__
+#include <malloc.h>
+#endif
 
 #include "game/graphics/opengl_renderer/background/background_common.h"
 #include "game/graphics/opengl_renderer/loader/CustomTextureReplacements.h"
@@ -293,6 +298,60 @@ static bool read_persisted_recharged_textures() {
 // enhanced fr3 STRICTLY from base/enhanced/ and deliberately do NOT consult the APK custom pack
 // (get_custom_fr3_dir()): a hit there would mean ND IP had leaked into the binary. The custom pack
 // build (android/build_custom_pack.sh) has a matching guard that refuses to stage any enhanced/ member.
+// Gmemory-ceiling-and-crash (2026-08-26) — RENDRE LES PAGES LIBEREES A L'OS.
+// Mesure sur le Redmi au maximum de la course : l'arene du tas fait 846 MiB mappes pour
+// 696 Mo RESIDENTS. Les ~150 Mo d'ecart sont deja LIBRES cote allocateur, mais bionic les
+// garde en cache : un `free()` ne fait pas baisser le RSS, et c'est le RSS que le tueur de
+// memoire regarde. `mallopt(M_PURGE_ALL)` (bionic, <malloc.h>) rend ces pages tout de suite.
+// A n'appeler qu'apres une GROSSE liberation nommee, jamais par frame.
+// Hors Android : sans effet, la fonction n'existe pas — le code compile et ne fait rien.
+static void heap_purge(const char* pourquoi) {
+#if defined(__ANDROID__)
+  // PIEGE, mesure : les DEUX macros sont definies INCONDITIONNELLEMENT par le <malloc.h> du
+  // NDK r27c (:212 et :221), quel que soit le niveau d'API vise. Un `#if defined(M_PURGE_ALL)`
+  // ne dit donc RIEN du systeme qui executera : `M_PURGE_ALL` n'est servi qu'a partir de
+  // l'API 34, et le Redmi de test est en API 31 — bionic rend 0 et ne purge rien, pendant
+  // qu'un `#elif` laisse `M_PURGE` (servi depuis l'API 28, minSdk du projet 29) en code MORT.
+  // Seule la VALEUR DE RETOUR arbitre (malloc.h:363 : 1 = succes, 0 = erreur). On essaie donc
+  // les deux, dans l'ordre, et on PUBLIE lequel a pris.
+  int ok = 0;
+  const char* voie = "aucune";
+#if defined(M_PURGE_ALL)
+  ok = mallopt(M_PURGE_ALL, 0);
+  if (ok) {
+    voie = "M_PURGE_ALL";
+  }
+#endif
+#if defined(M_PURGE)
+  if (!ok) {
+    ok = mallopt(M_PURGE, 0);
+    if (ok) {
+      voie = "M_PURGE";
+    }
+  }
+#endif
+  fmt::print("A59-PURGE ou={} voie={} ok={}\n", pourquoi, voie, ok);
+  rss_census::mark(pourquoi);
+#else
+  (void)pourquoi;
+#endif
+}
+
+// autoport 2026-08-26 (Gmemory-ceiling-and-crash) — le niveau COMMUN n'avait AUCUN bilan
+// memoire. Mesure sur le Redmi : `Loader::load_common` fait passer le RSS de 327 a 1067 Mo,
+// soit 740 Mo pour UN fichier de 25,4 Mo compresse — plus que tous les niveaux de jeu reunis.
+// `measure_level_ram` existait deja et n'etait appelee que pour les niveaux NORMAUX.
+// Declarees ici parce que leur definition vit dans le namespace anonyme plus bas ; c'est le
+// meme namespace, donc la declaration et la definition se lient.
+namespace {
+void report_level_ram(const std::string& name, const tfrag3::Level& lev, const char* moment);
+void report_merc_detail(const std::string& name, const tfrag3::Level& lev, const char* moment);
+void release_uploaded_merc_vertices(tfrag3::Level& lev);
+void compact_merc_vertex_pool(tfrag3::Level& lev);
+void precompute_uv_density(tfrag3::Level& lev);
+void release_uploaded_vertices(tfrag3::Level& lev, int systeme);
+}  // namespace
+
 static fs::path hd_fr3_path(const fs::path& base, const std::string& name) {
 #ifdef OG_FEAT_HD_MODELS
   if (Gfx::recharged_active(Gfx::g_global_settings.recharged_enhanced_models)) {
@@ -397,13 +456,28 @@ void Loader::loader_thread() {
       fmt::print("A51-FR3 lev={} compresse={:.1f}MB decompresse={:.1f}MB disque={:.2f}s zstd={:.2f}s\n",
                  lev, data.size() / 1048576.0, decomp_data.size() / 1048576.0, disk_load_time,
                  decomp_time);
+      rss_census::mark("fr3-decomp");
 
       // Read back into the tfrag3::Level structure
       prof().begin_event("deserialize");
       Timer import_timer;
       auto result = std::make_unique<tfrag3::Level>();
-      Serializer ser(decomp_data.data(), decomp_data.size());
-      result->serialize(ser);
+      {
+        // EMPRUNT, pas copie : le constructeur historique dupliquait `decomp_data` (35,0 Mo
+        // pour village1, 174,5 Mo pour GAME) le temps de la deserialisation. Et les deux
+        // tampons vivaient jusqu'a la fin du bloc, donc pendant TOUTE la passe d'unpack
+        // (subdivision + tangentes), la plus gourmande : ils partent des que la structure
+        // est batie.
+        Serializer ser(Serializer::Borrowed{}, decomp_data.data(), decomp_data.size());
+        result->serialize(ser);
+      }
+      rss_census::mark("fr3-serialize");
+      compact_merc_vertex_pool(*result);
+      {
+        std::vector<u8>().swap(data);
+        std::vector<u8>().swap(decomp_data);
+      }
+      heap_purge("fr3-tampons-rendus");
       double import_time = import_timer.getSeconds();
       prof().end_event();
       log_merc_models(lev, *result);
@@ -572,6 +646,7 @@ void Loader::loader_thread() {
       fmt::print(
           "------------> Load from file: {:.3f}s, import {:.3f}s, decomp {:.3f}s unpack {:.3f}s\n",
           disk_load_time, import_time, decomp_time, unpack_timer.getSeconds());
+      rss_census::mark("fr3-unpack");
 
       // grab the lock again
       lk.lock();
@@ -591,6 +666,7 @@ void Loader::loader_thread() {
  * This should be called during initialization, before any threaded loading goes on.
  */
 const tfrag3::Level& Loader::load_common(TexturePool& tex_pool, const std::string& name) {
+  rss_census::mark("common-debut");
   // Grecharged-master-toggle: seed the GLOBAL master before the first fr3-path resolution.
   Gfx::g_global_settings.recharged_master = read_persisted_recharged_master();
   // Grecharged-bundled-textures: seed the base-swap toggle before the first add_texture.
@@ -633,15 +709,34 @@ const tfrag3::Level& Loader::load_common(TexturePool& tex_pool, const std::strin
   }
 #endif
   auto data = file_util::read_binary_file(hd_fr3_path(m_base_path, name));
+  rss_census::mark("common-lu");
 
   auto decomp_data = compression::decompress_zstd(data.data(), data.size());
-  Serializer ser(decomp_data.data(), decomp_data.size());
+  rss_census::mark("common-decomp");
   m_common_level.level = std::make_unique<tfrag3::Level>();
-  m_common_level.level->serialize(ser);
+  {
+    // EMPRUNT, pas copie (cf. Serializer::Borrowed). Ici le poste est le plus gros du jeu :
+    // GAME.fr3 des modeles HD decompresse a 174,5 Mo, donc l'ancien constructeur tenait
+    // 174,5 Mo de tampon + 174,5 Mo de copie interne PENDANT la construction du niveau, et
+    // la copie interne survivait ensuite jusqu'a la fin de la fonction — donc pendant tout
+    // le televersement des textures et des personnages.
+    Serializer ser(Serializer::Borrowed{}, decomp_data.data(), decomp_data.size());
+    m_common_level.level->serialize(ser);
+  }
+  rss_census::mark("common-serialize");
+  compact_merc_vertex_pool(*m_common_level.level);
+  {
+    // Les deux tampons sont morts des que la structure est batie : les rendre AVANT le
+    // televersement, pas a la sortie de la fonction.
+    std::vector<u8>().swap(data);
+    std::vector<u8>().swap(decomp_data);
+  }
+  heap_purge("common-tampons-rendus");
   log_merc_models(name, *m_common_level.level);
   for (auto& tex : m_common_level.level->textures) {
     m_common_level.textures.push_back(add_texture(tex_pool, tex, true));
   }
+  rss_census::mark("common-textures");
 
   Timer tim;
   MercLoaderStage mls;
@@ -653,6 +748,12 @@ const tfrag3::Level& Loader::load_common(TexturePool& tex_pool, const std::strin
   while (!done) {
     done = mls.run(tim, input);
   }
+  rss_census::mark("common-fin");
+  report_level_ram(name, *m_common_level.level, "charge");
+  report_merc_detail(name, *m_common_level.level, "charge");
+  release_uploaded_merc_vertices(*m_common_level.level);
+  report_level_ram(name, *m_common_level.level, "apres-liberations");
+  heap_purge("common-fin-purge");
   return *m_common_level.level;
 }
 
@@ -703,32 +804,49 @@ struct LevelRamReport {
 // which WRITES it, and `redo()`, which recomputes it from positions+indices when a
 // setting changes. Measured on village1: 26.3 MB per level, times the three cached
 // levels. Hand it back once every loader stage has finished uploading.
-void release_uploaded_tangents(tfrag3::Level& lev) {
+void release_uploaded_tangents(tfrag3::Level& lev, int systeme) {
   auto drop = [](std::vector<math::Vector4f>& v) {
     std::vector<math::Vector4f>().swap(v);  // free the storage, not just the size
   };
-  for (auto& geo : lev.tfrag_trees) {
-    for (auto& t : geo) {
-      drop(t.unpacked.tangents);
+  if (systeme == 0) {
+    for (auto& geo : lev.tfrag_trees) {
+      for (auto& t : geo) {
+        drop(t.unpacked.tangents);
+      }
     }
-  }
-  for (auto& geo : lev.tie_trees) {
-    for (auto& t : geo) {
-      drop(t.unpacked.tangents);
+  } else {
+    for (auto& geo : lev.tie_trees) {
+      for (auto& t : geo) {
+        drop(t.unpacked.tangents);
+      }
     }
   }
 }
 
 // autoport 2026-08-26 — LIBERER LES SOMMETS CPU APRES TELEVERSEMENT.
 // `unpacked.vertices` = 57,0 Mo par niveau (A50-LEVRAM, village1), le plus gros poste des
-// 122,1 Mo qu'un niveau garde en RAM. Ils sont deja dans le GPU. Leurs seuls lecteurs apres
-// chargement sont les trois mesures de densite UV du chemin PBR, appelees une fois par niveau
-// DEPUIS LE RENDU — donc trop tard pour liberer. On mesure ici, on memorise, on libere.
+// 122,1 Mo qu'un niveau garde en RAM. Ils sont deja dans le GPU. Pour TFRAG et TIE, les seuls
+// lecteurs apres chargement sont les trois mesures de densite UV du chemin PBR, appelees une
+// fois par niveau DEPUIS LE RENDU — donc trop tard pour liberer. On mesure ici, on memorise,
+// on libere.
+// SHRUB EST EPARGNE : `Shrub::update_load` (Shrub.cpp:191, :203, :336) lit `unpacked.vertices`
+// DIRECTEMENT — compte de sommets, LUT d'ancrage de vent, liste d'index d'ombre — et le RENDU
+// l'appelle APRES la fin du chargement. Sa densite UV est mesuree ici sur des sommets vivants.
 // Les INDEX restent : TFragment leur passe `unpacked.indices.data()` a chaque frame.
-void precompute_uv_density_then_release_vertices(tfrag3::Level& lev) {
-  // Ne mesurer que ce que le rendu mesurerait : les textures portant un materiau PBR.
+// MESURE SEULE. Elle lit les sommets CPU des TROIS systemes, donc elle doit tourner tant
+// qu'AUCUN d'eux n'est rendu. Son appelant est la boucle d'etapes, JUSTE APRES l'etape
+// `texture` : c'est `add_texture` qui inscrit les materiaux PBR du niveau au registre que la
+// boucle ci-dessous interroge, et a cet instant tfrag n'a pas encore televerse, donc les trois
+// systemes portent encore leurs sommets. Les liberations suivent, par systeme.
+// Ne mesurer que ce que le rendu mesurerait : les textures portant un materiau PBR.
+// MEME CLE QUE LES TROIS CONSOMMATEURS REELS (TFragment.cpp:373, Tie3.cpp:346, Shrub.cpp:140) :
+// `pbr_material_key(debug_tpage_name, debug_name)`. Avec la seule `debug_name`, le cache serait
+// rempli pour un ENSEMBLE DIFFERENT de textures, le rendu raterait le cache, parcourrait des
+// sommets liberes et retomberait sur la densite constante 0.5 — un faux silencieux sur le POM.
+void precompute_uv_density(tfrag3::Level& lev) {
   for (size_t ti = 0; ti < lev.textures.size(); ++ti) {
-    if (!custom_tex::find_pbr_material(lev.textures[ti].debug_name)) {
+    if (!custom_tex::find_pbr_material(custom_tex::pbr_material_key(
+            lev.textures[ti].debug_tpage_name, lev.textures[ti].debug_name))) {
       continue;
     }
     u32 n = 0;
@@ -741,27 +859,225 @@ void precompute_uv_density_then_release_vertices(tfrag3::Level& lev) {
     const float d_shrub = measure_uv_density_shrub(lev, (s32)ti, &n);
     uv_density_store(lev, 2, (s32)ti, d_shrub, n);
   }
+}
 
+// LIBERATION, PAR SYSTEME ET DES QUE SON ETAPE A TELEVERSE. systeme : 0 = tfrag, 1 = tie.
+// Pourquoi par systeme : l'ordre des etapes est tie(0), texture(1), tfrag(2), ... Liberer en
+// FIN DE LOT faisait coexister TOUTE la geometrie CPU du niveau (village1 : 57,0 Mo de sommets
+// + 26,3 Mo de tangentes) avec les textures GPU qui venaient d'etre televersees — et c'est ce
+// recouvrement qui fait le maximum de la course. La geometrie de TIE part donc AVANT meme que
+// l'etape de texture commence.
+// SHRUB EST EPARGNE : `Shrub::update_load` lit ses sommets DIRECTEMENT (compte, LUT de vent,
+// index d'ombre) et le RENDU l'appelle apres le chargement. Les INDEX de tous les systemes
+// restent : le rendu les relit chaque frame.
+void release_uploaded_vertices(tfrag3::Level& lev, int systeme) {
+  // `grass_bake::scan_level` (GrassBakeCore.cpp:506,512) relit tfrag/tie a la DEMANDE DU MENU,
+  // des minutes apres le chargement, sur ces deux niveaux uniquement. Liberer y donnerait un
+  // champ vide au premier mouvement du curseur de densite.
+  if (grass_level_enabled(lev.level_name)) {
+    fmt::print("A54-VERTFREE lev={} sys={} SAUTE (niveau a herbe vive)\n", lev.level_name,
+               systeme);
+    return;
+  }
   size_t freed = 0;
   auto drop_pv = [&freed](std::vector<tfrag3::PreloadedVertex>& v) {
     freed += v.size() * sizeof(tfrag3::PreloadedVertex);
     std::vector<tfrag3::PreloadedVertex>().swap(v);
   };
-  for (auto& geo : lev.tfrag_trees) {
-    for (auto& t : geo) {
-      drop_pv(t.unpacked.vertices);
+  if (systeme == 0) {
+    for (auto& geo : lev.tfrag_trees) {
+      for (auto& t : geo) {
+        drop_pv(t.unpacked.vertices);
+      }
+    }
+  } else {
+    for (auto& geo : lev.tie_trees) {
+      for (auto& t : geo) {
+        drop_pv(t.unpacked.vertices);
+      }
     }
   }
-  for (auto& geo : lev.tie_trees) {
-    for (auto& t : geo) {
-      drop_pv(t.unpacked.vertices);
+  release_uploaded_tangents(lev, systeme);
+  fmt::print("A54-VERTFREE lev={} sys={} libere={:.1f}MB (sommets ; tangentes rendues aussi)\n",
+             lev.level_name, systeme == 0 ? "tfrag" : "tie", freed / 1048576.0);
+}
+
+// Gmemory-ceiling-and-crash (2026-08-26) — COMPACTER LE POOL DE SOMMETS MERC.
+//
+// FAIT MESURE, sur l'appareil : `A57-MERC lev=GAME sommets=150.3MB(n=2462895)`, et le
+// recensement montre le MEME nombre d'octets une deuxieme fois cote GPU
+// (`A55-RSS merc-bufdata gpu=86Mo` -> `merc-uploade gpu=238Mo`, +152 Mo). Or le GAME.fr3
+// STOCK n'a que 9 942 sommets merc : c'est la CUISSON HD qui empile les pools de sommets de
+// chaque modele sans jamais les compacter. Balayage de `merc_data.indices` : une petite part
+// seulement des sommets alloues est atteignable par un `glDrawElements` — merc ne dessine
+// QUE par index (aucun `glDrawArrays` dans Merc2.cpp), donc la borne est DURE.
+//
+// CE QUI REND LA REECRITURE DELICATE, et pourquoi il y a des gardes : une meme case de
+// `merc_data.indices` n'adresse pas toujours le meme tableau. `Merc2::do_draws` lie le MEME
+// tampon d'index pour tous les draws, mais bascule le VAO : un draw `MOD_VTX` lit ses sommets
+// dans le pool MODIFIABLE DE L'EFFET (`effect.mod.vertices`, quelques milliers de sommets),
+// pas dans `merc_data.vertices` (Merc2.cpp:2874-2879). Renumeroter ces cases-la casserait les
+// personnages a blend shapes EN SILENCE.
+//
+// Donc on CLASSE les cases avant de toucher a quoi que ce soit :
+//   1 = case lue par un draw du pool PRINCIPAL (`all_draws`, `mod.fix_draw`),
+//   2 = case lue par un draw du pool MODIFIABLE (`mod.mod_draw`),
+//   3 = case reclamee par les DEUX (contradiction),
+//   0 = case qu'aucun draw ne lit.
+// et la compaction n'a lieu QUE si : aucune plage de draw ne deborde du tableau d'index,
+// aucune case en conflit, tout index principal est < nombre de sommets, et tout index
+// modifiable est < taille du pool de SON effet. La derniere condition est le test direct de
+// l'hypothese ci-dessus : si elle tombe, on ne compacte pas et on le DIT.
+// Les cases 0 et 2 ne sont jamais reecrites.
+void compact_merc_vertex_pool(tfrag3::Level& lev) {
+  auto& verts = lev.merc_data.vertices;
+  auto& idx = lev.merc_data.indices;
+  const size_t nv = verts.size();
+  const size_t ni = idx.size();
+  if (nv == 0 || ni == 0) {
+    return;
+  }
+  constexpr u32 kRestart = UINT32_MAX;
+
+  std::vector<u8> cls(ni, 0);
+  bool plage_hors_bornes = false;
+  auto claim = [&](const tfrag3::MercDraw& d, u8 quoi) {
+    if ((u64)d.first_index + (u64)d.index_count > (u64)ni) {
+      plage_hors_bornes = true;
+      return;
+    }
+    for (u32 k = 0; k < d.index_count; k++) {
+      u8& c = cls[(size_t)d.first_index + k];
+      if (c == 0) {
+        c = quoi;
+      } else if (c != quoi) {
+        c = 3;
+      }
+    }
+  };
+  for (const auto& m : lev.merc_data.models) {
+    for (const auto& e : m.effects) {
+      for (const auto& d : e.all_draws) {
+        claim(d, 1);
+      }
+      for (const auto& d : e.mod.fix_draw) {
+        claim(d, 1);
+      }
+      for (const auto& d : e.mod.mod_draw) {
+        claim(d, 2);
+      }
     }
   }
-  for (auto& t : lev.shrub_trees) {
-    freed += t.unpacked.vertices.size() * sizeof(tfrag3::ShrubGpuVertex);
-    std::vector<tfrag3::ShrubGpuVertex>().swap(t.unpacked.vertices);
+
+  // Le test direct de l'hypothese « un index MOD_VTX adresse le pool de son effet ».
+  bool mod_local = true;
+  if (!plage_hors_bornes) {
+    for (const auto& m : lev.merc_data.models) {
+      for (const auto& e : m.effects) {
+        const u32 pool = (u32)e.mod.vertices.size();
+        for (const auto& d : e.mod.mod_draw) {
+          for (u32 k = 0; k < d.index_count && mod_local; k++) {
+            const u32 v = idx[(size_t)d.first_index + k];
+            if (v != kRestart && v >= pool) {
+              mod_local = false;
+            }
+          }
+        }
+      }
+    }
   }
-  fmt::print("A54-VERTFREE lev={} libere={:.1f}MB\n", lev.level_name, freed / 1048576.0);
+
+  size_t n_main = 0, n_mod = 0, n_conflit = 0, n_libre = 0;
+  bool index_hors_bornes = false;
+  std::vector<u8> utilise(nv, 0);
+  size_t n_utilises = 0;
+  for (size_t i = 0; i < ni; i++) {
+    const u32 v = idx[i];
+    switch (cls[i]) {
+      case 1:
+        n_main++;
+        if (v != kRestart) {
+          if (v >= nv) {
+            index_hors_bornes = true;
+          } else if (!utilise[v]) {
+            utilise[v] = 1;
+            n_utilises++;
+          }
+        }
+        break;
+      case 2:
+        n_mod++;
+        break;
+      case 3:
+        n_conflit++;
+        break;
+      default:
+        n_libre++;
+        break;
+    }
+  }
+
+  const bool sur = !plage_hors_bornes && !index_hors_bornes && n_conflit == 0 && mod_local;
+  const bool utile = n_utilises < nv;
+  if (!sur || !utile) {
+    fmt::print(
+        "A60-MERCPACK lev={} NON COMPACTE sommets={} utilises={} cases(main={} mod={} "
+        "conflit={} libre={}) plage_hs={} index_hs={} mod_local={} raison={}\n",
+        lev.level_name, nv, n_utilises, n_main, n_mod, n_conflit, n_libre,
+        plage_hors_bornes ? 1 : 0, index_hors_bornes ? 1 : 0, mod_local ? 1 : 0,
+        !sur ? "garde" : "rien-a-gagner");
+    return;
+  }
+
+  std::vector<u32> remap(nv, kRestart);
+  u32 suivant = 0;
+  for (size_t v = 0; v < nv; v++) {
+    if (utilise[v]) {
+      remap[v] = suivant++;
+    }
+  }
+  std::vector<tfrag3::MercVertex> compacte;
+  compacte.reserve(suivant);
+  for (size_t v = 0; v < nv; v++) {
+    if (utilise[v]) {
+      compacte.push_back(verts[v]);
+    }
+  }
+  for (size_t i = 0; i < ni; i++) {
+    if (cls[i] == 1) {
+      const u32 v = idx[i];
+      if (v != kRestart) {
+        idx[i] = remap[v];
+      }
+    }
+  }
+  verts.swap(compacte);
+  std::vector<tfrag3::MercVertex>().swap(compacte);
+  const size_t avant = nv * sizeof(tfrag3::MercVertex);
+  const size_t apres = verts.size() * sizeof(tfrag3::MercVertex);
+  fmt::print(
+      "A60-MERCPACK lev={} COMPACTE sommets {} -> {} ({:.1f}MB -> {:.1f}MB, gagne {:.1f}MB "
+      "en RAM ET AUTANT dans le tampon GPU) cases(main={} mod={} libre={})\n",
+      lev.level_name, nv, verts.size(), avant / 1048576.0, apres / 1048576.0,
+      (avant - apres) / 1048576.0, n_main, n_mod, n_libre);
+}
+
+// Gmemory-ceiling-and-crash (2026-08-26) — RENDRE LES SOMMETS MERC CPU APRES TELEVERSEMENT.
+// `MercLoaderStage` copie `merc_data.vertices` dans un tampon GL (`glBufferData` +
+// `glBufferSubData` par tranches), et a partir de la le rendu ne lit plus QUE le tampon GL.
+// Recensement des lecteurs de `merc_data.vertices` dans tout le depot, apres chargement :
+//   - `Merc2.cpp:3097` (F1A-MERC-VERIFY) : lisait `.size()`, PAS les donnees ; la valeur est
+//     desormais conservee dans `LevelData::merc_vertex_count`, donc le diagnostic ne ment pas ;
+//   - `tools/hd_merc_swap/main.cpp` : outil HORS LIGNE, pas le jeu.
+// Aucun autre. En particulier les BLEND SHAPES ne passent pas par la : `Blerc` travaille sur
+// `effect.mod.vertices`, une copie PROPRE A CHAQUE EFFET, qui n'est pas touchee ici.
+// LES INDEX RESTENT : `Merc2.cpp:826` (eye_blerc) et la garde F1A-MERC-OOB (`Merc2.cpp:3048`,
+// evaluee a CHAQUE draw sur Android) lisent `merc_data.indices` en pleine partie.
+void release_uploaded_merc_vertices(tfrag3::Level& lev) {
+  const size_t freed = lev.merc_data.vertices.size() * sizeof(tfrag3::MercVertex);
+  std::vector<tfrag3::MercVertex>().swap(lev.merc_data.vertices);
+  fmt::print("A58-MERCFREE lev={} libere={:.1f}MB (sommets CPU ; index gardes)\n", lev.level_name,
+             freed / 1048576.0);
 }
 
 LevelRamReport measure_level_ram(const tfrag3::Level& lev) {
@@ -825,6 +1141,60 @@ LevelRamReport measure_level_ram(const tfrag3::Level& lev) {
   r.hfrag += lev.hfrag.time_of_day_colors.data.size();
   return r;
 }
+
+// A50-LEVRAM, un seul point d'impression pour TOUS les niveaux (le commun compris).
+// NATURE : octets de TAS C++ tenus par la structure `tfrag3::Level` de ce niveau.
+// REPERE : la structure du niveau, pas le processus — la memoire GPU n'y est pas.
+// LIGNE DE BASE : le meme niveau au moment `charge`, avant les liberations.
+void report_level_ram(const std::string& name, const tfrag3::Level& lev, const char* moment) {
+  const auto ram = measure_level_ram(lev);
+  fmt::print(
+      "A50-LEVRAM lev={} moment={} verts={:.1f}MB idx={:.1f}MB tan={:.1f}MB tex={:.1f}MB "
+      "merc={:.1f}MB coll={:.1f}MB packed={:.1f}MB bvh={:.1f}MB tod={:.1f}MB "
+      "draws={:.1f}MB hfrag={:.1f}MB total={:.1f}MB\n",
+      name, moment, ram.verts / 1048576.0, ram.indices / 1048576.0, ram.tangents / 1048576.0,
+      ram.textures / 1048576.0, ram.merc / 1048576.0, ram.collision / 1048576.0,
+      ram.packed / 1048576.0, ram.bvh / 1048576.0, ram.tod / 1048576.0, ram.draws / 1048576.0,
+      ram.hfrag / 1048576.0, ram.total() / 1048576.0);
+}
+
+// A57-MERC — le detail du poste `merc`, parce que `measure_level_ram` n'en compte que DEUX
+// champs (`merc_data.vertices` et `merc_data.indices`) et que les modeles HD en portent
+// quatre autres qui ne sont comptes NULLE PART : la copie de sommets modifiables de chaque
+// effet, ses adresses lump4, son masque de fragments, et les deux tableaux de BLEND SHAPE.
+// NATURE : octets de tas. REPERE : la structure du niveau.
+// sizeof(MercVertex) = 64 (Tfrag3Data.h:565), donc `sommets` en octets / 64 = le nombre exact
+// de sommets — c'est ce nombre qu'on compare a la taille du tampon GPU.
+void report_merc_detail(const std::string& name, const tfrag3::Level& lev, const char* moment) {
+  size_t vtx = lev.merc_data.vertices.size() * sizeof(tfrag3::MercVertex);
+  size_t idx = lev.merc_data.indices.size() * sizeof(u32);
+  size_t mod_vtx = 0, blerc_f = 0, blerc_i = 0, lump = 0, fragmask = 0, draws = 0;
+  size_t n_eff = 0, n_mod = 0;
+  for (const auto& m : lev.merc_data.models) {
+    for (const auto& e : m.effects) {
+      n_eff++;
+      draws += e.all_draws.size() * sizeof(tfrag3::MercDraw);
+      draws += (e.mod.fix_draw.size() + e.mod.mod_draw.size()) * sizeof(tfrag3::MercDraw);
+      if (!e.mod.vertices.empty() || !e.mod.blerc.float_data.empty()) {
+        n_mod++;
+      }
+      mod_vtx += e.mod.vertices.size() * sizeof(tfrag3::MercVertex);
+      lump += e.mod.vertex_lump4_addr.size() * sizeof(u16);
+      fragmask += e.mod.fragment_mask.size();
+      blerc_f += e.mod.blerc.float_data.size() * sizeof(tfrag3::BlercFloatData);
+      blerc_i += e.mod.blerc.int_data.size() * sizeof(u32);
+    }
+  }
+  const size_t tot = vtx + idx + mod_vtx + lump + fragmask + blerc_f + blerc_i + draws;
+  fmt::print(
+      "A57-MERC lev={} moment={} modeles={} effets={} effets_mod={} sommets={:.1f}MB(n={}) "
+      "index={:.1f}MB modsommets={:.1f}MB blercf={:.1f}MB blerci={:.1f}MB lump={:.1f}MB "
+      "fragmask={:.1f}MB draws={:.1f}MB total={:.1f}MB\n",
+      name, moment, lev.merc_data.models.size(), n_eff, n_mod, vtx / 1048576.0,
+      lev.merc_data.vertices.size(), idx / 1048576.0, mod_vtx / 1048576.0, blerc_f / 1048576.0,
+      blerc_i / 1048576.0, lump / 1048576.0, fragmask / 1048576.0, draws / 1048576.0,
+      tot / 1048576.0);
+}
 }  // namespace
 
 void Loader::update_blocking(TexturePool& tex_pool) {
@@ -877,6 +1247,11 @@ void Loader::update_blocking(TexturePool& tex_pool) {
   }
 
   fmt::print("Blackout loads done. Current status:");
+  // Gmemory-ceiling-and-crash : c'est LE point ou l'appareil du proprietaire mourait — la
+  // derniere ligne du moteur avant la mort etait « coming out of blackout ». Tous les
+  // chargements du lot viennent de finir, donc c'est aussi le moment ou l'allocateur tient le
+  // plus de pages LIBRES mais pas rendues. On les rend ici, et on publie le bilan.
+  heap_purge("blackout-fin");
   std::unique_lock<std::mutex> lk(m_loader_mutex);
   for (auto& ld : m_loaded_tfrag3_levels) {
     fmt::print("  {} is loaded.\n", ld.first);
@@ -902,6 +1277,15 @@ const std::string* Loader::get_most_unloadable_level() {
 
 void Loader::update(TexturePool& texture_pool) {
   Timer loader_timer;
+
+  // Gmemory-ceiling-and-crash : la purge DIFFEREE. Celle de `niveau-pret` tombe avant la
+  // premiere image du niveau ; le maximum de la course est mesure environ une seconde plus tard,
+  // quand le rendu a fini de se remettre en route. Une purge de plus, 120 frames apres la fin du
+  // chargement, rend au systeme ce que cette remise en route a libere. Une seule fois par
+  // chargement, jamais par frame.
+  if (m_frames_until_purge > 0 && --m_frames_until_purge == 0) {
+    heap_purge("apres-chargement");
+  }
 
   {
     // lock because we're accessing m_active_levels
@@ -948,6 +1332,35 @@ void Loader::update(TexturePool& texture_pool) {
         if (stage_timer.getMs() > 5.f) {
           fmt::print("stage {} took {:.2f} ms\n", stage->name(), stage_timer.getMs());
         }
+        // Gmemory-ceiling-and-crash : RENDRE LA GEOMETRIE CPU DES QU'ELLE EST DANS LE GPU,
+        // pas a la fin du lot. L'ordre des etapes est tie(0), texture(1), tfrag(2), shrub,
+        // collide, merc, hfrag, stall (make_loader_stages) et chacune finit avant la suivante :
+        // quand `tfrag` rend `done`, tie ET tfrag sont televerses, donc leurs 79 Mo de sommets
+        // et de tangentes (village1 : 52,6 + 26,3) sont morts. Les garder jusqu'a la fin du lot
+        // les faisait coexister avec les textures GPU du niveau, et c'est EXACTEMENT le sommet
+        // de la course : `A55-RSS merc-uploade rss=848Mo` contre `fr3-unpack rss=650Mo`.
+        // Aucune etape suivante ne lit ces tableaux : shrub lit les siens (epargnes), collide la
+        // collision, merc les donnees merc, hfrag le hfrag.
+        // ORDRE DES ETAPES : tie(0), texture(1), tfrag(2), shrub, collide, merc, hfrag, stall.
+        // La densite UV se mesure JUSTE APRES `texture` et pas avant : elle ne parcourt que les
+        // textures qui portent un materiau PBR, et c'est `add_texture` — donc l'etape `texture`
+        // elle-meme — qui INSCRIT les materiaux de ce niveau au registre. La mesurer plus tot
+        // (dans le fil de chargement, par exemple) trouverait un registre vide pour ce niveau,
+        // n'ecrirait aucun echantillon, et le rendu retomberait en silence sur la densite
+        // constante 0,5 : le faux vert exact que ce cache existe pour empecher.
+        // A cet instant les sommets des TROIS systemes sont encore la — tfrag n'a pas encore
+        // televerse — donc la mesure voit tout ce qu'elle doit voir.
+        if (done && stage->name() == "texture" && !lev->cpu_geo_released[1]) {
+          precompute_uv_density(*lev->level);
+          release_uploaded_vertices(*lev->level, 1);
+          lev->cpu_geo_released[1] = true;
+          heap_purge("geo-tie-rendue");
+        }
+        if (done && stage->name() == "tfrag" && !lev->cpu_geo_released[0]) {
+          release_uploaded_vertices(*lev->level, 0);
+          lev->cpu_geo_released[0] = true;
+          heap_purge("geo-tfrag-rendue");
+        }
         if (!done) {
           break;
         }
@@ -971,30 +1384,39 @@ void Loader::update(TexturePool& texture_pool) {
         fprintf(stderr, "F1D-LOADSYNC lev=%s load_id=%llu glFinish at load completion\n",
                 name.c_str(), (unsigned long long)lev->load_id);
 #endif
-        {
-          const auto ram = measure_level_ram(*lev->level);
-          fmt::print(
-              "A50-LEVRAM lev={} verts={:.1f}MB idx={:.1f}MB tan={:.1f}MB tex={:.1f}MB "
-              "merc={:.1f}MB coll={:.1f}MB packed={:.1f}MB bvh={:.1f}MB tod={:.1f}MB "
-              "draws={:.1f}MB hfrag={:.1f}MB total={:.1f}MB\n",
-              name, ram.verts / 1048576.0, ram.indices / 1048576.0, ram.tangents / 1048576.0,
-              ram.textures / 1048576.0, ram.merc / 1048576.0, ram.collision / 1048576.0,
-              ram.packed / 1048576.0, ram.bvh / 1048576.0, ram.tod / 1048576.0,
-              ram.draws / 1048576.0, ram.hfrag / 1048576.0, ram.total() / 1048576.0);
+        report_level_ram(name, *lev->level, "charge");
+        report_merc_detail(name, *lev->level, "charge");
+        // ARME 2026-08-26. Les sommets CPU de TFRAG et TIE partent apres televersement.
+        // Ce qui rend le geste sur : la densite UV du chemin PBR est MESUREE ET MEMORISEE juste
+        // avant la liberation (meme cle que les trois consommateurs :
+        // pbr_material_key(debug_tpage_name, debug_name)), donc leurs lectures tardives
+        // (`Tie3::load_from_fr3_data`, `TFragment::handle_initialization`, appelees par le RENDU
+        // APRES ce point malgre leur nom) trouvent le cache au lieu des sommets.
+        // SHRUB EST EPARGNE : `Shrub::update_load` lit ses sommets DIRECTEMENT (compte, LUT de
+        // vent, index d'ombre) et pas seulement pour la densite — les liberer casse l'herbe et
+        // les ombres. Les INDEX de tous les systemes restent : le rendu les relit chaque frame.
+        // La fonction s'abstient aussi sur les niveaux a herbe vive (rescan a la demande du menu).
+        // REPLI : le cas normal libere DES LA FIN DE L'ETAPE `tfrag` (voir la boucle d'etapes
+        // plus haut) ; on ne passe ici que si cette etape n'a pas ete atteinte. Le drapeau
+        // garantit UN SEUL passage — la mesure de densite UV n'est pas rejouable.
+        // Repli : une etape n'a pas ete atteinte. La mesure ne se rejoue QUE si RIEN n'est
+        // encore parti : relancee apres une liberation partielle, elle reecrirait le cache du
+        // systeme deja libere avec zero echantillon, ce qui est pire que de ne rien ecrire.
+        if (!lev->cpu_geo_released[0] && !lev->cpu_geo_released[1]) {
+          precompute_uv_density(*lev->level);
         }
-        release_uploaded_tangents(*lev->level);
-        // DESARME 2026-08-26 : liberer les sommets ICI casse le rendu (tris=0, drawn=0/80,
-        // puis SIGSEGV). `Shrub::update_load` et `Tie3::load_from_fr3_data` ne sont PAS des
-        // fonctions de chargement malgre leur nom : le RENDERER les appelle quand il decouvre
-        // le niveau, donc APRES ce point. Le gain est reel et mesure (57,0 Mo par niveau,
-        // total du niveau 122,1 -> 38,9 Mo) mais il faut liberer APRES ces deux consommateurs,
-        // pas ici. La mesure de densite reste memorisee : elle est correcte et inerte.
-        // precompute_uv_density_then_release_vertices(*lev->level);
-        {
-          const auto after = measure_level_ram(*lev->level);
-          fmt::print("A50-LEVRAM lev={} apres liberation tangentes: total={:.1f}MB\n", name,
-                     after.total() / 1048576.0);
+        for (int sys = 0; sys < 2; sys++) {
+          if (!lev->cpu_geo_released[sys]) {
+            release_uploaded_vertices(*lev->level, sys);
+            lev->cpu_geo_released[sys] = true;
+          }
         }
+        release_uploaded_merc_vertices(*lev->level);
+        report_level_ram(name, *lev->level, "apres-liberations");
+        report_merc_detail(name, *lev->level, "apres-liberations");
+        heap_purge("niveau-pret");
+        // ... et une seconde, une fois le rendu relance (cf. Loader.h::m_frames_until_purge).
+        m_frames_until_purge = 120;
         lk.lock();
         m_loaded_tfrag3_levels[name] = std::move(lev);
         m_initializing_tfrag3_levels.erase(it);
@@ -1091,6 +1513,11 @@ void Loader::update(TexturePool& texture_pool) {
           mercs.erase(it);
         }
 
+        // autoport 2026-08-26 : la cle du cache de densite UV est un `const tfrag3::Level*`.
+        // Sans cet oubli, l'allocateur peut reutiliser l'adresse du niveau evince pour le
+        // suivant et rendre un FAUX HIT (densite d'un autre niveau, POM faux et silencieux).
+        // `lev` est la reference prise plus haut sur `m_loaded_tfrag3_levels.at(*to_unload)`.
+        uv_density_forget_level(*lev->level);
         m_loaded_tfrag3_levels.erase(*to_unload);
       }
     }

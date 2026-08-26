@@ -19,6 +19,8 @@
 
 #include "common/common_types.h"
 
+#include "game/graphics/opengl_renderer/loader/ManagedAssets.h"
+
 namespace custom_tex {
 
 struct ReplacementImage {
@@ -37,6 +39,36 @@ std::optional<ReplacementImage> lookup(const std::string& tpage_name, const std:
 
 // Report which source would win the BASE texture for this key, without loading pixels.
 BaseSource base_source(const std::string& tpage_name, const std::string& tex_name);
+
+// ===== Gshield-load-and-crash: the PRE-BAKED tier ==============================================
+// Grecharged / Gshield-load-and-crash : niveau PRE-CUIT (baked). Les memes images
+// que le niveau PNG, mais deja compressees GPU (ASTC) et deja mipmappees hors ligne.
+// Aucun stbi_load, aucun glGenerateMipmap, aucune passe de mesure CPU : les
+// statistiques PBR viennent du sidecar produit par la cuisson.
+//
+// Measured cause this tier exists for (SHIELD, 2026-08-26): one `add_texture` on a PBR
+// material costs `stage texture took 1799 ms` on the PNG path — a 2048x2048 stbi_load per
+// map (151-330 ms), each map decoded TWICE (probe pass + re-fetch), then glGenerateMipmap
+// (68-235 ms). The already-proven KTX2 path serves the same material in 87 ms.
+//
+// Source ranking is UNCHANGED apart from the new rung:
+//   user PNG > managed KTX2 > BAKED KTX2 > bundled PNG > stock.
+// The baked tier replaces the BUNDLED PNG tier and therefore carries the bundled tier's
+// gates: the base swap follows `recharged_textures`, the companion maps follow the master
+// (exactly like lookup()/resolve_suffixed()). It is INERT unless the GPU's PREFERRED PROFILE is
+// the ASTC one — not merely unless the GPU can read ASTC, which a desktop GL 4.6 driver also
+// advertises (measured 2026-08-26: 28 `custom texture BAKED` lines in an x86 run, against what
+// this comment used to claim). With the profile gate the desktop path is what it was.
+std::optional<managed_assets::CompressedTex> lookup_baked_base(const std::string& tpage_name,
+                                                               const std::string& tex_name);
+// `map_kind` is the managed-pack spelling ("normal", "roughness", "height", ...); the file on
+// disk carries it as a suffix ("<material>_normal.ktx2"). SAME-SOURCE rule: only call this when
+// the BASE came from the baked tier.
+std::optional<managed_assets::CompressedTex> lookup_baked_map(const std::string& tpage_name,
+                                                              const std::string& tex_name,
+                                                              const char* map_kind);
+// At least one baked material indexed AND a GPU that reads ASTC.
+bool baked_available();
 
 #ifdef OG_FEAT_PBR
 // Grecharged-pbr-materials: look up a replacement PNG whose NAME part carries a

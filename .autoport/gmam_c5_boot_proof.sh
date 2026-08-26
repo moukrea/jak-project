@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# gmam_c5_boot_proof.sh — PREUVE D'EXECUTION sur la Shield, ecran REVEILLE.
+# gmam_c5_boot_proof.sh — PREUVE D'EXECUTION sur la appareil de test, ecran REVEILLE.
 #
 # POURQUOI LE REVEIL EST UNE PRECONDITION, ET PAS UN DETAIL. La premiere passe du cycle 5 a
 # rendu « master-mode=game jamais atteint » sur un build sain. Cause lue dans le log, pas
@@ -14,7 +14,7 @@
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
 ADB=/home/emeric/Android/platform-tools/adb
-S=${S:-192.168.1.32:5555}
+S=${S:-eae4df44}
 PKG=org.opengoal.gk.jak1
 OUT=.autoport/reports/Grecharged-managed-assets-merge
 WATCH=${WATCH:-240}

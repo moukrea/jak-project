@@ -5,6 +5,7 @@
 #include "ManagedAssets.h"
 
 #include "common/global_profiler/GlobalProfiler.h"
+#include "common/util/rss_census.h"
 
 #ifdef OG_FEAT_PBR
 // Grecharged-pbr-materials: add_texture reads the custom-assets toggle directly.
@@ -141,25 +142,47 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
   // Grecharged-managed-assets: precedence (owner) user > managed > bundled >
   // stock. base_source() decides without decoding pixels: a USER hit keeps
   // the PNG path; otherwise the managed pack outranks the bundled set.
+  // Gshield-load-and-crash: one more rung between them —
+  //   user PNG > managed KTX2 > BAKED KTX2 > bundled PNG > stock.
+  // The baked tier is the bundled set precompressed offline (ASTC + offline mips), so it
+  // enters the SAME `managed` variable and takes the same upload branch below: that branch
+  // is already proven on device, and duplicating it is how the two would drift apart.
   // autoport 2026-08-26: the whole point of the managed tier is that it does NOT
   // decode a PNG here. A53-TEXLOOKUP times the branch that was taken and names it,
   // so "KTX2 removed the decode" is a measured line and not a claim.
   Timer tex_lookup_timer;
   std::optional<managed_assets::CompressedTex> managed;
+  // TRUE when `managed` came from the PRE-BAKED tier rather than the downloaded pack. The only
+  // thing it changes is which index the companion maps come from (same-source rule).
+  bool managed_is_baked = false;
   if (custom_tex::base_source(tex.debug_tpage_name, tex.debug_name) !=
       custom_tex::BaseSource::User) {
     managed = managed_assets::lookup_base(tex.debug_tpage_name, tex.debug_name);
+    // baked_available() est faux des que le PROFIL du GPU n'est pas l'ASTC — pas seulement
+    // quand la capacite manque. Mesure du 2026-08-26 : un pilote de bureau GL 4.6 annonce
+    // `astc=true` et prenait donc ce chemin, contre ce que ce commentaire affirmait. La garde
+    // est maintenant le profil (CustomTextureReplacements.cpp::baked_gpu_reads_astc), donc le
+    // chemin PNG du bureau est rigoureusement inchange, et c'est une course qui le dit.
+    if (!managed && custom_tex::baked_available()) {
+      managed = custom_tex::lookup_baked_base(tex.debug_tpage_name, tex.debug_name);
+      managed_is_baked = managed.has_value();
+    }
   }
   std::optional<custom_tex::ReplacementImage> rep;
   if (!managed) {
     rep = custom_tex::lookup(tex.debug_tpage_name, tex.debug_name);
   }
+  // Evaluated HERE (nothing has dropped `managed` yet). A52-TEXSTALL below re-evaluates its own,
+  // deliberately: by then the test pattern or an upload failure may have sent it back to stock.
+  const char* tex_lookup_source = managed ? (managed_is_baked ? "baked-ktx2" : "managed-ktx2")
+                                  : rep   ? "png"
+                                          : "stock";
   const double t_lookup_ms = tex_lookup_timer.getMs();
   if (t_lookup_ms > 100.0) {
     fmt::print("A53-TEXLOOKUP name={} {}x{} source={} decodage={:.0f}ms\n", tex.debug_name,
                managed ? (int)managed->info.width : (rep ? rep->w : 0),
-               managed ? (int)managed->info.height : (rep ? rep->h : 0),
-               managed ? "managed-ktx2" : (rep ? "png" : "stock"), t_lookup_ms);
+               managed ? (int)managed->info.height : (rep ? rep->h : 0), tex_lookup_source,
+               t_lookup_ms);
   }
   Timer tex_call_timer;  // autoport 2026-08-26: attribuer les blocages a un appel GL
 
@@ -193,6 +216,7 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
     // The checker replaces the base outright — drop any managed hit so the
     // generic mip/aniso path below applies to the checker upload.
     managed.reset();
+    managed_is_baked = false;
     // Mode 2 swaps EVERY texture in the level, so it uses a smaller map to bound VRAM.
     const int tp_dim = (tp_mode == 2 || tp_mode == 4) ? 128 : 256;
     // The buffer is written in RGBA byte order. kRgbaTexType is GL_UNSIGNED_BYTE on GLES and
@@ -213,6 +237,7 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
       glGenTextures(1, &gl_tex);
       glBindTexture(GL_TEXTURE_2D, gl_tex);
       managed.reset();
+      managed_is_baked = false;
       glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex.w, tex.h, 0, GL_RGBA, kRgbaTexType,
                    tex.data.data());
     }
@@ -236,7 +261,9 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
                tex.debug_name,
                managed ? (int)managed->info.width : (rep ? rep->w : tex.w),
                managed ? (int)managed->info.height : (rep ? rep->h : tex.h),
-               managed ? "managed-ktx2" : (rep ? "png" : "stock"), t_upload_ms, t_mip_ms);
+               managed ? (managed_is_baked ? "baked-ktx2" : "managed-ktx2")
+                       : (rep ? "png" : "stock"),
+               t_upload_ms, t_mip_ms);
   }
   // autoport 2026-08-26: glGetFloatv is a SYNCHRONOUS query — it drains the driver's
   // pipeline. Called once per uploaded texture it turned the boot texture burst into
@@ -289,7 +316,12 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
     custom_tex::PbrMaterialMaps maps;
     bool any = false;
     auto load_map = [&](const char* kind, u32* dst) -> std::optional<managed_assets::CompressedTex> {
-      auto t = managed_assets::lookup_map(tex.debug_tpage_name, tex.debug_name, kind);
+      // Gshield-load-and-crash: SAME-SOURCE rule (ManagedAssets.h) extended to the baked tier —
+      // a baked base pairs ONLY with baked maps. Mixing a precompressed base with PNG maps would
+      // put the decode this whole tier exists to remove back into the same material.
+      auto t = managed_is_baked
+                   ? custom_tex::lookup_baked_map(tex.debug_tpage_name, tex.debug_name, kind)
+                   : managed_assets::lookup_map(tex.debug_tpage_name, tex.debug_name, kind);
       if (!t) {
         return std::nullopt;
       }
@@ -1352,6 +1384,12 @@ bool MercLoaderStage::run(Timer& /*timer*/, LoaderInput& data) {
                  data.lev_data->level->merc_data.vertices.size() * sizeof(tfrag3::MercVertex),
                  nullptr, GL_STATIC_DRAW);
     m_opengl = true;
+    data.lev_data->merc_vertex_count = data.lev_data->level->merc_data.vertices.size();
+    // Gmemory-ceiling-and-crash : les deux `glBufferData` ci-dessus RESERVENT le tampon GPU
+    // du niveau. Sur un appareil a memoire unifiee la reservation est prise dans la RAM
+    // systeme, donc elle entre dans le RSS. Le marqueur l'encadre pour que « ce mapping de
+    // 150 Mo vient de la » soit une MESURE et pas une deduction.
+    rss_census::mark("merc-bufdata");
   }
 
   if (!m_vtx_uploaded) {
@@ -1403,6 +1441,7 @@ bool MercLoaderStage::run(Timer& /*timer*/, LoaderInput& data) {
       glBindBuffer(tgt, 0);
     }
 #endif
+    rss_census::mark("merc-uploade");
     m_done = true;
     for (auto& model : data.lev_data->level->merc_data.models) {
       data.lev_data->merc_model_lookup[model.name] = &model;

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# gmam_c3_land.sh — cycle 3 : saisir la premiere fenetre saine de la Shield et y
+# gmam_c3_land.sh — cycle 3 : saisir la premiere fenetre saine de la appareil de test et y
 # poser l'APK COURANT, puis prouver par deploy_verify.
 #
 # DIFFERENCE AVEC gmam_grab_window.sh (cycle 2, qui a echoue 4 fois) :
@@ -11,7 +11,7 @@
 #       de plusieurs minutes a quelques dizaines de secondes ;
 #   (b) le pousse est REPRENABLE : si /data/local/tmp/gk-jak1.apk a deja le bon
 #       md5, on ne le repousse pas — une fenetre suivante n'a plus que l'install ;
-#   (c) un paquet Wake-on-LAN est envoye a chaque tour. La Shield le supporte ; si
+#   (c) un paquet Wake-on-LAN est envoye a chaque tour. La appareil de test le supporte ; si
 #       elle est en veille (et non plantee), ca ouvre la fenetre au lieu de
 #       l'attendre. Aucun effet si elle est plantee, aucun risque si elle dort ;
 #   (d) l'etat du service package est SONDE et JOURNALISE a chaque fenetre
@@ -26,8 +26,8 @@
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
 ADB=/home/emeric/Android/platform-tools/adb
-S=192.168.1.32:5555
-IP=192.168.1.32
+S=eae4df44
+IP=eae4df44
 MAC=48:b0:2d:33:9b:53
 PKG=org.opengoal.gk.jak1
 APK=android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk
@@ -67,7 +67,7 @@ while [ "$(date +%s)" -lt "$END" ]; do
     [ $((ROUND % 10)) -eq 0 ] && say "tour $ROUND : injoignable (ping)"
     sleep 20; continue
   fi
-  say "tour $ROUND : la Shield repond au ping — tentative de fenetre"
+  say "tour $ROUND : la appareil de test repond au ping — tentative de fenetre"
   timeout 20 "$ADB" disconnect $S >/dev/null 2>&1; sleep 1
   timeout 25 "$ADB" connect $S >/dev/null 2>&1; sleep 2
   BC=$(timeout 20 "$ADB" -s $S shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')

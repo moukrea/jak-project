@@ -487,6 +487,19 @@ fs::path get_bundled_recharged_textures_dir(GameVersion game_version) {
          "recharged_textures";
 }
 
+// Gshield-load-and-crash: the PRE-BAKED twin of the directory above. EXACTLY the same root
+// resolution (extracted custom-pack root on Android, checked-out tree on desktop) — only the
+// last two components differ: "<...>_baked/<profile>". Keeping the resolution identical is the
+// point: a baked material is the same material, shipped through the same pack, and must never
+// resolve against a different root than the PNG it replaces.
+fs::path get_bundled_recharged_textures_baked_dir(GameVersion game_version, const char* profile) {
+  const std::string sub = std::string("recharged_textures_baked");
+  if (g_custom_assets_root) {
+    return *g_custom_assets_root / sub / profile;
+  }
+  return get_jak_project_dir() / "custom_assets" / game_version_names[game_version] / sub / profile;
+}
+
 // Grecharged-mesh-browser: same ship path as the bundled recharged textures above (extracted
 // custom-pack root on Android, checked-out tree on desktop), one subdir over. Holds one
 // mesh_index_<level>.txt per level, produced offline by tools/mesh_index from the tess_sign CSV.

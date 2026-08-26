@@ -99,6 +99,7 @@ void scan_locked() {
     return;
   }
   int entries = 0;
+  int bare_entries = 0;
   for (const auto& sh : st.value("shards", nlohmann::json::array())) {
     const auto path = state_dir() / sh.get<std::string>();
     auto reader = std::make_unique<rpack::Reader>(path.string());
@@ -108,18 +109,48 @@ void scan_locked() {
     }
     const size_t idx = g_state.shards.size();
     for (const auto& e : reader->entries()) {
+      // La cle EXACTE `<tpage>/<nom>` est posee sans condition : elle GAGNE toujours,
+      // quel que soit l'ordre de balayage (une cle nom-nu deja posee est ecrasee ici,
+      // et le nom-nu ci-dessous ne pose jamais par-dessus une cle deja presente).
       g_state.index[{e.key, e.map}] = {idx, &e};
       entries++;
+      // Repli NOM NU, l'equivalent minimal des quatre cles de `custom_tex::scan_dir` :
+      // une meme texture est demandee depuis une tpage qui n'est pas celle sous
+      // laquelle le pack l'a rangee (mesure : `vil-beach-01` est range sous
+      // `village1-vis-tfrag/` et demande par `village1-vis-alpha`). Sans cette entree
+      // l'index gere rate et l'appelant retombe sur l'index PNG — qui a ce repli, lui —
+      // donc decode un 2048x2048 pour une image DEJA disponible en KTX2.
+      const auto slash = e.key.rfind('/');
+      if (slash != std::string::npos && slash + 1 < e.key.size()) {
+        const std::string bare = e.key.substr(slash + 1);
+        const auto bare_key = std::make_pair(bare, e.map);
+        if (g_state.index.find(bare_key) == g_state.index.end()) {
+          g_state.index[bare_key] = {idx, &e};
+          bare_entries++;
+        }
+      }
     }
     g_state.shards.push_back(std::move(reader));
   }
-  lg::info("managed_assets: {} shards, {} entries from {}", g_state.shards.size(), entries,
-           state_file.string());
+  lg::info("managed_assets: {} shards, {} entries (+{} cles nom-nu) from {}", g_state.shards.size(),
+           entries, bare_entries, state_file.string());
 }
 
-const EntryRef* find_locked(const std::string& key, const std::string& map) {
-  const auto it = g_state.index.find({key, map});
-  return it == g_state.index.end() ? nullptr : &it->second;
+// Cle EXACTE `<tpage>/<nom>` d'abord, puis repli sur le NOM NU — exactement la regle
+// de `custom_tex::find_key` (CustomTextureReplacements.cpp). L'exacte gagne toujours.
+const EntryRef* find_locked(const std::string& tpage_name,
+                            const std::string& tex_name,
+                            const std::string& map) {
+  const auto exact = g_state.index.find({tpage_name + "/" + tex_name, map});
+  if (exact != g_state.index.end()) {
+    return &exact->second;
+  }
+  const auto bare = g_state.index.find({tex_name, map});
+  if (bare == g_state.index.end()) {
+    return nullptr;
+  }
+  lg::info("managed_assets: repli nom-nu {} (tpage {} absente de l'index)", tex_name, tpage_name);
+  return &bare->second;
 }
 
 }  // namespace
@@ -163,7 +194,7 @@ bool has_entry(const std::string& tpage_name, const std::string& tex_name, const
   }
   ensure_loaded();
   std::lock_guard<std::mutex> lock(g_state.mutex);
-  return find_locked(tpage_name + "/" + tex_name, map) != nullptr;
+  return find_locked(tpage_name, tex_name, map) != nullptr;
 }
 
 std::optional<CompressedTex> lookup_entry(const std::string& tpage_name,
@@ -174,7 +205,7 @@ std::optional<CompressedTex> lookup_entry(const std::string& tpage_name,
   }
   ensure_loaded();
   std::lock_guard<std::mutex> lock(g_state.mutex);
-  const auto* ref = find_locked(tpage_name + "/" + tex_name, map);
+  const auto* ref = find_locked(tpage_name, tex_name, map);
   if (!ref) {
     return std::nullopt;
   }

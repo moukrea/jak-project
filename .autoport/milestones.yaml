@@ -2382,10 +2382,10 @@ phases:
   max_turns: 3000
   max_retries: 400
   device: True
-  device_serial: 192.168.1.32:5555
+  device_serial: eae4df44
   owner_verify: True
-- id: Gshield-load-and-crash
-  name: "SHIELD — CHARGEMENT INTERMINABLE ET CRASH (owner 2026-08-26, TOP PRIORITE, la phase des
+- id: Gmemory-ceiling-and-crash
+  name: "PLAFOND MEMOIRE — CHARGEMENT INTERMINABLE ET CRASH (owner 2026-08-26, TOP PRIORITE, la phase des
     seins de Keira est MISE EN PAUSE pour celle-ci) : « le logo apparait bien apres le son qui est
     sense etre la au moment de son apparition [...] C'est je crois le pire truc honnetement » et
     « ca crash quand je charge la partie ». MESURE : 8 etapes de texture sur 107 concentrent 94 %
@@ -2393,18 +2393,18 @@ phases:
     materiau). Et le processus est tue au premier plan sans signal, pic RSS 1 212-1 234 Mo sur
     2 946 Mo, dont DEUX BLOCS RESIDENTS DE 150,32 Mo NON IDENTIFIES. L'owner refuse « la machine
     est petite » comme explication, et il a raison : la PS2 tenait dans 32 Mo."
-  prompt: prompts/phase-Gshield-load-and-crash.md
-  validator: validators/phase-Gshield-load-and-crash.sh
+  prompt: prompts/phase-Gmemory-ceiling-and-crash.md
+  validator: validators/phase-Gmemory-ceiling-and-crash.sh
   max_turns: 3000
   max_retries: 400
   device: True
-  device_serial: 192.168.1.32:5555
+  device_serial: eae4df44
   owner_verify: True
 - id: Gprecompute-deterministic-bake
   name: "PRE-CALCUL DETERMINISTE (owner 2026-08-26, backlog place JUSTE APRES la physique des seins
     de Keira) : « tout ce qu'on peut pre-computer devrait l'etre au lieu de prendre du temps CPU/GPU
     c'est debile. Ca profitera a tout materiel ! Of course les trucs real time, c'est different,
-    mais ce qui peut etre fait en aval devrait l'etre ! » -- Mesure du 2026-08-26 sur la SHIELD :
+    mais ce qui peut etre fait en aval devrait l'etre ! » -- Mesure du 2026-08-26 sur l'appareil de test :
     la pre-subdivision de maillage (max_edge_m=1.6 m, max_rounds=3, DEFAUT ACTIF) et la
     reconstruction des tangentes MikkTSpace tournent A CHAQUE CHARGEMENT DE NIVEAU, sur CHAQUE
     machine, alors que leur resultat est entierement determine par le .fr3 d'entree. Cout mesure :
@@ -2457,7 +2457,7 @@ phases:
   max_turns: 3000
   max_retries: 400
   device: True
-  device_serial: 192.168.1.32:5555
+  device_serial: eae4df44
   owner_verify: True
 - id: Grecharged-hd-eye-scale
   name: 'HD MODELS (owner 2026-08-06, backlog): les yeux HD de Daxter sont bien HD mais l''effet

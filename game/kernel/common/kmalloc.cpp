@@ -3,6 +3,11 @@
 #include <cstdio>
 #include <cstring>
 
+#if defined(__linux__)
+#include <sys/mman.h>
+#include <unistd.h>
+#endif
+
 #include "common/goal_constants.h"
 
 #include "game/kernel/common/kprint.h"
@@ -109,12 +114,56 @@ Ptr<kheapinfo> kheapstatus(Ptr<kheapinfo> heap) {
  * Initialize a kheapinfo structure, and clear the kheap's memory to 0.
  * DONE, EXACT
  */
+// Gmemory-ceiling-and-crash (2026-08-26) — METTRE A ZERO SANS RENDRE LES PAGES RESIDENTES.
+//
+// `kinitheap` remet a zero TOUT le tas qu'il initialise, et GOAL en depend : `kmalloc` ne
+// zero-initialise pas ses allocations (c'est le role du drapeau KMALLOC_MEMSET), donc le code
+// GOAL lit des champs qui n'ont jamais ete ecrits et attend zero. La remise a zero n'est donc
+// PAS retirable. Mais un `memset` de 100 Mo TOUCHE 25 000 pages, ce qui force le noyau a leur
+// donner une page physique tout de suite et pour toujours.
+// Mesure sur le Redmi (A55-RSS, famille `ee`) : 117 Mo RESIDENTS sur les 128 Mo de l'image EE,
+// des le demarrage — alors que la PS2 tenait dans 32 Mo.
+//
+// `madvise(MADV_DONTNEED)` donne EXACTEMENT la meme semantique sur un mapping ANONYME PRIVE
+// (madvise(2) : « subsequent accesses of pages in the range will succeed, but will result in
+// [...] zero-fill-on-demand pages for anonymous private mappings ») et il REND les pages au
+// systeme au lieu de les prendre. La memoire EE est mappee `MAP_ANONYMOUS | MAP_PRIVATE` par
+// les trois proprietaires possibles du tampon (android/android_runtime_compat.cpp,
+// game/runtime.cpp, game/linux-arm64/linux_arm64_main.cpp), donc la condition est remplie.
+//
+// Prudence : seulement au-dela de 4 Mo (en dessous, `memset` est plus rapide qu'un appel
+// systeme), seulement sur la partie ALIGNEE SUR LA PAGE (les bords sont mis a zero a la main),
+// et avec un repli `memset` si l'appel echoue. Le contenu vu par GOAL est identique dans tous
+// les cas : que du zero.
+static void zero_without_faulting(u8* p, size_t n) {
+#if defined(__linux__)
+  const long pgl = sysconf(_SC_PAGESIZE);
+  if (pgl > 0 && n >= (4u << 20)) {
+    const uintptr_t pg = (uintptr_t)pgl;
+    const uintptr_t a = (uintptr_t)p;
+    const uintptr_t b = a + n;
+    const uintptr_t a_up = (a + pg - 1) & ~(pg - 1);
+    const uintptr_t b_dn = b & ~(pg - 1);
+    if (b_dn > a_up) {
+      std::memset(p, 0, (size_t)(a_up - a));
+      std::memset((u8*)b_dn, 0, (size_t)(b - b_dn));
+      if (madvise((void*)a_up, (size_t)(b_dn - a_up), MADV_DONTNEED) == 0) {
+        return;
+      }
+      std::memset((u8*)a_up, 0, (size_t)(b_dn - a_up));
+      return;
+    }
+  }
+#endif
+  std::memset(p, 0, n);
+}
+
 Ptr<kheapinfo> kinitheap(Ptr<kheapinfo> heap, Ptr<u8> mem, s32 size) {
   heap->base = mem;
   heap->current = mem;
   heap->top = mem + size;
   heap->top_base = heap->top;
-  std::memset(mem.c(), 0, size);
+  zero_without_faulting(mem.c(), (size_t)size);
   // Phase 26 trace hook: report the high-water mark right after init so
   // the harness can establish a baseline for kheap-delta.
   __goal_runtime_trace_kheap(reinterpret_cast<uint64_t>(heap->current.c()));

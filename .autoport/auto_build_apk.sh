@@ -1,4 +1,15 @@
 #!/usr/bin/env bash
+# --- GARDE SHIELD (owner 2026-08-26) : ce demon fait son travail normalement,
+# mais il ne doit JAMAIS parler a la NVIDIA Shield. Elle s'etait reconnectee
+# toute seule au serveur adb et l'owner a exige l'arret total :
+#   « TU TOUCHES PLUS A LA SHIELD TANT QUE JE TE LE DIT PAS »
+# On la sort du serveur adb a chaque tour, sans rien changer au reste.
+SHIELD_ADDR="192.168.1.32:5555"
+shield_keep_out() { "${ADB:-adb}" disconnect "$SHIELD_ADDR" >/dev/null 2>&1 || true; }
+shield_keep_out
+
+
+
 # auto_build_apk.sh — produire un APK testable EN CONTINU, vert ou pas.
 #
 # Owner 2026-08-11 : « faudrait que, même si pas vert, quand un build existe tu le pousses

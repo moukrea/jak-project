@@ -52,6 +52,28 @@ class Serializer {
     memcpy(m_data, data, size);
   }
 
+  /*!
+   * Gmemory-ceiling-and-crash (2026-08-26) — CONSTRUCTEUR DE LECTURE SANS COPIE.
+   *
+   * Le constructeur ci-dessus DUPLIQUE tout le tampon d'entree (`malloc` + `memcpy`). Pour un
+   * .fr3 c'est un poste de premier ordre : `GAME.fr3` (modeles HD) decompresse a 174,5 Mo, donc
+   * la deserialisation tenait EN MEME TEMPS le tampon decompresse (174,5 Mo), sa copie interne
+   * (174,5 Mo) et la structure de niveau en cours de construction. Mesure sur le Redmi :
+   * `Loader::load_common` faisait passer le RSS de 327 a 1067 Mo.
+   *
+   * En mode LECTURE, `read_or_write` ne fait que `memcpy(dest, m_data + offset, n)` : le tampon
+   * source n'est JAMAIS ecrit (voir la branche `else`, plus bas). Il peut donc etre EMPRUNTE.
+   * L'appelant garantit que le tampon survit au Serializer. Rien d'autre dans la classe ne
+   * change : meme lecture, memes octets, meme ordre.
+   */
+  struct Borrowed {};
+  Serializer(Borrowed, const u8* data, size_t size) {
+    m_data = const_cast<u8*>(data);
+    m_size = size;
+    m_writing = false;
+    m_owns_data = false;
+  }
+
   // don't allow copying, assigning, or move constructing.
   Serializer(const Serializer& other) = delete;
   Serializer& operator=(const Serializer& other) = delete;
@@ -67,14 +89,21 @@ class Serializer {
     m_size = other.m_size;
     m_offset = other.m_offset;
     m_writing = other.m_writing;
+    m_owns_data = other.m_owns_data;
 
     other.m_data = nullptr;
     other.m_size = 0;
+    other.m_owns_data = false;
 
     return *this;
   }
 
-  ~Serializer() { free(m_data); }
+  // Un tampon EMPRUNTE (constructeur `Borrowed`) appartient a l'appelant : ne pas le liberer.
+  ~Serializer() {
+    if (m_owns_data) {
+      free(m_data);
+    }
+  }
 
   /*!
    * Save or load the thing pointed to by ptr.
@@ -230,4 +259,6 @@ class Serializer {
   size_t m_size = 0;
   size_t m_offset = 0;
   bool m_writing = false;
+  // FALSE seulement pour le constructeur `Borrowed`. Les deux autres constructeurs allouent.
+  bool m_owns_data = true;
 };

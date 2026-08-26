@@ -68,4 +68,4 @@ a-coups de camera.
 - **Ne pas casser le comportement a 60 fps.** C'est la reference : a 60 fps, sortie identique a
   l'actuel.
 - Changement transversal (GOAL + natif) : avancer par etapes prouvees, jamais en un seul lot.
-- Profite a TOUTES les cibles : x86, Redmi (Adreno), Honor (Mali), Shield (Tegra).
+- Profite a TOUTES les cibles : x86, Redmi (Adreno), Honor (Mali), appareil de test (Tegra).

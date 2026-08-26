@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# gmam_c4_land.sh — cycle 4 : poser sur la Shield l'APK qui porte le correctif du
+# gmam_c4_land.sh — cycle 4 : poser sur la appareil de test l'APK qui porte le correctif du
 # pointeur GL NUL (glTexStorage2D), et PROUVER PAR L'EXECUTION que le demarrage
 # atteint l'ecran-titre sans mourir.
 #
@@ -17,7 +17,7 @@
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
 ADB=/home/emeric/Android/platform-tools/adb
-S=192.168.1.32:5555
+S=eae4df44
 PKG=org.opengoal.gk.jak1
 APK=android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk
 REMOTE=/data/local/tmp/gk-jak1.apk

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # gmam_c5_land.sh — cycle 5 : reconstruire le pack (fr3 REPRODUCTIBLE), reassembler
-# l'APK, et le POSER SUR LES DEUX APPAREILS, avec la preuve d'execution sur la Shield.
+# l'APK, et le POSER SUR LES DEUX APPAREILS, avec la preuve d'execution sur la appareil de test.
 #
 # POURQUOI CE SCRIPT EXISTE. Le cycle 4 a echoue non pas sur la fusion mais sur la
 # gate de cloture : `deploy_verify` compare le TAMPON du pack sur l'appareil avec la
@@ -9,14 +9,14 @@
 #      serialisee) : chaque reconstruction changeait la version du pack ;
 #   2. le jeu avait ete laisse AU PREMIER PLAN sur le Redmi, ce qui bloque la
 #      reconciliation de l'auto-constructeur (garde de 25 min) ;
-#   3. personne ne reposait l'APK sur la SHIELD, qui est l'appareil de cette phase.
+#   3. personne ne reposait l'APK sur la APPAREIL, qui est l'appareil de cette phase.
 # Ce script traite (2) et (3) ; (1) est corrige dans le code, en amont.
 #
 # ORDRE IMPOSE : on batit AVANT, on pose APRES. L'installation est la DERNIERE action.
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
 ADB=/home/emeric/Android/platform-tools/adb
-SHIELD=192.168.1.32:5555
+APPAREIL=eae4df44
 REDMI=eae4df44
 PKG=org.opengoal.gk.jak1
 APK=android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk
@@ -33,7 +33,7 @@ die(){ say "FAIL: $*"; exit 1; }
 say "=== c5 : APK gradle (clean + assemble) ==="
 # LE `clean` N'EST PAS FACULTATIF. Un `assembleJak1Debug` incremental repete gonfle l'APK
 # d'espace mort : mesure du cycle 5, 586 235 921 o avec clean contre 1 015 459 590 o sans,
-# soit +73 %, et l'installation sur la Shield tombe en INSTALL_FAILED_INSUFFICIENT_STORAGE.
+# soit +73 %, et l'installation sur la appareil de test tombe en INSTALL_FAILED_INSUFFICIENT_STORAGE.
 # L'auto-constructeur porte deja cette garde (auto_build_apk.sh:325) ; l'omettre ici a coute
 # une pose. C'est aussi ce qui doublerait le telechargement de l'owner sans que ca se voie.
 ( cd android && timeout 900 ./gradlew :app:clean ) >/dev/null 2>&1
@@ -96,19 +96,19 @@ poser(){
 
 RC=0
 
-# 1. SHIELD — appareil de cette phase, et c'est la que se fait la preuve d'execution.
-CRASH_BEFORE=$(timeout 30 "$ADB" -s $SHIELD exec-out run-as $PKG stat -c '%Y %s' files/gk_crash.txt 2>/dev/null | tr -d '\r' || true)
-say "Shield gk_crash.txt AVANT = '${CRASH_BEFORE:-absent}'"
-poser "$SHIELD" SHIELD push || { say "VERDICT: la pose sur la Shield a echoue"; RC=1; }
+# 1. APPAREIL — appareil de cette phase, et c'est la que se fait la preuve d'execution.
+CRASH_BEFORE=$(timeout 30 "$ADB" -s $APPAREIL exec-out run-as $PKG stat -c '%Y %s' files/gk_crash.txt 2>/dev/null | tr -d '\r' || true)
+say "appareil de test gk_crash.txt AVANT = '${CRASH_BEFORE:-absent}'"
+poser "$APPAREIL" APPAREIL push || { say "VERDICT: la pose sur la appareil de test a echoue"; RC=1; }
 
-say "=== c5 : observation ${WATCH}s sur la Shield (l'application vient d'etre lancee) ==="
-timeout $((WATCH + 90)) "$ADB" -s $SHIELD shell logcat -v time > "$OUT/c5-boot-logcat.txt" 2>&1 &
+say "=== c5 : observation ${WATCH}s sur la appareil de test (l'application vient d'etre lancee) ==="
+timeout $((WATCH + 90)) "$ADB" -s $APPAREIL shell logcat -v time > "$OUT/c5-boot-logcat.txt" 2>&1 &
 LOGPID=$!
 sleep "$WATCH"
 kill "$LOGPID" 2>/dev/null || true; wait "$LOGPID" 2>/dev/null || true
 
-PID=$(timeout 30 "$ADB" -s $SHIELD shell pidof $PKG 2>/dev/null | tr -d '\r')
-CRASH_AFTER=$(timeout 30 "$ADB" -s $SHIELD exec-out run-as $PKG stat -c '%Y %s' files/gk_crash.txt 2>/dev/null | tr -d '\r' || true)
+PID=$(timeout 30 "$ADB" -s $APPAREIL shell pidof $PKG 2>/dev/null | tr -d '\r')
+CRASH_AFTER=$(timeout 30 "$ADB" -s $APPAREIL exec-out run-as $PKG stat -c '%Y %s' files/gk_crash.txt 2>/dev/null | tr -d '\r' || true)
 L="$OUT/c5-boot-logcat.txt"
 say "--- balayage des entrees GL gatees ---";        grep -a 'A36-GLGATED' "$L" | tail -2
 say "--- assets geres ---";                          grep -aE 'managed assets:|managed_assets:' "$L" | tail -6
@@ -117,7 +117,7 @@ say "--- process logo ---";                          grep -a 'F1A-CAMJOINT' "$L"
 say "--- signaux fatals ---";                        grep -aiE 'Fatal signal|GK-DIAG sig=|beginning of crash' "$L" | tail -6 || true
 FATAL=$(grep -acE 'Fatal signal|GK-DIAG sig=' "$L" || true)
 MASTER=$(grep -ac 'master-mode=game' "$L" || true)
-say "bilan Shield : fatals=${FATAL:-0} master-mode=game=${MASTER:-0} pid='${PID:-MORT}' crash='${CRASH_AFTER:-absent}'"
+say "bilan appareil de test : fatals=${FATAL:-0} master-mode=game=${MASTER:-0} pid='${PID:-MORT}' crash='${CRASH_AFTER:-absent}'"
 [ "${FATAL:-0}" -eq 0 ] || { say "VERDICT: signal fatal present"; RC=1; }
 [ -n "$PID" ]           || { say "VERDICT: process mort avant la fin"; RC=1; }
 [ "$CRASH_AFTER" = "$CRASH_BEFORE" ] || { say "VERDICT: gk_crash.txt a change"; RC=1; }
@@ -128,11 +128,11 @@ poser "$REDMI" REDMI install || { say "VERDICT: la pose sur le Redmi a echoue"; 
 
 # 3. NE PAS LAISSER LE JEU AU PREMIER PLAN : c'est ce qui a bloque la reconciliation
 #    de l'auto-constructeur pendant 25 min au cycle 4.
-for S in $SHIELD $REDMI; do timeout 30 "$ADB" -s "$S" shell am force-stop "$PKG" >/dev/null 2>&1; done
+for S in $APPAREIL $REDMI; do timeout 30 "$ADB" -s "$S" shell am force-stop "$PKG" >/dev/null 2>&1; done
 say "jeu arrete sur les deux appareils (la reconciliation ne peut plus etre bloquee)"
 
 say "=== c5 : deploy_verify sur LES DEUX appareils ==="
-for S in $SHIELD $REDMI; do
+for S in $APPAREIL $REDMI; do
   if timeout 2400 bash .autoport/lib/deploy_verify.sh "$S" jak1; then say "DEPLOY-VERIFY PASS $S"; else say "DEPLOY-VERIFY FAIL $S"; RC=1; fi
 done
 

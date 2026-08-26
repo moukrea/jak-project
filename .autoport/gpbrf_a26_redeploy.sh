@@ -13,7 +13,7 @@
 # SECOND blocker: the Redmi (eae4df44) physically left the USB bus at 08:29:52
 #   (journalctl: "usb 1-6: USB disconnect, device number 97"); it is absent from
 #   lsusb and there is no wireless-adb route to it (the only LAN host with 5555
-#   open is 192.168.1.32, an NVIDIA device, and it is unauthorized anyway).
+#   open is eae4df44, an NVIDIA device, and it is unauthorized anyway).
 #   deploy_verify's chain step + the orchestrator's boot check BOTH need the
 #   device, so this script WAITS for it to come back and then finishes the deploy.
 #

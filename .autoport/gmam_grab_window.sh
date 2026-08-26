@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Saisir la premiere fenetre ou la Shield repond pour reinstaller l'APK courant et
+# Saisir la premiere fenetre ou la appareil de test repond pour reinstaller l'APK courant et
 # reverifier. L'appareil bat de l'aile (il tombe et revient) : on sonde serre.
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
-ADB=/home/emeric/Android/platform-tools/adb; S=192.168.1.32:5555; PKG=org.opengoal.gk.jak1
+ADB=/home/emeric/Android/platform-tools/adb; S=eae4df44; PKG=org.opengoal.gk.jak1
 APK=android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk
 LOCK=.autoport/.deploy-in-progress
 printf 'gmam_grab_window pid=%s started=%s\n' "$$" "$(date -Is)" > "$LOCK"
@@ -14,7 +14,7 @@ WANT=$(grep -E '^version=' android/app/src/jak1/assets-slim/bundle/jak1_custom.m
 say "chasse a la fenetre — pack attendu $WANT"
 for try in 1 2 3 4 5 6; do
   for i in $(seq 1 40); do
-    ping -c 1 -W 2 192.168.1.32 >/dev/null 2>&1 || { sleep 15; continue; }
+    "${ADB:-adb}" -s eae4df44 get-state >/dev/null 2>&1 || { sleep 15; continue; }
     "$ADB" disconnect $S >/dev/null 2>&1; sleep 1; "$ADB" connect $S >/dev/null 2>&1; sleep 2
     [ "$(timeout 15 "$ADB" -s $S shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && break
     sleep 15
@@ -38,5 +38,5 @@ for try in 1 2 3 4 5 6; do
   done
   say "tentative $try infructueuse"
 done
-say "ABANDON — la Shield n'a pas offert de fenetre exploitable"
+say "ABANDON — la appareil de test n'a pas offert de fenetre exploitable"
 exit 2

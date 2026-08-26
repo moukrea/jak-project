@@ -61,4 +61,10 @@ class Loader {
 
   fs::path m_base_path;
   int m_max_levels = 0;
+  // Gmemory-ceiling-and-crash : compte a rebours de frames avant une purge du tas. Les purges
+  // posees a la fin d'un chargement tombent AVANT la premiere image ; or le maximum de la course
+  // est mesure ~1 s plus tard, quand le rendu a fini de se mettre en route (le RSS monte de
+  // 782 a 814 Mo puis redescend a 793). Cette purge-la tombe APRES, une seule fois par
+  // chargement. -1 = pas de purge en attente.
+  int m_frames_until_purge = -1;
 };

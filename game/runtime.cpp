@@ -185,7 +185,22 @@ void ee_runner(SystemThreadInterface& iface) {
   iface.initialization_complete();
 
   lg::debug("[EE] Run!");
-  memset((void*)g_ee_main_mem, 0, EE_MAIN_MEM_SIZE);
+  // Gmemory-ceiling-and-crash (2026-08-26) — LE `memset` DE 128 Mo EST RETIRE, ET IL NE FAISAIT
+  // QUE RENDRE LA MEMOIRE RESIDENTE.
+  //
+  // Les deux `mmap` ci-dessus sont `MAP_ANONYMOUS | MAP_PRIVATE` : le noyau garantit que les
+  // pages rendues sont A ZERO (mmap(2) : « its contents are initialized to zero »). Le `memset`
+  // n'ecrivait donc aucune valeur nouvelle — il TOUCHAIT les 32 768 pages, ce qui force le
+  // noyau a leur donner une page physique tout de suite et pour toujours.
+  //
+  // Mesure sur le Redmi (A55-RSS, famille `ee`) : 117,8 Mo RESIDENTS sur les 128 Mo mappes, des
+  // le demarrage, quelle que soit la memoire que le jeu utilise vraiment — alors que la PS2
+  // tenait dans 32 Mo. Sans le memset, la residence suit l'usage REEL : une page que GOAL n'a
+  // jamais ecrite ne coute rien, et elle se lit quand meme a zero.
+  //
+  // Ce qui ne change pas : le contenu vu par GOAL (zero partout), la protection des 512 premiers
+  // ko juste en dessous, et le chemin `EE_MEM_LOW_MAP` qui garde son `MAP_POPULATE` (il prefaute
+  // deja, c'est son role sur les cibles 32 bits).
 
   // prevent access to the first 512 kB of memory.
   // On the PS2 this is the kernel and can't be accessed either.

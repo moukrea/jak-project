@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# gsc_land.sh — phase Gappareil de test-load-and-crash : cuire, batir, poser, MESURER.
+# ORDRE IMPOSE : on batit AVANT, on pose APRES, on mesure EN DERNIER.
+set -uo pipefail
+cd "$(git rev-parse --show-toplevel)"
+ADB=/home/emeric/Android/platform-tools/adb
+DEVICE=eae4df44
+REDMI=eae4df44
+PKG=org.opengoal.gk.jak1
+APK=android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk
+REMOTE=/data/local/tmp/gk-jak1.apk
+LOCK=.autoport/.deploy-in-progress
+RUNLOG=.autoport/logs/gsc-land.log
+mkdir -p .autoport/logs .autoport/logs/gsc
+exec > >(tee -a "$RUNLOG") 2>&1
+say(){ echo "[$(date +%T)] $*"; }
+die(){ say "ECHEC: $*"; exit 1; }
+
+# CONVENTION OBLIGATOIRE DU VERROU (DIRECTIVES 2026-08-14 07:10) : PID + nettoyage.
+printf 'gsc_land pid=%s started=%s\n' "$$" "$(date -Is)" > "$LOCK"
+trap 'rm -f "$LOCK"' EXIT
+
+say "=== 1. libgk arm64 ==="
+timeout 3600 cmake --build build-android --target gk -j"$(nproc)" > .autoport/logs/gsc-arm64.log 2>&1 \
+  || { tail -30 .autoport/logs/gsc-arm64.log; die "build arm64"; }
+say "libgk.so bati"
+
+say "=== 2. pack custom (inclut les textures cuites si elles existent) ==="
+timeout 2400 bash android/build_custom_pack.sh jak1 > .autoport/logs/gsc-pack.log 2>&1 \
+  || { tail -30 .autoport/logs/gsc-pack.log; die "pack"; }
+grep -E 'zip|members|bytes|octets' .autoport/logs/gsc-pack.log | tail -5
+
+say "=== 3. APK (clean OBLIGATOIRE : sans lui, +73 % d'espace mort et la appareil de test refuse) ==="
+( cd android && timeout 900 ./gradlew :app:clean ) >/dev/null 2>&1
+( cd android && timeout 3600 ./gradlew assembleJak1Debug ) > .autoport/logs/gsc-gradle.log 2>&1 \
+  || { tail -40 .autoport/logs/gsc-gradle.log; die "gradle"; }
+[ -f "$APK" ] || die "pas d'APK"
+APK_SZ=$(stat -c %s "$APK")
+[ "$APK_SZ" -le 700000000 ] || die "APK anormalement gros ($APK_SZ o) — on ne pose pas"
+WANT_C=$(grep -E '^version=' android/app/src/jak1/assets-slim/bundle/jak1_custom.manifest.properties | cut -d= -f2)
+APK_C=$(unzip -p "$APK" assets/bundle/jak1_custom.manifest.properties | grep -E '^version=' | cut -d= -f2)
+[ "$APK_C" = "$WANT_C" ] || die "l'APK embarque '$APK_C' et l'arbre a bati '$WANT_C'"
+say "APK $APK_SZ o custom=$WANT_C"
+
+poser(){
+  local S=$1 label=$2 push=$3
+  say "--- $label ($S)"
+  timeout 30 "$ADB" connect "$S" >/dev/null 2>&1 || true
+  timeout 30 "$ADB" devices | grep -qE "^${S}[[:space:]]+device$" || { say "$label ABSENT"; return 1; }
+  timeout 30 "$ADB" -s "$S" shell am force-stop $PKG >/dev/null 2>&1
+  if [ "$push" = push ]; then
+    timeout 60 "$ADB" -s "$S" shell rm -f "$REMOTE" >/dev/null 2>&1 || true
+    timeout 2400 "$ADB" -s "$S" push "$APK" "$REMOTE" 2>&1 | tail -1
+    timeout 900 "$ADB" -s "$S" shell pm install -r -d "$REMOTE" 2>&1 | tail -2
+    timeout 60 "$ADB" -s "$S" shell rm -f "$REMOTE" >/dev/null 2>&1 || true
+  else
+    timeout 1800 "$ADB" -s "$S" install -r -d "$APK" 2>&1 | tail -2
+  fi
+  timeout 30 "$ADB" -s "$S" shell pm path $PKG | head -1
+}
+say "=== 4. pose ==="
+# INTERDICTION ABSOLUE (owner, 2026-08-26) : le SEUL appareil autorise est le Redmi
+# eae4df44. Une seule pose, une seule cible. `$DEVICE` et `$REDMI` designent le meme
+# appareil : ne pas l'installer deux fois.
+poser "$REDMI" REDMI "" || say "pose Redmi ECHOUEE"
+say "=== fini ==="

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# gmam_deploy_shield.sh — phase Grecharged-managed-assets-merge : installer l'APK
-# fusionne sur la Shield et PROUVER que l'appareil tourne bien ce HEAD-la.
+# gmam_deploy_appareil de test.sh — phase Grecharged-managed-assets-merge : installer l'APK
+# fusionne sur la appareil de test et PROUVER que l'appareil tourne bien ce HEAD-la.
 # La gate de cloture (orchestrator CLOSE-GATE/deploy) exige deploy_verify ; celui-ci
 # compare build == APK == appareil, la paire de jeux de drapeaux, et l'etat du pack
 # custom. Le pack ne se reecrit qu'au lancement de LoaderActivity : on installe, on
@@ -8,18 +8,18 @@
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
 ADB="${ADB:-/home/emeric/Android/platform-tools/adb}"
-S="${1:-192.168.1.32:5555}"
+S="${1:-eae4df44}"
 PKG=org.opengoal.gk.jak1
 APK=android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk
 LOCK=.autoport/.deploy-in-progress
-LOG=.autoport/logs/gmam-deploy-shield.log
+LOG=.autoport/logs/gmam-deploy-appareil de test.log
 
 # Verrou avec DETENTEUR : un verrou vide a coute 108 min de livraison le 2026-08-14.
-printf 'gmam_deploy_shield pid=%s started=%s\n' "$$" "$(date -Is)" > "$LOCK"
+printf 'gmam_deploy_appareil de test pid=%s started=%s\n' "$$" "$(date -Is)" > "$LOCK"
 trap 'rm -f "$LOCK"' EXIT
 
 exec > >(tee -a "$LOG") 2>&1
-echo "=== $(date -Is) deploiement Shield $S — commit $(git rev-parse --short HEAD) ==="
+echo "=== $(date -Is) deploiement appareil de test $S — commit $(git rev-parse --short HEAD) ==="
 die(){ echo "[gmam-deploy FAIL] $*" >&2; exit 1; }
 
 [ -f "$APK" ] || die "pas d'APK a $APK"

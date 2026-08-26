@@ -21,7 +21,7 @@ Blocs neufs :
 
 ## Pourquoi c'est la priorite 1
 
-Mesure du 2026-08-26 sur la Shield : les textures de remplacement sont des **PNG 2048x2048 decodes
+Mesure du 2026-08-26 sur la appareil de test : les textures de remplacement sont des **PNG 2048x2048 decodes
 a chaque chargement**, quatre cartes par materiau (base, `_normal`, `_roughness`, `_height`). Huit
 etapes de texture sur 107 concentrent 94 % d'un demarrage de 11,5 s. Consequence rapportee par
 l'owner : « le logo apparait bien apres le son qui est sense etre la au moment de son apparition
@@ -50,6 +50,6 @@ par 4 a 8. Cette branche porte donc deja le correctif que la phase de pre-calcul
 - Les tests apportes par la branche (`test_asset_manager`, `test_rpack_ktx2`) doivent passer.
 - Assets HD derives des dumps Jak2/Jak3 : jamais dans l'APK, le binaire ou git — le telechargement
   gere est justement la bonne voie.
-- **Stockage disponible sur la Shield** : l'owner y a monte une cle USB adoptee comme stockage
+- **Stockage disponible sur la appareil de test** : l'owner y a monte une cle USB adoptee comme stockage
   interne, `/mnt/expand/ff091cb1-80aa-46c6-ac14-283ecb0574c0`, **114 Go libres**. Plus aucune
   contrainte de place ; ne pas dimensionner les packs sur l'ancienne limite de 2,7 Go.

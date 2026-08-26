@@ -24,6 +24,10 @@
 #   recharged_assets/<name>.png   (ALWAYS — DELIVERY is no longer flag-gated)
 #   recharged_assets/physics_chains.txt (ALWAYS if present — secondary-motion chain defs)
 #   recharged_textures/<tpage>/<tex>/<tex>[ _height|_normal|_roughness].png  (ALWAYS — first-party set)
+#   recharged_textures_baked/astc/<tpage>/<tex>/<tex>*.ktx2 + <tex>.stats.json
+#                                 (IF PRESENT — GPU-compressed bake of the set above,
+#                                  produced by tools/bake_recharged_textures.py; the PNGs
+#                                  stay for the targets without ASTC)
 #
 # ARCHITECTURE IP EXCLUSION (owner 2026-08-02): the enhanced HD fr3 (fr3/enhanced/<name>.fr3) are
 # DELIBERATELY NOT here any more. Those levels embed the HD character merc models, which derive from
@@ -407,17 +411,84 @@ fi
 #     recharged_textures/** (zip paths preserved); runtime scans
 #     get_bundled_recharged_textures_dir(). 0 is OK (set absent).
 RTEX_SRC="custom_assets/${GAME}/recharged_textures"
+RTEXB_SRC="custom_assets/${GAME}/recharged_textures_baked/astc"
+# Gshield-load-and-crash: un materiau ENTIEREMENT cuit n'embarque plus ses PNG dans le pack
+# ANDROID. Mesure: le pack passait de 429 223 609 a 516 813 859 octets (+20,4 %) en gardant les
+# deux jeux, et la Shield a DEJA refuse un APK faute de place (INSTALL_FAILED_INSUFFICIENT_STORAGE,
+# git log du 2026-08-26). Les PNG restent dans le depot pour le bureau x86, qui n'a pas d'ASTC et
+# garde son chemin inchange.
+# DEUX CONDITIONS, toutes les deux necessaires, sinon on garde les PNG du materiau :
+#   1. chaque .png du materiau a son .ktx2 cuit — un materiau a moitie cuit qui perdrait ses PNG
+#      n'aurait plus rien a montrer ;
+#   2. le materiau ne porte PAS de _orm.png — l'ORM est deballe en trois plans (AO/rugosite/metal)
+#      par le SEUL chemin PNG (LoaderStages.cpp:614-639) ; servir sa base depuis le niveau cuit
+#      ferait disparaitre l'occlusion et le metal de ce materiau sans que rien ne le dise.
+rtex_material_fully_baked(){
+  local mdir="$1" rel_m bdir f stem
+  rel_m="${mdir#"$ROOT/$RTEX_SRC/"}"
+  bdir="$ROOT/$RTEXB_SRC/$rel_m"
+  [ -d "$bdir" ] || return 1
+  compgen -G "$mdir/*_orm.png" >/dev/null 2>&1 && return 1
+  for f in "$mdir"/*.png; do
+    [ -e "$f" ] || return 1
+    stem="$(basename "$f" .png)"
+    [ -f "$bdir/$stem.ktx2" ] || return 1
+  done
+  return 0
+}
 if [ -d "$ROOT/$RTEX_SRC" ]; then
   n_rtex=0
+  n_rtex_skip=0
+  declare -A RTEX_DECIDED=()
   while IFS= read -r tf; do
     [ -n "$tf" ] || continue
+    mdir="$(dirname "$tf")"
+    if [ -z "${RTEX_DECIDED[$mdir]:-}" ]; then
+      if rtex_material_fully_baked "$mdir"; then RTEX_DECIDED[$mdir]=skip; else RTEX_DECIDED[$mdir]=keep; fi
+    fi
+    if [ "${RTEX_DECIDED[$mdir]}" = skip ]; then
+      n_rtex_skip=$((n_rtex_skip + 1)); continue
+    fi
     rel="${tf#"$ROOT/$RTEX_SRC/"}"
     mkdir -p "$STAGE/recharged_textures/$(dirname "$rel")"
     ln -s "$tf" "$STAGE/recharged_textures/$rel"
     MEMBERS+=("recharged_textures/$rel")
     n_rtex=$((n_rtex + 1))
   done < <(find "$ROOT/$RTEX_SRC" -type f -name '*.png' 2>/dev/null | sort)
-  echo "[custom-pack] recharged textures: $n_rtex"
+  echo "[custom-pack] recharged textures: $n_rtex png embarques, $n_rtex_skip remplaces par leur cuisson ASTC"
+fi
+
+# 2e. BAKED recharged textures (KTX2/ASTC) — ALWAYS IF PRESENT, never required.
+#     WHY: measured on the SHIELD, `stage texture took 1799 ms` at worst. Each PBR
+#     material is 4 maps of 2048x2048 PNG, and the PNG path DECODES each one TWICE
+#     (probe pass + re-fetch before upload, 151-330 ms per decode) and then spends
+#     68-235 ms in glGenerateMipmap. The KTX2 path already in the engine (managed
+#     pack) does an equivalent material in 87 ms: no decode, no mip generation, and
+#     the GPU keeps 3.56 bpp (ASTC 6x6) instead of 32 bpp — the Redmi was holding
+#     256 MB of RSS in uncompressed 2048x2048 RGBA maps.
+#     PRODUCED BY: tools/bake_recharged_textures.py (needs astcenc; THIS SCRIPT DOES
+#     NOT — baking is a separate step and its absence must never break a packaging).
+#     The PNGs above are NOT removed: the x86 desktop has no ASTC and keeps its path.
+#     Ships the .ktx2 AND the <material>.stats.json sidecars: those statistics
+#     (normal-map DC, height mean / robust half-range / feature wavelength) used to
+#     be computed at runtime FROM THE DECODED PIXELS, so without a decode they have
+#     no other source and the material would render with default parameters.
+if [ -d "$ROOT/$RTEXB_SRC" ]; then
+  n_rtexb=0
+  n_rtexb_k=0
+  while IFS= read -r tf; do
+    [ -n "$tf" ] || continue
+    rel="${tf#"$ROOT/$RTEXB_SRC/"}"
+    mkdir -p "$STAGE/recharged_textures_baked/astc/$(dirname "$rel")"
+    ln -s "$tf" "$STAGE/recharged_textures_baked/astc/$rel"
+    MEMBERS+=("recharged_textures_baked/astc/$rel")
+    n_rtexb=$((n_rtexb + 1))
+    case "$tf" in *.ktx2) n_rtexb_k=$((n_rtexb_k + 1));; esac
+  done < <(find "$ROOT/$RTEXB_SRC" -type f \( -name '*.ktx2' -o -name '*.stats.json' \) \
+             2>/dev/null | sort)
+  echo "[custom-pack] baked recharged textures (ASTC/KTX2): $n_rtexb members ($n_rtexb_k .ktx2)"
+else
+  echo "[custom-pack] baked recharged textures (ASTC/KTX2): none (run tools/bake_recharged_textures.py — optional)"
 fi
 
 # 3. enhanced HD fr3 — ARCHITECTURE IP (owner 2026-08-02): DELIBERATELY NOT STAGED HERE.
@@ -446,6 +517,9 @@ if [ -f "$ZIP_REL" ] && [ -f "$MANIFEST" ]; then
   cfc=$(grep -E '^file_count=' "$MANIFEST" | cut -d= -f2 || echo "")
   SRC_DIRS=("$FR3_DIR")
   [ -d "$ROOT/custom_assets/${GAME}/recharged_textures" ] && SRC_DIRS+=("$ROOT/custom_assets/${GAME}/recharged_textures")
+  # A RE-BAKE must invalidate the pack exactly like a re-authored PNG does: without
+  # this line a fresh KTX2 set would sit on disk while the APK kept the previous one.
+  [ -d "$ROOT/custom_assets/${GAME}/recharged_textures_baked" ] && SRC_DIRS+=("$ROOT/custom_assets/${GAME}/recharged_textures_baked")
   # HUD PNG delivery is no longer flag-gated (see section 1), so neither is its
   # mtime watch: gating it on F_HUD would let a touched PNG slip past the skip.
   if [ -d "$ROOT/$RHUD_SRC" ]; then SRC_DIRS+=("$ROOT/$RHUD_SRC"); fi
@@ -475,7 +549,10 @@ else
     # -n: store these suffixes without deflating. Now that the ~214 MB of stock .fr3 ride along,
     # deflate would burn minutes of CPU for nothing — measured, village1.fr3 gives back 1.4%
     # (11759452 -> 11592718), and .meshweld is already zstd'd, .png already deflated.
-    zip -r -6 -X -q -n '.fr3:.meshweld:.grassbake:.png' "$ZIP_ABS" .
+    # .ktx2 joins the list for the same reason: ASTC is a fixed-rate BLOCK format, already
+    # compressed, so deflating it burns CPU on both sides (pack build AND phone extraction)
+    # for a rounding error.
+    zip -r -6 -X -q -n '.fr3:.meshweld:.grassbake:.png:.ktx2' "$ZIP_ABS" .
   )
 fi
 ZIP_BYTES=$(stat -c %s "$ZIP_ABS")

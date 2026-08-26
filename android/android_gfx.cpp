@@ -23,6 +23,7 @@
 #include "common/goal_constants.h"
 #include "common/log/log.h"
 #include "common/util/FileUtil.h"
+#include "common/util/rss_census.h"
 
 #include "game/mips2c/spart_prof.h"
 
@@ -240,6 +241,7 @@ bool init_renderer_on_gl_thread(int win_w, int win_h) {
                       "A35-RENDER glad loaded GL entry points via SDL_GL_GetProcAddress "
                       "(GL_VERSION=%s)",
                       (const char*)glGetString(GL_VERSION));
+  rss_census::mark("gl-contexte");
 
     // Grecharged-managed-assets: with a live context, record which compressed
     // formats this GPU really supports so the asset manager can pick (and the
@@ -373,6 +375,7 @@ bool init_renderer_on_gl_thread(int win_w, int win_h) {
   // handle_upload_precomputed crashed on unbacked texture-pool state).
   // Mirrors the desktop GraphicsData ctor (pipelines/opengl.cpp:88-94).
   data->texture_pool = std::make_shared<TexturePool>(g_game_version);
+  rss_census::mark("texpool");
 
   // fr3 dir: <project>/out/<game>/fr3 — LoaderActivity extracts the APK's
   // fr3/ assets (GAME.fr3 + level packs) there. Loader handles a missing
@@ -394,6 +397,7 @@ bool init_renderer_on_gl_thread(int win_w, int win_h) {
                         fr3_dir.string().c_str());
   }
 
+  rss_census::mark("loader-cree");
   data->renderer = std::make_unique<AndroidOpenGLRenderer>(data->texture_pool, data->loader);
 
   g_data = data;
@@ -402,6 +406,7 @@ bool init_renderer_on_gl_thread(int win_w, int win_h) {
                       "A35-RENDER renderer ready (window %dx%d) — game DMA chains will "
                       "now be consumed",
                       win_w, win_h);
+  rss_census::mark("renderer-pret");
   // A41: land the boot-time tpage uploads + font relocates that were
   // queued while the renderer was coming up (see the queue note above).
   flush_pending_texture_calls_on_ready();

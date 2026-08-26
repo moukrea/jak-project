@@ -2,7 +2,7 @@
 # Chaque gate nomme un fait mesurable. Aucune ne passe "par construction".
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
-TAG="Gshield-load-and-crash"
+TAG="Gmemory-ceiling-and-crash"
 REP=".autoport/reports/$TAG/report.txt"
 F=0
 fail(){ F=$((F+1)); echo "[$TAG FAIL] $1"; }

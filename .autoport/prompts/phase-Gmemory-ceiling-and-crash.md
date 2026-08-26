@@ -1,4 +1,14 @@
-# SHIELD — CHARGEMENT INTERMINABLE ET CRASH AU CHARGEMENT DE NIVEAU
+# PLAFOND MEMOIRE — CHARGEMENT INTERMINABLE ET CRASH
+
+> **INTERDICTION ABSOLUE — L'APPAREIL DE TEST EST LE REDMI `eae4df44`, ET LUI SEUL.**
+> Le SEUL appareil autorise est `eae4df44`. Toute autre machine est **HORS LIMITES**. Aucune commande
+> adb vers elle : ni `connect`, ni installer, ni lancer, ni lire un log, ni un `keyevent`.
+> RIEN. L'owner l'a exige plusieurs fois le 2026-08-26, la derniere en majuscules.
+> Si un script du depot vise un autre appareil, **le corriger vers `eae4df44`**, ne pas l'executer.
+> Cet interdit ne se leve QUE sur la parole explicite de l'owner.
+> Le defaut traite ici est UNIVERSEL : mesures identiques sur les deux machines
+> (122,1 Mo par niveau, ~1 300 Mo de RSS). Le Redmi suffit entierement.
+
 
 **TOP PRIORITE owner, 2026-08-26.** La phase des seins de Keira est MISE EN PAUSE pour celle-ci.
 
@@ -10,9 +20,9 @@
 - « ça crash quand je charge la partie (black screen avec la musique en fond... puis crash) »
 - « Nouvelle partie... La cinématique commence avec le fond visuel violacés et la voix de Samos...
   puis ça crash. »
-- « la SHIELD est aussi BEAUCOUP plus puissante que la PS2 sur laquelle on a pas de pop-in ni de
-  longs chargements, je vois pas pourquoi ça devrait ramer du cul sur la SHIELD »
-- « je pense qu'il y a un truc qu'on gère très mal et régler le soucis sur la SHIELD devrait
+- « l'appareil de test est aussi BEAUCOUP plus puissante que la PS2 sur laquelle on a pas de pop-in ni de
+  longs chargements, je vois pas pourquoi ça devrait ramer du cul sur l'appareil de test »
+- « je pense qu'il y a un truc qu'on gère très mal et régler le soucis sur l'appareil de test devrait
   bénéficier toutes les targets de test actuelles »
 
 Il a RAISON : le Tegra X1 n'est pas plus faible que le Redmi. Ne jamais repondre « la machine est
@@ -65,7 +75,7 @@ Chiffres :
 ## Contraintes
 
 - Toute conclusion doit s'appuyer sur une MESURE nommant sa scene, jamais sur une capture.
-- Un correctif qui aide la Shield doit aider ou etre neutre pour x86 / Redmi (Adreno) / Honor (Mali).
+- Un correctif qui aide l'appareil de test doit aider ou etre neutre pour x86 / Redmi (Adreno) / Honor (Mali).
 - Assets HD derives des dumps Jak2/Jak3 : jamais dans l'APK, le binaire ou git.
 
 ## LEVIER MESURE LE 2026-08-26 : LIBERER LES SOMMETS CPU (−68 % PAR NIVEAU)
@@ -77,7 +87,7 @@ Ces sommets sont **deja televerses dans le GPU**. Essai realise et MESURE sur le
     memoire du niveau : 122,1 Mo  ->  38,9 Mo      (avec la liberation des tangentes deja en place)
 
 Soit **−68 % par niveau**, et ~166 Mo repris sur les deux niveaux du cache — l'ordre de grandeur
-qui manque exactement a la Shield (elle meurt vers 1 200 Mo pour ~2 946 Mo de RAM totale).
+qui manque exactement a l'appareil de test (elle meurt vers 1 200 Mo pour ~2 946 Mo de RAM totale).
 
 ### L'obstacle est leve, il reste le SEQUENCEMENT
 
@@ -105,6 +115,6 @@ frame (le moteur reconstruit ses index par visibilite, comme la PS2). Seuls les 
 
 ### Preuve attendue
 - `A50-LEVRAM` avant/apres sur le meme niveau (reference : 122,1 -> 38,9 Mo).
-- RSS du jeu en regime et en pic, sur la Shield, avant/apres.
+- RSS du jeu en regime et en pic, sur l'appareil de test, avant/apres.
 - `A42-TFTREE` doit montrer `tris` et `drawn` NON NULS : c'est le controle qui a attrape la casse.
 - Zero `sig=11` sur un demarrage complet jusqu'a une partie chargee.

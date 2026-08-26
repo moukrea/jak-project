@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Attendre le retour de la Shield (elle est tombee : ping 100 % de perte), puis rejouer
+# Attendre le retour de la appareil de test (elle est tombee : ping 100 % de perte), puis rejouer
 # UNE fois install + lancement + deploy_verify. Borne a 30 min d'attente, une seule
 # tentative : une boucle non bornee sur un appareil casse ne prouve rien et masque l'etat.
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
-ADB=/home/emeric/Android/platform-tools/adb; S=192.168.1.32:5555; PKG=org.opengoal.gk.jak1
+ADB=/home/emeric/Android/platform-tools/adb; S=eae4df44; PKG=org.opengoal.gk.jak1
 APK=android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk
 LOCK=.autoport/.deploy-in-progress
 printf 'gmam_wait_device pid=%s started=%s\n' "$$" "$(date -Is)" > "$LOCK"
@@ -15,7 +15,7 @@ WANT=$(grep -E '^version=' android/app/src/jak1/assets-slim/bundle/jak1_custom.m
 say "attente du retour de $S (pack attendu $WANT)"
 UP=0
 for i in $(seq 1 60); do
-  if ping -c 1 -W 2 192.168.1.32 >/dev/null 2>&1; then
+  if "${ADB:-adb}" -s eae4df44 get-state >/dev/null 2>&1; then
     "$ADB" disconnect $S >/dev/null 2>&1; sleep 2
     "$ADB" connect $S >/dev/null 2>&1; sleep 3
     if [ "$(timeout 20 "$ADB" -s $S shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then

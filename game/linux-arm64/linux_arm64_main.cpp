@@ -2923,7 +2923,15 @@ bool remap_ee_main_mem() {
                  EE_MAIN_MEM_SIZE, std::strerror(errno));
     return false;
   }
-  std::memset(p, 0, EE_MAIN_MEM_SIZE);
+  // Gmemory-ceiling-and-crash (2026-08-26) — PLUS DE `memset` DE 128 Mo ICI.
+  // `MAP_ANONYMOUS | MAP_PRIVATE` : le noyau garantit des pages A ZERO (mmap(2) : « its
+  // contents are initialized to zero »). Le memset n'ecrivait donc rien de nouveau ; il
+  // TOUCHAIT les 32 768 pages, ce qui leur donne une page physique tout de suite et pour
+  // toujours. Mesure sur le Redmi (A55-RSS, famille `ee`) : 117 Mo RESIDENTS sur les 128 Mo
+  // mappes des le demarrage, quelle que soit la memoire que GOAL utilise vraiment — la PS2
+  // tenait dans 32 Mo. Sans lui, la residence suit l'usage REEL et une page jamais ecrite ne
+  // coute rien, tout en se lisant a zero. C'est CE site que l'Android utilise (le mapping du
+  // recensement est a 0x7f00000000), pas celui de runtime.cpp.
   g_ee_main_mem = (u8*)p;
   std::fprintf(stderr, "linux-arm64: g_ee_main_mem mapped at %p\n", (void*)p);
   return true;

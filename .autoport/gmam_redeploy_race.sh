@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# gmam_redeploy_race.sh — la Shield ne peut faire demarrer aucune application tant que
+# gmam_redeploy_race.sh — la appareil de test ne peut faire demarrer aucune application tant que
 # son volume USB adopte est en `checking` (Zygote avorte au fork : voir §10c du rapport).
 # Apres un redemarrage il existe une FENETRE — le volume n'est pas encore repris par vold
 # — pendant laquelle tout marche. On redemarre et on tient la sequence complete dans
 # cette fenetre : install, lancement (LoaderActivity depaquette), verification.
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
-ADB=/home/emeric/Android/platform-tools/adb; S=192.168.1.32:5555
+ADB=/home/emeric/Android/platform-tools/adb; S=eae4df44
 PKG=org.opengoal.gk.jak1
 APK=android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk
 LOG=.autoport/logs/gmam-redeploy-race.log

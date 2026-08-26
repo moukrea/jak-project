@@ -179,3 +179,7 @@ recharged_assets/hd_anim/
 # by the asset manager / tools/install_pack.py) — never committed.
 /managed_assets/
 /test/test_data/recharged/scratch/
+
+# Gshield-load-and-crash : textures cuites en ASTC/KTX2 par tools/bake_recharged_textures.py.
+# 72 Mo de binaire DERIVE des PNG du depot : reproductible a la demande, jamais versionne.
+custom_assets/*/recharged_textures_baked/

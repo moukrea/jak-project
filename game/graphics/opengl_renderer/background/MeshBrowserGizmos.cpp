@@ -243,6 +243,7 @@ void build(const tfrag3::Level* lev, int system, u32 tex, const float* bb) {
         continue;
       }
       const auto& verts = tree.unpacked.vertices;
+      if (verts.empty()) continue;  // sommets CPU liberes apres televersement (A54-VERTFREE)
       for (const auto& draw : tree.draws) {
         if (draw.tree_tex_id < 0 || (u32)draw.tree_tex_id != tex) {
           continue;
@@ -259,6 +260,7 @@ void build(const tfrag3::Level* lev, int system, u32 tex, const float* bb) {
   } else {
     for (const auto& tree : lev->tie_trees[0]) {
       const auto& verts = tree.unpacked.vertices;
+      if (verts.empty()) continue;  // sommets CPU liberes apres televersement (A54-VERTFREE)
       // static_draws only — instanced_wind_draws live in prototype-local space (their positions
       // are not world coordinates), exactly why tess_sign drops them from its face universe too.
       for (const auto& draw : tree.static_draws) {
@@ -1075,6 +1077,7 @@ void raytest(const tfrag3::Level* lev, int system, const char* level_name) {
         continue;
       }
       const auto& verts = tree.unpacked.vertices;
+      if (verts.empty()) continue;  // sommets CPU liberes apres televersement (A54-VERTFREE)
       for (const auto& draw : tree.draws) {
         u64 count = 0;
         for (const auto& g : draw.vis_groups) {
@@ -1087,6 +1090,7 @@ void raytest(const tfrag3::Level* lev, int system, const char* level_name) {
   } else {
     for (const auto& tree : lev->tie_trees[0]) {
       const auto& verts = tree.unpacked.vertices;
+      if (verts.empty()) continue;  // sommets CPU liberes apres televersement (A54-VERTFREE)
       // static_draws only — wind draws live in prototype-local space (see the gizmo build).
       for (const auto& draw : tree.static_draws) {
         u64 count = 0;

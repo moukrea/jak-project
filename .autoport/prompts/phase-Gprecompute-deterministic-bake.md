@@ -10,7 +10,7 @@ Et, sur la subdivision : « je vois pas pourquoi la subdivision serait la soluti
 p'tetre un truc en lien au PBR, auquel cas ca devrait etre une option ajustable et pas un truc qui
 se fait automatiquement ».
 
-## Ce qui est MESURE, pas suppose (2026-08-26, NVIDIA Shield, meme scene `lvl=title`)
+## Ce qui est MESURE, pas suppose (2026-08-26, NVIDIA appareil de test, meme scene `lvl=title`)
 
 | | defaut (`max_rounds=3`) | `subdivrounds=1` |
 |---|---|---|
@@ -39,12 +39,12 @@ donc PAS l'I/O : il est dans les passes deterministes qui suivent.
 
 - **Aucun changement du rendu temps reel.** Ce qui sort a l'ecran doit etre identique a iso-reglage.
 - Le gain doit etre demontre par une MESURE appariee (meme scene, meme niveau), pas par une capture.
-- Profite a toutes les cibles : PC x86, Redmi (Adreno), Honor (Mali), Shield (Tegra).
+- Profite a toutes les cibles : PC x86, Redmi (Adreno), Honor (Mali), appareil de test (Tegra).
 - Les assets HD derives des dumps Jak2/Jak3 restent HORS de l'APK, du binaire et de git.
 
 ## PRIORITE 1 — MESURE DU 2026-08-26 : LES TEXTURES HD SONT DECODEES A CHAQUE CHARGEMENT
 
-L'owner avait raison de soupconner « les textures HD rechargees, le PBR ». Mesure sur la Shield,
+L'owner avait raison de soupconner « les textures HD rechargees, le PBR ». Mesure sur la appareil de test,
 demarrage jusqu'a l'ecran-titre :
 
 - **107 etapes de texture, 11,5 s cumulees. 8 etapes concentrent 94 % du temps** (mediane 6 ms,

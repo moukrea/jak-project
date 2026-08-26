@@ -3094,7 +3094,7 @@ void Merc2::do_draws(const Draw* draw_array,
                 "F1A-MERC-VERIFY lev=%s idx=%u+%u min=%u max=%u restarts=%u verts=%zu "
                 "gpu-match=%d err=0x%x\n",
                 lev->level->level_name.c_str(), draw.first_index, draw.index_count, mn, mx,
-                restarts, lev->level->merc_data.vertices.size(), gpu_match, glGetError());
+                restarts, lev->merc_vertex_count, gpu_match, glGetError());
       }
     }
     {
