@@ -30,7 +30,13 @@ exec > >(tee -a "$RUNLOG") 2>&1
 say(){ echo "[$(date +%T)] $*"; }
 die(){ say "FAIL: $*"; exit 1; }
 
-say "=== c5 : APK gradle (assemble) ==="
+say "=== c5 : APK gradle (clean + assemble) ==="
+# LE `clean` N'EST PAS FACULTATIF. Un `assembleJak1Debug` incremental repete gonfle l'APK
+# d'espace mort : mesure du cycle 5, 586 235 921 o avec clean contre 1 015 459 590 o sans,
+# soit +73 %, et l'installation sur la Shield tombe en INSTALL_FAILED_INSUFFICIENT_STORAGE.
+# L'auto-constructeur porte deja cette garde (auto_build_apk.sh:325) ; l'omettre ici a coute
+# une pose. C'est aussi ce qui doublerait le telechargement de l'owner sans que ca se voie.
+( cd android && timeout 900 ./gradlew :app:clean ) >/dev/null 2>&1
 ( cd android && timeout 3000 ./gradlew assembleJak1Debug ) > .autoport/logs/gmam-c5-gradle.log 2>&1 \
   || { tail -40 .autoport/logs/gmam-c5-gradle.log; die "gradle"; }
 [ -f "$APK" ] || die "pas d'APK"
@@ -39,7 +45,9 @@ WANT_C=$(grep -E '^version=' android/app/src/jak1/assets-slim/bundle/jak1_custom
 WANT_G=$(grep -E '^version=' android/app/src/jak1/assets-slim/bundle/jak1_cgo.manifest.properties | cut -d= -f2)
 APK_C=$(unzip -p "$APK" assets/bundle/jak1_custom.manifest.properties | grep -E '^version=' | cut -d= -f2)
 [ "$APK_C" = "$WANT_C" ] || die "l'APK embarque '$APK_C' et l'arbre a bati '$WANT_C'"
-say "APK $(stat -c %s "$APK") o md5=${APK_MD5:0:12} custom=$WANT_C cgo=$WANT_G"
+APK_SZ=$(stat -c %s "$APK")
+[ "$APK_SZ" -le 700000000 ] || die "APK anormalement gros ($APK_SZ o) — espace mort de gradle, on ne pose pas"
+say "APK $APK_SZ o md5=${APK_MD5:0:12} custom=$WANT_C cgo=$WANT_G"
 
 # --- pose sur un appareil, puis relit LES TAMPONS SUR L'APPAREIL (trace, pas intention)
 poser(){
@@ -59,6 +67,16 @@ poser(){
   else
     timeout 1800 "$ADB" -s "$S" install -r "$APK" 2>&1 | tail -2 | grep -q Success || return 1
   fi
+  # REVEILLER L'ECRAN AVANT DE LANCER. Un appareil endormi classe le `am start` de
+  # MainActivity en demarrage d'activite EN ARRIERE-PLAN (TOP_SLEEPING) et le jeu ne rend
+  # jamais rien : signature identique a celle d'un moteur mort. Mesure du cycle 5.
+  timeout 30 "$ADB" -s "$S" shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1
+  timeout 30 "$ADB" -s "$S" shell wm dismiss-keyguard >/dev/null 2>&1 || true
+  sleep 3
+  local wk; wk=$(timeout 30 "$ADB" -s "$S" shell dumpsys power 2>/dev/null | grep -a 'mWakefulness=' | head -1 | tr -d '\r' | xargs)
+  say "$label etat ecran : $wk"
+  case "$wk" in *Awake*) ;; *) say "$label PAS REVEILLE — la mesure qui suit serait un faux rouge"; return 1;; esac
+
   # LoaderActivity, JAMAIS MainActivity : elle seule deballe les packs et ecrit les tampons.
   comp=$(timeout 30 "$ADB" -s "$S" shell cmd package resolve-activity --brief "$PKG" 2>/dev/null \
            | tr -d '\r' | grep "^${PKG}/" | head -1)
