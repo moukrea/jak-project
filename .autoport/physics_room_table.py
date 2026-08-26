@@ -2034,6 +2034,15 @@ def _oricom_block(A, txt, names, ori):
     A('   longueur <= 1.30 · §12 `SideGravityCOM 0.19 B0`. Lus contre |d| = |t/B0 + rr.axe|, le')
     A('   MEME vecteur compose que le tenseur ci-dessus. Rappel de l\'avertissement : c\'est un')
     A('   APEX, donc une BORNE SUPERIEURE du COM que ces trois lignes visent.')
+    A('   CE QU\'UNE BORNE SUPERIEURE PERMET DE CONCLURE, ET CE QU\'ELLE NE PERMET PAS (cycle 123).')
+    A('   Jusqu\'ici ces lignes imprimaient `AU-DESSUS` des que la borne depassait le plafond, et')
+    A('   le registre a porte ce verdict pour §11. C\'est un raisonnement INVALIDE : de `COM <= X`')
+    A('   et `X > plafond` on ne deduit RIEN sur le COM. Les deux conclusions valides le restent :')
+    A('     borne < plancher  =>  SOUS          (car COM <= borne)')
+    A('     borne <= plafond  =>  PAS AU-DESSUS (car COM <= borne <= plafond)')
+    A('     borne >  plafond  =>  SANS VERDICT  — la vraie grandeur est publiee par')
+    A('                           `ROOM-SPEC10 ... §11 NORME`, mesuree sur le CENTRE DE MASSE')
+    A('                           pondere du mesh livre, et c\'est ELLE qui porte le verdict.')
     for c in sorted({c for (c, _i) in com}):
         bb = b0.get(c, 602.0)
         ax = axis.get(c, [0.0, 1.0, 0.0])
@@ -2053,8 +2062,12 @@ def _oricom_block(A, txt, names, ori):
             dn = math.sqrt(sum(x * x for x in dv))
             A('ROOM-ORICOM-SPEC: %-12s %s i=%d  |d|=%.4f B0   cible %.2f (bande %.2f-%.2f)  %s'
               % (nm, lab, i, dn, nom, band[0], band[1],
-                 'DANS' if band[0] <= dn <= band[1] else
-                 ('SOUS' if dn < band[0] else 'AU-DESSUS')))
+                 'SOUS (conclusion VALIDE sur une borne superieure : COM <= |d|)'
+                 if dn < band[0] else
+                 ('PAS AU-DESSUS (conclusion VALIDE : COM <= |d| <= plafond)'
+                  if dn <= band[1] else
+                  'SANS VERDICT — borne superieure au-dessus du plafond, elle ne prouve rien ;'
+                  ' voir ROOM-SPEC10 ... NORME')))
         # §11 : le transitoire d'etablissement contre l'equilibre tenu
         ip = r.get('pro')
         if ip is not None and (c, ip) in tr:
@@ -2823,6 +2836,16 @@ def _spec10_block(A, txt, names, com, role, b0, roles=None):
         return
     _isup = _isup_grav if _isup_grav is not None else _isup_tri
     _rr = (roles or {}).get(_isup)
+    # ---- LA CELLULE PRONE SUIT LA MEME DISCIPLINE QUE LA SUPINE ------------------------------
+    # Jusqu'au cycle 122 elle etait designee par le SEUL triplet d'echelles, c'est-a-dire par un
+    # argmin contre les nombres que NOUS donnons au solveur. Tant qu'elle ne portait aucune bande
+    # c'etait sans consequence ; elle en porte une maintenant (§11 l.178), donc elle passe par la
+    # gravite MESUREE, avec le meme refus en cas de desaccord.
+    _ipro_grav = None
+    if roles:
+        _cand = [i for i, r in roles.items() if r and r[0] and r[0].startswith('PRONE')]
+        if len(_cand) == 1:
+            _ipro_grav = _cand[0]
     A('ROOM-SPEC10: CELLULE DU VERDICT : i=%d, designee par la GRAVITE MESUREE%s.'
       % (_isup, (' (ecart %.1f deg a la direction canonique, marge %.1f deg sur la deuxieme)'
                  % (_rr[1], _rr[2])) if _rr else
@@ -2831,6 +2854,12 @@ def _spec10_block(A, txt, names, com, role, b0, roles=None):
     if _isup_tri is not None and _isup_grav is not None:
         A('ROOM-SPEC10:   le triplet d\'echelles (argmin-L1 contre les constantes du moteur,'
           ' TAUTOLOGIQUE) designe la MEME cellule : ACCORD.')
+    _pr = (roles or {}).get(_ipro_grav) if _ipro_grav is not None else None
+    A('ROOM-SPEC10: CELLULE PRONE (§11) : %s'
+      % ('i=%d, designee par la GRAVITE MESUREE (ecart %.1f deg, marge %.1f deg)'
+         % (_ipro_grav, _pr[1], _pr[2]) if _pr else
+         'la gravite mesuree n\'en designe pas — repli sur le triplet d\'echelles, qui est'
+         ' TAUTOLOGIQUE ; le verdict de §11 en herite et le dit'))
 
     A('ROOM-SPEC10: SOURCE DES POIDS, DU MOMENT `L`, DE `W0` ET DES AXES : %s (mesh LIVRE),'
       ' mtime %.0f, taille %d —' % (_msrc, float(_mt), int(_msz)))
@@ -2843,7 +2872,16 @@ def _spec10_block(A, txt, names, com, role, b0, roles=None):
 
     _BANDS = (('vers thorax', 'th', 0.18, 0.28, 'B0   '),
               ('sortant    ', 'ou', 4.0, 10.0, '% W0'))
+    # LES CLAUSES NON DIRECTIONNELLES SE LISENT EN NORME, ET LE CHOIX SE DECIDE SUR LEUR TEXTE.
+    # Les deux clauses de §10 NOMMENT une direction, donc se lisent en projection (ci-dessus).
+    # Celle de §11 n'en nomme aucune, et celle de §12 dit meme « Global » : les lire sur un seul
+    # axe serait une borne INFERIEURE deguisee en mesure, symetrique exact de la faute que la
+    # docstring de ce bloc interdit dans l'autre sens.
+    _N11 = (0.20, 0.28, 0.30, 'l.178 « Static COM displacement: 20-28% B0, nominal 24% B0,'
+            ' upper static target 30% B0 »')
+    _N12 = (0.15, 0.24, None, 'l.192 « Global lateral COM response: 15-24% B0, nominal 19% »')
     _vd = lambda v, lo, hi: 'SOUS' if v < lo else ('DANS' if v <= hi else 'AU-DESSUS')
+    _vd_norm = _vd
     judged = {}
 
     def _cum(cc, ii, j):
@@ -2863,8 +2901,10 @@ def _spec10_block(A, txt, names, com, role, b0, roles=None):
         outv = [float(v) for v in rec['axes']['out']]
         thx = [-float(v) for v in rec['axes']['fwd']]      # « toward thorax » = -avant, et rien d'autre
         bb = b0.get(c, 602.0)
+        upv = [float(v) for v in rec['axes']['up']]
         isup = _isup
-        ipro = role.get(c, {}).get('pro')
+        _ipro_tri = role.get(c, {}).get('pro')
+        ipro = _ipro_grav if _ipro_grav is not None else _ipro_tri
 
         # --- LE CONTROLE DE MONTAGE, EN VECTEUR (cycle 64b : une norme est aveugle a la direction)
         ctrl, base = {}, None
@@ -2942,12 +2982,65 @@ def _spec10_block(A, txt, names, com, role, b0, roles=None):
                 row.append(dict(cut=d['cut'],
                                 th=(dot(v, thx) / bb, dot(sk, thx) / bb, dot(tn, thx) / bb),
                                 ou=(dot(v, outv) / w0 * 100.0, dot(sk, outv) / w0 * 100.0,
-                                    dot(tn, outv) / w0 * 100.0)))
+                                    dot(tn, outv) / w0 * 100.0),
+                                # la NORME et sa decomposition sur le triedre de §7, pour les
+                                # clauses que la spec n'attache a AUCUNE direction.
+                                nrm=math.sqrt(sum(x * x for x in v)) / bb,
+                                nsk=math.sqrt(sum(x * x for x in sk)) / bb,
+                                thb=dot(v, thx) / bb, oub=dot(v, outv) / bb,
+                                upb=dot(v, upv) / bb))
             for r_ in row:
                 A('ROOM-SPEC10: %-8s %-16s %-9s | %8.4f %8.4f %8.4f | %8.3f %8.3f %8.3f  %s'
                   % (nm, lab, 'w>%.2f' % r_['cut'], r_['th'][0], r_['th'][1], r_['th'][2],
                      r_['ou'][0], r_['ou'][1], r_['ou'][2],
-                     'CELLULE DU VERDICT' if i == isup else 'DIAGNOSTIC — sans bande'))
+                     'CELLULE DU VERDICT' if i == isup else
+                     ('CELLULE DU VERDICT §11' if i == ipro else
+                      ('DIAGNOSTIC §12 — lecture a arbitrer' if i in (2, 4) else
+                       'DIAGNOSTIC — sans bande'))))
+
+            # ---- LES CLAUSES NON DIRECTIONNELLES : §11 EN VERDICT, §12 EN DIAGNOSTIC ----------
+            if i == ipro or i in (2, 4):
+                _sec, (_lo, _hi, _up, _cite) = (('§11', _N11) if i == ipro else ('§12', _N12))
+                _v = [r_['nrm'] for r_ in row]
+                _e = ctrl.get(i, 0.0) / 100.0
+                _lb = min(r_['nrm'] - _e * r_['nsk'] for r_ in row)
+                _hb = max(r_['nrm'] + _e * r_['nsk'] for r_ in row)
+                _sp = ((max(_v) - min(_v)) / max(abs(x) for x in _v) * 100.0
+                       if max(abs(x) for x in _v) > 1e-12 else 0.0)
+                _vdn = sorted({_vd_norm(x, _lo, _hi) for x in _v + [_lb, _hb]})
+                _r0 = row[0]
+                A('ROOM-SPEC10: %-8s %s %s' % (nm, _sec, _cite))
+                A('ROOM-SPEC10: %-8s %s NORME |d| = %s B0   (bande %.2f-%.2f)'
+                  % (nm, _sec, '/'.join('%.4f' % x for x in _v), _lo, _hi))
+                A('ROOM-SPEC10: %-8s %s   decomposition sur le triedre de §7 (frontiere w>%.2f) :'
+                  ' thorax %.4f · sortant %.4f · haut %.4f  — parts %.3f / %.3f / %.3f'
+                  % (nm, _sec, _r0['cut'], _r0['thb'], _r0['oub'], _r0['upb'],
+                     abs(_r0['thb']) / max(_r0['nrm'], 1e-12),
+                     abs(_r0['oub']) / max(_r0['nrm'], 1e-12),
+                     abs(_r0['upb']) / max(_r0['nrm'], 1e-12)))
+                A('ROOM-SPEC10: %-8s %s   raffinement %.1f %% %s · montage %.2f %% -> pire cas'
+                  ' [%.4f ; %.4f]'
+                  % (nm, _sec, _sp, '(<=30 % OK)' if _sp <= 30.0 else '(>30 % REJETE)',
+                     ctrl.get(i, 0.0), _lb, _hb))
+                if _sec == '§12':
+                    A('ROOM-SPEC10: %-8s §12   DIAGNOSTIC, PAS UN VERDICT — le mot « Global » de'
+                      ' la clause ne dit pas si elle porte sur UNE chaine dans UNE cellule ou sur'
+                      ' la PAIRE : les deux lectures ne donnent pas le meme resultat (%s par'
+                      ' cellule ici). La question est ouverte et nommee, elle n\'est pas tranchee'
+                      ' au passage.' % (nm, '/'.join(_vdn)))
+                else:
+                    _cn = ('NON ETABLIE (raffinement %.1f %% > 30 %%)' % _sp if _sp > 30.0
+                           else (_vdn[0] if len(_vdn) == 1
+                                 else 'INDETERMINEE — ' + '/'.join(_vdn)))
+                    A('ROOM-SPEC10: %-8s §11 VERDICT DE LA CLAUSE DE COM : %s%s'
+                      % (nm, _cn, ('' if _up is None else
+                                   ' · cible statique haute %.2f : %s'
+                                   % (_up, 'FRANCHIE' if max(_v) > _up else 'non franchie'))))
+                    A('ROOM-SPEC10: %-8s §11   CETTE CLAUSE EST INDEPENDANTE DE L\'ENTREE DU'
+                      ' SOLVEUR : `HangingCOMDisplacement` est ABSENTE de `kPhysPresetKeys`'
+                      ' (game/kernel/jak1/kmachine.cpp:1970) — le moteur ne la recoit pas, la'
+                      ' bande n\'entoure aucun nombre injecte.' % nm)
+
             if i != isup:
                 continue
             e = ctrl.get(i, 0.0) / 100.0

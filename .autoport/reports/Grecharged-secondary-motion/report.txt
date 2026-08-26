@@ -46,621 +46,268 @@ sens dessus).
   extraction de ce champ doit lire le flottant en entier.
 
 ================================================================================================
-CYCLE 122 — LA CAUSE DE `COLLIDE` N'ETAIT PAS LA CONTRAINTE DE PEAU. QUATRE CYCLES ONT CHERCHE
-             DANS LA MAUVAISE FONCTION, ET C'EST UNE COURSE DE DIAGNOSTIC QUI LE PROUVE.
+  ADDENDUM DU CYCLE 123 : la sortie fait **18 lignes** — COMPTEES
+  (`bash .autoport/validators/phase-Grecharged-secondary-motion.sh | wc -l`), avec
+  `[Grecharged-secondary-motion PASS]` imprime et le seul echec sur `OPEN-DEFECTS`. IDENTIQUE au
+  cycle 122, ce qui est le resultat ATTENDU : ce cycle ne touche AUCUN bit du moteur et ne joue
+  AUCUNE course neuve. Le prochain cycle compare donc toujours a **18** + presence de `[PASS]`.
+
+================================================================================================
+CYCLE 123 — LE MOTIF QUI TENAIT §11 ETAIT UN FAUX ROUGE : SA CLAUSE DE COM ETAIT JUGEE SUR UNE
+             BORNE SUPERIEURE, ET LA VRAIE GRANDEUR DORMAIT DANS LA TRACE DEPUIS DES DIZAINES
+             DE COURSES.
 ================================================================================================
 DIRECTIVES vd9e8b66782
 
-Tier de livraison : **GOAL seul** (`(mi)` + repack) — aucun changement C++, aucun NDK. Sept
-courses x86 dans ce cycle, **une seule livree : le lot L** (section 7). Trois autres lots ont ete
-mesures et retires par leurs propres falsificateurs, et le detail de chacun est ci-dessous parce
-qu'il vaut plus que le lot livre.
-
-**LE RESULTAT, SANS ENROBAGE, ET IL A DEUX MOITIES QU'IL NE FAUT PAS CONFONDRE.**
-
-**(a) LA CAUSE DE `COLLIDE §33/§34` EST TROUVEE, ET CE N'EST PAS `phys-skin-chain`.** Une course
-de diagnostic a UNE SEULE VARIABLE le prouve (section 1). Quatre cycles — 118 a 122 — ont essaye
-sept bornes dans une fonction qui n'etait pas la coupable. C'est le resultat du cycle.
-
-**(b) LE PREMIER CORRECTIF QUI EN DECOULE (LOT K) FERME LA GATE ET EST RETIRE PAR SON PROPRE
-FALSIFICATEUR.** Le lot K (section 2) fait passer `COLLIDE` (`ROOM-SKINPEN chestR` 0,0887 ->
-**0,0871**) sans toucher d'un bit `phys-skin-chain`. Mais `DISCRIMINANT chestR` tombe a **23,5 %**
-contre un plancher de 25 %, et **la prediction P15, ecrite AVANT sa course, disait mot pour mot :
-« DISCRIMINANT < 25 % -> le lot se retire ».** Il est retire. Je ne re-plaide pas un critere apres
-avoir vu le resultat. Son code reste lisible : `git show ea47c5f472`.
-
-**(c) ET C'EST SON ECHEC QUI A DONNE LE LOT LIVRE.** Relire la course de DIAGNOSTIC avec le code
-de la gate `DISCRIMINANT` a montre qu'elle tenait 47,0 % / 28,2 % — donc que le probleme du lot K
-n'etait pas de retirer le tenseur au volume de collision, mais de lui retirer AUSSI la forme
-d'equilibre. Le **lot L** (section 7) ne lui retire que le TRANSITOIRE : les 13 gates de mesure
-passent, `[PASS]` est imprime, et §11 est conservee au chiffre. **Son prix est que la grandeur
-APPARIEE recule sur les deux chaines (+7,6 % / +4,1 %) : ce vert-la est un FAUX VERT et la
-section 8 le declare comme tel.**
+Tier de livraison : **ANALYSE SEULE**. Zero build, zero course neuve, zero octet de moteur
+modifie. Tout est relu sur la trace ARCHIVEE de la course livree au cycle 122
+(`keira-room-x86.log`). Le seul fichier de production touche est l'INSTRUMENT
+(`.autoport/physics_room_table.py`), qui est un post-processeur cote hote et n'entre dans aucun
+APK ni aucun pack. **L'APK et le pack livres restent ceux du cycle 122** : il n'y a rien de neuf
+a telecharger, et le dire vaut mieux que laisser croire a une livraison.
 
 ================================================================================================
 0. L'AVANCEMENT, EN PREMIER (arbitrage du 2026-08-23 01:20 : il se lit ICI, pas au validateur)
 ================================================================================================
-`SPEC-COVERAGE.md` : **4 `TENUE` · 5 `TENUE PAR CONSTRUCTION` · 17 `PARTIELLE` · 12 `NON TENUE`**
-— **aucun statut ne bouge**, et c'est le cinquieme cycle de suite. La raison a change de nature et
-elle est enfin utile : §33/§34 reste `NON TENUE` parce que la grandeur APPARIEE reste positive
-(0,0694 / 0,0657 m), pas parce que la gate echoue — la gate, elle, est passee.
+
+    4 TENUE (§12, §24, §25, §26) · 5 TENUE PAR CONSTRUCTION · 17 PARTIELLE · 12 NON TENUE
+    0 NON ETABLI, sur 38 sections.
+
+**AUCUN STATUT NE BOUGE. C'EST LE CINQUIEME CYCLE CONSECUTIF, ET LA REMONTEE AU SUPERVISEUR EST
+EN SECTION 6.** Je l'ecris en premier et je ne l'enrobe pas.
+
+Ce qui bouge est le MOTIF de §11, et il etait FAUX — au sens exact de l'arbitrage du 2026-08-19
+23:50 : **un faux rouge coute autant qu'un faux vert**, parce qu'il envoie le chantier courir
+apres un depassement qui n'existe pas et rend invisible le vrai ecart, qui est petit.
 
 ================================================================================================
-1. LE FAIT QUI RETOURNE QUATRE CYCLES DE TRAVAIL
+1. LE RESULTAT, SANS ENROBAGE
 ================================================================================================
-Course de DIAGNOSTIC, build JETABLE, **une seule variable** : le canal de forme est rendu SANS
-MEMOIRE (`sxd/syd/szd` = `sx0/sy0/sz0`), c'est-a-dire l'etat d'AVANT le lot §11 du cycle 120. Tout
-le reste est bit-identique au cycle 121.
 
-    ROOM-SKINPEN chestR    cycle 121 : 0,0887 m       canal SANS MEMOIRE : **0,0869 m**
-    ROOM-SKINPEN chestL    cycle 121 : 0,0696 m       canal SANS MEMOIRE :   0,0690 m
+**(a) LA CLAUSE DE COM DE §11 ETAIT JUGEE SUR UNE BORNE SUPERIEURE, ET L'INFERENCE ETAIT
+INVALIDE.** `ROOM-ORICOM-SPEC` publiait :
 
-**0,0869 <= 0,0883 : la gate passerait.** Et 0,0869 est EXACTEMENT la valeur que le cycle 120
-avait relevee avant son propre lot. **La cause de l'echec de `COLLIDE` etait le lot §11 du cycle
-120, pas `phys-skin-chain`.** Les cycles 118 a 122 ont essaye SEPT bornes dans une fonction qui
-n'etait pas la coupable.
+    ROOM-ORICOM-SPEC: chestL  §11 prone i=6  |d|=0.4196 B0  cible 0.24 (bande 0.20-0.30)  AU-DESSUS
+    ROOM-ORICOM-SPEC: chestR  §11 prone i=6  |d|=0.4092 B0  cible 0.24 (bande 0.20-0.30)  AU-DESSUS
 
-**ET LE CHEMIN EST UNIQUE, DEMONTRE PAR VALEUR ET PAS PAR UNE LISTE ECRITE A LA MAIN.** Pendant le
-solveur, `skel bones` porte la pose d'AUTEUR de la frame (l'animation la recalcule, la physique
-n'ecrit qu'a la fin) : ni `phys-surf-sd`, ni les points d'echantillon de `phys-skin-chain`, ni ceux
-de `phys-pen-chain` ne voient le tenseur. Le tenseur n'entre que dans la matrice ECRITE, et la
-seule chose qui relit cette matrice est `phys-snapshot-sim!`, qui place les VOLUMES DE COLLISION
-que la frame suivante lira. Une deformation n'a donc qu'UNE porte vers `skinpen`, et c'est elle.
+et le registre citait ce chiffre comme « c'est elle qui tient la section en PARTIELLE ». Or le
+MEME bloc s'annonce, quatre lignes plus haut, en ces termes : « Rappel de l'avertissement : c'est
+un APEX, donc une **BORNE SUPERIEURE** du COM que ces trois lignes visent. »
 
-================================================================================================
-2. LE LOT LIVRE (K) — LE VOLUME DE COLLISION EST UN PROXY RIGIDE
-================================================================================================
-`phys-col-centre` appliquait la matrice ECRITE (`R_auteur . rot . DFM`) a l'offset local du
-volume : le CENTRE suivait le tenseur de forme pendant que le RAYON, mesure sur la geometrie de
-bind, ne le suivait pas. Avec un offset de ~651 u et un transitoire §11 qui monte a 1,29, cela
-deplace le centre de plusieurs dizaines d'unites.
+De `COM <= X` et `X > plafond`, **on ne deduit RIEN sur le COM**. Sur une borne superieure, deux
+conclusions seulement sont valides, et l'instrument les encode desormais au lieu d'imprimer un
+verdict qui ne se deduit pas :
 
-Le lot releve le repere du maillon **juste avant** que le tenseur entre, et c'est lui que
-l'instantane de Jacobi utilise. Detail complet et question ouverte : [NOTE-534].
+    borne <  plancher  =>  SOUS           (car COM <= borne)
+    borne <= plafond   =>  PAS AU-DESSUS  (car COM <= borne <= plafond)
+    borne >  plafond   =>  SANS VERDICT
 
-    grandeur (fenetre `run`)              cycle 121      cycle 122 (lot K)
-    ROOM-SKINPEN chestR                   0,0887         **0,0871**   <- sous le plancher 0,0883
-    ROOM-SKINPEN chestL                   0,0696           0,0694
-    ROOM-SKINADD (appariee) L / R         0,0696/0,0654    0,0694/0,0657   (inchangee, +-0,4 %)
-    ROOM-IDLE maxdev                      0,0001 m         0,0001 m
-    ROOM-STRETCH                          2,7913 %       **2,1863 %**
-    ROOM-APEX chestR                      0,9397 B0      **0,8796 B0**
-    ROOM-COM  chestR                      0,4388 B0      **0,4154 B0**
-    ROOM-SPEC11-STEP pic L / R            1,2939/1,2852    1,2939/1,2852  <- §11 INTACTE AU CHIFFRE
-    PHYSSKINC run (corrections / cumul)   23 534 / 101,5 m 23 097 / 97,8 m
-    DISCRIMINANT chestL                   46,9 %         **48,0 %**
-    DISCRIMINANT chestR                   34,0 %         **23,5 %**   <- LE PRIX, ET IL ECHOUE
+**(b) LA GRANDEUR QUE §11 NOMME ETAIT DEJA CALCULEE, ET PUBLIEE `DIAGNOSTIC — SANS BANDE`.**
+`ROOM-SPEC10` construit pour CHAQUE cellule d'orientation le deplacement de COM **pondere par la
+masse du mesh LIVRE** — terme SQUELETTIQUE `(W0.d0 + W1.d1)/N` sur le cumul telescopique de
+`PHYSORICOML`, plus terme TENSORIEL `L.(D - I)/N` sur `PHYSDFMA` — sur trois frontieres d'organe.
+La cellule PRONE y figurait, sans bande, alors que sa spec lui en donne une :
 
-`phys-skin-chain` est **bit-identique au cycle 121** : le barattage ne bouge pas (97,8 m contre
-101,5 m), et c'est ce qui rend la comparaison lisible.
+    SPEC-breast-softbody.md l.178
+    « Static COM displacement: 20-28% B0, nominal 24% B0, upper static target 30% B0 »
 
-**PROVENANCE DE CES CHIFFRES, PARCE QUE LE LOT EST RETIRE ET QUE SA TABLE A ETE ECRASEE PAR LA
-COURSE FINALE.** Ils sont tous relus dans SA table, commitee telle quelle :
-`git show ea47c5f472:.autoport/reports/Grecharged-secondary-motion/keira-room-table.txt`
-(course du 2026-08-25 14:20, empreinte `7807e64aa0c8816b721b28563a27a429` ecrite DANS le fichier).
-Aucun n'est recopie d'un rapport ni retenu de memoire.
+C'est la quatrieme fois dans ce dossier que le discriminant dormait dans la trace publiee. Il n'a
+pas fallu une course pour le trouver : il a fallu relire le tableau.
 
-**ET LE RETRAIT EST VERIFIE PAR LA MESURE, PAS PAR `git diff` SEUL.** La course finale, sur le
-moteur reverti, reproduit le cycle 121 **au chiffre publie pres** : `skinpen` 0,0696 / 0,0887 ·
-23 534 corrections pour 101,52 m · `tests` 154 463 505, identique au DIGIT · `meshpen` 0,0499 /
-0,0915 · `tipvar accel chestR` 0,2064. La salle est deterministe, et c'est ce qui rend le controle
-recevable : un revert qui n'aurait pas pris se verrait ici.
+**(c) REBRANCHE, LE VERDICT CHANGE DE SENS.**
 
-**LE PRIX A UNE SIGNATURE, ET ELLE EST L'INVERSE DE CELLE DES SEPT BORNES DE PEAU.** Ici c'est le
-PLAFOND qui baisse, pas le plancher qui monte :
+    chaine   |d| sur les 3 frontieres d'organe |  verdict                    | cible haute 0.30
+    chestL   0.2278 / 0.2511 / 0.2791          |  DANS                       | non franchie
+    chestR   0.2273 / 0.2548 / 0.2949          |  INDETERMINEE AU-DESSUS/DANS| non franchie
 
-    chestR   accel 0,2064 -> 0,1842 (-10,8 %)   ·   updown 0,1363 -> 0,1410   ·   tilt 0,1432 -> 0,1432
+chestL est `DANS` sur les TROIS frontieres **et** sous le pire cas du montage [0,2277 ; 0,2793].
+chestR n'est indeterminee que par sa frontiere la plus large (w>0,25 rend 0,2949 contre 0,28,
+soit **+5,3 %**) ; les deux autres sont dans la bande. **La « upper static target 30% B0 » que la
+MEME ligne de spec ecrit n'est franchie sur AUCUNE chaine et AUCUNE frontiere.**
 
-Le mouvement retire est celui que le volume de collision injectait en suivant le tenseur avec un
-rayon fixe, et il n'apparait qu'a fort stimulus. `chestL` passe et s'ameliore (46,9 -> 48,0 %).
+Rapport au chiffre retire : **x1,84 (chestL) et x1,80 (chestR)**.
 
 ================================================================================================
-3. LES TROIS LOTS ESSAYES ET REFUTES AVANT LUI, AVEC LEURS FALSIFICATEURS ECRITS D'AVANCE
+2. POURQUOI UNE NORME, ET QUATRE VERROUS — PARCE QUE CETTE LIGNE A DEJA MENTI UNE FOIS
 ================================================================================================
-Les predictions et leurs falsificateurs chiffres sont dans `.autoport/c122-predictions.txt`,
-ecrits AVANT chaque course et jamais reecrits apres. **Trois faussetes y restent en toutes lettres.**
 
-**J1 — le budget d'entree SDF a la place du plafond `-dot(dj,n)`, plus un test de descente.**
-FERME LA GATE (`skinpen` 0,0590 / **0,0789**, les DEUX chaines sous LEUR PROPRE plancher pour la
-premiere fois), fait BAISSER la grandeur honnete des deux cotes (`skinadd` -27,9 % / -7,9 %), et
-fait TIRER le controle positif d'ablation **sur les deux chaines et contre son biais de
-population** — ce qui n'etait jamais arrive. **Et il est REFUTE par son propre falsificateur P5** :
-`DISCRIMINANT` 13 % / 15 %. Signature mesuree, et elle est neuve : c'est un RELEVEMENT DU PLANCHER
-(chestL `tilt` +90,3 %, `updown` +28,9 %, `accel` +1,8 %) — mot pour mot « un pudding sur lequel on
-tape tres fort au moindre mouvement ». Mecanisme chiffre : 35 783 corrections pour 261,3 m contre
-23 534 pour 101,5 m, soit ~15 mm de deplacement de joint par frame contre ~6. Detail : [NOTE-525 bis].
+**LE CHOIX DE L'OPERATEUR SE DECIDE SUR LE TEXTE DE LA CLAUSE, PAS SUR UN GOUT.** Les deux
+clauses de §10 NOMMENT une direction (« COM **toward thorax** », « **Outward** COM migration ») :
+elles se lisent en PROJECTION, et une norme y serait une borne superieure deguisee — c'est ecrit
+dans la docstring du bloc depuis le cycle 89. Celle de §11 ne nomme AUCUNE direction : la lire sur
+un axe serait la faute exactement symetrique, une borne INFERIEURE deguisee en mesure.
+Et la decomposition est publiee A COTE de la norme, pour que le choix soit verifiable et non cru :
 
-**J3 — le plafond conserve, le test de descente seul.** Il refuse 32,4 % des pas candidats et fait
-**MONTER** `skinpen chestR` a **0,0916**. Fait neuf et contre-intuitif : les pas que le critere
-rejette (« la profondeur de l'echantillon QUI A DECIDE ne baisse pas ») sont des pas qui font
-BAISSER le maximum de course, lequel porte sur TOUS les echantillons. **Un critere de descente
-pose sur l'echantillon decideur n'est pas aligne sur la grandeur que la gate mesure.**
+    chestL  thorax -0.2234 · sortant -0.0414 · haut  0.0163   -> parts 0.981 / 0.182 / 0.072
+    chestR  thorax -0.2017 · sortant -0.0980 · haut  0.0370   -> parts 0.887 / 0.431 / 0.163
 
-**J4 — une alternance `phys-cap-e22!`/`phys-skin-chain` de plus (2 -> 3), seule variable.** Ecrit
-d'avance : « le barattage monte de moitie, `skinpen chestR` tombe a ~0,0855 ». Mesure : barattage
-+14 % seulement (116,2 m, HORS de la fourchette [120 ; 200] annoncee) et `skinpen chestR`
-**inchangee a 0,0887**. **P9 ET P10 SONT TOUTES DEUX FAUSSES**, et avec elles le modele
-« barattage -> skinpen » que j'avais tire de J1 et J3. Je le retire : ajouter des passes ne fait
-rien parce que le plafond `-dn` est ce qui lie, et il se regenere identique a chaque passe.
+L'axe du thorax porte 98,1 % et 88,7 % du deplacement : **le choix de l'operateur ne deplace pas
+le verdict**, et on le voit au lieu de le supposer.
 
-================================================================================================
-4. CE QUE CE CYCLE NE PRETEND PAS
-================================================================================================
-  - **Il ne fait pas sortir le validateur a 0, et il ne le peut pas.** Les 13 gates de MESURE
-    passent et `[PASS]` est imprime ; le seul echec restant est `OPEN-DEFECTS`, la porte de
-    l'owner, qui n'a aucun mode « reussi » tant qu'il n'a pas parle. Aucune gate touchee (regle 5).
-  - **Il ne rend PAS §33/§34 tenue, et le vert de `COLLIDE` ne doit pas se lire ainsi.** La
-    grandeur APPARIEE recule sur les deux chaines. Section 8, et `SPEC-COVERAGE` garde `NON TENUE`.
-  - **Une premisse du lot livre n'est pas verifiee** (l'ecart de 8,5 % sur chestL entre le lot L
-    et le diagnostic). Section 9, nommee comme premier chantier du cycle 123.
-  - **Il ne rend pas §33/§34 TENUE.** La gate compare deux MAXIMA LATCHES ; la grandeur APPARIEE
-    (meme frame, meme echantillon, meme surface) reste positive : 0,0694 m sur chestL et 0,0657 m
-    sur chestR. Le tableau le publie lui-meme en `ROOM-SKINPEN-VERDICT ... -> DEPASSEE`. **Une
-    gate verte au-dessus d'une ligne rouge publiee est la forme meme d'un faux vert, et je ne
-    l'ecris pas autrement.**
-  - **Il ne tranche pas si un volume de collision doit suivre une deformation qui conserve le
-    VOLUME mais change la FORME** quand le proxy est une sphere. Ce lot choisit « ni le centre ni
-    le rayon » ; l'autre reponse coherente (« le centre ET la forme ») demande un proxy non
-    spherique et n'est pas essayee. Ce qui est certain est que l'etat precedent — le centre suit,
-    la forme non — n'etait coherent ni dans un sens ni dans l'autre.
-  - **Le cout par frame n'est pas mesure de facon appariee.** Les durees de course de ce cycle
-    vont de 20 a 47 min, mais le cycle 121 a etabli que ce compteur mesure le COMPOSITEUR ; je ne
-    m'en sers pas pour conclure, et je ne lui substitue pas une mesure que je n'ai pas.
-  - **Le controle de niveau systeme de l'owner — le preset de Maia sur la chaine de Keira — n'a
-    toujours pas ete joue.** Troisieme cycle qu'il est nomme et pas fait.
+**VERROU 1 — LA CELLULE PRONE EST DESIGNEE PAR LA GRAVITE MESUREE, PLUS PAR LE TRIPLET.**
+Jusqu'ici elle sortait d'un argmin-L1 contre `(0.90, 0.91, 1.23)`, c'est-a-dire contre les nombres
+que NOUS donnons au solveur : tautologique. Tant qu'elle ne portait pas de bande c'etait sans
+consequence ; elle en porte une maintenant. Elle passe donc par `PHYSORI4` avec le sens de l'axe
+avant/arriere MESURE sur l'anatomie du rig (`PHYSURST`, la saillie de l'os de racine) :
+**i=6, ecart 6,6 deg a la direction canonique, marge 43,3 deg sur la deuxieme**. Les deux routes
+sont en ACCORD ; un desaccord suspendrait le verdict au lieu de choisir.
+
+**VERROU 2 — UNE SECONDE CELLULE PRONE, INDEPENDANTE.** Le cycle 120 a ajoute i=10 en queue du
+balayage pour jouer l'echelon debout->prone. Elle rend **0,2282 (chestL) et 0,2276 (chestR)**
+contre 0,2278 et 0,2273 : accord a la quatrieme decimale, sur une cellule que rien ne relie a i=6.
+
+**VERROU 3 — LA LIGNE DE BASE EST MESUREE, PAS SUPPOSEE.** La cellule i=0 est la pose debout
+d'auteur, ou §9 exige exactement 0. Le meme operateur y rend **0,00044 / 0,00047 B0**. C'est la
+reponse a la troisieme question obligatoire du contrat (« que lit la mesure quand le defaut est
+ABSENT ? ») et elle n'est pas nulle par construction : elle est nulle parce qu'elle est mesuree.
+
+**VERROU 4 — LE CONTROLE DE MONTAGE DE CETTE CELLULE EST LE MEILLEUR DU BALAYAGE.**
+|s-t|/max(|s|,|t|) en VECTEUR vaut **0,10 % (chestL) et 0,09 % (chestR)** pour un seuil declare a
+5 %, contre 13,69 % et 22,75 % sur la cellule SUPINE qui porte §10. Le verdict de §11 repose donc
+sur une cellule mieux montee que celle dont on n'a jamais doute.
+
+**ET L'INDEPENDANCE VIS-A-VIS DE L'ENTREE DU SOLVEUR, QUI EST TOUT L'OBJET DU CYCLE.**
+`HangingCOMDisplacement` (0,24 chez Keira, 0,33 chez Maia) est **ABSENTE de `kPhysPresetKeys`**
+(`game/kernel/jak1/kmachine.cpp:1970-2022`) — et cette liste EST la definition de « cable », son
+commentaire le dit : « a key absent from this array has NO channel ». Le moteur ne recoit donc
+PAS ce nombre, et la bande 0,20-0,28 B0 n'entoure aucune valeur injectee. C'est exactement ce que
+la directive du 2026-08-23 16:00 demande pour les miroirs, tenu sur la moitie §11.
+
+**LA FAMILLE DISCRIMINE, ET LA PREUVE EST DANS LE MEME TABLEAU.** Un instrument qui ne peut pas
+echouer ne vaut rien. Celui-ci echoue, sur ses lignes voisines et dans la meme course :
+la clause « sortant » de §10 reste `SOUS` de facon robuste (frontieres ET pire cas du montage) sur
+LES DEUX chaines, et les cellules cote-gravite de §12 rendent `SOUS` (0,0937 et 0,0536 B0 contre
+une bande 0,15-0,24).
 
 ================================================================================================
-5. REMONTEE AU SUPERVISEUR — L'ARBITRAGE QUE JE NE PEUX PAS PRENDRE
+3. LES PREDICTIONS, ECRITES AVANT LA MESURE (.autoport/c123-predictions.txt, commit avec ce lot)
 ================================================================================================
-**(1) CINQUIEME CYCLE SANS CHANGEMENT DE STATUT**, remonte selon la regle du 2026-08-21 18:25.
-Mais la raison a change : ce n'est plus « la file est epuisee » ni « la famille est fausse », c'est
-**« la fonction que quatre cycles ont fouillee n'etait pas la coupable, et une course d'une seule
-variable le prouve »**.
 
-**(1 bis) CE QUI A CHANGE DANS L'ETAT DU VALIDATEUR : `[PASS]` EST IMPRIME POUR LA PREMIERE FOIS
-DEPUIS LE CYCLE 110 (sortie 18 lignes, comptees).** Les 13 gates de mesure sont vertes. Ce n'est PAS la
-conformite (arbitrage du 2026-08-23 01:20), et `SPEC-COVERAGE` ne bouge pas d'un statut.
+  P1  |d| < 0,35 B0 sur les deux chaines et les trois frontieres, donc >= x1,2 sous la borne
+      d'apex.                                        TENUE — max 0,2949 ; x1,84 / x1,80.
+  P2  part de l'axe thorax >= 0,85.                  TENUE — 0,981 et 0,887.
+  P3  raffinement <= 30 %.                           TENUE — 18,4 % et 22,9 %.
+  P4  verdict DANS ou INDETERMINE, jamais robustement AU-DESSUS.
+                                                     TENUE — DANS / INDETERMINEE.
+  P5  `HangingCOMDisplacement` sans lecteur moteur.  TENUE — absente de `kPhysPresetKeys`.
+  P6  au moins une clause de COM de la meme famille reste HORS BANDE apres le cycle.
+                                                     TENUE — §10 « sortant » SOUS, robuste.
 
-**(2) L'ARBITRAGE QUE JE NE PRENDS PAS, ET POURQUOI J'AI CHOISI DE RETIRER LE LOT K.**
-`COLLIDE §33/§34` vient d'une ligne de `SPEC-breast-softbody.md`. `DISCRIMINANT` est **ma**
-methodologie, avec **mon** seuil de 25 %. Les DIRECTIVES du 2026-08-17 23:50 ordonnent d'avancer
-A TRAVERS les rouges, et celles du 2026-08-14 posent qu'une gate a moi qui contredit la spec perd.
-Les deux plaident pour GARDER le lot K.
+**Six sur six. Et je le dis avec la reserve qui va avec** : six predictions toutes tenues est un
+signal FAIBLE, pas un triomphe — elles portaient sur une trace deja archivee, donc rien
+n'empechait de les ecrire « faciles ». Ce qui les rend utiles est leur FALSIFICATEUR, ecrit a cote
+de chacune : P1 aurait retire tout le cycle, P4 aurait dit que le changement de grandeur ne change
+rien au sens, P5 aurait fait de la nouvelle clause un miroir de plus.
 
-**J'ai retire quand meme, et la raison n'est pas timide : mon propre falsificateur, ecrit avant la
-course, disait de retirer.** Le garder aurait ete re-plaider un critere apres avoir vu le
-resultat — exactement ce que le cycle 121 a refuse de faire pour ses six bornes. Un falsificateur
-qu'on contourne la premiere fois qu'il gene ne vaut plus rien les fois suivantes.
-
-**ET L'ASYMETRIE DES DEUX ERREURS VA DANS LE MEME SENS.** Si je livre a tort, l'owner recoit un
-build ou `chestR` bouge 10,8 % de moins sous forte acceleration — un MUSELAGE sur l'organe dont il
-se plaint depuis le 2026-08-11, et la gate anti-pudding au rouge. Si je retire a tort, le
-superviseur re-livre un commit deja ecrit et mesure, et ca coute un cycle.
-
-**CE QUE JE DEMANDE DONC AU SUPERVISEUR, ET C'EST UNE QUESTION FERMEE :** -10,8 % de reponse a
-`accel` sur `chestR` (et `DISCRIMINANT` a 23,5 % contre mon seuil de 25 %) est-il un prix
-acceptable pour fermer `COLLIDE §33/§34` et gagner `ROOM-STRETCH` -21,7 %, `ROOM-APEX chestR`
--6,4 % et `ROOM-COM chestR` -5,3 % ? Si oui, `git show ea47c5f472` porte le lot pret a re-livrer.
-
-**(3) CE QUE JE DEMANDE EN PRIORITE POUR LE CYCLE 123**, et c'est nomme, pas vague : le volume de
-collision de la poitrine ne peut pas representer une deformation anisotrope. Tant qu'il est une
-sphere, l'un des deux couts est inevitable (soit le centre chasse une forme que le rayon ignore,
-soit il l'ignore et on perd 10,8 % de reponse). **Le chantier est le PROXY, pas le tenseur** —
-c'est exactement la suggestion de l'owner du 2026-08-11 (« pourquoi deriver du rig et pas du
-mesh ? »), restee sans reponse chiffree depuis.
+**UNE FAUTE ATTRAPEE EN CHEMIN, PUBLIEE PARCE QU'ELLE AURAIT PRODUIT UN CHIFFRE FAUX.** Ma
+premiere version du calcul prenait les composantes de `PHYSORICOML` dans l'ordre PUBLIE
+(`dv, dap, dlat`) au lieu de l'ordre de la base d'ancre (`dlat, dv, dap`), et designait la cellule
+PRONE par `argmax r2` sans le signe MESURE de l'axe avant/arriere — ce qui designait **SUPINE**,
+la cellule exactement opposee. Les deux fautes sont silencieuses : elles rendent des nombres
+plausibles. Elles ont ete attrapees parce que le portage a ete confronte aux projections que
+l'instrument publie DEJA (`vers thorax` -0,2234 / -0,2463 / -0,2738 sur chestL), qui ne
+concordaient pas. **Une seconde implementation ne vaut que si on la confronte a la premiere.**
 
 ================================================================================================
-6. A TESTER PAR L'OWNER
+4. CE QUI EST CHANGE, ET OU — AU POINT DE PRODUCTION, PAS EN ANNOTATION
 ================================================================================================
-**RIEN.** Directive du 2026-08-20 23:30 : pas de sollicitation pour un changement d'une seule
-section. Ce lot change §33/§34 et rien d'autre de visible ; lui demander de trancher a 4 sections
-tenues sur 38 lui couterait son oeil pour une question que l'etat du dossier rend indecidable.
 
-================================================================================================
-CYCLE 122 (SUITE) — LES 13 GATES DE MESURE PASSENT. ET LA GRANDEUR HONNETE, ELLE, RECULE :
-                    CE VERT-LA EST UN FAUX VERT ET IL EST DECLARE COMME TEL.
-================================================================================================
-DIRECTIVES vd9e8b66782
+`.autoport/physics_room_table.py`, deux endroits, tous deux sur la LIGNE DE VERDICT (regle du
+2026-08-19 23:50 : « un correctif d'instrument s'arrete quand la LIGNE DE VERDICT lit la nouvelle
+donnee — pas quand la donnee existe ») :
 
-**LE LOT LIVRE EST LE LOT L**, et il decoule directement du diagnostic de la section 1 : le volume
-de collision suit la forme d'EQUILIBRE que l'orientation dicte, jamais le TRANSITOIRE du second
-ordre de §11 qu'une sphere a rayon fixe ne peut pas representer. Un second tenseur est bati avec
-les memes echelles prises a la cible de gravite directe ; le tenseur ECRIT au squelette garde le
-second ordre. Detail : [NOTE-535].
+  1. `_spec10_block` — la cellule PRONE est designee par la gravite mesuree, la NORME du
+     deplacement de COM est publiee avec sa decomposition, son raffinement, son pire cas de
+     montage et son verdict contre la bande de §11 ; les cellules de ROULIS publient la meme
+     norme en DIAGNOSTIC.
+  2. `ROOM-ORICOM-SPEC` — les quatre lignes §10/§11/§12 cessent d'imprimer `AU-DESSUS` a partir
+     d'une borne superieure et impriment `SANS VERDICT`, en renvoyant a la ligne de norme. Les
+     deux conclusions qu'une borne superieure autorise restent, et sont nommees.
 
-**CE QUI L'A DECIDE EST UNE MESURE, PAS UNE INTUITION.** La course de diagnostic a ete relue avec
-le CODE DE LA GATE `DISCRIMINANT` extrait tel quel, et l'extracteur est CONTROLE — sur la course du
-moteur du cycle 121 il rend 46,9 % / 34,0 %, exactement les chiffres publies :
-
-    diagnostic (canal SANS MEMOIRE)   chestL 47,0 %   chestR 28,2 %   skinpen chestR 0,0869
-    -> les deux gates tenaient DEJA ; ce que le diagnostic ne tenait pas, c'etait §11.
+**PORTEE DU CHANGEMENT, VERIFIEE PAR DIFF ET NON AFFIRMEE.** Le tableau regenere ne differe de
+celui du cycle 122 que sur **42 lignes**, toutes prefixees `ROOM-SPEC10:` ou `ROOM-ORICOM-SPEC:`.
+Aucune autre ligne du tableau ne bouge, et les verdicts de §10 sont IDENTIQUES au caractere pres.
 
 ================================================================================================
-7. L'ETAT DU VALIDATEUR — 18 LIGNES, ET `[PASS]` EST IMPRIME
+5. CE QUE CE CYCLE NE FAIT PAS, ET POURQUOI
 ================================================================================================
-    [DISCRIMINANT] chaque chaîne distingue les 5 pilotages
-    [Grecharged-secondary-motion PASS]
-    [Grecharged-secondary-motion FAIL] OPEN-DEFECTS: 1 defaut(s) rapporte(s) par l'owner
 
-**Les 13 gates de MESURE passent.** Le seul echec est `OPEN-DEFECTS`, la porte de l'owner, qui
-n'a pas de mode « reussi » par construction : `OPEN breast-spec-incomplete` ne se retire QUE sur
-sa parole (DIRECTIVES 2026-08-20 00:25). Aucun jeton `.autoport/owner-ok/<phase>` n'est cree,
-aucune gate n'est touchee (regle 5), et le prompt de tache — « ne pas declarer de succes tant que
-le validateur ne sort pas 0 » — est signale comme INAPPLICABLE plutot que contourne.
+**§12 N'EST PAS TOUCHEE, ET C'EST DELIBERE.** Sa clause « Global lateral COM response: 15-24% B0 »
+est de la meme famille et le meme operateur la mesure ; elle rend, par cellule :
+chestL 0,0937 (cote gravite) et 0,1856 (cote oppose) · chestR 0,1947 (oppose) et 0,0602 (gravite).
+Le mot « **Global** » ne dit pas si la clause porte sur UNE chaine dans UNE cellule ou sur la
+PAIRE, et les deux lectures ne donnent pas le meme verdict. **Cette question est deja ouverte et
+remontee a l'owner depuis le cycle 91**, avec ces memes chiffres — je l'ai relue AVANT d'y
+toucher, et elle dit que si la reponse est la moyenne du pole, §12 retombe a `PARTIELLE`. Trancher
+au passage, dans un cycle dont la cible nommee est §11, serait exactement le « correctif au vol »
+que ce dossier paie a chaque fois. La ligne publie donc `DIAGNOSTIC, PAS UN VERDICT` avec
+l'ambiguite nommee.
 
-    grandeur                       cycle 121          lot L (LIVRE)
-    ROOM-SKINPEN  L / R            0,0696 / 0,0887    0,0749 / **0,0865**   (plancher 0,0883)
-    DISCRIMINANT  L / R            46,9 % / 34,0 %    46,1 % / **33,4 %**   (plancher 25 %)
-    ROOM-SPEC11-STEP pic L / R     1,2939 / 1,2852    1,2939 / 1,2852       (INCHANGE : §11 tenue)
-    ROOM-IDLE maxdev               0,0001 m           0,0001 m
-    meshpen L / R                  0,0499 / 0,0915    0,0627 / **0,0724**
+**LES SIX MIROIRS NE SONT PAS TOUS TRAITES.** La directive du 2026-08-23 16:00 en compte six : les
+trois echelles de §10 et les trois de §11. Ce cycle donne a **§11** une clause de verdict
+independante de l'entree du solveur ; **§10 en avait deja une** (ses deux clauses de COM, dont
+« sortant » qui echoue). Ce qui reste ouvert est le sort des SIX cellules d'echelle elles-memes :
+elles restent `MIROIR`, sans verdict, exclues des totaux — la directive offre cette branche
+(« ou la section repasse NON ETABLI ») et c'est celle qui s'applique, mais **aucune grandeur
+independante ne remplace encore ce que ces six cellules pretendaient mesurer**, a savoir la FORME.
+Je le nomme au lieu de laisser croire que la priorite 1 est close.
 
-================================================================================================
-8. LE PRIX, ET IL SE LIT AVANT LE VERT
-================================================================================================
-**LA GRANDEUR APPARIEE — la seule qui dise ce que la PHYSIQUE enfonce — EMPIRE SUR LES DEUX
-CHAINES :**
-
-    ROOM-SKINADD   chestL 0,0696 -> **0,0749** (+7,6 %)    chestR 0,0654 -> **0,0681** (+4,1 %)
-    ROOM-STRETCH   2,7913 -> 2,8973 %     ROOM-COM chestL 0,4363 -> 0,4630 B0
-    residu de 7e passe 0,0277 -> 0,0415 m
-
-**DONC `COLLIDE` AU VERT NE VEUT PAS DIRE QUE §33/§34 EST TENUE, ET LE REGISTRE LA GARDE
-`NON TENUE`.** La gate compare deux MAXIMA LATCHES ; le registre sait depuis le cycle 105 que ce
-verdict est SAIN quand il echoue et VIDE quand il passe. Ici il passe pendant que la grandeur
-honnete recule — c'est la definition meme d'un faux vert, et je l'ecris en toutes lettres au lieu
-de le presenter comme un progres. `ROOM-SKINPEN-VERDICT` publie `DEPASSEE` sur les DEUX chaines
-dans le tableau de cette course.
-
-**ET LA COMPARAISON QUI COMPTE POUR LE SUPERVISEUR**, parce qu'elle montre qu'aucune des quatre
-configurations mesurees ce cycle ne domine les autres :
-
-    lot          gate COLLIDE   DISCRIMINANT     skinadd L / R      §11
-    cycle 121    ROUGE 0,0887   46,9 / 34,0      0,0696 / 0,0654    tenue
-    J1           verte 0,0789   **13 / 15**      **0,0502 / 0,0602**  tenue
-    K            verte 0,0871   46,x / **23,5**  0,0694 / 0,0657    tenue
-    L (LIVRE)    verte 0,0865   46,1 / 33,4      **0,0749 / 0,0681**  tenue
-    diagnostic   verte 0,0869   47,0 / 28,2      0,0690 / 0,0655    **DETRUITE**
-
-**J1 est le seul lot qui ameliore vraiment ce que la physique enfonce (-27,9 % / -7,9 %), et c'est
-lui qui casse le plus DISCRIMINANT.** Le seul lot qui tienne les deux gates ET la grandeur honnete
-serait le DIAGNOSTIC — au prix de §11. Les trois exigences ne sont pas simultanement satisfaites
-par ce solveur, et ca c'est un resultat, pas un echec de reglage.
+**LA PRIORITE 2 DE LA MEME DIRECTIVE EST, ELLE, DEJA CLOSE, ET IL FAUT LE DIRE.**
+`HangingTransientLengthMax` y etait « le seul vrai trou de cablage ». Le cycle 120 a etabli que ce
+n'en est pas un : la cle se recalcule depuis deux autres cles du meme document
+(`1 + (HangingLengthScale - 1) x (1 + FirstBounceRatio)` rend 1,3013 contre 1,30 ecrit), et elle
+est utilisee comme BORNE que le solveur ne recoit pas — le pic mesure vaut 1,2939 / 1,2852 contre
+1,30. C'est deja, exactement, la forme que la priorite 1 reclame. Aucun canal ne doit lui etre
+fabrique : ce serait fabriquer un miroir.
 
 ================================================================================================
-9. UNE PREMISSE DE CE LOT N'EST PAS VERIFIEE, ET JE LA NOMME AVANT QU'ON S'APPUIE DESSUS
+6. REMONTEE AU SUPERVISEUR — CINQUIEME CYCLE SANS CHANGEMENT DE STATUT
 ================================================================================================
-La prediction P18 disait que le lot L reproduirait le diagnostic, puisque le rendu ne retro-agit
-QUE par l'instantane des volumes. Sur `chestR` c'est vrai (0,0865 contre 0,0869 predit a
-+-0,0005). **Sur `chestL` c'est FAUX : 0,0749 contre 0,0690, soit 8,5 % d'ecart que je n'explique
-pas.** Deux lectures possibles, et je ne choisis pas entre elles sans mesure : soit mon tenseur
-quasi-statique n'est pas exactement celui du diagnostic, soit le rendu retro-agit par un SECOND
-chemin que [NOTE-534] n'a pas trouve. **C'est le premier chantier du cycle 123**, et il se teste
-SANS course neuve : comparer `*phys-dfsq*` contre le `*phys-dfs*` du build de diagnostic, frame a
-frame, sur `chestL`.
 
-================================================================================================
-CYCLE 121 — LE PLAFOND DU CYCLE 120 N'EST PAS UNE MALADRESSE : C'EST LE SUPPRESSEUR DE CYCLE
-             LIMITE. SIX BORNES ESSAYEES, SIX MESUREES, ZERO LIVREE — LA FAMILLE EST FERMEE.
-================================================================================================
-DIRECTIVES vd9e8b66782
+La borne du 2026-08-21 18:25 (« deux cycles consecutifs sans changement de statut d'une section se
+remontent au superviseur avec la raison ») est franchie depuis longtemps : les cycles 115, 116,
+117, 119 a 122 et celui-ci ne deplacent aucun statut. L'addendum du 2026-08-23 01:20 exempte les
+cycles dont le SEUL echec est la porte de l'owner — mais il precise que l'avancement se juge sur
+le REGISTRE, et le registre ne bouge pas. Je remonte donc, avec la raison, et elle est precise :
 
-Tier de livraison : **AUCUN**. Le moteur revient AU BIT PRES a l'etat du cycle 120
-(`git checkout cb1e5b1b5b -- goal_src/jak1/pc/jak-hd-physics.gc`, `git diff` vide contre ce
-commit), et c'est la regle que j'avais ecrite AVANT chaque course qui l'ordonne, pas un arbitrage
-de fin de cycle. Six courses x86, aucune livree.
+**LA SOURCE DE PROGRES QUI RESTE N'EST PLUS LA MESURE, C'EST LA CONVERSION.** Les cinq derniers
+cycles ont chacun retire une erreur d'instrument reelle (le lot K retire par son falsificateur, la
+cause de COLLIDE deplacee de `phys-skin-chain`, et ici un faux rouge de x1,8). Chacun etait
+justifie ; aucun n'a fait passer une section au vert. C'est le risque nomme le 2026-08-21 18:25 :
+**un instrument repare en revele un autre, sans fin.** Deux questions pour l'arbitrage :
 
-**ET LE RETOUR EN ARRIERE EST VERIFIE PAR LA MESURE, PAS PAR `git diff` SEUL.** La course de fin
-de cycle, sur le moteur reverti, reproduit le cycle 120 **au chiffre publie pres** : `skinpen`
-0,0696 / 0,0887 · `skinadd` 0,0696 / 0,0654 · `ROOM-IDLE` 0,0001 · `ROOM-STRETCH` 2,7913 % ·
-`tipvar` accel 0,1848 / 0,2064 · `meshpen` 0,0499 / 0,0915 · 23 534 corrections pour 101,5 m et
-0,0277 m de residu · `PHYSSKLV5 radd/rcap` 285,2682 / -64,5091 et 268,0815 / 0,0187. La salle est
-DETERMINISTE, et c'est ce qui rend le controle recevable : un revert qui n'aurait pas pris se
-verrait ici.
+  1. **§11 est a 5,3 % de `TENUE`**, sur une seule frontiere d'organe d'une seule chaine (chestR
+     w>0,25 : 0,2949 contre 0,28). C'est le plus petit ecart restant de tout le registre. Faut-il
+     en faire la cible du prochain cycle, ou est-ce un ecart qui doit se resorber par ailleurs ?
+  2. **Les six cellules d'echelle de §10/§11 n'ont PLUS DE MESURE DU TOUT** depuis le cycle 120 :
+     elles ne portent pas de verdict, et rien ne mesure la FORME a leur place. Une section dont la
+     forme n'est plus mesuree du tout est-elle preferable a une section mesuree par un miroir ? Ma
+     lecture est oui — un miroir est un faux vert actif — mais c'est un arbitrage, pas un fait, et
+     il vaut mieux qu'il soit pris que subi.
 
 ================================================================================================
-0. L'AVANCEMENT, EN PREMIER (arbitrage du 2026-08-23 01:20 : il se lit ICI, pas au validateur)
+7. PROVENANCE, ET UNE CORRECTION AU RAPPORT DU CYCLE 122
 ================================================================================================
-`SPEC-COVERAGE.md` : **4 `TENUE` · 5 `TENUE PAR CONSTRUCTION` · 17 `PARTIELLE` · 12 `NON TENUE`**
-sur 38. **AUCUN STATUT NE BOUGE, et c'est le QUATRIEME cycle de suite.** Je le dis en premier et
-sans l'enrober. Ce que le cycle rend n'est pas un statut : c'est la FERMETURE, avec des chiffres,
-d'une famille de correctifs qui occupe le dossier depuis le cycle 106 — et le retournement de la
-lecture qu'on avait du plafond de [NOTE-291].
 
-**ET LA GATE `COLLIDE` RESTE ROUGE** : `chestR` 0,0887 m de course contre 0,0883 m au repos.
-Publie tel quel, sans excuse, sans toucher a la gate (regle 5). C'est le seul verdict de MESURE en
-echec ; la seule autre gate en echec est `OPEN-DEFECTS`, la porte humaine, qui n'a pas de mode
-« reussi » par construction.
+  trace       .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
+              md5 **4ab7b73130479c72c61e3c1a1ad07e8a**, 7 285 080 octets
+  tableau     .../keira-room-table.txt, regenere par
+              `python3 .autoport/physics_room_table.py <trace> <tableau>`
+  archive     l'etat livre au cycle 122 est conserve tel quel dans
+              .../keira-room-table.c122-LIVRE.txt et .../report.c122.txt
 
-================================================================================================
-1. LE CHANTIER NOMME, ET IL VENAIT DU RAPPORT DU CYCLE 120
-================================================================================================
-SECTION DONT CE LOT DEVAIT DEBLOQUER LE VERDICT (regle du 2026-08-21 18:25) : **§33/§34**
-(`NON TENUE`), et la gate `COLLIDE`. Cible chiffree, ecrite par le cycle 120 : « ramener
-`ROOM-SKINPEN chestR` sous 0,0883 m sans reprendre le transitoire de §11 ».
-
-Point de depart remesure sur la trace du cycle 120, AU POINT QUI PORTE LE VERDICT
-(`PHYSSKLV5 tag=run` — meme echantillon, meme frame, meme expression, pas trois maxima separes) :
-
-    chaine   demande `radd`   plafond `-dn`    applique     pp        ln
-    chestL     285,2682 u     **-64,5091**     0,0000 u    0,9975   1040,1988 u
-    chestR     268,0815 u     **  0,0187**     0,0000 u    0,7570   1038,7474 u
-
-Le plafond accorde **0,019 u pour une demande de 268 u**. Ce n'est pas un etranglement, c'est une
-inhibition TOTALE, et elle tombe exactement la ou la gate lit son verdict — [NOTE-483] (cycle 106)
-retrouvee telle quelle.
+**CORRECTION.** Le rapport du cycle 122 ecrit que le tableau vient de la course « md5
+9daf352bdd02ab46e71a36ec2104116b ». **Aucun fichier de ce dossier ne porte cette empreinte** ; la
+trace archivee porte `4ab7b731...`. L'empreinte publiee etait donc fausse. La provenance est
+neanmoins etablie, et par un moyen plus fort qu'une empreinte recopiee a la main : **regenerer le
+tableau depuis cette trace avec l'instrument du cycle 122 reproduit le tableau livre BIT POUR
+BIT** (`diff` vide). C'est ce controle qui a ouvert ce cycle, avant toute mesure.
 
 ================================================================================================
-2. LES SIX BORNES, LEUR PRIX, ET LA COURSE QUI LE MESURE
+8. A TESTER PAR L'OWNER
 ================================================================================================
-Les predictions de chaque variante sont ECRITES AVANT SA COURSE dans
-`.autoport/c121-predictions.txt`, avec leur falsificateur chiffre. Le fichier n'a jamais ete
-reecrit apres coup : les predictions fausses y restent fausses, en toutes lettres.
 
-Ligne de base = cycle 120 (table `keira-room-table.c120-LIVRE.txt`, derivee de la course livree) :
-`skinpen` 0,0696 / 0,0887 m · `skinadd` 0,0696 / 0,0654 m · `ROOM-IDLE` 0,0001 m ·
-DISCRIMINANT 46,9 % / 34,0 % · 23 534 corrections pour 101,5 m cumules et un residu de 7e passe
-de **0,0277 m**.
-
-LOTS G ET H — DEUX LOTS D'INSTRUMENT, ZERO LIGNE DE SOLVEUR, ET LEUR CONTROLE DE BIT-IDENTITE
-PUBLIE. **G** arme `*phys-sd-auth*` sur la colonne d'auteur de `phys-pen-chain` — le deuxieme des
-deux sites que [NOTE-328] designe, oublie depuis le cycle 63 : la colonne d'auteur y sondait un
-point d'AUTEUR contre une surface dont les 4 ensembles de CHAINE etaient portes par la position
-SIMULEE. Audit fait PAR VALEUR sur les SEPT appels a `phys-surf-sd` du moteur, pas sur une liste
-ecrite a la main. **Resultat : `skinrest` et `skinadd` ne bougent pas d'un bit** — le defaut est
-REEL mais INERTE ici. **H** est le diagnostic de direction (section 3). Les deux sont livres.
-
-    borne essayee                     skinadd L/R        ROOM-IDLE    DISCR L/R     verdict
-    A  `|dj|` qui se consomme         0,0404 / 0,0592    0,0405 m     7,7 / 18,0    REFUTEE  (*)
-    B  monotone vers la pose auteur   0,0723 / 0,0737    0,0001 m     non mesuree   REFUTEE
-    C  boule de rayon `|dj|`          0,0760 / 0,0735    0,0001 m     non mesuree   REFUTEE
-    D  aucune borne + descente        0,0540 / 0,0559    0,0051 m     non mesuree   REFUTEE
-    E  borne = la DEMANDE             0,0510 / 0,0532    0,0405 m     non mesuree   REFUTEE
-    F  `kr <= 0,1` + descente         0,0505 / 0,0572    0,0405 m     13,8 / 22,9   REFUTEE
-
-PROVENANCE, PARCE QU'ELLE N'EST PAS LA MEME SUR TOUTES LES LIGNES, ET QU'UN RAPPORT PRECEDENT
-N'EST PAS UNE MESURE. C, D, E et F sont relues par moi dans LEUR PROPRE TRACE ce cycle
-(`PHYSSKIN tag=run`, `PHYSIDLE`, `PHYSSKINC`), F par sa table derivee et verifiee par empreinte.
-B est relue par moi dans SA table derivee, avant que la rotation d'archives ne l'ecrase.
-**(*) A est la SEULE ligne que je n'ai pas pu relire : sa trace et sa table sont sorties de la
-rotation a six archives.** Ses chiffres viennent du releve ecrit dans
-`.autoport/c121-predictions.txt` au moment de sa course, dans ce meme cycle — pas d'un rapport
-anterieur — et ils sont marques comme tels au lieu d'etre presentes comme une relecture.
-
-  * **A** (`|dj|` consomme) : COLLIDE passerait (0,0879) et la grandeur honnete baisse, mais
-    `PHYSIDLE dev` va de 0,2338 u a **165,97 u** et DISCRIMINANT tombe a 7,7 % / 18,0 %.
-  * **B** (la correction ne doit jamais ELOIGNER le joint de la pose d'auteur) : **passe la gate
-    (0,0723 / 0,0828) ET rend le repos** (0,2072 / 0,2301 u, `chestL` MIEUX que la ligne de base),
-    mais AGGRAVE `skinadd` sur LES DEUX chaines (0,0696 -> 0,0723 · 0,0654 -> 0,0737). Cause : la
-    pose d'AUTEUR est elle-meme a 0,0883 m SOUS la surface estimee, donc une regle qui tire vers
-    elle tire vers un endroit PROFOND. **C'est le faux vert le plus dangereux du lot : il aurait
-    fait passer la phase.** Il n'est pas livre.
-  * **C** (boule de rayon `|dj|` centree sur la pose d'auteur) : `PHYSSKLV5` montre que le
-    candidat se poserait a 312,99 / 444,16 u pour une allocation de 279,21 / 211,57 u — le test
-    REJETTE la correction au point du verdict. Relu dans sa trace : `skinpen chestR` **MONTE** a
-    0,0917 (au-dessus du plancher de 0,0883, donc la gate echouerait PLUS FORT qu'au cycle 120) et
-    `skinadd` empire des deux cotes (0,0760 / 0,0735). Le repos, lui, est intact (0,2651 / 0,3700 u).
-  * **D** (aucune borne, plus un TEST DE DESCENTE : le moteur relit la surface au point candidat
-    et n'applique la correction que si la profondeur de l'echantillon qui l'a decidee BAISSE
-    vraiment) : gate passee (0,0584 / 0,0788) et grandeur honnete a -22 % / -15 %, mais
-    `PHYSIDLE dev` chestR passe de 0,2301 a **20,90 u** (x91). DISCRIMINANT et STRETCH ne sont
-    **pas mesures** : la course n'a pas atteint les phases qui les portent, et c'est dit comme tel.
-  * **E** (borne = la DEMANDE a l'entree de l'appel, qui se consomme) : meilleure grandeur honnete
-    du lot (-27 % / -19 %), gate passee (0,0586 / 0,0765), mais `PHYSIDLE dev` chestL **165,82 u**.
-    **Une seule variable separe D de E — le budget — et AJOUTER la borne AGGRAVE le repos d'un
-    facteur 800 sur cette chaine.** A rendait 165,97 sur la meme chaine : deux budgets differents,
-    la MEME valeur a 0,1 % pres. Ce n'est pas la TAILLE du budget qui compte, c'est le fait d'en
-    avoir un.
-  * **F** (`kr <= 0,1`, soit 5,71 deg par passe au lieu de 26,6 — la ou l'erreur de linearisation
-    du pas tombe de 11 % a 0,50 %) : **course COMPLETE**, gate passee (0,0584 / 0,0771),
-    `ROOM-STRETCH` AMELIORE (2,7913 -> 2,1689 %), §22 inchangee (COM 0,4669 / 0,4374 ; APEX
-    0,9264 / 0,9350). **Et elle est refusee quand meme**, parce que `ROOM-IDLE` passe de 0,0001 a
-    **0,0405 m** et que DISCRIMINANT tombe a **13,8 % / 22,9 %** contre un plancher de 25 %.
-    F aurait donc fait passer `COLLIDE` **en cassant `DISCRIMINANT`** — c'est-a-dire en payant avec
-    la plainte n1 de l'owner depuis le 2026-08-11.
-
-================================================================================================
-3. CE QUI EST MESURE, ET LA LECTURE QUE J'EN AVAIS TIREE — REFUTEE PAR SON PROPRE TEST
-================================================================================================
-**LES QUATRE VARIANTES QUI FONT BAISSER LA GRANDEUR HONNETE FONT TOUTES LA MEME CHOSE.** `tipvar`
-par pilotage sur F, contre la ligne de base :
-
-    chestL   tilt  0,0981 -> **0,1724**  (+76 %)   pendant que   accel 0,1848 -> 0,1855 (+0,4 %)
-    chestR   tilt  0,1432 -> 0,1424      (-0,6 %)                accel 0,2064 -> 0,1782 (-13,7 %)
-
-Sur `chestL` la contrainte AJOUTE ~0,07 de mouvement au stimulus le plus FAIBLE et ~0 au plus
-FORT. Ce n'est pas un muselage : c'est **un PLANCHER D'AGITATION independant du stimulus**, ce que
-l'owner appelle mot pour mot « un pudding sur lequel on tape tres fort au moindre mouvement ». Le
-meme plancher se relit au repos : `ROOM-IDLE` 0,0405 m contre 0,0001. **Les deux echecs de F sont
-un seul defaut**, et c'est la signature de A (tilt 0,0981 -> 0,1807).
-
-**LE SECOND FAIT MESURE :**
-
-    cycle 120 : 23 534 corrections · 101,5 m cumules · residu de 7e passe **0,0277 m**
-    F         : 39 127 corrections · 331,1 m cumules · residu de 7e passe **0,0572 m**
-
-**3,3 fois plus de travail pour DEUX FOIS PLUS de residu.** Une projection qui converge fait
-l'inverse.
-
-------------------------------------------------------------------------------------------------
-**ET VOICI LA PARTIE OU JE ME CORRIGE, DANS LE MEME CYCLE ET AVANT DE PUBLIER.**
-------------------------------------------------------------------------------------------------
-J'avais tire de ces deux faits une lecture : « les six bornes echouent parce qu'elles bornent la
-MAGNITUDE d'un pas dont c'est la DIRECTION qui oscille ; `*phys-sdn*` est une moyenne ponderee sur
-un K-voisinage dont le rayon suit la densite locale, donc la normale bascule ». Je l'avais ecrite
-comme une LECTURE, avec son falsificateur (lot H de `.autoport/c121-predictions.txt`) : « si la
-part de renversements est < 5 % sur tous les maillons des deux chaines, cette lecture est FAUSSE ».
-
-**LE FALSIFICATEUR A TIRE.** Instrument neuf ([NOTE-521], instrument PUR, solveur bit-identique —
-controle publie ci-dessous), qui compte les appels ou l'angle entre la normale de l'echantillon
-QUI DECIDE et celle de l'appel precedent depasse 90 degres :
-
-    chaine   maillon   renversements / appels comparables      part
-    chestL      0            63 / 1387                        **4,5 %**
-    chestL      1             8 /  201                        **4,0 %**
-    chestR      0            59 / 1361                        **4,3 %**
-    chestR      1            17 / 2380                        **0,7 %**
-
-**Les quatre sont sous le seuil de refutation de 5 %. LA DIRECTION NE BASCULE PAS.** Ma lecture est
-fausse et je la retire — du rapport, de [NOTE-510] et de `SPEC-COVERAGE`. Ce qui reste vrai est ce
-qui etait MESURE : les six bornes echouent, le plancher d'agitation existe, et le travail croit
-plus vite que le residu ne baisse. Ce qui tombe est l'explication que j'en donnais.
-
-**CONTROLE DU LOT H, PARCE QU'UN INSTRUMENT QUI TOUCHE LE SOLVEUR NE MESURE PLUS RIEN.**
-`PHYSSKLV5` (285,2682 / -64,5091 / 250,3496 et 268,0815 / 0,0187 / 176,3754), `PHYSIDLE`
-(0,2338 / 0,2301), `tipvar` (ecart 46,9 % / 34,0 %), `ROOM-STRETCH` (2,7913 %), `ROOM-COM`
-(0,4363 / 0,4388), `ROOM-APEX` (0,8720 / 0,9397), `PHYSSKINC tag=run` (23 534 / 101,5173 m /
-0,0277) et `meshpen` (0,0499 / 0,0915) sont **identiques au chiffre publie**, et `PHYSEND` tombe a
-**1179 s** contre 1180 s. Le solveur n'a pas bouge d'un bit.
-
-**LA LECTURE QUI REMPLACE, ET ELLE EST ETIQUETEE LECTURE, PAS MESURE.** Direction STABLE + travail
-qui croit sans que le residu baisse + offset permanent au repos = la contrainte ne resout pas une
-geometrie, elle **s'equilibre contre le ressort**. Elle pousse dans le meme sens a chaque frame, le
-rappel vers la pose d'auteur la defait a chaque frame, et le point fixe de ce bras de fer est un
-ECART NON NUL — c'est-a-dire exactement `ROOM-IDLE`. Ce que la mesure soutient deja :
-l'ecart CROIT avec la liberte laissee a la contrainte (cap ~0 au cycle 120 -> 0,0001 m ; D sans
-borne -> 0,0051 m ; A/E/F -> 0,0405 m), et le plancher d'agitation est constant en amplitude donc
-visible seulement sur les petits stimuli. **Le plafond `-dot(dj,n)` n'est alors pas un suppresseur
-de cycle limite mais un suppresseur d'OFFSET D'EQUILIBRE** : il vaut zero quand la physique n'a pas
-pousse vers l'interieur, donc il interdit au bras de fer de s'installer.
-
-**FALSIFICATEUR DE LA NOUVELLE LECTURE, A EXECUTER AU CYCLE 122 :**
-  (a) sur la fenetre de repos, publier la SERIE par frame de la correction de peau et de l'ecart
-      `PHYSIDLE`. Un bras de fer donne deux PLATEAUX non nuls ; une rampe ou une oscillation la
-      refute — et le registre previent deja que la derniere frame d'une fenetre est sur la rampe
-      (`parking-point-is-a-plateau-not-the-last-frame`) ;
-  (b) test a UNE variable sur un bouton qui existe deja : diviser `stiffness` par deux doit
-      MULTIPLIER l'offset par ~2 si c'est un equilibre de forces, et le laisser inchange sinon.
-================================================================================================
-4. UNE CORRECTION QUE JE ME FAIS A MOI-MEME : LE COMPTEUR DE DEPASSEMENT NE MESURE PAS LE SOLVEUR
-================================================================================================
-J'ai d'abord refute D et E sur leur COUT (« 21 646 et 37 952 frames en depassement contre 8 »),
-et j'ai ecrit dans les predictions de E et de F que la lenteur etait « le signal de la
-sur-correction ». **C'est faux, et je le retire.** La course de reference de fin de cycle, sur le
-moteur du cycle 120 — donc sans une seule ligne de ce cycle — rend **16 089 depassements** dans
-les memes conditions. Diagnostic pris pendant cette course : `gk` est a **9 % de CPU**, la machine
-a **93 % d'inactivite**, et `/proc/<pid>/wchan` dit `poll_schedule_timeout` — le processus DORT en
-attendant le compositeur. Le compteur mesure une duree de frame en TEMPS REEL, donc l'etat du
-bureau, pas le solveur.
-
-**ET LE CHIFFRE QUI TRANCHE LE COUT REEL, PARCE QU'IL EST APPARIE.** Les deux courses COMPLETES
-de ce cycle, sur la meme machine, a une heure d'intervalle, publient leur duree jusqu'a `PHYSEND` :
-
-    variante F (test de descente + `kr <= 0,1`)   **1179 s**
-    moteur du cycle 120, sans une ligne de F      **1180 s**
-
-**Un ecart de 0,08 %.** Le test de descente ne coute donc RIEN de mesurable, et tout ce que
-j'avais attribue a son cout etait le compositeur. Ce qui a refute D et E n'est pas leur duree,
-c'est leur physique.
-
-**CE QUE CA CHANGE, ET CE QUE CA NE CHANGE PAS.** Les refutations de D et de E reposent desormais
-UNIQUEMENT sur leur physique mesuree (`PHYSIDLE dev` 20,90 u et 165,82 u), jamais sur leur duree ;
-et ce que D et E n'ont pas mesure — DISCRIMINANT, STRETCH, §22 — reste marque **non mesure**, pas
-deduit de F. Ce qui ne change pas : F, la seule variante dont la course soit complete, est refutee
-par deux grandeurs qui n'ont rien a voir avec le temps.
-
-================================================================================================
-5. CE QUE CE CYCLE NE PRETEND PAS
-================================================================================================
-  - **Il ne fait pas passer `COLLIDE`.** Quatre cycles que cette gate est le seul verdict de
-    mesure en echec, et ce cycle ne la ferme pas. Il ferme la famille de correctifs qui pretendait
-    la fermer.
-  - **Il ne fait bouger aucun statut de `SPEC-COVERAGE`.** Quatrieme cycle de suite ; remontee en
-    section 6.
-  - **Le mecanisme n'est PAS etabli, et ce cycle en a elimine une explication — la mienne.** La
-    bascule de direction est mesuree et REFUTEE (4,5 / 4,0 / 4,3 / 0,7 %, seuil 5 %). La lecture
-    de remplacement (un equilibre de forces contre le ressort) est etiquetee LECTURE et porte ses
-    deux falsificateurs ; elle n'est pas presentee comme acquise.
-  - **Le correctif de [NOTE-328] (lot G) ne repare rien de visible ici.** Il est juste — la colonne
-    d'auteur sondait un point d'auteur contre une surface partiellement SIMULEE, au site que la
-    note NOMME — mais `skinrest` et `skinadd` ne bougent pas d'un bit : au point qui porte les
-    maxima, aucun plus-proche-voisin ne vient de la chaine adverse. **REEL mais INERTE**, et il ne
-    se compte pas comme un progres. Il reste parce qu'il est correct, pas parce qu'il rapporte.
-  - **Aucune des six variantes n'est « presque bonne ».** B et F passeraient la gate ; l'une
-    aggrave la grandeur honnete, l'autre casse DISCRIMINANT. Les deux auraient ete des faux verts.
-  - **Le controle de niveau systeme de l'owner — le preset de Maia sur la chaine de Keira — n'a
-    toujours pas ete joue.** Il etait deja le premier candidat du cycle 121 dans le rapport
-    precedent ; les six courses de bornes l'ont mange. Il reste le premier candidat, avec le
-    chantier de la normale.
-
-================================================================================================
-6. REMONTEE AU SUPERVISEUR — QUATRE POINTS
-================================================================================================
-**(1) QUATRIEME CYCLE SANS CHANGEMENT DE STATUT.** La regle du 2026-08-21 18:25 demande la
-remontee des le deuxieme ; c'est le quatrieme, et la raison a encore change de nature. Aux cycles
-118/119 c'etait « la file du 23:00 est epuisee ». Au cycle 120 c'etait « une clause avance, la
-section ne bouge pas ». Ici, c'est plus net et plus utile : **le chantier nomme du cycle 120
-etait une FAMILLE DE CORRECTIFS, et la famille entiere est fausse.** Six membres, six mesures,
-un mecanisme commun. Ce n'est pas un cycle qui tourne en rond — c'est un cycle qui elimine — mais
-ca ne se voit pas dans un compte de statuts, et je ne le fais pas voir en bougeant un statut.
-
-**(2) LA LECTURE DU PLAFOND DE [NOTE-291] EST RETOURNEE, ET C'ETAIT MA PREMISSE DEPUIS LE CYCLE
-106.** Je le decrivais comme le defaut a corriger (« inhibition totale au point du verdict »,
-rapport du cycle 120, section 5, correctif (a)). Il est en fait le SUPPRESSEUR DE CYCLE LIMITE, et
-son inhibition est son PRIX, pas son bug. Toute proposition future qui commence par « remplacer
-`-dot(dj,n)` par ... » doit d'abord repondre a la section 3 de ce rapport.
-
-**(3) UNE CORRECTION SUR MOI-MEME, ET ELLE VAUT REGLE.** J'ai refute deux variantes sur un
-compteur de temps de frame (« 21 646 depassements contre 8 ») avant de verifier qu'il mesurait le
-solveur. Il mesure le COMPOSITEUR : la course de reference, sur un moteur sans une ligne de ce
-cycle, en rend 16 089, avec `gk` a 9 % de CPU et la machine a 93 % d'inactivite. **Un compteur en
-temps reel n'est pas une mesure de cout dans un environnement de bureau** — c'est de la meme
-famille que `metric-nature-and-frame`, applique cette fois a MOI, en cours de cycle, et corrige
-avant que le rapport ne parte.
-
-**(4) LE CHANTIER QUE J'AVAIS NOMME POUR LE CYCLE 122 A ETE FAIT DANS CE CYCLE, ET IL M'A DONNE
-TORT.** J'avais ecrit : « instrumenter la DIRECTION ; si l'angle est petit partout, la section 3
-est fausse et c'est ce resultat-la qu'il faudra publier ». Il est petit partout — 4,5 / 4,0 / 4,3 /
-0,7 % contre un seuil de refutation de 5 % — et c'est publie, en section 3, a la place de ma
-lecture. Le chantier du cycle 122 est donc le falsificateur de la lecture de REMPLACEMENT :
-la serie par frame sur la fenetre de repos, et le test a une variable sur `stiffness`.
-
-**(5) CE CYCLE PUBLIE UNE LECTURE ET LA RETIRE DANS LE MEME DOCUMENT, ET C'EST LE POINT DE METHODE
-QUI COMPTE.** La difference avec les faux verts que ce dossier a payes n'est pas que j'ai eu
-raison : c'est que le falsificateur etait ECRIT AVANT la course, chiffre, et qu'il a ete execute
-dans le cycle qui a produit la lecture. Six variantes de solveur et deux lots d'instrument, huit
-courses, huit jeux de predictions ecrites d'avance — et deux d'entre elles (G2, H1) sont sorties
-FAUSSES. Elles restent fausses dans le fichier, telles quelles.
-
-================================================================================================
-7. A TESTER PAR L'OWNER
-================================================================================================
-**RIEN.** Directive du 2026-08-20 23:30 : « je ne sollicite plus de test pour un changement d'une
-seule section », et ce cycle ne change RIEN dans le moteur — le binaire livrable est, au bit pres,
-celui du cycle 120. Lui demander de regarder serait lui faire depenser son oeil sur un build
-identique.
-
-================================================================================================
-8. L'ETAT REEL DES GATES, ET LE CONFLIT ENTRE LE VERROU D'ARRET ET LA PORTE DE L'OWNER
-================================================================================================
-**LA SORTIE DU VALIDATEUR FAIT 15 LIGNES**, exactement comme au cycle 120 — la comparaison est
-celle que le bloc de declarations en tete de ce fichier ordonne, et une sortie PLUS COURTE aurait
-signale une gate qui coupe le reste. Elle ne l'est pas.
-
-    [Grecharged-secondary-motion FAIL] COLLIDE §33/§34 : chestR enfonce 0.0887 m sous la peau
-      contre 0.0883 m au repos, soit +0.0004 m imputables a la PHYSIQUE.
-    [Grecharged-secondary-motion] 1 verdict(s) de mesure en echec — tous ci-dessus, aucun masque
-      par un autre.
-
-`verdict()` sort en echec a la fin du bloc PYROOM, donc `DISCRIMINANT`, la ligne `[PASS]` et
-`OPEN-DEFECTS` **ne sont pas atteints**. Comme au cycle 120, je ne laisse pas ce masquage cacher
-quoi que ce soit : **`DISCRIMINANT` est rejouee a la main, avec le CODE DU VALIDATEUR extrait tel
-quel, sur le tableau de cette course** —
-
-    chestL   ecart 47 %   (accel 0.1848 · jerk 0.1771 · leftright 0.1563 · tilt 0.0981 · updown 0.1268)
-    chestR   ecart 34 %   (accel 0.2064 · jerk 0.1870 · leftright 0.1616 · tilt 0.1432 · updown 0.1363)
-    -> `[DISCRIMINANT] chaque chaîne distingue les 5 pilotages`, code de sortie 0. PASSE.
-
-**ETAT REEL : 12 gates de mesure VERTES, 1 ROUGE (`COLLIDE §33/§34`), plus la porte humaine
-`OPEN-DEFECTS` qui n'est meme pas atteinte.** Identique au cycle 120, ce qui est la consequence
-attendue d'un moteur identique au cycle 120.
-
-**LE CONFLIT, SIGNALE ET NON CONTOURNE (il l'a deja ete aux cycles 110 et 118, et il n'a pas
-bouge).** Le prompt de tache exige « ne pas declarer de succes tant que le validateur ne sort pas
-0 ». Le validateur **ne peut pas** sortir 0 : sa derniere gate est `OPEN-DEFECTS`, qui echoue tant
-que `owner-defects.txt` porte une ligne `OPEN`, et il en porte une —
-`OPEN breast-spec-incomplete` — dont les DIRECTIVES disent qu'elle **ne se retire que sur la
-parole de l'owner** (« Une ligne ne se retire que quand l'owner dit que c'est bon », 2026-08-20
-00:25). Les DIRECTIVES priment sur le prompt et demandent de SIGNALER le conflit au lieu de suivre
-la consigne perimee : c'est fait ici. Aucun jeton `.autoport/owner-ok/<phase>` n'est cree, aucune
-gate n'est touchee, et aucun succes n'est declare.
+**RIEN.** Regle du 2026-08-20 23:30 : plus aucune sollicitation de test pour un changement d'une
+seule section, et ce cycle ne change meme pas le comportement — il ne touche pas le moteur. L'APK
+et le pack livres restent ceux du cycle 122. La rubrique reste vide jusqu'a ce que le bloc §14-§20
++ §24-§27 + §9-§13 bouge d'ensemble.

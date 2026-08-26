@@ -1,0 +1,51 @@
+DIRECTIVES vd9e8b66782
+CYCLE 123 — PREDICTIONS ECRITES AVANT LA MESURE
+Perimetre : Grecharged-secondary-motion / poitrine de Keira / branche physics-keira-clean
+
+OBJET : PRIORITE 1 DE LA DIRECTIVE DU 2026-08-23 16:00 — « les 6 miroirs : leur verdict doit se
+mesurer contre une grandeur INDEPENDANTE de l'entree du solveur, ou la section repasse NON ETABLI ».
+§10 a deja sa route independante (ROOM-SPEC10, clauses de COM). §11 ne l'a PAS : sa cellule PRONE
+est publiee `DIAGNOSTIC — sans bande` alors que sa spec lui donne une bande, et le verdict de §11
+repose aujourd'hui sur une BORNE SUPERIEURE tiree de l'APEX (0,4196 / 0,4089 B0).
+
+CE QUI EST DEJA DANS LA TRACE ARCHIVEE (releve, non predit) :
+  keira-room-table.txt:4109-4111  chestL §11 prone  « vers thorax » = -0,2234 / -0,2463 / -0,2738 B0
+  keira-room-table.txt:4138-4140  chestR §11 prone  « vers thorax » = -0,2017 / -0,2262 / -0,2622 B0
+  keira-room-table.txt:3919       i=6 designee PRONE par la GRAVITE MESUREE (gz=+0,9933)
+  keira-room-table.txt:3940-3941  triplet et gravite en ACCORD sur i=6
+  keira-room-table.txt:4094/4123  controle de montage i=6 : 0,10 % (chestL) / 0,09 % (chestR)
+
+PREDICTIONS, chacune avec son falsificateur.
+
+P1. La NORME du deplacement de COM de la cellule prone, |d|/B0, reste SOUS 0,35 sur les DEUX
+    chaines et sur les TROIS frontieres d'organe — donc strictement sous la borne superieure
+    d'apex (0,4196 / 0,4089) d'un facteur >= 1,2.
+    FALSIFICATEUR : |d|/B0 >= 0,40 sur une chaine => la borne d'apex etait serree, le verdict
+    actuel de §11 tient, et ce cycle n'a rien trouve.
+
+P2. L'axe du thorax porte l'essentiel : |composante thorax| / |d| >= 0,85 sur les deux chaines.
+    FALSIFICATEUR : < 0,85 => le deplacement a une composante importante que la prose de §11
+    n'anticipe pas, et la lecture « norme » doit etre re-argumentee avant tout verdict.
+
+P3. Le test de raffinement (etalement sur les trois frontieres d'organe) reste <= 30 % pour la
+    norme, sur les deux chaines.
+    FALSIFICATEUR : > 30 % => clause NON ETABLIE, aucun verdict publie.
+
+P4. Le verdict de la clause est DANS, ou INDETERMINE entre DANS et AU-DESSUS. Il n'est
+    PAS robustement AU-DESSUS.
+    FALSIFICATEUR : AU-DESSUS unique sur les trois frontieres ET le pire cas du montage, sur au
+    moins une chaine => §11 reste hors bande et le changement de grandeur n'a rien change au sens.
+
+P5. `HangingCOMDisplacement` (0,24 chez Keira, 0,33 chez Maia) reste CANAL ABSENT : aucun lecteur
+    dans le moteur, la salle ou l'instrument. C'est ce qui rend la clause INDEPENDANTE de l'entree
+    du solveur — la bande 0,20-0,28 B0 n'est centree sur AUCUN nombre donne au solveur.
+    FALSIFICATEUR : un lecteur apparait => la grandeur est injectee, le verdict serait un MIROIR
+    de plus, et la clause ne peut pas porter §11.
+
+P6. La famille de mesure est FALSIFIABLE et pas complaisante : au moins une clause de COM de la
+    meme famille (§10 « sortant ») reste HORS BANDE apres ce cycle.
+    FALSIFICATEUR : toutes les clauses de COM passent DANS => la famille ne discrimine rien et
+    le vert obtenu sur §11 serait sans valeur.
+
+TIER DE LIVRAISON PREVU : ANALYSE SEULE sur la trace ARCHIVEE (keira-room-x86.log de la course
+livree). Aucun build, aucune course neuve. L'instrument est un post-processeur.
