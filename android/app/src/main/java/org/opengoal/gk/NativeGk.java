@@ -95,6 +95,14 @@ public final class NativeGk {
     public static native void setExternalFilesDir(String dir);
 
     /**
+     * Grecharged-managed-assets: does this libgk.so have the PBR path compiled
+     * in (OG_FEAT_PBR)? The downloader uses it to decide whether the material-
+     * map shards are worth fetching — they are useless, and roughly three
+     * quarters of the download, without a renderer that samples them.
+     */
+    public static native boolean hasPbrFeature();
+
+    /**
      * Forward an Android MotionEvent into the runtime. The native side
      * synthesizes the equivalent SDL_MOUSEBUTTON / SDL_MOUSEMOTION event
      * and pushes it onto SDL's event queue, so the existing input layer

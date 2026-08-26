@@ -1539,6 +1539,27 @@
        ;; preview any mesh with its textures / PBR / checker, all touch AND gamepad, no adb). A button
        ;; row; respond-common opens the overlay and closes the menu on confirm. Label is a runtime
        ;; global string; always enabled (a debug tool must stay reachable even with master OFF).
+       ;; Grecharged-managed-assets: HD TEXTURE PACK on-off toggle — the DOWNLOADED
+       ;; pack (managed_assets/<game>/, installed by the asset manager or
+       ;; `gk --assets install`). ON => the compressed KTX2 pack replaces the baked
+       ;; textures; OFF => bundled/stock instantly and with NO re-download, so it is a
+       ;; real A/B switch. The user custom_assets dir still WINS over the pack (owner's
+       ;; precedence rule), and WHICH preset to fetch is an install-time decision that
+       ;; belongs to the downloader, not to a render toggle. Real label via
+       ;; *managed-assets-label* (name-override); value bound in init-game-options from
+       ;; the array LENGTH, and the row sits last-but-two (before MESH BROWSER + Back) so
+       ;; no existing index shifts — only the total-length constants gain +1, exactly as
+       ;; the tail MESH BROWSER and PHYSICS rows did before it.
+       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
+            :option-disabled-func
+            (lambda ()
+              (not (-> *pc-settings* recharged-master?)))
+            :on-change
+            (lambda ((val object))
+              (set! (-> *pc-settings* managed-assets?) (the-as symbol val))
+              (pc-set-managed-assets! (if val 1 0))
+              (commit-to-file *pc-settings*)
+              (none)))
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id pc-text-mesh-browser) :scale #t)
        ;; Back
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t))
@@ -1769,6 +1790,11 @@
 ;; Settings submenu (uppercase ASCII for the menu font; shown via name-override). English-only.
 (define *recharged-textures-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *recharged-textures-label*) "RECHARGED TEXTURES")
+;; Grecharged-managed-assets: label for the "HD TEXTURE PACK" on-off toggle (the DOWNLOADED
+;; pack) in the Recharged Settings submenu. Uppercase ASCII for the menu font, English-only,
+;; shown via name-override like every other recharged row.
+(define *managed-assets-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *managed-assets-label*) "HD TEXTURE PACK")
 ;; Grecharged-pbr-materials: label for the "PBR MATERIALS" on-off toggle in the Recharged Settings
 ;; submenu (uppercase ASCII for the menu font; shown via name-override). English-only. Present only with --pbr.
 (#when FLAG_PBR
@@ -4167,6 +4193,13 @@
   ;; CUSTOM ASSETS (every later *recharged-options-pc* index below shifts +1 for this row).
   (set! (-> *recharged-options-pc* (+ 3 FLAG_RECHARGED_HUD_N) value-to-modify) (&-> *pc-settings* recharged-textures?))
   (set! (-> *recharged-options-pc* (+ 3 FLAG_RECHARGED_HUD_N) name-override) *recharged-textures-label*)
+  ;; Grecharged-managed-assets: HD TEXTURE PACK. Addressed from the END (…, this row,
+  ;; MESH BROWSER, Back) instead of the flag arithmetic every other row uses: the row was
+  ;; appended at the tail precisely so it needs no index bookkeeping, and length-3 stays
+  ;; right after the HD-missing collapse shrinks the array too.
+  (let ((mp-idx (+ -3 (-> *recharged-options-pc* length))))
+    (set! (-> *recharged-options-pc* mp-idx value-to-modify) (&-> *pc-settings* managed-assets?))
+    (set! (-> *recharged-options-pc* mp-idx name-override) *managed-assets-label*))
   ;; Grecharged-pbr-materials: wire the "PBR MATERIALS" on-off toggle (row (+ 4 hud-N), +1 for the
   ;; master row) inside the Recharged submenu. Present only with --pbr; downstream rows (ENHANCED
   ;; MODELS, FOLIAGE WIND, AO, Back) are shifted up by FLAG_PBR_N in the index arithmetic below
@@ -4187,7 +4220,7 @@
   ;; Grecharged-mesh-browser: +1 for the always-present MESH BROWSER launcher row inserted before
   ;; Back (it sits at the tail, after every row the wiring/collapse touches, so only the total-length
   ;; guards below change — the fw-idx base and the collapse loop indices are unaffected).
-  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 10 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N (* 9 FLAG_PBR_N) (* 2 FLAG_PHYSICS_N)))
+  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 11 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N (* 9 FLAG_PBR_N) (* 2 FLAG_PHYSICS_N)))
                     (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N)
                     (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N))))
     (set! (-> *recharged-options-pc* fw-idx value-to-modify) (&-> *pc-settings* recharged-foliage-wind?))
@@ -4304,12 +4337,12 @@
       ;; Grecharged-secondary-motion: +2 on both length constants for the two tail PHYSICS rows
       ;; (same treatment as the tail MESH BROWSER row above — they sit after everything the
       ;; collapse loop touches, so only the total-length terms change).
-      (when (= (-> *recharged-options-pc* length) (+ 11 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 2 FLAG_PHYSICS_N)))
+      (when (= (-> *recharged-options-pc* length) (+ 12 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 2 FLAG_PHYSICS_N)))
         (let ((i (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N)))
           (while (< i (+ 9 FLAG_RECHARGED_HUD_N FLAG_PBR_N))
             (set! (-> *recharged-options-pc* i) (-> *recharged-options-pc* (+ i 1)))
             (+! i 1)))
-        (set! (-> *recharged-options-pc* length) (+ 10 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 2 FLAG_PHYSICS_N))))
+        (set! (-> *recharged-options-pc* length) (+ 11 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 2 FLAG_PHYSICS_N))))
       (begin
         (set! (-> *recharged-options-pc* (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N) value-to-modify)
               (&-> *pc-settings* recharged-enhanced-models?))
@@ -7546,6 +7579,27 @@
        ;; preview any mesh with its textures / PBR / checker, all touch AND gamepad, no adb). A button
        ;; row; respond-common opens the overlay and closes the menu on confirm. Label is a runtime
        ;; global string; always enabled (a debug tool must stay reachable even with master OFF).
+       ;; Grecharged-managed-assets: HD TEXTURE PACK on-off toggle — the DOWNLOADED
+       ;; pack (managed_assets/<game>/, installed by the asset manager or
+       ;; `gk --assets install`). ON => the compressed KTX2 pack replaces the baked
+       ;; textures; OFF => bundled/stock instantly and with NO re-download, so it is a
+       ;; real A/B switch. The user custom_assets dir still WINS over the pack (owner's
+       ;; precedence rule), and WHICH preset to fetch is an install-time decision that
+       ;; belongs to the downloader, not to a render toggle. Real label via
+       ;; *managed-assets-label* (name-override); value bound in init-game-options from
+       ;; the array LENGTH, and the row sits last-but-two (before MESH BROWSER + Back) so
+       ;; no existing index shifts — only the total-length constants gain +1, exactly as
+       ;; the tail MESH BROWSER and PHYSICS rows did before it.
+       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
+            :option-disabled-func
+            (lambda ()
+              (not (-> *pc-settings* recharged-master?)))
+            :on-change
+            (lambda ((val object))
+              (set! (-> *pc-settings* managed-assets?) (the-as symbol val))
+              (pc-set-managed-assets! (if val 1 0))
+              (commit-to-file *pc-settings*)
+              (none)))
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id pc-text-mesh-browser) :scale #t)
        ;; Back
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t))
@@ -7664,6 +7718,11 @@
 ;; Settings submenu (uppercase ASCII for the menu font; shown via name-override). English-only.
 (define *recharged-textures-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *recharged-textures-label*) "RECHARGED TEXTURES")
+;; Grecharged-managed-assets: label for the "HD TEXTURE PACK" on-off toggle (the DOWNLOADED
+;; pack) in the Recharged Settings submenu. Uppercase ASCII for the menu font, English-only,
+;; shown via name-override like every other recharged row.
+(define *managed-assets-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *managed-assets-label*) "HD TEXTURE PACK")
 ;; Grecharged-pbr-materials: label for the "PBR MATERIALS" on-off toggle in the Recharged Settings
 ;; submenu (uppercase ASCII for the menu font; shown via name-override). English-only. Present only with --pbr.
 (#when FLAG_PBR
@@ -9938,6 +9997,13 @@
   ;; CUSTOM ASSETS (every later *recharged-options-pc* index below shifts +1 for this row).
   (set! (-> *recharged-options-pc* (+ 3 FLAG_RECHARGED_HUD_N) value-to-modify) (&-> *pc-settings* recharged-textures?))
   (set! (-> *recharged-options-pc* (+ 3 FLAG_RECHARGED_HUD_N) name-override) *recharged-textures-label*)
+  ;; Grecharged-managed-assets: HD TEXTURE PACK. Addressed from the END (…, this row,
+  ;; MESH BROWSER, Back) instead of the flag arithmetic every other row uses: the row was
+  ;; appended at the tail precisely so it needs no index bookkeeping, and length-3 stays
+  ;; right after the HD-missing collapse shrinks the array too.
+  (let ((mp-idx (+ -3 (-> *recharged-options-pc* length))))
+    (set! (-> *recharged-options-pc* mp-idx value-to-modify) (&-> *pc-settings* managed-assets?))
+    (set! (-> *recharged-options-pc* mp-idx name-override) *managed-assets-label*))
   ;; Grecharged-pbr-materials: wire the "PBR MATERIALS" on-off toggle (row (+ 4 hud-N), +1 for the
   ;; master row) inside the Recharged submenu. Present only with --pbr; downstream rows (ENHANCED
   ;; MODELS, FOLIAGE WIND, AO, Back) are shifted up by FLAG_PBR_N in the index arithmetic below
@@ -9972,7 +10038,7 @@
   ;; static length term changes: the PBR block after PBR MATERIALS goes 12 -> 13 rows. Leaving it at
   ;; 12 would make this guard mis-read a FULL hd-models+pbr array as collapsed and wire FOLIAGE WIND
   ;; (and every following row) five slots early — the Gmenu-flag-off bug class.
-  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 11 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 13 FLAG_PBR_N) (* 2 FLAG_PHYSICS_N)))
+  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 12 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 13 FLAG_PBR_N) (* 2 FLAG_PHYSICS_N)))
                     (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N))
                     (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N))))
     (set! (-> *recharged-options-pc* fw-idx value-to-modify) (&-> *pc-settings* recharged-foliage-wind?))
@@ -10102,7 +10168,7 @@
       ;; new MODERN MATERIALS toggle after PBR ISOLATE) — same full-static-length term as the
       ;; fw-idx guard above; a stale 12 here would silently disable the HD-collapse.
       (when (= (-> *recharged-options-pc* length)
-               (+ 11 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 13 FLAG_PBR_N) (* 2 FLAG_PHYSICS_N)))
+               (+ 12 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 13 FLAG_PBR_N) (* 2 FLAG_PHYSICS_N)))
         (let ((i (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N)))
           (while (< i (+ (* -5 FLAG_HD_MODELS_N) (-> *recharged-options-pc* length)))
             (set! (-> *recharged-options-pc* i) (-> *recharged-options-pc* (+ i (* 5 FLAG_HD_MODELS_N))))

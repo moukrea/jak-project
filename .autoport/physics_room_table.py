@@ -3019,8 +3019,12 @@ def _spec10_block(A, txt, names, com, role, b0, roles=None):
                      abs(_r0['thb']) / max(_r0['nrm'], 1e-12),
                      abs(_r0['oub']) / max(_r0['nrm'], 1e-12),
                      abs(_r0['upb']) / max(_r0['nrm'], 1e-12)))
-                A('ROOM-SPEC10: %-8s %s   raffinement %.1f %% %s · montage %.2f %% -> pire cas'
-                  ' [%.4f ; %.4f]'
+                # `_sp` est l'ecart entre les TROIS FRONTIERES D'ORGANE, pas un raffinement
+                # d'echantillonnage : le mot etait faux et il faisait lire un test de stabilite
+                # d'instrument la ou il y a un choix de DEFINITION. Le seuil de 30 % reste, avec
+                # son nom exact.
+                A('ROOM-SPEC10: %-8s %s   sensibilite de frontiere %.1f %% %s · montage %.2f %%'
+                  ' -> pire cas toutes frontieres [%.4f ; %.4f]'
                   % (nm, _sec, _sp, '(<=30 % OK)' if _sp <= 30.0 else '(>30 % REJETE)',
                      ctrl.get(i, 0.0), _lb, _hb))
                 if _sec == '§12':
@@ -3030,13 +3034,48 @@ def _spec10_block(A, txt, names, com, role, b0, roles=None):
                       ' cellule ici). La question est ouverte et nommee, elle n\'est pas tranchee'
                       ' au passage.' % (nm, '/'.join(_vdn)))
                 else:
-                    _cn = ('NON ETABLIE (raffinement %.1f %% > 30 %%)' % _sp if _sp > 30.0
-                           else (_vdn[0] if len(_vdn) == 1
-                                 else 'INDETERMINEE — ' + '/'.join(_vdn)))
-                    A('ROOM-SPEC10: %-8s §11 VERDICT DE LA CLAUSE DE COM : %s%s'
-                      % (nm, _cn, ('' if _up is None else
-                                   ' · cible statique haute %.2f : %s'
-                                   % (_up, 'FRANCHIE' if max(_v) > _up else 'non franchie'))))
+                    # ---- QUELLE FRONTIERE PORTE LE VERDICT — CORRIGE AU CYCLE 124 -------------
+                    # LA MEME GRANDEUR ETAIT JUGEE A DEUX FRONTIERES DIFFERENTES DANS CE MEME
+                    # TABLEAU, ET CE N'EST PAS UN GOUT : une des deux lectures est fausse.
+                    #   - le bloc §22 (:6693-6702) rend son verdict de COM **a `w>0`**, avec
+                    #     l'argument suivant, ecrit AU CYCLE QUI A POSE CE BLOC et non ici :
+                    #       « Ce qui tranche n'est pas le confort du resultat, c'est sa §30, qui
+                    #         compte le tissu fortement ANCRE comme faisant partie du sein
+                    #         (« 28-35% of the **rear breast volume** should behave as strongly
+                    #         attached tissue ») : la chair ancree appartient donc a l'organe, et
+                    #         la frontiere qui l'inclut — `w>0` — est celle que la spec decrit. »
+                    #   - ce bloc-ci traitait les TROIS frontieres comme egalement autoritaires
+                    #     et rendait `INDETERMINEE`.
+                    # §22 et §11 mesurent LE MEME organe et LA MEME grandeur (un deplacement de
+                    # centre de masse de la poitrine, en B0). L'argument de §30 ne peut pas valoir
+                    # pour l'une et pas pour l'autre. Le verdict passe donc a `w>0`, ET la
+                    # sensibilite reste PUBLIEE — exactement comme le fait §22 — « pour que le
+                    # lecteur puisse refuser cet argument sans avoir a relancer une course ».
+                    # CE QUI EMPECHE QUE CE SOIT UNE MACHINE A FAIRE PASSER : a cette meme
+                    # frontiere `w>0`, le verdict de COM de §22 est HORS, la clause « sortant »
+                    # de §10 est SOUS, et les cellules cote-gravite de §12 sont SOUS. La
+                    # frontiere choisie laisse donc echouer trois clauses de la meme famille.
+                    _rv = next((r_ for r_ in row if r_['cut'] == 0.0), row[0])
+                    _lb0 = _rv['nrm'] - _e * _rv['nsk']
+                    _hb0 = _rv['nrm'] + _e * _rv['nsk']
+                    _vdv = sorted({_vd_norm(x, _lo, _hi) for x in (_rv['nrm'], _lb0, _hb0)})
+                    _cn = ('NON ETABLIE (sensibilite de frontiere %.1f %% > 30 %%)' % _sp
+                           if _sp > 30.0
+                           else (_vdv[0] if len(_vdv) == 1
+                                 else 'INDETERMINEE — ' + '/'.join(_vdv)))
+                    A('ROOM-SPEC10: %-8s §11 VERDICT DE LA CLAUSE DE COM : %s   (frontiere'
+                      ' w>0.00, |d| = %.4f B0, pire cas de montage [%.4f ; %.4f])%s'
+                      % (nm, _cn, _rv['nrm'], _lb0, _hb0,
+                         ('' if _up is None else
+                          ' · cible statique haute %.2f : %s'
+                          % (_up, 'FRANCHIE' if _rv['nrm'] > _up else 'non franchie'))))
+                    A('ROOM-SPEC10: %-8s §11   SENSIBILITE DE FRONTIERE, PUBLIEE PARCE QUE LE'
+                      ' VERDICT EN DEPEND : %s. Meme argument de §30 que le bloc §22 (« la chair'
+                      ' ANCREE appartient a l\'organe ») — le refuser deplace le verdict, et les'
+                      ' chiffres pour le refuser sont ci-dessus.'
+                      % (nm, ' · '.join('w>%.2f %.4f %s'
+                                        % (r_['cut'], r_['nrm'],
+                                           _vd_norm(r_['nrm'], _lo, _hi)) for r_ in row)))
                     A('ROOM-SPEC10: %-8s §11   CETTE CLAUSE EST INDEPENDANTE DE L\'ENTREE DU'
                       ' SOLVEUR : `HangingCOMDisplacement` est ABSENTE de `kPhysPresetKeys`'
                       ' (game/kernel/jak1/kmachine.cpp:1970) — le moteur ne la recoit pas, la'

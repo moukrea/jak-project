@@ -12,6 +12,8 @@ add_executable(goalc-test
         ${CMAKE_CURRENT_LIST_DIR}/test_emitter.cpp
         ${CMAKE_CURRENT_LIST_DIR}/test_emitter_avx.cpp
         ${CMAKE_CURRENT_LIST_DIR}/test_common_util.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/common/test_rpack_ktx2.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/common/test_asset_manager.cpp
         ${CMAKE_CURRENT_LIST_DIR}/test_pretty_print.cpp
         ${CMAKE_CURRENT_LIST_DIR}/test_math.cpp
         ${CMAKE_CURRENT_LIST_DIR}/test_zstd.cpp
@@ -39,6 +41,15 @@ target_link_libraries(goalc-test common runtime compiler gtest decomp Zydis libz
 
 add_executable(test_image_resize ${CMAKE_CURRENT_LIST_DIR}/common/test_image_resize.cpp)
 target_link_libraries(test_image_resize common)
+
+# Grecharged-managed-assets: the RPACK/KTX2 readers only depend on `common`,
+# so they get a standalone target too — verifiable without building the whole
+# runtime (the same sources are also part of goalc-test above).
+add_executable(test_managed_assets
+        ${CMAKE_CURRENT_LIST_DIR}/common/test_rpack_ktx2.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/common/test_asset_manager.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/common/test_managed_assets_main.cpp)
+target_link_libraries(test_managed_assets common gtest)
 
 if(WIN32)
   target_link_libraries(goalc-test mman)

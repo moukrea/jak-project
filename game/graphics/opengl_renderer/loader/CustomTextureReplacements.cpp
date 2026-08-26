@@ -95,7 +95,7 @@ struct PomLaw {
 PomLaw pom_law_eval(float rel, float lam_m, float upm) {
   PomLaw r;
   r.rel = rel;
-  r.drive = std::powf(std::max(rel, 0.0f), 1.4f);  // PBR_DRIVE_EXP
+  r.drive = std::pow(std::max(rel, 0.0f), 1.4f);  // PBR_DRIVE_EXP
   r.hs = 0.05f * r.drive;
   r.amp_base = r.hs * 5.0f * lam_m;  // POM_DEPTH_K = 5
   r.cap_ratio = 1.25f * lam_m;       // POM_DEPTH_MAX_RATIO = 1.25
@@ -507,25 +507,24 @@ bool has_suffixed(const std::string& tpage_name,
   return resolve_suffixed(tpage_name, tex_name, suffix, base_src, nullptr, nullptr) != nullptr;
 }
 
-PbrMaterialMaps register_pbr_material(const std::string& tex_debug_name,
-                                      const PbrMaterialMaps& maps) {
+PbrMaterialMaps register_pbr_material(const std::string& tex_key, const PbrMaterialMaps& maps) {
   PbrMaterialMaps prev;  // all-zero if none
-  auto it = g_pbr_materials.find(tex_debug_name);
+  auto it = g_pbr_materials.find(tex_key);
   if (it != g_pbr_materials.end()) {
     prev = it->second;
     it->second = maps;
   } else {
-    g_pbr_materials.emplace(tex_debug_name, maps);
+    g_pbr_materials.emplace(tex_key, maps);
   }
-  lg::info("custom pbr material registered: {} (N={} R={} M={} AO={} H={} S={} E={})",
-           tex_debug_name, maps.normal_tex ? 1 : 0, maps.rough_tex ? 1 : 0,
-           maps.metal_tex ? 1 : 0, maps.ao_tex ? 1 : 0, maps.height_tex ? 1 : 0,
-           maps.specular_tex ? 1 : 0, maps.emissive_tex ? 1 : 0);
+  lg::info("custom pbr material registered: {} (N={} R={} M={} AO={} H={} S={} E={})", tex_key,
+           maps.normal_tex ? 1 : 0, maps.rough_tex ? 1 : 0, maps.metal_tex ? 1 : 0,
+           maps.ao_tex ? 1 : 0, maps.height_tex ? 1 : 0, maps.specular_tex ? 1 : 0,
+           maps.emissive_tex ? 1 : 0);
   return prev;
 }
 
-const PbrMaterialMaps* find_pbr_material(const std::string& tex_debug_name) {
-  auto it = g_pbr_materials.find(tex_debug_name);
+const PbrMaterialMaps* find_pbr_material(const std::string& tex_key) {
+  auto it = g_pbr_materials.find(tex_key);
   return it == g_pbr_materials.end() ? nullptr : &it->second;
 }
 
@@ -832,6 +831,19 @@ void mm_apply_params(const std::string& tex_debug_name, PbrMaterialMaps* maps) {
   }
   const MmParamSet* p = nullptr;
   auto it = g_mm_params.find(tex_debug_name);
+  // MERGE 2026-08-26. The PBR registry is now keyed "<tpage>/<name>" (branch fix: a bare
+  // name let one tpage's registration delete another's maps). materials.txt, however, names
+  // materials by their BARE debug name — and mm_params_reload() re-stamps by walking the
+  // registry, so it hands us the composite key. Without this fallback every authored block
+  // would stop matching on the FIRST reload (menu toggle), silently emptying the modern
+  // stack while the first stamp from the loader still worked: the worst kind of regression,
+  // one that only appears after an interaction.
+  if (it == g_mm_params.end()) {
+    const auto slash = tex_debug_name.rfind('/');
+    if (slash != std::string::npos) {
+      it = g_mm_params.find(tex_debug_name.substr(slash + 1));
+    }
+  }
   if (it != g_mm_params.end()) {
     p = &it->second;
   } else if (g_mm_has_defaults) {
@@ -934,6 +946,16 @@ std::string mm_params_diag_section() {
         g_mm_draws_specocc.load(std::memory_order_relaxed));
   }
   return out;
+}
+
+PbrMaterialMaps release_pbr_material(const std::string& tex_key) {
+  PbrMaterialMaps prev;
+  auto it = g_pbr_materials.find(tex_key);
+  if (it != g_pbr_materials.end()) {
+    prev = it->second;
+    g_pbr_materials.erase(it);
+  }
+  return prev;
 }
 
 void pbr_pom_diag_note(const std::string& tex_debug_name,

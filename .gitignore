@@ -174,3 +174,8 @@ recharged_assets/hd_anim/
 # neuf et aurait fait patienter le publieur une heure de plus, en silence.
 .autoport/.deploy-in-progress
 .autoport/.keira-room-x86.lock
+
+# Grecharged-managed-assets: downloaded texture packs (installed at runtime
+# by the asset manager / tools/install_pack.py) — never committed.
+/managed_assets/
+/test/test_data/recharged/scratch/

@@ -159,6 +159,12 @@ struct GfxGlobalSettings {
   // _height/_normal/_roughness PBR maps follow the PBR path, not this flag). Default ON so a
   // plain install shows the Recharged look; the MASTER still forces stock when OFF.
   bool recharged_textures = true;
+  // Grecharged-managed-assets: use the DOWNLOADED texture pack (managed_assets/
+  // <game>/, installed by the asset manager) when one is present. Default ON —
+  // a user who downloaded a pack wants to see it. OFF falls straight back to
+  // the bundled/stock textures with no re-download, so it is a real A/B switch.
+  // The user drop dir still wins over it (owner's precedence rule).
+  bool recharged_managed_assets = true;
   // Grecharged-mesh-browser: the debug MESH BROWSER's real-texture <-> checker toggle, settable
   // from the menu without adb (the owner has none). pbr_testpattern::mode() falls back to this
   // when no debug.opengoal.pbr.testpattern prop / OG_PBR_TESTPATTERN env is set, so the headless

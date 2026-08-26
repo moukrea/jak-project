@@ -1,5 +1,8 @@
 uniform int u_pbr_mode;        // 0=legacy; bit1 normal, bit2 rough, bit4 metal, bit8 ao, bit16 height/POM,
                                // bit32 specular (F0 workflow), bit64 emissive (unlit add) — fusion phase
+                               // bit128 (Grecharged-managed-assets): the bound normal map stores only
+                               // X/Y (BC5 / EAC RG11 / ASTC two-channel — the GPU-compressed pack
+                               // formats have no third channel), so Z is reconstructed here.
 uniform vec3 u_pbr_sun_dir;    // world-space, surface->sun, normalized (viz/legacy)
 uniform vec3 u_pbr_sun_color;
 // Round-4 multi-light: 3 direct lights from light-group 0 (soleil + lune verte + fill),

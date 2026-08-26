@@ -370,7 +370,7 @@ void TFragment::update_load(const std::vector<tfrag3::TFragmentTreeKind>& tree_k
   // registered PBR material set (no level-name gating).
   m_pbr_draws.clear();
   for (size_t ti = 0; ti < lev_data->textures.size(); ++ti) {
-    if (const auto* maps = custom_tex::find_pbr_material(lev_data->textures[ti].debug_name)) {
+    if (const auto* maps = custom_tex::find_pbr_material(custom_tex::pbr_material_key(lev_data->textures[ti].debug_tpage_name, lev_data->textures[ti].debug_name))) {
       // Grecharged-pbr-realtime-fusion ROUND 20: measure THIS material's authored UV density from
       // the level's own geometry, so the tess displacement uses the material's real feature size
       // instead of the shaders' hardcoded 0.5 tiles/m. 0 = not enough samples => keep the old 0.5.

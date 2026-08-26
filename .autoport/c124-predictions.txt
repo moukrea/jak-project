@@ -1,0 +1,122 @@
+CYCLE 124 — PREDICTIONS, ECRITES AVANT LA MESURE
+DIRECTIVES vd9e8b66782
+
+SECTION DONT CE CYCLE DEBLOQUE LE VERDICT (exigence DIRECTIVES 2026-08-21 18:25, nommee AVANT
+de commencer) : **SPEC 11**, et par le meme geste **SPEC 10** — les six cellules d'ECHELLE que le
+cycle 120 a mises `MIROIR / SANS VERDICT` et que la directive du 2026-08-23 16:00 classe
+PRIORITE 1.
+
+================================================================================================
+CE QUE JE SAIS DEJA, ET QUI N'EST DONC PAS UNE PREDICTION — declare pour que rien ne soit
+compte deux fois
+================================================================================================
+
+Les trois valeurs de la clause de COM de §11 sont PUBLIEES depuis le cycle 123 et je les ai lues
+avant d'ouvrir ce cycle :
+
+    chestL   0,2278 / 0,2511 / 0,2791 B0   (frontieres w>0 / w>=0,05 / w>=0,25)
+    chestR   0,2273 / 0,2548 / 0,2949 B0
+
+Aucun credit n'est reclame sur ces nombres. Le LOT A ne les recalcule pas : il change QUELLE
+frontiere porte le verdict, et rien d'autre. Ce qui est reellement inconnu au moment ou j'ecris
+est enumere en P1 a P4.
+
+================================================================================================
+LOT A — LA MEME GRANDEUR EST JUGEE A DEUX FRONTIERES DIFFERENTES DANS LE MEME TABLEAU
+================================================================================================
+
+Fait constate avant d'ecrire ces predictions (physics_room_table.py:6693-6702, bloc §22) : le
+verdict de COM de §22 est rendu **a `w>0`**, avec l'argument suivant ecrit AU CYCLE OU CE BLOC A
+ETE POSE, pas par moi :
+
+  « Ce qui tranche n'est pas le confort du resultat, c'est sa §30, qui compte le tissu fortement
+    ANCRE comme faisant partie du sein (« 28-35% of the **rear breast volume** should behave as
+    strongly attached tissue ») : la chair ancree appartient donc a l'organe, et la frontiere qui
+    l'inclut — `w>0` — est celle que la spec decrit. »
+
+Le bloc §10/§11 (`_spec10_block`), lui, traite les TROIS frontieres comme egalement autoritaires
+et rend `INDETERMINEE`. Les deux blocs mesurent LA MEME GRANDEUR (un deplacement de centre de
+masse de la poitrine, en B0) sur LE MEME organe, dans LE MEME tableau. Une des deux lectures est
+fausse ; ce n'est pas un gout.
+
+  P1  En appliquant `w>0` comme frontiere de VERDICT a la clause de COM de §11 (sensibilite
+      `w>=0,25` publiee A COTE, exactement comme le fait §22), **au moins une clause de la meme
+      famille reste EN ECHEC a `w>0`** — sinon la frontiere choisie serait une machine a faire
+      passer, et le geste serait a retirer.
+      FALSIFICATEUR : si toutes les clauses de COM du tableau passent a `w>0`, LOT A est retire
+      en entier et la frontiere reste non tranchee.
+
+  P2  **§11 NE DEVIENT PAS `TENUE` pour autant**, et la raison n'est pas la frontiere : trois de
+      ses cinq clauses (longueur, largeur, epaisseur) sont `MIROIR / SANS VERDICT` depuis le
+      cycle 120. La regle 2 du registre exige la grandeur de la section MESUREE et dans sa bande ;
+      trois clauses sans mesure ne peuvent pas etre comptees comme tenues.
+      CONSEQUENCE SI P2 TIENT : la ligne « CE QUI MANQUE POUR `TENUE` : la frontiere w>=0,25 de
+      chestR » ecrite au cycle 123 est un OBJECTIF FAUX, et le corriger vaut plus que de le
+      poursuivre — c'est ce qui envoie le cycle suivant sur la bonne cible.
+      FALSIFICATEUR : si la regle du registre compte une section comme tenue sur ses seules
+      clauses VERDICTEES, P2 tombe et §11 bascule ; je le publierais tel quel.
+
+================================================================================================
+LOT B — LA FORME LIVREE, MESUREE SUR LE MESH, CONTRE LA FORME COMMANDEE
+================================================================================================
+
+PRIORITE 1 de la directive du 2026-08-23 16:00 : « leur verdict doit se mesurer contre une
+grandeur INDEPENDANTE de l'entree du solveur, ou la section repasse NON ETABLI ». Le cycle 120 a
+pris la SECONDE branche (les six cellules ne portent plus de verdict). Ce lot attaque la PREMIERE :
+mesurer la forme que la PEAU recoit — celle que l'owner voit — et non les trois echelles que le
+solveur COMMANDE.
+
+Moyen : une emission neuve, par cellule d'orientation, des matrices d'os REELLEMENT ECRITES au
+squelette (4 joints de poitrine + l'ancre `chest`), puis skinning lineaire cote HOTE sur le mesh
+LIVRE en pleine resolution (7963 sommets, poids reels) — pas les 2 echantillons par maillon de
+`physics_mesh.txt`, qui ne peuvent pas porter une etendue.
+
+  P3  **LE RENDEMENT N'EST PAS 1.** Le rapport (echelle LIVREE mesuree sur le mesh) / (echelle
+      COMMANDEE publiee par `PHYSORI2`) s'ecarte de 1,000 de **plus de 3 %** sur au moins une des
+      six cellules d'echelle, et il VARIE d'une cellule a l'autre.
+      POURQUOI : entre la commande et la peau il y a le melange de deux maillons aux matrices
+      differentes, la rotation squelettique, la contrainte de longueur, `phys-skin-chain` et la
+      collision. Le cycle 90 a deja mesure que la commande et le livre ne tombent pas dans les
+      memes bandes (13/16 cellules contre 8/16).
+      FALSIFICATEUR, ET IL RETIRE TOUT LE LOT : si le rendement vaut 1,000 partout, la forme
+      livree EST la forme commandee, la clause reste un MIROIR meme mesuree sur le mesh, et
+      LOT B ne fournit pas la grandeur independante que la directive demande. Je l'ecrirais
+      comme tel au lieu de presenter un miroir de plus comme une mesure.
+
+  P4  **LA CLAUSE PEUT ECHOUER.** Au moins UNE des six cellules d'echelle, mesuree sur la forme
+      LIVREE, tombe HORS de sa bande de spec sur au moins une chaine.
+      POURQUOI : c'est le test de falsifiabilite de l'instrument (« un instrument qui ne peut pas
+      echouer ne vaut rien »). Si les six passent, la bande reste centree sur ce qu'on injecte et
+      le doute du 2026-08-23 16:00 n'est pas leve.
+      FALSIFICATEUR : six sur six DANS => je publie que la falsifiabilite N'EST PAS demontree,
+      et les six cellules RESTENT sans verdict malgre la nouvelle mesure.
+
+  P5  **CONTROLE NEGATIF DE LA COURSE.** L'emission est un instrument PUR : elle n'ecrit aucun
+      etat du solveur. La course neuve doit donc reproduire la course archivee du cycle 122/123
+      enregistrement pour enregistrement, a l'exception des lignes NEUVES et des adresses de tas.
+      Seuil declare : **zero** enregistrement `PHYS*` preexistant different (hors adresses).
+      FALSIFICATEUR : une seule ligne preexistante qui bouge => l'emission n'est pas pure,
+      l'attribution de tout le lot tombe, et le lot est retire avant d'etre lu.
+
+  P6  **LECTURE HORS DEFAUT.** La cellule i=0 est la pose debout d'auteur, ou §9 exige la forme
+      exacte du modele. La forme LIVREE y doit rendre 1,000 sur les trois axes a **moins de 1 %**.
+      FALSIFICATEUR : un ecart superieur veut dire que le portage du skinning cote hote est faux
+      (ou que §9 est violee), et aucune des six cellules n'est lisible tant que ce n'est pas
+      reconcilie. C'est la reponse a la troisieme question obligatoire du contrat.
+
+  P7  **CONTROLE DE MONTAGE, INDEPENDANT DE P6.** La longueur racine->apex LIVREE de la cellule
+      PRONE (i=6) et celle de la seconde cellule prone (i=10, ajoutee au cycle 120) doivent
+      s'accorder a **moins de 3 %**. Deux cellules que rien ne relie doivent rendre la meme forme.
+      FALSIFICATEUR : un desaccord plus grand suspend le verdict des six cellules au lieu de
+      choisir une des deux.
+
+================================================================================================
+CE QUE CE CYCLE NE FAIT PAS — declare pour que l'omission ne passe pas pour un oubli
+================================================================================================
+
+  - Il ne touche AUCUN parametre du solveur, et ne cherche a faire passer aucune bande. Les deux
+    lots sont des MESURES.
+  - Il ne tranche pas la lecture de « Global » de §12 (ouverte et remontee depuis le cycle 91).
+  - Il ne fabrique aucun canal pour une cle-REPONSE (priorite 3 de la directive du 16:00).
+  - Il ne mesure pas l'ecart au miroir de la pose du balayage d'orientation (chantier nomme au
+    cycle 123b) : la lecture gauche/droite du bloc de cisaillement reste SUSPENDUE.

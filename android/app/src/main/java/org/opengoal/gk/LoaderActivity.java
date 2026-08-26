@@ -110,6 +110,13 @@ public class LoaderActivity extends AppCompatActivity {
     private static final String PREF_ASSET_ROOT = "asset_root";
     private static final String PREF_ASSET_MODE = "asset_mode";
     private static final String MODE_EXTERNAL = "external";
+    // Grecharged-managed-assets: downloaded texture-pack preferences. The
+    // profile is written back by the native side once GL caps are known, so the
+    // first boot uses the safe GLES baseline and later boots can upgrade.
+    private static final String PREF_PACK_ENABLED = "pack_enabled";
+    private static final String PREF_PACK_PROFILE = "pack_profile";
+    private static final String PREF_PACK_PRESET = "pack_preset";
+    private static final String PREF_PACK_WIFI_ONLY = "pack_wifi_only";
     // MainActivity bounces back here with this extra when the configured
     // external root stopped being readable.
     private static final String EXTRA_ASSET_ROOT_INVALID =
@@ -505,6 +512,7 @@ public class LoaderActivity extends AppCompatActivity {
             try {
                 unpackCgoPackIfNeeded(gameName);
                 unpackCustomPackIfNeeded(gameName);
+                downloadManagedAssets(gameName);
                 runOnUiThread(() -> decideBootMode(gameName));
             } catch (Throwable t) {
                 Log.e(TAG, "LoaderActivity: CGO pack setup failed", t);
@@ -519,6 +527,90 @@ public class LoaderActivity extends AppCompatActivity {
             }
         }, "opengoal-loader");
         worker.start();
+    }
+
+    /**
+     * Grecharged-managed-assets: fetch the remastered texture packs into
+     * {@code <filesDir>/managed_assets/<game>/} (see AssetPackDownloader).
+     *
+     * This never blocks the boot: any failure — no network, metered link, a bad
+     * hash — is logged and the game starts on whatever was already installed
+     * (or on its stock textures). The packs are optional content by design; the
+     * lock's "required" flag only changes the wording of the message.
+     *
+     * The GPU profile cannot be probed before a GL context exists, so the first
+     * ever run installs the universally-safe GLES baseline (ETC2/EAC) and the
+     * native side records what it actually detected into the prefs, which the
+     * NEXT boot uses to upgrade to ASTC where available.
+     */
+    private void downloadManagedAssets(String gameName) {
+        SharedPreferences prefs = getSharedPreferences(ASSET_PREFS, MODE_PRIVATE);
+        if (!prefs.getBoolean(PREF_PACK_ENABLED, true)) {
+            Log.i(TAG, "managed assets: disabled by preference");
+            return;
+        }
+        // The native side writes gpu_profile.txt once it has a GL context; until
+        // then ETC2/EAC is the safe choice (core in every GLES 3.x driver).
+        String profile = prefs.getString(PREF_PACK_PROFILE, null);
+        if (profile == null) {
+            profile = readDetectedProfile(gameName, "android-etc2");
+        }
+        final String preset = prefs.getString(PREF_PACK_PRESET, "default");
+        final boolean wifiOnly = prefs.getBoolean(PREF_PACK_WIFI_ONLY, true);
+
+        AssetPackDownloader dl = new AssetPackDownloader(this, gameName,
+                (what, i, count, doneBytes, totalBytes) -> runOnUiThread(() -> {
+                    if (status != null) {
+                        status.setText("Downloading textures " + (i + 1) + "/" + count
+                                + "\n" + (totalBytes >> 20) + " MiB total");
+                    }
+                    if (progress != null && totalBytes > 0) {
+                        // the bar is permille here (setMax(1000) at UI setup) —
+                        // don't change its range, later stages share it
+                        progress.setIndeterminate(false);
+                        progress.setProgress((int) (doneBytes * 1000 / totalBytes));
+                    }
+                }));
+
+        // Material maps are only useful to a build with the PBR path compiled in.
+        // This is the first touch of NativeGk in the boot pipeline, so it also
+        // triggers System.loadLibrary("gk"); a broken lib must not take the boot
+        // down here — MainActivity reports that failure properly.
+        boolean withPbr = false;
+        try {
+            withPbr = NativeGk.hasPbrFeature();
+        } catch (Throwable t) {
+            Log.w(TAG, "managed assets: cannot query PBR feature, installing albedo only", t);
+        }
+        final boolean wantPbr = withPbr;
+        AssetPackDownloader.Result res = dl.run(profile, preset, wifiOnly, wantPbr, null);
+        if (res.ok) {
+            Log.i(TAG, "managed assets: " + res.message);
+        } else if (res.skipped) {
+            Log.i(TAG, "managed assets: skipped — " + res.message);
+        } else {
+            Log.w(TAG, "managed assets: " + res.message + " (booting with what is installed)");
+        }
+    }
+
+    /** The profile the renderer detected on a previous launch, or a fallback. */
+    private String readDetectedProfile(String gameName, String fallback) {
+        File f = new File(getFilesDir(), "managed_assets/" + gameName + "/gpu_profile.txt");
+        if (!f.isFile()) {
+            return fallback;
+        }
+        try (InputStream in = new java.io.FileInputStream(f)) {
+            byte[] buf = new byte[64];
+            int n = in.read(buf);
+            String s = n > 0 ? new String(buf, 0, n, "UTF-8").trim() : "";
+            if (s.startsWith("android-")) {
+                Log.i(TAG, "managed assets: using detected profile " + s);
+                return s;
+            }
+        } catch (Throwable ignored) {
+            // unreadable: stay on the baseline
+        }
+        return fallback;
     }
 
     /**

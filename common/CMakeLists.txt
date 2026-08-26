@@ -29,6 +29,8 @@ endfunction()
 write_revision_h()
 
 add_library(common
+        assets/AssetManager.cpp
+        assets/Manifest.cpp
         audio/audio_formats.cpp
         cross_os_debug/xdbg.cpp
         cross_sockets/XSocket.cpp
@@ -76,6 +78,7 @@ add_library(common
         type_system/TypeSpec.cpp
         type_system/TypeSystem.cpp
         util/Assert.cpp
+        util/AssetsLock.cpp
         util/ast_util.cpp
         util/BitUtils.cpp
         util/compress.cpp
@@ -93,9 +96,11 @@ add_library(common
         util/font/font_utils.cpp
         util/FrameLimiter.cpp
         util/json_util.cpp
+        util/Ktx2Subset.cpp
         util/md5.cpp
         util/os.cpp
         util/print_float.cpp
+        util/RPack.cpp
         util/read_iso_file.cpp
         util/SimpleThreadGroup.cpp
         util/string_util.cpp

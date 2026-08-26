@@ -26,6 +26,8 @@
 #include "game/mips2c/spart_prof.h"
 
 #include "game/graphics/gfx.h"
+#include "game/graphics/opengl_renderer/GpuCaps.h"
+#include "game/graphics/opengl_renderer/loader/ManagedAssets.h"
 #include "game/graphics/opengl_renderer/loader/Loader.h"
 #include "game/graphics/texture/TexturePool.h"
 #include "game/runtime.h"
@@ -237,6 +239,12 @@ bool init_renderer_on_gl_thread(int win_w, int win_h) {
                       "A35-RENDER glad loaded GL entry points via SDL_GL_GetProcAddress "
                       "(GL_VERSION=%s)",
                       (const char*)glGetString(GL_VERSION));
+
+    // Grecharged-managed-assets: with a live context, record which compressed
+    // formats this GPU really supports so the asset manager can pick (and the
+    // next launch can upgrade) the right pack profile.
+    gpu_caps::detect();
+    managed_assets::record_detected_profile(gpu_caps::preferred_profile());
 
   // A36: the desktop-profile glad parses "OpenGL ES 3.2" as version 3.2 and
   // skips its GL_VERSION_4_1 load list — which is where the ES2-core

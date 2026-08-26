@@ -2368,6 +2368,58 @@ phases:
   # overnight 2026-08-04: Honor is the plugged device (Redmi unplugged)
   device_serial: eae4df44
   owner_verify: true
+- id: Grecharged-managed-assets-merge
+  name: "ABSORBER feat/recharged-managed-assets (owner 2026-08-26, TOP PRIORITE, « à absorber
+    nickel — dans le framework, pas toi tout seul en autonomie ») : gestionnaire d'assets avec
+    installation verifiee reprenable, conteneur RPack, KTX2 (textures compressees GPU, donc PLUS
+    DE DECODAGE PNG au chargement), verrou de version assets-v0.2.1, telechargement Android au
+    premier lancement, profil GPU detecte, bascule HD dans le menu. Depot d'assets :
+    moukrea/recharged-assets. 13 commits, 56 fichiers, +3569 lignes ; base commune 26b26029d9,
+    notre branche a 1065 commits en plus ; 16 fichiers touches des deux cotes dont Loader.cpp,
+    LoaderStages.cpp, CustomTextureReplacements.cpp et android_gfx.cpp. FUSIONNER, JAMAIS ECRASER."
+  prompt: prompts/phase-Grecharged-managed-assets-merge.md
+  validator: validators/phase-Grecharged-managed-assets-merge.sh
+  max_turns: 3000
+  max_retries: 400
+  device: True
+  device_serial: 192.168.1.32:5555
+  owner_verify: True
+- id: Gshield-load-and-crash
+  name: "SHIELD — CHARGEMENT INTERMINABLE ET CRASH (owner 2026-08-26, TOP PRIORITE, la phase des
+    seins de Keira est MISE EN PAUSE pour celle-ci) : « le logo apparait bien apres le son qui est
+    sense etre la au moment de son apparition [...] C'est je crois le pire truc honnetement » et
+    « ca crash quand je charge la partie ». MESURE : 8 etapes de texture sur 107 concentrent 94 %
+    d'un demarrage de 11,5 s, cause = decodage de PNG 2048x2048 au chargement (4 cartes par
+    materiau). Et le processus est tue au premier plan sans signal, pic RSS 1 212-1 234 Mo sur
+    2 946 Mo, dont DEUX BLOCS RESIDENTS DE 150,32 Mo NON IDENTIFIES. L'owner refuse « la machine
+    est petite » comme explication, et il a raison : la PS2 tenait dans 32 Mo."
+  prompt: prompts/phase-Gshield-load-and-crash.md
+  validator: validators/phase-Gshield-load-and-crash.sh
+  max_turns: 3000
+  max_retries: 400
+  device: True
+  device_serial: 192.168.1.32:5555
+  owner_verify: True
+- id: Gprecompute-deterministic-bake
+  name: "PRE-CALCUL DETERMINISTE (owner 2026-08-26, backlog place JUSTE APRES la physique des seins
+    de Keira) : « tout ce qu'on peut pre-computer devrait l'etre au lieu de prendre du temps CPU/GPU
+    c'est debile. Ca profitera a tout materiel ! Of course les trucs real time, c'est different,
+    mais ce qui peut etre fait en aval devrait l'etre ! » -- Mesure du 2026-08-26 sur la SHIELD :
+    la pre-subdivision de maillage (max_edge_m=1.6 m, max_rounds=3, DEFAUT ACTIF) et la
+    reconstruction des tangentes MikkTSpace tournent A CHAQUE CHARGEMENT DE NIVEAU, sur CHAQUE
+    machine, alors que leur resultat est entierement determine par le .fr3 d'entree. Cout mesure :
+    ecran-titre a 7 700 915 triangles / 82,8 ms / 768x432 avec le defaut, contre 65 318 triangles /
+    8,1 ms / 1920x1080 avec subdivrounds=1 -- et 26,3 Mo de tangentes par niveau reconstruites puis
+    jamais relues cote CPU. Le travail : cuire ces deux passes dans les .fr3 au moment du build
+    (bump de version fr3 + regeneration), et faire du niveau de subdivision une OPTION reglable
+    plutot qu'un comportement automatique impose. Aucun rendu temps reel ne doit changer."
+  prompt: prompts/phase-Gprecompute-deterministic-bake.md
+  validator: validators/phase-Gprecompute-deterministic-bake.sh
+  max_turns: 3000
+  max_retries: 400
+  device: True
+  device_serial: eae4df44
+  owner_verify: True
 - id: Grecharged-secondary-motion
   name: 'PHYSIQUE SECONDAIRE / JIGGLE (owner 2026-08-04, backlog assumé): maintenant que les
     personnages HD existent, ajouter du mouvement secondaire naturel et cohérent ("rien de fou") —

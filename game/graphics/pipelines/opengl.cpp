@@ -24,6 +24,8 @@
 
 #include "game/graphics/display.h"
 #include "game/graphics/gfx.h"
+#include "game/graphics/opengl_renderer/GpuCaps.h"
+#include "game/graphics/opengl_renderer/loader/ManagedAssets.h"
 #include "game/graphics/opengl_renderer/OpenGLRenderer.h"
 #include "game/graphics/opengl_renderer/debug_gui.h"
 #include "game/graphics/screenshot.h"
@@ -247,6 +249,12 @@ static std::shared_ptr<GfxDisplay> gl_make_display(int width,
         return NULL;
       }
     }
+
+    // Grecharged-managed-assets: with a live context, record which compressed
+    // formats this GPU really supports so the asset manager can pick (and the
+    // next launch can upgrade) the right pack profile.
+    gpu_caps::detect();
+    managed_assets::record_detected_profile(gpu_caps::preferred_profile());
     {
       auto p = scoped_prof("startup::sdl::gfx_data_init");
       g_gfx_data = std::make_unique<GraphicsData>(game_version);

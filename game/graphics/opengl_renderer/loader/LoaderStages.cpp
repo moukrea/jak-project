@@ -2,6 +2,7 @@
 
 #include "CustomTextureReplacements.h"
 #include "Loader.h"
+#include "ManagedAssets.h"
 
 #include "common/global_profiler/GlobalProfiler.h"
 
@@ -131,16 +132,34 @@ static float measure_height_lambda_tiles(const custom_tex::ReplacementImage* hi)
 /*!
  * Upload a texture to the GPU, and give it to the pool.
  */
+thread_local u64 g_last_add_texture_bytes = 0;
+
 u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
   // External-asset-root: record every texture key (for the optional dump_keys
-  // marker) and look up a user PNG replacement.
+  // marker) and look up a replacement.
   custom_tex::dump_key(tex.debug_tpage_name, tex.debug_name);
-  Timer tex_lookup_timer;  // autoport 2026-08-26
-  auto rep = custom_tex::lookup(tex.debug_tpage_name, tex.debug_name);
+  // Grecharged-managed-assets: precedence (owner) user > managed > bundled >
+  // stock. base_source() decides without decoding pixels: a USER hit keeps
+  // the PNG path; otherwise the managed pack outranks the bundled set.
+  // autoport 2026-08-26: the whole point of the managed tier is that it does NOT
+  // decode a PNG here. A53-TEXLOOKUP times the branch that was taken and names it,
+  // so "KTX2 removed the decode" is a measured line and not a claim.
+  Timer tex_lookup_timer;
+  std::optional<managed_assets::CompressedTex> managed;
+  if (custom_tex::base_source(tex.debug_tpage_name, tex.debug_name) !=
+      custom_tex::BaseSource::User) {
+    managed = managed_assets::lookup_base(tex.debug_tpage_name, tex.debug_name);
+  }
+  std::optional<custom_tex::ReplacementImage> rep;
+  if (!managed) {
+    rep = custom_tex::lookup(tex.debug_tpage_name, tex.debug_name);
+  }
   const double t_lookup_ms = tex_lookup_timer.getMs();
   if (t_lookup_ms > 100.0) {
-    fmt::print("A53-TEXLOOKUP name={} {}x{} decodage={:.0f}ms\n", tex.debug_name,
-               rep ? rep->w : 0, rep ? rep->h : 0, t_lookup_ms);
+    fmt::print("A53-TEXLOOKUP name={} {}x{} source={} decodage={:.0f}ms\n", tex.debug_name,
+               managed ? (int)managed->info.width : (rep ? rep->w : 0),
+               managed ? (int)managed->info.height : (rep ? rep->h : 0),
+               managed ? "managed-ktx2" : (rep ? "png" : "stock"), t_lookup_ms);
   }
   Timer tex_call_timer;  // autoport 2026-08-26: attribuer les blocages a un appel GL
 
@@ -171,6 +190,9 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
     }
   }
   if (tp_apply) {
+    // The checker replaces the base outright — drop any managed hit so the
+    // generic mip/aniso path below applies to the checker upload.
+    managed.reset();
     // Mode 2 swaps EVERY texture in the level, so it uses a smaller map to bound VRAM.
     const int tp_dim = (tp_mode == 2 || tp_mode == 4) ? 128 : 256;
     // The buffer is written in RGBA byte order. kRgbaTexType is GL_UNSIGNED_BYTE on GLES and
@@ -182,7 +204,19 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
                  tp_base.data());
   } else
 #endif
-      if (rep) {
+      if (managed) {
+    // Managed KTX2: offline mip chain uploaded compressed — NO glGenerateMipmap.
+    if (!managed_assets::upload_bound_texture(*managed)) {
+      // glTexStorage2D may already have made the storage immutable — the
+      // stock fallback needs a fresh texture object.
+      glDeleteTextures(1, &gl_tex);
+      glGenTextures(1, &gl_tex);
+      glBindTexture(GL_TEXTURE_2D, gl_tex);
+      managed.reset();
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex.w, tex.h, 0, GL_RGBA, kRgbaTexType,
+                   tex.data.data());
+    }
+  } else if (rep) {
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rep->w, rep->h, 0, GL_RGBA, kRgbaTexType,
                  rep->rgba.data());
   } else {
@@ -190,12 +224,19 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
                  tex.data.data());
   }
   const double t_upload_ms = tex_call_timer.getMs();
-  glGenerateMipmap(GL_TEXTURE_2D);
+  // Grecharged-managed-assets: a KTX2 payload already carries its whole mip chain,
+  // filtered offline. Regenerating it would both cost the stall this tier exists to
+  // remove and overwrite the better chain with a runtime box filter.
+  if (!managed) {
+    glGenerateMipmap(GL_TEXTURE_2D);
+  }
   const double t_mip_ms = tex_call_timer.getMs() - t_upload_ms;
   if (t_upload_ms + t_mip_ms > 100.0) {
-    fmt::print("A52-TEXSTALL name={} {}x{} remplacement={} upload={:.0f}ms mipmap={:.0f}ms\n",
-               tex.debug_name, rep ? rep->w : tex.w, rep ? rep->h : tex.h, rep ? 1 : 0,
-               t_upload_ms, t_mip_ms);
+    fmt::print("A52-TEXSTALL name={} {}x{} source={} upload={:.0f}ms mipmap={:.0f}ms\n",
+               tex.debug_name,
+               managed ? (int)managed->info.width : (rep ? rep->w : tex.w),
+               managed ? (int)managed->info.height : (rep ? rep->h : tex.h),
+               managed ? "managed-ktx2" : (rep ? "png" : "stock"), t_upload_ms, t_mip_ms);
   }
   // autoport 2026-08-26: glGetFloatv is a SYNCHRONOUS query — it drains the driver's
   // pipeline. Called once per uploaded texture it turned the boot texture burst into
@@ -208,6 +249,10 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
     return a;
   }();
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY, aniso);
+  // Real uploaded bytes for the streaming budgets (see LoaderStages.h).
+  g_last_add_texture_bytes = managed ? managed->payload.size()
+                             : rep   ? rep->rgba.size() * 4 / 3  // + generated mips
+                                     : u64(tex.w) * tex.h * 4 * 4 / 3;
   if (tex.load_to_pool) {
     TextureInput in;
     in.debug_page_name = tex.debug_tpage_name;
@@ -235,7 +280,68 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
   // Grecharged-bundled-textures: PBR maps may come from the USER dir (load_custom_assets-
   // gated inside lookup_suffixed) or the package-BUNDLED set (master-gated) — probe whenever
   // the master is up; lookup_suffixed applies the per-source gates.
-  if (Gfx::recharged_master_active()) {
+  // Grecharged-managed-assets: a MANAGED base pairs ONLY with managed maps
+  // (same-source rule — mixed provenance describes a different image). The
+  // pack's maps are GPU-compressed with offline mip chains, and their
+  // statistics were measured by the pipeline on the exact shipped pixels, so
+  // none of the CPU measurement passes below run for them.
+  if (managed && Gfx::recharged_master_active()) {
+    custom_tex::PbrMaterialMaps maps;
+    bool any = false;
+    auto load_map = [&](const char* kind, u32* dst) -> std::optional<managed_assets::CompressedTex> {
+      auto t = managed_assets::lookup_map(tex.debug_tpage_name, tex.debug_name, kind);
+      if (!t) {
+        return std::nullopt;
+      }
+      *dst = managed_assets::create_map_texture(*t);
+      if (*dst) {
+        any = true;
+        return t;
+      }
+      return std::nullopt;
+    };
+    if (auto n_tex = load_map("normal", &maps.normal_tex)) {
+      // X/Y-only storage (BC5 / EAC RG11 / ASTC two-channel) => u_pbr_mode bit 128.
+      maps.normal_is_rg = n_tex->channels == "rg";
+      if (n_tex->stats.has_normal_dc) {
+        maps.normal_dc_x = n_tex->stats.normal_dc_x;
+        maps.normal_dc_y = n_tex->stats.normal_dc_y;
+      }
+    }
+    load_map("roughness", &maps.rough_tex);
+    load_map("metallic", &maps.metal_tex);
+    load_map("ao", &maps.ao_tex);
+    if (auto h_tex = load_map("height", &maps.height_tex)) {
+      if (h_tex->stats.has_height) {
+        maps.height_mean = h_tex->stats.height_mean;
+        maps.height_norm = h_tex->stats.height_norm;
+        maps.height_lambda_tiles = h_tex->stats.height_lambda_tiles;
+      }
+    }
+    load_map("specular", &maps.specular_tex);
+    load_map("emissive", &maps.emissive_tex);
+    if (any) {
+      auto prev = custom_tex::register_pbr_material(
+          custom_tex::pbr_material_key(tex.debug_tpage_name, tex.debug_name), maps);
+      // thickness_tex is OURS (post-dating this branch's base) and is a real GL id: the
+      // managed path never loads a _thickness map, but a previous PNG-path registration
+      // under the same key may have left one, so it belongs in the free list.
+      for (GLuint oid : {prev.normal_tex, prev.rough_tex, prev.metal_tex, prev.ao_tex, prev.height_tex,
+                         prev.specular_tex, prev.emissive_tex, prev.thickness_tex}) {
+        if (oid && !pbr_testpattern::owns(oid)) {
+          glDeleteTextures(1, &oid);
+        }
+      }
+      lg::info(
+          "pbr managed material: {} N={}(rg={}) R={} M={} AO={} H={} S={} E={} "
+          "dc=({:.4f},{:.4f}) hmean={:.4f} hnorm={:.3f} lambda={:.4f}",
+          tex.debug_name, maps.normal_tex ? 1 : 0, maps.normal_is_rg ? 1 : 0,
+          maps.rough_tex ? 1 : 0, maps.metal_tex ? 1 : 0, maps.ao_tex ? 1 : 0,
+          maps.height_tex ? 1 : 0, maps.specular_tex ? 1 : 0, maps.emissive_tex ? 1 : 0,
+          maps.normal_dc_x, maps.normal_dc_y, maps.height_mean, maps.height_norm,
+          maps.height_lambda_tiles);
+    }
+  } else if (Gfx::recharged_master_active() && !managed) {
     const auto bsrc = custom_tex::base_source(tex.debug_tpage_name, tex.debug_name);
     // NOTE: lookup_suffixed returns a pointer into a single per-call thread-local
     // buffer, reused on the next call — so capture each map's source string
@@ -571,7 +677,12 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
       // authored reaches the renderer exactly as the accepted PBR path built it.
       custom_tex::mm_apply_params(tex.debug_name, &maps);
       // Overwrite registry; free any stale GL ids from a prior level load of the same name.
-      auto prev = custom_tex::register_pbr_material(tex.debug_name, maps);
+      // Key on "<tpage>/<name>" (branch fix): two textures can share a bare name across
+      // tpages, and a bare-name registry let the second registration delete the first
+      // material's GL ids out from under it. thickness_tex is OURS and stays in the free
+      // list — it is a real GL id and dropping it here would leak one texture per reload.
+      auto prev = custom_tex::register_pbr_material(
+          custom_tex::pbr_material_key(tex.debug_tpage_name, tex.debug_name), maps);
       GLuint old_ids[8] = {prev.normal_tex,   prev.rough_tex,    prev.metal_tex,
                            prev.ao_tex,       prev.height_tex,   prev.specular_tex,
                            prev.emissive_tex, prev.thickness_tex};
@@ -618,7 +729,9 @@ class TextureLoaderStage : public LoaderStage {
       while (data.lev_data->textures.size() < data.lev_data->level->textures.size()) {
         auto& tex = data.lev_data->level->textures[data.lev_data->textures.size()];
         data.lev_data->textures.push_back(add_texture(*data.tex_pool, tex, false));
-        bytes_this_run += tex.w * tex.h * 4;
+        // real uploaded bytes: replacements/managed packs are far larger
+        // than the baked tex.w*h*4 (the audited budget blindness)
+        bytes_this_run += (int)g_last_add_texture_bytes;
         tex_this_run++;
         if (tex_this_run > 20) {
           break;

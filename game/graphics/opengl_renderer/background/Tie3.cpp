@@ -343,7 +343,7 @@ void Tie3::load_from_fr3_data(const LevelData* loader_data) {
   // registered PBR material set (no level-name gating). Mirrors TFragment::update_load.
   m_pbr_draws.clear();
   for (size_t ti = 0; ti < lev_data->textures.size(); ++ti) {
-    if (const auto* maps = custom_tex::find_pbr_material(lev_data->textures[ti].debug_name)) {
+    if (const auto* maps = custom_tex::find_pbr_material(custom_tex::pbr_material_key(lev_data->textures[ti].debug_tpage_name, lev_data->textures[ti].debug_name))) {
       // Grecharged-pbr-realtime-fusion ROUND 20: same measured authored UV density as TFragment,
       // walked over the TIE geo-0 static draws (same StripDraw / PreloadedVertex types).
       u32 nsamp = 0;

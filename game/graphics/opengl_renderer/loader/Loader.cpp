@@ -21,6 +21,9 @@
 #include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/loader/CustomTextureReplacements.h"
 #include "game/graphics/opengl_renderer/loader/LoaderStages.h"
+#ifdef OG_FEAT_PBR
+#include "game/graphics/opengl_renderer/loader/PbrTestPattern.h"
+#endif
 #include "game/runtime.h"
 
 #include "third-party/imgui/imgui.h"
@@ -663,7 +666,8 @@ bool Loader::upload_textures(Timer& timer, LevelData& data, TexturePool& texture
     while (data.textures.size() < data.level->textures.size()) {
       auto& tex = data.level->textures[data.textures.size()];
       data.textures.push_back(add_texture(texture_pool, tex, false));
-      bytes_this_run += tex.w * tex.h * 4;
+      // real uploaded bytes (see LoaderStages.h g_last_add_texture_bytes)
+      bytes_this_run += (int)g_last_add_texture_bytes;
       tex_this_run++;
       if (tex_this_run > 20) {
         break;
@@ -932,6 +936,24 @@ void Loader::update(TexturePool& texture_pool) {
             texture_pool.unload_texture(PcTextureId::from_combo_id(tex.combo_id),
                                         lev->textures.at(i));
           }
+#ifdef OG_FEAT_PBR
+          // Grecharged-managed-assets: the companion PBR maps live in their own
+          // registry, not in lev->textures, so eviction used to leak them (up to
+          // 7 full-resolution textures per material, freed only if a later level
+          // happened to re-register the same name). Release them with the level;
+          // the ids join the same throttled garbage list as the base textures.
+          const auto dead = custom_tex::release_pbr_material(
+              custom_tex::pbr_material_key(tex.debug_tpage_name, tex.debug_name));
+          // + thickness_tex: our own map, added after this branch's base. Leaving it out
+          // would have made the branch's leak fix leak exactly one texture per material.
+          for (u32 id : {dead.normal_tex, dead.rough_tex, dead.metal_tex, dead.ao_tex, dead.height_tex,
+                         dead.specular_tex, dead.emissive_tex, dead.thickness_tex}) {
+            // the shared test-pattern maps are owned by pbr_testpattern, never freed here
+            if (id && !pbr_testpattern::owns(id)) {
+              m_garbage_textures.push_back(id);
+            }
+          }
+#endif
         }
         lk.unlock();
         for (auto tex : lev->textures) {

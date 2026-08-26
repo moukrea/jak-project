@@ -122,6 +122,10 @@ struct PbrMaterialMaps {
   float coat_rough = 0.10f;
   float aniso = 0.f;        // [-0.95, 0.95]
   float aniso_angle = 0.f;  // radians
+  // Grecharged-managed-assets: the normal map came from a GPU-compressed pack and stores only
+  // X/Y (BC5 / EAC RG11 / ASTC two-channel). Sets u_pbr_mode bit 128 so the shader rebuilds Z.
+  // PNG-sourced maps are 3-channel and leave this false.
+  bool normal_is_rg = false;
 };
 
 // ===== Grecharged-materials-modern-parity — materials.txt ==========================================
@@ -170,14 +174,26 @@ void mm_note_active_draw(int flags);
 // pullable diag file. Empty when the stack is off and nothing ever opted in.
 std::string mm_params_diag_section();
 
+// Registry key for a texture's PBR maps. Keyed on "<tpage>/<name>", NOT the
+// bare debug name: two textures can share a name across tpages (the base
+// lookup has always used the full key), and a bare-name registry let the
+// second registration delete the first material's maps out from under it.
+inline std::string pbr_material_key(const std::string& tpage_name, const std::string& tex_name) {
+  return tpage_name + "/" + tex_name;
+}
+
 // Register (overwrite) the PBR maps for a texture. Returns the PREVIOUS entry by
 // value (all-zero if none) so the caller can glDeleteTextures the old GL ids on a
 // level-reload path.
-PbrMaterialMaps register_pbr_material(const std::string& tex_debug_name,
-                                      const PbrMaterialMaps& maps);
+PbrMaterialMaps register_pbr_material(const std::string& tex_key, const PbrMaterialMaps& maps);
 
 // Look up the registered PBR maps for a texture, or nullptr if none.
-const PbrMaterialMaps* find_pbr_material(const std::string& tex_debug_name);
+const PbrMaterialMaps* find_pbr_material(const std::string& tex_key);
+
+// Remove a texture's entry and return its maps so the caller can free the GL
+// ids (level unload). All-zero when nothing was registered. Without this the
+// companion maps of an evicted level stayed resident for the whole session.
+PbrMaterialMaps release_pbr_material(const std::string& tex_key);
 
 // Grecharged-pbr-realtime-fusion 2026-07-26, [pom] DEVICE DIAGNOSTIC. The owner and the
 // supervisor both asked the same question about the flat parallax — "is the POM branch even

@@ -4130,8 +4130,9 @@ ROOM-SPEC10: chestL   §11 prone        w>0.25    |  -0.2738  -0.1347  -0.1391 |
 ROOM-SPEC10: chestL   §11 l.178 « Static COM displacement: 20-28% B0, nominal 24% B0, upper static target 30% B0 »
 ROOM-SPEC10: chestL   §11 NORME |d| = 0.2278/0.2511/0.2791 B0   (bande 0.20-0.28)
 ROOM-SPEC10: chestL   §11   decomposition sur le triedre de §7 (frontiere w>0.00) : thorax -0.2234 · sortant -0.0414 · haut 0.0163  — parts 0.981 / 0.182 / 0.072
-ROOM-SPEC10: chestL   §11   raffinement 18.4 % (<=30 % OK) · montage 0.10 % -> pire cas [0.2277 ; 0.2793]
-ROOM-SPEC10: chestL   §11 VERDICT DE LA CLAUSE DE COM : DANS · cible statique haute 0.30 : non franchie
+ROOM-SPEC10: chestL   §11   sensibilite de frontiere 18.4 % (<=30 % OK) · montage 0.10 % -> pire cas toutes frontieres [0.2277 ; 0.2793]
+ROOM-SPEC10: chestL   §11 VERDICT DE LA CLAUSE DE COM : DANS   (frontiere w>0.00, |d| = 0.2278 B0, pire cas de montage [0.2277 ; 0.2279]) · cible statique haute 0.30 : non franchie
+ROOM-SPEC10: chestL   §11   SENSIBILITE DE FRONTIERE, PUBLIEE PARCE QUE LE VERDICT EN DEPEND : w>0.00 0.2278 DANS · w>0.05 0.2511 DANS · w>0.25 0.2791 DANS. Meme argument de §30 que le bloc §22 (« la chair ANCREE appartient a l'organe ») — le refuser deplace le verdict, et les chiffres pour le refuser sont ci-dessus.
 ROOM-SPEC10: chestL   §11   CETTE CLAUSE EST INDEPENDANTE DE L'ENTREE DU SOLVEUR : `HangingCOMDisplacement` est ABSENTE de `kPhysPresetKeys` (game/kernel/jak1/kmachine.cpp:1970) — le moteur ne la recoit pas, la bande n'entoure aucun nombre injecte.
 ROOM-SPEC10: chestL   §12 lateral i=2  w>0.00    |   0.0025   0.0515  -0.0490 |    5.772    8.359   -2.587  DIAGNOSTIC §12 — lecture a arbitrer
 ROOM-SPEC10: chestL   §12 lateral i=2  w>0.05    |   0.0026   0.0567  -0.0541 |    6.350    9.206   -2.856  DIAGNOSTIC §12 — lecture a arbitrer
@@ -4139,7 +4140,7 @@ ROOM-SPEC10: chestL   §12 lateral i=2  w>0.25    |   0.0018   0.0625  -0.0607 |
 ROOM-SPEC10: chestL   §12 l.192 « Global lateral COM response: 15-24% B0, nominal 19% »
 ROOM-SPEC10: chestL   §12 NORME |d| = 0.0937/0.1032/0.1139 B0   (bande 0.15-0.24)
 ROOM-SPEC10: chestL   §12   decomposition sur le triedre de §7 (frontiere w>0.00) : thorax 0.0025 · sortant 0.0744 · haut -0.0569  — parts 0.026 / 0.794 / 0.607
-ROOM-SPEC10: chestL   §12   raffinement 17.7 % (<=30 % OK) · montage 0.05 % -> pire cas [0.0937 ; 0.1140]
+ROOM-SPEC10: chestL   §12   sensibilite de frontiere 17.7 % (<=30 % OK) · montage 0.05 % -> pire cas toutes frontieres [0.0937 ; 0.1140]
 ROOM-SPEC10: chestL   §12   DIAGNOSTIC, PAS UN VERDICT — le mot « Global » de la clause ne dit pas si elle porte sur UNE chaine dans UNE cellule ou sur la PAIRE : les deux lectures ne donnent pas le meme resultat (SOUS par cellule ici). La question est ouverte et nommee, elle n'est pas tranchee au passage.
 ROOM-SPEC10: chestL   §12 lateral i=4  w>0.00    |   0.0035   0.0149  -0.0115 |  -12.252  -12.207   -0.046  DIAGNOSTIC §12 — lecture a arbitrer
 ROOM-SPEC10: chestL   §12 lateral i=4  w>0.05    |   0.0038   0.0165  -0.0127 |  -13.494  -13.444   -0.050  DIAGNOSTIC §12 — lecture a arbitrer
@@ -4147,7 +4148,7 @@ ROOM-SPEC10: chestL   §12 lateral i=4  w>0.25    |   0.0040   0.0182  -0.0142 |
 ROOM-SPEC10: chestL   §12 l.192 « Global lateral COM response: 15-24% B0, nominal 19% »
 ROOM-SPEC10: chestL   §12 NORME |d| = 0.1685/0.1856/0.2047 B0   (bande 0.15-0.24)
 ROOM-SPEC10: chestL   §12   decomposition sur le triedre de §7 (frontiere w>0.00) : thorax 0.0035 · sortant -0.1579 · haut 0.0587  — parts 0.021 / 0.937 / 0.348
-ROOM-SPEC10: chestL   §12   raffinement 17.7 % (<=30 % OK) · montage 3.14 % -> pire cas [0.1633 ; 0.2110]
+ROOM-SPEC10: chestL   §12   sensibilite de frontiere 17.7 % (<=30 % OK) · montage 3.14 % -> pire cas toutes frontieres [0.1633 ; 0.2110]
 ROOM-SPEC10: chestL   §12   DIAGNOSTIC, PAS UN VERDICT — le mot « Global » de la clause ne dit pas si elle porte sur UNE chaine dans UNE cellule ou sur la PAIRE : les deux lectures ne donnent pas le meme resultat (DANS par cellule ici). La question est ouverte et nommee, elle n'est pas tranchee au passage.
 ROOM-SPEC10: chestL   debout i=0       w>0.00    |   0.0002   0.0001   0.0002 |   -0.027   -0.032    0.005  DIAGNOSTIC — sans bande
 ROOM-SPEC10: chestL   debout i=0       w>0.05    |   0.0003   0.0001   0.0002 |   -0.030   -0.035    0.006  DIAGNOSTIC — sans bande
@@ -4183,8 +4184,9 @@ ROOM-SPEC10: chestR   §11 prone        w>0.25    |  -0.2622  -0.1280  -0.1342 |
 ROOM-SPEC10: chestR   §11 l.178 « Static COM displacement: 20-28% B0, nominal 24% B0, upper static target 30% B0 »
 ROOM-SPEC10: chestR   §11 NORME |d| = 0.2273/0.2548/0.2949 B0   (bande 0.20-0.28)
 ROOM-SPEC10: chestR   §11   decomposition sur le triedre de §7 (frontiere w>0.00) : thorax -0.2017 · sortant -0.0980 · haut 0.0370  — parts 0.887 / 0.431 / 0.163
-ROOM-SPEC10: chestR   §11   raffinement 22.9 % (<=30 % OK) · montage 0.09 % -> pire cas [0.2272 ; 0.2950]
-ROOM-SPEC10: chestR   §11 VERDICT DE LA CLAUSE DE COM : INDETERMINEE — AU-DESSUS/DANS · cible statique haute 0.30 : non franchie
+ROOM-SPEC10: chestR   §11   sensibilite de frontiere 22.9 % (<=30 % OK) · montage 0.09 % -> pire cas toutes frontieres [0.2272 ; 0.2950]
+ROOM-SPEC10: chestR   §11 VERDICT DE LA CLAUSE DE COM : DANS   (frontiere w>0.00, |d| = 0.2273 B0, pire cas de montage [0.2272 ; 0.2274]) · cible statique haute 0.30 : non franchie
+ROOM-SPEC10: chestR   §11   SENSIBILITE DE FRONTIERE, PUBLIEE PARCE QUE LE VERDICT EN DEPEND : w>0.00 0.2273 DANS · w>0.05 0.2548 DANS · w>0.25 0.2949 AU-DESSUS. Meme argument de §30 que le bloc §22 (« la chair ANCREE appartient a l'organe ») — le refuser deplace le verdict, et les chiffres pour le refuser sont ci-dessus.
 ROOM-SPEC10: chestR   §11   CETTE CLAUSE EST INDEPENDANTE DE L'ENTREE DU SOLVEUR : `HangingCOMDisplacement` est ABSENTE de `kPhysPresetKeys` (game/kernel/jak1/kmachine.cpp:1970) — le moteur ne la recoit pas, la bande n'entoure aucun nombre injecte.
 ROOM-SPEC10: chestR   §12 lateral i=2  w>0.00    |   0.0255   0.0205   0.0050 |  -12.827  -12.731   -0.096  DIAGNOSTIC §12 — lecture a arbitrer
 ROOM-SPEC10: chestR   §12 lateral i=2  w>0.05    |   0.0286   0.0230   0.0056 |  -14.363  -14.255   -0.108  DIAGNOSTIC §12 — lecture a arbitrer
@@ -4192,7 +4194,7 @@ ROOM-SPEC10: chestR   §12 lateral i=2  w>0.25    |   0.0335   0.0269   0.0066 |
 ROOM-SPEC10: chestR   §12 l.192 « Global lateral COM response: 15-24% B0, nominal 19% »
 ROOM-SPEC10: chestR   §12 NORME |d| = 0.1738/0.1947/0.2238 B0   (bande 0.15-0.24)
 ROOM-SPEC10: chestR   §12   decomposition sur le triedre de §7 (frontiere w>0.00) : thorax 0.0255 · sortant -0.1654 · haut 0.0471  — parts 0.147 / 0.951 / 0.271
-ROOM-SPEC10: chestR   §12   raffinement 22.3 % (<=30 % OK) · montage 4.41 % -> pire cas [0.1662 ; 0.2336]
+ROOM-SPEC10: chestR   §12   sensibilite de frontiere 22.3 % (<=30 % OK) · montage 4.41 % -> pire cas toutes frontieres [0.1662 ; 0.2336]
 ROOM-SPEC10: chestR   §12   DIAGNOSTIC, PAS UN VERDICT — le mot « Global » de la clause ne dit pas si elle porte sur UNE chaine dans UNE cellule ou sur la PAIRE : les deux lectures ne donnent pas le meme resultat (DANS par cellule ici). La question est ouverte et nommee, elle n'est pas tranchee au passage.
 ROOM-SPEC10: chestR   §12 lateral i=4  w>0.00    |  -0.0306   0.0326  -0.0632 |    2.050    3.018   -0.968  DIAGNOSTIC §12 — lecture a arbitrer
 ROOM-SPEC10: chestR   §12 lateral i=4  w>0.05    |  -0.0346   0.0364  -0.0710 |    2.298    3.377   -1.079  DIAGNOSTIC §12 — lecture a arbitrer
@@ -4200,7 +4202,7 @@ ROOM-SPEC10: chestR   §12 lateral i=4  w>0.25    |  -0.0417   0.0416  -0.0833 |
 ROOM-SPEC10: chestR   §12 l.192 « Global lateral COM response: 15-24% B0, nominal 19% »
 ROOM-SPEC10: chestR   §12 NORME |d| = 0.0536/0.0602/0.0709 B0   (bande 0.15-0.24)
 ROOM-SPEC10: chestR   §12   decomposition sur le triedre de §7 (frontiere w>0.00) : thorax -0.0306 · sortant 0.0264 · haut -0.0352  — parts 0.571 / 0.493 / 0.656
-ROOM-SPEC10: chestR   §12   raffinement 24.4 % (<=30 % OK) · montage 0.18 % -> pire cas [0.0535 ; 0.0710]
+ROOM-SPEC10: chestR   §12   sensibilite de frontiere 24.4 % (<=30 % OK) · montage 0.18 % -> pire cas toutes frontieres [0.0535 ; 0.0710]
 ROOM-SPEC10: chestR   §12   DIAGNOSTIC, PAS UN VERDICT — le mot « Global » de la clause ne dit pas si elle porte sur UNE chaine dans UNE cellule ou sur la PAIRE : les deux lectures ne donnent pas le meme resultat (SOUS par cellule ici). La question est ouverte et nommee, elle n'est pas tranchee au passage.
 ROOM-SPEC10: chestR   debout i=0       w>0.00    |   0.0001   0.0000   0.0001 |    0.036    0.038   -0.002  DIAGNOSTIC — sans bande
 ROOM-SPEC10: chestR   debout i=0       w>0.05    |   0.0001   0.0000   0.0001 |    0.040    0.042   -0.002  DIAGNOSTIC — sans bande

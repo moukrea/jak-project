@@ -16,8 +16,13 @@
          the extracted PS2 ISO files to:
            /sdcard/Android/data/org.opengoal.gk/files/iso_data/
          on first launch (the activity prompts if missing). -->
-    <uses-permission android:name="android.permission.INTERNET"
-                     tools:node="remove"/>
+    <!-- Grecharged-managed-assets: the remastered texture packs are downloaded
+         from the recharged-assets GitHub releases into <filesDir>/managed_assets/
+         instead of being embedded in the APK (they used to add 71 MB of PNGs to a
+         ~580 MB install). INTERNET is a normal permission — no runtime prompt —
+         and it is the ONLY thing the app uses the network for. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
 
     <!-- External-asset-root feature (autoport 2026-07): the user can point the
          app at an on-storage OpenGOAL folder (shared by all games) holding the

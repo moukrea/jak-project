@@ -764,6 +764,15 @@ add_library(gk SHARED
     "${JAK_ROOT}/game/graphics/opengl_renderer/loader/CustomTextureReplacements.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/loader/Loader.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/loader/LoaderStages.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/loader/ManagedAssets.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/GpuCaps.cpp"
+    # MERGE 2026-08-26: ManagedAssets.cpp calls rpack::Reader and ktx2::parse. The
+    # desktop build gets them from the `common` library; the Android gk target has an
+    # EXPLICIT source list and links no `common`, so without these two TUs the branch's
+    # managed tier does not link here at all. Both are dependency-light (fmt + json +
+    # Assert), which is why they can join the list as-is.
+    "${JAK_ROOT}/common/util/RPack.cpp"
+    "${JAK_ROOT}/common/util/Ktx2Subset.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/loader/PbrTestPattern.cpp"
     "${JAK_ROOT}/common/custom_data/TFrag3Data.cpp"
     "${JAK_ROOT}/common/custom_data/MeshConsolidate.cpp"

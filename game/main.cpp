@@ -39,6 +39,8 @@
 #include "game/system/pad_replay.h"
 #include "graphics/gfx_test.h"
 
+#include "game/assets/AssetCli.h"
+
 #include "third-party/CLI11.hpp"
 
 #ifdef _WIN32
@@ -476,6 +478,10 @@ int goal_main(int argc, char** argv) {
   fs::path iso_overlay_override;
   fs::path custom_assets_override;
   std::vector<std::string> game_args;
+  // Grecharged-managed-assets: headless pack management (see AssetCli.h)
+  std::string assets_verb, assets_preset, assets_profile;
+  bool assets_yes = false;
+
   CLI::App app{"OpenGOAL Game Runtime"};
   app.add_flag("--version", show_version, "Display the built revision");
   app.add_option("-g,--game", game_name, "The game name: 'jak1' or 'jak2'");
@@ -510,6 +516,13 @@ int goal_main(int argc, char** argv) {
                  "(e.g. /sdcard/OpenGOAL/jak1)");
   app.add_option("--iso-overlay", iso_overlay_override,
                  "Directory holding the per-arch compiled *.CGO/*.DGO iso overlay");
+  app.add_option("--assets", assets_verb,
+                 "Managed texture packs: 'status', 'install' or 'verify'. Runs headless and exits");
+  app.add_option("--assets-preset", assets_preset,
+                 "Texture pack preset to install: low | default | bonkers (default: default)");
+  app.add_option("--assets-profile", assets_profile,
+                 "Override the GPU profile to install (default: pc-bc). Normally auto-detected");
+  app.add_flag("--assets-yes", assets_yes, "Do not prompt before a large download");
   app.add_option("--custom-assets", custom_assets_override,
                  "Directory holding port-custom assets (recharged_assets/, fr3/) shipped in the "
                  "package, taking precedence over the vanilla data tree");
@@ -639,6 +652,13 @@ int goal_main(int argc, char** argv) {
     }
   } else if (!file_util::setup_project_path(project_path_override)) {
     return 1;
+  }
+
+  // Grecharged-managed-assets: pack management runs headless and exits, before
+  // any graphics/IOP machinery — it only needs the project path resolved above.
+  if (!assets_verb.empty()) {
+    return assets::run_cli(assets_verb, game_options.game_version, assets_profile, assets_preset,
+                           assets_yes);
   }
 
   // External-asset-root: when --game-root was not explicitly provided, resolve
