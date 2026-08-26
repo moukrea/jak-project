@@ -2883,6 +2883,7 @@ def _spec10_block(A, txt, names, com, role, b0, roles=None):
     _vd = lambda v, lo, hi: 'SOUS' if v < lo else ('DANS' if v <= hi else 'AU-DESSUS')
     _vd_norm = _vd
     judged = {}
+    _shear = {}   # off-diagonale de la cellule SUPINE, par chaine : pour la loi du miroir
 
     def _cum(cc, ii, j):
         """L'ecart ABSOLU du j-eme joint : somme telescopique des increments `ldb[0..j]`."""
@@ -3044,6 +3045,56 @@ def _spec10_block(A, txt, names, com, role, b0, roles=None):
             if i != isup:
                 continue
             e = ctrl.get(i, 0.0) / 100.0
+
+            # ---- D'OU VIENT (OU NE VIENT PAS) LA MIGRATION SORTANTE DE §10 -------------------
+            # La clause « Outward COM migration per breast: 4-10% W0 » (l.169) est la SEULE qui
+            # tienne §10 en NON TENUE. Son terme TENSORIEL se decompose EXACTEMENT en trois,
+            # sans reste, et les trois ne jouent pas le meme role :
+            #     tn[0] = [ (D00-1).L0  +  D10.L1  +  D20.L2 ] / n
+            #              ^ DIAGONAL      ^--- CISAILLEMENT (hors-diagonale) ---^
+            # Le DIAGONAL est ce que `SupineWidthScale` pilote — c'est le mecanisme que la
+            # section DEMANDE. Le CISAILLEMENT n'est demande nulle part dans §10.
+            # Publier le total seul cachait lequel des deux manque. Il ne manquait ni l'un ni
+            # l'autre : ils se SOUSTRAIENT.
+            _Dm = dfma[(c, i)]
+            _sg = 1.0 if outv[0] >= 0.0 else -1.0     # `out` = +/- e0 (seul +X est miroite)
+            A('ROOM-SPEC10: %-8s sortant     DECOMPOSITION DU TERME TENSORIEL (%% W0) —'
+              ' DIAGONAL (ce que `SupineWidthScale` pilote) contre CISAILLEMENT :' % nm)
+            _dg = _sh = None
+            for d in rec['defs']:
+                _L, _n, _w0 = d['L'], float(d['n']), float(d['W0'])
+                _diag = (_Dm[0][0] - 1.0) * _L[0] / _n * _sg / _w0 * 100.0
+                _shr = (_Dm[1][0] * _L[1] + _Dm[2][0] * _L[2]) / _n * _sg / _w0 * 100.0
+                if _dg is None:
+                    _dg, _sh = _diag, _shr
+                A('ROOM-SPEC10: %-8s sortant       w>%.2f  diagonal %+7.3f  cisaillement %+7.3f'
+                  '  somme %+7.3f  (annule %5.1f %% du diagonal)'
+                  % (nm, d['cut'], _diag, _shr, _diag + _shr,
+                     100.0 * abs(_shr) / abs(_diag) if abs(_diag) > 1e-12 else 0.0))
+            # LE BUDGET SE FERME, SINON LA DECOMPOSITION MENT PAR OMISSION. Le terme
+            # SQUELETTIQUE (deplacement des joints, pondere par la masse) n'est PAS dans le
+            # tenseur et il est NEGATIF des deux cotes : publier « le cisaillement mange la
+            # migration » sans lui laisserait conclure « on retire le cisaillement et §10 passe ».
+            # C'est faux, et les trois lignes ci-dessous le montrent au lieu de le promettre.
+            _sk0 = row[0]['ou'][1]
+            A('ROOM-SPEC10: %-8s sortant       BUDGET COMPLET (w>%.2f, %% W0) : squelettique'
+              ' %+7.3f  +  diagonal %+7.3f  +  cisaillement %+7.3f  =  %+7.3f   contre la bande'
+              ' 4.00-10.00'
+              % (nm, row[0]['cut'], _sk0, _dg, _sh, _sk0 + _dg + _sh))
+            A('ROOM-SPEC10: %-8s sortant       LECTURE, EN TROIS TEMPS. (1) le mecanisme de §10'
+              ' EXISTE et il est du bon signe : le seul terme diagonal, celui que'
+              ' `SupineWidthScale` pilote, rend %+.3f %% W0 de migration SORTANTE.' % (nm, _dg))
+            A('ROOM-SPEC10: %-8s sortant         (2) un CISAILLEMENT que §10 ne demande nulle'
+              ' part en retire %.1f %%. (3) ET MEME A CISAILLEMENT NUL LA CLAUSE RESTERAIT'
+              ' %s : %+.3f %% W0 contre un plancher de 4.00 — le terme SQUELETTIQUE (%+.3f)'
+              % (nm, 100.0 * abs(_sh) / abs(_dg) if abs(_dg) > 1e-12 else 0.0,
+                 'SOUS' if (_sk0 + _dg) < 4.0 else 'DANS', _sk0 + _dg, _sk0))
+            A('ROOM-SPEC10: %-8s sortant         est negatif des deux cotes et pese plus lourd'
+              ' que le cisaillement sur au moins une chaine. Retirer le cisaillement ne fait donc'
+              ' PAS passer §10, et le dire ici evite de le decouvrir apres un cycle de moteur.'
+              % nm)
+            _shear[c] = (nm, _Dm[1][0], _Dm[2][0], _dg, _sh)
+
             for bnm, key, lo, hi, un in _BANDS:
                 vals = [r_[key][0] for r_ in row]
                 den = max(abs(min(vals)), abs(max(vals)))
@@ -3081,6 +3132,36 @@ def _spec10_block(A, txt, names, com, role, b0, roles=None):
         _njg = sum(1 for b, _k, _lo, _hi, _u in _BANDS if judged.get((c, b.strip())) is not None)
         A('ROOM-SPEC10: %-8s SYNTHESE : %s  —  %d clause(s) DANS la bande sur %d jugee(s)'
           ' (2 clauses au total)' % (nm, _syn, _nin, _njg))
+
+    # ---- LE BLOC DE CISAILLEMENT CONTRE LA LOI DU MIROIR, ET LA SUSPENSION QUI VA AVEC --------
+    # Sous le miroir x -> -x, un tenseur se transforme en `M D M` avec `M = diag(-1,1,1)` : les
+    # termes D10 et D20 CHANGENT DE SIGNE et GARDENT leur module. Les deux chaines partagent une
+    # base d'ancre UNIQUE (`PHYSORI4` rend le meme triplet pour c=0 et c=1 a chaque cellule), donc
+    # la comparaison est licite composante par composante.
+    if len(_shear) == 2:
+        (nL, l10, l20, dgL, shL), (nR, r10, r20, dgR, shR) = (_shear[k] for k in sorted(_shear))
+        A('ROOM-SPEC10: LOI DU MIROIR SUR LE BLOC DE CISAILLEMENT (M D M, M = diag(-1,1,1)) :')
+        for _nm2, _a, _b in (('D10', l10, r10), ('D20', l20, r20)):
+            _att = -_a
+            _ec = (abs(_b - _att) / abs(_att) * 100.0) if abs(_att) > 1e-9 else float('inf')
+            A('ROOM-SPEC10:   %s : %s %+.5f  ->  attendu sur %s %+.5f  ·  mesure %+.5f'
+              '  ·  ecart %s%s'
+              % (_nm2, nL, _a, nR, _att, _b,
+                 ('%.0f %%' % _ec) if _ec != float('inf') else 'n/a',
+                 '   SIGNE INVERSE' if _b * _att < 0 else ''))
+        A('ROOM-SPEC10:   CONSEQUENCE CHIFFREE : le cisaillement annule %.1f %% du diagonal sur'
+          ' %s et %.1f %% sur %s.'
+          % (100.0 * abs(shL) / abs(dgL) if abs(dgL) > 1e-12 else 0.0, nL,
+             100.0 * abs(shR) / abs(dgR) if abs(dgR) > 1e-12 else 0.0, nR))
+        A('ROOM-SPEC10:   ET CE QUI SUIT EST UNE SUSPENSION, PAS UN VERDICT — verrou du'
+          ' 2026-08-21 01:20. La pose du balayage d\'orientation n\'a AUCUNE mesure d\'ecart au'
+          ' miroir : elle est absente de `ROOM-ASYM-POSE`, et `PHYSURST` ne publie que la')
+        A('ROOM-SPEC10:   direction de REPOS (une fois par course), pas la pose tenue dans la'
+          ' cellule. Un ecart gauche/droite releve dans une pose non mesuree au miroir est porte'
+          ' par LA POSE jusqu\'a preuve du contraire. **POSE NON MESUREE AU MIROIR** : aucune')
+        A('ROOM-SPEC10:   attribution a la chaine, au solveur ni au personnage n\'est publiee'
+          ' ici. La mesure qui manque est NOMMEE : l\'ecart au miroir de la pose du balayage'
+          ' d\'orientation, par cellule.')
 
     # ---- LE VERDICT DE REGISTRE, SELON SA REGLE : DEUX CHAINES, TOUTES LES CLAUSES JUGEES ------
     dec = {k: v for k, v in judged.items() if v is not None}

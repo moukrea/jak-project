@@ -49,3 +49,44 @@ P6. La famille de mesure est FALSIFIABLE et pas complaisante : au moins une clau
 
 TIER DE LIVRAISON PREVU : ANALYSE SEULE sur la trace ARCHIVEE (keira-room-x86.log de la course
 livree). Aucun build, aucune course neuve. L'instrument est un post-processeur.
+
+================================================================================================
+c123b — PREDICTIONS ECRITES AVANT LA SECONDE MESURE (clause « sortant » de §10)
+================================================================================================
+DIRECTIVES vd9e8b66782
+
+OBJET : la clause « Outward COM migration per breast: 4-10% W0 » (l.169) est la SEULE qui tienne
+§10 en `NON TENUE`. Elle rend +0,797 % W0 (chestL) et -3,744 % W0 (chestR) : une chaine migre
+vers l'exterieur 5 fois trop peu, l'autre migre vers l'INTERIEUR. Question : le mecanisme qui
+doit produire cette migration existe-t-il, et si oui qu'est-ce qui l'annule ?
+
+Le terme TENSORIEL du COM vaut `tn = L.(D - I)/n`, et sa composante laterale se decompose
+exactement en TROIS termes, sans reste :
+    tn[0] = [ (D00 - 1).L0   +   D10.L1   +   D20.L2 ] / n
+             ^ DIAGONAL        ^ CISAILLEMENT (hors-diagonale)
+Le terme diagonal est celui que `SupineWidthScale = 1,23` pilote ; les deux autres sont du
+cisaillement que rien dans §10 ne demande.
+
+P7. Le terme DIAGONAL produit, a lui seul, une migration SORTANTE du bon signe et du meme ordre
+    sur LES DEUX chaines (ecart entre chaines < x1,5).
+    FALSIFICATEUR : signes opposes, ou ecart >= x1,5 => le mecanisme n'existe pas ou n'est pas
+    symetrique, et la cause de §10 est ailleurs.
+
+P8. Le terme de CISAILLEMENT est de signe OPPOSE au diagonal sur les deux chaines (il annule au
+    lieu d'ajouter), et il en annule une part NETTEMENT plus grande sur chestR que sur chestL.
+    FALSIFICATEUR : meme signe que le diagonal => le cisaillement aide, et l'explication tombe.
+
+P9. Le bloc hors-diagonale n'est PAS le miroir de lui-meme d'une chaine a l'autre. Sous le
+    miroir x -> -x, un tenseur se transforme en `M D M` avec `M = diag(-1,1,1)`, donc
+    D20 et D10 doivent CHANGER DE SIGNE et GARDER leur module. Prediction : au moins un des deux
+    s'ecarte de cette loi de plus de 50 % en module, ou en viole le signe.
+    FALSIFICATEUR : les deux respectent la loi a 50 % pres => le tenseur est mirroite et la
+    disparite gauche/droite vient d'ailleurs.
+
+P10. ET LE VERROU QUI M'INTERDIT D'EN FAIRE UN DEFAUT DU PERSONNAGE (2026-08-21 01:20) : la pose
+    du balayage d'orientation n'a AUCUNE mesure d'ecart au miroir — `ROOM-SPEC10` le declare
+    lui-meme (« PAS DE LECTURE GAUCHE/DROITE ... elle est absente de `ROOM-ASYM-POSE` »). Donc
+    quel que soit le resultat de P9, la lecture gauche/droite reste SUSPENDUE et la ligne doit
+    ecrire `POSE NON MESUREE AU MIROIR`, jamais « chestR est asymetrique ».
+    FALSIFICATEUR : je trouve une mesure d'ecart au miroir de CETTE pose dans la trace => la
+    lecture est licite et la suspension tombe.

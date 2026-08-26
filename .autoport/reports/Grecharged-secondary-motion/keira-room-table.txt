@@ -4110,6 +4110,14 @@ ROOM-SPEC10: chestL                              |    total   squel.    tens. | 
 ROOM-SPEC10: chestL   §10 supine       w>0.00    |   0.2957   0.1639   0.1318 |    0.797   -1.283    2.080  CELLULE DU VERDICT
 ROOM-SPEC10: chestL   §10 supine       w>0.05    |   0.3260   0.1805   0.1455 |    0.885   -1.413    2.298  CELLULE DU VERDICT
 ROOM-SPEC10: chestL   §10 supine       w>0.25    |   0.3622   0.1992   0.1631 |    0.944   -1.553    2.496  CELLULE DU VERDICT
+ROOM-SPEC10: chestL   sortant     DECOMPOSITION DU TERME TENSORIEL (% W0) — DIAGONAL (ce que `SupineWidthScale` pilote) contre CISAILLEMENT :
+ROOM-SPEC10: chestL   sortant       w>0.00  diagonal  +2.906  cisaillement  -0.825  somme  +2.080  (annule  28.4 % du diagonal)
+ROOM-SPEC10: chestL   sortant       w>0.05  diagonal  +3.209  cisaillement  -0.911  somme  +2.298  (annule  28.4 % du diagonal)
+ROOM-SPEC10: chestL   sortant       w>0.25  diagonal  +3.518  cisaillement  -1.022  somme  +2.496  (annule  29.0 % du diagonal)
+ROOM-SPEC10: chestL   sortant       BUDGET COMPLET (w>0.00, % W0) : squelettique  -1.283  +  diagonal  +2.906  +  cisaillement  -0.825  =   +0.797   contre la bande 4.00-10.00
+ROOM-SPEC10: chestL   sortant       LECTURE, EN TROIS TEMPS. (1) le mecanisme de §10 EXISTE et il est du bon signe : le seul terme diagonal, celui que `SupineWidthScale` pilote, rend +2.906 % W0 de migration SORTANTE.
+ROOM-SPEC10: chestL   sortant         (2) un CISAILLEMENT que §10 ne demande nulle part en retire 28.4 %. (3) ET MEME A CISAILLEMENT NUL LA CLAUSE RESTERAIT SOUS : +1.622 % W0 contre un plancher de 4.00 — le terme SQUELETTIQUE (-1.283)
+ROOM-SPEC10: chestL   sortant         est negatif des deux cotes et pese plus lourd que le cisaillement sur au moins une chaine. Retirer le cisaillement ne fait donc PAS passer §10, et le dire ici evite de le decouvrir apres un cycle de moteur.
 ROOM-SPEC10: chestL   vers thorax bande 0.18-0.28 B0     frontieres 0.2957/0.3260/0.3622 -> AU-DESSUS         raffinement  18.4 % (<=30 % OK)
 ROOM-SPEC10: chestL   vers thorax pire cas du montage (+/- 13.69 % du terme squelettique) : [0.2733 ; 0.3895] -> AU-DESSUS/DANS
 ROOM-SPEC10: chestL   vers thorax VERDICT DE LA CLAUSE : INDÉTERMINÉE (la frontière ou le montage décide) — ensemble AU-DESSUS/DANS
@@ -4155,6 +4163,14 @@ ROOM-SPEC10: chestR                              |    total   squel.    tens. | 
 ROOM-SPEC10: chestR   §10 supine       w>0.00    |   0.2690   0.1445   0.1245 |   -3.744   -3.824    0.080  CELLULE DU VERDICT
 ROOM-SPEC10: chestR   §10 supine       w>0.05    |   0.3016   0.1618   0.1398 |   -4.199   -4.280    0.081  CELLULE DU VERDICT
 ROOM-SPEC10: chestR   §10 supine       w>0.25    |   0.3498   0.1864   0.1634 |   -4.862   -4.901    0.039  CELLULE DU VERDICT
+ROOM-SPEC10: chestR   sortant     DECOMPOSITION DU TERME TENSORIEL (% W0) — DIAGONAL (ce que `SupineWidthScale` pilote) contre CISAILLEMENT :
+ROOM-SPEC10: chestR   sortant       w>0.00  diagonal  +2.379  cisaillement  -2.299  somme  +0.080  (annule  96.6 % du diagonal)
+ROOM-SPEC10: chestR   sortant       w>0.05  diagonal  +2.664  cisaillement  -2.583  somme  +0.081  (annule  97.0 % du diagonal)
+ROOM-SPEC10: chestR   sortant       w>0.25  diagonal  +3.073  cisaillement  -3.033  somme  +0.039  (annule  98.7 % du diagonal)
+ROOM-SPEC10: chestR   sortant       BUDGET COMPLET (w>0.00, % W0) : squelettique  -3.824  +  diagonal  +2.379  +  cisaillement  -2.299  =   -3.744   contre la bande 4.00-10.00
+ROOM-SPEC10: chestR   sortant       LECTURE, EN TROIS TEMPS. (1) le mecanisme de §10 EXISTE et il est du bon signe : le seul terme diagonal, celui que `SupineWidthScale` pilote, rend +2.379 % W0 de migration SORTANTE.
+ROOM-SPEC10: chestR   sortant         (2) un CISAILLEMENT que §10 ne demande nulle part en retire 96.6 %. (3) ET MEME A CISAILLEMENT NUL LA CLAUSE RESTERAIT SOUS : -1.445 % W0 contre un plancher de 4.00 — le terme SQUELETTIQUE (-3.824)
+ROOM-SPEC10: chestR   sortant         est negatif des deux cotes et pese plus lourd que le cisaillement sur au moins une chaine. Retirer le cisaillement ne fait donc PAS passer §10, et le dire ici evite de le decouvrir apres un cycle de moteur.
 ROOM-SPEC10: chestR   vers thorax bande 0.18-0.28 B0     frontieres 0.2690/0.3016/0.3498 -> AU-DESSUS/DANS    raffinement  23.1 % (<=30 % OK)
 ROOM-SPEC10: chestR   vers thorax pire cas du montage (+/- 22.75 % du terme squelettique) : [0.2361 ; 0.3922] -> AU-DESSUS/DANS
 ROOM-SPEC10: chestR   vers thorax VERDICT DE LA CLAUSE : INDÉTERMINÉE (la frontière ou le montage décide) — ensemble AU-DESSUS/DANS
@@ -4190,6 +4206,13 @@ ROOM-SPEC10: chestR   debout i=0       w>0.00    |   0.0001   0.0000   0.0001 | 
 ROOM-SPEC10: chestR   debout i=0       w>0.05    |   0.0001   0.0000   0.0001 |    0.040    0.042   -0.002  DIAGNOSTIC — sans bande
 ROOM-SPEC10: chestR   debout i=0       w>0.25    |   0.0001   0.0000   0.0001 |    0.045    0.048   -0.002  DIAGNOSTIC — sans bande
 ROOM-SPEC10: chestR   SYNTHESE : vers thorax INDÉTERMINÉE/NON ÉTABLIE · sortant SOUS  —  0 clause(s) DANS la bande sur 1 jugee(s) (2 clauses au total)
+ROOM-SPEC10: LOI DU MIROIR SUR LE BLOC DE CISAILLEMENT (M D M, M = diag(-1,1,1)) :
+ROOM-SPEC10:   D10 : chestL +0.02210  ->  attendu sur chestR -0.02210  ·  mesure +0.00265  ·  ecart 112 %   SIGNE INVERSE
+ROOM-SPEC10:   D20 : chestL +0.02745  ->  attendu sur chestR -0.02745  ·  mesure -0.05676  ·  ecart 107 %
+ROOM-SPEC10:   CONSEQUENCE CHIFFREE : le cisaillement annule 28.4 % du diagonal sur chestL et 96.6 % sur chestR.
+ROOM-SPEC10:   ET CE QUI SUIT EST UNE SUSPENSION, PAS UN VERDICT — verrou du 2026-08-21 01:20. La pose du balayage d'orientation n'a AUCUNE mesure d'ecart au miroir : elle est absente de `ROOM-ASYM-POSE`, et `PHYSURST` ne publie que la
+ROOM-SPEC10:   direction de REPOS (une fois par course), pas la pose tenue dans la cellule. Un ecart gauche/droite releve dans une pose non mesuree au miroir est porte par LA POSE jusqu'a preuve du contraire. **POSE NON MESUREE AU MIROIR** : aucune
+ROOM-SPEC10:   attribution a la chaine, au solveur ni au personnage n'est publiee ici. La mesure qui manque est NOMMEE : l'ecart au miroir de la pose du balayage d'orientation, par cellule.
 ROOM-SPEC10: VERDICT  NON TENUE  — la clause « sortant » est hors bande de facon robuste (frontieres ET pire cas du montage) sur LES DEUX chaines, chacune contre la bande de la spec et jamais l'une contre l'autre : chestL SOUS · chestR SOUS.
 -- ROOM-SPEC12 : GRAVITE LATERALE — CHAQUE CLAUSE SUR LE SEIN QU'ELLE NOMME -------------
 ROOM-SPEC12: CONTROLE — `D` est symetrique a 0.0419 pres sur les 22 cellules chargees : lire ses LIGNES ou ses COLONNES
@@ -4783,7 +4806,7 @@ ROOM-ASYM-POSE: PH-SYM7    PH-SYM i=7        ecart=6.5 deg    source=PHYSSYMB i=
 ROOM-ASYM-POSE: PH-TILT    PH-IDLE + PH-TILT (pire des deux) ecart=130.9 deg  source=PHYSPOSETAG  -> REFUSEE
    (source : PHYSPOSETAG tag=idle / tag=tilt)
 
-ROOM-ASYM-VERROU: 13 ligne(s) publient une comparaison gauche/droite SANS porter leur pose
+ROOM-ASYM-VERROU: 19 ligne(s) publient une comparaison gauche/droite SANS porter leur pose
    C'EST UN DEFAUT DE CE TABLEAU, PAS UNE MESURE. Chacune de ces lignes pose un ecart
    entre chestL et chestR sans dire dans quelle pose elle l'a releve : tant qu'elle ne le
    dit pas, son chiffre est indistinguable d'un artefact de pose et ne peut fonder aucune
@@ -4801,6 +4824,12 @@ ROOM-ASYM-VERROU: 13 ligne(s) publient une comparaison gauche/droite SANS porter
    !     CELLULE CONTRAIGNANTE chestL(GELE r=13) et chestR(GENOU r=13) : AU MOINS UNE EST HORS ZONE LINEAIRE.
    !     l=0  separation chestL - chestR = (+0.01, +0.07, +755.14) u   norme 755.14 u = 18.4 cm (longueurs d'os 1040.49 / 1039.04 u)
    !     l=1  separation chestL - chestR = (+3.52, +0.57, +103.77) u   norme 103.83 u = 2.5 cm (longueurs d'os 140.42 / 144.23 u)
+   !  ROOM-SPEC10:   D10 : chestL +0.02210  ->  attendu sur chestR -0.02210  ·  mesure +0.00265  ·  ecart 112 %   SIGNE INVERSE
+   !  ROOM-SPEC10:   D20 : chestL +0.02745  ->  attendu sur chestR -0.02745  ·  mesure -0.05676  ·  ecart 107 %
+   !  ROOM-SPEC10:   CONSEQUENCE CHIFFREE : le cisaillement annule 28.4 % du diagonal sur chestL et 96.6 % sur chestR.
+   !  ROOM-SPEC10:   ET CE QUI SUIT EST UNE SUSPENSION, PAS UN VERDICT — verrou du 2026-08-21 01:20. La pose du balayage d'orientation n'a AUCUNE 
+   !  ROOM-SPEC10:   direction de REPOS (une fois par course), pas la pose tenue dans la cellule. Un ecart gauche/droite releve dans une pose non 
+   !  ROOM-SPEC10:   attribution a la chaine, au solveur ni au personnage n'est publiee ici. La mesure qui manque est NOMMEE : l'ecart au miroir d
 ROOM-ASYM-EXEMPT: 13 ligne(s) exemptees (elles n'affirment aucune asymetrie du personnage)
    -  -- LE PILOTAGE (SPEC 6 : haut/bas, gauche/droite, diverses accelerations, a-coups) ---------
    -     (debout, la meme gravite effective vaut : chestL=0.0001 chestR=0.0001)

@@ -261,6 +261,71 @@ est utilisee comme BORNE que le solveur ne recoit pas — le pic mesure vaut 1,2
 fabrique : ce serait fabriquer un miroir.
 
 ================================================================================================
+5 bis. SECOND LOT DU MEME CYCLE — LA CLAUSE QUI TIENT §10 EST DECOMPOSEE, ET SES 4 POINTS
+       MANQUANTS SONT LOCALISES EN TROIS TERMES CHIFFRES
+================================================================================================
+
+« Outward COM migration per breast: 4-10% W0 » (l.169) est la SEULE clause qui tienne §10 en
+`NON TENUE`, et elle etait publiee comme un simple `SOUS` — un verdict juste, mais muet sur la
+cause. Le terme tensoriel du COM se decompose EXACTEMENT, sans reste :
+
+    tn[0] = [ (D00 - 1).L0  +  D10.L1  +  D20.L2 ] / n
+             ^ DIAGONAL       ^--- CISAILLEMENT ---^
+
+Le diagonal est ce que `SupineWidthScale = 1,23` pilote. Le cisaillement n'est demande nulle part
+dans §10. Le budget complet, publie et ferme au millieme (`ROOM-SPEC10 ... BUDGET COMPLET`) :
+
+    chaine   squelettique   diagonal   cisaillement   somme    bande
+    chestL       -1,283      +2,906       -0,825      +0,797   4,00-10,00 % W0
+    chestR       -3,824      +2,379       -2,299      -3,744   4,00-10,00 % W0
+
+**(1) LE MECANISME QUE LA SECTION DEMANDE EXISTE, ET IL EST DU BON SIGNE.** Le seul terme diagonal
+rend **+2,906 / +2,379 % W0** de migration SORTANTE. §10 n'est donc pas un canal absent : le
+widening produit bien la migration, elle est simplement mangee en aval.
+
+**(2) UN CISAILLEMENT EN RETIRE 28,4 % SUR chestL ET 96,6 % SUR chestR**, et ce bloc
+hors-diagonale **viole la loi du miroir**. Sous `x -> -x` un tenseur devient `M D M` avec
+`M = diag(-1,1,1)` : `D10` et `D20` changent de signe et gardent leur module. Les deux chaines
+partagent une base d'ancre UNIQUE — `PHYSORI4` rend le MEME triplet pour c=0 et c=1 a chaque
+cellule, donc la comparaison est licite composante par composante.
+
+    D10 : chestL +0,02210  ->  attendu sur chestR -0,02210  ·  mesure +0,00265   SIGNE INVERSE
+    D20 : chestL +0,02745  ->  attendu sur chestR -0,02745  ·  mesure -0,05676   module x2,07
+
+**(3) ET C'EST LA MOITIE QUI M'INTERESSE LE PLUS, PARCE QU'ELLE FERME UNE FAUSSE PISTE AVANT
+QU'ELLE COUTE UN CYCLE DE MOTEUR : RETIRER LE CISAILLEMENT NE FAIT PAS PASSER §10.** A cisaillement
+nul la clause rendrait **+1,622 (chestL) et -1,445 (chestR)** contre un plancher de 4,00. Le terme
+SQUELETTIQUE est negatif des deux cotes et pese **plus lourd que le cisaillement sur chestR**
+(-3,824 contre -2,299). La ligne du tableau le dit desormais elle-meme, en toutes lettres.
+
+**CE QUI N'EST PAS CONCLU, ET LE VERROU QUI L'INTERDIT.** L'ecart gauche/droite du bloc de
+cisaillement **n'est attribue ni a la chaine, ni au solveur, ni au personnage**. La pose du
+balayage d'orientation n'a AUCUNE mesure d'ecart au miroir : elle est absente de `ROOM-ASYM-POSE`
+(verifie ligne par ligne sur les 12 entrees de ce bloc), et `PHYSURST` ne publie que la direction
+de REPOS — quatre lignes par course, pas une par cellule. Verrou du 2026-08-21 01:20 : un ecart
+gauche/droite releve dans une pose non mesuree au miroir est porte par LA POSE jusqu'a preuve du
+contraire. La ligne ecrit donc **`POSE NON MESUREE AU MIROIR`**, et **la mesure qui manque est
+NOMMEE** : l'ecart au miroir de la pose du balayage d'orientation, PAR CELLULE. C'est le plus
+petit chantier d'instrument qui debloque une attribution, et il ne debloque que celle-la.
+
+**PREDICTIONS DE CE SECOND LOT, ecrites avant la mesure (c123-predictions.txt, bloc c123b) :**
+
+  P7  le terme DIAGONAL est sortant sur les deux chaines, ecart < x1,5.
+                                        TENUE — +2,906 et +2,379 ; ecart x1,22.
+  P8  le CISAILLEMENT est de signe oppose au diagonal, et en annule nettement plus sur chestR.
+                                        TENUE — -0,825 (28,4 %) contre -2,299 (96,6 %).
+  P9  le bloc hors-diagonale viole la loi du miroir de plus de 50 % en module, ou en signe.
+                                        TENUE — D10 signe inverse, D20 module x2,07.
+  P10 quel que soit P9, la lecture gauche/droite reste SUSPENDUE faute de mesure de miroir
+      sur cette pose.                   TENUE — absente de ROOM-ASYM-POSE, `POSE NON MESUREE`.
+
+**ET LE FAIT QUI N'ETAIT DANS AUCUNE PREDICTION, DONC LE PLUS UTILE** : le terme squelettique
+domine sur chestR. Aucune de mes quatre predictions ne le visait ; il est sorti du budget complet,
+et c'est lui qui interdit de conclure « on corrige le cisaillement et §10 passe ». J'ai ajoute la
+ligne de budget APRES avoir vu que la decomposition en deux termes seulement etait mensongere par
+omission — une decomposition qui ne se ferme pas laisse tirer la conclusion qui arrange.
+
+================================================================================================
 6. REMONTEE AU SUPERVISEUR — CINQUIEME CYCLE SANS CHANGEMENT DE STATUT
 ================================================================================================
 
@@ -279,6 +344,11 @@ justifie ; aucun n'a fait passer une section au vert. C'est le risque nomme le 2
   1. **§11 est a 5,3 % de `TENUE`**, sur une seule frontiere d'organe d'une seule chaine (chestR
      w>0,25 : 0,2949 contre 0,28). C'est le plus petit ecart restant de tout le registre. Faut-il
      en faire la cible du prochain cycle, ou est-ce un ecart qui doit se resorber par ailleurs ?
+  1 bis. **§10 a maintenant une cible d'instrument nommee et minuscule** : l'ecart au miroir de la
+     pose du balayage d'orientation, par cellule. Sans elle, la violation de la loi du miroir sur
+     le bloc de cisaillement (signe inverse sur `D10`, module x2,07 sur `D20`) reste inattribuable.
+     Avec elle, soit la pose est symetrique et c'est un defaut du solveur a corriger, soit elle ne
+     l'est pas et quatre sections retombent d'un cran de confiance. Les deux issues sont utiles.
   2. **Les six cellules d'echelle de §10/§11 n'ont PLUS DE MESURE DU TOUT** depuis le cycle 120 :
      elles ne portent pas de verdict, et rien ne mesure la FORME a leur place. Une section dont la
      forme n'est plus mesuree du tout est-elle preferable a une section mesuree par un miroir ? Ma
