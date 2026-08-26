@@ -227,7 +227,8 @@
     "Grecharged-foliage-wind2": 0,
     "Grecharged-secondary-motion": 5,
     "Grecharged-hd-eye-scale": 2,
-    "Grecharged-title-logo-fullres": 1
+    "Grecharged-title-logo-fullres": 1,
+    "Grecharged-managed-assets-merge": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -1034,7 +1035,7 @@
     "Grecharged-materials-modern-parity": 1786167637.0459936,
     "Grecharged-managed-assets-merge": 1787735930.1454916
   },
-  "last_update": "2026-08-26T09:18:50.145494+00:00",
+  "last_update": "2026-08-26T09:34:47.637346+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

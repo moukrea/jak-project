@@ -688,7 +688,11 @@ bool Loader::upload_textures(Timer& timer, LevelData& data, TexturePool& texture
 namespace {
 struct LevelRamReport {
   size_t verts = 0, indices = 0, tangents = 0, textures = 0, merc = 0, collision = 0;
-  size_t total() const { return verts + indices + tangents + textures + merc + collision; }
+  size_t packed = 0, bvh = 0, tod = 0, draws = 0, hfrag = 0;
+  size_t total() const {
+    return verts + indices + tangents + textures + merc + collision + packed + bvh + tod + draws +
+           hfrag;
+  }
 };
 
 // autoport 2026-08-26 — the tangent array is uploaded to GL as vertex attribute 5
@@ -741,6 +745,36 @@ LevelRamReport measure_level_ram(const tfrag3::Level& lev) {
   r.merc += lev.merc_data.vertices.size() * sizeof(tfrag3::MercVertex);
   r.merc += lev.merc_data.indices.size() * sizeof(u32);
   r.collision += lev.collision.vertices.size() * sizeof(tfrag3::CollisionMesh::Vertex);
+  // Reste du compte : sans ces postes, l'accounting manquait ~40 Mo par niveau et les
+  // deux blocs residents de 150 Mo (un PAR NIVEAU, apparus a t+18 s quand deux niveaux
+  // se chargent) restaient inexpliques.
+  for (const auto& geo : lev.tfrag_trees) {
+    for (const auto& t : geo) {
+      r.packed += t.packed_vertices.vertices.size() * sizeof(tfrag3::PackedTfragVertices::Vertex);
+      r.packed += t.packed_vertices.cluster_origins.size() * sizeof(math::Vector<u16, 3>);
+      r.tod += t.colors.data.size();
+      r.bvh += t.bvh.vis_nodes.size() * sizeof(tfrag3::VisNode);
+      for (const auto& d : t.draws) {
+        r.draws += d.runs.size() * sizeof(tfrag3::StripDraw::VertexRun);
+        r.draws += d.plain_indices.size() * sizeof(u32);
+        r.draws += d.vis_groups.size() * sizeof(tfrag3::StripDraw::VisGroup);
+      }
+    }
+  }
+  for (const auto& geo : lev.tie_trees) {
+    for (const auto& t : geo) {
+      r.packed += t.packed_vertices.vertices.size() * sizeof(tfrag3::PackedTieVertices::Vertex);
+      r.packed += t.packed_vertices.color_indices.size() * sizeof(u16);
+      r.packed += t.packed_vertices.matrices.size() * sizeof(std::array<math::Vector4f, 4>);
+      r.tod += t.colors.data.size();
+      r.bvh += t.bvh.vis_nodes.size() * sizeof(tfrag3::VisNode);
+    }
+  }
+  r.hfrag += lev.hfrag.vertices.size() * sizeof(tfrag3::HfragmentVertex);
+  r.hfrag += lev.hfrag.indices.size() * sizeof(u32);
+  r.hfrag += lev.hfrag.corners.size() * sizeof(tfrag3::HfragmentCorner);
+  r.hfrag += lev.hfrag.buckets.size() * sizeof(tfrag3::HfragmentBucket);
+  r.hfrag += lev.hfrag.time_of_day_colors.data.size();
   return r;
 }
 }  // namespace
@@ -893,10 +927,12 @@ void Loader::update(TexturePool& texture_pool) {
           const auto ram = measure_level_ram(*lev->level);
           fmt::print(
               "A50-LEVRAM lev={} verts={:.1f}MB idx={:.1f}MB tan={:.1f}MB tex={:.1f}MB "
-              "merc={:.1f}MB coll={:.1f}MB total={:.1f}MB\n",
+              "merc={:.1f}MB coll={:.1f}MB packed={:.1f}MB bvh={:.1f}MB tod={:.1f}MB "
+              "draws={:.1f}MB hfrag={:.1f}MB total={:.1f}MB\n",
               name, ram.verts / 1048576.0, ram.indices / 1048576.0, ram.tangents / 1048576.0,
               ram.textures / 1048576.0, ram.merc / 1048576.0, ram.collision / 1048576.0,
-              ram.total() / 1048576.0);
+              ram.packed / 1048576.0, ram.bvh / 1048576.0, ram.tod / 1048576.0,
+              ram.draws / 1048576.0, ram.hfrag / 1048576.0, ram.total() / 1048576.0);
         }
         release_uploaded_tangents(*lev->level);
         {
