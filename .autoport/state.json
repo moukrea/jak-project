@@ -228,7 +228,8 @@
     "Grecharged-secondary-motion": 5,
     "Grecharged-hd-eye-scale": 2,
     "Grecharged-title-logo-fullres": 1,
-    "Grecharged-managed-assets-merge": 5
+    "Grecharged-managed-assets-merge": 5,
+    "Gmemory-ceiling-and-crash": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -1043,7 +1044,7 @@
     "Gshield-load-and-crash": 1787771404.1380155,
     "Gmemory-ceiling-and-crash": 1787777998.7240753
   },
-  "last_update": "2026-08-26T20:59:58.724078+00:00",
+  "last_update": "2026-08-26T22:49:39.241504+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -1148,7 +1149,8 @@
     "Grecharged-title-logo-fullres",
     "Grecharged-hud-jak1",
     "Grecharged-secondary-motion",
-    "Grecharged-managed-assets-merge"
+    "Grecharged-managed-assets-merge",
+    "Gmemory-ceiling-and-crash"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",

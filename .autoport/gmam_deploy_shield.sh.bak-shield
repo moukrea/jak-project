@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# gmam_deploy_shield.sh — phase Grecharged-managed-assets-merge : installer l'APK
+# fusionne sur la Shield et PROUVER que l'appareil tourne bien ce HEAD-la.
+# La gate de cloture (orchestrator CLOSE-GATE/deploy) exige deploy_verify ; celui-ci
+# compare build == APK == appareil, la paire de jeux de drapeaux, et l'etat du pack
+# custom. Le pack ne se reecrit qu'au lancement de LoaderActivity : on installe, on
+# LANCE, on attend que le tampon bascule, puis seulement on verifie.
+set -uo pipefail
+cd "$(git rev-parse --show-toplevel)"
+ADB="${ADB:-/home/emeric/Android/platform-tools/adb}"
+S="${1:-eae4df44}"
+PKG=org.opengoal.gk.jak1
+APK=android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk
+LOCK=.autoport/.deploy-in-progress
+LOG=.autoport/logs/gmam-deploy-shield.log
+
+# Verrou avec DETENTEUR : un verrou vide a coute 108 min de livraison le 2026-08-14.
+printf 'gmam_deploy_shield pid=%s started=%s\n' "$$" "$(date -Is)" > "$LOCK"
+trap 'rm -f "$LOCK"' EXIT
+
+exec > >(tee -a "$LOG") 2>&1
+echo "=== $(date -Is) deploiement Shield $S — commit $(git rev-parse --short HEAD) ==="
+die(){ echo "[gmam-deploy FAIL] $*" >&2; exit 1; }
+
+[ -f "$APK" ] || die "pas d'APK a $APK"
+WANT=$(grep -E '^version=' android/app/src/jak1/assets-slim/bundle/jak1_custom.manifest.properties | cut -d= -f2)
+echo "  APK  : $(stat -c '%y %s' "$APK")"
+echo "  pack : version attendue sur l'appareil = $WANT"
+
+"$ADB" devices | grep -qE "^${S}[[:space:]]+device$" || die "appareil $S absent"
+"$ADB" -s "$S" shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
+"$ADB" -s "$S" shell svc power stayon true >/dev/null 2>&1 || true
+"$ADB" -s "$S" shell appops set com.android.shell REQUEST_INSTALL_PACKAGES allow >/dev/null 2>&1 || true
+"$ADB" -s "$S" shell pm trim-caches 999G >/dev/null 2>&1 || true
+echo "  espace /data avant install : $("$ADB" -s "$S" shell df -h /data | tail -1)"
+
+echo "--- install (586 Mo par adb reseau, plusieurs minutes) ---"
+t0=$(date +%s)
+"$ADB" -s "$S" install -r -d -t -i com.android.vending "$APK" 2>&1 | tail -5 || die "install refuse"
+echo "  install en $(( $(date +%s) - t0 ))s"
+
+echo "--- lancement (LoaderActivity est le SEUL ecrivain des tampons de pack) ---"
+COMP="$PKG/org.opengoal.gk.MainActivity"
+while read -r ln; do case "$ln" in "$PKG/"*) COMP="${ln// /}";; esac
+done < <("$ADB" -s "$S" shell cmd package resolve-activity --brief "$PKG" 2>/dev/null | tr -d '\r')
+echo "  activite resolue : $COMP"
+"$ADB" -s "$S" shell am force-stop "$PKG" >/dev/null 2>&1
+"$ADB" -s "$S" exec-out run-as "$PKG" rm -f files/gk_crash.txt >/dev/null 2>&1 || true
+"$ADB" -s "$S" shell logcat -c >/dev/null 2>&1 || true
+"$ADB" -s "$S" shell am start -n "$COMP" 2>&1 | tail -2
+
+echo "--- attente du depaquetage (tampon custom -> $WANT) ---"
+for i in $(seq 1 90); do
+  sleep 10
+  ST=$("$ADB" -s "$S" exec-out run-as "$PKG" cat "files/.custom_pack_stamp_jak1" 2>/dev/null | tr -d '\r\n' || true)
+  PID=$("$ADB" -s "$S" shell pidof "$PKG" 2>/dev/null | tr -d '\r\n')
+  echo "  [$((i*10))s] tampon='${ST:-vide}' pid='${PID:-mort}'"
+  [ "$ST" = "$WANT" ] && { echo "  tampon a jour apres $((i*10))s"; break; }
+done
+ST=$("$ADB" -s "$S" exec-out run-as "$PKG" cat "files/.custom_pack_stamp_jak1" 2>/dev/null | tr -d '\r\n' || true)
+[ "$ST" = "$WANT" ] || die "le pack custom n'a pas ete depaquete : tampon='$ST' attendu='$WANT'"
+
+echo "--- deploy_verify ---"
+bash .autoport/lib/deploy_verify.sh "$S" jak1
+RC=$?
+echo "=== deploy_verify RC=$RC ==="
+exit $RC
