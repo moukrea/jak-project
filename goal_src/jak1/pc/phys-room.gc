@@ -4491,6 +4491,83 @@
                    (phys-link-dev-anc-abs (-> self slot) c l 0)
                    (phys-link-dev-anc-abs (-> self slot) c l 1)
                    (phys-link-dev-anc-abs (-> self slot) c l 2)))))
+       ;; ---- LES MATRICES D'OS REELLEMENT ECRITES, PAR CELLULE D'ORIENTATION (cycle 124) ------
+       ;; POURQUOI, ET C'EST LA PRIORITE 1 DE LA DIRECTIVE DU 2026-08-23 16:00. Les six cellules
+       ;; d'ECHELLE de §10 et §11 sont des MIROIRS : `PHYSORI2` publie `sx/sy/sz`, c'est-a-dire
+       ;; les trois echelles que le solveur COMMANDE, et la bande de verdict de la spec est
+       ;; CENTREE sur le nombre que le fichier livre lui injecte (`SupineProjectionScale = 0.70`
+       ;; contre « -25 to -35% »). Le cycle 120 a retire leur verdict faute de mieux ; la
+       ;; directive demande mieux — « une grandeur INDEPENDANTE de l'entree du solveur ».
+       ;;
+       ;; CE QUE CETTE EMISSION PUBLIE, ET CE QU'ELLE NE PUBLIE PAS. Elle publie les QUATRE
+       ;; lignes du 4x4 REELLEMENT ECRIT au squelette pour les quatre joints de poitrine et pour
+       ;; l'ancre `chest`. Ce sont les matrices que la PEAU recoit : le tenseur de deformation y
+       ;; est deja entre (jak-hd-physics.gc:3898), mais AUSSI la rotation squelettique, la
+       ;; contrainte de longueur, `phys-skin-chain` et la collision. La forme LIVREE n'est donc
+       ;; pas la forme COMMANDEE, et le cycle 90 l'a deja mesure (13/16 cellules dans la bande
+       ;; sur `dfa`, 8/16 sur le produit que la peau recoit). Elle ne publie AUCUN verdict,
+       ;; AUCUNE bande, AUCUN rapport : le skinning et la mesure d'etendue se font cote HOTE, sur
+       ;; le mesh LIVRE en pleine resolution, parce que `physics_mesh.txt` ne porte que DEUX
+       ;; echantillons par maillon — de quoi tester une penetration, jamais de quoi porter une
+       ;; etendue.
+       ;;
+       ;; NATURE : une transformation AFFINE sans dimension par joint (3 lignes de base + la
+       ;;   translation), instantanee, prise a la DERNIERE frame de la fenetre d'equilibre de la
+       ;;   cellule — le meme instant que `PHYSORI2` et `PHYSDFMA`, donc les trois se comparent
+       ;;   sans hypothese. Ce n'est ni une amplitude, ni une variance, ni un maximum de fenetre.
+       ;; REPERE : le repere du SQUELETTE (celui de `PHYSJTW`, meme convention `+ 1` sur l'indice
+       ;;   d'os). L'ancre `chest` est emise AVEC, pour que l'hote puisse passer en base d'ancre
+       ;;   sans supposer quoi que ce soit du repere monde.
+       ;; LIGNE DE BASE : la cellule i=0 est la pose debout d'auteur, ou §9 exige la forme exacte
+       ;;   du modele. La forme livree y doit rendre 1.000 sur les trois axes ; si elle ne le
+       ;;   rend pas, aucune des autres cellules n'est lisible.
+       ;; INSTRUMENT PUR : aucun etat du solveur n'est ecrit, aucune frame n'ajoutee. Le controle
+       ;;   qui l'atteste est la course elle-meme — tout enregistrement `PHYS*` preexistant doit
+       ;;   etre reproduit a l'identique.
+       ;; GARDE `(zero? ok)` : comme toutes les lignes de mesure de ce bloc, elle n'est emise que
+       ;;   sur la passe SANS controle arme. Les passes de controle desarment des morceaux du
+       ;;   solveur ; leurs matrices ne decrivent pas la forme livree.
+       (when (zero? ok)
+        (let ((hd (if (-> self child) (the-as jak-hd (-> self child 0)) (the-as jak-hd #f))))
+         (when (and hd (= (-> hd type) jak-hd) (nonzero? (-> hd draw))
+                    (nonzero? (-> hd draw jgeo)) (nonzero? (-> hd draw skeleton)))
+          (let ((jg   (-> hd draw jgeo))
+                (skel (-> hd draw skeleton)))
+           ;; SEPT NOMS, ET LA LISTE EST FERMEE PAR MESURE, PAS PAR INTUITION. Les 94 sommets de
+           ;; `chestL` et les 90 de `chestR` du mesh LIVRE portent leur poids sur EXACTEMENT ces
+           ;; joints et aucun autre (`chest` 39.8/39.9, les deux os de chaine, et
+           ;; `Lshoulder` 0.470 / `Rshoulder` 1.019). Les epaules pesent 0.5 % et 1.1 % : les
+           ;; omettre serait une approximation silencieuse dans un skinning qui doit se refermer
+           ;; a 100 %, et elles coutent deux noms.
+           (dotimes (ji 7)
+            (let ((nm (cond ((zero? ji) "lBoob")
+                            ((= ji 1)   "lBooc")
+                            ((= ji 2)   "rBoob")
+                            ((= ji 3)   "rBooc")
+                            ((= ji 4)   "chest")
+                            ((= ji 5)   "Lshoulder")
+                            (else       "Rshoulder")))
+                  (idx -1))
+             ;; RESOLUTION PAR NOM sur le rig REELLEMENT porte, jamais par un indice suppose :
+             ;; meme regle qu'a `PHYSJTW`, et pour la meme raison (l'indice de rig bouge d'une
+             ;; course a l'autre).
+             (dotimes (j (-> jg length))
+              (let ((jn (-> jg data j name)))
+               (when (and (< idx 0) jn (string= jn nm)) (set! idx j))))
+             (cond
+              ((and (>= idx 0) (< (+ idx 1) (-> skel length)))
+               (when (zero? oi)
+                (format 0 "PHYSORIMN j=~D idx=~D name=~S~%" ji idx nm))
+               (dotimes (row 4)
+                (format 0 "PHYSORIM i=~D j=~D row=~D x=~,,6f y=~,,6f z=~,,6f~%"
+                        oi ji row
+                        (-> skel bones (+ idx 1) transform vector row x)
+                        (-> skel bones (+ idx 1) transform vector row y)
+                        (-> skel bones (+ idx 1) transform vector row z))))
+              ;; UN NOM NON TROUVE SE SIGNALE : une absence muette se lirait comme une forme
+              ;; inchangee, c'est-a-dire comme un resultat.
+              (else
+               (format 0 "PHYSORIMMISS i=~D j=~D name=~S~%" oi ji nm)))))))))
        (+! (-> self ori) 1)
        (set! (-> self pframe) 0)
        (phys-stats-reset!)
