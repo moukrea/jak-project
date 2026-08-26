@@ -2443,6 +2443,22 @@ phases:
   owner_verify: false   # 2026-08-11: l'owner a redit trois fois de NE PAS attendre apres lui.
                         # Son retour reste le verdict et rouvre la phase, mais la boucle ne doit
                         # plus jamais s'arreter a une porte humaine sur cette phase.
+- id: Gfixed-tick-interpolation
+  name: "PAS DE TEMPS FIXE + INTERPOLATION DE RENDU (owner 2026-08-26, backlog) : « quand le jeu va
+    en dessous de ce qu'il est sensé tourner sur PS2, les sauts, les mouvements de caméra ça chie un
+    peu dans la colle et ça casse le gameplay [...] On devrait en fait faire de l'interpolation
+    VERSUS l'original ». Aujourd'hui la logique avance a PAS VARIABLE (seconds-per-frame multiplie
+    chaque delta, des centaines de sites GOAL), ce qui ne conserve ni les trajectoires balistiques
+    ni les seuils d'etat — d'ou sauts trop courts, skips, judder de camera (deja documente,
+    kmachine.cpp:4507). Cible : simulation a 1/60 s fixe, rendu interpole, jouable a 25 fps comme a
+    120, sans chemin special par palier. Sortie a 60 fps INCHANGEE : c'est la reference."
+  prompt: prompts/phase-Gfixed-tick-interpolation.md
+  validator: validators/phase-Gfixed-tick-interpolation.sh
+  max_turns: 3000
+  max_retries: 400
+  device: True
+  device_serial: 192.168.1.32:5555
+  owner_verify: True
 - id: Grecharged-hd-eye-scale
   name: 'HD MODELS (owner 2026-08-06, backlog): les yeux HD de Daxter sont bien HD mais l''effet
     CARTOON de Jak 1 qui fait changer la TAILLE des yeux a une influence beaucoup trop forte sur
