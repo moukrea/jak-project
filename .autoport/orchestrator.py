@@ -996,6 +996,39 @@ def _device_boot_check(serial: str, pkg: str = "org.opengoal.gk.jak1") -> tuple[
         return (True, "")
 
 
+def spec_sections_remaining() -> int:
+    """Sections of SPEC-COVERAGE.md that still have work: NON TENUE or PARTIELLE.
+
+    `OPEN breast-spec-incomplete` is a human gate with no passing mode, so the
+    validator always exits 1. Parking on it made the loop idle for 14 h with 12
+    sections still NON TENUE (2026-08-26). Park only when the ledger is empty of
+    work; while sections remain, the human gate must not stop the worker.
+    Returns -1 when the ledger cannot be read (caller then keeps prior behaviour).
+    """
+    led = AUTOPORT_DIR / "SPEC-COVERAGE.md"
+    try:
+        text = led.read_text(errors="ignore")
+    except OSError:
+        return -1
+    pat = re.compile(r"(TENUE PAR CONSTRUCTION|NON TENUE|NON ETABLI|NON \u00c9TABLI|PARTIELLE|TENUE)")
+    remaining = 0
+    rows = 0
+    for line in text.splitlines():
+        if not re.match(r"^\|\s*\u00a7?\d+", line):
+            continue
+        rows += 1
+        cells = [c.strip() for c in line.split("|")]
+        verdict = None
+        for cell in cells[2:]:
+            m = pat.search(cell)
+            if m:
+                verdict = m.group(1)
+                break
+        if verdict in ("NON TENUE", "PARTIELLE", "NON ETABLI", "NON \u00c9TABLI"):
+            remaining += 1
+    return remaining if rows else -1
+
+
 def close_gate(phase: dict, validator_log: Path) -> tuple[str, str]:
     """Run after a phase's validator exits 0. Returns (status, reason):
       ("pass", "")            -> all gates clear; the phase may complete
@@ -1674,9 +1707,22 @@ def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
             _vlog = ""
         _fails = [l for l in _vlog.splitlines() if "FAIL]" in l]
         if len(_fails) == 1 and "OPEN-DEFECTS" in _fails[0]:
-            console.print("[dim]validateur: seule la porte de l'owner echoue "
-                          "— phase en attente de sa parole, pas en echec.[/dim]")
-            return "awaiting-owner", "", []
+            # 2026-08-26 — se garer ici a laisse la boucle inerte 14 h alors que 12
+            # sections du registre etaient NON TENUE. La porte humaine empeche la
+            # phase de SE TERMINER ; elle ne doit pas empecher le worker de TRAVAILLER.
+            _left = spec_sections_remaining()
+            if _left == 0:
+                console.print("[dim]validateur: seule la porte de l'owner echoue, et le "
+                              "registre est complet — en attente de sa parole.[/dim]")
+                return "awaiting-owner", "", []
+            if _left > 0:
+                console.print(f"[yellow]validateur: porte de l'owner seule en echec, mais "
+                              f"{_left} section(s) du registre restent a fermer — on continue."
+                              "[/yellow]")
+            else:
+                console.print("[dim]validateur: porte de l'owner seule en echec, registre "
+                              "illisible — en attente de sa parole.[/dim]")
+                return "awaiting-owner", "", []
 
     if v.returncode == 0:
         # The phase's own validator passed — but run the central close-gate to

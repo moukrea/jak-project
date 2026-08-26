@@ -670,6 +670,65 @@ bool Loader::upload_textures(Timer& timer, LevelData& data, TexturePool& texture
   return data.textures.size() == data.level->textures.size();
 }
 
+// autoport 2026-08-26 — WHERE THE RAM ACTUALLY GOES.
+// The PS2 ran this game in 32 MB; we measured ~1 GB RSS on a 3 GB device. The
+// existing MemoryUsageTracker only sizes the *packed* fr3 payload — it never
+// counts `unpacked` (rebuilt at load) or the decoded RGBA texture bytes, so the
+// biggest resident buffers were invisible. Report them, per level, once.
+namespace {
+struct LevelRamReport {
+  size_t verts = 0, indices = 0, tangents = 0, textures = 0;
+  size_t total() const { return verts + indices + tangents + textures; }
+};
+
+// autoport 2026-08-26 — the tangent array is uploaded to GL as vertex attribute 5
+// and then never read again on the CPU: the only other users are MeshSubdivide,
+// which WRITES it, and `redo()`, which recomputes it from positions+indices when a
+// setting changes. Measured on village1: 26.3 MB per level, times the three cached
+// levels. Hand it back once every loader stage has finished uploading.
+void release_uploaded_tangents(tfrag3::Level& lev) {
+  auto drop = [](std::vector<math::Vector4f>& v) {
+    std::vector<math::Vector4f>().swap(v);  // free the storage, not just the size
+  };
+  for (auto& geo : lev.tfrag_trees) {
+    for (auto& t : geo) {
+      drop(t.unpacked.tangents);
+    }
+  }
+  for (auto& geo : lev.tie_trees) {
+    for (auto& t : geo) {
+      drop(t.unpacked.tangents);
+    }
+  }
+}
+
+LevelRamReport measure_level_ram(const tfrag3::Level& lev) {
+  LevelRamReport r;
+  for (const auto& geo : lev.tfrag_trees) {
+    for (const auto& t : geo) {
+      r.verts += t.unpacked.vertices.size() * sizeof(tfrag3::PreloadedVertex);
+      r.indices += t.unpacked.indices.size() * sizeof(u32);
+      r.tangents += t.unpacked.tangents.size() * sizeof(math::Vector4f);
+    }
+  }
+  for (const auto& geo : lev.tie_trees) {
+    for (const auto& t : geo) {
+      r.verts += t.unpacked.vertices.size() * sizeof(tfrag3::PreloadedVertex);
+      r.indices += t.unpacked.indices.size() * sizeof(u32);
+      r.tangents += t.unpacked.tangents.size() * sizeof(math::Vector4f);
+    }
+  }
+  for (const auto& t : lev.shrub_trees) {
+    r.verts += t.unpacked.vertices.size() * sizeof(tfrag3::ShrubGpuVertex);
+    r.indices += t.indices.size() * sizeof(u32);  // shrub keeps its indices outside `unpacked`
+  }
+  for (const auto& t : lev.textures) {
+    r.textures += t.data.size() * sizeof(u32);
+  }
+  return r;
+}
+}  // namespace
+
 void Loader::update_blocking(TexturePool& tex_pool) {
   fmt::print("NOTE: coming out of blackout on next frame, doing all loads now...\n");
 
@@ -814,6 +873,20 @@ void Loader::update(TexturePool& texture_pool) {
         fprintf(stderr, "F1D-LOADSYNC lev=%s load_id=%llu glFinish at load completion\n",
                 name.c_str(), (unsigned long long)lev->load_id);
 #endif
+        {
+          const auto ram = measure_level_ram(*lev->level);
+          fmt::print(
+              "A50-LEVRAM lev={} verts={:.1f}MB idx={:.1f}MB tan={:.1f}MB tex={:.1f}MB "
+              "total={:.1f}MB\n",
+              name, ram.verts / 1048576.0, ram.indices / 1048576.0, ram.tangents / 1048576.0,
+              ram.textures / 1048576.0, ram.total() / 1048576.0);
+        }
+        release_uploaded_tangents(*lev->level);
+        {
+          const auto after = measure_level_ram(*lev->level);
+          fmt::print("A50-LEVRAM lev={} apres liberation tangentes: total={:.1f}MB\n", name,
+                     after.total() / 1048576.0);
+        }
         lk.lock();
         m_loaded_tfrag3_levels[name] = std::move(lev);
         m_initializing_tfrag3_levels.erase(it);
