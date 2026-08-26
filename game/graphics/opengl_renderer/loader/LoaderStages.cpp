@@ -135,7 +135,14 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
   // External-asset-root: record every texture key (for the optional dump_keys
   // marker) and look up a user PNG replacement.
   custom_tex::dump_key(tex.debug_tpage_name, tex.debug_name);
+  Timer tex_lookup_timer;  // autoport 2026-08-26
   auto rep = custom_tex::lookup(tex.debug_tpage_name, tex.debug_name);
+  const double t_lookup_ms = tex_lookup_timer.getMs();
+  if (t_lookup_ms > 100.0) {
+    fmt::print("A53-TEXLOOKUP name={} {}x{} decodage={:.0f}ms\n", tex.debug_name,
+               rep ? rep->w : 0, rep ? rep->h : 0, t_lookup_ms);
+  }
+  Timer tex_call_timer;  // autoport 2026-08-26: attribuer les blocages a un appel GL
 
   GLuint gl_tex;
   glActiveTexture(GL_TEXTURE0);
@@ -182,9 +189,24 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex.w, tex.h, 0, GL_RGBA, kRgbaTexType,
                  tex.data.data());
   }
+  const double t_upload_ms = tex_call_timer.getMs();
   glGenerateMipmap(GL_TEXTURE_2D);
-  float aniso = 0.0f;
-  glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &aniso);
+  const double t_mip_ms = tex_call_timer.getMs() - t_upload_ms;
+  if (t_upload_ms + t_mip_ms > 100.0) {
+    fmt::print("A52-TEXSTALL name={} {}x{} remplacement={} upload={:.0f}ms mipmap={:.0f}ms\n",
+               tex.debug_name, rep ? rep->w : tex.w, rep ? rep->h : tex.h, rep ? 1 : 0,
+               t_upload_ms, t_mip_ms);
+  }
+  // autoport 2026-08-26: glGetFloatv is a SYNCHRONOUS query — it drains the driver's
+  // pipeline. Called once per uploaded texture it turned the boot texture burst into
+  // 8 stalls of 1.2-2.1 s (94 % of 11.5 s of staging, median stage 6 ms) on the
+  // NVIDIA Shield, so the title logo appeared seconds after its sound cue. The value
+  // is a fixed hardware limit: query it once per context, not once per texture.
+  static const float aniso = [] {
+    float a = 0.0f;
+    glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &a);
+    return a;
+  }();
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY, aniso);
   if (tex.load_to_pool) {
     TextureInput in;

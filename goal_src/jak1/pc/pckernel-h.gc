@@ -455,10 +455,14 @@
 
 (defmethod reset-camera ((obj pc-settings) (call-handlers symbol))
   "Set the original game's camera controls"
-  (set! (-> obj first-camera-h-inverted?) #f) ;; first-person horizontal is NOT inverted in original game
-  (set! (-> obj first-camera-v-inverted?) #t) ;; first-person vertical IS inverted in original game
-  (set! (-> obj third-camera-h-inverted?) #t) ;; third person horizontal IS inverted in original game
-  (set! (-> obj third-camera-v-inverted?) #t) ;; third-person vertical IS inverted in original game
+  ;; owner 2026-08-26: les quatre axes par defaut sur « Normale ». Le jeu d'origine
+  ;; inversait trois d'entre eux (first-V, third-H, third-V) ; c'est a contre-courant
+  ;; des standards actuels et il fallait les re-regler a chaque installation sur une
+  ;; nouvelle machine. Les quatre reglages restent modifiables dans Options > Camera.
+  (set! (-> obj first-camera-h-inverted?) #f) ;; « Normale » (identique au jeu d'origine)
+  (set! (-> obj first-camera-v-inverted?) #f) ;; « Normale » (l'original inversait)
+  (set! (-> obj third-camera-h-inverted?) #f) ;; « Normale » (l'original inversait)
+  (set! (-> obj third-camera-v-inverted?) #f) ;; « Normale » (l'original inversait)
   0)
 
 (defmethod reset-extra ((obj pc-settings) (call-handlers symbol))

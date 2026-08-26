@@ -385,6 +385,12 @@ void Loader::loader_thread() {
       auto decomp_data = compression::decompress_zstd(data.data(), data.size());
       double decomp_time = decomp_timer.getSeconds();
       prof().end_event();
+      // autoport 2026-08-26: two 150 MB anonymous blocks dominate the RSS on the
+      // Shield; print what this path actually holds so the owner gets a number
+      // instead of a hypothesis.
+      fmt::print("A51-FR3 lev={} compresse={:.1f}MB decompresse={:.1f}MB disque={:.2f}s zstd={:.2f}s\n",
+                 lev, data.size() / 1048576.0, decomp_data.size() / 1048576.0, disk_load_time,
+                 decomp_time);
 
       // Read back into the tfrag3::Level structure
       prof().begin_event("deserialize");
@@ -677,8 +683,8 @@ bool Loader::upload_textures(Timer& timer, LevelData& data, TexturePool& texture
 // biggest resident buffers were invisible. Report them, per level, once.
 namespace {
 struct LevelRamReport {
-  size_t verts = 0, indices = 0, tangents = 0, textures = 0;
-  size_t total() const { return verts + indices + tangents + textures; }
+  size_t verts = 0, indices = 0, tangents = 0, textures = 0, merc = 0, collision = 0;
+  size_t total() const { return verts + indices + tangents + textures + merc + collision; }
 };
 
 // autoport 2026-08-26 — the tangent array is uploaded to GL as vertex attribute 5
@@ -725,6 +731,12 @@ LevelRamReport measure_level_ram(const tfrag3::Level& lev) {
   for (const auto& t : lev.textures) {
     r.textures += t.data.size() * sizeof(u32);
   }
+  // The character (merc) data is ONE contiguous vector per level — the shape that
+  // shows up in smaps as a single huge mapping. The HD character models this port
+  // ships are far heavier than the PS2 originals, so measure it explicitly.
+  r.merc += lev.merc_data.vertices.size() * sizeof(tfrag3::MercVertex);
+  r.merc += lev.merc_data.indices.size() * sizeof(u32);
+  r.collision += lev.collision.vertices.size() * sizeof(tfrag3::CollisionMesh::Vertex);
   return r;
 }
 }  // namespace
@@ -877,9 +889,10 @@ void Loader::update(TexturePool& texture_pool) {
           const auto ram = measure_level_ram(*lev->level);
           fmt::print(
               "A50-LEVRAM lev={} verts={:.1f}MB idx={:.1f}MB tan={:.1f}MB tex={:.1f}MB "
-              "total={:.1f}MB\n",
+              "merc={:.1f}MB coll={:.1f}MB total={:.1f}MB\n",
               name, ram.verts / 1048576.0, ram.indices / 1048576.0, ram.tangents / 1048576.0,
-              ram.textures / 1048576.0, ram.total() / 1048576.0);
+              ram.textures / 1048576.0, ram.merc / 1048576.0, ram.collision / 1048576.0,
+              ram.total() / 1048576.0);
         }
         release_uploaded_tangents(*lev->level);
         {

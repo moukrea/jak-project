@@ -311,8 +311,16 @@ void opengl_upload_texture(GLint dest, const void* data, int w, int h) {
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA,
                anim_tex_type(GL_UNSIGNED_INT_8_8_8_8_REV), data);
   glGenerateMipmap(GL_TEXTURE_2D);
-  float aniso = 0.0f;
-  glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &aniso);
+  // autoport 2026-08-26: glGetFloatv is a SYNCHRONOUS query — it drains the driver's
+  // pipeline. Called once per uploaded texture it turned the boot texture burst into
+  // 8 stalls of 1.2-2.1 s (94 % of 11.5 s of staging, median stage 6 ms) on the
+  // NVIDIA Shield, so the title logo appeared seconds after its sound cue. The value
+  // is a fixed hardware limit: query it once per context, not once per texture.
+  static const float aniso = [] {
+    float a = 0.0f;
+    glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &a);
+    return a;
+  }();
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY, aniso);
   glBindTexture(GL_TEXTURE_2D, 0);
 }
