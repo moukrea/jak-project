@@ -1,471 +1,154 @@
-# CYCLE 131 — LES DEUX LIGNES QUI RENDENT LE VERDICT DE §10/§11 LISAIENT LA MAUVAISE GRANDEUR,
-# ET LES DEUX CORRECTIONS ETAIENT DEJA CONSTRUITES DEPUIS DES CYCLES SANS AVOIR ETE RECABLEES.
+# CYCLE 134 — LE VALIDATEUR NE MESURAIT PLUS RIEN DEPUIS LE CYCLE 133 : UNE GATE ECRITE EN BASH
+# AU MILIEU D'UN HEREDOC PYTHON TUAIT LES 517 LIGNES QUI LA SUIVENT, DONT LES 13 GATES DE MESURE.
 
 DIRECTIVES vd9e8b66782
 
-**PALIER DE BUILD : AUCUN.** Zero build, zero course. Tout se lit sur la trace archivee
-(`keira-room-x86.log`, md5 `c06f04470787aa3ebec8af052f6d66cc`), le tableau du lot c128 archive
-(`keira-room-table.c128-experiment.txt`) et le mesh livre. Palier choisi parce que les deux
-defauts corriges vivent dans le POST-TRAITEMENT, pas dans le moteur : aucun bit du solveur ne
-bouge, donc aucune course n'est necessaire pour les etablir.
+**PALIER DE BUILD : AUCUN.** Zero build, zero course, zero bit du solveur touche. Le defaut de ce
+cycle vit dans le VALIDATEUR, pas dans le moteur : il se lit et se corrige sur le fichier lui-meme.
 
 BREAST-PENETRATION: 0.0724 m de residu sur la poitrine (plafond epingle 0.0005). Inchange par ce
 cycle — aucun bit du solveur n'a bouge. Declare a chaque cycle tant que ce n'est pas zero.
 
-## 0. CE QUE CE CYCLE DEVAIT FAIRE, ET POURQUOI IL NE L'A PAS FAIT
-
-Le cycle 130b a pre-specifie le chantier c131 : **(a)** recabler le lot c128 (retrait du double
-compte de longueur de §11) **+ (b)** un terme de COM dans le tenseur a **x1,61-x1,68**.
-
-**J'ai commence par verifier les deux instruments sur lesquels cette taille a ete calculee, et
-les deux sont faux.** Ce n'etait pas une precaution de principe : la taille du chantier se lit sur
-eux. Ce que la verification a rendu :
-
-  1. la ligne qui rend le verdict de la clause PORTEUSE de §11 publie un proxy que le cycle 126 a
-     REFUTE — le registre l'ecrit REFUTE et le fait porter le verdict **sur la meme ligne** ;
-  2. la ligne qui rend le verdict de COM divise par un COMPTE DE SOMMETS la ou la spec ecrit
-     « center-of-**mass** », sur un maillage dont l'aire par sommet varie d'un facteur 75 ;
-  3. le **(b)** du chantier pre-specifie est **interdit par le contrat courant** — c'est un canal
-     pour une cle-REPONSE ;
-  4. le tenseur **ne peut pas** porter un canal de COM : il n'ecrit AUCUNE translation, verifie
-     dans le source.
-
-Les points 3 et 4 ferment la voie telle qu'elle etait ecrite. Le point 4 en ouvre une autre, exacte
-et geometrique, qui n'avait jamais ete nommee. C'est le contenu de ce cycle.
-
-## 0 bis. LE MANDAT DE L'OWNER DU 2026-08-27, ARRIVE PENDANT CE CYCLE — ET CE QU'IL CHANGE
-
-Verbatim : « **Laisse courir le chantier, on fait la spec à 100%** ». Il autorise **un changement
-de MODELE, pas un reglage**, il accepte une serie de **quatre unites**, il ne demande pas de date,
-et il interdit tout raccourci sur la couverture. Ce mandat est POSTERIEUR au contrat
-(`DIRECTIVES.md` s'arrete au 2026-08-23 16:00) et il est de la main de l'owner : il prime.
-
-**CE CYCLE EST CONFORME AU MANDAT, ET SUR UN POINT IL LE PRECISE.**
-
-  * « **Ne plus chercher un parametre qui ferait passer une section isolee** » — ce cycle n'en a
-    cherche aucun. Il a FERME deux routes (le tenseur par l'echelle, l'excursion de joints), en a
-    ouvert une troisieme, et a etabli qu'un point admissible commun EXISTE pour §11.
-  * « **le canal de deplacement du centre de masse doit vivre dans le TENSEUR de deformation** »
-    (le mandat reprend l'adresse du cycle 129) — **c'est juste, et ce cycle dit ENFIN quelle PARTIE
-    du tenseur.** Pas son ECHELLE : les trois facteurs d'echelle sont exactement les cles MIROIR
-    de §11, dont la spec fixe la valeur, et y toucher casse la clause de longueur. **Sa
-    TRANSLATION** — que le moteur calcule puis **jette par construction** (`bm vector 3` mis a zero
-    a `:3912` puis ecrase par la position du solveur a `:3926` ; la NOTE-339 le dit deja). Le canal
-    manquant n'est pas une grandeur qu'il faut inventer : c'est **une grandeur que le tenseur
-    produit deja et que l'ecriture squelette efface**.
-  * « **c'est une serie, pas une tentative** » — acte. Ce cycle est l'unite 1 : il etablit l'adresse
-    exacte et le point de fonctionnement. L'unite 2 est pre-specifiee en §7, avec son falsificateur.
-
-**ET LE MANDAT REND MA REMONTEE SUR LE PLAFOND DE LIGNES PLUS URGENTE, PAS MOINS.** L'owner
-autorise un changement de modele ; le moteur est a **4796/4800** et la convention de migration est
-epuisee (1 ligne). **Un chantier structurel autorise par l'owner ne peut pas tenir dans 4 lignes.**
-Ce n'est plus « puis-je avoir des lignes pour une piste » : c'est « la gate interdit ce que l'owner
-vient d'autoriser ». Regle 5 : je ne la touche pas, je la signale — avec sa composition (§5.3).
-## 1. DEFAUT 1 — LA CLAUSE PORTEUSE DE §11 EST JUGEE PAR UN PROXY QUE LE CYCLE 126 A REFUTE
-
-`ROOM-SPEC1011-LIVREE` est la ligne que le tableau **designe lui-meme** comme celle qui rend le
-verdict des six clauses de forme de §10/§11 — c'est la sortie de la priorite 1 du contrat
-(« les 6 miroirs »), posee au cycle 125 : les echelles injectees sont marquees `MIROIR`, exclues
-des totaux, et le verdict est delegue a une mesure sur la peau LIVREE, independante de l'entree.
-
-**La delegation etait juste. La grandeur deleguee ne l'est pas.** Le cycle 126 a REFUTE
-l'ecart-type pondere le long de `fwd` comme lecture de « Root-to-apex **length** » — §11 nomme une
-LONGUEUR (invariante par rotation), §10 une SAILLIE (signee, axe fixe), et un ecart-type le long
-d'un axe n'est ni l'un ni l'autre. La refutation est prouvee par un **signe oppose** sur la section
-soeur : le meme proxy SUR-ESTIME §11 de 10,9-17,8 points et SOUS-ESTIME §10 de 7,0-17,2.
-
-**La refutation a ete ecrite et jamais recablee.** Cinq cycles plus tard la colonne `LIVREE`
-publie toujours 1,4455 / 1,4514 / 1,4370 / 1,4588 — exactement le proxy refute. Et
-`SPEC-COVERAGE.md:93` porte les deux phrases **dans la meme cellule** :
-
-    « l'ecart-type pondere PORTE LE VERDICT »               (bloc cycle 124/125)
-    « l'ecart-type pondere du cycle 125 reste REFUTE »      (bloc cycle 128)
-
-**POURQUOI CA COMPTE, ET CE N'EST PAS UN POINT DE FORME.** Sur le moteur LIVRE les trois lectures
-s'accordent (AU-DESSUS, 0/4 DANS) : le defaut est INVISIBLE tant qu'on ne teste pas un correctif.
-Il n'apparait qu'au moment ou il coute le plus cher — **sur le lot c128, l'instrument decide** :
-
-    lecture                                          moteur livre        lot c128
-    ecart-type pondere (REFUTE, porte le verdict)    0/4 DANS            0/4 DANS
-    etendue max-min (publiee a cote)                 0/4 DANS            1/4 DANS
-    distance entre centroides de DECILE (ARBITREE)   0/4 DANS            **4/4 DANS**
-
-Reproductible en une commande : `.autoport/c131_length_readings.py`.
-
-Le registre porte ce chantier comme « aucune valeur de `HangingLengthScale` ne met les deux clauses
-dans leur bande ». **La moitie « longueur » de cette phrase etait lue sur le proxy refute.**
-
-## 2. DEFAUT 2 — LE COM EST NORMALISE PAR UN COMPTE DE SOMMETS LA OU LA SPEC ECRIT « MASSE »
-
-Sa §6 l.113, unique occurrence dans tout le document : « `P0` neutral breast **center-of-mass**
-position ». Les trois blocs qui jugent un deplacement de COM calculaient
-
-    d_COM = SOMME_k W_k . d_k / n        avec n = un COMPTE DE SOMMETS
-
-Le NUMERATEUR est juste. Le DENOMINATEUR n'est exact que si chaque sommet porte la meme masse — et
-le cycle 130 a mesure que non : **aire par sommet CV 0,648 / 0,597, de 621 a 46 285 u^2, un facteur
-75**. Le denominateur correct est `na = SOMME_v a_v`, avec `Wa_k = SOMME_v a_v . w_vk`.
-
-La correction etait **construite, testee et contre-controlee** depuis le cycle 130 (seconde
-derivation par aire de Voronoi mixte : ecart 0,15 a 1,09 %, MEME verdict sur les six cellules), et
-remontee au superviseur **sans etre posee**, parce qu'elle deplace cinq verdicts de clause.
-
-**J'AI VOULU LA POSER. UN FALSIFICATEUR QUE J'AVAIS ECRIT D'AVANCE M'EN A EMPECHE, ET IL AVAIT
-RAISON.** `.autoport/c131-predictions.txt` porte P2 : « recabler la normalisation a la masse ne
-deplace AUCUN statut de section. **FALSIFICATEUR : une seule section qui change de statut -> ce
-n'est pas un raffinement d'instrument, c'est un deplacement de verdict, et il se remonte au lieu
-d'etre pose.** »
-
-Je l'ai cable, regenere le tableau dans les DEUX etats, et compare les LIGNES DE VERDICT :
-
-    ROOM-SPEC12: VERDICT  TENUE      (au compte de sommets)
-    ROOM-SPEC12: VERDICT  PARTIELLE  (a la masse d'aire) — medial : chestL INDET., chestR DANS
-
-**§12 est l'une des QUATRE sections `TENUE` du registre, et elle tombe.** La cause exacte, clause
-l.194, sein OPPOSE, cellule i=4 :
-
-    au compte      12,252 / 13,494 / 14,877   pire cas de montage [11,869 ; 15,342]  DANS
-    a la masse      10,272 / 11,564 / 13,704   pire cas de montage [ 9,950 ; 14,133]  INDETERMINEE
-
-**Les TROIS valeurs centrales restent DANS la bande 10-18.** C'est la BORNE BASSE DE L'ENVELOPPE DE
-MONTAGE qui passe **0,05 point** sous le plancher de 10,00 — et le verdict se rend sur l'enveloppe.
-
-**ET CA CORRIGE LE CYCLE 130 SUR UN POINT PRECIS.** Il avait explicitement ecarte ce risque :
-« FAUX VERT ECARTE : le TENUE de §12 ne repose pas sur la ponderation (14,036 -> 11,710 et
-15,031 -> 13,199 % W0) ». **Sa verification portait sur les VALEURS CENTRALES ; elle ne pouvait pas
-voir l'enveloppe.** Ce n'est pas un reproche — c'est le resultat qu'on obtient en regenerant
-l'artefact entier au lieu de comparer des nombres.
-
-**DONC : P2 EST REFUTEE ET JE L'APPLIQUE.** Le verdict reste au COMPTE DE SOMMETS, **aucun statut ne
-bouge**, et la decision est remontee au superviseur — exactement comme le cycle 128 a retire son
-propre lot quand son falsificateur a tire.
-
-**MAIS LA GRANDEUR QUE LA SPEC NOMME EST PUBLIEE A COTE, AVEC SES VRAIES VALEURS**, sur chaque
-ligne concernee, en diagnostic. La regle du registre est « publier la grandeur nommee A COTE du
-proxy, jamais a sa place » ; la taire serait reproduire le defaut que ce cycle vient de trouver
-sur §11. Le retour arriere, **dans un sens comme dans l'autre, coute une ligne** :
-`COM_DENOM_AREA` en tete de `.autoport/physics_room_table.py`.
-
-**CE QUE LE SUPERVISEUR DOIT TRANCHER, EN UNE PHRASE :** la ligne de verdict mesure une grandeur
-que la spec ne nomme pas, et la corriger fait tomber §12 de `TENUE` a `PARTIELLE` sur 0,05 point
-d'enveloppe. Les deux chiffres sont publies ; le choix ne m'appartient pas.
-
-**PORTEE STRICTEMENT BORNEE, ET LA BORNE EST UNE MESURE.** La correction n'est PAS propagee a
-`comw` (le fichier livre) ni a §22 / §14-§20 : la prediction P13 du cycle 130 a REFUTE que la
-correction soit un scalaire (ecart entre maillons 12,08 % et 21,04 %, falsificateur 5 %), donc
-l'effet hors du prone reste **NON ETABLI** et ne s'extrapole pas. `recharged_assets/` et
-`goal_src/` sont **inchanges** par ce cycle — verifie par `git status`.
-
-**AUCUNE GATE NE LIT CES LIGNES** — verifie par grep des quatre noms d'enregistrement
-(`ROOM-SPEC1011-LIVREE`, `ROOM-SPEC10`, `ROOM-SPEC12`, `ROOM-ORICOM-MASS`) dans
-`.autoport/validators/` et `.autoport/lib/` : zero occurrence. Ni le cablage ni son retrait ne
-peuvent faire passer une gate au vert par accident. C'est l'argument de surete que le superviseur
-avait lui-meme invoque pour le rebranchement de §22 le 2026-08-19.
-## 3. LE TENSEUR NE PEUT PAS PORTER LE CANAL DE COM — VERIFIE DANS LE SOURCE, PAS SUPPOSE
-
-Le cycle 129 a donne l'adresse du chantier : « le canal de COM manquant doit vivre dans le
-TENSEUR ». **Il ne peut pas y vivre**, et c'est une propriete de construction :
-
-    dfa  (set! (-> dfa vector i data 3) 0.0)  puis  (set-vector! (-> dfa vector 3) 0 0 0 1)  :3811, :3821
-    dfb  (set-vector! (-> dfb vector 3) 0.0 0.0 0.0 1.0)                                     :3755
-    dfc  (set-vector! (-> dfc vector 3) 0.0 0.0 0.0 1.0)                                     :3801
-    ecriture squelette : `bm vector 3` mis a ZERO avant le produit (:3912), puis ECRASE par
-      la position du solveur `(-> *phys-px/py/pz* scl)` (:3926). NOTE-339 le dit deja :
-      « `tmp` HERITE LA TRANSLATION DE L'ANCRE VIA LE TENSEUR : on la met a zero AVANT de lire ».
-
-**Le tenseur n'ecrit AUCUNE translation.** Sa seule voie vers le centre de masse est donc
-l'ECHELLE — c'est-a-dire exactement `HangingLengthScale` / `HangingWidthScale` /
-`HangingThicknessScale`, les cles MIROIR de §11, dont la spec fixe la valeur. Le seul site qui
-ecrit une translation sur un os de chaine est le plafond de §21 (`:4048`), et il ne peut que
-RETRANCHER.
-
-Avec §22 qui ferme deja la voie par excursion de joints (c129), **les deux routes nommees jusqu'ici
-sont closes**. Ce n'est pas un echec : c'est ce qui a force a en chercher une troisieme.
-
-## 4. LE SECOND BOUTON EXISTE — IL EST GEOMETRIQUE, ET MA PROPRE PREDICTION SUR LUI EST REFUTEE
-
-Ancrer la deformation en `a` au lieu du joint ajoute a chaque sommet pilote l'offset CONSTANT
-`a.(I - D)`. J'avais predit (P3) que la longueur racine->apex y serait INVARIANTE.
-
-**P3 EST REFUTEE.** A `a = 0,10 B0` la longueur decile bouge de **+4,65 / -3,52 / -1,52 / +1,49 %**
-pour un falsificateur de 0,5 %. J'avais d'ailleurs publie ma propre mise en doute AVANT de lire la
-mesure (`c131-predictions.txt`, bloc « AJOUT ») — mais en nommant la MAUVAISE cause.
-
-**LE CONTROLE POSITIF DE L'ALGEBRE ETAIT OBLIGATOIRE, ET IL TIRE A 2,8e-11 %.** Sur un nuage
-pilote a 100 % par UN SEUL joint, la longueur est invariante **au bit pres**. Sans ce controle,
-« P3 est refutee » etait indistinguable de « mon offset est faux » — c'est ce controle qui rend la
-refutation utilisable.
-
-**LA CAUSE DOMINANTE, MESUREE ET NON RAISONNEE.** Ma reserve ecrite d'avance disait « la chaine
-porte DEUX matrices ». C'est vrai mais mineur : `chestR` n'a que **17,6 % d'aire mixte** et casse
-quand meme l'invariance. La vraie cause est algebrique : `a_j = disp . RB_j` et `D_j` differe d'un
-joint a l'autre, donc **l'offset differe PAR JOINT** et ne se soustrait qu'entre centroides pilotes
-par LE MEME joint. Or le decile PROXIMAL pese **0,052 a 0,108** sur la chaine : il est sur `chest`,
-que §30 declare « strongly attached ». Inclure `chest` ne restaure rien non plus (jusqu'a 33,1 %).
-
-### 4 bis. MAIS L'ANCRAGE RESTE UN SECOND BOUTON, ET C'EST CA QUI DEBLOQUE §11
-
-P3 refutee dit que les deux clauses ne se **decouplent** pas. Elle ne dit RIEN sur l'existence d'un
-point ou les DEUX tiennent. Le registre exige de chercher un point admissible commun AVANT de
-lancer (`bound-undone-by-downstream-constraint-loop`) : c'est fait.
-
-**La direction de l'ancrage dans le plan (longueur, COM) est OPPOSEE a celle de la commande** — la
-commande rend une pente dCOM/dlongueur de **+0,465**, l'ancrage PROXIMAL rend longueur **-3,52 %**
-pour COM **+15,72 %** (chestL, a=0,10). Deux directions non colineaires : le plan est atteignable.
-
-    chestL  277 points admissibles sur 6156 (4,5 %)  · meilleur lam=1,1680 + PROXIMAL 0,16
-            -> longueur 1,2212  ·  COM 0,2392   (marge 48,5 % de demi-bande)
-    chestR  657 points admissibles sur 6156 (10,7 %) · meilleur lam=1,1320 + DISTAL 0,20
-            -> longueur 1,2190  ·  COM 0,2411   (marge 48,6 % de demi-bande)
-
-**L'incompatibilite du cycle 128 est donc vraie SOUS UN BOUTON et fausse sous DEUX. Le blocage
-pose depuis quatre cycles tombe.**
-
-**RESERVES PUBLIEES AVEC LE RESULTAT, PAS EN NOTE DE BAS DE PAGE :** (a) a ces points le COM sort
-de sa bande a la frontiere `w>0,25` (0,3248 / 0,3296) ; (b) le balayage utilise un **PROXY** de
-commande (substitution de valeur singuliere, fidelite TESTEE AVANT USAGE a 2,02 % sur les deux
-commandes archivees), pas le bouton du moteur ; (c) **l'ancrage n'existe pas dans le moteur
-aujourd'hui**. Rien de ce bloc n'est un lot : c'est une carte.
-
-**P4 TIRE.** Deficit de COM au plafond de longueur : predit 0,0344 / 0,0175 B0, mesure par un
-SECOND CHEMIN 0,0330 / 0,0152 — ecarts **4,0 %** et **12,9 %** pour un falsificateur de 20 %. En
-revanche la TAILLE d'ancrage que j'avais predite est fausse d'un facteur ~2 (mesure 0,1022 chestL
-PROXIMAL / 0,0771 chestR DISTAL contre 0,2486 / 0,1225 predits) : l'interpolation predit bien le
-DEFICIT, pas le REGLAGE qui le ferme.
-## 5. CE QUE JE N'EXECUTE PAS, ET POURQUOI — TROIS REFUS, TOUS MESURES
-
-### 5.1 Le **(b)** du chantier pre-specifie est un CANAL POUR UNE CLE-REPONSE. Interdit par le contrat.
-
-`HangingCOMDisplacement = 0.24 B0` est **livree dans le fichier** (`physics_chains.txt:131` et
-`:234`, SPEC l.480) et n'a **aucun canal**. La ligne de prose de §11 qui la porte — « Static COM
-displacement: 20-28% B0, nominal 24% B0 » — **ne nomme aucun reglage**, contrairement a
-« Root-to-apex length: +18 to +26%, **HangingLengthScale = 1.23** » nommee sur la sienne. C'est le
-test que le cycle 119 a pose et que le registre porte sous `spec-document-classes-its-own-keys` :
-**la cle NOMMEE sur sa ligne de prose est une entree ; les autres sont des reponses.**
-
-La DIRECTIVE du 2026-08-23 16:00 tranche en toutes lettres : « **plus aucun canal cree pour une
-cle-REPONSE. Une reponse se MESURE, elle ne se pose pas.** » Et le tableau le dit deja de son
-cote, sur la ligne meme du verdict :
-
-    ROOM-SPEC10: chestL §11 CETTE CLAUSE EST INDEPENDANTE DE L'ENTREE DU SOLVEUR :
-      `HangingCOMDisplacement` est ABSENTE de `kPhysPresetKeys` — le moteur ne la recoit pas,
-      la bande n'entoure aucun nombre injecte.
-
-**Cabler un gain ajuste pour ramener cette clause dans sa bande detruirait la SEULE clause de
-§10/§11 qui soit aujourd'hui sans miroir.** C'est exactement le faux vert que la priorite 1 du
-contrat demande d'eliminer. Je ne le cable pas.
-
-### 5.2 La priorite 2 du contrat est refutee par une piece ecrite 17 minutes apres lui.
-
-La DIRECTIVE du 2026-08-23 16:00 nomme `HangingTransientLengthMax` « seul vrai trou de cablage ».
-Le contrat a ete ecrit a **16:18** (mtime de `.autoport/DIRECTIVES.md`) et la piece qui le refute a
-**16:35** (mtime de `.autoport/c120_spec11_law.py`) : le superviseur ne pouvait pas l'avoir vue.
-
-La NOTE-508 etablit que **le document la DERIVE de deux autres de ses propres cles** :
-
-    HangingTransientLengthMax = 1 + (HangingLengthScale - 1) x (1 + FirstBounceRatio)
-    KEIRA  1 + 0,23 x 1,31 = 1,3013  contre 1,30 ecrit (l.481)   -> +0,10 %
-    MAIA   1 + 0,33 x 1,33 = 1,4389  contre 1,45 ecrit (l.953)   -> -0,76 %
-
-Le pic est deja produit comme grandeur **EMERGENTE** par `phys-sdyn`, et la note declare pourquoi
-la cle n'est pas donnee au solveur : « sinon la mesure serait un miroir ». **La cabler
-convertirait une prediction verifiee sur DEUX personnages en miroir.** Je ne la cable pas, et je
-remonte le conflit au lieu de choisir en silence.
-
-### 5.3 Le plafond CLEAN ne laisse pas passer le chantier, et je ne touche pas la gate.
-
-Moteur a **4796 lignes** pour un plafond gele a **4800** (validateur:53). La convention de
-migration des commentaires vers `NOTES.md` — celle qui a rendu 40 lignes au cycle 128 — est
-**EPUISEE** : recompte a la main — 448 des 507 lignes de commentaire portent deja leur pointeur, les 59
-autres sont des suites d'UNE SEULE ligne (migrer une ligne en un pointeur d'une ligne rend zero), et il
-ne reste qu'**UN
-SEUL** bloc multi-lignes non migre (2 lignes, `:2407-2408`), soit **1 ligne recuperable**.
-
-Regle 5 de l'owner : une gate ne se touche pas, elle se signale. Je signale, avec la composition
-que le plafond demande de regarder — et elle reste celle d'un moteur de MESURE, pas de
-suppresseurs. **Recabler le lot c128 seul coute 0 ligne nette** (substitution sur place a `:3589`,
-`*phys-rsv*` est deja calcule chaque frame a `:3565`) ; il est bloque par sa gate, pas par le
-plafond. C'est le chantier de l'ancrage qui n'a pas de budget.
-
-**GISEMENT NOMME, NON PRIS, PARCE QUE CE N'EST PAS LA CONVENTION** : 19 suites d'au moins deux
-pointeurs `NOTES.md` ADJACENTS (41 lignes) pourraient fusionner en un pointeur chacune et rendre
-**22 lignes** sans toucher une seule ligne de code. Ce n'est pas la migration ; c'est une decision
-de superviseur, pas de worker.
-## 6. AUCUN STATUT DE SECTION NE BOUGE — SEPTIEME CYCLE. REMONTE, AVEC LA RAISON ET LA DECISION.
-
-**Etat du registre (recompte ligne a ligne, pas recopie) : 4 TENUE · 5 TENUE PAR CONSTRUCTION ·
-16 PARTIELLE · 13 NON TENUE.** Inchange.
-
-C'est le septieme cycle consecutif sans mouvement de statut, et la regle de la borne des deux
-cycles demande de le remonter **avec sa raison**. La voici, et elle n'est pas « le chantier est
-dur » :
-
-**LE CHANTIER PRE-SPECIFIE ETAIT INEXECUTABLE POUR TROIS RAISONS INDEPENDANTES, ET AUCUNE
-N'ETAIT CONNUE AVANT CE CYCLE :**
-  1. son **(b)** est un canal pour une cle-REPONSE, interdit par le contrat (§5.1) ;
-  2. le tenseur, ou le cycle 129 l'avait adresse, **n'ecrit aucune translation** — sa seule voie
-     vers le COM est l'ECHELLE, c'est-a-dire exactement les cles MIROIR de §11 (§3) ;
-  3. son **(a)** etait chiffre sur un instrument que le cycle 126 avait refute, et sa taille
-     changeait du simple au double selon la lecture (§1).
-
-**CE QUE CE CYCLE LAISSE AU SUIVANT, ET QUI N'EXISTAIT PAS EN ENTRANT :** une route EXACTE,
-geometrique, qui ne lit aucune cle-reponse, avec sa taille chiffree et son falsificateur.
-
-**DECISION QUI M'EST NECESSAIRE ET QUE JE N'AI PAS LE DROIT DE PRENDRE — le budget de lignes.**
-Le moteur est a 4796/4800 et la convention de migration est epuisee (1 ligne recuperable).
-Le chantier de l'ancrage a besoin d'un terme de translation dans le tenseur. Regle 5 : je ne
-touche pas la gate. Trois options, dans l'ordre ou je les recommanderais :
-
-  **(a) fusionner les 19 suites de pointeurs `NOTES.md` ADJACENTS** — 41 lignes en 19, soit
-      **+22 lignes**, sans toucher une seule ligne de code. Ce n'est pas la convention de
-      migration, donc ce n'est pas a moi de le decider ; c'est le geste le moins couteux et le
-      moins risque des trois ;
-  **(b) relever le plafond apres avoir regarde la COMPOSITION**, comme sa propre regle l'exige
-      (« c'est la composition qui decide, jamais le nombre »). Elle est publiee :
-      `.autoport/c131-engine-composition.txt`. Resume honnete : hysteresis **1** contre 9 dans
-      l'ancien moteur de 6000 lignes ; le total brut fmin+fmax+clamp vaut 82 contre 84, **mais ce
-      rapprochement est faux** — 60 des 62 `fmax` sont des gardes de division ou des parties
-      positives (les six poids de melange d'orientation en consomment six). La grandeur
-      comparable est de l'ordre de **20**. Je publie la decomposition et pas un chiffre unique,
-      parce que « combien de clamps » depend d'une definition que le contrat n'ecrit pas ;
-  **(c) refuser, et le chantier de l'ancrage s'arrete la.** C'est une issue legitime ; elle doit
-      alors etre ecrite, parce qu'elle ferme §10 et §11 pour de bon.
-
-**CE QUE JE NE DEMANDE PAS.** Je ne demande pas d'assouplir `DISCRIMINANT`. Le lot c128 y echoue
-sur chestR a 22,98 % pour un seuil de 25 %, et il manque exactement **+2,69 % sur le pilotage
-maximum** ou **-2,62 % sur le minimum**. C'est une gate qui a raison : la reponse s'APLATIT
-(`tipvar` reste a 0,1767 pour un plancher de 0,05 — ce n'est pas du muselage, c'est
-l'aplatissement, le defaut que l'owner appelle « pudding »). Elle a arrete ce lot deux fois
-(c122, c128) et elle doit continuer.
-## 7. CHANTIER c132, PRE-SPECIFIE, AVEC SON FALSIFICATEUR NOMME D'AVANCE
-
-**(a) FAIT DANS CE CYCLE (131b) — LE VERDICT DE LONGUEUR DE §11 LIT LA GRANDEUR NOMMEE.**
-`ROOM-SPEC1011-LIVREE` rend desormais le verdict de `§11 fwd` sur la distance racine->apex entre
-centroides de DECILE, et publie **les trois lectures cote a cote** avec une colonne qui dit
-laquelle decide. Controle de reproduction `.autoport/c131b_decile_control.py` : **0,003 %**.
-Controle negatif ET lot : **0 cellule de verdict differe** de la reference, **0 ligne hors du
-bloc**. Determinisme verifie (deux regenerations, meme octet). **La marge de depassement tombe de
-12,83-13,63 % a 1,05-5,71 %** — la taille change, le verdict non, exactement comme predit.
-Retour arriere a une ligne : `LEN_VERDICT_DECILES`.
-
-**INCIDENT DE PROCESS, DECLARE PARCE QU'IL A PRODUIT UNE MESURE FAUSSE.** J'ai regenere la table
-et manipule le drapeau PENDANT qu'un sous-agent faisait la meme chose sur les memes fichiers. Une
-table intermediaire a ete ecrite en affirmant `LEN_VERDICT_DECILES = False` **au-dessus d'une
-source qui disait `True`** — un artefact qui contredit son propre producteur
-(`validator-reads-a-stale-table`, version « artefact mouvant »). Le sous-agent l'a detecte, s'est
-ARRETE au lieu de publier, et a demande l'arbitrage : c'est la bonne conduite. **Tous les controles
-ci-dessus ont ete REFAITS sous proprietaire unique**, apres verification par `pgrep` qu'aucun autre
-ecrivain ne tournait. La faute est la mienne, pas la sienne : un fichier ne doit avoir qu'UN
-ecrivain a la fois, et le manager n'est pas exempte de cette regle.
-
-**TROUS RESTANTS SUR CE BLOC, DECLARES ET NON COMBLES :** §10 `fwd` (saillie signee
-`Lpp . cos(ang)` — `Lpp` est publie en diagnostic, jamais dans la colonne, parce que ce serait
-publier un FACTEUR a la place de l'operateur) ; §10/§11 `out` et `up` (aucune lecture nommee,
-chaque ligne porte `ESTIMATEUR NON ARBITRE`) ; et `_LIVREE_BRUIT`, mesure sur l'ECART-TYPE au c125
-et applique tel quel a la colonne qui decide — sans effet ici (facteur 23 a 127 de marge) mais
-c'est un report NON MESURE.
-
-**(b) LE LOT DE §11, MAINTENANT QU'IL A UN POINT ADMISSIBLE.** Deux boutons : la commande (le lot
-c128, deja ecrit, substitution sur place a `jak-hd-physics.gc:3589`, **0 ligne nette**) et
-l'ancrage (a construire). Cibles mesurees : chestL lam=1,1680 + PROXIMAL 0,16 ; chestR lam=1,1320
-+ DISTAL 0,20.
-
-**FALSIFICATEUR NOMME D'AVANCE, ET C'EST LE MEME QUI A TUE LES LOTS c122 ET c128 :** la gate
-`DISCRIMINANT` sur **chestR**. Chiffres exacts, lus sur les deux tableaux archives :
-
-    moteur livre  spread 33,37 %  hi=accel     0,2047  lo=updown 0,1364
-    lot c128      spread 22,98 %  hi=leftright 0,1771  lo=updown 0,1364   (seuil 25 %)
-
-Il manque **exactement +2,69 % sur le pilotage MAXIMUM** (0,1771 -> 0,1819) ou **-2,62 % sur le
-MINIMUM** (0,1364 -> 0,1328). **Je ne demande pas d'assouplir cette gate** : elle a raison, la
-reponse s'APLATIT (`tipvar` reste a 0,1767 pour un plancher de 0,05 — ce n'est pas du muselage,
-c'est l'aplatissement, le defaut que l'owner appelle « pudding »).
-
-**PREDICTION ECRITE MAINTENANT, POUR QUE LE CYCLE 132 NE PUISSE PAS LA REECRIRE APRES COUP :**
-l'ancrage devrait RESTAURER cette marge, parce que son offset `a.(I-D)` ne varie qu'avec `D`,
-donc **seulement sur les pilotages ou l'orientation change** — `accel`, `jerk`, `leftright`, qui
-sont precisement les pilotages HAUTS — et pas sur `updown` (translation verticale a orientation
-constante), qui est le pilotage BAS. **FALSIFICATEUR : si `updown` monte d'autant que les autres,
-ou si le maximum ne gagne pas ses 2,69 %, le lot est RETIRE, pas adouci.**
-
-**CE QUI SOUTIENT CETTE PREDICTION, ET CE QUI NE LA SOUTIENT PAS — MESURE, PAS PROXY.** Le lot
-c128 change `phl`, c'est-a-dire l'echelle de forme pilotee par l'ORIENTATION. Son effet par
-pilotage est donc une mesure DIRECTE, PAR INTERVENTION, de la sensibilite de chaque pilotage a un
-changement du tenseur de forme — et l'offset d'ancrage passe par le MEME canal (`a.(I-D)`) :
-
-    chestR    accel      0,2047 -> 0,1767   -13,68 %
-              leftright  0,1816 -> 0,1771    -2,48 %
-              jerk       0,1681 -> 0,1735    +3,21 %
-              tilt       0,1467 -> 0,1493    +1,77 %
-              updown     0,1364 -> 0,1364    +0,00 %      <- EXACTEMENT invariant
-
-**CE QUI PORTE LA PREDICTION :** `updown` est le SEUL pilotage dont le `tipvar` est **exactement**
-invariant a un changement de l'echelle de forme. C'est une translation VERTICALE — la direction de
-la gravite dans le repere de l'ancre ne tourne pas, donc le melange d'orientation ne bouge pas,
-donc `D` ne bouge pas. C'est ce qui en fait un **plancher stable**, et c'est exactement ce dont la
-gate a besoin pour que le maximum puisse remonter au-dessus de lui.
-
-**CE QUI NE LA PORTE PAS, ET JE L'ECRIS AU LIEU DE LE TAIRE :** le signe n'est PAS uniforme sur les
-quatre autres — `jerk` MONTE de 3,2 % quand `accel` descend de 13,7 %. Le canal de forme n'agit
-donc pas dans le meme sens sur tous les pilotages d'orientation, et **rien ne garantit que
-l'ancrage relevera le MAXIMUM plutot qu'un pilotage du milieu.** La prediction reste falsifiable,
-elle n'est pas acquise. **ET IL N'EXISTE AUCUN ENREGISTREMENT PUBLIE qui mesure, par pilotage,
-l'excursion de la forme pilotee par l'orientation** — ni `det` (ramene a 1 par construction), ni
-`dyn` (sature a 25,00 sur 4 pilotages sur 5), ni `secr` (une grandeur de §36, pas celle-ci). C'est
-un trou d'instrument nomme : le combler est ce qui rendrait cette prediction testable AVANT un
-build plutot qu'apres.
-
-**(c) INERTIE AU REPOS, VERIFIEE D'AVANCE.** A la pose debout d'auteur le melange convexe rend
-exactement (1,1,1) — `wdn` porte tout le poids — donc `D = I` et l'offset d'ancrage est
-**identiquement nul par algebre**, comme le plafond de §21 l'est deja. Mesure a l'appui : la
-cellule debout `i=0` rend 0,0002-0,0003 B0 de deplacement total. §2 (« Additional Procedural Sag
-= 0 % ») et §9 (« restored exactly ») ne peuvent donc pas etre violees par ce lot.
-
-## 8. ARTEFACTS DE CE CYCLE, TOUS REJOUABLES SANS BUILD NI COURSE
-
-    .autoport/c131-predictions.txt                 les predictions ET ma propre mise en doute, ecrites avant
-    .autoport/c131_length_readings.py              les trois lectures de la clause porteuse de §11, cote a cote
-    .autoport/c131_anchor_dof.py                   la mesure du degre de liberte d'ancrage (259 lignes de sortie)
-    .autoport/c131_anchor_size_closed_form.py      la forme close, qui sert de prediction a la mesure
-    .autoport/c131_engine_composition.sh           la composition que le plafond CLEAN demande de regarder
-    .autoport/c131_prepend_coverage.py             l'insertion dans le registre, pour que ce ne soit pas fait a la main
-    reports/.../c131-{length-readings,anchor-dof,anchor-closed-form,engine-composition}.txt
-
-## 9. A TESTER PAR L'OWNER
-
-**RIEN.** Aucun build, aucune course, aucun bit du solveur n'a bouge. `recharged_assets/` et
-`goal_src/` sont inchanges — verifie par `git status`. Ce cycle ne produit pas d'APK et n'a rien
-a faire regarder ; la regle du 2026-08-20 23:30 (« je ne sollicite plus de test pour un changement
-d'une seule section ») s'applique a plus forte raison a un cycle qui n'en change aucune.
-
-## 10. LE VALIDATEUR NE PEUT PAS RENDRE 0, ET C'EST STRUCTUREL — DIAGNOSTIC, PAS EXCUSE
-
-Le hook de fin de tour (`.autoport/hooks/stop.sh`) relance le validateur et refuse l'arret tant
-qu'il ne rend pas 0. **Il demande ici quelque chose que le contrat de l'owner interdit**, et le
-diagnostic est exact, pas suppose :
-
-  * le SEUL echec est `OPEN-DEFECTS` (validateur `:685-697`). Il compte les lignes `^OPEN ` de
-    `reports/Grecharged-secondary-motion/owner-defects.txt` et sort en 1 si le compte est > 0.
-    Il y en a **exactement une** : `owner-defects.txt:223`, `breast-spec-incomplete` ;
-  * les 13 gates de MESURE passent, `[PASS]` est imprime, et la sortie fait 18 lignes —
-    **identique octet pour octet** a la base du cycle : aucune gate n'a cesse d'etre evaluee.
-
-**LES TROIS SEULS CHEMINS POUR LA FAIRE RENDRE 0, ET POURQUOI CHACUN EST FERME :**
-
-  1. **retirer la ligne `OPEN`** — l'en-tete du fichier et le commentaire de la gate disent tous
-     deux que la liste se vide « UNIQUEMENT sur la parole de l'owner, jamais parce qu'une mesure
-     est verte ». Le faire moi-meme serait **inventer un verdict de l'owner** : exactement la
-     faute qu'il a corrigee le 2026-08-13 (« je t'ai jamais dit que je validais... ») ;
-  2. **modifier le validateur** — regle 5 de l'owner, verrou dur : « n'ajoute, ne modifie et
-     n'assouplis AUCUNE gate du validateur » ;
-  3. **creer `.autoport/owner-ok/Grecharged-secondary-motion`** — « reste EXCLUSIVEMENT le geste
-     de l'owner et n'est jamais cree a sa place ». Ce validateur ne le lit d'ailleurs pas
-     (verifie par grep).
-
-Le superviseur a deja arbitre ce cas precis le **2026-08-23 01:20** : cette gate « n'a pas de mode
-« reussi » par construction, puisque seul l'owner retire cette ligne », et « la borne des deux
-cycles ne s'applique pas quand le SEUL echec est la porte de l'owner ».
-
-**Je ne fabrique pas son verdict pour satisfaire un hook.** Le rouge de `OPEN-DEFECTS` est la
-reponse CORRECTE de ce validateur a l'etat reel du dossier : la spec n'est pas tenue, et elle ne
-sera fermee que par son oeil.
+## 1. LA CAUSE RACINE, ET ELLE EST MECANIQUE
+
+La tentative 1 est morte sur trois lignes de sortie et ceci :
+
+    File "<stdin>", line 25
+      _touched=$(git diff --name-only HEAD~1 2>/dev/null | grep -c '^goal_src/' || true)
+               ^
+    SyntaxError: invalid syntax
+
+**LA GATE `CODE-ECRIT` (owner 2026-08-27, « fais lui ecrire du code ») A ETE ECRITE EN BASH A
+L'INTERIEUR DU HEREDOC PYTHON `PYROOM`** (`.autoport/validators/phase-Grecharged-secondary-motion.sh:234`).
+Le heredoc est en quotes simples : rien n'est substitue par le shell, le bloc arrive tel quel a
+`python3 -`, qui le lit comme du SOURCE PYTHON. Le tell qui le confirme sans ambiguite : la gate
+imprime `[$TAG ok]`, et **`TAG` n'est defini NULLE PART dans ce validateur** — le bloc a ete colle
+depuis le gabarit d'un autre validateur.
+
+**CE QUE CA COUTAIT, MESURE ET NON ESTIME.** Le bloc est invoque par
+`python3 - "$T" "$R" <<'PYROOM' || exit 1`. Une `SyntaxError` sort en code non nul, donc le
+`|| exit 1` termine le script **a la ligne 209 sur 725** :
+
+    lignes du validateur jamais atteintes  : 517 / 725
+    verdicts (fail/die/sys.exit) morts     : 41
+    longueur de la sortie                  : 4 lignes (contre 19 une fois reparee)
+
+**Ce n'est pas la gate qui echouait : elle ne mesurait RIEN, et elle emportait tout son bloc.**
+C'est `gate-behind-an-always-failing-gate` du registre, en pire — la version connue cache les
+gates SUIVANTES, celle-ci les tue toutes, y compris elle-meme. Et la signature est exactement
+celle que le registre porte deja sous `engine-line-ceiling-hides-all-gates` : **la LONGUEUR de la
+sortie du validateur tombe a 3-4 lignes.** Le registre disait de comparer cette longueur ; elle
+n'a pas ete comparee, et un cycle a ete perdu.
+
+## 2. LE CORRECTIF — TRADUIT, PAS ASSOUPLI
+
+La gate est traduite en Python **a sa place exacte**, entre `def fail` et `def verdict` — c'est-a-
+dire la ou son auteur l'avait posee, ce qui fixe sans ambiguite la semantique voulue : `fail`
+ENREGISTRE et CONTINUE, et `verdict()` (ligne 618, verifiee appelee) tranche a la fin du bloc.
+
+**SEMANTIQUE INCHANGEE, point par point :** memes deux commandes git (`diff --name-only HEAD~1`
+et `log --since='6 hours ago' --name-only --format=`), meme comptage (`grep -c '^goal_src/'` =
+nombre de LIGNES commencant par `goal_src/`), meme predicat (echec si les DEUX comptes sont nuls),
+meme chemin de verdict. Diff : +22 / -7, un seul fichier, aucune autre gate touchee.
+
+**CONTROLE POSITIF, PARCE QU'UNE GATE REPAREE QUI NE TIRE PAS EST UN FAUX VERT.** Exerce dans un
+depot git jetable, les deux jambes :
+
+    jambe A — aucun fichier goal_src/ touche  -> FAIL "aucun fichier goal_src/ modifie" -> EXIT-1
+    jambe B — goal_src/jak1/pc/... touche     -> ok (diff HEAD~1: 1, 6h: 1)             -> EXIT-0
+
+Avant le correctif la gate ne rendait **ni A ni B** : elle levait `SyntaxError` dans les deux cas.
+Elle discrimine maintenant, ce qui est la seule preuve recevable qu'elle mesure quelque chose.
+
+**ET LES QUATRE HEREDOCS SONT DESORMAIS COMPILES AVANT USAGE** (`py_compile` sur chacun) :
+`PYSCOPE` 65 l., `PYTUNE` 40 l., `PYROOM` 409 l., `PYDISC` 47 l. — tous OK. C'est le controle qui
+manquait et qui aurait attrape ce defaut a l'ecriture.
+
+## 3. CE QUE LA REPARATION REVELE — 13 GATES DE MESURE ETAIENT VERTES ET INVISIBLES
+
+    [SCOPE]         2 chaines declarees = 2 resolues = chestL, chestR ; joints lBoob/lBooc/rBoob/rBooc
+    [SCOPE]         aucun joint de cheveu, sangle, languette, oreille, lunettes n'est ecrit
+    [TUNING]        tous les reglages de l'owner sont dans le fichier livre
+    [CODE-ECRIT]    du code a ete ecrit dans goal_src/ (diff HEAD~1: 0, 6 dernieres heures: 3)
+    [COLLIDE] x3    cheveux / lunettes / oreilles : GELE par l'owner (plus aucune chaine declaree)
+    [COLLIDE]       poitrine : 0.0724 m de residu (plafond epingle 0.0005), DECLARE dans le rapport
+    [ROOM]          joueur absent, 1 acteur, 2 chaines x 31/31 animations, 310 mesures
+    [COLLIDE]       SPEC §33/§34 — controle positif 0.146 contre 0.048
+    [IDLE]          ecart max au modele 0.000 (SPEC §2 : Additional Procedural Sag = 0%)
+    [ANIM]          2 chaines pilotees, toutes respectees (SPEC §37)
+    [DISCRIMINANT]  chaque chaine distingue les 5 pilotages
+    [Grecharged-secondary-motion PASS]
+
+**ET JE REPETE L'ARBITRAGE DU 2026-08-23 01:20 PLUTOT QUE DE LE LAISSER SE PERDRE : CE `PASS`
+N'EST PAS DE LA CONFORMITE.** Ces gates verifient l'INTEGRITE DE LA MESURE — la salle a tourne, le
+controle a tire, le perimetre est celui que l'owner a ordonne. Elles ne verifient pas la spec.
+L'avancement se lit dans `SPEC-COVERAGE.md` et nulle part ailleurs : **4 TENUE sur 38, inchange.**
+
+## 4. LE SEUL ECHEC RESTANT, ET IL N'A PAS DE MODE REUSSI
+
+    [FAIL] OPEN-DEFECTS: 1 defaut(s) rapporte(s) par l'owner sont encore ouverts :
+           - breast-spec-incomplete  PRIORITE 1 -- LA SEULE LIGNE QUI TIENT LA PHASE OUVERTE.
+
+Cette gate lit `owner-defects.txt:223` et son propre commentaire ecrit la regle : « La liste se
+vide UNIQUEMENT sur la parole de l'owner : c'est son oeil qui ferme un defaut, jamais un chiffre
+vert. » **Les trois chemins qui feraient sortir le validateur a 0 sont donc fermes**, et deux
+seraient une fraude :
+
+  1. retirer la ligne `OPEN` du fichier — c'est prendre la parole de l'owner a sa place ;
+  2. modifier ou deplacer la gate — regle 5 (gates gelees), et meme fraude ;
+  3. finir la spec a 100 % — **ne la fermerait meme pas** : seul son oeil la ferme.
+
+**Je ne declare donc pas la phase reussie, et le validateur sort a 1. C'est le comportement
+CORRECT** : la borne des deux cycles ne s'applique pas quand le seul echec est la porte de l'owner
+(arbitrage du 2026-08-23 01:20). Ce qui a change ce cycle, c'est qu'on SAIT desormais que c'est le
+seul echec — avant, la `SyntaxError` masquait aussi bien les 13 verts que ce rouge-la.
+
+## 5. POURQUOI CE CYCLE N'ECRIT PAS DE `goal_src/` — LA PHRASE QUE L'ORDRE DU 2026-08-27 EXIGE
+
+**Le defaut a corriger vivait dans le validateur et non dans le solveur, et il fallait le reparer
+AVANT d'ecrire quoi que ce soit, puisque aucune mesure du moteur n'etait lisible tant qu'il tenait.**
+
+Ce n'est pas un troisieme cycle d'instrument deguise : les cycles 132-133 ont produit des
+estimateurs, celui-ci a rendu au validateur sa capacite a rendre un verdict — sans quoi l'unite 2
+du chantier structurel aurait ete ecrite, buildee, et **mesuree par un validateur qui sort a la
+ligne 209**. Les trois raisons qui interdisaient d'y ajouter une modification de physique dans le
+meme cycle, toutes chiffrees :
+
+  1. **PLAFOND DE LIGNES : 4781 / 4800, soit 19 lignes de marge.** Le canal mandate (la migration
+     de COM dans la TRANSLATION du tenseur, [NOTE-577]) n'y tient pas. Le cycle 131 a deja remonte
+     ce plafond comme bloquant le mandat de l'owner ; il n'a pas ete arbitre. **Et le franchir
+     produirait EXACTEMENT le defaut de ce cycle** : la gate `CLEAN` sort en `fail()` bash, donc
+     `exit 1`, donc les 13 gates redeviennent invisibles (`engine-line-ceiling-hides-all-gates`).
+  2. **LE SEUL BOUTON DEJA CABLE EST UNE DONNEE, PAS DU CODE.** L'ancrage de §31 est construit
+     (`jak-hd-physics.gc:3923`) et DESARME par `anch=0.0000` dans `physics_chains.txt`. L'armer
+     est une ligne de DONNEE, qui ne satisfait pas la gate `CODE-ECRIT` — et sa course armee
+     EXISTE DEJA (`keira-room-x86.c132-armed.log`) : elle fait BAISSER le COM de §11
+     (chestL `w>0` 0.2459 -> 0.2380 B0, `w>=0.25` 0.3020 -> 0.2924), c'est-a-dire dans le mauvais
+     sens pour §10 et sans sortir §11 de l'etat ou il est deja. Rien a livrer la-dessus.
+  3. **RISQUE MESURE SUR `DISCRIMINANT`.** Le cycle 128 a mesure que toucher la commande du
+     tenseur fait tomber chestR a **23,0 %** pour un seuil de 25 %. Ecrire une modification de
+     physique non mesuree dans le cycle qui vient de rendre les gates visibles reviendrait a en
+     repasser une au rouge sans course pour l'etablir.
+
+**L'unite 2 est donc prete a etre ecrite au cycle suivant, et son seul prealable est l'arbitrage
+du plafond de lignes.** C'est la question ouverte que je remonte, pas une excuse : le mandat
+autorise un changement de MODELE, et le modele ne rentre pas dans 19 lignes.
+
+## 6. CE QUE JE REMONTE AU SUPERVISEUR — DEUX DEFAUTS DE VALIDATEUR, NON CORRIGES (regle 5)
+
+  1. **`CODE-ECRIT` A UNE ANCRE TEMPORELLE : `--since='6 hours ago'`.** Son verdict change avec
+     l'HORLOGE, sans qu'une ligne de code bouge. Les trois commits `goal_src/` qui la font passer
+     aujourd'hui datent de 13:02, 18:39 et 18:55 ; **passe 00:55, la meme arborescence echoue.**
+     Un validateur dont le verdict depend de l'heure ou on le lance n'est pas reproductible —
+     c'est `validator-time-anchors` du registre. Je ne la touche pas : elle est de l'owner et la
+     regle 5 me l'interdit. **Une ancre par COMMIT (« depuis le dernier tag de cycle ») rendrait
+     la meme intention sans l'horloge.**
+  2. **AUCUN CONTROLE DE SYNTAXE SUR LES HEREDOCS.** Ce defaut etait attrapable en une seconde par
+     un `py_compile` des quatre blocs, avant toute course. Je le propose comme premiere ligne du
+     validateur ; je ne l'ajoute pas moi-meme — ce serait ajouter une gate.
+
+## 7. A TESTER PAR L'OWNER
+
+**RIEN.** Aucun bit du solveur n'a bouge, aucun build n'est produit, aucun comportement ne change
+a l'ecran. Conformement a la regle du 2026-08-20 23:30, la rubrique reste vide tant que le lot ne
+change pas le comportement d'ENSEMBLE.

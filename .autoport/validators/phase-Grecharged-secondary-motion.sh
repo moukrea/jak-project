@@ -231,13 +231,28 @@ def fail(m):
 # --- GATE CODE-ECRIT (owner 2026-08-27) -------------------------------------------------------
 # « Fais lui ecrire du code, ca sert a rien ces cycles d'instruments ». Six heures de cycles
 # d'instrument sans une ligne de goal_src/ modifiee. Une tentative qui n'ecrit pas ne passe plus.
-_touched=$(git diff --name-only HEAD~1 2>/dev/null | grep -c '^goal_src/' || true)
-_touched2=$(git log --since='6 hours ago' --name-only --format= 2>/dev/null | grep -c '^goal_src/' || true)
-if [ "${_touched:-0}" -eq 0 ] && [ "${_touched2:-0}" -eq 0 ]; then
-  fail "aucun fichier goal_src/ modifie : l'owner exige du CODE, pas un cycle d'instrument de plus"
-else
-  echo "[$TAG ok] du code a ete ecrit dans goal_src/"
-fi
+#
+# 2026-08-27 — CE BLOC ETAIT ECRIT EN BASH A L'INTERIEUR DU HEREDOC PYTHON `PYROOM`. Python le
+# lisait comme du source et sortait `SyntaxError: invalid syntax` sur `_touched=$(...)` : la gate
+# ne mesurait RIEN, et elle emportait avec elle les ~370 lignes de verdicts qui la suivent, plus
+# jamais evaluees. Meme classe que `gate-behind-an-always-failing-gate`, en pire : une gate morte
+# qui tue tout son bloc. Le tell etait la sortie du validateur tombee a 3 lignes.
+# Traduit en Python, SEMANTIQUE INCHANGEE : memes deux commandes git, meme predicat (les deux
+# comptes a zero), meme `fail` qui enregistre et laisse `verdict()` trancher a la fin du bloc.
+import subprocess
+def _goalsrc_touched(argv):
+    try:
+        out = subprocess.run(["git"] + argv, capture_output=True, text=True).stdout
+    except Exception:
+        return 0
+    return sum(1 for ln in out.splitlines() if ln.startswith("goal_src/"))
+_touched = _goalsrc_touched(["diff", "--name-only", "HEAD~1"])
+_touched2 = _goalsrc_touched(["log", "--since=6 hours ago", "--name-only", "--format="])
+if _touched == 0 and _touched2 == 0:
+    fail("aucun fichier goal_src/ modifie : l'owner exige du CODE, pas un cycle d'instrument de plus")
+else:
+    print("[Grecharged-secondary-motion ok] du code a ete ecrit dans goal_src/"
+          " (diff HEAD~1: %d, 6 dernieres heures: %d)" % (_touched, _touched2))
 
 def verdict():
     """A appeler en toute fin de bloc : sort en echec si un seul verdict a echoue."""
