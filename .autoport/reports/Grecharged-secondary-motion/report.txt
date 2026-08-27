@@ -1,154 +1,227 @@
-# CYCLE 134 — LE VALIDATEUR NE MESURAIT PLUS RIEN DEPUIS LE CYCLE 133 : UNE GATE ECRITE EN BASH
-# AU MILIEU D'UN HEREDOC PYTHON TUAIT LES 517 LIGNES QUI LA SUIVENT, DONT LES 13 GATES DE MESURE.
+# CYCLE 136 — LES DEUX CLAUSES PORTEUSES DE §11 SONT `DANS` LEUR BANDE, SUR LES DEUX CHAINES, POUR
+# LA PREMIERE FOIS. LE CANAL QUI LES Y MET EST MAINTENANT PROUVE A L'EXECUTION — IL NE L'ETAIT PAS.
 
 DIRECTIVES vd9e8b66782
 
-**PALIER DE BUILD : AUCUN.** Zero build, zero course, zero bit du solveur touche. Le defaut de ce
-cycle vit dans le VALIDATEUR, pas dans le moteur : il se lit et se corrige sur le fichier lui-meme.
+**COUVERTURE D'ABORD, COMME LA DIRECTIVE DU 2026-08-23 01:20 L'EXIGE — le validateur n'est PAS un
+indicateur d'avancement.** `.autoport/SPEC-COVERAGE.md` : **4 TENUE · 5 TENUE PAR CONSTRUCTION ·
+17 PARTIELLE · 12 NON TENUE · 0 NON ETABLI**, sur 38. **UN STATUT BOUGE — §11 passe `NON TENUE` ->
+`PARTIELLE`. C'est le premier mouvement depuis le cycle 115.**
 
-BREAST-PENETRATION: 0.0724 m de residu sur la poitrine (plafond epingle 0.0005). Inchange par ce
-cycle — aucun bit du solveur n'a bouge. Declare a chaque cycle tant que ce n'est pas zero.
+BREAST-PENETRATION: 0.0724 m de residu sur la poitrine (plafond epingle 0.0005). INCHANGE par ce
+cycle. Declare a chaque cycle tant que ce n'est pas zero.
 
-## 1. LA CAUSE RACINE, ET ELLE EST MECANIQUE
+**PALIER DE BUILD : GOAL SEUL.** `(mi)`, 551 cibles en 13,6 s. Aucun rebuild C++ : la moitie
+kmachine.cpp du canal etait deja dans le binaire du cycle 135 (verifie par `strings` : la cle
+`lyield` est dans `build/game/gk`). Une course x86 de 20 min. Zero build Android dans le cycle.
 
-La tentative 1 est morte sur trois lignes de sortie et ceci :
 
-    File "<stdin>", line 25
-      _touched=$(git diff --name-only HEAD~1 2>/dev/null | grep -c '^goal_src/' || true)
-               ^
-    SyntaxError: invalid syntax
+## 1. LA CAUSE DE L'ECHEC DE LA TENTATIVE 3, ET ELLE EST BANALE
 
-**LA GATE `CODE-ECRIT` (owner 2026-08-27, « fais lui ecrire du code ») A ETE ECRITE EN BASH A
-L'INTERIEUR DU HEREDOC PYTHON `PYROOM`** (`.autoport/validators/phase-Grecharged-secondary-motion.sh:234`).
-Le heredoc est en quotes simples : rien n'est substitue par le shell, le bloc arrive tel quel a
-`python3 -`, qui le lit comme du SOURCE PYTHON. Le tell qui le confirme sans ambiguite : la gate
-imprime `[$TAG ok]`, et **`TAG` n'est defini NULLE PART dans ce validateur** — le bloc a ete colle
-depuis le gabarit d'un autre validateur.
+    [FAIL] SCOPE: aucune ligne PHYSCOUNTS dans la trace
 
-**CE QUE CA COUTAIT, MESURE ET NON ESTIME.** Le bloc est invoque par
-`python3 - "$T" "$R" <<'PYROOM' || exit 1`. Une `SyntaxError` sort en code non nul, donc le
-`|| exit 1` termine le script **a la ligne 209 sur 725** :
+La course de la tentative 3 a ete **TRONQUEE** : 5 709 465 octets contre 7,3 Mo pour une course
+complete, derniere ligne a 12 min 08 d'une course qui en dure ~20, aucun `PHYSEND`. `PHYSCOUNTS`
+est emis par `physroom-report`, tout a la fin. Le processus a ete tue avec la tentative, en plein
+vol. Rien de casse dans le moteur, rien a diagnostiquer de plus : il fallait relancer.
 
-    lignes du validateur jamais atteintes  : 517 / 725
-    verdicts (fail/die/sys.exit) morts     : 41
-    longueur de la sortie                  : 4 lignes (contre 19 une fois reparee)
+**MAIS LA TRACE TRONQUEE N'ETAIT PAS PERDUE**, et c'est ce qui a fait gagner le cycle. Le balayage
+d'orientation (`PHYSRIGID i=0..10`, 22 cellules) etait DEJA dedans, donc les quatre predictions de
+bande du c135 etaient verifiables **sans relancer**. Elles l'ont ete avant meme de recompiler, et
+la course neuve les a ensuite reproduites **au chiffre pres** (voir §4). Registre :
+`grep-the-trace-before-asking-for-a-run`.
 
-**Ce n'est pas la gate qui echouait : elle ne mesurait RIEN, et elle emportait tout son bloc.**
-C'est `gate-behind-an-always-failing-gate` du registre, en pire — la version connue cache les
-gates SUIVANTES, celle-ci les tue toutes, y compris elle-meme. Et la signature est exactement
-celle que le registre porte deja sous `engine-line-ceiling-hides-all-gates` : **la LONGUEUR de la
-sortie du validateur tombe a 3-4 lignes.** Le registre disait de comparer cette longueur ; elle
-n'a pas ete comparee, et un cycle a ete perdu.
 
-## 2. LE CORRECTIF — TRADUIT, PAS ASSOUPLI
+## 2. CE QUE J'AI ECRIT, ET POURQUOI C'ETAIT LE TROU LE PLUS DANGEREUX DU LOT
 
-La gate est traduite en Python **a sa place exacte**, entre `def fail` et `def verdict` — c'est-a-
-dire la ou son auteur l'avait posee, ce qui fixe sans ambiguite la semantique voulue : `fail`
-ENREGISTRE et CONTINUE, et `verdict()` (ligne 618, verifiee appelee) tranche a la fin du bloc.
+Le cycle 135 a cable le canal `lyield=` et l'a mesure **par ses effets**. Il n'a publie **aucune
+ligne disant que le canal avait ete LU**. C'est le mode d'echec de [NOTE-236], sur un autre
+parametre : un zero silencieux au parseur C++ (cle mal ecrite, `kPhysNumChainParams` pas
+incremente, id deja pris) rend `*phys-lyd*` a zero, donc le diviseur `1 + ly*(rs-1)` a **1,0
+exactement**, donc le moteur **bit-identique** a celui d'avant — un cycle entier sans effet, dont
+les chiffres se lisent comme un resultat. Rien dans la trace ne permettait de l'exclure.
 
-**SEMANTIQUE INCHANGEE, point par point :** memes deux commandes git (`diff --name-only HEAD~1`
-et `log --since='6 hours ago' --name-only --format=`), meme comptage (`grep -c '^goal_src/'` =
-nombre de LIGNES commencant par `goal_src/`), meme predicat (echec si les DEUX comptes sont nuls),
-meme chemin de verdict. Diff : +22 / -7, un seul fichier, aucune autre gate touchee.
+    goal_src/jak1/pc/jak-hd-physics.gc   `phys-shape` 38 = `lyield` tel que le PARSEUR l'a depose
+                                                       39 = le DIVISEUR applique, expression EXACTE
+                                                            de :3594, `fmax` compris
+    goal_src/jak1/pc/phys-room.gc        `PHYSRIGID c= i= rs= dauth= ly= div=`
+    goal_src/jak1/pc/jak-hd-physics-NOTES.md   [NOTE-579]
 
-**CONTROLE POSITIF, PARCE QU'UNE GATE REPAREE QUI NE TIRE PAS EST UN FAUX VERT.** Exerce dans un
-depot git jetable, les deux jambes :
+NATURE : deux nombres SANS DIMENSION, par chaine. REPERE : aucun, ce sont des rapports. **LIGNE DE
+BASE, c'est-a-dire ce que l'instrument lit quand le canal est ABSENT : `ly=0.0000 div=1.0000`** —
+la valeur par defaut de toute chaine muette, et l'identite par algebre.
 
-    jambe A — aucun fichier goal_src/ touche  -> FAIL "aucun fichier goal_src/ modifie" -> EXIT-1
-    jambe B — goal_src/jak1/pc/... touche     -> ok (diff HEAD~1: 1, 6h: 1)             -> EXIT-0
+Emis DANS le balayage d'orientation, cellule par cellule : la ou §11 se juge, et par le meme chemin
+que `rs` que le verdict utilise deja. Un echo au chargement aurait prouve que le parseur rend la
+valeur, pas que le tenseur la lit a la frame ou le verdict se forme.
 
-Avant le correctif la gate ne rendait **ni A ni B** : elle levait `SyntaxError` dans les deux cas.
-Elle discrimine maintenant, ce qui est la seule preuve recevable qu'elle mesure quelque chose.
+**CE QUE LES 22 CELLULES DISENT :**
 
-**ET LES QUATRE HEREDOCS SONT DESORMAIS COMPILES AVANT USAGE** (`py_compile` sur chacun) :
-`PYSCOPE` 65 l., `PYTUNE` 40 l., `PYROOM` 409 l., `PYDISC` 47 l. — tous OK. C'est le controle qui
-manquait et qui aurait attrape ce defaut a l'ecriture.
+    ly            0.9139 (chestL)  ·  0.7579 (chestR)   -> DEUX valeurs, donc pas une constante
+                                                            partagee (DIRECTIVES, regle 7)
+    div = 1+ly*(rs-1)   ecart max 9.4e-5 sur 22 cellules -> la resolution de l'affichage : identite
+    div aux DEUX cellules DEBOUT  1.0000 / 0.9998 / 0.9995 / 0.9997
+                                                        -> INERTE au repos. §2/§9 (« Additional
+                                                           Procedural Sag = 0% ») protegees PAR
+                                                           ALGEBRE, pas par reglage. `ROOM-IDLE`
+                                                           maxdev = 0.000 sur la course.
+    etendue de div  [0.8592 ; 1.1196]                    -> la garde `fmax 0.0001` est INATTEIGNABLE
+    div au prone i=6 (la cellule qui PORTE le verdict)   1.1196 / 1.1101
 
-## 3. CE QUE LA REPARATION REVELE — 13 GATES DE MESURE ETAIENT VERTES ET INVISIBLES
 
-    [SCOPE]         2 chaines declarees = 2 resolues = chestL, chestR ; joints lBoob/lBooc/rBoob/rBooc
-    [SCOPE]         aucun joint de cheveu, sangle, languette, oreille, lunettes n'est ecrit
-    [TUNING]        tous les reglages de l'owner sont dans le fichier livre
-    [CODE-ECRIT]    du code a ete ecrit dans goal_src/ (diff HEAD~1: 0, 6 dernieres heures: 3)
-    [COLLIDE] x3    cheveux / lunettes / oreilles : GELE par l'owner (plus aucune chaine declaree)
-    [COLLIDE]       poitrine : 0.0724 m de residu (plafond epingle 0.0005), DECLARE dans le rapport
-    [ROOM]          joueur absent, 1 acteur, 2 chaines x 31/31 animations, 310 mesures
-    [COLLIDE]       SPEC §33/§34 — controle positif 0.146 contre 0.048
-    [IDLE]          ecart max au modele 0.000 (SPEC §2 : Additional Procedural Sag = 0%)
-    [ANIM]          2 chaines pilotees, toutes respectees (SPEC §37)
-    [DISCRIMINANT]  chaque chaine distingue les 5 pilotages
+## 3. LE RESULTAT : §11 EST REFUTEE COMME « INCOMPATIBLE », ET SES DEUX CLAUSES SONT DANS
+
+[NOTE-576] (cycle 128) concluait : « **Aucune valeur de `HangingLengthScale` ne met la longueur ET
+le COM dans leur bande** », et fermait la route. **Cette conclusion est fausse, et l'erreur est
+nommable en une phrase : elle a ete etablie sous UN bouton COMMUN aux deux chaines.**
+
+Sous un gain **PAR CHAINE**, les fenetres admissibles sont **non vides mais DISJOINTES** —
+[0,8964 ; 0,9310] pour chestL, [0,7001 ; 0,8157] pour chestR. Un bouton commun n'a donc aucune
+valeur admissible, ce qui est exactement ce que le c128 a mesure ; il en a conclu une propriete de
+la SECTION alors que c'etait une propriete de sa COMMANDE. Meme classe que
+`one-proxy-two-clauses-opposite-bias`.
+
+Mecanisme, en une ligne : la chaine rend **deja** une part de l'allongement racine->apex par son
+etage rigide (`rs` = 1,131 / 1,145 au prone) et le tenseur recevait quand meme la cible TOTALE —
+`double-counted` (`orientation-target-is-double-counted` au registre). `lyield` retire cette part :
+
+    phl_effectif = phl / (1 + lyield * (rigide - 1))
+
+**MESURE SUR L'ORGANE LIVRE** (`c133_delivered_com.py` : COM et longueur reconstruits par skinning
+lineaire depuis les matrices `PHYSORIM` reellement ECRITES au squelette — donc APRES le tenseur,
+APRES l'ancrage de §31, APRES la translation et APRES le plafond de §21) :
+
+                                    la veille      ce cycle      bande        verdict
+    longueur racine->apex chestL     1.3363        1.2578      [1.18, 1.26]   AU-DESSUS -> DANS
+    longueur racine->apex chestR     1.3183        1.2533      [1.18, 1.26]   AU-DESSUS -> DANS
+    COM statique          chestL     0.2459        0.2005      [0.20, 0.28]   DANS      -> DANS
+    COM statique          chestR     0.2413        0.2032      [0.20, 0.28]   DANS      -> DANS
+
+Controles de l'instrument, sur CETTE course : portage des 8 distances de decile **0,0000 %** ;
+lecture HORS DEFAUT (2e cellule DEBOUT) **0,0005 / 0,0004 B0** ; identite algebrique du COM fermee
+a **1,2e-10 u**.
+
+**ET CE N'EST PAS UN MIROIR.** La bande porte sur la longueur LIVREE ; l'entree du solveur vaut
+1,23. L'instrument a lu **1,336** quand l'entree disait 1,23 — il est donc demontrablement
+independant de ce qu'on injecte, ce qui est precisement ce que la directive du 2026-08-23 16:00
+exige des six miroirs.
+
+
+## 4. LES SIX PREDICTIONS ETAIENT ECRITES AVANT LA COURSE. LES SIX TOMBENT DANS.
+
+`.autoport/c135-predictions.txt`, ecrit avant le lot et avant toute course :
+
+        grandeur                predite    mesuree    bande / gate    verdict
+    P1  longueur chestL         1.2585     1.2578     <= 1.26         DANS
+    P2  longueur chestR         1.2552     1.2533     <= 1.26         DANS
+    P3  COM      chestL         0.2008     0.2005     >= 0.20         DANS
+    P4  COM      chestR         0.2042     0.2032     >= 0.20         DANS
+    P5  DISCRIMINANT chestL    ~48 %      47.52 %     >= 25 %         DANS
+    P6  DISCRIMINANT chestR    ~25.7 %    27.99 %     >= 25 %         DANS
+
+**P6 ETAIT DECLAREE D'AVANCE COMME LA PLUS SUSCEPTIBLE DE ME REFUTER** (marge predite 0,67 pt), et
+ce n'est pas rhetorique : c'est exactement elle qui avait fait RETIRER le lot du cycle 128 (23,0 %
+pour un seuil de 25 %, la reponse qui s'aplatit — « aplatir n'est pas museler »). Elle passe ici a
+27,99 %, soit 2,99 pt de marge, et le modele a deux points l'a **sous-estimee**.
+
+**REPRODUCTIBILITE, ET ELLE EST EXACTE.** Les quatre grandeurs de bande ont ete lues sur DEUX
+courses independantes du meme moteur — la course tronquee de la tentative 3 et la course complete
+de ce cycle — et elles rendent **1.257815 / 1.253325 / 0.2005 / 0.2032 les deux fois**, au dernier
+chiffre publie.
+
+
+## 5. POURQUOI §11 N'EST PAS `TENUE`, ET C'EST LA PARTIE QUI COMPTE
+
+Quatre raisons, toutes contre moi :
+
+  a. **Deux des cinq clauses sont encore des MIROIRS** — largeur x0,90 et epaisseur x0,91, dont la
+     bande de verdict est centree sur l'entree du solveur. La directive du 2026-08-23 16:00 en fait
+     la priorite 1 du dossier, et ce cycle ne les touche pas.
+  b. **La clause de TRANSITOIRE est `DANS` mais elle est un miroir aussi.** `ROOM-SPEC11-STEP` :
+     pas debout->prone JOUE, pic **1,1993** contre `HangingTransientLengthMax` 1,30. C'est lu sur
+     l'ECHELLE INTERNE contre une cle du preset, pas sur l'organe livre.
+  c. **La marge de chestL sur le plancher de COM vaut 0,0005 B0 — EXACTEMENT l'ecart de sa propre
+     cellule de remontage** (i=6 : 0,2005 ; i=10, 2e cellule prone : 0,2010). La clause tient sous
+     les DEUX cellules, mais elle n'est pas separable du bruit de montage de l'instrument.
+     L'ecrire autrement serait `check-the-mounting-envelope-not-just-the-central-value`, qui a
+     deja fait tomber §12 de TENUE a PARTIELLE.
+  d. **La marge de longueur de chestL est de 0,0022, soit 0,17 % de 1,26.** Elle est reproduite au
+     chiffre pres sur deux courses, donc le bruit de COURSE est nul ; mais **aucune enveloppe de
+     POSE n'est mesuree pour elle**, et je ne la presente donc pas comme une marge etablie.
+
+Trois clauses sur cinq jugees contre l'entree du solveur, deux marges au niveau du bruit : une
+section qui AVANCE, pas une section TENUE.
+
+
+## 6. LE CANAL EST PROTEGE CONTRE LA REGENERATION — PARTIELLEMENT, ET JE LE DIS
+
+`lyield=` a ete ajoute a `recharged_assets/keira-owner-tuning.txt` avec sa justification de
+section, puis `apply_owner_tuning.py` relance : `physics_chains.txt` en ressort **byte-identique**
+(diff vide), donc c'est de la protection pure, sans derive. La gate `TUNING` du validateur criera
+desormais si une regeneration l'efface.
+
+**CE QUE CA NE FAIT PAS, ET C'EST UNE DETTE QUE JE NOMME AU LIEU DE LA TAIRE.** C'est de la
+DETECTION au point de controle, pas de la prevention au point de PRODUCTION — exactement la
+distinction que la regle de non-destruction du 2026-08-11 pose. `physics_keira_gen2.py` n'emet ni
+`lyield`, ni `anch`, ni `anp`, ni `comw`, ni `b0` : **tout le bloc de cles derivees de la spec sur
+les deux chaines de poitrine vit hors du generateur**. La bonne correction est de les faire
+produire par le generateur ; elle n'a pas ete faite ici parce que le lancer est au registre comme
+destructeur (`physics-keira-gen-destroys-chains`) et que ce n'est pas un geste a glisser dans un
+cycle qui livre un resultat de mesure. C'est un chantier nomme, pas un oubli.
+
+
+## 7. ETAT DU VALIDATEUR — 13 GATES DE MESURE AU VERT, ET LE SEUL ECHEC EST LA PORTE DE L'OWNER
+
+    [SCOPE]        2 chaines declarees = 2 resolues = chestL, chestR ; joints ecrits : lBoob,
+                   lBooc, rBoob, rBooc — aucun joint de cheveu, sangle, languette, oreille, lunette
+    [TUNING]       tous les reglages sont dans le fichier livre
+    [CODE-ECRIT]   du code a ete ecrit dans goal_src/ (diff HEAD~1 : 3 fichiers)
+    [ROOM]         joueur absent, 1 acteur, 2 chaines x 31/31 animations, 310 mesures
+    [COLLIDE]      controle positif 0.143 contre 0.045 ; poitrine 0.0724 m de residu, DECLARE
+    [IDLE]         ecart max au modele 0.000
+    [ANIM]         2 chaines pilotees, toutes respectees
+    [DISCRIMINANT] chaque chaine distingue les 5 pilotages
     [Grecharged-secondary-motion PASS]
+    [FAIL] OPEN-DEFECTS: breast-spec-incomplete
 
-**ET JE REPETE L'ARBITRAGE DU 2026-08-23 01:20 PLUTOT QUE DE LE LAISSER SE PERDRE : CE `PASS`
-N'EST PAS DE LA CONFORMITE.** Ces gates verifient l'INTEGRITE DE LA MESURE — la salle a tourne, le
-controle a tire, le perimetre est celui que l'owner a ordonne. Elles ne verifient pas la spec.
-L'avancement se lit dans `SPEC-COVERAGE.md` et nulle part ailleurs : **4 TENUE sur 38, inchange.**
+**Sortie de 17 lignes.** Je le compte parce que c'est le tell des deux defauts qui ont coute les
+cycles 133 et 134 : `engine-line-ceiling-hides-all-gates` et
+`gate-written-in-wrong-language-kills-its-heredoc` font tomber cette sortie a 3-4 lignes. 17 lignes
+= les 13 gates de mesure ont ete evaluees, aucune n'en cache une autre.
 
-## 4. LE SEUL ECHEC RESTANT, ET IL N'A PAS DE MODE REUSSI
+`OPEN-DEFECTS` n'a **pas de mode reussi par construction** : seul l'owner retire
+`breast-spec-incomplete`. Le validateur ne peut donc pas sortir 0, et l'arbitrage du 2026-08-23
+01:20 le prevoit explicitement. **Un validateur vert voudrait dire « ce que j'ai mesure est
+honnete », jamais « sa poitrine est conforme ».**
 
-    [FAIL] OPEN-DEFECTS: 1 defaut(s) rapporte(s) par l'owner sont encore ouverts :
-           - breast-spec-incomplete  PRIORITE 1 -- LA SEULE LIGNE QUI TIENT LA PHASE OUVERTE.
+**SIGNAL, PAS OBSTACLE :** `jak-hd-physics.gc` fait **4786 lignes** pour un plafond CLEAN a 4800.
+Il reste 14 lignes. J'ai deja replie le commentaire de [NOTE-579] vers NOTES.md pour tenir. Le
+prochain cycle qui ecrit dans ce fichier bute dessus ; la directive dit que c'est un signal — la
+reponse sera de sortir de la matiere, jamais de monter le plafond pour laisser passer.
 
-Cette gate lit `owner-defects.txt:223` et son propre commentaire ecrit la regle : « La liste se
-vide UNIQUEMENT sur la parole de l'owner : c'est son oeil qui ferme un defaut, jamais un chiffre
-vert. » **Les trois chemins qui feraient sortir le validateur a 0 sont donc fermes**, et deux
-seraient une fraude :
 
-  1. retirer la ligne `OPEN` du fichier — c'est prendre la parole de l'owner a sa place ;
-  2. modifier ou deplacer la gate — regle 5 (gates gelees), et meme fraude ;
-  3. finir la spec a 100 % — **ne la fermerait meme pas** : seul son oeil la ferme.
+## 8. CE QUE L'OWNER PEUT TESTER
 
-**Je ne declare donc pas la phase reussie, et le validateur sort a 1. C'est le comportement
-CORRECT** : la borne des deux cycles ne s'applique pas quand le seul echec est la porte de l'owner
-(arbitrage du 2026-08-23 01:20). Ce qui a change ce cycle, c'est qu'on SAIT desormais que c'est le
-seul echec — avant, la `SyntaxError` masquait aussi bien les 13 verts que ce rouge-la.
+**RIEN, ET C'EST DELIBERE.** Directive du 2026-08-20 23:30 : « je ne sollicite plus de test pour un
+changement d'une seule section ». Ce cycle bouge §11 seule ; le seuil de re-sollicitation nomme est
+le bloc §14-§20 + §24-§27 + §9-§13 tenu ENSEMBLE. La livraison au fil de l'eau n'est pas suspendue
+pour autant — il peut prendre un build quand il veut.
 
-## 5. POURQUOI CE CYCLE N'ECRIT PAS DE `goal_src/` — LA PHRASE QUE L'ORDRE DU 2026-08-27 EXIGE
 
-**Le defaut a corriger vivait dans le validateur et non dans le solveur, et il fallait le reparer
-AVANT d'ecrire quoi que ce soit, puisque aucune mesure du moteur n'etait lisible tant qu'il tenait.**
+## 9. LA SUITE, DANS L'ORDRE
 
-Ce n'est pas un troisieme cycle d'instrument deguise : les cycles 132-133 ont produit des
-estimateurs, celui-ci a rendu au validateur sa capacite a rendre un verdict — sans quoi l'unite 2
-du chantier structurel aurait ete ecrite, buildee, et **mesuree par un validateur qui sort a la
-ligne 209**. Les trois raisons qui interdisaient d'y ajouter une modification de physique dans le
-meme cycle, toutes chiffrees :
-
-  1. **PLAFOND DE LIGNES : 4781 / 4800, soit 19 lignes de marge.** Le canal mandate (la migration
-     de COM dans la TRANSLATION du tenseur, [NOTE-577]) n'y tient pas. Le cycle 131 a deja remonte
-     ce plafond comme bloquant le mandat de l'owner ; il n'a pas ete arbitre. **Et le franchir
-     produirait EXACTEMENT le defaut de ce cycle** : la gate `CLEAN` sort en `fail()` bash, donc
-     `exit 1`, donc les 13 gates redeviennent invisibles (`engine-line-ceiling-hides-all-gates`).
-  2. **LE SEUL BOUTON DEJA CABLE EST UNE DONNEE, PAS DU CODE.** L'ancrage de §31 est construit
-     (`jak-hd-physics.gc:3923`) et DESARME par `anch=0.0000` dans `physics_chains.txt`. L'armer
-     est une ligne de DONNEE, qui ne satisfait pas la gate `CODE-ECRIT` — et sa course armee
-     EXISTE DEJA (`keira-room-x86.c132-armed.log`) : elle fait BAISSER le COM de §11
-     (chestL `w>0` 0.2459 -> 0.2380 B0, `w>=0.25` 0.3020 -> 0.2924), c'est-a-dire dans le mauvais
-     sens pour §10 et sans sortir §11 de l'etat ou il est deja. Rien a livrer la-dessus.
-  3. **RISQUE MESURE SUR `DISCRIMINANT`.** Le cycle 128 a mesure que toucher la commande du
-     tenseur fait tomber chestR a **23,0 %** pour un seuil de 25 %. Ecrire une modification de
-     physique non mesuree dans le cycle qui vient de rendre les gates visibles reviendrait a en
-     repasser une au rouge sans course pour l'etablir.
-
-**L'unite 2 est donc prete a etre ecrite au cycle suivant, et son seul prealable est l'arbitrage
-du plafond de lignes.** C'est la question ouverte que je remonte, pas une excuse : le mandat
-autorise un changement de MODELE, et le modele ne rentre pas dans 19 lignes.
-
-## 6. CE QUE JE REMONTE AU SUPERVISEUR — DEUX DEFAUTS DE VALIDATEUR, NON CORRIGES (regle 5)
-
-  1. **`CODE-ECRIT` A UNE ANCRE TEMPORELLE : `--since='6 hours ago'`.** Son verdict change avec
-     l'HORLOGE, sans qu'une ligne de code bouge. Les trois commits `goal_src/` qui la font passer
-     aujourd'hui datent de 13:02, 18:39 et 18:55 ; **passe 00:55, la meme arborescence echoue.**
-     Un validateur dont le verdict depend de l'heure ou on le lance n'est pas reproductible —
-     c'est `validator-time-anchors` du registre. Je ne la touche pas : elle est de l'owner et la
-     regle 5 me l'interdit. **Une ancre par COMMIT (« depuis le dernier tag de cycle ») rendrait
-     la meme intention sans l'horloge.**
-  2. **AUCUN CONTROLE DE SYNTAXE SUR LES HEREDOCS.** Ce defaut etait attrapable en une seconde par
-     un `py_compile` des quatre blocs, avant toute course. Je le propose comme premiere ligne du
-     validateur ; je ne l'ajoute pas moi-meme — ce serait ajouter une gate.
-
-## 7. A TESTER PAR L'OWNER
-
-**RIEN.** Aucun bit du solveur n'a bouge, aucun build n'est produit, aucun comportement ne change
-a l'ecran. Conformement a la regle du 2026-08-20 23:30, la rubrique reste vide tant que le lot ne
-change pas le comportement d'ENSEMBLE.
+  1. **Les miroirs de §10 et §11** (largeur, epaisseur, transitoire). C'est la priorite 1 de la
+     directive du 2026-08-23 16:00 et c'est du faux vert ACTIF. Ce cycle vient de montrer comment
+     on de-mirroir une clause : la mesurer sur l'organe LIVRE, ou l'instrument a le droit de
+     contredire l'entree — et il l'a fait, 1,336 contre 1,23.
+  2. **§10, ET JE CORRIGE UNE ATTENTE QUE J'AURAIS PU AVOIR.** Sa clause porteuse est « Outward
+     COM migration per breast: 4-10 % W0 », lue au supine (i=8), et la mesure de ce cycle donne la
+     composante SORTANTE a **-2,260 % / -7,164 % W0**. Le module total y est de 0,3374 / 0,3218 B0,
+     mais il part dans la mauvaise direction : le COM migre vers l'INTERIEUR, sur les deux chaines.
+     **Le deficit de §10 n'est donc PAS celui de §11.** §11 etait une amplitude EN TROP, que
+     `lyield` retire ; §10 est un SIGNE, et aucune valeur de `lyield` ne retourne un vecteur.
+     Attendre que ce canal fasse verdir §10 serait `operator-form-does-not-transport-between-
+     quantities`. Le prochain travail sur §10 est de trouver ce qui dirige la migration, pas ce qui
+     la dimensionne.
+  3. **Faire produire par `physics_keira_gen2.py` le bloc de cles derivees de la spec** (§6). C'est
+     la prevention au point de production, et aujourd'hui il n'y a que de la detection.

@@ -4753,6 +4753,9 @@
         ((= which 32) (-> *phys-cpd* sc))
         ((< which 36) (-> *phys-dfsm* (+ (* sc 3) (- which 33))))  ;; [NOTE-505] pic de FENETRE des echelles
         ((= which 36) (-> *phys-rsv* sc)) ((= which 37) (-> *phys-rsd* sc))  ;; [NOTE-575] l'ETAGE RIGIDE et son DENOMINATEUR
+        ;; [NOTE-579] 38/39 — LA PREUVE D'EXECUTION DU GAIN `lyield` (c135). -> jak-hd-physics-NOTES.md
+        ((= which 38) (-> *phys-lyd* sc))
+        ((= which 39) (fmax 0.0001 (+ 1.0 (* (-> *phys-lyd* sc) (- (-> *phys-rsv* sc) 1.0)))))
         (else 0.0)))))
 
 (defun phys-rest ((which int))

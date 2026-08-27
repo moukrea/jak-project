@@ -1554,3 +1554,31 @@ chain chestL anp=4.13,45.11,-7.22,44.00,16.76,-138.83
 chain chestR anp=-3.46,-29.69,5.66,-44.43,-0.57,140.86
 chain chestL anch=0.0000
 chain chestR anch=0.0000
+
+# ---------------------------------------------------------------------------------------------
+# CYCLE 135/136 — `lyield=`, LE GAIN DE LA CORRECTION DE DOUBLE COMPTE DE SA SPEC 11.
+#
+# CE QUE LA SECTION DIT, VERBATIM (SPEC-breast-softbody.md l.178-182) :
+#   « Static COM displacement: 20-28% B0, nominal 24% B0 »
+#   « Root-to-apex length: +18 to +26%, HangingLengthScale = 1.23 »
+#
+# CE QUE LE MOTEUR LIVRAIT : la chaine rend DEJA une part de l'allongement racine->apex par son
+# ETAGE RIGIDE (`PHYSRIGID rs=`, 1,131 / 1,145 au prone) ; le tenseur recevait quand meme la
+# cible TOTALE. La longueur LIVREE valait donc 1,3363 / 1,3183 pour une bande qui s'arrete a 1,26.
+#   phl_effectif = phl / (1 + lyield * (rigide - 1))
+#
+# POURQUOI UN GAIN CONTINU ET PAR CHAINE, ET PAS UN INTERRUPTEUR. Les DEUX clauses de la section
+# bornent ce gain PAR DES COTES OPPOSES : la longueur exige d'en mettre ASSEZ, le COM exige de ne
+# pas en mettre TROP. La fenetre admissible, derivee du modele a deux points sur deux traces
+# archivees, est [0,8964 ; 0,9310] pour chestL et [0,7001 ; 0,8157] pour chestR — non vides, mais
+# DISJOINTES entre chaines. Un interrupteur commun n'a donc aucune valeur admissible ; c'est
+# exactement ce qui avait fait conclure au cycle 128 que les deux clauses etaient incompatibles.
+# Valeur retenue = MILIEU de chaque fenetre (max-marge). Ce n'est pas un ajustement a
+# l'instrument : les deux bornes viennent de DEUX clauses INDEPENDANTES de sa spec.
+#
+# 0 = le tenseur recoit de nouveau la cible TOTALE, IDENTITE PAR ALGEBRE (diviseur exactement 1),
+# donc le defaut de toute chaine qui ne declare pas la cle, et le controle negatif gratuit.
+# Preuve d'execution : `PHYSRIGID ... ly= div=` par chaine et par cellule ([NOTE-579]).
+# ---------------------------------------------------------------------------------------------
+chain chestL lyield=0.9137
+chain chestR lyield=0.7579

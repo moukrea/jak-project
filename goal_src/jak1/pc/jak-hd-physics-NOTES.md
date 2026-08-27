@@ -10593,6 +10593,40 @@ la grandeur que le prochain lot doit commander, elle est validee (0,000-0,442 pt
 `RIGID`), et son denominateur est verifie a la course (etendue 0,007 %). Ce qui est retire est la
 COMMANDE, pas la MESURE.
 
+## [NOTE-579]
+
+**`phys-shape` 38/39 — LA PREUVE D'EXECUTION DU GAIN `lyield`, ET ELLE MANQUAIT AU CYCLE 135.**
+
+Le cycle 135 a cable le canal `lyield=` (correction du DOUBLE COMPTE de §11, [NOTE-578]) et l'a
+mesure par ses effets — longueur et COM livres. Il n'a publie AUCUNE ligne disant que le canal
+avait ete LU. C'est le mode d'echec de [NOTE-236], sur un autre parametre : un zero silencieux au
+parseur C++ (cle mal orthographiee, `kPhysNumChainParams` pas incremente, id deja pris) rend le
+tableau `*phys-lyd*` a zero, donc le diviseur `1 + ly*(rs-1)` a **1.0 exactement**, donc le moteur
+**bit-identique** a celui d'avant. Un cycle entier sans effet, dont les chiffres se lisent comme un
+resultat — et rien dans la trace ne permettrait de le distinguer.
+
+**NATURE** : deux nombres SANS DIMENSION, par chaine. **REPERE** : aucun, ce sont des rapports.
+**LIGNE DE BASE, c'est-a-dire ce que l'instrument lit quand le canal est ABSENT** : `ly = 0.0000`
+et `div = 1.0000` exactement — la valeur par defaut de toute chaine qui ne declare pas la cle, et
+l'identite par algebre. Une ligne `PHYSRIGID … ly=0.0000 div=1.0000` dit donc, sans ambiguite,
+« le canal n'a rien fait ».
+
+  - **38** = la valeur que le PARSEUR a reellement deposee dans le tableau que lit la ligne du
+    tenseur (`jak-hd-physics.gc:3594`) — pas la valeur ecrite dans `physics_chains.txt`, pas celle
+    du source : celle qui est dans le tableau, a la frame ou on la lit ;
+  - **39** = le DIVISEUR effectivement applique, ecrit avec l'expression EXACTE de cette ligne,
+    `fmax 0.0001` compris, sur les MEMES deux tableaux. Le publier avec sa garde permet de voir la
+    branche degeneree si elle etait un jour atteinte, au lieu de la supposer inatteignable.
+
+`rs` (38 est lu a cote de 36 sur la meme ligne `PHYSRIGID`) rend la relation verifiable de
+l'exterieur : `div` doit valoir `1 + ly*(rs-1)` a l'arrondi pres, sur chacune des 22 cellules du
+balayage d'orientation. Un desaccord designerait un `sc` qui n'est pas le meme des deux cotes.
+
+**POURQUOI CETTE LIGNE ET PAS UN `format` AU CHARGEMENT.** Un echo au chargement prouverait que le
+parseur a rendu la valeur, pas que le tenseur la lit a la frame ou le verdict se forme. La ligne
+`PHYSRIGID` est emise DANS le balayage d'orientation, cellule par cellule — c'est-a-dire exactement
+la ou §11 est jugee, et par le meme chemin que `rs` que le verdict utilise deja.
+
 ## [NOTE-578]
 
 SPEC 11 — LA DIVISION DU DOUBLE COMPTE EST RECABLEE, AVEC UN GAIN, PARCE QUE LE FALSIFICATEUR QUI

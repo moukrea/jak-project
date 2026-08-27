@@ -4317,10 +4317,18 @@
          ;;           les matrices LIVREES. La publier a cote du rapport la rend verifiable a la
          ;;           course : `dauth` doit etre CONSTANT d'une cellule d'orientation a l'autre.
          ;;           Une hypothese muette serait un faux vert en attente.
-         (format 0 "PHYSRIGID c=~D i=~D rs=~f dauth=~f~%"
+         ;; `ly` et `div` : [NOTE-579]. Deux nombres SANS DIMENSION, par chaine, sans repere.
+         ;; `ly` est la valeur du canal `lyield=` telle que le PARSEUR l'a deposee dans le moteur ;
+         ;; `div` est le diviseur effectivement applique a `HangingLengthScale` en :3594. LIGNE DE
+         ;; BASE : ly=0.0000 div=1.0000 sur une chaine qui ne declare pas la cle — donc une ligne
+         ;; qui affiche 1.0000 dit « le canal n'a rien fait », et c'est le seul moyen de distinguer
+         ;; un correctif applique d'un correctif avale en silence par le parseur.
+         (format 0 "PHYSRIGID c=~D i=~D rs=~f dauth=~f ly=~f div=~f~%"
                  c oi
                  (phys-shape (-> self slot) c 36)
-                 (phys-shape (-> self slot) c 37))
+                 (phys-shape (-> self slot) c 37)
+                 (phys-shape (-> self slot) c 38)
+                 (phys-shape (-> self slot) c 39))
          (format 0 "PHYSORI4 c=~D i=~D r0=~f r1=~f r2=~f~%"
                  c oi
                  (phys-shape (-> self slot) c 15)
