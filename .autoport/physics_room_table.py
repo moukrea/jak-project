@@ -3655,20 +3655,37 @@ def _spec12_block(A, txt, names, com, b0):
 #           le balayage, rend 1.0002 a 1.0016.
 #
 # LE PLANCHER DE BRUIT EST MESURE, PAS SUPPOSE, ET C'EST LUI QUI DECIDE QUI PORTE UN VERDICT.
-# Le controle negatif du cycle 124 (« la course neuve reproduit la course archivee enregistrement
-# pour enregistrement ») N'A AUCUN CONTRASTE : deux courses SANS aucune emission neuve different
-# deja sur 70 451 enregistrements PHYS* sur 93 013, soit 75,7 %. Ce qui doit se reproduire n'est
-# pas la trace, c'est LA MESURE. Rejouee sur deux courses independantes
-# (`.autoport/c125_repro.py`, sortie archivee `c125-repro.out`), elle bouge au plus de :
+# LE CONTROLE NEGATIF DU CYCLE 124 (« la course neuve reproduit la course archivee enregistrement
+# pour enregistrement ») EST CONDITIONNE A UN ETAT QU'IL NE REGARDAIT PAS. Mesure sur les 8 courses
+# archivees : 7 attrapent la cible en `target-title` et font spawner le sujet a 1061328.6250 unites
+# de l'origine — LE MEME CHIFFRE JUSQU'A LA DERNIERE DECIMALE ; la 8e l'attrape en
+# `target-title-wait` et spawne a 1230225.1250. L'integration se fait en float32 en repere MONDE
+# (`spec9-residual-is-float32-ulp-floor`), donc une position de depart differente fait diverger
+# 79 % des enregistrements QUEL QUE SOIT le lot teste. Le controle porte desormais sa garde
+# (`c124_negctl.py` REFUSE une paire aux conditions initiales differentes).
 #
-#     §10  cellule SUPINE i=8   max 14,647 %   median 4,561 %   sur 12 cellules
-#     §11  cellule PRONE  i=6   max  0,045 %   median 0,011 %   sur 12 cellules     RAPPORT x324
+# CE QUI DOIT SE REPRODUIRE N'EST PAS LA TRACE, C'EST LA MESURE. Trois courses, deux comparaisons
+# (`.autoport/c125_repro.py`, sortie archivee `c125-repro.out`) :
 #
-# LE PLANCHER EST DONC PAR SECTION, ET C'EST LE FAIT LE PLUS UTILE DE CE CYCLE. Un plancher unique
-# aurait ete fixe par la cellule la PLUS BRUYANTE et aurait disqualifie les cellules d'une AUTRE
-# orientation : c'est `floor-drawn-across-the-experimental-variable`, deja paye. Les deux cellules
-# ne sont pas de meme qualite — la SUPINE (sein comprime contre le thorax, donc en CONTACT) ne se
-# reproduit pas d'une course a l'autre, la PRONE (sein pendant, libre) se reproduit a 0,045 %.
+#   (1) MEMES conditions initiales (B et C, `target-title`, spawn 1061328.6250) : la forme livree
+#       reproduit a **0,000 % sur les 24 cellules**. La salle est DETERMINISTE, exactement comme
+#       les cycles 32/80/106 l'avaient etabli sur la trace.
+#   (2) Conditions initiales DIFFERENTES (A et B) :
+#           §10  cellule SUPINE i=8   max 14,647 %   median 4,561 %   sur 12 cellules
+#           §11  cellule PRONE  i=6   max  0,045 %   median 0,011 %   sur 12 cellules      x324
+#
+# C'EST (2) QUI FAIT LE PLANCHER, ET LE CHOIX EST MOTIVE. Un verdict dit quelque chose du
+# PERSONNAGE ; la position de spawn n'est nulle part dans la spec, c'est un accident de NOTRE
+# salle. Une clause dont la valeur bouge de 14 % selon l'endroit du monde ou le sujet apparait ne
+# parle pas de lui. Prendre (1) — 0,000 % — serait pire : une repetition BIT POUR BIT prouve le
+# determinisme, jamais l'exactitude, et laisserait porter un verdict a une marge de 0,015 %.
+# LE PLANCHER EST PAR SECTION : un plancher unique aurait ete fixe par la cellule LA PLUS SENSIBLE
+# et aurait disqualifie les cellules d'une AUTRE orientation
+# (`floor-drawn-across-the-experimental-variable`). Les deux cellules ne sont pas de meme qualite —
+# la SUPINE (sein COMPRIME contre le thorax, donc EN CONTACT) suit la position de spawn, la PRONE
+# (sein pendant, LIBRE) ne la suit pas. **CE QUI DEBLOQUE §10 EST DONC CHEZ NOUS, PAS DANS LE
+# SOLVEUR : epingler la position de spawn de la salle.** A conditions initiales fixees les 24
+# cellules portent un verdict et QUATRE clauses sortent hors bande au lieu d'une seule.
 # Registre, `refutation-must-be-robust-to-its-noise-floor` : une cellule dont la MARGE au bord de
 # bande est sous le bruit DE SA PROPRE SECTION ne porte PAS de verdict — ce serait un tirage.
 # CONTROLE : les DEUX seules cellules dont le verdict CHANGE entre les deux courses (chestR

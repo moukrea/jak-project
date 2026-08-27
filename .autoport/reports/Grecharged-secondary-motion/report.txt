@@ -21,7 +21,7 @@ declare, avec le chiffre, a chaque cycle.
   chestL meshpen max 0.0627 m   (cycle 123 : 0.0627 — INCHANGE)
   chestR meshpen max 0.0724 m   (cycle 123 : 0.0724 — INCHANGE)
   RECALCULE CE CYCLE sur les lignes `row ` du tableau de la course de CE cycle
-  (`keira-room-x86.log`, md5 bdd23d2079200e2df1002697debbe640), jamais recopie du rapport
+  (`keira-room-x86.log`, md5 abb090c9bd72d5dfd0268034a384f932), jamais recopie du rapport
   precedent. L'egalite au chiffre pres avec le cycle 123 n'est PAS une recopie : ce cycle ne
   touche AUCUNE ligne du solveur, donc l'egalite est le CONTROLE que rien n'a bouge — et elle
   vaut sur une course NEUVE, pas sur la meme trace.
@@ -74,15 +74,22 @@ ligne unique `breast-spec-incomplete`.
 `.autoport/c125-predictions.txt`, ecrit apres le lancement de la course et AVANT tout resultat.
 
   P1  le controle negatif du cycle 124 n'a AUCUN CONTRASTE.
-      **TENUE** — deux courses SANS aucune emission neuve different sur **70 451 enregistrements
-      PHYS* sur 93 013, soit 75,7 %**. Le seuil de falsification (moins de 10 %) est manque d'un
-      facteur 7,6.
+      **TENUE, MAIS SUR UNE PREUVE QUE JE RETIRE, ET LA VRAIE RAISON EST AUTRE — SECTION 4.**
+      J'ai d'abord etaye P1 sur deux courses archivees du 2026-08-25 (14:44 et 15:20) qui
+      rendaient 70 451 enregistrements differents sur 93 013, en les presentant comme « deux
+      courses SANS aucune emission neuve ». **ELLES NE SONT PAS DU MEME CODE** : elles encadrent
+      le commit moteur `ea47c5f472` de 14:58 (cycle 122). C'est exactement la faute du cycle 31 —
+      lire un ecart d'ABLATION comme du bruit de course — commise sur la page meme du registre qui
+      la consigne (`room-run-not-frame-reproducible`). Chiffre RETIRE.
+      Ce qui etablit P1 sans lui : voir section 4, sur une paire dont le code est VERIFIE
+      identique, et la conclusion est plus precise que « pas de contraste ».
 
   P2  la forme livree se reproduit a moins de 3 % sur au moins 20 des 24 cellules.
-      **REFUTEE** — 16 cellules sur 24 seulement, 8 bougent de plus de 3 %, jusqu'a 14,647 %.
-      **ET C'EST LA PREDICTION QUI A PRODUIT LE RESULTAT DU CYCLE** : le bruit n'est pas global,
-      il est STRUCTURE PAR CELLULE D'ORIENTATION. Cellule PRONE i=6 (§11) : max 0,045 %, median
-      0,011 %. Cellule SUPINE i=8 (§10) : max 14,647 %, median 4,561 %. **RAPPORT x324.**
+      **REFUTEE SUR LA PAIRE A/B** — 16 cellules sur 24, 8 bougent de plus de 3 %, jusqu'a
+      14,647 %. **ET C'EST CETTE REFUTATION QUI A PRODUIT LE RESULTAT DU CYCLE** : elle m'a force
+      a chercher POURQUOI, et la cause est une variable unique et identifiee (section 4), pas du
+      bruit. Sur une paire aux MEMES conditions initiales, la meme prediction serait TENUE a la
+      perfection : **0,000 % sur les 24 cellules**.
 
   P3  les trois clauses hors bande gardent leur verdict d'une course a l'autre.
       **TENUE au pied de la lettre, et insuffisante** : §10 `fwd` reste SOUS, §10 `out` reste
@@ -141,48 +148,69 @@ L'etendue mesuree est l'ECHELLE EFFECTIVE le long de l'axe — la meme grandeur 
 etre — donc la LECTURE de la bande ne change pas, seul l'ENDROIT ou on la lit change.
 
 ================================================================================================
-4. LE PLANCHER DE BRUIT EST MESURE PAR CELLULE, ET C'EST LE SECOND FAIT DU CYCLE
+4. LE SECOND FAIT DU CYCLE : LA SALLE EST DETERMINISTE, ET UNE SEULE VARIABLE NON CONTROLEE
+   DEPLACE §10 DE 14,6 % — ELLE EST CHEZ NOUS
 ================================================================================================
 
-**LE CONTROLE NEGATIF DU CYCLE 124 EST RETIRE POUR ABSENCE DE CONTRASTE.** Il etait ecrit « la
-course neuve doit reproduire la course archivee enregistrement pour enregistrement ». Mesure :
+**TROIS COURSES, DEUX COMPARAISONS, ET ELLES NE DISENT PAS LA MEME CHOSE.**
 
-    deux courses SANS AUCUNE emission neuve, meme binaire, meme donnees :
-        93 013 contre 93 014 enregistrements PHYS*, dont **70 451 DIFFERENTS (75,7 %)**
+    (1) MEMES conditions initiales — courses B et C, code identique, toutes deux `target-title`,
+        spawn a 1061328.6250 unites de l'origine :
+        **la forme livree reproduit a 0,000 % sur LES 24 CELLULES.** Zero, exactement.
+        Les 24 cellules portent alors un verdict et QUATRE clauses sortent hors bande.
 
-La premiere ligne qui differe est `PHYSROOM-START ... :state target-title` contre
-`target-title-wait`, et la position de spawn change de 1 061 328 a 1 230 225 unites : les deux
-courses ne partagent pas leurs conditions initiales, et l'integration se fait en float32 en repere
-MONDE (registre : `spec9-residual-is-float32-ulp-floor`). Lire les 60 848 differences de la course
-instrumentee comme « l'emission perturbe le solveur » aurait ete un FAUX ROUGE.
+    (2) Conditions initiales DIFFERENTES — courses A et B, code VERIFIE identique (meme arbre,
+        `git diff HEAD -- goal_src/` vide) :
+        60 848 enregistrements PHYS* differents sur 76 735, soit 79 %.
+        §10 cellule SUPINE i=8 : jusqu'a **14,647 %** (median 4,561 %) sur ses 12 cellules
+        §11 cellule PRONE  i=6 : jusqu'a ** 0,045 %** (median 0,011 %) sur ses 12 cellules   x324
 
-**CE QUI LE REMPLACE EST PLUS EXIGEANT : ce qui doit se reproduire n'est pas la trace, c'est LA
-MESURE.** Le meme calcul de forme, rejoue sur deux courses independantes :
+**LA CAUSE EST UNE SEULE VARIABLE, ET ELLE SE LIT SUR LES 8 COURSES ARCHIVEES.**
 
-    §11  cellule PRONE  i=6   max 0,045 %   median 0,011 %   sur 12 cellules
-    §10  cellule SUPINE i=8   max 14,647 %  median 4,561 %   sur 12 cellules      RAPPORT x324
+    course                          etat de la cible a PHYSROOM-START   spawn (u de l'origine)
+    7 courses sur 8                 target-title                        1061328.6250
+    keira-room-x86.20260826-103019  target-title-wait                   1230225.1250
 
-**LE PLANCHER EST DONC PAR SECTION, ET PAS GLOBAL.** Un plancher unique aurait ete fixe par la
-cellule LA PLUS BRUYANTE et aurait disqualifie les cellules d'une AUTRE orientation : c'est
-`floor-drawn-across-the-experimental-variable`, et applique ici il aurait efface le seul verdict
-robuste du cycle. **CONTROLE** : les DEUX seules cellules dont le verdict CHANGE entre les deux
-courses (chestR w>=0.25 §10 `up` et chestR w>=0.25 §11 `up`) sont deja exclues par ce plancher-la
-sans qu'on ait a les nommer — un plancher qui n'attraperait pas ses propres bascules ne vaudrait
-rien.
+La correlation est parfaite et le spawn est identique **jusqu'a la derniere decimale** sur les
+sept. La salle demarre selon l'endroit ou la sequence de titre en est, et le sujet spawne alors a
+un autre endroit du MONDE. L'integration se fait en float32 en repere monde (registre :
+`spec9-residual-is-float32-ulp-floor`) : 79 % de la trace diverge, quel que soit le lot teste.
 
-**CONSEQUENCE POUR §10 : ses trois cellules n'ont TOUJOURS pas de verdict, mais pour une raison
-MESUREE.** « Forward projection » livree 0,5617 a 0,6477 pour 0,65-0,75 · « Width » 1,1606 a
-1,1751 pour 1,18-1,28 · « Vertical envelope » 1,1367 a 1,1988 pour 1,05-1,12 : les trois PENCHENT
-hors bande, aucune ne le fait de facon robuste. Ce n'est pas une regression (elles etaient
-`MIROIR` sans verdict depuis le cycle 120) ; ce qui change est qu'on sait POURQUOI, avec un
-chiffre, et que la mesure manquante est nommee.
+**LE REGISTRE AVAIT RAISON ET JE LE CONFIRME AU LIEU DE LE CONTREDIRE.** Les cycles 32, 80 et 106
+avaient etabli que la salle est reproductible enregistrement pour enregistrement. Elle l'est —
+**a conditions initiales partagees**. Ce que ce cycle ajoute est la PRECONDITION, et le fait que
+le controle du cycle 124 ne la regardait pas : selon le cote ou tombe la course avec la sequence
+de titre, il rend « tout differe » ou « rien ne differe », et dans les deux cas il ne parle pas du
+lot qu'on teste.
+**CORRIGE AU POINT DE PRODUCTION** : `c124_negctl.py` lit `PHYSROOM-START :state` et
+`PHYSPOSED dist-from-origin` AVANT toute comparaison et **REFUSE** une paire qui ne les partage
+pas, au lieu de rendre un chiffre ininterpretable.
 
-**HYPOTHESE, ETIQUETEE COMME TELLE ET NON MESUREE** : la cellule SUPINE est celle ou le sein est
-COMPRIME CONTRE LE THORAX, donc EN CONTACT, quand la PRONE pend librement. Un regime de contact au
-voisinage d'une discontinuite est une source de non-reproductibilite deja nommee au dossier
-(`constraint-on-discontinuous-field-limit-cycles`). **LA MESURE QUI TRANCHERAIT, NOMMEE** :
-publier, PAR CELLULE D'ORIENTATION, le nombre de corrections de collision appliquees, et verifier
-que le bruit le suit. Tant qu'elle n'existe pas, c'est une piste, pas une cause.
+**POURQUOI LE PLANCHER RESTE (2) ET PAS (1), ET CE N'EST PAS UN CHOIX DE CONFORT.** Un verdict dit
+quelque chose du PERSONNAGE. La position de spawn n'est nulle part dans la spec : c'est un accident
+de NOTRE salle. Une clause dont la valeur bouge de 14 % selon l'endroit du monde ou le sujet
+apparait ne parle pas de lui, elle parle de nous. Et prendre (1) serait pire : **une repetition BIT
+POUR BIT prouve le determinisme, jamais l'exactitude**, et laisserait porter un verdict a une marge
+de 0,015 %. Le plancher est donc PAR SECTION — un plancher unique aurait ete fixe par la cellule la
+plus sensible et aurait disqualifie les cellules d'une AUTRE orientation
+(`floor-drawn-across-the-experimental-variable`).
+
+**ET C'EST CE QUI REND §10 ACTIONNABLE POUR LA PREMIERE FOIS.** Ses trois cellules d'echelle
+n'ont pas de verdict, mais plus par ignorance : **la cellule SUPINE — celle ou le sein est COMPRIME
+CONTRE LE THORAX, donc EN CONTACT — suit la position de spawn, la PRONE — sein pendant, LIBRE — ne
+la suit pas (x324).** Le chantier qui les debloque n'est pas dans le solveur, il est chez nous :
+**epingler la position de spawn de la salle**. A conditions initiales fixees, la mesure rend
+deja, sur les deux chaines et les deux frontieres :
+
+    §10 fwd  « Forward projection -25 a -35 % »   livree 0,5617 a 0,6477   bande 0,65-0,75   SOUS
+    §10 out  « Width +18 a +28 % »                livree 1,1606 a 1,1751   bande 1,18-1,28   SOUS
+    §10 up   « Vertical envelope +5 a +12 % »     livree 1,1367 a 1,1988   bande 1,05-1,12   AU-DESSUS
+    §11 fwd  « Root-to-apex length +18 a +26 % »  livree 1,4370 a 1,4588   bande 1,18-1,26   AU-DESSUS
+
+**QUATRE clauses hors bande au lieu d'une.** Ces trois lignes de §10 ne sont PAS publiees comme
+verdicts dans le registre ce cycle-ci — leur marge (0,36 a 6,57 %) reste sous la sensibilite au
+spawn — mais elles disent ou le prochain cycle va tomber, et le geste qui les rend lisibles coute
+une ligne de salle, pas une ligne de solveur.
 
 ================================================================================================
 5. LES CINQ CONTROLES DE L'INSTRUMENT, ET AUCUN N'EST UNE SUPPOSITION
@@ -251,12 +279,19 @@ Le tableau livre porte bien ses 53 lignes `ROOM-SPEC12`.
 8. PROVENANCE
 ================================================================================================
 
-  course neuve   .../keira-room-x86.log
-                 md5 **bdd23d2079200e2df1002697debbe640**, 7 295 002 octets, PHYSEND atteint
+  TROIS COURSES, toutes du MEME arbre (`git diff HEAD -- goal_src/` vide de bout en bout) :
   course A       .../keira-room-x86.20260826-103019.log  md5 1d4f8c0c3dba7c700b2e4b84c5abc758
-                 (course du cycle 124, tronquee APRES le balayage d'orientation : ses 11 cellules
-                 x 28 lignes `PHYSORIM` sont completes, ce qui suffit a la comparaison)
-  tableau        .../keira-room-table.txt, 4 898 lignes, regenere par
+                 `target-title-wait`, spawn 1230225.1250. Course du cycle 124, tronquee APRES le
+                 balayage d'orientation : ses 11 cellules x 28 lignes `PHYSORIM` sont completes,
+                 ce qui suffit a la comparaison de forme.
+  course B       .../keira-room-x86.20260827-064249.log  md5 bdd23d2079200e2df1002697debbe640
+                 `target-title`, spawn 1061328.6250, PHYSEND atteint, 7 295 002 octets.
+  course C       .../keira-room-x86.log  md5 **abb090c9bd72d5dfd0268034a384f932**, 7 294 931
+                 octets, `target-title`, spawn 1061328.6250, PHYSEND atteint. **C'est la course
+                 LIVREE** : le tableau et les 13 gates en viennent. B et C rendent la forme livree
+                 IDENTIQUE a 0,000 % sur les 24 cellules — et le tableau de C reproduit les six
+                 verdicts de clause de B au caractere pres.
+  tableau        .../keira-room-table.txt, regenere depuis la course C par
                  `python3 .autoport/physics_room_table.py <trace> <tableau>` ; l'empreinte de la
                  trace est RELUE dans le fichier ecrit, pas supposee
   instruments    `.autoport/c124_delivered_shape.py` (rendu appelable ; sa sortie autonome est
@@ -273,10 +308,12 @@ Le tableau livre porte bien ses 53 lignes `ROOM-SPEC12`.
 La borne du 2026-08-21 18:25 est levee pour ce cycle : **un statut bouge**. Trois questions
 restent, et deux sont celles du cycle 123 qui n'ont pas ete arbitrees :
 
-  1. **§10 est desormais bloquee par son INSTRUMENT et plus par le solveur.** Sa cellule
-     d'orientation ne se reproduit pas (14,647 %). Le prochain cycle doit-il aller chercher la
-     cause (compteur de corrections de collision par cellule) plutot que de tenter une conversion
-     sur une cellule dont on sait qu'elle ne tient pas ses chiffres ?
+  1. **§10 est bloquee par NOTRE SALLE, et le deblocage coute une ligne.** Sa cellule
+     d'orientation ne bouge pas toute seule — elle suit la POSITION DE SPAWN du sujet, que rien
+     n'epingle et que la spec ne mentionne nulle part. A conditions initiales fixees, ses TROIS
+     clauses d'echelle rendent deja un verdict hors bande sur les deux chaines et les deux
+     frontieres. Le prochain cycle epingle-t-il le spawn de la salle — apres quoi §10 passe de
+     zero clause jugee a trois — plutot que de toucher au solveur ?
   2. **§11 a maintenant une cible chiffree et un seul terme a viser** : le rendement de 1,185 a
      1,203 entre la commande et la peau. C'est la premiere fois de ce dossier qu'une conversion
      rouge -> vert a un ecart nomme, un mecanisme nomme et un bruit mesure sous lui.

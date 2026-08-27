@@ -31,8 +31,42 @@ def load(p):
     return keep, masked
 
 
+START = re.compile(r'^PHYSROOM-START .*?:state ([a-z-]+)', re.M)
+SPAWN = re.compile(r'^PHYSPOSED joint0=\d+ dist-from-origin=([0-9.]+)', re.M)
+
+
+def start_state(p):
+    """L'ETAT DE DEPART DE LA COURSE — la precondition que ce controle ne verifiait pas.
+
+    CYCLE 125. Ce controle comparait deux traces enregistrement pour enregistrement sans jamais
+    regarder DANS QUEL ETAT la salle avait demarre. Mesure sur les 8 courses archivees : 7
+    attrapent la cible en `target-title` et font spawner le sujet a 1061328.6250 unites de
+    l'origine — le MEME chiffre jusqu'a la derniere decimale ; la 8e l'attrape en
+    `target-title-wait` et spawne a 1230225.1250. L'integration se fait en float32 en repere
+    MONDE (registre : `spec9-residual-is-float32-ulp-floor`), donc une position de depart
+    differente fait diverger 79 % des enregistrements QUEL QUE SOIT le changement teste.
+    Le controle etait donc CONDITIONNE A UN ETAT QU'IL NE REGARDAIT PAS : selon le cote ou tombe
+    la course avec la sequence de titre, il rend « tout differe » ou « rien ne differe », et dans
+    les deux cas ca ne parle pas du lot qu'on teste. Il REFUSE desormais de comparer une paire
+    qui ne partage pas ses conditions initiales, au lieu de rendre un chiffre ininterpretable."""
+    txt = open(p, 'r', errors='replace').read()
+    st = START.search(txt)
+    sp = SPAWN.search(txt)
+    return (st.group(1) if st else None), (sp.group(1) if sp else None)
+
+
 def main():
     a, b = sys.argv[1], sys.argv[2]
+    sa, sb = start_state(a), start_state(b)
+    print('C124-NEGCTL: conditions initiales — archive %s / spawn %s  ·  course %s / spawn %s'
+          % (sa[0], sa[1], sb[0], sb[1]))
+    if sa != sb:
+        print('C124-NEGCTL: *** COMPARAISON REFUSEE — les deux courses ne partagent pas leurs')
+        print('C124-NEGCTL:     conditions initiales. Une position de depart differente fait')
+        print('C124-NEGCTL:     diverger ~79 % des enregistrements QUEL QUE SOIT le lot teste')
+        print('C124-NEGCTL:     (float32 en repere MONDE). Un chiffre rendu ici ne dirait rien')
+        print('C124-NEGCTL:     du changement qu\'on veut attribuer. Relancer la course.')
+        return 2
     A, ma = load(a)
     B, mb = load(b)
     print('C124-NEGCTL: archive %s : %d enregistrements PHYS* (adresses masquees %d)'
