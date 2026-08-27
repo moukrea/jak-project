@@ -70,3 +70,41 @@ avait deja refuse (3) par avance : « la spec a 100%, pas de raccourcis ».
   redefinition d'une exigence pour la rendre atteignable. Le registre reste la seule mesure.
 - Ne pas casser ce qui est deja acquis et **valide par lui** : memoire du jeu 744 Mo, un niveau
   40,6 Mo, textures au demarrage 571 ms, zero plantage sur ses deux appareils.
+
+## ORDRE DE L'OWNER — 2026-08-27, 23h : ECRIRE DU CODE
+
+Verbatim : « **Fais lui ecrire du code, ca sert a rien ces cycles d'instruments... Il serait temps
+d'arreter de perdre du temps et faire du taff** ».
+
+### Le constat qui motive l'ordre
+
+Depuis le mandat de chantier structurel donne le meme jour, **ZERO fichier de `goal_src/` modifie**
+en six heures. Les cycles 129 a 132b ont produit : un estimateur, deux corrections de grandeur de
+jugement (§10, §11), une incompatibilite confirmee, un angle mort etendu retroactivement. Tout cela
+est du travail d'instrument. La couverture n'a pas bouge d'un pouce : **4 TENUE sur 38 depuis le
+cycle 115**.
+
+### La regle, a partir de maintenant
+
+**Chaque tentative doit se terminer par une modification de `goal_src/` ou du solveur.** Si une
+tentative se termine sans, le rapport doit dire EN UNE PHRASE pourquoi, et la tentative suivante
+n'a plus le droit de faire de l'instrument : elle ecrit.
+
+**Deux cycles d'instrument consecutifs sont interdits.** Un instrument se corrige EN PASSANT,
+pendant qu'on ecrit le correctif qu'il mesure — pas comme un cycle a lui seul.
+
+La cible est nommee depuis le cycle 129 et l'owner l'a validee : **le canal de deplacement du
+centre de masse doit vivre dans le tenseur de deformation**. Onze des treize sections NON TENUE en
+dependent. Ecrire ce canal EST le travail. Commencer par la premiere des quatre unites chiffrees
+au cycle 130b.
+
+### Ce que cet ordre ne leve PAS
+
+Il demande d'ecrire du code, pas de fabriquer du vert.
+
+- Aucune section ne passe TENUE sans une mesure nommee qui la soutient.
+- Aucune exigence n'est redefinie pour devenir atteignable.
+- Un correctif qui echoue reste un correctif ECRIT : on le mesure, on publie le resultat, on
+  itere. C'est ca, avancer. Refuter une hypothese sans avoir rien ecrit, ce n'en est pas.
+- Ne pas casser les acquis valides par l'owner : memoire du jeu 744 Mo, un niveau 40,6 Mo,
+  textures au demarrage 571 ms, zero plantage sur ses deux appareils.

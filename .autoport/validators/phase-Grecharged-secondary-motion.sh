@@ -227,6 +227,18 @@ def fail(m):
     FAILURES.append(m)
     print("[Grecharged-secondary-motion FAIL] " + m)
 
+
+# --- GATE CODE-ECRIT (owner 2026-08-27) -------------------------------------------------------
+# « Fais lui ecrire du code, ca sert a rien ces cycles d'instruments ». Six heures de cycles
+# d'instrument sans une ligne de goal_src/ modifiee. Une tentative qui n'ecrit pas ne passe plus.
+_touched=$(git diff --name-only HEAD~1 2>/dev/null | grep -c '^goal_src/' || true)
+_touched2=$(git log --since='6 hours ago' --name-only --format= 2>/dev/null | grep -c '^goal_src/' || true)
+if [ "${_touched:-0}" -eq 0 ] && [ "${_touched2:-0}" -eq 0 ]; then
+  fail "aucun fichier goal_src/ modifie : l'owner exige du CODE, pas un cycle d'instrument de plus"
+else
+  echo "[$TAG ok] du code a ete ecrit dans goal_src/"
+fi
+
 def verdict():
     """A appeler en toute fin de bloc : sort en echec si un seul verdict a echoue."""
     if FAILURES:
