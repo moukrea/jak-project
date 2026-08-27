@@ -1,0 +1,143 @@
+CYCLE 140 — PREDICTIONS ECRITES AVANT LA COURSE A (declencheur DESARME)
+DIRECTIVES vd9e8b66782 · perimetre : Grecharged-secondary-motion, chestL/chestR uniquement
+
+SECTION DONT CE CYCLE DEBLOQUE LE VERDICT (exigence DIRECTIVES 2026-08-21 18:25, nommee AVANT
+de commencer) : SPEC 37, clause « The simulation state shall be rebased or reset on ... animation
+root discontinuity, level transition, or implausibly large one-frame transform changes » (l.441-442)
+et « Artificial transforms must not generate physical breast impulses » (l.444).
+EN AVAL, et seulement si la mesure le soutient : SPEC 22 / 14 / 16 / 19 / 20, dont les six rouges
+d'apex vivent MAJORITAIREMENT dans la fenetre SANS PILOTAGE (cycle 80 §4 : p50 0,6443 / 0,6278 B0,
+100 % des fenetres au-dessus de 0,42, et les cinq pilotages n'ajoutent que +2,0 % / +13,4 %).
+
+CE QUI A ETE ECRIT (course A) : `rbrot=-20.0` sur les deux chaines. LE SIGNE PORTE L'ARMEMENT —
+le COMPTE lit |rbt| et le REBASE lit rbt, donc la course A COMPTE les frames qui franchiraient
+20 deg et n'en rebase AUCUNE. Une seule course rend donc la mesure ET son controle negatif.
+
+  P1  PHYSANROTK rbt=-60.3074 sur LES DEUX chaines et sur toutes les fenetres.
+      (Ce que le PARSEUR a depose, publie a cote de l'effet — sans ca, « canal absent » et
+       « canal casse » sont le meme zero. -60,3074 = -1000*(1-cos 20 deg), verifiable a la main.)
+  P2  BIT-IDENTITE de l'ACTION : voir P3. La branche de rebase exige `rbt > 0` et rbt vaut
+      -60,3074, donc elle est inatteignable PAR ALGEBRE, pas par reglage.
+  P3  BIT-IDENTITE avec la course archivee du cycle 139 (md5 df3ffdbfc2be45c744e70da3de379813)
+      sur TOUS les enregistrements PHYS* existants, hors les deux tags neufs PHYSANROT/PHYSANROTK
+      et hors les adresses de tas de la banniere. Tolerance : 0 ligne differente.
+  P4  nfr > 0 sur >= 95 % des fenetres (l'evaluation tourne des que warm > 1).
+  P5  omcmax, MEDIANE PAR PILOTAGE. Portage du cycle 101 (`PHYSANROT` d'alors, en degres) vers
+      l'unite d'ici, omc = 1000*(1 - cos theta) :
+          aucun pilotage   p50 59,91 deg -> omcmax attendu ~ 498   (bande predite 400-560)
+          updown           p50  3,62 deg ->                ~ 2,0   (p90 55,66 deg -> ~ 437)
+          tilt             p50  3,90 deg ->                ~ 2,3
+          leftright/accel/jerk p50 0,36 deg ->             ~ 0,02  (p90 1,92 deg -> ~ 0,56)
+      SEUIL DE REFUTATION : si la mediane sans pilotage tombe SOUS 50 (soit < 18,2 deg), le
+      phenomene que le cycle 101 a mesure n'existe plus dans ce moteur, et le declencheur de
+      rotation n'a plus d'objet — le lot se declare REFUTE et `rbrot` reste a 0 EN LIVRAISON.
+  P6  nrot/nfr : NON PREDIT, et c'est la raison d'etre de la course A. Il est MESURABLE dans A
+      parce que le compteur lit |rbt| : le seuil de 20 deg est compte sans etre applique.
+      C'est la grandeur qui decide si le declencheur est un SCALPEL ou un BAILLON :
+        - si le rapport tenu par un seuil a 20 deg est <= 0,10, le rebase touche quelques frames
+          par fenetre et la course B est lancee ARMEE ;
+        - s'il depasse 0,50, l'ancre tourne en permanence, un rebase par frame ferait suivre la
+          chaine RIGIDEMENT et ce serait un MUSELAGE. Alors `rbrot` reste a 0, le lot publie la
+          mesure et la refutation, et SPEC 37 garde son motif chiffre au lieu d'un correctif.
+      Le seuil de 20 deg est A NOUS, pas au document : sa 37 nomme la CLASSE d'evenement
+      (« implausibly large ») et ne donne aucun nombre. Il se justifie par la distribution
+      mesuree en P5, pas l'inverse — et il est publie comme un choix, jamais comme une exigence.
+
+COURSE B (seulement si P6 <= 0,10) : `rbrot=<seuil>` pose dans keira-owner-tuning.txt, aucun
+build, aucune ligne de code. Predictions de B ecrites APRES A et AVANT B, dans ce meme fichier.
+
+=================================================================================================
+PREDICTIONS DE LA COURSE B, ECRITES APRES A ET AVANT B — `rbrot=+20.0` (ARME)
+=================================================================================================
+Ce que A a rendu, et qui sert de base a tout ce qui suit (372 fenetres de PH-MEAS) :
+
+  pilotage      p50 deg  p90 deg  max deg   franchies/evaluees
+  updown           3,62    55,66   171,87       22 / 5580
+  leftright        0,36     1,92     2,49        0 / 5580
+  accel            0,36     1,92     2,49        0 / 5580
+  jerk             0,36     1,92     2,49        0 / 5580
+  tilt             3,91     4,38     4,60        0 / 5580
+  BASE-0stim       3,92     4,40     4,83        0 / 5580
+  TOTAL 22 frames franchies sur 33 480 evaluees = 0,0657 %, et EXACTEMENT 1 par fenetre touchee.
+
+  Les 22 fenetres sont les fenetres `updown` de 11 animations, toutes sur les DEUX chaines :
+  a=5 idle-transition-to-welding · a=6 idle-welding · a=7 village2-idle-a · a=11 village2-idle-after
+  a=12 village2-idle-hut-breath · a=14 village2-idle-hut-start-welding · a=17 village3-idle
+  a=18 firecanyon-idle-twist · a=23 firecanyon-idle-a · a=28 lavatube-start-idle
+  a=30 lavatube-end-idle. `updown` est la PREMIERE fenetre de chaque animation : le saut est donc
+  a la BASCULE D'ANIMATION, c'est-a-dire le terme « animation root discontinuity » de sa l.441,
+  mot pour mot.
+
+  B1  PHYSANROTK rbt=+60.3069 sur les deux chaines, statut ARME.
+  B2  La colonne `omcmax` de PHYSANROT est IDENTIQUE A A sur les 372 fenetres, jusqu'au dernier
+      chiffre, et `nrot` vaut encore 22 (1 par fenetre, memes 11 animations, `updown` seul).
+      RAISON, et c'est une PREDICTION FALSIFIABLE : `omc` est bati sur les deux matrices de
+      l'ANCRE (`chest`), que la physique n'ecrit jamais — elle n'ecrit que lBoob/lBooc/rBoob/rBooc.
+      Si `omcmax` bouge d'un chiffre, mon modele de ce que le rebase touche est FAUX.
+  B3  `PHYSREBASE fired` total monte de EXACTEMENT +22 par rapport a A. Recouvrement nul predit :
+      le declencheur de DISTANCE tire dans la fenetre SANS pilotage (62/62, c80c), les 22
+      evenements de rotation sont tous dans `updown`.
+  B4  `rbfix` > 0 dans EXACTEMENT les 22 fenetres `updown` que A signale, et = 0 dans les 40
+      autres fenetres `updown`. (Il sera aussi > 0 dans les fenetres BASE, ou c'est le
+      declencheur de DISTANCE qui agit : ce n'est pas une contradiction, c'est l'autre moitie.)
+  B5  Tout ce qui est publie HORS de ces 22 fenetres est IDENTIQUE AU BIT a la course A.
+      L'operateur ne peut agir que la ou la mesure a dit qu'il agirait.
+  B6  **§22 NE BOUGE PAS, ET JE L'ECRIS AVANT DE LE MESURER.** Dans A, les 22 fenetres marquees
+      portent un apex p50 de 0,6361 (chestL) / 0,6468 (chestR) et un max de 0,7962 / 0,7726,
+      pendant que le MAXIMUM DE COURSE vit ailleurs (chestL 0,9310 a a=20 d=4 ; chestR 1,0695 a
+      a=18 d=5) et que la MEDIANE des 186 fenetres vaut 0,6738 / 0,6876. Meme en poussant l'apex
+      de ces 22 fenetres a ZERO, le maximum de course ne bougerait pas et la mediane se
+      deplacerait d'un rang. Donc : `ROOM-APEX max` INCHANGE a la 4e decimale, `pic_typique`
+      inchange ou deplace de moins de 0,01 B0. **Si §22 bouge, c'est mon modele qui est faux, pas
+      un succes** — et ce serait a expliquer avant d'etre revendique.
+  B7  COUT : `skinpen`, `meshpen`, `ROOM-IDLE maxdev` inchanges ; la gate DISCRIMINANT continue de
+      passer sur les deux chaines. Un cout non nul serait a publier tel quel, pas a relativiser.
+  B8  Aucun declenchement de rotation sur `leftright`, `accel`, `jerk`, `tilt`, `BASE-0stim`
+      (ROOM-SPEC37-ANROT-J2 = 0 frame franchie sur 22 320 evaluees dans les trois pilotages
+      PROPRES). Un declenchement la serait un SUPPRESSEUR et le seuil devrait etre re-derive.
+
+CE QUE CE LOT NE PRETEND PAS FAIRE. Il ne fait pas verdir §22 ni les cinq sections de regime
+(B6 le dit d'avance et le chiffre). Il pose la moitie manquante d'un declencheur que sa 37 exige
+en toutes lettres, il la prouve tiree a l'endroit exact que la section nomme, et il RETIRE du
+registre un fait perime : la ligne « AUCUN pilotage p50 59,91 deg sur 100 %% des fenetres » du
+cycle 101 ne decrit plus ce moteur (mesure d'ici : p50 3,92, max 4,83).
+
+=================================================================================================
+ADDENDUM ECRIT AVANT LA COURSE B — CE QUI EST ARRIVE A LA COURSE A, ET POURQUOI ELLE EST RETIREE
+=================================================================================================
+La course A a ete INTERROMPUE et n'est PAS publiee. Cause : en cablant l'accesseur du seuil j'ai
+pose `((= which 42) ...)` dans le `cond` de `phys-shape` **AVANT** la plage `((< which 44) ...)`
+qui sert deja `spr` (SPEC 31). Une case posee avant une plage la MASQUE EN SILENCE : `PHYSGRAD31`
+publiait donc `rbt` a la place de `spr[0]` sur toute la course A. Corrige (case 47, apres 46).
+Ce que la course A garde de valide, et RIEN d'autre : les 372 lignes `PHYSANROT`, archivees dans
+`c140-runA-anrot-raw.txt` — elles ne passent pas par `phys-shape` et ne peuvent pas etre touchees.
+Elles servent desormais de PRE-ENREGISTREMENT : la course B doit les reproduire (prediction B2).
+
+La comparaison AVANT/APRES ne se fait donc plus contre A mais contre la course du cycle 139,
+`keira-room-x86.c139-BASELINE.log` (md5 imprime ci-dessous), qui precede TOUT le lot. C'est la
+comparaison la plus severe des deux : elle inclut l'ensemble du lot, pas seulement l'armement.
+  B5' Les differences entre B et la course du c139 sont CONFINEES aux 22 fenetres marquees
+      (plus les tags neufs PHYSANROT / PHYSANROTK / PHYSANROTF, qui n'existaient pas). Toute
+      difference AILLEURS refute l'affirmation que le reste du lot est inerte.
+
+-------------------------------------------------------------------------------------------------
+AMENDEMENT A B3, DERIVE DE LA COURSE ARCHIVEE DU CYCLE 139 — ET LA PROVENANCE EST DECLAREE.
+Ce paragraphe est ecrit pendant que la course B est EN VOL. Il ne lit AUCUNE de ses lignes : il est
+derive exclusivement de `keira-room-x86.c139-BASELINE.log` (md5 df3ffdbfc2be45c744e70da3de379813),
+qui est ANTERIEURE au lot. Aucun `PHYSREBASE` de la course B n'a ete regarde avant de l'ecrire.
+
+Dans le c139, le declencheur de DISTANCE tire **14 fois, dans 14 fenetres, toutes sur `updown`**,
+et jamais sur la ligne de base (la note c80c « 62/62 dans la fenetre sans pilotage » est PERIMEE).
+Ses 7 animations sont : 7, 12, 17, 18, 23, 28, 30.
+
+Les 11 animations que le declencheur de ROTATION marque sont 5, 6, 7, 11, 12, 14, 17, 18, 23, 28,
+30. **Les 7 de la distance en sont un SOUS-ENSEMBLE STRICT.** Donc :
+
+  B3'  `PHYSREBASE fired` passe de **14 a 22** (+8), et les 8 frames neuves sont EXACTEMENT les
+       animations **5, 6, 11, 14** sur `d=0`, sur les DEUX chaines. Aucune autre.
+       Ce sont quatre bascules d'animation A L'INTERIEUR d'un meme art-group (`assistant` et
+       `assistant-village2`) : le personnage n'y bouge pas assez pour franchir le seuil de
+       distance, et sa pose bascule quand meme. C'est precisement le trou que la moitie manquante
+       du declencheur laissait ouvert, et il est ici NOMME ANIMATION PAR ANIMATION.
+       Si `fired` rend autre chose que 22, ou si les frames neuves ne sont pas ces quatre
+       animations-la, le modele est faux.

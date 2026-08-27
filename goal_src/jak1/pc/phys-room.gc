@@ -1827,10 +1827,18 @@
             (phys-diag (-> self slot) c 27))
     ;; ---- SPEC 37, LA MOITIE TRANSLATION DU REBASE (cycle 33 etape 3) ------------------------
     ;; Sa 37 : « rebase on teleport / cutscene / discontinuity — artificial transforms must not
-    ;; generate physical breast impulses ». La moitie ROTATION existe depuis longtemps
-    ;; (`jak-hd-physics.gc:3701-3707`, roulis de l'ancre, seuil de 0.5 rad) ; la moitie TRANSLATION
+    ;; generate physical breast impulses ». La moitie TRANSLATION
     ;; a ete mesuree ABSENTE au cycle 33 etape 2 : 62 fenetres SANS PILOTAGE sur 62 portaient un
     ;; ecart apex/cible > 5 B0 et la pose ECRITE sautait de 0.29-0.31 B0 en une frame.
+    ;;
+    ;; CORRECTION DE CE COMMENTAIRE, CYCLE 140 — IL AFFIRMAIT UNE MOITIE QUI N'EXISTAIT PAS.
+    ;; Il disait « la moitie ROTATION existe depuis longtemps (jak-hd-physics.gc:3701-3707, roulis
+    ;; de l'ancre, seuil de 0.5 rad) ». C'est FAUX, et c'est un commentaire tenant lieu de preuve
+    ;; (regle 0 du contrat). Ce site-la ne rebase RIEN : sa garde `(when (< (fabs dphi) 0.5))` ne
+    ;; fait que SAUTER le cumul de torsion de la SPEC 29. Le seul etat d'ancre memorise pour le
+    ;; rebase etait `*phys-anp*`, un `vector` : un declencheur de DISTANCE, donc aveugle a une
+    ;; ancre qui tourne sur place. L'ACTION, elle, portait bien ses deux moities. Le declencheur de
+    ;; ROTATION est pose au cycle 140 (`rbrot=`, [NOTE-583]) et publie ci-dessous.
     ;; NATURE   `fired` = un COMPTE de frames ou le rebase a agi dans CETTE fenetre (pas un taux,
     ;;   pas une amplitude) · `amax` = le MAXIMUM du deplacement de l'ancre d'une frame a la
     ;;   suivante, en unites de jeu.
@@ -1845,6 +1853,48 @@
             c (-> self ai) (-> self drive)
             (phys-diag (-> self slot) c 29)
             (phys-diag (-> self slot) c 30))
+    ;; ---- SPEC 37, LA MOITIE ROTATION DU DECLENCHEUR (cycle 140) -----------------------------
+    ;; Sa 37 l.441-442 nomme « animation root discontinuity ... or implausibly large one-frame
+    ;; transform changes » et l.444 « artificial transforms must not generate physical breast
+    ;; impulses ». `PHYSREBASE` ci-dessus ne mesure que la moitie DISTANCE. Une ancre qui tourne
+    ;; sur place ne deplace pas son origine : elle traverse ce declencheur sans le toucher, et
+    ;; toute sa rotation est livree a la chaine comme une impulsion.
+    ;; NATURE   `omcmax` = le MAXIMUM sur la fenetre de `1000 * (1 - cos(angle de la rotation
+    ;;   d'ancre EN UNE FRAME))`. SANS dimension, monotone en l'angle, ce N'EST PAS un angle : la
+    ;;   conversion en degres est faite par l'analyseur, pas ici. · `nrot` = le COMPTE de frames de
+    ;;   la fenetre ou CE seuil a declenche le rebase. · `nfr` = le COMPTE de frames ou la rotation
+    ;;   a ete EVALUEE. · `rbt` = le SEUIL effectivement lu dans le fichier livre, meme unite que
+    ;;   `omcmax`. SON SIGNE PORTE L'ARMEMENT : 0 = cle absente, terme inatteignable ; NEGATIF =
+    ;;   on COMPTE sans rebaser (la course est alors bit-identique au build precedent) ; POSITIF =
+    ;;   on compte ET on rebase.
+    ;; REPERE   aucun : c'est la comparaison des deux reperes d'ancre entre eux (frame -1 contre
+    ;;   frame courante), donc invariante par rotation du monde.
+    ;; ABSENT   `omcmax` = 0.0000 quand l'ancre ne tourne pas d'une frame a l'autre, et sur la
+    ;;   toute premiere frame d'une chaine (aucune frame precedente : `warm <= 1`).
+    ;; POURQUOI `nfr` EXISTE A COTE DE `nrot` : sans denominateur, « une frame par fenetre » et
+    ;;   « toutes les frames » sont le meme nombre a l'oeil, et le second serait un MUSELAGE
+    ;;   (la chaine suivrait l'ancre rigidement au lieu de la subir). Le rapport `nrot/nfr` est
+    ;;   la grandeur qui distingue un scalpel d'un baillon.
+    ;; POURQUOI `rbt` EST PUBLIE : un canal se prouve par la valeur que le parseur a DEPOSEE, pas
+    ;;   par ses effets. `rbt = 0` avec `nrot = 0` dit « desarme » ; `rbt > 0` avec `nrot = 0` dit
+    ;;   « arme et jamais franchi ». Les deux se lisent alors sans ambiguite.
+    (format 0 "PHYSANROT c=~D a=~D d=~D omcmax=~f nrot=~f nfr=~f~%"
+            c (-> self ai) (-> self drive)
+            (phys-diag (-> self slot) c 100)
+            (phys-diag (-> self slot) c 101)
+            (phys-diag (-> self slot) c 102))
+    ;; `rbt` sur SA PROPRE ligne : `format` de GOAL plafonne a 8 parametres, et surtout la valeur
+    ;; DEPOSEE PAR LE PARSEUR n'a pas la meme portee que la mesure (elle est constante sur la
+    ;; course, elle n'appartient pas a la fenetre). Elle reste PAR CHAINE.
+    (format 0 "PHYSANROTK c=~D rbt=~f~%" c (phys-shape (-> self slot) c 47))
+    ;; LA TAILLE DE CE QUE LE REBASE A RETIRE, en unites de jeu, MAXIMUM sur la fenetre et
+    ;; par chaine : `|p_apres - p_avant|` sur un maillon. C'est la grandeur que la derniere
+    ;; phrase de sa 37 designe — l'IMPULSION qu'une transformation artificielle aurait
+    ;; livree a la poitrine. NATURE : une LONGUEUR, unites de jeu (4096 u = 1 m, B0 = 602 u).
+    ;; REPERE : le monde. ABSENT : 0.0000 quand aucun rebase n'agit dans la fenetre — donc
+    ;; nul PAR ALGEBRE en mode MESURE SEULE, ce qui en fait aussi son controle negatif.
+    (format 0 "PHYSANROTF c=~D a=~D d=~D rbfix=~f~%"
+            c (-> self ai) (-> self drive) (phys-diag (-> self slot) c 103))
     ;; LE STIMULUS REELLEMENT RECU, pour CHAQUE fenetre y compris la ligne de base. Compare a
     ;; l'amplitude commandee (PHYSSTIM), il dit si le pilotage a domine ou s'il a ete noye.
     (format 0 "PHYSACC c=~D a=~D d=~D acc=~f wraps=~D~%"

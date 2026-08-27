@@ -1091,7 +1091,22 @@ enum PhysClassBits { kPhysClassPrimary = 1, kPhysClassSecondary = 2, kPhysClassA
 //      medw = 379.90 - 54.24 = 325.66 (chestL) / 325.67 (chestR).
 //      0 = the wall is ABSENT and the term is exactly 0 — bit-identical to every build before this
 //      cycle, and therefore the default of every chain that does not declare it.)
-static constexpr int kPhysNumChainParams = 32;
+//   32 rbrot(C140 — SPEC 37's ROTATION TRIGGER for the rebase, DECLARED IN DEGREES in the file and
+//      STORED AS `1000 * (1 - cos(theta))` so the engine never needs a trig call. SPEC 37 l.441-444 asks
+//      for a rebase on « animation root discontinuity ... or implausibly large one-frame transform
+//      changes », and « artificial transforms must not generate physical breast impulses ». The
+//      rebase ACTION already carries both halves (translation AND rotation, jak-hd-physics.gc
+//      :2686-2694); its TRIGGER is a DISTANCE and nothing else — `rbd > 7 * b0`. An anchor that
+//      spins in place therefore passes straight through it and the whole spin is delivered to the
+//      chain as an impulse. This key is the angle above which one frame of anchor rotation is
+//      declared implausible. It is OURS, not the document's: SPEC 37 names the class of event and
+//      gives no number, so the value must be justified by the measured distribution and declared
+//      as a choice (DIRECTIVES 2026-08-20 02:50).
+//      THE SIGN IS THE ARM. A NEGATIVE angle = MEASURE ONLY (count the frames that would cross
+//      |theta|, rebase nothing); a POSITIVE angle = measure AND rebase; 0 = the term is
+//      unreachable, so the build is bit-identical to every build before this cycle, and that is
+//      the default of every chain that does not declare the key.)
+static constexpr int kPhysNumChainParams = 33;
 // level param ids (pc_physics_level_param_mi):
 //   0 substeps 1 iters 2 collide 3 classmask 4 fixedhz  -- ALSO returned in milli.
 static constexpr int kPhysNumLevelParams = 5;
@@ -1764,6 +1779,27 @@ static int pc_physics_parse_file() {
           // medial de la chair touche au repos), en unites, mesuree sur le maillage LIVRE.
           // 0 = mur ABSENT, terme exactement nul, identite par algebre. Voir l'id 31 ci-dessus.
           ch.params[31] = phys_to_float(v);
+        } else if (k == "rbrot") {
+          // (C140) SPEC 37 — angle IN DEGREES above which one frame of ANCHOR rotation is declared
+          // an implausible transform change and the state is rebased instead of kicked. Stored as
+          // `1000 * (1 - cos(theta))` (a chord measure, monotone on [0, 180]) so the engine
+          // compares it against a quantity built from dot products alone. The factor 1000 is NOT
+          // cosmetic: the store crosses into GOAL in MILLI-units, and a bare `1 - cos` would round
+          // 1 degree (1.52e-4) to ZERO milli — i.e. a threshold set for a positive control would
+          // silently read as DISARMED. With the factor, one milli is 1e-6 of chord, or 1.7e-4
+          // degree at 20 degrees.
+          // THE SIGN CARRIES THE ARMING, and it is what makes ONE run both the measurement and its
+          // own negative control. A NEGATIVE angle means MEASURE ONLY: the engine counts the frames
+          // that would cross |theta| and does NOT rebase, so the run stays bit-identical to the
+          // build before this cycle while still answering "how many frames per window would this
+          // threshold touch?". A POSITIVE angle measures AND rebases. 0 leaves the whole term
+          // unreachable, and that is the default of every chain that does not declare the key.
+          // Without this, a disarmed run cannot tell a SCALPEL (a frame or two per window) from a
+          // GAG (every frame, the chain riding the anchor rigidly) — and only the second is a
+          // reason not to ship.
+          float deg = phys_to_float(v);
+          float mag = (float)(1000.0 * (1.0 - std::cos(std::fabs(deg) * 3.14159265358979 / 180.0)));
+          ch.params[32] = (deg == 0.f) ? 0.f : ((deg > 0.f) ? mag : -mag);
         } else if (k == "lyield") {
           // (C135) gain de la correction de DOUBLE COMPTE de sa SPEC 11 — voir l'id 30 ci-dessus.
           // 0 = identite PAR ALGEBRE (diviseur exactement 1), donc defaut sur toute chaine muette.

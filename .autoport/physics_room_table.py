@@ -13522,6 +13522,95 @@ def main():
             A('   frontiere de fenetre elle-meme. Les fenetres `leftright`, `accel` et `jerk` n\'en')
             A('   portent aucune, donc ce n\'est pas un bruit de fond de la salle — c\'est la')
             A('   discontinuite qui suit `tilt`. NON REFERME, et rien ici ne le corrige.')
+
+        # ---- SPEC 37, LA MOITIE ROTATION DU DECLENCHEUR (cycle 140, [NOTE-583]) --------------
+        # L'ACTION du rebase porte ses deux moities ; son DECLENCHEUR etait une DISTANCE et rien
+        # d'autre, donc une ancre qui tourne sur place le traverse sans le toucher et livre toute
+        # sa rotation a la chaine comme une impulsion — ce que l.444 interdit en gras.
+        # NATURE  `omcmax` = 1000*(1-cos(angle de rotation de l'ancre EN UNE FRAME)), MAXIMUM sur
+        #   la fenetre. SANS dimension, monotone en l'angle : la conversion en degres est faite
+        #   ICI et publiee A COTE, jamais a la place.
+        # REPERE  aucun — comparaison des deux reperes d'ancre entre eux (frame -1 contre frame
+        #   courante), donc invariante par rotation du monde.
+        # ABSENT  0.0000 quand l'ancre ne tourne pas d'une frame a l'autre.
+        # CE QUE `nfr` SERT A REPONDRE, et c'est la seule question qui decide de la livraison :
+        #   un declencheur qui mord UNE frame par fenetre est un scalpel ; un declencheur qui mord
+        #   TOUTES les frames fait chevaucher la chaine RIGIDEMENT sur son ancre — c'est un
+        #   MUSELAGE, et le contrat en interdit un par defaut.
+        _ar, _ark = {}, {}
+        for m in re.finditer(r'^PHYSANROT c=(\d+) a=\d+ d=(\d+) omcmax=([-\d.e+]+)'
+                             r' nrot=([-\d.e+]+) nfr=([-\d.e+]+)', txt, re.M):
+            c, dr = int(m.group(1)), int(m.group(2))
+            om, nr, nf = float(m.group(3)), float(m.group(4)), float(m.group(5))
+            e = _ar.setdefault((c, dr), dict(n=0, om=[], nrot=0.0, nfr=0.0, wfired=0))
+            e['n'] += 1
+            e['om'].append(om)
+            e['nrot'] += nr
+            e['nfr'] += nf
+            if nr > 0:
+                e['wfired'] += 1
+        for m in re.finditer(r'^PHYSANROTK c=(\d+) rbt=([-\d.e+]+)', txt, re.M):
+            _ark[int(m.group(1))] = float(m.group(2))
+
+        def _omc2deg(v):
+            """omc -> degres. L'inverse exact de ce que le moteur calcule ; borne parce qu'un
+            flottant peut rendre 2.0000001 sur une rotation de 180 deg."""
+            x = 1.0 - (v / 1000.0)
+            x = max(-1.0, min(1.0, x))
+            return math.degrees(math.acos(x))
+
+        if not _ar:
+            A('')
+            A('ROOM-SPEC37-ANROT: ABSENT (aucune ligne PHYSANROT) — la moitie ROTATION du')
+            A("   declencheur n'est pas mesuree dans cette course, et rien ne la substitue.")
+        else:
+            A('')
+            A('-- ROOM-SPEC37-ANROT : LE DECLENCHEUR DE ROTATION, SA POPULATION ET SON COUT ------')
+            A('   `omcmax` est un MAXIMUM DE FENETRE, sans dimension ; son equivalent en degres est')
+            A('   imprime a cote. `part` = frames franchies / frames evaluees : c est ELLE qui')
+            A('   distingue un scalpel d un baillon, jamais le compte seul.')
+            for c in sorted(_ark):
+                _nm = names[c] if c < len(names) else 'c%d' % c
+                _k = _ark[c]
+                _st = ('CLE ABSENTE — branche inatteignable' if _k == 0.0 else
+                       ('MESURE SEULE (on compte, on ne rebase rien : la course reste'
+                        ' bit-identique)' if _k < 0 else 'ARME (on compte ET on rebase)'))
+                A('ROOM-SPEC37-ANROT-KNOB: chain=%-12s rbt=%.4f  soit |%.2f deg|  -> %s'
+                  % (_nm, _k, _omc2deg(abs(_k)), _st))
+            for (c, dr) in sorted(_ar):
+                e = _ar[(c, dr)]
+                oms = sorted(e['om'])
+                _p50 = oms[len(oms) // 2]
+                _mx = oms[-1]
+                _part = (e['nrot'] / e['nfr']) if e['nfr'] > 0 else 0.0
+                A('ROOM-SPEC37-ANROT: chain=%-12s win=%-11s fenetres=%2d  omcmax_p50=%9.3f'
+                  ' (%6.2f deg)  omcmax_max=%9.3f (%6.2f deg)  franchies=%5d  evaluees=%6d'
+                  '  part=%6.2f%%  fenetres_ou_il_franchit=%2d'
+                  % (names[c] if c < len(names) else 'c%d' % c,
+                     DRIVE_NAMES[dr] if dr < len(DRIVE_NAMES) else 'BASE-0stim',
+                     e['n'], _p50, _omc2deg(_p50), _mx, _omc2deg(_mx),
+                     int(e['nrot']), int(e['nfr']), 100.0 * _part, e['wfired']))
+            _cl = [k for k in _ar if k[1] in (1, 2, 3)]
+            _clf = sum(_ar[k]['nrot'] for k in _cl)
+            _cln = sum(_ar[k]['nfr'] for k in _cl)
+            A('ROOM-SPEC37-ANROT-J2: %d frame(s) franchie(s) sur %d evaluees dans les fenetres'
+              ' PROPRES (leftright, accel, jerk) — %s'
+              % (int(_clf), int(_cln),
+                 'le seuil ne mord AUCUN mouvement commande' if _clf == 0
+                 else 'ATTENTION : le seuil mord un pilotage COMMANDE ; ce serait un suppresseur'
+                      ' et il doit etre re-derive'))
+            _tf = sum(e['nrot'] for e in _ar.values())
+            _tn = sum(e['nfr'] for e in _ar.values())
+            _tp = (_tf / _tn) if _tn > 0 else 0.0
+            A('ROOM-SPEC37-ANROT-J1: part globale = %.2f%% (%d frames franchies sur %d) — %s'
+              % (100.0 * _tp, int(_tf), int(_tn),
+                 'SCALPEL : le declencheur touche une fraction marginale des frames, la chaine'
+                 ' continue de subir son ancre partout ailleurs' if _tp <= 0.10 else
+                 ('ZONE GRISE : entre 10 %% et 50 %% des frames — le cout en mouvement doit etre'
+                  ' publie AVANT toute livraison' if _tp <= 0.50 else
+                  'BAILLON : plus d une frame sur deux serait rebasee, la chaine chevaucherait'
+                  ' son ancre au lieu de la subir — NE PAS ARMER, et le dire')))
+
         A('')
         for c in sorted({c for (c, _d) in _rad}):
             _nm = names[c] if c < len(names) else 'c%d' % c

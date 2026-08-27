@@ -11015,3 +11015,81 @@ suivante est nommee et mesuree : les moities TRANSLATION livrees valent **+4,073
 **+0,767** (chestR) pour des glissements appliques dans un rapport de 1,15 seulement — le facteur
 5,3 entre les deux n'est PAS explique par le mur, et c'est la premiere chose a mesurer, dans le lot
 qui ecrit.
+
+## [NOTE-583]
+
+SPEC 37 — LE DECLENCHEUR DU REBASE ETAIT UNE DISTANCE, ET UNE ANCRE QUI TOURNE SUR PLACE PASSE AU
+TRAVERS.
+
+**LE FAIT, ET IL SE VERIFIE EN TROIS GREPS DANS LE MOTEUR DE LA VEILLE.** Sa 37 (l.441-444) exige
+un rebase « on teleportation, instant cutscene placement, animation root discontinuity, level
+transition, or implausibly large one-frame transform changes », et conclut en gras : « **Artificial
+transforms must not generate physical breast impulses.** » L'ACTION du rebase porte bien ses deux
+moities depuis le cycle 33 — elle transporte `p`, `q`, `cp`, `cq` par la transformation RIGIDE
+`a0m^T . am` plus l'offset d'ancre, et remet a zero la compensation de Kahan (`:2686-2694`). Son
+DECLENCHEUR, lui, n'en a jamais eu qu'une :
+
+    rbd = |anc - *phys-anp*|                 <- *phys-anp* est un `vector` (:310)
+    (when (> rbd (* 7.00 (fmax 1.0 b0))) ...)
+
+Une ancre qui tourne **sans deplacer son origine** rend `rbd = 0`. Elle ne franchit donc jamais ce
+seuil, et toute sa rotation est livree a la chaine comme une impulsion — exactement ce que la
+derniere phrase de la section interdit. Le commentaire de `phys-room.gc` affirmait le contraire
+(« la moitie ROTATION existe depuis longtemps, roulis de l'ancre, seuil de 0.5 rad ») : le site
+qu'il cite ne rebase rien, sa garde `(when (< (fabs dphi) 0.5))` ne fait que **sauter le cumul de
+torsion de §29**. Corrige dans le meme lot — un commentaire n'est pas une preuve (regle 0).
+
+**CE QUE LE CYCLE 101 AVAIT MESURE, ET QUI N'AVAIT PAS DE CONSOMMATEUR.** Angle de l'ancre EN UNE
+FRAME, 372 fenetres, trace archivee `keira-room-x86.c101-ANROT.log` — p50 / p90 / max, en degres :
+
+    updown                3,62 /  55,66 / 171,87
+    leftright/accel/jerk  0,36 /   1,92 /   2,50
+    tilt                  3,90 /   4,39 /   4,60
+    AUCUN pilotage       59,91 /  60,29 /  60,58    <- sur 100 %% des fenetres
+
+Deux ordres de grandeur separent le regime ordinaire (0,36 deg) du saut (59,9) : il n'y a pas de
+zone grise a arbitrer. Et la fenetre SANS PILOTAGE est precisement celle ou vivent les six rouges
+d'apex (cycle 80 §4 : p50 0,6443 / 0,6278 B0, **100 %% des fenetres au-dessus de 0,42**, les cinq
+pilotages n'ajoutant que +2,0 %% / +13,4 %% par-dessus).
+
+**CE QUE LE CYCLE 140 ECRIT.**
+
+  - `phys-anrot-omc` — `1 - cos(angle)` de la rotation d'ancre d'une frame, par la trace de
+    `a0m^T . am` sur les lignes **NORMALISEES** des deux reperes. La normalisation n'est pas une
+    precaution de style : une matrice d'os porte une echelle, et une trace lue sur des lignes non
+    unitaires melangerait l'echelle a l'angle. NATURE : un scalaire sans dimension, monotone en
+    l'angle sur [0, 180 deg] — **ce n'est pas un angle**, et la conversion en degres est faite par
+    l'analyseur. REPERE : aucun, c'est la comparaison des deux reperes entre eux, donc invariante
+    par rotation du monde. LECTURE HORS DEFAUT : 0.0 exactement quand ils coincident.
+  - `rbrot=` (id 32 du magasin C++) — le seuil, **livre en DEGRES** dans `physics_chains.txt` et
+    range en `1000 * (1 - cos theta)`. Le facteur 1000 n'est pas cosmetique : le magasin traverse
+    vers GOAL en MILLI-unites, et un `1 - cos` nu arrondirait 1 degre (1,52e-4) a **zero** milli —
+    un seuil pose pour un controle positif se lirait alors comme DESARME. Avec le facteur, un
+    milli vaut 1e-6 de corde, soit 1,7e-4 degre a 20 degres.
+  - le declencheur : `(when (or (> rbd (* 7.00 ...)) (and (> rbt 0.0) (> omc rbt))) ...)`.
+    `rbt = 0` rend la seconde branche **inatteignable**, donc le defaut de toute chaine qui ne
+    declare pas la cle est BIT-IDENTIQUE a tous les builds anterieurs.
+  - **LE SIGNE PORTE L'ARMEMENT, et c'est ce qui fait tenir la mesure ET son controle negatif dans
+    UNE SEULE course.** Le COMPTE (case 101) lit `|rbt|`, le REBASE lit `rbt`. Un seuil NEGATIF
+    compte donc les frames qui franchiraient `|theta|` **sans rien rebaser** : la course reste
+    bit-identique au build de la veille et repond quand meme a la seule question qui decide si le
+    correctif est livrable — `nrot / nfr`. Sans ce partage, une course desarmee ne distingue pas un
+    SCALPEL (une ou deux frames par fenetre) d'un BAILLON (toutes les frames, la chaine chevauchant
+    l'ancre rigidement), et seul le second est une raison de ne pas livrer.
+  - quatre cases de diagnostic a portee de FENETRE (100 = max de `omc`, 101 = compte de
+    declenchements, 102 = compte de frames evaluees, **103 = `rbfix`, le maximum de
+    `|p_apres - p_avant|` que le rebase applique a un maillon**, en unites de jeu), publiees par
+    `PHYSANROT` et `PHYSANROTF`, plus `PHYSANROTK` qui publie la valeur **DEPOSEE PAR LE
+    PARSEUR**. `rbfix` est la grandeur que la derniere phrase de la section designe : le rebase
+    transporte `p` ET `q` par la MEME transformation rigide, donc la vitesse est conservee dans le
+    repere de l'ancre et ce qui est retire est exactement le rattrapage que la chaine aurait du
+    faire en une frame — c'est-a-dire **l'impulsion qu'une transformation artificielle lui aurait
+    livree**. Nul par algebre en mode MESURE SEULE, ce qui en fait son propre controle negatif. Sans cette derniere, `nrot = 0` ne distingue
+    pas « canal absent » de « canal casse » ; sans `nfr`, « une frame par fenetre » et « toutes les
+    frames » sont le meme nombre a l'oeil — et le second serait un **MUSELAGE**, la chaine suivant
+    l'ancre rigidement au lieu de la subir.
+
+**LE SEUIL EST A NOUS, PAS AU DOCUMENT, ET IL EST DECLARE COMME TEL.** Sa 37 nomme la CLASSE
+d'evenement (« implausibly large ») et ne donne aucun nombre. Le choix se justifie par la
+distribution mesuree, jamais l'inverse — c'est la regle du 2026-08-20 02:50 sur les durees de
+geste, appliquee a un angle.

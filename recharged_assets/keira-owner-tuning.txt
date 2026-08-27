@@ -1654,3 +1654,48 @@ chain chestR medw=325.67
 # (ce que la section decrit), pas aux noms, et son levier est petit par construction du rig.
 chain chestL spr=0.8407,0.7323
 chain chestR spr=0.8570,0.7041
+
+# =============================================================================================
+# CYCLE 140 — `rbrot=`, LE DECLENCHEUR DE ROTATION DU REBASE DE SA SPEC 37.
+# =============================================================================================
+# SPEC 37 l.441-442 : « The simulation state shall be rebased or reset on teleportation, instant
+#                       cutscene placement, animation root discontinuity, level transition, or
+#                       implausibly large one-frame transform changes. »
+# SPEC 37 l.444     : « **Artificial transforms must not generate physical breast impulses.** »
+#
+# CE QUE LE MOTEUR FAISAIT, ET IL NE S'AGIT PAS D'UN REGLAGE. L'ACTION du rebase porte ses deux
+# moities depuis le cycle 33 : elle transporte l'etat de la chaine par la transformation RIGIDE
+# `a0m^T . am` plus l'offset d'ancre. Son DECLENCHEUR, lui, n'en avait qu'une :
+#     rbd = |anc - anc(frame -1)| ,  et rien d'autre.
+# Une ancre qui TOURNE SANS DEPLACER SON ORIGINE rend `rbd = 0` : elle ne franchit jamais ce seuil,
+# et toute sa rotation est livree a la chaine comme une impulsion — exactement ce que la derniere
+# phrase de la section interdit. Mesure du cycle 101, angle de l'ancre EN UNE FRAME (p50 / max) :
+#     aucun pilotage 59,91 / 60,58 deg sur 100 % des fenetres · updown 3,62 / 171,87 ·
+#     tilt 3,90 / 4,60 · leftright, accel, jerk 0,36 / 2,50.
+# Deux ordres de grandeur separent le regime ordinaire du saut : il n'y a pas de zone grise.
+#
+# LE NOMBRE EST A NOUS, PAS AU DOCUMENT, ET IL EST DECLARE COMME TEL. Sa 37 nomme la CLASSE
+# d'evenement (« implausibly large ») et ne donne aucun angle. 20 deg/frame = 1200 deg/s est place
+# a x4,3 au-dessus du p90 ordinaire (4,6 deg) et a x2,8 sous le saut (55,7 deg) ; c'est un choix,
+# justifie par la distribution mesuree, et il se re-derive sans build.
+#
+# LE SIGNE PORTE L'ARMEMENT — c'est ce qui met la mesure ET son controle negatif dans UNE course :
+#   0        cle absente, branche inatteignable, build bit-identique a tous les precedents ;
+#   NEGATIF  on COMPTE les frames qui franchiraient |angle| et on ne rebase RIEN (donc toujours
+#            bit-identique) — c'est la course qui repond a « scalpel ou baillon ? » ;
+#   POSITIF  on compte ET on rebase.
+# Unite du fichier : DEGRES. Le magasin range `signe * 1000 * (1 - cos|angle|)` (kmachine.cpp
+# id 32) parce qu'il traverse vers GOAL en MILLI-unites : un `1 - cos` nu arrondirait 1 degre a
+# zero milli, et un seuil pose pour un controle positif se lirait comme DESARME.
+#
+# Preuve d'execution a la LECTURE et pas par ses effets : `PHYSANROTK c= rbt=` publie la valeur
+# DEPOSEE par le parseur, et `PHYSANROT c= a= d= omcmax= nrot= nfr=` la mesure ([NOTE-583]).
+# ---------------------------------------------------------------------------------------------
+# COURSE A (2026-08-28, `rbrot=-20.0`, MESURE SEULE) : 22 frames franchissent 20 deg sur
+# 33 480 evaluees (0,0657 %), EXACTEMENT 1 par fenetre touchee, TOUTES sur `updown` — qui est
+# la PREMIERE fenetre de chaque animation. Zero franchissement sur leftright, accel, jerk,
+# tilt et la ligne de base. Les 11 animations concernees incluent LES CINQ changements
+# d'art-group du parcours. Le declencheur est donc un SCALPEL et il tombe exactement sur le
+# terme « animation root discontinuity » de la section. ARME a partir d'ici.
+chain chestL rbrot=20.0
+chain chestR rbrot=20.0
