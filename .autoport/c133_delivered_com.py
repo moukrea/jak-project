@@ -72,6 +72,9 @@ ANCHOR = C124.ANCHOR
 # calcul-ci et pas une copie. Motif repris tel quel de `c124_delivered_shape.py`, pour que les deux
 # instruments livres se branchent de la meme facon.
 _SINK = None
+# [CYCLE 139] la POSE de la cellule debout, par chaine, pour l'ecart au miroir exige par les
+# DIRECTIVES du 2026-08-21 01:20. Rempli a `cut == 0.0`, lu une seule fois en fin de course.
+_MIR = {}
 RESULT = {}
 
 
@@ -409,6 +412,61 @@ def main(txt=None):
                            ' ROTATION+TENSEUR %+7.3f %% W0 · TRANSLATION %+7.3f %% W0'
                            ' · somme %+7.3f %% W0'
                            % (cname, lbl, sec, cell, _ro, _to, _ro + _to))
+                        # [CYCLE 139] la composante SIGNEE sur `out` devient lisible par le
+                        # tableau : c'est elle que la clause PORTEUSE de §10 exige, et la ligne de
+                        # verdict ne pouvait pas l'atteindre (seules les NORMES etaient exposees).
+                        RESULT.setdefault('rows', {}).setdefault(
+                            (cname, lbl, sec), {}).update(
+                            out_pct=_ro + _to, out_rot=_ro, out_trn=_to, W0=_w0d)
+                        # ---- CYCLE 139 : L'ATTRIBUTION PAR JOINT DES DEUX MOITIES -----------
+                        # POURQUOI. La ligne ci-dessus dit QUELLE MOITIE tire vers l'interieur ;
+                        # elle ne dit pas QUEL OS. Or les deux mecanismes ecrits pour cette
+                        # clause (le MUR MEDIAN du cycle 137, `jak-hd-physics.gc:3927-3931`, et
+                        # le POINT FIXE du cycle 132, `:3921-3922`) sont appliques PAR MAILLON
+                        # dans le chemin d'ECRITURE : sans attribution par os, « le mur ne rend
+                        # rien » et « le mur rend, et un autre os l'annule » sont
+                        # indistinguables. C'est le piege `response-dies-at-one-solver-stage`
+                        # du registre, applique a l'espace des OS au lieu des etages.
+                        # NATURE : composantes SIGNEES d'un deplacement, normalisees par `W0`
+                        #          (§6), en pourcent. Additives PAR CONSTRUCTION : la somme des
+                        #          lignes `os=` plus la ligne `ancre=` reproduit EXACTEMENT les
+                        #          deux totaux ci-dessus (l'ecart de fermeture est publie).
+                        # REPERE : la base d'ancre de CHAQUE cellule, axe `out` anti-symetrique.
+                        # LIGNE DE BASE : la cellule i=0 (debout d'auteur), ou §9 exige zero.
+                        _M8 = {k: mats[(cell, slot[n])] for k, n in enumerate(_sj)}
+                        _M0 = {k: mats[(0, slot[n])] for k, n in enumerate(_sj)}
+                        _o8, _E8 = frame(cell)
+                        _o0, _E0 = frame(0)
+                        _sr = _st = 0.0
+                        for _k, _n in enumerate(_sj):
+                            # un joint de poids NUL contribue exactement 0 aux deux moities : le
+                            # publier n'ajoute rien et ferait porter a une ligne de chestL le nom
+                            # d'un os de chestR, ce que `ROOM-ASYM-VERROU` lit comme une
+                            # comparaison gauche/droite. La fermeture est inchangee.
+                            if Wk_[_k] <= 0.0:
+                                continue
+                            _r = 100.0 * float(
+                                ((Qk[_k] @ _M8[_k][:3, :3]) / Nn_) @ _E8 @ AX['out']
+                                - ((Qk[_k] @ _M0[_k][:3, :3]) / Nn_) @ _E0 @ AX['out']) / _w0d
+                            # LA TRANSLATION SE LIT APRES SOUSTRACTION DE L'ORIGINE D'ANCRE, ET
+                            # C'EST LA SEULE FORME INTERPRETABLE. Publier `W_k . t_k` brut donne
+                            # des milliers de % W0 qui s'annulent contre un terme d'ancre du meme
+                            # ordre : exact, illisible, et impossible a attribuer. Comme
+                            # SOMME_k W_k = N (les poids de peau se referment a 1 par sommet), la
+                            # forme ci-dessous se referme a l'identique — la fermeture le verifie.
+                            _t = 100.0 * float(
+                                (Wk_[_k] / Nn_) * ((_M8[_k][3, :3] - _o8) @ _E8 @ AX['out']
+                                                   - (_M0[_k][3, :3] - _o0) @ _E0 @ AX['out'])) / _w0d
+                            _sr += _r
+                            _st += _t
+                            P_('C133-COM: %-8s %-8s §%-3s i=%-2d  PAR JOINT os=%-9s'
+                               ' ROTATION+TENSEUR %+7.3f %% W0 · TRANSLATION %+7.3f %% W0'
+                               ' (part de peau W=%.2f)'
+                               % (cname, lbl, sec, cell, _n, _r, _t, Wk_[_k]))
+                        P_('C133-COM: %-8s %-8s §%-3s i=%-2d  PAR JOINT  SOMME W=%.2f (=N=%.0f)'
+                           '  ·  FERMETURE rot %+.4f trn %+.4f (doit valoir 0 ; sinon rien de'
+                           ' cette attribution ne vaut)'
+                           % (cname, lbl, sec, cell, sum(Wk_), Nn_, _sr - _ro, _st - _to))
             elif ident:
                 P_("C133-COM: %-8s %s DECOMPOSITION REFUSEE — l'identite ne se referme pas"
                    " (%.3e u). Rien n'en est publie : une decomposition qui ne se referme pas"
@@ -436,6 +494,37 @@ def main(txt=None):
                           100.0 * float(dv @ AX['up']) / w0v,
                           100.0 * float(dv @ AX['fwd']) / w0v,
                           float(np.linalg.norm(dv)) / bb))
+                    RESULT.setdefault('rows', {}).setdefault(
+                        (cname, lbl, '%s@%d' % (sec, cell)), {}).update(
+                        out_pct=100.0 * float(dv @ AX['out']) / w0v,
+                        up_pct=100.0 * float(dv @ AX['up']) / w0v,
+                        fwd_pct=100.0 * float(dv @ AX['fwd']) / w0v,
+                        b0=bb, cell=cell, W0=w0v)
+            # ---- CYCLE 139 : L'ECART AU MIROIR DE LA POSE OU CETTE LIGNE EST RELEVEE --------
+            # LES DIRECTIVES DU 2026-08-21 01:20 L'EXIGENT, ET AUCUNE LIGNE DE CE DOSSIER NE LA
+            # PORTAIT POUR LE BALAYAGE D'ORIENTATION : « toute ligne qui publie une comparaison
+            # GAUCHE/DROITE publie, SUR LA MEME LIGNE, l'ecart au miroir de la pose ou elle a ete
+            # relevee ». `ROOM-SPEC10` declare explicitement « PAS DE LECTURE GAUCHE/DROITE : la
+            # pose du balayage d'orientation n'a PAS de mesure d'ecart au miroir » — donc toute
+            # attribution d'une difference chestL/chestR y est aujourd'hui indecidable.
+            # NATURE : trois LONGUEURS SIGNEES (les coordonnees d'un point), en unites de jeu.
+            # REPERE : la base d'ancre de la cellule DEBOUT i=0, axe `out` ANTI-SYMETRIQUE par
+            #          chaine (chestL +X, chestR -X). Une pose mirroir rend donc les MEMES trois
+            #          nombres des deux cotes ; l'ecart est directement l'ecart au miroir.
+            # LIGNE DE BASE : 0 par construction si le rig est mirroir — il l'est a 0,005 deg en
+            #          pose de bind (mesure du cycle 53), donc tout ecart ici vient de la POSE.
+            if cut == 0.0 and 0 in comN:
+                _o0m, _E0m = frame(0)
+                _rec = {'com': comN[0].copy()}
+                for _n in joints:
+                    _p = (mats[(0, slot[_n])][3, :3] - _o0m) @ _E0m
+                    _rec[_n] = np.array([float(_p @ AX['out']), float(_p @ AX['up']),
+                                         float(_p @ AX['fwd'])])
+                _rec['com'] = np.array([float(comN[0] @ AX['out']), float(comN[0] @ AX['up']),
+                                        float(comN[0] @ AX['fwd'])])
+                _rec['W0'] = defs.get(cut, {}).get('W0')
+                _MIR[cname] = _rec
+
             # LECTURE HORS DEFAUT : la 2e cellule DEBOUT. Elle doit rendre ~0.
             if 9 in comN:
                 P_('C133-COM: %-8s %s LECTURE HORS DEFAUT — i=9 (2e cellule DEBOUT) contre i=0 :'
@@ -446,6 +535,35 @@ def main(txt=None):
             P_('C133-COM: %-8s %s toutes cellules (compte, B0) : %s'
                % (cname, lbl, ' '.join('i%d=%.4f' % (i, float(np.linalg.norm(comN[i] - comN[0])) / bb)
                                        for i in sorted(comN))))
+        P_('')
+
+    # ---- CYCLE 139 : LA LIGNE QUI AUTORISE (OU NON) TOUTE LECTURE GAUCHE/DROITE -------------
+    if len(_MIR) == 2:
+        _a, _b = list(_MIR)
+        P_('C133-COM: --- ECART AU MIROIR DE LA POSE DU BALAYAGE (cellule DEBOUT i=0) ----------')
+        P_('C133-COM: NATURE longueurs signees (u de jeu) · REPERE base d\'ancre, `out`'
+           ' ANTI-SYMETRIQUE · une pose MIROIR rend les memes nombres des deux cotes.')
+        _worst = 0.0
+        for _k in list(CHAINS[_a]) + ['com']:
+            _ka = _k
+            _kb = _k if _k == 'com' else list(CHAINS[_b])[list(CHAINS[_a]).index(_k)]
+            _va, _vb = _MIR[_a][_ka], _MIR[_b][_kb]
+            _d = _va - _vb
+            _w0m = _MIR[_a].get('W0') or 1.0
+            _pc = 100.0 * float(np.linalg.norm(_d)) / _w0m
+            _worst = max(_worst, _pc)
+            P_('C133-COM:   %-9s / %-9s  out %+9.2f / %+9.2f   up %+9.2f / %+9.2f'
+               '   fwd %+9.2f / %+9.2f   |ecart| %8.2f u = %6.2f %% W0'
+               % (_ka, _kb, _va[0], _vb[0], _va[1], _vb[1], _va[2], _vb[2],
+                  float(np.linalg.norm(_d)), _pc))
+        RESULT['mirror'] = _worst
+        P_('C133-COM: ECART AU MIROIR MAXIMAL %.2f %% W0. Seuil declare AVANT la mesure : 5 %%'
+           ' (le meme que le controle de montage de `ROOM-SPEC10`). %s'
+           % (_worst, 'POSE SYMETRIQUE — une difference chestL/chestR mesuree dans cette pose'
+                      ' est attribuable aux chaines.'
+                      if _worst <= 5.0 else
+                      'POSE NON SYMETRIQUE — AUCUNE difference chestL/chestR relevee dans cette'
+                      ' pose n\'est attribuable aux chaines.'))
         P_('')
 
     P_('C133-COM: --- CONTROLE DE PORTAGE ---------------------------------------------------')

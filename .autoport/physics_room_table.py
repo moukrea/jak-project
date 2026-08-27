@@ -2841,6 +2841,14 @@ def _spec10_livree(A, txt):
         A('ROOM-SPEC10: LE COM LIVRE EST REFUSE PAR SON PROPRE CONTROLE DE PORTAGE — le verdict'
           ' retombe sur le SUBSTITUT, et c\'est declare ici plutot que tu.')
         return {}
+    # [CYCLE 139] LES LIGNES DU COM LIVRE ENTRENT DANS LE TABLEAU. Elles etaient CALCULEES a
+    # chaque generation et JETEES (`_l` ignore) : la decomposition signee sur `out`, l'attribution
+    # par joint et l'ecart au miroir de la pose n'existaient qu'en lancant le script a la main.
+    # Une grandeur qui porte un verdict et qui n'apparait pas dans le tableau que le validateur
+    # lit n'est pas publiee — c'est la moitie du piege `refutation-must-be-rebranched-not-just-
+    # written`, prise par le bout de la publication.
+    for _ln in _l:
+        A(_ln)
     return _rows
 
 
@@ -2887,6 +2895,13 @@ def _spec10_block(A, txt, names, com, role, b0, roles=None):
     # une matrice n'existe que COMPLETE : trois rangees, sinon elle n'entre pas.
     dfma = {k: [v[0], v[1], v[2]] for k, v in _rows.items() if len(v) == 3}
 
+    # [CYCLE 139] `PHYSORIW` — LES DEUX OPERATEURS DU CHEMIN D'ECRITURE, TELS QU'APPLIQUES.
+    oriw = {}
+    for m in re.finditer(r'^PHYSORIW c=(\d+) i=(\d+) l=(\d+) mur=([-\d.e+]+)'
+                         r' anc=([-\d.e+]+) grw=([-\d.e+]+)', txt, re.M):
+        oriw[(int(m.group(1)), int(m.group(2)), int(m.group(3)))] = (
+            float(m.group(4)), float(m.group(5)), float(m.group(6)))
+
     A('-- ROOM-SPEC10 : SPEC 10 SUPINE, LES DEUX CLAUSES DE DEPLACEMENT EN PROJECTION -----------')
     A('ROOM-SPEC10: NATURE : deux LONGUEURS SIGNEES (projections d\'un deplacement soutenu),'
       ' en B0 et en % W0.')
@@ -2900,6 +2915,34 @@ def _spec10_block(A, txt, names, com, role, b0, roles=None):
     # l'autre nom de la meme chose, deja employe dans `phys-room.gc` : LECTURE HORS DEFAUT.
     A('ROOM-SPEC10: LECTURE HORS DEFAUT : i=0 est la pose debout d\'auteur, ou sa §9 exige'
       ' 0.0000 ; publiee en ABSOLU.')
+    # ---- CYCLE 139 : CE QUE LES COLONNES CI-DESSOUS NE PEUVENT PAS VOIR, ET QUI EST MESURE --
+    if not oriw:
+        A('ROOM-SPEC10: PHYSORIW ABSENTE de cette trace — les deux operateurs du chemin'
+          ' d\'ecriture ne sont pas publies ; ce qui suit ne les couvre donc pas.')
+    else:
+        A('ROOM-SPEC10: LES DEUX OPERATEURS DU CHEMIN D\'ECRITURE, APPLIQUES (`PHYSORIW`) — ET'
+          ' POURQUOI ILS SONT ICI.')
+        A('ROOM-SPEC10:   Les colonnes `squel.` et `tens.` de ce bloc sont baties sur'
+          ' `PHYSORICOML` (issu de `*phys-ldb*`,')
+        A('ROOM-SPEC10:   jak-hd-physics.gc:3411) et sur `PHYSDFMA` (la 3x3 de `*phys-dfa*`,'
+          ' batie a :3803-3814). LES DEUX')
+        A('ROOM-SPEC10:   PRECEDENT LE CHEMIN D\'ECRITURE (:3908). Le MUR MEDIAN de §10 (c137) et'
+          ' le POINT FIXE de §31')
+        A('ROOM-SPEC10:   (c132) y sont donc INVISIBLES AU BIT — controle c132 : `anch` 0 -> 1'
+          ' change 20 632 des 93 378')
+        A('ROOM-SPEC10:   enregistrements et laisse `PHYSDFMA`/`PHYSORICOML`/`PHYSROW`'
+          ' IDENTIQUES. NATURE : deux LONGUEURS')
+        A('ROOM-SPEC10:   SIGNEES (u de jeu). REPERE : le lateral SORTANT MONDE de la chaine.'
+          ' LECTURE HORS DEFAUT : 0 / 0.')
+        for cc in sorted({k[0] for k in oriw}):
+            _cn2 = names[cc] if cc < len(names) else 'c=%d' % cc
+            for ii in sorted({k[1] for k in oriw if k[0] == cc}):
+                _ls = sorted(l for (a, b, l) in oriw if a == cc and b == ii)
+                A('ROOM-SPEC10: %-8s OPERATEURS i=%-2d  %s'
+                  % (_cn2, ii,
+                     '  '.join('l=%d mur=%+8.3f u anc=%+8.3f u grw=%.4f'
+                               % (l, oriw[(cc, ii, l)][0], oriw[(cc, ii, l)][1],
+                                  oriw[(cc, ii, l)][2]) for l in _ls)))
     A('ROOM-SPEC10: CE QUI RESTE DEHORS, NOMME : `PHYSDFMA` porte dfa x dfb x dfc mais PAS la'
       ' rotation de torsion')
     A('ROOM-SPEC10:   de sa §29, appliquee apres et seulement dans `*phys-dfm*`'
@@ -2907,10 +2950,29 @@ def _spec10_block(A, txt, names, com, role, b0, roles=None):
     A('ROOM-SPEC10:   `PHYSSHAPE2 twm` la mesure a 0.0008 : le terme manquant est de cet ordre,'
       ' il est DECLARE')
     A('ROOM-SPEC10:   et non suppose nul.')
-    A('ROOM-SPEC10: PAS DE LECTURE GAUCHE/DROITE : la pose du balayage d\'orientation n\'a PAS de'
-      ' mesure d\'ecart au')
-    A('ROOM-SPEC10:   miroir (elle est absente de `ROOM-ASYM-POSE`). Chaque chaine est jugee'
-      ' contre la bande de la')
+    # [CYCLE 139] CETTE DECLARATION ETAIT VRAIE ET ELLE NE L'EST PLUS : l'ecart au miroir de la
+    # pose du balayage EST MESURE, sur la cellule debout i=0, par `c133_delivered_com.py`, et il
+    # est publie ci-dessus. Les DIRECTIVES du 2026-08-21 01:20 exigent cette ligne avant toute
+    # lecture gauche/droite ; tant qu'elle manquait, aucune difference chestL/chestR relevee ici
+    # n'etait attribuable aux chaines. Le seuil (5 %) est celui du controle de montage de ce meme
+    # bloc, declare avant la mesure.
+    _mir = None
+    try:
+        import c133_delivered_com as _c133m
+        _mir = _c133m.RESULT.get('mirror')
+    except Exception:                                          # noqa: BLE001
+        _mir = None
+    if _mir is None:
+        A('ROOM-SPEC10: PAS DE LECTURE GAUCHE/DROITE : l\'ecart au miroir de la pose du balayage'
+          ' n\'a pas pu etre calcule')
+        A('ROOM-SPEC10:   cette course. Chaque chaine est jugee contre la bande de la')
+    else:
+        A('ROOM-SPEC10: ECART AU MIROIR DE LA POSE DU BALAYAGE : %.2f %% W0 (seuil declare 5 %%)'
+          ' -> %s' % (_mir, 'POSE SYMETRIQUE' if _mir <= 5.0 else 'POSE NON SYMETRIQUE'))
+        A('ROOM-SPEC10:   %s Chaque chaine reste jugee contre la bande de la'
+          % ('Une difference chestL/chestR relevee dans cette pose EST attribuable aux chaines.'
+             if _mir <= 5.0 else
+             'AUCUNE difference chestL/chestR relevee ici n\'est attribuable aux chaines.'))
     # `notasym=True` : cette ligne NOMME les deux chaines pour DECLARER qu'elle ne les compare
     # pas. Le verrou d'asymetrie la prenait pour une comparaison — c'est la seule derogation
     # prevue, et elle est comptee et LISTEE par `ROOM-ASYM-EXEMPT`, jamais silencieuse.
@@ -3420,6 +3482,55 @@ def _spec10_block(A, txt, names, com, role, b0, roles=None):
                     judged[(c, bnm.strip())] = None
                     A('ROOM-SPEC10: %-8s %-11s VERDICT DE LA CLAUSE : INDÉTERMINÉE (la frontière'
                       ' ou le montage décide) — ensemble %s' % (nm, bnm, '/'.join(allv)))
+            # ---- CYCLE 139 : LA CLAUSE PORTEUSE DE §10 EST RENDUE SUR L'ORGANE LIVRE --------
+            # POURQUOI CE REBRANCHEMENT, ET IL N'EST PAS UN CHOIX DE CONFORT. Le contrat de
+            # perimetre (`.autoport/prompts/SPEC-keira-physique.md`, §7 « CE QUI FAIT FOI »)
+            # ecrit : « La position ECRITE du joint, frame par frame, telle que le moteur
+            # l'ECRIT DANS LE SQUELETTE. Tout en derive. » Les six colonnes ci-dessus sont un
+            # SUBSTITUT calcule AVANT cette ecriture ; `PHYSORIM` publie les matrices ECRITES.
+            # Mesure du cycle 139 : sur la meme course, la meme cellule et la meme frontiere, le
+            # substitut lit +0.797 / -3.744 %% W0 la ou l'organe LIVRE lit +2.968 / -2.662 —
+            # l'ecart vaut plus de la moitie de la distance au plancher de la bande sur chestL.
+            # LES TROIS CONDITIONS DE L'ARBITRAGE DU 2026-08-19 23:50 SONT TENUES :
+            #   (1) le rebranchement vient avec sa COURSE DE CONTROLE (le controle de portage de
+            #       `c133_delivered_com.py` refait les distances de decile de `c124` et tire a
+            #       0.0000 %% ; l'identite de decomposition ferme a 1e-10 u) ;
+            #   (2) LES DEUX lectures sont publiees, avec leurs VRAIES valeurs, cote a cote ;
+            #   (3) la ligne dit ce qu'elle mesure et laquelle porte le verdict.
+            # CE QUI EMPECHE QUE CE SOIT UNE MACHINE A FAIRE PASSER : la meme lecture livree
+            # rend chestR a -2.662 %% W0, c'est-a-dire du MAUVAIS SIGNE — le rebranchement ne
+            # fait pas passer la section, il la fait juger sur ce que le moteur ecrit vraiment.
+            _lv10 = [_LIV.get((nm, _ll, '10')) for _ll in ('w>0.00', 'w>0.05', 'w>=0.25')]
+            _ov = [x['out_pct'] for x in _lv10 if x and 'out_pct' in x]
+            if len(_ov) == 3:
+                _sub = [r_['ou'][0] for r_ in row]
+                _ovd = sorted({_vd(v, 4.0, 10.0) for v in _ov})
+                _r0 = _lv10[0]
+                A('ROOM-SPEC10: %-8s sortant     ORGANE LIVRE (`PHYSORIM`, matrices ECRITES au'
+                  ' squelette) — LA LECTURE QUI PORTE LE VERDICT (contrat §7 « ce qui fait foi ='
+                  ' la position ECRITE du joint ») : frontieres %s %% W0 -> %s'
+                  % (nm, '/'.join('%+.3f' % v for v in _ov), '/'.join(_ovd)))
+                A('ROOM-SPEC10: %-8s sortant       decomposition EXACTE du livre : moitie'
+                  ' ROTATION+TENSEUR %+7.3f %% W0 · moitie TRANSLATION %+7.3f %% W0'
+                  ' (somme %+7.3f, identite fermee)'
+                  % (nm, _r0.get('out_rot', float('nan')), _r0.get('out_trn', float('nan')),
+                     _r0.get('out_pct', float('nan'))))
+                A('ROOM-SPEC10: %-8s sortant       LE SUBSTITUT PRE-ECRITURE EST PUBLIE A COTE,'
+                  ' JAMAIS A LA PLACE : %s %% W0 -> %s  (ecart au livre %+.3f point sur la'
+                  ' frontiere du verdict). Il est AVEUGLE AU BIT au mur median et au point fixe.'
+                  % (nm, '/'.join('%+.3f' % v for v in _sub),
+                     '/'.join(sorted({_vd(v, 4.0, 10.0) for v in _sub})), _ov[0] - _sub[0]))
+                judged[(c, 'sortant')] = _ovd[0] if len(_ovd) == 1 else None
+                if len(_ovd) != 1:
+                    A('ROOM-SPEC10: %-8s sortant     VERDICT DE LA CLAUSE (organe livre) :'
+                      ' INDETERMINEE — la frontiere decide, ensemble %s' % (nm, '/'.join(_ovd)))
+                else:
+                    A('ROOM-SPEC10: %-8s sortant     VERDICT DE LA CLAUSE (organe livre) : %s'
+                      ' (verdict unique sur les trois frontieres)' % (nm, _ovd[0]))
+            else:
+                A('ROOM-SPEC10: %-8s sortant     ORGANE LIVRE INDISPONIBLE — le verdict de la'
+                  ' clause reste sur le SUBSTITUT pre-ecriture, et c\'est declare ici.' % nm)
+
         _syn = ' · '.join('%s %s' % (b.strip(), judged.get((c, b.strip())) or 'INDÉTERMINÉE/NON ÉTABLIE')
                           for b, _k, _lo, _hi, _u in _BANDS)
         _nin = sum(1 for b, _k, _lo, _hi, _u in _BANDS if judged.get((c, b.strip())) == 'DANS')

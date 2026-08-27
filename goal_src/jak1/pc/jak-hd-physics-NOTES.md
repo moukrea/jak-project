@@ -10923,3 +10923,50 @@ invariante par ce lot, ce que la prediction du cycle utilise et que la course do
 `PHYSGRAD31P c= i= p=` sont emises PAR CHAINE et DANS le balayage d'orientation. Elles publient ce
 que le PARSEUR a depose (`r`) ET l'operateur APPLIQUE (`w`), jamais un seul de ses facteurs. Ligne
 de base d'un canal ABSENT : `r0=0 r1=0 w0=1 w1=1 p=0`.
+
+## [NOTE-582]
+
+SPEC 10 / SPEC 31 — LE MUR MEDIAN EST GRADUE, ET LES DEUX OPERATEURS DU CHEMIN D'ECRITURE SONT
+RETENUS PAR MAILLON.
+
+**CE QUE LA MESURE DU CYCLE 139 A ETABLI AVANT D'ECRIRE UNE LIGNE.** Les colonnes `squel.` et
+`tens.` de `ROOM-SPEC10`, qui rendent le verdict de la clause PORTEUSE de §10 (l.169, « Outward
+COM migration per breast: 4-10% W0 »), sont baties sur `PHYSORICOML` (issu de `*phys-ldb*`, ecrit
+a `jak-hd-physics.gc:3411`) et sur `PHYSDFMA` (la 3x3 de `*phys-dfa*`, batie a :3803-3814). Les
+deux PRECEDENT le chemin d'ecriture squelette (:3908). **Donc les deux mecanismes ecrits POUR
+cette clause — le MUR MEDIAN du cycle 137 (:3927-3936) et le POINT FIXE de §31 du cycle 132
+(:3913-3917) — y sont invisibles AU BIT.** Ce n'est pas une question d'amplitude : c'est
+structurel, et c'est MESURE, pas deduit — au cycle 132, deux courses ne differant que par `anch`
+(0 -> 1) changent 20 632 des 93 378 enregistrements et laissent `PHYSDFMA`, `PHYSORICOML`,
+`PHYSORICOM`, `PHYSORICOM2`, `PHYSORICOM2L` et `PHYSROW` **identiques au bit**.
+
+Sur l'ORGANE LIVRE (`PHYSORIM`, les matrices que le moteur ecrit vraiment dans le squelette — la
+grandeur que le contrat de perimetre §7 designe comme « ce qui fait foi »), la meme clause, la
+meme cellule (i=8, supine) et la meme frontiere (w>0.00) rendent **+2,968 %% W0 sur chestL et
+-2,662 sur chestR**, contre **+0,797 / -3,744** pour le substitut. L'ecart vaut plus de la moitie
+de la distance qui separe chestL du plancher de sa bande.
+
+**CE QUE LE LOT ECRIT.**
+
+  1. `mw` devient `medw * max(0, sx-1) * grw_l` : le mur porte desormais le MEME poids de §31 que
+     le tenseur depuis le cycle 138. Le mur du cycle 137 etait un GLISSEMENT RIGIDE — le meme
+     deplacement a la racine et au distal — c'est-a-dire exactement le cas degenere que §10 l.173
+     interdit en gras (« **The entire breast shall not simply scale uniformly from its center.** »)
+     et que §31 l.390 chiffre (« little deformation at the root ; ... largest displacement in
+     distal tissue »). `*phys-grw*` etant normalise par la masse de peau
+     (`SOMME_l comw_l . grw_l = SOMME_l comw_l`), la REDISTRIBUTION ne deplace PAS le centre de
+     masse : la prediction ecrite avant la course (`.autoport/c139-predictions.txt`, P6/P7) est
+     **zero effet sur §10**, et c'est elle qui rend le lot falsifiable. Si le COM bouge de plus de
+     0,01 point, c'est la normalisation du cycle 138 qui est fausse, pas ce lot.
+  2. `*phys-mwa*` et `*phys-anca*` retiennent, PAR MAILLON, les deux operateurs TELS QU'APPLIQUES,
+     projetes SIGNES sur le lateral sortant MONDE de la chaine. `phys-write-op` les expose et
+     `PHYSORIW` (`phys-room.gc`) les publie dans la cellule d'orientation ou le verdict se forme.
+     Sans ces deux cases, les deux canaux ne sont mesurables que par leurs EFFETS — ce que
+     `channel-measured-by-effect-is-not-channel-proven-read` interdit, et ce qui a fait croire au
+     cycle 132 que le point fixe « ne convertit rien » alors que l'instrument ne pouvait pas le
+     voir.
+
+**CE QUE LE LOT NE FAIT PAS, ET C'EST NOMME.** Il n'arme pas `anch` (il reste a 0, donc `anc`
+vaut 0 par algebre sur toute la trace : c'est la LECTURE HORS DEFAUT de `PHYSORIW`). Il ne touche
+pas les volumes de collision : `*phys-rgm*` compose `*phys-dfmq*`, non gradue, et le mur n'entre
+pas dedans — meme couture que le tenseur depuis toujours. Dette nommee, pas corrigee ici.

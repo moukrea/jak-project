@@ -1,0 +1,37 @@
+# CYCLE 139 — PREDICTIONS ECRITES AVANT LA COMPILATION ET AVANT LA COURSE
+# DIRECTIVES vd9e8b66782
+#
+# LOT : (a) le MUR MEDIAN de §10 est gradue par le poids de §31 `*phys-grw*` (c138) au lieu d'etre
+#       un glissement RIGIDE identique sur les deux maillons ; (b) `PHYSORIW` publie, par chaine x
+#       maillon x cellule d'orientation, les DEUX operateurs du chemin d'ecriture tels
+#       qu'APPLIQUES (mur median, point fixe de §31), la ou le verdict de §10 se forme.
+#
+# ENTREES LUES SUR LA COURSE PRECEDENTE (md5 dd3d7273924f3a783af13a8649793069) :
+#   PHYSMEDW c=0 i=8 mw=325.6600 sx=1.2257 d=73.5285   ·   c=1 i=8 mw=325.6700 sx=1.2057 d=67.0158
+#   PHYSGRADSET c=0 w0=1.1035 w1=0.8618                ·   c=1 w0=1.1128 w1=0.7839
+#   comw chestL 0.3266,0.2449 (somme 0.5715)           ·   chestR 0.3581,0.1871 (somme 0.5452)
+#
+# id  grandeur                                            avant      predite            verdict
+# P1  PHYSORIW present, 2 chaines x 11 cellules x 2 maillons  absent   44 lignes            ?
+# P2  PHYSORIW c=0 i=8 mur l=0 / l=1 (u)                  73.53/73.53  81.14 / 63.37        ?
+# P3  PHYSORIW c=1 i=8 mur l=0 / l=1 (u)                  67.02/67.02  74.57 / 52.53        ?
+# P4  PHYSORIW anc, TOUTES cellules et maillons (u)        absent      0.0000 (anch=0,
+#                                                                      identite par algebre) ?
+# P5  controle interne SOMME_l comw_l.mur_l (u)            42.02/36.54 42.02 / 36.54
+#                                                                      (ecart < 0.1 %)       ?
+# P6  §10 sortant ORGANE LIVRE chestL (% W0, w>0.00)       +2.968      +2.968 +/- 0.01       ?
+# P7  §10 sortant ORGANE LIVRE chestR (% W0, w>0.00)       -2.662      -2.662 +/- 0.01       ?
+# P8  PHYSMEDW i=8 d (chain-level, INCHANGE par ce lot)    73.53/67.02 73.53 / 67.02 +/-0.5% ?
+# P9  §11 prone i=6 : le mur ne tire PAS (sx=0.9234 < 1)   -           deciles 1.2629/1.2606
+#                                                                      +/- 0.2 %             ?
+# P10 ROOM-IDLE maxdev                                     0.0001      inchange              ?
+# P11 le maillon DISTAL glisse 13.8 % (chestL) / 21.6 %
+#     (chestR) DE MOINS a i=8 : tout effet sur §22/skinpen
+#     est une BAISSE, jamais une hausse                    -           baisse ou nul         ?
+#
+# LA PREDICTION QUI PORTE LE LOT EST P6/P7 : ELLE ANNONCE ZERO EFFET SUR §10.
+# Le poids de §31 est normalise par la masse de peau (SOMME comw.grw = SOMME comw), donc la
+# REDISTRIBUTION du glissement le long de la chaine ne peut pas deplacer le centre de masse.
+# Ce que le lot gagne est une clause de FORME (§31 l.390, §10 l.173 en gras), pas une amplitude.
+# Si P6/P7 bougent de plus de 0.01 point, le poids n'est PAS normalise comme le c138 l'affirme,
+# et c'est le c138 qu'il faut relire, pas ce lot.

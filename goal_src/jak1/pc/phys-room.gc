@@ -4522,7 +4522,35 @@
                    c oi l
                    (phys-link-dev-anc-abs (-> self slot) c l 0)
                    (phys-link-dev-anc-abs (-> self slot) c l 1)
-                   (phys-link-dev-anc-abs (-> self slot) c l 2))))
+                   (phys-link-dev-anc-abs (-> self slot) c l 2)))
+         ;; -- PHYSORIW : LES DEUX OPERATEURS DU CHEMIN D'ECRITURE, LA OU LE VERDICT DE §10 SE
+         ;;    FORME. Mesure du cycle 139, et c'est la raison d'etre de cette ligne : les colonnes
+         ;;    de `ROOM-SPEC10` sont baties sur `PHYSORICOML` (issu de `*phys-ldb*`, ecrit a
+         ;;    `jak-hd-physics.gc:3411`) et sur `PHYSDFMA` (qui ne publie QUE la 3x3 de
+         ;;    `*phys-dfa*`, batie a :3803-3814). Les deux precedent le chemin d'ecriture (:3908).
+         ;;    Donc le MUR MEDIAN de §10 (c137) et le POINT FIXE de §31 (c132) sont INVISIBLES AU
+         ;;    BIT dans ces colonnes — controle c132 : en passant `anch` de 0 a 1, 20 632 des
+         ;;    93 378 enregistrements changent et `PHYSDFMA`/`PHYSORICOML`/`PHYSROW` restent
+         ;;    identiques. Un canal qu'on ne peut mesurer que par ses effets est exactement ce que
+         ;;    `channel-measured-by-effect-is-not-channel-proven-read` interdit ; cette ligne
+         ;;    publie l'OPERATEUR APPLIQUE, par maillon, dans la cellule qui porte le verdict.
+         ;; NATURE : deux LONGUEURS SIGNEES (des glissements), en unites de jeu. Pas des normes,
+         ;;    pas des amplitudes : leur SIGNE porte l'information (sortant > 0).
+         ;; REPERE : le lateral SORTANT MONDE de CETTE chaine (`*phys-fx*` tourne par l'ancre),
+         ;;    anti-symetrique entre chestL et chestR — un glissement commun au monde y rendrait
+         ;;    des signes OPPOSES, une migration sortante vraie rend le MEME signe des deux cotes.
+         ;; LECTURE HORS DEFAUT : `mur` = 0 des que l'echelle de largeur commandee est <= 1 (le
+         ;;    mur est unilateral : un sternum resiste, il ne tire pas), et `anc` = 0 par ALGEBRE
+         ;;    tant que `anch=0` (le point passe a `phys-pt-exc!` est (0,0,0)).
+         ;; CONTROLE INTERNE : la somme ponderee `SOMME_l comw_l . mur_l` doit valoir le `d` de
+         ;;    `PHYSMEDW` de la meme cellule, parce que le poids de §31 est normalise par la masse
+         ;;    de peau. Un ecart mesure l'erreur du gradient, il ne se corrige pas ici.
+         (dotimes (l (phys-chain-links (-> self slot) c))
+           (format 0 "PHYSORIW c=~D i=~D l=~D mur=~f anc=~f grw=~f~%"
+                   c oi l
+                   (phys-write-op (-> self slot) c l 0)
+                   (phys-write-op (-> self slot) c l 1)
+                   (phys-shape (-> self slot) c (+ 44 l)))))
          ;; ---- LA MEME REPONSE, PASSE PAR PASSE : c'est le corps de l'experience -------------
          ;; Emis sur les QUATRE passes, y compris k=0, pour que la comparaison se fasse entre
          ;; lignes de MEME nature et de MEME emetteur. Comparer une passe de controle a la ligne

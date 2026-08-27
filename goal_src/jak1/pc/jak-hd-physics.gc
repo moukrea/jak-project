@@ -116,7 +116,7 @@
 ;; [NOTE-139] SPEC 14/16/17/18/19/20/22 : L'APEX, SIX SECTIONS LE BORNENT ET RIEN NE LE PUBLIAIT. -> jak-hd-physics-NOTES.md
 (define *phys-apw* (new 'global 'array 'float PHYS-SCL))  ;; `ax` : part de la masse de la region distale portee par ce maillon
 (define *phys-apx* (new 'global 'array 'float PHYS-SCL)) (define *phys-apy* (new 'global 'array 'float PHYS-SCL)) (define *phys-apz* (new 'global 'array 'float PHYS-SCL))
-(define *phys-anx* (new 'global 'array 'float PHYS-SCL)) (define *phys-any* (new 'global 'array 'float PHYS-SCL)) (define *phys-anz* (new 'global 'array 'float PHYS-SCL)) (define *phys-anch* (new 'global 'array 'float PHYS-SC))  ;; `anp`/`anch` : SPEC 31 r=0, espace os local, et son gain (0 = ancre au joint)
+(define *phys-anx* (new 'global 'array 'float PHYS-SCL)) (define *phys-any* (new 'global 'array 'float PHYS-SCL)) (define *phys-anz* (new 'global 'array 'float PHYS-SCL)) (define *phys-anch* (new 'global 'array 'float PHYS-SC)) (define *phys-mwa* (new 'global 'array 'float PHYS-SCL)) (define *phys-anca* (new 'global 'array 'float PHYS-SCL))  ;; `anp`/`anch` : SPEC 31 r=0, espace os local, et son gain (0 = ancre au joint)
 ;; [NOTE-574] SPEC 11 — L'ETAGE RIGIDE : 12 constantes de mesh par chaine (`rg` de physics_mesh.txt), le rapport MESURE chaque frame, et son DENOMINATEUR publie a cote. -> jak-hd-physics-NOTES.md
 (define *phys-rsa* (new 'global 'array 'float (* PHYS-SC 12))) (define *phys-rsok* (new 'global 'array 'int32 PHYS-SC))
 (define *phys-rsv* (new 'global 'array 'float PHYS-SC)) (define *phys-rsd* (new 'global 'array 'float PHYS-SC)) (define *phys-lyd* (new 'global 'array 'float PHYS-SC)) (define *phys-medw* (new 'global 'array 'float PHYS-SC)) (define *phys-mww* (new 'global 'array 'float PHYS-SC))
@@ -3924,11 +3924,16 @@
                                 (matrix-copy! bm tmp))
                               ;; [NOTE-580] SPEC 10 — LE MUR MEDIAN. `mw = medw * max(0, sx-1)` : la penetration que l'elargissement lateral ferait franchir au bord medial de la chair, rendue en glissement SORTANT. Unilaterale (`fmax 0.0`) parce qu'un sternum resiste et ne tire pas. -> jak-hd-physics-NOTES.md
                               (set! (-> *phys-mww* sc) (if (nonzero? (-> *phys-dfon* sc)) (* (-> *phys-medw* sc) (fmax 0.0 (- (-> *phys-dfs* (* sc 3)) 1.0))) 0.0))
-                              (when (> (-> *phys-mww* sc) 0.0)
-                                (let ((mw (-> *phys-mww* sc)) (ar (the-as matrix (-> skel bones (+ an 1) transform))) (fv (-> *phys-fx* sc)))
-                                  (set! (-> bm vector 3 x) (+ (* mw (+ (* (-> fv x) (-> ar vector 0 x)) (+ (* (-> fv y) (-> ar vector 1 x)) (* (-> fv z) (-> ar vector 2 x))))) (-> bm vector 3 x)))
-                                  (set! (-> bm vector 3 y) (+ (* mw (+ (* (-> fv x) (-> ar vector 0 y)) (+ (* (-> fv y) (-> ar vector 1 y)) (* (-> fv z) (-> ar vector 2 y))))) (-> bm vector 3 y)))
-                                  (set! (-> bm vector 3 z) (+ (* mw (+ (* (-> fv x) (-> ar vector 0 z)) (+ (* (-> fv y) (-> ar vector 1 z)) (* (-> fv z) (-> ar vector 2 z))))) (-> bm vector 3 z)))))
+                              ;; [NOTE-582] SPEC 10/31 — LE MUR MEDIAN EST GRADUE PAR LE POIDS DE §31, ET LES DEUX OPERATEURS DU CHEMIN D'ECRITURE SONT RETENUS PAR MAILLON. Le mur du c137 etait un GLISSEMENT RIGIDE : le meme `mw` a la racine et au distal, c'est-a-dire le cas degenere que §10 l.173 interdit en gras (« shall not simply scale uniformly from its center ») et que §31 l.390 chiffre (« little deformation at the root ; largest displacement in distal tissue »). Il porte desormais le MEME poids `*phys-grw*` que le tenseur depuis le c138 ; ce poids etant normalise par la masse de peau (SOMME comw.grw = SOMME comw), la REDISTRIBUTION ne change pas le COM livre — prediction ecrite avant la course. `PHYSDFMA` ne publie que la 3x3 et `*phys-ldb*` est ecrit 500 lignes plus haut : le mur median et le point fixe de §31 sont INVISIBLES AU BIT dans les colonnes qui rendent le verdict de §10 (controle c132 : 20 632 enregistrements changent, `PHYSDFMA`/`PHYSORICOML`/`PHYSROW` identiques). Sans ces deux cases, les deux canaux ne sont mesurables que par leurs EFFETS. -> jak-hd-physics-NOTES.md
+                              (let* ((ar (the-as matrix (-> skel bones (+ an 1) transform))) (fv (-> *phys-fx* sc)) (mw (* (-> *phys-mww* sc) (-> *phys-grw* scl)))
+                                     (wx (+ (* (-> fv x) (-> ar vector 0 x)) (+ (* (-> fv y) (-> ar vector 1 x)) (* (-> fv z) (-> ar vector 2 x))))) (wy (+ (* (-> fv x) (-> ar vector 0 y)) (+ (* (-> fv y) (-> ar vector 1 y)) (* (-> fv z) (-> ar vector 2 y))))) (wz (+ (* (-> fv x) (-> ar vector 0 z)) (+ (* (-> fv y) (-> ar vector 1 z)) (* (-> fv z) (-> ar vector 2 z))))))
+                                ;; l'operateur APPLIQUE, projete SIGNE sur le lateral SORTANT de CETTE chaine : a cet instant `bm vector 3` ne porte QUE la translation posee par le point fixe (`- c2`), la position du solveur n'y est pas encore additionnee.
+                                (set! (-> *phys-anca* scl) (+ (* wx (-> bm vector 3 x)) (+ (* wy (-> bm vector 3 y)) (* wz (-> bm vector 3 z)))))
+                                (set! (-> *phys-mwa* scl) mw)
+                                (when (> mw 0.0)
+                                  (set! (-> bm vector 3 x) (+ (* mw wx) (-> bm vector 3 x)))
+                                  (set! (-> bm vector 3 y) (+ (* mw wy) (-> bm vector 3 y)))
+                                  (set! (-> bm vector 3 z) (+ (* mw wz) (-> bm vector 3 z)))))
                               (set! (-> bm vector 3 x) (+ (-> *phys-px* scl) (-> bm vector 3 x)))
                               (set! (-> bm vector 3 y) (+ (-> *phys-py* scl) (-> bm vector 3 y)))
                               (set! (-> bm vector 3 z) (+ (-> *phys-pz* scl) (-> bm vector 3 z)))
@@ -4297,6 +4302,10 @@
           (< (phys-stat slot chain 0) 0.5))
     0.0
     (-> *phys-ldb* (+ (* (+ (* (+ (* slot PHYS-CHAINS) chain) PHYS-LINKS) link) 3) axis))))
+
+(defun phys-write-op ((slot int) (chain int) (link int) (which int))
+  "[NOTE-582] LES DEUX OPERATEURS DU CHEMIN D'ECRITURE, TELS QU'APPLIQUES. w=0 : le glissement du MUR MEDIAN de §10, en unites de jeu, le long du lateral SORTANT par construction. w=1 : la projection SIGNEE sur ce meme lateral de la translation que le POINT FIXE de §31 a posee (`anch`=0 -> 0.0 par algebre). LECTURE HORS DEFAUT : 0.0 pour les deux. NATURE : deux LONGUEURS SIGNEES. REPERE : le lateral sortant MONDE de la chaine."
+  (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS) (< link 0) (>= link PHYS-LINKS)) 0.0 (let ((scl (+ (* (+ (* slot PHYS-CHAINS) chain) PHYS-LINKS) link))) (if (zero? which) (-> *phys-mwa* scl) (-> *phys-anca* scl)))))
 
 (defun phys-chain-axis ((slot int) (chain int) (which int))
   "LA CLASSIFICATION DU TRIEDRE, TELLE QUE LE SOLVEUR L'A FAITE, pour qu'elle soit RELISIBLE dans la trace au lieu d'etre supposee. Table de `which` : [NOTE-520] de jak-hd-physics-NOTES.md."
