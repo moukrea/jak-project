@@ -1,0 +1,71 @@
+CYCLE 126 — PREDICTIONS ECRITES AVANT TOUT CALCUL
+DIRECTIVES vd9e8b66782 · phase Grecharged-secondary-motion · poitrine de Keira seule.
+Horodatage : 2026-08-27. AUCUNE course neuve : tout se lit sur la trace LIVREE du cycle 125
+(`keira-room-x86.log`, md5 abb090c9bd72d5dfd0268034a384f932) et sur le mesh livre. Zero build.
+
+SECTION DONT CE CYCLE DEBLOQUE LE VERDICT (exigence DIRECTIVES 2026-08-21 18:25, nommee AVANT de
+commencer) : **§11, clause « Root-to-apex length: +18 to +26% » (l.179-182)**, et par le meme
+instrument **§10, clause « Forward projection: -25 to -35% » (l.165-167)**.
+
+CE QUE JE VAIS TESTER, ET POURQUOI. Le cycle 125 a publie un RENDEMENT de 1,185 a 1,203 entre
+l'echelle COMMANDEE (1,2125-1,2195, DANS la bande) et la forme LIVREE (1,4370-1,4588, AU-DESSUS),
+et a nomme ce rendement comme la cible chiffree du prochain cycle. Avant de depenser un chantier
+dessus — regle du 2026-08-21 18:40, un contre-controle INDEPENDANT est exige avant d'engager une
+conversion, et le 2026-08-21 20:50 montre ce que coute de ne pas le faire — je verifie que la
+GRANDEUR sur laquelle ce rendement est bati est bien celle que la section NOMME.
+
+  La grandeur publiee est l'ECART-TYPE PONDERE du nuage de peau le long de l'axe `fwd`, en base
+  d'ancre. **Un ecart-type le long d'un axe fixe n'est PAS invariant par ROTATION du nuage.** Si
+  la chaine BASCULE (pendule) de sorte que le grand axe du sein se rapproche de `fwd`, la sigma
+  `fwd` monte et les sigmas `out`/`up` baissent, SANS un gramme d'etirement de tissu.
+  Or la section nomme une **LONGUEUR racine->apex**, qui est invariante par rotation, et §22 ecrit
+  en toutes lettres « Translation, rotation and redistribution shall account for most of the
+  excursion » — la spec ATTEND donc que la rotation porte l'essentiel.
+  C'est la faute du 2026-08-20 07:20 (« un axe de mesure qui n'est pas celui que la spec DEFINIT
+  est un axe faux »), qui avait deplace six sections d'un coup.
+
+INSTRUMENTS (tous sur donnees deja sur disque) :
+  (1) DECOMPOSITION POLAIRE de chaque matrice d'os LIVREE : M3 = R . S, R orthonormale (rotation
+      pure), S symetrique definie positive (etirement pur). Trois nuages re-skinnes :
+        FULL    = M telle que livree                     -> doit REPRODUIRE le cycle 125
+        RIGID   = R seule (rotation + translation, S=I)   -> la part que la ROTATION explique
+        STRETCH = S seule (etirement sans reorientation)  -> la part de TISSU
+  (2) LONGUEUR RACINE->APEX DIRECTE, la grandeur que §11 nomme : deux POPULATIONS de sommets
+      FIXEES A LA POSE DE BIND (decile le plus proximal et decile le plus distal le long de l'axe
+      `fwd` de bind), centroides ponderes par la masse, longueur = |centroide_apex - centroide_
+      racine|. Invariante par rotation ET par translation. Rapport a la cellule i=0.
+
+P1  LA ROTATION PORTE L'ESSENTIEL DU « DEPASSEMENT » DE §11. Le nuage RIGID (rotation seule,
+    ZERO etirement) rend deja un rapport `fwd` d'au moins 1,30 sur la cellule PRONE, sur les deux
+    chaines. FALSIFICATEUR : RIGID rend moins de 1,15 sur `fwd`, auquel cas le depassement est
+    bien de l'etirement et la cible du cycle 125 tient telle quelle.
+
+P2  LA LONGUEUR RACINE->APEX, LUE COMME LA SECTION LA NOMME, EST PLUS BASSE QUE LE 1,4370-1,4588
+    PUBLIE, D'AU MOINS 8 POINTS DE POURCENTAGE sur les deux chaines.
+    FALSIFICATEUR : elle tombe a moins de 8 points du chiffre publie (donc >= 1,357), auquel cas
+    la sigma `fwd` etait un proxy acceptable et le verdict du cycle 125 est confirme.
+
+P3  LA LONGUEUR RACINE->APEX ENTRE DANS LA BANDE 1,18-1,26 SUR AU MOINS UNE DES DEUX CHAINES.
+    C'est la prediction la plus exposee du lot : elle peut echouer alors que P1 et P2 tiennent.
+    FALSIFICATEUR : les deux chaines restent hors bande.
+
+P4  LE PRODUIT DES TROIS RAPPORTS DE SIGMA N'EST PAS CONSERVE ENTRE FULL ET RIGID. Une rotation
+    pure d'un nuage NE conserve PAS le produit des trois sigmas d'axe (elle conserve le
+    determinant de la covariance, pas le produit des variances marginales) ; si le produit bougeait
+    de moins de 1 %, ma lecture de P1 serait suspecte.
+    FALSIFICATEUR : |produit_FULL / produit_RIGID - 1| < 1 % sur les quatre (chaine, frontiere).
+
+P5  CONTROLE NEGATIF DE L'INSTRUMENT : a la cellule i=0 (pose debout d'auteur, la ligne de base),
+    les trois nuages FULL / RIGID / STRETCH rendent le MEME rapport, 1,0000 a 1e-6 pres, par
+    construction. Et a la 2e cellule DEBOUT i=9, la longueur racine->apex rend 1,000 +- 1 %.
+    FALSIFICATEUR : un ecart au-dela de ces seuils = le portage du skinning ou la decomposition
+    est faux, et RIEN n'est publie.
+
+P6  CONTROLE POSITIF, DECLARE D'AVANCE : j'injecte un etirement CONNU de x1,50 le long de `fwd`
+    dans les matrices livrees, et la longueur racine->apex doit MONTER de 50 % +- 10 % sur la
+    cellule PRONE. Un instrument qui ne bouge pas quand on injecte le defaut ne mesure rien.
+    FALSIFICATEUR : la montee sort de 40-60 %.
+
+CE QUE CE CYCLE NE FERA PAS : il ne touche NI le solveur, NI la salle, NI une gate. Si P1/P2
+tiennent, la conclusion est une CORRECTION DE MON PROPRE VERDICT du cycle 125, pas un correctif
+de moteur — et elle se publie comme telle.
