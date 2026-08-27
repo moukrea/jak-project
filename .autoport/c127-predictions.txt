@@ -1,0 +1,97 @@
+CYCLE 127 — PREDICTIONS ECRITES AVANT TOUT CALCUL
+DIRECTIVES vd9e8b66782 · phase Grecharged-secondary-motion · poitrine de Keira seule.
+Horodatage : 2026-08-27. AUCUNE course neuve : trace LIVREE `keira-room-x86.log`,
+md5 abb090c9bd72d5dfd0268034a384f932 (identique au cycle 125/126). Zero build.
+
+SECTION DONT CE CYCLE DEBLOQUE LE VERDICT (exigence DIRECTIVES 2026-08-21 18:25, nommee AVANT de
+commencer) : **§11 « Root-to-apex length: +18 to +26% » (l.179)** en premier, et **§10 « Forward
+projection: -25 to -35% » (l.165)** en second — les deux partagent l'etage que le cycle 126 a nomme.
+
+CE QUE JE TESTE, ET POURQUOI. Le cycle 126 a REFUTE la route « commander au tenseur le residu
+cible/rigide » sur la base de DEUX arguments. Je les separe, parce que je crois qu'ils n'ont pas la
+meme force :
+  (a) la composition `livree/(rigide x applique)` s'ecarte de 16,87 % sur §10 (mais de 2,9-4,7 %
+      seulement sur §11) — argument METROLOGIQUE, il ne vise que §10 ;
+  (b) « 7 cellules sur 8 exigent une commande HORS de la bande de leur propre section » — argument
+      de PRINCIPE, applique aux deux sections.
+L'argument (b) suppose que la cle du preset et la grandeur observable sont LE MEME objet. Elles ne
+le sont pas : depuis le cycle 125 la grandeur du verdict est mesuree sur la PEAU RE-SKINNEE, donc
+independante de ce qu'on injecte. Commander 1,11 au tenseur et LIRE 1,23 sur la peau n'est pas un
+miroir — c'est l'inverse d'un miroir. Mais (b) porte AUSSI une vraie alerte, et elle est propre a
+§10 : commander une EXPANSION (>1,0) pour livrer un APLATISSEMENT signalerait que l'etage RIGIDE
+aplatit deja au-dela de la bande, auquel cas AUCUN reglage de tenseur ne sauve §10.
+
+LA QUESTION QUI TRANCHE, ET ELLE N'A JAMAIS ETE POSEE : **QUE VAUT LA SAILLIE AVANT DE §10 SUR LE
+NUAGE `RIGID` SEUL ?** Le cycle 126 a publie `RIGID` pour la LONGUEUR de §11 (1,0977-1,1415) et
+JAMAIS pour la SAILLIE de §10. Les deux se lisent pourtant sur le meme `res` deja calcule :
+saillie = Lpp x cos(ang), les deux champs sont dans la structure.
+
+P1  SUR LA CELLULE SUPINE, LE NUAGE `RIGID` (rotation pure, S=I, ZERO etirement de tissu) REND UNE
+    SAILLIE AVANT DEJA SOUS LE PLANCHER DE §10 (< 0,65) SUR AU MOINS 3 DES 4 CELLULES.
+    Si c'est vrai : la reconfiguration de la chaine A ELLE SEULE aplatit plus que la spec n'autorise
+    au TOTAL, donc §10 n'est pas un probleme de tenseur et la route « commander le residu » est
+    close pour elle par une raison PHYSIQUE, pas par un principe.
+    FALSIFICATEUR : `RIGID` rend >= 0,65 sur 2 cellules ou plus. Alors l'exces d'aplatissement vient
+    du tenseur, l'argument (b) tombe aussi pour §10, et la route residuelle reste ouverte pour les
+    DEUX sections.
+
+P2  SUR LA CELLULE PRONE, `RIGID` REND ENTRE 1,05 ET 1,18 SUR LA LONGUEUR DE §11 (le cycle 126 a
+    publie 1,0977-1,1415 ; je re-derive par un autre chemin et j'exige la meme valeur a 1 % pres).
+    FALSIFICATEUR : ecart > 1 % au chiffre du cycle 126 = mon portage est faux, RIEN n'est publie.
+
+P3  LA COMMANDE RESIDUELLE DE §11, `cible / rigide`, TOMBE ENTRE 1,05 ET 1,15 SUR LES 4 CELLULES.
+    C'est le chiffre que le solveur devrait commander pour livrer 1,23. Le cycle 126 a trouve par
+    un balayage independant un intervalle admissible NON VIDE lam = 1,1060-1,1384 ; les deux
+    derivations doivent se recouvrir.
+    FALSIFICATEUR : les deux intervalles ne se recouvrent pas -> l'une des deux derivations est
+    fausse et rien n'est engage.
+
+P4  CONTROLE NEGATIF, LECTURE HORS DEFAUT : a la 2e cellule DEBOUT i=9, que rien ne relie a i=0
+    dans le balayage, les trois nuages FULL/RIGID/STRETCH rendent 1,000 +- 1 % sur LES DEUX
+    grandeurs (longueur de §11 ET saillie de §10).
+    FALSIFICATEUR : au-dela de 1 % -> l'instrument est faux, RIEN n'est publie.
+
+P5  CONTROLE DE NON-VACUITE DE LA SAILLIE : la saillie de §10 sur le nuage `FULL` doit reproduire
+    le 0,4619 / 0,4635 / 0,5367 / 0,4757 publie au cycle 126 (`c126c_named_quantities.py`) a 0,5 %
+    pres. Si mon chemin de calcul ne retrouve pas le chiffre deja publie par un autre script, il ne
+    mesure pas la meme chose et rien n'est publie.
+
+CE QUE CE CYCLE NE FERA PAS SUR LA FOI DE CES SEULS CHIFFRES : il ne touche a aucune gate. Si P1
+tient, §10 recoit une CAUSE nommee (l'etage rigide) et non un reglage. Si P1 est falsifiee, c'est
+MON argument qui tombe et je le publie comme tel.
+
+--------------------------------------------------------------------------------------------------
+SECONDE SERIE — ECRITE APRES P1..P5 ET AVANT TOUT CALCUL DE P6/P7.
+Motif de la seconde serie : P1 est REFUTEE (l'etage rigide de §10 rend 0,7102-0,7615 pour une bande
+0,65-0,75 : il est DANS, pas au-dela). Le double compte est donc confirme et CHIFFRE PAR ETAGE, et
+la route residuelle redevient la seule non vide. Reste a savoir si le MOTEUR peut calculer lui-meme
+l'etage rigide, ou s'il lui faut une grandeur qu'il n'a pas.
+
+CE QUI A CHANGE LA CIBLE : le registre etablit que §10 n'est PAS tenue par sa clause de projection
+mais par « Outward COM migration per breast: 4-10% W0 », mesuree a +0,797 / -3,744 % W0 (c123b),
+soit 80 % et 194 % sous le plancher — et la route « retirer le cisaillement » y est deja refutee.
+Donc AUCUN reglage du tenseur ne convertit §10, et exiger de la route residuelle qu'elle serve
+AUSSI §10 — ce que fait la refutation du cycle 126 — couple deux sections que rien ne couple.
+**LA CIBLE DE CE CYCLE EST §11 SEULE, ET ELLE EST NOMMEE ICI AVANT TOUTE EDITION.**
+
+P6  UN PROXY QUE LE MOTEUR PEUT CALCULER PREDIT L'ETAGE RIGIDE MESURE PAR L'INSTRUMENT.
+    Le proxy candidat n'utilise QUE des grandeurs deja presentes dans le solveur a l'etape (b) :
+    les positions de joint SOLVEES. Proxy = |pos(distal) - pos(proximal)| rapporte a sa valeur a la
+    cellule i=0, et sa projection signee sur `fwd` pour la clause de §10.
+    PREDICTION : sur la cellule PRONE, le proxy est a moins de 5 points de pourcentage du RIGID
+    mesure (1,0977-1,1415) sur les 2 chaines.
+    FALSIFICATEUR : ecart > 5 points -> le proxy N'EST PAS admissible, la route residuelle exige
+    une grandeur que le moteur n'a pas, et je le publie comme tel au lieu de cabler un proxy faux.
+    C'est la faute `un-proxy-deux-clauses-biais-OPPOSES` : un proxy se VALIDE contre la grandeur
+    nommee avant d'etre cable, jamais apres.
+
+P7  SI P6 TIENT : LA COMMANDE RESIDUELLE `cible / proxy` TOMBE DANS L'INTERVALLE ADMISSIBLE
+    INDEPENDANT DU CYCLE 126 (lam 1,1060-1,1384), une fois corrigee du facteur de composition
+    MESURE kappa = livree/(rigide x commande) = 0,9513-0,9695 sur les 4 cellules de §11.
+    Note honnete ecrite d'avance : ma derivation ANALYTIQUE de P3 (sans kappa) rend 1,0750-1,1038
+    et NE RECOUVRE PAS l'intervalle du cycle 126 — P3 est donc REFUTEE PAR SON PROPRE
+    FALSIFICATEUR, et la raison est identifiee : elle suppose une composition exactement
+    multiplicative que les memes donnees mesurent a 0,951-0,970. Corrigee de kappa, l'intersection
+    devient 1,1300-1,1499 et recouvre 1,1300-1,1384.
+    FALSIFICATEUR DE P7 : le recouvrement corrige est vide -> les deux derivations se contredisent
+    et RIEN n'est cable.
