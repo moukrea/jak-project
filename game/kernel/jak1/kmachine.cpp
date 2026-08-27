@@ -862,6 +862,28 @@ void pc_set_crisp_title_logo(u32 on) {
   Gfx::g_global_settings.recharged_crisp_title_logo = v;
 }
 
+// Gprecompute-deterministic-bake: push the MESH SUBDIVISION level from GOAL
+// (pc-set-mesh-subdiv-rounds!, menu row OPTIONS > GRAPHICS > MESH SUBDIVISION). This is the number
+// of PRE-SUBDIVISION ROUNDS the loader hands the hardware tessellator: 0 = no refinement at all,
+// 1 = the shipped default, 2-3 = denser for machines with the budget. Loader.cpp clamps and reads
+// it once per level load, so a change here only takes effect at the NEXT LEVEL LOAD (the
+// refinement runs on the loading thread). Clamped both ways: GOAL passes a raw int and a negative
+// or out-of-range value must not reach the loader. Logs on CHANGE only (update-to-os pushes this
+// every frame), so a device log proves the GOAL->C++ link without spamming.
+void pc_set_mesh_subdiv_rounds(s32 rounds) {
+  const int v = std::max(0, std::min((int)rounds, 3));
+  // Log the FIRST push as well as every change. update-to-os pushes this every frame, so
+  // "on change only" would print nothing at all when the setting sits at its default — and then a
+  // device log could not tell "the GOAL->C++ link works and the value is 1" from "the link is dead".
+  // One line at boot proves the link; after that only real changes speak.
+  static bool first_push = true;
+  if (first_push || v != Gfx::g_global_settings.recharged_mesh_subdiv_rounds) {
+    lg::info("[mesh-subdiv] level -> {} round(s) (applies at next level load)", v);
+    first_push = false;
+  }
+  Gfx::g_global_settings.recharged_mesh_subdiv_rounds = v;
+}
+
 // Grecharged-hd-models: push the "enhanced models" on/off toggle from GOAL
 // (-> *pc-settings* recharged-enhanced-models?). 0 = off (stock low-poly). Applies live to
 // village FR3 (Samos/Keira); the common FR3 (Jak/Daxter) is seeded from persisted settings at
@@ -4292,6 +4314,9 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-set-foliage-wind!", (void*)pc_set_foliage_wind);
   // Grecharged-title-logo-fullres: CRISP TITLE LOGO toggle (native-res title/boot logo draw)
   make_function_symbol_from_c("pc-set-crisp-title-logo!", (void*)pc_set_crisp_title_logo);
+  // Gprecompute-deterministic-bake: MESH SUBDIVISION level (pre-subdivision round count 0..3).
+  // Registered UNCONDITIONALLY, like the setting field itself (gfx.h, outside OG_FEAT_PBR).
+  make_function_symbol_from_c("pc-set-mesh-subdiv-rounds!", (void*)pc_set_mesh_subdiv_rounds);
   // Grecharged-mesh-browser: the debug mesh-browser back end (index load + row getters + checker
   // toggle + identifier export). See the block above InitMachine_PCPort.
   make_function_symbol_from_c("pc-mesh-index-load!", (void*)pc_mesh_index_load);

@@ -1,8 +1,18 @@
 #include "build_level.h"
 
+#include "common/custom_data/TangentDerive.h"
+
 void save_pc_data(const std::string& nickname,
                   tfrag3::Level& data,
                   const fs::path& fr3_output_dir) {
+  // Gprecompute-deterministic-bake (owner 2026-08-26): a custom level is an fr3 like any other, so
+  // it carries its per-vertex tangents baked too. Without this the loader would find no baked array
+  // and fall back to a Duff/Frisvad basis for the whole level — safe, continuous, but not the
+  // authored UV frame, and it would say so once per tree in the log.
+  {
+    tfrag3::TangentBakeStats tb;
+    tfrag3::bake_deterministic_tangents(data, &tb);
+  }
   Serializer ser;
   data.serialize(ser);
   auto compressed =

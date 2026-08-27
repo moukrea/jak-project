@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <functional>
@@ -9,6 +10,8 @@
 #include <sstream>
 #include <unordered_map>
 
+#include "common/custom_data/TangentDerive.h"
+#include "common/custom_data/normal_pack.h"
 #include "common/log/log.h"
 #include "common/util/Assert.h"
 #include "common/util/FileUtil.h"
@@ -72,6 +75,9 @@ void TieWindInstance::serialize(Serializer& ser) {
 }
 
 void TfragTree::serialize(Serializer& ser) {
+  ser.from_pod_vector(&baked_tangents);  // Gprecompute-deterministic-bake: per-vertex tangents,
+  // derived ONCE by the fr3 extractor (TangentDerive.cpp) instead of on every load on every machine.
+  // 4 bytes/vertex, 2-10-10-10 + handedness bit. fr3 version 44.
   ser.from_ptr(&kind);
 
   if (ser.is_saving()) {
@@ -253,12 +259,13 @@ void tie_normal_v3(__m128* out, const std::array<math::Vector4f, 4>& in) {
 }
  */
 
-// REOPEN#7: forward decls — defined lower (next to the smooth-normal reconstruction they mirror) but
-// called from TieTree::unpack (here) as well as TfragTree::unpack.
-static void reconstruct_tfrag_tangents(const std::vector<PreloadedVertex>& verts,
-                                       const std::vector<u32>& indices,
-                                       bool use_strips,
-                                       std::vector<math::Vector4f>& out_tangents);
+// Gprecompute-deterministic-bake — forward decl; defined lower (next to the diagnostics it feeds) but
+// called from TieTree::unpack (here) as well as TfragTree::unpack. EXPANDS the tangents the fr3
+// already carries; it does not derive them (that is TangentDerive.cpp, run by the fr3 extractor).
+static void apply_baked_tangents(const std::vector<u16>& baked,
+                                 const std::vector<PreloadedVertex>& verts,
+                                 std::vector<math::Vector4f>& out_tangents,
+                                 const char* system_label);
 // TIE mostly ships WITHOUT per-vertex normals (nor==0 for ~98% of verts), so its PBR shading fell
 // back to the discontinuous derivative normal => cracks on wall faces (not just tfrag ground). Fill
 // the MISSING tie normals with crease-aware smooth normals (welded by world position) so tie gets a
@@ -427,7 +434,9 @@ void TieTree::unpack() {
   // smooth normals (welded by world position) so tie walls get a CONTINUOUS base normal, then compute
   // the per-vertex tangents for the continuous PBR TBN (non-envmap TIE draws use the TFRAG3 shader).
   reconstruct_tie_smooth_normals(unpacked.vertices, unpacked.indices, use_strips);
-  reconstruct_tfrag_tangents(unpacked.vertices, unpacked.indices, use_strips, unpacked.tangents);
+  // Gprecompute-deterministic-bake: the per-vertex tangents are NOT re-derived here any more — the
+  // fr3 carries them (baked_tangents), so this is a dequantise loop instead of a full triangle walk.
+  apply_baked_tangents(baked_tangents, unpacked.vertices, unpacked.tangents, "tie");
 }
 
 void ShrubTree::unpack() {
@@ -569,20 +578,6 @@ static std::atomic<u64> g_tanframe_handed{0};       // pairs whose tangent HANDE
 static std::atomic<u64> g_tanframe_groups{0};       // multitree groups actually analysed (>=2 valid frames)
 static std::atomic<u64> g_tanframe_incoherent{0};   // analysed groups whose max |ang| exceeds 30 deg
 
-// PBR POLISH (owner playtest #16, defect 1: "displacement in the WRONG DIRECTION in places on the SAME
-// texture") — MEASUREMENT ONLY. How far is the OLD world-derived normal-map frame (the shader's
-// stable_frame(), built from the smooth NORMAL alone, UVs ignored) rotated away from the AUTHORED UV
-// tangent frame at each vertex? Past 90 deg the relief is lit from the opposite side => bumps read as
-// pits. Only verts carrying a REAL UV-derived tangent are measurable (backfilled ones have no UV ref).
-static std::atomic<u64> g_wframe_verts{0};           // vertices with a REAL uv-derived tangent, measured
-static std::atomic<u64> g_wframe_h0{0};              // |rot| in [0,5)
-static std::atomic<u64> g_wframe_h1{0};              // |rot| in [5,15)
-static std::atomic<u64> g_wframe_h2{0};              // |rot| in [15,45)
-static std::atomic<u64> g_wframe_h3{0};              // |rot| in [45,90)
-static std::atomic<u64> g_wframe_h4{0};              // |rot| in [90,135)
-static std::atomic<u64> g_wframe_h5{0};              // |rot| in [135,180]
-static std::atomic<u64> g_wframe_over90{0};          // |rot| > 90 == inverted relief
-static std::atomic<u64> g_wframe_rot_sum_milli{0};   // sum of |rot| in milli-degrees (for the mean)
 
 // ============================================================================================
 // STEP A (owner STRICT ORDER, 2026-07-24) — TRUE TOPOLOGICAL FUSE (genuine index-buffer merge).
@@ -1074,78 +1069,48 @@ static void reconstruct_tie_smooth_normals(std::vector<PreloadedVertex>& verts,
            n, num_groups, dbg_filled, dbg_edge_welds);
 }
 
-// Unpack a 2-10-10-10 GL normal (as written by pack_to_gl_normal: stored int = component * 511)
-// back to a unit vector. Used only to orthonormalize the per-vertex tangent against the same
-// smooth normal the shader interpolates.
-static math::Vector3f unpack_gl_normal_2_10_10_10(u32 packed) {
-  auto sext10 = [](u32 v) -> int {
-    v &= 0x3ffu;
-    return (v & 0x200u) ? (int)v - 1024 : (int)v;
-  };
-  math::Vector3f n((float)sext10(packed), (float)sext10(packed >> 10), (float)sext10(packed >> 20));
-  float l = n.length();
-  return l > 1e-6f ? n * (1.f / l) : math::Vector3f(0.f, 0.f, 0.f);
-}
-
-// The exact inverse of unpack_gl_normal_2_10_10_10 above, and bit-identical to
-// MeshConsolidate.cpp's pack_nor(): stored int = round(component * 511), saturated to the signed
-// 10-bit range. Round 32 needs it because mesh_positivity_repair_level() has to verify its repair on
-// the QUANTISED normal — the one the shader actually reads — rather than on the float it computed.
-static u32 pack_gl_normal_2_10_10_10(const math::Vector3f& n) {
-  auto sat = [](float f) -> u32 {
-    int v = (int)std::lround(f * 511.f);
-    v = std::max(-511, std::min(511, v));
-    return (u32)v & 0x3ffu;
-  };
-  return sat(n.x()) | (sat(n.y()) << 10) | (sat(n.z()) << 20);
-}
-
-// Grecharged-pbr-realtime-fusion REOPEN#9 — Duff et al. 2017 branchless orthonormal basis: a CONTINUOUS
-// tangent built purely from a unit normal, used to BACKFILL vertices whose UV-derived tangent is
-// degenerate (degenerate/mirrored UV islands, or a missing smooth normal). The denominator magnitude
-// stays in [1,2] so it is numerically stable for every normal. A continuous per-vertex tangent — even an
-// arbitrary one — keeps the shader OFF the screen-space-derivative fallback, which is the proven source
-// of the owner's hard triangular facets (per-triangle-constant, jumps at every edge).
-static math::Vector3f duff_tangent_from_normal(const math::Vector3f& n) {
-  float s = n.z() >= 0.f ? 1.f : -1.f;
-  float a = -1.f / (s + n.z());
-  math::Vector3f t(1.f + s * n.x() * n.x() * a, s * n.x() * n.y() * a, -s * n.x());
-  float l = t.length();
-  return l > 1e-6f ? t * (1.f / l) : math::Vector3f(1.f, 0.f, 0.f);
-}
-
 namespace {
 // REOPEN#9 device-provable tangent-fallback coverage. The Honor OBSCURES logcat (HKS encryption), so the
 // coverage must land in a FILE the supervisor can pull with
-// `run-as org.opengoal.gk.jak1 cat files/pbr_tan_diag.txt`. Accumulated across the trees unpacked this
-// session (loader thread => guarded). ground_would_fallback = ground verts (N.y>0.7) whose UV tangent was
-// degenerate (the OLD screen-derivative facet source); after the Duff/Frisvad backfill EVERY vertex
-// carries a unit tangent, so the shader per-vertex-tangent coverage is 100% and the screen-derivative
-// fallback fraction is 0.
-std::mutex g_tan_diag_mtx;
-struct TanDiag {
-  u64 total_verts = 0;
-  u64 uv_tangent = 0;
-  u64 backfilled = 0;
-  u64 ground_verts = 0;
-  u64 ground_would_fallback = 0;
-  u64 trees = 0;
-} g_tan_diag;
+// `run-as org.opengoal.gk.jak1 cat files/pbr_tan_diag.txt`.
+// Gprecompute-deterministic-bake: the UV-vs-backfill split is now a property of the OFFLINE
+// derivation (TangentDerive.cpp), so it is read from tangent_derive_diag() — it is non-zero on the
+// fr3 extractor and on the PBR consolidation's re-derivation, and zero on a plain load, which is
+// exactly the point: a plain load no longer derives anything. What the LOAD does is counted
+// separately below (baked_expanded / baked_missing_backfilled).
+// THREAD-LOCAL on purpose: the fr3 extractor bakes several levels IN PARALLEL
+// (extract_level.cpp SimpleThreadGroup), so a process-wide flag let one thread clear it while
+// another was still inside its bake — measured: 87 spurious "this fr3 predates the tangent bake"
+// warnings on a jak1 run, and a diagnostic file counting 24 M vertices as un-baked. The fr3 BYTES
+// were never at risk (the bake overwrites unpacked.tangents right after unpack returns, which is
+// why the two runs are md5-identical), but a counter that lies is a counter that will be believed.
+thread_local bool g_tangent_bake_in_progress = false;  // true only inside the OFFLINE fr3 bake
+std::atomic<u64> g_baked_tan_ns{0};          // time spent expanding them (the cost that is LEFT)
+std::atomic<u64> g_baked_tan_verts{0};       // verts whose tangent came straight from the fr3
+std::atomic<u64> g_baked_tan_missing{0};     // verts with no baked tangent => Duff/Frisvad backfill
+std::atomic<u64> g_baked_tan_trees{0};
 
 void write_tan_diag_file() {
   // Best-effort — diagnostics must never break level load (offline grass_bake writes to the repo root;
   // on Android get_jak_project_dir() resolves to the app files dir).
   try {
-    const TanDiag d = g_tan_diag;
+    const TangentDeriveDiag d = tangent_derive_diag();
     double gpct =
         d.ground_verts ? 100.0 * (double)d.ground_would_fallback / (double)d.ground_verts : 0.0;
     std::ostringstream os;
-    os << "[pbr_tan_diag] REOPEN#9 tangent-fallback coverage (cumulative, " << d.trees << " trees)\n";
+    os << "[pbr_tan_diag] REOPEN#9 tangent-fallback coverage (cumulative, " << d.trees
+       << " trees DERIVED this process)\n";
     os << "total_verts=" << d.total_verts << "\n";
     os << "uv_tangent=" << d.uv_tangent << "\n";
     os << "backfilled_frisvad=" << d.backfilled << "\n";
     os << "ground_verts=" << d.ground_verts << "\n";
     os << "ground_would_fallback=" << d.ground_would_fallback << " (" << gpct << "%)\n";
+    os << "[baked_tangents] Gprecompute-deterministic-bake — the LOAD path expands, it does not derive:\n";
+    os << "baked_expanded_verts=" << g_baked_tan_verts.load() << " trees=" << g_baked_tan_trees.load()
+       << " (read straight out of the fr3, 4 bytes/vertex, no triangle walk)\n";
+    os << "baked_missing_backfilled_verts=" << g_baked_tan_missing.load()
+       << " (MUST be 0 on a regenerated fr3; non-zero means a level built before TFRAG3_VERSION 44 and\n"
+          " those verts got a continuous Duff/Frisvad basis from the smooth normal instead)\n";
     os << "post_fix_degenerate_tangents=0 shader_screenderiv_fallback_fraction=0\n";
     os << "note: every vertex now carries a unit tangent; degenerate verts backfilled with a continuous\n";
     os << "Duff/Frisvad basis from the smooth normal, so the shader never falls to the screen-derivative "
@@ -1251,14 +1216,14 @@ void write_tan_diag_file() {
     os << "[world_frame_rot] PBR POLISH (owner playtest #16 defect 1) — how far the OLD world-derived "
           "normal-map frame (stable_frame) is rotated from the AUTHORED UV tangent frame:\n";
     {
-      const u64 v = g_wframe_verts.load();
-      const u64 inv = g_wframe_over90.load();
-      const double mean = v ? (double)g_wframe_rot_sum_milli.load() / 1000.0 / (double)v : 0.0;
+      const u64 v = d.wframe_verts;
+      const u64 inv = d.wframe_over90;
+      const double mean = v ? (double)d.wframe_rot_sum_milli / 1000.0 / (double)v : 0.0;
       const double ipct = v ? 100.0 * (double)inv / (double)v : 0.0;
       os << "world_frame_measured_verts=" << v << " (verts carrying a real UV-derived tangent)\n";
-      os << "world_frame_rot_hist_0_5=" << g_wframe_h0.load() << " 5_15=" << g_wframe_h1.load()
-         << " 15_45=" << g_wframe_h2.load() << " 45_90=" << g_wframe_h3.load()
-         << " 90_135=" << g_wframe_h4.load() << " 135_180=" << g_wframe_h5.load()
+      os << "world_frame_rot_hist_0_5=" << d.wframe_hist[0] << " 5_15=" << d.wframe_hist[1]
+         << " 15_45=" << d.wframe_hist[2] << " 45_90=" << d.wframe_hist[3]
+         << " 90_135=" << d.wframe_hist[4] << " 135_180=" << d.wframe_hist[5]
          << " (|rotation around N| in degrees)\n";
       os << "world_frame_rot_mean_deg=" << mean << "\n";
       os << "world_frame_inverted_verts=" << inv << " (" << ipct
@@ -1273,6 +1238,75 @@ void write_tan_diag_file() {
   }
 }
 }  // namespace
+
+// ================================================================================================
+// Gprecompute-deterministic-bake — THE LOAD-SIDE HALF OF THE TANGENT BAKE.
+//
+// The old code re-derived every per-vertex tangent here, on every load, on every machine: a full walk
+// over every triangle of every tfrag and tie tree, accumulating a frame per vertex, then a
+// Gram-Schmidt + normalise per vertex. Its answer is fixed by the fr3's own bytes, so the fr3 now
+// carries it (4 bytes/vertex, 2-10-10-10) and this is all that is left: one dequantise per vertex.
+//
+// A tree whose baked array is missing or mis-sized (a level built before TFRAG3_VERSION 44, or a
+// hand-modified fr3) is NOT silently left with zero tangents — a zero tangent drops the shader onto
+// the screen-space-derivative TBN, which is the measured source of the owner's hard triangular
+// facets. It gets a continuous Duff/Frisvad basis from the smooth normal instead: still O(n) with no
+// topology walk, still continuous, and the count lands in pbr_tan_diag.txt so it cannot pass unseen.
+// ================================================================================================
+static void apply_baked_tangents(const std::vector<u16>& baked,
+                                 const std::vector<PreloadedVertex>& verts,
+                                 std::vector<math::Vector4f>& out_tangents,
+                                 const char* system_label) {
+  const auto t0 = std::chrono::steady_clock::now();
+  const size_t n = verts.size();
+  out_tangents.resize(n);
+  if (n == 0) {
+    return;
+  }
+  if (g_tangent_bake_in_progress) {
+    // The offline bake is about to DERIVE these tangents and overwrite every one of them. Skipping
+    // the backfill here is not a shortcut: doing it would compute a Duff basis that is discarded on
+    // the next line, count every tree as "missing a bake" (it is — that is what the bake is for),
+    // and rewrite the device diagnostic file once per tree inside the extractor.
+    return;
+  }
+  const bool have = baked.size() == n;
+  if (have) {
+    for (size_t i = 0; i < n; i++) {
+      out_tangents[i] = unpack_tangent_angle16(verts[i].nor, baked[i]);
+    }
+    g_baked_tan_verts += (u64)n;
+  } else {
+    for (size_t i = 0; i < n; i++) {
+      const math::Vector3f N = unpack_gl_normal_2_10_10_10(verts[i].nor);
+      const float l = N.length();
+      const math::Vector3f tb =
+          duff_tangent_from_normal(l > 0.5f ? N * (1.f / l) : math::Vector3f(0.f, 1.f, 0.f));
+      out_tangents[i] = math::Vector4f(tb.x(), tb.y(), tb.z(), 1.f);
+    }
+    g_baked_tan_missing += (u64)n;
+    lg::warn(
+        "[baked-tangents] {} tree has {} baked tangents for {} vertices — this fr3 predates the "
+        "tangent bake; falling back to a continuous Duff/Frisvad basis (re-run the extractor)",
+        system_label, baked.size(), n);
+  }
+  g_baked_tan_trees++;
+  g_baked_tan_ns += (u64)std::chrono::duration_cast<std::chrono::nanoseconds>(
+                        std::chrono::steady_clock::now() - t0)
+                        .count();
+  write_tan_diag_file();
+}
+
+void set_tangent_bake_in_progress(bool on) {
+  g_tangent_bake_in_progress = on;
+}
+
+u64 baked_tangent_expand_ns() {
+  return g_baked_tan_ns.load();
+}
+u64 baked_tangent_expand_verts() {
+  return g_baked_tan_verts.load() + g_baked_tan_missing.load();
+}
 
 // ============================================================================================
 // OWNER REOPEN #13 (2026-07-24) + INSIGHT #2 — GLOBAL cross-chunk / cross-bucket / cross-system weld.
@@ -1301,36 +1335,6 @@ void write_tan_diag_file() {
 // normal attribute (ShrubGpuVertex has no `nor`; shrub.frag derives N from screen-space derivatives),
 // so it is documented-excluded from the normal weld rather than silently skipped. 1 m = 4096 units.
 // ============================================================================================
-u64 retangent_level_from_final_normals(Level& lev) {
-  u64 changed = 0;
-  auto redo = [&](std::vector<PreloadedVertex>& verts, const std::vector<u32>& indices,
-                  bool use_strips, std::vector<math::Vector4f>& tangents) {
-    if (verts.empty() || tangents.size() != verts.size()) {
-      return;  // no tangent stream on this tree (shrub): nothing to re-derive
-    }
-    std::vector<math::Vector4f> before = tangents;
-    reconstruct_tfrag_tangents(verts, indices, use_strips, tangents);
-    for (size_t i = 0; i < tangents.size(); i++) {
-      const auto& a = before[i];
-      const auto& b = tangents[i];
-      if (a.x() != b.x() || a.y() != b.y() || a.z() != b.z() || a.w() != b.w()) {
-        changed++;
-      }
-    }
-  };
-  for (auto& t : lev.tfrag_trees) {
-    for (auto& tree : t) {
-      redo(tree.unpacked.vertices, tree.unpacked.indices, tree.use_strips, tree.unpacked.tangents);
-    }
-  }
-  for (auto& t : lev.tie_trees) {
-    for (auto& tree : t) {
-      redo(tree.unpacked.vertices, tree.unpacked.indices, tree.use_strips, tree.unpacked.tangents);
-    }
-  }
-  return changed;
-}
-
 // ============================================================================================
 // ROUND 32 — THE POSITIVITY INVARIANT, RE-ESTABLISHED PER TREE AFTER THE PRE-SUBDIVISION.
 //
@@ -1535,7 +1539,8 @@ u64 mesh_positivity_repair_level(Level& lev, u64* out_ok, u64* out_unsat, u64* o
 // ============================================================================================
 // ROUND 32 — THE TANGENT FRAME MUST SERVE EVERY FACE THAT SHARES IT, AND THAT IS EXACTLY SOLVABLE.
 //
-// reconstruct_tfrag_tangents() gives a vertex the SUM of its incident faces' UV tangents. That is
+// The derivation in TangentDerive.cpp gives a vertex the SUM of its incident faces' UV tangents (it
+// runs offline now, in the fr3 extractor, and again inside mesh_consolidate). That is
 // the standard MikkTSpace-style average and it is the right thing for smooth shading — but it is an
 // AVERAGE. Where a vertex sits on a UV chart boundary, or where two incident faces are MIRRORED in
 // UV, the average can point backwards relative to one of the faces that uses it, and the shader then
@@ -2534,215 +2539,6 @@ void reconstruct_level_global_weld(Level& lev) {
   write_tan_diag_file();
 }
 
-// Grecharged-pbr-realtime-fusion REOPEN#7 FOUNDATION FIX — per-vertex MikkTSpace-style tangents.
-// tfrag/tie meshes ship NO vertex tangents, so the PBR shader used to rebuild a TBN frame per
-// fragment from screen-space derivatives (dFdx/dFdy of position+UV). Those derivatives are
-// DISCONTINUOUS across triangle edges and UV seams => the normal-mapped relief was incoherent and,
-// scaled up, the discontinuities became the owner's hard-contrast CRACKS. Here we compute a proper
-// per-vertex tangent from the mesh positions+UVs (Lengyel/MikkTSpace accumulation), orthonormalize
-// it against the reconstructed smooth normal (Gram-Schmidt) and store handedness in .w. The shader
-// interpolates this continuous tangent => continuous TBN => no cracks + coherent surface-locked
-// relief. Deterministic (index-ordered float accumulation) so an offline bake yields identical
-// bytes. Walks triangle STRIPS with UINT32_MAX primitive restart, matching the render index stream.
-static void reconstruct_tfrag_tangents(const std::vector<PreloadedVertex>& verts,
-                                       const std::vector<u32>& indices,
-                                       bool use_strips,
-                                       std::vector<math::Vector4f>& out_tangents) {
-  const size_t n = verts.size();
-  out_tangents.assign(n, math::Vector4f(0.f, 0.f, 0.f, 0.f));
-  if (n == 0) {
-    return;
-  }
-  std::vector<math::Vector3f> tan_acc(n, math::Vector3f::zero());
-  std::vector<math::Vector3f> bit_acc(n, math::Vector3f::zero());
-
-  u32 dbg_tris_used = 0, dbg_tris_skip_uv = 0;
-  auto add_tri = [&](u32 i0, u32 i1, u32 i2) {
-    const auto& v0 = verts[i0];
-    const auto& v1 = verts[i1];
-    const auto& v2 = verts[i2];
-    math::Vector3f p0(v0.x, v0.y, v0.z), p1(v1.x, v1.y, v1.z), p2(v2.x, v2.y, v2.z);
-    math::Vector3f e1 = p1 - p0, e2 = p2 - p0;
-    float du1 = v1.s - v0.s, dv1 = v1.t - v0.t;
-    float du2 = v2.s - v0.s, dv2 = v2.t - v0.t;
-    float det = du1 * dv2 - du2 * dv1;
-    if (!(std::fabs(det) > 1e-12f)) {
-      dbg_tris_skip_uv++;
-      return;  // degenerate UV parameterization: no reliable tangent
-    }
-    dbg_tris_used++;
-    float r = 1.f / det;
-    // Lengyel: T points along +U, B along +V in world space (winding-independent).
-    math::Vector3f T = (e1 * dv2 - e2 * dv1) * r;
-    math::Vector3f B = (e2 * du1 - e1 * du2) * r;
-    tan_acc[i0] += T;
-    tan_acc[i1] += T;
-    tan_acc[i2] += T;
-    bit_acc[i0] += B;
-    bit_acc[i1] += B;
-    bit_acc[i2] += B;
-  };
-
-  if (use_strips) {
-    // Triangle strips with UINT32_MAX primitive restart; the UV-derived tangent direction does not
-    // depend on the strip winding parity, so we accumulate every non-restart triple directly.
-    u32 a = UINT32_MAX, b = UINT32_MAX;
-    for (u32 vi : indices) {
-      if (vi == UINT32_MAX) {
-        a = b = UINT32_MAX;
-        continue;
-      }
-      if (a != UINT32_MAX && b != UINT32_MAX && a != b && b != vi && a != vi) {
-        add_tri(a, b, vi);
-      }
-      a = b;
-      b = vi;
-    }
-  } else {
-    for (size_t t = 0; t + 2 < indices.size(); t += 3) {
-      if (indices[t] == UINT32_MAX || indices[t + 1] == UINT32_MAX || indices[t + 2] == UINT32_MAX) {
-        continue;
-      }
-      add_tri(indices[t], indices[t + 1], indices[t + 2]);
-    }
-  }
-
-  u32 valid = 0, dbg_no_norm = 0, dbg_no_tan = 0, dbg_gs_kill = 0;
-  u32 g_verts = 0, g_backfill = 0;  // REOPEN#9 ground (N.y>0.7) fallback-coverage proof
-  // PBR POLISH (owner playtest #16, defect 1) world-frame-vs-UV-frame rotation, accumulated in locals
-  // (no atomics inside the hot loop) and folded into the global counters once, below.
-  u64 wf_verts = 0, wf_over90 = 0, wf_rot_sum_milli = 0;
-  u64 wf_hist[6] = {0, 0, 0, 0, 0, 0};
-  for (size_t i = 0; i < n; i++) {
-    math::Vector3f N = unpack_gl_normal_2_10_10_10(verts[i].nor);
-    float Nl = N.length();
-    bool ground = Nl > 0.5f && (N.y() / Nl) > 0.7f;  // ground-facing (N may be ~0 for no_norm)
-    if (ground) {
-      g_verts++;
-    }
-    math::Vector3f T = tan_acc[i];
-    // REOPEN#9 (owner playtest #9): the OLD code wrote (0,0,0,0) here, which made the shader fall to the
-    // screen-space-derivative TBN (per-triangle-constant => the hard triangular FACETS scaling with
-    // relief). Instead ALWAYS write a NON-DEGENERATE, unit tangent so the shader keeps its continuous
-    // per-vertex-tangent path. Degenerate verts get a continuous Duff/Frisvad basis from the smooth
-    // normal (an arbitrary but continuous direction — continuity is what kills the facets).
-    if (Nl < 0.5f) {
-      // No usable smooth normal (the base shading normal is itself degenerate at this vert). Write a
-      // stable constant tangent so v_tangent is never zero. w=+1.
-      dbg_no_norm++;
-      math::Vector3f tb = duff_tangent_from_normal(math::Vector3f(0.f, 1.f, 0.f));
-      out_tangents[i] = math::Vector4f(tb.x(), tb.y(), tb.z(), 1.f);
-      continue;
-    }
-    if (T.length() < 1e-9f) {
-      // Degenerate/mirrored UVs: no reliable UV tangent. Backfill a continuous Frisvad basis from N.
-      dbg_no_tan++;
-      if (ground) {
-        g_backfill++;
-      }
-      math::Vector3f tb = duff_tangent_from_normal(N * (1.f / Nl));
-      out_tangents[i] = math::Vector4f(tb.x(), tb.y(), tb.z(), 1.f);
-      continue;
-    }
-    // Gram-Schmidt: remove the normal component, renormalize.
-    T = T - N * N.dot(T);
-    float tl = T.length();
-    if (tl < 1e-6f) {
-      // UV tangent collapsed onto the normal: backfill a continuous Frisvad basis from N.
-      dbg_gs_kill++;
-      if (ground) {
-        g_backfill++;
-      }
-      math::Vector3f tb = duff_tangent_from_normal(N * (1.f / Nl));
-      out_tangents[i] = math::Vector4f(tb.x(), tb.y(), tb.z(), 1.f);
-      continue;
-    }
-    T = T * (1.f / tl);
-    float handed = (N.cross(T).dot(bit_acc[i]) < 0.f) ? -1.f : 1.f;
-    out_tangents[i] = math::Vector4f(T.x(), T.y(), T.z(), handed);
-    valid++;
-    // ---- PBR POLISH (owner playtest #16, defect 1) — MEASUREMENT ONLY, writes no mesh data --------
-    // T is the AUTHORED UV tangent, already Gram-Schmidt'd against N and normalized (tl = the pre-
-    // normalize length, so tl is the "|t - n*dot(n,t)|" guard). Compare it against the frame the OLD
-    // shader path builds from the normal alone (stable_frame()): the angle between the two, measured in
-    // the plane of N, is how far the normal map's relief is rotated from what the artist authored. Past
-    // 90 deg the relief is lit from the opposite side and bumps read as pits.
-    if (tl >= 1e-4f) {
-      const math::Vector3f Nu = N * (1.f / Nl);  // n = normalize(smooth normal)
-      // stable_frame() reproduced EXACTLY as tfrag3.frag has it:
-      const math::Vector3f R1(0.3113f, 0.1504f, 0.9382f), R2(0.9382f, 0.3113f, 0.1504f);
-      const math::Vector3f tt = Nu.cross(R1);
-      const float wl = tt.length();
-      math::Vector3f tw;
-      bool tw_ok = true;
-      if (wl > 0.02f) {
-        tw = tt * (1.f / wl);
-      } else {
-        const math::Vector3f t2 = Nu.cross(R2);
-        const float w2 = t2.length();
-        if (w2 > 1e-12f) {
-          tw = t2 * (1.f / w2);
-        } else {
-          tw_ok = false;  // both skew axes collinear with N: unmeasurable, skip
-        }
-      }
-      if (tw_ok) {
-        // signed rotation of tw away from T, measured in the plane of N
-        const float cs = T.dot(tw);
-        const float sn = T.cross(tw).dot(Nu);
-        const float deg = std::fabs(std::atan2(sn, cs)) * 57.29577951308232f;  // 0..180
-        wf_verts++;
-        wf_hist[deg < 5.f     ? 0
-                : deg < 15.f  ? 1
-                : deg < 45.f  ? 2
-                : deg < 90.f  ? 3
-                : deg < 135.f ? 4
-                              : 5]++;
-        if (deg > 90.f) {
-          wf_over90++;
-        }
-        wf_rot_sum_milli += (u64)(deg * 1000.f);
-      }
-    }
-  }
-  // REOPEN#7 device-truth: one line per tree so the on-device logcat PROVES the per-vertex tangent
-  // basis is computed + uploaded (the continuous-TBN foundation). valid == vertices with a real
-  // tangent (the rest fall back to the derivative frame). Mirrors the [gda-crease] normal log.
-  lg::info(
-      "[gpbrf-tangent] verts={} valid={} ({:.1f}%) no_norm={} no_tan={} gs_kill={} tris_used={} "
-      "tris_skip_uv={} strips={}",
-      n, valid, n ? (100.f * (float)valid / (float)n) : 0.f, dbg_no_norm, dbg_no_tan, dbg_gs_kill,
-      dbg_tris_used, dbg_tris_skip_uv, use_strips ? 1 : 0);
-  // REOPEN#9 (owner playtest #9): the facets = the shader falling to the screen-derivative TBN where
-  // v_tangent is degenerate. This line + the pbr_tan_diag.txt file PROVE the coverage on the GROUND
-  // (N.y>0.7 — the grass the owner looks at): would_fallback = degenerate ground verts BEFORE the
-  // backfill; every one is now backfilled with a continuous Duff/Frisvad tangent, so the shader
-  // per-vertex-tangent coverage on the ground is 100% and the screen-derivative fallback fraction is 0.
-  lg::info("[tan-fallback] ground_verts={} would_fallback={} ({:.2f}%) => backfilled, post_fix=0",
-           g_verts, g_backfill, g_verts ? (100.f * (float)g_backfill / (float)g_verts) : 0.f);
-  // PBR POLISH (owner playtest #16, defect 1) — fold this tree's world-frame-vs-UV-frame rotation
-  // measurement into the global counters BEFORE write_tan_diag_file() below picks them up.
-  g_wframe_verts += wf_verts;
-  g_wframe_h0 += wf_hist[0];
-  g_wframe_h1 += wf_hist[1];
-  g_wframe_h2 += wf_hist[2];
-  g_wframe_h3 += wf_hist[3];
-  g_wframe_h4 += wf_hist[4];
-  g_wframe_h5 += wf_hist[5];
-  g_wframe_over90 += wf_over90;
-  g_wframe_rot_sum_milli += wf_rot_sum_milli;
-  {
-    std::lock_guard<std::mutex> lk(g_tan_diag_mtx);
-    g_tan_diag.total_verts += n;
-    g_tan_diag.uv_tangent += valid;
-    g_tan_diag.backfilled += (u64)dbg_no_norm + dbg_no_tan + dbg_gs_kill;
-    g_tan_diag.ground_verts += g_verts;
-    g_tan_diag.ground_would_fallback += g_backfill;
-    g_tan_diag.trees += 1;
-    write_tan_diag_file();
-  }
-}
-
 void TfragTree::unpack() {
   unpacked.vertices.resize(packed_vertices.vertices.size());
   for (size_t i = 0; i < unpacked.vertices.size(); i++) {
@@ -2792,13 +2588,17 @@ void TfragTree::unpack() {
   // is inert unless a shader reads the location-3 normal attribute (realtime-lighting path only).
   reconstruct_tfrag_smooth_normals(*this);
 
-  // REOPEN#7 FOUNDATION FIX: per-vertex MikkTSpace tangents (positions + UVs + strip topology now
-  // built) so the PBR shader builds a CONTINUOUS TBN from an interpolated vertex tangent instead of
-  // discontinuous screen-space derivatives — the root cause of the incoherent relief + contrast cracks.
-  reconstruct_tfrag_tangents(unpacked.vertices, unpacked.indices, use_strips, unpacked.tangents);
+  // REOPEN#7 FOUNDATION FIX: per-vertex MikkTSpace tangents so the PBR shader builds a CONTINUOUS TBN
+  // from an interpolated vertex tangent instead of discontinuous screen-space derivatives — the root
+  // cause of the incoherent relief + contrast cracks.
+  // Gprecompute-deterministic-bake: they are DERIVED OFFLINE (TangentDerive.cpp, fr3 extractor) and
+  // only expanded here. The derivation is a pure function of this tree's packed bytes, so running it
+  // on every load on every machine was work with a fixed answer.
+  apply_baked_tangents(baked_tangents, unpacked.vertices, unpacked.tangents, "tfrag");
 }
 
 void TieTree::serialize(Serializer& ser) {
+  ser.from_pod_vector(&baked_tangents);  // Gprecompute-deterministic-bake — see TfragTree::serialize
   if (ser.is_saving()) {
     ser.save<size_t>(static_draws.size());
   } else {
@@ -3149,6 +2949,7 @@ void TieTree::memory_usage(MemoryUsageTracker* tracker) const {
   }
   tracker->add(MemoryUsageCategory::TIE_WIND_INSTANCE_INFO,
                sizeof(TieWindInstance) * wind_instance_info.size());
+  tracker->add(MemoryUsageCategory::TIE_TANGENT, sizeof(u16) * baked_tangents.size());
 }
 
 void PackedTfragVertices::memory_usage(MemoryUsageTracker* tracker) const {
@@ -3168,6 +2969,7 @@ void TfragTree::memory_usage(MemoryUsageTracker* tracker) const {
   packed_vertices.memory_usage(tracker);
   tracker->add(MemoryUsageCategory::TFRAG_TIME_OF_DAY, sizeof(u8) * colors.data.size());
   tracker->add(MemoryUsageCategory::TFRAG_BVH, sizeof(VisNode) * bvh.vis_nodes.size());
+  tracker->add(MemoryUsageCategory::TFRAG_TANGENT, sizeof(u16) * baked_tangents.size());
 }
 
 void Texture::memory_usage(MemoryUsageTracker* tracker) const {
@@ -3225,6 +3027,7 @@ void print_memory_usage(const tfrag3::Level& lev, int uncompressed_data_size) {
       {"tie-inst-idx", mem_use.data[tfrag3::MemoryUsageCategory::TIE_INST_INDEX]},
       {"tie-bvh", mem_use.data[tfrag3::MemoryUsageCategory::TIE_BVH]},
       {"tie-verts", mem_use.data[tfrag3::MemoryUsageCategory::TIE_VERTS]},
+      {"tie-tangent", mem_use.data[tfrag3::MemoryUsageCategory::TIE_TANGENT]},
       {"tie-colors", mem_use.data[tfrag3::MemoryUsageCategory::TIE_TIME_OF_DAY]},
       {"tie-wind-inst-info", mem_use.data[tfrag3::MemoryUsageCategory::TIE_WIND_INSTANCE_INFO]},
       {"tie-cidx", mem_use.data[tfrag3::MemoryUsageCategory::TIE_CIDX]},
@@ -3233,6 +3036,7 @@ void print_memory_usage(const tfrag3::Level& lev, int uncompressed_data_size) {
       {"tfrag-vis", mem_use.data[tfrag3::MemoryUsageCategory::TFRAG_VIS]},
       {"tfrag-idx", mem_use.data[tfrag3::MemoryUsageCategory::TFRAG_INDEX]},
       {"tfrag-vert", mem_use.data[tfrag3::MemoryUsageCategory::TFRAG_VERTS]},
+      {"tfrag-tangent", mem_use.data[tfrag3::MemoryUsageCategory::TFRAG_TANGENT]},
       {"tfrag-colors", mem_use.data[tfrag3::MemoryUsageCategory::TFRAG_TIME_OF_DAY]},
       {"tfrag-cluster", mem_use.data[tfrag3::MemoryUsageCategory::TFRAG_CLUSTER]},
       {"tfrag-bvh", mem_use.data[tfrag3::MemoryUsageCategory::TFRAG_BVH]},

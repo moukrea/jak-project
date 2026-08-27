@@ -811,6 +811,7 @@ SubdivConfig mesh_subdiv_config_from_env() {
     const int v = std::atoi(r.c_str());
     if (v >= 0 && v <= 6) {
       cfg.max_rounds = v;
+      cfg.forced_max_rounds = v;  // an explicit A/B override outranks the user setting
     }
   }
   // ROUND 34 A/B: the fully-pinned-triangle bypass is the ONLY per-triangle escape from the

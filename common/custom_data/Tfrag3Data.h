@@ -18,7 +18,7 @@ namespace tfrag3 {
 // - if changing any large things (vertices, vis, bvh, colors, textures) update get_memory_usage
 // - if adding a new category to the memory usage, update extract_level to print it.
 
-constexpr int TFRAG3_VERSION = 43;
+constexpr int TFRAG3_VERSION = 44;  // 44: Gprecompute-deterministic-bake — baked per-vertex tangents
 
 enum MemoryUsageCategory {
   TEXTURE,
@@ -38,9 +38,15 @@ enum MemoryUsageCategory {
   TIE_MATRICES,
   TIE_GRPS,
 
+  // Gprecompute-deterministic-bake: the per-vertex tangents the fr3 now carries (4 bytes/vertex).
+  // They REPLACE a full per-triangle derivation that ran on every load on every machine; the fr3
+  // grows by a quarter of what the runtime used to allocate for the same data.
+  TIE_TANGENT,
+
   TFRAG_VIS,
   TFRAG_INDEX,
   TFRAG_VERTS,
+  TFRAG_TANGENT,
   TFRAG_CLUSTER,
   TFRAG_TIME_OF_DAY,
   TFRAG_BVH,
@@ -360,17 +366,37 @@ struct TfragTree {
   BVH bvh;                 // the bvh for frustum culling
   bool use_strips = true;
 
+  // ------------------------------------------------------------------------------------------
+  // Gprecompute-deterministic-bake (owner 2026-08-26: « tout ce qu'on peut pre-computer devrait
+  // l'etre au lieu de prendre du temps CPU/GPU »). THE PER-VERTEX TANGENT FRAME, BAKED OFFLINE.
+  //
+  // The tangent of a vertex is a pure function of this tree's PACKED bytes: the positions and UVs
+  // come from packed_vertices, the triangle topology from draws + use_strips, and the accumulation
+  // is index-ordered, so the fr3 fully determines the answer. It used to be re-derived on EVERY
+  // load on EVERY machine (reconstruct_tfrag_tangents, ~26.3 MB of output for village1 alone).
+  // It is now derived ONCE, by the fr3 extractor, and only expanded here.
+  //
+  // ONE u16 PER VERTEX: 15 bits of angle in the plane perpendicular to the vertex normal, plus the
+  // handedness sign in bit 15 (see normal_pack.h). The derivation Gram-Schmidts T against N, so the
+  // direction N already fixes is not stored twice — which is why 2 bytes buy 0.011 deg here where a
+  // packed 10-10-10 vector would have spent 4 bytes to get 0.11 deg. On village1 the whole bake is
+  // 6.6 MB rather than 13.2, and TIE is 91% of it (TIE tangents are per-INSTANCE because the
+  // derivation runs on world-space vertices, while TIE positions are per-PROTOTYPE).
+  // Empty, or a size other than the vertex count, means a level built before this bake: unpack()
+  // then backfills a continuous Duff/Frisvad basis from the smooth normal (O(n), no topology walk)
+  // and says so, rather than silently handing the shader a zero tangent.
+  std::vector<u16> baked_tangents;
+
   struct {
     std::vector<PreloadedVertex> vertices;  // mesh vertices
     std::vector<u32> indices;
     // Grecharged-pbr-realtime-fusion REOPEN#7 FOUNDATION FIX: per-vertex MikkTSpace tangent
     // (xyz = orthonormalized tangent in world space, w = +/-1 handedness for the bitangent).
-    // Reconstructed at load in unpack() from positions+UVs+the smooth normal so the PBR shader
-    // builds a CONTINUOUS TBN from an interpolated vertex tangent instead of screen-space
-    // derivatives (dFdx/dFdy) — the derivative TBN is discontinuous at triangle edges/UV seams,
-    // which caused the owner's incoherent relief + hard contrast CRACKS at relief>0. Runtime-only
-    // (NOT serialized into fr3); a degenerate (0,0,0,0) tangent makes the shader fall back to the
-    // screen-space frame for that vertex. Uploaded as vertex attribute location 5.
+    // EXPANDED at load from `baked_tangents` above (no longer re-derived) so the PBR shader builds
+    // a CONTINUOUS TBN from an interpolated vertex tangent instead of screen-space derivatives
+    // (dFdx/dFdy) — the derivative TBN is discontinuous at triangle edges/UV seams, which caused
+    // the owner's incoherent relief + hard contrast CRACKS at relief>0. Runtime-only working copy;
+    // uploaded as vertex attribute location 5 and then released (see release_uploaded_tangents).
     std::vector<math::Vector4f> tangents;
   } unpacked;
   void unpack();
@@ -458,11 +484,33 @@ struct TieTree {
 
   bool use_strips = true;
 
+  // ------------------------------------------------------------------------------------------
+  // Gprecompute-deterministic-bake (owner 2026-08-26: « tout ce qu'on peut pre-computer devrait
+  // l'etre au lieu de prendre du temps CPU/GPU »). THE PER-VERTEX TANGENT FRAME, BAKED OFFLINE.
+  //
+  // The tangent of a vertex is a pure function of this tree's PACKED bytes: the positions and UVs
+  // come from packed_vertices, the triangle topology from draws + use_strips, and the accumulation
+  // is index-ordered, so the fr3 fully determines the answer. It used to be re-derived on EVERY
+  // load on EVERY machine (reconstruct_tfrag_tangents, ~26.3 MB of output for village1 alone).
+  // It is now derived ONCE, by the fr3 extractor, and only expanded here.
+  //
+  // ONE u16 PER VERTEX: 15 bits of angle in the plane perpendicular to the vertex normal, plus the
+  // handedness sign in bit 15 (see normal_pack.h). The derivation Gram-Schmidts T against N, so the
+  // direction N already fixes is not stored twice — which is why 2 bytes buy 0.011 deg here where a
+  // packed 10-10-10 vector would have spent 4 bytes to get 0.11 deg. On village1 the whole bake is
+  // 6.6 MB rather than 13.2, and TIE is 91% of it (TIE tangents are per-INSTANCE because the
+  // derivation runs on world-space vertices, while TIE positions are per-PROTOTYPE).
+  // Empty, or a size other than the vertex count, means a level built before this bake: unpack()
+  // then backfills a continuous Duff/Frisvad basis from the smooth normal (O(n), no topology walk)
+  // and says so, rather than silently handing the shader a zero tangent.
+  std::vector<u16> baked_tangents;
+
   struct {
     std::vector<PreloadedVertex> vertices;  // mesh vertices
     std::vector<u32> indices;
     // Grecharged-pbr-realtime-fusion REOPEN#7: per-vertex MikkTSpace tangent (see TfragTree). TIE
     // non-envmap draws use the TFRAG3 shader, so they need the same continuous TBN. Attribute loc 5.
+    // EXPANDED at load from `baked_tangents` above.
     std::vector<math::Vector4f> tangents;
   } unpacked;
 
@@ -665,6 +713,19 @@ struct Level {
 };
 
 void print_memory_usage(const tfrag3::Level& lev, int uncompressed_data_size);
+
+// Gprecompute-deterministic-bake — cumulative nanoseconds this process has spent EXPANDING baked
+// tangents at load (the dequantise loop that replaced the per-triangle derivation), and the number
+// of vertices it covered. The loader prints the delta per level so the cost that is left can be put
+// next to the [tangent-bake] figure the fr3 extractor printed for the same level.
+// Gprecompute-deterministic-bake — set by the OFFLINE bake around its unpack() calls. The bake
+// overwrites the tangents the moment unpack() returns, so unpack() must not spend an O(n) backfill
+// on them, must not count their absence as a defect, and must not write the per-tree device
+// diagnostic file (pbr_tan_diag.txt) thousands of times inside the fr3 extractor.
+void set_tangent_bake_in_progress(bool on);
+
+u64 baked_tangent_expand_ns();
+u64 baked_tangent_expand_verts();
 
 // OWNER REOPEN #13 + INSIGHT #2: GLOBAL cross-chunk/bucket/system vertex weld + normal-orientation-
 // consistency pass. Run ONCE after every tfrag/tie/shrub tree is unpacked (Loader.cpp) — one spatial

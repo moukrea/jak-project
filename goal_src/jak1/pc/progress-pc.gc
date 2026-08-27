@@ -850,6 +850,12 @@
 ;; Grecharged-pbr-realtime-fusion: ENV PROBE (DYNAMIC FOLLOW-PROBE tier) carousell (Off / Low / Mid / High).
 ;; Off reuses the generic off text-id like *carousell-pbr-displacement*; Low/Mid/High are new ids.
 (def-progress-carousell *carousell-follow-probe* (off pc-text-envprobe-low pc-text-envprobe-mid pc-text-envprobe-high))
+;; Gprecompute-deterministic-bake (owner 2026-08-26): MESH SUBDIVISION carousell (Off / Low / Mid /
+;; High = 0/1/2/3 pre-subdivision ROUNDS handed to the hardware tessellator). It deliberately REUSES
+;; the ENV PROBE text-ids — `off` plus pc-text-envprobe-low/mid/high already read Off/Low/Mid/High
+;; and are present in every shipped COMMON.TXT — so NO new text id is allocated and no text bank is
+;; touched: a stale Android COMMON.TXT cannot turn these four entries into "Unknown ID".
+(def-progress-carousell *carousell-mesh-subdiv* (off pc-text-envprobe-low pc-text-envprobe-mid pc-text-envprobe-high))
 ;; Gpbr-fusion REOPEN #3 (DEBUG, removable later): PBR TEST PRESET carousell — one-click intended-config
 ;; presets. On confirm the write-back arm applies the whole config (booleans + sliders + carousells).
 (def-progress-carousell *carousell-pbr-test-preset* (pc-text-preset-allin pc-text-preset-fused pc-text-preset-fused-flat pc-text-preset-pbr-only pc-text-preset-rt-only pc-text-preset-stock))
@@ -1486,6 +1492,23 @@
             :option-disabled-func
             (lambda ()
               (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* pbr-materials?))))))
+       ;; Gprecompute-deterministic-bake (owner 2026-08-26): MESH SUBDIVISION carousell — the
+       ;; PRE-SUBDIVISION ROUND COUNT the loader hands the hardware tessellator (0 OFF, no refinement
+       ;; at all / 1 the shipped default / 2 MID / 3 HIGH). Sits immediately after DISPLACEMENT and
+       ;; carries the SAME disable predicate, because the refinement only ever runs in the
+       ;; tessellation displacement mode — greyed exactly when DISPLACEMENT is greyed.
+       ;; APPLIES AT THE NEXT LEVEL LOAD, not immediately: the refinement runs on the LOADER thread
+       ;; while a level is unpacked, so the level already resident keeps the geometry it was built
+       ;; with until it is reloaded.
+       ;; Carousell mirrors pbr-displacement: :name is a placeholder (the real label comes from the
+       ;; *mesh-subdiv-label* name-override) and there is no :on-change — respond-common backs the
+       ;; value up into int-backup and writes it back.
+       ;; row present only with --pbr, like the DISPLACEMENT row it shadows.
+       (flag-row FLAG_PBR
+       (new 'static 'game-option :option-type (game-option-type mesh-subdiv) :name (text-id msaa) :scale #t
+            :option-disabled-func
+            (lambda ()
+              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* pbr-materials?))))))
        ;; Gpbr-fusion REOPEN #3 (DEBUG, removable later): PBR TEST PRESET carousell. ALWAYS ENABLED (no
        ;; option-disabled-func) — the STOCK preset turns recharged-master? off, so this row must stay usable
        ;; to switch back. Carousell mirrors rt-ambient-model; the write-back arm applies the whole config.
@@ -1826,6 +1849,11 @@
 ;; Gpbr-fusion REOPEN #3: DISPLACEMENT carousell label.
 (define *displacement-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *displacement-label*) "DISPLACEMENT")
+;; Gprecompute-deterministic-bake: MESH SUBDIVISION carousell row label (name-override, runtime
+;; global — no text-id, so nothing to add to a text bank). English-only uppercase ASCII, like the
+;; DISPLACEMENT label it sits under.
+(define *mesh-subdiv-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *mesh-subdiv-label*) "MESH SUBDIVISION")
 ;; Grecharged-pbr-realtime-fusion: ENV PROBE (DYNAMIC FOLLOW-PROBE tier) carousell label.
 (define *envprobe-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *envprobe-label*) "ENV PROBE")
@@ -4220,7 +4248,15 @@
   ;; Grecharged-mesh-browser: +1 for the always-present MESH BROWSER launcher row inserted before
   ;; Back (it sits at the tail, after every row the wiring/collapse touches, so only the total-length
   ;; guards below change — the fw-idx base and the collapse loop indices are unaffected).
-  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 11 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N (* 9 FLAG_PBR_N) (* 2 FLAG_PHYSICS_N)))
+  ;; Gprecompute-deterministic-bake: +1 on the PBR-block term (9 -> 10) for the new MESH SUBDIVISION
+  ;; row, which is FLAG_PBR-gated like DISPLACEMENT. NOTE for whoever revives this frozen body: the
+  ;; term was ALREADY stale before this change — the array carries 12 PBR rows after PBR MATERIALS
+  ;; while the guard said 9 (DISPLACEMENT / PBR TEST PRESET / PBR ISOLATE were added here without
+  ;; bumping it). Only the +1 DELTA of this change is claimed correct; the pre-existing -3 is not
+  ;; ours to silently "fix". The shipped body (#unless FLAG_MENU_OVERHAUL) is exact.
+  ;; The HD-collapse guard below needs NO change: it is deliberately kept for the NO-PBR case only
+  ;; (see its own comment), and with --pbr off this row does not exist.
+  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 11 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N (* 10 FLAG_PBR_N) (* 2 FLAG_PHYSICS_N)))
                     (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N)
                     (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N))))
     (set! (-> *recharged-options-pc* fw-idx value-to-modify) (&-> *pc-settings* recharged-foliage-wind?))
@@ -4269,14 +4305,24 @@
       ;; 1:1 to pbr-displacement in respond-common, mirroring the AMBIENT MODEL / SHADOW QUALITY carousells.
       (set! (-> *recharged-options-pc* (+ fw-idx 13) value-to-modify) (&-> *progress-carousell* int-backup))
       (set! (-> *recharged-options-pc* (+ fw-idx 13) name-override) *displacement-label*)
-      ;; Gpbr-fusion REOPEN #3 (DEBUG, removable): PBR TEST PRESET carousell (row +14, before Back). int-backup
-      ;; scratch, mapped 1:1 to pbr-test-preset in respond-common; the write-back arm applies the whole config.
+      ;; Gprecompute-deterministic-bake: MESH SUBDIVISION carousell, INSERTED right after DISPLACEMENT
+      ;; (row +14). int-backup scratch, mapped 1:1 to mesh-subdiv in respond-common, exactly like the
+      ;; DISPLACEMENT carousell above. Because this row is inserted IN THE MIDDLE of the PBR block and
+      ;; not at the tail, the two rows that used to follow DISPLACEMENT move down one slot: PBR TEST
+      ;; PRESET +14 -> +15 and PBR ISOLATE +15 -> +16 (renumbered below), and the PBR term of both
+      ;; total-static-length guards gains one row. Nothing else moves: everything after PBR ISOLATE
+      ;; (MODERN MATERIALS, CRISP TITLE LOGO, the two PHYSICS rows, HD TEXTURE PACK) is either
+      ;; SELF-LOCATING or addressed from the END of the array, so it is immune to this insertion.
       (set! (-> *recharged-options-pc* (+ fw-idx 14) value-to-modify) (&-> *progress-carousell* int-backup))
-      (set! (-> *recharged-options-pc* (+ fw-idx 14) name-override) *pbr-test-preset-label*)
-      ;; Gpbr-fusion REOPEN #10 (DEBUG, removable): PBR ISOLATE carousell (row +15, before Back). int-backup
-      ;; scratch, mapped 1:1 to pbr-isolate in respond-common, mirroring the DISPLACEMENT carousell.
+      (set! (-> *recharged-options-pc* (+ fw-idx 14) name-override) *mesh-subdiv-label*)
+      ;; Gpbr-fusion REOPEN #3 (DEBUG, removable): PBR TEST PRESET carousell (row +15, before Back). int-backup
+      ;; scratch, mapped 1:1 to pbr-test-preset in respond-common; the write-back arm applies the whole config.
       (set! (-> *recharged-options-pc* (+ fw-idx 15) value-to-modify) (&-> *progress-carousell* int-backup))
-      (set! (-> *recharged-options-pc* (+ fw-idx 15) name-override) *pbr-isolate-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 15) name-override) *pbr-test-preset-label*)
+      ;; Gpbr-fusion REOPEN #10 (DEBUG, removable): PBR ISOLATE carousell (row +16, before Back). int-backup
+      ;; scratch, mapped 1:1 to pbr-isolate in respond-common, mirroring the DISPLACEMENT carousell.
+      (set! (-> *recharged-options-pc* (+ fw-idx 16) value-to-modify) (&-> *progress-carousell* int-backup))
+      (set! (-> *recharged-options-pc* (+ fw-idx 16) name-override) *pbr-isolate-label*)
       ;; Grecharged-lightprobes OWNER #3 UNIFICATION (2026-07-21): the three BAKED AMBIENT wiring arms
       ;; (+11..+13) were removed with their rows; the probe grid now feeds the unified AMBIENT tiers.
       ))
@@ -4537,6 +4583,7 @@
                     (game-option-type shadow-quality)
                     (game-option-type rt-ambient-model)
                     (game-option-type pbr-displacement)
+                    (game-option-type mesh-subdiv)
                     (game-option-type physics-quality)
                     (game-option-type follow-probe)
                     (game-option-type pbr-test-preset)
@@ -4633,6 +4680,7 @@
                     (game-option-type shadow-quality)
                     (game-option-type rt-ambient-model)
                     (game-option-type pbr-displacement)
+                    (game-option-type mesh-subdiv)
                     (game-option-type physics-quality)
                     (game-option-type follow-probe)
                     (game-option-type pbr-test-preset)
@@ -5006,6 +5054,8 @@
                   (set! (-> *progress-carousell* int-backup) (-> *pc-settings* realtime-shadow-quality)))
                  (((game-option-type rt-ambient-model)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* realtime-ambient-model)))
                  (((game-option-type pbr-displacement)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* pbr-displacement)))
+                 ;; Gprecompute-deterministic-bake: MESH SUBDIVISION backup (1:1, like pbr-displacement).
+                 (((game-option-type mesh-subdiv)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* mesh-subdiv)))
                  ;; Grecharged-secondary-motion: PHYSICS DETAIL backup (1:1, like pbr-displacement).
                  (((game-option-type physics-quality)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* physics-quality)))
                  (((game-option-type follow-probe)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* follow-probe)))
@@ -5062,6 +5112,8 @@
                     (((game-option-type shadow-quality)) (set! (-> *progress-carousell* current-carousell) *carousell-shadow-quality*))
                     (((game-option-type rt-ambient-model)) (set! (-> *progress-carousell* current-carousell) *carousell-rt-ambient-model*))
                     (((game-option-type pbr-displacement)) (set! (-> *progress-carousell* current-carousell) *carousell-pbr-displacement*))
+                    ;; Gprecompute-deterministic-bake: MESH SUBDIVISION carousell list.
+                    (((game-option-type mesh-subdiv)) (set! (-> *progress-carousell* current-carousell) *carousell-mesh-subdiv*))
                     ;; Grecharged-secondary-motion: PHYSICS DETAIL carousell list.
                     (((game-option-type physics-quality)) (set! (-> *progress-carousell* current-carousell) *carousell-physics-quality*))
                     (((game-option-type follow-probe)) (set! (-> *progress-carousell* current-carousell) *carousell-follow-probe*))
@@ -5123,6 +5175,8 @@
                (set! (-> *pc-settings* realtime-shadow-quality) (-> *progress-carousell* int-backup)))
               (((game-option-type rt-ambient-model)) (set! (-> *pc-settings* realtime-ambient-model) (-> *progress-carousell* int-backup)))
               (((game-option-type pbr-displacement)) (set! (-> *pc-settings* pbr-displacement) (-> *progress-carousell* int-backup)))
+              ;; Gprecompute-deterministic-bake: MESH SUBDIVISION write-back (1:1, like pbr-displacement).
+              (((game-option-type mesh-subdiv)) (set! (-> *pc-settings* mesh-subdiv) (-> *progress-carousell* int-backup)))
               ;; Grecharged-secondary-motion: PHYSICS DETAIL write-back (1:1, like pbr-displacement).
               (((game-option-type physics-quality)) (set! (-> *pc-settings* physics-quality) (-> *progress-carousell* int-backup)))
               (((game-option-type follow-probe)) (set! (-> *pc-settings* follow-probe) (-> *progress-carousell* int-backup)))
@@ -5405,6 +5459,7 @@
       (((game-option-type shadow-quality)) (set! lst *carousell-shadow-quality*) (set! idx (-> *pc-settings* realtime-shadow-quality)))
       (((game-option-type rt-ambient-model)) (set! lst *carousell-rt-ambient-model*) (set! idx (-> *pc-settings* realtime-ambient-model)))
       (((game-option-type pbr-displacement)) (set! lst *carousell-pbr-displacement*) (set! idx (-> *pc-settings* pbr-displacement)))
+      (((game-option-type mesh-subdiv)) (set! lst *carousell-mesh-subdiv*) (set! idx (-> *pc-settings* mesh-subdiv)))
       (((game-option-type physics-quality)) (set! lst *carousell-physics-quality*) (set! idx (-> *pc-settings* physics-quality)))
       (((game-option-type follow-probe)) (set! lst *carousell-follow-probe*) (set! idx (-> *pc-settings* follow-probe)))
       (((game-option-type pbr-isolate)) (set! lst *carousell-pbr-isolate*) (set! idx (-> *pc-settings* pbr-isolate)))
@@ -5658,6 +5713,7 @@
                       (game-option-type shadow-quality)
                       (game-option-type rt-ambient-model)
                       (game-option-type pbr-displacement)
+                      (game-option-type mesh-subdiv)
                       (game-option-type physics-quality)
                       (game-option-type follow-probe)
                       (game-option-type pbr-test-preset)
@@ -5750,6 +5806,7 @@
                       (game-option-type shadow-quality)
                       (game-option-type rt-ambient-model)
                       (game-option-type pbr-displacement)
+                      (game-option-type mesh-subdiv)
                       (game-option-type physics-quality)
                       (game-option-type follow-probe)
                       (game-option-type pbr-test-preset)
@@ -6779,6 +6836,12 @@
 ;; Grecharged-pbr-realtime-fusion: ENV PROBE (DYNAMIC FOLLOW-PROBE tier) carousell (Off / Low / Mid / High).
 ;; Off reuses the generic off text-id like *carousell-pbr-displacement*; Low/Mid/High are new ids.
 (def-progress-carousell *carousell-follow-probe* (off pc-text-envprobe-low pc-text-envprobe-mid pc-text-envprobe-high))
+;; Gprecompute-deterministic-bake (owner 2026-08-26): MESH SUBDIVISION carousell (Off / Low / Mid /
+;; High = 0/1/2/3 pre-subdivision ROUNDS handed to the hardware tessellator). It deliberately REUSES
+;; the ENV PROBE text-ids — `off` plus pc-text-envprobe-low/mid/high already read Off/Low/Mid/High
+;; and are present in every shipped COMMON.TXT — so NO new text id is allocated and no text bank is
+;; touched: a stale Android COMMON.TXT cannot turn these four entries into "Unknown ID".
+(def-progress-carousell *carousell-mesh-subdiv* (off pc-text-envprobe-low pc-text-envprobe-mid pc-text-envprobe-high))
 ;; Gpbr-fusion REOPEN #3 (DEBUG, removable later): PBR TEST PRESET carousell — one-click intended-config
 ;; presets. On confirm the write-back arm applies the whole config (booleans + sliders + carousells).
 (def-progress-carousell *carousell-pbr-test-preset* (pc-text-preset-allin pc-text-preset-fused pc-text-preset-fused-flat pc-text-preset-pbr-only pc-text-preset-rt-only pc-text-preset-stock))
@@ -7477,6 +7540,23 @@
             :option-disabled-func
             (lambda ()
               (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* pbr-materials?))))))
+       ;; Gprecompute-deterministic-bake (owner 2026-08-26): MESH SUBDIVISION carousell — the
+       ;; PRE-SUBDIVISION ROUND COUNT the loader hands the hardware tessellator (0 OFF, no refinement
+       ;; at all / 1 the shipped default / 2 MID / 3 HIGH). Sits immediately after DISPLACEMENT and
+       ;; carries the SAME disable predicate, because the refinement only ever runs in the
+       ;; tessellation displacement mode — greyed exactly when DISPLACEMENT is greyed.
+       ;; APPLIES AT THE NEXT LEVEL LOAD, not immediately: the refinement runs on the LOADER thread
+       ;; while a level is unpacked, so the level already resident keeps the geometry it was built
+       ;; with until it is reloaded.
+       ;; Carousell mirrors pbr-displacement: :name is a placeholder (the real label comes from the
+       ;; *mesh-subdiv-label* name-override) and there is no :on-change — respond-common backs the
+       ;; value up into int-backup and writes it back.
+       ;; row present only with --pbr, like the DISPLACEMENT row it shadows.
+       (flag-row FLAG_PBR
+       (new 'static 'game-option :option-type (game-option-type mesh-subdiv) :name (text-id msaa) :scale #t
+            :option-disabled-func
+            (lambda ()
+              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* pbr-materials?))))))
        ;; Gpbr-fusion REOPEN #3 (DEBUG, removable later): PBR TEST PRESET carousell. ALWAYS ENABLED (no
        ;; option-disabled-func) — the STOCK preset turns recharged-master? off, so this row must stay usable
        ;; to switch back. Carousell mirrors rt-ambient-model; the write-back arm applies the whole config.
@@ -7760,6 +7840,11 @@
 ;; Gpbr-fusion REOPEN #3: DISPLACEMENT carousell label.
 (define *displacement-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *displacement-label*) "DISPLACEMENT")
+;; Gprecompute-deterministic-bake: MESH SUBDIVISION carousell row label (name-override, runtime
+;; global — no text-id, so nothing to add to a text bank). English-only uppercase ASCII, like the
+;; DISPLACEMENT label it sits under.
+(define *mesh-subdiv-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *mesh-subdiv-label*) "MESH SUBDIVISION")
 ;; Grecharged-pbr-realtime-fusion: ENV PROBE (DYNAMIC FOLLOW-PROBE tier) carousell label.
 (define *envprobe-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *envprobe-label*) "ENV PROBE")
@@ -10034,11 +10119,17 @@
   ;; The collapsed branch is unchanged — when the enhanced FR3 set is missing ALL FIVE rows collapse.
   ;; Grecharged-title-logo-fullres: +1 for the new unconditional CRISP TITLE LOGO row (10 -> 11).
   ;; Grecharged-materials-modern-parity: the new MODERN MATERIALS row is FLAG_PBR-gated and sits
-  ;; AFTER PBR ISOLATE (fw-idx+15), i.e. after every fw-idx-relative arm below — so ONLY the total
+  ;; AFTER PBR ISOLATE (fw-idx+15, now fw-idx+16 since MESH SUBDIVISION was inserted mid-block), i.e.
+  ;; after every fw-idx-relative arm below — so ONLY the total
   ;; static length term changes: the PBR block after PBR MATERIALS goes 12 -> 13 rows. Leaving it at
   ;; 12 would make this guard mis-read a FULL hd-models+pbr array as collapsed and wire FOLIAGE WIND
   ;; (and every following row) five slots early — the Gmenu-flag-off bug class.
-  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 12 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 13 FLAG_PBR_N) (* 2 FLAG_PHYSICS_N)))
+  ;; Gprecompute-deterministic-bake: +1 again on the SAME PBR-block term (13 -> 14) for the new
+  ;; MESH SUBDIVISION row. Unlike MODERN MATERIALS this one is inserted IN THE MIDDLE of the block
+  ;; (right after DISPLACEMENT), so besides the total-length term the two fw-idx-relative arms that
+  ;; followed DISPLACEMENT are renumbered +14/+15 -> +15/+16 below. Verified against the array by
+  ;; counting: 12 unconditional rows + hud + PBR MATERIALS + 5 HD + 14 PBR-block + 2 PHYSICS.
+  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 12 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 14 FLAG_PBR_N) (* 2 FLAG_PHYSICS_N)))
                     (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N))
                     (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N))))
     (set! (-> *recharged-options-pc* fw-idx value-to-modify) (&-> *pc-settings* recharged-foliage-wind?))
@@ -10087,14 +10178,24 @@
       ;; 1:1 to pbr-displacement in respond-common, mirroring the AMBIENT MODEL / SHADOW QUALITY carousells.
       (set! (-> *recharged-options-pc* (+ fw-idx 13) value-to-modify) (&-> *progress-carousell* int-backup))
       (set! (-> *recharged-options-pc* (+ fw-idx 13) name-override) *displacement-label*)
-      ;; Gpbr-fusion REOPEN #3 (DEBUG, removable): PBR TEST PRESET carousell (row +14, before Back). int-backup
-      ;; scratch, mapped 1:1 to pbr-test-preset in respond-common; the write-back arm applies the whole config.
+      ;; Gprecompute-deterministic-bake: MESH SUBDIVISION carousell, INSERTED right after DISPLACEMENT
+      ;; (row +14). int-backup scratch, mapped 1:1 to mesh-subdiv in respond-common, exactly like the
+      ;; DISPLACEMENT carousell above. Because this row is inserted IN THE MIDDLE of the PBR block and
+      ;; not at the tail, the two rows that used to follow DISPLACEMENT move down one slot: PBR TEST
+      ;; PRESET +14 -> +15 and PBR ISOLATE +15 -> +16 (renumbered below), and the PBR term of both
+      ;; total-static-length guards gains one row. Nothing else moves: everything after PBR ISOLATE
+      ;; (MODERN MATERIALS, CRISP TITLE LOGO, the two PHYSICS rows, HD TEXTURE PACK) is either
+      ;; SELF-LOCATING or addressed from the END of the array, so it is immune to this insertion.
       (set! (-> *recharged-options-pc* (+ fw-idx 14) value-to-modify) (&-> *progress-carousell* int-backup))
-      (set! (-> *recharged-options-pc* (+ fw-idx 14) name-override) *pbr-test-preset-label*)
-      ;; Gpbr-fusion REOPEN #10 (DEBUG, removable): PBR ISOLATE carousell (row +15, before Back). int-backup
-      ;; scratch, mapped 1:1 to pbr-isolate in respond-common, mirroring the DISPLACEMENT carousell.
+      (set! (-> *recharged-options-pc* (+ fw-idx 14) name-override) *mesh-subdiv-label*)
+      ;; Gpbr-fusion REOPEN #3 (DEBUG, removable): PBR TEST PRESET carousell (row +15, before Back). int-backup
+      ;; scratch, mapped 1:1 to pbr-test-preset in respond-common; the write-back arm applies the whole config.
       (set! (-> *recharged-options-pc* (+ fw-idx 15) value-to-modify) (&-> *progress-carousell* int-backup))
-      (set! (-> *recharged-options-pc* (+ fw-idx 15) name-override) *pbr-isolate-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 15) name-override) *pbr-test-preset-label*)
+      ;; Gpbr-fusion REOPEN #10 (DEBUG, removable): PBR ISOLATE carousell (row +16, before Back). int-backup
+      ;; scratch, mapped 1:1 to pbr-isolate in respond-common, mirroring the DISPLACEMENT carousell.
+      (set! (-> *recharged-options-pc* (+ fw-idx 16) value-to-modify) (&-> *progress-carousell* int-backup))
+      (set! (-> *recharged-options-pc* (+ fw-idx 16) name-override) *pbr-isolate-label*)
       ;; Grecharged-lightprobes OWNER #3 UNIFICATION (2026-07-21): the three BAKED AMBIENT wiring arms
       ;; (+11..+13) were removed with their rows; the probe grid now feeds the unified AMBIENT tiers.
       ))
@@ -10167,8 +10268,10 @@
       ;; Grecharged-materials-modern-parity: the PBR block after PBR MATERIALS is 13 rows now (the
       ;; new MODERN MATERIALS toggle after PBR ISOLATE) — same full-static-length term as the
       ;; fw-idx guard above; a stale 12 here would silently disable the HD-collapse.
+      ;; Gprecompute-deterministic-bake: 13 -> 14 for the MESH SUBDIVISION row (same term, same
+      ;; reason: a stale 13 here would silently disable the HD-collapse).
       (when (= (-> *recharged-options-pc* length)
-               (+ 12 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 13 FLAG_PBR_N) (* 2 FLAG_PHYSICS_N)))
+               (+ 12 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 14 FLAG_PBR_N) (* 2 FLAG_PHYSICS_N)))
         (let ((i (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N)))
           (while (< i (+ (* -5 FLAG_HD_MODELS_N) (-> *recharged-options-pc* length)))
             (set! (-> *recharged-options-pc* i) (-> *recharged-options-pc* (+ i (* 5 FLAG_HD_MODELS_N))))
@@ -10402,6 +10505,7 @@
                     (game-option-type shadow-quality)
                     (game-option-type rt-ambient-model)
                     (game-option-type pbr-displacement)
+                    (game-option-type mesh-subdiv)
                     (game-option-type hd-look-jak)
                     (game-option-type hd-look-daxter)
                     (game-option-type hd-look-keira)
@@ -10502,6 +10606,7 @@
                     (game-option-type shadow-quality)
                     (game-option-type rt-ambient-model)
                     (game-option-type pbr-displacement)
+                    (game-option-type mesh-subdiv)
                     (game-option-type hd-look-jak)
                     (game-option-type hd-look-daxter)
                     (game-option-type hd-look-keira)
@@ -10848,6 +10953,8 @@
                   (set! (-> *progress-carousell* int-backup) (-> *pc-settings* realtime-shadow-quality)))
                  (((game-option-type rt-ambient-model)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* realtime-ambient-model)))
                  (((game-option-type pbr-displacement)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* pbr-displacement)))
+                 ;; Gprecompute-deterministic-bake: MESH SUBDIVISION backup (1:1, like pbr-displacement).
+                 (((game-option-type mesh-subdiv)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* mesh-subdiv)))
                  ;; Grecharged-hd-models5: per-character HD LOOK backups (1:1, like pbr-displacement).
                  (((game-option-type hd-look-jak)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* hd-look-jak)))
                  (((game-option-type hd-look-daxter)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* hd-look-daxter)))
@@ -10909,6 +11016,8 @@
                     (((game-option-type shadow-quality)) (set! (-> *progress-carousell* current-carousell) *carousell-shadow-quality*))
                     (((game-option-type rt-ambient-model)) (set! (-> *progress-carousell* current-carousell) *carousell-rt-ambient-model*))
                     (((game-option-type pbr-displacement)) (set! (-> *progress-carousell* current-carousell) *carousell-pbr-displacement*))
+                    ;; Gprecompute-deterministic-bake: MESH SUBDIVISION carousell list.
+                    (((game-option-type mesh-subdiv)) (set! (-> *progress-carousell* current-carousell) *carousell-mesh-subdiv*))
                     ;; Grecharged-hd-models5: per-character HD LOOK carousell lists.
                     (((game-option-type hd-look-jak)) (set! (-> *progress-carousell* current-carousell) *carousell-hd-look-jak*))
                     (((game-option-type hd-look-daxter)) (set! (-> *progress-carousell* current-carousell) *carousell-hd-look-daxter*))
@@ -10975,6 +11084,8 @@
                (set! (-> *pc-settings* realtime-shadow-quality) (-> *progress-carousell* int-backup)))
               (((game-option-type rt-ambient-model)) (set! (-> *pc-settings* realtime-ambient-model) (-> *progress-carousell* int-backup)))
               (((game-option-type pbr-displacement)) (set! (-> *pc-settings* pbr-displacement) (-> *progress-carousell* int-backup)))
+              ;; Gprecompute-deterministic-bake: MESH SUBDIVISION write-back (1:1, like pbr-displacement).
+              (((game-option-type mesh-subdiv)) (set! (-> *pc-settings* mesh-subdiv) (-> *progress-carousell* int-backup)))
               ;; Grecharged-hd-models5: per-character HD LOOK write-backs (1:1, like pbr-displacement).
               (((game-option-type hd-look-jak)) (set! (-> *pc-settings* hd-look-jak) (-> *progress-carousell* int-backup)))
               (((game-option-type hd-look-daxter)) (set! (-> *pc-settings* hd-look-daxter) (-> *progress-carousell* int-backup)))
@@ -11457,6 +11568,7 @@
                       (game-option-type shadow-quality)
                       (game-option-type rt-ambient-model)
                       (game-option-type pbr-displacement)
+                      (game-option-type mesh-subdiv)
                       (game-option-type hd-look-jak)
                       (game-option-type hd-look-daxter)
                       (game-option-type hd-look-keira)
@@ -11553,6 +11665,7 @@
                       (game-option-type shadow-quality)
                       (game-option-type rt-ambient-model)
                       (game-option-type pbr-displacement)
+                      (game-option-type mesh-subdiv)
                       (game-option-type hd-look-jak)
                       (game-option-type hd-look-daxter)
                       (game-option-type hd-look-keira)

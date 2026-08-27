@@ -395,6 +395,23 @@ struct GfxGlobalSettings {
   // hangs on a ledge, so the ledge-top grass parts around his hands. w = 1.0 while hanging,
   // 0.0 otherwise (GOAL pushes a null vector to clear it when he lets go).
   float recharged_jak_ledge[4] = {0.f, 0.f, 0.f, 0.f};
+  // ----------------------------------------------------------------------------------------------
+  // Gprecompute-deterministic-bake (owner 2026-08-26) — MESH PRE-SUBDIVISION LEVEL, AS A SETTING.
+  //
+  // The offline-deterministic pre-subdivision (MeshSubdivide.h) hands the hardware tessellator
+  // patches small enough that it stops clipping at GL_MAX_TESS_GEN_LEVEL. It used to run at a fixed
+  // 3 rounds whenever the tessellation displacement mode was on — a two-digit geometry multiplier
+  // applied to every target automatically. Measured on the test device at lvl=title: 3 rounds gave
+  // 7 700 915 tris/frame at 82,8 ms and forced the renderer down to 768x432, while 1 round gave
+  // 65 318 tris/frame at 8,1-17,9 ms at 1920x1080.
+  //
+  // It is a CHOICE now. 0 = off (no refinement at all), 1 = shipped default (one round: the ground
+  // patch reaches the threshold the tessellator needs), 2-3 = denser, for machines with the budget.
+  // Pushed from GOAL via pc-set-mesh-subdiv-rounds! (menu: DISPLAY > MESH SUBDIVISION) and applied
+  // at the NEXT level load, since the refinement happens on the loader thread.
+  // debug.opengoal.mesh.subdivrounds / OG_MESH_SUBDIV_ROUNDS still override it for A/B work.
+  int recharged_mesh_subdiv_rounds = 1;
+
 #ifdef OG_FEAT_PBR
   // Grecharged-pbr-materials: runtime toggle + per-frame mood/TOD sun state (raw GOAL vectors)
   bool recharged_pbr_enable = true;

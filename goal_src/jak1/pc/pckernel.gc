@@ -466,6 +466,14 @@
     (("pbr-texture-relief") (set! (-> obj pbr-texture-relief) (file-stream-read-float file)))
     (("pbr-specular-intensity") (set! (-> obj pbr-specular-intensity) (file-stream-read-float file)))
     (("pbr-displacement") (set! (-> obj pbr-displacement) (file-stream-read-int file)))
+    ;; Gprecompute-deterministic-bake: MESH SUBDIVISION level (pre-subdivision rounds, 0..3).
+    ;; Clamped on read like the hd-look carousells, and PUSHED HERE: the refinement runs on the
+    ;; loader thread, and the FIRST level load happens before the first per-frame update-to-os
+    ;; push, so a settings-load push is what makes the persisted choice effective at boot.
+    (("mesh-subdiv")
+     (let ((v (file-stream-read-int file)))
+       (set! (-> obj mesh-subdiv) (if (and (>= v 0) (<= v 3)) v 1)))
+     (pc-set-mesh-subdiv-rounds! (-> obj mesh-subdiv)))
     (("pbr-test-preset") (set! (-> obj pbr-test-preset) (file-stream-read-int file)))
     (("pbr-isolate") (set! (-> obj pbr-isolate) (file-stream-read-int file)))
     ;; Grecharged-materials-modern-parity: MODERN MATERIAL STACK master. #f = accepted PBR path.
@@ -567,6 +575,8 @@
   (format file "pbr-texture-relief = ~f~%" (-> obj pbr-texture-relief))
   (format file "pbr-specular-intensity = ~f~%" (-> obj pbr-specular-intensity))
   (format file "pbr-displacement = ~D~%" (-> obj pbr-displacement))
+  ;; Gprecompute-deterministic-bake: MESH SUBDIVISION level (pre-subdivision rounds, 0..3).
+  (format file "mesh-subdiv = ~D~%" (-> obj mesh-subdiv))
   (format file "pbr-test-preset = ~D~%" (-> obj pbr-test-preset))
   (format file "pbr-isolate = ~D~%" (-> obj pbr-isolate))
   ;; Grecharged-materials-modern-parity: MODERN MATERIAL STACK master. #f = accepted PBR path.

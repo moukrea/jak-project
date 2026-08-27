@@ -5,6 +5,7 @@
 
 #include "extract_anim.h"
 
+#include "common/custom_data/TangentDerive.h"
 #include "common/log/log.h"
 #include "common/util/FileUtil.h"
 #include "common/util/SimpleThreadGroup.h"
@@ -328,6 +329,14 @@ void extract_common(const ObjectFileDB& db,
     }
   }
 
+  // Gprecompute-deterministic-bake (owner 2026-08-26): DERIVE THE PER-VERTEX TANGENTS HERE, ONCE.
+  // They are a pure function of the packed vertices + draws we just built, and the runtime used to
+  // re-derive them on EVERY level load on EVERY machine (26.3 MB of output for village1 alone).
+  // Baked into the fr3 at 4 bytes/vertex; TFRAG3_VERSION 44 exists for this.
+  {
+    tfrag3::TangentBakeStats tb;
+    tfrag3::bake_deterministic_tangents(tfrag_level, &tb);
+  }
   Serializer ser;
   tfrag_level.serialize(ser);
   auto compressed =
@@ -367,6 +376,14 @@ void extract_from_level(const ObjectFileDB& db,
   extract_art_groups_from_level(db, tex_db, bsp_header.texture_remap_table, dgo_name, level_data,
                                 art_group_data);
 
+  // Gprecompute-deterministic-bake (owner 2026-08-26): DERIVE THE PER-VERTEX TANGENTS HERE, ONCE.
+  // They are a pure function of the packed vertices + draws we just built, and the runtime used to
+  // re-derive them on EVERY level load on EVERY machine (26.3 MB of output for village1 alone).
+  // Baked into the fr3 at 4 bytes/vertex; TFRAG3_VERSION 44 exists for this.
+  {
+    tfrag3::TangentBakeStats tb;
+    tfrag3::bake_deterministic_tangents(level_data, &tb);
+  }
   Serializer ser;
   level_data.serialize(ser);
   auto compressed =

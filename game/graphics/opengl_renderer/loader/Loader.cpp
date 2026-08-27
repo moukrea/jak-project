@@ -485,6 +485,8 @@ void Loader::loader_thread() {
       // and finally "unpack", which creates the vertex data we'll upload to the GPU
 
       Timer unpack_timer;
+      const u64 tan_ns0 = tfrag3::baked_tangent_expand_ns();
+      const u64 tan_v0 = tfrag3::baked_tangent_expand_verts();
       {
         auto p = scoped_prof("tie-unpack");
         for (auto& tie_tree : result->tie_trees) {
@@ -588,6 +590,16 @@ void Loader::loader_thread() {
         if (scfg.forced_max_edge_m >= 0.f) {
           want = scfg.forced_max_edge_m > 0.f;  // prop/env override, for the device A/B
         }
+        // Gprecompute-deterministic-bake (owner 2026-08-26: « ca devrait etre une option ajustable et
+        // pas un truc qui se fait automatiquement »). The ROUND COUNT is a user setting now, not a
+        // constant: 0 turns the refinement off outright, 1 is the shipped default, 2-3 for machines
+        // with the budget. The debug prop/env still outranks it so an A/B stays possible.
+        if (scfg.forced_max_rounds < 0) {
+          scfg.max_rounds = std::max(0, std::min(6, gs.recharged_mesh_subdiv_rounds));
+        }
+        if (scfg.max_rounds <= 0) {
+          want = false;  // explicitly asked for no refinement
+        }
         if (want && scfg.max_edge_m > 0.f) {
           auto p = scoped_prof("mesh-presubdivide");
           // Only the geom LOD TFragment actually draws, and only materials that ship a height map:
@@ -646,6 +658,13 @@ void Loader::loader_thread() {
       fmt::print(
           "------------> Load from file: {:.3f}s, import {:.3f}s, decomp {:.3f}s unpack {:.3f}s\n",
           disk_load_time, import_time, decomp_time, unpack_timer.getSeconds());
+      // Gprecompute-deterministic-bake — what the per-vertex tangents still cost on THIS machine now
+      // that the fr3 carries them. Compare against the [tangent-bake] line the fr3 extractor printed
+      // for the SAME level: that is the derivation this replaces, and it used to sit inside the
+      // `unpack` figure above, on every load, on every target.
+      fmt::print("A55-TANGENT lev={} expand={:.1f}ms verts={}\n", lev,
+                 (tfrag3::baked_tangent_expand_ns() - tan_ns0) / 1e6,
+                 tfrag3::baked_tangent_expand_verts() - tan_v0);
       rss_census::mark("fr3-unpack");
 
       // grab the lock again

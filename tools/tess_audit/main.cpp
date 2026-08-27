@@ -1088,6 +1088,16 @@ int main(int argc, char** argv) {
       prep_note = "prep: global weld + LIVE consolidation (no usable sidecar)";
     }
   }
+  // Gprecompute-deterministic-bake — the load-side half of the tangent bake, measured on the SAME
+  // level the rest of this report is about. load_level_fr3() above ran exactly the loader's unpack
+  // chain, so this is what a level load now pays for its per-vertex tangents. The number to put it
+  // next to is the [tangent-bake] line the fr3 extractor printed for this level: that is the
+  // derivation it replaced, and it used to be inside every single load.
+  const std::string tangent_note =
+      fmt::format("baked tangents: expand={:.1f}ms verts={} (derivation moved offline to the fr3)",
+                  tfrag3::baked_tangent_expand_ns() / 1e6, tfrag3::baked_tangent_expand_verts());
+  fmt::print("{}\n", tangent_note);
+
   std::string subdiv_note = "pre-subdivision: OFF";
   if (subdiv_m > 0.0) {
     tfrag3::SubdivConfig scfg;
@@ -1651,6 +1661,7 @@ int main(int argc, char** argv) {
   line(fmt::format("subdivision       : {}", subdiv_m > 0.0 ? "ON" : "OFF"));
   line(fmt::format("subdivision (tie) : {}",
                    (subdiv_m > 0.0 && subdiv_tie) ? "ON (all 4 TIE geoms)" : "OFF"));
+  line(tangent_note);
   line(subdiv_note);
   line(fmt::format("camera (game u)   : {:.1f} {:.1f} {:.1f}", cam.x, cam.y, cam.z));
   line(fmt::format("camera (metres)   : {:.3f} {:.3f} {:.3f}", cam.x / kUnitsPerM,

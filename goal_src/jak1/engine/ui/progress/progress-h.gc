@@ -204,7 +204,11 @@
      ;; skips it; it draws in a distinct header color with no value and no selection cursor. Used to
      ;; visually separate the internal groups of the unified OPTIONS category pages (Ecran / Performance /
      ;; HUD in AFFICHAGE; General / Materiaux / Eclairage / Vegetation in RENDU; etc.).
-     (group-header))) ;; end of PC_PORT = #t branch for enum initialization
+     (group-header)
+     ;; Gprecompute-deterministic-bake (owner 2026-08-26): MESH SUBDIVISION carousell
+     ;; (Off / Low / Mid / High = 0/1/2/3 pre-subdivision rounds), mirroring pbr-displacement.
+     ;; APPENDED AT THE VERY END of the enumeration so not one existing value is renumbered.
+     (mesh-subdiv))) ;; end of PC_PORT = #t branch for enum initialization
   ) ;; end of PC_PORT cond
 
 (defenum game-option-menu

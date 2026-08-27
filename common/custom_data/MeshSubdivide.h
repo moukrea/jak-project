@@ -61,9 +61,24 @@ struct SubdivConfig {
   // It is also deliberately just above half the 3.05 m mean ground edge, so the typical ground patch
   // needs ONE round (4 triangles) rather than two (16) -- the cost cliff is at the power of two.
   float max_edge_m = 1.6f;
-  // Refinement rounds. 3 covers a 12.8 m edge; beyond that the patch is far enough that the shader's
-  // own 20-30 m density fade has already taken the level back to 1.
-  int max_rounds = 3;
+  // Refinement rounds.
+  //
+  // Gprecompute-deterministic-bake (owner 2026-08-26, MEASURED on the test device, same scene
+  // lvl=title, same build, only this number changed):
+  //     max_rounds = 3 (the old default) : 7 700 915 tris/frame, 82,8 ms, rendered at 768x432
+  //     max_rounds = 1                   :    65 318 tris/frame, 8,1-17,9 ms, at 1920x1080
+  // A two-digit geometry multiplier was being applied to EVERY target with nobody asking for it,
+  // and the frame budget it ate was paid back by the renderer dropping the resolution. The owner:
+  // « je vois pas pourquoi la subdivision serait la solution [...] ca devrait etre une option
+  // ajustable et pas un truc qui se fait automatiquement ».
+  //
+  // So the SHIPPED DEFAULT IS 1: one round still halves a 3.05 m mean ground edge to ~1.5 m, which
+  // is the threshold the tessellator needs to stop clipping at GL_MAX_TESS_GEN_LEVEL — i.e. it keeps
+  // the reason the pass exists — without the 4x/16x rounds on top. 2 and 3 remain reachable, but
+  // only because someone CHOSE them (menu setting, or the debug prop/env override below).
+  // 3 covers a 12.8 m edge; beyond that the patch is far enough that the shader's own 20-30 m
+  // density fade has already taken the level back to 1.
+  int max_rounds = 1;
   // Hard ceiling on growth, as a multiple of the level's original tfrag triangle count. A level that
   // would blow past it stops refining and says so in the stats rather than eating the frame budget.
   float budget_mult = 12.0f;
@@ -87,6 +102,10 @@ struct SubdivConfig {
   int only_geom = -1;
   // -1 = not set by prop/env; the caller's feature gate decides. >= 0 overrides it (0 = force off).
   float forced_max_edge_m = -1.f;
+  // Gprecompute-deterministic-bake: -1 = the prop/env said nothing about the ROUND COUNT, so the
+  // caller's user setting (Gfx::g_global_settings.recharged_mesh_subdiv_rounds) owns it. >= 0 means
+  // debug.opengoal.mesh.subdivrounds / OG_MESH_SUBDIV_ROUNDS was set and wins, for A/B work.
+  int forced_max_rounds = -1;
 
   // --------------------------------------------------------------------------------------------
   // TIE. DEFAULT OFF, and this default is a measurement, not caution.

@@ -24,13 +24,18 @@ Aspect, Résolution (desktop), Dynamic Render Scale (`dynamic-render-scale?`), R
 Min Target FPS (`dyn-target-fps`), FPS Counter, VSync, MSAA, [desktop : Display Mode, Display,
 Frame Rate], **RECHARGED SETTINGS** (sous-menu), Advanced, Vulkan `{FLAG_VULKAN_SUPPORT}`, Back.
 
-## RECHARGED SETTINGS (`*recharged-options-pc`* — 32 lignes livrées avec hd-models+pbr+physics, HUD off)
+## RECHARGED SETTINGS (`*recharged-options-pc`* — 34 lignes livrées avec hd-models+pbr+physics, HUD off)
 
 > Grecharged-hud-jak1 (2026-08-08) : avec `--recharged-hud` la ligne **RECHARGED HUD** s'insère à
 > l'index **1** (juste après RECHARGED MASTER) et **tout le reste glisse de +1** — c'est exactement
 > ce que porte l'arithmétique `FLAG_RECHARGED_HUD_N` de `progress-pc.gc` (fw-idx, collapse HD, etc.).
-> Le tableau ci-dessous reste celui de la config par défaut (HUD off, 32 lignes) ; avec le flag on
-> passe à 33.
+> Le tableau ci-dessous reste celui de la config par défaut (HUD off, 34 lignes) ; avec le flag on
+> passe à 35.
+>
+> Correctif d'indices 2026-08-27 : le tableau omettait la ligne **HD TEXTURE PACK**
+> (`managed-assets?`, arrivée avec l'absorption `Grecharged-managed-assets`, en avant-dernière
+> position avant MESH BROWSER + Back) — les indices publiés étaient donc décalés d'un cran à partir
+> d'elle. Elle est rétablie ci-dessous, en même temps que l'insertion de MESH SUBDIVISION.
 
 | idx | ligne | pilote |
 |---|---|---|
@@ -52,14 +57,51 @@ Frame Rate], **RECHARGED SETTINGS** (sous-menu), Advanced, Vulkan `{FLAG_VULKAN_
 | 20 | SHADOW QUALITY (carousell) `{FLAG_PBR}` | int-backup → `shadow-quality` |
 | 21-22 | TEXTURE RELIEF / SPECULAR INTENSITY (sliders) `{FLAG_PBR}` | `pbr-texture-relief`/`pbr-specular-intensity` |
 | **23** | **DISPLACEMENT (carousell Off/Parallax/Tessellation)** `{FLAG_PBR}` (grisé si master ou materials off) | **`pbr-displacement`** via int-backup (write-back respond-common) |
-| 24 | PBR TEST PRESET (carousell, jamais grisé) `{FLAG_PBR}` | applique le preset complet |
-| 25 | PBR ISOLATE (carousell) `{FLAG_PBR}` | `pbr-isolate` |
-| **26** | **MODERN MATERIALS (on-off, défaut OFF)** `{FLAG_PBR}` (grisé si master ou PBR MATERIALS off) | **`modern-materials?`** |
-| **27** | **CRISP TITLE LOGO (on-off, défaut OFF)** — inconditionnelle (aucun flag build) (grisé si master off uniquement) | **`crisp-title-logo?`** |
-| **28** | **PHYSICS (on-off, défaut ON)** `{FLAG_PHYSICS}` (grisé si master off uniquement) | **`physics?`** |
-| **29** | **PHYSICS DETAIL (carousell LIGHT / FULL / MAXIMUM, défaut FULL)** `{FLAG_PHYSICS}` (grisé si master ou PHYSICS off) | **`physics-quality`** via int-backup (write-back respond-common) |
-| 30 | MESH BROWSER (bouton) | ouvre l'overlay mesh-browser |
-| 31 | Back | — |
+| **24** | **MESH SUBDIVISION (carousell Off / Low / Mid / High, défaut Low=1)** `{FLAG_PBR}` (grisé si master ou materials off — MÊME prédicat que DISPLACEMENT) | **`mesh-subdiv`** via int-backup (write-back respond-common) |
+| 25 | PBR TEST PRESET (carousell, jamais grisé) `{FLAG_PBR}` | applique le preset complet |
+| 26 | PBR ISOLATE (carousell) `{FLAG_PBR}` | `pbr-isolate` |
+| **27** | **MODERN MATERIALS (on-off, défaut OFF)** `{FLAG_PBR}` (grisé si master ou PBR MATERIALS off) | **`modern-materials?`** |
+| **28** | **CRISP TITLE LOGO (on-off, défaut OFF)** — inconditionnelle (aucun flag build) (grisé si master off uniquement) | **`crisp-title-logo?`** |
+| **29** | **PHYSICS (on-off, défaut ON)** `{FLAG_PHYSICS}` (grisé si master off uniquement) | **`physics?`** |
+| **30** | **PHYSICS DETAIL (carousell LIGHT / FULL / MAXIMUM, défaut FULL)** `{FLAG_PHYSICS}` (grisé si master ou PHYSICS off) | **`physics-quality`** via int-backup (write-back respond-common) |
+| 31 | HD TEXTURE PACK (on-off, défaut ON) — inconditionnelle (grisé si master off) | `managed-assets?` |
+| 32 | MESH BROWSER (bouton) | ouvre l'overlay mesh-browser |
+| 33 | Back | — |
+
+### Gprecompute-deterministic-bake — MESH SUBDIVISION (idx 24)
+
+Une ligne `{FLAG_PBR}` (`flag-row FLAG_PBR`, absente d'un build sans `--pbr`, comme la ligne
+DISPLACEMENT qu'elle double), insérée **juste après DISPLACEMENT**, et grisée par **exactement le
+même prédicat** (`master off` **ou** `PBR MATERIALS off`) : la pré-subdivision ne sert que quand le
+mode de déplacement est la tessellation.
+
+- **MESH SUBDIVISION** (`mesh-subdiv`, int 0..3) = le **nombre de TOURS de PRÉ-SUBDIVISION** que le
+  chargeur donne au tesselateur matériel. **0 = Off** (aucun raffinement du tout), **1 = défaut
+  livré** (Low), **2 = Mid**, **3 = High**. Défaut **1**.
+- **Le changement s'applique au PROCHAIN CHARGEMENT DE NIVEAU**, jamais sur le niveau déjà résident :
+  le raffinement tourne sur le **thread de chargement** pendant qu'un niveau est dépaqueté.
+- Carousell **sans nouvel identifiant de texte** : il réutilise tels quels les ids de ENV PROBE
+  (`off` + `pc-text-envprobe-low` / `-mid` / `-high`, qui affichent déjà Off/Low/Mid/High et sont
+  dans toutes les COMMON.TXT livrées) — donc aucun « Unknown ID » possible sur une banque Android
+  périmée. Libellé de LIGNE via `name-override` (`*mesh-subdiv-label*`, "MESH SUBDIVISION",
+  globale runtime anglaise) ; `:name` reste le placeholder maison `(text-id msaa)`.
+- Calqué sur DISPLACEMENT / PHYSICS DETAIL : pas d'`on-change`, backup / write-back dans
+  `respond-common` via `*progress-carousell* int-backup`.
+- Plomberie : `pc-set-mesh-subdiv-rounds!` (kmachine.cpp, enregistré **inconditionnellement** —
+  le champ C++ `Gfx::g_global_settings.recharged_mesh_subdiv_rounds` vit hors `OG_FEAT_PBR`) →
+  lu par `Loader.cpp` à chaque chargement de niveau. Poussé chaque frame par `update-to-os` **et**
+  au chargement des réglages (`pckernel.gc`), parce que le PREMIER chargement de niveau précède la
+  première passe `update-to-os` : sans cette poussée-là, le choix persisté ne prendrait effet qu'au
+  deuxième niveau. Persisté dans `settings.ini` sous la clé `mesh-subdiv`, juste après
+  `pbr-displacement`, et **borné 0..3 à la relecture**.
+- **Arithmétique d'indices** : la ligne est insérée **au MILIEU** du bloc PBR (pas en queue), donc
+  le terme PBR des deux gardes de longueur statique passe de `(* 13 FLAG_PBR_N)` à
+  `(* 14 FLAG_PBR_N)` (garde `fw-idx` + garde du collapse HD) et les deux bras relatifs qui
+  suivaient DISPLACEMENT sont renumérotés : PBR TEST PRESET `fw-idx+14` → `+15`, PBR ISOLATE
+  `+15` → `+16`. Rien d'autre ne bouge : MODERN MATERIALS, CRISP TITLE LOGO et les deux lignes
+  PHYSICS **s'auto-localisent** (hint / option-type), et HD TEXTURE PACK est adressée depuis la FIN
+  (`length-3`). L'audit d'amorçage `[PHYS-MENU]` balaie par `option-type`, il est donc lui aussi
+  insensible à cette insertion.
 
 ### Grecharged-hd-models5 — LOOK par personnage (idx 6-9)
 
@@ -72,7 +114,8 @@ d'ENHANCED MODELS avant ces lignes.
 Le bloc HD compte désormais **5 lignes** gatées `FLAG_HD_MODELS` : chaque terme HD de
 l'arithmétique longueur-exacte du menu ancien passe de `FLAG_HD_MODELS_N` à
 `(* 5 FLAG_HD_MODELS_N)` (longueur pleine, à jour :
-`(+ 11 hud-N pbr-N (* 5 hd-N) (* 13 pbr-N) (* 2 phys-N))`,
+`(+ 12 hud-N pbr-N (* 5 hd-N) (* 14 pbr-N) (* 2 phys-N))` — le terme constant est passé de 11 à 12
+avec la ligne HD TEXTURE PACK, et le terme PBR de 13 à 14 avec MESH SUBDIVISION,
 `fw-idx` = `(+ 4 hud-N pbr-N (* 5 hd-N))` = 10), et le collapse "FR3 HD absents" retire
 **les 5 lignes d'un bloc** (`length -= 5`, décalage `+5`).
 
@@ -105,7 +148,8 @@ dans le fr3 et art-group du pack. Ne pas le réintroduire ; `#x17bd` est **redev
 
 Une ligne `{FLAG_PBR}` (`flag-row FLAG_PBR`, absente du CGO sans `--pbr`), insérée
 **juste après PBR ISOLATE et AVANT CRISP TITLE LOGO** — donc après toutes les écritures
-relatives à `fw-idx` (la dernière est `fw-idx+15` = PBR ISOLATE) : **aucun index relatif ne
+relatives à `fw-idx` (la dernière est `fw-idx+15` = PBR ISOLATE, devenue `fw-idx+16` depuis
+l'insertion de MESH SUBDIVISION) : **aucun index relatif ne
 bouge**. Seul impact arithmétique : le bloc PBR qui suit PBR MATERIALS passe de **12 à 13**
 lignes dans les deux gardes de longueur statique (`fw-idx` et le garde de collapse HD),
 `(* 12 FLAG_PBR_N)` → `(* 13 FLAG_PBR_N)`.

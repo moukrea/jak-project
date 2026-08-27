@@ -120,6 +120,11 @@
    (hd-look-samos int32) ;; 0=ORIGINAL 1=HD 2=YOUNG (default 1 HD)
    (physics? symbol) ;; Grecharged-secondary-motion: secondary-motion chains on HD companions. #f = stock (no chain solve).
    (physics-quality int32) ;; Grecharged-secondary-motion: 0=LIGHT 1=FULL 2=MAXIMUM (data-driven levels in recharged_assets/physics_chains.txt)
+   ;; Gprecompute-deterministic-bake: MESH SUBDIVISION level = the number of PRE-SUBDIVISION ROUNDS
+   ;; the loader hands the hardware tessellator. 0=OFF (no refinement at all) 1=DEFAULT (shipped)
+   ;; 2=MID 3=HIGH. Read by Loader.cpp through Gfx::g_global_settings.recharged_mesh_subdiv_rounds;
+   ;; the refinement runs on the LOADER thread, so a change lands at the NEXT LEVEL LOAD.
+   (mesh-subdiv int32)
    (load-custom-assets? symbol) ;; Gload-custom-assets: load user-supplied custom assets. OFF = stock assets only.
    (recharged-textures? symbol) ;; Grecharged-bundled-textures: use the package-bundled first-party Recharged replacement textures. #f = stock base textures.
    (managed-assets? symbol) ;; Grecharged-managed-assets: use the DOWNLOADED texture pack (managed_assets/<game>/) when one is installed. #f = bundled/stock, no re-download.
@@ -205,6 +210,10 @@
 ;; the title-screen JAK AND DAXTER logo (and the ND boot logo) at NATIVE resolution while the 3D
 ;; world stays at RENDER SCALE. 0 = stock pipeline.
 (define-extern pc-set-crisp-title-logo! (function int none))
+;; Gprecompute-deterministic-bake: pushes the MESH SUBDIVISION level (pre-subdivision ROUND COUNT,
+;; raw int 0 OFF / 1 DEFAULT / 2 MID / 3 HIGH) to the loader. Unconditional (the C++ field lives
+;; outside OG_FEAT_PBR), applied at the next level load.
+(define-extern pc-set-mesh-subdiv-rounds! (function int none))
 ;; Grecharged-hd-models: pushes the ENHANCED MODELS toggle (0/1) to the loader; queries whether the
 ;; enhanced FR3 set shipped in this build (1 = available, so the menu row is shown).
 ;; Grecharged-buildsys-flags: externs present only with --hd-models (C++ side gated by OG_FEAT_HD_MODELS).
@@ -321,6 +330,7 @@
   (set! (-> obj hd-look-samos) 1) ;; 0 ORIGINAL / 1 HD / 2 YOUNG
   (set! (-> obj physics?) #t) ;; Grecharged-secondary-motion: secondary-motion chains on HD companions — default ON (feature is opt-in at build time)
   (set! (-> obj physics-quality) 1) ;; 0=LIGHT 1=FULL 2=MAXIMUM (data-driven levels in recharged_assets/physics_chains.txt)
+  (set! (-> obj mesh-subdiv) 1) ;; Gprecompute-deterministic-bake: 0=OFF 1=DEFAULT (shipped) 2=MID 3=HIGH pre-subdivision rounds
   (set! (-> obj load-custom-assets?) #f) ;; Gload-custom-assets: default OFF so a fresh install uses stock assets only
   (set! (-> obj recharged-textures?) #t) ;; Grecharged-bundled-textures: default ON — a plain install shows the owner's Recharged textures (the MASTER still forces stock when OFF)
   (set! (-> obj managed-assets?) #t) ;; Grecharged-managed-assets: default ON — a downloaded pack is meant to be seen (the MASTER still forces stock when OFF)

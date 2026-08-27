@@ -40,6 +40,7 @@ add_library(common
         custom_data/MeshOrient.cpp
         custom_data/MeshSubdivide.cpp
         custom_data/pack_helpers.cpp
+        custom_data/TangentDerive.cpp
         custom_data/TFrag3Data.cpp
         dma/dma_copy.cpp
         dma/dma.cpp
