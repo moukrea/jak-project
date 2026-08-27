@@ -1,0 +1,277 @@
+c133 — PREDICTIONS ECRITES AVANT LA COURSE, AVEC LEURS FALSIFICATEURS
+DIRECTIVES vd9e8b66782 · perimetre : Grecharged-secondary-motion, physics-keira-clean
+
+QUESTION DU CYCLE (posee par le c132b) : le plafond de §21 (`jak-hd-physics.gc:4046-4058`,
+qui retranche de `bm vector 3` APRES l'ecriture squelette) mord-il dans la FENETRE DE MESURE
+des cellules du balayage d'orientation — c'est-a-dire dans la fenetre exacte ou §10, §11 et
+§12 prennent leur verdict de COM (`PHYSORICOML` / `PHYSDFMA`, tous deux pris sur `*phys-ldb*`
+a `:3415`, donc EN AMONT du plafond) ?
+
+INSTRUMENT : `PHYSORIE21 i=<orientation> k=<passe> n21= cut21_b0= n22= cut22_b0= nskin=`,
+une ligne par cellule, emise juste avant `(+! (-> self ori) 1)` dans `phys-room.gc`.
+Fenetre : les PHYSROOM-ORIM (30) frames de mesure, bornees en amont par le
+`phys-diag-reset!` de fin d'etablissement. Agregat de jambe (pas de `c=`).
+
+BORNE STRUCTURELLE (calculee, pas mesuree) : la correction est evaluee une fois par (frame,
+chaine) dans la boucle `sc`. La fenetre porte 30 frames et 2 chaines simulees, donc
+  n21 <= 60 par cellule.
+Un `n21 > 60` refuterait ma lecture de la portee du compteur, pas la physique.
+
+P1 — LE PLAFOND MORD DANS AU MOINS UNE DES DEUX CELLULES DE VERDICT (i=6 prone, i=8 supine),
+     passe k=0 : `n21 > 0`.
+     BASE : la course LIVREE publie `PHYSE21 tag=rest n=93 cut_b0=1.2333` — la borne mord deja
+     dans une fenetre de REPOS, ou le chargement est le plus faible de la course. Une pose
+     tenue prone/supine charge davantage.
+     FALSIFICATEUR : `n21 = 0` sur i=6 ET i=8 en k=0.
+
+P2 — LE ZERO, S'IL SORT, SERA UNE MESURE ET PAS UNE VACUITE : sur ces memes cellules,
+     `n22 > 0` OU `nskin > 0` (deux correcteurs anterieurs a `*phys-ldb*`, donc hors angle mort).
+     FALSIFICATEUR : les trois compteurs nuls ensemble — alors la ligne ne conclut RIEN et je
+     dois le publier comme tel, pas lire le zero comme une absence de defaut.
+
+P3 — LA TAILLE PAR CORRECTION : `cut21_b0 / n21` est dans [0,008 ; 0,020] B0.
+     BASE : la course livree rend 1,2333/93 = 0,01326 B0 par correction (tag=rest) et
+     34,5932/2737 = 0,01264 (tag=run) — deux fenetres tres differentes, meme taille a 5 %.
+     FALSIFICATEUR : hors de cet intervalle.
+
+P4 — ET C'EST LA PREDICTION QUI DECIDE DU PROCHAIN LOT : meme si le plafond mord, la clause de
+     COM de §11 RESTE DANS SA BANDE. La valeur publiee vaut 0,2278 / 0,2273 B0 pour une bande
+     20-28 % B0 ; le deplacement retranche par correction est celui du POINT D'APEX pondere, et
+     le COM n'en voit que la fraction `cws/aws` <= 1. Donc la valeur LIVREE est bornee en bas par
+       0,2278 - (cut21_b0/n21)  >=  0,2278 - 0,020  =  0,2078 B0  >  0,20.
+     FALSIFICATEUR : la valeur corrigee tombe SOUS 0,20 B0 sur l'une des deux chaines.
+     SI P4 TIENT : l'angle mort est REEL mais il ne produit AUCUN faux verdict aujourd'hui sur
+     §11, et le prochain lot vise le chiffre publie tel quel.
+     SI P4 TOMBE : `0,2278 / 0,2273` est un faux vert de cette clause, et il se retire.
+
+RESERVE PUBLIEE D'AVANCE : `cut21_b0` est un CUMUL sur la fenetre, pas un deplacement. Le
+comparer directement a un COM de frame serait la faute `course-scoped-counter-under-window-key`
+du registre. Seule la moyenne PAR CORRECTION est comparable a un chiffre de verdict, et c'est
+elle que P3 et P4 utilisent.
+
+--------------------------------------------------------------------------------------------
+ADDENDA — ECRIT AVANT DE LANCER L'INSTRUMENT, SUR LA TRACE ARCHIVEE `keira-room-x86.c133-base.log`
+(md5 1e625b56cc2958866f8e763c8b5a1332), donc AVANT d'en connaitre le resultat.
+
+CE QUE J'AI TROUVE EN CHERCHANT AU LIEU DE DEMANDER UNE COURSE (registre :
+`grep-the-trace-before-asking-for-a-run`) : `PHYSORIM` publie DEJA, par cellule d'orientation, les
+QUATRE lignes de la matrice 4x4 REELLEMENT ECRITE au squelette pour `lBoob`, `lBooc`, `rBoob`,
+`rBooc`, `chest`, `Lshoulder`, `Rshoulder`. Verifie a la source : le tenseur entre dans `bm` a
+`jak-hd-physics.gc:3918`, l'ancrage de §31 a `:3922`, la translation a `:3932-3934`, le plafond de
+§21 a `:4046` — et `PHYSORIM` lit `bm` APRES tout cela. La grandeur LIVREE est donc deja dans la
+trace, et l'angle mort du c132 se mesure SANS course neuve.
+
+P5 — LES DEUX INSTRUMENTS NE DONNENT PAS LE MEME CHIFFRE SUR LA CELLULE DE VERDICT DE §11
+     (prone i=6) : l'ecart relatif depasse le plancher de bruit de §11 (0,045 %, `_LIVREE_BRUIT`).
+     BASE : le c132 a mesure que l'organe LIVRE bouge (COM vivant -3,48 % / -2,31 %) pendant que
+     `PHYSORICOML` / `PHYSDFMA` ne bougent pas d'un bit. Deux grandeurs dont l'une bouge et l'autre
+     pas ne peuvent pas etre egales partout.
+     FALSIFICATEUR : ecart <= 0,045 % — alors l'angle mort n'a AUCUN contenu aujourd'hui et
+     `0,2278 / 0,2273` est juste, malgre le chemin de calcul.
+
+P6 — LE SENS DE L'ECART : la valeur LIVREE est PLUS PETITE que la valeur publiee.
+     BASE : les deux correcteurs qui vivent dans l'angle mort — le plafond de §21 et l'ancrage de
+     §31 — RETRANCHENT tous les deux (`(- ... (* dl sx))`, `g < 1`).
+     FALSIFICATEUR : la valeur livree est PLUS GRANDE. Si elle l'est, la cause n'est aucun des
+     deux et je dois la chercher ailleurs au lieu d'attribuer.
+
+P7 — ET C'EST LA PREDICTION QUI DECIDE SI JE CABLE OU SI JE REMONTE : le rebranchement du verdict
+     de la clause de COM de §11 sur la grandeur LIVREE ne fait PAS sortir la valeur de sa bande
+     20-28 % B0 sur les deux chaines.
+     FALSIFICATEUR : une des deux chaines sort de la bande. Alors le rebranchement DEPLACE un
+     verdict, et la regle que je me suis donnee au cycle 130 s'applique mot pour mot — « un
+     correctif qui deplace un verdict n'est pas un raffinement d'instrument : je ne le cable pas,
+     je le remonte » — avec les deux valeurs et la liste des cellules.
+
+RESERVE DECLAREE D'AVANCE, ET ELLE BORNE L'ATTRIBUTION : les deux instruments different par DEUX
+choses a la fois, pas une. (a) l'angle mort (plafond §21, ancrage §31) ; (b) la LINEARISATION —
+`_vecCOM` approche le COM par `(W.d)/N + ((D-I).L)/N`, c'est-a-dire en supposant la part de
+rotation du skinning negligeable, la ou le nuage livre la calcule EXACTEMENT. Un ecart ne
+s'attribue donc PAS au seul angle mort tant que (b) n'est pas borne. Ce que la course en vol
+apporte : si `n21 = 0` sur i=6 et i=8, (a) est vide sur ces cellules et TOUT l'ecart est (b) —
+l'attribution devient propre sans travail supplementaire. C'est pour ca que les deux mesures
+appartiennent au meme cycle.
+
+--------------------------------------------------------------------------------------------
+VERDICT DES PREDICTIONS SUR TRACE ARCHIVEE (P5, P6, P7) — mesure : `.autoport/c133_delivered_com.py`,
+sortie archivee `c133-delivered-com.txt`, trace md5 1e625b56cc2958866f8e763c8b5a1332.
+
+CONTROLES DE L'INSTRUMENT, TOUS PASSES AVANT DE LIRE UN SEUL CHIFFRE DE RESULTAT :
+  * PORTAGE : les 8 distances de decile de `c124_delivered_shape.py` reproduites a 0,0000 % ;
+  * LECTURE HORS DEFAUT : i=9 (2e cellule DEBOUT) contre i=0 rend 0,0004-0,0006 B0 ;
+  * CONTROLE DE MONTAGE SOUS ROTATION : i=10 (2e cellule PRONE) contre i=6 rend 0,2463 contre
+    0,2459 (0,16 %) — c'est lui, et pas i=9, qui teste le retrait de la rotation d'ensemble ;
+  * IDENTITE ALGEBRIQUE : la decomposition rotation+tenseur / translation se referme a
+    1,2e-10 u. Elle avait d'abord REFUSE de se refermer (4,6e5 u) parce que je ne sommais que les
+    deux os de la chaine et pas tous les joints que le skinning melange. Le garde a attrape ma
+    faute avant que j'attribue quoi que ce soit — il est publie pour ca.
+
+P5 — CONFIRMEE. §11 prone i=6, frontiere du verdict w>0.00 : PUBLIEE 0,2278 / 0,2273 B0 contre
+     LIVREE 0,2459 / 0,2413 B0, soit **+7,9 % / +6,2 %** — contre un plancher de bruit de 0,045 %.
+     L'ecart est de meme taille sur les TROIS frontieres (+7,9/+8,0/+8,2 % et +6,2/+6,2/+6,6 %),
+     et cette CONSTANCE est elle-meme un fait : un terme de modele systematique, pas du bruit.
+
+P6 — REFUTEE, ET LA REFUTATION REDIRIGE LE CHANTIER. J'annoncais la valeur livree PLUS PETITE, en
+     raisonnant que les deux correcteurs de l'angle mort (plafond §21, ancrage §31) RETRANCHENT
+     tous les deux. Elle est PLUS GRANDE. Donc la cause n'est NI l'un NI l'autre, et la
+     decomposition exacte dit ou elle est :
+       moitie TRANSLATION  livree 0,1155 / 0,1311 B0  contre publiee 0,1154 / 0,1311 (`ROOM-ORICOM-MASS`)
+       -> LES DEUX MOITIES DE TRANSLATION SONT EGALES A 0,09 % PRES. L'angle mort du c132 n'a
+          donc, SUR CETTE CELLULE, quasiment AUCUN contenu dans la moitie qu'il pouvait toucher.
+       moitie ROTATION+TENSEUR  livree 0,1477 / 0,1302 B0
+       -> c'est LA QUE VIT LA TOTALITE de l'ecart. Le moteur ecrit `bm . D`
+          (`jak-hd-physics.gc:3918`) : le tenseur agit APRES la rotation de l'os et AUTOUR DU
+          JOINT. La ligne de verdict lui substitue `(D - I) . L / N`, c'est-a-dire `D` agissant
+          sur des moments d'ordre 1 exprimes dans la base de BIND et AUTOUR DE L'ANCRE. Deux
+          reperes et deux origines differents ; le substitut SOUS-ESTIME.
+
+P7 — CONFIRMEE SUR LA LIGNE QUI PORTE LE VERDICT, ET JE PUBLIE AUSSI LA OU ELLE NE TIENT PAS.
+     Frontiere w>0.00 (celle que le tableau designe comme portant le verdict, arbitrage c124) :
+     0,2459 et 0,2413 B0, **DANS** la bande 0,20-0,28 sur LES DEUX chaines, comme avant.
+     AUCUN VERDICT DE CLAUSE NE BOUGE, AUCUN STATUT DE SECTION NE BOUGE.
+     CE QUI BOUGE, ET JE NE LE TAIS PAS : sur la frontiere de SENSIBILITE w>=0.25, chestL passe
+     DANS (0,2791) -> AU-DESSUS (0,3020). chestR y etait deja AU-DESSUS. La sensibilite de
+     frontiere est PUBLIEE par la ligne de verdict precisement pour que le lecteur puisse
+     refuser l'argument de §30 ; elle ne porte pas le verdict, et je ne la fais pas le porter.
+
+--------------------------------------------------------------------------------------------
+CONTROLE POSITIF DE L'INSTRUMENT — NON PREDIT, TROUVE EN CHERCHANT UN FALSIFICATEUR
+
+Un instrument neuf qui rend un chiffre different de l'ancien n'a rien prouve : il faut montrer
+qu'il DETECTE ce que l'ancien ne voyait pas. Le cycle 132 a archive exactement le materiel pour
+ca — deux courses qui ne different QUE par le bouton d'ancrage de §31 (`anch` 0 -> 1), a
+conditions initiales verifiees identiques — et il a mesure que `PHYSORICOML`, `PHYSDFMA` et
+`PHYSROW` y sont **IDENTIQUES AU BIT** pendant que 20 632 enregistrements changent.
+
+L'instrument neuf, sur les MEMES deux traces archivees (§11 prone, frontiere du verdict w>0.00) :
+
+    chestL   COM LIVRE          0,2459 -> 0,2380 B0   (-3,2 %)
+             dont moitie TRANSLATION   0,1155 -> 0,1101 B0   (-4,7 %)
+             dont moitie ROT+TENSEUR   0,1477 -> 0,1477 B0   (INCHANGEE)
+    chestR   COM LIVRE          0,2413 -> 0,2370 B0   (-1,8 %)
+             dont moitie TRANSLATION   0,1311 -> 0,1287 B0   (-1,8 %)
+             dont moitie ROT+TENSEUR   0,1302 -> 0,1302 B0   (INCHANGEE)
+
+IL VOIT, IL CHIFFRE, ET IL LOCALISE. L'ancrage de §31 est ecrit dans `bm` par `phys-pt-exc!`
+(`jak-hd-physics.gc:3922`) : il DEPLACE LE POINT FIXE du tenseur sans toucher sa partie lineaire.
+La decomposition le retrouve toute seule — moitie translation qui bouge, moitie rotation+tenseur
+qui ne bouge pas d'un chiffre — sans qu'on lui ait dit ou chercher.
+
+ET CA SEPARE DEUX DEFAUTS QUE J'AURAIS PU CONFONDRE :
+  * l'ANGLE MORT du c132 vit dans la moitie TRANSLATION. Sur le moteur LIVRE il est quasi vide
+    (0,09 %), parce que l'ancrage est desarme et que le plafond de §21 n'y mord pas ; des qu'un
+    lot est arme dans le chemin d'ecriture il a un contenu REEL (3,2 % / 1,8 %), et c'est
+    exactement ce que le c132b annoncait sans pouvoir le chiffrer ;
+  * l'ECART SYSTEMATIQUE de +7,9 % / +6,2 % vit dans la moitie ROTATION+TENSEUR et n'est PAS un
+    angle mort : c'est une erreur de MODELE dans le substitut, presente depuis toujours.
+Deux causes, deux moities, aucune confusion possible — et c'est la decomposition qui l'impose,
+pas mon jugement.
+
+CONSEQUENCE POUR LE CHANTIER STRUCTUREL AUTORISE PAR L'OWNER LE 2026-08-27, ET ELLE LE REDUIT.
+Le cycle 129 a nomme le chantier « le canal de deplacement du COM doit vivre dans le TENSEUR »,
+sur la mesure « squelettique 0,111 / 0,100 B0 contre un plancher a 0,20 : la chaine seule ne rend
+pas les deux tiers ». La premisse est JUSTE — la moitie translation vaut 0,1155 / 0,1311 — mais
+la conclusion est DEJA REALISEE : le tenseur livre 0,1477 / 0,1302 de plus, et le COM LIVRE vaut
+**0,2459 / 0,2413 B0, DANS la bande 20-28 % sur les deux chaines**. Ce que personne ne voyait,
+c'est que l'instrument sous-comptait justement la moitie qui rend les deux tiers manquants.
+**Ce qui tient §11 `NON TENUE` n'est donc pas la clause de COM — c'est la clause de LONGUEUR**
+(deciles livres 1,336 / 1,318 contre une bande 1,18-1,26, `ROOM-SPEC1011-LIVREE`), et le c130
+l'avait deja ecrit. Le chantier de §11 se reformule sans ambiguite :
+    faire descendre la longueur racine->apex LIVREE de 1,336 / 1,318 a <= 1,26
+    SANS sortir le COM LIVRE de 0,20-0,28.
+Les deux clauses se lisent desormais sur LE MEME nuage, a LA MEME cellule, par LE MEME code : un
+lot candidat s'evalue sur les deux d'un coup, et plus aucune des deux ne passe par un angle mort.
+
+CINQUIEME CONTROLE, TROUVE APRES COUP ET PUBLIE PARCE QU'IL EST INDEPENDANT DES QUATRE AUTRES :
+la moitie TRANSLATION que ce fichier calcule sur les matrices LIVREES reproduit, cellule par
+cellule, la valeur que `ROOM-ORICOM-MASS` publie sur les `d_j` PRE-ECRITURE :
+
+    §11 prone  i=6   chestL  0,1155 contre 0,1154   (0,09 %)      chestR  0,1311 contre 0,1311  (0,00 %)
+    §10 supine i=8   chestL  0,1650 contre 0,1652   (0,12 %)      chestR  0,1549 contre 0,1547  (0,13 %)
+
+Quatre cellules, deux chemins de calcul qui ne partagent NI le code NI la source (l'un skinne le
+mesh livre avec `PHYSORIM`, l'autre somme des increments `PHYSORICOML`), et 0,00 a 0,13 % d'ecart.
+C'est ce qui autorise a dire que le desaccord de +7,9 % / +6,2 % n'est PAS dans la moitie
+translation : les deux instruments y sont d'accord sur QUATRE cellules a un dixieme de pourcent.
+
+--------------------------------------------------------------------------------------------
+VERDICT DES PREDICTIONS SUR LA COURSE NEUVE (P1-P4) — trace md5 fb4d10726807e1797c98c645c57ed8d4,
+empreinte verifiee DANS le tableau derive. 66 lignes `PHYSORIE21` = 11 cellules x 6 passes.
+
+P1 — REFUTEE, SANS AMBIGUITE. `n21 = 0` sur les ONZE cellules de la passe de mesure k=0, donc
+     aussi sur i=6 (prone) et i=8 (supine) qui rendent le verdict. **Le plafond de §21 ne mord
+     PAS dans la fenetre qui juge §10/§11/§12.** La question posee par le c132b est fermee :
+     `0,2278 / 0,2273 B0` n'est PAS fausse a cause de lui.
+     Ma base de prediction etait `PHYSE21 tag=rest n=93` — j'ai lu « ca mord meme au repos » la ou
+     la vraie lecture est « ca mord dans les fenetres DYNAMIQUES ». §21 sature la COMBINAISON
+     au-dela d'un genou ; un equilibre TENU reste dessous, une excursion dynamique le franchit.
+     C'est coherent avec `tag=run n=2737` contre 0 sur toute pose tenue.
+
+P2 — CONFIRMEE, ET LA COURSE A RENDU UN CONTROLE BIEN PLUS FORT QUE CELUI QUE J'AVAIS DEMANDE.
+     (a) Le controle que j'avais construit tire : sur les cellules du verdict, `n22` = 120 (i=6)
+         et 47 (i=8), `nskin` = 0 et 36. Les compteurs sont VIVANTS dans cette fenetre, donc le
+         zero de `n21` est une MESURE.
+     (b) CONTROLE STRUCTUREL NON PREVU : `n22` plafonne a **exactement 120** sur cinq cellules, et
+         120 = 30 frames de mesure x 2 chaines x 2 iterations — c'est-a-dire exactement le
+         `(dotimes (it 2) (phys-cap-e22! ...))` de `jak-hd-physics.gc:3182`. La fenetre publiee
+         est donc bien celle qu'on croit, et le compteur compte bien ce qu'on croit.
+     (c) CONTROLE POSITIF SUR LE COMPTEUR LUI-MEME, NON PREVU ET MEILLEUR QUE LE MIEN : dans la
+         passe d'ablation **k=1** (contrainte de LONGUEUR levee), `n21` devient NON NUL sur
+         exactement les cellules de plus grande excursion — i=2 (9), i=4 (4), **i=6 (5)**,
+         **i=8 (5)**, i=10 (5). Le meme compteur, dans la MEME fenetre, sur les MEMES cellules du
+         verdict, TIRE des qu'on augmente l'excursion. Un zero accompagne d'un controle positif
+         qui fait monter LE COMPTEUR LUI-MEME est la forme la plus forte que ce dossier exige,
+         et elle est arrivee sans qu'on l'ait organisee.
+     (d) Et les DEUX cellules DEBOUT (i=0 et i=9) rendent les trois compteurs a ZERO : la ligne
+         de base lit zero la ou elle doit.
+
+P3 — VACUEUSE, ET JE LE DECLARE AU LIEU DE LA COMPTER CONFIRMEE. Elle predisait la taille du
+     retranchement PAR CORRECTION ; il n'y a aucune correction. Rien n'est ni confirme ni refute.
+     (Sur la passe k=1, ou il y en a, elle donnerait 0,0526/9 = 0,0058 a 0,0624/5 = 0,0125 B0 —
+     l'intervalle predit [0,008 ; 0,020] en couvre trois sur cinq. Ce n'est PAS son domaine et je
+     ne m'en sers pas pour la sauver.)
+
+P4 — SON ANTECEDENT EST FAUX (« meme si le plafond mord »), donc elle ne se teste pas telle
+     quelle. Sa CONCLUSION est neanmoins etablie, par un chemin independant : le COM LIVRE vaut
+     0,2459 / 0,2413 B0, DANS la bande 20-28 %.
+
+ET LES DEUX MOITIES DU CYCLE SE CONFIRMENT L'UNE L'AUTRE SANS PARTAGER UNE LIGNE DE CODE :
+la course neuve dit que le plafond de §21 ne retranche RIEN dans ces cellules ; l'instrument sur
+trace archivee dit que la moitie TRANSLATION des deux lectures est egale a 0,00-0,13 % sur quatre
+cellules. Deux methodes, deux substrats, la meme conclusion.
+
+--------------------------------------------------------------------------------------------
+CE QUE L'INSTRUMENT CORRIGE PERMET IMMEDIATEMENT, ET QUI ETAIT IMPOSSIBLE HIER : MESURER LE
+LEVIER DU BOUTON D'ANCRAGE SUR LES **DEUX** CLAUSES DE §11 A LA FOIS.
+
+Les deux courses archivees du c132 ne different que par `anch` (0 -> 1). Lues sur l'organe LIVRE,
+cellule PRONE i=6, frontiere du verdict w>0.00 :
+
+                     longueur (bande 1,18-1,26)      COM (bande 0,20-0,28)
+    anch=0  chestL   1,3363  AU-DESSUS               0,2459  DANS
+    anch=1  chestL   1,3270  AU-DESSUS               0,2380  DANS
+    anch=0  chestR   1,3183  AU-DESSUS               0,2413  DANS
+    anch=1  chestR   1,3129  AU-DESSUS               0,2370  DANS
+
+    pente relative   chestL  longueur -0,70 %   COM -3,21 %   ->  COM bouge x4,59 plus fort
+                     chestR  longueur -0,41 %   COM -1,80 %   ->  COM bouge x4,39 plus fort
+
+LE BOUTON D'ANCRAGE EST REFUTE COMME SECOND LEVIER DE §11, ET L'ARGUMENT N'A PAS BESOIN
+D'EXTRAPOLER. Ce qu'il faut parcourir : longueur -5,71 % (chestL) et -4,42 % (chestR) pour
+atteindre 1,26. Ce qui est disponible : le COM peut descendre de 18,7 % et 17,1 % avant de
+percer son plancher de 0,20. Le rapport MAXIMAL admissible est donc **3,28** et **3,87** ; le
+bouton en rend **4,59** et **4,39**. Il epuise la reserve de COM AVANT que la longueur entre dans
+sa bande — de 40 % sur chestL, de 13 % sur chestR. Les deux clauses bougent dans le MEME sens,
+pas en sens oppose.
+RESERVE, DECLAREE : les pentes sont locales (un seul pas, anch 0 -> 1). L'argument ci-dessus
+n'utilise QUE la pente locale et le rapport, jamais une extrapolation a anch = 8 ou 10 — celle-la
+est publiee dans la sortie de l'instrument mais ne porte AUCUN argument (`rate-extrapolation`).
+Et chestR passe a 13 % du seuil : sur cette chaine la refutation est vraie mais SERREE.
+
+ET CA DONNE AU PROCHAIN LOT UNE SPECIFICATION CHIFFREE AU LIEU D'UNE DIRECTION.
+§11 a besoin d'un levier dont le rapport |dCOM|/|dLongueur| soit **< 3,28** (chestL) et **< 3,87**
+(chestR). Le mecanisme est lisible : la contraction selon `fwd` a pour POINT FIXE l'origine du
+joint, que le c132 a mesuree a 0,05-0,08 B0 EN ARRIERE du r=0 que §31 nomme — donc contracter
+l'organe le TRAINE, et le COM suit. Un levier dont le point fixe est plus proche du COM DE
+L'ORGANE aurait mecaniquement un meilleur rapport. C'est la forme que le prochain lot doit avoir,
+et elle se teste sur les DEUX clauses d'un coup, sur le meme nuage, sans angle mort.

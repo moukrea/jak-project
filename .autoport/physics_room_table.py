@@ -2822,6 +2822,28 @@ def _oricom_mass_block(A, txt, names, com, com2, role, axis, b0):
     A('')
 
 
+def _spec10_livree(A, txt):
+    """Le COM de l'organe LIVRE, par (chaine, frontiere, section) — ou `{}` si l'instrument
+    refuse. UN ECHEC NE FABRIQUE JAMAIS UN CHIFFRE : il DECLARE l'indisponibilite et la ligne de
+    verdict retombe sur le substitut en le disant."""
+    if not COM_VERDICT_LIVREE:
+        return {}
+    try:
+        import c133_delivered_com as _c133
+        _l, _rows, _rc = _c133.measure(txt)
+    except Exception as _e:                                    # noqa: BLE001
+        A('ROOM-SPEC10: LE COM LIVRE EST INDISPONIBLE (%r) — le verdict de la clause de COM de'
+          ' §11 retombe sur le SUBSTITUT `(W.d)/N + ((D-I).L)/N`, qui est calcule AVANT'
+          ' l\'ecriture squelette (angle mort du cycle 132). Aucun chiffre n\'est fabrique.'
+          % (_e,))
+        return {}
+    if _rc != 0 or not _rows:
+        A('ROOM-SPEC10: LE COM LIVRE EST REFUSE PAR SON PROPRE CONTROLE DE PORTAGE — le verdict'
+          ' retombe sur le SUBSTITUT, et c\'est declare ici plutot que tu.')
+        return {}
+    return _rows
+
+
 def _spec10_block(A, txt, names, com, role, b0, roles=None):
     """SPEC 10 SUPINE — LES DEUX CLAUSES DE DEPLACEMENT, LUES COMME DES PROJECTIONS.
 
@@ -2852,6 +2874,7 @@ def _spec10_block(A, txt, names, com, role, b0, roles=None):
     (e0,e1,e2) est donc `(dlat, dv, dap)`. `_oricom_mass_block` stocke `(dv, dap, dlat)` et n'en
     prend que la NORME — l'ordre lui est indifferent. Une projection, non.
     """
+    _LIV = _spec10_livree(A, txt)
     ldb, _rows = {}, {}
     for m in re.finditer(r'^PHYSORICOML c=(\d+) i=(\d+) l=(\d+) dv=([-\d.e+]+)'
                          r' dap=([-\d.e+]+) dlat=([-\d.e+]+)', txt, re.M):
@@ -3237,15 +3260,56 @@ def _spec10_block(A, txt, names, com, role, b0, roles=None):
                            else (_vdv[0] if len(_vdv) == 1
                                  else 'INDETERMINEE — ' + '/'.join(_vdv)))
                     _rvc = next((rc_ for rc_ in rowc if rc_['cut'] == 0.0), rowc[0])
-                    A('ROOM-SPEC10: %-8s §11 VERDICT DE LA CLAUSE DE COM, RENDU %s : %s'
+                    # ---- CYCLE 133 : LE VERDICT EST RENDU SUR L'ORGANE LIVRE ------------------
+                    # Les deux lectures sont publiees COTE A COTE, avec leurs VRAIES valeurs
+                    # (arbitrage du 2026-08-19 23:50). Une seule porte le verdict, et la ligne
+                    # dit laquelle.
+                    _lv = _LIV.get((nm, 'w>0.00', '11'))
+                    if _lv is not None:
+                        _vn = _lv['livree_compte']
+                        _lb0 = _vn - _e * _vn
+                        _hb0 = _vn + _e * _vn
+                        _vdv = sorted({_vd_norm(x, _lo, _hi) for x in (_vn, _lb0, _hb0)})
+                        _cn = ('NON ETABLIE (sensibilite de frontiere %.1f %% > 30 %%)' % _sp
+                               if _sp > 30.0
+                               else (_vdv[0] if len(_vdv) == 1
+                                     else 'INDETERMINEE — ' + '/'.join(_vdv)))
+                    else:
+                        _vn = _rv['nrm']
+                    A('ROOM-SPEC10: %-8s §11 VERDICT DE LA CLAUSE DE COM, RENDU SUR %s, %s : %s'
                       '   (frontiere w>0.00, |d| = %.4f B0, pire cas de montage [%.4f ; %.4f])%s'
                       '  ·  %s : %.4f B0 -> %s'
-                      % (nm, _COM_DENOM_LBL[_mode], _cn, _rv['nrm'], _lb0, _hb0,
+                      % (nm,
+                         ('L\'ORGANE LIVRE (`PHYSORIM`, matrices ECRITES au squelette)'
+                          if _lv is not None else
+                          'LE SUBSTITUT PRE-ECRITURE (organe livre indisponible)'),
+                         _COM_DENOM_LBL[_mode], _cn, _vn, _lb0, _hb0,
                          ('' if _up is None else
                           ' · cible statique haute %.2f : %s'
-                          % (_up, 'FRANCHIE' if _rv['nrm'] > _up else 'non franchie')),
+                          % (_up, 'FRANCHIE' if _vn > _up else 'non franchie')),
                          _LD, _rvc['nrm'], _vd_norm(_rvc['nrm'], _lo, _hi)))
-                    A('ROOM-SPEC10: %-8s §11   SENSIBILITE DE FRONTIERE, PUBLIEE PARCE QUE LE'
+                    if _lv is not None:
+                        A('ROOM-SPEC10: %-8s §11   LE SUBSTITUT PRE-ECRITURE EST PUBLIE A COTE,'
+                          ' JAMAIS A LA PLACE : `(W.d)/N + ((D-I).L)/N` = %.4f B0 -> %s'
+                          '  (ecart au livre %+.1f %%). Sa moitie TRANSLATION est EGALE a celle'
+                          ' du livre a 0,09 %% pres ; tout l\'ecart vit dans la moitie'
+                          ' ROTATION+TENSEUR, ou le moteur applique `bm . D` (rotation d\'abord,'
+                          ' autour du JOINT) et le substitut `(D-I).L` (base de BIND, autour de'
+                          ' l\'ANCRE). Deux reperes, deux origines.'
+                          % (nm, _rv['nrm'], _vd_norm(_rv['nrm'], _lo, _hi),
+                             100.0 * (_rv['nrm'] - _vn) / max(_vn, 1e-12)))
+                    if _lv is not None:
+                        A('ROOM-SPEC10: %-8s §11   SENSIBILITE DE FRONTIERE SUR L\'ORGANE LIVRE'
+                          ' (la lecture qui PORTE le verdict) : %s'
+                          % (nm, ' · '.join(
+                              'w>%.2f  %.4f %s'
+                              % (cc, _LIV[(nm, ll, '11')]['livree_compte'],
+                                 _vd_norm(_LIV[(nm, ll, '11')]['livree_compte'], _lo, _hi))
+                              for cc, ll in ((0.0, 'w>0.00'), (0.05, 'w>0.05'),
+                                             (0.25, 'w>=0.25'))
+                              if (nm, ll, '11') in _LIV)))
+                    A('ROOM-SPEC10: %-8s §11   SENSIBILITE DE FRONTIERE DU SUBSTITUT, PUBLIEE'
+                      ' PARCE QUE LE'
                       ' VERDICT EN DEPEND : %s. Meme argument de §30 que le bloc §22 (« la chair'
                       ' ANCREE appartient a l\'organe ») — le refuser deplace le verdict, et les'
                       ' chiffres pour le refuser sont ci-dessus.'
@@ -3951,6 +4015,46 @@ _LIVREE_BRUIT = {'10': 0.14647, '11': 0.00045}
 # tableau retombe sur ses valeurs et ses etiquettes de verdict d'avant ce cycle, cellule par
 # cellule.
 LEN_VERDICT_DECILES = True
+
+
+# ---- CYCLE 133 : LA CLAUSE DE COM DE §11 EST JUGEE SUR L'ORGANE LIVRE, PLUS SUR UN SUBSTITUT ---
+# CE QUE LE CYCLE 132 A ETABLI : les `d_j` de `PHYSORICOML` et le `D` de `PHYSDFMA` sont pris sur
+# `*phys-ldb*`, ecrit a `jak-hd-physics.gc:3415` — donc AVANT l'ecriture squelette (:3932), avant
+# l'ancrage de §31 (:3922) et avant le plafond de §21 (:4046). C'est un ANGLE MORT.
+#
+# CE QUE LE CYCLE 133 MESURE, ET IL NE DEMANDE AUCUNE COURSE NEUVE POUR CA : `PHYSORIM` publie
+# deja, par cellule d'orientation, la matrice REELLEMENT ECRITE au squelette. Le COM de l'organe
+# LIVRE — celui que l'owner voit — s'en calcule par le meme skinning lineaire que la forme de
+# `ROOM-SPEC1011-LIVREE`, et la mesure se decompose SANS approximation
+# (`.autoport/c133_delivered_com.py`, identite verifiee a 1.2e-10 u) :
+#     COM(i) = SOMME_k [ Q_k . A_k(i) + W_k . t_k(i) ] / N
+# ou la premiere moitie porte la ROTATION ET LE TENSEUR (le moteur ecrit `bm . D`) et la seconde
+# la TRANSLATION.
+#
+# CE QUE LA COMPARAISON DIT, ET C'EST L'INVERSE DE CE QUE J'AVAIS PREDIT :
+#   * la moitie TRANSLATION est EGALE a 0,09 % pres entre les deux instruments (0,1155 contre
+#     0,1154 · 0,1311 contre 0,1311). L'angle mort n'a donc quasiment AUCUN contenu dans la seule
+#     moitie que ses deux correcteurs pouvaient toucher, et tous deux RETRANCHENT ;
+#   * la totalite de l'ecart (+7,9 % / +6,2 %, constant sur les TROIS frontieres) vit dans la
+#     moitie ROTATION+TENSEUR, ou la ligne de verdict substituait `(D - I) . L / N` — `D` agissant
+#     sur des moments exprimes en base de BIND et AUTOUR DE L'ANCRE — a un tenseur que le moteur
+#     applique APRES la rotation de l'os et AUTOUR DU JOINT. Deux reperes, deux origines.
+#
+# POURQUOI C'EST POSE MAINTENANT, PENDANT QUE CA NE CHANGE AUCUN VERDICT. A la frontiere qui PORTE
+# le verdict (w>0.00), les deux lectures rendent DANS sur les deux chaines ; aucun statut de
+# section ne bouge. C'est exactement l'argument que `LEN_VERDICT_DECILES` a pose au cycle 131b :
+# « poser la bonne lecture MAINTENANT, pendant qu'elle ne change rien, est la seule facon de ne pas
+# la poser plus tard sous la pression d'un resultat ». Ce qui bouge est PUBLIE et ne porte pas le
+# verdict : sur la frontiere de SENSIBILITE w>=0.25, chestL passe DANS -> AU-DESSUS.
+#
+# CE QUI N'EST PAS REBRANCHE, ET C'EST DELIBERE : les clauses DIRECTIONNELLES normalisees par `W0`
+# — « Outward COM migration » de §10 et « medial migration » de §12. §12 est l'une des quatre
+# sections `TENUE` et elle l'est PAR CETTE CLAUSE-LA. Leurs valeurs livrees sont publiees en
+# DIAGNOSTIC par `c133_delivered_com.py` ; poser ce rebranchement appartient au superviseur.
+#
+# RETOUR ARRIERE : UNE LIGNE, DANS LES DEUX SENS. `False` rend le verdict au substitut
+# `(W.d)/N + ((D-I).L)/N` et le tableau retombe sur ses valeurs d'avant ce cycle.
+COM_VERDICT_LIVREE = True
 
 
 def _spec1011_estim_header(A):
