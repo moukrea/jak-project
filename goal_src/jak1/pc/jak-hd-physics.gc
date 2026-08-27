@@ -13,6 +13,7 @@
 (define-extern pc-physics-chain-link-radius-mi (function string int int int))
 (define-extern pc-physics-chain-link-comw-mi (function string int int int))
 (define-extern pc-physics-chain-link-apex-mi (function string int int int int))
+(define-extern pc-physics-chain-link-anp-mi (function string int int int int))
 (define-extern pc-physics-chain-rigid-mi (function string int int int))
 ;; [NOTE-501] LE PRESET COMME ENTREE : `pk <Cle> <valeur>` dans le fichier livre. -> jak-hd-physics-NOTES.md
 (define-extern pc-physics-chain-preset-mi     (function string int int int))
@@ -45,6 +46,7 @@
 (defconstant PHYS-P-COUPLE 27)
 ;; [NOTE-108] SPEC 6 — `B0`, LA LONGUEUR CARACTERISTIQUE RACINE->APEX DE LA CHAIR, EN UNIT -> jak-hd-physics-NOTES.md
 (defconstant PHYS-P-B0     29)
+(defconstant PHYS-P-ANCH   25)  ;; gain de `anp=` ; 0 = tenseur ancre au JOINT, identite par algebre
 ;; [NOTE-185] L'ANGLE QUE LA PEAU PEUT ENCAISSER, EN DEGRES — CHEVEUX SEULEMENT, 0 = pas de limite. -> jak-hd-physics-NOTES.md
 (defconstant PHYS-P-MAXANG  3)
 
@@ -111,6 +113,7 @@
 ;; [NOTE-139] SPEC 14/16/17/18/19/20/22 : L'APEX, SIX SECTIONS LE BORNENT ET RIEN NE LE PUBLIAIT. -> jak-hd-physics-NOTES.md
 (define *phys-apw* (new 'global 'array 'float PHYS-SCL))  ;; `ax` : part de la masse de la region distale portee par ce maillon
 (define *phys-apx* (new 'global 'array 'float PHYS-SCL)) (define *phys-apy* (new 'global 'array 'float PHYS-SCL)) (define *phys-apz* (new 'global 'array 'float PHYS-SCL))
+(define *phys-anx* (new 'global 'array 'float PHYS-SCL)) (define *phys-any* (new 'global 'array 'float PHYS-SCL)) (define *phys-anz* (new 'global 'array 'float PHYS-SCL)) (define *phys-anch* (new 'global 'array 'float PHYS-SC))  ;; `anp`/`anch` : SPEC 31 r=0, espace os local, et son gain (0 = ancre au joint)
 ;; [NOTE-574] SPEC 11 — L'ETAGE RIGIDE : 12 constantes de mesh par chaine (`rg` de physics_mesh.txt), le rapport MESURE chaque frame, et son DENOMINATEUR publie a cote. -> jak-hd-physics-NOTES.md
 (define *phys-rsa* (new 'global 'array 'float (* PHYS-SC 12))) (define *phys-rsok* (new 'global 'array 'int32 PHYS-SC))
 (define *phys-rsv* (new 'global 'array 'float PHYS-SC)) (define *phys-rsd* (new 'global 'array 'float PHYS-SC))
@@ -186,8 +189,6 @@
 (define *phys-lwin* (new 'global 'array 'int32 PHYS-SCL))   ;; volume decideur du lien, -1 = aucun
 ;; [NOTE-07] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
 (define *phys-prio-off* 1)
-(define *phys-prio-n* 0)      ;; paires (lien, volume) ignorees par la priorite, sur la fenetre
-(define *phys-prio-multi* 0)  ;; liens contraints par plus d'un volume dans la meme frame
 
 ;; [NOTE-08] MESURER LE CONFLIT SANS L'ARBITRER — 2026-08-13. -> jak-hd-physics-NOTES.md
 (define *phys-prio-meas* 0)
@@ -685,6 +686,7 @@
                       (set! (-> *phys-rootlk* sc) (the int (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-ROOTLK))))
                       (set! (-> *phys-rootgr* sc) (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-GRADIENT)))
                       (set! (-> *phys-b0* sc) (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-B0)))
+                      (set! (-> *phys-anch* sc) (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-ANCH)))
                       ;; [NOTE-236] PREUVE D'EXECUTION (regle 0) : un zero silencieux au parseur C++ ou a la -> jak-hd-physics-NOTES.md
                       (when (> (-> *phys-b0* sc) 0.0)
                         (format 0 "[HD-PHYS] b0 c=~D flesh=~f anc=~D~%" c (-> *phys-b0* sc) (-> *phys-anchor* sc)))
@@ -714,7 +716,10 @@
                         (set! (-> *phys-apw* (+ (* sc PHYS-LINKS) l)) (phys-mi->f (pc-physics-chain-link-apex-mi agname c l 0)))
                         (set! (-> *phys-apx* (+ (* sc PHYS-LINKS) l)) (phys-mi->f (pc-physics-chain-link-apex-mi agname c l 1)))
                         (set! (-> *phys-apy* (+ (* sc PHYS-LINKS) l)) (phys-mi->f (pc-physics-chain-link-apex-mi agname c l 2)))
-                        (set! (-> *phys-apz* (+ (* sc PHYS-LINKS) l)) (phys-mi->f (pc-physics-chain-link-apex-mi agname c l 3))))
+                        (set! (-> *phys-apz* (+ (* sc PHYS-LINKS) l)) (phys-mi->f (pc-physics-chain-link-apex-mi agname c l 3)))
+                        (set! (-> *phys-anx* (+ (* sc PHYS-LINKS) l)) (phys-mi->f (pc-physics-chain-link-anp-mi agname c l 0)))
+                        (set! (-> *phys-any* (+ (* sc PHYS-LINKS) l)) (phys-mi->f (pc-physics-chain-link-anp-mi agname c l 1)))
+                        (set! (-> *phys-anz* (+ (* sc PHYS-LINKS) l)) (phys-mi->f (pc-physics-chain-link-anp-mi agname c l 2))))
                       (set! (-> *phys-rsok* sc) 0)
                       (dotimes (q 12)
                         (set! (-> *phys-rsa* (+ (* sc 12) q)) (phys-mi->f (pc-physics-chain-rigid-mi agname c q)))
@@ -1537,8 +1542,6 @@
                   (let ((h (+ (* sc PHYS-COLS) lastci)))
                     (set! (-> *phys-cfh* h) (- (-> *phys-cfh* h) 1))))
                 (when (> nviol 1)
-                  (set! *phys-prio-multi* (+ *phys-prio-multi* 1))
-                  (set! *phys-prio-n* (+ *phys-prio-n* (- nviol 1)))
                   (set! (-> *phys-dg* (+ (* sc PHYS-DG) 12))
                         (+ (the float (- nviol 1)) (-> *phys-dg* (+ (* sc PHYS-DG) 12)))))
                 ;; [NOTE-177] MESURE SEULE : on a compte, on ne decide pas. Rendre `*phys-lwin*` a -1 remet le -> jak-hd-physics-NOTES.md
@@ -3908,24 +3911,27 @@
                               (when (nonzero? (-> *phys-dfon* sc)) (matrix*! tmp (-> *phys-rgm* scl) (-> *phys-dfmq* sc)) (matrix-copy! (-> *phys-rgm* scl) tmp))
                               (set-vector! (-> *phys-rgm* scl vector 3) (-> *phys-px* scl) (-> *phys-py* scl) (-> *phys-pz* scl) 1.0)
                               (set! (-> *phys-rgok* scl) 1)
+                              (set! (-> bm vector 3 x) 0.0)
+                              (set! (-> bm vector 3 y) 0.0)
+                              (set! (-> bm vector 3 z) 0.0)
+                              (set! (-> bm vector 3 w) 1.0)
                               (when (nonzero? (-> *phys-dfon* sc))
-                                (set! (-> bm vector 3 x) 0.0)
-                                (set! (-> bm vector 3 y) 0.0)
-                                (set! (-> bm vector 3 z) 0.0)
-                                (set! (-> bm vector 3 w) 1.0)
                                 (matrix*! tmp bm (-> *phys-dfm* sc))
+                                ;; [NOTE-339] `tmp` HERITE LA TRANSLATION DE L'ANCRE VIA LE TENSEUR : on la met a zero AVANT de lire. -> jak-hd-physics-NOTES.md
+                                (set-vector! (-> tmp vector 3) 0.0 0.0 0.0 1.0)
+                                ;; [NOTE-577] SPEC 31 — LE POINT FIXE DE LA DEFORMATION EST CELUI QUE LA SECTION NOMME, PAS L'ORIGINE DU JOINT. -> jak-hd-physics-NOTES.md
+                                (phys-pt-exc! tmp bm (* (-> *phys-anch* sc) (-> *phys-anx* scl)) (* (-> *phys-anch* sc) (-> *phys-any* scl)) (* (-> *phys-anch* sc) (-> *phys-anz* scl)))
+                                (set-vector! (-> tmp vector 3) (- 0.0 (-> *phys-c2* 0)) (- 0.0 (-> *phys-c2* 1)) (- 0.0 (-> *phys-c2* 2)) 1.0)
                                 (let ((aw (-> *phys-apw* scl)))
                                   (when (> aw 0.0)
-                                    ;; [NOTE-339] `tmp` HERITE LA TRANSLATION DE L'ANCRE VIA LE TENSEUR : on la met a zero AVANT de lire. -> jak-hd-physics-NOTES.md
-                                    (set-vector! (-> tmp vector 3) 0.0 0.0 0.0 1.0)
                                     (phys-pt-exc! tmp bm (-> *phys-apx* scl) (-> *phys-apy* scl) (-> *phys-apz* scl))
                                     (set! dwx (+ dwx (* aw (-> *phys-c2* 0))))
                                     (set! dwy (+ dwy (* aw (-> *phys-c2* 1))))
                                     (set! dwz (+ dwz (* aw (-> *phys-c2* 2))))))
                                 (matrix-copy! bm tmp))
-                              (set! (-> bm vector 3 x) (-> *phys-px* scl))
-                              (set! (-> bm vector 3 y) (-> *phys-py* scl))
-                              (set! (-> bm vector 3 z) (-> *phys-pz* scl))
+                              (set! (-> bm vector 3 x) (+ (-> *phys-px* scl) (-> bm vector 3 x)))
+                              (set! (-> bm vector 3 y) (+ (-> *phys-py* scl) (-> bm vector 3 y)))
+                              (set! (-> bm vector 3 z) (+ (-> *phys-pz* scl) (-> bm vector 3 z)))
                               (set! (-> bm vector 3 w) 1.0)
                               ;; [NOTE-139] L'APEX — accumule sur le MEME `bm` que l'ecriture livre. -> jak-hd-physics-NOTES.md
                               (let ((aw (-> *phys-apw* scl)))
@@ -4447,16 +4453,6 @@
 (defun phys-tan-capd () *phys-tan-cs*)
 (defun phys-tan-capg () *phys-tan-cg*)
 
-(defun phys-tan-reset! ()
-  (set! *phys-tan-n* 0)
-  (set! *phys-tan-d* 0.0)
-  (set! *phys-tan-e* 0.0)
-  (set! *phys-tan-o* 0.0)
-  (set! *phys-tan-c* 0)
-  (set! *phys-tan-cs* 0.0)
-  (set! *phys-tan-cg* 0.0)
-  (none))
-
 (defun phys-inject-count-reset! ()
   (set! *phys-injn* 0)
   ;; [NOTE-155] les deux maxima apparies partent de la sentinelle « aucun contact », comme l'e -> jak-hd-physics-NOTES.md
@@ -4607,17 +4603,6 @@
 (defun phys-cone-off-set! ((v int))
   "1 = le rayon redevient interpole sur le parametre de PROJECTION, c'est-a-dire le predicat faux d'avant. Ce qui doit REMONTER, et pourquoi : [NOTE-516] de jak-hd-physics-NOTES.md."
   (set! *phys-cone-off* v)
-  (none))
-
-(defun phys-prio ((which int))
-  "0 = paires (lien, volume) ecartees par la priorite ; 1 = liens contraints par plus d'un volume.
-   NATURE : un COMPTE d'evenements sur la fenetre, pas une amplitude. REPERE : sans objet.
-   LECTURE QUAND LE DEFAUT EST ABSENT : 0 pour les deux — aucun lien n'est en conflit."
-  (the float (cond ((= which 0) *phys-prio-n*) (else *phys-prio-multi*))))
-
-(defun phys-prio-reset! ()
-  (set! *phys-prio-n* 0)
-  (set! *phys-prio-multi* 0)
   (none))
 
 (defun phys-inversions-reset! ()

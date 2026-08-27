@@ -1527,3 +1527,30 @@ chain chestR gravity=1.00
 # ---------------------------------------------------------------------------------------------
 chain chestL comw=0.3266,0.2449
 chain chestR comw=0.3581,0.1871
+
+# =============================================================================================
+# 2026-08-27 (cycle 132) — SPEC 31 : LE POINT FIXE DE LA DEFORMATION, MESURE SUR LE MAILLAGE.
+# CE N'EST PAS UN REGLAGE DE L'OWNER. Ces quatre lignes sont ici pour la MEME raison que `b0=`
+# et `comw=` juste au-dessus : la grandeur se mesure sur le maillage LIVRE, qui n'existe qu'apres
+# le bake, alors que `physics_keira_gen2.py` lit le DONNEUR. Le jour ou le generateur lira le
+# maillage livre, c'est lui qui emettra `anp=` et ces lignes disparaitront.
+#
+# `anp=` — le point « r = 0 at chest attachment » que sa §31 NOMME (SPEC-breast-softbody.md:388),
+# en espace OS LOCAL du maillon, en unites, pose de bind ; TROIS flottants par maillon, maillon 0
+# puis maillon 1. Le tenseur de deformation etait applique autour de l'ORIGINE DU JOINT, qui tombe
+# a r = -0,065 / -0,060 / -0,042 / -0,044 sur l'axe de §31 — donc EN ARRIERE du point que la
+# section nomme, de 0,0505 a 0,0762 B0 (x2,5 a x3,8 le seuil de refutation declare d'avance).
+# Population : `ws>0` PONDEREE, celle qui cuit deja `ax` et `b0` (.autoport/physics_c14_meshsamples.py:340-348).
+# RESERVE, publiee avec le chiffre : la regle livree `anchor30 … gate=0.05 axis=anat` utilise une
+# AUTRE population, qui rend 0,32-0,34 B0 — facteur 4 a 6. La spec ne nomme aucun seuil de poids.
+#
+# `anch=` — le GAIN, et c'est le seul bouton : 0 = tenseur ancre au JOINT, c'est-a-dire le
+# comportement d'avant ce cycle, IDENTITE PAR ALGEBRE (le point passe a `phys-pt-exc!` est
+# (0,0,0), son excursion vaut 0 - 0 exactement). 1 = ancre au point r=0. Il est a 0 : le canal
+# est CABLE et DESARME, et la valeur ne sera posee que quand la question de population sera
+# tranchee. Voir [NOTE-577] de jak-hd-physics-NOTES.md.
+# ---------------------------------------------------------------------------------------------
+chain chestL anp=4.13,45.11,-7.22,44.00,16.76,-138.83
+chain chestR anp=-3.46,-29.69,5.66,-44.43,-0.57,140.86
+chain chestL anch=0.0000
+chain chestR anch=0.0000

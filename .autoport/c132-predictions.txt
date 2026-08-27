@@ -1,0 +1,288 @@
+CYCLE 132 — PREDICTIONS ECRITES AVANT TOUTE MESURE
+DIRECTIVES vd9e8b66782 · phase Grecharged-secondary-motion · branche physics-keira-clean
+Ecrit le 2026-08-27. Chaque prediction porte SON falsificateur. Une prediction refutee se
+publie comme refutee ; elle ne se reecrit pas apres coup.
+
+CONTEXTE, EN TROIS LIGNES. L'owner a mandate le 2026-08-27 le chantier structurel (« laisse
+courir le chantier, on fait la spec a 100% »). Le cycle 129 en a donne l'adresse (le canal de
+COM doit vivre dans le tenseur), le cycle 131 a cartographie un SECOND degre de liberte — le
+POINT D'ANCRAGE de la deformation — et a montre que le plan (commande, ancrage) contient des
+points ou les DEUX clauses de §11 tiennent (277/6156 et 657/6156, marge ~48,5 % de demi-bande).
+Cet ancrage N'EXISTE PAS dans le moteur. Ce cycle demande d'abord s'il a le DROIT d'exister.
+
+CE QUI CHANGE PAR RAPPORT AU CYCLE 131, ET C'EST LE POINT DE CE CYCLE. Le cycle 131 traitait
+l'ancrage comme un PARAMETRE LIBRE a balayer. Un parametre libre choisi pour faire entrer une
+section dans sa bande est exactement `never-fit-a-parameter-to-the-instrument`. Je ne le pose
+donc PAS comme un bouton : je demande ou la SPEC place le point fixe de la deformation, et je
+compare avec l'endroit ou le moteur le place aujourd'hui. Si les deux coincident, il n'y a pas
+de lot.
+
+--------------------------------------------------------------------------------------------
+P1  LE TENSEUR EST ANCRE SUR UN POINT QUE LA SPEC NE NOMME PAS.
+    Le moteur met `bm vector 3` a zero (jak-hd-physics.gc:3913-3916), multiplie par le tenseur,
+    puis ECRASE la translation par la position du solveur (:3926-3929). Le POINT FIXE de la
+    deformation est donc l'ORIGINE DU JOINT. Sa §31 ecrit son abscisse mot pour mot : « r = 0 at
+    chest attachment and r = 1 at distal/apex region », et §30/§31 prescrivent `w(r) = r^1.6..2.0`,
+    donc une deformation NULLE en r = 0.
+    PREDICTION : l'origine du joint tombe a r < 0 sur l'axe de §31 (en arriere de l'attache
+    thoracique), a une distance d'au moins 0,02 B0 (12 u).
+    FALSIFICATEUR : |joint - r0| < 0,02 B0 -> le tenseur est DEJA ancre la ou la spec le demande,
+    ma these est REFUTEE, l'ancrage redevient un parametre LIBRE — et alors JE NE LE CABLE PAS.
+    (Pre-enregistre : ce seuil est ecrit dans le prompt du sous-agent AVANT sa mesure.)
+
+P2  LE MOTEUR CALCULE DEJA L'OFFSET DONT IL A BESOIN — LE COUT TIENT DANS LE PLAFOND.
+    `phys-pt-exc!` (:119-124) rend `a.M2 - a.M1` pour un point local `a`, et il est LINEAIRE en
+    `a`. L'offset d'un re-ancrage en `a` vaut exactement `-(a.(RB.D) - a.RB)`, c'est-a-dire la
+    grandeur que le bloc :3917-3925 calcule DEJA sur le point d'apex. Aucun produit de matrice
+    nouveau n'est necessaire.
+    PREDICTION : le cout NET dans `jak-hd-physics.gc` est <= 4 lignes, c'est-a-dire dans le budget
+    que laisse le plafond CLEAN (4796 pour 4800, validateur:53).
+    FALSIFICATEUR : > 4 lignes nettes necessaires -> le plafond bloque encore, et je le RAPPORTE
+    au lieu de toucher la gate (regle 5 de l'owner). Je ne joins pas non plus des lignes existantes
+    pour faire de la place : ce serait truquer la mesure au lieu de la respecter.
+
+P3  CONTROLE NEGATIF : A ANCRAGE NUL, LA TRACE EST IDENTIQUE AU BIT.
+    L'offset vaut `k . c2` : a k = 0 il est nul par ALGEBRE, pas par reglage.
+    PREDICTION : course a k = 0 -> zero enregistrement `PHYS*` different de la course de base
+    (comparaison sur le corps `PHYS*`, jamais sur le md5 du log : cycle 106).
+    FALSIFICATEUR : un seul enregistrement different -> le lot n'est pas l'identite en son point
+    desarme, il est RETIRE en entier.
+    PRECONDITION EXIGEE AVANT LA COMPARAISON : `PHYSROOM-START ... :state` et `PHYSPOSED
+    dist-from-origin` identiques entre les deux courses (cycle 125 : 79 % des enregistrements
+    divergent sinon, quel que soit le lot).
+
+P4  §2 ET §9 NE PEUVENT PAS ETRE VIOLEES, PAR ALGEBRE.
+    A la pose debout d'auteur le melange convexe d'orientation rend `D = I` (:3591-3596), donc
+    `a.(I-D)` est IDENTIQUEMENT NUL — meme propriete que le plafond de §21, qui est inerte au
+    repos par algebre et non par reglage (arbitrage du 2026-08-20 18:50).
+    PREDICTION : `[IDLE] ecart max au modele` reste a 0.000 et la cellule debout `i=0` reste dans
+    0,0002-0,0003 B0.
+    FALSIFICATEUR : IDLE quitte 0.000 -> `D = I` au repos est faux, et toute la surete du lot
+    tombe avec.
+
+P5  LA CARTE DU CYCLE 131 EST FAITE AVEC UN PROXY : ELLE DOIT SURVIVRE AU BOUTON REEL.
+    Le balayage du c131 a utilise une SUBSTITUTION DE VALEUR SINGULIERE (fidelite annoncee 2,02 %
+    sur les deux commandes archivees), pas le bouton du moteur. Sa pente d'ancrage : chestL
+    PROXIMAL a = 0,10 B0 -> longueur -3,52 %, COM +15,72 % (dCOM/dlongueur ~ -4,47, de signe
+    OPPOSE aux +0,465 de la commande).
+    PREDICTION : les pentes MESUREES DANS LE MOTEUR au meme deplacement d'ancrage s'accordent a
+    20 % relatif pres avec ces deux chiffres.
+    FALSIFICATEUR : ecart > 20 % -> la carte du c131 est refutee, aucun point admissible ne se
+    choisit dessus, et elle se refait sur des mesures moteur avant tout lot.
+
+--------------------------------------------------------------------------------------------
+CE QUE JE N'EXECUTE PAS, ET POURQUOI — DECLARE AVANT, PAS APRES
+
+R1  JE NE CHOISIS PAS L'ANCRAGE POUR FAIRE ENTRER §11 DANS SA BANDE. Il vaut le point r = 0 que
+    §31 NOMME, mesure sur le mesh livre, ou il n'est pas cable du tout. Un ancrage balaye puis
+    fige a la valeur qui verdit une cellule serait un parametre ajuste sur l'instrument, et les
+    quatre bascules vers le vert qu'il produirait seraient la forme meme d'un faux vert.
+
+R2  JE NE TOUCHE PAS LA GATE `CLEAN`, ET JE NE JOINS PAS DE LIGNES POUR PASSER DESSOUS. Regle 5
+    de l'owner : une gate qui me semble fausse se signale, elle ne se contourne pas. Du code
+    REELLEMENT MORT peut etre retire — c'est une reduction, pas un reformatage — mais chaque
+    retrait doit prouver ses lecteurs a zero sur TOUT l'arbre et rendre une trace identique.
+
+R3  JE NE CABLE PAS `HangingCOMDisplacement`. C'est une cle-REPONSE (sa ligne de prose ne nomme
+    aucun reglage, contrairement a `HangingLengthScale = 1.23`), et la DIRECTIVE du 2026-08-23
+    16:00 l'interdit : « une reponse se MESURE, elle ne se pose pas ». La cabler detruirait la
+    SEULE clause de §10/§11 aujourd'hui sans miroir.
+
+R4  JE NE RECABLE PAS LA NORMALISATION A LA MASSE (cycle 130) DANS CE CYCLE. Elle deplace CINQ
+    cellules de verdict dont QUATRE vers le vert et elle a ete REMONTEE au superviseur ; elle
+    n'a pas recu d'arbitrage. La poser en meme temps qu'un lot de solveur rendrait les deux
+    ininterpretables.
+
+--------------------------------------------------------------------------------------------
+P6  AJOUTEE APRES RELECTURE DU CYCLE 131 (suite 2), QUI A PRE-ENREGISTRE CETTE PREDICTION POUR
+    CE CYCLE — JE LA REPRENDS TELLE QUELLE AU LIEU DE LA REECRIRE.
+    `DISCRIMINANT` (chaque chaine doit distinguer les 5 pilotages, seuil 25 %) a arrete les lots
+    de §11 DEUX fois sur chestR (c122 : 23,5 % · c128 : 23,0 %). L'offset d'ancrage passe par LE
+    MEME canal que `phl` (l'echelle de forme pilotee par l'orientation), donc le lot c128 est une
+    INTERVENTION ARCHIVEE qui mesure directement la sensibilite de chaque pilotage a ce canal.
+    CE QUI PORTE LA PREDICTION : `chestR/updown` est le SEUL pilotage EXACTEMENT invariant
+    (0,1364 -> 0,1364, +0,00 %) — en translation verticale la gravite ne tourne pas dans le repere
+    de l'ancre, le melange d'orientation ne bouge pas, `D` ne bouge pas. C'est un PLANCHER STABLE.
+    CE QUI NE LA PORTE PAS, ET C'EST ECRIT AVEC : le signe n'est PAS uniforme sur les autres —
+    `jerk` MONTE de 3,2 % quand `accel` descend de 13,7 %. Rien ne garantit que l'ancrage relevera
+    le MAXIMUM plutot qu'un pilotage du milieu.
+    PREDICTION : `DISCRIMINANT` reste >= 25 % sur les DEUX chaines apres le lot.
+    FALSIFICATEUR : < 25 % sur une chaine -> le lot est RETIRE, comme aux cycles 122 et 128, et
+    on ne « corrige » pas la gate.
+    TROU D'INSTRUMENT, NOMME PAR LE c131 ET TOUJOURS OUVERT : aucun enregistrement ne publie, PAR
+    PILOTAGE, l'excursion de la forme pilotee par l'orientation (`det` est ramene a 1 par
+    construction, `dyn` sature a 25,00 sur 4 pilotages sur 5, `secr` appartient a §36). Tant qu'il
+    est ouvert, P6 ne se teste qu'APRES une course.
+
+--------------------------------------------------------------------------------------------
+P6b LA GATE QUI A ARRETE DEUX LOTS A UNE FORME CLOSE, ET ELLE SE VERIFIE SUR UNE INTERVENTION
+    ARCHIVEE. (Derive par le manager, recalcule a la main sur les 310 lignes `row ` de la table
+    courante — pas repris d'un rapport.)
+    `DISCRIMINANT` = `(max - min) / max` des `tipvar` par pilotage, seuil 25 % (validateur:643-648).
+    Valeurs verifiees : chestL 46,15 % · chestR 33,37 %.
+        chestL  accel 0.1829 · jerk 0.1788 · leftright 0.1606 · tilt 0.0985 · updown 0.1322
+        chestR  accel 0.2047 · jerk 0.1681 · leftright 0.1816 · tilt 0.1467 · updown 0.1364
+    Sur chestR le couple qui decide est **accel (max) contre updown (min)** — et non `tilt`.
+    Le c131 a mesure que `chestR/updown` est EXACTEMENT invariant a ce canal (0,1364 -> 0,1364).
+    Donc, `updown` etant fixe, la gate est une BORNE SUR LA BAISSE DE `chestR/accel` :
+        pour tenir 25 %, accel >= 0,1364 / 0,75 = 0,18187, soit une baisse maximale de 11,15 %.
+    CONTROLE SUR L'ARCHIVE : le lot c128 baisse `chestR/accel` de 13,7 % -> spread predit
+    (1 - 0,1364/(0,2047 x 0,863)) = 22,97 %, contre **23,0 % effectivement rapporte** au c128.
+    Le modele reproduit le refus a 0,03 point, sur un lot qu'il n'a pas servi a construire.
+
+P7  L'ANCRAGE DEVRAIT FAIRE MONTER `DISCRIMINANT`, PAS BAISSER — ET LE RISQUE EST SUR chestL.
+    L'offset d'ancrage vaut `-c2(a)`, qui est CONSTANT quand `D` est constant. Sous `updown` la
+    gravite ne tourne pas dans le repere de l'ancre, donc `D` ne bouge pas, donc l'offset est une
+    CONSTANTE : il n'ajoute AUCUNE variance et `tipvar` est invariant — plus fortement que pour
+    `phl`, et par un argument de variance, pas par mesure.
+    Sur les pilotages ou l'orientation VARIE (accel, jerk, leftright, tilt), l'offset varie et
+    ajoute de la variance : `tipvar` MONTE.
+    PREDICTION : `chestR/updown` reste a 0,1364 au millieme ; `chestR` monte au-dessus de 33,37 %.
+    LE RISQUE EST SUR chestL, ET JE L'ECRIS AVANT : son MINIMUM est `tilt` (0.0985), c'est-a-dire
+    le pilotage dont l'orientation varie LE PLUS (inclinaison a 60 deg). Si l'ancrage releve `tilt`
+    plus que `accel`, le spread de chestL BAISSE malgre ses 21,2 points de marge.
+    FALSIFICATEUR : `chestR/updown` bouge de plus de 1 % -> l'argument de variance est faux et
+    P7 tombe en entier, y compris sa partie rassurante.
+
+--------------------------------------------------------------------------------------------
+P8  ECRITE AVANT LA COURSE ARMEE, ET AVANT DE REGARDER LA COURSE DESARMEE.
+    Le canal est cable. `anch = 1` place le point fixe du tenseur sur le point r=0 que §31 NOMME,
+    mesure sur le maillage livre (population `ws>0` ponderee, celle qui cuit deja `ax` et `b0`) :
+        lBoob (+4,13 +45,11 -7,22) |a| = 45,87 u = 0,0762 B0     lBooc |a| = 146,60 u = 0,2435 B0
+        rBoob (-3,46 -29,69 +5,66) |a| = 30,43 u = 0,0505 B0     rBooc |a| = 147,70 u = 0,2454 B0
+    Le bras de levier du point d'apex, pondere par la masse d'apex de chaque maillon
+    (0,8584/0,0818 et 0,9549/0,0000), se raccourcit de **6,19 % (chestL)** et **4,07 % (chestR)**.
+    En supposant que l'EXCES sur 1,0 se contracte de ce facteur, je predis, cellule par cellule :
+
+        §11 longueur  chestL w>0    1,3363 -> 1,315   AU-DESSUS (reste)
+                      chestL w>=,25 1,2734 -> 1,257   **DANS** (bascule, marge 0,3 %)
+                      chestR w>0    1,3183 -> 1,305   AU-DESSUS (reste)
+                      chestR w>=,25 1,3116 -> 1,299   AU-DESSUS (reste)
+        §11 COM       chestL 0,2278 -> 0,214 · chestR 0,2273 -> 0,218   DANS toutes les deux
+        §22 apex      baisse de 6,2 % / 4,1 %
+        DISCRIMINANT  chestR/updown inchange ; spread des DEUX chaines >= 25 % (P6b/P7)
+
+    **§11 RESTE `NON TENUE`** : une cellule sur quatre bascule, et je le dis AVANT pour qu'on ne
+    lise pas ce lot comme une conversion. Ce que le lot etablit, c'est que le point fixe du tenseur
+    etait au mauvais endroit et de combien — pas que la section est tenue.
+    FALSIFICATEURS, chacun independant :
+      (a) une cellule de longueur s'ecarte de plus de 20 % relatif de la baisse predite -> le
+          modele « l'exces se contracte comme le bras de levier » est faux et je le publie ;
+      (b) le COM MONTE au lieu de baisser -> le signe de l'operateur est inverse, lot RETIRE ;
+      (c) `DISCRIMINANT` < 25 % sur une chaine -> lot RETIRE, comme aux cycles 122 et 128 ;
+      (d) `[IDLE] ecart max au modele` quitte 0.000 -> la surete de P4 tombe, lot RETIRE.
+
+    ET LA CORRECTION DE MA PROPRE P4, ECRITE AVANT QUE LA MESURE ARRIVE : j'ai ecrit que l'offset
+    est « identiquement nul par algebre » au repos. **C'est FAUX et la mesure de ce cycle le
+    refute** : `D` vaut `I` a 6,2e-4 / 4,8e-4 pres seulement (`PHYSDFMA c=* i=0`), parce que le
+    melange convexe est exact en arithmetique REELLE et pas en float32. Ce qui est vrai, et
+    borne : l'offset au repos vaut au plus 0,0285 u / 0,0147 u, soit 4,7e-5 / 2,4e-5 B0, **sous le
+    plancher ULP de l'integration monde** (0,0625 u sur X/Z). §2/§9 ne peuvent pas etre violees de
+    facon MESURABLE — ce n'est pas la meme affirmation que « nul par algebre », et la difference
+    est exactement le genre de sur-affirmation que ce registre existe pour attraper.
+    Le point DESARME (`anch = 0`), lui, EST nul par algebre : le point passe a `phys-pt-exc!` est
+    (0,0,0) et son excursion vaut `0 - 0` exactement. P3 tient donc telle qu'elle est ecrite.
+
+============================================================================================
+RESULTATS — ECRITS APRES LA MESURE, EN REGARD DES PREDICTIONS CI-DESSUS. AUCUNE N'A ETE
+REECRITE ; CELLES QUI SONT REFUTEES SONT PUBLIEES COMME REFUTEES.
+============================================================================================
+
+P1  CONFIRMEE. L'origine du joint tombe a r = -0,0654 / -0,0602 / -0,0423 / -0,0443 sur l'axe
+    de §31, soit 45,87 / 42,28 / 30,43 / 31,83 u = 0,0762 / 0,0702 / 0,0505 / 0,0529 B0 EN
+    ARRIERE du point r=0 — x2,53 a x3,81 le seuil de refutation de 0,02 B0 declare d'avance.
+    L'axe de §31 est a 88,5 / 90,6 deg de l'axe d'os : le deplacement est presque entierement
+    TRANSVERSE, donc inatteignable par un facteur d'echelle le long de la chaine.
+    RESERVE QUI VOYAGE AVEC LE CHIFFRE : le dossier utilise DEUX populations sous le meme nom
+    « axe de §31 » — `ws>0` pondere (celle qui cuit `ax` et `b0`) et `ws>0,05` non pondere
+    (celle de la regle livree `anchor30 … gate=0.05 axis=anat`). L'ecart passe de 0,05-0,08 B0
+    a 0,32-0,34 B0 : facteur 4 a 6. La spec ne nomme AUCUN seuil de poids.
+
+P2  **REFUTEE.** J'avais predit un cout net <= 4 lignes dans le moteur. Le canal en coute **10**
+    (declarations, chargeur, site d'ecriture). Ce qui a debloque le plafond n'est pas la petitesse
+    du correctif : c'est le retrait de **25 lignes de code REELLEMENT MORT**, verifie lecteur par
+    lecteur sur tout l'arbre (`phys-prio`, `phys-prio-reset!`, `phys-tan-reset!`, et les deux
+    accumulateurs `*phys-prio-n*` / `*phys-prio-multi*`, ecrits et jamais lus). Moteur
+    4796 -> 4771 -> **4781**, plafond 4800. L'audit en avait trouve 82 disponibles ; je n'ai pris
+    que les 25 dont le risque est `RIEN`, et j'ai laisse en place les setters d'ablation
+    (`phys-e22-off-set!`, `phys-rest-off-set!`, `phys-kah-off-set!`) : ce sont des CONTROLES
+    NEGATIFS, et les echanger contre des lignes de budget serait vendre la methode pour de la place.
+
+P3  CONFIRMEE, ET C'EST LE CONTROLE QUI COMPTE. Course a `anch = 0` contre la course de reference :
+    conditions initiales IDENTIQUES (`:state target-title`, dist 1061328.6250), **93 378
+    enregistrements des deux cotes, UN SEUL different** — et c'est l'adresse de tas d'une fonction
+    d'ecoute (`#x3985554` contre `#x3986e64`), pas une mesure. Le TABLEAU derive est identique
+    OCTET POUR OCTET a l'exception de la ligne qui publie l'empreinte de la trace lue : les 310
+    mesures et tous les verdicts sont inchanges. Le point desarme est bien l'identite.
+
+P4  **REFUTEE COMME ECRITE, ET C'EST MOI QUI L'AVAIS SUR-AFFIRMEE.** « Identiquement nul par
+    algebre » est faux : `D` ne vaut `I` qu'a 6,2e-4 / 4,8e-4 pres a la pose d'auteur
+    (`PHYSDFMA c=* i=0`), parce que le melange convexe est exact en arithmetique REELLE et pas en
+    float32. Enonce corrige et BORNE : l'offset au repos vaut au plus 0,0285 u / 0,0147 u, soit
+    4,7e-5 / 2,4e-5 B0 — sous le plancher ULP de l'integration monde (0,0625 u sur X/Z).
+    La consequence pratique tient : `[IDLE] ecart max au modele 0.000` et `ROOM-IDLE maxdev=0.0001`
+    sur la course ARMEE comme sur la desarmee.
+
+P5  **NON TESTABLE TELLE QU'ECRITE, et je le dis au lieu de forcer la comparaison.** Le balayage du
+    c131 est un SCALAIRE le long d'un axe unique ; l'operateur du moteur est un vecteur PAR MAILLON
+    vers un point du monde UNIQUE. Ce ne sont pas les memes familles, et comparer leurs pentes
+    ferait passer deux operateurs differents pour deux mesures du meme.
+
+P6b CONFIRMEE COMME MODELE, INUTILE COMME PREDICTION. La forme close reproduit le refus archive du
+    c128 a 0,03 point (22,97 % predit contre 23,0 % rapporte). Mais la gate s'est revelee
+    STRUCTURELLEMENT AVEUGLE a ce canal : `DISCRIMINANT` est EXACTEMENT inchange (46,15 % / 33,37 %).
+
+P7  **REFUTEE.** J'avais predit `chestR/updown` invariant ET les autres pilotages EN HAUSSE. La
+    moitie rassurante est vraie ; l'autre est fausse : **aucun** pilotage ne bouge, sur aucune
+    chaine. `PHYSROW` — les 310 lignes de mesure, qui portent `tipvar`, `rootdev` et `meshpen` —
+    est IDENTIQUE AU BIT entre la course armee et la desarmee.
+
+P8  **REFUTEE SUR (a).** Predit : l'exces sur 1,0 se contracte comme le bras de levier d'apex,
+    -6,19 % (chestL) / -4,07 % (chestR). MESURE sur l'apex vivant : mediane **-2,45 % / -1,40 %**,
+    soit 40 % et 34 % de la valeur predite — ecart de 60 % et 66 %, tres au-dela du seuil de 20 %.
+    Le modele « l'exces se contracte comme le bras de levier » est FAUX d'un facteur ~2,5.
+    (b) non declenchee : le COM vivant BAISSE en mediane (-3,48 % / -2,31 %) ; il monte sur
+    quelques cellules (jusqu'a +4,46 %), ce qui rappelle qu'un echantillon n'est pas une population.
+    (c) et (d) tenues : `DISCRIMINANT` inchange, `IDLE` a 0.000, `ROOM-STRETCH` inchange a 2,8973.
+    ET LA PREDICTION DE CELLULE EST FAUSSE AUSSI : `chestL w>=0,25` devait basculer DANS a 1,257 ;
+    mesure **1,2663**, toujours AU-DESSUS (marge 1,05 % -> 0,50 %). §11 reste `NON TENUE`, comme
+    predit au niveau de la SECTION — mais pour la bonne raison seulement par accident.
+
+--------------------------------------------------------------------------------------------
+CE QUE LE CYCLE ETABLIT ET QUE JE N'AVAIS PAS PREVU — LE VRAI RESULTAT
+
+**LES LIGNES QUI JUGENT LA CLAUSE DE COM DE §10/§11/§12 SONT CALCULEES AVANT L'ECRITURE
+SQUELETTE, DONC AUCUNE CORRECTION POSEE LA NE PEUT LES DEPLACER.** Etabli par trois chemins
+independants :
+
+  1. **A LA SOURCE.** `*phys-ldb*`, d'ou sort `PHYSORICOML` via `phys-link-dev-anc-abs`, est ecrit
+     a `jak-hd-physics.gc:3415` ; l'ancrage est applique a `:3914-3927`. L'ordre est sans ambiguite.
+  2. **DANS LA TRACE.** Entre deux courses qui ne different QUE par `anch` (0 -> 1), 20 632 des
+     93 378 enregistrements changent — et pourtant `PHYSORICOM`, `PHYSORICOML`, `PHYSORICOM2`,
+     `PHYSORICOM2L`, `PHYSDFMA` et `PHYSROW` sont IDENTIQUES AU BIT, quand `PHYSCOMX`, `PHYSCOMD`,
+     `PHYSCOMW`, `PHYSCOMWL` et les cinq `PHYSAPEX*` changent sur **100 %** de leurs lignes.
+  3. **DANS LE TABLEAU.** `physics_room_table.py:2573` et `:3631` lisent `PHYSORICOML` pour les
+     `d_j` du modele de COM, `:1680` lit `PHYSDFMA` pour `D`. Resultat : le verdict de COM de §11
+     ne bouge pas d'un chiffre (0,2278 / 0,2273), `ROOM-STRETCH` ne bouge pas, `DISCRIMINANT` ne
+     bouge pas — pendant que `ROOM-SPEC1011-LIVREE`, qui lit les matrices de joints ECRITES, bouge
+     sur ses QUATRE cellules, et que le COM VIVANT baisse de 2,3 a 3,5 % en mediane.
+
+**CE QUE CA VEUT DIRE, SANS ENROBAGE.** L'organe LIVRE — celui que l'owner voit, construit a partir
+des matrices ecrites — a bouge. L'instrument qui rend le verdict de §10/§11/§12 dit qu'il n'a pas
+bouge. **Ce n'est pas un desaccord de valeur, c'est un angle mort total** : n'importe quelle
+correction, de n'importe quelle taille, posee dans le chemin d'ecriture, lira ZERO sur ces trois
+sections. Ca explique aussi pourquoi le lot c128 les avait deplacees : il changeait `phl`, donc le
+TENSEUR, en amont de `:3415`.
+
+**ET LA MEME REMARQUE VAUT POUR LA GATE.** `DISCRIMINANT` — celle qui a arrete les lots des cycles
+122 et 128 — lit `PHYSROW`, lui aussi calcule avant l'ecriture. La gate ne peut donc ni valider ni
+refuser cette classe de correctif : elle est muette dessus, et c'est a savoir avant de s'appuyer
+sur son vert.
+
+**DECISION DU CYCLE, ET SA RAISON.** Le canal est livre **DESARME** (`anch=0`). Ma propre regle R1
+disait « l'ancrage vaut le point r=0 que §31 nomme, ou il n'est pas cable » — or « le point r=0 »
+n'est pas UN nombre tant que la question de population n'est pas arbitree (facteur 4 a 6). A quoi
+s'ajoute la mesure : arme, **aucun verdict ne bouge nulle part** dans le registre, et deux cellules
+de regime EMPIRENT nettement (chestL jumpB-land apex x0,90 -> x0,68 et COM x0,62 -> x0,46 ;
+chestR runA-brake apex x1,27 -> x1,39). Poser une valeur indefendable pour un gain nul serait
+exactement le geste que ce registre existe pour interdire.

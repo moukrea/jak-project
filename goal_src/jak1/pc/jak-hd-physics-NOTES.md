@@ -10592,3 +10592,56 @@ longueur — et c'est le MEME deficit que §10 nomme depuis le cycle 123b (« Ou
 la grandeur que le prochain lot doit commander, elle est validee (0,000-0,442 pt contre le nuage
 `RIGID`), et son denominateur est verifie a la course (etendue 0,007 %). Ce qui est retire est la
 COMMANDE, pas la MESURE.
+
+## [NOTE-577]
+
+**SPEC 31 — LE POINT FIXE DE LA DEFORMATION EST CELUI QUE LA SECTION NOMME, PAS L'ORIGINE DU JOINT.**
+
+Sa §31 (`SPEC-breast-softbody.md:388-390`) ecrit son abscisse mot pour mot : « With `r = 0` at chest
+attachment and `r = 1` at distal/apex region, a useful deformation weighting is `w(r) = r^1.6…2.0`
+— **little deformation at the root** ». Le moteur, lui, mettait `bm vector 3` a zero avant le
+produit par `dfm` puis ECRASAIT la translation par la position du solveur : le point fixe du
+tenseur etait donc **l'origine du joint**, un point que la spec ne nomme nulle part.
+
+**MESURE (cycle 132, mesh LIVRE `out/jak1/fr3/skin/keira-hd-lod0.glb`, pose de bind, axe de §31 tel
+qu'il est deja construit par `.autoport/physics_c14_meshsamples.py:340-348` — celui-la meme qui cuit
+`ax` et `b0`) : l'origine du joint tombe a**
+
+    lBoob r = -0,0654   45,87 u = 0,0762 B0      lBooc r = -0,0602   42,28 u = 0,0702 B0
+    rBoob r = -0,0423   30,43 u = 0,0505 B0      rBooc r = -0,0443   31,83 u = 0,0529 B0
+
+soit **EN ARRIERE** du point r=0 des quatre cotes, de x2,5 a x3,8 le seuil de refutation declare
+d'avance (0,02 B0). L'axe de §31 est par ailleurs **quasi perpendiculaire a l'axe d'os** (88,5 deg /
+90,6 deg) : le deplacement joint -> r=0 est presque entierement TRANSVERSE, il n'est pas colineaire
+a l'os et ne peut donc pas etre porte par un facteur d'echelle le long de la chaine.
+
+**LE CANAL.** Ancrer `D` en `a` au lieu du joint ajoute a chaque sommet pilote l'offset constant
+`a.(I - D)`. Le moteur calculait DEJA cette grandeur — `phys-pt-exc!` sur le point d'apex, rangee
+dans `dwx/dwy/dwz` — et il la JETAIT. Ici elle est calculee sur le point `anch . anp`, deposee dans
+la translation de `tmp`, et l'ecriture finale ADDITIONNE `(-> bm vector 3 …)` au lieu de l'ecraser.
+
+**TROIS PROPRIETES, ET C'EST CE QUI REND LE LOT SUR :**
+  1. **le point desarme est l'identite PAR ALGEBRE, pas par reglage.** A `anch = 0` le point passe a
+     `phys-pt-exc!` est `(0,0,0)`, dont l'excursion vaut `tmp.trans - bm.trans = 0 - 0` exactement,
+     donc la translation deposee est `0.0` et l'ecriture rend `p` au bit pres. Meme forme que le
+     plafond de §21, inerte au repos par algebre (arbitrage du 2026-08-20 18:50) ;
+  2. **`dw` reste honnete sans une ligne de plus.** L'offset est depose dans `tmp vector 3` AVANT
+     l'appel d'apex, donc ce dernier rend `c2(q) - c2(a)` par linearite : la part TENSEUR de
+     l'excursion d'apex inclut l'ancrage, et `s = aw - dw` que lit le plafond de §21 en est
+     EXACTEMENT invariant. L'ancrage ne se fait donc pas defaire par la boucle de contrainte en
+     aval (`bound-undone-by-downstream-constraint-loop`) ;
+  3. **§2/§9 ne peuvent pas etre violees de facon mesurable.** A la pose debout d'auteur le melange
+     convexe rend `D` a `6,2e-4 / 4,8e-4` de l'identite (mesure sur `PHYSDFMA c=* i=0`, pas
+     raisonnee) ; l'offset y est borne par `|a| . ||A - I||` = **0,0285 u / 0,0147 u**, soit
+     `4,7e-5 / 2,4e-5 B0` — **sous le plancher ULP float32 de l'integration monde** (0,0625 u sur
+     X/Z, 0,015625 u sur Y). **Ce n'est PAS zero, et l'ecrire « identiquement nul par algebre »
+     serait faux** : `D = I` n'est exact qu'en arithmetique reelle.
+
+**RESERVE PUBLIEE AVEC LE CHIFFRE, ET ELLE GOUVERNE L'AMPLITUDE.** Le dossier utilise **deux
+populations differentes sous le meme nom « axe de §31 »** : le decile d'apex est cuit sur
+`ws>0` PONDERE, la regle livree `anchor30 … gate=0.05 axis=anat` (`recharged_assets/physics_reskin.txt:351-352`)
+travaille sur `ws>0,05` NON PONDERE. L'ecart du joint au point r=0 passe de **0,05-0,08 B0** a
+**0,32-0,34 B0** selon celle qu'on lit — un facteur 4 a 6 sur la reponse. La spec ne nomme aucun
+seuil de poids ; **le choix n'est donc pas tranchable par le texte**, et `anp=` porte la premiere
+lecture (celle qui cuit `ax`) parce que c'est celle du reste de la chaine de mesure. Meme classe
+que `two-distal-axes-are-not-the-same-population`.

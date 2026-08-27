@@ -1020,10 +1020,14 @@ enum PhysClassBits { kPhysClassPrimary = 1, kPhysClassSecondary = 2, kPhysClassA
 //      proved nothing, the bone stayed outside the thigh while the cloth swept through the other
 //      leg. Non-zero moves the collision test to the middle of that continuation and inflates the
 //      radius to circumscribe it. 0 = the bone is the whole chain, i.e. every pre-cycle-5 line.)
-//   25 compress(FRACTION of its authored length a link may lose, 0..0.9. 0 IS THE DEFAULT and it
-//      is a deliberate behaviour change: `stretch=` used to bound the distance constraint in BOTH
-//      directions, so a chest link could legally lose 22% of its length and Jak's collar could
-//      simply shorten until a contact solved itself. Owner X: "rien ne doit se TASSER".)
+//   25 anch(GAIN applied to the per-link `anp=` point of SPEC 31 — the fixed point the section
+//      names, "r = 0 at chest attachment". 0 = the deformation tensor stays anchored on the BONE
+//      ORIGIN, which is where it has always been and which the spec names nowhere; that is the
+//      identity by algebra, not by tuning. 1 = anchored on the measured r=0 point. (C132)
+//      Slot 25 previously CARRIED THE NAME `compress` — a cycle-5 idea that was documented and
+//      never parsed, never read, and never present in any shipped data. It is reused here rather
+//      than left as a second empty slot; nothing is lost, but do not read old notes about
+//      `compress` as if this index held it.
 // CYCLE 6 (owner 2026-08-07) — the audit's OWN positive control:
 //   26 inject(UNITS by which this chain is DELIBERATELY displaced into the body, so the
 //      penetration audit can be shown to FIRE before any zero it reports is believed. Three
@@ -1129,6 +1133,13 @@ struct PhysChain {
   // 0/absent = UNDECLARED, and the engine then publishes no COM at all rather than a wrong one,
   // so adding this key moves no chain that does not carry it.
   std::vector<float> link_comw;
+  // (C132) SPEC 31 — le point « r = 0 at chest attachment » que la section NOMME, en espace os
+  // local de CE maillon, en unites, pose de bind. Le tenseur de deformation est aujourd'hui
+  // applique autour de l'ORIGINE DU JOINT, qui tombe a r = -0.04 a -0.07 sur l'axe de SPEC 31 : ce
+  // point est le point fixe que la section prescrit. Mesure sur le maillage LIVRE, jamais
+  // ajuste a la main. Vide = pas d'enregistrement `anp=` : GOAL n'applique alors AUCUN offset,
+  // ce qui est exactement le comportement d'avant ce cycle.
+  std::vector<std::array<float, 3>> link_anp;
   // `pk <Key> <value>` : the CHARACTER PRESET, copied VERBATIM from SPEC-breast-softbody.md
   // section 38 by .autoport/preset_apply.py — key name and number, never re-typed by hand.
   // The owner, 2026-08-22: « les memes proprietes des presets ont des valeurs differentes, on
@@ -1632,6 +1643,31 @@ static int pc_physics_parse_file() {
             }
             p = comma + 1;
           }
+        } else if (k == "anp") {
+          // (C132) SPEC 31 — meme forme que comw= : liste separee par des virgules, root -> tip,
+          // mais TROIS flottants par maillon (x,y,z) en espace os LOCAL de ce maillon, en unites,
+          // pose de bind. C'est le point que la section appelle « r = 0 at chest attachment »,
+          // mesure sur le maillage LIVRE — une donnee derivee, jamais un reglage. Un reliquat
+          // incomplet (taille non multiple de 3) est IGNORE plutot que complete par des zeros :
+          // un maillon a moitie declare n'est pas un maillon ancre a l'origine, et le completer
+          // fabriquerait une donnee que personne n'a mesuree.
+          ch.link_anp.clear();
+          std::vector<float> anp_flat;
+          size_t p = 0;
+          while (p <= v.size()) {
+            size_t comma = v.find(',', p);
+            std::string one = (comma == std::string::npos) ? v.substr(p) : v.substr(p, comma - p);
+            if (!one.empty()) {
+              anp_flat.push_back(phys_to_float(one));
+            }
+            if (comma == std::string::npos) {
+              break;
+            }
+            p = comma + 1;
+          }
+          for (size_t i = 0; i + 2 < anp_flat.size(); i += 3) {
+            ch.link_anp.push_back({anp_flat[i], anp_flat[i + 1], anp_flat[i + 2]});
+          }
         } else if (k == "xchain") {
           // Comma-separated chain NAMES of this same model. Two chains have never been able to see
           // each other — which is why Jak's back buckle swings through his own strap — and naming
@@ -1658,6 +1694,15 @@ static int pc_physics_parse_file() {
           // generator only for links measured to be closed shells around a FOREIGN volume; a chain
           // that is not a sleeve carries no `shell=` at all, not `shell=0`.
           ch.params[28] = phys_to_float(v);
+        } else if (k == "anch") {
+          // (C132) gain applique a `anp=` : 0 = tenseur ancre au JOINT (comportement d'avant ce
+          // cycle, identite par algebre) ; 1 = ancre au point r=0 que sa SPEC 31 nomme. C'est le
+          // BOUTON declare, distinct de la donnee mesuree `anp=` — pour qu'un balayage ne
+          // reecrive jamais une valeur mesuree sur le maillage.
+          // NOTE DE COLLISION DE NOM : le bloc de documentation des ids ci-dessus nomme encore
+          // l'id 25 `compress` (cycle 5). Ce `compress` n'a JAMAIS ete parse ni lu par le moteur
+          // — l'id 25 etait un slot documente et vide. Il porte `anch` a partir de ce cycle.
+          ch.params[25] = phys_to_float(v);
         } else if (k == "b0") {
           // SPEC 6's characteristic root-to-apex length of the FLESH, in units, measured on the
           // mesh — the yardstick SPEC 22 expresses its apex ceiling in. See the default above.
@@ -2199,6 +2244,26 @@ s64 pc_physics_chain_link_apex_mi(u32 ag_name, s64 chain, s64 link, s64 axis) {
     return 0;
   }
   return phys_mi(model->chains[chain].link_apexp[link][axis - 1]);
+}
+
+// (C132) SPEC 31 — composante `axis` (0=x, 1=y, 2=z) du point r=0 de ce maillon, en milli, espace
+// os local, pose de bind. Rend 0 quand la chaine ne declare pas `anp=` — et 0 est ici la bonne
+// valeur neutre, parce qu'un offset nul EST le comportement d'avant ce cycle (contrairement a
+// `preset_mi` qui doit rendre -1 pour distinguer « absente » de « vaut zero »).
+s64 pc_physics_chain_link_anp_mi(u32 ag_name, s64 chain, s64 link, s64 axis) {
+  pc_physics_ensure_loaded();
+  const auto* model = pc_physics_find_model(ag_name);
+  if (!model || chain < 0 || chain >= (s64)model->chains.size()) {
+    return 0;
+  }
+  const auto& ap = model->chains[chain].link_anp;
+  if (link < 0 || link >= (s64)ap.size()) {
+    return 0;
+  }
+  if (axis < 0 || axis > 2) {
+    return 0;
+  }
+  return phys_mi(ap[link][axis]);
 }
 
 // (C128) SPEC 11 — une des 12 constantes de l'ETAGE RIGIDE, en milli. `idx` = b * 4 + q, avec
@@ -4461,6 +4526,8 @@ void InitMachine_PCPort() {
                               (void*)pc_physics_chain_link_comw_mi);
   make_function_symbol_from_c("pc-physics-chain-link-apex-mi",
                               (void*)pc_physics_chain_link_apex_mi);
+  make_function_symbol_from_c("pc-physics-chain-link-anp-mi",
+                              (void*)pc_physics_chain_link_anp_mi);
   make_function_symbol_from_c("pc-physics-chain-rigid-mi",
                               (void*)pc_physics_chain_rigid_mi);
   make_function_symbol_from_c("pc-physics-chain-preset-mi",
