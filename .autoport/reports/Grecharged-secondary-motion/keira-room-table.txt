@@ -10,6 +10,7 @@ contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 
    tableau, jamais declare a la main.
 ROOM-INSTRUMENTS-MUETS: 0 — tous les blocs de ce tableau ont publie un chiffre.
 
+ROOM-STARTSTATE: CANONIQUE — cible `target-title`, spawn 1061328.6250 u de l'origine (7 des 8 courses archivees, au dernier chiffre pres). Cette course est comparable aux precedentes.
 
 Toutes les longueurs sont en METRES (la trace est en unites de jeu, 4096 u = 1 m). Ce que
 mesure chaque colonne, et rien d'autre :

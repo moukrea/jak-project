@@ -182,9 +182,32 @@ avaient etabli que la salle est reproductible enregistrement pour enregistrement
 le controle du cycle 124 ne la regardait pas : selon le cote ou tombe la course avec la sequence
 de titre, il rend « tout differe » ou « rien ne differe », et dans les deux cas il ne parle pas du
 lot qu'on teste.
-**CORRIGE AU POINT DE PRODUCTION** : `c124_negctl.py` lit `PHYSROOM-START :state` et
-`PHYSPOSED dist-from-origin` AVANT toute comparaison et **REFUSE** une paire qui ne les partage
-pas, au lieu de rendre un chiffre ininterpretable.
+**CORRIGE AU POINT DE PRODUCTION, DEUX FOIS.** (1) `c124_negctl.py` lit `PHYSROOM-START :state`
+et `PHYSPOSED dist-from-origin` AVANT toute comparaison et **REFUSE** une paire qui ne les partage
+pas, au lieu de rendre un chiffre ininterpretable. (2) **Le TABLEAU publie ses conditions
+initiales EN TETE** (`ROOM-STARTSTATE:`) : une course canonique le dit, une course non canonique
+imprime `*** NON CANONIQUE ***` avec les deux valeurs et la phrase qui compte — **aucun ecart
+mesure sur cette course n'est attribuable a un changement de code** tant qu'il n'est pas reproduit
+sur une course canonique. Sans cette ligne, la condition se fondait dans 4 899 lignes et la
+prochaine course non canonique aurait ete lue comme un resultat. **LES DEUX BRANCHES SONT EXERCEES, PAR CONTROLE POSITIF** — une ligne qui ne s'est jamais
+declenchee n'est pas une garde. La course livree rend `CANONIQUE`. Pour la seconde branche, la
+course A ne peut pas servir : elle est tronquee et l'analyseur REFUSE d'ecrire un tableau sur une
+course sans `PHYSEND` (c'est une autre garde, et elle a tire). Le controle est donc une INJECTION
+dans la course livree elle-meme : les DEUX lignes qui portent la condition sont reecrites
+(`target-title` -> `target-title-wait`, spawn 1061328.6250 -> 1230225.1250), rien d'autre n'est
+touche, et le tableau derive de cette trace imprime `*** NON CANONIQUE ***`.
+**ET SON CONTROLE NEGATIF TIRE AUSSI** : sur les 4 899 lignes du tableau, les seules qui bougent
+sont ce bloc-la et les deux lignes de provenance (chemin du log, empreinte). Aucune mesure, aucun
+verdict ne bouge — la ligne lit donc exactement les deux champs qu'elle annonce, et rien d'autre.
+Le tableau LIVRE est inchange par ce controle : les lignes corrigees appartiennent a la branche
+qui n'est pas prise sur une course canonique.
+
+**CE QUI N'EST PAS FAIT, ET POURQUOI.** Le correctif de fond — epingler la position de spawn, qui
+vient aujourd'hui de `position-in-front-of-camera!` (`phys-room.gc:6624`) et donc de la camera du
+titre — **deplacerait TOUTES les mesures du registre d'un coup** : l'integration est en float32 en
+repere monde, et 140 cellules reparties sur 38 sections en dependent. Ce n'est pas un geste a faire
+au vol dans un cycle dont la cible nommee est ailleurs, et le dossier a deja paye ce reflexe. Il
+est remonte en section 9 comme une decision a prendre, pas subie.
 
 **POURQUOI LE PLANCHER RESTE (2) ET PAS (1), ET CE N'EST PAS UN CHOIX DE CONFORT.** Un verdict dit
 quelque chose du PERSONNAGE. La position de spawn n'est nulle part dans la spec : c'est un accident

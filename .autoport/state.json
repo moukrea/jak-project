@@ -822,7 +822,6 @@
     "Grecharged-mesh-consolidation",
     "Grecharged-mesh-browser",
     "Grecharged-hd-models3",
-    "Gtouch-longjump-regression",
     "Gmenu-flag-off",
     "Grecharged-hd-models5",
     "Grecharged-hd-models4",
@@ -1148,7 +1147,6 @@
     "Grecharged-mesh-browser",
     "Grecharged-menu-overhaul",
     "Grecharged-hd-models3",
-    "Gtouch-longjump-regression",
     "Gmenu-flag-off",
     "Grecharged-hd-models5",
     "Grecharged-title-logo-fullres",
@@ -1161,7 +1159,6 @@
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",
     "Gjak2-polish": "owner 2026-07-10: collision REGRESSION game-breaking (no crates, no moving-platform landing) from the crouch-fix nav/collide enablement; park jak2, resume jak1",
-    "Gmemory-ceiling-and-crash": "2026-08-27 : validateur ET gates PASSES, verifie par moi sur le Redmi jusqu'en JEU (memoire 1370 -> 744 Mo, niveau 122,1 -> 40,6 Mo, zero SIGSEGV, build publie sur jak-builds). N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas la fermer sans lui : deposer .autoport/owner-ok/Gmemory-ceiling-and-crash quand il valide.",
-    "Gprecompute-deterministic-bake": "2026-08-27 : validateur ET gates PASSES, verifie par moi sur le Redmi — mise en place des textures 6208 -> 571 ms, pire etape 1602 -> 83 ms, 0 blocage >200ms, memoire 747 Mo stable, zero SIGSEGV, build publie sur jak-builds. N'ATTEND QUE LA PAROLE DE L'OWNER."
+    "Gtouch-longjump-regression": "owner 2026-08-27 : « long jump regression tu peux drop » — abandonnee, ne pas la reprendre."
   }
 }

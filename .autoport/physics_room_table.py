@@ -5000,6 +5000,41 @@ def main():
         A('empreinte de la trace lue : INDISPONIBLE (%s) — l\'appariement tableau/course ne peut'
           ' pas etre verifie sur ce tableau.' % _e)
     A('contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 7 (ce qui fait foi)')
+    # ---- CYCLE 125 : LES CONDITIONS INITIALES DE LA COURSE, EN TETE ET PAS ENFOUIES ----------
+    # La salle s'arme apres un NOMBRE DE TICKS FIXE (`phys_room_maybe`, kmachine.cpp), sans jamais
+    # regarder ou en est la sequence de titre. Selon le cote ou tombe cette course, `*target*` est
+    # en `target-title` ou en `target-title-wait`, et le sujet — spawne par
+    # `position-in-front-of-camera!` — apparait a un AUTRE ENDROIT DU MONDE. Mesure sur les 8
+    # courses archivees : 7 en `target-title` avec un spawn a 1061328.6250 unites de l'origine, LE
+    # MEME CHIFFRE JUSQU'A LA DERNIERE DECIMALE ; une en `target-title-wait` a 1230225.1250.
+    # L'integration se fait en float32 en repere MONDE : 79 % des enregistrements divergent alors,
+    # et la forme livree de la cellule SUPINE bouge de 14,647 % — quel que soit le lot teste.
+    # POURQUOI CETTE LIGNE EXISTE PLUTOT QU'UN CORRECTIF : epingler le spawn deplacerait TOUTES les
+    # mesures du registre d'un coup, et ce n'est pas un geste a faire au vol dans un cycle dont la
+    # cible est ailleurs. En attendant, la condition ne doit plus pouvoir passer inapercue : elle
+    # est publiee EN TETE du tableau, et une course non canonique le DIT au lieu de se fondre dans
+    # les 4900 lignes qui suivent.
+    _st = re.search(r'^PHYSROOM-START .*?:state ([a-z-]+)', txt, re.M)
+    _sp = re.search(r'^PHYSPOSED joint0=\d+ dist-from-origin=([0-9.]+)', txt, re.M)
+    _stv = _st.group(1) if _st else None
+    _spv = _sp.group(1) if _sp else None
+    if _stv is None or _spv is None:
+        A('ROOM-STARTSTATE: INDISPONIBLE — cette trace ne porte pas `PHYSROOM-START :state` ou'
+          ' `PHYSPOSED dist-from-origin`. Les conditions initiales de la course ne sont pas'
+          ' verifiables, donc aucune comparaison avec une autre course ne l\'est.')
+    elif (_stv, _spv) == ('target-title', '1061328.6250'):
+        A('ROOM-STARTSTATE: CANONIQUE — cible `target-title`, spawn 1061328.6250 u de l\'origine'
+          ' (7 des 8 courses archivees, au dernier chiffre pres). Cette course est comparable aux'
+          ' precedentes.')
+    else:
+        A('ROOM-STARTSTATE: *** NON CANONIQUE *** — cible `%s`, spawn %s u de l\'origine, la ou 7'
+          ' des 8 courses archivees rendent `target-title` / 1061328.6250.' % (_stv, _spv))
+        A('   La salle s\'arme sur un compte de ticks fixe et le sujet spawne devant la CAMERA :')
+        A('   selon ou en est la sequence de titre, il apparait ailleurs dans le monde. En float32')
+        A('   et en repere MONDE, 79 % des enregistrements divergent alors, et la forme livree de')
+        A('   la cellule SUPINE bouge de 14,647 % — QUEL QUE SOIT le lot teste. **AUCUN ECART')
+        A('   MESURE SUR CETTE COURSE N\'EST ATTRIBUABLE A UN CHANGEMENT DE CODE** tant qu\'il')
+        A('   n\'est pas reproduit sur une course canonique.')
     A('')
     A('Toutes les longueurs sont en METRES (la trace est en unites de jeu, 4096 u = 1 m). Ce que')
     A('mesure chaque colonne, et rien d\'autre :')
