@@ -12,6 +12,7 @@
 (define-extern pc-physics-chain-param-mi       (function string int int int))
 (define-extern pc-physics-chain-link-radius-mi (function string int int int))
 (define-extern pc-physics-chain-link-comw-mi (function string int int int))
+(define-extern pc-physics-chain-link-spr-mi (function string int int int))
 (define-extern pc-physics-chain-link-apex-mi (function string int int int int))
 (define-extern pc-physics-chain-link-anp-mi (function string int int int int))
 (define-extern pc-physics-chain-rigid-mi (function string int int int))
@@ -71,7 +72,7 @@
 (defconstant PHYS-SC   (* PHYS-SLOTS PHYS-CHAINS))
 (defconstant PHYS-SCL  (* PHYS-SLOTS PHYS-CHAINS PHYS-LINKS))
 (defconstant PHYS-SCO  (* PHYS-SLOTS PHYS-COLS))
-(defconstant PHYS-PSET-N 27)  ;; cles du preset que ce moteur CONSOMME (table kPhysPresetKeys, kmachine.cpp)
+(defconstant PHYS-PSET-N 29)  ;; cles du preset que ce moteur CONSOMME (table kPhysPresetKeys, kmachine.cpp)
 
 ;; identite du slot
 (define *phys-slot-pid*  (new 'global 'array 'int32 PHYS-SLOTS))
@@ -119,6 +120,7 @@
 ;; [NOTE-574] SPEC 11 — L'ETAGE RIGIDE : 12 constantes de mesh par chaine (`rg` de physics_mesh.txt), le rapport MESURE chaque frame, et son DENOMINATEUR publie a cote. -> jak-hd-physics-NOTES.md
 (define *phys-rsa* (new 'global 'array 'float (* PHYS-SC 12))) (define *phys-rsok* (new 'global 'array 'int32 PHYS-SC))
 (define *phys-rsv* (new 'global 'array 'float PHYS-SC)) (define *phys-rsd* (new 'global 'array 'float PHYS-SC)) (define *phys-lyd* (new 'global 'array 'float PHYS-SC)) (define *phys-medw* (new 'global 'array 'float PHYS-SC)) (define *phys-mww* (new 'global 'array 'float PHYS-SC))
+(define *phys-spr* (new 'global 'array 'float PHYS-SCL)) (define *phys-grw* (new 'global 'array 'float PHYS-SCL))  ;; [NOTE-581] SPEC 31 : `spr=` le `r` MESURE de la chair de chaque maillon, et le poids de gradient NORMALISE qui en sort
 (define *phys-c2* (new 'global 'array 'float 3))          ;; sortie de `phys-pt-exc!`, jamais lue ailleurs
 
 (defun phys-pt-exc! ((bm matrix) (pre matrix) (ox float) (oy float) (oz float))
@@ -615,21 +617,11 @@
                       (set! (-> *phys-axsep* (+ (* sc 3) ii)) 0.0))
                     (set-vector! (-> *phys-sepv* sc) 0.0 0.0 0.0 0.0)
                     ;; [NOTE-278] SPEC 37 — « rebase on teleportation / level transition ». Un slot reutilise -> jak-hd-physics-NOTES.md
-                    (set! (-> *phys-fok* sc) 0)
-                    (set! (-> *phys-dfon* sc) 0)
-                    (set! (-> *phys-dfdet* sc) 1.0)
-                    (set! (-> *phys-twok* sc) 0)
-                    (set! (-> *phys-tw* sc) 0.0)
-                    (set! (-> *phys-twv* sc) 0.0)
-                    (set! (-> *phys-twa* sc) 0.0)
-                    (set! (-> *phys-twm* sc) 0.0)
-                    (set! (-> *phys-sec* sc) 0.0)
-                    (set! (-> *phys-secv* sc) 0.0)
-                    (set! (-> *phys-secm* sc) 0.0)
-                    (set! (-> *phys-secr* sc) 0.0)
-                    (set! (-> *phys-dynm* sc) 0.0)
-                    (set! (-> *phys-prsm* sc) 0.0)
-                    (set! (-> *phys-prsr* sc) 0.0)
+                    (set! (-> *phys-fok* sc) 0) (set! (-> *phys-dfon* sc) 0) (set! (-> *phys-dfdet* sc) 1.0)
+                    (set! (-> *phys-twok* sc) 0) (set! (-> *phys-tw* sc) 0.0) (set! (-> *phys-twv* sc) 0.0)
+                    (set! (-> *phys-twa* sc) 0.0) (set! (-> *phys-twm* sc) 0.0) (set! (-> *phys-sec* sc) 0.0)
+                    (set! (-> *phys-secv* sc) 0.0) (set! (-> *phys-secm* sc) 0.0) (set! (-> *phys-secr* sc) 0.0)
+                    (set! (-> *phys-dynm* sc) 0.0) (set! (-> *phys-prsm* sc) 0.0) (set! (-> *phys-prsr* sc) 0.0)
     (set! (-> *phys-dynr* sc) 0.0)
     (set! (-> *phys-cpd* sc) 0.0)
     (dotimes (k 7) (set! (-> *phys-cpi* (+ (* 7 sc) k)) 0.0))
@@ -677,18 +669,12 @@
                 (let ((armed 0) (links 0))
                   (dotimes (c nc)
                     (let ((sc (+ (* slot PHYS-CHAINS) c)))
-                      (set! (-> *phys-stiff* sc)  (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-STIFF)))
-                      (set! (-> *phys-damp* sc)   (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-DAMP)))
-                      (set! (-> *phys-grav* sc)   (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-GRAV)))
-                      (set! (-> *phys-couple* sc) (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-COUPLE)))
-                      (set! (-> *phys-hang* sc)   (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-HANG)))
+                      (set! (-> *phys-stiff* sc)  (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-STIFF))) (set! (-> *phys-damp* sc)   (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-DAMP)))
+                      (set! (-> *phys-grav* sc)   (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-GRAV))) (set! (-> *phys-couple* sc) (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-COUPLE))) (set! (-> *phys-hang* sc)   (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-HANG)))
                       (let ((m (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-MASS))))
                         (set! (-> *phys-mass* sc) (if (< m 0.01) 1.0 m)))
-                      (set! (-> *phys-fam* sc)    (the int (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-FAMILY))))
-                      (set! (-> *phys-rootlk* sc) (the int (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-ROOTLK))))
-                      (set! (-> *phys-rootgr* sc) (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-GRADIENT)))
-                      (set! (-> *phys-b0* sc) (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-B0)))
-                      (set! (-> *phys-anch* sc) (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-ANCH)))
+                      (set! (-> *phys-fam* sc)    (the int (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-FAMILY)))) (set! (-> *phys-rootlk* sc) (the int (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-ROOTLK))))
+                      (set! (-> *phys-rootgr* sc) (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-GRADIENT))) (set! (-> *phys-b0* sc) (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-B0))) (set! (-> *phys-anch* sc) (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-ANCH)))
                       (set! (-> *phys-lyd* sc) (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-LYIELD))) (set! (-> *phys-medw* sc) (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-MEDW)))
                       ;; [NOTE-236] PREUVE D'EXECUTION (regle 0) : un zero silencieux au parseur C++ ou a la -> jak-hd-physics-NOTES.md
                       (when (> (-> *phys-b0* sc) 0.0)
@@ -722,7 +708,8 @@
                         (set! (-> *phys-apz* (+ (* sc PHYS-LINKS) l)) (phys-mi->f (pc-physics-chain-link-apex-mi agname c l 3)))
                         (set! (-> *phys-anx* (+ (* sc PHYS-LINKS) l)) (phys-mi->f (pc-physics-chain-link-anp-mi agname c l 0)))
                         (set! (-> *phys-any* (+ (* sc PHYS-LINKS) l)) (phys-mi->f (pc-physics-chain-link-anp-mi agname c l 1)))
-                        (set! (-> *phys-anz* (+ (* sc PHYS-LINKS) l)) (phys-mi->f (pc-physics-chain-link-anp-mi agname c l 2))))
+                        (set! (-> *phys-anz* (+ (* sc PHYS-LINKS) l)) (phys-mi->f (pc-physics-chain-link-anp-mi agname c l 2)))
+                        (set! (-> *phys-spr* (+ (* sc PHYS-LINKS) l)) (phys-mi->f (pc-physics-chain-link-spr-mi agname c l))))
                       (set! (-> *phys-rsok* sc) 0)
                       (dotimes (q 12)
                         (set! (-> *phys-rsa* (+ (* sc 12) q)) (phys-mi->f (pc-physics-chain-rigid-mi agname c q)))
@@ -738,7 +725,13 @@
                         (format 0 "[HD-PHYS] PHYSPSETC c=~D ap=~f lat=~f tor=~f asc=~f rbb=~f~%" c (-> *phys-pset* (+ pb 10)) (-> *phys-pset* (+ pb 11)) (-> *phys-pset* (+ pb 12)) (-> *phys-pset* (+ pb 13)) (-> *phys-pset* (+ pb 14)))
                         (format 0 "[HD-PHYS] PHYSPSETD c=~D rbc=~f akn=~f acp=~f ckn=~f ccp=~f~%" c (-> *phys-pset* (+ pb 15)) (-> *phys-pset* (+ pb 16)) (-> *phys-pset* (+ pb 17)) (-> *phys-pset* (+ pb 18)) (-> *phys-pset* (+ pb 19)))
                         (format 0 "[HD-PHYS] PHYSPSETE c=~D chard=~f syld=~f ahard=~f~%" c (-> *phys-pset* (+ pb 20)) (-> *phys-pset* (+ pb 21)) (-> *phys-pset* (+ pb 22)))
-                        (format 0 "[HD-PHYS] PHYSPSETF c=~D vcomp=~f nshi=~f nslo=~f ndyn=~f~%" c (-> *phys-pset* (+ pb 23)) (-> *phys-pset* (+ pb 24)) (-> *phys-pset* (+ pb 25)) (-> *phys-pset* (+ pb 26))))
+                        (format 0 "[HD-PHYS] PHYSPSETF c=~D vcomp=~f nshi=~f nslo=~f ndyn=~f~%" c (-> *phys-pset* (+ pb 23)) (-> *phys-pset* (+ pb 24)) (-> *phys-pset* (+ pb 25)) (-> *phys-pset* (+ pb 26)))
+                        (format 0 "[HD-PHYS] PHYSPSETG c=~D rdelo=~f rdehi=~f~%" c (-> *phys-pset* (+ pb 27)) (-> *phys-pset* (+ pb 28))))  ;; [NOTE-581] LES DEUX CLES DE SPEC 31, PROUVEES LUES ; absentes elles rendent 0.0000/0.0000 (element neutre), l'exposant vaut 0 et le gradient est l'identite
+                      ;; [NOTE-581] SPEC 8 / SPEC 31 — LE GRADIENT RACINE->APEX, ET IL RETIRE LA TRANSFORMATION AFFINE UNIQUE QUE SPEC 8 INTERDIT EN GRAS. -> jak-hd-physics-NOTES.md
+                      (let* ((gb (* sc PHYS-PSET-N)) (pw (* 0.5 (+ (-> *phys-pset* (+ gb 27)) (-> *phys-pset* (+ gb 28))))) (zs 0.0) (ss 0.0))
+                        (dotimes (l PHYS-LINKS) (let* ((li (+ (* sc PHYS-LINKS) l)) (r0 (-> *phys-spr* li)) (rr (fmax 0.000001 r0)) (gg 1.0) (ff pw) (sq rr) (th 1.0)) (dotimes (ii 4) (when (>= ff 1.0) (set! gg (* gg rr)) (set! ff (- ff 1.0)))) (dotimes (bi 5) (set! sq (sqrtf sq)) (set! th (* 0.5 th)) (when (>= ff th) (set! gg (* gg sq)) (set! ff (- ff th)))) (when (<= r0 0.0) (set! gg 1.0)) (set! (-> *phys-grw* li) gg) (set! ss (+ ss (-> *phys-comw* li))) (set! zs (+ zs (* (-> *phys-comw* li) gg)))))
+                        (dotimes (l PHYS-LINKS) (let ((li (+ (* sc PHYS-LINKS) l))) (set! (-> *phys-grw* li) (if (> zs 0.0) (* (-> *phys-grw* li) (/ ss zs)) 1.0))))
+                        (format 0 "[HD-PHYS] PHYSGRADSET c=~D p=~f w0=~f w1=~f~%" c pw (-> *phys-grw* (* sc PHYS-LINKS)) (-> *phys-grw* (+ (* sc PHYS-LINKS) 1))))
                       (when (> (-> *phys-nlink* sc) 0)
                         (+! armed 1)
                         (+! links (-> *phys-nlink* sc)))))
@@ -3899,9 +3892,7 @@
                                                 (when (> ad (-> *phys-dg* (+ (* sc PHYS-DG) 13)))
                                                   (set! (-> *phys-dg* (+ (* sc PHYS-DG) 13)) ad))))
                                             (matrix-axis-angle! rot nrm (atan sn cs))
-                                            (set! (-> bm vector 3 x) 0.0)
-                                            (set! (-> bm vector 3 y) 0.0)
-                                            (set! (-> bm vector 3 z) 0.0)
+                                            (set! (-> bm vector 3 x) 0.0) (set! (-> bm vector 3 y) 0.0) (set! (-> bm vector 3 z) 0.0)
                                             (matrix*! tmp bm rot)
                                             (matrix-copy! bm tmp))))))))
                               ;; [NOTE-151] SPEC 8/10-13/29/36 — LA DEFORMATION ENTRE ICI, ET NULLE PART AILLEURS. -> jak-hd-physics-NOTES.md
@@ -3914,12 +3905,11 @@
                               (when (nonzero? (-> *phys-dfon* sc)) (matrix*! tmp (-> *phys-rgm* scl) (-> *phys-dfmq* sc)) (matrix-copy! (-> *phys-rgm* scl) tmp))
                               (set-vector! (-> *phys-rgm* scl vector 3) (-> *phys-px* scl) (-> *phys-py* scl) (-> *phys-pz* scl) 1.0)
                               (set! (-> *phys-rgok* scl) 1)
-                              (set! (-> bm vector 3 x) 0.0)
-                              (set! (-> bm vector 3 y) 0.0)
-                              (set! (-> bm vector 3 z) 0.0)
-                              (set! (-> bm vector 3 w) 1.0)
+                              (set! (-> bm vector 3 x) 0.0) (set! (-> bm vector 3 y) 0.0) (set! (-> bm vector 3 z) 0.0) (set! (-> bm vector 3 w) 1.0)
                               (when (nonzero? (-> *phys-dfon* sc))
                                 (matrix*! tmp bm (-> *phys-dfm* sc))
+                                ;; [NOTE-581] `A_l = B_l . (I + w_l (D - I))`, ecrit comme le melange lineaire des DEUX matrices qui l'encadrent — `w=1` rend `bm.D` AU BIT, donc canal absent = comportement d'avant.
+                                (let ((gw (-> *phys-grw* scl))) (when (!= gw 1.0) (dotimes (gi 3) (dotimes (gj 3) (set! (-> tmp vector gi data gj) (+ (* gw (-> tmp vector gi data gj)) (* (- 1.0 gw) (-> bm vector gi data gj))))))))
                                 ;; [NOTE-339] `tmp` HERITE LA TRANSLATION DE L'ANCRE VIA LE TENSEUR : on la met a zero AVANT de lire. -> jak-hd-physics-NOTES.md
                                 (set-vector! (-> tmp vector 3) 0.0 0.0 0.0 1.0)
                                 ;; [NOTE-577] SPEC 31 — LE POINT FIXE DE LA DEFORMATION EST CELUI QUE LA SECTION NOMME, PAS L'ORIGINE DU JOINT. -> jak-hd-physics-NOTES.md
@@ -4766,6 +4756,10 @@
         ((= which 39) (fmax 0.0001 (+ 1.0 (* (-> *phys-lyd* sc) (- (-> *phys-rsv* sc) 1.0)))))
         ;; [NOTE-580] 40/41 — LA PREUVE DE LECTURE DU MUR MEDIAN : 40 = ce que le PARSEUR a depose, 41 = le glissement REELLEMENT applique, en unites de jeu.
         ((= which 40) (-> *phys-medw* sc)) ((= which 41) (-> *phys-mww* sc))
+        ;; [NOTE-581] 42-46 — LA PREUVE DE LECTURE DU GRADIENT DE SPEC 31 : 42/43 = le `r` que le PARSEUR a depose par maillon, 44/45 = le poids NORMALISE reellement applique, 46 = l'exposant tire du preset LIVRE. Ligne de base d'un canal absent : 0/0/1/1/0.
+        ((< which 44) (-> *phys-spr* (+ (* sc PHYS-LINKS) (- which 42))))
+        ((< which 46) (-> *phys-grw* (+ (* sc PHYS-LINKS) (- which 44))))
+        ((= which 46) (* 0.5 (+ (-> *phys-pset* (+ (* sc PHYS-PSET-N) 27)) (-> *phys-pset* (+ (* sc PHYS-PSET-N) 28)))))
         (else 0.0)))))
 
 (defun phys-rest ((which int))

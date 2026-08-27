@@ -3454,6 +3454,30 @@
                      (phys-axis-world (-> self slot) c 0 0)
                      (phys-axis-world (-> self slot) c 0 1)
                      (phys-axis-world (-> self slot) c 0 2))
+             ;; [NOTE-581] LA TROISIEME LIGNE DU TRIEDRE D'ANISOTROPIE — ET CE N'EST PAS L'AXE
+             ;; LATERAL DU SOLVEUR. JE CORRIGE ICI MA PROPRE HYPOTHESE, PARCE QUE LA COURSE L'A
+             ;; REFUTEE DANS LE MEME CYCLE.
+             ;; J'ai ajoute cette ligne en croyant que l'axe lateral n'etait pas publie. C'EST FAUX :
+             ;; `PHYSTRI c=~D a=0` publie `*phys-fx*`, l'axe que le tenseur ET le mur median
+             ;; utilisent reellement, et il y est exactement ANTI-SYMETRIQUE entre les deux chaines
+             ;; (+0.98297/+0.18374 contre -0.98297/-0.18374). Il n'y a donc AUCUN defaut de signe
+             ;; sur l'axe qui porte SPEC 10.
+             ;; CE QUE CETTE LIGNE PUBLIE VRAIMENT : `phys-axis-world` ne lit PAS `*phys-fx*`, il lit
+             ;; `*phys-axw*`, le triedre de l'instrument d'ANISOTROPIE de SPEC 24/29, dont les lignes
+             ;; sont choisies par `*phys-axv*/axa/axl`. Deux de ses trois lignes etaient publiees, la
+             ;; troisieme non : elle l'est maintenant, et c'est tout ce que ce lot en dit.
+             ;; RESERVE PUBLIEE AVEC LA GRANDEUR, ET ELLE N'EST PAS RESOLUE ICI : la ligne de role 2
+             ;; sort a (-0.08110, +0.18292, +0.97977), soit ~90 deg de `*phys-fx*`, et IDENTIQUE sur
+             ;; les deux chaines. Les deux producteurs peuvent vivre dans des bases differentes — le
+             ;; commentaire de `PHYSTRI` a deja menti une fois sur ce point (cycle 108) — donc cet
+             ;; ecart est une QUESTION OUVERTE, pas un verdict, et rien n'en est deduit tant que
+             ;; l'equivalence des deux bases n'est pas mesuree. NATURE : cosinus directeurs, sans
+             ;; unite. LIGNE DE BASE : trois zeros = triedre non releve (`axok=0`).
+             (format 0 "PHYSAXR c=~D a=2 x=~,,5f y=~,,5f z=~,,5f~%"
+                     c
+                     (phys-axis-world (-> self slot) c 2 0)
+                     (phys-axis-world (-> self slot) c 2 1)
+                     (phys-axis-world (-> self slot) c 2 2))
              (dotimes (l (phys-chain-links (-> self slot) c))
                (format 0 "PHYSBONE c=~D l=~D len=~f~%"
                        c l (phys-chain-bone hd (-> self slot) c l -1))
@@ -4352,6 +4376,35 @@
                  (phys-shape (-> self slot) c 40)
                  (phys-shape (-> self slot) c 0)
                  (phys-shape (-> self slot) c 41))
+         ;; [NOTE-581] SPEC 8 / SPEC 31 — LE GRADIENT RACINE->APEX, PROUVE LU ET PAS DEDUIT DE SES EFFETS.
+         ;; SPEC 31 l.390 donne le remede a l'interdiction EN GRAS de SPEC 8 l.143 (« the whole breast
+         ;; shall not be represented by one affine scale transformation ») : ponderer la deformation
+         ;; par `w(r) = r^1.6...2.0`. Le moteur appliquait UNE matrice par CHAINE, la meme aux deux
+         ;; maillons — litteralement ce que la section interdit. Cette ligne publie les TROIS
+         ;; grandeurs du canal, parce que publier la seule sortie ne distingue pas « le modele est
+         ;; faux » de « le parseur a rendu zero » (registre `channel-measured-by-effect`) :
+         ;;   `r0`/`r1` : ce que le PARSEUR a depose (`spr=`), l'abscisse MESUREE sur le mesh livre
+         ;;               de la chair que chaque maillon pilote. Deux valeurs DIFFERENTES par chaine,
+         ;;               donc ni constante partagee ni rampe d'index.
+         ;;   `w0`/`w1` : le poids REELLEMENT applique a la matrice ecrite, APRES la normalisation
+         ;;               `SOMME_l comw_l . w_l = SOMME_l comw_l` — c'est l'operateur, pas un facteur.
+         ;;   `p`       : l'exposant DEMANDE, tire du preset LIVRE (milieu de
+         ;;               RootDeformationExponentLo/Hi). GOAL n'a pas de puissance flottante : le
+         ;;               moteur l'approche par developpement DYADIQUE (5 `sqrtf`), donc l'exposant
+         ;;               APPLIQUE vaut 1.78125 pour un `p` demande de 1.8. L'ecart est publie ici
+         ;;               parce que `w0`/`w1` ci-dessus sont, eux, l'operateur EXACT applique a la
+         ;;               matrice : la ligne ne donne pas un facteur pour l'operateur.
+         ;; NATURE : `r` et `w` sont sans dimension ; `w=1` sur tous les maillons est exactement le
+         ;;   tenseur uniforme d'avant, AU BIT. REPERE : `r` est l'axe que SPEC 31 definit, joint
+         ;;   racine -> centroide pondere de l'organe, pose de bind. LIGNE DE BASE, ce que la ligne
+         ;;   lit quand le canal est ABSENT : `r0=0 r1=0 w0=1 w1=1 p=0`.
+         ;; DEUX LIGNES ET PAS UNE : `format` est un appel de fonction et GOAL plafonne ses
+         ;; parametres a 8 — le meme mur que `PHYSDFMA` a rencontre pour ses neuf elements.
+         (format 0 "PHYSGRAD31 c=~D i=~D r0=~f r1=~f w0=~f w1=~f~%"
+                 c oi
+                 (phys-shape (-> self slot) c 42) (phys-shape (-> self slot) c 43)
+                 (phys-shape (-> self slot) c 44) (phys-shape (-> self slot) c 45))
+         (format 0 "PHYSGRAD31P c=~D i=~D p=~f~%" c oi (phys-shape (-> self slot) c 46))
          (format 0 "PHYSORI4 c=~D i=~D r0=~f r1=~f r2=~f~%"
                  c oi
                  (phys-shape (-> self slot) c 15)
