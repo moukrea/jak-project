@@ -4587,6 +4587,41 @@
               ;; inchangee, c'est-a-dire comme un resultat.
               (else
                (format 0 "PHYSORIMMISS i=~D j=~D name=~S~%" oi ji nm)))))))))
+       ;; [c133] LE PLAFOND DE §21 MORD-IL DANS LA FENETRE QUI REND LE VERDICT DE §10/§11/§12 ?
+       ;; SECTION DONT CETTE LIGNE DEBLOQUE LE VERDICT (exigence DIRECTIVES 2026-08-21 18:25,
+       ;; nommee AVANT la course) : §10, §11, §12. Leurs lignes de verdict prennent les `d_j` du
+       ;; modele de COM dans `PHYSORICOML` (physics_room_table.py:2573, :3631) et `D` dans
+       ;; `PHYSDFMA` (:1680) ; les deux sont pris sur `*phys-ldb*`, ecrit a
+       ;; `jak-hd-physics.gc:3415`, donc AVANT l'ecriture squelette (:3932) et AVANT le plafond de
+       ;; §21 (:4046). Le cycle 132 a mesure cet angle mort ; cette ligne demande si une correction
+       ;; y vit DEJA. `n21 > 0` sur une cellule de verdict => le COM publie pour cette cellule est
+       ;; faux AUJOURD'HUI de `cut21_b0` ; `n21 = 0` => la ligne de base est saine et le prochain
+       ;; lot vise le chiffre publie tel quel. Les deux issues changent la cible, d'ou la mesure.
+       ;;   NATURE : `n21`, `n22`, `nskin` sont des COMPTES de corrections (sans dimension) ;
+       ;;            `cut21_b0` et `cut22_b0` sont des LONGUEURS CUMULEES rapportees a `B0`
+       ;;            (§6, la CHAIR, 602,0 u) — jamais des unites de jeu.
+       ;;   REPERE : le monde, contre la pose d'AUTEUR de la meme frame — celui de `PHYSE21`.
+       ;;   AGREGAT DE JAMBE, jamais une colonne par chaine (regle 7) : d'ou l'absence de `c=`,
+       ;;            comme `PHYSSKINC` / `PHYSE22` / `PHYSE21` dont elle republie les compteurs.
+       ;;   FENETRE : les PHYSROOM-ORIM frames de MESURE de la cellule, et rien d'autre. Le
+       ;;            `phys-diag-reset!` de fin d'etablissement (voir ci-dessus) en fixe le debut :
+       ;;            c'est EXACTEMENT la fenetre ou `PHYSORICOM` prend son equilibre, donc les deux
+       ;;            se comparent sans hypothese.
+       ;;   CONTROLE DE VACUITE, PUBLIE SUR LA MEME LIGNE ET PAS AILLEURS : `n22` et `nskin`
+       ;;            comptent deux correcteurs ANTERIEURS a `*phys-ldb*` (tous deux appeles a
+       ;;            `jak-hd-physics.gc:3182`), donc HORS de l'angle mort. S'ils sont non nuls la ou
+       ;;            `n21` est nul, les compteurs sont vivants dans cette fenetre et le zero de
+       ;;            `n21` est une MESURE ; s'ils sont nuls aussi, la ligne ne conclut RIEN et il
+       ;;            faut le dire au lieu de lire un zero comme une absence de defaut.
+       ;;   LIGNE DE BASE : les trois compteurs a zero quand aucune borne ne mord.
+       ;; DEUX LIGNES ET PAS UNE : `format` est un appel de fonction, et GOAL en plafonne
+       ;; l'arite a 8 parametres (destination + chaine + 6 valeurs). Les sept valeurs ne
+       ;; tiennent donc pas ensemble. La coupure suit le SENS et pas le plafond : la mesure
+       ;; d'un cote, son controle de vacuite de l'autre, chacun sous son propre nom.
+       (format 0 "PHYSORIE21 i=~D k=~D n21=~f cut21_b0=~f~%"
+               oi ok (phys-skc 6) (phys-skc 7))
+       (format 0 "PHYSORIE21C i=~D k=~D n22=~f cut22_b0=~f nskin=~f~%"
+               oi ok (phys-skc 4) (phys-skc 5) (phys-skc 0))
        (+! (-> self ori) 1)
        (set! (-> self pframe) 0)
        (phys-stats-reset!)
