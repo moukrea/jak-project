@@ -1,3 +1,92 @@
+# CYCLE 130b — L'INCOMPATIBILITE DU CYCLE 128 SURVIT A LA CORRECTION D'INSTRUMENT, ET LE CHANTIER
+# DE §11 RECOIT ENFIN SA TAILLE : IL MANQUE 0,0385 / 0,0300 B0 DE COM, DANS LE TENSEUR.
+
+DIRECTIVES vd9e8b66782
+
+**PALIER DE BUILD : AUCUN.** Zero build, zero course. Deux traces ARCHIVEES.
+
+## 0. POURQUOI CE BLOC EXISTE
+
+Le cycle 128 conclut que les deux clauses de §11 sont INCOMPATIBLES sous un seul bouton, et **cette
+conclusion bloque le chantier depuis trois cycles**. Elle a ete tiree d'un instrument dont le
+cycle 130 vient d'etablir qu'il est BIAISE (normalisation par un COMPTE DE SOMMETS, sur-estimation
+de 12,2 % / 6,9 % au prone). **Une conclusion batie sur un instrument biaise se re-teste sur
+l'instrument corrige avant d'etre gardee.** La trace du lot c128 est archivee : ca ne coute rien.
+
+Et la reponse n'etait PAS connue d'avance : P13 a refute que la correction soit un scalaire — sur
+chestR le maillon DISTAL voit son poids MONTER (x1,0316) pendant que le proximal baisse. Or le lot
+c128 change precisement le melange des maillons.
+
+## 1. P15 — L'INCOMPATIBILITE SURVIT. TIRE.
+
+    chestL   LIVREE 0,2011 DANS   ->   lot c128  0,1615 SOUS
+    chestR   LIVREE 0,2117 DANS   ->   lot c128  0,1700 SOUS      (bande 0,20-0,28)
+
+Mettre la LONGUEUR dans sa bande sort le COM par le BAS, sur les deux chaines, **sur l'instrument
+corrige comme sur l'ancien**. Ce n'etait pas un artefact de normalisation. La conclusion du
+cycle 128 tient, et « le canal de COM manquant vit dans le TENSEUR » (c129) en sort renforce.
+
+## 2. P16 — L'ADRESSE DU CYCLE 129 TIENT AUSSI. TIRE.
+
+Part SQUELETTIQUE au prone, sur l'estimateur ARBITRE : **0,1047 (chestL) / 0,1236 (chestR) B0**
+contre un plancher de bande a 0,20, falsificateur ecrit d'avance a 0,13. Le cycle 129 l'avait lue
+0,1110 / 0,0999 sur l'instrument biaise : **le chiffre bouge, la conclusion non.** La chaine seule
+ne produit pas les deux tiers du plancher.
+
+## 3. CE QUI EST NEUF, ET C'EST LA TAILLE DU CHANTIER
+
+Le cycle 129 a donne l'ADRESSE (« dans le tenseur ») et **jamais la TAILLE**. Elle se lit en
+vecteurs, sans une course de plus, sur l'etat A LONGUEUR TENUE (le lot c128) :
+
+    chestL   LIVREE   0,2011 = squel. 0,1047 + tenseur 0,0965     cos(squel,tenseur) +0,998
+             lot c128 0,1615 = squel. 0,1047 + tenseur 0,0570
+             IL MANQUE 0,0385 B0 (19,3 % du plancher) -> tenseur 0,0570 -> 0,0955  (x1,676)
+
+    chestR   LIVREE   0,2117 = squel. 0,1236 + tenseur 0,0932     cos(squel,tenseur) +0,905
+             lot c128 0,1700 = squel. 0,1238 + tenseur 0,0494
+             IL MANQUE 0,0300 B0 (15,0 % du plancher) -> tenseur 0,0494 -> 0,0794  (x1,607)
+
+**Trois choses rendent ce chiffre utilisable, et aucune n'etait etablie avant ce bloc :**
+
+  1. **LES DEUX ETAGES SONT SEPARABLES EN PRATIQUE, pas seulement en principe.** Le lot c128 laisse
+     le terme SQUELETTIQUE invariant a **6,5e-06 / 2,7e-04 B0** — il n'agit que sur le tenseur. Le
+     cycle 129 le supposait sans l'avoir montre.
+  2. **LES DEUX ETAGES SONT QUASI COLINEAIRES** (cos +0,998 / +0,905), donc le budget en NORMES est
+     legitime et non une majoration : c'est pour ca qu'un « il manque X » a un sens ici.
+  3. **LES DEUX CHAINES DEMANDENT PRESQUE LE MEME FACTEUR** (x1,676 et x1,607, 4 % d'ecart) — donc
+     un bouton COMMUN est plausible, ce qui n'etait ni acquis ni meme regarde.
+
+Et la cible atteinte vaut 0,20 B0, **tres en dessous du plafond de COM de §22** (normal <= 0,35 B0) :
+le chantier ne se heurte pas a §22, contrairement a la voie par excursion de joints que le
+cycle 129 avait fermee.
+
+## 4. LE CHANTIER DU CYCLE 131, PRE-SPECIFIE
+
+Un lot qui combine (a) le retrait du double compte de longueur du cycle 128 — deja ecrit, deja
+mesure, il met la LONGUEUR `DANS` sur 4 cellules sur 4 — et (b) un terme de COM dans le tenseur
+valant x1,61 a x1,68 de l'actuel, met **les deux clauses de §11 dans leur bande simultanement**.
+
+**LE FALSIFICATEUR A BATTRE EST NOMME D'AVANCE, ET C'EST LE MEME QUI A TUE LES LOTS c122 ET c128 :**
+la gate `DISCRIMINANT` sur **chestR** (23,0 % rendu contre 25 % exige au cycle 128 — la reponse
+s'APLATIT). Tout lot de §11 se juge sur elle AVANT le reste.
+
+## 5. MES PREDICTIONS, JUGEES PAR LEURS PROPRES FALSIFICATEURS
+
+    P14  montage sur la trace c128 (couverture + hors defaut)   TIRE (4,3e-08 · 0,0009 B0)
+    P15  l'incompatibilite du c128 survit a la correction       TIRE (SOUS sur les deux chaines)
+    P16  la part squelettique reste <= 0,13 B0                  TIRE (0,1047 / 0,1236)
+
+## A TESTER PAR L'OWNER
+
+**RIEN.** Aucun build.
+
+## FICHIERS
+
+    .autoport/c130b-predictions.txt       P14/P15/P16, ecrites avant tout calcul
+    .autoport/c130b_c128_retest.py        le re-test et la pre-specification
+    .autoport/reports/Grecharged-secondary-motion/c130b-c128-retest.txt   sa sortie
+
+
 # CYCLE 130 — LA DIVERGENCE DU CYCLE 129 EST RECONCILIEE SANS RESIDU. ET LE CORRECTIF QU'ELLE
 # REVELE DEPLACE CINQ VERDICTS, DONC JE NE LE CABLE PAS.
 

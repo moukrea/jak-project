@@ -1,0 +1,65 @@
+CYCLE 130b — PREDICTIONS ECRITES AVANT TOUT CALCUL
+DIRECTIVES vd9e8b66782 · phase Grecharged-secondary-motion · poitrine de Keira seule.
+ZERO build, ZERO course : deux traces ARCHIVEES.
+
+    keira-room-x86.log                  la course du moteur LIVRE
+    keira-room-x86.c128-experiment.log  le lot du cycle 128, RETIRE par son propre falsificateur
+
+SECTION DONT CE CYCLE DEBLOQUE LE VERDICT, nommee AVANT de commencer : **§11**, et precisement la
+CONCLUSION D'INCOMPATIBILITE du cycle 128 — « les deux clauses de §11 sont INCOMPATIBLES sous un
+seul bouton ».
+
+--------------------------------------------------------------------------------------------------
+POURQUOI CETTE QUESTION, ET POURQUOI MAINTENANT
+--------------------------------------------------------------------------------------------------
+Le cycle 128 a mesure que retirer le double compte de longueur met la clause de LONGUEUR `DANS` sur
+les 4 cellules et fait tomber la clause de COM `DANS` -> `SOUS` sur les deux chaines. Il en a conclu
+que les deux clauses sont incompatibles sous `HangingLengthScale`, et cette conclusion **bloque
+depuis trois cycles** tout lot visant §11.
+
+**Elle a ete tiree d'un instrument dont le cycle 130 vient d'etablir qu'il est BIAISE** : il
+normalise par un COMPTE DE SOMMETS la ou la spec ecrit « center-of-mass », et il sur-estime le COM
+de 12,2 % / 6,9 % au prone. **Une conclusion batie sur un instrument biaise se re-teste sur
+l'instrument corrige avant d'etre gardee.** Ca ne coute aucune course : la trace est archivee.
+
+Et le cycle 130 interdit d'y repondre par extrapolation : P13 a REFUTE que la correction soit un
+scalaire (rapports par maillon x0,8822/x0,7871 et x0,8146/**x1,0316** — le maillon distal MONTE sur
+chestR). Le sens de l'effet sur la trace c128 n'est donc PAS connu d'avance. C'est ce qui rend la
+question ouverte au lieu d'etre rhetorique.
+
+--------------------------------------------------------------------------------------------------
+NATURE / REPERE / LIGNE DE BASE — identiques au cycle 130, et c'est le but
+--------------------------------------------------------------------------------------------------
+  NATURE : deplacement SOUTENU du centre de masse / B0=602,0 u · REPERE : celui de l'ANCRE ·
+  LIGNE DE BASE : cellule i=0 · HORS DEFAUT : 2e cellule DEBOUT i=9 · VERDICT : prone i=6.
+  ESTIMATEUR : masse de sommet a l'AIRE en pose de bind, masse PLEINE (l'arbitration du c130).
+
+--------------------------------------------------------------------------------------------------
+PREDICTIONS
+--------------------------------------------------------------------------------------------------
+
+P14  CONTROLE DE MONTAGE SUR LA TRACE c128 — la meme garde que sur la trace livree.
+     Couverture de poids a 1e-3 sur chaque sommet selectionne, ET lecture HORS DEFAUT a i=9 sous
+     0,02 B0, sur les DEUX nuages.
+     FALSIFICATEUR : l'un des deux echoue -> la trace c128 n'est pas lisible par cet instrument,
+     RIEN n'est publie et la conclusion du cycle 128 reste telle quelle.
+
+P15  LA PREDICTION QUI DECIDE. Sous l'estimateur ARBITRE, la clause « Static COM displacement:
+     20-28% B0 » sur la trace c128 est **SOUS** son plancher de 0,20 sur LES DEUX chaines a la
+     frontiere du verdict (w>0,00).
+     SI ELLE TIRE : l'incompatibilite du cycle 128 est CONFIRMEE sur un instrument corrige, elle
+     survit a la correction, et « le canal de COM doit vivre dans le TENSEUR » (c129) en sort
+     renforce.
+     FALSIFICATEUR : `DANS` sur les deux chaines -> **l'incompatibilite du cycle 128 etait un
+     artefact de l'instrument biaise**, le lot c128 redevient une route ouverte pour §11, et c'est
+     une CORRECTION DE MON RAPPORT DE CYCLE 128 que je publie comme telle. Un resultat mixte (une
+     chaine DANS, l'autre SOUS) ne tranche pas et se publie INDETERMINE.
+
+P16  L'ADRESSE DU CHANTIER, RE-DERIVEE SOUS LA BONNE PONDERATION. Le cycle 129 a etabli, sur
+     l'instrument biaise, que la part SQUELETTIQUE du COM vaut 0,1110 / 0,0999 B0 contre un plancher
+     de 0,20 — d'ou « la chaine seule ne produit pas les deux tiers du plancher, le canal manquant
+     vit dans le TENSEUR ». Sous l'estimateur ARBITRE, cette part squelettique reste **inferieure a
+     0,13 B0** sur les deux chaines.
+     FALSIFICATEUR : >= 0,13 sur une seule chaine -> l'adresse du chantier posee au cycle 129 a ete
+     lue sur un instrument biaise et doit etre re-arbitree ; la voie « excursion des joints » se
+     rouvre.
