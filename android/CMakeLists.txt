@@ -778,6 +778,12 @@ add_library(gk SHARED
     "${JAK_ROOT}/common/custom_data/MeshConsolidate.cpp"
     "${JAK_ROOT}/common/custom_data/MeshOrient.cpp"
     "${JAK_ROOT}/common/custom_data/MeshSubdivide.cpp"
+    # Gprecompute-deterministic-bake: the per-vertex tangent derivation moved out of
+    # TFrag3Data.cpp into its own TU so the LOAD path cannot call it. MeshConsolidate.cpp
+    # (retangent_level_from_final_normals) and TFrag3Data.cpp (tangent_derive_diag) still
+    # reference it, so the Android target -- which has an EXPLICIT source list and links no
+    # `common` library -- must list the new TU too, or libgk fails to link.
+    "${JAK_ROOT}/common/custom_data/TangentDerive.cpp"
     "${JAK_ROOT}/common/custom_data/pack_helpers.cpp"
     "${JAK_ROOT}/common/texture/texture_slots.cpp"
     "${JAK_ROOT}/common/util/compress.cpp"
