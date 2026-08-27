@@ -25,20 +25,24 @@ Tu as joué sur le Honor avec tout au maximum, les deux points tenaient.
   n'était pas la même chose du tout : au retour de Geyser Rock, le jeu déclarait la plage
   chargée **38 secondes** avant qu'on puisse la dessiner.
 
-  Mesuré sur la Shield, deux démarrages avant et deux après (reproductible à 1-2 ms) :
+  Mesuré sur la Shield, deux démarrages avant et **trois** après (reproductible à 1 ms) :
 
   | | avant | après |
   |---|---|---|
-  | survol du village : décor prêt vs scène | **4,7 s en retard** | **0,08 s en avance** |
-  | logo Naughty Dog (non concerné) | 0,68 s | 0,70 s — inchangé |
-  | temps total jusqu'au village prêt | 20,6 s | **22,6 s** |
+  | survol du village : décor prêt vs **son** | **4,6 s en retard** | **0,1 s en avance** |
+  | logo Naughty Dog (non concerné) | 0,33 / 0,37 s | 0,35 / 0,36 / 0,35 s — inchangé |
+  | temps total jusqu'au village prêt | 20,6 s | 22,5 s |
+  | pic mémoire | 782 Mo | 777 / 798 / 806 Mo |
 
-  **Le marché, en une phrase :** le logo Jak & Daxter apparaît ~2 secondes plus tard
-  qu'avant, et en échange le village est **là** quand le survol commence, au lieu
-  d'apparaître d'un bloc au milieu. Je ne peux pas avoir les deux : avant, le chargement
-  débordait sur le survol, c'est justement ce que tu voyais. C'est à toi de dire si
-  l'échange te va — si les 2 secondes te gênent plus que le pop-in, je sais où aller les
-  reprendre (le chargement pendant le logo Naughty Dog tourne au ralenti, il y a de la marge).
+  **Le marché, en deux phrases, et la deuxième compte autant que la première.** Le village
+  est maintenant **là** quand le survol commence, au lieu d'apparaître d'un bloc au milieu.
+  En échange : le logo Jak & Daxter arrive ~1,8 s plus tard, et surtout **l'écran reste noir
+  et figé ~6,7 s** pendant que ça charge — le chien de garde du moteur le voit
+  (`frame stuck at 926`). Ce n'est pas un plantage (zéro crash, zéro ANR sur les trois
+  démarrages), c'est le prix de l'attente que tu as demandée. Tu troques « le décor apparaît
+  d'un coup » contre « l'écran attend en noir ». **Dis-moi si c'est le bon échange** — si
+  non, je sais où reprendre du temps : pendant les ~15,7 s du logo Naughty Dog le chargement
+  tourne au ralenti (budget de 4,5 ms par image), il y a de la marge là.
 
   **Ce que je n'ai PAS pu mesurer :** le retour de Geyser Rock. C'est le même mécanisme, sur
   le même chemin de code, et la barrière s'y arme bien sur la plage — mais pour le mesurer il
