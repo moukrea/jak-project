@@ -301,7 +301,56 @@ defaut de §11 est plus petit que ce que j'ai publie, cette fois d'un cran de pl
 
 
 ================================================================================================
-6. CE QUE CE CYCLE N'A PAS FAIT, ET CE QUI RESTE OUVERT
+7. SUITE DU CYCLE — J'AI TESTE LE CORRECTIF EVIDENT ET IL EST REFUTE PAR SON PROPRE FALSIFICATEUR
+================================================================================================
+
+La section 3 nomme l'etage PEAU comme chantier sans dire OU, dedans, l'amplification nait.
+Hypothese la plus naturelle, et elle donnait un correctif gratuit : la chaine fait DEUX choses a
+la fois — elle se RECONFIGURE (les joints tournent et se deplacent) et elle porte un TENSEUR
+d'etirement. La spec ne demande qu'UN chiffre (« Root-to-apex length +18 to +26 % » est la longueur
+TOTALE livree). Si les deux etages se composent, on livre (rigide) x (tenseur) la ou la spec ne
+demande que le total : **un DOUBLE COMPTE**, dont le correctif serait de ne commander au tenseur
+que le RESIDU `cible / rigide`.
+
+PREDICTION ECRITE DANS LE FICHIER AVANT DE LE LANCER : `livree / (rigide x applique) = 1,00`,
+FALSIFICATEUR `ecart a 1 > 10 % sur l'une des 8 cellules`.
+
+    sec  chaine   frontiere | RIGIDE   APPLIQUE  produit  | LIVREE   | livree/produit
+    §11  chestL   w>0.00    | 1.1302   1.2171    1.3755   | 1.3363   | 0.9714
+    §11  chestL   w>=0.25   | 1.0977   1.2171    1.3360   | 1.2734   | 0.9531
+    §11  chestR   w>0.00    | 1.1415   1.2100    1.3812   | 1.3183   | 0.9545
+    §11  chestR   w>=0.25   | 1.1303   1.2100    1.3676   | 1.3116   | 0.9591
+    §10  chestL   w>0.00    | 0.7102   0.7352    0.5222   | 0.4619   | 0.8846   <<< > 10 %
+    §10  chestL   w>=0.25   | 0.7584   0.7352    0.5576   | 0.4635   | 0.8313   <<< > 10 %
+    §10  chestR   w>0.00    | 0.7473   0.7386    0.5520   | 0.5367   | 0.9723
+    §10  chestR   w>=0.25   | 0.7615   0.7386    0.5625   | 0.4757   | 0.8458   <<< > 10 %
+
+    ecart a 1 : min 2,77 % · median 4,69 % · **max 16,87 %** -> **HYPOTHESE REFUTEE**
+
+**ET LE CONTROLE INTERDIT DE LIRE CETTE REFUTATION COMME UN DEFAUT D'INSTRUMENT** : a la cellule
+DEBOUT i=9, que rien ne relie a i=0 dans le balayage, les trois etages rendent 0,9994-1,0008 et
+leur rapport **0,9999 a 1,0004** sur les quatre lignes. L'instrument compose correctement quand il
+n'y a rien a composer. La refutation porte donc sur la physique, pas sur le calcul.
+
+**CE QUE LE RESULTAT NEGATIF ETABLIT, ET IL VAUT LE CYCLE QU'IL ECONOMISE :**
+  1. **le correctif « ne commander que le residu » est mort avant d'avoir coute un build** ;
+  2. **la composition est PROPRE au prone (§11, ecart 2,9 a 4,7 %) et SALE au supine (§10, jusqu'a
+     16,9 %)** — exactement la meme scission de cellule que le `dfb != I` de la section 4. **DEUX
+     instruments independants designent maintenant la meme cellule**, et c'est la premiere fois de
+     ce dossier que deux chemins separes convergent sur ce point ;
+  3. **§10 est desormais close par DEUX derivations independantes** : la compensation par la
+     commande exige 0,9634-1,1142 (section 3), le residu du double compte exige 0,9192-0,9856
+     (ici) — les deux au-dessus ou au bord de 1,0 contre une bande de 0,65-0,75. Deux chemins,
+     meme absurde.
+
+Ce qui reste donc au chantier de la section 3 : l'etage peau amplifie, ce n'est PAS une composition
+multiplicative des deux etages, et la cellule supine se comporte autrement que la cellule prone.
+Le prochain cycle cherche DANS l'etage peau, sur la cellule PRONE d'abord — c'est celle dont les
+deux instruments disent qu'elle est propre, donc la seule ou un changement sera lisible.
+
+
+================================================================================================
+6bis. CE QUE CE CYCLE N'A PAS FAIT, ET CE QUI RESTE OUVERT
 ================================================================================================
 
 NON FAIT, ET DECLARE COMME TEL :
@@ -333,4 +382,5 @@ ARTEFACTS DE CE CYCLE :
   .autoport/c126_rotation_vs_stretch.py           decomposition polaire, ablation, balayage
   .autoport/c126b_dfb_gap.py                      l'ecart commande/applique sur les 22 cellules
   .autoport/c126c_named_quantities.py             chaque clause avec l'instrument de sa nature
+  .autoport/c126d_double_count.py                 l'hypothese du double compte, et sa refutation
   .../c126-rotation-vs-stretch.txt · c126b-dfb-gap.txt · c126c-named-quantities.txt
