@@ -70,6 +70,22 @@ valant x1,61 a x1,68 de l'actuel, met **les deux clauses de §11 dans leur bande
 la gate `DISCRIMINANT` sur **chestR** (23,0 % rendu contre 25 % exige au cycle 128 — la reponse
 s'APLATIT). Tout lot de §11 se juge sur elle AVANT le reste.
 
+## 4 bis. LE BUDGET D'EXECUTION DE CE CHANTIER EST DE QUATRE LIGNES — VERIFIE, PAS ESTIME
+
+    goal_src/jak1/pc/jak-hd-physics.gc                4796 lignes
+    plafond de la gate CLEAN (validateur:53)          4800 lignes
+    marge                                                4 lignes
+
+Le cycle 127 avait remonte ce point a 4794 lignes ; **il s'est resserre a 4 lignes depuis**. Les
+gates sont GELEES (regle 5 de l'owner) : je ne touche pas ce plafond et je ne decide pas seul de
+l'assouplir. **C'est donc une decision de superviseur, et elle conditionne l'execution du chantier
+pre-specifie ci-dessus** — un terme de COM dans le tenseur ne tient pas en quatre lignes s'il faut
+lui cuire une donnee et un accesseur.
+
+Ce que je peux dire sans arbitrage, parce que c'est mesure : le facteur demande est **le meme a 4 %
+pres sur les deux chaines** (x1,676 / x1,607). Un bouton COMMUN — donc une constante unique et non
+une table par chaine — est la forme la moins couteuse en lignes, et c'est la premiere a essayer.
+
 ## 5. MES PREDICTIONS, JUGEES PAR LEURS PROPRES FALSIFICATEURS
 
     P14  montage sur la trace c128 (couverture + hors defaut)   TIRE (4,3e-08 · 0,0009 B0)
