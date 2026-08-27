@@ -35,3 +35,36 @@
 # Ce que le lot gagne est une clause de FORME (§31 l.390, §10 l.173 en gras), pas une amplitude.
 # Si P6/P7 bougent de plus de 0.01 point, le poids n'est PAS normalise comme le c138 l'affirme,
 # et c'est le c138 qu'il faut relire, pas ce lot.
+
+# ============================================================================================
+# VERDICTS — RELEVES SUR LA COURSE md5 df3ffdbfc2be45c744e70da3de379813 (7 309 648 octets,
+# PHYSEND present, 31/31 animations, 310 mesures). CONTROLE : la course c138
+# md5 dd3d7273924f3a783af13a8649793069, meme code SAUF le lot, tableau regenere par le MEME
+# analyseur pour que la comparaison soit ligne a ligne.
+# ============================================================================================
+# P1  44 lignes PHYSORIW (2 chaines x 11 cellules x 2 maillons)                        ATTEINT
+# P2  c=0 i=8 : 81.1419 / 63.3669 u        (predit 81.14 / 63.37)                      ATTEINT
+# P3  c=1 i=8 : 74.5780 / 52.5385 u        (predit 74.57 / 52.53)                      ATTEINT
+# P4  anc = 0.0000 sur LES 44 lignes, aucune exception                                 ATTEINT
+# P5  SOMME comw.mur = 42.0195 / 36.5363 u contre d x SOMME comw = 42.0215 / 36.5370
+#     ecart 0.0049 % / 0.0019 % (seuil 0.1 %) ; normalisation
+#     SOMME comw.grw / SOMME comw = 0.99995 / 0.99998                                  ATTEINT
+# P6  §10 sortant LIVRE chestL  +2.968 -> +2.969 % W0   (delta +0.001, bande +/-0.01)   ATTEINT
+# P7  §10 sortant LIVRE chestR  -2.662 -> -2.661 % W0   (delta +0.001, bande +/-0.01)   ATTEINT
+# P8  PHYSMEDW i=8 d = 73.5285 / 67.0158 — IDENTIQUES au c138                           ATTEINT
+# P9  §11 prone deciles 1.262916 / 1.260459 — IDENTIQUES au c138 au 6e decimal ;
+#     le mur ne tire pas au prone (sx=0.9234/0.9337 < 1), par IDENTITE et non par argument ATTEINT
+# P10 ROOM-IDLE maxdev 0.0001 inchange                                                  ATTEINT
+# P11 skinpen chestL 0.0690 / chestR 0.0731 — INCHANGES AU BIT.
+#     MAIS `ROOM-APEX pic_typique` monte de +0.0001 B0 (0.6696->0.6697 et 0.6927->0.6928),
+#     soit +0.015 %. La prediction disait « baisse ou nul » : c'est une HAUSSE.
+#     Elle est 4 000 fois plus petite que l'ecart de §22 (x1.59 / x1.65) et du meme ordre que
+#     le controle d'identite |e|-apex (0.000109 B0), donc elle ne separe rien — mais elle
+#     n'est ni une baisse ni un zero, et P11 est PARTIELLEMENT ATTEINT, pas atteint.  PARTIEL
+#
+# CE QUE LES ONZE ETABLISSENT ENSEMBLE, ET C'EST UN RESULTAT NEGATIF UTILISABLE :
+# la REDISTRIBUTION du glissement le long de la chaine ne peut pas deplacer le COM livre de
+# §10. Mesure : 0.001 point sur un deficit de 1.031 (chestL) et 6.661 (chestR) points de % W0,
+# soit 0.1 % et 0.015 % du chemin a faire. Tout lot futur qui esperait fermer §10 en
+# re-repartissant le mur le long de la chaine est REFUTE D'AVANCE par ce chiffre : il faut
+# l'AMPLITUDE, ou un autre canal.

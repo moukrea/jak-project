@@ -1,7 +1,7 @@
 ==================================================================================================
 KEIRA — SALLE DE TEST SANS JOUEUR : TABLEAU DE MESURE
 genere par .autoport/physics_room_table.py depuis .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
-empreinte de la trace lue : md5 dd3d7273924f3a783af13a8649793069 (7307265 octets)
+empreinte de la trace lue : md5 df3ffdbfc2be45c744e70da3de379813 (7309648 octets)
 contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 7 (ce qui fait foi)
 
 -- ROOM-INSTRUMENTS-MUETS : CE QUE CE TABLEAU NE MESURE PAS AUJOURD'HUI ------------
@@ -724,29 +724,29 @@ ROOM-VOLPRIO: chain=chestR       ignored=50284    retreat=0
    Le PLUS GRAND chiffre de COM de toute sa spec est 0.40 B0 (§16, atterrissage tres
    dur), egal au plafond dur de sa §22. Aucun de ses regimes n'en autorise plus.
    chaine        pilotage      pire     moyenne   fenetres   au-dessus de 0.40 B0
-   chestL        updown        0.7390    0.5502        31          27 (87 %)
+   chestL        updown        0.7390    0.5501        31          27 (87 %)
    chestL        leftright     0.8228    0.6709        31          31 (100 %)
    chestL        accel         0.8199    0.6613        31          31 (100 %)
    chestL        jerk          0.8287    0.6783        31          31 (100 %)
-   chestL        tilt          0.8839    0.6629        31          31 (100 %)
-   chestL        BASE(sans pilotage)   0.8029    0.6111        31          31 (100 %)
-   chestR        updown        0.7641    0.5658        31          29 (94 %)
+   chestL        tilt          0.8839    0.6632        31          31 (100 %)
+   chestL        BASE(sans pilotage)   0.8062    0.6114        31          31 (100 %)
+   chestR        updown        0.7641    0.5659        31          29 (94 %)
    chestR        leftright     0.9424    0.6784        31          31 (100 %)
    chestR        accel         0.8470    0.6708        31          31 (100 %)
    chestR        jerk          0.9298    0.6811        31          31 (100 %)
-   chestR        tilt          0.8986    0.6461        31          31 (100 %)
-   chestR        BASE(sans pilotage)   0.9695    0.6469        31          30 (97 %)
+   chestR        tilt          0.8986    0.6462        31          31 (100 %)
+   chestR        BASE(sans pilotage)   0.9695    0.6472        31          30 (97 %)
    APPORT DU PILOTAGE, PAIRE PAR PAIRE (meme chaine, MEME animation, avec moins sans)
-     chestL        updown      paires=31   apport moyen  -0.0610   pire  +0.1783   ajoute dans 45 % des paires
-     chestL        leftright   paires=31   apport moyen  +0.0598   pire  +0.2621   ajoute dans 77 % des paires
-     chestL        accel       paires=31   apport moyen  +0.0502   pire  +0.2282   ajoute dans 84 % des paires
-     chestL        jerk        paires=31   apport moyen  +0.0671   pire  +0.2529   ajoute dans 81 % des paires
+     chestL        updown      paires=31   apport moyen  -0.0612   pire  +0.1783   ajoute dans 45 % des paires
+     chestL        leftright   paires=31   apport moyen  +0.0596   pire  +0.2621   ajoute dans 77 % des paires
+     chestL        accel       paires=31   apport moyen  +0.0499   pire  +0.2282   ajoute dans 84 % des paires
+     chestL        jerk        paires=31   apport moyen  +0.0669   pire  +0.2529   ajoute dans 81 % des paires
      chestL        tilt        paires=31   apport moyen  +0.0518   pire  +0.3081   ajoute dans 74 % des paires
-     chestR        updown      paires=31   apport moyen  -0.0812   pire  +0.2021   ajoute dans 29 % des paires
-     chestR        leftright   paires=31   apport moyen  +0.0314   pire  +0.2466   ajoute dans 65 % des paires
-     chestR        accel       paires=31   apport moyen  +0.0238   pire  +0.2655   ajoute dans 52 % des paires
-     chestR        jerk        paires=31   apport moyen  +0.0341   pire  +0.3751   ajoute dans 65 % des paires
-     chestR        tilt        paires=31   apport moyen  -0.0008   pire  +0.2811   ajoute dans 58 % des paires
+     chestR        updown      paires=31   apport moyen  -0.0812   pire  +0.2026   ajoute dans 29 % des paires
+     chestR        leftright   paires=31   apport moyen  +0.0313   pire  +0.2471   ajoute dans 65 % des paires
+     chestR        accel       paires=31   apport moyen  +0.0236   pire  +0.2661   ajoute dans 52 % des paires
+     chestR        jerk        paires=31   apport moyen  +0.0339   pire  +0.3756   ajoute dans 65 % des paires
+     chestR        tilt        paires=31   apport moyen  -0.0010   pire  +0.2816   ajoute dans 58 % des paires
      Un apport qui ne CROIT PAS avec le stimulus (cf. `acc` de PHYSACC) dit que la
      reponse ne suit pas son excitation : signature de SATURATION, pas de raideur.
    MAPPING vers ses sections — c'est MA lecture, pas une ligne de sa spec, et elle est
@@ -775,7 +775,7 @@ ROOM-VOLPRIO: chain=chestR       ignored=50284    retreat=0
    chestL        accel         0.8199     200.3       3.8     289.5     l=0   [C] DEFORMATION
    chestL        jerk          0.8287     189.0      24.8     285.1     l=0   [C] DEFORMATION
    chestL        tilt          0.8839     261.2      -1.8     272.7     l=0   [C] DEFORMATION
-   chestL        BASE(sans pilotage)   0.8029     272.5      69.1     141.7     l=0   [A] TRANSLATION
+   chestL        BASE(sans pilotage)   0.8062     274.9      68.6     141.8     l=0   [A] TRANSLATION
    chestR        updown        0.7641     226.5      16.5     217.0     l=0   [A] TRANSLATION
    chestR        leftright     0.9424     438.6      38.7      90.0     l=1   [A] TRANSLATION
    chestR        accel         0.8470     348.0      48.1     113.7     l=1   [A] TRANSLATION
@@ -784,7 +784,7 @@ ROOM-VOLPRIO: chain=chestR       ignored=50284    retreat=0
    chestR        BASE(sans pilotage)   0.9695     466.8      34.3      82.5     l=1   [A] TRANSLATION
    M1 CLASSEMENT : [A] domine 8 fois · [B] 0 fois · [C] 4 fois, sur 12 canaux
    MOYENNE des |termes| sur les 372 fenetres, en B0 (budget total de sa §22 = 0.40) :
-      |tp| 0.3808   |rp| 0.0323   |dp| 0.2373
+      |tp| 0.3809   |rp| 0.0323   |dp| 0.2373
       maxima : |tp| 0.7804   |rp| 0.2175   |dp| 0.5245
    M3 TENSEUR : moyenne |dp| = 0.2373 B0 -> CASSEE : le tenseur est un porteur reel (critere <= 0.10 B0)
    M5 BORNE PAPIER : max |dp| = 0.5245 B0 contre 1.22 B0 derive AVANT la mesure -> TENUE
@@ -803,8 +803,8 @@ ROOM-VOLPRIO: chain=chestR       ignored=50284    retreat=0
    moteur : ce n'est pas une recomposition majorante.
    NATURE : longueur rapportee a B0 (602 u). REPERE : monde, frame ecrite, contre la
    pose d'auteur de la MEME frame, deformation comprise. A LA POSE D'AUTEUR : 0.0000.
-ROOM-COM: chain=chestL       pic_typique=0.3393  max=0.4485 B0   (normal 0.35 / dur 0.40)
-   VERDICT §22 « normal <=35% B0 »        sur le pic TYPIQUE de fenetre : 0.3393 -> DANS
+ROOM-COM: chain=chestL       pic_typique=0.3392  max=0.4485 B0   (normal 0.35 / dur 0.40)
+   VERDICT §22 « normal <=35% B0 »        sur le pic TYPIQUE de fenetre : 0.3392 -> DANS
       CE VERDICT DEPEND DE LA FRONTIERE DE L'ORGANE, ET LE DIRE FAIT PARTIE DU
       VERDICT. Il est rendu a `w>0`. A `w>=0.25` la borne SUPERIEURE seule (donc
       un majorant du vrai chiffre) vaut deja plus que 0.35 — voir les deux lignes
@@ -851,7 +851,7 @@ ROOM-COM: chain=chestR       pic_typique=0.3269  max=0.4895 B0   (normal 0.35 / 
       elle ne fonde aucun verdict ici.
    part au-dessus des bandes : 0.07 % des FRAMES > 0.40 · 4.8 % des FENETRES > 0.40 · 24.7 % des FENETRES > 0.35
    borne SUP recomposee des normes par maillon, w>0     (livree)      : max 0.4955  moy 0.3329
-   borne SUP recomposee des normes par maillon, w>=0.25 (sensibilite) : max 0.5652  moy 0.3834
+   borne SUP recomposee des normes par maillon, w>=0.25 (sensibilite) : max 0.5652  moy 0.3833
    poids lus dans le fichier livre : l=0 0.3581, l=1 0.1871  (somme 0.5452 — le reste est ANCRE)
    RESERVE DECLAREE, BORNEE, NON CORRIGEE : le moteur applique l'excursion au centre
       de la SPHERE de collision (`offset=`), pas au centroide pondere `c_j` que
@@ -868,13 +868,13 @@ ROOM-COM: chain=chestR       pic_typique=0.3269  max=0.4895 B0   (normal 0.35 / 
    chair, PAS le COM (qui moyenne tout le nuage, ancrage compris). REPERE : monde,
    frame ecrite, contre la pose d'auteur de la MEME frame, deformation comprise.
    A LA POSE D'AUTEUR : 0.0000. Chaine sans enregistrement `ax` : AUCUNE ligne.
-ROOM-APEX: chain=chestL       pic_typique=0.6696  max=0.9310 B0   (normal 0.42 / exceptionnel 0.50)
-   VERDICT §22 « normal <=42% B0 »      sur le pic TYPIQUE de fenetre : 0.6696 -> HORS (x1.59)
+ROOM-APEX: chain=chestL       pic_typique=0.6697  max=0.9310 B0   (normal 0.42 / exceptionnel 0.50)
+   VERDICT §22 « normal <=42% B0 »      sur le pic TYPIQUE de fenetre : 0.6697 -> HORS (x1.59)
    VERDICT §22 « exceptional <=50% B0 » sur le MAXIMUM de course     : 0.9310 -> HORS (x1.86)
    distribution des maxima de fenetre : p50 0.6738  p95 0.8168  (n=186 fenetres)
    part des FENETRES au-dessus des bandes : 97.3 % > 0.42 · 94.1 % > 0.50
-ROOM-APEX: chain=chestR       pic_typique=0.6927  max=1.0695 B0   (normal 0.42 / exceptionnel 0.50)
-   VERDICT §22 « normal <=42% B0 »      sur le pic TYPIQUE de fenetre : 0.6927 -> HORS (x1.65)
+ROOM-APEX: chain=chestR       pic_typique=0.6928  max=1.0695 B0   (normal 0.42 / exceptionnel 0.50)
+   VERDICT §22 « normal <=42% B0 »      sur le pic TYPIQUE de fenetre : 0.6928 -> HORS (x1.65)
    VERDICT §22 « exceptional <=50% B0 » sur le MAXIMUM de course     : 1.0695 -> HORS (x2.14)
    distribution des maxima de fenetre : p50 0.6876  p95 0.8779  (n=186 fenetres)
    part des FENETRES au-dessus des bandes : 98.4 % > 0.42 · 96.8 % > 0.50
@@ -900,10 +900,10 @@ ROOM-APEX: chain=chestR       pic_typique=0.6927  max=1.0695 B0   (normal 0.42 /
    ci-dessous sont donc la SORTIE de l'operateur, jamais son entree. L'entree ne se
    lit que sur la jambe DESARMEE (`*phys-e21-off*` = 1), et le rapport publie les
    deux cote a cote — une sortie collee a son plafond ne dit rien de son entree.
-ROOM-SPEC21: chain=chestL       n=186 fenetres   controle d'identite |e|-apex = 0.000133 B0
+ROOM-SPEC21: chain=chestL       n=186 fenetres   controle d'identite |e|-apex = 0.000109 B0
    |e|  apex    : mediane 0.6738  p90 0.7905  max 0.9310 B0
-   |s|  §21     : mediane 0.4186  p90 0.4502  max 0.4989 B0
-   |tp| transl. : mediane 0.3715  p90 0.4096  max 0.4391 B0
+   |s|  §21     : mediane 0.4186  p90 0.4502  max 0.4990 B0
+   |tp| transl. : mediane 0.3715  p90 0.4096  max 0.4424 B0
    |rp| rotation : mediane 0.2174  p90 0.2645  max 0.2951 B0
    |dp| tenseur : mediane 0.2975  p90 0.4197  max 0.5410 B0
    |s| au-dessus du plafond exceptionnel de §22 (0.50 B0) : 0/186 fenetres
@@ -925,9 +925,9 @@ ROOM-SPEC21: chain=chestL       n=186 fenetres   controle d'identite |e|-apex = 
       se lit pas comme une prevision. (B) reste une prevision valable.
       D_max=0.50  (A) moy 0.6671 max 0.9298  >0.42 181/186  >0.50 175/186
                  (B) moy 0.4756 max 0.4892  >0.42 181/186  >0.50   0/186
-      D_max=0.42  (A) moy 0.6398 max 0.8897  >0.42 181/186  >0.50 173/186
+      D_max=0.42  (A) moy 0.6399 max 0.8897  >0.42 181/186  >0.50 173/186
                  (B) moy 0.4057 max 0.4130  >0.42   0/186  >0.50   0/186
-      aujourd'hui       moy 0.6696 max 0.9310  >0.42 181/186  >0.50 175/186
+      aujourd'hui       moy 0.6697 max 0.9310  >0.42 181/186  >0.50 175/186
       cas LIMITE s=0    moy 0.3020 max 0.5410  >0.42  18/186  >0.50   6/186
       « cas LIMITE s=0 » = translation ET rotation du joint annulees, c'est-a-dire
       une poitrine IMMOBILE. C'est le PLAFOND de ce que toute intervention confinee
@@ -971,11 +971,11 @@ ROOM-SPEC21: chain=chestR       n=186 fenetres   controle d'identite |e|-apex = 
       `phys-softmin` n'est PAS idempotente au-dessus de son genou. La colonne
       (A) ci-dessous est donc une SECONDE application, pas la premiere : elle ne
       se lit pas comme une prevision. (B) reste une prevision valable.
-      D_max=0.50  (A) moy 0.6847 max 1.0556  >0.42 183/186  >0.50 180/186
+      D_max=0.50  (A) moy 0.6848 max 1.0556  >0.42 183/186  >0.50 180/186
                  (B) moy 0.4783 max 0.4912  >0.42 183/186  >0.50   0/186
-      D_max=0.42  (A) moy 0.6461 max 1.0027  >0.42 183/186  >0.50 177/186
+      D_max=0.42  (A) moy 0.6462 max 1.0027  >0.42 183/186  >0.50 177/186
                  (B) moy 0.4071 max 0.4142  >0.42   0/186  >0.50   0/186
-      aujourd'hui       moy 0.6927 max 1.0695  >0.42 183/186  >0.50 180/186
+      aujourd'hui       moy 0.6928 max 1.0695  >0.42 183/186  >0.50 180/186
       cas LIMITE s=0    moy 0.2890 max 0.6089  >0.42  18/186  >0.50   6/186
       « cas LIMITE s=0 » = translation ET rotation du joint annulees, c'est-a-dire
       une poitrine IMMOBILE. C'est le PLAFOND de ce que toute intervention confinee
@@ -1000,7 +1000,7 @@ ROOM-SPEC21: chain=chestR       n=186 fenetres   controle d'identite |e|-apex = 
       de la matrice LIVREE, donc `e` et `tp` baissent du MEME vecteur et `rp = e-tp-dp`
       est INCHANGE, `dp` aussi. Le partage rp/dp reste donc lisible — contrairement a
       la correction par ROTATION du cycle 87 ([NOTE-471]), qui contaminait `rp`.
-   VERDICT §21 : la borne EXISTE et a mordu — `PHYSE21` n=7294 corrections, 100.15 B0 cumules
+   VERDICT §21 : la borne EXISTE et a mordu — `PHYSE21` n=7295 corrections, 100.18 B0 cumules
       repris sur la course. La FORME que la section prescrit est donc en place sur
       la valeur LIVREE. Ce que ca vaut pour §22 se lit sur ROOM-APEX, pas ici.
 -- `comex` : LE MAXIMUM SUR LES DEUX CENTROIDES DE MAILLON — CE N'EST PAS LE COM ------
@@ -1014,7 +1014,7 @@ ROOM-SPEC21: chain=chestR       n=186 fenetres   controle d'identite |e|-apex = 
 ROOM-COMEX-MAX2: chain=chestL       max2=0.8839 B0   [MAX SUR 2 CENTROIDES, PAS LE COM]
    distribution : moyenne 0.2521 B0 · 18.0 % des echantillons au-dessus de 0.40
 ROOM-COMEX-MAX2: chain=chestR       max2=0.9695 B0   [MAX SUR 2 CENTROIDES, PAS LE COM]
-   distribution : moyenne 0.2598 B0 · 17.8 % des echantillons au-dessus de 0.40
+   distribution : moyenne 0.2599 B0 · 17.8 % des echantillons au-dessus de 0.40
    La moyenne et la part au-dessus du plafond disent si une borne posee a 0.40
    CLIPERAIT un extreme ou MUSELLERAIT la reponse. Sans elles, un maximum hors
    bande ne permet pas de dimensionner un correctif sans risquer un suppresseur.
@@ -1094,65 +1094,65 @@ ROOM-REGIME-STIM: r=14 rollB         §20    acmd=   0.0000 alp= 0.013670 amax= 
       ne borne pas le COM, la colonne dit PAS DE BANDE — jamais un verdict invente.
       Le facteur entre parentheses est le rapport a la BORNE FRANCHIE (bas ou haut).
 ROOM-REGIME: chestL   r= 0 base            -  com=0.0413 moy=0.0397 [pas de bande] PAS DE BANDE
-   ee0=0.0657 ee1=0.0835 jt0=0.0368 jt1=0.0641 cmx2=0.0835  cx/cy/cz=-0.0240/-0.0098/+0.0321  n=60 f
+   ee0=0.0662 ee1=0.0834 jt0=0.0375 jt1=0.0640 cmx2=0.0834  cx/cy/cz=-0.0240/-0.0098/+0.0321  n=60 f
 ROOM-REGIME: chestL   r= 1 jumpA-push    §14  com=0.1613 moy=0.0653 [0.15-0.25]   DANS
-   ee0=0.2794 ee1=0.2860 jt0=0.1836 jt1=0.2432 cmx2=0.2860  cx/cy/cz=-0.0973/-0.0115/-0.1281  n=18 f
+   ee0=0.2802 ee1=0.2849 jt0=0.1844 jt1=0.2422 cmx2=0.2849  cx/cy/cz=-0.0973/-0.0115/-0.1281  n=18 f
 ROOM-REGIME: chestL   r= 2 jumpA-fly     §15  com=0.1897 moy=0.0970 [pas de bande] PAS DE BANDE
-   ee0=0.3304 ee1=0.3337 jt0=0.2278 jt1=0.2903 cmx2=0.3337  cx/cy/cz=-0.0923/-0.0083/-0.1655  n=26 f
+   ee0=0.3312 ee1=0.3327 jt0=0.2286 jt1=0.2894 cmx2=0.3327  cx/cy/cz=-0.0923/-0.0083/-0.1655  n=26 f
 ROOM-REGIME: chestL   r= 3 jumpA-land    §16  com=0.0829 moy=0.0449 [0.25-0.35]   SOUS (x0.33)
-   ee0=0.1540 ee1=0.1492 jt0=0.1069 jt1=0.1308 cmx2=0.1540  cx/cy/cz=-0.0391/-0.0390/+0.0619  n=58 f
+   ee0=0.1543 ee1=0.1494 jt0=0.1072 jt1=0.1310 cmx2=0.1543  cx/cy/cz=-0.0413/-0.0380/+0.0610  n=58 f
 ROOM-REGIME: chestL   r= 4 jumpB-push    §14  com=0.2007 moy=0.0707 [0.25-0.32]   SOUS (x0.80)
-   ee0=0.3613 ee1=0.3394 jt0=0.2457 jt1=0.2870 cmx2=0.3613  cx/cy/cz=-0.1313/-0.0083/-0.1516  n=15 f
-ROOM-REGIME: chestL   r= 5 jumpB-fly     §15  com=0.1930 moy=0.0650 [pas de bande] PAS DE BANDE
-   ee0=0.3376 ee1=0.3374 jt0=0.2290 jt1=0.2908 cmx2=0.3376  cx/cy/cz=-0.1018/-0.0114/-0.1635  n=35 f
+   ee0=0.3620 ee1=0.3383 jt0=0.2463 jt1=0.2860 cmx2=0.3620  cx/cy/cz=-0.1312/-0.0083/-0.1516  n=15 f
+ROOM-REGIME: chestL   r= 5 jumpB-fly     §15  com=0.1929 moy=0.0650 [pas de bande] PAS DE BANDE
+   ee0=0.3381 ee1=0.3365 jt0=0.2295 jt1=0.2900 cmx2=0.3381  cx/cy/cz=-0.1018/-0.0114/-0.1635  n=35 f
 ROOM-REGIME: chestL   r= 6 jumpB-land    §16  com=0.0910 moy=0.0506 [0.35-0.40]   SOUS (x0.26)
-   ee0=0.1584 ee1=0.1691 jt0=0.1269 jt1=0.1533 cmx2=0.1691  cx/cy/cz=-0.0392/-0.0388/+0.0723  n=53 f
-ROOM-REGIME: chestL   r= 7 runA-accel    §17  com=0.3008 moy=0.1239 [0.10-0.18]   AU-DESSUS (x1.67)
-   ee0=0.5410 ee1=0.5070 jt0=0.3670 jt1=0.4299 cmx2=0.5410  cx/cy/cz=+0.0061/+0.0195/-0.3001  n=36 f
+   ee0=0.1586 ee1=0.1693 jt0=0.1272 jt1=0.1535 cmx2=0.1693  cx/cy/cz=-0.0391/-0.0388/+0.0723  n=53 f
+ROOM-REGIME: chestL   r= 7 runA-accel    §17  com=0.3009 moy=0.1239 [0.10-0.18]   AU-DESSUS (x1.67)
+   ee0=0.5414 ee1=0.5066 jt0=0.3674 jt1=0.4296 cmx2=0.5414  cx/cy/cz=+0.0061/+0.0195/-0.3002  n=36 f
 ROOM-REGIME: chestL   r= 8 runA-brake    §17  com=0.2171 moy=0.0709 [0.18-0.27]   DANS
-   ee0=0.4014 ee1=0.3523 jt0=0.3255 jt1=0.3277 cmx2=0.4014  cx/cy/cz=-0.1872/+0.0069/-0.1098  n=62 f
+   ee0=0.4020 ee1=0.3513 jt0=0.3261 jt1=0.3268 cmx2=0.4020  cx/cy/cz=-0.1872/+0.0069/-0.1097  n=62 f
 ROOM-REGIME: chestL   r= 9 yawA          §18  com=0.0464 moy=0.0356 [0.10-0.17]   SOUS (x0.46)
-   ee0=0.0735 ee1=0.1206 jt0=0.0397 jt1=0.1284 cmx2=0.1206  cx/cy/cz=+0.0345/-0.0161/+0.0265  n=69 f
+   ee0=0.0741 ee1=0.1204 jt0=0.0405 jt1=0.1281 cmx2=0.1204  cx/cy/cz=+0.0345/-0.0161/+0.0265  n=69 f
 ROOM-REGIME: chestL   r=10 yawB          §18  com=0.0969 moy=0.0505 [0.17-0.24]   SOUS (x0.57)
-   ee0=0.1597 ee1=0.1843 jt0=0.1017 jt1=0.1577 cmx2=0.1843  cx/cy/cz=-0.0601/+0.0108/+0.0752  n=66 f
-ROOM-REGIME: chestL   r=11 pitchA-bend   §19  com=0.3164 moy=0.1521 [pas de bande] PAS DE BANDE
-   ee0=0.5970 ee1=0.5295 jt0=0.4395 jt1=0.4432 cmx2=0.5970  cx/cy/cz=-0.0078/+0.0722/-0.3079  n=36 f
-ROOM-REGIME: chestL   r=12 pitchA-return §19  com=0.3125 moy=0.1281 [pas de bande] PAS DE BANDE
-   ee0=0.5877 ee1=0.5133 jt0=0.3692 jt1=0.3819 cmx2=0.5877  cx/cy/cz=-0.1247/-0.2826/-0.0472  n=68 f
+   ee0=0.1604 ee1=0.1839 jt0=0.1024 jt1=0.1577 cmx2=0.1839  cx/cy/cz=-0.0601/+0.0108/+0.0752  n=66 f
+ROOM-REGIME: chestL   r=11 pitchA-bend   §19  com=0.3164 moy=0.1520 [pas de bande] PAS DE BANDE
+   ee0=0.5994 ee1=0.5288 jt0=0.4426 jt1=0.4427 cmx2=0.5994  cx/cy/cz=-0.0077/+0.0722/-0.3079  n=36 f
+ROOM-REGIME: chestL   r=12 pitchA-return §19  com=0.3126 moy=0.1281 [pas de bande] PAS DE BANDE
+   ee0=0.5877 ee1=0.5122 jt0=0.3695 jt1=0.3802 cmx2=0.5877  cx/cy/cz=-0.1247/-0.2827/-0.0472  n=68 f
 ROOM-REGIME: chestL   r=13 rollA         §20  com=0.2107 moy=0.1218 [0.15-0.22]   DANS
-   ee0=0.3831 ee1=0.3855 jt0=0.3929 jt1=0.3856 cmx2=0.3855  cx/cy/cz=-0.1239/-0.1441/+0.0910  n=33 f
+   ee0=0.3826 ee1=0.3855 jt0=0.3924 jt1=0.3856 cmx2=0.3855  cx/cy/cz=-0.1239/-0.1441/+0.0910  n=33 f
 ROOM-REGIME: chestL   r=14 rollB         §20  com=0.2138 moy=0.1220 [0.15-0.22]   DANS
    ee0=0.3619 ee1=0.3903 jt0=0.3220 jt1=0.3846 cmx2=0.3903  cx/cy/cz=-0.1700/-0.1260/+0.0303  n=65 f
 ROOM-REGIME: chestR   r= 0 base            -  com=0.0285 moy=0.0284 [pas de bande] PAS DE BANDE
-   ee0=0.0491 ee1=0.0589 jt0=0.0239 jt1=0.0462 cmx2=0.0589  cx/cy/cz=-0.0108/-0.0052/+0.0259  n=60 f
+   ee0=0.0492 ee1=0.0588 jt0=0.0240 jt1=0.0459 cmx2=0.0588  cx/cy/cz=-0.0109/-0.0052/+0.0259  n=60 f
 ROOM-REGIME: chestR   r= 1 jumpA-push    §14  com=0.2486 moy=0.0979 [0.15-0.25]   DANS
-   ee0=0.4620 ee1=0.4458 jt0=0.3626 jt1=0.4280 cmx2=0.4620  cx/cy/cz=+0.2040/-0.1234/+0.0701  n=18 f
+   ee0=0.4628 ee1=0.4443 jt0=0.3633 jt1=0.4267 cmx2=0.4628  cx/cy/cz=+0.2040/-0.1234/+0.0701  n=18 f
 ROOM-REGIME: chestR   r= 2 jumpA-fly     §15  com=0.1343 moy=0.0857 [pas de bande] PAS DE BANDE
-   ee0=0.2610 ee1=0.2542 jt0=0.2399 jt1=0.2767 cmx2=0.2610  cx/cy/cz=-0.1322/+0.0102/+0.0214  n=26 f
+   ee0=0.2604 ee1=0.2555 jt0=0.2394 jt1=0.2779 cmx2=0.2604  cx/cy/cz=-0.1322/+0.0101/+0.0214  n=26 f
 ROOM-REGIME: chestR   r= 3 jumpA-land    §16  com=0.1566 moy=0.0602 [0.25-0.35]   SOUS (x0.63)
-   ee0=0.3178 ee1=0.2944 jt0=0.2820 jt1=0.3165 cmx2=0.3178  cx/cy/cz=-0.1501/+0.0443/+0.0038  n=58 f
+   ee0=0.3172 ee1=0.2958 jt0=0.2814 jt1=0.3177 cmx2=0.3172  cx/cy/cz=-0.1501/+0.0443/+0.0038  n=58 f
 ROOM-REGIME: chestR   r= 4 jumpB-push    §14  com=0.2204 moy=0.0844 [0.25-0.32]   SOUS (x0.88)
-   ee0=0.4081 ee1=0.3981 jt0=0.3219 jt1=0.3799 cmx2=0.4081  cx/cy/cz=+0.1749/-0.1086/+0.0785  n=15 f
-ROOM-REGIME: chestR   r= 5 jumpB-fly     §15  com=0.1560 moy=0.1027 [pas de bande] PAS DE BANDE
-   ee0=0.3143 ee1=0.2921 jt0=0.2879 jt1=0.2930 cmx2=0.3143  cx/cy/cz=-0.1500/+0.0427/+0.0035  n=35 f
-ROOM-REGIME: chestR   r= 6 jumpB-land    §16  com=0.1919 moy=0.0573 [0.35-0.40]   SOUS (x0.55)
-   ee0=0.3566 ee1=0.3447 jt0=0.2513 jt1=0.3159 cmx2=0.3566  cx/cy/cz=+0.1651/-0.0904/+0.0374  n=53 f
-ROOM-REGIME: chestR   r= 7 runA-accel    §17  com=0.2569 moy=0.0935 [0.10-0.18]   AU-DESSUS (x1.43)
-   ee0=0.4787 ee1=0.4591 jt0=0.3715 jt1=0.4372 cmx2=0.4787  cx/cy/cz=+0.0168/+0.0700/-0.2465  n=36 f
+   ee0=0.4088 ee1=0.3967 jt0=0.3226 jt1=0.3787 cmx2=0.4088  cx/cy/cz=+0.1749/-0.1086/+0.0785  n=15 f
+ROOM-REGIME: chestR   r= 5 jumpB-fly     §15  com=0.1561 moy=0.1027 [pas de bande] PAS DE BANDE
+   ee0=0.3139 ee1=0.2906 jt0=0.2875 jt1=0.2916 cmx2=0.3139  cx/cy/cz=-0.1500/+0.0427/+0.0035  n=35 f
+ROOM-REGIME: chestR   r= 6 jumpB-land    §16  com=0.1920 moy=0.0573 [0.35-0.40]   SOUS (x0.55)
+   ee0=0.3574 ee1=0.3434 jt0=0.2519 jt1=0.3148 cmx2=0.3574  cx/cy/cz=+0.1652/-0.0904/+0.0374  n=53 f
+ROOM-REGIME: chestR   r= 7 runA-accel    §17  com=0.2568 moy=0.0935 [0.10-0.18]   AU-DESSUS (x1.43)
+   ee0=0.4783 ee1=0.4596 jt0=0.3710 jt1=0.4379 cmx2=0.4783  cx/cy/cz=+0.0168/+0.0700/-0.2465  n=36 f
 ROOM-REGIME: chestR   r= 8 runA-brake    §17  com=0.1328 moy=0.0348 [0.18-0.27]   SOUS (x0.74)
-   ee0=0.2363 ee1=0.2580 jt0=0.1893 jt1=0.2529 cmx2=0.2580  cx/cy/cz=-0.0120/+0.0403/-0.1259  n=62 f
-ROOM-REGIME: chestR   r= 9 yawA          §18  com=0.2178 moy=0.0654 [0.10-0.17]   AU-DESSUS (x1.28)
-   ee0=0.4408 ee1=0.3334 jt0=0.3545 jt1=0.2986 cmx2=0.4408  cx/cy/cz=+0.0810/-0.0991/+0.1762  n=69 f
+   ee0=0.2362 ee1=0.2583 jt0=0.1892 jt1=0.2532 cmx2=0.2583  cx/cy/cz=-0.0120/+0.0403/-0.1259  n=62 f
+ROOM-REGIME: chestR   r= 9 yawA          §18  com=0.2179 moy=0.0654 [0.10-0.17]   AU-DESSUS (x1.28)
+   ee0=0.4406 ee1=0.3339 jt0=0.3544 jt1=0.2987 cmx2=0.4406  cx/cy/cz=+0.0810/-0.0992/+0.1762  n=69 f
 ROOM-REGIME: chestR   r=10 yawB          §18  com=0.2197 moy=0.0754 [0.17-0.24]   DANS
-   ee0=0.4580 ee1=0.4103 jt0=0.3843 jt1=0.4191 cmx2=0.4580  cx/cy/cz=-0.0833/-0.0845/+0.1848  n=66 f
-ROOM-REGIME: chestR   r=11 pitchA-bend   §19  com=0.2590 moy=0.1426 [pas de bande] PAS DE BANDE
-   ee0=0.5356 ee1=0.4546 jt0=0.3842 jt1=0.4386 cmx2=0.5356  cx/cy/cz=-0.1357/-0.2174/-0.0369  n=36 f
+   ee0=0.4578 ee1=0.4099 jt0=0.3842 jt1=0.4186 cmx2=0.4578  cx/cy/cz=-0.0833/-0.0845/+0.1849  n=66 f
+ROOM-REGIME: chestR   r=11 pitchA-bend   §19  com=0.2592 moy=0.1426 [pas de bande] PAS DE BANDE
+   ee0=0.5346 ee1=0.4555 jt0=0.3846 jt1=0.4396 cmx2=0.5346  cx/cy/cz=-0.1359/-0.2176/-0.0370  n=36 f
 ROOM-REGIME: chestR   r=12 pitchA-return §19  com=0.2685 moy=0.0964 [pas de bande] PAS DE BANDE
-   ee0=0.5426 ee1=0.4076 jt0=0.3514 jt1=0.3262 cmx2=0.5426  cx/cy/cz=-0.0979/-0.2497/-0.0117  n=68 f
-ROOM-REGIME: chestR   r=13 rollA         §20  com=0.2579 moy=0.1138 [0.15-0.22]   AU-DESSUS (x1.17)
-   ee0=0.4822 ee1=0.4579 jt0=0.3641 jt1=0.4288 cmx2=0.4822  cx/cy/cz=+0.2478/-0.0502/+0.0505  n=33 f
+   ee0=0.5423 ee1=0.4060 jt0=0.3525 jt1=0.3225 cmx2=0.5423  cx/cy/cz=-0.0979/-0.2497/-0.0117  n=68 f
+ROOM-REGIME: chestR   r=13 rollA         §20  com=0.2578 moy=0.1138 [0.15-0.22]   AU-DESSUS (x1.17)
+   ee0=0.4834 ee1=0.4556 jt0=0.3650 jt1=0.4269 cmx2=0.4834  cx/cy/cz=+0.2478/-0.0502/+0.0506  n=33 f
 ROOM-REGIME: chestR   r=14 rollB         §20  com=0.2155 moy=0.0844 [0.15-0.22]   DANS
-   ee0=0.4246 ee1=0.3822 jt0=0.2657 jt1=0.3538 cmx2=0.4246  cx/cy/cz=+0.1091/-0.1854/-0.0135  n=65 f
+   ee0=0.4230 ee1=0.3822 jt0=0.2642 jt1=0.3538 cmx2=0.4230  cx/cy/cz=+0.1091/-0.1854/-0.0135  n=65 f
 
    -- ROOM-REGIME-NET : LE MEME COM, TEMOIN r=0 SOUSTRAIT ---------------------------
       `net = max(0, com_r - com_0)` de la MEME chaine. Le temoin ne joue AUCUN regime :
@@ -1166,14 +1166,14 @@ ROOM-REGIME-NET: chestL   r= 1 jumpA-push    net=0.1200 (com 0.1613 - r0 0.0413)
 ROOM-REGIME-NET: chestL   r= 2 jumpA-fly     net=0.1484 (com 0.1897 - r0 0.0413) -> PAS DE BANDE
 ROOM-REGIME-NET: chestL   r= 3 jumpA-land    net=0.0416 (com 0.0829 - r0 0.0413) -> SOUS (x0.17)
 ROOM-REGIME-NET: chestL   r= 4 jumpB-push    net=0.1594 (com 0.2007 - r0 0.0413) -> SOUS (x0.64)
-ROOM-REGIME-NET: chestL   r= 5 jumpB-fly     net=0.1517 (com 0.1930 - r0 0.0413) -> PAS DE BANDE
+ROOM-REGIME-NET: chestL   r= 5 jumpB-fly     net=0.1516 (com 0.1929 - r0 0.0413) -> PAS DE BANDE
 ROOM-REGIME-NET: chestL   r= 6 jumpB-land    net=0.0497 (com 0.0910 - r0 0.0413) -> SOUS (x0.14)
-ROOM-REGIME-NET: chestL   r= 7 runA-accel    net=0.2595 (com 0.3008 - r0 0.0413) -> AU-DESSUS (x1.44)
+ROOM-REGIME-NET: chestL   r= 7 runA-accel    net=0.2596 (com 0.3009 - r0 0.0413) -> AU-DESSUS (x1.44)
 ROOM-REGIME-NET: chestL   r= 8 runA-brake    net=0.1758 (com 0.2171 - r0 0.0413) -> SOUS (x0.98)
 ROOM-REGIME-NET: chestL   r= 9 yawA          net=0.0051 (com 0.0464 - r0 0.0413) -> SOUS (x0.05)
 ROOM-REGIME-NET: chestL   r=10 yawB          net=0.0556 (com 0.0969 - r0 0.0413) -> SOUS (x0.33)
 ROOM-REGIME-NET: chestL   r=11 pitchA-bend   net=0.2751 (com 0.3164 - r0 0.0413) -> PAS DE BANDE
-ROOM-REGIME-NET: chestL   r=12 pitchA-return net=0.2712 (com 0.3125 - r0 0.0413) -> PAS DE BANDE
+ROOM-REGIME-NET: chestL   r=12 pitchA-return net=0.2713 (com 0.3126 - r0 0.0413) -> PAS DE BANDE
 ROOM-REGIME-NET: chestL   r=13 rollA         net=0.1694 (com 0.2107 - r0 0.0413) -> DANS
 ROOM-REGIME-NET: chestL   r=14 rollB         net=0.1725 (com 0.2138 - r0 0.0413) -> DANS
 ROOM-REGIME-NET: chestR   temoin r=0 com=0.0285 B0 (reference, non soustraite d'elle-meme)
@@ -1181,15 +1181,15 @@ ROOM-REGIME-NET: chestR   r= 1 jumpA-push    net=0.2201 (com 0.2486 - r0 0.0285)
 ROOM-REGIME-NET: chestR   r= 2 jumpA-fly     net=0.1058 (com 0.1343 - r0 0.0285) -> PAS DE BANDE
 ROOM-REGIME-NET: chestR   r= 3 jumpA-land    net=0.1281 (com 0.1566 - r0 0.0285) -> SOUS (x0.51)
 ROOM-REGIME-NET: chestR   r= 4 jumpB-push    net=0.1919 (com 0.2204 - r0 0.0285) -> SOUS (x0.77)
-ROOM-REGIME-NET: chestR   r= 5 jumpB-fly     net=0.1275 (com 0.1560 - r0 0.0285) -> PAS DE BANDE
-ROOM-REGIME-NET: chestR   r= 6 jumpB-land    net=0.1634 (com 0.1919 - r0 0.0285) -> SOUS (x0.47)
-ROOM-REGIME-NET: chestR   r= 7 runA-accel    net=0.2284 (com 0.2569 - r0 0.0285) -> AU-DESSUS (x1.27)
+ROOM-REGIME-NET: chestR   r= 5 jumpB-fly     net=0.1276 (com 0.1561 - r0 0.0285) -> PAS DE BANDE
+ROOM-REGIME-NET: chestR   r= 6 jumpB-land    net=0.1635 (com 0.1920 - r0 0.0285) -> SOUS (x0.47)
+ROOM-REGIME-NET: chestR   r= 7 runA-accel    net=0.2283 (com 0.2568 - r0 0.0285) -> AU-DESSUS (x1.27)
 ROOM-REGIME-NET: chestR   r= 8 runA-brake    net=0.1043 (com 0.1328 - r0 0.0285) -> SOUS (x0.58)
-ROOM-REGIME-NET: chestR   r= 9 yawA          net=0.1893 (com 0.2178 - r0 0.0285) -> AU-DESSUS (x1.11)
+ROOM-REGIME-NET: chestR   r= 9 yawA          net=0.1894 (com 0.2179 - r0 0.0285) -> AU-DESSUS (x1.11)
 ROOM-REGIME-NET: chestR   r=10 yawB          net=0.1912 (com 0.2197 - r0 0.0285) -> DANS
-ROOM-REGIME-NET: chestR   r=11 pitchA-bend   net=0.2305 (com 0.2590 - r0 0.0285) -> PAS DE BANDE
+ROOM-REGIME-NET: chestR   r=11 pitchA-bend   net=0.2307 (com 0.2592 - r0 0.0285) -> PAS DE BANDE
 ROOM-REGIME-NET: chestR   r=12 pitchA-return net=0.2400 (com 0.2685 - r0 0.0285) -> PAS DE BANDE
-ROOM-REGIME-NET: chestR   r=13 rollA         net=0.2294 (com 0.2579 - r0 0.0285) -> AU-DESSUS (x1.04)
+ROOM-REGIME-NET: chestR   r=13 rollA         net=0.2293 (com 0.2578 - r0 0.0285) -> AU-DESSUS (x1.04)
 ROOM-REGIME-NET: chestR   r=14 rollB         net=0.1870 (com 0.2155 - r0 0.0285) -> DANS
 
    -- ROOM-REGIME-SIGN : SPEC 15, LE CHANGEMENT DE SIGNE ----------------------------
@@ -1202,11 +1202,11 @@ ROOM-REGIME-NET: chestR   r=14 rollB         net=0.1870 (com 0.2155 - r0 0.0285)
       CRITERE : `cy` < 0 en poussee (1, 4) ET `cy` > 0 en vol (2, 5).
 ROOM-REGIME-SIGN: chestL   sautA cy_pouss=-0.0115 cy_vol=-0.0083 -> CHANGEMENT DE SIGNE : non
    ROUGE §15 : le critere demande cy<0 en poussee ET cy>0 en vol ; mesure -0.0115 puis -0.0083.
-   cy_reception (r=3) = -0.0390 — publiee pour lecture, §15 ne la borne pas.
+   cy_reception (r=3) = -0.0380 — publiee pour lecture, §15 ne la borne pas.
 ROOM-REGIME-SIGN: chestL   sautB cy_pouss=-0.0083 cy_vol=-0.0114 -> CHANGEMENT DE SIGNE : non
    ROUGE §15 : le critere demande cy<0 en poussee ET cy>0 en vol ; mesure -0.0083 puis -0.0114.
    cy_reception (r=6) = -0.0388 — publiee pour lecture, §15 ne la borne pas.
-ROOM-REGIME-SIGN: chestR   sautA cy_pouss=-0.1234 cy_vol=+0.0102 -> CHANGEMENT DE SIGNE : oui
+ROOM-REGIME-SIGN: chestR   sautA cy_pouss=-0.1234 cy_vol=+0.0101 -> CHANGEMENT DE SIGNE : oui
    cy_reception (r=3) = +0.0443 — publiee pour lecture, §15 ne la borne pas.
 ROOM-REGIME-SIGN: chestR   sautB cy_pouss=-0.1086 cy_vol=+0.0427 -> CHANGEMENT DE SIGNE : oui
    cy_reception (r=6) = -0.0904 — publiee pour lecture, §15 ne la borne pas.
@@ -1217,34 +1217,34 @@ ROOM-POSERANK: 682 echantillons, 202 couples (animation, frame entiere) distinct
    31 pour `PHYSPOSEB`, qui n'echantillonne qu'UNE frame par animation. 279 echantillons sont
    ELIGIBLES a l'argmax (pframe >= 54, le point d'etablissement que la salle utilise deja
    partout) ; les autres sont publies mais portent le ring-down du pilotage precedent.
-ROOM-POSERANK-ARITH: ecart max entre l'angle recalcule ici et le cosinus calcule en course = 0.2485 deg
+ROOM-POSERANK-ARITH: ecart max entre l'angle recalcule ici et le cosinus calcule en course = 0.2512 deg
 
       rang  k       a    frame    ecart au miroir   eligible
       1     76      0    5.750        0.56 deg        oui
-      2     88      0    7.250        1.07 deg        oui
-      3     80      0    6.250        1.11 deg        oui
-      4     84      0    6.750        1.31 deg        oui
-      5     64      0    4.250        1.58 deg        oui
-      6     72      0    5.250        2.06 deg        oui
+      2     80      0    6.250        1.04 deg        oui
+      3     88      0    7.250        1.12 deg        oui
+      4     84      0    6.750        1.26 deg        oui
+      5     64      0    4.250        1.59 deg        oui
+      6     72      0    5.250        2.11 deg        oui
       7     48      0    2.250        2.42 deg        NON (transitoire)
-      8     36      0    0.750        4.29 deg        NON (transitoire)
-      ... population : min 0.56  p10 12.66  mediane 54.99  max 176.56 deg (n=682)
+      8     36      0    0.750        4.16 deg        NON (transitoire)
+      ... population : min 0.56  p10 12.66  mediane 54.79  max 176.56 deg (n=682)
 ROOM-POSERANK-TRANSITOIRE: sur 41 couples lus DANS et HORS du transitoire, l'ecart median
-   de l'angle au miroir vaut 12.06 deg (max 79.99). C'est la part du classement qui ne vient pas de la pose.
+   de l'angle au miroir vaut 12.06 deg (max 79.92). C'est la part du classement qui ne vient pas de la pose.
 ROOM-POSERANK-EPINGLE: l'animation epinglee depuis le cycle 55 (a=12) apparait au rang 16
-   sur 682 ; sa MEILLEURE frame vaut 6.84 deg et sa PIRE 141.32 deg — l'ecart entre les
+   sur 682 ; sa MEILLEURE frame vaut 6.85 deg et sa PIRE 142.27 deg — l'ecart entre les
    deux est la mesure de ce que « une frame par animation » laissait au hasard.
 ROOM-POSERANK-ARGMAX: la course a retenu a=0 f=5.7500 ; le tableau, en refaisant le maximum
    sur la population publiee, trouve a=0 f=5.7500 (0.56 deg) -> LES DEUX ARGMAX COINCIDENT
 ROOM-POSEB-RANG: 31 animations classees (c'est le balayage du cycle 54, UNE frame par
-   animation) — meilleure a=10 a 14.15 deg, mediane 44.11 deg, pire a=20 a 131.01 deg.
-   L'ANIMATION EPINGLEE (a=12) Y EST AU RANG 7 SUR 31, a 22.40 deg. Le commentaire de
+   animation) — meilleure a=10 a 14.15 deg, mediane 43.36 deg, pire a=20 a 131.01 deg.
+   L'ANIMATION EPINGLEE (a=12) Y EST AU RANG 7 SUR 31, a 22.71 deg. Le commentaire de
    `phys-room.gc` annonce « la seule sous 10 deg » : c'est verifie ici, sur cette course,
    et plus cite de memoire.
 
    -- ROOM-REGPOSE : L'ECART AU MIROIR DE LA POSE OU §14 A §20 SONT MESUREES --------
-ROOM-REGPOSE: POSE NON SYMETRIQUE — PH-REG heritee est a 46.7 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind). par maillon : l=0 44.5 deg, l=1 46.7 deg.
-ROOM-REGPOSE-VERDICT: POSE NON SYMETRIQUE — PH-REG heritee est a 46.7 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind).
+ROOM-REGPOSE: POSE NON SYMETRIQUE — PH-REG heritee est a 45.6 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind). par maillon : l=0 44.6 deg, l=1 45.6 deg.
+ROOM-REGPOSE-VERDICT: POSE NON SYMETRIQUE — PH-REG heritee est a 45.6 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind).
 
    -- ROOM-REGIME-MIRROR : SPEC 18 et SPEC 20, GAUCHE CONTRE DROITE -----------------
       §18 exige que les deux seins DIFFERENT en rotation, et elle en donne la cause :
@@ -1258,7 +1258,7 @@ ROOM-REGPOSE-VERDICT: POSE NON SYMETRIQUE — PH-REG heritee est a 46.7 deg du m
       PARAMETRES (raideur, amortissement, rayons, poids), pas de la geometrie. La
       dissymetrie que §18 decrit par sa cause geometrique ne peut pas etre obtenue
       dans ce rig sans deplacer une racine — ce qui serait un changement de RIG.
-ROOM-REGIME-MIRROR: POSE NON SYMETRIQUE — PH-REG heritee est a 46.7 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind). §18 et §20 restent NON ETABLI sur leur clause gauche/droite.
+ROOM-REGIME-MIRROR: POSE NON SYMETRIQUE — PH-REG heritee est a 45.6 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind). §18 et §20 restent NON ETABLI sur leur clause gauche/droite.
 
    -- ROOM-APEX-REGIME : SPEC 14/16/17/18/19/20, LA CLAUSE D'APEX ---------------
       LE PLAFOND QUE LE MESH IMPOSE, ET IL EST LU DANS LE FICHIER LIVRE — plus
@@ -1272,47 +1272,47 @@ ROOM-REGIME-MIRROR: POSE NON SYMETRIQUE — PH-REG heritee est a 46.7 deg du mir
       l'ancrage seul ; manquee de PLUS, non — et c'est cette frontiere qui
       rend chaque ligne ci-dessous lisible. Sa §30 ecrit « Apex — minimal
       direct anchoring » : a 0.94 / 0.95 le mesh livre s'en approche enfin.
-ROOM-APEX-REGIME: chestL   r= 0 base          apex=0.0699 B0   LINEAIRE (x0.09 kn) aucune clause d'apex pour ce regime
-ROOM-APEX-REGIME: chestR   r= 0 base          apex=0.0540 B0   LINEAIRE (x0.06 kn) aucune clause d'apex pour ce regime
+ROOM-APEX-REGIME: chestL   r= 0 base          apex=0.0701 B0   LINEAIRE (x0.09 kn) aucune clause d'apex pour ce regime
+ROOM-APEX-REGIME: chestR   r= 0 base          apex=0.0539 B0   LINEAIRE (x0.06 kn) aucune clause d'apex pour ce regime
    aucune clause d'apex pour ce regime
-ROOM-APEX-REGIME: chestL   r= 1 jumpA-push    apex=0.2894 B0  [0.20-0.30] -> DANS             LINEAIRE (x0.76 kn)
-ROOM-APEX-REGIME: chestR   r= 1 jumpA-push    apex=0.4919 B0  [0.20-0.30] -> AU-DESSUS (x1.64) (SATURE) GELE     (x1.27 kn)
+ROOM-APEX-REGIME: chestL   r= 1 jumpA-push    apex=0.2900 B0  [0.20-0.30] -> DANS             LINEAIRE (x0.76 kn)
+ROOM-APEX-REGIME: chestR   r= 1 jumpA-push    apex=0.4927 B0  [0.20-0.30] -> AU-DESSUS (x1.64) (SATURE) GELE     (x1.27 kn)
    §14 « Apex displacement: ordinary 20-30% B0 »
-ROOM-APEX-REGIME: chestL   r= 2 jumpA-fly     apex=0.3440 B0   LINEAIRE (x0.91 kn) aucune clause d'apex pour ce regime
-ROOM-APEX-REGIME: chestR   r= 2 jumpA-fly     apex=0.2766 B0   LINEAIRE (x0.93 kn) aucune clause d'apex pour ce regime
+ROOM-APEX-REGIME: chestL   r= 2 jumpA-fly     apex=0.3445 B0   LINEAIRE (x0.91 kn) aucune clause d'apex pour ce regime
+ROOM-APEX-REGIME: chestR   r= 2 jumpA-fly     apex=0.2761 B0   LINEAIRE (x0.93 kn) aucune clause d'apex pour ce regime
    aucune clause d'apex pour ce regime
-ROOM-APEX-REGIME: chestL   r= 3 jumpA-land    apex=0.1609 B0  [0.30-0.42] -> SOUS (x0.54)     LINEAIRE (x0.65 kn)   ancrage seul NE SUFFIT PAS (manque x1.86, plafond x1.06)
-ROOM-APEX-REGIME: chestR   r= 3 jumpA-land    apex=0.3399 B0  [0.30-0.42] -> DANS             GENOU    (x1.07 kn)
+ROOM-APEX-REGIME: chestL   r= 3 jumpA-land    apex=0.1612 B0  [0.30-0.42] -> SOUS (x0.54)     LINEAIRE (x0.65 kn)   ancrage seul NE SUFFIT PAS (manque x1.86, plafond x1.06)
+ROOM-APEX-REGIME: chestR   r= 3 jumpA-land    apex=0.3394 B0  [0.30-0.42] -> DANS             GENOU    (x1.07 kn)
    §16 « Strong landing apex: 30-42% B0 »
-ROOM-APEX-REGIME: chestL   r= 4 jumpB-push    apex=0.3681 B0  [0.30-0.38] -> DANS             LINEAIRE (x0.97 kn)
-ROOM-APEX-REGIME: chestR   r= 4 jumpB-push    apex=0.4333 B0  [0.30-0.38] -> AU-DESSUS (x1.14) (SATURE) GELE     (x1.22 kn)
+ROOM-APEX-REGIME: chestL   r= 4 jumpB-push    apex=0.3686 B0  [0.30-0.38] -> DANS             LINEAIRE (x0.97 kn)
+ROOM-APEX-REGIME: chestR   r= 4 jumpB-push    apex=0.4340 B0  [0.30-0.38] -> AU-DESSUS (x1.14) (SATURE) GELE     (x1.22 kn)
    §14 « strong 30-38% B0 »
-ROOM-APEX-REGIME: chestL   r= 5 jumpB-fly     apex=0.3511 B0   GELE     (x1.20 kn) aucune clause d'apex pour ce regime
-ROOM-APEX-REGIME: chestR   r= 5 jumpB-fly     apex=0.3367 B0   GENOU    (x1.10 kn) aucune clause d'apex pour ce regime
+ROOM-APEX-REGIME: chestL   r= 5 jumpB-fly     apex=0.3515 B0   GELE     (x1.20 kn) aucune clause d'apex pour ce regime
+ROOM-APEX-REGIME: chestR   r= 5 jumpB-fly     apex=0.3364 B0   GENOU    (x1.10 kn) aucune clause d'apex pour ce regime
    aucune clause d'apex pour ce regime
-ROOM-APEX-REGIME: chestL   r= 6 jumpB-land    apex=0.1663 B0  [0.42-0.50] -> SOUS (x0.40)     LINEAIRE (x0.85 kn)   ancrage seul NE SUFFIT PAS (manque x2.53, plafond x1.06)
-ROOM-APEX-REGIME: chestR   r= 6 jumpB-land    apex=0.3796 B0  [0.42-0.50] -> SOUS (x0.90) (SATURE) GELE     (x1.21 kn)   ancrage seul NE SUFFIT PAS (manque x1.11, plafond x1.05)
+ROOM-APEX-REGIME: chestL   r= 6 jumpB-land    apex=0.1665 B0  [0.42-0.50] -> SOUS (x0.40)     LINEAIRE (x0.85 kn)   ancrage seul NE SUFFIT PAS (manque x2.52, plafond x1.06)
+ROOM-APEX-REGIME: chestR   r= 6 jumpB-land    apex=0.3803 B0  [0.42-0.50] -> SOUS (x0.91) (SATURE) GELE     (x1.21 kn)   ancrage seul NE SUFFIT PAS (manque x1.10, plafond x1.05)
    §16 « Very hard / exceptional: 42-50% B0 »
-ROOM-APEX-REGIME: chestL   r= 7 runA-accel    apex=0.5691 B0   GELE     (x1.45 kn) §17 ne borne l'apex que pour « strong » : PAS de bande ici
-ROOM-APEX-REGIME: chestR   r= 7 runA-accel    apex=0.5335 B0   GELE     (x1.52 kn) §17 ne borne l'apex que pour « strong » : PAS de bande ici
+ROOM-APEX-REGIME: chestL   r= 7 runA-accel    apex=0.5694 B0   GELE     (x1.45 kn) §17 ne borne l'apex que pour « strong » : PAS de bande ici
+ROOM-APEX-REGIME: chestR   r= 7 runA-accel    apex=0.5332 B0   GELE     (x1.52 kn) §17 ne borne l'apex que pour « strong » : PAS de bande ici
    §17 ne borne l'apex que pour « strong » : PAS de bande ici
-ROOM-APEX-REGIME: chestL   r= 8 runA-brake    apex=0.3913 B0  [0.25-0.35] -> AU-DESSUS (x1.12) (SATURE) GELE     (x1.36 kn)
-ROOM-APEX-REGIME: chestR   r= 8 runA-brake    apex=0.2668 B0  [0.25-0.35] -> DANS (SATURE)    GELE     (x1.37 kn)
+ROOM-APEX-REGIME: chestL   r= 8 runA-brake    apex=0.3918 B0  [0.25-0.35] -> AU-DESSUS (x1.12) (SATURE) GELE     (x1.36 kn)
+ROOM-APEX-REGIME: chestR   r= 8 runA-brake    apex=0.2667 B0  [0.25-0.35] -> DANS (SATURE)    GELE     (x1.37 kn)
    §17 « Apex displacement: strong 25-35% B0 »
-ROOM-APEX-REGIME: chestL   r= 9 yawA          apex=0.0738 B0   LINEAIRE (x0.16 kn) §18 ne borne l'apex que pour « strong » : PAS de bande ici
-ROOM-APEX-REGIME: chestR   r= 9 yawA          apex=0.4529 B0   GENOU    (x1.05 kn) §18 ne borne l'apex que pour « strong » : PAS de bande ici
+ROOM-APEX-REGIME: chestL   r= 9 yawA          apex=0.0743 B0   LINEAIRE (x0.16 kn) §18 ne borne l'apex que pour « strong » : PAS de bande ici
+ROOM-APEX-REGIME: chestR   r= 9 yawA          apex=0.4526 B0   GENOU    (x1.05 kn) §18 ne borne l'apex que pour « strong » : PAS de bande ici
    §18 ne borne l'apex que pour « strong » : PAS de bande ici
-ROOM-APEX-REGIME: chestL   r=10 yawB          apex=0.1696 B0  [0.20-0.30] -> SOUS (x0.85)     LINEAIRE (x0.33 kn)   ancrage seul NE SUFFIT PAS (manque x1.18, plafond x1.06)
-ROOM-APEX-REGIME: chestR   r=10 yawB          apex=0.4454 B0  [0.20-0.30] -> AU-DESSUS (x1.48) (SATURE) GELE     (x1.33 kn)
+ROOM-APEX-REGIME: chestL   r=10 yawB          apex=0.1699 B0  [0.20-0.30] -> SOUS (x0.85)     LINEAIRE (x0.33 kn)   ancrage seul NE SUFFIT PAS (manque x1.18, plafond x1.06)
+ROOM-APEX-REGIME: chestR   r=10 yawB          apex=0.4453 B0  [0.20-0.30] -> AU-DESSUS (x1.48) (SATURE) GELE     (x1.33 kn)
    §18 « Apex displacement: strong 20-30% B0 »
-ROOM-APEX-REGIME: chestL   r=11 pitchA-bend   apex=0.5994 B0  [0.30-0.40] -> AU-DESSUS (x1.50) (SATURE) GELE     (x1.35 kn)
-ROOM-APEX-REGIME: chestR   r=11 pitchA-bend   apex=0.5440 B0  [0.30-0.40] -> AU-DESSUS (x1.36) (SATURE) GELE     (x1.58 kn)
+ROOM-APEX-REGIME: chestL   r=11 pitchA-bend   apex=0.5998 B0  [0.30-0.40] -> AU-DESSUS (x1.50) (SATURE) GELE     (x1.35 kn)
+ROOM-APEX-REGIME: chestR   r=11 pitchA-bend   apex=0.5434 B0  [0.30-0.40] -> AU-DESSUS (x1.36) (SATURE) GELE     (x1.58 kn)
    §19 « 30-40% B0 apex displacement » — SA SEULE CLAUSE CHIFFREE
 ROOM-APEX-REGIME: chestL   r=12 pitchA-return apex=0.5861 B0  [0.30-0.40] -> AU-DESSUS (x1.47) (SATURE) GELE     (x1.29 kn)
-ROOM-APEX-REGIME: chestR   r=12 pitchA-return apex=0.5693 B0  [0.30-0.40] -> AU-DESSUS (x1.42) (SATURE) GELE     (x1.31 kn)
+ROOM-APEX-REGIME: chestR   r=12 pitchA-return apex=0.5687 B0  [0.30-0.40] -> AU-DESSUS (x1.42) (SATURE) GELE     (x1.31 kn)
    §19 idem, au retour a la verticale
-ROOM-APEX-REGIME: chestL   r=13 rollA         apex=0.3969 B0  [0.20-0.30] -> AU-DESSUS (x1.32) (SATURE) GELE     (x1.26 kn)
-ROOM-APEX-REGIME: chestR   r=13 rollA         apex=0.5039 B0  [0.20-0.30] -> AU-DESSUS (x1.68) (SATURE) GELE     (x1.19 kn)
+ROOM-APEX-REGIME: chestL   r=13 rollA         apex=0.3965 B0  [0.20-0.30] -> AU-DESSUS (x1.32) (SATURE) GELE     (x1.26 kn)
+ROOM-APEX-REGIME: chestR   r=13 rollA         apex=0.5050 B0  [0.20-0.30] -> AU-DESSUS (x1.68) (SATURE) GELE     (x1.19 kn)
    §20 « apex 20-30% B0 »
 ROOM-APEX-REGIME: chestL   r=14 rollB         apex=0.3757 B0  [0.20-0.30] -> AU-DESSUS (x1.25) (SATURE) GELE     (x1.30 kn)
 ROOM-APEX-REGIME: chestR   r=14 rollB         apex=0.4437 B0  [0.20-0.30] -> AU-DESSUS (x1.48) (SATURE) GELE     (x1.33 kn)
@@ -1388,9 +1388,9 @@ ROOM-REGSTG: chestL   r=14 rollB         s0=0.3739 s1=0.3739 s2=0.3728 s3=0.3397
    retire le plus : etage 3 (0.3728 -> 0.3397, -0.0331 B0, 8.9 % de s0)  ·  reste livre 0.3230 = 86.4 % de s0
 ROOM-REGSTG: chestR   r=14 rollB         s0=0.3840 s1=0.3840 s2=0.3849 s3=0.3849 s4=0.3849 s5=0.3849 s6=0.3849
    aucune passe ne retire : s6 >= s0
-ROOM-REGSTG-CTRL: chestL    s6 vs jt0 : ecart median 0.0056 B0, pire 0.0273 B0 (r=9)
-                            s6 vs jt1 : ecart median 0.0477 B0, pire 0.0681 B0 (r=2)
-                            somme|s6-jt0|=0.0946  somme|s6-jt1|=0.6321  ->  le septuplet lit le
+ROOM-REGSTG-CTRL: chestL    s6 vs jt0 : ecart median 0.0063 B0, pire 0.0265 B0 (r=9)
+                            s6 vs jt1 : ecart median 0.0467 B0, pire 0.0672 B0 (r=2)
+                            somme|s6-jt0|=0.1028  somme|s6-jt1|=0.6250  ->  le septuplet lit le
                             MAILLON 0
    CE CONTROLE IDENTIFIE LE MAILLON, IL NE BORNE RIEN. `jt0` est `jt` a l'argmax de `ee`
    (jak-hd-physics.gc:3971-3975), `s6` est `jt` a l'argmax de l'etage 0 (:1077-1078) : deux
@@ -1398,9 +1398,9 @@ ROOM-REGSTG-CTRL: chestL    s6 vs jt0 : ecart median 0.0056 B0, pire 0.0273 B0 (
    la premisse inverse — publiee au cycle 77 dans `c77-predictions.txt` P6 et dans le
    commentaire de phys-room.gc — etait fausse. L'ECART entre les deux est donc un DIAGNOSTIC
    d'accord, jamais un verdict : il ne fait echouer personne.
-ROOM-REGSTG-CTRL: chestR    s6 vs jt0 : ecart median 0.0060 B0, pire 0.1192 B0 (r=14)
-                            s6 vs jt1 : ecart median 0.0340 B0, pire 0.0734 B0 (r=13)
-                            somme|s6-jt0|=0.3825  somme|s6-jt1|=0.5972  ->  le septuplet lit le
+ROOM-REGSTG-CTRL: chestR    s6 vs jt0 : ecart median 0.0067 B0, pire 0.1207 B0 (r=14)
+                            s6 vs jt1 : ecart median 0.0335 B0, pire 0.0715 B0 (r=13)
+                            somme|s6-jt0|=0.3898  somme|s6-jt1|=0.5875  ->  le septuplet lit le
                             MAILLON 0
    CE CONTROLE IDENTIFIE LE MAILLON, IL NE BORNE RIEN. `jt0` est `jt` a l'argmax de `ee`
    (jak-hd-physics.gc:3971-3975), `s6` est `jt` a l'argmax de l'etage 0 (:1077-1078) : deux
@@ -1414,38 +1414,38 @@ ROOM-REGSTG-CTRL: chestR    s6 vs jt0 : ecart median 0.0060 B0, pire 0.1192 B0 (
    pendule peut convertir en deplacement ; `sinZ` = celle d'un pilotage AVANT
    (§17). Reference de BIND, mesuree cycle 78 sur keira-hd-donor-injected.glb :
    u = (0.36457, 0.91918, 0.14897), sinY = 0.3938, sinZ = 0.9888.
-ROOM-REGBONE: r= 0 base          L u=(-0.1265,+0.9700,-0.2078) sinY=0.2433 sinZ=0.9782
-                              R u=(+0.5627,+0.8226,+0.0816) sinY=0.5686 sinZ=0.9967   ecart_miroir= 31.56 deg
-ROOM-REGBONE: r= 1 jumpA-push    L u=(-0.1670,+0.9371,-0.3065) sinY=0.3490 sinZ=0.9519
-                              R u=(+0.6655,+0.7417,+0.0843) sinY=0.6708 sinZ=0.9964   ecart_miroir= 38.71 deg
-ROOM-REGBONE: r= 2 jumpA-fly     L u=(-0.1388,+0.9746,-0.1756) sinY=0.2239 sinZ=0.9845
-                              R u=(+0.4447,+0.8928,+0.0712) sinY=0.4504 sinZ=0.9975   ecart_miroir= 23.16 deg
-ROOM-REGBONE: r= 3 jumpA-land    L u=(-0.1277,+0.9699,-0.2075) sinY=0.2437 sinZ=0.9782
-                              R u=(+0.5614,+0.8235,+0.0817) sinY=0.5674 sinZ=0.9967   ecart_miroir= 31.42 deg
-ROOM-REGBONE: r= 4 jumpB-push    L u=(-0.1852,+0.9242,-0.3341) sinY=0.3820 sinZ=0.9425
-                              R u=(+0.6010,+0.7964,+0.0673) sinY=0.6048 sinZ=0.9977   ecart_miroir= 34.43 deg
-ROOM-REGBONE: r= 5 jumpB-fly     L u=(-0.1602,+0.9728,-0.1675) sinY=0.2318 sinZ=0.9859
-                              R u=(+0.4256,+0.9026,+0.0645) sinY=0.4304 sinZ=0.9979   ecart_miroir= 20.71 deg
-ROOM-REGBONE: r= 6 jumpB-land    L u=(-0.1272,+0.9702,-0.2063) sinY=0.2423 sinZ=0.9785
-                              R u=(+0.5606,+0.8240,+0.0818) sinY=0.5666 sinZ=0.9966   ecart_miroir= 31.36 deg
-ROOM-REGBONE: r= 7 runA-accel    L u=(-0.1086,+0.9546,-0.2774) sinY=0.2980 sinZ=0.9607
-                              R u=(+0.5693,+0.8205,+0.0517) sinY=0.5716 sinZ=0.9987   ecart_miroir= 33.83 deg
-ROOM-REGBONE: r= 8 runA-brake    L u=(-0.1250,+0.9693,-0.2116) sinY=0.2458 sinZ=0.9774
-                              R u=(+0.5644,+0.8230,+0.0637) sinY=0.5680 sinZ=0.9980   ecart_miroir= 31.26 deg
-ROOM-REGBONE: r= 9 yawA          L u=(-0.2094,+0.9693,+0.1289) sinY=0.2459 sinZ=0.9917
-                              R u=(+0.0683,+0.8240,-0.5624) sinY=0.5665 sinZ=0.8269   ecart_miroir= 42.22 deg
-ROOM-REGBONE: r=10 yawB          L u=(+0.0059,+0.9695,+0.2449) sinY=0.2450 sinZ=0.9696
-                              R u=(-0.4552,+0.8237,-0.3381) sinY=0.5671 sinZ=0.9411   ecart_miroir= 44.07 deg
-ROOM-REGBONE: r=11 pitchA-bend   L u=(-0.2228,+0.4296,+0.8751) sinY=0.9030 sinZ=0.4840
-                              R u=(+0.4963,+0.0482,+0.8668) sinY=0.9988 sinZ=0.4986   ecart_miroir= 27.15 deg
-ROOM-REGBONE: r=12 pitchA-return L u=(-0.1303,+0.9701,-0.2047) sinY=0.2427 sinZ=0.9788
-                              R u=(+0.5643,+0.8229,+0.0658) sinY=0.5681 sinZ=0.9978   ecart_miroir= 30.86 deg
+ROOM-REGBONE: r= 0 base          L u=(-0.1270,+0.9698,-0.2080) sinY=0.2437 sinZ=0.9781
+                              R u=(+0.5631,+0.8223,+0.0818) sinY=0.5690 sinZ=0.9967   ecart_miroir= 31.56 deg
+ROOM-REGBONE: r= 1 jumpA-push    L u=(-0.1674,+0.9370,-0.3067) sinY=0.3494 sinZ=0.9518
+                              R u=(+0.6657,+0.7415,+0.0843) sinY=0.6710 sinZ=0.9964   ecart_miroir= 38.71 deg
+ROOM-REGBONE: r= 2 jumpA-fly     L u=(-0.1393,+0.9745,-0.1757) sinY=0.2243 sinZ=0.9844
+                              R u=(+0.4450,+0.8927,+0.0714) sinY=0.4507 sinZ=0.9975   ecart_miroir= 23.16 deg
+ROOM-REGBONE: r= 3 jumpA-land    L u=(-0.1283,+0.9697,-0.2077) sinY=0.2441 sinZ=0.9782
+                              R u=(+0.5618,+0.8232,+0.0819) sinY=0.5678 sinZ=0.9966   ecart_miroir= 31.42 deg
+ROOM-REGBONE: r= 4 jumpB-push    L u=(-0.1856,+0.9240,-0.3342) sinY=0.3823 sinZ=0.9425
+                              R u=(+0.6012,+0.7963,+0.0674) sinY=0.6049 sinZ=0.9977   ecart_miroir= 34.43 deg
+ROOM-REGBONE: r= 5 jumpB-fly     L u=(-0.1607,+0.9727,-0.1677) sinY=0.2322 sinZ=0.9858
+                              R u=(+0.4258,+0.9025,+0.0645) sinY=0.4306 sinZ=0.9979   ecart_miroir= 20.70 deg
+ROOM-REGBONE: r= 6 jumpB-land    L u=(-0.1278,+0.9701,-0.2065) sinY=0.2428 sinZ=0.9784
+                              R u=(+0.5610,+0.8237,+0.0820) sinY=0.5670 sinZ=0.9966   ecart_miroir= 31.37 deg
+ROOM-REGBONE: r= 7 runA-accel    L u=(-0.1090,+0.9545,-0.2775) sinY=0.2982 sinZ=0.9607
+                              R u=(+0.5693,+0.8205,+0.0517) sinY=0.5717 sinZ=0.9987   ecart_miroir= 33.82 deg
+ROOM-REGBONE: r= 8 runA-brake    L u=(-0.1256,+0.9692,-0.2118) sinY=0.2462 sinZ=0.9773
+                              R u=(+0.5648,+0.8228,+0.0640) sinY=0.5684 sinZ=0.9980   ecart_miroir= 31.26 deg
+ROOM-REGBONE: r= 9 yawA          L u=(-0.2096,+0.9692,+0.1295) sinY=0.2464 sinZ=0.9916
+                              R u=(+0.0686,+0.8238,-0.5628) sinY=0.5669 sinZ=0.8266   ecart_miroir= 42.28 deg
+ROOM-REGBONE: r=10 yawB          L u=(+0.0063,+0.9694,+0.2453) sinY=0.2454 sinZ=0.9694
+                              R u=(-0.4555,+0.8234,-0.3384) sinY=0.5674 sinZ=0.9410   ecart_miroir= 44.10 deg
+ROOM-REGBONE: r=11 pitchA-bend   L u=(-0.2268,+0.4308,+0.8735) sinY=0.9025 sinZ=0.4869
+                              R u=(+0.4979,+0.0472,+0.8659) sinY=0.9989 sinZ=0.5002   ecart_miroir= 27.17 deg
+ROOM-REGBONE: r=12 pitchA-return L u=(-0.1309,+0.9700,-0.2049) sinY=0.2432 sinZ=0.9788
+                              R u=(+0.5647,+0.8226,+0.0660) sinY=0.5685 sinZ=0.9978   ecart_miroir= 30.87 deg
 ROOM-REGBONE: r=13 rollA         L u=(-0.7203,+0.6632,-0.2031) sinY=0.7484 sinZ=0.9792
-                              R u=(-0.1002,+0.9902,+0.0969) sinY=0.1394 sinZ=0.9953   ecart_miroir= 55.61 deg
+                              R u=(-0.0992,+0.9903,+0.0973) sinY=0.1389 sinZ=0.9953   ecart_miroir= 55.56 deg
 ROOM-REGBONE: r=14 rollB         L u=(+0.5397,+0.8180,-0.1988) sinY=0.5752 sinZ=0.9800
                               R u=(+0.9480,+0.3097,+0.0735) sinY=0.9508 sinZ=0.9973   ecart_miroir=105.84 deg
 
-ROOM-REGBONE-BILAN: sinY median  chestL 0.2458   chestR 0.5680   (bind 0.3938)
+ROOM-REGBONE-BILAN: sinY median  chestL 0.2462   chestR 0.5684   (bind 0.3938)
 ROOM-REGBONE-MIROIR: pire ecart au miroir de la POSE = 105.84 deg (r=14), seuil declare 1.30 deg
    -> **POSE NON SYMETRIQUE**. Les deux chaines ne voient PAS le meme
    pilotage : leurs os ne sont pas images l'un de l'autre dans la pose
@@ -1461,37 +1461,37 @@ ROOM-REGBONE-MIROIR: pire ecart au miroir de la POSE = 105.84 deg (r=14), seuil 
       PAS une clause a tenir — c'est de quoi savoir si ce que je publie sous le nom
       d'apex EST un apex. Un rapport hors de [1.0, 2.0] voudrait dire que le canal
       mesure autre chose, et aucun verdict de la section ci-dessus ne tiendrait.
-ROOM-APEX-RATIO: chestL   r= 0 base          apex=0.0699 com=0.0413  rapport x1.692
-ROOM-APEX-RATIO: chestL   r= 1 jumpA-push    apex=0.2894 com=0.1613  rapport x1.794
-ROOM-APEX-RATIO: chestL   r= 2 jumpA-fly     apex=0.3440 com=0.1897  rapport x1.813
-ROOM-APEX-RATIO: chestL   r= 3 jumpA-land    apex=0.1609 com=0.0829  rapport x1.941
-ROOM-APEX-RATIO: chestL   r= 4 jumpB-push    apex=0.3681 com=0.2007  rapport x1.834
-ROOM-APEX-RATIO: chestL   r= 5 jumpB-fly     apex=0.3511 com=0.1930  rapport x1.819
-ROOM-APEX-RATIO: chestL   r= 6 jumpB-land    apex=0.1663 com=0.0910  rapport x1.827
-ROOM-APEX-RATIO: chestL   r= 7 runA-accel    apex=0.5691 com=0.3008  rapport x1.892
-ROOM-APEX-RATIO: chestL   r= 8 runA-brake    apex=0.3913 com=0.2171  rapport x1.802
-ROOM-APEX-RATIO: chestL   r= 9 yawA          apex=0.0738 com=0.0464  rapport x1.591
-ROOM-APEX-RATIO: chestL   r=10 yawB          apex=0.1696 com=0.0969  rapport x1.750
-ROOM-APEX-RATIO: chestL   r=11 pitchA-bend   apex=0.5994 com=0.3164  rapport x1.894
-ROOM-APEX-RATIO: chestL   r=12 pitchA-return apex=0.5861 com=0.3125  rapport x1.876
-ROOM-APEX-RATIO: chestL   r=13 rollA         apex=0.3969 com=0.2107  rapport x1.884
+ROOM-APEX-RATIO: chestL   r= 0 base          apex=0.0701 com=0.0413  rapport x1.697
+ROOM-APEX-RATIO: chestL   r= 1 jumpA-push    apex=0.2900 com=0.1613  rapport x1.798
+ROOM-APEX-RATIO: chestL   r= 2 jumpA-fly     apex=0.3445 com=0.1897  rapport x1.816
+ROOM-APEX-RATIO: chestL   r= 3 jumpA-land    apex=0.1612 com=0.0829  rapport x1.945
+ROOM-APEX-RATIO: chestL   r= 4 jumpB-push    apex=0.3686 com=0.2007  rapport x1.837
+ROOM-APEX-RATIO: chestL   r= 5 jumpB-fly     apex=0.3515 com=0.1929  rapport x1.822
+ROOM-APEX-RATIO: chestL   r= 6 jumpB-land    apex=0.1665 com=0.0910  rapport x1.830
+ROOM-APEX-RATIO: chestL   r= 7 runA-accel    apex=0.5694 com=0.3009  rapport x1.892
+ROOM-APEX-RATIO: chestL   r= 8 runA-brake    apex=0.3918 com=0.2171  rapport x1.805
+ROOM-APEX-RATIO: chestL   r= 9 yawA          apex=0.0743 com=0.0464  rapport x1.601
+ROOM-APEX-RATIO: chestL   r=10 yawB          apex=0.1699 com=0.0969  rapport x1.753
+ROOM-APEX-RATIO: chestL   r=11 pitchA-bend   apex=0.5998 com=0.3164  rapport x1.896
+ROOM-APEX-RATIO: chestL   r=12 pitchA-return apex=0.5861 com=0.3126  rapport x1.875
+ROOM-APEX-RATIO: chestL   r=13 rollA         apex=0.3965 com=0.2107  rapport x1.882
 ROOM-APEX-RATIO: chestL   r=14 rollB         apex=0.3757 com=0.2138  rapport x1.757
-ROOM-APEX-RATIO: chestR   r= 0 base          apex=0.0540 com=0.0285  rapport x1.895
-ROOM-APEX-RATIO: chestR   r= 1 jumpA-push    apex=0.4919 com=0.2486  rapport x1.979
-ROOM-APEX-RATIO: chestR   r= 2 jumpA-fly     apex=0.2766 com=0.1343  rapport x2.060
-ROOM-APEX-RATIO: chestR   r= 3 jumpA-land    apex=0.3399 com=0.1566  rapport x2.170
-ROOM-APEX-RATIO: chestR   r= 4 jumpB-push    apex=0.4333 com=0.2204  rapport x1.966
-ROOM-APEX-RATIO: chestR   r= 5 jumpB-fly     apex=0.3367 com=0.1560  rapport x2.158
-ROOM-APEX-RATIO: chestR   r= 6 jumpB-land    apex=0.3796 com=0.1919  rapport x1.978
-ROOM-APEX-RATIO: chestR   r= 7 runA-accel    apex=0.5335 com=0.2569  rapport x2.077
-ROOM-APEX-RATIO: chestR   r= 8 runA-brake    apex=0.2668 com=0.1328  rapport x2.009
-ROOM-APEX-RATIO: chestR   r= 9 yawA          apex=0.4529 com=0.2178  rapport x2.079
-ROOM-APEX-RATIO: chestR   r=10 yawB          apex=0.4454 com=0.2197  rapport x2.027
-ROOM-APEX-RATIO: chestR   r=11 pitchA-bend   apex=0.5440 com=0.2590  rapport x2.100
-ROOM-APEX-RATIO: chestR   r=12 pitchA-return apex=0.5693 com=0.2685  rapport x2.120
-ROOM-APEX-RATIO: chestR   r=13 rollA         apex=0.5039 com=0.2579  rapport x1.954
+ROOM-APEX-RATIO: chestR   r= 0 base          apex=0.0539 com=0.0285  rapport x1.891
+ROOM-APEX-RATIO: chestR   r= 1 jumpA-push    apex=0.4927 com=0.2486  rapport x1.982
+ROOM-APEX-RATIO: chestR   r= 2 jumpA-fly     apex=0.2761 com=0.1343  rapport x2.056
+ROOM-APEX-RATIO: chestR   r= 3 jumpA-land    apex=0.3394 com=0.1566  rapport x2.167
+ROOM-APEX-RATIO: chestR   r= 4 jumpB-push    apex=0.4340 com=0.2204  rapport x1.969
+ROOM-APEX-RATIO: chestR   r= 5 jumpB-fly     apex=0.3364 com=0.1561  rapport x2.155
+ROOM-APEX-RATIO: chestR   r= 6 jumpB-land    apex=0.3803 com=0.1920  rapport x1.981
+ROOM-APEX-RATIO: chestR   r= 7 runA-accel    apex=0.5332 com=0.2568  rapport x2.076
+ROOM-APEX-RATIO: chestR   r= 8 runA-brake    apex=0.2667 com=0.1328  rapport x2.008
+ROOM-APEX-RATIO: chestR   r= 9 yawA          apex=0.4526 com=0.2179  rapport x2.077
+ROOM-APEX-RATIO: chestR   r=10 yawB          apex=0.4453 com=0.2197  rapport x2.027
+ROOM-APEX-RATIO: chestR   r=11 pitchA-bend   apex=0.5434 com=0.2592  rapport x2.096
+ROOM-APEX-RATIO: chestR   r=12 pitchA-return apex=0.5687 com=0.2685  rapport x2.118
+ROOM-APEX-RATIO: chestR   r=13 rollA         apex=0.5050 com=0.2578  rapport x1.959
 ROOM-APEX-RATIO: chestR   r=14 rollB         apex=0.4437 com=0.2155  rapport x2.059
-ROOM-APEX-RATIO: n=30  min x1.591  mediane x1.941  max x2.170  —  bande implicite de sa spec x1.19 a x1.35
+ROOM-APEX-RATIO: n=30  min x1.601  mediane x1.945  max x2.167  —  bande implicite de sa spec x1.19 a x1.35
 
    -- ROOM-STG : LES SEPT ETAGES DE §22, PORTEE FENETRE CONTRE PORTEE PHASE -
       NATURE : `|p_rlk - pose d'auteur|` rapporte a B0 (SPEC 6, 602.0 u), c'est-a-dire
@@ -1540,21 +1540,21 @@ ROOM-REGB-GESTE: 8 fenetre(s) de pilotage sur 8 rendent le geste que leur sectio
    n'introduit aucun seuil. Ce qui change est l'AXE du stimulus, et rien d'autre.
    chaine    r  regime         apex (sujet)  bande         verdict          limiteur SPEC 21 de CETTE fenetre
 ROOM-REGB-APEX: chestL    0 base            0.0142      [pas de bande] PAS DE BANDE     LINEAIRE (x0.01 kn)
-ROOM-REGB-APEX: chestL    1 jumpA-push      0.4485      [0.20-0.30]   AU-DESSUS (x1.50) GENOU    (x1.11 kn)
+ROOM-REGB-APEX: chestL    1 jumpA-push      0.4487      [0.20-0.30]   AU-DESSUS (x1.50) GENOU    (x1.11 kn)
 ROOM-REGB-APEX: chestL    2 jumpA-fly       0.2519      [pas de bande] PAS DE BANDE     GENOU    (x1.04 kn)
-ROOM-REGB-APEX: chestL    3 jumpA-land      0.2127      [0.30-0.42]   SOUS (x0.71)     LINEAIRE (x0.88 kn)
+ROOM-REGB-APEX: chestL    3 jumpA-land      0.2128      [0.30-0.42]   SOUS (x0.71)     LINEAIRE (x0.88 kn)
 ROOM-REGB-APEX: chestL    4 jumpB-push      0.4626      [0.30-0.38]   AU-DESSUS (x1.22) (SATURE) GELE     (x1.36 kn)
 ROOM-REGB-APEX: chestL    5 jumpB-fly       0.2298      [pas de bande] PAS DE BANDE     LINEAIRE (x0.92 kn)
-ROOM-REGB-APEX: chestL    6 jumpB-land      0.3014      [0.42-0.50]   SOUS (x0.72)     GENOU    (x1.07 kn)
+ROOM-REGB-APEX: chestL    6 jumpB-land      0.3015      [0.42-0.50]   SOUS (x0.72)     GENOU    (x1.07 kn)
 ROOM-REGB-APEX: chestL    7 runA-accel      0.3790      [pas de bande] PAS DE BANDE (SATURE) GELE     (x1.28 kn)
 ROOM-REGB-APEX: chestL    8 runA-brake      0.5198      [0.25-0.35]   AU-DESSUS (x1.49) (SATURE) GELE     (x1.48 kn)
-ROOM-REGB-APEX: chestR    0 base            0.0148      [pas de bande] PAS DE BANDE     LINEAIRE (x0.01 kn)
-ROOM-REGB-APEX: chestR    1 jumpA-push      0.4288      [0.20-0.30]   AU-DESSUS (x1.43) GENOU    (x1.07 kn)
+ROOM-REGB-APEX: chestR    0 base            0.0146      [pas de bande] PAS DE BANDE     LINEAIRE (x0.01 kn)
+ROOM-REGB-APEX: chestR    1 jumpA-push      0.4289      [0.20-0.30]   AU-DESSUS (x1.43) GENOU    (x1.07 kn)
 ROOM-REGB-APEX: chestR    2 jumpA-fly       0.3125      [pas de bande] PAS DE BANDE (SATURE) GELE     (x1.22 kn)
 ROOM-REGB-APEX: chestR    3 jumpA-land      0.2268      [0.30-0.42]   SOUS (x0.76)     LINEAIRE (x0.87 kn)
-ROOM-REGB-APEX: chestR    4 jumpB-push      0.4680      [0.30-0.38]   AU-DESSUS (x1.23) (SATURE) GELE     (x1.33 kn)
+ROOM-REGB-APEX: chestR    4 jumpB-push      0.4681      [0.30-0.38]   AU-DESSUS (x1.23) (SATURE) GELE     (x1.33 kn)
 ROOM-REGB-APEX: chestR    5 jumpB-fly       0.2003      [pas de bande] PAS DE BANDE     LINEAIRE (x0.99 kn)
-ROOM-REGB-APEX: chestR    6 jumpB-land      0.2864      [0.42-0.50]   SOUS (x0.68)     GENOU    (x1.05 kn)
+ROOM-REGB-APEX: chestR    6 jumpB-land      0.2866      [0.42-0.50]   SOUS (x0.68)     GENOU    (x1.05 kn)
 ROOM-REGB-APEX: chestR    7 runA-accel      0.4184      [pas de bande] PAS DE BANDE (SATURE) GELE     (x1.45 kn)
 ROOM-REGB-APEX: chestR    8 runA-brake      0.4653      [0.25-0.35]   AU-DESSUS (x1.33) (SATURE) GELE     (x1.23 kn)
 
@@ -1571,9 +1571,9 @@ ROOM-REGB-COM:  chestR    0 base            0.0072      [pas de bande] PAS DE BA
 ROOM-REGB-COM:  chestR    1 jumpA-push      0.2180      [0.15-0.25]   DANS
 ROOM-REGB-COM:  chestR    2 jumpA-fly       0.1631      [pas de bande] PAS DE BANDE
 ROOM-REGB-COM:  chestR    3 jumpA-land      0.1144      [0.25-0.35]   SOUS (x0.46)
-ROOM-REGB-COM:  chestR    4 jumpB-push      0.2365      [0.25-0.32]   SOUS (x0.95)
-ROOM-REGB-COM:  chestR    5 jumpB-fly       0.1089      [pas de bande] PAS DE BANDE
-ROOM-REGB-COM:  chestR    6 jumpB-land      0.1426      [0.35-0.40]   SOUS (x0.41)
+ROOM-REGB-COM:  chestR    4 jumpB-push      0.2366      [0.25-0.32]   SOUS (x0.95)
+ROOM-REGB-COM:  chestR    5 jumpB-fly       0.1088      [pas de bande] PAS DE BANDE
+ROOM-REGB-COM:  chestR    6 jumpB-land      0.1425      [0.35-0.40]   SOUS (x0.41)
 ROOM-REGB-COM:  chestR    7 runA-accel      0.1987      [0.10-0.18]   AU-DESSUS (x1.10)
 ROOM-REGB-COM:  chestR    8 runA-brake      0.2207      [0.18-0.27]   DANS
 
@@ -1581,33 +1581,33 @@ ROOM-REGB-COM:  chestR    8 runA-brake      0.2207      [0.18-0.27]   DANS
       PH-REGT (axes du MONDE) et PH-REGB (axes du SUJET) jouent la MEME fenetre dans la MEME
       pose epinglee. La seule variable declaree est l'axe ; ce que la colonne `ecart`
       mesure ne peut donc venir que de lui.
-ROOM-REGB-AXE: chestL   r=1 jumpA-push    monde=0.3877  sujet=0.4485  ecart  +15.68 %  (11.9 deg entre les deux axes)
+ROOM-REGB-AXE: chestL   r=1 jumpA-push    monde=0.3878  sujet=0.4487  ecart  +15.70 %  (11.9 deg entre les deux axes)
 ROOM-REGB-AXE: chestL   r=2 jumpA-fly     monde=0.4471  sujet=0.2519  ecart  -43.66 %  (11.9 deg entre les deux axes)
-ROOM-REGB-AXE: chestL   r=3 jumpA-land    monde=0.2119  sujet=0.2127  ecart   +0.38 %  (11.9 deg entre les deux axes)
+ROOM-REGB-AXE: chestL   r=3 jumpA-land    monde=0.2119  sujet=0.2128  ecart   +0.42 %  (11.9 deg entre les deux axes)
 ROOM-REGB-AXE: chestL   r=4 jumpB-push    monde=0.5020  sujet=0.4626  ecart   -7.85 %  (11.9 deg entre les deux axes)
 ROOM-REGB-AXE: chestL   r=5 jumpB-fly     monde=0.2600  sujet=0.2298  ecart  -11.62 %  (11.9 deg entre les deux axes)
-ROOM-REGB-AXE: chestL   r=6 jumpB-land    monde=0.2270  sujet=0.3014  ecart  +32.78 %  (11.9 deg entre les deux axes)
+ROOM-REGB-AXE: chestL   r=6 jumpB-land    monde=0.2270  sujet=0.3015  ecart  +32.82 %  (11.9 deg entre les deux axes)
 ROOM-REGB-AXE: chestL   r=7 runA-accel    monde=0.3726  sujet=0.3790  ecart   +1.72 %  (86.3 deg entre les deux axes)
-ROOM-REGB-AXE: chestL   r=8 runA-brake    monde=0.2570  sujet=0.5198  ecart +102.26 %  (86.3 deg entre les deux axes)
-ROOM-REGB-AXE: chestR   r=1 jumpA-push    monde=0.4904  sujet=0.4288  ecart  -12.56 %  (11.9 deg entre les deux axes)
+ROOM-REGB-AXE: chestL   r=8 runA-brake    monde=0.2571  sujet=0.5198  ecart +102.18 %  (86.3 deg entre les deux axes)
+ROOM-REGB-AXE: chestR   r=1 jumpA-push    monde=0.4905  sujet=0.4289  ecart  -12.56 %  (11.9 deg entre les deux axes)
 ROOM-REGB-AXE: chestR   r=2 jumpA-fly     monde=0.2497  sujet=0.3125  ecart  +25.15 %  (11.9 deg entre les deux axes)
 ROOM-REGB-AXE: chestR   r=3 jumpA-land    monde=0.3099  sujet=0.2268  ecart  -26.82 %  (11.9 deg entre les deux axes)
-ROOM-REGB-AXE: chestR   r=4 jumpB-push    monde=0.4482  sujet=0.4680  ecart   +4.42 %  (11.9 deg entre les deux axes)
+ROOM-REGB-AXE: chestR   r=4 jumpB-push    monde=0.4482  sujet=0.4681  ecart   +4.44 %  (11.9 deg entre les deux axes)
 ROOM-REGB-AXE: chestR   r=5 jumpB-fly     monde=0.3125  sujet=0.2003  ecart  -35.90 %  (11.9 deg entre les deux axes)
-ROOM-REGB-AXE: chestR   r=6 jumpB-land    monde=0.3756  sujet=0.2864  ecart  -23.75 %  (11.9 deg entre les deux axes)
-ROOM-REGB-AXE: chestR   r=7 runA-accel    monde=0.4366  sujet=0.4184  ecart   -4.17 %  (86.3 deg entre les deux axes)
+ROOM-REGB-AXE: chestR   r=6 jumpB-land    monde=0.3757  sujet=0.2866  ecart  -23.72 %  (11.9 deg entre les deux axes)
+ROOM-REGB-AXE: chestR   r=7 runA-accel    monde=0.4367  sujet=0.4184  ecart   -4.19 %  (86.3 deg entre les deux axes)
 ROOM-REGB-AXE: chestR   r=8 runA-brake    monde=0.6808  sujet=0.4653  ecart  -31.65 %  (86.3 deg entre les deux axes)
-ROOM-REGB-AXE: ecart relatif MEDIAN — sauts (axes a 11,9 deg) 23.75 %  ·  course (axes a 86,3 deg) 31.65 %
+ROOM-REGB-AXE: ecart relatif MEDIAN — sauts (axes a 11,9 deg) 23.72 %  ·  course (axes a 86,3 deg) 31.65 %
 
    -- ROOM-REGB-SYM : L'ECART GAUCHE/DROITE, SOUS LES DEUX AXES ---------------------
-ROOM-REGB-SYM: r=1 jumpA-push    ecart gauche/droite   4.39 % sur les axes du SUJET contre  20.94 % sur ceux du MONDE  -> PLUS SYMETRIQUE   [pose PH-REGT resserree, miroir 0.6 deg]
+ROOM-REGB-SYM: r=1 jumpA-push    ecart gauche/droite   4.41 % sur les axes du SUJET contre  20.94 % sur ceux du MONDE  -> PLUS SYMETRIQUE   [pose PH-REGT resserree, miroir 0.6 deg]
 ROOM-REGB-SYM: r=2 jumpA-fly     ecart gauche/droite  19.39 % sur les axes du SUJET contre  44.15 % sur ceux du MONDE  -> PLUS SYMETRIQUE   [pose PH-REGT resserree, miroir 0.6 deg]
-ROOM-REGB-SYM: r=3 jumpA-land    ecart gauche/droite   6.22 % sur les axes du SUJET contre  31.62 % sur ceux du MONDE  -> PLUS SYMETRIQUE   [pose PH-REGT resserree, miroir 0.6 deg]
-ROOM-REGB-SYM: r=4 jumpB-push    ecart gauche/droite   1.15 % sur les axes du SUJET contre  10.72 % sur ceux du MONDE  -> PLUS SYMETRIQUE   [pose PH-REGT resserree, miroir 0.6 deg]
+ROOM-REGB-SYM: r=3 jumpA-land    ecart gauche/droite   6.17 % sur les axes du SUJET contre  31.62 % sur ceux du MONDE  -> PLUS SYMETRIQUE   [pose PH-REGT resserree, miroir 0.6 deg]
+ROOM-REGB-SYM: r=4 jumpB-push    ecart gauche/droite   1.17 % sur les axes du SUJET contre  10.72 % sur ceux du MONDE  -> PLUS SYMETRIQUE   [pose PH-REGT resserree, miroir 0.6 deg]
 ROOM-REGB-SYM: r=5 jumpB-fly     ecart gauche/droite  12.84 % sur les axes du SUJET contre  16.80 % sur ceux du MONDE  -> PLUS SYMETRIQUE   [pose PH-REGT resserree, miroir 0.6 deg]
-ROOM-REGB-SYM: r=6 jumpB-land    ecart gauche/droite   4.98 % sur les axes du SUJET contre  39.56 % sur ceux du MONDE  -> PLUS SYMETRIQUE   [pose PH-REGT resserree, miroir 0.6 deg]
-ROOM-REGB-SYM: r=7 runA-accel    ecart gauche/droite   9.42 % sur les axes du SUJET contre  14.66 % sur ceux du MONDE  -> PLUS SYMETRIQUE   [pose PH-REGT resserree, miroir 0.6 deg]
-ROOM-REGB-SYM: r=8 runA-brake    ecart gauche/droite  10.48 % sur les axes du SUJET contre  62.25 % sur ceux du MONDE  -> PLUS SYMETRIQUE   [pose PH-REGT resserree, miroir 0.6 deg]
+ROOM-REGB-SYM: r=6 jumpB-land    ecart gauche/droite   4.94 % sur les axes du SUJET contre  39.58 % sur ceux du MONDE  -> PLUS SYMETRIQUE   [pose PH-REGT resserree, miroir 0.6 deg]
+ROOM-REGB-SYM: r=7 runA-accel    ecart gauche/droite   9.42 % sur les axes du SUJET contre  14.68 % sur ceux du MONDE  -> PLUS SYMETRIQUE   [pose PH-REGT resserree, miroir 0.6 deg]
+ROOM-REGB-SYM: r=8 runA-brake    ecart gauche/droite  10.48 % sur les axes du SUJET contre  62.24 % sur ceux du MONDE  -> PLUS SYMETRIQUE   [pose PH-REGT resserree, miroir 0.6 deg]
 ROOM-REGB-SYM: 8 fenetre(s) sur 8 rendent une reponse PLUS symetrique quand le stimulus tombe sur l'axe du sujet   [pose PH-REGT resserree, miroir 0.6 deg]
    POURQUOI CE TEST VAUT PLUS QU'UNE BANDE. Il ne compare pas une mesure a une cible :
    il compare le personnage a LUI-MEME. Le rig est symetrique a 0,005 deg en bind, donc
@@ -1883,22 +1883,22 @@ ROOM-SPEC8-AFFINE: asymetrie de matrice de 0.000000 a 0.041909.
 ROOM-REGS-POSE: POSE NON SYMETRIQUE — PH-REGS epinglee est a 7.1 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind).
 
       r   regime        apexL^h   apexR^h   R^h      apexL^e   apexR^e   R^e     
-      ^h = pose HERITEE (PH-REG, 46.7 deg) · ^e = pose EPINGLEE (PH-REGS, 7.1 deg)
-      1   jumpA-push    0.2894    0.4919    NONSYM   0.3364    0.4624    NONSYM  
-      3   jumpA-land    0.1609    0.3399    NONSYM   0.2286    0.2826    NONSYM  
-      4   jumpB-push    0.3681    0.4333    NONSYM   0.4171    0.4955    NONSYM  
-      6   jumpB-land    0.1663    0.3796    NONSYM   0.1931    0.3657    NONSYM  
-      8   runA-brake    0.3913    0.2668    NONSYM   0.2536    0.2930    NONSYM  
-      9   yawA          0.0738    0.4529    NONSYM   0.3432    0.1691    NONSYM  
-      10  yawB          0.1696    0.4454    NONSYM   0.5593    0.4362    NONSYM  
-      11  pitchA-bend   0.5994    0.5440    NONSYM   0.4784    0.5343    NONSYM  
-      12  pitchA-return 0.5861    0.5693    NONSYM   0.3265    0.5335    NONSYM  
-      13  rollA         0.3969    0.5039    NONSYM   0.6683    0.5235    NONSYM  
+      ^h = pose HERITEE (PH-REG, 45.6 deg) · ^e = pose EPINGLEE (PH-REGS, 7.1 deg)
+      1   jumpA-push    0.2900    0.4927    NONSYM   0.3366    0.4632    NONSYM  
+      3   jumpA-land    0.1612    0.3394    NONSYM   0.2286    0.2820    NONSYM  
+      4   jumpB-push    0.3686    0.4340    NONSYM   0.4174    0.4961    NONSYM  
+      6   jumpB-land    0.1665    0.3803    NONSYM   0.1931    0.3663    NONSYM  
+      8   runA-brake    0.3918    0.2667    NONSYM   0.2539    0.2938    NONSYM  
+      9   yawA          0.0743    0.4526    NONSYM   0.3429    0.1697    NONSYM  
+      10  yawB          0.1699    0.4453    NONSYM   0.5593    0.4362    NONSYM  
+      11  pitchA-bend   0.5998    0.5434    NONSYM   0.4784    0.5329    NONSYM  
+      12  pitchA-return 0.5861    0.5687    NONSYM   0.3265    0.5328    NONSYM  
+      13  rollA         0.3965    0.5050    NONSYM   0.6683    0.5235    NONSYM  
       14  rollB         0.3757    0.4437    NONSYM   0.5675    0.5730    NONSYM  
-ROOM-REGS-VERROU: POSE NON SYMETRIQUE — PH-REGS epinglee est a 7.1 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind). R^h ne porte rien non plus : PH-REG est a 46.7 deg du miroir.
+ROOM-REGS-VERROU: POSE NON SYMETRIQUE — PH-REGS epinglee est a 7.1 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind). R^h ne porte rien non plus : PH-REG est a 45.6 deg du miroir.
 
-ROOM-REGS-SENS: 6 fenetre(s) sur 11 ou la pose INVERSE lequel des deux seins bouge le plus. (PH-REG 46.7 deg vs PH-REGS 7.1 deg)
-ROOM-REGS-SERRE: 7 fenetre(s) sur 11 ou l'ecart gauche/droite est PLUS PETIT dans la pose epinglee. (PH-REG 46.7 deg vs PH-REGS 7.1 deg)
+ROOM-REGS-SENS: 6 fenetre(s) sur 11 ou la pose INVERSE lequel des deux seins bouge le plus. (PH-REG 45.6 deg vs PH-REGS 7.1 deg)
+ROOM-REGS-SERRE: 7 fenetre(s) sur 11 ou l'ecart gauche/droite est PLUS PETIT dans la pose epinglee. (PH-REG 45.6 deg vs PH-REGS 7.1 deg)
 ROOM-REGS-TEMOIN: POSE NON SYMETRIQUE — PH-REGS epinglee est a 7.1 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind).
 CE QUE CE BLOC N'ETABLIT PAS, et il faut le lire avec : les deux passes
    partagent le solveur, les tables et l'operateur de pilotage, mais PAS leur
@@ -1909,31 +1909,31 @@ CE QUE CE BLOC N'ETABLIT PAS, et il faut le lire avec : les deux passes
 
    -- ROOM-POSE-RAFFINEMENT : LE MEME STIMULUS A TROIS ECARTS AU MIROIR ---------
 ROOM-POSE-RAFFINEMENT: pose retenue a=0 f=5.7500, ecart au miroir REVALIDE a l'execution
-   = 0.58 deg   (PH-REG 46.7 deg · PH-REGS 7.1 deg)
+   = 0.58 deg   (PH-REG 45.6 deg · PH-REGS 7.1 deg)
 
       r   regime        apexL^t  apexR^t  R^t        R^e      |dR|/R^e sens      %/deg    ecart admissible pour 2 % (§32)
-      1   jumpA-push    0.3877   0.4904   1.265      1.375    8.0 %    stable    1.22     1.641 deg
-      3   jumpA-land    0.2119   0.3099   1.462      1.236    18.3 %   stable    2.80     0.715 deg
-      4   jumpB-push    0.5020   0.4482   1.120      1.188    5.7 %    INVERSE   0.87     2.290 deg
-      6   jumpB-land    0.2270   0.3756   1.655      1.894    12.6 %   stable    1.93     1.037 deg
-      8   runA-brake    0.2570   0.6808   2.649      1.155    129.3 %  stable    19.75    0.101 deg  <<< AUCUNE POSE DE CE RIG NE L'ATTEINT
-      9   yawA          0.3800   0.2346   1.620      2.030    20.2 %   stable    3.08     0.649 deg
+      1   jumpA-push    0.3878   0.4905   1.265      1.376    8.1 %    stable    1.24     1.619 deg
+      3   jumpA-land    0.2119   0.3099   1.462      1.234    18.6 %   stable    2.83     0.706 deg
+      4   jumpB-push    0.5020   0.4482   1.120      1.189    5.8 %    INVERSE   0.88     2.272 deg
+      6   jumpB-land    0.2270   0.3757   1.655      1.897    12.8 %   stable    1.95     1.027 deg
+      8   runA-brake    0.2571   0.6808   2.648      1.157    128.8 %  stable    19.68    0.102 deg  <<< AUCUNE POSE DE CE RIG NE L'ATTEINT
+      9   yawA          0.3799   0.2345   1.620      2.021    19.8 %   stable    3.03     0.661 deg
       10  yawB          0.5409   0.5321   1.017      1.282    20.7 %   stable    3.16     0.632 deg
-      11  pitchA-bend   0.4624   0.5820   1.259      1.117    12.7 %   stable    1.94     1.031 deg
-      12  pitchA-return 0.3397   0.6135   1.806      1.634    10.5 %   stable    1.61     1.244 deg
+      11  pitchA-bend   0.4624   0.5820   1.259      1.114    13.0 %   stable    1.98     1.008 deg
+      12  pitchA-return 0.3397   0.6135   1.806      1.632    10.7 %   stable    1.63     1.227 deg
       13  rollA         0.6603   0.5839   1.131      1.277    11.4 %   stable    1.74     1.147 deg
       14  rollB         0.5697   0.5805   1.019      1.010    0.9 %    stable    0.14     14.269 deg
 
-ROOM-REGT-TEMOIN: r=0 (aucun pilotage) apex chestL=0.0202 chestR=0.0146 -> ligne de base SAINE (< 0.10 B0)   [pose PH-REGT resserree, miroir 0.6 deg]
+ROOM-REGT-TEMOIN: r=0 (aucun pilotage) apex chestL=0.0203 chestR=0.0144 -> ligne de base SAINE (< 0.10 B0)   [pose PH-REGT resserree, miroir 0.6 deg]
 ROOM-POSE-RAFFINEMENT: ecart relatif MEDIAN du rapport gauche/droite entre 7.5 deg
-   et la pose resserree = 12.6 % sur 11 fenetres (min 0.9 %, max 129.3 %) ; 1 fenetre(s)
+   et la pose resserree = 12.8 % sur 11 fenetres (min 0.9 %, max 128.8 %) ; 1 fenetre(s)
    changent de sens.
 ROOM-POSE-RAFFINEMENT-VERDICT: LE PLATEAU N'EST PAS ATTEINT A 7.5 deg, ET LE SEUIL DE 10 deg EST
    DONC REFUTE PAR LE CRITERE ECRIT AVANT LA COURSE (c67 Q3). Le pas
    7.5 -> 0.6 deg deplace pourtant BEAUCOUP MOINS que le pas 48 ->
    7.5. Le rapport garde une part de pose : il se publie avec son
    ecart au miroir, jamais comme une propriete du personnage, et le
-   seuil descend a 1.3 deg (derive : 2 % de §32 / 1.84 % par deg).
+   seuil descend a 1.3 deg (derive : 2 % de §32 / 1.86 % par deg).
 
 
    -- ROOM-REGAXE : L'AXE DES ROTATIONS DE §18 A §20 (cycle 67) -------------------
@@ -1960,26 +1960,26 @@ ROOM-POSE-RAFFINEMENT-VERDICT: LE PLATEAU N'EST PAS ATTEINT A 7.5 deg, ET LE SEU
 ROOM-REGAXE-LEAN: une rotation AUTOUR de l'axe lateral commute avec la reflexion dans le
    plan de normale laterale : elle laisse l'ecart au miroir INVARIANT, par algebre.
    `physroom-lean` tourne autour du monde X et fait passer cet ecart de 0.207 deg (pose
-   `idle`) a 130.802 deg (pose `tilt`). L'axe X n'est donc PAS le lateral, et ce que la salle
+   `idle`) a 130.792 deg (pose `tilt`). L'axe X n'est donc PAS le lateral, et ce que la salle
    documente comme « penchee de 60 deg VERS L'AVANT » est une inclinaison LATERALE.
    Consequence : §12 (« sideways gravity ») est servie par le bon geste ; le PENCHE AVANT
    de §13 (« at a 45 deg forward lean ») n'a jamais ete joue, et `ROOM-GRAVSAG` ne
    repond donc pas a la plainte « aucun mouvement quand elle se penche en avant pour souder ».
 
    -- ROOM-REGA : §18 A §20, AXES DU SUJET, LES DEUX SENS (cycle 68) -------------
-ROOM-REGA: pose a=0 f=5.7500, ecart au miroir revalide = 0.70 deg ; axe pris sur le SUJET
+ROOM-REGA: pose a=0 f=5.7500, ecart au miroir revalide = 0.63 deg ; axe pris sur le SUJET
    dap < 0 = le buste part VERS L'AVANT (l'axe AP du solveur pointe vers l'arriere,
    mesure : os chest->lBoob a +0.154 sur le mesh livre, -0.130 sur cet axe).
 
       r   section sgn  dap (u)   dver (u)  dlat (u)  apexL    apexR    R       geste obtenu
       9   §18       +1 -508.6    -0.0      -300.2    0.4301   0.1024   4.200   LACET
-      9   §18       -1 300.2     -0.0      -508.7    0.5274   0.1612   3.272   LACET
-      10  §18       +1 -394.3    0.0       -704.4    0.4972   0.1116   4.455   LACET
-      10  §18       -1 5.1       -0.0      -804.3    0.5481   0.1774   3.090   LACET
+      9   §18       -1 300.2     -0.0      -508.7    0.5273   0.1610   3.275   LACET
+      10  §18       +1 -394.3    0.0       -704.4    0.4972   0.1114   4.463   LACET
+      10  §18       -1 5.1       -0.0      -804.3    0.5481   0.1763   3.109   LACET
       11  §19       +1 -875.0    468.7     -0.0      0.9272   0.9042   1.025   flexion AVANT
-      11  §19       -1 743.3     662.6     0.0       0.5927   0.5963   1.006   flexion ARRIERE
+      11  §19       -1 743.3     662.6     0.0       0.5932   0.5964   1.005   flexion ARRIERE
       12  §19       +1 0.0       0.0       0.0       0.6384   0.7094   1.111   deplacement negligeable
-      12  §19       -1 0.0       0.0       0.0       0.6257   0.5938   1.054   deplacement negligeable
+      12  §19       -1 0.0       0.0       0.0       0.6265   0.5925   1.057   deplacement negligeable
       13  §20       +1 0.0       386.1     421.4     0.3882   0.4281   1.103   inclinaison LATERALE
       13  §20       -1 0.0       -74.7     -564.9    0.5727   0.4697   1.219   inclinaison LATERALE
       14  §20       +1 0.0       -74.7     -564.9    0.4869   0.4859   1.002   inclinaison LATERALE
@@ -2007,20 +2007,20 @@ ROOM-REGA-GESTE-DOUBLON: (r=13 sgn=+1) et (r=14 sgn=-1) ont le MEME deplacement 
    -- ROOM-REGA-BANDE : LA MEME CELLULE, CONTRE LA BANDE DE SA SECTION -------
 ROOM-REGA-BANDE: chestL r=9  sgn=+1 §18  apex=0.4301 B0  [pas de bande] §18 ne borne l'apex que pour « strong » : PAS de bande ici  | GELE (perr 0.5038-0.5041 B0, 2 jambe(s))
 ROOM-REGA-BANDE: chestR r=9  sgn=+1 §18  apex=0.1024 B0  [pas de bande] §18 ne borne l'apex que pour « strong » : PAS de bande ici  | LINEAIRE (perr 0.0784-0.0901 B0, 2 jambe(s))
-ROOM-REGA-BANDE: chestL r=9  sgn=-1 §18  apex=0.5274 B0  [pas de bande] §18 ne borne l'apex que pour « strong » : PAS de bande ici  | GELE (perr 0.5038-0.5041 B0, 2 jambe(s))
-ROOM-REGA-BANDE: chestR r=9  sgn=-1 §18  apex=0.1612 B0  [pas de bande] §18 ne borne l'apex que pour « strong » : PAS de bande ici  | LINEAIRE (perr 0.0784-0.0901 B0, 2 jambe(s))
+ROOM-REGA-BANDE: chestL r=9  sgn=-1 §18  apex=0.5273 B0  [pas de bande] §18 ne borne l'apex que pour « strong » : PAS de bande ici  | GELE (perr 0.5038-0.5041 B0, 2 jambe(s))
+ROOM-REGA-BANDE: chestR r=9  sgn=-1 §18  apex=0.1610 B0  [pas de bande] §18 ne borne l'apex que pour « strong » : PAS de bande ici  | LINEAIRE (perr 0.0784-0.0901 B0, 2 jambe(s))
 ROOM-REGA-BANDE: chestL r=10 sgn=+1 §18  apex=0.4972 B0  [0.20-0.30]  AU-DESSUS (x1.66)  k admissible [1.657 .. 2.486]  | GELE (perr 0.5638-0.5757 B0, 2 jambe(s))
-ROOM-REGA-BANDE: chestR r=10 sgn=+1 §18  apex=0.1116 B0  [0.20-0.30]  SOUS (x0.56)       k admissible [0.372 .. 0.558]  | LINEAIRE (perr 0.1189-0.1250 B0, 2 jambe(s))
+ROOM-REGA-BANDE: chestR r=10 sgn=+1 §18  apex=0.1114 B0  [0.20-0.30]  SOUS (x0.56)       k admissible [0.371 .. 0.557]  | LINEAIRE (perr 0.1189-0.1250 B0, 2 jambe(s))
 ROOM-REGA-BANDE: chestL r=10 sgn=-1 §18  apex=0.5481 B0  [0.20-0.30]  AU-DESSUS (x1.83)  k admissible [1.827 .. 2.740]  | GELE (perr 0.5638-0.5757 B0, 2 jambe(s))
-ROOM-REGA-BANDE: chestR r=10 sgn=-1 §18  apex=0.1774 B0  [0.20-0.30]  SOUS (x0.89)       k admissible [0.591 .. 0.887]  | LINEAIRE (perr 0.1189-0.1250 B0, 2 jambe(s))
+ROOM-REGA-BANDE: chestR r=10 sgn=-1 §18  apex=0.1763 B0  [0.20-0.30]  SOUS (x0.88)       k admissible [0.588 .. 0.882]  | LINEAIRE (perr 0.1189-0.1250 B0, 2 jambe(s))
 ROOM-REGA-BANDE: chestL r=11 sgn=+1 §19  apex=0.9272 B0  [0.30-0.40]  AU-DESSUS (x2.32)  k admissible [2.318 .. 3.091]  | GELE (perr 0.5606-0.5613 B0, 2 jambe(s))
 ROOM-REGA-BANDE: chestR r=11 sgn=+1 §19  apex=0.9042 B0  [0.30-0.40]  AU-DESSUS (x2.26)  k admissible [2.260 .. 3.014]  | GELE (perr 0.5556-0.5698 B0, 2 jambe(s))
-ROOM-REGA-BANDE: chestL r=11 sgn=-1 §19  apex=0.5927 B0  [0.30-0.40]  AU-DESSUS (x1.48)  k admissible [1.482 .. 1.976]  | GELE (perr 0.5606-0.5613 B0, 2 jambe(s))
-ROOM-REGA-BANDE: chestR r=11 sgn=-1 §19  apex=0.5963 B0  [0.30-0.40]  AU-DESSUS (x1.49)  k admissible [1.491 .. 1.988]  | GELE (perr 0.5556-0.5698 B0, 2 jambe(s))
+ROOM-REGA-BANDE: chestL r=11 sgn=-1 §19  apex=0.5932 B0  [0.30-0.40]  AU-DESSUS (x1.48)  k admissible [1.483 .. 1.977]  | GELE (perr 0.5606-0.5613 B0, 2 jambe(s))
+ROOM-REGA-BANDE: chestR r=11 sgn=-1 §19  apex=0.5964 B0  [0.30-0.40]  AU-DESSUS (x1.49)  k admissible [1.491 .. 1.988]  | GELE (perr 0.5556-0.5698 B0, 2 jambe(s))
 ROOM-REGA-BANDE: chestL r=12 sgn=+1 §19  apex=0.6384 B0  [0.30-0.40]  AU-DESSUS (x1.60)  k admissible [1.596 .. 2.128]  | GELE (perr 0.5316-0.5601 B0, 2 jambe(s))
 ROOM-REGA-BANDE: chestR r=12 sgn=+1 §19  apex=0.7094 B0  [0.30-0.40]  AU-DESSUS (x1.77)  k admissible [1.774 .. 2.365]  | GELE (perr 0.5304-0.5502 B0, 2 jambe(s))
-ROOM-REGA-BANDE: chestL r=12 sgn=-1 §19  apex=0.6257 B0  [0.30-0.40]  AU-DESSUS (x1.56)  k admissible [1.564 .. 2.086]  | GELE (perr 0.5316-0.5601 B0, 2 jambe(s))
-ROOM-REGA-BANDE: chestR r=12 sgn=-1 §19  apex=0.5938 B0  [0.30-0.40]  AU-DESSUS (x1.48)  k admissible [1.484 .. 1.979]  | GELE (perr 0.5304-0.5502 B0, 2 jambe(s))
+ROOM-REGA-BANDE: chestL r=12 sgn=-1 §19  apex=0.6265 B0  [0.30-0.40]  AU-DESSUS (x1.57)  k admissible [1.566 .. 2.088]  | GELE (perr 0.5316-0.5601 B0, 2 jambe(s))
+ROOM-REGA-BANDE: chestR r=12 sgn=-1 §19  apex=0.5925 B0  [0.30-0.40]  AU-DESSUS (x1.48)  k admissible [1.481 .. 1.975]  | GELE (perr 0.5304-0.5502 B0, 2 jambe(s))
 ROOM-REGA-BANDE: chestL r=13 sgn=+1 §20  apex=0.3882 B0  [0.20-0.30]  AU-DESSUS (x1.29)  k admissible [1.294 .. 1.941]  | GELE (perr 0.5330-0.5409 B0, 2 jambe(s))
 ROOM-REGA-BANDE: chestR r=13 sgn=+1 §20  apex=0.4281 B0  [0.20-0.30]  AU-DESSUS (x1.43)  k admissible [1.427 .. 2.140]  | GENOU (perr 0.4653-0.4712 B0, 2 jambe(s))
 ROOM-REGA-BANDE: chestL r=13 sgn=-1 §20  apex=0.5727 B0  [0.20-0.30]  AU-DESSUS (x1.91)  k admissible [1.909 .. 2.863]  | GELE (perr 0.5330-0.5409 B0, 2 jambe(s))
@@ -2029,23 +2029,23 @@ ROOM-REGA-BANDE: chestL r=14 sgn=+1 §20  apex=0.4869 B0  [0.20-0.30]  AU-DESSUS
 ROOM-REGA-BANDE: chestR r=14 sgn=+1 §20  apex=0.4859 B0  [0.20-0.30]  AU-DESSUS (x1.62)  k admissible [1.620 .. 2.429]  | GELE (perr 0.5431-0.5629 B0, 2 jambe(s))
 ROOM-REGA-BANDE: chestL r=14 sgn=-1 §20  apex=0.6543 B0  [0.20-0.30]  AU-DESSUS (x2.18)  k admissible [2.181 .. 3.271]  | GELE (perr 0.5621-0.5702 B0, 2 jambe(s))
 ROOM-REGA-BANDE: chestR r=14 sgn=-1 §20  apex=0.5970 B0  [0.20-0.30]  AU-DESSUS (x1.99)  k admissible [1.990 .. 2.985]  | GELE (perr 0.5431-0.5629 B0, 2 jambe(s))
-ROOM-REGA-FACTEUR: §18 sgn=-1  2 cellule(s)  ->  AUCUN facteur uniforme : il faudrait k >= 1.827 et k <= 0.887
+ROOM-REGA-FACTEUR: §18 sgn=-1  2 cellule(s)  ->  AUCUN facteur uniforme : il faudrait k >= 1.827 et k <= 0.882
    limiteur des cellules : 1 LINEAIRE / 0 au GENOU / 1 GELE   <<< la borne ne porte pas sur une population lineaire
    CELLULE CONTRAIGNANTE chestL(GELE r=10) et chestR(LINEAIRE r=10) : AU MOINS UNE EST HORS ZONE LINEAIRE.
    CE `k` N'EST DONC PAS UN OBJECTIF ATTEIGNABLE PAR UN FACTEUR : dans la
    zone GELE du mur de §21 la force de rappel est CONSTANTE, la sortie ne
    suit pas l'entree, et diviser l'entree ne divise pas l'excursion.
    Il se lit comme un ECART A COMBLER, jamais comme un reglage a poser.
-ROOM-REGA-FACTEUR: §18 sgn=+1  2 cellule(s)  ->  AUCUN facteur uniforme : il faudrait k >= 1.657 et k <= 0.558
+ROOM-REGA-FACTEUR: §18 sgn=+1  2 cellule(s)  ->  AUCUN facteur uniforme : il faudrait k >= 1.657 et k <= 0.557
    limiteur des cellules : 1 LINEAIRE / 0 au GENOU / 1 GELE   <<< la borne ne porte pas sur une population lineaire
    CELLULE CONTRAIGNANTE chestL(GELE r=10) et chestR(LINEAIRE r=10) : AU MOINS UNE EST HORS ZONE LINEAIRE.
    CE `k` N'EST DONC PAS UN OBJECTIF ATTEIGNABLE PAR UN FACTEUR : dans la
    zone GELE du mur de §21 la force de rappel est CONSTANTE, la sortie ne
    suit pas l'entree, et diviser l'entree ne divise pas l'excursion.
    Il se lit comme un ECART A COMBLER, jamais comme un reglage a poser.
-ROOM-REGA-FACTEUR: §19 sgn=-1  4 cellule(s)  ->  k uniforme ATTEIGNABLE dans [1.564 .. 1.976]
+ROOM-REGA-FACTEUR: §19 sgn=-1  4 cellule(s)  ->  k uniforme ATTEIGNABLE dans [1.566 .. 1.975]
    limiteur des cellules : 0 LINEAIRE / 0 au GENOU / 4 GELE   <<< la borne ne porte pas sur une population lineaire
-   CELLULE CONTRAIGNANTE chestL(GELE r=12) et chestL(GELE r=11) : AU MOINS UNE EST HORS ZONE LINEAIRE.
+   CELLULE CONTRAIGNANTE chestL(GELE r=12) et chestR(GELE r=12) : AU MOINS UNE EST HORS ZONE LINEAIRE.
    CE `k` N'EST DONC PAS UN OBJECTIF ATTEIGNABLE PAR UN FACTEUR : dans la
    zone GELE du mur de §21 la force de rappel est CONSTANTE, la sortie ne
    suit pas l'entree, et diviser l'entree ne divise pas l'excursion.
@@ -2072,14 +2072,14 @@ ROOM-REGA-FACTEUR: §20 sgn=+1  4 cellule(s)  ->  k uniforme ATTEIGNABLE dans [1
    suit pas l'entree, et diviser l'entree ne divise pas l'excursion.
    Il se lit comme un ECART A COMBLER, jamais comme un reglage a poser.
 
-ROOM-REGA-FACTEUR: §18 geste=gC  2 cellule(s)  ->  AUCUN facteur uniforme : il faudrait k >= 1.827 et k <= 0.887
+ROOM-REGA-FACTEUR: §18 geste=gC  2 cellule(s)  ->  AUCUN facteur uniforme : il faudrait k >= 1.827 et k <= 0.882
    limiteur des cellules : 1 LINEAIRE / 0 au GENOU / 1 GELE   <<< la borne ne porte pas sur une population lineaire
    CELLULE CONTRAIGNANTE chestL(GELE r=10) et chestR(LINEAIRE r=10) : AU MOINS UNE EST HORS ZONE LINEAIRE.
    CE `k` N'EST DONC PAS UN OBJECTIF ATTEIGNABLE PAR UN FACTEUR : dans la
    zone GELE du mur de §21 la force de rappel est CONSTANTE, la sortie ne
    suit pas l'entree, et diviser l'entree ne divise pas l'excursion.
    Il se lit comme un ECART A COMBLER, jamais comme un reglage a poser.
-ROOM-REGA-FACTEUR: §18 geste=gD  2 cellule(s)  ->  AUCUN facteur uniforme : il faudrait k >= 1.657 et k <= 0.558
+ROOM-REGA-FACTEUR: §18 geste=gD  2 cellule(s)  ->  AUCUN facteur uniforme : il faudrait k >= 1.657 et k <= 0.557
    limiteur des cellules : 1 LINEAIRE / 0 au GENOU / 1 GELE   <<< la borne ne porte pas sur une population lineaire
    CELLULE CONTRAIGNANTE chestL(GELE r=10) et chestR(LINEAIRE r=10) : AU MOINS UNE EST HORS ZONE LINEAIRE.
    CE `k` N'EST DONC PAS UN OBJECTIF ATTEIGNABLE PAR UN FACTEUR : dans la
@@ -2090,7 +2090,7 @@ ROOM-REGA-FACTEUR: §19 g?12+1  2 cellule(s)  ->  GESTE NON IDENTIFIE : deplacem
    la fenetre est un aller-retour et son geste ne se lit pas dans un deplacement net.
 ROOM-REGA-FACTEUR: §19 g?12-1  2 cellule(s)  ->  GESTE NON IDENTIFIE : deplacement net nul,
    la fenetre est un aller-retour et son geste ne se lit pas dans un deplacement net.
-ROOM-REGA-FACTEUR: §19 geste=gE  2 cellule(s)  ->  k uniforme ATTEIGNABLE dans [1.491 .. 1.976]
+ROOM-REGA-FACTEUR: §19 geste=gE  2 cellule(s)  ->  k uniforme ATTEIGNABLE dans [1.491 .. 1.977]
    limiteur des cellules : 0 LINEAIRE / 0 au GENOU / 2 GELE   <<< la borne ne porte pas sur une population lineaire
    CELLULE CONTRAIGNANTE chestR(GELE r=11) et chestL(GELE r=11) : AU MOINS UNE EST HORS ZONE LINEAIRE.
    CE `k` N'EST DONC PAS UN OBJECTIF ATTEIGNABLE PAR UN FACTEUR : dans la
@@ -2146,14 +2146,14 @@ ROOM-REGA-SENS: la flexion AVANT de §19 est obtenue au signe +1 (fenetres r=11)
    son controle a stimulus miroir.
 
    -- ROOM-REGC : LE LACET PUR, COLLISION ARMEE CONTRE DESARMEE (cycle 108) ------
-ROOM-REGC-REF: chestL r=9  sgn=-1  PH-REGA apex=0.5274  PH-REGC abl=0 apex=0.5119  ecart   -2.9 %
+ROOM-REGC-REF: chestL r=9  sgn=-1  PH-REGA apex=0.5273  PH-REGC abl=0 apex=0.5118  ecart   -2.9 %
 ROOM-REGC-REF: chestL r=9  sgn=+1  PH-REGA apex=0.4301  PH-REGC abl=0 apex=0.4269  ecart   -0.7 %
-ROOM-REGC-REF: chestL r=10 sgn=-1  PH-REGA apex=0.5481  PH-REGC abl=0 apex=0.6080  ecart  +10.9 %
+ROOM-REGC-REF: chestL r=10 sgn=-1  PH-REGA apex=0.5481  PH-REGC abl=0 apex=0.6082  ecart  +11.0 %
 ROOM-REGC-REF: chestL r=10 sgn=+1  PH-REGA apex=0.4972  PH-REGC abl=0 apex=0.4969  ecart   -0.1 %
-ROOM-REGC-REF: chestR r=9  sgn=-1  PH-REGA apex=0.1612  PH-REGC abl=0 apex=0.1611  ecart   -0.1 %
+ROOM-REGC-REF: chestR r=9  sgn=-1  PH-REGA apex=0.1610  PH-REGC abl=0 apex=0.1608  ecart   -0.1 %
 ROOM-REGC-REF: chestR r=9  sgn=+1  PH-REGA apex=0.1024  PH-REGC abl=0 apex=0.1032  ecart   +0.8 %
-ROOM-REGC-REF: chestR r=10 sgn=-1  PH-REGA apex=0.1774  PH-REGC abl=0 apex=0.1731  ecart   -2.4 %
-ROOM-REGC-REF: chestR r=10 sgn=+1  PH-REGA apex=0.1116  PH-REGC abl=0 apex=0.1135  ecart   +1.7 %
+ROOM-REGC-REF: chestR r=10 sgn=-1  PH-REGA apex=0.1763  PH-REGC abl=0 apex=0.1721  ecart   -2.4 %
+ROOM-REGC-REF: chestR r=10 sgn=+1  PH-REGA apex=0.1114  PH-REGC abl=0 apex=0.1130  ecart   +1.4 %
    La jambe ARMEE reproduit PH-REGA sur 8 cellule(s) sur 8 : les deux
    jambes sont comparables, le verdict peut se lire.
 
@@ -2203,13 +2203,13 @@ ROOM-SPEC15-CROSS: chestR   r= 7 runA-accel    cydn=0.0067 cyup=0.0700 -> TRAVER
 ROOM-SPEC15-CROSS: chestL   r= 8 runA-brake    cydn=0.0837 cyup=0.0142 -> TRAVERSEE
 ROOM-SPEC15-CROSS: chestR   r= 8 runA-brake    cydn=0.0321 cyup=0.0542 -> TRAVERSEE
 ROOM-SPEC15-CROSS: chestL   r= 9 yawA          cydn=0.0177 cyup=0.0035 -> TRAVERSEE
-ROOM-SPEC15-CROSS: chestR   r= 9 yawA          cydn=0.0991 cyup=0.0233 -> TRAVERSEE
+ROOM-SPEC15-CROSS: chestR   r= 9 yawA          cydn=0.0992 cyup=0.0233 -> TRAVERSEE
 ROOM-SPEC15-CROSS: chestL   r=10 yawB          cydn=0.0265 cyup=0.0173 -> TRAVERSEE
 ROOM-SPEC15-CROSS: chestR   r=10 yawB          cydn=0.0978 cyup=0.0402 -> TRAVERSEE
-ROOM-SPEC15-CROSS: chestL   r=11 pitchA-bend   cydn=0.2334 cyup=0.0808 -> TRAVERSEE
-ROOM-SPEC15-CROSS: chestR   r=11 pitchA-bend   cydn=0.2422 cyup=0.1795 -> TRAVERSEE
-ROOM-SPEC15-CROSS: chestL   r=12 pitchA-return cydn=0.2826 cyup=0.0272 -> TRAVERSEE
-ROOM-SPEC15-CROSS: chestR   r=12 pitchA-return cydn=0.2497 cyup=0.0479 -> TRAVERSEE
+ROOM-SPEC15-CROSS: chestL   r=11 pitchA-bend   cydn=0.2331 cyup=0.0808 -> TRAVERSEE
+ROOM-SPEC15-CROSS: chestR   r=11 pitchA-bend   cydn=0.2421 cyup=0.1795 -> TRAVERSEE
+ROOM-SPEC15-CROSS: chestL   r=12 pitchA-return cydn=0.2827 cyup=0.0272 -> TRAVERSEE
+ROOM-SPEC15-CROSS: chestR   r=12 pitchA-return cydn=0.2497 cyup=0.0480 -> TRAVERSEE
 ROOM-SPEC15-CROSS: chestL   r=13 rollA         cydn=0.1446 cyup=0.0485 -> TRAVERSEE
 ROOM-SPEC15-CROSS: chestR   r=13 rollA         cydn=0.1544 cyup=0.0066 -> TRAVERSEE
 ROOM-SPEC15-CROSS: chestL   r=14 rollB         cydn=0.1333 cyup=0.0278 -> TRAVERSEE
@@ -2955,14 +2955,14 @@ row chain=chestR       anim=assistant-lavatube-end-idle            drive=tilt   
       donc etre non nuls que si un terme du solveur distingue un SENS de l'autre.
       Ce ne sont pas des seuils choisis, c'est une propriete du systeme.
 
-   ROOM-SIGN-BASE: `bapex` (60 frames de calme fermant la fenetre) mediane 0.2179  max 0.6190  sd 0.0830
+   ROOM-SIGN-BASE: `bapex` (60 frames de calme fermant la fenetre) mediane 0.2181  max 0.6190  sd 0.0830
       P5 EST REFUTEE, ET LA CAUSE EST MON INSTRUMENT : la rampe de RETOUR est une
       impulsion de meme amplitude, et le calme la suit immediatement. `bapex` lit
       donc sa reponse, pas un residu. Cette ligne ne sert PAS de plancher.
 
    ROOM-SIGN-REPEAT: k=0 contre k=2 (cote levee, INERTE ici), memes (axe, sens),
       12 cellules separees de DOUZE fenetres dans la sequence :
-      ecart max 6.594 %   mediane 0.899 %
+      ecart max 6.430 %   mediane 0.912 %
       -> C'EST LE PLANCHER DE L'INSTRUMENT. Tout ecart au-dela est REEL.
 
    ROOM-SIGN-ABL: ce que CHAQUE desarmement fait a la reponse, rapporte a k=0.
@@ -2970,25 +2970,25 @@ row chain=chestR       anim=assistant-lavatube-end-idle            drive=tilt   
       « retirer la seule restriction, donc tout grandit », il ferait monter LES TROIS
       axes. Une ablation qui ne deplace QU'UN axe designe un mecanisme SELECTIF.
       chaine   axe   sens       k0 | k1 long  k2 cote  k3 cone  k4 MUR   k5 rad
-      chestL   VERTICAL +1     0.1202 | 2.32x    0.96x    1.01x    1.09x    1.39x   
-      chestL   VERTICAL -1     0.1682 | 2.15x    1.00x    1.01x    1.00x    0.98x   
-      chestL   AVANT-ARR +1     0.4753 | 1.08x    1.00x    1.00x    1.00x    1.01x   
+      chestL   VERTICAL +1     0.1201 | 2.32x    0.96x    1.01x    1.09x    1.39x   
+      chestL   VERTICAL -1     0.1685 | 2.15x    1.00x    1.01x    1.00x    0.98x   
+      chestL   AVANT-ARR +1     0.4754 | 1.08x    1.00x    1.00x    1.00x    1.01x   
       chestL   AVANT-ARR -1     0.3922 | 1.08x    1.00x    1.04x    0.85x    1.01x   
-      chestL   LATERAL +1     0.2945 | 0.83x    1.01x    1.01x    1.08x    1.00x   
-      chestL   LATERAL -1     0.3330 | 1.05x    1.01x    1.01x    1.01x    0.97x   
-      chestR   VERTICAL +1     0.1350 | 3.29x    0.99x    1.00x    0.99x    1.45x   
-      chestR   VERTICAL -1     0.1359 | 3.73x    1.05x    1.02x    1.01x    1.15x   
+      chestL   LATERAL +1     0.2941 | 0.83x    1.01x    1.01x    1.08x    1.00x   
+      chestL   LATERAL -1     0.3333 | 1.05x    1.01x    1.01x    1.01x    0.97x   
+      chestR   VERTICAL +1     0.1343 | 3.31x    0.99x    1.00x    0.99x    1.46x   
+      chestR   VERTICAL -1     0.1366 | 3.71x    1.05x    1.02x    1.01x    1.15x   
       chestR   AVANT-ARR +1     0.4625 | 1.01x    1.00x    0.98x    0.99x    0.99x   
-      chestR   AVANT-ARR -1     0.2253 | 0.88x    0.93x    1.44x    1.18x    1.24x   
-      chestR   LATERAL +1     0.3528 | 1.12x    1.01x    1.00x    1.00x    0.98x   
-      chestR   LATERAL -1     0.3338 | 1.16x    1.00x    1.02x    1.05x    0.98x   
+      chestR   AVANT-ARR -1     0.2252 | 0.88x    0.94x    1.44x    1.18x    1.25x   
+      chestR   LATERAL +1     0.3535 | 1.12x    1.01x    1.00x    1.00x    0.98x   
+      chestR   LATERAL -1     0.3331 | 1.16x    1.00x    1.02x    1.05x    0.98x   
 
    ROOM-SIGN-STIM: sur les cellules PROPRES, ecart de stimulus entre les deux sens — max 0.000 %  (P6 : <= 5 %) -> TENUE
       P6 A FAIT SON TRAVAIL : c'est elle qui a attrape la fenetre i=0, dont le
       stimulus valait 74x celui des autres. Sans ce controle, le plus gros chiffre
       du tableau partait dans le rapport comme une reponse a mon impulsion.
 
-   ROOM-SIGN-P4: desarmer le MUR DE COLLISION (k=4) deplace la reponse de 18.4 % au plus, 1.4 % en mediane, sur 12 cellules propres.
+   ROOM-SIGN-P4: desarmer le MUR DE COLLISION (k=4) deplace la reponse de 18.4 % au plus, 1.5 % en mediane, sur 12 cellules propres.
       -> P4 REFUTEE, ET C'ETAIT MON SUSPECT PRINCIPAL, MISE AVANT LA COURSE.
       LE MUR DE COLLISION EST EXONERE de la dependance au sens. C'etait le seul
       terme UNILATERAL PAR NATURE du solveur — une poussee de contact ne tire
@@ -2996,40 +2996,40 @@ row chain=chestR       anim=assistant-lavatube-end-idle            drive=tilt   
       ce qui est un resultat et non un echec.
 
    ROOM-SIGN-P3: l'asymetrie de SENS, cellules propres de k=0, contre le plancher
-      de repetabilite (6.594 %). Pour un systeme lineaire OU une non-linearite
+      de repetabilite (6.430 %). Pour un systeme lineaire OU une non-linearite
       symetrique, A_mag et A_dir valent EXACTEMENT zero.
-      VERTICAL chestL       apex(+)=0.1202 apex(-)=0.1682  A_mag=0.2855 (4x le plancher)  A_dir=161.9 deg
-      VERTICAL chestR       apex(+)=0.1350 apex(-)=0.1359  A_mag=0.0065 (0x le plancher)  A_dir=53.4 deg
-      AVANT-ARR chestL       apex(+)=0.4753 apex(-)=0.3922  A_mag=0.1749 (3x le plancher)  A_dir=19.5 deg
-      AVANT-ARR chestR       apex(+)=0.4625 apex(-)=0.2253  A_mag=0.5128 (8x le plancher)  A_dir=12.0 deg
-      LATERAL chestL       apex(+)=0.2945 apex(-)=0.3330  A_mag=0.1155 (2x le plancher)  A_dir=38.2 deg
-      LATERAL chestR       apex(+)=0.3528 apex(-)=0.3338  A_mag=0.0537 (1x le plancher)  A_dir=30.7 deg
+      VERTICAL chestL       apex(+)=0.1201 apex(-)=0.1685  A_mag=0.2872 (4x le plancher)  A_dir=161.9 deg
+      VERTICAL chestR       apex(+)=0.1343 apex(-)=0.1366  A_mag=0.0167 (0x le plancher)  A_dir=53.5 deg
+      AVANT-ARR chestL       apex(+)=0.4754 apex(-)=0.3922  A_mag=0.1751 (3x le plancher)  A_dir=19.5 deg
+      AVANT-ARR chestR       apex(+)=0.4625 apex(-)=0.2252  A_mag=0.5131 (8x le plancher)  A_dir=11.6 deg
+      LATERAL chestL       apex(+)=0.2941 apex(-)=0.3333  A_mag=0.1175 (2x le plancher)  A_dir=38.1 deg
+      LATERAL chestR       apex(+)=0.3535 apex(-)=0.3331  A_mag=0.0578 (1x le plancher)  A_dir=30.8 deg
       P3 TELLE QUE JE L'AVAIS ECRITE PORTAIT SUR L'AXE VERTICAL : elle est
       INDECIDABLE, sa fenetre `+` etant la cellule contaminee. Je ne la compte ni
       tenue ni refutee. Ce que les axes PROPRES etablissent est publie ci-dessus.
 
    ROOM-SIGN-RANK: LE MEME (ablation, axe, sens) JOUE AUX DEUX RANGS.
-      72 cellules appariees. Ecart max 69.01 %, mediane 1.07 %.
-      pire : k=2 AVANT-ARR s=-1 chestR        i=14 0.3213   i=51 0.0996   69.01 %
-      pire : k=0 AVANT-ARR s=-1 chestR        i= 2 0.1262   i=39 0.3245   61.12 %
-      pire : k=1 VERTICAL  s=+1 chestR        i= 7 0.2636   i=42 0.6254   57.85 %
-      pire : k=1 LATERAL   s=+1 chestL        i=11 0.3449   i=46 0.1455   57.81 %
+      72 cellules appariees. Ecart max 68.79 %, mediane 1.12 %.
+      pire : k=2 AVANT-ARR s=-1 chestR        i=14 0.3211   i=51 0.1002   68.79 %
+      pire : k=0 AVANT-ARR s=-1 chestR        i= 2 0.1261   i=39 0.3242   61.11 %
+      pire : k=1 VERTICAL  s=+1 chestR        i= 7 0.2636   i=42 0.6254   57.86 %
+      pire : k=1 LATERAL   s=+1 chestL        i=11 0.3445   i=46 0.1455   57.77 %
       -> P6 REFUTEE — le rang deplace la lecture d'autant que le sens ; l'asymetrie de sens publiee au cycle 52 est CONTAMINEE et sa section 5 doit etre reecrite (critere : <= 5 %).
 
    ROOM-SIGN-BONE: angle entre l'OS et l'AXE POUSSE, et la part TRANSVERSE qui
       survit a la projection de longueur (sin theta).
       chaine       os   | direction monde de l'os          | vertical      avant-arr     lateral
-      chestL       l=0 | (-0.2089, +0.9604, +0.1846)  norme 1.0000 |  22.8 deg sin=0.388   84.1 deg sin=0.995   68.1 deg sin=0.928
-      chestL       l=1 | (-0.1353, +0.9671, +0.2155)  norme 1.0000 |  23.6 deg sin=0.400   88.4 deg sin=1.000   66.5 deg sin=0.917
-      chestR       l=0 | (-0.0420, +0.8403, -0.5405)  norme 1.0000 |  21.9 deg sin=0.372   89.8 deg sin=1.000   68.1 deg sin=0.928
-      chestR       l=1 | (+0.0626, +0.8544, -0.5158)  norme 1.0000 |  21.8 deg sin=0.371   83.6 deg sin=0.994   69.3 deg sin=0.935
+      chestL       l=0 | (-0.2089, +0.9603, +0.1849)  norme 1.0000 |  22.8 deg sin=0.388   84.1 deg sin=0.995   68.1 deg sin=0.928
+      chestL       l=1 | (-0.1342, +0.9686, +0.2095)  norme 1.0000 |  23.2 deg sin=0.394   88.5 deg sin=1.000   66.8 deg sin=0.919
+      chestR       l=0 | (-0.0419, +0.8401, -0.5408)  norme 1.0000 |  21.9 deg sin=0.373   89.8 deg sin=1.000   68.1 deg sin=0.928
+      chestR       l=1 | (+0.0599, +0.8596, -0.5074)  norme 1.0000 |  21.2 deg sin=0.362   83.7 deg sin=0.994   69.8 deg sin=0.939
 
-   ROOM-SIGN-P3: sur chestL, |cos| vertical=0.9218  avant-arr=0.1036  lateral=0.3734
+   ROOM-SIGN-P3: sur chestL, |cos| vertical=0.9217  avant-arr=0.1036  lateral=0.3738
       -> P3 TENUE : le vertical EST l'axe le plus aligne avec l'os, donc celui que la contrainte de longueur confisque le plus.
-   ROOM-SIGN-P4: POSE NON SYMETRIQUE — PH-SGN epinglee est a 8.4 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind). l attribution du cycle 52 depend de cette ligne.
-      confiscation MESUREE sur cette course (k=1 / k=0, axe vertical): POSE NON SYMETRIQUE — PH-SGN epinglee est a 8.4 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind). l attribution du cycle 52 depend de cette ligne.
-      predite par 1/sin: POSE NON SYMETRIQUE — PH-SGN epinglee est a 8.4 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind). l attribution du cycle 52 depend de cette ligne.
-      -> P4 REFUTEE, ET CONTRE MOI: POSE NON SYMETRIQUE — PH-SGN epinglee est a 8.4 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind). l attribution du cycle 52 depend de cette ligne.
+   ROOM-SIGN-P4: POSE NON SYMETRIQUE — PH-SGN epinglee est a 8.3 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind). l attribution du cycle 52 depend de cette ligne.
+      confiscation MESUREE sur cette course (k=1 / k=0, axe vertical): POSE NON SYMETRIQUE — PH-SGN epinglee est a 8.3 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind). l attribution du cycle 52 depend de cette ligne.
+      predite par 1/sin: POSE NON SYMETRIQUE — PH-SGN epinglee est a 8.3 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind). l attribution du cycle 52 depend de cette ligne.
+      -> P4 REFUTEE, ET CONTRE MOI: POSE NON SYMETRIQUE — PH-SGN epinglee est a 8.3 deg du miroir (seuil 1.3 ; le rig est a 0.005 deg en pose de bind). l attribution du cycle 52 depend de cette ligne.
 
 
 -- ROOM-RINGFIT : SPEC 24/25/26, AJUSTEES SUR TOUTE LA SERIE ------------------------------
@@ -4087,18 +4087,208 @@ ROOM-ORICOM-MASS: chestR       §12 lateral i=4  |d_COM| AU COMPTE DE SOMMETS (V
    (frontieres w>0 / w>=0.05 / w>=0.25 — les trois colonnes de |d_COM| ci-dessus ; N=90, part de l'organe portee par la chaine 0.5452, le reste est ancre au buste)
    (les MEMES a la masse d'aire : na=1164097.4 u^2, part de l'organe portee par la chaine 0.4848 — ce denominateur est publie en DIAGNOSTIC, il ne porte pas le verdict ci-dessus)
 
+C133-COM: `anchor_ortho` publie par la sonde de masse = 1.034e-24 (0 = base orthonormee ; la NORME d'un deplacement y vaut celle du monde)
+C133-COM: convention de skinning tranchee par mesure : C (A 4.55501 · C 0.00000)
+C133-COM: cellules designees par la GRAVITE MESUREE : SUPINE i=8 · PRONE i=6
+
+C133-COM: chestL   w>0.00   §10  i=8   LIVREE(compte) 0.3434  LIVREE(aire) 0.2838  LINEARISEE(livree,compte) 0.1719  B0=602.0
+C133-COM: chestL   w>0.00   §10  i=8   DIAGNOSTIC, PAS UN VERDICT — pondere par le POIDS DE PEAU (denominateur SOMME wsum, donc `w` compte DEUX fois) : 0.4490 B0. Publie parce que c'est l'erreur que ce cycle a faite et corrigee ; l'ecart au denominateur juste est le prix de la faute : x1.308
+C133-COM: chestL   w>0.00   §11  i=6   LIVREE(compte) 0.2010  LIVREE(aire) 0.1656  LINEARISEE(livree,compte) 0.1155  B0=602.0  bande 0.20-0.28  DANS
+C133-COM: chestL   w>0.00   §11  i=6   DIAGNOSTIC, PAS UN VERDICT — pondere par le POIDS DE PEAU (denominateur SOMME wsum, donc `w` compte DEUX fois) : 0.2603 B0. Publie parce que c'est l'erreur que ce cycle a faite et corrigee ; l'ecart au denominateur juste est le prix de la faute : x1.295
+C133-COM: chestL   w>0.00   §10  i=8   DECOMPOSITION EXACTE (identite verifiee a 1.65e-10 u) : moitie ROTATION+TENSEUR 0.2077 B0 · moitie TRANSLATION 0.1719 B0
+C133-COM: chestL   w>0.00   §10  i=8   DECOMPOSITION SIGNEE SUR `out` : ROTATION+TENSEUR  -1.104 % W0 · TRANSLATION  +4.073 % W0 · somme  +2.969 % W0
+C133-COM: chestL   w>0.00   §10  i=8   PAR JOINT os=lBoob     ROTATION+TENSEUR  -1.149 % W0 · TRANSLATION  +3.022 % W0 (part de peau W=30.70)
+C133-COM: chestL   w>0.00   §10  i=8   PAR JOINT os=lBooc     ROTATION+TENSEUR  +0.045 % W0 · TRANSLATION  +1.051 % W0 (part de peau W=23.02)
+C133-COM: chestL   w>0.00   §10  i=8   PAR JOINT os=chest     ROTATION+TENSEUR  +0.000 % W0 · TRANSLATION  +0.000 % W0 (part de peau W=39.81)
+C133-COM: chestL   w>0.00   §10  i=8   PAR JOINT os=Lshoulder ROTATION+TENSEUR  -0.000 % W0 · TRANSLATION  +0.000 % W0 (part de peau W=0.47)
+C133-COM: chestL   w>0.00   §10  i=8   PAR JOINT  SOMME W=94.00 (=N=94)  ·  FERMETURE rot +0.0000 trn -0.0001 (doit valoir 0 ; sinon rien de cette attribution ne vaut)
+C133-COM: chestL   w>0.00   §11  i=6   DECOMPOSITION EXACTE (identite verifiee a 1.65e-10 u) : moitie ROTATION+TENSEUR 0.1067 B0 · moitie TRANSLATION 0.1155 B0
+C133-COM: chestL   w>0.00   §11  i=6   DECOMPOSITION SIGNEE SUR `out` : ROTATION+TENSEUR  +0.718 % W0 · TRANSLATION  -2.153 % W0 · somme  -1.435 % W0
+C133-COM: chestL   w>0.00   §11  i=6   PAR JOINT os=lBoob     ROTATION+TENSEUR  +0.392 % W0 · TRANSLATION  -1.060 % W0 (part de peau W=30.70)
+C133-COM: chestL   w>0.00   §11  i=6   PAR JOINT os=lBooc     ROTATION+TENSEUR  +0.326 % W0 · TRANSLATION  -1.093 % W0 (part de peau W=23.02)
+C133-COM: chestL   w>0.00   §11  i=6   PAR JOINT os=chest     ROTATION+TENSEUR  +0.000 % W0 · TRANSLATION  +0.000 % W0 (part de peau W=39.81)
+C133-COM: chestL   w>0.00   §11  i=6   PAR JOINT os=Lshoulder ROTATION+TENSEUR  -0.000 % W0 · TRANSLATION  +0.000 % W0 (part de peau W=0.47)
+C133-COM: chestL   w>0.00   §11  i=6   PAR JOINT  SOMME W=94.00 (=N=94)  ·  FERMETURE rot +0.0000 trn +0.0000 (doit valoir 0 ; sinon rien de cette attribution ne vaut)
+C133-COM: chestL   w>0.00   §10  i=8   DIAGNOSTIC DIRECTIONNEL, AUCUN VERDICT — out  +2.969 % W0 · up -11.640 % W0 · fwd -23.772 % W0   (|d| 0.3434 B0)
+C133-COM: chestL   w>0.00   §12  i=2   DIAGNOSTIC DIRECTIONNEL, AUCUN VERDICT — out  +5.961 % W0 · up  -4.933 % W0 · fwd  -0.364 % W0   (|d| 0.0999 B0)
+C133-COM: chestL   w>0.00   §12  i=4   DIAGNOSTIC DIRECTIONNEL, AUCUN VERDICT — out -14.299 % W0 · up  +1.570 % W0 · fwd  -1.403 % W0   (|d| 0.1863 B0)
+C133-COM: chestL   w>0.00 LECTURE HORS DEFAUT — i=9 (2e cellule DEBOUT) contre i=0 : 0.0005 B0  (doit etre ~0 ; c'est ce que l'instrument lit quand le defaut est ABSENT)
+C133-COM: chestL   w>0.00 toutes cellules (compte, B0) : i0=0.0000 i1=0.0967 i2=0.0999 i3=0.1361 i4=0.1863 i5=0.1597 i6=0.2010 i7=0.2397 i8=0.3434 i9=0.0005 i10=0.2015
+C133-COM: chestL   w>0.05   §10  i=8   LIVREE(compte) 0.3786  LIVREE(aire) 0.3203  LINEARISEE(livree,compte) 0.1894  B0=602.0
+C133-COM: chestL   w>0.05   §10  i=8   DIAGNOSTIC, PAS UN VERDICT — pondere par le POIDS DE PEAU (denominateur SOMME wsum, donc `w` compte DEUX fois) : 0.4508 B0. Publie parce que c'est l'erreur que ce cycle a faite et corrigee ; l'ecart au denominateur juste est le prix de la faute : x1.191
+C133-COM: chestL   w>0.05   §11  i=6   LIVREE(compte) 0.2216  LIVREE(aire) 0.1869  LINEARISEE(livree,compte) 0.1272  B0=602.0  bande 0.20-0.28  DANS
+C133-COM: chestL   w>0.05   §11  i=6   DIAGNOSTIC, PAS UN VERDICT — pondere par le POIDS DE PEAU (denominateur SOMME wsum, donc `w` compte DEUX fois) : 0.2613 B0. Publie parce que c'est l'erreur que ce cycle a faite et corrigee ; l'ecart au denominateur juste est le prix de la faute : x1.179
+C133-COM: chestL   w>0.05   §10  i=8   DECOMPOSITION EXACTE (identite verifiee a 1.72e-10 u) : moitie ROTATION+TENSEUR 0.2292 B0 · moitie TRANSLATION 0.1894 B0
+C133-COM: chestL   w>0.05   §10  i=8   DECOMPOSITION SIGNEE SUR `out` : ROTATION+TENSEUR  -1.217 % W0 · TRANSLATION  +4.487 % W0 · somme  +3.269 % W0
+C133-COM: chestL   w>0.05   §10  i=8   PAR JOINT os=lBoob     ROTATION+TENSEUR  -1.265 % W0 · TRANSLATION  +3.331 % W0 (part de peau W=30.59)
+C133-COM: chestL   w>0.05   §10  i=8   PAR JOINT os=lBooc     ROTATION+TENSEUR  +0.047 % W0 · TRANSLATION  +1.156 % W0 (part de peau W=22.91)
+C133-COM: chestL   w>0.05   §10  i=8   PAR JOINT os=chest     ROTATION+TENSEUR  +0.000 % W0 · TRANSLATION  +0.000 % W0 (part de peau W=31.28)
+C133-COM: chestL   w>0.05   §10  i=8   PAR JOINT os=Lshoulder ROTATION+TENSEUR  -0.000 % W0 · TRANSLATION  +0.000 % W0 (part de peau W=0.23)
+C133-COM: chestL   w>0.05   §10  i=8   PAR JOINT  SOMME W=85.00 (=N=85)  ·  FERMETURE rot +0.0000 trn -0.0001 (doit valoir 0 ; sinon rien de cette attribution ne vaut)
+C133-COM: chestL   w>0.05   §11  i=6   DECOMPOSITION EXACTE (identite verifiee a 1.72e-10 u) : moitie ROTATION+TENSEUR 0.1178 B0 · moitie TRANSLATION 0.1272 B0
+C133-COM: chestL   w>0.05   §11  i=6   DECOMPOSITION SIGNEE SUR `out` : ROTATION+TENSEUR  +0.792 % W0 · TRANSLATION  -2.371 % W0 · somme  -1.579 % W0
+C133-COM: chestL   w>0.05   §11  i=6   PAR JOINT os=lBoob     ROTATION+TENSEUR  +0.432 % W0 · TRANSLATION  -1.168 % W0 (part de peau W=30.59)
+C133-COM: chestL   w>0.05   §11  i=6   PAR JOINT os=lBooc     ROTATION+TENSEUR  +0.360 % W0 · TRANSLATION  -1.202 % W0 (part de peau W=22.91)
+C133-COM: chestL   w>0.05   §11  i=6   PAR JOINT os=chest     ROTATION+TENSEUR  +0.000 % W0 · TRANSLATION  +0.000 % W0 (part de peau W=31.28)
+C133-COM: chestL   w>0.05   §11  i=6   PAR JOINT os=Lshoulder ROTATION+TENSEUR  -0.000 % W0 · TRANSLATION  +0.000 % W0 (part de peau W=0.23)
+C133-COM: chestL   w>0.05   §11  i=6   PAR JOINT  SOMME W=85.00 (=N=85)  ·  FERMETURE rot +0.0000 trn +0.0000 (doit valoir 0 ; sinon rien de cette attribution ne vaut)
+C133-COM: chestL   w>0.05   §10  i=8   DIAGNOSTIC DIRECTIONNEL, AUCUN VERDICT — out  +3.269 % W0 · up -12.847 % W0 · fwd -26.209 % W0   (|d| 0.3786 B0)
+C133-COM: chestL   w>0.05   §12  i=2   DIAGNOSTIC DIRECTIONNEL, AUCUN VERDICT — out  +6.558 % W0 · up  -5.434 % W0 · fwd  -0.392 % W0   (|d| 0.1099 B0)
+C133-COM: chestL   w>0.05   §12  i=4   DIAGNOSTIC DIRECTIONNEL, AUCUN VERDICT — out -15.752 % W0 · up  +1.722 % W0 · fwd  -1.545 % W0   (|d| 0.2052 B0)
+C133-COM: chestL   w>0.05 LECTURE HORS DEFAUT — i=9 (2e cellule DEBOUT) contre i=0 : 0.0005 B0  (doit etre ~0 ; c'est ce que l'instrument lit quand le defaut est ABSENT)
+C133-COM: chestL   w>0.05 toutes cellules (compte, B0) : i0=0.0000 i1=0.1065 i2=0.1099 i3=0.1499 i4=0.2052 i5=0.1760 i6=0.2216 i7=0.2643 i8=0.3786 i9=0.0005 i10=0.2221
+C133-COM: chestL   w>=0.25  §10  i=8   LIVREE(compte) 0.4215  LIVREE(aire) 0.3876  LINEARISEE(livree,compte) 0.2090  B0=602.0
+C133-COM: chestL   w>=0.25  §10  i=8   DIAGNOSTIC, PAS UN VERDICT — pondere par le POIDS DE PEAU (denominateur SOMME wsum, donc `w` compte DEUX fois) : 0.4613 B0. Publie parce que c'est l'erreur que ce cycle a faite et corrigee ; l'ecart au denominateur juste est le prix de la faute : x1.094
+C133-COM: chestL   w>=0.25  §11  i=6   LIVREE(compte) 0.2464  LIVREE(aire) 0.2253  LINEARISEE(livree,compte) 0.1402  B0=602.0  bande 0.20-0.28  DANS
+C133-COM: chestL   w>=0.25  §11  i=6   DIAGNOSTIC, PAS UN VERDICT — pondere par le POIDS DE PEAU (denominateur SOMME wsum, donc `w` compte DEUX fois) : 0.2673 B0. Publie parce que c'est l'erreur que ce cycle a faite et corrigee ; l'ecart au denominateur juste est le prix de la faute : x1.085
+C133-COM: chestL   w>=0.25  §10  i=8   DECOMPOSITION EXACTE (identite verifiee a 1.52e-10 u) : moitie ROTATION+TENSEUR 0.2571 B0 · moitie TRANSLATION 0.2090 B0
+C133-COM: chestL   w>=0.25  §10  i=8   DECOMPOSITION SIGNEE SUR `out` : ROTATION+TENSEUR  -1.454 % W0 · TRANSLATION  +4.958 % W0 · somme  +3.504 % W0
+C133-COM: chestL   w>=0.25  §10  i=8   PAR JOINT os=lBoob     ROTATION+TENSEUR  -1.498 % W0 · TRANSLATION  +3.691 % W0 (part de peau W=29.91)
+C133-COM: chestL   w>=0.25  §10  i=8   PAR JOINT os=lBooc     ROTATION+TENSEUR  +0.044 % W0 · TRANSLATION  +1.267 % W0 (part de peau W=22.15)
+C133-COM: chestL   w>=0.25  §10  i=8   PAR JOINT os=chest     ROTATION+TENSEUR  +0.000 % W0 · TRANSLATION  +0.000 % W0 (part de peau W=22.92)
+C133-COM: chestL   w>=0.25  §10  i=8   PAR JOINT os=Lshoulder ROTATION+TENSEUR  -0.000 % W0 · TRANSLATION  +0.000 % W0 (part de peau W=0.03)
+C133-COM: chestL   w>=0.25  §10  i=8   PAR JOINT  SOMME W=75.00 (=N=75)  ·  FERMETURE rot +0.0000 trn -0.0001 (doit valoir 0 ; sinon rien de cette attribution ne vaut)
+C133-COM: chestL   w>=0.25  §11  i=6   DECOMPOSITION EXACTE (identite verifiee a 1.52e-10 u) : moitie ROTATION+TENSEUR 0.1323 B0 · moitie TRANSLATION 0.1402 B0
+C133-COM: chestL   w>=0.25  §11  i=6   DECOMPOSITION SIGNEE SUR `out` : ROTATION+TENSEUR  +0.912 % W0 · TRANSLATION  -2.612 % W0 · somme  -1.700 % W0
+C133-COM: chestL   w>=0.25  §11  i=6   PAR JOINT os=lBoob     ROTATION+TENSEUR  +0.509 % W0 · TRANSLATION  -1.295 % W0 (part de peau W=29.91)
+C133-COM: chestL   w>=0.25  §11  i=6   PAR JOINT os=lBooc     ROTATION+TENSEUR  +0.402 % W0 · TRANSLATION  -1.317 % W0 (part de peau W=22.15)
+C133-COM: chestL   w>=0.25  §11  i=6   PAR JOINT os=chest     ROTATION+TENSEUR  +0.000 % W0 · TRANSLATION  +0.000 % W0 (part de peau W=22.92)
+C133-COM: chestL   w>=0.25  §11  i=6   PAR JOINT os=Lshoulder ROTATION+TENSEUR  -0.000 % W0 · TRANSLATION  +0.000 % W0 (part de peau W=0.03)
+C133-COM: chestL   w>=0.25  §11  i=6   PAR JOINT  SOMME W=75.00 (=N=75)  ·  FERMETURE rot -0.0000 trn +0.0000 (doit valoir 0 ; sinon rien de cette attribution ne vaut)
+C133-COM: chestL   w>=0.25  §10  i=8   DIAGNOSTIC DIRECTIONNEL, AUCUN VERDICT — out  +3.504 % W0 · up -14.400 % W0 · fwd -29.148 % W0   (|d| 0.4215 B0)
+C133-COM: chestL   w>=0.25  §12  i=2   DIAGNOSTIC DIRECTIONNEL, AUCUN VERDICT — out  +7.230 % W0 · up  -6.072 % W0 · fwd  -0.363 % W0   (|d| 0.1218 B0)
+C133-COM: chestL   w>=0.25  §12  i=4   DIAGNOSTIC DIRECTIONNEL, AUCUN VERDICT — out -17.397 % W0 · up  +1.896 % W0 · fwd  -1.705 % W0   (|d| 0.2267 B0)
+C133-COM: chestL   w>=0.25 LECTURE HORS DEFAUT — i=9 (2e cellule DEBOUT) contre i=0 : 0.0006 B0  (doit etre ~0 ; c'est ce que l'instrument lit quand le defaut est ABSENT)
+C133-COM: chestL   w>=0.25 toutes cellules (compte, B0) : i0=0.0000 i1=0.1177 i2=0.1218 i3=0.1655 i4=0.2267 i5=0.1954 i6=0.2464 i7=0.2938 i8=0.4215 i9=0.0006 i10=0.2471
+
+C133-COM: chestR   w>0.00   §10  i=8   LIVREE(compte) 0.3047  LIVREE(aire) 0.2606  LINEARISEE(livree,compte) 0.1493  B0=602.0
+C133-COM: chestR   w>0.00   §10  i=8   DIAGNOSTIC, PAS UN VERDICT — pondere par le POIDS DE PEAU (denominateur SOMME wsum, donc `w` compte DEUX fois) : 0.4239 B0. Publie parce que c'est l'erreur que ce cycle a faite et corrigee ; l'ecart au denominateur juste est le prix de la faute : x1.391
+C133-COM: chestR   w>0.00   §11  i=6   LIVREE(compte) 0.2038  LIVREE(aire) 0.1789  LINEARISEE(livree,compte) 0.1311  B0=602.0  bande 0.20-0.28  DANS
+C133-COM: chestR   w>0.00   §11  i=6   DIAGNOSTIC, PAS UN VERDICT — pondere par le POIDS DE PEAU (denominateur SOMME wsum, donc `w` compte DEUX fois) : 0.2777 B0. Publie parce que c'est l'erreur que ce cycle a faite et corrigee ; l'ecart au denominateur juste est le prix de la faute : x1.362
+C133-COM: chestR   w>0.00   §10  i=8   DECOMPOSITION EXACTE (identite verifiee a 1.25e-10 u) : moitie ROTATION+TENSEUR 0.2148 B0 · moitie TRANSLATION 0.1493 B0
+C133-COM: chestR   w>0.00   §10  i=8   DECOMPOSITION SIGNEE SUR `out` : ROTATION+TENSEUR  -3.428 % W0 · TRANSLATION  +0.767 % W0 · somme  -2.661 % W0
+C133-COM: chestR   w>0.00   §10  i=8   PAR JOINT os=rBoob     ROTATION+TENSEUR  -2.984 % W0 · TRANSLATION  +1.051 % W0 (part de peau W=32.23)
+C133-COM: chestR   w>0.00   §10  i=8   PAR JOINT os=rBooc     ROTATION+TENSEUR  -0.444 % W0 · TRANSLATION  -0.284 % W0 (part de peau W=16.84)
+C133-COM: chestR   w>0.00   §10  i=8   PAR JOINT os=chest     ROTATION+TENSEUR  -0.000 % W0 · TRANSLATION  +0.000 % W0 (part de peau W=39.91)
+C133-COM: chestR   w>0.00   §10  i=8   PAR JOINT os=Rshoulder ROTATION+TENSEUR  +0.000 % W0 · TRANSLATION  -0.000 % W0 (part de peau W=1.02)
+C133-COM: chestR   w>0.00   §10  i=8   PAR JOINT  SOMME W=90.00 (=N=90)  ·  FERMETURE rot +0.0000 trn -0.0000 (doit valoir 0 ; sinon rien de cette attribution ne vaut)
+C133-COM: chestR   w>0.00   §11  i=6   DECOMPOSITION EXACTE (identite verifiee a 1.25e-10 u) : moitie ROTATION+TENSEUR 0.0937 B0 · moitie TRANSLATION 0.1311 B0
+C133-COM: chestR   w>0.00   §11  i=6   DECOMPOSITION SIGNEE SUR `out` : ROTATION+TENSEUR  +0.174 % W0 · TRANSLATION  -6.556 % W0 · somme  -6.382 % W0
+C133-COM: chestR   w>0.00   §11  i=6   PAR JOINT os=rBoob     ROTATION+TENSEUR  -0.033 % W0 · TRANSLATION  -3.886 % W0 (part de peau W=32.23)
+C133-COM: chestR   w>0.00   §11  i=6   PAR JOINT os=rBooc     ROTATION+TENSEUR  +0.207 % W0 · TRANSLATION  -2.669 % W0 (part de peau W=16.84)
+C133-COM: chestR   w>0.00   §11  i=6   PAR JOINT os=chest     ROTATION+TENSEUR  -0.000 % W0 · TRANSLATION  +0.000 % W0 (part de peau W=39.91)
+C133-COM: chestR   w>0.00   §11  i=6   PAR JOINT os=Rshoulder ROTATION+TENSEUR  +0.000 % W0 · TRANSLATION  -0.000 % W0 (part de peau W=1.02)
+C133-COM: chestR   w>0.00   §11  i=6   PAR JOINT  SOMME W=90.00 (=N=90)  ·  FERMETURE rot +0.0000 trn +0.0000 (doit valoir 0 ; sinon rien de cette attribution ne vaut)
+C133-COM: chestR   w>0.00   §10  i=8   DIAGNOSTIC DIRECTIONNEL, AUCUN VERDICT — out  -2.661 % W0 · up -10.050 % W0 · fwd -21.227 % W0   (|d| 0.3047 B0)
+C133-COM: chestR   w>0.00   §12  i=2   DIAGNOSTIC DIRECTIONNEL, AUCUN VERDICT — out -14.829 % W0 · up  +1.143 % W0 · fwd  -2.621 % W0   (|d| 0.1947 B0)
+C133-COM: chestR   w>0.00   §12  i=4   DIAGNOSTIC DIRECTIONNEL, AUCUN VERDICT — out  +2.038 % W0 · up  -3.555 % W0 · fwd  +2.236 % W0   (|d| 0.0602 B0)
+C133-COM: chestR   w>0.00 LECTURE HORS DEFAUT — i=9 (2e cellule DEBOUT) contre i=0 : 0.0004 B0  (doit etre ~0 ; c'est ce que l'instrument lit quand le defaut est ABSENT)
+C133-COM: chestR   w>0.00 toutes cellules (compte, B0) : i0=0.0000 i1=0.1224 i2=0.1947 i3=0.0693 i4=0.0602 i5=0.1510 i6=0.2038 i7=0.2093 i8=0.3047 i9=0.0004 i10=0.2041
+C133-COM: chestR   w>0.05   §10  i=8   LIVREE(compte) 0.3419  LIVREE(aire) 0.2968  LINEARISEE(livree,compte) 0.1672  B0=602.0
+C133-COM: chestR   w>0.05   §10  i=8   DIAGNOSTIC, PAS UN VERDICT — pondere par le POIDS DE PEAU (denominateur SOMME wsum, donc `w` compte DEUX fois) : 0.4259 B0. Publie parce que c'est l'erreur que ce cycle a faite et corrigee ; l'ecart au denominateur juste est le prix de la faute : x1.245
+C133-COM: chestR   w>0.05   §11  i=6   LIVREE(compte) 0.2285  LIVREE(aire) 0.2035  LINEARISEE(livree,compte) 0.1467  B0=602.0  bande 0.20-0.28  DANS
+C133-COM: chestR   w>0.05   §11  i=6   DIAGNOSTIC, PAS UN VERDICT — pondere par le POIDS DE PEAU (denominateur SOMME wsum, donc `w` compte DEUX fois) : 0.2789 B0. Publie parce que c'est l'erreur que ce cycle a faite et corrigee ; l'ecart au denominateur juste est le prix de la faute : x1.221
+C133-COM: chestR   w>0.05   §10  i=8   DECOMPOSITION EXACTE (identite verifiee a 1.97e-10 u) : moitie ROTATION+TENSEUR 0.2414 B0 · moitie TRANSLATION 0.1672 B0
+C133-COM: chestR   w>0.05   §10  i=8   DECOMPOSITION SIGNEE SUR `out` : ROTATION+TENSEUR  -3.861 % W0 · TRANSLATION  +0.865 % W0 · somme  -2.996 % W0
+C133-COM: chestR   w>0.05   §10  i=8   PAR JOINT os=rBoob     ROTATION+TENSEUR  -3.350 % W0 · TRANSLATION  +1.181 % W0 (part de peau W=32.18)
+C133-COM: chestR   w>0.05   §10  i=8   PAR JOINT os=rBooc     ROTATION+TENSEUR  -0.510 % W0 · TRANSLATION  -0.316 % W0 (part de peau W=16.66)
+C133-COM: chestR   w>0.05   §10  i=8   PAR JOINT os=chest     ROTATION+TENSEUR  -0.000 % W0 · TRANSLATION  +0.000 % W0 (part de peau W=30.78)
+C133-COM: chestR   w>0.05   §10  i=8   PAR JOINT os=Rshoulder ROTATION+TENSEUR  +0.000 % W0 · TRANSLATION  -0.000 % W0 (part de peau W=0.38)
+C133-COM: chestR   w>0.05   §10  i=8   PAR JOINT  SOMME W=80.00 (=N=80)  ·  FERMETURE rot +0.0000 trn -0.0000 (doit valoir 0 ; sinon rien de cette attribution ne vaut)
+C133-COM: chestR   w>0.05   §11  i=6   DECOMPOSITION EXACTE (identite verifiee a 1.97e-10 u) : moitie ROTATION+TENSEUR 0.1053 B0 · moitie TRANSLATION 0.1467 B0
+C133-COM: chestR   w>0.05   §11  i=6   DECOMPOSITION SIGNEE SUR `out` : ROTATION+TENSEUR  +0.194 % W0 · TRANSLATION  -7.336 % W0 · somme  -7.142 % W0
+C133-COM: chestR   w>0.05   §11  i=6   PAR JOINT os=rBoob     ROTATION+TENSEUR  -0.036 % W0 · TRANSLATION  -4.365 % W0 (part de peau W=32.18)
+C133-COM: chestR   w>0.05   §11  i=6   PAR JOINT os=rBooc     ROTATION+TENSEUR  +0.230 % W0 · TRANSLATION  -2.971 % W0 (part de peau W=16.66)
+C133-COM: chestR   w>0.05   §11  i=6   PAR JOINT os=chest     ROTATION+TENSEUR  -0.000 % W0 · TRANSLATION  +0.000 % W0 (part de peau W=30.78)
+C133-COM: chestR   w>0.05   §11  i=6   PAR JOINT os=Rshoulder ROTATION+TENSEUR  +0.000 % W0 · TRANSLATION  -0.000 % W0 (part de peau W=0.38)
+C133-COM: chestR   w>0.05   §11  i=6   PAR JOINT  SOMME W=80.00 (=N=80)  ·  FERMETURE rot +0.0000 trn +0.0000 (doit valoir 0 ; sinon rien de cette attribution ne vaut)
+C133-COM: chestR   w>0.05   §10  i=8   DIAGNOSTIC DIRECTIONNEL, AUCUN VERDICT — out  -2.996 % W0 · up -11.300 % W0 · fwd -23.809 % W0   (|d| 0.3419 B0)
+C133-COM: chestR   w>0.05   §12  i=2   DIAGNOSTIC DIRECTIONNEL, AUCUN VERDICT — out -16.618 % W0 · up  +1.277 % W0 · fwd  -2.943 % W0   (|d| 0.2182 B0)
+C133-COM: chestR   w>0.05   §12  i=4   DIAGNOSTIC DIRECTIONNEL, AUCUN VERDICT — out  +2.284 % W0 · up  -3.992 % W0 · fwd  +2.521 % W0   (|d| 0.0676 B0)
+C133-COM: chestR   w>0.05 LECTURE HORS DEFAUT — i=9 (2e cellule DEBOUT) contre i=0 : 0.0005 B0  (doit etre ~0 ; c'est ce que l'instrument lit quand le defaut est ABSENT)
+C133-COM: chestR   w>0.05 toutes cellules (compte, B0) : i0=0.0000 i1=0.1370 i2=0.2182 i3=0.0776 i4=0.0676 i5=0.1693 i6=0.2285 i7=0.2348 i8=0.3419 i9=0.0005 i10=0.2289
+C133-COM: chestR   w>=0.25  §10  i=8   LIVREE(compte) 0.3989  LIVREE(aire) 0.3606  LINEARISEE(livree,compte) 0.1927  B0=602.0
+C133-COM: chestR   w>=0.25  §10  i=8   DIAGNOSTIC, PAS UN VERDICT — pondere par le POIDS DE PEAU (denominateur SOMME wsum, donc `w` compte DEUX fois) : 0.4403 B0. Publie parce que c'est l'erreur que ce cycle a faite et corrigee ; l'ecart au denominateur juste est le prix de la faute : x1.104
+C133-COM: chestR   w>=0.25  §11  i=6   LIVREE(compte) 0.2650  LIVREE(aire) 0.2453  LINEARISEE(livree,compte) 0.1679  B0=602.0  bande 0.20-0.28  DANS
+C133-COM: chestR   w>=0.25  §11  i=6   DIAGNOSTIC, PAS UN VERDICT — pondere par le POIDS DE PEAU (denominateur SOMME wsum, donc `w` compte DEUX fois) : 0.2879 B0. Publie parce que c'est l'erreur que ce cycle a faite et corrigee ; l'ecart au denominateur juste est le prix de la faute : x1.087
+C133-COM: chestR   w>=0.25  §10  i=8   DECOMPOSITION EXACTE (identite verifiee a 1.65e-10 u) : moitie ROTATION+TENSEUR 0.2839 B0 · moitie TRANSLATION 0.1927 B0
+C133-COM: chestR   w>=0.25  §10  i=8   DECOMPOSITION SIGNEE SUR `out` : ROTATION+TENSEUR  -4.604 % W0 · TRANSLATION  +1.032 % W0 · somme  -3.572 % W0
+C133-COM: chestR   w>=0.25  §10  i=8   PAR JOINT os=rBoob     ROTATION+TENSEUR  -3.990 % W0 · TRANSLATION  +1.382 % W0 (part de peau W=31.54)
+C133-COM: chestR   w>=0.25  §10  i=8   PAR JOINT os=rBooc     ROTATION+TENSEUR  -0.614 % W0 · TRANSLATION  -0.350 % W0 (part de peau W=15.44)
+C133-COM: chestR   w>=0.25  §10  i=8   PAR JOINT os=chest     ROTATION+TENSEUR  -0.000 % W0 · TRANSLATION  +0.000 % W0 (part de peau W=20.00)
+C133-COM: chestR   w>=0.25  §10  i=8   PAR JOINT os=Rshoulder ROTATION+TENSEUR  +0.000 % W0 · TRANSLATION  -0.000 % W0 (part de peau W=0.03)
+C133-COM: chestR   w>=0.25  §10  i=8   PAR JOINT  SOMME W=67.00 (=N=67)  ·  FERMETURE rot +0.0000 trn +0.0000 (doit valoir 0 ; sinon rien de cette attribution ne vaut)
+C133-COM: chestR   w>=0.25  §11  i=6   DECOMPOSITION EXACTE (identite verifiee a 1.65e-10 u) : moitie ROTATION+TENSEUR 0.1244 B0 · moitie TRANSLATION 0.1679 B0
+C133-COM: chestR   w>=0.25  §11  i=6   DECOMPOSITION SIGNEE SUR `out` : ROTATION+TENSEUR  +0.222 % W0 · TRANSLATION  -8.396 % W0 · somme  -8.174 % W0
+C133-COM: chestR   w>=0.25  §11  i=6   PAR JOINT os=rBoob     ROTATION+TENSEUR  -0.040 % W0 · TRANSLATION  -5.108 % W0 (part de peau W=31.54)
+C133-COM: chestR   w>=0.25  §11  i=6   PAR JOINT os=rBooc     ROTATION+TENSEUR  +0.262 % W0 · TRANSLATION  -3.288 % W0 (part de peau W=15.44)
+C133-COM: chestR   w>=0.25  §11  i=6   PAR JOINT os=chest     ROTATION+TENSEUR  -0.000 % W0 · TRANSLATION  +0.000 % W0 (part de peau W=20.00)
+C133-COM: chestR   w>=0.25  §11  i=6   PAR JOINT os=Rshoulder ROTATION+TENSEUR  +0.000 % W0 · TRANSLATION  -0.000 % W0 (part de peau W=0.03)
+C133-COM: chestR   w>=0.25  §11  i=6   PAR JOINT  SOMME W=67.00 (=N=67)  ·  FERMETURE rot -0.0000 trn -0.0000 (doit valoir 0 ; sinon rien de cette attribution ne vaut)
+C133-COM: chestR   w>=0.25  §10  i=8   DIAGNOSTIC DIRECTIONNEL, AUCUN VERDICT — out  -3.572 % W0 · up -13.368 % W0 · fwd -27.674 % W0   (|d| 0.3989 B0)
+C133-COM: chestR   w>=0.25  §12  i=2   DIAGNOSTIC DIRECTIONNEL, AUCUN VERDICT — out -19.200 % W0 · up  +1.434 % W0 · fwd  -3.451 % W0   (|d| 0.2522 B0)
+C133-COM: chestR   w>=0.25  §12  i=4   DIAGNOSTIC DIRECTIONNEL, AUCUN VERDICT — out  +2.633 % W0 · up  -4.675 % W0 · fwd  +3.048 % W0   (|d| 0.0795 B0)
+C133-COM: chestR   w>=0.25 LECTURE HORS DEFAUT — i=9 (2e cellule DEBOUT) contre i=0 : 0.0006 B0  (doit etre ~0 ; c'est ce que l'instrument lit quand le defaut est ABSENT)
+C133-COM: chestR   w>=0.25 toutes cellules (compte, B0) : i0=0.0000 i1=0.1575 i2=0.2522 i3=0.0896 i4=0.0795 i5=0.1961 i6=0.2650 i7=0.2724 i8=0.3989 i9=0.0006 i10=0.2654
+
+C133-COM: --- ECART AU MIROIR DE LA POSE DU BALAYAGE (cellule DEBOUT i=0) ----------
+C133-COM: NATURE longueurs signees (u de jeu) · REPERE base d'ancre, `out` ANTI-SYMETRIQUE · une pose MIROIR rend les memes nombres des deux cotes.
+C133-COM:   lBoob     / rBoob      out   +379.32 /   +375.79   up   +956.30 /   +956.13   fwd   +153.65 /   +153.77   |ecart|     3.54 u =   0.46 % W0
+C133-COM:   lBooc     / rBooc      out   +429.93 /   +428.91   up  +1085.63 /  +1088.53   fwd   +174.36 /   +175.07   |ecart|     3.15 u =   0.41 % W0
+C133-COM:   com       / com        out   +543.41 /   +531.06   up   +855.11 /   +873.51   fwd   +652.51 /   +621.35   |ecart|    38.23 u =   4.93 % W0
+C133-COM: ECART AU MIROIR MAXIMAL 4.93 % W0. Seuil declare AVANT la mesure : 5 % (le meme que le controle de montage de `ROOM-SPEC10`). POSE SYMETRIQUE — une difference chestL/chestR mesuree dans cette pose est attribuable aux chaines.
+
+C133-COM: --- CONTROLE DE PORTAGE ---------------------------------------------------
+C133-COM:   chestL   w>0.00   §10  deciles : c124 0.715931  ce fichier 0.715931  ecart 0.0000 %
+C133-COM:   chestL   w>0.00   §11  deciles : c124 1.262916  ce fichier 1.262916  ecart 0.0000 %
+C133-COM:   chestL   w>=0.25  §10  deciles : c124 0.788504  ce fichier 0.788504  ecart 0.0000 %
+C133-COM:   chestL   w>=0.25  §11  deciles : c124 1.206987  ce fichier 1.206987  ecart 0.0000 %
+C133-COM:   chestR   w>0.00   §10  deciles : c124 0.792668  ce fichier 0.792668  ecart 0.0000 %
+C133-COM:   chestR   w>0.00   §11  deciles : c124 1.260459  ce fichier 1.260459  ecart 0.0000 %
+C133-COM:   chestR   w>=0.25  §10  deciles : c124 0.875140  ce fichier 0.875140  ecart 0.0000 %
+C133-COM:   chestR   w>=0.25  §11  deciles : c124 1.249923  ce fichier 1.249923  ecart 0.0000 %
+C133-COM: portage valide a 0.0000 % au pire (seuil declare 0.50 %). RETENU.
 -- ROOM-SPEC10 : SPEC 10 SUPINE, LES DEUX CLAUSES DE DEPLACEMENT EN PROJECTION -----------
 ROOM-SPEC10: NATURE : deux LONGUEURS SIGNEES (projections d'un deplacement soutenu), en B0 et en % W0.
 ROOM-SPEC10:          Pas une norme — une norme est >= toute projection et lirait une clause
 ROOM-SPEC10:          directionnelle comme une borne superieure.
 ROOM-SPEC10: REPERE : la base de l'ANCRE (e0,e1,e2), celle de `PHYSORICOML` et de `PHYSDFMA`.
 ROOM-SPEC10: LECTURE HORS DEFAUT : i=0 est la pose debout d'auteur, ou sa §9 exige 0.0000 ; publiee en ABSOLU.
+ROOM-SPEC10: LES DEUX OPERATEURS DU CHEMIN D'ECRITURE, APPLIQUES (`PHYSORIW`) — ET POURQUOI ILS SONT ICI.
+ROOM-SPEC10:   Les colonnes `squel.` et `tens.` de ce bloc sont baties sur `PHYSORICOML` (issu de `*phys-ldb*`,
+ROOM-SPEC10:   jak-hd-physics.gc:3411) et sur `PHYSDFMA` (la 3x3 de `*phys-dfa*`, batie a :3803-3814). LES DEUX
+ROOM-SPEC10:   PRECEDENT LE CHEMIN D'ECRITURE (:3908). Le MUR MEDIAN de §10 (c137) et le POINT FIXE de §31
+ROOM-SPEC10:   (c132) y sont donc INVISIBLES AU BIT — controle c132 : `anch` 0 -> 1 change 20 632 des 93 378
+ROOM-SPEC10:   enregistrements et laisse `PHYSDFMA`/`PHYSORICOML`/`PHYSROW` IDENTIQUES. NATURE : deux LONGUEURS
+ROOM-SPEC10:   SIGNEES (u de jeu). REPERE : le lateral SORTANT MONDE de la chaine. LECTURE HORS DEFAUT : 0 / 0.
+ROOM-SPEC10: chestL   OPERATEURS i=0   l=0 mur=  +0.000 u anc=  +0.000 u grw=1.1035  l=1 mur=  +0.000 u anc=  +0.000 u grw=0.8618
+ROOM-SPEC10: chestL   OPERATEURS i=1   l=0 mur=  +0.000 u anc=  +0.000 u grw=1.1035  l=1 mur=  +0.000 u anc=  +0.000 u grw=0.8618
+ROOM-SPEC10: chestL   OPERATEURS i=2   l=0 mur=  +0.000 u anc=  +0.000 u grw=1.1035  l=1 mur=  +0.000 u anc=  +0.000 u grw=0.8618
+ROOM-SPEC10: chestL   OPERATEURS i=3   l=0 mur=  +0.000 u anc=  +0.000 u grw=1.1035  l=1 mur=  +0.000 u anc=  +0.000 u grw=0.8618
+ROOM-SPEC10: chestL   OPERATEURS i=4   l=0 mur=  +0.000 u anc=  +0.000 u grw=1.1035  l=1 mur=  +0.000 u anc=  +0.000 u grw=0.8618
+ROOM-SPEC10: chestL   OPERATEURS i=5   l=0 mur=  +0.000 u anc=  +0.000 u grw=1.1035  l=1 mur=  +0.000 u anc=  +0.000 u grw=0.8618
+ROOM-SPEC10: chestL   OPERATEURS i=6   l=0 mur=  +0.000 u anc=  +0.000 u grw=1.1035  l=1 mur=  +0.000 u anc=  +0.000 u grw=0.8618
+ROOM-SPEC10: chestL   OPERATEURS i=7   l=0 mur= +41.089 u anc=  +0.000 u grw=1.1035  l=1 mur= +32.088 u anc=  +0.000 u grw=0.8618
+ROOM-SPEC10: chestL   OPERATEURS i=8   l=0 mur= +81.142 u anc=  +0.000 u grw=1.1035  l=1 mur= +63.367 u anc=  +0.000 u grw=0.8618
+ROOM-SPEC10: chestL   OPERATEURS i=9   l=0 mur=  +0.024 u anc=  +0.000 u grw=1.1035  l=1 mur=  +0.019 u anc=  +0.000 u grw=0.8618
+ROOM-SPEC10: chestL   OPERATEURS i=10  l=0 mur=  +0.000 u anc=  +0.000 u grw=1.1035  l=1 mur=  +0.000 u anc=  +0.000 u grw=0.8618
+ROOM-SPEC10: chestR   OPERATEURS i=0   l=0 mur=  +0.000 u anc=  +0.000 u grw=1.1128  l=1 mur=  +0.000 u anc=  +0.000 u grw=0.7839
+ROOM-SPEC10: chestR   OPERATEURS i=1   l=0 mur=  +2.169 u anc=  +0.000 u grw=1.1128  l=1 mur=  +1.528 u anc=  +0.000 u grw=0.7839
+ROOM-SPEC10: chestR   OPERATEURS i=2   l=0 mur=  +3.413 u anc=  +0.000 u grw=1.1128  l=1 mur=  +2.405 u anc=  +0.000 u grw=0.7839
+ROOM-SPEC10: chestR   OPERATEURS i=3   l=0 mur=  +0.000 u anc=  +0.000 u grw=1.1128  l=1 mur=  +0.000 u anc=  +0.000 u grw=0.7839
+ROOM-SPEC10: chestR   OPERATEURS i=4   l=0 mur=  +0.000 u anc=  +0.000 u grw=1.1128  l=1 mur=  +0.000 u anc=  +0.000 u grw=0.7839
+ROOM-SPEC10: chestR   OPERATEURS i=5   l=0 mur=  +0.000 u anc=  +0.000 u grw=1.1128  l=1 mur=  +0.000 u anc=  +0.000 u grw=0.7839
+ROOM-SPEC10: chestR   OPERATEURS i=6   l=0 mur=  +0.000 u anc=  +0.000 u grw=1.1128  l=1 mur=  +0.000 u anc=  +0.000 u grw=0.7839
+ROOM-SPEC10: chestR   OPERATEURS i=7   l=0 mur= +38.913 u anc=  +0.000 u grw=1.1128  l=1 mur= +27.414 u anc=  +0.000 u grw=0.7839
+ROOM-SPEC10: chestR   OPERATEURS i=8   l=0 mur= +74.578 u anc=  +0.000 u grw=1.1128  l=1 mur= +52.538 u anc=  +0.000 u grw=0.7839
+ROOM-SPEC10: chestR   OPERATEURS i=9   l=0 mur=  +0.000 u anc=  +0.000 u grw=1.1128  l=1 mur=  +0.000 u anc=  +0.000 u grw=0.7839
+ROOM-SPEC10: chestR   OPERATEURS i=10  l=0 mur=  +0.000 u anc=  +0.000 u grw=1.1128  l=1 mur=  +0.000 u anc=  +0.000 u grw=0.7839
 ROOM-SPEC10: CE QUI RESTE DEHORS, NOMME : `PHYSDFMA` porte dfa x dfb x dfc mais PAS la rotation de torsion
 ROOM-SPEC10:   de sa §29, appliquee apres et seulement dans `*phys-dfm*` (jak-hd-physics.gc:3815-3824).
 ROOM-SPEC10:   `PHYSSHAPE2 twm` la mesure a 0.0008 : le terme manquant est de cet ordre, il est DECLARE
 ROOM-SPEC10:   et non suppose nul.
-ROOM-SPEC10: PAS DE LECTURE GAUCHE/DROITE : la pose du balayage d'orientation n'a PAS de mesure d'ecart au
-ROOM-SPEC10:   miroir (elle est absente de `ROOM-ASYM-POSE`). Chaque chaine est jugee contre la bande de la
+ROOM-SPEC10: ECART AU MIROIR DE LA POSE DU BALAYAGE : 4.93 % W0 (seuil declare 5 %) -> POSE SYMETRIQUE
+ROOM-SPEC10:   Une difference chestL/chestR relevee dans cette pose EST attribuable aux chaines. Chaque chaine reste jugee contre la bande de la
 ROOM-SPEC10:   spec, SEULE ; aucun ecart chestL/chestR n'est interprete ici (DIRECTIVES 2026-08-21 01:20).
 ROOM-SPEC10: CELLULE DU VERDICT : i=8, designee par la GRAVITE MESUREE (ecart 6.6 deg a la direction canonique, marge 33.9 deg sur la deuxieme).
 ROOM-SPEC10:   le triplet d'echelles (argmin-L1 contre les constantes du moteur, TAUTOLOGIQUE) designe la MEME cellule : ACCORD.
@@ -4140,6 +4330,10 @@ ROOM-SPEC10: chestL   vers thorax VERDICT DE LA CLAUSE : INDÉTERMINÉE (la fron
 ROOM-SPEC10: chestL   sortant     bande 4.00-10.00 % W0   AU COMPTE DE SOMMETS (VERDICT) frontieres 0.7971/0.8848/0.9435 -> SOUS              raffinement  15.5 % (<=30 % OK)  ·  A LA MASSE D'AIRE (diagnostic) 0.4365/0.4985/0.5997 -> SOUS
 ROOM-SPEC10: chestL   sortant     pire cas du montage (+/- 13.69 % du terme squelettique) : [0.6214 ; 1.1561] -> SOUS
 ROOM-SPEC10: chestL   sortant     VERDICT DE LA CLAUSE : SOUS (verdict unique sur les trois frontieres ET sur le pire cas du montage)
+ROOM-SPEC10: chestL   sortant     ORGANE LIVRE (`PHYSORIM`, matrices ECRITES au squelette) — LA LECTURE QUI PORTE LE VERDICT (contrat §7 « ce qui fait foi = la position ECRITE du joint ») : frontieres +2.969/+3.269/+3.504 % W0 -> SOUS
+ROOM-SPEC10: chestL   sortant       decomposition EXACTE du livre : moitie ROTATION+TENSEUR  -1.104 % W0 · moitie TRANSLATION  +4.073 % W0 (somme  +2.969, identite fermee)
+ROOM-SPEC10: chestL   sortant       LE SUBSTITUT PRE-ECRITURE EST PUBLIE A COTE, JAMAIS A LA PLACE : +0.797/+0.885/+0.944 % W0 -> SOUS  (ecart au livre +2.172 point sur la frontiere du verdict). Il est AVEUGLE AU BIT au mur median et au point fixe.
+ROOM-SPEC10: chestL   sortant     VERDICT DE LA CLAUSE (organe livre) : SOUS (verdict unique sur les trois frontieres)
 ROOM-SPEC10: chestL   §11 prone        w>0.00    |  -0.1808  -0.1110  -0.0697 |   -2.948   -2.186   -0.763 |  -0.1487   -2.381  CELLULE DU VERDICT §11
 ROOM-SPEC10: chestL   §11 prone        w>0.05    |  -0.1992  -0.1223  -0.0770 |   -3.249   -2.407   -0.842 |  -0.1677   -2.682  CELLULE DU VERDICT §11
 ROOM-SPEC10: chestL   §11 prone        w>0.25    |  -0.2210  -0.1347  -0.0863 |   -3.574   -2.652   -0.922 |  -0.2007   -3.170  CELLULE DU VERDICT §11
@@ -4197,6 +4391,10 @@ ROOM-SPEC10: chestR   vers thorax VERDICT DE LA CLAUSE : INDÉTERMINÉE (la fron
 ROOM-SPEC10: chestR   sortant     bande 4.00-10.00 % W0   AU COMPTE DE SOMMETS (VERDICT) frontieres -3.7440/-4.1988/-4.8620 -> SOUS              raffinement  23.0 % (<=30 % OK)  ·  A LA MASSE D'AIRE (diagnostic) -3.4844/-3.9603/-4.7734 -> SOUS
 ROOM-SPEC10: chestR   sortant     pire cas du montage (+/- 22.75 % du terme squelettique) : [-5.9773 ; -2.8738] -> SOUS
 ROOM-SPEC10: chestR   sortant     VERDICT DE LA CLAUSE : SOUS (verdict unique sur les trois frontieres ET sur le pire cas du montage)
+ROOM-SPEC10: chestR   sortant     ORGANE LIVRE (`PHYSORIM`, matrices ECRITES au squelette) — LA LECTURE QUI PORTE LE VERDICT (contrat §7 « ce qui fait foi = la position ECRITE du joint ») : frontieres -2.661/-2.996/-3.572 % W0 -> SOUS
+ROOM-SPEC10: chestR   sortant       decomposition EXACTE du livre : moitie ROTATION+TENSEUR  -3.428 % W0 · moitie TRANSLATION  +0.767 % W0 (somme  -2.661, identite fermee)
+ROOM-SPEC10: chestR   sortant       LE SUBSTITUT PRE-ECRITURE EST PUBLIE A COTE, JAMAIS A LA PLACE : -3.744/-4.199/-4.862 % W0 -> SOUS  (ecart au livre +1.083 point sur la frontiere du verdict). Il est AVEUGLE AU BIT au mur median et au point fixe.
+ROOM-SPEC10: chestR   sortant     VERDICT DE LA CLAUSE (organe livre) : SOUS (verdict unique sur les trois frontieres)
 ROOM-SPEC10: chestR   §11 prone        w>0.00    |  -0.1646  -0.0999  -0.0646 |   -7.242   -6.518   -0.723 |  -0.1455   -6.475  CELLULE DU VERDICT §11
 ROOM-SPEC10: chestR   §11 prone        w>0.05    |  -0.1844  -0.1119  -0.0726 |   -8.105   -7.294   -0.810 |  -0.1654   -7.353  CELLULE DU VERDICT §11
 ROOM-SPEC10: chestR   §11 prone        w>0.25    |  -0.2132  -0.1280  -0.0852 |   -9.285   -8.349   -0.936 |  -0.1986   -8.720  CELLULE DU VERDICT §11
@@ -4335,27 +4533,27 @@ ROOM-SPEC1011-LIVREE:   lectures S'ACCORDENT (AU-DESSUS, 0/4 DANS) ; sur le lot 
 ROOM-SPEC1011-LIVREE:   et la grandeur NOMMEE rend 4/4 DANS. C'est l'instrument qui decide si un correctif marche.
 ROOM-SPEC1011-LIVREE:   RETOUR ARRIERE / MISE EN SERVICE : `LEN_VERDICT_DECILES` dans `.autoport/physics_room_table.py` — UNE ligne, dans les deux sens.
 ROOM-SPEC1011-LIVREE: chaine   front.   §    axe  | DECILES  MAX-MIN  ECART-TYPE | COMMANDEE rendement |  bande        marge   VERDICT SUR  verdict
-ROOM-SPEC1011-LIVREE: chestL   w>0.00   §10  fwd  |  0.7177   0.6768      0.5822 |    0.7462    0.7802 | 0.65-0.75   11.65 %  ECART-TYPE  SANS VERDICT  [marge 11.647 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : §10 `fwd` nomme `Lpp . cos(ang)`, saillie SIGNEE — le facteur cos(ang) n'est pas calcule ici]
-ROOM-SPEC1011-LIVREE: chestL   w>0.00   §10  out  |     n/a   1.1279      1.1747 |    1.2257    0.9584 | 1.18-1.28    0.45 %  ECART-TYPE  SANS VERDICT  [marge 0.448 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
-ROOM-SPEC1011-LIVREE: chestL   w>0.00   §10  up   |     n/a   1.1209      1.1782 |    1.0932    1.0777 | 1.05-1.12    4.94 %  ECART-TYPE  SANS VERDICT  [marge 4.937 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
+ROOM-SPEC1011-LIVREE: chestL   w>0.00   §10  fwd  |  0.7159   0.6768      0.5822 |    0.7462    0.7802 | 0.65-0.75   11.65 %  ECART-TYPE  SANS VERDICT  [marge 11.646 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : §10 `fwd` nomme `Lpp . cos(ang)`, saillie SIGNEE — le facteur cos(ang) n'est pas calcule ici]
+ROOM-SPEC1011-LIVREE: chestL   w>0.00   §10  out  |     n/a   1.1305      1.1672 |    1.2257    0.9522 | 1.18-1.28    1.10 %  ECART-TYPE  SANS VERDICT  [marge 1.100 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
+ROOM-SPEC1011-LIVREE: chestL   w>0.00   §10  up   |     n/a   1.1222      1.1830 |    1.0932    1.0822 | 1.05-1.12    5.33 %  ECART-TYPE  SANS VERDICT  [marge 5.328 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
 ROOM-SPEC1011-LIVREE: chestL   w>0.00   §11  fwd  |  1.2629   1.3219      1.3486 |    1.1361    1.1116 | 1.18-1.26    0.23 %  DECILES     AU-DESSUS   
 ROOM-SPEC1011-LIVREE: chestL   w>0.00   §11  out  |     n/a   0.9556      0.9435 |    0.9234    1.0218 | 0.87-0.93    1.43 %  ECART-TYPE  AU-DESSUS     [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
 ROOM-SPEC1011-LIVREE: chestL   w>0.00   §11  up   |     n/a   0.9645      0.9523 |    0.9531    0.9991 | 0.88-0.94    1.29 %  ECART-TYPE  AU-DESSUS     [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
-ROOM-SPEC1011-LIVREE: chestL   w>=0.25  §10  fwd  |  0.7902   0.6397      0.6118 |    0.7462    0.8199 | 0.65-0.75    6.24 %  ECART-TYPE  SANS VERDICT  [marge 6.244 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : §10 `fwd` nomme `Lpp . cos(ang)`, saillie SIGNEE — le facteur cos(ang) n'est pas calcule ici]
-ROOM-SPEC1011-LIVREE: chestL   w>=0.25  §10  out  |     n/a   1.1279      1.1797 |    1.2257    0.9624 | 1.18-1.28    0.03 %  ECART-TYPE  SANS VERDICT  [marge 0.029 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
-ROOM-SPEC1011-LIVREE: chestL   w>=0.25  §10  up   |     n/a   1.1233      1.1717 |    1.0932    1.0718 | 1.05-1.12    4.42 %  ECART-TYPE  SANS VERDICT  [marge 4.415 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
+ROOM-SPEC1011-LIVREE: chestL   w>=0.25  §10  fwd  |  0.7885   0.6397      0.6118 |    0.7462    0.8199 | 0.65-0.75    6.24 %  ECART-TYPE  SANS VERDICT  [marge 6.243 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : §10 `fwd` nomme `Lpp . cos(ang)`, saillie SIGNEE — le facteur cos(ang) n'est pas calcule ici]
+ROOM-SPEC1011-LIVREE: chestL   w>=0.25  §10  out  |     n/a   1.1305      1.1717 |    1.2257    0.9560 | 1.18-1.28    0.71 %  ECART-TYPE  SANS VERDICT  [marge 0.705 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
+ROOM-SPEC1011-LIVREE: chestL   w>=0.25  §10  up   |     n/a   1.1258      1.1770 |    1.0932    1.0767 | 1.05-1.12    4.84 %  ECART-TYPE  SANS VERDICT  [marge 4.844 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
 ROOM-SPEC1011-LIVREE: chestL   w>=0.25  §11  fwd  |  1.2070   1.3413      1.3507 |    1.1361    1.0624 | 1.18-1.26    2.24 %  DECILES     SANS VERDICT  [les deux estimateurs se contredisent : max-min AU-DESSUS]
 ROOM-SPEC1011-LIVREE: chestL   w>=0.25  §11  out  |     n/a   0.9556      0.9417 |    0.9234    1.0198 | 0.87-0.93    1.24 %  ECART-TYPE  AU-DESSUS     [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
 ROOM-SPEC1011-LIVREE: chestL   w>=0.25  §11  up   |     n/a   0.9487      0.9539 |    0.9531    1.0009 | 0.88-0.94    1.46 %  ECART-TYPE  AU-DESSUS     [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
-ROOM-SPEC1011-LIVREE: chestR   w>0.00   §10  fwd  |  0.7961   0.7132      0.6298 |    0.7584    0.8304 | 0.65-0.75    3.21 %  ECART-TYPE  SANS VERDICT  [marge 3.214 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : §10 `fwd` nomme `Lpp . cos(ang)`, saillie SIGNEE — le facteur cos(ang) n'est pas calcule ici]
-ROOM-SPEC1011-LIVREE: chestR   w>0.00   §10  out  |     n/a   1.1048      1.1685 |    1.2057    0.9691 | 1.18-1.28    0.99 %  ECART-TYPE  SANS VERDICT  [marge 0.986 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
-ROOM-SPEC1011-LIVREE: chestR   w>0.00   §10  up   |     n/a   1.1201      1.2316 |    1.0934    1.1264 | 1.05-1.12    9.06 %  ECART-TYPE  SANS VERDICT  [marge 9.060 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
+ROOM-SPEC1011-LIVREE: chestR   w>0.00   §10  fwd  |  0.7927   0.7132      0.6298 |    0.7584    0.8304 | 0.65-0.75    3.21 %  ECART-TYPE  SANS VERDICT  [marge 3.214 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : §10 `fwd` nomme `Lpp . cos(ang)`, saillie SIGNEE — le facteur cos(ang) n'est pas calcule ici]
+ROOM-SPEC1011-LIVREE: chestR   w>0.00   §10  out  |     n/a   1.1043      1.1605 |    1.2057    0.9625 | 1.18-1.28    1.68 %  ECART-TYPE  SANS VERDICT  [marge 1.679 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
+ROOM-SPEC1011-LIVREE: chestR   w>0.00   §10  up   |     n/a   1.1190      1.2261 |    1.0934    1.1214 | 1.05-1.12    8.65 %  ECART-TYPE  SANS VERDICT  [marge 8.653 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
 ROOM-SPEC1011-LIVREE: chestR   w>0.00   §11  fwd  |  1.2605   1.2820      1.3513 |    1.1350    1.1105 | 1.18-1.26    0.04 %  DECILES     SANS VERDICT  [marge 0.036 % <= bruit §11 0.045 %]
 ROOM-SPEC1011-LIVREE: chestR   w>0.00   §11  out  |     n/a   0.9409      0.9348 |    0.9338    1.0010 | 0.87-0.93    0.51 %  ECART-TYPE  AU-DESSUS     [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
 ROOM-SPEC1011-LIVREE: chestR   w>0.00   §11  up   |     n/a   0.9653      0.9411 |    0.9435    0.9975 | 0.88-0.94    0.12 %  ECART-TYPE  AU-DESSUS     [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
-ROOM-SPEC1011-LIVREE: chestR   w>=0.25  §10  fwd  |  0.8789   0.6694      0.6820 |    0.7584    0.8992 | 0.65-0.75    4.69 %  ECART-TYPE  SANS VERDICT  [marge 4.690 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : §10 `fwd` nomme `Lpp . cos(ang)`, saillie SIGNEE — le facteur cos(ang) n'est pas calcule ici]
-ROOM-SPEC1011-LIVREE: chestR   w>=0.25  §10  out  |     n/a   1.1048      1.1751 |    1.2057    0.9746 | 1.18-1.28    0.42 %  ECART-TYPE  SANS VERDICT  [marge 0.419 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
-ROOM-SPEC1011-LIVREE: chestR   w>=0.25  §10  up   |     n/a   1.1345      1.2208 |    1.0934    1.1165 | 1.05-1.12    8.26 %  ECART-TYPE  SANS VERDICT  [marge 8.258 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
+ROOM-SPEC1011-LIVREE: chestR   w>=0.25  §10  fwd  |  0.8751   0.6694      0.6820 |    0.7584    0.8992 | 0.65-0.75    4.69 %  ECART-TYPE  SANS VERDICT  [marge 4.690 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : §10 `fwd` nomme `Lpp . cos(ang)`, saillie SIGNEE — le facteur cos(ang) n'est pas calcule ici]
+ROOM-SPEC1011-LIVREE: chestR   w>=0.25  §10  out  |     n/a   1.1043      1.1667 |    1.2057    0.9677 | 1.18-1.28    1.14 %  ECART-TYPE  SANS VERDICT  [marge 1.140 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
+ROOM-SPEC1011-LIVREE: chestR   w>=0.25  §10  up   |     n/a   1.1319      1.2146 |    1.0934    1.1109 | 1.05-1.12    7.79 %  ECART-TYPE  SANS VERDICT  [marge 7.792 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
 ROOM-SPEC1011-LIVREE: chestR   w>=0.25  §11  fwd  |  1.2499   1.3442      1.3671 |    1.1350    1.1013 | 1.18-1.26    0.81 %  DECILES     SANS VERDICT  [les deux estimateurs se contredisent : max-min AU-DESSUS]
 ROOM-SPEC1011-LIVREE: chestR   w>=0.25  §11  out  |     n/a   0.9409      0.9297 |    0.9338    0.9956 | 0.87-0.93    0.03 %  ECART-TYPE  SANS VERDICT  [marge 0.034 % <= bruit §11 0.045 %]  [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
 ROOM-SPEC1011-LIVREE: chestR   w>=0.25  §11  up   |     n/a   0.9388      0.9490 |    0.9435    1.0058 | 0.88-0.94    0.95 %  ECART-TYPE  SANS VERDICT  [les deux estimateurs se contredisent : max-min DANS]  [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
@@ -4374,8 +4572,8 @@ ROOM-SPEC1011-LIVREE:              ou `ang` est l'angle entre l'axe racine->apex
 ROOM-SPEC1011-LIVREE:              facteur `cos(ang)` : publier `Lpp` seul dans la colonne DECILES serait publier UN FACTEUR a
 ROOM-SPEC1011-LIVREE:              la place de l'operateur (registre : `published-line-is-half-the-applied-operator`). La colonne
 ROOM-SPEC1011-LIVREE:              rend donc `n/a` sur ces 4 cellules, et `Lpp` est donne ici en DIAGNOSTIC NOMME, SANS verdict :
-ROOM-SPEC1011-LIVREE:              Lpp seul (DIAGNOSTIC, sans verdict), cellule SUPINE rapportee a i=0 — chestL   : w>0.00 0.7177 · w>=0.25 0.7902
-ROOM-SPEC1011-LIVREE:              Lpp seul (DIAGNOSTIC, sans verdict), cellule SUPINE rapportee a i=0 — chestR   : w>0.00 0.7961 · w>=0.25 0.8789
+ROOM-SPEC1011-LIVREE:              Lpp seul (DIAGNOSTIC, sans verdict), cellule SUPINE rapportee a i=0 — chestL   : w>0.00 0.7159 · w>=0.25 0.7885
+ROOM-SPEC1011-LIVREE:              Lpp seul (DIAGNOSTIC, sans verdict), cellule SUPINE rapportee a i=0 — chestR   : w>0.00 0.7927 · w>=0.25 0.8751
 ROOM-SPEC1011-LIVREE:              Ces 4 cellules restent sur l'ECART-TYPE et sont deja SANS VERDICT : AUCUN verdict n'est
 ROOM-SPEC1011-LIVREE:              deplace par ce trou. Il est DECLARE, il n'est pas comble.
 ROOM-SPEC1011-LIVREE:   §10/§11 `out` et `up`  AUCUNE lecture nommee n'est portee dans cette chaine. Le cycle 126 leur oppose
@@ -4856,14 +5054,14 @@ ROOM-REST-CONTROL: vout/vin  spec=0.0200  x15=0.3000  rapport=15.00x  LE CONTROL
       que ce bloc teste. Les deux sont publies : rien n'est remplace en silence.
 
       i   pose  mesure                     dev(deg)  apexL     apexR     R        res       resc     
-      0   SYM   lacet 90  (SPEC18 modere)  6.8       0.35092   0.21984   NONSYM   0.31316   0.05659   RESOLU
+      0   SYM   lacet 90  (SPEC18 modere)  6.8       0.35070   0.21969   NONSYM   0.31316   0.05671   RESOLU
       1   ASYM  lacet 90  (SPEC18 modere)  123.4     0.43676   0.49067   NONSYM   0.31316   0.31316   NON RESOLU
       2   ASYM  lacet 150 (SPEC18 fort)    123.4     0.52252   0.54659   NONSYM   0.32109   0.32109   NON RESOLU
-      3   SYM   lacet 150 (SPEC18 fort)    6.4       0.57768   0.44403   NONSYM   0.32109   0.08139   RESOLU
-      4   SYM   lateral +90 (SPEC12)       6.9       0.21456   0.69563   NONSYM   0.48270   0.41838   PLANCHER NON CALME
+      3   SYM   lacet 150 (SPEC18 fort)    6.4       0.57775   0.44399   NONSYM   0.32109   0.08175   RESOLU
+      4   SYM   lateral +90 (SPEC12)       6.9       0.21456   0.69481   NONSYM   0.48270   0.41876   PLANCHER NON CALME
       5   ASYM  lateral +90 (SPEC12)       123.4     0.29023   0.30536   NONSYM   0.48270   0.48270   PLANCHER NON CALME
       6   ASYM  lateral -90 (SPEC12)       123.4     0.29023   0.30526   NONSYM   0.62007   0.62007   PLANCHER NON CALME
-      7   SYM   lateral -90 (SPEC12)       6.4       0.37634   0.19480   NONSYM   0.62007   0.56321   PLANCHER NON CALME
+      7   SYM   lateral -90 (SPEC12)       6.4       0.37634   0.19480   NONSYM   0.62007   0.56263   PLANCHER NON CALME
 
       ROOM-SYM-PLANCHER: 4 cellule(s) sur 8 dont la ligne de base porte AUTANT d'excursion
          que le pilotage : sur celles-la l'instrument ne borne rien et ne peut ni tenir ni refuter.
@@ -4906,14 +5104,14 @@ ROOM-ASYM-POSE: COURSE     COURSE            ecart=NON MESURE source=PHYSSKIN / 
    (source : PHYSSKIN / PHYSSKIN2 agregent TOUTE la course : il n'existe pas une pose, il en exis)
 ROOM-ASYM-POSE: PH-AXV     PH-AXV            ecart=NON MESURE source=PHYSRINGAX n -> REFUSEE
    (source : PHYSRINGAX n'a pas de compagnon de pose)
-ROOM-ASYM-POSE: PH-REG     PH-REG heritee    ecart=46.7 deg   source=PHYSREGB     -> REFUSEE
-ROOM-ASYM-POSE: PH-REGA    PH-REGA axes du sujet ecart=0.7 deg    source=PHYSREGAB    -> ADMISSIBLE
+ROOM-ASYM-POSE: PH-REG     PH-REG heritee    ecart=45.6 deg   source=PHYSREGB     -> REFUSEE
+ROOM-ASYM-POSE: PH-REGA    PH-REGA axes du sujet ecart=0.6 deg    source=PHYSREGAB    -> ADMISSIBLE
 ROOM-ASYM-POSE: PH-REGB    PH-REGB translation sur les axes du sujet ecart=0.3 deg    source=PHYSREGBB    -> ADMISSIBLE
 ROOM-ASYM-POSE: PH-REGS    PH-REGS epinglee  ecart=7.1 deg    source=PHYSREGSB    -> REFUSEE
 ROOM-ASYM-POSE: PH-REGT    PH-REGT resserree ecart=0.6 deg    source=PHYSREGTB    -> ADMISSIBLE
 ROOM-ASYM-POSE: PH-SETTLE  PH-SETTLE (pose d'amorcage) ecart=0.2 deg    source=PHYSPOSETAG  -> ADMISSIBLE
    (source : PHYSPOSETAG tag=settle)
-ROOM-ASYM-POSE: PH-SGN     PH-SGN epinglee   ecart=8.4 deg    source=PHYSSGNB     -> REFUSEE
+ROOM-ASYM-POSE: PH-SGN     PH-SGN epinglee   ecart=8.3 deg    source=PHYSSGNB     -> REFUSEE
 ROOM-ASYM-POSE: PH-SYM-LAT PH-SYM lat. pire  ecart=123.4 deg  source=PHYSSYMB m=2 -> REFUSEE
    (source : PHYSSYMB m=2,3)
 ROOM-ASYM-POSE: PH-SYM0    PH-SYM i=0        ecart=6.8 deg    source=PHYSSYMB i=0 -> REFUSEE
@@ -4927,15 +5125,16 @@ ROOM-ASYM-POSE: PH-SYM7    PH-SYM i=7        ecart=6.4 deg    source=PHYSSYMB i=
 ROOM-ASYM-POSE: PH-TILT    PH-IDLE + PH-TILT (pire des deux) ecart=130.8 deg  source=PHYSPOSETAG  -> REFUSEE
    (source : PHYSPOSETAG tag=idle / tag=tilt)
 
-ROOM-ASYM-VERROU: 18 ligne(s) publient une comparaison gauche/droite SANS porter leur pose
+ROOM-ASYM-VERROU: 21 ligne(s) publient une comparaison gauche/droite SANS porter leur pose
    C'EST UN DEFAUT DE CE TABLEAU, PAS UNE MESURE. Chacune de ces lignes pose un ecart
    entre chestL et chestR sans dire dans quelle pose elle l'a releve : tant qu'elle ne le
    dit pas, son chiffre est indistinguable d'un artefact de pose et ne peut fonder aucune
    section. A corriger dans le tableau, pas a interpreter en rapport.
-   !  ROOM-REGBONE-BILAN: sinY median  chestL 0.2458   chestR 0.5680   (bind 0.3938)
+   !  ROOM-REGBONE-BILAN: sinY median  chestL 0.2462   chestR 0.5684   (bind 0.3938)
    !  ROOM-REGBONE-MIROIR: pire ecart au miroir de la POSE = 105.84 deg (r=14), seuil declare 1.30 deg
    !     CELLULE CONTRAIGNANTE chestL(GELE r=10) et chestR(LINEAIRE r=10) : AU MOINS UNE EST HORS ZONE LINEAIRE.
    !     CELLULE CONTRAIGNANTE chestL(GELE r=10) et chestR(LINEAIRE r=10) : AU MOINS UNE EST HORS ZONE LINEAIRE.
+   !     CELLULE CONTRAIGNANTE chestL(GELE r=12) et chestR(GELE r=12) : AU MOINS UNE EST HORS ZONE LINEAIRE.
    !     CELLULE CONTRAIGNANTE chestL(GELE r=14) et chestR(GENOU r=13) : AU MOINS UNE EST HORS ZONE LINEAIRE.
    !     CELLULE CONTRAIGNANTE chestL(GELE r=10) et chestR(LINEAIRE r=10) : AU MOINS UNE EST HORS ZONE LINEAIRE.
    !     CELLULE CONTRAIGNANTE chestL(GELE r=10) et chestR(LINEAIRE r=10) : AU MOINS UNE EST HORS ZONE LINEAIRE.
@@ -4944,6 +5143,8 @@ ROOM-ASYM-VERROU: 18 ligne(s) publient une comparaison gauche/droite SANS porter
    !     CELLULE CONTRAIGNANTE chestL(GELE r=13) et chestR(GENOU r=13) : AU MOINS UNE EST HORS ZONE LINEAIRE.
    !     l=0  separation chestL - chestR = (+0.01, +0.07, +755.14) u   norme 755.14 u = 18.4 cm (longueurs d'os 1040.49 / 1039.04 u)
    !     l=1  separation chestL - chestR = (+3.52, +0.57, +103.77) u   norme 103.83 u = 2.5 cm (longueurs d'os 140.42 / 144.23 u)
+   !  C133-COM: ECART AU MIROIR MAXIMAL 4.93 % W0. Seuil declare AVANT la mesure : 5 % (le meme que le controle de montage de `ROOM-SPEC10`). POSE
+   !  ROOM-SPEC10:   Une difference chestL/chestR relevee dans cette pose EST attribuable aux chaines. Chaque chaine reste jugee contre la bande d
    !  ROOM-SPEC10:   D10 : chestL +0.02210  ->  attendu sur chestR -0.02210  ·  mesure +0.00265  ·  ecart 112 %   SIGNE INVERSE
    !  ROOM-SPEC10:   D20 : chestL +0.02745  ->  attendu sur chestR -0.02745  ·  mesure -0.05676  ·  ecart 107 %
    !  ROOM-SPEC10:   CONSEQUENCE CHIFFREE : le cisaillement annule 28.4 % du diagonal sur chestL et 96.6 % sur chestR.
@@ -4954,11 +5155,11 @@ ROOM-ASYM-EXEMPT: 13 ligne(s) exemptees (elles n'affirment aucune asymetrie du p
    -  -- LE PILOTAGE (SPEC 6 : haut/bas, gauche/droite, diverses accelerations, a-coups) ---------
    -     (debout, la meme gravite effective vaut : chestL=0.0001 chestR=0.0001)
    -        part simulee : 0.9402 (chestL) / 0.9549 (chestR) -> plafond d'ancrage x1.06
-   -  ROOM-REGS-SERRE: 7 fenetre(s) sur 11 ou l'ecart gauche/droite est PLUS PETIT dans la pose epinglee. (PH-REG 46.7 deg vs PH-REGS 7.1 deg)
+   -  ROOM-REGS-SERRE: 7 fenetre(s) sur 11 ou l'ecart gauche/droite est PLUS PETIT dans la pose epinglee. (PH-REG 45.6 deg vs PH-REGS 7.1 deg)
    -  ROOM-POSE-RAFFINEMENT: pose retenue a=0 f=5.7500, ecart au miroir REVALIDE a l'execution
    -  ROOM-POSE-RAFFINEMENT: ecart relatif MEDIAN du rapport gauche/droite entre 7.5 deg
    -        CONTROLE INDEPENDANT : (u_chestL - u_chestR) normalise = (-0.0799, +0.1814, +0.9802),
-   -  ROOM-REGA: pose a=0 f=5.7500, ecart au miroir revalide = 0.70 deg ; axe pris sur le SUJET
+   -  ROOM-REGA: pose a=0 f=5.7500, ecart au miroir revalide = 0.63 deg ; axe pris sur le SUJET
    -  ROOM-SPEC10:   spec, SEULE ; aucun ecart chestL/chestR n'est interprete ici (DIRECTIVES 2026-08-21 01:20).
    -  ROOM-SPEC10: VERDICT  NON TENUE  — la clause « sortant » est hors bande de facon robuste (frontieres ET pire cas du montage) sur LES DEUX ch
    -  ROOM-SPEC12:   i=2  g_lateral(ancre) = +0.9797  ->  chestL GRAVITE · chestR OPPOSE
