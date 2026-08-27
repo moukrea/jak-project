@@ -397,3 +397,35 @@ cellule debout `i=0` rend 0,0002-0,0003 B0 de deplacement total. §2 (« Additio
 `goal_src/` sont inchanges — verifie par `git status`. Ce cycle ne produit pas d'APK et n'a rien
 a faire regarder ; la regle du 2026-08-20 23:30 (« je ne sollicite plus de test pour un changement
 d'une seule section ») s'applique a plus forte raison a un cycle qui n'en change aucune.
+
+## 10. LE VALIDATEUR NE PEUT PAS RENDRE 0, ET C'EST STRUCTUREL — DIAGNOSTIC, PAS EXCUSE
+
+Le hook de fin de tour (`.autoport/hooks/stop.sh`) relance le validateur et refuse l'arret tant
+qu'il ne rend pas 0. **Il demande ici quelque chose que le contrat de l'owner interdit**, et le
+diagnostic est exact, pas suppose :
+
+  * le SEUL echec est `OPEN-DEFECTS` (validateur `:685-697`). Il compte les lignes `^OPEN ` de
+    `reports/Grecharged-secondary-motion/owner-defects.txt` et sort en 1 si le compte est > 0.
+    Il y en a **exactement une** : `owner-defects.txt:223`, `breast-spec-incomplete` ;
+  * les 13 gates de MESURE passent, `[PASS]` est imprime, et la sortie fait 18 lignes —
+    **identique octet pour octet** a la base du cycle : aucune gate n'a cesse d'etre evaluee.
+
+**LES TROIS SEULS CHEMINS POUR LA FAIRE RENDRE 0, ET POURQUOI CHACUN EST FERME :**
+
+  1. **retirer la ligne `OPEN`** — l'en-tete du fichier et le commentaire de la gate disent tous
+     deux que la liste se vide « UNIQUEMENT sur la parole de l'owner, jamais parce qu'une mesure
+     est verte ». Le faire moi-meme serait **inventer un verdict de l'owner** : exactement la
+     faute qu'il a corrigee le 2026-08-13 (« je t'ai jamais dit que je validais... ») ;
+  2. **modifier le validateur** — regle 5 de l'owner, verrou dur : « n'ajoute, ne modifie et
+     n'assouplis AUCUNE gate du validateur » ;
+  3. **creer `.autoport/owner-ok/Grecharged-secondary-motion`** — « reste EXCLUSIVEMENT le geste
+     de l'owner et n'est jamais cree a sa place ». Ce validateur ne le lit d'ailleurs pas
+     (verifie par grep).
+
+Le superviseur a deja arbitre ce cas precis le **2026-08-23 01:20** : cette gate « n'a pas de mode
+« reussi » par construction, puisque seul l'owner retire cette ligne », et « la borne des deux
+cycles ne s'applique pas quand le SEUL echec est la porte de l'owner ».
+
+**Je ne fabrique pas son verdict pour satisfaire un hook.** Le rouge de `OPEN-DEFECTS` est la
+reponse CORRECTE de ce validateur a l'etat reel du dossier : la spec n'est pas tenue, et elle ne
+sera fermee que par son oeil.
