@@ -2420,6 +2420,22 @@ phases:
   device: True
   device_serial: eae4df44
   owner_verify: True
+- id: Gplayability-input-and-loadgate
+  name: "JOUABILITE (owner 2026-08-27, apres validation de la memoire et du pre-calcul) : 1) « la
+    touche saut (X sur PS2, A en Xinput) ne fonctionne pas a la manette » — MESURE : le moteur voit
+    la 8Bitdo SF30 Pro et recoit sdl_button=9 et 1, mais JAMAIS l'index 0 (=A). 2) « il devrait y
+    avoir un mecanisme de chargement qui s'assure que tout le necessaire soit bien charge avant de
+    lancer l'ecran titre, la on dirait que ca y va meme si rien n'est charge » — le logo arrive
+    apres son signal sonore, le decor apparait d'un bloc. 3) meme cause au retour de Geyser Rock :
+    le survol de la plage demarre avant que ses elements soient charges. Conserver les acquis :
+    744 Mo, niveau 40,6 Mo, textures 571 ms, 0 plantage."
+  prompt: prompts/phase-Gplayability-input-and-loadgate.md
+  validator: validators/phase-Gplayability-input-and-loadgate.sh
+  max_turns: 3000
+  max_retries: 400
+  device: True
+  device_serial: 192.168.1.32:5555
+  owner_verify: True
 - id: Grecharged-secondary-motion
   name: 'PHYSIQUE SECONDAIRE / JIGGLE (owner 2026-08-04, backlog assumé): maintenant que les
     personnages HD existent, ajouter du mouvement secondaire naturel et cohérent ("rien de fou") —
