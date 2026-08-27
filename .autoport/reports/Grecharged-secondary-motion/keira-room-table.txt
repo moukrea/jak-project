@@ -1,7 +1,7 @@
 ==================================================================================================
 KEIRA — SALLE DE TEST SANS JOUEUR : TABLEAU DE MESURE
 genere par .autoport/physics_room_table.py depuis .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
-empreinte de la trace lue : md5 4ab7b73130479c72c61e3c1a1ad07e8a (7285080 octets)
+empreinte de la trace lue : md5 bdd23d2079200e2df1002697debbe640 (7295002 octets)
 contrat : .autoport/prompts/SPEC-keira-physique.md — sections 6 (la salle) et 7 (ce qui fait foi)
 
 -- ROOM-INSTRUMENTS-MUETS : CE QUE CE TABLEAU NE MESURE PAS AUJOURD'HUI ------------
@@ -4029,7 +4029,7 @@ ROOM-SPEC13-VERDICT: PARTIELLE — TOUS les descripteurs juges sont encadres par
    NATURE : un DEPLACEMENT SOUTENU du centre de masse, en B0. REPERE : le triedre de
      l'ANCRE — la NORME, seule grandeur qui traverse les deux triedres orthonormes.
    LIGNE DE BASE : i=0 (debout d'auteur), ou §9 exige 0.0000 ; elle est publiee.
-   SOURCE DES POIDS : out/jak1/fr3/skin/keira-hd-lod0.glb (mesh LIVRE, pas le rip du donneur), mtime 1787201927, taille 1002412 —
+   SOURCE DES POIDS : out/jak1/fr3/skin/keira-hd-lod0.glb (mesh LIVRE, pas le rip du donneur), mtime 1787797288, taille 1002412 —
      CONCORDANCE VERIFIEE avec le mesh sur disque (sinon ce bloc se suspend).
    d_COM = (W_0.d_0 + W_1.d_1)/N — aucun coefficient choisi ; W_j et N mesures, d_j lus.
    d_j EST UN CUMUL, PAS UN INCREMENT (corrige le 2026-08-18) : `PHYSORICOML` publie
@@ -4095,7 +4095,7 @@ ROOM-SPEC10:   spec, SEULE ; aucun ecart chestL/chestR n'est interprete ici (DIR
 ROOM-SPEC10: CELLULE DU VERDICT : i=8, designee par la GRAVITE MESUREE (ecart 6.6 deg a la direction canonique, marge 33.9 deg sur la deuxieme).
 ROOM-SPEC10:   le triplet d'echelles (argmin-L1 contre les constantes du moteur, TAUTOLOGIQUE) designe la MEME cellule : ACCORD.
 ROOM-SPEC10: CELLULE PRONE (§11) : i=6, designee par la GRAVITE MESUREE (ecart 6.6 deg, marge 43.3 deg)
-ROOM-SPEC10: SOURCE DES POIDS, DU MOMENT `L`, DE `W0` ET DES AXES : out/jak1/fr3/skin/keira-hd-lod0.glb (mesh LIVRE), mtime 1787201927, taille 1002412 —
+ROOM-SPEC10: SOURCE DES POIDS, DU MOMENT `L`, DE `W0` ET DES AXES : out/jak1/fr3/skin/keira-hd-lod0.glb (mesh LIVRE), mtime 1787797288, taille 1002412 —
 ROOM-SPEC10:   CONCORDANCE VERIFIEE avec le mesh sur disque (sinon ce bloc se suspend).
 ROOM-SPEC10: BANDES, CITEES VERBATIM DE `SPEC-breast-softbody.md` :
 ROOM-SPEC10:   l.168  « COM toward thorax:   18–28% B0,   nominal 23% B0 »   -> 0.18-0.28 B0
@@ -4245,22 +4245,22 @@ ROOM-SPEC12:   (`+Y` = axe long du torse ; il EST la rangee d'ancre a 5 decimale
 ROOM-SPEC12:   que le cycle 90 avait retenu et qui en est a 12,27 deg. `dfa` est l'equilibre d'orientation
 ROOM-SPEC12:   seul (valeur propre du moteur), `§7` le produit dfa x dfb x dfc que la PEAU recoit.
 ROOM-SPEC12:   chestL                                        dfa verdict         §7 verdict    saillie verdict     cible bande
-ROOM-SPEC12:   chestL   §10 supine projection             0.7462 MIROIR      0.7352 MIROIR      0.7983 MIROIR      0.70 0.65-0.75   [MIROIR : la cible EST l'entree du solveur ; marge 70 % de la demi-bande — AUCUN VERDICT, exclu des totaux]
-ROOM-SPEC12:   chestL   §10 supine largeur                1.2257 MIROIR      1.2691 MIROIR      1.2691 MIROIR      1.23 1.18-1.28   [MIROIR : la cible EST l'entree du solveur ; marge 78 % de la demi-bande — AUCUN VERDICT, exclu des totaux]
-ROOM-SPEC12:   chestL   §10 supine hauteur                1.0932 MIROIR      1.0974 MIROIR      1.0524 MIROIR      1.09 1.05-1.12   [MIROIR : la cible EST l'entree du solveur ; marge 21 % de la demi-bande — AUCUN VERDICT, exclu des totaux]
-ROOM-SPEC12:   chestL   §11 prone longueur                1.2195 MIROIR      1.2171 MIROIR      1.1949 MIROIR      1.23 1.18-1.26   [MIROIR : la cible EST l'entree du solveur ; marge 32 % de la demi-bande — AUCUN VERDICT, exclu des totaux]
-ROOM-SPEC12:   chestL   §11 prone largeur                 0.8913 MIROIR      0.8924 MIROIR      0.8924 MIROIR      0.90 0.87-0.93   [MIROIR : la cible EST l'entree du solveur ; marge 25 % de la demi-bande — AUCUN VERDICT, exclu des totaux]
-ROOM-SPEC12:   chestL   §11 prone epaisseur               0.9199 MIROIR      0.9221 MIROIR      0.9506 MIROIR      0.91 0.88-0.94   [MIROIR : la cible EST l'entree du solveur ; marge 40 % de la demi-bande — AUCUN VERDICT, exclu des totaux]
+ROOM-SPEC12:   chestL   §10 supine projection             0.7462 MIROIR      0.7352 MIROIR      0.7983 MIROIR      0.70 0.65-0.75   [MIROIR : la cible EST l'entree du solveur ; marge 70 % de la demi-bande — AUCUN VERDICT ICI, exclu des totaux ; le verdict de cette clause est rendu par ROOM-SPEC1011-LIVREE, sur la peau LIVREE (cycle 125)]
+ROOM-SPEC12:   chestL   §10 supine largeur                1.2257 MIROIR      1.2691 MIROIR      1.2691 MIROIR      1.23 1.18-1.28   [MIROIR : la cible EST l'entree du solveur ; marge 78 % de la demi-bande — AUCUN VERDICT ICI, exclu des totaux ; le verdict de cette clause est rendu par ROOM-SPEC1011-LIVREE, sur la peau LIVREE (cycle 125)]
+ROOM-SPEC12:   chestL   §10 supine hauteur                1.0932 MIROIR      1.0974 MIROIR      1.0524 MIROIR      1.09 1.05-1.12   [MIROIR : la cible EST l'entree du solveur ; marge 21 % de la demi-bande — AUCUN VERDICT ICI, exclu des totaux ; le verdict de cette clause est rendu par ROOM-SPEC1011-LIVREE, sur la peau LIVREE (cycle 125)]
+ROOM-SPEC12:   chestL   §11 prone longueur                1.2195 MIROIR      1.2171 MIROIR      1.1949 MIROIR      1.23 1.18-1.26   [MIROIR : la cible EST l'entree du solveur ; marge 32 % de la demi-bande — AUCUN VERDICT ICI, exclu des totaux ; le verdict de cette clause est rendu par ROOM-SPEC1011-LIVREE, sur la peau LIVREE (cycle 125)]
+ROOM-SPEC12:   chestL   §11 prone largeur                 0.8913 MIROIR      0.8924 MIROIR      0.8924 MIROIR      0.90 0.87-0.93   [MIROIR : la cible EST l'entree du solveur ; marge 25 % de la demi-bande — AUCUN VERDICT ICI, exclu des totaux ; le verdict de cette clause est rendu par ROOM-SPEC1011-LIVREE, sur la peau LIVREE (cycle 125)]
+ROOM-SPEC12:   chestL   §11 prone epaisseur               0.9199 MIROIR      0.9221 MIROIR      0.9506 MIROIR      0.91 0.88-0.94   [MIROIR : la cible EST l'entree du solveur ; marge 40 % de la demi-bande — AUCUN VERDICT ICI, exclu des totaux ; le verdict de cette clause est rendu par ROOM-SPEC1011-LIVREE, sur la peau LIVREE (cycle 125)]
 ROOM-SPEC12:   chestL   §12 lateral i=2 aplatissement     0.8240 DANS        0.8354 DANS        0.8354 DANS        0.80 0.75-0.85
 ROOM-SPEC12:   chestL   §12 lateral i=4 aplatissement     0.9902 AU-DESSUS   0.9979 AU-DESSUS   0.9979 AU-DESSUS   0.80 0.75-0.85  DIAGNOSTIC — la clause ne nomme pas ce sein
 ROOM-SPEC12:   chestL   DANS : 1/2 sur le triedre de §7 · 1/2 sur `dfa` seul   (les 6 cellules MIROIR de §10/§11 sont EXCLUES des deux totaux)
 ROOM-SPEC12:   chestR                                        dfa verdict         §7 verdict    saillie verdict     cible bande
-ROOM-SPEC12:   chestR   §10 supine projection             0.7584 MIROIR      0.7386 MIROIR      0.8216 MIROIR      0.70 0.65-0.75   [MIROIR : la cible EST l'entree du solveur ; marge 77 % de la demi-bande — AUCUN VERDICT, exclu des totaux]
-ROOM-SPEC12:   chestR   §10 supine largeur                1.2057 MIROIR      1.2560 MIROIR      1.2560 MIROIR      1.23 1.18-1.28   [MIROIR : la cible EST l'entree du solveur ; marge 52 % de la demi-bande — AUCUN VERDICT, exclu des totaux]
-ROOM-SPEC12:   chestR   §10 supine hauteur                1.0934 MIROIR      1.1353 MIROIR      1.0767 MIROIR      1.09 1.05-1.12   [MIROIR : la cible EST l'entree du solveur ; marge 129 % de la demi-bande — AUCUN VERDICT, exclu des totaux]
-ROOM-SPEC12:   chestR   §11 prone longueur                1.2125 MIROIR      1.2100 MIROIR      1.1878 MIROIR      1.23 1.18-1.26   [MIROIR : la cible EST l'entree du solveur ; marge 50 % de la demi-bande — AUCUN VERDICT, exclu des totaux]
-ROOM-SPEC12:   chestR   §11 prone largeur                 0.9034 MIROIR      0.9040 MIROIR      0.9040 MIROIR      0.90 0.87-0.93   [MIROIR : la cible EST l'entree du solveur ; marge 13 % de la demi-bande — AUCUN VERDICT, exclu des totaux]
-ROOM-SPEC12:   chestR   §11 prone epaisseur               0.9128 MIROIR      0.9156 MIROIR      0.9442 MIROIR      0.91 0.88-0.94   [MIROIR : la cible EST l'entree du solveur ; marge 19 % de la demi-bande — AUCUN VERDICT, exclu des totaux]
+ROOM-SPEC12:   chestR   §10 supine projection             0.7584 MIROIR      0.7386 MIROIR      0.8216 MIROIR      0.70 0.65-0.75   [MIROIR : la cible EST l'entree du solveur ; marge 77 % de la demi-bande — AUCUN VERDICT ICI, exclu des totaux ; le verdict de cette clause est rendu par ROOM-SPEC1011-LIVREE, sur la peau LIVREE (cycle 125)]
+ROOM-SPEC12:   chestR   §10 supine largeur                1.2057 MIROIR      1.2560 MIROIR      1.2560 MIROIR      1.23 1.18-1.28   [MIROIR : la cible EST l'entree du solveur ; marge 52 % de la demi-bande — AUCUN VERDICT ICI, exclu des totaux ; le verdict de cette clause est rendu par ROOM-SPEC1011-LIVREE, sur la peau LIVREE (cycle 125)]
+ROOM-SPEC12:   chestR   §10 supine hauteur                1.0934 MIROIR      1.1353 MIROIR      1.0767 MIROIR      1.09 1.05-1.12   [MIROIR : la cible EST l'entree du solveur ; marge 129 % de la demi-bande — AUCUN VERDICT ICI, exclu des totaux ; le verdict de cette clause est rendu par ROOM-SPEC1011-LIVREE, sur la peau LIVREE (cycle 125)]
+ROOM-SPEC12:   chestR   §11 prone longueur                1.2125 MIROIR      1.2100 MIROIR      1.1878 MIROIR      1.23 1.18-1.26   [MIROIR : la cible EST l'entree du solveur ; marge 50 % de la demi-bande — AUCUN VERDICT ICI, exclu des totaux ; le verdict de cette clause est rendu par ROOM-SPEC1011-LIVREE, sur la peau LIVREE (cycle 125)]
+ROOM-SPEC12:   chestR   §11 prone largeur                 0.9034 MIROIR      0.9040 MIROIR      0.9040 MIROIR      0.90 0.87-0.93   [MIROIR : la cible EST l'entree du solveur ; marge 13 % de la demi-bande — AUCUN VERDICT ICI, exclu des totaux ; le verdict de cette clause est rendu par ROOM-SPEC1011-LIVREE, sur la peau LIVREE (cycle 125)]
+ROOM-SPEC12:   chestR   §11 prone epaisseur               0.9128 MIROIR      0.9156 MIROIR      0.9442 MIROIR      0.91 0.88-0.94   [MIROIR : la cible EST l'entree du solveur ; marge 19 % de la demi-bande — AUCUN VERDICT ICI, exclu des totaux ; le verdict de cette clause est rendu par ROOM-SPEC1011-LIVREE, sur la peau LIVREE (cycle 125)]
 ROOM-SPEC12:   chestR   §12 lateral i=2 aplatissement     1.0094 AU-DESSUS   1.0108 AU-DESSUS   1.0108 AU-DESSUS   0.80 0.75-0.85  DIAGNOSTIC — la clause ne nomme pas ce sein
 ROOM-SPEC12:   chestR   §12 lateral i=4 aplatissement     0.8054 DANS        0.8175 DANS        0.8175 DANS        0.80 0.75-0.85
 ROOM-SPEC12:   chestR   DANS : 1/2 sur le triedre de §7 · 1/2 sur `dfa` seul   (les 6 cellules MIROIR de §10/§11 sont EXCLUES des deux totaux)
@@ -4268,6 +4268,56 @@ ROOM-SPEC12:   5 cellule(s) sur 16 changent de verdict entre le triedre de §7 e
 ROOM-SPEC12:   Le verdict retenu est celui du TRIEDRE DE §7 : ses trois axes viennent chacun d'une phrase de §7
 ROOM-SPEC12:   et d'une mesure sur le mesh LIVRE. La saillie n'est pas « forward from chest ».
 ROOM-SPEC12: VERDICT  TENUE  — les deux clauses adressees sont DANS la bande sur le sein que chacune nomme.
+
+   -- ROOM-SPEC1011-LIVREE : LA FORME QUE LA PEAU RECOIT, CONTRE CELLE QU'ON INJECTE ----
+ROOM-SPEC1011-LIVREE: table nom -> slot lue dans la trace : lBoob=0 lBooc=1 rBoob=2 rBooc=3 chest=4 Lshoulder=5 Rshoulder=6
+ROOM-SPEC1011-LIVREE: CONVENTION DE SKINNING, TRANCHEE PAR MESURE et non supposee — 24 sommets peses a 1.000 sur `chest` (donc RIGIDEMENT lies a lui) :
+ROOM-SPEC1011-LIVREE:   A  la matrice porte deja la pose de bind (p = v . M) : ecart median 4.55501
+ROOM-SPEC1011-LIVREE:   C  il faut passer en local de bind d'abord           : ecart median 0.00000
+ROOM-SPEC1011-LIVREE:   Critere : la distance du sommet a la TRANSLATION de son joint doit valoir sa distance de BIND au joint (mediane 1532.8 u). RETENUE : C (x21734580 mieux).
+ROOM-SPEC1011-LIVREE: cellules, designees par la GRAVITE MESUREE (jamais par le triplet d'echelles, qui est un argmin contre ce qu'on injecte) : SUPINE i=8 · PRONE i=6
+ROOM-SPEC1011-LIVREE: chestL   w>0.00 LECTURE HORS DEFAUT — i=9 (2e cellule DEBOUT) / i=0 : fwd 1.0002 · out 1.0003 · up 0.9997   (seuil declare 1 %)
+ROOM-SPEC1011-LIVREE: chestL   w>0.00 CONTROLE DE MONTAGE — i=10 (2e cellule PRONE) contre i=6 : fwd +0.08 % · out -0.01 % · up -0.02 %   (seuil declare 3 %)
+ROOM-SPEC1011-LIVREE: chestL   w>=0.25 LECTURE HORS DEFAUT — i=9 (2e cellule DEBOUT) / i=0 : fwd 1.0003 · out 1.0003 · up 0.9996   (seuil declare 1 %)
+ROOM-SPEC1011-LIVREE: chestL   w>=0.25 CONTROLE DE MONTAGE — i=10 (2e cellule PRONE) contre i=6 : fwd +0.08 % · out -0.01 % · up -0.02 %   (seuil declare 3 %)
+ROOM-SPEC1011-LIVREE: chestR   w>0.00 LECTURE HORS DEFAUT — i=9 (2e cellule DEBOUT) / i=0 : fwd 1.0006 · out 0.9998 · up 1.0000   (seuil declare 1 %)
+ROOM-SPEC1011-LIVREE: chestR   w>0.00 CONTROLE DE MONTAGE — i=10 (2e cellule PRONE) contre i=6 : fwd +0.02 % · out +0.01 % · up -0.02 %   (seuil declare 3 %)
+ROOM-SPEC1011-LIVREE: chestR   w>=0.25 LECTURE HORS DEFAUT — i=9 (2e cellule DEBOUT) / i=0 : fwd 1.0006 · out 0.9998 · up 0.9999   (seuil declare 1 %)
+ROOM-SPEC1011-LIVREE: chestR   w>=0.25 CONTROLE DE MONTAGE — i=10 (2e cellule PRONE) contre i=6 : fwd +0.04 % · out +0.01 % · up -0.02 %   (seuil declare 3 %)
+ROOM-SPEC1011-LIVREE: chaine   front.   §    axe  | LIVREE   (max-min)  COMMANDEE  rendement |  bande        marge     verdict
+ROOM-SPEC1011-LIVREE: chestL   w>0.00   §10  fwd  |  0.5617 ( 0.6769)    0.7462    0.7527  | 0.65-0.75   15.73 %  SANS VERDICT  [les deux estimateurs se contredisent : max-min DANS]
+ROOM-SPEC1011-LIVREE: chestL   w>0.00   §10  out  |  1.1709 ( 1.1001)    1.2257    0.9553  | 1.18-1.28    0.78 %  SANS VERDICT  [marge 0.781 % <= bruit §10 14.647 %]
+ROOM-SPEC1011-LIVREE: chestL   w>0.00   §10  up   |  1.1442 ( 1.1053)    1.0932    1.0467  | 1.05-1.12    2.11 %  SANS VERDICT  [marge 2.115 % <= bruit §10 14.647 %]
+ROOM-SPEC1011-LIVREE: chestL   w>0.00   §11  fwd  |  1.4455 ( 1.3939)    1.2195    1.1853  | 1.18-1.26   12.83 %  AU-DESSUS   
+ROOM-SPEC1011-LIVREE: chestL   w>0.00   §11  out  |  0.9241 ( 0.9392)    0.8913    1.0368  | 0.87-0.93    0.64 %  SANS VERDICT  [les deux estimateurs se contredisent : max-min AU-DESSUS]
+ROOM-SPEC1011-LIVREE: chestL   w>0.00   §11  up   |  0.9413 ( 0.9636)    0.9199    1.0232  | 0.88-0.94    0.13 %  AU-DESSUS   
+ROOM-SPEC1011-LIVREE: chestL   w>=0.25  §10  fwd  |  0.5849 ( 0.6244)    0.7462    0.7838  | 0.65-0.75   11.13 %  SANS VERDICT  [marge 11.129 % <= bruit §10 14.647 %]
+ROOM-SPEC1011-LIVREE: chestL   w>=0.25  §10  out  |  1.1751 ( 1.1001)    1.2257    0.9587  | 1.18-1.28    0.42 %  SANS VERDICT  [marge 0.421 % <= bruit §10 14.647 %]
+ROOM-SPEC1011-LIVREE: chestL   w>=0.25  §10  up   |  1.1367 ( 1.1061)    1.0932    1.0398  | 1.05-1.12    1.47 %  SANS VERDICT  [marge 1.468 % <= bruit §10 14.647 %]
+ROOM-SPEC1011-LIVREE: chestL   w>=0.25  §11  fwd  |  1.4514 ( 1.4275)    1.2195    1.1901  | 1.18-1.26   13.18 %  AU-DESSUS   
+ROOM-SPEC1011-LIVREE: chestL   w>=0.25  §11  out  |  0.9216 ( 0.9392)    0.8913    1.0340  | 0.87-0.93    0.91 %  SANS VERDICT  [les deux estimateurs se contredisent : max-min AU-DESSUS]
+ROOM-SPEC1011-LIVREE: chestL   w>=0.25  §11  up   |  0.9429 ( 0.9335)    0.9199    1.0251  | 0.88-0.94    0.31 %  SANS VERDICT  [les deux estimateurs se contredisent : max-min DANS]
+ROOM-SPEC1011-LIVREE: chestR   w>0.00   §10  fwd  |  0.6067 ( 0.7138)    0.7584    0.8000  | 0.65-0.75    7.13 %  SANS VERDICT  [marge 7.132 % <= bruit §10 14.647 %]
+ROOM-SPEC1011-LIVREE: chestR   w>0.00   §10  out  |  1.1606 ( 1.0934)    1.2057    0.9626  | 1.18-1.28    1.67 %  SANS VERDICT  [marge 1.672 % <= bruit §10 14.647 %]
+ROOM-SPEC1011-LIVREE: chestR   w>0.00   §10  up   |  1.1988 ( 1.1193)    1.0934    1.0964  | 1.05-1.12    6.57 %  SANS VERDICT  [marge 6.572 % <= bruit §10 14.647 %]
+ROOM-SPEC1011-LIVREE: chestR   w>0.00   §11  fwd  |  1.4370 ( 1.3384)    1.2125    1.1851  | 1.18-1.26   12.31 %  AU-DESSUS   
+ROOM-SPEC1011-LIVREE: chestR   w>0.00   §11  out  |  0.9176 ( 0.9277)    0.9034    1.0157  | 0.87-0.93    1.35 %  DANS        
+ROOM-SPEC1011-LIVREE: chestR   w>0.00   §11  up   |  0.9309 ( 0.9645)    0.9128    1.0199  | 0.88-0.94    0.98 %  SANS VERDICT  [les deux estimateurs se contredisent : max-min AU-DESSUS]
+ROOM-SPEC1011-LIVREE: chestR   w>=0.25  §10  fwd  |  0.6477 ( 0.6454)    0.7584    0.8540  | 0.65-0.75    0.36 %  SANS VERDICT  [marge 0.356 % <= bruit §10 14.647 %]
+ROOM-SPEC1011-LIVREE: chestR   w>=0.25  §10  out  |  1.1645 ( 1.0934)    1.2057    0.9659  | 1.18-1.28    1.33 %  SANS VERDICT  [marge 1.327 % <= bruit §10 14.647 %]
+ROOM-SPEC1011-LIVREE: chestR   w>=0.25  §10  up   |  1.1808 ( 1.1238)    1.0934    1.0800  | 1.05-1.12    5.15 %  SANS VERDICT  [marge 5.151 % <= bruit §10 14.647 %]
+ROOM-SPEC1011-LIVREE: chestR   w>=0.25  §11  fwd  |  1.4588 ( 1.4234)    1.2125    1.2031  | 1.18-1.26   13.63 %  AU-DESSUS   
+ROOM-SPEC1011-LIVREE: chestR   w>=0.25  §11  out  |  0.9115 ( 0.9277)    0.9034    1.0089  | 0.87-0.93    2.03 %  DANS        
+ROOM-SPEC1011-LIVREE: chestR   w>=0.25  §11  up   |  0.9399 ( 0.9251)    0.9128    1.0296  | 0.88-0.94    0.01 %  SANS VERDICT  [marge 0.015 % <= bruit §11 0.045 %]
+ROOM-SPEC1011-LIVREE: TEST DE MIROIR — ecart du rendement a 1 : median 4.47 %  max 24.73 % sur 24 cellules. Seuil declare AVANT la course : > 3 % sur au moins une cellule. -> BRISE — la peau ne rend pas ce qu'on injecte
+ROOM-SPEC1011-LIVREE: TEST DE FALSIFIABILITE — verdicts rendus : SOUS=0 DANS=2 AU-DESSUS=5 SANS VERDICT=17. Un instrument qui ne peut pas echouer ne vaut rien. -> TENUE
+ROOM-SPEC1011-LIVREE: --- CE QUE CHAQUE CLAUSE RECOIT COMME VERDICT DE REGISTRE ---
+ROOM-SPEC1011-LIVREE:   §10 fwd  Forward projection -25 a -35 %      SANS VERDICT — les 4 cellules sont sous le bruit ou contredites
+ROOM-SPEC1011-LIVREE:   §10 out  Width +18 a +28 %                   SANS VERDICT — les 4 cellules sont sous le bruit ou contredites
+ROOM-SPEC1011-LIVREE:   §10 up   Vertical envelope +5 a +12 %        SANS VERDICT — les 4 cellules sont sous le bruit ou contredites
+ROOM-SPEC1011-LIVREE:   §11 fwd  Root-to-apex length +18 a +26 %     HORS BANDE (AU-DESSUS) sur les 2 chaines et les 2 frontieres
+ROOM-SPEC1011-LIVREE:   §11 out  Width -7 a -13 %                    INDETERMINEE — DANS=2 / SANS VERDICT=2
+ROOM-SPEC1011-LIVREE:   §11 up   Thickness -6 a -12 %                INDETERMINEE — AU-DESSUS=1 / SANS VERDICT=3
 
 -- ROOM-ORICTL : LE REDRESSEMENT, ET SES TROIS SUSPECTS DESARMES TOUR A TOUR -------------
    NATURE : le meme deplacement soutenu que `ROOM-ORICOM`, mesure sur la meme fenetre par

@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 234,
+  "current_phase_idx": 235,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -1161,7 +1161,7 @@
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",
     "Gjak2-polish": "owner 2026-07-10: collision REGRESSION game-breaking (no crates, no moving-platform landing) from the crouch-fix nav/collide enablement; park jak2, resume jak1",
-    "Grecharged-secondary-motion": "owner 2026-08-26: \u00ab mettre en pause le framework sur Keira, mettre ca au backlog en top priorite [...] et regler les soucis de crash au chargement aussi (sur SHIELD) \u00bb. Reprendre sur sa parole uniquement. Etat au gel : 4 TENUE mesurees (\u00a712 \u00a724 \u00a725 \u00a726), 5 TENUE PAR CONSTRUCTION, 17 PARTIELLE, 12 NON TENUE, 0 NON ETABLI.",
-    "Gmemory-ceiling-and-crash": "2026-08-27 : validateur ET gates PASSES, verifie par moi sur le Redmi jusqu'en JEU (memoire 1370 -> 744 Mo, niveau 122,1 -> 40,6 Mo, zero SIGSEGV, build publie sur jak-builds). N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas la fermer sans lui : deposer .autoport/owner-ok/Gmemory-ceiling-and-crash quand il valide."
+    "Gmemory-ceiling-and-crash": "2026-08-27 : validateur ET gates PASSES, verifie par moi sur le Redmi jusqu'en JEU (memoire 1370 -> 744 Mo, niveau 122,1 -> 40,6 Mo, zero SIGSEGV, build publie sur jak-builds). N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas la fermer sans lui : deposer .autoport/owner-ok/Gmemory-ceiling-and-crash quand il valide.",
+    "Gprecompute-deterministic-bake": "2026-08-27 : validateur ET gates PASSES, verifie par moi sur le Redmi — mise en place des textures 6208 -> 571 ms, pire etape 1602 -> 83 ms, 0 blocage >200ms, memoire 747 Mo stable, zero SIGSEGV, build publie sur jak-builds. N'ATTEND QUE LA PAROLE DE L'OWNER."
   }
 }

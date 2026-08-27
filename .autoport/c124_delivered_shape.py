@@ -73,6 +73,36 @@ BANDS = {
 }
 
 
+# ---- CYCLE 125 : LE MEME CALCUL, RENDU APPELABLE PAR LE PRODUCTEUR DU TABLEAU ------------------
+# Regle du 2026-08-19 23:50 : « un correctif d'instrument s'arrete quand la LIGNE DE VERDICT lit la
+# nouvelle donnee — pas quand la donnee existe ». `physics_room_table.py` doit donc appeler CE
+# calcul-ci et pas une copie : deux implementations d'une meme mesure finissent par diverger, et le
+# dossier a deja paye ca. `main()` ne change pas d'un caractere de sortie ; seule la DESTINATION de
+# ses lignes devient redirigeable, et le controle qui l'atteste est le md5 de sa sortie autonome.
+_SINK = None
+RESULT = {}
+
+
+def _P(s):
+    if _SINK is None:
+        print(s)
+    else:
+        _SINK.append(s)
+
+
+def measure(txt):
+    """(lignes, rows, rc) ; rows = {(chaine, frontiere, '10'|'11', axe) ->
+    (livree_sigma, livree_maxmin, commandee, verdict)}. Texte CAPTURE, jamais imprime."""
+    global _SINK
+    old, _SINK = _SINK, []
+    try:
+        RESULT.clear()
+        rc = main(txt=txt)
+        return list(_SINK), dict(RESULT.get('rows', {})), rc
+    finally:
+        _SINK = old
+
+
 def _read_matrices(txt):
     """PHYSORIM -> {(cell, jointslot): 4x4 lignes}, PHYSORIMN -> {slot: nom}."""
     names = {}
@@ -134,28 +164,29 @@ def _roles(txt):
     return (sup[0] if sup else None), (pro[0] if pro else None), g
 
 
-def main():
-    log = sys.argv[1] if len(sys.argv) > 1 else \
-        '.autoport/reports/Grecharged-secondary-motion/keira-room-x86.log'
-    txt = open(os.path.join(REPO, log) if not os.path.isabs(log) else log,
-               'r', errors='replace').read()
+def main(txt=None):
+    if txt is None:
+        log = sys.argv[1] if len(sys.argv) > 1 else \
+            '.autoport/reports/Grecharged-secondary-motion/keira-room-x86.log'
+        txt = open(os.path.join(REPO, log) if not os.path.isabs(log) else log,
+                   'r', errors='replace').read()
     jn, mats, nmiss = _read_matrices(txt)
     if not mats:
-        print('C124-SHAPE: SUSPENDU — aucune ligne `PHYSORIM` dans cette trace. Rien n\'est'
+        _P('C124-SHAPE: SUSPENDU — aucune ligne `PHYSORIM` dans cette trace. Rien n\'est'
               ' publie (course anterieure au cycle 124, ou emission absente).')
         return 1
     if nmiss:
-        print('C124-SHAPE: SUSPENDU — %d ligne(s) `PHYSORIMMISS` : un joint nomme est introuvable'
+        _P('C124-SHAPE: SUSPENDU — %d ligne(s) `PHYSORIMMISS` : un joint nomme est introuvable'
               ' dans le rig porte. Un skinning incomplet donnerait une forme plausible et fausse.'
               % nmiss)
         return 1
     slot = {v: k for k, v in jn.items()}
-    print('C124-SHAPE: table nom -> slot lue dans la trace : %s'
+    _P('C124-SHAPE: table nom -> slot lue dans la trace : %s'
           % ' '.join('%s=%d' % (v, k) for k, v in sorted(jn.items())))
 
     g = c6.load_geometry('keira-hd', glb=SHIPPED)
     if g is None:
-        print('C124-SHAPE: SUSPENDU — mesh livre absent (%s).' % SHIPPED)
+        _P('C124-SHAPE: SUSPENDU — mesh livre absent (%s).' % SHIPPED)
         return 1
     names = list(g['names'])
     V, J, W, P = g['V'], g['J'], g['W'], g['P']
@@ -202,18 +233,18 @@ def main():
         dnow = np.linalg.norm(p - Mch[3, :3], axis=1)
         verdict[tag] = float(np.median(np.abs(dnow - dbind) / np.maximum(dbind, 1e-9)))
     conv = min(verdict, key=verdict.get)
-    print('C124-SHAPE: CONVENTION DE SKINNING, TRANCHEE PAR MESURE et non supposee — 24 sommets'
+    _P('C124-SHAPE: CONVENTION DE SKINNING, TRANCHEE PAR MESURE et non supposee — 24 sommets'
           ' peses a %.3f sur `chest` (donc RIGIDEMENT lies a lui) :' % float(np.median(wch[top])))
-    print('C124-SHAPE:   A  la matrice porte deja la pose de bind (p = v . M) : ecart median %.5f'
+    _P('C124-SHAPE:   A  la matrice porte deja la pose de bind (p = v . M) : ecart median %.5f'
           % verdict['A'])
-    print('C124-SHAPE:   C  il faut passer en local de bind d\'abord           : ecart median %.5f'
+    _P('C124-SHAPE:   C  il faut passer en local de bind d\'abord           : ecart median %.5f'
           % verdict['C'])
-    print('C124-SHAPE:   Critere : la distance du sommet a la TRANSLATION de son joint doit valoir'
+    _P('C124-SHAPE:   Critere : la distance du sommet a la TRANSLATION de son joint doit valoir'
           ' sa distance de BIND au joint (mediane %.1f u). RETENUE : %s (x%.0f mieux).'
           % (float(np.median(dbind)), conv,
              max(verdict.values()) / max(min(verdict.values()), 1e-9)))
     if verdict[conv] > 0.02:
-        print('C124-SHAPE: SUSPENDU — MEME la meilleure convention rend %.5f d\'ecart (seuil'
+        _P('C124-SHAPE: SUSPENDU — MEME la meilleure convention rend %.5f d\'ecart (seuil'
               ' declare 0.02). Le portage du skinning n\'est pas etabli ; aucune forme n\'est'
               ' publiee.' % verdict[conv])
         return 1
@@ -272,7 +303,7 @@ def main():
 
     isup, ipro, gdir = _roles(txt)
     o2 = _ori2(txt)
-    print('C124-SHAPE: cellules, designees par la GRAVITE MESUREE (jamais par le triplet'
+    _P('C124-SHAPE: cellules, designees par la GRAVITE MESUREE (jamais par le triplet'
           ' d\'echelles, qui est un argmin contre ce qu\'on injecte) : SUPINE i=%s · PRONE i=%s'
           % (isup, ipro))
 
@@ -292,11 +323,11 @@ def main():
             for i in cells:
                 cl = cloud(i, sel)
                 if cl is None:
-                    print('C124-SHAPE: %-8s %s cellule i=%d ABSENTE (matrice manquante)'
+                    _P('C124-SHAPE: %-8s %s cellule i=%d ABSENTE (matrice manquante)'
                           % (cname, lbl, i))
                     continue
                 if isinstance(cl, tuple):
-                    print('C124-SHAPE: SUSPENDU — le skinning ne se referme pas a 1 (ecart %.4f) :'
+                    _P('C124-SHAPE: SUSPENDU — le skinning ne se referme pas a 1 (ecart %.4f) :'
                           ' un joint pesant n\'est pas emis. Aucune forme publiee.' % cl[1])
                     return 1
                 e = {}
@@ -307,7 +338,7 @@ def main():
                             float(x.max() - x.min()))
                 ext[i] = e
             if 0 not in ext:
-                print('C124-SHAPE: %-8s %s SUSPENDU — pas de cellule i=0 (ligne de base).'
+                _P('C124-SHAPE: %-8s %s SUSPENDU — pas de cellule i=0 (ligne de base).'
                       % (cname, lbl))
                 continue
             for sec, cell in (('10', isup), ('11', ipro)):
@@ -315,14 +346,14 @@ def main():
                     continue
                 b = BANDS[sec]
                 cmd = o2.get((ci, cell))
-                print('C124-SHAPE: %-8s %s §%s  %s' % (cname, lbl, sec, b['cite']))
+                _P('C124-SHAPE: %-8s %s §%s  %s' % (cname, lbl, sec, b['cite']))
                 for a, kk in (('fwd', 2), ('out', 0), ('up', 1)):
                     lo, hi = b[a]
                     r_s = ext[cell][a][0] / ext[0][a][0]
                     r_m = ext[cell][a][1] / ext[0][a][1]
                     vd = 'SOUS' if r_s < lo else ('DANS' if r_s <= hi else 'AU-DESSUS')
                     y = (r_s / cmd[kk]) if cmd else float('nan')
-                    print('C124-SHAPE: %-8s %s §%s  %-3s  LIVREE %.4f (max-min %.4f)  bande'
+                    _P('C124-SHAPE: %-8s %s §%s  %-3s  LIVREE %.4f (max-min %.4f)  bande'
                           ' %.2f-%.2f  %-9s | COMMANDEE %.4f  rendement %.4f'
                           % (cname, lbl, sec, a, r_s, r_m, lo, hi, vd,
                              (cmd[kk] if cmd else float('nan')), y))
@@ -334,14 +365,14 @@ def main():
             # dans le balayage. Leur rapport est donc ce que l'instrument lit quand le defaut est
             # ABSENT, et il est MESURE.
             if 9 in ext:
-                print('C124-SHAPE: %-8s %s LECTURE HORS DEFAUT — i=9 (2e cellule DEBOUT) / i=0 :'
+                _P('C124-SHAPE: %-8s %s LECTURE HORS DEFAUT — i=9 (2e cellule DEBOUT) / i=0 :'
                       ' %s   (seuil declare 1 %%)'
                       % (cname, lbl, ' · '.join('%s %.4f' % (a, ext[9][a][0] / ext[0][a][0])
                                                 for a in ('fwd', 'out', 'up'))))
             # P7 — CONTROLE DE MONTAGE. i=10 est une seconde cellule PRONE, atteinte par un autre
             # chemin du balayage. Deux cellules que rien ne relie doivent rendre la meme forme.
             if 10 in ext and ipro in ext:
-                print('C124-SHAPE: %-8s %s CONTROLE DE MONTAGE — i=10 (2e cellule PRONE) contre'
+                _P('C124-SHAPE: %-8s %s CONTROLE DE MONTAGE — i=10 (2e cellule PRONE) contre'
                       ' i=%s : %s   (seuil declare 3 %%)'
                       % (cname, lbl, ipro,
                          ' · '.join('%s %+.2f %%'
@@ -350,18 +381,19 @@ def main():
     # ---- LES DEUX TESTS QUI DECIDENT SI CETTE MESURE VAUT QUELQUE CHOSE -----------------------
     ys = [abs(v[0] / v[2] - 1.0) for v in out.values() if v[2]]
     vds = [v[3] for v in out.values()]
-    print('C124-SHAPE: ------------------------------------------------------------------')
-    print('C124-SHAPE: TEST DE MIROIR (P3) — ecart du rendement a 1 : median %.4f  max %.4f'
+    _P('C124-SHAPE: ------------------------------------------------------------------')
+    _P('C124-SHAPE: TEST DE MIROIR (P3) — ecart du rendement a 1 : median %.4f  max %.4f'
           ' sur %d cellules.' % (float(np.median(ys)), float(np.max(ys)), len(ys)))
-    print('C124-SHAPE:   Un rendement identiquement 1.000 voudrait dire que la peau rend'
+    _P('C124-SHAPE:   Un rendement identiquement 1.000 voudrait dire que la peau rend'
           ' exactement l\'echelle injectee : la clause resterait un MIROIR malgre le changement')
-    print('C124-SHAPE:   de grandeur. Seuil declare AVANT la course : > 3 %% sur au moins une'
+    _P('C124-SHAPE:   de grandeur. Seuil declare AVANT la course : > 3 %% sur au moins une'
           ' cellule.  -> %s' % ('TENUE' if max(ys) > 0.03 else 'REFUTEE'))
-    print('C124-SHAPE: TEST DE FALSIFIABILITE (P4) — verdicts rendus : %s'
+    _P('C124-SHAPE: TEST DE FALSIFIABILITE (P4) — verdicts rendus : %s'
           % ' '.join('%s=%d' % (k, vds.count(k)) for k in ('SOUS', 'DANS', 'AU-DESSUS')))
-    print('C124-SHAPE:   Un instrument qui ne peut pas echouer ne vaut rien. Seuil declare AVANT'
+    _P('C124-SHAPE:   Un instrument qui ne peut pas echouer ne vaut rien. Seuil declare AVANT'
           ' la course : au moins une cellule HORS bande.  -> %s'
           % ('TENUE' if any(v != 'DANS' for v in vds) else 'REFUTEE'))
+    RESULT['rows'] = out
     return 0
 
 

@@ -1,0 +1,34 @@
+CYCLE 125 — PREDICTIONS ECRITES AVANT DE LIRE LA COURSE NEUVE
+DIRECTIVES vd9e8b66782 · phase Grecharged-secondary-motion · poitrine de Keira seule.
+Horodatage : 2026-08-27, course neuve lancee AVANT l'ecriture de ce fichier, PHYSEND pas encore vu.
+
+SECTION DONT CE CYCLE DEBLOQUE LE VERDICT (exigence DIRECTIVES 2026-08-21 18:25, nommee AVANT de
+commencer) : les SIX CELLULES D'ECHELLE de §10 et §11 — la PRIORITE 1 de la directive du
+2026-08-23 16:00, ouverte depuis le cycle 120 et declaree non close par le rapport du cycle 123.
+
+P1  Le controle negatif « instrument pur » du cycle 124 (P5 : la course neuve doit reproduire la
+    course archivee enregistrement pour enregistrement) N'A AUCUN CONTRASTE : deux courses SANS
+    aucune emission neuve different deja sur plus de 50 % de leurs enregistrements PHYS*.
+    FALSIFICATEUR : moins de 10 % d'ecart entre deux courses PHYSORIM-libres.
+
+P2  Les rapports de forme LIVREE (ecart-type ponderé) se reproduisent entre la course tronquee du
+    2026-08-26 10:30 et la course neuve du cycle 125, a moins de 3 % sur au moins 20 des 24
+    cellules. FALSIFICATEUR : 5 cellules ou plus bougent de plus de 3 %.
+
+P3  Les trois clauses HORS BANDE sur LES DEUX chaines, LES DEUX frontieres et LES DEUX estimateurs
+    dans la course du 10:30 — §10 `fwd` SOUS, §10 `out` SOUS, §11 `fwd` AU-DESSUS — le restent
+    dans la course neuve. FALSIFICATEUR : une seule des trois change de verdict.
+
+P4  Les cellules dont la marge au bord de bande le plus proche est inferieure a la reproductibilite
+    mesuree en P2 ne portent PAS de verdict, et elles sont au moins quatre (§10 `up` chestL,
+    §11 `up` chestL, §11 `up` chestR w>=0.25, §11 `out` chestL).
+    FALSIFICATEUR : toutes les 24 cellules ont une marge superieure au bruit.
+
+P5  LE MIROIR EST BRISE QUELLE QUE SOIT LA COURSE : l'ecart du rendement (forme livree / echelle
+    commandee) a 1 depasse 3 % sur au moins une cellule dans la course neuve aussi.
+    FALSIFICATEUR : rendement a moins de 3 % de 1 sur les 24 cellules.
+
+P6  §11 passe de `PARTIELLE` a `NON TENUE`. Sa clause « Root-to-apex length: +18 to +26% » est
+    AU-DESSUS sur les deux chaines quand on la lit sur la peau LIVREE au lieu de l'echelle
+    COMMANDEE, avec une marge tres superieure au bruit de course.
+    FALSIFICATEUR : la marge de cette clause tombe sous le bruit mesure en P2.

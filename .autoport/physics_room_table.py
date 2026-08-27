@@ -2322,6 +2322,12 @@ def _oricom_block(A, txt, names, ori):
     _oricom_mass_block(A, txt, names, com, com2, role, axis, b0)
     _spec10_block(A, txt, names, com, role, b0, _roles)
     _spec12_block(A, txt, names, com, b0)
+    # CYCLE 125 — APPELE ICI ET PAS A LA FIN DE `_spec12_block` : ce bloc-la SUSPEND et
+    # `return` des que l'instantane de masse n'est pas frais, et tout ce qui le suivait
+    # n'etait alors JAMAIS evalue. C'est `gate-behind-an-always-failing-gate`, troisieme
+    # occurrence du dossier ; la forme LIVREE ne depend pas de l'instantane de masse, elle
+    # ne doit donc pas dependre de sa fraicheur.
+    _spec1011_livree_block(A, txt)
     _orictl_block(A, txt, names, ori, axis, b0, _roles)
 
 
@@ -3364,13 +3370,31 @@ def _spec12_block(A, txt, names, com, b0):
         A('ROOM-SPEC12: SUSPENDU — la repartition de masse est ABSENTE (%s).' % e)
         A('')
         return
+    # CYCLE 125 — LA FRAICHEUR SE PROUVE PAR LE CONTENU. La garde precedente comparait `mtime` et
+    # `size` ; le 2026-08-27 une phase sans rapport a REECRIT le mesh livre a l'identique (meme
+    # taille, tous les champs de l'instantane identiques au champ pres) et le seul `mtime` a
+    # suspendu TOUT ce bloc, donc toute la mesure de §12. Un faux rouge coute autant qu'un faux
+    # vert. Le md5 fait foi ; `mtime`/`size` ne servent plus que de diagnostic, et un instantane
+    # ANCIEN (sans md5) retombe sur l'ancienne regle plutot que d'etre accepte en silence.
     _msrc, _mt, _msz = mass.get('source'), mass.get('source_mtime'), mass.get('source_size')
+    _mmd5 = mass.get('source_md5')
     _mp = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), _msrc or '')
-    if (not _msrc or not os.path.exists(_mp) or _mt is None or _msz is None
-            or abs(os.stat(_mp).st_mtime - float(_mt)) > 1.0
-            or os.stat(_mp).st_size != int(_msz)):
-        A('ROOM-SPEC12: SUSPENDU — instantane de masse PERIME ou incomplet : les axes de §7 et `W0`'
-          ' en viennent. Relancer `probe_breast_com_mass.py`.')
+    _frais = False
+    if _msrc and os.path.exists(_mp):
+        if _mmd5:
+            import hashlib as _hl
+            _h = _hl.md5()
+            with open(_mp, 'rb') as _f:
+                for _b in iter(lambda: _f.read(1 << 20), b''):
+                    _h.update(_b)
+            _frais = (_h.hexdigest() == _mmd5)
+        elif _mt is not None and _msz is not None:
+            _frais = (abs(os.stat(_mp).st_mtime - float(_mt)) <= 1.0
+                      and os.stat(_mp).st_size == int(_msz))
+    if not _frais:
+        A('ROOM-SPEC12: SUSPENDU — instantane de masse PERIME ou incomplet (md5 du mesh livre'
+          ' different de celui signe dans l\'instantane) : les axes de §7 et `W0` en viennent.'
+          ' Relancer `probe_breast_com_mass.py`.')
         A('')
         return
     chains = sorted({c for (c, _i) in dfma})
@@ -3554,7 +3578,8 @@ def _spec12_block(A, txt, names, com, b0):
                 _mrg = (abs(sp - tgt) / _demi * 100.0) if _demi > 0 else float('nan')
                 A('ROOM-SPEC12:   %-8s %-32s %7.4f %-10s %7.4f %-10s %7.4f %-10s  %.2f %.2f-%.2f'
                   '   [MIROIR : la cible EST l\'entree du solveur ; marge %.0f %% de la demi-bande'
-                  ' — AUCUN VERDICT, exclu des totaux]'
+                  ' — AUCUN VERDICT ICI, exclu des totaux ; le verdict de cette clause est rendu'
+                  ' par ROOM-SPEC1011-LIVREE, sur la peau LIVREE (cycle 125)]'
                   % (nm, lab, sv, 'MIROIR', sp, 'MIROIR', raw, 'MIROIR', tgt, lo, hi, _mrg))
                 continue
             A('ROOM-SPEC12:   %-8s %-32s %7.4f %-10s %7.4f %-10s %7.4f %-10s  %.2f %.2f-%.2f%s%s'
@@ -3599,6 +3624,153 @@ def _spec12_block(A, txt, names, com, b0):
                        for k, v in _cl.items()), notasym=True)
     else:
         A('ROOM-SPEC12: VERDICT  NON ETABLI  — aucune clause adressee ne rend un verdict unique.')
+    A('')
+
+
+# ---- CYCLE 125 : LA GRANDEUR INDEPENDANTE QUE LA PRIORITE 1 RECLAMAIT DEPUIS LE CYCLE 120 ------
+# Directive du 2026-08-23 16:00, priorite 1, texte exact : « leur verdict doit se mesurer contre
+# une grandeur INDEPENDANTE de l'entree du solveur, ou la section repasse NON ETABLI. C'est du faux
+# vert actif, ca passe avant tout. » Le cycle 120 avait pris la SECONDE branche (les six cellules
+# ne portent plus de verdict) et le rapport du cycle 123 ecrivait noir sur blanc que « aucune
+# grandeur independante ne remplace encore ce que ces six cellules pretendaient mesurer, a savoir
+# la FORME ». Ce bloc prend la PREMIERE branche.
+#
+# CE QUI EST MESURE : la forme du NUAGE DE PEAU — les sommets du mesh LIVRE, deplaces par skinning
+# lineaire avec les matrices d'os REELLEMENT ECRITES au squelette (`PHYSORIM`). Entre l'echelle que
+# le solveur COMMANDE et ce nuage il y a le melange de deux maillons aux matrices differentes, la
+# rotation squelettique, la contrainte de longueur, `phys-skin-chain` et la collision. C'est ce que
+# l'owner voit ; ce n'est pas ce qu'on injecte.
+# CE QUI LE PROUVE : le RENDEMENT (forme livree / echelle commandee) est publie a cote de CHAQUE
+# cellule. Un rendement identiquement 1.000 voudrait dire que la peau rend exactement ce qu'on
+# injecte, et la clause resterait un miroir malgre le changement de grandeur.
+#
+# NATURE  : un RAPPORT sans dimension (etendue a la cellule d'orientation / etendue debout), par
+#           axe. L'etendue primaire est l'ECART-TYPE PONDERE PAR LA MASSE le long de l'axe ; le
+#           max-min est publie A COTE comme sensibilite, parce qu'il ne repose que sur DEUX
+#           sommets. Ce n'est ni une amplitude, ni une variance de mouvement.
+# REPERE  : le triedre de §7 (`out`/`up`/`fwd`) mesure sur le rig, exprime dans la base de l'ANCRE
+#           `chest` prise a CHAQUE cellule — la rotation d'ensemble du personnage sort de la mesure.
+# LIGNE DE BASE : la cellule i=0 est la pose debout d'auteur, ou §9 exige la forme exacte du modele.
+#           Lecture hors defaut MESUREE : la 2e cellule debout (i=9), que rien ne relie a i=0 dans
+#           le balayage, rend 1.0002 a 1.0016.
+#
+# LE PLANCHER DE BRUIT EST MESURE, PAS SUPPOSE, ET C'EST LUI QUI DECIDE QUI PORTE UN VERDICT.
+# Le controle negatif du cycle 124 (« la course neuve reproduit la course archivee enregistrement
+# pour enregistrement ») N'A AUCUN CONTRASTE : deux courses SANS aucune emission neuve different
+# deja sur 70 451 enregistrements PHYS* sur 93 013, soit 75,7 %. Ce qui doit se reproduire n'est
+# pas la trace, c'est LA MESURE. Rejouee sur deux courses independantes
+# (`.autoport/c125_repro.py`, sortie archivee `c125-repro.out`), elle bouge au plus de :
+#
+#     §10  cellule SUPINE i=8   max 14,647 %   median 4,561 %   sur 12 cellules
+#     §11  cellule PRONE  i=6   max  0,045 %   median 0,011 %   sur 12 cellules     RAPPORT x324
+#
+# LE PLANCHER EST DONC PAR SECTION, ET C'EST LE FAIT LE PLUS UTILE DE CE CYCLE. Un plancher unique
+# aurait ete fixe par la cellule la PLUS BRUYANTE et aurait disqualifie les cellules d'une AUTRE
+# orientation : c'est `floor-drawn-across-the-experimental-variable`, deja paye. Les deux cellules
+# ne sont pas de meme qualite — la SUPINE (sein comprime contre le thorax, donc en CONTACT) ne se
+# reproduit pas d'une course a l'autre, la PRONE (sein pendant, libre) se reproduit a 0,045 %.
+# Registre, `refutation-must-be-robust-to-its-noise-floor` : une cellule dont la MARGE au bord de
+# bande est sous le bruit DE SA PROPRE SECTION ne porte PAS de verdict — ce serait un tirage.
+# CONTROLE : les DEUX seules cellules dont le verdict CHANGE entre les deux courses (chestR
+# w>=0.25 §10 `up` et chestR w>=0.25 §11 `up`) sont deja exclues par ce plancher-la, sans qu'on ait
+# a les nommer. Un plancher qui n'attraperait pas ses propres bascules ne vaudrait rien.
+_LIVREE_BRUIT = {'10': 0.14647, '11': 0.00045}
+
+
+def _spec1011_livree_block(A, txt):
+    """LES SIX CELLULES D'ECHELLE DE §10/§11, JUGEES SUR LA PEAU LIVREE ET PLUS SUR L'ENTREE."""
+    A('   -- ROOM-SPEC1011-LIVREE : LA FORME QUE LA PEAU RECOIT, CONTRE CELLE QU\'ON INJECTE ----')
+    try:
+        import c124_delivered_shape as _shape
+    except Exception as e:                                       # pragma: no cover
+        A('ROOM-SPEC1011-LIVREE: SANS VERDICT — instrument indisponible (%s). Les six cellules'
+          ' restent MIROIR, comme au cycle 120.' % e)
+        A('')
+        return
+    try:
+        lines, rows, rc = _shape.measure(txt)
+    except Exception as e:                                       # pragma: no cover
+        A('ROOM-SPEC1011-LIVREE: SANS VERDICT — le calcul de forme a echoue (%r). Rien n\'est'
+          ' publie : une forme plausible et fausse coute plus qu\'une absence declaree.' % e)
+        A('')
+        return
+    if rc != 0 or not rows:
+        for l in lines:
+            A('ROOM-SPEC1011-LIVREE: ' + l.replace('C124-SHAPE: ', ''))
+        A('ROOM-SPEC1011-LIVREE: SANS VERDICT — les six cellules restent MIROIR (cycle 120).')
+        A('')
+        return
+    for l in lines:
+        if l.startswith('C124-SHAPE: CONVENTION') or 'ecart median' in l or 'Critere' in l \
+           or 'cellules, designees' in l or 'table nom' in l \
+           or 'LECTURE HORS DEFAUT' in l or 'CONTROLE DE MONTAGE' in l:
+            A('ROOM-SPEC1011-LIVREE: ' + l.replace('C124-SHAPE: ', ''))
+    A('ROOM-SPEC1011-LIVREE: %-8s %-8s §%-3s %-4s | LIVREE   (max-min)  COMMANDEE  rendement |'
+      '  bande        marge     verdict' % ('chaine', 'front.', '', 'axe'))
+    clause = {}
+    for k in sorted(rows):
+        cn, lbl, sec, ax = k
+        sig, mm, cmd, vd = rows[k]
+        lo, hi = _shape.BANDS[sec][ax]
+        if sig < lo:
+            mrg = (lo - sig) / sig
+        elif sig > hi:
+            mrg = (sig - hi) / sig
+        else:
+            mrg = min(sig - lo, hi - sig) / sig
+        # LE SECOND ESTIMATEUR DECIDE AUSSI. Le max-min ne repose que sur deux sommets, donc il ne
+        # porte pas le verdict — mais s'il le CONTREDIT, la cellule n'est pas lisible et le dire
+        # vaut mieux que de choisir l'estimateur qui arrange.
+        vmm = 'SOUS' if mm < lo else ('DANS' if mm <= hi else 'AU-DESSUS')
+        why = ''
+        _brt = _LIVREE_BRUIT.get(sec, 0.0)
+        if mrg <= _brt:
+            vfin, why = 'SANS VERDICT', '  [marge %.3f %% <= bruit §%s %.3f %%]' % (
+                mrg * 100.0, sec, _brt * 100.0)
+        elif vmm != vd:
+            vfin, why = 'SANS VERDICT', '  [les deux estimateurs se contredisent : max-min %s]' % vmm
+        else:
+            vfin = vd
+        clause.setdefault((sec, ax), []).append(vfin)
+        A('ROOM-SPEC1011-LIVREE: %-8s %-8s §%-3s %-4s | %7.4f (%7.4f)  %8.4f   %7.4f  |'
+          ' %.2f-%.2f  %6.2f %%  %-12s%s'
+          % (cn, lbl, sec, ax, sig, mm, cmd if cmd else float('nan'),
+             (sig / cmd) if cmd else float('nan'), lo, hi, mrg * 100.0, vfin, why))
+    ys = [abs(rows[k][0] / rows[k][2] - 1.0) for k in rows if rows[k][2]]
+    ys.sort()
+    A('ROOM-SPEC1011-LIVREE: TEST DE MIROIR — ecart du rendement a 1 : median %.2f %%  max %.2f %%'
+      ' sur %d cellules. Seuil declare AVANT la course : > 3 %% sur au moins une cellule. -> %s'
+      % (ys[len(ys) // 2] * 100.0, ys[-1] * 100.0, len(ys),
+         'BRISE — la peau ne rend pas ce qu\'on injecte' if ys[-1] > 0.03 else
+         'NON BRISE — la clause reste un MIROIR malgre le changement de grandeur'))
+    _v = [v for l_ in clause.values() for v in l_]
+    A('ROOM-SPEC1011-LIVREE: TEST DE FALSIFIABILITE — verdicts rendus : %s. Un instrument qui ne'
+      ' peut pas echouer ne vaut rien. -> %s'
+      % (' '.join('%s=%d' % (t, _v.count(t))
+                  for t in ('SOUS', 'DANS', 'AU-DESSUS', 'SANS VERDICT')),
+         'TENUE' if any(t in ('SOUS', 'AU-DESSUS') for t in _v) else 'REFUTEE'))
+    A('ROOM-SPEC1011-LIVREE: --- CE QUE CHAQUE CLAUSE RECOIT COMME VERDICT DE REGISTRE ---')
+    for sec, ax, nom in (('10', 'fwd', 'Forward projection -25 a -35 %'),
+                         ('10', 'out', 'Width +18 a +28 %'),
+                         ('10', 'up', 'Vertical envelope +5 a +12 %'),
+                         ('11', 'fwd', 'Root-to-apex length +18 a +26 %'),
+                         ('11', 'out', 'Width -7 a -13 %'),
+                         ('11', 'up', 'Thickness -6 a -12 %')):
+        vs = clause.get((sec, ax), [])
+        if len(vs) != 4:
+            A('ROOM-SPEC1011-LIVREE:   §%s %-4s %-34s  SANS VERDICT — %d cellules sur 4'
+              % (sec, ax, nom, len(vs)))
+            continue
+        u = set(vs)
+        if u == {'DANS'}:
+            r = 'DANS sur les 2 chaines et les 2 frontieres'
+        elif u in ({'SOUS'}, {'AU-DESSUS'}):
+            r = 'HORS BANDE (%s) sur les 2 chaines et les 2 frontieres' % vs[0]
+        elif 'SANS VERDICT' in u and len(u) == 1:
+            r = 'SANS VERDICT — les 4 cellules sont sous le bruit ou contredites'
+        else:
+            r = 'INDETERMINEE — %s' % ' / '.join('%s=%d' % (t, vs.count(t)) for t in sorted(u))
+        A('ROOM-SPEC1011-LIVREE:   §%s %-4s %-34s  %s' % (sec, ax, nom, r))
     A('')
 
 

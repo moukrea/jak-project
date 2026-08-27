@@ -178,13 +178,28 @@ def main():
     # etait juste, l'instant etait faux, et rien ne pouvait le voir.
     path = g.get('path') or os.path.join(REPO, g['src'])
     src_abs = path if os.path.isabs(path) else os.path.join(REPO, path)
+    # CYCLE 125 — LA PROVENANCE SE SIGNE PAR LE CONTENU, PAS PAR L'HORODATAGE.
+    # Mesure du 2026-08-27 : le mesh livre a ete REECRIT a l'identique par une phase sans rapport
+    # (`Gprecompute-deterministic-bake`, 04:21) — meme taille au bit pres, tous les champs de cet
+    # instantane identiques — et le seul `mtime` qui bouge a fait SUSPENDRE tout `_spec12_block`,
+    # donc TOUTE la mesure de §12, dont le statut `TENUE` du registre depend. Une garde de
+    # fraicheur qui se declenche sur un fichier au contenu inchange est un FAUX ROUGE, et il coute
+    # autant qu'un faux vert : la section disparait du tableau sans que rien echoue.
+    # `mtime` et `size` restent ecrits comme DIAGNOSTIC ; c'est le md5 qui fait foi.
     try:
         st = os.stat(src_abs)
         out['source_mtime'] = st.st_mtime
         out['source_size'] = st.st_size
+        import hashlib as _hl
+        _h = _hl.md5()
+        with open(src_abs, 'rb') as _f:
+            for _b in iter(lambda: _f.read(1 << 20), b''):
+                _h.update(_b)
+        out['source_md5'] = _h.hexdigest()
     except OSError:
         out['source_mtime'] = None
         out['source_size'] = None
+        out['source_md5'] = None
     dest = os.path.join(REPO, '.autoport/reports/Grecharged-secondary-motion/breast-com-mass.json')
     json.dump(out, open(dest, 'w'), indent=1)
     print('PROBE-COM-MASS: ecrit %s' % os.path.relpath(dest, REPO))
