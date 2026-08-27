@@ -10022,3 +10022,573 @@ ecart de 8,5 % que je n'explique pas. Soit mon tenseur quasi-statique n'est pas 
 diagnostic, soit le rendu retro-agit par un second chemin que [NOTE-534] n'a pas trouve. **C'est
 le premier falsificateur du cycle 123**, et il se teste sans course neuve : comparer
 `*phys-dfsq*` publie contre `*phys-dfs*` du build de diagnostic, frame a frame, sur `chestL`.
+
+
+---
+## [NOTE-540] — le rayon du noyau EST la distance au dernier voisin retenu : il s'adapte a la
+
+Migre VERBATIM depuis `jak-hd-physics.gc:1870-1871` (cycle 128) pour tenir le plafond de
+4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+        ;; le rayon du noyau EST la distance au dernier voisin retenu : il s'adapte a la densite
+        ;; locale, et le poids qui s'y annule est ce qui rend la fonction continue.
+```
+
+---
+## [NOTE-541] — les m voisins sont a la MEME distance : le noyau s'annule partout et la moyenn
+
+Migre VERBATIM depuis `jak-hd-physics.gc:1886-1887` (cycle 128) pour tenir le plafond de
+4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+             ;; les m voisins sont a la MEME distance : le noyau s'annule partout et la moyenne
+             ;; ponderee n'est pas definie. On rend le plus proche, sans inventer de poids.
+```
+
+---
+## [NOTE-542] — MEME GENOU, MEME ASYMPTOTE, MEME TANH DE PADE QUE LE FILET AMONT. Le duplicat
+
+Migre VERBATIM depuis `jak-hd-physics.gc:2018-2019` (cycle 128) pour tenir le plafond de
+4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+              ;; MEME GENOU, MEME ASYMPTOTE, MEME TANH DE PADE QUE LE FILET AMONT. Le duplicat est
+              ;; assume : factoriser ferait bouger la course DESARMEE et detruirait son controle.
+```
+
+---
+## [NOTE-543] — la mesure mediale partage la fenetre de la peau : un seul reset, donc jamais d
+
+Migre VERBATIM depuis `jak-hd-physics.gc:2063-2064` (cycle 128) pour tenir le plafond de
+4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+    ;; la mesure mediale partage la fenetre de la peau : un seul reset, donc jamais deux
+    ;; populations sous un meme rapport (`ratio-of-two-statistics`, deja paye au cycle 61).
+```
+
+---
+## [NOTE-544] — DECISION 1, cote SOLVEUR uniquement : la profondeur du volume ecarte ne partic
+
+Migre VERBATIM depuis `jak-hd-physics.gc:2187-2188` (cycle 128) pour tenir le plafond de
+4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                 ;; DECISION 1, cote SOLVEUR uniquement : la profondeur du volume ecarte ne
+                 ;; participe pas au recul. La MESURE (`prio` = 0) continue de la voir.
+```
+
+---
+## [NOTE-545] — DOMAINE : les DEUX termes reellement EN CONTACT. Le tableau rabote a zero un r
+
+Migre VERBATIM depuis `jak-hd-physics.gc:2312-2313` (cycle 128) pour tenir le plafond de
+4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+              ;; DOMAINE : les DEUX termes reellement EN CONTACT. Le tableau rabote a zero un
+              ;; residu negatif ; un couple dont un terme est rabote ne mesure aucune reponse.
+```
+
+---
+## [NOTE-546] — direction de l'os du porteur : de SON parent vers lui. A defaut (porteur racin
+
+Migre VERBATIM depuis `jak-hd-physics.gc:2476-2477` (cycle 128) pour tenir le plafond de
+4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                  ;; direction de l'os du porteur : de SON parent vers lui. A defaut (porteur
+                  ;; racine), la verticale du monde vers le bas — ce qui pend, pend.
+```
+
+---
+## [NOTE-547] — LA PREUVE QUE LA PLACE A CHANGE, et de combien : la distance au porteur que le
+
+Migre VERBATIM depuis `jak-hd-physics.gc:2499-2500` (cycle 128) pour tenir le plafond de
+4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                ;; LA PREUVE QUE LA PLACE A CHANGE, et de combien : la distance au porteur que le
+                ;; rig donne, contre celle que l'ancienne heuristique donnait (le rayon `rl`).
+```
+
+---
+## [NOTE-548] — les deux lignes restantes, sans branche cachee : iv=0 -> (1,2) iv=1 -> (0,2) i
+
+Migre VERBATIM depuis `jak-hd-physics.gc:2617-2618` (cycle 128) pour tenir le plafond de
+4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                               ;; les deux lignes restantes, sans branche cachee :
+                               ;;   iv=0 -> (1,2)   iv=1 -> (0,2)   iv=2 -> (0,1)
+```
+
+---
+## [NOTE-549] — CE QUE LA DECISION A COMPARE, publie tel quel : sans ces deux nombres, « le la
+
+Migre VERBATIM depuis `jak-hd-physics.gc:2626-2627` (cycle 128) pour tenir le plafond de
+4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                          ;; CE QUE LA DECISION A COMPARE, publie tel quel : sans ces deux nombres,
+                          ;; « le lateral est la ligne 0 » resterait une affirmation de source.
+```
+
+---
+## [NOTE-550] — --- MESURE SEULEMENT. Acceleration MONDE de la pose d'auteur de ce lien : elle
+
+Migre VERBATIM depuis `jak-hd-physics.gc:2735-2736` (cycle 128) pour tenir le plafond de
+4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                            ;; --- MESURE SEULEMENT. Acceleration MONDE de la pose d'auteur de ce
+                            ;; lien : elle ne produit plus aucune force, elle definit le stimulus.
+```
+
+---
+## [NOTE-551] — LE STIMULUS REELLEMENT RECU PAR LA POINTE, quelle qu'en soit la source (pilota
+
+Migre VERBATIM depuis `jak-hd-physics.gc:2745-2746` (cycle 128) pour tenir le plafond de
+4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                            ;; LE STIMULUS REELLEMENT RECU PAR LA POINTE, quelle qu'en soit la
+                            ;; source (pilotage de la salle, rotation du porteur, animation).
+```
+
+---
+## [NOTE-552] — ---- LA CHAIR : direction de repos du MATERIAU, relevee UNE fois ---- et const
+
+Migre VERBATIM depuis `jak-hd-physics.gc:2815-2816` (cycle 128) pour tenir le plafond de
+4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                                 ;; ---- LA CHAIR : direction de repos du MATERIAU, relevee UNE fois
+                                 ;; ---- et constante ensuite. Elle ne suit pas l'animation.
+```
+
+---
+## [NOTE-553] — le facteur de raideur de chaque LIGNE (1.0 partout tant que la chaine n'est pa
+
+Migre VERBATIM depuis `jak-hd-physics.gc:2921-2922` (cycle 128) pour tenir le plafond de
+4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                                        ;; le facteur de raideur de chaque LIGNE (1.0 partout tant
+                                        ;; que la chaine n'est pas classee : isotropie stricte)
+```
+
+---
+## [NOTE-554] — SPEC 22 : plafond NORMAL (genou) et marge jusqu'au plafond DUR, en unites de `
+
+Migre VERBATIM depuis `jak-hd-physics.gc:3129-3130` (cycle 128) pour tenir le plafond de
+4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                                     ;; SPEC 22 : plafond NORMAL (genou) et marge jusqu'au plafond
+                                     ;; DUR, en unites de `B0` — la CHAIR (SPEC 6), pas l'os.
+```
+
+---
+## [NOTE-555] — SPEC 33/34 — la poussee de contact de CETTE frame, remise a zero avant les bal
+
+Migre VERBATIM depuis `jak-hd-physics.gc:3153-3154` (cycle 128) pour tenir le plafond de
+4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                    ;; SPEC 33/34 — la poussee de contact de CETTE frame, remise a zero avant les
+                    ;; balayages : elle n'est pas un etat, elle est l'integrale d'une frame.
+```
+
+---
+## [NOTE-97] — bloc rattache a la note existante (cycle 128) — les quatre grandeurs de l'instrument vivent EXACTEMENT le meme cycle de vie qu
+
+Bloc RATTACHE a [NOTE-97], qu'il portait deja dans le source. Migre VERBATIM depuis
+`jak-hd-physics.gc:3159-3160` (cycle 128) pour tenir le plafond de 4800 lignes de la gate
+CLEAN. Aucun numero neuf n'est consomme. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                        ;; [NOTE-97] les quatre grandeurs de l'instrument vivent EXACTEMENT le meme
+                        ;; cycle de vie que `*phys-cpu*` : une frame, pas un etat.
+```
+
+---
+## [NOTE-556] — t2 porte la pose d'auteur de la frame PRECEDENTE : le bloc d'integration vient
+
+Migre VERBATIM depuis `jak-hd-physics.gc:3257-3258` (cycle 128) pour tenir le plafond de
+4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                              ;; t2 porte la pose d'auteur de la frame PRECEDENTE : le bloc
+                              ;; d'integration vient d'y decaler l'ancienne valeur de t1.
+```
+
+---
+## [NOTE-557] — frame ou au moins une paire (lien, volume) etait en contact : c'est la seule s
+
+Migre VERBATIM depuis `jak-hd-physics.gc:3301-3302` (cycle 128) pour tenir le plafond de
+4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                          ;; frame ou au moins une paire (lien, volume) etait en contact : c'est la
+                          ;; seule sorte de frame ou « penetration nulle » veut dire quelque chose.
+```
+
+---
+## [NOTE-558] — 360 / 65536 : `atan` rend des unites de rotation, on publie des degres.
+
+Migre VERBATIM depuis `jak-hd-physics.gc:3388-3389` (cycle 128) pour tenir le plafond de
+4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                                           ;; 360 / 65536 : `atan` rend des unites de rotation, on
+                                           ;; publie des degres.
+```
+
+---
+## [NOTE-559] — MEME LIGNE, MEME NORMALISATION DE LIGNE, MEME INSTANT : seule la grandeur proj
+
+Migre VERBATIM depuis `jak-hd-physics.gc:3422-3423` (cycle 128) pour tenir le plafond de
+4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                                              ;; MEME LIGNE, MEME NORMALISATION DE LIGNE, MEME
+                                              ;; INSTANT : seule la grandeur projetee change.
+```
+
+---
+## [NOTE-560] — --- la pointe : amplitude de l'ecart (physique seule) et intention --- d'auteu
+
+Migre VERBATIM depuis `jak-hd-physics.gc:3434-3435` (cycle 128) pour tenir le plafond de
+4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                      ;; --- la pointe : amplitude de l'ecart (physique seule) et intention
+                      ;; --- d'auteur sur CETTE chaine, la meme frame (SPEC 5).
+```
+
+---
+## [NOTE-561] — pointe d'AUTEUR dans le repere de l'ancre (transformation de POINT : w = 1, la
+
+Migre VERBATIM depuis `jak-hd-physics.gc:3442-3443` (cycle 128) pour tenir le plafond de
+4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                            ;; pointe d'AUTEUR dans le repere de l'ancre (transformation de POINT :
+                            ;; w = 1, la translation compte)
+```
+
+---
+## [NOTE-562] — la normale est celle de la poussee, exprimee en MONDE ; le tenseur de deformat
+
+Migre VERBATIM depuis `jak-hd-physics.gc:3764-3765` (cycle 128) pour tenir le plafond de
+4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                                ;; la normale est celle de la poussee, exprimee en MONDE ; le tenseur
+                                ;; de deformation vit en espace ANCRE, on y ramene donc la normale.
+```
+
+---
+## [NOTE-563] — la correction est une TRANSLATION RIGIDE de l'organe : `dl` la repartit sur le
+
+Migre VERBATIM depuis `jak-hd-physics.gc:4025-4026` (cycle 128) pour tenir le plafond de
+4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                          ;; la correction est une TRANSLATION RIGIDE de l'organe : `dl` la repartit sur les
+                          ;; maillons de sorte que la somme PONDEREE recoive exactement `-(1-g) s`.
+```
+
+---
+## [NOTE-564] — les accumulateurs suivent EXACTEMENT la correction : une translation entre dan
+
+Migre VERBATIM depuis `jak-hd-physics.gc:4035-4036` (cycle 128) pour tenir le plafond de
+4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                          ;; les accumulateurs suivent EXACTEMENT la correction : une translation entre dans
+                          ;; `tp`, `rp` et `dp` sont inchanges, et l'identite e = tp + rp + dp referme.
+```
+
+---
+## [NOTE-565] — ET LE COM SUIT : les maillons deplaces portent `cws` de la masse de COM, donc
+
+Migre VERBATIM depuis `jak-hd-physics.gc:4039-4041` (cycle 128) pour tenir le plafond de
+4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                          ;; ET LE COM SUIT : les maillons deplaces portent `cws` de la masse de COM, donc le
+                          ;; centre publie bouge de `cws * dl * s`. Laisser `comex` sur la valeur d'avant
+                          ;; publierait un COM qui ne decrit plus le squelette livre (regle du 2026-08-19 23:50).
+```
+
+---
+## [NOTE-127] — bloc rattache a la note existante (cycle 128) — TOUS les maillons ont contribue, ou AUCUN chiffre n'est publie : un poids manq
+
+Bloc RATTACHE a [NOTE-127], qu'il portait deja dans le source. Migre VERBATIM depuis
+`jak-hd-physics.gc:4044-4045` (cycle 128) pour tenir le plafond de 4800 lignes de la gate
+CLEAN. Aucun numero neuf n'est consomme. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+                    ;; [NOTE-127] TOUS les maillons ont contribue, ou AUCUN chiffre n'est publie : un
+                    ;; poids manquant ne doit jamais se lire comme un COM de zero.
+```
+
+---
+## [NOTE-566] — la boite englobante part vide : un min a 0 la forcerait a contenir l'origine e
+
+Migre VERBATIM depuis `jak-hd-physics.gc:4116-4117` (cycle 128) pour tenir le plafond de
+4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+      ;; la boite englobante part vide : un min a 0 la forcerait a contenir l'origine et
+      ;; gonflerait l'amplitude mesuree.
+```
+
+---
+## [NOTE-567] — la deviation angulaire propre de CHAQUE maillon part de zero : c'est un maximu
+
+Migre VERBATIM depuis `jak-hd-physics.gc:4130-4131` (cycle 128) pour tenir le plafond de
+4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+      ;; la deviation angulaire propre de CHAQUE maillon part de zero : c'est un maximum, et un
+      ;; maillon qui suit rigidement son parent doit pouvoir lire exactement zero.
+```
+
+---
+## [NOTE-81] — bloc rattache a la note existante (cycle 128) — les trois miroirs par maillon sont des maximums et un compte DE FENETRE, comme
+
+Bloc RATTACHE a [NOTE-81], qu'il portait deja dans le source. Migre VERBATIM depuis
+`jak-hd-physics.gc:4135-4136` (cycle 128) pour tenir le plafond de 4800 lignes de la gate
+CLEAN. Aucun numero neuf n'est consomme. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+      ;; [NOTE-81] les trois miroirs par maillon sont des maximums et un compte DE FENETRE, comme
+      ;; leurs equivalents par chaine juste en dessous : meme portee, meme remise a zero.
+```
+
+---
+## [NOTE-568] — la colonne du tableau : le residu signe de la fenetre, ou 0 si aucune frame de
+
+Migre VERBATIM depuis `jak-hd-physics.gc:4180-4181` (cycle 128) pour tenir le plafond de
+4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+;; la colonne du tableau : le residu signe de la fenetre, ou 0 si aucune frame de la fenetre n'a eu
+;; le moindre contact. Le nombre de frames en contact est publie a part (phys-auth which=7).
+```
+
+---
+## [NOTE-569] — AMPLITUDE de mouvement de la pointe due a la PHYSIQUE seule, sur la fenetre :
+
+Migre VERBATIM depuis `jak-hd-physics.gc:4186-4187` (cycle 128) pour tenir le plafond de
+4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+;; AMPLITUDE de mouvement de la pointe due a la PHYSIQUE seule, sur la fenetre : la diagonale de la
+;; boite englobante de l'ecart. Zero si la fenetre n'a pas de frame.
+```
+
+---
+## [NOTE-155] — bloc rattache a la note existante (cycle 128) — les deux maxima apparies partent de la sentinelle « aucun contact », comme l'e
+
+Bloc RATTACHE a [NOTE-155], qu'il portait deja dans le source. Migre VERBATIM depuis
+`jak-hd-physics.gc:4455-4456` (cycle 128) pour tenir le plafond de 4800 lignes de la gate
+CLEAN. Aucun numero neuf n'est consomme. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+  ;; [NOTE-155] les deux maxima apparies partent de la sentinelle « aucun contact », comme
+  ;; l'emplacement 4 de `*phys-st*` : un maximum plafonne a zero rendrait la colonne constante.
+```
+
+---
+## [NOTE-570] — CONTROLE POSITIF DU CANAL D'AUTEUR : 1 = l'animation est retardee d'une frame
+
+Migre VERBATIM depuis `jak-hd-physics.gc:4465-4466` (cycle 128) pour tenir le plafond de
+4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+;; CONTROLE POSITIF DU CANAL D'AUTEUR : 1 = l'animation est retardee d'une frame dans la position
+;; ecrite. Le compteur d'identite doit s'effondrer ; s'il ne bouge pas, il ne mesure rien.
+```
+
+---
+## [NOTE-571] — SPEC 21/22 : 6 = sous-pas integres avec le RESSORT QUI RAIDIT actif (pas un su
+
+Migre VERBATIM depuis `jak-hd-physics.gc:4476-4477` (cycle 128) pour tenir le plafond de
+4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+    ;; SPEC 21/22 : 6 = sous-pas integres avec le RESSORT QUI RAIDIT actif (pas un suppresseur, il
+    ;; ne retire rien) ; 9 = fois ou le FILET positionnel a mordu, 10 = ce que LUI a retire (unites).
+```
+
+---
+## [NOTE-572] — l'etat de contrainte de la frame precedente est oublie aussi : sinon la premie
+
+Migre VERBATIM depuis `jak-hd-physics.gc:4520-4521` (cycle 128) pour tenir le plafond de
+4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+  ;; l'etat de contrainte de la frame precedente est oublie aussi : sinon la premiere frame de la
+  ;; fenetre suivante compterait une bascule qui n'a pas eu lieu dans cette fenetre.
+```
+
+---
+## [NOTE-109] — bloc rattache a la note existante (cycle 128) — le cumul par branche vit le meme cycle que le reste du diagnostic : c'est ce q
+
+Bloc RATTACHE a [NOTE-109], qu'il portait deja dans le source. Migre VERBATIM depuis
+`jak-hd-physics.gc:4523-4524` (cycle 128) pour tenir le plafond de 4800 lignes de la gate
+CLEAN. Aucun numero neuf n'est consomme. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+  ;; [NOTE-109] le cumul par branche vit le meme cycle que le reste du diagnostic : c'est ce qui
+  ;; rend les deux jambes d'un controle comparables sans qu'aucune ne herite de l'autre.
+```
+
+---
+## [NOTE-573] — COMBIEN DE FOIS LE VOLUME `ci` A CONTRAINT LE MAILLON `link` DE `chain` — le c
+
+Migre VERBATIM depuis `jak-hd-physics.gc:4639-4640` (cycle 128) pour tenir le plafond de
+4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
+
+```
+;; COMBIEN DE FOIS LE VOLUME `ci` A CONTRAINT LE MAILLON `link` DE `chain` — le compte est
+;; desormais PAR MAILLON, plus par chaine : c'est la dimension qui manquait pour dire LEQUEL viole.
+```
+
+## [NOTE-574]
+
+SPEC 11 — L'ETAGE RIGIDE : 12 constantes de mesh par chaine, le rapport MESURE chaque frame, et
+son DENOMINATEUR publie a cote.
+
+**LE DEFAUT QUE CA CORRIGE, ET IL EST CHIFFRE PAR ETAGE (cycle 127).** La chaine livre DEJA
+1,0977 a 1,1415 de longueur racine->apex par sa seule RECONFIGURATION — nuage `RIGID` : matrices
+livrees, decomposition polaire, rotation seule, `S = I`, zero etirement de tissu. Et le tenseur de
+forme recevait malgre tout la cible TOTALE de la section (`PHYSORI2` 1,2195 / 1,2125). Resultat :
+1,13 x 1,22 = 1,38 commande pour une bande de 1,18-1,26, et 1,2734 a 1,3363 effectivement livre
+sur la peau re-skinnee. **C'est un DOUBLE COMPTE, pas un mauvais reglage** : la meme longueur
+etait demandee deux fois, une fois par la geometrie et une fois par le solveur.
+
+**POURQUOI DES CONSTANTES CUITES, ET POURQUOI CE N'EST PAS UN REGLAGE.** Sous skinning lineaire le
+vecteur racine->apex de la chair est EXACTEMENT une somme par OS :
+
+        d = c_dist - c_prox = Somme_b ( ds_b . R_b + dm_b t_b )
+
+`ds_b` et `dm_b` sont des differences de centroides ponderes entre la population DISTALE et la
+population PROXIMALE, chacune renormalisee par son propre total. Elles ne dependent QUE du mesh
+livre et de la pose de bind — aucun verdict, aucune mesure de course n'entre dans leur calcul.
+Meme classe que `*phys-lcx/lcy/lcz*` et `*phys-apx/apy/apz*`, deja cuits et deja lus.
+Cuisson et validation : `.autoport/c128_bake_rigid.py`.
+
+**DEUX PROPRIETES EXACTES QU'ON EXPLOITE.** (1) `Somme_b dm_b = 0` par construction, donc `t_b`
+peut etre pris RELATIF A L'ANCRE sans rien changer : la contribution de translation de l'ancre
+s'annule, et les magnitudes tombent de ~1e5 unites monde a ~1e3 unites d'offset, ce qui rend le
+transport en milli-unites (`phys_mi`) sans effet. (2) `dm` est malgre tout multiplie par un offset
+de ~1e3 unites : il est donc cuit **x1000** et remultiplie par 0,001 ici. Sans ce facteur, la
+quantification couterait 0,4 point sur le rapport ; avec, elle en coute 0,0004.
+
+**CE QUI A ETE ESSAYE ET REFUTE AVANT D'EN ARRIVER LA — trois estimateurs moins chers, tous tues
+par leur propre falsificateur, tous ecrits d'avance :**
+  - `|pos(distal) - pos(proximal)|`, le PROXY POSITIONNEL (c127b) : 13,0 / 14,2 points d'ecart.
+    Cause : la corde d'os est invariante a 1e-4 dans toutes les poses — l'etage rigide est
+    **entierement ANGULAIRE** ;
+  - `|apex - joint racine|`, l'estimateur GRATUIT (c127, P9), calculable sans un seul flottant
+    neuf : 9,3 a 14,7 points. Meme cause que P8c — la part de la region DISTALE portee par
+    l'ANCRE n'est cuite dans aucun enregistrement, et c'est exactement le trou de SPEC 23 ;
+  - `1 + k (1 - cos theta)`, le proxy ANGULAIRE a un parametre (c128, C1) : REFUSE par sa GARDE DE
+    VACUITE avant meme d'etre juge sur son ecart. `theta` ne vaut que **6,9 a 8,3 degres** au
+    prone pour un allongement de +13 % : le levier est de ~x18, donc une erreur de 1 degre sur
+    l'angle deplacerait l'estimation de 30 %. **L'etage rigide est un LEVIER, pas une rotation** —
+    tout estimateur qui passe par un angle SCALAIRE est hypersensible par construction.
+  - l'agregat a DEUX os {ancre, distal} (c128, C2) : 6,96 points, au-dessus de la barre des 5. Le
+    maillon PROXIMAL compte.
+Le controle NEGATIF, `rigide = 1` (aucune correction), echoue a 9,8-14,2 points : le double compte
+est reel et non trivial.
+
+## [NOTE-575]
+
+SPEC 11 — L'ETAGE RIGIDE, MESURE ICI (etape (b)) ET DIVISE HORS DE LA CIBLE DE FORME.
+
+**POURQUOI ICI ET PAS A L'ECRITURE.** L'ordre du pas est : 0 longueurs d'os -> 1 integration ->
+2 contraintes -> **(b) cibles de forme** -> (f) matrice -> 6 ecriture. Les POSITIONS sont FINALES
+quand (b) tourne (les contraintes sont passees), mais les MATRICES d'os solvees n'existent qu'a
+l'etape 6. Latcher l'estimateur a l'etape 6 pour le consommer a (b) aurait coute ~15 lignes de
+moins et **une frame de retard** — c'est-a-dire une boucle de retro-action sur le diviseur, dans un
+dossier qui a deja paye deux cycles limites (`feedback_constraint_on_discontinuous_field_limit_cycles`,
+`feedback_bound_undone_by_downstream_constraint_loop`). On paie les lignes, pas le retard : la
+rotation de deflexion est donc RECONSTRUITE ici a partir des positions finales, exactement comme
+l'etape 6 la reconstruira (`rest` -> `pt` autour du pivot d'ANCRE, `matrix-axis-angle!`).
+
+**L'ESTIMATEUR EST AUTO-NORMALISANT, ET C'EST UNE CORRECTION MESUREE, PAS UN CHOIX DE STYLE.**
+Le premier jet cuisait le denominateur `L0` a la pose de BIND. Mesure : 706,4 / 717,4 unites, la ou
+la cellule DEBOUT de la course en rend 597,6 / 645,3 — **la pose debout d'auteur n'est PAS la pose
+de bind**, ecart de 11,2 a 18,2 %. Le rapport devenait faux d'autant alors que la FORME de
+l'estimateur etait juste a 0,06 / 0,40 point. Le moteur calcule donc les DEUX au meme instant :
+
+        d_defl = ds_a . R_ancre + Somme_l [ ds_l . (R_auteur,l . rot_l) + dm_l (p_solvee,l - ancre) ]
+        d_auth = ds_a . R_ancre + Somme_l [ ds_l .  R_auteur,l          + dm_l (p_auteur,l - ancre) ]
+        rigide = |d_defl| / |d_auth|
+
+`d_auth` est la MEME chaine, a la MEME orientation, SANS la deflexion physique. Le rapport est donc
+« ce que la reconfiguration ajoute », qui est la definition meme du nuage `RIGID`, et il vaut 1,000
+par construction quand la physique ne deflechit rien — sans aucune constante de reference.
+
+**RESERVE, ET ELLE EST PUBLIEE PLUTOT QUE TUE.** Cette forme suppose que `|d_auth|` ne depend pas
+de l'orientation, ce qui est vrai si l'animation ne pilote pas les joints de poitrine (SPEC §5).
+Ce n'est PAS verifiable hors ligne : la trace archivee ne porte que les matrices LIVREES. Le moteur
+publie donc `dauth` a cote du rapport (`PHYSRIGID`), et la constance se lit sur la course. Une
+hypothese muette serait un faux vert en attente.
+
+**CE QUE LA DIVISION TOUCHE, ET C'EST UNE SEULE LIGNE.** `phl` — la cle `HangingLengthScale`
+(index 3 du preset, SPEC 11 l.179) — devient `phl / rigide` AVANT d'entrer dans le melange
+d'orientation. Aucune ligne de commande n'est ajoutee. Consequences par construction :
+  - a la pose DEBOUT, `rigide = 1` et la cible est INCHANGEE : la correction a un domaine, et son
+    controle negatif de portee est cette invariance ;
+  - au SUPINE, `rigide < 1` mais le poids de melange de `phl` y est nul : la division ne peut pas
+    y agir, et c'est verifie plutot que suppose ;
+  - la chaine sans enregistrement `rg` garde `rigide = 1,0` : un manque de donnee ne se lit JAMAIS
+    comme une correction de zero (`*phys-rsok*`, et l'accesseur C++ rend 0 pour une chaine muette).
+
+## [NOTE-576]
+
+LA DIVISION RESIDUELLE DE §11 A ETE CABLEE ICI AU CYCLE 128, MESUREE, PUIS **RETIREE PAR SON PROPRE
+FALSIFICATEUR**. Ce commentaire existe pour que le prochain cycle ne la recable pas sans savoir ce
+qu'elle coute.
+
+**CE QUI A ETE CABLE, EN UNE LIGNE.** `phl` (= `HangingLengthScale`, cle 3 du preset) devenait
+`phl / rigide`, ou `rigide` est l'etage rigide mesure par [NOTE-575]. C'est la correction du DOUBLE
+COMPTE etabli au cycle 127 : la chaine livre deja ~1,13 des 1,23 que §11 demande, et le tenseur
+recevait malgre tout la cible TOTALE.
+
+**CE QUE CA A DONNE, MESURE SUR UNE COURSE COMPLETE** (trace conservee :
+`.autoport/reports/Grecharged-secondary-motion/keira-room-x86.c128-experiment.log`, md5
+`10aea9db79c1a039eb4bcca8ba408377`) :
+  - commande 1,2195 / 1,2125 -> **1,1290 / 1,1129**, DANS l'intervalle admissible que le cycle 126
+    avait derive par un balayage de valeur singuliere INDEPENDANT (1,1060-1,1384) ;
+  - « Root-to-apex length +18 to +26 % » 1,3363 / 1,2734 / 1,3183 / 1,3116 -> **1,2512 / 1,1986 /
+    1,2350 / 1,2246 : DANS sur les QUATRE cellules** ;
+  - **MAIS** la clause de COM de §11 passe `DANS` -> `SOUS` sur LES DEUX chaines (0,2278 / 0,2273
+    -> 0,1811 / 0,1809 B0, plancher 0,20) : **elle etait tenue PAR le double compte** ;
+  - **ET LA GATE `DISCRIMINANT` TOMBE SUR chestR : 33,4 % -> 23,0 %** pour un seuil de 25 %. La
+    reponse s'APLATIT — `accel` perd 13,7 % (0,2047 -> 0,1767) pendant que `tilt` ne bouge pas.
+    `tipvar` reste tres au-dessus de son plancher (0,1767 contre 0,05) : c'est exactement
+    `aplatir n'est pas museler`, et c'est le defaut que l'owner appelle « pudding ».
+
+**LES DEUX COURSES PARTENT DU MEME ETAT** (`target-title`, meme pile, meme tas), donc l'ecart n'est
+pas l'artefact de conditions initiales que le cycle 125 a documente. Il est reel.
+
+**CE QUE LA MESURE ETABLIT ET QUI SURVIT AU RETRAIT.** Les deux clauses de §11 sont INCOMPATIBLES
+sous un seul bouton, et c'est mesure sur deux points de la meme droite : ramener le COM a son
+plancher de 0,20 demande une commande de ~1,166, ou la longueur rend ~1,286, au-dessus de 1,26.
+**Aucune valeur de `HangingLengthScale` ne met les deux clauses dans leur bande.** §11 demande donc
+un SECOND DEGRE DE LIBERTE — la migration de centre de masse doit se decoupler de l'echelle de
+longueur — et c'est le MEME deficit que §10 nomme depuis le cycle 123b (« Outward COM migration
+4-10 % W0 » mesuree a +0,797 / -3,744 %).
+
+**L'ESTIMATEUR, LUI, RESTE.** [NOTE-574]/[NOTE-575] sont conserves et publient `PHYSRIGID` : c'est
+la grandeur que le prochain lot doit commander, elle est validee (0,000-0,442 pt contre le nuage
+`RIGID`), et son denominateur est verifie a la course (etendue 0,007 %). Ce qui est retire est la
+COMMANDE, pas la MESURE.

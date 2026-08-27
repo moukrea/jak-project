@@ -1,0 +1,244 @@
+CYCLE 128 — PREDICTIONS ECRITES AVANT TOUT CALCUL
+DIRECTIVES vd9e8b66782 · phase Grecharged-secondary-motion · poitrine de Keira seule.
+Horodatage : 2026-08-27. AUCUNE course neuve pour la serie P1..P6 : trace LIVREE
+`keira-room-x86.log`, md5 abb090c9bd72d5dfd0268034a384f932 (identique aux cycles 125/126/127).
+
+SECTION DONT CE CYCLE DEBLOQUE LE VERDICT (exigence DIRECTIVES 2026-08-21 18:25, nommee AVANT de
+commencer) : **§11 « Root-to-apex length: +18 to +26%, HangingLengthScale = 1.23 » (l.179)**, ET
+ELLE SEULE. §10 est explicitement HORS PERIMETRE de ce cycle : sa clause porteuse est « Outward COM
+migration per breast: 4-10% W0 » (mesuree +0,797 / -3,744 % W0 au c123b), qu'aucun reglage du
+tenseur de forme ne touche — le decouplage a ete etabli au cycle 127.
+
+--------------------------------------------------------------------------------------------------
+ETAT DE DEPART, ETABLI AU CYCLE 127 ET NON REDISCUTE ICI
+--------------------------------------------------------------------------------------------------
+  - la chaine livre DEJA 1,0977 a 1,1415 de longueur racine->apex par sa seule RECONFIGURATION
+    (nuage `RIGID` : matrices livrees, decomposition polaire, rotation seule, S = I) ;
+  - le tenseur recoit malgre tout la cible TOTALE (`PHYSORI2` 1,2195 / 1,2125) ;
+  - livre (FULL) : 1,3363 / 1,2734 / 1,3183 / 1,3116 pour une bande 1,18-1,26. DOUBLE COMPTE ;
+  - la corde d'os est invariante a 1e-4 dans toutes les poses : l'etage rigide est **entierement
+    ANGULAIRE** (P6 du c127, qui refute le proxy POSITIONNEL a 13,0 / 14,2 points) ;
+  - un estimateur EXACT existe et est valide (P8b : 0,013-0,403 pt), mais il exige ~13 flottants
+    cuits par chaine + un parseur C++ neuf, alors que le moteur est a 4794 lignes pour un plafond
+    de gate `CLEAN` GELE a 4800.
+
+--------------------------------------------------------------------------------------------------
+CE QUE CE CYCLE TESTE, ET POURQUOI CETTE FORME-LA
+--------------------------------------------------------------------------------------------------
+Le c127b a refute `|pos(distal) - pos(proximal)|` — la LONGUEUR de la corde, invariante par
+construction. Il n'a JAMAIS teste sa **DIRECTION**. Or c'est exactement ce que P6/P8c designent :
+l'allongement nait de l'ecart angulaire entre le tissu tenu par l'ANCRE (immobile dans le repere du
+buste) et le tissu tenu par la CHAINE (qui se deflechit). La grandeur naturelle est donc l'ANGLE de
+deflexion du maillon distal, pas la longueur de son os.
+
+Cet angle est GRATUIT pour le moteur : il est deja calcule a `jak-hd-physics.gc:3854-3860`
+(`atan sn cs` entre la direction d'AUTEUR et la direction SOLVEE), et les positions sont FINALES a
+l'etape (b) (:3548) ou la cible de forme est composee. Aucun flottant neuf, aucun parseur C++.
+
+Le modele a UN parametre :
+
+        rigid_est(i)  =  1 + k * (1 - cos theta_i)
+
+`theta_i` = angle entre la direction du maillon distal SOLVEE et sa direction d'AUTEUR, a la
+cellule i. `k` est **derive ANALYTIQUEMENT de la geometrie de BIND** via les agregats par os
+`s_b`/`m_b` du cycle 127 — il n'est JAMAIS ajuste sur une valeur mesuree de `RIGID`. C'est la regle
+`never-fit-a-parameter-to-the-instrument`, et c'est aussi ce qui distingue cette tentative de la
+faute `un-proxy-deux-clauses-biais-OPPOSES` : le proxy se VALIDE contre la grandeur nommee AVANT
+d'etre cable, jamais apres.
+
+NATURE / REPERE / LIGNE DE BASE (exigence des trois questions, SPEC §7) :
+  NATURE  : un rapport de LONGUEUR sans dimension (racine->apex), et l'ECART en POINTS DE
+            POURCENTAGE entre l'estimateur et la mesure de reference.
+  REPERE  : l'angle se lit entre deux directions du MEME instant (solvee vs auteur), donc la
+            rotation du buste s'annule ; le rapport de longueur est un invariant euclidien.
+  LIGNE DE BASE : cellule i=0 (pose debout d'auteur), ou theta = 0 et rigid_est = 1 par
+            construction. LECTURE HORS DEFAUT : la 2e cellule DEBOUT i=9, que rien ne relie a i=0.
+  REFERENCE : le nuage `RIGID` de `c126_rotation_vs_stretch.run()`, sommet par sommet.
+
+--------------------------------------------------------------------------------------------------
+PREDICTIONS — ecrites AVANT le premier calcul
+--------------------------------------------------------------------------------------------------
+
+P1  L'ESTIMATEUR ANGULAIRE A UN PARAMETRE PREDIT L'ETAGE RIGIDE MESURE.
+    Avec `k` derive analytiquement de la geometrie de bind (aucun ajustement sur `RIGID`),
+    `rigid_est` est a moins de **5 points de pourcentage** du `Lpp(i)/Lpp(0)` du nuage `RIGID`
+    sur la cellule PRONE, sur LES DEUX chaines et LES DEUX frontieres de poids (4 cellules).
+    C'est le MEME falsificateur que P8b et P9 du cycle 127, pour pouvoir comparer les trois
+    estimateurs sur la meme barre.
+    FALSIFICATEUR : > 5 points sur une seule des 4 -> la forme a un parametre est REFUTEE, le
+    proxy gratuit n'existe pas, et le chantier retombe sur l'estimateur EXACT a 13 flottants —
+    ce qui remet le plafond `CLEAN` au centre et se remonte au superviseur au lieu d'etre
+    contourne.
+
+P2  CONTROLE HORS DEFAUT. A la 2e cellule DEBOUT i=9, `rigid_est` ET le `RIGID` mesure rendent
+    tous deux 1,000 a **1 %** pres.
+    FALSIFICATEUR : au-dela de 1 % -> l'instrument ou l'estimateur est faux, RIEN n'est publie.
+
+P3  CONTROLE DE NON-VACUITE DE L'ANGLE. `theta` a la cellule PRONE depasse **10 degres** sur les
+    deux chaines. En dessous, le terme (1 - cos theta) est du bruit et n'importe quel `k` ferait
+    illusion : l'estimateur serait vacueux meme s'il « passait ».
+    FALSIFICATEUR : theta_prone < 10 deg -> P1 est declaree VACUEUSE meme si son ecart est petit,
+    et rien n'est cable. (Garde de vacuite, `feedback_vacuity_guard_on_in_range_domain`.)
+
+P4  CONTROLE DE NON-VACUITE DU PARAMETRE. `k` derive analytiquement doit etre du meme ordre sur
+    les deux chaines (rapport max/min < 2,0) ET produire une correction non triviale : au PRONE,
+    `k * (1 - cos theta) > 0,05`. Un `k` qui rendrait 1,00 partout serait un estimateur qui ne
+    dit rien.
+    FALSIFICATEUR : rapport >= 2,0 entre chaines, ou correction < 0,05 -> publie tel quel, et
+    l'estimateur est declare non representatif.
+
+P5  COUVERTURE SUPINE — DECLAREE, PAS EXIGEE. Le meme ecart est calcule sur la cellule SUPINE et
+    PUBLIE quel qu'il soit. Le cycle 127 a etabli que l'operateur applique n'y est pas symetrique
+    (max|A - A^T| 0,0209 / 0,0419 contre 1e-5 au prone) : je n'attends donc PAS la meme qualite,
+    et je refuse de le decouvrir apres coup. Aucun falsificateur : c'est une mesure, pas un test.
+
+P6  SI P1..P4 TIENNENT : LA COMMANDE RESIDUELLE ATTERRIT DANS L'INTERVALLE ADMISSIBLE INDEPENDANT.
+    La commande residuelle est `sy0 / rigid_est`. Rapportee a la cible de §11, elle doit tomber
+    dans l'intervalle etabli au cycle 126 par un balayage de VALEUR SINGULIERE totalement
+    independant de cette derivation : **lam = 1,1060-1,1384**, une fois corrigee du facteur de
+    composition MESURE `kappa = livree/(rigide x commande) = 0,9513-0,9695`.
+    FALSIFICATEUR : recouvrement vide -> les deux derivations se contredisent, RIEN n'est cable.
+
+--------------------------------------------------------------------------------------------------
+CE QUE CE CYCLE NE FERA PAS
+--------------------------------------------------------------------------------------------------
+  - il ne touche AUCUNE gate du validateur, y compris le plafond `CLEAN` (regle 5, verrou dur) ;
+  - il ne supprime AUCUNE ligne de CODE pour gagner de la place : la seule recuperation autorisee
+    est la migration de COMMENTAIRES vers `jak-hd-physics-NOTES.md`, verbatim, avec pointeur —
+    convention deja appliquee 457 fois dans ce fichier ;
+  - il ne cable AUCUN canal pour une cle-REPONSE du preset (directive du 2026-08-23 16:00,
+    clause 3) ;
+  - il ne cable PAS `HangingTransientLengthMax` : le cycle 127 a etabli que cette cle est
+    sur-determinee (1 + (HangingLengthScale-1) x (1+FirstBounceRatio) = 1,3013 contre 1,30 ecrit)
+    et que la grandeur qu'elle bornerait est deja produite EMERGENTE (pic 1,2939 / 1,2852). La
+    cabler fabriquerait un miroir, ce que la clause 1 de la meme directive ordonne de detruire.
+
+--------------------------------------------------------------------------------------------------
+SI P1..P6 TIENNENT — SECONDE SERIE, A ECRIRE AVANT LE BUILD
+--------------------------------------------------------------------------------------------------
+La prediction chiffree de ce que la longueur LIVREE doit devenir apres cablage, et le releve des
+gates aujourd'hui vertes (§12, §24, §25, §26, COLLIDE, IDLE, DISCRIMINANT, et la LONGUEUR de la
+sortie du validateur) comme falsificateurs, seront ecrits dans ce meme fichier AVANT la premiere
+compilation. Aucun chiffre d'effet n'est annonce avant d'etre predit.
+
+--------------------------------------------------------------------------------------------------
+ADDENDUM ECRIT AVANT LE PREMIER CALCUL — LA LISTE DES CANDIDATS ET LA REGLE DE SELECTION
+--------------------------------------------------------------------------------------------------
+Motif de l'addendum : en inspectant le moteur AVANT de calculer, j'etablis un fait qui change le
+COUT et donc le choix, et je refuse de le decouvrir apres avoir vu les chiffres.
+
+FAIT ETABLI PAR LECTURE DU MOTEUR (`jak-hd-physics.gc:100`, `:111-112`, `:710-711`) : les seules
+constantes de mesh deja cuites sont PAR MAILLON — `*phys-lcx/lcy/lcz*` (centre de chair du maillon,
+en espace bind du joint) et `*phys-apw/apx/apy/apz*` (point d'apex, et `apw` = « part de la masse de
+la region distale portee par CE MAILLON »). **Rien n'est cuit pour l'ANCRE.** Or P8c/P9 du cycle 127
+etablissent que c'est exactement la contribution de l'ANCRE qui porte l'allongement. Donc TOUT
+estimateur fidele exige au moins une donnee cuite neuve, donc une extension du parseur C++
+(`kmachine.cpp:1844`, enregistrement `ax`). Le parseur C++ **n'est pas sous le plafond `CLEAN`** :
+le nombre de flottants cuits n'est donc PAS le cout qui compte. **Le cout qui compte est le nombre
+de LIGNES DE MOTEUR**, et c'est sur lui que porte la regle de selection.
+
+LES CANDIDATS, ordonnes par cout en LIGNES DE MOTEUR (estimations ecrites avant mesure) :
+
+  C0   rigid_est = 1                                  0 flottant · 0 ligne
+       CONTROLE NEGATIF. Il DOIT ECHOUER le falsificateur des 5 points. S'il le passe, c'est le
+       double compte lui-meme qui n'existe pas et tout le chantier tombe — ce serait le resultat
+       le plus important du cycle et il se publierait comme tel.
+
+  C1   rigid_est = 1 + k * (1 - cos theta)             1 flottant · ~8 lignes
+       `theta` = deflexion du maillon distal autour du pivot d'ANCRE (la grandeur deja calculee a
+       `:3854-3860`). `k` derive ANALYTIQUEMENT de la geometrie de bind, jamais ajuste sur `RIGID`.
+
+  C2   rigid_est = |Rt(i) u - v| / |Rt(0) u - v|       6 flottants · ~14 lignes
+       `Rt(i)` = rotation du bone DISTAL exprimee dans le repere de l'ANCRE ; `u` = offset de la
+       population distale dans le repere du bone distal ; `v` = offset de la population proximale
+       dans le repere de l'ancre. Les deux sont des constantes de BIND.
+
+  C3   agregat EXACT a 3 os (ancre + 2 maillons)      12 flottants · ~26 lignes
+       Deja valide au cycle 127 (P8b : 0,013-0,403 pt). Borne SUPERIEURE de cout, pas un candidat
+       a decouvrir.
+
+REGLE DE SELECTION, FIXEE D'AVANCE ET SANS AUTRE CRITERE : on retient le candidat **le moins
+couteux en LIGNES DE MOTEUR** qui passe simultanement (a) le falsificateur des 5 points sur LES
+QUATRE cellules PRONE, et (b) le controle a 1 % sur la cellule DEBOUT i=9. Si aucun ne passe hors
+C3, alors c'est C3, et le plafond `CLEAN` redevient le sujet du cycle — il se remonte, il ne se
+contourne pas.
+
+Cette regle est ce qui empeche de choisir un modele APRES avoir vu les ecarts. Les quatre
+candidats sont calcules et PUBLIES tous les quatre, quel que soit le vainqueur.
+
+==================================================================================================
+SECONDE SERIE — ECRITE APRES LE CABLAGE ET AVANT LA PREMIERE COURSE. AUCUN CHIFFRE D'EFFET N'EST
+CONNU A CET INSTANT.
+==================================================================================================
+
+CE QUI A ETE CABLE (etat du depot au moment ou j'ecris ces lignes, avant toute course) :
+  - `recharged_assets/physics_mesh.txt` : 2 enregistrements `rg`, cuits et VALIDES par
+    `.autoport/c128_bake_rigid.py` contre le nuage `RIGID` mesure — ecart 0,000 / 0,063 / 0,228 /
+    0,001 pt (chestL) et 0,000 / 0,403 / 0,442 / 0,001 pt (chestR) sur les 4 cellules ;
+  - `game/kernel/jak1/kmachine.cpp` : parseur `rg` + accesseur `pc-physics-chain-rigid-mi` ;
+  - `goal_src/jak1/pc/jak-hd-physics.gc` : l'estimateur AUTO-NORMALISANT calcule a l'etape (b),
+    et **UNE SEULE LIGNE de commande changee** — `phl` (= `HangingLengthScale`, cle 3 du preset)
+    devient `phl / rigide`. Zero ligne de commande ajoutee ;
+  - `goal_src/jak1/pc/phys-room.gc` : `PHYSRIGID c= i= rs= dauth=`, le rapport ET son denominateur.
+
+ETAT DE DEPART CHIFFRE, POUR QUE LES PREDICTIONS SOIENT VERIFIABLES :
+  commande `PHYSORI2 sy` a la cellule prone : 1,2195 (chestL) / 1,2125 (chestR)
+  etage rigide mesure                       : 1,1302 / 1,0977 / 1,1415 / 1,1303
+  longueur LIVREE (peau re-skinnee, FULL)   : 1,3363 / 1,2734 / 1,3183 / 1,3116   bande 1,18-1,26
+  rendement de composition kappa mesure     : 0,9695 / 0,9513 / 0,9525 / 0,9571
+  (l'ordre des 4 cellules est toujours : chestL w>0.00 · chestL w>=0.25 · chestR w>0.00 · chestR w>=0.25)
+
+P10 LE CANAL AGIT, ET IL EST NON VACUEUX. `PHYSRIGID rs` rend 1,000 a 1 % pres sur les cellules
+    DEBOUT et tombe dans [1,05 ; 1,25] sur la cellule PRONE, sur LES DEUX chaines.
+    FALSIFICATEUR : `rs` constant a 1,000 partout (canal inerte, la faute `declared-but-never-
+    selected`) ou hors [1,05 ; 1,25] au prone -> le cablage ne reproduit pas ce que l'estimateur
+    hors ligne fait, et RIEN n'est publie tant que l'ecart n'est pas explique.
+
+P11 GARDE DE L'HYPOTHESE, ET C'EST LA PREDICTION QUE JE NE PEUX PAS TESTER AUTREMENT.
+    L'estimateur est auto-normalisant par `dauth` = la longueur racine->apex de la chaine SANS
+    deflexion. Il ne vaut ce que je crois QUE si l'animation ne pilote pas les joints de poitrine
+    (SPEC §5). Donc : `dauth` varie de moins de **2 %** d'une cellule d'orientation a l'autre, sur
+    chaque chaine.
+    FALSIFICATEUR : > 2 % -> l'animation pilote ces joints, l'estimateur n'est pas normalise comme
+    je le crois, et la mesure de §11 est SUSPENDUE au lieu d'etre publiee.
+
+P12 LA COMMANDE BAISSE, ET C'EST LA PREUVE QUE LA DIVISION ATTEINT LE CANAL. La commande de §11
+    a la cellule prone passe de 1,2195 / 1,2125 a **[1,05 ; 1,12]**.
+    [CORRECTION D'ETIQUETTE, faite AVANT toute lecture de la course : j'avais ecrit « `PHYSORI2
+    sy` ». La convention etablie au cycle 90 et reprise par `c124_delivered_shape.py` est
+    `sx/sy/sz = (out, up, fwd)`, et la longueur racine->apex de §11 est l'axe **fwd**, donc `sz`.
+    Le NOMBRE vise est inchange — 1,2195 / 1,2125, la commande deja publiee au cycle 127 — seule
+    la colonne est renommee. Verifie dans le moteur : `phl` (`HangingLengthScale`) entre dans
+    `sz0` sous le poids `wbk` et dans `sy0` sous `wup` ; la division est posee sur la LIAISON de
+    `phl`, donc elle couvre les deux sites.]
+    FALSIFICATEUR : inchangee a 1 % pres -> la division n'atteint pas le canal (ligne morte).
+
+P13 LA LONGUEUR LIVREE. Mesuree par `c126_rotation_vs_stretch.run()` sur la trace NEUVE, la
+    longueur FULL passe de 1,3363 / 1,2734 / 1,3183 / 1,3116 a **[1,16 ; 1,23]** sur les quatre
+    cellules. **JE NE SAIS PAS OU DANS CET INTERVALLE, ET JE LE DIS AVANT DE MESURER** : la borne
+    BASSE suppose le rendement de composition `kappa` INCHANGE a 0,95-0,97 ; la borne HAUTE
+    suppose `kappa -> 1` parce qu'une commande plus faible fait moins mordre la contrainte de peau
+    (`project_skin_constraint_is_the_spec22_leak`). L'intervalle admissible independant du cycle
+    126 (commande 1,1060-1,1384) exige `kappa` inchange ; ma division pure rend 1,05-1,12, donc
+    **si `kappa` reste a 0,95 la longueur livree FROLERA le plancher de 1,18 par le BAS.** C'est
+    la reserve honnete de ce lot, ecrite avant la course et non apres.
+    FALSIFICATEUR : au-dessus de 1,26 (rien n'a bouge) ou en dessous de 1,12 (la correction
+    depasse d'un facteur que le modele multiplicatif ne predit pas).
+
+P14 LES CLAUSES SOEURS BOUGENT, ET DANS UN SENS PREVISIBLE. Le determinant est ramene a 1 par
+    `cvn` (`jak-hd-physics.gc`, SPEC 8), donc BAISSER `sy` REMONTE mecaniquement `sx` et `sz`.
+    Largeur = axe `out` (`sx`, bande 0,87-0,93) et epaisseur = axe `up` (`sy`, bande 0,88-0,94)
+    doivent donc MONTER de **+2 a +5 %**.
+    FALSIFICATEUR : elles BAISSENT -> ma lecture de `cvn` est fausse, et la publication de §11 le
+    dit au lieu de passer dessus.
+
+P15 AUCUNE GATE VERTE NE REGRESSE. §12, §24, §25, §26, COLLIDE, IDLE, DISCRIMINANT restent au
+    vert, et la SORTIE DU VALIDATEUR conserve au moins autant de LIGNES qu'au cycle 127 — la
+    longueur, pas seulement le code de sortie (`feedback_engine_line_ceiling_hides_all_gates` :
+    une sortie qui retrecit veut dire que des gates ont cesse d'etre evaluees).
+    FALSIFICATEUR : une gate verte passe au rouge -> **le lot est RETIRE, pas adouci.**
+
+P16 CONTROLE NEGATIF DE PORTEE. La correction ne doit RIEN faire la ou l'etage rigide vaut 1 : les
+    cellules DEBOUT gardent `PHYSORI2 sz` et `ROOM-IDLE` a **0,5 %** de la course du cycle 127.
+    FALSIFICATEUR : elles bougent -> la division agit hors de son domaine, donc elle n'est pas ce
+    que je crois qu'elle est.

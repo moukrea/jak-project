@@ -3586,7 +3586,7 @@
                                  ;; [NOTE-52] SPEC 10 ET SPEC 11 ETAIENT INTERVERTIES (`wbk`/`wfw`, signe de `gzc`). -> jak-hd-physics-NOTES.md
                                  (pb  (* sc PHYS-PSET-N))
                                  (psp (-> *phys-pset* (+ pb 0))) (psw (-> *phys-pset* (+ pb 1))) (psh (-> *phys-pset* (+ pb 2)))
-                                 (phl (let ((rs (-> *phys-rsv* sc))) (if (> rs 0.0001) (/ (-> *phys-pset* (+ pb 3)) rs) (-> *phys-pset* (+ pb 3))))) (phw (-> *phys-pset* (+ pb 4))) (pht (-> *phys-pset* (+ pb 5)))
+                                 (phl (-> *phys-pset* (+ pb 3))) (phw (-> *phys-pset* (+ pb 4))) (pht (-> *phys-pset* (+ pb 5)))  ;; [NOTE-576] LA DIVISION RESIDUELLE DE §11 A ETE CABLEE ICI AU CYCLE 128 PUIS RETIREE PAR SON PROPRE FALSIFICATEUR. -> jak-hd-physics-NOTES.md
                                  (plc (- 1.0 (-> *phys-pset* (+ pb 6))))
                                  (sx0 (/ (+ (* wdn 1.000) (+ (* wup phw)
                                             (+ (* wbk phw) (+ (* wfw psw) (+ (* wlt plc) (* wne 1.000)))))) wsm))

@@ -1,3 +1,279 @@
+# CYCLE 128 — J'AI CORRIGE LE DOUBLE COMPTE DE §11 DANS LE MOTEUR, ET MON PROPRE FALSIFICATEUR L'A RETIRE. CE QUI SURVIT VAUT PLUS QUE CE QUI EST RETIRE.
+
+DIRECTIVES vd9e8b66782
+
+Perimetre : phase `Grecharged-secondary-motion`, branche `physics-keira-clean`, poitrine de Keira
+seule (`chestL`/`chestR`). Section nommee AVANT de commencer, dans
+`.autoport/c128-predictions.txt` : **§11 « Root-to-apex length: +18 to +26%,
+`HangingLengthScale = 1.23` » (l.179), et elle seule.**
+
+## L'AVANCEMENT, EN PREMIER — LE VALIDATEUR N'EN FAIT PAS PARTIE
+
+`SPEC-COVERAGE.md` : **4 TENUE · 5 TENUE PAR CONSTRUCTION · 16 PARTIELLE · 13 NON TENUE · 0 NON
+ETABLI**, sur 38. **AUCUN STATUT NE BOUGE — troisieme cycle consecutif (126, 127, 128).** La
+remontee au superviseur est en derniere section.
+
+**Le lot de ce cycle a ete cable, mesure sur une course complete, et RETIRE par le falsificateur que
+j'avais ecrit avant de le lancer.** Le moteur livre commande de nouveau la cible totale de §11.
+Ce qui reste : une MESURE neuve dans le moteur, et un fait sur §11 qui ne depend plus du lot.
+
+## 1. LE FAIT DU CYCLE, EN UNE PHRASE
+
+**Les deux clauses de §11 sont INCOMPATIBLES sous un seul bouton, et c'est maintenant mesure sur
+deux points de la meme droite.** Corriger le double compte de longueur met la clause de longueur
+DANS sa bande sur les quatre cellules — et fait tomber la clause de COM de `DANS` a `SOUS` sur les
+deux chaines. **La clause de COM etait tenue PAR le defaut.**
+
+    commande  1,2195 / 1,2125  ->  1,1290 / 1,1129        (-7,4 %)
+    longueur  1,3363 1,2734 1,3183 1,3116  ->  1,2512 1,1986 1,2350 1,2246   (-6,4 %)  bande 1,18-1,26
+    COM       0,2278 / 0,2273  ->  0,1811 / 0,1809 B0      (-20,5 %)          bande 0,20-0,28
+
+Ramener le COM a son plancher de 0,20 demande de remonter la commande a **~1,166** ; a cette
+commande la longueur rend **~1,286**, au-dessus du plafond de 1,26. **Aucune valeur de
+`HangingLengthScale` ne met les deux clauses dans leur bande.** §11 ne demande donc pas un reglage,
+elle demande un **SECOND DEGRE DE LIBERTE** : la migration de centre de masse doit se decoupler de
+l'echelle de longueur.
+
+**Et c'est le MEME deficit que §10 nomme depuis le cycle 123b** — « Outward COM migration per
+breast: 4-10 % W0 », mesuree a +0,797 / -3,744 % W0, soit 80 % et 194 % sous le plancher. Les deux
+sections butent desormais sur la MEME grandeur sous-produite ; le chantier a une cible unique la ou
+il en avait deux. Les deux lignes du registre le portent.
+
+## 2. CE QUI A ETE CABLE, ET IL A ETE VALIDE AVANT DE L'ETRE
+
+Le cycle 127 avait construit et valide un estimateur d'etage rigide et l'avait laisse non cable :
+le moteur etait a 4794 lignes pour un plafond de gate `CLEAN` GELE a 4800.
+
+**Les lignes ont ete trouvees sans toucher la gate ni une ligne de code**, par la convention
+etablie du fichier — migration de 39 blocs de COMMENTAIRE vers `jak-hd-physics-NOTES.md`, verbatim,
+avec un pointeur d'une ligne, deja appliquee 457 fois. Preuve publiee : `git diff` du `.gc` rend
+**0** ligne de code supprimee et **0** ligne de code ajoutee par la migration, et les 39 blocs se
+retrouvent caractere pour caractere dans NOTES.md. Gain : 40 lignes.
+
+Le lot :
+
+    recharged_assets/physics_mesh.txt   2 enregistrements `rg` — 12 constantes de mesh par chaine
+    .autoport/c128_bake_rigid.py        les cuit ET les VALIDE avant d'ecrire (il refuse d'ecrire sinon)
+    game/kernel/jak1/kmachine.cpp       parseur `rg` + accesseur `pc-physics-chain-rigid-mi`
+    goal_src/jak1/pc/jak-hd-physics.gc  le calcul a l'etape (b) + UNE SEULE LIGNE DE COMMANDE
+    goal_src/jak1/pc/phys-room.gc       `PHYSRIGID c= i= rs= dauth=`
+
+**Validation AVANT cablage**, contre le nuage `RIGID` mesure sommet par sommet : ecart **0,000 /
+0,063 / 0,228 / 0,001** pt sur chestL et **0,000 / 0,403 / 0,442 / 0,001** pt sur chestR.
+
+## 3. TROIS ESTIMATEURS MOINS CHERS ONT ETE TESTES ET TUES PAR LEUR PROPRE FALSIFICATEUR
+
+Regle de selection fixee d'avance : **le moins couteux en LIGNES DE MOTEUR qui passe (a) 5 points
+au prone et (b) 1 % a la cellule DEBOUT i=9.** Les quatre sont publies.
+
+    C0  rigide = 1 (CONTROLE NEGATIF)          14,15 pts   ECHOUE — le double compte est reel
+    C1  1 + k (1 - cos theta), k ANALYTIQUE    REFUSE PAR SA GARDE DE VACUITE, avant tout jugement d'ecart
+    C2  agregat a 2 os {ancre, distal}          6,96 pts   ECHOUE — le maillon PROXIMAL compte
+    C3  agregat a 3 os {ancre, prox, distal}    0,40 pts   PASSE   -> retenu par la regle
+
+**C1 donne le fait le plus utile du cycle sur la NATURE de l'etage rigide.** L'angle de deflexion du
+maillon distal ne vaut que **6,9 a 8,3 degres** au prone pour un allongement de +13 % : **l'etage
+rigide est un LEVIER, pas une rotation**, facteur ~x18, donc une erreur de 1 degre sur l'angle
+deplacerait l'estimation de 30 %. Tout estimateur qui passe par un angle SCALAIRE est hypersensible
+par construction — et la garde de vacuite l'a attrape **avant** que son ecart soit meme regarde.
+
+## 4. UNE ERREUR DE MA PART, TROUVEE PAR MON PROPRE CONTROLE, CORRIGEE AVANT LA COURSE
+
+Le premier jet cuisait le denominateur a la pose de BIND : **706,4 / 717,4 unites**, la ou la
+cellule DEBOUT en mesure **597,6 / 645,3**. **La pose debout d'auteur n'est PAS la pose de bind** —
+11,2 a 18,2 % d'ecart, et le rapport devenait faux d'autant alors que la FORME de l'estimateur etait
+juste a 0,06 / 0,40 point. Le controle du script a refuse d'ecrire. Correctif : l'estimateur est
+rendu **AUTO-NORMALISANT** (le moteur calcule la longueur AVEC et SANS deflexion au meme instant),
+donc aucune constante de reference n'est cuite.
+
+## 5. LA PREUVE QUE LE CANAL AGIT, ET LA GARDE DE SON HYPOTHESE
+
+`PHYSRIGID`, 11 cellules d'orientation x 2 chaines :
+
+    PRONE i=6      rs = 1,1308 (chestL) / 1,1454 (chestR)
+                   predit hors ligne 1,1308 / 1,1456 · mesure sur le nuage RIGID 1,1302 / 1,1415
+    DEBOUT i=0/i=9 rs = 1,0000 / 0,9995  et  0,9995 / 0,9999   -> ecart max a 1,000 : 0,050 %
+
+**LA GARDE, ET C'ETAIT LE VRAI RISQUE.** L'estimateur ne vaut que si l'animation ne pilote pas les
+joints de poitrine (§5) — sinon son denominateur bouge avec l'orientation. **Ce n'est PAS verifiable
+hors ligne** : la trace archivee ne porte que les matrices LIVREES. Le moteur emet donc `dauth`, le
+denominateur lui-meme, a cote du rapport : **etendue 0,007 %** sur les 11 cellules, contre un
+falsificateur declare a 2 %. L'hypothese est verifiee a la course au lieu d'etre supposee.
+
+**CONTROLE NEGATIF DE PORTEE** : aux cellules DEBOUT, ou l'etage rigide vaut 1, la commande est
+identique a **0,000 %**. La correction a un domaine, et il est mesure.
+
+## 6. DEUX DERIVATIONS QUI NE PARTAGENT RIEN CONVERGENT
+
+La commande passe a **1,1290 / 1,1129**. L'intervalle admissible derive au cycle 126 par un
+balayage de VALEUR SINGULIERE — qui ne partage ni l'operateur, ni la table de poids, ni le chemin de
+calcul — est **1,1060-1,1384**. Les deux chiffres y sont.
+
+## 7. LA CLAUSE DE LONGUEUR, TROIS LECTURES, AUCUNE CHOISIE APRES COUP
+
+Instrument du verdict : celui que le cycle 126 a arbitre — la distance racine->apex entre centroides
+de decile. L'ecart-type ponderé du cycle 125 reste REFUTE comme proxy (il SUR-ESTIME §11 de
+10,9-17,8 points et SOUS-ESTIME §10 de 7,0-17,2 : le signe oppose le refute sans autre travail).
+
+    lecture                                  AVANT                        APRES                DANS 1,18-1,26
+    distance racine->apex (deciles)  1,3363 1,2734 1,3183 1,3116  1,2512 1,1986 1,2350 1,2246      4 / 4
+    etendue max-min                  1,3939 1,4275 1,3384 1,4234  1,2998 1,3148 1,2483 1,2967      1 / 4
+    ecart-type pondere (REFUTE)      1,4455 1,4514 1,4370 1,4588  1,3293 1,3279 1,3097 1,3169      0 / 4
+
+Les trois baissent de 6,4 a 9,7 % et vont dans le meme sens.
+
+## 8. CE QUI RETIRE LE LOT : `DISCRIMINANT` TOMBE SUR chestR
+
+    chestL   46,1 %  ->  48,6 %                                          (seuil 25 %)  PASSE
+    chestR   33,4 %  ->  23,0 %   accel 0,2047 -> 0,1767 (-13,7 %)        (seuil 25 %)  ECHOUE
+                                  tilt  0,1467 -> 0,1493 (inchange)
+
+**La reponse s'APLATIT.** `tipvar` reste a 0,1767 pour un plancher de gate a 0,05 : ce n'est donc
+PAS du muselage, c'est de l'aplatissement — le defaut que l'owner appelle « pudding », et que
+`tipvar` seul est aveugle a voir. **Meme gate, meme chaine et presque le meme chiffre qu'au cycle
+122** (23,5 % alors), ou un lot avait deja ete retire pour ca.
+
+**LES DEUX COURSES PARTENT DU MEME ETAT** — `PHYSROOM-START target-before` identique, `target-title`,
+meme pile, meme tas. Ce n'est donc pas l'artefact de conditions initiales que le cycle 125 a
+documente (79 % de la trace diverge quand les etats de depart different). L'ecart est reel.
+
+**P15 avait ete ecrite AVANT la course** : « une gate verte passe au rouge -> le lot est RETIRE, pas
+adouci ». Elle est appliquee. La division est retiree (une ligne), le moteur est recompile, et la
+salle est rejouee pour que la trace, le tableau et le registre decrivent CE QUI EST LIVRE et non
+l'experience.
+
+**Ce que je n'ai pas fait, et je le dis** : je n'ai pas cherche une variante de la division qui
+passerait la gate. Un dosage choisi pour franchir un seuil est un ajustement a l'instrument, et
+c'est interdit.
+
+**LE RETRAIT EST VERIFIE, PAS SUPPOSE.** La course du moteur LIVRE (apres retrait) rend
+`tipvar` **0,1829 / 0,2047** et `meshpen` **0,0627 / 0,0724** — les chiffres de la course d'AVANT le
+lot, a la decimale pres — et la commande de §11 revient a **1,2195 / 1,2125**. Le validateur rend de
+nouveau `[PASS]` sur ses 13 gates de mesure, `DISCRIMINANT` compris, avec une sortie de 18 lignes.
+
+**ET UN CONTROLE D'INDEPENDANCE QUE JE N'AVAIS PAS PREVU MAIS QUI TOMBE TOUT SEUL.** L'estimateur
+reste cable et publie : sur la course SANS la division, il rend **rs = 1,1308 / 1,1453** au prone,
+contre **1,1308 / 1,1454** sur la course AVEC. **L'etage rigide ne depend pas de la commande qu'il
+divisait** — 0,0001 d'ecart — ce qui etait la propriete supposee de sa construction (le nuage
+`RIGID` est defini S = I) et qui est desormais mesuree des deux cotes.
+
+## 9. UNE CORRECTION QUE JE DOIS A CE RAPPORT
+
+**Ma premiere lecture du validateur etait fausse et je l'ai crue.** J'ai lu « 13 gates vertes »
+apres la course du lot ; le validateur lisait en realite le TABLEAU de la course PRECEDENTE, encore
+en place. Le tell etait dans sa propre sortie et je ne l'ai pas vu : il imprimait
+`meshpen 0.0724`, la valeur de la trace d'avant, alors que la nouvelle rendait `0.0963`. C'est la
+faute `snapshot-provenance-path-not-time` : j'ai pris la fraicheur d'un fichier pour acquise parce
+que la commande venait de tourner. **Regle que j'applique desormais : le validateur se relance
+APRES regeneration du tableau, et on compare une grandeur qui a bouge pour prouver qu'il a bien lu
+la course du jour.**
+
+## 9 bis. INCIDENT DE LIVRAISON — LE CONSTRUCTEUR AUTOMATIQUE A COMMITE MON LOT PENDANT QUE JE LE RETIRAIS
+
+A **13:02:35**, le demon `.autoport/auto_build_apk.sh` (pid 1580620, vivant depuis le debut du
+cycle) a pose de lui-meme le commit `9d2d00fd6f` « checkpoint automatique du constructeur : l'arbre
+compile, etat coherent livrable ». Il a capture l'arbre **AVEC la division active** — c'est-a-dire
+le lot que la gate `DISCRIMINANT` venait de refuter et que je retirais a ce moment-la. « L'arbre
+compile » n'est pas « l'arbre est juste » : le constructeur ne consulte pas le validateur.
+
+C'est exactement le piege `autobuilder-ships-your-wip`, et un sous-agent me l'avait signale
+au debut du cycle sans que j'en tire la consequence. **Le commit de ce cycle corrige la pointe de
+la branche** : l'etat livre est celui d'apres retrait, et il est valide (18 lignes de sortie,
+`[PASS]` sur les 13 gates de mesure). Si un APK a ete publie depuis `9d2d00fd6f`, il porte un
+moteur qui aplatit la reponse de `chestR` ; le suivant ne le portera plus.
+
+**Ce que j'en retiens, et c'est une regle et pas une note** : quand un cycle touche au MOTEUR, le
+demon de construction doit etre arrete au debut du cycle et relance a la fin, ou son commit doit
+etre conditionne au validateur. « Ca compile » est un test de syntaxe, pas un test de conformite —
+et le publier au fil de l'eau sans cette distinction, c'est livrer a l'owner un defaut qu'un
+falsificateur venait d'attraper.
+
+## 10. MES PREDICTIONS, JUGEES PAR LEURS PROPRES FALSIFICATEURS
+
+    P1   forme angulaire a un parametre           REFUTEE (et VACUEUSE : theta = 6,9-8,3 deg)
+    P2   controle hors defaut de l'instrument     TIRE (0,060 %)
+    P3   garde de vacuite de l'angle              VACUEUSE — c'est elle qui tue C1
+    P4   non-vacuite du parametre k               REFUTEE (rapport 4,58 entre chaines)
+    P5   couverture supine (declaree)             publiee : C3 0,44 pt
+    P10  le canal agit, non vacueux               TENUE (1,1308 / 1,1454 ; hors defaut 0,050 %)
+    P11  le denominateur est constant             TENUE, et largement (0,007 % contre 2 %)
+    P12  la commande baisse                       REFUTEE COMME ECRITE : 1,1290 / 1,1129 contre
+                                                  [1,05 ; 1,12]. J'avais neglige que `cvn` REGONFLE
+                                                  les trois echelles quand le determinant retombe.
+                                                  Le chiffre rendu tombe dans l'intervalle
+                                                  INDEPENDANT du cycle 126 — ce que P12 ne savait
+                                                  pas predire.
+    P13  la longueur livree                       REFUTEE sur l'instrument d'ecart-type, TENUE sur
+                                                  l'instrument du verdict. **La faute est a moi :
+                                                  j'ai ancre la prediction sur les chiffres d'un
+                                                  instrument et je l'ai verifiee sur un autre.**
+                                                  Les trois lectures sont en §7 ; celle du verdict
+                                                  avait ete arbitree au cycle 126, pas par moi
+                                                  aujourd'hui.
+    P14  largeur/epaisseur montent                TENUE (+2,0 a +2,6 %, sens predit par `cvn`)
+    P15  aucune gate verte ne regresse            **REFUTEE — et c'est elle qui decide du cycle.**
+    P16  controle negatif de portee               TENUE (0,000 % aux cellules DEBOUT)
+
+Six predictions sur douze sont refutees. C'est le rendement normal d'un cycle qui ecrit ses
+falsificateurs avant de mesurer, et c'est ce qui a empeche de livrer un aplatissement.
+
+## 11. CE QUI RESTE CABLE APRES LE RETRAIT
+
+**La MESURE, pas la commande.** `PHYSRIGID rs= dauth=` reste, avec ses 12 constantes cuites, son
+parseur et son calcul. Raisons : (a) c'est la grandeur que le prochain lot devra commander ; (b)
+elle est validee contre une derivation independante ; (c) son denominateur est verifie a la course.
+**Cout declare, et je le signale plutot que de le taire** : ~30 lignes de moteur pour une grandeur
+qui ne pilote plus rien ce cycle, dans un fichier a **4796 / 4800**. Si le superviseur juge qu'un
+instrument n'a pas sa place dans le solveur tant qu'il ne commande rien, le retrait est mecanique
+et je l'executerai.
+
+## 12. REMONTEE AU SUPERVISEUR
+
+**(a) TROISIEME CYCLE SANS CHANGEMENT DE STATUT (126, 127, 128).** La raison est nommee et elle
+n'est pas « on tourne en rond » : §11 porte CINQ clauses, et ce cycle etablit que **deux d'entre
+elles ne peuvent pas etre vraies en meme temps avec le canal actuel**. Un solde de statut nul peut
+recouvrir une impossibilite demontree ; la ligne d'etat ne sait pas le montrer. **La question a
+arbitrer : le registre doit-il compter des CLAUSES et pas seulement des SECTIONS ?**
+
+**(b) LE PLAFOND `CLEAN` A ETE FRANCHI SANS ETRE TOUCHE, ET LA MINE EST PRESQUE EPUISEE.** Les 40
+lignes viennent de commentaires migres. L'inventaire complet du fichier n'en contient plus que
+**26** de la meme nature (fusion de pointeurs consecutifs), apres quoi il n'y a plus de ligne a
+prendre sans toucher du code — ce que le registre interdit (`never-spend-the-bit-identity-control-
+on-line-count`). Le moteur est a **4796 / 4800**. Je ne demande pas de relever le plafond ; je
+signale que la question arrive, et que la composition — ce que la gate demande de regarder — reste
+de la CONTRAINTE et de la MESURE, jamais des suppresseurs.
+
+**(c) LE CHANTIER SUIVANT EST NOMME PAR LA MESURE, PAS PAR MOI :** un canal qui produise la
+MIGRATION DE COM independamment de l'echelle de longueur. Il sert §10 ET §11, dont les deux clauses
+de COM sont sous leur plancher pour la meme raison. Et il devra etre juge sur `DISCRIMINANT` avant
+tout : c'est la deuxieme fois que cette gate arrete un lot de §11 sur chestR.
+
+## A TESTER PAR L'OWNER
+
+**RIEN.** La regle du 2026-08-20 23:30 tient : on ne sollicite pas de test pour un changement d'une
+seule section tant que le bloc §9-§13 / §14-§20 / §24-§27 n'est pas tenu ensemble. La livraison
+continue n'est pas suspendue — le constructeur automatique publie ce commit comme les autres.
+
+## FICHIERS DE CE CYCLE
+
+    .autoport/c128-predictions.txt      P1..P5 puis P10..P16, ecrites avant leurs calculs respectifs
+    .autoport/c128_angular_proxy.py     les 4 candidats, la regle de selection, les falsificateurs
+    .autoport/c128_bake_rigid.py        cuisson + validation des 12 constantes (refuse d'ecrire sinon)
+    .autoport/c128_verify.py            confrontation P10..P16 sur les deux traces
+    recharged_assets/physics_mesh.txt   les 2 enregistrements `rg`
+    game/kernel/jak1/kmachine.cpp       parseur + accesseur
+    goal_src/jak1/pc/jak-hd-physics.gc  l'estimateur (garde) ; la division (retiree, cf. NOTE-576)
+    goal_src/jak1/pc/phys-room.gc       `PHYSRIGID`
+    goal_src/jak1/pc/jak-hd-physics-NOTES.md  NOTE-540..573 (migration) · 574/575 (l'estimateur)
+                                              · 576 (la division cablee, mesuree et retiree)
+    .autoport/SPEC-COVERAGE.md          lignes §10, §11 et ligne d'etat
+
+    traces conservees :
+      keira-room-x86.c127.log            md5 abb090c9bd72d5dfd0268034a384f932  (avant le lot)
+      keira-room-x86.c128-experiment.log md5 10aea9db79c1a039eb4bcca8ba408377  (le lot, RETIRE)
+      keira-room-x86.log                 la course du moteur LIVRE, apres retrait
+
+
 ================================================================================================
 CYCLE 126 — CONTRE-CONTROLE : JE RETIRE LA CIBLE QUE J'AI NOMMEE AU CYCLE 125.
              LES DEUX SECTIONS ETAIENT LUES AVEC UNE GRANDEUR QUI N'EST NI L'UNE NI L'AUTRE,

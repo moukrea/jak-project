@@ -1151,6 +1151,18 @@ struct PhysChain {
   // Empty = no ax= record; GOAL then publishes no apex at all rather than an apex of zero.
   std::vector<float> link_apexw;                 // outer index = link
   std::vector<std::array<float, 3>> link_apexp;  // outer index = link
+  // (C128) SPEC 11 — L'ETAGE RIGIDE. Le vecteur racine->apex de la chair est, sous skinning
+  // lineaire, EXACTEMENT une somme par OS :  d = SUM_b (ds_b . R_b + dm_b t_b), ou ds_b et dm_b
+  // sont des constantes du MESH LIVRE (differences de centroides ponderes entre la population
+  // DISTALE et la population PROXIMALE, chacune renormalisee par son propre total). Consequence
+  // exploitee : SUM_b dm_b = 0 exactement, donc t_b peut etre pris RELATIF A L'ANCRE — ce qui
+  // annule la contribution de translation de l'ancre et divise les magnitudes par ~100, rendant
+  // le transport en milli-unites sans effet. Ordre : [0]=ancre, [1]=maillon 0, [2]=maillon 1 ;
+  // chaque entree = {ds.x, ds.y, ds.z, dm*1000}. L'entree de l'ancre porte dm = 0 par
+  // construction et n'est pas lue. Vide = pas d'enregistrement rg= : GOAL ne corrige alors rien,
+  // et le comportement est EXACTEMENT celui d'avant le cycle 128.
+  std::array<std::array<float, 4>, 3> rigid_stage{};
+  bool rigid_stage_set = false;
   std::vector<std::string> xchains;  // xchain= : chains this chain must be collided against
   // (C14) per-link EXTREMAL skinned-vertex offsets, bone-local bind space, game units, <=5 per
   // link. This is the geometry the mesh-surface penetration audit samples: the owner's eyes live
@@ -1778,6 +1790,7 @@ static int pc_physics_parse_file() {
       std::vector<std::string> cur_names;
       int n_ms = 0, n_ms_dropped = 0;
       int n_ax = 0, n_ax_dropped = 0;
+      int n_rg = 0;
       int n_bs = 0, n_bs_dropped = 0;
       size_t mpos = 0;
       while (mpos <= mtext.size()) {
@@ -1871,6 +1884,36 @@ static int pc_physics_parse_file() {
           }
           continue;
         }
+        // (C128) rg <chainName> <sax> <say> <saz> <s0x> <s0y> <s0z> <m0k> <s1x> <s1y> <s1z> <m1k>
+        // — les 12 constantes de l'ETAGE RIGIDE de SPEC 11, une ligne par chaine. Meme section
+        // `model` et meme moule de cle que ms/ax ci-dessus. Voir .autoport/c128_bake_rigid.py,
+        // qui les cuit ET valide l'estimateur contre le nuage RIGID mesure AVANT de les ecrire.
+        if (toks[0] == "rg" && toks.size() >= 13) {
+          const std::string& cname = toks[1];
+          for (const auto& mn : cur_names) {
+            auto mit = s_phys_models.find(mn);
+            if (mit == s_phys_models.end()) {
+              continue;
+            }
+            for (auto& ch : mit->second.chains) {
+              if (ch.name != cname) {
+                continue;
+              }
+              for (int b = 0; b < 3; b++) {
+                for (int q = 0; q < 4; q++) {
+                  // l'ancre ne porte que 3 valeurs (son dm est nul par construction) : les
+                  // maillons commencent donc au token 5, pas au token 6.
+                  int t = (b == 0) ? (2 + q) : (5 + (b - 1) * 4 + q);
+                  ch.rigid_stage[b][q] = (b == 0 && q == 3) ? 0.f : (float)atof(toks[t].c_str());
+                }
+              }
+              ch.rigid_stage_set = true;
+              n_rg++;
+              break;
+            }
+          }
+          continue;
+        }
         // (SPEC 18) bs <boneName> <n> x y z nx ny nz [* n] — per BODY bone, the skinned SURFACE
         // the chains are collided against, bone-local bind space, game units. Sits inside the same
         // `model` sections as the ms lines above, after them, and lands on every name that section
@@ -1914,6 +1957,7 @@ static int pc_physics_parse_file() {
       lg::info("[hd-phys] MESHSRC={} path={} links-with-samples={} dropped={}"
                " apex-links={} apex-dropped={}",
                mesh_src, mesh_path.string(), n_ms, n_ms_dropped, n_ax, n_ax_dropped);
+      lg::info("[hd-phys] rigid-stage records (SPEC 11): rg={}", n_rg);
       // Separate line, once per parse, and INFO even at zero: a pack predating the `bs` records
       // is a legacy pack, not an error, and it must not warn-spam. sets=0 is the honest report
       // that the body surface was never delivered — the GOAL side counts that as "not measured".
@@ -2155,6 +2199,24 @@ s64 pc_physics_chain_link_apex_mi(u32 ag_name, s64 chain, s64 link, s64 axis) {
     return 0;
   }
   return phys_mi(model->chains[chain].link_apexp[link][axis - 1]);
+}
+
+// (C128) SPEC 11 — une des 12 constantes de l'ETAGE RIGIDE, en milli. `idx` = b * 4 + q, avec
+// b 0..2 = {ancre, maillon 0, maillon 1} et q 0..3 = {ds.x, ds.y, ds.z, dm*1000}. Rend 0 quand la
+// chaine ne declare pas de `rg` : GOAL lit alors un vecteur nul, la garde de non-vacuite ne tire
+// pas, et la cible de forme de SPEC 11 reste celle d'avant le cycle 128. Un manque de donnee ne
+// doit jamais se lire comme une correction de zero.
+s64 pc_physics_chain_rigid_mi(u32 ag_name, s64 chain, s64 idx) {
+  pc_physics_ensure_loaded();
+  const auto* model = pc_physics_find_model(ag_name);
+  if (!model || chain < 0 || chain >= (s64)model->chains.size() || idx < 0 || idx > 11) {
+    return 0;
+  }
+  const auto& ch = model->chains[chain];
+  if (!ch.rigid_stage_set) {
+    return 0;
+  }
+  return phys_mi(ch.rigid_stage[idx / 4][idx % 4]);
 }
 
 // (C14) how many mesh samples this link carries (0..5). 0 = the mesh never reaches beyond the
@@ -4399,6 +4461,8 @@ void InitMachine_PCPort() {
                               (void*)pc_physics_chain_link_comw_mi);
   make_function_symbol_from_c("pc-physics-chain-link-apex-mi",
                               (void*)pc_physics_chain_link_apex_mi);
+  make_function_symbol_from_c("pc-physics-chain-rigid-mi",
+                              (void*)pc_physics_chain_rigid_mi);
   make_function_symbol_from_c("pc-physics-chain-preset-mi",
                               (void*)pc_physics_chain_preset_mi);
   make_function_symbol_from_c("pc-physics-chain-preset-count",
