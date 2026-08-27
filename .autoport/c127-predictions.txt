@@ -95,3 +95,52 @@ P7  SI P6 TIENT : LA COMMANDE RESIDUELLE `cible / proxy` TOMBE DANS L'INTERVALLE
     devient 1,1300-1,1499 et recouvre 1,1300-1,1384.
     FALSIFICATEUR DE P7 : le recouvrement corrige est vide -> les deux derivations se contredisent
     et RIEN n'est cable.
+
+--------------------------------------------------------------------------------------------------
+TROISIEME SERIE — ECRITE APRES P6/P7 ET AVANT TOUT CALCUL DE P8.
+Motif : P6 refute le proxy POSITIONNEL. L'etage rigide etant entierement ANGULAIRE, l'estimateur
+doit porter les OFFSETS DE TISSU et les faire tourner avec leurs os. Question : de combien d'os le
+moteur a-t-il besoin pour reproduire ce que l'instrument mesure sur 94 sommets ?
+
+FONDEMENT ALGEBRIQUE, ECRIT AVANT LA MESURE. Le skinning lineaire est LINEAIRE en les matrices d'os,
+donc un centroide pondere de sommets est EXACTEMENT une somme par OS :
+    c = somme_v w_v somme_b W_vb (q_vb . R_b + t_b) / somme w
+      = somme_b ( s_b . R_b + m_b t_b )   avec  s_b = somme_v w_v W_vb q_vb / somme w
+                                                m_b = somme_v w_v W_vb / somme w
+`s_b` (3 flottants) et `m_b` (1 flottant) par os et par population sont des CONSTANTES CUITES DU
+MESH — meme classe que `*phys-lcx/lcy/lcz*` et `*phys-apx/apy/apz*` deja presents. Rien n'est
+ajuste sur un verdict.
+
+P8a CONTROLE DE MA PROPRE DERIVATION : avec TOUS les os, la reconstruction reproduit la longueur
+    racine->apex du nuage RIGID de l'instrument a 1e-4 pres sur les 5 cellules.
+    FALSIFICATEUR : ecart > 1e-3 -> ma derivation ou ma convention de skinning est fausse et RIEN
+    n'est publie. C'est un controle, pas un resultat : il doit passer par construction.
+
+P8b TROIS OS SUFFISENT (ancre `chest` + les deux maillons) : ecart < 5 points au RIGID mesure sur
+    la cellule PRONE, sur les 2 chaines et les 2 frontieres de poids.
+    FALSIFICATEUR : > 5 points -> il faut aussi l'epaule, et le cout en donnees cuites monte.
+
+P8c DEUX OS NE SUFFISENT PAS. Omettre l'ancre — qui porte 42,4 % / 44,3 % du poids de peau du sein
+    (mesure sur le mesh livre) — doit faire SORTIR l'estimateur de 5 points sur la cellule PRONE.
+    C'est la prediction la plus exposee des trois : si elle echoue, l'ancre ne contribue pas a la
+    LONGUEUR malgre son poids, et l'estimateur devient deux fois moins cher.
+    FALSIFICATEUR : B2 reste sous 5 points -> P8c refutee, et c'est une bonne nouvelle a publier
+    comme telle.
+
+--------------------------------------------------------------------------------------------------
+QUATRIEME SERIE — ECRITE APRES P8 ET AVANT TOUT CALCUL DE P9.
+Motif : P8b valide un estimateur a TROIS OS, mais il exige 12 a 13 flottants cuits par chaine, et
+leur parseur est en C++ (`kmachine.cpp:1844`, enregistrement `ax`). Le moteur est a 4794 lignes
+pour un plafond de gate `CLEAN` a 4800 : SIX lignes. Avant de demander a franchir un plafond, je
+teste l'estimateur qui n'utilise QUE des donnees deja cuites ET deja lues.
+
+P9  L'ESTIMATEUR « APEX CONTRE JOINT-RACINE » SUFFIT. Le moteur possede deja le point d'apex
+    pondere (`*phys-apx/apy/apz*` + `*phys-apw*`, enregistrement `ax`, lu a `jak-hd-physics.gc:797`)
+    et la position du joint racine. La grandeur `|apex(i) - joint_racine(i)| / (idem a i=0)` est
+    donc calculable SANS UN SEUL flottant neuf. L'instrument la publie deja sous le nom `Ljp`.
+    PREDICTION : sur la cellule PRONE, `Ljp` du nuage RIGID est a moins de 5 points de `Lpp` du
+    meme nuage (la grandeur que §11 nomme), sur les 2 chaines et les 2 frontieres de poids ; et a
+    moins de 1 % de 1,000 sur la cellule DEBOUT i=9.
+    FALSIFICATEUR : > 5 points sur une cellule PRONE -> l'estimateur gratuit ne suffit pas, il faut
+    les 3 os et donc franchir le plafond `CLEAN` — ce qui se REMONTE au superviseur au lieu d'etre
+    decide seul (regle « gates gelees »).
