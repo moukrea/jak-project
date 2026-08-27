@@ -1,3 +1,143 @@
+# CYCLE 129 — LE CHANTIER QUE LE CYCLE 128 A NOMME RECOIT SON ADRESSE, ET LA REPONSE ETAIT DEJA DANS LA TRACE
+
+DIRECTIVES vd9e8b66782
+
+Perimetre : phase `Grecharged-secondary-motion`, branche `physics-keira-clean`, poitrine de Keira
+seule. Section nommee AVANT de commencer, dans `.autoport/c129-predictions.txt` : **§11, clause
+« Static COM displacement: 20-28% B0, nominal 24% B0 » (l.178)** — celle qui tient §11 depuis que le
+cycle 128 a montre que la longueur, elle, se convertit.
+
+**ZERO build, ZERO course.** Lecture sur trois traces archivees.
+
+## L'AVANCEMENT, EN PREMIER
+
+`SPEC-COVERAGE.md` : **4 TENUE · 5 TENUE PAR CONSTRUCTION · 16 PARTIELLE · 13 NON TENUE · 0 NON
+ETABLI**. **AUCUN STATUT NE BOUGE — quatrieme cycle consecutif.**
+
+Le validateur : `[PASS]` sur ses 13 gates de mesure ; seul echec `OPEN-DEFECTS /
+breast-spec-incomplete`, **une gate qui n'a pas de mode « reussi » par construction** — son propre
+texte le dit (« la liste se vide UNIQUEMENT sur la parole de l'owner : c'est son oeil qui ferme un
+defaut, jamais un chiffre vert »). Aucune action de ma part ne peut la faire sortir 0 sans fabriquer
+le verdict de l'owner, ce qu'interdisent la gate elle-meme, les DIRECTIVES et la regle des faux
+verts. Je ne le fais pas ; je convertis, c'est la seule voie qui la retire.
+
+## 1. LA QUESTION QUE CE CYCLE FERME
+
+Le cycle 128 a nomme le chantier — « un canal qui produise la migration de COM independamment de
+l'echelle de longueur » — **sans dire ou il doit vivre**. Deux adresses possibles, deux travaux
+opposes :
+
+  (a) dans le **TENSEUR** de forme -> travail de solveur ;
+  (b) dans les **POSITIONS DE JOINT** -> une excursion, qui se heurterait au plafond de §22.
+
+## 2. LA REPONSE ETAIT DEJA PUBLIEE, ET JE NE L'AVAIS PAS LUE
+
+`ROOM-SPEC10` emet depuis longtemps **six colonnes** — `total / squel. / tens.` sur deux axes — et
+elle repond ligne par ligne. J'ai ecrit un script pour re-deriver ce que le tableau publiait deja.
+**C'est la faute `grep-the-trace-before-asking-for-a-run`, deuxieme occurrence dans ce dossier**, et
+je la declare avant le resultat plutot qu'apres.
+
+Course LIVREE, cellule prone, frontiere du verdict (`w>0.00`) :
+
+    chestL   total -0,2234 B0  =  squel. -0,1110 (49,7 %)  +  tens. -0,1124 (50,3 %)
+    chestR   total -0,2017 B0  =  squel. -0,0999 (49,5 %)  +  tens. -0,1018 (50,5 %)
+
+## 3. DEUX DERIVATIONS QUI NE PARTAGENT RIEN CONVERGENT A 0,3 POINT
+
+La part squelettique **predite avant lecture** par extrapolation lineaire des DEUX POINTS du cycle
+128 (commande 1,2195 -> 1,1290 pour COM 0,2278 -> 0,1811, donc k = 0,516) valait **49,7 %**. La
+mesure publiee rend **49,7 % et 49,5 %**. La bande predite [40 % ; 60 %] etait ecrite avant tout
+calcul.
+
+**Ca valide retroactivement l'extrapolation a deux points sur laquelle repose tout l'argument
+d'incompatibilite du cycle 128** — argument que j'avais publie en le declarant comme une
+extrapolation, sans savoir qu'un chemin independant le confirmerait.
+
+## 4. L'ADRESSE DU CHANTIER (P4, falsificateur ecrit d'avance a 0,13 B0)
+
+    la CHAINE SEULE (terme squelettique)  0,1110 (chestL) / 0,0999 (chestR) B0
+    plancher de la bande                  0,20 B0
+
+**La chaine seule ne produit pas les deux tiers du plancher.** Il faudrait **DOUBLER** le terme
+squelettique pour atteindre le seul plancher, alors que §22 plafonne deja l'excursion a 0,50 B0.
+
+**Le canal de COM manquant doit donc vivre dans le TENSEUR. La voie (b) est fermee sans qu'on ait eu
+a l'essayer** — un cycle de solveur economise, et c'est le genre d'economie que ce dossier paie
+cher quand elle n'est pas faite.
+
+## 5. UNE DIVERGENCE D'INSTRUMENT QUI TRAVERSE LE VERDICT — NOMMEE, CHIFFREE, NON TRANCHEE
+
+Ma prediction P1 (« mon calcul reproduit la grandeur du verdict a 5 % pres ») est **REFUTEE a
+40,1 % / 45,0 %**. Le diagnostic est exact, pas suppose :
+
+**`ROOM-SPEC10` ne mesure PAS le centroide du nuage skinne.** Il construit un **MODELE A DEUX
+POINTS** — les deplacements de joint cumules, ponderes par les parts de masse `comw` PAR MAILLON,
+plus `L . (D - I)` ou `L` est le centroide de chair CUIT du maillon et `D` le tenseur `PHYSDFMA`
+(`physics_room_table.py:2975-2986`).
+
+    nuage de peau COMPLET      0,3192 (chestL) / 0,3295 (chestR) B0    ->  AU-DESSUS
+    modele a DEUX POINTS       0,2278          / 0,2273          B0    ->  DANS
+    bande de la clause         0,20 - 0,28
+
+**Les deux lectures ne rendent pas le meme verdict.** Conformement a la directive du 2026-08-21
+18:40 (« si les deux chemins divergent, aucune ne se traite avant reconciliation »), **§11 n'est
+re-jugee sur AUCUNE des deux**, le statut ne bouge pas, et la reconciliation devient un chantier
+nomme — **a mener AVANT tout lot qui viserait cette clause**, sinon on optimiserait contre un
+chiffre dont on ne sait pas s'il decrit l'organe.
+
+**Mon instrument n'est pas casse, il mesure autre chose**, et ses deux controles le montrent :
+lecture HORS DEFAUT a la 2e cellule DEBOUT **0,0008 B0** (seuil declare 0,02), controle de MONTAGE
+sur la 2e cellule PRONE **0,04-0,09 point** (seuil 5).
+
+## 6. §10 — RIEN DE NEUF, ET C'EST VERIFIE AVANT DE PUBLIER
+
+J'allais publier comme neuf que le terme squelettique de la migration sortante de §10 est NEGATIF
+des deux cotes. **Le registre le porte deja depuis le cycle 123b**, avec un budget ferme au
+millieme (chestL -1,283 squel. + 2,906 diagonal - 0,825 cisaillement = +0,797 % W0 ; chestR -3,824
++ 2,379 - 2,299 = -3,744). Verifie avant d'ecrire, donc non re-publie. Ce qui se dit, et qui est
+neuf, c'est la CONVERGENCE : sur §10 le terme squelettique est negatif, sur §11 il est insuffisant
+de moitie — **meme diagnostic, meme canal manquant, une seule cible pour les deux sections.**
+
+## 7. MES PREDICTIONS, JUGEES PAR LEURS PROPRES FALSIFICATEURS
+
+    P1  mon calcul est-il la grandeur du verdict ?   **REFUTEE** (40,1 % / 45,0 %) — et c'est le
+                                                     resultat le plus utile du cycle apres P4
+    P2  lecture hors defaut (i=9)                    TIRE (0,0008 B0 contre 0,02)
+    P3  part squelettique dans [40 % ; 60 %]         TENUE (49,7 % / 49,5 %), et convergente a
+                                                     0,3 point avec une derivation independante
+    P4  la chaine seule <= 0,13 B0                   TENUE (0,1110 / 0,0999) -> l'adresse du chantier
+    P5  §10 (declaree, non exigee)                   deja au registre, non re-publiee
+    P6  controle de montage (2e cellule prone)       TENUE (0,04 / 0,09 point contre 5)
+
+## 8. REMONTEE AU SUPERVISEUR
+
+**(a) QUATRIEME CYCLE SANS CHANGEMENT DE STATUT.** La raison n'a pas change depuis le cycle 128 et
+elle est structurelle : §11 porte cinq clauses, deux d'entre elles sont incompatibles sous le canal
+actuel, et la clause qui la tient est desormais mesuree par deux instruments qui ne rendent pas le
+meme verdict. **Un solde de statut nul peut recouvrir une impossibilite demontree et une divergence
+d'instrument ; la ligne d'etat ne sait montrer ni l'une ni l'autre.** La question reste : le
+registre doit-il compter des CLAUSES ?
+
+**(b) DEUX CHANTIERS SONT MAINTENANT NOMMES ET ORDONNES :**
+  1. **reconcilier les deux lectures du COM** (nuage complet contre modele a deux points, 40-45 %
+     d'ecart, verdicts opposes) — elle passe DEVANT, parce que tout lot vise a la clause optimise
+     sinon contre un chiffre non arbitre ;
+  2. **un canal de COM dans le TENSEUR**, decouple de l'echelle de longueur, servant §10 et §11.
+     Il devra etre juge sur `DISCRIMINANT` avant tout le reste : c'est la gate qui a arrete les
+     lots de §11 aux cycles 122 et 128, les deux fois sur chestR.
+
+## A TESTER PAR L'OWNER
+
+**RIEN.** Aucun build ce cycle ; la regle du 2026-08-20 23:30 tient.
+
+## FICHIERS DE CE CYCLE
+
+    .autoport/c129-predictions.txt   P1..P6, ecrites avant tout calcul
+    .autoport/c129_com_split.py      la decomposition, ses controles, et la divergence
+    .autoport/reports/Grecharged-secondary-motion/c129-com-split.txt   sa sortie
+    .autoport/SPEC-COVERAGE.md       ligne §11 et ligne d'etat
+
+
 # CYCLE 128 — J'AI CORRIGE LE DOUBLE COMPTE DE §11 DANS LE MOTEUR, ET MON PROPRE FALSIFICATEUR L'A RETIRE. CE QUI SURVIT VAUT PLUS QUE CE QUI EST RETIRE.
 
 DIRECTIVES vd9e8b66782

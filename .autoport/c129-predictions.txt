@@ -1,0 +1,107 @@
+CYCLE 129 — PREDICTIONS ECRITES AVANT TOUT CALCUL
+DIRECTIVES vd9e8b66782 · phase Grecharged-secondary-motion · poitrine de Keira seule.
+Horodatage : 2026-08-27. ZERO build, ZERO course neuve. Trois traces ARCHIVEES :
+
+    keira-room-x86.c127.log             md5 abb090c9bd72d5dfd0268034a384f932  (avant le lot c128)
+    keira-room-x86.c128-experiment.log  md5 10aea9db79c1a039eb4bcca8ba408377  (le lot c128, RETIRE)
+    keira-room-x86.log                  la course du moteur LIVRE (apres retrait)
+
+SECTION DONT CE CYCLE DEBLOQUE LE VERDICT (exigence DIRECTIVES 2026-08-21 18:25, nommee AVANT de
+commencer) : **§11, clause « Static COM displacement: 20-28% B0, nominal 24% B0 » (l.178)**. C'est
+elle, et non plus la longueur, qui tient §11 depuis le cycle 128 ; et c'est elle que le lot du
+cycle 128 a fait tomber `DANS` -> `SOUS` en retirant le double compte.
+
+--------------------------------------------------------------------------------------------------
+LA QUESTION, ET POURQUOI ELLE EST LA SEULE QUI COMPTE MAINTENANT
+--------------------------------------------------------------------------------------------------
+Le cycle 128 etablit que les deux clauses de §11 sont INCOMPATIBLES sous le seul bouton
+`HangingLengthScale`, et il nomme le chantier : « un canal qui produise la MIGRATION DE COM
+independamment de l'echelle de longueur ». **Mais il ne dit pas OU ce canal doit vivre**, et il y a
+deux endroits possibles qui appellent deux chantiers completement differents :
+
+  (a) **dans le TENSEUR de forme** — si le deplacement de COM est majoritairement produit par la
+      deformation, alors le canal manquant est un terme du tenseur, et c'est un travail de solveur ;
+  (b) **dans les POSITIONS DE JOINT** — si le deplacement de COM est majoritairement produit par la
+      reconfiguration de la chaine, alors le canal manquant est une excursion, et elle se heurte au
+      plafond de §22, ce qui ferme la route sans qu'on ait a l'essayer.
+
+**Personne n'a jamais separe les deux sur cette grandeur.** Le cycle 127 l'a fait pour la LONGUEUR
+(nuage `RIGID`, rotation seule, S = I) et le cycle 128 pour la COMMANDE ; la clause de COM n'a
+jamais recu ce traitement. C'est exactement le meme instrument, applique a une autre statistique du
+meme nuage, et il ne coute aucune course.
+
+--------------------------------------------------------------------------------------------------
+NATURE / REPERE / LIGNE DE BASE (les trois questions obligatoires)
+--------------------------------------------------------------------------------------------------
+  NATURE  : un DEPLACEMENT SOUTENU (pas une variance, pas un maximum) — la norme du deplacement du
+            centroide pondere de la chair, rapportee a B0 = 602,0 unites (SPEC 6, `flesh=602.0000`
+            lu dans la trace).
+  REPERE  : le repere de l'ANCRE. Le sujet est RE-ORIENTE d'une cellule a l'autre ; mesuree en
+            MONDE, la grandeur serait dominee par la rotation du buste et ne dirait rien. On ramene
+            donc chaque centroide en local d'ancre AVANT de differencier.
+  LIGNE DE BASE : la cellule i=0 (debout d'auteur). LECTURE HORS DEFAUT : la 2e cellule DEBOUT i=9,
+            que rien ne relie a i=0 dans le balayage.
+  REFERENCE : la ligne `ROOM-SPEC10 ... §11 NORME` du tableau, qui publie 0,2278 / 0,2273 B0 a la
+            frontiere w>0.00 sur la course LIVREE. Mon calcul doit la retrouver, sinon il ne mesure
+            pas la meme chose.
+
+--------------------------------------------------------------------------------------------------
+PREDICTIONS — ecrites AVANT le premier calcul
+--------------------------------------------------------------------------------------------------
+
+P1  CONTROLE DE NON-VACUITE : MON CALCUL EST-IL LA MEME GRANDEUR ?
+    Sur la course LIVREE, mon deplacement de COM a la cellule prone, frontiere w>0.00, reproduit le
+    **0,2278 (chestL) / 0,2273 (chestR)** publie par `ROOM-SPEC10 ... §11 NORME` a **5 %** pres.
+    FALSIFICATEUR : > 5 % -> je ne mesure pas la grandeur du verdict, et RIEN n'est publie. C'est
+    le controle que le cycle 127 appelait P5 et il passe avant tout le reste.
+
+P2  CONTROLE HORS DEFAUT. A la 2e cellule DEBOUT i=9, le deplacement de COM des DEUX nuages
+    (`FULL` et `RIGID`) est sous **0,02 B0**.
+    FALSIFICATEUR : > 0,02 -> l'instrument lit du deplacement la ou il n'y en a pas, RIEN n'est
+    publie.
+
+P3  LA DECOMPOSITION, ET C'EST LA PREDICTION QUI DECIDE DU CHANTIER.
+    A la cellule prone, sur la course LIVREE, le nuage `RIGID` (rotation seule, S = I, zero
+    deformation de tissu) porte entre **40 % et 60 %** du deplacement de COM du nuage `FULL`, sur
+    LES DEUX chaines.
+    D'OU VIENT CETTE BANDE, ET ELLE N'EST PAS CHOISIE APRES COUP : le cycle 128 a mesure DEUX
+    POINTS de la meme droite — commande 1,2195 -> 1,1290 pour COM 0,2278 -> 0,1811. Si la part
+    tenseur est proportionnelle a (commande - 1), alors k x 0,0905 = 0,0467 donc k = 0,516, et la
+    part TENSEUR au point livre vaut k x 0,2195 = 0,1133 B0, soit **49,7 %** de 0,2278. La bande
+    [40 % ; 60 %] est cette valeur a +-10 points.
+    FALSIFICATEUR : hors de [40 % ; 60 %] sur une seule des deux chaines -> l'extrapolation
+    lineaire a deux points du cycle 128 est FAUSSE, et l'argument d'incompatibilite qu'elle porte
+    doit etre re-derive sans elle. Ce serait une correction de mon rapport de cycle 128, et elle
+    se publierait comme telle.
+
+P4  LE PLAFOND STRUCTUREL — CE QUE LA CHAINE SEULE PEUT PRODUIRE.
+    Le deplacement de COM du nuage `RIGID` a la cellule prone est **inferieur ou egal a 0,13 B0**
+    sur les deux chaines, contre un plancher de bande a 0,20.
+    CONSEQUENCE SI ELLE TIENT : la chaine seule ne peut pas produire les deux tiers du plancher.
+    **Le canal de COM manquant DOIT vivre dans le tenseur** (voie (a)), et la voie (b) — augmenter
+    l'excursion des joints — est fermee sans avoir a l'essayer, puisqu'elle se heurterait au
+    plafond de §22.
+    FALSIFICATEUR : > 0,13 B0 -> la chaine seule est proche du plancher, la voie (b) redevient
+    ouverte, et c'est le chantier qui change de nature.
+
+P5  §10, DECLAREE ET NON EXIGEE. La meme decomposition est calculee a la cellule SUPINE et publiee
+    quel qu'en soit le resultat. §10 est bloquee par sa clause « Outward COM migration per breast:
+    4-10 % W0 » (mesuree +0,797 / -3,744 % W0 au cycle 123b) ; savoir quelle part de sa migration
+    est rigide et quelle part est tensorielle dit si le meme canal la servirait. Aucun
+    falsificateur : c'est une mesure, pas un test.
+
+P6  CONTROLE DE MONTAGE, SUR UNE SECONDE CELLULE PRONE. La cellule i=10 est une seconde cellule
+    prone atteinte par un autre chemin du balayage. La part RIGIDE qu'elle rend doit etre a moins
+    de **5 points de pourcentage** de celle de la cellule i=6.
+    FALSIFICATEUR : > 5 points -> la decomposition depend du chemin et non de l'orientation, donc
+    elle ne mesure pas ce que je crois.
+
+--------------------------------------------------------------------------------------------------
+CE QUE CE CYCLE NE FERA PAS
+--------------------------------------------------------------------------------------------------
+  - il ne touche AUCUNE gate, AUCUNE ligne de moteur, et ne lance AUCUNE course : c'est un cycle
+    de lecture sur des traces archivees, et il le declare d'emblee ;
+  - il ne recable PAS la division de §11 retiree au cycle 128, sous aucune forme dosee : un dosage
+    choisi pour franchir un seuil est un ajustement a l'instrument ;
+  - il ne declare AUCUNE section tenue : il repond a « ou doit vivre le canal manquant », pas a
+    « la section est-elle conforme ».
