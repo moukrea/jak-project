@@ -230,7 +230,7 @@
     "Grecharged-title-logo-fullres": 1,
     "Grecharged-managed-assets-merge": 5,
     "Gmemory-ceiling-and-crash": 1,
-    "Gprecompute-deterministic-bake": 1
+    "Gprecompute-deterministic-bake": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -599,6 +599,9 @@
       "c2d31134c1f5",
       "bbaf44015262",
       "5d34f50d17aa"
+    ],
+    "Gprecompute-deterministic-bake": [
+      "3f063945ff07"
     ]
   },
   "stuck_reasons": {
@@ -1046,7 +1049,7 @@
     "Gmemory-ceiling-and-crash": 1787777998.7240753,
     "Gprecompute-deterministic-bake": 1787793399.3471632
   },
-  "last_update": "2026-08-27T02:49:06.945597+00:00",
+  "last_update": "2026-08-27T03:13:28.291471+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -1152,7 +1155,8 @@
     "Grecharged-hud-jak1",
     "Grecharged-secondary-motion",
     "Grecharged-managed-assets-merge",
-    "Gmemory-ceiling-and-crash"
+    "Gmemory-ceiling-and-crash",
+    "Gprecompute-deterministic-bake"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",
