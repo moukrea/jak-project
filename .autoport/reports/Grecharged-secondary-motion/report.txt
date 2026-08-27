@@ -375,6 +375,33 @@ sont precisement les pilotages HAUTS — et pas sur `updown` (translation vertic
 constante), qui est le pilotage BAS. **FALSIFICATEUR : si `updown` monte d'autant que les autres,
 ou si le maximum ne gagne pas ses 2,69 %, le lot est RETIRE, pas adouci.**
 
+**CE QUI SOUTIENT CETTE PREDICTION, ET CE QUI NE LA SOUTIENT PAS — MESURE, PAS PROXY.** Le lot
+c128 change `phl`, c'est-a-dire l'echelle de forme pilotee par l'ORIENTATION. Son effet par
+pilotage est donc une mesure DIRECTE, PAR INTERVENTION, de la sensibilite de chaque pilotage a un
+changement du tenseur de forme — et l'offset d'ancrage passe par le MEME canal (`a.(I-D)`) :
+
+    chestR    accel      0,2047 -> 0,1767   -13,68 %
+              leftright  0,1816 -> 0,1771    -2,48 %
+              jerk       0,1681 -> 0,1735    +3,21 %
+              tilt       0,1467 -> 0,1493    +1,77 %
+              updown     0,1364 -> 0,1364    +0,00 %      <- EXACTEMENT invariant
+
+**CE QUI PORTE LA PREDICTION :** `updown` est le SEUL pilotage dont le `tipvar` est **exactement**
+invariant a un changement de l'echelle de forme. C'est une translation VERTICALE — la direction de
+la gravite dans le repere de l'ancre ne tourne pas, donc le melange d'orientation ne bouge pas,
+donc `D` ne bouge pas. C'est ce qui en fait un **plancher stable**, et c'est exactement ce dont la
+gate a besoin pour que le maximum puisse remonter au-dessus de lui.
+
+**CE QUI NE LA PORTE PAS, ET JE L'ECRIS AU LIEU DE LE TAIRE :** le signe n'est PAS uniforme sur les
+quatre autres — `jerk` MONTE de 3,2 % quand `accel` descend de 13,7 %. Le canal de forme n'agit
+donc pas dans le meme sens sur tous les pilotages d'orientation, et **rien ne garantit que
+l'ancrage relevera le MAXIMUM plutot qu'un pilotage du milieu.** La prediction reste falsifiable,
+elle n'est pas acquise. **ET IL N'EXISTE AUCUN ENREGISTREMENT PUBLIE qui mesure, par pilotage,
+l'excursion de la forme pilotee par l'orientation** — ni `det` (ramene a 1 par construction), ni
+`dyn` (sature a 25,00 sur 4 pilotages sur 5), ni `secr` (une grandeur de §36, pas celle-ci). C'est
+un trou d'instrument nomme : le combler est ce qui rendrait cette prediction testable AVANT un
+build plutot qu'apres.
+
 **(c) INERTIE AU REPOS, VERIFIEE D'AVANCE.** A la pose debout d'auteur le melange convexe rend
 exactement (1,1,1) — `wdn` porte tout le poids — donc `D = I` et l'offset d'ancrage est
 **identiquement nul par algebre**, comme le plafond de §21 l'est deja. Mesure a l'appui : la
