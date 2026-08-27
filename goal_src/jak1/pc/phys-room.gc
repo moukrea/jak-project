@@ -4302,6 +4302,25 @@
                  (phys-shape (-> self slot) c 1)
                  (phys-shape (-> self slot) c 2)
                  (phys-shape (-> self slot) c 3))
+         ;; ---- SPEC 11 — L'ETAGE RIGIDE, PUBLIE A COTE DE LA CIBLE QU'IL DIVISE ---------------
+         ;; NATURE  : `rs` est un RAPPORT DE LONGUEUR sans dimension (1,000 = la chaine n'ajoute
+         ;;           rien), INSTANTANE de la frame d'emission, pas un maximum de fenetre.
+         ;;           `dauth` est une LONGUEUR en unites de jeu : le DENOMINATEUR de ce rapport,
+         ;;           c'est-a-dire le vecteur racine->apex de la MEME chaine sans deflexion.
+         ;; REPERE  : aucun — une longueur entre deux centroides ponderes est un invariant
+         ;;           euclidien, et le rapport de deux longueurs du MEME instant l'est aussi.
+         ;; LIGNE DE BASE : `rs` = 1,000 quand la physique ne deflechit rien. LECTURE HORS
+         ;;           DEFAUT : les cellules d'orientation DEBOUT.
+         ;; POURQUOI `dauth` EST PUBLIE : l'estimateur suppose que la longueur d'AUTEUR ne depend
+         ;;           pas de l'orientation (SPEC §5 : l'animation ne pilote pas ces joints). Cette
+         ;;           hypothese n'est pas verifiable hors ligne — la trace archivee ne porte que
+         ;;           les matrices LIVREES. La publier a cote du rapport la rend verifiable a la
+         ;;           course : `dauth` doit etre CONSTANT d'une cellule d'orientation a l'autre.
+         ;;           Une hypothese muette serait un faux vert en attente.
+         (format 0 "PHYSRIGID c=~D i=~D rs=~f dauth=~f~%"
+                 c oi
+                 (phys-shape (-> self slot) c 36)
+                 (phys-shape (-> self slot) c 37))
          (format 0 "PHYSORI4 c=~D i=~D r0=~f r1=~f r2=~f~%"
                  c oi
                  (phys-shape (-> self slot) c 15)
