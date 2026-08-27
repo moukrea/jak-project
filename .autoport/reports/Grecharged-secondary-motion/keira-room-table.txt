@@ -4314,32 +4314,50 @@ ROOM-SPEC1011-LIVREE: chestR   w>0.00 LECTURE HORS DEFAUT — i=9 (2e cellule DE
 ROOM-SPEC1011-LIVREE: chestR   w>0.00 CONTROLE DE MONTAGE — i=10 (2e cellule PRONE) contre i=6 : fwd +0.02 % · out +0.01 % · up -0.02 %   (seuil declare 3 %)
 ROOM-SPEC1011-LIVREE: chestR   w>=0.25 LECTURE HORS DEFAUT — i=9 (2e cellule DEBOUT) / i=0 : fwd 1.0006 · out 0.9998 · up 0.9999   (seuil declare 1 %)
 ROOM-SPEC1011-LIVREE: chestR   w>=0.25 CONTROLE DE MONTAGE — i=10 (2e cellule PRONE) contre i=6 : fwd +0.04 % · out +0.01 % · up -0.02 %   (seuil declare 3 %)
-ROOM-SPEC1011-LIVREE: chaine   front.   §    axe  | LIVREE   (max-min)  COMMANDEE  rendement |  bande        marge     verdict
-ROOM-SPEC1011-LIVREE: chestL   w>0.00   §10  fwd  |  0.5617 ( 0.6769)    0.7462    0.7527  | 0.65-0.75   15.73 %  SANS VERDICT  [les deux estimateurs se contredisent : max-min DANS]
-ROOM-SPEC1011-LIVREE: chestL   w>0.00   §10  out  |  1.1709 ( 1.1001)    1.2257    0.9553  | 1.18-1.28    0.78 %  SANS VERDICT  [marge 0.781 % <= bruit §10 14.647 %]
-ROOM-SPEC1011-LIVREE: chestL   w>0.00   §10  up   |  1.1442 ( 1.1053)    1.0932    1.0467  | 1.05-1.12    2.11 %  SANS VERDICT  [marge 2.115 % <= bruit §10 14.647 %]
-ROOM-SPEC1011-LIVREE: chestL   w>0.00   §11  fwd  |  1.4455 ( 1.3939)    1.2195    1.1853  | 1.18-1.26   12.83 %  AU-DESSUS   
-ROOM-SPEC1011-LIVREE: chestL   w>0.00   §11  out  |  0.9241 ( 0.9392)    0.8913    1.0368  | 0.87-0.93    0.64 %  SANS VERDICT  [les deux estimateurs se contredisent : max-min AU-DESSUS]
-ROOM-SPEC1011-LIVREE: chestL   w>0.00   §11  up   |  0.9413 ( 0.9636)    0.9199    1.0232  | 0.88-0.94    0.13 %  AU-DESSUS   
-ROOM-SPEC1011-LIVREE: chestL   w>=0.25  §10  fwd  |  0.5849 ( 0.6244)    0.7462    0.7838  | 0.65-0.75   11.13 %  SANS VERDICT  [marge 11.129 % <= bruit §10 14.647 %]
-ROOM-SPEC1011-LIVREE: chestL   w>=0.25  §10  out  |  1.1751 ( 1.1001)    1.2257    0.9587  | 1.18-1.28    0.42 %  SANS VERDICT  [marge 0.421 % <= bruit §10 14.647 %]
-ROOM-SPEC1011-LIVREE: chestL   w>=0.25  §10  up   |  1.1367 ( 1.1061)    1.0932    1.0398  | 1.05-1.12    1.47 %  SANS VERDICT  [marge 1.468 % <= bruit §10 14.647 %]
-ROOM-SPEC1011-LIVREE: chestL   w>=0.25  §11  fwd  |  1.4514 ( 1.4275)    1.2195    1.1901  | 1.18-1.26   13.18 %  AU-DESSUS   
-ROOM-SPEC1011-LIVREE: chestL   w>=0.25  §11  out  |  0.9216 ( 0.9392)    0.8913    1.0340  | 0.87-0.93    0.91 %  SANS VERDICT  [les deux estimateurs se contredisent : max-min AU-DESSUS]
-ROOM-SPEC1011-LIVREE: chestL   w>=0.25  §11  up   |  0.9429 ( 0.9335)    0.9199    1.0251  | 0.88-0.94    0.31 %  SANS VERDICT  [les deux estimateurs se contredisent : max-min DANS]
-ROOM-SPEC1011-LIVREE: chestR   w>0.00   §10  fwd  |  0.6067 ( 0.7138)    0.7584    0.8000  | 0.65-0.75    7.13 %  SANS VERDICT  [marge 7.132 % <= bruit §10 14.647 %]
-ROOM-SPEC1011-LIVREE: chestR   w>0.00   §10  out  |  1.1606 ( 1.0934)    1.2057    0.9626  | 1.18-1.28    1.67 %  SANS VERDICT  [marge 1.672 % <= bruit §10 14.647 %]
-ROOM-SPEC1011-LIVREE: chestR   w>0.00   §10  up   |  1.1988 ( 1.1193)    1.0934    1.0964  | 1.05-1.12    6.57 %  SANS VERDICT  [marge 6.572 % <= bruit §10 14.647 %]
-ROOM-SPEC1011-LIVREE: chestR   w>0.00   §11  fwd  |  1.4370 ( 1.3384)    1.2125    1.1851  | 1.18-1.26   12.31 %  AU-DESSUS   
-ROOM-SPEC1011-LIVREE: chestR   w>0.00   §11  out  |  0.9176 ( 0.9277)    0.9034    1.0157  | 0.87-0.93    1.35 %  DANS        
-ROOM-SPEC1011-LIVREE: chestR   w>0.00   §11  up   |  0.9309 ( 0.9645)    0.9128    1.0199  | 0.88-0.94    0.98 %  SANS VERDICT  [les deux estimateurs se contredisent : max-min AU-DESSUS]
-ROOM-SPEC1011-LIVREE: chestR   w>=0.25  §10  fwd  |  0.6477 ( 0.6454)    0.7584    0.8540  | 0.65-0.75    0.36 %  SANS VERDICT  [marge 0.356 % <= bruit §10 14.647 %]
-ROOM-SPEC1011-LIVREE: chestR   w>=0.25  §10  out  |  1.1645 ( 1.0934)    1.2057    0.9659  | 1.18-1.28    1.33 %  SANS VERDICT  [marge 1.327 % <= bruit §10 14.647 %]
-ROOM-SPEC1011-LIVREE: chestR   w>=0.25  §10  up   |  1.1808 ( 1.1238)    1.0934    1.0800  | 1.05-1.12    5.15 %  SANS VERDICT  [marge 5.151 % <= bruit §10 14.647 %]
-ROOM-SPEC1011-LIVREE: chestR   w>=0.25  §11  fwd  |  1.4588 ( 1.4234)    1.2125    1.2031  | 1.18-1.26   13.63 %  AU-DESSUS   
-ROOM-SPEC1011-LIVREE: chestR   w>=0.25  §11  out  |  0.9115 ( 0.9277)    0.9034    1.0089  | 0.87-0.93    2.03 %  DANS        
-ROOM-SPEC1011-LIVREE: chestR   w>=0.25  §11  up   |  0.9399 ( 0.9251)    0.9128    1.0296  | 0.88-0.94    0.01 %  SANS VERDICT  [marge 0.015 % <= bruit §11 0.045 %]
-ROOM-SPEC1011-LIVREE: TEST DE MIROIR — ecart du rendement a 1 : median 4.47 %  max 24.73 % sur 24 cellules. Seuil declare AVANT la course : > 3 % sur au moins une cellule. -> BRISE — la peau ne rend pas ce qu'on injecte
+ROOM-SPEC1011-LIVREE: TROIS LECTURES DE FORME, PUBLIEES COTE A COTE ; UNE SEULE PORTE LE VERDICT.
+ROOM-SPEC1011-LIVREE:   DECILES     distance entre le centroide PONDERE du decile PROXIMAL et celui du decile DISTAL,
+ROOM-SPEC1011-LIVREE:               populations FIXEES UNE FOIS a la pose de BIND (quantiles 0.10 / 0.90 de la coordonnee
+ROOM-SPEC1011-LIVREE:               `fwd` de bind), lue sur le nuage MONDE. INVARIANTE PAR ROTATION ET PAR TRANSLATION :
+ROOM-SPEC1011-LIVREE:               c'est la grandeur que §11 NOMME, « Root-to-apex LENGTH » (l.179). Elle n'existe que
+ROOM-SPEC1011-LIVREE:               sur l'axe `fwd` — une distance n'a pas de composante « out » ni « up ».
+ROOM-SPEC1011-LIVREE:   MAX-MIN     etendue max-min le long de l'axe, en base d'ancre. Elle ne repose que sur DEUX sommets :
+ROOM-SPEC1011-LIVREE:               publiee comme SENSIBILITE, elle CONTREDIT (donc suspend) une cellule, elle ne decide jamais.
+ROOM-SPEC1011-LIVREE:   ECART-TYPE  ecart-type PONDERE le long de l'axe, en base d'ancre. C'est ce qui portait le verdict
+ROOM-SPEC1011-LIVREE:               jusqu'ici. PROXY REFUTE POUR §11 (cycle 126) : une etendue le long d'un axe FIXE n'est
+ROOM-SPEC1011-LIVREE:               pas une longueur, et la refutation est prouvee par un SIGNE OPPOSE sur la section soeur —
+ROOM-SPEC1011-LIVREE:               le meme proxy SUR-ESTIME §11 de 10,9 a 17,8 points et SOUS-ESTIME §10 de 7,0 a 17,2.
+ROOM-SPEC1011-LIVREE:   VERDICT rendu sur DECILES pour §11 `fwd` UNIQUEMENT. Les 20 autres cellules restent sur
+ROOM-SPEC1011-LIVREE:   l'ECART-TYPE, dont l'estimateur N'EST PAS ARBITRE (voir TROUS DECLARES en fin de bloc).
+ROOM-SPEC1011-LIVREE:   POURQUOI CE CHOIX COMPTE ALORS QU'IL NE DEPLACE AUCUN VERDICT ICI : sur le moteur LIVRE les trois
+ROOM-SPEC1011-LIVREE:   lectures S'ACCORDENT (AU-DESSUS, 0/4 DANS) ; sur le lot c128 archive, le proxy refute rend 0/4 DANS
+ROOM-SPEC1011-LIVREE:   et la grandeur NOMMEE rend 4/4 DANS. C'est l'instrument qui decide si un correctif marche.
+ROOM-SPEC1011-LIVREE:   RETOUR ARRIERE / MISE EN SERVICE : `LEN_VERDICT_DECILES` dans `.autoport/physics_room_table.py` — UNE ligne, dans les deux sens.
+ROOM-SPEC1011-LIVREE: chaine   front.   §    axe  | DECILES  MAX-MIN  ECART-TYPE | COMMANDEE rendement |  bande        marge   VERDICT SUR  verdict
+ROOM-SPEC1011-LIVREE: chestL   w>0.00   §10  fwd  |  0.7666   0.6769      0.5617 |    0.7462    0.7527 | 0.65-0.75   15.73 %  ECART-TYPE  SANS VERDICT  [les deux estimateurs se contredisent : max-min DANS]  [ESTIMATEUR NON ARBITRE : §10 `fwd` nomme `Lpp . cos(ang)`, saillie SIGNEE — le facteur cos(ang) n'est pas calcule ici]
+ROOM-SPEC1011-LIVREE: chestL   w>0.00   §10  out  |     n/a   1.1001      1.1709 |    1.2257    0.9553 | 1.18-1.28    0.78 %  ECART-TYPE  SANS VERDICT  [marge 0.781 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
+ROOM-SPEC1011-LIVREE: chestL   w>0.00   §10  up   |     n/a   1.1053      1.1442 |    1.0932    1.0467 | 1.05-1.12    2.11 %  ECART-TYPE  SANS VERDICT  [marge 2.115 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
+ROOM-SPEC1011-LIVREE: chestL   w>0.00   §11  fwd  |  1.3363   1.3939      1.4455 |    1.2195    1.0957 | 1.18-1.26    5.71 %  DECILES     AU-DESSUS   
+ROOM-SPEC1011-LIVREE: chestL   w>0.00   §11  out  |     n/a   0.9392      0.9241 |    0.8913    1.0368 | 0.87-0.93    0.64 %  ECART-TYPE  SANS VERDICT  [les deux estimateurs se contredisent : max-min AU-DESSUS]  [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
+ROOM-SPEC1011-LIVREE: chestL   w>0.00   §11  up   |     n/a   0.9636      0.9413 |    0.9199    1.0232 | 0.88-0.94    0.13 %  ECART-TYPE  AU-DESSUS     [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
+ROOM-SPEC1011-LIVREE: chestL   w>=0.25  §10  fwd  |  0.8520   0.6244      0.5849 |    0.7462    0.7838 | 0.65-0.75   11.13 %  ECART-TYPE  SANS VERDICT  [marge 11.129 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : §10 `fwd` nomme `Lpp . cos(ang)`, saillie SIGNEE — le facteur cos(ang) n'est pas calcule ici]
+ROOM-SPEC1011-LIVREE: chestL   w>=0.25  §10  out  |     n/a   1.1001      1.1751 |    1.2257    0.9587 | 1.18-1.28    0.42 %  ECART-TYPE  SANS VERDICT  [marge 0.421 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
+ROOM-SPEC1011-LIVREE: chestL   w>=0.25  §10  up   |     n/a   1.1061      1.1367 |    1.0932    1.0398 | 1.05-1.12    1.47 %  ECART-TYPE  SANS VERDICT  [marge 1.468 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
+ROOM-SPEC1011-LIVREE: chestL   w>=0.25  §11  fwd  |  1.2734   1.4275      1.4514 |    1.2195    1.0442 | 1.18-1.26    1.05 %  DECILES     AU-DESSUS   
+ROOM-SPEC1011-LIVREE: chestL   w>=0.25  §11  out  |     n/a   0.9392      0.9216 |    0.8913    1.0340 | 0.87-0.93    0.91 %  ECART-TYPE  SANS VERDICT  [les deux estimateurs se contredisent : max-min AU-DESSUS]  [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
+ROOM-SPEC1011-LIVREE: chestL   w>=0.25  §11  up   |     n/a   0.9335      0.9429 |    0.9199    1.0251 | 0.88-0.94    0.31 %  ECART-TYPE  SANS VERDICT  [les deux estimateurs se contredisent : max-min DANS]  [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
+ROOM-SPEC1011-LIVREE: chestR   w>0.00   §10  fwd  |  0.8532   0.7138      0.6067 |    0.7584    0.8000 | 0.65-0.75    7.13 %  ECART-TYPE  SANS VERDICT  [marge 7.132 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : §10 `fwd` nomme `Lpp . cos(ang)`, saillie SIGNEE — le facteur cos(ang) n'est pas calcule ici]
+ROOM-SPEC1011-LIVREE: chestR   w>0.00   §10  out  |     n/a   1.0934      1.1606 |    1.2057    0.9626 | 1.18-1.28    1.67 %  ECART-TYPE  SANS VERDICT  [marge 1.672 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
+ROOM-SPEC1011-LIVREE: chestR   w>0.00   §10  up   |     n/a   1.1193      1.1988 |    1.0934    1.0964 | 1.05-1.12    6.57 %  ECART-TYPE  SANS VERDICT  [marge 6.572 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
+ROOM-SPEC1011-LIVREE: chestR   w>0.00   §11  fwd  |  1.3183   1.3384      1.4370 |    1.2125    1.0873 | 1.18-1.26    4.42 %  DECILES     AU-DESSUS   
+ROOM-SPEC1011-LIVREE: chestR   w>0.00   §11  out  |     n/a   0.9277      0.9176 |    0.9034    1.0157 | 0.87-0.93    1.35 %  ECART-TYPE  DANS          [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
+ROOM-SPEC1011-LIVREE: chestR   w>0.00   §11  up   |     n/a   0.9645      0.9309 |    0.9128    1.0199 | 0.88-0.94    0.98 %  ECART-TYPE  SANS VERDICT  [les deux estimateurs se contredisent : max-min AU-DESSUS]  [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
+ROOM-SPEC1011-LIVREE: chestR   w>=0.25  §10  fwd  |  0.9397   0.6454      0.6477 |    0.7584    0.8540 | 0.65-0.75    0.36 %  ECART-TYPE  SANS VERDICT  [marge 0.356 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : §10 `fwd` nomme `Lpp . cos(ang)`, saillie SIGNEE — le facteur cos(ang) n'est pas calcule ici]
+ROOM-SPEC1011-LIVREE: chestR   w>=0.25  §10  out  |     n/a   1.0934      1.1645 |    1.2057    0.9659 | 1.18-1.28    1.33 %  ECART-TYPE  SANS VERDICT  [marge 1.327 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
+ROOM-SPEC1011-LIVREE: chestR   w>=0.25  §10  up   |     n/a   1.1238      1.1808 |    1.0934    1.0800 | 1.05-1.12    5.15 %  ECART-TYPE  SANS VERDICT  [marge 5.151 % <= bruit §10 14.647 %]  [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
+ROOM-SPEC1011-LIVREE: chestR   w>=0.25  §11  fwd  |  1.3116   1.4234      1.4588 |    1.2125    1.0818 | 1.18-1.26    3.94 %  DECILES     AU-DESSUS   
+ROOM-SPEC1011-LIVREE: chestR   w>=0.25  §11  out  |     n/a   0.9277      0.9115 |    0.9034    1.0089 | 0.87-0.93    2.03 %  ECART-TYPE  DANS          [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
+ROOM-SPEC1011-LIVREE: chestR   w>=0.25  §11  up   |     n/a   0.9251      0.9399 |    0.9128    1.0296 | 0.88-0.94    0.01 %  ECART-TYPE  SANS VERDICT  [marge 0.015 % <= bruit §11 0.045 %]  [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]
+ROOM-SPEC1011-LIVREE: TEST DE MIROIR — ecart du rendement a 1, sur LA LECTURE QUI DECIDE dans chaque cellule : median 4.42 %  max 24.73 % sur 24 cellules. Seuil declare AVANT la course : > 3 % sur au moins une cellule. -> BRISE — la peau ne rend pas ce qu'on injecte
 ROOM-SPEC1011-LIVREE: TEST DE FALSIFIABILITE — verdicts rendus : SOUS=0 DANS=2 AU-DESSUS=5 SANS VERDICT=17. Un instrument qui ne peut pas echouer ne vaut rien. -> TENUE
 ROOM-SPEC1011-LIVREE: --- CE QUE CHAQUE CLAUSE RECOIT COMME VERDICT DE REGISTRE ---
 ROOM-SPEC1011-LIVREE:   §10 fwd  Forward projection -25 a -35 %      SANS VERDICT — les 4 cellules sont sous le bruit ou contredites
@@ -4348,6 +4366,25 @@ ROOM-SPEC1011-LIVREE:   §10 up   Vertical envelope +5 a +12 %        SANS VERDI
 ROOM-SPEC1011-LIVREE:   §11 fwd  Root-to-apex length +18 a +26 %     HORS BANDE (AU-DESSUS) sur les 2 chaines et les 2 frontieres
 ROOM-SPEC1011-LIVREE:   §11 out  Width -7 a -13 %                    INDETERMINEE — DANS=2 / SANS VERDICT=2
 ROOM-SPEC1011-LIVREE:   §11 up   Thickness -6 a -12 %                INDETERMINEE — AU-DESSUS=1 / SANS VERDICT=3
+ROOM-SPEC1011-LIVREE: --- TROUS DECLARES : LES CELLULES DONT L'ESTIMATEUR N'EST PAS ARBITRE ---
+ROOM-SPEC1011-LIVREE:   §10 `fwd`  la clause nomme une SAILLIE SIGNEE, `Lpp . cos(ang)` (`c126c_named_quantities.py:70-72`),
+ROOM-SPEC1011-LIVREE:              ou `ang` est l'angle entre l'axe racine->apex et `fwd`. Cette chaine ne calcule PAS le
+ROOM-SPEC1011-LIVREE:              facteur `cos(ang)` : publier `Lpp` seul dans la colonne DECILES serait publier UN FACTEUR a
+ROOM-SPEC1011-LIVREE:              la place de l'operateur (registre : `published-line-is-half-the-applied-operator`). La colonne
+ROOM-SPEC1011-LIVREE:              rend donc `n/a` sur ces 4 cellules, et `Lpp` est donne ici en DIAGNOSTIC NOMME, SANS verdict :
+ROOM-SPEC1011-LIVREE:              Lpp seul (DIAGNOSTIC, sans verdict), cellule SUPINE rapportee a i=0 — chestL   : w>0.00 0.7666 · w>=0.25 0.8520
+ROOM-SPEC1011-LIVREE:              Lpp seul (DIAGNOSTIC, sans verdict), cellule SUPINE rapportee a i=0 — chestR   : w>0.00 0.8532 · w>=0.25 0.9397
+ROOM-SPEC1011-LIVREE:              Ces 4 cellules restent sur l'ECART-TYPE et sont deja SANS VERDICT : AUCUN verdict n'est
+ROOM-SPEC1011-LIVREE:              deplace par ce trou. Il est DECLARE, il n'est pas comble.
+ROOM-SPEC1011-LIVREE:   §10/§11 `out` et `up`  AUCUNE lecture nommee n'est portee dans cette chaine. Le cycle 126 leur oppose
+ROOM-SPEC1011-LIVREE:              le TRIPLET INVARIANT (valeurs propres de la covariance PONDEREE, `c126_rotation_vs_stretch.py:315-340`),
+ROOM-SPEC1011-LIVREE:              qui n'est pas calcule ici. Ces 16 cellules restent sur l'ECART-TYPE et LEUR ESTIMATEUR N'EST
+ROOM-SPEC1011-LIVREE:              PAS ARBITRE : leur verdict se lit avec cette reserve, quel qu'il soit.
+ROOM-SPEC1011-LIVREE:   PLANCHER DE BRUIT  `_LIVREE_BRUIT` a ete MESURE sur la lecture ECART-TYPE (cycle 125, `c125_repro.py`),
+ROOM-SPEC1011-LIVREE:              jamais sur la lecture DECILES ; il est applique tel quel a la colonne qui decide. Sur §11
+ROOM-SPEC1011-LIVREE:              `fwd` les marges en deciles (1,05 a 5,71 %) valent 23 a 127 fois le plancher de §11
+ROOM-SPEC1011-LIVREE:              (0,045 %), donc le verdict ne depend pas de ce report — mais le report EST un trou et il
+ROOM-SPEC1011-LIVREE:              se declare.
 
 -- ROOM-ORICTL : LE REDRESSEMENT, ET SES TROIS SUSPECTS DESARMES TOUR A TOUR -------------
    NATURE : le meme deplacement soutenu que `ROOM-ORICOM`, mesure sur la meme fenetre par

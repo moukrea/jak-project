@@ -92,7 +92,19 @@ def _P(s):
 
 def measure(txt):
     """(lignes, rows, rc) ; rows = {(chaine, frontiere, '10'|'11', axe) ->
-    (livree_sigma, livree_maxmin, commandee, verdict)}. Texte CAPTURE, jamais imprime."""
+    (livree_sigma, livree_maxmin, commandee, verdict_sigma, livree_deciles)}.
+
+    CYCLE 131b — LE CINQUIEME CHAMP EST AJOUTE EN QUEUE, JAMAIS EN TETE. Les quatre premiers
+    gardent leur rang et leur sens exacts : `c125_repro.py` et `c128_verify.py` lisent `[0]`,
+    `[2]` et `[3]` et continuent de lire la meme chose. `livree_deciles` est la distance
+    racine->apex entre centroides de DECILE, rapportee a la cellule i=0 — l'instrument que le
+    cycle 126 a ARBITRE pour la clause « Root-to-apex LENGTH » de §11 — et elle vaut None sur
+    les axes `out` et `up`, ou une distance n'a pas de composante.
+
+    `verdict_sigma` reste le verdict lu sur l'ECART-TYPE PONDERE : c'est ce que la ligne de
+    verdict publiait avant ce cycle, et le garder ici permet le retour arriere a une ligne
+    (`LEN_VERDICT_DECILES` dans `physics_room_table.py`). Le verdict PUBLIE est choisi la-bas,
+    pas ici."""
     global _SINK
     old, _SINK = _SINK, []
     try:
@@ -279,8 +291,16 @@ def main(txt=None):
             E[:, k] /= np.linalg.norm(E[:, k])
         return o, E
 
-    def cloud(i, sel):
-        """Le nuage de peau DEFORME de `sel`, en base d'ANCRE de la cellule `i`."""
+    def world_cloud(i, sel):
+        """Le nuage de peau DEFORME de `sel`, en coordonnees MONDE.
+
+        CYCLE 131b — POURQUOI CE NUAGE-CI EXISTE SEPAREMENT DE `cloud()`. La longueur
+        racine->apex de §11 est une DISTANCE, et une distance ne se lit pas dans la base
+        d'ancre rendue par `frame()` : ses trois colonnes sont normalisees UNE A UNE mais
+        JAMAIS orthogonalisees, donc `E` ne conserve pas la norme. Les etendues par axe, elles,
+        sont des PROJECTIONS et restent justes dans cette base. C'est exactement le piege que
+        `c126_rotation_vs_stretch.py` evite en calculant ses centroides de decile sur le nuage
+        MONDE, et ce portage le reproduit a l'identique."""
         n = int(sel.sum())
         acc = np.zeros((n, 3))
         wtot = np.zeros(n)
@@ -298,6 +318,13 @@ def main(txt=None):
         # dire vaut mieux que publier une forme construite sur 99 % du sommet.
         if float(np.abs(wtot - 1.0).max()) > 1e-3:
             return ('INCOMPLET', float(np.abs(wtot - 1.0).max()))
+        return acc
+
+    def cloud(i, sel):
+        """Le nuage de peau DEFORME de `sel`, en base d'ANCRE de la cellule `i`."""
+        acc = world_cloud(i, sel)
+        if acc is None or isinstance(acc, tuple):
+            return acc
         o, E = frame(i)
         return (acc - o) @ E          # colonnes de E = axes -> coordonnees dans la base d'ancre
 
@@ -319,17 +346,31 @@ def main(txt=None):
         for cut, lbl in ((0.0, 'w>0.00'), (0.25, 'w>=0.25')):
             sel = wsum > cut if cut == 0.0 else wsum >= cut
             wv = wsum[sel]
-            ext = {}
+            # ---- CYCLE 131b : LES DEUX POPULATIONS DE DECILE, FIXEES A LA POSE DE BIND --------
+            # PORTAGE VERBATIM de `c126_rotation_vs_stretch.py:286-289` (repris tel quel par
+            # `c131_anchor_dof.py:189-196`, dont la SECTION 1 reproduit les quatre longueurs
+            # publiees a 0,003 %) : on trie les sommets sur la coordonnee `fwd` de la POSE DE
+            # BIND relative a l'ancre, et les deciles 10 % / 90 % designent la population
+            # PROXIMALE et la population DISTALE. Elles sont fixees UNE FOIS et les MEMES indices
+            # servent a toutes les cellules — un argmax recalcule par cellule repondrait DANS la
+            # cellule et ne serait pas une population (registre : `argmax-anchor-is-not-a-
+            # population`).
+            xb = (V[sel] - P[ai]) @ R @ AX['fwd']
+            qlo, qhi = np.quantile(xb, 0.10), np.quantile(xb, 0.90)
+            prox, dist = xb <= qlo, xb >= qhi
+            ext, dec = {}, {}
             for i in cells:
-                cl = cloud(i, sel)
-                if cl is None:
+                aw = world_cloud(i, sel)
+                if aw is None:
                     _P('C124-SHAPE: %-8s %s cellule i=%d ABSENTE (matrice manquante)'
                           % (cname, lbl, i))
                     continue
-                if isinstance(cl, tuple):
+                if isinstance(aw, tuple):
                     _P('C124-SHAPE: SUSPENDU — le skinning ne se referme pas a 1 (ecart %.4f) :'
-                          ' un joint pesant n\'est pas emis. Aucune forme publiee.' % cl[1])
+                          ' un joint pesant n\'est pas emis. Aucune forme publiee.' % aw[1])
                     return 1
+                o_, E_ = frame(i)
+                cl = (aw - o_) @ E_
                 e = {}
                 for a, v in AX.items():
                     x = cl @ v
@@ -337,6 +378,12 @@ def main(txt=None):
                     e[a] = (math.sqrt(float((wv * (x - mu) ** 2).sum() / wv.sum())),
                             float(x.max() - x.min()))
                 ext[i] = e
+                # LA GRANDEUR QUE §11 NOMME : une DISTANCE entre deux centroides ponderes, lue
+                # sur le nuage MONDE (invariante par rotation ET par translation), jamais dans
+                # la base d'ancre qui n'est pas orthogonale.
+                cp = (wv[prox, None] * aw[prox]).sum(0) / wv[prox].sum()
+                cd = (wv[dist, None] * aw[dist]).sum(0) / wv[dist].sum()
+                dec[i] = float(np.linalg.norm(cd - cp))
             if 0 not in ext:
                 _P('C124-SHAPE: %-8s %s SUSPENDU — pas de cellule i=0 (ligne de base).'
                       % (cname, lbl))
@@ -351,13 +398,20 @@ def main(txt=None):
                     lo, hi = b[a]
                     r_s = ext[cell][a][0] / ext[0][a][0]
                     r_m = ext[cell][a][1] / ext[0][a][1]
+                    # LA TROISIEME LECTURE. Elle n'existe QUE sur l'axe `fwd` : une distance
+                    # racine->apex est UN scalaire, elle n'a pas de version « out » ni « up ».
+                    # Les deux autres axes recoivent None, et le bloc de verdict du tableau le
+                    # DECLARE au lieu de fabriquer une valeur.
+                    r_d = (dec[cell] / dec[0]) if (a == 'fwd' and 0 in dec
+                                                   and cell in dec) else None
                     vd = 'SOUS' if r_s < lo else ('DANS' if r_s <= hi else 'AU-DESSUS')
                     y = (r_s / cmd[kk]) if cmd else float('nan')
                     _P('C124-SHAPE: %-8s %s §%s  %-3s  LIVREE %.4f (max-min %.4f)  bande'
                           ' %.2f-%.2f  %-9s | COMMANDEE %.4f  rendement %.4f'
                           % (cname, lbl, sec, a, r_s, r_m, lo, hi, vd,
                              (cmd[kk] if cmd else float('nan')), y))
-                    out.setdefault((cname, lbl, sec, a), (r_s, r_m, cmd[kk] if cmd else None, vd))
+                    out.setdefault((cname, lbl, sec, a),
+                                   (r_s, r_m, cmd[kk] if cmd else None, vd, r_d))
             # ---- LES DEUX CONTROLES QUI NE SONT PAS TRIVIAUX -------------------------------
             # P6 — LECTURE HORS DEFAUT. Rapporter i=0 a lui-meme rendrait 1.000 par definition et
             # ne prouverait rien. La cellule i=9 est une SECONDE cellule DEBOUT (ajoutee au cycle

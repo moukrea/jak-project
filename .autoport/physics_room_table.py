@@ -3919,6 +3919,140 @@ def _spec12_block(A, txt, names, com, b0):
 _LIVREE_BRUIT = {'10': 0.14647, '11': 0.00045}
 
 
+# ---- CYCLE 131b : LA LIGNE QUI JUGE §11 LISAIT UNE ETENDUE, PAS UNE LONGUEUR -------------------
+# `ROOM-SPEC1011-LIVREE` est la ligne que ce tableau designe LUI-MEME comme celle qui rend le
+# verdict des six clauses de forme de §10/§11 (« le verdict de cette clause est rendu par
+# ROOM-SPEC1011-LIVREE, sur la peau LIVREE (cycle 125) », marqueur `_MIROIR_SPEC1011` plus haut).
+# Sa colonne `LIVREE` publiait l'ECART-TYPE PONDERE le long de l'axe `fwd`. Or §11 nomme une
+# « Root-to-apex **LENGTH** » (l.179) : une LONGUEUR, invariante par rotation — pas une etendue le
+# long d'un axe FIXE, qu'une simple rotation du nuage redistribue sans qu'un gramme de tissu bouge.
+#
+# LA REFUTATION N'EST PAS UN ARGUMENT, C'EST UN SIGNE OPPOSE SUR LA SECTION SOEUR (cycle 126).
+# Le MEME proxy SUR-ESTIME §11 de 10,9 a 17,8 points et SOUS-ESTIME §10 de 7,0 a 17,2 points. Un
+# estimateur dont le biais change de SIGNE selon la section n'approche pas la grandeur qu'il
+# pretend approcher, et aucune calibration ne repare ca.
+# L'INSTRUMENT ARBITRE est la distance racine->apex entre les CENTROIDES PONDERES DE DECILE,
+# populations FIXEES a la pose de BIND, lue sur le nuage MONDE
+# (`c126_rotation_vs_stretch.py:286-289` et `:341-347` ; portage revalide par la section 1 de
+# `c131_anchor_dof.py`, qui le reproduit a 0,003 %).
+#
+# ET VOICI POURQUOI CE CHOIX COMPTE ALORS QU'IL NE DEPLACE AUCUN VERDICT AUJOURD'HUI : sur le
+# moteur LIVRE les trois lectures S'ACCORDENT (AU-DESSUS, 0/4 DANS) et le defaut est invisible ;
+# sur le lot c128 archive, le proxy refute rend 0/4 DANS et la grandeur NOMMEE rend 4/4 DANS.
+# L'instrument decide si le correctif marche. Poser la bonne lecture MAINTENANT, pendant qu'elle ne
+# change rien, est la seule facon de ne pas la poser plus tard sous la pression d'un resultat.
+#
+# LES TROIS LECTURES SONT PUBLIEES COTE A COTE, TOUJOURS, AVEC LEURS VRAIES VALEURS (arbitrage du
+# 2026-08-19 23:50 : « la ligne publie LES TROIS grandeurs, jamais une seule »). Le drapeau
+# ci-dessous ne choisit pas ce qu'on PUBLIE : il choisit laquelle porte le VERDICT.
+#
+# LE RETOUR ARRIERE COUTE UNE LIGNE, DANS LES DEUX SENS : `LEN_VERDICT_DECILES = True` rend le
+# verdict de §11 `fwd` a la distance de DECILES ; `False` le rend a l'ECART-TYPE PONDERE, et le
+# tableau retombe sur ses valeurs et ses etiquettes de verdict d'avant ce cycle, cellule par
+# cellule.
+LEN_VERDICT_DECILES = True
+
+
+def _spec1011_estim_header(A):
+    """LES TROIS LECTURES, CE QUE CHACUNE MESURE, ET LAQUELLE PORTE LE VERDICT."""
+    T = 'ROOM-SPEC1011-LIVREE'
+    A("%s: TROIS LECTURES DE FORME, PUBLIEES COTE A COTE ; UNE SEULE PORTE LE VERDICT." % T)
+    A("%s:   DECILES     distance entre le centroide PONDERE du decile PROXIMAL et celui du"
+      " decile DISTAL," % T)
+    A("%s:               populations FIXEES UNE FOIS a la pose de BIND (quantiles 0.10 / 0.90 de"
+      " la coordonnee" % T)
+    A("%s:               `fwd` de bind), lue sur le nuage MONDE. INVARIANTE PAR ROTATION ET PAR"
+      " TRANSLATION :" % T)
+    A("%s:               c'est la grandeur que §11 NOMME, « Root-to-apex LENGTH » (l.179)."
+      " Elle n'existe que" % T)
+    A("%s:               sur l'axe `fwd` — une distance n'a pas de composante « out » ni"
+      " « up »." % T)
+    A("%s:   MAX-MIN     etendue max-min le long de l'axe, en base d'ancre. Elle ne repose que"
+      " sur DEUX sommets :" % T)
+    A("%s:               publiee comme SENSIBILITE, elle CONTREDIT (donc suspend) une cellule,"
+      " elle ne decide jamais." % T)
+    A("%s:   ECART-TYPE  ecart-type PONDERE le long de l'axe, en base d'ancre. C'est ce qui"
+      " portait le verdict" % T)
+    A("%s:               jusqu'ici. PROXY REFUTE POUR §11 (cycle 126) : une etendue le long"
+      " d'un axe FIXE n'est" % T)
+    A("%s:               pas une longueur, et la refutation est prouvee par un SIGNE OPPOSE sur"
+      " la section soeur —" % T)
+    A("%s:               le meme proxy SUR-ESTIME §11 de 10,9 a 17,8 points et SOUS-ESTIME §10"
+      " de 7,0 a 17,2." % T)
+    if LEN_VERDICT_DECILES:
+        A("%s:   VERDICT rendu sur DECILES pour §11 `fwd` UNIQUEMENT. Les 20 autres cellules"
+          " restent sur" % T)
+        A("%s:   l'ECART-TYPE, dont l'estimateur N'EST PAS ARBITRE (voir TROUS DECLARES en fin"
+          " de bloc)." % T)
+    else:
+        A("%s:   VERDICT rendu sur l'ECART-TYPE PONDERE SUR LES 24 CELLULES, par RETOUR ARRIERE"
+          " EXPLICITE" % T)
+        A("%s:   (`LEN_VERDICT_DECILES = False`) — donc y compris sur §11 `fwd`, ou cette"
+          " lecture est REFUTEE." % T)
+    A("%s:   POURQUOI CE CHOIX COMPTE ALORS QU'IL NE DEPLACE AUCUN VERDICT ICI : sur le moteur"
+      " LIVRE les trois" % T)
+    A("%s:   lectures S'ACCORDENT (AU-DESSUS, 0/4 DANS) ; sur le lot c128 archive, le proxy"
+      " refute rend 0/4 DANS" % T)
+    A("%s:   et la grandeur NOMMEE rend 4/4 DANS. C'est l'instrument qui decide si un correctif"
+      " marche." % T)
+    A("%s:   RETOUR ARRIERE / MISE EN SERVICE : `LEN_VERDICT_DECILES` dans"
+      " `.autoport/physics_room_table.py` — UNE ligne, dans les deux sens." % T)
+
+
+def _spec1011_trous(A, lpp10):
+    """LES TROUS SE DECLARENT, ILS NE SE COMBLENT PAS EN SILENCE.
+
+    La lecture arbitree n'existe que pour l'axe `fwd` de §11. Ecrire ou elle manque coute
+    quelques lignes ; ne pas l'ecrire laisserait croire que les 20 autres cellules sont jugees
+    sur une grandeur nommee, ce qui est faux."""
+    T = 'ROOM-SPEC1011-LIVREE'
+    A("%s: --- TROUS DECLARES : LES CELLULES DONT L'ESTIMATEUR N'EST PAS ARBITRE ---" % T)
+    A("%s:   §10 `fwd`  la clause nomme une SAILLIE SIGNEE, `Lpp . cos(ang)`"
+      " (`c126c_named_quantities.py:70-72`)," % T)
+    A("%s:              ou `ang` est l'angle entre l'axe racine->apex et `fwd`. Cette chaine ne"
+      " calcule PAS le" % T)
+    A("%s:              facteur `cos(ang)` : publier `Lpp` seul dans la colonne DECILES serait"
+      " publier UN FACTEUR a" % T)
+    A("%s:              la place de l'operateur (registre :"
+      " `published-line-is-half-the-applied-operator`). La colonne" % T)
+    A("%s:              rend donc `n/a` sur ces 4 cellules, et `Lpp` est donne ici en DIAGNOSTIC"
+      " NOMME, SANS verdict :" % T)
+    if lpp10:
+        # UNE LIGNE PAR CHAINE, ET C'EST UN VERROU, PAS une preference de mise en page : une ligne
+        # qui porte chestL ET chestR est comptee par `ROOM-ASYM-VERROU` comme une comparaison
+        # gauche/droite publiee SANS sa pose (DIRECTIVES 2026-08-21 01:20). Ces valeurs sont un
+        # DIAGNOSTIC par chaine, elles n'affirment aucune asymetrie du personnage — les separer
+        # dit exactement ca, au lieu de demander une exemption.
+        for _cn in sorted({_k[0] for _k in lpp10}):
+            A("%s:              Lpp seul (DIAGNOSTIC, sans verdict), cellule SUPINE rapportee a"
+              " i=0 — %-8s : %s"
+              % (T, _cn, ' · '.join('%s %.4f' % (lbl, v)
+                                    for (cn, lbl), v in sorted(lpp10.items()) if cn == _cn)))
+    else:
+        A("%s:              Lpp indisponible sur cette trace — rien n'est publie plutot qu'un"
+          " nombre fabrique." % T)
+    A("%s:              Ces 4 cellules restent sur l'ECART-TYPE et sont deja SANS VERDICT :"
+      " AUCUN verdict n'est" % T)
+    A("%s:              deplace par ce trou. Il est DECLARE, il n'est pas comble." % T)
+    A("%s:   §10/§11 `out` et `up`  AUCUNE lecture nommee n'est portee dans cette chaine. Le"
+      " cycle 126 leur oppose" % T)
+    A("%s:              le TRIPLET INVARIANT (valeurs propres de la covariance PONDEREE,"
+      " `c126_rotation_vs_stretch.py:315-340`)," % T)
+    A("%s:              qui n'est pas calcule ici. Ces 16 cellules restent sur l'ECART-TYPE et"
+      " LEUR ESTIMATEUR N'EST" % T)
+    A("%s:              PAS ARBITRE : leur verdict se lit avec cette reserve, quel qu'il soit."
+      % T)
+    A("%s:   PLANCHER DE BRUIT  `_LIVREE_BRUIT` a ete MESURE sur la lecture ECART-TYPE (cycle"
+      " 125, `c125_repro.py`)," % T)
+    A("%s:              jamais sur la lecture DECILES ; il est applique tel quel a la colonne qui"
+      " decide. Sur §11" % T)
+    A("%s:              `fwd` les marges en deciles (1,05 a 5,71 %%) valent 23 a 127 fois le"
+      " plancher de §11" % T)
+    A("%s:              (0,045 %%), donc le verdict ne depend pas de ce report — mais le report"
+      " EST un trou et il" % T)
+    A("%s:              se declare." % T)
+
+
 def _spec1011_livree_block(A, txt):
     """LES SIX CELLULES D'ECHELLE DE §10/§11, JUGEES SUR LA PEAU LIVREE ET PLUS SUR L'ENTREE."""
     A('   -- ROOM-SPEC1011-LIVREE : LA FORME QUE LA PEAU RECOIT, CONTRE CELLE QU\'ON INJECTE ----')
@@ -3947,23 +4081,38 @@ def _spec1011_livree_block(A, txt):
            or 'cellules, designees' in l or 'table nom' in l \
            or 'LECTURE HORS DEFAUT' in l or 'CONTROLE DE MONTAGE' in l:
             A('ROOM-SPEC1011-LIVREE: ' + l.replace('C124-SHAPE: ', ''))
-    A('ROOM-SPEC1011-LIVREE: %-8s %-8s §%-3s %-4s | LIVREE   (max-min)  COMMANDEE  rendement |'
-      '  bande        marge     verdict' % ('chaine', 'front.', '', 'axe'))
-    clause = {}
+    _spec1011_estim_header(A)
+    _b3 = (lambda v, lo, hi: 'SOUS' if v < lo else ('DANS' if v <= hi else 'AU-DESSUS'))
+    A('ROOM-SPEC1011-LIVREE: %-8s %-8s §%-3s %-4s | DECILES  MAX-MIN  ECART-TYPE |'
+      ' COMMANDEE rendement |  bande        marge   VERDICT SUR  verdict'
+      % ('chaine', 'front.', '', 'axe'))
+    clause, ys, lpp10 = {}, [], {}
     for k in sorted(rows):
         cn, lbl, sec, ax = k
-        sig, mm, cmd, vd = rows[k]
+        sig, mm, cmd, vd_sd, dec = rows[k]
         lo, hi = _shape.BANDS[sec][ax]
-        if sig < lo:
-            mrg = (lo - sig) / sig
-        elif sig > hi:
-            mrg = (sig - hi) / sig
+        if sec == '10' and ax == 'fwd' and dec is not None:
+            lpp10[(cn, lbl)] = dec
+        # ---- QUELLE LECTURE PORTE LE VERDICT DE CETTE CELLULE -------------------------------
+        # La distance de DECILES n'existe que sur l'axe `fwd` (une distance n'a pas de
+        # composante) et n'est la grandeur NOMMEE que pour §11 (§10 `fwd` nomme une saillie
+        # SIGNEE, dont le second facteur n'est pas calcule ici — voir TROUS DECLARES).
+        _arb = (LEN_VERDICT_DECILES and sec == '11' and ax == 'fwd' and dec is not None)
+        val = dec if _arb else sig
+        src = 'DECILES' if _arb else 'ECART-TYPE'
+        vd = _b3(val, lo, hi)
+        if val < lo:
+            mrg = (lo - val) / val
+        elif val > hi:
+            mrg = (val - hi) / val
         else:
-            mrg = min(sig - lo, hi - sig) / sig
+            mrg = min(val - lo, hi - val) / val
         # LE SECOND ESTIMATEUR DECIDE AUSSI. Le max-min ne repose que sur deux sommets, donc il ne
         # porte pas le verdict — mais s'il le CONTREDIT, la cellule n'est pas lisible et le dire
-        # vaut mieux que de choisir l'estimateur qui arrange.
-        vmm = 'SOUS' if mm < lo else ('DANS' if mm <= hi else 'AU-DESSUS')
+        # vaut mieux que de choisir l'estimateur qui arrange. Il reste le contradicteur meme
+        # quand les DECILES decident : l'ECART-TYPE, lui, est un proxy REFUTE et un proxy refute
+        # ne peut pas opposer son veto a la grandeur que la section nomme.
+        vmm = _b3(mm, lo, hi)
         why = ''
         _brt = _LIVREE_BRUIT.get(sec, 0.0)
         if mrg <= _brt:
@@ -3973,14 +4122,22 @@ def _spec1011_livree_block(A, txt):
             vfin, why = 'SANS VERDICT', '  [les deux estimateurs se contredisent : max-min %s]' % vmm
         else:
             vfin = vd
+        if sec == '10' and ax == 'fwd':
+            why += ('  [ESTIMATEUR NON ARBITRE : §10 `fwd` nomme `Lpp . cos(ang)`, saillie'
+                    ' SIGNEE — le facteur cos(ang) n\'est pas calcule ici]')
+        elif ax in ('out', 'up'):
+            why += '  [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]'
         clause.setdefault((sec, ax), []).append(vfin)
-        A('ROOM-SPEC1011-LIVREE: %-8s %-8s §%-3s %-4s | %7.4f (%7.4f)  %8.4f   %7.4f  |'
-          ' %.2f-%.2f  %6.2f %%  %-12s%s'
-          % (cn, lbl, sec, ax, sig, mm, cmd if cmd else float('nan'),
-             (sig / cmd) if cmd else float('nan'), lo, hi, mrg * 100.0, vfin, why))
-    ys = [abs(rows[k][0] / rows[k][2] - 1.0) for k in rows if rows[k][2]]
+        if cmd:
+            ys.append(abs(val / cmd - 1.0))
+        A('ROOM-SPEC1011-LIVREE: %-8s %-8s §%-3s %-4s | %7s  %7.4f  %10.4f |'
+          ' %9.4f %9.4f | %.2f-%.2f  %6.2f %%  %-11s %-12s%s'
+          % (cn, lbl, sec, ax, ('%.4f' % dec) if dec is not None else 'n/a', mm, sig,
+             cmd if cmd else float('nan'), (val / cmd) if cmd else float('nan'),
+             lo, hi, mrg * 100.0, src, vfin, why))
     ys.sort()
-    A('ROOM-SPEC1011-LIVREE: TEST DE MIROIR — ecart du rendement a 1 : median %.2f %%  max %.2f %%'
+    A('ROOM-SPEC1011-LIVREE: TEST DE MIROIR — ecart du rendement a 1, sur LA LECTURE QUI DECIDE'
+      ' dans chaque cellule : median %.2f %%  max %.2f %%'
       ' sur %d cellules. Seuil declare AVANT la course : > 3 %% sur au moins une cellule. -> %s'
       % (ys[len(ys) // 2] * 100.0, ys[-1] * 100.0, len(ys),
          'BRISE — la peau ne rend pas ce qu\'on injecte' if ys[-1] > 0.03 else
@@ -4013,6 +4170,7 @@ def _spec1011_livree_block(A, txt):
         else:
             r = 'INDETERMINEE — %s' % ' / '.join('%s=%d' % (t, vs.count(t)) for t in sorted(u))
         A('ROOM-SPEC1011-LIVREE:   §%s %-4s %-34s  %s' % (sec, ax, nom, r))
+    _spec1011_trous(A, lpp10)
     A('')
 
 

@@ -339,18 +339,31 @@ l'aplatissement, le defaut que l'owner appelle « pudding »). Elle a arrete ce 
 (c122, c128) et elle doit continuer.
 ## 7. CHANTIER c132, PRE-SPECIFIE, AVEC SON FALSIFICATEUR NOMME D'AVANCE
 
-**(a) RECABLER LE VERDICT DE LONGUEUR DE §11 SUR LA GRANDEUR NOMMEE.** `ROOM-SPEC1011-LIVREE`
-doit rendre son verdict `§11 fwd` sur la distance entre centroides de DECILE, et publier les trois
-lectures cote a cote. Le code existe et il est VALIDE : `.autoport/c131_anchor_dof.py` en porte le
-calcul (porte verbatim de `c126_rotation_vs_stretch.py:286-289` et `:341-347`) et sa section 1
-reproduit `1,3363 / 1,2734 / 1,3183 / 1,3116` a **0,003 %**. Cout mesure sur le code reel :
-**~25-28 lignes de python** reparties sur `c124_delivered_shape.py` (le calcul, l'expo du nuage
-MONDE — attention, `cloud()` rend le nuage en base d'ancre et `E` n'est PAS orthogonalise) et
-`_spec1011_livree_block`. **Aucun verdict ne bouge aujourd'hui** (les trois lectures s'accordent
-sur le moteur livre), donc le falsificateur P2 ne s'applique pas. **TROUS DECLARES, NON COMBLES :**
-§10 `fwd` a une grandeur nommee DIFFERENTE (saillie signee `Lpp . cos(ang)`) qui n'est calculee
-nulle part dans la chaine du tableau ; §10/§11 `out` et `up` n'ont aucune lecture nommee (le c126
-leur oppose le triplet invariant, ~19 lignes de plus).
+**(a) FAIT DANS CE CYCLE (131b) — LE VERDICT DE LONGUEUR DE §11 LIT LA GRANDEUR NOMMEE.**
+`ROOM-SPEC1011-LIVREE` rend desormais le verdict de `§11 fwd` sur la distance racine->apex entre
+centroides de DECILE, et publie **les trois lectures cote a cote** avec une colonne qui dit
+laquelle decide. Controle de reproduction `.autoport/c131b_decile_control.py` : **0,003 %**.
+Controle negatif ET lot : **0 cellule de verdict differe** de la reference, **0 ligne hors du
+bloc**. Determinisme verifie (deux regenerations, meme octet). **La marge de depassement tombe de
+12,83-13,63 % a 1,05-5,71 %** — la taille change, le verdict non, exactement comme predit.
+Retour arriere a une ligne : `LEN_VERDICT_DECILES`.
+
+**INCIDENT DE PROCESS, DECLARE PARCE QU'IL A PRODUIT UNE MESURE FAUSSE.** J'ai regenere la table
+et manipule le drapeau PENDANT qu'un sous-agent faisait la meme chose sur les memes fichiers. Une
+table intermediaire a ete ecrite en affirmant `LEN_VERDICT_DECILES = False` **au-dessus d'une
+source qui disait `True`** — un artefact qui contredit son propre producteur
+(`validator-reads-a-stale-table`, version « artefact mouvant »). Le sous-agent l'a detecte, s'est
+ARRETE au lieu de publier, et a demande l'arbitrage : c'est la bonne conduite. **Tous les controles
+ci-dessus ont ete REFAITS sous proprietaire unique**, apres verification par `pgrep` qu'aucun autre
+ecrivain ne tournait. La faute est la mienne, pas la sienne : un fichier ne doit avoir qu'UN
+ecrivain a la fois, et le manager n'est pas exempte de cette regle.
+
+**TROUS RESTANTS SUR CE BLOC, DECLARES ET NON COMBLES :** §10 `fwd` (saillie signee
+`Lpp . cos(ang)` — `Lpp` est publie en diagnostic, jamais dans la colonne, parce que ce serait
+publier un FACTEUR a la place de l'operateur) ; §10/§11 `out` et `up` (aucune lecture nommee,
+chaque ligne porte `ESTIMATEUR NON ARBITRE`) ; et `_LIVREE_BRUIT`, mesure sur l'ECART-TYPE au c125
+et applique tel quel a la colonne qui decide — sans effet ici (facteur 23 a 127 de marge) mais
+c'est un report NON MESURE.
 
 **(b) LE LOT DE §11, MAINTENANT QU'IL A UN POINT ADMISSIBLE.** Deux boutons : la commande (le lot
 c128, deja ecrit, substitution sur place a `jak-hd-physics.gc:3589`, **0 ligne nette**) et
