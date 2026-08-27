@@ -1,3 +1,310 @@
+# CYCLE 130 — LA DIVERGENCE DU CYCLE 129 EST RECONCILIEE SANS RESIDU. ET LE CORRECTIF QU'ELLE
+# REVELE DEPLACE CINQ VERDICTS, DONC JE NE LE CABLE PAS.
+
+DIRECTIVES vd9e8b66782
+
+**PALIER DE BUILD : AUCUN.** Zero build, zero course neuve. Tout se lit sur la trace ARCHIVEE de la
+course livree et sur le mesh livre. C'est le palier le moins cher qui prouve le changement, et il
+suffit ici parce que la question du cycle est un ECART D'INSTRUMENT sur des donnees deja emises —
+pas un comportement de solveur.
+
+**PALIER DE PREUVE :** aucun nouvel instrument de campagne. Un script de 340 lignes hors moteur,
+onze predictions ecrites avant tout calcul, quatre controles (couverture de poids, hors defaut,
+montage, non-vacuite). Cout : quelques secondes de Python.
+
+---
+
+## 0. L'ETAT, EN PREMIER — AUCUN STATUT NE BOUGE, CINQUIEME CYCLE DE SUITE
+
+    4 TENUE (§12, §24, §25, §26) · 5 TENUE PAR CONSTRUCTION · 16 PARTIELLE · 13 NON TENUE
+    0 NON ETABLI · 38 sections
+
+**Recompte ligne a ligne sur `SPEC-COVERAGE.md` ce cycle, pas recopie** (§36 porte son statut sous
+la forme « **NON TENUE** · 1 clause TAUTOLOGIQUE », qu'un compteur naif rate). Cycles 126, 127, 128,
+129 et 130 : aucun changement de statut. La remontee qu'exige la directive du 2026-08-21 18:25 est
+en section 8.
+
+**Le validateur imprime `[PASS]` sur ses 13 gates de mesure et sort 1 sur `OPEN-DEFECTS /
+breast-spec-incomplete`** — la porte de l'owner, qui n'a pas de mode « reussi » par construction.
+Ce n'est pas un indicateur d'avancement (arbitrage 2026-08-23 01:20) et je ne le presente pas comme
+tel. Sortie de 18 lignes, la longueur attendue : le plafond `CLEAN` ne mord pas.
+
+---
+
+## 1. LA QUESTION QUE CE CYCLE FERME
+
+Le cycle 129 a publie DEUX nombres pour la MEME clause de §11 (« Static COM displacement: 20-28% B0,
+nominal 24% B0 », l.178) et ils rendaient des verdicts OPPOSES :
+
+    nuage de peau COMPLET (c129)         0,3192 / 0,3295 B0   ->  AU-DESSUS
+    modele a DEUX POINTS (ROOM-SPEC10)   0,2278 / 0,2273 B0   ->  DANS
+    bande de la clause                   0,20 - 0,28   (cible statique haute 0,30)
+
+Ecart 40,1 % / 45,0 %. La directive du 2026-08-21 18:40 interdit de traiter une grandeur dont deux
+chemins divergent avant reconciliation, et le cycle 129 avait donc laisse §11 sans verdict sur cette
+clause. **Reconcilier ne veut pas dire choisir : ca veut dire rendre compte de l'ecart terme a terme,
+puis dire lequel est la grandeur que la spec NOMME.**
+
+---
+
+## 2. LE PONT EST FERME SANS RESIDU, ET CHAQUE PAS EST NOMME
+
+La condition d'un pont est qu'**UN SEUL code reproduise LES DEUX BOUTS**. Il le fait :
+
+    P1b  le modele a DEUX POINTS est EXACTEMENT `(W0.d0 + W1.d1 + L.(D-I))/n`   ecart 0,01 % / 0,00 %
+    P2   le nuage du cycle 129 est le centroide PONDERE par l'appartenance `w`  ecart 0,01 % / 0,01 %
+
+Et les deux ne different que par la PONDERATION du meme deplacement par sommet :
+
+                DEUX PTS     exact        ARBITRE      pondere w
+    chestL       0,2278      0,2459       0,2011       0,3192
+                |--AGREGATION x1,0794--|--TESSELLATION x0,8178--|   |--PONDERATION x1,2984--|
+    chestR       0,2273      0,2413       0,2117       0,3295
+                |--AGREGATION x1,0618--|--TESSELLATION x0,8771--|   |--PONDERATION x1,3652--|
+
+**Le pas de PONDERATION se PREDIT depuis la seule POSE DE BIND**, sans une matrice ni une course :
+`k = n.Somme(w^2)/(Somme w)^2` rend **1,2663 / 1,3331** contre **1,2984 / 1,3652** mesures, soit
+**2,5 % / 2,4 %** pour un falsificateur ecrit d'avance a 5 %, avec `k > 1,15` sur les deux chaines
+(controle de non-vacuite). **Aucune troisieme cause n'est requise** : ni le repere, ni la frontiere
+d'organe, ni le tenseur n'ont besoin d'etre invoques.
+
+Les trois termes, en clair :
+
+  - **AGREGATION** — le modele a deux points applique UN SEUL tenseur `D` en UN SEUL premier moment
+    `L`, au lieu des matrices par sommet. C'est le cout de la forme a deux points, et il **MONTE**
+    le chiffre de 6 a 8 %.
+  - **TESSELLATION** — il normalise par un **COMPTE DE SOMMETS** (`n` = 94 / 90) la ou la spec ecrit
+    « center-of-mass » (§6 l.113). L'aire portee par sommet a un CV de **0,648 / 0,597** sur ce
+    nuage (min 621 u^2, max 46 285) : **compter les sommets n'est pas peser la masse.**
+  - **PONDERATION** — ponderer par l'appartenance `w` repond a une AUTRE question.
+
+---
+
+## 3. L'ARBITRATION EST TRANCHEE PAR SON TEXTE, PAS PAR MON GOUT
+
+§30, l.375, mot pour mot : « Approximately **28-35% of the rear breast volume** should behave as
+strongly attached tissue ».
+
+**La chair ancree EST du volume de sein.** Elle entre donc au centre de masse a masse PLEINE, et sa
+quasi-immobilite tire la grandeur vers le bas. Ponderer par `w` lui retire de la masse a proportion
+de son ancrage : cela mesure **le centroide de la PART MOBILE**, qui n'est pas le centre de masse de
+l'organe. Le nuage du cycle 129 n'est donc pas faux — **il est hors clause**, et c'est une reponse a
+une question que la spec ne pose pas ici.
+
+**Estimateur ARBITRE** : masse de sommet proportionnelle a l'**AIRE** qu'il porte (un tiers de
+l'aire de chaque triangle incident, en pose de BIND — la masse est une propriete materielle, fixee
+dans la configuration de reference), sur la meme selection, a masse PLEINE.
+
+---
+
+## 4. LE VERDICT DE LA CLAUSE, SUR L'ESTIMATEUR ARBITRE
+
+    chestL   w>0,00  0,2011 DANS  ·  w>0,05  0,2270 DANS  ·  w>0,25  0,2742 DANS
+    chestR   w>0,00  0,2117 DANS  ·  w>0,05  0,2410 DANS  ·  w>0,25  0,2911 AU-DESSUS
+
+Cible statique haute de **0,30 B0 franchie sur AUCUNE chaine, AUCUNE frontiere**.
+
+**C'est la MEME FORME de verdict qu'au cycle 123** (chestL DANS sur les trois, chestR INDETERMINEE
+par sa frontiere la plus serree). **La clause de COM survit a la reconciliation, et elle n'est PAS
+ce qui tient §11 : la clause de LONGUEUR l'est** — 1,4370 a 1,4588 contre un plafond de 1,26
+(cycle 125). §11 reste `NON TENUE`, pour la raison qu'elle avait deja.
+
+**RESERVE DECLAREE, ET ELLE PORTE SUR LA CELLULE LA PLUS LARGE.** La forme PUBLIABLE — le modele a
+deux points recuit a l'aire, la seule calculable depuis la trace sans le mesh — rend sur chestL
+**0,1864 `SOUS`** la ou l'exact rend 0,2011 `DANS`. **C'est l'erreur d'AGREGATION, un defaut connu
+de cette forme, qui maintient cette cellule dans la bande.** Je le dis au lieu de publier le nombre
+qui arrange.
+
+---
+
+## 5. CE QUE JE TROUVE ET NE CABLE PAS — LA REMONTEE PRINCIPALE
+
+La reconciliation ne sert a rien si la LIGNE DE VERDICT continue de lire l'ancien nombre (arbitrage
+2026-08-19 23:50). La correction a donc ete construite jusqu'au bout : `Wa / na / La` recuits a
+l'aire dans l'instantane de masse, forme a deux points inchangee. **P10 tire** — le facteur
+d'agregation est TRANSPORTABLE (x1,0785 / x1,0579 a l'aire contre x1,0794 / x1,0618 au compte,
+0,08 et 0,35 point d'ecart), donc la forme a deux points reste utilisable une fois recuite.
+
+**Mais ma prediction P11, ecrite avant le calcul — « au plus 2 cellules de verdict changent
+d'etiquette, et aucune sur la clause porteuse de §12 » — est REFUTEE a 5.** Les cinq, exhaustives :
+
+    §10 thorax   chestL w>0,00   +0,2957 AU-DESSUS  ->  +0,2444 DANS
+    §10 thorax   chestL w>0,05   +0,3260 AU-DESSUS  ->  +0,2757 DANS
+    §10 thorax   chestR w>0,05   +0,3016 AU-DESSUS  ->  +0,2654 DANS
+    §11 norme    chestR w>0,25   +0,2949 AU-DESSUS  ->  +0,2736 DANS
+    §11 norme    chestL w>0,00   +0,2278 DANS       ->  +0,1864 SOUS
+
+**Quatre des cinq feraient PASSER une cellule qui echoue.** Un correctif d'instrument qui deplace
+cinq verdicts, et dont quatre dans le sens qui m'arrange, n'est pas un raffinement : c'est un
+deplacement de verdict. **Mon propre falsificateur l'a attrape avant que je le cable, et je ne le
+cable pas.** Il est remonte au superviseur avec ses deux valeurs par cellule, sa cause mesuree et
+son code.
+
+Ce que ca laisse en l'etat : **sur les cellules MESUREES de §10, §11 et §12, la ligne de verdict
+sur-estime le COM de 7 a 12 %** (chaque cellule est chiffree ci-dessus, aucune n'est extrapolee). Le
+chantier de §11 nomme au cycle 129 — un canal de COM dans le TENSEUR — viserait donc une cible
+biaisee de cette quantite.
+
+### 5 bis. LA PORTEE EST PLUS LARGE QUE LE TABLEAU : LA CLE EST CUITE DANS LE FICHIER LIVRE
+
+Un balayage exhaustif PAR VALEUR (et non par une liste de noms ecrite a la main) etablit que la
+normalisation par compte de sommets **ne vit pas seulement dans le tableau** :
+
+    kmachine.cpp:1126        « comw[l] = W_l / N »
+    physics_chains.txt:102   comw=0.3266,0.2449   =  30,6958/94  et  23,0200/94   <- LE MEME n=94
+    jak-hd-physics.gc:106    `*phys-comw*` — le MOTEUR la lit dans le fichier livre
+
+Verifie a la main, chiffre par chiffre. Elle alimente donc AUSSI `ROOM-COM` (§22), `ROOM-REGIME`
+(§14/§16/§17/§18/§20) et `ROOM-REGB-COM`, tous formes du meme slot de diagnostic. **Les deux seuls
+usages de `*phys-comw*` (`jak-hd-physics.gc:3940` et `:3978`) sont des accumulateurs de DIAGNOSTIC —
+aucune force ne la lit** : la corriger ne changerait aucun comportement de solveur, et se ferait en
+DONNEE, sans build.
+
+**MAIS LE FACTEUR NE SE TRANSPORTE PAS, ET C'EST P13 QUI L'ETABLIT — CONTRE MOI.** `d_COM` est
+LINEAIRE en `comw`, donc si le rapport aire/compte etait le meme sur les deux maillons, la correction
+serait un SCALAIRE exact valable a toute pose, et l'effet sur des dizaines de cellules de §14 a §22
+se chiffrerait sans une course de plus. **Il ne l'est pas :**
+
+    chestL   compte 0,3266 · 0,2449   ->  aire 0,2881 · 0,1928   rapports x0,8822 / x0,7871   ecart 12,1 %
+    chestR   compte 0,3581 · 0,1871   ->  aire 0,2917 · 0,1930   rapports x0,8146 / x1,0316   ecart 21,0 %
+
+Sur chestR le maillon DISTAL voit meme son poids **MONTER** (x1,0316) pendant que le proximal baisse :
+la correction n'est pas une reduction uniforme, c'est une REDISTRIBUTION vers le distal, et son effet
+depend du melange des maillons — donc de la pose et du regime. **L'effet sur §14 a §22 reste donc
+NON ETABLI, et je l'ecris tel quel au lieu de l'extrapoler depuis le prone.** Ce que le balayage
+donne quand meme, et qui suffit a mesurer l'enjeu : parmi les cellules alimentees par `comw`,
+**seize sont a moins de 15 % d'un bord de bande, dont quatre a moins de 3 %** (`ROOM-REGB-COM`
+chestL r=1 a 0,04 %, r=8 a 0,41 %, r=4 a 1,96 %, `ROOM-COM` §22 pic chestL a 3,00 %). Une correction
+de l'ordre de 10 % en deplacerait plusieurs — dans un sens qui n'est pas connu d'avance.
+
+---
+
+## 6. CONTROLE DE FAUX VERT SUR §12 — FAIT, ET IL PASSE
+
+§12 est `TENUE`, et sa clause porteuse (« Upper/opposite breast medial migration: 10-18% W0 »,
+l.194) est calculee avec la MEME normalisation par compte de sommets. Recalculee sous la ponderation
+arbitree, **sur le sein que la spec NOMME et aux deux poles** :
+
+    chestL i=4   14,036  ->  11,710 % W0   DANS avant, DANS apres
+    chestR i=2   15,031  ->  13,199 % W0   DANS avant, DANS apres
+
+La correction rapproche meme les deux cellules du nominal de 14 %. **Le `TENUE` de §12 n'est pas un
+artefact de ponderation.** La reserve du cycle 91 sur sa troisieme clause (« Global », trois
+lectures qui ne s'accordent pas) tient telle quelle.
+
+---
+
+## 7. PORTEE DERIVEE — §10, DECLAREE D'AVANCE ET MESUREE
+
+Sur l'estimateur ARBITRE, la clause « COM toward thorax: 18-28% B0 » (l.168) rend :
+
+    chestL   0,2544 DANS  ·  0,2870 AU-DESSUS  ·  0,3461 AU-DESSUS
+    chestR   0,2386 DANS  ·  0,2715 DANS       ·  0,3279 AU-DESSUS
+
+Moins severe que le publie, mais toujours pas uniformement DANS. **Et ce n'est pas la clause
+PORTEUSE de §10** : c'est la migration SORTANTE (+0,797 / -3,744 % W0 contre une bande 4-10,
+cycle 123b), qui reste `SOUS` sous toute ponderation — l'ecart de ponderation vaut 7 a 12 % la ou il
+manque 80 % et 194 %. §10 reste `NON TENUE`.
+
+---
+
+## 8. MES PREDICTIONS, JUGEES PAR LEURS PROPRES FALSIFICATEURS
+
+    P1   l'exact a masse uniforme reproduit le publie a 5 %   **REFUTEE** (7,93 % / 6,18 %)
+    P1b  (post-hoc, declare) la formule publiee reimplantee    TIRE (0,01 % / 0,00 %) -> le residu
+                                                               de P1 EST l'agregation, et il est
+                                                               chiffre
+    P2   le nuage c129 est le centroide pondere par w          TIRE (0,01 %)
+    P3   l'ecart se predit depuis la pose de bind seule        TIRE (2,5 % / 2,4 %)
+    P4   non-vacuite de P3 (k > 1,15)                          TIRE (1,2663 / 1,3331)
+    P5   le maillage n'est pas uniforme (CV > 0,25)            TIRE (0,648 / 0,597)
+    P6   l'arbitre tombe pres du modele a deux points          TIRE (11,7 % / 6,9 % contre 15 %)
+    P7   hors defaut i=9 sous 0,02 B0                          TIRE (0,0006)
+    P8   couverture de poids a 1e-3 (la garde manquante de c129) TIRE (4,3e-08)
+    P9   §12 ne retombe pas                                    TIRE
+    P10  l'agregation est un facteur transportable             TIRE (0,08 / 0,35 point)
+    P11  au plus 2 bascules de verdict                         **REFUTEE** (5) -> LE CORRECTIF
+                                                               N'EST PAS CABLE
+    P12  contre-controle INDEPENDANT de la masse de sommet     TIRE (0,15 a 1,09 %, meme verdict
+         (aire de VORONOI MIXTE contre BARYCENTRIQUE)           sur les 6 cellules)
+    P13  (post-hoc) la correction est un scalaire              **REFUTEE** (12,1 % / 21,0 %) ->
+                                                               l'effet sur §14-§22 reste NON ETABLI
+
+**Trois refutations, et les trois ont produit le resultat du cycle.** P1 a force P1b, qui a etabli
+l'agregation ; P11 a arrete un cablage qui aurait fait verdir quatre cellules sans arbitrage ; P13 a
+interdit d'etendre au reste du registre un facteur mesure au seul prone.
+
+**LE CONTRE-CONTROLE QUE LA DIRECTIVE DU 2026-08-21 18:40 EXIGE EST FOURNI, ET IL TIRE.** L'estimateur
+arbitre repose sur une masse de sommet ; une seule derivation ne suffit pas pour une grandeur qui
+deplace des verdicts. La seconde derivation est l'aire de VORONOI MIXTE — meme maillage, **regle de
+partage differente** (cotangentes, avec bascule moitie/quart sur triangle obtus). Ecart aux six
+cellules : **0,15 % a 1,09 %**, et **le meme verdict partout**. La masse de sommet est donc
+DETERMINEE par le maillage : ce n'est pas un proxy au choix de qui l'ecrit.
+
+---
+
+## 9. REMONTEE AU SUPERVISEUR
+
+**(a) CINQUIEME CYCLE SANS CHANGEMENT DE STATUT.** La raison est nommee et elle n'est pas
+l'inaction : les deux sections que ce cycle touche sont tenues par une AUTRE clause que celle qu'il
+a debloquee. §11 est tenue par sa longueur, §10 par sa migration sortante. **Un solde de statut nul
+peut recouvrir la fermeture d'une divergence d'instrument et l'arret volontaire d'un correctif ; la
+ligne d'etat ne sait montrer ni l'une ni l'autre.** La question posee au cycle 129 tient : **le
+registre doit-il compter des CLAUSES ?**
+
+**(b) DECISION DEMANDEE — LA NORMALISATION DE LA LIGNE DE VERDICT.** L'instrument publie normalise
+par un COMPTE DE SOMMETS la ou la spec ecrit « center-of-mass ». La correction est construite,
+transportable (P10) et testee ; elle deplace CINQ verdicts, dont quatre vers le vert. Trois voies,
+et je ne prends aucune seul :
+  1. cabler la correction et acter les cinq bascules comme un raffinement de mesure ;
+  2. ne rien cabler et publier les DEUX lectures cote a cote, la corrigee en DIAGNOSTIC ;
+  3. cabler mais suspendre le verdict des cinq cellules basculees jusqu'a une seconde derivation
+     independante de la masse de sommet (par volume plutot que par aire).
+Ma preference, declaree comme preference et non comme fait : **(3)** — parce que la masse a l'aire
+est elle-meme un proxy d'une masse VOLUMIQUE, et parce que quatre bascules vers le vert produites
+par un instrument que j'ai ecrit sont exactement la forme d'un faux vert.
+
+**(b bis) LA DECISION EST PLUS LOURDE QUE JE NE LE CROYAIS EN L'OUVRANT, ET JE LE DIS.** La cle
+`comw` est CUITE dans le fichier livre et lue par le moteur : la corriger touche aussi §22, §14, §16,
+§17, §18 et §20, ou **seize cellules sont a moins de 15 % d'un bord de bande et quatre a moins de
+3 %**. Et P13 interdit d'en predire le sens : le facteur n'est pas un scalaire (x0,8822/x0,7871 sur
+chestL, x0,8146/**x1,0316** sur chestR — le maillon distal MONTE). **Le prealable a toute decision
+est donc de mesurer le facteur CELLULE PAR CELLULE**, ce que ce cycle n'a fait que pour §10/§11/§12.
+Cela ne coute aucune course — les matrices sont dans la trace archivee — mais c'est un cycle de
+travail, et je ne l'ouvre pas sans arbitrage puisqu'il finit par deplacer des verdicts.
+
+**(c) UN COUT DEJA VISIBLE, A NE PAS OUBLIER.** Tant que (b) n'est pas tranchee, tout lot visant une
+clause de COM de §10, §11 ou §12 optimise contre une cible sur-estimee de 7 a 12 % (mesure). Pour
+§14 a §22, le biais existe par construction mais son AMPLEUR est **NON ETABLIE** — ne pas la citer
+comme si elle l'etait.
+
+---
+
+## DECLARATION OBLIGATOIRE — PENETRATION RESIDUELLE DE LA POITRINE
+
+BREAST-PENETRATION: 0.0724 m — `meshpen`, DIAGNOSTIC, jamais un verdict (arbitrage 2026-08-20
+13:20 : c'est un DEPLACEMENT, pas une profondeur, et un seuil en metres de profondeur n'a pas de
+sens dessus). **Inchange par ce cycle : aucune ligne de moteur n'a ete touchee, aucune course
+lancee.** Sous le plafond epingle n'est pas « regle » : tant que ce n'est pas zero, ca se declare
+avec son chiffre, a chaque cycle.
+
+---
+
+## A TESTER PAR L'OWNER
+
+**RIEN.** Aucun build ce cycle. La regle du 2026-08-20 23:30 tient : on ne sollicite pas son oeil
+tant que le bloc §9-13 / §14-20 / §24-27 n'est pas tenu ensemble, et il est a 4 sections sur 16.
+
+---
+
+## FICHIERS DE CE CYCLE
+
+    .autoport/c130-predictions.txt        P1..P11, ecrites avant tout calcul (P1b declaree post-hoc)
+    .autoport/c130_com_reconcile.py       le pont, ses quatre controles, et les bascules de P11
+    .autoport/reports/Grecharged-secondary-motion/c130-com-reconcile.txt   sa sortie complete
+    .autoport/SPEC-COVERAGE.md            lignes §10, §11, §12 et ligne d'etat
+
+
 # CYCLE 129 — LE CHANTIER QUE LE CYCLE 128 A NOMME RECOIT SON ADRESSE, ET LA REPONSE ETAIT DEJA DANS LA TRACE
 
 DIRECTIVES vd9e8b66782

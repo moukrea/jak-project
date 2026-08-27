@@ -1,0 +1,179 @@
+CYCLE 130 — PREDICTIONS ECRITES AVANT TOUT CALCUL
+DIRECTIVES vd9e8b66782 · phase Grecharged-secondary-motion · poitrine de Keira seule.
+Horodatage : 2026-08-27. ZERO build, ZERO course neuve. Trace ARCHIVEE de la course LIVREE :
+
+    .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
+    .autoport/reports/Grecharged-secondary-motion/keira-room-table.txt
+    recharged_assets/keira-hd-donor-injected.glb   (le mesh LIVRE, signe md5 dans l'instantane)
+
+SECTION DONT CE CYCLE DEBLOQUE LE VERDICT (exigence DIRECTIVES 2026-08-21 18:25, nommee AVANT de
+commencer) : **§11, clause « Static COM displacement: 20-28% B0, nominal 24% B0 » (l.178)**, dont
+le cycle 129 a interdit le re-jugement tant que deux instruments rendent des verdicts OPPOSES.
+Portee derivee, declaree d'avance parce qu'elle partage l'estimateur : **§10, §12, et toute bande
+en « % B0 » de COM (§14, §16, §17, §18, §20, §22)**.
+
+--------------------------------------------------------------------------------------------------
+LA QUESTION, ET C'EST LA SEULE DE CE CYCLE
+--------------------------------------------------------------------------------------------------
+    nuage de peau COMPLET  (c129)          0,3192 (chestL) / 0,3295 (chestR) B0  -> AU-DESSUS
+    modele a DEUX POINTS   (ROOM-SPEC10)   0,2278          / 0,2273          B0  -> DANS
+    bande de la clause                     0,20 - 0,28  (cible statique haute 0,30)
+
+Ecart 40,1 % / 45,0 %. La directive du 2026-08-21 18:40 interdit de traiter la clause avant
+reconciliation. **Reconcilier veut dire : rendre compte de l'ecart TERME A TERME, puis dire lequel
+des deux nombres est la grandeur que la spec NOMME — pas choisir celui qui arrange.**
+
+--------------------------------------------------------------------------------------------------
+NATURE / REPERE / LIGNE DE BASE (les trois questions obligatoires)
+--------------------------------------------------------------------------------------------------
+  NATURE  : un DEPLACEMENT SOUTENU — la norme du deplacement du centre de masse de la chair,
+            rapportee a B0 = 602,0 u (SPEC 6, `flesh=` lu dans la trace). Ni variance, ni maximum.
+  REPERE  : le repere de l'ANCRE (le sujet est re-oriente d'une cellule a l'autre).
+  LIGNE DE BASE : cellule i=0 (debout d'auteur). LECTURE HORS DEFAUT : 2e cellule DEBOUT i=9.
+  CELLULE DU VERDICT : prone i=6.
+
+--------------------------------------------------------------------------------------------------
+PREDICTIONS — ecrites AVANT le premier calcul
+--------------------------------------------------------------------------------------------------
+
+P1  LE MODELE A DEUX POINTS EST LE CENTROIDE A MASSE UNIFORME PAR SOMMET.
+    Un estimateur EXACT par sommet (skinning complet, chaque sommet selectionne comptant pour UNE
+    unite de masse) reproduit le 0,2278 / 0,2273 publie par `ROOM-SPEC10 §11 NORME` a **5 %** pres,
+    sur les deux chaines, a la frontiere w>0,00.
+    FALSIFICATEUR : > 5 % sur une seule chaine -> le modele a deux points n'est pas ce que je crois
+    qu'il est, la reconciliation n'a pas d'ancrage, et RIEN n'est publie ni arbitre.
+
+P2  LE NUAGE DU CYCLE 129 EST LE CENTROIDE PONDERE PAR L'APPARTENANCE.
+    Le meme estimateur, en ponderant chaque sommet par son poids d'appartenance `w`, reproduit le
+    0,3192 / 0,3295 du cycle 129 a **2 %** pres.
+    FALSIFICATEUR : > 2 % -> mon instrument ne reconstruit pas celui du cycle 129 ; sans les DEUX
+    bouts reproduits par UN SEUL code, il n'y a pas de pont, et rien n'est publie.
+
+P3  L'ECART EST UNE IDENTITE DE PONDERATION, ET IL SE PREDIT SANS LA TRACE.
+    Le rapport (nuage pondere) / (masse uniforme) est predit par la seule POSE DE BIND, par
+    k = n.Somme(w^2) / (Somme w)^2 — aucune matrice, aucune course — et il reproduit le rapport
+    MESURE (1,4014 chestL · 1,4495 chestR) a **5 %** pres sur les deux chaines.
+    FALSIFICATEUR : > 5 % -> une TROISIEME cause existe (tenseur agrege, frontiere, repere) ; elle
+    doit etre trouvee et chiffree AVANT toute arbitration, et l'arbitration est reportee.
+
+P4  CONTROLE DE NON-VACUITE DE P3.
+    k > 1,15 sur les deux chaines.
+    FALSIFICATEUR : k <= 1,15 -> la tolerance de 5 % de P3 couvrirait presque tout l'ecart a 1 ;
+    P3 passerait sans rien discriminer et ne prouverait rien.
+
+P5  NI L'UN NI L'AUTRE N'EST LE CENTRE DE MASSE : LE MAILLAGE N'EST PAS UNIFORME.
+    La masse de sommet proportionnelle a l'AIRE (un tiers de l'aire des triangles incidents) a, sur
+    le nuage selectionne, un coefficient de variation > 0,25 sur les deux chaines.
+    FALSIFICATEUR : <= 0,25 -> compter les sommets est un proxy acceptable de la masse, le
+    troisieme estimateur est inutile, et je le dis au lieu de le construire.
+
+P6  L'ARBITRATION, ET OU ELLE TOMBE.
+    L'estimateur ARBITRE — masse de sommet proportionnelle a l'aire, masse PLEINE (la chair ancree
+    est du volume de sein : SPEC 30 l.375 « 28-35% **of the rear breast volume** should behave as
+    strongly attached tissue ») — tombe a moins de **15 %** du modele a deux points (0,2278 /
+    0,2273), et NON a moins de 15 % du nuage pondere (0,3192 / 0,3295).
+    FALSIFICATEUR : l'inverse, ou aucun des deux -> l'arbitration ne designe pas le modele a deux
+    points, et la clause est re-jugee sur le nombre ARBITRE quel qu'il soit, jamais sur une
+    preference. Un troisieme nombre est un resultat, pas un echec.
+
+P7  CONTROLE HORS DEFAUT.
+    Les TROIS estimateurs lisent moins de **0,02 B0** a la 2e cellule DEBOUT i=9.
+    FALSIFICATEUR : >= 0,02 -> l'instrument lit du deplacement la ou il n'y en a pas, RIEN n'est
+    publie.
+
+P8  CONTROLE DE COUVERTURE DE POIDS (la garde que le cycle 129 n'avait pas).
+    Sur chaque sommet selectionne, la somme des poids portes par des joints EMIS dans la trace vaut
+    1 a 1e-3 pres. Le cycle 129 ne testait que « > 0 », ce qui laisse passer un sommet dont 40 % du
+    poids manque et dont la position est alors tiree vers l'origine.
+    FALSIFICATEUR : ecart > 1e-3 -> le nuage est faux, tout le cycle se suspend et le dit.
+
+P9  LA SECTION QUI PEUT RETOMBER — CONTROLE DE FAUX VERT.
+    §12 est `TENUE`, et sa clause porteuse (« Upper/opposite breast medial migration: 10-18% W0 »)
+    est calculee avec LA MEME normalisation par compte de sommets. Sous la ponderation ARBITREE,
+    cette clause reste DANS sa bande 10-18 % W0 sur le sein que la spec nomme, aux deux poles.
+    FALSIFICATEUR : elle sort de la bande -> le `TENUE` de §12 est un faux vert produit par la
+    ponderation, et §12 est retrogradee DANS CE CYCLE, pas signalee pour plus tard.
+
+--------------------------------------------------------------------------------------------------
+P1b — AJOUTEE APRES LA REFUTATION DE P1, ET DECLAREE COMME POST-HOC
+--------------------------------------------------------------------------------------------------
+P1 est REFUTEE : l'estimateur EXACT a masse uniforme rend 0,2459 / 0,2413 contre 0,2278 / 0,2273
+publies, soit 7,93 % / 6,18 % pour un falsificateur a 5 %. Deux lectures restent possibles et une
+seule est vraie :
+  (i)  le modele a deux points n'est PAS le centroide a masse uniforme (ma comprehension est
+       fausse, la reconciliation n'a pas d'ancrage et rien ne s'arbitre) ;
+  (ii) il l'est, mais AGREGE — un seul tenseur `D` applique en un seul premier moment `L` au lieu
+       des matrices par sommet — et le residu de 6 a 8 % EST le cout de cette agregation.
+Le test qui les separe, avec son falsificateur, ecrit avant de le lancer :
+
+P1b  Une REIMPLEMENTATION de la formule publiee `(W0.d0 + W1.d1 + L.(D-I))/n`, lue sur LA MEME
+     trace (`PHYSORICOML` cumule telescopiquement, `PHYSDFMA`, et `W/n/L` de l'instantane de
+     masse), reproduit le 0,2278 / 0,2273 de `ROOM-SPEC10` a **1 %** pres.
+     SI ELLE TIRE : la lecture (ii) est etablie — la formule est bien celle-la, donc le seul ecart
+     entre elle et l'estimateur exact est l'AGREGATION, et il vaut ce qui est mesure.
+     FALSIFICATEUR : > 1 % -> lecture (i) : je ne sais pas ce que publie la ligne de verdict,
+     l'arbitration est publiee comme NON ANCREE et la clause reste sans verdict.
+
+--------------------------------------------------------------------------------------------------
+P10 / P11 — LE NOMBRE PUBLIABLE, ECRITES AVANT DE LE CALCULER
+--------------------------------------------------------------------------------------------------
+L'arbitration ne sert a rien si la LIGNE DE VERDICT continue de lire l'ancien nombre : « un
+correctif d'instrument s'arrete quand la ligne de verdict lit la nouvelle donnee » (arbitrage
+2026-08-19 23:50). Le tableau se calcule sur la TRACE + l'instantane cuit, sans le mesh : la
+correction doit donc etre CUITE dans l'instantane, sous la forme a deux points.
+
+P10  L'AGREGATION EST UN FACTEUR TRANSPORTABLE.
+     La version A L'AIRE du modele a deux points — `Wa_k = Somme_v a_v.w_vk`, `na = Somme_v a_v`,
+     `La = Somme_k Somme_v a_v.w_vk.(V_v - P_k)` — porte le MEME facteur d'agregation que la
+     version au compte (mesure ce cycle : x1,0794 chestL · x1,0618 chestR), a **2 points de
+     pourcentage** pres.
+     FALSIFICATEUR : > 2 points -> l'agregation depend de la ponderation, ce n'est pas un facteur
+     transportable, et le nombre publiable doit etre re-derive avant tout cablage.
+
+P11  AUCUN VERDICT NE BASCULE SANS ETRE DECLARE D'AVANCE.
+     En remplacant la normalisation au COMPTE par celle a l'AIRE dans `ROOM-SPEC10` et
+     `ROOM-SPEC12`, le nombre de cellules de verdict qui CHANGENT d'etiquette sur l'ensemble
+     §10 + §11 + §12 est **au plus 2**, et **aucune** sur la clause porteuse de §12
+     (« Upper/opposite breast medial migration: 10-18% W0 », sur le sein que la spec nomme).
+     FALSIFICATEUR : plus de 2, ou une bascule sur la clause porteuse de §12 -> ce n'est pas un
+     raffinement d'instrument mais un deplacement de verdict ; il ne se cable pas, il se remonte.
+
+--------------------------------------------------------------------------------------------------
+P12 — CONTRE-CONTROLE INDEPENDANT DE LA MASSE DE SOMMET (exige par DIRECTIVES 2026-08-21 18:40)
+--------------------------------------------------------------------------------------------------
+La directive interdit de traiter une grandeur sur une seule derivation quand elle deplace des
+verdicts : « un contre-controle INDEPENDANT est exige : une seconde derivation, par un chemin qui
+ne partage ni l'operateur d'ancrage ni la table de poids, et les deux chiffres publies cote a cote ».
+La masse a l'AIRE ci-dessus est BARYCENTRIQUE (un tiers de chaque triangle incident). La seconde
+derivation est l'aire de VORONOI MIXTE (Meyer et al.) — meme maillage, REGLE DE PARTAGE DIFFERENTE :
+elle partage chaque triangle par ses cotangentes, et bascule sur un partage par moitie/quart des
+que le triangle est obtus. Sur un maillage a triangles allonges les deux different nettement.
+
+P12  Les deux derivations de la masse de sommet rendent le MEME deplacement de COM au prone, a
+     **5 %** pres, sur les deux chaines et aux trois frontieres, ET elles rendent le MEME verdict
+     sur chaque cellule.
+     FALSIFICATEUR : > 5 %, ou un verdict qui differe -> la masse de sommet n'est pas determinee
+     par le maillage, l'estimateur ARBITRE n'est pas unique, et l'arbitration se publie comme
+     DEPENDANTE DU PROXY DE MASSE — un troisieme chiffre de plus, pas une reponse.
+
+--------------------------------------------------------------------------------------------------
+P13 — POST-HOC, DECLAREE : LA CORRECTION EST-ELLE UN SCALAIRE INDEPENDANT DE LA POSE ?
+--------------------------------------------------------------------------------------------------
+Le balayage de portee etablit que la normalisation par COMPTE DE SOMMETS ne vit pas que dans le
+tableau : elle est CUITE dans le fichier livre (`comw = W_l / N`, `kmachine.cpp:1126`, verifie a la
+main : 30,6958/94 = 0,3266 et 23,0200/94 = 0,2449, exactement les valeurs de
+`physics_chains.txt:102`) et le moteur la lit. Elle alimente donc AUSSI `ROOM-COM` (§22),
+`ROOM-REGIME` (§14/§16/§17/§18/§20) et `ROOM-REGB-COM`. Les deux usages de `*phys-comw*`
+(`jak-hd-physics.gc:3940`, `:3978`) sont des accumulateurs de DIAGNOSTIC — aucune force ne la lit —
+donc la corriger ne changerait aucun comportement de solveur.
+
+Le COM y est LINEAIRE en `comw` : `d_COM = Somme_l comw_l . e_l`. Donc si le rapport
+`comw_l(aire) / comw_l(compte)` est LE MEME sur les deux maillons, la correction est un SCALAIRE
+exact, valable a toute pose et tout regime — et l'effet sur les dizaines de cellules de §14 a §22
+se chiffre sans une course de plus. Sinon elle depend du melange des maillons, donc de la pose.
+
+P13  Les deux rapports par maillon (`comw` a l'aire / `comw` au compte) sont egaux a **5 %** pres,
+     sur chacune des deux chaines.
+     FALSIFICATEUR : > 5 % -> la correction N'EST PAS un scalaire ; l'effet sur §14-§22 ne se deduit
+     pas du prone et reste NON ETABLI, comme le balayage l'a dit. Je l'ecris alors tel quel au lieu
+     d'extrapoler.
