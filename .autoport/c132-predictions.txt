@@ -286,3 +286,42 @@ s'ajoute la mesure : arme, **aucun verdict ne bouge nulle part** dans le registr
 de regime EMPIRENT nettement (chestL jumpB-land apex x0,90 -> x0,68 et COM x0,62 -> x0,46 ;
 chestR runA-brake apex x1,27 -> x1,39). Poser une valeur indefendable pour un gain nul serait
 exactement le geste que ce registre existe pour interdire.
+
+============================================================================================
+SUITE 132b — CE QUE L'ANGLE MORT IMPLIQUE SUR LE CHIFFRE D'AUJOURD'HUI (zero build, zero course)
+============================================================================================
+
+L'angle mort etabli ci-dessus a ete presente comme une contrainte sur les lots FUTURS. En le
+verifiant sur le moteur livre, il porte aussi sur le chiffre COURANT, et il faut le dire.
+
+FAIT 1 — UNE CORRECTION D'ECRITURE EST DEJA ARMEE ET ELLE TIRE. Le plafond de §21 retranche de
+`bm vector 3` (`jak-hd-physics.gc:4046-4058`). Sur la course LIVREE : `PHYSE21 tag=run n=2737
+cut_b0=34,5932`, et 13 autres etiquettes non nulles (rest 93 · side-armed 509 · cone-armed 528 ·
+prox-disarmed 514 · skin-disarmed 558 ...).
+
+FAIT 2 — L'ORDRE EST ETABLI A LA SOURCE, LES TROIS SITES ETANT DANS LA MEME FONCTION
+`jak-hd-physics-step` (`:2524`) :   `*phys-ldb*` :3415   ->   ecriture squelette :3932   ->
+plafond §21 :4046. Donc `PHYSORICOML` est un instantane PRE-ECRITURE, y compris dans le balayage
+d'orientation — lequel passe bien par cette fonction, puisque c'est de la qu'il tire `*phys-ldb*`.
+
+CE QUI N'EST PAS ETABLI, ET JE LE NOMME AU LIEU DE LE SUPPOSER : aucun compteur n'est echantillonne
+autour du balayage. Les 14 etiquettes de `PHYSE21` (`phys-room.gc:2553`) sont toutes des passes
+dynamiques ou d'ablation ; AUCUNE n'est une etiquette d'orientation. **On ne sait donc pas si le
+plafond de §21 mord dans les cellules i=6 (prone) et i=8 (supine) qui RENDENT le verdict.**
+
+POURQUOI CA COMPTE : s'il y mord, `0,2278 / 0,2273 B0` est faux AUJOURD'HUI de la quantite
+retranchee — un defaut vivant, pas une contrainte future. S'il n'y mord pas, la ligne de base est
+saine et l'angle mort ne concerne que les lots a venir. **Les deux issues changent ce que le
+prochain lot doit viser, donc la mesure passe AVANT lui.**
+
+LA MESURE QUI TRANCHE, ET SON COUT : une ligne d'emetteur dans `phys-room.gc` (hors plafond
+`CLEAN`) qui echantillonne `(phys-skc 6)` / `(phys-skc 7)` autour de CHAQUE cellule du balayage et
+publie `n` par cellule, plus une course. Elle NOMME la section dont elle debloque le verdict —
+§10, §11 et §12 — comme la DIRECTIVE du 2026-08-21 18:25 l'exige d'un cycle qui touche a
+l'instrument. Elle n'est PAS faite ce cycle : un emetteur pose sans sa course ne produit rien de
+lisible, et le constructeur automatique publierait un arbre dont la mesure n'a pas ete exercee.
+
+PRECISION SUR LE PERIMETRE DE L'ANGLE MORT, PARCE QU'ELLE EVITE UNE SUR-LECTURE : dans l'etat
+LIVRE (`anch = 0`) le canal d'ancrage n'applique AUCUN offset, donc il n'introduit lui-meme aucun
+ecart entre l'organe livre et l'instrument. L'ecart eventuel vient du plafond de §21, qui lui est
+anterieur a ce cycle.
