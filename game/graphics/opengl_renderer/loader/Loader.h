@@ -18,7 +18,12 @@ class Loader {
   Loader(const fs::path& base_path, int max_levels);
   ~Loader();
   void update(TexturePool& tex_pool);
-  void update_blocking(TexturePool& tex_pool);
+  // Gplayability-input-and-loadgate: `announce` exists because a closed scene
+  // barrier calls this EVERY frame while it holds the picture. The blackout
+  // caller keeps its original, load-bearing log lines; the gate's repeat calls
+  // stay silent so they cannot flood the device log (their evidence is the
+  // LOADGATE lines instead).
+  void update_blocking(TexturePool& tex_pool, bool announce = true);
   const LevelData* get_tfrag3_level(const std::string& level_name);
   std::optional<MercRef> get_merc_model(const char* model_name);
   const tfrag3::Level& load_common(TexturePool& tex_pool, const std::string& name);

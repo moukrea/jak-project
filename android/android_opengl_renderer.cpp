@@ -12,6 +12,7 @@
 #include "common/goal_constants.h"
 #include "common/log/log.h"
 
+#include "game/system/load_gate.h"
 #include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/AmbientOcclusion.h"
 #include "game/graphics/opengl_renderer/BlitDisplays.h"
@@ -917,8 +918,23 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
 
   if (m_render_state.loader) {
     auto prof = m_profiler.root()->make_scoped_child("loader");
-    if (m_last_pmode_alp == 0 && settings.pmode_alp_register != 0) {
-      m_render_state.loader->update_blocking(*m_render_state.texture_pool);
+    // Gplayability-input-and-loadgate (owner 2026-08-27): this file, not
+    // OpenGLRenderer.cpp, is the frame loop that actually runs on the Shield —
+    // OpenGLRenderer.cpp is NOT compiled for Android. Wiring the gate only over
+    // there would have left `wants_blocking_loads()` without a caller on the one
+    // device the defect was measured on: the barrier would have held the scene
+    // while the loader kept crawling on its per-frame budget, and the 20 s cap in
+    // loader.gc would have opened it by TIMEOUT instead of by residency.
+    //
+    // A closed scene barrier is the same situation as a blackout: the picture is
+    // being held back on purpose, so TIE_LOAD_BUDGET (1.5 ms) +
+    // SHARED_TEXTURE_LOAD_BUDGET (3 ms) per frame buys nothing and costs seconds.
+    // Measured on the Shield: village1 crawled 13.4 s on the budgeted path and
+    // then finished in 4.6 s once the blocking path took over.
+    const bool leaving_blackout = m_last_pmode_alp == 0 && settings.pmode_alp_register != 0;
+    const bool gate_closed = load_gate::wants_blocking_loads();
+    if (leaving_blackout || gate_closed) {
+      m_render_state.loader->update_blocking(*m_render_state.texture_pool, leaving_blackout);
     } else {
       m_render_state.loader->update(*m_render_state.texture_pool);
     }

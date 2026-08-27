@@ -6,6 +6,7 @@
 #include "common/util/rss_census.h"
 
 #include "game/graphics/gfx.h"
+#include "game/system/load_gate.h"
 #include "game/graphics/opengl_renderer/BlitDisplays.h"
 #include "game/graphics/opengl_renderer/DepthCue.h"
 #include "game/graphics/opengl_renderer/DirectRenderer.h"
@@ -1070,9 +1071,18 @@ void OpenGLRenderer::render(DmaFollower dma, const RenderOptions& settings) {
   {
     g_current_renderer = "loader";
     auto prof = m_profiler.root()->make_scoped_child("loader");
-    if (m_last_pmode_alp == 0 && settings.pmode_alp_register != 0 && m_enable_fast_blackout_loads) {
-      // blackout, load everything and don't worry about frame rate
-      m_render_state.loader->update_blocking(*m_render_state.texture_pool);
+    const bool leaving_blackout = m_last_pmode_alp == 0 && settings.pmode_alp_register != 0;
+    // Gplayability-input-and-loadgate (owner 2026-08-27): a CLOSED scene barrier is
+    // the same situation as a blackout — the picture is being held back on purpose,
+    // so spending only TIE_LOAD_BUDGET (1.5 ms) + SHARED_TEXTURE_LOAD_BUDGET (3 ms)
+    // per frame buys nothing and costs seconds. Measured on the owner's Shield:
+    // village1 crawled for 13.4 s on the budgeted path and then finished in 4.6 s
+    // as soon as this blocking path took over. `announce=false` keeps the gate's
+    // per-frame calls out of the log; the LOADGATE lines carry the evidence.
+    const bool gate_closed = load_gate::wants_blocking_loads();
+    if (m_enable_fast_blackout_loads && (leaving_blackout || gate_closed)) {
+      // blackout (or a held scene): load everything and don't worry about frame rate
+      m_render_state.loader->update_blocking(*m_render_state.texture_pool, leaving_blackout);
 
     } else {
       m_render_state.loader->update(*m_render_state.texture_pool);

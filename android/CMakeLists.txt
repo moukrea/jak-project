@@ -425,6 +425,8 @@ add_library(android_kernel STATIC
     "${JAK_ROOT}/game/system/SystemThread.cpp"
     "${JAK_ROOT}/game/system/IOP_Kernel.cpp"
     "${JAK_ROOT}/game/system/iop_thread.cpp"
+    # Gplayability-input-and-loadgate: the scene load barrier (no GL deps).
+    "${JAK_ROOT}/game/system/load_gate.cpp"
     "${JAK_ROOT}/game/system/Deci2Server.cpp"
     # Phase Ginput-replay (autoport): host-side input record/replay harness,
     # tapped from android_runtime_compat.cpp::CPadGetData (backend-agnostic core,

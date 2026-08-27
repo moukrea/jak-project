@@ -105,6 +105,11 @@ int goal_main(int argc, char** argv);
 // a17_bind_pc_helpers — see the note at the binding site.
 namespace jak1 {
 void pc_set_levels(u32 l0, u32 l1);
+// Gplayability-input-and-loadgate: same situation — compiled into android_kernel
+// (game/kernel/jak1/kmachine.cpp) but not exposed in a header, and bound by hand
+// below because InitMachine_PCPort never runs on Android.
+s32 pc_scene_ready(u32 scene, u32 lev0, u32 lev1, s32 timeout_ms);
+void pc_scene_release(u32 scene);
 }
 
 namespace {
@@ -1337,6 +1342,16 @@ void a17_bind_pc_helpers() {
   // absent from the title scene. Bind the real desktop body (compiled into
   // android_kernel); it no-ops safely until the renderer module is live.
   klink_mfsfc_for_game("__pc-set-levels", (void*)jak1::pc_set_levels);
+  // Gplayability-input-and-loadgate (owner 2026-08-27): the RETURN half of the
+  // channel above, and it has to be bound HERE for exactly the reason the block
+  // above spells out — InitMachine_PCPort never runs on Android, so registering
+  // these in jak1/kmachine.cpp alone leaves their symbol slots at 0 on the one
+  // device the defect was measured on. `__pc-set-levels` already paid for that
+  // lesson once (A41: the village was absent from the title scene because the
+  // noop binding was permanent). Same trap, same fix, bound to the real bodies
+  // compiled into android_kernel.
+  klink_mfsfc_for_game("__pc-scene-ready?", (void*)jak1::pc_scene_ready);
+  klink_mfsfc_for_game("__pc-scene-release", (void*)jak1::pc_scene_release);
   klink_mfsfc_for_game("__pc-set-active-levels", d);
   klink_mfsfc_for_game("__pc-texture-relocate", (void*)a35_pc_texture_relocate);
   // A32 — root-cause for the on-device tpage-463 fn-ptr=0 SIGILL at

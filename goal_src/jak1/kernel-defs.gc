@@ -440,6 +440,27 @@
 
 (define-extern __pc-set-levels (function string string none))
 
+;; Gplayability-input-and-loadgate (owner 2026-08-27): the RETURN half of the
+;; channel above. `__pc-set-levels` tells the renderer what GOAL wants; these
+;; two ask the renderer what it actually HAS, so a scene can be held until its
+;; levels are genuinely drawable instead of starting against a half-built world.
+;; `__pc-scene-ready?` returns 1 = go, 0 = keep waiting. It is fail-open: it
+;; also returns 1 once its own deadline expires, and on any runtime that does
+;; not publish residency at all, so it can never wedge a scene.
+;; See game/system/load_gate.h.
+(define-extern __pc-scene-ready? (function string string string int int))
+(define-extern __pc-scene-release (function string none))
+
+;; Gplayability-input-and-loadgate: NO forward declaration for
+;; `set-blackout-frames` is needed here, and one cannot live here anyway.
+;; `engine/game/main-h.gc:231` already carries
+;; `(defun-extern set-blackout-frames time-frame none)`, and game.gp compiles it
+;; at line 1788 of the same goal-src-sequence that compiles
+;; `engine/load/loader.gc` at line 1924 — so the barrier's call site already
+;; sees it. Declaring it in THIS file is also impossible: kernel-defs.gc is
+;; compiled from compiler-setup.gc, long before `engine/util/types-h.gc:9`
+;; defines `time-frame`.
+
 ;; Input Related Functions
 (define-extern pc-get-controller-count (function int))
 

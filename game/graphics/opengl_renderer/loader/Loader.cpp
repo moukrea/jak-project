@@ -33,6 +33,7 @@
 #include "game/graphics/opengl_renderer/loader/PbrTestPattern.h"
 #endif
 #include "game/runtime.h"
+#include "game/system/load_gate.h"
 
 #include "third-party/imgui/imgui.h"
 
@@ -1216,8 +1217,10 @@ void report_merc_detail(const std::string& name, const tfrag3::Level& lev, const
 }
 }  // namespace
 
-void Loader::update_blocking(TexturePool& tex_pool) {
-  fmt::print("NOTE: coming out of blackout on next frame, doing all loads now...\n");
+void Loader::update_blocking(TexturePool& tex_pool, bool announce) {
+  if (announce) {
+    fmt::print("NOTE: coming out of blackout on next frame, doing all loads now...\n");
+  }
 
   bool missing_levels = true;
   while (missing_levels) {
@@ -1254,7 +1257,9 @@ void Loader::update_blocking(TexturePool& tex_pool) {
       missing_levels = false;
       for (auto& des : m_desired_levels) {
         if (m_loaded_tfrag3_levels.find(des) == m_loaded_tfrag3_levels.end()) {
-          fmt::print("blackout loader doing additional level {}...\n", des);
+          if (announce) {
+            fmt::print("blackout loader doing additional level {}...\n", des);
+          }
           missing_levels = true;
         }
       }
@@ -1265,15 +1270,27 @@ void Loader::update_blocking(TexturePool& tex_pool) {
     }
   }
 
-  fmt::print("Blackout loads done. Current status:");
+  if (announce) {
+    fmt::print("Blackout loads done. Current status:");
+  }
   // Gmemory-ceiling-and-crash : c'est LE point ou l'appareil du proprietaire mourait — la
   // derniere ligne du moteur avant la mort etait « coming out of blackout ». Tous les
   // chargements du lot viennent de finir, donc c'est aussi le moment ou l'allocateur tient le
   // plus de pages LIBRES mais pas rendues. On les rend ici, et on publie le bilan.
-  heap_purge("blackout-fin");
+  // Gplayability-input-and-loadgate: the purge stays tied to `announce`, i.e. to
+  // the real blackout transition, which is the one the memory work calibrated it
+  // on. A closed scene barrier calls update_blocking EVERY frame; purging the
+  // arena 100+ times during one hold would spend real time and churn the RSS the
+  // owner already validated, for nothing. The per-level purge
+  // (heap_purge("niveau-pret")) still runs on the gate's path.
+  if (announce) {
+    heap_purge("blackout-fin");
+  }
   std::unique_lock<std::mutex> lk(m_loader_mutex);
-  for (auto& ld : m_loaded_tfrag3_levels) {
-    fmt::print("  {} is loaded.\n", ld.first);
+  if (announce) {
+    for (auto& ld : m_loaded_tfrag3_levels) {
+      fmt::print("  {} is loaded.\n", ld.first);
+    }
   }
 }
 
@@ -1438,6 +1455,11 @@ void Loader::update(TexturePool& texture_pool) {
         m_frames_until_purge = 120;
         lk.lock();
         m_loaded_tfrag3_levels[name] = std::move(lev);
+        // Gplayability-input-and-loadgate: THIS is the instant the level becomes
+        // drawable — everything before it (the DGO being linked, the fr3 being
+        // read) still renders nothing. It is the only honest signal a scene
+        // barrier can wait on, so publish it. See game/system/load_gate.h.
+        load_gate::mark_level_resident(name);
         m_initializing_tfrag3_levels.erase(it);
 
         for (auto& stage : m_loader_stages) {
@@ -1537,6 +1559,7 @@ void Loader::update(TexturePool& texture_pool) {
         // suivant et rendre un FAUX HIT (densite d'un autre niveau, POM faux et silencieux).
         // `lev` est la reference prise plus haut sur `m_loaded_tfrag3_levels.at(*to_unload)`.
         uv_density_forget_level(*lev->level);
+        load_gate::mark_level_evicted(*to_unload);
         m_loaded_tfrag3_levels.erase(*to_unload);
       }
     }

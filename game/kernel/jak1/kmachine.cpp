@@ -29,6 +29,7 @@
 #include "game/external/discord_jak1.h"
 #include "game/graphics/display.h"
 #include "game/graphics/gfx.h"
+#include "game/system/load_gate.h"
 #include "game/graphics/opengl_renderer/loader/ManagedAssets.h"
 #include "game/graphics/opengl_renderer/GrassOccluders.h"
 // [pom] device diagnostic: pbr_pom_diag_section() renders the per-material parallax block appended
@@ -699,6 +700,25 @@ void pc_set_levels(u32 l0, u32 l1) {
   }
 
   Gfx::GetCurrentRenderer()->set_levels(levels);
+}
+
+// Gplayability-input-and-loadgate (owner 2026-08-27): the missing RETURN channel.
+// `__pc-set-levels` above tells the renderer what GOAL wants; until now nothing
+// ever told GOAL what the renderer actually HAS. A cutscene therefore starts its
+// audio stream — which is the scene's master clock, see loader.gc — against a
+// level that can still be tens of seconds from being drawable. Measured on the
+// owner's Shield: the Geyser Rock return fly-over began 41.9 s before `beach`
+// was drawable. These two let GOAL hold the scene until the picture can exist.
+// Both are fail-open: see game/system/load_gate.h.
+s32 pc_scene_ready(u32 scene, u32 lev0, u32 lev1, s32 timeout_ms) {
+  const char* sc = scene ? Ptr<String>(scene).c()->data() : nullptr;
+  const char* l0 = lev0 ? Ptr<String>(lev0).c()->data() : nullptr;
+  const char* l1 = lev1 ? Ptr<String>(lev1).c()->data() : nullptr;
+  return load_gate::scene_ready(sc, l0, l1, timeout_ms);
+}
+
+void pc_scene_release(u32 scene) {
+  load_gate::scene_release(scene ? Ptr<String>(scene).c()->data() : nullptr);
 }
 
 // Grecharged-grass-poc: push the "recharged grass" on/off toggle from GOAL
@@ -4267,6 +4287,8 @@ void InitMachine_PCPort() {
   // Called from the game thread at each frame to tell the PC rendering code which levels to start
   // loading. The loader internally handles locking.
   make_function_symbol_from_c("__pc-set-levels", (void*)pc_set_levels);
+  make_function_symbol_from_c("__pc-scene-ready?", (void*)pc_scene_ready);
+  make_function_symbol_from_c("__pc-scene-release", (void*)pc_scene_release);
 
   // Grecharged-grass-poc bridges (jak1 only)
   make_function_symbol_from_c("pc-set-recharged-grass!", (void*)pc_set_recharged_grass);

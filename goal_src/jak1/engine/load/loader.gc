@@ -629,6 +629,112 @@
 
 (define-extern ja-abort-spooled-anim (function spool-anim art-joint-anim int int :behavior process-drawable))
 
+;; --- Gplayability-input-and-loadgate (owner 2026-08-27) ----------------------
+;; « Limite il devrait y avoir un mecanisme de chargement qui s'assure que tout le
+;;   necessaire soit bien charge avant de lancer l'ecran titre, la on dirait que ca
+;;   y va meme si rien n'est charge, c'est problematique quand ca charge pas assez
+;;   vite ! »
+;;
+;; POURQUOI ICI, ET PAS AILLEURS. `str-play-async`, plus bas dans ce fichier, est
+;; le point de non-retour d'une scene : a partir de cet appel le frame-num est
+;; asservi a `current-str-pos` et la command-list s'execute par NUMERO DE FRAME.
+;; Une fois le son parti, l'image ne rattrape pas — elle saute. La barriere se
+;; pose donc AVANT le son, jamais pendant.
+;;
+;; NATURE de la grandeur : un ETAT DE RESIDENCE, pas une temporisation. Quand les
+;; niveaux sont deja dessinables, `__pc-scene-ready?` rend 1 au PREMIER tour : la
+;; boucle ne s'execute pas, `set-blackout-frames` n'est meme pas appele, et une
+;; machine rapide est inchangee.
+;; REPERE : la residence GPU cote renderer, PAS `level-status`. Mesure Shield du
+;; 2026-08-27, retour de Geyser Rock : GOAL declarait `beach` charge (`NOTICE:
+;; loaded beach-vis`) 38,5 s avant que le niveau ne soit dessinable
+;; (`F1D-LOADSYNC lev=beach`). Une barriere posee sur `level-status` aurait donc
+;; rendu un faux vert.
+;;
+;; SORTIE GARANTIE : `__pc-scene-ready?` rend 1 des que son propre delai est
+;; ecoule, et rend 1 immediatement sur un runtime qui ne publie aucune residence.
+;; La boucle ne peut donc pas retenir une scene indefiniment — une barriere qui
+;; peut bloquer le jeu serait pire que le defaut qu'elle corrige.
+(defbehavior scene-load-gate! process-drawable ((arg0 spool-anim))
+  "Hold this scene until every level it will DISPLAY is drawable. No-op otherwise."
+  (let ((pre0 (the-as symbol #f))
+        (pre1 (the-as symbol #f))
+        (show0 (the-as symbol #f))
+        (show1 (the-as symbol #f))
+        (cmds (the-as pair (-> arg0 command-list))))
+    ;; ON NE BLOQUE PAS SUR `want-levels`, ON BLOQUE SUR `display-level`.
+    ;; `want-levels` est un PREchargement : `ndi-intro` reclame `title village1` a la
+    ;; frame 0 et n'affiche jamais village1 — le logo Naughty Dog n'a aucune raison
+    ;; d'attendre la plage. `display-level` est la DEPENDANCE : c'est la commande qui
+    ;; dit « ce niveau va etre a l'ecran ». `logo-intro` affiche village1 (frames 5 et
+    ;; 115), `sage-intro-sequence-e` affiche beach (frame 937) : ce sont exactement les
+    ;; deux scenes dont l'owner decrit le defaut. Une cible `#f` eteint l'affichage et
+    ;; ne compte pas.
+    ;; Les casts `the-as pair` reprennent la facon dont execute-commands-up-to parcourt
+    ;; cette meme liste : car/cdr y sont types `object`.
+    (while (not (null? cmds))
+      (let ((entry (the-as pair (car cmds))))
+        (when (pair? entry)
+          (let ((frame (the-as int (car entry)))
+                (cmd (the-as pair (cdr entry))))
+            (when (pair? cmd)
+              (let ((verb (car cmd))
+                    (args (the-as pair (cdr cmd))))
+                (when (pair? args)
+                  (let ((a0 (car args)))
+                    (when (and (not (null? a0)) (not (pair? a0)))
+                      ;; le PREchargement : le premier `want-levels` de la frame 0
+                      (when (and (= verb 'want-levels) (zero? frame) (not pre0))
+                        (set! pre0 (the-as symbol a0))
+                        (let ((rest (the-as pair (cdr args))))
+                          (when (pair? rest)
+                            (let ((a1 (car rest)))
+                              (if (and (not (null? a1)) (not (pair? a1)))
+                                (set! pre1 (the-as symbol a1)))))))
+                      ;; la DEPENDANCE : tout `display-level` dont la cible n'est pas #f
+                      (when (= verb 'display-level)
+                        (let ((rest (the-as pair (cdr args))))
+                          (when (and (pair? rest) (car rest))
+                            (cond
+                              ((or (not show0) (= show0 (the-as symbol a0)))
+                               (set! show0 (the-as symbol a0)))
+                              ((or (not show1) (= show1 (the-as symbol a0)))
+                               (set! show1 (the-as symbol a0)))
+                              (else (empty))))))))))))))
+      (set! cmds (the-as pair (cdr cmds))))
+    ;; Demander le prechargement MAINTENANT : la command-list ne le ferait qu'a la
+    ;; frame 0, c'est-a-dire une fois le flux audio deja parti.
+    ;; N'ATTENDRE QUE CE QUE LA SCENE RECLAME ELLE-MEME.
+    ;; Un `display-level` portant sur un niveau que la command-list ne demande PAS a la
+    ;; frame 0 (les scenes du maire, du sculpteur, `logo-intro-2`...) veut dire qu'un
+    ;; autre chemin l'a deja charge. Si ce n'est pas le cas, PERSONNE ne le chargera
+    ;; pendant notre attente et la barriere irait au bout de son plafond pour rien —
+    ;; on aurait remplace un pop-in par un ecran noir de 20 s. Balayage statique sur les
+    ;; 179 spool-anim de jak1 : la regle passe de 28 scenes retenues a 18, et les 10 qui
+    ;; tombent sont exactement celles qui affichent un niveau qu'elles ne demandent pas.
+    (if (and show0 (not (or (= show0 pre0) (= show0 pre1)))) (set! show0 (the-as symbol #f)))
+    (if (and show1 (not (or (= show1 pre0) (= show1 pre1)))) (set! show1 (the-as symbol #f)))
+    (when (and (not show0) show1)
+      (set! show0 show1)
+      (set! show1 (the-as symbol #f)))
+    (if pre0 (want-levels *load-state* pre0 pre1))
+    (when show0
+      (until (nonzero? (__pc-scene-ready?
+                        (-> arg0 name)
+                        (symbol->string show0)
+                        (if show1 (symbol->string show1) "none")
+                        ;; Plafond 20 s. Le loader passe sur son chemin BLOQUANT tant
+                        ;; que la barriere est fermee (cout mesure d'un niveau : ~5 s,
+                        ;; village1 4,6 s), donc c'est un plafond, pas une cible.
+                        20000))
+        ;; Garder la partie streamee vivante pendant l'attente. Toutes les autres
+        ;; boucles d'attente de ce fichier repoussent a chaque tour pour cette raison :
+        ;; sans push, l'art control peut lacher le spool qu'on s'apprete a jouer.
+        (spool-push *art-control* (-> arg0 name) 0 self -20.0)
+        (set-blackout-frames (seconds 0.05))
+        (suspend))))
+  0)
+
 (defbehavior ja-play-spooled-anim process-drawable ((arg0 spool-anim) (arg1 art-joint-anim) (arg2 art-joint-anim) (arg3 (function process-drawable symbol)))
   (local-vars (v0-39 int))
   (let ((spool-part 0))
@@ -678,6 +784,9 @@
                (ja-channel-set! 1)
                (ja-no-eval :group! s2-4 :num! (seek!) :frame-num 0.0)
                (when (zero? spool-part)
+                 ;; Gplayability-input-and-loadgate: the barrier goes HERE, on the
+                 ;; last line before the audio clock starts. See scene-load-gate!.
+                 (scene-load-gate! arg0)
                  (str-play-async (-> arg0 name) spool-sound)
                  (set! (-> *art-control* active-stream) (-> arg0 name)))
                (let* ((f30-0 (* 0.05859375 (-> s2-4 speed)))
@@ -750,6 +859,11 @@
 
 (defbehavior ja-abort-spooled-anim process-drawable ((arg0 spool-anim) (arg1 art-joint-anim) (arg2 int))
   "Abort a spooled animation."
+  ;; Gplayability-input-and-loadgate: drop this scene's barrier if it still has
+  ;; one. The C++ side expires abandoned arms on its own deadline anyway, but a
+  ;; scene that ends cleanly should not leave the loader on its blocking path
+  ;; for even one extra frame.
+  (__pc-scene-release (-> arg0 name))
   (restore-load-state-and-cleanup *load-state*)
   (str-play-stop (-> arg0 name))
   (set! (-> *art-control* active-stream) #f)
