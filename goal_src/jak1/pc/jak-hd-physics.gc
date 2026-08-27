@@ -48,6 +48,7 @@
 (defconstant PHYS-P-B0     29)
 (defconstant PHYS-P-ANCH   25)  ;; gain de `anp=` ; 0 = tenseur ancre au JOINT, identite par algebre
 (defconstant PHYS-P-LYIELD 30)  ;; [NOTE-578] gain de la correction de DOUBLE COMPTE de SPEC 11 ; 0 = identite par algebre
+(defconstant PHYS-P-MEDW   31)  ;; [NOTE-580] SPEC 10 — distance du joint racine au MUR MEDIAN, en unites ; 0 = mur absent, terme nul par algebre
 ;; [NOTE-185] L'ANGLE QUE LA PEAU PEUT ENCAISSER, EN DEGRES — CHEVEUX SEULEMENT, 0 = pas de limite. -> jak-hd-physics-NOTES.md
 (defconstant PHYS-P-MAXANG  3)
 
@@ -117,7 +118,7 @@
 (define *phys-anx* (new 'global 'array 'float PHYS-SCL)) (define *phys-any* (new 'global 'array 'float PHYS-SCL)) (define *phys-anz* (new 'global 'array 'float PHYS-SCL)) (define *phys-anch* (new 'global 'array 'float PHYS-SC))  ;; `anp`/`anch` : SPEC 31 r=0, espace os local, et son gain (0 = ancre au joint)
 ;; [NOTE-574] SPEC 11 — L'ETAGE RIGIDE : 12 constantes de mesh par chaine (`rg` de physics_mesh.txt), le rapport MESURE chaque frame, et son DENOMINATEUR publie a cote. -> jak-hd-physics-NOTES.md
 (define *phys-rsa* (new 'global 'array 'float (* PHYS-SC 12))) (define *phys-rsok* (new 'global 'array 'int32 PHYS-SC))
-(define *phys-rsv* (new 'global 'array 'float PHYS-SC)) (define *phys-rsd* (new 'global 'array 'float PHYS-SC)) (define *phys-lyd* (new 'global 'array 'float PHYS-SC))
+(define *phys-rsv* (new 'global 'array 'float PHYS-SC)) (define *phys-rsd* (new 'global 'array 'float PHYS-SC)) (define *phys-lyd* (new 'global 'array 'float PHYS-SC)) (define *phys-medw* (new 'global 'array 'float PHYS-SC)) (define *phys-mww* (new 'global 'array 'float PHYS-SC))
 (define *phys-c2* (new 'global 'array 'float 3))          ;; sortie de `phys-pt-exc!`, jamais lue ailleurs
 
 (defun phys-pt-exc! ((bm matrix) (pre matrix) (ox float) (oy float) (oz float))
@@ -688,7 +689,7 @@
                       (set! (-> *phys-rootgr* sc) (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-GRADIENT)))
                       (set! (-> *phys-b0* sc) (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-B0)))
                       (set! (-> *phys-anch* sc) (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-ANCH)))
-                      (set! (-> *phys-lyd* sc) (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-LYIELD)))
+                      (set! (-> *phys-lyd* sc) (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-LYIELD))) (set! (-> *phys-medw* sc) (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-MEDW)))
                       ;; [NOTE-236] PREUVE D'EXECUTION (regle 0) : un zero silencieux au parseur C++ ou a la -> jak-hd-physics-NOTES.md
                       (when (> (-> *phys-b0* sc) 0.0)
                         (format 0 "[HD-PHYS] b0 c=~D flesh=~f anc=~D~%" c (-> *phys-b0* sc) (-> *phys-anchor* sc)))
@@ -3931,6 +3932,13 @@
                                     (set! dwy (+ dwy (* aw (-> *phys-c2* 1))))
                                     (set! dwz (+ dwz (* aw (-> *phys-c2* 2))))))
                                 (matrix-copy! bm tmp))
+                              ;; [NOTE-580] SPEC 10 — LE MUR MEDIAN. `mw = medw * max(0, sx-1)` : la penetration que l'elargissement lateral ferait franchir au bord medial de la chair, rendue en glissement SORTANT. Unilaterale (`fmax 0.0`) parce qu'un sternum resiste et ne tire pas. -> jak-hd-physics-NOTES.md
+                              (set! (-> *phys-mww* sc) (if (nonzero? (-> *phys-dfon* sc)) (* (-> *phys-medw* sc) (fmax 0.0 (- (-> *phys-dfs* (* sc 3)) 1.0))) 0.0))
+                              (when (> (-> *phys-mww* sc) 0.0)
+                                (let ((mw (-> *phys-mww* sc)) (ar (the-as matrix (-> skel bones (+ an 1) transform))) (fv (-> *phys-fx* sc)))
+                                  (set! (-> bm vector 3 x) (+ (* mw (+ (* (-> fv x) (-> ar vector 0 x)) (+ (* (-> fv y) (-> ar vector 1 x)) (* (-> fv z) (-> ar vector 2 x))))) (-> bm vector 3 x)))
+                                  (set! (-> bm vector 3 y) (+ (* mw (+ (* (-> fv x) (-> ar vector 0 y)) (+ (* (-> fv y) (-> ar vector 1 y)) (* (-> fv z) (-> ar vector 2 y))))) (-> bm vector 3 y)))
+                                  (set! (-> bm vector 3 z) (+ (* mw (+ (* (-> fv x) (-> ar vector 0 z)) (+ (* (-> fv y) (-> ar vector 1 z)) (* (-> fv z) (-> ar vector 2 z))))) (-> bm vector 3 z)))))
                               (set! (-> bm vector 3 x) (+ (-> *phys-px* scl) (-> bm vector 3 x)))
                               (set! (-> bm vector 3 y) (+ (-> *phys-py* scl) (-> bm vector 3 y)))
                               (set! (-> bm vector 3 z) (+ (-> *phys-pz* scl) (-> bm vector 3 z)))
@@ -4756,6 +4764,8 @@
         ;; [NOTE-579] 38/39 — LA PREUVE D'EXECUTION DU GAIN `lyield` (c135). -> jak-hd-physics-NOTES.md
         ((= which 38) (-> *phys-lyd* sc))
         ((= which 39) (fmax 0.0001 (+ 1.0 (* (-> *phys-lyd* sc) (- (-> *phys-rsv* sc) 1.0)))))
+        ;; [NOTE-580] 40/41 — LA PREUVE DE LECTURE DU MUR MEDIAN : 40 = ce que le PARSEUR a depose, 41 = le glissement REELLEMENT applique, en unites de jeu.
+        ((= which 40) (-> *phys-medw* sc)) ((= which 41) (-> *phys-mww* sc))
         (else 0.0)))))
 
 (defun phys-rest ((which int))

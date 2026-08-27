@@ -1069,7 +1069,29 @@ enum PhysClassBits { kPhysClassPrimary = 1, kPhysClassSecondary = 2, kPhysClassA
 //      SPEC 11's two clauses (length band AND COM band) bound it from OPPOSITE sides: the
 //      admissible window measured on two archived traces is [0.896, 0.931] for chestL and
 //      [0.700, 0.816] for chestR. It is DATA, not a constant, so re-deriving it costs no build.)
-static constexpr int kPhysNumChainParams = 31;
+//   31 medw(C137 — SPEC 10's MEDIAL WALL, in units, measured on the SHIPPED mesh. SPEC 10 asks for
+//      « Outward COM migration per breast: 4-10% W0 » and the delivered organ migrates INWARD
+//      (-2.26 / -7.16 % W0): a SIGN, not an amplitude. The tensor already widens the organ when
+//      supine (`SupineWidthScale`, sx = 1.2257 / 1.2057) but it widens it ABOUT THE JOINT, so the
+//      MEDIAL edge of the flesh crosses the sagittal plane it rests against. SPEC 10 l.174 says in
+//      bold « The entire breast shall not simply scale uniformly from its center », and SPEC 8
+//      l.145 « flattening redistributes material laterally ». This key is the distance from the
+//      chain's ROOT JOINT to that medial boundary, along the chain's OUTWARD lateral axis, and the
+//      engine slides the organ out by exactly the penetration the widening would otherwise cause:
+//          d_out = medw * max(0, sx - 1)
+//      It is a NON-PENETRATION, not a tuning value: `max(0, .)` makes it ONE-SIDED, because a
+//      sternum resists compression of the medial boundary and never pulls. Consequences, all by
+//      algebra and not by setting: standing sx = 1.0000 -> 0 (SPEC 2/9 « Additional Procedural Sag
+//      = 0% » untouched); prone sx = 0.92 < 1 -> 0 (SPEC 11 untouched); side-lying sx = 0.80 on the
+//      gravity side -> 0 (SPEC 12, one of the four HELD sections, untouched).
+//      Measured on out/jak1/fr3/skin/keira-hd-lod0.glb: the `chest` joint sits exactly on the
+//      sagittal plane (x = 0.000), the two roots at +/-379.90 u from it (exact mirror), and the
+//      most medial flesh vertex of EACH breast at +54.24 u from that plane — identical on both
+//      chains to 0.01 u, which is what makes it the sternum and not an outlier. Hence
+//      medw = 379.90 - 54.24 = 325.66 (chestL) / 325.67 (chestR).
+//      0 = the wall is ABSENT and the term is exactly 0 — bit-identical to every build before this
+//      cycle, and therefore the default of every chain that does not declare it.)
+static constexpr int kPhysNumChainParams = 32;
 // level param ids (pc_physics_level_param_mi):
 //   0 substeps 1 iters 2 collide 3 classmask 4 fixedhz  -- ALSO returned in milli.
 static constexpr int kPhysNumLevelParams = 5;
@@ -1716,6 +1738,11 @@ static int pc_physics_parse_file() {
           // l'id 25 `compress` (cycle 5). Ce `compress` n'a JAMAIS ete parse ni lu par le moteur
           // — l'id 25 etait un slot documente et vide. Il porte `anch` a partir de ce cycle.
           ch.params[25] = phys_to_float(v);
+        } else if (k == "medw") {
+          // (C137) SPEC 10 — distance du joint racine au MUR MEDIAN (le plan sagittal que le bord
+          // medial de la chair touche au repos), en unites, mesuree sur le maillage LIVRE.
+          // 0 = mur ABSENT, terme exactement nul, identite par algebre. Voir l'id 31 ci-dessus.
+          ch.params[31] = phys_to_float(v);
         } else if (k == "lyield") {
           // (C135) gain de la correction de DOUBLE COMPTE de sa SPEC 11 — voir l'id 30 ci-dessus.
           // 0 = identite PAR ALGEBRE (diviseur exactement 1), donc defaut sur toute chaine muette.

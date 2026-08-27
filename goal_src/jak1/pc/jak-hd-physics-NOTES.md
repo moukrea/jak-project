@@ -10733,3 +10733,103 @@ travaille sur `ws>0,05` NON PONDERE. L'ecart du joint au point r=0 passe de **0,
 seuil de poids ; **le choix n'est donc pas tranchable par le texte**, et `anp=` porte la premiere
 lecture (celle qui cuit `ax`) parce que c'est celle du reste de la chaine de mesure. Meme classe
 que `two-distal-axes-are-not-the-same-population`.
+
+## [NOTE-580]
+
+**SPEC 10 — LE MUR MEDIAN. LE DEFAUT ETAIT UN SIGNE, ET AUCUNE ECHELLE NE RETOURNE UN VECTEUR.**
+
+Sa §10 (`SPEC-breast-softbody.md` l.169) : « **Outward COM migration per breast: 4-10% W0, nominal
+7% W0** ». Mesure du cycle 136 sur l'organe LIVRE (`c133_delivered_com.py`, cellule supine i=8, cut
+`w>0.00`) : **-2,260 % W0 (chestL) / -7,164 % W0 (chestR)**. Le COM migre vers l'**INTERIEUR**, sur
+les deux chaines. Ce n'est pas une amplitude a corriger : c'est un signe, et le cycle 136 l'avait
+nomme sans le traiter (« aucune valeur de `lyield` ne retourne un vecteur »).
+
+**CE QUE LE SIGNE N'EST PAS.** L'axe `out` de l'instrument est anti-symetrique par construction
+(`probe_breast_com_mass.py:99-102` : `OUTW = {'chestL': -sepv, 'chestR': +sepv}`), donc une derive
+COMMUNE au monde y rendrait des signes OPPOSES. Les deux mesures ont le **MEME** signe : ce n'est
+donc pas un artefact de repere, c'est une migration mediale reelle des deux cotes. Le falsificateur
+etait deja ecrit dans l'instrument avant d'etre utile — il a tire.
+
+**OU LE DEFICIT VIT, MESURE ETAGE PAR ETAGE ET PAS RAISONNE.** La ligne `DECOMPOSITION SIGNEE SUR
+`out`` ajoutee a `c133_delivered_com.py` au cycle 137 separe l'identite exacte du skinning lineaire
+en ses deux moities (elle se referme a 1,2e-10 u) :
+
+        i=8 supine, cut w>0.00      ROTATION+TENSEUR    TRANSLATION    somme
+        chestL                          -1,010 %W0       -1,250 %W0    -2,260
+        chestR                          -3,303 %W0       -3,861 %W0    -7,164
+
+**LES DEUX ETAGES TIRENT VERS L'INTERIEUR, a peu pres a parts egales.** Ce n'est donc pas « le
+solveur » contre « le tenseur » : c'est que **rien** dans le moteur ne pousse vers l'exterieur. Le
+balayage par valeur des 13 ecritures de `*phys-px/py/pz*` le confirme : gravite, ressort, §21, §22
+et la contrainte de longueur sont soit commun-mode, soit purement radiaux ou rotationnels ; les
+seuls termes a signe PAR CHAINE sont la collision (:1744) et la contrainte de peau (:1985), et
+aucun des deux n'est actif dans la cellule supine.
+
+**LE MECANISME QUE LA SECTION NOMME, ET IL EST DEJA A MOITIE LA.** Le tenseur elargit deja l'organe
+au supine — `sx` = **1,2257 / 1,2057** (cle `SupineWidthScale` = 1,23), publie par `PHYSORI2`, et la
+largeur LIVREE suit a 1,171 / 1,161. Mais il l'elargit **AUTOUR DU JOINT**, et la section interdit
+exactement cela, en gras dans son texte :
+
+    l.174  « The breast root shall remain broadly attached. **The entire breast shall not simply
+             scale uniformly from its center.** »
+    l.172  « wider footprint against the thorax; moderate outward migration; increased separation »
+    §8 l.145 « flattening redistributes material laterally »
+
+Elargir autour du joint fait traverser au **bord MEDIAL de la chair** le plan sagittal contre lequel
+il repose au repos. Ce qui manquait n'est pas une force : c'est la **NON-PENETRATION** de ce
+bord-la.
+
+    d_sortant = medw * max(0, sx - 1)          porte par `*phys-fx*`, le lateral SORTANT
+
+**POURQUOI `max(0, .)` ET PAS UN GAIN SYMETRIQUE — c'est la propriete qui protege trois sections.**
+Un sternum resiste a la compression du bord medial ; il ne tire jamais. La contrainte est donc
+UNILATERALE, comme tout contact, et ce n'est pas un choix de commodite : c'est ce qui rend le terme
+nul **PAR ALGEBRE** partout ou §10 ne parle pas.
+
+        debout        sx = 1,0000 (PHYSORI2 i=9)          -> terme 0   §2/§9 intactes
+        prone         sx = 0,9234 / 0,9338                -> terme 0   §11 intacte (gain du c136)
+        couchee-cote  sx = 0,8240 / 0,8047 cote gravite   -> terme 0   §12 intacte (l'une des 4 TENUE)
+
+Sans l'unilateralite, le meme terme aurait retire **-4,20 % W0** a §11 et **-8,4 % W0** aux deux
+cellules de §12 — c'est-a-dire qu'il aurait paye §10 avec une section TENUE. Le point admissible
+commun a ete cherche AVANT la course, pas apres (`bound-undone-by-downstream-constraint-loop`).
+
+**LA VALEUR EST MESUREE, PAS AJUSTEE — ET C'EST LA CONDITION POUR QUE CE NE SOIT PAS UN MIROIR.**
+La directive du 2026-08-23 16:00 interdit de fabriquer un canal pour une cle-REPONSE : « une reponse
+se MESURE, elle ne se pose pas ». « Outward COM migration 4-10 % W0 » EST une reponse — il n'existe
+donc aucun bouton a ce nom, et `medw` n'en est pas un. C'est une longueur relevee sur le maillage
+LIVRE (`out/jak1/fr3/skin/keira-hd-lod0.glb`) :
+
+        joint `chest`                            x = 0,000 u  — exactement sur le plan sagittal
+        racines lBoob / rBoob                    +379,90 / -379,91 u  — miroir exact
+        sommet de chair le plus MEDIAL           +54,24 u du plan sagittal, IDENTIQUE sur les DEUX
+                                                 chaines a 0,01 u pres
+        medw = 379,90 - 54,24 = 325,66 (chestL)  ·  379,91 - 54,24 = 325,67 (chestR)
+
+Le produit livre est donc (geometrie du maillage) x (cle du preset), sans un seul degre de liberte
+ajuste sur la bande visee. **RESERVE PUBLIEE AVEC LA VALEUR** : `min` est un EXTREMUM, et le
+registre porte `argmax-anchor-is-not-a-population`. Il est retenu parce qu'une non-penetration est
+gouvernee PAR DEFINITION par le point le plus profond, et parce que ce point est le meme au
+centieme d'unite sur les deux chaines — c'est le sternum, pas un aberrant. Sensibilite declaree :
+au 5e percentile (-217,18 / -229,70 u) le terme vaudrait 6,32 / 6,09 % W0 au lieu de 9,47 / 8,63.
+
+**CE QUE LE TERME LIT, ET CE QU'IL NE LIT PAS.** `sx` est `*phys-dfs*` +0, c'est-a-dire l'echelle
+d'EQUILIBRE de la forme (`dfa`), pas le produit complet `dfa . dfb . dfc` qui porte aussi
+l'etirement dynamique et la pression de contact. C'est deliberé : le mur est une contrainte
+anatomique QUASI-STATIQUE, et l'accrocher au transitoire injecterait une impulsion de position a
+chaque frame, ce que sa §37 interdit (« artificial transforms must not generate physical breast
+impulses »).
+
+**OU IL VIT, ET LA DETTE QUE CA LAISSE.** Le terme est ajoute a `bm vector 3` au site d'ecriture,
+juste avant que la position du solveur y soit additionnee — donc `PHYSORIM` le voit, et l'instrument
+de l'organe livre aussi. Il ne touche PAS `*phys-px/py/pz*`, donc **les volumes de collision ne
+suivent pas ce glissement** : ils restent la ou le solveur a mis les maillons. C'est la meme couture
+que le tenseur occupe deja depuis toujours (les volumes lisent `*phys-dfmq*`, la matrice, jamais la
+translation), mais c'est une dette et elle se nomme au lieu de se taire.
+
+**PREUVE DE LECTURE, PAS PREUVE PAR LES EFFETS.** `PHYSMEDW c= i= mw= sx= d=` est emise PAR CHAINE
+et DANS le balayage d'orientation — la ou §10 se juge — et publie l'operateur APPLIQUE (`d`), pas un
+seul de ses facteurs. Ligne de base quand le canal est ABSENT : `mw=0.0000 d=0.0000`. Sans elle, un
+zero du parseur (cle mal ecrite, `kPhysNumChainParams` pas incremente) rendrait la course entiere
+bit-identique a la precedente, ce qui se relit exactement comme « le modele est faux »
+(`channel-measured-by-effect-is-not-channel-proven-read`, et [NOTE-236] pour le mode d'echec).

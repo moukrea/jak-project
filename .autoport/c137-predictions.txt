@@ -1,0 +1,101 @@
+# =============================================================================================
+# CYCLE 137 — PREDICTIONS ECRITES AVANT LE LOT, AVANT TOUTE COMPILATION ET TOUTE COURSE
+# DIRECTIVES vd9e8b66782
+# =============================================================================================
+#
+# CE QU'ON ECRIT : le MUR MEDIAN de §10. La §10 exige « Outward COM migration per breast:
+# 4-10% W0, nominal 7% W0 » et la mesure du cycle 136 rend -2,260 % (chestL) / -7,164 % (chestR) :
+# le COM migre vers l'INTERIEUR. C'est un SIGNE, pas une amplitude.
+#
+# LE MECANISME EST CELUI QUE LA SECTION NOMME, MOT POUR MOT :
+#   §10 l.174 « The breast root shall remain broadly attached. **The entire breast shall not
+#              simply scale uniformly from its center.** »
+#   §10 l.172 « wider footprint against the thorax; moderate outward migration; increased
+#              separation »
+#   §8  l.145 « flattening redistributes material laterally »
+# Le tenseur elargit deja l'organe au supine (`sx` = 1,2257 / 1,2057, cle `SupineWidthScale`),
+# mais il l'elargit AUTOUR DU JOINT. Le bord MEDIAL de la chair traverse alors le plan sagittal.
+# La correction est une NON-PENETRATION, pas un reglage : le bord medial ne franchit pas le mur
+# qu'il touche au repos, et l'organe glisse vers l'exterieur d'exactement ce qu'il aurait
+# penetre.  d_out = medw * max(0, sx - 1)
+#
+# LE PARAMETRE N'EST PAS AJUSTE SUR LA BANDE — il est MESURE sur le maillage LIVRE
+# (`out/jak1/fr3/skin/keira-hd-lod0.glb`, /tmp/c137_medial.py) :
+#   joint `chest` exactement sur le plan sagittal (x = 0,000)
+#   racines lBoob / rBoob a +379,90 / -379,91 u : miroir exact
+#   sommet de chair le plus MEDIAL de chaque sein : +54,24 u du plan sagittal, **sur LES DEUX
+#     chaines, identique a 0,01 u pres** — c'est le sternum, pas un point aberrant
+#   donc medw = 379,90 - 54,24 = 325,66 u (chestL) et 325,67 u (chestR)
+# La grandeur livree est donc (geometrie du maillage) x (cle du preset), sans aucun degre de
+# liberte ajuste sur la cible. RESERVE PUBLIEE : `min` est un EXTREMUM (registre
+# `argmax-anchor-is-not-a-population`). Il est retenu parce qu'une non-penetration est gouvernee
+# PAR DEFINITION par le point le plus profond, et parce que ce point est identique au centieme
+# d'unite sur les deux chaines. SENSIBILITE, publiee d'avance : au 5e percentile (-217,18 /
+# -229,70 u) le terme vaudrait 6,32 / 6,09 % W0 au lieu de 9,47 / 8,63.
+#
+# ---------------------------------------------------------------------------------------------
+# LES PREDICTIONS. Instrument : `.autoport/c133_delivered_com.py` sur la trace de la course
+# neuve, cut `w>0.00`, cellule SUPINE i=8 designee par la GRAVITE MESUREE. Lues sur l'organe
+# LIVRE (matrices `PHYSORIM` reellement ecrites au squelette), donc l'instrument a le droit de
+# me contredire.
+# ---------------------------------------------------------------------------------------------
+#
+#     terme du mur :  d = medw * (sx - 1)
+#       chestL  325,66 * 0,2257 = 73,50 u = +9,470 % W0
+#       chestR  325,67 * 0,2057 = 66,99 u = +8,631 % W0
+#
+#   id   grandeur                              avant      predite    bande        verdict predit
+#   P1   §10 out chestL i=8  (% W0)            -2,260     +7,210     [4 ; 10]     DANS
+#   P2   §10 out chestR i=8  (% W0)            -7,164     +1,467     [4 ; 10]     SOUS
+#   P3   §11 out chestL i=6  (% W0)            -1,459     -1,459     inchangee    sx=0,9234 < 1
+#   P4   §11 out chestR i=6  (% W0)            -6,406     -6,406     inchangee    sx=0,9338 < 1
+#   P5   §11 longueur livree chestL / chestR   1,257815 / 1,253325   INCHANGEES AU DERNIER CHIFFRE
+#   P6   §11 COM livre chestL / chestR (B0)    0,2005 / 0,2032       INCHANGES   (bande 0,20-0,28)
+#   P7   §12 out chestR i=2  (% W0)            -15,031    -14,637    [-18 ; -10]  reste DANS
+#   P8   ROOM-IDLE maxdev                       0,000      0,000     = 0          sx=1,0000 a i=9
+#   P9   PHYSORI2 (sx,sy,sz) toutes cellules   IDENTIQUES AU DERNIER CHIFFRE : le terme n'entre
+#        pas dans les echelles commandees, il ne fait que translater ce qu'elles ont produit.
+#
+# **P2 EST DECLAREE D'AVANCE COMME UN ECHEC.** Le mur ne suffit pas a mettre chestR dans sa bande :
+# sa ligne de base est trois fois plus interieure que celle de chestL (-7,164 contre -2,260) et le
+# mur rend le meme ordre de grandeur aux deux. §10 ne peut donc PAS devenir TENUE ce cycle ; au
+# mieux sa clause porteuse change de SIGNE et passe DANS sur une chaine. Je l'ecris avant la
+# course pour qu'un demi-succes ne puisse pas se relire comme un succes.
+#
+# ---------------------------------------------------------------------------------------------
+# LES FALSIFICATEURS
+# ---------------------------------------------------------------------------------------------
+# F1  SIGNE DE L'AXE. `*phys-fx*` est le lateral SORTANT par chaine ([NOTE-324], mis d'accord avec
+#     `*phys-sepv*` a :3534). S'il etait inverse, P1 rendrait -11,73 et P2 -15,80 : 19 points de
+#     W0 d'ecart, impossible a confondre. Le registre porte `axis-sign-outlives-role-renaming` ;
+#     ce falsificateur est la reponse.
+# F2  CANAL MUET. Si le parseur ne depose pas `medw` (cle mal ecrite, `kPhysNumChainParams` pas
+#     incremente), le terme vaut 0 et TOUTE la course est bit-identique a celle du cycle 136 :
+#     §10 out resterait exactement -2,260 / -7,164. C'est le mode d'echec de [NOTE-236].
+#     PREUVE DIRECTE EXIGEE, et pas par ses effets : `PHYSMEDW` publie, PAR CHAINE et DANS le
+#     balayage d'orientation, la valeur DEPOSEE par le parseur ET le deplacement APPLIQUE.
+#     Ligne de base quand le canal est ABSENT : `mw=0.0000 d=0.0000`.
+# F3  REGRESSION. Si P3-P8 bougent, la garde d'unilateralite (`fmax 0.0` sur `sx - 1`) ne tient
+#     pas et le lot se retire : il aurait paye §10 avec §11 et §12, dont §12 est TENUE.
+# =============================================================================================
+#
+# ---------------------------------------------------------------------------------------------
+# P10 — AJOUTEE APRES L'ECRITURE DU LOT, MAIS AVANT D'AVOIR LU LE MOINDRE CHIFFRE DE LA COURSE
+# (la course tourne, aucun `PHYSMEDW` n'est encore sorti du log au moment ou j'ecris ceci).
+# Je l'etiquette comme telle : ce n'est pas une pre-inscription au meme titre que P1-P9.
+# ---------------------------------------------------------------------------------------------
+# Le cycle 132 a etabli, sur une paire de courses, que `PHYSORICOML` et `PHYSDFMA` sont
+# IDENTIQUES AU BIT sous une correction posee dans le chemin d'ecriture, parce que `*phys-ldb*`
+# s'ecrit a :3417 et l'ecriture agit a :3934. Il en concluait que « la voie corriger-a-l'ecriture
+# est fermee POUR CETTE SECTION ».
+#
+# **CETTE CONCLUSION EST VRAIE DE L'INSTRUMENT, PAS DE L'ORGANE.** `ROOM-SPEC10` lit un substitut
+# emis AVANT l'ecriture ; `c133_delivered_com.py` lit `PHYSORIM`, les matrices REELLEMENT ECRITES
+# au squelette, donc APRES. Le mur median vit a l'ecriture. Donc :
+#
+#   P10a  `ROOM-SPEC10` (substitut pre-ecriture) : INCHANGE, +0,797 / -3,744 % W0
+#   P10b  `c133` (organe livre)                  : DEPLACE de +9,470 / +8,631 % W0
+#
+# Les deux ensemble sont un falsificateur fort : si P10a bougeait, ma lecture du chemin serait
+# fausse ; si P10b ne bougeait pas, le canal serait muet. Ils ne peuvent pas etre satisfaits tous
+# les deux par accident.

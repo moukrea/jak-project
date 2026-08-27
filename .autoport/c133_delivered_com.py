@@ -382,6 +382,33 @@ def main(txt=None):
                     P_('C133-COM: %-8s %-8s §%-3s i=%-2d  DECOMPOSITION EXACTE (identite verifiee'
                        ' a %.2e u) : moitie ROTATION+TENSEUR %.4f B0 · moitie TRANSLATION %.4f B0'
                        % (cname, lbl, sec, cell, max(ident.values()), dr, dt))
+                    # ---- LA MEME DECOMPOSITION, MAIS SIGNEE SUR L'AXE `out` -------------------
+                    # AJOUTEE AU CYCLE 137, ET VOICI POURQUOI ELLE MANQUAIT. Les deux lignes
+                    # ci-dessus publient des NORMES ; la clause porteuse de §10 (« Outward COM
+                    # migration per breast: 4-10% W0 ») est DIRECTIONNELLE et son defaut mesure est
+                    # un SIGNE, pas une amplitude (-2,26 / -7,16 % W0 : le COM migre vers
+                    # l'INTERIEUR). Une norme ne peut pas dire QUEL etage tire vers l'interieur, et
+                    # sans ca « corriger le tenseur » et « corriger la translation du solveur » sont
+                    # indistinguables — le piege `response-dies-at-one-solver-stage` du registre,
+                    # qui demande le rapport entree/sortie ETAGE PAR ETAGE.
+                    # NATURE : deux composantes SIGNEES d'un deplacement, normalisees par `W0`
+                    #          (§6, la LARGEUR de la chair), en pourcent. Ce n'est pas une norme.
+                    # REPERE : la base d'ancre de la cellule, axe `out` = le lateral SORTANT de
+                    #          CETTE chaine (chestL +X, chestR -X : anti-symetrique, donc un
+                    #          deplacement commun au monde rend des signes OPPOSES et une migration
+                    #          sortante vraie rend le MEME signe des deux cotes).
+                    # LIGNE DE BASE : la cellule i=0 (debout d'auteur), ou §9 exige l'identite ;
+                    #          les deux composantes y valent 0 par construction de la difference.
+                    # SOMME : les deux composantes s'additionnent EXACTEMENT a la ligne
+                    #          `DIAGNOSTIC DIRECTIONNEL` ci-dessous (meme identite, meme fermeture).
+                    _w0d = defs.get(cut, {}).get('W0')
+                    if _w0d:
+                        _ro = 100.0 * float((rotp[cell] - rotp[0]) @ AX['out']) / _w0d
+                        _to = 100.0 * float((trnp[cell] - trnp[0]) @ AX['out']) / _w0d
+                        P_('C133-COM: %-8s %-8s §%-3s i=%-2d  DECOMPOSITION SIGNEE SUR `out` :'
+                           ' ROTATION+TENSEUR %+7.3f %% W0 · TRANSLATION %+7.3f %% W0'
+                           ' · somme %+7.3f %% W0'
+                           % (cname, lbl, sec, cell, _ro, _to, _ro + _to))
             elif ident:
                 P_("C133-COM: %-8s %s DECOMPOSITION REFUSEE — l'identite ne se referme pas"
                    " (%.3e u). Rien n'en est publie : une decomposition qui ne se referme pas"

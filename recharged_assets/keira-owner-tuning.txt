@@ -1582,3 +1582,48 @@ chain chestR anch=0.0000
 # ---------------------------------------------------------------------------------------------
 chain chestL lyield=0.9137
 chain chestR lyield=0.7579
+
+# ---------------------------------------------------------------------------------------------
+# CYCLE 137 — `medw=`, LE MUR MEDIAN DE SA SPEC 10.
+#
+# CE QUE LA SECTION DIT, VERBATIM (SPEC-breast-softbody.md l.169, l.172, l.174) :
+#   « Outward COM migration per breast: 4-10% W0, nominal 7% W0 »
+#   « wider footprint against the thorax; moderate outward migration; increased separation »
+#   « The breast root shall remain broadly attached. **The entire breast shall not simply scale
+#     uniformly from its center.** »
+# et sa §8 l.145 : « flattening redistributes material laterally ».
+#
+# CE QUE LE MOTEUR LIVRAIT : le COM migre vers l'INTERIEUR, -2,260 % (chestL) / -7,164 % (chestR)
+# de W0, sur l'organe LIVRE (`c133_delivered_com.py`, cellule supine i=8). C'est un SIGNE, pas une
+# amplitude — aucune valeur d'echelle ne retourne un vecteur. Le tenseur elargit pourtant deja
+# l'organe (`sx` = 1,2257 / 1,2057, cle `SupineWidthScale`), mais il l'elargit AUTOUR DU JOINT :
+# le bord MEDIAL de la chair traverse alors le plan sagittal contre lequel il repose au repos.
+#
+#   d_sortant = medw * max(0, sx - 1)
+#
+# CE N'EST PAS UN REGLAGE, C'EST UNE NON-PENETRATION, et `max(0, .)` la rend UNILATERALE parce
+# qu'un sternum resiste a la compression du bord medial et ne tire jamais. Consequences, toutes
+# PAR ALGEBRE et non par reglage :
+#   debout      sx = 1,0000 -> terme nul  : §2/§9 (« Additional Procedural Sag = 0% ») intactes ;
+#   prone       sx = 0,92   -> terme nul  : §11 intacte, le gain du cycle 136 est preserve ;
+#   couchee-cote sx = 0,80 du cote gravite -> terme nul : §12, l'une des quatre TENUE, intacte.
+#
+# LA VALEUR EST MESUREE SUR LE MAILLAGE LIVRE, JAMAIS AJUSTEE SUR LA BANDE
+# (`out/jak1/fr3/skin/keira-hd-lod0.glb`, script `/tmp/c137_medial.py` du cycle) :
+#   joint `chest` exactement sur le plan sagittal          x = 0,000
+#   racines lBoob / rBoob                                  +379,90 / -379,91 u   (miroir exact)
+#   sommet de chair le plus MEDIAL de CHAQUE sein          +54,24 u du plan sagittal, IDENTIQUE
+#     sur les deux chaines a 0,01 u pres — c'est ce qui en fait le sternum et pas un aberrant
+#   donc medw = 379,90 - 54,24 = 325,66  et  379,91 - 54,24 = 325,67
+# RESERVE PUBLIEE AVEC LA VALEUR : c'est un EXTREMUM (registre `argmax-anchor-is-not-a-population`).
+# Il est retenu parce qu'une non-penetration est gouvernee PAR DEFINITION par le point le plus
+# profond. Sensibilite declaree : au 5e percentile (-217,18 / -229,70 u) le terme vaudrait
+# 6,32 / 6,09 % W0 au lieu de 9,47 / 8,63.
+#
+# 0 = mur ABSENT, terme exactement nul, identite par algebre — donc le defaut de toute chaine qui
+# ne declare pas la cle, et le controle negatif gratuit.
+# Preuve d'execution, a la LECTURE et pas par ses effets : `PHYSMEDW c= i= mw= sx= d=` par chaine
+# et par cellule d'orientation ([NOTE-580]).
+# ---------------------------------------------------------------------------------------------
+chain chestL medw=325.66
+chain chestR medw=325.67

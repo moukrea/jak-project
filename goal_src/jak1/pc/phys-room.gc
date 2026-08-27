@@ -4329,6 +4329,29 @@
                  (phys-shape (-> self slot) c 37)
                  (phys-shape (-> self slot) c 38)
                  (phys-shape (-> self slot) c 39))
+         ;; [NOTE-580] SPEC 10 — LE MUR MEDIAN, PROUVE A LA LECTURE ET PAS PAR SES EFFETS.
+         ;; Un canal mesure par ses seuls effets ne se distingue pas d'un canal MUET quand l'effet
+         ;; est absent (registre `channel-measured-by-effect-is-not-channel-proven-read`), et le
+         ;; mode d'echec est concret : cle mal ecrite, `kPhysNumChainParams` pas incremente, id
+         ;; deja pris — le parseur depose 0, le terme vaut 0 par algebre et la course entiere est
+         ;; bit-identique a la precedente, ce qui se relit comme « le modele est faux ».
+         ;; `mw`  : la valeur que le PARSEUR a deposee (`medw=` du fichier livre), en unites.
+         ;; `sx`  : l'echelle LATERALE commandee au tenseur pour CETTE cellule (`*phys-dfs*` +0,
+         ;;         la meme que `sx` de PHYSORI2) — l'entree de l'operateur.
+         ;; `d`   : le glissement SORTANT REELLEMENT applique a la matrice ecrite, en unites,
+         ;;         c'est-a-dire l'operateur `mw * max(0, sx-1)` lui-meme et pas un de ses facteurs
+         ;;         (registre `published-line-is-half-the-applied-operator`).
+         ;; NATURE : `mw` et `d` sont des LONGUEURS en unites de jeu (4096 u = 1 m) ; `sx` est sans
+         ;;         dimension. REPERE : `d` est porte par `*phys-fx*`, le lateral SORTANT de CETTE
+         ;;         chaine — anti-symetrique entre chestL et chestR par construction ([NOTE-324]),
+         ;;         donc un `d` positif veut dire « vers l'exterieur » des DEUX cotes.
+         ;; LIGNE DE BASE, ce que la ligne lit quand le canal est ABSENT : `mw=0.0000 d=0.0000`.
+         ;; Emise PAR CHAINE et DANS le balayage d'orientation, la ou §10 se juge.
+         (format 0 "PHYSMEDW c=~D i=~D mw=~f sx=~f d=~f~%"
+                 c oi
+                 (phys-shape (-> self slot) c 40)
+                 (phys-shape (-> self slot) c 0)
+                 (phys-shape (-> self slot) c 41))
          (format 0 "PHYSORI4 c=~D i=~D r0=~f r1=~f r2=~f~%"
                  c oi
                  (phys-shape (-> self slot) c 15)

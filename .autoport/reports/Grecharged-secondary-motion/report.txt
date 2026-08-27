@@ -1,227 +1,226 @@
-# CYCLE 136 — LES DEUX CLAUSES PORTEUSES DE §11 SONT `DANS` LEUR BANDE, SUR LES DEUX CHAINES, POUR
-# LA PREMIERE FOIS. LE CANAL QUI LES Y MET EST MAINTENANT PROUVE A L'EXECUTION — IL NE L'ETAIT PAS.
+# CYCLE 137 — LE COM DE §10 MIGRE ENFIN VERS L'EXTERIEUR SUR chestL. LE CANAL EST ECRIT, PROUVE LU,
+# ET MA PREDICTION DE SON AMPLITUDE ETAIT FAUSSE D'UN FACTEUR QUE LA DONNEE DE CHAINE PORTAIT DEJA.
 
 DIRECTIVES vd9e8b66782
 
-**COUVERTURE D'ABORD, COMME LA DIRECTIVE DU 2026-08-23 01:20 L'EXIGE — le validateur n'est PAS un
+**COUVERTURE D'ABORD, comme la directive du 2026-08-23 01:20 l'exige — le validateur n'est PAS un
 indicateur d'avancement.** `.autoport/SPEC-COVERAGE.md` : **4 TENUE · 5 TENUE PAR CONSTRUCTION ·
-17 PARTIELLE · 12 NON TENUE · 0 NON ETABLI**, sur 38. **UN STATUT BOUGE — §11 passe `NON TENUE` ->
-`PARTIELLE`. C'est le premier mouvement depuis le cycle 115.**
+17 PARTIELLE · 12 NON TENUE · 0 NON ETABLI**, sur 38. **AUCUN STATUT NE BOUGE.** §10 reste
+`NON TENUE` : sa clause porteuse a change de SIGNE sur une chaine, elle n'a pas change de VERDICT.
 
-BREAST-PENETRATION: 0.0724 m de residu sur la poitrine (plafond epingle 0.0005). INCHANGE par ce
+BREAST-PENETRATION : 0,0724 m de residu sur la poitrine (plafond epingle 0,0005). INCHANGE par ce
 cycle. Declare a chaque cycle tant que ce n'est pas zero.
 
-**PALIER DE BUILD : GOAL SEUL.** `(mi)`, 551 cibles en 13,6 s. Aucun rebuild C++ : la moitie
-kmachine.cpp du canal etait deja dans le binaire du cycle 135 (verifie par `strings` : la cle
-`lyield` est dans `build/game/gk`). Une course x86 de 20 min. Zero build Android dans le cycle.
+**PALIER DE BUILD : C++ INCREMENTAL + GOAL.** `cmake --build build --target gk` (13 cibles, aucun
+reconfigure — la cle de chaine se parse dans `kmachine.cpp`), puis `(mi)`, 551 cibles en 13,6 s.
+Une course x86 de ~23 min, complete (`PHYSEND` present, 7 305 023 octets). Zero build Android.
 
 
-## 1. LA CAUSE DE L'ECHEC DE LA TENTATIVE 3, ET ELLE EST BANALE
+## 1. CE QUE J'AI ECRIT, ET POURQUOI C'ETAIT LE BON DEFAUT
 
-    [FAIL] SCOPE: aucune ligne PHYSCOUNTS dans la trace
+Le cycle 136 a ferme §11 sur ses deux clauses porteuses et a nomme le travail suivant : **§10 est un
+SIGNE, pas une amplitude.** Sa clause porteuse (l.169) dit « **Outward COM migration per breast:
+4-10% W0, nominal 7% W0** » et l'organe LIVRE migrait vers l'**INTERIEUR** — -2,260 % (chestL) /
+-7,164 % (chestR) de W0. Aucune valeur d'echelle ne retourne un vecteur.
 
-La course de la tentative 3 a ete **TRONQUEE** : 5 709 465 octets contre 7,3 Mo pour une course
-complete, derniere ligne a 12 min 08 d'une course qui en dure ~20, aucun `PHYSEND`. `PHYSCOUNTS`
-est emis par `physroom-report`, tout a la fin. Le processus a ete tue avec la tentative, en plein
-vol. Rien de casse dans le moteur, rien a diagnostiquer de plus : il fallait relancer.
+**PREMIER TRAVAIL DU CYCLE : SAVOIR QUEL ETAGE TIRE VERS L'INTERIEUR.** `c133_delivered_com.py` ne
+publiait que des NORMES. Une norme ne peut pas dire si le defaut est dans le tenseur ou dans le
+solveur, et sans ca « corriger l'un » et « corriger l'autre » sont indistinguables. J'ai ajoute la
+decomposition **SIGNEE** sur l'axe `out` des deux moities de l'identite exacte du skinning lineaire
+(elle se referme a 1,2e-10 u) :
 
-**MAIS LA TRACE TRONQUEE N'ETAIT PAS PERDUE**, et c'est ce qui a fait gagner le cycle. Le balayage
-d'orientation (`PHYSRIGID i=0..10`, 22 cellules) etait DEJA dedans, donc les quatre predictions de
-bande du c135 etaient verifiables **sans relancer**. Elles l'ont ete avant meme de recompiler, et
-la course neuve les a ensuite reproduites **au chiffre pres** (voir §4). Registre :
-`grep-the-trace-before-asking-for-a-run`.
+        i=8 supine, w>0.00       ROTATION+TENSEUR   TRANSLATION    somme
+        chestL                       -1,010 %W0       -1,250 %W0    -2,260
+        chestR                       -3,303 %W0       -3,861 %W0    -7,164
 
+**LES DEUX ETAGES TIRENT VERS L'INTERIEUR.** Ce n'est donc pas « le tenseur contre le solveur » :
+c'est que RIEN dans le moteur ne pousse vers l'exterieur. Le balayage par VALEUR des 13 ecritures de
+`*phys-px/py/pz*` le confirme — gravite, ressort, §21, §22 et la contrainte de longueur sont soit
+commun-mode, soit purement radiaux ou rotationnels ; les seuls termes a signe PAR CHAINE sont la
+collision et la contrainte de peau, dont aucune n'est active au supine.
 
-## 2. CE QUE J'AI ECRIT, ET POURQUOI C'ETAIT LE TROU LE PLUS DANGEREUX DU LOT
+**LE MECANISME EST CELUI QUE LA SECTION NOMME, ET IL ETAIT DEJA A MOITIE LA.** Le tenseur elargit
+deja l'organe au supine (`sx` = **1,2257 / 1,2057**, cle `SupineWidthScale`) — mais **autour du
+JOINT**, ce que la section interdit en gras :
 
-Le cycle 135 a cable le canal `lyield=` et l'a mesure **par ses effets**. Il n'a publie **aucune
-ligne disant que le canal avait ete LU**. C'est le mode d'echec de [NOTE-236], sur un autre
-parametre : un zero silencieux au parseur C++ (cle mal ecrite, `kPhysNumChainParams` pas
-incremente, id deja pris) rend `*phys-lyd*` a zero, donc le diviseur `1 + ly*(rs-1)` a **1,0
-exactement**, donc le moteur **bit-identique** a celui d'avant — un cycle entier sans effet, dont
-les chiffres se lisent comme un resultat. Rien dans la trace ne permettait de l'exclure.
+    l.174  « The breast root shall remain broadly attached. **The entire breast shall not simply
+             scale uniformly from its center.** »
+    l.172  « wider footprint against the thorax; moderate outward migration; increased separation »
+    §8 l.145 « flattening redistributes material laterally »
 
-    goal_src/jak1/pc/jak-hd-physics.gc   `phys-shape` 38 = `lyield` tel que le PARSEUR l'a depose
-                                                       39 = le DIVISEUR applique, expression EXACTE
-                                                            de :3594, `fmax` compris
-    goal_src/jak1/pc/phys-room.gc        `PHYSRIGID c= i= rs= dauth= ly= div=`
-    goal_src/jak1/pc/jak-hd-physics-NOTES.md   [NOTE-579]
+Elargir autour du joint fait traverser au bord MEDIAL de la chair le plan sagittal contre lequel il
+repose au repos. Ce qui manquait n'est pas une force, c'est la **NON-PENETRATION** de ce bord :
 
-NATURE : deux nombres SANS DIMENSION, par chaine. REPERE : aucun, ce sont des rapports. **LIGNE DE
-BASE, c'est-a-dire ce que l'instrument lit quand le canal est ABSENT : `ly=0.0000 div=1.0000`** —
-la valeur par defaut de toute chaine muette, et l'identite par algebre.
+    d_sortant = medw * max(0, sx - 1)        porte par `*phys-fx*`, le lateral SORTANT par chaine
 
-Emis DANS le balayage d'orientation, cellule par cellule : la ou §11 se juge, et par le meme chemin
-que `rs` que le verdict utilise deja. Un echo au chargement aurait prouve que le parseur rend la
-valeur, pas que le tenseur la lit a la frame ou le verdict se forme.
+    goal_src/jak1/pc/jak-hd-physics.gc   :51 id de cle · :120 donnee · :691 chargement
+                                         :3935-3941 l'application, au site d'ecriture
+                                         :4767 `phys-shape` 40/41, la preuve de lecture
+    goal_src/jak1/pc/phys-room.gc        `PHYSMEDW c= i= mw= sx= d=`
+    game/kernel/jak1/kmachine.cpp        id 31, `kPhysNumChainParams` 31 -> 32
+    goal_src/jak1/pc/jak-hd-physics-NOTES.md   [NOTE-580]
 
-**CE QUE LES 22 CELLULES DISENT :**
+**`max(0, .)` N'EST PAS UNE COMMODITE, C'EST CE QUI PROTEGE TROIS SECTIONS.** Un sternum resiste a la
+compression du bord medial et ne tire jamais : la contrainte est UNILATERALE comme tout contact. Le
+point admissible commun a donc ete cherche AVANT la course et pas apres
+(`bound-undone-by-downstream-constraint-loop`). Sans l'unilateralite, le meme terme aurait retire
+-4,20 % W0 a §11 et -8,4 % W0 aux deux cellules de §12 — il aurait paye §10 avec une section TENUE.
 
-    ly            0.9139 (chestL)  ·  0.7579 (chestR)   -> DEUX valeurs, donc pas une constante
-                                                            partagee (DIRECTIVES, regle 7)
-    div = 1+ly*(rs-1)   ecart max 9.4e-5 sur 22 cellules -> la resolution de l'affichage : identite
-    div aux DEUX cellules DEBOUT  1.0000 / 0.9998 / 0.9995 / 0.9997
-                                                        -> INERTE au repos. §2/§9 (« Additional
-                                                           Procedural Sag = 0% ») protegees PAR
-                                                           ALGEBRE, pas par reglage. `ROOM-IDLE`
-                                                           maxdev = 0.000 sur la course.
-    etendue de div  [0.8592 ; 1.1196]                    -> la garde `fmax 0.0001` est INATTEIGNABLE
-    div au prone i=6 (la cellule qui PORTE le verdict)   1.1196 / 1.1101
+**LA VALEUR EST MESUREE, JAMAIS AJUSTEE SUR LA BANDE**, et c'est la condition pour que ce ne soit pas
+un miroir (directive du 2026-08-23 16:00 : « une reponse se MESURE, elle ne se pose pas » — et
+« Outward COM migration 4-10 % W0 » EST une reponse, il n'existe aucun bouton a ce nom). Releve sur
+`out/jak1/fr3/skin/keira-hd-lod0.glb` :
 
-
-## 3. LE RESULTAT : §11 EST REFUTEE COMME « INCOMPATIBLE », ET SES DEUX CLAUSES SONT DANS
-
-[NOTE-576] (cycle 128) concluait : « **Aucune valeur de `HangingLengthScale` ne met la longueur ET
-le COM dans leur bande** », et fermait la route. **Cette conclusion est fausse, et l'erreur est
-nommable en une phrase : elle a ete etablie sous UN bouton COMMUN aux deux chaines.**
-
-Sous un gain **PAR CHAINE**, les fenetres admissibles sont **non vides mais DISJOINTES** —
-[0,8964 ; 0,9310] pour chestL, [0,7001 ; 0,8157] pour chestR. Un bouton commun n'a donc aucune
-valeur admissible, ce qui est exactement ce que le c128 a mesure ; il en a conclu une propriete de
-la SECTION alors que c'etait une propriete de sa COMMANDE. Meme classe que
-`one-proxy-two-clauses-opposite-bias`.
-
-Mecanisme, en une ligne : la chaine rend **deja** une part de l'allongement racine->apex par son
-etage rigide (`rs` = 1,131 / 1,145 au prone) et le tenseur recevait quand meme la cible TOTALE —
-`double-counted` (`orientation-target-is-double-counted` au registre). `lyield` retire cette part :
-
-    phl_effectif = phl / (1 + lyield * (rigide - 1))
-
-**MESURE SUR L'ORGANE LIVRE** (`c133_delivered_com.py` : COM et longueur reconstruits par skinning
-lineaire depuis les matrices `PHYSORIM` reellement ECRITES au squelette — donc APRES le tenseur,
-APRES l'ancrage de §31, APRES la translation et APRES le plafond de §21) :
-
-                                    la veille      ce cycle      bande        verdict
-    longueur racine->apex chestL     1.3363        1.2578      [1.18, 1.26]   AU-DESSUS -> DANS
-    longueur racine->apex chestR     1.3183        1.2533      [1.18, 1.26]   AU-DESSUS -> DANS
-    COM statique          chestL     0.2459        0.2005      [0.20, 0.28]   DANS      -> DANS
-    COM statique          chestR     0.2413        0.2032      [0.20, 0.28]   DANS      -> DANS
-
-Controles de l'instrument, sur CETTE course : portage des 8 distances de decile **0,0000 %** ;
-lecture HORS DEFAUT (2e cellule DEBOUT) **0,0005 / 0,0004 B0** ; identite algebrique du COM fermee
-a **1,2e-10 u**.
-
-**ET CE N'EST PAS UN MIROIR.** La bande porte sur la longueur LIVREE ; l'entree du solveur vaut
-1,23. L'instrument a lu **1,336** quand l'entree disait 1,23 — il est donc demontrablement
-independant de ce qu'on injecte, ce qui est precisement ce que la directive du 2026-08-23 16:00
-exige des six miroirs.
+    joint `chest`                       x = 0,000 u — exactement sur le plan sagittal
+    racines lBoob / rBoob               +379,90 / -379,91 u — miroir exact
+    sommet de chair le plus MEDIAL      **+54,24 u du plan sagittal sur LES DEUX chaines**,
+                                        identique a 0,01 u — c'est le sternum, pas un aberrant
+    medw = 379,90 - 54,24 = 325,66  ·  379,91 - 54,24 = 325,67
 
 
-## 4. LES SIX PREDICTIONS ETAIENT ECRITES AVANT LA COURSE. LES SIX TOMBENT DANS.
+## 2. LE CANAL EST PROUVE LU, PAS DEDUIT DE SES EFFETS
 
-`.autoport/c135-predictions.txt`, ecrit avant le lot et avant toute course :
+    PHYSMEDW c=0 i=0  mw=325.6600  sx=0.9999  d=0.0000     debout : inerte
+    PHYSMEDW c=0 i=6  mw=325.6600  sx=0.9234  d=0.0000     prone  : inerte
+    PHYSMEDW c=0 i=8  mw=325.6600  sx=1.2257  d=73.5285    supine : le terme agit
+    PHYSMEDW c=1 i=8  mw=325.6700  sx=1.2057  d=67.0158
+    PHYSMEDW c=1 i=2  mw=325.6700  sx=1.0094  d=3.0671     §12 : 0,39 % W0, negligeable
+    PHYSMEDW c=0 i=9  mw=325.6600  sx=1.0000  d=0.0216     <- PAS zero. Voir la reserve, §5.
 
-        grandeur                predite    mesuree    bande / gate    verdict
-    P1  longueur chestL         1.2585     1.2578     <= 1.26         DANS
-    P2  longueur chestR         1.2552     1.2533     <= 1.26         DANS
-    P3  COM      chestL         0.2008     0.2005     >= 0.20         DANS
-    P4  COM      chestR         0.2042     0.2032     >= 0.20         DANS
-    P5  DISCRIMINANT chestL    ~48 %      47.52 %     >= 25 %         DANS
-    P6  DISCRIMINANT chestR    ~25.7 %    27.99 %     >= 25 %         DANS
-
-**P6 ETAIT DECLAREE D'AVANCE COMME LA PLUS SUSCEPTIBLE DE ME REFUTER** (marge predite 0,67 pt), et
-ce n'est pas rhetorique : c'est exactement elle qui avait fait RETIRER le lot du cycle 128 (23,0 %
-pour un seuil de 25 %, la reponse qui s'aplatit — « aplatir n'est pas museler »). Elle passe ici a
-27,99 %, soit 2,99 pt de marge, et le modele a deux points l'a **sous-estimee**.
-
-**REPRODUCTIBILITE, ET ELLE EST EXACTE.** Les quatre grandeurs de bande ont ete lues sur DEUX
-courses independantes du meme moteur — la course tronquee de la tentative 3 et la course complete
-de ce cycle — et elles rendent **1.257815 / 1.253325 / 0.2005 / 0.2032 les deux fois**, au dernier
-chiffre publie.
+`mw` = ce que le PARSEUR a depose (deux valeurs DIFFERENTES, donc pas une constante partagee) ;
+`d` = l'operateur APPLIQUE, pas un de ses facteurs. Ligne de base d'un canal ABSENT :
+`mw=0.0000 d=0.0000`. **`d=0.0000` sur les 8 cellules ou `sx < 1`** : l'unilateralite n'est pas
+affirmee, elle est lue.
 
 
-## 5. POURQUOI §11 N'EST PAS `TENUE`, ET C'EST LA PARTIE QUI COMPTE
+## 3. LE RESULTAT, ET IL EST A MOITIE CONTRE MOI
 
-Quatre raisons, toutes contre moi :
+`.autoport/c137-predictions.txt`, ecrit AVANT la compilation et AVANT la course :
 
-  a. **Deux des cinq clauses sont encore des MIROIRS** — largeur x0,90 et epaisseur x0,91, dont la
-     bande de verdict est centree sur l'entree du solveur. La directive du 2026-08-23 16:00 en fait
-     la priorite 1 du dossier, et ce cycle ne les touche pas.
-  b. **La clause de TRANSITOIRE est `DANS` mais elle est un miroir aussi.** `ROOM-SPEC11-STEP` :
-     pas debout->prone JOUE, pic **1,1993** contre `HangingTransientLengthMax` 1,30. C'est lu sur
-     l'ECHELLE INTERNE contre une cle du preset, pas sur l'organe livre.
-  c. **La marge de chestL sur le plancher de COM vaut 0,0005 B0 — EXACTEMENT l'ecart de sa propre
-     cellule de remontage** (i=6 : 0,2005 ; i=10, 2e cellule prone : 0,2010). La clause tient sous
-     les DEUX cellules, mais elle n'est pas separable du bruit de montage de l'instrument.
-     L'ecrire autrement serait `check-the-mounting-envelope-not-just-the-central-value`, qui a
-     deja fait tomber §12 de TENUE a PARTIELLE.
-  d. **La marge de longueur de chestL est de 0,0022, soit 0,17 % de 1,26.** Elle est reproduite au
-     chiffre pres sur deux courses, donc le bruit de COURSE est nul ; mais **aucune enveloppe de
-     POSE n'est mesuree pour elle**, et je ne la presente donc pas comme une marge etablie.
+     id  grandeur (w>0.00, i=8, organe LIVRE)   avant     predite   mesuree   bande     verdict
+     P1  §10 sortant chestL   (% W0)           -2,260    +7,210    **+3,062**  [4;10]   SOUS   FAUX
+     P2  §10 sortant chestR   (% W0)           -7,164    +1,467    **-2,536**  [4;10]   SOUS   verdict
+                                                                                               juste,
+                                                                                               valeur
+                                                                                               fausse
+     P3  §11 sortant chestL                    -1,459    inchange   -1,459               JUSTE
+     P4  §11 sortant chestR                    -6,406    inchange   -6,406               JUSTE
+     P5  §11 longueurs livrees (deciles)   1,257815 / 1,253325  inchangees au 6e chiffre  JUSTE
+     P6  §11 COM livre (B0)                0,2005 / 0,2032      inchanges, DANS           JUSTE
+     P7  §12 sortant chestR i=2 (% W0)        -15,031   -14,637   -14,819    [-18;-10]  JUSTE
+     P8  ROOM-IDLE maxdev                       0,000     0,000    0,0001              A NUANCER
+     P9  PHYSORI2, 22 lignes                 IDENTIQUES AU CHIFFRE sur les 22            JUSTE
+     P10a ROOM-SPEC10 (substitut pre-ecriture)  +0,797 / -3,744  IDENTIQUE               JUSTE
+     P10b c133 (organe livre)                   deplace de +5,32 / +4,63 points          JUSTE
 
-Trois clauses sur cinq jugees contre l'entree du solveur, deux marges au niveau du bruit : une
-section qui AVANCE, pas une section TENUE.
+**LE SIGNE A BASCULE SUR chestL — c'etait le defaut nomme, et il est traite.** La composante
+sortante passe de -2,260 a **+3,062 % W0** ; sur chestR elle reste mediale mais **65 % du deficit
+est retire** (-7,164 -> -2,536). **Les deux restent SOUS la bande, de 0,94 et 6,54 points : §10 ne
+bouge PAS de statut, et je ne la presente pas autrement.**
+
+**MA PREDICTION D'AMPLITUDE ETAIT FAUSSE, ET L'ERREUR SE FERME A 0,01 %.** Le glissement APPLIQUE est
+exactement celui predit — `d` = 73,5285 / 67,0158 u contre 73,50 / 66,99. Ce qui etait faux, c'est
+d'avoir porte ce glissement ENTIER au COM. Le COM du nuage mesure n'en recoit que la part dont le
+poids de peau chevauche la chaine :
+
+    part recue mesuree        0,5617   0,5360      (5,322/9,475  et  4,628/8,635)
+    somme des `comw=` livres  0,5715   0,5452      (0,3266+0,2449  et  0,3581+0,1871)
+    rapport                   0,9829   0,9830      <- **le MEME facteur sur les deux chaines**
+
+**Le chiffre qui manquait a ma prediction etait deja inscrit dans la donnee de chaine que je lisais.**
+La chair ancree au torse ne glisse pas, et c'est physiquement juste : la moitie ROTATION+TENSEUR est
+inchangee AU CHIFFRE (-1,010 / -3,303) et la totalite du deplacement est dans la moitie TRANSLATION,
+c'est-a-dire exactement la ou le terme a ete pose. Registre : meme famille que
+`com-normalized-by-vertex-count`, pris par l'autre bout.
 
 
-## 6. LE CANAL EST PROTEGE CONTRE LA REGENERATION — PARTIELLEMENT, ET JE LE DIS
+## 4. CE QUE CE CYCLE ETABLIT AU-DELA DE §10 — LA VOIE D'ECRITURE N'EST PAS FERMEE
 
-`lyield=` a ete ajoute a `recharged_assets/keira-owner-tuning.txt` avec sa justification de
-section, puis `apply_owner_tuning.py` relance : `physics_chains.txt` en ressort **byte-identique**
-(diff vide), donc c'est de la protection pure, sans derive. La gate `TUNING` du validateur criera
-desormais si une regeneration l'efface.
+Le cycle 132 concluait : « la voie *corriger a l'ecriture* est fermee POUR CETTE SECTION ». **C'etait
+vrai de son INSTRUMENT, pas de l'organe**, et cette course le tranche par une double mesure qui ne
+peut pas etre satisfaite par accident :
 
-**CE QUE CA NE FAIT PAS, ET C'EST UNE DETTE QUE JE NOMME AU LIEU DE LA TAIRE.** C'est de la
-DETECTION au point de controle, pas de la prevention au point de PRODUCTION — exactement la
-distinction que la regle de non-destruction du 2026-08-11 pose. `physics_keira_gen2.py` n'emet ni
-`lyield`, ni `anch`, ni `anp`, ni `comw`, ni `b0` : **tout le bloc de cles derivees de la spec sur
-les deux chaines de poitrine vit hors du generateur**. La bonne correction est de les faire
-produire par le generateur ; elle n'a pas ete faite ici parce que le lancer est au registre comme
-destructeur (`physics-keira-gen-destroys-chains`) et que ce n'est pas un geste a glisser dans un
-cycle qui livre un resultat de mesure. C'est un chantier nomme, pas un oubli.
+    ROOM-SPEC10 (substitut emis AVANT :3417)   +0,797 / -3,744 % W0   **IDENTIQUE au chiffre**
+    c133        (matrices ECRITES, `PHYSORIM`)  deplace de +5,32 / +4,63 points
+
+Si le canal etait muet, les deux seraient identiques. S'il agissait en amont, les deux bougeraient.
+**Un correctif pose a l'ecriture agit sur l'organe et reste invisible a `ROOM-SPEC10`** — donc ce
+qui est ferme, c'est cette ligne-la, pas la voie. C'est un resultat reutilisable pour §14/§16/§18/
+§19/§20, qui partagent la meme chaine de mesure.
+
+**ET CA DIT AUSSI CE QUE LE MUR NE PEUT PAS FAIRE, CHIFFRE.** Pour mettre la clause DANS sa bande il
+faudrait `medw >= 383 u` sur chestL et **`medw >= 786 u` sur chestR, soit plus que `W0` lui-meme**.
+Le mur MESURE vaut 325,66 : il ne peut pas fermer §10, et l'agrandir serait ajuster le parametre a
+l'instrument (`never-fit-a-parameter-to-the-instrument`). **Le deficit restant est nomme et chiffre :
+la moitie ROTATION+TENSEUR (-1,010 / -3,303 % W0), toujours mediale.**
 
 
-## 7. ETAT DU VALIDATEUR — 13 GATES DE MESURE AU VERT, ET LE SEUL ECHEC EST LA PORTE DE L'OWNER
+## 5. CE QUE JE PUBLIE CONTRE MOI
 
-    [SCOPE]        2 chaines declarees = 2 resolues = chestL, chestR ; joints ecrits : lBoob,
-                   lBooc, rBoob, rBooc — aucun joint de cheveu, sangle, languette, oreille, lunette
-    [TUNING]       tous les reglages sont dans le fichier livre
-    [CODE-ECRIT]   du code a ete ecrit dans goal_src/ (diff HEAD~1 : 3 fichiers)
-    [ROOM]         joueur absent, 1 acteur, 2 chaines x 31/31 animations, 310 mesures
-    [COLLIDE]      controle positif 0.143 contre 0.045 ; poitrine 0.0724 m de residu, DECLARE
-    [IDLE]         ecart max au modele 0.000
-    [ANIM]         2 chaines pilotees, toutes respectees
+  a. **Le terme n'est PAS exactement nul au repos.** A la 2e cellule debout, `sx=1,0000` rend
+     `d=0,0216 u` sur chestL, et `ROOM-IDLE maxdev` passe de 0,0000 a 0,0001. C'est **0,35 fois le
+     pas du flottant 32 bits** de l'integration monde (0,0625 u sur X/Z a 259 m de l'origine), donc
+     sous le plancher de bruit — mais l'ecrire « nul par algebre » serait faux, parce que `sx = 1`
+     n'est exact qu'en arithmetique reelle. Meme reserve que [NOTE-579] point 3.
+  b. **Les volumes de collision ne suivent pas ce glissement.** Le terme est ajoute a la matrice
+     ECRITE, pas a `*phys-px/py/pz*` : au supine les volumes restent 73 u en arriere de la chair
+     livree. C'est la meme couture que le tenseur occupe depuis toujours, mais c'est une dette et
+     elle se nomme.
+  c. **Une cellule que le terme ne touche PAS a bouge.** §12 i=4 chestL passe de -14,036 a
+     -14,302 % W0 alors que `PHYSMEDW d=0.0000` y est lu. Cause la plus probable : le nuage de
+     chestL contient des sommets pesant aussi sur `rBoob`, dont les matrices changent aux cellules
+     i=1/i=2, et le balayage est SEQUENTIEL. **Le verdict de §12 ne bouge pas** (clause porteuse
+     12,476/13,740/15,141 et 12,827/14,363/16,508, `DANS` aux trois frontieres, enveloppes de
+     montage `DANS`), mais je ne pretends pas avoir isole la cause.
+  d. **`medw` est un EXTREMUM** (`argmax-anchor-is-not-a-population`). Retenu parce qu'une
+     non-penetration est gouvernee par definition par le point le plus profond, et parce que ce
+     point est le meme au centieme d'unite sur les deux chaines. Sensibilite publiee : au 5e
+     percentile le terme vaudrait 6,32 / 6,09 % W0 au lieu de 9,47 / 8,63.
+  e. **La dette de production reste ouverte.** `medw=` est protege par `keira-owner-tuning.txt` +
+     la gate `TUNING` (detection), pas par `physics_keira_gen2.py` (prevention). Comme `lyield`,
+     `anch`, `anp`, `comw`, `b0`. Chantier nomme depuis le cycle 136, non fait ici.
+
+
+## 6. ETAT DU VALIDATEUR — 13 GATES DE MESURE AU VERT, SEUL ECHEC : LA PORTE DE L'OWNER
+
+    [SCOPE] 2 chaines = chestL, chestR ; joints ecrits lBoob, lBooc, rBoob, rBooc
+    [TUNING] tous les reglages de l'owner sont dans le fichier livre
+    [CODE-ECRIT] du code a ete ecrit dans goal_src/ (diff HEAD~1 : 3, 6 dernieres heures : 8)
+    [COLLIDE] poitrine 0,0724 m de residu, DECLARE · controle positif 0,143 contre 0,045
+    [ROOM] joueur absent, 1 acteur, 2 chaines x 31/31 animations, 310 mesures
+    [IDLE] ecart max au modele 0,000 · [ANIM] 2 chaines pilotees, toutes respectees
     [DISCRIMINANT] chaque chaine distingue les 5 pilotages
     [Grecharged-secondary-motion PASS]
     [FAIL] OPEN-DEFECTS: breast-spec-incomplete
 
-**Sortie de 17 lignes.** Je le compte parce que c'est le tell des deux defauts qui ont coute les
-cycles 133 et 134 : `engine-line-ceiling-hides-all-gates` et
-`gate-written-in-wrong-language-kills-its-heredoc` font tomber cette sortie a 3-4 lignes. 17 lignes
-= les 13 gates de mesure ont ete evaluees, aucune n'en cache une autre.
+**Sortie de 17 lignes** — je le compte parce que c'est le tell des deux defauts qui ont coute les
+cycles 133 et 134 (`engine-line-ceiling-hides-all-gates`, `gate-written-in-wrong-language-kills-
+its-heredoc`) : ils la font tomber a 3-4 lignes. 17 lignes = les 13 gates ont ete evaluees, aucune
+n'en cache une autre.
 
-`OPEN-DEFECTS` n'a **pas de mode reussi par construction** : seul l'owner retire
+`OPEN-DEFECTS` **n'a pas de mode reussi par construction** : seul l'owner retire
 `breast-spec-incomplete`. Le validateur ne peut donc pas sortir 0, et l'arbitrage du 2026-08-23
-01:20 le prevoit explicitement. **Un validateur vert voudrait dire « ce que j'ai mesure est
-honnete », jamais « sa poitrine est conforme ».**
+01:20 le prevoit. Le retirer moi-meme serait une fraude, pas un correctif.
 
-**SIGNAL, PAS OBSTACLE :** `jak-hd-physics.gc` fait **4786 lignes** pour un plafond CLEAN a 4800.
-Il reste 14 lignes. J'ai deja replie le commentaire de [NOTE-579] vers NOTES.md pour tenir. Le
-prochain cycle qui ecrit dans ce fichier bute dessus ; la directive dit que c'est un signal — la
-reponse sera de sortir de la matiere, jamais de monter le plafond pour laisser passer.
+**SIGNAL, PAS OBSTACLE :** `jak-hd-physics.gc` fait **4796 lignes** pour un plafond CLEAN a 4800.
+**Il reste 4 lignes.** Le prochain cycle qui ecrit dans ce fichier bute dessus ; la reponse sera de
+sortir de la matiere vers `NOTES.md`, jamais de monter le plafond.
 
 
-## 8. CE QUE L'OWNER PEUT TESTER
+## 7. CE QUE L'OWNER PEUT TESTER
 
-**RIEN, ET C'EST DELIBERE.** Directive du 2026-08-20 23:30 : « je ne sollicite plus de test pour un
-changement d'une seule section ». Ce cycle bouge §11 seule ; le seuil de re-sollicitation nomme est
-le bloc §14-§20 + §24-§27 + §9-§13 tenu ENSEMBLE. La livraison au fil de l'eau n'est pas suspendue
-pour autant — il peut prendre un build quand il veut.
+**RIEN, ET C'EST DELIBERE.** Directive du 2026-08-20 23:30 : plus de sollicitation de test pour un
+changement d'une seule section. Ce cycle bouge §10 seule, et sans changement de statut. La livraison
+au fil de l'eau n'est pas suspendue : il peut prendre un build quand il veut.
 
 
-## 9. LA SUITE, DANS L'ORDRE
+## 8. LA SUITE, DANS L'ORDRE
 
-  1. **Les miroirs de §10 et §11** (largeur, epaisseur, transitoire). C'est la priorite 1 de la
-     directive du 2026-08-23 16:00 et c'est du faux vert ACTIF. Ce cycle vient de montrer comment
-     on de-mirroir une clause : la mesurer sur l'organe LIVRE, ou l'instrument a le droit de
-     contredire l'entree — et il l'a fait, 1,336 contre 1,23.
-  2. **§10, ET JE CORRIGE UNE ATTENTE QUE J'AURAIS PU AVOIR.** Sa clause porteuse est « Outward
-     COM migration per breast: 4-10 % W0 », lue au supine (i=8), et la mesure de ce cycle donne la
-     composante SORTANTE a **-2,260 % / -7,164 % W0**. Le module total y est de 0,3374 / 0,3218 B0,
-     mais il part dans la mauvaise direction : le COM migre vers l'INTERIEUR, sur les deux chaines.
-     **Le deficit de §10 n'est donc PAS celui de §11.** §11 etait une amplitude EN TROP, que
-     `lyield` retire ; §10 est un SIGNE, et aucune valeur de `lyield` ne retourne un vecteur.
-     Attendre que ce canal fasse verdir §10 serait `operator-form-does-not-transport-between-
-     quantities`. Le prochain travail sur §10 est de trouver ce qui dirige la migration, pas ce qui
-     la dimensionne.
-  3. **Faire produire par `physics_keira_gen2.py` le bloc de cles derivees de la spec** (§6). C'est
-     la prevention au point de production, et aujourd'hui il n'y a que de la detection.
+  1. **Le deficit restant de §10 est dans la moitie ROTATION+TENSEUR** (-1,010 / -3,303 % W0), et il
+     est maintenant isole par la ligne de decomposition signee. C'est la ou le prochain lot ecrit.
+  2. **Les miroirs de §10 et §11** (largeur x0,90, epaisseur x0,91, transitoire) restent la
+     priorite 1 de la directive du 2026-08-23 16:00 et ce cycle ne les touche pas. C'est du faux
+     vert ACTIF.
+  3. **Faire produire par `physics_keira_gen2.py` le bloc de cles derivees de la spec**
+     (`medw`, `lyield`, `anch`, `anp`, `comw`, `b0`) : prevention au point de production, la ou il
+     n'y a aujourd'hui que de la detection.
