@@ -10970,3 +10970,48 @@ de la distance qui separe chestL du plancher de sa bande.
 vaut 0 par algebre sur toute la trace : c'est la LECTURE HORS DEFAUT de `PHYSORIW`). Il ne touche
 pas les volumes de collision : `*phys-rgm*` compose `*phys-dfmq*`, non gradue, et le mur n'entre
 pas dedans — meme couture que le tenseur depuis toujours. Dette nommee, pas corrigee ici.
+
+**LE RESULTAT DE LA COURSE, AJOUTE APRES COUP (cycle 139, course md5
+`df3ffdbfc2be45c744e70da3de379813`, 31/31 animations, 310 mesures ; controle : la course du cycle
+138 md5 `dd3d7273924f3a783af13a8649793069`, meme code SAUF ce lot, dont le tableau a ete REGENERE
+par le MEME analyseur pour que la comparaison soit ligne a ligne).**
+
+  - **LA PREDICTION QUI PORTAIT LE LOT EST VERIFIEE, ET ELLE ANNONCAIT ZERO.** La clause porteuse
+    passe de `+2,968` a `+2,969 %% W0` sur chestL et de `-2,662` a `-2,661` sur chestR : **+0,001
+    point**, dans la bande de +/-0,01 ecrite avant la course. La normalisation du cycle 138 tient
+    donc sur l'ORGANE LIVRE, pas seulement en algebre.
+  - **LE CONTROLE INTERNE FERME A 5.10^-5.** `SOMME_l comw_l . mur_l` = 42,0195 u (chestL) et
+    36,5363 u (chestR) contre `d . SOMME_l comw_l` = 42,0215 et 36,5370, soit 0,0049 %% et
+    0,0019 %% d'ecart ; normalisation mesuree `SOMME comw.grw / SOMME comw` = 0,99995 / 0,99998.
+  - **LES DEUX LECTURES HORS DEFAUT DE `PHYSORIW` TIRENT**, ce qui est le seul moyen de distinguer
+    « le canal rend zero » de « le canal n'existe pas » : `anc` = 0,0000 sur **les 44 lignes** sans
+    exception (identite algebrique, `anch`=0) ; `mur` = 0 sur **7 des 11 cellules** et non nul
+    exactement la ou `PHYSMEDW` publie `sx > 1`. Le compteur suit sa condition de declenchement
+    cellule par cellule, pas l'index.
+  - **L'UNILATERALITE EST PROUVEE PAR IDENTITE, PAS AFFIRMEE.** Au prone (i=6) `sx` vaut 0,9234 /
+    0,9337, donc `max(0, sx-1) = 0` : les deciles racine->apex de §11 sont **identiques au 6e
+    decimal** entre les deux courses (1,262916 / 1,260459). « Un sternum resiste et ne tire pas »
+    est desormais un nombre.
+  - **CE QUE LE LOT GAGNE EST UNE CLAUSE DE FORME, ET ELLE EST MESURABLE.** A COM immobile, la
+    distance racine->apex entre centroides de decile de la cellule supine bouge de **-0,242 %%**
+    (chestL) et **-0,429 %%** (chestR) ; et l'ecart entre les deux courses aux frontieres SERREES
+    monte a +0,006 / +0,029 point la ou la normalisation n'est pas definie, contre +0,001 a
+    `w>0,00` ou elle l'est. L'identite tient exactement la ou elle est censee tenir, et pas
+    ailleurs — confirmation independante du controle interne.
+  - **COUT MESURE : NUL SUR LES DEUX GRANDEURS QUI POUVAIENT PAYER.** `skinpen` 0,0690 / 0,0731 et
+    `meshpen` 0,0724 sont INCHANGES AU BIT, `ROOM-IDLE maxdev` reste a 0,0001. La seule prediction
+    ratee est P11 : `ROOM-APEX pic_typique` **monte** de +0,0001 B0 des deux cotes (0,6696 ->
+    0,6697 et 0,6927 -> 0,6928) la ou j'annoncais « baisse ou nul ». C'est 4 000 fois plus petit
+    que l'ecart de §22 (x1,59 / x1,65) et du meme ordre que le controle d'identite de la section
+    (`|e|-apex` = 0,000109 B0), donc ca ne separe rien — mais ce n'est ni une baisse ni un zero.
+
+**LA CONSEQUENCE POUR LES LOTS SUIVANTS, ET ELLE EST NEGATIVE ET DEFINITIVE.** +0,001 point sur un
+deficit de **1,031** (chestL) et **6,661** (chestR) points de %% W0 : la redistribution paie 0,1 %%
+et 0,015 %% du chemin. **Toute route qui esperait fermer §10 en re-repartissant un glissement le
+long de la chaine est refutee d'avance** — la normalisation par la masse de peau, celle-la meme qui
+protege §11 et §12 d'etre payees pour §10, interdit mecaniquement a une redistribution de deplacer
+un centre de masse. Il faut l'AMPLITUDE d'un canal, ou un canal qui n'existe pas encore. La piste
+suivante est nommee et mesuree : les moities TRANSLATION livrees valent **+4,073** (chestL) contre
+**+0,767** (chestR) pour des glissements appliques dans un rapport de 1,15 seulement — le facteur
+5,3 entre les deux n'est PAS explique par le mur, et c'est la premiere chose a mesurer, dans le lot
+qui ecrit.
